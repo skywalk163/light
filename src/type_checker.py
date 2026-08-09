@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）可选类型系统 v4.2
+光明（Light）可选类型系统 v4.2
 
 提供编译时类型检查、类型推导和类型标注验证。
 类型系统是可选（opt-in）的 —— 未标注类型的代码不会报错，标注了类型的代码会进行验证。
@@ -41,7 +41,7 @@ if _script_dir not in sys.path:
     sys.path.insert(0, _script_dir)
 
 # 从 core.config 导入分级检查相关枚举
-from core.config import TypeCheckLevel, SegmentTypeMode, DuanConfig
+from core.config import TypeCheckLevel, SegmentTypeMode, LightConfig
 
 
 # =============================================================================
@@ -87,8 +87,8 @@ class TypeCheckerConfig:
     default_segment_mode: SegmentTypeMode = SegmentTypeMode.LOOSE
 
     @classmethod
-    def from_duan_config(cls, dc: DuanConfig) -> 'TypeCheckerConfig':
-        """从 DuanConfig 创建配置"""
+    def from_light_config(cls, dc: LightConfig) -> 'TypeCheckerConfig':
+        """从 LightConfig 创建配置"""
         return cls(
             check_level=dc.type_check_level,
             default_segment_mode=dc.default_segment_mode,
@@ -173,36 +173,36 @@ def _extract_type_directives(source: str) -> Dict[str, str]:
 # 类型定义
 # =============================================================================
 
-class DuanType:
-    """段言类型基类"""
+class LightType:
+    """光明类型基类"""
 
     def __str__(self):
-        return self.to_duan()
+        return self.to_light()
 
-    def to_duan(self) -> str:
+    def to_light(self) -> str:
         raise NotImplementedError
 
     def to_python(self) -> str:
         raise NotImplementedError
 
-    def is_compatible(self, other: 'DuanType') -> bool:
+    def is_compatible(self, other: 'LightType') -> bool:
         """检查类型兼容性"""
         return isinstance(other, type(self))
 
 
 @dataclass(frozen=True)
-class PrimitiveType(DuanType):
+class PrimitiveType(LightType):
     """基本类型"""
     name: str  # 整数、浮点、字符串、布尔、空
     python_name: str
 
-    def to_duan(self) -> str:
+    def to_light(self) -> str:
         return self.name
 
     def to_python(self) -> str:
         return self.python_name
 
-    def is_compatible(self, other: 'DuanType') -> bool:
+    def is_compatible(self, other: 'LightType') -> bool:
         if isinstance(other, PrimitiveType):
             return self.name == other.name
         if isinstance(other, UnionType):
@@ -213,69 +213,69 @@ class PrimitiveType(DuanType):
 
 
 @dataclass(frozen=True)
-class ListType(DuanType):
+class ListType(LightType):
     """列表类型：列表<元素类型>"""
-    element_type: DuanType
+    element_type: LightType
 
-    def to_duan(self) -> str:
-        return f"列表<{self.element_type.to_duan()}>"
+    def to_light(self) -> str:
+        return f"列表<{self.element_type.to_light()}>"
 
     def to_python(self) -> str:
         return f"list[{self.element_type.to_python()}]"
 
-    def is_compatible(self, other: 'DuanType') -> bool:
+    def is_compatible(self, other: 'LightType') -> bool:
         if isinstance(other, ListType):
             return self.element_type.is_compatible(other.element_type)
         return False
 
 
 @dataclass(frozen=True)
-class DictType(DuanType):
+class DictType(LightType):
     """字典类型：字典<键类型, 值类型>"""
-    key_type: DuanType
-    value_type: DuanType
+    key_type: LightType
+    value_type: LightType
 
-    def to_duan(self) -> str:
-        return f"字典<{self.key_type.to_duan()}, {self.value_type.to_duan()}>"
+    def to_light(self) -> str:
+        return f"字典<{self.key_type.to_light()}, {self.value_type.to_light()}>"
 
     def to_python(self) -> str:
         return f"dict[{self.key_type.to_python()}, {self.value_type.to_python()}]"
 
-    def is_compatible(self, other: 'DuanType') -> bool:
+    def is_compatible(self, other: 'LightType') -> bool:
         if isinstance(other, DictType):
             return self.key_type.is_compatible(other.key_type) and self.value_type.is_compatible(other.value_type)
         return False
 
 
 @dataclass(frozen=True)
-class UnionType(DuanType):
+class UnionType(LightType):
     """联合类型：整数|浮点、字符串|空"""
-    types: Tuple[DuanType, ...]
+    types: Tuple[LightType, ...]
 
-    def to_duan(self) -> str:
-        return '|'.join(t.to_duan() for t in self.types)
+    def to_light(self) -> str:
+        return '|'.join(t.to_light() for t in self.types)
 
     def to_python(self) -> str:
         return ' | '.join(t.to_python() for t in self.types)
 
-    def is_compatible(self, other: 'DuanType') -> bool:
+    def is_compatible(self, other: 'LightType') -> bool:
         if isinstance(other, UnionType):
             return any(self.is_compatible(t) for t in other.types)
         return any(t.is_compatible(other) for t in self.types)
 
 
 @dataclass(frozen=True)
-class OptionalType(DuanType):
+class OptionalType(LightType):
     """可选类型：可空整数"""
-    inner_type: DuanType
+    inner_type: LightType
 
-    def to_duan(self) -> str:
-        return f"可空{self.inner_type.to_duan()}"
+    def to_light(self) -> str:
+        return f"可空{self.inner_type.to_light()}"
 
     def to_python(self) -> str:
         return f"Optional[{self.inner_type.to_python()}]"
 
-    def is_compatible(self, other: 'DuanType') -> bool:
+    def is_compatible(self, other: 'LightType') -> bool:
         if isinstance(other, OptionalType):
             return self.inner_type.is_compatible(other.inner_type)
         if isinstance(other, PrimitiveType) and other.name == '空':
@@ -284,20 +284,20 @@ class OptionalType(DuanType):
 
 
 @dataclass(frozen=True)
-class FunctionType(DuanType):
+class FunctionType(LightType):
     """函数类型：(参数类型) -> 返回类型"""
-    param_types: Tuple[DuanType, ...]
-    return_type: DuanType
+    param_types: Tuple[LightType, ...]
+    return_type: LightType
 
-    def to_duan(self) -> str:
-        params = ', '.join(t.to_duan() for t in self.param_types)
-        return f"({params}) -> {self.return_type.to_duan()}"
+    def to_light(self) -> str:
+        params = ', '.join(t.to_light() for t in self.param_types)
+        return f"({params}) -> {self.return_type.to_light()}"
 
     def to_python(self) -> str:
         params = ', '.join(t.to_python() for t in self.param_types)
         return f"Callable[[{params}], {self.return_type.to_python()}]"
 
-    def is_compatible(self, other: 'DuanType') -> bool:
+    def is_compatible(self, other: 'LightType') -> bool:
         if isinstance(other, FunctionType):
             if len(self.param_types) != len(other.param_types):
                 return False
@@ -309,34 +309,34 @@ class FunctionType(DuanType):
 
 
 @dataclass(frozen=True)
-class AnyType(DuanType):
+class AnyType(LightType):
     """任意类型（未标注或无法推导）"""
 
-    def to_duan(self) -> str:
+    def to_light(self) -> str:
         return "任意"
 
     def to_python(self) -> str:
         return "Any"
 
-    def is_compatible(self, other: 'DuanType') -> bool:
+    def is_compatible(self, other: 'LightType') -> bool:
         return True  # 任意类型与任何类型兼容
 
 
 @dataclass(frozen=True)
-class TypeVarType(DuanType):
+class TypeVarType(LightType):
     """泛型类型变量（如 T、K、V）
     
     用于表示泛型类型参数，如列表[T] 中的 T。
     """
     name: str
 
-    def to_duan(self) -> str:
+    def to_light(self) -> str:
         return self.name
 
     def to_python(self) -> str:
         return self.name
 
-    def is_compatible(self, other: 'DuanType') -> bool:
+    def is_compatible(self, other: 'LightType') -> bool:
         if isinstance(other, TypeVarType):
             return self.name == other.name
         # 类型变量与任何类型兼容（由合一过程决定）
@@ -344,20 +344,20 @@ class TypeVarType(DuanType):
 
 
 @dataclass(frozen=True)
-class GenericTypeInstance(DuanType):
+class GenericTypeInstance(LightType):
     """泛型类型实例化（如 列表[T]、字典[K, V]）"""
     base_name: str
-    type_args: Tuple[DuanType, ...]
+    type_args: Tuple[LightType, ...]
 
-    def to_duan(self) -> str:
-        args = ', '.join(t.to_duan() for t in self.type_args)
+    def to_light(self) -> str:
+        args = ', '.join(t.to_light() for t in self.type_args)
         return f"{self.base_name}<{args}>"
 
     def to_python(self) -> str:
         args = ', '.join(t.to_python() for t in self.type_args)
         return f"{self.base_name}[{args}]"
 
-    def is_compatible(self, other: 'DuanType') -> bool:
+    def is_compatible(self, other: 'LightType') -> bool:
         if isinstance(other, GenericTypeInstance):
             if self.base_name != other.base_name:
                 return False
@@ -390,7 +390,7 @@ TYPE_NONE = PrimitiveType('空', 'None')
 TYPE_ANY = AnyType()
 
 # 类型名称映射
-BUILTIN_TYPE_MAP: Dict[str, DuanType] = {
+BUILTIN_TYPE_MAP: Dict[str, LightType] = {
     '整数': TYPE_INT, '整': TYPE_INT, 'int': TYPE_INT,
     '浮点': TYPE_FLOAT, '浮': TYPE_FLOAT, 'float': TYPE_FLOAT,
     '字符串': TYPE_STRING, '串': TYPE_STRING, 'str': TYPE_STRING,
@@ -408,7 +408,7 @@ COMPOUND_PREFIXES = {
 }
 
 
-def parse_type_annotation(annotation: str) -> DuanType:
+def parse_type_annotation(annotation: str) -> LightType:
     """解析类型标注字符串为类型对象"""
     if not annotation or not annotation.strip():
         return TYPE_ANY
@@ -489,13 +489,13 @@ class TypeEnv:
 
     def __init__(self, parent: Optional['TypeEnv'] = None):
         self.parent = parent
-        self.variables: Dict[str, DuanType] = {}
+        self.variables: Dict[str, LightType] = {}
         self.functions: Dict[str, FunctionType] = {}
 
-    def define(self, name: str, t: DuanType):
+    def define(self, name: str, t: LightType):
         self.variables[name] = t
 
-    def lookup(self, name: str) -> DuanType:
+    def lookup(self, name: str) -> LightType:
         if name in self.variables:
             return self.variables[name]
         if self.parent:
@@ -523,7 +523,7 @@ class TypeEnv:
 # 类型推导
 # =============================================================================
 
-def infer_type_from_value(value_node) -> DuanType:
+def infer_type_from_value(value_node) -> LightType:
     """从 AST 值节点推导类型"""
     if value_node is None:
         return TYPE_NONE
@@ -618,7 +618,7 @@ class TypeIssue:
 
 
 class TypeChecker:
-    """段言独立类型检查器（CLI 使用）"""
+    """光明独立类型检查器（CLI 使用）"""
 
     def __init__(self, strict: bool = False):
         self.strict = strict
@@ -669,7 +669,7 @@ class TypeChecker:
                         if not inferred.is_compatible(func_type):
                             self._issue(
                                 IssueLevel.WARNING,
-                                f"返回类型不匹配: 期望 {func_type.to_duan()}，实际 {inferred.to_duan()}",
+                                f"返回类型不匹配: 期望 {func_type.to_light()}，实际 {inferred.to_light()}",
                                 line=getattr(stmt, 'line', 0), code='T001'
                             )
         elif node_type == 'IfStatement':
@@ -720,8 +720,8 @@ class TypeChecker:
             if not inferred_type.is_compatible(annotated_type):
                 self._issue(
                     IssueLevel.ERROR if self.strict else IssueLevel.WARNING,
-                    f"类型不匹配: 变量 '{stmt.name}' 标注为 {annotated_type.to_duan()}，"
-                    f"但值为 {inferred_type.to_duan()} 类型",
+                    f"类型不匹配: 变量 '{stmt.name}' 标注为 {annotated_type.to_light()}，"
+                    f"但值为 {inferred_type.to_light()} 类型",
                     line=getattr(stmt, 'line', 0), code='T001'
                 )
 
@@ -737,12 +737,12 @@ class TypeChecker:
                 if not inferred_type.is_compatible(existing_type):
                     self._issue(
                         IssueLevel.WARNING,
-                        f"赋值类型不匹配: '{target_name}' 原类型 {existing_type.to_duan()}，"
-                        f"新值类型 {inferred_type.to_duan()}",
+                        f"赋值类型不匹配: '{target_name}' 原类型 {existing_type.to_light()}，"
+                        f"新值类型 {inferred_type.to_light()}",
                         line=getattr(stmt, 'line', 0), code='T002'
                     )
 
-    def _check_expr(self, expr, env: TypeEnv) -> DuanType:
+    def _check_expr(self, expr, env: TypeEnv) -> LightType:
         if expr is None:
             return TYPE_NONE
         inferred = infer_type_from_value(expr)
@@ -779,7 +779,7 @@ class TypeChecker:
             if not self._has_return_in_block(getattr(seg, 'body', [])):
                 self._issue(
                     IssueLevel.WARNING,
-                    f"段落 '{seg.name}' 声明返回类型 {return_type.to_duan()}，但可能没有返回值",
+                    f"段落 '{seg.name}' 声明返回类型 {return_type.to_light()}，但可能没有返回值",
                     line=getattr(seg, 'line', 0), code='T003'
                 )
 
@@ -831,7 +831,7 @@ class GradedTypeChecker:
         self._errors: List[TypeCheckResult] = []
         self._warnings: List[TypeCheckResult] = []
         # 函数签名注册表：段落名 -> (参数类型列表, 返回类型)
-        self._func_registry: Dict[str, Tuple[List[DuanType], DuanType]] = {}
+        self._func_registry: Dict[str, Tuple[List[LightType], LightType]] = {}
 
     def check(self, module, inferencer=None) -> List[TypeCheckResult]:
         """执行分级类型检查
@@ -966,8 +966,8 @@ class GradedTypeChecker:
                         if not inferred.is_compatible(annotated):
                             self._add_result(
                                 TypeErrorSeverity.WARNING,
-                                f"变量 '{stmt.name}' 类型不匹配: 标注 {annotated.to_duan()}，"
-                                f"实际 {inferred.to_duan()}",
+                                f"变量 '{stmt.name}' 类型不匹配: 标注 {annotated.to_light()}，"
+                                f"实际 {inferred.to_light()}",
                                 line=getattr(stmt, 'line', 0), code='V001'
                             )
         elif node_type == 'IfStatement':
@@ -999,7 +999,7 @@ class GradedTypeChecker:
                 if cond_type != TYPE_ANY and cond_type != TYPE_BOOL:
                     self._add_result(
                         TypeErrorSeverity.WARNING,
-                        f"条件表达式类型应为布尔，实际为 {cond_type.to_duan()}",
+                        f"条件表达式类型应为布尔，实际为 {cond_type.to_light()}",
                         line=getattr(stmt, 'line', 0), code='E001'
                     )
             for s in getattr(stmt, 'then_body', []):
@@ -1012,7 +1012,7 @@ class GradedTypeChecker:
                 if cond_type != TYPE_ANY and cond_type != TYPE_BOOL:
                     self._add_result(
                         TypeErrorSeverity.WARNING,
-                        f"循环条件类型应为布尔，实际为 {cond_type.to_duan()}",
+                        f"循环条件类型应为布尔，实际为 {cond_type.to_light()}",
                         line=getattr(stmt, 'line', 0), code='E001'
                     )
             for s in getattr(stmt, 'body', []):
@@ -1029,7 +1029,7 @@ class GradedTypeChecker:
                         elif left_t != TYPE_STRING or right_t != TYPE_STRING:
                             self._add_result(
                                 TypeErrorSeverity.WARNING,
-                                f"算术运算 '{op}' 需要数字类型，但得到 {left_t.to_duan()} 和 {right_t.to_duan()}",
+                                f"算术运算 '{op}' 需要数字类型，但得到 {left_t.to_light()} 和 {right_t.to_light()}",
                                 line=getattr(stmt, 'line', 0), code='E002'
                             )
         elif node_type == 'ParagraphCall':
@@ -1067,17 +1067,17 @@ class GradedTypeChecker:
                     self._add_result(
                         TypeErrorSeverity.WARNING,
                         f"函数 '{func_name}' 第 {i+1} 个参数类型不匹配: "
-                        f"期望 {expected_type.to_duan()}，实际 {arg_type.to_duan()}",
+                        f"期望 {expected_type.to_light()}，实际 {arg_type.to_light()}",
                         line=getattr(stmt, 'line', 0), code='E004'
                     )
 
-    def _check_return_types(self, seg, declared_return_type: DuanType):
+    def _check_return_types(self, seg, declared_return_type: LightType):
         """检查段落中的返回语句是否与声明的返回类型匹配"""
         seg_name = getattr(seg, 'name', '')
         for stmt in getattr(seg, 'body', []):
             self._check_return_stmt(stmt, declared_return_type, seg_name)
 
-    def _check_return_stmt(self, stmt, declared_return_type: DuanType, seg_name: str):
+    def _check_return_stmt(self, stmt, declared_return_type: LightType, seg_name: str):
         """递归检查返回语句（使用 inferencer 获得更准确类型）"""
         if stmt is None:
             return
@@ -1091,7 +1091,7 @@ class GradedTypeChecker:
                         self._add_result(
                             TypeErrorSeverity.WARNING,
                             f"段落 '{seg_name}' 返回类型不匹配: "
-                            f"声明 {declared_return_type.to_duan()}，实际 {inferred.to_duan()}",
+                            f"声明 {declared_return_type.to_light()}，实际 {inferred.to_light()}",
                             line=getattr(stmt, 'line', 0), code='S005'
                         )
         elif node_type == 'IfStatement':
@@ -1114,14 +1114,14 @@ class GradedTypeChecker:
 
 
 # =============================================================================
-# 类型系统桥接：在简单 DuanType 与高级 Type 之间转换
+# 类型系统桥接：在简单 LightType 与高级 Type 之间转换
 # =============================================================================
 
-class DuanTypeBridge:
+class LightTypeBridge:
     """类型系统桥接器：在 type_checker 的简单类型系统与 type_inferencer 的高级类型系统之间转换
 
     两个类型系统：
-      - 简单系统（type_checker）：DuanType 层次（PrimitiveType, ListType, DictType, ...）
+      - 简单系统（type_checker）：LightType 层次（PrimitiveType, ListType, DictType, ...）
       - 高级系统（type_system）：Type 层次（NumberType, StringType, BooleanType, ...）
 
     桥接器提供双向转换，使 GradedTypeChecker 能利用 TypeInferencer 的推断结果。
@@ -1138,8 +1138,8 @@ class DuanTypeBridge:
     }
 
     @staticmethod
-    def simple_to_advanced(simple_type: DuanType) -> 'Any':
-        """将简单 DuanType 转换为高级 Type 对象"""
+    def simple_to_advanced(simple_type: LightType) -> 'Any':
+        """将简单 LightType 转换为高级 Type 对象"""
         try:
             from type_system import (
                 NumberType, StringType, BooleanType, NullType, AnyType as AdvAnyType,
@@ -1163,33 +1163,33 @@ class DuanTypeBridge:
                 return NullType()
             return AdvAnyType()
         if isinstance(simple_type, ListType):
-            elem = DuanTypeBridge.simple_to_advanced(simple_type.element_type)
+            elem = LightTypeBridge.simple_to_advanced(simple_type.element_type)
             return AdvListType(elem) if elem else AdvListType()
         if isinstance(simple_type, DictType):
-            kt = DuanTypeBridge.simple_to_advanced(simple_type.key_type)
-            vt = DuanTypeBridge.simple_to_advanced(simple_type.value_type)
+            kt = LightTypeBridge.simple_to_advanced(simple_type.key_type)
+            vt = LightTypeBridge.simple_to_advanced(simple_type.value_type)
             return AdvDictType(kt, vt)
         if isinstance(simple_type, OptionalType):
-            inner = DuanTypeBridge.simple_to_advanced(simple_type.inner_type)
+            inner = LightTypeBridge.simple_to_advanced(simple_type.inner_type)
             return OptionalTypeWrapper(inner) if inner else OptionalTypeWrapper()
         if isinstance(simple_type, UnionType):
             # 联合类型：简化为第一个非空类型或 Any
             for t in simple_type.types:
                 if not isinstance(t, PrimitiveType) or t.name != '空':
-                    return DuanTypeBridge.simple_to_advanced(t)
+                    return LightTypeBridge.simple_to_advanced(t)
             return AdvAnyType()
         if isinstance(simple_type, TypeVarType):
             from type_system import TypeVar as AdvTypeVar
             return AdvTypeVar(simple_type.name)
         if isinstance(simple_type, GenericTypeInstance):
             from type_system import GenericTypeInstance as AdvGenericInstance
-            args = [DuanTypeBridge.simple_to_advanced(a) for a in simple_type.type_args]
+            args = [LightTypeBridge.simple_to_advanced(a) for a in simple_type.type_args]
             return AdvGenericInstance(simple_type.base_name, args)
         return None
 
     @staticmethod
-    def advanced_to_simple(adv_type: 'Any') -> DuanType:
-        """将高级 Type 对象转换为简单 DuanType"""
+    def advanced_to_simple(adv_type: 'Any') -> LightType:
+        """将高级 Type 对象转换为简单 LightType"""
         if adv_type is None:
             return TYPE_ANY
 
@@ -1222,25 +1222,25 @@ class DuanTypeBridge:
         if type_id == TYPE_ID_UNKNOWN:
             return TYPE_ANY
         if type_id == TYPE_ID_OPTIONAL:
-            inner = DuanTypeBridge.advanced_to_simple(adv_type.inner_type)
+            inner = LightTypeBridge.advanced_to_simple(adv_type.inner_type)
             return OptionalType(inner)
         if type_id == TYPE_ID_LIST:
-            elem = DuanTypeBridge.advanced_to_simple(getattr(adv_type, 'element_type', None))
+            elem = LightTypeBridge.advanced_to_simple(getattr(adv_type, 'element_type', None))
             return ListType(elem)
         if type_id == TYPE_ID_DICT:
-            kt = DuanTypeBridge.advanced_to_simple(getattr(adv_type, 'key_type', None))
-            vt = DuanTypeBridge.advanced_to_simple(getattr(adv_type, 'value_type', None))
+            kt = LightTypeBridge.advanced_to_simple(getattr(adv_type, 'key_type', None))
+            vt = LightTypeBridge.advanced_to_simple(getattr(adv_type, 'value_type', None))
             return DictType(kt, vt)
         if type_id == TYPE_ID_FUNCTION:
-            params = tuple(DuanTypeBridge.advanced_to_simple(p) for p in getattr(adv_type, 'param_types', []))
-            ret = DuanTypeBridge.advanced_to_simple(getattr(adv_type, 'return_type', None))
+            params = tuple(LightTypeBridge.advanced_to_simple(p) for p in getattr(adv_type, 'param_types', []))
+            ret = LightTypeBridge.advanced_to_simple(getattr(adv_type, 'return_type', None))
             return FunctionType(params, ret)
         # TypeVar 或其他泛型类型，返回 Any
         if type_id == TYPE_ID_TVAR:
             return TypeVarType(getattr(adv_type, 'name', '?'))
         if type_id == TYPE_ID_GENERIC_INSTANCE:
             base_name = getattr(adv_type, 'base_name', '?')
-            args = tuple(DuanTypeBridge.advanced_to_simple(a) for a in getattr(adv_type, 'type_args', []))
+            args = tuple(LightTypeBridge.advanced_to_simple(a) for a in getattr(adv_type, 'type_args', []))
             return GenericTypeInstance(base_name, args)
         return TYPE_ANY
 
@@ -1325,7 +1325,7 @@ class CFGAnalyzer:
         return False
 
     @staticmethod
-    def check_missing_return(seg, declared_return_type: DuanType) -> List[str]:
+    def check_missing_return(seg, declared_return_type: LightType) -> List[str]:
         """检查段落是否缺少返回语句，返回问题列表"""
         issues = []
         body = getattr(seg, 'body', [])
@@ -1340,7 +1340,7 @@ class CFGAnalyzer:
 
         if not CFGAnalyzer.all_paths_return(body):
             issues.append(
-                f"段落 '{seg_name}' 声明返回类型 {declared_return_type.to_duan()}，"
+                f"段落 '{seg_name}' 声明返回类型 {declared_return_type.to_light()}，"
                 f"但并非所有路径都有返回值"
             )
 
@@ -1365,7 +1365,7 @@ class CFGAnalyzer:
 # 增强的类型推断辅助（使用 TypeInferencer）
 # =============================================================================
 
-def _get_inferencer_type(node, inferencer) -> DuanType:
+def _get_inferencer_type(node, inferencer) -> LightType:
     """从 TypeInferencer 的 type_cache 中获取节点类型并转换为简单类型"""
     if inferencer is None:
         return TYPE_ANY
@@ -1373,13 +1373,13 @@ def _get_inferencer_type(node, inferencer) -> DuanType:
         type_cache = inferencer.get_type_cache()
         if id(node) in type_cache:
             adv_type = type_cache[id(node)]
-            return DuanTypeBridge.advanced_to_simple(adv_type)
+            return LightTypeBridge.advanced_to_simple(adv_type)
     except Exception:
         pass
     return TYPE_ANY
 
 
-def _get_best_type(node, inferencer=None) -> DuanType:
+def _get_best_type(node, inferencer=None) -> LightType:
     """获取节点的最佳类型：优先使用 inferencer，回退到简单推断"""
     if inferencer is not None:
         t = _get_inferencer_type(node, inferencer)
@@ -1392,19 +1392,19 @@ def _get_best_type(node, inferencer=None) -> DuanType:
 # 工厂函数（编译器集成入口）
 # =============================================================================
 
-def create_checker_from_source(source: str, dc: DuanConfig) -> GradedTypeChecker:
-    """从源代码和 DuanConfig 创建分级类型检查器
+def create_checker_from_source(source: str, dc: LightConfig) -> GradedTypeChecker:
+    """从源代码和 LightConfig 创建分级类型检查器
 
     从源文件头部的注释中提取类型检查指令并应用到配置。
     """
-    config = TypeCheckerConfig.from_duan_config(dc)
+    config = TypeCheckerConfig.from_light_config(dc)
     config = config.apply_file_directives(source)
     return GradedTypeChecker(config)
 
 
-def create_checker_from_config(dc: DuanConfig) -> GradedTypeChecker:
-    """从 DuanConfig 创建分级类型检查器（无源代码指令）"""
-    config = TypeCheckerConfig.from_duan_config(dc)
+def create_checker_from_config(dc: LightConfig) -> GradedTypeChecker:
+    """从 LightConfig 创建分级类型检查器（无源代码指令）"""
+    config = TypeCheckerConfig.from_light_config(dc)
     return GradedTypeChecker(config)
 
 
@@ -1421,8 +1421,8 @@ def check_module(module, strict: bool = False) -> List[TypeIssue]:
 def check_source(source: str, strict: bool = False) -> Tuple[List[TypeIssue], Optional[Any]]:
     """检查源代码的类型（独立检查器）"""
     try:
-        from duan_parser_v3 import DuanParser
-        parser = DuanParser()
+        from light_parser_v3 import LightParser
+        parser = LightParser()
         module = parser.parse(source)
         issues = check_module(module, strict=strict)
         return issues, module
@@ -1456,8 +1456,8 @@ def format_issues(issues: List[TypeIssue], source: str = '') -> str:
 if __name__ == '__main__':
     import argparse
 
-    parser = argparse.ArgumentParser(description='段言类型检查器')
-    parser.add_argument('source', nargs='?', help='源文件 (.duan)')
+    parser = argparse.ArgumentParser(description='光明类型检查器')
+    parser.add_argument('source', nargs='?', help='源文件 (.light)')
     parser.add_argument('--strict', action='store_true', help='严格模式：类型不匹配报错')
     parser.add_argument('--json', action='store_true', help='JSON 格式输出')
 

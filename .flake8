@@ -1,4 +1,4 @@
 [flake8]
 max-line-length = 120
 extend-ignore = E203, E501, W293, W291, W292, F541, E302, E231, E128, E127, E722, E741, E402, E301, E303, E305, E306, E124, E129, E131, E261, E271, E721, E731, E702, E712, E401, F403, F402, W391, F811, F601, F405, F401, F821, F841
-exclude = __pycache__, antlrparser/duan_parser/*.py, antlrparser/*.py
+exclude = __pycache__, antlrparser/light_parser/*.py, antlrparser/*.py

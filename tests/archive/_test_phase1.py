@@ -10,8 +10,8 @@ all_ok = True
 print("=" * 50)
 print("1. 验证分词器")
 print("=" * 50)
-from antlrparser.duan_tokenizer import DuanLangTokenizer
-tokenizer = DuanLangTokenizer()
+from antlrparser.light_tokenizer import LightLangTokenizer
+tokenizer = LightLangTokenizer()
 
 tests = [
     ('函数', 'K_SEGMENT'),
@@ -43,7 +43,7 @@ print()
 print("=" * 50)
 print("2. Python 后端")
 print("=" * 50)
-from duan_parser_v3 import DuanParser as PyParser
+from light_parser_v3 import DuanParser as PyParser
 from code_generator import PythonCodeGenerator
 
 def test_py(name, source, expected_output=None):
@@ -81,8 +81,8 @@ print()
 print("=" * 50)
 print("3. ANTLR 后端")
 print("=" * 50)
-from antlrparser.duan_visitor import parse_source
-from antlrparser.duan_interpreter import Interpreter
+from antlrparser.light_visitor import parse_source
+from antlrparser.light_interpreter import Interpreter
 
 def test_antlr(name, source, expected_in_output):
     global all_ok

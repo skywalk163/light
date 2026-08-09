@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器 - 编译器编译速度基准测试
+光明编译器 - 编译器编译速度基准测试
 
 测试内容：
 1. 不同规模代码的编译时间（解析→AST→代码生成）
@@ -21,9 +21,9 @@ from datetime import datetime
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from lexer import Lexer
-from duan_parser_v3 import DuanParser as V3Parser
+from light_parser_v3 import LightParser as V3Parser
 from code_generator_unified import UnifiedCodeGenerator
-from compiler import DuanCompiler, AstAdapter
+from compiler import LightCompiler, AstAdapter
 
 # 导入优化器
 from optimizer import (
@@ -98,7 +98,7 @@ def generate_source_variants():
     """
     variants = {}
 
-    # 1. 基于 many_functions.duan 生成不同函数数量的版本
+    # 1. 基于 many_functions.light 生成不同函数数量的版本
     for n in [10, 50, 100, 200]:
         lines = []
         for i in range(n):
@@ -106,7 +106,7 @@ def generate_source_variants():
         lines.append(f"\n设 结果 为 函数{n - 1}\n打印 结果")
         variants[f"函数_{n}个"] = "\n".join(lines)
 
-    # 2. 基于 large_expressions.duan 生成不同表达式长度的版本
+    # 2. 基于 large_expressions.light 生成不同表达式长度的版本
     for n in [10, 50, 100]:
         parts = ["设 x 为 1"]
         for i in range(n):
@@ -231,7 +231,7 @@ def benchmark_incremental_vs_full():
     print("  全量编译 ... ", end='', flush=True)
     full_times = []
     for _ in range(3):
-        compiler = DuanCompiler()
+        compiler = LightCompiler()
         _, t = time_it(compiler.compile, main_module)
         full_times.append(t)
     full_avg = sum(full_times) / len(full_times)
@@ -245,7 +245,7 @@ def benchmark_incremental_vs_full():
         modified = modules["模块0"]
         modified = modified.replace("返回 x 加 0", "返回 x 加 100")
 
-        compiler = DuanCompiler()
+        compiler = LightCompiler()
         _, t = time_it(compiler.compile, modified)
         inc_times.append(t)
     inc_avg = sum(inc_times) / len(inc_times)
@@ -265,7 +265,7 @@ def benchmark_incremental_vs_full():
                 half_modules[f"模块{i}"] = modules[f"模块{i}"]
 
         half_source = "\n\n".join(half_modules.values())
-        compiler = DuanCompiler()
+        compiler = LightCompiler()
         _, t = time_it(compiler.compile, half_source)
         inc_half_times.append(t)
     inc_half_avg = sum(inc_half_times) / len(inc_half_times)
@@ -293,7 +293,7 @@ def benchmark_optimization_levels():
     print("3. 不同优化级别（O0/O1/O2/O3）的编译时间")
     print("=" * 80)
 
-    bench_files = sorted(BENCHMARK_DIR.glob('*.duan'))
+    bench_files = sorted(BENCHMARK_DIR.glob('*.light'))
     all_results = []
 
     for bench_file in bench_files:
@@ -378,7 +378,7 @@ def generate_report(scale_results, inc_results, opt_results, output_path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='段言编译器编译速度基准测试')
+    parser = argparse.ArgumentParser(description='光明编译器编译速度基准测试')
     parser.add_argument('--output', '-o', default=str(REPORT_DIR / 'compiler_benchmark.json'),
                         help='JSON 报告输出路径')
     parser.add_argument('--no-scale', action='store_true', help='跳过规模测试')
@@ -386,7 +386,7 @@ def main():
     parser.add_argument('--no-opt-levels', action='store_true', help='跳过优化级别测试')
     args = parser.parse_args()
 
-    print("段言编译器 - 编译速度基准测试")
+    print("光明编译器 - 编译速度基准测试")
     print("=" * 80)
     print(f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Python: {sys.version.split()[0]}")

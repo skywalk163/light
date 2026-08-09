@@ -5,12 +5,12 @@ client = paramiko.SSHClient()
 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 client.connect(SSH_HOST, username=SSH_USER_TRAE, password=SSH_PASS_TRAE, timeout=30)
 
-MODEL_NAME = 'duan_v2'
+MODEL_NAME = 'light_v2'
 
 cmds = [
     # 写入 prompt 文件
     """cat > /home/trae/test_prompt.txt << 'EOF'
-用段言v3.2语法重写以下Python代码。
+用光明v3.2语法重写以下Python代码。
 
 Python代码:
 x = 5

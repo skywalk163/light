@@ -1,11 +1,11 @@
 /**
- * 段言调试配置提供者
+ * 光明调试配置提供者
  */
 
 import * as vscode from 'vscode';
 import * as path from 'path';
 
-export class DuanDebugConfigurationProvider implements vscode.DebugConfigurationProvider {
+export class LightDebugConfigurationProvider implements vscode.DebugConfigurationProvider {
     
     /**
      * 提供调试配置
@@ -16,7 +16,7 @@ export class DuanDebugConfigurationProvider implements vscode.DebugConfiguration
         const configurations: vscode.DebugConfiguration[] = [
             {
                 name: '调试当前文件',
-                type: 'duan',
+                type: 'light',
                 request: 'launch',
                 program: '${file}',
                 stopOnEntry: true,
@@ -28,7 +28,7 @@ export class DuanDebugConfigurationProvider implements vscode.DebugConfiguration
             },
             {
                 name: '调试程序',
-                type: 'duan',
+                type: 'light',
                 request: 'launch',
                 program: '',
                 stopOnEntry: true,
@@ -40,7 +40,7 @@ export class DuanDebugConfigurationProvider implements vscode.DebugConfiguration
             },
             {
                 name: '附加到调试器',
-                type: 'duan',
+                type: 'light',
                 request: 'attach',
                 port: 8765,
                 host: 'localhost'
@@ -61,9 +61,9 @@ export class DuanDebugConfigurationProvider implements vscode.DebugConfiguration
         // 如果没有配置，提供默认值
         if (!config.type && !config.request && !config.name) {
             const editor = vscode.window.activeTextEditor;
-            if (editor && editor.document.languageId === 'duan') {
+            if (editor && editor.document.languageId === 'light') {
                 config = {
-                    type: 'duan',
+                    type: 'light',
                     name: '调试当前文件',
                     request: 'launch',
                     program: editor.document.uri.fsPath,

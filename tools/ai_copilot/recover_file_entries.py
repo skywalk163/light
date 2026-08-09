@@ -66,7 +66,7 @@ for v39_idx, config in file_entries.items():
         lines_repr = '[' + ', '.join(repr(l) for l in lines) + ']'
         py_setup += f'with open({repr(fname)}, "w", encoding="utf-8") as _f:\n    _f.write(os.linesep.join({lines_repr} + [""]))\n'
         
-        # Duan setup
+        # Light setup
         du_setup += f'使用 打开文件("{fname}", "w") 为 _f：\\n    _f.write(os.linesep.join({lines_repr} + [""]))\\n'
     
     # Build cleanup code for PY
@@ -83,7 +83,7 @@ for v39_idx, config in file_entries.items():
     new_du = du_setup + du + '\\n' + du_cleanup
     
     new_item = {
-        'instruction': item.get('instruction', '用段言v3.2语法重写以下Python代码。'),
+        'instruction': item.get('instruction', '用光明v3.2语法重写以下Python代码。'),
         'input': new_py,
         'output': new_du,
         'category': cat,

@@ -58,7 +58,7 @@ class TestNullSafetyBasic(unittest.TestCase):
     def test_unwrap_on_nullable_variable(self):
         """测试点 3：变量声明为可空，然后解包"""
         # 这里使用嵌套调用场景：先定义可空，再定义使用其 unwrap 后的值
-        # 由于段言当前推断器将每个顶层语句的 VariableDeclaration 独立推断，
+        # 由于光明当前推断器将每个顶层语句的 VariableDeclaration 独立推断，
         # 我们通过简单赋值链来测试
         src = (
             '设值为空。'
@@ -205,10 +205,10 @@ class TestUnwrapExpressionAst(unittest.TestCase):
 
 
 class TestCodeGeneration(unittest.TestCase):
-    """代码生成测试 —— 确保值! 被翻译为 _duan_unwrap(...)"""
+    """代码生成测试 —— 确保值! 被翻译为 _light_unwrap(...)"""
 
     def test_unwrap_generates_assert(self):
-        """测试点：代码生成中包含 _duan_unwrap 调用"""
+        """测试点：代码生成中包含 _light_unwrap 调用"""
         from code_generator import PythonCodeGenerator
         from ast_nodes import UnwrapExpression
         from ast_nodes_v3 import (
@@ -222,8 +222,8 @@ class TestCodeGeneration(unittest.TestCase):
         ])
         gen = PythonCodeGenerator()
         code = gen.generate(mod)
-        self.assertIn('_duan_unwrap(42)', code)
-        self.assertIn('def _duan_unwrap', code)
+        self.assertIn('_light_unwrap(42)', code)
+        self.assertIn('def _light_unwrap', code)
         self.assertIn('assert', code)
 
 

@@ -1,5 +1,5 @@
 """
-段言 - 模块系统测试
+光明 - 模块系统测试
 
 测试：
 1. 从模块导入指定符号
@@ -13,7 +13,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_interpreter import run_source, run_file, DuanValue
+from light_interpreter import run_source, run_file, LightValue
 
 
 # =============================================================================
@@ -140,7 +140,7 @@ def test_import_via_file():
     print("=" * 60)
 
     # 创建一个使用模块的主文件
-    main_path = os.path.join(os.path.dirname(__file__), 'test_main.duan')
+    main_path = os.path.join(os.path.dirname(__file__), 'test_main.light')
     with open(main_path, 'w', encoding='utf-8') as f:
         f.write("""
 从 mod_math 导入《平方》，《阶乘》。

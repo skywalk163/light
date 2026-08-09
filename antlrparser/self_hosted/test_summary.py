@@ -1,25 +1,25 @@
-"""段言自举系统总结测试"""
+"""光明自举系统总结测试"""
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_interpreter import run_source
-from duan_visitor import parse_source
+from light_interpreter import run_source
+from light_visitor import parse_source
 
 
 def main():
     print("=" * 70)
-    print("段言自举系统 - 完整总结")
+    print("光明自举系统 - 完整总结")
     print("=" * 70)
     print()
     
     # 组件列表
     components = [
-        {'name': '分词器', 'file': 'tokenizer.duan', 'funcs': ['分词器']},
-        {'name': 'AST定义', 'file': 'ast.duan', 'funcs': ['创建模块', '创建语句', '创建表达式']},
-        {'name': '解析器', 'file': 'parser.duan', 'funcs': ['解析', '解析表达式', '解析语句']},
-        {'name': '解释器', 'file': 'interpreter.duan', 'funcs': ['_run', '_eval', '_execStmt']},
-        {'name': 'LLVM代码生成器', 'file': 'llvm_codegen.duan', 'funcs': ['编译', '生成模块', '生成表达式']}
+        {'name': '分词器', 'file': 'tokenizer.light', 'funcs': ['分词器']},
+        {'name': 'AST定义', 'file': 'ast.light', 'funcs': ['创建模块', '创建语句', '创建表达式']},
+        {'name': '解析器', 'file': 'parser.light', 'funcs': ['解析', '解析表达式', '解析语句']},
+        {'name': '解释器', 'file': 'interpreter.light', 'funcs': ['_run', '_eval', '_execStmt']},
+        {'name': 'LLVM代码生成器', 'file': 'llvm_codegen.light', 'funcs': ['编译', '生成模块', '生成表达式']}
     ]
     
     print("一、组件解析验证")
@@ -74,7 +74,7 @@ def main():
     print(f"\n  结果: {passed}/{len(tests)} 通过")
     
     print("\n" + "=" * 70)
-    print("三、段言版解释器加载测试")
+    print("三、光明版解释器加载测试")
     print("-" * 50)
     
     try:
@@ -103,23 +103,23 @@ def main():
     print("-" * 50)
     print()
     print("  ┌─────────────────────────────────────────────────────────┐")
-    print("  │                   段言自举编译链                        │")
+    print("  │                   光明自举编译链                        │")
     print("  ├─────────────────────────────────────────────────────────┤")
-    print("  │  段言源码 (.duan)                                       │")
+    print("  │  光明源码 (.light)                                       │")
     print("  │       │                                                │")
     print("  │       ▼                                                │")
     print("  │  ┌──────────────┐                                      │")
-    print("  │  │ tokenizer.duan│  ← 段言版分词器                      │")
+    print("  │  │ tokenizer.light│  ← 光明版分词器                      │")
     print("  │  └──────┬───────┘                                      │")
     print("  │         │  Token流                                     │")
     print("  │         ▼                                              │")
     print("  │  ┌──────────────┐                                      │")
-    print("  │  │  parser.duan │  ← 段言版解析器                      │")
+    print("  │  │  parser.light │  ← 光明版解析器                      │")
     print("  │  └──────┬───────┘                                      │")
     print("  │         │  AST                                         │")
     print("  │         ▼                                              │")
     print("  │  ┌─────────────────┐    ┌─────────────────────┐        │")
-    print("  │  │interpreter.duan │    │ llvm_codegen.duan   │        │")
+    print("  │  │interpreter.light │    │ llvm_codegen.light   │        │")
     print("  │  │  (解释执行)     │    │  (编译为LLVM IR)    │        │")
     print("  │  └─────────────────┘    └─────────────────────┘        │")
     print("  └─────────────────────────────────────────────────────────┘")
@@ -130,14 +130,14 @@ def main():
     print("=" * 70)
     print()
     print("✅ Python版解释器: 功能完整，所有测试通过")
-    print("✅ 段言版分词器: 已完成，可正确分词")
-    print("✅ 段言版解析器: 已完成，可正确解析为AST")
-    print("✅ 段言版解释器: 已完成，可被正确解析和加载")
-    print("✅ 段言版LLVM代码生成器: 已完成，可被正确解析和加载")
+    print("✅ 光明版分词器: 已完成，可正确分词")
+    print("✅ 光明版解析器: 已完成，可正确解析为AST")
+    print("✅ 光明版解释器: 已完成，可被正确解析和加载")
+    print("✅ 光明版LLVM代码生成器: 已完成，可被正确解析和加载")
     print()
-    print("⚠️ 注: 完整的自举测试（用段言解释器解释段言代码）")
-    print("      需要在段言环境中运行，目前Python版解释器已作为")
-    print("      宿主解释器验证了所有段言组件的正确性。")
+    print("⚠️ 注: 完整的自举测试（用光明解释器解释光明代码）")
+    print("      需要在光明环境中运行，目前Python版解释器已作为")
+    print("      宿主解释器验证了所有光明组件的正确性。")
     print()
     
     return 0

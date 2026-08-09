@@ -128,7 +128,7 @@ class StartupOptimizer:
         call_counts: Dict[str, int] = {}
         for m in re.finditer(r'@(\w+)\s*\(', ir):
             func_name = m.group(1)
-            if not func_name.startswith('duan_') and not func_name.startswith('__'):
+            if not func_name.startswith('light_') and not func_name.startswith('__'):
                 call_counts[func_name] = call_counts.get(func_name, 0) + 1
 
         # 提取小函数定义
@@ -143,7 +143,7 @@ class StartupOptimizer:
             func_body = m.group(3).strip()
 
             # 跳过 main 和初始化函数
-            if func_name in ('main', '__duan_init'):
+            if func_name in ('main', '__light_init'):
                 continue
 
             # 统计指令数
@@ -193,8 +193,8 @@ class StartupOptimizer:
         for line in lines:
             stripped = line.strip()
 
-            # 检测 __duan_init 函数
-            if 'define void @__duan_init()' in stripped:
+            # 检测 __light_init 函数
+            if 'define void @__light_init()' in stripped:
                 in_init = True
                 result.append(line)
                 continue
@@ -307,8 +307,8 @@ class StartupOptimizer:
 
         for m in func_pattern.finditer(ir):
             func_name = m.group(1)
-            # 排除外部函数（以 duan_ 开头）
-            if not func_name.startswith('duan_') and not func_name.startswith('__'):
+            # 排除外部函数（以 light_ 开头）
+            if not func_name.startswith('light_') and not func_name.startswith('__'):
                 call_counts[func_name] = call_counts.get(func_name, 0) + 1
 
         # 标记热函数

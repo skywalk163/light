@@ -10,9 +10,9 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _SCRIPT_DIR)
 
 SYSTEM_PROMPT = (
-    "你是段言（DuanLang）编程语言 v3.2 的翻译专家。"
-    "段言是一种中文编程语言，使用中文关键字。"
-    "你的任务是将 Python 代码翻译为段言 v3.2 代码。\n"
+    "你是光明（LightLang）编程语言 v3.2 的翻译专家。"
+    "光明是一种中文编程语言，使用中文关键字。"
+    "你的任务是将 Python 代码翻译为光明 v3.2 代码。\n"
     "关键规则：\n"
     "- 赋值: 设 x 为 10 (数字/字符串/布尔/None/列表/字典均统一使用 设)\n"
     "- 段落定义: 段落 名 接收 参数：\n"
@@ -62,7 +62,7 @@ SYSTEM_PROMPT = (
     "- 多返回值: return a, b 保持原样; x, y = func() 分别赋值\n"
     "- 产出: yield -> 产出; yield from -> 产出自\n"
     "- 异常类型: 捕获具体异常类型，如 捕获 ZeroDivisionError 为 e\n"
-    "只输出段言代码，不要解释。"
+    "只输出光明代码，不要解释。"
 )
 
 def main():

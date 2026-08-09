@@ -1,5 +1,5 @@
 """
-段言（Duan）编程语言 - 表达式解析混入类
+光明（Light）编程语言 - 表达式解析混入类
 
 提供所有表达式级别解析方法，包括：
 - 算术表达式（加、减、乘、除）
@@ -38,7 +38,7 @@ class ParserExprMixin:
         if self._match(TokenType.WALRUS):
             tok = self._current()
             self._error(
-                "段言不支持海象运算符 ':='。请使用「设」语句声明变量后再使用。",
+                "光明不支持海象运算符 ':='。请使用「设」语句声明变量后再使用。",
                 tok.line, tok.col
             )
         
@@ -77,7 +77,7 @@ class ParserExprMixin:
         if self._match(TokenType.WALRUS):
             tok = self._current()
             self._error(
-                "段言不支持海象运算符 ':='。请使用「设」语句声明变量后再使用。",
+                "光明不支持海象运算符 ':='。请使用「设」语句声明变量后再使用。",
                 tok.line, tok.col
             )
         
@@ -106,7 +106,7 @@ class ParserExprMixin:
             # 明确标注不支持的特性（P1-3）：海象运算符 :=
             if tok.type == TokenType.WALRUS:
                 self._error(
-                    "段言不支持海象运算符 ':='。请使用「设」语句声明变量后再使用。",
+                    "光明不支持海象运算符 ':='。请使用「设」语句声明变量后再使用。",
                     tok.line, tok.col
                 )
             # 遇到"那么"关键字，停止解析
@@ -1937,13 +1937,13 @@ class ParserExprMixin:
                 if colon_idx >= 0:
                     expr_part = expr_str[:colon_idx].strip()
                     format_spec = expr_str[colon_idx+1:].strip()
-                # 将表达式字符串作为段言表达式解析
+                # 将表达式字符串作为光明表达式解析
                 try:
                     from lexer import Lexer
-                    from duan_parser_v3 import DuanParser
+                    from light_parser_v3 import LightParser
                     sub_lexer = Lexer()
                     sub_tokens = sub_lexer.tokenize(expr_part)
-                    sub_parser = DuanParser()
+                    sub_parser = LightParser()
                     sub_parser.tokens = sub_tokens
                     sub_parser.pos = 0
                     expr_node = sub_parser._parse_expr()
@@ -2126,7 +2126,7 @@ class ParserExprMixin:
                     is_dot_access = True
                 # 中文句号(。)是语句结束符，不进行成员访问
 
-            # 「的」作为段言原生属性访问运算符
+            # 「的」作为光明原生属性访问运算符
             # 「.」用于 FFI/外部库调用（如 requests.get）
             # 「之」已从成员访问中废弃，仅保留在推导式中作为循环引导符
             if not is_dot_access and tok.type == TokenType.KEYWORD and tok.value == '的':

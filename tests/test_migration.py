@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-测试段言代码迁移工具
+测试光明代码迁移工具
 
 测试覆盖：
 - v3.3 → v4.0 关键字替换
@@ -137,7 +137,7 @@ class TestMigrationV33ToV40:
 
     def test_complete_migration(self):
         """测试完整代码迁移"""
-        source = """定义 名称 等于 "段言"
+        source = """定义 名称 等于 "光明"
 打印 名称
 函数 添加(a, b)：
     返回 a + b

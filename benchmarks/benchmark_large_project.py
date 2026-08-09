@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器 - 大项目编译测试
+光明编译器 - 大项目编译测试
 
 测试内容：
 1. 生成包含 50/100/200 个模块的大项目
@@ -21,7 +21,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from compiler import DuanCompiler
+from compiler import LightCompiler
 from incremental_compiler import IncrementalCompiler, DependencyGraph
 
 REPORT_DIR = Path(__file__).parent / 'reports'
@@ -89,14 +89,14 @@ def generate_large_project(num_modules: int, output_dir: Path, with_deps: bool =
     # 生成各个模块
     for i in range(num_modules):
         module_name = f"模块{i}"
-        module_file = output_dir / f"{module_name}.duan"
+        module_file = output_dir / f"{module_name}.light"
 
         lines = [f"// {module_name}\n"]
 
         # 添加导入依赖（如果启用依赖）
         if with_deps and i > 0:
             # 每个模块依赖前一个模块
-            lines.append(f"导入 \"模块{i - 1}.duan\"\n")
+            lines.append(f"导入 \"模块{i - 1}.light\"\n")
 
         # 添加一些函数定义
         for j in range(5):
@@ -133,7 +133,7 @@ def generate_large_project(num_modules: int, output_dir: Path, with_deps: bool =
 
         # 主模块引用
         if i % 10 == 0:
-            main_lines.append(f"导入 \"{module_name}.duan\"\n")
+            main_lines.append(f"导入 \"{module_name}.light\"\n")
 
     # 生成主模块
     main_lines.append("\n\n段落 主函数：")
@@ -141,13 +141,13 @@ def generate_large_project(num_modules: int, output_dir: Path, with_deps: bool =
     main_lines.append(f"  打印 \"模块数: {num_modules}\"\n")
     main_lines.append("主函数()\n")
 
-    main_file = output_dir / "main.duan"
+    main_file = output_dir / "main.light"
     with open(main_file, 'w', encoding='utf-8') as f:
         f.write(''.join(main_lines))
 
     # 计算总大小
     total_size = 0
-    for fpath in output_dir.glob('*.duan'):
+    for fpath in output_dir.glob('*.light'):
         total_size += fpath.stat().st_size
 
     return output_dir, total_size
@@ -161,14 +161,14 @@ def benchmark_compile_time(project_dir: Path, num_modules: int):
     """测试大项目编译时间"""
     print(f"\n  编译 {num_modules} 个模块 ... ", end='', flush=True)
 
-    main_file = project_dir / 'main.duan'
+    main_file = project_dir / 'main.light'
     with open(main_file, 'r', encoding='utf-8') as f:
         source = f.read()
 
     # 编译
     times = []
     for _ in range(3):
-        compiler = DuanCompiler()
+        compiler = LightCompiler()
         result, t = time_it(compiler.compile, source)
         times.append(t)
 
@@ -195,12 +195,12 @@ def benchmark_memory(project_dir: Path, num_modules: int):
     """测试大项目编译内存占用"""
     print(f"  内存占用 ({num_modules} 模块) ... ", end='', flush=True)
 
-    main_file = project_dir / 'main.duan'
+    main_file = project_dir / 'main.light'
     with open(main_file, 'r', encoding='utf-8') as f:
         source = f.read()
 
     # 编译并测量内存
-    compiler = DuanCompiler()
+    compiler = LightCompiler()
     _, peak = mem_it(compiler.compile, source)
 
     print(f"峰值: {format_memory(peak)}")
@@ -227,7 +227,7 @@ def benchmark_dependency_resolution(project_dir: Path, num_modules: int):
     # 模拟依赖解析
     for i in range(num_modules):
         deps = [f"模块{i - 1}"] if i > 0 else []
-        dep_graph.add_module(f"模块{i}", str(project_dir / f"模块{i}.duan"), deps)
+        dep_graph.add_module(f"模块{i}", str(project_dir / f"模块{i}.light"), deps)
 
     # 拓扑排序
     for i in range(num_modules):
@@ -260,7 +260,7 @@ def benchmark_scalability(module_counts=None):
     results = []
 
     # 创建临时目录
-    temp_base = Path(tempfile.mkdtemp(prefix='duan_bench_large_'))
+    temp_base = Path(tempfile.mkdtemp(prefix='light_bench_large_'))
 
     try:
         for num_modules in module_counts:
@@ -352,14 +352,14 @@ def generate_report(results, output_path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='段言编译器大项目编译测试')
+    parser = argparse.ArgumentParser(description='光明编译器大项目编译测试')
     parser.add_argument('--output', '-o', default=str(REPORT_DIR / 'large_project_benchmark.json'),
                         help='JSON 报告输出路径')
     parser.add_argument('--modules', '-m', type=int, nargs='+', default=[50, 100, 200],
                         help='要测试的模块数量（默认: 50 100 200）')
     args = parser.parse_args()
 
-    print("段言编译器 - 大项目编译测试")
+    print("光明编译器 - 大项目编译测试")
     print("=" * 80)
     print(f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Python: {sys.version.split()[0]}")

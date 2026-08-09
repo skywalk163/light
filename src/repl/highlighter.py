@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-段言 REPL 语法高亮
+光明 REPL 语法高亮
 
 提供关键字、动词、字符串等的高亮显示。
 """
@@ -45,8 +45,8 @@ except Exception:
     ])
 
 
-class DuanHighlighter:
-    """段言语法高亮器"""
+class LightHighlighter:
+    """光明语法高亮器"""
     
     def __init__(self, use_color: bool = True):
         """初始化
@@ -152,7 +152,7 @@ try:
     class PromptToolkitLexer(Lexer):
         """prompt_toolkit 词法分析器"""
         
-        def __init__(self, highlighter: DuanHighlighter):
+        def __init__(self, highlighter: LightHighlighter):
             self.highlighter = highlighter
         
         def lex_document(self, document):
@@ -171,7 +171,7 @@ except ImportError:
 
 # 命令行高亮测试
 if __name__ == '__main__':
-    h = DuanHighlighter()
+    h = LightHighlighter()
     
     test_cases = [
         "# 这是注释",

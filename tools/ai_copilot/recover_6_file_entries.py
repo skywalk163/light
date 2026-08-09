@@ -15,7 +15,7 @@ v39 = [json.loads(l) for l in open('sft_dataset_backup_v39.jsonl', encoding='utf
 # Fix: Create a test file, fix DU structure
 
 entry_699 = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "import os\n"
         "with open('test_data.txt', 'w', encoding='utf-8') as _f:\n"
@@ -50,7 +50,7 @@ entry_699 = {
 # Fix: Use valid binary data, fix DU
 
 entry_843 = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "data = b'hello binary world'\n"
         "with open('file.txt', 'wb') as f:\n"
@@ -73,7 +73,7 @@ entry_843 = {
 # Fix: Fix syntax, reduce to 10 iterations for manageability while keeping the pattern
 
 entry_852 = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "with open('log.txt', 'w') as f:\n"
         "    for i in range(10):\n"
@@ -97,7 +97,7 @@ entry_852 = {
 # Fix: Add save paragraph to DU, add execution code to both
 
 entry_890 = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "class CSVWriter:\n"
         "    def __init__(self, filename):\n"
@@ -139,7 +139,7 @@ entry_890 = {
 # Fix: Regenerate DU code, create test file
 
 entry_918 = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "import os\n"
         "with open('input.csv', 'w', encoding='utf-8') as _f:\n"
@@ -288,7 +288,7 @@ entry_918 = {
 # Add execution to verify
 
 entry_1086 = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "data = ['line1', 'line2', 'line3']\n"
         "filename = 'output.txt'\n"

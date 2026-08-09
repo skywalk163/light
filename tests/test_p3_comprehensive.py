@@ -13,7 +13,7 @@ from llvm.compiler import compile_source_typed, find_clang
 
 
 def run_test(name, code, expected_output=None):
-    """编译并运行一个段言程序，返回是否成功"""
+    """编译并运行一个光明程序，返回是否成功"""
     print(f"\n{'='*60}")
     print(f"  测试: {name}")
     print(f"{'='*60}")
@@ -228,11 +228,11 @@ TESTS.append((
 TESTS.append((
     "10_字符串",
     '''
-设 名字 为 "段言"
+设 名字 为 "光明"
 打印 名字
 打印 "你好"
 ''',
-    "段言"
+    "光明"
 ))
 
 # 测试11: 减法与负数

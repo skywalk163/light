@@ -1,9 +1,9 @@
 """检查正则表达式"""
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from duan_visitor import DuanParser
+from light_visitor import LightParser
 
-p = DuanParser()
+p = LightParser()
 src = "异步段落 异步任务 接收:\n  打印(\"异步执行中\")。\n结束。\n\n异步任务()。"
 print("源:", repr(src))
 result = p._preprocess_async(src)

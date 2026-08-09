@@ -16,7 +16,7 @@ steps = [
     ("parser_core", "from parser_core import DuanParserCore"),
     ("parser_stmt", "from parser_stmt import ParserStmtMixin"),
     ("parser_expr", "from parser_expr import ParserExprMixin"),
-    ("duan_parser_v3", "from duan_parser_v3 import DuanParser, ImportStmt"),
+    ("light_parser_v3", "from light_parser_v3 import DuanParser, ImportStmt"),
     ("module_resolver", "from module_resolver import ModuleResolver"),
     ("code_generator", "from code_generator import PythonCodeGenerator"),
 ]

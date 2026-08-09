@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器 - 模块系统端到端测试
+光明编译器 - 模块系统端到端测试
 
 测试模块导入导出、依赖解析、以及跨模块函数/类使用。
 """
@@ -15,13 +15,13 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from module_resolver import ModuleDependencyResolver
-from compiler import DuanCompiler
+from compiler import LightCompiler
 from code_generator_unified import UnifiedCodeGenerator
 
 
 def compile_module(source):
     """编译单个模块，返回生成的 Python 代码"""
-    compiler = DuanCompiler()
+    compiler = LightCompiler()
     result = compiler.compile(source)
     codegen = UnifiedCodeGenerator()
     return codegen.generate(result['ast'])
@@ -53,7 +53,7 @@ class TestModuleResolver:
 
 导出 加法
 '''
-            with open(os.path.join(tmpdir, 'math_utils.duan'), 'w', encoding='utf-8') as f:
+            with open(os.path.join(tmpdir, 'math_utils.light'), 'w', encoding='utf-8') as f:
                 f.write(math_utils_code)
 
             # main 模块
@@ -84,7 +84,7 @@ class TestModuleResolver:
 
 导出 问候
 '''
-            with open(os.path.join(tmpdir, 'utils.duan'), 'w', encoding='utf-8') as f:
+            with open(os.path.join(tmpdir, 'utils.light'), 'w', encoding='utf-8') as f:
                 f.write(utils_code)
 
             # math_utils 模块
@@ -93,7 +93,7 @@ class TestModuleResolver:
 
 导出 平方
 '''
-            with open(os.path.join(tmpdir, 'math_utils.duan'), 'w', encoding='utf-8') as f:
+            with open(os.path.join(tmpdir, 'math_utils.light'), 'w', encoding='utf-8') as f:
                 f.write(math_utils_code)
 
             # main 模块

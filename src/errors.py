@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器 - 美化的错误和 traceback 处理
+光明编译器 - 美化的错误和 traceback 处理
 
 提供中文错误信息、源代码上下文显示、栈追踪美化等功能。
 """
@@ -24,7 +24,7 @@ def format_exception(exc_type, exc_value, exc_tb, source_lines=None):
     lines = []
     lines.append("")
     lines.append("╔══════════════════════════════════════════════════════════╗")
-    lines.append("║                      段言运行错误                         ║")
+    lines.append("║                      光明运行错误                         ║")
     lines.append("╠══════════════════════════════════════════════════════════╣")
     
     # 异常类型
@@ -82,7 +82,7 @@ def format_exception(exc_type, exc_value, exc_tb, source_lines=None):
                         file_part = parts[0].replace('File ', '').strip('"')
                         location_part = parts[1].strip() if len(parts) > 1 else ''
                         # 只显示项目内的文件
-                        if 'duan' in file_part.lower() or 'src' in file_part.lower():
+                        if 'light' in file_part.lower() or 'src' in file_part.lower():
                             lines.append(f"  → {file_part} {location_part}")
             if i > 0:  # 跳过第一个（用户代码）
                 break
@@ -96,8 +96,8 @@ def install_excepthook():
     old_excepthook = sys.excepthook
     
     def custom_excepthook(exc_type, exc_value, exc_tb):
-        # 如果是段言相关的错误，使用美化格式
-        if 'duan' in str(exc_type).lower() or hasattr(exc_value, 'source_lines'):
+        # 如果是光明相关的错误，使用美化格式
+        if 'light' in str(exc_type).lower() or hasattr(exc_value, 'source_lines'):
             print(format_exception(exc_type, exc_value, exc_tb), file=sys.stderr)
         else:
             # 其他错误使用原始格式
@@ -166,7 +166,7 @@ def format_error_with_context(error: Exception, source: str = None,
     parts.append("┌─────────────────────────────────────────────────────────┐")
     
     # 错误类型和消息
-    if isinstance(error, DuanError):
+    if isinstance(error, LightError):
         parts.append(f"│  {error.__class__.__name__}")
         parts.append(f"│  {error.message}")
         if error.hint:
@@ -193,8 +193,8 @@ def format_error_with_context(error: Exception, source: str = None,
     return '\n'.join(parts)
 
 
-class DuanError(Exception):
-    """段言基础错误类"""
+class LightError(Exception):
+    """光明基础错误类"""
     def __init__(self, message: str, line: int = 0, col: int = 0, hint: str = None,
                  fix_suggestions: List[str] = None, source_lines: List[str] = None):
         self.message = message
@@ -205,7 +205,7 @@ class DuanError(Exception):
         self.source_lines = source_lines or []
         
         parts = []
-        parts.append("\n┌─ 段言错误")
+        parts.append("\n┌─ 光明错误")
         
         if line:
             pos_info = f"行 {line}"
@@ -228,39 +228,39 @@ class DuanError(Exception):
         super().__init__('\n'.join(parts))
 
 
-class LexerError(DuanError):
+class LexerError(LightError):
     """词法分析错误"""
     def __init__(self, message: str, line: int = 0, col: int = 0, hint: str = None,
                  fix_suggestions: List[str] = None):
         # 自动匹配常见词法错误的修复建议
         if fix_suggestions is None:
-            fix_suggestions = DuanErrorFormatter.get_fix_suggestions('LexerError', message)
+            fix_suggestions = LightErrorFormatter.get_fix_suggestions('LexerError', message)
         message = f"词法分析错误: {message}"
         super().__init__(message, line, col, hint, fix_suggestions)
 
 
-class SemanticError(DuanError):
+class SemanticError(LightError):
     """语义分析错误"""
     def __init__(self, message: str, line: int = 0, col: int = 0, hint: str = None,
                  fix_suggestions: List[str] = None):
         # 自动匹配常见语义错误的修复建议
         if fix_suggestions is None:
-            fix_suggestions = DuanErrorFormatter.get_fix_suggestions('SemanticError', message)
+            fix_suggestions = LightErrorFormatter.get_fix_suggestions('SemanticError', message)
         message = f"语义错误: {message}"
         super().__init__(message, line, col, hint, fix_suggestions)
 
 
-class ParseError(DuanError):
+class ParseError(LightError):
     """语法解析错误"""
     def __init__(self, message: str, line: int = 0, col: int = 0, hint: str = None,
                  fix_suggestions: List[str] = None):
         if fix_suggestions is None:
-            fix_suggestions = DuanErrorFormatter.get_fix_suggestions('ParseError', message)
+            fix_suggestions = LightErrorFormatter.get_fix_suggestions('ParseError', message)
         message = f"语法错误: {message}"
         super().__init__(message, line, col, hint, fix_suggestions)
 
 
-class DuanErrorFormatter:
+class LightErrorFormatter:
     """统一错误格式化器"""
     
     # 常见错误的自动修复建议字典
@@ -279,7 +279,7 @@ class DuanErrorFormatter:
             '未知字符': [
                 '检查输入中是否有非法字符',
                 '使用允许的字符集重新输入',
-                '段言支持中文字符、英文字母、数字和基本标点符号',
+                '光明支持中文字符、英文字母、数字和基本标点符号',
             ],
             '书名号': [
                 '确保书名号《》成对出现',
@@ -368,7 +368,7 @@ class DuanErrorFormatter:
         Returns:
             匹配的修复建议列表，未匹配时返回空列表
         """
-        suggestions_map = DuanErrorFormatter.FIX_SUGGESTIONS.get(error_type, {})
+        suggestions_map = LightErrorFormatter.FIX_SUGGESTIONS.get(error_type, {})
         matched = []
         for keyword, suggestions in suggestions_map.items():
             if keyword in message:
@@ -386,7 +386,7 @@ class DuanErrorFormatter:
         Returns:
             格式化的错误信息
         """
-        if isinstance(error, DuanError):
+        if isinstance(error, LightError):
             return format_error_with_context(error, source, error.line, error.col)
         else:
             # 普通异常
@@ -395,7 +395,7 @@ class DuanErrorFormatter:
             parts.append(f"│ {error}")
             
             # 尝试获取修复建议
-            suggestions = DuanErrorFormatter.get_fix_suggestions(
+            suggestions = LightErrorFormatter.get_fix_suggestions(
                 type(error).__name__, str(error))
             if suggestions:
                 parts.append("│")

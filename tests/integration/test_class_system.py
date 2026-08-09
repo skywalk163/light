@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器 - 类系统集成测试
+光明编译器 - 类系统集成测试
 
 测试类定义、继承、构造函数、方法调用、方法重写等核心功能。
 """
@@ -12,13 +12,13 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from compiler import DuanCompiler
+from compiler import LightCompiler
 from code_generator_unified import UnifiedCodeGenerator
 
 
 def compile_and_run(source):
-    """编译并运行段言代码，返回输出结果"""
-    compiler = DuanCompiler()
+    """编译并运行光明代码，返回输出结果"""
+    compiler = LightCompiler()
     result = compiler.compile(source)
     ast = result['ast']
 

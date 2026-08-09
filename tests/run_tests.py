@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编程语言 - 统一测试运行器
+光明（Light）编程语言 - 统一测试运行器
 
 运行方式：
   python tests/run_tests.py              # 运行全部测试
@@ -126,7 +126,7 @@ def run_e2e_tests():
 def run_all_tests():
     """运行所有测试"""
     print("=" * 70)
-    print("  段言（Duan）编程语言 - 完整测试套件")
+    print("  光明（Light）编程语言 - 完整测试套件")
     print("=" * 70)
     print(f"  项目目录: {PROJECT_DIR}")
     print(f"  Python: {sys.version.split()[0]}")
@@ -200,7 +200,7 @@ def _check_bootstrap_exists():
 
 
 def _check_cli_exists():
-    cli_unified = os.path.join(PROJECT_DIR, 'cli', 'duan_unified.py')
+    cli_unified = os.path.join(PROJECT_DIR, 'cli', 'light_unified.py')
     assert os.path.exists(cli_unified), "CLI 统一工具不存在"
     return "存在"
 
@@ -229,7 +229,7 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(
-        description='段言（Duan）编程语言 - 统一测试运行器',
+        description='光明（Light）编程语言 - 统一测试运行器',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:

@@ -1,8 +1,8 @@
-# 段言项目配置
+# 光明项目配置
 [package]
 name = "多模块测试项目"
 version = "0.1.0"
-entry = "主.duan"
+entry = "主.light"
 authors = []
 description = "多模块编译测试项目"
 

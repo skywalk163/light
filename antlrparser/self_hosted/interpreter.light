@@ -1,0 +1,609 @@
+# 光明自举解释器
+# 增强版：包含完善的错误处理和调试信息
+
+# ========== 工具函数 ==========
+
+《_hasKey》段(_map, _key):
+  # 检查字典中是否存在指定键
+  如果_map等于空那么：
+    返回假。
+  结束。
+  _keys等于_map["keys"]。
+  如果_keys等于空那么：
+    返回假。
+  结束。
+  遍历_k _keys：
+    如果_k等于_key那么：
+      返回真。
+    结束。
+  结束。
+  返回假。
+结束。
+
+《_getOrDefault》段(_map, _key, _default):
+  # 获取字典值，不存在则返回默认值
+  如果《_hasKey》(_map, _key)那么：
+    返回_map[_key]。
+  结束。
+  返回_default。
+结束。
+
+# ========== 全局错误状态 ==========
+《_errorInfo》段():
+  _globalError等于_典(
+    "hasError", 假,
+    "message", "",
+    "line", 0,
+    "column", 0,
+    "stack", _列()
+  )。
+  返回_globalError。
+结束。
+
+《_setError》段(_msg, _line, _col):
+  _err等于《_errorInfo》()。
+  _err["hasError"]等于真。
+  _err["message"]等于_msg。
+  _err["line"]等于_line。
+  _err["column"]等于_col。
+  打印("运行时错误: ["加_line加":"加_col加"] "加_msg)。
+结束。
+
+《_clearError》段():
+  _err等于《_errorInfo》()。
+  _err["hasError"]等于假。
+  _err["message"]等于""。
+  _err["line"]等于0。
+  _err["column"]等于0。
+  _err["stack"]等于_列()。
+结束。
+
+《_pushStack》段(_funcName):
+  _err等于《_errorInfo》()。
+  _err["stack"]添加(_funcName)。
+结束。
+
+《_popStack》段():
+  _err等于《_errorInfo》()。
+  如果_err["stack"]之长度大于0那么：
+    _err["stack"]移除(空)。
+  结束。
+结束。
+
+《_printStackTrace》段():
+  _err等于《_errorInfo》()。
+  如果_err["stack"]之长度大于0那么：
+    打印("调用栈:")。
+    _i等于_err["stack"]之长度减1。
+    当_i大于等于0：
+      打印("  ["加_i加"] "加_err["stack"][_i])。
+      _i等于_i减1。
+    结束。
+  结束。
+结束。
+
+《_getMapValue》段(_map, _key):
+  遍历_ix _map["keys"]:
+    如果_ix等于_key那么：
+      返回_map["values"][_ix]。
+    结束。
+  结束。
+  返回空。
+结束。
+
+《_setMapValue》段(_map, _key, _val):
+  遍历_ix _map["keys"]:
+    如果_ix等于_key那么：
+      _map["values"][_ix]等于_val。
+      返回真。
+    结束。
+  结束。
+  _map["keys"]添加(_key)。
+  _map["values"]添加(_val)。
+  返回真。
+结束。
+
+《_findVar》段(_env, _name):
+  如果_env等于空那么：
+    返回空。
+  结束。
+  _currEnv等于_env["current"]。
+  _currVal等于《_getMapValue》(_currEnv, _name)。
+  如果_currVal不等于空那么：
+    返回_currVal。
+  结束。
+  _parentEnv等于_env["parent"]。
+  返回《_findVar》(_parentEnv, _name)。
+结束。
+
+《_setVar》段(_env, _name, _val):
+  如果_env等于空那么：
+    返回假。
+  结束。
+  _currEnv等于_env["current"]。
+  _exists等于《_getMapValue》(_currEnv, _name)。
+  如果_exists不等于空那么：
+    《_setMapValue》(_currEnv, _name, _val)。
+    返回真。
+  结束。
+  _parentEnv等于_env["parent"]。
+  如果_parentEnv不等于空那么：
+    返回《_setVar》(_parentEnv, _name, _val)。
+  结束。
+  《_setMapValue》(_currEnv, _name, _val)。
+  返回真。
+结束。
+
+《_newEnv》段(_parent):
+  返回_典(
+    "current", _典("keys", _列(), "values", _列()),
+    "parent", _parent
+  )。
+结束。
+
+《_eval》段(_expr, _env):
+  如果_expr等于空那么：
+    返回空。
+  结束。
+
+  _type等于_expr["_type"]。
+
+  如果_type等于"NumberLiteral"那么：
+    返回_expr["value"]。
+  结束。
+
+  如果_type等于"StringLiteral"那么：
+    返回_expr["value"]。
+  结束。
+
+  如果_type等于"BooleanLiteral"那么：
+    返回_expr["value"]。
+  结束。
+
+  如果_type等于"NullLiteral"那么：
+    返回空。
+  结束。
+
+  如果_type等于"Identifier"那么：
+    _n等于_expr["name"]。
+    _v等于《_findVar》(_env, _n)。
+    如果_v等于空那么：
+      _lineNum等于《_getOrDefault》(_expr, "line", 0)。
+      _colNum等于《_getOrDefault》(_expr, "column", 0)。
+      《_setError》("未定义的变量: '"加_n加"'", _lineNum, _colNum)。
+      《_printStackTrace》()。
+      返回空。
+    结束。
+    返回_v。
+  结束。
+
+  如果_type等于"BinaryOp"那么：
+    _lhsExpr等于_expr["left"]。
+    _lhsVal等于《_eval》(_lhsExpr, _env)。
+    _rhsExpr等于_expr["right"]。
+    _rhsVal等于《_eval》(_rhsExpr, _env)。
+    _op等于_expr["op"]。
+
+    如果_op等于"加"那么：
+      返回_lhsVal加_rhsVal。
+    结束。
+
+    如果_op等于"减"那么：
+      返回_lhsVal减_rhsVal。
+    结束。
+
+    如果_op等于"乘"那么：
+      返回_lhsVal乘_rhsVal。
+    结束。
+
+    如果_op等于"除"那么：
+      如果_rhsVal等于0那么：
+        _lineNum等于《_getOrDefault》(_expr, "line", 0)。
+        _colNum等于《_getOrDefault》(_expr, "column", 0)。
+        《_setError》("除零错误", _lineNum, _colNum)。
+        《_printStackTrace》()。
+        返回空。
+      结束。
+      返回_lhsVal除_rhsVal。
+    结束。
+
+    如果_op等于"大于"那么：
+      如果_lhsVal大于_rhsVal那么：
+        返回真。
+      结束。
+      返回假。
+    结束。
+
+    如果_op等于"小于"那么：
+      如果_lhsVal小于_rhsVal那么：
+        返回真。
+      结束。
+      返回假。
+    结束。
+
+    如果_op等于"等于"那么：
+      如果_lhsVal等于_rhsVal那么：
+        返回真。
+      结束。
+      返回假。
+    结束。
+
+    如果_op等于"不等于"那么：
+      如果_lhsVal不等于_rhsVal那么：
+        返回真。
+      结束。
+      返回假。
+    结束。
+
+    如果_op等于"大于等于"那么：
+      如果_lhsVal大于_rhsVal那么：
+        返回真。
+      结束。
+      如果_lhsVal等于_rhsVal那么：
+        返回真。
+      结束。
+      返回假。
+    结束。
+
+    如果_op等于"小于等于"那么：
+      如果_lhsVal小于_rhsVal那么：
+        返回真。
+      结束。
+      如果_lhsVal等于_rhsVal那么：
+        返回真。
+      结束。
+      返回假。
+    结束。
+
+    如果_op等于"&&"那么：
+      如果_lhsVal不等于空那么：
+        如果_lhsVal不等于0那么：
+          如果_rhsVal不等于空那么：
+            如果_rhsVal不等于0那么：
+              返回真。
+            结束。
+          结束。
+        结束。
+      结束。
+      返回假。
+    结束。
+
+    如果_op等于"||"那么：
+      如果_lhsVal不等于空那么：
+        如果_lhsVal不等于0那么：
+          返回真。
+        结束。
+      结束。
+      如果_rhsVal不等于空那么：
+        如果_rhsVal不等于0那么：
+          返回真。
+        结束。
+      结束。
+      返回假。
+    结束。
+
+    返回空。
+  结束。
+
+  如果_type等于"UnaryOp"那么：
+    _operandExpr等于_expr["operand"]。
+    _v等于《_eval》(_operandExpr, _env)。
+    _op等于_expr["op"]。
+
+    如果_op等于"负"那么：
+      返回0减_v。
+    结束。
+
+    如果_op等于"非"那么：
+      如果_v不等于空那么：
+        如果_v不等于0那么：
+          返回假。
+        结束。
+      结束。
+      返回真。
+    结束。
+
+    返回空。
+  结束。
+
+  如果_type等于"PropertyAccess"那么：
+    _objExpr等于_expr["obj"]。
+    _objVal等于《_eval》(_objExpr, _env)。
+    _propName等于_expr["property"]。
+
+    如果_propName等于"长度"那么：
+      如果_objVal之长度不等于空那么：
+        返回_objVal之长度。
+      结束。
+      返回0。
+    结束。
+
+    如果_objVal不等于空那么：
+      返回《_getMapValue》(_objVal, _propName)。
+    结束。
+
+    返回空。
+  结束。
+
+  如果_type等于"IndexAccess"那么：
+    _objExpr等于_expr["obj"]。
+    _objVal等于《_eval》(_objExpr, _env)。
+    _indexExpr等于_expr["index"]。
+    _indexVal等于《_eval》(_indexExpr, _env)。
+
+    如果_objVal不等于空那么：
+      返回_objVal[_indexVal]。
+    结束。
+
+    返回空。
+  结束。
+
+  如果_type等于"ListLiteral"那么：
+    _result等于_列()。
+    _elems等于_expr["elements"]。
+    遍历_e _elems：
+      _ev等于《_eval》(_e, _env)。
+      _result添加(_ev)。
+    结束。
+    返回_result。
+  结束。
+
+  如果_type等于"FunctionCall"那么：
+    _nameNode等于_expr["name"]。
+    _funcName等于_nameNode["name"]。
+
+    如果_funcName等于"打印"那么：
+      _args等于_expr["arguments"]。
+      _argExpr等于_args[0]。
+      _argVal等于《_eval》(_argExpr, _env)。
+      打印(_argVal)。
+      返回空。
+    结束。
+
+    如果_funcName等于"_列"那么：
+      返回_列()。
+    结束。
+
+    如果_funcName等于"_典"那么：
+      _keys等于_列()。
+      _vals等于_列()。
+      _ix等于0。
+      _args等于_expr["arguments"]。
+      遍历_arg _args：
+        _argVal等于《_eval》(_arg, _env)。
+        _even等于((_ix除2)乘2)。
+        如果_ix等于_even那么：
+          _keys添加(_argVal)。
+        否则：
+          _vals添加(_argVal)。
+        结束。
+        _ix等于_ix加1。
+      结束。
+      返回_典("keys", _keys, "values", _vals)。
+    结束。
+
+    _segVal等于《_findVar》(_env, _funcName)。
+    如果_segVal不等于空那么：
+      《_pushStack》(_funcName)。
+      _segBody等于_segVal["body"]。
+      _result等于《_execStmtList》(_segBody, _env)。
+      《_popStack》()。
+      如果_result不等于空那么：
+        返回_result。
+      结束。
+      返回空。
+    结束。
+
+    _lineNum等于《_getOrDefault》(_expr, "line", 0)。
+    _colNum等于《_getOrDefault》(_expr, "column", 0)。
+    《_setError》("未定义的函数: '"加_funcName加"'", _lineNum, _colNum)。
+    《_printStackTrace》()。
+    返回空。
+  结束。
+
+  返回空。
+结束。
+
+《_execStmt》段(_stmt, _env):
+  如果_stmt等于空那么：
+    返回空。
+  结束。
+
+  _type等于_stmt["_type"]。
+
+  如果_type等于"ExpressionStatement"那么：
+    _expr等于_stmt["expression"]。
+    《_eval》(_expr, _env)。
+    返回空。
+  结束。
+
+  如果_type等于"VariableDeclaration"那么：
+    _n等于_stmt["name"]。
+    _v等于空。
+    _valExpr等于_stmt["value"]。
+    如果_valExpr不等于空那么：
+      _v等于《_eval》(_valExpr, _env)。
+    结束。
+    _currEnv等于_env["current"]。
+    《_setMapValue》(_currEnv, _n, _v)。
+    返回空。
+  结束。
+
+  如果_type等于"Assignment"那么：
+    _target等于_stmt["target"]。
+    _targetType等于_target["_type"]。
+
+    如果_targetType等于"Identifier"那么：
+      _n等于_target["name"]。
+      _valExpr等于_stmt["value"]。
+      _v等于《_eval》(_valExpr, _env)。
+      《_setVar》(_env, _n, _v)。
+      返回空。
+    结束。
+
+    如果_targetType等于"IndexAccess"那么：
+      _objExpr等于_target["obj"]。
+      _objVal等于《_eval》(_objExpr, _env)。
+      _indexExpr等于_target["index"]。
+      _indexVal等于《_eval》(_indexExpr, _env)。
+      _valExpr等于_stmt["value"]。
+      _v等于《_eval》(_valExpr, _env)。
+      如果_objVal不等于空那么：
+        _objVal[_indexVal]等于_v。
+      结束。
+      返回空。
+    结束。
+
+    如果_targetType等于"PropertyAccess"那么：
+      _objExpr等于_target["obj"]。
+      _objVal等于《_eval》(_objExpr, _env)。
+      _propName等于_target["property"]。
+      _valExpr等于_stmt["value"]。
+      _v等于《_eval》(_valExpr, _env)。
+      如果_objVal不等于空那么：
+        《_setMapValue》(_objVal, _propName, _v)。
+      结束。
+      返回空。
+    结束。
+
+    返回空。
+  结束。
+
+  如果_type等于"IfStatement"那么：
+    _condExpr等于_stmt["condition"]。
+    _condVal等于《_eval》(_condExpr, _env)。
+
+    _condOk等于假。
+    如果_condVal不等于空那么：
+      如果_condVal不等于0那么：
+        _condOk等于真。
+      结束。
+    结束。
+
+    如果_condOk等于真那么：
+      _thenBody等于_stmt["then_body"]。
+      《_execStmtList》(_thenBody, _env)。
+    否则：
+      _elseBody等于_stmt["else_body"]。
+      如果_elseBody不等于空那么：
+        《_execStmtList》(_elseBody, _env)。
+      结束。
+    结束。
+
+    返回空。
+  结束。
+
+  如果_type等于"WhileStatement"那么：
+    _loopContinue等于真。
+    当_loopContinue等于真时：
+      _condExpr等于_stmt["condition"]。
+      _condVal等于《_eval》(_condExpr, _env)。
+      _condOk等于假。
+      如果_condVal不等于空那么：
+        如果_condVal不等于0那么：
+          _condOk等于真。
+        结束。
+      结束。
+      如果_condOk等于假那么：
+        _loopContinue等于假。
+      否则：
+        _loopBody等于_stmt["body"]。
+        《_execStmtList》(_loopBody, _env)。
+      结束。
+    结束。
+
+    返回空。
+  结束。
+
+  如果_type等于"ForEachStatement"那么：
+    _iterVar等于_stmt["var_name"]。
+    _iterExpr等于_stmt["iterable"]。
+    _iterVal等于《_eval》(_iterExpr, _env)。
+
+    如果_iterVal不等于空那么：
+      遍历_e _iterVal：
+        _currEnv等于_env["current"]。
+        《_setMapValue》(_currEnv, _iterVar, _e)。
+        _loopBody等于_stmt["body"]。
+        《_execStmtList》(_loopBody, _env)。
+      结束。
+    结束。
+
+    返回空。
+  结束。
+
+  如果_type等于"ReturnStatement"那么：
+    _valExpr等于_stmt["value"]。
+    如果_valExpr不等于空那么：
+      返回《_eval》(_valExpr, _env)。
+    结束。
+    返回空。
+  结束。
+
+  如果_type等于"PrintStatement"那么：
+    _valExpr等于_stmt["value"]。
+    _v等于《_eval》(_valExpr, _env)。
+    打印(_v)。
+    返回空。
+  结束。
+
+  如果_type等于"SegmentDefinition"那么：
+    _segName等于_stmt["name"]。
+    _currEnv等于_env["current"]。
+    《_setMapValue》(_currEnv, _segName, _stmt)。
+    返回空。
+  结束。
+
+  返回空。
+结束。
+
+《_execStmtList》段(_stmts, _env):
+  遍历_stmt _stmts：
+    _result等于《_execStmt》(_stmt, _env)。
+    如果_result不等于空那么：
+      返回_result。
+    结束。
+  结束。
+  返回空。
+结束。
+
+《_execCode》段(_code):
+  _globalEnv等于《_newEnv》(空)。
+
+  # 初始化标准库
+  《_initStdLib》(_globalEnv)。
+
+  _hasSeg等于假。
+  _segments等于_code["segments"]。
+  如果_segments不等于空那么：
+    _len等于_segments之长度。
+    如果_len大于0那么：
+      _hasSeg等于真。
+    结束。
+  结束。
+  如果_hasSeg等于真那么：
+    遍历_seg _segments：
+      《_execStmt》(_seg, _globalEnv)。
+    结束。
+  结束。
+
+  _hasStmts等于假。
+  _statements等于_code["statements"]。
+  如果_statements不等于空那么：
+    _len等于_statements之长度。
+    如果_len大于0那么：
+      _hasStmts等于真。
+    结束。
+  结束。
+  如果_hasStmts等于真那么：
+    《_execStmtList》(_statements, _globalEnv)。
+  结束。
+
+  返回空。
+结束。
+
+《_run》段(_ast):
+  如果 _ast["_type"]等于"Module"那么：
+    《_execCode》(_ast)。
+  结束。
+结束。

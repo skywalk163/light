@@ -1,4 +1,4 @@
-# 段言 v6.0 发布说明
+# 光明 v6.0 发布说明
 
 **版本**: 6.0.0  
 **发布日期**: 2026-10-29  
@@ -9,11 +9,11 @@
 
 ## 一、概述
 
-段言 v6.0 是自 v5.1 以来的重大版本，历时 12 周开发，涵盖**编译器完备（M1）**、**生态建设（M2）**、**性能与发布（M3）** 三大阶段。
+光明 v6.0 是自 v5.1 以来的重大版本，历时 12 周开发，涵盖**编译器完备（M1）**、**生态建设（M2）**、**性能与发布（M3）** 三大阶段。
 
-本次发布标志着段言从"可用"迈向"好用"的关键里程碑：
+本次发布标志着光明从"可用"迈向"好用"的关键里程碑：
 
-- **完全自举**：编译器全部功能用段言自身编写，4 轮编译收敛
+- **完全自举**：编译器全部功能用光明自身编写，4 轮编译收敛
 - **类型系统完善**：泛型、联合类型、模式匹配
 - **生态工具链**：VSCode 扩展、文档站点、在线 Playground、包注册表
 - **性能优化**：LLVM 优化 Pass、增量编译、编译速度提升 50%+
@@ -27,12 +27,12 @@
 
 #### Level 8 完全自举
 
-编译器全部功能用段言自身编写，实现了真正的自举编译：
+编译器全部功能用光明自身编写，实现了真正的自举编译：
 
 - 4 轮编译输出完全一致（收敛验证）
 - 支持类型注解、泛型、联合类型等全部新特性
 - 自举生成代码可加载运行，完成二次编译
-- 验证了 Level 8 编译器能成功自举编译 35KB+ 的段言源码
+- 验证了 Level 8 编译器能成功自举编译 35KB+ 的光明源码
 
 #### 类型系统完善
 
@@ -177,10 +177,10 @@
 
 ```bash
 # 更新到最新版本
-pip install --upgrade duan4
+pip install --upgrade light
 
 # 验证版本
-duan --version
+light --version
 ```
 
 ### 3.2 代码兼容性
@@ -232,16 +232,16 @@ duan --version
 
 ## 六、致谢
 
-感谢所有贡献者、测试者和社区成员的支持。段言 v6.0 的发布离不开每一位参与者的努力。
+感谢所有贡献者、测试者和社区成员的支持。光明 v6.0 的发布离不开每一位参与者的努力。
 
 ---
 
 ## 七、相关链接
 
-- [GitHub 仓库](https://github.com/duan-lang/duan)
-- [文档站点](https://duan-lang.github.io)
-- [在线 Playground](https://duan-lang.github.io/playground)
-- [PyPI 页面](https://pypi.org/project/duan4/)
+- [GitHub 仓库](https://github.com/light-lang/light)
+- [文档站点](https://light-lang.github.io)
+- [在线 Playground](https://light-lang.github.io/playground)
+- [PyPI 页面](https://pypi.org/project/light/)
 - [用户手册](user_guide.md)
 - [已知问题](known_issues.md)
 - [贡献指南](contributing.md)

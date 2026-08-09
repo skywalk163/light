@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-段言语法迁移脚本
+光明语法迁移脚本
 
 将旧语法批量迁移到新语法：
 1. 定义 x 等于 y  ->  设 x 为 y
-2. 令 x=v / 令 x = v  ->  设 x 为 v  (duanpub 包特有)
-3. 使用 模块.*  ->  导入 模块  (duanpub 包特有)
-4. 输出(...)  ->  打印(...)  (duanpub 包特有)
+2. 令 x=v / 令 x = v  ->  设 x 为 v  (lightpub 包特有)
+3. 使用 模块.*  ->  导入 模块  (lightpub 包特有)
+4. 输出(...)  ->  打印(...)  (lightpub 包特有)
 5. 段落/函数 名 接收 参数  ->  函数 名(参数)
 6. 对象之属性  ->  对象的属性（成员访问符统一）
 7. 段落/段 关键词  ->  函数（选词优化，段落 仍向后兼容但推荐用 函数）
@@ -14,7 +14,7 @@
 用法:
     python tools/migrate_syntax.py <文件或目录>
     python tools/migrate_syntax.py --dry-run <文件或目录>  # 预览模式
-    python tools/migrate_syntax.py --duanpub <目录>        # duanpub 包专用模式
+    python tools/migrate_syntax.py --lightpub <目录>        # lightpub 包专用模式
 """
 
 import sys
@@ -46,7 +46,7 @@ def migrate_assignment(content: str) -> tuple:
 
 
 def migrate_ling_assignment(content: str) -> tuple:
-    """迁移 duanpub 令 赋值语法：令 x=v / 令 x = v -> 设 x 为 v
+    """迁移 lightpub 令 赋值语法：令 x=v / 令 x = v -> 设 x 为 v
     
     匹配模式：
     - 令 变量名=值（等号无空格）
@@ -261,13 +261,13 @@ def migrate_paragraph_keyword(content: str) -> tuple:
 # 单文件迁移
 # =============================================================================
 
-def migrate_file(filepath: str, dry_run: bool = False, duanpub_mode: bool = False) -> list:
+def migrate_file(filepath: str, dry_run: bool = False, lightpub_mode: bool = False) -> list:
     """迁移单个文件
     
     Args:
         filepath: 文件路径
         dry_run: 预览模式
-        duanpub_mode: duanpub 包专用模式（启用令赋值、使用导入、输出函数迁移）
+        lightpub_mode: lightpub 包专用模式（启用令赋值、使用导入、输出函数迁移）
     """
     try:
         # 尝试多种编码
@@ -289,18 +289,18 @@ def migrate_file(filepath: str, dry_run: bool = False, duanpub_mode: bool = Fals
     content, changes = migrate_assignment(content)
     all_changes.extend(changes)
     
-    # 2. duanpub 特有：令 赋值迁移
-    if duanpub_mode:
+    # 2. lightpub 特有：令 赋值迁移
+    if lightpub_mode:
         content, changes = migrate_ling_assignment(content)
         all_changes.extend(changes)
     
-    # 3. duanpub 特有：使用 X.* -> 导入 X
-    if duanpub_mode:
+    # 3. lightpub 特有：使用 X.* -> 导入 X
+    if lightpub_mode:
         content, changes = migrate_import(content)
         all_changes.extend(changes)
     
-    # 4. duanpub 特有：输出() -> 打印()
-    if duanpub_mode:
+    # 4. lightpub 特有：输出() -> 打印()
+    if lightpub_mode:
         content, changes = migrate_output(content)
         all_changes.extend(changes)
     
@@ -349,7 +349,7 @@ def generate_report(all_results: dict) -> str:
     """生成迁移统计报告"""
     lines = []
     lines.append('=' * 60)
-    lines.append('  段言语法迁移统计报告')
+    lines.append('  光明语法迁移统计报告')
     lines.append('=' * 60)
     
     total_files = 0
@@ -393,11 +393,11 @@ def generate_report(all_results: dict) -> str:
 
 def main():
     if len(sys.argv) < 2:
-        print('用法: python tools/migrate_syntax.py [--dry-run] [--duanpub] <文件或目录>')
+        print('用法: python tools/migrate_syntax.py [--dry-run] [--lightpub] <文件或目录>')
         sys.exit(1)
     
     dry_run = '--dry-run' in sys.argv
-    duanpub_mode = '--duanpub' in sys.argv
+    lightpub_mode = '--lightpub' in sys.argv
     paths = [a for a in sys.argv[1:] if not a.startswith('--')]
     
     if not paths:
@@ -410,20 +410,20 @@ def main():
     for path_str in paths:
         path = Path(path_str)
         
-        if path.is_file() and path.suffix == '.duan':
+        if path.is_file() and path.suffix == '.light':
             print(f'\n处理: {path}')
-            changes = migrate_file(str(path), dry_run, duanpub_mode)
+            changes = migrate_file(str(path), dry_run, lightpub_mode)
             all_results[str(path)] = changes
             total_changes += len(changes)
         elif path.is_dir():
-            duan_files = list(path.rglob('*.duan'))
-            print(f'\n扫描目录: {path} ({len(duan_files)} 个 .duan 文件)')
-            for f in duan_files:
-                changes = migrate_file(str(f), dry_run, duanpub_mode)
+            light_files = list(path.rglob('*.light'))
+            print(f'\n扫描目录: {path} ({len(light_files)} 个 .light 文件)')
+            for f in light_files:
+                changes = migrate_file(str(f), dry_run, lightpub_mode)
                 all_results[str(f)] = changes
                 total_changes += len(changes)
         else:
-            print(f'\n跳过: {path} (不是 .duan 文件或目录)')
+            print(f'\n跳过: {path} (不是 .light 文件或目录)')
     
     # 生成统计报告
     print(generate_report(all_results))

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）性能分析器
+光明（Light）性能分析器
 
 功能：
   - 执行时间分析
@@ -9,9 +9,9 @@
   - 热点代码识别
 
 用法：
-  duan profile file.duan           # 基础性能分析
-  duan profile file.duan --memory  # 包含内存分析
-  duan profile file.duan --report  # 生成性能报告
+  light profile file.light           # 基础性能分析
+  light profile file.light --memory  # 包含内存分析
+  light profile file.light --report  # 生成性能报告
 """
 
 import os
@@ -25,25 +25,25 @@ import io
 from pathlib import Path
 
 
-class DuanProfiler:
-    """段言性能分析器"""
+class LightProfiler:
+    """光明性能分析器"""
 
     def __init__(self):
         self.stats = {}
         self.traces = []
 
     def profile(self, filepath: str, memory: bool = False, report: bool = False) -> dict:
-        """分析段言程序的性能
+        """分析光明程序的性能
 
         Args:
-            filepath: 段言文件路径
+            filepath: 光明文件路径
             memory: 是否分析内存
             report: 是否生成详细报告
 
         Returns:
             性能分析结果
         """
-        from duan_parser_v3 import DuanParser
+        from light_parser_v3 import LightParser
         from code_generator import PythonCodeGenerator
 
         # 读取源代码
@@ -52,7 +52,7 @@ class DuanProfiler:
 
         # 编译
         compile_start = time.time()
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse(source)
         generator = PythonCodeGenerator()
         py_code = generator.generate(module)
@@ -118,18 +118,18 @@ class DuanProfiler:
         """使用 cProfile 进行详细性能分析
 
         Args:
-            filepath: 段言文件路径
+            filepath: 光明文件路径
 
         Returns:
             详细性能分析结果
         """
-        from duan_parser_v3 import DuanParser
+        from light_parser_v3 import LightParser
         from code_generator import PythonCodeGenerator
 
         with open(filepath, 'r', encoding='utf-8') as f:
             source = f.read()
 
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse(source)
         generator = PythonCodeGenerator()
         py_code = generator.generate(module)
@@ -211,9 +211,9 @@ class DuanProfiler:
             # 建议
             suggestions = []
             if stats.get('compile_time_ms', 0) > stats.get('exec_time_ms', 0) * 2:
-                suggestions.append('编译时间较长，考虑使用 duan compile 预编译')
+                suggestions.append('编译时间较长，考虑使用 light compile 预编译')
             if exec_time > 500:
-                suggestions.append('执行时间较长，考虑使用 LLVM 后端原生编译 (duan pkg native)')
+                suggestions.append('执行时间较长，考虑使用 LLVM 后端原生编译 (light pkg native)')
             if stats.get('expansion_ratio', 1) > 10:
                 suggestions.append('代码膨胀率较高，检查是否有大量内置函数调用')
             if suggestions:
@@ -225,7 +225,7 @@ class DuanProfiler:
 def format_profile_output(stats: dict, report: bool = False, cprofile: bool = False):
     """格式化输出性能分析结果"""
     print("=" * 60)
-    print("  段言性能分析")
+    print("  光明性能分析")
     print("=" * 60)
     print(f"  文件: {stats.get('file', '')}")
     print()
@@ -279,7 +279,7 @@ def format_profile_output(stats: dict, report: bool = False, cprofile: bool = Fa
 
 def run_profile(target: str, memory: bool = False, report: bool = False, cprofile: bool = False):
     """运行性能分析"""
-    profiler = DuanProfiler()
+    profiler = LightProfiler()
 
     if cprofile:
         stats = profiler.profile_with_cprofile(target)

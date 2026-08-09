@@ -1,5 +1,5 @@
 /**
- * 段言 (Duan) Web Playground - 前端逻辑 v4.0
+ * 光明 (Light) Web Playground - 前端逻辑 v4.0
  */
 
 let editor = null;
@@ -11,11 +11,11 @@ let currentProjectName = '';
 let currentStyle = 'L2'; // 默认 L2 文言模式
 
 const API_BASE = '';
-const STORAGE_KEY = 'duan_playground_code';
-const PROJECT_KEY = 'duan_playground_project';
-const THEME_KEY = 'duan_playground_theme';
-const FONT_KEY = 'duan_playground_font';
-const STYLE_KEY = 'duan_playground_style';
+const STORAGE_KEY = 'light_playground_code';
+const PROJECT_KEY = 'light_playground_project';
+const THEME_KEY = 'light_playground_theme';
+const FONT_KEY = 'light_playground_font';
+const STYLE_KEY = 'light_playground_style';
 
 loadExamples();
 
@@ -40,11 +40,11 @@ require.config({
 });
 
 require(['vs/editor/editor.main'], function () {
-    monaco.languages.register({ id: 'duan' });
+    monaco.languages.register({ id: 'light' });
 
-    monaco.languages.setMonarchTokensProvider('duan', {
+    monaco.languages.setMonarchTokensProvider('light', {
         defaultToken: '',
-        tokenPostfix: '.duan',
+        tokenPostfix: '.light',
 
         keywords: [
             // v4.0 L0 核心关键字（单字主形式）
@@ -133,7 +133,7 @@ require(['vs/editor/editor.main'], function () {
 
     editor = monaco.editor.create(document.getElementById('editor'), {
         value: defaultCode,
-        language: 'duan',
+        language: 'light',
         theme: monacoTheme,
         fontSize: currentFontSize,
         lineHeight: currentFontSize + 8,
@@ -207,12 +207,12 @@ setTimeout(function() {
 }, 5000);
 
 function getDefaultCode() {
-    return `# 欢迎使用段言 v4.0 Playground！
+    return `# 欢迎使用光明 v4.0 Playground！
 # 试试运行这段代码 👇
 # 快捷键：Ctrl+Enter 运行
 # 文体切换：点击工具栏「文」按钮切换 L1白话 / L2文言
 
-印("你好，段言 v4.0！")
+印("你好，光明 v4.0！")
 
 设 甲 为 10
 设 乙 为 20
@@ -666,7 +666,7 @@ function loadStdlib() {
 function renderGrammar(categories) {
     const panel = document.getElementById('grammarModalBody');
 
-    let html = '<div class="grammar-intro"><p>快速入门段言 v4.0 分层语法。L0 核心字（30个）稳定不变，L1 白话子集（19字）适合教学，L2 文言全集（30字）适合商业项目。点击「示例」可加载对应代码体验。</p></div>';
+    let html = '<div class="grammar-intro"><p>快速入门光明 v4.0 分层语法。L0 核心字（30个）稳定不变，L1 白话子集（19字）适合教学，L2 文言全集（30字）适合商业项目。点击「示例」可加载对应代码体验。</p></div>';
 
     categories.forEach(function(cat) {
         html += '<div class="grammar-category">';
@@ -699,7 +699,7 @@ function renderGrammar(categories) {
 function renderStdlib(categories) {
     const panel = document.getElementById('stdlibModalBody');
 
-    let html = '<div class="grammar-intro"><p>段言标准库提供了丰富的功能模块，点击查看各模块的使用方法。</p></div>';
+    let html = '<div class="grammar-intro"><p>光明标准库提供了丰富的功能模块，点击查看各模块的使用方法。</p></div>';
 
     categories.forEach(function(cat) {
         html += '<div class="grammar-category">';
@@ -886,7 +886,7 @@ function applyStyle(style) {
 // ==================== 多文件项目管理 ====================
 
 var openFiles = {};           // {filename: {content, dirty}}
-var activeFile = 'main.duan'; // 当前编辑的文件
+var activeFile = 'main.light'; // 当前编辑的文件
 var projectFiles = [];        // 项目文件列表
 var fileToDelete = null;     // 待删除的文件名
 
@@ -1199,13 +1199,13 @@ function newProject() {
 
     currentProjectName = '';
     openFiles = {};
-    activeFile = 'main.duan';
+    activeFile = 'main.light';
     projectFiles = [];
     updateProjectNameDisplay();
     try { localStorage.removeItem(PROJECT_KEY); } catch(e) {}
 
-    // 创建默认 main.duan
-    openFiles['main.duan'] = { content: getDefaultCode(), dirty: false };
+    // 创建默认 main.light
+    openFiles['main.light'] = { content: getDefaultCode(), dirty: false };
     if (editor) editor.setValue(getDefaultCode());
     renderFileTree();
     renderEditorTabs();
@@ -1241,8 +1241,8 @@ function loadProject(name) {
                 if (editor) editor.setValue(openFiles[activeFile].content);
             }
         } else {
-            activeFile = 'main.duan';
-            openFiles['main.duan'] = { content: getDefaultCode(), dirty: false };
+            activeFile = 'main.light';
+            openFiles['main.light'] = { content: getDefaultCode(), dirty: false };
             if (editor) editor.setValue(getDefaultCode());
         }
 
@@ -1269,7 +1269,7 @@ function deleteProject(name) {
             if (currentProjectName === name) {
                 currentProjectName = '';
                 openFiles = {};
-                activeFile = 'main.duan';
+                activeFile = 'main.light';
                 projectFiles = [];
                 updateProjectNameDisplay();
                 renderFileTree();
@@ -1306,7 +1306,7 @@ function downloadCode() {
     if (editor && activeFile && openFiles[activeFile]) {
         code = editor.getValue();
     }
-    var filename = activeFile || 'duan_code.duan';
+    var filename = activeFile || 'light_code.light';
     var blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -1331,7 +1331,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!file) return;
             var reader = new FileReader();
             reader.onload = function(ev) {
-                var name = file.name.replace(/\.duan$/,'').replace(/\.txt$/,'').replace(/\.text$/,'');
+                var name = file.name.replace(/\.light$/,'').replace(/\.txt$/,'').replace(/\.text$/,'');
                 var content = ev.target.result;
                 // 如果已有项目，添加为项目文件
                 if (currentProjectName) {

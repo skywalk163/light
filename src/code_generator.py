@@ -1,20 +1,20 @@
 """
-段言（Duan）编程语言 - Python代码生成器
+光明（Light）编程语言 - Python代码生成器
 
-将段言AST转换为Python代码
+将光明AST转换为Python代码
 """
 
 import os, sys
 sys.path.insert(0, os.path.dirname(__file__))
 
 from typing import List, Optional, Dict
-from duan_parser_v3 import *
+from light_parser_v3 import *
 from keywords import VERB_ARITY
 import ast_nodes as ast_nodes_module
 
 
 # 需要导入新的AST节点类型
-from duan_parser_v3 import ImportStmt, ExportStmt, IndexAccess, SliceExpr, SetComprehension, TupleLiteral, BreakStmt, ContinueStmt, PassStmt, ClassInstantiation, MemberAccess, TryStmt, ThrowStmt, Parameter, ParameterList, StringInterpolation, ListComprehension, LambdaExpression, MatchStmt, MatchCase, MatchPattern, DictComprehension, DestructuringAssignment, WithStmt, DecoratorDefinition, DictLiteral, InterfaceDefinition, MethodSignature, IndexedAssignment, RangeExpr, FFILoadLibrary, FFIFunctionDecl, FFIStructDef, FFICallbackDef, FFICreateArray, FFISetArrayElement, FFIAllocMemory, FFIFreeMemory, FFISetPointerValue, FFISetErrno, FFITryCatch, FFIEnumDef, FFIUnionDef, FFICreateCallback, FFIVarArgsDecl, FFIStructByValue, FFILibraryPath, FFITypedefDef, FFIBitfieldDef, FFIFuncPtrDef, FFIDebugConfig, FFIPreprocessorDef
+from light_parser_v3 import ImportStmt, ExportStmt, IndexAccess, SliceExpr, SetComprehension, TupleLiteral, BreakStmt, ContinueStmt, PassStmt, ClassInstantiation, MemberAccess, TryStmt, ThrowStmt, Parameter, ParameterList, StringInterpolation, ListComprehension, LambdaExpression, MatchStmt, MatchCase, MatchPattern, DictComprehension, DestructuringAssignment, WithStmt, DecoratorDefinition, DictLiteral, InterfaceDefinition, MethodSignature, IndexedAssignment, RangeExpr, FFILoadLibrary, FFIFunctionDecl, FFIStructDef, FFICallbackDef, FFICreateArray, FFISetArrayElement, FFIAllocMemory, FFIFreeMemory, FFISetPointerValue, FFISetErrno, FFITryCatch, FFIEnumDef, FFIUnionDef, FFICreateCallback, FFIVarArgsDecl, FFIStructByValue, FFILibraryPath, FFITypedefDef, FFIBitfieldDef, FFIFuncPtrDef, FFIDebugConfig, FFIPreprocessorDef
 from ast_nodes_v3 import Assignment, TypeCheckToggleStmt, AwaitExpr, KeywordArg, IndexedCompoundAssignment, PassStmt, AssignmentExpression, SetLiteral, EmbedBlock
 
 
@@ -38,7 +38,7 @@ class CodeGenError(Exception):
 # =============================================================================
 
 class PythonCodeGenerator:
-    """段言到Python代码生成器"""
+    """光明到Python代码生成器"""
     
     def __init__(self):
         self.indent_level = 0
@@ -154,7 +154,7 @@ class PythonCodeGenerator:
             '打印': 'print',
             '显示': 'print',
             '输出': 'print',
-            '断言': '_duan_assert',
+            '断言': '_light_assert',
             '读取': 'input',
             '长': 'len',
             '长度': 'len',
@@ -184,48 +184,48 @@ class PythonCodeGenerator:
             '去重': 'lambda x: list(set(x))',
             
             # 文件I/O
-            '读取文件': '_duan_builtin.读取文件',
-            '_读文件': '_duan_builtin._读文件',
-            '写入文件': '_duan_builtin.写入文件',
-            '追加文件': '_duan_builtin.追加文件',
-            '文件存在': '_duan_builtin.文件存在',
-            '目录存在': '_duan_builtin.目录存在',
-            '路径存在': '_duan_builtin.路径存在',
-            '创建目录': '_duan_builtin.创建目录',
-            '删除文件': '_duan_builtin.删除文件',
-            '删除目录': '_duan_builtin.删除目录',
-            '列出目录': '_duan_builtin.列出目录',
-            '文件大小': '_duan_builtin.文件大小',
+            '读取文件': '_light_builtin.读取文件',
+            '_读文件': '_light_builtin._读文件',
+            '写入文件': '_light_builtin.写入文件',
+            '追加文件': '_light_builtin.追加文件',
+            '文件存在': '_light_builtin.文件存在',
+            '目录存在': '_light_builtin.目录存在',
+            '路径存在': '_light_builtin.路径存在',
+            '创建目录': '_light_builtin.创建目录',
+            '删除文件': '_light_builtin.删除文件',
+            '删除目录': '_light_builtin.删除目录',
+            '列出目录': '_light_builtin.列出目录',
+            '文件大小': '_light_builtin.文件大小',
             
             # 路径操作
-            '绝对路径': '_duan_builtin.绝对路径',
-            '连接路径': '_duan_builtin.连接路径',
-            '目录名': '_duan_builtin.目录名',
-            '文件名': '_duan_builtin.文件名',
-            '扩展名': '_duan_builtin.扩展名',
+            '绝对路径': '_light_builtin.绝对路径',
+            '连接路径': '_light_builtin.连接路径',
+            '目录名': '_light_builtin.目录名',
+            '文件名': '_light_builtin.文件名',
+            '扩展名': '_light_builtin.扩展名',
             
             # 系统函数
-            '环境变量': '_duan_builtin.环境变量',
-            '设置环境变量': '_duan_builtin.设置环境变量',
-            '参数列表': '_duan_builtin.参数列表',
-            '退出程序': '_duan_builtin.退出程序',
-            '当前目录': '_duan_builtin.当前目录',
-            '切换目录': '_duan_builtin.切换目录',
-            '执行命令': '_duan_builtin.执行命令',
+            '环境变量': '_light_builtin.环境变量',
+            '设置环境变量': '_light_builtin.设置环境变量',
+            '参数列表': '_light_builtin.参数列表',
+            '退出程序': '_light_builtin.退出程序',
+            '当前目录': '_light_builtin.当前目录',
+            '切换目录': '_light_builtin.切换目录',
+            '执行命令': '_light_builtin.执行命令',
 
             # 标准输入输出
-            '读取行': '_duan_builtin.读取行',
-            '读取N字节': '_duan_builtin.读取N字节',
-            '写入输出': '_duan_builtin.写入输出',
-            '打印输出': '_duan_builtin.打印输出',
-            '刷新输出': '_duan_builtin.刷新输出',
-            '写入错误': '_duan_builtin.写入错误',
-            '打印错误': '_duan_builtin.打印错误',
+            '读取行': '_light_builtin.读取行',
+            '读取N字节': '_light_builtin.读取N字节',
+            '写入输出': '_light_builtin.写入输出',
+            '打印输出': '_light_builtin.打印输出',
+            '刷新输出': '_light_builtin.刷新输出',
+            '写入错误': '_light_builtin.写入错误',
+            '打印错误': '_light_builtin.打印错误',
 
             # JSON 处理
-            '解析JSON': '_duan_builtin.解析JSON',
-            '序列化JSON': '_duan_builtin.序列化JSON',
-            '美化JSON': '_duan_builtin.美化JSON',
+            '解析JSON': '_light_builtin.解析JSON',
+            '序列化JSON': '_light_builtin.序列化JSON',
+            '美化JSON': '_light_builtin.美化JSON',
 
             # 函数式编程
             '筛选': 'filter',
@@ -241,116 +241,116 @@ class PythonCodeGenerator:
             '打开文件': 'open',
 
             # 字符串工具
-            '转整数': '_duan_builtin.转整数',
-            '转浮点': '_duan_builtin.转浮点',
-            '转串': '_duan_builtin.转字符串',
-            '转字符串': '_duan_builtin.转字符串',
-            '到字符串': '_duan_builtin.转字符串',
-            '转换字符串': '_duan_builtin.转字符串',
-            '到数字': '_duan_builtin.转浮点',
-            '转数字': '_duan_builtin.转浮点',
-            '字符串长度': '_duan_builtin.字符串长度',
-            '字符串获取': '_duan_builtin.字符串获取',
-            '字符串包含': '_duan_builtin.字符串包含',
-            '包含': '_duan_builtin.包含',
-            '字符串替换': '_duan_builtin.字符串替换',
-            '字符串分割': '_duan_builtin.字符串分割',
-            '分割字符串': '_duan_builtin.分割字符串',
-            '连接字符串': '_duan_builtin.连接字符串',
-            '替换字符串': '_duan_builtin.替换字符串',
-            '去除空白': '_duan_builtin.去除空白',
-            '转大写': '_duan_builtin.转大写',
-            '转小写': '_duan_builtin.转小写',
-            '截取': '_duan_builtin.截取',
-            '子串': '_duan_builtin.截取',
-            '字符串截取': '_duan_builtin.截取',
-            '开头': '_duan_builtin.开头',
-            '结尾': '_duan_builtin.结尾',
-            '查找子串': '_duan_builtin.查找子串',
-            '替换字符串次数': '_duan_builtin.替换字符串次数',
-            '截取到末尾': '_duan_builtin.截取到末尾',
-            '字符串计数': '_duan_builtin.字符串计数',
-            '字符串重复': '_duan_builtin.字符串重复',
-            '字符串反转': '_duan_builtin.字符串反转',
-            '转标题': '_duan_builtin.转标题',
-            '去除左侧空白': '_duan_builtin.去除左侧空白',
-            '去除右侧空白': '_duan_builtin.去除右侧空白',
-            '字符串对齐居中': '_duan_builtin.字符串对齐居中',
-            '字符串对齐左': '_duan_builtin.字符串对齐左',
-            '字符串对齐右': '_duan_builtin.字符串对齐右',
+            '转整数': '_light_builtin.转整数',
+            '转浮点': '_light_builtin.转浮点',
+            '转串': '_light_builtin.转字符串',
+            '转字符串': '_light_builtin.转字符串',
+            '到字符串': '_light_builtin.转字符串',
+            '转换字符串': '_light_builtin.转字符串',
+            '到数字': '_light_builtin.转浮点',
+            '转数字': '_light_builtin.转浮点',
+            '字符串长度': '_light_builtin.字符串长度',
+            '字符串获取': '_light_builtin.字符串获取',
+            '字符串包含': '_light_builtin.字符串包含',
+            '包含': '_light_builtin.包含',
+            '字符串替换': '_light_builtin.字符串替换',
+            '字符串分割': '_light_builtin.字符串分割',
+            '分割字符串': '_light_builtin.分割字符串',
+            '连接字符串': '_light_builtin.连接字符串',
+            '替换字符串': '_light_builtin.替换字符串',
+            '去除空白': '_light_builtin.去除空白',
+            '转大写': '_light_builtin.转大写',
+            '转小写': '_light_builtin.转小写',
+            '截取': '_light_builtin.截取',
+            '子串': '_light_builtin.截取',
+            '字符串截取': '_light_builtin.截取',
+            '开头': '_light_builtin.开头',
+            '结尾': '_light_builtin.结尾',
+            '查找子串': '_light_builtin.查找子串',
+            '替换字符串次数': '_light_builtin.替换字符串次数',
+            '截取到末尾': '_light_builtin.截取到末尾',
+            '字符串计数': '_light_builtin.字符串计数',
+            '字符串重复': '_light_builtin.字符串重复',
+            '字符串反转': '_light_builtin.字符串反转',
+            '转标题': '_light_builtin.转标题',
+            '去除左侧空白': '_light_builtin.去除左侧空白',
+            '去除右侧空白': '_light_builtin.去除右侧空白',
+            '字符串对齐居中': '_light_builtin.字符串对齐居中',
+            '字符串对齐左': '_light_builtin.字符串对齐左',
+            '字符串对齐右': '_light_builtin.字符串对齐右',
             
             # 列表工具
-            '列': '_duan_builtin.列',
-            '列表长度': '_duan_builtin.列表长度',
-            '列表获取': '_duan_builtin.列表获取',
-            '列表追加': '_duan_builtin.列表追加',
-            '列表弹出': '_duan_builtin.列表弹出',
-            '列表排序': '_duan_builtin.列表排序',
-            '列表反转': '_duan_builtin.列表反转',
-            '列表包含': '_duan_builtin.列表包含',
-            '列表创建': '_duan_builtin.列表创建',
+            '列': '_light_builtin.列',
+            '列表长度': '_light_builtin.列表长度',
+            '列表获取': '_light_builtin.列表获取',
+            '列表追加': '_light_builtin.列表追加',
+            '列表弹出': '_light_builtin.列表弹出',
+            '列表排序': '_light_builtin.列表排序',
+            '列表反转': '_light_builtin.列表反转',
+            '列表包含': '_light_builtin.列表包含',
+            '列表创建': '_light_builtin.列表创建',
             
             # 字典工具
-            '字典': '_duan_builtin.字典创建',
-            '字典创建': '_duan_builtin.字典创建',
-            '字典设置': '_duan_builtin.字典设置',
-            '字典删除': '_duan_builtin.字典删除',
-            '字典键列表': '_duan_builtin.字典键列表',
-            '字典值列表': '_duan_builtin.字典值列表',
-            '字典项列表': '_duan_builtin.字典项列表',
-            '字典包含键': '_duan_builtin.字典包含键',
-            '字典获取': '_duan_builtin.字典获取',
+            '字典': '_light_builtin.字典创建',
+            '字典创建': '_light_builtin.字典创建',
+            '字典设置': '_light_builtin.字典设置',
+            '字典删除': '_light_builtin.字典删除',
+            '字典键列表': '_light_builtin.字典键列表',
+            '字典值列表': '_light_builtin.字典值列表',
+            '字典项列表': '_light_builtin.字典项列表',
+            '字典包含键': '_light_builtin.字典包含键',
+            '字典获取': '_light_builtin.字典获取',
             
             # 类型检查
-            '是整数': '_duan_builtin.是整数',
-            '是浮点': '_duan_builtin.是浮点',
-            '是字符串': '_duan_builtin.是字符串',
-            '是列表': '_duan_builtin.是列表',
-            '是字典': '_duan_builtin.是字典',
-            '是空': '_duan_builtin.是空',
+            '是整数': '_light_builtin.是整数',
+            '是浮点': '_light_builtin.是浮点',
+            '是字符串': '_light_builtin.是字符串',
+            '是列表': '_light_builtin.是列表',
+            '是字典': '_light_builtin.是字典',
+            '是空': '_light_builtin.是空',
             
             # 日期时间
-            '时间戳': '_duan_builtin.时间戳',
-            '格式化时间': '_duan_builtin.格式化时间',
+            '时间戳': '_light_builtin.时间戳',
+            '格式化时间': '_light_builtin.格式化时间',
 
             # C FFI 指针/数组/错误处理
-            '取地址': '_duan_ffi.取地址',
-            '解引用': '_duan_ffi.解引用',
-            '指针偏移': '_duan_ffi.指针偏移',
-            'FFI错误': '_duan_ffi.获取FFI错误',
-            '系统错误码': '_duan_ffi.获取系统错误码',
-            '设系统错误码': '_duan_ffi.设系统错误码',
-            '创建数组': '_duan_ffi.创建数组',
-            '设置数组': '_duan_ffi.设置数组',
-            '分配内存': '_duan_ffi.分配内存',
-            '释放内存': '_duan_ffi.释放内存',
-            '设指针值': '_duan_ffi.设指针值',
+            '取地址': '_light_ffi.取地址',
+            '解引用': '_light_ffi.解引用',
+            '指针偏移': '_light_ffi.指针偏移',
+            'FFI错误': '_light_ffi.获取FFI错误',
+            '系统错误码': '_light_ffi.获取系统错误码',
+            '设系统错误码': '_light_ffi.设系统错误码',
+            '创建数组': '_light_ffi.创建数组',
+            '设置数组': '_light_ffi.设置数组',
+            '分配内存': '_light_ffi.分配内存',
+            '释放内存': '_light_ffi.释放内存',
+            '设指针值': '_light_ffi.设指针值',
             # C FFI 第三阶段
-            '创建回调': '_duan_ffi.创建回调函数',
-            '创建结构体值': '_duan_ffi.创建结构体值',
-            '创建枚举': '_duan_ffi.创建枚举',
-            '创建联合体': '_duan_ffi.创建联合体',
-            '解析库路径': '_duan_ffi.解析库路径',
-            '变长参数调用': '_duan_ffi.变长参数调用',
-            '获取平台': '_duan_ffi.获取平台',
-            '查找库': '_duan_ffi.查找库',
-            '结构体大小': '_duan_ffi.结构体大小',
-            '字段偏移': '_duan_ffi.字段偏移',
-            '结构体转字节': '_duan_ffi.结构体转字节',
-            '字节转结构体': '_duan_ffi.字节转结构体',
+            '创建回调': '_light_ffi.创建回调函数',
+            '创建结构体值': '_light_ffi.创建结构体值',
+            '创建枚举': '_light_ffi.创建枚举',
+            '创建联合体': '_light_ffi.创建联合体',
+            '解析库路径': '_light_ffi.解析库路径',
+            '变长参数调用': '_light_ffi.变长参数调用',
+            '获取平台': '_light_ffi.获取平台',
+            '查找库': '_light_ffi.查找库',
+            '结构体大小': '_light_ffi.结构体大小',
+            '字段偏移': '_light_ffi.字段偏移',
+            '结构体转字节': '_light_ffi.结构体转字节',
+            '字节转结构体': '_light_ffi.字节转结构体',
             # C FFI 第四阶段
-            '注册回调': '_duan_ffi.注册回调',
-            '注销回调': '_duan_ffi.注销回调',
-            '获取回调': '_duan_ffi.获取回调',
-            'FFI调试': '_duan_ffi.启用调试',
-            'FFI禁用调试': '_duan_ffi.禁用调试',
-            'FFI获取日志': '_duan_ffi.获取日志',
-            '位域设置': '_duan_ffi.位域设置',
-            '位域获取': '_duan_ffi.位域获取',
-            '创建函数指针': '_duan_ffi.创建函数指针',
-            '创建类型别名': '_duan_ffi.创建类型别名',
-            '定义宏': '_duan_ffi.定义宏',
-            '获取宏': '_duan_ffi.获取宏',
+            '注册回调': '_light_ffi.注册回调',
+            '注销回调': '_light_ffi.注销回调',
+            '获取回调': '_light_ffi.获取回调',
+            'FFI调试': '_light_ffi.启用调试',
+            'FFI禁用调试': '_light_ffi.禁用调试',
+            'FFI获取日志': '_light_ffi.获取日志',
+            '位域设置': '_light_ffi.位域设置',
+            '位域获取': '_light_ffi.位域获取',
+            '创建函数指针': '_light_ffi.创建函数指针',
+            '创建类型别名': '_light_ffi.创建类型别名',
+            '定义宏': '_light_ffi.定义宏',
+            '获取宏': '_light_ffi.获取宏',
         }
     
     def generate(self, module: Module) -> str:
@@ -360,15 +360,15 @@ class PythonCodeGenerator:
         self._user_defined_functions = set()  # 重置用户自定义函数追踪
         
         # 添加文件头
-        self._add_line("# 由段言编译器生成")
-        self._add_line("# 源文件: 段言代码")
+        self._add_line("# 由光明编译器生成")
+        self._add_line("# 源文件: 光明代码")
         self._add_line("")
         
         # 添加标准库导入
         self._add_line("import sys")
         self._add_line("import os")
         self._add_line("import ctypes")
-        self._add_line("import stdlib.FFI as _duan_ffi")
+        self._add_line("import stdlib.FFI as _light_ffi")
         self._add_line("from typing import Any")
         self._add_line("")
         self._add_line("try:")
@@ -377,128 +377,128 @@ class PythonCodeGenerator:
         self._add_line("    importlib = None")
         self._add_line("")
         self._add_line("# 解析 stdlib 路径（依次尝试多种可能）")
-        self._add_line("_duan_stdlib = None")
+        self._add_line("_light_stdlib = None")
         self._add_line("try:")
-        self._add_line("    _duan_file_dir = os.path.dirname(os.path.abspath(__file__))")
+        self._add_line("    _light_file_dir = os.path.dirname(os.path.abspath(__file__))")
         self._add_line("except NameError:")
-        self._add_line("    _duan_file_dir = None")
+        self._add_line("    _light_file_dir = None")
         self._add_line("for _try_path in [")
-        self._add_line("    os.path.join(_duan_file_dir, 'stdlib') if _duan_file_dir else None,")
-        self._add_line("    os.path.join(_duan_file_dir, '..', 'stdlib') if _duan_file_dir else None,")
+        self._add_line("    os.path.join(_light_file_dir, 'stdlib') if _light_file_dir else None,")
+        self._add_line("    os.path.join(_light_file_dir, '..', 'stdlib') if _light_file_dir else None,")
         self._add_line("    os.path.join(os.getcwd(), 'stdlib'),")
-        self._add_line("    os.path.normpath(os.path.join(_duan_file_dir, '..', '..', 'stdlib')) if _duan_file_dir else None,")
+        self._add_line("    os.path.normpath(os.path.join(_light_file_dir, '..', '..', 'stdlib')) if _light_file_dir else None,")
         self._add_line("]:")
         self._add_line("    if _try_path and os.path.isdir(_try_path):")
-        self._add_line("        _duan_stdlib = _try_path")
+        self._add_line("        _light_stdlib = _try_path")
         self._add_line("        break")
         self._add_line("")
-        self._add_line("if _duan_stdlib and _duan_stdlib not in sys.path:")
-        self._add_line("    sys.path.insert(0, _duan_stdlib)")
+        self._add_line("if _light_stdlib and _light_stdlib not in sys.path:")
+        self._add_line("    sys.path.insert(0, _light_stdlib)")
         self._add_line("")
         self._add_line("if importlib:")
         self._add_line("    try:")
-        self._add_line("        _duan_builtin_path = os.path.join(_duan_stdlib, 'builtins.py')")
-        self._add_line("        if os.path.isfile(_duan_builtin_path):")
-        self._add_line("            spec = importlib.util.spec_from_file_location('duan_builtins', _duan_builtin_path)")
-        self._add_line("            _duan_builtin = importlib.util.module_from_spec(spec)")
-        self._add_line("            spec.loader.exec_module(_duan_builtin)")
+        self._add_line("        _light_builtin_path = os.path.join(_light_stdlib, 'builtins.py')")
+        self._add_line("        if os.path.isfile(_light_builtin_path):")
+        self._add_line("            spec = importlib.util.spec_from_file_location('light_builtins', _light_builtin_path)")
+        self._add_line("            _light_builtin = importlib.util.module_from_spec(spec)")
+        self._add_line("            spec.loader.exec_module(_light_builtin)")
         self._add_line("        else:")
         self._add_line("            raise ImportError()")
         self._add_line("    except:")
         self._add_line("        import types")
-        self._add_line("        _duan_builtin = types.ModuleType('_duan_builtin')")
-        self._add_line("        _duan_builtin.读取文件 = lambda path: open(path, 'r', encoding='utf-8').read() if __import__('os').path.isfile(path) else ''")
-        self._add_line("        _duan_builtin._读文件 = lambda path: open(path, 'r', encoding='utf-8').read() if __import__('os').path.isfile(path) else ''")
-        self._add_line("        _duan_builtin.写入文件 = lambda path, content: open(path, 'w', encoding='utf-8').write(content) or None")
-        self._add_line("        _duan_builtin.删除文件 = lambda path: __import__('os').remove(path) if __import__('os').path.isfile(path) else None")
-        self._add_line("        _duan_builtin.删除目录 = lambda path: __import__('os').rmdir(path)")
-        self._add_line("        _duan_builtin.文件存在 = lambda path: __import__('os').path.isfile(path)")
-        self._add_line("        _duan_builtin.目录存在 = lambda path: __import__('os').path.isdir(path)")
-        self._add_line("        _duan_builtin.打印 = print")
-        self._add_line("        _duan_builtin.读取行 = lambda: sys.stdin.readline().rstrip('\\r\\n')")
-        self._add_line("        _duan_builtin.读取N字节 = lambda n: sys.stdin.read(n)")
-        self._add_line("        _duan_builtin.写入输出 = lambda t: (sys.stdout.write(t), sys.stdout.flush()) and None")
-        self._add_line("        _duan_builtin.打印输出 = lambda t: print(t, flush=True)")
-        self._add_line("        _duan_builtin.刷新输出 = lambda: sys.stdout.flush()")
-        self._add_line("        _duan_builtin.写入错误 = lambda t: (sys.stderr.write(t), sys.stderr.flush()) and None")
-        self._add_line("        _duan_builtin.打印错误 = lambda t: print(t, file=sys.stderr, flush=True)")
-        self._add_line("        _duan_builtin.解析JSON = lambda t: __import__('json').loads(t)")
-        self._add_line("        _duan_builtin.序列化JSON = lambda v, i=None: (__import__('json').dumps(v, ensure_ascii=False, indent=i) if i is not None else __import__('json').dumps(v, ensure_ascii=False))")
-        self._add_line("        _duan_builtin.美化JSON = lambda v: __import__('json').dumps(v, ensure_ascii=False, indent=2)")
-        self._add_line("        _duan_builtin.转字符串 = str")
-        self._add_line("        _duan_builtin.转整数 = int")
-        self._add_line("        _duan_builtin.转浮点 = float")
-        self._add_line("        _duan_builtin.chr = chr")
-        self._add_line("        _duan_builtin.bin = bin")
-        self._add_line("        _duan_builtin.hex = hex")
-        self._add_line("        _duan_builtin.oct = oct")
-        self._add_line("        _duan_builtin.列表创建 = list")
-        self._add_line("        _duan_builtin.列表长度 = len")
-        self._add_line("        _duan_builtin.列 = lambda *args: list(args)")
-        self._add_line("        _duan_builtin.列表追加 = lambda lst, item: lst.append(item)")
-        self._add_line("        _duan_builtin.列表包含 = lambda lst, item: item in lst")
-        self._add_line("        _duan_builtin.包含 = lambda sub, s: sub in s")
-        self._add_line("        _duan_builtin.字符串长度 = len")
-        self._add_line("        _duan_builtin.截取 = lambda s, start, end: s[start:end]")
-        self._add_line("        _duan_builtin.转大写 = lambda s: s.upper()")
-        self._add_line("        _duan_builtin.转小写 = lambda s: s.lower()")
-        self._add_line("        _duan_builtin.结尾 = lambda s, suffix: s.endswith(suffix)")
-        self._add_line("        _duan_builtin.开头 = lambda s, prefix: s.startswith(prefix)")
-        self._add_line("        _duan_builtin.字典创建 = dict")
-        self._add_line("        _duan_builtin.字典设置 = lambda d, k, v: d.update({k: v})")
-        self._add_line("        _duan_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)")
-        self._add_line("        _duan_builtin.字典键列表 = lambda d: list(d.keys())")
-        self._add_line("        _duan_builtin.字典包含键 = lambda d, k: k in d")
-        self._add_line("        _duan_builtin.时间戳 = lambda: __import__('time').time()")
-        self._add_line("        _duan_builtin.格式化时间 = lambda t, f='%Y-%m-%d %H:%M:%S': __import__('datetime').datetime.fromtimestamp(t).strftime(f) if isinstance(t, (int, float)) else __import__('datetime').datetime.strptime(t, '%Y-%m-%d %H:%M:%S').strftime(f)")
+        self._add_line("        _light_builtin = types.ModuleType('_light_builtin')")
+        self._add_line("        _light_builtin.读取文件 = lambda path: open(path, 'r', encoding='utf-8').read() if __import__('os').path.isfile(path) else ''")
+        self._add_line("        _light_builtin._读文件 = lambda path: open(path, 'r', encoding='utf-8').read() if __import__('os').path.isfile(path) else ''")
+        self._add_line("        _light_builtin.写入文件 = lambda path, content: open(path, 'w', encoding='utf-8').write(content) or None")
+        self._add_line("        _light_builtin.删除文件 = lambda path: __import__('os').remove(path) if __import__('os').path.isfile(path) else None")
+        self._add_line("        _light_builtin.删除目录 = lambda path: __import__('os').rmdir(path)")
+        self._add_line("        _light_builtin.文件存在 = lambda path: __import__('os').path.isfile(path)")
+        self._add_line("        _light_builtin.目录存在 = lambda path: __import__('os').path.isdir(path)")
+        self._add_line("        _light_builtin.打印 = print")
+        self._add_line("        _light_builtin.读取行 = lambda: sys.stdin.readline().rstrip('\\r\\n')")
+        self._add_line("        _light_builtin.读取N字节 = lambda n: sys.stdin.read(n)")
+        self._add_line("        _light_builtin.写入输出 = lambda t: (sys.stdout.write(t), sys.stdout.flush()) and None")
+        self._add_line("        _light_builtin.打印输出 = lambda t: print(t, flush=True)")
+        self._add_line("        _light_builtin.刷新输出 = lambda: sys.stdout.flush()")
+        self._add_line("        _light_builtin.写入错误 = lambda t: (sys.stderr.write(t), sys.stderr.flush()) and None")
+        self._add_line("        _light_builtin.打印错误 = lambda t: print(t, file=sys.stderr, flush=True)")
+        self._add_line("        _light_builtin.解析JSON = lambda t: __import__('json').loads(t)")
+        self._add_line("        _light_builtin.序列化JSON = lambda v, i=None: (__import__('json').dumps(v, ensure_ascii=False, indent=i) if i is not None else __import__('json').dumps(v, ensure_ascii=False))")
+        self._add_line("        _light_builtin.美化JSON = lambda v: __import__('json').dumps(v, ensure_ascii=False, indent=2)")
+        self._add_line("        _light_builtin.转字符串 = str")
+        self._add_line("        _light_builtin.转整数 = int")
+        self._add_line("        _light_builtin.转浮点 = float")
+        self._add_line("        _light_builtin.chr = chr")
+        self._add_line("        _light_builtin.bin = bin")
+        self._add_line("        _light_builtin.hex = hex")
+        self._add_line("        _light_builtin.oct = oct")
+        self._add_line("        _light_builtin.列表创建 = list")
+        self._add_line("        _light_builtin.列表长度 = len")
+        self._add_line("        _light_builtin.列 = lambda *args: list(args)")
+        self._add_line("        _light_builtin.列表追加 = lambda lst, item: lst.append(item)")
+        self._add_line("        _light_builtin.列表包含 = lambda lst, item: item in lst")
+        self._add_line("        _light_builtin.包含 = lambda sub, s: sub in s")
+        self._add_line("        _light_builtin.字符串长度 = len")
+        self._add_line("        _light_builtin.截取 = lambda s, start, end: s[start:end]")
+        self._add_line("        _light_builtin.转大写 = lambda s: s.upper()")
+        self._add_line("        _light_builtin.转小写 = lambda s: s.lower()")
+        self._add_line("        _light_builtin.结尾 = lambda s, suffix: s.endswith(suffix)")
+        self._add_line("        _light_builtin.开头 = lambda s, prefix: s.startswith(prefix)")
+        self._add_line("        _light_builtin.字典创建 = dict")
+        self._add_line("        _light_builtin.字典设置 = lambda d, k, v: d.update({k: v})")
+        self._add_line("        _light_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)")
+        self._add_line("        _light_builtin.字典键列表 = lambda d: list(d.keys())")
+        self._add_line("        _light_builtin.字典包含键 = lambda d, k: k in d")
+        self._add_line("        _light_builtin.时间戳 = lambda: __import__('time').time()")
+        self._add_line("        _light_builtin.格式化时间 = lambda t, f='%Y-%m-%d %H:%M:%S': __import__('datetime').datetime.fromtimestamp(t).strftime(f) if isinstance(t, (int, float)) else __import__('datetime').datetime.strptime(t, '%Y-%m-%d %H:%M:%S').strftime(f)")
         self._add_line("else:")
         self._add_line("    import types")
-        self._add_line("    _duan_builtin = types.ModuleType('_duan_builtin')")
-        self._add_line("    _duan_builtin.打印 = print")
-        self._add_line("    _duan_builtin.读取行 = lambda: sys.stdin.readline().rstrip('\\n')")
-        self._add_line("    _duan_builtin.读取N字节 = lambda n: sys.stdin.read(n)")
-        self._add_line("    _duan_builtin.写入输出 = lambda t: (sys.stdout.write(t), sys.stdout.flush()) and None")
-        self._add_line("    _duan_builtin.打印输出 = lambda t: print(t, flush=True)")
-        self._add_line("    _duan_builtin.刷新输出 = lambda: sys.stdout.flush()")
-        self._add_line("    _duan_builtin.写入错误 = lambda t: (sys.stderr.write(t), sys.stderr.flush()) and None")
-        self._add_line("    _duan_builtin.打印错误 = lambda t: print(t, file=sys.stderr, flush=True)")
-        self._add_line("    _duan_builtin.解析JSON = lambda t: __import__('json').loads(t)")
-        self._add_line("    _duan_builtin.序列化JSON = lambda v, i=None: (__import__('json').dumps(v, ensure_ascii=False, indent=i) if i is not None else __import__('json').dumps(v, ensure_ascii=False))")
-        self._add_line("    _duan_builtin.美化JSON = lambda v: __import__('json').dumps(v, ensure_ascii=False, indent=2)")
-        self._add_line("    _duan_builtin.转字符串 = str")
-        self._add_line("    _duan_builtin.转整数 = int")
-        self._add_line("    _duan_builtin.转浮点 = float")
-        self._add_line("    _duan_builtin.chr = chr")
-        self._add_line("    _duan_builtin.bin = bin")
-        self._add_line("    _duan_builtin.hex = hex")
-        self._add_line("    _duan_builtin.oct = oct")
-        self._add_line("    _duan_builtin.列表创建 = list")
-        self._add_line("    _duan_builtin.列表长度 = len")
-        self._add_line("    _duan_builtin.列 = lambda *args: list(args)")
-        self._add_line("    _duan_builtin.列表追加 = lambda lst, item: lst.append(item)")
-        self._add_line("    _duan_builtin.列表包含 = lambda lst, item: item in lst")
-        self._add_line("    _duan_builtin.包含 = lambda sub, s: sub in s")
-        self._add_line("    _duan_builtin.字符串长度 = len")
-        self._add_line("    _duan_builtin.截取 = lambda s, start, end: s[start:end]")
-        self._add_line("    _duan_builtin.转大写 = lambda s: s.upper()")
-        self._add_line("    _duan_builtin.转小写 = lambda s: s.lower()")
-        self._add_line("    _duan_builtin.字典创建 = dict")
-        self._add_line("    _duan_builtin.字典设置 = lambda d, k, v: d.update({k: v})")
-        self._add_line("    _duan_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)")
-        self._add_line("    _duan_builtin.字典键列表 = lambda d: list(d.keys())")
-        self._add_line("    _duan_builtin.字典包含键 = lambda d, k: k in d")
-        self._add_line("    _duan_builtin.时间戳 = lambda: __import__('time').time()")
-        self._add_line("    _duan_builtin.格式化时间 = lambda t, f='%Y-%m-%d %H:%M:%S': __import__('datetime').datetime.fromtimestamp(t).strftime(f) if isinstance(t, (int, float)) else __import__('datetime').datetime.strptime(t, '%Y-%m-%d %H:%M:%S').strftime(f)")
+        self._add_line("    _light_builtin = types.ModuleType('_light_builtin')")
+        self._add_line("    _light_builtin.打印 = print")
+        self._add_line("    _light_builtin.读取行 = lambda: sys.stdin.readline().rstrip('\\n')")
+        self._add_line("    _light_builtin.读取N字节 = lambda n: sys.stdin.read(n)")
+        self._add_line("    _light_builtin.写入输出 = lambda t: (sys.stdout.write(t), sys.stdout.flush()) and None")
+        self._add_line("    _light_builtin.打印输出 = lambda t: print(t, flush=True)")
+        self._add_line("    _light_builtin.刷新输出 = lambda: sys.stdout.flush()")
+        self._add_line("    _light_builtin.写入错误 = lambda t: (sys.stderr.write(t), sys.stderr.flush()) and None")
+        self._add_line("    _light_builtin.打印错误 = lambda t: print(t, file=sys.stderr, flush=True)")
+        self._add_line("    _light_builtin.解析JSON = lambda t: __import__('json').loads(t)")
+        self._add_line("    _light_builtin.序列化JSON = lambda v, i=None: (__import__('json').dumps(v, ensure_ascii=False, indent=i) if i is not None else __import__('json').dumps(v, ensure_ascii=False))")
+        self._add_line("    _light_builtin.美化JSON = lambda v: __import__('json').dumps(v, ensure_ascii=False, indent=2)")
+        self._add_line("    _light_builtin.转字符串 = str")
+        self._add_line("    _light_builtin.转整数 = int")
+        self._add_line("    _light_builtin.转浮点 = float")
+        self._add_line("    _light_builtin.chr = chr")
+        self._add_line("    _light_builtin.bin = bin")
+        self._add_line("    _light_builtin.hex = hex")
+        self._add_line("    _light_builtin.oct = oct")
+        self._add_line("    _light_builtin.列表创建 = list")
+        self._add_line("    _light_builtin.列表长度 = len")
+        self._add_line("    _light_builtin.列 = lambda *args: list(args)")
+        self._add_line("    _light_builtin.列表追加 = lambda lst, item: lst.append(item)")
+        self._add_line("    _light_builtin.列表包含 = lambda lst, item: item in lst")
+        self._add_line("    _light_builtin.包含 = lambda sub, s: sub in s")
+        self._add_line("    _light_builtin.字符串长度 = len")
+        self._add_line("    _light_builtin.截取 = lambda s, start, end: s[start:end]")
+        self._add_line("    _light_builtin.转大写 = lambda s: s.upper()")
+        self._add_line("    _light_builtin.转小写 = lambda s: s.lower()")
+        self._add_line("    _light_builtin.字典创建 = dict")
+        self._add_line("    _light_builtin.字典设置 = lambda d, k, v: d.update({k: v})")
+        self._add_line("    _light_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)")
+        self._add_line("    _light_builtin.字典键列表 = lambda d: list(d.keys())")
+        self._add_line("    _light_builtin.字典包含键 = lambda d, k: k in d")
+        self._add_line("    _light_builtin.时间戳 = lambda: __import__('time').time()")
+        self._add_line("    _light_builtin.格式化时间 = lambda t, f='%Y-%m-%d %H:%M:%S': __import__('datetime').datetime.fromtimestamp(t).strftime(f) if isinstance(t, (int, float)) else __import__('datetime').datetime.strptime(t, '%Y-%m-%d %H:%M:%S').strftime(f)")
         self._add_line("")
 
-        # 可空类型解包辅助函数：_duan_unwrap(x) = assert x is not None; return x
+        # 可空类型解包辅助函数：_light_unwrap(x) = assert x is not None; return x
         self._add_line("# 可空类型解包辅助函数")
-        self._add_line("def _duan_unwrap(_x):")
+        self._add_line("def _light_unwrap(_x):")
         self._add_line("    assert _x is not None, \"尝试解包空值\"")
         self._add_line("    return _x")
         self._add_line("")
         self._add_line("# 断言辅助函数")
-        self._add_line("def _duan_assert(_cond, _msg=''):")
+        self._add_line("def _light_assert(_cond, _msg=''):")
         self._add_line("    if not _cond:")
         self._add_line("        raise AssertionError(_msg)")
         self._add_line("")
@@ -584,7 +584,7 @@ class PythonCodeGenerator:
                 # 生成运行时类型检查辅助函数（仅一次）
                 if not hasattr(self, '_type_check_helper_added'):
                     self._add_line("# 运行时类型检查已开启")
-                    self._add_line("def _duan_check_type(value, expected_type, var_name=''):")
+                    self._add_line("def _light_check_type(value, expected_type, var_name=''):")
                     self.indent_level += 1
                     self._add_line("actual_type = type(value).__name__")
                     self._add_line("type_map = {'int': '整数', 'float': '小数', 'str': '文本', 'bool': '布尔', 'list': '列表', 'dict': '字典', 'set': '集合', 'type(None)': '空'}")
@@ -755,14 +755,14 @@ class PythonCodeGenerator:
         
         # 运行时类型检查（仅在开启时生成）
         if self._runtime_type_check and stmt.type_annotation:
-            duan_type = stmt.type_annotation
+            light_type = stmt.type_annotation
             if self._in_class_method and stmt.name in self._class_attr_names:
-                self._add_line(f"_duan_check_type(self.{name}, '{duan_type}', '{stmt.name}')")
+                self._add_line(f"_light_check_type(self.{name}, '{light_type}', '{stmt.name}')")
             else:
-                self._add_line(f"_duan_check_type({name}, '{duan_type}', '{stmt.name}')")
+                self._add_line(f"_light_check_type({name}, '{light_type}', '{stmt.name}')")
     
-    def _map_type(self, duan_type: str) -> str:
-        """将段言类型名映射为Python类型名"""
+    def _map_type(self, light_type: str) -> str:
+        """将光明类型名映射为Python类型名"""
         type_map = {
             '整数': 'int',
             '小数': 'float',
@@ -780,7 +780,7 @@ class PythonCodeGenerator:
             '空': 'None',
             '数': 'float',
         }
-        return type_map.get(duan_type, duan_type)
+        return type_map.get(light_type, light_type)
     
     def _generate_if_stmt(self, stmt: IfStmt):
         """生成条件语句"""
@@ -1044,8 +1044,8 @@ class PythonCodeGenerator:
         if stmt.from_expr:
             from_val = self._generate_expr(stmt.from_expr)
             from_part = f" from {from_val}"
-        self._add_line(f"_duan_exc = {value}")
-        self._add_line(f"raise _duan_exc if isinstance(_duan_exc, BaseException) else Exception(_duan_exc){from_part}")
+        self._add_line(f"_light_exc = {value}")
+        self._add_line(f"raise _light_exc if isinstance(_light_exc, BaseException) else Exception(_light_exc){from_part}")
     
     def _generate_self_assignment(self, stmt):
         """生成self赋值语句"""
@@ -1317,9 +1317,9 @@ class PythonCodeGenerator:
         """生成上下文管理语句"""
         context_expr = self._generate_expr(stmt.context_expr)
         # 在 with 语句中，读取文件(...) 应替换为 open(...)
-        context_expr = context_expr.replace('_duan_builtin.读取文件', 'open').replace('读取文件', 'open')
+        context_expr = context_expr.replace('_light_builtin.读取文件', 'open').replace('读取文件', 'open')
         # 写入文件(...) 也应替换为 open(..., 'w')
-        context_expr = context_expr.replace('_duan_builtin.写入文件', 'open').replace('写入文件', 'open')
+        context_expr = context_expr.replace('_light_builtin.写入文件', 'open').replace('写入文件', 'open')
         if stmt.variable:
             var_name = self._sanitize_name(stmt.variable)
             self._add_line(f"with {context_expr} as {var_name}:")
@@ -1510,10 +1510,10 @@ class PythonCodeGenerator:
             return str(expr)
         
         # 解包表达式：值! 或 unwrap(值)
-        # 翻译成 (lambda _x: (_duan_assert_not_none(_x), _x)[1])(inner_expr)
+        # 翻译成 (lambda _x: (_light_assert_not_none(_x), _x)[1])(inner_expr)
         if type(expr).__name__ == 'UnwrapExpression':
             inner = self._generate_expr(expr.value)
-            return f"(_duan_unwrap({inner}))"
+            return f"(_light_unwrap({inner}))"
         
         if isinstance(expr, NumberLiteral):
             # 检查是否是中文数字
@@ -1631,11 +1631,11 @@ class PythonCodeGenerator:
             mapped_member = self.method_name_map.get(expr.member, member)
             
             # 检查导入的模块成员访问映射
-            # 如 JSON.序列化 → _duan_builtin.序列化JSON, JSON.解析 → _duan_builtin.解析JSON
+            # 如 JSON.序列化 → _light_builtin.序列化JSON, JSON.解析 → _light_builtin.解析JSON
             module_member_map = {
-                'JSON.序列化': '_duan_builtin.序列化JSON',
-                'JSON.解析': '_duan_builtin.解析JSON',
-                'JSON.美化': '_duan_builtin.美化JSON',
+                'JSON.序列化': '_light_builtin.序列化JSON',
+                'JSON.解析': '_light_builtin.解析JSON',
+                'JSON.美化': '_light_builtin.美化JSON',
             }
             full_access = f"{obj}.{member}"
             if full_access in module_member_map:
@@ -1673,11 +1673,11 @@ class PythonCodeGenerator:
                     return f"{args_str} in {obj}"
 
                 # P5 核心改造：内置函数式优先
-                # 如果方法名在 builtin_map 中且映射到 _duan_builtin，转为函数式调用
-                # 这样 obj.方法(args) 自动转为 _duan_builtin.方法(obj, args)
+                # 如果方法名在 builtin_map 中且映射到 _light_builtin，转为函数式调用
+                # 这样 obj.方法(args) 自动转为 _light_builtin.方法(obj, args)
                 # 外部库方法（不在 builtin_map 中）则原样透传 obj.method(args)
                 builtin_target = self.builtin_map.get(expr.member)
-                if builtin_target and builtin_target.startswith('_duan_builtin.'):
+                if builtin_target and builtin_target.startswith('_light_builtin.'):
                     # 内置函数：转为函数式调用
                     func_name = builtin_target.split('.', 1)[1]
                     if args_str:
@@ -1882,7 +1882,7 @@ class PythonCodeGenerator:
         """生成导入语句
         
         支持三种语言前缀：
-        - None: 段言标准库（中文模块名映射到 stdlib 路径）
+        - None: 光明标准库（中文模块名映射到 stdlib 路径）
         - 'python': Python 第三方库（直接 import 原名）
         - 'c': C 语言库（通过 ctypes/FFI 加载）
         """
@@ -1948,10 +1948,10 @@ class PythonCodeGenerator:
                     self._imported_symbols.add(module_name)
             return
         
-        # 段言标准库导入：使用模块名映射转换中文模块名
-        # 1. 先查 duanpub 加载器（支持 "标准文件系统" / "文件系统" 等导入名）
-        mapped_module = self._resolve_duanpub_import(module_name)
-        # 2. 如果 duanpub 没有命中，回退到内置模块名映射
+        # 光明标准库导入：使用模块名映射转换中文模块名
+        # 1. 先查 lightpub 加载器（支持 "标准文件系统" / "文件系统" 等导入名）
+        mapped_module = self._resolve_lightpub_import(module_name)
+        # 2. 如果 lightpub 没有命中，回退到内置模块名映射
         if mapped_module is None:
             mapped_module = self.module_name_map.get(module_name, module_name)
         
@@ -2013,13 +2013,13 @@ class PythonCodeGenerator:
             self._add_line(f"import {mapped_module}")
             self._imported_symbols.add(module_name)
     
-    def _resolve_duanpub_import(self, module_name: str):
+    def _resolve_lightpub_import(self, module_name: str):
         """
-        通过 duanpub 加载器解析导入名，返回 Python 模块名。
+        通过 lightpub 加载器解析导入名，返回 Python 模块名。
         
         解析顺序：
-        1. duanpub P0 包 → get_stdlib_bridge() 返回 Python 模块名
-        2. duanpub P1 包 → 返回 "stdlib.duanpub.<包名>"（桥接模块路径）
+        1. lightpub P0 包 → get_stdlib_bridge() 返回 Python 模块名
+        2. lightpub P1 包 → 返回 "stdlib.lightpub.<包名>"（桥接模块路径）
         3. 未命中 → 返回 None（回退到 module_name_map）
         """
         try:
@@ -2029,7 +2029,7 @@ class PythonCodeGenerator:
             stdlib_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'stdlib')
             if stdlib_dir not in sys.path:
                 sys.path.insert(0, stdlib_dir)
-            from duanpub import resolve_import, get_stdlib_bridge
+            from lightpub import resolve_import, get_stdlib_bridge
             
             pkg_info = resolve_import(module_name)
             if pkg_info is None:
@@ -2051,7 +2051,7 @@ class PythonCodeGenerator:
             if priority == 'P1':
                 # 去掉"标准"前缀后得到真实包名
                 real_name = module_name[2:] if module_name.startswith('标准') else module_name
-                return 'stdlib.duanpub.' + real_name
+                return 'stdlib.lightpub.' + real_name
         except Exception:
             pass
         return None
@@ -2080,7 +2080,7 @@ class PythonCodeGenerator:
     # C FFI 代码生成方法
     # =========================================================================
 
-    # FFI 类型映射：段言类型 → ctypes 类型
+    # FFI 类型映射：光明类型 → ctypes 类型
     _ffi_type_map = {
         '整数': 'ctypes.c_int',
         '小数': 'ctypes.c_double',
@@ -2109,8 +2109,8 @@ class PythonCodeGenerator:
         # 确定参数类型和返回类型
         arg_types = []
         for p in stmt.params:
-            duan_type = p.get('type', '整数')
-            ctype = self._ffi_type_map.get(duan_type, 'ctypes.c_int')
+            light_type = p.get('type', '整数')
+            ctype = self._ffi_type_map.get(light_type, 'ctypes.c_int')
             arg_types.append(ctype)
 
         restype = 'None'
@@ -2178,8 +2178,8 @@ class PythonCodeGenerator:
         name = self._sanitize_name(stmt.name)
         arg_types = []
         for p in stmt.params:
-            duan_type = p.get('type', '整数')
-            ctype = self._ffi_type_map.get(duan_type, 'ctypes.c_int')
+            light_type = p.get('type', '整数')
+            ctype = self._ffi_type_map.get(light_type, 'ctypes.c_int')
             arg_types.append(ctype)
         restype = 'None'
         if stmt.return_type:
@@ -2278,8 +2278,8 @@ class PythonCodeGenerator:
         
         arg_types = []
         for p in stmt.params:
-            duan_type = p.get('type', '整数')
-            ctype = self._ffi_type_map.get(duan_type, 'ctypes.c_int')
+            light_type = p.get('type', '整数')
+            ctype = self._ffi_type_map.get(light_type, 'ctypes.c_int')
             arg_types.append(ctype)
         
         restype = 'None'
@@ -2303,9 +2303,9 @@ class PythonCodeGenerator:
     def _generate_ffi_create_callback(self, stmt: FFICreateCallback):
         """生成创建回调函数代码"""
         cb_type = self._sanitize_name(stmt.callback_type)
-        duan_func = self._sanitize_name(stmt.duan_function)
-        self._add_line(f"# 创建回调: {duan_func} -> {cb_type}")
-        self._add_line(f"_cb_{duan_func} = {cb_type}({duan_func})")
+        light_func = self._sanitize_name(stmt.light_function)
+        self._add_line(f"# 创建回调: {light_func} -> {cb_type}")
+        self._add_line(f"_cb_{light_func} = {cb_type}({light_func})")
         self._add_line("")
 
     def _generate_ffi_struct_by_value(self, stmt: FFIStructByValue):
@@ -2364,8 +2364,8 @@ class PythonCodeGenerator:
         name = self._sanitize_name(stmt.name)
         arg_types = []
         for p in stmt.params:
-            duan_type = p.get('type', '整数')
-            ctype = self._ffi_type_map.get(duan_type, 'ctypes.c_int')
+            light_type = p.get('type', '整数')
+            ctype = self._ffi_type_map.get(light_type, 'ctypes.c_int')
             arg_types.append(ctype)
         restype = 'None'
         if stmt.return_type:
@@ -2378,7 +2378,7 @@ class PythonCodeGenerator:
     def _generate_ffi_debug_config(self, stmt: FFIDebugConfig):
         """生成FFI调试配置代码"""
         self._add_line("# FFI调试配置")
-        self._add_line(f"_duan_ffi.set_debug(")
+        self._add_line(f"_light_ffi.set_debug(")
         self.indent_level += 1
         self._add_line(f"enabled={stmt.enabled},")
         self._add_line(f"log_calls={stmt.log_calls},")
@@ -2392,7 +2392,7 @@ class PythonCodeGenerator:
         """生成C预处理器宏代码"""
         name = self._sanitize_name(stmt.name)
         self._add_line(f"# C预处理器宏: {name} = {stmt.value}")
-        self._add_line(f"_duan_ffi.定义宏('{name}', {repr(stmt.value)})")
+        self._add_line(f"_light_ffi.定义宏('{name}', {repr(stmt.value)})")
         self._add_line("")
 
     def _generate_embed_block(self, stmt: EmbedBlock):
@@ -2407,7 +2407,7 @@ class PythonCodeGenerator:
         -     其他                      → 注释保留（保留原实现）
         """
         import textwrap
-        import re as _duan_re
+        import re as _light_re
 
         # 拆分首词（真正的语言/领域类型）和剩余标签（库名/正则名/公式名）
         lang_raw = stmt.language.strip() or "Python"
@@ -2419,23 +2419,23 @@ class PythonCodeGenerator:
         # -------- L4: Python / Py 作用域隔离沙箱（E4）--------
         if lang_main in ('python', 'py'):
             self._add_line(f"# --- L4: 引 Python{(' ' + lang_label) if lang_label else ''}（作用域隔离沙箱）---")
-            self._add_line("import types as _duan_types_mod")
-            # 简化：使用 _DUAN_L4_NS 稳定命名空间，避免递增 id 不稳定
-            self._add_line("_DUAN_L4_NS = _duan_types_mod.ModuleType('duan_l4')")
-            self._add_line("_DUAN_L4_SRC = '''\n" + code + "\n'''")
-            self._add_line("exec(compile(_DUAN_L4_SRC, '<l4_python>', 'exec'), _DUAN_L4_NS.__dict__)")
+            self._add_line("import types as _light_types_mod")
+            # 简化：使用 _LIGHT_L4_NS 稳定命名空间，避免递增 id 不稳定
+            self._add_line("_LIGHT_L4_NS = _light_types_mod.ModuleType('light_l4')")
+            self._add_line("_LIGHT_L4_SRC = '''\n" + code + "\n'''")
+            self._add_line("exec(compile(_LIGHT_L4_SRC, '<l4_python>', 'exec'), _LIGHT_L4_NS.__dict__)")
             # 只导出公共标识符：以 l3_ / l4_ 开头 或 不以 _ 开头的 callable / 基本数据
-            self._add_line("for _DUAN_L4_NAME, _DUAN_L4_OBJ in list(_DUAN_L4_NS.__dict__.items()):")
-            self._add_line("    if _DUAN_L4_NAME.startswith('__'):")
+            self._add_line("for _LIGHT_L4_NAME, _LIGHT_L4_OBJ in list(_LIGHT_L4_NS.__dict__.items()):")
+            self._add_line("    if _LIGHT_L4_NAME.startswith('__'):")
             self._add_line("        continue")
             self._add_line("    # 规则：l3_* / l4_* 强制导出；其他不以 _ 开头的函数/类/普通数据也导出")
-            self._add_line("    _ok = _DUAN_L4_NAME.startswith('l3_') or _DUAN_L4_NAME.startswith('l4_')")
-            self._add_line("    if (not _ok) and not _DUAN_L4_NAME.startswith('_'):")
-            self._add_line("        import builtins as _duan_bi")
-            self._add_line("        _ok = callable(_DUAN_L4_OBJ) or isinstance(_DUAN_L4_OBJ, (_duan_bi.int,_duan_bi.float,_duan_bi.str,_duan_bi.list,_duan_bi.dict,_duan_bi.tuple,_duan_bi.bool,_duan_bi.type(None)))")
+            self._add_line("    _ok = _LIGHT_L4_NAME.startswith('l3_') or _LIGHT_L4_NAME.startswith('l4_')")
+            self._add_line("    if (not _ok) and not _LIGHT_L4_NAME.startswith('_'):")
+            self._add_line("        import builtins as _light_bi")
+            self._add_line("        _ok = callable(_LIGHT_L4_OBJ) or isinstance(_LIGHT_L4_OBJ, (_light_bi.int,_light_bi.float,_light_bi.str,_light_bi.list,_light_bi.dict,_light_bi.tuple,_light_bi.bool,_light_bi.type(None)))")
             self._add_line("    if _ok:")
-            self._add_line("        globals()[_DUAN_L4_NAME] = _DUAN_L4_OBJ")
-            self._add_line("del _DUAN_L4_SRC, _DUAN_L4_NAME, _DUAN_L4_OBJ, _ok")
+            self._add_line("        globals()[_LIGHT_L4_NAME] = _LIGHT_L4_OBJ")
+            self._add_line("del _LIGHT_L4_SRC, _LIGHT_L4_NAME, _LIGHT_L4_OBJ, _ok")
             self._add_line(f"# --- 结束 L4 引 Python{(' ' + lang_label) if lang_label else ''} ---")
             return
 
@@ -2443,11 +2443,11 @@ class PythonCodeGenerator:
         if lang_main == 'sql':
             db_var = lang_label or "default"
             self._add_line(f"# --- L3: 引 SQL {lang_label}（原生参数化 sqlite3，防注入）---")
-            self._add_line("import sqlite3 as _duan_sqlite3")
+            self._add_line("import sqlite3 as _light_sqlite3")
             self._add_line(f"if '_DUAN_SQL_CONNS' not in globals(): _DUAN_SQL_CONNS = {{}}")
             self._add_line(f"if '{db_var}' not in _DUAN_SQL_CONNS:")
-            self._add_line(f"    _DUAN_SQL_CONNS['{db_var}'] = _duan_sqlite3.connect(':memory:' if '{db_var}' == 'default' else '{db_var}.db')")
-            self._add_line(f"    _DUAN_SQL_CONNS['{db_var}'].row_factory = _duan_sqlite3.Row")
+            self._add_line(f"    _DUAN_SQL_CONNS['{db_var}'] = _light_sqlite3.connect(':memory:' if '{db_var}' == 'default' else '{db_var}.db')")
+            self._add_line(f"    _DUAN_SQL_CONNS['{db_var}'].row_factory = _light_sqlite3.Row")
             # 遍历 code（多行按 ; 分语句，允许 -- 注释）
             statements = [s.strip() for s in code.split(';') if s.strip()]
             for idx, raw_sql in enumerate(statements):
@@ -2478,16 +2478,16 @@ class PythonCodeGenerator:
         # -------- L3: 模式 / 正则 / Regex 命名捕获组类（E2）--------
         if lang_main in ('模式', '正则', 'regex', 'regexp', 'matcher'):
             pattern_name = lang_label or "Matcher"
-            safe_name = _duan_re.sub(r'\W|^(?=\d)', '_', pattern_name) if pattern_name else "Matcher"
+            safe_name = _light_re.sub(r'\W|^(?=\d)', '_', pattern_name) if pattern_name else "Matcher"
             # 允许引块里写多行：第一行是正则，后续是注释/别名
             lines = [ln for ln in code.split('\n') if ln.strip() and not ln.lstrip().startswith('#')]
             regex_src = lines[0] if lines else r""
             # 提取命名捕获组名
-            named = _duan_re.findall(r'\(\?P<([^>]+)>', regex_src)
+            named = _light_re.findall(r'\(\?P<([^>]+)>', regex_src)
             group_fields = ",".join(named) if named else ""
             self._add_line(f"# --- L3: 引 模式 {pattern_name}（正则命名捕获组 → 成员访问类）---")
-            self._add_line("import re as _duan_l3_re")
-            self._add_line(f"_DUAN_L3_RE_{safe_name.upper()} = _duan_l3_re.compile({regex_src!r})")
+            self._add_line("import re as _light_l3_re")
+            self._add_line(f"_LIGHT_L3_RE_{safe_name.upper()} = _light_l3_re.compile({regex_src!r})")
             self._add_line(f"class L3Pattern_{safe_name}:")
             self._add_line(f"    __slots__ = ('_m','hit',{','.join(repr(n) for n in named) if named else '()'})")
             self._add_line(f"    def __init__(self, m):")
@@ -2503,12 +2503,12 @@ class PythonCodeGenerator:
             else:
                 self._add_line(f"        return '{safe_name}<命中>'")
             self._add_line(f"    @classmethod")
-            self._add_line(f"    def 匹配(cls, text): return cls(_DUAN_L3_RE_{safe_name.upper()}.fullmatch(text))")
+            self._add_line(f"    def 匹配(cls, text): return cls(_LIGHT_L3_RE_{safe_name.upper()}.fullmatch(text))")
             self._add_line(f"    @classmethod")
-            self._add_line(f"    def 搜索(cls, text): return cls(_DUAN_L3_RE_{safe_name.upper()}.search(text))")
+            self._add_line(f"    def 搜索(cls, text): return cls(_LIGHT_L3_RE_{safe_name.upper()}.search(text))")
             self._add_line(f"    @classmethod")
             self._add_line(f"    def 查找全部(cls, text):")
-            self._add_line(f"        ms = _DUAN_L3_RE_{safe_name.upper()}.finditer(text)")
+            self._add_line(f"        ms = _LIGHT_L3_RE_{safe_name.upper()}.finditer(text)")
             self._add_line(f"        return [cls(m) for m in ms]")
             # 导出一个别名：中文模式名
             self._add_line(f"{pattern_name if pattern_name and pattern_name.isidentifier() else safe_name} = L3Pattern_{safe_name}")
@@ -2518,12 +2518,12 @@ class PythonCodeGenerator:
         # -------- L3: 公式 / 数学 / Math  sympy 封装（E3）--------
         if lang_main in ('公式', '数学', 'math', 'formula'):
             expr_name = lang_label or "Expr"
-            safe_name = _duan_re.sub(r'\W|^(?=\d)', '_', expr_name) if expr_name else "Expr"
+            safe_name = _light_re.sub(r'\W|^(?=\d)', '_', expr_name) if expr_name else "Expr"
             self._add_line(f"# --- L3: 引 公式 {expr_name}（sympy 封装）---")
             self._add_line("try:")
-            self._add_line("    import sympy as _duan_l3_sym")
+            self._add_line("    import sympy as _light_l3_sym")
             self._add_line("except Exception as _DUAN_L3_SYM_ERR:")
-            self._add_line("    _duan_l3_sym = None")
+            self._add_line("    _light_l3_sym = None")
             # 解析公式行：支持 解...= / d/dx... / ∫(... →...) / 直接化简 / 矩阵乘法
             for idx, raw_line in enumerate(code.split('\n')):
                 line = raw_line.strip()
@@ -2532,12 +2532,12 @@ class PythonCodeGenerator:
                 # 去掉末尾句号/感叹号
                 line_clean = line.rstrip('。！!？?；;')
                 # 形式 1: 解 2x^2+5x-3=0
-                m_solve = _duan_re.match(r'^解\s+(.+?)\s*=\s*(.+?)\s*$', line_clean)
+                m_solve = _light_re.match(r'^解\s+(.+?)\s*=\s*(.+?)\s*$', line_clean)
                 if m_solve:
                     lhs, rhs = m_solve.group(1), m_solve.group(2)
                     fn_name = f"l3_math_solve_{safe_name}_{idx}"
                     self._add_line(f"def {fn_name}(**kw):")
-                    self._add_line("    if not _duan_l3_sym: raise RuntimeError(f'sympy未装: {_DUAN_L3_SYM_ERR}')")
+                    self._add_line("    if not _light_l3_sym: raise RuntimeError(f'sympy未装: {_DUAN_L3_SYM_ERR}')")
                     self._add_line(f"    from sympy import Eq, solve, symbols, sympify")
                     self._add_line(f"    _all_sym = list(set(sympify({lhs!r}).free_symbols) | set(sympify({rhs!r}).free_symbols))")
                     self._add_line(f"    for _s in _all_sym: globals().setdefault(str(_s), _s)")
@@ -2545,19 +2545,19 @@ class PythonCodeGenerator:
                     self._add_line(f"    return _sol")
                     continue
                 # 形式 2: d/dx (...)
-                m_diff = _duan_re.match(r'^d\s*/\s*d([a-zA-Z])\s*\((.+)\)$', line_clean)
+                m_diff = _light_re.match(r'^d\s*/\s*d([a-zA-Z])\s*\((.+)\)$', line_clean)
                 if m_diff:
                     vn, ex = m_diff.group(1), m_diff.group(2)
                     fn_name = f"l3_math_diff_{safe_name}_{vn}_{idx}"
                     self._add_line(f"def {fn_name}():")
-                    self._add_line("    if not _duan_l3_sym: raise RuntimeError(f'sympy未装: {_DUAN_L3_SYM_ERR}')")
+                    self._add_line("    if not _light_l3_sym: raise RuntimeError(f'sympy未装: {_DUAN_L3_SYM_ERR}')")
                     self._add_line(f"    from sympy import diff, sympify, symbols")
                     self._add_line(f"    v = symbols({vn!r})")
                     self._add_line(f"    return str(diff(sympify({ex!r}), v))")
                     continue
                 # 形式 3: 积分 ∫(a→b) f dx  或  积分 f 从 a 到 b
-                m_int = _duan_re.match(r'^[∫积分]\s*(\()?\s*(.+?)\s*→\s*(.+?)\s*\)?\s*(.+)\s*d([a-zA-Z])$', line_clean)
-                m_int2 = _duan_re.match(r'^积分\s+(.+?)\s+从\s+(.+?)\s+到\s+(.+?)$', line_clean)
+                m_int = _light_re.match(r'^[∫积分]\s*(\()?\s*(.+?)\s*→\s*(.+?)\s*\)?\s*(.+)\s*d([a-zA-Z])$', line_clean)
+                m_int2 = _light_re.match(r'^积分\s+(.+?)\s+从\s+(.+?)\s+到\s+(.+?)$', line_clean)
                 if m_int or m_int2:
                     if m_int:
                         a, b, f, vn = m_int.group(2), m_int.group(3), m_int.group(4), m_int.group(5)
@@ -2566,7 +2566,7 @@ class PythonCodeGenerator:
                         vn = 'x'
                     fn_name = f"l3_math_int_{safe_name}_{vn}_{idx}"
                     self._add_line(f"def {fn_name}():")
-                    self._add_line("    if not _duan_l3_sym: raise RuntimeError(f'sympy未装: {_DUAN_L3_SYM_ERR}')")
+                    self._add_line("    if not _light_l3_sym: raise RuntimeError(f'sympy未装: {_DUAN_L3_SYM_ERR}')")
                     self._add_line(f"    from sympy import integrate, sympify, symbols")
                     self._add_line(f"    v = symbols({vn!r}); f = sympify({f.strip()!r})")
                     self._add_line(f"    r = integrate(f, (v, sympify({a!r}), sympify({b!r})))")
@@ -2574,11 +2574,11 @@ class PythonCodeGenerator:
                     self._add_line(f"    except: return str(r)")
                     continue
                 # 形式 4: 矩阵乘法 A * B
-                m_mat = _duan_re.match(r'^矩阵乘\s+(\[\[.*\]\])\s*\*\s*(\[\[.*\]\])$', line_clean)
+                m_mat = _light_re.match(r'^矩阵乘\s+(\[\[.*\]\])\s*\*\s*(\[\[.*\]\])$', line_clean)
                 if m_mat:
                     fn_name = f"l3_math_mat_{safe_name}_{idx}"
                     self._add_line(f"def {fn_name}():")
-                    self._add_line("    if not _duan_l3_sym: raise RuntimeError(f'sympy未装: {_DUAN_L3_SYM_ERR}')")
+                    self._add_line("    if not _light_l3_sym: raise RuntimeError(f'sympy未装: {_DUAN_L3_SYM_ERR}')")
                     self._add_line(f"    from sympy import Matrix")
                     self._add_line(f"    R = Matrix({m_mat.group(1)}) * Matrix({m_mat.group(2)})")
                     self._add_line(f"    return [list(row) for row in R.tolist()]")
@@ -2586,7 +2586,7 @@ class PythonCodeGenerator:
                 # 默认：表达式化简
                 fn_name = f"l3_math_simp_{safe_name}_{idx}"
                 self._add_line(f"def {fn_name}():")
-                self._add_line("    if not _duan_l3_sym: raise RuntimeError(f'sympy未装: {_DUAN_L3_SYM_ERR}')")
+                self._add_line("    if not _light_l3_sym: raise RuntimeError(f'sympy未装: {_DUAN_L3_SYM_ERR}')")
                 self._add_line(f"    from sympy import simplify, sympify")
                 self._add_line(f"    return str(simplify(sympify({line_clean!r})))")
             self._add_line(f"# --- 结束 L3 引 公式 {expr_name} ---")
@@ -2595,44 +2595,44 @@ class PythonCodeGenerator:
         # -------- L4: C 嵌入（gcc 编译 + ctypes 动态加载）--------
         if lang_main in ('c',):
             self._add_line(f"# --- L4: 引 C（gcc 编译 + ctypes 动态加载）---")
-            self._add_line("import ctypes as _duan_ctypes")
-            self._add_line("import tempfile as _duan_tmp")
-            self._add_line("import os as _duan_os")
-            self._add_line("import subprocess as _duan_sp")
-            self._add_line("import sys as _duan_sys")
-            self._add_line("import re as _duan_l4_re")
+            self._add_line("import ctypes as _light_ctypes")
+            self._add_line("import tempfile as _light_tmp")
+            self._add_line("import os as _light_os")
+            self._add_line("import subprocess as _light_sp")
+            self._add_line("import sys as _light_sys")
+            self._add_line("import re as _light_l4_re")
             self._add_line("_DUAN_C_CODE = '''")
             for line in code.split('\n'):
                 self._add_line(line)
             self._add_line("'''")
             # 平台检测：.so vs .dll
-            self._add_line("_DUAN_C_EXT = '.dll' if _duan_sys.platform == 'win32' else '.so'")
+            self._add_line("_DUAN_C_EXT = '.dll' if _light_sys.platform == 'win32' else '.so'")
             # 编译器检测：gcc > cc > clang
             self._add_line("_DUAN_C_CC = None")
             self._add_line("for _DUAN_C_CAND in ['gcc', 'cc', 'clang']:")
             self._add_line("    try:")
-            self._add_line("        _duan_sp.run([_DUAN_C_CAND, '--version'], capture_output=True, check=True)")
+            self._add_line("        _light_sp.run([_DUAN_C_CAND, '--version'], capture_output=True, check=True)")
             self._add_line("        _DUAN_C_CC = _DUAN_C_CAND; break")
             self._add_line("    except Exception: pass")
             # 写临时 C 文件
-            self._add_line("_DUAN_C_SRC = _duan_tmp.NamedTemporaryFile(suffix='.c', delete=False, mode='w', encoding='utf-8')")
+            self._add_line("_DUAN_C_SRC = _light_tmp.NamedTemporaryFile(suffix='.c', delete=False, mode='w', encoding='utf-8')")
             self._add_line("_DUAN_C_SRC.write('#include <stdlib.h>\\n#include <string.h>\\n#include <math.h>\\n')")
             self._add_line("_DUAN_C_SRC.write(_DUAN_C_CODE)")
             self._add_line("_DUAN_C_SRC.close()")
             self._add_line("_DUAN_C_LIB = _DUAN_C_SRC.name.replace('.c', _DUAN_C_EXT)")
             # 编译
             self._add_line("if _DUAN_C_CC:")
-            self._add_line("    _duan_sp.run([_DUAN_C_CC, '-shared', '-fPIC', '-O2', '-o', _DUAN_C_LIB, _DUAN_C_SRC.name, '-lm'], check=True)")
+            self._add_line("    _light_sp.run([_DUAN_C_CC, '-shared', '-fPIC', '-O2', '-o', _DUAN_C_LIB, _DUAN_C_SRC.name, '-lm'], check=True)")
             # 加载动态库
-            self._add_line("_DUAN_C_DLL = _duan_ctypes.CDLL(_DUAN_C_LIB) if _DUAN_C_CC else None")
+            self._add_line("_DUAN_C_DLL = _light_ctypes.CDLL(_DUAN_C_LIB) if _DUAN_C_CC else None")
             # 自动解析 C 函数签名，生成 Python 可调用封装
-            self._add_line("_DUAN_C_FUNCS = _duan_l4_re.findall(r'(?:int|float|double|void|long|char\\s*\\*)\\s+(\\w+)\\s*\\(', _DUAN_C_CODE)")
+            self._add_line("_DUAN_C_FUNCS = _light_l4_re.findall(r'(?:int|float|double|void|long|char\\s*\\*)\\s+(\\w+)\\s*\\(', _DUAN_C_CODE)")
             self._add_line("for _DUAN_C_FN in _DUAN_C_FUNCS:")
             self._add_line("    if _DUAN_C_DLL:")
             self._add_line("        try:")
             # 尝试推断返回类型和参数类型
             self._add_line("            _DUAN_C_FN_OBJ = getattr(_DUAN_C_DLL, _DUAN_C_FN)")
-            self._add_line("            _DUAN_C_FN_OBJ.restype = _duan_ctypes.c_double")
+            self._add_line("            _DUAN_C_FN_OBJ.restype = _light_ctypes.c_double")
             self._add_line("            globals()[_DUAN_C_FN] = _DUAN_C_FN_OBJ")
             self._add_line("        except Exception:")
             self._add_line("            globals()[_DUAN_C_FN] = lambda *a, _fn=_DUAN_C_FN: f'[C:{_fn} 未加载]'")
@@ -2645,12 +2645,12 @@ class PythonCodeGenerator:
         # -------- L4: Go 嵌入（go build -buildmode=c-shared）--------
         if lang_main in ('go', 'golang'):
             self._add_line(f"# --- L4: 引 Go（go build -buildmode=c-shared + ctypes 加载）---")
-            self._add_line("import ctypes as _duan_ctypes")
-            self._add_line("import tempfile as _duan_tmp")
-            self._add_line("import os as _duan_os")
-            self._add_line("import subprocess as _duan_sp")
-            self._add_line("import sys as _duan_sys")
-            self._add_line("import re as _duan_l4_re")
+            self._add_line("import ctypes as _light_ctypes")
+            self._add_line("import tempfile as _light_tmp")
+            self._add_line("import os as _light_os")
+            self._add_line("import subprocess as _light_sp")
+            self._add_line("import sys as _light_sys")
+            self._add_line("import re as _light_l4_re")
             self._add_line("_DUAN_GO_CODE = '''")
             for line in code.split('\n'):
                 self._add_line(line)
@@ -2658,30 +2658,30 @@ class PythonCodeGenerator:
             # 检测 Go 编译器
             self._add_line("_DUAN_GO_OK = False")
             self._add_line("try:")
-            self._add_line("    _duan_sp.run(['go', 'version'], capture_output=True, check=True)")
+            self._add_line("    _light_sp.run(['go', 'version'], capture_output=True, check=True)")
             self._add_line("    _DUAN_GO_OK = True")
             self._add_line("except Exception: pass")
             # 写 Go 源文件
             self._add_line("if _DUAN_GO_OK:")
-            self._add_line("    _DUAN_GO_EXT = '.dll' if _duan_sys.platform == 'win32' else '.so'")
-            self._add_line("    _DUAN_GO_DIR = _duan_tmp.mkdtemp(prefix='duan_go_')")
-            self._add_line("    _DUAN_GO_SRC = _duan_os.path.join(_DUAN_GO_DIR, 'main.go')")
+            self._add_line("    _DUAN_GO_EXT = '.dll' if _light_sys.platform == 'win32' else '.so'")
+            self._add_line("    _DUAN_GO_DIR = _light_tmp.mkdtemp(prefix='light_go_')")
+            self._add_line("    _DUAN_GO_SRC = _light_os.path.join(_DUAN_GO_DIR, 'main.go')")
             # 包装 Go 代码为 c-shared 导出库
             self._add_line("    _DUAN_GO_WRAPPED = 'package main\\n\\nimport \"C\"\\n\\n' + _DUAN_GO_CODE")
             self._add_line("    with open(_DUAN_GO_SRC, 'w', encoding='utf-8') as _f: _f.write(_DUAN_GO_WRAPPED)")
             # 初始化 go.mod
-            self._add_line("    _duan_sp.run(['go', 'mod', 'init', 'duan_l4_go'], cwd=_DUAN_GO_DIR, capture_output=True)")
+            self._add_line("    _light_sp.run(['go', 'mod', 'init', 'light_l4_go'], cwd=_DUAN_GO_DIR, capture_output=True)")
             # 编译为 c-shared 库
-            self._add_line("    _DUAN_GO_LIB = _duan_os.path.join(_DUAN_GO_DIR, 'duan_go' + _DUAN_GO_EXT)")
+            self._add_line("    _DUAN_GO_LIB = _light_os.path.join(_DUAN_GO_DIR, 'light_go' + _DUAN_GO_EXT)")
             self._add_line("    try:")
-            self._add_line("        _duan_sp.run(['go', 'build', '-buildmode=c-shared', '-o', _DUAN_GO_LIB, _DUAN_GO_SRC], cwd=_DUAN_GO_DIR, check=True)")
-            self._add_line("        _DUAN_GO_DLL = _duan_ctypes.CDLL(_DUAN_GO_LIB)")
+            self._add_line("        _light_sp.run(['go', 'build', '-buildmode=c-shared', '-o', _DUAN_GO_LIB, _DUAN_GO_SRC], cwd=_DUAN_GO_DIR, check=True)")
+            self._add_line("        _DUAN_GO_DLL = _light_ctypes.CDLL(_DUAN_GO_LIB)")
             # 自动解析 //export GoFuncName 导出函数
-            self._add_line("        _DUAN_GO_EXPORTS = _duan_l4_re.findall(r'//export\\s+(\\w+)', _DUAN_GO_CODE)")
+            self._add_line("        _DUAN_GO_EXPORTS = _light_l4_re.findall(r'//export\\s+(\\w+)', _DUAN_GO_CODE)")
             self._add_line("        for _DUAN_GO_FN in _DUAN_GO_EXPORTS:")
             self._add_line("            try:")
             self._add_line("                _DUAN_GO_FN_OBJ = getattr(_DUAN_GO_DLL, _DUAN_GO_FN)")
-            self._add_line("                _DUAN_GO_FN_OBJ.restype = _duan_ctypes.c_double")
+            self._add_line("                _DUAN_GO_FN_OBJ.restype = _light_ctypes.c_double")
             self._add_line("                globals()[_DUAN_GO_FN] = _DUAN_GO_FN_OBJ")
             self._add_line("            except Exception:")
             self._add_line("                globals()[_DUAN_GO_FN] = lambda *a, _fn=_DUAN_GO_FN: f'[Go:{_fn} 未加载]'")
@@ -2696,11 +2696,11 @@ class PythonCodeGenerator:
         # -------- L4: MoonBit 嵌入（moon build --target wasm）--------
         if lang_main in ('moonbit', 'mbt', 'moon'):
             self._add_line(f"# --- L4: 引 MoonBit（moon build --target wasm + wasmtime 执行）---")
-            self._add_line("import tempfile as _duan_tmp")
-            self._add_line("import os as _duan_os")
-            self._add_line("import subprocess as _duan_sp")
-            self._add_line("import sys as _duan_sys")
-            self._add_line("import json as _duan_json")
+            self._add_line("import tempfile as _light_tmp")
+            self._add_line("import os as _light_os")
+            self._add_line("import subprocess as _light_sp")
+            self._add_line("import sys as _light_sys")
+            self._add_line("import json as _light_json")
             self._add_line("_DUAN_MBT_CODE = '''")
             for line in code.split('\n'):
                 self._add_line(line)
@@ -2708,28 +2708,28 @@ class PythonCodeGenerator:
             # 检测 MoonBit 工具链
             self._add_line("_DUAN_MBT_OK = False")
             self._add_line("try:")
-            self._add_line("    _duan_sp.run(['moon', 'version'], capture_output=True, check=True)")
+            self._add_line("    _light_sp.run(['moon', 'version'], capture_output=True, check=True)")
             self._add_line("    _DUAN_MBT_OK = True")
             self._add_line("except Exception: pass")
             # 创建 MoonBit 项目并编译
             self._add_line("if _DUAN_MBT_OK:")
-            self._add_line("    _DUAN_MBT_DIR = _duan_tmp.mkdtemp(prefix='duan_mbt_')")
-            self._add_line("    _DUAN_MBT_SRC = _duan_os.path.join(_DUAN_MBT_DIR, 'main.mbt')")
+            self._add_line("    _DUAN_MBT_DIR = _light_tmp.mkdtemp(prefix='light_mbt_')")
+            self._add_line("    _DUAN_MBT_SRC = _light_os.path.join(_DUAN_MBT_DIR, 'main.mbt')")
             self._add_line("    with open(_DUAN_MBT_SRC, 'w', encoding='utf-8') as _f: _f.write(_DUAN_MBT_CODE)")
             # 生成 moon.pkg.json
-            self._add_line("    _DUAN_MBT_PKG = _duan_os.path.join(_DUAN_MBT_DIR, 'moon.pkg.json')")
-            self._add_line("    with open(_DUAN_MBT_PKG, 'w') as _f: _duan_json.dump({}, _f)")
+            self._add_line("    _DUAN_MBT_PKG = _light_os.path.join(_DUAN_MBT_DIR, 'moon.pkg.json')")
+            self._add_line("    with open(_DUAN_MBT_PKG, 'w') as _f: _light_json.dump({}, _f)")
             # 编译为 wasm
             self._add_line("    try:")
-            self._add_line("        _duan_sp.run(['moon', 'build', '--target', 'wasm'], cwd=_DUAN_MBT_DIR, check=True, capture_output=True)")
+            self._add_line("        _light_sp.run(['moon', 'build', '--target', 'wasm'], cwd=_DUAN_MBT_DIR, check=True, capture_output=True)")
             # 尝试用 wasmtime 执行
-            self._add_line("        _DUAN_MBT_WASM = _duan_os.path.join(_DUAN_MBT_DIR, 'target', 'wasm', 'release', 'build', 'main.wasm')")
-            self._add_line("        if not _duan_os.path.exists(_DUAN_MBT_WASM):")
+            self._add_line("        _DUAN_MBT_WASM = _light_os.path.join(_DUAN_MBT_DIR, 'target', 'wasm', 'release', 'build', 'main.wasm')")
+            self._add_line("        if not _light_os.path.exists(_DUAN_MBT_WASM):")
             # 尝试其他路径
-            self._add_line("            _DUAN_MBT_WASM = _duan_os.path.join(_DUAN_MBT_DIR, 'target', 'wasm', 'debug', 'build', 'main.wasm')")
-            self._add_line("        if _duan_os.path.exists(_DUAN_MBT_WASM):")
+            self._add_line("            _DUAN_MBT_WASM = _light_os.path.join(_DUAN_MBT_DIR, 'target', 'wasm', 'debug', 'build', 'main.wasm')")
+            self._add_line("        if _light_os.path.exists(_DUAN_MBT_WASM):")
             self._add_line("            try:")
-            self._add_line("                _DUAN_MBT_OUT = _duan_sp.run(['wasmtime', _DUAN_MBT_WASM], capture_output=True, text=True, timeout=30)")
+            self._add_line("                _DUAN_MBT_OUT = _light_sp.run(['wasmtime', _DUAN_MBT_WASM], capture_output=True, text=True, timeout=30)")
             self._add_line("                print(f'[MoonBit wasm] {_DUAN_MBT_OUT.stdout.strip()}')")
             self._add_line("                if _DUAN_MBT_OUT.stderr: print(f'[MoonBit wasm stderr] {_DUAN_MBT_OUT.stderr.strip()}')")
             self._add_line("            except Exception as _DUAN_MBT_WASM_ERR:")
@@ -2753,11 +2753,11 @@ class PythonCodeGenerator:
 
     # --- 辅助：生成递增 id（嵌入沙箱变量、SQL 函数名去重）---
     def _fresh_id(self):
-        if not hasattr(self, '_duan_embed_id_counter'):
-            self._duan_embed_id_counter = 0
-        self._duan_embed_id_counter += 1
-        self._prev_fresh_id = self._duan_embed_id_counter
-        return self._duan_embed_id_counter
+        if not hasattr(self, '_light_embed_id_counter'):
+            self._light_embed_id_counter = 0
+        self._light_embed_id_counter += 1
+        self._prev_fresh_id = self._light_embed_id_counter
+        return self._light_embed_id_counter
 
 
 # =============================================================================
@@ -2765,10 +2765,10 @@ class PythonCodeGenerator:
 # =============================================================================
 
 if __name__ == '__main__':
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     
     print("=" * 60)
-    print("段言Python代码生成器测试")
+    print("光明Python代码生成器测试")
     print("=" * 60)
     
     # 测试代码
@@ -2789,12 +2789,12 @@ if __name__ == '__main__':
         ('管道', '数据 -> 过滤 -> 排序。'),
     ]
     
-    parser = DuanParser()
+    parser = LightParser()
     generator = PythonCodeGenerator()
     
     for name, code in test_cases:
         print(f"\n--- 测试: {name} ---")
-        print(f"段言代码: {code}")
+        print(f"光明代码: {code}")
         
         try:
             # 解析

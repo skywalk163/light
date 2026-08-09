@@ -1,0 +1,72 @@
+# 文体: 文言
+# 日期时间增强 — 对 stdlib/日期时间.light 的中文场景扩展
+# 提供：相对时间解析 / 起止时间 / 日期范围生成器
+
+导 日期时间 出 日期时间, 时间差, 当前时间
+
+引 Python 日期时间增强_后端:
+    from contrib.日期时间增强 import (
+        解析相对时间 as _l3_dt_parse,
+        月初 as _l3_dt_月初, 月末 as _l3_dt_月末,
+        季度初 as _l3_dt_季初, 季度末 as _l3_dt_季末,
+        年初 as _l3_dt_年初, 年末 as _l3_dt_年末,
+        周初 as _l3_dt_周初, 周末 as _l3_dt_周末,
+        日期范围 as _l3_dt_范围,
+    )
+
+    # 薄包装：日期时间对象在光明侧是 class 日期时间（含 _日期时间 属性），
+    # 这里在进出之间做"类型一致"的转换（传 dt._日期时间，返回 dt）
+    def _unwrap(dt):
+        return getattr(dt, '_日期时间', dt)
+
+    def 解析(描述, 基准=无):
+        b = _unwrap(基准) if 基准 is not None else None
+        py_dt = _l3_dt_parse(描述, b)
+        return 日期时间._从日期时间(py_dt)
+
+    def 取月初(dt=无):
+        py = _unwrap(dt) if dt is not None else None
+        return 日期时间._从日期时间(_l3_dt_月初(py))
+    def 取月末(dt=无):
+        py = _unwrap(dt) if dt is not None else None
+        return 日期时间._从日期时间(_l3_dt_月末(py))
+    def 取季度初(dt=无):
+        py = _unwrap(dt) if dt is not None else None
+        return 日期时间._从日期时间(_l3_dt_季初(py))
+    def 取季度末(dt=无):
+        py = _unwrap(dt) if dt is not None else None
+        return 日期时间._从日期时间(_l3_dt_季末(py))
+    def 取年初(dt=无):
+        py = _unwrap(dt) if dt is not None else None
+        return 日期时间._从日期时间(_l3_dt_年初(py))
+    def 取年末(dt=无):
+        py = _unwrap(dt) if dt is not None else None
+        return 日期时间._从日期时间(_l3_dt_年末(py))
+    def 取周初(dt=无):
+        py = _unwrap(dt) if dt is not None else None
+        return 日期时间._从日期时间(_l3_dt_周初(py))
+    def 取周末(dt=无):
+        py = _unwrap(dt) if dt is not None else None
+        return 日期时间._从日期时间(_l3_dt_周末(py))
+
+    def 范围(开始, 结束, 步长天=1, 步长周=0, 步长月=0):
+        s = _unwrap(开始); e = _unwrap(结束)
+        pys = _l3_dt_范围(s, e, 步长天, 步长周, 步长月)
+        return [日期时间._从日期时间(p) for p in pys]
+结束引
+
+段 解析(描述: 串, 基准=空) -> 日期时间:
+    返 解析(描述, 基准)
+
+段 月初(dt=空) -> 日期时间: 返 取月初(dt)
+段 月末(dt=空) -> 日期时间: 返 取月末(dt)
+段 季度初(dt=空) -> 日期时间: 返 取季度初(dt)
+段 季度末(dt=空) -> 日期时间: 返 取季度末(dt)
+段 年初(dt=空) -> 日期时间: 返 取年初(dt)
+段 年末(dt=空) -> 日期时间: 返 取年末(dt)
+段 周初(dt=空) -> 日期时间: 返 取周初(dt)
+段 周末(dt=空) -> 日期时间: 返 取周末(dt)
+段 日期范围(开始: 日期时间, 结束: 日期时间, 步长天=1, 步长周=0, 步长月=0) -> 列:
+    返 范围(开始, 结束, 步长天, 步长周, 步长月)
+
+出 解析, 月初, 月末, 季度初, 季度末, 年初, 年末, 周初, 周末, 日期范围

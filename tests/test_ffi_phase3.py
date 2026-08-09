@@ -6,7 +6,7 @@ import os
 import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from duan_parser_v3 import DuanParser, ParseError, FFIEnumDef, FFIUnionDef, FFIVarArgsDecl, FFICreateCallback, FFIStructByValue, FFILibraryPath, FFILoadLibrary, FFIStructDef, FFICallbackDef
+from light_parser_v3 import LightParser, ParseError, FFIEnumDef, FFIUnionDef, FFIVarArgsDecl, FFICreateCallback, FFIStructByValue, FFILibraryPath, FFILoadLibrary, FFIStructDef, FFICallbackDef
 
 
 # =============================================================================
@@ -14,7 +14,7 @@ from duan_parser_v3 import DuanParser, ParseError, FFIEnumDef, FFIUnionDef, FFIV
 # =============================================================================
 
 def test_parse_ffi_enum_def():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 枚举 颜色 { 红, 绿, 蓝 }。'
     module = parser.parse(code)
     stmts = module.statements
@@ -26,7 +26,7 @@ def test_parse_ffi_enum_def():
 
 
 def test_parse_ffi_enum_with_values():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 枚举 错误码 { 成功 = 0, 失败 = 1, 超时 = 2 }。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -36,7 +36,7 @@ def test_parse_ffi_enum_with_values():
 
 
 def test_parse_ffi_enum_with_jump_values():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 枚举 信号 { SIGINT = 2, SIGKILL = 9, SIGTERM = 15 }。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -48,7 +48,7 @@ def test_parse_ffi_enum_with_jump_values():
 # =============================================================================
 
 def test_parse_ffi_union_def():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 联合体 数据 { 整数: 整数, 小数: 小数, 文本: 文本 }。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -65,7 +65,7 @@ def test_parse_ffi_union_def():
 # =============================================================================
 
 def test_parse_ffi_varargs_decl():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 变长参数 段落 格式化输出 接收 格式: 文本 返回 整数 在 mylib。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -79,7 +79,7 @@ def test_parse_ffi_varargs_decl():
 
 
 def test_parse_ffi_varargs_with_c_name():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 变长参数 段落 打印 为 "printf" 接收 格式: 文本 返回 整数 在 libc。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -94,7 +94,7 @@ def test_parse_ffi_varargs_with_c_name():
 # =============================================================================
 
 def test_parse_full_phase3_program():
-    parser = DuanParser()
+    parser = LightParser()
     code = '加载库 "libm.so" 为 mathlib。\n外部 枚举 颜色 { 红 = 0, 绿 = 1, 蓝 = 2 }。\n外部 联合体 数值 { 整数: 整数, 浮点: 小数 }。\n外部 结构体 点 { x: 小数, y: 小数 }。\n外部 回调 比较器 接收 甲: 整数, 乙: 整数 返回 整数。\n外部 变长参数 段落 格式化 接收 模板: 文本 返回 整数 在 stdlib。\n外部 段落 距离 接收 甲: 小数, 乙: 小数 返回 小数 在 mathlib。'
     module = parser.parse(code)
     stmts = module.statements
@@ -114,7 +114,7 @@ def test_parse_full_phase3_program():
 
 def test_codegen_ffi_enum():
     from code_generator import PythonCodeGenerator
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 枚举 颜色 { 红 = 0, 绿 = 1, 蓝 = 2 }。'
     module = parser.parse(code)
     gen = PythonCodeGenerator()
@@ -131,7 +131,7 @@ def test_codegen_ffi_enum():
 
 def test_codegen_ffi_union():
     from code_generator import PythonCodeGenerator
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 联合体 数据 { 整: 整数, 浮: 小数 }。'
     module = parser.parse(code)
     gen = PythonCodeGenerator()
@@ -146,7 +146,7 @@ def test_codegen_ffi_union():
 
 def test_codegen_ffi_varargs():
     from code_generator import PythonCodeGenerator
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 变长参数 段落 打印 为 "printf" 接收 格式: 文本 返回 整数 在 libc。'
     module = parser.parse(code)
     gen = PythonCodeGenerator()
@@ -276,7 +276,7 @@ def test_runtime_varargs_call():
 # =============================================================================
 
 def test_parse_enum_then_function():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 枚举 状态 { 激活, 停用 }。外部 段落 获取状态 返回 整数 在 lib。'
     module = parser.parse(code)
     assert len(module.statements) == 2
@@ -289,7 +289,7 @@ def test_parse_enum_then_function():
 # =============================================================================
 
 def test_parse_union_then_struct():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 联合体 值 { i: 整数, d: 小数 }。外部 结构体 包装器 { 标签: 整数, 值: 值 }。'
     module = parser.parse(code)
     assert len(module.statements) == 2

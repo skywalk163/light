@@ -1,0 +1,215 @@
+# light_ast.light - AST node constructors for bootstrap compiler
+# Uses v3.2 语法标准: 段落 段名 接收 参数：body
+#
+# Node format: list [type, data...]
+# e.g. number literal = ["number", "42"]
+#
+# NOTE: All identifiers use English to avoid ANTLR keyword conflicts
+# with single-character Chinese keywords (列=LIST, 段落=SEGMENT, etc.)
+
+导出 make_program
+导出 make_paragraph_def
+导出 make_var_decl
+导出 make_assign
+导出 make_compound_assign
+导出 make_if_stmt
+导出 make_while_loop
+导出 make_for_each
+导出 make_return
+导出 make_break
+导出 make_continue
+导出 make_print
+导出 make_expr_stmt
+导出 make_identifier
+导出 make_number
+导出 make_string
+导出 make_boolean
+导出 make_null
+导出 make_binary_op
+导出 make_unary_op
+导出 make_func_call
+导出 make_member_access
+导出 node_type
+导出 node_data
+
+# =============================================================================
+# Program node (root)
+# =============================================================================
+段落 make_program 接收 stmt_list：
+  设 node 为 列表创建()
+  列表追加(node, "program")
+  列表追加(node, stmt_list)
+  返回 node
+
+# =============================================================================
+# Statement nodes
+# =============================================================================
+段落 make_paragraph_def 接收 name, params, body：
+  设 node 为 列表创建()
+  列表追加(node, "paragraph_def")
+  列表追加(node, name)
+  列表追加(node, params)
+  列表追加(node, body)
+  返回 node
+
+段落 make_var_decl 接收 var_name, value：
+  设 node 为 列表创建()
+  列表追加(node, "var_decl")
+  列表追加(node, var_name)
+  列表追加(node, value)
+  返回 node
+
+段落 make_assign 接收 var_name, value：
+  设 node 为 列表创建()
+  列表追加(node, "assign")
+  列表追加(node, var_name)
+  列表追加(node, value)
+  返回 node
+
+段落 make_compound_assign 接收 var_name, op, value：
+  设 node 为 列表创建()
+  列表追加(node, "compound_assign")
+  列表追加(node, var_name)
+  列表追加(node, op)
+  列表追加(node, value)
+  返回 node
+
+段落 make_if_stmt 接收 cond, body, elif_branches, else_body：
+  设 node 为 列表创建()
+  列表追加(node, "if_stmt")
+  列表追加(node, cond)
+  列表追加(node, body)
+  列表追加(node, elif_branches)
+  列表追加(node, else_body)
+  返回 node
+
+段落 make_while_loop 接收 cond, body：
+  设 node 为 列表创建()
+  列表追加(node, "while_loop")
+  列表追加(node, cond)
+  列表追加(node, body)
+  返回 node
+
+段落 make_for_each 接收 var_name, collection, body：
+  设 node 为 列表创建()
+  列表追加(node, "for_each")
+  列表追加(node, var_name)
+  列表追加(node, collection)
+  列表追加(node, body)
+  返回 node
+
+段落 make_return 接收 value：
+  设 node 为 列表创建()
+  列表追加(node, "return")
+  列表追加(node, value)
+  返回 node
+
+段落 make_break：
+  设 node 为 列表创建()
+  列表追加(node, "break")
+  返回 node
+
+段落 make_continue：
+  设 node 为 列表创建()
+  列表追加(node, "continue")
+  返回 node
+
+段落 make_print 接收 value：
+  设 node 为 列表创建()
+  列表追加(node, "print")
+  列表追加(node, value)
+  返回 node
+
+段落 make_expr_stmt 接收 expr：
+  设 node 为 列表创建()
+  列表追加(node, "expr_stmt")
+  列表追加(node, expr)
+  返回 node
+
+# =============================================================================
+# Expression nodes
+# =============================================================================
+段落 make_identifier 接收 name：
+  设 node 为 列表创建()
+  列表追加(node, "identifier")
+  列表追加(node, name)
+  返回 node
+
+段落 make_number 接收 value：
+  设 node 为 列表创建()
+  列表追加(node, "number")
+  列表追加(node, value)
+  返回 node
+
+段落 make_string 接收 value：
+  设 node 为 列表创建()
+  列表追加(node, "string")
+  列表追加(node, value)
+  返回 node
+
+段落 make_boolean 接收 value：
+  设 node 为 列表创建()
+  列表追加(node, "boolean")
+  列表追加(node, value)
+  返回 node
+
+段落 make_null：
+  设 node 为 列表创建()
+  列表追加(node, "null")
+  返回 node
+
+段落 make_binary_op 接收 op, left, right：
+  设 node 为 列表创建()
+  列表追加(node, "binary_op")
+  列表追加(node, op)
+  列表追加(node, left)
+  列表追加(node, right)
+  返回 node
+
+段落 make_unary_op 接收 op, operand：
+  设 node 为 列表创建()
+  列表追加(node, "unary_op")
+  列表追加(node, op)
+  列表追加(node, operand)
+  返回 node
+
+段落 make_func_call 接收 func_name, args：
+  设 node 为 列表创建()
+  列表追加(node, "func_call")
+  列表追加(node, func_name)
+  列表追加(node, args)
+  返回 node
+
+段落 make_member_access 接收 object, prop_name：
+  设 node 为 列表创建()
+  列表追加(node, "member_access")
+  列表追加(node, object)
+  列表追加(node, prop_name)
+  返回 node
+
+段落 make_list_literal 接收 elements：
+  设 node 为 列表创建()
+  列表追加(node, "list_literal")
+  列表追加(node, elements)
+  返回 node
+
+段落 make_dict_literal 接收 pairs：
+  设 node 为 列表创建()
+  列表追加(node, "dict_literal")
+  列表追加(node, pairs)
+  返回 node
+
+段落 make_template_string 接收 value：
+  设 node 为 列表创建()
+  列表追加(node, "template_string")
+  列表追加(node, value)
+  返回 node
+
+# =============================================================================
+# Node access utilities
+# =============================================================================
+段落 node_type 接收 node：
+  返回 列表获取(node, 0)
+
+段落 node_data 接收 node, index：
+  返回 列表获取(node, index)

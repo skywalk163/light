@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言翻译器 — LoRA 合并 + GGUF 转换脚本
+光明翻译器 — LoRA 合并 + GGUF 转换脚本
 
 微调完成后，将 LoRA 权重合并到基础模型，然后可选地转换为
 GGUF 格式（供 ollama / llama.cpp 使用）。
@@ -18,7 +18,7 @@ GGUF 格式（供 ollama / llama.cpp 使用）。
     python merge_and_convert.py --preset qwen2.5-0.5b --merge-only
 
     # 指定路径
-    python merge_and_convert.py --base-model ./model_cache/qwen2.5-0.5b --lora-path ./output/qwen2.5_0.5b_duan_gpu/final
+    python merge_and_convert.py --base-model ./model_cache/qwen2.5-0.5b --lora-path ./output/qwen2.5_0.5b_light_gpu/final
 
 前置条件（GGUF 转换）：
     git clone https://github.com/ggerganov/llama.cpp
@@ -40,10 +40,10 @@ def _find_lora_path():
     """自动检测 LoRA 权重路径，优先 GPU 训练产物，支持多模型"""
     # 按优先级检测所有已知模型的 GPU/CPU 输出目录
     candidates = [
-        ("qwen3.5_2b_duan_gpu", "qwen3.5-2b"),
-        ("qwen2.5_1.5b_duan_gpu", "qwen2.5-1.5b"),
-        ("qwen2.5_0.5b_duan_gpu", "qwen2.5-0.5b"),
-        ("qwen2.5_0.5b_duan_cpu", "qwen2.5-0.5b"),
+        ("qwen3.5_2b_light_gpu", "qwen3.5-2b"),
+        ("qwen2.5_1.5b_light_gpu", "qwen2.5-1.5b"),
+        ("qwen2.5_0.5b_light_gpu", "qwen2.5-0.5b"),
+        ("qwen2.5_0.5b_light_cpu", "qwen2.5-0.5b"),
     ]
     for name, label in candidates:
         p = os.path.join(_SCRIPT_DIR, "output", name, "final")
@@ -51,31 +51,31 @@ def _find_lora_path():
             print(f"[自动检测] LoRA 路径: {p} ({label})")
             return p
     # 默认回退
-    return os.path.join(_SCRIPT_DIR, "output", "qwen2.5_0.5b_duan_gpu", "final")
+    return os.path.join(_SCRIPT_DIR, "output", "qwen2.5_0.5b_light_gpu", "final")
 
 
 # 模型预设：与 train_gpu_lora.py 中的 MODEL_PRESETS 保持一致
 MERGE_PRESETS = {
     "qwen2.5-0.5b": {
         "base_model": os.path.join(_SCRIPT_DIR, "model_cache", "qwen2.5-0.5b"),
-        "lora_dir": "qwen2.5_0.5b_duan_gpu",
-        "merged_dir": "duan_translator_merged_0.5b",
+        "lora_dir": "qwen2.5_0.5b_light_gpu",
+        "merged_dir": "light_translator_merged_0.5b",
     },
     "qwen2.5-1.5b": {
         "base_model": os.path.join(_SCRIPT_DIR, "model_cache", "qwen2.5-1.5b"),
-        "lora_dir": "qwen2.5_1.5b_duan_gpu",
-        "merged_dir": "duan_translator_merged_1.5b",
+        "lora_dir": "qwen2.5_1.5b_light_gpu",
+        "merged_dir": "light_translator_merged_1.5b",
     },
     "qwen3.5-2b": {
         "base_model": os.path.join(_SCRIPT_DIR, "model_cache", "qwen3.5-2b"),
-        "lora_dir": "qwen3.5_2b_duan_gpu",
-        "merged_dir": "duan_translator_merged_3.5_2b",
+        "lora_dir": "qwen3.5_2b_light_gpu",
+        "merged_dir": "light_translator_merged_3.5_2b",
     },
 }
 
 
 _DEFAULT_LORA_PATH = _find_lora_path()
-_DEFAULT_MERGED_DIR = os.path.join(_SCRIPT_DIR, "output", "duan_translator_merged")
+_DEFAULT_MERGED_DIR = os.path.join(_SCRIPT_DIR, "output", "light_translator_merged")
 
 
 def merge_lora(base_model_path: str, lora_path: str, output_dir: str):
@@ -121,10 +121,10 @@ def merge_lora(base_model_path: str, lora_path: str, output_dir: str):
     # 保存 Modelfile（给 ollama 用）
     modelfile_path = os.path.join(output_dir, "Modelfile")
     with open(modelfile_path, "w", encoding="utf-8") as f:
-        f.write("""# 段言翻译器 — ollama Modelfile
-# 用法: ollama create duan-translator -f Modelfile
+        f.write("""# 光明翻译器 — ollama Modelfile
+# 用法: ollama create light-translator -f Modelfile
 
-FROM ./duan_translator.gguf
+FROM ./light_translator.gguf
 
 TEMPLATE \"\"\"{{ if .System }}<|im_start|>system
 {{ .System }}<|im_end|>
@@ -133,7 +133,7 @@ TEMPLATE \"\"\"{{ if .System }}<|im_start|>system
 {{ end }}<|im_start|>assistant
 {{ end }}\"\"\"
 
-SYSTEM \"\"\"你是段言（DuanLang）编程语言 v3.2 的翻译专家。你的任务是将 Python 代码翻译为段言 v3.2 代码。只输出段言代码，不要解释。\"\"\"
+SYSTEM \"\"\"你是光明（LightLang）编程语言 v3.2 的翻译专家。你的任务是将 Python 代码翻译为光明 v3.2 代码。只输出光明代码，不要解释。\"\"\"
 
 PARAMETER temperature 0.1
 PARAMETER top_p 0.9
@@ -210,7 +210,7 @@ def convert_to_gguf(model_dir: str, output_gguf: str = None, quantize: str = "q4
     print("=" * 60)
 
     if output_gguf is None:
-        output_gguf = os.path.join(model_dir, "duan_translator.gguf")
+        output_gguf = os.path.join(model_dir, "light_translator.gguf")
 
     convert_script, llama_quantize = _find_llama_cpp()
 
@@ -302,15 +302,15 @@ def convert_to_gguf(model_dir: str, output_gguf: str = None, quantize: str = "q4
     # 提示如何加载到 ollama
     print(f"\n加载到 ollama:")
     print(f"  cd {model_dir}")
-    print(f"  ollama create duan-translator -f Modelfile")
-    print(f"  ollama run duan-translator \"将以下代码翻译为段言: def add(a,b): return a+b\"")
+    print(f"  ollama create light-translator -f Modelfile")
+    print(f"  ollama run light-translator \"将以下代码翻译为光明: def add(a,b): return a+b\"")
 
     return True
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="段言翻译器 — LoRA 合并 + GGUF 转换"
+        description="光明翻译器 — LoRA 合并 + GGUF 转换"
     )
     parser.add_argument(
         "--preset",
@@ -389,7 +389,7 @@ def main():
     print(f"\n下一步:")
     print(f"  推理测试:     python local_infer.py --fine-tuned")
     print(f"  转 GGUF:      python merge_and_convert.py --convert-gguf")
-    print(f"  ollama 加载:  cd {merged_dir} && ollama create duan-translator -f Modelfile")
+    print(f"  ollama 加载:  cd {merged_dir} && ollama create light-translator -f Modelfile")
 
 
 if __name__ == "__main__":

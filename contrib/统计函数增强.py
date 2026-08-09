@@ -1,5 +1,5 @@
 """
-统计函数增强模块 - 对 contrib/统计函数.duan 的补充
+统计函数增强模块 - 对 contrib/统计函数.light 的补充
 新增能力：
 1. 百分位数（别名，和分位数语义等价，百分位 0-100）
 2. Z分数标准化（对每个数据点算 (x-均值)/标准差）
@@ -17,7 +17,7 @@ def _ensure_non_empty(数据: List[float]) -> None:
         raise ValueError("数据不能为空")
 
 
-# 复用 contrib.统计函数.duan 里的 Python 版本（独立运行 fallback 内嵌）
+# 复用 contrib.统计函数.light 里的 Python 版本（独立运行 fallback 内嵌）
 def _fallback_mean(数据: List[float]) -> float:
     return sum(数据) / len(数据)
 

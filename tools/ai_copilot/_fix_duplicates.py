@@ -35,8 +35,8 @@ for i, item in enumerate(unique_data):
     du = item['output']
     original_du = du
     
-    # 修复 pass -> 跳过 (但要注意，段言中"跳过"是continue的意思)
-    # pass 在段言中应该用空语句，或者直接省略
+    # 修复 pass -> 跳过 (但要注意，光明中"跳过"是continue的意思)
+    # pass 在光明中应该用空语句，或者直接省略
     # 检查pass是否在独立行
     lines = du.split('\n')
     new_lines = []
@@ -51,9 +51,9 @@ for i, item in enumerate(unique_data):
             new_lines.append(line)
     du = '\n'.join(new_lines)
     
-    # 修复 yield from -> 需要生成器委托，段言暂时用简单的yield替代
+    # 修复 yield from -> 需要生成器委托，光明暂时用简单的yield替代
     # yield from expr -> 遍历 item 于 expr：yield item
-    # 但段言可能不支持yield... 先保留
+    # 但光明可能不支持yield... 先保留
     
     # 修复 True/False/None (在关键字参数中)
     # 修复 False/None (作为变量值)

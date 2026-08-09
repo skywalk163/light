@@ -1,6 +1,6 @@
 # L3 领域嵌入
 
-L3 层直接在段言代码中嵌入 SQL、正则表达式、数学公式，无需特殊标记。
+L3 层直接在光明代码中嵌入 SQL、正则表达式、数学公式，无需特殊标记。
 
 ## SQL 嵌入
 
@@ -16,7 +16,7 @@ l3_sql_exec(DB, "INSERT INTO t VALUES (1, '张三')")
 
 ```python
 设 邮箱正则 = "[a-zA-Z]+@[a-zA-Z]+\\.[a-zA-Z]+"
-l3_re_match(邮箱正则, "test@duan-lang.org")
+l3_re_match(邮箱正则, "test@light-lang.org")
 ```
 
 ## 数学公式嵌入

@@ -6,7 +6,7 @@ import math
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_interpreter import run_source, DuanValue
+from light_interpreter import run_source, LightValue
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -147,7 +147,7 @@ listReverse(single)。
 '''
     
     try:
-        with open(os.path.join(BASE_DIR, 'stdlib.duan'), 'r', encoding='utf-8') as f:
+        with open(os.path.join(BASE_DIR, 'stdlib.light'), 'r', encoding='utf-8') as f:
             stdlib_code = f.read()
         
         full_code = stdlib_code + '\n\n' + test_code
@@ -221,8 +221,8 @@ def test_error_handling_cases():
 # ==================== 完整自举测试 ====================
 
 def unwrap_value(v):
-    """递归解包 DuanValue"""
-    if isinstance(v, DuanValue):
+    """递归解包 LightValue"""
+    if isinstance(v, LightValue):
         return unwrap_value(v.value)
     if isinstance(v, dict):
         return {k: unwrap_value(v) for k, v in v.items()}
@@ -233,7 +233,7 @@ def unwrap_value(v):
 
 def load_tokenizer():
     """加载自举分词器"""
-    tokenizer_path = os.path.join(BASE_DIR, 'tokenizer.duan')
+    tokenizer_path = os.path.join(BASE_DIR, 'tokenizer.light')
     with open(tokenizer_path, 'r', encoding='utf-8') as f:
         source = f.read()
     interp = run_source(source)
@@ -244,24 +244,24 @@ def load_tokenizer():
 def get_tokens(code, tokenizer_interp, tokenizer_func):
     """用自举分词器获取Token列表"""
     result = tokenizer_interp._call_function(
-        tokenizer_func, [DuanValue(code, '串')]
+        tokenizer_func, [LightValue(code, '串')]
     )
     raw_tokens = unwrap_value(result)
     wrapped = []
     for t in raw_tokens:
-        wrapped.append(DuanValue({
-            'type': DuanValue(t['type'], '串'),
-            'text': DuanValue(t['text'], '串'),
-            'line': DuanValue(t['line'], '数'),
-            'col': DuanValue(t['col'], '数'),
+        wrapped.append(LightValue({
+            'type': LightValue(t['type'], '串'),
+            'text': LightValue(t['text'], '串'),
+            'line': LightValue(t['line'], '数'),
+            'col': LightValue(t['col'], '数'),
         }, '典'))
-    return DuanValue(wrapped, '列')
+    return LightValue(wrapped, '列')
 
 
 def load_parser():
-    """加载 ast.duan + parser.duan"""
+    """加载 ast.light + parser.light"""
     combined = ''
-    for name in ['ast.duan', 'parser.duan']:
+    for name in ['ast.light', 'parser.light']:
         path = os.path.join(BASE_DIR, name)
         with open(path, 'r', encoding='utf-8') as f:
             combined += f.read() + '\n'
@@ -271,9 +271,9 @@ def load_parser():
 
 
 def test_full_bootstrap():
-    """测试完全自举：用段言解释器解释段言代码"""
+    """测试完全自举：用光明解释器解释光明代码"""
     print("\n" + "=" * 70)
-    print("测试：完整自举 - 段言解释器解释段言代码")
+    print("测试：完整自举 - 光明解释器解释光明代码")
     print("=" * 70)
     
     try:
@@ -289,13 +289,13 @@ def test_full_bootstrap():
         
         # 加载解释器
         print("  3. 加载解释器...")
-        interp_code = open(os.path.join(BASE_DIR, 'interpreter.duan'), encoding='utf-8').read()
+        interp_code = open(os.path.join(BASE_DIR, 'interpreter.light'), encoding='utf-8').read()
         interp = run_source(interp_code)
         print(f"     ✓ 解释器加载完成 ({len(interp_code)} 字符)")
         
         # 加载标准库
         print("  4. 加载标准库...")
-        stdlib_code = open(os.path.join(BASE_DIR, 'stdlib.duan'), encoding='utf-8').read()
+        stdlib_code = open(os.path.join(BASE_DIR, 'stdlib.light'), encoding='utf-8').read()
         # 先运行标准库初始化
         stdlib_interp = run_source(stdlib_code)
         print(f"     ✓ 标准库加载完成 ({len(stdlib_code)} 字符)")
@@ -347,8 +347,8 @@ printDebug("断言通过", 真)。
         ast = parsed.get('result')
         print(f"     ✓ 解析成功 ({len(ast.get('statements', []))} 个语句)")
         
-        # 将AST包装为DuanValue
-        ast_value = DuanValue(ast, '典')
+        # 将AST包装为LightValue
+        ast_value = LightValue(ast, '典')
         
         # 调用解释器执行
         run_func = interp.env.get('_run')
@@ -504,7 +504,7 @@ def test_performance_stdlib():
 def test_performance_comparison():
     """性能对比测试"""
     print("\n" + "=" * 70)
-    print("测试：Python vs 段言解释器性能对比")
+    print("测试：Python vs 光明解释器性能对比")
     print("=" * 70)
     
     iterations = 100000
@@ -519,8 +519,8 @@ def test_performance_comparison():
     print(f"     耗时: {py_elapsed:.3f} 秒")
     print(f"     速度: {py_ops:.1f} 次/秒")
     
-    # 段言解释器性能
-    print("\n  2. 段言解释器循环:")
+    # 光明解释器性能
+    print("\n  2. 光明解释器循环:")
     test_code = f'''
 定义sum等于0。
 定义i等于0。
@@ -530,19 +530,19 @@ def test_performance_comparison():
 结束。
 打印(sum)。
 '''
-    duan_start = time.time()
+    light_start = time.time()
     interp = run_source(test_code)
-    duan_elapsed = time.time() - duan_start
-    duan_ops = iterations / duan_elapsed
+    light_elapsed = time.time() - light_start
+    light_ops = iterations / light_elapsed
     output = interp.get_output().strip()
     print(f"     结果: {output}")
-    print(f"     耗时: {duan_elapsed:.3f} 秒")
-    print(f"     速度: {duan_ops:.1f} 次/秒")
+    print(f"     耗时: {light_elapsed:.3f} 秒")
+    print(f"     速度: {light_ops:.1f} 次/秒")
     
     # 计算慢多少倍
-    slowdown = py_ops / duan_ops
+    slowdown = py_ops / light_ops
     print(f"\n  3. 性能对比:")
-    print(f"     段言解释器比Python原生慢 {slowdown:.1f} 倍")
+    print(f"     光明解释器比Python原生慢 {slowdown:.1f} 倍")
     
     return True
 
@@ -552,7 +552,7 @@ def test_performance_comparison():
 def main():
     """运行所有测试"""
     print("=" * 70)
-    print("段言解释器综合测试套件")
+    print("光明解释器综合测试套件")
     print("=" * 70)
     
     all_passed = True

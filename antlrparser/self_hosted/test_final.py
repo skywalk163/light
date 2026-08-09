@@ -5,7 +5,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_interpreter import run_source, DuanValue
+from light_interpreter import run_source, LightValue
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -13,7 +13,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 def run_all_tests():
     """运行所有测试"""
     print("=" * 70)
-    print("段言解释器最终测试套件")
+    print("光明解释器最终测试套件")
     print("=" * 70)
     
     all_passed = True
@@ -89,10 +89,10 @@ def run_all_tests():
     print("\n【第二部分：自举测试】")
     print("-" * 70)
     
-    print("测试：段言分词器解析段言代码")
+    print("测试：光明分词器解析光明代码")
     try:
         # 加载分词器
-        tokenizer_path = os.path.join(BASE_DIR, 'tokenizer.duan')
+        tokenizer_path = os.path.join(BASE_DIR, 'tokenizer.light')
         with open(tokenizer_path, 'r', encoding='utf-8') as f:
             tokenizer_code = f.read()
         tok_interp = run_source(tokenizer_code)
@@ -100,11 +100,11 @@ def run_all_tests():
         
         # 测试代码
         test_code = '定义x等于10加20。'
-        tokens = tok_interp._call_function(tok_func, [DuanValue(test_code, '串')])
+        tokens = tok_interp._call_function(tok_func, [LightValue(test_code, '串')])
         raw_tokens = []
         
         def unwrap(v):
-            if isinstance(v, DuanValue):
+            if isinstance(v, LightValue):
                 return unwrap(v.value)
             if isinstance(v, dict):
                 return {k: unwrap(v) for k, v in v.items()}
@@ -127,11 +127,11 @@ def run_all_tests():
         print(f"  ✗ 分词器测试失败: {e}")
         all_passed = False
     
-    print("\n测试：段言解析器解析段言代码")
+    print("\n测试：光明解析器解析光明代码")
     try:
         # 加载解析器
         combined = ''
-        for name in ['ast.duan', 'parser.duan']:
+        for name in ['ast.light', 'parser.light']:
             path = os.path.join(BASE_DIR, name)
             with open(path, 'r', encoding='utf-8') as f:
                 combined += f.read() + '\n'
@@ -141,26 +141,26 @@ def run_all_tests():
         print("  ✓ 解析器加载完成")
         
         # 使用分词器获取tokens
-        tokenizer_path = os.path.join(BASE_DIR, 'tokenizer.duan')
+        tokenizer_path = os.path.join(BASE_DIR, 'tokenizer.light')
         with open(tokenizer_path, 'r', encoding='utf-8') as f:
             tokenizer_code = f.read()
         tok_interp = run_source(tokenizer_code)
         tok_func = tok_interp.env.get('分词器').value
         
         test_code = '定义x等于1加2。打印(x)。'
-        raw_tokens = tok_interp._call_function(tok_func, [DuanValue(test_code, '串')])
+        raw_tokens = tok_interp._call_function(tok_func, [LightValue(test_code, '串')])
         
         # 包装tokens
         token_list = unwrap(raw_tokens)
         wrapped = []
         for t in token_list:
-            wrapped.append(DuanValue({
-                'type': DuanValue(t['type'], '串'),
-                'text': DuanValue(t['text'], '串'),
-                'line': DuanValue(t['line'], '数'),
-                'col': DuanValue(t['col'], '数'),
+            wrapped.append(LightValue({
+                'type': LightValue(t['type'], '串'),
+                'text': LightValue(t['text'], '串'),
+                'line': LightValue(t['line'], '数'),
+                'col': LightValue(t['col'], '数'),
             }, '典'))
-        tokens_value = DuanValue(wrapped, '列')
+        tokens_value = LightValue(wrapped, '列')
         
         # 解析
         parse_result = parse_interp._call_function(parse_func, [tokens_value])
@@ -245,7 +245,7 @@ def run_all_tests():
     print(f"  速度: {ops_per_sec:.1f} 次/秒")
     
     # Python对比
-    print("\n测试：Python vs 段言性能对比")
+    print("\n测试：Python vs 光明性能对比")
     iterations = 100000
     
     py_start = time.time()
@@ -262,15 +262,15 @@ def run_all_tests():
 结束。
 打印(sum)。
 '''
-    duan_start = time.time()
+    light_start = time.time()
     interp = run_source(code)
-    duan_elapsed = time.time() - duan_start
-    duan_ops = iterations / duan_elapsed
+    light_elapsed = time.time() - light_start
+    light_ops = iterations / light_elapsed
     
-    slowdown = py_ops / duan_ops
+    slowdown = py_ops / light_ops
     print(f"  Python: {py_ops:.0f} 次/秒")
-    print(f"  段言: {duan_ops:.0f} 次/秒")
-    print(f"  段言比Python慢 {slowdown:.1f} 倍")
+    print(f"  光明: {light_ops:.0f} 次/秒")
+    print(f"  光明比Python慢 {slowdown:.1f} 倍")
     
     # ========== 总结 ==========
     print("\n" + "=" * 70)
@@ -286,8 +286,8 @@ def run_all_tests():
 
 
 def unwrap(v):
-    """递归解包 DuanValue"""
-    if isinstance(v, DuanValue):
+    """递归解包 LightValue"""
+    if isinstance(v, LightValue):
         return unwrap(v.value)
     if isinstance(v, dict):
         return {k: unwrap(v) for k, v in v.items()}

@@ -1,5 +1,5 @@
 """
-段言（Duan）Web Playground - 后端 API 服务
+光明（Light）Web Playground - 后端 API 服务
 基于 v3.2 语法的 SRC 后端，提供代码执行、解析、词法分析等功能。
 """
 
@@ -34,13 +34,13 @@ os.makedirs(SHARED_DIR, exist_ok=True)
 os.makedirs(PROJECTS_DIR, exist_ok=True)
 
 
-def run_duan_code(source: str) -> dict:
-    """执行段言代码，返回输出和错误信息"""
+def run_light_code(source: str) -> dict:
+    """执行光明代码，返回输出和错误信息"""
     try:
-        from duan_parser_v3 import DuanParser
+        from light_parser_v3 import LightParser
         from code_generator import PythonCodeGenerator
 
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse(source)
 
         generator = PythonCodeGenerator()
@@ -55,7 +55,7 @@ def run_duan_code(source: str) -> dict:
         namespace = {
             'print': _capture_print,
             '__name__': '__main__',
-            '__file__': os.path.join(_script_dir, 'playground.duan')
+            '__file__': os.path.join(_script_dir, 'playground.light')
         }
 
         start_time = time.time()
@@ -84,12 +84,12 @@ def run_duan_code(source: str) -> dict:
         }
 
 
-def parse_duan_code(source: str) -> dict:
-    """解析段言代码，返回 AST 信息"""
+def parse_light_code(source: str) -> dict:
+    """解析光明代码，返回 AST 信息"""
     try:
-        from duan_parser_v3 import DuanParser
+        from light_parser_v3 import LightParser
 
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse(source)
 
         segments = []
@@ -190,7 +190,7 @@ def parse_duan_code(source: str) -> dict:
         }
 
 
-def tokenize_duan_code(source: str) -> dict:
+def tokenize_light_code(source: str) -> dict:
     """词法分析，返回 Token 列表"""
     try:
         from lexer import Lexer
@@ -255,9 +255,9 @@ BUILTIN_EXAMPLES = [
         'examples': [
             {
                 'id': 'hello',
-                'title': '你好，段言',
-                'description': '最基础的段言程序，了解打印语句',
-                'code': '# 欢迎使用段言 v3.2\n\n打印("你好，段言！")\n打印("欢迎来到中文编程的世界")'
+                'title': '你好，光明',
+                'description': '最基础的光明程序，了解打印语句',
+                'code': '# 欢迎使用光明 v3.2\n\n打印("你好，光明！")\n打印("欢迎来到中文编程的世界")'
             },
             {
                 'id': 'variables',
@@ -275,13 +275,13 @@ BUILTIN_EXAMPLES = [
                 'id': 'types',
                 'title': '数据类型',
                 'description': '数字、字符串、布尔值和列表的使用',
-                'code': '# 数字\n设 整数 为 42\n设 小数 为 3.14\n打印("整数：")打印(整数)\n打印("小数：")打印(小数)\n\n# 字符串\n设 文本 为 "段言编程"\n打印("文本：")打印(文本)\n\n# 布尔值\n设 旗标 为 真\n打印("真值：")打印(旗标)\n\n# 列表\n设 列 为 [1, 2, 3, 4, 5]\n打印("列表：")打印(列)\n打印("长度：")打印(len(列))\n打印("首元素：")打印(列[0])\n打印("末元素：")打印(列[4])'
+                'code': '# 数字\n设 整数 为 42\n设 小数 为 3.14\n打印("整数：")打印(整数)\n打印("小数：")打印(小数)\n\n# 字符串\n设 文本 为 "光明编程"\n打印("文本：")打印(文本)\n\n# 布尔值\n设 旗标 为 真\n打印("真值：")打印(旗标)\n\n# 列表\n设 列 为 [1, 2, 3, 4, 5]\n打印("列表：")打印(列)\n打印("长度：")打印(len(列))\n打印("首元素：")打印(列[0])\n打印("末元素：")打印(列[4])'
             },
             {
                 'id': 'strings',
                 'title': '字符串操作',
                 'description': '字符串拼接、索引、长度和比较',
-                'code': '# 字符串拼接\n设 姓 为 "张"\n设 名 为 "三"\n设 全名 为 姓 加 名\n打印("全名：")打印(全名)\n\n# 字符串索引\n设 词语 为 "段言编程语言"\n打印("第一个字：")打印(词语[0])\n打印("第二个字：")打印(词语[1])\n\n# 字符串长度\n打印("词语长度：")打印(len(词语))\n\n# 字符串比较\n如果 词语 等于 "段言编程语言"：\n  打印("匹配成功！")'
+                'code': '# 字符串拼接\n设 姓 为 "张"\n设 名 为 "三"\n设 全名 为 姓 加 名\n打印("全名：")打印(全名)\n\n# 字符串索引\n设 词语 为 "光明编程语言"\n打印("第一个字：")打印(词语[0])\n打印("第二个字：")打印(词语[1])\n\n# 字符串长度\n打印("词语长度：")打印(len(词语))\n\n# 字符串比较\n如果 词语 等于 "光明编程语言"：\n  打印("匹配成功！")'
             },
             {
                 'id': 'io_demo',
@@ -395,7 +395,7 @@ BUILTIN_EXAMPLES = [
                 'id': 'palindrome',
                 'title': '回文判断',
                 'description': '字符串反转和回文检测',
-                'code': '# 回文判断\n段落 反转字符串 接收 文本：\n  设 结果 为 ""\n  设 i 为 len(文本) 减 1\n  当 i 大于等于 0：\n    设 结果 为 结果 加 文本[i]\n    设 i 为 i 减 1\n  返回 结果\n\n段落 是回文 接收 文本：\n  设 反转 为 反转字符串(文本)\n  如果 文本 等于 反转：\n    返回 真\n  返回 假\n\n设 词1 为 "上海自来水来自海上"\n设 词2 为 "段言编程语言"\n\n打印(词1)打印(" 是回文？")打印(是回文(词1))\n打印(词2)打印(" 是回文？")打印(是回文(词2))'
+                'code': '# 回文判断\n段落 反转字符串 接收 文本：\n  设 结果 为 ""\n  设 i 为 len(文本) 减 1\n  当 i 大于等于 0：\n    设 结果 为 结果 加 文本[i]\n    设 i 为 i 减 1\n  返回 结果\n\n段落 是回文 接收 文本：\n  设 反转 为 反转字符串(文本)\n  如果 文本 等于 反转：\n    返回 真\n  返回 假\n\n设 词1 为 "上海自来水来自海上"\n设 词2 为 "光明编程语言"\n\n打印(词1)打印(" 是回文？")打印(是回文(词1))\n打印(词2)打印(" 是回文？")打印(是回文(词2))'
             },
         ]
     },
@@ -610,7 +610,7 @@ def execute():
     if not code:
         return jsonify({'success': False, 'error': '代码不能为空'})
 
-    result = run_duan_code(code)
+    result = run_light_code(code)
     return jsonify(result)
 
 
@@ -635,7 +635,7 @@ def parse_code():
     if not code:
         return jsonify({'success': False, 'error': '代码不能为空'})
 
-    result = parse_duan_code(code)
+    result = parse_light_code(code)
     return jsonify(result)
 
 
@@ -647,7 +647,7 @@ def tokenize_code():
     if not code:
         return jsonify({'success': False, 'error': '代码不能为空'})
 
-    result = tokenize_duan_code(code)
+    result = tokenize_light_code(code)
     return jsonify(result)
 
 
@@ -675,11 +675,11 @@ def _get_project_dir(name: str) -> str:
 
 
 def _list_project_files(proj_dir: str) -> list:
-    """列出项目目录下所有 .duan 文件"""
+    """列出项目目录下所有 .light 文件"""
     files = []
     if os.path.isdir(proj_dir):
         for fname in sorted(os.listdir(proj_dir)):
-            if fname.endswith('.duan'):
+            if fname.endswith('.light'):
                 fpath = os.path.join(proj_dir, fname)
                 try:
                     mtime = os.path.getmtime(fpath)
@@ -698,13 +698,13 @@ def _list_project_files(proj_dir: str) -> list:
 
 
 def _get_entry_file(proj_dir: str) -> str:
-    """获取项目入口文件（主.duan 或第一个 .duan）"""
+    """获取项目入口文件（主.light 或第一个 .light）"""
     if os.path.isdir(proj_dir):
-        main_path = os.path.join(proj_dir, '主.duan')
+        main_path = os.path.join(proj_dir, '主.light')
         if os.path.exists(main_path):
-            return '主.duan'
+            return '主.light'
         for fname in sorted(os.listdir(proj_dir)):
-            if fname.endswith('.duan'):
+            if fname.endswith('.light'):
                 return fname
     return ''
 
@@ -712,16 +712,16 @@ def _get_entry_file(proj_dir: str) -> str:
 def _run_project_code(proj_dir: str, entry_file: str) -> dict:
     """执行多文件项目：编译所有模块并运行入口"""
     try:
-        from duan_parser_v3 import DuanParser
+        from light_parser_v3 import LightParser
         from code_generator import PythonCodeGenerator
 
-        # 收集所有 .duan 文件
+        # 收集所有 .light 文件
         all_files = _list_project_files(proj_dir)
         if not all_files:
-            return {'success': False, 'error': '项目中没有 .duan 文件', 'output': ''}
+            return {'success': False, 'error': '项目中没有 .light 文件', 'output': ''}
 
         # 编译所有模块
-        parser = DuanParser()
+        parser = LightParser()
         generator = PythonCodeGenerator()
         compiled_modules = {}
 
@@ -729,7 +729,7 @@ def _run_project_code(proj_dir: str, entry_file: str) -> dict:
             try:
                 module = parser.parse(finfo['content'])
                 py_code = generator.generate(module)
-                mod_name = finfo['name'].replace('.duan', '')
+                mod_name = finfo['name'].replace('.light', '')
                 compiled_modules[mod_name] = py_code
             except Exception as e:
                 return {
@@ -739,7 +739,7 @@ def _run_project_code(proj_dir: str, entry_file: str) -> dict:
                 }
 
         # 执行入口模块
-        entry_mod = entry_file.replace('.duan', '') if entry_file else list(compiled_modules.keys())[0]
+        entry_mod = entry_file.replace('.light', '') if entry_file else list(compiled_modules.keys())[0]
         if entry_mod not in compiled_modules:
             return {'success': False, 'error': f'入口模块 {entry_mod} 未找到', 'output': ''}
 
@@ -814,7 +814,7 @@ def list_projects():
             dpath = os.path.join(PROJECTS_DIR, dname)
             if os.path.isdir(dpath):
                 mtime = int(os.path.getmtime(dpath))
-                file_count = sum(1 for f in os.listdir(dpath) if f.endswith('.duan'))
+                file_count = sum(1 for f in os.listdir(dpath) if f.endswith('.light'))
                 projects.append({
                     'name': dname,
                     'updated_at': mtime,
@@ -849,8 +849,8 @@ def save_project(name):
 
     for finfo in files:
         fname = finfo.get('name', '')
-        if not fname.endswith('.duan'):
-            fname += '.duan'
+        if not fname.endswith('.light'):
+            fname += '.light'
         safe_fname = fname.replace('/', '_').replace('\\', '_')
         fpath = os.path.join(proj_dir, safe_fname)
         with open(fpath, 'w', encoding='utf-8') as f:
@@ -903,8 +903,8 @@ def create_project_file(name):
     content = data.get('content', '')
     if not fname:
         return jsonify({'error': '文件名不能为空'}), 400
-    if not fname.endswith('.duan'):
-        fname += '.duan'
+    if not fname.endswith('.light'):
+        fname += '.light'
     proj_dir = _get_project_dir(name)
     os.makedirs(proj_dir, exist_ok=True)
     safe_name = fname.replace('/', '_').replace('\\', '_')
@@ -935,7 +935,7 @@ def run_project(name):
         return jsonify({'success': False, 'error': '项目未找到'})
     entry = _get_entry_file(proj_dir)
     if not entry:
-        return jsonify({'success': False, 'error': '项目中没有 .duan 文件'})
+        return jsonify({'success': False, 'error': '项目中没有 .light 文件'})
     result = _run_project_code(proj_dir, entry)
     return jsonify(result)
 
@@ -1022,10 +1022,10 @@ class PlaygroundDebugSession:
     def compile(self):
         """编译源代码"""
         try:
-            from duan_parser_v3 import DuanParser
+            from light_parser_v3 import LightParser
             from code_generator import PythonCodeGenerator
 
-            parser = DuanParser()
+            parser = LightParser()
             module = parser.parse(self.source)
             generator = PythonCodeGenerator()
             self.python_code = generator.generate(module)
@@ -1359,13 +1359,13 @@ _PLAYGROUND_DEMOS_ROOT = os.path.join(_script_dir, 'demos')
 
 
 def _scan_file_demos(root_dir: str, base_category: str = '示例库') -> list:
-    """递归扫描 examples/ 下所有 .duan 文件，生成 demo 列表（category: 子目录名）"""
+    """递归扫描 examples/ 下所有 .light 文件，生成 demo 列表（category: 子目录名）"""
     results = []
     if not os.path.isdir(root_dir):
         return results
     for dirpath, _, filenames in os.walk(root_dir):
         for fn in sorted(filenames):
-            if not fn.endswith('.duan'):
+            if not fn.endswith('.light'):
                 continue
             fpath = os.path.join(dirpath, fn)
             try:
@@ -1380,13 +1380,13 @@ def _scan_file_demos(root_dir: str, base_category: str = '示例库') -> list:
                     content = f.read()
                 size = len(content)
                 # 生成稳定 id：去掉后缀 + 安全符号替换
-                raw_id = 'file__' + rel_fwd.replace('.duan', '').replace('/', '__').replace(' ', '_')
+                raw_id = 'file__' + rel_fwd.replace('.light', '').replace('/', '__').replace(' ', '_')
                 safe_id = ''.join(ch if ch.isalnum() or ch in ('_', '-') else '_' for ch in raw_id)
                 results.append({
                     'id': safe_id,
                     'source_type': 'file',
                     'category': category,
-                    'title': fn.replace('.duan', ''),
+                    'title': fn.replace('.light', ''),
                     'path': rel_fwd,
                     'description': f'文件 {rel_fwd}（{size} 字节）',
                     'size': size,
@@ -1433,13 +1433,13 @@ def _get_demo_source(demo_id: str) -> str:
     # 2) 文件示例
     if demo_id.startswith('file__'):
         tail = demo_id[len('file__'):]
-        rel = tail.replace('__', '/') + '.duan'
+        rel = tail.replace('__', '/') + '.light'
         fpath = os.path.join(_EXAMPLES_ROOT, rel)
         if not os.path.exists(fpath):
             # 尝试另一种常见映射：下划线直接转 /（中文路径 __ 分隔可能有歧义，这里放宽）
             alt_candidates = [
-                os.path.join(_EXAMPLES_ROOT, tail.replace('_', '/') + '.duan'),
-                os.path.join(_EXAMPLES_ROOT, tail + '.duan'),
+                os.path.join(_EXAMPLES_ROOT, tail.replace('_', '/') + '.light'),
+                os.path.join(_EXAMPLES_ROOT, tail + '.light'),
             ]
             fpath = None
             for cand in alt_candidates:
@@ -1491,7 +1491,7 @@ def list_demos():
 @app.route('/api/demos/run', methods=['POST'])
 def run_demo():
     """运行指定 demo：参数 { demo_id }  或 { path: 路径 } 或 { code: 源码 }
-    返回与 /api/execute 一致的 run_duan_code 结果，额外附带 demo_id / path。
+    返回与 /api/execute 一致的 run_light_code 结果，额外附带 demo_id / path。
     """
     data = request.get_json(silent=True) or {}
     demo_id = data.get('demo_id', '') or request.args.get('demo_id', '')
@@ -1523,7 +1523,7 @@ def run_demo():
     if not code:
         return jsonify({'success': False, 'error': 'demo 源码为空'}), 400
 
-    run_result = run_duan_code(code)
+    run_result = run_light_code(code)
     run_result.update(extra)
     return jsonify(run_result)
 
@@ -1559,7 +1559,7 @@ def get_demo(demo_id):
 
 @app.route('/api/format', methods=['POST'])
 def format_code_api():
-    """格式化段言代码"""
+    """格式化光明代码"""
     data = request.get_json(silent=True) or {}
     code = data.get('code', '').strip()
 
@@ -1578,7 +1578,7 @@ def format_code_api():
 
 @app.route('/api/lint', methods=['POST'])
 def lint_code_api():
-    """静态分析段言代码"""
+    """静态分析光明代码"""
     data = request.get_json(silent=True) or {}
     code = data.get('code', '').strip()
 
@@ -1586,8 +1586,8 @@ def lint_code_api():
         return jsonify({'success': False, 'error': '代码不能为空'})
 
     try:
-        from src.linter.duan_linter import DuanLinter
-        linter = DuanLinter()
+        from src.linter.light_linter import LightLinter
+        linter = LightLinter()
         results = linter.lint(code)
         return jsonify({
             'success': True,
@@ -1616,7 +1616,7 @@ def evaluate_tutorial():
     """评估教程答案：接收代码和期望输出，返回比对结果
 
     请求体：
-      { "code": "段言代码", "expected": "期望输出" }
+      { "code": "光明代码", "expected": "期望输出" }
 
     返回：
       { "success": true,
@@ -1633,7 +1633,7 @@ def evaluate_tutorial():
     if not code:
         return jsonify({'success': False, 'error': '代码不能为空'})
 
-    result = run_duan_code(code)
+    result = run_light_code(code)
 
     if not result.get('success'):
         return jsonify({
@@ -1659,7 +1659,7 @@ def evaluate_tutorial():
 
 
 if __name__ == '__main__':
-    print(f"段言 Web Playground 启动中...")
+    print(f"光明 Web Playground 启动中...")
     print(f"  静态文件目录: {app.static_folder}")
     print(f"  分享存储目录: {SHARED_DIR}")
     print(f"  访问地址: http://localhost:5000")

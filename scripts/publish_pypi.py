@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言（Duan）发布到 PyPI 辅助脚本
+光明（Light）发布到 PyPI 辅助脚本
 
 功能：
   1. 检查构建产物是否存在
@@ -136,7 +136,7 @@ def publish(dist_dir, repository, check_only):
                 print("  ❌ 发布失败！", file=sys.stderr)
                 sys.exit(1)
             print("  ✅ 发布成功！")
-            print(f"  查看: https://pypi.org/project/duan4/")
+            print(f"  查看: https://pypi.org/project/light/")
         except FileNotFoundError:
             print("  ❌ twine 未安装，请先安装: pip install twine", file=sys.stderr)
             sys.exit(1)
@@ -144,7 +144,7 @@ def publish(dist_dir, repository, check_only):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='段言（Duan）发布到 PyPI 辅助脚本',
+        description='光明（Light）发布到 PyPI 辅助脚本',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 环境变量:
@@ -166,7 +166,7 @@ def main():
     args = parser.parse_args()
 
     print("=" * 60)
-    print("  段言（Duan）PyPI 发布工具")
+    print("  光明（Light）PyPI 发布工具")
     print("=" * 60)
     print(f"  项目目录: {PROJECT_DIR}")
     print(f"  Python: {sys.version.split()[0]}")

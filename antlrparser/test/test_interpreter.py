@@ -1,15 +1,15 @@
 """
-段言 - 解释执行测试
+光明 - 解释执行测试
 
-验证解释器能正确执行段言程序并产生预期结果
+验证解释器能正确执行光明程序并产生预期结果
 """
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_interpreter import (
-    Interpreter, DuanValue, DuanFunction, Environment,
-    ReturnSignal, BreakSignal, ContinueSignal, DuanError,
+from light_interpreter import (
+    Interpreter, LightValue, LightFunction, Environment,
+    ReturnSignal, BreakSignal, ContinueSignal, LightError,
     run_source, run_file
 )
 
@@ -19,11 +19,11 @@ from duan_interpreter import (
 # =============================================================================
 
 def run(source: str) -> Interpreter:
-    """解析并执行段言代码，返回解释器实例"""
+    """解析并执行光明代码，返回解释器实例"""
     return run_source(source)
 
 
-def get_var(interp: Interpreter, name: str) -> DuanValue:
+def get_var(interp: Interpreter, name: str) -> LightValue:
     """获取变量值"""
     return interp.env.get(name)
 
@@ -538,7 +538,7 @@ def test_error_handling():
 # =============================================================================
 
 if __name__ == '__main__':
-    print("=== 段言解释执行测试 ===\n")
+    print("=== 光明解释执行测试 ===\n")
     
     tests = [
         ("算术运算", test_arithmetic),

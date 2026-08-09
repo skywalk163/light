@@ -1,7 +1,7 @@
 """
-段言（Duan）编程语言 ANTLR 访问器 - 声明类 visit 方法混入
+光明（Light）编程语言 ANTLR 访问器 - 声明类 visit 方法混入
 
-将 ANTLR 解析树转换为段言 AST 节点
+将 ANTLR 解析树转换为光明 AST 节点
 """
 
 import sys
@@ -10,7 +10,7 @@ from typing import List, Optional, Union
 
 # 添加当前目录到路径，以便导入生成的解析器
 _current_dir = os.path.dirname(os.path.abspath(__file__))
-_parser_dir = os.path.join(_current_dir, 'duan_parser')
+_parser_dir = os.path.join(_current_dir, 'light_parser')
 sys.path.insert(0, _parser_dir)
 
 # ANTLR imports
@@ -18,13 +18,13 @@ from antlr4 import *
 from antlr4.tree.Trees import Trees
 from antlr4.error.ErrorListener import ErrorListener
 
-# 导入 ANTLR 生成的解析器（从 duan_parser 目录）
-from DuanLangLexer import DuanLangLexer
-from DuanLangParser import DuanLangParser
-from DuanLangParserVisitor import DuanLangParserVisitor
+# 导入 ANTLR 生成的解析器（从 light_parser 目录）
+from LightLangLexer import LightLangLexer
+from LightLangParser import LightLangParser
+from LightLangParserVisitor import LightLangParserVisitor
 
 # 导入 AST 节点
-from duan_ast import (
+from light_ast import (
     ASTNode, NumberLiteral, StringLiteral, BooleanLiteral, NullLiteral,
     Identifier, SegmentName, ModuleName, BinaryOp, UnaryOp, FunctionCall,
     PipeExpression, PropertyAccess, IndexAccess, ListLiteral, DictLiteral, NewExpression,
@@ -43,7 +43,7 @@ from duan_ast import (
 )
 
 
-class VisitorDeclMixin(DuanLangParserVisitor):
+class VisitorDeclMixin(LightLangParserVisitor):
     """声明 visit 方法混入类"""
 
     def __init__(self):
@@ -131,18 +131,18 @@ class VisitorDeclMixin(DuanLangParserVisitor):
 
     # ----- 程序 -----
 
-    def visitProgram(self, ctx: DuanLangParser.ProgramContext):
+    def visitProgram(self, ctx: LightLangParser.ProgramContext):
         """程序入口"""
         module = Module(line=1, column=1)
 
         for child in ctx.getChildren():
-            if isinstance(child, DuanLangParser.ModuleDeclContext):
+            if isinstance(child, LightLangParser.ModuleDeclContext):
                 module.name = self.visitModuleDecl(child)
-            elif isinstance(child, DuanLangParser.ImportStmtContext):
+            elif isinstance(child, LightLangParser.ImportStmtContext):
                 module.imports.append(self.visitImportStmt(child))
-            elif isinstance(child, DuanLangParser.ExportStmtContext):
+            elif isinstance(child, LightLangParser.ExportStmtContext):
                 module.exports.append(self.visitExportStmt(child))
-            elif isinstance(child, DuanLangParser.DefinitionContext):
+            elif isinstance(child, LightLangParser.DefinitionContext):
                 defn = self.visitDefinition(child)
                 if isinstance(defn, SegmentDefinition):
                     module.segments.append(defn)
@@ -154,20 +154,20 @@ class VisitorDeclMixin(DuanLangParserVisitor):
                     module.data_types.append(defn)
                 elif isinstance(defn, ErrorTypeDefinition):
                     module.error_types.append(defn)
-            elif isinstance(child, DuanLangParser.StmtContext):
+            elif isinstance(child, LightLangParser.StmtContext):
                 stmt = self.visitStmt(child)
                 if stmt:
                     module.statements.append(stmt)
 
         return module
 
-    def visitModuleDecl(self, ctx: DuanLangParser.ModuleDeclContext):
+    def visitModuleDecl(self, ctx: LightLangParser.ModuleDeclContext):
         """模块声明 【名称】"""
         return ctx.ID().getText()
 
     # ----- 段落定义 -----
 
-    def visitParagraphDef(self, ctx: DuanLangParser.ParagraphDefContext):
+    def visitParagraphDef(self, ctx: LightLangParser.ParagraphDefContext):
         """段落定义"""
         # 新语法：段落 名称 接收 参数列表:
         raw_name = ctx.ID().getText()
@@ -210,23 +210,23 @@ class VisitorDeclMixin(DuanLangParserVisitor):
         """段落体：用于兼容旧的语法名称"""
         return self.visitBlock(ctx)
 
-    def visitBlock(self, ctx: DuanLangParser.BlockContext):
+    def visitBlock(self, ctx: LightLangParser.BlockContext):
         """代码块（语句列表）"""
         stmts = []
         for child in ctx.getChildren():
             # 只处理StmtContext，忽略K_END标记
-            if isinstance(child, DuanLangParser.StmtContext):
+            if isinstance(child, LightLangParser.StmtContext):
                 stmt = self.visitStmt(child)
                 if stmt:
                     stmts.append(stmt)
-            elif isinstance(child, DuanLangParser.DefinitionContext):
+            elif isinstance(child, LightLangParser.DefinitionContext):
                 # 块内嵌套定义
                 defn = self.visitDefinition(child)
                 if defn:
                     stmts.append(defn)
         return stmts
 
-    def visitClassDef(self, ctx: DuanLangParser.ClassDefContext):
+    def visitClassDef(self, ctx: LightLangParser.ClassDefContext):
         """类定义"""
         name = ctx.ID().getText()
         line = ctx.start.line
@@ -255,9 +255,9 @@ class VisitorDeclMixin(DuanLangParserVisitor):
                 elif txt == '使用':
                     use_found = True
                     inherit_found = False
-                elif inherit_found and isinstance(child, DuanLangParser.TypeAnnotationContext):
+                elif inherit_found and isinstance(child, LightLangParser.TypeAnnotationContext):
                     superclasses.append(self.visitTypeAnnotation(child))
-                elif use_found and isinstance(child, DuanLangParser.TypeAnnotationContext):
+                elif use_found and isinstance(child, LightLangParser.TypeAnnotationContext):
                     interfaces.append(self.visitTypeAnnotation(child))
 
         fields = []
@@ -300,7 +300,7 @@ class VisitorDeclMixin(DuanLangParserVisitor):
             constructor=constructor,
         )
 
-    def visitMethodDef(self, ctx: DuanLangParser.MethodDefContext):
+    def visitMethodDef(self, ctx: LightLangParser.MethodDefContext):
         """方法定义"""
         name = ctx.ID().getText()
         line = ctx.start.line
@@ -327,7 +327,7 @@ class VisitorDeclMixin(DuanLangParserVisitor):
             is_static=False,
         )
 
-    def visitConstructorDef(self, ctx: DuanLangParser.ConstructorDefContext):
+    def visitConstructorDef(self, ctx: LightLangParser.ConstructorDefContext):
         """构造函数定义"""
         name = "构造"  # 构造函数名固定为"构造"
         line = ctx.start.line
@@ -348,7 +348,7 @@ class VisitorDeclMixin(DuanLangParserVisitor):
             body=body,
         )
 
-    def visitInterfaceDef(self, ctx: DuanLangParser.InterfaceDefContext):
+    def visitInterfaceDef(self, ctx: LightLangParser.InterfaceDefContext):
         """接口定义"""
         name = ctx.ID().getText()
         line = ctx.start.line
@@ -360,7 +360,7 @@ class VisitorDeclMixin(DuanLangParserVisitor):
         for child in ctx.getChildren():
             if hasattr(child, 'getText') and child.getText() == '继承':
                 inherit_found = True
-            elif inherit_found and isinstance(child, DuanLangParser.TypeAnnotationContext):
+            elif inherit_found and isinstance(child, LightLangParser.TypeAnnotationContext):
                 superinterfaces.append(self.visitTypeAnnotation(child))
 
         methods = []
@@ -390,11 +390,11 @@ class VisitorDeclMixin(DuanLangParserVisitor):
             properties=properties,
         )
 
-    def visitParamList(self, ctx: DuanLangParser.ParamListContext):
+    def visitParamList(self, ctx: LightLangParser.ParamListContext):
         """参数列表"""
         return [self.visitParam(p) for p in ctx.param()]
 
-    def visitParam(self, ctx: DuanLangParser.ParamContext):
+    def visitParam(self, ctx: LightLangParser.ParamContext):
         """单个参数"""
         name = self._get_identifier_like_name(ctx.identifier_like())
         line = ctx.start.line
@@ -445,12 +445,12 @@ class VisitorDeclMixin(DuanLangParserVisitor):
         # fallback
         return ctx.getText()
 
-    def visitBlock(self, ctx: DuanLangParser.BlockContext):
+    def visitBlock(self, ctx: LightLangParser.BlockContext):
         """代码块（语句列表）"""
         stmts = []
         for child in ctx.getChildren():
             # 处理BlockContentContext
-            if isinstance(child, DuanLangParser.BlockContentContext):
+            if isinstance(child, LightLangParser.BlockContentContext):
                 # 检查是否有K_END标记
                 if child.K_END():
                     # 遇到"结束"标记，终止块
@@ -460,18 +460,18 @@ class VisitorDeclMixin(DuanLangParserVisitor):
                     stmt = self.visitStmt(inner)
                     if stmt:
                         stmts.append(stmt)
-            elif isinstance(child, DuanLangParser.StmtContext):
+            elif isinstance(child, LightLangParser.StmtContext):
                 stmt = self.visitStmt(child)
                 if stmt:
                     stmts.append(stmt)
-            elif isinstance(child, DuanLangParser.DefinitionContext):
+            elif isinstance(child, LightLangParser.DefinitionContext):
                 # 块内嵌套定义
                 defn = self.visitDefinition(child)
                 if defn:
                     stmts.append(defn)
         return stmts
 
-    def visitDefinition(self, ctx: DuanLangParser.DefinitionContext):
+    def visitDefinition(self, ctx: LightLangParser.DefinitionContext):
         """定义分发"""
         if ctx.paragraphDef():
             return self.visitParagraphDef(ctx.paragraphDef())
@@ -489,7 +489,7 @@ class VisitorDeclMixin(DuanLangParserVisitor):
 
     # ----- 类型定义 -----
 
-    def visitDataTypeDef(self, ctx: DuanLangParser.DataTypeDefContext):
+    def visitDataTypeDef(self, ctx: LightLangParser.DataTypeDefContext):
         """数据类型定义"""
         name = ctx.ID().getText()
         line = ctx.start.line
@@ -497,7 +497,7 @@ class VisitorDeclMixin(DuanLangParserVisitor):
         fields = [self.visitDataTypeField(f) for f in ctx.dataTypeField()]
         return DataTypeDefinition(line=line, column=col, name=name, fields=fields)
 
-    def visitErrorTypeDef(self, ctx: DuanLangParser.ErrorTypeDefContext):
+    def visitErrorTypeDef(self, ctx: LightLangParser.ErrorTypeDefContext):
         """错误类型定义"""
         name = ctx.ID().getText()
         line = ctx.start.line
@@ -505,7 +505,7 @@ class VisitorDeclMixin(DuanLangParserVisitor):
         fields = [self.visitDataTypeField(f) for f in ctx.dataTypeField()]
         return ErrorTypeDefinition(line=line, column=col, name=name, fields=fields)
 
-    def visitDataTypeField(self, ctx: DuanLangParser.DataTypeFieldContext):
+    def visitDataTypeField(self, ctx: LightLangParser.DataTypeFieldContext):
         """类型字段"""
         name = ctx.ID().getText()
         typ = self.visitTypeAnnotation(ctx.typeAnnotation())
@@ -515,7 +515,7 @@ class VisitorDeclMixin(DuanLangParserVisitor):
 
     # ----- 导入/导出 -----
 
-    def visitImportStmt(self, ctx: DuanLangParser.ImportStmtContext):
+    def visitImportStmt(self, ctx: LightLangParser.ImportStmtContext):
         """导入语句"""
         line = ctx.start.line
         col = ctx.start.column
@@ -531,11 +531,11 @@ class VisitorDeclMixin(DuanLangParserVisitor):
         names = [self.visitImportItem(item) for item in ctx.importList().importItem()]
         return ImportStatement(line=line, column=col, module="", names=names)
 
-    def visitImportItem(self, ctx: DuanLangParser.ImportItemContext):
+    def visitImportItem(self, ctx: LightLangParser.ImportItemContext):
         """导入项"""
         return ctx.ID().getText()
 
-    def visitExportStmt(self, ctx: DuanLangParser.ExportStmtContext):
+    def visitExportStmt(self, ctx: LightLangParser.ExportStmtContext):
         """导出语句"""
         line = ctx.start.line
         col = ctx.start.column
@@ -544,7 +544,7 @@ class VisitorDeclMixin(DuanLangParserVisitor):
 
     # ----- 变量声明和赋值 -----
 
-    def visitVarDecl(self, ctx: DuanLangParser.VarDeclContext):
+    def visitVarDecl(self, ctx: LightLangParser.VarDeclContext):
         """变量声明"""
         line = ctx.start.line
         col = ctx.start.column
@@ -592,7 +592,7 @@ class VisitorDeclMixin(DuanLangParserVisitor):
 
         return None
 
-    def visitAssignStmt(self, ctx: DuanLangParser.AssignStmtContext):
+    def visitAssignStmt(self, ctx: LightLangParser.AssignStmtContext):
         """赋值语句"""
         line = ctx.start.line
         col = ctx.start.column
@@ -652,7 +652,7 @@ class VisitorDeclMixin(DuanLangParserVisitor):
         target = Identifier(line=line, column=col, name=name)
         return Assignment(line=line, column=col, target=target, value=value)
 
-    def visitCompoundAssignStmt(self, ctx: DuanLangParser.CompoundAssignStmtContext):
+    def visitCompoundAssignStmt(self, ctx: LightLangParser.CompoundAssignStmtContext):
         """复合赋值语句：甲 加上 1 → 甲 += 1"""
         line = ctx.start.line
         col = ctx.start.column

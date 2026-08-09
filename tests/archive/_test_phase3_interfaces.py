@@ -476,7 +476,7 @@ register('回归测试-普通类无接口', test_regular_class_without_interface
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("段言 Phase 3 —— 接口与实现验证 测试")
+    print("光明 Phase 3 —— 接口与实现验证 测试")
     print("=" * 60)
     print()
     for name, fn in TESTS:

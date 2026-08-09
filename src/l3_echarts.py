@@ -1,10 +1,10 @@
 """
-段言 L3 领域嵌入 - ECharts 可视化 DSL
+光明 L3 领域嵌入 - ECharts 可视化 DSL
 =====================================
 提供中文语法的 ECharts 图表配置生成能力。
 支持柱状图、折线图、饼图、散点图四种图表类型。
 
-用法示例（在 .duan 文件中）：
+用法示例（在 .light 文件中）：
     引 Python:
         from l3_echarts import L3ECharts
         l3_chart = L3ECharts()
@@ -100,7 +100,7 @@ class L3ECharts:
             raise L3EChartsError("尚未生成图表配置，请先调用 图表配置()")
         return json.dumps(self._chart_config, ensure_ascii=False, indent=缩进)
 
-    def 导出HTML(self, 标题: str = "段言图表") -> str:
+    def 导出HTML(self, 标题: str = "光明图表") -> str:
         """生成可直接运行的 HTML 文件内容
 
         参数:

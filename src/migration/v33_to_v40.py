@@ -2,7 +2,7 @@
 """
 v3.3 → v4.0 代码迁移工具
 
-将 v3.3 段言代码迁移到 v4.0 语法。
+将 v3.3 光明代码迁移到 v4.0 语法。
 主要变更：
 - 关键字映射（如果→若，那么→则，否则→否 等）
 - 语法结构调整
@@ -96,11 +96,11 @@ class MigrationV33ToV40:
         return result
 
     def migrate_directory(self, dir_path: str) -> Dict[str, str]:
-        """迁移目录中的所有 .duan 文件"""
+        """迁移目录中的所有 .light 文件"""
         results = {}
         base = Path(dir_path)
 
-        for f in base.rglob('*.duan'):
+        for f in base.rglob('*.light'):
             try:
                 result = self.migrate_file(str(f))
                 results[str(f)] = result

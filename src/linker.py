@@ -1,5 +1,5 @@
 """
-段言（Duan）编程语言 - 链接器和可执行文件生成器
+光明（Light）编程语言 - 链接器和可执行文件生成器
 
 支持：
 - Linux ELF格式
@@ -388,8 +388,8 @@ class AssemblerWrapper:
 # 编译器主入口
 # =============================================================================
 
-class DuanCompiler:
-    """段言编译器主类"""
+class LightCompiler:
+    """光明编译器主类"""
     
     def __init__(self, target: str = 'linux'):
         self.target = target
@@ -482,7 +482,7 @@ def test_compiler():
     module.functions.append(func)
     
     # 编译
-    compiler = DuanCompiler(target='linux')
+    compiler = LightCompiler(target='linux')
     executable = compiler.compile(module)
     
     print(f"生成的可执行文件大小: {len(executable)} 字节")

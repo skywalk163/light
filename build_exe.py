@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言（Duan）Level 7 编译器 - PyInstaller 跨平台构建脚本
+光明（Light）Level 7 编译器 - PyInstaller 跨平台构建脚本
 
 在构建各平台原生可执行文件，无需交叉编译。
 必须在本机平台上运行（Windows 上构建 .exe，Linux 上构建 ELF，macOS 上构建 Mach-O）。
@@ -9,7 +9,7 @@
 用法：
     python build_exe.py             # 单文件模式（默认）
     python build_exe.py --onedir    # 目录模式（调试用）
-    python build_exe.py --name myduan6  # 自定义输出名称
+    python build_exe.py --name mylight6  # 自定义输出名称
 """
 
 import os
@@ -21,7 +21,7 @@ import subprocess
 # ── 项目路径 ──────────────────────────────────────────────────
 _PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 _BOOTSTRAP_DIR = os.path.join(_PROJECT_DIR, 'bootstrap')
-_ENTRY_SCRIPT = os.path.join(_PROJECT_DIR, 'duan6.py')
+_ENTRY_SCRIPT = os.path.join(_PROJECT_DIR, 'light6.py')
 _DIST_DIR = os.path.join(_PROJECT_DIR, 'dist')
 _BUILD_DIR = os.path.join(_PROJECT_DIR, 'build')
 
@@ -52,7 +52,7 @@ def _add_data_separator(platform_name):
     return ';' if platform_name == 'windows' else ':'
 
 
-def build_exe(onefile=True, output_name='duan7'):
+def build_exe(onefile=True, output_name='light7'):
     """使用 PyInstaller 构建当前平台的可执行文件"""
     
     platform_name = _detect_platform()
@@ -85,7 +85,7 @@ def build_exe(onefile=True, output_name='duan7'):
         if os.path.exists(version_file):
             cmd.extend(['--version-file', version_file])
     
-    # 隐藏导入：c_backend 在 duan6.py 中动态导入，需显式声明
+    # 隐藏导入：c_backend 在 light6.py 中动态导入，需显式声明
     cmd.extend(['--hidden-import', 'c_backend'])
     
     # 排除不需要的模块以减小体积
@@ -115,7 +115,7 @@ def build_exe(onefile=True, output_name='duan7'):
     
     # ── 打印构建信息 ──
     print("=" * 60)
-    print(f"段言 Level 7 编译器 - 跨平台构建")
+    print(f"光明 Level 7 编译器 - 跨平台构建")
     print(f"平台: {platform_name} ({platform.machine()})")
     print(f"Python: {sys.version}")
     print(f"模式: {'单文件 (onefile)' if onefile else '目录 (onedir)'}")
@@ -149,8 +149,8 @@ def build_exe(onefile=True, output_name='duan7'):
         print()
         print("使用方法:")
         exe_display = os.path.join(_DIST_DIR, _exe_name(output_name, platform_name))
-        print(f"  {exe_display} <文件.duan>")
-        print(f"  {exe_display} compile <文件.duan>")
+        print(f"  {exe_display} <文件.light>")
+        print(f"  {exe_display} compile <文件.light>")
         print(f"  {exe_display} --help")
         print()
     else:
@@ -162,7 +162,7 @@ def build_exe(onefile=True, output_name='duan7'):
 if __name__ == '__main__':
     # 解析命令行参数
     onefile = True
-    output_name = 'duan7'
+    output_name = 'light7'
     
     for arg in sys.argv[1:]:
         if arg == '--onedir':

@@ -1,8 +1,8 @@
-site_name: 段言 (DuanLang) v6.0
-site_description: 段言编程语言 - 中文编程语言的全新可能
-site_author: DuanLang Team
-repo_url: https://github.com/duan-lang/duan
-repo_name: duan-lang/duan
+site_name: 光明 (LightLang) v6.0
+site_description: 光明编程语言 - 中文编程语言的全新可能
+site_author: LightLang Team
+repo_url: https://github.com/skywalk163/light
+repo_name: skywalk163/light
 edit_uri: edit/main/docs/
 
 theme:
@@ -58,7 +58,7 @@ extra:
   generator: false
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/duan-lang/duan
+      link: https://github.com/light-lang/light
 
 nav:
   - 首页: index.md

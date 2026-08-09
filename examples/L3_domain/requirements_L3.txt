@@ -1,6 +1,6 @@
-# 段言 v4.0 L3 领域嵌入层 demo 依赖
+# 光明 v4.0 L3 领域嵌入层 demo 依赖
 # 安装:  pip install -r examples/L3_domain/requirements_L3.txt
 #
 # 说明：sqlite3（SQL）和 re（正则）是 Python 标准库，无需额外安装。
-#       只有「数学公式 demo3_math.duan」依赖 sympy，如果不跑数学可以不装。
+#       只有「数学公式 demo3_math.light」依赖 sympy，如果不跑数学可以不装。
 sympy>=1.11

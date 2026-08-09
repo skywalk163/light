@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-段言 v4.2 可选类型系统综合测试
+光明 v4.2 可选类型系统综合测试
 
 测试覆盖：
-  1. 类型系统桥接（DuanTypeBridge）
+  1. 类型系统桥接（LightTypeBridge）
   2. CFG 控制流分析（CFGAnalyzer）
   3. GradedTypeChecker 分级检查（SIGNATURE/VARIABLE/EXPRESSION）
   4. 类型推断器集成
@@ -22,66 +22,66 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 
 def test_type_bridge_simple_types():
     """测试简单类型双向转换"""
-    from type_checker import DuanTypeBridge, TYPE_INT, TYPE_FLOAT, TYPE_STRING, TYPE_BOOL, TYPE_NONE, TYPE_ANY
+    from type_checker import LightTypeBridge, TYPE_INT, TYPE_FLOAT, TYPE_STRING, TYPE_BOOL, TYPE_NONE, TYPE_ANY
 
     # 简单 → 高级
     from type_system import NumberType, StringType, BooleanType, NullType, AnyType as AdvAnyType
 
-    assert isinstance(DuanTypeBridge.simple_to_advanced(TYPE_INT), NumberType), "整数 → NumberType 失败"
-    assert isinstance(DuanTypeBridge.simple_to_advanced(TYPE_FLOAT), NumberType), "浮点 → NumberType 失败"
-    assert isinstance(DuanTypeBridge.simple_to_advanced(TYPE_STRING), StringType), "字符串 → StringType 失败"
-    assert isinstance(DuanTypeBridge.simple_to_advanced(TYPE_BOOL), BooleanType), "布尔 → BooleanType 失败"
-    assert isinstance(DuanTypeBridge.simple_to_advanced(TYPE_NONE), NullType), "空 → NullType 失败"
-    assert isinstance(DuanTypeBridge.simple_to_advanced(TYPE_ANY), AdvAnyType), "任意 → AnyType 失败"
+    assert isinstance(LightTypeBridge.simple_to_advanced(TYPE_INT), NumberType), "整数 → NumberType 失败"
+    assert isinstance(LightTypeBridge.simple_to_advanced(TYPE_FLOAT), NumberType), "浮点 → NumberType 失败"
+    assert isinstance(LightTypeBridge.simple_to_advanced(TYPE_STRING), StringType), "字符串 → StringType 失败"
+    assert isinstance(LightTypeBridge.simple_to_advanced(TYPE_BOOL), BooleanType), "布尔 → BooleanType 失败"
+    assert isinstance(LightTypeBridge.simple_to_advanced(TYPE_NONE), NullType), "空 → NullType 失败"
+    assert isinstance(LightTypeBridge.simple_to_advanced(TYPE_ANY), AdvAnyType), "任意 → AnyType 失败"
 
     # 高级 → 简单
-    assert DuanTypeBridge.advanced_to_simple(NumberType()) == TYPE_INT, "NumberType → 整数 失败"
-    assert DuanTypeBridge.advanced_to_simple(StringType()) == TYPE_STRING, "StringType → 字符串 失败"
-    assert DuanTypeBridge.advanced_to_simple(BooleanType()) == TYPE_BOOL, "BooleanType → 布尔 失败"
-    assert DuanTypeBridge.advanced_to_simple(NullType()) == TYPE_NONE, "NullType → 空 失败"
+    assert LightTypeBridge.advanced_to_simple(NumberType()) == TYPE_INT, "NumberType → 整数 失败"
+    assert LightTypeBridge.advanced_to_simple(StringType()) == TYPE_STRING, "StringType → 字符串 失败"
+    assert LightTypeBridge.advanced_to_simple(BooleanType()) == TYPE_BOOL, "BooleanType → 布尔 失败"
+    assert LightTypeBridge.advanced_to_simple(NullType()) == TYPE_NONE, "NullType → 空 失败"
     print("  [PASS] test_type_bridge_simple_types")
 
 
 def test_type_bridge_compound_types():
     """测试复合类型双向转换"""
-    from type_checker import DuanTypeBridge, TYPE_INT, TYPE_STRING, ListType, DictType, OptionalType
+    from type_checker import LightTypeBridge, TYPE_INT, TYPE_STRING, ListType, DictType, OptionalType
 
     # 列表类型
     simple_list = ListType(TYPE_INT)
-    adv_list = DuanTypeBridge.simple_to_advanced(simple_list)
+    adv_list = LightTypeBridge.simple_to_advanced(simple_list)
     from type_system import ListType as AdvListType
     assert isinstance(adv_list, AdvListType), "列表 → AdvListType 失败"
 
-    back = DuanTypeBridge.advanced_to_simple(adv_list)
+    back = LightTypeBridge.advanced_to_simple(adv_list)
     assert isinstance(back, ListType), "AdvListType → 列表 失败"
     assert back.element_type == TYPE_INT, f"元素类型不匹配: {back.element_type}"
 
     # 字典类型
     simple_dict = DictType(TYPE_STRING, TYPE_INT)
-    adv_dict = DuanTypeBridge.simple_to_advanced(simple_dict)
+    adv_dict = LightTypeBridge.simple_to_advanced(simple_dict)
     from type_system import DictType as AdvDictType
     assert isinstance(adv_dict, AdvDictType), "字典 → AdvDictType 失败"
 
-    back = DuanTypeBridge.advanced_to_simple(adv_dict)
+    back = LightTypeBridge.advanced_to_simple(adv_dict)
     assert isinstance(back, DictType), "AdvDictType → 字典 失败"
 
     # 可选类型
     simple_opt = OptionalType(TYPE_INT)
-    adv_opt = DuanTypeBridge.simple_to_advanced(simple_opt)
+    adv_opt = LightTypeBridge.simple_to_advanced(simple_opt)
     from type_system import OptionalTypeWrapper
     assert isinstance(adv_opt, OptionalTypeWrapper), "可空 → OptionalTypeWrapper 失败"
 
-    back = DuanTypeBridge.advanced_to_simple(adv_opt)
+    back = LightTypeBridge.advanced_to_simple(adv_opt)
     assert isinstance(back, OptionalType), "OptionalTypeWrapper → 可空 失败"
     print("  [PASS] test_type_bridge_compound_types")
 
 
 def test_type_bridge_union_types():
     """测试联合类型转换"""
-    from type_checker import DuanTypeBridge, TYPE_INT, TYPE_FLOAT, TYPE_STRING, UnionType
+    from type_checker import LightTypeBridge, TYPE_INT, TYPE_FLOAT, TYPE_STRING, UnionType
 
     simple_union = UnionType((TYPE_INT, TYPE_FLOAT))
-    adv = DuanTypeBridge.simple_to_advanced(simple_union)
+    adv = LightTypeBridge.simple_to_advanced(simple_union)
     from type_system import NumberType
     # 联合类型简化为第一个非空类型
     assert isinstance(adv, NumberType), f"联合类型应转换为 NumberType，实际 {type(adv).__name__}"
@@ -90,10 +90,10 @@ def test_type_bridge_union_types():
 
 def test_type_bridge_none_input():
     """测试空输入"""
-    from type_checker import DuanTypeBridge, TYPE_ANY
+    from type_checker import LightTypeBridge, TYPE_ANY
 
-    assert DuanTypeBridge.simple_to_advanced(None) is None, "None 输入应返回 None"
-    assert DuanTypeBridge.advanced_to_simple(None) == TYPE_ANY, "None 高级类型应返回 TYPE_ANY"
+    assert LightTypeBridge.simple_to_advanced(None) is None, "None 输入应返回 None"
+    assert LightTypeBridge.advanced_to_simple(None) == TYPE_ANY, "None 高级类型应返回 TYPE_ANY"
     print("  [PASS] test_type_bridge_none_input")
 
 
@@ -580,7 +580,7 @@ def test_parse_type_annotation_nested_generic():
     t = parse_type_annotation('列表<字典<字符串, 整数>>')
     # 注意：解析器可能无法完美处理嵌套泛型，但至少不应崩溃
     assert t is not None, "嵌套泛型不应返回 None"
-    print(f"  [PASS] test_parse_type_annotation_nested_generic - {t.to_duan() if hasattr(t, 'to_duan') else t}")
+    print(f"  [PASS] test_parse_type_annotation_nested_generic - {t.to_light() if hasattr(t, 'to_light') else t}")
 
 
 def test_type_directives_extraction():
@@ -685,7 +685,7 @@ def test_type_checker_has_errors():
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("段言 v4.2 可选类型系统综合测试")
+    print("光明 v4.2 可选类型系统综合测试")
     print("=" * 60)
 
     total = 0

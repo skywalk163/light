@@ -1,4 +1,4 @@
-"""段言标准库 - 配置模块"""
+"""光明标准库 - 配置模块"""
 
 import json
 import configparser

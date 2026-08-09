@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-段言代码检查器 - 命令行工具
+光明代码检查器 - 命令行工具
 
 用法:
-    python -m src.linter.cli file.duan          # 检查单个文件
+    python -m src.linter.cli file.light          # 检查单个文件
     python -m src.linter.cli .                   # 检查当前目录
     python -m src.linter.cli --rules E001,W001   # 仅启用指定规则
-    python -m src.linter.cli --json file.duan    # JSON 输出
+    python -m src.linter.cli --json file.light    # JSON 输出
 """
 
 import os
@@ -14,13 +14,13 @@ import sys
 import json
 import argparse
 
-from src.linter.duan_linter import DuanLinter, lint_file, lint_directory
+from src.linter.light_linter import LightLinter, lint_file, lint_directory
 
 
 def main():
     parser = argparse.ArgumentParser(
-        prog='duan-lint',
-        description='段言代码检查器'
+        prog='light-lint',
+        description='光明代码检查器'
     )
     parser.add_argument('target', help='文件或目录路径')
     parser.add_argument('--rules', help='仅启用指定规则，用逗号分隔（如 E001,W001）')
@@ -29,7 +29,7 @@ def main():
     args = parser.parse_args()
 
     if args.list_rules:
-        from src.linter.duan_linter import RULES
+        from src.linter.light_linter import RULES
         print("可用规则:")
         for rule_id, rule_info in sorted(RULES.items()):
             print(f"  {rule_id} [{rule_info['severity']}] {rule_info['name']}: {rule_info['description']}")
@@ -39,7 +39,7 @@ def main():
     if args.rules:
         enabled_rules = [r.strip() for r in args.rules.split(',') if r.strip()]
 
-    linter = DuanLinter(rules=enabled_rules)
+    linter = LightLinter(rules=enabled_rules)
 
     if args.json:
         # JSON 输出模式
@@ -51,7 +51,7 @@ def main():
             for root, dirs, files in os.walk(args.target):
                 dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
                 for f in files:
-                    if f.endswith('.duan'):
+                    if f.endswith('.light'):
                         fp = os.path.join(root, f)
                         results = linter.lint_file(fp)
                         all_results.extend(linter.results)

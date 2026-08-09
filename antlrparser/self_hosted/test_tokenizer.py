@@ -1,22 +1,22 @@
 """
-段言自举分词器 - 测试脚本
+光明自举分词器 - 测试脚本
 
-加载并执行 tokenizer.duan，验证分词结果。
+加载并执行 tokenizer.light，验证分词结果。
 """
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from duan_interpreter import run_source, Interpreter, DuanValue, DuanFunction
-from duan_ast import SegmentDefinition, FunctionCall, StringLiteral
+from light_interpreter import run_source, Interpreter, LightValue, LightFunction
+from light_ast import SegmentDefinition, FunctionCall, StringLiteral
 
 
 def unwrap_token(t):
-    """将 DuanValue 封装的 Token 字典转换为纯 Python 字典"""
-    d = t.value if isinstance(t, DuanValue) else t
+    """将 LightValue 封装的 Token 字典转换为纯 Python 字典"""
+    d = t.value if isinstance(t, LightValue) else t
     result = {}
     for k, v in d.items():
-        if isinstance(v, DuanValue):
+        if isinstance(v, LightValue):
             result[k] = v.value
         else:
             result[k] = v
@@ -24,8 +24,8 @@ def unwrap_token(t):
 
 
 def get_tokenizer_interp():
-    """加载并解释 tokenizer.duan，返回解释器"""
-    tokenizer_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tokenizer.duan')
+    """加载并解释 tokenizer.light，返回解释器"""
+    tokenizer_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tokenizer.light')
     with open(tokenizer_path, 'r', encoding='utf-8') as f:
         tokenizer_source = f.read()
     return run_source(tokenizer_source), tokenizer_source
@@ -42,7 +42,7 @@ def test_tokenizer_basic():
     
     # 测试简单代码
     test_source = '定义甲等于1。'
-    result = interp._call_function(tokenizer_func, [DuanValue(test_source, '串')])
+    result = interp._call_function(tokenizer_func, [LightValue(test_source, '串')])
     
     tokens = result.value
     print(f"  [+] 输入: '{test_source}'")
@@ -70,10 +70,10 @@ def test_tokenizer_self_hosting():
     tokenizer_func = interp.env.get('分词器').value
     
     # 用自己分词自己！
-    result = interp._call_function(tokenizer_func, [DuanValue(tokenizer_source, '串')])
+    result = interp._call_function(tokenizer_func, [LightValue(tokenizer_source, '串')])
     
     tokens = result.value
-    print(f"  [+] tokenizer.duan 源码长度: {len(tokenizer_source)} 字符")
+    print(f"  [+] tokenizer.light 源码长度: {len(tokenizer_source)} 字符")
     print(f"  [+] 自举分词结果: {len(tokens)} 个 Token")
     
     # 统计不同类型 Token 数量
@@ -114,7 +114,7 @@ def test_tokenizer_advanced():
     all_pass = True
     for name, code in test_cases:
         try:
-            result = interp._call_function(tokenizer_func, [DuanValue(code, '串')])
+            result = interp._call_function(tokenizer_func, [LightValue(code, '串')])
             tokens = result.value
             print(f"  [+] [{name}] {len(tokens)} Token: {code[:30]}...")
             for t in tokens[:5]:
@@ -129,18 +129,18 @@ def test_tokenizer_advanced():
 
 
 def test_direct_parse():
-    """直接解析 tokenizer.duan 并检查报错"""
+    """直接解析 tokenizer.light 并检查报错"""
     print("=" * 60)
-    print("测试：直接解析 tokenizer.duan")
+    print("测试：直接解析 tokenizer.light")
     print("=" * 60)
     
-    from duan_visitor import DuanParser
+    from light_visitor import LightParser
     
-    tokenizer_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tokenizer.duan')
+    tokenizer_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tokenizer.light')
     with open(tokenizer_path, 'r', encoding='utf-8') as f:
         tokenizer_source = f.read()
     
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(tokenizer_source)
     
     if module is None:

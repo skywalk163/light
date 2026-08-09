@@ -552,7 +552,7 @@ register('回归测试-普通类', test_regular_class_still_works)
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("段言 Phase 2 —— 泛型段落 & 泛型类 测试")
+    print("光明 Phase 2 —— 泛型段落 & 泛型类 测试")
     print("=" * 60)
     print()
     for name, fn in TESTS:

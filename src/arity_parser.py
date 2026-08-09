@@ -1,5 +1,5 @@
 """
-段言（Duan）编程语言 - 元数驱动解析器
+光明（Light）编程语言 - 元数驱动解析器
 
 实现决策28：元数驱动解析
 - 动词声明参数数量，自动收集参数
@@ -14,7 +14,7 @@
 
 from typing import List, Optional, Tuple
 from tokens import Token
-from duan_parser_v3 import *
+from light_parser_v3 import *
 from verb_info import get_arity, is_verb
 
 

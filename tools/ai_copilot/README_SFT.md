@@ -1,6 +1,6 @@
-# 段言 AI Copilot — 微调训练指南
+# 光明 AI Copilot — 微调训练指南
 
-将 **ERNIE-4.5-0.3B** 微调为 Python → 段言 v3.2 代码翻译器。
+将 **ERNIE-4.5-0.3B** 微调为 Python → 光明 v3.2 代码翻译器。
 
 即使你从未微调过大模型，按照本指南也能一步步完成。
 
@@ -8,14 +8,14 @@
 
 ## 这是什么？
 
-一个 3 亿参数的小模型，经过微调后能将 Python 代码**自动翻译**为段言代码。
+一个 3 亿参数的小模型，经过微调后能将 Python 代码**自动翻译**为光明代码。
 
-它不是万能的——不能从需求描述直接创作段言代码。但它擅长一件事：**看到 Python 代码，输出等价的段言代码**。
+它不是万能的——不能从需求描述直接创作光明代码。但它擅长一件事：**看到 Python 代码，输出等价的光明代码**。
 
-配合段言 AI 管线，工作流是：
+配合光明 AI 管线，工作流是：
 
 ```
-用户需求 → 大模型生成 Python → 微调后的 0.3B 翻译为段言 → duan ai check 验证
+用户需求 → 大模型生成 Python → 微调后的 0.3B 翻译为光明 → light ai check 验证
 ```
 
 ---
@@ -50,7 +50,7 @@ cd tools/ai_copilot
 python build_sft_dataset.py
 ```
 
-这会生成 `sft_dataset.jsonl`，包含 **881 条** Python↔段言对照数据。
+这会生成 `sft_dataset.jsonl`，包含 **881 条** Python↔光明对照数据。
 
 ### 第 3 步：一键训练
 
@@ -118,7 +118,7 @@ jupyter notebook train_sft.ipynb
 
 ```json
 {
-  "instruction": "将以下Python代码翻译为段言v3.2代码。",
+  "instruction": "将以下Python代码翻译为光明v3.2代码。",
   "input": "def add(a, b):\n    return a + b",
   "output": "段落 加法 接收 a, b：\n    返回 a 加 b",
   "category": "段落"
@@ -127,7 +127,7 @@ jupyter notebook train_sft.ipynb
 
 - `instruction`：任务指令（10 种变体随机选择）
 - `input`：Python 代码
-- `output`：对应的段言代码
+- `output`：对应的光明代码
 - `category`：语法类别（用于统计）
 
 ### 数据类别分布
@@ -152,7 +152,7 @@ jupyter notebook train_sft.ipynb
 编辑 `build_sft_dataset.py`，在 `_HANDCRAFTED` 列表中添加新条目：
 
 ```python
-("类别", "Python 代码", "段言代码"),
+("类别", "Python 代码", "光明代码"),
 ```
 
 然后重新运行：
@@ -169,10 +169,10 @@ python build_sft_dataset.py
 
 ```bash
 # 启动推理服务
-erniekit server output/duan_translator/run_chat.yaml
+erniekit server output/light_translator/run_chat.yaml
 
 # 或 CLI 对话
-erniekit chat output/duan_translator/run_chat.yaml
+erniekit chat output/light_translator/run_chat.yaml
 ```
 
 ### 方式 2：PaddleNLP Python 推理
@@ -180,10 +180,10 @@ erniekit chat output/duan_translator/run_chat.yaml
 ```python
 from paddlenlp.transformers import AutoTokenizer, AutoModelForCausalLM
 
-tokenizer = AutoTokenizer.from_pretrained("output/duan_translator/merged")
-model = AutoModelForCausalLM.from_pretrained("output/duan_translator/merged", dtype="bfloat16")
+tokenizer = AutoTokenizer.from_pretrained("output/light_translator/merged")
+model = AutoModelForCausalLM.from_pretrained("output/light_translator/merged", dtype="bfloat16")
 
-prompt = "将以下Python代码翻译为段言v3.2代码。\n\ndef factorial(n):\n    if n <= 1:\n        return 1\n    return n * factorial(n-1)"
+prompt = "将以下Python代码翻译为光明v3.2代码。\n\ndef factorial(n):\n    if n <= 1:\n        return 1\n    return n * factorial(n-1)"
 inputs = tokenizer(prompt, return_tensors="pd")
 outputs = model.generate(**inputs, max_new_tokens=256, temperature=0.1)
 print(tokenizer.decode(outputs[0], skip_special_tokens=True))
@@ -196,25 +196,25 @@ print(tokenizer.decode(outputs[0], skip_special_tokens=True))
 python train_sft.py --convert-gguf
 
 # 用 llama.cpp 推理
-llama-cli -m duan_translator.gguf -p "def add(a, b): return a + b"
+llama-cli -m light_translator.gguf -p "def add(a, b): return a + b"
 
 # 或用 Ollama
-ollama create duan-translator -f Modelfile
-ollama run duan-translator "def factorial(n): ..."
+ollama create light-translator -f Modelfile
+ollama run light-translator "def factorial(n): ..."
 ```
 
 GGUF 转换详细教程：https://aistudio.baidu.com/projectdetail/9749867
 
-### 方式 4：集成到段言 AI 管线
+### 方式 4：集成到光明 AI 管线
 
 ```
-duan ai generate "写一个冒泡排序" --model-size medium
+light ai generate "写一个冒泡排序" --model-size medium
 → 大模型输出 Python 代码
 
 → 喂给微调后的 0.3B 做翻译
-→ 输出段言代码
+→ 输出光明代码
 
-→ duan ai check output.duan --run
+→ light ai check output.light --run
 → 验证通过
 ```
 
@@ -305,4 +305,4 @@ tools/ai_copilot/
 - ERNIE-4.5 开源模型：https://huggingface.co/baidu
 - ERNIEKit 文档：https://github.com/PaddlePaddle/ERNIE
 - GGUF 转换教程：https://aistudio.baidu.com/projectdetail/9749867
-- 段言项目：`c:\traework\duan`
+- 光明项目：`c:\traework\light`

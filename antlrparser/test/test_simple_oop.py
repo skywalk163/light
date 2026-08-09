@@ -5,8 +5,8 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from duan_visitor import parse_source
-from duan_interpreter import Interpreter
+from light_visitor import parse_source
+from light_interpreter import Interpreter
 
 # 简单测试：类定义和实例化
 source = """

@@ -1,9 +1,9 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import DuanParser
 from code_generator import PythonCodeGenerator
 
-with open(os.path.join(os.path.dirname(__file__), 'examples', 'advanced.duan'), 'r', encoding='utf-8') as f:
+with open(os.path.join(os.path.dirname(__file__), 'examples', 'advanced.light'), 'r', encoding='utf-8') as f:
     source = f.read()
 
 parser = DuanParser()

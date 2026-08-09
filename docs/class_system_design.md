@@ -1,10 +1,10 @@
-# 段言 (Duan) 语言类系统设计文档
+# 光明 (Light) 语言类系统设计文档
 
 > v1.9.x 核心功能 - 完整的面向对象编程支持
 
 ## 概述
 
-本文档描述段言 (Duan) 语言的完整类系统实现，基于 LLVM 后端构建。类系统采用序列化字符串存储对象，通过运行时全局表维护类元信息，支持继承、方法、属性、运算符重载等现代 OOP 特性。
+本文档描述光明 (Light) 语言的完整类系统实现，基于 LLVM 后端构建。类系统采用序列化字符串存储对象，通过运行时全局表维护类元信息，支持继承、方法、属性、运算符重载等现代 OOP 特性。
 
 ## 对象模型
 
@@ -20,7 +20,7 @@ obj:__class__\x1f类名\x1f属性1\x1f值1\x1f属性2\x1F值2...
 - `__class__` 字段记录类名，用于类型判断和反射
 - 属性按定义顺序存储，支持动态增删
 
-### DuanValue 结构
+### LightValue 结构
 
 ```c
 typedef struct {
@@ -29,7 +29,7 @@ typedef struct {
     double f64;        // FLOAT
     char* str;         // STR / OBJ (序列化)
     int boolean;       // BOOL
-} DuanValue;
+} LightValue;
 ```
 
 ## 类元信息系统
@@ -74,7 +74,7 @@ static int __dv_num_classes = 0;
 ### 方法签名
 
 ```c
-typedef void (*DuanMethodFunc)(DuanValue* result, DuanValue* self, DuanValue* args, int num_args);
+typedef void (*LightMethodFunc)(LightValue* result, LightValue* self, LightValue* args, int num_args);
 ```
 
 - `result`: 返回值指针
@@ -101,7 +101,7 @@ typedef void (*DuanMethodFunc)(DuanValue* result, DuanValue* self, DuanValue* ar
     ↓
 dv_find_method(class_name, "method")
     ↓
-找到方法指针 → 调用 DuanMethodFunc
+找到方法指针 → 调用 LightMethodFunc
 ```
 
 ## 继承与 super
@@ -115,9 +115,9 @@ dv_find_method(class_name, "method")
 ### super 调用
 
 ```c
-void dv_call_super_method(DuanValue* result, DuanValue* obj,
+void dv_call_super_method(LightValue* result, LightValue* obj,
                           const char* class_name, const char* method_name,
-                          DuanValue* args, int num_args);
+                          LightValue* args, int num_args);
 ```
 
 从指定类的**父类**开始查找方法，跳过当前类实现。
@@ -127,7 +127,7 @@ void dv_call_super_method(DuanValue* result, DuanValue* obj,
 ### isinstance 实现
 
 ```c
-int dv_isinstance(DuanValue* obj, const char* class_name) {
+int dv_isinstance(LightValue* obj, const char* class_name) {
     char actual_class[MAX_CLASS_NAME_LEN];
     dv_get_class_name(obj, actual_class, sizeof(actual_class));
 
@@ -144,7 +144,7 @@ int dv_isinstance(DuanValue* obj, const char* class_name) {
 ### 类型名称获取
 
 ```c
-void dv_get_type_name(DuanValue* obj, char* buf, int buf_size);
+void dv_get_type_name(LightValue* obj, char* buf, int buf_size);
 ```
 
 返回对象类型名称（类名）或基础类型名称（整数、浮点数、文本、列表、布尔）。
@@ -165,7 +165,7 @@ void dv_get_type_name(DuanValue* obj, char* buf, int buf_size);
 算术运算函数（如 `dv_add`）在执行前检查左操作数是否为对象：
 
 ```c
-void dv_add(DuanValue* result, DuanValue* a, DuanValue* b) {
+void dv_add(LightValue* result, LightValue* a, LightValue* b) {
     if (dv_is_object(a)) {
         // 查找并调用重载方法
         dv_try_operator_overload(result, a, "加", b, 1);
@@ -200,7 +200,7 @@ void dv_add(DuanValue* result, DuanValue* a, DuanValue* b) {
 
 ### 多重捕获
 
-```段言
+```光明
 尝试：
     抛出 新建 值异常("错误")
 捕获 值异常 e：
@@ -219,14 +219,14 @@ void dv_add(DuanValue* result, DuanValue* a, DuanValue* b) {
 ### LLVM IR 生成
 
 ```
-.duan 源码
+.light 源码
     ↓
 解析器 → AST (ast_nodes)
     ↓
 TypedLLVMCodeGen.generate()
     ├─ 声明运行时函数 (_declare_typed_runtime)
     ├─ 收集类定义 (_collect_class)
-    ├─ 生成全局初始化 (__duan_init)
+    ├─ 生成全局初始化 (__light_init)
     │   ├─ 注册类 (dv_register_class)
     │   ├─ 注册属性 (dv_register_attr)
     │   ├─ 注册方法 (dv_register_method/class/static)
@@ -260,13 +260,13 @@ TypedLLVMCodeGen.generate()
 
 | 文件 | 覆盖内容 |
 |------|----------|
-| `test_class_stage1.duan` | 类基础：定义、实例化、属性 |
-| `test_class_stage2.duan` | 方法与构造函数 |
-| `test_class_stage3.duan` | 继承、方法重写、super |
-| `test_class_stage4.duan` | 类型判断 (isinstance) |
-| `test_class_stage5.duan` | 运算符重载 |
-| `test_class_stage6.duan` | 类方法、静态方法 |
-| `test_exception_class.duan` | 类式异常处理 |
+| `test_class_stage1.light` | 类基础：定义、实例化、属性 |
+| `test_class_stage2.light` | 方法与构造函数 |
+| `test_class_stage3.light` | 继承、方法重写、super |
+| `test_class_stage4.light` | 类型判断 (isinstance) |
+| `test_class_stage5.light` | 运算符重载 |
+| `test_class_stage6.light` | 类方法、静态方法 |
+| `test_exception_class.light` | 类式异常处理 |
 
 ## 版本历史
 

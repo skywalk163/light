@@ -96,23 +96,23 @@ class TestWasmTarget(unittest.TestCase):
             compile_to_pyodide,
             compile_to_standalone_html,
             compile_to_wasm_json,
-            compile_duan_to_python,
+            compile_light_to_python,
         )
         self.assertTrue(True)
 
     def test_compile_to_python_simple(self):
-        """测试基本段言代码编译为 Python"""
-        from wasm_target import compile_duan_to_python
-        py, err = compile_duan_to_python('打印 "你好"。')
+        """测试基本光明代码编译为 Python"""
+        from wasm_target import compile_light_to_python
+        py, err = compile_light_to_python('打印 "你好"。')
         self.assertIsNone(err)
         self.assertIn('print', py)
         self.assertIn('你好', py)
 
     def test_compile_to_python_error(self):
         """测试语法错误时返回错误信息"""
-        from wasm_target import compile_duan_to_python
+        from wasm_target import compile_light_to_python
         # 使用明显无效的语法
-        py, err = compile_duan_to_python('{ { { {')
+        py, err = compile_light_to_python('{ { { {')
         # 解析器可能不会报错（取决于实现），放宽测试条件
         if err is not None:
             self.assertEqual(py, "")
@@ -141,7 +141,7 @@ class TestWasmTarget(unittest.TestCase):
         from wasm_target import compile_to_standalone_html
         html = compile_to_standalone_html('打印 "你好，WebAssembly！"。', '测试')
         self.assertIn('<!DOCTYPE html>', html)
-        self.assertIn('段言 (Duan) WebAssembly', html)
+        self.assertIn('光明 (Light) WebAssembly', html)
         self.assertIn('测试', html)
         self.assertIn('pyodide', html.lower())
         self.assertIn('print', html)
@@ -184,11 +184,11 @@ class TestTutorialData(unittest.TestCase):
             {
                 'id': 'ch1_hello',
                 'chapter': '第一章：入门基础',
-                'title': '1.1 你好，段言！',
-                'description': '用「打印」语句输出你的第一行段言代码。',
-                'task': '请在编辑器中输入代码，打印 "你好，段言！"。',
-                'template': '打印 "你好，段言！"。\n',
-                'expected': '你好，段言！',
+                'title': '1.1 你好，光明！',
+                'description': '用「打印」语句输出你的第一行光明代码。',
+                'task': '请在编辑器中输入代码，打印 "你好，光明！"。',
+                'template': '打印 "你好，光明！"。\n',
+                'expected': '你好，光明！',
                 'hint': '使用「打印」关键字，后面跟上要输出的内容，以句号结束。',
                 'keywords': ['打印'],
                 'level': 'beginner'
@@ -288,13 +288,13 @@ class TestLinter(unittest.TestCase):
     def test_linter_create_instance(self):
         """测试创建 Linter 实例"""
         from linter import DuanLinter
-        linter = DuanLinter()
+        linter = LightLinter()
         self.assertIsNotNone(linter)
 
     def test_linter_lint_empty_code(self):
         """测试对空代码的检查"""
         from linter import DuanLinter
-        linter = DuanLinter()
+        linter = LightLinter()
         results = linter.check('')
         self.assertIsInstance(results, list)
 
@@ -313,22 +313,22 @@ class TestLinter(unittest.TestCase):
 class TestPackageManager(unittest.TestCase):
     """测试包管理器功能"""
 
-    def test_import_duanpkg(self):
+    def test_import_lightpkg(self):
         """测试包管理器导入"""
-        from duanpkg import (
+        from lightpkg import (
             cmd_init, cmd_install, cmd_publish,
             cmd_search, cmd_list, cmd_info, cmd_remove,
             DEFAULT_INSTALL, DEFAULT_REGISTRY,
         )
         self.assertTrue(True)
 
-    def test_duanpkg_constants(self):
+    def test_lightpkg_constants(self):
         """测试包管理器常量"""
-        from duanpkg import DEFAULT_INSTALL, DEFAULT_REGISTRY
+        from lightpkg import DEFAULT_INSTALL, DEFAULT_REGISTRY
         self.assertIsNotNone(DEFAULT_INSTALL)
         self.assertIsNotNone(DEFAULT_REGISTRY)
 
-    def test_duanpkg_init(self):
+    def test_lightpkg_init(self):
         """测试包初始化"""
         import tempfile
         from argparse import Namespace
@@ -337,13 +337,13 @@ class TestPackageManager(unittest.TestCase):
             old_cwd = os.getcwd()
             os.chdir(tmpdir)
             try:
-                from duanpkg import cmd_init
+                from lightpkg import cmd_init
                 args = Namespace()
                 args.name = 'test-pkg'
                 args.dir = tmpdir
                 result = cmd_init(args)
                 self.assertEqual(result, 0)
-                self.assertTrue(os.path.exists(os.path.join(tmpdir, 'duan.json')))
+                self.assertTrue(os.path.exists(os.path.join(tmpdir, 'light.json')))
             finally:
                 os.chdir(old_cwd)
         finally:
@@ -410,30 +410,30 @@ class TestRegression(unittest.TestCase):
 
     def test_parser_accepts_l0_if(self):
         """测试解析器接受 L0 条件语句"""
-        from duan_parser_v3 import DuanParser
-        parser = DuanParser()
+        from light_parser_v3 import LightParser
+        parser = LightParser()
         module = parser.parse('设 甲 为 10。若 甲 > 5 则：打印 "成立"。结束。')
         self.assertIsNotNone(module)
 
     def test_parser_accepts_l0_try(self):
         """测试解析器接受 L0 异常处理"""
-        from duan_parser_v3 import DuanParser
-        parser = DuanParser()
+        from light_parser_v3 import LightParser
+        parser = LightParser()
         module = parser.parse('试：设 甲 为 1/0。捕：打印 "错误"。结束。')
         self.assertIsNotNone(module)
 
     def test_parser_accepts_l0_for(self):
         """测试解析器接受 L0 遍历循环"""
-        from duan_parser_v3 import DuanParser
-        parser = DuanParser()
+        from light_parser_v3 import LightParser
+        parser = LightParser()
         module = parser.parse('设 列表 为 [1,2,3]。遍 甲 之 列表：打印 甲。结束。')
         self.assertIsNotNone(module)
 
     def test_codegen_output(self):
         """测试代码生成器输出"""
-        from duan_parser_v3 import DuanParser
+        from light_parser_v3 import LightParser
         from code_generator import PythonCodeGenerator
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse('打印 "测试"。')
         gen = PythonCodeGenerator()
         py = gen.generate(module)

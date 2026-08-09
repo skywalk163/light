@@ -1,8 +1,8 @@
 /**
- * 段言 (Duan) 交互式教程系统 v4.1
+ * 光明 (Light) 交互式教程系统 v4.1
  */
 
-const TUTORIAL_STORAGE_KEY = 'duan_tutorial_progress';
+const TUTORIAL_STORAGE_KEY = 'light_tutorial_progress';
 
 // 教程数据
 const TUTORIAL_LESSONS = [
@@ -12,11 +12,11 @@ const TUTORIAL_LESSONS = [
     {
         id: 'ch1_hello',
         chapter: '第一章：入门基础',
-        title: '1.1 你好，段言！',
-        description: '用「打印」语句输出你的第一行段言代码。',
-        task: '请在编辑器中输入代码，打印 "你好，段言！"。',
-        template: '打印("你好，段言！")\n',
-        expected: '你好，段言！',
+        title: '1.1 你好，光明！',
+        description: '用「打印」语句输出你的第一行光明代码。',
+        task: '请在编辑器中输入代码，打印 "你好，光明！"。',
+        template: '打印("你好，光明！")\n',
+        expected: '你好，光明！',
         hint: '使用「打印」关键字，后面跟上要输出的内容，以句号结束。',
         keywords: ['打印'],
         difficulty: 'beginner',
@@ -30,7 +30,7 @@ const TUTORIAL_LESSONS = [
         task: '定义一个变量「姓名」为 "小明"，然后打印它。',
         template: '设 姓名 为 "小明"\n打印(姓名)\n',
         expected: '小明',
-        hint: '「设 变量名 为 值」是段言定义变量的标准语法。',
+        hint: '「设 变量名 为 值」是光明定义变量的标准语法。',
         keywords: ['设', '为'],
         difficulty: 'beginner',
         layer: 'L0'
@@ -55,7 +55,7 @@ const TUTORIAL_LESSONS = [
         description: '学习字符串的基本操作，包括拼接。',
         task: '将 "段" 和 "言" 拼接起来，然后打印。',
         template: '设 姓 为 "段"\n设 名 为 "言"\n设 全名 为 姓 + 名\n打印(全名)\n',
-        expected: '段言',
+        expected: '光明',
         hint: '用 + 号可以拼接两个字符串。',
         keywords: ['设', '打印'],
         difficulty: 'beginner',
@@ -92,7 +92,7 @@ const TUTORIAL_LESSONS = [
         layer: 'L0'
     },
     {
-        id: 'ch2_duan',
+        id: 'ch2_light',
         chapter: '第二章：L0 核心关键字',
         title: '2.3 段落（函数）「段」',
         description: '学习 L0 关键字「段」定义函数。',
@@ -151,11 +151,11 @@ const TUTORIAL_LESSONS = [
         id: 'ch3_l1_l2_mix',
         chapter: '第三章：L1/L2 文体风格',
         title: '3.3 风格混用与兼容',
-        description: '段言支持 L1 和 L2 风格混用，新旧关键字可以共存。',
+        description: '光明支持 L1 和 L2 风格混用，新旧关键字可以共存。',
         task: '混用 L1 和 L2 关键字：用「设」定义变量，用「如果」判断，用「打印」输出。',
         template: '设 分数 为 85\n如果 分数 >= 60 那么：\n  打印("及格")\n否则：\n  打印("不及格")\n结束\n',
         expected: '及格',
-        hint: '段言 v4.0 同时支持 L0 单字和 L1 双字关键字，可以自由混用。',
+        hint: '光明 v4.0 同时支持 L0 单字和 L1 双字关键字，可以自由混用。',
         keywords: ['设', '如果', '那么', '否则', '打印', '结束'],
         difficulty: 'intermediate',
         layer: 'L1'
@@ -172,7 +172,7 @@ const TUTORIAL_LESSONS = [
         task: '计算 2 的 10 次方，然后打印结果。',
         template: '设 甲 为 2 ** 10\n打印(甲)\n',
         expected: '1024',
-        hint: '段言支持 ** 幂运算，以及所有标准数学运算符。',
+        hint: '光明支持 ** 幂运算，以及所有标准数学运算符。',
         keywords: ['设', '打印'],
         difficulty: 'advanced',
         layer: 'L3'
@@ -199,10 +199,10 @@ const TUTORIAL_LESSONS = [
         chapter: '第五章：L4 外部语言引用',
         title: '5.1 Python 代码嵌入',
         description: 'L4 层：使用「引 Python:」块嵌入 Python 代码。',
-        task: '在嵌入块中计算斐波那契数列第 10 项，并导出让段言打印。',
+        task: '在嵌入块中计算斐波那契数列第 10 项，并导出让光明打印。',
         template: '引 Python:\ndef fib(n):\n    a, b = 0, 1\n    for _ in range(n):\n        a, b = b, a + b\n    return a\n出 fib\n\n设 结果 为 fib(10)\n打印(结果)\n',
         expected: '55',
-        hint: '用「引 Python:」定义 Python 函数，用「出」导出，段言代码可直接调用。',
+        hint: '用「引 Python:」定义 Python 函数，用「出」导出，光明代码可直接调用。',
         keywords: ['引', '出', '设', '打印'],
         difficulty: 'advanced',
         layer: 'L4'
@@ -215,7 +215,7 @@ const TUTORIAL_LESSONS = [
         task: '导入 Python 的 math 模块，计算 π 的值并打印。',
         template: '引 Python:\nimport math\n出 math\n\n设 圆周率 为 math.pi\n打印(圆周率)\n',
         expected: '3.141592653589793',
-        hint: '「导」可以导入段言模块，「引 Python:」可以导入 Python 标准库。',
+        hint: '「导」可以导入光明模块，「引 Python:」可以导入 Python 标准库。',
         keywords: ['引', '出', '设', '打印'],
         difficulty: 'advanced',
         layer: 'L4'
@@ -245,7 +245,7 @@ const TUTORIAL_LESSONS = [
         task: '定义一个「计数器」类，有「计数」属性和「增加」方法，创建实例并测试。',
         template: '引 Python:\nclass Counter:\n    def __init__(self):\n        self.count = 0\n    def add(self, n=1):\n        self.count += n\n        return self.count\n出 Counter\n\n设 计数器 为 Counter()\n打印(计数器之add(1))\n打印(计数器之add(3))\n打印(计数器之count)\n',
         expected: '1\n4\n4',
-        hint: 'L4 嵌入 Python 类定义，用「出」导出类的构造函数，段言中可直接使用。',
+        hint: 'L4 嵌入 Python 类定义，用「出」导出类的构造函数，光明中可直接使用。',
         keywords: ['引', '出', '设', '打印'],
         difficulty: 'advanced',
         layer: 'L4'
@@ -360,9 +360,9 @@ const TUTORIAL_LESSONS = [
         chapter: '第九章：L1 白话体闯关',
         title: 'L1-01 打印输出',
         description: '用「打印」关键字向屏幕输出文字和计算结果。',
-        task: '用「打印」输出 "大家好，我是段言！" 和 1+1 的计算结果。',
-        template: '打印 "大家好，我是段言！"\n打印 "1 + 1 =", 1 + 1\n',
-        expected: '大家好，我是段言！\n1 + 1 = 2',
+        task: '用「打印」输出 "大家好，我是光明！" 和 1+1 的计算结果。',
+        template: '打印 "大家好，我是光明！"\n打印 "1 + 1 =", 1 + 1\n',
+        expected: '大家好，我是光明！\n1 + 1 = 2',
         hint: '「打印」后跟要输出的内容，多个值用逗号分隔。',
         keywords: ['打印'],
         difficulty: 'beginner',
@@ -480,7 +480,7 @@ const TUTORIAL_LESSONS = [
         task: '用「引 Python:」计算 2 的 10 次方，打印结果。',
         template: '引 Python:\n    result = 2 ** 10\n结束引\n\n打印 "2 的 10 次方 =", result\n',
         expected: '2 的 10 次方 = 1024',
-        hint: '「引 Python: ... 结束引」嵌入 Python 代码，变量可直接在段言中使用。',
+        hint: '「引 Python: ... 结束引」嵌入 Python 代码，变量可直接在光明中使用。',
         keywords: ['引', '结束引', '打印'],
         difficulty: 'intermediate',
         layer: 'L1'
@@ -497,7 +497,7 @@ const TUTORIAL_LESSONS = [
         task: '用「导」导入 math 模块，计算 π 的值并打印。',
         template: '引 Python:\nimport math\n出 math\n\n设 圆周率 为 math.pi\n打印(圆周率)\n',
         expected: '3.141592653589793',
-        hint: '「引 Python:」导入 Python 模块，用「出」导出供段言使用。',
+        hint: '「引 Python:」导入 Python 模块，用「出」导出供光明使用。',
         keywords: ['引', '出', '设', '打印'],
         difficulty: 'intermediate',
         layer: 'L2'
@@ -811,7 +811,7 @@ function createTutorialUI() {
         <div class="tutorial-header">
             <div class="tutorial-header-left">
                 <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM6.5 4.5h3v1.5h-3v-1.5zm0 3h3v1.5h-3v-1.5zm0 3h2v1.5h-2v-1.5z"/></svg>
-                <span class="tutorial-title">段言交互式教程</span>
+                <span class="tutorial-title">光明交互式教程</span>
                 <span class="tutorial-progress" id="tutorialProgress">0/20</span>
             </div>
             <div class="tutorial-header-right">

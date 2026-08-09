@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言 C 代码生成器后端单元测试
+光明 C 代码生成器后端单元测试
 
 测试覆盖：
   - PythonToC 类：直接翻译 Python AST → C 代码
-  - 编译到C 函数：段言源码 → C 代码
+  - 编译到C 函数：光明源码 → C 代码
   - 算术表达式、变量声明、函数定义、条件语句、循环、输出
   - 边缘情况：空函数、嵌套 if、链式比较、布尔运算
 """
@@ -365,29 +365,29 @@ class TestCompileToC(unittest.TestCase):
 
     def test_no_internal_vars_in_output(self):
         """C 代码中不应包含编译器内部变量（如 类型检查开启）"""
-        duan_code = '''
+        light_code = '''
 段主函数
     输出("hello")
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertNotIn('类型检查开启', c_code)
         self.assertNotIn('调试模式', c_code)
 
     def test_arithmetic_program(self):
-        """完整段言程序：算术运算"""
-        duan_code = '''
+        """完整光明程序：算术运算"""
+        light_code = '''
 段主函数
     输出(1 + 2)
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('printf', c_code)
         self.assertIn('int main(', c_code)
 
     def test_factorial_program(self):
-        """完整段言程序：递归阶乘"""
-        duan_code = '''
+        """完整光明程序：递归阶乘"""
+        light_code = '''
 段fact接收n整数返回整数
     如果n小于等于1:返回1
     返回n乘fact(n减1)
@@ -396,7 +396,7 @@ class TestCompileToC(unittest.TestCase):
     设结果为fact(5)
     输出("fact(5)=", 结果)
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('int fact(', c_code)
         self.assertIn('return (n * fact((n - 1)));', c_code)
@@ -404,40 +404,40 @@ class TestCompileToC(unittest.TestCase):
         self.assertIn('%s%d', c_code)  # 混合输出
 
     def test_if_else_program(self):
-        """完整段言程序：条件判断"""
-        duan_code = '''
+        """完整光明程序：条件判断"""
+        light_code = '''
 段主函数
     设score为85
     如果score大于等于80:输出("good")
     否则:输出("bad")
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('if ((score >= 80))', c_code)
         self.assertIn('} else {', c_code)
 
     def test_while_program(self):
-        """完整段言程序：while 循环"""
-        duan_code = '''
+        """完整光明程序：while 循环"""
+        light_code = '''
 段主函数
     设i为0
     当i小于5
         i = i + 1
     输出(i)
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('while ((i < 5))', c_code)
 
     def test_operators_alias(self):
         """运算符符号别名"""
-        duan_code = '''
+        light_code = '''
 段主函数
     输出(10 + 20 * 3)
     输出(100 / 4)
     输出(10 % 3)
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('(10 + (20 * 3))', c_code)
         self.assertIn('(100 / 4)', c_code)
@@ -445,64 +445,64 @@ class TestCompileToC(unittest.TestCase):
 
     def test_backtick_identifiers(self):
         """反引号标识符"""
-        duan_code = '''
+        light_code = '''
 段主函数
     设`类`为"class"
     输出(`类`)
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('const char*', c_code)
         self.assertIn('"class"', c_code)
 
     def test_single_line_block(self):
         """单行块"""
-        duan_code = '''
+        light_code = '''
 段主函数
     如果1大于0:输出("yes")
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('if ((1 > 0))', c_code)
 
     def test_comparison_chain(self):
         """链式比较：a 大于等于 60 且 a 小于 80"""
-        duan_code = '''
+        light_code = '''
 段主函数
     设a为75
     如果a大于等于60且a小于80:输出("pass")
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('&&', c_code)
 
     def test_empty_body(self):
         """空函数体"""
-        duan_code = '''
+        light_code = '''
 段空函数
     无
 段主函数
     输出("ok")
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('int main(', c_code)
 
     def test_runtime_header(self):
         """运行时头文件包含"""
-        duan_code = '''
+        light_code = '''
 段主函数
     输出("test")
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('#include <stdio.h>', c_code)
         self.assertIn('#include <stdlib.h>', c_code)
-        self.assertIn('void duan_print(', c_code)
+        self.assertIn('void light_print(', c_code)
 
     def test_multiple_functions(self):
         """多函数定义"""
-        duan_code = '''
+        light_code = '''
 段add接收a整数,b整数返回整数
     返回a加b
 
@@ -512,7 +512,7 @@ class TestCompileToC(unittest.TestCase):
 段主函数
     输出(add(3, 4))
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('int add(', c_code)
         self.assertIn('int mul(', c_code)
@@ -524,7 +524,7 @@ class TestCodeQuality(unittest.TestCase):
 
     def test_brace_balance(self):
         """检查花括号是否平衡"""
-        duan_code = '''
+        light_code = '''
 段fact接收n整数返回整数
     如果n小于等于1:返回1
     返回n乘fact(n减1)
@@ -536,7 +536,7 @@ class TestCodeQuality(unittest.TestCase):
     如果score小于60:输出("fail")
     输出("done")
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         # 统计花括号
         open_braces = c_code.count('{')
@@ -546,13 +546,13 @@ class TestCodeQuality(unittest.TestCase):
 
     def test_semicolon_each_statement(self):
         """检查语句是否以分号结尾"""
-        duan_code = '''
+        light_code = '''
 段主函数
     设x为10
     设y为20
     输出(x + y)
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         # 检查非空行、非注释、非大括号行是否以分号结尾
         for line in c_code.split('\n'):
@@ -579,13 +579,13 @@ class TestCodeQuality(unittest.TestCase):
 
     def test_no_undefined_vars(self):
         """检查变量是否都有声明"""
-        duan_code = '''
+        light_code = '''
 段主函数
     设x为10
     设y为x加5
     输出(y)
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         # x 和 y 应有 int 声明
         self.assertIn('int x = 10;', c_code)
@@ -593,11 +593,11 @@ class TestCodeQuality(unittest.TestCase):
 
     def test_c_syntax_no_python_isms(self):
         """C 代码中不应包含 Python 特有的语法"""
-        duan_code = '''
+        light_code = '''
 段主函数
     输出("hello")
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         # 不应包含 Python 的 None 或 True/False 字面量
         self.assertNotIn('None', c_code)
@@ -606,7 +606,7 @@ class TestCodeQuality(unittest.TestCase):
 
 
 class TestCompileToCFile(unittest.TestCase):
-    """编译段言到 C 文件测试"""
+    """编译光明到 C 文件测试"""
 
     def setUp(self):
         self.test_dir = os.path.join(_PROJECT_ROOT, 'tests', '_temp_cbackend')
@@ -619,12 +619,12 @@ class TestCompileToCFile(unittest.TestCase):
 
     def test_generate_c_file(self):
         """生成 .c 文件"""
-        from c_backend import 编译段言到C文件
-        duan_path = os.path.join(self.test_dir, 'test_gen.duan')
-        with open(duan_path, 'w', encoding='utf-8') as f:
+        from c_backend import 编译光明到C文件
+        light_path = os.path.join(self.test_dir, 'test_gen.light')
+        with open(light_path, 'w', encoding='utf-8') as f:
             f.write('段主函数\n    输出("hello")\n')
 
-        c_path = 编译段言到C文件(duan_path)
+        c_path = 编译光明到C文件(light_path)
         self.assertIsNotNone(c_path)
         self.assertTrue(os.path.exists(c_path))
         self.assertTrue(c_path.endswith('.c'))
@@ -636,13 +636,13 @@ class TestCompileToCFile(unittest.TestCase):
 
     def test_generate_c_file_custom_path(self):
         """指定输出路径"""
-        from c_backend import 编译段言到C文件
-        duan_path = os.path.join(self.test_dir, 'test_custom.duan')
-        with open(duan_path, 'w', encoding='utf-8') as f:
+        from c_backend import 编译光明到C文件
+        light_path = os.path.join(self.test_dir, 'test_custom.light')
+        with open(light_path, 'w', encoding='utf-8') as f:
             f.write('段主函数\n    输出("hello")\n')
 
         c_path_custom = os.path.join(self.test_dir, 'custom_output.c')
-        result = 编译段言到C文件(duan_path, c_path_custom)
+        result = 编译光明到C文件(light_path, c_path_custom)
         self.assertEqual(result, c_path_custom)
         self.assertTrue(os.path.exists(result))
 
@@ -652,17 +652,17 @@ class TestEdgeCases(unittest.TestCase):
 
     def test_very_large_numbers(self):
         """大整数"""
-        duan_code = '''
+        light_code = '''
 段主函数
     输出(2147483647)
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('2147483647', c_code)
 
     def test_nested_ifs(self):
         """嵌套 if 语句"""
-        duan_code = '''
+        light_code = '''
 段主函数
     设x为10
     设y为20
@@ -670,7 +670,7 @@ class TestEdgeCases(unittest.TestCase):
         如果y大于0
             输出("both pos")
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('if ((x > 0))', c_code)
         # 检查嵌套结构
@@ -679,13 +679,13 @@ class TestEdgeCases(unittest.TestCase):
 
     def test_multiple_prints(self):
         """多个连续输出"""
-        duan_code = '''
+        light_code = '''
 段主函数
     输出("a")
     输出("b")
     输出("c")
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         # 只统计 main 函数体中的 printf 调用（跳过运行时头文件部分）
         main_start = c_code.find('int main(')
@@ -696,35 +696,35 @@ class TestEdgeCases(unittest.TestCase):
 
     def test_bool_variable(self):
         """布尔变量"""
-        duan_code = '''
+        light_code = '''
 段主函数
     设flag为真
     如果flag:输出("true")
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('int flag = 1;', c_code)
 
     def test_negative_number(self):
         """负数"""
-        duan_code = '''
+        light_code = '''
 段主函数
     输出(-42)
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('-42', c_code)
 
     def test_simple_while_true(self):
         """while 真"""
-        duan_code = '''
+        light_code = '''
 段主函数
     设i为0
     当i小于3
         i = i + 1
     输出(i)
 '''
-        c_code = 编译到C(duan_code)
+        c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('while ((i < 3))', c_code)
 

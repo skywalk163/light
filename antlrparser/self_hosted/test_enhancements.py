@@ -1,9 +1,9 @@
-"""测试段言解释器增强功能"""
+"""测试光明解释器增强功能"""
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_interpreter import run_source
+from light_interpreter import run_source
 
 
 def test_stdlib_math():
@@ -46,7 +46,7 @@ def test_stdlib_math():
 '''
     
     try:
-        with open(os.path.join(os.path.dirname(__file__), 'stdlib.duan'), 'r', encoding='utf-8') as f:
+        with open(os.path.join(os.path.dirname(__file__), 'stdlib.light'), 'r', encoding='utf-8') as f:
             stdlib_code = f.read()
         
         full_code = stdlib_code + '\n\n' + test_code
@@ -98,7 +98,7 @@ def test_stdlib_string():
 '''
     
     try:
-        with open(os.path.join(os.path.dirname(__file__), 'stdlib.duan'), 'r', encoding='utf-8') as f:
+        with open(os.path.join(os.path.dirname(__file__), 'stdlib.light'), 'r', encoding='utf-8') as f:
             stdlib_code = f.read()
         
         full_code = stdlib_code + '\n\n' + test_code
@@ -162,7 +162,7 @@ listReverse(arr)。
 '''
     
     try:
-        with open(os.path.join(os.path.dirname(__file__), 'stdlib.duan'), 'r', encoding='utf-8') as f:
+        with open(os.path.join(os.path.dirname(__file__), 'stdlib.light'), 'r', encoding='utf-8') as f:
             stdlib_code = f.read()
         
         full_code = stdlib_code + '\n\n' + test_code
@@ -193,7 +193,7 @@ def test_error_handling():
 '''
     
     try:
-        with open(os.path.join(os.path.dirname(__file__), 'stdlib.duan'), 'r', encoding='utf-8') as f:
+        with open(os.path.join(os.path.dirname(__file__), 'stdlib.light'), 'r', encoding='utf-8') as f:
             stdlib_code = f.read()
         
         full_code = stdlib_code + '\n\n' + test_code
@@ -215,7 +215,7 @@ def test_llvm_codegen():
     print("测试：LLVM代码生成器增强")
     print("=" * 70)
     
-    from duan_llvm import compile_duan
+    from light_llvm import compile_light
     
     test_code = '''
 定义pi等于3.14159。
@@ -228,7 +228,7 @@ def test_llvm_codegen():
 '''
     
     try:
-        success = compile_duan(test_code, "test_enhanced.exe")
+        success = compile_light(test_code, "test_enhanced.exe")
         if success:
             print("LLVM编译成功！")
             # 运行生成的程序
@@ -252,7 +252,7 @@ def test_llvm_codegen():
 def main():
     """运行所有测试"""
     print("=" * 70)
-    print("段言解释器增强功能测试")
+    print("光明解释器增强功能测试")
     print("=" * 70)
     
     tests = [

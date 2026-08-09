@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-段言 REPL 核心类
+光明 REPL 核心类
 
 提供交互式开发环境的核心功能。
 """
@@ -19,17 +19,17 @@ sys.path.insert(0, os.path.join(_current_dir, 'antlrparser'))
 
 from .executor import Executor, Environment
 from .commands import CommandHandler
-from .highlighter import DuanHighlighter
-from .completer import DuanCompleter
-from errors import DuanError, DuanErrorFormatter, format_source_context, format_error_with_context
+from .highlighter import LightHighlighter
+from .completer import LightCompleter
+from errors import LightError, LightErrorFormatter, format_source_context, format_error_with_context
 
 
 # =============================================================================
-# DuanREPL 核心类
+# LightREPL 核心类
 # =============================================================================
 
-class DuanREPL:
-    """段言交互式开发环境核心类
+class LightREPL:
+    """光明交互式开发环境核心类
 
     提供：
     - 代码执行
@@ -48,8 +48,8 @@ class DuanREPL:
             enhanced: 是否使用增强模式（prompt_toolkit）
         """
         self.executor = Executor()
-        self.highlighter = DuanHighlighter(use_color=True)
-        self.completer = DuanCompleter(
+        self.highlighter = LightHighlighter(use_color=True)
+        self.completer = LightCompleter(
             env=self.executor.env.variables if self.executor.env else {}
         )
         self.command_handler = CommandHandler(
@@ -137,7 +137,7 @@ class DuanREPL:
         """执行代码并格式化错误
 
         Args:
-            code: 要执行的段言代码
+            code: 要执行的光明代码
 
         Returns:
             执行结果或错误信息
@@ -156,9 +156,9 @@ class DuanREPL:
                     return output
 
             return None
-        except DuanError as e:
-            # 使用 DuanErrorFormatter 格式化段言错误
-            return DuanErrorFormatter.format(e, code)
+        except LightError as e:
+            # 使用 LightErrorFormatter 格式化光明错误
+            return LightErrorFormatter.format(e, code)
         except SyntaxError as e:
             # 语法错误
             line = e.lineno or 0
@@ -245,10 +245,10 @@ class DuanREPL:
         """打印欢迎信息"""
         print("""
 ╔══════════════════════════════════════════════╗
-║           段言 (DuanLang) REPL              ║
+║           光明 (LightLang) REPL              ║
 ║           版本: 1.0.0                        ║
 ║                                              ║
-║  输入段言代码，按 Enter 执行                  ║
+║  输入光明代码，按 Enter 执行                  ║
 ║  输入 :help 获取帮助                         ║
 ║  输入 :exit 或按 Ctrl+D 退出                 ║
 ║                                              ║
@@ -282,7 +282,7 @@ class DuanREPL:
         """执行代码并返回结果
 
         Args:
-            code: 段言代码
+            code: 光明代码
 
         Returns:
             执行结果
@@ -303,7 +303,7 @@ class DuanREPL:
                 if self.buffer:
                     prompt = "...   "
                 else:
-                    prompt = "段言> "
+                    prompt = "光明> "
 
                 line = self.read_input(prompt)
 
@@ -339,7 +339,7 @@ class DuanREPL:
 
 def main():
     """REPL入口点"""
-    repl = DuanREPL()
+    repl = LightREPL()
     repl.run()
 
 

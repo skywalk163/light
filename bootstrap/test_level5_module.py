@@ -6,7 +6,7 @@ import contextlib
 sys.path.insert(0, 'bootstrap')
 from module_preprocessor import ModulePreprocessor
 
-def run_compiled_with_main(duan_code):
+def run_compiled_with_main(light_code):
     """运行编译后的代码，假设存在主函数"""
     def 列表创建(*args): return list(args)
     def 列表追加(lst, item): lst.append(item)
@@ -26,7 +26,7 @@ def run_compiled_with_main(duan_code):
 
     exec(open('bootstrap/level5_generated.py', encoding='utf-8').read(), ns)
     编译 = ns['编译']
-    py_code = 编译(duan_code)
+    py_code = 编译(light_code)
     output = io.StringIO()
     with contextlib.redirect_stdout(output):
         exec(py_code, ns)
@@ -71,7 +71,7 @@ def test_multiple_imports():
 def test_export_variable():
     mp = ModulePreprocessor()
     main_dir = os.path.join('bootstrap', 'test_modules')
-    exports = mp.extract_exports(open(os.path.join(main_dir, 'math_utils.duan'), encoding='utf-8').read())
+    exports = mp.extract_exports(open(os.path.join(main_dir, 'math_utils.light'), encoding='utf-8').read())
     assert "PI" in exports, f"应导出 PI: {exports}"
     assert "加法" not in exports, f"加法未显式导出: {exports}"
     assert "内部工具" not in exports, f"不应导出 内部工具: {exports}"
@@ -80,7 +80,7 @@ def test_export_variable():
 def test_inline_export():
     mp = ModulePreprocessor()
     main_dir = os.path.join('bootstrap', 'test_modules')
-    exports = mp.extract_exports(open(os.path.join(main_dir, 'string_utils.duan'), encoding='utf-8').read())
+    exports = mp.extract_exports(open(os.path.join(main_dir, 'string_utils.light'), encoding='utf-8').read())
     assert "版本号" in exports, f"应导出 版本号: {exports}"
     assert "拼接" not in exports, f"拼接未显式导出: {exports}"
     print("✅ 内联导出识别测试通过")

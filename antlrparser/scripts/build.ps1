@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    段言 ANTLR 解析器完整构建脚本
+    光明 ANTLR 解析器完整构建脚本
 .DESCRIPTION
     1. 生成 ANTLR 解析器代码
     2. 运行测试验证
@@ -10,7 +10,7 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot | Split-Path -Parent
 $AntlrDir = Join-Path $ProjectRoot "antlrparser"
 
-Write-Host "=== 段言 ANTLR 解析器构建 ===" -ForegroundColor Cyan
+Write-Host "=== 光明 ANTLR 解析器构建 ===" -ForegroundColor Cyan
 
 # Step 1: 激活虚拟环境并安装依赖
 Write-Host "`n[1/3] 检查 Python 依赖..." -ForegroundColor Yellow

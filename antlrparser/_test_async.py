@@ -3,9 +3,9 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
-from duan_visitor import DuanParser
-from duan_interpreter import Interpreter, run_source
-from duan_ast import *
+from light_visitor import LightParser
+from light_interpreter import Interpreter, run_source
+from light_ast import *
 
 # 测试1：AsyncScope 解释执行
 print("=== 测试1: AsyncScope ===")
@@ -108,7 +108,7 @@ except Exception as e:
 
 # 测试8：预处理验证
 print("\n=== 测试8: 预处理验证 ===")
-p = DuanParser()
+p = LightParser()
 tests = [
     ("异步段定义", "异步段落 读文件 接收 路径:\n  返回 路径。\n结束。"),
     ("等待调用", "等待(读文件(\"test.txt\"))"),

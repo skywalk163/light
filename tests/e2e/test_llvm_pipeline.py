@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言 LLVM IR 生成和编译端到端测试
+光明 LLVM IR 生成和编译端到端测试
 
 测试 LLVM IR 生成和 clang 编译流程
 """
@@ -33,16 +33,16 @@ class TestLLVMGeneration(unittest.TestCase):
         llvm_core = os.path.join(self.antlr_dir, 'llvm_core.py')
         self.assertTrue(os.path.exists(llvm_core))
 
-    def test_duan_llvm_exists(self):
-        """测试 duan_llvm.py 存在"""
-        duan_llvm = os.path.join(self.antlr_dir, 'duan_llvm.py')
-        self.assertTrue(os.path.exists(duan_llvm))
+    def test_light_llvm_exists(self):
+        """测试 light_llvm.py 存在"""
+        light_llvm = os.path.join(self.antlr_dir, 'light_llvm.py')
+        self.assertTrue(os.path.exists(light_llvm))
 
     def test_simple_ir_generation(self):
         """测试简单 IR 生成"""
         # 创建临时测试文件
         test_code = '段落 主程序：\n    打印 "hello"'
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.duan',
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.light',
                                          delete=False, encoding='utf-8') as f:
             f.write(test_code)
             temp_file = f.name
@@ -50,14 +50,14 @@ class TestLLVMGeneration(unittest.TestCase):
         try:
             # 尝试生成 IR
             result = subprocess.run(
-                [sys.executable, os.path.join(self.antlr_dir, 'duan_llvm.py'), temp_file],
+                [sys.executable, os.path.join(self.antlr_dir, 'light_llvm.py'), temp_file],
                 capture_output=True,
                 text=True,
                 timeout=60,
                 cwd=_project_root
             )
             # 检查是否生成了 .ll 文件
-            ll_file = temp_file.replace('.duan', '.ll')
+            ll_file = temp_file.replace('.light', '.ll')
             if os.path.exists(ll_file):
                 with open(ll_file, 'r', encoding='utf-8') as f:
                     ir_content = f.read()
@@ -70,13 +70,13 @@ class TestLLVMGeneration(unittest.TestCase):
         finally:
             if os.path.exists(temp_file):
                 os.unlink(temp_file)
-            ll_file = temp_file.replace('.duan', '.ll')
+            ll_file = temp_file.replace('.light', '.ll')
             if os.path.exists(ll_file):
                 os.unlink(ll_file)
 
     def test_runtime_c_exists(self):
         """测试运行时 C 文件存在"""
-        runtime_c = os.path.join(self.antlr_dir, 'runtime', 'duan_runtime.c')
+        runtime_c = os.path.join(self.antlr_dir, 'runtime', 'light_runtime.c')
         self.assertTrue(os.path.exists(runtime_c))
 
 

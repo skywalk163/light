@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）WebAssembly 编译目标 v4.1
+光明（Light）WebAssembly 编译目标 v4.1
 
-将段言代码编译为可在浏览器中通过 Pyodide（Python → WebAssembly）执行的格式。
+将光明代码编译为可在浏览器中通过 Pyodide（Python → WebAssembly）执行的格式。
 支持两种模式：
   1. Pyodide 模式：编译为 Python 代码，在浏览器 Pyodide 运行时中执行
   2. 独立模式：生成包含 Python 代码和 Pyodide 引导的独立 HTML 页面
@@ -35,7 +35,7 @@ if _script_dir not in sys.path:
 # =============================================================================
 
 PYODIDE_LOADER_JS = """
-// Pyodide 加载器 - 在浏览器中运行段言代码
+// Pyodide 加载器 - 在浏览器中运行光明代码
 let pyodideReady = null;
 
 async function loadPyodide() {
@@ -61,7 +61,7 @@ async function loadPyodide() {
     return pyodideReady;
 }
 
-async function runDuanWasm(pythonCode) {
+async function runLightWasm(pythonCode) {
     const pyodide = await loadPyodide();
     
     // 捕获输出
@@ -91,7 +91,7 @@ STANDALONE_HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>段言 (Duan) WebAssembly 应用</title>
+    <title>光明 (Light) WebAssembly 应用</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{
@@ -217,12 +217,12 @@ STANDALONE_HTML_TEMPLATE = """<!DOCTYPE html>
 <body>
     <div class="container">
         <div class="header">
-            <h1>段言</h1>
+            <h1>光明</h1>
             <span class="badge">WebAssembly</span>
             <span style="font-size:12px;color:#8b949e;margin-left:auto">{title}</span>
         </div>
         <div class="source">
-            <h2>段言源代码</h2>
+            <h2>光明源代码</h2>
             <pre>{source_escaped}</pre>
         </div>
         <div class="output">
@@ -235,7 +235,7 @@ STANDALONE_HTML_TEMPLATE = """<!DOCTYPE html>
         </div>
     </div>
     <div class="footer">
-        由段言 v4.1 编译器生成 · 基于 Pyodide (Python → WebAssembly)
+        由光明 v4.1 编译器生成 · 基于 Pyodide (Python → WebAssembly)
     </div>
 
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
@@ -296,13 +296,13 @@ STANDALONE_HTML_TEMPLATE = """<!DOCTYPE html>
 # 编译函数
 # =============================================================================
 
-def compile_duan_to_python(source: str) -> Tuple[str, Optional[str]]:
-    """将段言代码编译为 Python 代码"""
+def compile_light_to_python(source: str) -> Tuple[str, Optional[str]]:
+    """将光明代码编译为 Python 代码"""
     try:
-        from duan_parser_v3 import DuanParser
+        from light_parser_v3 import LightParser
         from code_generator import PythonCodeGenerator
 
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse(source)
 
         generator = PythonCodeGenerator()
@@ -315,7 +315,7 @@ def compile_duan_to_python(source: str) -> Tuple[str, Optional[str]]:
 
 def compile_to_pyodide(source: str) -> Dict:
     """
-    编译段言代码为 Pyodide 可执行格式
+    编译光明代码为 Pyodide 可执行格式
 
     Returns:
         {
@@ -324,7 +324,7 @@ def compile_to_pyodide(source: str) -> Dict:
             'error': str or None,     # 编译错误
         }
     """
-    py_code, error = compile_duan_to_python(source)
+    py_code, error = compile_light_to_python(source)
     if error:
         return {
             'python_code': '',
@@ -338,18 +338,18 @@ def compile_to_pyodide(source: str) -> Dict:
     }
 
 
-def compile_to_standalone_html(source: str, title: str = "段言程序") -> str:
+def compile_to_standalone_html(source: str, title: str = "光明程序") -> str:
     """
-    编译段言代码为独立 HTML 页面（内嵌 Pyodide 运行时）
+    编译光明代码为独立 HTML 页面（内嵌 Pyodide 运行时）
 
     Args:
-        source: 段言源代码
+        source: 光明源代码
         title: 页面标题
 
     Returns:
         完整的 HTML 字符串
     """
-    py_code, error = compile_duan_to_python(source)
+    py_code, error = compile_light_to_python(source)
     if error:
         py_code = f"# 编译错误: {error}"
 
@@ -423,21 +423,21 @@ async function loadPyodideWithPackages() {{
 
 
 # =============================================================================
-# 浏览器端段言运行时
+# 浏览器端光明运行时
 # =============================================================================
 
 DUAN_WASM_RUNTIME_JS = """
 /**
- * 段言 (Duan) WebAssembly 浏览器运行时 v4.1
+ * 光明 (Light) WebAssembly 浏览器运行时 v4.1
  *
- * 在浏览器中通过 Pyodide 运行段言代码，无需服务器。
+ * 在浏览器中通过 Pyodide 运行光明代码，无需服务器。
  * 用法：
- *   const duan = new DuanWasmRuntime();
- *   await duan.init();
- *   const result = await duan.run(source);
+ *   const light = new LightWasmRuntime();
+ *   await light.init();
+ *   const result = await light.run(source);
  */
 
-class DuanWasmRuntime {
+class LightWasmRuntime {
     constructor(options = {}) {
         this.pyodide = null;
         this.ready = false;
@@ -474,7 +474,7 @@ class DuanWasmRuntime {
             await this.init();
         }
 
-        // 编译段言代码为 Python
+        // 编译光明代码为 Python
         const resp = await fetch('/api/demos/run', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -534,12 +534,12 @@ class DuanWasmRuntime {
 if __name__ == '__main__':
     import argparse
 
-    parser = argparse.ArgumentParser(description='段言 WebAssembly 编译器')
-    parser.add_argument('source', nargs='?', help='源文件 (.duan)')
+    parser = argparse.ArgumentParser(description='光明 WebAssembly 编译器')
+    parser.add_argument('source', nargs='?', help='源文件 (.light)')
     parser.add_argument('--mode', choices=['pyodide', 'standalone', 'json'],
                        default='standalone', help='输出模式')
     parser.add_argument('--output', '-o', help='输出文件路径')
-    parser.add_argument('--title', default='段言程序', help='HTML 页面标题')
+    parser.add_argument('--title', default='光明程序', help='HTML 页面标题')
 
     args = parser.parse_args()
 

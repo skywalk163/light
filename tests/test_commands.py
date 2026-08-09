@@ -1,4 +1,4 @@
-"""段言 REPL 命令处理器测试"""
+"""光明 REPL 命令处理器测试"""
 
 import sys
 import os

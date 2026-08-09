@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言模块解析器测试
+光明模块解析器测试
 
 测试：
 1. 模块查找
@@ -37,7 +37,7 @@ def test_find_module():
     try:
         path = resolver.find_module("math_utils")
         print(f"[OK] 找到 math_utils: {path}")
-        assert path.name == "math_utils.duan"
+        assert path.name == "math_utils.light"
     except ModuleNotFoundError as e:
         print(f"[FAIL] 未找到模块: {e}")
         return False
@@ -180,7 +180,7 @@ def test_full_resolution():
     print("="*60)
     
     test_dir = Path("examples/modules")
-    main_file = test_dir / "main.duan"
+    main_file = test_dir / "main.light"
     
     if not main_file.exists():
         print(f"[SKIP] 测试文件不存在: {main_file}")
@@ -225,7 +225,7 @@ def test_module_loader():
         print(f"  导出: {module.exports}")
         
         # 加载项目
-        main_file = test_dir / "main.duan"
+        main_file = test_dir / "main.light"
         if main_file.exists():
             modules = loader.load_project(str(main_file))
             print(f"\n加载项目成功，共 {len(modules)} 个模块")
@@ -245,7 +245,7 @@ def test_module_loader():
 def run_all_tests():
     """运行所有测试"""
     print("="*60)
-    print("段言模块解析器测试套件")
+    print("光明模块解析器测试套件")
     print("="*60)
     print()
     

@@ -2,7 +2,7 @@
 import json
 import re
 
-with open(r'c:\dumatework\duan\tools\ai_copilot\sft_dataset_v3.jsonl', 'r', encoding='utf-8') as f:
+with open(r'c:\dumatework\light\tools\ai_copilot\sft_dataset_v3.jsonl', 'r', encoding='utf-8') as f:
     lines = f.readlines()
 
 fixed_count = 0
@@ -270,7 +270,7 @@ for i, line in enumerate(lines):
     fixed_items.append(data)
 
 # Write fixed file
-with open(r'c:\dumatework\duan\tools\ai_copilot\sft_dataset_v3.jsonl', 'w', encoding='utf-8') as f:
+with open(r'c:\dumatework\light\tools\ai_copilot\sft_dataset_v3.jsonl', 'w', encoding='utf-8') as f:
     for item in fixed_items:
         f.write(json.dumps(item, ensure_ascii=False) + '\n')
 

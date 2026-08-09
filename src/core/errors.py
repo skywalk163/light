@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编译器错误处理
+光明（Light）编译器错误处理
 """
 
 from typing import Optional, List
@@ -20,8 +20,8 @@ class SourceLocation:
         return f"行{self.line}:列{self.column}"
 
 
-class DuanError(Exception):
-    """段言编译器基础错误"""
+class LightError(Exception):
+    """光明编译器基础错误"""
     
     def __init__(self, message: str, location: Optional[SourceLocation] = None):
         self.message = message
@@ -34,7 +34,7 @@ class DuanError(Exception):
         return self.message
 
 
-class LexerError(DuanError):
+class LexerError(LightError):
     """词法错误"""
     
     def __init__(self, message: str, line: int = 0, column: int = 0, 
@@ -43,7 +43,7 @@ class LexerError(DuanError):
         super().__init__(f"词法错误: {message}", location)
 
 
-class ParserError(DuanError):
+class ParserError(LightError):
     """语法错误"""
     
     def __init__(self, message: str, line: int = 0, column: int = 0,
@@ -58,7 +58,7 @@ class ParserError(DuanError):
         super().__init__(msg, location)
 
 
-class SemanticError(DuanError):
+class SemanticError(LightError):
     """语义错误"""
     
     def __init__(self, message: str, line: int = 0, column: int = 0,
@@ -73,7 +73,7 @@ class SemanticError(DuanError):
         super().__init__(msg, location)
 
 
-class CodeGenError(DuanError):
+class CodeGenError(LightError):
     """代码生成错误"""
     
     def __init__(self, message: str, line: int = 0, column: int = 0,
@@ -82,7 +82,7 @@ class CodeGenError(DuanError):
         super().__init__(f"代码生成错误: {message}", location)
 
 
-class TypeError(DuanError):
+class TypeError(LightError):
     """类型错误"""
     
     def __init__(self, message: str, expected_type: Optional[str] = None,
@@ -99,7 +99,7 @@ class TypeError(DuanError):
         super().__init__(msg, location)
 
 
-class NameError(DuanError):
+class NameError(LightError):
     """名称错误"""
     
     def __init__(self, name: str, line: int = 0, column: int = 0,
@@ -108,14 +108,14 @@ class NameError(DuanError):
         super().__init__(f"未定义的名称: {name}", location)
 
 
-class CompileError(DuanError):
+class CompileError(LightError):
     """编译错误（综合错误）"""
     
-    def __init__(self, message: str, errors: Optional[List[DuanError]] = None):
+    def __init__(self, message: str, errors: Optional[List[LightError]] = None):
         self.errors = errors or []
         super().__init__(message)
     
-    def add_error(self, error: DuanError):
+    def add_error(self, error: LightError):
         """添加错误"""
         self.errors.append(error)
     

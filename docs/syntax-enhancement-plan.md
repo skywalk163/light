@@ -2,7 +2,7 @@
 
 > **面向 AI 代理的工作者：** 必需子技能：使用 subagent-driven-development（推荐）或 executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
 
-**目标：** 增强段言 v3 解析器的异常处理（支持异常类型过滤）、完善 from...import...as 别名支持，并新增异常处理测试。
+**目标：** 增强光明 v3 解析器的异常处理（支持异常类型过滤）、完善 from...import...as 别名支持，并新增异常处理测试。
 
 **架构：** 修改递归下降解析器 `DuanParser` 中的 TryStmt AST 节点和导入解析逻辑，同步更新 `PythonCodeGenerator` 中的代码生成逻辑。
 
@@ -14,9 +14,9 @@
 
 | 文件 | 操作 | 说明 |
 |------|------|------|
-| `src/duan_parser_v3.py:222-233` | 修改 | TryStmt 增加 `catch_type` 字段 |
-| `src/duan_parser_v3.py:1257-1312` | 修改 | `_parse_try_stmt()` 支持读取异常类型 |
-| `src/duan_parser_v3.py:873-942` | 修改 | `_parse_from_import_stmt()` 支持 `为 别名` |
+| `src/light_parser_v3.py:222-233` | 修改 | TryStmt 增加 `catch_type` 字段 |
+| `src/light_parser_v3.py:1257-1312` | 修改 | `_parse_try_stmt()` 支持读取异常类型 |
+| `src/light_parser_v3.py:873-942` | 修改 | `_parse_from_import_stmt()` 支持 `为 别名` |
 | `src/code_generator.py:408-438` | 修改 | `_generate_try_stmt()` 使用 `catch_type` 生成对应 except |
 | `src/code_generator.py:787-805` | 修改 | `_generate_import_stmt()` 支持 `from X import Y as Z` |
 | `tests/test_exception.py` | 创建 | 异常处理专项测试 |
@@ -26,7 +26,7 @@
 ### 任务 1：TryStmt 增加 catch_type 字段
 
 **文件：**
-- 修改：`src/duan_parser_v3.py:222-233`
+- 修改：`src/light_parser_v3.py:222-233`
 
 - [ ] **步骤 1：修改 TryStmt 类，增加 catch_type 字段**
 
@@ -69,7 +69,7 @@ class TryStmt(ASTNode):
 ### 任务 2：_parse_try_stmt 支持异常类型过滤
 
 **文件：**
-- 修改：`src/duan_parser_v3.py:1257-1312`
+- 修改：`src/light_parser_v3.py:1257-1312`
 
 - [ ] **步骤 1：修改 `_parse_try_stmt()` 方法**
 
@@ -341,7 +341,7 @@ if 最终 -> consume '最终' -> consume ':' -> finally_body
 ### 任务 4：from...import...as 别名支持
 
 **文件：**
-- 修改：`src/duan_parser_v3.py:873-942`
+- 修改：`src/light_parser_v3.py:873-942`
 
 - [ ] **步骤 1：修改 `_parse_from_import_stmt()` 方法**
 
@@ -401,7 +401,7 @@ if 最终 -> consume '最终' -> consume ':' -> finally_body
 
 ```python
 """
-段言异常处理功能测试
+光明异常处理功能测试
 """
 
 import sys
@@ -410,14 +410,14 @@ import types
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import DuanParser
 from code_generator import PythonCodeGenerator
 
 
-def _compile_and_exec(duan_code: str, global_vars: dict = None) -> dict:
-    """编译并执行段言代码，返回执行后的全局变量"""
+def _compile_and_exec(light_code: str, global_vars: dict = None) -> dict:
+    """编译并执行光明代码，返回执行后的全局变量"""
     parser = DuanParser()
-    module = parser.parse(duan_code)
+    module = parser.parse(light_code)
     
     generator = PythonCodeGenerator()
     py_code = generator.generate(module)
@@ -588,7 +588,7 @@ if __name__ == '__main__':
 - [ ] **步骤 2：运行测试验证通过**
 
 ```bash
-cd g:\dumategithub\duan && python tests/test_exception.py
+cd g:\dumategithub\light && python tests/test_exception.py
 ```
 
 预期：全部 8 个测试通过。
@@ -603,7 +603,7 @@ cd g:\dumategithub\duan && python tests/test_exception.py
 - [ ] **步骤 1：运行双后端测试确认无回归**
 
 ```bash
-cd g:\dumategithub\duan && python antlrparser/test/test_dual_backend.py
+cd g:\dumategithub\light && python antlrparser/test/test_dual_backend.py
 ```
 
 预期：26/26 测试全部通过。

@@ -1,6 +1,6 @@
 """
 LLVM 代码生成器 - 类型版 (v3)
-使用 DuanValue 结构体（{ i32, i64, double, ptr }），
+使用 LightValue 结构体（{ i32, i64, double, ptr }），
 算术运算在原生类型上直接操作，无需 atoi/itoa 转换。
 """
 
@@ -13,10 +13,10 @@ except ImportError:
     from codegen import LLVMCodeGen
 
 
-# LLVM 结构体类型：与 C 端 DuanValue 布局匹配
+# LLVM 结构体类型：与 C 端 LightValue 布局匹配
 # C 结构: { int type, int64_t i64, double f64, char* str, int boolean,
-#           int list_size, int list_capacity, struct DuanValue** list_data }
-# 注意：为了安全起见，使用足够大的结构体（与 C sizeof(DuanValue) 匹配）
+#           int list_size, int list_capacity, struct LightValue** list_data }
+# 注意：为了安全起见，使用足够大的结构体（与 C sizeof(LightValue) 匹配）
 DUANVALUE_STRUCT = '{ i32, i64, double, ptr, i32, i32, i32, ptr }'
 
 
@@ -63,7 +63,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._segment_modifiers = {}  # 段的修饰符（异步等）
         # 协程支持（Level 10）
         self._in_coroutine = False  # 当前是否在生成协程函数
-        self._coro_handle_ptr = None  # 协程句柄指针（DuanCoroutine*）
+        self._coro_handle_ptr = None  # 协程句柄指针（LightCoroutine*）
         self._coro_resume_point = 0  # 下一个 await 点的编号
         # 目标平台：win32 / linux / darwin，默认根据当前系统判断
         self.target_platform = target_platform or sys.platform
@@ -78,7 +78,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._debug_cu_id = None  # DICompileUnit 元数据 ID
         self._debug_scope_id = None  # 当前调试作用域 ID
         self._debug_func_id = None  # 当前函数 DISubprogram ID
-        self._debug_dv_struct_id = None  # DuanValue 结构体类型 ID
+        self._debug_dv_struct_id = None  # LightValue 结构体类型 ID
         # 调试元数据行：单独收集，在 finalize 时追加到 IR 末尾
         # 因为 LLVM 要求所有 !N = !DIxxx 必须出现在文件末尾，不能在函数体中间
         self._debug_metadata_lines = []
@@ -100,7 +100,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return self.target_platform == 'darwin'
 
     def alloca_local(self, name):
-        """为局部变量分配 DuanValue 栈空间（重写父类）"""
+        """为局部变量分配 LightValue 栈空间（重写父类）"""
         if name not in self._local_vars or self._local_vars[name] is None:
             reg = self.new_register()
             line = f'{reg} = alloca {DUANVALUE_STRUCT}'
@@ -151,12 +151,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return f", !dbg !{var_id}"
 
     def _gen_debug_types(self):
-        """生成调试类型元数据（DuanValue 结构体及基础类型）"""
+        """生成调试类型元数据（LightValue 结构体及基础类型）"""
         if not self._debug:
             return
-        # DuanValue 结构体类型定义
+        # LightValue 结构体类型定义
         self._debug_dv_struct_id = self._new_debug_id()
-        self._debug_types['DuanValue'] = self._debug_dv_struct_id
+        self._debug_types['LightValue'] = self._debug_dv_struct_id
         # 内部类型 - i64
         self._debug_type_i64 = self._new_debug_id()
         self._emit_debug_metadata(f"!{self._debug_type_i64} = !DIBasicType(name: \"i64\", size: 64, align: 64, encoding: DW_ATE_unsigned)")
@@ -169,11 +169,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 指针类型
         self._debug_type_ptr = self._new_debug_id()
         self._emit_debug_metadata(f"!{self._debug_type_ptr} = !DIBasicType(name: \"ptr\", size: 64, align: 64)")
-        # 结构体成员列表（DuanValue 包含 i32, i64, double, ptr, i32, i32, i32, ptr）
+        # 结构体成员列表（LightValue 包含 i32, i64, double, ptr, i32, i32, i32, ptr）
         elements_id = self._new_debug_id()
         self._emit_debug_metadata(f"!{elements_id} = !{{!{self._debug_type_i32}, !{self._debug_type_i64}, !{self._debug_type_double}, !{self._debug_type_ptr}, !{self._debug_type_i32}, !{self._debug_type_i32}, !{self._debug_type_i32}, !{self._debug_type_ptr}}}")
-        # DICompositeType 用于 DuanValue 结构体
-        self._emit_debug_metadata(f"!{self._debug_dv_struct_id} = !DICompositeType(tag: DW_TAG_structure_type, name: \"DuanValue\", size: 384, align: 64, elements: !{elements_id})")
+        # DICompositeType 用于 LightValue 结构体
+        self._emit_debug_metadata(f"!{self._debug_dv_struct_id} = !DICompositeType(tag: DW_TAG_structure_type, name: \"LightValue\", size: 384, align: 64, elements: !{elements_id})")
 
     def _gen_debug_compile_unit(self, source_file: str = ""):
         """生成调试编译单元信息（DICompileUnit + DIFile）"""
@@ -181,9 +181,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return
         self._debug_file_id = self._new_debug_id()
         self._debug_cu_id = self._new_debug_id()
-        file_name = source_file or "input.duan"
+        file_name = source_file or "input.light"
         self._emit_debug_metadata(f'!{self._debug_file_id} = !DIFile(filename: "{file_name}", directory: ".")')
-        self._emit_debug_metadata(f'!{self._debug_cu_id} = distinct !DICompileUnit(language: DW_LANG_Python, file: !{self._debug_file_id}, producer: "段言编译器 v3", isOptimized: true, flags: "", runtimeVersion: 0, splitDebugInlining: false, emissionKind: FullDebug)')
+        self._emit_debug_metadata(f'!{self._debug_cu_id} = distinct !DICompileUnit(language: DW_LANG_Python, file: !{self._debug_file_id}, producer: "光明编译器 v3", isOptimized: true, flags: "", runtimeVersion: 0, splitDebugInlining: false, emissionKind: FullDebug)')
         self._debug_scope_id = self._debug_cu_id
 
     def _gen_debug_function(self, name: str, line: int, param_names: List[str] = None):
@@ -196,11 +196,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._debug_func_id = self._new_debug_id()
         # 函数类型元数据（DISubroutineType）
         func_type_id = self._new_debug_id()
-        # 返回类型列表（简化：返回 DuanValue）
+        # 返回类型列表（简化：返回 LightValue）
         ret_types_id = self._new_debug_id()
         self._emit_debug_metadata(f"!{ret_types_id} = !{{!{self._debug_dv_struct_id}}}")
         self._emit_debug_metadata(f"!{func_type_id} = !DISubroutineType(types: !{ret_types_id})")
-        # 简化处理：使用 DuanValue 作为所有参数和返回类型
+        # 简化处理：使用 LightValue 作为所有参数和返回类型
         self._emit_debug_metadata(f'!{self._debug_func_id} = distinct !DISubprogram(name: "{name}", scope: !{self._debug_file_id}, file: !{self._debug_file_id}, line: {line}, type: !{func_type_id}, scopeLine: {line}, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !{self._debug_cu_id})')
         self._debug_scope_id = self._debug_func_id
 
@@ -226,7 +226,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     # ============================================================
 
     def _declare_typed_runtime(self):
-        """声明类型版的运行时函数（所有 DuanValue 通过 ptr 传递）"""
+        """声明类型版的运行时函数（所有 LightValue 通过 ptr 传递）"""
         funcs = [
             f'declare void @dv_int(ptr, i64)',
             f'declare void @dv_float(ptr, double)',
@@ -417,11 +417,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self._func_decls.add(f'declare i32 @setjmp(ptr)')
 
     # ============================================================
-    # DuanValue 堆栈操作
+    # LightValue 堆栈操作
     # ============================================================
 
     def _new_dv_slot(self) -> str:
-        """从临时槽位池中分配一个新的 DuanValue 槽位（避免动态 alloca 导致栈溢出）"""
+        """从临时槽位池中分配一个新的 LightValue 槽位（避免动态 alloca 导致栈溢出）"""
         if self._temp_slot_pool is None:
             reg = self.new_register()
             self.emit(f'{reg} = alloca {DUANVALUE_STRUCT}')
@@ -437,37 +437,37 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return reg
 
     def _set_type(self, slot: str, type_val: int):
-        """设置 DuanValue 槽位的 type 字段"""
+        """设置 LightValue 槽位的 type 字段"""
         ptr = self.new_register()
         self.emit(f'{ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {slot}, i32 0, i32 0')
         self.emit(f'store i32 {type_val}, ptr {ptr}')
 
     def _set_i64(self, slot: str, i64_val: str):
-        """设置 DuanValue 槽位的 i64 字段"""
+        """设置 LightValue 槽位的 i64 字段"""
         ptr = self.new_register()
         self.emit(f'{ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {slot}, i32 0, i32 1')
         self.emit(f'store i64 {i64_val}, ptr {ptr}')
 
     def _set_f64(self, slot: str, f64_val: str):
-        """设置 DuanValue 槽位的 f64 字段"""
+        """设置 LightValue 槽位的 f64 字段"""
         ptr = self.new_register()
         self.emit(f'{ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {slot}, i32 0, i32 2')
         self.emit(f'store double {f64_val}, ptr {ptr}')
 
     def _set_str(self, slot: str, str_val: str):
-        """设置 DuanValue 槽位的 str 字段"""
+        """设置 LightValue 槽位的 str 字段"""
         ptr = self.new_register()
         self.emit(f'{ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {slot}, i32 0, i32 3')
         self.emit(f'store ptr {str_val}, ptr {ptr}')
 
     def _load_dv(self, slot: str) -> str:
-        """加载整个 DuanValue 作为 SSA 值"""
+        """加载整个 LightValue 作为 SSA 值"""
         reg = self.new_register()
         self.emit(f'{reg} = load {DUANVALUE_STRUCT}, ptr {slot}')
         return reg
 
     def _store_dv(self, dv_reg: str) -> str:
-        """将 DuanValue SSA 寄存器存入槽位，返回槽位指针"""
+        """将 LightValue SSA 寄存器存入槽位，返回槽位指针"""
         if dv_reg in self._dv_ssa_to_slot:
             return self._dv_ssa_to_slot[dv_reg]
         slot = self._new_dv_slot()
@@ -476,19 +476,19 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return slot
 
     def _create_int_dv(self, i64_str: str) -> str:
-        """创建整数 DuanValue 并返回 SSA 值"""
+        """创建整数 LightValue 并返回 SSA 值"""
         slot = self._new_dv_slot()
         self.emit(f'call void @dv_int(ptr {slot}, i64 {i64_str})')
         return self._load_dv(slot)
 
     def _create_str_dv(self, ptr_val: str) -> str:
-        """创建字符串 DuanValue 并返回 SSA 值"""
+        """创建字符串 LightValue 并返回 SSA 值"""
         slot = self._new_dv_slot()
         self.emit(f'call void @dv_str(ptr {slot}, ptr {ptr_val})')
         return self._load_dv(slot)
 
     def _create_bool_dv(self, i1_val: str) -> str:
-        """根据 i1 条件创建布尔 DuanValue"""
+        """根据 i1 条件创建布尔 LightValue"""
         slot = self._new_dv_slot()
         ext = self.new_register()
         self.emit(f'{ext} = zext i1 {i1_val} to i32')
@@ -496,7 +496,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return self._load_dv(slot)
 
     def _call_dv_func(self, func_name: str, *args: str) -> str:
-        """调用通过 ptr 输出 DuanValue 的运行时函数"""
+        """调用通过 ptr 输出 LightValue 的运行时函数"""
         result_slot = self._new_dv_slot()
         call_args = [f'ptr {result_slot}']
         for a in args:
@@ -504,7 +504,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 # 已有类型注释（如 'double %dbl', 'i64 %idx'），直接传递
                 call_args.append(a)
             else:
-                # DuanValue SSA 寄存器 → 存入槽位后传 ptr
+                # LightValue SSA 寄存器 → 存入槽位后传 ptr
                 # 优化：如果 SSA 值刚从 slot 加载，直接用原 slot
                 slot = self._store_dv(a)
                 call_args.append(f'ptr {slot}')
@@ -565,19 +565,19 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return None
 
     def _extract_i64(self, dv_reg: str) -> str:
-        """从 DuanValue 中提取 i64 值"""
+        """从 LightValue 中提取 i64 值"""
         reg = self.new_register()
         self.emit(f'{reg} = extractvalue {DUANVALUE_STRUCT} {dv_reg}, 1')
         return reg
 
     def _extract_f64(self, dv_reg: str) -> str:
-        """从 DuanValue 中提取 double 值"""
+        """从 LightValue 中提取 double 值"""
         reg = self.new_register()
         self.emit(f'{reg} = extractvalue {DUANVALUE_STRUCT} {dv_reg}, 2')
         return reg
 
     def _extract_bool(self, dv_reg: str) -> str:
-        """从 DuanValue 中提取 bool 值（返回 i1）"""
+        """从 LightValue 中提取 bool 值（返回 i1）"""
         i32_reg = self.new_register()
         self.emit(f'{i32_reg} = extractvalue {DUANVALUE_STRUCT} {dv_reg}, 4')
         i1_reg = self.new_register()
@@ -585,7 +585,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return i1_reg
 
     def _create_int_dv_fast(self, i64_reg: str) -> str:
-        """快速创建 INT 类型 DuanValue（直接构造结构体）"""
+        """快速创建 INT 类型 LightValue（直接构造结构体）"""
         slot = self._new_dv_slot()
         type_ptr = self.new_register()
         self.emit(f'{type_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {slot}, i32 0, i32 0')
@@ -596,7 +596,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return self._load_dv(slot)
 
     def _create_float_dv_fast(self, f64_reg: str) -> str:
-        """快速创建 FLOAT 类型 DuanValue（直接构造结构体）"""
+        """快速创建 FLOAT 类型 LightValue（直接构造结构体）"""
         slot = self._new_dv_slot()
         type_ptr = self.new_register()
         self.emit(f'{type_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {slot}, i32 0, i32 0')
@@ -713,11 +713,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return name in self._imports
 
     # ============================================================
-    # 重写表达式生成：使用 DuanValue
+    # 重写表达式生成：使用 LightValue
     # ============================================================
 
     def _gen_expression(self, expr) -> Tuple[str, str]:
-        """生成表达式，返回 (DuanValue_SSA, 'dv')"""
+        """生成表达式，返回 (LightValue_SSA, 'dv')"""
         if expr is None:
             return self._create_int_dv('0'), 'dv'
 
@@ -2105,7 +2105,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return loaded, 'dv'
 
     # ============================================================
-    # 语句生成（重写，使用 DuanValue）
+    # 语句生成（重写，使用 LightValue）
     # ============================================================
 
     def _gen_statement(self, stmt):
@@ -2499,7 +2499,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._reg_counter = 0
         self._dv_ssa_to_slot.clear()
         self._temp_slot_index = 0
-        self.emit(f'define void @__duan_init() {{')
+        self.emit(f'define void @__light_init() {{')
         self.emit('entry:')
         
         # 分配临时槽位池
@@ -2587,13 +2587,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                     dv_val, _ = self._gen_expression(stmt.value)
                     safe = self._safe_var_name(name)
                     slot_alloc = self._new_dv_slot()
-                    # For globals, store DuanValue in a global struct
+                    # For globals, store LightValue in a global struct
                     self.emit(f'store {DUANVALUE_STRUCT} {dv_val}, {DUANVALUE_STRUCT}* @__var_{safe}')
                 return
         self._gen_statement(stmt)
 
     def gen_global_var(self, name, init_value=''):
-        """覆盖：全局变量存 DuanValue"""
+        """覆盖：全局变量存 LightValue"""
         self._globals[name] = init_value
 
     # ============================================================
@@ -2729,8 +2729,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         coro_handle = self.new_register()
         self.emit(f'{coro_handle} = call ptr @dv_coro_create(ptr @{coro_func_name}, ptr %args, i32 %num_args, i32 {num_locals + num_params})')
         
-        # 将协程句柄存储到 result 中（作为指针值存储在 DuanValue 中）
-        # 我们用 DuanValue 的 type=DV_COROUTINE, value.ptr_val = coro_handle
+        # 将协程句柄存储到 result 中（作为指针值存储在 LightValue 中）
+        # 我们用 LightValue 的 type=DV_COROUTINE, value.ptr_val = coro_handle
         self._store_coro_to_result(coro_handle, '%result')
         
         self.emit('call void @dv_stack_pop()')
@@ -2740,7 +2740,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._seg_result_ptr = None
     
     def _store_coro_to_result(self, coro_ptr, result_ptr):
-        """将协程指针存储到 DuanValue result 中"""
+        """将协程指针存储到 LightValue result 中"""
         # 设置 type = 100 (DV_TYPE_COROUTINE)
         type_ptr = self.new_register()
         self.emit(f'{type_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {result_ptr}, i32 0, i32 0')
@@ -2755,7 +2755,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         """生成协程状态机函数（Duff's device 模式）
         
         函数签名: void @_coro_xxx(ptr %coro)
-        - %coro: 指向 DuanCoroutine 结构体的指针
+        - %coro: 指向 LightCoroutine 结构体的指针
         
         使用两阶段法：
         1. 预扫描统计 await 点数量
@@ -2805,7 +2805,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'store {DUANVALUE_STRUCT} {arg_val}, ptr {local_ptr}')
         
         # 加载 resume_point
-        # resume_point 在 DuanCoroutine 的 offset 4 (state 在 offset 0)
+        # resume_point 在 LightCoroutine 的 offset 4 (state 在 offset 0)
         rp_ptr = self.new_register()
         self.emit(f'{rp_ptr} = getelementptr inbounds i8, ptr %coro, i32 4')
         rp_val = self.new_register()
@@ -3002,7 +3002,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return result_val, 'dv'
     
     def _extract_ptr_from_dv(self, dv_val: str) -> str:
-        """从 DuanValue 中提取 ptr_val 字段"""
+        """从 LightValue 中提取 ptr_val 字段"""
         # 需要先 store 到内存，然后用 GEP 取 ptr_val
         slot = self._store_dv(dv_val)
         ptr_val_ptr = self.new_register()
@@ -3221,7 +3221,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'{self._temp_slot_pool} = alloca {DUANVALUE_STRUCT}, i32 {self._temp_slot_pool_size}')
 
         self.emit('call void @dv_init_args(i32 %argc, ptr %argv)')
-        self.emit('call void @__duan_init()')
+        self.emit('call void @__light_init()')
 
         main_names = {'主程序', '主入口', 'main'}
         main_called = False
@@ -3294,11 +3294,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._end_debug_function()
 
     # ============================================================
-    # 变量管理（存储/加载 DuanValue）
+    # 变量管理（存储/加载 LightValue）
     # ============================================================
 
     def get_var(self, name):
-        """获取 DuanValue（覆写父类）"""
+        """获取 LightValue（覆写父类）"""
         if name in self._current_func_params:
             return self._current_func_params[name]
         if name in self._globals:
@@ -3326,7 +3326,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self._current_func_params[name] = value_reg
 
     # ============================================================
-    # finalize - 生成全局声明（使用 DuanValue 结构体）
+    # finalize - 生成全局声明（使用 LightValue 结构体）
     # ============================================================
 
     def finalize(self) -> str:

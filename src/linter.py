@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）代码检查工具（Linter）
+光明（Light）代码检查工具（Linter）
 
 功能：
   - 语法错误检查（基于解析器）
@@ -11,10 +11,10 @@
   - 支持 JSON 输出
 
 用法：
-  duan lint file.duan           # 检查单个文件
-  duan lint .                   # 检查当前目录
-  duan lint --json file.duan    # JSON 输出
-  duan lint --fix file.duan     # 自动修复简单问题
+  light lint file.light           # 检查单个文件
+  light lint .                   # 检查当前目录
+  light lint --json file.light    # JSON 输出
+  light lint --fix file.light     # 自动修复简单问题
 """
 
 import os
@@ -123,8 +123,8 @@ L1_TO_L0 = {v: k for k, v in L0_TO_L1.items()}
 # 检查器
 # =============================================================================
 
-class DuanLinter:
-    """段言代码检查器"""
+class LightLinter:
+    """光明代码检查器"""
 
     def __init__(self, rules: Optional[Set[str]] = None, disabled_rules: Optional[Set[str]] = None):
         """
@@ -180,8 +180,8 @@ class DuanLinter:
     def _check_syntax(self, source: str):
         """检查语法错误"""
         try:
-            from duan_parser_v3 import DuanParser
-            parser = DuanParser()
+            from light_parser_v3 import LightParser
+            parser = LightParser()
             parser.parse(source)
         except Exception as e:
             line = getattr(e, 'line', 1)
@@ -492,7 +492,7 @@ def format_issues_json(issues: List[LintIssue], filepath: str = '') -> str:
 # 入口函数
 # =============================================================================
 
-def lint_file(filepath: str, linter: DuanLinter, json_output: bool = False,
+def lint_file(filepath: str, linter: LightLinter, json_output: bool = False,
               auto_fix_enabled: bool = False) -> int:
     """检查单个文件"""
     try:
@@ -529,23 +529,23 @@ def lint_directory(directory: str, linter: DuanLinter, json_output: bool = False
         print(f"Error: directory not found: {directory}", file=sys.stderr)
         return 1
 
-    duan_files = []
+    light_files = []
     for root, dirs, files in os.walk(directory):
         dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
         for f in files:
-            if f.endswith('.duan'):
-                duan_files.append(os.path.join(root, f))
+            if f.endswith('.light'):
+                light_files.append(os.path.join(root, f))
 
-    if not duan_files:
-        print("No .duan files found")
+    if not light_files:
+        print("No .light files found")
         return 0
 
     total_errors = 0
-    for fp in sorted(duan_files):
+    for fp in sorted(light_files):
         total_errors += lint_file(fp, linter, json_output, auto_fix_enabled)
 
     if not json_output:
-        print(f"\nTotal: {len(duan_files)} files, {total_errors} errors")
+        print(f"\nTotal: {len(light_files)} files, {total_errors} errors")
     return 1 if total_errors > 0 else 0
 
 
@@ -553,7 +553,7 @@ def run_linter(target: str, enabled_rules: Optional[Set[str]] = None,
                disabled_rules: Optional[Set[str]] = None,
                json_output: bool = False, auto_fix: bool = False) -> int:
     """运行检查器"""
-    linter = DuanLinter(rules=enabled_rules, disabled_rules=disabled_rules)
+    linter = LightLinter(rules=enabled_rules, disabled_rules=disabled_rules)
 
     if os.path.isdir(target):
         return lint_directory(target, linter, json_output, auto_fix)

@@ -2,7 +2,7 @@ import sys
 sys.path.insert(0, 'src')
 sys.path.insert(0, '.')
 
-path = r'G:\dumategithub\yanpub\src\yanpub\playground\templates\duan\bubble.txt'
+path = r'G:\dumategithub\yanpub\src\yanpub\playground\templates\light\bubble.txt'
 with open(path, 'r', encoding='utf-8') as f:
     src = f.read()
 

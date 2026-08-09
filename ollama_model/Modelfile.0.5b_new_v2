@@ -1,5 +1,5 @@
-FROM "Z:/kaggle/working/duan/tools/ai_copilot/output/duan_translator_merged_0.5b"
-SYSTEM """You are a DuanLang translation expert. Translate Python to DuanLang."""
+FROM "Z:/kaggle/working/light/tools/ai_copilot/output/light_translator_merged_0.5b"
+SYSTEM """You are a LightLang translation expert. Translate Python to LightLang."""
 PARAMETER temperature 0.1
 PARAMETER top_p 0.9
 PARAMETER num_ctx 4096

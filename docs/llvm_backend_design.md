@@ -2,12 +2,12 @@
 
 ## 概述
 
-段言 LLVM 后端将段言源代码编译为原生可执行文件，提供远高于 Python 解释执行的运行性能。后端基于 LLVM IR 中间表示，通过 clang 编译链接为目标平台的原生机器码。
+光明 LLVM 后端将光明源代码编译为原生可执行文件，提供远高于 Python 解释执行的运行性能。后端基于 LLVM IR 中间表示，通过 clang 编译链接为目标平台的原生机器码。
 
 ## 编译流程
 
 ```
-.duan 源文件
+.light 源文件
     │
     ▼
 ┌─────────────────┐
@@ -17,8 +17,8 @@
          │
          ▼
 ┌─────────────────┐
-│  DuanParser v3  │  语法分析
-│  duan_parser_v3 │  → v3 AST
+│  LightParser v3  │  语法分析
+│  light_parser_v3 │  → v3 AST
 └────────┬────────┘
          │
          ▼
@@ -55,12 +55,12 @@
 - 实现简单，但性能较差
 
 ### Typed 模式（推荐）
-- 类型系统基于 DuanValue 结构体
+- 类型系统基于 LightValue 结构体
 - 算术运算直接在原生类型（i64/double）上操作
 - 通过指针传递，避免 C/LLVM ABI 不兼容
 - 性能优异，是当前主要开发方向
 
-## DuanValue 类型系统
+## LightValue 类型系统
 
 ### 结构体定义
 
@@ -80,8 +80,8 @@ typedef struct {
     /* LIST 类型专用字段 (type=4) */
     int list_size;     /* 当前元素数量 */
     int list_capacity; /* 分配的数组容量 */
-    struct DuanValue** list_data; /* 元素数组指针 */
-} DuanValue;
+    struct LightValue** list_data; /* 元素数组指针 */
+} LightValue;
 ```
 
 > **重要**：LLVM IR 端的结构体定义必须与 C 端完全匹配，包括 list 相关字段。否则运行时函数在操作 LIST 类型时会写入越界内存。
@@ -101,7 +101,7 @@ typedef struct {
 
 **问题**：C 和 LLVM 对结构体的内存布局、对齐方式可能存在差异（ABI 不兼容），直接传递结构体可能导致崩溃。
 
-**解决方案**：所有 DuanValue 通过指针传递，运行时函数接收 `DuanValue*` 参数，结果写入 `result` 指针。
+**解决方案**：所有 LightValue 通过指针传递，运行时函数接收 `LightValue*` 参数，结果写入 `result` 指针。
 
 ```llvm
 ; 函数签名示例
@@ -126,7 +126,7 @@ define void @_method_类名_方法名(ptr %result, ptr %self, ptr %args, i32 %nu
 ```
 
 **参数传递流程**：
-1. 调用方在栈上分配 `DuanValue` 数组存放参数
+1. 调用方在栈上分配 `LightValue` 数组存放参数
 2. 通过 `getelementptr` 计算每个参数的地址并写入
 3. 传递数组指针和参数数量给被调函数
 4. 被调函数从数组中按索引提取参数
@@ -195,7 +195,7 @@ Level 9 实现了 LLVM 后端的模块系统，支持跨文件编译和符号导
 ### 多模块编译流水线
 
 ```
-compile_duan_project(主文件路径)
+compile_light_project(主文件路径)
     ↓
 递归收集依赖模块（通过 ModuleResolver）
     ↓
@@ -229,7 +229,7 @@ Level 8 引入了基于类型注解和类型推断的代码生成优化。当编
 
 类型映射支持中英文类型名：
 
-| 段言类型名 | 英文名 | 内部常量 |
+| 光明类型名 | 英文名 | 内部常量 |
 |-----------|--------|---------|
 | 数、整数 | int | INT |
 | 浮点数、小数 | float | FLOAT |
@@ -258,7 +258,7 @@ Level 8 引入了基于类型注解和类型推断的代码生成优化。当编
 %left_i64 = extractvalue { i32, i64, ... } %left_dv, 1
 %right_i64 = extractvalue { i32, i64, ... } %right_dv, 1
 %result = add i64 %left_i64, %right_i64
-; 直接构造 DuanValue（无需调用 dv_int）
+; 直接构造 LightValue（无需调用 dv_int）
 store i32 1, ptr %type_ptr    ; type = INT
 store i64 %result, ptr %i64_ptr
 ```
@@ -277,7 +277,7 @@ store i64 %result, ptr %i64_ptr
 ```llvm
 ; INT < INT 优化（无需调用 dv_lt）
 %cmp = icmp slt i64 %left, %right
-; 直接构造 BOOL DuanValue
+; 直接构造 BOOL LightValue
 ```
 
 | 操作符 | INT 谓词 | FLOAT 谓词 |
@@ -302,7 +302,7 @@ store i64 %result, ptr %i64_ptr
 
 此优化应用于 `如果`、`否则如果`、`当` 等控制流语句的条件判断。
 
-### 快速 DuanValue 构造
+### 快速 LightValue 构造
 
 `_create_int_dv_fast` 和 `_create_float_dv_fast` 方法直接通过 `getelementptr` + `store` 构造结构体，避免调用运行时构造函数 `dv_int` / `dv_float` 的开销：
 
@@ -318,7 +318,7 @@ store i64 %result, ptr %i64_ptr     ; i64 值
 
 ### 语法
 
-```段言
+```光明
 尝试：
     可能抛出异常的代码
 捕获 异常变量：
@@ -398,7 +398,7 @@ void dv_try_pop(void) {
     }
 }
 
-void dv_throw(DuanValue* exc) {
+void dv_throw(LightValue* exc) {
     if (__dv_try_level < 0) return;
     // 保存异常消息
     char* s = dv_to_string(exc);
@@ -451,7 +451,7 @@ finally 块:
 
 ## 列表实现
 
-列表内部使用动态数组存储，DuanValue 结构体中的 `list_size`、`list_capacity`、`list_data` 字段专门用于 LIST 类型：
+列表内部使用动态数组存储，LightValue 结构体中的 `list_size`、`list_capacity`、`list_data` 字段专门用于 LIST 类型：
 
 ```c
 typedef struct {
@@ -459,8 +459,8 @@ typedef struct {
     ...
     int list_size;     /* 当前元素数量 */
     int list_capacity; /* 分配的数组容量 */
-    struct DuanValue** list_data; /* 元素指针数组 */
-} DuanValue;
+    struct LightValue** list_data; /* 元素指针数组 */
+} LightValue;
 ```
 
 ### 列表操作
@@ -519,16 +519,16 @@ obj:字段数:字段名1\x1f值1\x1f字段名2\x1f值2\x1f...
 
 - `compile_source(source)`：编译源码为 LLVM IR 字符串
 - `compile_source_typed(source)`：编译源码为 LLVM IR（typed 模式）
-- `compile_duan(source_path, output_path)`：编译 .duan 文件为可执行文件
-- `compile_duan_typed(source_path, output_path)`：typed 模式编译
+- `compile_light(source_path, output_path)`：编译 .light 文件为可执行文件
+- `compile_light_typed(source_path, output_path)`：typed 模式编译
 - `find_clang()`：查找 clang 编译器
 
 ### 使用示例
 
 ```python
-from llvm.compiler import compile_duan_typed
+from llvm.compiler import compile_light_typed
 
-exe_path = compile_duan_typed('hello.duan', verbose=True)
+exe_path = compile_light_typed('hello.light', verbose=True)
 print(f'编译成功: {exe_path}')
 ```
 
@@ -540,32 +540,32 @@ print(f'编译成功: {exe_path}')
 
 ### 核心数据结构
 
-**DuanCoroutine 结构体**（`runtime_typed.c`）：
+**LightCoroutine 结构体**（`runtime_typed.c`）：
 ```c
-typedef struct DuanCoroutine {
+typedef struct LightCoroutine {
     int state;             // 协程状态：DV_CORO_READY/SUSPENDED/DONE/ERROR
     int resume_point;      // 恢复点（Duff's device 的 case 标签）
     DuanCoroFunc func;     // 协程函数指针
-    DuanValue result;      // 返回值
-    DuanValue* args;       // 参数数组（堆分配）
+    LightValue result;      // 返回值
+    LightValue* args;       // 参数数组（堆分配）
     int num_args;          // 参数数量
-    DuanValue* locals;     // 局部变量数组（堆分配，跨 await 持久化）
+    LightValue* locals;     // 局部变量数组（堆分配，跨 await 持久化）
     int num_locals;        // 局部变量数量
-    struct DuanFuture* waiting_for;  // 等待的 Future
-    struct DuanFuture* future;        // 关联的 Future（完成时自动触发）
-    struct DuanCoroutine* next;       // 调度器链表指针
-} DuanCoroutine;
+    struct LightFuture* waiting_for;  // 等待的 Future
+    struct LightFuture* future;        // 关联的 Future（完成时自动触发）
+    struct LightCoroutine* next;       // 调度器链表指针
+} LightCoroutine;
 ```
 
-**DuanFuture 结构体**：
+**LightFuture 结构体**：
 ```c
-typedef struct DuanFuture {
+typedef struct LightFuture {
     int ready;             // 是否已完成
-    DuanValue result;      // 结果值
+    LightValue result;      // 结果值
     int has_error;         // 是否有错误
     char error_msg[256];   // 错误消息
-    DuanCoroutine* waiters; // 等待这个 future 的协程链表
-} DuanFuture;
+    LightCoroutine* waiters; // 等待这个 future 的协程链表
+} LightFuture;
 ```
 
 **协程函数签名**：
@@ -603,14 +603,14 @@ define void @_coro_xxx(ptr %result, ptr %coro, ptr %args, i32 %num_args)
 ### 异步段落
 
 **包装函数模式**：每个异步段落生成两个函数：
-1. `_seg_xxx`（包装函数）：创建协程，返回协程句柄（DuanValue 指针值）
+1. `_seg_xxx`（包装函数）：创建协程，返回协程句柄（LightValue 指针值）
 2. `_coro_xxx`（协程函数）：实际的协程状态机
 
 **示例 IR**：
 ```llvm
 define void @_seg_xxx(ptr %result, ptr %args, i32 %num_args) {
   %coro = call ptr @dv_coro_create(ptr @_coro_xxx, ptr %args, i32 %num_args, i32 N)
-  ; 存储协程指针到 DuanValue result
+  ; 存储协程指针到 LightValue result
   ret void
 }
 ```
@@ -618,7 +618,7 @@ define void @_seg_xxx(ptr %result, ptr %args, i32 %num_args) {
 ### async/await 实现
 
 **await 表达式代码生成**：
-1. 计算子表达式得到协程 DuanValue
+1. 计算子表达式得到协程 LightValue
 2. 提取 ptr_val 得到协程指针
 3. 设置 `resume_point = 当前点 + 1`
 4. 调用 `dv_coro_await(%coro, %target_coro)` 挂起
@@ -627,7 +627,7 @@ define void @_seg_xxx(ptr %result, ptr %args, i32 %num_args) {
 
 ### 异步作用域（结构化并发）
 
-```段言
+```光明
 异步作用域
     任务1()
     任务2()
@@ -793,10 +793,10 @@ define void @_seg_xxx(ptr %result, ptr %args, i32 %num_args) {
 - [ ] **GC 优化**：分代垃圾回收、增量 GC、并发 GC
 
 #### 6. 自举与元循环
-- [x] **段言自举**：用段言重写编译器核心部分（bootstrap_v3.duan，95 个段落）
+- [x] **光明自举**：用光明重写编译器核心部分（bootstrap_v3.light，95 个段落）
 - [x] **LLVM 自举编译**：自举编译器可通过 LLVM 后端编译为原生 EXE（525KB）
-- [ ] **元循环解释器**：在段言中实现段言解释器
-- [ ] **编译器即库**：编译器作为库嵌入到段言程序中
+- [ ] **元循环解释器**：在光明中实现光明解释器
+- [ ] **编译器即库**：编译器作为库嵌入到光明程序中
 - [ ] **编译期计算**：支持编译期函数执行（const eval）
 
 ### 优先级路线图
@@ -845,13 +845,13 @@ v1.9.x (短期)                    v2.0 (中期)                      v2.x+ (长
 1. ~~**比较运算符在顶级条件分支中无效**~~ ✅ 已修复（Level 8 类型优化）
 2. ~~**布尔条件判断问题**~~ ✅ 已修复（BooleanLiteral 现正确生成 BOOL 类型）
 3. ~~**段落函数直接传递结构体导致 ABI 问题**~~ ✅ 已修复（改用指针传递）
-4. ~~**DuanValue 结构体布局不匹配**~~ ✅ 已修复（LLVM IR 与 C 端布局完全匹配）
+4. ~~**LightValue 结构体布局不匹配**~~ ✅ 已修复（LLVM IR 与 C 端布局完全匹配）
 5. ~~**_extract_f64 / _set_f64 类型错误**~~ ✅ 已修复（double 字段不再当作指针处理）
 
 ### Level 8 已完成功能
 
 - [x] BooleanLiteral 生成正确的 BOOL 类型（type=5）
-- [x] DuanValue 结构体与 C 端布局完全匹配
+- [x] LightValue 结构体与 C 端布局完全匹配
 - [x] 段落函数统一使用指针传递（`ptr %result, ptr %args, i32 %num_args`）
 - [x] 集成 Level 6 类型注解到代码生成
 - [x] 类型追踪系统（变量类型映射表）
@@ -859,7 +859,7 @@ v1.9.x (短期)                    v2.0 (中期)                      v2.x+ (长
 - [x] 算术运算类型优化（直接 i64/double 运算）
 - [x] 比较运算类型优化（直接 icmp/fcmp）
 - [x] 条件判断类型优化（直接布尔/整数/浮点判断）
-- [x] 快速 DuanValue 构造（直接结构体字段操作）
+- [x] 快速 LightValue 构造（直接结构体字段操作）
 - [x] `转串` 内置函数别名支持
 
 ### Level 9 已完成功能
@@ -868,13 +868,13 @@ v1.9.x (短期)                    v2.0 (中期)                      v2.x+ (长
 - [x] 外部段函数声明生成（`_emit_module_decls`）
 - [x] 导入函数调用（`_gen_imported_segment_call`，通过模块前缀别名）
 - [x] 导出别名生成（`_gen_exported_aliases`，`@_seg_{模块名}_{函数名}`）
-- [x] 多模块编译流水线（`compile_modules_typed`、`compile_duan_project`）
+- [x] 多模块编译流水线（`compile_modules_typed`、`compile_light_project`）
 - [x] 包管理器 path 依赖解析（`resolve_path_dependencies`）
 - [x] 包管理器原生编译（`build_project_native`）
 - [x] `ExportStatement` 多符号导出支持（`names: List[str]`）
 - [x] `_convert_module` 正确收集 imports/exports
 - [x] AST 节点命名兼容别名（`ImportStmt`/`ExportStmt`）
-- [x] 核心标准库纯段言实现（数学工具、字符串工具、列表工具、类型工具）
+- [x] 核心标准库纯光明实现（数学工具、字符串工具、列表工具、类型工具）
 
 ### 待修复
 

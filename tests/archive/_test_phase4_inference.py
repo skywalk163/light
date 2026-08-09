@@ -418,7 +418,7 @@ register('回归测试-带注解变量', test_regular_class_with_annotation)
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("段言 Phase 4 —— 类型推断 测试")
+    print("光明 Phase 4 —— 类型推断 测试")
     print("=" * 60)
     print()
     for name, fn in TESTS:

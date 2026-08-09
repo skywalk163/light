@@ -15,7 +15,7 @@
 ```python
 # 匹配邮箱
 设 邮箱模式 = "[a-zA-Z]+@[a-zA-Z]+\\.[a-zA-Z]+"
-设 结果 = 匹配(邮箱模式, "test@duan-lang.org")
+设 结果 = 匹配(邮箱模式, "test@light-lang.org")
 若 结果：
   印("匹配成功: " + 结果)
 

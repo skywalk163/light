@@ -1,4 +1,4 @@
-"""测试 bootstrap_level6.duan 能否被 level6_generated.py 编译"""
+"""测试 bootstrap_level6.light 能否被 level6_generated.py 编译"""
 import sys, io, contextlib
 
 sys.path.insert(0, '.')
@@ -29,16 +29,16 @@ with open('bootstrap/level6_generated.py', 'r', encoding='utf-8') as f:
 exec(compiler_code, ns)
 编译 = ns['编译']
 
-# 读取 bootstrap_level6.duan
-with open('bootstrap/bootstrap_level6.duan', 'r', encoding='utf-8') as f:
-    duan_code = f.read()
+# 读取 bootstrap_level6.light
+with open('bootstrap/bootstrap_level6.light', 'r', encoding='utf-8') as f:
+    light_code = f.read()
 
-print("正在编译 bootstrap_level6.duan ...")
-print(f"源码大小: {len(duan_code)} 字节")
+print("正在编译 bootstrap_level6.light ...")
+print(f"源码大小: {len(light_code)} 字节")
 print()
 
 try:
-    py_code = 编译(duan_code)
+    py_code = 编译(light_code)
     print(f"编译成功!")
     print(f"生成代码大小: {len(py_code)} 字节")
     print(f"生成代码行数: {len(py_code.split(chr(10)))} 行")

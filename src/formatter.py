@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）代码格式化工具
+光明（Light）代码格式化工具
 
 功能：
   - 统一缩进（4 空格）
@@ -10,9 +10,9 @@
   - 支持 --check 模式
 
 用法：
-  duan fmt file.duan           # 格式化单个文件
-  duan fmt .                   # 格式化当前目录
-  duan fmt --check file.duan   # 仅检查格式
+  light fmt file.light           # 格式化单个文件
+  light fmt .                   # 格式化当前目录
+  light fmt --check file.light   # 仅检查格式
 """
 
 import os
@@ -76,7 +76,7 @@ def _get_keyword(content: str, keywords: set) -> str:
 
 
 def format_code(source: str) -> str:
-    """格式化段言代码"""
+    """格式化光明代码"""
     lines = source.split('\n')
     result = []
     indent = 0
@@ -176,26 +176,26 @@ def format_directory(directory: str, check_only: bool = False) -> int:
         print(f"Error: directory not found: {directory}")
         return 1
 
-    duan_files = []
+    light_files = []
     for root, dirs, files in os.walk(directory):
         dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
         for f in files:
-            if f.endswith('.duan'):
-                duan_files.append(os.path.join(root, f))
+            if f.endswith('.light'):
+                light_files.append(os.path.join(root, f))
 
-    if not duan_files:
-        print("No .duan files found")
+    if not light_files:
+        print("No .light files found")
         return 0
 
-    print(f"Found {len(duan_files)} .duan file(s)\n")
+    print(f"Found {len(light_files)} .light file(s)\n")
     all_ok = True
-    for fp in sorted(duan_files):
+    for fp in sorted(light_files):
         if not format_file(fp, check_only):
             all_ok = False
 
     print()
     if check_only:
-        print("All files OK" if all_ok else "Format issues found - run duan fmt to fix")
+        print("All files OK" if all_ok else "Format issues found - run light fmt to fix")
     else:
         print("Formatting complete")
     return 0 if all_ok else 1

@@ -1,5 +1,5 @@
 """
-段言 - 第4周模块系统与包管理器完善测试
+光明 - 第4周模块系统与包管理器完善测试
 
 测试以下功能：
 1. 循环依赖检测增强
@@ -125,7 +125,7 @@ class TestSemVer(unittest.TestCase):
 
     def test_parse_valid(self):
         """解析有效的版本号"""
-        from duanpkg import SemVer
+        from lightpkg import SemVer
         v = SemVer.parse('1.2.3')
         self.assertEqual(v.major, 1)
         self.assertEqual(v.minor, 2)
@@ -133,20 +133,20 @@ class TestSemVer(unittest.TestCase):
 
     def test_parse_with_pre_release(self):
         """解析带预发布标签的版本号"""
-        from duanpkg import SemVer
+        from lightpkg import SemVer
         v = SemVer.parse('2.0.0-alpha')
         self.assertEqual(v.major, 2)
         self.assertEqual(v.pre_release, 'alpha')
 
     def test_parse_with_build(self):
         """解析带构建元数据的版本号"""
-        from duanpkg import SemVer
+        from lightpkg import SemVer
         v = SemVer.parse('1.0.0+build.123')
         self.assertEqual(v.build, 'build.123')
 
     def test_parse_invalid(self):
         """解析无效的版本号应抛出异常"""
-        from duanpkg import SemVer
+        from lightpkg import SemVer
         with self.assertRaises(ValueError):
             SemVer.parse('not-a-version')
         with self.assertRaises(ValueError):
@@ -156,7 +156,7 @@ class TestSemVer(unittest.TestCase):
 
     def test_compare_less(self):
         """版本比较（小于）"""
-        from duanpkg import SemVer
+        from lightpkg import SemVer
         self.assertTrue(SemVer.parse('1.0.0') < SemVer.parse('2.0.0'))
         self.assertTrue(SemVer.parse('1.0.0') < SemVer.parse('1.1.0'))
         self.assertTrue(SemVer.parse('1.0.0') < SemVer.parse('1.0.1'))
@@ -164,44 +164,44 @@ class TestSemVer(unittest.TestCase):
 
     def test_compare_equal(self):
         """版本比较（等于）"""
-        from duanpkg import SemVer
+        from lightpkg import SemVer
         self.assertEqual(SemVer.parse('1.0.0'), SemVer.parse('1.0.0'))
         self.assertEqual(SemVer.parse('2.0.0-alpha'), SemVer.parse('2.0.0-alpha'))
 
     def test_compare_greater(self):
         """版本比较（大于）"""
-        from duanpkg import SemVer
+        from lightpkg import SemVer
         self.assertTrue(SemVer.parse('2.0.0') > SemVer.parse('1.0.0'))
         self.assertTrue(SemVer.parse('1.0.0') > SemVer.parse('1.0.0-alpha'))
 
     def test_satisfied_by_exact(self):
         """精确版本约束"""
-        from duanpkg import SemVer
+        from lightpkg import SemVer
         self.assertTrue(SemVer.satisfied_by('1.0.0', '1.0.0'))
         self.assertFalse(SemVer.satisfied_by('1.0.0', '1.0.1'))
 
     def test_satisfied_by_range(self):
         """范围版本约束"""
-        from duanpkg import SemVer
+        from lightpkg import SemVer
         self.assertTrue(SemVer.satisfied_by('>=1.0.0,<2.0.0', '1.5.0'))
         self.assertFalse(SemVer.satisfied_by('>=1.0.0,<2.0.0', '2.0.0'))
         self.assertTrue(SemVer.satisfied_by('>=1.0.0,<2.0.0', '1.0.0'))
 
     def test_satisfied_by_caret(self):
         """^ 约束"""
-        from duanpkg import SemVer
+        from lightpkg import SemVer
         self.assertTrue(SemVer.satisfied_by('^1.2.3', '1.5.0'))
         self.assertFalse(SemVer.satisfied_by('^1.2.3', '2.0.0'))
 
     def test_satisfied_by_tilde(self):
         """~ 约束"""
-        from duanpkg import SemVer
+        from lightpkg import SemVer
         self.assertTrue(SemVer.satisfied_by('~1.2.3', '1.2.5'))
         self.assertFalse(SemVer.satisfied_by('~1.2.3', '1.3.0'))
 
     def test_str(self):
         """版本号转字符串"""
-        from duanpkg import SemVer
+        from lightpkg import SemVer
         self.assertEqual(str(SemVer.parse('1.2.3')), '1.2.3')
         self.assertEqual(str(SemVer.parse('2.0.0-alpha')), '2.0.0-alpha')
         self.assertEqual(str(SemVer.parse('1.0.0+build.1')), '1.0.0+build.1')
@@ -215,7 +215,7 @@ class TestDependencyResolver(unittest.TestCase):
     """依赖解析器测试"""
 
     def setUp(self):
-        from duanpkg import DependencyResolver
+        from lightpkg import DependencyResolver
         self.resolver = DependencyResolver()
 
     def test_resolve_simple(self):
@@ -290,7 +290,7 @@ class TestPackagePublishFlow(unittest.TestCase):
 
     def test_init_package(self):
         """测试包初始化"""
-        from duanpkg import cmd_init
+        from lightpkg import cmd_init
 
         class Args:
             name = 'test-pkg'
@@ -299,17 +299,17 @@ class TestPackagePublishFlow(unittest.TestCase):
         result = cmd_init(Args())
         self.assertEqual(result, 0)
 
-        # 验证 duan.json 存在
-        pkg_json = os.path.join(self.temp_dir, 'duan.json')
+        # 验证 light.json 存在
+        pkg_json = os.path.join(self.temp_dir, 'light.json')
         self.assertTrue(os.path.exists(pkg_json))
 
-        # 验证 main.duan 存在
-        main_duan = os.path.join(self.temp_dir, 'main.duan')
-        self.assertTrue(os.path.exists(main_duan))
+        # 验证 main.light 存在
+        main_light = os.path.join(self.temp_dir, 'main.light')
+        self.assertTrue(os.path.exists(main_light))
 
     def test_publish_validation(self):
         """发布前版本验证"""
-        from duanpkg import SemVer
+        from lightpkg import SemVer
         # 有效版本
         SemVer.parse('1.0.0')
         SemVer.parse('2.3.4-beta')
@@ -327,7 +327,7 @@ class TestCacheManagement(unittest.TestCase):
 
     def test_cache_clean(self):
         """清理缓存（空缓存）"""
-        from duanpkg import _cache_clean, _cache_clear, _cache_status
+        from lightpkg import _cache_clean, _cache_clear, _cache_status
         # 先清空
         _cache_clear()
         # 清理过期的（空缓存）
@@ -336,7 +336,7 @@ class TestCacheManagement(unittest.TestCase):
 
     def test_cache_status(self):
         """缓存状态查询"""
-        from duanpkg import _cache_status
+        from lightpkg import _cache_status
         status = _cache_status()
         self.assertIn('total_entries', status)
         self.assertIn('cache_dir', status)

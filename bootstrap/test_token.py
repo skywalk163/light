@@ -2,7 +2,7 @@
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'stdlib'))
-import builtins as _duan_builtin
+import builtins as _light_builtin
 
 # 读取生成的代码并执行
 with open(os.path.join(os.path.dirname(__file__), 'token.py'), 'r', encoding='utf-8') as f:

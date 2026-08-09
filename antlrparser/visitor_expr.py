@@ -1,13 +1,13 @@
 """
-段言（Duan）编程语言 ANTLR 访问器 - 表达式类 visit 方法混入
+光明（Light）编程语言 ANTLR 访问器 - 表达式类 visit 方法混入
 """
 
 from typing import List, Optional, Union
 
 from antlr4 import *
-from DuanLangParser import DuanLangParser
+from LightLangParser import LightLangParser
 
-from duan_ast import (
+from light_ast import (
     NumberLiteral, StringLiteral, BooleanLiteral, NullLiteral,
     Identifier, SegmentName, BinaryOp, UnaryOp, FunctionCall,
     PipeExpression, PropertyAccess, IndexAccess, ListLiteral, DictLiteral, NewExpression,
@@ -25,44 +25,44 @@ class VisitorExprMixin(VisitorStmtMixin):
 
     # ----- 表达式 -----
 
-    def visitExpr(self, ctx: DuanLangParser.ExprContext):
+    def visitExpr(self, ctx: LightLangParser.ExprContext):
         """表达式入口"""
         child = ctx.getChild(0)
-        if isinstance(child, DuanLangParser.PipelineExprContext):
+        if isinstance(child, LightLangParser.PipelineExprContext):
             return self.visitPipelineExpr(child)
-        elif isinstance(child, DuanLangParser.AndExprContext):
+        elif isinstance(child, LightLangParser.AndExprContext):
             return self.visitAndExpr(child)
-        elif isinstance(child, DuanLangParser.OrExprContext):
+        elif isinstance(child, LightLangParser.OrExprContext):
             return self.visitOrExpr(child)
-        elif isinstance(child, DuanLangParser.ComparisonExprContext):
+        elif isinstance(child, LightLangParser.ComparisonExprContext):
             return self.visitComparisonExpr(child)
-        elif isinstance(child, DuanLangParser.AdditiveExprContext):
+        elif isinstance(child, LightLangParser.AdditiveExprContext):
             return self.visitAdditiveExpr(child)
-        elif isinstance(child, DuanLangParser.MultiplicativeExprContext):
+        elif isinstance(child, LightLangParser.MultiplicativeExprContext):
             return self.visitMultiplicativeExpr(child)
-        elif isinstance(child, DuanLangParser.UnaryExprContext):
+        elif isinstance(child, LightLangParser.UnaryExprContext):
             return self.visitUnaryExpr(child)
-        elif isinstance(child, DuanLangParser.PostfixExprContext):
+        elif isinstance(child, LightLangParser.PostfixExprContext):
             return self.visitPostfixExpr(child)
-        elif isinstance(child, DuanLangParser.PrimaryContext):
+        elif isinstance(child, LightLangParser.PrimaryContext):
             return self.visitPrimary(child)
         return self.visit(child)
 
-    def visitPipelineExpr(self, ctx: DuanLangParser.PipelineExprContext):
+    def visitPipelineExpr(self, ctx: LightLangParser.PipelineExprContext):
         """管道表达式"""
         # 使用 getTypedRuleContexts 获取 AndExpr 子节点
         exprs = [self.visitAndExpr(c)
-                 for c in ctx.getTypedRuleContexts(DuanLangParser.AndExprContext)]
+                 for c in ctx.getTypedRuleContexts(LightLangParser.AndExprContext)]
         if len(exprs) == 1:
             return exprs[0]
         line = ctx.start.line
         col = ctx.start.column
         return PipeExpression(line=line, column=col, expressions=exprs)
 
-    def visitAndExpr(self, ctx: DuanLangParser.AndExprContext):
+    def visitAndExpr(self, ctx: LightLangParser.AndExprContext):
         """逻辑与表达式"""
         exprs = [self.visitOrExpr(c)
-                 for c in ctx.getTypedRuleContexts(DuanLangParser.OrExprContext)]
+                 for c in ctx.getTypedRuleContexts(LightLangParser.OrExprContext)]
         if len(exprs) == 1:
             return exprs[0]
         # 从左到右构建 BinaryOp
@@ -72,10 +72,10 @@ class VisitorExprMixin(VisitorStmtMixin):
                               left=result, operator='且', right=exprs[i])
         return result
 
-    def visitOrExpr(self, ctx: DuanLangParser.OrExprContext):
+    def visitOrExpr(self, ctx: LightLangParser.OrExprContext):
         """逻辑或表达式"""
         exprs = [self.visitComparisonExpr(c)
-                 for c in ctx.getTypedRuleContexts(DuanLangParser.ComparisonExprContext)]
+                 for c in ctx.getTypedRuleContexts(LightLangParser.ComparisonExprContext)]
         if len(exprs) == 1:
             return exprs[0]
         result = exprs[0]
@@ -84,10 +84,10 @@ class VisitorExprMixin(VisitorStmtMixin):
                               left=result, operator='or', right=exprs[i])
         return result
 
-    def visitComparisonExpr(self, ctx: DuanLangParser.ComparisonExprContext):
+    def visitComparisonExpr(self, ctx: LightLangParser.ComparisonExprContext):
         """比较表达式"""
         exprs = [self.visitAdditiveExpr(a)
-                 for a in ctx.getTypedRuleContexts(DuanLangParser.AdditiveExprContext)]
+                 for a in ctx.getTypedRuleContexts(LightLangParser.AdditiveExprContext)]
         if len(exprs) == 1:
             return exprs[0]
         ops = [c.getText() for c in ctx.compOp()]
@@ -97,10 +97,10 @@ class VisitorExprMixin(VisitorStmtMixin):
                               left=result, operator=op, right=exprs[i+1])
         return result
 
-    def visitAdditiveExpr(self, ctx: DuanLangParser.AdditiveExprContext):
+    def visitAdditiveExpr(self, ctx: LightLangParser.AdditiveExprContext):
         """加减表达式"""
         exprs = [self.visitMultiplicativeExpr(m)
-                 for m in ctx.getTypedRuleContexts(DuanLangParser.MultiplicativeExprContext)]
+                 for m in ctx.getTypedRuleContexts(LightLangParser.MultiplicativeExprContext)]
         if len(exprs) == 1:
             return exprs[0]
         ops = [c.getText() for c in ctx.addOp()]
@@ -110,10 +110,10 @@ class VisitorExprMixin(VisitorStmtMixin):
                               left=result, operator=op, right=exprs[i+1])
         return result
 
-    def visitMultiplicativeExpr(self, ctx: DuanLangParser.MultiplicativeExprContext):
+    def visitMultiplicativeExpr(self, ctx: LightLangParser.MultiplicativeExprContext):
         """乘除表达式（将 ×/÷ 符号归一化为 乘/除 中文关键字）"""
         exprs = [self.visitUnaryExpr(u)
-                 for u in ctx.getTypedRuleContexts(DuanLangParser.UnaryExprContext)]
+                 for u in ctx.getTypedRuleContexts(LightLangParser.UnaryExprContext)]
         if len(exprs) == 1:
             return exprs[0]
         ops = [c.getText() for c in ctx.multOp()]
@@ -129,7 +129,7 @@ class VisitorExprMixin(VisitorStmtMixin):
                               left=result, operator=normalized_op, right=exprs[i+1])
         return result
 
-    def visitUnaryExpr(self, ctx: DuanLangParser.UnaryExprContext):
+    def visitUnaryExpr(self, ctx: LightLangParser.UnaryExprContext):
         """一元表达式"""
         if ctx.K_NOT() or ctx.NOT():
             op = ctx.K_NOT().getText() if ctx.K_NOT() else ctx.NOT().getText()
@@ -142,7 +142,7 @@ class VisitorExprMixin(VisitorStmtMixin):
                            operator='-', operand=operand)
         return self.visitPostfixExpr(ctx.postfixExpr())
 
-    def visitPostfixExpr(self, ctx: DuanLangParser.PostfixExprContext):
+    def visitPostfixExpr(self, ctx: LightLangParser.PostfixExprContext):
         """后缀表达式：处理索引访问、属性访问、函数调用"""
         base = self.visitPrimary(ctx.primary())
 
@@ -159,7 +159,7 @@ class VisitorExprMixin(VisitorStmtMixin):
                 ttype = child.symbol.type
 
                 # 属性访问：对象之属性
-                if ttype == DuanLangParser.K_OF:
+                if ttype == LightLangParser.K_OF:
                     child_idx += 1
                     prop_name = ctx.getChild(child_idx).getText()
                     child_idx += 1
@@ -167,7 +167,7 @@ class VisitorExprMixin(VisitorStmtMixin):
                                           obj=base, property_name=prop_name)
 
                 # 属性访问：对象.属性
-                elif ttype == DuanLangParser.DOT:
+                elif ttype == LightLangParser.DOT:
                     child_idx += 1
                     prop_name = ctx.getChild(child_idx).getText()
                     child_idx += 1
@@ -175,7 +175,7 @@ class VisitorExprMixin(VisitorStmtMixin):
                                           obj=base, property_name=prop_name)
 
                 # 属性访问：对象的属性（新增，「的」作为属性访问运算符）
-                elif ttype == DuanLangParser.K_DE:
+                elif ttype == LightLangParser.K_DE:
                     child_idx += 1
                     prop_name = ctx.getChild(child_idx).getText()
                     child_idx += 1
@@ -183,7 +183,7 @@ class VisitorExprMixin(VisitorStmtMixin):
                                           obj=base, property_name=prop_name)
 
                 # 索引访问：对象[索引]
-                elif ttype == DuanLangParser.LBRACKET:
+                elif ttype == LightLangParser.LBRACKET:
                     child_idx += 1
                     idx_expr = self.visit(ctx.getChild(child_idx))
                     child_idx += 1  # 跳过 expr
@@ -192,12 +192,12 @@ class VisitorExprMixin(VisitorStmtMixin):
                                        obj=base, index=idx_expr)
 
                 # 函数调用：(参数)
-                elif ttype == DuanLangParser.LPAREN:
+                elif ttype == LightLangParser.LPAREN:
                     child_idx += 1  # 跳过 LPAREN
                     args = []
                     if (child_idx < ctx.getChildCount() and
                             isinstance(ctx.getChild(child_idx),
-                                       DuanLangParser.ExprListContext)):
+                                       LightLangParser.ExprListContext)):
                         args = self.visitExprList(ctx.getChild(child_idx))
                         child_idx += 1
                     child_idx += 1  # 跳过 RPAREN
@@ -205,7 +205,7 @@ class VisitorExprMixin(VisitorStmtMixin):
                                         name=base, arguments=args)
 
                 # 《段名》(参数) 调用
-                elif ttype == DuanLangParser.BOOK_L:
+                elif ttype == LightLangParser.BOOK_L:
                     child_idx += 1
                     seg_name = ctx.getChild(child_idx).getText()  # ID
                     child_idx += 1  # 跳过 ID
@@ -214,7 +214,7 @@ class VisitorExprMixin(VisitorStmtMixin):
                     args = []
                     if (child_idx < ctx.getChildCount() and
                             isinstance(ctx.getChild(child_idx),
-                                       DuanLangParser.ExprListContext)):
+                                       LightLangParser.ExprListContext)):
                         args = self.visitExprList(ctx.getChild(child_idx))
                         child_idx += 1
                     child_idx += 1  # 跳过 RPAREN
@@ -222,16 +222,16 @@ class VisitorExprMixin(VisitorStmtMixin):
                     base = FunctionCall(line=base.line, column=base.column,
                                         name=seg, arguments=args)
                 # ID(参数) - 直接调用（无书名号）
-                elif ttype == DuanLangParser.ID and child_idx + 1 < ctx.getChildCount():
+                elif ttype == LightLangParser.ID and child_idx + 1 < ctx.getChildCount():
                     next_child = ctx.getChild(child_idx + 1)
-                    if isinstance(next_child, TerminalNode) and next_child.symbol.type == DuanLangParser.LPAREN:
+                    if isinstance(next_child, TerminalNode) and next_child.symbol.type == LightLangParser.LPAREN:
                         seg_name = child.getText()
                         child_idx += 1  # 跳过 ID
                         child_idx += 1  # 跳过 LPAREN
                         args = []
                         if (child_idx < ctx.getChildCount() and
                                 isinstance(ctx.getChild(child_idx),
-                                           DuanLangParser.ExprListContext)):
+                                           LightLangParser.ExprListContext)):
                             args = self.visitExprList(ctx.getChild(child_idx))
                             child_idx += 1
                         child_idx += 1  # 跳过 RPAREN
@@ -271,7 +271,7 @@ class VisitorExprMixin(VisitorStmtMixin):
             return ctx.T_ANY().getText()
         return ctx.getText()
 
-    def visitPrimary(self, ctx: DuanLangParser.PrimaryContext):
+    def visitPrimary(self, ctx: LightLangParser.PrimaryContext):
         """基本表达式"""
         line = ctx.start.line
         col = ctx.start.column
@@ -327,7 +327,7 @@ class VisitorExprMixin(VisitorStmtMixin):
         # self引用：己（通过检查子节点）
         for child in ctx.getChildren():
             if hasattr(child, 'symbol') and hasattr(child.symbol, 'type'):
-                if child.symbol.type == DuanLangParser.K_SELF:
+                if child.symbol.type == LightLangParser.K_SELF:
                     return SelfReference(line=line, column=col)
 
         # 三元条件表达式：如果 条件 那么 值1 否则 值2
@@ -550,7 +550,7 @@ class VisitorExprMixin(VisitorStmtMixin):
         # Fallback
         return None
 
-    def visitConditionalExpr(self, ctx: DuanLangParser.ConditionalExprContext):
+    def visitConditionalExpr(self, ctx: LightLangParser.ConditionalExprContext):
         """三元条件表达式：如果 条件 那么 值1 否则 值2"""
         line = ctx.start.line
         col = ctx.start.column
@@ -568,7 +568,7 @@ class VisitorExprMixin(VisitorStmtMixin):
             else_expr=else_expr,
         )
 
-    def visitImplicitCall(self, ctx: DuanLangParser.ImplicitCallContext):
+    def visitImplicitCall(self, ctx: LightLangParser.ImplicitCallContext):
         """隐式函数调用参数列表"""
         args = []
         for i in range(len(ctx.implicitArg())):
@@ -578,7 +578,7 @@ class VisitorExprMixin(VisitorStmtMixin):
                 args.append(arg)
         return args
 
-    def visitImplicitArg(self, ctx: DuanLangParser.ImplicitArgContext):
+    def visitImplicitArg(self, ctx: LightLangParser.ImplicitArgContext):
         """隐式函数调用的单个参数"""
         line = ctx.start.line
         col = ctx.start.column
@@ -640,7 +640,7 @@ class VisitorExprMixin(VisitorStmtMixin):
 
         return None
 
-    def visitExprList(self, ctx: DuanLangParser.ExprListContext):
+    def visitExprList(self, ctx: LightLangParser.ExprListContext):
         """表达式列表"""
         return [self.visitExpr(e) for e in ctx.expr()]
 
@@ -732,17 +732,17 @@ class VisitorExprMixin(VisitorStmtMixin):
     def _parse_interpolation_expr(self, expr_text: str, line: int, col: int):
         """解析字符串插值中的表达式文本为AST节点"""
         # 使用ANTLR解析器解析表达式
-        from duan_tokenizer import create_antlr_token_stream
-        from DuanLangLexer import DuanLangLexer
-        from DuanLangParser import DuanLangParser
+        from light_tokenizer import create_antlr_token_stream
+        from LightLangLexer import LightLangLexer
+        from LightLangParser import LightLangParser
 
-        token_stream = create_antlr_token_stream(expr_text, DuanLangLexer)
-        parser = DuanLangParser(token_stream)
+        token_stream = create_antlr_token_stream(expr_text, LightLangLexer)
+        parser = LightLangParser(token_stream)
         parser.removeErrorListeners()
         tree = parser.expr()
         return self.visitExpr(tree)
 
-    def visitListComprehension(self, ctx: DuanLangParser.ListComprehensionContext):
+    def visitListComprehension(self, ctx: LightLangParser.ListComprehensionContext):
         """列表推导：[表达式 遍历 变量 之 列表]"""
         line = ctx.start.line
         col = ctx.start.column
@@ -756,7 +756,7 @@ class VisitorExprMixin(VisitorStmtMixin):
                                  expression=expression, variable=variable,
                                  iterable=iterable, condition=condition)
 
-    def visitLambdaExpr(self, ctx: DuanLangParser.LambdaExprContext):
+    def visitLambdaExpr(self, ctx: LightLangParser.LambdaExprContext):
         """匿名函数：接收 甲：返回 甲 乘 甲。"""
         line = ctx.start.line
         col = ctx.start.column
@@ -767,7 +767,7 @@ class VisitorExprMixin(VisitorStmtMixin):
         body_expr = self.visitExpr(ctx.expr()) if ctx.expr() else None
         return LambdaExpression(line=line, column=col, parameters=params, body=body_expr)
 
-    def visitTypeAnnotation(self, ctx: DuanLangParser.TypeAnnotationContext):
+    def visitTypeAnnotation(self, ctx: LightLangParser.TypeAnnotationContext):
         """类型注解"""
         if ctx.ID():
             return ctx.ID().getText()

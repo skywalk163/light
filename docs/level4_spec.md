@@ -1,16 +1,16 @@
-# Duan Level 4 语法规范
+# Light Level 4 语法规范
 
 **版本**: v4.0  
 **日期**: 2026-06-30  
 **状态**: ✅ 已实现并通过验证  
-**基于**: Duan Lite v1.0 (Level 3)  
+**基于**: Light Lite v1.0 (Level 3)  
 **目标**: 完整的面向对象支持，用于编写更强大的编译器
 
 ---
 
 ## 一、设计目标
 
-Level 4 在 Level 3（Duan Lite）的基础上增加完整的面向对象支持，使得：
+Level 4 在 Level 3（Light Lite）的基础上增加完整的面向对象支持，使得：
 1. 可以定义包含属性和方法的类
 2. 可以通过 `己` 访问对象属性和调用方法
 3. 支持类继承和方法重写
@@ -216,7 +216,7 @@ p.move(1, 2)           # 调用有参方法
 
 ### 6.1 类定义
 
-**Duan**：
+**Light**：
 ```
 类 类名：
   属性 a。
@@ -238,7 +238,7 @@ class 类名:
 
 ### 6.2 继承
 
-**Duan**：
+**Light**：
 ```
 类 子类(父类)：
   ...
@@ -253,28 +253,28 @@ class 子类(父类):
 
 ### 6.3 属性访问
 
-**Duan**：`己.x`  
+**Light**：`己.x`  
 **Python**：`self.x`
 
-**Duan**：`obj.attr`  
+**Light**：`obj.attr`  
 **Python**：`obj.attr`
 
 ### 6.4 属性赋值
 
-**Duan**：`设 己.x 为 值。`  
+**Light**：`设 己.x 为 值。`  
 **Python**：`self.x = 值`
 
-**Duan**：`设 obj.attr 为 值。`  
+**Light**：`设 obj.attr 为 值。`  
 **Python**：`obj.attr = 值`
 
 ### 6.5 方法调用
 
-**Duan**：`obj.method(a, b)`  
+**Light**：`obj.method(a, b)`  
 **Python**：`obj.method(a, b)`
 
 ### 6.6 `父` 关键字
 
-**Duan**：`父.method(己, args)`  
+**Light**：`父.method(己, args)`  
 **Python**：`super().method(args)`
 
 ---
@@ -336,7 +336,7 @@ class 子类(父类):
 ```
 Level 3 编译器 (level3_generated.py)
         ↓ 编译
-bootstrap_level4.duan (30,057 字符)
+bootstrap_level4.light (30,057 字符)
         ↓ 编译
 level4_generated.py (v1, ~33.5k 字符)   ← 初始生成
         ↓ 自举编译
@@ -423,7 +423,7 @@ level4_bootstrapped.py (v2, ~33.5k 字符)  ← 自举生成
 
 ### 11.3 性能数据
 
-编译 `bootstrap_level4.duan`（28,528 字符）：
+编译 `bootstrap_level4.light`（28,528 字符）：
 
 | 指标 | 优化前 | 优化后 | 变化 |
 |------|--------|--------|------|

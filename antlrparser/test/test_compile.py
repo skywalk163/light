@@ -1,10 +1,10 @@
-"""测试段言编译能力"""
+"""测试光明编译能力"""
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_visitor import parse_source
-from duan_llvm import LLVMCodeGen
+from light_visitor import parse_source
+from light_llvm import LLVMCodeGen
 
 
 def test_basic_compile():
@@ -13,7 +13,7 @@ def test_basic_compile():
     print("测试：基础编译能力")
     print("=" * 70)
 
-    # 简单算术运算 - 使用正确的段言语法
+    # 简单算术运算 - 使用正确的光明语法
     code1 = '''
 《主段》段():
   定义x等于10。
@@ -141,7 +141,7 @@ def test_if_compile():
 def show_capabilities():
     """显示编译能力"""
     print("\n" + "=" * 70)
-    print("段言编译能力总结")
+    print("光明编译能力总结")
     print("=" * 70)
     print("""
 【已支持】
@@ -163,7 +163,7 @@ def show_capabilities():
   ✗ 闭包和 lambda
 
 【编译流程】
-  段言源代码 → AST → LLVM IR → 原生机器码 (.exe)
+  光明源代码 → AST → LLVM IR → 原生机器码 (.exe)
 """)
     print("=" * 70)
 

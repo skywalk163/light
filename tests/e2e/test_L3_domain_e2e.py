@@ -14,13 +14,13 @@ for _p in [_src_dir, _project_root]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 
-def _run_duan(code: str) -> str:
-    """编译并运行段言代码，返回标准输出"""
-    parser = DuanParser()
+def _run_light(code: str) -> str:
+    """编译并运行光明代码，返回标准输出"""
+    parser = LightParser()
     ast = parser.parse(code)
     if ast is None:
         errors = '\n'.join(getattr(parser, 'errors', []))
@@ -76,7 +76,7 @@ l3_sql_exec(DB, "INSERT INTO t VALUES (?,?)", [2, "李四"])
 遍历 行 于 结果:
     打印(行["id"], 行["name"])
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("行数: 2", output)
         self.assertIn("1 张三", output)
         self.assertIn("2 李四", output)
@@ -114,7 +114,7 @@ l3_sql_exec(DB, "INSERT INTO scores VALUES (?,?)", ["王五", 76.3])
 打印(s["mx"])
 打印(s["n"])
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("85.6", output)
         self.assertIn("92.0", output)
         self.assertIn("3", output)
@@ -149,7 +149,7 @@ l3_sql_exec(DB, "INSERT INTO users VALUES (?)", ["guest"])
 设 结果 = l3_sql_query(DB, "SELECT * FROM users WHERE name=?", [恶意输入])
 打印("找到:", 长度(结果))
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("找到: 0", output)
 
 
@@ -169,11 +169,11 @@ class TestL3_Regex_E2E(unittest.TestCase):
 结束引
 
 设 邮箱正则 = "[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+"
-打印(l3_re_match(邮箱正则, "test@duan-lang.org"))
+打印(l3_re_match(邮箱正则, "test@light-lang.org"))
 打印(l3_re_match(邮箱正则, "bad-email@"))
 打印(l3_re_match(邮箱正则, "user@example.com"))
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("True", output)
         self.assertIn("False", output)
 
@@ -193,7 +193,7 @@ class TestL3_Regex_E2E(unittest.TestCase):
 遍历 n 于 号码:
     打印(n)
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("2", output)
         self.assertIn("13812345678", output)
         self.assertIn("15987654321", output)
@@ -214,7 +214,7 @@ class TestL3_Regex_E2E(unittest.TestCase):
 打印(d["月"])
 打印(d["日"])
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("2026", output)
         self.assertIn("08", output)
         self.assertIn("04", output)
@@ -232,7 +232,7 @@ class TestL3_Regex_E2E(unittest.TestCase):
 设 新文本 = l3_re_sub("(\\d{4})-(\\d{2})-(\\d{2})", "\\1/\\2/\\3", 文本)
 打印(新文本)
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("2026/08/04", output)
         self.assertIn("2026/12/31", output)
 
@@ -257,7 +257,7 @@ class TestL3_Math_E2E(unittest.TestCase):
 设 解 = l3_math_solve_quadratic(2, 5, -3)
 打印(解)
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("-3.0", output)
         self.assertIn("0.5", output)
 
@@ -274,7 +274,7 @@ class TestL3_Math_E2E(unittest.TestCase):
 
 打印(l3_math_derivative("x**3 + 2*x**2 - 5*x + 7"))
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("3*x**2 + 4*x - 5", output)
 
     def test_integrate(self):
@@ -290,7 +290,7 @@ class TestL3_Math_E2E(unittest.TestCase):
 
 打印(l3_math_integrate("sin(x)", 0, 3.141592653589793))
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("2.0", output)
 
     def test_matrix_multiply(self):
@@ -311,7 +311,7 @@ class TestL3_Math_E2E(unittest.TestCase):
 遍历 c 于 C:
     打印(长度(c))
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("2", output)  # 2 行
 
     def test_simplify(self):
@@ -325,7 +325,7 @@ class TestL3_Math_E2E(unittest.TestCase):
 
 打印(l3_math_simplify("(x+1)*(x-1) + (x-2)**2"))
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("2*x**2 - 4*x + 3", output)
 
 

@@ -40,7 +40,7 @@ def generate_parser():
         cmd = [
             sys.executable, '-m', 'antlr4_tool_runner',
             '-Dlanguage=Python3', '-visitor', '-no-listener',
-            str(antlr_dir / 'DuanLangLexer.g4')
+            str(antlr_dir / 'LightLangLexer.g4')
         ]
         result = subprocess.run(cmd, cwd=antlr_dir, capture_output=True, text=True)
         if result.returncode == 0:
@@ -54,7 +54,7 @@ def generate_parser():
         cmd = [
             sys.executable, '-m', 'antlr4_tool_runner',
             '-Dlanguage=Python3', '-visitor', '-no-listener',
-            str(antlr_dir / 'DuanLangParser.g4')
+            str(antlr_dir / 'LightLangParser.g4')
         ]
         result = subprocess.run(cmd, cwd=antlr_dir, capture_output=True, text=True)
         if result.returncode == 0:
@@ -76,7 +76,7 @@ def generate_parser():
         return False
     
     print('\n[STEP 1] 生成词法分析器...')
-    cmd = ['java', '-jar', str(jar_file), '-Dlanguage=Python3', '-visitor', '-no-listener', 'DuanLangLexer.g4']
+    cmd = ['java', '-jar', str(jar_file), '-Dlanguage=Python3', '-visitor', '-no-listener', 'LightLangLexer.g4']
     result = subprocess.run(cmd, cwd=antlr_dir, capture_output=True, text=True)
     if result.returncode == 0:
         print('[OK] 词法分析器生成成功')
@@ -85,7 +85,7 @@ def generate_parser():
         return False
     
     print('\n[STEP 2] 生成语法分析器...')
-    cmd = ['java', '-jar', str(jar_file), '-Dlanguage=Python3', '-visitor', '-no-listener', 'DuanLangParser.g4']
+    cmd = ['java', '-jar', str(jar_file), '-Dlanguage=Python3', '-visitor', '-no-listener', 'LightLangParser.g4']
     result = subprocess.run(cmd, cwd=antlr_dir, capture_output=True, text=True)
     if result.returncode == 0:
         print('[OK] 语法分析器生成成功')
@@ -96,16 +96,16 @@ def generate_parser():
     return True
 
 if __name__ == '__main__':
-    print('段言编程语言 - ANTLR解析器生成')
+    print('光明编程语言 - ANTLR解析器生成')
     print('=' * 60)
     
     if generate_parser():
         print('\n[SUCCESS] 所有解析器代码生成完成！')
         print('\n下一步:')
-        print('  python compile.py test_unified.duan')
+        print('  python compile.py test_unified.light')
     else:
         print('\n[FAILED] 解析器生成失败')
         print('\n备选方案:')
-        print('  1. 使用现有的手写解析器: python compile.py test_unified.duan')
+        print('  1. 使用现有的手写解析器: python compile.py test_unified.light')
         print('  2. 手动下载ANTLR jar: https://www.antlr.org/download/')
         sys.exit(1)

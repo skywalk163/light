@@ -9,14 +9,14 @@ stdin, stdout, stderr = client.exec_command('pkill -f "ollama run" 2>/dev/null')
 stdout.read(); stderr.read()
 
 # Write prompt to file
-prompt = "用段言v3.2语法重写以下Python代码。\n\nPython代码:\nx = 5\ny = 10\nprint(x + y)"
+prompt = "用光明v3.2语法重写以下Python代码。\n\nPython代码:\nx = 5\ny = 10\nprint(x + y)"
 sftp = client.open_sftp()
 with sftp.file('/home/trae/test_prompt.txt', 'w') as f:
     f.write(prompt)
 sftp.close()
 
 # Run with file input
-stdin, stdout, stderr = client.exec_command('cat /home/trae/test_prompt.txt | ollama run duan-translator 2>&1')
+stdin, stdout, stderr = client.exec_command('cat /home/trae/test_prompt.txt | ollama run light-translator 2>&1')
 print('Waiting for inference...')
 out = stdout.read().decode()
 err = stderr.read().decode()

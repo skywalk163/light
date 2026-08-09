@@ -1,5 +1,5 @@
 """
-段言 C FFI 第二阶段测试：指针、数组、错误处理
+光明 C FFI 第二阶段测试：指针、数组、错误处理
 """
 
 import sys
@@ -10,10 +10,10 @@ import platform
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))
 
-from duan_parser_v3 import DuanParser, FFILoadLibrary, FFIFunctionDecl, FFIStructDef, FFICallbackDef
-from duan_parser_v3 import FFIPointerType, FFIArrayType, FFIAddressOf, FFIDereference
-from duan_parser_v3 import FFIPointerOffset, FFISetPointerValue, FFIAllocMemory, FFIFreeMemory
-from duan_parser_v3 import FFICreateArray, FFISetArrayElement, FFIGetLastError, FFIGetErrno, FFISetErrno, FFITryCatch
+from light_parser_v3 import LightParser, FFILoadLibrary, FFIFunctionDecl, FFIStructDef, FFICallbackDef
+from light_parser_v3 import FFIPointerType, FFIArrayType, FFIAddressOf, FFIDereference
+from light_parser_v3 import FFIPointerOffset, FFISetPointerValue, FFIAllocMemory, FFIFreeMemory
+from light_parser_v3 import FFICreateArray, FFISetArrayElement, FFIGetLastError, FFIGetErrno, FFISetErrno, FFITryCatch
 from code_generator import PythonCodeGenerator
 
 
@@ -24,7 +24,7 @@ from code_generator import PythonCodeGenerator
 def test_parse_ffi_try_catch():
     """测试解析 FFI try-catch"""
     code = '尝试：\n设 结果 为 正弦(1.0)。\n捕获 外部错误 为 甲：\n打印("错误：" + 甲)。\n。\n'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     # 应该解析为 TryStmt
     assert len(module.statements) > 0
@@ -34,7 +34,7 @@ def test_parse_ffi_try_catch():
 def test_parse_pointer_operations():
     """测试解析指针操作语法"""
     code = '设 甲 为 取地址(乙)。\n设 丙 为 解引用(甲)。\n'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     assert len(module.statements) == 2
     print("  [OK] 解析指针操作")
@@ -43,7 +43,7 @@ def test_parse_pointer_operations():
 def test_parse_array_operations():
     """测试解析数组操作语法"""
     code = '设 数组 为 创建数组(整数, 5)。\n设置数组(数组, 0, 42)。\n'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     assert len(module.statements) == 2
     print("  [OK] 解析数组操作")
@@ -52,7 +52,7 @@ def test_parse_array_operations():
 def test_parse_memory_operations():
     """测试解析内存操作语法"""
     code = '设 内存 为 分配内存(1024)。\n释放内存(内存)。\n'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     assert len(module.statements) == 2
     print("  [OK] 解析内存操作")
@@ -61,7 +61,7 @@ def test_parse_memory_operations():
 def test_parse_error_operations():
     """测试解析错误操作语法"""
     code = '设 错误码 为 系统错误码()。\n设系统错误码(0)。\n设 错误 为 FFI错误()。\n'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     assert len(module.statements) == 3
     print("  [OK] 解析错误操作")
@@ -74,41 +74,41 @@ def test_parse_error_operations():
 def test_codegen_pointer_ops():
     """测试代码生成指针操作"""
     code = '设 甲 为 取地址(乙)。\n设 丙 为 解引用(甲)。\n'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     gen = PythonCodeGenerator()
     result = gen.generate(module)
-    assert '_duan_ffi.取地址' in result
-    assert '_duan_ffi.解引用' in result
+    assert '_light_ffi.取地址' in result
+    assert '_light_ffi.解引用' in result
     print("  [OK] 代码生成指针操作")
 
 
 def test_codegen_array_ops():
     """测试代码生成数组操作"""
     code = '设 数组 为 创建数组(整数, 5)。\n'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     gen = PythonCodeGenerator()
     result = gen.generate(module)
-    assert '_duan_ffi.创建数组' in result
+    assert '_light_ffi.创建数组' in result
     print("  [OK] 代码生成数组操作")
 
 
 def test_codegen_error_ops():
     """测试代码生成错误操作"""
     code = '设 错误码 为 系统错误码()。\n'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     gen = PythonCodeGenerator()
     result = gen.generate(module)
-    assert '_duan_ffi.获取系统错误码' in result
+    assert '_light_ffi.获取系统错误码' in result
     print("  [OK] 代码生成错误操作")
 
 
 def test_codegen_ffi_try_catch():
     """测试代码生成 FFI try-catch"""
     code = '尝试：\n设 结果 为 正弦(1.0)。\n捕获 外部错误 为 甲：\n打印("错误：" + 甲)。\n。\n'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     gen = PythonCodeGenerator()
     result = gen.generate(module)
@@ -299,7 +299,7 @@ def test_new_ffi_ast_nodes():
 # =============================================================================
 
 if __name__ == '__main__':
-    print("=== 段言 C FFI 第二阶段测试：指针/数组/错误处理 ===\n")
+    print("=== 光明 C FFI 第二阶段测试：指针/数组/错误处理 ===\n")
 
     print("【解析器测试】")
     test_parse_ffi_try_catch()

@@ -5,7 +5,7 @@ client = paramiko.SSHClient()
 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 client.connect(SSH_HOST, username=SSH_USER_TRAE, password=SSH_PASS_TRAE, timeout=30)
 
-# Test cases - Python to DuanLang translation
+# Test cases - Python to LightLang translation
 test_cases = [
     ('x = 5\ny = 10\nprint(x + y)', '变量赋值和打印'),
     ('for i in range(10):\n    print(i)', 'for循环'),
@@ -16,11 +16,11 @@ test_cases = [
 ]
 
 for code, desc in test_cases:
-    stdin, stdout, stderr = client.exec_command(f'''ollama run duan-translator "用段言v3.2语法重写以下Python代码。\n\nPython代码:\n{code}" 2>&1''')
+    stdin, stdout, stderr = client.exec_command(f'''ollama run light-translator "用光明v3.2语法重写以下Python代码。\n\nPython代码:\n{code}" 2>&1''')
     result = stdout.read().decode().strip()
     print(f'=== 测试: {desc} ===')
     print(f'Python:\n{code}')
-    print(f'DuanLang:\n{result}')
+    print(f'LightLang:\n{result}')
     print()
 
 client.close()

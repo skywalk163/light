@@ -1,28 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言 AI Copilot — 命令行入口
+光明 AI Copilot — 命令行入口
 
-集成到 duan CLI 的子命令，提供算力不足场景下的段言代码生成辅助。
+集成到 light CLI 的子命令，提供算力不足场景下的光明代码生成辅助。
 
 用法：
     # 生成 prompt（粘贴给任意 AI 使用）
-    duan ai prompt "写一个二分查找函数"
-    duan ai prompt --mode translate "def add(a, b): return a + b"
-    duan ai prompt --mode paragraph "写一个阶乘段落"
+    light ai prompt "写一个二分查找函数"
+    light ai prompt --mode translate "def add(a, b): return a + b"
+    light ai prompt --mode paragraph "写一个阶乘段落"
 
     # 输出语法速查卡（精简版/完整版）
-    duan ai card
-    duan ai card --full
+    light ai card
+    light ai card --full
 
     # 列出代码片段库
-    duan ai snippets
+    light ai snippets
 
-    # Python→段言对照示例
-    duan ai examples
+    # Python→光明对照示例
+    light ai examples
 
-    # 校验段言代码（语法检查 + 运行）
-    duan ai check hello.duan
+    # 校验光明代码（语法检查 + 运行）
+    light ai check hello.light
 """
 
 import argparse
@@ -91,14 +91,14 @@ def cmd_snippets(args):
 
 
 def cmd_examples(args):
-    """输出 Python→段言对照示例"""
+    """输出 Python→光明对照示例"""
     _ensure_utf8()
     from syntax_card import generate_example_pairs
     print(generate_example_pairs())
 
 
 def cmd_check(args):
-    """校验段言代码文件"""
+    """校验光明代码文件"""
     _ensure_utf8()
     filepath = args.file
 
@@ -109,7 +109,7 @@ def cmd_check(args):
     # Step 1: 语法检查
     print(f"[1/2] 语法检查: {filepath}")
     result = subprocess.run(
-        [sys.executable, '-m', 'cli.duan', 'check', filepath],
+        [sys.executable, '-m', 'cli.light', 'check', filepath],
         capture_output=True, text=True, encoding='utf-8',
         cwd=_PROJECT_DIR,
     )
@@ -125,7 +125,7 @@ def cmd_check(args):
     if args.run:
         print(f"[2/2] 运行测试: {filepath}")
         result = subprocess.run(
-            [sys.executable, '-m', 'cli.duan', 'run', filepath],
+            [sys.executable, '-m', 'cli.light', 'run', filepath],
             capture_output=True, text=True, encoding='utf-8',
             cwd=_PROJECT_DIR,
             timeout=args.timeout,
@@ -147,13 +147,13 @@ def cmd_check(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        prog='duan ai',
-        description='段言 AI Copilot — 算力不足场景下的段言代码生成辅助工具',
+        prog='light ai',
+        description='光明 AI Copilot — 算力不足场景下的光明代码生成辅助工具',
     )
     subparsers = parser.add_subparsers(dest='command', help='子命令')
 
     # prompt 子命令
-    p_prompt = subparsers.add_parser('prompt', help='生成让 AI 写段言代码的 prompt')
+    p_prompt = subparsers.add_parser('prompt', help='生成让 AI 写光明代码的 prompt')
     p_prompt.add_argument('input', help='需求描述或 Python 代码（也支持文件路径）')
     p_prompt.add_argument('--mode', choices=['auto', 'translate', 'create', 'paragraph'],
                          default='auto', help='生成模式（默认 auto 自动检测）')
@@ -161,7 +161,7 @@ def main():
     p_prompt.set_defaults(func=cmd_prompt)
 
     # card 子命令
-    p_card = subparsers.add_parser('card', help='输出段言语法速查卡')
+    p_card = subparsers.add_parser('card', help='输出光明语法速查卡')
     p_card.add_argument('--full', action='store_true', help='完整版（默认精简版）')
     p_card.add_argument('--verbs', action='store_true', help='包含动词参数参照表')
     p_card.set_defaults(func=cmd_card)
@@ -172,12 +172,12 @@ def main():
     p_snippets.set_defaults(func=cmd_snippets)
 
     # examples 子命令
-    p_examples = subparsers.add_parser('examples', help='Python→段言对照示例')
+    p_examples = subparsers.add_parser('examples', help='Python→光明对照示例')
     p_examples.set_defaults(func=cmd_examples)
 
     # check 子命令
-    p_check = subparsers.add_parser('check', help='校验段言代码（语法+运行）')
-    p_check.add_argument('file', help='段言代码文件路径')
+    p_check = subparsers.add_parser('check', help='校验光明代码（语法+运行）')
+    p_check.add_argument('file', help='光明代码文件路径')
     p_check.add_argument('--run', action='store_true', help='同时运行测试')
     p_check.add_argument('--timeout', type=int, default=10, help='运行超时秒数（默认10）')
     p_check.set_defaults(func=cmd_check)

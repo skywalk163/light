@@ -6,12 +6,12 @@ sys.path.insert(0, os.path.join(os.getcwd(), 'src'))
 
 
 def _run_lsp_protocol_test():
-    from compiler import DuanCompiler
+    from compiler import LightCompiler
 
-    compiler = DuanCompiler()
+    compiler = LightCompiler()
 
     # 读取源文件
-    source_file = os.path.join(os.getcwd(), 'lsp', 'lsp_protocol.duan')
+    source_file = os.path.join(os.getcwd(), 'lsp', 'lsp_protocol.light')
     source = open(source_file, 'r', encoding='utf-8').read()
 
     # 编译

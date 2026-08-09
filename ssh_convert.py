@@ -7,7 +7,7 @@ client.connect(SSH_HOST, username=SSH_USER_TRAE, password=SSH_PASS_TRAE, timeout
 
 cmds = [
     'cd /home/trae && git clone --depth 1 https://github.com/ggerganov/llama.cpp.git 2>&1 | tail -5',
-    'cd /home/trae/llama.cpp && python3.12 convert_hf_to_gguf.py /home/trae/duan_model --outfile /home/trae/duan_translator.gguf --outtype f16 2>&1',
+    'cd /home/trae/llama.cpp && python3.12 convert_hf_to_gguf.py /home/trae/light_model --outfile /home/trae/light_translator.gguf --outtype f16 2>&1',
 ]
 
 for cmd in cmds:

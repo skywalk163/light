@@ -1,5 +1,5 @@
 """
-段言标准库扩展测试 - ANTLR 后端
+光明标准库扩展测试 - ANTLR 后端
 
 测试新增的各个模块功能：
 - 日期时间模块
@@ -13,8 +13,8 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from duan_visitor import parse_source
-from duan_interpreter import Interpreter
+from light_visitor import parse_source
+from light_interpreter import Interpreter
 
 
 def run_test(name, source, expected_contains=None):
@@ -54,29 +54,29 @@ def run_direct_test(name, func, args, expected_check=None):
     print(f"\n=== {name} ===")
     try:
         interp = Interpreter()
-        # 将 Python 值包装为 DuanValue
-        from duan_interpreter import DuanValue
+        # 将 Python 值包装为 LightValue
+        from light_interpreter import LightValue
         
-        duan_args = []
+        light_args = []
         for a in args:
             if isinstance(a, bool):
-                duan_args.append(DuanValue(a, '布尔'))
+                light_args.append(LightValue(a, '布尔'))
             elif isinstance(a, int):
-                duan_args.append(DuanValue(a, '数'))
+                light_args.append(LightValue(a, '数'))
             elif isinstance(a, float):
-                duan_args.append(DuanValue(a, '数'))
+                light_args.append(LightValue(a, '数'))
             elif isinstance(a, str):
-                duan_args.append(DuanValue(a, '串'))
+                light_args.append(LightValue(a, '串'))
             elif isinstance(a, list):
-                duan_args.append(DuanValue(a, '列'))
+                light_args.append(LightValue(a, '列'))
             elif isinstance(a, dict):
-                duan_args.append(DuanValue(a, '典'))
+                light_args.append(LightValue(a, '典'))
             elif a is None:
-                duan_args.append(DuanValue(None, '空'))
+                light_args.append(LightValue(None, '空'))
             else:
-                duan_args.append(DuanValue(a))
+                light_args.append(LightValue(a))
         
-        result = func(duan_args)
+        result = func(light_args)
         print(f"  结果: {result.value} (类型: {result.type_name})")
         
         if expected_check and not expected_check(result):
@@ -98,7 +98,7 @@ def test_all():
     failed = 0
     
     print("=" * 60)
-    print("段言标准库扩展测试")
+    print("光明标准库扩展测试")
     print("=" * 60)
     
     # ========== 测试1: 随机整数 ==========
@@ -165,16 +165,16 @@ def test_all():
     
     # ========== 测试9: JSON 解析 ==========
     def check_parse_json(r):
-        return r.type_name == '典' and r.value.get('name') == '段言'
-    if run_direct_test('解析JSON', Interpreter()._builtin_parse_json, ['{"name": "段言", "version": 1}'], check_parse_json):
+        return r.type_name == '典' and r.value.get('name') == '光明'
+    if run_direct_test('解析JSON', Interpreter()._builtin_parse_json, ['{"name": "光明", "version": 1}'], check_parse_json):
         passed += 1
     else:
         failed += 1
     
     # ========== 测试10: JSON 序列化 ==========
     def check_stringify_json(r):
-        return isinstance(r.value, str) and '段言' in r.value
-    if run_direct_test('序列化JSON', Interpreter()._builtin_stringify_json, [{'name': '段言'}], check_stringify_json):
+        return isinstance(r.value, str) and '光明' in r.value
+    if run_direct_test('序列化JSON', Interpreter()._builtin_stringify_json, [{'name': '光明'}], check_stringify_json):
         passed += 1
     else:
         failed += 1
@@ -214,7 +214,7 @@ def test_all():
     # ========== 测试15: MD5 ==========
     def check_md5(r):
         return isinstance(r.value, str) and len(r.value) == 32
-    if run_direct_test('MD5("段言")', Interpreter()._builtin_md5, ['段言'], check_md5):
+    if run_direct_test('MD5("光明")', Interpreter()._builtin_md5, ['光明'], check_md5):
         passed += 1
     else:
         failed += 1
@@ -222,19 +222,19 @@ def test_all():
     # ========== 测试16: SHA256 ==========
     def check_sha256(r):
         return isinstance(r.value, str) and len(r.value) == 64
-    if run_direct_test('SHA256("段言")', Interpreter()._builtin_sha256, ['段言'], check_sha256):
+    if run_direct_test('SHA256("光明")', Interpreter()._builtin_sha256, ['光明'], check_sha256):
         passed += 1
     else:
         failed += 1
     
     # ========== 测试17: Base64 编解码 ==========
-    if run_direct_test('Base64编码("段言")', Interpreter()._builtin_base64_encode, ['段言']):
+    if run_direct_test('Base64编码("光明")', Interpreter()._builtin_base64_encode, ['光明']):
         passed += 1
     else:
         failed += 1
     
     def check_b64_decode(r):
-        return r.value == '段言'
+        return r.value == '光明'
     if run_direct_test('Base64解码(编码结果)', Interpreter()._builtin_base64_decode, ['5q616KiA'], check_b64_decode):
         passed += 1
     else:
@@ -242,8 +242,8 @@ def test_all():
     
     # ========== 测试18: 正则匹配 ==========
     def check_regex_match(r):
-        return r.value is not None and '段言' in str(r.value)
-    if run_direct_test('正则匹配("段\\\\w+", "段言语言")', Interpreter()._builtin_regex_match, [r'段\w+', '段言语言'], check_regex_match):
+        return r.value is not None and '光明' in str(r.value)
+    if run_direct_test('正则匹配("段\\\\w+", "光明语言")', Interpreter()._builtin_regex_match, [r'段\w+', '光明语言'], check_regex_match):
         passed += 1
     else:
         failed += 1
@@ -280,7 +280,7 @@ def test_all():
     else:
         failed += 1
     
-    # ========== 测试23: 段言源码执行 - 随机整数 ==========
+    # ========== 测试23: 光明源码执行 - 随机整数 ==========
     source1 = """设 结果 为 随机整数(1, 100)。
 打印(结果)。
 """
@@ -289,8 +289,8 @@ def test_all():
     else:
         failed += 1
     
-    # ========== 测试24: 段言源码执行 - JSON ==========
-    source2 = """设 数据 为 parseJSON('{"name": "段言", "year": 2026}')。
+    # ========== 测试24: 光明源码执行 - JSON ==========
+    source2 = """设 数据 为 parseJSON('{"name": "光明", "year": 2026}')。
 打印(数据)。
 """
     if run_test('源码:解析JSON', source2):
@@ -298,7 +298,7 @@ def test_all():
     else:
         failed += 1
     
-    # ========== 测试25: 段言源码执行 - 日期时间 ==========
+    # ========== 测试25: 光明源码执行 - 日期时间 ==========
     source3 = """设 现在 为 当前时间()。
 打印(现在)。
 设 今日 为 当前日期()。
@@ -311,10 +311,10 @@ def test_all():
     else:
         failed += 1
     
-    # ========== 测试26: 段言源码执行 - 正则 ==========
+    # ========== 测试26: 光明源码执行 - 正则 ==========
     source4 = """设 结果 为 查找所有('\\\\d+', 'a1b2c3')。
 打印(结果)。
-设 替换后 为 替换('世界', '段言', '你好世界')。
+设 替换后 为 替换('世界', '光明', '你好世界')。
 打印(替换后)。
 """
     if run_test('源码:正则', source4):
@@ -322,10 +322,10 @@ def test_all():
     else:
         failed += 1
     
-    # ========== 测试27: 段言源码执行 - 哈希 ==========
-    source5 = """设 md5值 为 MD5('段言')。
+    # ========== 测试27: 光明源码执行 - 哈希 ==========
+    source5 = """设 md5值 为 MD5('光明')。
 打印(md5值)。
-设 b64 为 Base64编码('段言')。
+设 b64 为 Base64编码('光明')。
 打印(b64)。
 """
     if run_test('源码:哈希', source5):
@@ -333,7 +333,7 @@ def test_all():
     else:
         failed += 1
     
-    # ========== 测试28: 段言源码执行 - 数学统计 ==========
+    # ========== 测试28: 光明源码执行 - 数学统计 ==========
     source6 = """设 阶乘结果 为 阶乘(5)。
 打印(阶乘结果)。
 设 和数据 为 [1, 2, 3, 4, 5]。

@@ -1,5 +1,5 @@
 """
-段言包系统测试（package_manager + module_resolver + compiler 扩展测试
+光明包系统测试（package_manager + module_resolver + compiler 扩展测试
 
 关键功能测试
 """
@@ -19,7 +19,7 @@ sys.path.insert(0, str(_src_dir))
 
 def _make_temp_project_dir():
     """生成临时项目目录（用完自动清理。"""
-    tmp_root = Path(tempfile.mkdtemp(prefix="duan_pkg_"))
+    tmp_root = Path(tempfile.mkdtemp(prefix="light_pkg_"))
     return tmp_root
 
 
@@ -37,14 +37,14 @@ class TestTomlParsing(unittest.TestCase):
         # 基本字段解析
         from package_manager import PackageManager
         (self.tmp / "package.toml").write_text(
-            "[package]\nname = \"示例\"\nversion = \"1.0.0\"\nentry = \"主.duan\"\nauthors = [\"测试员\"]\n\n[dependencies]\n数学 = \"1.0\"\n", encoding="utf-8")
-        (self.tmp / "主.duan").write_text("段 主():\\n    打印(\"你好\")\n结束。\n", encoding="utf-8")
+            "[package]\nname = \"示例\"\nversion = \"1.0.0\"\nentry = \"主.light\"\nauthors = [\"测试员\"]\n\n[dependencies]\n数学 = \"1.0\"\n", encoding="utf-8")
+        (self.tmp / "主.light").write_text("段 主():\\n    打印(\"你好\")\n结束。\n", encoding="utf-8")
         pm = PackageManager(self.tmp)
         cfg = pm.load_config()
         self.assertIsNotNone(cfg)
         self.assertEqual(cfg.name, "示例")
         self.assertEqual(cfg.version, "1.0.0")
-        self.assertEqual(cfg.entry, "主.duan")
+        self.assertEqual(cfg.entry, "主.light")
         self.assertEqual(cfg.authors, ["测试员"])
         self.assertIn("数学", cfg.dependencies)
 
@@ -56,13 +56,13 @@ class TestTomlParsing(unittest.TestCase):
         self.assertIsNone(cfg)
 
     def test_init_project_creates_files(self):
-        # init_project 生成 package.toml 和 主.duan
+        # init_project 生成 package.toml 和 主.light
         from package_manager import PackageManager
         pm = PackageManager(self.tmp)
         ok = pm.init_project("测试项目")
         self.assertTrue(ok)
         self.assertTrue((self.tmp / "package.toml").exists())
-        self.assertTrue((self.tmp / "主.duan").exists())
+        self.assertTrue((self.tmp / "主.light").exists())
 
 
 class TestModuleLookup(unittest.TestCase):
@@ -70,7 +70,7 @@ class TestModuleLookup(unittest.TestCase):
 
     def setUp(self):
         self.tmp = _make_temp_project_dir()
-        (self.tmp / "数学.duan").write_text(
+        (self.tmp / "数学.light").write_text(
             "段 加(甲, 乙):\\n    返回 甲 加 乙。\\n结束。\\n",
             encoding="utf-8")
 
@@ -98,8 +98,8 @@ class TestBuildProject(unittest.TestCase):
     def setUp(self):
         self.tmp = _make_temp_project_dir()
         (self.tmp / "package.toml").write_text(
-            "[package]\nname = \"测试项目\"\nversion = \"0.1.0\"\nentry = \"主.duan\"\n\n[dependencies]\n", encoding="utf-8")
-        (self.tmp / "主.duan").write_text(
+            "[package]\nname = \"测试项目\"\nversion = \"0.1.0\"\nentry = \"主.light\"\n\n[dependencies]\n", encoding="utf-8")
+        (self.tmp / "主.light").write_text(
             "段 主():\\n    打印(\"测试\")\\n结束。\\n", encoding="utf-8")
 
     def tearDown(self):
@@ -121,7 +121,7 @@ class TestModuleDependencyResolver(unittest.TestCase):
     def setUp(self):
         self.tmp = _make_temp_project_dir()
         # 创建主模块导入 工具
-        (self.tmp / "工具.duan").write_text(
+        (self.tmp / "工具.light").write_text(
             "段 打印(内容):\\n    返回 内容。\\n结束。\\n", encoding="utf-8")
 
     def tearDown(self):
@@ -143,8 +143,8 @@ class TestModuleDependencyResolver(unittest.TestCase):
     def test_circular_dependency_detection(self):
         from module_resolver import ModuleDependencyResolver, CircularDependencyError
         # A -> B -> A
-        (self.tmp / "甲.duan").write_text("导入 乙。\n", encoding="utf-8")
-        (self.tmp / "乙.duan").write_text("导入 甲。\n", encoding="utf-8")
+        (self.tmp / "甲.light").write_text("导入 乙。\n", encoding="utf-8")
+        (self.tmp / "乙.light").write_text("导入 甲。\n", encoding="utf-8")
         resolver = ModuleDependencyResolver([self.tmp])
         with self.assertRaises(CircularDependencyError):
             resolver.resolve_all("甲", "导入 乙。\n")

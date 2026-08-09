@@ -8,21 +8,21 @@
 ## 通过 pip 安装
 
 ```bash
-pip install duan4
+pip install light
 ```
 
 ## 从源码安装
 
 ```bash
-git clone https://github.com/duan-lang/duan.git
-cd duan
+git clone https://github.com/light-lang/light.git
+cd light
 pip install -e .
 ```
 
 ## 验证安装
 
 ```bash
-duan --version
+light --version
 ```
 
 ## 可选依赖

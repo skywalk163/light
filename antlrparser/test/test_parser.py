@@ -1,5 +1,5 @@
 """
-段言 ANTLR 解析器测试
+光明 ANTLR 解析器测试
 
 测试 ANTLR 生成的词法分析器和语法解析器
 使用自定义中文分词器进行词法分析
@@ -12,8 +12,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # 尝试导入生成的解析器
 try:
-    from duan_parser.DuanLangLexer import DuanLangLexer
-    from duan_parser.DuanLangParser import DuanLangParser
+    from light_parser.LightLangLexer import LightLangLexer
+    from light_parser.LightLangParser import LightLangParser
     HAS_GENERATED_PARSER = True
 except ImportError:
     HAS_GENERATED_PARSER = False
@@ -22,7 +22,7 @@ from antlr4 import *
 from antlr4.error.ErrorListener import ErrorListener
 
 # 导入自定义分词器
-from duan_tokenizer import DuanLangTokenizer, create_antlr_token_stream
+from light_tokenizer import LightLangTokenizer, create_antlr_token_stream
 
 
 class TestErrorListener(ErrorListener):
@@ -40,7 +40,7 @@ class TestErrorListener(ErrorListener):
 
 def tokenize_with_custom(source: str):
     """使用自定义分词器进行词法分析"""
-    tokenizer = DuanLangTokenizer()
+    tokenizer = LightLangTokenizer()
     return tokenizer.tokenize(source)
 
 
@@ -71,12 +71,12 @@ def _test_parsing_sample(filepath: str):
     
     # 使用自定义分词器 + ANTLR 解析器
     input_stream = InputStream(source)
-    antlr_lexer = DuanLangLexer(input_stream)
+    antlr_lexer = LightLangLexer(input_stream)
     error_listener = TestErrorListener()
     
     token_stream = create_antlr_token_stream(source, antlr_lexer)
     
-    parser = DuanLangParser(token_stream)
+    parser = LightLangParser(token_stream)
     parser.removeErrorListeners()
     parser.addErrorListener(error_listener)
     
@@ -134,12 +134,12 @@ def test_punctuation_dual_mode():
 
 
 if __name__ == '__main__':
-    print("=== 段言 ANTLR 解析器测试 ===\n")
+    print("=== 光明 ANTLR 解析器测试 ===\n")
     
     if not HAS_GENERATED_PARSER:
         print("[提示] 请先运行以下命令生成解析器:")
-        print("  cd antlrparser && .venv\\Scripts\\activate && antlr4 -Dlanguage=Python3 DuanLangLexer.g4 -o duan_parser -no-listener -visitor")
-        print("  antlr4 -Dlanguage=Python3 DuanLangParser.g4 -o duan_parser -no-listener -visitor\n")
+        print("  cd antlrparser && .venv\\Scripts\\activate && antlr4 -Dlanguage=Python3 LightLangLexer.g4 -o light_parser -no-listener -visitor")
+        print("  antlr4 -Dlanguage=Python3 LightLangParser.g4 -o light_parser -no-listener -visitor\n")
     
     # 运行测试
     tests = [
@@ -164,7 +164,7 @@ if __name__ == '__main__':
     # 测试样本文件解析
     sample_dir = os.path.dirname(os.path.abspath(__file__))
     for fname in sorted(os.listdir(sample_dir)):
-        if fname.endswith('.duan'):
+        if fname.endswith('.light'):
             filepath = os.path.join(sample_dir, fname)
             print(f"[解析样本: {fname}]")
             try:

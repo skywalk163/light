@@ -20,8 +20,8 @@ all_ok = True
 print("=" * 50)
 print("1. 验证分词器（ANTLR后端）")
 print("=" * 50)
-from antlrparser.duan_tokenizer import DuanLangTokenizer
-tokenizer = DuanLangTokenizer()
+from antlrparser.light_tokenizer import LightLangTokenizer
+tokenizer = LightLangTokenizer()
 
 token_tests = [
     ('加上', 'K_PLUS_ASSIGN'),
@@ -70,7 +70,7 @@ print()
 print("=" * 50)
 print("2. Python 后端（解析+代码生成）")
 print("=" * 50)
-from duan_parser_v3 import DuanParser as PyParser, CompoundAssignment
+from light_parser_v3 import DuanParser as PyParser, CompoundAssignment
 from code_generator import PythonCodeGenerator
 
 def test_py(name, source, expected_py=None):
@@ -116,7 +116,7 @@ test_py('幂以', '甲 幂以 2。', '甲 **= 2')
 # 验证与普通赋值不冲突
 print()
 print("  验证与普通赋值不冲突:")
-from duan_parser_v3 import VarDecl
+from light_parser_v3 import VarDecl
 parser = PyParser()
 module = parser.parse('甲 等于 10。')
 stmt = module.statements[0]
@@ -132,12 +132,12 @@ print("=" * 50)
 print("3. ANTLR 后端（解析+访问器）")
 print("=" * 50)
 sys.path.insert(0, os.path.join('.', 'antlrparser'))
-from antlrparser.duan_visitor import DuanParser as DuanLangVisitor
+from antlrparser.light_visitor import DuanParser as LightLangVisitor
 
 def test_antlr(name, source, expected_target=None, expected_op=None, expected_val=None):
     global all_ok
     try:
-        visitor = DuanLangVisitor()
+        visitor = LightLangVisitor()
         module = visitor.parse(source)
         if not module or not module.statements:
             print(f'  FAIL: {name}: 无语句')
@@ -174,7 +174,7 @@ print()
 print("=" * 50)
 print("4. ANTLR 解释器执行测试")
 print("=" * 50)
-from antlrparser.duan_interpreter import run_source
+from antlrparser.light_interpreter import run_source
 
 def test_run(name, source, expected_output=None):
     global all_ok

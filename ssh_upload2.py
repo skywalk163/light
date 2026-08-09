@@ -8,8 +8,8 @@ client.connect(SSH_HOST, username=SSH_USER_TRAE, password=SSH_PASS_TRAE, timeout
 
 sftp = client.open_sftp()
 
-src_dir = r'Z:\kaggle\working\duan\tools\ai_copilot\output\duan_translator_merged_0.5b'
-dst_dir = '/home/trae/duan_model'
+src_dir = r'Z:\kaggle\working\light\tools\ai_copilot\output\light_translator_merged_0.5b'
+dst_dir = '/home/trae/light_model'
 
 # Ensure remote dir exists
 stdin, stdout, stderr = client.exec_command(f'mkdir -p {dst_dir}')

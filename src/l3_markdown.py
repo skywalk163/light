@@ -1,10 +1,10 @@
 """
-段言 L3 领域嵌入 - Markdown 文档 DSL
+光明 L3 领域嵌入 - Markdown 文档 DSL
 ====================================
 提供中文语法的 Markdown 文档生成能力。
 支持标题、段落、列表、表格、代码块等文档结构。
 
-用法示例（在 .duan 文件中）：
+用法示例（在 .light 文件中）：
     引 Python:
         from l3_markdown import L3Markdown
         l3_md = L3Markdown()

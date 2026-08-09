@@ -9,7 +9,7 @@ from ssh_config import SSH_HOST, SSH_USER_DUMATE, SSH_PASS_DUMATE2
 HOST = SSH_HOST
 USER = SSH_USER_DUMATE
 PASS = SSH_PASS_DUMATE2
-GGUF = "/home/skywalk/Downloads/kaggle/working/duan/tools/ai_copilot/output/duan_translator_merged_3.5_2b/duan_translator_q4_k_m.gguf"
+GGUF = "/home/skywalk/Downloads/kaggle/working/light/tools/ai_copilot/output/light_translator_merged_3.5_2b/light_translator_q4_k_m.gguf"
 
 def run(ssh, cmd, timeout=60):
     print(f"\n$ {cmd}")

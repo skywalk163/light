@@ -3,10 +3,10 @@
 第3周 错误信息与调试体验增强 测试
 
 测试内容：
-- DuanError 格式化（含 fix_suggestions）
+- LightError 格式化（含 fix_suggestions）
 - format_source_context 增强
 - format_error_with_context
-- DuanErrorFormatter
+- LightErrorFormatter
 - DebugEngine 基本功能
 - REPL 命令处理
 """
@@ -24,13 +24,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # 3.1 错误格式测试
 # =============================================================================
 
-class TestDuanErrorFormat:
-    """测试 DuanError 格式化"""
+class TestLightErrorFormat:
+    """测试 LightError 格式化"""
 
-    def test_duan_error_with_fix_suggestions(self):
-        """测试带修复建议的 DuanError"""
-        from errors import DuanError
-        err = DuanError(
+    def test_light_error_with_fix_suggestions(self):
+        """测试带修复建议的 LightError"""
+        from errors import LightError
+        err = LightError(
             "未定义的变量",
             line=5,
             col=10,
@@ -47,11 +47,11 @@ class TestDuanErrorFormat:
             '在使用变量前先声明: 设 变量名 为 值',
         ]
 
-    def test_duan_error_with_source_lines(self):
-        """测试带源代码行的 DuanError"""
-        from errors import DuanError
+    def test_light_error_with_source_lines(self):
+        """测试带源代码行的 LightError"""
+        from errors import LightError
         source_lines = ['设 甲 为 10', '打印(甲)', '打印(乙)']
-        err = DuanError(
+        err = LightError(
             "未定义的变量: 乙",
             line=3,
             col=4,
@@ -60,16 +60,16 @@ class TestDuanErrorFormat:
         assert err.source_lines == source_lines
         assert "未定义的变量" in str(err)
 
-    def test_duan_error_no_fix_suggestions(self):
-        """测试不带修复建议的 DuanError"""
-        from errors import DuanError
-        err = DuanError("简单错误")
+    def test_light_error_no_fix_suggestions(self):
+        """测试不带修复建议的 LightError"""
+        from errors import LightError
+        err = LightError("简单错误")
         assert err.fix_suggestions == []
 
-    def test_duan_error_with_hint(self):
-        """测试带提示的 DuanError"""
-        from errors import DuanError
-        err = DuanError("错误", hint="试试这个", fix_suggestions=['建议1'])
+    def test_light_error_with_hint(self):
+        """测试带提示的 LightError"""
+        from errors import LightError
+        err = LightError("错误", hint="试试这个", fix_suggestions=['建议1'])
         assert "提示" in str(err)
         assert "试试这个" in str(err)
         assert "修复建议" in str(err)
@@ -184,58 +184,58 @@ class TestFormatErrorWithContext:
 
     def test_format_error_without_source(self):
         """测试无源代码的错误格式化"""
-        from errors import format_error_with_context, DuanError
-        err = DuanError("简单错误")
+        from errors import format_error_with_context, LightError
+        err = LightError("简单错误")
         result = format_error_with_context(err)
-        assert "DuanError" in result
+        assert "LightError" in result
         assert "简单错误" in result
 
 
-class TestDuanErrorFormatter:
-    """测试 DuanErrorFormatter"""
+class TestLightErrorFormatter:
+    """测试 LightErrorFormatter"""
 
-    def test_format_duan_error(self):
-        """测试格式化 DuanError"""
-        from errors import DuanErrorFormatter, DuanError
-        err = DuanError("测试错误", line=1, col=1,
+    def test_format_light_error(self):
+        """测试格式化 LightError"""
+        from errors import LightErrorFormatter, LightError
+        err = LightError("测试错误", line=1, col=1,
                         fix_suggestions=['建议1', '建议2'])
-        result = DuanErrorFormatter.format(err)
-        assert "DuanError" in result
+        result = LightErrorFormatter.format(err)
+        assert "LightError" in result
         assert "测试错误" in result
         assert "修复建议" in result
         assert "建议1" in result
 
     def test_format_regular_exception(self):
         """测试格式化普通异常"""
-        from errors import DuanErrorFormatter
+        from errors import LightErrorFormatter
         try:
             1 / 0
         except Exception as e:
-            result = DuanErrorFormatter.format(e)
+            result = LightErrorFormatter.format(e)
             assert "ZeroDivisionError" in result
             assert "division by zero" in result
 
     def test_format_with_source(self):
         """测试带源代码的格式化"""
-        from errors import DuanErrorFormatter, LexerError
+        from errors import LightErrorFormatter, LexerError
         source = "设 甲 为 10\n打印(甲)\n打印(乙)"
         err = LexerError("未闭合的字符串", line=3, col=1)
-        result = DuanErrorFormatter.format_with_source(err, source, 3, 1)
+        result = LightErrorFormatter.format_with_source(err, source, 3, 1)
         assert "LexerError" in result
         assert "源代码上下文" in result
 
     def test_get_fix_suggestions(self):
         """测试获取修复建议"""
-        from errors import DuanErrorFormatter
-        suggestions = DuanErrorFormatter.get_fix_suggestions(
+        from errors import LightErrorFormatter
+        suggestions = LightErrorFormatter.get_fix_suggestions(
             'LexerError', '未闭合的字符串')
         assert len(suggestions) > 0
         assert "闭合引号" in suggestions[0]
 
     def test_get_fix_suggestions_no_match(self):
         """测试无匹配的修复建议"""
-        from errors import DuanErrorFormatter
-        suggestions = DuanErrorFormatter.get_fix_suggestions(
+        from errors import LightErrorFormatter
+        suggestions = LightErrorFormatter.get_fix_suggestions(
             'LexerError', '一些不匹配的错误')
         assert suggestions == []
 
@@ -259,28 +259,28 @@ class TestDebugEngine:
         """测试设置断点"""
         from debug_engine import DebugEngine
         engine = DebugEngine()
-        assert engine.set_breakpoint("test.duan", 10)
-        assert not engine.set_breakpoint("test.duan", 10)  # 重复设置
+        assert engine.set_breakpoint("test.light", 10)
+        assert not engine.set_breakpoint("test.light", 10)  # 重复设置
 
         breakpoints = engine.list_breakpoints()
         assert len(breakpoints) == 1
-        assert breakpoints[0] == ("test.duan", 10)
+        assert breakpoints[0] == ("test.light", 10)
 
     def test_clear_breakpoint(self):
         """测试清除断点"""
         from debug_engine import DebugEngine
         engine = DebugEngine()
-        engine.set_breakpoint("test.duan", 10)
-        assert engine.clear_breakpoint("test.duan", 10)
-        assert not engine.clear_breakpoint("test.duan", 10)  # 不存在
+        engine.set_breakpoint("test.light", 10)
+        assert engine.clear_breakpoint("test.light", 10)
+        assert not engine.clear_breakpoint("test.light", 10)  # 不存在
         assert len(engine.list_breakpoints()) == 0
 
     def test_clear_all_breakpoints(self):
         """测试清除所有断点"""
         from debug_engine import DebugEngine
         engine = DebugEngine()
-        engine.set_breakpoint("a.duan", 1)
-        engine.set_breakpoint("b.duan", 2)
+        engine.set_breakpoint("a.light", 1)
+        engine.set_breakpoint("b.light", 2)
         engine.clear_all_breakpoints()
         assert len(engine.list_breakpoints()) == 0
 
@@ -288,16 +288,16 @@ class TestDebugEngine:
         """测试断点命中"""
         from debug_engine import DebugEngine
         engine = DebugEngine()
-        engine.set_breakpoint("test.duan", 10)
-        assert engine.should_break("test.duan", 10)
+        engine.set_breakpoint("test.light", 10)
+        assert engine.should_break("test.light", 10)
         assert engine.paused
 
     def test_should_break_no_breakpoint(self):
         """测试未命中断点"""
         from debug_engine import DebugEngine
         engine = DebugEngine()
-        engine.set_breakpoint("test.duan", 10)
-        assert not engine.should_break("test.duan", 5)
+        engine.set_breakpoint("test.light", 10)
+        assert not engine.should_break("test.light", 5)
         assert not engine.paused
 
     def test_step_into(self):
@@ -307,7 +307,7 @@ class TestDebugEngine:
         engine.step_into()
         assert engine.step_mode == StepMode.INTO
         assert engine.paused
-        assert engine.should_break("test.duan", 1)
+        assert engine.should_break("test.light", 1)
 
     def test_step_over(self):
         """测试单步跳过"""
@@ -315,7 +315,7 @@ class TestDebugEngine:
         engine = DebugEngine()
         engine.step_over()
         assert engine.step_mode == StepMode.OVER
-        assert engine.should_break("test.duan", 1)
+        assert engine.should_break("test.light", 1)
 
     def test_continue_execution(self):
         """测试继续执行"""
@@ -356,8 +356,8 @@ class TestDebugEngine:
         """测试调用栈"""
         from debug_engine import DebugEngine
         engine = DebugEngine()
-        engine.push_frame("主函数", "main.duan", 1, {"甲": 10})
-        engine.push_frame("子函数", "sub.duan", 5, {"乙": 20})
+        engine.push_frame("主函数", "main.light", 1, {"甲": 10})
+        engine.push_frame("子函数", "sub.light", 5, {"乙": 20})
 
         stack = engine.get_call_stack()
         assert len(stack) == 2
@@ -372,7 +372,7 @@ class TestDebugEngine:
         """测试获取状态"""
         from debug_engine import DebugEngine
         engine = DebugEngine()
-        engine.set_breakpoint("test.duan", 10)
+        engine.set_breakpoint("test.light", 10)
         status = engine.get_status()
         assert status["breakpoint_count"] == 1
         assert status["paused"] is False
@@ -382,8 +382,8 @@ class TestDebugEngine:
         """测试重置"""
         from debug_engine import DebugEngine
         engine = DebugEngine()
-        engine.set_breakpoint("test.duan", 10)
-        engine.push_frame("main", "test.duan", 1, {})
+        engine.set_breakpoint("test.light", 10)
+        engine.push_frame("main", "test.light", 1, {})
         engine.add_watch("甲")
         engine.reset()
         assert len(engine.list_breakpoints()) == 0
@@ -400,10 +400,10 @@ class TestDebugEngine:
             callback_results.append((file_path, line))
 
         engine.on_breakpoint_hit(on_break)
-        engine.set_breakpoint("test.duan", 10)
-        engine.should_break("test.duan", 10)
+        engine.set_breakpoint("test.light", 10)
+        engine.should_break("test.light", 10)
         assert len(callback_results) == 1
-        assert callback_results[0] == ("test.duan", 10)
+        assert callback_results[0] == ("test.light", 10)
 
 
 # =============================================================================
@@ -428,7 +428,7 @@ class TestREPLCommands:
         from repl.commands import CommandHandler
         handler = CommandHandler()
         result = handler.handle(":help")
-        assert "段言 REPL 帮助" in result
+        assert "光明 REPL 帮助" in result
         assert "调试命令" in result
 
     def test_command_handler_unknown(self):
@@ -465,7 +465,7 @@ class TestREPLCommands:
         """测试无调试模式时断点"""
         from repl.commands import CommandHandler
         handler = CommandHandler()
-        result = handler.handle(":break test.duan 10")
+        result = handler.handle(":break test.light 10")
         assert "请先开启调试模式" in result
 
     def test_command_handler_watch_no_debug(self):
@@ -499,16 +499,16 @@ class TestCompleter:
 
     def test_completer_keywords(self):
         """测试关键字补全"""
-        from repl.completer import DuanCompleter
-        completer = DuanCompleter()
+        from repl.completer import LightCompleter
+        completer = LightCompleter()
         completions = completer.get_completions("如")
         assert len(completions) > 0
         assert "如果" in completions
 
     def test_completer_env_vars(self):
         """测试环境变量补全"""
-        from repl.completer import DuanCompleter
-        completer = DuanCompleter(env={"甲": 10, "乙": 20})
+        from repl.completer import LightCompleter
+        completer = LightCompleter(env={"甲": 10, "乙": 20})
         completions = completer.get_completions("")
         # 应包含环境变量
         all_names = completer._get_all_names()
@@ -517,8 +517,8 @@ class TestCompleter:
 
     def test_completer_statement_start(self):
         """测试语句开始补全"""
-        from repl.completer import DuanCompleter
-        completer = DuanCompleter()
+        from repl.completer import LightCompleter
+        completer = LightCompleter()
         completions = completer.get_completions("")
         assert len(completions) > 0
         # 应包含语句开始关键字
@@ -526,28 +526,28 @@ class TestCompleter:
 
     def test_completer_after_set(self):
         """测试 '设' 关键字后补全"""
-        from repl.completer import DuanCompleter
-        completer = DuanCompleter(env={"甲": 10})
+        from repl.completer import LightCompleter
+        completer = LightCompleter(env={"甲": 10})
         # 设 后应提示变量名
         completions = completer.get_completions("设")
         assert "甲" in completions
 
     def test_completer_after_set_with_var(self):
         """测试 '设 变量' 后补全"""
-        from repl.completer import DuanCompleter
-        completer = DuanCompleter()
+        from repl.completer import LightCompleter
+        completer = LightCompleter()
         completions = completer.get_completions("设 甲")
         # 应提示 "为"
         assert "为" in completions
 
     def test_completer_dot_access(self):
         """测试点号访问补全"""
-        from repl.completer import DuanCompleter
+        from repl.completer import LightCompleter
         # 创建一个有属性的对象
         class Obj:
             x = 1
             y = 2
-        completer = DuanCompleter(env={"obj": Obj()})
+        completer = LightCompleter(env={"obj": Obj()})
         completions = completer.get_completions("obj.")
         assert "x" in completions
         assert "y" in completions

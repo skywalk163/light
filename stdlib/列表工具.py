@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-段言标准库 - 列表工具模块（Python 实现）
+光明标准库 - 列表工具模块（Python 实现）
 
-与 列表工具.duan 保持接口一致。
+与 列表工具.light 保持接口一致。
 """
 
 from typing import List, Any, Optional

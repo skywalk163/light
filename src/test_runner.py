@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）测试运行器
+光明（Light）测试运行器
 
 支持：
-  - 自动发现 tests/ 目录下的 .duan 测试文件
+  - 自动发现 tests/ 目录下的 .light 测试文件
   - 运行单个或多个测试文件
   - 计时统计
   - 过滤测试
   - 详细输出
 
 用法：
-  duan test                        # 运行当前项目的所有测试
-  duan test -v                     # 详细输出
-  duan test --filter <名称>        # 按名称过滤
-  duan test tests/test_math.duan   # 运行指定文件
+  light test                        # 运行当前项目的所有测试
+  light test -v                     # 详细输出
+  light test --filter <名称>        # 按名称过滤
+  light test tests/test_math.light   # 运行指定文件
 """
 
 import os
@@ -32,8 +32,8 @@ def discover_test_files(directory: str, pattern: str = None) -> list:
     """发现测试文件
 
     按以下规则查找：
-    1. tests/ 目录下的所有 .duan 文件（递归）
-    2. 当前目录下匹配 *_test.duan 或 test_*.duan 的文件
+    1. tests/ 目录下的所有 .light 文件（递归）
+    2. 当前目录下匹配 *_test.light 或 test_*.light 的文件
 
     Args:
         directory: 项目根目录
@@ -49,13 +49,13 @@ def discover_test_files(directory: str, pattern: str = None) -> list:
     if os.path.isdir(tests_dir):
         for root, dirs, files in os.walk(tests_dir):
             for f in files:
-                if f.endswith('.duan'):
+                if f.endswith('.light'):
                     test_files.append(os.path.join(root, f))
 
-    # 规则2: 根目录下的 *_test.duan 和 test_*.duan
+    # 规则2: 根目录下的 *_test.light 和 test_*.light
     for fname in os.listdir(directory):
-        if fname.endswith('.duan'):
-            if fname.endswith('_test.duan') or fname.startswith('test_'):
+        if fname.endswith('.light'):
+            if fname.endswith('_test.light') or fname.startswith('test_'):
                 fpath = os.path.join(directory, fname)
                 if os.path.isfile(fpath) and fpath not in test_files:
                     test_files.append(fpath)
@@ -71,13 +71,13 @@ def run_test_file(filepath: str, verbose: bool = False) -> dict:
     """运行单个测试文件
 
     Args:
-        filepath: .duan 文件路径
+        filepath: .light 文件路径
         verbose: 是否详细输出
 
     Returns:
         {'name': str, 'passed': bool, 'time': float, 'output': str, 'error': str}
     """
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
 
     name = os.path.basename(filepath)
@@ -88,7 +88,7 @@ def run_test_file(filepath: str, verbose: bool = False) -> dict:
             source = f.read()
 
         # 编译
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse(source)
         generator = PythonCodeGenerator()
         py_code = generator.generate(module)
@@ -105,9 +105,9 @@ def run_test_file(filepath: str, verbose: bool = False) -> dict:
             '__file__': filepath
         }
 
-        # 预加载同目录下的 源.duan 作为模块，供测试文件导入
+        # 预加载同目录下的 源.light 作为模块，供测试文件导入
         test_dir = os.path.dirname(os.path.abspath(filepath))
-        src_file = os.path.join(test_dir, '源.duan')
+        src_file = os.path.join(test_dir, '源.light')
         if os.path.exists(src_file):
             import re as _re
             toml_file = os.path.join(test_dir, '段件.toml')
@@ -121,7 +121,7 @@ def run_test_file(filepath: str, verbose: bool = False) -> dict:
             if pkg_name:
                 with open(src_file, 'r', encoding='utf-8') as sf:
                     src_source = sf.read()
-                src_parser = DuanParser()
+                src_parser = LightParser()
                 src_module = src_parser.parse(src_source)
                 src_generator = PythonCodeGenerator()
                 src_py_code = src_generator.generate(src_module)
@@ -197,11 +197,11 @@ def run_tests(directory: str, filter_pattern: str = None, verbose: bool = False)
     test_files = discover_test_files(directory, filter_pattern)
     if not test_files:
         print("未找到测试文件。")
-        print("测试文件应放在 tests/ 目录下，或以 test_*.duan / *_test.duan 命名。")
+        print("测试文件应放在 tests/ 目录下，或以 test_*.light / *_test.light 命名。")
         return 0
 
     print("=" * 60)
-    print(f"  段言测试运行器")
+    print(f"  光明测试运行器")
     print(f"  项目目录: {directory}")
     print(f"  找到 {len(test_files)} 个测试文件")
     print("=" * 60)
@@ -257,7 +257,7 @@ def run_single_file(filepath: str, verbose: bool = False) -> int:
     """运行单个测试文件
 
     Args:
-        filepath: .duan 文件路径
+        filepath: .light 文件路径
         verbose: 详细输出
 
     Returns:
@@ -267,8 +267,8 @@ def run_single_file(filepath: str, verbose: bool = False) -> int:
         print(f"文件未找到: {filepath}")
         return 1
 
-    if not filepath.endswith('.duan'):
-        print(f"不是 .duan 文件: {filepath}")
+    if not filepath.endswith('.light'):
+        print(f"不是 .light 文件: {filepath}")
         return 1
 
     # 添加 src 到路径
@@ -284,7 +284,7 @@ def run_single_file(filepath: str, verbose: bool = False) -> int:
         sys.path.insert(0, src_dir)
 
     print("=" * 60)
-    print(f"  段言测试 - {os.path.basename(filepath)}")
+    print(f"  光明测试 - {os.path.basename(filepath)}")
     print("=" * 60)
     print()
 

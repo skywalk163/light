@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言代码迁移工具 (Duan Migration)
+光明代码迁移工具 (Light Migration)
 
 提供 v3.3 → v4.0 → v5.x 的代码迁移功能。
 """

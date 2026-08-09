@@ -1,7 +1,7 @@
 """
-段言代码片段库
+光明代码片段库
 
-覆盖段言 v3.2 最常用的代码模式。AI 生成段言代码时，
+覆盖光明 v3.2 最常用的代码模式。AI 生成光明代码时，
 只需选择片段并填充占位符（__X__），大幅降低从零创作的认知负担。
 
 片段格式：
@@ -137,7 +137,7 @@ SNIPPETS: Dict[str, Dict] = {
         "code": "类 __类名__：\n    属性 __字段__\n    构造 接收 __参数__：\n        己__字段__ 为 __参数__\n    段落 __方法名__：\n        __方法体__",
         "placeholders": {"类名": "类名", "字段": "属性名", "参数": "构造参数", "方法名": "方法名", "方法体": "方法体"},
         "example": "类 学生：\n    属性 姓名\n    构造 接收 姓名：\n        己姓名 为 姓名\n    段落 介绍：\n        打印 \"我叫\" 加 己姓名",
-        "pitfall": "⚠ 类系统在SRC后端运行时行为有限，建议用LLVM后端：duan compile file.duan --backend llvm-typed",
+        "pitfall": "⚠ 类系统在SRC后端运行时行为有限，建议用LLVM后端：light compile file.light --backend llvm-typed",
     },
     "类-继承": {
         "desc": "继承类定义",
@@ -166,7 +166,7 @@ SNIPPETS: Dict[str, Dict] = {
 
     # ── 测试断言 ──────────────────────────────────────────────────
     "测试-断言相等": {
-        "desc": "测试断言（用标准库 测试.duan）",
+        "desc": "测试断言（用标准库 测试.light）",
         "code": "从 测试 导入 断言相等, 测试开始, 测试结束, 测试运行\n\n测试开始(\"__测试名__\")\n测试运行(段落：\n    断言相等(__实际__, __期望__, \"__描述__\")\n)\n测试结束()",
         "placeholders": {"测试名": "测试套件名", "实际": "实际值表达式", "期望": "期望值", "描述": "断言描述"},
         "example": "从 测试 导入 断言相等, 测试开始, 测试结束, 测试运行\n\n测试开始(\"加法测试\")\n测试运行(段落：\n    断言相等(加法(3, 5), 8, \"3+5=8\")\n)\n测试结束()",
@@ -213,7 +213,7 @@ def expand_snippet(name: str, **kwargs) -> str:
 
 def get_snippets_prompt() -> str:
     """生成可嵌入 prompt 的片段库描述"""
-    lines = ["【段言代码片段库】", ""]
+    lines = ["【光明代码片段库】", ""]
     for name, info in SNIPPETS.items():
         lines.append(f"片段：{name}")
         lines.append(f"  用途：{info['desc']}")
@@ -229,7 +229,7 @@ def get_snippets_prompt() -> str:
 if __name__ == "__main__":
     import sys
     sys.stdout.reconfigure(encoding='utf-8')
-    print("【段言代码片段库】\n")
+    print("【光明代码片段库】\n")
     print(list_snippets())
     print("\n" + "=" * 60)
     print("【填充示例】")

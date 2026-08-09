@@ -1,4 +1,4 @@
-// 段言 VSCode 扩展入口
+// 光明 VSCode 扩展入口
 const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
@@ -28,16 +28,16 @@ let outputChannel = null;
  * 获取 Python 解释器路径
  */
 function getPythonPath() {
-    const configPath = vscode.workspace.getConfiguration('duan').get('pythonPath');
+    const configPath = vscode.workspace.getConfiguration('light').get('pythonPath');
     if (configPath && configPath.trim()) return configPath;
     return process.platform === 'win32' ? 'python' : 'python3';
 }
 
 /**
- * 获取项目根目录（duan 源码目录）
+ * 获取项目根目录（light 源码目录）
  */
 function getProjectRoot() {
-    const extPath = vscode.extensions.getExtension('duan-lang.duan-language')?.extensionPath;
+    const extPath = vscode.extensions.getExtension('light-lang.light-language')?.extensionPath;
     if (extPath) {
         // 扩展目录在 vscode-extension/ 下，项目根目录是上一级
         const candidates = [
@@ -46,7 +46,7 @@ function getProjectRoot() {
         ];
         for (const p of candidates) {
             try {
-                if (fs.existsSync(path.join(p, 'cli', 'duan.py'))) {
+                if (fs.existsSync(path.join(p, 'cli', 'light.py'))) {
                     return p;
                 }
             } catch (_) {}
@@ -58,9 +58,9 @@ function getProjectRoot() {
 }
 
 /**
- * 在终端中执行段言 CLI 命令
+ * 在终端中执行光明 CLI 命令
  */
-function runDuanCommand(command, terminalName) {
+function runLightCommand(command, terminalName) {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         vscode.window.showErrorMessage('没有打开的编辑器');
@@ -70,18 +70,18 @@ function runDuanCommand(command, terminalName) {
     const projectRoot = getProjectRoot();
     const pythonCmd = getPythonPath();
 
-    const terminal = vscode.window.createTerminal(terminalName || '段言');
+    const terminal = vscode.window.createTerminal(terminalName || '光明');
     terminal.show();
-    terminal.sendText(`cd "${projectRoot}" ; ${pythonCmd} -m cli.duan ${command} "${filePath}"`);
+    terminal.sendText(`cd "${projectRoot}" ; ${pythonCmd} -m cli.light ${command} "${filePath}"`);
 }
 
 /**
- * 获取当前段言文件路径
+ * 获取当前光明文件路径
  */
-function getActiveDuanFile() {
+function getActiveLightFile() {
     const editor = vscode.window.activeTextEditor;
-    if (!editor || editor.document.languageId !== 'duan') {
-        vscode.window.showInformationMessage('请打开一个段言 (.duan) 文件');
+    if (!editor || editor.document.languageId !== 'light') {
+        vscode.window.showInformationMessage('请打开一个光明 (.light) 文件');
         return null;
     }
     return editor.document.uri.fsPath;
@@ -116,20 +116,20 @@ function formatErrorOutput(output) {
  * 查找 LSP 服务器路径
  */
 function findServerPath() {
-    const configPath = vscode.workspace.getConfiguration('duan').get('serverPath');
+    const configPath = vscode.workspace.getConfiguration('light').get('serverPath');
     if (configPath && configPath.trim()) return configPath;
 
     const projectRoot = getProjectRoot();
     const candidates = [
-        path.join(projectRoot, 'lsp', 'duan_lsp.py'),
-        path.join(projectRoot, '..', 'lsp', 'duan_lsp.py'),
+        path.join(projectRoot, 'lsp', 'light_lsp.py'),
+        path.join(projectRoot, '..', 'lsp', 'light_lsp.py'),
     ];
     for (const p of candidates) {
         try {
             if (fs.existsSync(p)) return p;
         } catch (_) {}
     }
-    return path.join(projectRoot, 'lsp', 'duan_lsp.py');
+    return path.join(projectRoot, 'lsp', 'light_lsp.py');
 }
 
 /**
@@ -139,7 +139,7 @@ function startLSP(context) {
     const serverPath = findServerPath();
     const pythonCmd = getPythonPath();
 
-    outputChannel.appendLine(`[段言] 启动 LSP 服务器: ${pythonCmd} ${serverPath}`);
+    outputChannel.appendLine(`[光明] 启动 LSP 服务器: ${pythonCmd} ${serverPath}`);
 
     const serverOptions = {
         command: pythonCmd,
@@ -150,27 +150,27 @@ function startLSP(context) {
     };
 
     const clientOptions = {
-        documentSelector: [{ scheme: 'file', language: 'duan' }],
+        documentSelector: [{ scheme: 'file', language: 'light' }],
         synchronize: {
-            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.duan')
+            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.light')
         },
         outputChannel: outputChannel,
-        traceOutputChannel: vscode.window.createOutputChannel('段言 LSP Trace'),
+        traceOutputChannel: vscode.window.createOutputChannel('光明 LSP Trace'),
     };
 
     client = new vscode.LanguageClient(
-        'duan-lsp',
-        '段言语言服务器',
+        'light-lsp',
+        '光明语言服务器',
         serverOptions,
         clientOptions
     );
 
     client.onDidChangeState(e => {
         if (e.newState === vscode.State.Running) {
-            outputChannel.appendLine('[段言] LSP 服务器已启动');
+            outputChannel.appendLine('[光明] LSP 服务器已启动');
             updateStatusBar('running');
         } else if (e.newState === vscode.State.Stopped) {
-            outputChannel.appendLine('[段言] LSP 服务器已停止');
+            outputChannel.appendLine('[光明] LSP 服务器已停止');
             updateStatusBar('offline');
         }
     });
@@ -178,7 +178,7 @@ function startLSP(context) {
     client.onReady().then(() => {
         updateStatusBar('running');
     }).catch(err => {
-        outputChannel.appendLine(`[段言] LSP 启动失败: ${err.message}`);
+        outputChannel.appendLine(`[光明] LSP 启动失败: ${err.message}`);
         updateStatusBar('error');
     });
 
@@ -194,7 +194,7 @@ function createStatusBar(context) {
         vscode.StatusBarAlignment.Right,
         100
     );
-    statusBarItem.command = 'duan.restartLSP';
+    statusBarItem.command = 'light.restartLSP';
     context.subscriptions.push(statusBarItem);
     updateStatusBar('offline');
 }
@@ -203,19 +203,19 @@ function updateStatusBar(status) {
     if (!statusBarItem) return;
     switch (status) {
         case 'running':
-            statusBarItem.text = '$(check) 段言';
-            statusBarItem.tooltip = '段言语言服务运行中';
+            statusBarItem.text = '$(check) 光明';
+            statusBarItem.tooltip = '光明语言服务运行中';
             statusBarItem.backgroundColor = undefined;
             break;
         case 'error':
-            statusBarItem.text = '$(error) 段言';
-            statusBarItem.tooltip = '段言语言服务错误 - 点击重启';
+            statusBarItem.text = '$(error) 光明';
+            statusBarItem.tooltip = '光明语言服务错误 - 点击重启';
             statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
             break;
         case 'offline':
         default:
-            statusBarItem.text = '$(circle-slash) 段言';
-            statusBarItem.tooltip = '段言语言服务离线 - 点击重启';
+            statusBarItem.text = '$(circle-slash) 光明';
+            statusBarItem.tooltip = '光明语言服务离线 - 点击重启';
             statusBarItem.backgroundColor = undefined;
             break;
     }
@@ -227,7 +227,7 @@ function updateStatusBar(status) {
 // =============================================================================
 
 function createDiagnosticCollection(context) {
-    diagnosticCollection = vscode.languages.createDiagnosticCollection('duan');
+    diagnosticCollection = vscode.languages.createDiagnosticCollection('light');
     context.subscriptions.push(diagnosticCollection);
 }
 
@@ -242,17 +242,17 @@ function runCommandWithDiagnostics(command, args, sourceName) {
     const projectRoot = getProjectRoot();
     const pythonCmd = getPythonPath();
 
-    const fullArgs = ['-m', 'cli.duan', command, filePath, ...args];
+    const fullArgs = ['-m', 'cli.light', command, filePath, ...args];
     const cwd = projectRoot;
 
-    outputChannel.appendLine(`[段言] 执行: ${pythonCmd} ${fullArgs.join(' ')}`);
+    outputChannel.appendLine(`[光明] 执行: ${pythonCmd} ${fullArgs.join(' ')}`);
 
     exec(
         `"${pythonCmd}" ${fullArgs.map(a => `"${a}"`).join(' ')}`,
         { cwd, encoding: 'utf-8' },
         (error, stdout, stderr) => {
             const output = stderr || stdout || '';
-            outputChannel.appendLine(`[段言] 输出: ${output.trim()}`);
+            outputChannel.appendLine(`[光明] 输出: ${output.trim()}`);
 
             const uri = editor.document.uri;
             const diagnostics = [];
@@ -295,10 +295,10 @@ function runCommandWithDiagnostics(command, args, sourceName) {
             diagnosticCollection.set(uri, diagnostics);
 
             if (diagnostics.length > 0) {
-                outputChannel.appendLine(`[段言] ${sourceName}: 发现 ${diagnostics.length} 个问题`);
+                outputChannel.appendLine(`[光明] ${sourceName}: 发现 ${diagnostics.length} 个问题`);
                 outputChannel.show(true);
             } else if (!error) {
-                vscode.window.showInformationMessage(`段言: ${sourceName}通过`);
+                vscode.window.showInformationMessage(`光明: ${sourceName}通过`);
             }
         }
     );
@@ -308,7 +308,7 @@ function runCommandWithDiagnostics(command, args, sourceName) {
 // Task Provider
 // =============================================================================
 
-class DuanTaskProvider {
+class LightTaskProvider {
     constructor(projectRoot, pythonCmd) {
         this.projectRoot = projectRoot;
         this.pythonCmd = pythonCmd;
@@ -319,65 +319,65 @@ class DuanTaskProvider {
 
         // 编译任务 (Ctrl+Shift+B)
         const compileTask = new vscode.Task(
-            { type: 'duan', task: 'compile' },
+            { type: 'light', task: 'compile' },
             vscode.TaskScope.Workspace,
-            '段言: 编译当前文件',
-            '段言',
+            '光明: 编译当前文件',
+            '光明',
             new vscode.ShellExecution(
-                `"${this.pythonCmd}" -m cli.duan compile "\${file}"`,
+                `"${this.pythonCmd}" -m cli.light compile "\${file}"`,
                 { cwd: this.projectRoot }
             ),
-            '$duan'
+            '$light'
         );
         compileTask.group = vscode.TaskGroup.Build;
-        compileTask.problemMatchers = ['$duan'];
+        compileTask.problemMatchers = ['$light'];
         tasks.push(compileTask);
 
         // LLVM 编译任务
         const llvmTask = new vscode.Task(
-            { type: 'duan', task: 'compile-llvm' },
+            { type: 'light', task: 'compile-llvm' },
             vscode.TaskScope.Workspace,
-            '段言: 编译当前文件 (LLVM-Typed)',
-            '段言',
+            '光明: 编译当前文件 (LLVM-Typed)',
+            '光明',
             new vscode.ShellExecution(
-                `"${this.pythonCmd}" -m cli.duan compile "\${file}" --backend llvm-typed`,
+                `"${this.pythonCmd}" -m cli.light compile "\${file}" --backend llvm-typed`,
                 { cwd: this.projectRoot }
             ),
-            '$duan'
+            '$light'
         );
         llvmTask.group = vscode.TaskGroup.Build;
-        llvmTask.problemMatchers = ['$duan'];
+        llvmTask.problemMatchers = ['$light'];
         tasks.push(llvmTask);
 
         // 运行任务
         const runTask = new vscode.Task(
-            { type: 'duan', task: 'run' },
+            { type: 'light', task: 'run' },
             vscode.TaskScope.Workspace,
-            '段言: 运行当前文件',
-            '段言',
+            '光明: 运行当前文件',
+            '光明',
             new vscode.ShellExecution(
-                `"${this.pythonCmd}" -m cli.duan run "\${file}"`,
+                `"${this.pythonCmd}" -m cli.light run "\${file}"`,
                 { cwd: this.projectRoot }
             ),
-            '$duan'
+            '$light'
         );
         runTask.group = vscode.TaskGroup.Test;
         tasks.push(runTask);
 
         // 语法检查任务
         const checkTask = new vscode.Task(
-            { type: 'duan', task: 'check' },
+            { type: 'light', task: 'check' },
             vscode.TaskScope.Workspace,
-            '段言: 语法检查当前文件',
-            '段言',
+            '光明: 语法检查当前文件',
+            '光明',
             new vscode.ShellExecution(
-                `"${this.pythonCmd}" -m cli.duan check "\${file}"`,
+                `"${this.pythonCmd}" -m cli.light check "\${file}"`,
                 { cwd: this.projectRoot }
             ),
-            '$duan'
+            '$light'
         );
         checkTask.group = vscode.TaskGroup.Test;
-        checkTask.problemMatchers = ['$duan'];
+        checkTask.problemMatchers = ['$light'];
         tasks.push(checkTask);
 
         return tasks;
@@ -394,82 +394,82 @@ class DuanTaskProvider {
 
 function registerCommands(context) {
     // --- 运行文件 ---
-    const runCmd = vscode.commands.registerCommand('duan.run', () => {
-        const filePath = getActiveDuanFile();
+    const runCmd = vscode.commands.registerCommand('light.run', () => {
+        const filePath = getActiveLightFile();
         if (!filePath) return;
 
-        const terminal = vscode.window.createTerminal(`段言运行: ${path.basename(filePath)}`);
+        const terminal = vscode.window.createTerminal(`光明运行: ${path.basename(filePath)}`);
         terminal.show();
         const projectRoot = getProjectRoot();
         const pythonCmd = getPythonPath();
-        terminal.sendText(`cd "${projectRoot}" ; ${pythonCmd} -m cli.duan run "${filePath}"`);
+        terminal.sendText(`cd "${projectRoot}" ; ${pythonCmd} -m cli.light run "${filePath}"`);
     });
 
     // --- 语法检查 ---
-    const checkCmd = vscode.commands.registerCommand('duan.check', () => {
-        const filePath = getActiveDuanFile();
+    const checkCmd = vscode.commands.registerCommand('light.check', () => {
+        const filePath = getActiveLightFile();
         if (!filePath) return;
         runCommandWithDiagnostics('check', [], '语法检查');
     });
 
     // --- 编译 ---
-    const compileCmd = vscode.commands.registerCommand('duan.compile', () => {
-        const filePath = getActiveDuanFile();
+    const compileCmd = vscode.commands.registerCommand('light.compile', () => {
+        const filePath = getActiveLightFile();
         if (!filePath) return;
 
-        const terminal = vscode.window.createTerminal(`段言编译: ${path.basename(filePath)}`);
+        const terminal = vscode.window.createTerminal(`光明编译: ${path.basename(filePath)}`);
         terminal.show();
         const projectRoot = getProjectRoot();
         const pythonCmd = getPythonPath();
-        terminal.sendText(`cd "${projectRoot}" ; ${pythonCmd} -m cli.duan compile "${filePath}"`);
+        terminal.sendText(`cd "${projectRoot}" ; ${pythonCmd} -m cli.light compile "${filePath}"`);
     });
 
     // --- LLVM-Typed 编译 ---
-    const compileLLVMCmd = vscode.commands.registerCommand('duan.compileLLVM', () => {
-        const filePath = getActiveDuanFile();
+    const compileLLVMCmd = vscode.commands.registerCommand('light.compileLLVM', () => {
+        const filePath = getActiveLightFile();
         if (!filePath) return;
 
-        const terminal = vscode.window.createTerminal(`段言 LLVM 编译: ${path.basename(filePath)}`);
+        const terminal = vscode.window.createTerminal(`光明 LLVM 编译: ${path.basename(filePath)}`);
         terminal.show();
         const projectRoot = getProjectRoot();
         const pythonCmd = getPythonPath();
-        const outPath = filePath.replace(/\.duan$/, '.exe');
-        terminal.sendText(`cd "${projectRoot}" ; ${pythonCmd} -m cli.duan compile "${filePath}" --backend llvm-typed -o "${outPath}"`);
+        const outPath = filePath.replace(/\.light$/, '.exe');
+        terminal.sendText(`cd "${projectRoot}" ; ${pythonCmd} -m cli.light compile "${filePath}" --backend llvm-typed -o "${outPath}"`);
     });
 
     // --- 类型检查 ---
-    const typeCheckCmd = vscode.commands.registerCommand('duan.typeCheck', () => {
-        const filePath = getActiveDuanFile();
+    const typeCheckCmd = vscode.commands.registerCommand('light.typeCheck', () => {
+        const filePath = getActiveLightFile();
         if (!filePath) return;
         runCommandWithDiagnostics('type-check', ['--level', '表达式'], '类型检查');
     });
 
     // --- REPL ---
-    const replCmd = vscode.commands.registerCommand('duan.repl', () => {
+    const replCmd = vscode.commands.registerCommand('light.repl', () => {
         const projectRoot = getProjectRoot();
         const pythonCmd = getPythonPath();
-        const terminal = vscode.window.createTerminal('段言 REPL');
+        const terminal = vscode.window.createTerminal('光明 REPL');
         terminal.show();
-        terminal.sendText(`cd "${projectRoot}" ; ${pythonCmd} -m cli.duan repl`);
+        terminal.sendText(`cd "${projectRoot}" ; ${pythonCmd} -m cli.light repl`);
     });
 
     // --- 重启 LSP ---
-    const restartCmd = vscode.commands.registerCommand('duan.restartLSP', async () => {
+    const restartCmd = vscode.commands.registerCommand('light.restartLSP', async () => {
         updateStatusBar('offline');
         if (client) {
             try {
                 await client.stop();
             } catch (e) {
-                outputChannel.appendLine(`[段言] 停止 LSP 失败: ${e.message}`);
+                outputChannel.appendLine(`[光明] 停止 LSP 失败: ${e.message}`);
             }
         }
         try {
             startLSP(context);
-            vscode.window.showInformationMessage('段言 LSP 服务器已重启');
+            vscode.window.showInformationMessage('光明 LSP 服务器已重启');
         } catch (e) {
-            outputChannel.appendLine(`[段言] 启动 LSP 失败: ${e.message}`);
+            outputChannel.appendLine(`[光明] 启动 LSP 失败: ${e.message}`);
             updateStatusBar('error');
-            vscode.window.showErrorMessage('段言 LSP 服务器重启失败');
+            vscode.window.showErrorMessage('光明 LSP 服务器重启失败');
         }
     });
 
@@ -484,12 +484,12 @@ function registerCommands(context) {
 // =============================================================================
 
 function activate(context) {
-    console.log('段言语言扩展已激活');
+    console.log('光明语言扩展已激活');
 
     // 输出通道
-    outputChannel = vscode.window.createOutputChannel('段言');
+    outputChannel = vscode.window.createOutputChannel('光明');
     context.subscriptions.push(outputChannel);
-    outputChannel.appendLine('段言语言扩展 v1.0.0 已激活');
+    outputChannel.appendLine('光明语言扩展 v1.0.0 已激活');
 
     // 问题面板
     createDiagnosticCollection(context);
@@ -501,9 +501,9 @@ function activate(context) {
     try {
         startLSP(context);
     } catch (e) {
-        outputChannel.appendLine(`[段言] LSP 启动失败: ${e.message}`);
+        outputChannel.appendLine(`[光明] LSP 启动失败: ${e.message}`);
         updateStatusBar('error');
-        vscode.window.showWarningMessage('段言 LSP 服务器启动失败，部分功能不可用');
+        vscode.window.showWarningMessage('光明 LSP 服务器启动失败，部分功能不可用');
     }
 
     // 注册命令
@@ -512,12 +512,12 @@ function activate(context) {
     // 注册 Task Provider
     const projectRoot = getProjectRoot();
     const pythonCmd = getPythonPath();
-    const taskProvider = new DuanTaskProvider(projectRoot, pythonCmd);
+    const taskProvider = new LightTaskProvider(projectRoot, pythonCmd);
     context.subscriptions.push(
-        vscode.tasks.registerTaskProvider('duan', taskProvider)
+        vscode.tasks.registerTaskProvider('light', taskProvider)
     );
 
-    outputChannel.appendLine('[段言] 扩展初始化完成');
+    outputChannel.appendLine('[光明] 扩展初始化完成');
 }
 
 function deactivate() {
@@ -528,7 +528,7 @@ function deactivate() {
         diagnosticCollection.clear();
     }
     if (outputChannel) {
-        outputChannel.appendLine('[段言] 扩展已停用');
+        outputChannel.appendLine('[光明] 扩展已停用');
     }
     if (client) {
         return client.stop();

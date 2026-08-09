@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编程语言 - 简单验证测试
+光明（Light）编程语言 - 简单验证测试
 """
 
 import sys
@@ -11,7 +11,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 print("=" * 60)
-print("段言编译器验证测试")
+print("光明编译器验证测试")
 print("=" * 60)
 
 # 测试1：词法分析器
@@ -27,8 +27,8 @@ except Exception as e:
 # 测试2：语法解析器
 print("\n[2/8] 语法解析器...")
 try:
-    from duan_parser_v3 import DuanParser
-    parser = DuanParser()
+    from light_parser_v3 import LightParser
+    parser = LightParser()
     module = parser.parse('设甲为123。')
     print(f"  OK - 解析 {len(module.statements)} 条语句")
 except Exception as e:
@@ -73,11 +73,11 @@ except Exception as e:
 # 测试7：完整编译
 print("\n[7/8] 完整编译流程...")
 try:
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     from semantic_analyzer import SemanticAnalyzer
     from code_generator import PythonCodeGenerator
     
-    parser = DuanParser()
+    parser = LightParser()
     analyzer = SemanticAnalyzer()
     generator = PythonCodeGenerator()
     
@@ -93,11 +93,11 @@ except Exception as e:
 # 测试8：函数编译
 print("\n[8/8] 函数编译...")
 try:
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     from semantic_analyzer import SemanticAnalyzer
     from code_generator import PythonCodeGenerator
     
-    parser = DuanParser()
+    parser = LightParser()
     analyzer = SemanticAnalyzer()
     generator = PythonCodeGenerator()
     

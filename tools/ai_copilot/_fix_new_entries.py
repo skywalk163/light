@@ -8,7 +8,7 @@ data = [json.loads(l) for l in open('sft_dataset.jsonl', encoding='utf-8')]
 # Use 'with open' to properly close, use print() instead of \n
 # ============================================================
 data[1199] = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "import os\n"
         "with open('test_data.txt', 'w', encoding='utf-8') as _f:\n"
@@ -40,7 +40,7 @@ data[1199] = {
 # Use regular string with .encode() for PY, bytes() for DU
 # ============================================================
 data[1200] = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "data = 'hello binary world'\n"
         "with open('file.txt', 'wb') as f:\n"
@@ -60,7 +60,7 @@ data[1200] = {
 # Fix entry 1201 (v39[852]): log.txt - use print() to avoid \n in f-string
 # ============================================================
 data[1201] = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "with open('log.txt', 'w') as f:\n"
         "    for i in range(10):\n"
@@ -80,7 +80,7 @@ data[1201] = {
 # Fix entry 1202 (v39[890]): CSVWriter - use print() to avoid \n
 # ============================================================
 data[1202] = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "class CSVWriter:\n"
         "    def __init__(self, filename):\n"
@@ -118,7 +118,7 @@ data[1202] = {
 # Fix entry 1203 (v39[918]): complex pipeline - use print() to avoid \n
 # ============================================================
 data[1203] = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "import os\n"
         "with open('input.csv', 'w', encoding='utf-8') as _f:\n"
@@ -264,7 +264,7 @@ data[1203] = {
 # Fix entry 1204 (v39[1086]): save_to_file - use print() to avoid \n
 # ============================================================
 data[1204] = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "data = ['line1', 'line2', 'line3']\n"
         "filename = 'output.txt'\n"

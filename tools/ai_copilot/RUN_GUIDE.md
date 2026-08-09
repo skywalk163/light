@@ -1,12 +1,12 @@
-# 段言 LoRA 微调运行指南
+# 光明 LoRA 微调运行指南
 
-本指南说明如何在本地使用小模型 LoRA 微调，让模型学会将 Python 代码翻译为段言 v3.2 代码。
+本指南说明如何在本地使用小模型 LoRA 微调，让模型学会将 Python 代码翻译为光明 v3.2 代码。
 
 > **不想自己训练？** 训练好的模型已上线 Ollama，可直接拉取使用：
 > ```bash
-> ollama pull airoot/duan-translator
+> ollama pull airoot/light-translator
 > ```
-> 模型主页：[https://ollama.com/airoot/duan-translator](https://ollama.com/airoot/duan-translator)
+> 模型主页：[https://ollama.com/airoot/light-translator](https://ollama.com/airoot/light-translator)
 
 ## 快速总结
 
@@ -15,7 +15,7 @@
   - Qwen2.5-1.5B-Instruct（1.5B 参数，需 GPU）
   - Qwen3.5-2B（2B 多模态架构，需 GPU + transformers>=5.0）
 - **训练方法**：LoRA 微调（只训练 q/v/k/o_proj 等投影层，参数量 ~0.1%）
-- **数据集**：978 条 Python→段言 对照（`sft_dataset.jsonl`）
+- **数据集**：978 条 Python→光明 对照（`sft_dataset.jsonl`）
 - **数据集 v2 扩充**：新增 494 条覆盖类/OOP、f-string、列表推导、异常处理、lambda、with、复合算法
 - **数据集 v3 扩充**：新增 32 条长代码样本（Python 49-99 行），覆盖多类协作、设计模式、数据管线、算法实现、游戏逻辑、Web 后端、数学计算
 - **max_len**：8192（v3 提升，覆盖系统提示+长代码样本，v2 为 1024）
@@ -41,7 +41,7 @@
 
 ```
 tools/ai_copilot/
-├── sft_dataset.jsonl           # 训练数据（978 条 Python→段言 对照，v3 扩充后）
+├── sft_dataset.jsonl           # 训练数据（978 条 Python→光明 对照，v3 扩充后）
 ├── sft_dataset_new.jsonl       # v2 新增样本（494 条，已合并到 sft_dataset.jsonl）
 ├── sft_dataset_long.jsonl      # v3 长样本（32 条，Python 49-99 行，已合并到 sft_dataset.jsonl）
 ├── augment_dataset.py           # 数据集增强脚本 v2
@@ -60,12 +60,12 @@ tools/ai_copilot/
 │   └── qwen3.5-2b/             # 基础模型（~4.5GB）
 └── output/
     ├── smoke_test/             # 2步验证训练产物
-    ├── qwen2.5_0.5b_duan_gpu/  # 0.5B GPU 全量训练产物
-    ├── qwen2.5_1.5b_duan_gpu/  # 1.5B GPU 全量训练产物
-    ├── qwen3.5_2b_duan_gpu/    # 3.5-2B GPU 全量训练产物
-    ├── duan_translator_merged_0.5b/   # 0.5B 合并后模型 + GGUF
-    ├── duan_translator_merged_1.5b/   # 1.5B 合并后模型 + GGUF
-    └── duan_translator_merged_3.5_2b/ # 3.5-2B 合并后模型 + GGUF
+    ├── qwen2.5_0.5b_light_gpu/  # 0.5B GPU 全量训练产物
+    ├── qwen2.5_1.5b_light_gpu/  # 1.5B GPU 全量训练产物
+    ├── qwen3.5_2b_light_gpu/    # 3.5-2B GPU 全量训练产物
+    ├── light_translator_merged_0.5b/   # 0.5B 合并后模型 + GGUF
+    ├── light_translator_merged_1.5b/   # 1.5B 合并后模型 + GGUF
+    └── light_translator_merged_3.5_2b/ # 3.5-2B 合并后模型 + GGUF
 ```
 
 ## 环境准备
@@ -205,15 +205,15 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
 model_path = "tools/ai_copilot/model_cache/qwen2.5-0.5b"
-lora_path = "tools/ai_copilot/output/qwen2.5_0.5b_duan_gpu/final"
+lora_path = "tools/ai_copilot/output/qwen2.5_0.5b_light_gpu/final"
 
 tokenizer = AutoTokenizer.from_pretrained(model_path)
 base = AutoModelForCausalLM.from_pretrained(model_path, dtype=torch.float32)
 model = PeftModel.from_pretrained(base, lora_path)
 
 messages = [
-    {"role": "system", "content": "你是段言翻译专家..."},
-    {"role": "user", "content": "将以下 Python 翻译为段言：\ndef add(a,b): return a+b"},
+    {"role": "system", "content": "你是光明翻译专家..."},
+    {"role": "user", "content": "将以下 Python 翻译为光明：\ndef add(a,b): return a+b"},
 ]
 text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 inputs = tokenizer(text, return_tensors="pt")
@@ -240,7 +240,7 @@ print(tokenizer.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_t
 
 训练 3 epochs 后，模型应能正确翻译：
 
-| Python | 段言 |
+| Python | 光明 |
 |--------|------|
 | `x = 10` | `设 x 为 10` |
 | `def add(a, b): return a + b` | `段落 加法 接收 a, b：\n    返回 a 加 b` |
@@ -253,14 +253,14 @@ print(tokenizer.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_t
    - 指定模型：`python merge_and_convert.py --preset qwen3.5-2b --merge-only`
 2. **转 GGUF**：`python merge_and_convert.py --convert-gguf`
    - 指定模型：`python merge_and_convert.py --preset qwen3.5-2b --convert-gguf`
-3. **集成到 CLI**：`duan ai local "写一个冒泡排序"`
+3. **集成到 CLI**：`light ai local "写一个冒泡排序"`
 4. **部署到 ollama**：详见下方 [ollama 部署指南](#ollama-部署指南)
 
 ---
 
 ## ollama 部署指南
 
-本节详细说明如何将微调后的段言翻译模型部署到 ollama，实现快速本地推理。
+本节详细说明如何将微调后的光明翻译模型部署到 ollama，实现快速本地推理。
 
 ### 整体流程
 
@@ -280,7 +280,7 @@ fix_gguf_rope.py                      →  修复 GGUF 中 rope.freq_base=0.0 �
 ollama create -q q4_K_M               →  量化导入 ollama (~398MB)
   │
   ▼
-ollama run duan-translator            →  推理使用
+ollama run light-translator            →  推理使用
 ```
 
 ### 第 0 步：准备文件
@@ -289,11 +289,11 @@ ollama run duan-translator            →  推理使用
 
 | 文件 | 说明 | 获取方式 |
 |------|------|----------|
-| `duan_translator.gguf` | F16 格式 GGUF 模型 (~994MB) | `merge_and_convert.py --convert-gguf` 或 Kaggle 训练后转换 |
+| `light_translator.gguf` | F16 格式 GGUF 模型 (~994MB) | `merge_and_convert.py --convert-gguf` 或 Kaggle 训练后转换 |
 | `fix_gguf_rope.py` | GGUF 修复脚本 (4KB) | 仓库 `tools/ai_copilot/fix_gguf_rope.py` |
 | `create_ollama_model.sh` | 一键创建脚本 (3KB) | 仓库 `tools/ai_copilot/create_ollama_model.sh` |
 
-如果你已经有了量化后的 `duan_translator_fixed.gguf`（修复 + 量化的最终文件），可以直接跳到第 3 步。
+如果你已经有了量化后的 `light_translator_fixed.gguf`（修复 + 量化的最终文件），可以直接跳到第 3 步。
 
 ### 第 1 步：安装 ollama
 
@@ -324,30 +324,30 @@ curl -fsSL https://ollama.com/install.sh | sh
 
 ```bash
 # 检查当前值
-python fix_gguf_rope.py duan_translator.gguf
+python fix_gguf_rope.py light_translator.gguf
 # 输出: 当前 rope.freq_base = 0.0
 
 # 修复（输出到新文件，原文件不变）
-python fix_gguf_rope.py duan_translator.gguf duan_translator_fixed.gguf
+python fix_gguf_rope.py light_translator.gguf light_translator_fixed.gguf
 # 输出:
 #   当前 rope.freq_base = 0.0
-#   修复完成: duan_translator_fixed.gguf
+#   修复完成: light_translator_fixed.gguf
 #   验证 rope.freq_base = 1000000.0
 
 # 也可以就地修改（自动创建 .bak 备份）
-python fix_gguf_rope.py duan_translator.gguf
+python fix_gguf_rope.py light_translator.gguf
 ```
 
 **原理**：脚本解析 GGUF 二进制头部，定位 `qwen2.rope.freq_base` 的 float32 字节偏移（通常在偏移量 467），将其从 `0x00000000` 改为 `1000000.0` 对应的字节 `0x00247449`。
 
 ### 第 3 步：创建 Modelfile
 
-在与 `duan_translator_fixed.gguf` 同一目录下创建 `Modelfile`：
+在与 `light_translator_fixed.gguf` 同一目录下创建 `Modelfile`：
 
 ```bash
 cat > Modelfile << 'EOF'
-# 段言翻译器 — ollama Modelfile
-FROM ./duan_translator_fixed.gguf
+# 光明翻译器 — ollama Modelfile
+FROM ./light_translator_fixed.gguf
 
 TEMPLATE """{{ if .System }}<|im_start|>system
 {{ .System }}<|im_end|>
@@ -356,7 +356,7 @@ TEMPLATE """{{ if .System }}<|im_start|>system
 {{ end }}<|im_start|>assistant
 """
 
-SYSTEM """你是段言（DuanLang）编程语言 v3.2 的翻译专家。你的任务是将 Python 代码翻译为段言 v3.2 代码。只输出段言代码，不要解释。"""
+SYSTEM """你是光明（LightLang）编程语言 v3.2 的翻译专家。你的任务是将 Python 代码翻译为光明 v3.2 代码。只输出光明代码，不要解释。"""
 
 PARAMETER temperature 0.1
 PARAMETER top_p 0.9
@@ -369,7 +369,7 @@ EOF
 
 | 参数 | 值 | 说明 |
 |------|-----|------|
-| `FROM` | `./duan_translator_fixed.gguf` | 指向修复后的 GGUF 文件 |
+| `FROM` | `./light_translator_fixed.gguf` | 指向修复后的 GGUF 文件 |
 | `TEMPLATE` | ChatML 格式 | Qwen2.5 的对话模板，`<\|im_start\|>` / `<\|im_end\|>` |
 | `temperature` | 0.1 | 低温度保证翻译稳定性 |
 | `num_ctx` | 4096 | 上下文窗口，长代码翻译需要更大窗口（v3 训练 max_len=8192，推理 4096 够用） |
@@ -382,7 +382,7 @@ EOF
 **方式 A：一键脚本（推荐）**
 
 ```bash
-# 确保 duan_translator_fixed.gguf 和 Modelfile 在同一目录
+# 确保 light_translator_fixed.gguf 和 Modelfile 在同一目录
 # 脚本会自动检测、修复、创建、验证
 bash create_ollama_model.sh
 ```
@@ -391,11 +391,11 @@ bash create_ollama_model.sh
 
 ```bash
 # 创建量化模型（q4_K_M，994MB → 398MB）
-ollama create duan-translator -f Modelfile -q q4_K_M
+ollama create light-translator -f Modelfile -q q4_K_M
 
 # 查看模型列表
 ollama list
-# 应出现: duan-translator:latest  398 MB
+# 应出现: light-translator:latest  398 MB
 ```
 
 **量化级别选择**：
@@ -414,17 +414,17 @@ ollama list
 
 ```bash
 # 基本测试 — 翻译加法函数
-ollama run duan-translator "def add(a, b): return a + b"
+ollama run light-translator "def add(a, b): return a + b"
 # 预期输出: 段落 加法 接收 a, b：
 #               返回 a 加 b
 
 # 翻译循环
-ollama run duan-translator "for i in range(10): print(i)"
+ollama run light-translator "for i in range(10): print(i)"
 # 预期输出: 遍历 i 于 0至10：
 #               打印(i)
 
 # 翻译条件
-ollama run duan-translator "if x > 5: print('big')"
+ollama run light-translator "if x > 5: print('big')"
 # 预期输出: 如果 x 大于 5：
 #               打印("big")
 ```
@@ -440,7 +440,7 @@ python local_infer.py --fine-tuned --backend ollama --mode translate "def add(a,
 # 交互模式
 python local_infer.py --fine-tuned --backend ollama --interactive
 
-# 生成段言代码（自然语言描述需求）
+# 生成光明代码（自然语言描述需求）
 python local_infer.py --fine-tuned "写一个冒泡排序"
 ```
 
@@ -463,12 +463,12 @@ python local_infer.py --fine-tuned "写一个冒泡排序"
 
 如果训练在本机完成，推理在另一台（更快的）机器上运行：
 
-1. **拷贝 GGUF 文件**：将 `duan_translator_fixed.gguf`（398MB 或 994MB F16）拷到目标机器
+1. **拷贝 GGUF 文件**：将 `light_translator_fixed.gguf`（398MB 或 994MB F16）拷到目标机器
 2. **拷贝脚本**：`fix_gguf_rope.py`、`create_ollama_model.sh`（或手动创建 Modelfile）
 3. 在目标机器上安装 ollama
 4. 如果 GGUF 未修复，先运行 `python fix_gguf_rope.py`
-5. 创建 Modelfile 并 `ollama create duan-translator -f Modelfile -q q4_K_M`
-6. 测试：`ollama run duan-translator "def add(a, b): return a + b"`
+5. 创建 Modelfile 并 `ollama create light-translator -f Modelfile -q q4_K_M`
+6. 测试：`ollama run light-translator "def add(a, b): return a + b"`
 
 > **注意**：如果目标机器有 GPU，ollama 会自动检测并使用 GPU 推理，无需额外配置。可通过 `ollama ps` 查看模型运行在 CPU 还是 GPU 上。
 
@@ -618,10 +618,10 @@ print(f"下载完成，保存在 {save_dir}")
 #### 4. 获取训练数据集
 
 ```bash
-!git clone https://gitcode.com/skywalk163/duan/
+!git clone https://gitcode.com/skywalk163/light/
 ```
 
-数据集路径：`/kaggle/working/duan/tools/ai_copilot/sft_dataset.jsonl`
+数据集路径：`/kaggle/working/light/tools/ai_copilot/sft_dataset.jsonl`
 
 #### 5. 开始训练
 
@@ -631,7 +631,7 @@ print(f"下载完成，保存在 {save_dir}")
 !torchrun --nproc_per_node=2 \
     -m swift.cli.sft \
     --model "./qwen2.5-0.5b-instruct" \
-    --dataset /kaggle/working/duan/tools/ai_copilot/sft_dataset.jsonl \
+    --dataset /kaggle/working/light/tools/ai_copilot/sft_dataset.jsonl \
     --max_length 4096 \
     --num_train_epochs 12 \
     --per_device_train_batch_size 4 \
@@ -677,9 +677,9 @@ print(f"下载完成，保存在 {save_dir}")
 
 ```bash
 # 本地执行（需安装 llama.cpp）
-python convert_hf_to_gguf.py merged_model/ --outfile duan_translator.gguf --outtype f16
-ollama create duan-translator -f Modelfile
-ollama run duan-translator "def add(a, b): return a + b"
+python convert_hf_to_gguf.py merged_model/ --outfile light_translator.gguf --outtype f16
+ollama create light-translator -f Modelfile
+ollama run light-translator "def add(a, b): return a + b"
 ```
 
 > 完整部署流程见上方「迁移到另一台机器」章节。
@@ -689,7 +689,7 @@ ollama run duan-translator "def add(a, b): return a + b"
 最终训练得到的 v7 模型（checkpoint-500）已上线 Ollama：
 
 ```bash
-ollama pull airoot/duan-translator
+ollama pull airoot/light-translator
 ```
 
-模型主页：[https://ollama.com/airoot/duan-translator](https://ollama.com/airoot/duan-translator)
+模型主页：[https://ollama.com/airoot/light-translator](https://ollama.com/airoot/light-translator)

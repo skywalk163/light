@@ -6,7 +6,7 @@
 
 ## 模块: arity_parser
 
-**模块说明**: 段言（Duan）编程语言 - 元数驱动解析器
+**模块说明**: 光明（Light）编程语言 - 元数驱动解析器
 
 实现决策28：元数驱动解析
 - 动词声明参数数量，自动收集参数
@@ -42,7 +42,7 @@
 
 ## 模块: ast_nodes
 
-**模块说明**: 段言（Duan）编程语言 AST 节点定义
+**模块说明**: 光明（Light）编程语言 AST 节点定义
 
 与 src/ast_nodes.py 保持兼容的 AST 节点结构
 供 ANTLR 解析器生成 AST 使用
@@ -261,9 +261,9 @@ AST 节点基类
 
 ## 模块: ast_nodes_v3
 
-**模块说明**: 段言（Duan）编程语言 - Python 后端 AST 节点定义
+**模块说明**: 光明（Light）编程语言 - Python 后端 AST 节点定义
 
-从 duan_parser_v3.py 提取，作为独立模块供代码生成器/语义分析器使用。
+从 light_parser_v3.py 提取，作为独立模块供代码生成器/语义分析器使用。
 
 ### 类 `ASTNode`
 
@@ -473,14 +473,14 @@ C FFI 第四阶段：typedef/位域/函数指针/回调生命周期/调试
 
 嵌入块语句：嵌入 Python/C: ... 结束嵌入
     
-    将外部语言代码作为"外语引用"嵌入段言代码中，
+    将外部语言代码作为"外语引用"嵌入光明代码中，
     类似中文文本中嵌入数学公式或英文片段。
 
 ---
 
 ## 模块: ast_unified
 
-**模块说明**: 段言（Duan）编程语言 - 统一AST系统（用于机器码生成）
+**模块说明**: 光明（Light）编程语言 - 统一AST系统（用于机器码生成）
 
 这是为原生编译器设计的统一AST，包含：
 1. 完整的类型系统支持
@@ -708,9 +708,9 @@ AST访问者基类
 
 ## 模块: code_generator
 
-**模块说明**: 段言（Duan）编程语言 - Python代码生成器
+**模块说明**: 光明（Light）编程语言 - Python代码生成器
 
-将段言AST转换为Python代码
+将光明AST转换为Python代码
 
 ### 类 `CodeGenError`
 
@@ -718,7 +718,7 @@ AST访问者基类
 
 ### 类 `PythonCodeGenerator`
 
-段言到Python代码生成器
+光明到Python代码生成器
 
 ### 函数 `generate(self, module: Module)`
 
@@ -728,7 +728,7 @@ AST访问者基类
 
 ## 模块: code_generator_unified
 
-**模块说明**: 段言（Duan）编程语言 - Python代码生成器（统一AST版本）
+**模块说明**: 光明（Light）编程语言 - Python代码生成器（统一AST版本）
 
 支持统一AST格式，兼容来自duan_ast和ast_unified的AST节点
 集成类型推断系统，正确处理字符串连接和数字加法
@@ -743,7 +743,7 @@ AST访问者基类
 
 ### 类 `UnifiedCodeGenerator`
 
-段言到Python代码生成器（支持统一AST）
+光明到Python代码生成器（支持统一AST）
 
 ### 函数 `generate(self, module)`
 
@@ -753,7 +753,7 @@ AST访问者基类
 
 ## 模块: codegen_x64
 
-**模块说明**: 段言（Duan）编程语言 - x86-64代码生成器
+**模块说明**: 光明（Light）编程语言 - x86-64代码生成器
 
 将三地址码IR转换为x86-64汇编代码。
 支持Linux/macOS (System V AMD64 ABI) 和 Windows (x64 calling convention)。
@@ -934,10 +934,10 @@ x86-64代码生成器
 
 ## 模块: compiler
 
-**模块说明**: 段言（Duan）编程语言 - 统一编译器管道
+**模块说明**: 光明（Light）编程语言 - 统一编译器管道
 
 完整链路：  源码 → 词法分析 → 语法解析 → AST 适配 → 类型检查
-          (source)  (Lexer)   (DuanParser)  (Adapter)  (TypeInferencer)
+          (source)  (Lexer)   (LightParser)  (Adapter)  (TypeInferencer)
 
 这是连接前端解析器与后端类型系统的桥梁。
 
@@ -945,7 +945,7 @@ x86-64代码生成器
 
 将 `ast_nodes_v3` 节点转换为 `ast_nodes.py` 节点
 
-    现有 DuanParser v3 输出 ast_nodes_v3 的节点，这些节点使用 __slots__
+    现有 LightParser v3 输出 ast_nodes_v3 的节点，这些节点使用 __slots__
     的普通类设计。而我们的类型系统基于 ast_nodes.py（dataclass 设计）。
     本适配器在两者之间提供无损转换。
 
@@ -957,12 +957,12 @@ x86-64代码生成器
 
 将 v3 Module 转换为我们的 Module 格式
 
-### 类 `DuanCompiler`
+### 类 `LightCompiler`
 
-段言统一编译器
+光明统一编译器
 
     使用示例：
-        compiler = DuanCompiler()
+        compiler = LightCompiler()
         # 完整流程
         result = compiler.compile('定义甲等于三。')
         # 分步：解析 → 检查
@@ -973,12 +973,12 @@ x86-64代码生成器
             print(compiler.errors)
 
     跨模块项目级使用：
-        compiler = DuanCompiler(project_root='/path/to/project')
+        compiler = LightCompiler(project_root='/path/to/project')
         result = compiler.compile_project('/path/to/project')
 
 ### 函数 `version(self)`
 
-返回段言编译器版本号
+返回光明编译器版本号
 
 ### 函数 `preload_stdlib(self)`
 
@@ -999,7 +999,7 @@ x86-64代码生成器
 
 ### 函数 `compile_project(self, project_root: Optional[str] = None, optimize: bool = True)`
 
-编译整个段言项目（支持多模块。
+编译整个光明项目（支持多模块。
 
         流程：
           1. 解析 package.toml，寻找入口模块
@@ -1049,7 +1049,7 @@ x86-64代码生成器
         use_cache: 是否使用编译缓存，默认为 True
 
     Returns:
-        编译结果字典，与 DuanCompiler.compile() 返回格式相同
+        编译结果字典，与 LightCompiler.compile() 返回格式相同
 
 ### 函数 `compile_source(source: str)`
 
@@ -1077,7 +1077,7 @@ x86-64代码生成器
 
 ## 模块: compiler_cache
 
-**模块说明**: 段言编译缓存系统
+**模块说明**: 光明编译缓存系统
 
 支持：
 - 文件哈希缓存（检测文件是否修改）
@@ -1174,7 +1174,7 @@ x86-64代码生成器
 
 ### 类 `DebugEngine`
 
-段言调试引擎
+光明调试引擎
     
     支持：
     - 单步执行（step into/over/out）
@@ -1396,9 +1396,9 @@ x86-64代码生成器
 
 ---
 
-## 模块: duan_parser_v3
+## 模块: light_parser_v3
 
-**模块说明**: 段言（Duan）编程语言 - 完整语法解析器（v3.0）
+**模块说明**: 光明（Light）编程语言 - 完整语法解析器（v3.0）
 
 组合模块：将核心基类、语句解析混入和表达式解析混入组合成完整解析器。
 
@@ -1409,13 +1409,13 @@ x86-64代码生成器
 - 段落定义：《段名》段(参数):
 - 管道操作符：-> 和 ，
 
-### 类 `DuanParser`
+### 类 `LightParser`
 
-段言完整语法解析器
+光明完整语法解析器
 
 ---
 
-## 模块: duanpkg
+## 模块: lightpkg
 
 ### 类 `SemVer`
 
@@ -1545,28 +1545,28 @@ x86-64代码生成器
 
 ## 模块: error_formatter
 
-### 类 `DuanErrorFormatter`
+### 类 `LightErrorFormatter`
 
-段言错误信息格式化器
+光明错误信息格式化器
 
 ### 函数 `parse_line_mapping(self, python_code: str)`
 
-从生成的 Python 代码中解析 DUAN_SRC 行号映射表
+从生成的 Python 代码中解析 LIGHT_SRC 行号映射表
 
         Returns:
-            dict: {python_line: (duan_line, code_snippet)}
+            dict: {python_line: (light_line, code_snippet)}
 
 ### 函数 `build_full_mapping(self, python_code: str)`
 
-构建完整的 Python 行号 -> 段言行号映射
+构建完整的 Python 行号 -> 光明行号映射
 
         思路：
-        1. 先找 DUAN_SRC 注释对应的 Python 行号
+        1. 先找 LIGHT_SRC 注释对应的 Python 行号
         2. 假设两个相邻映射点之间是连续的（简单的近似）
 
 ### 函数 `format_exception(self, exc_type=None, exc_value=None, exc_tb=None)`
 
-格式化异常为段言友好的错误信息
+格式化异常为光明友好的错误信息
 
         Args:
             exc_type: 异常类型
@@ -1578,15 +1578,15 @@ x86-64代码生成器
 
 ### 函数 `format_traceback_string(self, tb_text: str)`
 
-格式化 traceback 字符串为段言友好版本
+格式化 traceback 字符串为光明友好版本
 
-### 函数 `run_with_friendly_error(code: str, source: str = '', source_name: str = '<段言代码>')`
+### 函数 `run_with_friendly_error(code: str, source: str = '', source_name: str = '<光明代码>')`
 
 执行代码并以友好的方式报告错误
 
     Args:
         code: 要执行的 Python 代码
-        source: 段言源代码（用于上下文显示）
+        source: 光明源代码（用于上下文显示）
         source_name: 源代码名称
 
     Returns:
@@ -1597,7 +1597,7 @@ x86-64代码生成器
 便捷函数：格式化运行时错误
 
     Args:
-        source: 段言源代码
+        source: 光明源代码
         exc_type, exc_value, exc_tb: 异常信息，默认为 sys.exc_info()
 
 ---
@@ -1620,9 +1620,9 @@ x86-64代码生成器
 
 ### 函数 `format_error_with_context()`
 
-### 类 `DuanError`
+### 类 `LightError`
 
-段言基础错误类
+光明基础错误类
 
 ### 类 `LexerError`
 
@@ -1636,7 +1636,7 @@ x86-64代码生成器
 
 语法解析错误
 
-### 类 `DuanErrorFormatter`
+### 类 `LightErrorFormatter`
 
 统一错误格式化器
 
@@ -1691,7 +1691,7 @@ x86-64代码生成器
 
 ### 函数 `run_with_watch(filepath, backend='src', interval=1.0)`
 
-以监视模式运行段言文件
+以监视模式运行光明文件
 
     Args:
         filepath: 源文件路径
@@ -1706,7 +1706,7 @@ x86-64代码生成器
 
 ### 函数 `format_code(source: str)`
 
-格式化段言代码
+格式化光明代码
 
 ### 函数 `check_format(source: str)`
 
@@ -1726,7 +1726,7 @@ x86-64代码生成器
 
 ## 模块: incremental_compiler
 
-**模块说明**: 段言增量编译器
+**模块说明**: 光明增量编译器
 
 只重新编译修改过的模块，加速大型项目编译。
 支持文件监听模式，自动检测并重新编译变化文件。
@@ -1773,7 +1773,7 @@ x86-64代码生成器
 
 ## 模块: ir
 
-**模块说明**: 段言（Duan）编程语言 - 中间表示（IR）系统
+**模块说明**: 光明（Light）编程语言 - 中间表示（IR）系统
 
 使用三地址码（Three-Address Code）作为中间表示，便于后续优化和代码生成。
 
@@ -1965,7 +1965,7 @@ IR优化器
 
 ## 模块: keywords
 
-**模块说明**: 段言（Duan）编程语言关键字定义
+**模块说明**: 光明（Light）编程语言关键字定义
 
 核心设计（v4.0 分层语法）：
 - L0 核心字表（30字冻结）：单字为主形式，双字/多字为向后兼容别名
@@ -2002,7 +2002,7 @@ IR优化器
 
 ## 模块: lexer
 
-**模块说明**: 段言（Duan）编程语言 - 词法分析器
+**模块说明**: 光明（Light）编程语言 - 词法分析器
 
 实现决策29的三层分词机制：
 1. 类型切换自动分词 - 甲加1 → [甲] [加] [1]
@@ -2017,7 +2017,7 @@ IR优化器
 
 ### 类 `Lexer`
 
-段言词法分析器：无空格分词 + 三层机制
+光明词法分析器：无空格分词 + 三层机制
 
 ### 函数 `tokenize(self, source: str = None)`
 
@@ -2034,7 +2034,7 @@ IR优化器
 
 ## 模块: linker
 
-**模块说明**: 段言（Duan）编程语言 - 链接器和可执行文件生成器
+**模块说明**: 光明（Light）编程语言 - 链接器和可执行文件生成器
 
 支持：
 - Linux ELF格式
@@ -2133,9 +2133,9 @@ PE/COFF可执行文件格式
 
 汇编为机器码（简化实现）
 
-### 类 `DuanCompiler`
+### 类 `LightCompiler`
 
-段言编译器主类
+光明编译器主类
 
 ### 函数 `compile(self, ast_module)`
 
@@ -2163,9 +2163,9 @@ PE/COFF可执行文件格式
 
 检查结果
 
-### 类 `DuanLinter`
+### 类 `LightLinter`
 
-段言代码检查器
+光明代码检查器
 
 ### 函数 `check(self, source: str, filepath: str = '')`
 
@@ -2197,7 +2197,7 @@ PE/COFF可执行文件格式
 
 ## 模块: module_resolver
 
-**模块说明**: 段言（Duan）编程语言 - 模块解析器
+**模块说明**: 光明（Light）编程语言 - 模块解析器
 
 实现功能：
 1. 模块查找（搜索.duan文件）
@@ -2474,7 +2474,7 @@ PE/COFF可执行文件格式
 
 ### 类 `PackageInstaller`
 
-段言包安装器
+光明包安装器
 
     安装策略（按优先级）：
       1. GitCode/GitHub/Gitee 公开仓库 → ZIP 下载（无需 Git）
@@ -2529,11 +2529,11 @@ PE/COFF可执行文件格式
 
 ## 模块: package_manager
 
-**模块说明**: 段言（Duan）包管理器
+**模块说明**: 光明（Light）包管理器
 
 负责：
 1. package.toml 项目配置文件的解析
-2. 项目目录初始化（package.toml + 主.duan）
+2. 项目目录初始化（package.toml + 主.light）
 3. 入口模块发现与项目级编译入口
 
 设计原则：
@@ -2570,7 +2570,7 @@ PE/COFF可执行文件格式
 
 ### 类 `PackageManager`
 
-段言包管理器。
+光明包管理器。
 
     典型用法：
         pm = PackageManager(project_root)
@@ -2581,7 +2581,7 @@ PE/COFF可执行文件格式
 
 ### 函数 `init_project(self, name: Optional[str] = None)`
 
-在 project_root 下创建 package.toml 与 主.duan。
+在 project_root 下创建 package.toml 与 主.light。
 
         如果目录不存在则自动创建；文件已存在时返回 True（视为幂等）。
 
@@ -2593,12 +2593,12 @@ PE/COFF可执行文件格式
 
 ### 函数 `find_module(self, module_name: str)`
 
-根据模块名找到对应的 .duan 文件。
+根据模块名找到对应的 .light 文件。
 
         支持格式：
-          - 数学        ->  数学.duan
-          - 数学.工具   ->  数学/工具.duan
-          - 数学/工具   ->  数学/工具.duan
+          - 数学        ->  数学.light
+          - 数学.工具   ->  数学/工具.light
+          - 数学/工具   ->  数学/工具.light
 
 ### 函数 `build_project(self)`
 
@@ -2649,25 +2649,25 @@ PE/COFF可执行文件格式
 
 ### 函数 `load_package(project_root: Optional[Path] = None)`
 
-加载段言项目配置
+加载光明项目配置
 
 ### 函数 `init_package(project_root: Optional[Path] = None, name: Optional[str] = None)`
 
-初始化段言项目
+初始化光明项目
 
 ### 函数 `build_package(project_root: Optional[Path] = None)`
 
-编译段言项目
+编译光明项目
 
 ### 函数 `run_package(project_root: Optional[Path] = None)`
 
-编译并运行段言项目
+编译并运行光明项目
 
 ---
 
 ## 模块: parser_core
 
-**模块说明**: 段言（Duan）编程语言 - 语法解析器核心框架
+**模块说明**: 光明（Light）编程语言 - 语法解析器核心框架
 
 提供基础解析框架：
 - 词法分析集成
@@ -2679,19 +2679,19 @@ PE/COFF可执行文件格式
 
 语法解析错误
 
-### 类 `DuanParserCore`
+### 类 `LightParserCore`
 
-段言完整语法解析器核心基类
+光明完整语法解析器核心基类
 
 ### 函数 `parse(self, source: str)`
 
-解析段言代码
+解析光明代码
 
 ---
 
 ## 模块: parser_expr
 
-**模块说明**: 段言（Duan）编程语言 - 表达式解析混入类
+**模块说明**: 光明（Light）编程语言 - 表达式解析混入类
 
 提供所有表达式级别解析方法，包括：
 - 算术表达式（加、减、乘、除）
@@ -2711,7 +2711,7 @@ PE/COFF可执行文件格式
 
 ## 模块: parser_stmt
 
-**模块说明**: 段言（Duan）编程语言 - 语句解析混入类
+**模块说明**: 光明（Light）编程语言 - 语句解析混入类
 
 提供所有语句级别解析方法，包括：
 - 模块解析
@@ -2738,16 +2738,16 @@ C风格for循环：循环(init;cond;incr){body}
 
 ## 模块: profiler
 
-### 类 `DuanProfiler`
+### 类 `LightProfiler`
 
-段言性能分析器
+光明性能分析器
 
 ### 函数 `profile(self, filepath: str, memory: bool = False, report: bool = False)`
 
-分析段言程序的性能
+分析光明程序的性能
 
         Args:
-            filepath: 段言文件路径
+            filepath: 光明文件路径
             memory: 是否分析内存
             report: 是否生成详细报告
 
@@ -2761,7 +2761,7 @@ C风格for循环：循环(init;cond;incr){body}
 使用 cProfile 进行详细性能分析
 
         Args:
-            filepath: 段言文件路径
+            filepath: 光明文件路径
 
         Returns:
             详细性能分析结果
@@ -2834,7 +2834,7 @@ C风格for循环：循环(init;cond;incr){body}
 
 ## 模块: semantic_analyzer
 
-**模块说明**: 段言（Duan）编程语言 - 语义分析器
+**模块说明**: 光明（Light）编程语言 - 语义分析器
 
 负责：
 1. 符号表构建和管理
@@ -2958,7 +2958,7 @@ C风格for循环：循环(init;cond;incr){body}
 
 ## 模块: semantic_identifier
 
-**模块说明**: 段言（Duan）编程语言 - 语义识别器
+**模块说明**: 光明（Light）编程语言 - 语义识别器
 
 实现决策34：主谓/谓宾语义识别
 
@@ -3083,8 +3083,8 @@ Web 应用模板
 发现测试文件
 
     按以下规则查找：
-    1. tests/ 目录下的所有 .duan 文件（递归）
-    2. 当前目录下匹配 *_test.duan 或 test_*.duan 的文件
+    1. tests/ 目录下的所有 .light 文件（递归）
+    2. 当前目录下匹配 *_test.light 或 test_*.light 的文件
 
     Args:
         directory: 项目根目录
@@ -3098,7 +3098,7 @@ Web 应用模板
 运行单个测试文件
 
     Args:
-        filepath: .duan 文件路径
+        filepath: .light 文件路径
         verbose: 是否详细输出
 
     Returns:
@@ -3123,7 +3123,7 @@ Web 应用模板
 运行单个测试文件
 
     Args:
-        filepath: .duan 文件路径
+        filepath: .light 文件路径
         verbose: 详细输出
 
     Returns:
@@ -3133,7 +3133,7 @@ Web 应用模板
 
 ## 模块: tokens
 
-**模块说明**: 段言（Duan）编程语言 - Token 定义
+**模块说明**: 光明（Light）编程语言 - Token 定义
 
 基于设计规范：
 - 决策27：双字关键字
@@ -3166,9 +3166,9 @@ Token 数据结构
 
 类型检查器配置：控制检查的粒度和严格程度
 
-### 函数 `from_duan_config(cls, dc: DuanConfig)`
+### 函数 `from_light_config(cls, dc: LightConfig)`
 
-从 DuanConfig 创建配置
+从 LightConfig 创建配置
 
 ### 函数 `apply_file_directives(self, source: str)`
 
@@ -3178,15 +3178,15 @@ Token 数据结构
 
 根据段落修饰符确定检查级别
 
-### 类 `DuanType`
+### 类 `LightType`
 
-段言类型基类
+光明类型基类
 
 ### 函数 `to_duan(self)`
 
 ### 函数 `to_python(self)`
 
-### 函数 `is_compatible(self, other: 'DuanType')`
+### 函数 `is_compatible(self, other: 'LightType')`
 
 检查类型兼容性
 
@@ -3198,7 +3198,7 @@ Token 数据结构
 
 ### 函数 `to_python(self)`
 
-### 函数 `is_compatible(self, other: 'DuanType')`
+### 函数 `is_compatible(self, other: 'LightType')`
 
 ### 类 `ListType`
 
@@ -3208,7 +3208,7 @@ Token 数据结构
 
 ### 函数 `to_python(self)`
 
-### 函数 `is_compatible(self, other: 'DuanType')`
+### 函数 `is_compatible(self, other: 'LightType')`
 
 ### 类 `DictType`
 
@@ -3218,7 +3218,7 @@ Token 数据结构
 
 ### 函数 `to_python(self)`
 
-### 函数 `is_compatible(self, other: 'DuanType')`
+### 函数 `is_compatible(self, other: 'LightType')`
 
 ### 类 `UnionType`
 
@@ -3228,7 +3228,7 @@ Token 数据结构
 
 ### 函数 `to_python(self)`
 
-### 函数 `is_compatible(self, other: 'DuanType')`
+### 函数 `is_compatible(self, other: 'LightType')`
 
 ### 类 `OptionalType`
 
@@ -3238,7 +3238,7 @@ Token 数据结构
 
 ### 函数 `to_python(self)`
 
-### 函数 `is_compatible(self, other: 'DuanType')`
+### 函数 `is_compatible(self, other: 'LightType')`
 
 ### 类 `FunctionType`
 
@@ -3248,7 +3248,7 @@ Token 数据结构
 
 ### 函数 `to_python(self)`
 
-### 函数 `is_compatible(self, other: 'DuanType')`
+### 函数 `is_compatible(self, other: 'LightType')`
 
 ### 类 `AnyType`
 
@@ -3258,7 +3258,7 @@ Token 数据结构
 
 ### 函数 `to_python(self)`
 
-### 函数 `is_compatible(self, other: 'DuanType')`
+### 函数 `is_compatible(self, other: 'LightType')`
 
 ### 类 `TypeVarType`
 
@@ -3270,7 +3270,7 @@ Token 数据结构
 
 ### 函数 `to_python(self)`
 
-### 函数 `is_compatible(self, other: 'DuanType')`
+### 函数 `is_compatible(self, other: 'LightType')`
 
 ### 类 `GenericTypeInstance`
 
@@ -3280,7 +3280,7 @@ Token 数据结构
 
 ### 函数 `to_python(self)`
 
-### 函数 `is_compatible(self, other: 'DuanType')`
+### 函数 `is_compatible(self, other: 'LightType')`
 
 ### 函数 `parse_type_annotation(annotation: str)`
 
@@ -3290,7 +3290,7 @@ Token 数据结构
 
 类型环境：跟踪当前作用域中变量的类型
 
-### 函数 `define(self, name: str, t: DuanType)`
+### 函数 `define(self, name: str, t: LightType)`
 
 ### 函数 `lookup(self, name: str)`
 
@@ -3316,7 +3316,7 @@ Token 数据结构
 
 ### 类 `TypeChecker`
 
-段言独立类型检查器（CLI 使用）
+光明独立类型检查器（CLI 使用）
 
 ### 函数 `check(self, module)`
 
@@ -3344,23 +3344,23 @@ Token 数据结构
 
 ### 函数 `has_errors(self)`
 
-### 类 `DuanTypeBridge`
+### 类 `LightTypeBridge`
 
 类型系统桥接器：在 type_checker 的简单类型系统与 type_inferencer 的高级类型系统之间转换
 
     两个类型系统：
-      - 简单系统（type_checker）：DuanType 层次（PrimitiveType, ListType, DictType, ...）
+      - 简单系统（type_checker）：LightType 层次（PrimitiveType, ListType, DictType, ...）
       - 高级系统（type_system）：Type 层次（NumberType, StringType, BooleanType, ...）
 
     桥接器提供双向转换，使 GradedTypeChecker 能利用 TypeInferencer 的推断结果。
 
-### 函数 `simple_to_advanced(simple_type: DuanType)`
+### 函数 `simple_to_advanced(simple_type: LightType)`
 
-将简单 DuanType 转换为高级 Type 对象
+将简单 LightType 转换为高级 Type 对象
 
 ### 函数 `advanced_to_simple(adv_type: 'Any')`
 
-将高级 Type 对象转换为简单 DuanType
+将高级 Type 对象转换为简单 LightType
 
 ### 类 `CFGAnalyzer`
 
@@ -3375,7 +3375,7 @@ Token 数据结构
 
 检查代码块的所有执行路径是否都有 return 语句
 
-### 函数 `check_missing_return(seg, declared_return_type: DuanType)`
+### 函数 `check_missing_return(seg, declared_return_type: LightType)`
 
 检查段落是否缺少返回语句，返回问题列表
 
@@ -3383,15 +3383,15 @@ Token 数据结构
 
 查找不可达代码的行号列表
 
-### 函数 `create_checker_from_source(source: str, dc: DuanConfig)`
+### 函数 `create_checker_from_source(source: str, dc: LightConfig)`
 
-从源代码和 DuanConfig 创建分级类型检查器
+从源代码和 LightConfig 创建分级类型检查器
 
     从源文件头部的注释中提取类型检查指令并应用到配置。
 
-### 函数 `create_checker_from_config(dc: DuanConfig)`
+### 函数 `create_checker_from_config(dc: LightConfig)`
 
-从 DuanConfig 创建分级类型检查器（无源代码指令）
+从 LightConfig 创建分级类型检查器（无源代码指令）
 
 ### 函数 `check_module(module, strict: bool = False)`
 
@@ -3409,7 +3409,7 @@ Token 数据结构
 
 ## 模块: type_inferencer
 
-**模块说明**: 段言（Duan）编程语言 - 增强类型推断器（Phase 1 版本）
+**模块说明**: 光明（Light）编程语言 - 增强类型推断器（Phase 1 版本）
 
 特点：
 - 完整的类型系统：基本类型、复合类型、泛型类型、类类型、接口类型
@@ -3429,7 +3429,7 @@ Token 数据结构
 
 ### 类 `TypeInferencer`
 
-段言增强类型推断器（Phase 1 版本）
+光明增强类型推断器（Phase 1 版本）
 
 ### 函数 `register_enum(self, enum_def: EnumDefinition)`
 
@@ -3471,7 +3471,7 @@ Token 数据结构
 
 ## 模块: type_system
 
-**模块说明**: 段言（Duan）编程语言 - 类型系统定义（Phase 1 增强版）
+**模块说明**: 光明（Light）编程语言 - 类型系统定义（Phase 1 增强版）
 
 定义所有类型类、符号表、类型推断错误，以及：
 - 基本类型（数、串、布尔、空、任意、未知）
@@ -3821,7 +3821,7 @@ Copy-on-Write: O(1) 克隆，延迟复制映射
 
 ### 类 `TypeParser`
 
-从字符串解析段言类型表达式。
+从字符串解析光明类型表达式。
 
     支持的类型表达式示例：
         数
@@ -3841,7 +3841,7 @@ Copy-on-Write: O(1) 克隆，延迟复制映射
 
 ## 模块: verb_info
 
-**模块说明**: 段言（Duan）编程语言 - 动词信息模块
+**模块说明**: 光明（Light）编程语言 - 动词信息模块
 
 定义动词的元数和修改模式（决策28、决策34）
 
@@ -3898,13 +3898,13 @@ Copy-on-Write: O(1) 克隆，延迟复制映射
 
 ## 模块: wasm_target
 
-### 函数 `compile_duan_to_python(source: str)`
+### 函数 `compile_light_to_python(source: str)`
 
-将段言代码编译为 Python 代码
+将光明代码编译为 Python 代码
 
 ### 函数 `compile_to_pyodide(source: str)`
 
-编译段言代码为 Pyodide 可执行格式
+编译光明代码为 Pyodide 可执行格式
 
     Returns:
         {
@@ -3913,12 +3913,12 @@ Copy-on-Write: O(1) 克隆，延迟复制映射
             'error': str or None,     # 编译错误
         }
 
-### 函数 `compile_to_standalone_html(source: str, title: str = "段言程序")`
+### 函数 `compile_to_standalone_html(source: str, title: str = "光明程序")`
 
-编译段言代码为独立 HTML 页面（内嵌 Pyodide 运行时）
+编译光明代码为独立 HTML 页面（内嵌 Pyodide 运行时）
 
     Args:
-        source: 段言源代码
+        source: 光明源代码
         title: 页面标题
 
     Returns:

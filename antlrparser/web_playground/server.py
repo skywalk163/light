@@ -1,5 +1,5 @@
 """
-段言（Duan）Web Playground - 后端 API 服务
+光明（Light）Web Playground - 后端 API 服务
 
 提供代码执行、示例库、代码分享功能。
 """
@@ -21,9 +21,9 @@ if _parent_dir not in sys.path:
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
-from duan_interpreter import run_source
-from duan_visitor import parse_source
-from duan_tokenizer import DuanLangTokenizer
+from light_interpreter import run_source
+from light_visitor import parse_source
+from light_tokenizer import LightLangTokenizer
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
@@ -44,9 +44,9 @@ os.makedirs(SHARED_DIR, exist_ok=True)
 BUILTIN_EXAMPLES = [
     {
         "id": "hello",
-        "title": "你好，段言",
-        "description": "最基础的段言程序",
-        "code": '打印("你好，段言！")。\n打印("欢迎来到中文编程的世界。")。'
+        "title": "你好，光明",
+        "description": "最基础的光明程序",
+        "code": '打印("你好，光明！")。\n打印("欢迎来到中文编程的世界。")。'
     },
     {
         "id": "variables",
@@ -118,13 +118,13 @@ BUILTIN_EXAMPLES = [
         "id": "digit_sum",
         "title": "回文判断",
         "description": "字符串反转和回文判断，遍历查找回文数",
-        "code": '# 回文判断\n\n《反转字符串》段(文本):\n  定义_结果等于""。\n  定义i等于文本之长度减1。\n  当 i 大于等于 0:\n    定义_结果等于_结果加文本[i]。\n    定义i等于i减1。\n  结束。\n  返回_结果。\n结束。\n\n《是回文》段(文本):\n  定义_反转等于《反转字符串》(文本)。\n  如果文本等于_反转那么:\n    返回真。\n  否则:\n    返回假。\n  结束。\n结束。\n\n# 测试\n定义_词1等于"上海自来水来自海上"。\n定义_词2等于"段言编程语言"。\n\n打印(_词1加" 是回文吗？"加《是回文》(_词1))。\n打印(_词2加" 是回文吗？"加《是回文》(_词2))。\n\n# 遍历查找两位数中的回文数\n打印("--- 两位数中的回文数 ---")。\n定义n等于10。\n当 n 小于等于 99:\n  定义_文本等于""加n。\n  如果《是回文》(_文本)那么:\n    打印(n)。\n  结束。\n  定义n等于n加1。\n结束。'
+        "code": '# 回文判断\n\n《反转字符串》段(文本):\n  定义_结果等于""。\n  定义i等于文本之长度减1。\n  当 i 大于等于 0:\n    定义_结果等于_结果加文本[i]。\n    定义i等于i减1。\n  结束。\n  返回_结果。\n结束。\n\n《是回文》段(文本):\n  定义_反转等于《反转字符串》(文本)。\n  如果文本等于_反转那么:\n    返回真。\n  否则:\n    返回假。\n  结束。\n结束。\n\n# 测试\n定义_词1等于"上海自来水来自海上"。\n定义_词2等于"光明编程语言"。\n\n打印(_词1加" 是回文吗？"加《是回文》(_词1))。\n打印(_词2加" 是回文吗？"加《是回文》(_词2))。\n\n# 遍历查找两位数中的回文数\n打印("--- 两位数中的回文数 ---")。\n定义n等于10。\n当 n 小于等于 99:\n  定义_文本等于""加n。\n  如果《是回文》(_文本)那么:\n    打印(n)。\n  结束。\n  定义n等于n加1。\n结束。'
     },
     {
         "id": "fib_iter",
         "title": "字符串处理",
         "description": "字符串拼接、索引访问和长度操作",
-        "code": '# 字符串处理示例\n\n定义文本等于"段言编程语言"。\n打印("原始文本："加文本)。\n打印("长度："加文本之长度)。\n打印("第一个字符："加文本[0])。\n\n# 字符串拼接\n定义a等于"你好，"加"世界！"。\n打印(a)。\n\n# 数字与字符串拼接\n定义年份等于2024。\n打印("段言 "加年份加" 版")。\n\n# 多层拼接\n定义t等于"【"加文本加"】"。\n打印("带括号："加t)。\n\n# 列表遍历\n定义列表等于【"a", "b", "c"】。\n遍历 项 列表:\n  打印("元素："加项)。\n结束。\n\n# 循环拼接\n定义结果等于""。\n定义i等于0。\n当i小于3:\n  结果等于结果加文本[i]。\n  定义i等于i加1。\n结束。\n打印("前三个字符："加结果)。'
+        "code": '# 字符串处理示例\n\n定义文本等于"光明编程语言"。\n打印("原始文本："加文本)。\n打印("长度："加文本之长度)。\n打印("第一个字符："加文本[0])。\n\n# 字符串拼接\n定义a等于"你好，"加"世界！"。\n打印(a)。\n\n# 数字与字符串拼接\n定义年份等于2024。\n打印("光明 "加年份加" 版")。\n\n# 多层拼接\n定义t等于"【"加文本加"】"。\n打印("带括号："加t)。\n\n# 列表遍历\n定义列表等于【"a", "b", "c"】。\n遍历 项 列表:\n  打印("元素："加项)。\n结束。\n\n# 循环拼接\n定义结果等于""。\n定义i等于0。\n当i小于3:\n  结果等于结果加文本[i]。\n  定义i等于i加1。\n结束。\n打印("前三个字符："加结果)。'
     },
     {
         "id": "list_analysis",
@@ -136,7 +136,7 @@ BUILTIN_EXAMPLES = [
         "id": "guess_game",
         "title": "猜数字游戏",
         "description": "猜数字游戏，体验条件判断和循环",
-        "code": '# 猜数字游戏\n# 规则：系统想一个 1-100 的数，你来猜\n# 由于段言暂不支持输入，我们用列表模拟多次猜测\n\n《猜数字》段(目标数值, 猜测列表):\n  打印("目标数值："加目标数值)。\n  遍历 猜测 猜测列表:\n    如果猜测等于目标数值那么:\n      打印("✓ 猜对了！答案是 "加猜测)。\n      返回真。\n    否则若猜测大于目标数值那么:\n      打印("✗ "加猜测加" 太大了")。\n    否则:\n      打印("✗ "加猜测加" 太小了")。\n    结束。\n  结束。\n  打印("😅 所有猜测都错了，答案是 "加目标数值)。\n  返回假。\n结束。\n\n# 模拟猜数字\n定义_目标等于42。\n定义_猜测列表等于【50, 30, 40, 45, 42】。\n\n《猜数字》(_目标, _猜测列表)。'
+        "code": '# 猜数字游戏\n# 规则：系统想一个 1-100 的数，你来猜\n# 由于光明暂不支持输入，我们用列表模拟多次猜测\n\n《猜数字》段(目标数值, 猜测列表):\n  打印("目标数值："加目标数值)。\n  遍历 猜测 猜测列表:\n    如果猜测等于目标数值那么:\n      打印("✓ 猜对了！答案是 "加猜测)。\n      返回真。\n    否则若猜测大于目标数值那么:\n      打印("✗ "加猜测加" 太大了")。\n    否则:\n      打印("✗ "加猜测加" 太小了")。\n    结束。\n  结束。\n  打印("😅 所有猜测都错了，答案是 "加目标数值)。\n  返回假。\n结束。\n\n# 模拟猜数字\n定义_目标等于42。\n定义_猜测列表等于【50, 30, 40, 45, 42】。\n\n《猜数字》(_目标, _猜测列表)。'
     }
 ]
 
@@ -241,7 +241,7 @@ GRAMMAR_REFERENCE = [
     {
         "category": "完整示例",
         "items": [
-            {"syntax": "# Hello World\n打印(\"你好，段言！\")。", "description": "入门示例"},
+            {"syntax": "# Hello World\n打印(\"你好，光明！\")。", "description": "入门示例"},
             {"syntax": "# 条件判断\n如果 分数 大于等于 60 那么:\n  打印(\"及格\")。\n否则:\n  打印(\"不及格\")。\n结束。", "description": "条件判断示例"},
             {"syntax": "# 递归函数\n《阶乘》段(n):\n  如果 n 小于等于 1 那么:\n    返回 1。\n  结束。\n  返回 n 乘《阶乘》(n减1)。\n结束。", "description": "递归函数示例"}
         ]
@@ -257,7 +257,7 @@ def get_grammar():
 
 @app.route('/api/execute', methods=['POST'])
 def execute():
-    """执行段言代码"""
+    """执行光明代码"""
     data = request.get_json(silent=True) or {}
     code = data.get('code', '').strip()
 
@@ -383,7 +383,7 @@ def tokenize_code():
         return jsonify({'success': False, 'error': '代码不能为空'})
 
     try:
-        tokenizer = DuanLangTokenizer()
+        tokenizer = LightLangTokenizer()
         tokens = tokenizer.tokenize(code)
 
         token_list = []
@@ -413,7 +413,7 @@ def tokenize_code():
 # =============================================================================
 
 if __name__ == '__main__':
-    print(f"段言 Web Playground 启动中...")
+    print(f"光明 Web Playground 启动中...")
     print(f"  静态文件目录: {app.static_folder}")
     print(f"  分享存储目录: {SHARED_DIR}")
     print(f"  访问地址: http://localhost:5000")

@@ -1,6 +1,6 @@
-# LoRA 微调指南 — 段言翻译器
+# LoRA 微调指南 — 光明翻译器
 
-用 LoRA 轻量化微调，使模型学会将 Python 代码翻译为段言 v3.2 代码。
+用 LoRA 轻量化微调，使模型学会将 Python 代码翻译为光明 v3.2 代码。
 
 ## 支持模型
 
@@ -130,7 +130,7 @@ python train_lora_7b.py --model-preset qwen3-8b --qlora --batch-size 1 --grad-ac
 | 秩 | 可训练参数 | 显存增量 | 适用场景 |
 |----|-----------|---------|----------|
 | 8 | ~10M | 最低 | 简单翻译任务 |
-| **16** | ~20M | 适中 | **推荐：通用 Python→段言翻译** |
+| **16** | ~20M | 适中 | **推荐：通用 Python→光明翻译** |
 | 32 | ~40M | 较高 | 复杂代码/暗坑多 |
 | 64 | ~80M | 高 | 需要极强泛化能力 |
 
@@ -159,12 +159,12 @@ python train_lora_7b.py --model-preset qwen3-8b --qlora --batch-size 1 --grad-ac
 
 ## 训练数据
 
-使用 `sft_dataset.jsonl`（881 条 Python↔段言 v3.2 对照数据）。
+使用 `sft_dataset.jsonl`（881 条 Python↔光明 v3.2 对照数据）。
 
 数据格式（Alpaca）：
 ```json
 {
-  "instruction": "将Python代码转为段言代码：",
+  "instruction": "将Python代码转为光明代码：",
   "input": "def add(a, b): return a + b",
   "output": "段落 加法 接收 a, b：\n    返回 a 加 b",
   "category": "段落"
@@ -198,9 +198,9 @@ python train_lora_7b.py --model-preset qwen3-8b --qlora --batch-size 1 --grad-ac
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 # 2B 模型
-model_path = "output/qwen3.5_2b_duan/merged"
+model_path = "output/qwen3.5_2b_light/merged"
 # 或 8B 模型
-# model_path = "output/qwen3_8b_duan/merged"
+# model_path = "output/qwen3_8b_light/merged"
 
 tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
 model = AutoModelForCausalLM.from_pretrained(
@@ -208,8 +208,8 @@ model = AutoModelForCausalLM.from_pretrained(
 )
 
 messages = [
-    {"role": "system", "content": "你是段言编程语言v3.2的翻译专家。"},
-    {"role": "user", "content": "将Python代码转为段言代码：\ndef add(a, b): return a + b"},
+    {"role": "system", "content": "你是光明编程语言v3.2的翻译专家。"},
+    {"role": "user", "content": "将Python代码转为光明代码：\ndef add(a, b): return a + b"},
 ]
 text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 inputs = tokenizer(text, return_tensors="pt").to(model.device)
@@ -221,7 +221,7 @@ print(tokenizer.decode(outputs[0][inputs['input_ids'].shape[1]:], skip_special_t
 
 ```bash
 pip install vllm
-vllm serve output/qwen3.5_2b_duan/merged --port 8000
+vllm serve output/qwen3.5_2b_light/merged --port 8000
 ```
 
 然后通过 OpenAI 兼容 API 调用：
@@ -229,8 +229,8 @@ vllm serve output/qwen3.5_2b_duan/merged --port 8000
 import openai
 client = openai.OpenAI(base_url="http://localhost:8000/v1", api_key="dummy")
 response = client.chat.completions.create(
-    model="qwen3-8b-duan",
-    messages=[{"role": "user", "content": "将Python代码转为段言代码：\nprint('hello')"}],
+    model="qwen3-8b-light",
+    messages=[{"role": "user", "content": "将Python代码转为光明代码：\nprint('hello')"}],
 )
 print(response.choices[0].message.content)
 ```
@@ -244,19 +244,19 @@ from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 base = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-8B-Instruct", device_map="auto")
-model = PeftModel.from_pretrained(base, "output/qwen3_8b_duan/checkpoints/checkpoint-XXX")
+model = PeftModel.from_pretrained(base, "output/qwen3_8b_light/checkpoints/checkpoint-XXX")
 ```
 
 好处：一个基础模型可以挂载多个 LoRA adapter，按需切换。
 
-### 方式四：集成到段言管线
+### 方式四：集成到光明管线
 
 ```bash
 # 设置模型路径
-duan ai generate "排序算法" --model-path output/qwen3_8b_duan/merged
+light ai generate "排序算法" --model-path output/qwen3_8b_light/merged
 
 # 或通过 pipeline.py 的 model-size=large 自动路由
-duan ai generate "排序算法" --model-size large
+light ai generate "排序算法" --model-size large
 ```
 
 ## 完整流程示例
@@ -274,10 +274,10 @@ python train_lora_7b.py --model-preset qwen3-8b --test-infer
 
 # 4. 部署为 API 服务
 pip install vllm
-vllm serve output/qwen3.5_2b_duan/merged --port 8000
+vllm serve output/qwen3.5_2b_light/merged --port 8000
 
-# 5. 集成到段言开发
-duan ai generate "二分查找" --model-path output/qwen3.5_2b_duan/merged
+# 5. 集成到光明开发
+light ai generate "二分查找" --model-path output/qwen3.5_2b_light/merged
 ```
 
 ## 常见问题
@@ -306,7 +306,7 @@ duan ai generate "二分查找" --model-path output/qwen3.5_2b_duan/merged
 
 ### Q: QLoRA 和 LoRA 效果差多少？
 
-- 实测差距约 2-5%（在段言翻译任务上几乎可忽略）
+- 实测差距约 2-5%（在光明翻译任务上几乎可忽略）
 - 如果显存够，优先用 LoRA BF16
 - 如果显存紧，QLoRA 是性价比最高的选择
 
@@ -323,7 +323,7 @@ export HF_ENDPOINT=https://hf-mirror.com
 
 ### Q: 如何恢复中断的训练？
 
-LoRA checkpoint 会保存在 `output/qwen3_8b_duan/checkpoints/` 目录下，
+LoRA checkpoint 会保存在 `output/qwen3_8b_light/checkpoints/` 目录下，
 最新 checkpoint 可以直接用于推理或继续训练。
 
 ### Q: LLaMA-Factory 安装失败？
@@ -350,7 +350,7 @@ pip install llamafactory
 | 训练框架 | LLaMA-Factory | ERNIEKit |
 | 训练时间 | 30-90 分钟 | 10-30 分钟 |
 | 翻译质量 | 高（上下文理解强） | 中（简单翻译可用） |
-| 适用场景 | 通用 Python→段言 | 窄翻译/规则化转换 |
+| 适用场景 | 通用 Python→光明 | 窄翻译/规则化转换 |
 
 **推荐策略**：先用 Qwen3-8B 做主翻译器，ERNIE-4.5-0.3B 做轻量级备用。
 

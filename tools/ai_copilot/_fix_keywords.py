@@ -2,7 +2,7 @@
 修复DU中的Python关键字残留：
 1. pass -> 设 _ 为 空
 2. reverse=True -> reverse=真
-3. yield from -> 用Duan语法替代
+3. yield from -> 用Light语法替代
 """
 import json, re
 
@@ -16,7 +16,7 @@ for i, item in enumerate(data):
     
     # 1. Fix pass (but not inside string literals like print("pass"))
     # Strategy: replace standalone 'pass' in DU code blocks
-    # The pass appears as a statement in Duan paragraphs
+    # The pass appears as a statement in Light paragraphs
     # Replace '\n        pass' or '\n    pass' patterns
     du = re.sub(r'(?<=\n)    pass(?=\n|$)', '    设 _ 为 空', du)
     du = re.sub(r'(?<=\n)        pass(?=\n|$)', '        设 _ 为 空', du)
@@ -30,8 +30,8 @@ for i, item in enumerate(data):
     
     # 3. Fix yield from -> 遍历并产出
     # yield from expr -> 遍历 _item 于 expr：产出 _item
-    # But Duan might not have '产出' keyword. For now, keep as is.
-    # yield from is rare (3 entries) and Duan doesn't support it well.
+    # But Light might not have '产出' keyword. For now, keep as is.
+    # yield from is rare (3 entries) and Light doesn't support it well.
     
     if du != original:
         fixes += 1

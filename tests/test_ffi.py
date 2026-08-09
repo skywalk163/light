@@ -1,5 +1,5 @@
 """
-段言 C FFI 绑定机制测试
+光明 C FFI 绑定机制测试
 """
 
 import sys
@@ -11,7 +11,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))
 
-from duan_parser_v3 import DuanParser, FFILoadLibrary, FFIFunctionDecl, FFIStructDef, FFICallbackDef
+from light_parser_v3 import LightParser, FFILoadLibrary, FFIFunctionDecl, FFIStructDef, FFICallbackDef
 from code_generator import PythonCodeGenerator
 from ast_nodes import FFILoadLibraryStatement, FFIFunctionDeclaration, FFIStructDefinition, FFICallbackDefinition
 
@@ -59,7 +59,7 @@ def _create_test_library():
 def test_parse_load_library():
     """测试解析加载库语句"""
     code = '加载库 "libm.so" 为 数学库。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     ffi_stmts = [s for s in module.statements if isinstance(s, FFILoadLibrary)]
     assert len(ffi_stmts) == 1, f"期望1个FFI加载库语句，得到{len(ffi_stmts)}"
@@ -71,7 +71,7 @@ def test_parse_load_library():
 def test_parse_ffi_function_decl():
     """测试解析外部函数声明"""
     code = '外部 段落 正弦 接收 甲 为 小数 返回 小数 在 数学库。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     ffi_stmts = [s for s in module.statements if isinstance(s, FFIFunctionDecl)]
     assert len(ffi_stmts) == 1, f"期望1个FFI函数声明，得到{len(ffi_stmts)}"
@@ -88,7 +88,7 @@ def test_parse_ffi_function_decl():
 def test_parse_ffi_with_c_name():
     """测试解析带C函数名的外部声明"""
     code = '外部 段落 平方根 为 "sqrt" 接收 甲 为 小数 返回 小数 在 数学库。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     ffi_stmts = [s for s in module.statements if isinstance(s, FFIFunctionDecl)]
     stmt = ffi_stmts[0]
@@ -100,7 +100,7 @@ def test_parse_ffi_with_c_name():
 def test_parse_ffi_struct_def():
     """测试解析外部结构体定义"""
     code = '外部 结构体 点 { 甲: 整数, 乙: 整数 }。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     ffi_stmts = [s for s in module.statements if isinstance(s, FFIStructDef)]
     assert len(ffi_stmts) == 1
@@ -115,7 +115,7 @@ def test_parse_ffi_struct_def():
 def test_parse_ffi_callback_def():
     """测试解析外部回调定义"""
     code = '外部 回调 比较器 接收 甲, 乙 返回 整数。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     ffi_stmts = [s for s in module.statements if isinstance(s, FFICallbackDef)]
     assert len(ffi_stmts) == 1
@@ -129,7 +129,7 @@ def test_parse_ffi_callback_def():
 def test_parse_full_ffi_program():
     """测试解析完整的FFI程序"""
     code = '加载库 "libm.so" 为 数学库。\n外部 段落 正弦 接收 甲 为 小数 返回 小数 在 数学库。\n外部 段落 绝对值 为 "fabs" 接收 甲 为 小数 返回 小数 在 数学库。\n设 结果 为 正弦(1.0)。\n打印(结果)。\n'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     ffi_load = [s for s in module.statements if isinstance(s, FFILoadLibrary)]
     ffi_decl = [s for s in module.statements if isinstance(s, FFIFunctionDecl)]
@@ -145,7 +145,7 @@ def test_parse_full_ffi_program():
 def test_codegen_load_library():
     """测试代码生成加载库"""
     code = '加载库 "libm.so" 为 数学库。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     gen = PythonCodeGenerator()
     result = gen.generate(module)
@@ -157,7 +157,7 @@ def test_codegen_load_library():
 def test_codegen_ffi_function():
     """测试代码生成FFI函数声明"""
     code = '外部 段落 正弦 接收 甲 为 小数 返回 小数 在 数学库。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     gen = PythonCodeGenerator()
     result = gen.generate(module)
@@ -169,7 +169,7 @@ def test_codegen_ffi_function():
 def test_codegen_ffi_struct():
     """测试代码生成FFI结构体"""
     code = '外部 结构体 点 { 甲: 整数, 乙: 整数 }。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     gen = PythonCodeGenerator()
     result = gen.generate(module)
@@ -181,7 +181,7 @@ def test_codegen_ffi_struct():
 def test_codegen_ffi_callback():
     """测试代码生成FFI回调"""
     code = '外部 回调 比较器 接收 甲, 乙 返回 整数。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     gen = PythonCodeGenerator()
     result = gen.generate(module)
@@ -331,7 +331,7 @@ def test_llvm_ffi_ast():
 # =============================================================================
 
 if __name__ == '__main__':
-    print("=== 段言 C FFI 绑定机制测试 ===\n")
+    print("=== 光明 C FFI 绑定机制测试 ===\n")
 
     print("【解析器测试】")
     test_parse_load_library()

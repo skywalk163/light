@@ -1,8 +1,8 @@
 # Trae 任务规格书 v3.5
 
-**项目**: 段言（Duan）编程语言
+**项目**: 光明（Light）编程语言
 **基线**: commit `1df69fc`（v3.4 — 链式调用修复、运算符双轨制、模块路径系统）
-**环境**: Windows, Python 3.13, git-bash, 工作目录 `C:\dumatework\duan`
+**环境**: Windows, Python 3.13, git-bash, 工作目录 `C:\dumatework\light`
 **约束**: 零回归（现有 1142 passed / 14 pre-existing failed 不可增加失败数）
 
 ---
@@ -17,7 +17,7 @@ v3.4 修复了 `己.history.append(内容)` 的链式方法调用，但深层链
 self.data.value = 10
 ```
 
-当前段言语法 `己.data.value = 10` 会报错 `无法识别的语法元素：'='`。
+当前光明语法 `己.data.value = 10` 会报错 `无法识别的语法元素：'='`。
 
 ### 根因
 `_parse_self_assignment`（`src/parser_stmt.py` 约 400-470 行）在检测到 `己.属性名` 后只解析了第一层成员访问，就检查是否跟赋值运算符。如果跟的是另一个 `.`（如 `己.data.value`），它不知道如何处理。
@@ -42,7 +42,7 @@ self.data.value = 10
 
 ### 测试
 ```bash
-cd C:\dumatework\duan
+cd C:\dumatework\light
 python -m pytest tests/test_edge_cases.py tests/test_class_definition.py tests/test_class_advanced.py -x -q --tb=short
 ```
 确保零新增失败。
@@ -52,11 +52,11 @@ python -m pytest tests/test_edge_cases.py tests/test_class_definition.py tests/t
 ## 任务 T2: 转译器增加 match-case 和 async/await 支持
 
 ### 背景
-`tools/ai_copilot/py2duan_transpiler.py` 是 Python→段言 单文件转译器。当前有以下 Python 语法无法转译，会直接跳过或报错：
+`tools/ai_copilot/py2duan_transpiler.py` 是 Python→光明 单文件转译器。当前有以下 Python 语法无法转译，会直接跳过或报错：
 
-1. `match/case` 语句 → 应转译为段言的 `匹配/情况` 语法
-2. `async def` / `await` → 应转译为段言的 `异步 函数` / `等待`
-3. 函数参数默认值 `def f(x, y=10):` → 段言已支持 `函数 f(x, y=10):`
+1. `match/case` 语句 → 应转译为光明的 `匹配/情况` 语法
+2. `async def` / `await` → 应转译为光明的 `异步 函数` / `等待`
+3. 函数参数默认值 `def f(x, y=10):` → 光明已支持 `函数 f(x, y=10):`
 
 ### 涉及文件
 - `tools/ai_copilot/py2duan_transpiler.py` — `Py2DuanTranspiler` 类
@@ -115,13 +115,13 @@ def greet(name, greeting="Hello", times=1):
 ```
 
 ### 验收标准
-写一个测试脚本 `tools/ai_copilot/test_transpiler_v2.py`，包含以上三种语法的 Python 代码，转译后输出正确的段言代码，且段言代码能被 `DuanParser` 正确解析。
+写一个测试脚本 `tools/ai_copilot/test_transpiler_v2.py`，包含以上三种语法的 Python 代码，转译后输出正确的光明代码，且光明代码能被 `DuanParser` 正确解析。
 
 ### 测试
 ```bash
-cd C:\dumatework\duan
+cd C:\dumatework\light
 python tools/ai_copilot/test_transpiler_v2.py
-python -m pytest tests/ -q --tb=no -k "not antlr" --ignore=tests/test_module_system.py --ignore=tests/test_comprehensive.py --ignore=tests/test_ffi.py --ignore=tests/test_ffi_at_c.py --ignore=tests/test_ffi_phase2.py --ignore=tests/test_ffi_phase3.py --ignore=tests/test_ffi_phase4.py --ignore=tests/test_llvm_async.py --ignore=tests/test_lsp_protocol.py --ignore=tests/test_lsp_protocol_full.py --ignore=tests/test_module_resolver.py --ignore=tests/test_advanced_semantic.py --ignore=tests/test_modern_features.py --ignore=tests/test_async.py --ignore=tests/test_ternary_antlr.py --ignore=tests/test_duan_stdlib.py --ignore=tests/test_duan_stdlib2.py --ignore=tests/test_json_import.py --ignore=tests/test_interface.py
+python -m pytest tests/ -q --tb=no -k "not antlr" --ignore=tests/test_module_system.py --ignore=tests/test_comprehensive.py --ignore=tests/test_ffi.py --ignore=tests/test_ffi_at_c.py --ignore=tests/test_ffi_phase2.py --ignore=tests/test_ffi_phase3.py --ignore=tests/test_ffi_phase4.py --ignore=tests/test_llvm_async.py --ignore=tests/test_lsp_protocol.py --ignore=tests/test_lsp_protocol_full.py --ignore=tests/test_module_resolver.py --ignore=tests/test_advanced_semantic.py --ignore=tests/test_modern_features.py --ignore=tests/test_async.py --ignore=tests/test_ternary_antlr.py --ignore=tests/test_light_stdlib.py --ignore=tests/test_light_stdlib2.py --ignore=tests/test_json_import.py --ignore=tests/test_interface.py
 ```
 
 ---
@@ -130,10 +130,10 @@ python -m pytest tests/ -q --tb=no -k "not antlr" --ignore=tests/test_module_sys
 
 ### 背景
 当前转译器无法正确处理 Python 装饰器：
-- `@staticmethod` → 段言有 `静态` 关键字
-- `@classmethod` → 段言有 `类方法` 关键字  
-- `@property` → 段言有 `特性` 关键字
-- 自定义装饰器 `@my_decorator` → 段言有 `标注` 语法
+- `@staticmethod` → 光明有 `静态` 关键字
+- `@classmethod` → 光明有 `类方法` 关键字  
+- `@property` → 光明有 `特性` 关键字
+- 自定义装饰器 `@my_decorator` → 光明有 `标注` 语法
 
 ### 涉及文件
 - `tools/ai_copilot/py2duan_transpiler.py`
@@ -169,7 +169,7 @@ class MyClass:
 ```
 
 ### 验收标准
-在 `test_transpiler_v2.py` 中增加装饰器测试用例，转译后段言代码能被 `DuanParser` 正确解析。
+在 `test_transpiler_v2.py` 中增加装饰器测试用例，转译后光明代码能被 `DuanParser` 正确解析。
 
 ---
 
@@ -204,8 +204,8 @@ class MyClass:
 
 ### 测试
 ```bash
-cd C:\dumatework\duan
-python -m pytest tests/ -q --tb=short -k "not antlr" --ignore=tests/test_module_system.py --ignore=tests/test_comprehensive.py --ignore=tests/test_ffi.py --ignore=tests/test_ffi_at_c.py --ignore=tests/test_ffi_phase2.py --ignore=tests/test_ffi_phase3.py --ignore=tests/test_ffi_phase4.py --ignore=tests/test_llvm_async.py --ignore=tests/test_lsp_protocol.py --ignore=tests/test_lsp_protocol_full.py --ignore=tests/test_module_resolver.py --ignore=tests/test_advanced_semantic.py --ignore=tests/test_modern_features.py --ignore=tests/test_async.py --ignore=tests/test_ternary_antlr.py --ignore=tests/test_duan_stdlib.py --ignore=tests/test_duan_stdlib2.py --ignore=tests/test_json_import.py --ignore=tests/test_interface.py
+cd C:\dumatework\light
+python -m pytest tests/ -q --tb=short -k "not antlr" --ignore=tests/test_module_system.py --ignore=tests/test_comprehensive.py --ignore=tests/test_ffi.py --ignore=tests/test_ffi_at_c.py --ignore=tests/test_ffi_phase2.py --ignore=tests/test_ffi_phase3.py --ignore=tests/test_ffi_phase4.py --ignore=tests/test_llvm_async.py --ignore=tests/test_lsp_protocol.py --ignore=tests/test_lsp_protocol_full.py --ignore=tests/test_module_resolver.py --ignore=tests/test_advanced_semantic.py --ignore=tests/test_modern_features.py --ignore=tests/test_async.py --ignore=tests/test_ternary_antlr.py --ignore=tests/test_light_stdlib.py --ignore=tests/test_light_stdlib2.py --ignore=tests/test_json_import.py --ignore=tests/test_interface.py
 ```
 
 ---
@@ -215,7 +215,7 @@ python -m pytest tests/ -q --tb=short -k "not antlr" --ignore=tests/test_module_
 1. **不要修改以下文件**（DuMate 正在并行使用）：
    - `src/parser_core.py` — DuMate 正在改善错误提示
    - `src/keywords.py` — DuMate 正在分析关键词精简
-   - `stdlib/` 目录 — DuMate 正在设计 duanpub 集成
+   - `stdlib/` 目录 — DuMate 正在设计 lightpub 集成
 
 2. **编码规范**：
    - 代码正文用 ASCII 半角标点

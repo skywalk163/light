@@ -1,7 +1,7 @@
 """
-段言（Duan）编程语言 - Python代码生成器（统一AST版本）
+光明（Light）编程语言 - Python代码生成器（统一AST版本）
 
-支持统一AST格式，兼容来自duan_ast和ast_unified的AST节点
+支持统一AST格式，兼容来自light_ast和ast_unified的AST节点
 集成类型推断系统，正确处理字符串连接和数字加法
 """
 
@@ -37,7 +37,7 @@ def get_attr(node, attr_name, default=None):
 # =============================================================================
 
 class UnifiedCodeGenerator:
-    """段言到Python代码生成器（支持统一AST）"""
+    """光明到Python代码生成器（支持统一AST）"""
     
     def __init__(self):
         self.indent_level = 0
@@ -91,8 +91,8 @@ class UnifiedCodeGenerator:
             '首': '__import__("operator").itemgetter(0)',
             '末': '__import__("operator").itemgetter(-1)',
             '余': '__import__("builtins").slice(1, None)',
-            '排序': '_duan_builtin.列表排序',
-            '反转': '_duan_builtin.列表反转',
+            '排序': '_light_builtin.列表排序',
+            '反转': '_light_builtin.列表反转',
             '求和': 'sum',
             '求最大': 'max',
             '求最小': 'min',
@@ -100,117 +100,117 @@ class UnifiedCodeGenerator:
             '筛选': 'filter',
             '映射': 'map',
             # 文件操作动词
-            '读取文件': '_duan_builtin.读取文件',
-            '写入文件': '_duan_builtin.写入文件',
-            '追加文件': '_duan_builtin.追加文件',
-            '文件存在': '_duan_builtin.文件存在',
-            '目录存在': '_duan_builtin.目录存在',
-            '路径存在': '_duan_builtin.路径存在',
-            '创建目录': '_duan_builtin.创建目录',
-            '删除文件': '_duan_builtin.删除文件',
-            '删除目录': '_duan_builtin.删除目录',
-            '列出目录': '_duan_builtin.列出目录',
-            '文件大小': '_duan_builtin.文件大小',
-            '绝对路径': '_duan_builtin.绝对路径',
-            '连接路径': '_duan_builtin.连接路径',
-            '目录名': '_duan_builtin.目录名',
-            '文件名': '_duan_builtin.文件名',
-            '扩展名': '_duan_builtin.扩展名',
+            '读取文件': '_light_builtin.读取文件',
+            '写入文件': '_light_builtin.写入文件',
+            '追加文件': '_light_builtin.追加文件',
+            '文件存在': '_light_builtin.文件存在',
+            '目录存在': '_light_builtin.目录存在',
+            '路径存在': '_light_builtin.路径存在',
+            '创建目录': '_light_builtin.创建目录',
+            '删除文件': '_light_builtin.删除文件',
+            '删除目录': '_light_builtin.删除目录',
+            '列出目录': '_light_builtin.列出目录',
+            '文件大小': '_light_builtin.文件大小',
+            '绝对路径': '_light_builtin.绝对路径',
+            '连接路径': '_light_builtin.连接路径',
+            '目录名': '_light_builtin.目录名',
+            '文件名': '_light_builtin.文件名',
+            '扩展名': '_light_builtin.扩展名',
             # JSON 操作（模块方法调用）
-            'JSON.序列化': '_duan_builtin.JSON序列化',
+            'JSON.序列化': '_light_builtin.JSON序列化',
             'JSON.解析': 'json.loads',
-            'json.序列化': '_duan_builtin.JSON序列化',
+            'json.序列化': '_light_builtin.JSON序列化',
             'json.解析': 'json.loads',
             # 时间操作
-            '时间戳': '_duan_builtin.时间戳',
-            '格式化时间': '_duan_builtin.格式化时间',
+            '时间戳': '_light_builtin.时间戳',
+            '格式化时间': '_light_builtin.格式化时间',
             # 系统操作动词
-            '环境变量': '_duan_builtin.环境变量',
-            '设置环境变量': '_duan_builtin.设置环境变量',
-            '参数列表': '_duan_builtin.参数列表',
-            '退出程序': '_duan_builtin.退出程序',
-            '当前目录': '_duan_builtin.当前目录',
-            '切换目录': '_duan_builtin.切换目录',
-            '执行命令': '_duan_builtin.执行命令',
+            '环境变量': '_light_builtin.环境变量',
+            '设置环境变量': '_light_builtin.设置环境变量',
+            '参数列表': '_light_builtin.参数列表',
+            '退出程序': '_light_builtin.退出程序',
+            '当前目录': '_light_builtin.当前目录',
+            '切换目录': '_light_builtin.切换目录',
+            '执行命令': '_light_builtin.执行命令',
             # 字符串操作动词
-            '转整数': '_duan_builtin.转整数',
-            '转浮点': '_duan_builtin.转浮点',
-            '转字符串': '_duan_builtin.转字符串',
-            '字符串长度': '_duan_builtin.字符串长度',
-            '分割字符串': '_duan_builtin.分割字符串',
-            '连接字符串': '_duan_builtin.连接字符串',
-            '替换字符串': '_duan_builtin.替换字符串',
-            '去除空白': '_duan_builtin.去除空白',
+            '转整数': '_light_builtin.转整数',
+            '转浮点': '_light_builtin.转浮点',
+            '转字符串': '_light_builtin.转字符串',
+            '字符串长度': '_light_builtin.字符串长度',
+            '分割字符串': '_light_builtin.分割字符串',
+            '连接字符串': '_light_builtin.连接字符串',
+            '替换字符串': '_light_builtin.替换字符串',
+            '去除空白': '_light_builtin.去除空白',
             # 列表操作（备用）
-            '列表长度': '_duan_builtin.列表长度',
-            '列表获取': '_duan_builtin.列表获取',
-            '列表追加': '_duan_builtin.列表追加',
-            '列表弹出': '_duan_builtin.列表弹出',
-            '列表排序': '_duan_builtin.列表排序',
-            '列表反转': '_duan_builtin.列表反转',
-            '列表包含': '_duan_builtin.列表包含',
-            '列表创建': '_duan_builtin.列表创建',
-            '字典创建': '_duan_builtin.字典创建',
-            '字典设置': '_duan_builtin.字典设置',
-            '字典删除': '_duan_builtin.字典删除',
-            '字典键列表': '_duan_builtin.字典键列表',
-            '字典值列表': '_duan_builtin.字典值列表',
-            '字典项列表': '_duan_builtin.字典项列表',
-            '字典包含键': '_duan_builtin.字典包含键',
-            '字典获取': '_duan_builtin.字典获取',
-            '是整数': '_duan_builtin.是整数',
-            '是浮点': '_duan_builtin.是浮点',
-            '是字符串': '_duan_builtin.是字符串',
-            '是列表': '_duan_builtin.是列表',
-            '是字典': '_duan_builtin.是字典',
-            '是空': '_duan_builtin.是空',
-            '是字母': '_duan_builtin.是字母',
-            '是数字符': '_duan_builtin.是数字',
-            '是空白': '_duan_builtin.是空白',
+            '列表长度': '_light_builtin.列表长度',
+            '列表获取': '_light_builtin.列表获取',
+            '列表追加': '_light_builtin.列表追加',
+            '列表弹出': '_light_builtin.列表弹出',
+            '列表排序': '_light_builtin.列表排序',
+            '列表反转': '_light_builtin.列表反转',
+            '列表包含': '_light_builtin.列表包含',
+            '列表创建': '_light_builtin.列表创建',
+            '字典创建': '_light_builtin.字典创建',
+            '字典设置': '_light_builtin.字典设置',
+            '字典删除': '_light_builtin.字典删除',
+            '字典键列表': '_light_builtin.字典键列表',
+            '字典值列表': '_light_builtin.字典值列表',
+            '字典项列表': '_light_builtin.字典项列表',
+            '字典包含键': '_light_builtin.字典包含键',
+            '字典获取': '_light_builtin.字典获取',
+            '是整数': '_light_builtin.是整数',
+            '是浮点': '_light_builtin.是浮点',
+            '是字符串': '_light_builtin.是字符串',
+            '是列表': '_light_builtin.是列表',
+            '是字典': '_light_builtin.是字典',
+            '是空': '_light_builtin.是空',
+            '是字母': '_light_builtin.是字母',
+            '是数字符': '_light_builtin.是数字',
+            '是空白': '_light_builtin.是空白',
             # 随机函数
-            '随机整数': '_duan_builtin.随机整数',
-            '随机浮点': '_duan_builtin.随机浮点',
-            '随机选择': '_duan_builtin.随机选择',
+            '随机整数': '_light_builtin.随机整数',
+            '随机浮点': '_light_builtin.随机浮点',
+            '随机选择': '_light_builtin.随机选择',
             # 统计函数
-            '阶乘': '_duan_builtin.阶乘',
-            '平均数': '_duan_builtin.平均数',
-            '中位数': '_duan_builtin.中位数',
-            '众数': '_duan_builtin.众数',
-            '方差': '_duan_builtin.方差',
-            '标准差': '_duan_builtin.标准差',
-            '样本方差': '_duan_builtin.样本方差',
-            '样本标准差': '_duan_builtin.样本标准差',
-            '累积和': '_duan_builtin.累积和',
+            '阶乘': '_light_builtin.阶乘',
+            '平均数': '_light_builtin.平均数',
+            '中位数': '_light_builtin.中位数',
+            '众数': '_light_builtin.众数',
+            '方差': '_light_builtin.方差',
+            '标准差': '_light_builtin.标准差',
+            '样本方差': '_light_builtin.样本方差',
+            '样本标准差': '_light_builtin.样本标准差',
+            '累积和': '_light_builtin.累积和',
             # 数学常量
-            '圆周率': '_duan_builtin.圆周率',
-            '自然常数': '_duan_builtin.自然常数',
-            '角度转弧度': '_duan_builtin.角度转弧度',
-            '弧度转角度': '_duan_builtin.弧度转角度',
+            '圆周率': '_light_builtin.圆周率',
+            '自然常数': '_light_builtin.自然常数',
+            '角度转弧度': '_light_builtin.角度转弧度',
+            '弧度转角度': '_light_builtin.弧度转角度',
             # 字符串扩展
-            '截取': '_duan_builtin.截取',
-            '字符串获取': '_duan_builtin.字符串获取',
+            '截取': '_light_builtin.截取',
+            '字符串获取': '_light_builtin.字符串获取',
             # 列表扩展
-            '列表弹出': '_duan_builtin.列表弹出',
-            '列': '_duan_builtin.列',
+            '列表弹出': '_light_builtin.列表弹出',
+            '列': '_light_builtin.列',
             # 字典扩展
-            '字典键列表': '_duan_builtin.字典键列表',
-            '字典值列表': '_duan_builtin.字典值列表',
-            '字典项列表': '_duan_builtin.字典项列表',
-            '字典包含键': '_duan_builtin.字典包含键',
-            '字典删除': '_duan_builtin.字典删除',
+            '字典键列表': '_light_builtin.字典键列表',
+            '字典值列表': '_light_builtin.字典值列表',
+            '字典项列表': '_light_builtin.字典项列表',
+            '字典包含键': '_light_builtin.字典包含键',
+            '字典删除': '_light_builtin.字典删除',
             # 路径操作
-            '分割路径': '_duan_builtin.分割路径',
-            '分割扩展名': '_duan_builtin.分割扩展名',
+            '分割路径': '_light_builtin.分割路径',
+            '分割扩展名': '_light_builtin.分割扩展名',
             # 系统操作
-            '读取行': '_duan_builtin.读取行',
-            '写入输出': '_duan_builtin.写入输出',
-            '刷新输出': '_duan_builtin.刷新输出',
-            '写入错误': '_duan_builtin.写入错误',
-            '打印错误': '_duan_builtin.打印错误',
+            '读取行': '_light_builtin.读取行',
+            '写入输出': '_light_builtin.写入输出',
+            '刷新输出': '_light_builtin.刷新输出',
+            '写入错误': '_light_builtin.写入错误',
+            '打印错误': '_light_builtin.打印错误',
             # JSON 操作
-            '解析JSON': '_duan_builtin.解析JSON',
-            '序列化JSON': '_duan_builtin.序列化JSON',
-            '美化JSON': '_duan_builtin.美化JSON',
+            '解析JSON': '_light_builtin.解析JSON',
+            '序列化JSON': '_light_builtin.序列化JSON',
+            '美化JSON': '_light_builtin.美化JSON',
         }
     
     def generate(self, module) -> str:
@@ -221,12 +221,12 @@ class UnifiedCodeGenerator:
         self.type_cache = self.type_inferencer.infer(module)
         
         # 添加文件头
-        self._add_line("# 由段言编译器生成")
-        self._add_line("# 源文件: 段言代码")
+        self._add_line("# 由光明编译器生成")
+        self._add_line("# 源文件: 光明代码")
         self._add_line("")
         
         # 添加标准库导入
-        self._add_line("# 导入段言标准库")
+        self._add_line("# 导入光明标准库")
         self._add_line("import sys")
         self._add_line("import os")
         self._add_line("import asyncio")  # 用于 async/await 支持
@@ -237,51 +237,51 @@ class UnifiedCodeGenerator:
         self._add_line("    importlib = None")
         self._add_line("")
         self._add_line("try:")
-        self._add_line("    _duan_stdlib = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stdlib')")
+        self._add_line("    _light_stdlib = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stdlib')")
         self._add_line("except NameError:")
-        self._add_line("    _duan_stdlib = os.path.join(os.getcwd(), 'stdlib')")
-        self._add_line("    if not os.path.isdir(_duan_stdlib):")
+        self._add_line("    _light_stdlib = os.path.join(os.getcwd(), 'stdlib')")
+        self._add_line("    if not os.path.isdir(_light_stdlib):")
         self._add_line("        parent_stdlib = os.path.normpath(os.path.join(os.getcwd(), '..', 'stdlib'))")
         self._add_line("        if os.path.isdir(parent_stdlib):")
-        self._add_line("            _duan_stdlib = parent_stdlib")
+        self._add_line("            _light_stdlib = parent_stdlib")
         self._add_line("")
-        self._add_line("if os.path.isdir(_duan_stdlib) and _duan_stdlib not in sys.path:")
-        self._add_line("    sys.path.insert(0, _duan_stdlib)")
+        self._add_line("if os.path.isdir(_light_stdlib) and _light_stdlib not in sys.path:")
+        self._add_line("    sys.path.insert(0, _light_stdlib)")
         self._add_line("")
         self._add_line("if importlib:")
         self._add_line("    try:")
-        self._add_line("        _duan_builtin_path = os.path.join(_duan_stdlib, 'builtins.py')")
-        self._add_line("        if os.path.isfile(_duan_builtin_path):")
-        self._add_line("            spec = importlib.util.spec_from_file_location('duan_builtins', _duan_builtin_path)")
-        self._add_line("            _duan_builtin = importlib.util.module_from_spec(spec)")
-        self._add_line("            spec.loader.exec_module(_duan_builtin)")
+        self._add_line("        _light_builtin_path = os.path.join(_light_stdlib, 'builtins.py')")
+        self._add_line("        if os.path.isfile(_light_builtin_path):")
+        self._add_line("            spec = importlib.util.spec_from_file_location('light_builtins', _light_builtin_path)")
+        self._add_line("            _light_builtin = importlib.util.module_from_spec(spec)")
+        self._add_line("            spec.loader.exec_module(_light_builtin)")
         self._add_line("        else:")
         self._add_line("            raise ImportError()")
         self._add_line("    except:")
         self._add_line("        import types")
-        self._add_line("        _duan_builtin = types.ModuleType('_duan_builtin')")
-        self._add_line("        _duan_builtin.读取文件 = lambda path: open(path, 'r', encoding='utf-8').read()")
-        self._add_line("        _duan_builtin.写入文件 = lambda path, content: open(path, 'w', encoding='utf-8').write(content) or None")
-        self._add_line("        _duan_builtin.文件存在 = lambda path: __import__('os').path.isfile(path)")
-        self._add_line("        _duan_builtin.目录存在 = lambda path: __import__('os').path.isdir(path)")
-        self._add_line("        _duan_builtin.打印 = print")
-        self._add_line("        _duan_builtin.列表创建 = list")
-        self._add_line("        _duan_builtin.列表追加 = lambda lst, item: lst.append(item)")
-        self._add_line("        _duan_builtin.列表包含 = lambda lst, item: item in lst")
-        self._add_line("        _duan_builtin.字符串长度 = len")
-        self._add_line("        _duan_builtin.字典创建 = dict")
-        self._add_line("        _duan_builtin.字典设置 = lambda d, k, v: d.update({k: v})")
-        self._add_line("        _duan_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)")
-        self._add_line("        _duan_builtin.时间戳 = lambda: int(__import__('time').time())")
-        self._add_line("        _duan_builtin.格式化时间 = lambda ts, fmt: __import__('time').strftime(fmt, __import__('time').localtime(ts))")
-        self._add_line("        _duan_builtin.JSON序列化 = lambda obj, indent=2: json.dumps(obj, ensure_ascii=False, indent=indent)")
+        self._add_line("        _light_builtin = types.ModuleType('_light_builtin')")
+        self._add_line("        _light_builtin.读取文件 = lambda path: open(path, 'r', encoding='utf-8').read()")
+        self._add_line("        _light_builtin.写入文件 = lambda path, content: open(path, 'w', encoding='utf-8').write(content) or None")
+        self._add_line("        _light_builtin.文件存在 = lambda path: __import__('os').path.isfile(path)")
+        self._add_line("        _light_builtin.目录存在 = lambda path: __import__('os').path.isdir(path)")
+        self._add_line("        _light_builtin.打印 = print")
+        self._add_line("        _light_builtin.列表创建 = list")
+        self._add_line("        _light_builtin.列表追加 = lambda lst, item: lst.append(item)")
+        self._add_line("        _light_builtin.列表包含 = lambda lst, item: item in lst")
+        self._add_line("        _light_builtin.字符串长度 = len")
+        self._add_line("        _light_builtin.字典创建 = dict")
+        self._add_line("        _light_builtin.字典设置 = lambda d, k, v: d.update({k: v})")
+        self._add_line("        _light_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)")
+        self._add_line("        _light_builtin.时间戳 = lambda: int(__import__('time').time())")
+        self._add_line("        _light_builtin.格式化时间 = lambda ts, fmt: __import__('time').strftime(fmt, __import__('time').localtime(ts))")
+        self._add_line("        _light_builtin.JSON序列化 = lambda obj, indent=2: json.dumps(obj, ensure_ascii=False, indent=indent)")
         self._add_line("else:")
         self._add_line("    import types")
-        self._add_line("    _duan_builtin = types.ModuleType('_duan_builtin')")
-        self._add_line("    _duan_builtin.打印 = print")
-        self._add_line("    _duan_builtin.时间戳 = lambda: int(__import__('time').time())")
-        self._add_line("    _duan_builtin.格式化时间 = lambda ts, fmt: __import__('time').strftime(fmt, __import__('time').localtime(ts))")
-        self._add_line("    _duan_builtin.JSON序列化 = lambda obj, indent=2: json.dumps(obj, ensure_ascii=False, indent=indent)")
+        self._add_line("    _light_builtin = types.ModuleType('_light_builtin')")
+        self._add_line("    _light_builtin.打印 = print")
+        self._add_line("    _light_builtin.时间戳 = lambda: int(__import__('time').time())")
+        self._add_line("    _light_builtin.格式化时间 = lambda ts, fmt: __import__('time').strftime(fmt, __import__('time').localtime(ts))")
+        self._add_line("    _light_builtin.JSON序列化 = lambda obj, indent=2: json.dumps(obj, ensure_ascii=False, indent=indent)")
         self._add_line("")
         
         # 生成导入语句
@@ -800,7 +800,7 @@ class UnifiedCodeGenerator:
         module_name = getattr(stmt, 'module', None) or getattr(stmt, 'module_name', '')
         if isinstance(module_name, str):
             module_name = module_name.replace('《', '').replace('》', '')
-        # 模块名映射：段言标准库模块 → Python 模块
+        # 模块名映射：光明标准库模块 → Python 模块
         # 注意：有独立 stdlib 实现（含中文函数名）的模块不要映射到 Python 标准库
         # 只有 Python 原生模块名不同且函数名也相同时才需要映射
         module_map = {'系统': 'sys', '操作系统': 'os'}
@@ -1222,7 +1222,7 @@ class UnifiedCodeGenerator:
         elif is_instance(expr, 'RangeExpr'):
             start = self._generate_expr(expr.start)
             end = self._generate_expr(expr.end)
-            # 段言的范围是包含结束值的，所以需要 +1
+            # 光明的范围是包含结束值的，所以需要 +1
             if expr.step:
                 step = self._generate_expr(expr.step)
                 return f"range({start}, {end} + 1, {step})"

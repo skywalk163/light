@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编程语言 - 综合测试套件
+光明（Light）编程语言 - 综合测试套件
 """
 
 import sys
@@ -11,12 +11,12 @@ sys.stdout.reconfigure(encoding='utf-8')
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'antlrparser'))
 
 try:
-    from duan_visitor import parse_source
-    from duan_interpreter import Interpreter
-    from duan_llvm import LLVMCodeGen
+    from light_visitor import parse_source
+    from light_interpreter import Interpreter
+    from light_llvm import LLVMCodeGen
 except ImportError:
     import pytest
-    pytest.skip("ANTLR parser not available (missing generated DuanLangParser module)", allow_module_level=True)
+    pytest.skip("ANTLR parser not available (missing generated LightLangParser module)", allow_module_level=True)
 
 def run_interpreter(source):
     module = parse_source(source)
@@ -134,7 +134,7 @@ def test_compiler():
 
 def run_all():
     print("="*60)
-    print("段言编程语言 - 综合测试套件")
+    print("光明编程语言 - 综合测试套件")
     print("="*60)
     
     test_basic()

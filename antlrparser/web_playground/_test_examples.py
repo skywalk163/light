@@ -4,7 +4,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from server import BUILTIN_EXAMPLES
-from duan_interpreter import run_source
+from light_interpreter import run_source
 
 passed = 0
 failed = 0

@@ -70,7 +70,7 @@ class TestPlaygroundDemosAPI(_FlaskTestBase):
         self.assertEqual(resp.status_code, 200)
         data = resp.get_json()
         self.assertTrue(data['success'])
-        self.assertIn('你好，段言', data['output'])
+        self.assertIn('你好，光明', data['output'])
 
     def test_run_demo_inline_code(self):
         """POST /api/demos/run — 直接传入代码运行"""
@@ -104,7 +104,7 @@ class TestPlaygroundDemosAPI(_FlaskTestBase):
         data = resp.get_json()
         self.assertTrue(data['success'])
         self.assertIn('code', data)
-        self.assertIn('你好，段言', data['code'])
+        self.assertIn('你好，光明', data['code'])
 
     def test_get_demo_not_found(self):
         """GET /api/demos/<id> — 不存在的 demo"""

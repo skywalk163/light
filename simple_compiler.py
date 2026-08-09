@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器 - 将段言代码编译为Python代码（支持缩进）
+光明编译器 - 将光明代码编译为Python代码（支持缩进）
 """
 
 import sys
 import os
 
-def compile_duan_to_python(source_code):
-    """将段言代码编译为Python代码"""
+def compile_light_to_python(source_code):
+    """将光明代码编译为Python代码"""
     lines = source_code.split('\n')
     python_lines = []
     
@@ -30,7 +30,7 @@ def compile_duan_to_python(source_code):
             python_lines.append('# ' + line[1:].strip() if line.startswith('#') else line)
             continue
         
-        # 计算当前缩进级别（段言使用2个空格作为缩进）
+        # 计算当前缩进级别（光明使用2个空格作为缩进）
         leading_spaces = len(line) - len(line.lstrip())
         indent_level = leading_spaces // 2
         
@@ -109,7 +109,7 @@ def compile_duan_to_python(source_code):
 
 def main():
     if len(sys.argv) < 2:
-        print("用法: python simple_compiler.py <source.duan> [output.py]")
+        print("用法: python simple_compiler.py <source.light> [output.py]")
         sys.exit(1)
     
     source_path = sys.argv[1]
@@ -123,7 +123,7 @@ def main():
     print(f"代码长度: {len(source_code)} 字符")
     
     # 编译
-    python_code = compile_duan_to_python(source_code)
+    python_code = compile_light_to_python(source_code)
     print("编译完成!")
     
     # 写入输出文件

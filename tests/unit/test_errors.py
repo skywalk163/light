@@ -9,15 +9,15 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from errors import format_exception, format_source_context, DuanError, LexerError, SemanticError
+from errors import format_exception, format_source_context, LightError, LexerError, SemanticError
 
 
 class TestErrorFormatting:
     """测试错误格式化"""
     
-    def test_duan_error(self):
-        """测试 DuanError"""
-        err = DuanError("测试错误", line=5, col=10)
+    def test_light_error(self):
+        """测试 LightError"""
+        err = LightError("测试错误", line=5, col=10)
         assert "测试错误" in str(err)
         assert err.line == 5
         assert err.col == 10
@@ -32,9 +32,9 @@ class TestErrorFormatting:
         err = SemanticError("语义错误", line=10, col=5)
         assert "语义错误" in str(err)
     
-    def test_duan_error_with_hint(self):
+    def test_light_error_with_hint(self):
         """测试带提示的错误"""
-        err = DuanError("错误", hint="试试这个")
+        err = LightError("错误", hint="试试这个")
         assert "提示" in str(err)
         assert "试试这个" in str(err)
     

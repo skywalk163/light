@@ -1,4 +1,4 @@
-# 段言（Duan）发布工作流
+# 光明（Light）发布工作流
 #
 # 在推送 tag（如 v6.0.0）时触发：
 #   1. 运行全量测试
@@ -52,13 +52,13 @@ jobs:
         include:
           - os: windows-latest
             exe-suffix: ".exe"
-            artifact-name: duan6-windows-x64
+            artifact-name: light6-windows-x64
           - os: ubuntu-latest
             exe-suffix: ""
-            artifact-name: duan6-linux-x64
+            artifact-name: light6-linux-x64
           - os: macos-latest
             exe-suffix: ""
-            artifact-name: duan6-macos-x64
+            artifact-name: light6-macos-x64
 
     steps:
       - uses: actions/checkout@v7
@@ -75,24 +75,24 @@ jobs:
 
       - name: 构建可执行文件
         run: |
-          python build_exe.py --name duan6
+          python build_exe.py --name light6
 
       - name: 验证可执行文件 (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          chmod +x dist/duan6${{ matrix.exe-suffix }}
-          file dist/duan6${{ matrix.exe-suffix }}
-          ./dist/duan6${{ matrix.exe-suffix }} --help
-          ./dist/duan6${{ matrix.exe-suffix }} --test
+          chmod +x dist/light6${{ matrix.exe-suffix }}
+          file dist/light6${{ matrix.exe-suffix }}
+          ./dist/light6${{ matrix.exe-suffix }} --help
+          ./dist/light6${{ matrix.exe-suffix }} --test
 
       - name: 验证可执行文件 (Windows)
         if: runner.os == 'Windows'
         run: |
           python -c "
           import subprocess
-          r = subprocess.run(['dist\\duan6.exe', '--help'], capture_output=True, text=True, encoding='gbk')
+          r = subprocess.run(['dist\\light6.exe', '--help'], capture_output=True, text=True, encoding='gbk')
           print('--help 返回码:', r.returncode)
-          r = subprocess.run(['dist\\duan6.exe', '--test'], capture_output=True, text=True, encoding='gbk')
+          r = subprocess.run(['dist\\light6.exe', '--test'], capture_output=True, text=True, encoding='gbk')
           print('--test 返回码:', r.returncode)
           print('--test 输出:', r.stdout[:200])
           "
@@ -101,7 +101,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact-name }}
-          path: dist/duan6${{ matrix.exe-suffix }}
+          path: dist/light6${{ matrix.exe-suffix }}
 
   # ── 3. 构建源码包和 wheel 包 ──────────────────────────────
   build-package:
@@ -173,14 +173,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: 段言 v${{ steps.version.outputs.version }}
+          name: 光明 v${{ steps.version.outputs.version }}
           body: ${{ steps.release-notes.outputs.notes }}
           draft: false
           prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
           files: |
-            release-artifacts/duan6-windows-x64/duan6.exe
-            release-artifacts/duan6-linux-x64/duan6
-            release-artifacts/duan6-macos-x64/duan6
+            release-artifacts/light6-windows-x64/light6.exe
+            release-artifacts/light6-linux-x64/light6
+            release-artifacts/light6-macos-x64/light6
             release-artifacts/python-package/*.whl
             release-artifacts/python-package/*.tar.gz
         env:
@@ -193,7 +193,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/duan4/
+      url: https://pypi.org/project/light/
     steps:
       - uses: actions/checkout@v7
 

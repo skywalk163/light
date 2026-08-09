@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）段件安装器
+光明（Light）段件安装器
 
-负责从远程仓库下载并安装段言段件。
+负责从远程仓库下载并安装光明段件。
 
 功能：
-  - duan install <段件名>          从注册中心安装
-  - duan install --git <url>       从 Git 仓库安装
-  - duan install --path <路径>     从本地路径安装
-  - duan install --list            列出已安装的段件
-  - duan install --search <关键词>  搜索段件
+  - light install <段件名>          从注册中心安装
+  - light install --git <url>       从 Git 仓库安装
+  - light install --path <路径>     从本地路径安装
+  - light install --list            列出已安装的段件
+  - light install --search <关键词>  搜索段件
 
 段件库（段件注册中心）：
   - 内置注册表（常用段件索引）
@@ -49,11 +49,11 @@ BUILTIN_REGISTRY = {
             "name": "标准数学扩展",
             "version": "1.0.0",
             "description": "扩展数学函数库：矩阵运算、复数、统计函数",
-            "author": "段言团队",
+            "author": "光明团队",
             "mirrors": [
-                "https://gitcode.com/duan-lang/duan-math-ext.git",
-                "https://github.com/duan-lang/duan-math-ext.git",
-                "https://gitee.com/duan-lang/duan-math-ext.git",
+                "https://gitcode.com/light-lang/light-math-ext.git",
+                "https://github.com/light-lang/light-math-ext.git",
+                "https://gitee.com/light-lang/light-math-ext.git",
             ],
             "keywords": ["数学", "矩阵", "统计"]
         },
@@ -61,11 +61,11 @@ BUILTIN_REGISTRY = {
             "name": "网络请求",
             "version": "1.0.0",
             "description": "HTTP 客户端库：GET/POST 请求、JSON 解析",
-            "author": "段言团队",
+            "author": "光明团队",
             "mirrors": [
-                "https://gitcode.com/duan-lang/duan-http.git",
-                "https://github.com/duan-lang/duan-http.git",
-                "https://gitee.com/duan-lang/duan-http.git",
+                "https://gitcode.com/light-lang/light-http.git",
+                "https://github.com/light-lang/light-http.git",
+                "https://gitee.com/light-lang/light-http.git",
             ],
             "keywords": ["网络", "HTTP", "API"]
         },
@@ -73,11 +73,11 @@ BUILTIN_REGISTRY = {
             "name": "命令行工具",
             "version": "1.0.0",
             "description": "CLI 开发工具：参数解析、进度条、颜色输出",
-            "author": "段言团队",
+            "author": "光明团队",
             "mirrors": [
-                "https://gitcode.com/duan-lang/duan-cli-utils.git",
-                "https://github.com/duan-lang/duan-cli-utils.git",
-                "https://gitee.com/duan-lang/duan-cli-utils.git",
+                "https://gitcode.com/light-lang/light-cli-utils.git",
+                "https://github.com/light-lang/light-cli-utils.git",
+                "https://gitee.com/light-lang/light-cli-utils.git",
             ],
             "keywords": ["CLI", "命令行", "终端"]
         },
@@ -85,11 +85,11 @@ BUILTIN_REGISTRY = {
             "name": "测试框架",
             "version": "1.0.0",
             "description": "单元测试框架：断言、测试套件、覆盖率",
-            "author": "段言团队",
+            "author": "光明团队",
             "mirrors": [
-                "https://gitcode.com/duan-lang/duan-test.git",
-                "https://github.com/duan-lang/duan-test.git",
-                "https://gitee.com/duan-lang/duan-test.git",
+                "https://gitcode.com/light-lang/light-test.git",
+                "https://github.com/light-lang/light-test.git",
+                "https://gitee.com/light-lang/light-test.git",
             ],
             "keywords": ["测试", "单元测试", "断言"]
         },
@@ -97,11 +97,11 @@ BUILTIN_REGISTRY = {
             "name": "数据库",
             "version": "1.0.0",
             "description": "数据库操作库：SQL 查询、连接池、ORM",
-            "author": "段言团队",
+            "author": "光明团队",
             "mirrors": [
-                "https://gitcode.com/duan-lang/duan-db.git",
-                "https://github.com/duan-lang/duan-db.git",
-                "https://gitee.com/duan-lang/duan-db.git",
+                "https://gitcode.com/light-lang/light-db.git",
+                "https://github.com/light-lang/light-db.git",
+                "https://gitee.com/light-lang/light-db.git",
             ],
             "keywords": ["数据库", "SQL", "ORM"]
         },
@@ -109,11 +109,11 @@ BUILTIN_REGISTRY = {
             "name": "模板引擎",
             "version": "1.0.0",
             "description": "文本模板引擎：变量替换、循环、条件渲染",
-            "author": "段言团队",
+            "author": "光明团队",
             "mirrors": [
-                "https://gitcode.com/duan-lang/duan-template.git",
-                "https://github.com/duan-lang/duan-template.git",
-                "https://gitee.com/duan-lang/duan-template.git",
+                "https://gitcode.com/light-lang/light-template.git",
+                "https://github.com/light-lang/light-template.git",
+                "https://gitee.com/light-lang/light-template.git",
             ],
             "keywords": ["模板", "渲染", "HTML"]
         },
@@ -121,11 +121,11 @@ BUILTIN_REGISTRY = {
             "name": "日志",
             "version": "1.0.0",
             "description": "日志记录库：分级日志、文件输出、格式化",
-            "author": "段言团队",
+            "author": "光明团队",
             "mirrors": [
-                "https://gitcode.com/duan-lang/duan-log.git",
-                "https://github.com/duan-lang/duan-log.git",
-                "https://gitee.com/duan-lang/duan-log.git",
+                "https://gitcode.com/light-lang/light-log.git",
+                "https://github.com/light-lang/light-log.git",
+                "https://gitee.com/light-lang/light-log.git",
             ],
             "keywords": ["日志", "调试", "记录"]
         },
@@ -133,11 +133,11 @@ BUILTIN_REGISTRY = {
             "name": "配置管理",
             "version": "1.0.0",
             "description": "配置文件管理：TOML/JSON/YAML 读写",
-            "author": "段言团队",
+            "author": "光明团队",
             "mirrors": [
-                "https://gitcode.com/duan-lang/duan-config.git",
-                "https://github.com/duan-lang/duan-config.git",
-                "https://gitee.com/duan-lang/duan-config.git",
+                "https://gitcode.com/light-lang/light-config.git",
+                "https://github.com/light-lang/light-config.git",
+                "https://gitee.com/light-lang/light-config.git",
             ],
             "keywords": ["配置", "TOML", "JSON"]
         },
@@ -145,11 +145,11 @@ BUILTIN_REGISTRY = {
             "name": "加密",
             "version": "1.0.0",
             "description": "加密工具库：哈希、对称加密、Base64",
-            "author": "段言团队",
+            "author": "光明团队",
             "mirrors": [
-                "https://gitcode.com/duan-lang/duan-crypto.git",
-                "https://github.com/duan-lang/duan-crypto.git",
-                "https://gitee.com/duan-lang/duan-crypto.git",
+                "https://gitcode.com/light-lang/light-crypto.git",
+                "https://github.com/light-lang/light-crypto.git",
+                "https://gitee.com/light-lang/light-crypto.git",
             ],
             "keywords": ["加密", "哈希", "安全"]
         },
@@ -157,11 +157,11 @@ BUILTIN_REGISTRY = {
             "name": "图像处理",
             "version": "1.0.0",
             "description": "图像处理库：缩放、裁剪、滤镜",
-            "author": "段言团队",
+            "author": "光明团队",
             "mirrors": [
-                "https://gitcode.com/duan-lang/duan-image.git",
-                "https://github.com/duan-lang/duan-image.git",
-                "https://gitee.com/duan-lang/duan-image.git",
+                "https://gitcode.com/light-lang/light-image.git",
+                "https://github.com/light-lang/light-image.git",
+                "https://gitee.com/light-lang/light-image.git",
             ],
             "keywords": ["图像", "图片", "处理"]
         },
@@ -345,7 +345,7 @@ class MirrorSpeedTest:
             start = time.time()
 
             req = urllib.request.Request(url_info.zip_url, method='HEAD')
-            req.add_header('User-Agent', 'duan-speed-test/1.0')
+            req.add_header('User-Agent', 'light-speed-test/1.0')
 
             # 先尝试 HEAD，不支持则 fallback 到 GET（只读 1 字节）
             try:
@@ -431,7 +431,7 @@ class ZipDownloader:
 
         try:
             req = urllib.request.Request(zip_url, headers={
-                'User-Agent': 'duan-package-installer/1.0',
+                'User-Agent': 'light-package-installer/1.0',
                 'Accept': 'application/zip, application/octet-stream'
             })
 
@@ -547,8 +547,8 @@ class ZipDownloader:
     def _detect_top_dir(members: List[str]) -> Optional[str]:
         """检测 ZIP 内顶层目录名
 
-        GitCode:  <repo>-<branch>/xxx.duan
-        GitHub:   <repo>-<branch>/xxx.duan
+        GitCode:  <repo>-<branch>/xxx.light
+        GitHub:   <repo>-<branch>/xxx.light
         """
         for m in members:
             if '/' in m:
@@ -563,7 +563,7 @@ class ZipDownloader:
 # ===========================================================================
 
 class PackageInstaller:
-    """段言包安装器
+    """光明包安装器
 
     安装策略（按优先级）：
       1. GitCode/GitHub/Gitee 公开仓库 → ZIP 下载（无需 Git）
@@ -593,7 +593,7 @@ class PackageInstaller:
             base = Path(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')))
         else:
             base = Path(os.environ.get('XDG_CACHE_HOME', os.path.expanduser('~/.cache')))
-        cache = base / 'duan' / 'packages'
+        cache = base / 'light' / 'packages'
         cache.mkdir(parents=True, exist_ok=True)
         return cache
 
@@ -605,7 +605,7 @@ class PackageInstaller:
         if self.registry_url:
             try:
                 req = urllib.request.Request(self.registry_url, headers={
-                    'User-Agent': 'duan-package-installer/1.0'
+                    'User-Agent': 'light-package-installer/1.0'
                 })
                 with urllib.request.urlopen(req, timeout=10) as resp:
                     remote = json.loads(resp.read().decode('utf-8'))
@@ -679,7 +679,7 @@ class PackageInstaller:
 
         if not info:
             print(f"错误: 未找到段件 '{package_name}'")
-            print(f"提示: 使用 'duan install --search {package_name}' 搜索")
+            print(f"提示: 使用 'light install --search {package_name}' 搜索")
             return False
 
         # 获取镜像列表：优先 mirrors，兼容旧 git 字段
@@ -919,7 +919,7 @@ class PackageInstaller:
         if self._packages_dir.exists():
             for d in sorted(self._packages_dir.iterdir()):
                 if d.is_dir() and not d.name.startswith('.'):
-                    duan_files = list(d.glob('*.duan'))
+                    light_files = list(d.glob('*.light'))
                     pkg_toml = d / 'package.toml'
                     version = '?'
                     desc = ''
@@ -936,7 +936,7 @@ class PackageInstaller:
                         'name': d.name,
                         'version': version,
                         'description': desc,
-                        'files': len(duan_files),
+                        'files': len(light_files),
                         'path': str(d.relative_to(self.project_root))
                     })
         return installed
@@ -1037,7 +1037,7 @@ def run_install(args):
         return
 
     # 默认：显示帮助
-    print("用法: duan install <段件名> [选项]")
+    print("用法: light install <段件名> [选项]")
     print()
     print("选项:")
     print("  <段件名>            从段件库安装指定段件")
@@ -1051,14 +1051,14 @@ def run_install(args):
     print("  -p, --project <目录> 指定项目目录")
     print()
     print("发布你的段件:")
-    print("  duan publish        生成段件库条目并显示 PR 指引")
+    print("  light publish        生成段件库条目并显示 PR 指引")
     print()
     print("示例:")
-    print("  duan install 标准数学扩展")
-    print("  duan install --git https://gitcode.com/user/repo.git")
-    print("  duan install --path ./my-package")
-    print("  duan install --search 网络")
-    print("  duan install --list")
+    print("  light install 标准数学扩展")
+    print("  light install --git https://gitcode.com/user/repo.git")
+    print("  light install --path ./my-package")
+    print("  light install --search 网络")
+    print("  light install --list")
 
 
 def _cmd_list(installer: PackageInstaller):
@@ -1067,8 +1067,8 @@ def _cmd_list(installer: PackageInstaller):
     if not installed:
         print("(没有已安装的段件)")
         print()
-        print("使用 'duan install --registry' 查看可用段件")
-        print("使用 'duan install <段件名>' 安装段件")
+        print("使用 'light install --registry' 查看可用段件")
+        print("使用 'light install <段件名>' 安装段件")
         return
 
     print("已安装的段件:")
@@ -1087,7 +1087,7 @@ def _cmd_search(installer: PackageInstaller, keyword: str):
     if not results:
         print(f"未找到与 '{keyword}' 相关的段件")
         print()
-        print("使用 'duan install --registry' 查看所有可用段件")
+        print("使用 'light install --registry' 查看所有可用段件")
         return
 
     print(f"搜索 '{keyword}' 的结果:")
@@ -1097,7 +1097,7 @@ def _cmd_search(installer: PackageInstaller, keyword: str):
         print(f"    描述: {pkg.description}")
         if pkg.keywords:
             print(f"    标签: {', '.join(pkg.keywords)}")
-        print(f"    安装: duan install {pkg.name}")
+        print(f"    安装: light install {pkg.name}")
         print()
     print("-" * 60)
     print(f"共 {len(results)} 个结果")
@@ -1110,12 +1110,12 @@ def _cmd_update_registry(installer: PackageInstaller):
         print("未配置远程段件库 URL")
         print()
         print("设置方法:")
-        print("  duan install --registry-url https://gitcode.com/duan-lang/registry/raw/main/registry.json")
+        print("  light install --registry-url https://gitcode.com/light-lang/registry/raw/main/registry.json")
         return
 
     try:
         req = urllib.request.Request(installer.registry_url, headers={
-            'User-Agent': 'duan-package-installer/1.0'
+            'User-Agent': 'light-package-installer/1.0'
         })
         with urllib.request.urlopen(req, timeout=10) as resp:
             remote = json.loads(resp.read().decode('utf-8'))
@@ -1137,7 +1137,7 @@ def run_publish(args):
         print("错误: 当前目录没有 package.toml")
         print()
         print("创建 package.toml 示例:")
-        print("  duan init --template lib")
+        print("  light init --template lib")
         return
 
     # 读取并验证 package.toml
@@ -1210,14 +1210,14 @@ def run_publish(args):
     print("=" * 60)
     print()
     print("  1. Fork 段件库仓库:")
-    print("     https://gitcode.com/duan-lang/registry")
+    print("     https://gitcode.com/light-lang/registry")
     print()
     print("  2. 在 registry.json 的 packages 中添加以上条目")
     print()
     print("  3. 提交 PR（Pull Request）")
     print()
     print("  4. PR 合并后，用户即可通过以下命令安装你的段件:")
-    print(f"     duan install {name}")
+    print(f"     light install {name}")
     print()
     print("  注意事项:")
     print("  - 确保 mirrors 中的仓库已推送且公开")
@@ -1240,12 +1240,12 @@ def _cmd_list_registry(installer: PackageInstaller):
         print(f"    描述: {pkg.description}")
         if pkg.keywords:
             print(f"    标签: {', '.join(pkg.keywords)}")
-        print(f"    安装: duan install {pkg.name}")
+        print(f"    安装: light install {pkg.name}")
         print()
     print("-" * 60)
     print(f"共 {len(packages)} 个段件")
     print()
-    print("安装: duan install <段件名>")
+    print("安装: light install <段件名>")
 
 
 if __name__ == '__main__':

@@ -2,12 +2,12 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'antlrparser'))
 
-from DuanLangLexer import DuanLangLexer
-from duan_tokenizer import DuanLangTokenizer, create_antlr_token_stream, DuanLangTokenSource
+from LightLangLexer import LightLangLexer
+from light_tokenizer import LightLangTokenizer, create_antlr_token_stream, LightLangTokenSource
 from antlr4 import Token as AntlrToken
 
 print("=== ANTLR Lexer Symbolic Names ===")
-lexer = DuanLangLexer()
+lexer = LightLangLexer()
 for i, name in enumerate(lexer.symbolicNames):
     if name and name != '<INVALID>':
         print(f"  {i}: {name}")
@@ -15,7 +15,7 @@ for i, name in enumerate(lexer.symbolicNames):
 print()
 
 # Check if '为' is properly tokenized
-tokenizer = DuanLangTokenizer()
+tokenizer = LightLangTokenizer()
 tokens = tokenizer.tokenize('设甲为10。')
 print("=== Custom Tokenizer Output for '设甲为10。' ===")
 for t in tokens:
@@ -24,7 +24,7 @@ for t in tokens:
 # Check mapping
 print()
 print("=== Token Type Mapping (first 50) ===")
-ts = DuanLangTokenSource(tokens, lexer)
+ts = LightLangTokenSource(tokens, lexer)
 for name in ['K_SET', 'K_AS', 'K_DEFINE', 'K_EQUAL', 'K_IF', 'K_THEN', 'K_ELSE_IF', 'K_ELSE', 'K_END', 'K_FOREACH', 'K_WHILE']:
     mapped_type = ts._token_type_map.get(name, 'NOT FOUND')
     print(f"  {name} -> {mapped_type}")

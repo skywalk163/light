@@ -1,4 +1,4 @@
-# 段言语法的增强设计
+# 光明语法的增强设计
 
 **日期**：2026-06-15
 **基于**：统一语法规范 v1.6
@@ -32,7 +32,7 @@
 ```
 
 **改动文件**：
-- `src/duan_parser_v3.py`：TryStmt 增加 `catch_type` 字段；`_parse_try_stmt()` 先尝试读类型再读变量
+- `src/light_parser_v3.py`：TryStmt 增加 `catch_type` 字段；`_parse_try_stmt()` 先尝试读类型再读变量
 - `src/code_generator.py`：`_generate_try_stmt()` 根据 `catch_type` 生成对应 Python 代码
 - `src/ast_nodes.py`：同步更新 TryStmt（如有定义）
 
@@ -47,7 +47,7 @@
 ```
 
 **改动文件**：
-- `src/duan_parser_v3.py`：`_parse_from_import_stmt()` 在符号列表后检测 `为` 关键字，设置 `ImportStmt.alias`
+- `src/light_parser_v3.py`：`_parse_from_import_stmt()` 在符号列表后检测 `为` 关键字，设置 `ImportStmt.alias`
 - `src/code_generator.py`：`_generate_import_stmt()` 处理 `from X import Y as Z` 输出
 
 ### 1.3 异常处理测试
@@ -69,7 +69,7 @@
 **语法**：`父.方法名(参数)` 或 `父类.方法名(参数)`
 
 **改动文件**：
-- `src/duan_parser_v3.py`：在表达式解析中识别 `父` 关键字
+- `src/light_parser_v3.py`：在表达式解析中识别 `父` 关键字
 - `src/code_generator.py`：生成 `super().method(args)` 或 `super(ClassName, self).method(args)`
 
 ### 2.2 装饰器增强
@@ -90,7 +90,7 @@
 ```
 
 **改动文件**：
-- `src/duan_parser_v3.py`：`_parse_decorator()` 识别 `@静态方法`、`@类方法`、`@特性`
+- `src/light_parser_v3.py`：`_parse_decorator()` 识别 `@静态方法`、`@类方法`、`@特性`
 - `src/code_generator.py`：对应生成 `@staticmethod`、`@classmethod`、`@property`
 
 ---

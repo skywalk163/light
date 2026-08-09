@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-测试段言代码格式化器
+测试光明代码格式化器
 
 测试覆盖：
 - 缩进格式化
@@ -19,14 +19,14 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))
 
-from formatter.duan_formatter import DuanFormatter, format_code, check_format
+from formatter.light_formatter import LightFormatter, format_code, check_format
 
 
-class TestDuanFormatter:
-    """测试 DuanFormatter 类"""
+class TestLightFormatter:
+    """测试 LightFormatter 类"""
 
     def setup_method(self):
-        self.formatter = DuanFormatter(indent_size=4, max_line_length=80)
+        self.formatter = LightFormatter(indent_size=4, max_line_length=80)
 
     # ------------------------------------------------------------------
     # 缩进格式化

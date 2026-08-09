@@ -1,10 +1,10 @@
 """
-段言 Rust FFI 绑定模块
+光明 Rust FFI 绑定模块
 ======================
 提供 Rust 语言外部函数接口绑定能力。
 支持通过 FFI 导出的 Rust 共享库调用。
 
-用法示例（在 .duan 文件中）：
+用法示例（在 .light 文件中）：
     引 Python:
         from ffi_rust import RustFFI
         rust_ffi = RustFFI()
@@ -26,7 +26,7 @@ class RustFFIError(Exception):
     pass
 
 
-# 段言类型 -> ctypes 类型映射
+# 光明类型 -> ctypes 类型映射
 TYPE_MAP: Dict[str, Any] = {
     "整数": ctypes.c_int,
     "长整数": ctypes.c_long,
@@ -75,7 +75,7 @@ class RustFFI:
     支持中文语法：
         - 引用Rust库("路径", "别名") -> 加载 Rust 共享库
         - 绑定函数(库, "函数名", 参数类型..., 返回="返回类型") -> 绑定 Rust 函数
-        - 绑定函数_自定义(库, "段言名", "Rust函数名", 参数类型..., 返回="返回类型")
+        - 绑定函数_自定义(库, "光明名", "Rust函数名", 参数类型..., 返回="返回类型")
         - 绑定字符串函数(库, "函数名", 参数...) -> 绑定返回字符串的 Rust 函数
     """
 
@@ -147,8 +147,8 @@ class RustFFI:
         参数:
             库: RustLibrary 实例
             Rust函数名: Rust 中 #[no_mangle] pub extern "C" 函数名
-            *参数类型: 参数对应的段言类型名
-            返回: 返回值的段言类型名（默认 "无"）
+            *参数类型: 参数对应的光明类型名
+            返回: 返回值的光明类型名（默认 "无"）
 
         返回:
             可调用的 Python 函数
@@ -163,18 +163,18 @@ class RustFFI:
 
     def 绑定函数_自定义(self,
                        库: RustLibrary,
-                       段言名: str,
+                       光明名: str,
                        Rust函数名: str,
                        *参数类型: str,
                        返回: str = "无") -> Callable:
-        """绑定 Rust 函数，并指定段言侧的函数名
+        """绑定 Rust 函数，并指定光明侧的函数名
 
         参数:
             库: RustLibrary 实例
-            段言名: 段言中使用的函数名
+            光明名: 光明中使用的函数名
             Rust函数名: Rust 中导出的函数名
-            *参数类型: 参数对应的段言类型名
-            返回: 返回值的段言类型名
+            *参数类型: 参数对应的光明类型名
+            返回: 返回值的光明类型名
 
         返回:
             可调用的 Python 函数
@@ -203,7 +203,7 @@ class RustFFI:
             raise RustFFIError(f"不支持的返回类型: '{返回}'")
         func.restype = ret_type
 
-        库._bound_functions[段言名] = func
+        库._bound_functions[光明名] = func
         return func
 
     def 绑定字符串函数(self,
@@ -265,7 +265,7 @@ class RustFFI:
         参数:
             库: RustLibrary 实例
             结构体名: 结构体名称
-            字段: 字段列表，每项为 (字段名, 段言类型名)
+            字段: 字段列表，每项为 (字段名, 光明类型名)
 
         返回:
             ctypes.Structure 子类
@@ -293,7 +293,7 @@ class RustFFI:
         参数:
             库: RustLibrary 实例
             Rust函数名: Rust 函数名
-            元素类型: 数组元素的段言类型名
+            元素类型: 数组元素的光明类型名
             返回计数类型: 返回数组长度的类型名
 
         返回:
@@ -394,9 +394,9 @@ class RustFFI:
         raise RustFFIError(f"无法在系统路径或 target 目录中找到 Rust 库 '{路径}'")
 
     def 字符串转字节(self, 文本: str) -> bytes:
-        """将段言字符串转为 C 字符串字节"""
+        """将光明字符串转为 C 字符串字节"""
         return 文本.encode("utf-8")
 
     def 字节转字符串(self, 字节: bytes) -> str:
-        """将 C 字符串字节转为段言字符串"""
+        """将 C 字符串字节转为光明字符串"""
         return 字节.decode("utf-8")

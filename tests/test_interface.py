@@ -1,19 +1,19 @@
 """
-段言接口与抽象类功能测试
+光明接口与抽象类功能测试
 """
 
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 
-def _compile(duan_code: str) -> str:
-    """编译段言代码，返回Python源码"""
-    parser = DuanParser()
-    module = parser.parse(duan_code)
+def _compile(light_code: str) -> str:
+    """编译光明代码，返回Python源码"""
+    parser = LightParser()
+    module = parser.parse(light_code)
     generator = PythonCodeGenerator()
     return generator.generate(module)
 

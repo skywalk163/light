@@ -102,7 +102,7 @@ class DwarfDebugInfo:
             f'!{cu_id} = !DICompileUnit('
             f'language: DW_LANG_C, '
             f'file: !{file_id}, '
-            f'producer: "段言编译器 1.0", '
+            f'producer: "光明编译器 1.0", '
             f'isOptimized: true, '
             f'flags: "", '
             f'runtimeVersion: 0, '

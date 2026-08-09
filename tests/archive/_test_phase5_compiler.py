@@ -180,7 +180,7 @@ register('便捷-compile_source', test_compile_source_function)
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("段言 Phase 5 —— 完整语言解析器测试")
+    print("光明 Phase 5 —— 完整语言解析器测试")
     print("  源码 → 词法 → 语法 → AST适配 → 类型检查")
     print("=" * 60)
     print()

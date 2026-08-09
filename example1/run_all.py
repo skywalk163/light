@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""段言翻译器批量测试 - 全部示例（使用修复后的模型）"""
+"""光明翻译器批量测试 - 全部示例（使用修复后的模型）"""
 
 import json
 import os
 import time
 import urllib.request
 
-MODEL = "duan-translator-fixed"
+MODEL = "light-translator-fixed"
 API_URL = "http://localhost:11434/api/generate"
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -327,7 +327,7 @@ def call_ollama(prompt: str) -> str:
 
 def main():
     print("=" * 60, flush=True)
-    print(f"段言翻译器批量测试 (修复模板)", flush=True)
+    print(f"光明翻译器批量测试 (修复模板)", flush=True)
     print(f"模型: {MODEL} | 示例数: {len(EXAMPLES)}", flush=True)
     print("=" * 60, flush=True)
 
@@ -335,10 +335,10 @@ def main():
     for i, ex in enumerate(EXAMPLES):
         print(f"\n[{i+1}/{len(EXAMPLES)}] {ex['id']} - {ex['title']}", flush=True)
         t0 = time.time()
-        duan_code = call_ollama(ex["python"])
+        light_code = call_ollama(ex["python"])
         elapsed = time.time() - t0
         # Preview
-        lines = duan_code.split("\n")
+        lines = light_code.split("\n")
         for line in lines[:4]:
             print(f"  | {line}", flush=True)
         if len(lines) > 4:
@@ -347,7 +347,7 @@ def main():
 
         results.append({
             "id": ex["id"], "title": ex["title"], "category": ex["category"],
-            "python": ex["python"], "duan": duan_code, "elapsed": round(elapsed, 1)
+            "python": ex["python"], "light": light_code, "elapsed": round(elapsed, 1)
         })
 
     # Save JSON
@@ -359,23 +359,23 @@ def main():
     # Generate comparison Markdown
     md_path = os.path.join(OUTPUT_DIR, "翻译对照表.md")
     with open(md_path, "w", encoding="utf-8") as f:
-        f.write("# 段言翻译器测试 - Python 与段言对照\n\n")
+        f.write("# 光明翻译器测试 - Python 与光明对照\n\n")
         f.write(f"> 模型: {MODEL} | 测试数: {len(results)} | 生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
         f.write("| # | 标题 | 分类 | 耗时 | 状态 |\n")
         f.write("|---|------|------|------|------|\n")
         for i, r in enumerate(results):
-            status = "ERROR" if r["duan"].startswith("[ERROR]") else "OK"
+            status = "ERROR" if r["light"].startswith("[ERROR]") else "OK"
             f.write(f"| {i+1} | {r['title']} | {r['category']} | {r['elapsed']}s | {status} |\n")
         f.write("\n---\n\n")
         for i, r in enumerate(results):
             f.write(f"## {i+1}. {r['id']} {r['title']}\n\n")
             f.write(f"**分类**: {r['category']} | **耗时**: {r['elapsed']}s\n\n")
             f.write(f"**Python 代码:**\n\n```python\n{r['python']}\n```\n\n")
-            f.write(f"**段言翻译:**\n\n```\n{r['duan']}\n```\n\n---\n\n")
+            f.write(f"**光明翻译:**\n\n```\n{r['light']}\n```\n\n---\n\n")
     print(f"对照表已保存: {md_path}", flush=True)
 
     # Summary
-    errors = [r for r in results if r["duan"].startswith("[ERROR]")]
+    errors = [r for r in results if r["light"].startswith("[ERROR]")]
     print(f"\n{'='*60}", flush=True)
     print(f"完成: {len(results) - len(errors)}/{len(results)} 成功, {len(errors)} 失败", flush=True)
 

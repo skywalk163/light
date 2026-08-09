@@ -1,9 +1,9 @@
 """
-段言（Duan）编程语言 - ANTLR 解析器入口
+光明（Light）编程语言 - ANTLR 解析器入口
 
 使用方法：
-    python main.py <file.duan>      # 解析文件
-    python main.py -t <file.duan>   # 仅词法分析，显示 Token 序列
+    python main.py <file.light>      # 解析文件
+    python main.py -t <file.light>   # 仅词法分析，显示 Token 序列
     python main.py -                # 从标准输入读取
 """
 
@@ -15,9 +15,9 @@ import json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    from duan_parser.DuanLangLexer import DuanLangLexer
-    from duan_parser.DuanLangParser import DuanLangParser
-    from duan_parser.DuanLangParserVisitor import DuanLangParserVisitor
+    from light_parser.LightLangLexer import LightLangLexer
+    from light_parser.LightLangParser import LightLangParser
+    from light_parser.LightLangParserVisitor import LightLangParserVisitor
 except ImportError:
     print("[错误] 无法导入 ANTLR 生成的解析器。")
     print("[提示] 请先运行: cd antlrparser && scripts\\generate.ps1")
@@ -26,14 +26,14 @@ except ImportError:
 from antlr4 import *
 from antlr4.error.ErrorListener import ErrorListener
 
-from duan_visitor import DuanLangASTBuilder, DuanLangErrorListener, parse_source, parse_file
+from light_visitor import LightLangASTBuilder, LightLangErrorListener, parse_source, parse_file
 
-from duan_tokenizer import DuanLangTokenizer
+from light_tokenizer import LightLangTokenizer
 
 
 def tokenize_only(source: str):
     """仅进行词法分析，输出 Token 序列（使用自定义中文分词器）"""
-    tokenizer = DuanLangTokenizer()
+    tokenizer = LightLangTokenizer()
     tokens = tokenizer.tokenize(source)
 
     print(f"{'类型':<25} {'文本':<15} {'行':<5} {'列':<5}")
@@ -85,8 +85,8 @@ def main():
     if len(sys.argv) < 2:
         print(__doc__)
         print("\n示例:")
-        print("  python main.py test/sample_quicksort.duan")
-        print("  python main.py -t test/sample_basic.duan")
+        print("  python main.py test/sample_quicksort.light")
+        print("  python main.py -t test/sample_basic.light")
         sys.exit(1)
 
     mode = 'parse'
@@ -111,7 +111,7 @@ def main():
         with open(source_file, 'r', encoding='utf-8') as f:
             source = f.read()
 
-    print(f"=== 段言 ANTLR 解析器 ===")
+    print(f"=== 光明 ANTLR 解析器 ===")
     print(f"文件: {source_file}")
     print(f"大小: {len(source)} 字符\n")
 

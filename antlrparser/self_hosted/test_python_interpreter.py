@@ -1,15 +1,15 @@
-"""测试Python版解释器执行段言代码"""
+"""测试Python版解释器执行光明代码"""
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_interpreter import run_source
+from light_interpreter import run_source
 
 
 def test_simple_code():
-    """测试简单的段言代码"""
+    """测试简单的光明代码"""
     print("=" * 60)
-    print("测试：Python版解释器执行段言代码")
+    print("测试：Python版解释器执行光明代码")
     print("=" * 60)
     
     # 测试代码列表

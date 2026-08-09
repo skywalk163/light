@@ -14,7 +14,7 @@ _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 _src_dir = os.path.join(_project_root, 'src')
 sys.path.insert(0, _src_dir)
 
-from compiler import DuanCompiler, OPTIMIZERS
+from compiler import LightCompiler, OPTIMIZERS
 from ast_nodes import (
     NumberLiteral, BooleanLiteral, IfStatement,
     PrintStatement, BinaryOp,
@@ -26,11 +26,11 @@ class TestOptimizerIntegration(unittest.TestCase):
 
     def setUp(self):
         """每个测试前创建编译器实例"""
-        self.compiler = DuanCompiler()
+        self.compiler = LightCompiler()
 
     def test_dead_code_elimination_applied(self):
         # 测试死代码消除是否生效：if 假条件的代码不应出现在优化后的 AST 中
-        # 使用段言语法编写一个包含假条件 if 的程序（使用 0 作为假条件）
+        # 使用光明语法编写一个包含假条件 if 的程序（使用 0 作为假条件）
         code = '''如果 0 那么打印 "不会执行"。
 打印 "会执行"。'''
 
@@ -46,7 +46,7 @@ class TestOptimizerIntegration(unittest.TestCase):
 
     def test_constant_folding_applied(self):
         # 测试常量折叠是否生效：常量表达式应该被折叠为字面量
-        # 使用段言语法编写一个包含常量表达式的变量声明
+        # 使用光明语法编写一个包含常量表达式的变量声明
         code = '设 x 为 1 加 2 乘 3。'
 
         # 使用默认优化（optimize=True）
@@ -68,7 +68,7 @@ class TestOptimizerIntegration(unittest.TestCase):
 
     def test_optimize_flag_works(self):
         # 测试 optimize=False 时不进行优化
-        # 使用段言语法编写一个包含假条件 if 的程序（使用 0 作为假条件）
+        # 使用光明语法编写一个包含假条件 if 的程序（使用 0 作为假条件）
         code = '''如果 0 那么打印 "不会执行"。
 打印 "会执行"。'''
 
@@ -77,7 +77,7 @@ class TestOptimizerIntegration(unittest.TestCase):
         ast_no_opt = result_no_opt['ast']
 
         # 重置编译器
-        self.compiler = DuanCompiler()
+        self.compiler = LightCompiler()
 
         # 优化（optimize=True）
         result_opt = self.compiler.compile(code, optimize=True)

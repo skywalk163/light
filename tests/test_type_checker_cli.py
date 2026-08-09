@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言 v4.2 类型系统 CLI 工具测试
+光明 v4.2 类型系统 CLI 工具测试
 
 测试类型检查器的命令行接口：
   1. 独立 TypeChecker 的 CLI 模式
@@ -72,8 +72,8 @@ def test_check_source_syntax_error():
     """测试语法错误的源代码"""
     from type_checker import check_source, IssueLevel
 
-    # 无效的段言语法
-    source = "not valid duan code @@@"
+    # 无效的光明语法
+    source = "not valid light code @@@"
     issues, module = check_source(source, strict=False)
     # 应返回解析错误
     assert len(issues) > 0, f"语法错误应产生问题，实际 {len(issues)}"
@@ -88,9 +88,9 @@ def test_check_source_syntax_error():
 def test_check_module_basic():
     """测试 check_module 基本功能"""
     from type_checker import check_module
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
 
-    parser = DuanParser()
+    parser = LightParser()
     source = """
 设 姓名: 字符串 为 "张三"
 设 年龄: 整数 为 25
@@ -105,9 +105,9 @@ def test_check_module_basic():
 def test_check_module_with_segments():
     """测试包含段落的模块检查"""
     from type_checker import check_module
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
 
-    parser = DuanParser()
+    parser = LightParser()
     source = """
 段落 计算(a: 整数, b: 整数) 返回 整数:
     返回 a + b
@@ -181,9 +181,9 @@ def test_type_check_result():
 def test_create_checker_from_config():
     """测试工厂函数 create_checker_from_config"""
     from type_checker import create_checker_from_config, GradedTypeChecker
-    from core.config import DuanConfig, TypeCheckLevel, SegmentTypeMode
+    from core.config import LightConfig, TypeCheckLevel, SegmentTypeMode
 
-    config = DuanConfig()
+    config = LightConfig()
     config.type_check_level = TypeCheckLevel.EXPRESSION
     config.default_segment_mode = SegmentTypeMode.STRICT
 
@@ -197,9 +197,9 @@ def test_create_checker_from_config():
 def test_create_checker_from_source():
     """测试工厂函数 create_checker_from_source"""
     from type_checker import create_checker_from_source, GradedTypeChecker
-    from core.config import DuanConfig, TypeCheckLevel, SegmentTypeMode
+    from core.config import LightConfig, TypeCheckLevel, SegmentTypeMode
 
-    config = DuanConfig()
+    config = LightConfig()
     config.type_check_level = TypeCheckLevel.NONE
     config.default_segment_mode = SegmentTypeMode.LOOSE
 
@@ -226,7 +226,7 @@ def test_create_checker_from_source():
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("段言 v4.2 类型系统 CLI 工具测试")
+    print("光明 v4.2 类型系统 CLI 工具测试")
     print("=" * 60)
 
     total = 0

@@ -3,10 +3,10 @@
 """
 LLVM 后端模块
 
-将段言编译器生成的代码通过 LLVM 工具链编译为原生可执行文件。
+将光明编译器生成的代码通过 LLVM 工具链编译为原生可执行文件。
 
 编译流程：
-  段言 (.duan) → C 代码 (.c) → Clang/LLVM → 原生可执行文件 (.exe)
+  光明 (.light) → C 代码 (.c) → Clang/LLVM → 原生可执行文件 (.exe)
 
 支持的编译器 (按顺序尝试)：
   1. clang (LLVM 原生前端)
@@ -112,13 +112,13 @@ def 编译C到原生(c文件路径, exe路径=None):
         return None
 
 
-def 编译段言为原生(段言文件路径, 输出路径=None):
-    """将段言源文件直接编译为原生可执行文件
+def 编译光明为原生(光明文件路径, 输出路径=None):
+    """将光明源文件直接编译为原生可执行文件
     
     先使用 C 后端生成 C 代码，再通过 LLVM 工具链编译为原生代码。
     
     参数:
-        段言文件路径: .duan 文件路径
+        光明文件路径: .light 文件路径
         输出路径: 输出的 .exe 文件路径（可选）
     
     返回:
@@ -128,9 +128,9 @@ def 编译段言为原生(段言文件路径, 输出路径=None):
     import sys
     import os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from c_backend import 编译段言到C文件
+    from c_backend import 编译光明到C文件
     
-    c文件 = 编译段言到C文件(段言文件路径)
+    c文件 = 编译光明到C文件(光明文件路径)
     if c文件 is None:
         return None
     
@@ -143,7 +143,7 @@ if __name__ == '__main__':
     # 命令行入口
     if len(sys.argv) < 2:
         print("用法:")
-        print("  python llvm_backend.py <源文件.duan> [输出.exe]")
+        print("  python llvm_backend.py <源文件.light> [输出.exe]")
         print("  python llvm_backend.py --compile <源文件.c> [输出.exe]")
         print("  python llvm_backend.py --check        检查 C 编译器")
         sys.exit(1)
@@ -167,9 +167,9 @@ if __name__ == '__main__':
         exe = sys.argv[3] if len(sys.argv) > 3 else None
         result = 编译C到原生(c_file, exe)
     else:
-        段言文件 = sys.argv[1]
+        光明文件 = sys.argv[1]
         输出 = sys.argv[2] if len(sys.argv) > 2 else None
-        result = 编译段言为原生(段言文件, 输出)
+        result = 编译光明为原生(光明文件, 输出)
     
     if result:
         print(f"\n[成功] 原生可执行文件: {result}")

@@ -1,21 +1,21 @@
 <#
 .SYNOPSIS
-    从 DuanLang.g4 语法文件生成 ANTLR Python 解析器代码
+    从 LightLang.g4 语法文件生成 ANTLR Python 解析器代码
 .DESCRIPTION
     使用 ANTLR4 工具从语法文件生成 Lexer 和 Parser 的 Python 代码。
-    生成的代码输出到 antlrparser/duan_parser/ 目录。
+    生成的代码输出到 antlrparser/light_parser/ 目录。
 #>
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot | Split-Path -Parent
 $GrammarDir = Join-Path $ProjectRoot "antlrparser"
-$OutputDir = Join-Path $GrammarDir "duan_parser"
-$GrammarFile = Join-Path $GrammarDir "DuanLang.g4"
+$OutputDir = Join-Path $GrammarDir "light_parser"
+$GrammarFile = Join-Path $GrammarDir "LightLang.g4"
 
 # 确保输出目录存在
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
-Write-Host "=== 段言 ANTLR 解析器生成器 ===" -ForegroundColor Cyan
+Write-Host "=== 光明 ANTLR 解析器生成器 ===" -ForegroundColor Cyan
 Write-Host "语法文件: $GrammarFile" -ForegroundColor Gray
 Write-Host "输出目录: $OutputDir" -ForegroundColor Gray
 
@@ -51,7 +51,7 @@ catch {
 # 创建 __init__.py
 $InitFile = Join-Path $OutputDir "__init__.py"
 if (-not (Test-Path $InitFile)) {
-    "# 段言 ANTLR 解析器 - 自动生成" | Out-File -FilePath $InitFile -Encoding utf8
+    "# 光明 ANTLR 解析器 - 自动生成" | Out-File -FilePath $InitFile -Encoding utf8
     Write-Host "  ✓ 创建 __init__.py" -ForegroundColor Green
 }
 

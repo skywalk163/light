@@ -13,14 +13,14 @@ for _p in [_src_dir, _project_root]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 
 
 class TestParserFuzz(unittest.TestCase):
     """解析器模糊测试"""
 
     def setUp(self):
-        self.parser = DuanParser()
+        self.parser = LightParser()
 
     # ==========================================================
     # 空与极小输入

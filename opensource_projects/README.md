@@ -1,6 +1,6 @@
-# 段言开源项目示例库
+# 光明开源项目示例库
 
-本目录收录了基于段言（DuanLang）开发的开源示例项目，展示了段言在实际应用开发中的能力。
+本目录收录了基于光明（LightLang）开发的开源示例项目，展示了光明在实际应用开发中的能力。
 
 ## 项目列表
 
@@ -24,16 +24,16 @@
 
 ```bash
 # 直接运行某个项目的主文件
-duan run opensource_projects/CLI记事本/主.duan
+light run opensource_projects/CLI记事本/主.light
 
 # 或者进入项目目录
 cd opensource_projects/简易博客引擎/
-duan run 主.duan
+light run 主.light
 ```
 
 ## 贡献指南
 
-欢迎提交你的段言开源项目！请确保：
+欢迎提交你的光明开源项目！请确保：
 1. 项目使用 L1 白话体或 L2 文言体编写
 2. 包含 `package.toml` 项目配置文件
 3. 包含完整的 README 说明文档

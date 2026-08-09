@@ -1,17 +1,17 @@
-"""完整集成测试：验证段言版解释器执行段言代码"""
+"""完整集成测试：验证光明版解释器执行光明代码"""
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_interpreter import run_source, DuanValue, DuanFunction
+from light_interpreter import run_source, LightValue, LightFunction
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def unwrap_value(v):
-    """递归解包 DuanValue"""
-    if isinstance(v, DuanValue):
+    """递归解包 LightValue"""
+    if isinstance(v, LightValue):
         return unwrap_value(v.value)
     if isinstance(v, dict):
         return {k: unwrap_value(v) for k, v in v.items()}
@@ -26,7 +26,7 @@ def load_all_components():
     
     # 1. 加载分词器
     print("  [1/4] 加载分词器...")
-    with open(os.path.join(BASE_DIR, 'tokenizer.duan'), 'r', encoding='utf-8') as f:
+    with open(os.path.join(BASE_DIR, 'tokenizer.light'), 'r', encoding='utf-8') as f:
         tokenizer_code = f.read()
     tok_interp = run_source(tokenizer_code)
     tok_func = tok_interp.env.get('分词器').value
@@ -34,7 +34,7 @@ def load_all_components():
     # 2. 加载解析器 (ast + parser)
     print("  [2/4] 加载解析器...")
     parser_code = ''
-    for name in ['ast.duan', 'parser.duan']:
+    for name in ['ast.light', 'parser.light']:
         with open(os.path.join(BASE_DIR, name), 'r', encoding='utf-8') as f:
             parser_code += f.read() + '\n'
     parse_interp = run_source(parser_code)
@@ -42,14 +42,14 @@ def load_all_components():
     
     # 3. 加载解释器
     print("  [3/4] 加载解释器...")
-    with open(os.path.join(BASE_DIR, 'interpreter.duan'), 'r', encoding='utf-8') as f:
+    with open(os.path.join(BASE_DIR, 'interpreter.light'), 'r', encoding='utf-8') as f:
         interp_code = f.read()
     interp = run_source(interp_code)
     run_func = interp.env.get('_run').value
     
     # 4. 加载LLVM代码生成器
     print("  [4/4] 加载LLVM代码生成器...")
-    with open(os.path.join(BASE_DIR, 'llvm_codegen.duan'), 'r', encoding='utf-8') as f:
+    with open(os.path.join(BASE_DIR, 'llvm_codegen.light'), 'r', encoding='utf-8') as f:
         llvm_code = f.read()
     llvm_interp = run_source(llvm_code)
     compile_func = llvm_interp.env.get('编译').value
@@ -59,22 +59,22 @@ def load_all_components():
 
 
 def get_tokens(code, tok_interp, tok_func):
-    """用段言版分词器获取Token"""
-    result = tok_interp._call_function(tok_func, [DuanValue(code, '串')])
+    """用光明版分词器获取Token"""
+    result = tok_interp._call_function(tok_func, [LightValue(code, '串')])
     raw_tokens = unwrap_value(result)
     wrapped = []
     for t in raw_tokens:
-        wrapped.append(DuanValue({
-            'type': DuanValue(t['type'], '串'),
-            'text': DuanValue(t['text'], '串'),
-            'line': DuanValue(t['line'], '数'),
-            'col': DuanValue(t['col'], '数'),
+        wrapped.append(LightValue({
+            'type': LightValue(t['type'], '串'),
+            'text': LightValue(t['text'], '串'),
+            'line': LightValue(t['line'], '数'),
+            'col': LightValue(t['col'], '数'),
         }, '典'))
-    return DuanValue(wrapped, '列')
+    return LightValue(wrapped, '列')
 
 
 def parse_code(tokens, parse_interp, parse_func):
-    """用段言版解析器解析Token"""
+    """用光明版解析器解析Token"""
     result = parse_interp._call_function(parse_func, [tokens])
     parsed = unwrap_value(result)
     if parsed.get('_type') == 'Error':
@@ -83,8 +83,8 @@ def parse_code(tokens, parse_interp, parse_func):
 
 
 def execute_code(ast_dict, interp, run_func):
-    """用段言版解释器执行AST"""
-    ast_value = DuanValue(ast_dict, '典')
+    """用光明版解释器执行AST"""
+    ast_value = LightValue(ast_dict, '典')
     interp._call_function(run_func, [ast_value])
     output = interp.get_output()
     interp.clear_output()
@@ -298,7 +298,7 @@ def test_comprehensive():
 def run_all_tests():
     """运行所有测试"""
     print("=" * 70)
-    print("段言自举解释器 - 完整集成测试")
+    print("光明自举解释器 - 完整集成测试")
     print("=" * 70)
     print()
     
@@ -380,7 +380,7 @@ def run_all_tests():
     print()
     
     if failed == 0:
-        print("🎉 所有测试通过！段言自举解释器工作正常！")
+        print("🎉 所有测试通过！光明自举解释器工作正常！")
         return 0
     else:
         print("⚠️ 部分测试失败，请检查错误信息")

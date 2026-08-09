@@ -1,4 +1,4 @@
-# 段言编译器优化分析报告
+# 光明编译器优化分析报告
 
 ## 当前代码结构分析
 
@@ -6,7 +6,7 @@
 
 **核心模块（src/）：**
 - lexer.py - 602行
-- duan_parser_v3.py - 663行
+- light_parser_v3.py - 663行
 - semantic_analyzer.py - 342行
 - code_generator.py - 288行
 - verb_info.py - 217行
@@ -17,12 +17,12 @@
 - tokens.py - 75行
 
 **历史版本（应清理）：**
-- duan_parser.py - 536行
-- duan_parser_v2.py - 418行
-- duan_parser_final.py - 380行
-- duan_parser_integrated.py - 531行
-- duan_lark.py - 473行
-- duan_lark_simple.py - 376行
+- light_parser.py - 536行
+- light_parser_v2.py - 418行
+- light_parser_final.py - 380行
+- light_parser_integrated.py - 531行
+- light_lark.py - 473行
+- light_lark_simple.py - 376行
 - parser.py - 672行
 
 **测试文件（应移至tests/）：**
@@ -43,7 +43,7 @@
 - **优先级**：高
 
 #### 2.2 文件过大
-- **问题**：lexer.py (602行) 和 duan_parser_v3.py (663行) 文件过大
+- **问题**：lexer.py (602行) 和 light_parser_v3.py (663行) 文件过大
 - **影响**：难以维护和理解
 - **优先级**：中
 
@@ -91,12 +91,12 @@
 #### 1.1 删除历史版本
 ```
 删除文件：
-- duan_parser.py
-- duan_parser_v2.py
-- duan_parser_final.py
-- duan_parser_integrated.py
-- duan_lark.py
-- duan_lark_simple.py
+- light_parser.py
+- light_parser_v2.py
+- light_parser_final.py
+- light_parser_integrated.py
+- light_lark.py
+- light_lark_simple.py
 - parser.py
 ```
 
@@ -133,7 +133,7 @@ lexer.py (602行) → 拆分为：
 
 #### 2.2 语法解析器拆分
 ```
-duan_parser_v3.py (663行) → 拆分为：
+light_parser_v3.py (663行) → 拆分为：
 - parser/core.py - 核心解析逻辑 (200行)
 - parser/expressions.py - 表达式解析 (150行)
 - parser/statements.py - 语句解析 (150行)
@@ -169,23 +169,23 @@ duan_parser_v3.py (663行) → 拆分为：
 
 #### 4.1 统一错误类型
 ```python
-class DuanError(Exception):
-    """段言编译器基础错误"""
+class LightError(Exception):
+    """光明编译器基础错误"""
     pass
 
-class LexerError(DuanError):
+class LexerError(LightError):
     """词法错误"""
     pass
 
-class ParserError(DuanError):
+class ParserError(LightError):
     """语法错误"""
     pass
 
-class SemanticError(DuanError):
+class SemanticError(LightError):
     """语义错误"""
     pass
 
-class CodeGenError(DuanError):
+class CodeGenError(LightError):
     """代码生成错误"""
     pass
 ```
@@ -219,7 +219,7 @@ class DuanConfig:
 ## 优化后的目录结构
 
 ```
-duan/
+light/
 ├── src/
 │   ├── core/              # 核心接口
 │   │   ├── interfaces.py
@@ -263,9 +263,9 @@ duan/
 ├── cli/                   # 命令行工具
 │   └── duanc.py
 └── examples/              # 示例代码
-    ├── basic.duan
-    ├── functions.duan
-    └── advanced.duan
+    ├── basic.light
+    ├── functions.light
+    └── advanced.light
 ```
 
 ## 优化预期效果

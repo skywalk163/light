@@ -1,8 +1,8 @@
 """
-段言（Duan）编程语言 - 模块解析器
+光明（Light）编程语言 - 模块解析器
 
 实现功能：
-1. 模块查找（搜索.duan文件）
+1. 模块查找（搜索.light文件）
 2. 依赖图构建
 3. 循环依赖检测
 4. 拓扑排序（确定编译顺序）
@@ -18,7 +18,7 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 
 from lexer import Lexer
-from duan_parser_v3 import DuanParser, ImportStmt
+from light_parser_v3 import LightParser, ImportStmt
 
 
 # =============================================================================
@@ -133,7 +133,7 @@ class ModuleResolver:
         self.search_paths = search_paths
         self.stdlib_path = stdlib_path
         self.lexer = Lexer()
-        self.parser = DuanParser()
+        self.parser = LightParser()
         self.module_cache: Dict[str, ModuleInfo] = {}
         self._stdlib_modules: Dict[str, ModuleInfo] = {}
         self._builtins_loaded = False
@@ -147,8 +147,8 @@ class ModuleResolver:
         if not stdlib_dir.exists():
             return
         
-        # 扫描 .duan 和 .py 文件
-        for ext in ['*.duan', '*.py']:
+        # 扫描 .light 和 .py 文件
+        for ext in ['*.light', '*.py']:
             for module_path in stdlib_dir.glob(ext):
                 module_name = module_path.stem
                 if module_name.startswith('__'):
@@ -204,11 +204,11 @@ class ModuleResolver:
             except Exception:
                 pass
         
-        # 也尝试加载 builtins.duan
-        builtins_duan = Path(self.stdlib_path) / 'builtins.duan'
-        if builtins_duan.exists():
+        # 也尝试加载 builtins.light
+        builtins_light = Path(self.stdlib_path) / 'builtins.light'
+        if builtins_light.exists():
             try:
-                module_info = self.parse_module(builtins_duan)
+                module_info = self.parse_module(builtins_light)
                 self.module_cache['builtins'] = module_info
                 self._builtins_loaded = True
             except Exception:
@@ -228,8 +228,8 @@ class ModuleResolver:
         Raises:
             ModuleNotFoundError: 模块未找到
         """
-        # 模块文件名（优先 .duan，其次 .py）
-        module_files = [f"{module_name}.duan", f"{module_name}.py"]
+        # 模块文件名（优先 .light，其次 .py）
+        module_files = [f"{module_name}.light", f"{module_name}.py"]
         
         # 构建搜索路径
         search_dirs = []
@@ -242,9 +242,9 @@ class ModuleResolver:
         search_dirs.extend(self.search_paths)
         
         # 3. 从环境变量 DUAN_PATH 查找
-        duan_path = os.environ.get('DUAN_PATH', '')
-        if duan_path:
-            search_dirs.extend(duan_path.split(os.pathsep))
+        light_path = os.environ.get('LIGHT_PATH', '')
+        if light_path:
+            search_dirs.extend(light_path.split(os.pathsep))
         
         # 搜索
         searched = []
@@ -287,13 +287,13 @@ class ModuleResolver:
         if suffix == '.py':
             return self._parse_python_module(module_path, source)
         
-        # 段言文件：使用段言解析器
+        # 光明文件：使用光明解析器
         # 词法分析和语法解析
         try:
             tokens = self.lexer.tokenize(source)
             module_ast = self.parser.parse(source)
         except Exception:
-            # 段言解析器失败（如 src 后端 lexer bug），
+            # 光明解析器失败（如 src 后端 lexer bug），
             # 尝试用同名 .py 文件解析
             py_path = module_path.with_suffix('.py')
             if py_path.exists():
@@ -335,7 +335,7 @@ class ModuleResolver:
                 else:
                     exports.extend(stmt.symbols)
         
-        # 如果段言解析未能提取到 exports，尝试同名 .py 文件
+        # 如果光明解析未能提取到 exports，尝试同名 .py 文件
         if not exports:
             py_path = module_path.with_suffix('.py')
             if py_path.exists():
@@ -347,7 +347,7 @@ class ModuleResolver:
         if not exports:
             exports = self._extract_exports_from_text(source)
         
-        # 如果段言解析未能提取到 dependencies，也尝试从文本提取
+        # 如果光明解析未能提取到 dependencies，也尝试从文本提取
         if not dependencies:
             dependencies = self._extract_imports_from_text(source)
         
@@ -763,7 +763,7 @@ class ResolvedModule:
     path: Path
     imports: List[str] = field(default_factory=list)
     source: str = ""
-    ast: Any = None  # duan_parser_v3.Module
+    ast: Any = None  # light_parser_v3.Module
     exports: List[str] = field(default_factory=list)  # 可外部可见的符号名
 
 
@@ -847,8 +847,8 @@ class ModuleDependencyResolver:
 
         # 解析 AST
         try:
-            from duan_parser_v3 import DuanParser  # type: ignore
-            parser = DuanParser()
+            from light_parser_v3 import LightParser  # type: ignore
+            parser = LightParser()
             ast_node = parser.parse(source)
         except Exception:
             # 解析失败，跳过（由 compiler 报告错误）
@@ -859,7 +859,7 @@ class ModuleDependencyResolver:
 
         # 记录已解析模块
         default_path = self._find_module_path(module_name) or \
-            Path(f"{module_name}.duan")
+            Path(f"{module_name}.light")
         self.modules[module_name] = ResolvedModule(
             name=module_name,
             path=default_path,
@@ -883,7 +883,7 @@ class ModuleDependencyResolver:
                 # 找不到文件的模块，使用占位空模块（由 compiler 做警告）
                 self.modules[imp] = ResolvedModule(
                     name=imp,
-                    path=Path(f"{imp}.duan"),
+                    path=Path(f"{imp}.light"),
                     imports=[],
                     source="",
                     ast=None,
@@ -956,13 +956,13 @@ class ModuleDependencyResolver:
         return list(dict.fromkeys(names))
 
     def _find_module_path(self, module_name: str) -> Optional[Path]:
-        """根据模块名在搜索路径中寻找 .duan 文件。"""
+        """根据模块名在搜索路径中寻找 .light 文件。"""
         if not module_name:
             return None
         candidates = [
-            f"{module_name}.duan",
-            module_name.replace(".", os.sep) + ".duan",
-            module_name.replace("/", os.sep) + ".duan",
+            f"{module_name}.light",
+            module_name.replace(".", os.sep) + ".light",
+            module_name.replace("/", os.sep) + ".light",
         ]
         seen: Set[str] = set()
         for base in self.search_paths:
@@ -1046,7 +1046,7 @@ class ModuleLoader:
 
 if __name__ == '__main__':
     print("="*60)
-    print("段言模块解析器测试")
+    print("光明模块解析器测试")
     print("="*60)
     
     # 创建测试环境
@@ -1082,7 +1082,7 @@ if __name__ == '__main__':
     print("\n测试3: 构建依赖图")
     print("-"*60)
     
-    main_file = test_dir / "main.duan"
+    main_file = test_dir / "main.light"
     
     if main_file.exists():
         try:

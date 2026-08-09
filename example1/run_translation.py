@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""段言翻译器批量测试脚本
-将经典 Python 代码通过 ollama 段言模型翻译为段言代码，并保存到 output 目录。
+"""光明翻译器批量测试脚本
+将经典 Python 代码通过 ollama 光明模型翻译为光明代码，并保存到 output 目录。
 """
 
 import json
@@ -10,7 +10,7 @@ import time
 import urllib.request
 import urllib.error
 
-MODEL = "airoot/duan-translator"
+MODEL = "airoot/light-translator"
 API_URL = "http://localhost:11434/api/generate"
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -341,7 +341,7 @@ def call_ollama(prompt: str) -> str:
 
 def main():
     print("=" * 60)
-    print("段言翻译器批量测试")
+    print("光明翻译器批量测试")
     print(f"模型: {MODEL}")
     print(f"示例数: {len(EXAMPLES)}")
     print("=" * 60)
@@ -352,12 +352,12 @@ def main():
         print(f"  分类: {ex['category']}")
 
         t0 = time.time()
-        duan_code = call_ollama(ex["python"])
+        light_code = call_ollama(ex["python"])
         elapsed = time.time() - t0
 
         print(f"  耗时: {elapsed:.1f}s")
         # 只打印前3行预览
-        lines = duan_code.split("\n")
+        lines = light_code.split("\n")
         for line in lines[:3]:
             print(f"  | {line}")
         if len(lines) > 3:
@@ -368,7 +368,7 @@ def main():
             "title": ex["title"],
             "category": ex["category"],
             "python": ex["python"],
-            "duan": duan_code,
+            "light": light_code,
             "elapsed": round(elapsed, 1),
         })
 
@@ -381,13 +381,13 @@ def main():
     # 生成对照 Markdown
     md_path = os.path.join(OUTPUT_DIR, "翻译对照表.md")
     with open(md_path, "w", encoding="utf-8") as f:
-        f.write("# 段言翻译器测试 - Python 与段言对照\n\n")
+        f.write("# 光明翻译器测试 - Python 与光明对照\n\n")
         f.write(f"> 模型: {MODEL} | 测试数: {len(results)} | 生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
         for r in results:
             f.write(f"## {r['id']} {r['title']}\n\n")
             f.write(f"**分类**: {r['category']} | **耗时**: {r['elapsed']}s\n\n")
             f.write(f"**Python 代码:**\n\n```python\n{r['python']}\n```\n\n")
-            f.write(f"**段言翻译:**\n\n```\n{r['duan']}\n```\n\n")
+            f.write(f"**光明翻译:**\n\n```\n{r['light']}\n```\n\n")
             f.write("---\n\n")
     print(f"对照表已保存: {md_path}")
 

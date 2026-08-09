@@ -1,5 +1,5 @@
 """
-@C 语法标记测试：段言 C FFI 的独立语法标记方案
+@C 语法标记测试：光明 C FFI 的独立语法标记方案
 
 @C 作为独立语法标记，与 外部 关键字并行，提供更简洁的FFI声明方式。
 语法：
@@ -13,8 +13,8 @@ import os
 import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from duan_parser_v3 import DuanParser, ParseError
-from duan_parser_v3 import (
+from light_parser_v3 import LightParser, ParseError
+from light_parser_v3 import (
     FFILoadLibrary, FFIFunctionDecl, FFIStructDef, FFICallbackDef,
     FFIEnumDef, FFIUnionDef, FFIVarArgsDecl,
     FFITypedefDef, FFIBitfieldDef, FFIFuncPtrDef,
@@ -27,7 +27,7 @@ from duan_parser_v3 import (
 # =============================================================================
 
 def test_at_c_load_library():
-    parser = DuanParser()
+    parser = LightParser()
     code = '@C 加载库 "libm.so" 为 数学库。'
     module = parser.parse(code)
     stmts = [s for s in module.statements if isinstance(s, FFILoadLibrary)]
@@ -41,7 +41,7 @@ def test_at_c_load_library():
 # =============================================================================
 
 def test_at_c_function_decl():
-    parser = DuanParser()
+    parser = LightParser()
     code = '@C 段落 正弦 接收 甲: 小数 返回 小数 在 数学库。'
     module = parser.parse(code)
     stmts = [s for s in module.statements if isinstance(s, FFIFunctionDecl)]
@@ -55,7 +55,7 @@ def test_at_c_function_decl():
 
 
 def test_at_c_function_with_c_name():
-    parser = DuanParser()
+    parser = LightParser()
     code = '@C 段落 平方根 为 "sqrt" 接收 甲: 小数 返回 小数 在 数学库。'
     module = parser.parse(code)
     stmts = [s for s in module.statements if isinstance(s, FFIFunctionDecl)]
@@ -69,7 +69,7 @@ def test_at_c_function_with_c_name():
 # =============================================================================
 
 def test_at_c_struct_def():
-    parser = DuanParser()
+    parser = LightParser()
     code = '@C 结构体 点 { 甲: 整数, 乙: 整数 }。'
     module = parser.parse(code)
     stmts = [s for s in module.statements if isinstance(s, FFIStructDef)]
@@ -86,7 +86,7 @@ def test_at_c_struct_def():
 # =============================================================================
 
 def test_at_c_callback_def():
-    parser = DuanParser()
+    parser = LightParser()
     code = '@C 回调 比较器 接收 甲: 整数, 乙: 整数 返回 整数。'
     module = parser.parse(code)
     stmts = [s for s in module.statements if isinstance(s, FFICallbackDef)]
@@ -102,7 +102,7 @@ def test_at_c_callback_def():
 # =============================================================================
 
 def test_at_c_enum_def():
-    parser = DuanParser()
+    parser = LightParser()
     code = '@C 枚举 颜色 { 红 = 0, 绿 = 1, 蓝 = 2 }。'
     module = parser.parse(code)
     stmts = [s for s in module.statements if isinstance(s, FFIEnumDef)]
@@ -113,7 +113,7 @@ def test_at_c_enum_def():
 
 
 def test_at_c_enum_auto_values():
-    parser = DuanParser()
+    parser = LightParser()
     code = '@C 枚举 状态 { 激活, 停用 }。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -126,7 +126,7 @@ def test_at_c_enum_auto_values():
 # =============================================================================
 
 def test_at_c_union_def():
-    parser = DuanParser()
+    parser = LightParser()
     code = '@C 联合体 数据 { 整数: 整数, 小数: 小数 }。'
     module = parser.parse(code)
     stmts = [s for s in module.statements if isinstance(s, FFIUnionDef)]
@@ -141,7 +141,7 @@ def test_at_c_union_def():
 # =============================================================================
 
 def test_at_c_varargs_decl():
-    parser = DuanParser()
+    parser = LightParser()
     code = '@C 变长参数 段落 打印 为 "printf" 接收 格式: 文本 返回 整数 在 libc。'
     module = parser.parse(code)
     stmts = [s for s in module.statements if isinstance(s, FFIVarArgsDecl)]
@@ -157,7 +157,7 @@ def test_at_c_varargs_decl():
 # =============================================================================
 
 def test_at_c_typedef():
-    parser = DuanParser()
+    parser = LightParser()
     code = '@C 类型别名 尺寸 为 整数。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -171,7 +171,7 @@ def test_at_c_typedef():
 # =============================================================================
 
 def test_at_c_bitfield():
-    parser = DuanParser()
+    parser = LightParser()
     code = '@C 位域 标志 : 整数 { 读: 1, 写: 1, 执行: 1 }。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -185,7 +185,7 @@ def test_at_c_bitfield():
 # =============================================================================
 
 def test_at_c_funcptr():
-    parser = DuanParser()
+    parser = LightParser()
     code = '@C 函数指针 比较器 接收 甲: 整数, 乙: 整数 返回 整数。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -199,7 +199,7 @@ def test_at_c_funcptr():
 # =============================================================================
 
 def test_at_c_debug():
-    parser = DuanParser()
+    parser = LightParser()
     code = '@C 调试 { 开启, 记录调用, 记录类型 }。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -214,7 +214,7 @@ def test_at_c_debug():
 # =============================================================================
 
 def test_at_c_preprocessor():
-    parser = DuanParser()
+    parser = LightParser()
     code = '@C 宏 缓冲区大小 为 1024。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -228,7 +228,7 @@ def test_at_c_preprocessor():
 # =============================================================================
 
 def test_at_c_mixed_with_external():
-    parser = DuanParser()
+    parser = LightParser()
     code = (
         '外部 枚举 颜色 { 红 = 0, 绿 = 1 }。\n'
         '@C 结构体 点 { x: 小数, y: 小数 }。\n'
@@ -249,7 +249,7 @@ def test_at_c_mixed_with_external():
 
 def test_at_c_does_not_break_decorator():
     """验证 @C 不干扰 @抽象 装饰器"""
-    parser = DuanParser()
+    parser = LightParser()
     code = (
         '类 测试类：\n'
         '    @抽象 标注 段落 计算 接收 甲：整数 返回 整数：\n'
@@ -264,7 +264,7 @@ def test_at_c_does_not_break_decorator():
 # =============================================================================
 
 def test_at_c_full_program():
-    parser = DuanParser()
+    parser = LightParser()
     code = (
         '@C 加载库 "libm.so" 为 数学库。\n'
         '@C 枚举 颜色 { 红 = 0, 绿 = 1, 蓝 = 2 }。\n'
@@ -287,7 +287,7 @@ def test_at_c_full_program():
 
 def test_codegen_at_c_struct():
     from code_generator import PythonCodeGenerator
-    parser = DuanParser()
+    parser = LightParser()
     code = '@C 结构体 点 { 甲: 整数, 乙: 整数 }。'
     module = parser.parse(code)
     gen = PythonCodeGenerator()
@@ -298,7 +298,7 @@ def test_codegen_at_c_struct():
 
 def test_codegen_at_c_function():
     from code_generator import PythonCodeGenerator
-    parser = DuanParser()
+    parser = LightParser()
     code = '@C 段落 正弦 接收 甲: 小数 返回 小数 在 数学库。'
     module = parser.parse(code)
     gen = PythonCodeGenerator()

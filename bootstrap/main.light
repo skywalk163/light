@@ -1,0 +1,15 @@
+# main.light - Bootstrap compiler CLI entry point
+# v3.2 语法标准
+#
+# Entry point for the bootstrap compiler.
+# Can be invoked from run_compiler.py or directly from interpreter.
+
+导入 compiler
+
+导出 main
+
+# main: invoked from Python wrapper (run_compiler.py)
+# Takes a filepath and optionally an output path
+段落 main 接收 filepath：
+  设 py_code 为 compile_file(filepath)
+  打印(py_code)

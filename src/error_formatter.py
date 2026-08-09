@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-段言运行时错误信息友好化模块
+光明运行时错误信息友好化模块
 
-将 Python 运行时的异常 traceback 转换为段言源码行号和友好的中文错误信息。
+将 Python 运行时的异常 traceback 转换为光明源码行号和友好的中文错误信息。
 """
 
 import sys
@@ -11,41 +11,41 @@ import traceback
 from typing import List, Tuple, Optional
 
 
-class DuanErrorFormatter:
-    """段言错误信息格式化器"""
+class LightErrorFormatter:
+    """光明错误信息格式化器"""
 
-    def __init__(self, source: str = '', source_name: str = '<段言代码>'):
+    def __init__(self, source: str = '', source_name: str = '<光明代码>'):
         self.source = source
         self.source_name = source_name
         self.source_lines = source.split('\n') if source else []
 
     def parse_line_mapping(self, python_code: str) -> dict:
-        """从生成的 Python 代码中解析 DUAN_SRC 行号映射表
+        """从生成的 Python 代码中解析 LIGHT_SRC 行号映射表
 
         Returns:
-            dict: {python_line: (duan_line, code_snippet)}
+            dict: {python_line: (light_line, code_snippet)}
         """
         mapping = {}
         for line in python_code.split('\n'):
-            m = re.match(r'#\s*DUAN_SRC:(\d+):(.*)', line)
+            m = re.match(r'#\s*LIGHT_SRC:(\d+):(.*)', line)
             if m:
-                duan_line = int(m.group(1))
+                light_line = int(m.group(1))
                 snippet = m.group(2)
-                mapping[line] = (duan_line, snippet)
+                mapping[line] = (light_line, snippet)
         return mapping
 
     def build_full_mapping(self, python_code: str) -> dict:
-        """构建完整的 Python 行号 -> 段言行号映射
+        """构建完整的 Python 行号 -> 光明行号映射
 
         思路：
-        1. 先找 DUAN_SRC 注释对应的 Python 行号
+        1. 先找 LIGHT_SRC 注释对应的 Python 行号
         2. 假设两个相邻映射点之间是连续的（简单的近似）
         """
         lines = python_code.split('\n')
-        anchors = []  # (py_line, duan_line)
+        anchors = []  # (py_line, light_line)
 
         for i, line in enumerate(lines):
-            m = re.match(r'#\s*DUAN_SRC:(\d+):', line)
+            m = re.match(r'#\s*LIGHT_SRC:(\d+):', line)
             if m:
                 anchors.append((i, int(m.group(1))))
 
@@ -53,21 +53,21 @@ class DuanErrorFormatter:
             return {}
 
         mapping = {}
-        for idx, (py_line, duan_line) in enumerate(anchors):
+        for idx, (py_line, light_line) in enumerate(anchors):
             if idx + 1 < len(anchors):
-                next_py, next_duan = anchors[idx + 1]
+                next_py, next_light = anchors[idx + 1]
                 py_end = next_py
             else:
                 py_end = len(lines)
 
             for p in range(py_line, py_end):
                 if mapping.get(p) is None:
-                    mapping[p] = duan_line
+                    mapping[p] = light_line
 
         return mapping
 
     def format_exception(self, exc_type=None, exc_value=None, exc_tb=None) -> str:
-        """格式化异常为段言友好的错误信息
+        """格式化异常为光明友好的错误信息
 
         Args:
             exc_type: 异常类型
@@ -85,7 +85,7 @@ class DuanErrorFormatter:
 
         result = []
         result.append("=" * 60)
-        result.append(f"❌ 段言运行时错误: {exc_type.__name__}")
+        result.append(f"❌ 光明运行时错误: {exc_type.__name__}")
         result.append("=" * 60)
         result.append("")
 
@@ -110,10 +110,10 @@ class DuanErrorFormatter:
         return "\n".join(result)
 
     def format_traceback_string(self, tb_text: str) -> str:
-        """格式化 traceback 字符串为段言友好版本"""
+        """格式化 traceback 字符串为光明友好版本"""
         result = []
         result.append("=" * 60)
-        result.append("❌ 段言运行时错误")
+        result.append("❌ 光明运行时错误")
         result.append("=" * 60)
         result.append("")
         result.append(tb_text)
@@ -270,7 +270,7 @@ class DuanErrorFormatter:
             suggestions.append("          否则：")
             suggestions.append("              打印(\"除数不能为零\")")
         elif exc_name == 'IndentationError':
-            suggestions.append("• 检查缩进是否一致（段言使用 4 空格缩进）")
+            suggestions.append("• 检查缩进是否一致（光明使用 4 空格缩进）")
             suggestions.append("• 不要混用 Tab 和空格")
             suggestions.append("• 确保所有同级语句缩进级别相同")
             suggestions.append("")
@@ -332,12 +332,12 @@ class DuanErrorFormatter:
             suggestions.append("• 检查目标服务器是否可达")
         else:
             suggestions.append(f"• 详细错误信息: {exc_msg}")
-            suggestions.append("• 可以查阅段言文档: docs/")
-            suggestions.append("• 访问段言官网获取更多帮助")
+            suggestions.append("• 可以查阅光明文档: docs/")
+            suggestions.append("• 访问光明官网获取更多帮助")
 
         suggestions.append("")
         suggestions.append("📖 更多帮助：")
-        suggestions.append("• 段言文档: https://docs.duan-lang.org")
+        suggestions.append("• 光明文档: https://docs.light-lang.org")
         suggestions.append("• 示例代码: examples/")
         suggestions.append("• 常见问题: docs/FAQ.md")
 
@@ -345,18 +345,18 @@ class DuanErrorFormatter:
         return suggestions
 
 
-def run_with_friendly_error(code: str, source: str = '', source_name: str = '<段言代码>') -> int:
+def run_with_friendly_error(code: str, source: str = '', source_name: str = '<光明代码>') -> int:
     """执行代码并以友好的方式报告错误
 
     Args:
         code: 要执行的 Python 代码
-        source: 段言源代码（用于上下文显示）
+        source: 光明源代码（用于上下文显示）
         source_name: 源代码名称
 
     Returns:
         退出码 (0=正常, 1=错误)
     """
-    formatter = DuanErrorFormatter(source, source_name)
+    formatter = LightErrorFormatter(source, source_name)
     try:
         exec(code, {'__name__': '__main__', '__file__': source_name})
         return 0
@@ -373,15 +373,15 @@ def format_runtime_error(source: str, exc_type=None, exc_value=None, exc_tb=None
     """便捷函数：格式化运行时错误
 
     Args:
-        source: 段言源代码
+        source: 光明源代码
         exc_type, exc_value, exc_tb: 异常信息，默认为 sys.exc_info()
     """
-    formatter = DuanErrorFormatter(source)
+    formatter = LightErrorFormatter(source)
     return formatter.format_exception(exc_type, exc_value, exc_tb)
 
 
 # 中文异常类型映射（供 raise 用）
-DUAN_EXCEPTION_MAP = {
+LIGHT_EXCEPTION_MAP = {
     'NameError': '变量未定义错误',
     'TypeError': '类型错误',
     'ValueError': '值错误',

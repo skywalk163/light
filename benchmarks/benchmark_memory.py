@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器 - 内存使用分析基准测试
+光明编译器 - 内存使用分析基准测试
 
 测试内容：
 1. 使用 tracemalloc 追踪解析/编译/执行各阶段内存使用
@@ -20,9 +20,9 @@ from datetime import datetime
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from lexer import Lexer
-from duan_parser_v3 import DuanParser as V3Parser
+from light_parser_v3 import LightParser as V3Parser
 from code_generator_unified import UnifiedCodeGenerator
-from compiler import DuanCompiler, AstAdapter
+from compiler import LightCompiler, AstAdapter
 
 BENCHMARK_DIR = Path(__file__).parent / 'programs'
 REPORT_DIR = Path(__file__).parent / 'reports'
@@ -134,7 +134,7 @@ def benchmark_phase_memory():
     print("1. 编译各阶段内存使用分析")
     print("=" * 80)
 
-    bench_files = sorted(BENCHMARK_DIR.glob('*.duan'))
+    bench_files = sorted(BENCHMARK_DIR.glob('*.light'))
     results = []
 
     for bench_file in bench_files:
@@ -158,7 +158,7 @@ def benchmark_phase_memory():
 # =============================================================================
 
 def generate_large_source(size_kb):
-    """生成指定大小的段言源代码用于内存压力测试"""
+    """生成指定大小的光明源代码用于内存压力测试"""
     lines = []
     # 填充大量变量声明和表达式
     for i in range(size_kb * 10):  # 大约每10行产生1KB
@@ -225,7 +225,7 @@ def benchmark_memory_leak():
 
         try:
             start = time.perf_counter()
-            compiler = DuanCompiler()
+            compiler = LightCompiler()
             result = compiler.compile(source)
             elapsed = time.perf_counter() - start
 
@@ -325,7 +325,7 @@ def generate_report(phase_results, large_file_results, leak_result, output_path)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='段言编译器内存使用分析基准测试')
+    parser = argparse.ArgumentParser(description='光明编译器内存使用分析基准测试')
     parser.add_argument('--output', '-o', default=str(REPORT_DIR / 'memory_benchmark.json'),
                         help='JSON 报告输出路径')
     parser.add_argument('--no-phase', action='store_true', help='跳过各阶段内存分析')
@@ -333,7 +333,7 @@ def main():
     parser.add_argument('--no-leak', action='store_true', help='跳过内存泄漏检测')
     args = parser.parse_args()
 
-    print("段言编译器 - 内存使用分析基准测试")
+    print("光明编译器 - 内存使用分析基准测试")
     print("=" * 80)
     print(f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Python: {sys.version.split()[0]}")

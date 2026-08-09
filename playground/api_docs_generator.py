@@ -1,8 +1,8 @@
 """
-段言 API 参考文档自动生成器
+光明 API 参考文档自动生成器
 
 功能：
-  - 扫描 stdlib/ 目录下的 .duan 文件，提取函数/类定义和注释
+  - 扫描 stdlib/ 目录下的 .light 文件，提取函数/类定义和注释
   - 扫描 src/ 目录下的 .py 文件，提取模块/类/函数文档
   - 生成 Markdown 格式的 API 参考文档
   - 输出到 docs/api/ 目录供 mkdocs 使用
@@ -36,8 +36,8 @@ def extract_py_docstring(source: str) -> str:
     return ''
 
 
-def extract_duan_docs(filepath: str) -> list:
-    """解析 .duan 文件，提取函数/类定义和注释"""
+def extract_light_docs(filepath: str) -> list:
+    """解析 .light 文件，提取函数/类定义和注释"""
     results = []
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
@@ -214,9 +214,9 @@ def generate_markdown(output_dir: str):
     stdlib_docs = {}
     if os.path.isdir(_stdlib_dir):
         for fname in sorted(os.listdir(_stdlib_dir)):
-            if fname.endswith('.duan'):
+            if fname.endswith('.light'):
                 fpath = os.path.join(_stdlib_dir, fname)
-                items = extract_duan_docs(fpath)
+                items = extract_light_docs(fpath)
                 if items:
                     stdlib_docs[fname] = items
 
@@ -234,7 +234,7 @@ def generate_markdown(output_dir: str):
     if stdlib_docs:
         content = ['# 标准库 API 参考', '', '> 自动生成 - 请勿手动编辑', '', '---', '']
         for fname, items in sorted(stdlib_docs.items()):
-            mod_name = fname.replace('.duan', '')
+            mod_name = fname.replace('.light', '')
             content.append(f'## 模块: {mod_name}')
             content.append('')
             for item in items:
@@ -242,7 +242,7 @@ def generate_markdown(output_dir: str):
                     params_str = f"({item['params']})" if item['params'] else '()'
                     content.append(f'### 函数 `{item["name"]}{params_str}`')
                     content.append('')
-                    content.append(f'```duan')
+                    content.append(f'```light')
                     content.append(item['line'])
                     content.append('```')
                     content.append('')
@@ -321,13 +321,13 @@ def generate_markdown(output_dir: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='段言 API 参考文档自动生成器')
+    parser = argparse.ArgumentParser(description='光明 API 参考文档自动生成器')
     parser.add_argument('--output', '-o', default=_default_output,
                         help=f'输出目录 (默认: {_default_output})')
     args = parser.parse_args()
 
     output_dir = args.output
-    print(f'段言 API 参考文档自动生成器')
+    print(f'光明 API 参考文档自动生成器')
     print(f'=' * 50)
     print(f'标准库目录: {_stdlib_dir}')
     print(f'源码目录: {_src_dir}')

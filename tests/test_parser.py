@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编程语言 - 语法解析器测试
+光明（Light）编程语言 - 语法解析器测试
 
 测试覆盖：
 - 变量声明
@@ -18,8 +18,8 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from duan_parser_v3 import DuanParser
-from duan_parser_v3 import *
+from light_parser_v3 import LightParser
+from light_parser_v3 import *
 
 
 class TestVariableDeclaration:
@@ -27,7 +27,7 @@ class TestVariableDeclaration:
     
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
     
     def test_simple_variable(self, parser):
         """测试简单变量声明"""
@@ -61,7 +61,7 @@ class TestExpressions:
     
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
     
     def test_arithmetic_expression(self, parser):
         """测试算术表达式"""
@@ -94,7 +94,7 @@ class TestConditionals:
     
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
     
     def test_simple_if(self, parser):
         """测试简单if语句"""
@@ -120,7 +120,7 @@ class TestLoops:
     
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
     
     def test_while_loop(self, parser):
         """测试while循环"""
@@ -150,7 +150,7 @@ class TestFunctionDefinition:
     
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
     
     def test_simple_function(self, parser):
         """测试简单函数定义"""
@@ -189,7 +189,7 @@ class TestPipeline:
     
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
     
     def test_arrow_pipeline(self, parser):
         """测试箭头管道"""
@@ -211,7 +211,7 @@ class TestFunctionCall:
     
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
     
     def test_simple_call(self, parser):
         """测试简单函数调用"""
@@ -233,7 +233,7 @@ class TestComplexPrograms:
     
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
     
     def test_factorial(self, parser):
         """测试阶乘程序"""
@@ -267,7 +267,7 @@ class TestErrorHandling:
     
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
     
     def test_incomplete_statement(self, parser):
         """测试不完整语句"""
@@ -294,7 +294,7 @@ class TestNoSpaceCode:
     
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
     
     def test_no_space_variable(self, parser):
         """测试无空格变量声明"""

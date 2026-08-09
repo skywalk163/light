@@ -1,11 +1,11 @@
 """
-段言 LLVM 编译器入口
+光明 LLVM 编译器入口
 
 使用 SRC 解析器（纯缩进语法）解析源码，通过 AstAdapter 适配，
 再经由 LLVMCodeGen 生成 LLVM IR，然后用 clang 编译为原生可执行文件。
 
 完整链路：
-  .duan → Lexer → DuanParser(v3) → AstAdapter → ast_nodes → LLVMCodeGen
+  .light → Lexer → LightParser(v3) → AstAdapter → ast_nodes → LLVMCodeGen
   → .ll → clang → 可执行文件 (.exe on Windows, 无后缀 on Linux/macOS)
 """
 
@@ -23,7 +23,7 @@ try:
     from .size_optimizer import SizeOptimizer
     from .startup_optimizer import StartupOptimizer
     from ..lexer import Lexer
-    from ..duan_parser_v3 import DuanParser
+    from ..light_parser_v3 import LightParser
     from ..compiler import AstAdapter
     import ast_nodes as ast
 except ImportError:
@@ -34,7 +34,7 @@ except ImportError:
     from llvm.size_optimizer import SizeOptimizer
     from llvm.startup_optimizer import StartupOptimizer
     from lexer import Lexer
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     from compiler import AstAdapter
     import ast_nodes as ast
 
@@ -56,10 +56,10 @@ def _strip_exe_ext(path: str) -> str:
 
 def compile_source(source: str, verbose: bool = False, opt_level: str = 'O2') -> str:
     """
-    编译段言源码为 LLVM IR 字符串
+    编译光明源码为 LLVM IR 字符串
 
     Args:
-        source: 段言源码字符串
+        source: 光明源码字符串
         verbose: 是否输出详细信息
         opt_level: 优化级别 ('O0', 'O1', 'O2', 'O3', 'Os', 'Oz')，默认 'O2'
 
@@ -70,7 +70,7 @@ def compile_source(source: str, verbose: bool = False, opt_level: str = 'O2') ->
     if verbose:
         print(f"[1/3] 语法解析: {len(source)} 字符")
 
-    parser = DuanParser()
+    parser = LightParser()
     v3_module = parser.parse(source)
     if v3_module is None:
         errors = '\n'.join(parser.errors) if hasattr(parser, 'errors') and parser.errors else "未知解析错误"
@@ -114,10 +114,10 @@ def compile_source(source: str, verbose: bool = False, opt_level: str = 'O2') ->
 def _run_type_check_on_ast(source: str, module, verbose: bool = False):
     """在 LLVM 编译管线中运行类型检查"""
     try:
-        from core.config import DuanConfig, TypeCheckLevel
+        from core.config import LightConfig, TypeCheckLevel
         from type_checker import create_checker_from_source
 
-        config = DuanConfig()
+        config = LightConfig()
         config.type_check_level = TypeCheckLevel.SIGNATURE
         checker = create_checker_from_source(source, config)
 
@@ -147,10 +147,10 @@ def _run_type_check_on_ast(source: str, module, verbose: bool = False):
 def compile_source_typed(source: str, verbose: bool = False, target_platform: str = None,
                          debug: bool = False, opt_level: str = 'O2') -> str:
     """
-    编译段言源码为 LLVM IR 字符串（typed 模式）
+    编译光明源码为 LLVM IR 字符串（typed 模式）
 
     Args:
-        source: 段言源码字符串
+        source: 光明源码字符串
         verbose: 是否输出详细信息
         target_platform: 目标平台（win32/linux/darwin），默认自动检测
         debug: 是否生成 DWARF 调试信息
@@ -162,7 +162,7 @@ def compile_source_typed(source: str, verbose: bool = False, target_platform: st
     if verbose:
         print(f"[1/3] 语法解析: {len(source)} 字符")
 
-    parser = DuanParser()
+    parser = LightParser()
     v3_module = parser.parse(source)
     if v3_module is None:
         errors = '\n'.join(parser.errors) if hasattr(parser, 'errors') and parser.errors else "未知解析错误"
@@ -220,10 +220,10 @@ def compile_source_typed(source: str, verbose: bool = False, target_platform: st
 
 def compile_source_to_ir(source: str, output_ll: str = None, verbose: bool = False) -> str:
     """
-    编译段言源码到 .ll 文件
+    编译光明源码到 .ll 文件
 
     Args:
-        source: 段言源码字符串
+        source: 光明源码字符串
         output_ll: .ll 文件输出路径（可选）
         verbose: 是否输出详细信息
 
@@ -244,12 +244,12 @@ def compile_source_to_ir(source: str, output_ll: str = None, verbose: bool = Fal
     return output_ll
 
 
-def compile_duan(source_path: str, output_path: str = None, verbose: bool = False, optimize_level: int = 2, debug: bool = False):
+def compile_light(source_path: str, output_path: str = None, verbose: bool = False, optimize_level: int = 2, debug: bool = False):
     """
-    编译 .duan 文件为原生可执行文件
+    编译 .light 文件为原生可执行文件
 
     Args:
-        source_path: .duan 源文件路径
+        source_path: .light 源文件路径
         output_path: 输出 .exe 路径（默认与源文件同名）
         verbose: 是否输出详细信息
         optimize_level: 优化级别（0-3），默认 2
@@ -267,7 +267,7 @@ def compile_duan(source_path: str, output_path: str = None, verbose: bool = Fals
     ir = compile_source(source, verbose=verbose, opt_level=opt_level_str)
 
     # 写入 .ll 文件
-    base_path = output_path or source_path.replace('.duan', '')
+    base_path = output_path or source_path.replace('.light', '')
     if base_path.endswith('.exe'):
         base_path = base_path[:-4]
     ll_path = base_path + '.ll'
@@ -349,14 +349,14 @@ def compile_duan(source_path: str, output_path: str = None, verbose: bool = Fals
     return exe_path
 
 
-def compile_duan_typed(source_path: str, output_path: str = None, verbose: bool = False, target_platform: str = None, optimize_level: int = 2, debug: bool = False):
+def compile_light_typed(source_path: str, output_path: str = None, verbose: bool = False, target_platform: str = None, optimize_level: int = 2, debug: bool = False):
     """
-    编译 .duan 文件为原生可执行文件（typed 模式）
+    编译 .light 文件为原生可执行文件（typed 模式）
 
-    使用 DuanValue 结构体，算术运算直接操作原生类型。
+    使用 LightValue 结构体，算术运算直接操作原生类型。
 
     Args:
-        source_path: .duan 源文件路径
+        source_path: .light 源文件路径
         output_path: 输出可执行文件路径（默认与源文件同名）
         verbose: 是否输出详细信息
         target_platform: 目标平台（win32/linux/darwin），默认自动检测
@@ -373,7 +373,7 @@ def compile_duan_typed(source_path: str, output_path: str = None, verbose: bool 
     ir = compile_source_typed(source, verbose=verbose, target_platform=target_platform,
                               debug=debug, opt_level=opt_level_str)
 
-    base_path = output_path or source_path.replace('.duan', '')
+    base_path = output_path or source_path.replace('.light', '')
     base_path = _strip_exe_ext(base_path)
     ll_path = base_path + '.ll'
 
@@ -499,7 +499,7 @@ def find_clang():
     # 常见路径（优先 MinGW，因为它自带 C 标准库头文件）
     candidates = [
         # MinGW-w64 LLVM 工具链（自带 C 标准库）
-        r'c:\traework\duan\llvm-mingw-20240619-ucrt-x86_64\bin\clang.exe',
+        r'c:\traework\light\llvm-mingw-20240619-ucrt-x86_64\bin\clang.exe',
         r'E:\Program Files\LLVM\bin\clang.exe',
         r'C:\Program Files\LLVM\bin\clang.exe',
         r'D:\Program Files\LLVM\bin\clang.exe',
@@ -525,7 +525,7 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
                           target_platform: str = None, debug: bool = False,
                           opt_level: str = 'O2') -> str:
     """
-    编译多个段言模块为合并的 LLVM IR（typed 模式）
+    编译多个光明模块为合并的 LLVM IR（typed 模式）
 
     使用单个 codegen 实例编译所有模块，避免全局常量和声明重复。
 
@@ -551,7 +551,7 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
         for mod_name, src in sources.items():
             print(f"  - {mod_name}: {len(src)} 字符")
 
-    parser = DuanParser()
+    parser = LightParser()
     adapter = AstAdapter()
 
     # 第一步：解析所有模块，收集 AST
@@ -673,9 +673,9 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
     return ir
 
 
-def compile_duan_project(source_path: str, output_path: str = None, verbose: bool = False, target_platform: str = None, optimize_level: int = 2, debug: bool = False):
+def compile_light_project(source_path: str, output_path: str = None, verbose: bool = False, target_platform: str = None, optimize_level: int = 2, debug: bool = False):
     """
-    编译段言项目为原生可执行文件（支持多模块）
+    编译光明项目为原生可执行文件（支持多模块）
 
     自动解析导入语句，递归编译依赖的模块，合并 IR 后编译。
 
@@ -709,7 +709,7 @@ def compile_duan_project(source_path: str, output_path: str = None, verbose: boo
         sources[mod_name] = src
 
         # 解析导入
-        parser = DuanParser()
+        parser = LightParser()
         v3_mod = parser.parse(src)
         if v3_mod is None:
             return
@@ -737,7 +737,7 @@ def compile_duan_project(source_path: str, output_path: str = None, verbose: boo
                                opt_level=opt_level_str)
 
     # 写入 .ll 文件
-    base_path = output_path or source_path.replace('.duan', '')
+    base_path = output_path or source_path.replace('.light', '')
     base_path = _strip_exe_ext(base_path)
     ll_path = base_path + '.ll'
 
@@ -818,8 +818,8 @@ def compile_duan_project(source_path: str, output_path: str = None, verbose: boo
 
 if __name__ == '__main__':
     import argparse
-    ap = argparse.ArgumentParser(description='段言 LLVM 编译器')
-    ap.add_argument('source', help='.duan 源文件')
+    ap = argparse.ArgumentParser(description='光明 LLVM 编译器')
+    ap.add_argument('source', help='.light 源文件')
     ap.add_argument('output', nargs='?', help='输出 .exe 路径')
     ap.add_argument('-v', '--verbose', action='store_true', help='详细输出')
     ap.add_argument('--ir-only', action='store_true', help='仅生成 LLVM IR，不编译为 .exe')
@@ -828,10 +828,10 @@ if __name__ == '__main__':
     try:
         if args.ir_only:
             source = open(args.source, 'r', encoding='utf-8').read()
-            output_ll = (args.output or args.source).replace('.duan', '.ll')
+            output_ll = (args.output or args.source).replace('.light', '.ll')
             compile_source_to_ir(source, output_ll, verbose=True)
         else:
-            compile_duan(args.source, args.output, verbose=args.verbose or True)
+            compile_light(args.source, args.output, verbose=args.verbose or True)
     except Exception as e:
         print(f"编译错误: {e}", file=sys.stderr)
         sys.exit(1)

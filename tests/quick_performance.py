@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器 - 快速性能测试
+光明编译器 - 快速性能测试
 """
 
 import sys
@@ -12,10 +12,10 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from lexer import Lexer
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 
 print("=" * 60)
-print("段言编译器快速性能测试")
+print("光明编译器快速性能测试")
 print("=" * 60)
 
 # 测试1：词法分析器
@@ -36,7 +36,7 @@ print(f"  Token数量: {len(tokens)}")
 
 # 测试2：语法解析器
 print("\n[测试2] 语法解析器 - 简单变量")
-parser = DuanParser()
+parser = LightParser()
 
 start = time.time()
 for _ in range(100):

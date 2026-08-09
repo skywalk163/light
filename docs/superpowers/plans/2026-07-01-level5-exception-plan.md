@@ -4,9 +4,9 @@
 
 **目标：** 在自举编译器中实现异常处理（尝试/捕获/最终/抛出），支持多重捕获、异常类型映射和任意表达式抛出。
 
-**架构：** 在 bootstrap_level4.duan 基础上新增 4 个关键字和相应解析函数，生成 Python 原生 try/except/finally 代码。异常类型映射在代码生成阶段处理，不影响前端解析。
+**架构：** 在 bootstrap_level4.light 基础上新增 4 个关键字和相应解析函数，生成 Python 原生 try/except/finally 代码。异常类型映射在代码生成阶段处理，不影响前端解析。
 
-**技术栈：** Duan 自举编译器（bootstrap_level4.duan → bootstrap_level5.duan）、Python 后端
+**技术栈：** Light 自举编译器（bootstrap_level4.light → bootstrap_level5.light）、Python 后端
 
 ---
 
@@ -14,7 +14,7 @@
 
 | 文件 | 操作 | 职责 |
 |------|------|------|
-| `bootstrap/bootstrap_level5.duan` | 新建（基于 level4 复制） | 自举编译器主文件，新增异常处理功能 |
+| `bootstrap/bootstrap_level5.light` | 新建（基于 level4 复制） | 自举编译器主文件，新增异常处理功能 |
 | `bootstrap/test_level5_exception.py` | 新建 | 异常处理测试脚本 |
 | `bootstrap/level5_generated.py` | 生成 | Level 5 编译器生成代码 |
 | `bootstrap/level5_bootstrapped.py` | 生成 | 自举编译后的代码 |
@@ -24,14 +24,14 @@
 ## 任务 0：准备工作 - 复制 Level 4 代码库
 
 **文件：**
-- 创建：`bootstrap/bootstrap_level5.duan`（复制 `bootstrap_level4.duan`）
+- 创建：`bootstrap/bootstrap_level5.light`（复制 `bootstrap_level4.light`）
 - 测试：`bootstrap/test_level5_exception.py`
 
 - [ ] **步骤 1：复制 Level 4 编译器为 Level 5**
 
 运行：
 ```powershell
-Copy-Item bootstrap/bootstrap_level4.duan bootstrap/bootstrap_level5.duan
+Copy-Item bootstrap/bootstrap_level4.light bootstrap/bootstrap_level5.light
 ```
 
 - [ ] **步骤 2：创建测试文件骨架**
@@ -42,7 +42,7 @@ import sys
 sys.path.insert(0, '.')
 
 def run_test(name, code, expected_output, should_raise=False):
-    # 编译并运行 Duan 代码，检查输出
+    # 编译并运行 Light 代码，检查输出
     pass
 
 if __name__ == '__main__':
@@ -58,7 +58,7 @@ python -c "
 import sys
 sys.path.insert(0, 'bootstrap')
 exec(open('bootstrap/level4_generated.py', encoding='utf-8').read())
-src = open('bootstrap/bootstrap_level5.duan', encoding='utf-8').read()
+src = open('bootstrap/bootstrap_level5.light', encoding='utf-8').read()
 result = 编译(src)
 with open('bootstrap/level5_generated.py', 'w', encoding='utf-8') as f:
     f.write(result)
@@ -71,7 +71,7 @@ print('初始编译成功，生成代码长度:', len(result))
 - [ ] **步骤 4：Commit**
 
 ```bash
-git add bootstrap/bootstrap_level5.duan
+git add bootstrap/bootstrap_level5.light
 git commit -m "chore: 复制 Level 4 编译器为 Level 5 初始版本"
 ```
 
@@ -80,7 +80,7 @@ git commit -m "chore: 复制 Level 4 编译器为 Level 5 初始版本"
 ## 任务 1：词法分析 - 新增异常处理关键字
 
 **文件：**
-- 修改：`bootstrap/bootstrap_level5.duan`（`关键字列表` 函数）
+- 修改：`bootstrap/bootstrap_level5.light`（`关键字列表` 函数）
 
 - [ ] **步骤 1：编写失败的测试**
 
@@ -114,7 +114,7 @@ test_keywords()
 
 - [ ] **步骤 3：修改关键字列表函数**
 
-在 `bootstrap/bootstrap_level5.duan` 中，找到 `段 关键字列表：` 函数，将：
+在 `bootstrap/bootstrap_level5.light` 中，找到 `段 关键字列表：` 函数，将：
 ```
 返回 列表创建("设", "段落", "段", "返回", "结束", "为", "如果", "否则", "当", "接收", "加", "减", "乘", "除", "取模", "等于", "小于", "大于", "小于等于", "大于等于", "不等于", "且", "或", "非", "遍历", "在", "类", "属性", "己", "继承", "父")
 ```
@@ -132,7 +132,7 @@ python -c "
 import sys
 sys.path.insert(0, 'bootstrap')
 exec(open('bootstrap/level4_generated.py', encoding='utf-8').read())
-src = open('bootstrap/bootstrap_level5.duan', encoding='utf-8').read()
+src = open('bootstrap/bootstrap_level5.light', encoding='utf-8').read()
 result = 编译(src)
 with open('bootstrap/level5_generated.py', 'w', encoding='utf-8') as f:
     f.write(result)
@@ -150,7 +150,7 @@ print('关键字列表:', [t[1] for t in kw])
 - [ ] **步骤 5：Commit**
 
 ```bash
-git add bootstrap/bootstrap_level5.duan
+git add bootstrap/bootstrap_level5.light
 git commit -m "feat(lexer): 新增异常处理关键字（尝试/捕获/最终/抛出）"
 ```
 
@@ -159,7 +159,7 @@ git commit -m "feat(lexer): 新增异常处理关键字（尝试/捕获/最终/�
 ## 任务 2：解析 - 抛出语句
 
 **文件：**
-- 修改：`bootstrap/bootstrap_level5.duan`（新增 `comp_throw` 函数，修改 `compile_block`）
+- 修改：`bootstrap/bootstrap_level5.light`（新增 `comp_throw` 函数，修改 `compile_block`）
 
 - [ ] **步骤 1：编写失败的测试**
 
@@ -197,7 +197,7 @@ except Exception as e:
 
 - [ ] **步骤 3：实现 comp_throw 函数**
 
-在 `bootstrap/bootstrap_level5.duan` 中，`find_matching_end` 函数之前添加：
+在 `bootstrap/bootstrap_level5.light` 中，`find_matching_end` 函数之前添加：
 ```
 段 comp_throw 接收 toks, p：
   如果 p 小于 列表长度(toks)：
@@ -242,7 +242,7 @@ python -c "
 import sys
 sys.path.insert(0, 'bootstrap')
 exec(open('bootstrap/level4_generated.py', encoding='utf-8').read())
-src = open('bootstrap/bootstrap_level5.duan', encoding='utf-8').read()
+src = open('bootstrap/bootstrap_level5.light', encoding='utf-8').read()
 result = 编译(src)
 with open('bootstrap/level5_generated.py', 'w', encoding='utf-8') as f:
     f.write(result)
@@ -268,7 +268,7 @@ print('抛出变量生成:', r2.strip())
 - [ ] **步骤 7：Commit**
 
 ```bash
-git add bootstrap/bootstrap_level5.duan
+git add bootstrap/bootstrap_level5.light
 git commit -m "feat(parser): 实现抛出语句解析"
 ```
 
@@ -277,7 +277,7 @@ git commit -m "feat(parser): 实现抛出语句解析"
 ## 任务 3：解析 - 尝试-捕获-最终块（基础版）
 
 **文件：**
-- 修改：`bootstrap/bootstrap_level5.duan`（新增 `comp_try` 函数）
+- 修改：`bootstrap/bootstrap_level5.light`（新增 `comp_try` 函数）
 
 - [ ] **步骤 1：编写失败的测试**
 
@@ -512,7 +512,7 @@ except Exception as e:
 
 - [ ] **步骤 6：确保 compile_stmts 函数存在**
 
-检查 bootstrap_level5.duan 中是否有 `compile_stmts` 函数。如果没有，需要基于 `compile_block` 提取或调整。
+检查 bootstrap_level5.light 中是否有 `compile_stmts` 函数。如果没有，需要基于 `compile_block` 提取或调整。
 
 如果只有 `compile_block`，可以让 `comp_try` 直接调用 `compile_block` 的内部逻辑，或者创建一个 `compile_stmts` 辅助函数。
 
@@ -528,7 +528,7 @@ python -c "
 import sys
 sys.path.insert(0, 'bootstrap')
 exec(open('bootstrap/level4_generated.py', encoding='utf-8').read())
-src = open('bootstrap/bootstrap_level5.duan', encoding='utf-8').read()
+src = open('bootstrap/bootstrap_level5.light', encoding='utf-8').read()
 result = 编译(src)
 with open('bootstrap/level5_generated.py', 'w', encoding='utf-8') as f:
     f.write(result)
@@ -557,7 +557,7 @@ print(r1)
 - [ ] **步骤 8：Commit**
 
 ```bash
-git add bootstrap/bootstrap_level5.duan
+git add bootstrap/bootstrap_level5.light
 git commit -m "feat(parser): 实现尝试-捕获-最终块解析"
 ```
 
@@ -566,7 +566,7 @@ git commit -m "feat(parser): 实现尝试-捕获-最终块解析"
 ## 任务 4：异常类型映射（中文别名）
 
 **文件：**
-- 修改：`bootstrap/bootstrap_level5.duan`（新增 `映射异常类型` 函数，修改 `comp_try`）
+- 修改：`bootstrap/bootstrap_level5.light`（新增 `映射异常类型` 函数，修改 `comp_try`）
 
 - [ ] **步骤 1：编写失败的测试**
 
@@ -660,7 +660,7 @@ python -c "
 import sys
 sys.path.insert(0, 'bootstrap')
 exec(open('bootstrap/level4_generated.py', encoding='utf-8').read())
-src = open('bootstrap/bootstrap_level5.duan', encoding='utf-8').read()
+src = open('bootstrap/bootstrap_level5.light', encoding='utf-8').read()
 result = 编译(src)
 with open('bootstrap/level5_generated.py', 'w', encoding='utf-8') as f:
     f.write(result)
@@ -678,7 +678,7 @@ print(r)
 - [ ] **步骤 6：Commit**
 
 ```bash
-git add bootstrap/bootstrap_level5.duan
+git add bootstrap/bootstrap_level5.light
 git commit -m "feat(codegen): 实现异常类型中文别名映射"
 ```
 
@@ -697,10 +697,10 @@ import sys
 import io
 import contextlib
 
-def compile_and_run(duan_code):
+def compile_and_run(light_code):
     sys.path.insert(0, 'bootstrap')
     exec(open('bootstrap/level5_generated.py', encoding='utf-8').read())
-    py_code = 编译(duan_code)
+    py_code = 编译(light_code)
     output = io.StringIO()
     with contextlib.redirect_stdout(output):
         try:
@@ -863,7 +863,7 @@ import sys
 sys.path.insert(0, 'bootstrap')
 # v1: Level 4 编译 Level 5 源码
 exec(open('bootstrap/level4_generated.py', encoding='utf-8').read())
-src = open('bootstrap/bootstrap_level5.duan', encoding='utf-8').read()
+src = open('bootstrap/bootstrap_level5.light', encoding='utf-8').read()
 v1 = 编译(src)
 with open('bootstrap/level5_generated.py', 'w', encoding='utf-8') as f:
     f.write(v1)

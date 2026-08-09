@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编程语言 - 测试覆盖率报告
+光明（Light）编程语言 - 测试覆盖率报告
 
 生成测试覆盖率和统计报告
 """
@@ -54,7 +54,7 @@ TEST_CASES = {
 def run_tests():
     """运行测试并生成报告"""
     print("=" * 70)
-    print("段言编译器测试覆盖率报告")
+    print("光明编译器测试覆盖率报告")
     print("=" * 70)
     print()
     
@@ -83,24 +83,24 @@ def run_tests():
                     success = len(tokens) > 0
                     
                 elif category == "语法解析器":
-                    from duan_parser_v3 import DuanParser
-                    parser = DuanParser()
+                    from light_parser_v3 import LightParser
+                    parser = LightParser()
                     module = parser.parse(test_code)
                     success = len(module.statements) > 0
                     
                 elif category == "语义分析器":
-                    from duan_parser_v3 import DuanParser
+                    from light_parser_v3 import LightParser
                     from semantic_analyzer import SemanticAnalyzer
-                    parser = DuanParser()
+                    parser = LightParser()
                     analyzer = SemanticAnalyzer()
                     module = parser.parse(test_code)
                     success = analyzer.analyze(module)
                     
                 elif category == "代码生成器":
-                    from duan_parser_v3 import DuanParser
+                    from light_parser_v3 import LightParser
                     from semantic_analyzer import SemanticAnalyzer
                     from code_generator import PythonCodeGenerator
-                    parser = DuanParser()
+                    parser = LightParser()
                     analyzer = SemanticAnalyzer()
                     generator = PythonCodeGenerator()
                     module = parser.parse(test_code)
@@ -119,10 +119,10 @@ def run_tests():
                         success = True  # 初始化成功
                     
                 elif category == "集成测试":
-                    from duan_parser_v3 import DuanParser
+                    from light_parser_v3 import LightParser
                     from semantic_analyzer import SemanticAnalyzer
                     from code_generator import PythonCodeGenerator
-                    parser = DuanParser()
+                    parser = LightParser()
                     analyzer = SemanticAnalyzer()
                     generator = PythonCodeGenerator()
                     module = parser.parse(test_code)
@@ -177,7 +177,7 @@ def run_tests():
     # 保存报告
     report_path = os.path.join(os.path.dirname(__file__), 'test_report.md')
     with open(report_path, 'w', encoding='utf-8') as f:
-        f.write(f"# 段言编译器测试报告\n\n")
+        f.write(f"# 光明编译器测试报告\n\n")
         f.write(f"**生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
         f.write(f"## 测试统计\n\n")
         f.write(f"- 总测试数: {total_tests}\n")

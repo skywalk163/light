@@ -1,9 +1,9 @@
-"""简化测试段言解释器增强功能"""
+"""简化测试光明解释器增强功能"""
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_interpreter import run_source
+from light_interpreter import run_source
 
 
 def test_math_basic():
@@ -23,7 +23,7 @@ def test_math_basic():
 '''
     
     try:
-        with open(os.path.join(os.path.dirname(__file__), 'stdlib.duan'), 'r', encoding='utf-8') as f:
+        with open(os.path.join(os.path.dirname(__file__), 'stdlib.light'), 'r', encoding='utf-8') as f:
             stdlib_code = f.read()
         
         full_code = stdlib_code + '\n\n' + test_code
@@ -51,7 +51,7 @@ def test_string_basic():
 '''
     
     try:
-        with open(os.path.join(os.path.dirname(__file__), 'stdlib.duan'), 'r', encoding='utf-8') as f:
+        with open(os.path.join(os.path.dirname(__file__), 'stdlib.light'), 'r', encoding='utf-8') as f:
             stdlib_code = f.read()
         
         full_code = stdlib_code + '\n\n' + test_code
@@ -82,7 +82,7 @@ listReverse(arr)。
 '''
     
     try:
-        with open(os.path.join(os.path.dirname(__file__), 'stdlib.duan'), 'r', encoding='utf-8') as f:
+        with open(os.path.join(os.path.dirname(__file__), 'stdlib.light'), 'r', encoding='utf-8') as f:
             stdlib_code = f.read()
         
         full_code = stdlib_code + '\n\n' + test_code
@@ -110,7 +110,7 @@ def test_error_handling():
 '''
     
     try:
-        with open(os.path.join(os.path.dirname(__file__), 'stdlib.duan'), 'r', encoding='utf-8') as f:
+        with open(os.path.join(os.path.dirname(__file__), 'stdlib.light'), 'r', encoding='utf-8') as f:
             stdlib_code = f.read()
         
         full_code = stdlib_code + '\n\n' + test_code
@@ -126,7 +126,7 @@ def test_error_handling():
 def main():
     """运行所有测试"""
     print("=" * 70)
-    print("段言解释器增强功能测试")
+    print("光明解释器增强功能测试")
     print("=" * 70)
     
     tests = [

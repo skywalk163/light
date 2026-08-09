@@ -2,7 +2,7 @@
 
 > **面向 AI 代理的工作者：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
 
-**目标：** 创建段言语言的交互式开发环境（REPL），支持混合执行、自动补全、语法高亮和调试功能。
+**目标：** 创建光明语言的交互式开发环境（REPL），支持混合执行、自动补全、语法高亮和调试功能。
 
 **架构：** 轻量核心 + 可选增强包。核心REPL无第三方依赖，增强功能依赖prompt_toolkit。混合执行引擎根据代码复杂度选择解释执行或编译执行。
 
@@ -14,7 +14,7 @@
 
 ```
 src/repl/
-├── __init__.py          # 包入口，导出 DuanREPL 类
+├── __init__.py          # 包入口，导出 LightREPL 类
 ├── executor.py          # 混合执行引擎（核心）
 ├── commands.py          # REPL命令处理
 ├── core.py              # 核心REPL循环（无依赖）
@@ -24,8 +24,8 @@ src/repl/
 ├── debugger.py          # 调试支持
 
 antlrparser/
-├── duan_repl.py         # 入口脚本（更新）
-├── duan_cli.py          # CLI整合（更新）
+├── light_repl.py         # 入口脚本（更新）
+├── light_cli.py          # CLI整合（更新）
 
 tests/
 ├── test_executor.py     # 执行引擎测试
@@ -47,15 +47,15 @@ tests/
 ```python
 # src/repl/__init__.py
 """
-段言 REPL 包
+光明 REPL 包
 
 提供交互式开发环境。
 """
 
 from .executor import Executor
-from .core import DuanREPL
+from .core import LightREPL
 
-__all__ = ['Executor', 'DuanREPL']
+__all__ = ['Executor', 'LightREPL']
 ```
 
 - [ ] **步骤 2：编写执行引擎测试**
@@ -137,9 +137,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from typing import Any, Dict, Optional
 from antlr4 import InputStream, CommonTokenStream
-from DuanLangLexer import DuanLangLexer
-from DuanLangParser import DuanLangParser
-from duan_visitor import DuanLangASTBuilder
+from LightLangLexer import LightLangLexer
+from LightLangParser import LightLangParser
+from light_visitor import LightLangASTBuilder
 from code_generator_unified import UnifiedCodeGenerator
 
 
@@ -215,15 +215,15 @@ class Executor:
         """解析代码为AST"""
         try:
             input_stream = InputStream(code)
-            lexer = DuanLangLexer(input_stream)
+            lexer = LightLangLexer(input_stream)
             token_stream = CommonTokenStream(lexer)
-            parser = DuanLangParser(token_stream)
+            parser = LightLangParser(token_stream)
             tree = parser.program()
             
             if parser.getNumberOfSyntaxErrors() > 0:
                 return None
             
-            builder = DuanLangASTBuilder()
+            builder = LightLangASTBuilder()
             return builder.visitProgram(tree)
         except Exception as e:
             print(f"解析错误: {e}")
@@ -333,7 +333,7 @@ class Executor:
         # 创建执行环境
         exec_env = {
             '__builtins__': __builtins__,
-            '_duan_builtin': self._create_builtin_module(),
+            '_light_builtin': self._create_builtin_module(),
         }
         
         # 添加当前变量
@@ -346,7 +346,7 @@ class Executor:
             
             # 更新环境
             for k, v in exec_env.items():
-                if k not in ['__builtins__', '_duan_builtin']:
+                if k not in ['__builtins__', '_light_builtin']:
                     self.env.set(k, v)
             
             return None
@@ -357,7 +357,7 @@ class Executor:
     def _create_builtin_module(self):
         """创建内置模块"""
         import types
-        builtin = types.ModuleType('_duan_builtin')
+        builtin = types.ModuleType('_light_builtin')
         builtin.打印 = print
         builtin.长 = len
         builtin.首 = lambda x: x[0] if x else None
@@ -553,7 +553,7 @@ class CommandHandler:
     def _help(self) -> str:
         """显示帮助"""
         return """
-段言 REPL 帮助
+光明 REPL 帮助
 
 命令:
   :help / :帮助     - 显示此帮助
@@ -667,7 +667,7 @@ git commit -m "feat(repl): add command handler"
 **文件：**
 - 创建：`src/repl/core.py`
 - 创建：`tests/test_repl.py`
-- 修改：`antlrparser/duan_repl.py`
+- 修改：`antlrparser/light_repl.py`
 
 - [ ] **步骤 1：编写REPL集成测试**
 
@@ -679,29 +679,29 @@ import sys
 sys.path.insert(0, 'src')
 sys.path.insert(0, 'antlrparser')
 
-from repl.core import DuanREPL
+from repl.core import LightREPL
 
 def test_repl_creation():
     """测试REPL创建"""
-    repl = DuanREPL()
+    repl = LightREPL()
     assert repl.executor is not None
     assert repl.command_handler is not None
 
 def test_repl_execute():
     """测试REPL执行"""
-    repl = DuanREPL()
+    repl = LightREPL()
     result = repl.execute_line("设 甲 为 3。")
     assert repl.executor.env.has('甲')
 
 def test_repl_command():
     """测试REPL命令"""
-    repl = DuanREPL()
+    repl = LightREPL()
     result = repl.process_input(":help")
     assert '帮助' in result or 'help' in result.lower()
 
 def test_repl_multiline():
     """测试多行输入"""
-    repl = DuanREPL()
+    repl = LightREPL()
     # 模拟多行输入
     repl.buffer.append("段落 平方 接收 数值:")
     repl.buffer.append("  返回 数值 乘 数值。")
@@ -741,8 +741,8 @@ from .executor import Executor
 from .commands import CommandHandler
 
 
-class DuanREPL:
-    """段言 REPL"""
+class LightREPL:
+    """光明 REPL"""
     
     def __init__(self, enhanced=False):
         """初始化REPL
@@ -779,7 +779,7 @@ class DuanREPL:
                 if self.buffer:
                     prompt = "...   "
                 else:
-                    prompt = "段言> "
+                    prompt = "光明> "
                 
                 line = self.read_input(prompt)
                 
@@ -815,10 +815,10 @@ class DuanREPL:
         """打印欢迎信息"""
         print("""
 ╔══════════════════════════════════════════════╗
-║           段言 (DuanLang) REPL              ║
+║           光明 (LightLang) REPL              ║
 ║           版本: 1.0.0                        ║
 ║                                              ║
-║  输入段言代码，按 Enter 执行                  ║
+║  输入光明代码，按 Enter 执行                  ║
 ║  输入 :help 获取帮助                         ║
 ║  输入 :exit 或按 Ctrl+D 退出                 ║
 ╚══════════════════════════════════════════════╝
@@ -915,7 +915,7 @@ class DuanREPL:
 
 def main():
     """REPL入口"""
-    repl = DuanREPL()
+    repl = LightREPL()
     repl.run()
 
 
@@ -926,11 +926,11 @@ if __name__ == '__main__':
 - [ ] **步骤 4：更新入口脚本**
 
 ```python
-# antlrparser/duan_repl.py
+# antlrparser/light_repl.py
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-段言 REPL 入口
+光明 REPL 入口
 """
 
 import sys
@@ -953,14 +953,14 @@ if __name__ == "__main__":
 
 - [ ] **步骤 6：手动测试REPL**
 
-运行：`python antlrparser/duan_repl.py`
+运行：`python antlrparser/light_repl.py`
 输入：`:help`
 预期：显示帮助信息
 
 - [ ] **步骤 7：Commit**
 
 ```bash
-git add src/repl/core.py tests/test_repl.py antlrparser/duan_repl.py
+git add src/repl/core.py tests/test_repl.py antlrparser/light_repl.py
 git commit -m "feat(repl): add core REPL loop"
 ```
 
@@ -990,8 +990,8 @@ from typing import List, Dict
 from keywords import KEYWORDS, VERB_ARITY
 
 
-class DuanCompleter:
-    """段言自动补全"""
+class LightCompleter:
+    """光明自动补全"""
     
     # 关键字列表
     KEYWORDS_LIST = [
@@ -1056,8 +1056,8 @@ try:
     class PromptToolkitCompleter(Completer):
         """prompt_toolkit 补全器"""
         
-        def __init__(self, duan_completer: DuanCompleter):
-            self.completer = duan_completer
+        def __init__(self, light_completer: LightCompleter):
+            self.completer = light_completer
         
         def get_completions(self, document, complete_event):
             text = document.text
@@ -1079,15 +1079,15 @@ except ImportError:
 ```python
 # src/repl/__init__.py
 """
-段言 REPL 包
+光明 REPL 包
 """
 
 from .executor import Executor, Environment
 from .commands import CommandHandler
-from .core import DuanREPL
-from .completer import DuanCompleter
+from .core import LightREPL
+from .completer import LightCompleter
 
-__all__ = ['Executor', 'Environment', 'CommandHandler', 'DuanREPL', 'DuanCompleter']
+__all__ = ['Executor', 'Environment', 'CommandHandler', 'LightREPL', 'LightCompleter']
 ```
 
 - [ ] **步骤 3：Commit**
@@ -1123,8 +1123,8 @@ from typing import Dict, List, Tuple
 from keywords import KEYWORDS, VERB_ARITY
 
 
-class DuanHighlighter:
-    """段言语法高亮"""
+class LightHighlighter:
+    """光明语法高亮"""
     
     # ANSI颜色代码
     COLORS = {
@@ -1237,7 +1237,7 @@ try:
     class PromptToolkitLexer(Lexer):
         """prompt_toolkit 词法分析器"""
         
-        def __init__(self, highlighter: DuanHighlighter):
+        def __init__(self, highlighter: LightHighlighter):
             self.highlighter = highlighter
         
         def lex_document(self, document):
@@ -1302,7 +1302,7 @@ class EnhancedREPL:
         """初始化
         
         Args:
-            core_repl: DuanREPL 核心实例
+            core_repl: LightREPL 核心实例
         """
         if not HAS_PROMPT_TOOLKIT:
             raise ImportError("prompt_toolkit 未安装")
@@ -1310,17 +1310,17 @@ class EnhancedREPL:
         self.core = core_repl
         
         # 创建补全器
-        from .completer import DuanCompleter, PromptToolkitCompleter
-        self.completer = DuanCompleter(self.core.executor.env.variables)
+        from .completer import LightCompleter, PromptToolkitCompleter
+        self.completer = LightCompleter(self.core.executor.env.variables)
         self.pt_completer = PromptToolkitCompleter(self.completer)
         
         # 创建高亮器
-        from .highlighter import DuanHighlighter, PromptToolkitLexer
-        self.highlighter = DuanHighlighter()
+        from .highlighter import LightHighlighter, PromptToolkitLexer
+        self.highlighter = LightHighlighter()
         self.pt_lexer = PromptToolkitLexer(self.highlighter)
         
         # 创建会话
-        history_file = os.path.expanduser("~/.duan_repl_history")
+        history_file = os.path.expanduser("~/.light_repl_history")
         self.session = PromptSession(
             history=FileHistory(history_file),
             auto_suggest=AutoSuggestFromHistory(),
@@ -1341,7 +1341,7 @@ class EnhancedREPL:
                 if self.core.buffer:
                     prompt = "...   "
                 else:
-                    prompt = "段言> "
+                    prompt = "光明> "
                 
                 # 读取输入
                 line = self.session.prompt(prompt)
@@ -1418,12 +1418,12 @@ git commit -m "feat(repl): add enhanced REPL with prompt_toolkit"
 ### 任务 7：CLI整合
 
 **文件：**
-- 修改：`antlrparser/duan_cli.py`
+- 修改：`antlrparser/light_cli.py`
 
 - [ ] **步骤 1：更新CLI添加REPL命令**
 
 ```python
-# antlrparser/duan_cli.py 修改部分
+# antlrparser/light_cli.py 修改部分
 
 # 在 subparsers 中添加 repl 命令
 repl_parser = subparsers.add_parser("repl", help="启动交互式REPL")
@@ -1431,29 +1431,29 @@ repl_parser.add_argument("--enhanced", action="store_true", help="使用增强�
 
 # 在 main() 函数中添加处理
 elif args.command == "repl":
-    from repl.core import DuanREPL
-    repl = DuanREPL(enhanced=args.enhanced)
+    from repl.core import LightREPL
+    repl = LightREPL(enhanced=args.enhanced)
     repl.run()
 
 # 无参数时进入REPL
 if not args.command:
-    from repl.core import DuanREPL
-    repl = DuanREPL()
+    from repl.core import LightREPL
+    repl = LightREPL()
     repl.run()
 ```
 
 - [ ] **步骤 2：测试CLI**
 
-运行：`python antlrparser/duan_cli.py`
+运行：`python antlrparser/light_cli.py`
 预期：自动进入REPL
 
-运行：`python antlrparser/duan_cli.py repl --enhanced`
+运行：`python antlrparser/light_cli.py repl --enhanced`
 预期：进入增强REPL（需安装prompt_toolkit）
 
 - [ ] **步骤 3：Commit**
 
 ```bash
-git add antlrparser/duan_cli.py
+git add antlrparser/light_cli.py
 git commit -m "feat(cli): integrate REPL into CLI"
 ```
 

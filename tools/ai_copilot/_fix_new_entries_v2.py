@@ -8,7 +8,7 @@ data = [json.loads(l) for l in open('sft_dataset.jsonl', encoding='utf-8')]
 # Remove os.remove from PY, DU needs file to exist
 # ============================================================
 data[1199] = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "import os\n"
         "with open('test_data.txt', 'w', encoding='utf-8') as _f:\n"
@@ -39,7 +39,7 @@ data[1199] = {
 # PY: print(..., file=f) -> DU: f.write(str(...))
 # ============================================================
 data[1201] = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "with open('log.txt', 'w') as f:\n"
         "    for i in range(10):\n"
@@ -60,7 +60,7 @@ data[1201] = {
 # PY: print(..., file=f) -> f.write(...)
 # ============================================================
 data[1202] = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "class CSVWriter:\n"
         "    def __init__(self, filename):\n"
@@ -99,7 +99,7 @@ data[1202] = {
 # Use f.write without \n in both PY and DU
 # ============================================================
 data[1203] = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "import os\n"
         "with open('input.csv', 'w', encoding='utf-8') as _f:\n"
@@ -244,7 +244,7 @@ data[1203] = {
 # Use f.write without \n in both PY and DU
 # ============================================================
 data[1204] = {
-    "instruction": "用段言v3.2语法重写以下Python代码。",
+    "instruction": "用光明v3.2语法重写以下Python代码。",
     "input": (
         "data = ['line1', 'line2', 'line3']\n"
         "filename = 'output.txt'\n"

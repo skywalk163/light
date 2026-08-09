@@ -14,12 +14,12 @@ for _p in [_src_dir, _project_root]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 
-def _run_duan(code: str) -> str:
-    parser = DuanParser()
+def _run_light(code: str) -> str:
+    parser = LightParser()
     ast = parser.parse(code)
     if ast is None:
         errors = '\n'.join(getattr(parser, 'errors', []))
@@ -63,7 +63,7 @@ class TestL4_C_Compile_E2E(unittest.TestCase):
 
 打印("C 块解析成功")
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("C 块解析成功", output)
 
     def test_c_compilation_fallback(self):
@@ -80,7 +80,7 @@ class TestL4_C_Compile_E2E(unittest.TestCase):
 
 打印("C 编译块已生成")
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("C 编译块已生成", output)
 
 
@@ -104,7 +104,7 @@ class TestL4_Go_Compile_E2E(unittest.TestCase):
 
 打印("Go 块解析成功")
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("Go 块解析成功", output)
 
 
@@ -129,7 +129,7 @@ class TestL4_MoonBit_Compile_E2E(unittest.TestCase):
 
 打印("MoonBit 块解析成功")
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("MoonBit 块解析成功", output)
 
 
@@ -156,7 +156,7 @@ class TestL4_MultiLang_E2E(unittest.TestCase):
 打印(l4_py_hello())
 打印("C 块已定义")
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("Hello from Python", output)
         self.assertIn("C 块已定义", output)
 
@@ -177,7 +177,7 @@ class TestL4_MultiLang_E2E(unittest.TestCase):
 打印(l4_py_version())
 打印("Go 块已定义")
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("Python 3.x", output)
         self.assertIn("Go 块已定义", output)
 

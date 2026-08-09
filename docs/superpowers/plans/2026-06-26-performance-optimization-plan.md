@@ -171,7 +171,7 @@ git commit -m "perf: precompile regex patterns in lexer"
 ```python
 # tests/unit/test_codegen_perf.py
 import time
-from src.duan_parser_v3 import DuanParser
+from src.light_parser_v3 import DuanParser
 from src.code_generator import PythonCodeGenerator
 
 def test_codegen_speed_large_module():
@@ -257,7 +257,7 @@ from src.compiler import compile_file
 
 def test_incremental_compile_faster():
     """测试增量编译比首次编译快"""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.duan', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.light', delete=False) as f:
         f.write('段落 main：\n    打印 "test"')
         temp_path = f.name
     
@@ -297,7 +297,7 @@ from pathlib import Path
 _compile_cache: Dict[str, Tuple[float, Any]] = {}
 
 def compile_file(file_path: str, use_cache: bool = True) -> str:
-    """编译 Duan 源文件，支持增量缓存"""
+    """编译 Light 源文件，支持增量缓存"""
     abs_path = os.path.abspath(file_path)
     stat = os.stat(abs_path)
     cache_key = abs_path

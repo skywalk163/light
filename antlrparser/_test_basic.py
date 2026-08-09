@@ -3,9 +3,9 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
-from duan_visitor import DuanParser
+from light_visitor import LightParser
 
-p = DuanParser()
+p = LightParser()
 
 # 测试异步段 - 检查预处理和解析
 src = "异步段落 异步任务 接收:\n  打印(\"异步执行中\")。\n结束。\n\n异步任务()。"
@@ -15,14 +15,14 @@ pre = p._preprocess_async(src)
 print("预处理后:", repr(pre))
 
 # 测试tokenization
-from duan_tokenizer import create_antlr_token_stream
-from DuanLangLexer import DuanLangLexer
+from light_tokenizer import create_antlr_token_stream
+from LightLangLexer import LightLangLexer
 
-stream = create_antlr_token_stream(pre, DuanLangLexer)
+stream = create_antlr_token_stream(pre, LightLangLexer)
 tokens = []
 token = stream.nextToken()
 while token.type != -1:
-    tokens.append(f"{DuanLangLexer.symbolicNames[token.type]}({token.text})")
+    tokens.append(f"{LightLangLexer.symbolicNames[token.type]}({token.text})")
     token = stream.nextToken()
 print("Token序列:", tokens)
 

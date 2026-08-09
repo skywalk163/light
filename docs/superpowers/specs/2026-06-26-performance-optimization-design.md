@@ -101,7 +101,7 @@ class Optimizer:
 **增量编译缓存**：
 - 缓存键：文件路径 + mtime + 文件大小
 - 缓存值：解析后的 AST
-- 缓存位置：`__pycache__/duan_*.pkl`
+- 缓存位置：`__pycache__/light_*.pkl`
 - 多模块项目编译时自动启用
 
 ### 3.3 代码生成器优化
@@ -157,9 +157,9 @@ class Optimizer:
 
 **优化内容**：
 - 函数内所有变量声明保持在局部作用域
-- `_duan_builtin` 常用函数在模块开头局部绑定：
+- `_light_builtin` 常用函数在模块开头局部绑定：
   ```python
-  _duan_append = _duan_builtin['列表追加']
+  _light_append = _light_builtin['列表追加']
   ```
 - 避免运行时字典查找
 

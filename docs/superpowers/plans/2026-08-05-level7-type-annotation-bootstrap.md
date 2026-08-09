@@ -441,21 +441,21 @@ t("运行时类型检查失败",
 ```
 ┌─────────────────────────────────────────────────────┐
 │  Phase 1: 编译自身                                    │
-│  level6_generated.py → 编译 bootstrap_level5.duan    │
+│  level6_generated.py → 编译 bootstrap_level5.light    │
 │                     → level7_generated.py           │
 │  验证: 38 个 Level 6 测试用例在 level7 上通过        │
 └─────────────────────────────────────────────────────┘
          ↓
 ┌─────────────────────────────────────────────────────┐
 │  Phase 2: 二次自举                                    │
-│  level7_generated.py → 编译 bootstrap_level5.duan    │
+│  level7_generated.py → 编译 bootstrap_level5.light    │
 │                     → level7_self_compiled.py        │
 │  验证: level7_generated.py == level7_self_compiled.py│
 └─────────────────────────────────────────────────────┘
          ↓
 ┌─────────────────────────────────────────────────────┐
 │  Phase 3: 三次验证                                    │
-│  level7_self_compiled.py → 编译 bootstrap_level5.duan│
+│  level7_self_compiled.py → 编译 bootstrap_level5.light│
 │                         → level7_self_compiled2.py   │
 │  验证: level7_self_compiled.py == level7_self_compiled2.py│
 └─────────────────────────────────────────────────────┘
@@ -467,7 +467,7 @@ t("运行时类型检查失败",
 
 1. Level 7 编译器能正确编译所有 Level 6 语法（向后兼容）
 2. 类型注解新增的语法特性有完整的测试覆盖
-3. 编译器自身的 `.duan` 源码（`bootstrap_level5.duan`）不需要修改即可在新编译器上运行
+3. 编译器自身的 `.light` 源码（`bootstrap_level5.light`）不需要修改即可在新编译器上运行
 
 ### 5.3 自举验证脚本
 
@@ -488,7 +488,7 @@ python bootstrap/test_level7_types.py
 - [ ] **步骤 5.3：第一次自举编译**
 
 ```python
-# 用 level6_generated.py 的编译功能，编译 bootstrap_level5.duan
+# 用 level6_generated.py 的编译功能，编译 bootstrap_level5.light
 # 输出 level7_generated.py
 # 比较 level7_generated.py 与手动修改的版本
 ```
@@ -496,7 +496,7 @@ python bootstrap/test_level7_types.py
 - [ ] **步骤 5.4：第二次自举编译**
 
 ```python
-# 用 level7_generated.py 编译 bootstrap_level5.duan
+# 用 level7_generated.py 编译 bootstrap_level5.light
 # 输出 level7_self_compiled.py
 # 比较 level7_generated.py 与 level7_self_compiled.py
 ```
@@ -504,7 +504,7 @@ python bootstrap/test_level7_types.py
 - [ ] **步骤 5.5：第三次自举验证**
 
 ```python
-# 用 level7_self_compiled.py 编译 bootstrap_level5.duan
+# 用 level7_self_compiled.py 编译 bootstrap_level5.light
 # 输出 level7_self_compiled2.py
 # 比较 level7_self_compiled.py 与 level7_self_compiled2.py
 # 如果一致，自举收敛验证通过
@@ -517,7 +517,7 @@ python bootstrap/test_level7_types.py
 ```python
 def 自举验证():
     """三级自举一致性验证"""
-    src_path = "bootstrap/bootstrap_level5.duan"
+    src_path = "bootstrap/bootstrap_level5.light"
     
     # 阶段1: 用 Python 实现编译自身
     py_code1 = 编译(open(src_path).read())

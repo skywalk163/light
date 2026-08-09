@@ -1,5 +1,5 @@
 """
-段言（Duan）编程语言 - 语义识别器
+光明（Light）编程语言 - 语义识别器
 
 实现决策34：主谓/谓宾语义识别
 
@@ -14,7 +14,7 @@
 """
 
 from typing import Optional, Tuple
-from duan_parser_v3 import *
+from light_parser_v3 import *
 from verb_info import supports_modify, supports_functional
 
 

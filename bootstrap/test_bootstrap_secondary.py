@@ -1,4 +1,4 @@
-"""二次自举编译：用 level6_self_compiled.py 编译 bootstrap_level6.duan
+"""二次自举编译：用 level6_self_compiled.py 编译 bootstrap_level6.light
 
 验证自举收敛性：比较第一次和第二次编译输出的差异
 """
@@ -35,17 +35,17 @@ with open('bootstrap/level6_self_compiled.py', 'r', encoding='utf-8') as f:
 exec(compiler_code, ns)
 编译1 = ns['编译']
 
-# 读取 bootstrap_level6.duan 源码
-with open('bootstrap/bootstrap_level6.duan', 'r', encoding='utf-8') as f:
-    duan_code = f.read()
+# 读取 bootstrap_level6.light 源码
+with open('bootstrap/bootstrap_level6.light', 'r', encoding='utf-8') as f:
+    light_code = f.read()
 
-print(f"源码大小: {len(duan_code)} 字节")
+print(f"源码大小: {len(light_code)} 字节")
 print()
 
 # 第一次编译的输出
-print("正在编译 bootstrap_level6.duan ...")
+print("正在编译 bootstrap_level6.light ...")
 try:
-    py_code1 = 编译1(duan_code)
+    py_code1 = 编译1(light_code)
     print(f"编译成功!")
     print(f"生成代码大小: {len(py_code1)} 字节")
     print(f"生成代码行数: {len(py_code1.split(chr(10)))} 行")

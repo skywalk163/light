@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器 - 增强版基准测试
+光明编译器 - 增强版基准测试
 
 相比 run_benchmarks.py 增强：
 1. 与原生 Python 实现对比
@@ -20,9 +20,9 @@ from datetime import datetime
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from lexer import Lexer
-from duan_parser_v3 import DuanParser as V3Parser
+from light_parser_v3 import LightParser as V3Parser
 from code_generator_unified import UnifiedCodeGenerator
-from compiler import DuanCompiler
+from compiler import LightCompiler
 
 BENCHMARK_DIR = Path(__file__).parent / 'programs'
 HISTORY_FILE = Path(__file__).parent / 'benchmarks_history.json'
@@ -35,9 +35,9 @@ def time_function(func, *args, **kwargs):
     return result, time.perf_counter() - start
 
 
-def run_duan_pipeline(source):
-    """运行完整的段言编译管线，返回生成的 Python 代码"""
-    compiler = DuanCompiler()
+def run_light_pipeline(source):
+    """运行完整的光明编译管线，返回生成的 Python 代码"""
+    compiler = LightCompiler()
     result = compiler.compile(source)
     codegen = UnifiedCodeGenerator()
     code = codegen.generate(result['ast'])
@@ -59,7 +59,7 @@ def benchmark_program(source, name, iterations=3):
         'parser': [],
         'codegen': [],
         'total_compile': [],
-        'execution_duan': None,
+        'execution_light': None,
         'execution_python': None,
     }
     
@@ -75,16 +75,16 @@ def benchmark_program(source, name, iterations=3):
         results['parser'].append(t_parse)
         
         # 代码生成
-        _, t_compile = time_function(run_duan_pipeline, source)
+        _, t_compile = time_function(run_light_pipeline, source)
         results['codegen'].append(t_compile)
         
         # 总编译时间
         results['total_compile'].append(t_lex + t_parse + t_compile)
     
-    # 执行段言生成的代码
-    code = run_duan_pipeline(source)
+    # 执行光明生成的代码
+    code = run_light_pipeline(source)
     _, t_exec = time_function(exec, code, {})
-    results['execution_duan'] = t_exec
+    results['execution_light'] = t_exec
     
     # 计算统计数据
     for key in ['lexer', 'parser', 'codegen', 'total_compile']:
@@ -102,18 +102,18 @@ def compare_with_python(source, name, iterations=3):
         'name': name,
         'source_len': len(source),
         'iterations': iterations,
-        'execution_duan': None,
+        'execution_light': None,
         'execution_python': None,
     }
     
-    # 段言执行
-    compiler = DuanCompiler()
+    # 光明执行
+    compiler = LightCompiler()
     code = compiler.compile(source)
-    _, t_duan = time_function(exec, code, {})
-    results['execution_duan'] = t_duan
-    results['execution_duan_avg'] = t_duan
+    _, t_light = time_function(exec, code, {})
+    results['execution_light'] = t_light
+    results['execution_light_avg'] = t_light
     
-    # Python 对照实验：根据段言源码创建一个空转的 Python 代码
+    # Python 对照实验：根据光明源码创建一个空转的 Python 代码
     # （简单的 100 万次空循环作为基准）
     python_baseline = """
 import time
@@ -172,7 +172,7 @@ def format_time(seconds):
 def generate_markdown_report(results, history=None):
     """生成 Markdown 格式报告"""
     report = []
-    report.append("# 段言编译器基准测试报告")
+    report.append("# 光明编译器基准测试报告")
     report.append("")
     report.append(f"**生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     report.append("")
@@ -189,7 +189,7 @@ def generate_markdown_report(results, history=None):
             f"{format_time(r['parser_avg'])} | "
             f"{format_time(r['codegen_avg'])} | "
             f"{format_time(r['total_compile_avg'])} | "
-            f"{format_time(r.get('execution_duan_avg', 0))} |"
+            f"{format_time(r.get('execution_light_avg', 0))} |"
         )
     report.append("")
     
@@ -228,7 +228,7 @@ def generate_markdown_report(results, history=None):
 def main():
     """主入口"""
     import argparse
-    parser = argparse.ArgumentParser(description='段言编译器增强版基准测试')
+    parser = argparse.ArgumentParser(description='光明编译器增强版基准测试')
     parser.add_argument('--program', '-p', help='只运行指定基准程序')
     parser.add_argument('--iterations', '-n', type=int, default=3, help='迭代次数')
     parser.add_argument('--output', '-o', help='保存报告到文件（Markdown）')
@@ -237,7 +237,7 @@ def main():
     args = parser.parse_args()
     
     # 收集基准测试程序
-    bench_files = sorted(BENCHMARK_DIR.glob('*.duan'))
+    bench_files = sorted(BENCHMARK_DIR.glob('*.light'))
     if args.program:
         bench_files = [f for f in bench_files if args.program in f.name]
         if not bench_files:
@@ -248,7 +248,7 @@ def main():
         print(f"在 {BENCHMARK_DIR} 中未找到基准测试程序")
         sys.exit(1)
     
-    print(f"段言编译器增强版基准测试 - {len(bench_files)} 个程序，每个迭代 {args.iterations} 次")
+    print(f"光明编译器增强版基准测试 - {len(bench_files)} 个程序，每个迭代 {args.iterations} 次")
     print()
     
     results = []
@@ -266,7 +266,7 @@ def main():
             else:
                 result = benchmark_program(source, name, args.iterations)
             results.append(result)
-            t = result.get('total_compile_avg', result.get('execution_duan_avg', 0))
+            t = result.get('total_compile_avg', result.get('execution_light_avg', 0))
             print(f"✓ ({format_time(t)})")
         except Exception as e:
             print(f"✗ 错误: {e}")

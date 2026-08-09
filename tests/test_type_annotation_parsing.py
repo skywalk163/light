@@ -4,9 +4,9 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 
-parser = DuanParser()
+parser = LightParser()
 
 # Test 1: Simple type annotation
 code = '设 x: 整数 为 42'

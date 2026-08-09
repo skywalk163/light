@@ -1,0 +1,18 @@
+# 光明标准库 - Base64 编解码模块
+#
+# 用法：
+#   从《Base64》导入《Base64编码》《Base64解码》。
+
+导出 Base64编码。
+导出 Base64解码。
+导出 Base64编码字节。
+导出 Base64解码字节。
+导出 Base64URL编码。
+导出 Base64URL解码。
+导出 Base16编码。
+导出 Base16解码。
+导出 Base32编码。
+导出 Base32解码。
+导出 Base64验证。
+导出 Base64编码文件。
+导出 Base64解码文件。

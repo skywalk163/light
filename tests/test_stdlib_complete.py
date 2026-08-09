@@ -1,5 +1,5 @@
 """
-段言标准库完整测试用例
+光明标准库完整测试用例
 
 测试所有标准库模块的功能
 """
@@ -16,9 +16,9 @@ sys.path.insert(0, stdlib_path)
 import importlib
 import builtins as python_builtins
 
-spec = importlib.util.spec_from_file_location('duan_builtins', os.path.join(stdlib_path, 'builtins.py'))
-duan_builtins = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(duan_builtins)
+spec = importlib.util.spec_from_file_location('light_builtins', os.path.join(stdlib_path, 'builtins.py'))
+light_builtins = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(light_builtins)
 
 
 class TestBuiltins(unittest.TestCase):
@@ -27,25 +27,25 @@ class TestBuiltins(unittest.TestCase):
     def test_string_tools(self):
         """测试字符串工具函数"""
         s = 'Hello World'
-        self.assertTrue(duan_builtins.开头(s, 'Hello'))
-        self.assertTrue(duan_builtins.结尾(s, 'World'))
-        self.assertTrue(duan_builtins.字符串包含(s, 'lo'))
-        self.assertEqual(duan_builtins.查找子串(s, 'World'), 6)
-        self.assertEqual(duan_builtins.替换字符串次数('aaa', 'a', 'b', 2), 'bba')
-        self.assertEqual(duan_builtins.截取到末尾(s, 6), 'World')
-        self.assertEqual(duan_builtins.字符串计数('aaa', 'a'), 3)
-        self.assertEqual(duan_builtins.字符串重复('ab', 3), 'ababab')
-        self.assertEqual(duan_builtins.字符串反转(s), 'dlroW olleH')
-        self.assertEqual(duan_builtins.转标题('hello world'), 'Hello World')
-        self.assertEqual(duan_builtins.去除左侧空白('  abc'), 'abc')
-        self.assertEqual(duan_builtins.去除右侧空白('abc  '), 'abc')
+        self.assertTrue(light_builtins.开头(s, 'Hello'))
+        self.assertTrue(light_builtins.结尾(s, 'World'))
+        self.assertTrue(light_builtins.字符串包含(s, 'lo'))
+        self.assertEqual(light_builtins.查找子串(s, 'World'), 6)
+        self.assertEqual(light_builtins.替换字符串次数('aaa', 'a', 'b', 2), 'bba')
+        self.assertEqual(light_builtins.截取到末尾(s, 6), 'World')
+        self.assertEqual(light_builtins.字符串计数('aaa', 'a'), 3)
+        self.assertEqual(light_builtins.字符串重复('ab', 3), 'ababab')
+        self.assertEqual(light_builtins.字符串反转(s), 'dlroW olleH')
+        self.assertEqual(light_builtins.转标题('hello world'), 'Hello World')
+        self.assertEqual(light_builtins.去除左侧空白('  abc'), 'abc')
+        self.assertEqual(light_builtins.去除右侧空白('abc  '), 'abc')
 
     def test_string_alignment(self):
         """测试字符串对齐函数"""
         s = 'abc'
-        self.assertEqual(duan_builtins.字符串对齐居中(s, 7), '  abc  ')
-        self.assertEqual(duan_builtins.字符串对齐左(s, 7), 'abc    ')
-        self.assertEqual(duan_builtins.字符串对齐右(s, 7), '    abc')
+        self.assertEqual(light_builtins.字符串对齐居中(s, 7), '  abc  ')
+        self.assertEqual(light_builtins.字符串对齐左(s, 7), 'abc    ')
+        self.assertEqual(light_builtins.字符串对齐右(s, 7), '    abc')
 
 
 class TestMath(unittest.TestCase):
@@ -229,7 +229,7 @@ class TestJSON(unittest.TestCase):
         """测试基本JSON操作"""
         from JSON import 解析JSON, 序列化JSON, 美化JSON
         
-        data = {'name': '段言', 'version': 1}
+        data = {'name': '光明', 'version': 1}
         json_str = 序列化JSON(data)
         parsed = 解析JSON(json_str)
         self.assertEqual(parsed, data)
@@ -249,7 +249,7 @@ class TestJSON(unittest.TestCase):
         from JSON import JSONSchema验证
         
         schema = {'type': 'object', 'properties': {'name': {'type': 'string'}}}
-        self.assertTrue(JSONSchema验证({'name': '段言'}, schema))
+        self.assertTrue(JSONSchema验证({'name': '光明'}, schema))
         self.assertFalse(JSONSchema验证({'name': 123}, schema))
 
     def test_json_merge(self):

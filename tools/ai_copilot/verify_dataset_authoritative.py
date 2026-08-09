@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言数据集 v6 权威验证 — 基于 src/keywords.py 的完整关键字表
+光明数据集 v6 权威验证 — 基于 src/keywords.py 的完整关键字表
 
 关键修正：
 - 加/减/乘/除/模/幂 是合法运算符（单字形式）
 - 加上/减去/乘以/除以/模以/幂以 是合法复合运算符（双字形式）
 - 之/的/并/至/到/步/己/父 是合法保留字
 - 首/末/余/长/列/排序/反转/求和/去重/筛选/映射 是合法动词
-- 整除/次方/范围/步长/全局/非局部 不是段言关键字（之前修复脚本错误添加）
+- 整除/次方/范围/步长/全局/非局部 不是光明关键字（之前修复脚本错误添加）
 """
 import json
 import re
@@ -95,8 +95,8 @@ BUILTIN_TYPES = {
     '典', '字典', '集', '集合', '布尔', '空', '任意',
 }
 
-# 所有合法段言关键字/动词/类型
-ALL_DUAN_WORDS = KEYWORDS_DOUBLE | KEYWORDS_RESERVED | VERBS | BUILTIN_TYPES
+# 所有合法光明关键字/动词/类型
+ALL_LIGHT_WORDS = KEYWORDS_DOUBLE | KEYWORDS_RESERVED | VERBS | BUILTIN_TYPES
 
 # Python内置函数/模块名（应保持英文）
 PYTHON_BUILTINS = {
@@ -137,11 +137,11 @@ PYTHON_BUILTINS = {
 }
 
 
-def find_non_duan_chinese(text):
-    """找到输出中所有非段言关键字的中文词组"""
+def find_non_light_chinese(text):
+    """找到输出中所有非光明关键字的中文词组"""
     chinese_seqs = re.findall(r'[\u4e00-\u9fff]+', text)
-    non_duan = [seq for seq in chinese_seqs if seq not in ALL_DUAN_WORDS]
-    return non_duan
+    non_light = [seq for seq in chinese_seqs if seq not in ALL_LIGHT_WORDS]
+    return non_light
 
 
 def verify_dataset():
@@ -153,7 +153,7 @@ def verify_dataset():
                 data.append(json.loads(line))
     
     print(f"[读取] {len(data)} 条样本")
-    print(f"段言关键字/动词/类型总数: {len(ALL_DUAN_WORDS)} 个\n")
+    print(f"光明关键字/动词/类型总数: {len(ALL_LIGHT_WORDS)} 个\n")
     
     all_chinese = defaultdict(list)
     issue_counts = defaultdict(int)
@@ -162,15 +162,15 @@ def verify_dataset():
         output = item.get('output', '')
         py_code = item.get('input', '')
         
-        # 找非段言中文
-        non_duan = find_non_duan_chinese(output)
-        for ch in non_duan:
+        # 找非光明中文
+        non_light = find_non_light_chinese(output)
+        for ch in non_light:
             all_chinese[ch].append(i)
         
         # 检查具体问题
         if 'self_' in output:
             issue_counts['self_prefix'] += 1
-        # range() 是 Python 内置函数，段言保留 — 不再视为问题
+        # range() 是 Python 内置函数，光明保留 — 不再视为问题
         # ** 只在算术运算上下文中是问题（排除 **kwargs 字典解包）
         if '**' in output:
             lines_with_power = []
@@ -184,7 +184,7 @@ def verify_dataset():
                             lines_with_power.append(l)
             if lines_with_power:
                 issue_counts['power_kept'] += 1
-        # range() 是 Python 内置函数，段言保留 — 不再视为问题
+        # range() 是 Python 内置函数，光明保留 — 不再视为问题
         # 检查是否有错误的"关键字"（整除/次方/范围/步长/全局/非局部）
         for wrong_kw in ['整除', '次方', '范围', '步长', '全局', '非局部']:
             if wrong_kw in output:
@@ -203,13 +203,13 @@ def verify_dataset():
     for k, v in sorted(issue_counts.items()):
         print(f"  {k}: {v}")
     
-    print(f"\n输出中非段言中文: {len(all_chinese)} 个不同词")
-    print(f"含非段言中文的样本: {len(samples_with_chinese)} 条")
+    print(f"\n输出中非光明中文: {len(all_chinese)} 个不同词")
+    print(f"含非光明中文的样本: {len(samples_with_chinese)} 条")
     print(f"干净样本: {len(data) - len(samples_with_chinese)} 条")
     print(f"干净率: {(len(data) - len(samples_with_chinese)) / len(data) * 100:.1f}%")
     
     sorted_chinese = sorted(all_chinese.items(), key=lambda x: -len(x[1]))
-    print(f"\n前30个高频非段言中文:")
+    print(f"\n前30个高频非光明中文:")
     for ch, indices in sorted_chinese[:30]:
         print(f"  '{ch}': {len(indices)} 条")
     
@@ -221,7 +221,7 @@ def verify_dataset():
             if shown >= 10:
                 break
             idx = indices[0]
-            print(f"\n[{idx}] 非段言中文: '{ch}'")
+            print(f"\n[{idx}] 非光明中文: '{ch}'")
             print(f"  Python: {data[idx]['input'][:120]}")
             print(f"  输出: {data[idx]['output'][:200]}")
             shown += 1

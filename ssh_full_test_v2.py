@@ -5,7 +5,7 @@ client = paramiko.SSHClient()
 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 client.connect(SSH_HOST, username=SSH_USER_TRAE, password=SSH_PASS_TRAE, timeout=30)
 
-MODEL_NAME = 'duan_v2'
+MODEL_NAME = 'light_v2'
 
 test_cases = [
     ("简单赋值", "x = 5\ny = 10\nprint(x + y)"),
@@ -21,7 +21,7 @@ test_cases = [
 ]
 
 for desc, py_code in test_cases:
-    prompt = f"用段言v3.2语法重写以下Python代码。\n\nPython代码:\n{py_code}"
+    prompt = f"用光明v3.2语法重写以下Python代码。\n\nPython代码:\n{py_code}"
     
     # Write prompt to file
     write_cmd = f"cat > /home/trae/test_prompt.txt << 'EOF'\n{prompt}\nEOF"
@@ -35,7 +35,7 @@ for desc, py_code in test_cases:
     
     print(f"=== {desc} ===")
     print(f"Python: {py_code[:60]}")
-    print(f"DuanLang: {result}")
+    print(f"LightLang: {result}")
     print()
 
 client.close()

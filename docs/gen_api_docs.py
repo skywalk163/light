@@ -1,5 +1,5 @@
 """
-段言 API 参考文档自动生成脚本
+光明 API 参考文档自动生成脚本
 
 从源码中提取 API 文档，生成 Markdown 格式的 API 参考文档。
 输出到 docs/api/ 目录供 mkdocs 使用。
@@ -33,8 +33,8 @@ def extract_py_docstring(source: str) -> str:
     return ''
 
 
-def extract_duan_docs(filepath: str) -> list:
-    """解析 .duan 文件，提取函数/类定义和注释"""
+def extract_light_docs(filepath: str) -> list:
+    """解析 .light 文件，提取函数/类定义和注释"""
     results = []
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
@@ -73,19 +73,19 @@ def gen_stdlib_api_docs() -> str:
         return '\n'.join(lines)
 
     for fname in sorted(os.listdir(_stdlib_dir)):
-        if not fname.endswith('.duan'):
+        if not fname.endswith('.light'):
             continue
         fpath = os.path.join(_stdlib_dir, fname)
-        mod_name = fname.replace('.duan', '')
+        mod_name = fname.replace('.light', '')
         lines.append(f'\n## 模块: {mod_name}\n')
 
-        doc = extract_duan_docs(fpath)
+        doc = extract_light_docs(fpath)
         if doc:
             for entry in doc:
                 lines.append(f'### {entry["line"]}\n')
                 if entry['comment']:
                     lines.append(f'\n{entry["comment"]}\n')
-                lines.append(f'\n```duan\n{entry["line"]}\n```\n')
+                lines.append(f'\n```light\n{entry["line"]}\n```\n')
         else:
             lines.append('\n（该模块包含实用函数和工具）\n')
 
@@ -159,7 +159,7 @@ def gen_api_index() -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description='段言 API 文档生成器')
+    parser = argparse.ArgumentParser(description='光明 API 文档生成器')
     parser.add_argument('--output', '-o', default=_default_output,
                         help=f'输出目录（默认: {_default_output}）')
     args = parser.parse_args()

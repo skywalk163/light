@@ -1,13 +1,13 @@
 """
-段言（Duan）编程语言 ANTLR 访问器 - 语句类 visit 方法混入
+光明（Light）编程语言 ANTLR 访问器 - 语句类 visit 方法混入
 """
 
 from typing import List, Optional, Union
 
 from antlr4 import *
-from DuanLangParser import DuanLangParser
+from LightLangParser import LightLangParser
 
-from duan_ast import (
+from light_ast import (
     NumberLiteral, StringLiteral, BooleanLiteral, NullLiteral,
     Identifier, FunctionCall, PropertyAccess, SelfReference,
     ListComprehension, DictLiteral, ListLiteral,
@@ -27,7 +27,7 @@ class VisitorStmtMixin(VisitorDeclMixin):
 
     # ----- 语句 -----
 
-    def visitStmt(self, ctx: DuanLangParser.StmtContext):
+    def visitStmt(self, ctx: LightLangParser.StmtContext):
         """语句分发"""
         if ctx.varDecl():
             return self.visitVarDecl(ctx.varDecl())
@@ -61,7 +61,7 @@ class VisitorStmtMixin(VisitorDeclMixin):
             return self.visitExprStmt(ctx.exprStmt())
         return None
 
-    def visitIfStmt(self, ctx: DuanLangParser.IfStmtContext):
+    def visitIfStmt(self, ctx: LightLangParser.IfStmtContext):
         """条件语句"""
         line = ctx.start.line
         col = ctx.start.column
@@ -98,7 +98,7 @@ class VisitorStmtMixin(VisitorDeclMixin):
             elseif_bodies=elseif_bodies,
         )
 
-    def visitForeachStmt(self, ctx: DuanLangParser.ForeachStmtContext):
+    def visitForeachStmt(self, ctx: LightLangParser.ForeachStmtContext):
         """遍历循环"""
         line = ctx.start.line
         col = ctx.start.column
@@ -115,7 +115,7 @@ class VisitorStmtMixin(VisitorDeclMixin):
         return ForeachStatement(line=line, column=col, variable=variable,
                                 iterable=iterable, body=body)
 
-    def visitWhileStmt(self, ctx: DuanLangParser.WhileStmtContext):
+    def visitWhileStmt(self, ctx: LightLangParser.WhileStmtContext):
         """当循环"""
         line = ctx.start.line
         col = ctx.start.column
@@ -125,7 +125,7 @@ class VisitorStmtMixin(VisitorDeclMixin):
             body = self.visitBlock(ctx.block())
         return WhileStatement(line=line, column=col, condition=condition, body=body)
 
-    def visitReturnStmt(self, ctx: DuanLangParser.ReturnStmtContext):
+    def visitReturnStmt(self, ctx: LightLangParser.ReturnStmtContext):
         """返回语句"""
         line = ctx.start.line
         col = ctx.start.column
@@ -134,15 +134,15 @@ class VisitorStmtMixin(VisitorDeclMixin):
             value = self.visitExpr(ctx.expr())
         return ReturnStatement(line=line, column=col, value=value)
 
-    def visitBreakStmt(self, ctx: DuanLangParser.BreakStmtContext):
+    def visitBreakStmt(self, ctx: LightLangParser.BreakStmtContext):
         """跳出语句"""
         return BreakStatement(line=ctx.start.line, column=ctx.start.column)
 
-    def visitContinueStmt(self, ctx: DuanLangParser.ContinueStmtContext):
+    def visitContinueStmt(self, ctx: LightLangParser.ContinueStmtContext):
         """跳过语句"""
         return ContinueStatement(line=ctx.start.line, column=ctx.start.column)
 
-    def visitTryStmt(self, ctx: DuanLangParser.TryStmtContext):
+    def visitTryStmt(self, ctx: LightLangParser.TryStmtContext):
         """异常捕获"""
         line = ctx.start.line
         col = ctx.start.column
@@ -152,14 +152,14 @@ class VisitorStmtMixin(VisitorDeclMixin):
         return TryStatement(line=line, column=col, try_body=try_body,
                             catch_var=catch_var, catch_body=catch_body)
 
-    def visitThrowStmt(self, ctx: DuanLangParser.ThrowStmtContext):
+    def visitThrowStmt(self, ctx: LightLangParser.ThrowStmtContext):
         """抛出异常"""
         line = ctx.start.line
         col = ctx.start.column
         value = self.visitExpr(ctx.expr())
         return ThrowStatement(line=line, column=col, value=value)
 
-    def visitMatchStmt(self, ctx: DuanLangParser.MatchStmtContext):
+    def visitMatchStmt(self, ctx: LightLangParser.MatchStmtContext):
         """模式匹配语句"""
         line = ctx.start.line
         col = ctx.start.column
@@ -169,7 +169,7 @@ class VisitorStmtMixin(VisitorDeclMixin):
             cases.append(self.visitMatchCase(case_ctx))
         return MatchStatement(line=line, column=col, subject=subject, cases=cases)
 
-    def visitMatchCase(self, ctx: DuanLangParser.MatchCaseContext):
+    def visitMatchCase(self, ctx: LightLangParser.MatchCaseContext):
         """匹配分支"""
         line = ctx.start.line
         col = ctx.start.column
@@ -183,7 +183,7 @@ class VisitorStmtMixin(VisitorDeclMixin):
         body = self.visitBlock(ctx.block()) if ctx.block() else []
         return MatchCase(line=line, column=col, pattern=pattern, guard=guard, body=body)
 
-    def visitMatchPattern(self, ctx: DuanLangParser.MatchPatternContext):
+    def visitMatchPattern(self, ctx: LightLangParser.MatchPatternContext):
         """匹配模式"""
         line = ctx.start.line
         col = ctx.start.column
@@ -232,7 +232,7 @@ class VisitorStmtMixin(VisitorDeclMixin):
 
         return MatchPattern(line=line, column=col, kind='wildcard')
 
-    def visitWithStmt(self, ctx: DuanLangParser.WithStmtContext):
+    def visitWithStmt(self, ctx: LightLangParser.WithStmtContext):
         """上下文管理器语句：使用 表达式 作为 变量：...结束。"""
         line = ctx.start.line
         col = ctx.start.column
@@ -242,7 +242,7 @@ class VisitorStmtMixin(VisitorDeclMixin):
         return WithStatement(line=line, column=col,
                              context_expr=context_expr, variable=variable, body=body)
 
-    def visitDecoratorDef(self, ctx: DuanLangParser.DecoratorDefContext):
+    def visitDecoratorDef(self, ctx: LightLangParser.DecoratorDefContext):
         """装饰器定义：@段落名 标注 段落 ..."""
         line = ctx.start.line
         col = ctx.start.column
@@ -251,7 +251,7 @@ class VisitorStmtMixin(VisitorDeclMixin):
         return DecoratorDefinition(line=line, column=col,
                                    decorator_name=decorator_name, paragraph=paragraph)
 
-    def visitDictComprehension(self, ctx: DuanLangParser.DictComprehensionContext):
+    def visitDictComprehension(self, ctx: LightLangParser.DictComprehensionContext):
         """字典推导：{键: 值 遍历 变量 之 列表}"""
         line = ctx.start.line
         col = ctx.start.column
@@ -267,7 +267,7 @@ class VisitorStmtMixin(VisitorDeclMixin):
                                  variable=variable, iterable=iterable,
                                  condition=condition)
 
-    def visitBracketContent(self, ctx: DuanLangParser.BracketContentContext):
+    def visitBracketContent(self, ctx: LightLangParser.BracketContentContext):
         """方括号内容：消除列表/字典/推导歧义"""
         line = ctx.start.line
         col = ctx.start.column
@@ -278,7 +278,7 @@ class VisitorStmtMixin(VisitorDeclMixin):
 
         # 2. 字典字面量：键: 值, ...
         if ctx.dictLiteral():
-            from duan_ast import DictEntry
+            from light_ast import DictEntry
             entries = []
             for entry_ctx in ctx.dictLiteral().dictEntry():
                 key = self.visitExpr(entry_ctx.expr(0))
@@ -335,7 +335,7 @@ class VisitorStmtMixin(VisitorDeclMixin):
                 i += 1
         return ''.join(escaped)
 
-    def visitPrintStmt(self, ctx: DuanLangParser.PrintStmtContext):
+    def visitPrintStmt(self, ctx: LightLangParser.PrintStmtContext):
         """打印语句"""
         line = ctx.start.line
         col = ctx.start.column
@@ -353,7 +353,7 @@ class VisitorStmtMixin(VisitorDeclMixin):
             value = None
         return PrintStatement(line=line, column=col, value=value)
 
-    def visitExprStmt(self, ctx: DuanLangParser.ExprStmtContext):
+    def visitExprStmt(self, ctx: LightLangParser.ExprStmtContext):
         """表达式语句"""
         line = ctx.start.line
         col = ctx.start.column

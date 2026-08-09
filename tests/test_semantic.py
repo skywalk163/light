@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编程语言 - 语义分析器测试
+光明（Light）编程语言 - 语义分析器测试
 
 测试覆盖：
 - 类型检查
@@ -13,12 +13,12 @@ import pytest
 import sys
 import os
 
-# 跳过：SemanticAnalyzer 的 Module API 与当前 duan_parser_v3 的 Module 不兼容
+# 跳过：SemanticAnalyzer 的 Module API 与当前 light_parser_v3 的 Module 不兼容
 pytestmark = pytest.mark.skip(reason="SemanticAnalyzer API 与当前 Module 类不兼容，待重构")
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from semantic_analyzer import SemanticAnalyzer
 
 
@@ -27,7 +27,7 @@ class TestTypeChecking:
 
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
 
     def test_number_type(self, parser):
         """测试数字类型"""
@@ -57,7 +57,7 @@ class TestScopeManagement:
 
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
 
     def test_global_scope(self, parser):
         """测试全局作用域"""
@@ -90,7 +90,7 @@ class TestSymbolTable:
 
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
 
     def test_variable_declaration(self, parser):
         """测试变量声明"""
@@ -121,7 +121,7 @@ class TestSemanticErrors:
 
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
 
     def test_type_mismatch(self, parser):
         """测试类型不匹配"""
@@ -144,7 +144,7 @@ class TestSemanticAnalysisIntegration:
 
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
 
     def test_complete_program(self, parser):
         """测试完整程序"""

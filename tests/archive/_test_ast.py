@@ -2,7 +2,7 @@ import sys
 sys.path.insert(0, 'src')
 sys.path.insert(0, 'cli')
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import DuanParser
 
 code = """段落 求和 参数 甲 乙 
    返回 甲 加 乙。 

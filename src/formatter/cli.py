@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-段言代码格式化器 - 命令行工具
+光明代码格式化器 - 命令行工具
 
 用法:
-    python -m src.formatter.cli file.duan          # 格式化单个文件
+    python -m src.formatter.cli file.light          # 格式化单个文件
     python -m src.formatter.cli .                   # 格式化当前目录
-    python -m src.formatter.cli --check file.duan   # 仅检查格式
+    python -m src.formatter.cli --check file.light   # 仅检查格式
     python -m src.formatter.cli --indent 2 file     # 指定缩进大小
 """
 
@@ -14,13 +14,13 @@ import sys
 import argparse
 from pathlib import Path
 
-from src.formatter.duan_formatter import DuanFormatter
+from src.formatter.light_formatter import LightFormatter
 
 
 def format_file(filepath: str, check_only: bool = False,
                 indent_size: int = 4, max_line_length: int = 80) -> bool:
     """格式化单个文件"""
-    formatter = DuanFormatter(indent_size=indent_size, max_line_length=max_line_length)
+    formatter = LightFormatter(indent_size=indent_size, max_line_length=max_line_length)
 
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
@@ -54,25 +54,25 @@ def format_file(filepath: str, check_only: bool = False,
 
 def format_directory(directory: str, check_only: bool = False,
                      indent_size: int = 4, max_line_length: int = 80) -> int:
-    """格式化目录中的 .duan 文件"""
+    """格式化目录中的 .light 文件"""
     if not os.path.isdir(directory):
         print(f"错误: 目录不存在: {directory}")
         return 1
 
-    duan_files = []
+    light_files = []
     for root, dirs, files in os.walk(directory):
         dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
         for f in files:
-            if f.endswith('.duan'):
-                duan_files.append(os.path.join(root, f))
+            if f.endswith('.light'):
+                light_files.append(os.path.join(root, f))
 
-    if not duan_files:
-        print("未找到 .duan 文件")
+    if not light_files:
+        print("未找到 .light 文件")
         return 0
 
-    print(f"找到 {len(duan_files)} 个 .duan 文件\n")
+    print(f"找到 {len(light_files)} 个 .light 文件\n")
     all_ok = True
-    for fp in sorted(duan_files):
+    for fp in sorted(light_files):
         if not format_file(fp, check_only, indent_size, max_line_length):
             all_ok = False
 
@@ -86,8 +86,8 @@ def format_directory(directory: str, check_only: bool = False,
 
 def main():
     parser = argparse.ArgumentParser(
-        prog='duan-fmt',
-        description='段言代码格式化器'
+        prog='light-fmt',
+        description='光明代码格式化器'
     )
     parser.add_argument('target', help='文件或目录路径')
     parser.add_argument('--check', action='store_true', help='仅检查格式，不修改文件')

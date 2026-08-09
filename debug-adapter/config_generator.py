@@ -12,16 +12,16 @@ LAUNCH_TEMPLATE = {
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "段言: 调试当前文件",
-            "type": "duan",
+            "name": "光明: 调试当前文件",
+            "type": "light",
             "request": "launch",
             "program": "${file}",
             "stopOnEntry": True,
             "console": "integratedTerminal"
         },
         {
-            "name": "段言: 调试程序",
-            "type": "duan",
+            "name": "光明: 调试程序",
+            "type": "light",
             "request": "launch",
             "program": "${workspaceFolder}/${input:programName}",
             "stopOnEntry": True,
@@ -29,8 +29,8 @@ LAUNCH_TEMPLATE = {
             "args": []
         },
         {
-            "name": "段言: 附加到调试器",
-            "type": "duan",
+            "name": "光明: 附加到调试器",
+            "type": "light",
             "request": "attach",
             "port": 8765,
             "host": "localhost"
@@ -41,7 +41,7 @@ LAUNCH_TEMPLATE = {
             "id": "programName",
             "type": "promptString",
             "description": "输入要调试的程序名称",
-            "default": "main.duan"
+            "default": "main.light"
         }
     ]
 }
@@ -50,8 +50,8 @@ ATTACH_TEMPLATE = {
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "段言: 附加",
-            "type": "duan",
+            "name": "光明: 附加",
+            "type": "light",
             "request": "attach",
             "port": 8765,
             "host": "localhost",

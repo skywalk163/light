@@ -1,16 +1,16 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言翻译器 — CPU LoRA 微调脚本（无GPU环境专用）
+光明翻译器 — CPU LoRA 微调脚本（无GPU环境专用）
 
 针对无GPU环境优化，使用 transformers + peft 在 CPU 上对
 Qwen2.5-0.5B-Instruct 进行 LoRA 微调，使其学会将 Python 代码
-翻译为段言 v3.2 代码。
+翻译为光明 v3.2 代码。
 
 完整流程：
   1. 环境检查（PyTorch CPU / transformers / peft）
   2. 加载预训练模型和 tokenizer
-  3. 加载 SFT 数据集（881 条 Python→段言 对照）
+  3. 加载 SFT 数据集（881 条 Python→光明 对照）
   4. 配置 LoRA（rank=8, 只训练 q_proj/v_proj）
   5. CPU 训练（batch_size=1, gradient_accumulation=16, epochs=3）
   6. 保存 LoRA 权重
@@ -59,13 +59,13 @@ from pathlib import Path
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _DATASET_PATH = os.path.join(_SCRIPT_DIR, "sft_dataset.jsonl")
 _DEFAULT_MODEL_PATH = os.path.join(_SCRIPT_DIR, "model_cache", "qwen2.5-0.5b")
-_DEFAULT_OUTPUT_DIR = os.path.join(_SCRIPT_DIR, "output", "qwen2.5_0.5b_duan_cpu")
+_DEFAULT_OUTPUT_DIR = os.path.join(_SCRIPT_DIR, "output", "qwen2.5_0.5b_light_cpu")
 
 # ── 系统提示词（微调后模型的 system prompt）──
 SYSTEM_PROMPT = (
-    "你是段言（DuanLang）编程语言 v3.2 的翻译专家。"
-    "段言是一种中文编程语言，使用中文关键字。"
-    "你的任务是将 Python 代码翻译为段言 v3.2 代码。\n"
+    "你是光明（LightLang）编程语言 v3.2 的翻译专家。"
+    "光明是一种中文编程语言，使用中文关键字。"
+    "你的任务是将 Python 代码翻译为光明 v3.2 代码。\n"
     "关键规则：\n"
     "- 变量赋值: 设 x 为 10\n"
     "- 字符串赋值: 定义 s 等于 \"hello\"\n"
@@ -115,7 +115,7 @@ SYSTEM_PROMPT = (
     "- break/continue: break -> 跳出; continue -> 跳过; 不可混用 返回 替代 break\n"
     "- 多返回值: return a, b 保持原样; x, y = func() 分别赋值\n"
     "- 异常类型: 捕获具体异常类型，如 捕获 ZeroDivisionError 为 e\n"
-    "只输出段言代码，不要解释。"
+    "只输出光明代码，不要解释。"
 )
 
 
@@ -190,10 +190,10 @@ import torch
 from torch.utils.data import Dataset
 
 
-class DuanSFTDataset(Dataset):
-    """段言 SFT 数据集
+class LightSFTDataset(Dataset):
+    """光明 SFT 数据集
 
-    将 JSONL 格式的 Python→段言 对照数据转换为模型可训练的格式。
+    将 JSONL 格式的 Python→光明 对照数据转换为模型可训练的格式。
     使用 chat template 构造完整的对话，然后对 assistant 回复部分
     计算 loss。
     """
@@ -219,7 +219,7 @@ class DuanSFTDataset(Dataset):
 
     def __getitem__(self, idx):
         item = self.data[idx]
-        instruction = item.get("instruction", "将Python代码转为段言代码：")
+        instruction = item.get("instruction", "将Python代码转为光明代码：")
         code_input = item.get("input", "")
         output = item.get("output", "")
 
@@ -356,7 +356,7 @@ def train(
     print("第 4 步：加载数据集")
     print("=" * 60)
 
-    train_dataset = DuanSFTDataset(dataset_path or _DATASET_PATH, tokenizer, max_len=max_len)
+    train_dataset = LightSFTDataset(dataset_path or _DATASET_PATH, tokenizer, max_len=max_len)
     print(f"  训练数据: {len(train_dataset)} 条")
     print(f"  max_len: {max_len}")
 
@@ -483,7 +483,7 @@ def test_inference(model_path: str, lora_path: str):
 
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"将以下 Python 代码翻译为段言 v3.2：\n\n{python_code}"},
+            {"role": "user", "content": f"将以下 Python 代码翻译为光明 v3.2：\n\n{python_code}"},
         ]
         text = tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
@@ -503,7 +503,7 @@ def test_inference(model_path: str, lora_path: str):
             outputs[0][inputs["input_ids"].shape[1]:],
             skip_special_tokens=True,
         )
-        print(f"段言: {response}")
+        print(f"光明: {response}")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -512,7 +512,7 @@ def test_inference(model_path: str, lora_path: str):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="段言翻译器 — CPU LoRA 微调（无GPU环境专用）"
+        description="光明翻译器 — CPU LoRA 微调（无GPU环境专用）"
     )
     parser.add_argument(
         "--model-path", default=_DEFAULT_MODEL_PATH,
@@ -597,7 +597,7 @@ def main():
     print(f"  1. 合并 LoRA:    python merge_and_convert.py --merge-only")
     print(f"  2. 转 GGUF:      python merge_and_convert.py --convert-gguf")
     print(f"  3. 本地推理:     python local_infer.py --fine-tuned")
-    print(f"  4. 集成到 CLI:   duan ai local \"写一个冒泡排序\"")
+    print(f"  4. 集成到 CLI:   light ai local \"写一个冒泡排序\"")
 
 
 if __name__ == "__main__":

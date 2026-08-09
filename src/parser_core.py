@@ -1,5 +1,5 @@
 """
-段言（Duan）编程语言 - 语法解析器核心框架
+光明（Light）编程语言 - 语法解析器核心框架
 
 提供基础解析框架：
 - 词法分析集成
@@ -148,7 +148,7 @@ def _generate_hint(message: str, token_value: str = None) -> str:
     
     # 常见标点错误
     if tv == '=':
-        return '段言使用「为」进行赋值。如：设 甲 为 10。而不是 甲 = 10。'
+        return '光明使用「为」进行赋值。如：设 甲 为 10。而不是 甲 = 10。'
     if tv == ':':
         if '期望标识符' in message:
             return '函数/类定义需要名称。如：函数 名字(参数): 或 类 名字:'
@@ -177,8 +177,8 @@ def _generate_hint(message: str, token_value: str = None) -> str:
 # 递归下降解析器 - 核心基类
 # =============================================================================
 
-class DuanParserCore:
-    """段言完整语法解析器核心基类"""
+class LightParserCore:
+    """光明完整语法解析器核心基类"""
     
     # 运算符动词集合（类常量，避免重复创建）
     OPERATOR_VERBS = frozenset({'加', '减', '乘', '除', '加上', '减去', '乘以', '除以', 
@@ -208,7 +208,7 @@ class DuanParserCore:
         raise ParseError(message, line, col, token_value)
     
     def parse(self, source: str) -> Module:
-        """解析段言代码"""
+        """解析光明代码"""
         # 词法分析
         tokens = self.lexer.tokenize(source)
         

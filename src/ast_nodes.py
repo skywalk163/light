@@ -1,5 +1,5 @@
 """
-段言（Duan）编程语言 AST 节点定义
+光明（Light）编程语言 AST 节点定义
 
 与 src/ast_nodes.py 保持兼容的 AST 节点结构
 供 ANTLR 解析器生成 AST 使用
@@ -505,7 +505,7 @@ class EmbedBlock(ASTNode):
     """嵌入块语句：嵌入 Python/C: ... 结束嵌入"""
     language: str = ""       # "Python", "C" 等
     code: str = ""           # 原始嵌入代码
-    imports: list = None     # 嵌入块中需要传入的段言变量名列表
+    imports: list = None     # 嵌入块中需要传入的光明变量名列表
     exports: list = None     # 嵌入块中需要传出的变量名列表
 
 
@@ -965,7 +965,7 @@ class FFICreateCallback(ASTNode):
     _ast_type_id: int = field(default=AST_TYPE_ID_FFI_CREATE_CALLBACK, init=False, repr=False)
     """创建回调函数"""
     callback_type: str = ""
-    duan_function: str = ""
+    light_function: str = ""
 
 
 @dataclass(slots=True)

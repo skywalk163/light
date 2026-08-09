@@ -1,4 +1,4 @@
-"""段言增量编译器
+"""光明增量编译器
 
 只重新编译修改过的模块，加速大型项目编译。
 支持文件监听模式，自动检测并重新编译变化文件。
@@ -21,14 +21,14 @@ try:
     from llvm.compiler import (
         compile_source_typed,
         compile_modules_typed,
-        compile_duan_typed,
+        compile_light_typed,
         find_clang,
     )
 except ImportError:
     from src.llvm.compiler import (
         compile_source_typed,
         compile_modules_typed,
-        compile_duan_typed,
+        compile_light_typed,
         find_clang,
     )
 
@@ -410,14 +410,14 @@ class IncrementalCompiler:
                 'files_failed': 0,
             }
 
-        # 获取所有 .duan 文件
-        duan_files = self._find_duan_files(project_root)
+        # 获取所有 .light 文件
+        light_files = self._find_light_files(project_root)
 
         if verbose:
-            print(f"[增量编译] 项目: {project_root}, 找到 {len(duan_files)} 个 .duan 文件")
+            print(f"[增量编译] 项目: {project_root}, 找到 {len(light_files)} 个 .light 文件")
 
         # 构建依赖图
-        self._build_dependency_graph(duan_files, verbose)
+        self._build_dependency_graph(light_files, verbose)
 
         # 获取脏模块列表（基于文件修改时间）
         dirty_modules = self.get_dirty_modules(project_root)
@@ -449,7 +449,7 @@ class IncrementalCompiler:
         errors = []
 
         # 编译所有文件（脏文件重新编译，干净文件使用缓存）
-        for file_path in duan_files:
+        for file_path in light_files:
             force = file_path in dirty_modules
             result = self.compile(
                 file_path,
@@ -472,7 +472,7 @@ class IncrementalCompiler:
         return {
             'success': files_failed == 0,
             'project_root': project_root,
-            'total_files': len(duan_files),
+            'total_files': len(light_files),
             'files_compiled': files_compiled,
             'files_cached': files_cached,
             'files_failed': files_failed,
@@ -481,24 +481,24 @@ class IncrementalCompiler:
             'dep_graph_stats': self.dep_graph.get_stats() if self.dep_graph else {},
         }
 
-    def _build_dependency_graph(self, duan_files: List[str], verbose: bool = False):
+    def _build_dependency_graph(self, light_files: List[str], verbose: bool = False):
         """构建项目依赖图
 
         解析每个文件的导入语句，建立模块间依赖关系。
 
         Args:
-            duan_files: .duan 文件路径列表
+            light_files: .light 文件路径列表
             verbose: 是否输出详细信息
         """
         self.dep_graph.clear()
 
         # 第一遍：注册所有模块
-        for file_path in duan_files:
+        for file_path in light_files:
             module_name = os.path.splitext(os.path.basename(file_path))[0]
             self.dep_graph.add_module(module_name, file_path, [])
 
         # 第二遍：解析导入关系
-        for file_path in duan_files:
+        for file_path in light_files:
             module_name = os.path.splitext(os.path.basename(file_path))[0]
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
@@ -526,10 +526,10 @@ class IncrementalCompiler:
             需要重新编译的文件路径列表
         """
         project_root = os.path.abspath(project_root)
-        duan_files = self._find_duan_files(project_root)
+        light_files = self._find_light_files(project_root)
         dirty = []
 
-        for file_path in duan_files:
+        for file_path in light_files:
             if not self.cache.is_fresh(file_path):
                 dirty.append(file_path)
 
@@ -567,7 +567,7 @@ class IncrementalCompiler:
 
         # 记录文件的当前状态
         file_states: Dict[str, float] = {}
-        for file_path in self._find_duan_files(project_root):
+        for file_path in self._find_light_files(project_root):
             try:
                 file_states[file_path] = os.path.getmtime(file_path)
             except OSError:
@@ -591,7 +591,7 @@ class IncrementalCompiler:
                         del file_states[file_path]
 
                 # 检查新文件
-                for file_path in self._find_duan_files(project_root):
+                for file_path in self._find_light_files(project_root):
                     if file_path not in file_states:
                         try:
                             file_states[file_path] = os.path.getmtime(file_path)
@@ -640,25 +640,25 @@ class IncrementalCompiler:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _find_duan_files(root_dir: str) -> List[str]:
-        """递归查找所有 .duan 文件
+    def _find_light_files(root_dir: str) -> List[str]:
+        """递归查找所有 .light 文件
 
         Args:
             root_dir: 根目录路径
 
         Returns:
-            .duan 文件路径列表
+            .light 文件路径列表
         """
-        duan_files = []
+        light_files = []
         root = Path(root_dir)
         if not root.exists():
-            return duan_files
+            return light_files
 
-        for file_path in root.rglob('*.duan'):
+        for file_path in root.rglob('*.light'):
             if file_path.is_file():
-                duan_files.append(str(file_path))
+                light_files.append(str(file_path))
 
-        return sorted(duan_files)
+        return sorted(light_files)
 
     def get_compile_stats(self) -> Dict[str, Any]:
         """获取编译统计信息

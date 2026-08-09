@@ -1,0 +1,26 @@
+# compiler.light - Bootstrap compiler main entry point
+# v3.2 语法标准
+#
+# Orchestrates lexer -> parser -> codegen pipeline
+
+导入 lexer
+导入 parser
+导入 codegen
+
+导出 compile_source, compile_file
+
+# =============================================================================
+# Compilation pipeline
+# =============================================================================
+
+# compile_source: takes Light source string, returns Python code string
+段落 compile_source 接收 source：
+  设 tokens 为 词法分析(source)
+  设 ast 为 parse(tokens)
+  设 py_code 为 generate(ast)
+  返回 py_code
+
+# compile_file: reads a .light file and compiles it to Python
+段落 compile_file 接收 filepath：
+  设 content 为 _读文件(filepath)
+  返回 compile_source(content)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言（Duan）一键构建发布包脚本
+光明（Light）一键构建发布包脚本
 
 功能：
   1. 清理旧的构建产物
@@ -155,7 +155,7 @@ def build_executable():
         return
 
     result = subprocess.run(
-        [sys.executable, build_exe_path, '--name', 'duan6'],
+        [sys.executable, build_exe_path, '--name', 'light6'],
         cwd=PROJECT_DIR,
         capture_output=True, text=True
     )
@@ -182,7 +182,7 @@ def build_executable():
 
 def main():
     parser = argparse.ArgumentParser(
-        description='段言（Duan）一键构建发布包',
+        description='光明（Light）一键构建发布包',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
@@ -200,7 +200,7 @@ def main():
     args = parser.parse_args()
 
     print("=" * 60)
-    print("  段言（Duan）发布包构建工具")
+    print("  光明（Light）发布包构建工具")
     print("=" * 60)
     print(f"  项目目录: {PROJECT_DIR}")
     print(f"  Python: {sys.version.split()[0]}")

@@ -1,9 +1,9 @@
 """
-段言（Duan）包管理器
+光明（Light）包管理器
 
 负责：
 1. package.toml 项目配置文件的解析
-2. 项目目录初始化（package.toml + 主.duan）
+2. 项目目录初始化（package.toml + 主.light）
 3. 入口模块发现与项目级编译入口
 
 设计原则：
@@ -29,7 +29,7 @@ class PackageConfig:
 
     name: str = "未命名"
     version: str = "0.1.0"
-    entry: str = "主.duan"
+    entry: str = "主.light"
     dependencies: Dict[str, str] = field(default_factory=dict)
     authors: List[str] = field(default_factory=list)
     description: str = ""
@@ -211,7 +211,7 @@ class TomlParser:
 # ---------------------------------------------------------------------------
 
 class PackageManager:
-    """段言包管理器。
+    """光明包管理器。
 
     典型用法：
         pm = PackageManager(project_root)
@@ -221,11 +221,11 @@ class PackageManager:
         status = pm.run_project()       # 运行
     """
 
-    DEFAULT_CONFIG_TOML = """# 段言项目配置
+    DEFAULT_CONFIG_TOML = """# 光明项目配置
 [package]
 name = "{name}"
 version = "0.1.0"
-entry = "主.duan"
+entry = "主.light"
 authors = []
 description = ""
 
@@ -233,7 +233,7 @@ description = ""
 """
 
     DEFAULT_MAIN_SOURCE = """段落 主 接收：
-    打印("你好，段言！")
+    打印("你好，光明！")
 
 主()
 """
@@ -248,7 +248,7 @@ description = ""
     # 项目初始化
     # ------------------------------------------------------------------
     def init_project(self, name: Optional[str] = None) -> bool:
-        """在 project_root 下创建 package.toml 与 主.duan。
+        """在 project_root 下创建 package.toml 与 主.light。
 
         如果目录不存在则自动创建；文件已存在时返回 True（视为幂等）。
         """
@@ -258,7 +258,7 @@ description = ""
             toml_text = self.DEFAULT_CONFIG_TOML.format(name=pkg_name)
 
             toml_path = self.project_root / "package.toml"
-            main_path = self.project_root / "主.duan"
+            main_path = self.project_root / "主.light"
 
             if not toml_path.exists():
                 toml_path.write_text(toml_text, encoding="utf-8")
@@ -313,7 +313,7 @@ description = ""
             self.config = PackageConfig(
                 name=str(pkg_section.get("name", self.project_root.name or "未命名")),
                 version=str(pkg_section.get("version", "0.1.0")),
-                entry=str(pkg_section.get("entry", "主.duan")),
+                entry=str(pkg_section.get("entry", "主.light")),
                 dependencies=normalized_deps,
                 authors=authors,
                 description=str(pkg_section.get("description", "")),
@@ -333,20 +333,20 @@ description = ""
     # 模块查找
     # ------------------------------------------------------------------
     def find_module(self, module_name: str) -> Optional[Path]:
-        """根据模块名找到对应的 .duan 文件。
+        """根据模块名找到对应的 .light 文件。
 
         支持格式：
-          - 数学        ->  数学.duan
-          - 数学.工具   ->  数学/工具.duan
-          - 数学/工具   ->  数学/工具.duan
+          - 数学        ->  数学.light
+          - 数学.工具   ->  数学/工具.light
+          - 数学/工具   ->  数学/工具.light
         """
         if not module_name:
             return None
 
         candidates: List[str] = [
-            f"{module_name}.duan",
-            module_name.replace(".", os.sep) + ".duan",
-            module_name.replace("/", os.sep) + ".duan",
+            f"{module_name}.light",
+            module_name.replace(".", os.sep) + ".light",
+            module_name.replace("/", os.sep) + ".light",
         ]
         # 去重保持顺序
         seen: Set[str] = set()
@@ -410,25 +410,25 @@ description = ""
                 "errors": [f"入口文件不存在: {self.config.entry}"],
             }
 
-        # 依赖 DuanCompiler（延迟导入以避免循环）
+        # 依赖 LightCompiler（延迟导入以避免循环）
         try:
             sys.path.insert(0, str(self.project_root.parent))
             sys.path.insert(0, str(Path(__file__).resolve().parent))
-            from compiler import DuanCompiler
+            from compiler import LightCompiler
         except ImportError as e:
             return {
                 "success": False,
-                "error": f"导入 DuanCompiler 失败: {e}",
+                "error": f"导入 LightCompiler 失败: {e}",
                 "config": self.config,
                 "project_root": str(self.project_root),
                 "entry": str(self.config.entry),
                 "modules": {},
                 "order": [],
-                "errors": [f"导入 DuanCompiler 失败: {e}"],
+                "errors": [f"导入 LightCompiler 失败: {e}"],
             }
 
         try:
-            compiler = DuanCompiler(project_root=str(self.project_root))
+            compiler = LightCompiler(project_root=str(self.project_root))
             return compiler.compile_project(str(self.project_root))
         except Exception as e:
             return {
@@ -458,9 +458,9 @@ description = ""
             PythonCodeGenerator = None  # type: ignore
 
         try:
-            from duan_parser_v3 import DuanParser  # type: ignore
+            from light_parser_v3 import LightParser  # type: ignore
         except Exception:
-            DuanParser = None  # type: ignore
+            LightParser = None  # type: ignore
 
         entry_path = self.project_root / self.config.entry
         try:
@@ -469,14 +469,14 @@ description = ""
             print(f"[PackageManager] 读取入口文件失败: {e}")
             return 2
 
-        if PythonCodeGenerator is None or DuanParser is None:
-            print(f"[PackageManager] code_generator/duan_parser_v3 不可用")
+        if PythonCodeGenerator is None or LightParser is None:
+            print(f"[PackageManager] code_generator/light_parser_v3 不可用")
             print("[PackageManager] 源码：")
             print(source)
             return 2
 
         try:
-            parser = DuanParser()
+            parser = LightParser()
             ast_node = parser.parse(source)
             gen = PythonCodeGenerator()
             python_code = gen.generate(ast_node)
@@ -583,9 +583,9 @@ description = ""
             # 解析导入
             try:
                 sys.path.insert(0, str(Path(__file__).resolve().parent))
-                from duan_parser_v3 import DuanParser
+                from light_parser_v3 import LightParser
                 from compiler import AstAdapter
-                parser = DuanParser()
+                parser = LightParser()
                 v3_mod = parser.parse(src)
                 if v3_mod is None:
                     return
@@ -614,7 +614,7 @@ description = ""
 
         ir = compile_modules_typed(sources, main_module=main_name, verbose=verbose)
 
-        base_path = output_path or str(entry_path).replace('.duan', '')
+        base_path = output_path or str(entry_path).replace('.light', '')
         ll_path = base_path + '.ll'
         with open(ll_path, 'w', encoding='utf-8') as f:
             f.write(ir)
@@ -684,25 +684,25 @@ description = ""
 # ---------------------------------------------------------------------------
 
 def load_package(project_root: Optional[Path] = None) -> Optional[PackageConfig]:
-    """加载段言项目配置"""
+    """加载光明项目配置"""
     pm = PackageManager(project_root)
     return pm.load_config()
 
 
 def init_package(project_root: Optional[Path] = None, name: Optional[str] = None) -> bool:
-    """初始化段言项目"""
+    """初始化光明项目"""
     pm = PackageManager(project_root)
     return pm.init_project(name)
 
 
 def build_package(project_root: Optional[Path] = None) -> Dict[str, Any]:
-    """编译段言项目"""
+    """编译光明项目"""
     pm = PackageManager(project_root)
     return pm.build_project()
 
 
 def run_package(project_root: Optional[Path] = None) -> int:
-    """编译并运行段言项目"""
+    """编译并运行光明项目"""
     pm = PackageManager(project_root)
     return pm.run_project()
 

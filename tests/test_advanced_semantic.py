@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编程语言 - 高级语义测试
+光明（Light）编程语言 - 高级语义测试
 
 测试覆盖：
 - 动词元数（决策28）
@@ -108,7 +108,7 @@ class TestSemanticIdentifier:
     
     def test_subject_verb_semantic(self, identifier):
         """测试主谓语义"""
-        from duan_parser_v3 import BinaryOp, Identifier
+        from light_parser_v3 import BinaryOp, Identifier
         
         # 列表排序（主谓结构）
         expr = BinaryOp('排序', Identifier('列表'), None)
@@ -120,7 +120,7 @@ class TestSemanticIdentifier:
     
     def test_verb_object_semantic(self, identifier):
         """测试谓宾语义"""
-        from duan_parser_v3 import BinaryOp, Identifier
+        from light_parser_v3 import BinaryOp, Identifier
         
         # 排序列表（谓宾结构）
         expr = BinaryOp('排序', None, Identifier('列表'))
@@ -132,7 +132,7 @@ class TestSemanticIdentifier:
     
     def test_function_call_semantic(self, identifier):
         """测试函数调用语义"""
-        from duan_parser_v3 import ParagraphCall, Identifier
+        from light_parser_v3 import ParagraphCall, Identifier
         
         # 《排序》(列表)
         expr = ParagraphCall('排序', [Identifier('列表')])
@@ -215,7 +215,7 @@ class TestSemanticAmbiguity:
     
     def test_ambiguous_expression(self, identifier):
         """测试歧义表达式"""
-        from duan_parser_v3 import BinaryOp, Identifier
+        from light_parser_v3 import BinaryOp, Identifier
         
         # 没有符号表信息时，可能有歧义
         expr = BinaryOp('排序', Identifier('未知'), None)

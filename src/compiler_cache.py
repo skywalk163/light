@@ -1,4 +1,4 @@
-"""段言编译缓存系统
+"""光明编译缓存系统
 
 支持：
 - 文件哈希缓存（检测文件是否修改）
@@ -31,10 +31,10 @@ class CompilationCache:
         """初始化缓存
 
         Args:
-            cache_dir: 缓存目录路径，默认在项目根目录的 .duan_cache 下
+            cache_dir: 缓存目录路径，默认在项目根目录的 .light_cache 下
         """
         if cache_dir is None:
-            cache_dir = os.path.join(os.getcwd(), '.duan_cache')
+            cache_dir = os.path.join(os.getcwd(), '.light_cache')
         self.cache_dir = cache_dir
         self._cache: Dict[str, Dict[str, Any]] = {}
         self._dirty: Dict[str, bool] = {}

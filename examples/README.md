@@ -1,6 +1,6 @@
-# 段言编程语言 - 示例
+# 光明编程语言 - 示例
 
-本目录包含段言（Duan）编程语言的示例代码，按学习路径和后端兼容性分类。
+本目录包含光明（Light）编程语言的示例代码，按学习路径和后端兼容性分类。
 
 ---
 
@@ -8,14 +8,14 @@
 
 | 文件 | 难度 | 演示内容 | 后端 |
 |------|------|----------|------|
-| [hello.duan](hello.duan) | ⭐ | 基础输出 | ANTLR |
-| [basic.duan](basic.duan) | ⭐ | 变量、算术、条件、函数、递归、循环 | SRC |
-| [advanced.duan](advanced.duan) | ⭐⭐ | 列表、斐波那契、高阶函数、条件嵌套 | SRC |
-| [class_example.duan](class_example.duan) | ⭐⭐ | 类定义、属性、构造、方法 | SRC |
-| [calculator.duan](calculator.duan) | ⭐⭐⭐ | 类、方法、条件判断 | SRC |
-| [module_demo.duan](module_demo.duan) | ⭐⭐⭐ | 模块函数、列表操作 | SRC |
-| [student_management.duan](student_management.duan) | ⭐⭐⭐ | 类、列表、循环、多对象管理 | SRC |
-| [hanoi.duan](hanoi.duan) | ⭐⭐⭐ | 汉诺塔递归算法 | SRC |
+| [hello.light](hello.light) | ⭐ | 基础输出 | ANTLR |
+| [basic.light](basic.light) | ⭐ | 变量、算术、条件、函数、递归、循环 | SRC |
+| [advanced.light](advanced.light) | ⭐⭐ | 列表、斐波那契、高阶函数、条件嵌套 | SRC |
+| [class_example.light](class_example.light) | ⭐⭐ | 类定义、属性、构造、方法 | SRC |
+| [calculator.light](calculator.light) | ⭐⭐⭐ | 类、方法、条件判断 | SRC |
+| [module_demo.light](module_demo.light) | ⭐⭐⭐ | 模块函数、列表操作 | SRC |
+| [student_management.light](student_management.light) | ⭐⭐⭐ | 类、列表、循环、多对象管理 | SRC |
+| [hanoi.light](hanoi.light) | ⭐⭐⭐ | 汉诺塔递归算法 | SRC |
 
 ## 测试/参考示例
 
@@ -23,14 +23,14 @@
 
 | 文件 | 说明 | 语法版本 |
 |------|------|----------|
-| [test_fib.duan](test_fib.duan) | 斐波那契数列 · 递归 | 旧式 |
-| [test_fib_src.duan](test_fib_src.duan) | 同上（src 后端） | 旧式 |
-| [test_bubble.duan](test_bubble.duan) | 冒泡排序 · 数组操作 | 旧式 |
-| [test_hello.duan](test_hello.duan) | Hello + 函数求和 | 旧式 |
-| [test_hello_src.duan](test_hello_src.duan) | 同上（src 后端） | 旧式 |
-| [test_para.duan](test_para.duan) | 无括号隐式函数调用 | 旧式 |
-| [test_stdio.duan](test_stdio.duan) | I/O 输入输出测试 | 旧式 |
-| [test_turing.duan](test_turing.duan) | **图灵机模拟**（最复杂的示例） | 旧式 |
+| [test_fib.light](test_fib.light) | 斐波那契数列 · 递归 | 旧式 |
+| [test_fib_src.light](test_fib_src.light) | 同上（src 后端） | 旧式 |
+| [test_bubble.light](test_bubble.light) | 冒泡排序 · 数组操作 | 旧式 |
+| [test_hello.light](test_hello.light) | Hello + 函数求和 | 旧式 |
+| [test_hello_src.light](test_hello_src.light) | 同上（src 后端） | 旧式 |
+| [test_para.light](test_para.light) | 无括号隐式函数调用 | 旧式 |
+| [test_stdio.light](test_stdio.light) | I/O 输入输出测试 | 旧式 |
+| [test_turing.light](test_turing.light) | **图灵机模拟**（最复杂的示例） | 旧式 |
 
 ---
 
@@ -38,9 +38,9 @@
 
 ### 新旧语法对照
 
-段言目前存在两种语法风格：
+光明目前存在两种语法风格：
 
-```段言
+```光明
 # ── 旧式语法（《段名》段模式，兼容 SRC 后端）──
 《求和》段(甲, 乙)：
   返回 甲 加 乙。
@@ -68,8 +68,8 @@
 
 ### 兼容性
 
-- **hello.duan** 兼容两种后端
-- **class_example.duan** 使用新式 ANTLR 语法（SRC 后端同样支持）
+- **hello.light** 兼容两种后端
+- **class_example.light** 使用新式 ANTLR 语法（SRC 后端同样支持）
 - 其余示例使用旧式《段名》段语法，SRC 后端均可正常运行
 - 旧式格式在 ANTLR 后端中可能报错（如 `那么`、`参数` 等关键字差异）
 - 所有 16 个示例均至少在一个后端上通过测试
@@ -89,18 +89,18 @@ pip install antlr4-tools antlr4-python3-runtime
 
 ```bash
 # 进入项目根目录
-cd g:\dumategithub\duan
+cd g:\dumategithub\light
 
 # 运行 Hello World
 python -c "
-from antlrparser.duan_interpreter import run_source
-run_source(open('examples/hello.duan', encoding='utf-8').read())
+from antlrparser.light_interpreter import run_source
+run_source(open('examples/hello.light', encoding='utf-8').read())
 "
 
 # 运行汉诺塔
 python -c "
-from antlrparser.duan_interpreter import run_source
-run_source(open('examples/hanoi.duan', encoding='utf-8').read())
+from antlrparser.light_interpreter import run_source
+run_source(open('examples/hanoi.light', encoding='utf-8').read())
 "
 ```
 
@@ -108,47 +108,47 @@ run_source(open('examples/hanoi.duan', encoding='utf-8').read())
 
 ```bash
 # 使用 SRC 后端（推荐，兼容所有示例）
-python cli/duan.py run examples/basic.duan --backend src
-python cli/duan.py run examples/advanced.duan --backend src
-python cli/duan.py run examples/test_turing.duan --backend src
+python cli/light.py run examples/basic.light --backend src
+python cli/light.py run examples/advanced.light --backend src
+python cli/light.py run examples/test_turing.light --backend src
 
-# 使用 ANTLR 后端（仅兼容 hello.duan）
-python cli/duan.py run examples/hello.duan --backend antlr
-python cli/duan.py run examples/class_example.duan --backend antlr
+# 使用 ANTLR 后端（仅兼容 hello.light）
+python cli/light.py run examples/hello.light --backend antlr
+python cli/light.py run examples/class_example.light --backend antlr
 ```
 
-> **提示**：hello.duan 两种后端均可运行；其余旧式语法示例建议使用 `--backend src`。
+> **提示**：hello.light 两种后端均可运行；其余旧式语法示例建议使用 `--backend src`。
 
 ### 使用 REPL
 
 ```bash
 # 启动交互式环境
-python cli/duan_repl.py
+python cli/light_repl.py
 
 # 在 REPL 中：
-段言> 打印("你好，世界！")。
-段言> 设 甲 为 42。
-段言> 打印(甲)。
+光明> 打印("你好，世界！")。
+光明> 设 甲 为 42。
+光明> 打印(甲)。
 ```
 
 ---
 
 ## 示例详解
 
-### 1. Hello World — [hello.duan](hello.duan)
+### 1. Hello World — [hello.light](hello.light)
 
-最简单的段言程序：
+最简单的光明程序：
 
-```段言
+```光明
 打印("你好，世界！")。
 ```
 
-### 2. 基础语法 — [basic.duan](basic.duan)
+### 2. 基础语法 — [basic.light](basic.light)
 
 演示变量声明、算术运算、条件语句、函数定义、递归（阶乘）、while 循环。
 
 关键语法：
-```段言
+```光明
 # 变量声明
 定义甲等于123。
 
@@ -174,11 +174,11 @@ python cli/duan_repl.py
 结束。
 ```
 
-### 3. 高级功能 — [advanced.duan](advanced.duan)
+### 3. 高级功能 — [advanced.light](advanced.light)
 
 演示列表字面量、斐波那契数列、高阶函数（函数作为参数）、多级条件判断。
 
-```段言
+```光明
 # 列表字面量
 定义列表等于[1, 2, 3, 4, 5]。
 
@@ -199,11 +199,11 @@ python cli/duan_repl.py
 打印(《计算器》("乘", 三, 五))。
 ```
 
-### 4. 类定义 — [class_example.duan](class_example.duan)
+### 4. 类定义 — [class_example.light](class_example.light)
 
 示范新式 ANTLR 类语法：
 
-```段言
+```光明
 类 学生：
   属性 姓名
   属性 年龄
@@ -220,11 +220,11 @@ python cli/duan_repl.py
 学生.介绍。
 ```
 
-### 5. 计算器 — [calculator.duan](calculator.duan)
+### 5. 计算器 — [calculator.light](calculator.light)
 
 演示旧式类语法、方法定义、条件判断：
 
-```段言
+```光明
 《计算器》类:
     定义 结果 等于 0。
     
@@ -242,11 +242,11 @@ python cli/duan_repl.py
 计算器1之乘(2)。
 ```
 
-### 6. 学生管理系统 — [student_management.duan](student_management.duan)
+### 6. 学生管理系统 — [student_management.light](student_management.light)
 
 使用旧式类语法实现完整的学生管理，包含列表操作、循环遍历：
 
-```段言
+```光明
 《学生》类:
     定义 成绩 等于 []。
     
@@ -265,11 +265,11 @@ python cli/duan_repl.py
 学生1之添加成绩(85)。
 ```
 
-### 7. 汉诺塔 — [hanoi.duan](hanoi.duan)
+### 7. 汉诺塔 — [hanoi.light](hanoi.light)
 
 经典递归算法演示：
 
-```段言
+```光明
 《汉诺塔》段(层数, 源柱, 目标柱, 辅助柱):
   如果 层数 等于 一 那么:
     打印("移动盘子 1 从 " + 源柱 + " 到 " + 目标柱)。
@@ -281,11 +281,11 @@ python cli/duan_repl.py
 结束。
 ```
 
-### 8. 图灵机模拟 — [test_turing.duan](test_turing.duan)
+### 8. 图灵机模拟 — [test_turing.light](test_turing.light)
 
-最复杂的示例，用段言实现二进制加一器。演示字典操作、状态机、循环控制：
+最复杂的示例，用光明实现二进制加一器。演示字典操作、状态机、循环控制：
 
-```段言
+```光明
 设纸带为 ["1", "0", "1", "1", " "]。
 设指针为零。
 
@@ -315,11 +315,11 @@ python examples/test_all_examples.py
 
 | 后端 | 通过数 | 失败数 |
 |------|--------|--------|
-| ANTLR | 1 (hello.duan) | 0 |
+| ANTLR | 1 (hello.light) | 0 |
 | SRC   | 15 | 0 |
 | **总计** | **16** | **0** |
 
-> 旧式语法示例主要兼容 SRC 后端；hello.duan 使用最简语法，兼容两种后端。
+> 旧式语法示例主要兼容 SRC 后端；hello.light 使用最简语法，兼容两种后端。
 > 批量测试脚本会自动尝试 ANTLR 后端，失败后回退到 SRC 后端。
 
 ---
@@ -328,7 +328,7 @@ python examples/test_all_examples.py
 
 1. **后端选择**：旧式语法示例（basic, advanced, calculator 等）在 ANTLR 后端可能报 `参数` 非关键字错误，请使用 `--backend src`
 2. **中文数字**：旧式示例中使用 `三`、`五` 等中文数字作为标识符或变量名，**不是数字字面量**；新语法只支持 ASCII 数字
-3. **文件编码**：所有 `.duan` 文件使用 **UTF-8** 编码
+3. **文件编码**：所有 `.light` 文件使用 **UTF-8** 编码
 4. **语句结束**：新规范要求语句以 `。` 结尾；旧式示例中 `结束` 可能不带句号
 
 ---
@@ -337,7 +337,7 @@ python examples/test_all_examples.py
 
 推荐使用新式 ANTLR 规范语法：
 
-```段言
+```光明
 # 新示例模板
 段落 函数名 接收 参数1, 参数2：
   设 结果 为 参数1 加 参数2。
@@ -347,8 +347,8 @@ python examples/test_all_examples.py
 打印(函数名(3, 5))。
 ```
 
-将文件保存为 `.duan`，用 ANTLR 后端运行：
+将文件保存为 `.light`，用 ANTLR 后端运行：
 
 ```bash
-python cli/duan.py run examples/你的文件.duan --backend antlr
+python cli/light.py run examples/你的文件.light --backend antlr
 ```

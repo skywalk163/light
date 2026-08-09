@@ -210,12 +210,12 @@ Phase 4: 自举收敛性（3 用例）
 
 | 轮次 | 编译器 | 源码 | 输出 | 大小 |
 |------|--------|------|------|------|
-| 1 | `level7_generated.py` | `bootstrap_level5.duan` | `level7_self_compiled.py` | 39,270 字节 |
-| 2 | `level7_self_compiled.py` | `bootstrap_level5.duan` | `level7_self_compiled2.py` | 40,093 字节 |
-| 3 | `level7_self_compiled2.py` | `bootstrap_level5.duan` | `level7_self_compiled3.py` | 40,093 字节 |
+| 1 | `level7_generated.py` | `bootstrap_level5.light` | `level7_self_compiled.py` | 39,270 字节 |
+| 2 | `level7_self_compiled.py` | `bootstrap_level5.light` | `level7_self_compiled2.py` | 40,093 字节 |
+| 3 | `level7_self_compiled2.py` | `bootstrap_level5.light` | `level7_self_compiled3.py` | 40,093 字节 |
 | **收敛** | 第 2 轮 == 第 3 轮 | — | **完全一致** | ✅ |
 
-**结论**：Level 7 编译器（`level7_generated.py`）能成功自举编译 35KB 的 `bootstrap_level5.duan` 源码，生成代码语法正确，可加载运行完成二次编译，且第 2、3 轮输出收敛。
+**结论**：Level 7 编译器（`level7_generated.py`）能成功自举编译 35KB 的 `bootstrap_level5.light` 源码，生成代码语法正确，可加载运行完成二次编译，且第 2、3 轮输出收敛。
 
 ---
 
@@ -225,7 +225,7 @@ Phase 4: 自举收敛性（3 用例）
 2. 运行时类型检查默认关闭，需显式开启
 3. 复合类型仅支持 `列表[T]` 和 `字典[K,V]`，不支持更复杂的泛型结构
 4. 类型名与用户自定义标识符可能重名——通过上下文识别规避
-5. ~~自举编译器本身使用 Level 4 语法，Level 7 自举验证为编译能力验证而非完全自举~~ **已解决**：2026-08-06 成功完成自举收敛验证，Level 7 编译器可编译 Level 4 语法的 `bootstrap_level5.duan` 并实现三次编译收敛
+5. ~~自举编译器本身使用 Level 4 语法，Level 7 自举验证为编译能力验证而非完全自举~~ **已解决**：2026-08-06 成功完成自举收敛验证，Level 7 编译器可编译 Level 4 语法的 `bootstrap_level5.light` 并实现三次编译收敛
 
 ---
 
@@ -235,7 +235,7 @@ Phase 4: 自举收敛性（3 用例）
 |------|------|
 | `bootstrap/level6_generated.py` | Level 6 编译器（含类型注解支持） |
 | `bootstrap/level7_generated.py` | Level 7 编译器生成代码 |
-| `bootstrap/bootstrap_level5.duan` | 自举编译器源码 |
+| `bootstrap/bootstrap_level5.light` | 自举编译器源码 |
 | `bootstrap/test_level7_types.py` | 类型注解测试（20 用例） |
 | `bootstrap/test_level7_bootstrap.py` | 自举验证测试（18 用例） |
 | `bootstrap/test_level6_full.py` | Level 6 全面测试（26 用例） |
@@ -244,4 +244,4 @@ Phase 4: 自举收敛性（3 用例）
 | `bootstrap/test_level5_module.py` | 模块系统测试 |
 | `bootstrap/level7_self_compiled.py` | 自举编译输出（第 1 轮，39KB） |
 | `bootstrap/level7_self_compiled2.py` | 自举编译输出（第 2 轮，40KB，收敛） |
-| `dist/duan7.exe` | 独立可执行文件（6.99 MB） |
+| `dist/light7.exe` | 独立可执行文件（6.99 MB） |

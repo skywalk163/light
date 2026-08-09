@@ -5,11 +5,11 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from duan_tokenizer import DuanLangTokenizer
+from light_tokenizer import LightLangTokenizer
 
 def test_custom_tokenizer(source):
     """测试自定义分词器"""
-    tokenizer = DuanLangTokenizer()
+    tokenizer = LightLangTokenizer()
     tokens = tokenizer.tokenize(source)
     
     print("自定义分词器结果:")

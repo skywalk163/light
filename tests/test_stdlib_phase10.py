@@ -2,8 +2,8 @@
 第十阶段测试用例 - 元编程与代码生成
 """
 import sys
-sys.path.insert(0, 'c:/dumatework/duan/stdlib')
-sys.path.insert(0, 'c:/dumatework/duan/contrib')
+sys.path.insert(0, 'c:/dumatework/light/stdlib')
+sys.path.insert(0, 'c:/dumatework/light/contrib')
 
 import unittest
 

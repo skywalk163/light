@@ -2,30 +2,30 @@
 
 ## CLI 工具
 
-### duan 命令
+### light 命令
 
 ```bash
 # 编译运行
-duan run <file.duan>
+light run <file.light>
 
 # 编译为可执行文件
-duan build <file.duan> -o output.exe
+light build <file.light> -o output.exe
 
 # 版本信息
-duan --version
+light --version
 
 # 帮助
-duan --help
+light --help
 ```
 
-### duan debug 调试模式
+### light debug 调试模式
 
 ```bash
 # 调试文件
-duan debug <file.duan>
+light debug <file.light>
 
 # 启动调试 REPL
-duan debug
+light debug
 ```
 
 **调试命令：**
@@ -48,21 +48,21 @@ duan debug
 
 安装 `vscode-extension/` 目录下的插件可以获得：
 
-- **语法高亮**：段言关键字、动词、字符串等
+- **语法高亮**：光明关键字、动词、字符串等
 - **代码补全**：内置函数、关键字等
 - **悬停提示**：函数签名、文档
 - **调试支持**：断点、单步调试
 
 ## LSP 语言服务器
 
-段言提供 Language Server Protocol 支持：
+光明提供 Language Server Protocol 支持：
 
 ```bash
 # 启动 LSP 服务器
-python -m lsp.duan_lsp
+python -m lsp.light_lsp
 
 # 或通过 stdio
-python -m lsp.duan_lsp --stdio
+python -m lsp.light_lsp --stdio
 ```
 
 ### 支持的功能
@@ -73,61 +73,61 @@ python -m lsp.duan_lsp --stdio
 - ✅ 诊断信息 (Diagnostics)
 - ✅ 符号搜索 (Document Symbols)
 
-## AI Copilot（算力不足时让 AI 写段言代码）
+## AI Copilot（算力不足时让 AI 写光明代码）
 
-段言提供完整的 AI 辅助工具链，位于 `tools/ai_copilot/`。
+光明提供完整的 AI 辅助工具链，位于 `tools/ai_copilot/`。
 
 ### 核心思路
 
-算力有限时，直接让 AI 写段言代码容易出错。段言的方案是：
+算力有限时，直接让 AI 写光明代码容易出错。光明的方案是：
 
 ```
-用户需求 → AI 生成 Python → 微调模型翻译为段言 → duan ai check 验证
+用户需求 → AI 生成 Python → 微调模型翻译为光明 → light ai check 验证
 ```
 
 1. 大模型擅长生成 Python 代码
-2. 微调后的小模型专精 Python→段言翻译
-3. `duan ai check` 检测暗坑和后端兼容性
+2. 微调后的小模型专精 Python→光明翻译
+3. `light ai check` 检测暗坑和后端兼容性
 
-### duan ai 命令
+### light ai 命令
 
 ```bash
-# 一键生成段言代码（自动组装速查卡 + 片段 + 暗坑提示）
-duan ai generate "写一个二分查找函数"
+# 一键生成光明代码（自动组装速查卡 + 片段 + 暗坑提示）
+light ai generate "写一个二分查找函数"
 
 # 指定模型大小
-duan ai generate "排序算法" --model-size small   # ≤7B，精简提示
-duan ai generate "排序算法" --model-size medium  # 7-14B
-duan ai generate "文件读写" --model-size large   # ≥14B，完整提示
+light ai generate "排序算法" --model-size small   # ≤7B，精简提示
+light ai generate "排序算法" --model-size medium  # 7-14B
+light ai generate "文件读写" --model-size large   # ≥14B，完整提示
 
-# 修复出错的段言代码
-duan ai fix hello.duan "第3行语法错误"
+# 修复出错的光明代码
+light ai fix hello.light "第3行语法错误"
 
 # 查看语法速查卡（复制给 AI 当参考）
-duan ai card
-duan ai card --full    # 完整版（含所有内建函数）
+light ai card
+light ai card --full    # 完整版（含所有内建函数）
 
 # 查看代码片段模板
-duan ai snippets
-duan ai snippets --detail  # 含暗坑说明
+light ai snippets
+light ai snippets --detail  # 含暗坑说明
 
 # 后端感知检测（类关键字→提示切换 LLVM 后端）
-duan ai check hello.duan
+light ai check hello.light
 
-# 查看 Python↔段言 对照示例
-duan ai examples
+# 查看 Python↔光明 对照示例
+light ai examples
 ```
 
 ### 速查卡 + 片段模板
 
-AI 写段言代码容易出错的根因：它不知道段言语法的精确边界。
+AI 写光明代码容易出错的根因：它不知道光明语法的精确边界。
 
-- **速查卡**（`duan ai card`）：从 keywords.py 和 builtins.py 自动生成，精简版约 200 字，可直接粘贴到 prompt
-- **片段模板**（`duan ai snippets`）：20 个常见代码模式，5 个带暗坑字段
+- **速查卡**（`light ai card`）：从 keywords.py 和 builtins.py 自动生成，精简版约 200 字，可直接粘贴到 prompt
+- **片段模板**（`light ai snippets`）：20 个常见代码模式，5 个带暗坑字段
 
 ### 暗坑提醒
 
-段言 v3.2 SRC 后端有以下已知暗坑，微调数据和速查卡均已标注：
+光明 v3.2 SRC 后端有以下已知暗坑，微调数据和速查卡均已标注：
 
 | 暗坑 | 错误写法 | 正确写法 |
 |------|----------|----------|
@@ -138,7 +138,7 @@ AI 写段言代码容易出错的根因：它不知道段言语法的精确边�
 
 ### LoRA 微调训练
 
-提供三套微调方案，将模型训练为 Python→段言翻译专家：
+提供三套微调方案，将模型训练为 Python→光明翻译专家：
 
 | 方案 | 模型 | 显存需求 | 训练时间 | 定位 |
 |------|------|----------|----------|------|
@@ -165,7 +165,7 @@ python train_sft.py
 jupyter notebook train_lora_7b.ipynb
 ```
 
-训练数据：`sft_dataset.jsonl`（881 条 Python↔段言 v3.2 对照数据，12 个语法类别）
+训练数据：`sft_dataset.jsonl`（881 条 Python↔光明 v3.2 对照数据，12 个语法类别）
 
 推荐工作流：先用 Qwen3.5-2B 快速迭代验证数据质量（~10分钟/轮），确认效果后切 Qwen3-8B 做生产级微调。
 

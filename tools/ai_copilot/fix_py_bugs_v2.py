@@ -22,7 +22,7 @@ fix_count = 0
 
 # ============================================================
 # Pass 1: Fix DU parse failures - empty tuple () not supported
-# Replace 设 X 为 () with 设 X 为 空元组  (but we need valid Duan)
+# Replace 设 X 为 () with 设 X 为 空元组  (but we need valid Light)
 # Actually, just remove the empty tuple assignment line
 # ============================================================
 parse_fail_indices = {903, 1111, 1201, 1234, 1237}

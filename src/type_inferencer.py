@@ -1,5 +1,5 @@
 """
-段言（Duan）编程语言 - 增强类型推断器（Phase 1 版本）
+光明（Light）编程语言 - 增强类型推断器（Phase 1 版本）
 
 特点：
 - 完整的类型系统：基本类型、复合类型、泛型类型、类类型、接口类型
@@ -91,7 +91,7 @@ class SegmentCacheEntry:
 
 
 class TypeInferencer:
-    """段言增强类型推断器（Phase 1 版本）"""
+    """光明增强类型推断器（Phase 1 版本）"""
 
     def __init__(self):
         self.symbol_table = TypeSymbolTable()
@@ -2402,7 +2402,7 @@ def _collect_type_vars_ordered(t: Type) -> List[str]:
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("段言增强类型推断器测试 (Phase 1)")
+    print("光明增强类型推断器测试 (Phase 1)")
     print("=" * 60)
 
     # 测试基本类型

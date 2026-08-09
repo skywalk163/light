@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言文档站化工具
+光明文档站化工具
 
 功能：
 1. 验证文档链接完整性
@@ -96,7 +96,7 @@ def check_code_examples() -> Dict:
     """检查文档中的代码示例"""
     result = {
         'total_blocks': 0,
-        'duan_blocks': 0,
+        'light_blocks': 0,
         'python_blocks': 0,
         'other_blocks': 0,
     }
@@ -109,8 +109,8 @@ def check_code_examples() -> Dict:
         for m in re.finditer(r'```(\w+)?\n(.*?)```', content, re.DOTALL):
             result['total_blocks'] += 1
             lang = m.group(1) or 'text'
-            if lang in ('段言', 'duan'):
-                result['duan_blocks'] += 1
+            if lang in ('光明', 'light'):
+                result['light_blocks'] += 1
             elif lang in ('python', 'py'):
                 result['python_blocks'] += 1
             else:
@@ -122,7 +122,7 @@ def check_code_examples() -> Dict:
 def generate_index_report() -> str:
     """生成文档索引报告"""
     lines = []
-    lines.append("# 段言文档索引")
+    lines.append("# 光明文档索引")
     lines.append("")
     
     if not DOCS_DIR.exists():
@@ -136,7 +136,7 @@ def generate_index_report() -> str:
     # 按类别分组
     categories = {
         '入门': ['index', 'getting-started', 'quickstart'],
-        '语言': ['syntax', 'USER_MANUAL', '段言-完整规范文档', 'LANGUAGE_EXTENSIONS'],
+        '语言': ['syntax', 'USER_MANUAL', '光明-完整规范文档', 'LANGUAGE_EXTENSIONS'],
         '设计': ['class_system_design', 'llvm_backend_design', 'module_system_design',
                 'architecture', '可空类型', 'HM', 'interface'],
         '工具': ['tools', 'REPL', 'BOOTSTRAP', 'lsp'],
@@ -186,7 +186,7 @@ def _extract_title(md_file: Path) -> str:
 def main():
     """主入口"""
     import argparse
-    parser = argparse.ArgumentParser(description='段言文档站化工具')
+    parser = argparse.ArgumentParser(description='光明文档站化工具')
     parser.add_argument('--check-links', action='store_true', help='检查死链接')
     parser.add_argument('--check-toc', action='store_true', help='检查文档结构')
     parser.add_argument('--check-code', action='store_true', help='检查代码示例')
@@ -195,7 +195,7 @@ def main():
     args = parser.parse_args()
     
     print("=" * 60)
-    print("段言文档站化工具")
+    print("光明文档站化工具")
     print("=" * 60)
     
     if not DOCS_DIR.exists():
@@ -227,7 +227,7 @@ def main():
         print("💻 检查代码示例...")
         code = check_code_examples()
         print(f"  总代码块: {code['total_blocks']}")
-        print(f"  段言代码: {code['duan_blocks']}")
+        print(f"  光明代码: {code['light_blocks']}")
         print(f"  Python 代码: {code['python_blocks']}")
         print(f"  其他: {code['other_blocks']}")
         print()

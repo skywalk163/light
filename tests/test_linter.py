@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-测试段言代码检查器（linter）
+测试光明代码检查器（linter）
 
 测试覆盖：
 - 未使用的变量检测（E001）
@@ -29,14 +29,14 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))
 
-from linter.duan_linter import DuanLinter, LintResult, RULES
+from linter.light_linter import LightLinter, LintResult, RULES
 
 
-class TestDuanLinter:
-    """测试 DuanLinter 类"""
+class TestLightLinter:
+    """测试 LightLinter 类"""
 
     def setup_method(self):
-        self.linter = DuanLinter()
+        self.linter = LightLinter()
 
     # ------------------------------------------------------------------
     # E001: 未使用的变量
@@ -342,7 +342,7 @@ class TestDuanLinter:
 
     def test_rules_filter(self):
         """测试规则过滤"""
-        linter = DuanLinter(rules=['E001', 'W001'])
+        linter = LightLinter(rules=['E001', 'W001'])
         source = """设 x 为 10
 设 123abc 为 20
 印(123abc)
@@ -362,16 +362,16 @@ class TestDuanLinter:
         source = """设 未使用变量 为 10
 """
         results = self.linter.lint(source)
-        output = self.linter.format_results('test.duan')
+        output = self.linter.format_results('test.light')
         assert 'E001' in output, "输出应包含规则ID"
-        assert 'test.duan' in output, "输出应包含文件名"
+        assert 'test.light' in output, "输出应包含文件名"
 
     def test_format_json(self):
         """测试 JSON 输出"""
         source = """设 x 为 10
 """
         results = self.linter.lint(source)
-        json_output = self.linter.format_json('test.duan')
+        json_output = self.linter.format_json('test.light')
         assert '"rule_id"' in json_output, "JSON 应包含规则ID"
         assert '"file"' in json_output, "JSON 应包含文件名"
 

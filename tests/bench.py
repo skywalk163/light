@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言 v4.0 性能基准测试
+光明 v4.0 性能基准测试
 测量：编译速度、运行时性能、内存占用
 
 用法:
@@ -23,7 +23,7 @@ for p in [str(_src_dir), str(_project_root)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 
@@ -31,11 +31,11 @@ from code_generator import PythonCodeGenerator
 # 测试用例
 # ============================================================
 
-def _duan_hello():
+def _light_hello():
     """最简单的程序"""
-    return '印("你好，段言！")\n'
+    return '印("你好，光明！")\n'
 
-def _duan_loop_n(n):
+def _light_loop_n(n):
     """循环 N 次累加"""
     return f'''设 总和 为 0
 设 甲 为 0
@@ -45,7 +45,7 @@ def _duan_loop_n(n):
 印(总和)
 '''
 
-def _duan_fibonacci(n):
+def _light_fibonacci(n):
     """递归斐波那契"""
     return f'''段 fib(x)：
   若 x <= 1：
@@ -54,7 +54,7 @@ def _duan_fibonacci(n):
 印(fib({n}))
 '''
 
-def _duan_conditionals(n):
+def _light_conditionals(n):
     """多层条件判断"""
     code = f'设 x 为 {n}\n'
     for i in range(10):
@@ -62,7 +62,7 @@ def _duan_conditionals(n):
     code += '印("done")\n'
     return code
 
-def _duan_large_program(n):
+def _light_large_program(n):
     """生成大型程序"""
     code = f'设 总和 为 0\n'
     for i in range(n):
@@ -80,18 +80,18 @@ def _duan_large_program(n):
 def bench_compile_speed(iterations=100):
     """测量编译速度（解析 + 代码生成）"""
     cases = {
-        "hello": _duan_hello(),
-        "loop_1000": _duan_loop_n(1000),
-        "fib_15": _duan_fibonacci(15),
-        "conditionals": _duan_conditionals(50),
-        "large_100": _duan_large_program(100),
+        "hello": _light_hello(),
+        "loop_1000": _light_loop_n(1000),
+        "fib_15": _light_fibonacci(15),
+        "conditionals": _light_conditionals(50),
+        "large_100": _light_large_program(100),
     }
 
     results = {}
     for name, code in cases.items():
         times = []
         for _ in range(iterations):
-            parser = DuanParser()
+            parser = LightParser()
             gen = PythonCodeGenerator()
             start = time.perf_counter()
             ast = parser.parse(code)
@@ -111,14 +111,14 @@ def bench_compile_speed(iterations=100):
 
 
 def bench_runtime_vs_python(iterations=5):
-    """对比段言运行时 vs 等效 Python 运行时"""
+    """对比光明运行时 vs 等效 Python 运行时"""
     cases = {
         "loop_sum": (
-            _duan_loop_n(100000),
+            _light_loop_n(100000),
             'sum(range(100000))'
         ),
         "fib_20": (
-            _duan_fibonacci(20),
+            _light_fibonacci(20),
             '''def fib(x):
     if x <= 1: return x
     return fib(x-1) + fib(x-2)
@@ -127,18 +127,18 @@ print(fib(20))'''
     }
 
     results = {}
-    for name, (duan_code, py_code) in cases.items():
-        # 编译段言
-        parser = DuanParser()
+    for name, (light_code, py_code) in cases.items():
+        # 编译光明
+        parser = LightParser()
         gen = PythonCodeGenerator()
-        ast = parser.parse(duan_code)
+        ast = parser.parse(light_code)
         compiled = gen.generate(ast)
 
-        duan_times = []
+        light_times = []
         py_times = []
 
         for _ in range(iterations):
-            # 段言运行时
+            # 光明运行时
             old_stdout = sys.stdout
             sys.stdout = io.StringIO()
             start = time.perf_counter()
@@ -146,7 +146,7 @@ print(fib(20))'''
                 exec(compiled, {'__name__': '__main__'})
             except Exception:
                 pass
-            duan_times.append(time.perf_counter() - start)
+            light_times.append(time.perf_counter() - start)
             sys.stdout = old_stdout
 
             # Python 运行时
@@ -159,12 +159,12 @@ print(fib(20))'''
             py_times.append(time.perf_counter() - start)
             sys.stdout = old_stdout
 
-        duan_avg = sum(duan_times) / len(duan_times) * 1000
+        light_avg = sum(light_times) / len(light_times) * 1000
         py_avg = sum(py_times) / len(py_times) * 1000
-        ratio = duan_avg / py_avg if py_avg > 0 else 0
+        ratio = light_avg / py_avg if py_avg > 0 else 0
 
         results[name] = {
-            "duan_avg_ms": round(duan_avg, 2),
+            "light_avg_ms": round(light_avg, 2),
             "python_avg_ms": round(py_avg, 2),
             "ratio": round(ratio, 2),
             "iterations": iterations
@@ -175,14 +175,14 @@ print(fib(20))'''
 def bench_memory():
     """测量内存占用"""
     cases = {
-        "small": _duan_hello(),
-        "medium": _duan_loop_n(1000),
-        "large": _duan_large_program(200),
+        "small": _light_hello(),
+        "medium": _light_loop_n(1000),
+        "large": _light_large_program(200),
     }
 
     results = {}
     for name, code in cases.items():
-        parser = DuanParser()
+        parser = LightParser()
         gen = PythonCodeGenerator()
         # 编译阶段内存
         tracemalloc.start()
@@ -202,13 +202,13 @@ def bench_memory():
 
 def bench_parse_large(iterations=10):
     """测量解析大型程序"""
-    parser = DuanParser()
+    parser = LightParser()
 
     sizes = [10, 50, 100, 200, 500]
     results = []
 
     for n in sizes:
-        code = _duan_large_program(n)
+        code = _light_large_program(n)
         times = []
         for _ in range(iterations):
             start = time.perf_counter()
@@ -254,7 +254,7 @@ def print_table(headers, rows, aligns=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='段言 v4.0 性能基准测试')
+    parser = argparse.ArgumentParser(description='光明 v4.0 性能基准测试')
     parser.add_argument('--quick', action='store_true', help='快速模式')
     parser.add_argument('--output', help='输出 JSON 报告路径')
     args = parser.parse_args()
@@ -263,7 +263,7 @@ def main():
     rt_iters = 3 if args.quick else 5
 
     print("=" * 70)
-    print("  段言 v4.0 性能基准测试")
+    print("  光明 v4.0 性能基准测试")
     print("=" * 70)
 
     # 1. 编译速度
@@ -278,14 +278,14 @@ def main():
     print()
 
     # 2. 运行时对比
-    print("📊 2. 运行时对比 (段言 vs Python)")
+    print("📊 2. 运行时对比 (光明 vs Python)")
     print(f"   迭代次数: {rt_iters}")
     runtime_results = bench_runtime_vs_python(rt_iters)
     rows = []
     for name, r in runtime_results.items():
-        rows.append([name, f"{r['duan_avg_ms']:.2f} ms", f"{r['python_avg_ms']:.2f} ms",
+        rows.append([name, f"{r['light_avg_ms']:.2f} ms", f"{r['python_avg_ms']:.2f} ms",
                      f"{r['ratio']:.2f}x"])
-    print_table(["测试用例", "段言耗时", "Python耗时", "比值"], rows)
+    print_table(["测试用例", "光明耗时", "Python耗时", "比值"], rows)
     print()
 
     # 3. 内存
@@ -316,7 +316,7 @@ def main():
     # 输出 JSON 报告
     if args.output:
         report = {
-            "tool": "段言 v4.0 性能基准",
+            "tool": "光明 v4.0 性能基准",
             "python_version": sys.version,
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             "compile_speed": compile_results,

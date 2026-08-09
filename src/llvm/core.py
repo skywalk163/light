@@ -68,36 +68,36 @@ class LLVMCodeGenCore:
         """声明所有运行时函数"""
         funcs = [
             # 输入输出
-            'declare i8* @duan_input()',
-            'declare void @duan_print(i8*)',
-            'declare void @duan_println(i8*)',
-            'declare void @duan_print_int(i32)',
+            'declare i8* @light_input()',
+            'declare void @light_print(i8*)',
+            'declare void @light_println(i8*)',
+            'declare void @light_print_int(i32)',
             # 字符串
-            'declare i8* @duan_concat(i8*, i8*)',
-            'declare i8* @duan_concat3(i8*, i8*, i8*)',
-            'declare i32 @duan_str_eq(i8*, i8*)',
-            'declare i32 @duan_str_len(i8*)',
+            'declare i8* @light_concat(i8*, i8*)',
+            'declare i8* @light_concat3(i8*, i8*, i8*)',
+            'declare i32 @light_str_eq(i8*, i8*)',
+            'declare i32 @light_str_len(i8*)',
             # 数字
-            'declare i8* @duan_itoa(i32)',
-            'declare i32 @duan_atoi(i8*)',
-            'declare double @duan_atof(i8*)',
-            'declare i8* @duan_ftoa(double)',
+            'declare i8* @light_itoa(i32)',
+            'declare i32 @light_atoi(i8*)',
+            'declare double @light_atof(i8*)',
+            'declare i8* @light_ftoa(double)',
             # 列表
-            'declare i8* @duan_list_new()',
-            'declare i32 @duan_list_len(i8*)',
-            'declare i8* @duan_list_get(i8*, i32)',
-            'declare i8* @duan_list_append(i8*, i8*)',
-            'declare i8* @duan_list_clear(i8*)',
+            'declare i8* @light_list_new()',
+            'declare i32 @light_list_len(i8*)',
+            'declare i8* @light_list_get(i8*, i32)',
+            'declare i8* @light_list_append(i8*, i8*)',
+            'declare i8* @light_list_clear(i8*)',
             # 时间
-            'declare double @duan_timestamp()',
-            'declare i8* @duan_format_time(double, i8*)',
+            'declare double @light_timestamp()',
+            'declare i8* @light_format_time(double, i8*)',
             # 文件
-            'declare i32 @duan_file_exists(i8*)',
-            'declare i8* @duan_read_file(i8*)',
-            'declare void @duan_write_file(i8*, i8*)',
+            'declare i32 @light_file_exists(i8*)',
+            'declare i8* @light_read_file(i8*)',
+            'declare void @light_write_file(i8*, i8*)',
             # JSON
-            'declare i8* @duan_list_to_json(i8*, i32)',
-            'declare i8* @duan_json_parse(i8*)',
+            'declare i8* @light_list_to_json(i8*, i32)',
+            'declare i8* @light_json_parse(i8*)',
             # 内存
             'declare i8* @malloc(i64)',
             'declare void @free(i8*)',
@@ -142,7 +142,7 @@ class LLVMCodeGenCore:
         if var is None:
             return None
         reg = self.new_register()
-        self.emit(f'{reg} = call i32 @duan_atoi(i8* {var})')
+        self.emit(f'{reg} = call i32 @light_atoi(i8* {var})')
         return reg
 
     def alloca_local(self, name):
@@ -194,8 +194,8 @@ class LLVMCodeGenCore:
         r_i32 = self.new_register()
         result_i32 = self.new_register()
         result_str = self.new_register()
-        self.emit(f'{l_i32} = call i32 @duan_atoi(i8* {left_reg})')
-        self.emit(f'{r_i32} = call i32 @duan_atoi(i8* {right_reg})')
+        self.emit(f'{l_i32} = call i32 @light_atoi(i8* {left_reg})')
+        self.emit(f'{r_i32} = call i32 @light_atoi(i8* {right_reg})')
         if op == 'ADD':
             self.emit(f'{result_i32} = add i32 {l_i32}, {r_i32}')
         elif op == 'SUB':
@@ -206,13 +206,13 @@ class LLVMCodeGenCore:
             self.emit(f'{result_i32} = sdiv i32 {l_i32}, {r_i32}')
         else:
             self.emit(f'{result_i32} = add i32 {l_i32}, {r_i32}')
-        self.emit(f'{result_str} = call i8* @duan_itoa(i32 {result_i32})')
+        self.emit(f'{result_str} = call i8* @light_itoa(i32 {result_i32})')
         return result_str, 'i8*'
 
     def gen_cmp(self, op, left_reg, right_reg):
         """生成比较，返回 i1"""
         eq_reg = self.new_register()
-        self.emit(f'{eq_reg} = call i32 @duan_str_eq(i8* {left_reg}, i8* {right_reg})')
+        self.emit(f'{eq_reg} = call i32 @light_str_eq(i8* {left_reg}, i8* {right_reg})')
         if op == 'EQ':
             cmp_reg = self.new_register()
             self.emit(f'{cmp_reg} = icmp ne i32 {eq_reg}, 0')
@@ -222,8 +222,8 @@ class LLVMCodeGenCore:
         elif op in ('LT', 'GT', 'LE', 'GE'):
             l_i32 = self.new_register()
             r_i32 = self.new_register()
-            self.emit(f'{l_i32} = call i32 @duan_atoi(i8* {left_reg})')
-            self.emit(f'{r_i32} = call i32 @duan_atoi(i8* {right_reg})')
+            self.emit(f'{l_i32} = call i32 @light_atoi(i8* {left_reg})')
+            self.emit(f'{r_i32} = call i32 @light_atoi(i8* {right_reg})')
             cmp_reg = self.new_register()
             if op == 'LT':
                 self.emit(f'{cmp_reg} = icmp slt i32 {l_i32}, {r_i32}')

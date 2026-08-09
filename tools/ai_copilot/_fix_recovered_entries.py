@@ -14,7 +14,7 @@ with open(BACKUP_PATH, 'w', encoding='utf-8') as f:
 print(f"Backup saved to {BACKUP_PATH}")
 
 # Fix entry 1195 (v39[841]): multiple context managers -> nest them
-# Problem: Duan doesn't support comma-separated context managers
+# Problem: Light doesn't support comma-separated context managers
 # Fix: nest the context managers, remove fake variable defs
 item = data[1195]
 du = item['output'].replace('\\n', '\n')

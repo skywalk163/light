@@ -2,7 +2,7 @@
 
 > **面向 AI 代理的工作者：** 必需子技能：使用 subagent-driven-development（推荐）或 executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
 
-**目标：** 在段言 v3 解析器中添加接口定义、类实现接口、@抽象 装饰器。
+**目标：** 在光明 v3 解析器中添加接口定义、类实现接口、@抽象 装饰器。
 
 **架构：** 在递归下降解析器中添加 InterfaceDefinition AST 节点和对应解析方法；修改类定义解析支持 `实现` 子句；代码生成器使用 Python `abc.ABC` + `@abstractmethod`。
 
@@ -15,7 +15,7 @@
 | 文件 | 操作 | 说明 |
 |------|------|------|
 | `src/keywords.py` | 修改 | 新增 `接口`、`实现`、`抽象` 关键字 |
-| `src/duan_parser_v3.py` | 修改 | 新增 InterfaceDefinition/MethodSignature AST；接口解析；类定义支持 `实现`；`@抽象` 装饰器 |
+| `src/light_parser_v3.py` | 修改 | 新增 InterfaceDefinition/MethodSignature AST；接口解析；类定义支持 `实现`；`@抽象` 装饰器 |
 | `src/code_generator.py` | 修改 | 接口生成 + ABC 导入；抽象方法生成 |
 
 ---
@@ -61,7 +61,7 @@ KEYWORDS_DOUBLE = (
 
 ### 任务 2：InterfaceDefinition AST 节点
 
-**文件：** `src/duan_parser_v3.py`
+**文件：** `src/light_parser_v3.py`
 
 - [ ] **步骤 1：新增 InterfaceDefinition 和 MethodSignature AST 类**
 
@@ -99,7 +99,7 @@ class InterfaceDefinition(ASTNode):
 
 ### 任务 3：接口解析方法
 
-**文件：** `src/duan_parser_v3.py`
+**文件：** `src/light_parser_v3.py`
 
 - [ ] **步骤 1：在 `_parse_statement` 中添加接口分支**
 
@@ -258,7 +258,7 @@ class InterfaceDefinition(ASTNode):
 
 ### 任务 4：类定义支持 `实现` 子句
 
-**文件：** `src/duan_parser_v3.py`（`_parse_class_definition` 方法，约第 2568 行）
+**文件：** `src/light_parser_v3.py`（`_parse_class_definition` 方法，约第 2568 行）
 
 - [ ] **步骤 1：在 `继承` 子句之后添加 `实现` 子句支持**
 
@@ -299,7 +299,7 @@ class InterfaceDefinition(ASTNode):
 
 ### 任务 5：`@抽象` 装饰器支持
 
-**文件：** `src/duan_parser_v3.py`
+**文件：** `src/light_parser_v3.py`
 
 - [ ] **步骤 1：在 `_parse_decorator` 中处理 `抽象`**
 
@@ -321,7 +321,7 @@ class InterfaceDefinition(ASTNode):
 
 ```python
 class PythonCodeGenerator:
-    """段言到Python代码生成器"""
+    """光明到Python代码生成器"""
     
     def __init__(self):
         self.indent_level = 0
@@ -424,25 +424,25 @@ class PythonCodeGenerator:
 
 - [ ] **步骤 1：创建一个简单的接口测试用例**
 
-创建 `g:\dumategithub\duan\tests\test_interface.py`：
+创建 `g:\dumategithub\light\tests\test_interface.py`：
 
 ```python
 """
-段言接口与抽象类功能测试
+光明接口与抽象类功能测试
 """
 
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 
-def _compile(duan_code: str) -> str:
-    """编译段言代码，返回Python源码"""
-    parser = DuanParser()
-    module = parser.parse(duan_code)
+def _compile(light_code: str) -> str:
+    """编译光明代码，返回Python源码"""
+    parser = LightParser()
+    module = parser.parse(light_code)
     generator = PythonCodeGenerator()
     return generator.generate(module)
 
@@ -526,8 +526,8 @@ if __name__ == '__main__':
 - [ ] **步骤 2：运行全部测试**
 
 ```bash
-cd g:\dumategithub\duan && python tests\test_interface.py
-cd g:\dumategithub\duan && python antlrparser\test\test_dual_backend.py
-cd g:\dumategithub\duan && python tests\test_exception.py
-cd g:\dumategithub\duan && python tests\test_class_definition.py
+cd g:\dumategithub\light && python tests\test_interface.py
+cd g:\dumategithub\light && python antlrparser\test\test_dual_backend.py
+cd g:\dumategithub\light && python tests\test_exception.py
+cd g:\dumategithub\light && python tests\test_class_definition.py
 ```

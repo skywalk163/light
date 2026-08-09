@@ -66,12 +66,12 @@ registry/
 # 崩溃报告
 nuitka-crash-report.xml
 
-# Bootstrap 生成产物（由 .duan 源码重新生成，不应入库）
+# Bootstrap 生成产物（由 .light 源码重新生成，不应入库）
 bootstrap/level*_self_compiled*.py
 bootstrap/level*_bootstrapped.py
 bootstrap/level*_generated.py
 bootstrap/level*_round2_*.py
-bootstrap/duan_ast_out.py
+bootstrap/light_ast_out.py
 bootstrap/token_output.py
 bootstrap/bootstrap_compiled.py
 bootstrap/bootstrap_generated.py
@@ -84,8 +84,8 @@ bootstrap/test_*.py
 # 基准测试报告（生成产物，不入库）
 benchmarks/reports/
 
-# 段言介绍演示文稿
-段言介绍.pptx
+# 光明介绍演示文稿
+光明介绍.pptx
 
 # Python 虚拟环境
 .venv/
@@ -100,13 +100,13 @@ antlrparser/antlr-*.jar
 # ANTLR 生成文件（生成产物不应入库，由 .g4 文件重新生成）
 antlrparser/.antlr/
 antlrparser/antlrparser/
-antlrparser/duan_parser/
-antlrparser/duan_parser2/
-antlrparser/duan_parser_new/
-antlrparser/DuanLangLexer.py
-antlrparser/DuanLangParser.py
-antlrparser/DuanLangParserVisitor.py
-antlrparser/DuanLangParserListener.py
+antlrparser/light_parser/
+antlrparser/light_parser2/
+antlrparser/light_parser_new/
+antlrparser/LightLangLexer.py
+antlrparser/LightLangParser.py
+antlrparser/LightLangParserVisitor.py
+antlrparser/LightLangParserListener.py
 antlrparser/*.interp
 antlrparser/*.tokens
 antlrparser/**/*.interp
@@ -130,7 +130,7 @@ dist/
 *.spec
 compile_*.py
 project/记账.py
-project/记账_简化版.duan
+project/记账_简化版.light
 test_output.bin
 
 # Git worktree
@@ -147,10 +147,10 @@ tests/_test_*.exe
 llvm-mingw*.zip
 llvm-mingw-*/
 
-# Bootstrap 生成产物（由 .duan 源码重新生成，不应入库）
+# Bootstrap 生成产物（由 .light 源码重新生成，不应入库）
 bootstrap/level*_self_compiled*.py
 bootstrap/level*_bootstrapped.py
-bootstrap/duan_ast_out.py
+bootstrap/light_ast_out.py
 bootstrap/token_output.py
 bootstrap/bootstrap_compiled.py
 bootstrap/bootstrap_generated.py
@@ -170,7 +170,7 @@ _dump_*.py
 _find_*.py
 _test_*.py
 _test_*.c
-_test_*.duan
+_test_*.light
 _find_*.py
 find_gen_header.py
 bootstrap_compiled.py

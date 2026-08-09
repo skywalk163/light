@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）文件监视模块
+光明（Light）文件监视模块
 
 支持文件变化自动重新编译/运行
 """
@@ -40,7 +40,7 @@ class FileWatcher:
             for root, dirs, files in os.walk(self.target):
                 dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
                 for f in files:
-                    if f.endswith('.duan'):
+                    if f.endswith('.light'):
                         fpath = os.path.join(root, f)
                         try:
                             mtimes[fpath] = os.path.getmtime(fpath)
@@ -114,14 +114,14 @@ class FileWatcher:
 
 
 def run_with_watch(filepath, backend='src', interval=1.0):
-    """以监视模式运行段言文件
+    """以监视模式运行光明文件
 
     Args:
         filepath: 源文件路径
         backend: 后端类型
         interval: 检查间隔（秒）
     """
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
 
     def _run():
@@ -133,7 +133,7 @@ def run_with_watch(filepath, backend='src', interval=1.0):
             print(f"[{time.strftime('%H:%M:%S')}] 检测到变化，重新运行...")
             print("-" * 60)
 
-            parser = DuanParser()
+            parser = LightParser()
             module = parser.parse(source)
             generator = PythonCodeGenerator()
             py_code = generator.generate(module)

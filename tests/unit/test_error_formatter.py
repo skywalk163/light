@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言运行时错误信息友好化测试
+光明运行时错误信息友好化测试
 """
 
 import pytest
@@ -10,7 +10,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from error_formatter import (
-    DuanErrorFormatter,
+    LightErrorFormatter,
     format_runtime_error,
     run_with_friendly_error,
     DUAN_EXCEPTION_MAP,
@@ -33,7 +33,7 @@ class TestFormatter:
 
     def test_chinese_exc_name(self):
         """测试英文异常名转中文"""
-        f = DuanErrorFormatter()
+        f = LightErrorFormatter()
         assert f._chinese_exc_name('NameError') == '变量未定义'
         assert f._chinese_exc_name('ZeroDivisionError') == '除零错误'
         assert f._chinese_exc_name('UnknownError') == 'UnknownError'
@@ -147,12 +147,12 @@ class TestSourceContext:
     def test_source_lines_split(self):
         """测试源码行分割"""
         source = "第1行\n第2行\n第3行"
-        f = DuanErrorFormatter(source)
+        f = LightErrorFormatter(source)
         assert f.source_lines == ['第1行', '第2行', '第3行']
 
     def test_empty_source(self):
         """测试空源码"""
-        f = DuanErrorFormatter('')
+        f = LightErrorFormatter('')
         assert f.source_lines == []
 
 
@@ -161,25 +161,25 @@ class TestLineMapping:
 
     def test_parse_simple_mapping(self):
         """测试解析简单映射"""
-        code = """# DUAN_SRC:1:第一行
+        code = """# LIGHT_SRC:1:第一行
 print('hello')
-# DUAN_SRC:5:第五行
+# LIGHT_SRC:5:第五行
 print('world')
 """
-        f = DuanErrorFormatter()
+        f = LightErrorFormatter()
         anchors = f.parse_line_mapping(code)
         assert len(anchors) == 2
-        assert anchors['# DUAN_SRC:1:第一行'] == (1, '第一行')
+        assert anchors['# LIGHT_SRC:1:第一行'] == (1, '第一行')
 
     def test_full_mapping(self):
         """测试完整映射构建"""
-        code = """# DUAN_SRC:1:第一行
+        code = """# LIGHT_SRC:1:第一行
 print('a')
 print('b')
-# DUAN_SRC:5:第五行
+# LIGHT_SRC:5:第五行
 print('c')
 """
-        f = DuanErrorFormatter()
+        f = LightErrorFormatter()
         mapping = f.build_full_mapping(code)
         # 第一个 anchor 后面到第二个 anchor 都是 1
         # 第二个 anchor 后面到结尾都是 5
@@ -189,7 +189,7 @@ print('c')
 
     def test_empty_mapping(self):
         """测试无映射"""
-        f = DuanErrorFormatter()
+        f = LightErrorFormatter()
         mapping = f.build_full_mapping("无映射的代码\n第二行")
         assert mapping == {}
 

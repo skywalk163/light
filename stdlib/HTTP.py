@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言标准库 - HTTP 请求封装模块
+光明标准库 - HTTP 请求封装模块
 
 提供 HTTP 客户端请求功能，包括 GET/POST/PUT/DELETE 方法，
 请求头设置、超时控制等。

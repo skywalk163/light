@@ -4,9 +4,9 @@
 
 **目标：** 在自举编译器中实现模块系统（导入/导出），支持内联编译、搜索路径和循环依赖检测。自举编译器自身保持单文件。
 
-**架构：** 在 bootstrap_level5.duan（已实现异常处理的版本）基础上新增导入/导出关键字。模块系统在编译入口处进行预处理：收集所有导入 → 解析依赖图 → 拓扑排序 → 内联合并 → 统一编译。导出信息在预处理阶段收集，用于符号过滤。
+**架构：** 在 bootstrap_level5.light（已实现异常处理的版本）基础上新增导入/导出关键字。模块系统在编译入口处进行预处理：收集所有导入 → 解析依赖图 → 拓扑排序 → 内联合并 → 统一编译。导出信息在预处理阶段收集，用于符号过滤。
 
-**技术栈：** Duan 自举编译器、Python 后端
+**技术栈：** Light 自举编译器、Python 后端
 
 ---
 
@@ -14,21 +14,21 @@
 
 | 文件 | 操作 | 职责 |
 |------|------|------|
-| `bootstrap/bootstrap_level5.duan` | 修改 | 在异常处理基础上添加模块系统 |
+| `bootstrap/bootstrap_level5.light` | 修改 | 在异常处理基础上添加模块系统 |
 | `bootstrap/test_level5_module.py` | 新建 | 模块系统测试脚本 |
 | `bootstrap/test_modules/` | 新建 | 测试用模块文件目录 |
-| `bootstrap/test_modules/math_utils.duan` | 新建 | 测试用数学工具模块 |
-| `bootstrap/test_modules/string_utils.duan` | 新建 | 测试用字符串工具模块 |
-| `bootstrap/test_modules/nested/deep.duan` | 新建 | 测试用嵌套路径模块 |
+| `bootstrap/test_modules/math_utils.light` | 新建 | 测试用数学工具模块 |
+| `bootstrap/test_modules/string_utils.light` | 新建 | 测试用字符串工具模块 |
+| `bootstrap/test_modules/nested/deep.light` | 新建 | 测试用嵌套路径模块 |
 
 ---
 
 ## 任务 0：准备工作 - 创建测试模块文件
 
 **文件：**
-- 创建：`bootstrap/test_modules/math_utils.duan`
-- 创建：`bootstrap/test_modules/string_utils.duan`
-- 创建：`bootstrap/test_modules/nested/deep.duan`
+- 创建：`bootstrap/test_modules/math_utils.light`
+- 创建：`bootstrap/test_modules/string_utils.light`
+- 创建：`bootstrap/test_modules/nested/deep.light`
 
 - [ ] **步骤 1：创建测试模块目录和文件**
 
@@ -37,7 +37,7 @@
 New-Item -ItemType Directory -Force -Path bootstrap/test_modules/nested
 ```
 
-创建 `bootstrap/test_modules/math_utils.duan`：
+创建 `bootstrap/test_modules/math_utils.light`：
 ```
 段 加 导出 接收 a, b：
     返回 a 加 b
@@ -59,7 +59,7 @@ New-Item -ItemType Directory -Force -Path bootstrap/test_modules/nested
 设 PI 为 3.14159
 ```
 
-创建 `bootstrap/test_modules/string_utils.duan`：
+创建 `bootstrap/test_modules/string_utils.light`：
 ```
 段 拼接 导出 接收 a, b：
     返回 a 加 b
@@ -77,7 +77,7 @@ New-Item -ItemType Directory -Force -Path bootstrap/test_modules/nested
 设 版本号 为 "1.0.0"
 ```
 
-创建 `bootstrap/test_modules/nested/deep.duan`：
+创建 `bootstrap/test_modules/nested/deep.light`：
 ```
 段 深度问候 导出 接收 name：
     返回 "你好，" 加 name
@@ -96,7 +96,7 @@ git commit -m "test: 添加模块系统测试用例文件"
 ## 任务 1：词法分析 - 新增导入/导出关键字
 
 **文件：**
-- 修改：`bootstrap/bootstrap_level5.duan`（`关键字列表` 函数）
+- 修改：`bootstrap/bootstrap_level5.light`（`关键字列表` 函数）
 
 - [ ] **步骤 1：编写失败的测试**
 
@@ -137,7 +137,7 @@ print('关键字:', [t[1] for t in kw])
 
 - [ ] **步骤 3：修改关键字列表**
 
-在 `bootstrap/bootstrap_level5.duan` 中，找到 `段 关键字列表：` 函数，在 `抛出` 之后添加 `导入` 和 `导出`：
+在 `bootstrap/bootstrap_level5.light` 中，找到 `段 关键字列表：` 函数，在 `抛出` 之后添加 `导入` 和 `导出`：
 
 将：
 ```
@@ -158,7 +158,7 @@ import sys
 sys.path.insert(0, 'bootstrap')
 # 用 Level 4 编译 Level 5
 exec(open('bootstrap/level4_generated.py', encoding='utf-8').read())
-src = open('bootstrap/bootstrap_level5.duan', encoding='utf-8').read()
+src = open('bootstrap/bootstrap_level5.light', encoding='utf-8').read()
 result = 编译(src)
 with open('bootstrap/level5_generated.py', 'w', encoding='utf-8') as f:
     f.write(result)
@@ -176,7 +176,7 @@ print('关键字:', [t[1] for t in kw])
 - [ ] **步骤 5：Commit**
 
 ```bash
-git add bootstrap/bootstrap_level5.duan
+git add bootstrap/bootstrap_level5.light
 git commit -m "feat(lexer): 新增模块系统关键字（导入/导出）"
 ```
 
@@ -185,7 +185,7 @@ git commit -m "feat(lexer): 新增模块系统关键字（导入/导出）"
 ## 任务 2：模块解析 - 搜索路径与文件读取
 
 **文件：**
-- 修改：`bootstrap/bootstrap_level5.duan`（新增 `解析导入`、`查找模块文件`、`读取模块源码` 等函数）
+- 修改：`bootstrap/bootstrap_level5.light`（新增 `解析导入`、`查找模块文件`、`读取模块源码` 等函数）
 
 - [ ] **步骤 1：编写失败的测试**
 
@@ -197,7 +197,7 @@ def test_module_search():
     # 测试在当前目录下查找模块
     module_path = 查找模块文件("math_utils", os.path.join(os.getcwd(), "bootstrap", "test_modules"))
     assert module_path is not None, f"应找到 math_utils 模块"
-    assert "math_utils.duan" in module_path, f"路径应包含文件名: {module_path}"
+    assert "math_utils.light" in module_path, f"路径应包含文件名: {module_path}"
     print("✅ 模块搜索测试通过")
 ```
 
@@ -207,9 +207,9 @@ def test_module_search():
 
 - [ ] **步骤 3：实现模块查找函数**
 
-在 `bootstrap/bootstrap_level5.duan` 中，`异常类型映射` 函数之前添加模块系统相关函数。
+在 `bootstrap/bootstrap_level5.light` 中，`异常类型映射` 函数之前添加模块系统相关函数。
 
-由于自举编译器是单文件 Duan 代码，运行在 Python 环境中，我们需要利用 Python 内置的文件操作能力。
+由于自举编译器是单文件 Light 代码，运行在 Python 环境中，我们需要利用 Python 内置的文件操作能力。
 
 策略：新增辅助函数，通过调用 Python 的 `open`、`os.path.exists` 等功能来实现模块查找。
 
@@ -217,7 +217,7 @@ def test_module_search():
 ```
 段 查找模块文件 接收 module_name, base_dir：
   设 分隔符 为 "/"。
-  设 文件名 为 module_name 加 ".duan"。
+  设 文件名 为 module_name 加 ".light"。
   设 路径1 为 base_dir 加 分隔符 加 文件名。
   如果 文件存在(路径1)：
     返回 路径1。
@@ -240,15 +240,15 @@ def test_module_search():
 
 注意：`文件存在` 和 `文件读取` 需要在代码生成时映射到 Python 对应函数。由于我们是生成 Python 代码并执行，这些函数可以直接调用 Python 的 `os.path.exists` 和 `open().read()`。
 
-更简单的方式：在编译入口处添加 Python 辅助函数。但自举编译器是纯 Duan 代码...
+更简单的方式：在编译入口处添加 Python 辅助函数。但自举编译器是纯 Light 代码...
 
 实际上，自举编译器生成的是 Python 代码。模块系统的文件操作需要在生成的 Python 代码中调用 Python 的文件操作函数。
 
-**重新设计方案：** 模块系统的文件读取、依赖解析等功能，在当前阶段先在** Python 层的测试脚本中实现**（作为编译前的预处理步骤）。自举编译器 `bootstrap_level5.duan` 本身仍然是单文件，只负责语法层面的 `导入`/`导出` 关键字识别和符号管理。
+**重新设计方案：** 模块系统的文件读取、依赖解析等功能，在当前阶段先在** Python 层的测试脚本中实现**（作为编译前的预处理步骤）。自举编译器 `bootstrap_level5.light` 本身仍然是单文件，只负责语法层面的 `导入`/`导出` 关键字识别和符号管理。
 
 这样分层更清晰：
 - **预处理层（Python）**：文件查找、依赖图构建、拓扑排序、内联合并
-- **编译器层（Duan）**：识别 `导入`/`导出` 语法，正确编译合并后的代码
+- **编译器层（Light）**：识别 `导入`/`导出` 语法，正确编译合并后的代码
 
 让我调整计划，采用分层方案：
 
@@ -259,7 +259,7 @@ def test_module_search():
 创建 `bootstrap/module_preprocessor.py`：
 ```python
 """
-Duan 模块预处理器
+Light 模块预处理器
 在编译前处理导入语句，将多个模块内联为单个文件
 """
 
@@ -276,7 +276,7 @@ class ModulePreprocessor:
 
     def find_module(self, module_name: str, current_dir: str) -> str:
         """查找模块文件路径"""
-        file_name = module_name + ".duan"
+        file_name = module_name + ".light"
         paths_to_try = []
         paths_to_try.append(os.path.join(current_dir, file_name))
         paths_to_try.append(os.path.join(current_dir, "模块", file_name))
@@ -431,7 +431,7 @@ import sys
 sys.path.insert(0, 'bootstrap')
 from module_preprocessor import ModulePreprocessor
 mp = ModulePreprocessor()
-main_path = 'bootstrap/test_modules/math_utils.duan'
+main_path = 'bootstrap/test_modules/math_utils.light'
 modules, order = mp.build_dependency_graph(main_path)
 print('模块数量:', len(modules))
 print('顺序:', [p for p in order])
@@ -457,7 +457,7 @@ git commit -m "feat(modules): 实现模块预处理器（Python 层）"
 ## 任务 3：编译器层 - 导入/导出语法识别
 
 **文件：**
-- 修改：`bootstrap/bootstrap_level5.duan`（`compile_block` 中添加导入/导出语句处理）
+- 修改：`bootstrap/bootstrap_level5.light`（`compile_block` 中添加导入/导出语句处理）
 
 - [ ] **步骤 1：编写失败的测试**
 
@@ -481,7 +481,7 @@ def test_import_export_syntax():
 
 - [ ] **步骤 3：在 compile_block 中添加导入语句处理**
 
-在 `bootstrap/bootstrap_level5.duan` 的 `compile_block` 函数中，找到语句分派部分，在 `设` 的处理之前添加：
+在 `bootstrap/bootstrap_level5.light` 的 `compile_block` 函数中，找到语句分派部分，在 `设` 的处理之前添加：
 
 ```
       如果 已处理 等于 假 且 tv 等于 "导入"：
@@ -538,7 +538,7 @@ python -c "
 import sys
 sys.path.insert(0, 'bootstrap')
 exec(open('bootstrap/level4_generated.py', encoding='utf-8').read())
-src = open('bootstrap/bootstrap_level5.duan', encoding='utf-8').read()
+src = open('bootstrap/bootstrap_level5.light', encoding='utf-8').read()
 result = 编译(src)
 with open('bootstrap/level5_generated.py', 'w', encoding='utf-8') as f:
     f.write(result)
@@ -557,7 +557,7 @@ print(r)
 - [ ] **步骤 6：Commit**
 
 ```bash
-git add bootstrap/bootstrap_level5.duan
+git add bootstrap/bootstrap_level5.light
 git commit -m "feat(parser): 编译器层支持导入/导出语法识别"
 ```
 
@@ -580,9 +580,9 @@ import contextlib
 sys.path.insert(0, 'bootstrap')
 from module_preprocessor import ModulePreprocessor, preprocess_compile
 
-def run_compiled(duan_code):
+def run_compiled(light_code):
     exec(open('bootstrap/level5_generated.py', encoding='utf-8').read())
-    py_code = 编译(duan_code)
+    py_code = 编译(light_code)
     output = io.StringIO()
     with contextlib.redirect_stdout(output):
         exec(py_code, {'__name__': '__main__'})
@@ -591,7 +591,7 @@ def run_compiled(duan_code):
 def test_single_import():
     mp = ModulePreprocessor()
     main_dir = os.path.join('bootstrap', 'test_modules')
-    test_main = os.path.join(main_dir, 'test_single.duan')
+    test_main = os.path.join(main_dir, 'test_single.light')
     with open(test_main, 'w', encoding='utf-8') as f:
         f.write("""导入 math_utils
 设 r 为 加(3, 4)
@@ -606,7 +606,7 @@ def test_single_import():
 def test_multiple_imports():
     mp = ModulePreprocessor()
     main_dir = os.path.join('bootstrap', 'test_modules')
-    test_main = os.path.join(main_dir, 'test_multi.duan')
+    test_main = os.path.join(main_dir, 'test_multi.light')
     with open(test_main, 'w', encoding='utf-8') as f:
         f.write("""导入 math_utils
 导入 string_utils
@@ -625,7 +625,7 @@ def test_multiple_imports():
 def test_nested_path_import():
     mp = ModulePreprocessor()
     main_dir = os.path.join('bootstrap', 'test_modules')
-    test_main = os.path.join(main_dir, 'test_nested.duan')
+    test_main = os.path.join(main_dir, 'test_nested.light')
     with open(test_main, 'w', encoding='utf-8') as f:
         f.write("""导入 nested/deep
 设 msg 为 深度问候("世界")
@@ -640,7 +640,7 @@ def test_nested_path_import():
 def test_export_variable():
     mp = ModulePreprocessor()
     main_dir = os.path.join('bootstrap', 'test_modules')
-    test_main = os.path.join(main_dir, 'test_export_var.duan')
+    test_main = os.path.join(main_dir, 'test_export_var.light')
     with open(test_main, 'w', encoding='utf-8') as f:
         f.write("""导入 math_utils
 输出(PI)
@@ -654,8 +654,8 @@ def test_export_variable():
 def test_circular_dependency():
     mp = ModulePreprocessor()
     main_dir = os.path.join('bootstrap', 'test_modules')
-    a_path = os.path.join(main_dir, 'circular_a.duan')
-    b_path = os.path.join(main_dir, 'circular_b.duan')
+    a_path = os.path.join(main_dir, 'circular_a.light')
+    b_path = os.path.join(main_dir, 'circular_b.light')
     with open(a_path, 'w', encoding='utf-8') as f:
         f.write("导入 circular_b\n段 fa 导出 接收 x：\n    返回 x 加 1\n")
     with open(b_path, 'w', encoding='utf-8') as f:
@@ -672,7 +672,7 @@ def test_circular_dependency():
 def test_inline_export():
     mp = ModulePreprocessor()
     main_dir = os.path.join('bootstrap', 'test_modules')
-    exports = mp.extract_exports(open(os.path.join(main_dir, 'math_utils.duan'), encoding='utf-8').read())
+    exports = mp.extract_exports(open(os.path.join(main_dir, 'math_utils.light'), encoding='utf-8').read())
     assert "加" in exports, f"应导出 加: {exports}"
     assert "乘" in exports, f"应导出 乘: {exports}"
     assert "平方" in exports, f"应导出 平方: {exports}"
@@ -758,7 +758,7 @@ import sys
 sys.path.insert(0, 'bootstrap')
 # v1: Level 4 编译 Level 5
 exec(open('bootstrap/level4_generated.py', encoding='utf-8').read())
-src = open('bootstrap/bootstrap_level5.duan', encoding='utf-8').read()
+src = open('bootstrap/bootstrap_level5.light', encoding='utf-8').read()
 v1 = 编译(src)
 with open('bootstrap/level5_generated.py', 'w', encoding='utf-8') as f:
     f.write(v1)
@@ -797,7 +797,7 @@ git commit -m "feat(bootstrap): Level 5 模块系统自举验证通过"
 
 - [ ] **步骤 1：创建 level5_spec.md**
 
-基于规格文档 [2026-07-01-level5-module-exception-design.md](file:///g:/dumategithub/duan/docs/superpowers/specs/2026-07-01-level5-module-exception-design.md)，创建用户可见的规格文档。
+基于规格文档 [2026-07-01-level5-module-exception-design.md](file:///g:/dumategithub/light/docs/superpowers/specs/2026-07-01-level5-module-exception-design.md)，创建用户可见的规格文档。
 
 - [ ] **步骤 2：更新 syntax.md**
 
@@ -820,6 +820,6 @@ git commit -m "docs: 更新 Level 5 相关文档"
 
 - [x] 规格覆盖：导入/导出语法、搜索路径、内联编译、循环依赖检测 — 全部有对应任务
 - [x] 无占位符：每个步骤有具体代码和命令
-- [x] 分层设计：Python 层预处理器 + Duan 层语法识别，职责清晰
+- [x] 分层设计：Python 层预处理器 + Light 层语法识别，职责清晰
 - [x] 自举验证：任务 5 专门验证自举收敛
 - [x] 回归测试：包含 Level 4 功能和异常处理的回归测试

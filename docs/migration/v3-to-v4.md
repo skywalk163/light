@@ -33,7 +33,7 @@ v4.0 **完全兼容** v3.3 代码。所有 v3.3 双字关键字作为别名永�
 ## 自动迁移
 
 ```bash
-duan --migrate-v3-to-v4 old.duan -o new.duan
+light --migrate-v3-to-v4 old.light -o new.light
 ```
 
 ## 兼容性保证

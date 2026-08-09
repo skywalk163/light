@@ -23,12 +23,12 @@ set -euo pipefail
 # === 配置 ===
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OUTPUT_DIR="${SCRIPT_DIR}/output"
-MERGED_DIR="${OUTPUT_DIR}/duan_translator_merged"
+MERGED_DIR="${OUTPUT_DIR}/light_translator_merged"
 
 # GGUF 文件名 (merge_and_convert.py 的默认输出)
-GGUF_FILE="${MERGED_DIR}/duan_translator_fixed.gguf"
+GGUF_FILE="${MERGED_DIR}/light_translator_fixed.gguf"
 MODELFILE="${MERGED_DIR}/Modelfile_fixed"
-MODEL_NAME="duan-translator"
+MODEL_NAME="light-translator"
 QUANTIZE="q4_K_M"
 
 # === 颜色输出 ===
@@ -73,8 +73,8 @@ fi
 if [ ! -f "$MODELFILE" ]; then
     info "创建 Modelfile_fixed..."
     cat > "$MODELFILE" << 'MODELFILE_EOF'
-# 段言翻译器 — ollama Modelfile (fixed rope.freq_base)
-FROM ./duan_translator_fixed.gguf
+# 光明翻译器 — ollama Modelfile (fixed rope.freq_base)
+FROM ./light_translator_fixed.gguf
 
 TEMPLATE """{{ if .System }}<|im_start|>system
 {{ .System }}<|im_end|>
@@ -83,7 +83,7 @@ TEMPLATE """{{ if .System }}<|im_start|>system
 {{ end }}<|im_start|>assistant
 """
 
-SYSTEM """你是段言（DuanLang）编程语言 v3.2 的翻译专家。你的任务是将 Python 代码翻译为段言 v3.2 代码。只输出段言代码，不要解释。"""
+SYSTEM """你是光明（LightLang）编程语言 v3.2 的翻译专家。你的任务是将 Python 代码翻译为光明 v3.2 代码。只输出光明代码，不要解释。"""
 
 PARAMETER temperature 0.1
 PARAMETER top_p 0.9

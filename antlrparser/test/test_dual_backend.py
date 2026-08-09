@@ -1,5 +1,5 @@
 """
-段言（Duan）双后端功能对齐测试
+光明（Light）双后端功能对齐测试
 
 对每个特性同时跑 src 和 ANTLR 两个后端，比较输出结果。
 用于确保两个后端的行为一致。
@@ -27,10 +27,10 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 def run_src(code: str) -> str:
     """使用 src 后端（parser_v3 → code_generator → exec）"""
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
 
-    parser = DuanParser()
+    parser = LightParser()
     try:
         module = parser.parse(code)
     except Exception as e:
@@ -69,11 +69,11 @@ def run_src(code: str) -> str:
 # =============================================================================
 
 def run_antlr(code: str) -> str:
-    """使用 ANTLR 后端（duan_visitor → duan_interpreter）"""
-    from duan_visitor import DuanParser
-    from duan_interpreter import Interpreter
+    """使用 ANTLR 后端（light_visitor → light_interpreter）"""
+    from light_visitor import LightParser
+    from light_interpreter import Interpreter
 
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
     if module is None:
         errors = '\n'.join(parser.errors)

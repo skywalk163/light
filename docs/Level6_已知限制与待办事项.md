@@ -11,9 +11,9 @@
 
 ### P0 — 严重（影响核心功能）
 
-- [ ] **[P0] 自举验证：用 level6_generated.py 编译 bootstrap_level5.duan 并验证一致性**
-  - **描述**：Level 6 编译器当前是 Python 手动实现，尚未完成段言自举编译。需要：
-    1. 用 `level6_generated.py` 编译 `bootstrap/bootstrap_level5.duan`，生成 `level6_self_compiled.py`
+- [ ] **[P0] 自举验证：用 level6_generated.py 编译 bootstrap_level5.light 并验证一致性**
+  - **描述**：Level 6 编译器当前是 Python 手动实现，尚未完成光明自举编译。需要：
+    1. 用 `level6_generated.py` 编译 `bootstrap/bootstrap_level5.light`，生成 `level6_self_compiled.py`
     2. 用 `level6_self_compiled.py` 再次编译自身，生成 `level6_self_compiled2.py`
     3. 验证两次输出一致（自举收敛）
   - **关联**：`docs/BOOTSTRAP_STRATEGY.md` §十一、Level 6 自举验证

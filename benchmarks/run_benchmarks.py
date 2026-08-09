@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器 - 基准测试运行器
+光明编译器 - 基准测试运行器
 
 测量编译各阶段（词法、解析、代码生成、执行）的性能和内存占用。
 支持通过 --run-new 运行新增的专项基准测试。
@@ -18,9 +18,9 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from lexer import Lexer
-from duan_parser_v3 import DuanParser as V3Parser
+from light_parser_v3 import LightParser as V3Parser
 from code_generator_unified import UnifiedCodeGenerator
-from compiler import DuanCompiler
+from compiler import LightCompiler
 
 
 BENCHMARK_DIR = Path(__file__).parent / 'programs'
@@ -255,7 +255,7 @@ def run_new_benchmark(script_name, label):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='段言编译器基准测试')
+    parser = argparse.ArgumentParser(description='光明编译器基准测试')
     parser.add_argument('--program', '-p', help='只运行指定基准程序')
     parser.add_argument('--iterations', '-n', type=int, default=3, help='迭代次数（默认3）')
     parser.add_argument('--json', '-j', action='store_true', help='输出 JSON 格式')
@@ -282,14 +282,14 @@ def main():
         else:
             targets = [(n, l) for n, l in NEW_BENCHMARKS if n in args.run_new]
 
-        print(f"段言编译器专项基准测试 - {len(targets)} 个测试")
+        print(f"光明编译器专项基准测试 - {len(targets)} 个测试")
         print("=" * 60)
         for name, label in targets:
             run_new_benchmark(name, label)
         return
 
     # 原有逻辑：运行 benchmarks/programs/ 中的基准测试
-    bench_files = sorted(BENCHMARK_DIR.glob('*.duan'))
+    bench_files = sorted(BENCHMARK_DIR.glob('*.light'))
 
     if args.program:
         bench_files = [f for f in bench_files if args.program in f.name]
@@ -301,7 +301,7 @@ def main():
         print(f"在 {BENCHMARK_DIR} 中未找到基准测试程序")
         sys.exit(1)
 
-    print(f"段言编译器基准测试 - {len(bench_files)} 个程序，每个迭代 {args.iterations} 次")
+    print(f"光明编译器基准测试 - {len(bench_files)} 个程序，每个迭代 {args.iterations} 次")
     if args.mem:
         print("（已启用内存测量）")
     print()

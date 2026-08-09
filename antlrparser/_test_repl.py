@@ -2,7 +2,7 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cli import _is_incomplete, _process_repl_line
-from duan_interpreter import Interpreter, run_source
+from light_interpreter import Interpreter, run_source
 
 # 测试括号匹配（这些是可可靠检测的）
 assert _is_incomplete("如果 甲大于乙:") == True, "冒号结尾应不完整"

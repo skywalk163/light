@@ -1,11 +1,11 @@
-"""段言 REPL 命令处理器"""
+"""光明 REPL 命令处理器"""
 
 from typing import Any, Dict, List, Optional
 import os
 
 
 class CommandHandler:
-    """段言 REPL 命令处理器"""
+    """光明 REPL 命令处理器"""
 
     # 命令映射（主命令 -> 中文别名）
     COMMANDS = {
@@ -139,7 +139,7 @@ class CommandHandler:
 
     def _help(self) -> str:
         """显示帮助信息"""
-        return """段言 REPL 帮助
+        return """光明 REPL 帮助
 
 命令:
   :help / :帮助     - 显示此帮助
@@ -157,7 +157,7 @@ class CommandHandler:
   :debug on/off     - 开启/关闭调试模式
   :step             - 单步执行
   :continue / :继续 - 继续执行
-  :break <文件> <行> - 设置断点（如 :break test.duan 10）
+  :break <文件> <行> - 设置断点（如 :break test.light 10）
   :break list       - 列出所有断点
   :break clear      - 清除所有断点
   :stack / :调用栈  - 显示调用栈

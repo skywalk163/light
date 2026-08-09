@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编程语言 - REPL 交互式解释器
+光明（Light）编程语言 - REPL 交互式解释器
 
-提供交互式的段言编程环境，支持逐行执行、变量查看、命令历史、基础调试等功能。
+提供交互式的光明编程环境，支持逐行执行、变量查看、命令历史、基础调试等功能。
 """
 
 import sys
@@ -13,7 +13,7 @@ from typing import Dict, Any, Optional, List
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from compiler import DuanCompiler
+from compiler import LightCompiler
 from code_generator_unified import UnifiedCodeGenerator
 from tokens import TokenType
 from errors import format_exception
@@ -21,7 +21,7 @@ from errors import format_exception
 
 BANNER = """
 ╔══════════════════════════════════════════════════════════════════╗
-║           段言（DuanLang）交互式解释器 v1.6.0                     ║
+║           光明（LightLang）交互式解释器 v1.6.0                     ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║  输入表达式或语句，按回车执行。                                   ║
 ║  命令: 帮助(help) | 退出(quit) | 变量(vars) | 历史(history)      ║
@@ -31,7 +31,7 @@ BANNER = """
 
 HELP_TEXT = """
 ╔══════════════════════════════════════════════════════════════════╗
-║                        段言 REPL 帮助                            ║
+║                        光明 REPL 帮助                            ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║  一般命令:                                                        ║
 ║    帮助 / help     - 显示此帮助信息                               ║
@@ -40,7 +40,7 @@ HELP_TEXT = """
 ║    清除 / clear    - 清除所有变量                                 ║
 ║    历史 / history  - 显示命令历史                                 ║
 ║    代码 / code     - 显示累积的 Python 代码                       ║
-║    加载 / load     - 加载并执行 .duan 文件                        ║
+║    加载 / load     - 加载并执行 .light 文件                        ║
 ║                                                                    ║
 ║  调试命令:                                                        ║
 ║    跟踪 / trace    - 启用/禁用语句跟踪                            ║
@@ -56,11 +56,11 @@ HELP_TEXT = """
 """
 
 
-class DuanREPL:
-    """段言交互式解释器"""
+class LightREPL:
+    """光明交互式解释器"""
 
     def __init__(self):
-        self.compiler = DuanCompiler()
+        self.compiler = LightCompiler()
         self.codegen = UnifiedCodeGenerator()
         self.globals: Dict[str, Any] = {}
         self.accumulated_code: List[str] = []
@@ -102,7 +102,7 @@ class DuanREPL:
         return output
 
     def _compile_and_run(self, source: str) -> str:
-        """编译并运行段言代码"""
+        """编译并运行光明代码"""
         self.current_line += 1
         
         # 如果启用了跟踪，打印即将执行的代码
@@ -146,7 +146,7 @@ class DuanREPL:
             'Path', 'List', 'Dict', 'Any', 'Optional',
         }
         for k, v in self.globals.items():
-            if k not in exclude_names and not k.startswith('_duan_'):
+            if k not in exclude_names and not k.startswith('_light_'):
                 if hasattr(v, '__module__') and v.__module__ in ('builtins', 'os', 'sys', 'io'):
                     continue
                 vars_list.append((k, v))
@@ -224,7 +224,7 @@ class DuanREPL:
         print(f"✓ 语句跟踪已{status}")
 
     def load_file(self, filepath: str):
-        """加载并执行 .duan 文件"""
+        """加载并执行 .light 文件"""
         if not os.path.exists(filepath):
             print(f"✗ 文件不存在: {filepath}")
             return
@@ -401,7 +401,7 @@ class DuanREPL:
 
 def main():
     """REPL 入口函数"""
-    repl = DuanREPL()
+    repl = LightREPL()
     repl.run()
 
 

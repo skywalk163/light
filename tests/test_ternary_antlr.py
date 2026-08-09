@@ -4,16 +4,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'antlrparser'))
 
 try:
-    from duan_visitor import DuanParser
+    from light_visitor import LightParser
     from code_generator_unified import UnifiedCodeGenerator
 except ImportError:
     import pytest
-    pytest.skip("ANTLR parser not available (missing generated DuanLangParser module)", allow_module_level=True)
+    pytest.skip("ANTLR parser not available (missing generated LightLangParser module)", allow_module_level=True)
 
 
-def run_duan(code):
-    """使用 ANTLR 后端解析并执行段言代码"""
-    parser = DuanParser()
+def run_light(code):
+    """使用 ANTLR 后端解析并执行光明代码"""
+    parser = LightParser()
     module = parser.parse(code)
     if parser.errors:
         return f"解析错误: {'; '.join(parser.errors)}"
@@ -52,7 +52,7 @@ passed = 0
 failed = 0
 for code, expected in tests:
     try:
-        result = run_duan(code)
+        result = run_light(code)
         if result == str(expected):
             passed += 1
             print(f"[PASS] {code[:60]}")

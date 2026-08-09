@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言翻译器 — 模型下载脚本
+光明翻译器 — 模型下载脚本
 
 下载 Qwen2.5-0.5B-Instruct 到本地缓存目录。
 这个模型只有 5 亿参数，BF16 约 1GB，CPU 完全可跑。

@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-段言代码迁移工具 - 命令行界面
+光明代码迁移工具 - 命令行界面
 
 用法:
-    python -m src.migration.cli v33-v40 file.duan     # 迁移单个文件
+    python -m src.migration.cli v33-v40 file.light     # 迁移单个文件
     python -m src.migration.cli v33-v40 .              # 迁移目录
-    python -m src.migration.cli v33-v40 --preview file.duan  # 预览变更
-    python -m src.migration.cli v40-v50 file.duan     # v4.0 → v5.x 迁移
+    python -m src.migration.cli v33-v40 --preview file.light  # 预览变更
+    python -m src.migration.cli v40-v50 file.light     # v4.0 → v5.x 迁移
     python -m src.migration.cli --list                 # 列出可用迁移
 """
 
@@ -31,8 +31,8 @@ def list_migrations():
 
 def main():
     parser = argparse.ArgumentParser(
-        prog='duan-migrate',
-        description='段言代码迁移工具'
+        prog='light-migrate',
+        description='光明代码迁移工具'
     )
     parser.add_argument('migration', nargs='?', help='迁移类型: v33-v40, v40-v50')
     parser.add_argument('target', nargs='?', help='文件或目录路径')
@@ -72,7 +72,7 @@ def main():
             for root, dirs, files in os.walk(target_path):
                 dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
                 for f in files:
-                    if f.endswith('.duan'):
+                    if f.endswith('.light'):
                         fp = os.path.join(root, f)
                         with open(fp, 'r', encoding='utf-8') as sf:
                             source = sf.read()
@@ -96,7 +96,7 @@ def main():
             for root, dirs, files in os.walk(target_path):
                 dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
                 for f in files:
-                    if f.endswith('.duan'):
+                    if f.endswith('.light'):
                         fp = os.path.join(root, f)
                         with open(fp, 'r', encoding='utf-8') as sf:
                             source = sf.read()
@@ -110,12 +110,12 @@ def main():
 
     # 执行迁移
     if os.path.isfile(target_path):
-        if target_path.endswith('.duan'):
+        if target_path.endswith('.light'):
             print(f"迁移: {target_path}")
             result = migrator.migrate_file(target_path)
             print(f"  ✓ 已完成")
         else:
-            print(f"错误: 仅支持 .duan 文件: {target_path}")
+            print(f"错误: 仅支持 .light 文件: {target_path}")
             return 1
     elif os.path.isdir(target_path):
         print(f"迁移目录: {target_path}")

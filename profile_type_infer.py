@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Duan 语言类型推断模块性能分析脚本
+Light 语言类型推断模块性能分析脚本
 
 使用 cProfile 分析 TypeInferencer.infer() 调用性能
 """
@@ -763,7 +763,7 @@ def create_realistic_module():
 
     # ---- 顶层语句 ----
     statements.append(make_var("全局常量", make_number(100), type_annotation="数"))
-    statements.append(make_var("全局名称", make_string("段言"), type_annotation="串"))
+    statements.append(make_var("全局名称", make_string("光明"), type_annotation="串"))
     statements.append(make_var("全局标志", make_bool(True), type_annotation="布尔"))
     statements.append(PrintStatement(value=make_identifier("全局名称")))
     statements.append(ExpressionStatement(make_call("计算1", make_number(5))))
@@ -788,7 +788,7 @@ def create_realistic_module():
 
 def main():
     print("=" * 70)
-    print("  段言 (Duan) 类型推断器 cProfile 性能分析")
+    print("  光明 (Light) 类型推断器 cProfile 性能分析")
     print("=" * 70)
 
     # 构建测试模块

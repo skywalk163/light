@@ -1,7 +1,7 @@
 """
-段言（Duan）编程语言 - Python 后端 AST 节点定义
+光明（Light）编程语言 - Python 后端 AST 节点定义
 
-从 duan_parser_v3.py 提取，作为独立模块供代码生成器/语义分析器使用。
+从 light_parser_v3.py 提取，作为独立模块供代码生成器/语义分析器使用。
 """
 
 from typing import List, Any, Optional, Dict
@@ -319,14 +319,14 @@ class ImportStmt(ASTNode):
     __slots__ = ('module_name', 'symbols', 'alias', 'extra_modules', 'language')
     """导入语句
     
-    language: None=段言标准库, 'python'=Python第三方库, 'c'=C语言库
+    language: None=光明标准库, 'python'=Python第三方库, 'c'=C语言库
     """
     def __init__(self, module_name: str, symbols: List[str] = None, alias: str = None, extra_modules: list = None, language: str = None):
         self.module_name = module_name
         self.symbols = symbols
         self.alias = alias
         self.extra_modules = extra_modules or []  # 多模块导入时的额外模块 [(module_name, alias), ...]
-        self.language = language  # None=段言, 'python'=Python, 'c'=C
+        self.language = language  # None=光明, 'python'=Python, 'c'=C
     
     def __repr__(self):
         lang_prefix = f"[{self.language}] " if self.language else ""
@@ -806,7 +806,7 @@ class FFIFunctionDecl(ASTNode):
     __slots__ = ('name', 'params', 'return_type', 'library_alias', 'c_name')
     """
     外部函数声明：外部 段落 函数名 接收 参数... 返回 类型 在 库别名
-    c_name: 可选，实际的C函数名（如果与段言函数名不同）
+    c_name: 可选，实际的C函数名（如果与光明函数名不同）
     """
     def __init__(self, name: str, params: List[Dict[str, str]], return_type: Optional[str],
                  library_alias: str, c_name: str = None):
@@ -1029,16 +1029,16 @@ class FFIUnionDef(ASTNode):
 
 
 class FFICreateCallback(ASTNode):
-    __slots__ = ('callback_type', 'duan_function')
+    __slots__ = ('callback_type', 'light_function')
     """
-    创建回调：创建回调(回调类型, 段言函数)
+    创建回调：创建回调(回调类型, 光明函数)
     """
-    def __init__(self, callback_type: str, duan_function: str):
+    def __init__(self, callback_type: str, light_function: str):
         self.callback_type = callback_type
-        self.duan_function = duan_function
+        self.light_function = light_function
     
     def __repr__(self):
-        return f"创建回调({self.callback_type}, {self.duan_function})"
+        return f"创建回调({self.callback_type}, {self.light_function})"
 
 
 class FFIVarArgsDecl(ASTNode):
@@ -1162,7 +1162,7 @@ class KeywordArg(ASTNode):
 class EmbedBlock(ASTNode):
     """嵌入块语句：嵌入 Python/C: ... 结束嵌入
     
-    将外部语言代码作为"外语引用"嵌入段言代码中，
+    将外部语言代码作为"外语引用"嵌入光明代码中，
     类似中文文本中嵌入数学公式或英文片段。
     """
     __slots__ = ('language', 'code', 'imports', 'exports')
@@ -1172,7 +1172,7 @@ class EmbedBlock(ASTNode):
         super().__init__(line, col)
         self.language = language       # "Python", "C" 等
         self.code = code               # 原始嵌入代码
-        self.imports = imports or []   # 需要传入的段言变量名列表
+        self.imports = imports or []   # 需要传入的光明变量名列表
         self.exports = exports or []   # 需要传出的变量名列表
     
     def __repr__(self):

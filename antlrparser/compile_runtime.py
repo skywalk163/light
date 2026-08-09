@@ -2,10 +2,10 @@ import subprocess
 import os
 
 # 编译运行时库
-runtime_dir = "g:/dumategithub/duan/antlrparser/runtime"
+runtime_dir = "g:/dumategithub/light/antlrparser/runtime"
 clang_path = "E:/Program Files/LLVM/bin/clang.exe"
-source_file = os.path.join(runtime_dir, "duan_runtime.c")
-output_file = os.path.join(runtime_dir, "duan_runtime.o")
+source_file = os.path.join(runtime_dir, "light_runtime.c")
+output_file = os.path.join(runtime_dir, "light_runtime.o")
 
 print(f"Compiling {source_file}...")
 result = subprocess.run(

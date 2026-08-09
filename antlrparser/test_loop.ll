@@ -1,4 +1,4 @@
-; 段言 (Duan) 编译输出
+; 光明 (Light) 编译输出
 target triple = "x86_64-pc-windows-msvc"
 
 declare i32 @printf(i8*, ...)

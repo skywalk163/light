@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编译器核心接口定义
+光明（Light）编译器核心接口定义
 """
 
 from abc import ABC, abstractmethod

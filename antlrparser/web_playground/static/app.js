@@ -1,5 +1,5 @@
 /**
- * 段言 (Duan) Web Playground - 前端逻辑
+ * 光明 (Light) Web Playground - 前端逻辑
  */
 
 // =============================================================================
@@ -36,12 +36,12 @@ require.config({
 });
 
 require(['vs/editor/editor.main'], function () {
-    // 定义段言语法的基本高亮
-    monaco.languages.register({ id: 'duan' });
+    // 定义光明语法的基本高亮
+    monaco.languages.register({ id: 'light' });
 
-    monaco.languages.setMonarchTokensProvider('duan', {
+    monaco.languages.setMonarchTokensProvider('light', {
         defaultToken: '',
-        tokenPostfix: '.duan',
+        tokenPostfix: '.light',
 
         keywords: [
             '定义', '常量', '等于',
@@ -111,7 +111,7 @@ require(['vs/editor/editor.main'], function () {
     // 创建编辑器
     editor = monaco.editor.create(document.getElementById('editor'), {
         value: getDefaultCode(),
-        language: 'duan',
+        language: 'light',
         theme: 'vs-dark',
         fontSize: 14,
         lineHeight: 22,
@@ -163,7 +163,7 @@ setTimeout(function() {
 // =============================================================================
 
 function getDefaultCode() {
-    return `# 欢迎使用段言 (Duan) Playground！
+    return `# 欢迎使用光明 (Light) Playground！
 # 试试运行这段代码 👇
 
 定义甲等于10。
@@ -442,7 +442,7 @@ function renderGrammar(categories) {
 
     let html = `
         <div class="grammar-intro">
-            <p>快速入门段言编程语言的语法，适合新手查阅。点击「示例」可加载对应代码体验。</p>
+            <p>快速入门光明编程语言的语法，适合新手查阅。点击「示例」可加载对应代码体验。</p>
         </div>
     `;
 

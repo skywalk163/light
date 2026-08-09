@@ -1,5 +1,5 @@
 /**
- * 段言 (Duan) WebAssembly 浏览器运行时 v4.1
+ * 光明 (Light) WebAssembly 浏览器运行时 v4.1
  * 在 Playground 中提供客户端 WASM 执行模式
  */
 
@@ -7,7 +7,7 @@ let wasmRuntime = null;
 let wasmMode = false;
 
 // 检查是否启用 WASM 模式
-const wasmEnabled = localStorage.getItem('duan_wasm_mode') === 'true';
+const wasmEnabled = localStorage.getItem('light_wasm_mode') === 'true';
 
 async function initWasmRuntime() {
     if (wasmRuntime) return wasmRuntime;
@@ -39,19 +39,19 @@ async function initWasmRuntime() {
             statusEl.className = 'wasm-status ready';
         }
 
-        console.log('Duan WASM runtime ready');
+        console.log('Light WASM runtime ready');
         return wasmRuntime;
     } catch (e) {
         if (statusEl) {
             statusEl.textContent = '❌ 加载失败';
             statusEl.className = 'wasm-status error';
         }
-        console.error('Duan WASM init failed:', e);
+        console.error('Light WASM init failed:', e);
         throw e;
     }
 }
 
-async function runDuanWasm(pythonCode) {
+async function runLightWasm(pythonCode) {
     if (!wasmRuntime) {
         await initWasmRuntime();
     }
@@ -79,7 +79,7 @@ async function executeWasm(source) {
     }
 
     try {
-        // 先通过服务器编译段言代码为 Python
+        // 先通过服务器编译光明代码为 Python
         const resp = await fetch(API_BASE + '/api/demos/run', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -98,7 +98,7 @@ async function executeWasm(source) {
         }
 
         const pythonCode = data.python || '';
-        const result = await runDuanWasm(pythonCode);
+        const result = await runLightWasm(pythonCode);
 
         if (result.success) {
             if (outputEl) {
@@ -128,7 +128,7 @@ async function executeWasm(source) {
 
 function toggleWasmMode() {
     wasmMode = !wasmMode;
-    localStorage.setItem('duan_wasm_mode', wasmMode ? 'true' : 'false');
+    localStorage.setItem('light_wasm_mode', wasmMode ? 'true' : 'false');
 
     const btn = document.getElementById('wasmToggleBtn');
     const statusEl = document.getElementById('wasmStatus');

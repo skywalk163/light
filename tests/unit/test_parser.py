@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-段言语法解析器单元测试
+光明语法解析器单元测试
 
-测试 src/duan_parser_v3.py 的语法分析功能
+测试 src/light_parser_v3.py 的语法分析功能
 """
 
 import sys
@@ -21,8 +21,8 @@ class TestParser(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            from duan_parser_v3 import DuanParser
-            cls.Parser = DuanParser
+            from light_parser_v3 import LightParser
+            cls.Parser = LightParser
         except ImportError as e:
             raise unittest.SkipTest(f"Parser 模块不可用: {e}")
 

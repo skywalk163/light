@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>段言 (Duan) Playground - v4.0</title>
+    <title>光明 (Light) Playground - v4.0</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>段</text></svg>">
 </head>
@@ -100,7 +100,7 @@
                 <div class="section-header">
                     <div class="section-left">
                         <span class="section-title">编辑器</span>
-                        <span class="file-badge">.duan</span>
+                        <span class="file-badge">.light</span>
                         <span class="project-name" id="projectNameDisplay" title="未保存">未命名项目</span>
                         <span class="auto-save" id="autoSaveLabel">已自动保存</span>
                     </div>
@@ -113,9 +113,9 @@
                     </div>
                 </div>
                 <div class="editor-tabs" id="editorTabs">
-                    <div class="editor-tab active" data-file="main.duan" onclick="switchEditorTab('main.duan')">
-                        <span class="editor-tab-name">main.duan</span>
-                        <span class="editor-tab-close" onclick="closeEditorTab(event,'main.duan')">×</span>
+                    <div class="editor-tab active" data-file="main.light" onclick="switchEditorTab('main.light')">
+                        <span class="editor-tab-name">main.light</span>
+                        <span class="editor-tab-close" onclick="closeEditorTab(event,'main.light')">×</span>
                     </div>
                 </div>
                 <div class="editor-wrapper">
@@ -179,7 +179,7 @@
             <div class="grammar-modal-header">
                 <div class="grammar-modal-title">
                     <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.5A1.5 1.5 0 00.5 3v10A1.5 1.5 0 002 14.5h12a1.5 1.5 0 001.5-1.5V3A1.5 1.5 0 0014 1.5H2zM2 3h12v2H2V3zm0 4h12v2H2V7zm0 4h7v2H2v-2z"/></svg>
-                    段言语法速查 v4.0
+                    光明语法速查 v4.0
                 </div>
                 <button class="btn btn-close" onclick="closeGrammarModal()" title="关闭">✕</button>
             </div>
@@ -228,7 +228,7 @@
     <div class="overlay hidden" id="overlay" onclick="closeModals()"></div>
 
     <!-- 隐藏的文件上传输入 -->
-    <input type="file" id="fileInput" accept=".duan,.txt,.text" style="display: none;">
+    <input type="file" id="fileInput" accept=".light,.txt,.text" style="display: none;">
 
     <!-- 创建文件弹窗 -->
     <div class="modal-overlay hidden" id="createFileModal">
@@ -238,7 +238,7 @@
                 <button class="btn btn-close" onclick="closeCreateFileModal()">✕</button>
             </div>
             <div class="modal-body">
-                <p>请输入文件名（自动添加 .duan 后缀）：</p>
+                <p>请输入文件名（自动添加 .light 后缀）：</p>
                 <input type="text" id="newFileNameInput" placeholder="工具" style="width: 100%;padding: 8px 12px;background: var(--bg-primary);border: 1px solid var(--border-color);border-radius: var(--radius-sm);color: var(--text-primary);outline: none;">
                 <div class="modal-footer" style="margin-top: 16px;text-align: right;">
                     <button class="btn" onclick="closeCreateFileModal()">取消</button>

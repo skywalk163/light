@@ -27,9 +27,9 @@ with open('bootstrap/level6_generated.py', 'r', encoding='utf-8') as f:
 exec(code, ns)
 编译 = ns['编译']
 
-def compile_and_run(duan_code):
-    """编译并运行段言代码，返回输出和错误"""
-    py_code = 编译(duan_code)
+def compile_and_run(light_code):
+    """编译并运行光明代码，返回输出和错误"""
+    py_code = 编译(light_code)
     ns2 = dict(ns)
     ns2['主函数'] = None
     output = io.StringIO()

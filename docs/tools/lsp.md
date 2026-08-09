@@ -1,11 +1,11 @@
 # LSP 集成
 
-段言 LSP (Language Server Protocol) 提供 IDE 智能支持。
+光明 LSP (Language Server Protocol) 提供 IDE 智能支持。
 
 ## 启动 LSP 服务器
 
 ```bash
-python lsp/duan_lsp_main.py
+python lsp/light_lsp_main.py
 ```
 
 ## 功能
@@ -25,15 +25,15 @@ python lsp/duan_lsp_main.py
 
 ```json
 {
-    "duan.lsp.enabled": true,
-    "duan.lsp.serverPath": "python lsp/duan_lsp_main.py"
+    "light.lsp.enabled": true,
+    "light.lsp.serverPath": "python lsp/light_lsp_main.py"
 }
 ```
 
 ### Neovim
 
 ```lua
-require('lspconfig').duan.setup({
-    cmd = {"python", "lsp/duan_lsp_main.py"},
+require('lspconfig').light.setup({
+    cmd = {"python", "lsp/light_lsp_main.py"},
 })
 ```

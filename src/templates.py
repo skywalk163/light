@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）项目模板系统
+光明（Light）项目模板系统
 
 提供多种项目模板：
   - default: 默认空项目
@@ -39,17 +39,17 @@ class DefaultTemplate(ProjectTemplate):
         pkg_content = f'''[package]
 name = "{project_dir.name}"
 version = "0.1.0"
-description = "段言项目"
+description = "光明项目"
 
 [dependencies]
 '''
         (project_dir / 'package.toml').write_text(pkg_content, encoding='utf-8')
 
-        # 主.duan
+        # 主.light
         main_content = '''# 主程序入口
-打印("Hello, Duan!")
+打印("Hello, Light!")
 '''
-        (project_dir / '主.duan').write_text(main_content, encoding='utf-8')
+        (project_dir / '主.light').write_text(main_content, encoding='utf-8')
 
 
 class CLITemplate(ProjectTemplate):
@@ -65,7 +65,7 @@ class CLITemplate(ProjectTemplate):
         pkg_content = f'''[package]
 name = "{project_dir.name}"
 version = "0.1.0"
-description = "段言命令行工具"
+description = "光明命令行工具"
 
 [dependencies]
 '''
@@ -75,7 +75,7 @@ description = "段言命令行工具"
 导入 系统
 
 段落 显示帮助：
-  打印("用法: duan run 主.duan [选项]")
+  打印("用法: light run 主.light [选项]")
   打印("")
   打印("选项:")
   打印("  --help      显示帮助信息")
@@ -105,7 +105,7 @@ description = "段言命令行工具"
 设 参数列表 为 系统.获取参数()
 主程序(参数列表[1:])
 '''
-        (project_dir / '主.duan').write_text(main_content, encoding='utf-8')
+        (project_dir / '主.light').write_text(main_content, encoding='utf-8')
 
         test_content = '''# 测试文件
 打印("=== 命令行工具测试 ===")
@@ -118,7 +118,7 @@ description = "段言命令行工具"
 
 打印("=== 测试完成 ===")
 '''
-        (project_dir / 'tests' / '测试_cli.duan').write_text(test_content, encoding='utf-8')
+        (project_dir / 'tests' / '测试_cli.light').write_text(test_content, encoding='utf-8')
 
 
 class LibTemplate(ProjectTemplate):
@@ -134,7 +134,7 @@ class LibTemplate(ProjectTemplate):
         pkg_content = f'''[package]
 name = "{project_dir.name}"
 version = "0.1.0"
-description = "段言库"
+description = "光明库"
 
 [dependencies]
 '''
@@ -144,7 +144,7 @@ description = "段言库"
 # 导出公共 API
 打印("加载库:", __name__)
 '''
-        (project_dir / '主.duan').write_text(main_content, encoding='utf-8')
+        (project_dir / '主.light').write_text(main_content, encoding='utf-8')
 
         lib_content = '''# 核心库模块
 
@@ -178,7 +178,7 @@ description = "段言库"
       设 最小 为 元素
   返回 最小
 '''
-        (project_dir / 'src' / '工具.duan').write_text(lib_content, encoding='utf-8')
+        (project_dir / 'src' / '工具.light').write_text(lib_content, encoding='utf-8')
 
         test_content = '''# 库测试文件
 打印("=== 库测试 ===")
@@ -216,7 +216,7 @@ description = "段言库"
 
 打印("=== 测试完成 ===")
 '''
-        (project_dir / 'tests' / '测试_工具.duan').write_text(test_content, encoding='utf-8')
+        (project_dir / 'tests' / '测试_工具.light').write_text(test_content, encoding='utf-8')
 
 
 class WebTemplate(ProjectTemplate):
@@ -233,7 +233,7 @@ class WebTemplate(ProjectTemplate):
         pkg_content = f'''[package]
 name = "{project_dir.name}"
 version = "0.1.0"
-description = "段言 Web 应用"
+description = "光明 Web 应用"
 
 [dependencies]
 '''
@@ -243,10 +243,10 @@ description = "段言 Web 应用"
 导入 网络
 
 段落 处理首页 接收 请求：
-  返回 "<html><body><h1>你好，段言 Web！</h1></body></html>"
+  返回 "<html><body><h1>你好，光明 Web！</h1></body></html>"
 
 段落 处理关于 接收 请求：
-  返回 "<html><body><h1>关于页面</h1><p>这是一个段言 Web 应用。</p></body></html>"
+  返回 "<html><body><h1>关于页面</h1><p>这是一个光明 Web 应用。</p></body></html>"
 
 段落 主程序：
   打印("启动 Web 服务器...")
@@ -258,7 +258,7 @@ description = "段言 Web 应用"
 
 主程序()
 '''
-        (project_dir / '主.duan').write_text(main_content, encoding='utf-8')
+        (project_dir / '主.light').write_text(main_content, encoding='utf-8')
 
         api_content = '''# API 模块
 段落 获取数据：
@@ -270,15 +270,15 @@ description = "段言 Web 应用"
   设 数据 为 获取数据()
   返回 网络.转为JSON(数据)
 '''
-        (project_dir / 'src' / 'api.duan').write_text(api_content, encoding='utf-8')
+        (project_dir / 'src' / 'api.light').write_text(api_content, encoding='utf-8')
 
         html_content = '''<!DOCTYPE html>
 <html>
 <head>
-    <title>段言 Web 应用</title>
+    <title>光明 Web 应用</title>
 </head>
 <body>
-    <h1>段言 Web 应用</h1>
+    <h1>光明 Web 应用</h1>
     <p>这是静态文件示例</p>
 </body>
 </html>
@@ -290,7 +290,7 @@ description = "段言 Web 应用"
 打印("测试 API 模块...")
 打印("=== 测试完成 ===")
 '''
-        (project_dir / 'tests' / '测试_web.duan').write_text(test_content, encoding='utf-8')
+        (project_dir / 'tests' / '测试_web.light').write_text(test_content, encoding='utf-8')
 
 
 # 模板注册

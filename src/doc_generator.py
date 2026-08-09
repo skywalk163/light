@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）文档生成器
+光明（Light）文档生成器
 
 功能：
-  - 解析段言代码中的 # 注释
+  - 解析光明代码中的 # 注释
   - 提取段落（函数）文档
   - 生成 Markdown 和 HTML 格式文档
 
 用法：
-  duan doc file.duan           # 生成 Markdown 文档
-  duan doc file.duan --html    # 生成 HTML 文档
-  duan doc .                   # 生成整个项目的文档
+  light doc file.light           # 生成 Markdown 文档
+  light doc file.light --html    # 生成 HTML 文档
+  light doc .                   # 生成整个项目的文档
 """
 
 import os
@@ -145,7 +145,7 @@ class DocGenerator:
             '<head>',
             '    <meta charset="UTF-8">',
             '    <meta name="viewport" content="width=device-width, initial-scale=1.0">',
-            '    <title>段言文档 - ' + filename + '</title>',
+            '    <title>光明文档 - ' + filename + '</title>',
             '    <style>',
             '        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 40px 20px; background: #f8fafc; color: #1e293b; }',
             '        h1 { color: #0f172a; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; }',
@@ -191,7 +191,7 @@ class DocGenerator:
         for root, dirs, files in os.walk(directory):
             dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
             for f in files:
-                if f.endswith('.duan'):
+                if f.endswith('.light'):
                     fpath = os.path.join(root, f)
                     rel_path = os.path.relpath(fpath, directory)
                     if format == 'html':
@@ -230,7 +230,7 @@ def run_doc(target: str, output_format: str = 'markdown', output_file: str = Non
 
             for rel_path, content in docs.items():
                 out_path = os.path.join(output_dir, rel_path)
-                out_path = out_path.replace('.duan', '.' + output_format)
+                out_path = out_path.replace('.light', '.' + output_format)
                 os.makedirs(os.path.dirname(out_path), exist_ok=True)
                 with open(out_path, 'w', encoding='utf-8') as f:
                     f.write(content)
@@ -239,7 +239,7 @@ def run_doc(target: str, output_format: str = 'markdown', output_file: str = Non
             # 创建索引页
             index_lines = ["# 项目文档", "", "## 文件列表", ""]
             for rel_path in sorted(docs.keys()):
-                link = rel_path.replace('.duan', '.' + output_format)
+                link = rel_path.replace('.light', '.' + output_format)
                 index_lines.append(f"- [{rel_path}]({link})")
 
             with open(os.path.join(output_dir, 'index.md'), 'w', encoding='utf-8') as f:

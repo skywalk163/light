@@ -1,9 +1,9 @@
 """自举收敛性验证：三次自举一致性测试
 
 验证方法：
-1. 用 level6_generated.py 编译 bootstrap_level5.duan → level6_self_compiled.py
-2. 用 level6_self_compiled.py 编译 bootstrap_level5.duan → level6_self_compiled2.py
-3. 用 level6_self_compiled2.py 编译 bootstrap_level5.duan → level6_self_compiled3.py
+1. 用 level6_generated.py 编译 bootstrap_level5.light → level6_self_compiled.py
+2. 用 level6_self_compiled.py 编译 bootstrap_level5.light → level6_self_compiled2.py
+3. 用 level6_self_compiled2.py 编译 bootstrap_level5.light → level6_self_compiled3.py
 4. 验证 level6_self_compiled2.py 与 level6_self_compiled3.py 完全相同
 """
 import sys
@@ -31,15 +31,15 @@ ns = {
 }
 
 # 读取源文件
-with open('bootstrap/bootstrap_level5.duan', 'r', encoding='utf-8') as f:
-    duan_code = f.read()
+with open('bootstrap/bootstrap_level5.light', 'r', encoding='utf-8') as f:
+    light_code = f.read()
 
-print(f"源码: bootstrap_level5.duan ({len(duan_code)} 字节)")
+print(f"源码: bootstrap_level5.light ({len(light_code)} 字节)")
 print()
 
 # ===== 第1次：用 level6_generated.py 编译 =====
 print("=" * 60)
-print("第1次: level6_generated.py 编译 bootstrap_level5.duan")
+print("第1次: level6_generated.py 编译 bootstrap_level5.light")
 print("=" * 60)
 with open('bootstrap/level6_generated.py', 'r', encoding='utf-8') as f:
     compiler1_code = f.read()
@@ -48,7 +48,7 @@ exec(compiler1_code, ns1)
 编译1 = ns1['编译']
 
 try:
-    py_code1 = 编译1(duan_code)
+    py_code1 = 编译1(light_code)
     print(f"✅ 编译成功! 生成代码: {len(py_code1)} 字节")
     compile(py_code1, '<string>', 'exec')
     print("✅ 语法正确")
@@ -63,7 +63,7 @@ print()
 
 # ===== 第2次：用 level6_self_compiled.py 编译 =====
 print("=" * 60)
-print("第2次: level6_self_compiled.py 编译 bootstrap_level5.duan")
+print("第2次: level6_self_compiled.py 编译 bootstrap_level5.light")
 print("=" * 60)
 with open('bootstrap/level6_self_compiled.py', 'r', encoding='utf-8') as f:
     compiler2_code = f.read()
@@ -72,7 +72,7 @@ exec(compiler2_code, ns2)
 编译2 = ns2['编译']
 
 try:
-    py_code2 = 编译2(duan_code)
+    py_code2 = 编译2(light_code)
     print(f"✅ 编译成功! 生成代码: {len(py_code2)} 字节")
     compile(py_code2, '<string>', 'exec')
     print("✅ 语法正确")
@@ -87,7 +87,7 @@ print()
 
 # ===== 第3次：用 level6_self_compiled2.py 编译 =====
 print("=" * 60)
-print("第3次: level6_self_compiled2.py 编译 bootstrap_level5.duan")
+print("第3次: level6_self_compiled2.py 编译 bootstrap_level5.light")
 print("=" * 60)
 with open('bootstrap/level6_self_compiled2.py', 'r', encoding='utf-8') as f:
     compiler3_code = f.read()
@@ -96,7 +96,7 @@ exec(compiler3_code, ns3)
 编译3 = ns3['编译']
 
 try:
-    py_code3 = 编译3(duan_code)
+    py_code3 = 编译3(light_code)
     print(f"✅ 编译成功! 生成代码: {len(py_code3)} 字节")
     compile(py_code3, '<string>', 'exec')
     print("✅ 语法正确")

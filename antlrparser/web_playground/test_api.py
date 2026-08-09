@@ -20,7 +20,7 @@ for c in data['categories']:
 
 # 测试代码执行
 req = urllib.request.Request(f'{BASE}/api/execute',
-    data=json.dumps({'code': '打印("你好，段言！")。'}).encode(),
+    data=json.dumps({'code': '打印("你好，光明！")。'}).encode(),
     headers={'Content-Type': 'application/json'})
 r = urllib.request.urlopen(req)
 data = json.loads(r.read())

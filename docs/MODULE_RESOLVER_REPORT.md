@@ -1,4 +1,4 @@
-# 段言模块解析器实现报告
+# 光明模块解析器实现报告
 
 **日期**: 2026-06-10
 **版本**: v0.9.1
@@ -45,7 +45,7 @@ resolver = ModuleResolver(search_paths=['examples/modules'])
 
 # 查找模块文件
 path = resolver.find_module('math_utils')
-print(path)  # /path/to/examples/modules/math_utils.duan
+print(path)  # /path/to/examples/modules/math_utils.light
 ```
 
 ### 2.2 解析模块
@@ -95,7 +95,7 @@ print(f"编译顺序: {' → '.join(order)}")
 
 ```python
 # 一步完成所有操作
-modules, graph = resolver.resolve('examples/modules/main.duan')
+modules, graph = resolver.resolve('examples/modules/main.light')
 
 for module in modules:
     print(f"{module.name}: {module.path}")
@@ -163,7 +163,7 @@ except ModuleNotFoundError as e:
 
 ```python
 try:
-    modules, graph = resolver.resolve('main.duan')
+    modules, graph = resolver.resolve('main.light')
 except CircularDependencyError as e:
     print(f"检测到循环依赖: {' → '.join(e.cycle)}")
 ```
@@ -181,7 +181,7 @@ except CircularDependencyError as e:
 3. DUAN_PATH 环境变量指定的路径
 
 文件定位：
-- 模块名 math_utils → 文件名 math_utils.duan
+- 模块名 math_utils → 文件名 math_utils.light
 ```
 
 ### 5.2 循环依赖检测算法
@@ -247,20 +247,20 @@ for dep_name in module_info.dependencies:
 
 ```
 examples/modules/
-├── main.duan          # 主程序
+├── main.light          # 主程序
 │   └── 导入: math_utils, string_utils
 │
-├── math_utils.duan    # 数学工具模块
+├── math_utils.light    # 数学工具模块
 │   └── 导出: 平方, 立方
 │
-└── string_utils.duan  # 字符串工具模块
+└── string_utils.light  # 字符串工具模块
     └── 导出: 连接
 ```
 
 **编译顺序**:
-1. math_utils.duan
-2. string_utils.duan
-3. main.duan
+1. math_utils.light
+2. string_utils.light
+3. main.light
 
 ---
 
@@ -278,13 +278,13 @@ examples/modules/
 
 ```bash
 # 编译整个项目
-duanc main.duan --project
+duanc main.light --project
 
 # 显示依赖图
-duanc main.duan --deps
+duanc main.light --deps
 
 # 生成 Makefile
-duanc main.duan --makefile
+duanc main.light --makefile
 ```
 
 ---

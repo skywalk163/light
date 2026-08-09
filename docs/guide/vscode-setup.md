@@ -2,14 +2,14 @@
 
 ## 安装扩展
 
-1. 下载 `vscode-duan` 扩展：
+1. 下载 `vscode-light` 扩展：
    ```bash
-   git clone https://github.com/duan-lang/duan.git
-   cd duan/vscode-duan
-   code --install-extension duan-lang.vsix
+   git clone https://github.com/light-lang/light.git
+   cd light/vscode-light
+   code --install-extension light-lang.vsix
    ```
 
-2. 或在 VS Code 扩展商店搜索 "Duan"
+2. 或在 VS Code 扩展商店搜索 "Light"
 
 ## 功能特性
 
@@ -25,11 +25,11 @@
 
 ```json
 {
-    "duan.enableLinting": true,
-    "duan.pythonPath": "python",
-    "duan.formatOnSave": true,
+    "light.enableLinting": true,
+    "light.pythonPath": "python",
+    "light.formatOnSave": true,
     "files.associations": {
-        "*.duan": "duan"
+        "*.light": "light"
     }
 }
 ```

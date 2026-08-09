@@ -1,6 +1,6 @@
 [package]
 name = "待办事项管理器"
 version = "1.0.0"
-entry = "主.duan"
-authors = ["段言开源社区"]
-description = "待办事项管理器 - 演示段言列表操作、筛选排序、用户交互"
+entry = "主.light"
+authors = ["光明开源社区"]
+description = "待办事项管理器 - 演示光明列表操作、筛选排序、用户交互"

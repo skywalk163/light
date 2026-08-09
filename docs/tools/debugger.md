@@ -1,11 +1,11 @@
 # 调试器
 
-段言提供内置调试器，支持断点调试和单步执行。
+光明提供内置调试器，支持断点调试和单步执行。
 
 ## 启动调试
 
 ```bash
-duan --debug hello.duan
+light --debug hello.light
 ```
 
 ## 调试命令

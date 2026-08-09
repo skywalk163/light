@@ -1,4 +1,4 @@
-"""测试 Duan 编写的解析器是否正确处理连续的 如果 语句"""
+"""测试 Light 编写的解析器是否正确处理连续的 如果 语句"""
 import sys
 import os
 import types
@@ -7,54 +7,54 @@ _script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _script_dir)
 
 
-def _setup_duan_builtin():
-    _duan_builtin = types.ModuleType('_duan_builtin')
-    _duan_builtin.打印 = print
-    _duan_builtin.输出 = print
-    _duan_builtin.转字符串 = str
-    _duan_builtin.转整数 = int
-    _duan_builtin.转浮点 = float
-    _duan_builtin.列表创建 = list
-    _duan_builtin.列表长度 = len
-    _duan_builtin.列表获取 = lambda lst, i: lst[i]
-    _duan_builtin.列表追加 = lambda lst, item: lst.append(item)
-    _duan_builtin.列表弹出 = lambda lst: lst.pop()
-    _duan_builtin.列表包含 = lambda lst, item: item in lst
-    _duan_builtin.字典创建 = dict
-    _duan_builtin.字典设置 = lambda d, k, v: d.update({k: v})
-    _duan_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)
-    _duan_builtin.字典包含键 = lambda d, k: k in d
-    _duan_builtin.字典键列表 = lambda d: list(d.keys())
-    _duan_builtin.字典值列表 = lambda d: list(d.values())
-    _duan_builtin.字典项列表 = lambda d: list(d.items())
-    _duan_builtin.字典删除 = lambda d, k: d.pop(k, None)
-    _duan_builtin.字符串长度 = len
-    _duan_builtin.字符串获取 = lambda s, i: s[i]
-    _duan_builtin.截取 = lambda s, start, end: s[start:end]
-    _duan_builtin.分割字符串 = lambda s, sep=' ': s.split(sep)
-    _duan_builtin.连接字符串 = lambda parts, sep='': sep.join(parts)
-    _duan_builtin.替换字符串 = lambda s, old, new: s.replace(old, new)
-    _duan_builtin.去除空白 = lambda s: s.strip()
-    _duan_builtin.列表排序 = lambda lst, reverse=False: lst.sort(reverse=reverse)
-    _duan_builtin.列表反转 = lambda lst: lst.reverse()
-    _duan_builtin.是整数 = lambda x: isinstance(x, int) and not isinstance(x, bool)
-    _duan_builtin.是浮点 = lambda x: isinstance(x, float)
-    _duan_builtin.是字符串 = lambda x: isinstance(x, str)
-    _duan_builtin.是列表 = lambda x: isinstance(x, list)
-    _duan_builtin.是字典 = lambda x: isinstance(x, dict)
-    _duan_builtin.是空 = lambda x: x is None
-    _duan_builtin.随机整数 = lambda a, b: __import__('random').randint(a, b)
-    _duan_builtin.随机浮点 = lambda: __import__('random').random()
-    _duan_builtin.随机选择 = lambda lst: __import__('random').choice(lst)
-    _duan_builtin._读文件 = lambda path: open(path, 'r', encoding='utf-8').read()
-    _duan_builtin.范围 = lambda *args: list(range(*args))
-    _duan_builtin.绝对值 = abs
-    _duan_builtin.求和 = sum
-    _duan_builtin.排序 = sorted
-    _duan_builtin.反转 = lambda lst: list(reversed(lst))
-    _duan_builtin.长度 = len
-    _duan_builtin.类型 = lambda x: type(x).__name__
-    return _duan_builtin
+def _setup_light_builtin():
+    _light_builtin = types.ModuleType('_light_builtin')
+    _light_builtin.打印 = print
+    _light_builtin.输出 = print
+    _light_builtin.转字符串 = str
+    _light_builtin.转整数 = int
+    _light_builtin.转浮点 = float
+    _light_builtin.列表创建 = list
+    _light_builtin.列表长度 = len
+    _light_builtin.列表获取 = lambda lst, i: lst[i]
+    _light_builtin.列表追加 = lambda lst, item: lst.append(item)
+    _light_builtin.列表弹出 = lambda lst: lst.pop()
+    _light_builtin.列表包含 = lambda lst, item: item in lst
+    _light_builtin.字典创建 = dict
+    _light_builtin.字典设置 = lambda d, k, v: d.update({k: v})
+    _light_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)
+    _light_builtin.字典包含键 = lambda d, k: k in d
+    _light_builtin.字典键列表 = lambda d: list(d.keys())
+    _light_builtin.字典值列表 = lambda d: list(d.values())
+    _light_builtin.字典项列表 = lambda d: list(d.items())
+    _light_builtin.字典删除 = lambda d, k: d.pop(k, None)
+    _light_builtin.字符串长度 = len
+    _light_builtin.字符串获取 = lambda s, i: s[i]
+    _light_builtin.截取 = lambda s, start, end: s[start:end]
+    _light_builtin.分割字符串 = lambda s, sep=' ': s.split(sep)
+    _light_builtin.连接字符串 = lambda parts, sep='': sep.join(parts)
+    _light_builtin.替换字符串 = lambda s, old, new: s.replace(old, new)
+    _light_builtin.去除空白 = lambda s: s.strip()
+    _light_builtin.列表排序 = lambda lst, reverse=False: lst.sort(reverse=reverse)
+    _light_builtin.列表反转 = lambda lst: lst.reverse()
+    _light_builtin.是整数 = lambda x: isinstance(x, int) and not isinstance(x, bool)
+    _light_builtin.是浮点 = lambda x: isinstance(x, float)
+    _light_builtin.是字符串 = lambda x: isinstance(x, str)
+    _light_builtin.是列表 = lambda x: isinstance(x, list)
+    _light_builtin.是字典 = lambda x: isinstance(x, dict)
+    _light_builtin.是空 = lambda x: x is None
+    _light_builtin.随机整数 = lambda a, b: __import__('random').randint(a, b)
+    _light_builtin.随机浮点 = lambda: __import__('random').random()
+    _light_builtin.随机选择 = lambda lst: __import__('random').choice(lst)
+    _light_builtin._读文件 = lambda path: open(path, 'r', encoding='utf-8').read()
+    _light_builtin.范围 = lambda *args: list(range(*args))
+    _light_builtin.绝对值 = abs
+    _light_builtin.求和 = sum
+    _light_builtin.排序 = sorted
+    _light_builtin.反转 = lambda lst: list(reversed(lst))
+    _light_builtin.长度 = len
+    _light_builtin.类型 = lambda x: type(x).__name__
+    return _light_builtin
 
 
 def main():
@@ -63,8 +63,8 @@ def main():
     with open(gen_path, 'r', encoding='utf-8') as f:
         gen_code = f.read()
 
-    _duan_builtin = _setup_duan_builtin()
-    namespace = {'_duan_builtin': _duan_builtin}
+    _light_builtin = _setup_light_builtin()
+    namespace = {'_light_builtin': _light_builtin}
     exec(gen_code, namespace)
 
     # 测试用例：模仿 gen_stmt 的复杂结构

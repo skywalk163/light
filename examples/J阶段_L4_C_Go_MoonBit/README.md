@@ -4,7 +4,7 @@
 
 ## 概述
 
-J 阶段使段言的 L4 外语引用层支持 C、Go、MoonBit 三种语言的**真实编译调用**，而不仅仅是注释保留。
+J 阶段使光明的 L4 外语引用层支持 C、Go、MoonBit 三种语言的**真实编译调用**，而不仅仅是注释保留。
 
 | 语言 | 关键字 | 实现机制 | 运行环境要求 |
 |------|--------|----------|-------------|
@@ -16,7 +16,7 @@ J 阶段使段言的 L4 外语引用层支持 C、Go、MoonBit 三种语言的**
 
 ### J1：C 快速求和
 
-```段言
+```光明
 引 C:
     double 快速求和(double* arr, int n) {
         double s = 0.0;
@@ -26,11 +26,11 @@ J 阶段使段言的 L4 外语引用层支持 C、Go、MoonBit 三种语言的**
 打印 快速求和(1,2,3,4,5)    # 15.0
 ```
 
-→ `run: duan run examples/J阶段_L4_C_Go_MoonBit/J1_C_快速求和.duan`
+→ `run: light run examples/J阶段_L4_C_Go_MoonBit/J1_C_快速求和.light`
 
 ### J2：Go 斐波那契 + 求和
 
-```段言
+```光明
 引 Go:
     //export 斐波那契
     func 斐波那契(n int) int {
@@ -40,11 +40,11 @@ J 阶段使段言的 L4 外语引用层支持 C、Go、MoonBit 三种语言的**
 打印 斐波那契(10)    # 55
 ```
 
-→ `run: duan run examples/J阶段_L4_C_Go_MoonBit/J2_Go_斐波那契.duan`
+→ `run: light run examples/J阶段_L4_C_Go_MoonBit/J2_Go_斐波那契.light`
 
 ### J3：MoonBit 快速排序
 
-```段言
+```光明
 引 MoonBit:
     fn main {
         let arr = [3, 1, 4, 1, 5, 9, 2, 6]
@@ -53,7 +53,7 @@ J 阶段使段言的 L4 外语引用层支持 C、Go、MoonBit 三种语言的**
     }
 ```
 
-→ `run: duan run examples/J阶段_L4_C_Go_MoonBit/J3_MoonBit_快速排序.duan`
+→ `run: light run examples/J阶段_L4_C_Go_MoonBit/J3_MoonBit_快速排序.light`
 
 ## 技术细节
 

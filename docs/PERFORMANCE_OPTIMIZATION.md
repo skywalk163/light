@@ -1,4 +1,4 @@
-# 段言编译器性能优化报告
+# 光明编译器性能优化报告
 
 ## 性能测试结果
 
@@ -142,7 +142,7 @@ class BinaryOp(ASTNode):
 ```python
 from functools import lru_cache
 
-class DuanParser:
+class LightParser:
     @lru_cache(maxsize=100)
     def _parse_expression_cached(self, expr_str):
         return self._parse_expression(expr_str)
@@ -333,7 +333,7 @@ tracemalloc.stop()
 
 ## 结论
 
-段言编译器当前性能已经非常优秀（🌟🌟🌟），简单代码编译时间 < 0.1 ms。
+光明编译器当前性能已经非常优秀（🌟🌟🌟），简单代码编译时间 < 0.1 ms。
 
 通过实施上述优化方案，预期可以将性能提升 20-30%，内存占用减少 30-40%。
 

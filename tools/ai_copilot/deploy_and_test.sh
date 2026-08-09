@@ -1,17 +1,17 @@
 #!/bin/bash
-# 段言翻译器 — ollama 部署 + 测试脚本
+# 光明翻译器 — ollama 部署 + 测试脚本
 # 在 192.168.0.88 上执行
 # 用法: bash deploy_and_test.sh
 
 set -e
 
-MODEL_DIR="/home/skywalk/Downloads/kaggle/working/duan/tools/ai_copilot/output/duan_translator_merged_3.5_2b"
-GGUF_FILE="duan_translator_q4_k_m.gguf"
-MODEL_NAME="duan-translator"
+MODEL_DIR="/home/skywalk/Downloads/kaggle/working/light/tools/ai_copilot/output/light_translator_merged_3.5_2b"
+GGUF_FILE="light_translator_q4_k_m.gguf"
+MODEL_NAME="light-translator"
 OLLAMA_HOST="127.0.0.1:11434"
 
 echo "================================================"
-echo "段言翻译器 — ollama 部署脚本"
+echo "光明翻译器 — ollama 部署脚本"
 echo "================================================"
 echo "  模型目录: $MODEL_DIR"
 echo "  GGUF 文件: $GGUF_FILE"
@@ -54,7 +54,7 @@ echo ""
 echo "[3/5] 生成 Modelfile..."
 MODELFILE="$MODEL_DIR/Modelfile.fixed"
 cat > "$MODELFILE" << 'MODELFILE_EOF'
-FROM ./duan_translator_q4_k_m.gguf
+FROM ./light_translator_q4_k_m.gguf
 
 TEMPLATE """{{ if .System }}<|im_start|>system
 {{ .System }}<|im_end|>
@@ -63,7 +63,7 @@ TEMPLATE """{{ if .System }}<|im_start|>system
 {{ end }}<|im_start|>assistant
 """
 
-SYSTEM """你是段言（DuanLang）编程语言 v3.2 的翻译专家。段言是一种中文编程语言，使用中文关键字。你的任务是将 Python 代码翻译为段言 v3.2 代码。
+SYSTEM """你是光明（LightLang）编程语言 v3.2 的翻译专家。光明是一种中文编程语言，使用中文关键字。你的任务是将 Python 代码翻译为光明 v3.2 代码。
 关键规则：
 - 变量赋值: 设 x 为 10
 - 字符串赋值: 定义 s 等于 "hello"
@@ -102,7 +102,7 @@ SYSTEM """你是段言（DuanLang）编程语言 v3.2 的翻译专家。段言�
 - 文件读取: 读取文件("file.txt")
 - 文件写入: 打开文件("file.txt", "w")
 - 装饰器: @标注名 标注
-只输出段言代码，不要解释。"""
+只输出光明代码，不要解释。"""
 
 PARAMETER temperature 0.1
 PARAMETER top_p 0.9
@@ -137,8 +137,8 @@ test_case() {
     echo "Python:"
     echo "$python_code"
     echo ""
-    echo "段言翻译:"
-    ollama run "$MODEL_NAME" "将以下Python代码翻译为段言v3.2代码：
+    echo "光明翻译:"
+    ollama run "$MODEL_NAME" "将以下Python代码翻译为光明v3.2代码：
 
 $python_code" 2>&1
     echo ""

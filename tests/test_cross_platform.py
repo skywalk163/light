@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器 - 跨平台兼容性测试
+光明编译器 - 跨平台兼容性测试
 
 验证编译器在 Windows、Linux、macOS 上的行为一致性。
 重点测试：
@@ -97,7 +97,7 @@ class TestCrossPlatformEncoding(unittest.TestCase):
 
     def test_utf8_bom_reading(self):
         """测试 UTF-8 BOM 文件读取"""
-        content = "你好，段言！\n"
+        content = "你好，光明！\n"
         bom = b'\xef\xbb\xbf'
         with tempfile.NamedTemporaryFile(mode='wb', delete=False) as f:
             f.write(bom + content.encode('utf-8'))
@@ -108,13 +108,13 @@ class TestCrossPlatformEncoding(unittest.TestCase):
             # 使用 utf-8-sig 读取 BOM 头
             with open(fname, 'r', encoding='utf-8-sig') as f:
                 read_content = f.read()
-            self.assertEqual(read_content.strip(), '你好，段言！')
+            self.assertEqual(read_content.strip(), '你好，光明！')
         finally:
             os.unlink(fname)
 
     def test_utf8_without_bom(self):
         """测试无 BOM 的 UTF-8 文件读取"""
-        content = "Hello, Duan!\n"
+        content = "Hello, Light!\n"
         with tempfile.NamedTemporaryFile(mode='wb', delete=False) as f:
             f.write(content.encode('utf-8'))
             f.flush()
@@ -123,7 +123,7 @@ class TestCrossPlatformEncoding(unittest.TestCase):
         try:
             with open(fname, 'r', encoding='utf-8') as f:
                 read_content = f.read()
-            self.assertEqual(read_content.strip(), 'Hello, Duan!')
+            self.assertEqual(read_content.strip(), 'Hello, Light!')
         finally:
             os.unlink(fname)
 
@@ -226,7 +226,7 @@ class TestCrossPlatformCLI(unittest.TestCase):
     def test_encoding_cli(self):
         """测试命令行编码"""
         # 验证 Python 能正确处理 Unicode 输出
-        test_str = '段言测试'
+        test_str = '光明测试'
         result = subprocess.run(
             [sys.executable, '-c', f'print("{test_str}")'],
             capture_output=True, text=True
@@ -277,19 +277,19 @@ class TestCrossPlatformStdlib(unittest.TestCase):
         if 失败模块:
             self.fail(f"以下模块导入失败:\n" + '\n'.join(失败模块))
 
-    def test_stdlib_duan_files_exist(self):
-        """验证 .duan 文件与 .py 文件对应"""
+    def test_stdlib_light_files_exist(self):
+        """验证 .light 文件与 .py 文件对应"""
         stdlib_dir = os.path.join(os.path.dirname(__file__), '..', 'stdlib')
         py_files = set()
-        duan_files = set()
+        light_files = set()
         for f in os.listdir(stdlib_dir):
             if f.endswith('.py') and f != '__init__.py' and f != 'builtins.py':
                 py_files.add(f[:-3])
-            elif f.endswith('.duan'):
-                duan_files.add(f[:-5])
-        # 检查 .py 文件是否有对应的 .duan 文件
-        missing_duan = py_files - duan_files
-        if missing_duan:
+            elif f.endswith('.light'):
+                light_files.add(f[:-5])
+        # 检查 .py 文件是否有对应的 .light 文件
+        missing_light = py_files - light_files
+        if missing_light:
             # 部分模块可能只有 .py，这是允许的
             pass
 
@@ -315,7 +315,7 @@ class TestCrossPlatformUnicode(unittest.TestCase):
 
     def test_unicode_path_in_stdlib(self):
         """测试标准库路径中的 Unicode 支持"""
-        test_path = '段言/测试/文件.duan'
+        test_path = '光明/测试/文件.light'
         normalized = os.path.normpath(test_path)
         self.assertIsInstance(normalized, str)
 

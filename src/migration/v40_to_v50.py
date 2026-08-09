@@ -2,7 +2,7 @@
 """
 v4.0 → v5.x 代码迁移工具
 
-将 v4.0 段言代码迁移到 v5.x 语法。
+将 v4.0 光明代码迁移到 v5.x 语法。
 主要变更：
 - 类型注解语法增强（支持泛型注解）
 - 模块系统更新（导入语法增强）
@@ -82,11 +82,11 @@ class MigrationV40ToV50:
         return result
 
     def migrate_directory(self, dir_path: str) -> Dict[str, str]:
-        """迁移目录中的所有 .duan 文件"""
+        """迁移目录中的所有 .light 文件"""
         results = {}
         base = Path(dir_path)
 
-        for f in base.rglob('*.duan'):
+        for f in base.rglob('*.light'):
             try:
                 result = self.migrate_file(str(f))
                 results[str(f)] = result

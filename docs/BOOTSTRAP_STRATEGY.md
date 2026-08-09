@@ -1,8 +1,8 @@
-# 段言自举策略和路线图
+# 光明自举策略和路线图
 
 **日期**: 2026-08-06  
 **版本**: v1.5.0  
-**目标**: 用段言重写段言编译器，实现真正的自举
+**目标**: 用光明重写光明编译器，实现真正的自举
 
 ---
 
@@ -14,15 +14,15 @@
 
 **三个层次**：
 1. **伪自举** - 代码中大量使用Python代码块
-2. **部分自举** - 核心逻辑用段言实现，少量依赖内置函数
-3. **完全自举** - 编译器完全用段言实现，能编译自己
+2. **部分自举** - 核心逻辑用光明实现，少量依赖内置函数
+3. **完全自举** - 编译器完全用光明实现，能编译自己
 
 ### 1.2 我们的目标
 
 **目标**：实现**部分自举**
-- 编译器核心逻辑用段言实现
+- 编译器核心逻辑用光明实现
 - 依赖标准库提供的基础函数（文件I/O、列表操作等）
-- 能够编译一个简化版的段言程序
+- 能够编译一个简化版的光明程序
 - 最终能够编译自己
 
 ---
@@ -33,7 +33,7 @@
 
 ```
 Level 3：自举编译器 v1（已完成）
-  ├── bootstrap_level3.duan  - 段言自举编译器源码
+  ├── bootstrap_level3.light  - 光明自举编译器源码
   ├── level3_generated.py    - Python 手动实现
   ├── 三次自举一致性验证通过
   └── 支持：变量、函数、控制流、类、列表操作
@@ -45,7 +45,7 @@ Level 4：面向对象增强（已完成）
 
 Level 5：异常处理 + 模块系统（已完成）
   ├── level5_generated.py    - 异常处理 + 模块系统
-  ├── bootstrap_level5.duan  - 段言自举编译器源码
+  ├── bootstrap_level5.light  - 光明自举编译器源码
   ├── 异常处理：尝试/捕获/最终/抛出
   ├── 模块系统：导入/导出/内联/搜索路径
   └── 测试：test_level5_exception.py + test_level5_module.py
@@ -68,7 +68,7 @@ Level 7：类型注解系统 + 自举收敛验证（已完成）
   ├── 自举验证：18 用例全部通过（4 个相位）
   ├── 回归测试：86 用例全部通过（Level 5/6/7）
   ├── 完整自举收敛：三次编译完全一致（第 2、3 轮 40KB 输出一致）
-  └── CLI 入口：duan7.exe（6.99 MB，独立可执行文件）
+  └── CLI 入口：light7.exe（6.99 MB，独立可执行文件）
 ```
 
 ### 2.2 当前架构
@@ -78,10 +78,10 @@ Level 7：类型注解系统 + 自举收敛验证（已完成）
 │                Bootstrap 编译器                    │
 │  ┌──────────┐  ┌──────────┐  ┌──────────────┐    │
 │  │ lexer    │→ │ parser   │→ │ codegen      │    │
-│  │ .duan    │  │ .duan    │  │ .duan        │    │
+│  │ .light    │  │ .light    │  │ .light        │    │
 │  └──────────┘  └──────────┘  └──────────────┘    │
 │                      ↑                            │
-│                 compiler.duan                     │
+│                 compiler.light                     │
 │                  (协调器)                          │
 └──────────────────────────────────────────────────┘
          ↑                    ↓
@@ -93,7 +93,7 @@ Level 7：类型注解系统 + 自举收敛验证（已完成）
 
 所有 bootstrap 代码使用 **ANTLR 规范语法**：
 
-```段言
+```光明
 段落 函数名 接收 参数1, 参数2：
   定义 result 等于 表达式。
   返回 result。
@@ -114,7 +114,7 @@ Level 7：类型注解系统 + 自举收敛验证（已完成）
 
 ```
 阶段1：bootstrap 编译器实现 ✅
-  ├── 用段言编写编译器核心组件
+  ├── 用光明编写编译器核心组件
   ├── 在 ANTLR 解释器上运行
   └── 验证代码生成逻辑正确
 
@@ -137,18 +137,18 @@ Level 7：类型注解系统 + 自举收敛验证（已完成）
 
 | 模块 | 功能 | 状态 |
 |------|------|------|
-| `token.duan` | Token类型定义、关键字检查、符号映射 | ✅ 完成 |
-| `duan_ast.duan` | AST节点构造函数（program, paragraph_def, var_decl等） | ✅ 完成 |
-| `lexer.duan` | 词法分析（关键字、标识符、数字、字符串、符号、缩进） | ✅ 完成 |
-| `parser.duan` | 递归下降语法分析（变量声明、赋值、条件、循环、函数定义） | ✅ 完成 |
-| `codegen.duan` | Python代码生成（表达式、语句、函数、内置映射） | ✅ 完成 |
-| `compiler.duan` | 编译管道协调（compile_source, compile_file） | ✅ 完成 |
-| `main.duan` | CLI入口 | ✅ 完成 |
+| `token.light` | Token类型定义、关键字检查、符号映射 | ✅ 完成 |
+| `light_ast.light` | AST节点构造函数（program, paragraph_def, var_decl等） | ✅ 完成 |
+| `lexer.light` | 词法分析（关键字、标识符、数字、字符串、符号、缩进） | ✅ 完成 |
+| `parser.light` | 递归下降语法分析（变量声明、赋值、条件、循环、函数定义） | ✅ 完成 |
+| `codegen.light` | Python代码生成（表达式、语句、函数、内置映射） | ✅ 完成 |
+| `compiler.light` | 编译管道协调（compile_source, compile_file） | ✅ 完成 |
+| `main.light` | CLI入口 | ✅ 完成 |
 | `run_compiler.py` | Python端运行器 | ✅ 完成 |
 | `level7_generated.py` | Level 7 编译器（无空格分词 + 纯缩进 + 类型注解） | ✅ 完成 |
 | `level7_self_compiled.py` | 自举编译输出（第 1 轮，39KB） | ✅ 生成 |
 | `level7_self_compiled2.py` | 自举编译输出（第 2 轮，40KB，收敛） | ✅ 生成 |
-| `duan7.exe` | 独立可执行文件（6.99 MB） | ✅ 生成 |
+| `light7.exe` | 独立可执行文件（6.99 MB） | ✅ 生成 |
 
 ---
 
@@ -158,7 +158,7 @@ Level 7：类型注解系统 + 自举收敛验证（已完成）
 
 使用字典表示：
 
-```段言
+```光明
 # 创建令牌
 段落 创建令牌 接收 种别, 值, 横, 纵：
   定义 令牌 等于 《字典创建》()。
@@ -174,7 +174,7 @@ Level 7：类型注解系统 + 自举收敛验证（已完成）
 
 使用列表（数组）表示，节点类型为第一个元素：
 
-```段言
+```光明
 # 示例：变量声明节点
 ["var_decl", "名称", ["number", "42"]]
 
@@ -190,13 +190,13 @@ Level 7：类型注解系统 + 自举收敛验证（已完成）
 
 ### 5.1 编译器API
 
-```段言
+```光明
 compile_source(source: 字符串) → 字符串
-  # 输入：段言源代码
+  # 输入：光明源代码
   # 输出：Python 代码
 
 compile_file(filepath: 字符串) → 字符串
-  # 输入：段言源代码文件路径
+  # 输入：光明源代码文件路径
   # 输出：Python 代码
 ```
 
@@ -204,15 +204,15 @@ compile_file(filepath: 字符串) → 字符串
 
 ```bash
 # 方式1：使用 Python runner（推荐）
-python bootstrap/run_compiler.py <source.duan> [output.py]
+python bootstrap/run_compiler.py <source.light> [output.py]
 
 # 方式2：运行测试
 python bootstrap/test_bootstrap_pipeline.py
 
 # 方式3：直接通过 ANTLR 解释器
 python -c "
-from duan_interpreter import run_source
-interp = run_source(open('bootstrap/compiler.duan').read())
+from light_interpreter import run_source
+interp = run_source(open('bootstrap/compiler.light').read())
 # 然后调用 interp.env.get('compile_source') 等
 "
 ```
@@ -221,9 +221,9 @@ interp = run_source(open('bootstrap/compiler.duan').read())
 
 ## 六、下一步工作
 
-1. **Level 7 完整自举验证已完成** ✅ — `level7_generated.py` 成功编译 `bootstrap_level5.duan`，三次编译收敛（第 2、3 轮完全一致）
+1. **Level 7 完整自举验证已完成** ✅ — `level7_generated.py` 成功编译 `bootstrap_level5.light`，三次编译收敛（第 2、3 轮完全一致）
 2. **LLVM 后端集成**：将自举编译器生成的代码通过 LLVM 编译为原生可执行文件
-3. **P3 特性集成到 CLI 已完成** ✅ — `duan7.exe` 已生成，包含单行块、运算符符号别名、反引号标识符支持
+3. **P3 特性集成到 CLI 已完成** ✅ — `light7.exe` 已生成，包含单行块、运算符符号别名、反引号标识符支持
 
 ---
 
@@ -245,8 +245,8 @@ python bootstrap/test_bootstrap_pipeline.py
 
 ### 7.2 测试用例
 
-`test_simple.duan`:
-```段言
+`test_simple.light`:
+```光明
 设 x 为 42。
 打印 x。
 ```
@@ -254,7 +254,7 @@ python bootstrap/test_bootstrap_pipeline.py
 编译后生成：
 ```python
 x = 42
-_duan_builtin.打印(x)
+_light_builtin.打印(x)
 ```
 
 执行输出：`42`
@@ -264,7 +264,7 @@ _duan_builtin.打印(x)
 ## 八、技术要点
 
 1. **一致性**：所有 bootstrap 代码使用 `列表` 前缀（而非 `列`），确保代码生成映射正确
-2. **映射表**：`map_builtin` 函数将段言内置函数名映射到 `_duan_builtin.*`
+2. **映射表**：`map_builtin` 函数将光明内置函数名映射到 `_light_builtin.*`
 3. **缩进处理**：使用缩进栈生成 INDENT/DEDENT 令牌
 4. **先匹配长关键字**：词法分析器优先匹配较长关键字（如 `否则若` 优先于 `否则`）
 ---
@@ -273,8 +273,8 @@ _duan_builtin.打印(x)
 
 ### 9.1 概述
 
-Level 3 编译器是用段言自身编写的自举编译器，实现了**真正的二次自举**：
-- 编译器源码：`bootstrap/bootstrap_level3.duan`
+Level 3 编译器是用光明自身编写的自举编译器，实现了**真正的二次自举**：
+- 编译器源码：`bootstrap/bootstrap_level3.light`
 - 第一次自举输出：`bootstrap/level3_self_compiled.py`
 - 第二次自举输出：`bootstrap/level3_self_compiled2.py`
 - 稳定性验证：第二次与第三次自举输出**完全一致**
@@ -344,9 +344,9 @@ Level 3 编译器是用段言自身编写的自举编译器，实现了**真正�
 
 **验证方法**：三次自举一致性测试
 
-1. 用 Python 手动实现的编译器（level3_generated.py）编译 bootstrap_level3.duan -> level3_self_compiled.py
-2. 用 level3_self_compiled.py 编译 bootstrap_level3.duan -> level3_self_compiled2.py
-3. 用 level3_self_compiled2.py 编译 bootstrap_level3.duan -> level3_self_compiled3.py
+1. 用 Python 手动实现的编译器（level3_generated.py）编译 bootstrap_level3.light -> level3_self_compiled.py
+2. 用 level3_self_compiled.py 编译 bootstrap_level3.light -> level3_self_compiled2.py
+3. 用 level3_self_compiled2.py 编译 bootstrap_level3.light -> level3_self_compiled3.py
 4. 验证 level3_self_compiled2.py 与 level3_self_compiled3.py **完全相同**
 
 **验证结果**：通过，二次自举稳定。
@@ -367,7 +367,7 @@ Level 3 编译器是用段言自身编写的自举编译器，实现了**真正�
 
 Level 5 编译器在 Level 4 面向对象的基础上，增加了**异常处理**和**模块系统**两大特性：
 
-- 编译器源码：`bootstrap/bootstrap_level5.duan`
+- 编译器源码：`bootstrap/bootstrap_level5.light`
 - Python 手动实现：`bootstrap/level5_generated.py`
 - 模块预处理器：`bootstrap/module_preprocessor.py`
 
@@ -679,13 +679,13 @@ Phase 4: 自举收敛性（3 用例）
 成功使用 Level 7 编译器实现了完整的自举管道：
 
 ```
-Step 1: level7_generated.py 编译 bootstrap_level5.duan
+Step 1: level7_generated.py 编译 bootstrap_level5.light
         → level7_self_compiled.py (39,270 字节)
 
-Step 2: level7_self_compiled.py 编译 bootstrap_level5.duan
+Step 2: level7_self_compiled.py 编译 bootstrap_level5.light
         → level7_self_compiled2.py (40,093 字节)
 
-Step 3: level7_self_compiled2.py 编译 bootstrap_level5.duan
+Step 3: level7_self_compiled2.py 编译 bootstrap_level5.light
         → level7_self_compiled3.py (40,093 字节)
 
 验证: level7_self_compiled2.py == level7_self_compiled3.py ✅
@@ -695,13 +695,13 @@ Step 3: level7_self_compiled2.py 编译 bootstrap_level5.duan
 
 | 轮次 | 编译器 | 源码 | 输出 | 大小 |
 |------|--------|------|------|------|
-| 1 | `level7_generated.py` | `bootstrap_level5.duan` | `level7_self_compiled.py` | 39,270 字节 |
-| 2 | `level7_self_compiled.py` | `bootstrap_level5.duan` | `level7_self_compiled2.py` | 40,093 字节 |
-| 3 | `level7_self_compiled2.py` | `bootstrap_level5.duan` | `level7_self_compiled3.py` | 40,093 字节 |
+| 1 | `level7_generated.py` | `bootstrap_level5.light` | `level7_self_compiled.py` | 39,270 字节 |
+| 2 | `level7_self_compiled.py` | `bootstrap_level5.light` | `level7_self_compiled2.py` | 40,093 字节 |
+| 3 | `level7_self_compiled2.py` | `bootstrap_level5.light` | `level7_self_compiled3.py` | 40,093 字节 |
 | **收敛** | 第 2 轮 == 第 3 轮 | — | **完全一致** | ✅ |
 
 #### 12.8.3 关键发现
 
 - 第 1 轮与第 2 轮输出不同是**预期行为**：第 1 轮由 Level 7 编译器生成，包含 `类型检查开启 = 假` 头注释；第 2 轮由自举生成的编译器生成，使用 Level 4 风格头注释
 - 第 2 轮与第 3 轮输出**完全一致**，证明自举收敛
-- `bootstrap_level5.duan` 虽然使用 Level 4 语法（空格分隔、`结束` 关键字），但 Level 7 的无空格分词器能够正确处理其中的空格分隔语法，兼容性良好
+- `bootstrap_level5.light` 虽然使用 Level 4 语法（空格分隔、`结束` 关键字），但 Level 7 的无空格分词器能够正确处理其中的空格分隔语法，兼容性良好

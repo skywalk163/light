@@ -2,8 +2,8 @@
 第十一阶段测试用例 - 安全与权限
 """
 import sys
-sys.path.insert(0, 'c:/dumatework/duan/stdlib')
-sys.path.insert(0, 'c:/dumatework/duan/contrib')
+sys.path.insert(0, 'c:/dumatework/light/stdlib')
+sys.path.insert(0, 'c:/dumatework/light/contrib')
 
 import unittest
 import time

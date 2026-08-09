@@ -1,16 +1,16 @@
 """
-段言 SFT 训练集构造器
+光明 SFT 训练集构造器
 
-为 ERNIE-4.5-0.3B 微调生成 Python→段言 翻译对照数据。
+为 ERNIE-4.5-0.3B 微调生成 Python→光明 翻译对照数据。
 输出 JSONL 格式，符合 ERNIEKit SFT 规范。
 
 数据来源：
   1. 手工编写的高质量 v3.2 对照对（核心，按语法类别系统覆盖）
-  2. 从 examples/ 目录 .duan 文件提取（需标注是否旧语法）
+  2. 从 examples/ 目录 .light 文件提取（需标注是否旧语法）
   3. 变体扩充：对每条基础对照对做等价变换，扩充训练规模
 
 注意：
-  段言 v3.2 有两套语法风格并存：
+  光明 v3.2 有两套语法风格并存：
   - 新语法（SRC 后端）：设/段落...接收/遍历...于...至/加/减/取余
   - 旧语法（ANTLR）：变量/段落。参数。/结束。/模
   本脚本统一使用 v3.2 新语法（SRC 后端），因为这是当前默认后端。
@@ -31,8 +31,8 @@ from typing import List, Dict
 _PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # ═══════════════════════════════════════════════════════════════════
-# 手工对照对：Python → 段言 v3.2（新语法/SRC后端）
-# 每条 = (category, python_code, duan_code)
+# 手工对照对：Python → 光明 v3.2（新语法/SRC后端）
+# 每条 = (category, python_code, light_code)
 # ═══════════════════════════════════════════════════════════════════
 
 _HANDCRAFTED: List[tuple] = [
@@ -394,36 +394,36 @@ def _expand_variants(pairs: List[tuple]) -> List[tuple]:
     ]
 
     for name_map in name_maps:
-        for cat, py, duan in pairs:
+        for cat, py, light in pairs:
             # 只对变量名含英文的短片段做变体
             if len(py) > 200:
                 continue
 
             py_cn = py
-            duan_cn = duan
+            light_cn = light
             changed = False
 
             for en, cn in name_map.items():
                 # 简单的全词替换
                 if re.search(r'\b' + re.escape(en) + r'\b', py_cn):
                     py_cn = re.sub(r'\b' + re.escape(en) + r'\b', cn, py_cn)
-                    # 段言端：对应的变量名
-                    duan_cn = re.sub(r'\b' + re.escape(en) + r'\b', cn, duan_cn)
+                    # 光明端：对应的变量名
+                    light_cn = re.sub(r'\b' + re.escape(en) + r'\b', cn, light_cn)
                     changed = True
 
             if changed:
-                expanded.append((cat, py_cn, duan_cn))
+                expanded.append((cat, py_cn, light_cn))
 
     # 指令倍增：对每条数据用2种不同指令各生成一条
     # （最终每条基础数据会有 ~2 条不同指令的副本）
     doubled = []
-    for cat, py, duan in pairs:
-        doubled.append((cat, py, duan))
+    for cat, py, light in pairs:
+        doubled.append((cat, py, light))
     # 不做额外复制，因为 build_dataset 已经用 random.choice 选指令了
     # 但我们可以对非暗坑类数据各生成一条"指令不同"的副本
-    for cat, py, duan in pairs:
+    for cat, py, light in pairs:
         if cat != "暗坑" and len(py) > 0:
-            doubled.append((cat, py, duan))
+            doubled.append((cat, py, light))
 
     return expanded + doubled
 
@@ -433,9 +433,9 @@ def _expand_variants(pairs: List[tuple]) -> List[tuple]:
 # ═══════════════════════════════════════════════════════════════════
 
 def _extract_from_examples() -> List[tuple]:
-    """从 examples/ 目录的 .duan 文件提取代码片段
+    """从 examples/ 目录的 .light 文件提取代码片段
 
-    注意：部分 .duan 文件使用旧语法，需要标注但不用于核心训练
+    注意：部分 .light 文件使用旧语法，需要标注但不用于核心训练
     """
     examples_dir = os.path.join(_PROJECT_DIR, 'examples')
     pairs = []
@@ -444,7 +444,7 @@ def _extract_from_examples() -> List[tuple]:
         return pairs
 
     for fname in sorted(os.listdir(examples_dir)):
-        if not fname.endswith('.duan'):
+        if not fname.endswith('.light'):
             continue
         filepath = os.path.join(examples_dir, fname)
         with open(filepath, 'r', encoding='utf-8') as f:
@@ -460,7 +460,7 @@ def _extract_from_examples() -> List[tuple]:
         is_new_syntax = any(kw in content for kw in ['接收', '遍历', '设 '])
 
         if is_new_syntax and not is_old_syntax:
-            pairs.append(("示例-" + fname.replace('.duan', ''), "", content))
+            pairs.append(("示例-" + fname.replace('.light', ''), "", content))
 
     return pairs
 
@@ -470,16 +470,16 @@ def _extract_from_examples() -> List[tuple]:
 # ═══════════════════════════════════════════════════════════════════
 
 _INSTRUCTIONS = [
-    "将以下Python代码翻译为段言v3.2代码。",
-    "请把下面的Python代码转换成段言语法。",
-    "翻译：将Python代码改写为段言代码。",
-    "用段言v3.2语法重写以下Python代码。",
-    "将Python翻译成段言。",
-    "将Python代码转为段言代码：",
-    "请将以下代码翻译为段言：",
-    "Python→段言翻译：",
-    "用段言语法表达以下Python代码：",
-    "将下面的Python改写成段言v3.2：",
+    "将以下Python代码翻译为光明v3.2代码。",
+    "请把下面的Python代码转换成光明语法。",
+    "翻译：将Python代码改写为光明代码。",
+    "用光明v3.2语法重写以下Python代码。",
+    "将Python翻译成光明。",
+    "将Python代码转为光明代码：",
+    "请将以下代码翻译为光明：",
+    "Python→光明翻译：",
+    "用光明语法表达以下Python代码：",
+    "将下面的Python改写成光明v3.2：",
 ]
 
 
@@ -501,12 +501,12 @@ def build_dataset(output_path: str = None) -> List[Dict]:
 
     # 2. 转换为 JSONL 格式
     dataset = []
-    for cat, py_code, duan_code in all_pairs:
+    for cat, py_code, light_code in all_pairs:
         instruction = random.choice(_INSTRUCTIONS)
         dataset.append({
             "instruction": instruction,
             "input": py_code,
-            "output": duan_code,
+            "output": light_code,
             "category": cat,
         })
 
@@ -548,10 +548,10 @@ def print_stats(dataset: List[Dict]):
     print(f"输入长度: 最短 {min(input_lens)} / 最长 {max(input_lens)} / 平均 {sum(input_lens)//len(input_lens)}")
     print(f"输出长度: 最短 {min(output_lens)} / 最长 {max(output_lens)} / 平均 {sum(output_lens)//len(output_lens)}")
 
-    # 空输入条目（纯段言示例，无对应 Python）
+    # 空输入条目（纯光明示例，无对应 Python）
     no_input = sum(1 for item in dataset if not item['input'].strip())
     if no_input:
-        print(f"\n⚠ 无Python输入的条目: {no_input} 条（仅含段言端）")
+        print(f"\n⚠ 无Python输入的条目: {no_input} 条（仅含光明端）")
 
 
 if __name__ == "__main__":
@@ -559,7 +559,7 @@ if __name__ == "__main__":
         sys.stdout.reconfigure(encoding='utf-8')
 
     import argparse
-    parser = argparse.ArgumentParser(description='段言 SFT 训练集构造器')
+    parser = argparse.ArgumentParser(description='光明 SFT 训练集构造器')
     parser.add_argument('--output', '-o', default=None, help='输出 JSONL 文件路径')
     parser.add_argument('--stats', action='store_true', help='只显示统计信息')
     args = parser.parse_args()

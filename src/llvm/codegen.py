@@ -17,7 +17,7 @@ import ast_nodes as ast
 
 
 class LLVMCodeGen(LLVMCodeGenCore):
-    """段言 LLVM 代码生成器（string 模式，基础版）"""
+    """光明 LLVM 代码生成器（string 模式，基础版）"""
 
     def __init__(self):
         super().__init__()
@@ -120,7 +120,7 @@ class LLVMCodeGen(LLVMCodeGenCore):
         self._current_func = '__init__'
         self._local_vars.clear()
         self._pending_allocas = []
-        self.emit('define void @__duan_init() {')
+        self.emit('define void @__light_init() {')
         self.emit('entry:')
 
         self._collect_vars_from_stmts(self._module_statements)
@@ -173,7 +173,7 @@ class LLVMCodeGen(LLVMCodeGenCore):
     def _gen_main(self):
         self.emit('define i32 @main(i32 %argc, i8** %argv) {')
         self.emit('entry:')
-        self.emit('call void @__duan_init()')
+        self.emit('call void @__light_init()')
 
         has_top_level_call = False
         main_names = {'主程序', '主入口', 'main'}
@@ -341,9 +341,9 @@ class LLVMCodeGen(LLVMCodeGenCore):
         zero = self.gen_string_constant("")
         false_str = self.gen_string_constant("假")
         cmp = self.new_register()
-        self.emit(f'{cmp} = call i32 @duan_str_eq(i8* {cond_reg}, i8* {zero})')
+        self.emit(f'{cmp} = call i32 @light_str_eq(i8* {cond_reg}, i8* {zero})')
         false_cmp = self.new_register()
-        self.emit(f'{false_cmp} = call i32 @duan_str_eq(i8* {cond_reg}, i8* {false_str})')
+        self.emit(f'{false_cmp} = call i32 @light_str_eq(i8* {cond_reg}, i8* {false_str})')
         combined = self.new_register()
         self.emit(f'{combined} = or i32 {cmp}, {false_cmp}')
         final = self.new_register()
@@ -377,9 +377,9 @@ class LLVMCodeGen(LLVMCodeGenCore):
             self.emit(f'{eif_label}:')
             cond_reg, _ = self._gen_expression(eif_cond)
             cmp = self.new_register()
-            self.emit(f'{cmp} = call i32 @duan_str_eq(i8* {cond_reg}, i8* {zero})')
+            self.emit(f'{cmp} = call i32 @light_str_eq(i8* {cond_reg}, i8* {zero})')
             false_cmp = self.new_register()
-            self.emit(f'{false_cmp} = call i32 @duan_str_eq(i8* {cond_reg}, i8* {false_str})')
+            self.emit(f'{false_cmp} = call i32 @light_str_eq(i8* {cond_reg}, i8* {false_str})')
             combined = self.new_register()
             self.emit(f'{combined} = or i32 {cmp}, {false_cmp}')
             final = self.new_register()
@@ -413,7 +413,7 @@ class LLVMCodeGen(LLVMCodeGenCore):
         self.emit(f'store i32 0, i32* {idx_reg}')
 
         len_reg = self.new_register()
-        self.emit(f'{len_reg} = call i32 @duan_list_len(i8* {list_reg})')
+        self.emit(f'{len_reg} = call i32 @light_list_len(i8* {list_reg})')
 
         loop_label = self.new_label('foreach_loop')
         body_label = self.new_label('foreach_body')
@@ -433,7 +433,7 @@ class LLVMCodeGen(LLVMCodeGenCore):
 
         self.emit(f'{body_label}:')
         elem = self.new_register()
-        self.emit(f'{elem} = call i8* @duan_list_get(i8* {list_reg}, i32 {i})')
+        self.emit(f'{elem} = call i8* @light_list_get(i8* {list_reg}, i32 {i})')
         self.set_var(var_name, elem)
 
         for s in stmt.body:
@@ -464,9 +464,9 @@ class LLVMCodeGen(LLVMCodeGenCore):
         zero = self.gen_string_constant("")
         false_str = self.gen_string_constant("假")
         cmp1 = self.new_register()
-        self.emit(f'{cmp1} = call i32 @duan_str_eq(i8* {cond_reg}, i8* {zero})')
+        self.emit(f'{cmp1} = call i32 @light_str_eq(i8* {cond_reg}, i8* {zero})')
         cmp2 = self.new_register()
-        self.emit(f'{cmp2} = call i32 @duan_str_eq(i8* {cond_reg}, i8* {false_str})')
+        self.emit(f'{cmp2} = call i32 @light_str_eq(i8* {cond_reg}, i8* {false_str})')
         combined = self.new_register()
         self.emit(f'{combined} = or i32 {cmp1}, {cmp2}')
         final = self.new_register()
@@ -501,9 +501,9 @@ class LLVMCodeGen(LLVMCodeGenCore):
     def _gen_print(self, stmt):
         if stmt.value:
             reg, _ = self._gen_expression(stmt.value)
-            self.emit(f'call void @duan_println(i8* {reg})')
+            self.emit(f'call void @light_println(i8* {reg})')
         else:
-            self.emit('call void @duan_println(i8* null)')
+            self.emit('call void @light_println(i8* null)')
 
     def _gen_expression(self, expr):
         if expr is None:
@@ -555,13 +555,13 @@ class LLVMCodeGen(LLVMCodeGenCore):
             return var, 'i8*'
         if name in ('时间戳', '时间'):
             reg = self.new_register()
-            self.emit(f'{reg} = call double @duan_timestamp()')
+            self.emit(f'{reg} = call double @light_timestamp()')
             str_reg = self.new_register()
-            self.emit(f'{str_reg} = call i8* @duan_ftoa(double {reg})')
+            self.emit(f'{str_reg} = call i8* @light_ftoa(double {reg})')
             return str_reg, 'i8*'
         if name == '输入' or name == 'input':
             reg = self.new_register()
-            self.emit(f'{reg} = call i8* @duan_input()')
+            self.emit(f'{reg} = call i8* @light_input()')
             return reg, 'i8*'
         return self.gen_string_constant(""), 'i8*'
 
@@ -615,12 +615,12 @@ class LLVMCodeGen(LLVMCodeGenCore):
 
         if op == '+':
             reg = self.new_register()
-            self.emit(f'{reg} = call i8* @duan_concat(i8* {left_reg}, i8* {right_reg})')
+            self.emit(f'{reg} = call i8* @light_concat(i8* {left_reg}, i8* {right_reg})')
             return reg, 'i8*'
 
         if op == '连接':
             reg = self.new_register()
-            self.emit(f'{reg} = call i8* @duan_concat(i8* {left_reg}, i8* {right_reg})')
+            self.emit(f'{reg} = call i8* @light_concat(i8* {left_reg}, i8* {right_reg})')
             return reg, 'i8*'
 
         llvm_op = 'ADD'
@@ -642,9 +642,9 @@ class LLVMCodeGen(LLVMCodeGenCore):
             zero = self.gen_string_constant("")
             false_str = self.gen_string_constant("假")
             cmp1 = self.new_register()
-            self.emit(f'{cmp1} = call i32 @duan_str_eq(i8* {reg}, i8* {zero})')
+            self.emit(f'{cmp1} = call i32 @light_str_eq(i8* {reg}, i8* {zero})')
             cmp2 = self.new_register()
-            self.emit(f'{cmp2} = call i32 @duan_str_eq(i8* {reg}, i8* {false_str})')
+            self.emit(f'{cmp2} = call i32 @light_str_eq(i8* {reg}, i8* {false_str})')
             combined = self.new_register()
             self.emit(f'{combined} = or i32 {cmp1}, {cmp2}')
             true_str = self.gen_string_constant("真")
@@ -654,11 +654,11 @@ class LLVMCodeGen(LLVMCodeGenCore):
             return result, 'i8*'
         if expr.operator == '-':
             neg = self.new_register()
-            self.emit(f'{neg} = call i32 @duan_atoi(i8* {reg})')
+            self.emit(f'{neg} = call i32 @light_atoi(i8* {reg})')
             neg_val = self.new_register()
             self.emit(f'{neg_val} = sub i32 0, {neg}')
             result = self.new_register()
-            self.emit(f'{result} = call i8* @duan_itoa(i32 {neg_val})')
+            self.emit(f'{result} = call i8* @light_itoa(i32 {neg_val})')
             return result, 'i8*'
         return reg, rtype
 
@@ -708,20 +708,20 @@ class LLVMCodeGen(LLVMCodeGenCore):
 
         if method == '长度' or method == 'length' or method == 'len':
             reg = self.new_register()
-            self.emit(f'{reg} = call i32 @duan_list_len(i8* {obj_reg})')
+            self.emit(f'{reg} = call i32 @light_list_len(i8* {obj_reg})')
             str_reg = self.new_register()
-            self.emit(f'{str_reg} = call i8* @duan_itoa(i32 {reg})')
+            self.emit(f'{str_reg} = call i8* @light_itoa(i32 {reg})')
             return str_reg, 'i8*'
 
         if method == '追加' or method == 'append' or method == 'push':
             reg = self.new_register()
-            self.emit(f'{reg} = call i8* @duan_list_append(i8* {obj_reg}, i8* {args[0] if args else self.gen_string_constant("")})')
+            self.emit(f'{reg} = call i8* @light_list_append(i8* {obj_reg}, i8* {args[0] if args else self.gen_string_constant("")})')
             self.set_var(obj_name, reg)
             return reg, 'i8*'
 
         if method == '清空' or method == 'clear':
             reg = self.new_register()
-            self.emit(f'{reg} = call i8* @duan_list_clear(i8* {obj_reg})')
+            self.emit(f'{reg} = call i8* @light_list_clear(i8* {obj_reg})')
             self.set_var(obj_name, reg)
             return reg, 'i8*'
 
@@ -730,36 +730,36 @@ class LLVMCodeGen(LLVMCodeGenCore):
     def _gen_builtin_call(self, name, args):
         if name == '输出' or name == '打印':
             if args:
-                self.emit(f'call void @duan_println(i8* {args[0]})')
+                self.emit(f'call void @light_println(i8* {args[0]})')
             else:
-                self.emit('call void @duan_println(i8* null)')
+                self.emit('call void @light_println(i8* null)')
             return self.gen_string_constant(""), 'i8*'
 
         if name == '输入' or name == 'input':
             reg = self.new_register()
-            self.emit(f'{reg} = call i8* @duan_input()')
+            self.emit(f'{reg} = call i8* @light_input()')
             return reg, 'i8*'
 
         if name == '时间戳' or name == '时间':
             reg = self.new_register()
-            self.emit(f'{reg} = call double @duan_timestamp()')
+            self.emit(f'{reg} = call double @light_timestamp()')
             str_reg = self.new_register()
-            self.emit(f'{str_reg} = call i8* @duan_ftoa(double {reg})')
+            self.emit(f'{str_reg} = call i8* @light_ftoa(double {reg})')
             return str_reg, 'i8*'
 
         if name == '格式化时间':
             ts_reg = args[0] if args else self.gen_string_constant("0")
             fmt_reg = args[1] if len(args) > 1 else self.gen_string_constant("%Y-%m-%d %H:%M:%S")
             dbl = self.new_register()
-            self.emit(f'{dbl} = call double @duan_atof(i8* {ts_reg})')
+            self.emit(f'{dbl} = call double @light_atof(i8* {ts_reg})')
             reg = self.new_register()
-            self.emit(f'{reg} = call i8* @duan_format_time(double {dbl}, i8* {fmt_reg})')
+            self.emit(f'{reg} = call i8* @light_format_time(double {dbl}, i8* {fmt_reg})')
             return reg, 'i8*'
 
         if name == '文件存在':
             empty_str = args[0] if args else self.gen_string_constant("")
             reg = self.new_register()
-            self.emit(f'{reg} = call i32 @duan_file_exists(i8* {empty_str})')
+            self.emit(f'{reg} = call i32 @light_file_exists(i8* {empty_str})')
             cmp_reg = self.new_register()
             self.emit(f'{cmp_reg} = icmp ne i32 {reg}, 0')
             true_str = self.gen_string_constant("真")
@@ -770,28 +770,28 @@ class LLVMCodeGen(LLVMCodeGenCore):
 
         if name == '读取文件':
             reg = self.new_register()
-            self.emit(f'{reg} = call i8* @duan_read_file(i8* {args[0] if args else self.gen_string_constant("")})')
+            self.emit(f'{reg} = call i8* @light_read_file(i8* {args[0] if args else self.gen_string_constant("")})')
             return reg, 'i8*'
 
         if name == '写入文件':
-            self.emit(f'call void @duan_write_file(i8* {args[0] if args else self.gen_string_constant("")}, i8* {args[1] if len(args) > 1 else self.gen_string_constant("")})')
+            self.emit(f'call void @light_write_file(i8* {args[0] if args else self.gen_string_constant("")}, i8* {args[1] if len(args) > 1 else self.gen_string_constant("")})')
             return self.gen_string_constant(""), 'i8*'
 
         if name == 'float' or name == '浮点数':
             if args:
                 reg = self.new_register()
-                self.emit(f'{reg} = call double @duan_atof(i8* {args[0]})')
+                self.emit(f'{reg} = call double @light_atof(i8* {args[0]})')
                 str_reg = self.new_register()
-                self.emit(f'{str_reg} = call i8* @duan_ftoa(double {reg})')
+                self.emit(f'{str_reg} = call i8* @light_ftoa(double {reg})')
                 return str_reg, 'i8*'
             return self.gen_string_constant("0"), 'i8*'
 
         if name == 'int' or name == '整数':
             if args:
                 reg = self.new_register()
-                self.emit(f'{reg} = call i32 @duan_atoi(i8* {args[0]})')
+                self.emit(f'{reg} = call i32 @light_atoi(i8* {args[0]})')
                 str_reg = self.new_register()
-                self.emit(f'{str_reg} = call i8* @duan_itoa(i32 {reg})')
+                self.emit(f'{str_reg} = call i8* @light_itoa(i32 {reg})')
                 return str_reg, 'i8*'
             return self.gen_string_constant("0"), 'i8*'
 
@@ -801,15 +801,15 @@ class LLVMCodeGen(LLVMCodeGenCore):
         if name == 'len' or name == '长度':
             if args:
                 reg = self.new_register()
-                self.emit(f'{reg} = call i32 @duan_list_len(i8* {args[0]})')
+                self.emit(f'{reg} = call i32 @light_list_len(i8* {args[0]})')
                 str_reg = self.new_register()
-                self.emit(f'{str_reg} = call i8* @duan_itoa(i32 {reg})')
+                self.emit(f'{str_reg} = call i8* @light_itoa(i32 {reg})')
                 return str_reg, 'i8*'
             return self.gen_string_constant("0"), 'i8*'
 
         if name == '连接':
             reg = self.new_register()
-            self.emit(f'{reg} = call i8* @duan_concat(i8* {args[0] if len(args) > 0 else self.gen_string_constant("")}, i8* {args[1] if len(args) > 1 else self.gen_string_constant("")})')
+            self.emit(f'{reg} = call i8* @light_concat(i8* {args[0] if len(args) > 0 else self.gen_string_constant("")}, i8* {args[1] if len(args) > 1 else self.gen_string_constant("")})')
             return reg, 'i8*'
 
         return None
@@ -838,23 +838,23 @@ class LLVMCodeGen(LLVMCodeGenCore):
         if isinstance(expr.index, ast.NumberLiteral):
             idx_val = int(expr.index.value)
             reg = self.new_register()
-            self.emit(f'{reg} = call i8* @duan_list_get(i8* {obj_reg}, i32 {idx_val})')
+            self.emit(f'{reg} = call i8* @light_list_get(i8* {obj_reg}, i32 {idx_val})')
             return reg, 'i8*'
 
         idx_reg, _ = self._gen_expression(expr.index)
         i32 = self.new_register()
-        self.emit(f'{i32} = call i32 @duan_atoi(i8* {idx_reg})')
+        self.emit(f'{i32} = call i32 @light_atoi(i8* {idx_reg})')
         reg = self.new_register()
-        self.emit(f'{reg} = call i8* @duan_list_get(i8* {obj_reg}, i32 {i32})')
+        self.emit(f'{reg} = call i8* @light_list_get(i8* {obj_reg}, i32 {i32})')
         return reg, 'i8*'
 
     def _gen_list_literal(self, expr):
         reg = self.new_register()
-        self.emit(f'{reg} = call i8* @duan_list_new()')
+        self.emit(f'{reg} = call i8* @light_list_new()')
         for elem in expr.elements:
             elem_reg, _ = self._gen_expression(elem)
             new_reg = self.new_register()
-            self.emit(f'{new_reg} = call i8* @duan_list_append(i8* {reg}, i8* {elem_reg})')
+            self.emit(f'{new_reg} = call i8* @light_list_append(i8* {reg}, i8* {elem_reg})')
             reg = new_reg
         return reg, 'i8*'
 
@@ -863,9 +863,9 @@ class LLVMCodeGen(LLVMCodeGenCore):
         zero = self.gen_string_constant("")
         false_str = self.gen_string_constant("假")
         cmp1 = self.new_register()
-        self.emit(f'{cmp1} = call i32 @duan_str_eq(i8* {cond_reg}, i8* {zero})')
+        self.emit(f'{cmp1} = call i32 @light_str_eq(i8* {cond_reg}, i8* {zero})')
         cmp2 = self.new_register()
-        self.emit(f'{cmp2} = call i32 @duan_str_eq(i8* {cond_reg}, i8* {false_str})')
+        self.emit(f'{cmp2} = call i32 @light_str_eq(i8* {cond_reg}, i8* {false_str})')
         combined = self.new_register()
         self.emit(f'{combined} = or i32 {cmp1}, {cmp2}')
         final = self.new_register()
@@ -898,7 +898,7 @@ class LLVMCodeGen(LLVMCodeGenCore):
     # C FFI 方法（LLVM 后端）
     # =========================================================================
 
-    # FFI 段言类型 → LLVM 类型映射
+    # FFI 光明类型 → LLVM 类型映射
     _ffi_type_llvm_map = {
         '整数': 'i32',
         '小数': 'double',
@@ -919,8 +919,8 @@ class LLVMCodeGen(LLVMCodeGenCore):
             ret_type = self._ffi_type_llvm_map.get(stmt.return_type, 'i8*')
         arg_types = []
         for p in stmt.params:
-            duan_type = p.get('type', '整数')
-            llvm_type = self._ffi_type_llvm_map.get(duan_type, 'i32')
+            light_type = p.get('type', '整数')
+            llvm_type = self._ffi_type_llvm_map.get(light_type, 'i32')
             arg_types.append(llvm_type)
         arg_str = ', '.join(arg_types)
         self.emit(f'declare {ret_type} @{c_name}({arg_str})')
@@ -938,20 +938,20 @@ class LLVMCodeGen(LLVMCodeGenCore):
             ret_llvm = self._ffi_type_llvm_map.get(ret_type, 'i8*')
         arg_strs = []
         for i, p in enumerate(stmt.params):
-            duan_type = p.get('type', '整数')
-            llvm_type = self._ffi_type_llvm_map.get(duan_type, 'i32')
+            light_type = p.get('type', '整数')
+            llvm_type = self._ffi_type_llvm_map.get(light_type, 'i32')
             if i < len(args):
-                if duan_type in ('整数',):
+                if light_type in ('整数',):
                     conv_reg = self.new_register()
-                    self.emit(f'{conv_reg} = call i32 @duan_atoi(i8* {args[i]})')
+                    self.emit(f'{conv_reg} = call i32 @light_atoi(i8* {args[i]})')
                     arg_strs.append(f'i32 {conv_reg}')
-                elif duan_type in ('小数', '浮数', '数'):
+                elif light_type in ('小数', '浮数', '数'):
                     conv_reg = self.new_register()
-                    self.emit(f'{conv_reg} = call double @duan_atof(i8* {args[i]})')
+                    self.emit(f'{conv_reg} = call double @light_atof(i8* {args[i]})')
                     arg_strs.append(f'double {conv_reg}')
-                elif duan_type in ('布尔',):
+                elif light_type in ('布尔',):
                     conv_reg = self.new_register()
-                    self.emit(f'{conv_reg} = call i32 @duan_str_eq(i8* {args[i]}, i8* {self.gen_string_constant("真")})')
+                    self.emit(f'{conv_reg} = call i32 @light_str_eq(i8* {args[i]}, i8* {self.gen_string_constant("真")})')
                     arg_strs.append(f'i1 {conv_reg}')
                 else:
                     arg_strs.append(f'{llvm_type} {args[i]}')
@@ -962,11 +962,11 @@ class LLVMCodeGen(LLVMCodeGenCore):
         self.emit(f'{reg} = call {ret_llvm} @{c_name}({resolved_args})')
         if ret_type in ('整数',):
             str_reg = self.new_register()
-            self.emit(f'{str_reg} = call i8* @duan_itoa(i32 {reg})')
+            self.emit(f'{str_reg} = call i8* @light_itoa(i32 {reg})')
             return str_reg, 'i8*'
         elif ret_type in ('小数', '浮数', '数'):
             str_reg = self.new_register()
-            self.emit(f'{str_reg} = call i8* @duan_ftoa(double {reg})')
+            self.emit(f'{str_reg} = call i8* @light_ftoa(double {reg})')
             return str_reg, 'i8*'
         elif ret_llvm == 'void':
             return self.gen_string_constant(""), 'i8*'

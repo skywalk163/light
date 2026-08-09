@@ -1,19 +1,19 @@
-"""基础测试：验证段言版解释器和LLVM代码生成器能被正确解析和加载"""
+"""基础测试：验证光明版解释器和LLVM代码生成器能被正确解析和加载"""
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_interpreter import run_source
-from duan_visitor import parse_source
+from light_interpreter import run_source
+from light_visitor import parse_source
 
 
 def test_interpreter_load():
     """测试解释器源码能被正确解析和加载"""
     print("=" * 60)
-    print("测试：段言版解释器加载")
+    print("测试：光明版解释器加载")
     print("=" * 60)
     
-    interp_code = open("interpreter.duan", encoding="utf-8").read()
+    interp_code = open("interpreter.light", encoding="utf-8").read()
     
     # 解析验证
     ast = parse_source(interp_code)
@@ -49,10 +49,10 @@ def test_interpreter_load():
 def test_llvm_codegen_load():
     """测试LLVM代码生成器能被正确解析和加载"""
     print("=" * 60)
-    print("测试：段言版LLVM代码生成器加载")
+    print("测试：光明版LLVM代码生成器加载")
     print("=" * 60)
     
-    llvm_code = open("llvm_codegen.duan", encoding="utf-8").read()
+    llvm_code = open("llvm_codegen.light", encoding="utf-8").read()
     
     # 解析验证
     ast = parse_source(llvm_code)
@@ -88,10 +88,10 @@ def test_llvm_codegen_load():
 def test_tokenizer_load():
     """测试分词器能被正确解析和加载"""
     print("=" * 60)
-    print("测试：段言版分词器加载")
+    print("测试：光明版分词器加载")
     print("=" * 60)
     
-    tokenizer_code = open("tokenizer.duan", encoding="utf-8").read()
+    tokenizer_code = open("tokenizer.light", encoding="utf-8").read()
     
     # 解析验证
     ast = parse_source(tokenizer_code)
@@ -123,12 +123,12 @@ def test_tokenizer_load():
 def test_parser_load():
     """测试解析器能被正确解析和加载"""
     print("=" * 60)
-    print("测试：段言版解析器加载")
+    print("测试：光明版解析器加载")
     print("=" * 60)
     
-    # 合并 ast.duan 和 parser.duan
+    # 合并 ast.light 和 parser.light
     combined = ''
-    for name in ['ast.duan', 'parser.duan']:
+    for name in ['ast.light', 'parser.light']:
         with open(name, 'r', encoding='utf-8') as f:
             combined += f.read() + '\n'
     
@@ -162,7 +162,7 @@ def test_parser_load():
 
 
 if __name__ == '__main__':
-    print("开始测试段言自举组件加载...")
+    print("开始测试光明自举组件加载...")
     print()
     
     results = []
@@ -191,12 +191,12 @@ if __name__ == '__main__':
     if all_passed:
         print("所有组件加载成功！")
         print()
-        print("段言自举系统包含以下组件：")
-        print("  - tokenizer.duan     : 段言版分词器")
-        print("  - ast.duan           : AST节点定义")
-        print("  - parser.duan        : 段言版解析器")
-        print("  - interpreter.duan   : 段言版解释器")
-        print("  - llvm_codegen.duan  : 段言版LLVM代码生成器")
+        print("光明自举系统包含以下组件：")
+        print("  - tokenizer.light     : 光明版分词器")
+        print("  - ast.light           : AST节点定义")
+        print("  - parser.light        : 光明版解析器")
+        print("  - interpreter.light   : 光明版解释器")
+        print("  - llvm_codegen.light  : 光明版LLVM代码生成器")
         sys.exit(0)
     else:
         print("部分组件加载失败！")

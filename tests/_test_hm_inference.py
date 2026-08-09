@@ -1,5 +1,5 @@
 """
-段言 HM（Hindley-Milner）全局类型推断系统测试
+光明 HM（Hindley-Milner）全局类型推断系统测试
 
 包含 20+ 测试点：
 - 两阶段预扫描/推断
@@ -532,7 +532,7 @@ def test_backcompat_errors_not_exceeding_expected():
 def main():
     global PASS, FAIL, FAILED_CASES
     print("=" * 70)
-    print("段言 HM 类型推断系统测试")
+    print("光明 HM 类型推断系统测试")
     print("=" * 70)
 
     tests = [

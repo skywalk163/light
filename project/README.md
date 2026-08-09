@@ -1,7 +1,7 @@
 
-# 段言记账程序
+# 光明记账程序
 
-一个使用段言(DuanLang)编写的简单记账小程序。
+一个使用光明(LightLang)编写的简单记账小程序。
 
 ## 功能特性
 
@@ -16,9 +16,9 @@
 
 ### 前置条件
 
-确保你已经安装了Python 3.8+，并且已安装段言编译器。
+确保你已经安装了Python 3.8+，并且已安装光明编译器。
 
-### 步骤一：安装段言编译器
+### 步骤一：安装光明编译器
 
 在项目根目录执行：
 
@@ -34,10 +34,10 @@ pip install -e .
 cd project
 ```
 
-使用段言编译器编译：
+使用光明编译器编译：
 
 ```bash
-duan compile 记账.duan -o 记账.exe
+light compile 记账.light -o 记账.exe
 ```
 
 ### 步骤三：运行程序
@@ -54,10 +54,10 @@ duan compile 记账.duan -o 记账.exe
 
 ```bash
 # 进入项目目录
-cd g:\dumategithub\duan\project
+cd g:\dumategithub\light\project
 
 # 编译
-duan compile 记账.duan -o 记账.exe
+light compile 记账.light -o 记账.exe
 
 # 运行
 记账.exe
@@ -101,15 +101,15 @@ duan compile 记账.duan -o 记账.exe
 
 | 文件 | 说明 |
 |------|------|
-| `记账.duan` | 段言源代码文件 |
+| `记账.light` | 光明源代码文件 |
 | `记账数据.json` | 存储记账数据的JSON文件（自动生成） |
 | `记账.exe` | 编译后的可执行文件（编译后生成） |
 
 ## 常见问题
 
-### Q: 编译时提示找不到 duan 命令？
+### Q: 编译时提示找不到 light 命令？
 
-**A:** 确保已经安装了段言编译器：
+**A:** 确保已经安装了光明编译器：
 
 ```bash
 pip install -e .
@@ -118,7 +118,7 @@ pip install -e .
 或者使用完整路径运行：
 
 ```bash
-python -m cli.duan compile 记账.duan -o 记账.exe
+python -m cli.light compile 记账.light -o 记账.exe
 ```
 
 ### Q: 运行时提示缺少 DLL 文件？

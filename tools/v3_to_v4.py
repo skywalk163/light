@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言 v3.x → v4.0dev 语法转换器
+光明 v3.x → v4.0dev 语法转换器
 
-将 v3.x 语法的 .duan 文件自动转换为 4.0dev 格式。
+将 v3.x 语法的 .light 文件自动转换为 4.0dev 格式。
 
 用法:
-    python tools/v3_to_v4.py 文件.duan              # 转换单个文件
-    python tools/v3_to_v4.py 文件.duan -o 输出.duan  # 指定输出文件
-    python tools/v3_to_v4.py 目录/                   # 递归转换目录下所有 .duan 文件
+    python tools/v3_to_v4.py 文件.light              # 转换单个文件
+    python tools/v3_to_v4.py 文件.light -o 输出.light  # 指定输出文件
+    python tools/v3_to_v4.py 目录/                   # 递归转换目录下所有 .light 文件
     python tools/v3_to_v4.py 目录/ --in-place        # 原地替换
 
 v3.x → 4.0dev 主要映射:
@@ -604,28 +604,28 @@ def convert_file(input_path: str, output_path: str = None, in_place: bool = Fals
 
 
 def convert_directory(dir_path: str, in_place: bool = False, overwrite_v4: bool = False):
-    """递归转换目录下所有 .duan 文件
+    """递归转换目录下所有 .light 文件
     
     Args:
         dir_path: 目录路径
         in_place: 原地替换原文件
-        overwrite_v4: 覆盖已存在的 .v4.duan 输出文件
+        overwrite_v4: 覆盖已存在的 .v4.light 输出文件
     """
     for root, dirs, files in os.walk(dir_path):
         for f in sorted(files):
-            if not f.endswith('.duan'):
+            if not f.endswith('.light'):
                 continue
             # 跳过 _cstyle 文件（不同的语法变体，使用 @C 进行外部声明）
-            if f.endswith('_cstyle.duan'):
+            if f.endswith('_cstyle.light'):
                 continue
-            # 跳过已转换的 .v4.duan 文件（只处理原始 .duan 文件）
-            if f.endswith('.v4.duan'):
+            # 跳过已转换的 .v4.light 文件（只处理原始 .light 文件）
+            if f.endswith('.v4.light'):
                 continue
             input_path = os.path.join(root, f)
             if in_place:
                 convert_file(input_path, in_place=True)
             else:
-                output_path = os.path.join(root, f.replace('.duan', '.v4.duan'))
+                output_path = os.path.join(root, f.replace('.light', '.v4.light'))
                 # 如果输出文件已存在且不覆盖，则跳过
                 if not overwrite_v4 and os.path.exists(output_path):
                     continue

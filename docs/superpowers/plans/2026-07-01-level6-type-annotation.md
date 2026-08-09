@@ -2,9 +2,9 @@
 
 > **面向 AI 代理的工作者：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
 
-**目标：** 实现 Duan 语言 Level 6 三大核心特性：无空格分词（最长前缀匹配）、纯缩进语法（移除 `结束` 关键字）、类型注解（基础+复合+函数类型）
+**目标：** 实现 Light 语言 Level 6 三大核心特性：无空格分词（最长前缀匹配）、纯缩进语法（移除 `结束` 关键字）、类型注解（基础+复合+函数类型）
 
-**架构：** 所有修改集中在自举编译器 `bootstrap/bootstrap_level5.duan`（及对应的生成代码 `level5_generated.py`）。词法分析器改造是最关键的底层变更，语法分析器适配新的 token 流。类型注解在语法分析阶段解析，运行时检查在代码生成阶段插入。
+**架构：** 所有修改集中在自举编译器 `bootstrap/bootstrap_level5.light`（及对应的生成代码 `level5_generated.py`）。词法分析器改造是最关键的底层变更，语法分析器适配新的 token 流。类型注解在语法分析阶段解析，运行时检查在代码生成阶段插入。
 
 **技术栈：** 纯 Python（自举编译器运行环境）
 
@@ -15,7 +15,7 @@
 ## 文件变更
 
 ### 核心文件
-- **修改：** `bootstrap/bootstrap_level5.duan` — 自举编译器源码（所有改动）
+- **修改：** `bootstrap/bootstrap_level5.light` — 自举编译器源码（所有改动）
 - **修改：** `bootstrap/level5_generated.py` — 相应生成代码
 - **创建：** `bootstrap/test_level6_lexer.py` — 无空格分词测试
 - **创建：** `bootstrap/test_level6_indent.py` — 纯缩进语法测试
@@ -29,14 +29,14 @@
 ## 任务 1：词法分析器 — 最长前缀匹配 + INDENT/DEDENT + 运算符别名
 
 **文件：**
-- 修改：`bootstrap/bootstrap_level5.duan`：`段 关键字列表`、`段 词`、`段 扫`、新 `段 前缀匹配`、新 `段 统计缩进`、新 `段 生成缩进标记`
+- 修改：`bootstrap/bootstrap_level5.light`：`段 关键字列表`、`段 词`、`段 扫`、新 `段 前缀匹配`、新 `段 统计缩进`、新 `段 生成缩进标记`
 - 修改：`bootstrap/level5_generated.py`（以下同理，每次任务后同步）
 
 - [ ] **步骤 1.1：更新关键字列表**
 
 在 `关键字列表` 中添加 Level 6 新增关键字，同时保留旧关键字（`结束` 保留为兼容关键字）。注意类型名 **不加入关键字列表**。
 
-```duan
+```light
 段 关键字列表：
   返回 列表创建(
     "设", "为", "设为", "类型", "常量",
@@ -58,7 +58,7 @@
 
 新增函数 `前缀匹配`，接收字符串和关键字列表，返回匹配到的关键字和剩余字符串。匹配策略：从最长关键字开始尝试。
 
-```duan
+```light
 段 前缀匹配 接收 s, kws：
   设 i 为 0。
   设 best 为 ""。
@@ -87,7 +87,7 @@
 
 注意：`词` 函数的接口不变（返回 `建('KW', kw)` 或 `建('ID', s)`），但内部实现改为前缀匹配+递归。
 
-```duan
+```light
 段 词 接收 src, p, n, s：
   # 先尽量读取完整的标识符/关键字
   当 p 小于 n：
@@ -142,7 +142,7 @@
 
 关键：`扫` 函数需要逐行处理，而不是逐字符。这样能正确处理换行和缩进。
 
-```duan
+```light
 段 统计缩进 接收 line：
   设 缩进数 为 0。
   设 i 为 0。
@@ -159,7 +159,7 @@
 
 在 `扫` 函数中添加对符号运算符的处理。当遇到 `+`、`-`、`*`、`/`、`%`、`==`、`!=`、`<`、`>`、`<=`、`>=`、`&&`、`||`、`!`、`and`、`or`、`not`、`=` 等符号时，映射到对应的内部 token。
 
-```duan
+```light
 # 在 扫 函数中添加
 如果 c 等于 "+"：
   列表追加(toks, 建("ADD", "加"))。
@@ -194,7 +194,7 @@
 - [ ] **步骤 1.8：Commit**
 
 ```bash
-git add bootstrap/bootstrap_level5.duan bootstrap/level5_generated.py
+git add bootstrap/bootstrap_level5.light bootstrap/level5_generated.py
 git commit -m "feat(lexer): Level 6 词法分析器 - 最长前缀匹配 + INDENT/DEDENT + 运算符别名"
 ```
 
@@ -232,7 +232,7 @@ git commit -m "feat(lexer): Level 6 词法分析器 - 最长前缀匹配 + INDEN
 - [ ] **步骤 2.7：运行纯缩进测试**
 
 创建测试验证：
-```duan
+```light
 段测试：
   如果真输出("是")
 否则：
@@ -286,7 +286,7 @@ git commit -m "feat(lexer): Level 6 词法分析器 - 最长前缀匹配 + INDEN
 
 - [ ] **步骤 4.3：测试**
 
-```duan
+```light
 设x为真
 设y为空
 设z为假
@@ -304,7 +304,7 @@ git commit -m "feat(lexer): Level 6 词法分析器 - 最长前缀匹配 + INDEN
 
 - [ ] **步骤 5.2：用 Level 6 编译器编译自身**
 
-用新的编译器编译 `bootstrap_level5.duan`，输出 `level6_generated.py` 进行比对。
+用新的编译器编译 `bootstrap_level5.light`，输出 `level6_generated.py` 进行比对。
 
 - [ ] **步骤 5.3：自举收敛验证**
 

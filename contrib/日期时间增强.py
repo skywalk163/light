@@ -1,5 +1,5 @@
 """
-日期时间增强模块 - 扩展 stdlib/日期时间.duan 的 Python 后端
+日期时间增强模块 - 扩展 stdlib/日期时间.light 的 Python 后端
 新增能力：
 1. 自然语言相对时间解析（"3天前"/"下个月1号"/"上周六"/"今天"/"明天"/"下周周一"）
 2. 起止时间（月初/月末/季度初/季度末/年初/年末/周一/周日）
@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, date
 from calendar import monthrange, isleap
 from typing import List, Optional, Tuple
 
-# 复用 stdlib 日期时间.duan 的底层工厂（如果存在则热插拔）
+# 复用 stdlib 日期时间.light 的底层工厂（如果存在则热插拔）
 try:
     from stdlib.日期时间 import _创建日期时间, _创建时间差  # type: ignore
 except Exception:  # 独立运行 fallback

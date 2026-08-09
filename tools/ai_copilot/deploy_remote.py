@@ -10,9 +10,9 @@ from ssh_config import SSH_HOST, SSH_USER_DUMATE, SSH_PASS_DUMATE
 HOST = SSH_HOST
 USER = SSH_USER_DUMATE
 PASS = SSH_PASS_DUMATE
-MODEL_DIR = "/home/skywalk/Downloads/kaggle/working/duan/tools/ai_copilot/output/duan_translator_merged_3.5_2b"
-GGUF = "duan_translator_q4_k_m.gguf"
-MODEL_NAME = "duan-translator"
+MODEL_DIR = "/home/skywalk/Downloads/kaggle/working/light/tools/ai_copilot/output/light_translator_merged_3.5_2b"
+GGUF = "light_translator_q4_k_m.gguf"
+MODEL_NAME = "light-translator"
 
 def run(ssh, cmd, timeout=120):
     print(f"  $ {cmd}")
@@ -72,7 +72,7 @@ TEMPLATE """{{ if .System }}<|im_start|>system
 {{ end }}<|im_start|>assistant
 """
 
-SYSTEM """你是段言（DuanLang）编程语言 v3.2 的翻译专家。段言是一种中文编程语言，使用中文关键字。你的任务是将 Python 代码翻译为段言 v3.2 代码。
+SYSTEM """你是光明（LightLang）编程语言 v3.2 的翻译专家。光明是一种中文编程语言，使用中文关键字。你的任务是将 Python 代码翻译为光明 v3.2 代码。
 关键规则：
 - 变量赋值: 设 x 为 10
 - 字符串赋值: 定义 s 等于 "hello"
@@ -111,7 +111,7 @@ SYSTEM """你是段言（DuanLang）编程语言 v3.2 的翻译专家。段言�
 - 文件读取: 读取文件("file.txt")
 - 文件写入: 打开文件("file.txt", "w")
 - 装饰器: @标注名 标注
-只输出段言代码，不要解释。"""
+只输出光明代码，不要解释。"""
 
 PARAMETER temperature 0.1
 PARAMETER top_p 0.9

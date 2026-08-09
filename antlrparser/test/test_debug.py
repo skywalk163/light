@@ -6,12 +6,12 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from antlr4 import *
-from DuanLangLexer import DuanLangLexer
+from LightLangLexer import LightLangLexer
 
 def debug_tokens(source):
     """调试分词结果"""
     input_stream = InputStream(source)
-    lexer = DuanLangLexer(input_stream)
+    lexer = LightLangLexer(input_stream)
     
     print("分词结果:")
     print("-" * 60)

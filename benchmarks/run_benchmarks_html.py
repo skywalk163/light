@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器 - 增强版基准测试（带 HTML 报告生成）
+光明编译器 - 增强版基准测试（带 HTML 报告生成）
 
 功能：
 1. 编译时间详细测量（词法分析、语法解析、代码生成、执行）
@@ -23,9 +23,9 @@ from typing import Dict, List, Optional
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from lexer import Lexer
-from duan_parser_v3 import DuanParser as V3Parser
+from light_parser_v3 import LightParser as V3Parser
 from code_generator_unified import UnifiedCodeGenerator
-from compiler import DuanCompiler
+from compiler import LightCompiler
 
 BENCHMARK_DIR = Path(__file__).parent / 'programs'
 HISTORY_FILE = Path(__file__).parent / 'benchmarks_history.json'
@@ -260,7 +260,7 @@ def generate_html_report(results: List[Dict], history: Optional[List[Dict]] = No
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>段言编译器基准测试报告</title>
+<title>光明编译器基准测试报告</title>
 <style>
     body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; color: #333; }}
     .container {{ max-width: 1200px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
@@ -285,7 +285,7 @@ def generate_html_report(results: List[Dict], history: Optional[List[Dict]] = No
 </head>
 <body>
 <div class="container">
-    <h1>📊 段言编译器基准测试报告</h1>
+    <h1>📊 光明编译器基准测试报告</h1>
     <p class="timestamp">生成时间: {now} | Python {sys.version.split()[0]}</p>
 
     <div class="summary">
@@ -344,7 +344,7 @@ def generate_html_report(results: List[Dict], history: Optional[List[Dict]] = No
     </table>
 
     <div class="footer">
-        <p>段言 (Duan) 编译器 - 基准测试工具 | <span class="badge badge-ok">v1.0</span></p>
+        <p>光明 (Light) 编译器 - 基准测试工具 | <span class="badge badge-ok">v1.0</span></p>
     </div>
 </div>
 </body>
@@ -361,7 +361,7 @@ def generate_html_report(results: List[Dict], history: Optional[List[Dict]] = No
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description='段言编译器增强版基准测试（HTML报告）')
+    parser = argparse.ArgumentParser(description='光明编译器增强版基准测试（HTML报告）')
     parser.add_argument('--program', '-p', help='只运行指定基准程序')
     parser.add_argument('--iterations', '-n', type=int, default=3, help='迭代次数（默认3）')
     parser.add_argument('--mem', '-m', action='store_true', help='测量内存占用')
@@ -371,7 +371,7 @@ def main():
     args = parser.parse_args()
 
     # 收集基准测试程序
-    bench_files = sorted(BENCHMARK_DIR.glob('*.duan'))
+    bench_files = sorted(BENCHMARK_DIR.glob('*.light'))
     if args.program:
         bench_files = [f for f in bench_files if args.program in f.name]
         if not bench_files:
@@ -382,7 +382,7 @@ def main():
         print(f"在 {BENCHMARK_DIR} 中未找到基准测试程序")
         sys.exit(1)
 
-    print(f"段言编译器增强版基准测试 - {len(bench_files)} 个程序，每个迭代 {args.iterations} 次")
+    print(f"光明编译器增强版基准测试 - {len(bench_files)} 个程序，每个迭代 {args.iterations} 次")
     if args.mem:
         print("（已启用内存测量）")
     print()

@@ -1,5 +1,5 @@
 """
-段言标准库 - 内置函数实现
+光明标准库 - 内置函数实现
 
 提供文件I/O、路径操作、系统函数等核心功能
 """
@@ -342,22 +342,22 @@ def 打印错误(text: str) -> None:
 # JSON 处理
 # =============================================================================
 
-import json as _duan_json_module
+import json as _light_json_module
 
 def 解析JSON(text: str) -> object:
-    """解析 JSON 字符串为段言值"""
+    """解析 JSON 字符串为光明值"""
     try:
-        return _duan_json_module.loads(text)
-    except _duan_json_module.JSONDecodeError as e:
+        return _light_json_module.loads(text)
+    except _light_json_module.JSONDecodeError as e:
         raise RuntimeError(f"JSON 解析失败: {e}")
 
 
 def 序列化JSON(value: object, 缩进: Optional[int] = None) -> str:
-    """将段言值序列化为 JSON 字符串"""
+    """将光明值序列化为 JSON 字符串"""
     try:
         if 缩进 is not None:
-            return _duan_json_module.dumps(value, ensure_ascii=False, indent=缩进)
-        return _duan_json_module.dumps(value, ensure_ascii=False)
+            return _light_json_module.dumps(value, ensure_ascii=False, indent=缩进)
+        return _light_json_module.dumps(value, ensure_ascii=False)
     except Exception as e:
         raise RuntimeError(f"JSON 序列化失败: {e}")
 

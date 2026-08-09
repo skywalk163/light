@@ -7,8 +7,8 @@ import ctypes
 import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from duan_parser_v3 import DuanParser, ParseError
-from duan_parser_v3 import FFITypedefDef, FFIBitfieldDef, FFIFuncPtrDef, FFIDebugConfig, FFIPreprocessorDef
+from light_parser_v3 import LightParser, ParseError
+from light_parser_v3 import FFITypedefDef, FFIBitfieldDef, FFIFuncPtrDef, FFIDebugConfig, FFIPreprocessorDef
 
 
 # =============================================================================
@@ -16,7 +16,7 @@ from duan_parser_v3 import FFITypedefDef, FFIBitfieldDef, FFIFuncPtrDef, FFIDebu
 # =============================================================================
 
 def test_parse_ffi_typedef():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 类型别名 尺寸 为 整数。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -26,7 +26,7 @@ def test_parse_ffi_typedef():
 
 
 def test_parse_ffi_typedef_simple():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 类型别名 标签。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -40,7 +40,7 @@ def test_parse_ffi_typedef_simple():
 # =============================================================================
 
 def test_parse_ffi_bitfield():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 位域 标志 : 整数 { 读: 1, 写: 1, 执行: 1 }。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -54,7 +54,7 @@ def test_parse_ffi_bitfield():
 
 
 def test_parse_ffi_bitfield_multi_bit():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 位域 寄存器 : 整数 { 模式: 2, 启用: 1, 速率: 3 }。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -67,7 +67,7 @@ def test_parse_ffi_bitfield_multi_bit():
 # =============================================================================
 
 def test_parse_ffi_funcptr():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 函数指针 比较器 接收 甲: 整数, 乙: 整数 返回 整数。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -79,7 +79,7 @@ def test_parse_ffi_funcptr():
 
 
 def test_parse_ffi_funcptr_void():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 函数指针 回调 接收 文本。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -94,7 +94,7 @@ def test_parse_ffi_funcptr_void():
 # =============================================================================
 
 def test_parse_ffi_debug():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 调试 { 开启, 记录调用, 记录类型, 追踪内存 }。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -106,7 +106,7 @@ def test_parse_ffi_debug():
 
 
 def test_parse_ffi_debug_disabled():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 调试 { 关闭 }。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -118,7 +118,7 @@ def test_parse_ffi_debug_disabled():
 # =============================================================================
 
 def test_parse_ffi_preprocessor():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 宏 缓冲区大小 为 1024。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -128,7 +128,7 @@ def test_parse_ffi_preprocessor():
 
 
 def test_parse_ffi_preprocessor_string():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 宏 版本 为 "1.0.0"。'
     module = parser.parse(code)
     stmt = module.statements[0]
@@ -140,7 +140,7 @@ def test_parse_ffi_preprocessor_string():
 # =============================================================================
 
 def test_parse_full_phase4_program():
-    parser = DuanParser()
+    parser = LightParser()
     code = (
         '外部 类型别名 尺寸 为 整数。\n'
         '外部 位域 标志 : 整数 { 读: 1, 写: 1 }。\n'
@@ -163,7 +163,7 @@ def test_parse_full_phase4_program():
 
 def test_codegen_ffi_typedef():
     from code_generator import PythonCodeGenerator
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 类型别名 尺寸 为 整数。'
     module = parser.parse(code)
     gen = PythonCodeGenerator()
@@ -178,7 +178,7 @@ def test_codegen_ffi_typedef():
 
 def test_codegen_ffi_bitfield():
     from code_generator import PythonCodeGenerator
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 位域 标志 : 整数 { 读: 1, 写: 1 }。'
     module = parser.parse(code)
     gen = PythonCodeGenerator()
@@ -193,7 +193,7 @@ def test_codegen_ffi_bitfield():
 
 def test_codegen_ffi_funcptr():
     from code_generator import PythonCodeGenerator
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 函数指针 比较器 接收 甲: 整数, 乙: 整数 返回 整数。'
     module = parser.parse(code)
     gen = PythonCodeGenerator()
@@ -208,7 +208,7 @@ def test_codegen_ffi_funcptr():
 
 def test_codegen_ffi_debug():
     from code_generator import PythonCodeGenerator
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 调试 { 开启, 记录调用 }。'
     module = parser.parse(code)
     gen = PythonCodeGenerator()
@@ -223,7 +223,7 @@ def test_codegen_ffi_debug():
 
 def test_codegen_ffi_preprocessor():
     from code_generator import PythonCodeGenerator
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 宏 缓冲区大小 为 1024。'
     module = parser.parse(code)
     gen = PythonCodeGenerator()
@@ -393,7 +393,7 @@ def test_runtime_debug_log():
 # =============================================================================
 
 def test_parse_bitfield_then_typedef():
-    parser = DuanParser()
+    parser = LightParser()
     code = '外部 位域 标志 : 整数 { 读: 1 }。外部 类型别名 尺寸 为 整数。'
     module = parser.parse(code)
     assert len(module.statements) == 2
@@ -406,8 +406,8 @@ def test_parse_bitfield_then_typedef():
 # =============================================================================
 
 def test_parse_funcptr_then_enum():
-    from duan_parser_v3 import FFIEnumDef
-    parser = DuanParser()
+    from light_parser_v3 import FFIEnumDef
+    parser = LightParser()
     code = '外部 函数指针 回调 接收 整数。外部 枚举 状态 { 开, 关 }。'
     module = parser.parse(code)
     assert len(module.statements) == 2

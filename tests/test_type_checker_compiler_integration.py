@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言 v4.2 编译器类型检查集成测试
+光明 v4.2 编译器类型检查集成测试
 
 测试类型检查器与编译器管道的集成：
   1. 编译器 type_check 方法
@@ -17,13 +17,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 
 def _compile_and_check(source, level):
     """Helper: 编译并运行类型检查"""
-    from compiler import DuanCompiler
-    from core.config import DuanConfig, TypeCheckLevel
+    from compiler import LightCompiler
+    from core.config import LightConfig, TypeCheckLevel
 
-    compiler = DuanCompiler()
+    compiler = LightCompiler()
     raw_ast = compiler.parse_raw(source)
     our_ast = compiler.adapt(raw_ast)
-    compiler._config = DuanConfig()
+    compiler._config = LightConfig()
     compiler._config.type_check_level = level
     inferencer = compiler.type_check(our_ast, source)
     return compiler, inferencer, our_ast
@@ -192,11 +192,11 @@ def test_compiler_generic_segment():
 
 def test_full_compile_with_type_check():
     """测试完整编译流程包含类型检查"""
-    from compiler import DuanCompiler
-    from core.config import DuanConfig, TypeCheckLevel
+    from compiler import LightCompiler
+    from core.config import LightConfig, TypeCheckLevel
 
-    compiler = DuanCompiler()
-    compiler._config = DuanConfig()
+    compiler = LightCompiler()
+    compiler._config = LightConfig()
     compiler._config.type_check_level = TypeCheckLevel.EXPRESSION
 
     source = """
@@ -217,11 +217,11 @@ def test_full_compile_with_type_check():
 
 def test_full_compile_union_return():
     """测试完整编译流程 - 联合类型返回"""
-    from compiler import DuanCompiler
-    from core.config import DuanConfig, TypeCheckLevel
+    from compiler import LightCompiler
+    from core.config import LightConfig, TypeCheckLevel
 
-    compiler = DuanCompiler()
-    compiler._config = DuanConfig()
+    compiler = LightCompiler()
+    compiler._config = LightConfig()
     compiler._config.type_check_level = TypeCheckLevel.EXPRESSION
 
     source = """
@@ -246,7 +246,7 @@ def test_full_compile_union_return():
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("段言 v4.2 编译器类型检查集成测试")
+    print("光明 v4.2 编译器类型检查集成测试")
     print("=" * 60)
 
     total = 0

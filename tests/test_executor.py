@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-段言 REPL 执行引擎测试
+光明 REPL 执行引擎测试
 """
 
 import sys
@@ -24,7 +24,7 @@ except ImportError as e:
 
 
 class TestExecutor(unittest.TestCase):
-    """段言执行引擎测试"""
+    """光明执行引擎测试"""
 
     def setUp(self):
         """每个测试前的准备工作"""
@@ -152,16 +152,16 @@ class TestEnvironment(unittest.TestCase):
         env = Environment()
 
         # 设置和获取
-        env.set("名字", "段言")
-        self.assertEqual(env.get("名字"), "段言")
+        env.set("名字", "光明")
+        self.assertEqual(env.get("名字"), "光明")
 
         # 检查存在
         self.assertTrue(env.has("名字"))
         self.assertFalse(env.has("不存在"))
 
         # 更新
-        env.set("名字", "新段言")
-        self.assertEqual(env.get("名字"), "新段言")
+        env.set("名字", "新光明")
+        self.assertEqual(env.get("名字"), "新光明")
 
     def test_function_storage(self):
         """测试函数存储"""
@@ -176,7 +176,7 @@ class TestEnvironment(unittest.TestCase):
 
 def run_all_tests():
     """运行所有测试"""
-    print("=== 段言 REPL 执行引擎测试 ===\n")
+    print("=== 光明 REPL 执行引擎测试 ===\n")
 
     if not EXECUTOR_AVAILABLE:
         print(f"⚠️  执行引擎未实现: {EXECUTOR_IMPORT_ERROR}")

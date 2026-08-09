@@ -10,7 +10,7 @@ client.exec_command('pkill ollama 2>/dev/null')
 time.sleep(2)
 
 # Create Modelfile with no GPU
-new_modelfile = '''FROM /home/trae/duan_translator.gguf
+new_modelfile = '''FROM /home/trae/light_translator.gguf
 
 TEMPLATE """{{ if .System }}<|im_start|>system
 {{ .System }}<|im_end|>
@@ -19,7 +19,7 @@ TEMPLATE """{{ if .System }}<|im_start|>system
 {{ end }}<|im_start|>assistant
 """
 
-SYSTEM """你是段言（DuanLang）编程语言 v3.2 的翻译专家。你的任务是将 Python 代码翻译为段言 v3.2 代码。只输出段言代码，不要解释。"""
+SYSTEM """你是光明（LightLang）编程语言 v3.2 的翻译专家。你的任务是将 Python 代码翻译为光明 v3.2 代码。只输出光明代码，不要解释。"""
 
 PARAMETER temperature 0.1
 PARAMETER top_p 0.9
@@ -39,11 +39,11 @@ stdout.read(); stderr.read()
 time.sleep(3)
 
 # Recreate model
-stdin, stdout, stderr = client.exec_command('cd /home/trae && ollama create duan-translator -f Modelfile 2>&1')
+stdin, stdout, stderr = client.exec_command('cd /home/trae && ollama create light-translator -f Modelfile 2>&1')
 print('Create:', stdout.read().decode())
 
 # Test
-stdin, stdout, stderr = client.exec_command('cat /home/trae/test_prompt.txt | ollama run duan-translator 2>&1')
+stdin, stdout, stderr = client.exec_command('cat /home/trae/test_prompt.txt | ollama run light-translator 2>&1')
 print('Waiting for inference...')
 out = stdout.read().decode()
 print('=== RESULT ===')

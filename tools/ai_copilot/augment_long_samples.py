@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言长样本数据增强脚本 — 扩充 LoRA 微调训练数据集
+光明长样本数据增强脚本 — 扩充 LoRA 微调训练数据集
 
-重点生成 30-80 行 Python 代码的段言对照样本，覆盖：
+重点生成 30-80 行 Python 代码的光明对照样本，覆盖：
   1. 多类协作 (类间交互、组合关系)
   2. 设计模式 (观察者、策略、工厂、单例、装饰器)
   3. 数据处理管线 (ETL、转换链、分析管道)
@@ -21,7 +21,7 @@ import os
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-INSTRUCTION = "用段言v3.2语法重写以下Python代码。"
+INSTRUCTION = "用光明v3.2语法重写以下Python代码。"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -4714,11 +4714,11 @@ def build_samples():
         (MATH_PAIRS, "复合"),
     ]
     for pairs, category in category_map:
-        for py, duan in pairs:
+        for py, light in pairs:
             samples.append({
                 "instruction": INSTRUCTION,
                 "input": py,
-                "output": duan,
+                "output": light,
                 "category": category,
             })
     return samples
@@ -4738,9 +4738,9 @@ def main():
     # Check lengths
     for i, s in enumerate(samples):
         py_lines = s["input"].count("\n") + 1
-        duan_lines = s["output"].count("\n") + 1
+        light_lines = s["output"].count("\n") + 1
         total_chars = len(s["input"]) + len(s["output"])
-        print(f"  Sample {i+1}: Python {py_lines} lines, Duan {duan_lines} lines, {total_chars} chars")
+        print(f"  Sample {i+1}: Python {py_lines} lines, Light {light_lines} lines, {total_chars} chars")
 
     # Write new samples
     output_path = os.path.join(_SCRIPT_DIR, "sft_dataset_long.jsonl")

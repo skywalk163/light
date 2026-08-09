@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言 v3.3 向后兼容性测试
+光明 v3.3 向后兼容性测试
 
 验证 v4.0 编译器完整支持 v3.3 语法：
 - 设变量（定义/赋值）
@@ -26,11 +26,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 # =============================================================================
 
 def _exec_v3_code(code: str) -> str:
-    """执行 v3.3 段言代码，返回 stdout 输出"""
-    from duan_parser_v3 import DuanParser
+    """执行 v3.3 光明代码，返回 stdout 输出"""
+    from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
 
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(code)
 
     generator = PythonCodeGenerator()
@@ -66,11 +66,11 @@ def test_v33_设变量_整数():
 def test_v33_设变量_字符串():
     """测试 v3.3 '设' 变量定义（字符串）"""
     code = """
-设 名称 为 "段言"。
+设 名称 为 "光明"。
 输出 名称。
 """
     output = _exec_v3_code(code)
-    assert "段言" in output, f"期望输出包含 '段言'，实际输出: {output}"
+    assert "光明" in output, f"期望输出包含 '光明'，实际输出: {output}"
 
 
 def test_v33_印输出_多参数():
@@ -192,11 +192,11 @@ def test_v33_数学运算_混合():
 def test_v33_字符串操作():
     """测试 v3.3 字符串连接和操作"""
     code = """
-设 问候 为 "你好，" 加 "段言"。
+设 问候 为 "你好，" 加 "光明"。
 输出 问候。
 """
     output = _exec_v3_code(code)
-    assert "你好，段言" in output, f"期望 '你好，段言'，实际输出: {output}"
+    assert "你好，光明" in output, f"期望 '你好，光明'，实际输出: {output}"
 
 
 def test_v33_转串函数():
@@ -245,13 +245,13 @@ def test_v33_字典操作():
     """测试 v3.3 字典创建和操作"""
     code = """
 设 字典 为 字典创建()。
-字典设置(字典, "名称", "段言")。
+字典设置(字典, "名称", "光明")。
 字典设置(字典, "版本", "3.3")。
 输出 字典获取(字典, "名称")。
 输出 字典获取(字典, "版本")。
 """
     output = _exec_v3_code(code)
-    assert "段言" in output, f"期望 '段言'，实际输出: {output}"
+    assert "光明" in output, f"期望 '光明'，实际输出: {output}"
     assert "3.3" in output, f"期望 '3.3'，实际输出: {output}"
 
 

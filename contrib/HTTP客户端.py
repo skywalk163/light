@@ -28,7 +28,7 @@ class HTTP客户端:
             urllib.request.HTTPRedirectHandler
         )
         self._headers = {
-            'User-Agent': 'DuanLang/1.0',
+            'User-Agent': 'LightLang/1.0',
             'Accept': '*/*',
         }
     
@@ -123,7 +123,7 @@ class HTTP客户端:
         
         文件名 = 文件路径.split('/')[-1].split('\\')[-1]
         
-        boundary = '----DuanLangFormBoundary' + str(hash(文件名) % 10000)
+        boundary = '----LightLangFormBoundary' + str(hash(文件名) % 10000)
         
         body_parts = []
         if 其他数据:

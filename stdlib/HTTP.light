@@ -1,0 +1,19 @@
+# 光明标准库 - HTTP 请求封装模块
+#
+# 用法：
+#   从《HTTP》导入《HTTP获取》《HTTP发送》。
+
+导出 HTTP获取。
+导出 HTTP获取JSON。
+导出 HTTP发送。
+导出 HTTP发送JSON。
+导出 HTTPPost。
+导出 HTTPPut。
+导出 HTTPDelete。
+导出 HTTP下载文件。
+导出 HTTP检查状态码。
+导出 HTTP构建查询参数。
+导出 HTTP拼接URL。
+导出 HTTP解析URL。
+导出 HTTP编码URL。
+导出 HTTP解码URL。

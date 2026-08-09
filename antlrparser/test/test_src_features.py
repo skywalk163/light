@@ -5,12 +5,12 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from duan_parser_v3 import DuanParser, DictLiteral, DictComprehension, DestructuringAssignment, WithStmt, DecoratorDefinition, Paragraph
+from light_parser_v3 import LightParser, DictLiteral, DictComprehension, DestructuringAssignment, WithStmt, DecoratorDefinition, Paragraph
 
 
 def test_parse(name: str, code: str):
     """测试解析"""
-    parser = DuanParser()
+    parser = LightParser()
     try:
         module = parser.parse(code)
         print(f"[OK]  {name}: 解析成功 ({len(module.statements)} 个语句)")

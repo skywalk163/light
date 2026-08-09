@@ -9,9 +9,9 @@ client.connect(SSH_HOST, username=SSH_USER_TRAE, password=SSH_PASS_TRAE, timeout
 client.exec_command('pkill -f "ollama run" 2>/dev/null')
 
 # Simple test
-prompt = "用段言v3.2语法重写以下Python代码。\n\nPython代码:\nx = 5\ny = 10\nprint(x + y)"
+prompt = "用光明v3.2语法重写以下Python代码。\n\nPython代码:\nx = 5\ny = 10\nprint(x + y)"
 
-cmd = f'echo "{prompt}" | ollama run duan-translator 2>&1'
+cmd = f'echo "{prompt}" | ollama run light-translator 2>&1'
 print(f'Running: {cmd[:50]}...')
 stdin, stdout, stderr = client.exec_command(cmd)
 out = stdout.read().decode()

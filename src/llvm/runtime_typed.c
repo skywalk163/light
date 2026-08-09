@@ -1,13 +1,13 @@
 /*
- * 段言 (Duan) 运行时库 - 类型版 (v3)
+ * 光明 (Light) 运行时库 - 类型版 (v3)
  * 
- * 基于 DuanValue 结构体，所有值携带类型标记。
+ * 基于 LightValue 结构体，所有值携带类型标记。
  * 算术运算直接在原生类型上操作，避免 atoi/itoa 转换。
  * 
  * 类型系统：
  *   0 = NULL, 1 = INT, 2 = FLOAT, 3 = STRING, 4 = LIST, 5 = BOOL
  * 
- * 所有 DuanValue 参数通过指针传递，避免 C/LLVM 结构体布局 ABI 不兼容。
+ * 所有 LightValue 参数通过指针传递，避免 C/LLVM 结构体布局 ABI 不兼容。
  */
 
 #include <stdio.h>
@@ -34,33 +34,33 @@
  * 类型定义
  * ================================================================ */
 
-typedef struct DuanValue {
+typedef struct LightValue {
     int type;          /* 0=NULL 1=INT 2=FLOAT 3=STR 4=LIST 5=BOOL 6=OBJ 7=DICT 8=REF */
     int64_t i64;       /* INT */
     double f64;        /* FLOAT */
-    char* str;         /* STR / REF (type=8 时存储 DuanValue* 指针) */
+    char* str;         /* STR / REF (type=8 时存储 LightValue* 指针) */
     int boolean;       /* BOOL */
     /* LIST 类型专用字段 (type=4) */
     int list_size;     /* 当前元素数量 */
     int list_capacity; /* 分配的数组容量 */
-    struct DuanValue** list_data; /* 元素数组指针 */
+    struct LightValue** list_data; /* 元素数组指针 */
     /* DICT 类型专用字段 (type=7) - 复用 list_data/list_size/list_capacity
        list_data 存储键值对: [key1, val1, key2, val2, ...]
        list_size = 键值对数量
        list_capacity = 已分配容量（对数，list_data 有 2*list_capacity 个槽位） */
-} DuanValue;
+} LightValue;
 
-/* type=8 REF: 引用类型，str 字段存储被引用的 DuanValue* 指针
+/* type=8 REF: 引用类型，str 字段存储被引用的 LightValue* 指针
    用于 dv_dict_get 返回对字典内部值的引用，使原地修改（如列表追加）能传播回字典 */
 
 /* ================================================================
  * 前向声明（避免隐式函数声明）
  * ================================================================ */
 
-void dv_clone(DuanValue* result, DuanValue* v);
-void dv_class_get_member(DuanValue* result, DuanValue* obj, const char* field_name);
-void dv_value_to_string(DuanValue* result, DuanValue* v);
-int dv_is_object(DuanValue* v);
+void dv_clone(LightValue* result, LightValue* v);
+void dv_class_get_member(LightValue* result, LightValue* obj, const char* field_name);
+void dv_value_to_string(LightValue* result, LightValue* v);
+int dv_is_object(LightValue* v);
 /* 接口系统前向声明（Level 7） */
 int dv_register_interface(const char* name);
 int dv_register_interface_method(const char* interface_name, const char* method_name, const char* signature);
@@ -72,9 +72,9 @@ int dv_class_implements_interface(const char* class_name, const char* interface_
  * ================================================================ */
 
 /* 跟随 REF 链，返回实际值指针（用于原地修改操作） */
-static DuanValue* dv_deref(DuanValue* v) {
+static LightValue* dv_deref(LightValue* v) {
     while (v && v->type == 8 && v->str) {
-        v = (DuanValue*)v->str;
+        v = (LightValue*)v->str;
     }
     return v;
 }
@@ -91,7 +91,7 @@ static char* dv_strdup(const char* s) {
  * 值构造器 - 写结果到 result 指针，避免返回 struct 值
  * ================================================================ */
 
-void dv_null(DuanValue* result) {
+void dv_null(LightValue* result) {
     result->type = 0;
     result->i64 = 0;
     result->f64 = 0.0;
@@ -99,12 +99,12 @@ void dv_null(DuanValue* result) {
     result->boolean = 0;
 }
 
-int dv_is_null(DuanValue* v) {
+int dv_is_null(LightValue* v) {
     return v && v->type == 0;
 }
 
 /* null 合并操作符：如果 v 是 null，返回 default_val，否则返回 v */
-void dv_null_coalesce(DuanValue* result, DuanValue* v, DuanValue* default_val) {
+void dv_null_coalesce(LightValue* result, LightValue* v, LightValue* default_val) {
     if (v && v->type != 0) {
         dv_clone(result, v);
     } else {
@@ -113,7 +113,7 @@ void dv_null_coalesce(DuanValue* result, DuanValue* v, DuanValue* default_val) {
 }
 
 /* 安全获取属性：如果 obj 为 null，返回 null；否则返回 obj.属性 */
-void dv_safe_get(DuanValue* result, DuanValue* obj, DuanValue* attr_name) {
+void dv_safe_get(LightValue* result, LightValue* obj, LightValue* attr_name) {
     if (!obj || obj->type == 0) {
         dv_null(result);
         return;
@@ -125,7 +125,7 @@ void dv_safe_get(DuanValue* result, DuanValue* obj, DuanValue* attr_name) {
     }
 }
 
-void dv_int(DuanValue* result, int64_t x) {
+void dv_int(LightValue* result, int64_t x) {
     result->type = 1;
     result->i64 = x;
     result->f64 = 0.0;
@@ -133,7 +133,7 @@ void dv_int(DuanValue* result, int64_t x) {
     result->boolean = 0;
 }
 
-void dv_float(DuanValue* result, double x) {
+void dv_float(LightValue* result, double x) {
     result->type = 2;
     result->i64 = 0;
     result->f64 = x;
@@ -141,7 +141,7 @@ void dv_float(DuanValue* result, double x) {
     result->boolean = 0;
 }
 
-void dv_str(DuanValue* result, const char* s) {
+void dv_str(LightValue* result, const char* s) {
     result->type = 3;
     result->i64 = 0;
     result->f64 = 0.0;
@@ -149,7 +149,7 @@ void dv_str(DuanValue* result, const char* s) {
     result->boolean = 0;
 }
 
-void dv_bool(DuanValue* result, int b) {
+void dv_bool(LightValue* result, int b) {
     result->type = 5;
     result->i64 = 0;
     result->f64 = 0.0;
@@ -161,7 +161,7 @@ void dv_bool(DuanValue* result, int b) {
  * 值销毁 / 复制
  * ================================================================ */
 
-void dv_free(DuanValue* v) {
+void dv_free(LightValue* v) {
     if (!v) return;
     if (v->type == 8) {
         /* REF: 不释放引用目标，仅清空指针 */
@@ -198,7 +198,7 @@ void dv_free(DuanValue* v) {
     }
 }
 
-void dv_clone(DuanValue* result, DuanValue* v) {
+void dv_clone(LightValue* result, LightValue* v) {
     if (v->type == 8) {
         /* REF: 复制引用（浅拷贝，指向同一目标） */
         result->type = 8;
@@ -221,10 +221,10 @@ void dv_clone(DuanValue* result, DuanValue* v) {
         result->list_capacity = 0;
         if (v->list_size > 0 && v->list_data) {
             result->list_capacity = v->list_capacity > 0 ? v->list_capacity : v->list_size;
-            result->list_data = (struct DuanValue**)malloc(result->list_capacity * sizeof(DuanValue*));
+            result->list_data = (struct LightValue**)malloc(result->list_capacity * sizeof(LightValue*));
             for (int i = 0; i < v->list_size; i++) {
                 if (v->list_data[i]) {
-                    result->list_data[i] = (DuanValue*)malloc(sizeof(DuanValue));
+                    result->list_data[i] = (LightValue*)malloc(sizeof(LightValue));
                     dv_clone(result->list_data[i], v->list_data[i]);
                 } else {
                     result->list_data[i] = NULL;
@@ -239,10 +239,10 @@ void dv_clone(DuanValue* result, DuanValue* v) {
 }
 
 /* ================================================================
- * 类型转换 - 取 DuanValue* 避免 struct 传参 ABI 问题
+ * 类型转换 - 取 LightValue* 避免 struct 传参 ABI 问题
  * ================================================================ */
 
-int64_t dv_to_i64(DuanValue* v) {
+int64_t dv_to_i64(LightValue* v) {
     v = dv_deref(v);
     switch (v->type) {
         case 1: return v->i64;
@@ -253,7 +253,7 @@ int64_t dv_to_i64(DuanValue* v) {
     }
 }
 
-double dv_to_f64(DuanValue* v) {
+double dv_to_f64(LightValue* v) {
     v = dv_deref(v);
     switch (v->type) {
         case 1: return (double)v->i64;
@@ -264,7 +264,7 @@ double dv_to_f64(DuanValue* v) {
     }
 }
 
-const char* dv_to_str(DuanValue* v) {
+const char* dv_to_str(LightValue* v) {
     v = dv_deref(v);
     switch (v->type) {
         case 3: return v->str ? v->str : "";
@@ -272,7 +272,7 @@ const char* dv_to_str(DuanValue* v) {
     }
 }
 
-int dv_to_bool(DuanValue* v) {
+int dv_to_bool(LightValue* v) {
     v = dv_deref(v);
     switch (v->type) {
         case 0: return 0;
@@ -286,7 +286,7 @@ int dv_to_bool(DuanValue* v) {
     }
 }
 
-char* dv_to_string(DuanValue* v) {
+char* dv_to_string(LightValue* v) {
     v = dv_deref(v);
     /* 转换为可读字符串形式 */
     char buf[128];
@@ -306,7 +306,7 @@ char* dv_to_string(DuanValue* v) {
  * 算术运算（类型提升：int + float → float）
  * ================================================================ */
 
-static int dv_promote(DuanValue* a, DuanValue* b) {
+static int dv_promote(LightValue* a, LightValue* b) {
     return (a->type == 2 || b->type == 2) ? 2 : 1;
 }
 
@@ -315,12 +315,12 @@ static int dv_is_object_str(const char* s) {
     return strncmp(s, "obj:", 4) == 0;
 }
 
-void dv_add(DuanValue* result, DuanValue* a, DuanValue* b);
-void dv_sub(DuanValue* result, DuanValue* a, DuanValue* b);
-void dv_mul(DuanValue* result, DuanValue* a, DuanValue* b);
-void dv_div(DuanValue* result, DuanValue* a, DuanValue* b);
+void dv_add(LightValue* result, LightValue* a, LightValue* b);
+void dv_sub(LightValue* result, LightValue* a, LightValue* b);
+void dv_mul(LightValue* result, LightValue* a, LightValue* b);
+void dv_div(LightValue* result, LightValue* a, LightValue* b);
 
-static void dv_add_default(DuanValue* result, DuanValue* a, DuanValue* b) {
+static void dv_add_default(LightValue* result, LightValue* a, LightValue* b) {
     /* 特殊：字符串拼接 */
     if (a->type == 3 || b->type == 3) {
         char* sa = dv_to_string(a);
@@ -360,7 +360,7 @@ static void dv_add_default(DuanValue* result, DuanValue* a, DuanValue* b) {
     result->boolean = 0;
 }
 
-static void dv_sub_default(DuanValue* result, DuanValue* a, DuanValue* b) {
+static void dv_sub_default(LightValue* result, LightValue* a, LightValue* b) {
     if (dv_promote(a, b) == 2) {
         result->type = 2;
         result->i64 = 0;
@@ -376,7 +376,7 @@ static void dv_sub_default(DuanValue* result, DuanValue* a, DuanValue* b) {
     result->boolean = 0;
 }
 
-static void dv_mul_default(DuanValue* result, DuanValue* a, DuanValue* b) {
+static void dv_mul_default(LightValue* result, LightValue* a, LightValue* b) {
     if (dv_promote(a, b) == 2) {
         result->type = 2;
         result->i64 = 0;
@@ -392,7 +392,7 @@ static void dv_mul_default(DuanValue* result, DuanValue* a, DuanValue* b) {
     result->boolean = 0;
 }
 
-static void dv_div_default(DuanValue* result, DuanValue* a, DuanValue* b) {
+static void dv_div_default(LightValue* result, LightValue* a, LightValue* b) {
     if (dv_promote(a, b) == 2) {
         double denom = dv_to_f64(b);
         if (denom == 0.0) {
@@ -422,7 +422,7 @@ static void dv_div_default(DuanValue* result, DuanValue* a, DuanValue* b) {
  * 数学函数
  * ================================================================ */
 
-void dv_sin(DuanValue* result, DuanValue* a) {
+void dv_sin(LightValue* result, LightValue* a) {
     double x = dv_to_f64(a);
     result->type = 2;
     result->i64 = 0;
@@ -431,7 +431,7 @@ void dv_sin(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_cos(DuanValue* result, DuanValue* a) {
+void dv_cos(LightValue* result, LightValue* a) {
     double x = dv_to_f64(a);
     result->type = 2;
     result->i64 = 0;
@@ -440,7 +440,7 @@ void dv_cos(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_sqrt(DuanValue* result, DuanValue* a) {
+void dv_sqrt(LightValue* result, LightValue* a) {
     double x = dv_to_f64(a);
     if (x < 0) {
         dv_null(result);
@@ -453,7 +453,7 @@ void dv_sqrt(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_abs(DuanValue* result, DuanValue* a) {
+void dv_abs(LightValue* result, LightValue* a) {
     if (a->type == 1) {
         int64_t x = dv_to_i64(a);
         result->type = 1;
@@ -471,7 +471,7 @@ void dv_abs(DuanValue* result, DuanValue* a) {
     }
 }
 
-void dv_pow(DuanValue* result, DuanValue* a, DuanValue* b) {
+void dv_pow(LightValue* result, LightValue* a, LightValue* b) {
     double x = dv_to_f64(a);
     double y = dv_to_f64(b);
     result->type = 2;
@@ -481,7 +481,7 @@ void dv_pow(DuanValue* result, DuanValue* a, DuanValue* b) {
     result->boolean = 0;
 }
 
-void dv_floor(DuanValue* result, DuanValue* a) {
+void dv_floor(LightValue* result, LightValue* a) {
     if (a->type == 1) {
         dv_clone(result, a);
         return;
@@ -494,7 +494,7 @@ void dv_floor(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_ceil(DuanValue* result, DuanValue* a) {
+void dv_ceil(LightValue* result, LightValue* a) {
     if (a->type == 1) {
         dv_clone(result, a);
         return;
@@ -507,7 +507,7 @@ void dv_ceil(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_mod(DuanValue* result, DuanValue* a, DuanValue* b) {
+void dv_mod(LightValue* result, LightValue* a, LightValue* b) {
     if (a->type == 1 && b->type == 1) {
         int64_t x = dv_to_i64(a);
         int64_t y = dv_to_i64(b);
@@ -539,7 +539,7 @@ void dv_mod(DuanValue* result, DuanValue* a, DuanValue* b) {
  * 数学扩展（第三批移植）
  * ---------------------------------------------------------------- */
 
-void dv_tan(DuanValue* result, DuanValue* a) {
+void dv_tan(LightValue* result, LightValue* a) {
     double x = dv_to_f64(a);
     result->type = 2;
     result->i64 = 0;
@@ -548,7 +548,7 @@ void dv_tan(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_asin(DuanValue* result, DuanValue* a) {
+void dv_asin(LightValue* result, LightValue* a) {
     double x = dv_to_f64(a);
     result->type = 2;
     result->i64 = 0;
@@ -557,7 +557,7 @@ void dv_asin(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_acos(DuanValue* result, DuanValue* a) {
+void dv_acos(LightValue* result, LightValue* a) {
     double x = dv_to_f64(a);
     result->type = 2;
     result->i64 = 0;
@@ -566,7 +566,7 @@ void dv_acos(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_atan(DuanValue* result, DuanValue* a) {
+void dv_atan(LightValue* result, LightValue* a) {
     double x = dv_to_f64(a);
     result->type = 2;
     result->i64 = 0;
@@ -575,7 +575,7 @@ void dv_atan(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_atan2(DuanValue* result, DuanValue* a, DuanValue* b) {
+void dv_atan2(LightValue* result, LightValue* a, LightValue* b) {
     double x = dv_to_f64(a);
     double y = dv_to_f64(b);
     result->type = 2;
@@ -585,7 +585,7 @@ void dv_atan2(DuanValue* result, DuanValue* a, DuanValue* b) {
     result->boolean = 0;
 }
 
-void dv_log(DuanValue* result, DuanValue* a) {
+void dv_log(LightValue* result, LightValue* a) {
     double x = dv_to_f64(a);
     result->type = 2;
     result->i64 = 0;
@@ -594,7 +594,7 @@ void dv_log(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_log2(DuanValue* result, DuanValue* a) {
+void dv_log2(LightValue* result, LightValue* a) {
     double x = dv_to_f64(a);
     result->type = 2;
     result->i64 = 0;
@@ -603,7 +603,7 @@ void dv_log2(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_log10(DuanValue* result, DuanValue* a) {
+void dv_log10(LightValue* result, LightValue* a) {
     double x = dv_to_f64(a);
     result->type = 2;
     result->i64 = 0;
@@ -612,7 +612,7 @@ void dv_log10(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_exp(DuanValue* result, DuanValue* a) {
+void dv_exp(LightValue* result, LightValue* a) {
     double x = dv_to_f64(a);
     result->type = 2;
     result->i64 = 0;
@@ -621,7 +621,7 @@ void dv_exp(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_round(DuanValue* result, DuanValue* a) {
+void dv_round(LightValue* result, LightValue* a) {
     if (a->type == 1) {
         dv_clone(result, a);
         return;
@@ -634,7 +634,7 @@ void dv_round(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_trunc(DuanValue* result, DuanValue* a) {
+void dv_trunc(LightValue* result, LightValue* a) {
     if (a->type == 1) {
         dv_clone(result, a);
         return;
@@ -647,7 +647,7 @@ void dv_trunc(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_sign(DuanValue* result, DuanValue* a) {
+void dv_sign(LightValue* result, LightValue* a) {
     if (a->type == 1) {
         int64_t x = dv_to_i64(a);
         int64_t s = (x > 0) - (x < 0);
@@ -667,7 +667,7 @@ void dv_sign(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_hypot(DuanValue* result, DuanValue* a, DuanValue* b) {
+void dv_hypot(LightValue* result, LightValue* a, LightValue* b) {
     double x = dv_to_f64(a);
     double y = dv_to_f64(b);
     result->type = 2;
@@ -677,7 +677,7 @@ void dv_hypot(DuanValue* result, DuanValue* a, DuanValue* b) {
     result->boolean = 0;
 }
 
-void dv_degrees(DuanValue* result, DuanValue* a) {
+void dv_degrees(LightValue* result, LightValue* a) {
     double x = dv_to_f64(a);
     result->type = 2;
     result->i64 = 0;
@@ -686,7 +686,7 @@ void dv_degrees(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_radians(DuanValue* result, DuanValue* a) {
+void dv_radians(LightValue* result, LightValue* a) {
     double x = dv_to_f64(a);
     result->type = 2;
     result->i64 = 0;
@@ -695,7 +695,7 @@ void dv_radians(DuanValue* result, DuanValue* a) {
     result->boolean = 0;
 }
 
-void dv_min(DuanValue* result, DuanValue* a, DuanValue* b) {
+void dv_min(LightValue* result, LightValue* a, LightValue* b) {
     if (dv_promote(a, b) == 2) {
         double x = dv_to_f64(a);
         double y = dv_to_f64(b);
@@ -715,7 +715,7 @@ void dv_min(DuanValue* result, DuanValue* a, DuanValue* b) {
     result->boolean = 0;
 }
 
-void dv_max(DuanValue* result, DuanValue* a, DuanValue* b) {
+void dv_max(LightValue* result, LightValue* a, LightValue* b) {
     if (dv_promote(a, b) == 2) {
         double x = dv_to_f64(a);
         double y = dv_to_f64(b);
@@ -747,7 +747,7 @@ static int64_t _i64_gcd(int64_t a, int64_t b) {
     return a;
 }
 
-void dv_gcd(DuanValue* result, DuanValue* a, DuanValue* b) {
+void dv_gcd(LightValue* result, LightValue* a, LightValue* b) {
     int64_t x = dv_to_i64(a);
     int64_t y = dv_to_i64(b);
     result->type = 1;
@@ -757,7 +757,7 @@ void dv_gcd(DuanValue* result, DuanValue* a, DuanValue* b) {
     result->boolean = 0;
 }
 
-void dv_lcm(DuanValue* result, DuanValue* a, DuanValue* b) {
+void dv_lcm(LightValue* result, LightValue* a, LightValue* b) {
     int64_t x = dv_to_i64(a);
     int64_t y = dv_to_i64(b);
     int64_t g = _i64_gcd(x, y);
@@ -774,7 +774,7 @@ void dv_lcm(DuanValue* result, DuanValue* a, DuanValue* b) {
  * 比较运算
  * ================================================================ */
 
-int dv_eq(DuanValue* a, DuanValue* b) {
+int dv_eq(LightValue* a, LightValue* b) {
     if (a->type == 3 && b->type == 3) {
         return (a->str && b->str && strcmp(a->str, b->str) == 0) ||
                (!a->str && !b->str);
@@ -785,7 +785,7 @@ int dv_eq(DuanValue* a, DuanValue* b) {
     return dv_to_i64(a) == dv_to_i64(b);
 }
 
-int dv_cmp(DuanValue* a, DuanValue* b) {
+int dv_cmp(LightValue* a, LightValue* b) {
     /* 返回 -1, 0, 1 用于 <, ==, > */
     if (a->type == 3 && b->type == 3) {
         if (!a->str && !b->str) return 0;
@@ -800,28 +800,28 @@ int dv_cmp(DuanValue* a, DuanValue* b) {
     return 0;
 }
 
-int dv_lt(DuanValue* a, DuanValue* b) { return dv_cmp(a, b) < 0; }
-int dv_gt(DuanValue* a, DuanValue* b) { return dv_cmp(a, b) > 0; }
-int dv_le(DuanValue* a, DuanValue* b) { return dv_cmp(a, b) <= 0; }
-int dv_ge(DuanValue* a, DuanValue* b) { return dv_cmp(a, b) >= 0; }
+int dv_lt(LightValue* a, LightValue* b) { return dv_cmp(a, b) < 0; }
+int dv_gt(LightValue* a, LightValue* b) { return dv_cmp(a, b) > 0; }
+int dv_le(LightValue* a, LightValue* b) { return dv_cmp(a, b) <= 0; }
+int dv_ge(LightValue* a, LightValue* b) { return dv_cmp(a, b) >= 0; }
 
 /* ================================================================
  * I/O 函数
  * ================================================================ */
 
-void dv_print(DuanValue* v) {
+void dv_print(LightValue* v) {
     char* s = dv_to_string(v);
     if (s) printf("%s", s);
     free(s);
 }
 
-void dv_println(DuanValue* v) {
+void dv_println(LightValue* v) {
     char* s = dv_to_string(v);
     if (s) printf("%s\n", s);
     free(s);
 }
 
-void dv_print_int(DuanValue* result, int64_t n) {
+void dv_print_int(LightValue* result, int64_t n) {
     printf("%lld\n", (long long)n);
     result->type = 1;
     result->i64 = n;
@@ -830,7 +830,7 @@ void dv_print_int(DuanValue* result, int64_t n) {
     result->boolean = 0;
 }
 
-void dv_input(DuanValue* result) {
+void dv_input(LightValue* result) {
     char buf[4096];
     if (fgets(buf, sizeof(buf), stdin)) {
         size_t len = strlen(buf);
@@ -854,7 +854,7 @@ void dv_input(DuanValue* result) {
  * 字符串操作
  * ================================================================ */
 
-void dv_concat(DuanValue* result, DuanValue* a, DuanValue* b) {
+void dv_concat(LightValue* result, LightValue* a, LightValue* b) {
     char* sa = dv_to_string(a);
     char* sb = dv_to_string(b);
     char* r = (char*)malloc(strlen(sa) + strlen(sb) + 1);
@@ -877,12 +877,12 @@ void dv_concat(DuanValue* result, DuanValue* a, DuanValue* b) {
     free(r);
 }
 
-int64_t dv_str_len(DuanValue* v) {
+int64_t dv_str_len(LightValue* v) {
     if (v->type == 3 && v->str) return (int64_t)strlen(v->str);
     return 0;
 }
 
-void dv_substr(DuanValue* result, DuanValue* str, int64_t start, int64_t len) {
+void dv_substr(LightValue* result, LightValue* str, int64_t start, int64_t len) {
     if (str->type != 3 || !str->str) {
         dv_str(result, "");
         return;
@@ -909,14 +909,14 @@ void dv_substr(DuanValue* result, DuanValue* str, int64_t start, int64_t len) {
     result->boolean = 0;
 }
 
-int64_t dv_str_find(DuanValue* str, DuanValue* sub) {
+int64_t dv_str_find(LightValue* str, LightValue* sub) {
     if (str->type != 3 || sub->type != 3 || !str->str || !sub->str) return -1;
     const char* found = strstr(str->str, sub->str);
     if (!found) return -1;
     return (int64_t)(found - str->str);
 }
 
-void dv_upper(DuanValue* result, DuanValue* str) {
+void dv_upper(LightValue* result, LightValue* str) {
     if (str->type != 3 || !str->str) {
         dv_str(result, "");
         return;
@@ -937,7 +937,7 @@ void dv_upper(DuanValue* result, DuanValue* str) {
     result->boolean = 0;
 }
 
-void dv_lower(DuanValue* result, DuanValue* str) {
+void dv_lower(LightValue* result, LightValue* str) {
     if (str->type != 3 || !str->str) {
         dv_str(result, "");
         return;
@@ -958,7 +958,7 @@ void dv_lower(DuanValue* result, DuanValue* str) {
     result->boolean = 0;
 }
 
-void dv_trim(DuanValue* result, DuanValue* str) {
+void dv_trim(LightValue* result, LightValue* str) {
     if (str->type != 3 || !str->str) {
         dv_str(result, "");
         return;
@@ -982,7 +982,7 @@ void dv_trim(DuanValue* result, DuanValue* str) {
     result->boolean = 0;
 }
 
-void dv_str_replace(DuanValue* result, DuanValue* str, DuanValue* old_s, DuanValue* new_s) {
+void dv_str_replace(LightValue* result, LightValue* str, LightValue* old_s, LightValue* new_s) {
     if (str->type != 3 || old_s->type != 3 || new_s->type != 3 || !str->str || !old_s->str || !new_s->str) {
         dv_str(result, "");
         return;
@@ -1033,7 +1033,7 @@ void dv_str_replace(DuanValue* result, DuanValue* str, DuanValue* old_s, DuanVal
  * 字符串扩展（第三批移植）
  * ---------------------------------------------------------------- */
 
-void dv_str_repeat(DuanValue* result, DuanValue* str, DuanValue* times) {
+void dv_str_repeat(LightValue* result, LightValue* str, LightValue* times) {
     if (str->type != 3 || !str->str) {
         dv_str(result, "");
         return;
@@ -1069,14 +1069,14 @@ void dv_str_repeat(DuanValue* result, DuanValue* str, DuanValue* times) {
     result->boolean = 0;
 }
 
-int dv_str_contains(DuanValue* str, DuanValue* sub) {
+int dv_str_contains(LightValue* str, LightValue* sub) {
     if (str->type != 3 || sub->type != 3 || !str->str || !sub->str) {
         return 0;
     }
     return strstr(str->str, sub->str) != NULL;
 }
 
-int dv_str_starts_with(DuanValue* str, DuanValue* prefix) {
+int dv_str_starts_with(LightValue* str, LightValue* prefix) {
     if (str->type != 3 || prefix->type != 3 || !str->str || !prefix->str) {
         return 0;
     }
@@ -1085,7 +1085,7 @@ int dv_str_starts_with(DuanValue* str, DuanValue* prefix) {
     return strncmp(str->str, prefix->str, plen) == 0;
 }
 
-int dv_str_ends_with(DuanValue* str, DuanValue* suffix) {
+int dv_str_ends_with(LightValue* str, LightValue* suffix) {
     if (str->type != 3 || suffix->type != 3 || !str->str || !suffix->str) {
         return 0;
     }
@@ -1096,7 +1096,7 @@ int dv_str_ends_with(DuanValue* str, DuanValue* suffix) {
     return strcmp(str->str + (slen - flen), suffix->str) == 0;
 }
 
-int64_t dv_str_count(DuanValue* str, DuanValue* sub) {
+int64_t dv_str_count(LightValue* str, LightValue* sub) {
     if (str->type != 3 || sub->type != 3 || !str->str || !sub->str) {
         return 0;
     }
@@ -1111,7 +1111,7 @@ int64_t dv_str_count(DuanValue* str, DuanValue* sub) {
     return count;
 }
 
-void dv_str_rjust(DuanValue* result, DuanValue* str, DuanValue* width, DuanValue* fill) {
+void dv_str_rjust(LightValue* result, LightValue* str, LightValue* width, LightValue* fill) {
     if (str->type != 3 || !str->str) {
         dv_str(result, "");
         return;
@@ -1138,7 +1138,7 @@ void dv_str_rjust(DuanValue* result, DuanValue* str, DuanValue* width, DuanValue
     result->boolean = 0;
 }
 
-void dv_str_ljust(DuanValue* result, DuanValue* str, DuanValue* width, DuanValue* fill) {
+void dv_str_ljust(LightValue* result, LightValue* str, LightValue* width, LightValue* fill) {
     if (str->type != 3 || !str->str) {
         dv_str(result, "");
         return;
@@ -1166,7 +1166,7 @@ void dv_str_ljust(DuanValue* result, DuanValue* str, DuanValue* width, DuanValue
     result->boolean = 0;
 }
 
-void dv_str_center(DuanValue* result, DuanValue* str, DuanValue* width, DuanValue* fill) {
+void dv_str_center(LightValue* result, LightValue* str, LightValue* width, LightValue* fill) {
     if (str->type != 3 || !str->str) {
         dv_str(result, "");
         return;
@@ -1197,7 +1197,7 @@ void dv_str_center(DuanValue* result, DuanValue* str, DuanValue* width, DuanValu
     result->boolean = 0;
 }
 
-void dv_str_reverse(DuanValue* result, DuanValue* str) {
+void dv_str_reverse(LightValue* result, LightValue* str) {
     if (str->type != 3 || !str->str) {
         dv_str(result, "");
         return;
@@ -1221,7 +1221,7 @@ void dv_str_reverse(DuanValue* result, DuanValue* str) {
  * ================================================================ */
 
 /* 列表初始化辅助函数 */
-static void dv_list_init_internal(DuanValue* result, int capacity) {
+static void dv_list_init_internal(LightValue* result, int capacity) {
     result->type = 4;  /* LIST 类型 */
     result->i64 = 0;
     result->f64 = 0.0;
@@ -1229,17 +1229,17 @@ static void dv_list_init_internal(DuanValue* result, int capacity) {
     result->boolean = 0;
     result->list_size = 0;
     result->list_capacity = capacity > 0 ? capacity : 4;
-    result->list_data = (struct DuanValue**)malloc(result->list_capacity * sizeof(DuanValue*));
+    result->list_data = (struct LightValue**)malloc(result->list_capacity * sizeof(LightValue*));
     for (int i = 0; i < result->list_capacity; i++) {
         result->list_data[i] = NULL;
     }
 }
 
 /* 列表增长辅助函数 */
-static void dv_list_grow(DuanValue* list) {
+static void dv_list_grow(LightValue* list) {
     if (!list || list->type != 4) return;
     int new_capacity = list->list_capacity * 2;
-    struct DuanValue** new_data = (struct DuanValue**)malloc(new_capacity * sizeof(DuanValue*));
+    struct LightValue** new_data = (struct LightValue**)malloc(new_capacity * sizeof(LightValue*));
     for (int i = 0; i < list->list_size; i++) {
         new_data[i] = list->list_data[i];
     }
@@ -1252,7 +1252,7 @@ static void dv_list_grow(DuanValue* list) {
 }
 
 /* 列表添加元素辅助函数 */
-static void dv_list_add_internal(DuanValue* list, DuanValue* elem) {
+static void dv_list_add_internal(LightValue* list, LightValue* elem) {
     if (!list || list->type != 4 || !elem) return;
     if (list->list_size >= list->list_capacity) {
         dv_list_grow(list);
@@ -1263,16 +1263,16 @@ static void dv_list_add_internal(DuanValue* list, DuanValue* elem) {
     }
 }
 
-void dv_list_new(DuanValue* result) {
+void dv_list_new(LightValue* result) {
     dv_list_init_internal(result, 4);
 }
 
-int64_t dv_list_len(DuanValue* v) {
+int64_t dv_list_len(LightValue* v) {
     if (v->type != 4) return 0;
     return v->list_size;
 }
 
-int64_t dv_len(DuanValue* v) {
+int64_t dv_len(LightValue* v) {
     v = dv_deref(v);
     if (v->type == 3) {
         const char* s = v->str ? v->str : "";
@@ -1291,7 +1291,7 @@ int64_t dv_len(DuanValue* v) {
     return 0;
 }
 
-void dv_list_get(DuanValue* result, DuanValue* list, int64_t index) {
+void dv_list_get(LightValue* result, LightValue* list, int64_t index) {
     list = dv_deref(list);
     if (list->type != 4) {
         dv_null(result);
@@ -1301,7 +1301,7 @@ void dv_list_get(DuanValue* result, DuanValue* list, int64_t index) {
         dv_null(result);
         return;
     }
-    DuanValue* elem = list->list_data[index];
+    LightValue* elem = list->list_data[index];
     if (elem) {
         dv_clone(result, elem);
     } else {
@@ -1309,7 +1309,7 @@ void dv_list_get(DuanValue* result, DuanValue* list, int64_t index) {
     }
 }
 
-void dv_str_get(DuanValue* result, DuanValue* str_val, int64_t index) {
+void dv_str_get(LightValue* result, LightValue* str_val, int64_t index) {
     if (str_val->type != 3) {
         dv_null(result);
         return;
@@ -1328,15 +1328,15 @@ void dv_str_get(DuanValue* result, DuanValue* str_val, int64_t index) {
 
 /* 列表操作：基于动态数组实现 */
 
-void dv_list_append(DuanValue* result, DuanValue* list, DuanValue* elem) {
+void dv_list_append(LightValue* result, LightValue* list, LightValue* elem) {
     if (!result) return;
 
     /* 跟随 REF：如果 result 或 list 是 REF，找到实际目标 */
-    DuanValue* result_real = dv_deref(result);
-    DuanValue* list_real = dv_deref(list);
+    LightValue* result_real = dv_deref(result);
+    LightValue* list_real = dv_deref(list);
 
     /* 选择修改目标：优先 result_real（原地修改） */
-    DuanValue* target = (result_real == list_real) ? result_real : list_real;
+    LightValue* target = (result_real == list_real) ? result_real : list_real;
 
     if (target->type != 4) {
         dv_list_new(target);
@@ -1345,13 +1345,13 @@ void dv_list_append(DuanValue* result, DuanValue* list, DuanValue* elem) {
     if (target->list_size >= target->list_capacity) {
         int new_cap = target->list_capacity * 2;
         if (new_cap < 4) new_cap = 4;
-        DuanValue** new_data = (DuanValue**)realloc(target->list_data, new_cap * sizeof(DuanValue*));
+        LightValue** new_data = (LightValue**)realloc(target->list_data, new_cap * sizeof(LightValue*));
         if (!new_data) return;
         target->list_data = new_data;
         target->list_capacity = new_cap;
     }
 
-    DuanValue* elem_copy = (DuanValue*)malloc(sizeof(DuanValue));
+    LightValue* elem_copy = (LightValue*)malloc(sizeof(LightValue));
     if (elem_copy) {
         dv_clone(elem_copy, elem);
         target->list_data[target->list_size] = elem_copy;
@@ -1365,7 +1365,7 @@ void dv_list_append(DuanValue* result, DuanValue* list, DuanValue* elem) {
     }
 }
 
-void dv_list_clear(DuanValue* result, DuanValue* list) {
+void dv_list_clear(LightValue* result, LightValue* list) {
     if (result == list) {
         /* 清空当前列表 */
         for (int i = 0; i < list->list_size; i++) {
@@ -1381,19 +1381,19 @@ void dv_list_clear(DuanValue* result, DuanValue* list) {
     }
 }
 
-void dv_list_set(DuanValue* result, DuanValue* list, int64_t index, DuanValue* elem) {
+void dv_list_set(LightValue* result, LightValue* list, int64_t index, LightValue* elem) {
     if (list->type != 4 || index < 0 || index >= list->list_size) {
         dv_clone(result, list);
         return;
     }
     
     /* 复制列表 */
-    DuanValue* new_list = (DuanValue*)malloc(sizeof(DuanValue));
+    LightValue* new_list = (LightValue*)malloc(sizeof(LightValue));
     if (!new_list) { dv_clone(result, list); return; }
     
     dv_list_init_internal(new_list, list->list_capacity);
     for (int i = 0; i < list->list_size; i++) {
-        DuanValue* copy = (DuanValue*)malloc(sizeof(DuanValue));
+        LightValue* copy = (LightValue*)malloc(sizeof(LightValue));
         if (i == index && elem) {
             dv_clone(copy, elem);
         } else {
@@ -1413,7 +1413,7 @@ void dv_list_set(DuanValue* result, DuanValue* list, int64_t index, DuanValue* e
     free(new_list);
 }
 
-void dv_list_insert(DuanValue* result, DuanValue* list, int64_t index, DuanValue* elem) {
+void dv_list_insert(LightValue* result, LightValue* list, int64_t index, LightValue* elem) {
     if (list->type != 4) {
         dv_list_new(result);
         return;
@@ -1423,22 +1423,22 @@ void dv_list_insert(DuanValue* result, DuanValue* list, int64_t index, DuanValue
     if (index > list->list_size) index = list->list_size;
     
     /* 复制列表 */
-    DuanValue* new_list = (DuanValue*)malloc(sizeof(DuanValue));
+    LightValue* new_list = (LightValue*)malloc(sizeof(LightValue));
     if (!new_list) { dv_clone(result, list); return; }
     
     dv_list_init_internal(new_list, list->list_capacity + 1);
     for (int i = 0; i < list->list_size; i++) {
         if (i == index) {
-            DuanValue* copy = (DuanValue*)malloc(sizeof(DuanValue));
+            LightValue* copy = (LightValue*)malloc(sizeof(LightValue));
             dv_clone(copy, elem);
             dv_list_add_internal(new_list, copy);
         }
-        DuanValue* copy = (DuanValue*)malloc(sizeof(DuanValue));
+        LightValue* copy = (LightValue*)malloc(sizeof(LightValue));
         dv_clone(copy, list->list_data[i]);
         dv_list_add_internal(new_list, copy);
     }
     if (index >= list->list_size) {
-        DuanValue* copy = (DuanValue*)malloc(sizeof(DuanValue));
+        LightValue* copy = (LightValue*)malloc(sizeof(LightValue));
         dv_clone(copy, elem);
         dv_list_add_internal(new_list, copy);
     }
@@ -1454,20 +1454,20 @@ void dv_list_insert(DuanValue* result, DuanValue* list, int64_t index, DuanValue
     free(new_list);
 }
 
-void dv_list_remove(DuanValue* result, DuanValue* list, int64_t index) {
+void dv_list_remove(LightValue* result, LightValue* list, int64_t index) {
     if (list->type != 4 || index < 0 || index >= list->list_size) {
         dv_clone(result, list);
         return;
     }
     
     /* 复制列表（跳过要删除的元素） */
-    DuanValue* new_list = (DuanValue*)malloc(sizeof(DuanValue));
+    LightValue* new_list = (LightValue*)malloc(sizeof(LightValue));
     if (!new_list) { dv_clone(result, list); return; }
     
     dv_list_init_internal(new_list, list->list_capacity);
     for (int i = 0; i < list->list_size; i++) {
         if (i == index) continue;
-        DuanValue* copy = (DuanValue*)malloc(sizeof(DuanValue));
+        LightValue* copy = (LightValue*)malloc(sizeof(LightValue));
         dv_clone(copy, list->list_data[i]);
         dv_list_add_internal(new_list, copy);
     }
@@ -1483,11 +1483,11 @@ void dv_list_remove(DuanValue* result, DuanValue* list, int64_t index) {
     free(new_list);
 }
 
-int64_t dv_list_index_of(DuanValue* list, DuanValue* elem) {
+int64_t dv_list_index_of(LightValue* list, LightValue* elem) {
     if (list->type != 4 || !elem) return -1;
     
     for (int i = 0; i < list->list_size; i++) {
-        DuanValue* e = list->list_data[i];
+        LightValue* e = list->list_data[i];
         if (e && dv_eq(e, elem)) {
             return i;
         }
@@ -1495,22 +1495,22 @@ int64_t dv_list_index_of(DuanValue* list, DuanValue* elem) {
     return -1;
 }
 
-int64_t dv_list_contains(DuanValue* list, DuanValue* elem) {
+int64_t dv_list_contains(LightValue* list, LightValue* elem) {
     return dv_list_index_of(list, elem) >= 0 ? 1 : 0;
 }
 
-void dv_list_reverse(DuanValue* result, DuanValue* list) {
+void dv_list_reverse(LightValue* result, LightValue* list) {
     if (list->type != 4) {
         dv_list_new(result);
         return;
     }
     
-    DuanValue* new_list = (DuanValue*)malloc(sizeof(DuanValue));
+    LightValue* new_list = (LightValue*)malloc(sizeof(LightValue));
     if (!new_list) { dv_clone(result, list); return; }
     
     dv_list_init_internal(new_list, list->list_capacity);
     for (int i = list->list_size - 1; i >= 0; i--) {
-        DuanValue* copy = (DuanValue*)malloc(sizeof(DuanValue));
+        LightValue* copy = (LightValue*)malloc(sizeof(LightValue));
         dv_clone(copy, list->list_data[i]);
         dv_list_add_internal(new_list, copy);
     }
@@ -1527,8 +1527,8 @@ void dv_list_reverse(DuanValue* result, DuanValue* list) {
 }
 
 static int cmp_dv(const void* a, const void* b) {
-    DuanValue* va = *(DuanValue**)a;
-    DuanValue* vb = *(DuanValue**)b;
+    LightValue* va = *(LightValue**)a;
+    LightValue* vb = *(LightValue**)b;
     if (!va && !vb) return 0;
     if (!va) return -1;
     if (!vb) return 1;
@@ -1540,23 +1540,23 @@ static int cmp_dv(const void* a, const void* b) {
     return cmp;
 }
 
-void dv_list_sort(DuanValue* result, DuanValue* list) {
+void dv_list_sort(LightValue* result, LightValue* list) {
     if (list->type != 4 || list->list_size <= 1) {
         dv_clone(result, list);
         return;
     }
     
-    DuanValue* new_list = (DuanValue*)malloc(sizeof(DuanValue));
+    LightValue* new_list = (LightValue*)malloc(sizeof(LightValue));
     if (!new_list) { dv_clone(result, list); return; }
     
     dv_list_init_internal(new_list, list->list_capacity);
     for (int i = 0; i < list->list_size; i++) {
-        DuanValue* copy = (DuanValue*)malloc(sizeof(DuanValue));
+        LightValue* copy = (LightValue*)malloc(sizeof(LightValue));
         dv_clone(copy, list->list_data[i]);
         dv_list_add_internal(new_list, copy);
     }
     
-    qsort(new_list->list_data, new_list->list_size, sizeof(DuanValue*), cmp_dv);
+    qsort(new_list->list_data, new_list->list_size, sizeof(LightValue*), cmp_dv);
     
     result->type = 4;
     result->i64 = 0;
@@ -1569,7 +1569,7 @@ void dv_list_sort(DuanValue* result, DuanValue* list) {
     free(new_list);
 }
 
-void dv_str_split(DuanValue* result, DuanValue* str, DuanValue* delim) {
+void dv_str_split(LightValue* result, LightValue* str, LightValue* delim) {
     if (str->type != 3 || delim->type != 3 || !str->str || !delim->str) {
         dv_list_new(result);
         return;
@@ -1588,7 +1588,7 @@ void dv_str_split(DuanValue* result, DuanValue* str, DuanValue* delim) {
     }
     
     /* 创建 type=4 的列表 */
-    DuanValue* list = (DuanValue*)malloc(sizeof(DuanValue));
+    LightValue* list = (LightValue*)malloc(sizeof(LightValue));
     if (!list) {
         dv_list_new(result);
         return;
@@ -1610,7 +1610,7 @@ void dv_str_split(DuanValue* result, DuanValue* str, DuanValue* delim) {
             part[part_len] = '\0';
         }
         
-        DuanValue* elem = (DuanValue*)malloc(sizeof(DuanValue));
+        LightValue* elem = (LightValue*)malloc(sizeof(LightValue));
         if (elem) {
             dv_str(elem, part ? part : "");
             dv_list_add_internal(list, elem);
@@ -1634,10 +1634,10 @@ void dv_str_split(DuanValue* result, DuanValue* str, DuanValue* delim) {
  * 字典操作 (type=7 DICT)
  * 字典存储格式: list_data = [key1*, val1*, key2*, val2*, ...]
  * list_size = 键值对数量, list_capacity = 已分配容量（对数）
- * 使用堆分配的 DuanValue* 存储键值，使字典值（如列表）可被原地修改
+ * 使用堆分配的 LightValue* 存储键值，使字典值（如列表）可被原地修改
  * ================================================================ */
 
-void dv_dict_new(DuanValue* result) {
+void dv_dict_new(LightValue* result) {
     result->type = 7;  /* DICT 类型 */
     result->i64 = 0;
     result->f64 = 0.0;
@@ -1645,25 +1645,25 @@ void dv_dict_new(DuanValue* result) {
     result->boolean = 0;
     result->list_size = 0;
     result->list_capacity = 8;
-    result->list_data = (struct DuanValue**)calloc(result->list_capacity * 2, sizeof(DuanValue*));
+    result->list_data = (struct LightValue**)calloc(result->list_capacity * 2, sizeof(LightValue*));
 }
 
-int64_t dv_dict_len(DuanValue* v) {
+int64_t dv_dict_len(LightValue* v) {
     if (v->type != 7) return 0;
     return v->list_size;
 }
 
 /* 内部：查找键的位置，返回键值对索引，-1 表示未找到 */
-static int64_t dv_dict_find(DuanValue* dict, DuanValue* key) {
+static int64_t dv_dict_find(LightValue* dict, LightValue* key) {
     if (dict->type != 7 || !dict->list_data) return -1;
-    DuanValue key_str;
+    LightValue key_str;
     dv_value_to_string(&key_str, key);
     const char* key_cstr = key_str.str ? key_str.str : "";
     int key_len = (int)strlen(key_cstr);
     for (int64_t i = 0; i < dict->list_size; i++) {
-        DuanValue* stored_key = dict->list_data[2 * i];
+        LightValue* stored_key = dict->list_data[2 * i];
         if (!stored_key) continue;
-        DuanValue stored_key_str;
+        LightValue stored_key_str;
         dv_value_to_string(&stored_key_str, stored_key);
         const char* sk = stored_key_str.str ? stored_key_str.str : "";
         int sklen = (int)strlen(sk);
@@ -1678,9 +1678,9 @@ static int64_t dv_dict_find(DuanValue* dict, DuanValue* key) {
     return -1;
 }
 
-void dv_dict_set(DuanValue* result, DuanValue* dict, DuanValue* key, DuanValue* value) {
+void dv_dict_set(LightValue* result, LightValue* dict, LightValue* key, LightValue* value) {
     /* 如果 result == dict（原地修改），直接修改 dict */
-    DuanValue* target = (result == dict) ? result : dict;
+    LightValue* target = (result == dict) ? result : dict;
 
     if (target->type != 7) {
         /* 不是字典类型，创建新字典 */
@@ -1697,13 +1697,13 @@ void dv_dict_set(DuanValue* result, DuanValue* dict, DuanValue* key, DuanValue* 
 
     if (idx >= 0) {
         /* 键存在，替换值 */
-        DuanValue* old_val = target->list_data[2 * idx + 1];
+        LightValue* old_val = target->list_data[2 * idx + 1];
         if (old_val) {
             dv_free(old_val);
             free(old_val);
         }
         /* 堆分配新值并深拷贝（对于列表会复制 list_data） */
-        DuanValue* new_val = (DuanValue*)malloc(sizeof(DuanValue));
+        LightValue* new_val = (LightValue*)malloc(sizeof(LightValue));
         if (new_val) {
             dv_clone(new_val, value);
             target->list_data[2 * idx + 1] = new_val;
@@ -1713,7 +1713,7 @@ void dv_dict_set(DuanValue* result, DuanValue* dict, DuanValue* key, DuanValue* 
         if (target->list_size >= target->list_capacity) {
             int new_cap = target->list_capacity * 2;
             if (new_cap < 8) new_cap = 8;
-            struct DuanValue** new_data = (struct DuanValue**)realloc(target->list_data, new_cap * 2 * sizeof(DuanValue*));
+            struct LightValue** new_data = (struct LightValue**)realloc(target->list_data, new_cap * 2 * sizeof(LightValue*));
             if (!new_data) {
                 if (result != target) dv_clone(result, target);
                 return;
@@ -1726,8 +1726,8 @@ void dv_dict_set(DuanValue* result, DuanValue* dict, DuanValue* key, DuanValue* 
             target->list_capacity = new_cap;
         }
         /* 堆分配键和值 */
-        DuanValue* new_key = (DuanValue*)malloc(sizeof(DuanValue));
-        DuanValue* new_val = (DuanValue*)malloc(sizeof(DuanValue));
+        LightValue* new_key = (LightValue*)malloc(sizeof(LightValue));
+        LightValue* new_val = (LightValue*)malloc(sizeof(LightValue));
         if (new_key && new_val) {
             dv_clone(new_key, key);
             dv_clone(new_val, value);
@@ -1746,7 +1746,7 @@ void dv_dict_set(DuanValue* result, DuanValue* dict, DuanValue* key, DuanValue* 
     }
 }
 
-void dv_dict_get(DuanValue* result, DuanValue* dict, DuanValue* key) {
+void dv_dict_get(LightValue* result, LightValue* dict, LightValue* key) {
     if (dict->type != 7) {
         dv_null(result);
         return;
@@ -1756,7 +1756,7 @@ void dv_dict_get(DuanValue* result, DuanValue* dict, DuanValue* key) {
         dv_null(result);
         return;
     }
-    DuanValue* stored_val = dict->list_data[2 * idx + 1];
+    LightValue* stored_val = dict->list_data[2 * idx + 1];
     if (!stored_val) {
         dv_null(result);
         return;
@@ -1773,7 +1773,7 @@ void dv_dict_get(DuanValue* result, DuanValue* dict, DuanValue* key) {
     result->list_data = NULL;
 }
 
-void dv_dict_has(DuanValue* result, DuanValue* dict, DuanValue* key) {
+void dv_dict_has(LightValue* result, LightValue* dict, LightValue* key) {
     if (dict->type != 7) {
         result->type = 5;
         result->i64 = 0;
@@ -1788,15 +1788,15 @@ void dv_dict_has(DuanValue* result, DuanValue* dict, DuanValue* key) {
     result->boolean = (idx >= 0) ? 1 : 0;
 }
 
-void dv_dict_keys(DuanValue* result, DuanValue* dict) {
+void dv_dict_keys(LightValue* result, LightValue* dict) {
     dv_list_new(result);
     if (dict->type != 7 || !dict->list_data) return;
     for (int64_t i = 0; i < dict->list_size; i++) {
-        DuanValue* stored_key = dict->list_data[2 * i];
+        LightValue* stored_key = dict->list_data[2 * i];
         if (!stored_key) continue;
-        DuanValue key_copy;
+        LightValue key_copy;
         dv_clone(&key_copy, stored_key);
-        DuanValue list_copy;
+        LightValue list_copy;
         dv_clone(&list_copy, result);
         dv_list_append(result, &list_copy, &key_copy);
         dv_free(&list_copy);
@@ -1804,15 +1804,15 @@ void dv_dict_keys(DuanValue* result, DuanValue* dict) {
     }
 }
 
-void dv_dict_values(DuanValue* result, DuanValue* dict) {
+void dv_dict_values(LightValue* result, LightValue* dict) {
     dv_list_new(result);
     if (dict->type != 7 || !dict->list_data) return;
     for (int64_t i = 0; i < dict->list_size; i++) {
-        DuanValue* stored_val = dict->list_data[2 * i + 1];
+        LightValue* stored_val = dict->list_data[2 * i + 1];
         if (!stored_val) continue;
-        DuanValue val_copy;
+        LightValue val_copy;
         dv_clone(&val_copy, stored_val);
-        DuanValue list_copy;
+        LightValue list_copy;
         dv_clone(&list_copy, result);
         dv_list_append(result, &list_copy, &val_copy);
         dv_free(&list_copy);
@@ -1820,7 +1820,7 @@ void dv_dict_values(DuanValue* result, DuanValue* dict) {
     }
 }
 
-void dv_dict_remove(DuanValue* result, DuanValue* dict, DuanValue* key) {
+void dv_dict_remove(LightValue* result, LightValue* dict, LightValue* key) {
     if (dict->type != 7) {
         dv_clone(result, dict);
         return;
@@ -1831,8 +1831,8 @@ void dv_dict_remove(DuanValue* result, DuanValue* dict, DuanValue* key) {
         return;
     }
     /* 释放要删除的键值 */
-    DuanValue* old_key = dict->list_data[2 * idx];
-    DuanValue* old_val = dict->list_data[2 * idx + 1];
+    LightValue* old_key = dict->list_data[2 * idx];
+    LightValue* old_val = dict->list_data[2 * idx + 1];
     if (old_key) { dv_free(old_key); free(old_key); }
     if (old_val) { dv_free(old_val); free(old_val); }
     /* 将后续键值对前移 */
@@ -1925,7 +1925,7 @@ int dv_delete_file(const char* path) {
 #include <dirent.h>
 #endif
 
-void dv_list_dir(DuanValue* result, const char* path) {
+void dv_list_dir(LightValue* result, const char* path) {
     dv_list_new(result);
     if (!path) return;
     
@@ -1941,9 +1941,9 @@ void dv_list_dir(DuanValue* result, const char* path) {
         if (strcmp(find_data.cFileName, ".") == 0 || strcmp(find_data.cFileName, "..") == 0) {
             continue;
         }
-        DuanValue elem;
+        LightValue elem;
         dv_str(&elem, find_data.cFileName);
-        DuanValue tmp;
+        LightValue tmp;
         dv_list_append(&tmp, result, &elem);
         dv_free(result);
         dv_clone(result, &tmp);
@@ -1962,9 +1962,9 @@ void dv_list_dir(DuanValue* result, const char* path) {
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
             continue;
         }
-        DuanValue elem;
+        LightValue elem;
         dv_str(&elem, entry->d_name);
-        DuanValue tmp;
+        LightValue tmp;
         dv_list_append(&tmp, result, &elem);
         dv_free(result);
         dv_clone(result, &tmp);
@@ -2476,8 +2476,8 @@ static char* list_to_json_inner(const char* list, int indent, int depth) {
     
     size_t est = 4;
     for (int i = 0; i < len; i++) {
-        DuanValue list_val;
-        DuanValue elem;
+        LightValue list_val;
+        LightValue elem;
         dv_str(&list_val, list);
         dv_list_get(&elem, &list_val, i);
         char* es = dv_to_string(&elem);
@@ -2534,7 +2534,7 @@ static char* list_to_json_inner(const char* list, int indent, int depth) {
     return r;
 }
 
-char* duan_list_to_json(const char* list, int indent) {
+char* light_list_to_json(const char* list, int indent) {
     return list_to_json_inner(list, indent, 0);
 }
 
@@ -2637,13 +2637,13 @@ void dv_init_args(int argc, char** argv) {
     _dv_argv = argv;
 }
 
-void dv_get_args(DuanValue* result) {
+void dv_get_args(LightValue* result) {
     dv_list_new(result);
     if (_dv_argc <= 0 || !_dv_argv) return;
     for (int i = 0; i < _dv_argc; i++) {
-        DuanValue elem;
+        LightValue elem;
         dv_str(&elem, _dv_argv[i]);
-        DuanValue tmp;
+        LightValue tmp;
         dv_list_append(&tmp, result, &elem);
         dv_free(result);
         dv_clone(result, &tmp);
@@ -2758,7 +2758,7 @@ void dv_try_end(void) {
     if (__dv_try_level >= 0) __dv_try_level--;
 }
 
-void dv_throw(DuanValue* exc) {
+void dv_throw(LightValue* exc) {
     if (__dv_try_level < 0 || __dv_try_level >= MAX_TRY_DEPTH) return;
     char* s = dv_to_string(exc);
     strncpy(__dv_exception_str, s ? s : "unknown", 1023);
@@ -2784,23 +2784,23 @@ void dv_clear_exception(void) {
 #ifndef MAX_CLASS_NAME_LEN
 #define MAX_CLASS_NAME_LEN 64
 #endif
-void dv_get_class_name(DuanValue* obj, char* buf, int buf_size);
-int dv_is_object(DuanValue* v);
-int dv_isinstance(DuanValue* obj, const char* class_name);
-void dv_class_get_member(DuanValue* result, DuanValue* obj, const char* field_name);
-void dv_class_set_member(DuanValue* obj, const char* field_name, DuanValue* value);
-void dv_class_new_named(DuanValue* result, const char* class_name);  // 前向声明
+void dv_get_class_name(LightValue* obj, char* buf, int buf_size);
+int dv_is_object(LightValue* v);
+int dv_isinstance(LightValue* obj, const char* class_name);
+void dv_class_get_member(LightValue* result, LightValue* obj, const char* field_name);
+void dv_class_set_member(LightValue* obj, const char* field_name, LightValue* value);
+void dv_class_new_named(LightValue* result, const char* class_name);  // 前向声明
 
-static DuanValue __dv_current_exception_obj;
+static LightValue __dv_current_exception_obj;
 static int __dv_has_exception_obj = 0;
 
-void dv_throw_exception(DuanValue* exception_obj) {
+void dv_throw_exception(LightValue* exception_obj) {
     /* 获取当前栈追踪 */
     char stack_trace[4096];
     dv_get_stack_trace(stack_trace, sizeof(stack_trace));
     
     /* 设置异常的栈追踪属性 */
-    DuanValue stack_val;
+    LightValue stack_val;
     dv_str(&stack_val, stack_trace);
     dv_class_set_member(exception_obj, "栈追踪", &stack_val);
     dv_free(&stack_val);
@@ -2810,7 +2810,7 @@ void dv_throw_exception(DuanValue* exception_obj) {
         char class_name[MAX_CLASS_NAME_LEN];
         dv_get_class_name(exception_obj, class_name, sizeof(class_name));
         
-        DuanValue msg_val;
+        LightValue msg_val;
         dv_null(&msg_val);
         dv_class_get_member(&msg_val, exception_obj, "消息");
         char* msg_str = dv_to_string(&msg_val);
@@ -2841,38 +2841,38 @@ void dv_throw_exception(DuanValue* exception_obj) {
 }
 
 /* 创建带原因的异常 */
-void dv_create_exception_with_cause(DuanValue* result, const char* class_name, 
-                                   const char* message, DuanValue* cause) {
+void dv_create_exception_with_cause(LightValue* result, const char* class_name, 
+                                   const char* message, LightValue* cause) {
     /* 先创建普通异常对象 */
     dv_class_new_named(result, class_name);
     
     /* 设置消息 */
-    DuanValue msg_val;
+    LightValue msg_val;
     dv_str(&msg_val, message ? message : "");
     dv_class_set_member(result, "消息", &msg_val);
     dv_free(&msg_val);
     
     /* 如果有原因，设置原因属性 */
     if (cause) {
-        DuanValue cause_clone;
+        LightValue cause_clone;
         dv_clone(&cause_clone, cause);
         dv_class_set_member(result, "原因", &cause_clone);
         dv_free(&cause_clone);
     }
     
     /* 设置空栈追踪（稍后抛出时会填充） */
-    DuanValue empty_stack;
+    LightValue empty_stack;
     dv_str(&empty_stack, "");
     dv_class_set_member(result, "栈追踪", &empty_stack);
     dv_free(&empty_stack);
 }
 
 /* 获取异常的完整描述（包括原因链） */
-int dv_exception_to_full_string(DuanValue* exception_obj, char* buf, int buf_size) {
+int dv_exception_to_full_string(LightValue* exception_obj, char* buf, int buf_size) {
     if (!buf || buf_size <= 0) return 0;
     buf[0] = '\0';
     
-    DuanValue current_ex;
+    LightValue current_ex;
     dv_clone(&current_ex, exception_obj);
     
     int depth = 0;
@@ -2884,7 +2884,7 @@ int dv_exception_to_full_string(DuanValue* exception_obj, char* buf, int buf_siz
         char class_name[MAX_CLASS_NAME_LEN];
         dv_get_class_name(&current_ex, class_name, sizeof(class_name));
         
-        DuanValue msg_val;
+        LightValue msg_val;
         dv_null(&msg_val);
         dv_class_get_member(&msg_val, &current_ex, "消息");
         char* msg_str = dv_to_string(&msg_val);
@@ -2899,7 +2899,7 @@ int dv_exception_to_full_string(DuanValue* exception_obj, char* buf, int buf_siz
         dv_free(&msg_val);
         
         /* 获取栈追踪 */
-        DuanValue stack_val;
+        LightValue stack_val;
         dv_null(&stack_val);
         dv_class_get_member(&stack_val, &current_ex, "栈追踪");
         char* stack_str = dv_to_string(&stack_val);
@@ -2911,7 +2911,7 @@ int dv_exception_to_full_string(DuanValue* exception_obj, char* buf, int buf_siz
         dv_free(&stack_val);
         
         /* 获取原因，继续循环 */
-        DuanValue next_ex;
+        LightValue next_ex;
         dv_null(&next_ex);
         dv_class_get_member(&next_ex, &current_ex, "原因");
         
@@ -2933,7 +2933,7 @@ int dv_exception_to_full_string(DuanValue* exception_obj, char* buf, int buf_siz
     return (int)strlen(buf);
 }
 
-void dv_get_current_exception(DuanValue* result) {
+void dv_get_current_exception(LightValue* result) {
     if (__dv_has_exception_obj) {
         dv_clone(result, &__dv_current_exception_obj);
     } else {
@@ -2941,7 +2941,7 @@ void dv_get_current_exception(DuanValue* result) {
     }
 }
 
-int dv_exception_match(DuanValue* ex, const char* type_name) {
+int dv_exception_match(LightValue* ex, const char* type_name) {
     if (!ex || !type_name) return 0;
     
     /* 如果是对象，使用 isinstance 检查 */
@@ -2972,7 +2972,7 @@ void dv_clear_exception_obj(void) {
  * 类型转换
  * ================================================================ */
 
-void dv_to_int(DuanValue* result, DuanValue* v) {
+void dv_to_int(LightValue* result, LightValue* v) {
     if (v->type == 1) {
         dv_clone(result, v);
         return;
@@ -3022,7 +3022,7 @@ void dv_to_int(DuanValue* result, DuanValue* v) {
     result->boolean = 0;
 }
 
-void dv_to_float(DuanValue* result, DuanValue* v) {
+void dv_to_float(LightValue* result, LightValue* v) {
     if (v->type == 2) {
         dv_clone(result, v);
         return;
@@ -3078,7 +3078,7 @@ void dv_to_float(DuanValue* result, DuanValue* v) {
     result->boolean = 0;
 }
 
-void dv_to_bool_val(DuanValue* result, DuanValue* v) {
+void dv_to_bool_val(LightValue* result, LightValue* v) {
     int b = dv_to_bool(v);
     result->type = 5;
     result->i64 = 0;
@@ -3087,7 +3087,7 @@ void dv_to_bool_val(DuanValue* result, DuanValue* v) {
     result->boolean = b;
 }
 
-void dv_value_to_string(DuanValue* result, DuanValue* v) {
+void dv_value_to_string(LightValue* result, LightValue* v) {
     char* s = dv_to_string(v);
     result->type = 3;
     result->i64 = 0;
@@ -3104,7 +3104,7 @@ void dv_value_to_string(DuanValue* result, DuanValue* v) {
 /* 对象内部表示: "obj:field1\x1evalue1\x1efield2\x1evalue2..." */
 #define OBJ_PREFIX "obj:"
 
-void dv_class_new(DuanValue* result, int num_fields) {
+void dv_class_new(LightValue* result, int num_fields) {
     char prefix[32];
     snprintf(prefix, sizeof(prefix), "%s%d:", OBJ_PREFIX, num_fields);
     result->type = 3;
@@ -3114,7 +3114,7 @@ void dv_class_new(DuanValue* result, int num_fields) {
     result->boolean = 0;
 }
 
-void dv_class_set_member(DuanValue* obj, const char* field_name, DuanValue* value) {
+void dv_class_set_member(LightValue* obj, const char* field_name, LightValue* value) {
     if (!obj || obj->type != 3 || !obj->str) return;
     if (strncmp(obj->str, OBJ_PREFIX, strlen(OBJ_PREFIX)) != 0) return;
     
@@ -3180,7 +3180,7 @@ void dv_class_set_member(DuanValue* obj, const char* field_name, DuanValue* valu
     free(field_str);
 }
 
-void dv_class_get_member(DuanValue* result, DuanValue* obj, const char* field_name) {
+void dv_class_get_member(LightValue* result, LightValue* obj, const char* field_name) {
     if (!obj || obj->type != 3 || !obj->str) {
         dv_str(result, "");
         return;
@@ -3271,7 +3271,7 @@ typedef struct {
     int num_methods;
     char method_names[MAX_METHODS_PER_INTERFACE][MAX_CLASS_NAME_LEN];
     char method_signatures[MAX_METHODS_PER_INTERFACE][MAX_CLASS_NAME_LEN];
-} DuanInterfaceInfo;
+} LightInterfaceInfo;
 
 typedef struct {
     char name[MAX_CLASS_NAME_LEN];
@@ -3284,15 +3284,15 @@ typedef struct {
     char attr_names[MAX_ATTRS_PER_CLASS][MAX_CLASS_NAME_LEN];
     int num_implemented_interfaces;
     char implemented_interfaces[MAX_INTERFACES][MAX_CLASS_NAME_LEN];
-} DuanClassInfo;
+} LightClassInfo;
 
-static DuanClassInfo __dv_classes[MAX_CLASSES];
+static LightClassInfo __dv_classes[MAX_CLASSES];
 static int __dv_num_classes = 0;
-static DuanInterfaceInfo __dv_interfaces[MAX_INTERFACES];
+static LightInterfaceInfo __dv_interfaces[MAX_INTERFACES];
 static int __dv_num_interfaces = 0;
 
 /* 前置声明 */
-DuanClassInfo* dv_find_class(const char* name);
+LightClassInfo* dv_find_class(const char* name);
 
 /* 注册类，返回类索引，失败返回 -1 */
 int dv_register_class(const char* name, const char* super_name) {
@@ -3300,13 +3300,13 @@ int dv_register_class(const char* name, const char* super_name) {
     if (__dv_num_classes >= MAX_CLASSES) return -1;
     
     /* 检查是否已存在 */
-    DuanClassInfo* existing = dv_find_class(name);
+    LightClassInfo* existing = dv_find_class(name);
     if (existing) {
         return (int)(existing - __dv_classes);
     }
     
-    DuanClassInfo* cls = &__dv_classes[__dv_num_classes];
-    memset(cls, 0, sizeof(DuanClassInfo));
+    LightClassInfo* cls = &__dv_classes[__dv_num_classes];
+    memset(cls, 0, sizeof(LightClassInfo));
     strncpy(cls->name, name, MAX_CLASS_NAME_LEN - 1);
     cls->name[MAX_CLASS_NAME_LEN - 1] = '\0';
     if (super_name && super_name[0]) {
@@ -3321,7 +3321,7 @@ int dv_register_class(const char* name, const char* super_name) {
 }
 
 /* 按名查找类，找不到返回 NULL */
-DuanClassInfo* dv_find_class(const char* name) {
+LightClassInfo* dv_find_class(const char* name) {
     if (!name || !name[0]) return NULL;
     for (int i = 0; i < __dv_num_classes; i++) {
         if (strcmp(__dv_classes[i].name, name) == 0) {
@@ -3335,7 +3335,7 @@ DuanClassInfo* dv_find_class(const char* name) {
 static int dv_register_method_internal(const char* class_name, const char* method_name, void* func_ptr, int method_flag) {
     if (!class_name || !method_name || !func_ptr) return -1;
     
-    DuanClassInfo* cls = dv_find_class(class_name);
+    LightClassInfo* cls = dv_find_class(class_name);
     if (!cls) return -1;
     if (cls->num_methods >= MAX_METHODS_PER_CLASS) return -1;
     
@@ -3376,7 +3376,7 @@ static void* dv_find_method_inner(const char* class_name, const char* method_nam
     if (!class_name || !method_name) return NULL;
     if (depth > MAX_INHERIT_DEPTH) return NULL;
     
-    DuanClassInfo* cls = dv_find_class(class_name);
+    LightClassInfo* cls = dv_find_class(class_name);
     if (!cls) return NULL;
     
     /* 在当前类中查找 */
@@ -3403,7 +3403,7 @@ void* dv_find_method(const char* class_name, const char* method_name) {
 int dv_register_attr(const char* class_name, const char* attr_name) {
     if (!class_name || !attr_name) return -1;
     
-    DuanClassInfo* cls = dv_find_class(class_name);
+    LightClassInfo* cls = dv_find_class(class_name);
     if (!cls) return -1;
     if (cls->num_attrs >= MAX_ATTRS_PER_CLASS) return -1;
     
@@ -3425,7 +3425,7 @@ int dv_register_attr(const char* class_name, const char* attr_name) {
  * ================================================================ */
 
 /* 查找接口，找不到返回 NULL */
-static DuanInterfaceInfo* dv_find_interface(const char* name) {
+static LightInterfaceInfo* dv_find_interface(const char* name) {
     if (!name) return NULL;
     for (int i = 0; i < __dv_num_interfaces; i++) {
         if (strcmp(__dv_interfaces[i].name, name) == 0) {
@@ -3444,8 +3444,8 @@ int dv_register_interface(const char* name) {
 
     if (__dv_num_interfaces >= MAX_INTERFACES) return -1;
 
-    DuanInterfaceInfo* iface = &__dv_interfaces[__dv_num_interfaces];
-    memset(iface, 0, sizeof(DuanInterfaceInfo));
+    LightInterfaceInfo* iface = &__dv_interfaces[__dv_num_interfaces];
+    memset(iface, 0, sizeof(LightInterfaceInfo));
     strncpy(iface->name, name, MAX_CLASS_NAME_LEN - 1);
     iface->name[MAX_CLASS_NAME_LEN - 1] = '\0';
     __dv_num_interfaces++;
@@ -3458,7 +3458,7 @@ int dv_register_interface(const char* name) {
 int dv_register_interface_method(const char* interface_name, const char* method_name, const char* signature) {
     if (!interface_name || !method_name) return -1;
 
-    DuanInterfaceInfo* iface = dv_find_interface(interface_name);
+    LightInterfaceInfo* iface = dv_find_interface(interface_name);
     if (!iface) return -1;
 
     if (iface->num_methods >= MAX_METHODS_PER_INTERFACE) return -1;
@@ -3487,7 +3487,7 @@ int dv_register_interface_method(const char* interface_name, const char* method_
 int dv_register_class_implements(const char* class_name, const char* interface_name) {
     if (!class_name || !interface_name) return -1;
 
-    DuanClassInfo* cls = dv_find_class(class_name);
+    LightClassInfo* cls = dv_find_class(class_name);
     if (!cls) return -1;
 
     if (cls->num_implemented_interfaces >= MAX_INTERFACES) return -1;
@@ -3509,7 +3509,7 @@ int dv_register_class_implements(const char* class_name, const char* interface_n
 int dv_class_implements_interface(const char* class_name, const char* interface_name) {
     if (!class_name || !interface_name) return 0;
 
-    DuanClassInfo* cls = dv_find_class(class_name);
+    LightClassInfo* cls = dv_find_class(class_name);
     if (!cls) return 0;
 
     /* 显式声明检查 */
@@ -3532,7 +3532,7 @@ static void collect_all_attrs_inner(const char* class_name, char attrs[][MAX_CLA
     if (!class_name || !class_name[0] || !attrs || !count) return;
     if (depth > MAX_INHERIT_DEPTH) return;
     
-    DuanClassInfo* cls = dv_find_class(class_name);
+    LightClassInfo* cls = dv_find_class(class_name);
     if (!cls) return;
     
     /* 先递归收集父类属性 */
@@ -3563,7 +3563,7 @@ static void collect_all_attrs(const char* class_name, char attrs[][MAX_CLASS_NAM
 }
 
 /* 带类名的对象创建 */
-void dv_class_new_named(DuanValue* result, const char* class_name) {
+void dv_class_new_named(LightValue* result, const char* class_name) {
     if (!result || !class_name || !class_name[0]) {
         dv_str(result, "");
         return;
@@ -3627,7 +3627,7 @@ void dv_class_new_named(DuanValue* result, const char* class_name) {
 }
 
 /* 获取对象类名 */
-void dv_get_class_name(DuanValue* obj, char* buf, int buf_size) {
+void dv_get_class_name(LightValue* obj, char* buf, int buf_size) {
     if (!buf || buf_size <= 0) return;
     buf[0] = '\0';
     
@@ -3658,10 +3658,10 @@ void dv_get_class_name(DuanValue* obj, char* buf, int buf_size) {
 }
 
 /* 方法函数指针类型 */
-typedef void (*DuanMethodFunc)(DuanValue* result, DuanValue* self, DuanValue* args, int num_args);
+typedef void (*LightMethodFunc)(LightValue* result, LightValue* self, LightValue* args, int num_args);
 
 /* 调用对象方法 */
-void dv_call_method(DuanValue* result, DuanValue* obj, const char* method_name, DuanValue* args, int num_args) {
+void dv_call_method(LightValue* result, LightValue* obj, const char* method_name, LightValue* args, int num_args) {
     if (!result || !obj || !method_name) {
         if (result) dv_null(result);
         return;
@@ -3681,18 +3681,18 @@ void dv_call_method(DuanValue* result, DuanValue* obj, const char* method_name, 
         return;
     }
     
-    DuanMethodFunc method = (DuanMethodFunc)func_ptr;
+    LightMethodFunc method = (LightMethodFunc)func_ptr;
     method(result, obj, args, num_args);
 }
 
 /* 调用父类方法（从指定类的父类开始查找） */
-void dv_call_super_method(DuanValue* result, DuanValue* obj, const char* class_name, const char* method_name, DuanValue* args, int num_args) {
+void dv_call_super_method(LightValue* result, LightValue* obj, const char* class_name, const char* method_name, LightValue* args, int num_args) {
     if (!result || !obj || !class_name || !method_name) {
         if (result) dv_null(result);
         return;
     }
     
-    DuanClassInfo* cls = dv_find_class(class_name);
+    LightClassInfo* cls = dv_find_class(class_name);
     if (!cls || cls->super_name[0] == '\0') {
         dv_null(result);
         return;
@@ -3704,7 +3704,7 @@ void dv_call_super_method(DuanValue* result, DuanValue* obj, const char* class_n
         return;
     }
     
-    DuanMethodFunc method = (DuanMethodFunc)func_ptr;
+    LightMethodFunc method = (LightMethodFunc)func_ptr;
     method(result, obj, args, num_args);
 }
 
@@ -3713,7 +3713,7 @@ static void* dv_find_method_with_flag_inner(const char* class_name, const char* 
     if (!class_name || !method_name) return NULL;
     if (depth > MAX_INHERIT_DEPTH) return NULL;
     
-    DuanClassInfo* cls = dv_find_class(class_name);
+    LightClassInfo* cls = dv_find_class(class_name);
     if (!cls) return NULL;
     
     /* 在当前类中查找 */
@@ -3737,14 +3737,14 @@ static void* dv_find_method_with_flag(const char* class_name, const char* method
     return dv_find_method_with_flag_inner(class_name, method_name, out_flag, 0);
 }
 
-/* 类方法函数指针类型：第一个参数是类名（字符串DuanValue*） */
-typedef void (*DuanClassMethodFunc)(DuanValue* result, DuanValue* cls_val, DuanValue* args, int num_args);
+/* 类方法函数指针类型：第一个参数是类名（字符串LightValue*） */
+typedef void (*LightClassMethodFunc)(LightValue* result, LightValue* cls_val, LightValue* args, int num_args);
 
 /* 静态方法函数指针类型：没有 self/cls 参数 */
-typedef void (*DuanStaticMethodFunc)(DuanValue* result, DuanValue* args, int num_args);
+typedef void (*LightStaticMethodFunc)(LightValue* result, LightValue* args, int num_args);
 
 /* 调用类方法（通过类名调用） */
-void dv_call_class_method(DuanValue* result, const char* class_name, const char* method_name, DuanValue* args, int num_args) {
+void dv_call_class_method(LightValue* result, const char* class_name, const char* method_name, LightValue* args, int num_args) {
     if (!result || !class_name || !method_name) {
         if (result) dv_null(result);
         return;
@@ -3758,16 +3758,16 @@ void dv_call_class_method(DuanValue* result, const char* class_name, const char*
     }
     
     /* 构建类值（用字符串表示类对象，内容为类名） */
-    DuanValue cls_val;
+    LightValue cls_val;
     dv_str(&cls_val, class_name);
     
     if (method_flag == 1) {
         /* 类方法：签名 void func(result, cls_val, args, num_args) */
-        DuanClassMethodFunc method = (DuanClassMethodFunc)func_ptr;
+        LightClassMethodFunc method = (LightClassMethodFunc)func_ptr;
         method(result, &cls_val, args, num_args);
     } else if (method_flag == 2) {
         /* 静态方法：签名 void func(result, args, num_args) */
-        DuanStaticMethodFunc method = (DuanStaticMethodFunc)func_ptr;
+        LightStaticMethodFunc method = (LightStaticMethodFunc)func_ptr;
         method(result, args, num_args);
     } else {
         /* 实例方法不能通过类名直接调用，返回空 */
@@ -3778,7 +3778,7 @@ void dv_call_class_method(DuanValue* result, const char* class_name, const char*
 }
 
 /* 调用静态方法（通过类名调用） */
-void dv_call_static_method(DuanValue* result, const char* class_name, const char* method_name, DuanValue* args, int num_args) {
+void dv_call_static_method(LightValue* result, const char* class_name, const char* method_name, LightValue* args, int num_args) {
     if (!result || !class_name || !method_name) {
         if (result) dv_null(result);
         return;
@@ -3793,13 +3793,13 @@ void dv_call_static_method(DuanValue* result, const char* class_name, const char
     
     if (method_flag == 2) {
         /* 静态方法：签名 void func(result, args, num_args) */
-        DuanStaticMethodFunc method = (DuanStaticMethodFunc)func_ptr;
+        LightStaticMethodFunc method = (LightStaticMethodFunc)func_ptr;
         method(result, args, num_args);
     } else if (method_flag == 1) {
         /* 类方法也可以通过静态方式调用，传入类名 */
-        DuanValue cls_val;
+        LightValue cls_val;
         dv_str(&cls_val, class_name);
-        DuanClassMethodFunc method = (DuanClassMethodFunc)func_ptr;
+        LightClassMethodFunc method = (LightClassMethodFunc)func_ptr;
         method(result, &cls_val, args, num_args);
         dv_free(&cls_val);
     } else {
@@ -3812,12 +3812,12 @@ void dv_call_static_method(DuanValue* result, const char* class_name, const char
  * 运算符重载支持
  * ================================================================ */
 
-int dv_is_object(DuanValue* v) {
+int dv_is_object(LightValue* v) {
     if (!v || v->type != 3 || !v->str) return 0;
     return strncmp(v->str, OBJ_PREFIX, strlen(OBJ_PREFIX)) == 0;
 }
 
-static int dv_try_operator_overload(DuanValue* result, DuanValue* a, DuanValue* b, const char* op_name_cn, const char* op_name_en) {
+static int dv_try_operator_overload(LightValue* result, LightValue* a, LightValue* b, const char* op_name_cn, const char* op_name_en) {
     if (!dv_is_object(a)) return 0;
     
     char class_name[MAX_CLASS_NAME_LEN];
@@ -3830,38 +3830,38 @@ static int dv_try_operator_overload(DuanValue* result, DuanValue* a, DuanValue* 
     }
     if (!func_ptr) return 0;
     
-    DuanValue args[1];
+    LightValue args[1];
     dv_clone(&args[0], b);
     
-    DuanMethodFunc method = (DuanMethodFunc)func_ptr;
+    LightMethodFunc method = (LightMethodFunc)func_ptr;
     method(result, a, args, 1);
     
     dv_free(&args[0]);
     return 1;
 }
 
-void dv_add(DuanValue* result, DuanValue* a, DuanValue* b) {
+void dv_add(LightValue* result, LightValue* a, LightValue* b) {
     if (dv_try_operator_overload(result, a, b, "加", "__add__")) {
         return;
     }
     dv_add_default(result, a, b);
 }
 
-void dv_sub(DuanValue* result, DuanValue* a, DuanValue* b) {
+void dv_sub(LightValue* result, LightValue* a, LightValue* b) {
     if (dv_try_operator_overload(result, a, b, "减", "__sub__")) {
         return;
     }
     dv_sub_default(result, a, b);
 }
 
-void dv_mul(DuanValue* result, DuanValue* a, DuanValue* b) {
+void dv_mul(LightValue* result, LightValue* a, LightValue* b) {
     if (dv_try_operator_overload(result, a, b, "乘", "__mul__")) {
         return;
     }
     dv_mul_default(result, a, b);
 }
 
-void dv_div(DuanValue* result, DuanValue* a, DuanValue* b) {
+void dv_div(LightValue* result, LightValue* a, LightValue* b) {
     if (dv_try_operator_overload(result, a, b, "除", "__div__")) {
         return;
     }
@@ -3880,7 +3880,7 @@ static int dv_isinstance_inner(const char* class_name, const char* target_class,
         return 1;
     }
     
-    DuanClassInfo* cls = dv_find_class(class_name);
+    LightClassInfo* cls = dv_find_class(class_name);
     if (!cls) return 0;
     
     if (cls->super_name[0] != '\0') {
@@ -3890,7 +3890,7 @@ static int dv_isinstance_inner(const char* class_name, const char* target_class,
     return 0;
 }
 
-int dv_isinstance(DuanValue* obj, const char* class_name) {
+int dv_isinstance(LightValue* obj, const char* class_name) {
     if (!obj || !class_name || !class_name[0]) return 0;
     
     if (obj->type != 3 || !obj->str) return 0;
@@ -3904,7 +3904,7 @@ int dv_isinstance(DuanValue* obj, const char* class_name) {
     return dv_isinstance_inner(obj_class, class_name, 0);
 }
 
-void dv_get_type_name(DuanValue* obj, char* buf, int buf_size) {
+void dv_get_type_name(LightValue* obj, char* buf, int buf_size) {
     if (!buf || buf_size <= 0) return;
     buf[0] = '\0';
     
@@ -3961,64 +3961,64 @@ void dv_get_type_name(DuanValue* obj, char* buf, int buf_size) {
 #define DV_CORO_ERROR    4  /* 出错 */
 
 /* 协程函数指针类型：
-   void coro_func(DuanValue* result, void* coro_handle, DuanValue* args, int num_args)
+   void coro_func(LightValue* result, void* coro_handle, LightValue* args, int num_args)
    
    协程函数通过 coro_handle 中的 resume_point 控制执行位置（Duff's device）。
 */
-typedef void (*DuanCoroFunc)(DuanValue*, void*, DuanValue*, int);
+typedef void (*LightCoroFunc)(LightValue*, void*, LightValue*, int);
 
 /* 最大协程数 */
 #define DV_MAX_COROUTINES 256
 
 /* 协程句柄结构体 */
-typedef struct DuanCoroutine {
+typedef struct LightCoroutine {
     int state;             /* 协程状态：DV_CORO_* */
     int resume_point;      /* 恢复点（Duff's device 的 case 标签） */
-    DuanCoroFunc func;     /* 协程函数指针 */
-    DuanValue result;      /* 返回值/当前结果 */
-    DuanValue* args;       /* 参数数组（堆分配） */
+    LightCoroFunc func;     /* 协程函数指针 */
+    LightValue result;      /* 返回值/当前结果 */
+    LightValue* args;       /* 参数数组（堆分配） */
     int num_args;          /* 参数数量 */
     /* 局部变量槽位（用于保存挂起时的局部变量状态） */
-    DuanValue* locals;     /* 局部变量数组（堆分配） */
+    LightValue* locals;     /* 局部变量数组（堆分配） */
     int num_locals;        /* 局部变量数量 */
     /* 等待的 Future（如果在等待某个异步操作） */
-    struct DuanFuture* waiting_for;
+    struct LightFuture* waiting_for;
     /* 关联的 Future（当协程完成时自动完成此 future） */
-    struct DuanFuture* future;
+    struct LightFuture* future;
     /* 调度器链表指针 */
-    struct DuanCoroutine* next;
-} DuanCoroutine;
+    struct LightCoroutine* next;
+} LightCoroutine;
 
 /* Future/Promise 结构体 */
-typedef struct DuanFuture {
+typedef struct LightFuture {
     int ready;             /* 是否已完成 */
-    DuanValue result;      /* 结果值 */
+    LightValue result;      /* 结果值 */
     int has_error;         /* 是否有错误 */
     char error_msg[256];   /* 错误消息 */
     /* 等待这个 future 的协程链表 */
-    DuanCoroutine* waiters;
-} DuanFuture;
+    LightCoroutine* waiters;
+} LightFuture;
 
 /* 协程调度器 */
-typedef struct DuanScheduler {
-    DuanCoroutine* run_queue;   /* 可运行队列 */
-    DuanCoroutine* all_coros;   /* 所有协程（用于清理） */
+typedef struct LightScheduler {
+    LightCoroutine* run_queue;   /* 可运行队列 */
+    LightCoroutine* all_coros;   /* 所有协程（用于清理） */
     int num_coros;              /* 当前协程数 */
-} DuanScheduler;
+} LightScheduler;
 
 /* 全局调度器实例 */
-static DuanScheduler g_scheduler = { NULL, NULL, 0 };
+static LightScheduler g_scheduler = { NULL, NULL, 0 };
 
 /* 前置声明 */
-DuanFuture* dv_future_create(void);
-void dv_future_complete(DuanFuture* f, DuanValue* result);
+LightFuture* dv_future_create(void);
+void dv_future_complete(LightFuture* f, LightValue* result);
 
 /* 内部：创建协程 */
-DuanCoroutine* dv_coro_create(DuanCoroFunc func, DuanValue* args, int num_args, int num_locals) {
+LightCoroutine* dv_coro_create(LightCoroFunc func, LightValue* args, int num_args, int num_locals) {
     if (g_scheduler.num_coros >= DV_MAX_COROUTINES) {
         return NULL;
     }
-    DuanCoroutine* coro = (DuanCoroutine*)malloc(sizeof(DuanCoroutine));
+    LightCoroutine* coro = (LightCoroutine*)malloc(sizeof(LightCoroutine));
     if (!coro) return NULL;
     
     coro->state = DV_CORO_READY;
@@ -4029,9 +4029,9 @@ DuanCoroutine* dv_coro_create(DuanCoroFunc func, DuanValue* args, int num_args, 
     /* 复制参数 */
     coro->num_args = num_args;
     if (num_args > 0 && args) {
-        coro->args = (DuanValue*)malloc(sizeof(DuanValue) * num_args);
+        coro->args = (LightValue*)malloc(sizeof(LightValue) * num_args);
         if (coro->args) {
-            memcpy(coro->args, args, sizeof(DuanValue) * num_args);
+            memcpy(coro->args, args, sizeof(LightValue) * num_args);
         }
     } else {
         coro->args = NULL;
@@ -4040,7 +4040,7 @@ DuanCoroutine* dv_coro_create(DuanCoroFunc func, DuanValue* args, int num_args, 
     /* 分配局部变量槽位 */
     coro->num_locals = num_locals;
     if (num_locals > 0) {
-        coro->locals = (DuanValue*)malloc(sizeof(DuanValue) * num_locals);
+        coro->locals = (LightValue*)malloc(sizeof(LightValue) * num_locals);
         if (coro->locals) {
             for (int i = 0; i < num_locals; i++) {
                 dv_null(&coro->locals[i]);
@@ -4058,7 +4058,7 @@ DuanCoroutine* dv_coro_create(DuanCoroFunc func, DuanValue* args, int num_args, 
     if (g_scheduler.run_queue == NULL) {
         g_scheduler.run_queue = coro;
     } else {
-        DuanCoroutine* c = g_scheduler.run_queue;
+        LightCoroutine* c = g_scheduler.run_queue;
         while (c->next) c = c->next;
         c->next = coro;
     }
@@ -4069,7 +4069,7 @@ DuanCoroutine* dv_coro_create(DuanCoroFunc func, DuanValue* args, int num_args, 
 }
 
 /* 内部：恢复协程（执行一步） */
-static int dv_coro_resume(DuanCoroutine* coro) {
+static int dv_coro_resume(LightCoroutine* coro) {
     if (!coro || coro->state == DV_CORO_DONE || coro->state == DV_CORO_ERROR) {
         return -1;
     }
@@ -4088,8 +4088,8 @@ static int dv_coro_resume(DuanCoroutine* coro) {
 }
 
 /* 创建 Future */
-DuanFuture* dv_future_create() {
-    DuanFuture* f = (DuanFuture*)malloc(sizeof(DuanFuture));
+LightFuture* dv_future_create() {
+    LightFuture* f = (LightFuture*)malloc(sizeof(LightFuture));
     if (!f) return NULL;
     f->ready = 0;
     dv_null(&f->result);
@@ -4100,16 +4100,16 @@ DuanFuture* dv_future_create() {
 }
 
 /* 完成 Future（设置结果） */
-void dv_future_complete(DuanFuture* f, DuanValue* result) {
+void dv_future_complete(LightFuture* f, LightValue* result) {
     if (!f || f->ready) return;
     
     dv_clone(&f->result, result);
     f->ready = 1;
     
     /* 唤醒所有等待的协程 */
-    DuanCoroutine* c = f->waiters;
+    LightCoroutine* c = f->waiters;
     while (c) {
-        DuanCoroutine* next = c->next;
+        LightCoroutine* next = c->next;
         c->state = DV_CORO_READY;
         /* 注意：不清除 waiting_for，因为 dv_coro_get_await_result 需要从中读取结果 */
         c->next = NULL;
@@ -4117,7 +4117,7 @@ void dv_future_complete(DuanFuture* f, DuanValue* result) {
         if (g_scheduler.run_queue == NULL) {
             g_scheduler.run_queue = c;
         } else {
-            DuanCoroutine* r = g_scheduler.run_queue;
+            LightCoroutine* r = g_scheduler.run_queue;
             while (r->next) r = r->next;
             r->next = c;
         }
@@ -4127,14 +4127,14 @@ void dv_future_complete(DuanFuture* f, DuanValue* result) {
 }
 
 /* 协程挂起自己，等待另一个协程完成
- * 注意：第二个参数是目标协程（DuanCoroutine*），不是 DuanFuture*
+ * 注意：第二个参数是目标协程（LightCoroutine*），不是 LightFuture*
  * 这是为了支持 "await 另一个协程" 的常见模式
  */
-void dv_coro_await(DuanCoroutine* coro, DuanCoroutine* target) {
+void dv_coro_await(LightCoroutine* coro, LightCoroutine* target) {
     if (!coro || !target) return;
     
     /* 获取目标协程关联的 future */
-    DuanFuture* future = target->future;
+    LightFuture* future = target->future;
     if (!future) return;
     
     if (future->ready) {
@@ -4147,7 +4147,7 @@ void dv_coro_await(DuanCoroutine* coro, DuanCoroutine* target) {
     if (target->state == DV_CORO_READY) {
         /* 检查是否已在 run_queue 中 */
         int in_queue = 0;
-        DuanCoroutine* c = g_scheduler.run_queue;
+        LightCoroutine* c = g_scheduler.run_queue;
         while (c) {
             if (c == target) {
                 in_queue = 1;
@@ -4160,7 +4160,7 @@ void dv_coro_await(DuanCoroutine* coro, DuanCoroutine* target) {
             if (g_scheduler.run_queue == NULL) {
                 g_scheduler.run_queue = target;
             } else {
-                DuanCoroutine* last = g_scheduler.run_queue;
+                LightCoroutine* last = g_scheduler.run_queue;
                 while (last->next) last = last->next;
                 last->next = target;
             }
@@ -4180,7 +4180,7 @@ void dv_coro_await(DuanCoroutine* coro, DuanCoroutine* target) {
 void dv_scheduler_run() {
     while (g_scheduler.run_queue) {
         /* 取出第一个协程 */
-        DuanCoroutine* coro = g_scheduler.run_queue;
+        LightCoroutine* coro = g_scheduler.run_queue;
         g_scheduler.run_queue = coro->next;
         coro->next = NULL;
         
@@ -4190,7 +4190,7 @@ void dv_scheduler_run() {
 }
 
 /* 启动协程并运行到完成（阻塞式，用于顶层异步调用） */
-void dv_coro_run_to_completion(DuanCoroutine* coro) {
+void dv_coro_run_to_completion(LightCoroutine* coro) {
     if (!coro) return;
     
     /* 如果协程已经完成，直接返回 */
@@ -4202,7 +4202,7 @@ void dv_coro_run_to_completion(DuanCoroutine* coro) {
     if (coro->state == DV_CORO_READY) {
         /* 检查是否已经在 run_queue 中（简单检查：遍历队列） */
         int in_queue = 0;
-        DuanCoroutine* c = g_scheduler.run_queue;
+        LightCoroutine* c = g_scheduler.run_queue;
         while (c) {
             if (c == coro) {
                 in_queue = 1;
@@ -4216,7 +4216,7 @@ void dv_coro_run_to_completion(DuanCoroutine* coro) {
             if (g_scheduler.run_queue == NULL) {
                 g_scheduler.run_queue = coro;
             } else {
-                DuanCoroutine* last = g_scheduler.run_queue;
+                LightCoroutine* last = g_scheduler.run_queue;
                 while (last->next) last = last->next;
                 last->next = coro;
             }
@@ -4227,7 +4227,7 @@ void dv_coro_run_to_completion(DuanCoroutine* coro) {
 }
 
 /* 获取协程结果（必须在完成后调用） */
-DuanValue* dv_coro_get_result(DuanCoroutine* coro) {
+LightValue* dv_coro_get_result(LightCoroutine* coro) {
     if (!coro) return NULL;
     return &coro->result;
 }
@@ -4235,7 +4235,7 @@ DuanValue* dv_coro_get_result(DuanCoroutine* coro) {
 /* 获取协程局部变量的指针（用于跨 await 持久化局部变量）
  * 返回 coro->locals[index] 的指针
  */
-DuanValue* dv_coro_get_local(DuanCoroutine* coro, int index) {
+LightValue* dv_coro_get_local(LightCoroutine* coro, int index) {
     if (!coro || !coro->locals || index < 0 || index >= coro->num_locals) {
         return NULL;
     }
@@ -4245,7 +4245,7 @@ DuanValue* dv_coro_get_local(DuanCoroutine* coro, int index) {
 /* 获取协程参数的指针
  * 返回 coro->args[index] 的指针
  */
-DuanValue* dv_coro_get_arg(DuanCoroutine* coro, int index) {
+LightValue* dv_coro_get_arg(LightCoroutine* coro, int index) {
     if (!coro || !coro->args || index < 0 || index >= coro->num_args) {
         return NULL;
     }
@@ -4253,7 +4253,7 @@ DuanValue* dv_coro_get_arg(DuanCoroutine* coro, int index) {
 }
 
 /* 获取 await 的结果：从 coro->waiting_for->result 复制到 out */
-void dv_coro_get_await_result(DuanCoroutine* coro, DuanValue* out) {
+void dv_coro_get_await_result(LightCoroutine* coro, LightValue* out) {
     if (!coro || !out) return;
     if (coro->waiting_for && coro->waiting_for->ready) {
         dv_clone(out, &coro->waiting_for->result);
@@ -4265,7 +4265,7 @@ void dv_coro_get_await_result(DuanCoroutine* coro, DuanValue* out) {
 }
 
 /* 设置协程结果 */
-void dv_coro_set_result(DuanCoroutine* coro, DuanValue* val) {
+void dv_coro_set_result(LightCoroutine* coro, LightValue* val) {
     if (!coro || !val) return;
     dv_clone(&coro->result, val);
     /* 同时完成关联的 future（唤醒等待者） */
@@ -4275,13 +4275,13 @@ void dv_coro_set_result(DuanCoroutine* coro, DuanValue* val) {
 }
 
 /* 检查协程是否完成 */
-int dv_coro_is_done(DuanCoroutine* coro) {
+int dv_coro_is_done(LightCoroutine* coro) {
     return coro && (coro->state == DV_CORO_DONE || coro->state == DV_CORO_ERROR);
 }
 
-/* 把 DuanValue 包装成 Future（同步值 → 已完成的 Future） */
-DuanFuture* dv_future_from_value(DuanValue* val) {
-    DuanFuture* f = dv_future_create();
+/* 把 LightValue 包装成 Future（同步值 → 已完成的 Future） */
+LightFuture* dv_future_from_value(LightValue* val) {
+    LightFuture* f = dv_future_create();
     if (f && val) {
         dv_clone(&f->result, val);
         f->ready = 1;

@@ -1,4 +1,4 @@
-# 段言 REPL 环境设计文档
+# 光明 REPL 环境设计文档
 
 **版本**: 1.0
 **日期**: 2026-06-13
@@ -11,7 +11,7 @@
 ### 1.1 目标
 
 创建一个交互式开发环境（REPL），支持：
-- 逐行输入段言代码并立即执行
+- 逐行输入光明代码并立即执行
 - 命令历史记录和多行代码输入
 - 自动补全和语法高亮（可选增强）
 - 调试支持（断点、单步执行）
@@ -33,7 +33,7 @@
 
 ```
 src/repl/
-├── __init__.py          # 包入口，导出 DuanREPL
+├── __init__.py          # 包入口，导出 LightREPL
 ├── core.py              # 核心REPL（无依赖，纯Python）
 ├── enhanced.py          # 增强REPL（prompt_toolkit）
 ├── executor.py          # 混合执行引擎
@@ -43,8 +43,8 @@ src/repl/
 └── commands.py          # REPL命令处理
 
 antlrparser/
-├── duan_repl.py         # 入口脚本（更新）
-├── duan_cli.py          # CLI整合（更新）
+├── light_repl.py         # 入口脚本（更新）
+├── light_cli.py          # CLI整合（更新）
 ```
 
 ---
@@ -148,14 +148,14 @@ antlrparser/
 
 **启动调试**：
 ```
-段言> :debug on
+光明> :debug on
 调试模式已开启
 
-段言> 设 甲 为 3。
+光明> 设 甲 为 3。
 [调试] 执行: 变量声明 '甲' = 3
 [调试] 环境: {'甲': 3}
 
-段言> 打印(甲)。
+光明> 打印(甲)。
 [调试] 执行: 函数调用 '打印'
 [调试] 参数: [3]
 3
@@ -164,13 +164,13 @@ antlrparser/
 ### 6.2 断点设置
 
 ```
-段言> :load test.duan
-加载文件: test.duan
+光明> :load test.light
+加载文件: test.light
 
-段言> :break 5
+光明> :break 5
 断点设置: 行5
 
-段言> :run
+光明> :run
 执行到断点 行5:
   设 总和 为 0。
 [调试] 当前环境: {'列表': [1,2,3]}
@@ -195,22 +195,22 @@ antlrparser/
 
 ```bash
 # 独立REPL入口
-python duan_repl.py
+python light_repl.py
 
 # 或通过CLI
-duan repl
+light repl
 ```
 
 ### 7.2 统一CLI整合
 
 ```bash
 # 无参数时自动进入REPL
-duan
+light
 
 # 其他命令
-duan compile <file>    # 编译
-duan run <file>        # 执行
-duan parse <file>      # 解析
+light compile <file>    # 编译
+light run <file>        # 执行
+light parse <file>      # 解析
 ```
 
 ---

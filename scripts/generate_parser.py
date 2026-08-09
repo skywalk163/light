@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-段言（Duan）编程语言 - ANTLR4解析器代码生成脚本
+光明（Light）编程语言 - ANTLR4解析器代码生成脚本
 
 使用方法：
   python scripts/generate_parser.py
@@ -39,7 +39,7 @@ def generate_parser():
         '-Dlanguage=Python3',
         '-visitor',
         '-no-listener',
-        str(antlr_dir / 'DuanLangLexer.g4')
+        str(antlr_dir / 'LightLangLexer.g4')
     ]
     
     result = subprocess.run(lexer_cmd, cwd=antlr_dir, capture_output=True, text=True)
@@ -54,7 +54,7 @@ def generate_parser():
         '-Dlanguage=Python3',
         '-visitor',
         '-no-listener',
-        str(antlr_dir / 'DuanLangParser.g4')
+        str(antlr_dir / 'LightLangParser.g4')
     ]
     
     result = subprocess.run(parser_cmd, cwd=antlr_dir, capture_output=True, text=True)
@@ -70,7 +70,7 @@ def generate_parser():
         '-Dlanguage=Python3',
         '-visitor',
         '-no-listener',
-        str(antlr_dir / 'DuanLang.g4')
+        str(antlr_dir / 'LightLang.g4')
     ]
     
     result = subprocess.run(full_cmd, cwd=antlr_dir, capture_output=True, text=True)
@@ -83,7 +83,7 @@ def generate_parser():
     return True
 
 def main():
-    print("段言编程语言 - ANTLR4解析器代码生成")
+    print("光明编程语言 - ANTLR4解析器代码生成")
     print("=" * 60)
     
     if not check_antlr():
@@ -94,7 +94,7 @@ def main():
     
     print("\n下一步：")
     print("  1. 运行测试: python -m pytest antlrparser/test/")
-    print("  2. 编译示例: python duan_compile.py test_import.duan")
+    print("  2. 编译示例: python light_compile.py test_import.light")
 
 if __name__ == '__main__':
     main()

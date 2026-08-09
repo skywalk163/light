@@ -1,4 +1,4 @@
-# 段言（Duan）代码质量门禁
+# 光明（Light）代码质量门禁
 #
 # 在 PR 和 push 到 main/4.0dev 时运行：
 #   1. Lint 检查（flake8）
@@ -47,7 +47,7 @@ jobs:
         run: |
           python -m py_compile src/compiler.py
           python -m py_compile src/lexer.py
-          python -m py_compile cli/duan.py
+          python -m py_compile cli/light.py
           echo "✅ 语法检查通过"
 
   # ── 2. 运行全量测试 ──────────────────────────────────────

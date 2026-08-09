@@ -1,16 +1,16 @@
 @echo off
 chcp 65001 >nul
-title 段言（Duan）编程语言 - 演示
+title 光明（Light）编程语言 - 演示
 setlocal enabledelayedexpansion
 
 :: ===========================================================================
-:: 段言（Duan）编程语言 - 一键运行演示脚本
+:: 光明（Light）编程语言 - 一键运行演示脚本
 :: 适用于 Windows 环境，自动安装依赖并运行示例代码
 :: ===========================================================================
 
 echo.
 echo  ╔══════════════════════════════════════════════════════╗
-echo  ║       段言（Duan）编程语言 - 演示环境              ║
+echo  ║       光明（Light）编程语言 - 演示环境              ║
 echo  ║       中文编程语言解释器                           ║
 echo  ╚══════════════════════════════════════════════════════╝
 echo.
@@ -53,7 +53,7 @@ if %errorlevel% neq 0 (
 cls
 echo.
 echo  ╔══════════════════════════════════════════════════════╗
-echo  ║              段言 演示菜单                         ║
+echo  ║              光明 演示菜单                         ║
 echo  ╠══════════════════════════════════════════════════════╣
 echo  ║  1. 运行快速示例（Hello World + 变量 + 循环）     ║
 echo  ║  2. 运行完整演示（数据类型 + 函数 + 列表）        ║
@@ -88,7 +88,7 @@ echo ╚════════════════════════
 echo.
 
 python -c "
-from duan_interpreter import run_source, run_file
+from light_interpreter import run_source, run_file
 
 # 1. Hello World
 print('--- 1. Hello World ---')
@@ -129,11 +129,11 @@ echo ╚════════════════════════
 echo.
 
 python -c "
-from duan_interpreter import run_source
+from light_interpreter import run_source
 
 code = '''
 《主段》段():
-  打印(\"=== 段言编程语言演示 ===\")。
+  打印(\"=== 光明编程语言演示 ===\")。
 
   # 1. 基本数据类型
   打印(\"\n1. 基本数据类型\")。
@@ -185,7 +185,7 @@ echo.
 echo ╔══════════════════════════════════════════════════════╗
 echo ║              交互式编程（REPL）                     ║
 echo ╠══════════════════════════════════════════════════════╣
-echo ║  输入段言语句试试看！                              ║
+echo ║  输入光明语句试试看！                              ║
 echo ║  例如：                                           ║
 echo ║    打印(\"你好\")。                                 ║
 echo ║    设甲为10。打印(甲)。                            ║
@@ -196,16 +196,16 @@ echo.
 
 cd /d "%~dp0antlrparser"
 python -i -c "
-from duan_interpreter import run_source
+from light_interpreter import run_source
 import sys
 
-print('段言 REPL - 输入段言代码体验中文编程')
+print('光明 REPL - 输入光明代码体验中文编程')
 print('输入 exit() 退出')
 print()
 
 while True:
     try:
-        code = input('段言> ')
+        code = input('光明> ')
         if code.lower() in ('exit', 'quit', 'exit()'):
             break
         if code.strip():
@@ -233,9 +233,9 @@ echo.
 
 cd /d "%~dp0antlrparser"
 python -c "
-from duan_tokenizer import DuanLangTokenizer
+from light_tokenizer import LightLangTokenizer
 
-t = DuanLangTokenizer()
+t = LightLangTokenizer()
 src = '如果分数大于等于90那么\n  打印(\"优秀\")。\n结束。'
 print('源代码:')
 print(src)
@@ -261,12 +261,12 @@ echo.
 
 cd /d "%~dp0antlrparser"
 python -c "
-from duan_visitor import DuanParser, DuanLangASTBuilder
+from light_visitor import LightParser, LightLangASTBuilder
 
 src = '如果3大于2那么\n  打印(\"大\")。\n结束。'
 print('源代码:', repr(src))
 print()
-parser = DuanParser()
+parser = LightParser()
 module = parser.parse(src)
 if module:
     print('语法树结构:')
@@ -289,7 +289,7 @@ goto menu
 cd /d "%~dp0"
 cls
 echo.
-echo 感谢体验段言（Duan）编程语言！
+echo 感谢体验光明（Light）编程语言！
 echo.
 echo 更多信息请访问项目主页
 echo.

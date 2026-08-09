@@ -2,7 +2,7 @@
 第十二阶段测试用例 - 并发与分布式
 """
 import sys
-sys.path.insert(0, 'c:/traework/duan/stdlib')
+sys.path.insert(0, 'c:/traework/light/stdlib')
 
 import unittest
 import time

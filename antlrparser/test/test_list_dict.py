@@ -3,8 +3,8 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_visitor import parse_source
-from duan_llvm import LLVMCodeGen
+from light_visitor import parse_source
+from light_llvm import LLVMCodeGen
 
 
 def test_list_compile():
@@ -113,7 +113,7 @@ def test_list_operations():
 def show_progress():
     """显示编译能力进展"""
     print("\n" + "=" * 70)
-    print("段言编译能力进展")
+    print("光明编译能力进展")
     print("=" * 70)
     print("""
 【已支持】
@@ -139,7 +139,7 @@ def show_progress():
   ✗ 类型系统
 
 【编译流程】
-  段言源代码 (.duan)
+  光明源代码 (.light)
        ↓
     解析器 (ANTLR)
        ↓

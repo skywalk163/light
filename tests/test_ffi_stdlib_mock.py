@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言 v4.0 - FFI + 标准库综合 Mock 测试
+光明 v4.0 - FFI + 标准库综合 Mock 测试
 
 测试内容：
 A. FFI 声明解析 + 代码生成
@@ -21,9 +21,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 
 def _make_builtin():
-    """创建包含内置函数的 duan 运行时环境"""
+    """创建包含内置函数的 light 运行时环境"""
     import types
-    m = types.ModuleType('_duan_builtin')
+    m = types.ModuleType('_light_builtin')
     m.打印 = print
     m.设 = lambda name, val: None
     m.列表创建 = list
@@ -40,14 +40,14 @@ def _make_builtin():
     return m
 
 
-def compile_and_run(duan_code):
-    """编译并执行段言代码，返回捕获的输出"""
-    from duan_parser_v3 import DuanParser
+def compile_and_run(light_code):
+    """编译并执行光明代码，返回捕获的输出"""
+    from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
     
-    parser = DuanParser()
+    parser = LightParser()
     try:
-        module = parser.parse(duan_code)
+        module = parser.parse(light_code)
     except Exception as e:
         raise RuntimeError(f"解析错误: {e}")
     
@@ -66,10 +66,10 @@ def compile_and_run(duan_code):
     old_stdout = sys.stdout
     sys.stdout = captured_output = io.StringIO()
     
-    globals_dict = {'__name__': '__main__', '_duan_builtin': _make_builtin()}
+    globals_dict = {'__name__': '__main__', '_light_builtin': _make_builtin()}
     
     try:
-        exec(compile(python_code, '<duan_test>', 'exec'), globals_dict)
+        exec(compile(python_code, '<light_test>', 'exec'), globals_dict)
         output = captured_output.getvalue()
         return output
     except Exception as e:
@@ -78,14 +78,14 @@ def compile_and_run(duan_code):
         sys.stdout = old_stdout
 
 
-def compile_only(duan_code):
-    """仅编译段言代码，返回生成的 Python 代码（不执行）"""
-    from duan_parser_v3 import DuanParser
+def compile_only(light_code):
+    """仅编译光明代码，返回生成的 Python 代码（不执行）"""
+    from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
     
-    parser = DuanParser()
+    parser = LightParser()
     try:
-        module = parser.parse(duan_code)
+        module = parser.parse(light_code)
     except Exception as e:
         raise RuntimeError(f"解析错误: {e}")
     
@@ -106,15 +106,15 @@ class TestFFI_Macro(unittest.TestCase):
         code = "外部 宏 最大连接 为 100。"
         py_code = compile_only(code)
         self.assertIn("最大连接", py_code)
-        self.assertIn("_duan_ffi.定义宏", py_code)
+        self.assertIn("_light_ffi.定义宏", py_code)
         self.assertIn("100", py_code)
 
     def test_macro_with_string(self):
-        """字符串宏：外部 宏 默认路径 为 "/tmp/duan" """
-        code = '外部 宏 默认路径 为 "/tmp/duan"。'
+        """字符串宏：外部 宏 默认路径 为 "/tmp/light" """
+        code = '外部 宏 默认路径 为 "/tmp/light"。'
         py_code = compile_only(code)
         self.assertIn("默认路径", py_code)
-        self.assertIn("/tmp/duan", py_code)
+        self.assertIn("/tmp/light", py_code)
 
     def test_multi_token_macro_name(self):
         """多 token 宏名：外部 宏 最大连接数 为 1000"""
@@ -315,7 +315,7 @@ class TestStdlib_FileSystem(unittest.TestCase):
     """B1. 文件系统操作"""
 
     def setUp(self):
-        self.temp_dir = tempfile.mkdtemp(prefix='duan_test_')
+        self.temp_dir = tempfile.mkdtemp(prefix='light_test_')
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
@@ -325,12 +325,12 @@ class TestStdlib_FileSystem(unittest.TestCase):
         test_file = os.path.join(self.temp_dir, '测试.txt').replace('\\', '\\\\')
         code = f'''
 从 文件系统 导入 写入文件, 读取文件。
-写入文件("{test_file}", "Hello, 段言！")。
+写入文件("{test_file}", "Hello, 光明！")。
 设 内容 为 读取文件("{test_file}")。
 打印(内容)。
 '''
         output = compile_and_run(code)
-        self.assertIn("Hello, 段言", output)
+        self.assertIn("Hello, 光明", output)
 
     def test_file_exists(self):
         """文件存在性检查"""
@@ -370,24 +370,24 @@ class TestStdlib_JSON(unittest.TestCase):
         """解析 JSON"""
         code = '''
 从 JSON 导入 解析JSON, 序列化JSON。
-设 数据 为 解析JSON('{"name": "段言", "version": 4}')。
+设 数据 为 解析JSON('{"name": "光明", "version": 4}')。
 打印(数据["name"])。
 打印(数据["version"])。
 '''
         output = compile_and_run(code)
-        self.assertIn("段言", output)
+        self.assertIn("光明", output)
         self.assertIn("4", output)
 
     def test_serialize_json(self):
         """序列化 JSON"""
         code = '''
 从 JSON 导入 序列化JSON。
-设 数据 为 {"语言": "段言", "版本": 4.0}。
+设 数据 为 {"语言": "光明", "版本": 4.0}。
 设 文本 为 序列化JSON(数据)。
 打印(文本)。
 '''
         output = compile_and_run(code)
-        self.assertIn("段言", output)
+        self.assertIn("光明", output)
         self.assertIn("4.0", output)
 
 
@@ -442,7 +442,7 @@ class TestStdlib_String(unittest.TestCase):
         """字符串长度"""
         code = '''
 从 字符串处理 导入 长度。
-打印(长度("Hello, 段言"))。
+打印(长度("Hello, 光明"))。
 '''
         output = compile_and_run(code)
         self.assertIn("9", output)
@@ -465,11 +465,11 @@ class TestStdlib_String(unittest.TestCase):
         """字符串替换"""
         code = '''
 从 字符串处理 导入 替换。
-设 结果 为 替换("Hello World", "World", "段言")。
+设 结果 为 替换("Hello World", "World", "光明")。
 打印(结果)。
 '''
         output = compile_and_run(code)
-        self.assertIn("Hello 段言", output)
+        self.assertIn("Hello 光明", output)
 
     def test_find(self):
         """查找子串"""
@@ -543,7 +543,7 @@ class TestStdlib_AdvancedFile(unittest.TestCase):
     """B8. 高级文件"""
 
     def setUp(self):
-        self.temp_dir = tempfile.mkdtemp(prefix='duan_test_adv_')
+        self.temp_dir = tempfile.mkdtemp(prefix='light_test_adv_')
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
@@ -583,7 +583,7 @@ class TestFFI_Stdlib_Combined(unittest.TestCase):
 '''
         py_code = compile_only(code)
         self.assertIn("最大连接", py_code)
-        self.assertIn("_duan_ffi.定义宏", py_code)
+        self.assertIn("_light_ffi.定义宏", py_code)
 
     def test_ffi_enum_with_math(self):
         """枚举定义 + 数学运算"""
@@ -597,7 +597,7 @@ class TestFFI_Stdlib_Combined(unittest.TestCase):
 
     def test_l4_python_with_stdlib_file(self):
         """L4 Python 嵌入 + 文件系统"""
-        temp_dir = tempfile.mkdtemp(prefix='duan_test_l4_')
+        temp_dir = tempfile.mkdtemp(prefix='light_test_l4_')
         test_file = os.path.join(temp_dir, 'l4_test.txt').replace('\\', '\\\\')
         code = f'''
 引 Python:
@@ -606,14 +606,14 @@ def l4_greeting(name):
 结束引
 
 从 文件系统 导入 写入文件, 读取文件。
-设 消息 为 l4_greeting("段言")。
+设 消息 为 l4_greeting("光明")。
 写入文件("{test_file}", 消息)。
 设 内容 为 读取文件("{test_file}")。
 打印(内容)。
 '''
         try:
             output = compile_and_run(code)
-            self.assertIn("你好，段言", output)
+            self.assertIn("你好，光明", output)
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
 

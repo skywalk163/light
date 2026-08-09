@@ -1,4 +1,4 @@
-# 段言翻译器 GPU LoRA 微调依赖
+# 光明翻译器 GPU LoRA 微调依赖
 #
 # 安装方式：
 #   pip install -r requirements-gpu.txt

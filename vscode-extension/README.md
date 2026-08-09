@@ -1,4 +1,4 @@
-# 段言 (Duan) VS Code 扩展
+# 光明 (Light) VS Code 扩展
 
 ## 功能特性
 
@@ -45,7 +45,7 @@ cd vscode-extension
 npm install
 npm run compile
 vsce package
-code --install-extension duan-language.vsix
+code --install-extension light-language.vsix
 ```
 
 ### 方法 2: 开发模式
@@ -61,42 +61,42 @@ npm run watch
 
 ```json
 {
-  "duan.serverPath": "path/to/lsp/server.py",
-  "duan.pythonPath": "python",
-  "duan.trace.server": "off"
+  "light.serverPath": "path/to/lsp/server.py",
+  "light.pythonPath": "python",
+  "light.trace.server": "off"
 }
 ```
 
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
-| `duan.serverPath` | LSP 服务器路径 | 自动查找 |
-| `duan.pythonPath` | Python 解释器路径 | python / python3 |
-| `duan.trace.server` | LSP 通信日志级别 | off |
+| `light.serverPath` | LSP 服务器路径 | 自动查找 |
+| `light.pythonPath` | Python 解释器路径 | python / python3 |
+| `light.trace.server` | LSP 通信日志级别 | off |
 
 ## 快捷键
 
 | 命令 | 快捷键 | 说明 |
 |------|--------|------|
-| 运行当前文件 | `Ctrl+Shift+R` | 解释执行当前段言文件 |
+| 运行当前文件 | `Ctrl+Shift+R` | 解释执行当前光明文件 |
 | 编译当前文件 | `Ctrl+Shift+B` | 编译为 Python 文件 |
 
 ## 命令面板
 
 | 命令 | 说明 |
 |------|------|
-| `段言: 运行当前文件` | 解释执行当前文件 |
-| `段言: 检查语法` | 语法检查，结果输出到 Problems 面板 |
-| `段言: 编译当前文件` | 编译为 Python 文件 |
-| `段言: 编译当前文件 (LLVM-Typed 原生)` | LLVM 原生编译为 EXE |
-| `段言: 类型检查当前文件` | 类型检查，结果输出到 Problems 面板 |
-| `段言: 打开 REPL` | 打开段言交互式解释器 |
-| `段言: 重启语言服务器` | 重启 LSP 服务器 |
+| `光明: 运行当前文件` | 解释执行当前文件 |
+| `光明: 检查语法` | 语法检查，结果输出到 Problems 面板 |
+| `光明: 编译当前文件` | 编译为 Python 文件 |
+| `光明: 编译当前文件 (LLVM-Typed 原生)` | LLVM 原生编译为 EXE |
+| `光明: 类型检查当前文件` | 类型检查，结果输出到 Problems 面板 |
+| `光明: 打开 REPL` | 打开光明交互式解释器 |
+| `光明: 重启语言服务器` | 重启 LSP 服务器 |
 
 ## 调试
 
 ### 启动调试
 
-1. 打开要调试的 `.duan` 文件
+1. 打开要调试的 `.light` 文件
 2. 按 `F9` 设置断点
 3. 按 `F5` 开始调试
 4. 使用调试工具栏进行单步执行
@@ -105,7 +105,7 @@ npm run watch
 
 ```json
 {
-  "type": "duan",
+  "type": "light",
   "request": "launch",
   "program": "${file}",
   "stopOnEntry": true
@@ -114,12 +114,12 @@ npm run watch
 
 ## 文件关联
 
-扩展会自动关联 `.duan` 文件：
+扩展会自动关联 `.light` 文件：
 
 ```json
 {
   "files.associations": {
-    "*.duan": "duan"
+    "*.light": "light"
   }
 }
 ```
@@ -127,7 +127,7 @@ npm run watch
 ## 问题反馈
 
 如遇到问题，请提交 Issue：
-https://github.com/duan-lang/duan/issues
+https://github.com/light-lang/light/issues
 
 ## 许可证
 

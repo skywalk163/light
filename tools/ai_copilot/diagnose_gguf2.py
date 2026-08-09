@@ -9,7 +9,7 @@ from ssh_config import SSH_HOST, SSH_USER_DUMATE, SSH_PASS_DUMATE2
 HOST = SSH_HOST
 USER = SSH_USER_DUMATE
 PASS = SSH_PASS_DUMATE2
-GGUF = "/home/skywalk/Downloads/kaggle/working/duan/tools/ai_copilot/output/duan_translator_merged_3.5_2b/duan_translator_q4_k_m.gguf"
+GGUF = "/home/skywalk/Downloads/kaggle/working/light/tools/ai_copilot/output/light_translator_merged_3.5_2b/light_translator_q4_k_m.gguf"
 
 def run(ssh, cmd, timeout=60):
     print(f"\n$ {cmd}")
@@ -116,7 +116,7 @@ run(ssh, f"cat > /tmp/gguf_check.py << 'PYEOF'\n{script}\nPYEOF")
 run(ssh, f"python /tmp/gguf_check.py '{GGUF}' 2>&1", timeout=30)
 
 # 检查 ollama 是否有 show 命令可以看模型信息
-run(ssh, "ollama show duan-translator 2>&1 || true")
+run(ssh, "ollama show light-translator 2>&1 || true")
 
 ssh.close()
 print("\n[done]")

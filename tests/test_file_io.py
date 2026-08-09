@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言文件I/O测试
+光明文件I/O测试
 
 测试文件读写和文件系统操作
 """
@@ -16,16 +16,16 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src', 'stdlib'))
 
-# 导入段言标准库
+# 导入光明标准库
 try:
-    from stdlib import builtins as _duan_builtin
+    from stdlib import builtins as _light_builtin
 except ImportError:
     # 如果无法导入，使用当前模块
     import importlib.util
-    spec = importlib.util.spec_from_file_location("duan_builtins", 
+    spec = importlib.util.spec_from_file_location("light_builtins", 
         os.path.join(os.path.dirname(__file__), '..', 'src', 'stdlib', 'builtins.py'))
-    _duan_builtin = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(_duan_builtin)
+    _light_builtin = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(_light_builtin)
 
 
 def test_read_write_file():
@@ -39,14 +39,14 @@ def test_read_write_file():
     
     try:
         test_file = os.path.join(temp_dir, "test.txt")
-        test_content = "Hello, 段言！\n测试文件读写功能。"
+        test_content = "Hello, 光明！\n测试文件读写功能。"
         
         # 写入文件
-        _duan_builtin.写入文件(test_file, test_content)
+        _light_builtin.写入文件(test_file, test_content)
         print(f"  [OK] 写入文件: {test_file}")
         
         # 读取文件
-        content = _duan_builtin.读取文件(test_file)
+        content = _light_builtin.读取文件(test_file)
         print(f"  [OK] 读取文件: {len(content)} 字符")
         
         # 验证
@@ -73,18 +73,18 @@ def test_file_exists():
         test_file = os.path.join(temp_dir, "exists.txt")
         
         # 文件不存在
-        assert not _duan_builtin.文件存在(test_file)
+        assert not _light_builtin.文件存在(test_file)
         print(f"  [OK] 文件不存在检查通过")
         
         # 创建文件
-        _duan_builtin.写入文件(test_file, "test")
+        _light_builtin.写入文件(test_file, "test")
         
         # 文件存在
-        assert _duan_builtin.文件存在(test_file)
+        assert _light_builtin.文件存在(test_file)
         print(f"  [OK] 文件存在检查通过")
         
         # 目录存在
-        assert _duan_builtin.目录存在(temp_dir)
+        assert _light_builtin.目录存在(temp_dir)
         print(f"  [OK] 目录存在检查通过")
         
         return True
@@ -104,13 +104,13 @@ def test_directory_operations():
     try:
         # 创建子目录
         sub_dir = os.path.join(temp_dir, "subdir", "nested")
-        _duan_builtin.创建目录(sub_dir)
+        _light_builtin.创建目录(sub_dir)
         
-        assert _duan_builtin.目录存在(sub_dir)
+        assert _light_builtin.目录存在(sub_dir)
         print(f"  [OK] 创建目录: {sub_dir}")
         
         # 列出目录
-        files = _duan_builtin.列出目录(temp_dir)
+        files = _light_builtin.列出目录(temp_dir)
         print(f"  [OK] 列出目录: {files}")
         assert "subdir" in files
         
@@ -127,23 +127,23 @@ def test_path_operations():
     print("="*60)
     
     # 绝对路径
-    abs_path = _duan_builtin.绝对路径(".")
+    abs_path = _light_builtin.绝对路径(".")
     print(f"  [OK] 绝对路径: {abs_path}")
     
     # 连接路径
-    joined = _duan_builtin.连接路径("dir", "subdir", "file.txt")
+    joined = _light_builtin.连接路径("dir", "subdir", "file.txt")
     print(f"  [OK] 连接路径: {joined}")
     assert "dir" in joined and "file.txt" in joined
     
     # 目录名和文件名
     test_path = "/path/to/file.txt"
-    dirname = _duan_builtin.目录名(test_path)
-    basename = _duan_builtin.文件名(test_path)
+    dirname = _light_builtin.目录名(test_path)
+    basename = _light_builtin.文件名(test_path)
     print(f"  [OK] 目录名: {dirname}, 文件名: {basename}")
     assert basename == "file.txt"
     
     # 扩展名
-    ext = _duan_builtin.扩展名(test_path)
+    ext = _light_builtin.扩展名(test_path)
     print(f"  [OK] 扩展名: {ext}")
     assert ext == ".txt"
     
@@ -157,25 +157,25 @@ def test_string_operations():
     print("="*60)
     
     # 转换
-    assert _duan_builtin.转整数("123") == 123
+    assert _light_builtin.转整数("123") == 123
     print(f"  [OK] 转整数: '123' -> 123")
     
-    assert _duan_builtin.转浮点("3.14") == 3.14
+    assert _light_builtin.转浮点("3.14") == 3.14
     print(f"  [OK] 转浮点: '3.14' -> 3.14")
     
     # 字符串操作
-    text = "  Hello 段言  "
-    trimmed = _duan_builtin.去除空白(text)
+    text = "  Hello 光明  "
+    trimmed = _light_builtin.去除空白(text)
     print(f"  [OK] 去除空白: '{trimmed}'")
-    assert trimmed == "Hello 段言"
+    assert trimmed == "Hello 光明"
     
     # 分割
-    parts = _duan_builtin.分割字符串("a,b,c", ",")
+    parts = _light_builtin.分割字符串("a,b,c", ",")
     print(f"  [OK] 分割字符串: {parts}")
     assert parts == ["a", "b", "c"]
     
     # 连接
-    joined = _duan_builtin.连接字符串(["x", "y", "z"], "-")
+    joined = _light_builtin.连接字符串(["x", "y", "z"], "-")
     print(f"  [OK] 连接字符串: '{joined}'")
     assert joined == "x-y-z"
     
@@ -192,18 +192,18 @@ def test_list_operations():
     lst = [3, 1, 4, 1, 5]
     
     # 长度
-    length = _duan_builtin.列表长度(lst)
+    length = _light_builtin.列表长度(lst)
     print(f"  [OK] 列表长度: {length}")
     assert length == 5
     
     # 排序
     lst_copy = lst.copy()
-    _duan_builtin.列表排序(lst_copy)
+    _light_builtin.列表排序(lst_copy)
     print(f"  [OK] 排序后: {lst_copy}")
     assert lst_copy == [1, 1, 3, 4, 5]
     
     # 包含
-    has_three = _duan_builtin.列表包含(lst, 3)
+    has_three = _light_builtin.列表包含(lst, 3)
     print(f"  [OK] 包含3: {has_three}")
     assert has_three
     
@@ -217,13 +217,13 @@ def test_compilation():
     print("="*60)
     
     from lexer import Lexer
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
     
-    # 段言代码
-    duan_code = '''
+    # 光明代码
+    light_code = '''
 设路径为"test.txt"。
-设内容为"Hello, 段言！\\n"。
+设内容为"Hello, 光明！\\n"。
 
 写入文件参数路径，内容。
 
@@ -235,15 +235,15 @@ def test_compilation():
   打印"文件创建失败"。
 '''
     
-    print("  段言代码:")
-    print("  " + "\n  ".join(duan_code.strip().split("\n")))
+    print("  光明代码:")
+    print("  " + "\n  ".join(light_code.strip().split("\n")))
     
     # 编译
-    parser = DuanParser()
+    parser = LightParser()
     generator = PythonCodeGenerator()
     
     try:
-        module = parser.parse(duan_code)
+        module = parser.parse(light_code)
         python_code = generator.generate(module)
         
         print("\n  生成的Python代码:")
@@ -262,7 +262,7 @@ def test_compilation():
 def run_all_tests():
     """运行所有测试"""
     print("="*60)
-    print("段言文件I/O测试套件")
+    print("光明文件I/O测试套件")
     print("="*60)
     print()
     

@@ -1,5 +1,5 @@
 """
-段言（Duan）编程语言 - 语句解析混入类
+光明（Light）编程语言 - 语句解析混入类
 
 提供所有语句级别解析方法，包括：
 - 模块解析
@@ -406,12 +406,12 @@ class ParserStmtMixin:
         # 明确标注不支持的特性（P1-3）：async / await 关键字
         if tok.type == TokenType.IDENTIFIER and tok.value == 'async':
             self._error(
-                "段言不支持 'async' 关键字。请使用「异步」替代，例如：异步 段落 段名()。",
+                "光明不支持 'async' 关键字。请使用「异步」替代，例如：异步 段落 段名()。",
                 tok.line, tok.col
             )
         if tok.type == TokenType.IDENTIFIER and tok.value == 'await':
             self._error(
-                "段言不支持 'await' 关键字。请使用「等待」替代，例如：等待 异步调用()。",
+                "光明不支持 'await' 关键字。请使用「等待」替代，例如：等待 异步调用()。",
                 tok.line, tok.col
             )
         
@@ -441,7 +441,7 @@ class ParserStmtMixin:
         if tok.type == TokenType.KEYWORD:
             self._error(
                 f"「{tok.value}」是保留关键字，不能直接作为语句开头。"
-                f"请检查语法是否正确，或参考段言语法文档。",
+                f"请检查语法是否正确，或参考光明语法文档。",
                 tok.line, tok.col, tok.value
             )
         elif tok.type == TokenType.EQUALS:
@@ -452,7 +452,7 @@ class ParserStmtMixin:
         else:
             self._error(
                 f"无法识别的语法元素：'{tok.value}'。"
-                f"请检查语句是否正确，或参考段言语法文档。",
+                f"请检查语句是否正确，或参考光明语法文档。",
                 tok.line, tok.col, tok.value
             )
 
@@ -1040,7 +1040,7 @@ class ParserStmtMixin:
         7. 导入 子模块名.符号 从 模块名（倒装形式）。
         8. 导入 Python: 模块名。（导入Python第三方库）
         9. 导入 C: 模块名。（导入C语言库）
-        10. 导入 标准模块名。（导入段言标准库，"标准"前缀可选）
+        10. 导入 标准模块名。（导入光明标准库，"标准"前缀可选）
         """
         # 导入 / 导
         self._consume(TokenType.KEYWORD, self._current().value)
@@ -1566,7 +1566,7 @@ class ParserStmtMixin:
     def _parse_var_decl(self) -> VarDecl:
         """解析变量声明（已移除的语法：定义 x 等于 y）
 
-        此语法已从段言语法中移除。请使用「设 x 为 y」替代。
+        此语法已从光明语法中移除。请使用「设 x 为 y」替代。
         """
         tok = self._current()
         self._error(

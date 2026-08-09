@@ -1,5 +1,5 @@
 """
-段言标准库 - JSON 处理模块
+光明标准库 - JSON 处理模块
 
 提供 JSON 的解析、序列化、验证、查询等功能。
 """
@@ -12,7 +12,7 @@ from typing import Any, Optional, List, Dict, Union
 
 def 解析JSON(text: str) -> Any:
     """
-    解析 JSON 字符串为段言值（列表/字典/字符串/数字/布尔/空）
+    解析 JSON 字符串为光明值（列表/字典/字符串/数字/布尔/空）
     
     参数:
         text: JSON 格式字符串
@@ -21,7 +21,7 @@ def 解析JSON(text: str) -> Any:
         解析后的值
     
     示例:
-        解析JSON('{"name": "段言", "version": 1}')  # {'name': '段言', 'version': 1}
+        解析JSON('{"name": "光明", "version": 1}')  # {'name': '光明', 'version': 1}
     """
     try:
         return json.loads(text)
@@ -31,7 +31,7 @@ def 解析JSON(text: str) -> Any:
 
 def 序列化JSON(value: Any, 缩进: Optional[int] = None) -> str:
     """
-    将段言值序列化为 JSON 字符串
+    将光明值序列化为 JSON 字符串
     
     参数:
         value: 要序列化的值（列表、字典、字符串、数字、布尔、空）
@@ -41,8 +41,8 @@ def 序列化JSON(value: Any, 缩进: Optional[int] = None) -> str:
         JSON 格式字符串
     
     示例:
-        序列化JSON({'name': '段言'})       # '{"name": "段言"}'
-        序列化JSON({'name': '段言'}, 2)    # 格式化输出
+        序列化JSON({'name': '光明'})       # '{"name": "光明"}'
+        序列化JSON({'name': '光明'}, 2)    # 格式化输出
     """
     try:
         if 缩进 is not None:
@@ -787,7 +787,7 @@ def JSONSchema验证(data: Any, schema: dict) -> bool:
     
     示例:
         schema = {"type": "object", "properties": {"name": {"type": "string"}}}
-        JSONSchema验证({"name": "段言"}, schema)  # True
+        JSONSchema验证({"name": "光明"}, schema)  # True
     """
     try:
         return _验证Schema(data, schema)

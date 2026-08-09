@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）增强错误提示模块
+光明（Light）增强错误提示模块
 
 功能：
   - 类似 Rust 编译器的错误渲染
@@ -184,8 +184,8 @@ class ErrorFormatter:
                     return suggestion
 
         # 通用建议
-        if '段言' in err_msg or 'duan' in err_msg.lower():
-            return '检查段言语法是否正确，参考语法文档'
+        if '光明' in err_msg or 'light' in err_msg.lower():
+            return '检查光明语法是否正确，参考语法文档'
 
         return None
 
@@ -208,7 +208,7 @@ def install_error_handler():
 
         # 尝试从 traceback 获取文件和行号
         for frame in traceback.extract_tb(exc_tb):
-            if frame.filename.endswith('.duan'):
+            if frame.filename.endswith('.light'):
                 try:
                     with open(frame.filename, 'r', encoding='utf-8') as f:
                         source = f.read()

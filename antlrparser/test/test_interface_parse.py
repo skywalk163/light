@@ -5,7 +5,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from duan_visitor import parse_source
+from light_visitor import parse_source
 
 def test_interface_parse():
     source = """【测试模块】

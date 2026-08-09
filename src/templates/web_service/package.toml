@@ -1,8 +1,8 @@
-# 段言项目配置
+# 光明项目配置
 [package]
 name = "web_service"
 version = "0.1.0"
-entry = "主.duan"
+entry = "主.light"
 authors = []
 description = "Web 服务示例 - 使用 HTTP 模块搭建 REST API"
 

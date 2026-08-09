@@ -1,6 +1,6 @@
-# 段言编译器开发总结报告
+# 光明编译器开发总结报告
 
-**项目名称：** 段言（Duan）编程语言编译器  
+**项目名称：** 光明（Light）编程语言编译器  
 **当前版本：** v0.8.0  
 **报告时间：** 2026-06-10  
 **工作阶段：** 优化与重构、功能扩展、工具链、文档与示例
@@ -59,16 +59,16 @@
 #### CLI 编译器工具
 - ✅ `cli/duanc.py`（350行）
 - ✅ 支持命令：
-  - `duanc file.duan` - 编译文件
-  - `duanc file.duan --run` - 编译并运行
-  - `duanc file.duan --tokens` - 显示 Token 流
-  - `duanc file.duan --ast` - 显示 AST
+  - `duanc file.light` - 编译文件
+  - `duanc file.light --run` - 编译并运行
+  - `duanc file.light --tokens` - 显示 Token 流
+  - `duanc file.light --ast` - 显示 AST
   - `duanc --init` - 创建示例项目
 
 #### 示例代码库
-- ✅ `examples/basic.duan` - 基础语法
-- ✅ `examples/advanced.duan` - 高级功能
-- ✅ `examples/class_example.duan` - 类定义示例
+- ✅ `examples/basic.light` - 基础语法
+- ✅ `examples/advanced.light` - 高级功能
+- ✅ `examples/class_example.light` - 类定义示例
 
 ---
 
@@ -128,8 +128,8 @@
 
 ### 示例代码
 
-**段言代码：**
-```段言
+**光明代码：**
+```光明
 类 学生：
   属性 姓名: str
   属性 年龄: int
@@ -211,11 +211,11 @@ class 学生:
 ## 📂 项目结构
 
 ```
-duan/
+light/
 ├── src/                    # 核心源码（14个文件）
 │   ├── core/              # 核心接口（新增）
 │   ├── lexer.py           # 词法分析器
-│   ├── duan_parser_v3.py  # 语法解析器
+│   ├── light_parser_v3.py  # 语法解析器
 │   ├── code_generator.py  # 代码生成器
 │   └── ast_nodes.py       # AST节点（扩展）
 ├── tests/                 # 测试套件（7个文件）
@@ -273,7 +273,7 @@ duan/
 
 ## 🌟 总结
 
-段言编译器已经完成核心功能开发，成功实现：
+光明编译器已经完成核心功能开发，成功实现：
 - ✅ 完整的编译流程（词法→语法→语义→代码生成）
 - ✅ 高级语义特性（元数驱动、主谓/谓宾识别）
 - ✅ 面向对象编程（类定义、继承、属性、方法）

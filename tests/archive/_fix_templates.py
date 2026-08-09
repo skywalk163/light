@@ -3,7 +3,7 @@ sys.path.insert(0, 'src')
 sys.path.insert(0, '.')
 
 # Fix bubble.txt - half-width period
-path1 = r'G:\dumategithub\yanpub\src\yanpub\playground\templates\duan\bubble.txt'
+path1 = r'G:\dumategithub\yanpub\src\yanpub\playground\templates\light\bubble.txt'
 with open(path1, 'r', encoding='utf-8') as f:
     src = f.read()
 src = src.replace('排序前：").\n', '排序前：")。\n')
@@ -13,7 +13,7 @@ with open(path1, 'w', encoding='utf-8') as f:
 print('bubble.txt fixed')
 
 # Fix turing.txt - remove 设 before indexed assignment on line 29
-path2 = r'G:\dumategithub\yanpub\src\yanpub\playground\templates\duan\turing.txt'
+path2 = r'G:\dumategithub\yanpub\src\yanpub\playground\templates\light\turing.txt'
 with open(path2, 'r', encoding='utf-8') as f:
     src = f.read()
 # Find: 设纸带[指针] 为 转移[一]

@@ -3,7 +3,7 @@
 ## 基本用法
 
 ```bash
-duan [选项] <文件>
+light [选项] <文件>
 ```
 
 ## 选项
@@ -24,26 +24,26 @@ duan [选项] <文件>
 
 ```bash
 # 运行文件
-duan hello.duan
+light hello.light
 
 # 查看 AST
-duan hello.duan --ast
+light hello.light --ast
 
 # 编译为 Python
-duan hello.duan --compile
+light hello.light --compile
 
 # 语法检查
-duan hello.duan --check
+light hello.light --check
 ```
 
 ## REPL
 
 ```bash
-duan
+light
 ```
 
 进入交互式 REPL 环境，支持：
-- 逐行执行段言代码
+- 逐行执行光明代码
 - 自动补全
 - 语法高亮
 - 历史记录

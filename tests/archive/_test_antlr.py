@@ -3,11 +3,11 @@ import sys, os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'antlrparser'))
 
-from DuanLangLexer import DuanLangLexer
-from DuanLangParser import DuanLangParser
-from DuanLangParserVisitor import DuanLangParserVisitor
-from duan_tokenizer import create_antlr_token_stream
-from duan_visitor import DuanLangErrorListener
+from LightLangLexer import LightLangLexer
+from LightLangParser import LightLangParser
+from LightLangParserVisitor import LightLangParserVisitor
+from light_tokenizer import create_antlr_token_stream
+from light_visitor import LightLangErrorListener
 
 # 多个测试用例
 tests = [
@@ -26,14 +26,14 @@ for desc, code in tests:
     print(f"测试: {desc}")
     print(f"代码: {repr(code)}")
     
-    lexer = DuanLangLexer()
+    lexer = LightLangLexer()
     token_stream = create_antlr_token_stream(code, lexer)
     
     # Parse
     token_stream.seek(0)
-    parser = DuanLangParser(token_stream)
+    parser = LightLangParser(token_stream)
     
-    error_listener = DuanLangErrorListener()
+    error_listener = LightLangErrorListener()
     parser.removeErrorListeners()
     parser.addErrorListener(error_listener)
     

@@ -1,5 +1,5 @@
 """
-段言异常处理功能测试
+光明异常处理功能测试
 """
 
 import sys
@@ -7,14 +7,14 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 
-def _compile_and_exec(duan_code: str) -> dict:
-    """编译并执行段言代码，返回执行后的全局变量"""
-    parser = DuanParser()
-    module = parser.parse(duan_code)
+def _compile_and_exec(light_code: str) -> dict:
+    """编译并执行光明代码，返回执行后的全局变量"""
+    parser = LightParser()
+    module = parser.parse(light_code)
     
     generator = PythonCodeGenerator()
     py_code = generator.generate(module)

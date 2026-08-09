@@ -1,5 +1,5 @@
 """
-段言 AI Copilot — 一揽子管线
+光明 AI Copilot — 一揽子管线
 
 核心思路：用户不需要手动串联 card→snippets→prompt→check，
 只需一条命令即可获得可直接粘贴给 LLM 的完整 prompt。
@@ -16,7 +16,7 @@
 用法：
     from pipeline import generate_pipeline, fix_pipeline
     prompt = generate_pipeline("写一个冒泡排序")
-    prompt = fix_pipeline("sort.duan", "第3行语法错误")
+    prompt = fix_pipeline("sort.light", "第3行语法错误")
 """
 
 from syntax_card import generate_syntax_card, generate_pitfalls, generate_example_pairs
@@ -116,7 +116,7 @@ def _match_snippets(requirement: str, model_size: str = "medium") -> list:
 # ═══════════════════════════════════════════════════════════════════
 
 _GENERATE_SMALL = """\
-你是段言v3.2代码生成器。严格按照下方规则输出段言代码，不要解释。
+你是光明v3.2代码生成器。严格按照下方规则输出光明代码，不要解释。
 
 {compact_card}
 
@@ -126,10 +126,10 @@ _GENERATE_SMALL = """\
 ⚠暗坑：列表[i]=值✓ | 设列表[i]为值✗ | 变量名≠内建函数名 | 运算用中文
 
 需求：{requirement}
-只输出段言代码。"""
+只输出光明代码。"""
 
 _GENERATE_MEDIUM = """\
-你是段言（DuanLang）v3.2 代码生成器。请根据需求生成段言代码。
+你是光明（LightLang）v3.2 代码生成器。请根据需求生成光明代码。
 
 {syntax_card}
 
@@ -143,13 +143,13 @@ _GENERATE_MEDIUM = """\
 3. 冒号必选，句号可选，空格可选
 4. 纯缩进代码块，无花括号/无结束关键字
 5. 优先从相关片段中选择匹配的模板，填充占位符
-6. 同时生成对应的测试断言（使用 测试.duan 标准库）
-7. 只输出段言代码，不要解释
+6. 同时生成对应的测试断言（使用 测试.light 标准库）
+7. 只输出光明代码，不要解释
 
 需求：{requirement}"""
 
 _GENERATE_LARGE = """\
-你是一个专业的段言（DuanLang）v3.2 代码生成器。请根据需求生成高质量的段言代码。
+你是一个专业的光明（LightLang）v3.2 代码生成器。请根据需求生成高质量的光明代码。
 
 {syntax_card}
 
@@ -167,14 +167,14 @@ _GENERATE_LARGE = """\
 3. 冒号必选，句号可选，空格可选
 4. 纯缩进代码块，无花括号/无结束关键字
 5. 优先从片段库中选择匹配的模板，填充占位符
-6. 同时生成对应的测试断言（使用 测试.duan 标准库的 断言相等/断言为真）
+6. 同时生成对应的测试断言（使用 测试.light 标准库的 断言相等/断言为真）
 7. 代码需包含异常处理和边界情况
-8. 只输出段言代码，不要解释
+8. 只输出光明代码，不要解释
 
 需求：{requirement}"""
 
 _FIX_SMALL = """\
-你是段言v3.2代码修复器。按下方规则修复代码，只输出修正后的代码。
+你是光明v3.2代码修复器。按下方规则修复代码，只输出修正后的代码。
 
 {compact_card}
 
@@ -188,10 +188,10 @@ _FIX_SMALL = """\
 错误信息：
 {error}
 
-只输出修复后的段言代码。"""
+只输出修复后的光明代码。"""
 
 _FIX_MEDIUM = """\
-你是段言（DuanLang）v3.2 代码修复器。请根据错误信息修复段言代码。
+你是光明（LightLang）v3.2 代码修复器。请根据错误信息修复光明代码。
 
 {syntax_card}
 
@@ -208,12 +208,12 @@ _FIX_MEDIUM = """\
 修复规则：
 1. 严格按照语法速查卡修复，不要使用旧语法
 2. 优先检查暗坑中列出的常见错误
-3. 只输出修复后的段言代码，不要解释
+3. 只输出修复后的光明代码，不要解释
 4. 如果错误信息不明确，优先检查：列表索引赋值语法、变量名冲突、运算符中文
 """
 
 _FIX_LARGE = """\
-你是一个专业的段言（DuanLang）v3.2 代码修复器。请根据错误信息修复段言代码。
+你是一个专业的光明（LightLang）v3.2 代码修复器。请根据错误信息修复光明代码。
 
 {syntax_card}
 
@@ -235,7 +235,7 @@ _FIX_LARGE = """\
 1. 严格按照语法速查卡修复，不要使用旧语法
 2. 优先检查暗坑中列出的常见错误
 3. 确保修复后的代码包含异常处理和边界情况
-4. 只输出修复后的完整段言代码，不要解释
+4. 只输出修复后的完整光明代码，不要解释
 5. 如果错误信息不明确，按以下顺序排查：
    a. 列表索引赋值是否用了"设 列表[i] 为 值"（应改为"列表[i] = 值"）
    b. 变量名是否与内建函数同名（如"长度"、"类型"）
@@ -297,8 +297,8 @@ def fix_pipeline(filepath: str, error: str, model_size: str = "medium") -> str:
     """一揽子修复管线：出错代码 + 错误 → 修复 prompt
 
     Args:
-        filepath: 出错的段言源文件路径
-        error: 错误信息（来自 duan ai check 的输出）
+        filepath: 出错的光明源文件路径
+        error: 错误信息（来自 light ai check 的输出）
         model_size: small/medium/large
 
     Returns:

@@ -1,4 +1,4 @@
-; 段言 (Duan) 编译输出
+; 光明 (Light) 编译输出
 target triple = "x86_64-pc-windows-msvc"
 
 declare i32 @printf(i8*, ...)
@@ -31,20 +31,20 @@ declare i8* @fopen(i8*, i8*)
 declare i32 @fclose(i8*)
 declare i64 @fread(i8*, i64, i64, i8*)
 declare i32 @fwrite(i8*, i64, i64, i8*)
-declare i32* @duan_list_new(i64)
-declare i32 @duan_list_length(i32*)
-declare i32 @duan_list_append(i32*, i32)
-declare i32 @duan_list_get(i32*, i64)
-declare void @duan_list_set(i32*, i64, i32)
-declare i32* @duan_list_copy(i32*)
-declare void @duan_list_free(i32*)
-declare i8* @duan_itoa(i32)
-declare i8* @duan_dict_new()
-declare void @duan_dict_set(i8*, i8*, i32)
-declare i32 @duan_dict_get(i8*, i8*)
-declare i1 @duan_dict_contains(i8*, i8*)
-declare void @duan_dict_remove(i8*, i8*)
-declare void @duan_dict_free(i8*)
+declare i32* @light_list_new(i64)
+declare i32 @light_list_length(i32*)
+declare i32 @light_list_append(i32*, i32)
+declare i32 @light_list_get(i32*, i64)
+declare void @light_list_set(i32*, i64, i32)
+declare i32* @light_list_copy(i32*)
+declare void @light_list_free(i32*)
+declare i8* @light_itoa(i32)
+declare i8* @light_dict_new()
+declare void @light_dict_set(i8*, i8*, i32)
+declare i32 @light_dict_get(i8*, i8*)
+declare i1 @light_dict_contains(i8*, i8*)
+declare void @light_dict_remove(i8*, i8*)
+declare void @light_dict_free(i8*)
 
 @.printf_fmt = private unnamed_addr constant [4 x i8] c"%d\0A\00"
 @.str.0 = private unnamed_addr constant [27 x i8] c"=== \E6\95\B0\E5\AD\A6\E5\87\BD\E6\95\B0\E6\B5\8B\E8\AF\95 ===\00"
@@ -107,28 +107,28 @@ define i32 @main(i32 %main_args) {
   %42 = call i32 @puts(i8* %41)
   %43 = alloca i8*, align 8
   %44 = add i64 0, 5
-  %45 = call i8* @duan_list_new(i64 %44)
+  %45 = call i8* @light_list_new(i64 %44)
   %46 = bitcast i8* %45 to i32*
   %47 = add i32 0, 10
   %48 = add i64 0, 0
-  call void @duan_list_set(i32* %46, i64 %48, i32 %47)
+  call void @light_list_set(i32* %46, i64 %48, i32 %47)
   %49 = add i32 0, 20
   %50 = add i64 0, 1
-  call void @duan_list_set(i32* %46, i64 %50, i32 %49)
+  call void @light_list_set(i32* %46, i64 %50, i32 %49)
   %51 = add i32 0, 30
   %52 = add i64 0, 2
-  call void @duan_list_set(i32* %46, i64 %52, i32 %51)
+  call void @light_list_set(i32* %46, i64 %52, i32 %51)
   %53 = add i32 0, 40
   %54 = add i64 0, 3
-  call void @duan_list_set(i32* %46, i64 %54, i32 %53)
+  call void @light_list_set(i32* %46, i64 %54, i32 %53)
   %55 = add i32 0, 50
   %56 = add i64 0, 4
-  call void @duan_list_set(i32* %46, i64 %56, i32 %55)
+  call void @light_list_set(i32* %46, i64 %56, i32 %55)
   store i8* %45, i8** %43, align 8
   %57 = alloca i32, align 4
   %58 = load i8*, i8** %43, align 8
   %59 = bitcast i8* %58 to i32*
-  %60 = call i32 @duan_list_length(i32* %59)
+  %60 = call i32 @light_list_length(i32* %59)
   store i32 %60, i32* %57, align 4
   %61 = getelementptr inbounds [7 x i8], [7 x i8]* @.str.6, i32 0, i32 0
   %62 = call i32 @puts(i8* %61)
@@ -140,7 +140,7 @@ define i32 @main(i32 %main_args) {
   %68 = add i32 0, 0
   %69 = zext i32 %68 to i64
   %70 = bitcast i8* %67 to i32*
-  %71 = call i32 @duan_list_get(i32* %70, i64 %69)
+  %71 = call i32 @light_list_get(i32* %70, i64 %69)
   store i32 %71, i32* %66, align 4
   %72 = getelementptr inbounds [8 x i8], [8 x i8]* @.str.7, i32 0, i32 0
   %73 = call i32 @puts(i8* %72)
@@ -167,7 +167,7 @@ define i32 @main(i32 %main_args) {
   %89 = load i32, i32* %79, align 4
   %90 = zext i32 %89 to i64
   %91 = bitcast i8* %88 to i32*
-  %92 = call i32 @duan_list_get(i32* %91, i64 %90)
+  %92 = call i32 @light_list_get(i32* %91, i64 %90)
   %93 = add i32 %87, %92
   store i32 %93, i32* %77, align 4
   %94 = load i32, i32* %79, align 4

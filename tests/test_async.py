@@ -1,5 +1,5 @@
 """
-段言异步/并发功能测试
+光明异步/并发功能测试
 - 异步段落（async/await）
 - 推迟语句（defer）
 - 结构化并发（并行作用域）
@@ -25,7 +25,7 @@ from code_generator_unified import UnifiedCodeGenerator
 
 
 def run_code(module):
-    """运行段言AST模块并返回标准输出"""
+    """运行光明AST模块并返回标准输出"""
     generator = UnifiedCodeGenerator()
     code = generator.generate(module)
     

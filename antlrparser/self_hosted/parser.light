@@ -1,0 +1,1491 @@
+# 光明自举解析器
+#
+# 将自举分词器产生的 Token 列表解析为 AST（抽象语法树）。
+# 使用递归下降 + _prec爬升算法。
+#
+# 每个解析函数接受 (_tokens, 位置) 返回 (结果, _pos)。
+# 位置是整数索引，结果可能是 AST 节点或错误信息。
+
+# =============================================================================
+# Token 流辅助函数
+# =============================================================================
+
+《_取令牌》段(_tokens, 位置):
+  返回_tokens[位置]。
+结束。
+
+《_取种类》段(_tokens, 位置):
+  返回_tokens[位置]["type"]。
+结束。
+
+《_取文本》段(_tokens, 位置):
+  返回_tokens[位置]["text"]。
+结束。
+
+《_取行》段(_tokens, 位置):
+  返回_tokens[位置]["line"]。
+结束。
+
+《_取列》段(_tokens, 位置):
+  返回_tokens[位置]["col"]。
+结束。
+
+《_是否结尾》段(位置, 长度):
+  返回位置大于等于长度。
+结束。
+
+# =============================================================================
+# 二元运算符定义
+# =============================================================================
+
+定义二元运算符表等于_典(
+  "K_OR", "或",  "OR", "或", "||", "或",
+  "K_AND", "且", "AND", "且", "&&", "且",
+  "PIPE", "->",
+  "K_EQUAL", "==",
+  "EQ", "==",
+  "K_GE", ">=",  "GE", ">=",
+  "K_LE", "<=",  "LE", "<=",
+  "K_NE", "!=",  "NE", "!=",
+  "K_GT", ">",   "GT", ">",
+  "K_LT", "<",   "LT", "<",
+  "K_PLUS", "+", "PLUS", "+",
+  "K_MINUS", "-", "MINUS", "-",
+  "K_MULTIPLY", "*", "MULTIPLY", "*", "×", "*",
+  "K_DIVIDE", "/", "DIVIDE", "/", "÷", "/",
+  "K_MOD", "%", "MODULO", "%",
+  "K_POW", "^", "POW", "^"
+)。
+
+定义_prec表等于_典(
+  "K_OR", 1,    "OR", 1,    "||", 1,
+  "K_AND", 2,   "AND", 2,   "&&", 2,
+  "PIPE", 3,
+  "K_EQUAL", 4,
+  "EQ", 4,
+  "K_NE", 4,    "NE", 4,
+  "K_GE", 5,    "GE", 5,
+  "K_LE", 5,    "LE", 5,
+  "K_GT", 5,    "GT", 5,
+  "K_LT", 5,    "LT", 5,
+  "K_PLUS", 6,  "PLUS", 6,
+  "K_MINUS", 6, "MINUS", 6,
+  "K_MULTIPLY", 7, "MULTIPLY", 7, "×", 7,
+  "K_DIVIDE", 7, "DIVIDE", 7, "÷", 7,
+  "K_MOD", 7,   "MODULO", 7,
+  "K_POW", 8,   "POW", 8
+)。
+
+《_是二元运算符》段(种类):
+  定义所有键等于二元运算符表之键列。
+  遍历_键 所有键：
+    如果_键等于种类那么：
+      返回真。
+    结束。
+  结束。
+  返回假。
+结束。
+
+《_是赋值运算符》段(种类):
+  返回种类等于"ASSIGN"或种类等于"K_EQUAL"。
+结束。
+
+《_取_op_text》段(种类):
+  如果《_是二元运算符》(种类)那么：
+    返回二元运算符表[种类]。
+  结束。
+  返回种类。
+结束。
+
+《_取_prec》段(种类):
+  返回_prec表[种类]。
+结束。
+
+# =============================================================================
+# 错误报告
+# =============================================================================
+
+《_报错》段(_tokens, 位置, 消息):
+  定义_行号等于0。
+  定义_列号等于0。
+  如果位置小于《__tokens长度》(_tokens)那么：
+    _行号等于《_取行》(_tokens, 位置)。
+    _列号等于《_取列》(_tokens, 位置)。
+  结束。
+  返回_典("_type", "Error", "message", 消息, "line", _行号, "col", _列号)。
+结束。
+
+《_期望》段(_tokens, 位置, _expected_type):
+  如果《_是否结尾》(位置, 《__tokens长度》(_tokens))那么：
+    返回《_报错》(_tokens, 位置, "期望"加_expected_type加"，但遇到文件结尾")。
+  结束。
+  定义_actual_type等于《_取种类》(_tokens, 位置)。
+  如果_actual_type不等于_expected_type那么：
+    返回《_报错》(_tokens, 位置, "期望"加_expected_type加"，实际"加_actual_type)。
+  结束。
+  返回位置加1。
+结束。
+
+《__tokens长度》段(_tokens):
+  返回_tokens之长度。
+结束。
+
+# =============================================================================
+# 前看 / 消耗 工具函数
+# =============================================================================
+
+《_前看种类》段(_tokens, 位置, _steps):
+  定义_pos等于位置加_steps。
+  如果《_是否结尾》(_pos, 《__tokens长度》(_tokens))那么：
+    返回空。
+  结束。
+  返回《_取种类》(_tokens, _pos)。
+结束。
+
+《_前看文本》段(_tokens, 位置, _steps):
+  定义_pos等于位置加_steps。
+  如果《_是否结尾》(_pos, 《__tokens长度》(_tokens))那么：
+    返回空。
+  结束。
+  返回《_取文本》(_tokens, _pos)。
+结束。
+
+《_匹配》段(_tokens, 位置, 种类):
+  如果《_是否结尾》(位置, 《__tokens长度》(_tokens))那么：
+    返回假。
+  结束。
+  返回《_取种类》(_tokens, 位置)等于种类。
+结束。
+
+《_匹配任意》段(_tokens, 位置, _kinds):
+  如果《_是否结尾》(位置, 《__tokens长度》(_tokens))那么：
+    返回假。
+  结束。
+  定义_cur_kind等于《_取种类》(_tokens, 位置)。
+  遍历_种类 _kinds：
+    如果_cur_kind等于_种类那么：
+      返回真。
+    结束。
+  结束。
+  返回假。
+结束。
+
+# =============================================================================
+# 主要解析函数
+# =============================================================================
+
+《解析表达式》段(_tokens, 位置, _min_prec):
+  定义长度等于《__tokens长度》(_tokens)。
+  
+  # 解析一元前缀
+  定义_cur_kind等于《_前看种类》(_tokens, 位置, 0)。
+  定义_left等于空。
+  定义_pos等于位置。
+  
+  如果_cur_kind等于"K_NOT"或_cur_kind等于"NOT"或_cur_kind等于"!"那么：
+    # 一元非运算
+    定义_op_text等于《_取文本》(_tokens, 位置)。
+    _pos等于位置加1。
+    定义_right_res等于《解析表达式》(_tokens, _pos, 999)。
+    如果_right_res["_type"]等于"Error"那么：
+      返回_right_res。
+    结束。
+    _left等于《创建一元运算》(_op_text, _right_res["result"])。
+    _pos等于_right_res["pos"]。
+  
+  否则若_cur_kind等于"K_MINUS"或_cur_kind等于"MINUS"或_cur_kind等于"-"那么：
+    # 一元负号
+    定义_op_text等于"-"。
+    _pos等于位置加1。
+    定义_right_res等于《解析表达式》(_tokens, _pos, 999)。
+    如果_right_res["_type"]等于"Error"那么：
+      返回_right_res。
+    结束。
+    _left等于《创建一元运算》(_op_text, _right_res["result"])。
+    _pos等于_right_res["pos"]。
+  
+  否则：
+    # 解析主要表达式
+    定义主要结果等于《解析主要》(_tokens, 位置)。
+    如果主要结果["_type"]等于"Error"那么：
+      返回主要结果。
+    结束。
+    _left等于主要结果["result"]。
+    _pos等于主要结果["pos"]。
+ 结束。
+  
+  # 后置运算符链（调用、属性、索引）
+  定义_cont等于真。
+  当_cont：
+    _cur_kind等于《_前看种类》(_tokens, _pos, 0)。
+    
+    # 函数调用
+    如果_cur_kind等于"BOOK_L"那么：
+      定义调用结果等于《解析调用》(_tokens, _pos, _left)。
+      如果调用结果["_type"]等于"Error"那么：
+        返回调用结果。
+      结束。
+      _left等于调用结果["result"]。
+      _pos等于调用结果["pos"]。
+      跳过。
+    结束。
+    
+    # 属性访问：之 / 的
+    如果_cur_kind等于"K_OF"或_cur_kind等于"K_DE"那么：
+      _pos等于_pos加1。
+      定义_prop_name等于《_取文本》(_tokens, _pos)。
+      如果《_是否结尾》(_pos, 长度)那么：
+        返回《_报错》(_tokens, _pos, "属性访问后缺少属性名")。
+      结束。
+      如果_prop_name等于空那么：
+        返回《_报错》(_tokens, _pos, "属性访问后缺少属性名")。
+      结束。
+      _left等于《创建属性》(_left, _prop_name)。
+      _pos等于_pos加1。
+      跳过。
+    结束。
+    
+    # 索引访问：【】
+    如果_cur_kind等于"LBRACKET"那么：
+      _pos等于_pos加1。  # 跳过 【
+      定义索引表达式等于《解析表达式》(_tokens, _pos, 0)。
+      如果索引表达式["_type"]等于"Error"那么：
+        返回索引表达式。
+      结束。
+      _pos等于索引表达式["pos"]。
+      # 期望 】
+      如果《_匹配》(_tokens, _pos, "RBRACKET")等于假那么：
+        如果《_匹配》(_tokens, _pos, "】")等于假那么：
+          返回《_报错》(_tokens, _pos, "索引访问后缺少 】")。
+        结束。
+      结束。
+      _pos等于_pos加1。
+      _left等于《创建索引》(_left, 索引表达式["result"])。
+      跳过。
+    结束。
+    
+    # 不是后置运算符则跳出
+    _cont等于假。
+  结束。
+  
+  # 二元运算符循环（_prec爬升）
+  _cont等于真。
+  当_cont：
+    _cur_kind等于《_前看种类》(_tokens, _pos, 0)。
+    如果_cur_kind等于空那么：
+      _cont等于假。
+      跳过。
+    结束。
+    
+    如果《_是二元运算符》(_cur_kind)等于假那么：
+      _cont等于假。
+      跳过。
+    结束。
+    
+    定义_prec等于《_取_prec》(_cur_kind)。
+    如果_prec等于空或_prec小于_min_prec那么：
+      _cont等于假。
+      跳过。
+    结束。
+    
+    # 处理管道运算符（PIPE）
+    如果_cur_kind等于"PIPE"那么：
+      定义_pipe_res等于《解析管道》(_tokens, _pos, _left)。
+      如果_pipe_res["_type"]等于"Error"那么：
+        返回_pipe_res。
+      结束。
+      _left等于_pipe_res["result"]。
+      _pos等于_pipe_res["pos"]。
+      跳过。
+    结束。
+    
+    # 普通二元运算
+    定义_op_text等于《_取_op_text》(_cur_kind)。
+    _pos等于_pos加1。
+    定义_right_res等于《解析表达式》(_tokens, _pos, _prec加1)。
+    如果_right_res["_type"]等于"Error"那么：
+      返回_right_res。
+    结束。
+    _left等于《创建二元运算》(_left, _op_text, _right_res["result"])。
+    _pos等于_right_res["pos"]。
+  结束。
+  
+  返回_典("_type", "Result", "result", _left, "pos", _pos)。
+结束。
+
+# =============================================================================
+# 管道表达式解析（PIPE ->）
+# =============================================================================
+
+《解析管道》段(_tokens, 位置, _init_expr):
+  定义长度等于《__tokens长度》(_tokens)。
+  定义_exprs等于【_init_expr】。
+  定义_pos等于位置。
+  
+  当《_匹配》(_tokens, _pos, "PIPE")：
+    _pos等于_pos加1。  # 跳过 ->
+    定义_right_res等于《解析表达式》(_tokens, _pos, 0)。
+    如果_right_res["_type"]等于"Error"那么：
+      返回_right_res。
+    结束。
+    _exprs等于_exprs加【_right_res["result"]】。
+    _pos等于_right_res["pos"]。
+  结束。
+  
+  返回_典("_type", "Result", "result", 《创建管道》(_exprs), "pos", _pos)。
+结束。
+
+# =============================================================================
+# 主要表达式解析（字面量、标识符、括号等）
+# =============================================================================
+
+《解析主要》段(_tokens, 位置):
+  定义长度等于《__tokens长度》(_tokens)。
+  
+  如果《_是否结尾》(位置, 长度)那么：
+    返回《_报错》(_tokens, 位置, "意外的文件结尾")。
+  结束。
+  
+  定义_cur_kind等于《_取种类》(_tokens, 位置)。
+  定义_cur_text等于《_取文本》(_tokens, 位置)。
+  
+  # 数字字面量
+  如果_cur_kind等于"NUMBER"那么：
+    定义数值等于_数化(_cur_text)。
+    返回_典("_type", "Result", "result", 《创建数字》(数值), "pos", 位置加1)。
+  结束。
+  
+  # 字符串字面量
+  如果_cur_kind等于"STRING"那么：
+    # 去除两端的引号
+    定义_str_val等于_cur_text。
+    定义_str_len等于_str_val之长度。
+    如果_str_len大于等于2那么：
+      # 去掉首尾引号
+      # 用手动循环替代切片（至不支持）
+      定义_新串等于""。
+      定义_idx等于1。
+      当_idx小于_str_len减1：
+        _新串等于_新串加_str_val[_idx]。
+        _idx等于_idx加1。
+      结束。
+      _str_val等于_新串。
+      
+      # 处理转义字符
+      定义_result_str等于""。
+      定义i等于0。
+      当i小于_str_val之长度：
+        如果_str_val[i]等于"\\"且i加1小于_str_val之长度那么：
+          定义_next_ch等于_str_val[i加1]。
+          如果_next_ch等于"n"那么：
+            _result_str等于_result_str加"\n"。
+          否则若_next_ch等于"t"那么：
+            _result_str等于_result_str加"\t"。
+          否则若_next_ch等于"\\"那么：
+            _result_str等于_result_str加"\\"。
+          否则若_next_ch等于"\""那么：
+            _result_str等于_result_str加"\""。
+          否则若_next_ch等于"'"那么：
+            _result_str等于_result_str加"'"。
+          否则：
+            _result_str等于_result_str加_next_ch。
+          结束。
+          i等于i加2。
+        否则：
+          _result_str等于_result_str加_str_val[i]。
+          i等于i加1。
+        结束。
+      结束。
+      _str_val等于_result_str。
+    结束。
+    返回_典("_type", "Result", "result", 《创建字符串》(_str_val), "pos", 位置加1)。
+  结束。
+  
+  # 布尔字面量：真
+  如果_cur_kind等于"K_TRUE"那么：
+    返回_典("_type", "Result", "result", 《创建布尔》(真), "pos", 位置加1)。
+  结束。
+  
+  # 布尔字面量：假
+  如果_cur_kind等于"K_FALSE"那么：
+    返回_典("_type", "Result", "result", 《创建布尔》(假), "pos", 位置加1)。
+  结束。
+  
+  # 空值字面量
+  如果_cur_kind等于"K_NULL"那么：
+    返回_典("_type", "Result", "result", 《创建空值》(), "pos", 位置加1)。
+  结束。
+  
+  # 标识符
+  如果_cur_kind等于"ID"那么：
+    定义_id_node等于《创建标识》(_cur_text)。
+    定义_pos等于位置加1。
+    
+    # 检查是否是函数调用：《标识》
+    如果《_匹配》(_tokens, _pos, "BOOK_L")那么：
+      定义调用结果等于《解析调用》(_tokens, 位置, _id_node)。
+      如果调用结果["_type"]等于"Error"那么：
+        返回调用结果。
+      结束。
+      返回_典("_type", "Result", "result", 调用结果["result"], "pos", 调用结果["pos"])。
+    结束。
+    
+    # 检查是否是函数调用：标识符(...)
+    如果《_匹配》(_tokens, _pos, "LPAREN")或《_匹配》(_tokens, _pos, "（")那么：
+      定义调用结果等于《解析调用参数》(_tokens, _pos, _id_node)。
+      如果调用结果["_type"]等于"Error"那么：
+        返回调用结果。
+      结束。
+      返回_典("_type", "Result", "result", 调用结果["result"], "pos", 调用结果["pos"])。
+    结束。
+    
+    返回_典("_type", "Result", "result", _id_node, "pos", _pos)。
+  结束。
+  
+  # 段名《某》
+  如果_cur_kind等于"BOOK_L"那么：
+    # 后面必须是 ID
+    定义_next_kind等于《_前看种类》(_tokens, 位置, 1)。
+    如果_next_kind等于"ID"那么：
+      定义_seg_name等于《_前看文本》(_tokens, 位置, 1)。
+      定义_book_r_pos等于位置加2。  # 跳过 BOOK_L 和 ID
+      # 期望 BOOK_R
+      如果《_匹配》(_tokens, _book_r_pos, "BOOK_R")等于假那么：
+        返回《_报错》(_tokens, _book_r_pos, "段名后缺少 》")。
+      结束。
+      定义_seg_node等于《创建段名》(_seg_name)。
+      定义调用_pos等于_book_r_pos加1。
+      
+      # 检查是否是调用：《名》(...)
+      如果《_匹配》(_tokens, 调用_pos, "LPAREN")或《_匹配》(_tokens, 调用_pos, "（")那么：
+        定义调用结果等于《解析调用参数》(_tokens, 调用_pos, _seg_node)。
+        如果调用结果["_type"]等于"Error"那么：
+          返回调用结果。
+        结束。
+        返回_典("_type", "Result", "result", 调用结果["result"], "pos", 调用结果["pos"])。
+      结束。
+      
+      返回_典("_type", "Result", "result", _seg_node, "pos", 调用_pos)。
+    结束。
+    返回_典("_type", "Result", "result", 《创建标识》(_cur_text), "pos", 位置加1)。
+  结束。
+  
+  # 括号表达式（
+  如果_cur_kind等于"LPAREN"或_cur_kind等于"（"那么：
+    定义_inner_res等于《解析表达式》(_tokens, 位置加1, 0)。
+    如果_inner_res["_type"]等于"Error"那么：
+      返回_inner_res。
+    结束。
+    # 期望 ）
+    如果《_匹配》(_tokens, _inner_res["pos"], "RPAREN")等于假那么：
+      如果《_匹配》(_tokens, _inner_res["pos"], "）")等于假那么：
+        返回《_报错》(_tokens, _inner_res["pos"], "括号表达式后缺少 ）")。
+      结束。
+    结束。
+    返回_典("_type", "Result", "result", _inner_res["result"], "pos", _inner_res["pos"]加1)。
+  结束。
+  
+  # 列表字面量：【】
+  如果_cur_kind等于"LBRACKET"或_cur_kind等于"【"那么：
+    定义_list_res等于《解析列表》(_tokens, 位置)。
+    如果_list_res["_type"]等于"Error"那么：
+      返回_list_res。
+    结束。
+    返回_典("_type", "Result", "result", _list_res["result"], "pos", _list_res["pos"])。
+  结束。
+  
+  # _典函数调用（构建字典）
+  如果_cur_kind等于"ID"且_cur_text等于"_典"那么：
+    定义_id_node等于《创建标识》("_典")。
+    # 后面应该接 (
+    如果《_匹配》(_tokens, 位置加1, "LPAREN")或《_匹配》(_tokens, 位置加1, "（")那么：
+      定义调用结果等于《解析调用参数》(_tokens, 位置加1, _id_node)。
+      如果调用结果["_type"]等于"Error"那么：
+        返回调用结果。
+      结束。
+      返回_典("_type", "Result", "result", 调用结果["result"], "pos", 调用结果["pos"])。
+    结束。
+    返回_典("_type", "Result", "result", _id_node, "pos", 位置加1)。
+  结束。
+  
+  # 默认：报错
+  返回《_报错》(_tokens, 位置, "意外的令牌: "加_cur_kind加" ("加_cur_text加")")。
+结束。
+
+# =============================================================================
+# 调用解析：《名》(参数1, 参数2, ...)
+# =============================================================================
+
+《解析调用》段(_tokens, 位置, _name_node):
+  # 位置当前在 BOOK_L
+  如果《_匹配》(_tokens, 位置, "BOOK_L")等于假那么：
+    # 直接解析调用参数
+    如果《_匹配》(_tokens, 位置, "LPAREN")或《_匹配》(_tokens, 位置, "（")那么：
+      返回《解析调用参数》(_tokens, 位置, _name_node)。
+    结束。
+    # 不是调用，返回名称本身
+    返回_典("_type", "Result", "result", _name_node, "pos", 位置)。
+  结束。
+  
+  # BOOK_L ID BOOK_R 形式的段名
+  定义_cur_kind等于《_前看种类》(_tokens, 位置, 0)。
+  定义_next_kind等于《_前看种类》(_tokens, 位置, 1)。
+  
+  如果_next_kind等于"ID"那么：
+    定义_seg_name等于《_前看文本》(_tokens, 位置, 1)。
+    定义_seg_node等于《创建段名》(_seg_name)。
+    定义_r_pos等于位置加2。
+    # 期望 BOOK_R
+    如果《_匹配》(_tokens, _r_pos, "BOOK_R")等于假那么：
+      返回《_报错》(_tokens, _r_pos, "缺少 》")。
+    结束。
+    _r_pos等于_r_pos加1。
+    
+    # 检查是否有参数括号
+    如果《_匹配》(_tokens, _r_pos, "LPAREN")或《_匹配》(_tokens, _r_pos, "（")那么：
+      返回《解析调用参数》(_tokens, _r_pos, _seg_node)。
+    结束。
+    
+    返回_典("_type", "Result", "result", _seg_node, "pos", _r_pos)。
+  结束。
+  
+  返回_典("_type", "Result", "result", _name_node, "pos", 位置加1)。
+结束。
+
+《解析调用参数》段(_tokens, 位置, _name_node):
+  # 位置在 LPAREN 或 （
+  定义_pos等于位置加1。  # 跳过 (
+  
+  定义_args等于【】。
+  定义_cont等于真。
+  当_cont：
+    如果《_匹配》(_tokens, _pos, "RPAREN")或《_匹配》(_tokens, _pos, "）")那么：
+      _cont等于假。
+      跳过。
+    结束。
+    如果《_是否结尾》(_pos, 《__tokens长度》(_tokens))那么：
+      返回《_报错》(_tokens, _pos, "函数调用_args表未关闭")。
+    结束。
+    
+    # 解析参数表达式
+    定义_arg_res等于《解析表达式》(_tokens, _pos, 0)。
+    如果_arg_res["_type"]等于"Error"那么：
+      返回_arg_res。
+    结束。
+    _args等于_args加【_arg_res["result"]】。
+    _pos等于_arg_res["pos"]。
+    
+    # 检查逗号
+    如果《_匹配》(_tokens, _pos, "COMMA")或《_匹配》(_tokens, _pos, "，")那么：
+      # 消耗逗号，_cont下一个参数
+      定义_前看_kind等于《_前看种类》(_tokens, _pos, 1)。
+      如果_前看_kind等于"RPAREN"或_前看_kind等于"）"那么：
+        _pos等于_pos加1。  # 消耗逗号
+        _cont等于假。
+        跳过。
+      结束。
+      _pos等于_pos加1。
+      跳过。
+    结束。
+    
+    如果《_匹配》(_tokens, _pos, "RPAREN")或《_匹配》(_tokens, _pos, "）")那么：
+      _cont等于假。
+    否则：
+      _cont等于假。  # 没有括号或逗号，停止
+    结束。
+  结束。
+  
+  如果《_匹配》(_tokens, _pos, "RPAREN")或《_匹配》(_tokens, _pos, "）")那么：
+    _pos等于_pos加1。
+  结束。
+  
+  返回_典("_type", "Result", "result", 《创建调用》(_name_node, _args), "pos", _pos)。
+结束。
+
+# =============================================================================
+# 列表字面量解析
+# =============================================================================
+
+《解析列表》段(_tokens, 位置):
+  # 位置在 LBRACKET 或 【
+  定义_pos等于位置加1。
+  定义_elems等于【】。
+  定义_cont等于真。
+  
+  当_cont：
+    如果《_匹配》(_tokens, _pos, "RBRACKET")或《_匹配》(_tokens, _pos, "】")那么：
+      _cont等于假。
+      跳过。
+    结束。
+    
+    如果《_是否结尾》(_pos, 《__tokens长度》(_tokens))那么：
+      返回《_报错》(_tokens, _pos, "列表字面量未关闭")。
+    结束。
+    
+    # 解析元素
+    定义_elem_res等于《解析表达式》(_tokens, _pos, 0)。
+    如果_elem_res["_type"]等于"Error"那么：
+      返回_elem_res。
+    结束。
+    _elems等于_elems加【_elem_res["result"]】。
+    _pos等于_elem_res["pos"]。
+    
+    # 逗号
+    如果《_匹配》(_tokens, _pos, "COMMA")或《_匹配》(_tokens, _pos, "，")那么：
+      _pos等于_pos加1。
+    结束。
+    
+    如果《_匹配》(_tokens, _pos, "RBRACKET")或《_匹配》(_tokens, _pos, "】")那么：
+      _cont等于假。
+    结束。
+  结束。
+  
+  如果《_匹配》(_tokens, _pos, "RBRACKET")或《_匹配》(_tokens, _pos, "】")那么：
+    _pos等于_pos加1。
+  结束。
+  
+  返回_典("_type", "Result", "result", 《创建列表》(_elems), "pos", _pos)。
+结束。
+
+# =============================================================================
+# 语句解析
+# =============================================================================
+
+《解析语句》段(_tokens, 位置):
+  定义长度等于《__tokens长度》(_tokens)。
+  
+  如果《_是否结尾》(位置, 长度)那么：
+    返回_典("_type", "Result", "result", 空, "pos", 位置)。
+  结束。
+  
+  定义_cur_kind等于《_取种类》(_tokens, 位置)。
+  
+  # ---- 段落定义：《名》段(参数): ... 结束。 ----
+  如果_cur_kind等于"BOOK_L"那么：
+    定义_next_kind等于《_前看种类》(_tokens, 位置, 1)。
+    如果_next_kind等于"ID"那么：
+      定义_book_r_kind等于《_前看种类》(_tokens, 位置, 2)。
+      如果_book_r_kind等于"BOOK_R"那么：
+        定义_seg_kind等于《_前看种类》(_tokens, 位置, 3)。
+        如果_seg_kind等于"K_SEGMENT"那么：
+          返回《解析段落定义》(_tokens, 位置)。
+        结束。
+      结束。
+    结束。
+  结束。
+  
+  # ---- 导出语句 ----
+  如果_cur_kind等于"K_EXPORT"那么：
+    返回《解析导出》(_tokens, 位置)。
+  结束。
+  
+  # ---- 导入语句 ----
+  如果_cur_kind等于"K_FROM"那么：
+    返回《解析导入从》(_tokens, 位置)。
+  结束。
+  如果_cur_kind等于"K_IMPORT"那么：
+    返回《解析导入直接》(_tokens, 位置)。
+  结束。
+  
+  # ---- 变量声明：定义 ID 等于 ... ----
+  如果_cur_kind等于"K_DEFINE"那么：
+    返回《解析声明》(_tokens, 位置)。
+  结束。
+  
+  # ---- 如果语句 ----
+  如果_cur_kind等于"K_IF"那么：
+    返回《解析如果》(_tokens, 位置)。
+  结束。
+  
+  # ---- 遍历语句 ----
+  如果_cur_kind等于"K_FOREACH"那么：
+    返回《解析遍历》(_tokens, 位置)。
+  结束。
+  
+  # ---- 当循环 ----
+  如果_cur_kind等于"K_WHILE"那么：
+    返回《解析当》(_tokens, 位置)。
+  结束。
+  
+  # ---- 返回语句 ----
+  如果_cur_kind等于"K_RETURN"那么：
+    定义_pos等于位置加1。
+    # 检查是否后面直接跟着句号或结束
+    如果《_匹配》(_tokens, _pos, "DOT")或《_匹配》(_tokens, _pos, "。")那么：
+      返回_典("_type", "Result", "result", 《创建返回》(空), "pos", _pos加1)。
+    结束。
+    # 否则解析返回值表达式
+    定义_val_res等于《解析表达式》(_tokens, _pos, 0)。
+    如果_val_res["_type"]等于"Error"那么：
+      返回_val_res。
+    结束。
+    返回_典("_type", "Result", "result", 《创建返回》(_val_res["result"]), "pos", _val_res["pos"])。
+  结束。
+  
+  # ---- 跳出语句 ----
+  如果_cur_kind等于"K_BREAK"那么：
+    返回_典("_type", "Result", "result", 《创建跳出》(), "pos", 位置加1)。
+  结束。
+  
+  # ---- 跳过语句 ----
+  如果_cur_kind等于"K_CONTINUE"那么：
+    返回_典("_type", "Result", "result", 《创建跳过》(), "pos", 位置加1)。
+  结束。
+  
+  # ---- 打印语句 ----
+  如果_cur_kind等于"K_PRINT"那么：
+    定义__pos等于位置加1。
+    定义__val_res等于《解析表达式》(_tokens, __pos, 0)。
+    如果__val_res["_type"]等于"Error"那么：
+      返回__val_res。
+    结束。
+    返回_典("_type", "Result", "result", 《创建打印》(__val_res["result"]), "pos", __val_res["pos"])。
+  结束。
+  
+  # ---- 尝试/捕获 ----
+  如果_cur_kind等于"K_TRY"那么：
+    返回《解析尝试》(_tokens, 位置)。
+  结束。
+  
+  # ---- 抛出语句 ----
+  如果_cur_kind等于"K_THROW"那么：
+    定义__pos等于位置加1。
+    定义__val_res等于《解析表达式》(_tokens, __pos, 0)。
+    如果__val_res["_type"]等于"Error"那么：
+      返回__val_res。
+    结束。
+    返回_典("_type", "Result", "result", 《创建抛出》(__val_res["result"]), "pos", __val_res["pos"])。
+  结束。
+  
+  # ---- 赋值语句：ID 等于 表达式 ----
+  如果_cur_kind等于"ID"那么：
+    定义_下一种类等于《_前看种类》(_tokens, 位置, 1)。
+    如果_下一种类等于"K_EQUAL"那么：
+      定义_var文本等于《_取文本》(_tokens, 位置)。
+      定义_左节点等于《创建标识》(_var文本)。
+      定义_等号后等于位置加2。
+      定义_右结果等于《解析表达式》(_tokens, _等号后, 0)。
+      如果_右结果["_type"]等于"Error"那么：
+        返回_右结果。
+      结束。
+      返回_典("_type", "Result", "result", 《创建赋值》(_左节点, _右结果["result"]), "pos", _右结果["pos"])。
+    结束。
+  结束。
+  
+  # ---- 表达式语句（可能包含赋值） ----
+  定义表达式结果等于《解析表达式》(_tokens, 位置, 0)。
+  如果表达式结果["_type"]等于"Error"那么：
+    返回表达式结果。
+  结束。
+  
+  定义节点等于表达式结果["result"]。
+  定义__pos等于表达式结果["pos"]。
+  
+  # 检查是否是赋值（后跟 ASSIGN =）
+  如果《_匹配》(_tokens, __pos, "ASSIGN")那么：
+    # 这是一个赋值语句
+    __pos等于__pos加1。  # 消耗 =
+    定义_val_res等于《解析表达式》(_tokens, __pos, 0)。
+    如果_val_res["_type"]等于"Error"那么：
+      返回_val_res。
+    结束。
+    返回_典("_type", "Result", "result", 《创建赋值》(节点, _val_res["result"]), "pos", _val_res["pos"])。
+  结束。
+  
+  返回_典("_type", "Result", "result", 《创建表达式》(节点), "pos", __pos)。
+结束。
+
+# =============================================================================
+# 变量声明 ：定义 ID 等于 表达式 。
+# =============================================================================
+
+《解析声明》段(_tokens, 位置):
+  # 位置在 K_DEFINE
+  定义_pos等于位置加1。
+  
+  # _var_name（ID）
+  如果《_匹配》(_tokens, _pos, "ID")等于假那么：
+    返回《_报错》(_tokens, _pos, "变量声明后缺少_var_name")。
+  结束。
+  定义_var_name等于《_取文本》(_tokens, _pos)。
+  _pos等于_pos加1。
+  
+  # 检查是否后面跟着：冒号（_type_ann）或段（嵌套段落）
+  # 跳过_type_ann
+  如果《_匹配》(_tokens, _pos, "COLON")或《_匹配》(_tokens, _pos, "：")那么：
+    # 有_type_ann，跳过下一个 ID 或 类型关键字
+    # _type_ann格式：: 类型名
+    _pos等于_pos加1。
+    如果《_匹配》(_tokens, _pos, "ID")等于假那么：
+      # 也可能是类型关键字如 T_NUMBER, T_STRING 等
+      定义_type_kind等于《_取种类》(_tokens, _pos)。
+      如果_type_kind等于"T_NUMBER"或_type_kind等于"T_STRING"或_type_kind等于"T_LIST"或_type_kind等于"T_DICT"或_type_kind等于"T_BOOL"或_type_kind等于"T_INT"或_type_kind等于"T_FLOAT"那么：
+        _pos等于_pos加1。
+      否则：
+        返回《_报错》(_tokens, _pos, "_type_ann后缺少类型名")。
+      结束。
+    否则：
+      _pos等于_pos加1。
+    结束。
+  结束。
+  
+  # 等于
+  如果《_匹配》(_tokens, _pos, "K_EQUAL")或《_匹配》(_tokens, _pos, "ASSIGN")那么：
+    _pos等于_pos加1。
+  # 允许无初始化值的声明
+  否则若《_匹配》(_tokens, _pos, "DOT")或《_匹配》(_tokens, _pos, "。")那么：
+    返回_典("_type", "Result", "result", 《创建声明》(_var_name, 空), "pos", _pos加1)。
+  否则：
+    返回_典("_type", "Result", "result", 《创建声明》(_var_name, 空), "pos", _pos)。
+  结束。
+  
+  # 解析值表达式
+  定义_val_res等于《解析表达式》(_tokens, _pos, 0)。
+  如果_val_res["_type"]等于"Error"那么：
+    返回_val_res。
+  结束。
+  
+  返回_典("_type", "Result", "result", 《创建声明》(_var_name, _val_res["result"]), "pos", _val_res["pos"])。
+结束。
+
+# =============================================================================
+# 段落定义：《名》段(参数): ... 结束。
+# =============================================================================
+
+《解析段落定义》段(_tokens, 位置):
+  # 位置在 BOOK_L
+  # BOOK_L ID BOOK_R K_SEGMENT LPAREN params RPAREN COLON block K_END
+  定义_pos等于位置。  # BOOK_L
+  定义_seg_name等于《_前看文本》(_tokens, _pos, 1)。
+  _pos等于_pos加2。  # 跳过 BOOK_L 和 ID
+  # BOOK_R
+  _pos等于_pos加1。  # 跳过 BOOK_R
+  # K_SEGMENT
+  _pos等于_pos加1。  # 跳过 段
+  
+  # _args表
+  定义_有左括号等于《_匹配》(_tokens, _pos, "LPAREN")。
+  如果_有左括号等于假那么：
+    定义_有左括号等于《_匹配》(_tokens, _pos, "（")。
+  结束。
+  如果_有左括号等于假那么：
+    # 无参数
+    定义_args等于【】。
+  否则：
+    _pos等于_pos加1。  # 跳过 (
+    定义_args等于【】。
+    定义_cont等于真。
+    当_cont：
+      # 检查是否立即结束
+      如果《_匹配》(_tokens, _pos, "RPAREN")或《_匹配》(_tokens, _pos, "）")那么：
+        _cont等于假。
+        跳过。
+      结束。
+      
+      # 解析参数名
+      如果《_匹配》(_tokens, _pos, "ID")等于假那么：
+        返回《_报错》(_tokens, _pos, "_args表期望参数名").
+      结束。
+      定义参数名等于《_取文本》(_tokens, _pos)。
+      _args等于_args加【《创建参数》(参数名)】。
+      _pos等于_pos加1。
+      
+      # 逗号
+      如果《_匹配》(_tokens, _pos, "COMMA")或《_匹配》(_tokens, _pos, "，")那么：
+        _pos等于_pos加1。
+      结束。
+    结束。
+    
+    # 期望 )
+    如果《_匹配》(_tokens, _pos, "RPAREN")或《_匹配》(_tokens, _pos, "）")那么：
+      _pos等于_pos加1。
+    否则：
+      返回《_报错》(_tokens, _pos, "_args表后缺少 )")。
+    结束。
+  结束。
+  
+  # 冒号 COLON
+  如果《_匹配》(_tokens, _pos, "COLON")或《_匹配》(_tokens, _pos, "：")那么：
+    _pos等于_pos加1。
+  结束。
+  
+  # 解析体（直到遇到 结束）
+  定义_body等于【】。
+  当《_是否结尾》(_pos, 《__tokens长度》(_tokens))等于假且《_匹配》(_tokens, _pos, "K_END")等于假：
+    定义_stmt_res等于《解析语句》(_tokens, _pos)。
+    如果_stmt_res["_type"]等于"Error"那么：
+      返回_stmt_res。
+    结束。
+    如果_stmt_res["result"]不等于空那么：
+      _body等于_body加【_stmt_res["result"]】。
+    结束。
+    _pos等于_stmt_res["pos"]。
+    
+    # 跳过 DOT 句号（可选）
+    如果《_匹配》(_tokens, _pos, "DOT")或《_匹配》(_tokens, _pos, "。")那么：
+      _pos等于_pos加1。
+    结束。
+  结束。
+  
+  # 期望 结束
+  如果《_匹配》(_tokens, _pos, "K_END")等于假那么：
+    返回《_报错》(_tokens, _pos, "段落定义未以 结束 结尾")。
+  结束。
+  _pos等于_pos加1。
+  
+  # 可选的句号
+  如果《_匹配》(_tokens, _pos, "DOT")或《_匹配》(_tokens, _pos, "。")那么：
+    _pos等于_pos加1。
+  结束。
+  
+  返回_典("_type", "Result", "result", 《创建段落》(_seg_name, _args, _body), "pos", _pos)。
+结束。
+
+# =============================================================================
+# 如果语句解析
+# =============================================================================
+
+《解析如果》段(_tokens, 位置):
+  # 位置在 K_IF
+  定义_pos等于位置加1。
+  
+  # 解析条件表达式
+  定义_cond_res等于《解析表达式》(_tokens, _pos, 0)。
+  如果_cond_res["_type"]等于"Error"那么：
+    返回_cond_res。
+  结束。
+  定义_cond_node等于_cond_res["result"]。
+  _pos等于_cond_res["pos"]。
+  
+  # 期望 K_THEN (那么) 或 COLON
+  如果《_匹配》(_tokens, _pos, "K_THEN")等于假那么：
+    返回《_报错》(_tokens, _pos, "条件后缺少 那么")。
+  结束。
+  _pos等于_pos加1。
+  
+  # 可选的冒号
+  如果《_匹配》(_tokens, _pos, "COLON")或《_匹配》(_tokens, _pos, "：")那么：
+    _pos等于_pos加1。
+  结束。
+  
+  # 解析 then 体（直到遇到 否则若、否则 或 结束）
+  定义__then_body等于【】。
+  定义__elif_conds等于【】。
+  定义__elif_bodies等于【】。
+  定义__else_body等于空。
+  
+  当《_是否结尾》(_pos, 《__tokens长度》(_tokens))等于假：
+    如果《_匹配》(_tokens, _pos, "K_END")那么：
+      跳出。
+    结束。
+    
+    如果《_匹配》(_tokens, _pos, "K_ELSE_IF")那么：
+      # 否则若 分支
+      _pos等于_pos加1。
+      定义__cond_res等于《解析表达式》(_tokens, _pos, 0)。
+      如果__cond_res["_type"]等于"Error"那么：
+        返回__cond_res。
+      结束。
+      __elif_conds等于__elif_conds加【__cond_res["result"]】。
+      _pos等于__cond_res["pos"]。
+      
+      # 期望 K_THEN
+      如果《_匹配》(_tokens, _pos, "K_THEN")等于假那么：
+        返回《_报错》(_tokens, _pos, "否则若条件后缺少 那么")。
+      结束。
+      _pos等于_pos加1。
+      
+      # 可选的冒号
+      如果《_匹配》(_tokens, _pos, "COLON")或《_匹配》(_tokens, _pos, "：")那么：
+        _pos等于_pos加1。
+      结束。
+      
+      # 解析 否则若 的体
+      定义__body等于【】。
+      当《_是否结尾》(_pos, 《__tokens长度》(_tokens))等于假：
+        如果《_匹配》(_tokens, _pos, "K_END")或《_匹配》(_tokens, _pos, "K_ELSE_IF")或《_匹配》(_tokens, _pos, "K_ELSE")那么：
+          跳出。
+        结束。
+        定义_stmt_res等于《解析语句》(_tokens, _pos)。
+        如果_stmt_res["_type"]等于"Error"那么：
+          返回_stmt_res。
+        结束。
+        如果_stmt_res["result"]不等于空那么：
+          __body等于__body加【_stmt_res["result"]】。
+        结束。
+        _pos等于_stmt_res["pos"]。
+        
+        如果《_匹配》(_tokens, _pos, "DOT")或《_匹配》(_tokens, _pos, "。")那么：
+          _pos等于_pos加1。
+        结束。
+      结束。
+      __elif_bodies等于__elif_bodies加【__body】。
+      跳过。
+    结束。
+    
+    如果《_匹配》(_tokens, _pos, "K_ELSE")那么：
+      # 否则 分支
+      _pos等于_pos加1。
+      
+      # 可选的冒号
+      如果《_匹配》(_tokens, _pos, "COLON")或《_匹配》(_tokens, _pos, "：")那么：
+        _pos等于_pos加1。
+      结束。
+      
+      # 解析 else 体
+      定义_E_body等于【】。
+      当《_是否结尾》(_pos, 《__tokens长度》(_tokens))等于假：
+        如果《_匹配》(_tokens, _pos, "K_END")那么：
+          跳出。
+        结束。
+        定义_stmt_res等于《解析语句》(_tokens, _pos)。
+        如果_stmt_res["_type"]等于"Error"那么：
+          返回_stmt_res。
+        结束。
+        如果_stmt_res["result"]不等于空那么：
+          _E_body等于_E_body加【_stmt_res["result"]】。
+        结束。
+        _pos等于_stmt_res["pos"]。
+        
+        如果《_匹配》(_tokens, _pos, "DOT")或《_匹配》(_tokens, _pos, "。")那么：
+          _pos等于_pos加1。
+        结束。
+      结束。
+      __else_body等于_E_body。
+      跳出。
+    结束。
+    
+    # 普通语句（then 体）
+    定义_stmt_res等于《解析语句》(_tokens, _pos)。
+    如果_stmt_res["_type"]等于"Error"那么：
+      返回_stmt_res。
+    结束。
+    如果_stmt_res["result"]不等于空那么：
+      __then_body等于__then_body加【_stmt_res["result"]】。
+    结束。
+    _pos等于_stmt_res["pos"]。
+    
+    如果《_匹配》(_tokens, _pos, "DOT")或《_匹配》(_tokens, _pos, "。")那么：
+      _pos等于_pos加1。
+    结束。
+  结束。
+  
+  # 期望 K_END
+  如果《_匹配》(_tokens, _pos, "K_END")等于假那么：
+    返回《_报错》(_tokens, _pos, "如果语句未以 结束 结尾")。
+  结束。
+  _pos等于_pos加1。
+  
+  返回_典("_type", "Result", "result", 《创建如果》(_cond_node, __then_body, __elif_conds, __elif_bodies, __else_body), "pos", _pos)。
+结束。
+
+# =============================================================================
+# 遍历语句解析
+# =============================================================================
+
+《解析遍历》段(_tokens, 位置):
+  # 位置在 K_FOREACH
+  定义_pos等于位置加1。
+  
+  # _var_name（ID）
+  如果《_匹配》(_tokens, _pos, "ID")等于假那么：
+    返回《_报错》(_tokens, _pos, "遍历后缺少_var_name")。
+  结束。
+  定义_var_name等于《_取文本》(_tokens, _pos)。
+  _pos等于_pos加1。
+  
+  # 解析可遍历表达式
+  定义_iter_res等于《解析表达式》(_tokens, _pos, 0)。
+  如果_iter_res["_type"]等于"Error"那么：
+    返回_iter_res。
+  结束。
+  定义_iter_node等于_iter_res["result"]。
+  _pos等于_iter_res["pos"]。
+  
+  # 期望冒号
+  如果《_匹配》(_tokens, _pos, "COLON")或《_匹配》(_tokens, _pos, "：")那么：
+    _pos等于_pos加1。
+  结束。
+  
+  # 解析体
+  定义_body等于【】。
+  当《_是否结尾》(_pos, 《__tokens长度》(_tokens))等于假且《_匹配》(_tokens, _pos, "K_END")等于假：
+    定义_stmt_res等于《解析语句》(_tokens, _pos)。
+    如果_stmt_res["_type"]等于"Error"那么：
+      返回_stmt_res。
+    结束。
+    如果_stmt_res["result"]不等于空那么：
+      _body等于_body加【_stmt_res["result"]】。
+    结束。
+    _pos等于_stmt_res["pos"]。
+    
+    如果《_匹配》(_tokens, _pos, "DOT")或《_匹配》(_tokens, _pos, "。")那么：
+      _pos等于_pos加1。
+    结束。
+  结束。
+  
+  # 期望 K_END
+  如果《_匹配》(_tokens, _pos, "K_END")那么：
+    _pos等于_pos加1。
+  结束。
+  
+  返回_典("_type", "Result", "result", 《创建遍历》(_var_name, _iter_node, _body), "pos", _pos)。
+结束。
+
+# =============================================================================
+# 当循环解析
+# =============================================================================
+
+《解析当》段(_tokens, 位置):
+  # 位置在 K_WHILE
+  定义_pos等于位置加1。
+  
+  # 解析条件表达式
+  定义_cond_res等于《解析表达式》(_tokens, _pos, 0)。
+  如果_cond_res["_type"]等于"Error"那么：
+    返回_cond_res。
+  结束。
+  定义_cond_node等于_cond_res["result"]。
+  _pos等于_cond_res["pos"]。
+  
+  # 期望冒号
+  定义_有冒号等于《_匹配》(_tokens, _pos, "COLON")。
+  如果_有冒号等于假那么：
+    定义_有冒号等于《_匹配》(_tokens, _pos, "：")。
+  结束。
+  如果_有冒号等于假那么：
+    返回《_报错》(_tokens, _pos, "当循环条件后缺少冒号")。
+  结束。
+  _pos等于_pos加1。
+  
+  # 解析体
+  定义_body等于【】。
+  当《_是否结尾》(_pos, 《__tokens长度》(_tokens))等于假且《_匹配》(_tokens, _pos, "K_END")等于假：
+    定义_stmt_res等于《解析语句》(_tokens, _pos)。
+    如果_stmt_res["_type"]等于"Error"那么：
+      返回_stmt_res。
+    结束。
+    如果_stmt_res["result"]不等于空那么：
+      _body等于_body加【_stmt_res["result"]】。
+    结束。
+    _pos等于_stmt_res["pos"]。
+    
+    如果《_匹配》(_tokens, _pos, "DOT")或《_匹配》(_tokens, _pos, "。")那么：
+      _pos等于_pos加1。
+    结束。
+  结束。
+  
+  # 期望 K_END
+  如果《_匹配》(_tokens, _pos, "K_END")那么：
+    _pos等于_pos加1。
+  结束。
+  
+  返回_典("_type", "Result", "result", 《创建当》(_cond_node, _body), "pos", _pos)。
+结束。
+
+# =============================================================================
+# 尝试/捕获解析
+# =============================================================================
+
+《解析尝试》段(_tokens, 位置):
+  # 位置在 K_TRY
+  定义_pos等于位置加1。
+  
+  # 可选的冒号
+  如果《_匹配》(_tokens, _pos, "COLON")或《_匹配》(_tokens, _pos, "：")那么：
+    _pos等于_pos加1。
+  结束。
+  
+  # 解析 try 体
+  定义试_body等于【】。
+  当《_是否结尾》(_pos, 《__tokens长度》(_tokens))等于假：
+    如果《_匹配》(_tokens, _pos, "K_CATCH")那么：
+      跳出。
+    结束。
+    
+    定义_stmt_res等于《解析语句》(_tokens, _pos)。
+    如果_stmt_res["_type"]等于"Error"那么：
+      返回_stmt_res。
+    结束。
+    如果_stmt_res["result"]不等于空那么：
+      试_body等于试_body加【_stmt_res["result"]】。
+    结束。
+    _pos等于_stmt_res["pos"]。
+    
+    如果《_匹配》(_tokens, _pos, "DOT")或《_匹配》(_tokens, _pos, "。")那么：
+      _pos等于_pos加1。
+    结束。
+  结束。
+  
+  # 期望 K_CATCH
+  定义_catch_var等于"e"。
+  如果《_匹配》(_tokens, _pos, "K_CATCH")那么：
+    _pos等于_pos加1。
+    # 可选的捕获_var_name
+    如果《_匹配》(_tokens, _pos, "ID")那么：
+      _catch_var等于《_取文本》(_tokens, _pos)。
+      _pos等于_pos加1。
+    结束。
+    
+    # 可选的冒号
+    如果《_匹配》(_tokens, _pos, "COLON")或《_匹配》(_tokens, _pos, "：")那么：
+      _pos等于_pos加1。
+    结束。
+  结束。
+  
+  # 解析 catch 体
+  定义_catch_body等于【】。
+  当《_是否结尾》(_pos, 《__tokens长度》(_tokens))等于假且《_匹配》(_tokens, _pos, "K_END")等于假：
+    定义_stmt_res等于《解析语句》(_tokens, _pos)。
+    如果_stmt_res["_type"]等于"Error"那么：
+      返回_stmt_res。
+    结束。
+    如果_stmt_res["result"]不等于空那么：
+      _catch_body等于_catch_body加【_stmt_res["result"]】。
+    结束。
+    _pos等于_stmt_res["pos"]。
+    
+    如果《_匹配》(_tokens, _pos, "DOT")或《_匹配》(_tokens, _pos, "。")那么：
+      _pos等于_pos加1。
+    结束。
+  结束。
+  
+  # 期望 K_END
+  如果《_匹配》(_tokens, _pos, "K_END")那么：
+    _pos等于_pos加1。
+  结束。
+  
+  返回_典("_type", "Result", "result", 《创建尝试》(试_body, _catch_var, _catch_body), "pos", _pos)。
+结束。
+
+# =============================================================================
+# 导入/导出解析
+# =============================================================================
+
+《解析导入从》段(_tokens, 位置):
+  # 位置在 K_FROM
+  定义_pos等于位置加1。
+  
+  # 解析模块路径（ID 或 BOOK_L ID BOOK_R）
+  定义_mod_name等于""。
+  
+  如果《_匹配》(_tokens, _pos, "BOOK_L")那么：
+    定义下一ID位置等于_pos加1。
+    如果《_匹配》(_tokens, 下一ID位置, "ID")那么：
+      _mod_name等于《_取文本》(_tokens, 下一ID位置)。
+      _pos等于下一ID位置加2。  # 跳过 ID 和 BOOK_R
+    否则：
+      返回《_报错》(_tokens, 下一ID位置, "导入路径需要_mod_name")。
+    结束。
+  否则若《_匹配》(_tokens, _pos, "ID")那么：
+    _mod_name等于《_取文本》(_tokens, _pos)。
+    _pos等于_pos加1。
+  否则：
+    返回《_报错》(_tokens, _pos, "从 ... 导入 格式错误")。
+  结束。
+  
+  # 期望 K_IMPORT
+  如果《_匹配》(_tokens, _pos, "K_IMPORT")等于假那么：
+    返回《_报错》(_tokens, _pos, "缺少 导入")。
+  结束。
+  _pos等于_pos加1。
+  
+  # 解析_imports表
+  定义_names等于【】。
+  
+  当《_是否结尾》(_pos, 《__tokens长度》(_tokens))等于假：
+    如果《_匹配》(_tokens, _pos, "DOT")或《_匹配》(_tokens, _pos, "。")那么：
+      _pos等于_pos加1。
+      跳出。
+    结束。
+    
+    # 符号名可以是 BOOK_L ID BOOK_R 或 ID
+    如果《_匹配》(_tokens, _pos, "BOOK_L")那么：
+      定义下一ID位置等于_pos加1。
+      如果《_匹配》(_tokens, 下一ID位置, "ID")那么：
+        _names等于_names加【《_取文本》(_tokens, 下一ID位置)】。
+        _pos等于下一ID位置加2。  # ID + BOOK_R
+      否则：
+        返回《_报错》(_tokens, 下一ID位置, "导入符号名错误")。
+      结束。
+    否则若《_匹配》(_tokens, _pos, "ID")那么：
+      _names等于_names加【《_取文本》(_tokens, _pos)】。
+      _pos等于_pos加1。
+    否则：
+      跳出。
+    结束。
+    
+    # 逗号
+    如果《_匹配》(_tokens, _pos, "COMMA")或《_匹配》(_tokens, _pos, "，")那么：
+      _pos等于_pos加1。
+    结束。
+  结束。
+  
+  返回_典("_type", "Result", "result", 《创建导入》(_mod_name, _names), "pos", _pos)。
+结束。
+
+《解析导入直接》段(_tokens, 位置):
+  # 位置在 K_IMPORT
+  定义_pos等于位置加1。
+  定义_names等于【】。
+  
+  # 解析导入符号列表
+  当《_是否结尾》(_pos, 《__tokens长度》(_tokens))等于假：
+    如果《_匹配》(_tokens, _pos, "DOT")或《_匹配》(_tokens, _pos, "。")那么：
+      _pos等于_pos加1。
+      跳出。
+    结束。
+    
+    如果《_匹配》(_tokens, _pos, "BOOK_L")那么：
+      定义下一ID位置等于_pos加1。
+      如果《_匹配》(_tokens, 下一ID位置, "ID")那么：
+        _names等于_names加【《_取文本》(_tokens, 下一ID位置)】。
+        _pos等于下一ID位置加2。
+      否则：
+        返回《_报错》(_tokens, 下一ID位置, "导入符号名错误")。
+      结束。
+    否则若《_匹配》(_tokens, _pos, "ID")那么：
+      _names等于_names加【《_取文本》(_tokens, _pos)】。
+      _pos等于_pos加1。
+    否则：
+      跳出。
+    结束。
+    
+    如果《_匹配》(_tokens, _pos, "COMMA")或《_匹配》(_tokens, _pos, "，")那么：
+      _pos等于_pos加1。
+    结束。
+  结束。
+  
+  返回_典("_type", "Result", "result", 《创建导入》("", _names), "pos", _pos)。
+结束。
+
+# =============================================================================
+# 导出解析
+# =============================================================================
+
+《解析导出》段(_tokens, 位置):
+  # 位置在 K_EXPORT
+  定义_pos等于位置加1。
+  定义_export_name等于""。
+  
+  如果《_匹配》(_tokens, _pos, "BOOK_L")那么：
+    定义下一ID位置等于_pos加1。
+    如果《_匹配》(_tokens, 下一ID位置, "ID")那么：
+      _export_name等于《_取文本》(_tokens, 下一ID位置)。
+      _pos等于下一ID位置加2。
+    否则：
+      返回《_报错》(_tokens, 下一ID位置, "导出符号名错误")。
+    结束。
+  否则若《_匹配》(_tokens, _pos, "ID")那么：
+    _export_name等于《_取文本》(_tokens, _pos)。
+    _pos等于_pos加1。
+  否则：
+    返回《_报错》(_tokens, _pos, "导出语句需要符号名")。
+  结束。
+  
+  返回_典("_type", "Result", "result", 《创建导出》(_export_name), "pos", _pos)。
+结束。
+
+# =============================================================================
+# 主解析入口
+# =============================================================================
+
+《解析》段(_tokens):
+  # 主解析入口：解析整个 Token 列表为模块 AST
+  
+  定义长度等于《__tokens长度》(_tokens)。
+  定义位置等于0。
+  
+  定义_segs等于【】。
+  定义_stmts等于【】。
+  定义_imports等于【】。
+  定义_exports等于【】。
+  
+  当位置小于长度：
+    # 跳过句号（用于分隔的 .）
+    如果《_匹配》(_tokens, 位置, "DOT")或《_匹配》(_tokens, 位置, "。")那么：
+      位置等于位置加1。
+      跳过。
+    结束。
+    
+    定义_cur_kind等于《_取种类》(_tokens, 位置)。
+    
+    # 导入
+    如果_cur_kind等于"K_FROM"那么：
+      定义_import_res等于《解析导入从》(_tokens, 位置)。
+      如果_import_res["_type"]等于"Error"那么：
+        返回_import_res。
+      结束。
+      如果_import_res["result"]不等于空那么：
+        _imports等于_imports加【_import_res["result"]】。
+      结束。
+      位置等于_import_res["pos"]。
+      跳过。
+    结束。
+    
+    如果_cur_kind等于"K_IMPORT"那么：
+      定义_import_res等于《解析导入直接》(_tokens, 位置)。
+      如果_import_res["_type"]等于"Error"那么：
+        返回_import_res。
+      结束。
+      如果_import_res["result"]不等于空那么：
+        _imports等于_imports加【_import_res["result"]】。
+      结束。
+      位置等于_import_res["pos"]。
+      跳过。
+    结束。
+    
+    # 导出
+    如果_cur_kind等于"K_EXPORT"那么：
+      定义_export_res等于《解析导出》(_tokens, 位置)。
+      如果_export_res["_type"]等于"Error"那么：
+        返回_export_res。
+      结束。
+      如果_export_res["result"]不等于空那么：
+        _exports等于_exports加【_export_res["result"]】。
+      结束。
+      位置等于_export_res["pos"]。
+      跳过。
+    结束。
+    
+    # 段落定义
+    如果_cur_kind等于"BOOK_L"那么：
+      定义_next_kind等于《_前看种类》(_tokens, 位置, 1)。
+      如果_next_kind等于"ID"那么：
+        定义_book_r_kind等于《_前看种类》(_tokens, 位置, 2)。
+        如果_book_r_kind等于"BOOK_R"那么：
+          定义_seg_kind等于《_前看种类》(_tokens, 位置, 3)。
+          如果_seg_kind等于"K_SEGMENT"那么：
+            定义_seg_res等于《解析段落定义》(_tokens, 位置)。
+            如果_seg_res["_type"]等于"Error"那么：
+              返回_seg_res。
+            结束。
+            如果_seg_res["result"]不等于空那么：
+              _segs等于_segs加【_seg_res["result"]】。
+            结束。
+            位置等于_seg_res["pos"]。
+            跳过。
+          结束。
+        结束。
+      结束。
+    结束。
+    
+    # 顶层语句
+    定义_stmt_res等于《解析语句》(_tokens, 位置)。
+    如果_stmt_res["_type"]等于"Error"那么：
+      返回_stmt_res。
+    结束。
+    如果_stmt_res["result"]不等于空那么：
+      _stmts等于_stmts加【_stmt_res["result"]】。
+    结束。
+    位置等于_stmt_res["pos"]。
+    
+    # 跳过句号
+    如果位置小于长度且《_匹配》(_tokens, 位置, "DOT")或《_匹配》(_tokens, 位置, "。")那么：
+      位置等于位置加1。
+    结束。
+  结束。
+  
+  定义_mod_node等于《创建模块》(_segs, _stmts, _imports, _exports)。
+  返回_典("_type", "Result", "result", _mod_node, "pos", 位置)。
+结束。

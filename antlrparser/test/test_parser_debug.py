@@ -6,8 +6,8 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from antlr4 import *
-from DuanLangLexer import DuanLangLexer
-from DuanLangParser import DuanLangParser
+from LightLangLexer import LightLangLexer
+from LightLangParser import LightLangParser
 from antlr4.error.ErrorListener import ErrorListener
 
 class VerboseErrorListener(ErrorListener):
@@ -19,9 +19,9 @@ class VerboseErrorListener(ErrorListener):
 
 def test_parser(source):
     input_stream = InputStream(source)
-    lexer = DuanLangLexer(input_stream)
+    lexer = LightLangLexer(input_stream)
     token_stream = CommonTokenStream(lexer)
-    parser = DuanLangParser(token_stream)
+    parser = LightLangParser(token_stream)
     
     # 添加详细错误监听
     parser.removeErrorListeners()

@@ -2,7 +2,7 @@
 test_compiler.py - Test the bootstrap compiler pipeline
 
 This script manually runs the bootstrap compilation pipeline:
-1. Loads the bootstrap .duan source files
+1. Loads the bootstrap .light source files
 2. Sets up the runtime environment
 3. Executes the compilation pipeline (lexer -> parser -> codegen)
 
@@ -16,33 +16,33 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'antlrparser'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-# Set up the _duan_builtin module for the bootstrap code to use
+# Set up the _light_builtin module for the bootstrap code to use
 import types
-_duan_builtin = types.ModuleType('_duan_builtin')
-_duan_builtin.打印 = print
-_duan_builtin.转字符串 = str
-_duan_builtin.列表创建 = list
-_duan_builtin.列表长度 = len
-_duan_builtin.列表获取 = lambda lst, i: lst[i]
-_duan_builtin.列表追加 = lambda lst, item: lst.append(item)
-_duan_builtin.列表弹出 = lambda lst: lst.pop()
-_duan_builtin.列表包含 = lambda lst, item: item in lst
-_duan_builtin.字典创建 = dict
-_duan_builtin.字典设置 = lambda d, k, v: d.update({k: v})
-_duan_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)
-_duan_builtin.字典包含键 = lambda d, k: k in d
-_duan_builtin.字典键列表 = lambda d: list(d.keys())
-_duan_builtin.字符串长度 = len
-_duan_builtin.字符串获取 = lambda s, i: s[i]
-_duan_builtin.截取 = lambda s, start, end: s[start:end]
+_light_builtin = types.ModuleType('_light_builtin')
+_light_builtin.打印 = print
+_light_builtin.转字符串 = str
+_light_builtin.列表创建 = list
+_light_builtin.列表长度 = len
+_light_builtin.列表获取 = lambda lst, i: lst[i]
+_light_builtin.列表追加 = lambda lst, item: lst.append(item)
+_light_builtin.列表弹出 = lambda lst: lst.pop()
+_light_builtin.列表包含 = lambda lst, item: item in lst
+_light_builtin.字典创建 = dict
+_light_builtin.字典设置 = lambda d, k, v: d.update({k: v})
+_light_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)
+_light_builtin.字典包含键 = lambda d, k: k in d
+_light_builtin.字典键列表 = lambda d: list(d.keys())
+_light_builtin.字符串长度 = len
+_light_builtin.字符串获取 = lambda s, i: s[i]
+_light_builtin.截取 = lambda s, start, end: s[start:end]
 
-# Make _duan_builtin accessible globally
+# Make _light_builtin accessible globally
 import builtins
-builtins._duan_builtin = _duan_builtin
+builtins._light_builtin = _light_builtin
 
 
-def load_duan_module(filepath, module_name=None):
-    """Load a .duan file as a Python module by executing it."""
+def load_light_module(filepath, module_name=None):
+    """Load a .light file as a Python module by executing it."""
     if module_name is None:
         module_name = os.path.splitext(os.path.basename(filepath))[0]
     
@@ -50,13 +50,13 @@ def load_duan_module(filepath, module_name=None):
     with open(filepath, 'r', encoding='utf-8') as f:
         source = f.read()
     
-    # Use the existing Duan ANTLR parser to compile
+    # Use the existing Light ANTLR parser to compile
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'cli'))
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
     
     try:
-        from duan_visitor import DuanParser
-        parser = DuanParser()
+        from light_visitor import LightParser
+        parser = LightParser()
         module = parser.parse(source)
         if module is None:
             print(f"Error parsing {filepath}:")
@@ -69,7 +69,7 @@ def load_duan_module(filepath, module_name=None):
         py_code = generator.generate(module)
         
         # Execute the generated Python code
-        namespace = {'_duan_builtin': _duan_builtin}
+        namespace = {'_light_builtin': _light_builtin}
         exec(py_code, namespace)
         
         return namespace
@@ -89,8 +89,8 @@ def main():
     print("=" * 60)
     
     # Compile the bootstrap source file that we want to test
-    # For now, let's just test the lexer by compiling a simple Duan program
-    test_source = os.path.join(bootstrap_dir, 'test_simple.duan')
+    # For now, let's just test the lexer by compiling a simple Light program
+    test_source = os.path.join(bootstrap_dir, 'test_simple.light')
     if os.path.exists(test_source):
         with open(test_source, 'r', encoding='utf-8') as f:
             source = f.read()
@@ -98,8 +98,8 @@ def main():
         print(f"\n1. Parsing test source: {test_source}")
         print(f"   Source length: {len(source)} chars")
         
-        from duan_visitor import DuanParser
-        parser = DuanParser()
+        from light_visitor import LightParser
+        parser = LightParser()
         module = parser.parse(source)
         
         if module is None:

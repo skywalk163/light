@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言标准库 - XML 解析与生成模块
+光明标准库 - XML 解析与生成模块
 
 提供 XML 的解析、生成、查询和转换功能。
 基于 Python 标准库 xml.etree.ElementTree。

@@ -1,17 +1,17 @@
-"""测试段言自举解释器 - 简化版"""
+"""测试光明自举解释器 - 简化版"""
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_interpreter import run_source
-from duan_visitor import parse_source
+from light_interpreter import run_source
+from light_visitor import parse_source
 
 # 1. 加载解释器源码
 print("=" * 60)
 print("1. 加载自举解释器源码")
 print("=" * 60)
 
-interpreter_code = open("interpreter.duan", encoding="utf-8").read()
+interpreter_code = open("interpreter.light", encoding="utf-8").read()
 print(f"解释器源码长度: {len(interpreter_code)} 字符")
 print(f"行数: {interpreter_code.count('\\n') + 1}")
 

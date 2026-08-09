@@ -1,4 +1,4 @@
-# 段言（Duan）API 参考 v1.0
+# 光明（Light）API 参考 v1.0
 
 ## 目录
 
@@ -17,17 +17,17 @@
 
 ## 快速开始
 
-### 编译并运行段言代码
+### 编译并运行光明代码
 
 ```python
 import sys
 sys.path.insert(0, 'src')
 
-from compiler import DuanCompiler
+from compiler import LightCompiler
 
-compiler = DuanCompiler()
+compiler = LightCompiler()
 result = compiler.compile("""
-    定义 消息 等于 "你好，段言！"。
+    定义 消息 等于 "你好，光明！"。
     显示 消息。
 """)
 
@@ -41,9 +41,9 @@ else:
 ### 使用解析器
 
 ```python
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 
-parser = DuanParser()
+parser = LightParser()
 module = parser.parse("定义 x 等于 10。")
 print("AST 节点数:", len(module.statements))
 ```
@@ -54,9 +54,9 @@ print("AST 节点数:", len(module.statements))
 
 ### 模块: `compiler`
 
-#### `DuanCompiler` 类
+#### `LightCompiler` 类
 
-段言主编译器，提供完整的编译流水线。
+光明主编译器，提供完整的编译流水线。
 
 **方法:**
 
@@ -67,7 +67,7 @@ print("AST 节点数:", len(module.statements))
 
 **属性:**
 
-- `parser`: DuanParser 实例
+- `parser`: LightParser 实例
 - `semantic_analyzer`: SemanticAnalyzer 实例
 - `type_inferencer`: TypeInferencer 实例
 - `code_generator`: PythonCodeGenerator 实例
@@ -93,11 +93,11 @@ print("AST 节点数:", len(module.statements))
 
 ## 解析器 API
 
-### 模块: `duan_parser_v3`
+### 模块: `light_parser_v3`
 
-#### `DuanParser` 类
+#### `LightParser` 类
 
-段言手写解析器，基于 Pratt 风格的表达式解析 + 递归下降语句解析。
+光明手写解析器，基于 Pratt 风格的表达式解析 + 递归下降语句解析。
 
 **方法:**
 
@@ -107,9 +107,9 @@ print("AST 节点数:", len(module.statements))
 **示例:**
 
 ```python
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 
-parser = DuanParser()
+parser = LightParser()
 module = parser.parse("""
     定义 x 等于 10。
     定义 y 等于 20。
@@ -125,7 +125,7 @@ for stmt in module.statements:
 
 #### `Lexer` 类
 
-词法分析器，将段言源代码转换为 token 流。
+词法分析器，将光明源代码转换为 token 流。
 
 **方法:**
 
@@ -213,7 +213,7 @@ print(result)  # a 被合一为 NumberType
 
 #### `PythonCodeGenerator` 类
 
-将段言 AST 编译为 Python 代码。
+将光明 AST 编译为 Python 代码。
 
 **方法:**
 
@@ -223,10 +223,10 @@ print(result)  # a 被合一为 NumberType
 **示例:**
 
 ```python
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
-parser = DuanParser()
+parser = LightParser()
 generator = PythonCodeGenerator()
 
 ast = parser.parse("定义 消息 等于 '你好'。")
@@ -299,19 +299,19 @@ resolved = resolver.resolve_module("我的模块")
 
 ## 标准库
 
-段言提供以下标准库模块（位于 `stdlib/` 目录）:
+光明提供以下标准库模块（位于 `stdlib/` 目录）:
 
 | 模块 | 功能 |
 |------|------|
-| 数学.duan | 基本数学运算：加、减、乘、除、平方开方 |
-| 字符串处理.duan | 字符串操作 |
-| 时间.duan | 当前时间、日期格式化 |
-| 文件系统.duan | 文件读/写操作 |
-| JSON.duan | JSON 数据处理 |
-| 正则.duan | 正则表达式 |
-| 哈希.duan | MD5、SHA 等哈希运算 |
-| 编码.duan | 字符编码转换 |
-| 集合操作.duan | 列表/集合高级操作 |
+| 数学.light | 基本数学运算：加、减、乘、除、平方开方 |
+| 字符串处理.light | 字符串操作 |
+| 时间.light | 当前时间、日期格式化 |
+| 文件系统.light | 文件读/写操作 |
+| JSON.light | JSON 数据处理 |
+| 正则.light | 正则表达式 |
+| 哈希.light | MD5、SHA 等哈希运算 |
+| 编码.light | 字符编码转换 |
+| 集合操作.light | 列表/集合高级操作 |
 
 **使用示例:**
 
@@ -369,30 +369,30 @@ resolved = resolver.resolve_module("我的模块")
 
 ## CLI 命令行工具
 
-### `duan` 命令 (REPL/运行)
+### `light` 命令 (REPL/运行)
 
 ```bash
 # 交互式 REPL
-python -m cli.duan
+python -m cli.light
 
 # 运行单个文件
-python -m cli.duan examples/hello.duan
+python -m cli.light examples/hello.light
 
 # 执行代码片段
-python -m cli.duan -c '显示 "你好"。'
+python -m cli.light -c '显示 "你好"。'
 ```
 
 ### `duanc` 命令 (编译器)
 
 ```bash
 # 编译文件为 Python
-python -m cli.duanc examples/hello.duan
+python -m cli.duanc examples/hello.light
 
 # 编译并运行
-python -m cli.duanc examples/hello.duan --run
+python -m cli.duanc examples/hello.light --run
 
 # 指定输出文件
-python -m cli.duanc examples/hello.duan -o hello.py
+python -m cli.duanc examples/hello.light -o hello.py
 ```
 
 ### 项目管理
@@ -415,17 +415,17 @@ python -m cli.duanc run
 ```toml
 name = "我的项目"
 version = "1.0.0"
-description = "段言示例项目"
+description = "光明示例项目"
 authors = ["作者名"]
 
 [compiler]
-entry_point = "main.duan"
+entry_point = "main.light"
 source_dirs = ["src", "modules"]
 test_dirs = ["tests"]
 target = "python"
 
 [dependencies]
-# 其他段言包
+# 其他光明包
 ```
 
 ---
@@ -435,12 +435,12 @@ target = "python"
 当前版本可通过以下方式查询:
 
 ```python
-from compiler import DuanCompiler
+from compiler import LightCompiler
 
-c = DuanCompiler()
+c = LightCompiler()
 print(c.version())  # 1.0.0
 ```
 
 ---
 
-*本文件随段言 v1.0 同步更新*
+*本文件随光明 v1.0 同步更新*

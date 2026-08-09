@@ -9,7 +9,7 @@ from ssh_config import SSH_HOST, SSH_USER_DUMATE, SSH_PASS_DUMATE2
 HOST = SSH_HOST
 USER = SSH_USER_DUMATE
 PASS = SSH_PASS_DUMATE2
-MODEL_DIR = "/home/skywalk/Downloads/kaggle/working/duan/tools/ai_copilot/output/duan_translator_merged_3.5_2b"
+MODEL_DIR = "/home/skywalk/Downloads/kaggle/working/light/tools/ai_copilot/output/light_translator_merged_3.5_2b"
 
 def run(ssh, cmd, timeout=60):
     print(f"\n$ {cmd}")
@@ -31,7 +31,7 @@ ssh.connect(HOST, username=USER, password=PASS, timeout=10)
 print("[OK] SSH 连接成功")
 
 # 1. 查看 GGUF 文件信息
-run(ssh, f"ls -lh {MODEL_DIR}/duan_translator_q4_k_m.gguf")
+run(ssh, f"ls -lh {MODEL_DIR}/light_translator_q4_k_m.gguf")
 
 # 2. 查看 ollama 版本
 run(ssh, "ollama --version")
@@ -145,7 +145,7 @@ if blk_nums:
 f.close()
 """
 
-run(ssh, f"python3 -c '{gguf_inspect}' {MODEL_DIR}/duan_translator_q4_k_m.gguf 2>&1", timeout=30)
+run(ssh, f"python3 -c '{gguf_inspect}' {MODEL_DIR}/light_translator_q4_k_m.gguf 2>&1", timeout=30)
 
 # 5. 检查原始合并模型（safetensors）的 tensor 列表
 run(ssh, f"ls -lh {MODEL_DIR}/*.safetensors 2>/dev/null || echo 'no safetensors'")

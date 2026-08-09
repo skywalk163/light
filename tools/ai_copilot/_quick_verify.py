@@ -4,7 +4,7 @@ import json, sys, os, io, re
 from collections import Counter
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'src'))
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 DATASET_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sft_dataset.jsonl')
@@ -16,7 +16,7 @@ with open(DATASET_PATH, 'r', encoding='utf-8') as f:
         if line:
             items.append(json.loads(line))
 
-parser = DuanParser()
+parser = LightParser()
 gen = PythonCodeGenerator()
 
 parse_fails = []
@@ -70,7 +70,7 @@ for idx, item in enumerate(items):
             print(f"  [{idx}] py_exec_fail: {str(e)[:100]}", flush=True)
         continue
     
-    # Exec Duan
+    # Exec Light
     try:
         old_stdout = sys.stdout
         sys.stdout = io.StringIO()

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-段言编程语言 - ANTLR编译器功能验证测试
+光明编程语言 - ANTLR编译器功能验证测试
 """
 
 import sys
@@ -11,27 +11,27 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'antlrparser'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from antlr4 import InputStream
-from DuanLangLexer import DuanLangLexer
-from DuanLangParser import DuanLangParser
-from duan_visitor import DuanLangASTBuilder
+from LightLangLexer import LightLangLexer
+from LightLangParser import LightLangParser
+from light_visitor import LightLangASTBuilder
 from code_generator_unified import UnifiedCodeGenerator
 from io import StringIO
 
 
 def compile_and_run(code: str):
-    """编译并运行段言代码"""
+    """编译并运行光明代码"""
     # 词法分析
     input_stream = InputStream(code)
-    lexer = DuanLangLexer(input_stream)
+    lexer = LightLangLexer(input_stream)
     from antlr4 import CommonTokenStream
     tokens = CommonTokenStream(lexer)
     
     # 语法分析
-    parser = DuanLangParser(tokens)
+    parser = LightLangParser(tokens)
     tree = parser.program()
     
     # AST构建
-    builder = DuanLangASTBuilder()
+    builder = LightLangASTBuilder()
     module = builder.visitProgram(tree)
     
     if not module:
@@ -252,7 +252,7 @@ def main():
     
     # 打印结果
     print("\n" + "=" * 70)
-    print("段言编程语言 - ANTLR编译器功能验证测试报告")
+    print("光明编程语言 - ANTLR编译器功能验证测试报告")
     print("=" * 70)
     
     for name, status, message in results:

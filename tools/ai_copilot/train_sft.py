@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言翻译器 — ERNIE-4.5-0.3B 一键 LoRA 微调脚本
+光明翻译器 — ERNIE-4.5-0.3B 一键 LoRA 微调脚本
 
-将 sft_dataset.jsonl 中的 Python→段言 对照数据用于微调
-ERNIE-4.5-0.3B，使其学会将 Python 代码翻译为段言 v3.2 代码。
+将 sft_dataset.jsonl 中的 Python→光明 对照数据用于微调
+ERNIE-4.5-0.3B，使其学会将 Python 代码翻译为光明 v3.2 代码。
 
 完整流程：
   1. 环境检查（PaddlePaddle / PaddleNLP / ERNIEKit）
@@ -25,7 +25,7 @@ ERNIE-4.5-0.3B，使其学会将 Python 代码翻译为段言 v3.2 代码。
     python train_sft.py --dry-run
 
     # 转换已有模型为 GGUF
-    python train_sft.py --convert-gguf --model-path ./output/duan_translator
+    python train_sft.py --convert-gguf --model-path ./output/light_translator
 
 前置条件：
     pip install --upgrade --pre paddlenlp
@@ -47,7 +47,7 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_DIR = os.path.dirname(os.path.dirname(_SCRIPT_DIR))
 _DATASET_PATH = os.path.join(_SCRIPT_DIR, 'sft_dataset.jsonl')
 _DEFAULT_MODEL = 'paddlepaddle/ernie-4.5-0.3b'
-_DEFAULT_OUTPUT = os.path.join(_SCRIPT_DIR, 'output', 'duan_translator')
+_DEFAULT_OUTPUT = os.path.join(_SCRIPT_DIR, 'output', 'light_translator')
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -201,7 +201,7 @@ def generate_yaml_config(
     yaml_path = os.path.join(output_dir, 'train_config.yaml')
     os.makedirs(output_dir, exist_ok=True)
 
-    yaml_content = f"""# 段言翻译器 — ERNIE-4.5-0.3B LoRA SFT 训练配置
+    yaml_content = f"""# 光明翻译器 — ERNIE-4.5-0.3B LoRA SFT 训练配置
 # 由 train_sft.py 自动生成
 
 model:
@@ -217,7 +217,7 @@ method:
 
 data:
   train_datasets:
-    - name: "duan_sft"
+    - name: "light_sft"
       data_source: "{dataset_path}"
       format: "jsonl"
       columns:
@@ -367,7 +367,7 @@ def convert_to_gguf(model_path: str, output_dir: str) -> bool:
     print("第 6 步：GGUF 格式转换（用于 llama.cpp 部署）")
     print("=" * 60)
 
-    gguf_output = os.path.join(output_dir, 'duan_translator.gguf')
+    gguf_output = os.path.join(output_dir, 'light_translator.gguf')
 
     # 检查是否安装了转换工具
     try:
@@ -382,7 +382,7 @@ def convert_to_gguf(model_path: str, output_dir: str) -> bool:
     print("  1. 安装 llama.cpp: pip install llama-cpp-python")
     print("  2. 参考 AI Studio 教程中的自定义 GGUF 写入器")
     print(f"  3. 将 {model_path} 转换为 {gguf_output}")
-    print("  4. 验证: llama-cli -m duan_translator.gguf -p 'def add(a,b): return a+b'")
+    print("  4. 验证: llama-cli -m light_translator.gguf -p 'def add(a,b): return a+b'")
     return False
 
 
@@ -392,7 +392,7 @@ def convert_to_gguf(model_path: str, output_dir: str) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='段言翻译器 — ERNIE-4.5-0.3B 一键 LoRA 微调',
+        description='光明翻译器 — ERNIE-4.5-0.3B 一键 LoRA 微调',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
@@ -409,7 +409,7 @@ def main():
     parser.add_argument('--model', default=_DEFAULT_MODEL,
                         help='预训练模型名称（默认: paddlepaddle/ernie-4.5-0.3b）')
     parser.add_argument('--output', default=_DEFAULT_OUTPUT,
-                        help='输出目录（默认: tools/ai_copilot/output/duan_translator）')
+                        help='输出目录（默认: tools/ai_copilot/output/light_translator）')
     parser.add_argument('--dataset', default=_DATASET_PATH,
                         help='训练数据 JSONL 路径（默认: tools/ai_copilot/sft_dataset.jsonl）')
     parser.add_argument('--epochs', type=int, default=3,
@@ -507,7 +507,7 @@ def main():
     print("下一步：")
     print(f"  1. 测试推理: erniekit server {args.output}/run_chat.yaml")
     print(f"  2. 转换 GGUF: python train_sft.py --convert-gguf --model-path {merged_path}")
-    print(f"  3. 集成到段言管线: 将微调后的模型嵌入 duan ai generate 流程")
+    print(f"  3. 集成到光明管线: 将微调后的模型嵌入 light ai generate 流程")
 
 
 if __name__ == '__main__':

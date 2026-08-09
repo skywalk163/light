@@ -1,4 +1,4 @@
-"""将 bootstrap_level5.duan 从 Level 4/5 语法转换为 Level 6/7 语法
+"""将 bootstrap_level5.light 从 Level 4/5 语法转换为 Level 6/7 语法
 
 转换规则：
 1. 移除 `结束` 关键词行（块结束标记）
@@ -8,7 +8,7 @@
 """
 import re
 
-with open('bootstrap/bootstrap_level5.duan', 'r', encoding='utf-8') as f:
+with open('bootstrap/bootstrap_level5.light', 'r', encoding='utf-8') as f:
     lines = f.readlines()
 
 out_lines = []
@@ -48,19 +48,19 @@ for i, line in enumerate(lines):
 
 # 写输出文件
 output = ''.join(out_lines)
-with open('bootstrap/bootstrap_level6.duan', 'w', encoding='utf-8') as f:
+with open('bootstrap/bootstrap_level6.light', 'w', encoding='utf-8') as f:
     f.write(output)
 
 # 添加头部注释
-header = "# 段言自举编译器 - Level 6\n"
+header = "# 光明自举编译器 - Level 6\n"
 header += "# 无空格分词 + 纯缩进语法\n"
-header += "# 从 bootstrap_level5.duan 转换而来\n\n"
+header += "# 从 bootstrap_level5.light 转换而来\n\n"
 output = header + output.lstrip('\n')
 
-with open('bootstrap/bootstrap_level6.duan', 'w', encoding='utf-8') as f:
+with open('bootstrap/bootstrap_level6.light', 'w', encoding='utf-8') as f:
     f.write(output)
 
 print(f"转换完成!")
 print(f"  移除 {removed_count} 个 `结束` 行")
-print(f"  输出: bootstrap/bootstrap_level6.duan")
+print(f"  输出: bootstrap/bootstrap_level6.light")
 print(f"  行数: {len(out_lines)}")

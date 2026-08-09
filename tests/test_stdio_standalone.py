@@ -5,13 +5,13 @@ os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 sys.path.insert(0, os.path.join(os.getcwd(), 'src'))
 
 from code_generator import PythonCodeGenerator
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 
-parser = DuanParser()
+parser = LightParser()
 gen = PythonCodeGenerator()
 
 source = """段落 主():
-    设 消息 为 "段言IO测试-开始"。
+    设 消息 为 "光明IO测试-开始"。
     打印输出(消息)。
     打印输出("等待输入...")。
     设 用户行 为 读取行()。
@@ -34,12 +34,12 @@ else:
 
 # 手动在生成的代码末尾添加主()调用，然后执行
 code_to_run = python_code + "\n\n主()\n"
-print("\n=== 带主()调用的执行测试 (输入='你好段言') ===")
+print("\n=== 带主()调用的执行测试 (输入='你好光明') ===")
 
 import subprocess
 result = subprocess.run(
     [sys.executable, '-c', code_to_run],
-    input='你好段言\n',
+    input='你好光明\n',
     capture_output=True,
     text=True,
     timeout=10

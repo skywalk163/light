@@ -1,6 +1,6 @@
 # 第四阶段：LLVM 后端自举编译总结报告
 
-**项目名称：** 段言（Duan）编程语言编译器  
+**项目名称：** 光明（Light）编程语言编译器  
 **报告时间：** 2026-07-05  
 **工作阶段：** 第四阶段 - LLVM 后端自举编译
 
@@ -8,7 +8,7 @@
 
 ## 🎯 阶段目标
 
-使用 LLVM 后端将自举编译器（bootstrap_v3.duan）编译为原生可执行文件（EXE），验证 LLVM 后端对复杂程序的支持能力。
+使用 LLVM 后端将自举编译器（bootstrap_v3.light）编译为原生可执行文件（EXE），验证 LLVM 后端对复杂程序的支持能力。
 
 ---
 
@@ -40,7 +40,7 @@
 
 ### Bug 1：elseif 分支变量未预分配（SSA 违反）
 
-**文件：** [src/llvm/codegen.py](file:///c:/traework/duan/src/llvm/codegen.py#L183-L189)
+**文件：** [src/llvm/codegen.py](file:///c:/traework/light/src/llvm/codegen.py#L183-L189)
 
 **现象：** `use of undefined value '%481'`
 
@@ -68,7 +68,7 @@ if isinstance(stmt, ast.IfStatement):
 
 ### Bug 2：while 循环双 Terminator（CFG 破坏）
 
-**文件：** [src/llvm/codegen_typed.py](file:///c:/traework/duan/src/llvm/codegen_typed.py#L1974-L1978)
+**文件：** [src/llvm/codegen_typed.py](file:///c:/traework/light/src/llvm/codegen_typed.py#L1974-L1978)
 
 **现象：** `instruction expected to be numbered '%475' or greater`
 
@@ -92,7 +92,7 @@ if not self._ends_with_terminator(stmt.body):
 
 ### Bug 3：main 函数调用签名不匹配（段错误）
 
-**文件：** [src/llvm/codegen_typed.py](file:///c:/traework/duan/src/llvm/codegen_typed.py#L2766-L2811)
+**文件：** [src/llvm/codegen_typed.py](file:///c:/traework/light/src/llvm/codegen_typed.py#L2766-L2811)
 
 **现象：** 运行时 0xC0000005 段错误
 
@@ -109,7 +109,7 @@ self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr}, i32 {num_p
 
 ### Bug 4：main 函数无命令行参数传递
 
-**文件：** [src/llvm/codegen_typed.py](file:///c:/traework/duan/src/llvm/codegen_typed.py#L2779-L2808)
+**文件：** [src/llvm/codegen_typed.py](file:///c:/traework/light/src/llvm/codegen_typed.py#L2779-L2808)
 
 **现象：** main 段落参数始终为 null
 
@@ -121,7 +121,7 @@ self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr}, i32 {num_p
 
 ### Bug 5：缺失 v3 风格内置函数名
 
-**文件：** [src/llvm/codegen_typed.py](file:///c:/traework/duan/src/llvm/codegen_typed.py)
+**文件：** [src/llvm/codegen_typed.py](file:///c:/traework/light/src/llvm/codegen_typed.py)
 
 **现象：** 自举编译器调用的函数未定义
 
@@ -195,13 +195,13 @@ IR 编译失败 → SSA/Terminator 修复 → EXE 生成成功 → 运行时崩�
 ## 📁 相关文件
 
 **核心修改：**
-- [src/llvm/codegen.py](file:///c:/traework/duan/src/llvm/codegen.py) - elseif 变量收集修复
-- [src/llvm/codegen_typed.py](file:///c:/traework/duan/src/llvm/codegen_typed.py) - 5 处修复
+- [src/llvm/codegen.py](file:///c:/traework/light/src/llvm/codegen.py) - elseif 变量收集修复
+- [src/llvm/codegen_typed.py](file:///c:/traework/light/src/llvm/codegen_typed.py) - 5 处修复
 
 **相关资源：**
-- [src/llvm/compiler.py](file:///c:/traework/duan/src/llvm/compiler.py) - LLVM 编译器入口
-- [src/llvm/runtime_typed.c](file:///c:/traework/duan/src/llvm/runtime_typed.c) - 运行时库
-- [bootstrap/bootstrap_v3.duan](file:///c:/traework/duan/bootstrap/bootstrap_v3.duan) - 自举编译器源码
+- [src/llvm/compiler.py](file:///c:/traework/light/src/llvm/compiler.py) - LLVM 编译器入口
+- [src/llvm/runtime_typed.c](file:///c:/traework/light/src/llvm/runtime_typed.c) - 运行时库
+- [bootstrap/bootstrap_v3.light](file:///c:/traework/light/bootstrap/bootstrap_v3.light) - 自举编译器源码
 
 ---
 
@@ -213,4 +213,4 @@ IR 编译失败 → SSA/Terminator 修复 → EXE 生成成功 → 运行时崩�
 2. **从 "运行时崩溃" 到 "正常运行"** - 修复了调用约定和参数传递问题
 3. **从 "功能缺失" 到 "完整支持"** - 补齐了 v3 风格内置函数
 
-这证明了 LLVM 后端架构的可行性——只要前端生成的 IR 符合规范，就能处理任意复杂度的程序。自举编译器（95 个段落、62KB 源码）的成功编译，标志着段言 LLVM 后端已进入实用阶段。
+这证明了 LLVM 后端架构的可行性——只要前端生成的 IR 符合规范，就能处理任意复杂度的程序。自举编译器（95 个段落、62KB 源码）的成功编译，标志着光明 LLVM 后端已进入实用阶段。

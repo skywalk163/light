@@ -1,21 +1,21 @@
 """
-段言自举解析器 - 测试脚本
+光明自举解析器 - 测试脚本
 
-加载并执行 parser.duan + ast.duan，使用自举分词器进行完全自举验证。
+加载并执行 parser.light + ast.light，使用自举分词器进行完全自举验证。
 """
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from duan_interpreter import run_source, Interpreter, DuanValue, DuanFunction
+from light_interpreter import run_source, Interpreter, LightValue, LightFunction
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def unwrap_value(v):
-    """递归解包 DuanValue"""
-    if isinstance(v, DuanValue):
+    """递归解包 LightValue"""
+    if isinstance(v, LightValue):
         return unwrap_value(v.value)
     if isinstance(v, dict):
         return {k: unwrap_value(v) for k, v in v.items()}
@@ -26,7 +26,7 @@ def unwrap_value(v):
 
 def load_tokenizer():
     """加载自举分词器，返回 (解释器, 分词器函数)"""
-    tokenizer_path = os.path.join(BASE_DIR, 'tokenizer.duan')
+    tokenizer_path = os.path.join(BASE_DIR, 'tokenizer.light')
     with open(tokenizer_path, 'r', encoding='utf-8') as f:
         source = f.read()
     interp = run_source(source)
@@ -35,36 +35,36 @@ def load_tokenizer():
 
 
 def get_tokens(code, tokenizer_interp, tokenizer_func):
-    """用自举分词器获取代码的 Token 列表，返回 DuanValue 包装的列"""
+    """用自举分词器获取代码的 Token 列表，返回 LightValue 包装的列"""
     result = tokenizer_interp._call_function(
-        tokenizer_func, [DuanValue(code, '串')]
+        tokenizer_func, [LightValue(code, '串')]
     )
     raw_tokens = unwrap_value(result)  # plain Python list of dicts
     
-    # 重新包装为 parser 需要的格式（DuanValue 包装的字典）
+    # 重新包装为 parser 需要的格式（LightValue 包装的字典）
     wrapped = []
     for t in raw_tokens:
-        wrapped.append(DuanValue({
-            'type': DuanValue(t['type'], '串'),
-            'text': DuanValue(t['text'], '串'),
-            'line': DuanValue(t['line'], '数'),
-            'col': DuanValue(t['col'], '数'),
+        wrapped.append(LightValue({
+            'type': LightValue(t['type'], '串'),
+            'text': LightValue(t['text'], '串'),
+            'line': LightValue(t['line'], '数'),
+            'col': LightValue(t['col'], '数'),
         }, '典'))
-    return DuanValue(wrapped, '列')
+    return LightValue(wrapped, '列')
 
 
 def load_parser():
-    """加载 ast.duan + parser.duan，返回 (解释器, 解析函数)"""
-    # 读取并合并 ast.duan + parser.duan
+    """加载 ast.light + parser.light，返回 (解释器, 解析函数)"""
+    # 读取并合并 ast.light + parser.light
     combined = ''
-    for name in ['ast.duan', 'parser.duan']:
+    for name in ['ast.light', 'parser.light']:
         path = os.path.join(BASE_DIR, name)
         with open(path, 'r', encoding='utf-8') as f:
             combined += f.read() + '\n'
     
     # ANTLR 验证
-    from duan_visitor import DuanParser
-    antlr_parser = DuanParser()
+    from light_visitor import LightParser
+    antlr_parser = LightParser()
     module = antlr_parser.parse(combined)
     if module is None:
         print("合并源码 ANTLR 解析失败：")
@@ -244,12 +244,12 @@ def test_parse_self_hosting(tokenizer_interp, tokenizer_func):
     if parse_func is None:
         return False
     
-    # 用自举分词器分词 parser.duan
-    parser_path = os.path.join(BASE_DIR, 'parser.duan')
+    # 用自举分词器分词 parser.light
+    parser_path = os.path.join(BASE_DIR, 'parser.light')
     with open(parser_path, 'r', encoding='utf-8') as f:
         parser_source = f.read()
     
-    print(f"  parser.duan 长度: {len(parser_source)} 字符")
+    print(f"  parser.light 长度: {len(parser_source)} 字符")
     
     tokens_value = get_tokens(parser_source, tokenizer_interp, tokenizer_func)
     print(f"  自举分词完成！")

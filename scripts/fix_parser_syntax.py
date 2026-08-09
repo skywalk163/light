@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
 快速修复ANTLR语法规则的脚本
-自动修改DuanLangParser.g4中的语法规则，使其符合统一规范
+自动修改LightLangParser.g4中的语法规则，使其符合统一规范
 """
 
 import re
 from pathlib import Path
 
 def fix_parser_grammar():
-    """修复DuanLangParser.g4的语法规则"""
+    """修复LightLangParser.g4的语法规则"""
     
-    parser_file = Path(__file__).parent.parent / 'antlrparser' / 'DuanLangParser.g4'
+    parser_file = Path(__file__).parent.parent / 'antlrparser' / 'LightLangParser.g4'
     
     with open(parser_file, 'r', encoding='utf-8') as f:
         content = f.read()
@@ -84,11 +84,11 @@ def fix_parser_grammar():
     
     print("\n下一步：")
     print("1. cd antlrparser")
-    print("2. java -jar ../antlr-4.13.2-complete.jar -Dlanguage=Python3 -visitor DuanLangLexer.g4")
-    print("3. java -jar ../antlr-4.13.2-complete.jar -Dlanguage=Python3 -visitor DuanLangParser.g4")
-    print("4. python ../compile.py test_unified.duan")
+    print("2. java -jar ../antlr-4.13.2-complete.jar -Dlanguage=Python3 -visitor LightLangLexer.g4")
+    print("3. java -jar ../antlr-4.13.2-complete.jar -Dlanguage=Python3 -visitor LightLangParser.g4")
+    print("4. python ../compile.py test_unified.light")
 
 if __name__ == '__main__':
-    print("段言编程语言 - ANTLR语法规则修复")
+    print("光明编程语言 - ANTLR语法规则修复")
     print("=" * 60)
     fix_parser_grammar()

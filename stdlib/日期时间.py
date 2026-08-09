@@ -405,7 +405,7 @@ def 解析相对时间(相对时间: str) -> 日期时间:
 
 
 # =============================================================================
-# 测试兼容 API（phase2 测试期望的函数名，兼容 Python datetime 和段言日期时间）
+# 测试兼容 API（phase2 测试期望的函数名，兼容 Python datetime 和光明日期时间）
 # =============================================================================
 
 def 当前日期() -> _datetime:
@@ -429,7 +429,7 @@ def 时间戳转字符串(时间戳: float, 格式: str = '%Y-%m-%d %H:%M:%S') -
 
 
 def 日期时间转字符串(dt, 格式: str = '%Y-%m-%d %H:%M:%S') -> str:
-    """日期时间转字符串（兼容 Python datetime 和段言日期时间）"""
+    """日期时间转字符串（兼容 Python datetime 和光明日期时间）"""
     if isinstance(dt, 日期时间):
         return dt.格式化(格式)
     return dt.strftime(格式)
@@ -450,10 +450,10 @@ def 字符串转时间(字符串: str, 格式: str = '%H:%M:%S') -> _datetime:
     return _datetime.strptime(字符串, 格式)
 
 
-def _get_dt_field(dt, py_attr: str, duan_method: str):
-    """从 Python datetime 或段言日期时间获取字段"""
+def _get_dt_field(dt, py_attr: str, light_method: str):
+    """从 Python datetime 或光明日期时间获取字段"""
     if isinstance(dt, 日期时间):
-        return getattr(dt, duan_method)()
+        return getattr(dt, light_method)()
     return getattr(dt, py_attr)
 
 
@@ -488,7 +488,7 @@ def 是否闰年(年) -> bool:
 
 
 def 添加天数(dt, 天数: int):
-    """添加天数（兼容 Python datetime 和段言日期时间）"""
+    """添加天数（兼容 Python datetime 和光明日期时间）"""
     if isinstance(dt, 日期时间):
         return 加天数(dt, 天数)
     return dt + _timedelta(days=天数)

@@ -1,4 +1,4 @@
-"""给 bootstrap_level5.duan 补充缺失的 `结束` 标记
+"""给 bootstrap_level5.light 补充缺失的 `结束` 标记
 
 基于缩进分析，为每个 段落/如果/当/遍历/尝试 块添加结束标记。
 Level 5 源文件使用 2 空格缩进。
@@ -12,7 +12,7 @@ Level 5 源文件使用 2 空格缩进。
 import re
 
 # 读取源文件
-with open('bootstrap/bootstrap_level5.duan', 'r', encoding='utf-8') as f:
+with open('bootstrap/bootstrap_level5.light', 'r', encoding='utf-8') as f:
     text = f.read()
     lines = text.split('\n')
 
@@ -90,7 +90,7 @@ while block_stack:
 
 # 写入文件
 output = '\n'.join(result) + '\n'
-with open('bootstrap/bootstrap_level5.duan', 'w', encoding='utf-8') as f:
+with open('bootstrap/bootstrap_level5.light', 'w', encoding='utf-8') as f:
     f.write(output)
 
 # 统计

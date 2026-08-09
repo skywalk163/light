@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编程语言 - 集成测试包
+光明（Light）编程语言 - 集成测试包
 
 包含多模块协同工作的集成测试：
 - test_module_system.py - 模块系统测试

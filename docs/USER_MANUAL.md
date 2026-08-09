@@ -1,4 +1,4 @@
-# 段言（Duan）编程语言用户手册
+# 光明（Light）编程语言用户手册
 
 **版本：** v1.9.0  
 **更新时间：** 2026-06-26  
@@ -30,35 +30,35 @@
 #### 从 PyPI 安装（推荐）
 
 ```bash
-pip install duan
+pip install light
 ```
 
-安装后即可使用 `duan` 命令：
+安装后即可使用 `light` 命令：
 ```bash
-duan --version
-duan --help
+light --version
+light --help
 ```
 
 #### 从源码安装
 
 ```bash
-git clone https://github.com/skywalk163/duan.git
-cd duan
+git clone https://github.com/skywalk163/light.git
+cd light
 pip install -e .
 ```
 
 ### 第一个程序
 
-创建 `hello.duan` 文件：
+创建 `hello.light` 文件：
 
-```段言
+```光明
 打印 "你好，世界！"
 ```
 
 运行：
 
 ```bash
-duan run hello.duan
+light run hello.light
 ```
 
 输出：
@@ -69,7 +69,7 @@ duan run hello.duan
 ### 编译为 Python 文件
 
 ```bash
-duan compile hello.duan -o hello.py
+light compile hello.light -o hello.py
 ```
 
 ### 编译为 Windows EXE
@@ -79,10 +79,10 @@ duan compile hello.duan -o hello.py
 pip install pyinstaller
 
 # 编译为 exe
-duan compile hello.duan -o hello.exe
+light compile hello.light -o hello.exe
 ```
 
-**原理：** 先将段言代码编译为 Python 代码，再使用 PyInstaller 打包为独立的 .exe 可执行文件。
+**原理：** 先将光明代码编译为 Python 代码，再使用 PyInstaller 打包为独立的 .exe 可执行文件。
 
 **注意：** 仅适用于 Windows 平台，生成的 exe 文件无需 Python 环境即可运行。
 
@@ -92,21 +92,21 @@ duan compile hello.duan -o hello.exe
 
 ### 注释
 
-段言支持以下注释语法：
+光明支持以下注释语法：
 
-```段言
+```光明
 # 这是单行注释（推荐使用）
 // 这也是单行注释
 注：这也是注释（以"注"开头）
 ```
 
-段言支持三种注释风格，可以灵活使用。
+光明支持三种注释风格，可以灵活使用。
 
 ### 语句结束
 
 每个语句以句号 `。` 结束。
 
-```段言
+```光明
 定义甲等于123。
 打印甲。
 ```
@@ -130,7 +130,7 @@ duan compile hello.duan -o hello.exe
 
 **语法：** `定义 变量名 等于 值。`
 
-```段言
+```光明
 定义年龄等于25。
 定义姓名等于"张三"。
 定义成绩等于95.5。
@@ -139,31 +139,31 @@ duan compile hello.duan -o hello.exe
 ### 数据类型
 
 **数字类型：**
-```段言
+```光明
 定义整数等于123。
 定义浮点等于3.14。
 定义中文数字等于三加五。  # 8
 ```
 
 **字符串：**
-```段言
+```光明
 定义消息等于"你好世界"。
 ```
 
 **布尔值：**
-```段言
+```光明
 定义正确等于真。
 定义错误等于假。
 ```
 
 **列表：**
-```段言
+```光明
 定义列表等于1，2，3，4，5。
 ```
 
 ### 算术运算
 
-```段言
+```光明
 定义甲等于10。
 定义乙等于3。
 
@@ -176,7 +176,7 @@ duan compile hello.duan -o hello.exe
 
 ### 比较运算
 
-```段言
+```光明
 如果甲大于乙那么打印"甲大"。
 如果甲小于乙那么打印"甲小"。
 如果甲等于乙那么打印"相等"。
@@ -189,12 +189,12 @@ duan compile hello.duan -o hello.exe
 ### 条件语句
 
 **基础语法：**
-```段言
+```光明
 如果条件那么执行语句。
 ```
 
 **示例：**
-```段言
+```光明
 定义分数等于85。
 
 如果分数大于等于90那么打印"优秀"。
@@ -206,7 +206,7 @@ duan compile hello.duan -o hello.exe
 ### 循环语句
 
 **遍历循环：**
-```段言
+```光明
 定义列表等于1，2，3，4，5。
 
 遍历列表中的元素：
@@ -214,7 +214,7 @@ duan compile hello.duan -o hello.exe
 ```
 
 **当循环（while）：**
-```段言
+```光明
 定义计数等于1。
 
 当计数小于等于5：
@@ -223,7 +223,7 @@ duan compile hello.duan -o hello.exe
 ```
 
 **循环控制：**
-```段言
+```光明
 遍历列表中的元素：
   如果元素等于3那么跳出。
   打印元素。
@@ -237,7 +237,7 @@ duan compile hello.duan -o hello.exe
 
 **语法：** `《函数名》段(参数)：函数体。`
 
-```段言
+```光明
 《加法》段(甲, 乙)：
   返回甲加乙。
 
@@ -248,7 +248,7 @@ duan compile hello.duan -o hello.exe
 ### 递归函数
 
 **阶乘：**
-```段言
+```光明
 《阶乘》段(数)：
   如果数小于等于1那么返回1。
   返回数乘《阶乘》参数数减1。
@@ -258,7 +258,7 @@ duan compile hello.duan -o hello.exe
 ```
 
 **斐波那契：**
-```段言
+```光明
 《斐波那契》段(数)：
   如果数小于等于2那么返回1。
   返回《斐波那契》参数数减1加《斐波那契》参数数减2。
@@ -284,7 +284,7 @@ duan compile hello.duan -o hello.exe
 ```
 
 **示例：**
-```段言
+```光明
 类 学生：
     属性 姓名。
     属性 年龄。
@@ -302,7 +302,7 @@ duan compile hello.duan -o hello.exe
 
 ### 继承
 
-```段言
+```光明
 类 大学生 继承 学生：
     属性 专业。
 
@@ -316,7 +316,7 @@ duan compile hello.duan -o hello.exe
 
 ### 访问修饰符
 
-段言支持三种访问级别：
+光明支持三种访问级别：
 
 | 修饰符 | 说明 | 生成代码 |
 |--------|------|----------|
@@ -324,7 +324,7 @@ duan compile hello.duan -o hello.exe
 | `私有` | 仅在类内部可访问 | 加 `_` 前缀 |
 | `保护` | 类及子类可访问 | 加 `_` 前缀（Python约定）|
 
-```段言
+```光明
 类 账户：
     公有 属性 用户名。
     私有 属性 密码。
@@ -346,7 +346,7 @@ duan compile hello.duan -o hello.exe
 
 使用 `静态` 修饰符定义类级别的属性和方法：
 
-```段言
+```光明
 类 计数器：
     静态 属性 总数 等于 零。
 
@@ -370,8 +370,8 @@ duan compile hello.duan -o hello.exe
 
 ### 模块定义
 
-**文件：math.duan**
-```段言
+**文件：math.light**
+```光明
 模块 数学工具：
   导出 加法
   导出 乘法
@@ -385,7 +385,7 @@ duan compile hello.duan -o hello.exe
 
 ### 模块导入
 
-```段言
+```光明
 从 数学工具 导入 加法, 乘法。
 
 定义结果等于加法参数三和五。
@@ -394,7 +394,7 @@ duan compile hello.duan -o hello.exe
 
 ### 标准库导入
 
-```段言
+```光明
 从 标准库 导入 json。
 从 标准库 导入 os。
 
@@ -407,7 +407,7 @@ duan compile hello.duan -o hello.exe
 
 ### 基本异常处理
 
-```段言
+```光明
 尝试：
   定义文件等于打开参数"data.txt"。
   定义内容等于文件.读取。
@@ -418,7 +418,7 @@ duan compile hello.duan -o hello.exe
 
 ### 多异常捕获
 
-```段言
+```光明
 尝试：
   定义数值等于转换整数参数"abc"。
 捕获 数值错误 为 错误：
@@ -431,7 +431,7 @@ duan compile hello.duan -o hello.exe
 
 ### 抛出异常
 
-```段言
+```光明
 《检查年龄》段(年龄)：
   如果年龄小于零：
     抛出 数值错误 参数"年龄不能为负数"。
@@ -444,7 +444,7 @@ duan compile hello.duan -o hello.exe
 
 ### 管道操作
 
-```段言
+```光明
 定义列表等于1，2，3，4，5。
 
 定义结果等于列表 -> 过滤 -> 排序。
@@ -453,7 +453,7 @@ duan compile hello.duan -o hello.exe
 
 ### 列表推导式
 
-```段言
+```光明
 定义列表等于1，2，3，4，5。
 定义平方等于[数字乘数字 遍历 数字 在 列表 如果 数字大于二]。
 打印平方。  # [9, 16, 25]
@@ -461,7 +461,7 @@ duan compile hello.duan -o hello.exe
 
 ### Lambda 表达式
 
-```段言
+```光明
 定义平方等于匿名(数): 数乘数。
 打印平方参数5。  # 25
 ```
@@ -475,47 +475,47 @@ duan compile hello.duan -o hello.exe
 **基本用法：**
 ```bash
 # 解释执行
-duan run file.duan
+light run file.light
 
 # 编译为 Python 文件
-duan compile file.duan
+light compile file.light
 
 # 指定输出文件
-duan compile file.duan -o output.py
+light compile file.light -o output.py
 
 # 编译为 Windows EXE（需安装 PyInstaller）
-duan compile file.duan -o output.exe
+light compile file.light -o output.exe
 
 # 显示 Token 流
-duan tokens file.duan
+light tokens file.light
 
 # 显示 AST
-duan ast file.duan
+light ast file.light
 
 # 选择后端（antlr / src / llvm）
-duan run file.duan --backend antlr
-duan compile file.duan --backend src
+light run file.light --backend antlr
+light compile file.light --backend src
 
 # 详细输出
-duan run file.duan -v
+light run file.light -v
 
 # 启动 REPL
-duan repl
+light repl
 
 # 查看版本
-duan --version
+light --version
 
 # 查看帮助
-duan --help
+light --help
 ```
 
 ### 编译目标说明
 
 | 命令 | 输出格式 | 说明 |
 |------|---------|------|
-| `duan compile file.duan` | `file.py` | 编译为 Python 源代码 |
-| `duan compile file.duan -o file.exe` | `file.exe` | 编译为 Windows 可执行文件（需 PyInstaller） |
-| `duan compile file.duan --backend llvm` | LLVM IR | 编译为 LLVM 中间表示 |
+| `light compile file.light` | `file.py` | 编译为 Python 源代码 |
+| `light compile file.light -o file.exe` | `file.exe` | 编译为 Windows 可执行文件（需 PyInstaller） |
+| `light compile file.light --backend llvm` | LLVM IR | 编译为 LLVM 中间表示 |
 
 ### Python API
 
@@ -544,7 +544,7 @@ else:
 
 ### 1. 计算器
 
-```段言
+```光明
 《计算器》段(操作, 甲, 乙)：
   如果操作等于加那么返回甲加乙。
   如果操作等于减那么返回甲减乙。
@@ -558,7 +558,7 @@ else:
 
 ### 2. 学生成绩管理
 
-```段言
+```光明
 类 学生：
   属性 姓名
   属性 成绩列表
@@ -589,7 +589,7 @@ else:
 
 ### 3. 银行账户
 
-```段言
+```光明
 类 银行账户：
   属性 账户号
   属性 余额
@@ -637,22 +637,22 @@ else:
 **解决方法：**
 使用 `--tokens` 查看词法分析结果：
 ```bash
-python cli/duanc.py file.duan --tokens
+python cli/duanc.py file.light --tokens
 ```
 
 ### 2. 如何调试代码？
 
 **方法1：** 使用 `--ast` 查看语法树
 ```bash
-python cli/duanc.py file.duan --ast
+python cli/duanc.py file.light --ast
 ```
 
 **方法2：** 使用 `-v` 详细输出
 ```bash
-python cli/duanc.py file.duan -v
+python cli/duanc.py file.light -v
 ```
 
-### 3. 段言支持哪些关键字？
+### 3. 光明支持哪些关键字？
 
 **核心关键字：**
 - 定义：`定义`、`常量`、`类型`

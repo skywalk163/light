@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编程语言 - 代码生成器测试
+光明（Light）编程语言 - 代码生成器测试
 
 测试覆盖：
 - 变量声明代码生成
@@ -18,7 +18,7 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 
@@ -27,7 +27,7 @@ class TestVariableGeneration:
 
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
 
     @pytest.fixture
     def generator(self):
@@ -52,7 +52,7 @@ class TestExpressionGeneration:
 
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
 
     @pytest.fixture
     def generator(self):
@@ -78,7 +78,7 @@ class TestConditionalGeneration:
 
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
 
     @pytest.fixture
     def generator(self):
@@ -104,7 +104,7 @@ class TestLoopGeneration:
 
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
 
     @pytest.fixture
     def generator(self):
@@ -134,7 +134,7 @@ class TestFunctionGeneration:
 
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
 
     @pytest.fixture
     def generator(self):
@@ -161,7 +161,7 @@ class TestFunctionCallGeneration:
 
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
 
     @pytest.fixture
     def generator(self):
@@ -186,7 +186,7 @@ class TestCompleteProgramGeneration:
 
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
 
     @pytest.fixture
     def generator(self):
@@ -227,7 +227,7 @@ class TestCodeExecution:
 
     @pytest.fixture
     def parser(self):
-        return DuanParser()
+        return LightParser()
 
     @pytest.fixture
     def generator(self):

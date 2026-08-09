@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言完整程序端到端测试
+光明完整程序端到端测试
 
 测试完整程序的编译和执行
 """
@@ -25,9 +25,9 @@ class TestFullPrograms(unittest.TestCase):
 
     def test_accounting_program_exists(self):
         """测试记账程序存在"""
-        accounting = os.path.join(self.project_dir, '记账.duan')
+        accounting = os.path.join(self.project_dir, '记账.light')
         if not os.path.exists(accounting):
-            accounting = os.path.join(self.project_dir, '记账_v3.duan')
+            accounting = os.path.join(self.project_dir, '记账_v3.light')
         self.assertTrue(os.path.exists(accounting),
                        f"记账程序不存在于 {self.project_dir}")
 
@@ -39,7 +39,7 @@ class TestFullPrograms(unittest.TestCase):
             self.skipTest("Bootstrap 编译器不存在")
 
         test_code = '段落 主程序：\n    打印 "test"'
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.duan',
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.light',
                                          delete=False, encoding='utf-8') as f:
             f.write(test_code)
             temp_file = f.name
@@ -64,16 +64,16 @@ class TestFullPrograms(unittest.TestCase):
 class TestCLITools(unittest.TestCase):
     """CLI 工具测试"""
 
-    def test_duan_unified_exists(self):
+    def test_light_unified_exists(self):
         """测试统一 CLI 存在"""
-        cli_unified = os.path.join(_project_root, 'cli', 'duan_unified.py')
+        cli_unified = os.path.join(_project_root, 'cli', 'light_unified.py')
         self.assertTrue(os.path.exists(cli_unified))
 
-    def test_duan_unified_help(self):
+    def test_light_unified_help(self):
         """测试统一 CLI 帮助信息"""
-        cli_unified = os.path.join(_project_root, 'cli', 'duan_unified.py')
+        cli_unified = os.path.join(_project_root, 'cli', 'light_unified.py')
         if not os.path.exists(cli_unified):
-            self.skipTest("duan_unified.py 不存在")
+            self.skipTest("light_unified.py 不存在")
 
         try:
             result = subprocess.run(

@@ -1,6 +1,6 @@
 [package]
 name = "CLI记事本"
 version = "1.0.0"
-entry = "主.duan"
-authors = ["段言开源社区"]
-description = "命令行记事本应用 - 演示段言文件IO、列表操作、用户交互"
+entry = "主.light"
+authors = ["光明开源社区"]
+description = "命令行记事本应用 - 演示光明文件IO、列表操作、用户交互"

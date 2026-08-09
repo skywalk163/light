@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编程语言 - pytest 配置
+光明（Light）编程语言 - pytest 配置
 """
 
 import sys
@@ -36,8 +36,8 @@ def _preserve_stdout():
 @pytest.fixture
 def parser():
     """提供解析器实例"""
-    from duan_parser_v3 import DuanParser
-    return DuanParser()
+    from light_parser_v3 import LightParser
+    return LightParser()
 
 
 @pytest.fixture

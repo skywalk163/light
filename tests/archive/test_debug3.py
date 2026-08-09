@@ -1,7 +1,7 @@
 import sys
 import threading
-sys.path.insert(0, r'G:\dumategithub\duan\src')
-sys.path.insert(0, r'G:\dumategithub\duan')
+sys.path.insert(0, r'G:\dumategithub\light\src')
+sys.path.insert(0, r'G:\dumategithub\light')
 
 from lexer import Lexer
 

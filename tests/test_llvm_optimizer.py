@@ -162,7 +162,7 @@ class TestCompilationCache(unittest.TestCase):
         from compiler_cache import CompilationCache
 
         self.temp_dir = tempfile.mkdtemp()
-        self.cache_dir = os.path.join(self.temp_dir, '.duan_cache')
+        self.cache_dir = os.path.join(self.temp_dir, '.light_cache')
         self.cache = CompilationCache(cache_dir=self.cache_dir)
 
     def tearDown(self):
@@ -172,7 +172,7 @@ class TestCompilationCache(unittest.TestCase):
     def test_set_and_get_cache(self):
         """测试设置和获取缓存"""
         # 创建临时文件
-        test_file = os.path.join(self.temp_dir, 'test.duan')
+        test_file = os.path.join(self.temp_dir, 'test.light')
         with open(test_file, 'w', encoding='utf-8') as f:
             f.write('定义 甲 等于 1')
 
@@ -182,7 +182,7 @@ class TestCompilationCache(unittest.TestCase):
 
     def test_cache_invalidation(self):
         """测试缓存失效"""
-        test_file = os.path.join(self.temp_dir, 'test.duan')
+        test_file = os.path.join(self.temp_dir, 'test.light')
         with open(test_file, 'w', encoding='utf-8') as f:
             f.write('定义 甲 等于 1')
 
@@ -193,7 +193,7 @@ class TestCompilationCache(unittest.TestCase):
 
     def test_cache_freshness(self):
         """测试缓存新鲜度"""
-        test_file = os.path.join(self.temp_dir, 'test.duan')
+        test_file = os.path.join(self.temp_dir, 'test.light')
         with open(test_file, 'w', encoding='utf-8') as f:
             f.write('定义 甲 等于 1')
 
@@ -210,7 +210,7 @@ class TestCompilationCache(unittest.TestCase):
 
     def test_clear_cache(self):
         """测试清空缓存"""
-        test_file = os.path.join(self.temp_dir, 'test.duan')
+        test_file = os.path.join(self.temp_dir, 'test.light')
         with open(test_file, 'w', encoding='utf-8') as f:
             f.write('定义 甲 等于 1')
 
@@ -221,7 +221,7 @@ class TestCompilationCache(unittest.TestCase):
 
     def test_clean_cache(self):
         """测试清理过期缓存"""
-        test_file = os.path.join(self.temp_dir, 'test.duan')
+        test_file = os.path.join(self.temp_dir, 'test.light')
         with open(test_file, 'w', encoding='utf-8') as f:
             f.write('定义 甲 等于 1')
 
@@ -244,7 +244,7 @@ class TestIncrementalCompiler(unittest.TestCase):
         from compiler_cache import CompilationCache
 
         self.temp_dir = tempfile.mkdtemp()
-        self.cache = CompilationCache(cache_dir=os.path.join(self.temp_dir, '.duan_cache'))
+        self.cache = CompilationCache(cache_dir=os.path.join(self.temp_dir, '.light_cache'))
         self.compiler = IncrementalCompiler(cache=self.cache)
 
     def tearDown(self):
@@ -253,7 +253,7 @@ class TestIncrementalCompiler(unittest.TestCase):
 
     def test_compile_nonexistent_file(self):
         """测试编译不存在的文件"""
-        result = self.compiler.compile(os.path.join(self.temp_dir, 'nonexistent.duan'))
+        result = self.compiler.compile(os.path.join(self.temp_dir, 'nonexistent.light'))
         self.assertFalse(result['success'])
         self.assertIn('不存在', result.get('error', ''))
 
@@ -282,7 +282,7 @@ class TestDwarfDebugInfo(unittest.TestCase):
     def setUp(self):
         from llvm.dwarf import DwarfDebugInfo
 
-        self.dwarf = DwarfDebugInfo('test.duan')
+        self.dwarf = DwarfDebugInfo('test.light')
 
     def test_compile_unit(self):
         """测试编译单元生成"""
@@ -293,7 +293,7 @@ class TestDwarfDebugInfo(unittest.TestCase):
 
     def test_function_debug_info(self):
         """测试函数调试信息"""
-        self.dwarf.add_function('main', 1, 'test.duan')
+        self.dwarf.add_function('main', 1, 'test.light')
         metadata = self.dwarf.generate_metadata()
         self.assertIn('DISubprogram', metadata)
         self.assertIn('main', metadata)

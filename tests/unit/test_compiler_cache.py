@@ -29,7 +29,7 @@ class TestCompilerCache:
         from compiler import _compile_cache
         _compile_cache.clear()
 
-        source_file = tmp_path / "test_cache.duan"
+        source_file = tmp_path / "test_cache.light"
         source_file.write_text('设 x 为 123。', encoding='utf-8')
         return str(source_file)
 
@@ -99,7 +99,7 @@ class TestCompilerCache:
         # 清空缓存
         _compile_cache.clear()
 
-        source_file = tmp_path / "test_abs.duan"
+        source_file = tmp_path / "test_abs.light"
         source_file.write_text('打印 "你好"。', encoding='utf-8')
 
         abs_path = os.path.abspath(str(source_file))

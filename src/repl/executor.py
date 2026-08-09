@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-段言 REPL 混合执行引擎
+光明 REPL 混合执行引擎
 
 支持：
 1. 简单表达式解释执行（AST遍历）
@@ -62,7 +62,7 @@ class Environment:
 # =============================================================================
 
 class Executor:
-    """段言混合执行引擎
+    """光明混合执行引擎
 
     执行流程：
     1. 解析代码 → AST
@@ -108,7 +108,7 @@ class Executor:
         """主执行方法
 
         Args:
-            code: 段言代码
+            code: 光明代码
             env: 可选的环境字典
 
         Returns:
@@ -333,7 +333,7 @@ class Executor:
         """
         try:
             # 尝试使用 ANTLR 解析器
-            from antlrparser.duan_visitor import parse_source
+            from antlrparser.light_visitor import parse_source
             from code_generator_unified import UnifiedCodeGenerator
 
             module = parse_source(code)
@@ -344,7 +344,7 @@ class Executor:
                 # 在隔离的环境中执行
                 exec_globals = {
                     '__builtins__': __builtins__,
-                    '_duan_env': self.env,
+                    '_light_env': self.env,
                 }
 
                 exec(python_code, exec_globals)
@@ -377,7 +377,7 @@ class Executor:
 # =============================================================================
 
 def execute_code(code: str, env: Dict = None) -> Any:
-    """执行段言代码的快捷函数"""
+    """执行光明代码的快捷函数"""
     executor = Executor()
     if env:
         for k, v in env.items():

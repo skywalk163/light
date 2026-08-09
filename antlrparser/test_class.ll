@@ -66,33 +66,33 @@ declare i64 @fread(ptr, i64, i64, ptr)
 
 declare i32 @fwrite(ptr, i64, i64, ptr)
 
-declare ptr @duan_list_new(i64)
+declare ptr @light_list_new(i64)
 
-declare i32 @duan_list_length(ptr)
+declare i32 @light_list_length(ptr)
 
-declare i32 @duan_list_append(ptr, i32)
+declare i32 @light_list_append(ptr, i32)
 
-declare i32 @duan_list_get(ptr, i64)
+declare i32 @light_list_get(ptr, i64)
 
-declare void @duan_list_set(ptr, i64, i32)
+declare void @light_list_set(ptr, i64, i32)
 
-declare ptr @duan_list_copy(ptr)
+declare ptr @light_list_copy(ptr)
 
-declare void @duan_list_free(ptr)
+declare void @light_list_free(ptr)
 
-declare ptr @duan_itoa(i32)
+declare ptr @light_itoa(i32)
 
-declare ptr @duan_dict_new()
+declare ptr @light_dict_new()
 
-declare void @duan_dict_set(ptr, ptr, i32)
+declare void @light_dict_set(ptr, ptr, i32)
 
-declare i32 @duan_dict_get(ptr, ptr)
+declare i32 @light_dict_get(ptr, ptr)
 
-declare i1 @duan_dict_contains(ptr, ptr)
+declare i1 @light_dict_contains(ptr, ptr)
 
-declare void @duan_dict_remove(ptr, ptr)
+declare void @light_dict_remove(ptr, ptr)
 
-declare void @duan_dict_free(ptr)
+declare void @light_dict_free(ptr)
 
 define ptr @seg_1_465afe_ctor(i32 %args) {
   %1 = add i64 0, 1024

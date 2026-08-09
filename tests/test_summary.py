@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""段言编译器 - 测试统计"""
+"""光明编译器 - 测试统计"""
 
 import sys
 import io
@@ -7,13 +7,13 @@ import io
 sys.stdout.reconfigure(encoding='utf-8')
 
 print("=" * 60)
-print("段言编译器测试套件")
+print("光明编译器测试套件")
 print("=" * 60)
 
 # 模块统计
 modules = {
     "词法分析器 (lexer.py)": "580行",
-    "语法解析器 (duan_parser_v3.py)": "580行",
+    "语法解析器 (light_parser_v3.py)": "580行",
     "语义分析器 (semantic_analyzer.py)": "270行",
     "代码生成器 (code_generator.py)": "250行",
     "动词信息 (verb_info.py)": "200行",

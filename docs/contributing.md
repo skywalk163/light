@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢你对段言（DuanLang）的兴趣！我们欢迎各种形式的贡献。
+感谢你对光明（LightLang）的兴趣！我们欢迎各种形式的贡献。
 
 ## 如何贡献
 
@@ -21,7 +21,7 @@
 ### 代码风格
 
 - 遵循 Python PEP 8
-- 段言代码使用 4 空格缩进
+- 光明代码使用 4 空格缩进
 - 添加适当的注释和文档
 
 ### 测试
@@ -41,8 +41,8 @@ pytest tests/integration/
 
 ```bash
 # 克隆仓库
-git clone https://github.com/duan-lang/duan.git
-cd duan
+git clone https://github.com/light-lang/light.git
+cd light
 
 # 安装开发依赖
 pip install -e ".[dev]"
@@ -59,4 +59,4 @@ pre-commit install
 
 ## 社区
 
-- GitHub: https://github.com/duan-lang/duan
+- GitHub: https://github.com/light-lang/light

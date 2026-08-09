@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言包管理器单元测试
+光明包管理器单元测试
 
 测试 PackageManager 核心功能：项目初始化、配置加载、模块查找、TomlParser 解析。
 """
@@ -77,11 +77,11 @@ class TestTomlParser(unittest.TestCase):
         self.assertEqual(result['key']['path'], '../lib')
 
     def test_parse_full_config(self):
-        content = '''# 段言项目配置
+        content = '''# 光明项目配置
 [package]
 name = "测试项目"
 version = "1.2.3"
-entry = "主.duan"
+entry = "主.light"
 authors = ["张三", "李四"]
 description = "测试用"
 
@@ -105,7 +105,7 @@ class TestPackageConfig(unittest.TestCase):
         cfg = PackageConfig()
         self.assertEqual(cfg.name, '未命名')
         self.assertEqual(cfg.version, '0.1.0')
-        self.assertEqual(cfg.entry, '主.duan')
+        self.assertEqual(cfg.entry, '主.light')
         self.assertEqual(cfg.dependencies, {})
         self.assertEqual(cfg.authors, [])
 
@@ -113,7 +113,7 @@ class TestPackageConfig(unittest.TestCase):
         cfg = PackageConfig(
             name='测试',
             version='2.0.0',
-            entry='main.duan',
+            entry='main.light',
             dependencies={'utils': '1.0'},
             authors=['作者'],
             description='描述'
@@ -121,7 +121,7 @@ class TestPackageConfig(unittest.TestCase):
         d = cfg.to_dict()
         self.assertEqual(d['name'], '测试')
         self.assertEqual(d['version'], '2.0.0')
-        self.assertEqual(d['entry'], 'main.duan')
+        self.assertEqual(d['entry'], 'main.light')
         self.assertEqual(d['dependencies'], {'utils': '1.0'})
         self.assertEqual(d['authors'], ['作者'])
         self.assertEqual(d['description'], '描述')
@@ -131,7 +131,7 @@ class TestPackageManagerInit(unittest.TestCase):
     """PackageManager 初始化测试"""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp(prefix='duan_pkg_test_')
+        self.tmpdir = tempfile.mkdtemp(prefix='light_pkg_test_')
         self.pm = PackageManager(project_root=Path(self.tmpdir))
 
     def tearDown(self):
@@ -141,9 +141,9 @@ class TestPackageManagerInit(unittest.TestCase):
     def test_init_project_creates_files(self):
         self.assertTrue(self.pm.init_project(name='测试包'))
         toml_path = Path(self.tmpdir) / 'package.toml'
-        main_path = Path(self.tmpdir) / '主.duan'
+        main_path = Path(self.tmpdir) / '主.light'
         self.assertTrue(toml_path.exists(), 'package.toml 应被创建')
-        self.assertTrue(main_path.exists(), '主.duan 应被创建')
+        self.assertTrue(main_path.exists(), '主.light 应被创建')
 
     def test_init_project_idempotent(self):
         self.assertTrue(self.pm.init_project(name='包甲'))
@@ -154,7 +154,7 @@ class TestPackageManagerInit(unittest.TestCase):
         self.pm.init_project(name='我的包')
         self.assertIsNotNone(self.pm.config)
         self.assertEqual(self.pm.config.name, '我的包')
-        self.assertEqual(self.pm.config.entry, '主.duan')
+        self.assertEqual(self.pm.config.entry, '主.light')
 
     def test_init_project_default_name(self):
         # 不传 name，使用目录名
@@ -165,7 +165,7 @@ class TestPackageManagerInit(unittest.TestCase):
 
     def test_init_project_main_source_v3_syntax(self):
         self.pm.init_project(name='测试')
-        main_path = Path(self.tmpdir) / '主.duan'
+        main_path = Path(self.tmpdir) / '主.light'
         content = main_path.read_text(encoding='utf-8')
         # v3.2 语法：段落 名称 接收：
         self.assertIn('段落', content)
@@ -176,7 +176,7 @@ class TestPackageManagerLoadConfig(unittest.TestCase):
     """PackageManager 配置加载测试"""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp(prefix='duan_pkg_load_')
+        self.tmpdir = tempfile.mkdtemp(prefix='light_pkg_load_')
         self.pm = PackageManager(project_root=Path(self.tmpdir))
 
     def tearDown(self):
@@ -192,7 +192,7 @@ class TestPackageManagerLoadConfig(unittest.TestCase):
         toml_content = '''[package]
 name = "加载测试"
 version = "0.5.0"
-entry = "main.duan"
+entry = "main.light"
 authors = ["作者甲"]
 
 [dependencies]
@@ -204,7 +204,7 @@ lib2 = { version = "2.0", path = "../lib2" }
         self.assertIsNotNone(cfg)
         self.assertEqual(cfg.name, '加载测试')
         self.assertEqual(cfg.version, '0.5.0')
-        self.assertEqual(cfg.entry, 'main.duan')
+        self.assertEqual(cfg.entry, 'main.light')
         self.assertEqual(cfg.authors, ['作者甲'])
         self.assertEqual(cfg.dependencies['lib1'], '1.0.0')
         self.assertEqual(cfg.dependencies['lib2'], '2.0')
@@ -226,7 +226,7 @@ authors = "单一作者"
         cfg = self.pm.load_config()
         self.assertEqual(cfg.name, '最小配置')
         self.assertEqual(cfg.version, '0.1.0')
-        self.assertEqual(cfg.entry, '主.duan')
+        self.assertEqual(cfg.entry, '主.light')
         self.assertEqual(cfg.dependencies, {})
 
     def test_load_config_search_paths_updated(self):
@@ -239,7 +239,7 @@ class TestPackageManagerFindModule(unittest.TestCase):
     """PackageManager 模块查找测试"""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp(prefix='duan_pkg_find_')
+        self.tmpdir = tempfile.mkdtemp(prefix='light_pkg_find_')
         self.pm = PackageManager(project_root=Path(self.tmpdir))
 
     def tearDown(self):
@@ -250,25 +250,25 @@ class TestPackageManagerFindModule(unittest.TestCase):
         self.assertIsNone(self.pm.find_module(''))
 
     def test_find_module_simple(self):
-        # 创建 数学.duan
-        (Path(self.tmpdir) / '数学.duan').write_text('# 数学模块', encoding='utf-8')
+        # 创建 数学.light
+        (Path(self.tmpdir) / '数学.light').write_text('# 数学模块', encoding='utf-8')
         result = self.pm.find_module('数学')
         self.assertIsNotNone(result)
-        self.assertEqual(result.name, '数学.duan')
+        self.assertEqual(result.name, '数学.light')
 
     def test_find_module_dotted(self):
-        # 创建 数学/工具.duan
+        # 创建 数学/工具.light
         sub = Path(self.tmpdir) / '数学'
         sub.mkdir()
-        (sub / '工具.duan').write_text('# 工具', encoding='utf-8')
+        (sub / '工具.light').write_text('# 工具', encoding='utf-8')
         result = self.pm.find_module('数学.工具')
         self.assertIsNotNone(result)
-        self.assertTrue(result.name.endswith('工具.duan'))
+        self.assertTrue(result.name.endswith('工具.light'))
 
     def test_find_module_slash(self):
         sub = Path(self.tmpdir) / '工具集'
         sub.mkdir()
-        (sub / '辅助.duan').write_text('# 辅助', encoding='utf-8')
+        (sub / '辅助.light').write_text('# 辅助', encoding='utf-8')
         result = self.pm.find_module('工具集/辅助')
         self.assertIsNotNone(result)
 
@@ -281,7 +281,7 @@ class TestPackageManagerPathDeps(unittest.TestCase):
     """PackageManager path 依赖解析测试"""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp(prefix='duan_pkg_deps_')
+        self.tmpdir = tempfile.mkdtemp(prefix='light_pkg_deps_')
         self.pm = PackageManager(project_root=Path(self.tmpdir))
 
     def tearDown(self):
@@ -332,7 +332,7 @@ class TestPackageManagerBuildRun(unittest.TestCase):
     """PackageManager 构建与运行测试（端到端）"""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp(prefix='duan_pkg_build_')
+        self.tmpdir = tempfile.mkdtemp(prefix='light_pkg_build_')
         self.pm = PackageManager(project_root=Path(self.tmpdir))
 
     def tearDown(self):
@@ -348,13 +348,13 @@ class TestPackageManagerBuildRun(unittest.TestCase):
         self.pm.init_project(name='构建测试')
         result = self.pm.build_project()
         self.assertTrue(result['success'], f"构建失败: {result.get('errors')}")
-        self.assertEqual(result['entry'], '主.duan')
+        self.assertEqual(result['entry'], '主.light')
         self.assertIn('主', result.get('order', []))
 
     def test_build_project_missing_entry(self):
         # 创建 package.toml 但删除入口文件
         self.pm.init_project(name='测试')
-        (Path(self.tmpdir) / '主.duan').unlink()
+        (Path(self.tmpdir) / '主.light').unlink()
         result = self.pm.build_project()
         self.assertFalse(result['success'])
         self.assertTrue(any('入口文件不存在' in e for e in result.get('errors', [])))

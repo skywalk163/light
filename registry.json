@@ -1,17 +1,17 @@
 {
-  "_comment": "段言（Duan）公共包注册表 — 提交 PR 即可发布你的包",
-  "_instructions": "https://gitcode.com/duan-lang/registry — Fork → 添加包信息 → 提交 PR",
+  "_comment": "光明（Light）公共包注册表 — 提交 PR 即可发布你的包",
+  "_instructions": "https://gitcode.com/light-lang/registry — Fork → 添加包信息 → 提交 PR",
   "updated_at": "2026-07-08",
   "packages": {
     "标准数学扩展": {
       "name": "标准数学扩展",
       "version": "1.0.0",
       "description": "扩展数学函数库：矩阵运算、复数、统计函数",
-      "author": "段言团队",
+      "author": "光明团队",
       "mirrors": [
-        "https://gitcode.com/duan-lang/duan-math-ext.git",
-        "https://github.com/duan-lang/duan-math-ext.git",
-        "https://gitee.com/duan-lang/duan-math-ext.git"
+        "https://gitcode.com/light-lang/light-math-ext.git",
+        "https://github.com/light-lang/light-math-ext.git",
+        "https://gitee.com/light-lang/light-math-ext.git"
       ],
       "keywords": ["数学", "矩阵", "统计"]
     },
@@ -19,11 +19,11 @@
       "name": "网络请求",
       "version": "1.0.0",
       "description": "HTTP 客户端库：GET/POST 请求、JSON 解析",
-      "author": "段言团队",
+      "author": "光明团队",
       "mirrors": [
-        "https://gitcode.com/duan-lang/duan-http.git",
-        "https://github.com/duan-lang/duan-http.git",
-        "https://gitee.com/duan-lang/duan-http.git"
+        "https://gitcode.com/light-lang/light-http.git",
+        "https://github.com/light-lang/light-http.git",
+        "https://gitee.com/light-lang/light-http.git"
       ],
       "keywords": ["网络", "HTTP", "API"]
     }

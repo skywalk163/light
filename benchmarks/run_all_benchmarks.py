@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器 - 一键运行所有基准测试并生成汇总报告
+光明编译器 - 一键运行所有基准测试并生成汇总报告
 
 运行所有基准测试并生成汇总报告（JSON + 控制台输出）。
 """
@@ -153,7 +153,7 @@ def generate_summary_report(results: list) -> dict:
 def print_summary(results: list, summary: dict):
     """打印汇总报告"""
     print(f"\n{'=' * 80}")
-    print(f"📊 段言编译器基准测试汇总报告")
+    print(f"📊 光明编译器基准测试汇总报告")
     print(f"{'=' * 80}")
     print(f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Python: {sys.version.split()[0]}")
@@ -192,7 +192,7 @@ def print_summary(results: list, summary: dict):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='段言编译器 - 一键运行所有基准测试')
+    parser = argparse.ArgumentParser(description='光明编译器 - 一键运行所有基准测试')
     parser.add_argument('--skip-compiler', action='store_true', help='跳过编译器速度测试')
     parser.add_argument('--skip-runtime', action='store_true', help='跳过运行时测试')
     parser.add_argument('--skip-memory', action='store_true', help='跳过内存分析')
@@ -207,7 +207,7 @@ def main():
 
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
-    print("段言编译器 - 一键运行所有基准测试")
+    print("光明编译器 - 一键运行所有基准测试")
     print("=" * 80)
     print(f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Python: {sys.version.split()[0]}")

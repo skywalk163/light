@@ -346,13 +346,13 @@ class TestDwarfDebugInfo:
         """测试编译单元元数据"""
         from llvm.dwarf import DwarfDebugInfo
 
-        dwarf = DwarfDebugInfo('test.duan')
+        dwarf = DwarfDebugInfo('test.light')
         dwarf.add_compile_unit()
         metadata = dwarf.generate_metadata()
 
         assert '!llvm.dbg.cu' in metadata
         assert '!DICompileUnit' in metadata
-        assert '段言编译器' in metadata
+        assert '光明编译器' in metadata
         assert 'Dwarf Version' in metadata
         assert 'Debug Info Version' in metadata
 
@@ -360,7 +360,7 @@ class TestDwarfDebugInfo:
         """测试添加函数调试信息"""
         from llvm.dwarf import DwarfDebugInfo
 
-        dwarf = DwarfDebugInfo('test.duan')
+        dwarf = DwarfDebugInfo('test.light')
         func_id = dwarf.add_function('main', 1)
         assert func_id.startswith('!')
         metadata = dwarf.generate_metadata()
@@ -371,7 +371,7 @@ class TestDwarfDebugInfo:
         """测试添加变量调试信息"""
         from llvm.dwarf import DwarfDebugInfo
 
-        dwarf = DwarfDebugInfo('test.duan')
+        dwarf = DwarfDebugInfo('test.light')
         dwarf.add_function('main', 1)
         var_id = dwarf.add_variable('x', 'i32', 5)
         assert var_id.startswith('!')
@@ -383,7 +383,7 @@ class TestDwarfDebugInfo:
         """测试添加函数参数调试信息"""
         from llvm.dwarf import DwarfDebugInfo
 
-        dwarf = DwarfDebugInfo('test.duan')
+        dwarf = DwarfDebugInfo('test.light')
         dwarf.add_function('foo', 1)
         param_id = dwarf.add_parameter('n', 'i32', 1, 1)
         assert param_id.startswith('!')
@@ -394,7 +394,7 @@ class TestDwarfDebugInfo:
         """测试添加词法块"""
         from llvm.dwarf import DwarfDebugInfo
 
-        dwarf = DwarfDebugInfo('test.duan')
+        dwarf = DwarfDebugInfo('test.light')
         dwarf.add_function('test', 1)
         block_id = dwarf.add_lexical_block(10)
         assert block_id.startswith('!')
@@ -405,7 +405,7 @@ class TestDwarfDebugInfo:
         """测试生成位置标注"""
         from llvm.dwarf import DwarfDebugInfo
 
-        dwarf = DwarfDebugInfo('test.duan')
+        dwarf = DwarfDebugInfo('test.light')
         dwarf.add_function('main', 1)
         dbg = dwarf.emit_location(5, 3)
         assert dbg.startswith('!dbg !')
@@ -414,7 +414,7 @@ class TestDwarfDebugInfo:
         """测试类型信息"""
         from llvm.dwarf import DwarfDebugInfo
 
-        dwarf = DwarfDebugInfo('test.duan')
+        dwarf = DwarfDebugInfo('test.light')
         # 基础类型
         type_id = dwarf.add_type('i32', 4)
         assert type_id.startswith('!')
@@ -436,7 +436,7 @@ class TestDwarfDebugInfo:
         """测试作用域栈"""
         from llvm.dwarf import DwarfDebugInfo
 
-        dwarf = DwarfDebugInfo('test.duan')
+        dwarf = DwarfDebugInfo('test.light')
         dwarf.add_function('main', 1)
 
         # 压入词法块
@@ -451,7 +451,7 @@ class TestDwarfDebugInfo:
         """测试行号映射"""
         from llvm.dwarf import DwarfDebugInfo
 
-        dwarf = DwarfDebugInfo('test.duan')
+        dwarf = DwarfDebugInfo('test.light')
         dwarf.add_function('main', 1)
         dwarf.emit_location(5, 1)
         dwarf.emit_location(10, 1)

@@ -1,15 +1,15 @@
 """
-段言（Duan）编程语言 - 命令行工具
+光明（Light）编程语言 - 命令行工具
 
 使用方法：
-    duan run <file>         # 运行段言文件
-    duan exec <code>        # 直接执行代码
-    duan repl               # 交互式编程环境
-    duan parse <file>       # 解析并显示 AST
-    duan tokenize <file>    # 词法分析并显示 Token
+    light run <file>         # 运行光明文件
+    light exec <code>        # 直接执行代码
+    light repl               # 交互式编程环境
+    light parse <file>       # 解析并显示 AST
+    light tokenize <file>    # 词法分析并显示 Token
 
     # 旧模式兼容
-    python duan_interpreter.py <file>
+    python light_interpreter.py <file>
     python main.py <file>
 """
 
@@ -23,7 +23,7 @@ _script_dir = os.path.dirname(os.path.abspath(__file__))
 if _script_dir not in sys.path:
     sys.path.insert(0, _script_dir)
 
-from duan_interpreter import run_source, run_file, Interpreter
+from light_interpreter import run_source, run_file, Interpreter
 
 
 # =============================================================================
@@ -109,7 +109,7 @@ def _try_extract_error_info(e: Exception) -> dict:
 
 def _print_runtime_error(e: Exception, source: str = "", filepath: str = ""):
     """打印格式化的运行时错误"""
-    from duan_error_handler import format_error_context, suggest_fix
+    from light_error_handler import format_error_context, suggest_fix
 
     info = _try_extract_error_info(e)
     message = info['message']
@@ -157,7 +157,7 @@ def _print_runtime_error(e: Exception, source: str = "", filepath: str = ""):
 # =============================================================================
 
 def cmd_run(filepath: str, args):
-    """运行段言文件"""
+    """运行光明文件"""
     abs_path = os.path.abspath(filepath)
     if not os.path.exists(abs_path):
         print(red(f"错误: 文件不存在: {filepath}"), file=sys.stderr)
@@ -212,7 +212,7 @@ def cmd_parse(filepath: str, args):
         print(red(f"错误: 文件不存在: {filepath}"), file=sys.stderr)
         sys.exit(1)
 
-    from duan_visitor import parse_source
+    from light_visitor import parse_source
 
     with open(abs_path, 'r', encoding='utf-8') as f:
         source = f.read()
@@ -259,12 +259,12 @@ def cmd_tokenize(filepath: str, args):
         print(red(f"错误: 文件不存在: {filepath}"), file=sys.stderr)
         sys.exit(1)
 
-    from duan_tokenizer import DuanLangTokenizer
+    from light_tokenizer import LightLangTokenizer
 
     with open(abs_path, 'r', encoding='utf-8') as f:
         source = f.read()
 
-    tokenizer = DuanLangTokenizer()
+    tokenizer = LightLangTokenizer()
     tokens = tokenizer.tokenize(source)
 
     type_w = max(len(t.type_name) for t in tokens) + 2 if tokens else 10
@@ -330,7 +330,7 @@ def _is_incomplete(code: str) -> bool:
 def _get_repl_banner() -> str:
     """获取 REPL 欢迎信息"""
     return f"""
-{bold(cyan('段言 (Duan)'))} {yellow('v0.1.0')} - {dim('中文编程语言交互环境')}
+{bold(cyan('光明 (Light)'))} {yellow('v0.1.0')} - {dim('中文编程语言交互环境')}
 
 {green('可用命令:')}
   {cyan('/help')}     显示帮助信息
@@ -348,7 +348,7 @@ def _get_repl_banner() -> str:
 def _get_help_text() -> str:
     """获取帮助信息"""
     return f"""
-{bold(cyan('段言 (Duan) 快速参考'))}
+{bold(cyan('光明 (Light) 快速参考'))}
 
 {green('变量定义:')}
   定义变量名等于值。
@@ -398,7 +398,7 @@ def _get_help_text() -> str:
 def cmd_repl(args):
     """交互式 REPL 环境"""
     interp = Interpreter()
-    history_file = os.path.join(os.path.expanduser("~"), ".duan_history")
+    history_file = os.path.join(os.path.expanduser("~"), ".light_history")
 
     # 尝试加载 readline 实现历史
     _readline = None
@@ -419,7 +419,7 @@ def cmd_repl(args):
         try:
             # 获取多行输入
             lines = []
-            prompt = yellow("段言> ") if _COLOR else "段言> "
+            prompt = yellow("光明> ") if _COLOR else "光明> "
             while True:
                 try:
                     line = input(prompt)
@@ -510,8 +510,8 @@ def _show_env(interp: Interpreter):
 def _process_repl_line(interp: Interpreter, code: str):
     """处理一行 REPL 输入"""
     # 尝试解析为表达式（如果看起来像表达式而非语句）
-    from duan_visitor import DuanParser
-    parser = DuanParser()
+    from light_visitor import LightParser
+    parser = LightParser()
 
     # 尝试先作为完整代码解析
     module = parser.parse(code)
@@ -550,16 +550,16 @@ def _process_repl_line(interp: Interpreter, code: str):
 def main():
     """命令行主入口"""
     parser = argparse.ArgumentParser(
-        prog='duan',
-        description='段言（Duan）编程语言解释器',
+        prog='light',
+        description='光明（Light）编程语言解释器',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
 {bold('示例:')}
-  {green('duan run')} script.duan         {dim('# 运行段言文件')}
-  {green('duan exec')} '打印("你好")。'    {dim('# 直接执行代码')}
-  {green('duan repl')}                     {dim('# 启动交互环境')}
-  {green('duan parse')} script.duan       {dim('# 解析并显示 AST')}
-  {green('duan tokenize')} script.duan    {dim('# 显示 Token 序列')}
+  {green('light run')} script.light         {dim('# 运行光明文件')}
+  {green('light exec')} '打印("你好")。'    {dim('# 直接执行代码')}
+  {green('light repl')}                     {dim('# 启动交互环境')}
+  {green('light parse')} script.light       {dim('# 解析并显示 AST')}
+  {green('light tokenize')} script.light    {dim('# 显示 Token 序列')}
         """
     )
     parser.add_argument('-v', '--verbose', action='store_true', help='显示详细错误信息')
@@ -568,13 +568,13 @@ def main():
     subparsers = parser.add_subparsers(dest='command', help='子命令')
 
     # run
-    p_run = subparsers.add_parser('run', help='运行段言文件')
-    p_run.add_argument('file', help='段言源文件路径')
+    p_run = subparsers.add_parser('run', help='运行光明文件')
+    p_run.add_argument('file', help='光明源文件路径')
     p_run.add_argument('-q', '--quiet', action='store_true', help='不显示输出')
 
     # exec
     p_exec = subparsers.add_parser('exec', help='直接执行代码字符串')
-    p_exec.add_argument('code', help='要执行的段言代码')
+    p_exec.add_argument('code', help='要执行的光明代码')
     p_exec.add_argument('-q', '--quiet', action='store_true', help='不显示输出')
 
     # repl
@@ -582,11 +582,11 @@ def main():
 
     # parse
     p_parse = subparsers.add_parser('parse', help='解析并显示 AST')
-    p_parse.add_argument('file', help='段言源文件路径')
+    p_parse.add_argument('file', help='光明源文件路径')
 
     # tokenize
     p_token = subparsers.add_parser('tokenize', help='词法分析并显示 Token')
-    p_token.add_argument('file', help='段言源文件路径')
+    p_token.add_argument('file', help='光明源文件路径')
 
     # 兼容旧模式: python main.py <file>
     if len(sys.argv) > 1 and sys.argv[1] not in ('run', 'exec', 'repl', 'parse', 'tokenize', '-v', '--verbose', '-q', '--quiet'):

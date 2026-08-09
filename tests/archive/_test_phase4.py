@@ -17,7 +17,7 @@ all_ok = True
 print("=" * 50)
 print("1. Python 后端")
 print("=" * 50)
-from duan_parser_v3 import DuanParser as PyParser
+from light_parser_v3 import DuanParser as PyParser
 from code_generator import PythonCodeGenerator
 
 def test_py(name, source, expected_in_output=None):
@@ -63,15 +63,15 @@ print()
 print("=" * 50)
 print("2. ANTLR 后端")
 print("=" * 50)
-from antlrparser.duan_visitor import parse_source
-from antlrparser.duan_interpreter import Interpreter
+from antlrparser.light_visitor import parse_source
+from antlrparser.light_interpreter import Interpreter
 
 def test_antlr(name, source, expected_in_output):
     global all_ok
     module = parse_source(source)
     if not module:
         # 如果解析失败，显示更详细的信息
-        from antlrparser.duan_visitor import DuanParser
+        from antlrparser.light_visitor import DuanParser
         p = DuanParser()
         p.parse(source)
         if p.errors:

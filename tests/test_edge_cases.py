@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言编程语言 - 边界测试套件
+光明编程语言 - 边界测试套件
 
 测试覆盖边界/极端情况：
 - 零值、空值、负值、大数值
@@ -21,17 +21,17 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 
-def compile_and_run(duan_code):
+def compile_and_run(light_code):
     """
-    编译并执行段言代码，返回捕获的输出
+    编译并执行光明代码，返回捕获的输出
     
     使用 src/ 目录下手写解析器 + 代码生成器
     """
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
     
-    parser = DuanParser()
-    module = parser.parse(duan_code)
+    parser = LightParser()
+    module = parser.parse(light_code)
     
     generator = PythonCodeGenerator()
     python_code = generator.generate(module)
@@ -42,26 +42,26 @@ def compile_and_run(duan_code):
     try:
         # 创建包含内置函数的全局环境
         import types
-        _duan_builtin = types.ModuleType('_duan_builtin')
-        _duan_builtin.打印 = print
-        _duan_builtin.列表创建 = list
-        _duan_builtin.列表追加 = lambda lst, item: lst.append(item)
-        _duan_builtin.列表包含 = lambda lst, item: item in lst
-        _duan_builtin.字符串长度 = len
-        _duan_builtin.字典创建 = dict
-        _duan_builtin.字典设置 = lambda d, k, v: d.update({k: v})
-        _duan_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)
-        _duan_builtin.转整数 = int
-        _duan_builtin.转浮点 = float
-        _duan_builtin.转字符串 = str
-        _duan_builtin.列表长度 = len
-        _duan_builtin.列表获取 = lambda lst, i: lst[i] if 0 <= i < len(lst) else None
-        _duan_builtin.列表排序 = lambda lst: sorted(lst)
-        _duan_builtin.列表反转 = lambda lst: list(reversed(lst))
-        _duan_builtin.读取文件 = lambda path: open(path, 'r', encoding='utf-8').read()
-        _duan_builtin.文件存在 = lambda path: os.path.isfile(path)
+        _light_builtin = types.ModuleType('_light_builtin')
+        _light_builtin.打印 = print
+        _light_builtin.列表创建 = list
+        _light_builtin.列表追加 = lambda lst, item: lst.append(item)
+        _light_builtin.列表包含 = lambda lst, item: item in lst
+        _light_builtin.字符串长度 = len
+        _light_builtin.字典创建 = dict
+        _light_builtin.字典设置 = lambda d, k, v: d.update({k: v})
+        _light_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)
+        _light_builtin.转整数 = int
+        _light_builtin.转浮点 = float
+        _light_builtin.转字符串 = str
+        _light_builtin.列表长度 = len
+        _light_builtin.列表获取 = lambda lst, i: lst[i] if 0 <= i < len(lst) else None
+        _light_builtin.列表排序 = lambda lst: sorted(lst)
+        _light_builtin.列表反转 = lambda lst: list(reversed(lst))
+        _light_builtin.读取文件 = lambda path: open(path, 'r', encoding='utf-8').read()
+        _light_builtin.文件存在 = lambda path: os.path.isfile(path)
         
-        exec(python_code, {'_duan_builtin': _duan_builtin, 'os': os})
+        exec(python_code, {'_light_builtin': _light_builtin, 'os': os})
     except Exception as e:
         sys.stdout = old_stdout
         raise RuntimeError(f"执行错误: {e}\n生成的Python代码:\n{python_code}") from e
@@ -548,11 +548,11 @@ class TestEdgeCasesExpressions(unittest.TestCase):
     def test_unicode_chinese_strings(self):
         """中文字符串"""
         code = """
-设 甲 为 "你好世界！段言编程语言 v1.6"。
+设 甲 为 "你好世界！光明编程语言 v1.6"。
 打印 甲。
 """
         output = compile_and_run(code)
-        self.assertIn("你好世界！段言编程语言 v1.6", output)
+        self.assertIn("你好世界！光明编程语言 v1.6", output)
     
     def test_mixed_type_expression(self):
         """混合运算"""
@@ -765,7 +765,7 @@ class TestAdditionalEdgeCases(unittest.TestCase):
 
 if __name__ == '__main__':
     print("=" * 70)
-    print("段言编程语言 - 边界测试套件")
+    print("光明编程语言 - 边界测试套件")
     print("=" * 70)
     
     suite = unittest.TestLoader().loadTestsFromModule(sys.modules[__name__])

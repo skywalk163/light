@@ -4,20 +4,20 @@ import os
 os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 sys.path.insert(0, os.path.join(os.getcwd(), 'src'))
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 # 测试: 显式从《JSON》导入
 source = """从《JSON》导入《解析JSON》，《序列化JSON》。
 
 段落 主():
-    设 数据 为 解析JSON("{\"name\": \"段言\"}")。
+    设 数据 为 解析JSON("{\"name\": \"光明\"}")。
     打印输出(序列化JSON(数据))。
 结束。
 """
 
 print("=== 测试: 显式导入 JSON ===")
-parser = DuanParser()
+parser = LightParser()
 gen = PythonCodeGenerator()
 try:
     ast = parser.parse(source)

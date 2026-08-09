@@ -1,5 +1,5 @@
 """
-段言 - 典类型与内置函数测试
+光明 - 典类型与内置函数测试
 
 测试：
 1. _典 函数创建字典
@@ -17,11 +17,11 @@ import os
 import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_interpreter import run_source, DuanValue
+from light_interpreter import run_source, LightValue
 
 
 def run(source: str):
-    """解析并执行段言代码，返回执行器"""
+    """解析并执行光明代码，返回执行器"""
     return run_source(source)
 
 
@@ -43,8 +43,8 @@ def assert_dict_value(interp, name, expected: dict, msg=None):
     val = interp.env.get(name)
     assert val.type_name == '典', f"{msg or f'变量 {name}'}: 期望类型 典, 实际 {val.type_name}"
     d = val.value
-    # 解包 DuanValue 值
-    actual = {k: v.value if isinstance(v, DuanValue) else v for k, v in d.items()}
+    # 解包 LightValue 值
+    actual = {k: v.value if isinstance(v, LightValue) else v for k, v in d.items()}
     assert actual == expected, f"{msg or f'典 {name}'}: 期望 {expected!r}, 实际 {actual!r}"
 
 
@@ -200,7 +200,7 @@ def test_builtin_file_io():
 
     # 使用临时文件
     with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8') as f:
-        f.write("段言测试内容")
+        f.write("光明测试内容")
         tmp_path = f.name.replace('\\', '/')
 
     try:

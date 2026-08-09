@@ -3,13 +3,13 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "duan4"
+name = "light"
 version = "5.0.0"
-description = "段言（Duan）v4.0 — 像中文一样的中文编程语言（五层分层语法架构）"
+description = "光明（Light）v4.0 — 像中文一样的中文编程语言（五层分层语法架构）"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Duan Contributors"},
+    {name = "Light Contributors"},
 ]
 keywords = ["programming-language", "chinese", "nlp", "compiler", "hm-inference", "null-safety", "module-system"]
 classifiers = [
@@ -58,28 +58,27 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/skywalk163/duan"
-Source = "https://github.com/skywalk163/duan"
-BugTracker = "https://github.com/skywalk163/duan/issues"
-Documentation = "https://github.com/skywalk163/duan/tree/main/docs"
+Homepage = "https://github.com/skywalk163/light"
+Source = "https://github.com/skywalk163/light"
+BugTracker = "https://github.com/skywalk163/light/issues"
+Documentation = "https://github.com/skywalk163/light/tree/main/docs"
 
 [project.scripts]
-duan = "cli.duan:main"
-duan4 = "cli.duan:main"
-duanc = "cli.duanc:main"
+light = "cli.light:main"
+lightc = "cli.lightc:main"
 
 [tool.setuptools.packages.find]
 include = ["src*", "cli*", "stdlib*", "antlrparser*"]
 exclude = [
     "tests*", "benchmarks*", "examples*", "project*", "bootstrap*",
     "docs*", "tools*", "lsp*", "debug-adapter*", "vscode-extension*", "scripts*",
-    "**/test*", "**/*_test*", "**/self_hosted*", "**/duan_parser*", "**/duan_parser2*", "**/duan_parser_new*",
+    "**/test*", "**/*_test*", "**/self_hosted*", "**/light_parser*", "**/light_parser2*", "**/light_parser_new*",
     "**/web_playground*", "**/*_debug*", "**/ir.py", "**/codegen_x64.py", "**/linker.py"
 ]
 
 [tool.setuptools.package-data]
-"*" = ["*.duan"]
-"stdlib" = ["*.duan", "*.py"]
+"*" = ["*.light"]
+"stdlib" = ["*.light", "*.py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -130,7 +129,7 @@ extend-ignore = [
 ]
 exclude = [
     "__pycache__",
-    "antlrparser/duan_parser/*.py",
+    "antlrparser/light_parser/*.py",
     "antlrparser/*.py",
 ]
 

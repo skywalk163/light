@@ -13,7 +13,7 @@
 | 文件 | 操作 | 说明 |
 |------|------|------|
 | `src/keywords.py` | 修改 | 将 `父` 加入 KEYWORDS_RESERVED |
-| `src/duan_parser_v3.py` | 修改 | `_parse_primary` 中处理 `父` 关键字；`_parse_decorator` 识别特殊装饰器 |
+| `src/light_parser_v3.py` | 修改 | `_parse_primary` 中处理 `父` 关键字；`_parse_decorator` 识别特殊装饰器 |
 | `src/code_generator.py` | 修改 | `_generate_decorator_definition` 映射特殊装饰器 |
 
 ---
@@ -40,7 +40,7 @@ KEYWORDS_RESERVED = {
 
 ### 任务 2：解析器支持 `父.方法名()` 语法
 
-**文件：** `src/duan_parser_v3.py:1823-1835`
+**文件：** `src/light_parser_v3.py:1823-1835`
 
 - [ ] **步骤 1：在 `_parse_primary` 中处理 `父` 关键字**
 
@@ -62,7 +62,7 @@ KEYWORDS_RESERVED = {
 
 ### 任务 3：解析器支持 `@静态方法`/`@类方法`/`@特性`
 
-**文件：** `src/duan_parser_v3.py:2838-2875`
+**文件：** `src/light_parser_v3.py:2838-2875`
 
 - [ ] **步骤 1：在 `_parse_decorator` 中检测特殊装饰器**
 

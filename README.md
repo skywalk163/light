@@ -1,18 +1,18 @@
-# 段言（DuanLang）编程语言
+# 光明（LightLang）编程语言
 
-[![CI 4.0dev](https://github.com/skywalk163/duan/actions/workflows/ci.yml/badge.svg?branch=4.0dev)](https://github.com/skywalk163/duan/actions/workflows/ci.yml?query=branch%3A4.0dev)
+[![CI 4.0dev](https://github.com/skywalk163/light/actions/workflows/ci.yml/badge.svg?branch=4.0dev)](https://github.com/skywalk163/light/actions/workflows/ci.yml?query=branch%3A4.0dev)
 [![版本](https://img.shields.io/badge/v4.0dev-五层语法架构-blue)](#v40-五层语法架构)
 [![L1 课程](https://img.shields.io/badge/L1-白话体·青少年入门-green)](#v40-课程体系)
 [![L2 工程](https://img.shields.io/badge/L2-文言体·商用工程-orange)](#v40-课程体系)
 [![L3 领域](https://img.shields.io/badge/L3-SQL·正则·数学-8A2BE2)](#e阶段l3-原生语法--l4-沙箱隔离已完成)
 [![L4 引用](https://img.shields.io/badge/L4-Python%2FC%2FGo%2FMoonBit-4682B4)](#e阶段l3-原生语法--l4-沙箱隔离已完成)
 
-**段言**是一门基于中文的编程语言，采用中文关键字与**五层层级语法架构**，借鉴中文"3000 常用字覆盖各学科"的思路：**30 个 L0 核心字**做稳定内核，L1（白话体）让青少年快速入门，L2（文言体）支撑商用大项目，L3 内嵌 SQL/正则/数学 DSL，L4 引用 Python/C/Go/MoonBit 等现有生态。
+**光明**是一门基于中文的编程语言，采用中文关键字与**五层层级语法架构**，借鉴中文"3000 常用字覆盖各学科"的思路：**30 个 L0 核心字**做稳定内核，L1（白话体）让青少年快速入门，L2（文言体）支撑商用大项目，L3 内嵌 SQL/正则/数学 DSL，L4 引用 Python/C/Go/MoonBit 等现有生态。
 
 ## ✨ 核心特性
 
 - 🀄 **中文语法**：全中文关键字，符合中文思维习惯
-- 🚀 **自举编译**：编译器本身用段言编写（bootstrap_v3.duan，95 个段落），可自举编译
+- 🚀 **自举编译**：编译器本身用光明编写（bootstrap_v3.light，95 个段落），可自举编译
 - ⚡ **LLVM 原生编译**：支持编译为原生机器码（EXE），无需 Python 运行时
 - 📦 **双后端架构**：Python 解释执行 + LLVM 原生编译，灵活切换
 - 🔧 **丰富标准库**：数学工具、字符串工具、列表工具、JSON、CSV、文件系统等
@@ -70,34 +70,34 @@
 
 ### E阶段：L3 原生语法 + L4 沙箱隔离（已完成）
 
-**L3 领域嵌入**：`引 SQL:` / `引 正则:` / `引 数学:` 块直接写，段言编译器自动参数化/封装。
+**L3 领域嵌入**：`引 SQL:` / `引 正则:` / `引 数学:` 块直接写，光明编译器自动参数化/封装。
 
 示例（SQL）：
-```段言
+```光明
 引 SQL:
     CREATE TABLE 用户( id INTEGER PRIMARY KEY, 姓名 TEXT, 分数 INTEGER );
     INSERT INTO 用户 VALUES (1, '张三', 95), (2, '李四', 87);
     SELECT 姓名, 分数 FROM 用户 WHERE 分数 > 90;
 ```
-→ 段言自动生成 `l3_sql_*` 函数，防 SQL 注入，返回 list[dict]。
+→ 光明自动生成 `l3_sql_*` 函数，防 SQL 注入，返回 list[dict]。
 
 示例（正则命名捕获）：
-```段言
+```光明
 引 正则 手机号:
     (?<区号>\d{3,4})-(?<号码>\d{7,8})
 打印 手机号.匹配("010-12345678").区号    # 010
 ```
 
 示例（数学公式）：
-```段言
+```光明
 引 数学 二次求根:
     x = (-b ± √(b²-4ac)) / 2a
 打印 二次求根(a=1, b=-5, c=6)   # [3.0, 2.0]
 ```
 
-**L4 外语引用**：`引 Python:` / `引 C:` / `引 Go:` / `引 MoonBit:` → 独立命名空间沙箱，显式 `出` 关键字导出，不会污染段言主作用域。
+**L4 外语引用**：`引 Python:` / `引 C:` / `引 Go:` / `引 MoonBit:` → 独立命名空间沙箱，显式 `出` 关键字导出，不会污染光明主作用域。
 
-```段言
+```光明
 引 Python:
     import numpy as np
     数据 = [1,2,3,4,5]
@@ -118,14 +118,14 @@
 | 📊 统计函数增强 | [contrib/统计函数增强.py](contrib/统计函数增强.py) | 百分位、Z分数、T分数、线性回归、R²、离群点检测(IQR/Z-score) |
 | 🔍 正则工具增强 | [contrib/正则工具增强.py](contrib/正则工具增强.py) | 身份证 GB11643 校验、车牌校验、银行卡 Luhn、手机号/邮箱/URL 批量抽取 |
 
-段言侧用法：
-```段言
+光明侧用法：
+```光明
 从 日期时间增强 导入 解析相对时间, 日期区间
 打印 解析相对时间("3天后")
 打印 日期区间("2026-01-01", "2026-01-07")
 ```
 
-段言侧示例见 [examples/F阶段_标准库增强/](examples/F阶段_标准库增强/)。
+光明侧示例见 [examples/F阶段_标准库增强/](examples/F阶段_标准库增强/)。
 
 ### G阶段：CI + Playground 自动化（进行中）
 
@@ -138,17 +138,17 @@
 | 里程碑 | 状态 | 说明 |
 |--------|------|------|
 | v3.2 语法 | ✅ | 成熟稳定的中文编程语言 |
-| 自举编译器 | ✅ | 用段言编写的段言编译器（62KB / 95 段） |
+| 自举编译器 | ✅ | 用光明编写的光明编译器（62KB / 95 段） |
 | LLVM 后端 | ✅ | 支持编译为原生 EXE（clang 零错误） |
 | 自举编译 | ✅ | 自举编译器可通过 LLVM 编译为原生 EXE（525KB） |
-| AI Copilot | ✅ | 算力不足场景下的段言代码生成工具链 + LoRA 微调 |
+| AI Copilot | ✅ | 算力不足场景下的光明代码生成工具链 + LoRA 微调 |
 | C FFI 绑定 | ✅ | 四阶段实现 + @C 语法标记：基础FFI → 指针/数组 → 枚举/联合体/变长参数 → typedef/位域/调试 |
 
 ## 快速开始（3 步跑通）
 
 ### 第 1 步：安装 Python
 
-段言需要 **Python 3.10+**。检查你的版本：
+光明需要 **Python 3.10+**。检查你的版本：
 
 ```bash
 python --version
@@ -158,41 +158,41 @@ python --version
 > 没装 Python？去 [python.org](https://www.python.org/downloads/) 下载安装。
 > Windows 用户安装时请勾选 **Add Python to PATH**。
 
-### 第 2 步：安装段言
+### 第 2 步：安装光明
 
 **方式 A：从源码安装（推荐，开发者适用）**
 
 ```bash
-git clone https://gitcode.com/skywalk163/duan.git
-cd duan
+git clone https://gitcode.com/skywalk163/light.git
+cd light
 pip install -e .
 ```
 
 **方式 B：从 PyPI 安装（仅使用）**
 
 ```bash
-pip install duan
+pip install light
 ```
 
 安装完成后验证：
 
 ```bash
-duan --version
-# 输出：段言编译器 v1.9.0
+light --version
+# 输出：光明编译器 v1.9.0
 ```
 
 ### 第 3 步：运行你的第一个程序
 
-创建文件 `hello.duan`，写入以下内容：
+创建文件 `hello.light`，写入以下内容：
 
-```段言
+```光明
 打印 "你好，世界！"
 ```
 
 运行它：
 
 ```bash
-duan run hello.duan
+light run hello.light
 # 输出：你好，世界！
 ```
 
@@ -207,20 +207,20 @@ duan run hello.duan
 
 | 课号 | 文件 | 主题 | 引入字 |
 |------|------|------|--------|
-| 01 | [01_打印.duan](examples/L1_baihua/01_打印.duan) | 打印输出 | — |
-| 02 | [02_计算.duan](examples/L1_baihua/02_计算.duan) | 四则运算 `+ - * / %` | 设 |
-| 03 | [03_如果否则.duan](examples/L1_baihua/03_如果否则.duan) | 条件判断 | 若、否 |
-| 04 | [04_当循环.duan](examples/L1_baihua/04_当循环.duan) | while 循环 | 当、跳、过 |
-| 05 | [05_遍循环.duan](examples/L1_baihua/05_遍循环.duan) | for 遍历 | 遍 |
-| 06 | [06_列表.duan](examples/L1_baihua/06_列表.duan) | 列表操作 | — |
-| 07 | [07_字典.duan](examples/L1_baihua/07_字典.duan) | 字典映射 | — |
-| 08 | [08_函数.duan](examples/L1_baihua/08_函数.duan) | 定义函数 | 段、接、返 |
-| 09 | [09_异常.duan](examples/L1_baihua/09_异常.duan) | 异常处理 | 试、捕、抛、终 |
-| 10 | [10_引Python画笑脸.duan](examples/L1_baihua/10_引Python画笑脸.duan) | L4 引用 Python 绘图 | 导、出、引 |
+| 01 | [01_打印.light](examples/L1_baihua/01_打印.light) | 打印输出 | — |
+| 02 | [02_计算.light](examples/L1_baihua/02_计算.light) | 四则运算 `+ - * / %` | 设 |
+| 03 | [03_如果否则.light](examples/L1_baihua/03_如果否则.light) | 条件判断 | 若、否 |
+| 04 | [04_当循环.light](examples/L1_baihua/04_当循环.light) | while 循环 | 当、跳、过 |
+| 05 | [05_遍循环.light](examples/L1_baihua/05_遍循环.light) | for 遍历 | 遍 |
+| 06 | [06_列表.light](examples/L1_baihua/06_列表.light) | 列表操作 | — |
+| 07 | [07_字典.light](examples/L1_baihua/07_字典.light) | 字典映射 | — |
+| 08 | [08_函数.light](examples/L1_baihua/08_函数.light) | 定义函数 | 段、接、返 |
+| 09 | [09_异常.light](examples/L1_baihua/09_异常.light) | 异常处理 | 试、捕、抛、终 |
+| 10 | [10_引Python画笑脸.light](examples/L1_baihua/10_引Python画笑脸.light) | L4 引用 Python 绘图 | 导、出、引 |
 
 一键跑 L1 全部：
 ```bash
-for f in examples/L1_baihua/*.duan; do echo "=== $f ==="; duan run "$f"; done
+for f in examples/L1_baihua/*.light; do echo "=== $f ==="; light run "$f"; done
 ```
 
 ### 🟠 L2 文言体（商用工程 · 学生成绩管理系统）
@@ -228,12 +228,12 @@ for f in examples/L1_baihua/*.duan; do echo "=== $f ==="; duan run "$f"; done
 
 | 文件 | 职责 |
 |------|------|
-| [学生模块.duan](examples/L2_wenyan/学生模块.duan) | `学生` 类（字段/方法/统计），`配` 接口，`承` 继承 |
-| [主程序.duan](examples/L2_wenyan/主程序.duan) | 入口：创建班级、增删改查、排名、导出 CSV |
+| [学生模块.light](examples/L2_wenyan/学生模块.light) | `学生` 类（字段/方法/统计），`配` 接口，`承` 继承 |
+| [主程序.light](examples/L2_wenyan/主程序.light) | 入口：创建班级、增删改查、排名、导出 CSV |
 
 运行 L2 示例：
 ```bash
-duan run examples/L2_wenyan/主程序.duan
+light run examples/L2_wenyan/主程序.light
 ```
 
 ### 🟦 L3 + L4 专题
@@ -250,7 +250,7 @@ duan run examples/L2_wenyan/主程序.duan
 
 ```bash
 # 运行 Hello World 示例（阶乘、循环）
-duan run examples/hello.duan
+light run examples/hello.light
 
 # 输出：
 # 你好，世界！
@@ -265,7 +265,7 @@ duan run examples/hello.duan
 
 ### 变量
 
-```段言
+```光明
 设 姓名 为 "张三"
 设 年龄 为 25
 打印 姓名
@@ -274,7 +274,7 @@ duan run examples/hello.duan
 
 ### 函数（段落）
 
-```段言
+```光明
 段落 加法 接收 a, b：
     返回 a 加上 b
 
@@ -283,7 +283,7 @@ duan run examples/hello.duan
 
 ### 条件语句
 
-```段言
+```光明
 设 分数 为 85
 
 如果 分数 大于等于 90：
@@ -296,7 +296,7 @@ duan run examples/hello.duan
 
 ### 循环
 
-```段言
+```光明
 # 当循环
 设 计数 为 0
 当 计数 小于 5：
@@ -310,64 +310,64 @@ duan run examples/hello.duan
 
 ### 字符串
 
-```段言
-设 名字 为 "段言"
+```光明
+设 名字 为 "光明"
 打印 "你好，" 加上 名字 加上 "！"
 ```
 
 ## 命令行工具
 
 ```bash
-# 运行段言程序（默认使用 SRC 后端，无需额外依赖）
-duan run hello.duan
+# 运行光明程序（默认使用 SRC 后端，无需额外依赖）
+light run hello.light
 
 # 编译为 Python 文件
-duan compile hello.duan -o hello.py
+light compile hello.light -o hello.py
 
 # 语法检查
-duan check hello.duan
+light check hello.light
 
 # 类型检查（三级：签名/变量/表达式）
-duan check hello.duan --type-check 表达式
+light check hello.light --type-check 表达式
 
 # 独立类型检查
-duan type-check hello.duan --level 变量
+light type-check hello.light --level 变量
 
 # 查看 Token 流
-duan tokens hello.duan
+light tokens hello.light
 
 # 查看 AST
-duan ast hello.duan
+light ast hello.light
 
 # 初始化新项目
-duan init myproject
+light init myproject
 ```
 
 ### 包管理
 
 ```bash
-# 初始化新包（创建 package.toml 与 主.duan）
-duan pkg init myproject
+# 初始化新包（创建 package.toml 与 主.light）
+light pkg init myproject
 
 # 编译项目
-duan pkg -p myproject build
+light pkg -p myproject build
 
 # 运行项目
-duan pkg -p myproject run
+light pkg -p myproject run
 
 # LLVM 原生编译
-duan pkg -p myproject native -o output.exe
+light pkg -p myproject native -o output.exe
 ```
 
 ### 后端选择
 
-段言支持多种编译后端：
+光明支持多种编译后端：
 
 | 后端 | 命令 | 说明 | 额外依赖 |
 |------|------|------|---------|
-| **SRC**（默认） | `duan run hello.duan` | 手写解析器，v3.2 语法，Python 解释执行 | **无** |
-| ANTLR | `duan run hello.duan --backend antlr` | ANTLR 解析器，兼容模式 | `pip install antlr4-python3-runtime` |
-| LLVM | `duan compile hello.duan --backend llvm-typed -o hello.exe` | 原生编译为 EXE | 安装 LLVM/Clang |
+| **SRC**（默认） | `light run hello.light` | 手写解析器，v3.2 语法，Python 解释执行 | **无** |
+| ANTLR | `light run hello.light --backend antlr` | ANTLR 解析器，兼容模式 | `pip install antlr4-python3-runtime` |
+| LLVM | `light compile hello.light --backend llvm-typed -o hello.exe` | 原生编译为 EXE | 安装 LLVM/Clang |
 
 **新手建议**：直接用默认的 SRC 后端即可，无需任何额外安装。
 
@@ -378,52 +378,52 @@ duan pkg -p myproject native -o output.exe
 ```bash
 # 方式1：使用 PyInstaller（简单，但文件较大）
 pip install pyinstaller
-duan compile hello.duan -o hello.exe
+light compile hello.light -o hello.exe
 
 # 方式2：使用 LLVM 原生编译（需要安装 LLVM）
-duan compile hello.duan --backend llvm-typed -o hello.exe
+light compile hello.light --backend llvm-typed -o hello.exe
 ```
 
-## AI Copilot（算力不足时让 AI 写段言代码）
+## AI Copilot（算力不足时让 AI 写光明代码）
 
-段言提供完整的 AI 辅助工具链，即使只有小模型（7B 以下），也能帮你写出正确的段言代码。
+光明提供完整的 AI 辅助工具链，即使只有小模型（7B 以下），也能帮你写出正确的光明代码。
 
-> **模型已上线**：训练好的段言翻译器模型已发布到 Ollama 官网，可直接拉取使用：
+> **模型已上线**：训练好的光明翻译器模型已发布到 Ollama 官网，可直接拉取使用：
 > ```bash
-> ollama pull airoot/duan-translator
+> ollama pull airoot/light-translator
 > ```
-> 模型主页：[https://ollama.com/airoot/duan-translator](https://ollama.com/airoot/duan-translator)
-> 详细使用说明见 [段言翻译器使用指南](段言翻译器使用指南.md)
+> 模型主页：[https://ollama.com/airoot/light-translator](https://ollama.com/airoot/light-translator)
+> 详细使用说明见 [光明翻译器使用指南](光明翻译器使用指南.md)
 
 ### 核心思路
 
 ```
-用户需求 → AI 生成 Python → 微调模型翻译为段言 → duan ai check 验证
+用户需求 → AI 生成 Python → 微调模型翻译为光明 → light ai check 验证
 ```
 
 1. 大模型生成 Python 代码（擅长）
-2. 微调后的小模型将 Python 翻译为段言（专精）
-3. `duan ai check` 检查暗坑和后端兼容性
+2. 微调后的小模型将 Python 翻译为光明（专精）
+3. `light ai check` 检查暗坑和后端兼容性
 
 ### 使用方式
 
 ```bash
-# 一键生成段言代码（自动组装速查卡 + 片段 + 暗坑提示）
-duan ai generate "写一个二分查找函数"
-duan ai generate "排序算法" --model-size small   # 小模型用精简提示
-duan ai generate "文件读写" --model-size large   # 大模型用完整提示
+# 一键生成光明代码（自动组装速查卡 + 片段 + 暗坑提示）
+light ai generate "写一个二分查找函数"
+light ai generate "排序算法" --model-size small   # 小模型用精简提示
+light ai generate "文件读写" --model-size large   # 大模型用完整提示
 
-# 修复出错的段言代码
-duan ai fix hello.duan "第3行语法错误"
+# 修复出错的光明代码
+light ai fix hello.light "第3行语法错误"
 
 # 查看语法速查卡（复制给 AI 当参考）
-duan ai card
+light ai card
 
 # 查看代码片段模板
-duan ai snippets
+light ai snippets
 
 # 后端感知检测（类关键字→提示切换 LLVM 后端）
-duan ai check hello.duan
+light ai check hello.light
 ```
 
 ### LoRA 微调训练
@@ -457,9 +457,9 @@ python train_lora_7b.py --model-preset qwen3.5-2b --qlora
 
 ## 标准库
 
-段言提供丰富的中文标准库，位于 `stdlib/` 目录，包含 **14个阶段**、**60+个模块**：
+光明提供丰富的中文标准库，位于 `stdlib/` 目录，包含 **14个阶段**、**60+个模块**：
 
-```段言
+```光明
 从 数学工具 导入 阶乘
 打印 阶乘(10)
 ```
@@ -598,7 +598,7 @@ python train_lora_7b.py --model-preset qwen3.5-2b --qlora
 
 ### 阶段14：C FFI 外部函数接口
 
-段言支持直接调用 C 动态库（.so/.dll），通过四阶段演进实现完整的 C 语言互操作：
+光明支持直接调用 C 动态库（.so/.dll），通过四阶段演进实现完整的 C 语言互操作：
 
 | 功能 | 语法 | 说明 |
 |------|------|------|
@@ -620,7 +620,7 @@ python train_lora_7b.py --model-preset qwen3.5-2b --qlora
 | 预处理器宏 | `外部 宏 名称 为 值` | C 宏定义 |
 | `@C` 标记 | `@C 段落/结构体/枚举 ...` | 独立语法标记，与 `外部` 并行 |
 
-```段言
+```光明
 加载库 "libm.so" 为 math。
 外部 段落 平方根 接收 输入: 小数 返回 小数 在 math。
 外部 结构体 点 { x: 小数, y: 小数 }。
@@ -675,7 +675,7 @@ python train_lora_7b.py --model-preset qwen3.5-2b --qlora
 
 ### 复合赋值
 
-| Python | 段言 | 说明 |
+| Python | 光明 | 说明 |
 |--------|------|------|
 | `x += y` | `设 x 为 x 加上 y` | 加法复合赋值 |
 | `x -= y` | `设 x 为 x 减去 y` | 减法复合赋值 |
@@ -687,7 +687,7 @@ python train_lora_7b.py --model-preset qwen3.5-2b --qlora
 
 ### 类与面向对象
 
-```段言
+```光明
 类 动物：
     属性 名字
     构造 接收 名字：
@@ -706,9 +706,9 @@ python train_lora_7b.py --model-preset qwen3.5-2b --qlora
 
 ### 类型注解与检查
 
-段言支持三级类型检查（签名级/变量级/表达式级）：
+光明支持三级类型检查（签名级/变量级/表达式级）：
 
-```段言
+```光明
 段落 加法 接收 甲:数, 乙:数 -> 数：
     返回 甲 加 乙
 
@@ -718,14 +718,14 @@ python train_lora_7b.py --model-preset qwen3.5-2b --qlora
 
 ```bash
 # 类型检查
-duan check hello.duan --type-check 签名
-duan type-check hello.duan --level 表达式
+light check hello.light --type-check 签名
+light type-check hello.light --level 表达式
 ```
 
 ## 项目结构
 
 ```
-duan/
+light/
 ├── src/                 # 核心编译器（活跃维护）
 │   ├── lexer.py         # 词法分析器
 │   ├── parser_core.py   # 解析器核心
@@ -744,10 +744,10 @@ duan/
 │   │   └── compiler.py       # LLVM 编译入口
 │   └── optimizer/       # 代码优化器
 ├── cli/                 # 命令行工具
-│   └── duan.py          # 主入口（duan 命令，含 pkg 子命令）
+│   └── light.py          # 主入口（light 命令，含 pkg 子命令）
 ├── stdlib/              # 标准库（60+ 模块）
 │   ├── FFI.py          # C FFI 运行时模块（~500 行）
-│   ├── FFI.duan        # C FFI 段言实现
+│   ├── FFI.light        # C FFI 光明实现
 ├── lsp/                 # LSP 语言服务器
 ├── debug-adapter/       # DAP 调试适配器
 ├── tools/               # 调试器等工具
@@ -783,8 +783,8 @@ duan/
 
 ```bash
 # 克隆项目
-git clone https://gitcode.com/skywalk163/duan.git
-cd duan
+git clone https://gitcode.com/skywalk163/light.git
+cd light
 
 # 安装（开发模式）
 pip install -e .
@@ -818,7 +818,7 @@ python -m pytest tests/ -v
 
 1. **用默认 SRC 后端**（推荐，无需额外安装）：
    ```bash
-   duan run hello.duan
+   light run hello.light
    ```
 
 2. **安装 ANTLR 运行时**（如需使用 `--backend antlr`）：
@@ -840,17 +840,17 @@ pip install antlr4-python3-runtime
 1. **PyInstaller 方式**（简单）：
    ```bash
    pip install pyinstaller
-   duan compile hello.duan -o hello.exe
+   light compile hello.light -o hello.exe
    ```
 
 2. **LLVM 方式**（原生编译，需安装 LLVM）：
    ```bash
-   duan compile hello.duan --backend llvm-typed -o hello.exe
+   light compile hello.light --backend llvm-typed -o hello.exe
    ```
 
 ### Q: Python 版本要求
 
-**A:** 段言需要 Python 3.10 或更高版本。检查版本：
+**A:** 光明需要 Python 3.10 或更高版本。检查版本：
 ```bash
 python --version
 ```

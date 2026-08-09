@@ -1,8 +1,8 @@
-# 段言项目配置
+# 光明项目配置
 [package]
 name = "data_analysis"
 version = "0.1.0"
-entry = "主.duan"
+entry = "主.light"
 authors = []
 description = "数据分析示例 - 数据加载、清洗、统计和可视化"
 

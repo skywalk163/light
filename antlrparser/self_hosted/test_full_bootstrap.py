@@ -3,15 +3,15 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_interpreter import run_source, DuanValue, DuanFunction
+from light_interpreter import run_source, LightValue, LightFunction
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def unwrap_value(v):
-    """递归解包 DuanValue"""
-    if isinstance(v, DuanValue):
+    """递归解包 LightValue"""
+    if isinstance(v, LightValue):
         return unwrap_value(v.value)
     if isinstance(v, dict):
         return {k: unwrap_value(v) for k, v in v.items()}
@@ -22,7 +22,7 @@ def unwrap_value(v):
 
 def load_tokenizer():
     """加载自举分词器"""
-    tokenizer_path = os.path.join(BASE_DIR, 'tokenizer.duan')
+    tokenizer_path = os.path.join(BASE_DIR, 'tokenizer.light')
     with open(tokenizer_path, 'r', encoding='utf-8') as f:
         source = f.read()
     interp = run_source(source)
@@ -33,24 +33,24 @@ def load_tokenizer():
 def get_tokens(code, tokenizer_interp, tokenizer_func):
     """用自举分词器获取Token列表"""
     result = tokenizer_interp._call_function(
-        tokenizer_func, [DuanValue(code, '串')]
+        tokenizer_func, [LightValue(code, '串')]
     )
     raw_tokens = unwrap_value(result)
     wrapped = []
     for t in raw_tokens:
-        wrapped.append(DuanValue({
-            'type': DuanValue(t['type'], '串'),
-            'text': DuanValue(t['text'], '串'),
-            'line': DuanValue(t['line'], '数'),
-            'col': DuanValue(t['col'], '数'),
+        wrapped.append(LightValue({
+            'type': LightValue(t['type'], '串'),
+            'text': LightValue(t['text'], '串'),
+            'line': LightValue(t['line'], '数'),
+            'col': LightValue(t['col'], '数'),
         }, '典'))
-    return DuanValue(wrapped, '列')
+    return LightValue(wrapped, '列')
 
 
 def load_parser():
-    """加载 ast.duan + parser.duan"""
+    """加载 ast.light + parser.light"""
     combined = ''
-    for name in ['ast.duan', 'parser.duan']:
+    for name in ['ast.light', 'parser.light']:
         path = os.path.join(BASE_DIR, name)
         with open(path, 'r', encoding='utf-8') as f:
             combined += f.read() + '\n'
@@ -60,9 +60,9 @@ def load_parser():
 
 
 def test_interpreter_executes_code():
-    """测试段言版解释器执行代码"""
+    """测试光明版解释器执行代码"""
     print("=" * 60)
-    print("测试：段言版解释器执行代码")
+    print("测试：光明版解释器执行代码")
     print("=" * 60)
     
     # 加载分词器
@@ -72,7 +72,7 @@ def test_interpreter_executes_code():
     parse_interp, parse_func = load_parser()
     
     # 加载解释器
-    interp_code = open(os.path.join(BASE_DIR, 'interpreter.duan'), encoding='utf-8').read()
+    interp_code = open(os.path.join(BASE_DIR, 'interpreter.light'), encoding='utf-8').read()
     interp = run_source(interp_code)
     
     # 测试代码
@@ -100,8 +100,8 @@ def test_interpreter_executes_code():
     ast = parsed.get('result')
     print(f"  解析成功: {len(ast.get('statements', []))} 个语句")
     
-    # 将AST包装为DuanValue
-    ast_value = DuanValue(ast, '典')
+    # 将AST包装为LightValue
+    ast_value = LightValue(ast, '典')
     
     # 调用解释器执行
     run_func = interp.env.get('_run')
@@ -127,9 +127,9 @@ def test_interpreter_executes_code():
 
 
 def test_llvm_codegen():
-    """测试段言版LLVM代码生成器"""
+    """测试光明版LLVM代码生成器"""
     print("=" * 60)
-    print("测试：段言版LLVM代码生成器")
+    print("测试：光明版LLVM代码生成器")
     print("=" * 60)
     
     # 加载分词器
@@ -139,7 +139,7 @@ def test_llvm_codegen():
     parse_interp, parse_func = load_parser()
     
     # 加载LLVM代码生成器
-    llvm_code = open(os.path.join(BASE_DIR, 'llvm_codegen.duan'), encoding='utf-8').read()
+    llvm_code = open(os.path.join(BASE_DIR, 'llvm_codegen.light'), encoding='utf-8').read()
     llvm_interp = run_source(llvm_code)
     
     # 测试代码
@@ -167,8 +167,8 @@ def test_llvm_codegen():
     ast = parsed.get('result')
     print(f"  解析成功")
     
-    # 将AST包装为DuanValue
-    ast_value = DuanValue(ast, '典')
+    # 将AST包装为LightValue
+    ast_value = LightValue(ast, '典')
     
     # 调用编译函数
     compile_func = llvm_interp.env.get('编译')
@@ -196,9 +196,9 @@ def test_llvm_codegen():
 
 
 def test_self_hosted_interpreter():
-    """测试完全自举：用段言解释器解释段言解释器"""
+    """测试完全自举：用光明解释器解释光明解释器"""
     print("=" * 60)
-    print("测试：完全自举 - 段言解释器解释自身")
+    print("测试：完全自举 - 光明解释器解释自身")
     print("=" * 60)
     
     # 加载分词器
@@ -208,7 +208,7 @@ def test_self_hosted_interpreter():
     parse_interp, parse_func = load_parser()
     
     # 加载解释器
-    interp_code = open(os.path.join(BASE_DIR, 'interpreter.duan'), encoding='utf-8').read()
+    interp_code = open(os.path.join(BASE_DIR, 'interpreter.light'), encoding='utf-8').read()
     interp = run_source(interp_code)
     
     print(f"  解释器源码长度: {len(interp_code)} 字符")
@@ -228,8 +228,8 @@ def test_self_hosted_interpreter():
     ast = parsed.get('result')
     print(f"  解析成功: {len(ast.get('segments', []))} 个段落定义")
     
-    # 将AST包装为DuanValue
-    ast_value = DuanValue(ast, '典')
+    # 将AST包装为LightValue
+    ast_value = LightValue(ast, '典')
     
     # 调用解释器的_run函数来解释自身
     run_func = interp.env.get('_run')
@@ -251,7 +251,7 @@ def test_self_hosted_interpreter():
 
 
 if __name__ == '__main__':
-    print("开始测试段言自举系统...")
+    print("开始测试光明自举系统...")
     print()
     
     results = []

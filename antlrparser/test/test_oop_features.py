@@ -1,8 +1,8 @@
-"""测试段言高级特性"""
+"""测试光明高级特性"""
 import sys
-sys.path.insert(0, 'g:/dumategithub/duan/antlrparser')
+sys.path.insert(0, 'g:/dumategithub/light/antlrparser')
 
-from duan_visitor import parse_source
+from light_visitor import parse_source
 
 # 测试代码
 code = '''

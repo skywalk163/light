@@ -1,5 +1,5 @@
 """
-测试段言 LSP 服务器 - 模拟真实 LSP 客户端消息
+测试光明 LSP 服务器 - 模拟真实 LSP 客户端消息
 
 此文件为脚本式测试，不适合 pytest 自动收集。
 请使用 python tests/test_lsp_protocol_full.py 手动运行。
@@ -15,7 +15,7 @@ pytestmark = pytest.mark.skip(reason="脚本式测试，需手动运行: python 
 
 os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-LSP_SERVER = os.path.join('lsp', 'duan_lsp_server.py')
+LSP_SERVER = os.path.join('lsp', 'light_lsp_server.py')
 
 def build_lsp_message(obj):
     """构建 LSP 格式消息（Content-Length header + JSON body）"""
@@ -200,7 +200,7 @@ test(
         "method": "textDocument/didOpen",
         "params": {
             "textDocument": {
-                "uri": "file:///test.duan",
+                "uri": "file:///test.light",
                 "text": "段落 主():\n    设 x 为 42。\n    打印输出(x)。\n结束。"
             }
         }
@@ -216,7 +216,7 @@ test(
         "id": 2,
         "method": "textDocument/completion",
         "params": {
-            "textDocument": {"uri": "file:///test.duan"},
+            "textDocument": {"uri": "file:///test.light"},
             "position": {"line": 1, "character": 10}
         }
     },

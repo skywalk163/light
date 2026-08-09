@@ -9,8 +9,8 @@
 import json, re, sys, os, io
 from collections import Counter, defaultdict
 
-sys.path.insert(0, r'c:\dumatework\duan\src')
-from duan_parser_v3 import DuanParser
+sys.path.insert(0, r'c:\dumatework\light\src')
+from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 data = [json.loads(l) for l in open('sft_dataset.jsonl', encoding='utf-8')]
@@ -177,7 +177,7 @@ import random
 random.seed(42)
 samples = random.sample(range(len(data)), min(20, len(data)))
 
-parser = DuanParser()
+parser = LightParser()
 gen = PythonCodeGenerator()
 
 issues = []
@@ -303,9 +303,9 @@ for name, pattern in error_patterns.items():
         for idx, match in examples:
             print(f"    [{idx}] {match}")
 
-# 4. 检查DU中用到的段言关键字是否合理
-print(f"\n段言关键字使用统计:")
-duan_keywords = ['设', '段落', '类', '如果', '否则', '否则若', '遍历', '当', '尝试', '捕获', '最终',
+# 4. 检查DU中用到的光明关键字是否合理
+print(f"\n光明关键字使用统计:")
+light_keywords = ['设', '段落', '类', '如果', '否则', '否则若', '遍历', '当', '尝试', '捕获', '最终',
                  '返回', '抛出', '跳过', '跳出', '打印', '导入', '属性', '构造', '己', '父',
                  '使用', '为', '读取文件', '打开文件', '写入文件', '删除文件', '文件存在',
                  '真', '假', '空', '且', '或', '非', '中', '幂', '整除', '等于', '不等于',
@@ -318,17 +318,17 @@ duan_keywords = ['设', '段落', '类', '如果', '否则', '否则若', '遍�
 kw_count = Counter()
 for item in data:
     du = item['output']
-    for kw in duan_keywords:
+    for kw in light_keywords:
         if kw in du:
             kw_count[kw] += 1
 
-print(f"  使用最多的段言关键字 (Top 20):")
+print(f"  使用最多的光明关键字 (Top 20):")
 for kw, cnt in kw_count.most_common(20):
     print(f"    {kw}: {cnt}")
     
-unused = [kw for kw in duan_keywords if kw not in kw_count]
+unused = [kw for kw in light_keywords if kw not in kw_count]
 if unused:
-    print(f"\n  未使用的段言关键字 ({len(unused)}):")
+    print(f"\n  未使用的光明关键字 ({len(unused)}):")
     print(f"    {', '.join(unused)}")
 
 # ============================================================
@@ -364,7 +364,7 @@ print(f"""
   2. 后续可扩展的方向:
      - 装饰器 (@property, @staticmethod, @classmethod)
      - 生成器 (yield)
-     - 异步编程 (async/await) - 段言暂不支持
+     - 异步编程 (async/await) - 光明暂不支持
      - 上下文管理器 (__enter__/__exit__)
      - 元类
      - 描述符

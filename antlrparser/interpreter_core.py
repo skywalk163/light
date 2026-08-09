@@ -1,5 +1,5 @@
 """
-段言（Duan）编程语言 解释执行器 - 核心模块
+光明（Light）编程语言 解释执行器 - 核心模块
 
 将 AST 节点解释执行为实际的运行结果。
 支持：变量环境、表达式求值、语句执行、段落调用。
@@ -11,7 +11,7 @@ from typing import List, Optional, Union, Any, Dict, Tuple, Set
 from dataclasses import dataclass, field
 
 # 导入 AST 节点
-from duan_ast import (
+from light_ast import (
     ASTNode, Module, NumberLiteral, StringLiteral, BooleanLiteral,
     NullLiteral, ListLiteral, DictLiteral, DictEntry,
     Identifier, SegmentName, ModuleName,
@@ -29,14 +29,14 @@ from duan_ast import (
 )
 
 # 导入模块解析器
-from duan_module import ModuleResolver, ModuleError
+from light_module import ModuleResolver, ModuleError
 
 # =============================================================================
 # 运行时值类型
 # =============================================================================
 
-class DuanValue:
-    """段言运行时值的包装"""
+class LightValue:
+    """光明运行时值的包装"""
     
     def __init__(self, value: Any, type_name: str = None):
         self.value = value
@@ -55,7 +55,7 @@ class DuanValue:
             return '列'
         if isinstance(value, dict):
             return '典'
-        if isinstance(value, DuanFunction):
+        if isinstance(value, LightFunction):
             return '段'
         return type(value).__name__
     
@@ -89,8 +89,8 @@ class DuanValue:
         return str(self.value)
 
 
-class DuanFunction:
-    """段言段落（函数）的运行时表示"""
+class LightFunction:
+    """光明段落（函数）的运行时表示"""
     
     def __init__(self, definition: SegmentDefinition, closure: 'Environment'):
         self.definition = definition
@@ -101,7 +101,7 @@ class DuanFunction:
         return f"段({self.name})"
 
 
-class DuanBuiltinFunction:
+class LightBuiltinFunction:
     """内置函数的运行时表示"""
     
     def __init__(self, name: str, func: callable, min_args: int = 0, max_args: int = None):
@@ -114,8 +114,8 @@ class DuanBuiltinFunction:
         return f"内置({self.name})"
 
 
-class DuanClass:
-    """段言类的运行时表示"""
+class LightClass:
+    """光明类的运行时表示"""
     
     def __init__(self, definition, closure):
         self.definition = definition
@@ -129,14 +129,14 @@ class DuanClass:
         self.constructor = definition.constructor
     
     def new_instance(self, args=None):
-        return DuanInstance(self, args or [])
+        return LightInstance(self, args or [])
     
     def __repr__(self):
         return f"类({self.name})"
 
 
-class DuanInterface:
-    """段言接口的运行时表示"""
+class LightInterface:
+    """光明接口的运行时表示"""
     
     def __init__(self, definition):
         self.definition = definition
@@ -153,8 +153,8 @@ class DuanInterface:
         return f"接口({self.name})"
 
 
-class DuanInstance:
-    """段言类实例的运行时表示"""
+class LightInstance:
+    """光明类实例的运行时表示"""
     
     def __init__(self, cls, args):
         self.cls = cls
@@ -162,7 +162,7 @@ class DuanInstance:
         
         for field in cls.definition.fields:
             if isinstance(field, VariableDeclaration):
-                self.fields[field.name] = DuanValue(None, '空')
+                self.fields[field.name] = LightValue(None, '空')
         
         # 调用构造函数
         if cls.constructor:
@@ -183,17 +183,17 @@ class DuanInstance:
             if i < len(args):
                 call_env.define(name, args[i])
             else:
-                call_env.define(name, DuanValue(None, '空'))
+                call_env.define(name, LightValue(None, '空'))
         
         # 设置 self 引用
-        call_env.define('自我', DuanValue(self, '实例'))
+        call_env.define('自我', LightValue(self, '实例'))
         
         # 将实例字段添加到调用环境中
         for field_name, field_value in self.fields.items():
             call_env.define(field_name, field_value)
         
         # 执行构造函数体
-        from duan_interpreter import Interpreter
+        from light_interpreter import Interpreter
         interpreter = Interpreter()
         interpreter.env = call_env
         
@@ -223,7 +223,7 @@ class DuanInstance:
         return f"实例({self.cls.name})"
 
 
-class DuanBoundMethod:
+class LightBoundMethod:
     """绑定到实例的方法"""
     
     def __init__(self, instance, method):
@@ -245,8 +245,8 @@ class Signal(BaseException):
 
 class ReturnSignal(Signal):
     """返回信号"""
-    def __init__(self, value: DuanValue = None):
-        self.value = value or DuanValue(None)
+    def __init__(self, value: LightValue = None):
+        self.value = value or LightValue(None)
 
 
 class BreakSignal(Signal):
@@ -259,30 +259,30 @@ class ContinueSignal(Signal):
     pass
 
 
-class DuanError(Signal):
-    """段言运行时错误（对应 抛出/捕获）"""
-    def __init__(self, message: str, value: DuanValue = None):
+class LightError(Signal):
+    """光明运行时错误（对应 抛出/捕获）"""
+    def __init__(self, message: str, value: LightValue = None):
         self.message = message
-        self.value = value or DuanValue(message, '串')
+        self.value = value or LightValue(message, '串')
 
 
 class Environment:
     """变量环境（作用域链）"""
     
     def __init__(self, parent: Optional['Environment'] = None, name: str = "全局"):
-        self.variables: Dict[str, DuanValue] = {}
+        self.variables: Dict[str, LightValue] = {}
         self.parent = parent
         self.name = name
         # 优化：缓存变量查找结果
-        self._cache: Dict[str, DuanValue] = {}
+        self._cache: Dict[str, LightValue] = {}
     
-    def define(self, name: str, value: DuanValue):
+    def define(self, name: str, value: LightValue):
         """定义新变量（当前作用域）"""
         self.variables[name] = value
         # 更新缓存
         self._cache[name] = value
     
-    def get(self, name: str) -> DuanValue:
+    def get(self, name: str) -> LightValue:
         """获取变量值（沿作用域链查找）- 优化版"""
         # 优化：先检查缓存
         cache = self._cache
@@ -304,7 +304,7 @@ class Environment:
         
         raise NameError(f"未定义的变量: '{name}'")
     
-    def set(self, name: str, value: DuanValue):
+    def set(self, name: str, value: LightValue):
         """设置变量值（沿作用域链查找并修改）- 优化版"""
         if name in self.variables:
             self.variables[name] = value
@@ -342,7 +342,7 @@ class Environment:
 # =============================================================================
 
 class InterpreterCore:
-    """段言解释器核心 - 将 AST 解释执行为结果"""
+    """光明解释器核心 - 将 AST 解释执行为结果"""
 
     # 预编译运算符映射表（类级别常量，避免重复创建）
     _OP_PLUS = ('加', 'PLUS', '+')
@@ -373,7 +373,7 @@ class InterpreterCore:
         self._imported_modules: Set[str] = set()  # 已完全处理的模块（防循环）
         
         # 性能优化：缓存内置函数查找
-        self._builtin_cache: Dict[str, Optional[DuanValue]] = {}
+        self._builtin_cache: Dict[str, Optional[LightValue]] = {}
         self._fill_builtin_cache()
 
     def _fill_builtin_cache(self):
@@ -390,17 +390,17 @@ class InterpreterCore:
 
     # ----- 顶层接口 -----
     
-    def interpret(self, node: ASTNode) -> Optional[DuanValue]:
+    def interpret(self, node: ASTNode) -> Optional[LightValue]:
         """解释执行任意 AST 节点"""
         if isinstance(node, Module):
             return self._interpret_module(node)
         return self._execute(node)
     
-    def interpret_module(self, module: Module, module_name: str = None) -> Optional[DuanValue]:
+    def interpret_module(self, module: Module, module_name: str = None) -> Optional[LightValue]:
         """解释执行模块"""
         return self._interpret_module(module, module_name=module_name)
     
-    def _interpret_module(self, module: Module, module_name: str = None) -> Optional[DuanValue]:
+    def _interpret_module(self, module: Module, module_name: str = None) -> Optional[LightValue]:
         # 记录本模块为已处理（防止循环导入时重复执行）
         if module_name:
             self._imported_modules.add(module_name)
@@ -411,18 +411,18 @@ class InterpreterCore:
 
         # 再注册当前模块的所有段落定义
         for seg in module.segments:
-            func = DuanFunction(seg, self.env)
-            self.env.define(seg.name, DuanValue(func, '段'))
+            func = LightFunction(seg, self.env)
+            self.env.define(seg.name, LightValue(func, '段'))
 
         # 注册类定义
         for cls in module.classes:
-            class_obj = DuanClass(cls, self.env)
-            self.env.define(cls.name, DuanValue(class_obj, '类'))
+            class_obj = LightClass(cls, self.env)
+            self.env.define(cls.name, LightValue(class_obj, '类'))
 
         # 注册接口定义
         for iface in module.interfaces:
-            interface_obj = DuanInterface(iface)
-            self.env.define(iface.name, DuanValue(interface_obj, '接口'))
+            interface_obj = LightInterface(iface)
+            self.env.define(iface.name, LightValue(interface_obj, '接口'))
 
         # 然后顺序执行顶层语句
         result = None
@@ -475,7 +475,7 @@ class InterpreterCore:
         AwaitExpression: '_eval_await',
     }
 
-    def _eval(self, node: ASTNode) -> DuanValue:
+    def _eval(self, node: ASTNode) -> LightValue:
         """求值表达式 - 优化版使用字典分发"""
         node_type = type(node)
         method_name = self._EVAL_METHODS.get(node_type)
@@ -484,13 +484,13 @@ class InterpreterCore:
         
         # 兜底处理（使用 isinstance 作为备用）
         if isinstance(node, NumberLiteral):
-            return DuanValue(node.value, '数')
+            return LightValue(node.value, '数')
         if isinstance(node, StringLiteral):
-            return DuanValue(node.value, '串')
+            return LightValue(node.value, '串')
         if isinstance(node, BooleanLiteral):
-            return DuanValue(node.value, '布尔')
+            return LightValue(node.value, '布尔')
         if isinstance(node, NullLiteral):
-            return DuanValue(None, '空')
+            return LightValue(None, '空')
         if isinstance(node, Identifier):
             return self.env.get(node.name)
         if isinstance(node, StringInterpolation):
@@ -501,32 +501,32 @@ class InterpreterCore:
                 else:
                     val = self._eval(part)
                     parts.append(str(val.value))
-            return DuanValue(''.join(parts), '串')
+            return LightValue(''.join(parts), '串')
         
         raise RuntimeError(f"不支持的表达式类型: {type(node).__name__}")
     
     # 优化：独立的字面量求值方法（减少分支判断）
-    def _eval_number(self, node: NumberLiteral) -> DuanValue:
-        return DuanValue(node.value, '数')
+    def _eval_number(self, node: NumberLiteral) -> LightValue:
+        return LightValue(node.value, '数')
     
-    def _eval_string(self, node: StringLiteral) -> DuanValue:
-        return DuanValue(node.value, '串')
+    def _eval_string(self, node: StringLiteral) -> LightValue:
+        return LightValue(node.value, '串')
     
-    def _eval_boolean(self, node: BooleanLiteral) -> DuanValue:
-        return DuanValue(node.value, '布尔')
+    def _eval_boolean(self, node: BooleanLiteral) -> LightValue:
+        return LightValue(node.value, '布尔')
     
-    def _eval_null(self, node: NullLiteral) -> DuanValue:
-        return DuanValue(None, '空')
+    def _eval_null(self, node: NullLiteral) -> LightValue:
+        return LightValue(None, '空')
     
-    def _eval_identifier(self, node: Identifier) -> DuanValue:
+    def _eval_identifier(self, node: Identifier) -> LightValue:
         return self.env.get(node.name)
     
-    def _eval_list_literal(self, node: ListLiteral) -> DuanValue:
+    def _eval_list_literal(self, node: ListLiteral) -> LightValue:
         """求值列表字面量"""
         elements = [self._eval(e) for e in node.elements]
-        return DuanValue(elements, '列')
+        return LightValue(elements, '列')
     
-    def _eval_dict_literal(self, node: DictLiteral) -> DuanValue:
+    def _eval_dict_literal(self, node: DictLiteral) -> LightValue:
         """求值典字面量"""
         result = {}
         for entry in node.entries:
@@ -537,9 +537,9 @@ class InterpreterCore:
                 result[key_val.value] = val_val
             else:
                 raise RuntimeError(f"典键不支持类型: '{key_val.type_name}'")
-        return DuanValue(result, '典')
+        return LightValue(result, '典')
     
-    def _eval_index_access(self, node: IndexAccess) -> DuanValue:
+    def _eval_index_access(self, node: IndexAccess) -> LightValue:
         """求值索引访问：对象[索引]"""
         obj = self._eval(node.obj)
         idx = self._eval(node.index)
@@ -558,7 +558,7 @@ class InterpreterCore:
                 i = int(i)
             if i < 0 or i >= len(s):
                 raise RuntimeError(f"字符串索引越界: {i}, 长度: {len(s)}")
-            return DuanValue(s[i], '串')
+            return LightValue(s[i], '串')
         
         if obj.type_name == '列':
             lst = obj.value
@@ -571,31 +571,31 @@ class InterpreterCore:
         
         raise RuntimeError(f"不支持索引访问的类型: '{obj.type_name}'")
     
-    def _eval_property_access(self, node: PropertyAccess) -> DuanValue:
+    def _eval_property_access(self, node: PropertyAccess) -> LightValue:
         """求值属性访问：对象之属性"""
         obj = self._eval(node.obj)
         prop = node.property_name
         
         if obj.type_name == '典':
             if prop == '长度':
-                return DuanValue(len(obj.value), '数')
+                return LightValue(len(obj.value), '数')
             if prop == '键列':
-                return DuanValue([DuanValue(k, '串') if isinstance(k, str) else DuanValue(k) for k in obj.value.keys()], '列')
+                return LightValue([LightValue(k, '串') if isinstance(k, str) else LightValue(k) for k in obj.value.keys()], '列')
             if prop == '值列':
-                return DuanValue(list(obj.value.values()), '列')
+                return LightValue(list(obj.value.values()), '列')
         
         if obj.type_name == '列':
             if prop == '长度':
-                return DuanValue(len(obj.value), '数')
+                return LightValue(len(obj.value), '数')
         
         if obj.type_name == '串':
             if prop == '长度':
-                return DuanValue(len(obj.value), '数')
+                return LightValue(len(obj.value), '数')
         
         # 对象实例的属性访问
         if obj.type_name == '实例':
             instance = obj.value
-            if isinstance(instance, DuanInstance):
+            if isinstance(instance, LightInstance):
                 # 先检查字段
                 try:
                     return instance.get_field(prop)
@@ -605,7 +605,7 @@ class InterpreterCore:
                 method = instance.get_method(prop)
                 if method is not None:
                     # 返回一个包装的方法对象，供后续调用
-                    return DuanValue(DuanBoundMethod(instance, method), '方法')
+                    return LightValue(LightBoundMethod(instance, method), '方法')
         
         # 字典/数据类型的属性访问
         if isinstance(obj.value, dict):
@@ -614,7 +614,7 @@ class InterpreterCore:
         
         raise RuntimeError(f"'{obj.type_name}' 没有属性 '{prop}'")
     
-    def _eval_function_call(self, node: FunctionCall) -> DuanValue:
+    def _eval_function_call(self, node: FunctionCall) -> LightValue:
         """求值函数/段落调用 - 优化版"""
         # 获取函数名
         if isinstance(node.name, PropertyAccess):
@@ -626,11 +626,11 @@ class InterpreterCore:
             # 如果是绑定方法，直接调用
             if func_val.type_name == '方法':
                 bound_method = func_val.value
-                if isinstance(bound_method, DuanBoundMethod):
+                if isinstance(bound_method, LightBoundMethod):
                     return self._call_method(bound_method, args)
             
             # 否则当作普通函数调用
-            if isinstance(func_val.value, DuanFunction):
+            if isinstance(func_val.value, LightFunction):
                 return self._call_function(func_val.value, args)
             
             raise RuntimeError(f"'{func_val.type_name}' 不是可调用的")
@@ -649,7 +649,7 @@ class InterpreterCore:
         cached = self._builtin_cache.get(func_name)
         if cached is not None:
             func_val = cached
-            if isinstance(func_val.value, DuanBuiltinFunction):
+            if isinstance(func_val.value, LightBuiltinFunction):
                 builtin = func_val.value
                 if len(args) < builtin.min_args:
                     raise RuntimeError(f"内置函数 '{func_name}' 需要至少 {builtin.min_args} 个参数")
@@ -661,7 +661,7 @@ class InterpreterCore:
         func_val = self.env.get(func_name)
         
         # 内置函数
-        if isinstance(func_val.value, DuanBuiltinFunction):
+        if isinstance(func_val.value, LightBuiltinFunction):
             builtin = func_val.value
             if len(args) < builtin.min_args:
                 raise RuntimeError(f"内置函数 '{func_name}' 需要至少 {builtin.min_args} 个参数")
@@ -672,19 +672,19 @@ class InterpreterCore:
         # 绑定方法调用
         if func_val.type_name == '方法':
             bound_method = func_val.value
-            if isinstance(bound_method, DuanBoundMethod):
+            if isinstance(bound_method, LightBoundMethod):
                 return self._call_method(bound_method, args)
         
         if func_val.type_name != '段':
             raise RuntimeError(f"'{func_name}' 不是段落 (类型: {func_val.type_name})")
         
         func = func_val.value
-        if not isinstance(func, DuanFunction):
+        if not isinstance(func, LightFunction):
             raise RuntimeError(f"'{func_name}' 不是可调用的段落")
         
         return self._call_function(func, args)
     
-    def _eval_new_expression(self, node: NewExpression) -> DuanValue:
+    def _eval_new_expression(self, node: NewExpression) -> LightValue:
         """求值类实例化表达式（新类名()）"""
         class_name = node.class_name
         
@@ -694,7 +694,7 @@ class InterpreterCore:
             raise RuntimeError(f"'{class_name}' 不是类（类型: {class_val.type_name}）")
         
         cls = class_val.value
-        if not isinstance(cls, DuanClass):
+        if not isinstance(cls, LightClass):
             raise RuntimeError(f"'{class_name}' 不是有效的类定义")
         
         # 求值构造函数参数
@@ -702,13 +702,13 @@ class InterpreterCore:
         
         # 创建实例
         instance = cls.new_instance(args)
-        return DuanValue(instance, '实例')
+        return LightValue(instance, '实例')
 
-    def _eval_self_reference(self, node: SelfReference) -> DuanValue:
+    def _eval_self_reference(self, node: SelfReference) -> LightValue:
         """求值 self 引用（己）"""
         return self.env.get('自我')
 
-    def _eval_await(self, node: AwaitExpression) -> DuanValue:
+    def _eval_await(self, node: AwaitExpression) -> LightValue:
         """求值等待表达式
 
         在同步解释器中，直接求值内部表达式。
@@ -721,14 +721,14 @@ class InterpreterCore:
                 import asyncio
                 loop = asyncio.new_event_loop()
                 try:
-                    result = DuanValue(loop.run_until_complete(result.value), '数')
+                    result = LightValue(loop.run_until_complete(result.value), '数')
                 finally:
                     loop.close()
             except (ImportError, RuntimeError, TypeError):
                 pass  # 同步模式下直接返回
         return result
 
-    def _call_method(self, bound_method: DuanBoundMethod, args: List[DuanValue]) -> DuanValue:
+    def _call_method(self, bound_method: LightBoundMethod, args: List[LightValue]) -> LightValue:
         """调用绑定到实例的方法"""
         method = bound_method.method
         instance = bound_method.instance
@@ -742,10 +742,10 @@ class InterpreterCore:
             if i < len(args):
                 call_env.define(name, args[i])
             else:
-                call_env.define(name, DuanValue(None, '空'))
+                call_env.define(name, LightValue(None, '空'))
         
         # 设置 self 引用
-        call_env.define('自我', DuanValue(instance, '实例'))
+        call_env.define('自我', LightValue(instance, '实例'))
         
         # 将实例字段添加到调用环境中
         for field_name, field_value in instance.fields.items():
@@ -755,7 +755,7 @@ class InterpreterCore:
         old_env = self.env
         self.env = call_env
         try:
-            result = DuanValue(None, '空')
+            result = LightValue(None, '空')
             for stmt in method.body:
                 try:
                     self._execute(stmt)
@@ -772,7 +772,7 @@ class InterpreterCore:
             self._run_defer_stack()
             self.env = old_env
     
-    def _call_function(self, func: DuanFunction, args: List[DuanValue]) -> DuanValue:
+    def _call_function(self, func: LightFunction, args: List[LightValue]) -> LightValue:
         """调用段落函数 - 优化版"""
         seg = func.definition
         
@@ -801,18 +801,18 @@ class InterpreterCore:
                     finally:
                         self.env = old_env
                 else:
-                    call_env.define(name, DuanValue(None, '空'))
+                    call_env.define(name, LightValue(None, '空'))
         
         # 执行段落体 - 优化：减少 try-finally 开销
         old_env = self.env
         self.env = call_env
         try:
-            result = DuanValue(None, '空')
+            result = LightValue(None, '空')
             for stmt in seg_body:
                 try:
                     self._execute(stmt)
                 except ReturnSignal as rs:
-                    result = rs.value or DuanValue(None, '空')
+                    result = rs.value or LightValue(None, '空')
                     break
             return result
         finally:
@@ -820,16 +820,16 @@ class InterpreterCore:
             self._run_defer_stack()
             self.env = old_env
 
-    def call_function(self, func_val: DuanValue, args: List[DuanValue]) -> Optional[DuanValue]:
+    def call_function(self, func_val: LightValue, args: List[LightValue]) -> Optional[LightValue]:
         """公共接口：调用函数值 - 用于自举测试"""
-        if isinstance(func_val.value, DuanFunction):
+        if isinstance(func_val.value, LightFunction):
             return self._call_function(func_val.value, args)
-        elif isinstance(func_val.value, DuanBuiltinFunction):
+        elif isinstance(func_val.value, LightBuiltinFunction):
             return func_val.value.func(args)
         else:
             raise RuntimeError(f"无法调用非函数类型: {func_val.type_name}")
     
-    def _eval_pipe(self, node: PipeExpression) -> DuanValue:
+    def _eval_pipe(self, node: PipeExpression) -> LightValue:
         """求值管道表达式"""
         current = self._eval(node.expressions[0])
         for i in range(1, len(node.expressions)):
@@ -859,7 +859,7 @@ class InterpreterCore:
         if isinstance(node, ContinueStatement):
             raise ContinueSignal()
         if isinstance(node, ReturnStatement):
-            val = self._eval(node.value) if node.value else DuanValue(None, '空')
+            val = self._eval(node.value) if node.value else LightValue(None, '空')
             raise ReturnSignal(val)
         if isinstance(node, ExpressionStatement):
             return self._eval(node.expression)
@@ -867,7 +867,7 @@ class InterpreterCore:
             return self._exec_try(node)
         if isinstance(node, ThrowStatement):
             val = self._eval(node.value)
-            raise DuanError(str(val), val)
+            raise LightError(str(val), val)
         if isinstance(node, ImportStatement):
             return self._exec_import(node)
         if isinstance(node, ExportStatement):
@@ -883,7 +883,7 @@ class InterpreterCore:
     
     def _exec_var_decl(self, node: VariableDeclaration):
         """执行变量声明"""
-        value = DuanValue(None, '空')
+        value = LightValue(None, '空')
         if node.value is not None:
             value = self._eval(node.value)
         self.env.define(node.name, value)
@@ -904,7 +904,7 @@ class InterpreterCore:
             # 对象实例的字段赋值
             if obj.type_name == '实例':
                 instance = obj.value
-                if isinstance(instance, DuanInstance):
+                if isinstance(instance, LightInstance):
                     instance.set_field(target.property_name, value)
                     return
             
@@ -970,7 +970,7 @@ class InterpreterCore:
         else:
             result_type = new_val.type_name
         
-        self.env.set(node.target, DuanValue(result, result_type))
+        self.env.set(node.target, LightValue(result, result_type))
     
     def _exec_if(self, node: IfStatement):
         """执行条件语句"""
@@ -1009,7 +1009,7 @@ class InterpreterCore:
         if iterable.type_name == '列':
             items = iterable.value
         elif iterable.type_name == '典':
-            items = [DuanValue(k, '串') if isinstance(k, str) else DuanValue(k) for k in iterable.value.keys()]
+            items = [LightValue(k, '串') if isinstance(k, str) else LightValue(k) for k in iterable.value.keys()]
         else:
             raise RuntimeError(f"遍历目标必须是列表或典，实际类型: '{iterable.type_name}'")
         for item in items:
@@ -1033,7 +1033,7 @@ class InterpreterCore:
         """执行异常捕获"""
         try:
             self._execute_block(node.try_body)
-        except DuanError as e:
+        except LightError as e:
             catch_var = node.catch_var
             self.env.define(catch_var, e.value)
             self._execute_block(node.catch_body)
@@ -1068,7 +1068,7 @@ class InterpreterCore:
         """
         tasks = node.tasks
         if not tasks:
-            return DuanValue(None, '空')
+            return LightValue(None, '空')
 
         try:
             import asyncio
@@ -1094,7 +1094,7 @@ class InterpreterCore:
             for task_stmt in tasks:
                 self._execute(task_stmt)
 
-        return DuanValue(None, '空')
+        return LightValue(None, '空')
 
     def _exec_import(self, node: ImportStatement):
         """执行导入语句"""
@@ -1135,14 +1135,14 @@ class InterpreterCore:
             # 将被导入模块的所有段落和类注册到全局环境（确保内部交叉调用可用）
             for seg in module_ast.segments:
                 if not self.env.has(seg.name):
-                    func = DuanFunction(seg, self.global_env)
-                    self.env.define(seg.name, DuanValue(func, '段'))
+                    func = LightFunction(seg, self.global_env)
+                    self.env.define(seg.name, LightValue(func, '段'))
             
             # 注册类定义
             for cls in module_ast.classes:
                 if not self.env.has(cls.name):
-                    class_obj = DuanClass(cls, self.global_env)
-                    self.env.define(cls.name, DuanValue(class_obj, '类'))
+                    class_obj = LightClass(cls, self.global_env)
+                    self.env.define(cls.name, LightValue(class_obj, '类'))
 
             # 执行被导入模块的顶层语句
             old_env = self.env
@@ -1181,11 +1181,11 @@ class InterpreterCore:
                 if not self.env.has(name):
                     symbol_type, symbol_def = symbols_map[name]
                     if symbol_type == 'segment':
-                        func = DuanFunction(symbol_def, self.global_env)
-                        self.env.define(name, DuanValue(func, '段'))
+                        func = LightFunction(symbol_def, self.global_env)
+                        self.env.define(name, LightValue(func, '段'))
                     elif symbol_type == 'class':
-                        class_obj = DuanClass(symbol_def, self.global_env)
-                        self.env.define(name, DuanValue(class_obj, '类'))
+                        class_obj = LightClass(symbol_def, self.global_env)
+                        self.env.define(name, LightValue(class_obj, '类'))
 
     def _execute_block(self, statements: List[ASTNode]):
         """执行语句块"""
@@ -1194,7 +1194,7 @@ class InterpreterCore:
     
     # ----- 辅助方法 -----
     
-    def _to_number(self, val: DuanValue) -> Union[int, float]:
+    def _to_number(self, val: LightValue) -> Union[int, float]:
         """转换为数字 - 优化版"""
         # 优化：直接访问 value 属性减少开销
         v = val.value
@@ -1217,7 +1217,7 @@ class InterpreterCore:
                 raise RuntimeError(f"无法转换为数字: '{v}'")
         raise RuntimeError(f"无法转换为数字: 类型 '{type_name}'")
     
-    def _equals(self, a: DuanValue, b: DuanValue) -> bool:
+    def _equals(self, a: LightValue, b: LightValue) -> bool:
         """比较两个值是否相等 - 优化版"""
         # 优化：直接访问 type_name 减少属性查找
         a_type = a.type_name

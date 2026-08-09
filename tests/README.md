@@ -1,8 +1,8 @@
-# 段言编译器测试套件
+# 光明编译器测试套件
 
 ## 测试概览
 
-段言编译器 v0.7.0 包含完整的测试套件，覆盖词法分析、语法解析、语义分析、代码生成和高级语义等所有核心模块。
+光明编译器 v0.7.0 包含完整的测试套件，覆盖词法分析、语法解析、语义分析、代码生成和高级语义等所有核心模块。
 
 ## 测试结果
 
@@ -24,7 +24,7 @@
 ## 测试文件结构
 
 ```
-duan/tests/
+light/tests/
 ├── conftest.py              # pytest 配置和 fixtures
 ├── test_lexer.py            # 词法分析器测试
 ├── test_parser.py           # 语法解析器测试
@@ -151,7 +151,7 @@ duan/tests/
 ### 快速验证（推荐）
 
 ```bash
-cd G:\dumategithub\duan
+cd G:\dumategithub\light
 python tests/verify.py
 ```
 
@@ -172,7 +172,7 @@ python tests/run_tests.py
 | 模块 | 文件 | 测试文件 | 
 |------|------|---------|
 | 词法分析器 | lexer.py | test_lexer.py |
-| 语法解析器 | duan_parser_v3.py | test_parser.py |
+| 语法解析器 | light_parser_v3.py | test_parser.py |
 | 语义分析器 | semantic_analyzer.py | test_semantic.py |
 | 代码生成器 | code_generator.py | test_codegen.py |
 | 高级语义 | verb_info.py + arity_parser.py + semantic_identifier.py | test_advanced_semantic.py |
@@ -180,7 +180,7 @@ python tests/run_tests.py
 | 边界测试 | lexer + parser + code_generator | test_edge_cases.py |
 | 模块系统 | module_resolver.py + stdlib | test_module_system.py |
 | 执行器 | repl/executor.py | test_executor.py |
-| 异常处理 | duan_parser_v3.py | test_exception.py |
+| 异常处理 | light_parser_v3.py | test_exception.py |
 | **总计** | **10+ 核心模块** | **18 个测试文件（218 项用例）** |
 
 ## 测试覆盖的核心特性
@@ -206,7 +206,7 @@ python tests/run_tests.py
 ### 示例 1：无空格分词
 
 **输入：**
-```段言
+```光明
 甲加1。
 ```
 
@@ -220,7 +220,7 @@ python tests/run_tests.py
 ### 示例 2：完整编译流程
 
 **输入：**
-```段言
+```光明
 定义甲等于三加五。
 ```
 
@@ -235,7 +235,7 @@ python tests/run_tests.py
 ### 示例 3：函数编译
 
 **输入：**
-```段言
+```光明
 《加法》段(甲, 乙)：返回甲加乙。
 ```
 
@@ -275,7 +275,7 @@ def 加法(甲, 乙):
 ## 测试文件清单
 
 ```
-G:\dumategithub\duan\tests\
+G:\dumategithub\light\tests\
 ├── conftest.py
 ├── test_lexer.py
 ├── test_parser.py

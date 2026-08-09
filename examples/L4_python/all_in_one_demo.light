@@ -1,0 +1,93 @@
+# 文体: 文言
+# 光明 v4.0 L4 统一演示：5个第三方包同时调用
+# 1.numpy求均值 2.pandas读CSV 3.matplotlib画图 4.requests HTTP 5.sklearn鸢尾花
+
+引 Python:
+    import numpy as np
+    import pandas as pd
+    import os
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    from sklearn.datasets import load_iris
+    from sklearn.neighbors import KNeighborsClassifier
+    from sklearn.metrics import accuracy_score
+
+    # 1. numpy 均值
+    def l4_numpy_mean(arr):
+        return float(np.mean(np.array(arr, dtype=float)))
+
+    # 2. pandas 建+读CSV
+    def l4_create_and_read_csv():
+        p = "tmp_allinone_students.csv"
+        df = pd.DataFrame({'姓名': ['张三','李四','王五'], '年龄': [22,25,31], '分数': [88.5,92.0,76.3]})
+        df.to_csv(p, index=False, encoding='utf-8-sig')
+        df2 = pd.read_csv(p, encoding='utf-8-sig')
+        try: os.remove(p)
+        except: pass
+        return df2.to_dict(orient='records')
+
+    # 3. matplotlib 折线图
+    def l4_demo_plot(out_png):
+        fig, ax = plt.subplots(figsize=(7,4))
+        ax.plot([1,2,3,4,5], [2,5,3,8,7], marker='o', color='#27ae60')
+        ax.set_title("Light v4.0 L4 Demo plot", fontsize=13)
+        ax.grid(alpha=0.3); fig.tight_layout()
+        fig.savefig(out_png, dpi=100); plt.close(fig)
+        return out_png
+
+    # 4. requests HTTP
+    def l4_demo_http():
+        try:
+            import requests
+            r = requests.get("https://httpbin.org/get?from=light_v4", timeout=6)
+            return r.status_code, r.text[:120]
+        except Exception as e:
+            return 0, str(e)[:120]
+
+    # 5. sklearn iris
+    _IRIS = None
+    def _ensure_iris():
+        global _IRIS
+        if _IRIS is None:
+            iris = load_iris()
+            clf = KNeighborsClassifier(3); clf.fit(iris.data, iris.target)
+            _IRIS = (clf, iris.target_names, iris)
+        return _IRIS
+    def l4_iris_demo():
+        clf, names, iris = _ensure_iris()
+        acc = float(accuracy_score(iris.target, clf.predict(iris.data)))
+        idx = int(clf.predict([[5.1, 3.5, 1.4, 0.2]])[0])
+        return acc, names[idx]
+结束引
+
+段 分隔线(标题):
+    打印 ""
+    打印 "=============== ", 标题, " ==============="
+
+段 主():
+    分隔线("1/5 numpy 求均值")
+    打印 l4_numpy_mean([12,25,30,43,52,67,78,89])
+
+    分隔线("2/5 pandas 读 CSV")
+    设 行 = l4_create_and_read_csv()
+    遍 行为 r: 打印 "  ", r
+
+    分隔线("3/5 matplotlib 画图")
+    打印 l4_demo_plot("tmp_allinone_plot.png")
+
+    分隔线("4/5 requests 抓 HTTP")
+    设 h = l4_demo_http()
+    若 h[0]>0: 打印 "状态=", h[0], "  片段=", h[1]
+    否: 打印 "未联网（跳过）: ", h[1]
+
+    分隔线("5/5 sklearn 鸢尾花")
+    设 结果 = l4_iris_demo()
+    打印 "KNN 训练准确率: ", 结果[0]
+    打印 "花(5.1,3.5,1.4,0.2) 预测: ", 结果[1]
+
+    分隔线("全部完成")
+    打印 "光明 v4.0 L4 (引 Python:) 5 大演示结束。"
+    打印 "提示: 安装依赖 → pip install numpy pandas matplotlib requests scikit-learn"
+
+主()

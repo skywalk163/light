@@ -1,9 +1,9 @@
-# Duan Level 5 语法规范
+# Light Level 5 语法规范
 
 **版本**: v5.0
 **日期**: 2026-07-01
 **状态**: 已实现（异常处理 + 模块系统）
-**基于**: Duan Level 4（完整面向对象支持）
+**基于**: Light Level 4（完整面向对象支持）
 
 ---
 
@@ -120,14 +120,14 @@
 
 ### 5.2 模块系统
 
-math_utils.duan:
+math_utils.light:
 ```
 段 加法 导出 接收 a, b：
     返回 a 加 b
 结束。
 ```
 
-main.duan:
+main.light:
 ```
 导入 math_utils
 设 r 为 加法(3, 4)

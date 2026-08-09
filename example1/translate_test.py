@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-段言翻译器测试 - 经典 Python 代码翻译
-使用 ollama duan-translator-v5 模型
+光明翻译器测试 - 经典 Python 代码翻译
+使用 ollama light-translator-v5 模型
 """
 import json
 import subprocess
@@ -10,9 +10,9 @@ import time
 
 # 读取与 local_infer.py 一致的 SYSTEM_PROMPT
 SYSTEM_PROMPT = (
-    "你是段言（DuanLang）编程语言 v3.2 的翻译专家。"
-    "段言是一种中文编程语言，使用中文关键字。"
-    "你的任务是将 Python 代码翻译为段言 v3.2 代码。\n"
+    "你是光明（LightLang）编程语言 v3.2 的翻译专家。"
+    "光明是一种中文编程语言，使用中文关键字。"
+    "你的任务是将 Python 代码翻译为光明 v3.2 代码。\n"
     "关键规则：\n"
     "- 变量赋值: 设 x 为 10\n"
     "- 字符串赋值: 定义 s 等于 \"hello\"\n"
@@ -62,10 +62,10 @@ SYSTEM_PROMPT = (
     "- break/continue: break -> 跳出; continue -> 跳过; 不可混用 返回 替代 break\n"
     "- 多返回值: return a, b 保持原样; x, y = func() 分别赋值\n"
     "- 异常类型: 捕获具体异常类型，如 捕获 ZeroDivisionError 为 e\n"
-    "只输出段言代码，不要解释。"
+    "只输出光明代码，不要解释。"
 )
 
-MODEL = "duan-translator-v5"
+MODEL = "light-translator-v5"
 
 # 经典 Python 测试用例 - 覆盖各类语法
 TEST_CASES = [
@@ -331,14 +331,14 @@ def call_ollama(model, prompt, system):
         return f"[ERROR] {e}"
 
 
-def evaluate(test_case, duan_output):
+def evaluate(test_case, light_output):
     """Evaluate translation quality"""
     issues = []
     passed_checks = []
     
     # Check expected keywords
     for kw in test_case.get('expected_keywords', []):
-        if kw in duan_output:
+        if kw in light_output:
             passed_checks.append(f"keyword '{kw}' present")
         else:
             issues.append(f"MISSING keyword: '{kw}'")
@@ -350,94 +350,94 @@ def evaluate(test_case, duan_output):
             # Simple heuristic: check if common Chinese variable patterns exist
             pass  # Hard to auto-check, skip
         elif "elif -> 否则若" in rule:
-            if "否则如果" in duan_output:
+            if "否则如果" in light_output:
                 issues.append("FOUND 否则如果 instead of 否则若")
-            elif "否则若" in duan_output or "否则" in duan_output:
+            elif "否则若" in light_output or "否则" in light_output:
                 passed_checks.append("elif correctly translated")
         elif "** -> 幂" in rule:
-            if "次方" in duan_output:
+            if "次方" in light_output:
                 issues.append("FOUND 次方 instead of 幂")
-            elif "幂" in duan_output:
+            elif "幂" in light_output:
                 passed_checks.append("** correctly translated to 幂")
         elif "% -> 取余" in rule:
-            if "模" in duan_output and "取余" not in duan_output:
+            if "模" in light_output and "取余" not in light_output:
                 issues.append("FOUND 模 instead of 取余")
-            elif "取余" in duan_output:
+            elif "取余" in light_output:
                 passed_checks.append("% correctly translated")
         elif "// -> 除以" in rule:
-            if "除以" in duan_output:
+            if "除以" in light_output:
                 passed_checks.append("// correctly translated")
             else:
                 issues.append("MISSING 除以 for // operator")
         elif "负数保持原样" in rule:
-            if "返回 减 1" in duan_output or "返回 - 1" in duan_output:
+            if "返回 减 1" in light_output or "返回 - 1" in light_output:
                 issues.append("Negative number incorrectly translated")
-            elif "返回 -1" in duan_output:
+            elif "返回 -1" in light_output:
                 passed_checks.append("Negative number preserved")
         elif "break -> 跳出" in rule:
-            if "跳出" in duan_output:
+            if "跳出" in light_output:
                 passed_checks.append("break correctly translated")
             else:
                 issues.append("MISSING 跳出 for break")
         elif "continue -> 跳过" in rule:
-            if "跳过" in duan_output:
+            if "跳过" in light_output:
                 passed_checks.append("continue correctly translated")
             else:
                 issues.append("MISSING 跳过 for continue")
         elif "self -> 己" in rule:
-            if "己." in duan_output:
+            if "己." in light_output:
                 passed_checks.append("self correctly translated")
             else:
                 issues.append("MISSING 己. for self")
         elif "try -> 尝试" in rule:
-            if "尝试" in duan_output:
+            if "尝试" in light_output:
                 passed_checks.append("try correctly translated")
             else:
                 issues.append("MISSING 尝试 for try")
         elif "except -> 捕获" in rule:
-            if "捕获" in duan_output:
+            if "捕获" in light_output:
                 passed_checks.append("except correctly translated")
             else:
                 issues.append("MISSING 捕获 for except")
         elif "finally -> 最终" in rule:
-            if "最终" in duan_output:
+            if "最终" in light_output:
                 passed_checks.append("finally correctly translated")
             else:
                 issues.append("MISSING 最终 for finally")
         elif "raise -> 抛出" in rule:
-            if "抛出" in duan_output:
+            if "抛出" in light_output:
                 passed_checks.append("raise correctly translated")
             else:
                 issues.append("MISSING 抛出 for raise")
         elif "with -> 使用" in rule:
-            if "使用" in duan_output:
+            if "使用" in light_output:
                 passed_checks.append("with correctly translated")
             else:
                 issues.append("MISSING 使用 for with")
     
     # Check for common errors
-    if "否则如果" in duan_output:
+    if "否则如果" in light_output:
         issues.append("ERROR: 否则如果 should be 否则若")
-    if "次方" in duan_output:
+    if "次方" in light_output:
         issues.append("ERROR: 次方 should be 幂")
-    if "整除" in duan_output:
+    if "整除" in light_output:
         issues.append("ERROR: 整除 is not a valid keyword")
-    if "范围(" in duan_output:
+    if "范围(" in light_output:
         issues.append("ERROR: 范围( should be range(")
-    if "长度(" in duan_output:
+    if "长度(" in light_output:
         issues.append("ERROR: 长度( should be len(")
-    if "返回 减" in duan_output:
+    if "返回 减" in light_output:
         issues.append("ERROR: 返回 减 should be 返回 -")
-    if "返回 0" in duan_output and "返回 0.5" not in duan_output:
+    if "返回 0" in light_output and "返回 0.5" not in light_output:
         pass  # This is fine, 0 is not a negative
-    if "self" in duan_output:
+    if "self" in light_output:
         issues.append("WARNING: self found in output, should be 己")
     
     # Check variable name preservation (basic heuristic)
     import re
     # Look for Chinese chars that are NOT known keywords
     # This is a simplified check
-    chinese_runs = re.findall(r'[\u4e00-\u9fff]+', duan_output)
+    chinese_runs = re.findall(r'[\u4e00-\u9fff]+', light_output)
     # Known safe keywords
     safe = {"段落", "接收", "返回", "如果", "否则", "否则若", "若", "则",
             "遍历", "当", "跳出", "跳过", "设", "为", "定义", "等于",
@@ -486,7 +486,7 @@ def evaluate(test_case, duan_output):
 
 
 def main():
-    print(f"段言翻译器测试 - {MODEL}")
+    print(f"光明翻译器测试 - {MODEL}")
     print(f"测试用例数: {len(TEST_CASES)}")
     print(f"时间: {time.strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 80)
@@ -497,15 +497,15 @@ def main():
         print(f"\n[{i+1}/{len(TEST_CASES)}] {tc['id']} - {tc['category']}")
         print(f"Python:\n{tc['python']}")
         
-        prompt = f"用段言v3.2语法重写以下Python代码。\n{tc['python']}"
+        prompt = f"用光明v3.2语法重写以下Python代码。\n{tc['python']}"
         
         start_time = time.time()
-        duan_output = call_ollama(MODEL, prompt, SYSTEM_PROMPT)
+        light_output = call_ollama(MODEL, prompt, SYSTEM_PROMPT)
         elapsed = time.time() - start_time
         
-        print(f"段言:\n{duan_output}")
+        print(f"光明:\n{light_output}")
         
-        eval_result = evaluate(tc, duan_output)
+        eval_result = evaluate(tc, light_output)
         eval_result["elapsed"] = round(elapsed, 1)
         
         print(f"评估: {eval_result['verdict']} ({eval_result['elapsed']}s)")
@@ -518,7 +518,7 @@ def main():
             "id": tc["id"],
             "category": tc["category"],
             "python": tc["python"],
-            "duan": duan_output,
+            "light": light_output,
             "verdict": eval_result["verdict"],
             "issues": eval_result["issues"],
             "passed_checks": eval_result["passed_checks"],
@@ -575,7 +575,7 @@ def main():
     
     # Save markdown report
     with open(os.path.join(output_dir, "翻译对照表.md"), "w", encoding="utf-8") as f:
-        f.write("# 段言翻译器测试 - 翻译对照表\n\n")
+        f.write("# 光明翻译器测试 - 翻译对照表\n\n")
         f.write(f"**模型**: {MODEL}\n")
         f.write(f"**时间**: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"**测试用例**: {total}\n\n")
@@ -583,7 +583,7 @@ def main():
         for r in results:
             f.write(f"## {r['id']} - {r['category']} [{r['verdict']}]\n\n")
             f.write(f"**Python:**\n```python\n{r['python']}\n```\n\n")
-            f.write(f"**段言:**\n```\n{r['duan']}\n```\n\n")
+            f.write(f"**光明:**\n```\n{r['light']}\n```\n\n")
             if r["issues"]:
                 f.write(f"**问题:**\n")
                 for iss in r["issues"]:

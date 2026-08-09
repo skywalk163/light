@@ -2,15 +2,15 @@ import sys
 sys.path.insert(0, 'src')
 sys.path.insert(0, 'cli')
 from lexer import Lexer
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from semantic_analyzer import SemanticAnalyzer
 from code_generator import PythonCodeGenerator
-with open('bootstrap/lexer.duan', 'r', encoding='utf-8') as f:
+with open('bootstrap/lexer.light', 'r', encoding='utf-8') as f:
     source = f.read()
 lexer = Lexer()
 tokens = lexer.tokenize(source)
 print(f'Tokens: {len(tokens)}')
-parser = DuanParser()
+parser = LightParser()
 module = parser.parse(source)
 print(f'Statements: {len(module.statements)}')
 analyzer = SemanticAnalyzer()
@@ -30,7 +30,7 @@ if success:
 else:
     print('FAILED')
 
-# Add token.duan functions
+# Add token.light functions
 analyzer.symbol_table.define('创建令牌','paragraph','未知')
 analyzer.symbol_table.define('令牌种别集','paragraph','未知')
 analyzer.symbol_table.define('是关键字','paragraph','未知')

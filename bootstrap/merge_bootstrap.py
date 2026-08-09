@@ -1,11 +1,11 @@
-"""重新合并 bootstrap_v3.duan"""
+"""重新合并 bootstrap_v3.light"""
 import os
 
 bootstrap_dir = os.path.dirname(os.path.abspath(__file__))
 
-modules = ['token.duan', 'duan_ast.duan', 'lexer.duan', 'parser.duan', 'codegen.duan', 'compiler.duan', 'main.duan']
+modules = ['token.light', 'light_ast.light', 'lexer.light', 'parser.light', 'codegen.light', 'compiler.light', 'main.light']
 
-output = """# bootstrap_v3.duan - v3.2 自举编译器（合并版）
+output = """# bootstrap_v3.light - v3.2 自举编译器（合并版）
 # 由 merge_bootstrap.py 自动生成
 
 """
@@ -30,7 +30,7 @@ for module in modules:
     output += '\n'.join(filtered)
     output += '\n'
 
-out_path = os.path.join(bootstrap_dir, 'bootstrap_v3.duan')
+out_path = os.path.join(bootstrap_dir, 'bootstrap_v3.light')
 with open(out_path, 'w', encoding='utf-8') as f:
     f.write(output)
 

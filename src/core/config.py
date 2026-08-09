@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编译器配置管理
+光明（Light）编译器配置管理
 """
 
 from dataclasses import dataclass, field
@@ -38,8 +38,8 @@ class SegmentTypeMode(Enum):
 
 
 @dataclass
-class DuanConfig:
-    """段言编译器配置"""
+class LightConfig:
+    """光明编译器配置"""
     
     # 语言选项
     language: str = 'zh'  # 默认中文
@@ -81,7 +81,7 @@ class DuanConfig:
     type_inference_mode: str = '渐进'  # 渐进 / 全局 / 禁用
     
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> 'DuanConfig':
+    def from_dict(cls, config_dict: Dict[str, Any]) -> 'LightConfig':
         """从字典创建配置"""
         config = cls()
         
@@ -138,15 +138,15 @@ class DuanConfig:
 
 
 # 全局默认配置
-DEFAULT_CONFIG = DuanConfig()
+DEFAULT_CONFIG = LightConfig()
 
 
-def get_default_config() -> DuanConfig:
+def get_default_config() -> LightConfig:
     """获取默认配置"""
     return DEFAULT_CONFIG
 
 
-def set_default_config(config: DuanConfig):
+def set_default_config(config: LightConfig):
     """设置默认配置"""
     global DEFAULT_CONFIG
     DEFAULT_CONFIG = config

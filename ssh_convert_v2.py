@@ -6,8 +6,8 @@ client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 client.connect(SSH_HOST, username=SSH_USER_TRAE, password=SSH_PASS_TRAE, timeout=30)
 
 MODEL_DIR = '/home/skywalk/Downloads/kaggle/working/output_v2/v1-20260731-092537/checkpoint-192-merged'
-OUTPUT_DIR = '/home/trae/duan_model_v2'
-OUTPUT_GGUF = '/home/trae/duan_translator_v2_fp16.gguf'
+OUTPUT_DIR = '/home/trae/light_model_v2'
+OUTPUT_GGUF = '/home/trae/light_translator_v2_fp16.gguf'
 LLAMA_DIR = '/home/trae/llama.cpp'
 
 cmds = [

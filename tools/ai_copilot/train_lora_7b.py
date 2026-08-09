@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言翻译器 — 多模型 LoRA/QLoRA 一键微调脚本
+光明翻译器 — 多模型 LoRA/QLoRA 一键微调脚本
 
 使用 LLaMA-Factory 框架对多种模型进行 LoRA/QLoRA 微调，
-使其学会将 Python 代码翻译为段言 v3.2 代码。
+使其学会将 Python 代码翻译为光明 v3.2 代码。
 
 支持模型（通过 --model-preset 选择）：
   qwen3-8b   — Qwen3-8B-Instruct（7-8B 级中文代码最强，生产用）
@@ -19,7 +19,7 @@
 完整流程：
   1. 环境检查（PyTorch / CUDA / LLaMA-Factory）
   2. 下载预训练模型
-  3. 注册段言数据集到 LLaMA-Factory
+  3. 注册光明数据集到 LLaMA-Factory
   4. 自动生成 YAML 训练配置
   5. 执行 LoRA/QLoRA SFT 训练
   6. 合并 LoRA 权重并导出
@@ -93,7 +93,7 @@ MODEL_PRESETS = {
     'qwen3-8b': {
         'name': 'Qwen3-8B-Instruct',
         'model_id': 'Qwen/Qwen3-8B-Instruct',
-        'output_dir': os.path.join(_SCRIPT_DIR, 'output', 'qwen3_8b_duan'),
+        'output_dir': os.path.join(_SCRIPT_DIR, 'output', 'qwen3_8b_light'),
         'template': 'qwen3',
         'lora_target': 'q_proj,v_proj,k_proj,o_proj,gate_proj,up_proj,down_proj',
         'description': '7-8B 级中文代码生成最强模型（HumanEval 76.0），生产部署首选',
@@ -108,7 +108,7 @@ MODEL_PRESETS = {
     'qwen3.5-2b': {
         'name': 'Qwen3.5-2B-Instruct',
         'model_id': 'Qwen/Qwen3.5-2B-Instruct',
-        'output_dir': os.path.join(_SCRIPT_DIR, 'output', 'qwen3.5_2b_duan'),
+        'output_dir': os.path.join(_SCRIPT_DIR, 'output', 'qwen3.5_2b_light'),
         'template': 'qwen3',
         'lora_target': 'q_proj,v_proj,k_proj,o_proj,gate_proj,up_proj,down_proj',
         'description': '2B 级轻量模型（门控 DeltaNet + MoE），开发调试首选，飞快',
@@ -190,12 +190,12 @@ def _convert_to_sharegpt(input_path: str, output_path: str) -> int:
 
             # 构造 system + user + assistant 三轮对话
             system_msg = (
-                "你是段言（DuanLang）编程语言 v3.2 的翻译专家。"
-                "段言是一种中文编程语言，使用中文关键字。"
-                "你的任务是将 Python 代码翻译为段言 v3.2 代码。"
+                "你是光明（LightLang）编程语言 v3.2 的翻译专家。"
+                "光明是一种中文编程语言，使用中文关键字。"
+                "你的任务是将 Python 代码翻译为光明 v3.2 代码。"
                 "注意暗坑：长度()不可用用len()、列表索引赋值用方括号语法、变量名不能与内建函数同名、类系统需LLVM后端。"
             )
-            instruction = item.get('instruction', '将Python代码转为段言代码：')
+            instruction = item.get('instruction', '将Python代码转为光明代码：')
             code_input = item.get('input', '')
             output = item.get('output', '')
 
@@ -427,20 +427,20 @@ def prepare_dataset(dataset_path: str, output_dir: str) -> tuple:
     print("=" * 60)
 
     # 转换为 ShareGPT 格式
-    sharegpt_path = os.path.join(output_dir, 'duan_sft_sharegpt.jsonl')
+    sharegpt_path = os.path.join(output_dir, 'light_sft_sharegpt.jsonl')
     os.makedirs(output_dir, exist_ok=True)
 
     count = _convert_to_sharegpt(dataset_path, sharegpt_path)
     print(f"  转换为 ShareGPT 格式: {sharegpt_path} ({count} 条)")
 
     # 注册到 LLaMA-Factory
-    dataset_name = 'duan_v32_sft'
+    dataset_name = 'light_v32_sft'
     lf_dir = _find_llamafactory_dir()
 
     if lf_dir:
         data_dir = os.path.join(lf_dir, 'data')
         dataset_info_path = os.path.join(data_dir, 'dataset_info.json')
-        target_data_path = os.path.join(data_dir, 'duan_sft_sharegpt.jsonl')
+        target_data_path = os.path.join(data_dir, 'light_sft_sharegpt.jsonl')
 
         # 复制数据文件到 LLaMA-Factory data 目录
         shutil.copy2(sharegpt_path, target_data_path)
@@ -453,7 +453,7 @@ def prepare_dataset(dataset_path: str, output_dir: str) -> tuple:
                 info = json.load(f)
 
         info[dataset_name] = {
-            "file_name": "duan_sft_sharegpt.jsonl",
+            "file_name": "light_sft_sharegpt.jsonl",
             "formatting": "sharegpt",
             "columns": {
                 "messages": "conversations",
@@ -531,7 +531,7 @@ def generate_yaml_config(
         dataset_format = None  # 从 dataset_info.json 读取
 
     yaml_lines = [
-        f"# 段言翻译器 — Qwen3-8B {'QLoRA 4bit' if qlora else 'LoRA BF16'} 微调配置",
+        f"# 光明翻译器 — Qwen3-8B {'QLoRA 4bit' if qlora else 'LoRA BF16'} 微调配置",
         f"# 由 train_lora_7b.py 自动生成",
         f"# 模型: {model_path}",
         f"# 数据: {dataset_ref} ({'QLoRA' if qlora else 'LoRA'})",
@@ -812,10 +812,10 @@ def test_inference(model_path: str, merged_path: str = None) -> bool:
         correct = 0
         for i, (python_code, expected_hint) in enumerate(test_cases, 1):
             prompt = (
-                f"将Python代码转为段言代码：\n\nPython代码：\n{python_code}"
+                f"将Python代码转为光明代码：\n\nPython代码：\n{python_code}"
             )
             messages = [
-                {"role": "system", "value": "你是段言编程语言v3.2的翻译专家。将Python代码翻译为段言v3.2代码。"},
+                {"role": "system", "value": "你是光明编程语言v3.2的翻译专家。将Python代码翻译为光明v3.2代码。"},
                 {"role": "user", "value": prompt},
             ]
             text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
@@ -858,7 +858,7 @@ def main():
     default_preset = MODEL_PRESETS[_DEFAULT_PRESET]
 
     parser = argparse.ArgumentParser(
-        description='段言翻译器 — 多模型 LoRA/QLoRA 一键微调',
+        description='光明翻译器 — 多模型 LoRA/QLoRA 一键微调',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
 支持的模型预设（--model-preset）：
@@ -1051,7 +1051,7 @@ def main():
     print("下一步：")
     print(f"  1. 测试推理: python train_lora_7b.py --model-preset {args.model_preset} --only-infer")
     print(f"  2. 合并权重: python train_lora_7b.py --model-preset {args.model_preset} --only-merge")
-    print(f"  3. 集成到段言管线: 将微调后的模型嵌入 duan ai generate 流程")
+    print(f"  3. 集成到光明管线: 将微调后的模型嵌入 light ai generate 流程")
     print()
     print("部署方式：")
     print("  - vLLM:   vllm serve <merged_path> --port 8000")

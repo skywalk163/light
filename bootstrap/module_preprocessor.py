@@ -1,5 +1,5 @@
 """
-Duan 模块预处理器
+Light 模块预处理器
 在编译前处理导入语句，将多个模块内联为单个文件
 """
 
@@ -16,7 +16,7 @@ class ModulePreprocessor:
 
     def find_module(self, module_name: str, current_dir: str) -> str:
         """查找模块文件路径"""
-        file_name = module_name + ".duan"
+        file_name = module_name + ".light"
         paths_to_try = []
         paths_to_try.append(os.path.join(current_dir, file_name))
         paths_to_try.append(os.path.join(current_dir, "模块", file_name))

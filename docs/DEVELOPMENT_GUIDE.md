@@ -1,15 +1,15 @@
-# 段言（Duan）开发指南
+# 光明（Light）开发指南
 
 ## 项目概述
 
-段言（Duan）是一款以中文为基础的编程语言，旨在为中文用户提供更自然、更直观的编程体验。
+光明（Light）是一款以中文为基础的编程语言，旨在为中文用户提供更自然、更直观的编程体验。
 
 ## 目录结构
 
 ```
-duan/
+light/
 ├── antlrparser/          # ANTLR4 解析器实现
-│   ├── duan_parser/      # 生成的解析器代码
+│   ├── light_parser/      # 生成的解析器代码
 │   ├── runtime/          # C 语言运行时库
 │   ├── scripts/          # 构建脚本
 │   ├── test/             # 测试用例
@@ -21,7 +21,7 @@ duan/
 │   └── superpowers/      # 进阶功能设计文档
 ├── examples/             # 示例代码
 │   ├── modules/          # 模块示例
-│   └── bootstrap_*.duan  # 自举示例
+│   └── bootstrap_*.light  # 自举示例
 ├── src/                  # 核心源代码
 │   ├── llvm/             # LLVM 后端
 │   ├── optimizer/        # 优化器
@@ -42,7 +42,7 @@ python --version
 ### 2. 创建虚拟环境
 
 ```bash
-cd duan
+cd light
 python -m venv .venv
 # Windows
 .venv\Scripts\activate
@@ -70,7 +70,7 @@ set LLVM_BIN=E:\Program Files\LLVM\bin
 
 ## 生成解析器
 
-修改语法文件 `antlrparser/DuanLang.g4` 后，运行生成脚本：
+修改语法文件 `antlrparser/LightLang.g4` 后，运行生成脚本：
 
 ```bash
 cd antlrparser
@@ -94,13 +94,13 @@ python tests/performance_benchmark.py
 
 ```bash
 # 解析并显示 AST
-python antlrparser/duan_cli.py parse test.duan
+python antlrparser/light_cli.py parse test.light
 
 # 解释执行
-python antlrparser/duan_cli.py run test.duan
+python antlrparser/light_cli.py run test.light
 
 # 编译为可执行文件
-python antlrparser/duan_cli.py compile test.duan -o output
+python antlrparser/light_cli.py compile test.light -o output
 ```
 
 ## 代码规范
@@ -119,7 +119,7 @@ isort antlrparser/
 
 ### 命名规范
 
-- Python 文件：小写加下划线，如 `duan_ast.py`
+- Python 文件：小写加下划线，如 `light_ast.py`
 - 类名：大驼峰，如 `DuanVisitor`
 - 函数/方法：小写加下划线，如 `visit_class_def`
 - 变量：小写加下划线，如 `segment_name`
@@ -129,7 +129,7 @@ isort antlrparser/
 ### 1. 调试解析器
 
 ```python
-from antlrparser.duan_visitor import parse_source
+from antlrparser.light_visitor import parse_source
 
 source = """
 定义 x 等于 10。
@@ -143,7 +143,7 @@ print(module)
 ### 2. 调试解释器
 
 ```python
-from antlrparser.duan_interpreter import run_source
+from antlrparser.light_interpreter import run_source
 
 result = run_source("定义 x 等于 5 加 3。打印(x)。")
 print(result.get_output())
@@ -156,16 +156,16 @@ import sys
 sys.path.insert(0, 'src')
 from llvm.compiler import compile_source_typed
 
-# 编译段言源码为 LLVM IR
+# 编译光明源码为 LLVM IR
 ir = compile_source_typed('打印("hello")', verbose=True)
 print(ir)
 ```
 
-更多示例参见 `tests/test_level8_llvm.duan`。
+更多示例参见 `tests/test_level8_llvm.light`。
 
 ## 开发流程
 
-1. **修改语法** → 更新 `src/duan_parser_v3.py`
+1. **修改语法** → 更新 `src/light_parser_v3.py`
 2. **更新 AST** → 修改 `src/ast_nodes.py`
 3. **更新适配器** → 修改 `src/compiler.py`（AstAdapter）
 4. **更新解释器** → 修改 `src/code_generator.py`
@@ -210,7 +210,7 @@ export LC_ALL=en_US.UTF-8  # Linux/macOS
 
 ### 1. Fork 仓库
 
-首先 Fork 段言仓库到您的 GitHub 账户。
+首先 Fork 光明仓库到您的 GitHub 账户。
 
 ### 2. 创建特性分支
 
@@ -282,7 +282,7 @@ touch src/stdlib/my_module.py
 
 ### 2. 实现模块功能
 
-模块文件应导出一个 `duan_module` 字典，包含模块名称和导出的函数/类：
+模块文件应导出一个 `light_module` 字典，包含模块名称和导出的函数/类：
 
 ```python
 # src/stdlib/my_module.py
@@ -291,7 +291,7 @@ def 我的函数(参数):
     """函数说明"""
     return 参数
 
-duan_module = {
+light_module = {
     'name': '我的模块',
     'exports': {
         '我的函数': 我的函数,
@@ -335,7 +335,7 @@ pytest tests/test_my_module.py -v
 - 模块名使用中文
 - 函数/类名使用中文
 - 提供详细的文档字符串
-- 遵循段言命名规范
+- 遵循光明命名规范
 - 确保跨平台兼容性
 
 ## 代码审查流程

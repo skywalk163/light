@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器流程集成测试
+光明编译器流程集成测试
 
 测试完整编译流程：解析 -> 语义分析 -> 代码生成
 """
@@ -22,8 +22,8 @@ class TestCompilerPipeline(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            from compiler import DuanCompiler
-            cls.Compiler = DuanCompiler
+            from compiler import LightCompiler
+            cls.Compiler = LightCompiler
         except ImportError as e:
             raise unittest.SkipTest(f"Compiler 模块不可用: {e}")
 

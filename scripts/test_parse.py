@@ -2,7 +2,7 @@
 import sys
 sys.path.insert(0, 'antlrparser')
 
-from duan_visitor import parse_source
+from light_visitor import parse_source
 
 code = """
 设 甲 为 10。

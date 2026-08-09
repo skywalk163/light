@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言训练自动完成脚本
+光明训练自动完成脚本
 
 监控训练进程，训练完成后自动：
   1. 合并 LoRA 权重到基础模型
@@ -26,29 +26,29 @@ _TRAIN_ERROR = os.path.join(_SCRIPT_DIR, "train_error.log")
 def _find_lora_path():
     """自动检测 LoRA 权重路径，优先 GPU 训练产物，支持多模型"""
     for name in (
-        "qwen3.5_2b_duan_gpu",
-        "qwen2.5_1.5b_duan_gpu",
-        "qwen2.5_0.5b_duan_gpu",
-        "qwen2.5_0.5b_duan_cpu",
+        "qwen3.5_2b_light_gpu",
+        "qwen2.5_1.5b_light_gpu",
+        "qwen2.5_0.5b_light_gpu",
+        "qwen2.5_0.5b_light_cpu",
     ):
         p = os.path.join(_SCRIPT_DIR, "output", name, "final")
         if os.path.isdir(p):
             return p
-    return os.path.join(_SCRIPT_DIR, "output", "qwen2.5_0.5b_duan_gpu", "final")
+    return os.path.join(_SCRIPT_DIR, "output", "qwen2.5_0.5b_light_gpu", "final")
 
 
 def _find_merged_path():
     """自动检测合并后模型路径，支持多模型"""
     for name in (
-        "duan_translator_merged_3.5_2b",
-        "duan_translator_merged_1.5b",
-        "duan_translator_merged_0.5b",
-        "duan_translator_merged",
+        "light_translator_merged_3.5_2b",
+        "light_translator_merged_1.5b",
+        "light_translator_merged_0.5b",
+        "light_translator_merged",
     ):
         p = os.path.join(_SCRIPT_DIR, "output", name)
         if os.path.isdir(p):
             return p
-    return os.path.join(_SCRIPT_DIR, "output", "duan_translator_merged")
+    return os.path.join(_SCRIPT_DIR, "output", "light_translator_merged")
 
 
 def _detect_base_model(lora_path: str) -> str:
@@ -71,42 +71,42 @@ TEST_CASES = [
     {
         "name": "加法段落",
         "python": "def add(a, b):\n    return a + b",
-        "expected_duan_keywords": ["段落", "接收", "返回", "加"],
+        "expected_light_keywords": ["段落", "接收", "返回", "加"],
     },
     {
         "name": "循环打印",
         "python": "for i in range(10):\n    print(i)",
-        "expected_duan_keywords": ["遍历", "打印"],
+        "expected_light_keywords": ["遍历", "打印"],
     },
     {
         "name": "阶乘递归",
         "python": "def factorial(n):\n    if n <= 1:\n        return 1\n    return n * factorial(n-1)",
-        "expected_duan_keywords": ["段落", "接收", "如果", "返回", "乘"],
+        "expected_light_keywords": ["段落", "接收", "如果", "返回", "乘"],
     },
     {
         "name": "条件判断",
         "python": "x = 10\ny = 20\nif x > y:\n    print('x大')\nelse:\n    print('y大')",
-        "expected_duan_keywords": ["设", "如果", "大于", "否则", "打印"],
+        "expected_light_keywords": ["设", "如果", "大于", "否则", "打印"],
     },
     {
         "name": "冒泡排序",
         "python": "arr = [5, 2, 8, 1, 9]\nn = len(arr)\nfor i in range(n-1):\n    for j in range(n-i-1):\n        if arr[j] > arr[j+1]:\n            arr[j], arr[j+1] = arr[j+1], arr[j]",
-        "expected_duan_keywords": ["设", "遍历", "如果", "大于"],
+        "expected_light_keywords": ["设", "遍历", "如果", "大于"],
     },
     {
         "name": "列表操作",
         "python": "nums = [1, 2, 3]\nnums.append(4)\nprint(len(nums))",
-        "expected_duan_keywords": ["设", "追加", "len", "打印"],
+        "expected_light_keywords": ["设", "追加", "len", "打印"],
     },
     {
         "name": "while循环",
         "python": "count = 0\nwhile count < 5:\n    print(count)\n    count += 1",
-        "expected_duan_keywords": ["设", "当", "小于", "打印"],
+        "expected_light_keywords": ["设", "当", "小于", "打印"],
     },
     {
         "name": "字典操作",
         "python": "d = {'a': 1, 'b': 2}\nfor k, v in d.items():\n    print(k, v)",
-        "expected_duan_keywords": ["设", "遍历", "打印"],
+        "expected_light_keywords": ["设", "遍历", "打印"],
     },
 ]
 
@@ -252,9 +252,9 @@ def test_inference():
 
     # 系统提示
     system_prompt = (
-        "你是段言（DuanLang）编程语言 v3.2 的翻译专家。"
-        "段言是一种中文编程语言，使用中文关键字。"
-        "你的任务是将 Python 代码翻译为段言 v3.2 代码。\n"
+        "你是光明（LightLang）编程语言 v3.2 的翻译专家。"
+        "光明是一种中文编程语言，使用中文关键字。"
+        "你的任务是将 Python 代码翻译为光明 v3.2 代码。\n"
         "关键规则：\n"
         "- 变量赋值: 设 x 为 10\n"
         "- 段落定义: 段落 名 接收 参数：\n"
@@ -263,7 +263,7 @@ def test_inference():
         "- 运算: 加上/减去/乘以/除以/取余\n"
         "- 比较: 等于/不等于/大于/小于\n"
         "- 打印: 打印(x)\n"
-        "只输出段言代码，不要解释。"
+        "只输出光明代码，不要解释。"
     )
 
     results = []
@@ -274,7 +274,7 @@ def test_inference():
 
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"将以下 Python 代码翻译为段言 v3.2：\n\n{case['python']}"},
+            {"role": "user", "content": f"将以下 Python 代码翻译为光明 v3.2：\n\n{case['python']}"},
         ]
         text = tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
@@ -298,18 +298,18 @@ def test_inference():
             skip_special_tokens=True,
         ).strip()
 
-        print(f"段言: {response}")
+        print(f"光明: {response}")
         print(f"耗时: {elapsed:.1f}s")
 
         # 检查关键词命中
-        keywords = case.get("expected_duan_keywords", [])
+        keywords = case.get("expected_light_keywords", [])
         hits = sum(1 for kw in keywords if kw in response)
         hit_rate = hits / len(keywords) if keywords else 0
 
         result = {
             "name": case["name"],
             "python": case["python"],
-            "duan_output": response,
+            "light_output": response,
             "expected_keywords": keywords,
             "keyword_hits": hits,
             "keyword_hit_rate": hit_rate,
@@ -348,7 +348,7 @@ def test_inference():
 
 def main():
     print("=" * 60)
-    print("段言训练自动完成脚本")
+    print("光明训练自动完成脚本")
     print("=" * 60)
     print(f"时间: {time.strftime('%Y-%m-%d %H:%M:%S')}")
     print()
@@ -401,16 +401,16 @@ def main():
     success = test_inference()
 
     if success:
-        print("\n✓ 测试通过！模型可以生成段言代码。")
+        print("\n✓ 测试通过！模型可以生成光明代码。")
         print("\n下一步：")
         print(f"  1. 交互模式: python local_infer.py --fine-tuned --backend transformers --interactive")
-        print(f"  2. CLI集成:  duan ai local --fine-tuned \"写一个冒泡排序\"")
+        print(f"  2. CLI集成:  light ai local --fine-tuned \"写一个冒泡排序\"")
     else:
         print("\n△ 测试结果不理想，模型可能需要更多训练数据或更长训练时间。")
         print("可以尝试：")
         print("  1. 增加epochs到5-10")
         print("  2. 增加训练数据")
-        print("  3. 使用prompt工程模式: duan ai local --prompt-only \"需求\"")
+        print("  3. 使用prompt工程模式: light ai local --prompt-only \"需求\"")
 
 
 if __name__ == "__main__":

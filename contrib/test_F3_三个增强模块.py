@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-F3 单元测试 — 段言 v4.0 标准库增强模块
+F3 单元测试 — 光明 v4.0 标准库增强模块
 覆盖：日期时间增强（12 用例）/ 统计函数增强（12 用例）/ 正则工具增强（18 用例），合计 42 断言，大于 30+ 要求
 输出：中文报告（通过 unittest 运行后，末尾 `if __name__ == '__main__'` 打印中文汇总）
 """
@@ -294,10 +294,10 @@ class Test正则工具增强(unittest.TestCase):
         self.assertEqual(抽取手机号(txt), ['13800138000', '13912345678'])
 
     def test_抽取邮箱(self):
-        txt = '邮件分别是 zhangsan@duan-lang.org 以及 li-si.test@example.com.cn，完事。'
+        txt = '邮件分别是 zhangsan@light-lang.org 以及 li-si.test@example.com.cn，完事。'
         mails = 抽取邮箱(txt)
         self.assertEqual(len(mails), 2)
-        self.assertIn('zhangsan@duan-lang.org', mails)
+        self.assertIn('zhangsan@light-lang.org', mails)
         self.assertIn('li-si.test@example.com.cn', mails)
 
     def test_抽取身份证(self):
@@ -308,7 +308,7 @@ class Test正则工具增强(unittest.TestCase):
         self.assertTrue(found[0]['是否合法'])
 
     def test_抽取URL(self):
-        txt = '访问 https://www.duan-lang.org/docs/v4 和 www.example.com/a?q=1 两个地址'
+        txt = '访问 https://www.light-lang.org/docs/v4 和 www.example.com/a?q=1 两个地址'
         urls = 抽取URL(txt)
         self.assertGreaterEqual(len(urls), 2)
 
@@ -377,7 +377,7 @@ class Test正则工具增强(unittest.TestCase):
 # ==========================================================
 if __name__ == '__main__':
     print('\n' + '═' * 70)
-    print(' 段言 v4.0 F阶段 · 标准库增强单元测试')
+    print(' 光明 v4.0 F阶段 · 标准库增强单元测试')
     print('  日期时间增强 (12条) · 统计函数增强 (12条) · 正则工具增强 (18条)')
     print('  合计断言 42 条')
     print('═' * 70)

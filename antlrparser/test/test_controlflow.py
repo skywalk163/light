@@ -1,5 +1,5 @@
 """
-段言 - 控制流语句测试
+光明 - 控制流语句测试
 
 测试 if/foreach/while/break/continue 的解析和 AST 生成
 """
@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_visitor import DuanParser, parse_file
+from light_visitor import LightParser, parse_file
 
 
 def print_ast(node, indent=0):
@@ -96,10 +96,10 @@ def print_ast(node, indent=0):
 def test_controlflow_parsing():
     """测试控制流样本文件解析"""
     print("=" * 60)
-    print("测试 1: 解析 sample_controlflow.duan")
+    print("测试 1: 解析 sample_controlflow.light")
     print("=" * 60)
     
-    filepath = os.path.join(os.path.dirname(__file__), 'sample_controlflow.duan')
+    filepath = os.path.join(os.path.dirname(__file__), 'sample_controlflow.light')
     module = parse_file(filepath)
     
     if module:
@@ -131,7 +131,7 @@ def test_simple_if():
 结束。
 定义乙等于20。"""
     
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     
     assert module is not None, "解析失败"
@@ -160,7 +160,7 @@ def test_if_else():
   打印乙。
 结束。"""
     
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     
     assert module is not None, "解析失败"
@@ -189,7 +189,7 @@ def test_if_elif_else():
   打印'D'。
 结束。"""
     
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     
     assert module is not None, "解析失败"
@@ -212,7 +212,7 @@ def test_foreach():
   打印项。
 结束。"""
     
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     
     assert module is not None, "解析失败"
@@ -237,7 +237,7 @@ def test_while():
   定义计数等于计数减1。
 结束。"""
     
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     
     assert module is not None, "解析失败"
@@ -264,7 +264,7 @@ def test_break_continue():
   结束。
 结束。"""
     
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     
     assert module is not None, "解析失败"
@@ -291,7 +291,7 @@ def test_break_continue():
 
 
 if __name__ == '__main__':
-    print("=== 段言控制流语句测试 ===\n")
+    print("=== 光明控制流语句测试 ===\n")
     
     tests = [
         ("控制流样本解析", test_controlflow_parsing),

@@ -1,11 +1,11 @@
 """
-段言 AI Copilot — Prompt 生成器
+光明 AI Copilot — Prompt 生成器
 
 核心模块：根据用户的代码需求，生成一个结构化的 prompt，
-让 AI（即使算力有限）也能稳定输出正确的段言 v3.2 代码。
+让 AI（即使算力有限）也能稳定输出正确的光明 v3.2 代码。
 
 设计原则：
-  1. 翻译模式优于创作模式（Python→段言，让 AI 做翻译而非创作）
+  1. 翻译模式优于创作模式（Python→光明，让 AI 做翻译而非创作）
   2. 语法速查卡锁死语法边界（AI 不需要"猜"语法）
   3. 代码片段库提供骨架（AI 只需填充，不需要从零构建）
   4. 同时生成测试断言（运行时校验 > AI 自检）
@@ -23,7 +23,7 @@ from snippets import SNIPPETS, get_snippets_prompt
 # ── Prompt 模板 ──────────────────────────────────────────────────
 
 _TRANSLATE_PROMPT = """\
-你是一个段言（DuanLang）v3.2 代码翻译器。你的任务是将 Python 代码翻译为段言代码。
+你是一个光明（LightLang）v3.2 代码翻译器。你的任务是将 Python 代码翻译为光明代码。
 
 {syntax_card}
 
@@ -34,9 +34,9 @@ _TRANSLATE_PROMPT = """\
 2. 段落定义只用「段落 名 接收 参数：」形式
 3. 冒号必选，句号可选，空格可选
 4. 纯缩进代码块，无花括号/无结束关键字
-5. 只输出段言代码，不要解释
+5. 只输出光明代码，不要解释
 
-请将以下 Python 代码翻译为段言 v3.2：
+请将以下 Python 代码翻译为光明 v3.2：
 
 ```python
 {user_code}
@@ -44,7 +44,7 @@ _TRANSLATE_PROMPT = """\
 """
 
 _CREATE_PROMPT = """\
-你是一个段言（DuanLang）v3.2 代码生成器。请根据需求生成段言代码。
+你是一个光明（LightLang）v3.2 代码生成器。请根据需求生成光明代码。
 
 {syntax_card}
 
@@ -56,14 +56,14 @@ _CREATE_PROMPT = """\
 3. 冒号必选，句号可选，空格可选
 4. 纯缩进代码块，无花括号/无结束关键字
 5. 优先从片段库中选择匹配的模板，填充占位符
-6. 同时生成对应的测试断言（使用 测试.duan 标准库的 断言相等/断言为真）
-7. 只输出段言代码，不要解释
+6. 同时生成对应的测试断言（使用 测试.light 标准库的 断言相等/断言为真）
+7. 只输出光明代码，不要解释
 
 需求：{user_requirement}
 """
 
 _SINGLE_PARAGRAPH_PROMPT = """\
-你是一个段言（DuanLang）v3.2 代码生成器。请生成一个段言段落。
+你是一个光明（LightLang）v3.2 代码生成器。请生成一个光明段落。
 
 {compact_card}
 
@@ -83,13 +83,13 @@ def generate_prompt(
     mode: str = "auto",
     compact: bool = False,
 ) -> str:
-    """生成让 AI 写段言代码的 prompt
+    """生成让 AI 写光明代码的 prompt
 
     Args:
         user_input: 用户的输入——可以是自然语言需求，也可以是 Python 代码
         mode: 生成模式
             - "auto": 自动判断（检测是否包含 Python 语法特征）
-            - "translate": Python→段言翻译模式
+            - "translate": Python→光明翻译模式
             - "create": 从需求直接创作模式
             - "paragraph": 单段落模式（算力最省）
         compact: 是否使用精简语法卡
@@ -181,7 +181,7 @@ if __name__ == "__main__":
 
     # 测试三种模式
     print("=" * 70)
-    print("【模式1：Python→段言翻译】")
+    print("【模式1：Python→光明翻译】")
     print("=" * 70)
     prompt1 = generate_prompt(
         "def fibonacci(n):\n"

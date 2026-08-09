@@ -15,7 +15,7 @@ for _p in [_src_dir, _project_root]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 
@@ -35,8 +35,8 @@ def _is_network_available(host="httpbin.org", port=443, timeout=5):
         return False
 
 
-def _run_duan(code: str) -> str:
-    parser = DuanParser()
+def _run_light(code: str) -> str:
+    parser = LightParser()
     ast = parser.parse(code)
     if ast is None:
         errors = '\n'.join(getattr(parser, 'errors', []))
@@ -73,7 +73,7 @@ class TestL4_Numpy_E2E(unittest.TestCase):
 设 结果 = l4_numpy_mean(数据)
 打印(结果)
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("49.5", output)
 
     def test_numpy_basic_ops(self):
@@ -92,7 +92,7 @@ class TestL4_Numpy_E2E(unittest.TestCase):
 打印(结果[2])
 打印(结果[3])
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("15.0", output)
         self.assertIn("1.0", output)
         self.assertIn("5.0", output)
@@ -119,7 +119,7 @@ class TestL4_Pandas_E2E(unittest.TestCase):
 打印(结果[1])
 打印(结果[2])
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("85.0", output)
         self.assertIn("92", output)
         self.assertIn("3", output)
@@ -153,7 +153,7 @@ class TestL4_Matplotlib_E2E(unittest.TestCase):
 如果 结果 > 0:
     打印("OK")
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("OK", output)
 
 
@@ -177,7 +177,7 @@ class TestL4_Requests_E2E(unittest.TestCase):
 设 状态码 = l4_http_get("https://httpbin.org/status/200")
 打印(状态码)
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("200", output)
 
 
@@ -188,7 +188,7 @@ class TestL4_Sandbox_E2E(unittest.TestCase):
     """L4 沙箱隔离（命名空间隔离）"""
 
     def test_namespace_isolation(self):
-        """验证引 Python 块内的变量不污染段言外层"""
+        """验证引 Python 块内的变量不污染光明外层"""
         code = '''
 引 Python:
     _secret = "internal_only"
@@ -199,7 +199,7 @@ class TestL4_Sandbox_E2E(unittest.TestCase):
 设 结果 = l4_check_secret()
 打印(结果)
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("internal_only", output)
 
     def test_multiple_blocks_independent(self):
@@ -218,7 +218,7 @@ class TestL4_Sandbox_E2E(unittest.TestCase):
 打印(l4_block_a())
 打印(l4_block_b())
 '''
-        output = _run_duan(code)
+        output = _run_light(code)
         self.assertIn("A", output)
         self.assertIn("B", output)
 

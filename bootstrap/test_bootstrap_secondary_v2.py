@@ -1,4 +1,4 @@
-"""二次自举编译 v2：用 level6_self_compiled.py 编译 bootstrap_level5.duan (Level 4 语法)
+"""二次自举编译 v2：用 level6_self_compiled.py 编译 bootstrap_level5.light (Level 4 语法)
 
 验证自举收敛性：比较第一次和第二次编译输出的差异
 """
@@ -34,17 +34,17 @@ with open('bootstrap/level6_self_compiled.py', 'r', encoding='utf-8') as f:
 exec(compiler_code, ns)
 编译 = ns['编译']
 
-# 读取 bootstrap_level5.duan (Level 4 语法源码)
-with open('bootstrap/bootstrap_level5.duan', 'r', encoding='utf-8') as f:
-    duan_code = f.read()
+# 读取 bootstrap_level5.light (Level 4 语法源码)
+with open('bootstrap/bootstrap_level5.light', 'r', encoding='utf-8') as f:
+    light_code = f.read()
 
-print(f"源码大小: {len(duan_code)} 字节")
+print(f"源码大小: {len(light_code)} 字节")
 print()
 
 # 编译
-print("正在编译 bootstrap_level5.duan (Level 4 语法)...")
+print("正在编译 bootstrap_level5.light (Level 4 语法)...")
 try:
-    py_code = 编译(duan_code)
+    py_code = 编译(light_code)
     print(f"编译成功!")
     print(f"生成代码大小: {len(py_code)} 字节")
     print(f"生成代码行数: {len(py_code.split(chr(10)))} 行")
@@ -77,11 +77,11 @@ print("=" * 60)
 print("收敛性验证: 比较两次编译输出")
 print("=" * 60)
 
-# 读取第一次编译的结果 (level6_generated.py 编译 bootstrap_level6.duan)
+# 读取第一次编译的结果 (level6_generated.py 编译 bootstrap_level6.light)
 with open('bootstrap/level6_self_compiled.py', 'r', encoding='utf-8') as f:
     first_pass = f.read()
 
-# 读取第二次编译的结果 (level6_self_compiled.py 编译 bootstrap_level5.duan)
+# 读取第二次编译的结果 (level6_self_compiled.py 编译 bootstrap_level5.light)
 with open('bootstrap/level6_self_compiled2.py', 'r', encoding='utf-8') as f:
     second_pass = f.read()
 

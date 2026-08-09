@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器 - 热点代码优化分析
+光明编译器 - 热点代码优化分析
 
 功能：
 1. 分析 benchmarks/programs/ 中各测试程序的性能瓶颈
@@ -21,9 +21,9 @@ from typing import Dict, Any, List
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from lexer import Lexer
-from duan_parser_v3 import DuanParser as V3Parser
+from light_parser_v3 import LightParser as V3Parser
 from code_generator_unified import UnifiedCodeGenerator
-from compiler import DuanCompiler, AstAdapter
+from compiler import LightCompiler, AstAdapter
 
 # 导入现有优化器
 from optimizer import (
@@ -410,7 +410,7 @@ def analyze_bottlenecks():
     print("1. 性能瓶颈分析")
     print("=" * 80)
 
-    bench_files = sorted(BENCHMARK_DIR.glob('*.duan'))
+    bench_files = sorted(BENCHMARK_DIR.glob('*.light'))
     results = []
 
     for bench_file in bench_files:
@@ -530,7 +530,7 @@ def verify_optimizations():
     print("2. 优化效果验证")
     print("=" * 80)
 
-    bench_files = sorted(BENCHMARK_DIR.glob('*.duan'))
+    bench_files = sorted(BENCHMARK_DIR.glob('*.light'))
     results = []
 
     for bench_file in bench_files:
@@ -664,7 +664,7 @@ def verify_runtime_optimization():
         print(f"\n  测试: {name}")
 
         # 无优化编译执行
-        compiler = DuanCompiler()
+        compiler = LightCompiler()
         code_before = compiler.compile(source)
         times_before = []
         for _ in range(5):
@@ -767,7 +767,7 @@ def generate_report(bottleneck_results, opt_verify_results, runtime_opt_results,
 
 
 def main():
-    parser = argparse.ArgumentParser(description='段言编译器热点代码优化分析')
+    parser = argparse.ArgumentParser(description='光明编译器热点代码优化分析')
     parser.add_argument('--output', '-o', default=str(REPORT_DIR / 'hotspot_benchmark.json'),
                         help='JSON 报告输出路径')
     parser.add_argument('--no-bottleneck', action='store_true', help='跳过瓶颈分析')
@@ -775,7 +775,7 @@ def main():
     parser.add_argument('--no-runtime', action='store_true', help='跳过运行时优化验证')
     args = parser.parse_args()
 
-    print("段言编译器 - 热点代码优化分析")
+    print("光明编译器 - 热点代码优化分析")
     print("=" * 80)
     print(f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Python: {sys.version.split()[0]}")

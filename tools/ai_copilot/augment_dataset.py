@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言数据增强脚本 v2 — 扩充 LoRA 微调训练数据集
+光明数据增强脚本 v2 — 扩充 LoRA 微调训练数据集
 
 重点覆盖薄弱模式：
   1. 类定义/继承/OOP (60条)
@@ -21,7 +21,7 @@ import os
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-INSTRUCTION = "用段言v3.2语法重写以下Python代码。"
+INSTRUCTION = "用光明v3.2语法重写以下Python代码。"
 
 # ═══════════════════════════════════════════════════════════════════
 # 1. 类定义与OOP (60 samples)
@@ -741,11 +741,11 @@ def build_samples():
         (COMPLEX_PAIRS, "复合"),
     ]
     for pairs, category in category_map:
-        for py, duan in pairs:
+        for py, light in pairs:
             samples.append({
                 "instruction": INSTRUCTION,
                 "input": py,
-                "output": duan,
+                "output": light,
                 "category": category,
             })
     return samples

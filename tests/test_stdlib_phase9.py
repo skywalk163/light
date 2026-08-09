@@ -2,7 +2,7 @@
 第九阶段测试用例 - 测试与调试标准库
 """
 import sys
-sys.path.insert(0, 'c:/traework/duan/stdlib')
+sys.path.insert(0, 'c:/traework/light/stdlib')
 
 import unittest
 

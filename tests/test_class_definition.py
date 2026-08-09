@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器 - 类定义功能测试
+光明编译器 - 类定义功能测试
 
 测试类定义的解析和代码生成
 """
@@ -14,7 +14,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from duan_parser_v3 import (
+from light_parser_v3 import (
     ClassDefinition, AttributeDeclaration, MethodDefinition,
     Parameter, Module, Identifier
 )
@@ -24,7 +24,7 @@ from code_generator import PythonCodeGenerator
 def test_class_definition_generation():
     """测试类定义代码生成"""
     print("=" * 60)
-    print("段言编译器 - 类定义功能测试")
+    print("光明编译器 - 类定义功能测试")
     print("=" * 60)
     
     # 创建一个简单的学生类AST

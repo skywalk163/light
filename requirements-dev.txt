@@ -1,4 +1,4 @@
-# 段言（Duan）开发依赖
+# 光明（Light）开发依赖
 
 # 核心依赖
 antlr4-python3-runtime==4.13.2

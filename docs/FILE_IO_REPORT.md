@@ -1,4 +1,4 @@
-# 段言文件I/O实现报告
+# 光明文件I/O实现报告
 
 **日期**: 2026-06-10  
 **版本**: v1.0.0  
@@ -222,10 +222,10 @@ def 执行命令(command: str) -> int:
 
 ### 6.1 文件读写示例
 
-**段言代码**:
-```段言
+**光明代码**:
+```光明
 # 写入文件
-定义内容等于"Hello, 段言！\n这是测试内容。"。
+定义内容等于"Hello, 光明！\n这是测试内容。"。
 写入文件参数"output.txt"，内容。
 
 # 读取文件
@@ -241,35 +241,35 @@ def 执行命令(command: str) -> int:
 
 **生成的Python代码**:
 ```python
-# 导入段言标准库
+# 导入光明标准库
 try:
-    from stdlib import builtins as _duan_builtin
+    from stdlib import builtins as _light_builtin
 except ImportError:
     import types
-    _duan_builtin = types.ModuleType('_duan_builtin')
-    _duan_builtin.写入文件 = lambda path, content: open(path, 'w', encoding='utf-8').write(content) or None
-    _duan_builtin.读取文件 = lambda path: open(path, 'r', encoding='utf-8').read()
-    _duan_builtin.文件存在 = lambda path: __import__('os').path.isfile(path)
+    _light_builtin = types.ModuleType('_light_builtin')
+    _light_builtin.写入文件 = lambda path, content: open(path, 'w', encoding='utf-8').write(content) or None
+    _light_builtin.读取文件 = lambda path: open(path, 'r', encoding='utf-8').read()
+    _light_builtin.文件存在 = lambda path: __import__('os').path.isfile(path)
 
 # 写入文件
-内容 = "Hello, 段言！\n这是测试内容。"
-_duan_builtin.写入文件("output.txt", 内容)
+内容 = "Hello, 光明！\n这是测试内容。"
+_light_builtin.写入文件("output.txt", 内容)
 
 # 读取文件
-读取内容 = _duan_builtin.读取文件("output.txt")
+读取内容 = _light_builtin.读取文件("output.txt")
 print(读取内容)
 
 # 检查文件
-if _duan_builtin.文件存在("output.txt"):
+if _light_builtin.文件存在("output.txt"):
     print("文件存在")
-    大小 = _duan_builtin.文件大小("output.txt")
+    大小 = _light_builtin.文件大小("output.txt")
     print(大小)
 ```
 
 ### 6.2 目录操作示例
 
-**段言代码**:
-```段言
+**光明代码**:
+```光明
 # 创建目录
 创建目录参数"output/data"。
 
@@ -281,8 +281,8 @@ if _duan_builtin.文件存在("output.txt"):
 
 ### 6.3 路径操作示例
 
-**段言代码**:
-```段言
+**光明代码**:
+```光明
 # 路径拼接
 定义完整路径等于连接路径参数"dir"，"subdir"，"file.txt"。
 打印完整路径。
@@ -306,17 +306,17 @@ if _duan_builtin.文件存在("output.txt"):
 在 `src/code_generator.py` 中：
 
 1. **扩展内置函数映射** - 添加50个函数映射
-2. **添加标准库导入** - 自动导入 `_duan_builtin` 模块
+2. **添加标准库导入** - 自动导入 `_light_builtin` 模块
 3. **提供fallback** - 标准库不可用时使用简化实现
 
 ### 7.2 函数调用映射
 
 ```python
-# 段言代码
+# 光明代码
 写入文件参数路径，内容。
 
 # 生成的Python代码
-_duan_builtin.写入文件(路径, 内容)
+_light_builtin.写入文件(路径, 内容)
 ```
 
 ---
@@ -340,8 +340,8 @@ RuntimeError: 无法将 'abc' 转换为整数
 
 ### 8.2 错误处理示例
 
-**段言代码**:
-```段言
+**光明代码**:
+```光明
 尝试：
   定义内容等于读取文件参数"config.txt"。
 捕获错误：

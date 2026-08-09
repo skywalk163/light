@@ -1,5 +1,5 @@
 """
-段言 - 数据类型与运算测试
+光明 - 数据类型与运算测试
 
 验证所有运算符、字符串、列表等数据类型的解析和 AST 结构
 """
@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_ast import (
+from light_ast import (
     Module, VariableDeclaration, NumberLiteral, StringLiteral,
     BooleanLiteral, NullLiteral, ListLiteral,
     BinaryOp, UnaryOp, Identifier,
@@ -15,7 +15,7 @@ from duan_ast import (
     WhileStatement, BreakStatement, ContinueStatement,
     ReturnStatement, SegmentName, SegmentDefinition
 )
-from duan_visitor import DuanParser
+from light_visitor import LightParser
 
 
 def test_arithmetic_operators():
@@ -37,7 +37,7 @@ def test_arithmetic_operators():
     
     for expr, expected_type, expected_op in test_cases:
         source = f"定义结果等于{expr}。"
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse(source)
         assert module is not None, f"解析失败: {source}"
         
@@ -73,7 +73,7 @@ def test_comparison_operators():
     
     for op_text, expected_op in operators:
         source = f"定义_结果等于10{op_text}5。"
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse(source)
         assert module is not None, f"解析失败: {source}"
         
@@ -99,7 +99,7 @@ def test_logical_operators():
     ]
     for expr, expected_type, expected_op in op_cases:
         source = f"定义_结果等于{expr}。"
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse(source)
         assert module is not None, f"解析失败: {source}"
         value = module.statements[0].value
@@ -110,7 +110,7 @@ def test_logical_operators():
     
     # 非（一元运算）
     source = "定义_结果等于非真。"
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 非真"
     value = module.statements[0].value
@@ -135,7 +135,7 @@ def test_parentheses_priority():
     
     for expr, expected_type, expected_op in cases:
         source = f"定义_结果等于{expr}。"
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse(source)
         assert module is not None, f"解析失败: {source}"
         value = module.statements[0].value
@@ -155,7 +155,7 @@ def test_string_literals():
     
     # 双引号字符串
     source = '定义_问候等于"你好世界"。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 双引号字符串"
     value = module.statements[0].value
@@ -165,7 +165,7 @@ def test_string_literals():
     
     # 单引号字符串
     source = "定义_英文等于'hello'。"
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 单引号字符串"
     value = module.statements[0].value
@@ -184,7 +184,7 @@ def test_list_literals():
     
     # 数字列表
     source = "定义_数字列等于【1, 2, 3】。"
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 列表"
     value = module.statements[0].value
@@ -194,7 +194,7 @@ def test_list_literals():
     
     # 混合类型列表
     source = '定义_混合列等于【1, "你好", 真, 空】。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 混合列表"
     value = module.statements[0].value
@@ -206,7 +206,7 @@ def test_list_literals():
     
     # 空列表
     source = "定义_空列等于【】。"
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 空列表"
     value = module.statements[0].value
@@ -231,7 +231,7 @@ def test_boolean_null_literals():
     
     for lit, expected_type, expected_value in literals:
         source = f"定义_结果等于{lit}。"
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse(source)
         assert module is not None, f"解析失败: {source}"
         value = module.statements[0].value
@@ -255,7 +255,7 @@ def test_complex_expressions():
     
     for expr, desc in cases:
         source = f"定义_复合等于{expr}。"
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse(source)
         assert module is not None, f"解析失败: {source}"
         value = module.statements[0].value
@@ -273,7 +273,7 @@ def test_string_operations():
     
     # 字符串拼接
     source = '定义_结果等于"hello"加"world"。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 字符串拼接"
     value = module.statements[0].value
@@ -285,7 +285,7 @@ def test_string_operations():
     
     # 转义序列 \n
     source = '定义_结果等于"第一行\\n第二行"。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 转义 \\n"
     value = module.statements[0].value
@@ -294,7 +294,7 @@ def test_string_operations():
     
     # 转义序列 \t
     source = '定义_结果等于"列1\\t列2"。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 转义 \\t"
     value = module.statements[0].value
@@ -303,7 +303,7 @@ def test_string_operations():
     
     # 转义序列 \\ (反斜杠)
     source = '定义_x等于"反斜杠\\\\符号"。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 转义 \\\\"
     value = module.statements[0].value
@@ -312,7 +312,7 @@ def test_string_operations():
     
     # 转义序列 \" (引号)
     source = '定义_x等于"带\\"引号"。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 转义 \\\""
     value = module.statements[0].value
@@ -321,7 +321,7 @@ def test_string_operations():
     
     # 变量与字符串拼接
     source = '定义_问候等于"你好"。定义_结果等于_问候加"，世界"。'
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 变量+字符串拼接"
     value = module.statements[1].value
@@ -340,7 +340,7 @@ def test_list_operations():
     
     # 列表索引访问 [index]
     source = "定义_列等于【10, 20, 30】。定义_结果等于_列[0]。"
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 列表索引"
     value = module.statements[1].value
@@ -352,7 +352,7 @@ def test_list_operations():
     
     # 另一种语法：对象之属性
     source = "定义_列等于【10, 20, 30】。定义_结果等于_列之长度。"
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 属性访问"
     value = module.statements[1].value
@@ -362,7 +362,7 @@ def test_list_operations():
     
     # 索引表达式（变量作为索引）
     source = "定义_列等于【10, 20, 30】。定义_索引等于1。定义_结果等于_列[_索引]。"
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 变量索引"
     value = module.statements[2].value
@@ -372,7 +372,7 @@ def test_list_operations():
     
     # 空列表
     source = "定义_空列等于【】。"
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 空列表"
     value = module.statements[0].value
@@ -391,7 +391,7 @@ def test_unary_operations():
     
     # 负号 -5
     source = "定义_结果等于-5。"
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: -5"
     value = module.statements[0].value
@@ -401,7 +401,7 @@ def test_unary_operations():
     
     # 双重否定 --5 (= +5)
     source = "定义_结果等于--5。"
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: --5"
     value = module.statements[0].value
@@ -414,7 +414,7 @@ def test_unary_operations():
     
     # 负号在表达式中
     source = "定义_结果等于-3加5。"
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: -3加5"
     value = module.statements[0].value
@@ -434,7 +434,7 @@ def test_mixed_type_expressions():
     
     # 比较+逻辑
     source = "定义_结果等于(10大于5)且(20小于30)。"
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 比较+逻辑"
     value = module.statements[0].value
@@ -444,7 +444,7 @@ def test_mixed_type_expressions():
     
     # 嵌套索引
     source = "定义_矩阵等于【【1, 2】, 【3, 4】】。定义_结果等于_矩阵[0][1]。"
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 嵌套索引"
     # 第一个语句应是 ListLiteral 嵌套
@@ -463,7 +463,7 @@ def test_mixed_type_expressions():
     
     # 多个混合运算符
     source = "定义_结果等于(3乘(4加5))大于(20减10)且非假。"
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     assert module is not None, "解析失败: 混合运算符链"
     value = module.statements[0].value
@@ -474,7 +474,7 @@ def test_mixed_type_expressions():
 
 
 if __name__ == '__main__':
-    print("=== 段言数据类型与运算测试 ===\n")
+    print("=== 光明数据类型与运算测试 ===\n")
     
     tests = [
         ("算术运算符", test_arithmetic_operators),

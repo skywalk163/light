@@ -3,13 +3,13 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'antlrparser'))
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 
-def run_duan(code):
-    """解析并执行段言代码，返回输出"""
-    parser = DuanParser()
+def run_light(code):
+    """解析并执行光明代码，返回输出"""
+    parser = LightParser()
     module = parser.parse(code)
     gen = PythonCodeGenerator()
     py_code = gen.generate(module)
@@ -46,7 +46,7 @@ passed = 0
 failed = 0
 for code, expected in tests:
     try:
-        result = run_duan(code)
+        result = run_light(code)
         if result == str(expected):
             passed += 1
             print(f"[PASS] {code[:60]}")

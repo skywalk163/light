@@ -1,4 +1,4 @@
-# 段言文档站点 - GitHub Pages 部署工作流
+# 光明文档站点 - GitHub Pages 部署工作流
 #
 # 功能：
 #   1. 在 push 到 main 或 4.0dev 分支且 docs/ 或 mkdocs.yml 有变更时触发

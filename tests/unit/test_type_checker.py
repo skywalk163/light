@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言分级类型检查系统单元测试
+光明分级类型检查系统单元测试
 
 测试三级类型检查（签名/变量/表达式）和集成
 """
@@ -32,13 +32,13 @@ class TestTypeCheckerConfig(unittest.TestCase):
         self.assertEqual(config.check_level, self.TypeCheckLevel.NONE)
         self.assertEqual(config.default_segment_mode, self.SegmentTypeMode.LOOSE)
 
-    def test_level_from_duan_config(self):
-        """从 DuanConfig 创建配置"""
-        from core.config import DuanConfig
-        dc = DuanConfig()
+    def test_level_from_light_config(self):
+        """从 LightConfig 创建配置"""
+        from core.config import LightConfig
+        dc = LightConfig()
         dc.type_check_level = self.TypeCheckLevel.VARIABLE
         dc.default_segment_mode = self.SegmentTypeMode.STRICT
-        config = self.TypeCheckerConfig.from_duan_config(dc)
+        config = self.TypeCheckerConfig.from_light_config(dc)
         self.assertEqual(config.check_level, self.TypeCheckLevel.VARIABLE)
         self.assertEqual(config.default_segment_mode, self.SegmentTypeMode.STRICT)
 
@@ -109,9 +109,9 @@ class TestTypeCheckerIntegration(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        from compiler import DuanCompiler
+        from compiler import LightCompiler
         from core.config import TypeCheckLevel
-        cls.Compiler = DuanCompiler
+        cls.Compiler = LightCompiler
         cls.TypeCheckLevel = TypeCheckLevel
 
     def test_signature_level_ok(self):
@@ -156,9 +156,9 @@ class TestStrictModifier(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        from compiler import DuanCompiler
+        from compiler import LightCompiler
         from core.config import TypeCheckLevel
-        cls.Compiler = DuanCompiler
+        cls.Compiler = LightCompiler
         cls.TypeCheckLevel = TypeCheckLevel
 
     def test_strict_segment_parses(self):

@@ -1,5 +1,5 @@
 """
-段言（Duan）编程语言 - x86-64代码生成器
+光明（Light）编程语言 - x86-64代码生成器
 
 将三地址码IR转换为x86-64汇编代码。
 支持Linux/macOS (System V AMD64 ABI) 和 Windows (x64 calling convention)。

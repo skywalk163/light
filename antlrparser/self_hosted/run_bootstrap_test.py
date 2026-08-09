@@ -1,18 +1,18 @@
-"""运行段言自举测试"""
+"""运行光明自举测试"""
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_interpreter import run_source
+from light_interpreter import run_source
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def run_bootstrap_test():
-    """运行完整的段言自举测试"""
+    """运行完整的光明自举测试"""
     print("=" * 70)
-    print("段言自举测试 - 将所有组件合并执行")
+    print("光明自举测试 - 将所有组件合并执行")
     print("=" * 70)
     print()
     
@@ -21,23 +21,23 @@ def run_bootstrap_test():
     combined_code = ''
     
     # 1. tokenizer
-    print("  [1/5] tokenizer.duan")
-    with open(os.path.join(BASE_DIR, 'tokenizer.duan'), 'r', encoding='utf-8') as f:
+    print("  [1/5] tokenizer.light")
+    with open(os.path.join(BASE_DIR, 'tokenizer.light'), 'r', encoding='utf-8') as f:
         combined_code += f.read() + '\n\n'
     
     # 2. ast
-    print("  [2/5] ast.duan")
-    with open(os.path.join(BASE_DIR, 'ast.duan'), 'r', encoding='utf-8') as f:
+    print("  [2/5] ast.light")
+    with open(os.path.join(BASE_DIR, 'ast.light'), 'r', encoding='utf-8') as f:
         combined_code += f.read() + '\n\n'
     
     # 3. parser
-    print("  [3/5] parser.duan")
-    with open(os.path.join(BASE_DIR, 'parser.duan'), 'r', encoding='utf-8') as f:
+    print("  [3/5] parser.light")
+    with open(os.path.join(BASE_DIR, 'parser.light'), 'r', encoding='utf-8') as f:
         combined_code += f.read() + '\n\n'
     
     # 4. interpreter
-    print("  [4/5] interpreter.duan")
-    with open(os.path.join(BASE_DIR, 'interpreter.duan'), 'r', encoding='utf-8') as f:
+    print("  [4/5] interpreter.light")
+    with open(os.path.join(BASE_DIR, 'interpreter.light'), 'r', encoding='utf-8') as f:
         combined_code += f.read() + '\n\n'
     
     # 5. 简化的测试代码

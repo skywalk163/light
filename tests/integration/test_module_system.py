@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言模块系统集成测试
+光明模块系统集成测试
 
 测试模块导入导出和包管理功能
 """
@@ -50,7 +50,7 @@ class TestImportExport(unittest.TestCase):
 
     def test_module_file_detection(self):
         """测试模块文件检测"""
-        # 验证 .duan 和 .段 文件扩展名
+        # 验证 .light 和 .段 文件扩展名
         self.assertTrue(True)  # 占位测试
 
 

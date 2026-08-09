@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言编译器 - 性能基准测试
+光明编译器 - 性能基准测试
 
 测试编译器各模块的性能表现
 """
@@ -15,8 +15,8 @@ from typing import List, Tuple
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'antlrparser'))
 
-from duan_tokenizer import DuanLangTokenizer as Lexer
-from duan_visitor import DuanParser
+from light_tokenizer import LightLangTokenizer as Lexer
+from light_visitor import LightParser
 
 
 class PerformanceBenchmark:
@@ -24,7 +24,7 @@ class PerformanceBenchmark:
 
     def __init__(self):
         self.lexer = Lexer()
-        self.parser = DuanParser()
+        self.parser = LightParser()
     
     def measure_time(self, func, *args, iterations: int = 100) -> Tuple[float, float, float]:
         """
@@ -131,7 +131,7 @@ class PerformanceBenchmark:
 def run_benchmarks():
     """运行所有基准测试"""
     print("=" * 70)
-    print("段言编译器性能基准测试")
+    print("光明编译器性能基准测试")
     print("=" * 70)
     
     benchmark = PerformanceBenchmark()

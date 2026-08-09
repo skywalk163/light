@@ -1,5 +1,5 @@
 /**
- * 段言 L0 核心字趣味学习 - 游戏逻辑 v4.0
+ * 光明 L0 核心字趣味学习 - 游戏逻辑 v4.0
  */
 
 // ==================== L0 核心字数据 ====================
@@ -29,7 +29,7 @@ const L0_CHARS = [
         desc: '如果条件成立，则执行对应的代码块。',
         example: '若 甲 > 5 则：\n  打印("成立")',
         category: '控制流',
-        tip: '「若 条件 则：」是 if 语句的段言写法。'
+        tip: '「若 条件 则：」是 if 语句的光明写法。'
     },
     {
         char: '则',
@@ -74,7 +74,7 @@ const L0_CHARS = [
         desc: '定义一个函数（段落），可以接收参数和返回值。',
         example: '段 平方(x)：\n  返回 x * x',
         category: '函数',
-        tip: '「段 函数名(参数)：」是段言定义函数的方式。'
+        tip: '「段 函数名(参数)：」是光明定义函数的方式。'
     },
     {
         char: '返',
@@ -119,7 +119,7 @@ const L0_CHARS = [
         desc: '从嵌入块中导出变量，或在 L4 中导出符号。',
         example: '引 Python:\nresult = 42\n出 result',
         category: '模块',
-        tip: '「出」用于导出 Python 块中的变量供段言使用。'
+        tip: '「出」用于导出 Python 块中的变量供光明使用。'
     },
     {
         char: '且',
@@ -155,7 +155,7 @@ const L0_CHARS = [
         desc: '布尔值 true，表示条件成立。',
         example: '设 完成 为 真',
         category: '基础',
-        tip: '「真」和「假」是段言中的布尔字面量。'
+        tip: '「真」和「假」是光明中的布尔字面量。'
     },
     {
         char: '假',
@@ -259,7 +259,7 @@ function tryInPlayground(charName) {
     if (!item) return;
     // 保存代码到 localStorage 并跳转到首页
     try {
-        localStorage.setItem('duan_playground_code', item.example + '\n');
+        localStorage.setItem('light_playground_code', item.example + '\n');
     } catch (e) {}
     window.location.href = '/';
 }

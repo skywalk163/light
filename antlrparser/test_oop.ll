@@ -1,4 +1,4 @@
-; 段言 (Duan) 编译输出
+; 光明 (Light) 编译输出
 target triple = "x86_64-pc-windows-msvc"
 
 declare i32 @printf(i8*, ...)
@@ -31,20 +31,20 @@ declare i8* @fopen(i8*, i8*)
 declare i32 @fclose(i8*)
 declare i64 @fread(i8*, i64, i64, i8*)
 declare i32 @fwrite(i8*, i64, i64, i8*)
-declare i32* @duan_list_new(i64)
-declare i32 @duan_list_length(i32*)
-declare i32 @duan_list_append(i32*, i32)
-declare i32 @duan_list_get(i32*, i64)
-declare void @duan_list_set(i32*, i64, i32)
-declare i32* @duan_list_copy(i32*)
-declare void @duan_list_free(i32*)
-declare i8* @duan_itoa(i32)
-declare i8* @duan_dict_new()
-declare void @duan_dict_set(i8*, i8*, i32)
-declare i32 @duan_dict_get(i8*, i8*)
-declare i1 @duan_dict_contains(i8*, i8*)
-declare void @duan_dict_remove(i8*, i8*)
-declare void @duan_dict_free(i8*)
+declare i32* @light_list_new(i64)
+declare i32 @light_list_length(i32*)
+declare i32 @light_list_append(i32*, i32)
+declare i32 @light_list_get(i32*, i64)
+declare void @light_list_set(i32*, i64, i32)
+declare i32* @light_list_copy(i32*)
+declare void @light_list_free(i32*)
+declare i8* @light_itoa(i32)
+declare i8* @light_dict_new()
+declare void @light_dict_set(i8*, i8*, i32)
+declare i32 @light_dict_get(i8*, i8*)
+declare i1 @light_dict_contains(i8*, i8*)
+declare void @light_dict_remove(i8*, i8*)
+declare void @light_dict_free(i8*)
 
 ; 类 人 的方法 说话
 @.printf_fmt = private unnamed_addr constant [4 x i8] c"%d\0A\00"

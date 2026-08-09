@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""段言翻译器分批测试脚本 - Part 1 (示例 01-09)"""
+"""光明翻译器分批测试脚本 - Part 1 (示例 01-09)"""
 
 import json
 import os
@@ -8,7 +8,7 @@ import time
 import urllib.request
 import urllib.error
 
-MODEL = "airoot/duan-translator"
+MODEL = "airoot/light-translator"
 API_URL = "http://localhost:11434/api/generate"
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -131,12 +131,12 @@ def main():
     for i, ex in enumerate(EXAMPLES):
         print(f"[{i+1}/{len(EXAMPLES)}] {ex['id']} - {ex['title']}", flush=True)
         t0 = time.time()
-        duan_code = call_ollama(ex["python"])
+        light_code = call_ollama(ex["python"])
         elapsed = time.time() - t0
-        print(f"  {elapsed:.1f}s | {duan_code[:60]}...", flush=True)
+        print(f"  {elapsed:.1f}s | {light_code[:60]}...", flush=True)
         results.append({
             "id": ex["id"], "title": ex["title"], "category": ex["category"],
-            "python": ex["python"], "duan": duan_code, "elapsed": round(elapsed, 1)
+            "python": ex["python"], "light": light_code, "elapsed": round(elapsed, 1)
         })
 
     # 读取已有结果并合并

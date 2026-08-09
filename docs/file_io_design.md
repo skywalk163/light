@@ -1,4 +1,4 @@
-# 段言文件I/O设计文档
+# 光明文件I/O设计文档
 
 **版本**: v1.0.0  
 **日期**: 2026-06-10  
@@ -8,7 +8,7 @@
 
 ## 一、设计目标
 
-1. **简洁易用** - 中文API，符合段言语法风格
+1. **简洁易用** - 中文API，符合光明语法风格
 2. **功能完整** - 覆盖编译器所需的文件操作
 3. **安全可靠** - 提供错误处理机制
 4. **跨平台** - 支持Windows/Linux/macOS
@@ -21,21 +21,21 @@
 
 #### 读取整个文件
 
-```段言
+```光明
 # 方式1：内置函数
-定义内容等于读取文件参数"input.duan"。
+定义内容等于读取文件参数"input.light"。
 
 # 方式2：文件对象
-定义文件等于打开文件参数"input.duan"，"r"。
+定义文件等于打开文件参数"input.light"，"r"。
 定义内容等于文件.读取全部。
 文件.关闭。
 ```
 
 #### 逐行读取
 
-```段言
+```光明
 # 逐行读取
-定义文件等于打开文件参数"input.duan"，"r"。
+定义文件等于打开文件参数"input.light"，"r"。
 遍历行于文件.行列表：
   打印行。
 文件.关闭。
@@ -45,7 +45,7 @@
 
 #### 写入整个文件
 
-```段言
+```光明
 # 方式1：内置函数
 写入文件参数"output.py"，内容。
 
@@ -57,7 +57,7 @@
 
 #### 追加写入
 
-```段言
+```光明
 定义文件等于打开文件参数"log.txt"，"a"。
 文件.写入参数"新日志行\n"。
 文件.关闭。
@@ -67,8 +67,8 @@
 
 #### 文件存在检查
 
-```段言
-如果文件存在参数"config.duan"那么
+```光明
+如果文件存在参数"config.light"那么
   打印"配置文件存在"。
 否则
   打印"配置文件不存在"。
@@ -76,7 +76,7 @@
 
 #### 目录操作
 
-```段言
+```光明
 # 创建目录
 创建目录参数"output"。
 
@@ -92,7 +92,7 @@
 
 #### 文件信息
 
-```段言
+```光明
 # 文件大小
 定义大小等于文件大小参数"data.txt"。
 打印大小。
@@ -109,7 +109,7 @@
 
 ### 3.1 系统模块（系统）
 
-```段言
+```光明
 导入《系统》。
 
 # 文件操作
@@ -128,7 +128,7 @@
 
 ### 3.2 文件模块（文件）
 
-```段言
+```光明
 导入《文件》。
 
 # 打开文件
@@ -149,7 +149,7 @@
 
 ### 3.3 路径模块（路径）
 
-```段言
+```光明
 导入《路径》。
 
 # 路径拼接
@@ -171,8 +171,8 @@
 
 ### 4.1 文件读取函数
 
-**段言代码**:
-```段言
+**光明代码**:
+```光明
 《读取文件》段(路径)：
   定义文件等于打开文件参数路径，"r"。
   定义内容等于文件.读取全部。
@@ -190,8 +190,8 @@ def 读取文件(路径):
 
 ### 4.2 文件写入函数
 
-**段言代码**:
-```段言
+**光明代码**:
+```光明
 《写入文件》段(路径, 内容)：
   定义文件等于打开文件参数路径，"w"。
   文件.写入参数内容。
@@ -207,8 +207,8 @@ def 写入文件(路径, 内容):
 
 ### 4.3 文件存在检查
 
-**段言代码**:
-```段言
+**光明代码**:
+```光明
 《文件存在》段(路径)：
   返回路径存在检查参数路径。
 ```
@@ -238,15 +238,15 @@ self.builtin_map = {
     '长': 'len',
     
     # 文件I/O映射
-    '读取文件': '_duan_read_file',
-    '写入文件': '_duan_write_file',
-    '文件存在': '_duan_file_exists',
-    '目录存在': '_duan_dir_exists',
-    '创建目录': '_duan_mkdir',
-    '列出目录': '_duan_listdir',
-    '文件大小': '_duan_file_size',
-    '删除文件': '_duan_remove_file',
-    '删除目录': '_duan_rmdir',
+    '读取文件': '_light_read_file',
+    '写入文件': '_light_write_file',
+    '文件存在': '_light_file_exists',
+    '目录存在': '_light_dir_exists',
+    '创建目录': '_light_mkdir',
+    '列出目录': '_light_listdir',
+    '文件大小': '_light_file_size',
+    '删除文件': '_light_remove_file',
+    '删除目录': '_light_rmdir',
 }
 ```
 
@@ -256,7 +256,7 @@ self.builtin_map = {
 
 ```python
 """
-段言标准库 - 内置函数实现
+光明标准库 - 内置函数实现
 """
 
 import os
@@ -269,7 +269,7 @@ from typing import List, Optional
 # 文件I/O函数
 # =============================================================================
 
-def _duan_read_file(path: str, encoding: str = 'utf-8') -> str:
+def _light_read_file(path: str, encoding: str = 'utf-8') -> str:
     """读取文件内容"""
     try:
         with open(path, 'r', encoding=encoding) as f:
@@ -278,7 +278,7 @@ def _duan_read_file(path: str, encoding: str = 'utf-8') -> str:
         raise RuntimeError(f"读取文件失败 '{path}': {e}")
 
 
-def _duan_write_file(path: str, content: str, encoding: str = 'utf-8') -> None:
+def _light_write_file(path: str, content: str, encoding: str = 'utf-8') -> None:
     """写入文件内容"""
     try:
         # 确保目录存在
@@ -292,17 +292,17 @@ def _duan_write_file(path: str, content: str, encoding: str = 'utf-8') -> None:
         raise RuntimeError(f"写入文件失败 '{path}': {e}")
 
 
-def _duan_file_exists(path: str) -> bool:
+def _light_file_exists(path: str) -> bool:
     """检查文件是否存在"""
     return os.path.isfile(path)
 
 
-def _duan_dir_exists(path: str) -> bool:
+def _light_dir_exists(path: str) -> bool:
     """检查目录是否存在"""
     return os.path.isdir(path)
 
 
-def _duan_mkdir(path: str) -> None:
+def _light_mkdir(path: str) -> None:
     """创建目录"""
     try:
         os.makedirs(path, exist_ok=True)
@@ -310,7 +310,7 @@ def _duan_mkdir(path: str) -> None:
         raise RuntimeError(f"创建目录失败 '{path}': {e}")
 
 
-def _duan_listdir(path: str = '.') -> List[str]:
+def _light_listdir(path: str = '.') -> List[str]:
     """列出目录内容"""
     try:
         return os.listdir(path)
@@ -318,7 +318,7 @@ def _duan_listdir(path: str = '.') -> List[str]:
         raise RuntimeError(f"列出目录失败 '{path}': {e}")
 
 
-def _duan_file_size(path: str) -> int:
+def _light_file_size(path: str) -> int:
     """获取文件大小（字节）"""
     try:
         return os.path.getsize(path)
@@ -326,7 +326,7 @@ def _duan_file_size(path: str) -> int:
         raise RuntimeError(f"获取文件大小失败 '{path}': {e}")
 
 
-def _duan_remove_file(path: str) -> None:
+def _light_remove_file(path: str) -> None:
     """删除文件"""
     try:
         os.remove(path)
@@ -334,7 +334,7 @@ def _duan_remove_file(path: str) -> None:
         raise RuntimeError(f"删除文件失败 '{path}': {e}")
 
 
-def _duan_rmdir(path: str) -> None:
+def _light_rmdir(path: str) -> None:
     """删除目录"""
     try:
         os.rmdir(path)
@@ -346,27 +346,27 @@ def _duan_rmdir(path: str) -> None:
 # 路径操作函数
 # =============================================================================
 
-def _duan_abs_path(path: str) -> str:
+def _light_abs_path(path: str) -> str:
     """获取绝对路径"""
     return os.path.abspath(path)
 
 
-def _duan_join_path(*paths: str) -> str:
+def _light_join_path(*paths: str) -> str:
     """连接路径"""
     return os.path.join(*paths)
 
 
-def _duan_dirname(path: str) -> str:
+def _light_dirname(path: str) -> str:
     """获取目录名"""
     return os.path.dirname(path)
 
 
-def _duan_basename(path: str) -> str:
+def _light_basename(path: str) -> str:
     """获取文件名"""
     return os.path.basename(path)
 
 
-def _duan_splitext(path: str) -> tuple:
+def _light_splitext(path: str) -> tuple:
     """分割文件名和扩展名"""
     return os.path.splitext(path)
 
@@ -375,22 +375,22 @@ def _duan_splitext(path: str) -> tuple:
 # 系统函数
 # =============================================================================
 
-def _duan_getenv(name: str, default: str = None) -> Optional[str]:
+def _light_getenv(name: str, default: str = None) -> Optional[str]:
     """获取环境变量"""
     return os.environ.get(name, default)
 
 
-def _duan_setenv(name: str, value: str) -> None:
+def _light_setenv(name: str, value: str) -> None:
     """设置环境变量"""
     os.environ[name] = value
 
 
-def _duan_argv() -> List[str]:
+def _light_argv() -> List[str]:
     """获取命令行参数"""
     return sys.argv
 
 
-def _duan_exit(code: int = 0) -> None:
+def _light_exit(code: int = 0) -> None:
     """退出程序"""
     sys.exit(code)
 ```
@@ -401,7 +401,7 @@ def _duan_exit(code: int = 0) -> None:
 
 ### 6.1 编译器自举示例
 
-```段言
+```光明
 # 简单编译器示例
 
 从《系统》导入《读取文件》，《写入文件》，《文件存在》。
@@ -427,7 +427,7 @@ def _duan_exit(code: int = 0) -> None:
 
 
 # 主程序
-定义输入等于"main.duan"。
+定义输入等于"main.light"。
 定义输出等于"main.py"。
 
 定义成功等于《编译》参数输入，输出。
@@ -439,7 +439,7 @@ def _duan_exit(code: int = 0) -> None:
 
 ### 6.2 文件处理示例
 
-```段言
+```光明
 # 日志文件处理
 
 导入《系统》。

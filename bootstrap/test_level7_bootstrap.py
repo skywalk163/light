@@ -7,7 +7,7 @@ Level 7 自举验证测试 — 任务 5：自举验证
 3. 编译器自身作为 Python 模块可正常加载和执行
 4. 编译器生成的代码能通过后续编译循环（自举收敛性检查）
 
-由于 bootstrap_level5.duan 使用 Level 4 语法（空格分隔、结束关键字、加/减/乘/除运算符），
+由于 bootstrap_level5.light 使用 Level 4 语法（空格分隔、结束关键字、加/减/乘/除运算符），
 与 Level 6/7 编译器的无空格分词器不兼容，自举验证调整为：
   - Phase 1: 验证 level6_generated.py 能正确编译 Level 6/7 代码
   - Phase 2: 验证生成的 level7_generated.py 语法正确且功能等价
@@ -49,9 +49,9 @@ exec(compiler_code, ns)
 词法 = ns['词法']
 
 # ===== 辅助函数 =====
-def compile_and_run(duan_code, label=""):
-    """编译并运行段言代码，返回输出和错误"""
-    py_code = 编译(duan_code)
+def compile_and_run(light_code, label=""):
+    """编译并运行光明代码，返回输出和错误"""
+    py_code = 编译(light_code)
     ns2 = dict(ns)
     ns2['主函数'] = None
     output = io.StringIO()
@@ -350,7 +350,7 @@ else:
     print("  - 生成的 Python 代码语法正确、运行结果正确")
     print("  - 编译器具有确定性（相同源码产生相同输出）")
     print("\n注意:")
-    print("  - bootstrap_level5.duan 使用 Level 4 语法（空格分隔+结束关键字+中文运算符），")
+    print("  - bootstrap_level5.light 使用 Level 4 语法（空格分隔+结束关键字+中文运算符），")
     print("    与 Level 6/7 编译器的无空格分词器不兼容")
     print("  - 完整的自举收敛（编译-生成-再编译-比对）需要")
-    print("    将 bootstrap_level5.duan 改写为 Level 6/7 语法")
+    print("    将 bootstrap_level5.light 改写为 Level 6/7 语法")

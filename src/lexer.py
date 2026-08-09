@@ -1,5 +1,5 @@
 """
-段言（Duan）编程语言 - 词法分析器
+光明（Light）编程语言 - 词法分析器
 
 实现决策29的三层分词机制：
 1. 类型切换自动分词 - 甲加1 → [甲] [加] [1]
@@ -263,7 +263,7 @@ class LexerError(Exception):
 
 
 class Lexer:
-    """段言词法分析器：无空格分词 + 三层机制"""
+    """光明词法分析器：无空格分词 + 三层机制"""
 
     CHINESE_DIGITS = _CHINESE_DIGITS
     SIMPLE_CHINESE_NUMBERS = _SIMPLE_CHINESE_NUMBERS
@@ -474,7 +474,7 @@ class Lexer:
             # 处理嵌入块 / L4外语引用块：
             #   v3.3 兼容写法：嵌入 Python: ... 结束嵌入
             #   v4.0 推荐写法：引 Python:   ... 结束引
-            # 需在标识符/关键字分词之前检测，避免嵌入代码被段言分词器破坏
+            # 需在标识符/关键字分词之前检测，避免嵌入代码被光明分词器破坏
             embed_prefix_len = 0
             if _is_han_fast(source[i]):
                 if source[i:i+2] == '嵌入':

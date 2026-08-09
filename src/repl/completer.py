@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-段言 REPL 自动补全
+光明 REPL 自动补全
 
 提供关键字、动词、变量名补全以及上下文感知补全。
 """
@@ -56,8 +56,8 @@ LOOP_KEYWORDS = ['遍历', '当']
 BLOCK_END_KEYWORDS = ['结束', '否则']
 
 
-class DuanCompleter:
-    """段言自动补全器（增强版）
+class LightCompleter:
+    """光明自动补全器（增强版）
 
     支持：
     - 语法关键字上下文补全
@@ -100,7 +100,7 @@ class DuanCompleter:
             self._module_cache.add(name)
 
     def _scan_directory(self, directory: str) -> List[str]:
-        """扫描目录下的 .duan 文件
+        """扫描目录下的 .light 文件
 
         Args:
             directory: 目录路径
@@ -111,11 +111,11 @@ class DuanCompleter:
         paths = []
         try:
             for f in os.listdir(directory):
-                if f.endswith('.duan') or f.endswith('.py'):
+                if f.endswith('.light') or f.endswith('.py'):
                     paths.append(os.path.join(directory, f))
                 elif os.path.isdir(os.path.join(directory, f)):
                     # 子目录中的模块
-                    sub_path = os.path.join(directory, f, '__init__.duan')
+                    sub_path = os.path.join(directory, f, '__init__.light')
                     if os.path.exists(sub_path):
                         paths.append(sub_path)
         except Exception:
@@ -494,8 +494,8 @@ try:
     class PromptToolkitCompleter(Completer):
         """prompt_toolkit 补全器"""
 
-        def __init__(self, duan_completer: DuanCompleter):
-            self.completer = duan_completer
+        def __init__(self, light_completer: LightCompleter):
+            self.completer = light_completer
 
         def get_completions(self, document, complete_event):
             text = document.text

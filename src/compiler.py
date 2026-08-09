@@ -1,8 +1,8 @@
 """
-段言（Duan）编程语言 - 统一编译器管道
+光明（Light）编程语言 - 统一编译器管道
 
 完整链路：  源码 → 词法分析 → 语法解析 → AST 适配 → 类型检查
-          (source)  (Lexer)   (DuanParser)  (Adapter)  (TypeInferencer)
+          (source)  (Lexer)   (LightParser)  (Adapter)  (TypeInferencer)
 
 这是连接前端解析器与后端类型系统的桥梁。
 """
@@ -15,7 +15,7 @@ import traceback
 from lexer import Lexer, LexerError
 from tokens import Token, TokenType
 from keywords import VERB_ARITY
-from duan_parser_v3 import DuanParser, ParseError
+from light_parser_v3 import LightParser, ParseError
 import ast_nodes as ast
 import ast_nodes_v3 as v3_ast
 from optimizer import (
@@ -23,7 +23,7 @@ from optimizer import (
     ConstantFoldingOptimizer,
     LoopInvariantOptimizer,
 )
-from errors import DuanError, DuanErrorFormatter, format_source_context, format_error_with_context
+from errors import LightError, LightErrorFormatter, format_source_context, format_error_with_context
 
 # 导入编译缓存系统
 try:
@@ -40,7 +40,7 @@ OPTIMIZERS = [
 ]
 
 # L3 领域嵌入模块注册表
-# 每个模块通过 `引 Python:` 语法在 .duan 文件中导入使用
+# 每个模块通过 `引 Python:` 语法在 .light 文件中导入使用
 L3_MODULES = {
     'l3_echarts': {
         'module': 'l3_echarts',
@@ -55,7 +55,7 @@ L3_MODULES = {
 }
 
 # FFI 模块注册表
-# 通过 `引 Python:` 语法在 .duan 文件中导入使用
+# 通过 `引 Python:` 语法在 .light 文件中导入使用
 FFI_MODULES = {
     'ffi_go': {
         'module': 'ffi_go',
@@ -89,7 +89,7 @@ def _get_cache() -> Optional[Any]:
 class AstAdapter:
     """将 `ast_nodes_v3` 节点转换为 `ast_nodes.py` 节点
 
-    现有 DuanParser v3 输出 ast_nodes_v3 的节点，这些节点使用 __slots__
+    现有 LightParser v3 输出 ast_nodes_v3 的节点，这些节点使用 __slots__
     的普通类设计。而我们的类型系统基于 ast_nodes.py（dataclass 设计）。
     本适配器在两者之间提供无损转换。
     """
@@ -683,14 +683,14 @@ class AstAdapter:
 
 
 # =============================================================================
-# DuanCompiler —— 统一编译器入口
+# LightCompiler —— 统一编译器入口
 # =============================================================================
 
-class DuanCompiler:
-    """段言统一编译器
+class LightCompiler:
+    """光明统一编译器
 
     使用示例：
-        compiler = DuanCompiler()
+        compiler = LightCompiler()
         # 完整流程
         result = compiler.compile('定义甲等于三。')
         # 分步：解析 → 检查
@@ -701,20 +701,20 @@ class DuanCompiler:
             print(compiler.errors)
 
     跨模块项目级使用：
-        compiler = DuanCompiler(project_root='/path/to/project')
+        compiler = LightCompiler(project_root='/path/to/project')
         result = compiler.compile_project('/path/to/project')
     """
 
-    # 段言编译器版本号
+    # 光明编译器版本号
     VERSION = "1.0.0"
 
     def __init__(self, project_root: Optional[str] = None):
-        from core.config import DuanConfig
+        from core.config import LightConfig
         self._lexer = Lexer()
-        self._parser = DuanParser()
+        self._parser = LightParser()
         self._adapter = AstAdapter()
         self._inferencer = None  # 延迟初始化（会创建 TypeInferencer）
-        self._config = DuanConfig()
+        self._config = LightConfig()
         self.errors: List[str] = []
         self.warnings: List[str] = []
         self._typed_errors = []  # 结构化类型错误（携带位置信息）
@@ -729,7 +729,7 @@ class DuanCompiler:
     # 版本信息
     # ------------------------------------------------------------------
     def version(self) -> str:
-        """返回段言编译器版本号"""
+        """返回光明编译器版本号"""
         return self.VERSION
 
     # ------------------------------------------------------------------
@@ -814,7 +814,7 @@ class DuanCompiler:
     # 项目级入口（多模块编译）
     # ------------------------------------------------------------------
     def compile_project(self, project_root: Optional[str] = None, optimize: bool = True) -> Dict[str, Any]:
-        """编译整个段言项目（支持多模块。
+        """编译整个光明项目（支持多模块。
 
         流程：
           1. 解析 package.toml，寻找入口模块
@@ -1212,7 +1212,7 @@ class DuanCompiler:
         Returns:
             格式化的错误信息
         """
-        if isinstance(error, DuanError):
+        if isinstance(error, LightError):
             return format_error_with_context(error, source, line or error.line, col or error.col)
         return format_error_with_context(error, source, line, col)
 
@@ -1268,7 +1268,7 @@ def compile_file(file_path: str, use_cache: bool = True) -> Dict[str, Any]:
         use_cache: 是否使用编译缓存，默认为 True
 
     Returns:
-        编译结果字典，与 DuanCompiler.compile() 返回格式相同
+        编译结果字典，与 LightCompiler.compile() 返回格式相同
     """
     abs_path = os.path.abspath(file_path)
     mtime = os.path.getmtime(abs_path)
@@ -1291,7 +1291,7 @@ def compile_file(file_path: str, use_cache: bool = True) -> Dict[str, Any]:
     with open(abs_path, 'r', encoding='utf-8') as f:
         source = f.read()
 
-    compiler = DuanCompiler()
+    compiler = LightCompiler()
     result = compiler.compile(source)
 
     if use_cache:
@@ -1306,16 +1306,16 @@ def compile_file(file_path: str, use_cache: bool = True) -> Dict[str, Any]:
     return result
 
 
-def compile_source(source: str) -> DuanCompiler:
+def compile_source(source: str) -> LightCompiler:
     """编译源码并返回已完成类型检查的编译器实例"""
-    c = DuanCompiler()
+    c = LightCompiler()
     c.compile(source)
     return c
 
 
 def parse_source(source: str) -> ast.Module:
     """仅解析源码，返回适配后的 AST"""
-    c = DuanCompiler()
+    c = LightCompiler()
     tokens = c.tokenize(source)
     raw = c.parse_raw(source)
     return c.adapt(raw)
@@ -1323,7 +1323,7 @@ def parse_source(source: str) -> ast.Module:
 
 def tokenize_source(source: str) -> List[Token]:
     """仅进行词法分析"""
-    return DuanCompiler().tokenize(source)
+    return LightCompiler().tokenize(source)
 
 
 # =============================================================================
@@ -1333,7 +1333,7 @@ def tokenize_source(source: str) -> List[Token]:
 class CompilerQuery:
     """便捷查询编译器结果的辅助类"""
 
-    def __init__(self, compiler: DuanCompiler):
+    def __init__(self, compiler: LightCompiler):
         self.compiler = compiler
 
     def infer_variable_type(self, var_name: str) -> Optional[str]:

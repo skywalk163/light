@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-C 代码生成器 - 将段言生成的 Python 代码翻译为 C 代码
+C 代码生成器 - 将光明生成的 Python 代码翻译为 C 代码
 
 生成的 C 代码可通过 Clang/LLVM 或 GCC 编译为原生可执行文件。
 """
@@ -23,11 +23,11 @@ PY_TYPE_TO_C = {
     'dict': 'PyObject*',
 }
 
-# 段言函数名到 C 函数名的映射
+# 光明函数名到 C 函数名的映射
 FN_MAP = {
-    '输出': 'duan_print',
-    '打印': 'duan_print',
-    '转字符串': 'duan_str',
+    '输出': 'light_print',
+    '打印': 'light_print',
+    '转字符串': 'light_str',
 }
 
 # 需要生成的运行时函数
@@ -37,33 +37,33 @@ RUNTIME_HEADER = '''#include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 
-/* ── 段言运行时库 ── */
+/* ── 光明运行时库 ── */
 
-void duan_print(const char* s) {
+void light_print(const char* s) {
     printf("%s", s);
 }
 
-void duan_print_int(int n) {
+void light_print_int(int n) {
     printf("%d", n);
 }
 
-void duan_print_double(double d) {
+void light_print_double(double d) {
     printf("%g", d);
 }
 
-void duan_print_bool(int b) {
+void light_print_bool(int b) {
     printf("%s", b ? "真" : "假");
 }
 
-void duan_println(void) {
+void light_println(void) {
     printf("\\n");
 }
 
 /* 多参数输出：最多支持 10 个参数 */
-void duan_print_1(const char* a0) { duan_print(a0); }
-void duan_print_1i(const char* a0, int a1) { duan_print(a0); duan_print_int(a1); }
-void duan_print_1d(const char* a0, double a1) { duan_print(a0); duan_print_double(a1); }
-void duan_print_1s(const char* a0, const char* a1) { duan_print(a0); duan_print(a1); }
+void light_print_1(const char* a0) { light_print(a0); }
+void light_print_1i(const char* a0, int a1) { light_print(a0); light_print_int(a1); }
+void light_print_1d(const char* a0, double a1) { light_print(a0); light_print_double(a1); }
+void light_print_1s(const char* a0, const char* a1) { light_print(a0); light_print(a1); }
 
 '''
 
@@ -324,7 +324,7 @@ class PythonToC:
         if func_name == '输出' or func_name == '打印':
             return self._translate_print(node.args)
         
-        # 检查是否是段言运行时函数
+        # 检查是否是光明运行时函数
         if func_name in FN_MAP:
             c_func = FN_MAP[func_name]
             return f'{c_func}({", ".join(args)})'
@@ -617,10 +617,10 @@ class PythonToC:
 
 
 def 编译到C(源代码):
-    """将段言源文件编译为 C 代码
+    """将光明源文件编译为 C 代码
     
     参数:
-        源代码: 段言源文件内容（字符串）
+        源代码: 光明源文件内容（字符串）
     
     返回:
         C 代码字符串，失败时返回 None
@@ -629,9 +629,9 @@ def 编译到C(源代码):
         import ast
         import os
         import sys
-        # 尝试从 duan6 模块加载编译器
+        # 尝试从 light6 模块加载编译器
         try:
-            from duan6 import 编译代码
+            from light6 import 编译代码
         except ImportError:
             # 直接加载编译器
             _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -693,21 +693,21 @@ def 编译到C(源代码):
         return None
 
 
-def 编译段言到C文件(段言文件路径, c文件路径=None):
-    """将段言文件编译为 C 源文件
+def 编译光明到C文件(光明文件路径, c文件路径=None):
+    """将光明文件编译为 C 源文件
     
     参数:
-        段言文件路径: .duan 文件路径
+        光明文件路径: .light 文件路径
         c文件路径: 输出的 .c 文件路径（可选）
     
     返回:
         成功时返回 C 文件路径，失败时返回 None
     """
-    if not os.path.exists(段言文件路径):
-        print(f"[错误] 文件不存在: {段言文件路径}", file=sys.stderr)
+    if not os.path.exists(光明文件路径):
+        print(f"[错误] 文件不存在: {光明文件路径}", file=sys.stderr)
         return None
     
-    with open(段言文件路径, 'r', encoding='utf-8') as f:
+    with open(光明文件路径, 'r', encoding='utf-8') as f:
         源代码 = f.read()
     
     c_code = 编译到C(源代码)
@@ -715,8 +715,8 @@ def 编译段言到C文件(段言文件路径, c文件路径=None):
         return None
     
     if c文件路径 is None:
-        基础名 = os.path.splitext(os.path.basename(段言文件路径))[0]
-        c文件路径 = os.path.join(os.path.dirname(段言文件路径), 基础名 + '.c')
+        基础名 = os.path.splitext(os.path.basename(光明文件路径))[0]
+        c文件路径 = os.path.join(os.path.dirname(光明文件路径), 基础名 + '.c')
     
     with open(c文件路径, 'w', encoding='utf-8') as f:
         f.write(c_code)
@@ -787,7 +787,7 @@ def 编译C到原生(c文件路径, exe_path=None):
 def main():
     """命令行入口"""
     if len(sys.argv) < 2:
-        print("用法: python c_backend.py <源文件.duan> [输出.c]")
+        print("用法: python c_backend.py <源文件.light> [输出.c]")
         print("       python c_backend.py --compile <源文件.c> [输出.exe]")
         sys.exit(1)
     
@@ -800,9 +800,9 @@ def main():
         else:
             sys.exit(1)
     else:
-        duan_file = sys.argv[1]
+        light_file = sys.argv[1]
         c_file = sys.argv[2] if len(sys.argv) > 2 else None
-        result = 编译段言到C文件(duan_file, c_file)
+        result = 编译光明到C文件(light_file, c_file)
         if result:
             print(f"[成功] 生成的 C 文件: {result}")
             # 尝试编译

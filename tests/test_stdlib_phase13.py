@@ -2,7 +2,7 @@
 第十三阶段测试用例 - 补全标准库
 """
 import sys
-sys.path.insert(0, 'c:/traework/duan/stdlib')
+sys.path.insert(0, 'c:/traework/light/stdlib')
 
 import unittest
 import os

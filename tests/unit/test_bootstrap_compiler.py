@@ -22,40 +22,40 @@ BOOTSTRAP_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'bootstrap')
 
 
 def _compile_and_run(source_code):
-    """用 Python 编译器编译段言代码并执行，返回命名空间"""
-    from compiler import DuanCompiler
+    """用 Python 编译器编译光明代码并执行，返回命名空间"""
+    from compiler import LightCompiler
     from code_generator_unified import UnifiedCodeGenerator
 
-    c = DuanCompiler()
+    c = LightCompiler()
     result = c.compile(source_code)
     module = result['ast']
 
     generator = UnifiedCodeGenerator()
     py_code = generator.generate(module)
 
-    _duan_builtin = types.ModuleType('_duan_builtin')
-    _duan_builtin.打印 = print
-    _duan_builtin.输出 = print
-    _duan_builtin.转字符串 = str
-    _duan_builtin.转整数 = int
-    _duan_builtin.转浮点 = float
-    _duan_builtin.列表创建 = list
-    _duan_builtin.列表长度 = len
-    _duan_builtin.列表获取 = lambda lst, i: lst[i]
-    _duan_builtin.列表追加 = lambda lst, item: lst.append(item)
-    _duan_builtin.列表弹出 = lambda lst: lst.pop()
-    _duan_builtin.列表包含 = lambda lst, item: item in lst
-    _duan_builtin.字典创建 = dict
-    _duan_builtin.字典设置 = lambda d, k, v: d.update({k: v})
-    _duan_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)
-    _duan_builtin.字典包含键 = lambda d, k: k in d
-    _duan_builtin.字典键列表 = lambda d: list(d.keys())
-    _duan_builtin.字符串长度 = len
-    _duan_builtin.字符串获取 = lambda s, i: s[i]
-    _duan_builtin.截取 = lambda s, start, end: s[start:end]
-    _duan_builtin._读文件 = lambda path: open(path, 'r', encoding='utf-8').read()
+    _light_builtin = types.ModuleType('_light_builtin')
+    _light_builtin.打印 = print
+    _light_builtin.输出 = print
+    _light_builtin.转字符串 = str
+    _light_builtin.转整数 = int
+    _light_builtin.转浮点 = float
+    _light_builtin.列表创建 = list
+    _light_builtin.列表长度 = len
+    _light_builtin.列表获取 = lambda lst, i: lst[i]
+    _light_builtin.列表追加 = lambda lst, item: lst.append(item)
+    _light_builtin.列表弹出 = lambda lst: lst.pop()
+    _light_builtin.列表包含 = lambda lst, item: item in lst
+    _light_builtin.字典创建 = dict
+    _light_builtin.字典设置 = lambda d, k, v: d.update({k: v})
+    _light_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)
+    _light_builtin.字典包含键 = lambda d, k: k in d
+    _light_builtin.字典键列表 = lambda d: list(d.keys())
+    _light_builtin.字符串长度 = len
+    _light_builtin.字符串获取 = lambda s, i: s[i]
+    _light_builtin.截取 = lambda s, start, end: s[start:end]
+    _light_builtin._读文件 = lambda path: open(path, 'r', encoding='utf-8').read()
 
-    namespace = {'_duan_builtin': _duan_builtin}
+    namespace = {'_light_builtin': _light_builtin}
     exec(py_code, namespace)
     return namespace, py_code
 
@@ -154,7 +154,7 @@ class TestBootstrapLexer:
 
     def test_lexer_can_be_compiled(self):
         """测试词法分析器源码能被编译"""
-        lexer_path = os.path.join(BOOTSTRAP_DIR, 'lexer.duan')
+        lexer_path = os.path.join(BOOTSTRAP_DIR, 'lexer.light')
         assert os.path.exists(lexer_path), f"Lexer file not found: {lexer_path}"
 
         with open(lexer_path, 'r', encoding='utf-8') as f:
@@ -289,11 +289,11 @@ indent_pop(s)
         """测试内置函数映射"""
         source = '''段落 map_builtin 接收 name：
   如果 name 等于 "打印"：
-    返回 "_duan_builtin.打印"
+    返回 "_light_builtin.打印"
   如果 name 等于 "列表创建"：
-    返回 "_duan_builtin.列表创建"
+    返回 "_light_builtin.列表创建"
   如果 name 等于 "列表长度"：
-    返回 "_duan_builtin.列表长度"
+    返回 "_light_builtin.列表长度"
   返回 name
 
 设 m1 为 map_builtin("打印")
@@ -301,8 +301,8 @@ indent_pop(s)
 设 m3 为 map_builtin("自定义函数")
 '''
         ns, _ = _compile_and_run(source)
-        assert ns['m1'] == '_duan_builtin.打印'
-        assert ns['m2'] == '_duan_builtin.列表创建'
+        assert ns['m1'] == '_light_builtin.打印'
+        assert ns['m2'] == '_light_builtin.列表创建'
         assert ns['m3'] == '自定义函数'
 
 
@@ -404,7 +404,7 @@ class TestBootstrapSourceFiles:
 
     def test_lexer_source_exists(self):
         """测试词法分析器源码文件存在"""
-        path = os.path.join(BOOTSTRAP_DIR, 'lexer.duan')
+        path = os.path.join(BOOTSTRAP_DIR, 'lexer.light')
         assert os.path.exists(path)
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -413,7 +413,7 @@ class TestBootstrapSourceFiles:
 
     def test_parser_source_exists(self):
         """测试解析器源码文件存在"""
-        path = os.path.join(BOOTSTRAP_DIR, 'parser.duan')
+        path = os.path.join(BOOTSTRAP_DIR, 'parser.light')
         assert os.path.exists(path)
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -422,7 +422,7 @@ class TestBootstrapSourceFiles:
 
     def test_codegen_source_exists(self):
         """测试代码生成器源码文件存在"""
-        path = os.path.join(BOOTSTRAP_DIR, 'codegen.duan')
+        path = os.path.join(BOOTSTRAP_DIR, 'codegen.light')
         assert os.path.exists(path)
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -431,7 +431,7 @@ class TestBootstrapSourceFiles:
 
     def test_compiler_source_exists(self):
         """测试编译器主文件存在"""
-        path = os.path.join(BOOTSTRAP_DIR, 'compiler.duan')
+        path = os.path.join(BOOTSTRAP_DIR, 'compiler.light')
         assert os.path.exists(path)
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -440,7 +440,7 @@ class TestBootstrapSourceFiles:
 
     def test_main_source_exists(self):
         """测试主入口文件存在"""
-        path = os.path.join(BOOTSTRAP_DIR, 'main.duan')
+        path = os.path.join(BOOTSTRAP_DIR, 'main.light')
         assert os.path.exists(path)
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -449,7 +449,7 @@ class TestBootstrapSourceFiles:
 
     def test_ast_source_exists(self):
         """测试 AST 模块存在"""
-        path = os.path.join(BOOTSTRAP_DIR, 'duan_ast.duan')
+        path = os.path.join(BOOTSTRAP_DIR, 'light_ast.light')
         assert os.path.exists(path)
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -457,7 +457,7 @@ class TestBootstrapSourceFiles:
 
     def test_token_source_exists(self):
         """测试 Token 模块存在"""
-        path = os.path.join(BOOTSTRAP_DIR, 'token.duan')
+        path = os.path.join(BOOTSTRAP_DIR, 'token.light')
         assert os.path.exists(path)
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -465,7 +465,7 @@ class TestBootstrapSourceFiles:
 
     def test_bootstrap_merged_exists(self):
         """测试合并版自举编译器存在"""
-        path = os.path.join(BOOTSTRAP_DIR, 'bootstrap_merged.duan')
+        path = os.path.join(BOOTSTRAP_DIR, 'bootstrap_merged.light')
         assert os.path.exists(path)
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -473,7 +473,7 @@ class TestBootstrapSourceFiles:
 
     def test_test_simple_file(self):
         """测试简单测试程序存在"""
-        path = os.path.join(BOOTSTRAP_DIR, 'test_simple.duan')
+        path = os.path.join(BOOTSTRAP_DIR, 'test_simple.light')
         assert os.path.exists(path)
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read()

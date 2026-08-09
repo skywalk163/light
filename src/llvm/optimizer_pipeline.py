@@ -341,8 +341,8 @@ class OptimizationPipeline:
 
         # 统计引用次数
         for func_name in list(internal_funcs.keys()):
-            # 跳过 main 和 __duan_init
-            if func_name in ('main', '__duan_init'):
+            # 跳过 main 和 __light_init
+            if func_name in ('main', '__light_init'):
                 continue
             # 在 IR 中搜索 @func_name（排除定义行）
             count = 0

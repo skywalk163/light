@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言在线包注册表服务器 (Duan Package Registry)
+光明在线包注册表服务器 (Light Package Registry)
 
 提供 HTTP API 用于包的发布、搜索、安装和版本管理。
 
@@ -436,7 +436,7 @@ class RegistryHandler(BaseHTTPRequestHandler):
                     'status': 'ok',
                     'timestamp': str(datetime.now()),
                     'version': '1.0.0',
-                    'registry': '段言包注册表',
+                    'registry': '光明包注册表',
                 })
 
             # GET /api/packages - 列出所有包
@@ -445,7 +445,7 @@ class RegistryHandler(BaseHTTPRequestHandler):
                 self._send_json({
                     'packages': pkgs,
                     'total': len(pkgs),
-                    'registry': '段言包注册表',
+                    'registry': '光明包注册表',
                     'version': '1.0.0',
                 })
 
@@ -536,7 +536,7 @@ class RegistryHandler(BaseHTTPRequestHandler):
             # 根路径
             elif path == '' or path == '/':
                 self._send_json({
-                    'name': '段言包注册表',
+                    'name': '光明包注册表',
                     'version': '1.0.0',
                     'endpoints': [
                         'GET  /api/health',
@@ -716,7 +716,7 @@ class RegistryHandler(BaseHTTPRequestHandler):
         import io
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
-            # duan.json
+            # light.json
             pkg_json = {
                 'name': name,
                 'version': version,
@@ -725,9 +725,9 @@ class RegistryHandler(BaseHTTPRequestHandler):
                 'license': metadata.get('license', 'MIT'),
                 'dependencies': metadata.get('dependencies', {}),
             }
-            zf.writestr('duan.json', json.dumps(pkg_json, indent=2, ensure_ascii=False))
+            zf.writestr('light.json', json.dumps(pkg_json, indent=2, ensure_ascii=False))
             # 主模块文件
-            zf.writestr(f'{name}.duan', f'# {name} v{version}\n# 段言包\n\n段 主函数()：\n  打印 "Hello from {name}!"。\n')
+            zf.writestr(f'{name}.light', f'# {name} v{version}\n# 光明包\n\n段 主函数()：\n  打印 "Hello from {name}!"。\n')
         return buf.getvalue()
 
 
@@ -736,7 +736,7 @@ class RegistryHandler(BaseHTTPRequestHandler):
 # =============================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description='段言在线包注册表服务器')
+    parser = argparse.ArgumentParser(description='光明在线包注册表服务器')
     parser.add_argument('--port', type=int, default=8080, help='服务器端口（默认 8080）')
     parser.add_argument('--dir', type=str, default='./registry_data', help='存储目录（默认 ./registry_data）')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='绑定地址（默认 0.0.0.0）')
@@ -751,7 +751,7 @@ def main():
     # 启动服务器
     server = HTTPServer((args.host, args.port), RegistryHandler)
     print(f'╔══════════════════════════════════════════╗')
-    print(f'║     段言包注册表服务器已启动             ║')
+    print(f'║     光明包注册表服务器已启动             ║')
     print(f'╠══════════════════════════════════════════╣')
     print(f'║  地址: http://{args.host}:{args.port}')
     print(f'║  存储: {os.path.abspath(args.dir)}')

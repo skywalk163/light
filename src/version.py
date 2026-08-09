@@ -1,5 +1,5 @@
 """
-段言（DuanLang）版本信息集中管理
+光明（LightLang）版本信息集中管理
 
 本模块提供统一的版本号、发布日期、版本名称等信息。
 所有需要版本号的模块应从此处导入，而非各自定义。
@@ -32,10 +32,10 @@ COMPILER_BACKENDS = ["python", "llvm", "c", "wasm"]
 
 # 版本描述
 VERSION_DESCRIPTION = """
-段言 v6.0 是自 v5.1 以来的重大版本，历时 12 周开发。
+光明 v6.0 是自 v5.1 以来的重大版本，历时 12 周开发。
 
 核心亮点：
-- 完全自举：Level 8 编译器全部用段言自身编写，4 轮编译收敛
+- 完全自举：Level 8 编译器全部用光明自身编写，4 轮编译收敛
 - 类型系统完善：泛型、联合类型、模式匹配
 - 调试体验增强：统一错误格式、编译错误精准定位、REPL 完善
 - 模块系统与包管理器：包注册表、版本管理、依赖循环检测
@@ -77,12 +77,12 @@ def get_version_string() -> str:
 
 def get_full_version_string() -> str:
     """获取完整版本字符串"""
-    return f"段言 DuanLang v{VERSION}「{VERSION_NAME}」— {RELEASE_DATE}"
+    return f"光明 LightLang v{VERSION}「{VERSION_NAME}」— {RELEASE_DATE}"
 
 
 def get_dev_version_string() -> str:
     """获取开发分支版本字符串"""
-    return f"段言 DuanLang v4.0dev-{VERSION} (开发分支) — {RELEASE_DATE}"
+    return f"光明 LightLang v4.0dev-{VERSION} (开发分支) — {RELEASE_DATE}"
 
 
 def is_dev_branch() -> bool:

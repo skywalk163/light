@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言标准库集成测试
+光明标准库集成测试
 
 测试 src 编译器 + Python 后端的标准库函数
 """
@@ -22,13 +22,13 @@ class TestStdlibList(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            from compiler import DuanCompiler
-            cls.Compiler = DuanCompiler
+            from compiler import LightCompiler
+            cls.Compiler = LightCompiler
         except ImportError as e:
             raise unittest.SkipTest(f"编译器模块不可用: {e}")
 
     def _run_code(self, code):
-        """运行段言代码并返回输出"""
+        """运行光明代码并返回输出"""
         from code_generator_unified import UnifiedCodeGenerator
 
         compiler = self.Compiler()
@@ -87,13 +87,13 @@ class TestStdlibString(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            from compiler import DuanCompiler
-            cls.Compiler = DuanCompiler
+            from compiler import LightCompiler
+            cls.Compiler = LightCompiler
         except ImportError as e:
             raise unittest.SkipTest(f"编译器模块不可用: {e}")
 
     def _run_code(self, code):
-        """运行段言代码并返回输出"""
+        """运行光明代码并返回输出"""
         from code_generator_unified import UnifiedCodeGenerator
 
         compiler = self.Compiler()
@@ -123,9 +123,9 @@ class TestStdlibString(unittest.TestCase):
 
     def test_string_replace(self):
         """测试字符串替换"""
-        code = '设 s 为 "你好世界"。\n打印 替换字符串(s, "世界", "段言")。'
+        code = '设 s 为 "你好世界"。\n打印 替换字符串(s, "世界", "光明")。'
         output = self._run_code(code)
-        self.assertEqual(output, '你好段言')
+        self.assertEqual(output, '你好光明')
 
     def test_string_split(self):
         """测试字符串分割"""
@@ -146,13 +146,13 @@ class TestStdlibMath(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            from compiler import DuanCompiler
-            cls.Compiler = DuanCompiler
+            from compiler import LightCompiler
+            cls.Compiler = LightCompiler
         except ImportError as e:
             raise unittest.SkipTest(f"编译器模块不可用: {e}")
 
     def _run_code(self, code):
-        """运行段言代码并返回输出"""
+        """运行光明代码并返回输出"""
         from code_generator_unified import UnifiedCodeGenerator
 
         compiler = self.Compiler()
@@ -205,13 +205,13 @@ class TestStdlibFile(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            from compiler import DuanCompiler
-            cls.Compiler = DuanCompiler
+            from compiler import LightCompiler
+            cls.Compiler = LightCompiler
         except ImportError as e:
             raise unittest.SkipTest(f"编译器模块不可用: {e}")
 
     def _run_code(self, code):
-        """运行段言代码并返回输出"""
+        """运行光明代码并返回输出"""
         from code_generator_unified import UnifiedCodeGenerator
 
         compiler = self.Compiler()
@@ -267,13 +267,13 @@ class TestStdlibDict(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            from compiler import DuanCompiler
-            cls.Compiler = DuanCompiler
+            from compiler import LightCompiler
+            cls.Compiler = LightCompiler
         except ImportError as e:
             raise unittest.SkipTest(f"编译器模块不可用: {e}")
 
     def _run_code(self, code):
-        """运行段言代码并返回输出"""
+        """运行光明代码并返回输出"""
         from code_generator_unified import UnifiedCodeGenerator
 
         compiler = self.Compiler()
@@ -314,13 +314,13 @@ class TestStdlibTypeCheck(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            from compiler import DuanCompiler
-            cls.Compiler = DuanCompiler
+            from compiler import LightCompiler
+            cls.Compiler = LightCompiler
         except ImportError as e:
             raise unittest.SkipTest(f"编译器模块不可用: {e}")
 
     def _run_code(self, code):
-        """运行段言代码并返回输出"""
+        """运行光明代码并返回输出"""
         from code_generator_unified import UnifiedCodeGenerator
 
         compiler = self.Compiler()
@@ -355,13 +355,13 @@ class TestExceptionHandling(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            from compiler import DuanCompiler
-            cls.Compiler = DuanCompiler
+            from compiler import LightCompiler
+            cls.Compiler = LightCompiler
         except ImportError as e:
             raise unittest.SkipTest(f"编译器模块不可用: {e}")
 
     def _run_code(self, code):
-        """运行段言代码并返回输出"""
+        """运行光明代码并返回输出"""
         from code_generator_unified import UnifiedCodeGenerator
 
         compiler = self.Compiler()

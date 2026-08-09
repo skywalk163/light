@@ -1,15 +1,15 @@
-"""测试段言标准库功能"""
+"""测试光明标准库功能"""
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from duan_interpreter import run_source
+from light_interpreter import run_source
 
 
 def test_stdlib():
     """测试标准库函数"""
     print("=" * 70)
-    print("测试：段言标准库功能")
+    print("测试：光明标准库功能")
     print("=" * 70)
     print()
     
@@ -52,7 +52,7 @@ assert(真, "这应该通过")。
     
     try:
         # 合并标准库和测试代码
-        with open(os.path.join(os.path.dirname(__file__), 'stdlib.duan'), 'r', encoding='utf-8') as f:
+        with open(os.path.join(os.path.dirname(__file__), 'stdlib.light'), 'r', encoding='utf-8') as f:
             stdlib_code = f.read()
         
         full_code = stdlib_code + '\n\n' + test_code

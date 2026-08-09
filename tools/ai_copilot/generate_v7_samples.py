@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
 v7 新增样本: 约200条，覆盖测试失败点和零覆盖语法
-所有段言输出严格遵循 src/keywords.py 权威关键字
+所有光明输出严格遵循 src/keywords.py 权威关键字
 """
 import json
 
-INSTRUCTION = "用段言v3.2语法重写以下Python代码。"
+INSTRUCTION = "用光明v3.2语法重写以下Python代码。"
 
 NEW_SAMPLES = []
 
-def add(py, duan, category):
+def add(py, light, category):
     NEW_SAMPLES.append({
         "instruction": INSTRUCTION,
         "input": py.strip(),
-        "output": duan.strip(),
+        "output": light.strip(),
         "category": category,
     })
 

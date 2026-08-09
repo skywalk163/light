@@ -1,6 +1,6 @@
 [package]
 name = "简易博客引擎"
 version = "1.0.0"
-entry = "主.duan"
-authors = ["段言开源社区"]
-description = "简易博客引擎 - 演示段言字典、列表、函数模块化编程"
+entry = "主.light"
+authors = ["光明开源社区"]
+description = "简易博客引擎 - 演示光明字典、列表、函数模块化编程"

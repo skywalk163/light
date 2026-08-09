@@ -1,8 +1,8 @@
-# 段言项目配置
+# 光明项目配置
 [package]
 name = "level9_test"
 version = "0.1.0"
-entry = "主.duan"
+entry = "主.light"
 authors = []
 description = "Level 9 包管理和标准库完善测试"
 

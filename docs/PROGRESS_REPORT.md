@@ -1,8 +1,8 @@
-# 段言编译器开发进度报告
+# 光明编译器开发进度报告
 
 ## 项目概述
 
-**项目名称：** 段言（Duan）编程语言编译器  
+**项目名称：** 光明（Light）编程语言编译器  
 **当前版本：** v2.3  
 **更新时间：** 2026-07-04  
 **项目状态：** v1.9.x 功能补全完成 + v2.0 中期目标 + Level 8 LLVM 后端完整支持 + Level 9 包管理与标准库完善 + Level 10 异步并发支持
@@ -23,7 +23,7 @@
 - **创建 `src/core/` 目录**
 - **实现统一接口**：
   - `interfaces.py` - ILexer, IParser, ISemanticAnalyzer, ICodeGenerator, ICompiler
-  - `errors.py` - DuanError, LexerError, ParserError, SemanticError, CodeGenError
+  - `errors.py` - LightError, LexerError, ParserError, SemanticError, CodeGenError
   - `config.py` - DuanConfig 配置管理系统
 
 #### 1.3 文档完善
@@ -60,17 +60,17 @@
 #### 3.1 CLI 编译器工具
 - **创建 CLI 工具**：`cli/duanc.py`
 - **实现功能**：
-  - 编译文件：`duanc file.duan -o file.py`
-  - 编译并运行：`duanc file.duan --run`
-  - 显示 Token 流：`duanc file.duan --tokens`
-  - 显示 AST：`duanc file.duan --ast`
-  - 详细输出：`duanc file.duan -v`
+  - 编译文件：`duanc file.light -o file.py`
+  - 编译并运行：`duanc file.light --run`
+  - 显示 Token 流：`duanc file.light --tokens`
+  - 显示 AST：`duanc file.light --ast`
+  - 详细输出：`duanc file.light -v`
   - 创建示例项目：`duanc --init`
 
 #### 3.2 示例代码库
 - **创建示例文件**：
-  - `examples/basic.duan` - 基础语法示例
-  - `examples/advanced.duan` - 高级功能示例
+  - `examples/basic.light` - 基础语法示例
+  - `examples/advanced.light` - 高级功能示例
 
 ---
 
@@ -128,7 +128,7 @@
 - **自动类型提升**：int + float → float
 
 #### 5.3 LLVM 编译流水线
-- **完整链路**：.duan → Lexer → DuanParser(v3) → AstAdapter → LLVMCodeGen → .ll → clang → .exe
+- **完整链路**：.light → Lexer → LightParser(v3) → AstAdapter → LLVMCodeGen → .ll → clang → .exe
 - **支持功能**：变量、算术运算、条件语句、循环、函数（段落）、列表、字符串操作、类与对象、异常处理
 - **性能优势**：原生编译，运行速度远超 Python 解释执行
 
@@ -303,7 +303,7 @@ finally 块:
   - 支持 gdb/lldb 调试
 - **编译缓存**：
   - 基于源代码哈希的增量编译
-  - `.duan_cache` 缓存目录
+  - `.light_cache` 缓存目录
   - `--no-cache` / `--clear-cache` CLI 参数
 
 ---
@@ -373,7 +373,7 @@ finally 块:
   - 端到端测试：主程序局部变量未释放（已知问题，进程退出时由 OS 回收）
 - **测试文件**：
   - `test_memory_leak.c`：C 级别的 runtime 内存泄漏测试
-  - `test_memory_e2e.py`：端到端 Duan 程序内存泄漏测试
+  - `test_memory_e2e.py`：端到端 Light 程序内存泄漏测试
 
 ## 进行中的工作
 
@@ -412,7 +412,7 @@ finally 块:
 ```
 src/
 ├── lexer.py              # 词法分析器（~857行）
-├── duan_parser_v3.py     # 语法解析器（~3253行）
+├── light_parser_v3.py     # 语法解析器（~3253行）
 ├── semantic_analyzer.py  # 语义分析器（~342行）
 ├── code_generator.py     # 代码生成器（~1003行）
 ├── code_generator_unified.py # 统一代码生成器（~1011行）
@@ -423,7 +423,7 @@ src/
 ├── keywords.py           # 关键字定义（~208行）
 ├── ast_nodes.py          # AST节点（~275行）
 ├── tokens.py             # Token定义（~75行）
-└── duan_interpreter.py   # 解释器
+└── light_interpreter.py   # 解释器
 ```
 
 ### 新增模块
@@ -441,8 +441,8 @@ docs/
 └── LANGUAGE_EXTENSIONS.md    # 语法扩展
 
 examples/
-├── basic.duan           # 基础示例
-└── advanced.duan        # 高级示例
+├── basic.light           # 基础示例
+└── advanced.light        # 高级示例
 ```
 
 ---
@@ -526,12 +526,12 @@ examples/
 1. **CLI 工具功能**
    - 新增 `check` 命令：语法检查（显示行数统计）
    - 新增 `init` 命令：项目初始化（创建目录结构、示例文件、配置）
-   - 修改文件：`cli/duan.py`
+   - 修改文件：`cli/light.py`
 
 2. **调试器基础功能**
-   - 添加源码行号映射注释（`# DUAN_SRC:行号:代码片段`）
-   - 异常 traceback 转换为段言源码行号格式
-   - 修改文件：`debug-adapter/duan_debug_adapter.py`
+   - 添加源码行号映射注释（`# LIGHT_SRC:行号:代码片段`）
+   - 异常 traceback 转换为光明源码行号格式
+   - 修改文件：`debug-adapter/light_debug_adapter.py`
 
 3. **VSCode 插件原型**
    - 新建 `vscode-extension/` 目录
@@ -545,9 +545,9 @@ examples/
    - 修改文件：`docs/USER_MANUAL.md`
 
 2. **示例代码**
-   - 新增：`examples/class_access_control.duan`（访问修饰符）
-   - 新增：`examples/class_static.duan`（静态属性和方法）
-   - 新增：`examples/class_complete.duan`（继承综合示例）
+   - 新增：`examples/class_access_control.light`（访问修饰符）
+   - 新增：`examples/class_static.light`（静态属性和方法）
+   - 新增：`examples/class_complete.light`（继承综合示例）
 
 ---
 
@@ -621,7 +621,7 @@ examples/
 
 6. **其他改进**
    - 新增 `转串` 内置函数别名
-   - 创建 Level 8 测试程序：`tests/test_level8_llvm.duan`
+   - 创建 Level 8 测试程序：`tests/test_level8_llvm.light`
 
 ### 影响文件
 
@@ -629,7 +629,7 @@ examples/
 |------|------|
 | `src/llvm/codegen_typed.py` | 核心修复和优化 |
 | `src/llvm/codegen.py` | 新建（LLVMCodeGen 父类） |
-| `tests/test_level8_llvm.duan` | 新建（测试程序） |
+| `tests/test_level8_llvm.light` | 新建（测试程序） |
 | `docs/llvm_backend_design.md` | 文档更新 |
 | `docs/superpowers/specs/2026-07-01-level6-type-annotation-design.md` | Level 8 状态更新 |
 
@@ -650,16 +650,16 @@ examples/
 
 **多模块编译流水线**：
 - `compile_modules_typed()`：编译多个模块为合并的 LLVM IR
-- `compile_duan_project()`：递归收集依赖、编译合并、链接为原生可执行文件
+- `compile_light_project()`：递归收集依赖、编译合并、链接为原生可执行文件
 
-### 2. 核心标准库模块迁移为纯段言实现
+### 2. 核心标准库模块迁移为纯光明实现
 
 | 模块 | 导出函数 | 说明 |
 |------|---------|------|
-| `数学工具.duan` | 平方、绝对值、最大值、最小值、是奇数、是偶数、阶乘、是素数、最大公约数、最小公倍数、累加 | 11个纯段言实现 |
-| `字符串工具.duan` | 反转、重复、包含、开头是、结尾是、计数、去空格 | 7个纯段言实现 |
-| `列表工具.duan` | 求和、最大值、最小值、平均值、反转列表、包含、查找索引、计数、连接、范围 | 10个纯段言实现 |
-| `类型工具.duan` | 类型名、是整数、是布尔 | 3个纯段言实现 |
+| `数学工具.light` | 平方、绝对值、最大值、最小值、是奇数、是偶数、阶乘、是素数、最大公约数、最小公倍数、累加 | 11个纯光明实现 |
+| `字符串工具.light` | 反转、重复、包含、开头是、结尾是、计数、去空格 | 7个纯光明实现 |
+| `列表工具.light` | 求和、最大值、最小值、平均值、反转列表、包含、查找索引、计数、连接、范围 | 10个纯光明实现 |
+| `类型工具.light` | 类型名、是整数、是布尔 | 3个纯光明实现 |
 
 ### 3. 包管理器完善
 
@@ -681,15 +681,15 @@ examples/
 | 文件 | 变更 |
 |------|------|
 | `src/llvm/codegen_typed.py` | 模块系统支持（导入/导出/别名/多模块） |
-| `src/llvm/compiler.py` | 新增 `compile_modules_typed`、`compile_duan_project` |
+| `src/llvm/compiler.py` | 新增 `compile_modules_typed`、`compile_light_project` |
 | `src/package_manager.py` | 新增 `resolve_path_dependencies`、`build_project_native` |
 | `src/compiler.py` | `_convert_module` 收集 imports/exports、`_convert_export_stmt` 多符号 |
 | `src/ast_nodes.py` | `ExportStatement` 新增 `names` 字段、兼容别名 |
-| `stdlib/数学工具.duan` | 纯段言实现（11个函数） |
-| `stdlib/字符串工具.duan` | 新建（7个函数） |
-| `stdlib/列表工具.duan` | 新建（10个函数） |
-| `stdlib/类型工具.duan` | 新建（3个函数） |
-| `tests/test_level9_modules.duan` | 新建（模块系统测试） |
+| `stdlib/数学工具.light` | 纯光明实现（11个函数） |
+| `stdlib/字符串工具.light` | 新建（7个函数） |
+| `stdlib/列表工具.light` | 新建（10个函数） |
+| `stdlib/类型工具.light` | 新建（3个函数） |
+| `tests/test_level9_modules.light` | 新建（模块系统测试） |
 | `tests/level9_project/` | 新建（包管理测试项目） |
 
 ---
@@ -699,8 +699,8 @@ examples/
 ### 1. 协程运行时系统
 
 **核心数据结构**：
-- `DuanCoroutine`：协程句柄，包含 state、resume_point、func、result、args、locals、waiting_for、future、next
-- `DuanFuture`：Future/Promise，包含 ready、result、has_error、error_msg、waiters
+- `LightCoroutine`：协程句柄，包含 state、resume_point、func、result、args、locals、waiting_for、future、next
+- `LightFuture`：Future/Promise，包含 ready、result、has_error、error_msg、waiters
 - `DuanScheduler`：协程调度器，包含 run_queue 可运行队列
 
 **运行时函数**：
@@ -767,7 +767,7 @@ examples/
 | await 点重复计数 | `hasattr` 检查导致 `value`/`body` 被重复统计 | 改用 `isinstance` 精确匹配 |
 | 局部变量跨 await 丢失 | `alloca` 在栈上，挂起恢复后栈帧不同 | 改用 `coro->locals` 数组存储 |
 | await 结果为 null | `dv_future_complete` 清除了 `waiting_for` | 保留 `waiting_for` 供 `dv_coro_get_await_result` 读取 |
-| dv_coro_await 参数类型 | 之前是 DuanFuture*，实际传入 DuanCoroutine* | 改为接收 DuanCoroutine*，从其 future 获取等待关系 |
+| dv_coro_await 参数类型 | 之前是 LightFuture*，实际传入 LightCoroutine* | 改为接收 LightCoroutine*，从其 future 获取等待关系 |
 | next 指针冲突 | run_queue 和 all_coros 共享 next 指针 | 移除 all_coros 链表 |
 
 ### 5. 测试覆盖
@@ -784,7 +784,7 @@ examples/
 
 | 文件 | 变更 |
 |------|------|
-| `src/llvm/runtime_typed.c` | 新增协程运行时（DuanCoroutine、DuanFuture、调度器、12个运行时函数） |
+| `src/llvm/runtime_typed.c` | 新增协程运行时（LightCoroutine、LightFuture、调度器、12个运行时函数） |
 | `src/llvm/codegen_typed.py` | 异步段落编译、await 代码生成、异步作用域、协程状态机 |
 | `src/ast_nodes_v3.py` | 新增 AwaitExpr、AsyncScope 节点 |
 | `src/ast_nodes.py` | 已有 AwaitExpression、AsyncScope（补充转换支持） |
@@ -797,7 +797,7 @@ examples/
 
 ## Level 11 LLVM 后端自举编译完成记录 (2026-07-05)
 
-### 阶段目标：使用 LLVM 后端将自举编译器（bootstrap_v3.duan）编译为原生可执行文件。
+### 阶段目标：使用 LLVM 后端将自举编译器（bootstrap_v3.light）编译为原生可执行文件。
 
 ### 核心成果
 
@@ -861,18 +861,18 @@ examples/
 - **核心修改**：
   - `src/llvm/codegen.py` - elseif 变量收集修复
   - `src/llvm/codegen_typed.py` - 4 处修复
-- **自举编译器**：`bootstrap/bootstrap_v3.duan`
+- **自举编译器**：`bootstrap/bootstrap_v3.light`
 
 ---
 
 ## 文件清单
 
 ```
-G:\dumategithub\duan\
+G:\dumategithub\light\
 ├── src\                    # 核心源码
 │   ├── core\              # 核心接口
 │   ├── lexer.py           # 词法分析器
-│   ├── duan_parser_v3.py  # 语法解析器
+│   ├── light_parser_v3.py  # 语法解析器
 │   └── ...                # 其他模块
 ├── tests\                 # 测试套件
 ├── cli\                   # 命令行工具
@@ -885,9 +885,9 @@ G:\dumategithub\duan\
 
 ## 联系与贡献
 
-**项目地址**：`G:\dumategithub\duan`  
-**文档位置**：`G:\dumategithub\duan\docs\`  
-**示例代码**：`G:\dumategithub\duan\examples\`  
+**项目地址**：`G:\dumategithub\light`  
+**文档位置**：`G:\dumategithub\light\docs\`  
+**示例代码**：`G:\dumategithub\light\examples\`  
 
 ---
 

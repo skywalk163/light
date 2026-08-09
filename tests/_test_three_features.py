@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言三大特性综合测试
+光明三大特性综合测试
 ======================================
 
 测试三大特性的协同工作：
@@ -293,31 +293,31 @@ class TestNullableUnwrap(unittest.TestCase):
 
     def test_unwrap_basic_semantics(self):
         """测试解包的基本语义（非空值可解包，空值应断言失败）"""
-        # 模拟 _duan_unwrap 函数的行为
-        def _duan_unwrap(_x):
+        # 模拟 _light_unwrap 函数的行为
+        def _light_unwrap(_x):
             assert _x is not None, "尝试解包空值"
             return _x
         # 非空值可以正常解包
         try:
-            result = _duan_unwrap(42)
+            result = _light_unwrap(42)
             self.assertEqual(result, 42)
             print("✅ 非空值解包成功")
         except AssertionError:
             self.fail("非空值解包不应失败")
         # 空值解包应抛出断言
         try:
-            _duan_unwrap(None)
+            _light_unwrap(None)
             self.fail("空值解包应抛出断言")
         except AssertionError:
             print("✅ 空值解包正确抛出断言")
 
     def test_unwrap_string(self):
         """测试字符串解包"""
-        def _duan_unwrap(_x):
+        def _light_unwrap(_x):
             assert _x is not None, "尝试解包空值"
             return _x
         try:
-            result = _duan_unwrap("你好")
+            result = _light_unwrap("你好")
             self.assertEqual(result, "你好")
             print("✅ 字符串解包成功")
         except Exception as e:
@@ -325,11 +325,11 @@ class TestNullableUnwrap(unittest.TestCase):
 
     def test_unwrap_list(self):
         """测试列表解包"""
-        def _duan_unwrap(_x):
+        def _light_unwrap(_x):
             assert _x is not None, "尝试解包空值"
             return _x
         try:
-            result = _duan_unwrap([1, 2, 3])
+            result = _light_unwrap([1, 2, 3])
             self.assertEqual(result, [1, 2, 3])
             print("✅ 列表解包成功")
         except Exception as e:
@@ -337,12 +337,12 @@ class TestNullableUnwrap(unittest.TestCase):
 
     def test_unwrap_nested_calls(self):
         """测试嵌套解包调用"""
-        def _duan_unwrap(_x):
+        def _light_unwrap(_x):
             assert _x is not None, "尝试解包空值"
             return _x
         try:
             # 值! 的嵌套调用等价于
-            result = _duan_unwrap(_duan_unwrap(42))
+            result = _light_unwrap(_light_unwrap(42))
             self.assertEqual(result, 42)
             print("✅ 嵌套解包成功")
         except Exception as e:
@@ -350,13 +350,13 @@ class TestNullableUnwrap(unittest.TestCase):
 
     def test_unwrap_with_arithmetic(self):
         """测试解包后参与运算"""
-        def _duan_unwrap(_x):
+        def _light_unwrap(_x):
             assert _x is not None, "尝试解包空值"
             return _x
         try:
             x = 3
             y = 5
-            result = _duan_unwrap(x) + _duan_unwrap(y)
+            result = _light_unwrap(x) + _light_unwrap(y)
             self.assertEqual(result, 8)
             print("✅ 解包后参与运算成功")
         except Exception as e:
@@ -364,7 +364,7 @@ class TestNullableUnwrap(unittest.TestCase):
 
     def test_unwrap_nullable_function_return(self):
         """测试可空函数返回值的解包"""
-        def _duan_unwrap(_x):
+        def _light_unwrap(_x):
             assert _x is not None, "尝试解包空值"
             return _x
         def maybe_return_null(condition):
@@ -373,7 +373,7 @@ class TestNullableUnwrap(unittest.TestCase):
             return None
         try:
             val = maybe_return_null(True)
-            result = _duan_unwrap(val)
+            result = _light_unwrap(val)
             self.assertEqual(result, 100)
             print("✅ 可空函数返回值解包成功")
         except Exception as e:
@@ -391,9 +391,9 @@ class TestModuleSystem(unittest.TestCase):
         """测试模块文件可被发现"""
         try:
             project_root = Path(__file__).parent
-            duan_files = list(project_root.glob('**/*.duan'))
-            # 应该至少有一些 .duan 文件（示例等）
-            print(f"✅ 发现 {len(duan_files)} 个 .duan 模块文件")
+            light_files = list(project_root.glob('**/*.light'))
+            # 应该至少有一些 .light 文件（示例等）
+            print(f"✅ 发现 {len(light_files)} 个 .light 模块文件")
         except Exception as e:
             print(f"⚠️  模块发现测试: {e}")
 
@@ -518,12 +518,12 @@ class TestModuleSystem(unittest.TestCase):
                 name="我的项目",
                 version="0.1.0",
                 description="测试项目",
-                entry="main.duan"
+                entry="main.light"
             )
             self.assertIsNotNone(config)
             self.assertEqual(config.name, "我的项目")
             self.assertEqual(config.version, "0.1.0")
-            self.assertEqual(config.entry, "main.duan")
+            self.assertEqual(config.entry, "main.light")
             print("✅ PackageConfig 正常")
         except Exception as e:
             # 如果类不存在，用字典模拟
@@ -531,7 +531,7 @@ class TestModuleSystem(unittest.TestCase):
                 'name': '我的项目',
                 'version': '0.1.0',
                 'description': '测试项目',
-                'entry': 'main.duan'
+                'entry': 'main.light'
             }
             self.assertIsNotNone(config)
             print(f"⚠️  PackageConfig 用字典模拟（部分实现）: {e}")
@@ -629,13 +629,13 @@ class TestFeatureIntegration(unittest.TestCase):
             return None
 
         # 2. 模拟解包
-        def _duan_unwrap(x):
+        def _light_unwrap(x):
             assert x is not None, "尝试解包空值"
             return x
 
         # 3. 模拟运算
         val = get_value(True)
-        result = _duan_unwrap(val) + 5
+        result = _light_unwrap(val) + 5
         self.assertEqual(result, 105)
         print("✅ 复杂场景（跨模块 + 可空 + 解包 + 运算）成功")
 
@@ -671,22 +671,22 @@ class TestCompilerCore(unittest.TestCase):
         try:
             examples_dir = Path(__file__).parent / 'examples'
             if examples_dir.exists():
-                duan_files = list(examples_dir.glob('*.duan'))
-                print(f"✅ 发现 {len(duan_files)} 个示例文件")
+                light_files = list(examples_dir.glob('*.light'))
+                print(f"✅ 发现 {len(light_files)} 个示例文件")
             else:
-                # 搜索项目中的 .duan 文件
+                # 搜索项目中的 .light 文件
                 root = Path(__file__).parent
-                duan_files = list(root.glob('**/*.duan'))
-                if len(duan_files) > 0:
-                    print(f"✅ 发现 {len(duan_files)} 个 .duan 文件")
+                light_files = list(root.glob('**/*.light'))
+                if len(light_files) > 0:
+                    print(f"✅ 发现 {len(light_files)} 个 .light 文件")
                 else:
-                    print("⚠️  未发现 .duan 文件（可能需要添加示例）")
+                    print("⚠️  未发现 .light 文件（可能需要添加示例）")
         except Exception as e:
             print(f"⚠️  示例文件测试: {e}")
 
     def test_basic_compilation_flow(self):
         """测试基本编译流程（模拟词法分析→语法分析→类型检查→代码生成）"""
-        # 模拟一个简单的段言程序编译
+        # 模拟一个简单的光明程序编译
         source = """
 段落 加(甲, 乙):
     返回 甲 加 乙。
@@ -702,7 +702,7 @@ class TestCompilerCore(unittest.TestCase):
         self.assertIn("为", source)
         # 模拟编译输出
         output = """
-# 段言编译输出
+# 光明编译输出
 def 加(甲, 乙):
     return 甲 + 乙
 
@@ -715,7 +715,7 @@ print(结果)
 
     def test_nullable_in_source_code(self):
         """测试源文件中的可空类型语法"""
-        # 段言中的可空语法
+        # 光明中的可空语法
         source = """
 段落 获取值(条件):
     如果 条件:
@@ -753,8 +753,8 @@ print(结果)
 [package]
 name = "我的项目"
 version = "0.1.0"
-description = "段言示例项目"
-entry = "main.duan"
+description = "光明示例项目"
+entry = "main.light"
 
 [dependencies]
 "工具库" = { path = "../tools" }
@@ -856,7 +856,7 @@ class TestPerformanceOptimizations(unittest.TestCase):
 def run_tests():
     """运行所有测试并输出漂亮的报告"""
     print("=" * 70)
-    print("段言 (DuanLang) 三大特性综合测试")
+    print("光明 (LightLang) 三大特性综合测试")
     print("=" * 70)
     print()
 
@@ -916,7 +916,7 @@ def run_tests():
     print()
 
     if failures == 0 and errors == 0:
-        print("🎉 所有测试通过！段言三大特性系统运行正常。")
+        print("🎉 所有测试通过！光明三大特性系统运行正常。")
         return 0
     else:
         print(f"⚠️  有 {failures + errors} 个测试失败/错误，请检查。")

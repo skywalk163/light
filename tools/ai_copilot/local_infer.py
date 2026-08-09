@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言本地推理器 — 通过本地小模型生成段言代码
+光明本地推理器 — 通过本地小模型生成光明代码
 
 支持三种推理后端：
   1. ollama   — 通过 ollama 调用本地模型（推荐，最快）
@@ -29,7 +29,7 @@
     python local_infer.py --fine-tuned --interactive
 
     # 修复代码
-    python local_infer.py --fine-tuned --fix hello.duan "第3行语法错误"
+    python local_infer.py --fine-tuned --fix hello.light "第3行语法错误"
 """
 
 import argparse
@@ -44,38 +44,38 @@ sys.path.insert(0, _SCRIPT_DIR)
 
 # ── 常量 ──
 _DEFAULT_MODEL_OLLAMA = "qwen2.5-coder:1.5b"
-_FINETUNED_OLLAMA = "duan-translator"
+_FINETUNED_OLLAMA = "light-translator"
 _DEFAULT_MODEL_PATH = os.path.join(_SCRIPT_DIR, "model_cache", "qwen2.5-0.5b")
 
 
 def _find_lora_path():
     """自动检测 LoRA 权重路径，优先 GPU 训练产物，支持多模型"""
     for name in (
-        "qwen3.5_2b_duan_gpu",
-        "qwen2.5_1.5b_duan_gpu",
-        "qwen2.5_0.5b_duan_gpu",
-        "qwen2.5_0.5b_duan_cpu",
+        "qwen3.5_2b_light_gpu",
+        "qwen2.5_1.5b_light_gpu",
+        "qwen2.5_0.5b_light_gpu",
+        "qwen2.5_0.5b_light_cpu",
     ):
         p = os.path.join(_SCRIPT_DIR, "output", name, "final")
         if os.path.isdir(p):
             print(f"[自动检测] LoRA 路径: {p}", file=sys.stderr)
             return p
-    return os.path.join(_SCRIPT_DIR, "output", "qwen2.5_0.5b_duan_gpu", "final")
+    return os.path.join(_SCRIPT_DIR, "output", "qwen2.5_0.5b_light_gpu", "final")
 
 
 def _find_merged_path():
     """自动检测合并后模型路径，支持多模型"""
     for name in (
-        "duan_translator_merged_3.5_2b",
-        "duan_translator_merged_1.5b",
-        "duan_translator_merged_0.5b",
-        "duan_translator_merged",
+        "light_translator_merged_3.5_2b",
+        "light_translator_merged_1.5b",
+        "light_translator_merged_0.5b",
+        "light_translator_merged",
     ):
         p = os.path.join(_SCRIPT_DIR, "output", name)
         if os.path.isdir(p):
             print(f"[自动检测] 合并模型路径: {p}", file=sys.stderr)
             return p
-    return os.path.join(_SCRIPT_DIR, "output", "duan_translator_merged")
+    return os.path.join(_SCRIPT_DIR, "output", "light_translator_merged")
 
 
 def _detect_base_model(lora_path: str) -> str:
@@ -97,9 +97,9 @@ _MERGED_PATH = os.environ.get(
 # 基础模型路径根据 LoRA 路径自动推断
 _DEFAULT_MODEL_PATH = _detect_base_model(_LORA_PATH)
 SYSTEM_PROMPT = (
-    "你是段言（DuanLang）编程语言 v3.2 的翻译专家。"
-    "段言是一种中文编程语言，使用中文关键字。"
-    "你的任务是将 Python 代码翻译为段言 v3.2 代码。\n"
+    "你是光明（LightLang）编程语言 v3.2 的翻译专家。"
+    "光明是一种中文编程语言，使用中文关键字。"
+    "你的任务是将 Python 代码翻译为光明 v3.2 代码。\n"
     "关键规则：\n"
     "- 变量赋值: 设 x 为 10\n"
     "- 字符串赋值: 定义 s 等于 \"hello\"\n"
@@ -149,7 +149,7 @@ SYSTEM_PROMPT = (
     "- break/continue: break -> 跳出; continue -> 跳过; 不可混用 返回 替代 break\n"
     "- 多返回值: return a, b 保持原样; x, y = func() 分别赋值\n"
     "- 异常类型: 捕获具体异常类型，如 捕获 ZeroDivisionError 为 e\n"
-    "只输出段言代码，不要解释。"
+    "只输出光明代码，不要解释。"
 )
 
 
@@ -347,7 +347,7 @@ def call_transformers(
 # 核心推理函数
 # ═══════════════════════════════════════════════════════════════════
 
-def generate_duan(
+def generate_light(
     requirement: str,
     backend: str = "ollama",
     use_finetuned: bool = False,
@@ -356,7 +356,7 @@ def generate_duan(
     temperature: float = 0.1,
     max_tokens: int = 1024,
 ) -> str:
-    """生成段言代码
+    """生成光明代码
 
     Args:
         requirement: 用户需求（自然语言或 Python 代码）
@@ -368,15 +368,15 @@ def generate_duan(
         max_tokens: 最大生成 token 数
 
     Returns:
-        生成的段言代码
+        生成的光明代码
     """
     # 构造 prompt
     if use_finetuned:
         # 微调模型：直接给 Python 代码或需求
         if mode == "translate" or _looks_like_python(requirement):
-            prompt = f"将以下 Python 代码翻译为段言 v3.2：\n\n{requirement}"
+            prompt = f"将以下 Python 代码翻译为光明 v3.2：\n\n{requirement}"
         else:
-            prompt = f"请用段言 v3.2 语法编写以下功能：\n\n{requirement}"
+            prompt = f"请用光明 v3.2 语法编写以下功能：\n\n{requirement}"
     else:
         # prompt 工程模式：用 pipeline 组装完整 prompt
         from pipeline import generate_pipeline
@@ -392,14 +392,14 @@ def generate_duan(
         raise ValueError(f"未知后端: {backend}")
 
 
-def fix_duan(
+def fix_light(
     filepath: str,
     error_msg: str,
     backend: str = "ollama",
     use_finetuned: bool = False,
     model_size: str = "small",
 ) -> str:
-    """修复段言代码"""
+    """修复光明代码"""
     # 读取原代码
     if not os.path.exists(filepath):
         return f"[ERROR] 文件不存在: {filepath}"
@@ -409,10 +409,10 @@ def fix_duan(
 
     if use_finetuned:
         prompt = (
-            f"以下段言代码有错误，请修复：\n\n"
-            f"```段言\n{code}\n```\n\n"
+            f"以下光明代码有错误，请修复：\n\n"
+            f"```光明\n{code}\n```\n\n"
             f"错误信息：{error_msg}\n\n"
-            f"请输出修复后的完整段言代码。"
+            f"请输出修复后的完整光明代码。"
         )
     else:
         from pipeline import fix_pipeline
@@ -440,7 +440,7 @@ def _looks_like_python(text: str) -> bool:
 def interactive_mode(backend: str, use_finetuned: bool):
     """交互式对话模式"""
     print("=" * 60)
-    print("段言本地推理器 — 交互模式")
+    print("光明本地推理器 — 交互模式")
     print("=" * 60)
 
     # 显示当前配置
@@ -469,7 +469,7 @@ def interactive_mode(backend: str, use_finetuned: bool):
 
     print(f"  模式: {'微调' if use_finetuned else 'prompt 工程'}")
     print()
-    print("输入需求或 Python 代码，按回车生成段言代码。")
+    print("输入需求或 Python 代码，按回车生成光明代码。")
     print("输入 'quit' 或 'exit' 退出。")
     print("输入 'translate' 切换到翻译模式。")
     print("输入 'fix <文件> <错误>' 修复代码。")
@@ -499,7 +499,7 @@ def interactive_mode(backend: str, use_finetuned: bool):
                 print("用法: fix <文件路径> <错误信息>")
                 continue
             filepath, error = parts[0], parts[1]
-            result = fix_duan(filepath, error, backend=backend, use_finetuned=use_finetuned)
+            result = fix_light(filepath, error, backend=backend, use_finetuned=use_finetuned)
             print("\n--- 修复结果 ---")
             print(result)
             print()
@@ -507,14 +507,14 @@ def interactive_mode(backend: str, use_finetuned: bool):
 
         # 生成
         mode = "translate" if force_translate or _looks_like_python(user_input) else "auto"
-        result = generate_duan(
+        result = generate_light(
             user_input,
             backend=backend,
             use_finetuned=use_finetuned,
             mode=mode,
         )
 
-        print("\n--- 段言代码 ---")
+        print("\n--- 光明代码 ---")
         print(result)
         print()
 
@@ -525,7 +525,7 @@ def interactive_mode(backend: str, use_finetuned: bool):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="段言本地推理器 — 通过本地小模型生成段言代码"
+        description="光明本地推理器 — 通过本地小模型生成光明代码"
     )
     parser.add_argument("input", nargs="?", help="需求描述或 Python 代码")
     parser.add_argument(
@@ -562,7 +562,7 @@ def main():
         "--fix", action="store_true",
         help="修复模式（需配合 --fix-file 和 --fix-error）",
     )
-    parser.add_argument("--fix-file", help="要修复的段言文件路径")
+    parser.add_argument("--fix-file", help="要修复的光明文件路径")
     parser.add_argument("--fix-error", help="错误信息")
     parser.add_argument("--temperature", type=float, default=0.1, help="生成温度")
     parser.add_argument("--max-tokens", type=int, default=1024, help="最大 token 数")
@@ -576,9 +576,9 @@ def main():
     global _LORA_PATH, _MERGED_PATH, _DEFAULT_MODEL_PATH
     if args.preset:
         preset_map = {
-            "qwen2.5-0.5b": ("qwen2.5_0.5b_duan_gpu", "duan_translator_merged_0.5b", "qwen2.5-0.5b"),
-            "qwen2.5-1.5b": ("qwen2.5_1.5b_duan_gpu", "duan_translator_merged_1.5b", "qwen2.5-1.5b"),
-            "qwen3.5-2b":   ("qwen3.5_2b_duan_gpu",   "duan_translator_merged_3.5_2b", "qwen3.5-2b"),
+            "qwen2.5-0.5b": ("qwen2.5_0.5b_light_gpu", "light_translator_merged_0.5b", "qwen2.5-0.5b"),
+            "qwen2.5-1.5b": ("qwen2.5_1.5b_light_gpu", "light_translator_merged_1.5b", "qwen2.5-1.5b"),
+            "qwen3.5-2b":   ("qwen3.5_2b_light_gpu",   "light_translator_merged_3.5_2b", "qwen3.5-2b"),
         }
         lora_dir, merged_dir, model_dir = preset_map[args.preset]
         _LORA_PATH = os.path.join(_SCRIPT_DIR, "output", lora_dir, "final")
@@ -596,7 +596,7 @@ def main():
         if not args.fix_file or not args.fix_error:
             print("修复模式需要 --fix-file 和 --fix-error")
             sys.exit(1)
-        result = fix_duan(
+        result = fix_light(
             args.fix_file, args.fix_error,
             backend=args.backend, use_finetuned=args.fine_tuned,
             model_size=args.model_size,
@@ -620,7 +620,7 @@ def main():
         parser.print_help()
         return
 
-    result = generate_duan(
+    result = generate_light(
         args.input,
         backend=args.backend,
         use_finetuned=args.fine_tuned,
