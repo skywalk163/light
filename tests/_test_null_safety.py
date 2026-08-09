@@ -24,14 +24,14 @@ if _src_dir not in sys.path:
     sys.path.insert(0, _project_root)
 
 import unittest
-from compiler import DuanCompiler
+from compiler import LightCompiler
 from type_inferencer import TypeInferencer
 from type_system import NullType, OptionalTypeWrapper, NumberType, UnknownType
 
 
-def compile_source(src: str) -> DuanCompiler:
+def compile_source(src: str) -> LightCompiler:
     """编译源码，返回编译器实例"""
-    c = DuanCompiler()
+    c = LightCompiler()
     c.compile(src)
     return c
 
@@ -149,7 +149,7 @@ class TestUnwrapExpressionAst(unittest.TestCase):
 
     def test_parsed_has_unwrap_expression(self):
         """确保解析后能产生 UnwrapExpression 节点"""
-        c = DuanCompiler()
+        c = LightCompiler()
         raw = c.parse_raw('设值为空!。')
         # 从原始 AST 中查看存在 UnwrapExpression
         ast_nodes = []
@@ -191,7 +191,7 @@ class TestUnwrapExpressionAst(unittest.TestCase):
 
     def test_adapter_converts_unwrap(self):
         """确保 AstAdapter 将 UnwrapExpression 转换为正确类型"""
-        c = DuanCompiler()
+        c = LightCompiler()
         result = c.compile('设值为空!。')
         # 适配后的 AST
         adapted = result['ast']

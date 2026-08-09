@@ -264,7 +264,7 @@ class TestLinter(unittest.TestCase):
 
     def test_import_linter(self):
         """测试 Linter 导入"""
-        from linter import DuanLinter, LintRule, Severity, RULES
+        from linter import LightLinter, LintRule, Severity, RULES
         self.assertTrue(True)
 
     def test_linter_rules_count(self):
@@ -287,13 +287,13 @@ class TestLinter(unittest.TestCase):
 
     def test_linter_create_instance(self):
         """测试创建 Linter 实例"""
-        from linter import DuanLinter
+        from linter import LightLinter
         linter = LightLinter()
         self.assertIsNotNone(linter)
 
     def test_linter_lint_empty_code(self):
         """测试对空代码的检查"""
-        from linter import DuanLinter
+        from linter import LightLinter
         linter = LightLinter()
         results = linter.check('')
         self.assertIsInstance(results, list)

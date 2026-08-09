@@ -107,8 +107,8 @@ class TestBuildProject(unittest.TestCase):
             shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_build_simple_project(self):
-        from compiler import DuanCompiler
-        c = DuanCompiler(project_root=str(self.tmp))
+        from compiler import LightCompiler
+        c = LightCompiler(project_root=str(self.tmp))
         result = c.compile_project(str(self.tmp))
         self.assertIn("success", result)
         self.assertIn("modules", result)
@@ -154,17 +154,17 @@ class TestBackwardCompatibility(unittest.TestCase):
     """确保现有功能不破坏之前的测试（单模块编译）"""
 
     def test_compile_single_module_unchanged(self):
-        from compiler import DuanCompiler
-        c = DuanCompiler()
+        from compiler import LightCompiler
+        c = LightCompiler()
         result = c.compile("设 甲 为 三。")
         self.assertIsNotNone(result)
         self.assertIn("ast", result)
         self.assertIn("tokens", result)
 
     def test_init_no_project_root(self):
-        # DuanCompiler()不传project_root仍可工作
-        from compiler import DuanCompiler
-        c = DuanCompiler()
+        # LightCompiler()不传project_root仍可工作
+        from compiler import LightCompiler
+        c = LightCompiler()
         self.assertIsNone(c.project_root)
         result = c.compile("段 主():\n结束。\n")
         self.assertIsNotNone(result)

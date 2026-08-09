@@ -13,7 +13,7 @@ from error_formatter import (
     LightErrorFormatter,
     format_runtime_error,
     run_with_friendly_error,
-    DUAN_EXCEPTION_MAP,
+    LIGHT_EXCEPTION_MAP,
 )
 
 
@@ -25,7 +25,7 @@ class TestExceptionTypeMapping:
         common = ['NameError', 'TypeError', 'ValueError', 'IndexError',
                   'KeyError', 'AttributeError', 'ZeroDivisionError']
         for exc_name in common:
-            assert exc_name in DUAN_EXCEPTION_MAP
+            assert exc_name in LIGHT_EXCEPTION_MAP
 
 
 class TestFormatter:
