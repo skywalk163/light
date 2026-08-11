@@ -617,9 +617,18 @@ class PythonCodeGenerator:
             expr_code = self._generate_expr(stmt)
             self._add_line(expr_code)
         elif isinstance(stmt, Pipeline):
-            # 管道操作作为独立语句
-            expr_code = self._generate_expr(stmt)
-            self._add_line(expr_code)
+            # 管道操作/因果链作为独立语句
+            if stmt.connector == 'comma' and len(stmt.stages) == 2:
+                # 因果链语法：条件,动作 → if 条件: 动作
+                cond_code = self._generate_expr(stmt.stages[0])
+                action_code = self._generate_expr(stmt.stages[1])
+                self._add_line(f"if {cond_code}:")
+                self.indent_level += 1
+                self._add_line(action_code)
+                self.indent_level -= 1
+            else:
+                expr_code = self._generate_expr(stmt)
+                self._add_line(expr_code)
         elif isinstance(stmt, SelfAssignment):
             # self赋值语句
             self._generate_self_assignment(stmt)
@@ -1531,7 +1540,15 @@ class PythonCodeGenerator:
             return f'"{value}"'
         
         elif isinstance(expr, Identifier):
-            name = self._sanitize_name(expr.name)
+            name = expr.name
+            # 检查是否包含"的"（被 lexer 合并为单个标识符的成员访问）
+            if '的' in name:
+                obj, _, member = name.partition('的')
+                if member == '长度':
+                    return f"len({self._sanitize_name(obj)})"
+                # 其他成员访问作为属性访问
+                return f"{self._sanitize_name(obj)}.{self._sanitize_name(member)}"
+            name = self._sanitize_name(name)
             # 检查是否是中文数字
             if expr.name in self.chinese_numbers:
                 return str(self.chinese_numbers[expr.name])
@@ -1688,6 +1705,9 @@ class PythonCodeGenerator:
                 return f"{obj}.{mapped_member}({args_str})"
             else:
                 # 属性访问
+                # 特殊处理：长度属性 -> len(obj)（即使不是方法调用）
+                if expr.member == '长度':
+                    return f"len({obj})"
                 return f"{obj}.{mapped_member}"
         
         elif isinstance(expr, ListLiteral):

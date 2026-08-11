@@ -202,6 +202,7 @@ class LightParserCore:
         self.lexer = Lexer()
         self.tokens: List[Token] = []
         self.pos = 0
+        self._in_foreach_context = False  # 在遍历循环中禁用"之"的成员访问解析
 
     def _error(self, message: str, line: int = 0, col: int = 0, token_value: str = None):
         """报告解析错误（抛出 ParseError）"""

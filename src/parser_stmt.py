@@ -1796,7 +1796,14 @@ class ParserStmtMixin:
         return result
     
     def _parse_foreach_stmt(self, is_async: bool = False) -> ForeachStmt:
-        """解析遍历循环"""
+        """解析遍历循环
+        
+        L1 语法规范 v4.0 中的语法：
+          遍 可迭代对象 之 变量:
+          遍[1,2,3]之为i:打印i
+          遍配置之为键值:打印键值之0并"="并键值之1
+          遍范围(1,10)之为i:打印i
+        """
         # 跳过 NEWLINE
         if self._current() and self._current().type == TokenType.NEWLINE:
             self._consume(TokenType.NEWLINE)
@@ -1809,104 +1816,93 @@ class ParserStmtMixin:
         else:
             self._consume(TokenType.KEYWORD, '遍历')
         
-        # 变量名（合并连续 IDENTIFIER 和 KEYWORD，如 "使用率" 被拆分为 "使用"(KEYWORD)+"率"(IDENTIFIER)）
-        # 也支持多变量：遍历 i, c 于 enumerate(list)
-        _foreach_stop_keywords = frozenset({
-            '为', '等于', '接收', '返回', '令', '循环', '断言', '输出',
-            '如果', '否则', '那么', '若', '则', '当', '遍历', '设', '定义',
-            '类', '构造', '函数', '段落', '尝试', '捕获', '抛出', '最终', '导入',
-            '导出', '从', '真', '假', '空', '且', '或', '非', '与', '等待',
-            '匹配', '情况', '的', '之', '对', '步', '至', '到', '在', '于', '中的',
-            '导', '出', '遍', '返', '跳', '过', '试', '捕', '抛', '终', '配', '否', '接', '承', '自',
-        })
-        name_parts = []
-        while self._current():
-            _vt = self._current()
-            if _vt.type == TokenType.IDENTIFIER:
-                name_parts.append(self._consume(TokenType.IDENTIFIER).value)
-            elif _vt.type == TokenType.KEYWORD and _vt.value not in _foreach_stop_keywords:
-                name_parts.append(self._consume(TokenType.KEYWORD).value)
+        # 语序：遍 可迭代对象 之 变量
+        # 设置上下文标志，防止"之"被表达式解析器当作成员访问符消耗
+        old_foreach_context = self._in_foreach_context
+        self._in_foreach_context = True
+        
+        FOREACH_CONNECTORS = frozenset({'之', '在', '于', '中的'})
+        saved_pos = self.pos
+        
+        # 尝试解析完整的可迭代对象表达式
+        try:
+            iterable = self._parse_expr()
+        except Exception:
+            iterable = None
+            self.pos = saved_pos
+        
+        # 恢复上下文标志
+        self._in_foreach_context = old_foreach_context
+        
+        # 检查下一个 token 是否是连接词
+        if iterable is not None and self._current() and self._current().type == TokenType.KEYWORD and self._current().value in FOREACH_CONNECTORS:
+            # 表达式没有消费连接词，正确解析了可迭代对象
+            connector = self._consume().value
+            # 变量名（简单标识符）
+            var_tok = self._current()
+            if var_tok and var_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                variable = self._consume().value
             else:
-                break
-            # 检查是否是多变量（逗号分隔）
-            if self._match(TokenType.COMMA):
-                self._consume(TokenType.COMMA)
-                name_parts.append(', ')
-                continue
-            break
-        
-        # 支持元组解包：遍历 i, (k, v) 于 enumerate(...)
-        if self._current() and self._current().type == TokenType.LPAREN:
-            if name_parts and name_parts[-1].endswith(', '):
-                # 前面有逗号，如 "i, " → 解析元组解包
-                self._consume(TokenType.LPAREN)
-                tuple_parts = []
-                while self._current() and not self._match(TokenType.RPAREN):
-                    if self._current().type == TokenType.COMMA:
-                        self._consume(TokenType.COMMA)
-                        tuple_parts.append(', ')
-                        continue
-                    _t = self._current()
-                    if _t.type == TokenType.IDENTIFIER:
-                        tuple_parts.append(self._consume(TokenType.IDENTIFIER).value)
-                    elif _t.type == TokenType.KEYWORD and _t.value not in _foreach_stop_keywords:
-                        tuple_parts.append(self._consume(TokenType.KEYWORD).value)
-                    else:
-                        break
-                self._consume(TokenType.RPAREN)
-                name_parts.append('(' + ''.join(tuple_parts) + ')')
-        
-        if not name_parts:
-            # 变量名为空时默认使用 _ (如 "遍历  于 0至N" → for _ in range(N))
-            variable = '_'
+                variable = '_'
         else:
-            variable = ''.join(name_parts)
-        
-        # 处理词法分析器将'之'合并到变量名中的情况
-        # （'之'在 _COMPOUND_SAFE_SINGLE_KEYWORDS 中，防止拆分复合词）
-        # 如「遍历元素之列表」→ variable='元素之列表'，需拆分为 变量='元素' + iterable=列表
-        iterable = None
-        if '之' in variable and variable != '_':
-            # 检查下一个 token 是否匹配 '之' 关键字（正常情况）
-            # 如果已经被合并，则下一个 token 不会匹配
-            if not (self._match(TokenType.KEYWORD, '在') or self._match(TokenType.KEYWORD, '之')
-                    or self._match(TokenType.KEYWORD, '中的') or self._match(TokenType.KEYWORD, '于')):
-                idx = variable.index('之')
-                iterable_name = variable[idx + 1:]
-                variable = variable[:idx]
-                if not variable:
-                    variable = '_'
-                iterable = Identifier(iterable_name)
-        
-        if iterable is None:
-            # 在 / 之 / 中的 / 于
+            # 回退分支：使用 _parse_primary 尝试解析连接词
+            self.pos = saved_pos
+            self._in_foreach_context = old_foreach_context  # 确保标志已恢复
+            iterable = self._parse_primary()
+            # 消耗潜在的成员访问等后缀
+            while self._current() and self._current().type in (TokenType.DOT, TokenType.LBRACKET, TokenType.LPAREN):
+                if self._current().type == TokenType.DOT:
+                    self._consume(TokenType.DOT)
+                    member_tok = self._current()
+                    if member_tok and member_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                        member_name = self._consume().value
+                        iterable = MemberAccess(iterable, member_name)
+                elif self._current().type == TokenType.LBRACKET:
+                    self._consume(TokenType.LBRACKET)
+                    index = self._parse_expr()
+                    self._consume(TokenType.RBRACKET)
+                    iterable = IndexAccess(iterable, index)
+                elif self._current().type == TokenType.LPAREN:
+                    self._consume(TokenType.LPAREN)
+                    args = []
+                    while not self._match(TokenType.RPAREN):
+                        if self._current() and self._current().type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
+                            self._consume()
+                            continue
+                        arg = self._parse_expr()
+                        if arg is not None:
+                            args.append(arg)
+                        if self._match(TokenType.COMMA):
+                            self._consume(TokenType.COMMA)
+                        else:
+                            break
+                    self._consume(TokenType.RPAREN)
+                    iterable = ParagraphCall(iterable, args) if isinstance(iterable, Identifier) else FunctionCall(iterable, args)
+                else:
+                    break
+            # 现在解析连接词
             tok = self._current()
-            if self._match(TokenType.KEYWORD, '在'):
-                self._consume(TokenType.KEYWORD, '在')
-            elif self._match(TokenType.KEYWORD, '之'):
-                self._consume(TokenType.KEYWORD, '之')
-            elif self._match(TokenType.KEYWORD, '中的'):
-                self._consume(TokenType.KEYWORD, '中的')
-            elif self._match(TokenType.KEYWORD, '于'):
-                self._consume(TokenType.KEYWORD, '于')
+            if tok and tok.type == TokenType.KEYWORD and tok.value in FOREACH_CONNECTORS:
+                connector = self._consume().value
             else:
                 self._error(f"遍历循环期望'在'、'之'、'于'或'中的'，但得到 {tok.type} = '{tok.value}'", tok.line, tok.col)
-            
-            # 可迭代对象
-            iterable = self._parse_expr()
+            # 变量名（简单标识符）
+            var_tok = self._current()
+            if var_tok and var_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                variable = self._consume().value
+            else:
+                variable = '_'
         
-        # 处理隐式范围表达式：遍历 i 于 0self.hash_count（无 至/到 关键字）
-        # 当可迭代对象解析后，下一个 token 不是 : 或 { 时，尝试解析为范围表达式
+        # 处理隐式范围表达式：遍历 i 于 0 至 N（无 至/到 关键字时，在可迭代对象后解析额外部分）
         if self._current() and self._current().type not in (TokenType.COLON, TokenType.LBRACE, TokenType.NEWLINE, TokenType.PERIOD):
             # 尝试解析剩余部分作为范围结束表达式
-            saved_pos = self.pos
+            range_saved_pos = self.pos
             try:
                 end_expr = self._parse_add_expr()
-                # 只有当解析后有实际进展时才应用
-                if self.pos > saved_pos:
+                if self.pos > range_saved_pos:
                     iterable = RangeExpr(iterable, end_expr, None)
             except Exception:
-                self.pos = saved_pos
+                self.pos = range_saved_pos
         
         # C风格花括号体：遍历 x 于 列表{ body }
         if self._current() and self._current().type == TokenType.LBRACE:

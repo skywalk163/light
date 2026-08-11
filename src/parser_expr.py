@@ -54,20 +54,23 @@ class ParserExprMixin:
                 else_expr = self._parse_expr()
             return ConditionalExpression(condition, left, else_expr)
         
-        # 管道操作符
+        # 管道操作符 / 因果链
         stages = [left]
+        connector = None
         
         while self._match(TokenType.ARROW) or self._match(TokenType.COMMA):
             if self._match(TokenType.ARROW):
                 self._consume(TokenType.ARROW)
+                connector = 'arrow'  # 管道：函数组合
             else:
                 self._consume(TokenType.COMMA)
+                connector = 'comma'  # 因果链：条件,动作
             
             right = self._parse_logical_expr()
             stages.append(right)
         
         if len(stages) > 1:
-            return Pipeline(stages)
+            return Pipeline(stages, connector=connector or 'comma')
         
         return left
     
@@ -2132,14 +2135,18 @@ class ParserExprMixin:
             if not is_dot_access and tok.type == TokenType.KEYWORD and tok.value == '的':
                 is_dot_access = True
             elif not is_dot_access and tok.type == TokenType.KEYWORD and tok.value == '之':
-                # 检查是否在推导式上下文中（之 列表/之 集合 等）
-                # 如果不在推导式上下文，发出废弃警告
-                import warnings
-                warnings.warn(
-                    f"「之」作为成员访问符已废弃，请改用「的」。如：对象.属性 → 对象的属性",
-                    DeprecationWarning, stacklevel=2
-                )
-                is_dot_access = True
+                # 在遍历循环上下文中（遍 X 之 Y），"之"是连接词，不是成员访问符
+                if self._in_foreach_context:
+                    pass  # 留给 foreach 语句解析连接词
+                else:
+                    # 检查是否在推导式上下文中（之 列表/之 集合 等）
+                    # 如果不在推导式上下文，发出废弃警告
+                    import warnings
+                    warnings.warn(
+                        f"「之」作为成员访问符已废弃，请改用「的」。如：对象.属性 → 对象的属性",
+                        DeprecationWarning, stacklevel=2
+                    )
+                    is_dot_access = True
 
             if is_dot_access:
                 self._consume()  # 消耗点号

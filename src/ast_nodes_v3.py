@@ -306,13 +306,15 @@ class ThrowStmt(ASTNode):
 
 
 class Pipeline(ASTNode):
-    __slots__ = ('stages',)
+    __slots__ = ('stages', 'connector')
     """管道操作"""
-    def __init__(self, stages: List[ASTNode]):
+    def __init__(self, stages: List[ASTNode], connector: str = 'comma'):
         self.stages = stages
+        self.connector = connector  # 'comma' 因果链（条件,动作）, 'arrow' 管道（->）
     
     def __repr__(self):
-        return ' -> '.join(map(str, self.stages))
+        sep = ' , ' if self.connector == 'comma' else ' -> '
+        return sep.join(map(str, self.stages))
 
 
 class ImportStmt(ASTNode):
