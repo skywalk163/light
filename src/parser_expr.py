@@ -14,10 +14,21 @@
 
 from typing import List, Any, Optional, Union
 from tokens import Token, TokenType
-from keywords import VERB_ARITY, KEYWORDS_DOUBLE, KEYWORDS_SPECIAL
+from keywords import VERB_ARITY, ALL_KEYWORDS, KEYWORDS_SPECIAL, ALL_KEYWORDS
 from ast_nodes_v3 import *
 from ast_nodes import UnwrapExpression
 from parser_core import ParseError
+
+# 作为表达式开头的关键字（不应在参数解析中中断）
+_EXPR_START_KEYWORDS = frozenset({
+    '己', '自',     # self引用
+    '非',           # 一元取反
+    '等待',         # await表达式
+    '如果',         # 三元条件表达式
+    '函数',         # 匿名函数
+    '接收',         # lambda
+    '真', '假', '空',  # 特殊值
+})
 
 
 class ParserExprMixin:
@@ -500,7 +511,7 @@ class ParserExprMixin:
                         next_tok = self._current()
                         if next_tok.type in (TokenType.DOT, TokenType.PERIOD, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
                             break
-                        if next_tok.type == TokenType.KEYWORD and next_tok.value in KEYWORDS_DOUBLE:
+                        if next_tok.type == TokenType.KEYWORD and next_tok.value in ALL_KEYWORDS and next_tok.value not in _EXPR_START_KEYWORDS:
                             break
                         arg = self._collect_primary_arg()
                         if arg:
@@ -568,7 +579,7 @@ class ParserExprMixin:
                         if next_tok.type in (TokenType.DOT, TokenType.PERIOD, TokenType.RPAREN, TokenType.RBRACKET,
                                              TokenType.NEWLINE, TokenType.DEDENT, TokenType.INDENT):
                             break
-                        if next_tok.type == TokenType.KEYWORD and next_tok.value in KEYWORDS_DOUBLE:
+                        if next_tok.type == TokenType.KEYWORD and next_tok.value in ALL_KEYWORDS and next_tok.value not in _EXPR_START_KEYWORDS:
                             break
                         # 收集完整表达式（支持嵌套函数调用、比较和逻辑运算符）
                         arg = self._parse_logical_expr()
@@ -623,7 +634,7 @@ class ParserExprMixin:
             # 且没有括号，则将此运算符关键字作为标识符（变量名）处理
             if not next_tok or next_tok.type == TokenType.LPAREN:
                 pass  # 下面的正常分支处理括号
-            elif (next_tok.type == TokenType.KEYWORD and next_tok.value in KEYWORDS_DOUBLE) or \
+            elif (next_tok.type == TokenType.KEYWORD and next_tok.value in ALL_KEYWORDS) or \
                  next_tok.type in (TokenType.DOT, TokenType.PERIOD, TokenType.COMMA, TokenType.RPAREN,
                                     TokenType.RBRACKET, TokenType.COLON, TokenType.EOF):
                 if next_tok.type != TokenType.LPAREN:
@@ -659,7 +670,7 @@ class ParserExprMixin:
                         next_tok = self._current()
                         if next_tok.type in (TokenType.DOT, TokenType.PERIOD, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
                             break
-                        if next_tok.type == TokenType.KEYWORD and next_tok.value in KEYWORDS_DOUBLE:
+                        if next_tok.type == TokenType.KEYWORD and next_tok.value in ALL_KEYWORDS and next_tok.value not in _EXPR_START_KEYWORDS:
                             break
                         arg = self._parse_comparison()
                         if arg:
@@ -808,6 +819,7 @@ class ParserExprMixin:
                     '类','构造','函数','段落','尝试','捕获','抛出','最终','导入',
                     '导出','从','真','假','空','且','或','非','与','等待',
                     '匹配','情况','的','之','对','步','至','到','在','于','中的',
+                    '包含',  # 动词停止符
                 })
                 while self._current():
                     _ct = self._current()
@@ -845,7 +857,7 @@ class ParserExprMixin:
                     if nt.type == TokenType.KEYWORD and nt.value in self.OPERATOR_VERBS:
                         break
                     # 遇到其他关键字停止
-                    if nt.type == TokenType.KEYWORD and nt.value in KEYWORDS_DOUBLE:
+                    if nt.type == TokenType.KEYWORD and nt.value in ALL_KEYWORDS:
                         break
                     
                     # 收集参数
@@ -890,7 +902,7 @@ class ParserExprMixin:
                     if nt.type == TokenType.KEYWORD and nt.value in self.OPERATOR_VERBS:
                         break
                     # 遇到其他关键字停止（双字关键字通常是语句结构）
-                    if nt.type == TokenType.KEYWORD and nt.value in KEYWORDS_DOUBLE:
+                    if nt.type == TokenType.KEYWORD and nt.value in ALL_KEYWORDS:
                         break
                     
                     if nt.type == TokenType.NUMBER:
@@ -994,6 +1006,7 @@ class ParserExprMixin:
                     '类','构造','函数','段落','尝试','捕获','抛出','最终','导入',
                     '导出','从','真','假','空','且','或','非','与','等待',
                     '匹配','情况','的','之','对','步','至','到','在','于','中的',
+                    '包含',  # 动词停止符
                 })
                 while self._current():
                     _ct = self._current()
@@ -1062,7 +1075,7 @@ class ParserExprMixin:
                     if next_tok.type == TokenType.IDENTIFIER and next_tok.value == '不':
                         break
                     # 遇到其他关键字（除运算符动词外）停止
-                    if next_tok.type == TokenType.KEYWORD and next_tok.value in KEYWORDS_DOUBLE:
+                    if next_tok.type == TokenType.KEYWORD and next_tok.value in ALL_KEYWORDS:
                         break
                     
                     # 收集单个参数（只收集primary，不包含运算）
@@ -1097,7 +1110,7 @@ class ParserExprMixin:
                 next_tok = self._current()
                 if next_tok.type in (TokenType.DOT, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
                     break
-                if next_tok.type == TokenType.KEYWORD and next_tok.value in KEYWORDS_DOUBLE:
+                if next_tok.type == TokenType.KEYWORD and next_tok.value in ALL_KEYWORDS:
                     break
                 
                 arg = self._collect_primary_arg()
@@ -1181,7 +1194,7 @@ class ParserExprMixin:
                     if next_tok.type == TokenType.KEYWORD and next_tok.value in self.OPERATOR_VERBS:
                         break
                     # 遇到其他关键字（除运算符动词外）停止
-                    if next_tok.type == TokenType.KEYWORD and next_tok.value in KEYWORDS_DOUBLE:
+                    if next_tok.type == TokenType.KEYWORD and next_tok.value in ALL_KEYWORDS and next_tok.value not in _EXPR_START_KEYWORDS:
                         break
                     
                     # 收集单个参数（只收集primary，不包含运算）
@@ -1216,7 +1229,7 @@ class ParserExprMixin:
                 next_tok = self._current()
                 if next_tok.type in (TokenType.DOT, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
                     break
-                if next_tok.type == TokenType.KEYWORD and next_tok.value in KEYWORDS_DOUBLE:
+                if next_tok.type == TokenType.KEYWORD and next_tok.value in ALL_KEYWORDS and next_tok.value not in _EXPR_START_KEYWORDS:
                     break
                 
                 arg = self._collect_single_arg()
@@ -2234,7 +2247,7 @@ class ParserExprMixin:
                             # 阻断符：句号、逗号、右括号、右中括号、关键字      
                             if next_tok.type in (TokenType.DOT, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
                                 break
-                            if next_tok.type == TokenType.KEYWORD and (next_tok.value in KEYWORDS_DOUBLE or next_tok.value in VERB_ARITY):
+                            if next_tok.type == TokenType.KEYWORD and (next_tok.value in ALL_KEYWORDS or next_tok.value in VERB_ARITY) and next_tok.value not in _EXPR_START_KEYWORDS:
                                 break
 
                             # 收集参数

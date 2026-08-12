@@ -119,6 +119,9 @@ antlrparser/**/*.tokens
 # 比赛文件
 trae_competition.zip
 
+# TRAE 编辑器配置
+.trae/
+
 # VS Code 扩展
 vscode-extension/node_modules/
 vscode-extension/out/

@@ -27,21 +27,22 @@ class CommandHandler:
         'watch': ['监视'],
     }
 
-    def __init__(self, env: Dict = None, executor=None):
+    def __init__(self, env: Dict = None, executor=None, debug_engine=None):
         """初始化命令处理器
 
         Args:
             env: 环境变量字典
             executor: 执行器实例
+            debug_engine: DebugEngine 实例（共享）
         """
         self.env = env if env is not None else {}
         self.executor = executor
         self._history: List[str] = []
         self._debug_enabled = False
-        self._debug_engine = None  # 延迟导入 DebugEngine
+        self._debug_engine = debug_engine  # 使用共享的调试引擎
 
     def _get_debug_engine(self):
-        """获取调试引擎实例（延迟初始化）"""
+        """获取调试引擎实例"""
         if self._debug_engine is None:
             try:
                 from debug_engine import DebugEngine
@@ -299,11 +300,17 @@ class CommandHandler:
             engine = self._get_debug_engine()
             if engine is None:
                 return "调试引擎不可用（debug_engine 模块未找到）"
+            # 连接调试引擎到执行器
+            if self.executor is not None:
+                self.executor.set_debug_engine(engine)
             return "调试模式已开启"
         elif args == 'off':
             self._debug_enabled = False
             if self._debug_engine:
                 self._debug_engine.reset()
+            # 断开调试引擎
+            if self.executor is not None:
+                self.executor.set_debug_engine(None)
             return "调试模式已关闭"
         else:
             return "用法: :debug on/off"

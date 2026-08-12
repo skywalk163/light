@@ -83,6 +83,7 @@ class UnifiedCodeGenerator:
         
         # 内置函数映射
         self.builtin_map = {
+            '印': 'print',
             '打印': 'print',
             '显示': 'print',
             '读取': 'input',
@@ -272,6 +273,8 @@ class UnifiedCodeGenerator:
         self._add_line("        _light_builtin.字典创建 = dict")
         self._add_line("        _light_builtin.字典设置 = lambda d, k, v: d.update({k: v})")
         self._add_line("        _light_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)")
+        self._add_line("        _light_builtin.转整数 = lambda text: int(text)")
+        self._add_line("        _light_builtin.转浮点 = lambda text: float(text)")
         self._add_line("        _light_builtin.时间戳 = lambda: int(__import__('time').time())")
         self._add_line("        _light_builtin.格式化时间 = lambda ts, fmt: __import__('time').strftime(fmt, __import__('time').localtime(ts))")
         self._add_line("        _light_builtin.JSON序列化 = lambda obj, indent=2: json.dumps(obj, ensure_ascii=False, indent=indent)")
@@ -279,6 +282,8 @@ class UnifiedCodeGenerator:
         self._add_line("    import types")
         self._add_line("    _light_builtin = types.ModuleType('_light_builtin')")
         self._add_line("    _light_builtin.打印 = print")
+        self._add_line("    _light_builtin.转整数 = lambda text: int(text)")
+        self._add_line("    _light_builtin.转浮点 = lambda text: float(text)")
         self._add_line("    _light_builtin.时间戳 = lambda: int(__import__('time').time())")
         self._add_line("    _light_builtin.格式化时间 = lambda ts, fmt: __import__('time').strftime(fmt, __import__('time').localtime(ts))")
         self._add_line("    _light_builtin.JSON序列化 = lambda obj, indent=2: json.dumps(obj, ensure_ascii=False, indent=indent)")
@@ -1125,6 +1130,10 @@ class UnifiedCodeGenerator:
                 return repr(expr.left.value + expr.right.value)
             # ========== 常量折叠优化结束 ==========
 
+            # 处理包含关系：左包含右 → right in left
+            if expr.operator == '@@contains@@':
+                return f"({right} in {left})"
+
             # 处理加法：如果任一操作数是字符串，需要进行类型转换
             if op == '+' and expr.operator in ['+', '加']:
                 expr_type = self.type_cache.get(id(expr))
@@ -1189,6 +1198,11 @@ class UnifiedCodeGenerator:
         # 属性访问
         elif is_instance(expr, 'PropertyAccess'):
             obj = self._generate_expr(expr.obj)
+            # 特殊处理：长度 -> len()
+            if expr.property_name == '长度':
+                if hasattr(expr, 'obj') and is_instance(expr.obj, 'FunctionCall'):
+                    return f"len({obj})"
+                return f"len({obj})"
             return f"{obj}.{expr.property_name}"
         
         # 索引访问

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "light"
-version = "5.0.0"
-description = "光明（Light）v4.0 — 像中文一样的中文编程语言（五层分层语法架构）"
+version = "6.0.0"
+description = "光明（Light）v6.0 — 像中文一样的中文编程语言（五层分层语法架构）"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
@@ -62,6 +62,7 @@ Homepage = "https://github.com/skywalk163/light"
 Source = "https://github.com/skywalk163/light"
 BugTracker = "https://github.com/skywalk163/light/issues"
 Documentation = "https://github.com/skywalk163/light/tree/main/docs"
+GitCode = "https://gitcode.com/skywalk163/light"
 
 [project.scripts]
 light = "cli.light:main"
@@ -77,7 +78,7 @@ exclude = [
 ]
 
 [tool.setuptools.package-data]
-"*" = ["*.light"]
+"*" = ["*.light", "*.toml"]
 "stdlib" = ["*.light", "*.py"]
 
 [tool.pytest.ini_options]

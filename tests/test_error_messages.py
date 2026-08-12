@@ -553,5 +553,100 @@ class TestCompleter:
         assert "y" in completions
 
 
+# =============================================================================
+# 新增：executor 修复 & 调试引擎集成测试
+# =============================================================================
+
+class TestExecutorFix:
+    """测试 executor 修复"""
+
+    def test_is_simple_var_decl(self):
+        """测试 设 关键字被正确识别为简单"""
+        from repl.executor import Executor
+        executor = Executor()
+        assert executor._is_simple("设 甲 为 10") is True
+
+    def test_is_simple_print(self):
+        """测试 打印 被识别为简单"""
+        from repl.executor import Executor
+        executor = Executor()
+        assert executor._is_simple("打印(甲)") is True
+
+    def test_is_simple_expression(self):
+        """测试简单表达式"""
+        from repl.executor import Executor
+        executor = Executor()
+        assert executor._is_simple("甲 加 5") is True
+
+    def test_is_complex_function(self):
+        """测试函数定义为复杂"""
+        from repl.executor import Executor
+        executor = Executor()
+        assert executor._is_simple("函数 平方(数值): 返回 数值 乘 数值") is False
+
+    def test_is_complex_if(self):
+        """测试条件语句为复杂"""
+        from repl.executor import Executor
+        executor = Executor()
+        assert executor._is_simple("如果 甲 大于 5: 打印(甲)") is False
+
+    def test_execute_var_decl(self):
+        """测试简单变量声明执行"""
+        from repl.executor import Executor
+        executor = Executor()
+        result = executor.execute("设 甲 为 10")
+        assert executor.env.get("甲") == 10
+        assert result == 10
+
+    def test_execute_var_decl_string(self):
+        """测试字符串变量声明"""
+        from repl.executor import Executor
+        executor = Executor()
+        result = executor.execute("设 乙 为 \"hello\"")
+        assert executor.env.get("乙") == "hello"
+
+    def test_execute_print(self):
+        """测试打印执行"""
+        from repl.executor import Executor
+        executor = Executor()
+        executor.env.set("甲", 10)
+        result = executor.execute("打印(甲)")
+        assert result == 10
+
+    def test_execute_arithmetic(self):
+        """测试算术运算"""
+        from repl.executor import Executor
+        executor = Executor()
+        executor.env.set("甲", 10)
+        result = executor.execute("甲 加 5")
+        assert result == 15
+
+    def test_debug_engine_integration(self):
+        """测试调试引擎集成"""
+        from repl.executor import Executor
+        from debug_engine import DebugEngine
+        executor = Executor()
+        engine = DebugEngine()
+        executor.set_debug_engine(engine)
+        assert executor.get_debug_engine() is engine
+        assert executor._debug_enabled is True
+
+    def test_debug_engine_variable_tracking(self):
+        """测试调试引擎变量跟踪"""
+        from repl.executor import Executor
+        from debug_engine import DebugEngine
+        executor = Executor()
+        engine = DebugEngine()
+        executor.set_debug_engine(engine)
+        executor.execute("设 甲 为 10")
+        vars = engine.get_variables()
+        assert vars.get("甲") == 10
+
+    def test_enhanced_repl_import(self):
+        """测试增强 REPL 导入"""
+        from repl.enhanced import EnhancedREPL, HAS_PROMPT_TOOLKIT
+        assert EnhancedREPL is not None
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '--tb=short'])

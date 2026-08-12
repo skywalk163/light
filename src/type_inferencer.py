@@ -27,6 +27,8 @@ from type_system import (
     TypeSubstitution, UnificationError, unify, TypeParser,
     TypedSymbol, TypeSymbolTable, TypeErrorInference,
     TYPE_NUMBER, TYPE_STRING, TYPE_BOOLEAN, TYPE_NULL, TYPE_UNKNOWN, TYPE_ANY,
+    TYPE_ID_NUMBER, TYPE_ID_STRING, TYPE_ID_BOOLEAN, TYPE_ID_NULL,
+    TYPE_ID_LIST, TYPE_ID_DICT,
 )
 
 # 导入统一 AST 节点定义

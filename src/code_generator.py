@@ -151,6 +151,7 @@ class PythonCodeGenerator:
         # 内置函数映射
         self.builtin_map = {
             # 基础函数
+            '印': 'print',
             '打印': 'print',
             '显示': 'print',
             '输出': 'print',
@@ -1541,13 +1542,11 @@ class PythonCodeGenerator:
         
         elif isinstance(expr, Identifier):
             name = expr.name
-            # 检查是否包含"的"（被 lexer 合并为单个标识符的成员访问）
-            if '的' in name:
-                obj, _, member = name.partition('的')
-                if member == '长度':
-                    return f"len({self._sanitize_name(obj)})"
-                # 其他成员访问作为属性访问
-                return f"{self._sanitize_name(obj)}.{self._sanitize_name(member)}"
+            # 检查是否以"的长度"结尾（如"文本的长度"、"列表的长度"）
+            # 这是 lexer 合并为单个标识符的成员访问，仅处理"长度"模式
+            if name.endswith('的长度'):
+                obj = name[:-3]  # 去掉"的长度"
+                return f"len({self._sanitize_name(obj)})"
             name = self._sanitize_name(name)
             # 检查是否是中文数字
             if expr.name in self.chinese_numbers:

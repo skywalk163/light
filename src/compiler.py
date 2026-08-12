@@ -24,6 +24,7 @@ from optimizer import (
     LoopInvariantOptimizer,
 )
 from errors import LightError, LightErrorFormatter, format_source_context, format_error_with_context
+from errors import CompilerErrorCollector, ErrorEntry
 
 # 导入编译缓存系统
 try:
@@ -140,6 +141,8 @@ class AstAdapter:
             'MatchStmt': self._convert_match_stmt,
             'MatchCase': self._convert_match_case,
             'LambdaExpression': self._convert_lambda_expression,
+            'UnaryOp': self._convert_unary_op,
+            'SliceExpr': self._convert_slice_expr,
             'UnwrapExpression': self._convert_unwrap_expression,
             'RangeExpr': self._convert_range_expr,
             'AwaitExpr': self._convert_await_expr,
@@ -311,6 +314,27 @@ class AstAdapter:
             operator=str(node.operator),
             left=self.convert(node.left),
             right=self.convert(node.right),
+        )
+
+    def _convert_unary_op(self, node) -> ast.UnaryOp:
+        return ast.UnaryOp(
+            operator=node.operator,
+            operand=self.convert(node.operand),
+        )
+
+    def _convert_slice_expr(self, node) -> ast.FunctionCall:
+        """将 v3 SliceExpr 转换为 FunctionCall(slice, start, stop, step)"""
+        args = []
+        if node.start is not None:
+            args.append(self.convert(node.start))
+        if node.stop is not None:
+            args.append(self.convert(node.stop))
+        if node.step is not None:
+            args.append(self.convert(node.step))
+        return ast.FunctionCall(
+            name=ast.Identifier(name='slice'),
+            arguments=args,
+            type_args=[],
         )
 
     def _convert_if_stmt(self, node) -> ast.IfStatement:
@@ -549,10 +573,10 @@ class AstAdapter:
 
     def _convert_list_comprehension(self, node) -> ast.ListComprehension:
         return ast.ListComprehension(
-            element=self.convert(getattr(node, 'element', node.expression)) if hasattr(node, 'element') or hasattr(node, 'expression') else ast.Identifier(name='x'),
+            expression=self.convert(getattr(node, 'expression', None)),
             variable=getattr(node, 'variable', 'x'),
-            iterable=self.convert(getattr(node, 'iterable', ast.Identifier(name='列表'))),
-            condition=None,
+            iterable=self.convert(getattr(node, 'iterable', None)),
+            condition=self.convert(getattr(node, 'condition', None)),
         )
 
     def _convert_pipeline(self, node) -> ast.FunctionCall:
@@ -639,9 +663,9 @@ class AstAdapter:
         return ast.DictLiteral(entries=self._convert_list(getattr(node, 'elements', [])))
 
     def _convert_dict_comprehension(self, node) -> ast.ListComprehension:
-        # 简化：映射为列表推导式占位
+        # 简化：映射为列表推导式占位（字典推导只保留 key_expr）
         return ast.ListComprehension(
-            element=self.convert(getattr(node, 'element', ast.Identifier(name='x'))),
+            expression=self.convert(getattr(node, 'key_expr', ast.Identifier(name='x'))),
             variable=getattr(node, 'variable', 'x'),
             iterable=self.convert(getattr(node, 'iterable', ast.Identifier(name='列表'))),
             condition=None,
@@ -718,6 +742,8 @@ class LightCompiler:
         self.errors: List[str] = []
         self.warnings: List[str] = []
         self._typed_errors = []  # 结构化类型错误（携带位置信息）
+        # 统一错误收集器（A3.1 新增）
+        self._error_collector = CompilerErrorCollector()
         # 项目级扩展
         self.project_root: Optional[Path] = Path(project_root) if project_root else None
         # 跨模块符号缓存：module_name -> { symbol_name: symbol_info }
@@ -1011,6 +1037,10 @@ class LightCompiler:
             self.errors.append(f"词法错误: {e}")
             if context:
                 self.errors.append(context)
+            # 将错误添加到统一收集器
+            self._error_collector.add_lexer_error(
+                message=str(e), line=line, column=col, exception=e,
+            )
             raise
 
     def parse_raw(self, source: str):
@@ -1025,9 +1055,18 @@ class LightCompiler:
             self.errors.append(f"语法错误: {e}")
             if context:
                 self.errors.append(context)
+            # 将错误添加到统一收集器
+            src_line = source.split('\n')[line - 1] if source and 0 < line <= len(source.split('\n')) else ''
+            self._error_collector.add_parser_error(
+                message=str(e), line=line, column=col,
+                source_line=src_line, exception=e,
+            )
             raise
         except Exception as e:
             self.errors.append(f"解析错误: {e}")
+            self._error_collector.add_parser_error(
+                message=str(e), exception=e,
+            )
             raise
 
     def adapt(self, raw_ast) -> ast.Module:
@@ -1062,6 +1101,10 @@ class LightCompiler:
                         self.errors.append(context)
                 else:
                     self.errors.append(f"[类型推断] {err_str}")
+                # 添加到统一收集器
+                self._error_collector.add_type_error(
+                    message=err_str, line=err_line,
+                )
         # 也保存结构化错误（携带位置信息）
         if hasattr(self._inferencer, 'get_typed_errors'):
             self._typed_errors = self._inferencer.get_typed_errors()
@@ -1083,12 +1126,37 @@ class LightCompiler:
         for result in checker.results:
             if result.severity.value == 'error':
                 self.errors.append(f"[类型错误] {result.message}")
+                self._error_collector.add_type_error(
+                    message=result.message, line=result.line, column=result.column,
+                )
             elif result.severity.value == 'warning':
                 if hasattr(self, 'warnings'):
                     self.warnings.append(f"[类型警告] {result.message}")
+                self._error_collector.add_warning(ErrorEntry(
+                    stage='类型检查', message=result.message,
+                    line=result.line, column=result.column,
+                ))
 
         if checker.has_errors():
             self.errors.append(f"类型检查发现 {len(checker.get_errors())} 个错误")
+
+    # =================================================================
+    # A3.1/A3.2: 统一错误格式化与查询接口
+    # =================================================================
+
+    def get_error_collector(self) -> CompilerErrorCollector:
+        """获取统一错误收集器"""
+        return self._error_collector
+
+    def get_formatted_errors(self, source: str = '') -> str:
+        """获取格式化的所有错误信息"""
+        if source:
+            self._error_collector.source = source
+        return self._error_collector.format_all()
+
+    def get_error_summary(self) -> str:
+        """获取错误摘要"""
+        return self._error_collector.format_summary()
 
         if checker.get_warnings():
             self.errors.append(f"类型检查发现 {len(checker.get_warnings())} 个警告")

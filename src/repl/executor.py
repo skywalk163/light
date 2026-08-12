@@ -96,7 +96,38 @@ class Executor:
     def __init__(self, env: Environment = None):
         """初始化执行引擎"""
         self.env = env if env is not None else Environment()
+        self._debug_engine = None
+        self._debug_enabled = False
         self._setup_builtins()
+
+    def set_debug_engine(self, engine) -> None:
+        """设置调试引擎
+
+        Args:
+            engine: DebugEngine 实例
+        """
+        self._debug_engine = engine
+        self._debug_enabled = engine is not None
+
+    def get_debug_engine(self):
+        """获取调试引擎"""
+        return self._debug_engine
+
+    def _should_break(self, line_info: dict) -> bool:
+        """检查调试引擎是否应该暂停
+
+        Args:
+            line_info: 行信息字典，包含 file_path, line 等
+
+        Returns:
+            是否应该暂停
+        """
+        if not self._debug_enabled or self._debug_engine is None:
+            return False
+        return self._debug_engine.should_break(
+            line_info.get('file_path', '<repl>'),
+            line_info.get('line', 0)
+        )
 
     def _setup_builtins(self) -> None:
         """设置内置函数"""
@@ -141,11 +172,21 @@ class Executor:
         - 段落定义、类定义、接口定义
         - 条件语句（如果）
         - 循环语句（当、遍历）
-        - 返回语句、导入/导出语句
+        - 返回语句、导入/导出语句（多行）
         """
-        # 复杂代码关键词
+        line = code.strip()
+        # 单行变量声明 `设 甲 为 10` 是简单的
+        if line.startswith('设') and '为' in line and line.count('\n') == 0:
+            return True
+        # 单行打印是简单的
+        if line.startswith('打印') and line.count('\n') == 0:
+            return True
+        # 复杂代码关键词（多行/块结构）
         complex_keywords = ['函数', '段落', '类', '接口', '如果', '当', '遍历',
-                          '返回', '导入', '导出', '设']
+                          '返回', '导入', '导出']
+        # 只有多行或块结构才视为复杂
+        if '\n' in code:
+            return False
         for kw in complex_keywords:
             if kw in code:
                 return False
@@ -163,6 +204,9 @@ class Executor:
             value_expr = var_match.group(2).strip()
             value = self._eval_expr(value_expr)
             self.env.set(name, value)
+            # 调试：更新调试引擎的变量
+            if self._debug_enabled and self._debug_engine:
+                self._debug_engine.update_local_vars({name: value})
             return value
 
         # 处理打印语句: 打印(甲)。 -> print(甲)

@@ -55,6 +55,9 @@ class Type:
             return True
         if other._type_id == TYPE_ID_UNION:
             return any(self.is_subtype_of(m) for m in other.types)
+        if other._type_id == TYPE_ID_OPTIONAL:
+            # 任何类型 T 是 OptionalType(T) 的子类型（T 可赋值给 T|空）
+            return self.is_subtype_of(other.inner_type)
         if type(self) == type(other):
             return self._same_type_check(other)
         return False
@@ -140,10 +143,13 @@ class NullType(_SingletonType):
     _display_name = "空"
 
     def is_subtype_of(self, other: 'Type') -> bool:
-        """空值可以赋值给可空类型或任意类型"""
+        """空值可以赋值给可空类型、联合类型或任意类型"""
         oid = other._type_id
         if oid == TYPE_ID_ANY or oid == TYPE_ID_OPTIONAL or oid == TYPE_ID_NULL:
             return True
+        if oid == TYPE_ID_UNION:
+            # 空值 是 联合类型 的子类型：只要联合类型中有一个成员是空值
+            return any(t._type_id == TYPE_ID_NULL for t in other.types)
         return False
 
 
@@ -762,6 +768,9 @@ class UnionType(Type):
         if other._type_id == TYPE_ID_UNION:
             # 联合类型的每个成员都是 other 的子类型
             return all(any(t.is_subtype_of(ot) for ot in other.types) for t in self.types)
+        if other._type_id == TYPE_ID_OPTIONAL:
+            # 联合类型是 OptionalType 的子类型：每个成员要么是空，要么是 OptionalType 的内部类型
+            return all(t._type_id == TYPE_ID_NULL or t.is_subtype_of(other.inner_type) for t in self.types)
         # 联合类型是 other 的子类型：每个成员都是 other 的子类型
         return all(t.is_subtype_of(other) for t in self.types)
 
@@ -1077,7 +1086,7 @@ def unify(t1: Type, t2: Type, subs: Optional[TypeSubstitution] = None) -> TypeSu
                 return unify(t2.type_args[0], t1.element_type, subs)
             return subs
     if id1 == TYPE_ID_GENERIC_INSTANCE and id2 == TYPE_ID_DICT:
-        if t1.base_name in ("字典", "Map") and len(t1.type_args) == 2:
+        if t1.base_name in ("字典", "Map", "映射") and len(t1.type_args) == 2:
             s = subs
             if t2.key_type:
                 s = unify(t1.type_args[0], t2.key_type, s)
@@ -1085,7 +1094,7 @@ def unify(t1: Type, t2: Type, subs: Optional[TypeSubstitution] = None) -> TypeSu
                 s = unify(t1.type_args[1], t2.value_type, s)
             return s
     if id2 == TYPE_ID_GENERIC_INSTANCE and id1 == TYPE_ID_DICT:
-        if t2.base_name in ("字典", "Map") and len(t2.type_args) == 2:
+        if t2.base_name in ("字典", "Map", "映射") and len(t2.type_args) == 2:
             s = subs
             if t1.key_type:
                 s = unify(t2.type_args[0], t1.key_type, s)
@@ -1429,11 +1438,26 @@ class TypeParser:
         if expr.endswith('|空'):
             inner = expr[:-2].strip()
             return OptionalTypeWrapper(self.parse(inner))
+        # 联合类型：T|U|V（在复合类型/函数类型之前检查，避免 列表[数]|字典[串] 被错误解析）
+        if '|' in expr:
+            parts = self._split_top_level(expr, '|')
+            if len(parts) > 1:
+                types = [self.parse(p) for p in parts]
+                # 如果其中包含空类型，且只有两个成员，可以转为 OptionalType
+                has_null = any(t._type_id == TYPE_ID_NULL for t in types)
+                if has_null and len(types) == 2:
+                    non_null = [t for t in types if t._type_id != TYPE_ID_NULL]
+                    if non_null:
+                        return OptionalTypeWrapper(non_null[0])
+                return UnionType(types)
         # 函数类型 (t1, t2) -> t_ret
         if '->' in expr:
             idx = expr.index('->')
             params_part = expr[:idx].strip()
             return_part = expr[idx + 2:].strip()
+            # 剥离外层括号，确保 (数|串) -> 布尔 正确解析为 1 个联合类型参数
+            if params_part.startswith('(') and params_part.endswith(')'):
+                params_part = params_part[1:-1].strip()
             params = self._split_top_level(params_part, ',')
             param_types = [self.parse(p) for p in params]
             return FunctionType(param_types, self.parse(return_part))
@@ -1493,19 +1517,6 @@ class TypeParser:
                 if resolved:
                     return resolved
             return TypeVar(expr)
-
-        # 联合类型：T|U|V（最低优先级，在基本类型/类型变量之后检查）
-        if '|' in expr:
-            parts = self._split_top_level(expr, '|')
-            if len(parts) > 1:
-                types = [self.parse(p) for p in parts]
-                # 如果其中包含空类型，且只有两个成员，可以转为 OptionalType
-                has_null = any(t._type_id == TYPE_ID_NULL for t in types)
-                if has_null and len(types) == 2:
-                    non_null = [t for t in types if t._type_id != TYPE_ID_NULL]
-                    if non_null:
-                        return OptionalTypeWrapper(non_null[0])
-                return UnionType(types)
 
         # 否则：类/接口/枚举名称
         return ClassType(expr)

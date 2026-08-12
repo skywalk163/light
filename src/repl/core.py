@@ -21,7 +21,9 @@ from .executor import Executor, Environment
 from .commands import CommandHandler
 from .highlighter import LightHighlighter
 from .completer import LightCompleter
+from .enhanced import EnhancedREPL, HAS_PROMPT_TOOLKIT
 from errors import LightError, LightErrorFormatter, format_source_context, format_error_with_context
+from debug_engine import DebugEngine
 
 
 # =============================================================================
@@ -54,24 +56,22 @@ class LightREPL:
         )
         self.command_handler = CommandHandler(
             env=self.executor.env.variables if self.executor.env else {},
-            executor=self.executor
+            executor=self.executor,
+            debug_engine=self._debug_engine,
         )
         self.buffer: List[str] = []
         self.history: List[str] = []
         self._history_index = -1  # 历史导航索引
         self.debug_mode = False
+        self._debug_engine = DebugEngine()
         self.enhanced = enhanced
 
         # 尝试加载增强模式
         if enhanced:
-            try:
-                from .enhanced import EnhancedREPL, HAS_PROMPT_TOOLKIT
-                if HAS_PROMPT_TOOLKIT:
-                    self._enhanced_impl = EnhancedREPL(self)
-                    self._use_enhanced = True
-                else:
-                    self._use_enhanced = False
-            except ImportError:
+            if HAS_PROMPT_TOOLKIT:
+                self._enhanced_impl = EnhancedREPL(self)
+                self._use_enhanced = True
+            else:
                 self._use_enhanced = False
         else:
             self._use_enhanced = False
@@ -143,6 +143,14 @@ class LightREPL:
             执行结果或错误信息
         """
         try:
+            # 调试模式：在代码执行前检查断点
+            if self.debug_mode and self._debug_engine:
+                lines = code.split('\n')
+                for i, line in enumerate(lines, 1):
+                    if self._debug_engine.should_break('<repl>', i):
+                        stack_info = self._format_debug_state()
+                        return f"⏸ 暂停于行 {i}\n{stack_info}"
+
             result = self.executor.execute(code)
 
             # 高亮显示结果
@@ -183,6 +191,25 @@ class LightREPL:
             if context:
                 msg += f"\n{context}"
             return msg
+
+    def _format_debug_state(self) -> str:
+        """格式化调试状态信息"""
+        if not self._debug_engine:
+            return ""
+        status = self._debug_engine.get_status()
+        parts = []
+        parts.append(f"  当前位置: {status['current_file']}:{status['current_line']}")
+        vars = self._debug_engine.get_variables()
+        if vars:
+            parts.append("  变量:")
+            for name, value in vars.items():
+                parts.append(f"    {name} = {repr(value)}")
+        watch = self._debug_engine.get_watch_values()
+        if watch:
+            parts.append("  监视:")
+            for name, value in watch.items():
+                parts.append(f"    {name} = {repr(value)}")
+        return '\n'.join(parts)
 
     # ------------------------------------------------------------------
     # 输入处理

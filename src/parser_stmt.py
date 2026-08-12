@@ -1798,11 +1798,9 @@ class ParserStmtMixin:
     def _parse_foreach_stmt(self, is_async: bool = False) -> ForeachStmt:
         """解析遍历循环
         
-        L1 语法规范 v4.0 中的语法：
-          遍 可迭代对象 之 变量:
-          遍[1,2,3]之为i:打印i
-          遍配置之为键值:打印键值之0并"="并键值之1
-          遍范围(1,10)之为i:打印i
+        语法：遍 变量 之/于/在/中的 可迭代对象:
+              遍 变量 之/于/在/中的 可迭代对象{ body }
+              遍 变量 之/于/在/中的 起始 至 结束:
         """
         # 跳过 NEWLINE
         if self._current() and self._current().type == TokenType.NEWLINE:
@@ -1816,86 +1814,36 @@ class ParserStmtMixin:
         else:
             self._consume(TokenType.KEYWORD, '遍历')
         
-        # 语序：遍 可迭代对象 之 变量
-        # 设置上下文标志，防止"之"被表达式解析器当作成员访问符消耗
+        FOREACH_CONNECTORS = frozenset({'之', '在', '于', '中的'})
+        
+        # 语序：遍 变量 之 可迭代对象
+        # 先解析变量名（简单标识符）
+        var_tok = self._current()
+        if var_tok and var_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+            variable = self._consume().value
+        else:
+            variable = '_'
+        
+        # 解析连接词
+        tok = self._current()
+        if tok and tok.type == TokenType.KEYWORD and tok.value in FOREACH_CONNECTORS:
+            connector = self._consume().value
+        else:
+            self._error(f"遍历循环期望'在'、'之'、'于'或'中的'，但得到 {tok.type} = '{tok.value}'", tok.line, tok.col)
+        
+        # 设置上下文标志，防止"之"在可迭代对象表达式中被当作成员访问符消耗
         old_foreach_context = self._in_foreach_context
         self._in_foreach_context = True
         
-        FOREACH_CONNECTORS = frozenset({'之', '在', '于', '中的'})
-        saved_pos = self.pos
-        
-        # 尝试解析完整的可迭代对象表达式
-        try:
-            iterable = self._parse_expr()
-        except Exception:
-            iterable = None
-            self.pos = saved_pos
+        # 解析可迭代对象表达式（完整表达式）
+        iterable = self._parse_expr()
         
         # 恢复上下文标志
         self._in_foreach_context = old_foreach_context
         
-        # 检查下一个 token 是否是连接词
-        if iterable is not None and self._current() and self._current().type == TokenType.KEYWORD and self._current().value in FOREACH_CONNECTORS:
-            # 表达式没有消费连接词，正确解析了可迭代对象
-            connector = self._consume().value
-            # 变量名（简单标识符）
-            var_tok = self._current()
-            if var_tok and var_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
-                variable = self._consume().value
-            else:
-                variable = '_'
-        else:
-            # 回退分支：使用 _parse_primary 尝试解析连接词
-            self.pos = saved_pos
-            self._in_foreach_context = old_foreach_context  # 确保标志已恢复
-            iterable = self._parse_primary()
-            # 消耗潜在的成员访问等后缀
-            while self._current() and self._current().type in (TokenType.DOT, TokenType.LBRACKET, TokenType.LPAREN):
-                if self._current().type == TokenType.DOT:
-                    self._consume(TokenType.DOT)
-                    member_tok = self._current()
-                    if member_tok and member_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
-                        member_name = self._consume().value
-                        iterable = MemberAccess(iterable, member_name)
-                elif self._current().type == TokenType.LBRACKET:
-                    self._consume(TokenType.LBRACKET)
-                    index = self._parse_expr()
-                    self._consume(TokenType.RBRACKET)
-                    iterable = IndexAccess(iterable, index)
-                elif self._current().type == TokenType.LPAREN:
-                    self._consume(TokenType.LPAREN)
-                    args = []
-                    while not self._match(TokenType.RPAREN):
-                        if self._current() and self._current().type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
-                            self._consume()
-                            continue
-                        arg = self._parse_expr()
-                        if arg is not None:
-                            args.append(arg)
-                        if self._match(TokenType.COMMA):
-                            self._consume(TokenType.COMMA)
-                        else:
-                            break
-                    self._consume(TokenType.RPAREN)
-                    iterable = ParagraphCall(iterable, args) if isinstance(iterable, Identifier) else FunctionCall(iterable, args)
-                else:
-                    break
-            # 现在解析连接词
-            tok = self._current()
-            if tok and tok.type == TokenType.KEYWORD and tok.value in FOREACH_CONNECTORS:
-                connector = self._consume().value
-            else:
-                self._error(f"遍历循环期望'在'、'之'、'于'或'中的'，但得到 {tok.type} = '{tok.value}'", tok.line, tok.col)
-            # 变量名（简单标识符）
-            var_tok = self._current()
-            if var_tok and var_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
-                variable = self._consume().value
-            else:
-                variable = '_'
-        
-        # 处理隐式范围表达式：遍历 i 于 0 至 N（无 至/到 关键字时，在可迭代对象后解析额外部分）
+        # 处理隐式范围表达式：遍 i 于 1 至 N
+        # 当可迭代对象表达式之后还有非终止符 token 时，尝试解析为范围结束表达式
         if self._current() and self._current().type not in (TokenType.COLON, TokenType.LBRACE, TokenType.NEWLINE, TokenType.PERIOD):
-            # 尝试解析剩余部分作为范围结束表达式
             range_saved_pos = self.pos
             try:
                 end_expr = self._parse_add_expr()

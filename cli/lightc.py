@@ -140,7 +140,7 @@ def main():
     parser.add_argument('-v', '--verbose', action='store_true', help='详细输出')
     
     # 其他选项
-    parser.add_argument('--version', action='version', version='光明编译器 v0.7.0')
+    parser.add_argument('--version', action='version', version='光明编译器 v6.0.0')
     parser.add_argument('--init', action='store_true', help='创建示例项目')
     
     # 解析参数

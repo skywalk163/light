@@ -24,6 +24,7 @@ OPERATOR_VERBS = frozenset({
     '加', '减', '乘', '除', '加上', '减去', '乘以', '除以', 
     '大于', '小于', '等于', '不等于', '大于等于', '小于等于',
     '不小于', '不大于',
+    '包含',  # 包含关系运算符
     '模', '幂'
 })
 
@@ -35,7 +36,9 @@ IDENTIFIER_SAFE_KEYWORDS = frozenset({
     '接口', '结构体',  # 类型相关
     '枚举', '联合体',  # FFI 类型
     '回调',  # FFI 回调（如"回调函数"、"回调结构体"）
+    '排序',  # 排序（如"排序完成"、"排序分数"应为复合标识符）
     '匹配',  '配',  # 匹配/配（如"配置"、"完全匹配"应为复合标识符）
+    '包含',  # 包含（如"字典包含键"、"列表包含项"应为复合标识符）
 })
 
 # 常见复合词保护列表（这些词包含运算符动词或中文数字，但应该作为整体识别）
@@ -198,7 +201,7 @@ _COMPOUND_SAFE_SINGLE_KEYWORDS = frozenset({
     '过',   # 过滤/过程/通过
     '自',   # 自己/自动
     '是',   # 但是/还是
-    '之',   # 属性提取符，常见于复合词
+    # '之'  已移除 — 之 是成员访问符，应始终拆分，不应作为复合词安全字
     '并',   # 并且
     '且',   # 并且
     '或',   # 或者
@@ -1077,15 +1080,25 @@ class Lexer:
 
             # 检查是否紧跟汉字（如 evennum集），如果是则合并
             # 但只合并非关键字的汉字，避免破坏 left至right 这类范围表达式
+            # 同时检查汉字序列中是否包含成员访问符（之、的），遇到则停止合并
+            member_access_kw = {'之', '的'}
             while j < n and _is_han(source[j]):
-                # 检查从 j 开始的汉字序列是否是关键字
+                # 检查从 j 开始的汉字序列是否包含成员访问符
                 k = j
                 while k < n and _is_han(source[k]):
+                    if source[k] in member_access_kw:
+                        break
                     k += 1
-                han_seq = source[j:k]
-                # 如果汉字序列是关键字，则不合并
-                if han_seq in ALL_KEYWORDS:
+                if k < n and source[k] in member_access_kw:
+                    # 遇到成员访问符，将汉字合并到成员访问符前，后续由中文序列分词处理
+                    j = k
                     break
+                # 检查汉字序列是否是关键字
+                if k > j:
+                    han_seq = source[j:k]
+                    # 如果汉字序列是关键字，则不合并
+                    if han_seq in ALL_KEYWORDS:
+                        break
                 j = k
 
             word = source[i:j]

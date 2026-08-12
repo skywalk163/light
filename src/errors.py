@@ -8,7 +8,8 @@
 import sys
 import traceback
 import os
-from typing import List, Optional, Tuple, Dict, Any
+from typing import List, Optional, Tuple, Dict, Any, Union
+from dataclasses import dataclass, field
 
 
 def format_exception(exc_type, exc_value, exc_tb, source_lines=None):
@@ -420,6 +421,319 @@ class LightErrorFormatter:
             带源代码标注的完整错误信息
         """
         return format_error_with_context(error, source, line, col)
+
+
+class CodeGenError(LightError):
+    """代码生成错误"""
+    def __init__(self, message: str, line: int = 0, col: int = 0, hint: str = None,
+                 fix_suggestions: List[str] = None):
+        if fix_suggestions is None:
+            fix_suggestions = LightErrorFormatter.get_fix_suggestions('CodeGenError', message)
+        message = f"代码生成错误: {message}"
+        super().__init__(message, line, col, hint, fix_suggestions)
+
+
+class TypeError_ (LightError):
+    """类型错误（避开内置 TypeError 名称）"""
+    def __init__(self, message: str, line: int = 0, col: int = 0, hint: str = None,
+                 fix_suggestions: List[str] = None, expected_type: str = None,
+                 actual_type: str = None):
+        if fix_suggestions is None:
+            fix_suggestions = LightErrorFormatter.get_fix_suggestions('TypeError', message)
+        self.expected_type = expected_type
+        self.actual_type = actual_type
+        msg = f"类型错误: {message}"
+        if expected_type and actual_type:
+            msg += f" (期望 {expected_type}, 实际 {actual_type})"
+        super().__init__(msg, line, col, hint, fix_suggestions)
+
+
+class NameError_(LightError):
+    """名称错误（避开内置 NameError 名称）"""
+    def __init__(self, name: str, line: int = 0, col: int = 0, filename: str = None):
+        super().__init__(f"未定义的名称: {name}", line, col)
+
+
+# 扩展修复建议字典
+LightErrorFormatter.FIX_SUGGESTIONS['CodeGenError'] = {
+    '未知语句': [
+        '检查代码中是否有不受支持的语法结构',
+        '确保所有语句类型已被编译器支持',
+    ],
+    '不支持的表达式': [
+        '检查表达式中使用了哪些操作符',
+        '某些高级表达式可能需要更新编译器版本',
+    ],
+}
+LightErrorFormatter.FIX_SUGGESTIONS['TypeError'] = {
+    '类型不匹配': [
+        '检查操作数的类型是否正确',
+        '确保函数参数类型与声明一致',
+        '使用类型转换函数（如 转整数、转字符串）',
+    ],
+    '无法将': [
+        '检查赋值或传参的类型是否兼容',
+        '使用类型转换函数进行显式转换',
+        '检查变量声明时的类型注解',
+    ],
+    '期望': [
+        '检查函数调用时参数类型是否正确',
+        '查看函数定义需要的参数类型',
+        '确保传参顺序与定义一致',
+    ],
+}
+
+
+# =============================================================================
+# 统一错误收集器
+# =============================================================================
+
+@dataclass
+class ErrorEntry:
+    """单个错误条目（携带位置信息和源代码上下文）"""
+    stage: str                      # 错误阶段: 词法/语法/类型/代码生成
+    message: str                    # 错误消息
+    line: int = 0                   # 错误行号
+    column: int = 0                 # 错误列号
+    source_line: str = ''           # 错误行的源代码
+    fix_suggestions: List[str] = field(default_factory=list)  # 修复建议
+    exception: Optional[Exception] = None  # 原始异常（可选）
+    
+    def format(self, source: str = '') -> str:
+        """格式化单个错误条目为统一格式"""
+        parts = []
+        parts.append("")
+        parts.append("┌─ 错误")
+        if self.stage:
+            parts.append(f"│ 阶段: {self.stage}")
+        if self.line:
+            pos = f"行 {self.line}"
+            if self.column:
+                pos += f", 列 {self.column}"
+            parts.append(f"│ 位置: {pos}")
+        parts.append(f"│ 原因: {self.message}")
+        if self.fix_suggestions:
+            parts.append("│")
+            parts.append("│ 💡 修复建议:")
+            for i, s in enumerate(self.fix_suggestions, 1):
+                parts.append(f"│   {i}. {s}")
+        if self.source_line:
+            parts.append("│")
+            parts.append(f"│ 代码: {self.source_line.strip()}")
+        parts.append("└─")
+        
+        # 源代码上下文（如果提供了源代码）
+        if source and self.line > 0:
+            ctx = format_source_context(source, self.line, self.column)
+            if ctx:
+                return '\n'.join(parts) + '\n' + ctx
+        return '\n'.join(parts)
+
+
+class CompilerErrorCollector:
+    """统一错误收集器：收集并格式化编译各阶段的错误
+    
+    使用示例：
+        collector = CompilerErrorCollector(source)
+        collector.add_lexer_error("未闭合的字符串", 3, 10)
+        collector.add_parser_error("期望 '为'", 5, 1, "设 甲 10")
+        collector.add_type_error("类型不匹配: 期望整数, 实际字符串", 8, 15)
+        collector.add_codegen_error("不支持的表达式", 12, 5)
+        collector.add_error(ErrorEntry(stage="语法", message="...", line=3))
+        print(collector.format_all())  # 显示所有错误
+        print(collector.format_summary())  # 显示错误摘要
+    """
+    
+    def __init__(self, source: str = ''):
+        self.source = source
+        self.errors: List[ErrorEntry] = []
+        self.warnings: List[ErrorEntry] = []
+    
+    def add_error(self, entry: ErrorEntry):
+        """添加一个错误条目"""
+        self.errors.append(entry)
+    
+    def add_warning(self, entry: ErrorEntry):
+        """添加一个警告条目"""
+        self.warnings.append(entry)
+    
+    def add_lexer_error(self, message: str, line: int = 0, column: int = 0,
+                        source_line: str = '', exception: Exception = None):
+        """添加词法分析错误"""
+        suggestions = LightErrorFormatter.get_fix_suggestions('LexerError', message)
+        self.errors.append(ErrorEntry(
+            stage='词法分析', message=message, line=line, column=column,
+            source_line=source_line, fix_suggestions=suggestions, exception=exception,
+        ))
+    
+    def add_parser_error(self, message: str, line: int = 0, column: int = 0,
+                         source_line: str = '', exception: Exception = None):
+        """添加语法解析错误"""
+        suggestions = LightErrorFormatter.get_fix_suggestions('ParseError', message)
+        self.errors.append(ErrorEntry(
+            stage='语法解析', message=message, line=line, column=column,
+            source_line=source_line, fix_suggestions=suggestions, exception=exception,
+        ))
+    
+    def add_type_error(self, message: str, line: int = 0, column: int = 0,
+                       source_line: str = '', exception: Exception = None):
+        """添加类型检查错误"""
+        suggestions = LightErrorFormatter.get_fix_suggestions('TypeError', message)
+        self.errors.append(ErrorEntry(
+            stage='类型检查', message=message, line=line, column=column,
+            source_line=source_line, fix_suggestions=suggestions, exception=exception,
+        ))
+    
+    def add_codegen_error(self, message: str, line: int = 0, column: int = 0,
+                          source_line: str = '', exception: Exception = None):
+        """添加代码生成错误"""
+        suggestions = LightErrorFormatter.get_fix_suggestions('CodeGenError', message)
+        self.errors.append(ErrorEntry(
+            stage='代码生成', message=message, line=line, column=column,
+            source_line=source_line, fix_suggestions=suggestions, exception=exception,
+        ))
+    
+    def add_semantic_error(self, message: str, line: int = 0, column: int = 0,
+                           source_line: str = '', exception: Exception = None):
+        """添加语义分析错误"""
+        suggestions = LightErrorFormatter.get_fix_suggestions('SemanticError', message)
+        self.errors.append(ErrorEntry(
+            stage='语义分析', message=message, line=line, column=column,
+            source_line=source_line, fix_suggestions=suggestions, exception=exception,
+        ))
+    
+    def has_errors(self) -> bool:
+        """是否有错误"""
+        return len(self.errors) > 0
+    
+    def error_count(self) -> int:
+        return len(self.errors)
+    
+    def warning_count(self) -> int:
+        return len(self.warnings)
+    
+    def format_all(self, separate: bool = True) -> str:
+        """格式化所有错误和警告
+        
+        Args:
+            separate: 是否用分隔线分隔每个错误
+        
+        Returns:
+            格式化的错误信息字符串
+        """
+        parts = []
+        
+        if not self.errors and not self.warnings:
+            return ""
+        
+        # 错误
+        if self.errors:
+            parts.append(f"\n{'='*60}")
+            parts.append(f"❌ 发现 {len(self.errors)} 个错误:")
+            parts.append(f"{'='*60}")
+            for i, err in enumerate(self.errors):
+                formatted = err.format(self.source)
+                parts.append(formatted)
+                if separate and i < len(self.errors) - 1:
+                    parts.append("─" * 40)
+        
+        # 警告
+        if self.warnings:
+            parts.append(f"\n{'='*60}")
+            parts.append(f"⚠️  发现 {len(self.warnings)} 个警告:")
+            parts.append(f"{'='*60}")
+            for i, warn in enumerate(self.warnings):
+                formatted = warn.format(self.source)
+                parts.append(formatted)
+                if separate and i < len(self.warnings) - 1:
+                    parts.append("─" * 40)
+        
+        return '\n'.join(parts)
+    
+    def format_summary(self) -> str:
+        """格式化错误摘要（仅统计信息，不含详细内容）"""
+        if not self.has_errors() and not self.warnings:
+            return "✅ 编译通过，无错误"
+        
+        parts = []
+        parts.append("📊 编译结果摘要:")
+        parts.append(f"  错误: {self.error_count()} 个")
+        parts.append(f"  警告: {self.warning_count()} 个")
+        
+        if self.errors:
+            # 按阶段统计
+            from collections import Counter
+            stages = Counter(e.stage for e in self.errors)
+            for stage, count in stages.most_common():
+                parts.append(f"    {stage}: {count} 个错误")
+        
+        return '\n'.join(parts)
+    
+    def get_errors_by_stage(self, stage: str) -> List[ErrorEntry]:
+        """按阶段获取错误"""
+        return [e for e in self.errors if e.stage == stage]
+    
+    def clear(self):
+        """清空所有错误和警告"""
+        self.errors.clear()
+        self.warnings.clear()
+
+
+# 增强 format_source_context：支持更丰富的视觉标记
+def format_source_context_rich(source: str, line: int, col: int = None,
+                                context_lines: int = 3, show_line_numbers: bool = True) -> str:
+    """增强版源代码上下文格式化（更丰富的视觉标记）
+    
+    Args:
+        source: 源代码文本
+        line: 错误行号（1-based）
+        col: 错误列号（1-based，可选）
+        context_lines: 上下文行数
+        show_line_numbers: 是否显示行号
+    
+    Returns:
+        格式化的源代码上下文
+    """
+    if not source:
+        return ""
+    
+    lines = source.split('\n')
+    if line < 1 or line > len(lines):
+        return ""
+    
+    result = []
+    result.append("📄 源代码上下文:")
+    result.append("─" * 60)
+    
+    start = max(0, line - context_lines - 1)
+    end = min(len(lines), line + context_lines)
+    
+    # 计算行号宽度
+    line_width = len(str(len(lines))) if show_line_numbers else 0
+    
+    for i in range(start, end):
+        line_num = i + 1
+        line_content = lines[i].rstrip()
+        
+        if line_num == line:
+            # 错误行：使用醒目的箭头标记
+            prefix = "  → " if show_line_numbers else "→ "
+            line_str = f"{prefix}{line_num:>{line_width}} │ {line_content}" if show_line_numbers else f"{prefix}{line_content}"
+            result.append(line_str)
+            if col is not None and col > 0 and col <= len(line_content) + 1:
+                # 显示精确的列号指示（^ 符号）
+                arrow_indent = len(prefix) + (line_width + 3 if show_line_numbers else 0) + min(col - 1, len(line_content))
+                result.append(f"{' ' * arrow_indent}▲ 此处")
+            else:
+                arrow_indent = len(prefix) + (line_width + 3 if show_line_numbers else 0) + len(line_content)
+                result.append(f"{' ' * arrow_indent}◀ 此附近")
+        else:
+            prefix = "    " if show_line_numbers else "  "
+            line_str = f"{prefix}{line_num:>{line_width}} │ {line_content}" if show_line_numbers else f"{prefix}{line_content}"
+            result.append(line_str)
+    
+    result.append("─" * 60)
+    return '\n'.join(result)
 
 
 # 安装默认的异常处理器

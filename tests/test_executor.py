@@ -73,8 +73,8 @@ class TestExecutor(unittest.TestCase):
         self.assertTrue(self.executor._is_simple("打印(1)。"))
         self.assertTrue(self.executor._is_simple("[1, 2, 3]"))
 
-        # 复杂代码块
-        self.assertFalse(self.executor._is_simple("设 甲 为 3。"))
+        # 变量声明是简单表达式（可以直接解释执行）
+        self.assertTrue(self.executor._is_simple("设 甲 为 3。"))
         self.assertFalse(self.executor._is_simple("段落 测试: 结束。"))
         self.assertFalse(self.executor._is_simple("如果 甲 > 0: 结束。"))
 
