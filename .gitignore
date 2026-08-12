@@ -46,6 +46,7 @@ tests/debug_*.py
 *.json
 !project/*.json
 !积木库/索引.json
+!积木库/积木库_导出_v4.json
 
 # 临时文件
 *.tmp
