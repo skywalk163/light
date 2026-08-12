@@ -334,11 +334,12 @@ class ParserExprMixin:
             return AwaitExpr(expr)
         
         # 三元条件表达式：如果 条件 那么 值1 否则 值2
+        # 也支持：如果 条件 则 值1 否则 值2
         if tok.type == TokenType.KEYWORD and tok.value == '如果':
             self._consume(TokenType.KEYWORD, '如果')
             condition = self._parse_expr()
-            if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '那么':
-                self._consume(TokenType.KEYWORD, '那么')
+            if self._current() and self._current().type == TokenType.KEYWORD and self._current().value in ('那么', '则'):
+                self._consume(TokenType.KEYWORD, self._current().value)
             then_expr = self._parse_expr()
             else_expr = None
             if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '否则':
