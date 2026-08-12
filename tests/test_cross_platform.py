@@ -28,9 +28,11 @@ class TestCrossPlatformPaths(unittest.TestCase):
         """测试路径分隔符处理"""
         # 验证 Path 对象能正确处理两种分隔符
         p1 = Path('a/b/c')
-        p2 = Path('a\\b\\c')
         self.assertEqual(p1.name, 'c')
-        self.assertEqual(p2.name, 'c')
+        # 在 Windows 上反斜杠是路径分隔符；其他系统（Linux/FreeBSD/macOS）上不是
+        if sys.platform == 'win32':
+            p2 = Path('a\\b\\c')
+            self.assertEqual(p2.name, 'c')
 
     def test_path_join(self):
         """测试路径拼接"""

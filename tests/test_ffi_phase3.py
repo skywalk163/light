@@ -263,7 +263,12 @@ def test_runtime_varargs_call():
     import ctypes
     from stdlib.FFI import 加载库, 声明函数, 变长参数调用
     # 加载 libc / msvcrt
-    libc = ctypes.CDLL('msvcrt' if sys.platform == 'win32' else 'libc.so.6')
+    if sys.platform == 'win32':
+        libc = ctypes.CDLL('msvcrt')
+    elif sys.platform.startswith('freebsd'):
+        libc = ctypes.CDLL('libc.so')
+    else:
+        libc = ctypes.CDLL('libc.so.6')
     from stdlib.FFI import _ffi_manager
     _ffi_manager._libraries['testlib'] = type('FakeLib', (), {'_handle': libc, 'get_function': lambda self, name: getattr(libc, name)})()
     result = 变长参数调用('testlib', 'sprintf', [ctypes.create_string_buffer(100), b'%d'], [42])

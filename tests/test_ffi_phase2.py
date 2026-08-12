@@ -233,6 +233,8 @@ def test_ffi_full_workflow():
         lib_path = 'msvcrt'
     elif platform.system() == 'Darwin':
         lib_path = 'libSystem.dylib'
+    elif platform.system() == 'FreeBSD':
+        lib_path = 'libm.so'
     else:
         lib_path = 'libm.so.6'
 

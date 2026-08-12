@@ -41,6 +41,15 @@ def _create_test_library():
         lib.pow.argtypes = [ctypes.c_double, ctypes.c_double]
         lib.pow.restype = ctypes.c_double
         return lib, 'libSystem.dylib'
+    elif platform.system() == 'FreeBSD':
+        lib = ctypes.CDLL('libm.so')
+        lib.sqrt.argtypes = [ctypes.c_double]
+        lib.sqrt.restype = ctypes.c_double
+        lib.fabs.argtypes = [ctypes.c_double]
+        lib.fabs.restype = ctypes.c_double
+        lib.pow.argtypes = [ctypes.c_double, ctypes.c_double]
+        lib.pow.restype = ctypes.c_double
+        return lib, 'libm.so'
     else:
         lib = ctypes.CDLL('libm.so.6')
         lib.sqrt.argtypes = [ctypes.c_double]
@@ -249,6 +258,8 @@ def test_ffi_load_real_library():
         lib_path = 'msvcrt'
     elif platform.system() == 'Darwin':
         lib_path = 'libSystem.dylib'
+    elif platform.system() == 'FreeBSD':
+        lib_path = 'libc.so'
     else:
         lib_path = 'libc.so.6'
 
