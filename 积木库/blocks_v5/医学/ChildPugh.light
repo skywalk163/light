@@ -1,0 +1,5 @@
+# 积木：Child-Pugh评分（医学领域，自动生成）
+# 契约：输入 [数] → 输出 数（计算Child-Pugh评分）
+导出 ChildPugh
+段落 ChildPugh 接收 输入：
+    返回 胆红素 加 白蛋白 加 腹水 加 脑病 加 INR

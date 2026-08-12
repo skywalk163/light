@@ -1,0 +1,5 @@
+# 积木：Anderson-Darling检验（统计领域，自动生成）
+# 契约：输入 [列表] → 输出 列表（执行Anderson-Darling检验）
+导出 AD检验
+段落 AD检验 接收 输入：
+    返回 AD检验(样本)

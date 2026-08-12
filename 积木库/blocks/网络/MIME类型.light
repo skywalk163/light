@@ -1,0 +1,5 @@
+# 积木：MIME类型判断（网络领域，自动生成）
+# 契约：输入 [文本] → 输出 文本（根据扩展名判断MIME类型）
+导出 MIME类型
+段落 MIME类型 接收 文本：
+    返回 如果 输入.包含('.html') 则 'text/html' 否则 (如果 输入.包含('.json') 则 'application/json' 否则 'application/octet-stream')

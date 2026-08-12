@@ -1,0 +1,5 @@
+# 积木：Friedman检验（统计领域，自动生成）
+# 契约：输入 [列表] → 输出 列表（执行Friedman检验）
+导出 Friedman检验
+段落 Friedman检验 接收 输入：
+    返回 Friedman检验(分组数据)

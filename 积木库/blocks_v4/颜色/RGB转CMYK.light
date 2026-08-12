@@ -1,0 +1,5 @@
+# 积木：RGB转CMYK（颜色领域，自动生成）
+# 契约：输入 [文本] → 输出 文本（RGB颜色转CMYK）
+导出 RGB转CMYK
+段落 RGB转CMYK 接收 输入：
+    返回 RGB转CMYK(输入, 甲, 乙)

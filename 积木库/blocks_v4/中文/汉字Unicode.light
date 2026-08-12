@@ -1,0 +1,5 @@
+# 积木：汉字Unicode（中文领域，自动生成）
+# 契约：输入 [文本] → 输出 数（获取汉字Unicode编码）
+导出 汉字Unicode
+段落 汉字Unicode 接收 输入：
+    返回 汉字Unicode(输入)

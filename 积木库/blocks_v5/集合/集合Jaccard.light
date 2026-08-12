@@ -1,0 +1,5 @@
+# 积木：集合Jaccard（集合领域，自动生成）
+# 契约：输入 [列表] → 输出 数（计算Jaccard相似系数）
+导出 集合Jaccard
+段落 集合Jaccard 接收 输入：
+    返回 集合Jaccard(甲, 乙)

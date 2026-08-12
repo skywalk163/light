@@ -1,0 +1,5 @@
+# 积木：Unicode码点（中文领域，自动生成）
+# 契约：输入 [数] → 输出 数（获取Unicode码点）
+导出 Unicode码点
+段落 Unicode码点 接收 输入：
+    返回 Unicode码点(输入)

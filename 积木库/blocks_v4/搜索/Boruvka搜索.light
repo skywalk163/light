@@ -1,0 +1,5 @@
+# 积木：Boruvka搜索（搜索领域，自动生成）
+# 契约：输入 [数] → 输出 数（Boruvka最小生成树）
+导出 Boruvka搜索
+段落 Boruvka搜索 接收 输入：
+    返回 Boruvka搜索(输入)

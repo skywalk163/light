@@ -1,0 +1,5 @@
+# 积木：效应量Hedges g（统计领域，自动生成）
+# 契约：输入 [列表] → 输出 数（计算Hedges g效应量）
+导出 Hedges g
+段落 Hedges g 接收 输入：
+    返回 Hedges g(组甲, 组乙)

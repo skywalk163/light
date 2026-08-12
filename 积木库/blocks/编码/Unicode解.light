@@ -1,0 +1,5 @@
+# 积木：Unicode解码（编码领域，自动生成）
+# 契约：输入 [文本] → 输出 文本（Unicode解码）
+导出 Unicode解
+段落 Unicode解 接收 文本：
+    返回 文本.解码('unicode-escape')

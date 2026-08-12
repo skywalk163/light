@@ -1,0 +1,5 @@
+# 积木：HTTP POST（网络领域，自动生成）
+# 契约：输入 [文本] → 输出 文本（发送HTTP POST）
+导出 HTTP POST
+段落 HTTP POST 接收 输入：
+    返回 HTTP_POST(甲, 乙)

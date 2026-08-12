@@ -1,0 +1,5 @@
+# 积木：肌酐清除率Cockcroft（医学领域，自动生成）
+# 契约：输入 [数] → 输出 数（Cockcroft-Gault公式）
+导出 Cockcroft
+段落 Cockcroft 接收 输入：
+    返回 (140 减 年龄) 乘 体重 除 (72 乘 肌酐)

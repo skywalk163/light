@@ -1,0 +1,5 @@
+# 积木：Twofish解密（密码领域，自动生成）
+# 契约：输入 [文本] → 输出 文本（Twofish解密数据）
+导出 Twofish解密
+段落 Twofish解密 接收 输入：
+    返回 Twofish解密(输入)

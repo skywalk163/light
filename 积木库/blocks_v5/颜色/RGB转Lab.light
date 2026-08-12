@@ -1,0 +1,5 @@
+# 积木：RGB转Lab（颜色领域，v5优化）
+# 契约：输入 [数] → 输出 数（RGB到CIELAB转换）
+导出 RGB转Lab
+段落 RGB转Lab 接收 输入：
+    返回 RGB转Lab(甲, 乙, 丙)

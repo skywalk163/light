@@ -1,0 +1,5 @@
+# 积木：系统Kubernetes（系统领域，自动生成）
+# 契约：输入 [逻辑] → 输出 逻辑（检测是否K8s环境）
+导出 Kubernetes
+段落 Kubernetes 接收 输入：
+    返回 Kubernetes()
