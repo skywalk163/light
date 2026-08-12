@@ -233,10 +233,8 @@ def test_ffi_full_workflow():
         lib_path = 'msvcrt'
     elif platform.system() == 'Darwin':
         lib_path = 'libSystem.dylib'
-    elif platform.system() == 'FreeBSD':
-        lib_path = 'libm.so'
     else:
-        lib_path = 'libm.so.6'
+        lib_path = ctypes.util.find_library('m') or 'libm.so.6'
 
     lib = _ffi_manager.load_library(lib_path, '测试库')
     assert lib is not None

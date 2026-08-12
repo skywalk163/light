@@ -41,24 +41,16 @@ def _create_test_library():
         lib.pow.argtypes = [ctypes.c_double, ctypes.c_double]
         lib.pow.restype = ctypes.c_double
         return lib, 'libSystem.dylib'
-    elif platform.system() == 'FreeBSD':
-        lib = ctypes.CDLL('libm.so')
-        lib.sqrt.argtypes = [ctypes.c_double]
-        lib.sqrt.restype = ctypes.c_double
-        lib.fabs.argtypes = [ctypes.c_double]
-        lib.fabs.restype = ctypes.c_double
-        lib.pow.argtypes = [ctypes.c_double, ctypes.c_double]
-        lib.pow.restype = ctypes.c_double
-        return lib, 'libm.so'
     else:
-        lib = ctypes.CDLL('libm.so.6')
+        lib_name = ctypes.util.find_library('m') or 'libm.so.6'
+        lib = ctypes.CDLL(lib_name)
         lib.sqrt.argtypes = [ctypes.c_double]
         lib.sqrt.restype = ctypes.c_double
         lib.fabs.argtypes = [ctypes.c_double]
         lib.fabs.restype = ctypes.c_double
         lib.pow.argtypes = [ctypes.c_double, ctypes.c_double]
         lib.pow.restype = ctypes.c_double
-        return lib, 'libm.so.6'
+        return lib, lib_name
 
 
 # =============================================================================
@@ -258,10 +250,8 @@ def test_ffi_load_real_library():
         lib_path = 'msvcrt'
     elif platform.system() == 'Darwin':
         lib_path = 'libSystem.dylib'
-    elif platform.system() == 'FreeBSD':
-        lib_path = 'libc.so'
     else:
-        lib_path = 'libc.so.6'
+        lib_path = ctypes.util.find_library('c') or 'libc.so.6'
 
     lib = _ffi_manager.load_library(lib_path, '系统库')
     assert lib is not None
