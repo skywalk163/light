@@ -107,7 +107,7 @@ class 测试系统接口模块(unittest.TestCase):
         from 系统接口 import 操作系统
         os_name = 操作系统()
         self.assertIsInstance(os_name, str)
-        self.assertIn(os_name, ['Windows', 'Linux', 'Darwin'])
+        self.assertIn(os_name, ['Windows', 'Linux', 'Darwin', 'FreeBSD'])
     
     def test_CPU核心数(self):
         from 系统接口 import CPU核心数

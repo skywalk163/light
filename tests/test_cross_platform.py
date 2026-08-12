@@ -143,7 +143,7 @@ class TestCrossPlatformProcess(unittest.TestCase):
     def test_system_info(self):
         """测试系统信息获取"""
         system = platform.system()
-        self.assertIn(system, ['Windows', 'Linux', 'Darwin'])
+        self.assertIn(system, ['Windows', 'Linux', 'Darwin', 'FreeBSD'])
 
     def test_platform_detection(self):
         """测试平台检测"""
@@ -151,7 +151,9 @@ class TestCrossPlatformProcess(unittest.TestCase):
             self.assertEqual(os.name, 'nt')
         elif sys.platform == 'darwin':
             self.assertEqual(os.name, 'posix')
-        elif sys.platform == 'linux':
+        elif sys.platform.startswith('linux'):
+            self.assertEqual(os.name, 'posix')
+        elif sys.platform.startswith('freebsd'):
             self.assertEqual(os.name, 'posix')
 
 

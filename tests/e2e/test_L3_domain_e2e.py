@@ -7,6 +7,13 @@ import os
 import sys
 import io
 import unittest
+import pytest  # 用于平台条件跳过
+
+# 原生依赖(sympy/sqlite3 扩展)仅在 Linux CI 有完整 wheel 支持
+pytestmark = pytest.mark.skipif(
+    sys.platform != "linux",
+    reason="原生依赖(numpy/sympy/DB)仅在 Linux CI 可用"
+)
 
 _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _src_dir = os.path.join(_project_root, 'src')

@@ -219,7 +219,7 @@ def test_runtime_callback():
 def test_runtime_library_path():
     from stdlib.FFI import 解析库路径, 获取平台
     plat = 获取平台()
-    assert plat in ('windows', 'linux', 'darwin')
+    assert plat in ('windows', 'linux', 'darwin', 'freebsd')
     path = 解析库路径({'win': 'kernel32.dll', 'linux': 'libc.so.6', 'mac': 'libc.dylib'})
     assert isinstance(path, str)
 
