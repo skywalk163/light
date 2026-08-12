@@ -45,6 +45,7 @@ tests/debug_*.py
 # 数据文件
 *.json
 !project/*.json
+!积木库/索引.json
 
 # 临时文件
 *.tmp
