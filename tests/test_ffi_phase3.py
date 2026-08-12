@@ -260,7 +260,7 @@ def test_runtime_find_library():
 # =============================================================================
 
 def test_runtime_varargs_call():
-    import ctypes
+    import ctypes, ctypes.util
     from stdlib.FFI import 加载库, 声明函数, 变长参数调用
     # 加载 libc / msvcrt
     if sys.platform == 'win32':

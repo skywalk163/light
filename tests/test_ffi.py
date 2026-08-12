@@ -5,6 +5,7 @@
 import sys
 import os
 import ctypes
+import ctypes.util
 import platform
 import tempfile
 
