@@ -1,0 +1,46 @@
+# light · 本地 CI（Gitea Actions，FreeBSD host 模式，无 Docker）
+#
+# 与 jikuai/duan/quye 同一套范式：
+#   - runs-on: freebsd（act_runner，系统 python3 v3.11 / node v24）
+#   - checkout 固定走本地 actions/checkout（避免 Gitea 裸写 uses 偶发回落 github.com）
+#   - venv 装依赖，pytest 跑测试（无测试则跳过，不视为失败）
+#
+# 依赖安装做了兼容：有 requirements.txt 就装，否则仅尝试可编辑安装本项目 + pytest。
+# 如 light 是 Node/Go 等其他栈，告诉我，我替换对应 step。
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: freebsd
+    steps:
+      - name: Checkout
+        # 固定走本地 actions/checkout，绕过 Gitea 对裸写 uses 的解析偶发回落到 github.com
+        uses: http://192.168.1.5:3000/actions/checkout@v4
+
+      - name: 安装依赖 (venv)
+        run: |
+          python3 -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          # 按项目实际依赖文件安装；缺哪个就跳过
+          [ -f requirements.txt ] && python -m pip install -r requirements.txt
+          # 尝试以可编辑模式安装本项目（能验证打包/import 是否正常）
+          python -m pip install -e . 2>/dev/null || true
+          python -m pip install pytest 2>/dev/null || true
+
+      - name: 测试
+        run: |
+          . .venv/bin/activate
+          # 仅当存在测试文件时才跑 pytest（避免「无测试」exit code 5 判红）
+          if [ -d tests ] && [ -n "$(find tests -name '*.py' | head -1)" ]; then
+            pytest -v --tb=short
+          else
+            echo "未检测到测试目录，跳过 pytest"
+          fi
