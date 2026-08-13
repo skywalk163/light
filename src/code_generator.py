@@ -89,7 +89,6 @@ class PythonCodeGenerator:
             '弹出': 'pop',
             '清空': 'clear',
             '反转': 'reverse',
-            '排序': 'sort',
             '包含': '__contains__',
             '获取': 'get',
             '设置': '__setitem__',
@@ -183,6 +182,33 @@ class PythonCodeGenerator:
             '布尔': 'bool',
             '类型': 'type',
             '去重': 'lambda x: list(set(x))',
+            # 数学函数补充（LLVM后端已有，Python后端补齐）
+            '平方根': 'math.sqrt',
+            '对数': 'math.log',
+            '指数': 'math.exp',
+            '正弦': 'math.sin',
+            '余弦': 'math.cos',
+            '正切': 'math.tan',
+            '反正弦': 'math.asin',
+            '反余弦': 'math.acos',
+            '反正切': 'math.atan',
+            '反正切2': 'math.atan2',
+            '阶乘': 'math.factorial',
+            '向上取整': 'math.ceil',
+            '向下取整': 'math.floor',
+            '最大公约数': 'math.gcd',
+            '幂': 'pow',
+            '平方': "lambda x: x*x",
+            '立方': "lambda x: x*x*x",
+            # 随机函数
+            '随机': 'lambda *a: __import__("random").random()',
+            '随机整数': 'random.randint',
+            '随机浮点': 'random.uniform',
+            '随机选择': 'random.choice',
+            '洗牌': 'lambda seq: __import__("random").sample(list(seq), len(list(seq))) if hasattr(seq, "__len__") else seq',
+            # 字符串操作函数
+            '拼接': "lambda *a: (a[-1] if len(a) > 1 else '').join(str(x) for x in a[0])",
+            '切分': "lambda x, sep=None: list(x) if sep is None else x.split(sep)",
             
             # 文件I/O
             '读取文件': '_light_builtin.读取文件',
@@ -371,6 +397,8 @@ class PythonCodeGenerator:
         self._add_line("import ctypes")
         self._add_line("import stdlib.FFI as _light_ffi")
         self._add_line("from typing import Any")
+        self._add_line("import math")
+        self._add_line("import random")
         self._add_line("")
         self._add_line("try:")
         self._add_line("    import importlib.util")
@@ -438,7 +466,7 @@ class PythonCodeGenerator:
         self._add_line("        _light_builtin.列 = lambda *args: list(args)")
         self._add_line("        _light_builtin.列表追加 = lambda lst, item: lst.append(item)")
         self._add_line("        _light_builtin.列表包含 = lambda lst, item: item in lst")
-        self._add_line("        _light_builtin.包含 = lambda sub, s: sub in s")
+        self._add_line("        _light_builtin.包含 = lambda container, item: item in container")
         self._add_line("        _light_builtin.字符串长度 = len")
         self._add_line("        _light_builtin.截取 = lambda s, start, end: s[start:end]")
         self._add_line("        _light_builtin.转大写 = lambda s: s.upper()")
@@ -1551,11 +1579,12 @@ class PythonCodeGenerator:
             # 检查是否是中文数字
             if expr.name in self.chinese_numbers:
                 return str(self.chinese_numbers[expr.name])
-            # 己 → self，己.attr → self.attr
-            if name == '己':
-                return 'self'
-            if name.startswith('己.'):
-                return 'self.' + name[2:]
+            # 己 → self（仅在类方法中），己.attr → self.attr
+            if self._in_class_method:
+                if name == '己':
+                    return 'self'
+                if name.startswith('己.'):
+                    return 'self.' + name[2:]
             # 类方法中，如果引用的是类属性且不是参数名，添加 self. 前缀
             if self._in_class_method and expr.name in self._class_attr_names and expr.name not in self._current_method_params:
                 return f"self.{name}"
@@ -1597,6 +1626,11 @@ class PythonCodeGenerator:
                 else:
                     args.append(self._generate_expr(arg))
             args_str = ', '.join(args)
+            
+            # 如果函数名是lambda表达式，需要加括号包裹，避免lambda body被误认为函数调用参数
+            # 例如：随机(0, 10) → (lambda *a: __import__("random").random())(0, 10)
+            if py_name.startswith('lambda '):
+                return f"({py_name})({args_str})"
             
             return f"{py_name}({args_str})"
         
@@ -1688,14 +1722,19 @@ class PythonCodeGenerator:
                 elif expr.member == '包含':
                     return f"{args_str} in {obj}"
 
+                # 特殊处理：cb_前缀的回调函数调用
+                # obj.cb_xxx(args) → cb_xxx(args)
+                # 回调参数在光明语言中通过 obj.回调名(args) 语法调用
+                if expr.member.startswith('cb_'):
+                    return f"{mapped_member}({args_str})"
+
                 # P5 核心改造：内置函数式优先
-                # 如果方法名在 builtin_map 中且映射到 _light_builtin，转为函数式调用
-                # 这样 obj.方法(args) 自动转为 _light_builtin.方法(obj, args)
-                # 外部库方法（不在 builtin_map 中）则原样透传 obj.method(args)
+                # 如果方法名在 builtin_map 中，转为函数式调用
+                # 这样 obj.方法(args) 自动转为 内置函数(obj, args)
+                # 但 method_name_map 中的标准方法（如 追加→append）仍保留为方法调用
                 builtin_target = self.builtin_map.get(expr.member)
-                if builtin_target and builtin_target.startswith('_light_builtin.'):
-                    # 内置函数：转为函数式调用
-                    func_name = builtin_target.split('.', 1)[1]
+                if builtin_target and expr.member not in self.method_name_map:
+                    # 内置函数（非标准方法）：转为函数式调用
                     if args_str:
                         return f"{builtin_target}({obj}, {args_str})"
                     else:

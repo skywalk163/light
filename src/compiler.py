@@ -293,7 +293,8 @@ class AstAdapter:
         )
 
     def _convert_number_literal(self, node) -> ast.NumberLiteral:
-        return ast.NumberLiteral(value=float(node.value) if '.' in str(node.value)
+        s = str(node.value)
+        return ast.NumberLiteral(value=float(node.value) if ('.' in s or 'e' in s.lower())
                                  else int(node.value))
 
     def _convert_string_literal(self, node) -> ast.StringLiteral:
