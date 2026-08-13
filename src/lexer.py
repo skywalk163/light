@@ -67,6 +67,10 @@ COMMON_COMPOUND_WORDS = frozenset({
     # 科学计算中"X函数"作为标识符（如"导函数"、"函数对象"）
     '导函数', '目标函数', '梯度函数', '海森函数', '函数对象',
     '伽马函数', '误差函数', '贝塔函数', '激活函数', '损失函数', '核函数',
+    # 数学函数名（含关键字"余"等，需保护不被拆分）
+    '余弦', '余切', '反正弦', '反余弦', '反正切', '反正切2',
+    '向下取整', '向上取整', '平方根', '最大公约数', '最小公倍数',
+    '四舍五入', '随机整数', '随机浮点', '随机选择',
 })
 
 # CJK 汉字范围
@@ -1263,6 +1267,10 @@ class Lexer:
                     # - "甲序"被拆为"甲"+"序"（序是compound_safe）
                     remaining = full_identifier[len(prefix_matched):]
                     if len(remaining) == 1 and remaining in _compound_safe:
+                        prefix_matched = None
+                    elif remaining and remaining[0] in OPERATOR_VERBS:
+                        # 剩余部分以运算符动词开头（如"甲加乙"拆出"甲"后剩"加乙"）
+                        # 不拆分，让整个标识符走正常流程，嵌入扫描会正确识别运算符
                         prefix_matched = None
                     else:
                         # 输出用户定义的前缀部分作为标识符，剩余部分由后续循环处理
