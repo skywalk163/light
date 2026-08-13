@@ -3,7 +3,13 @@
 # 依赖安装改为「持久 venv 复用」：第三方依赖（pytest/pytest-cov/antlr4 运行时）
 # 装进 /var/db/act_runner/venvs/light 跨 run 复用；项目自身 editable 指向
 # /var/db/act_runner/venvs/light.src（每 run ln -sfn $PWD 更新）。
-# 无测试则跳过，不视为失败。
+#
+# 关于测试范围：
+#   light 的 antlrparser/test/ 下的用例依赖由 .g4 生成的
+#   LightLangLexer.py / LightLangParser.py。这两个文件不进 git，且本机未装 Java
+#   （antlr4-tools 需要 Java 才能 codegen），所以 CI 只跑「代码无关」的 tests/ 套件。
+#   等后续把 codegen 接进 CI（装 Java + antlr4-tools，或把生成产物提交进仓库），
+#   再放开 antlrparser/test/。
 
 name: CI
 
@@ -30,8 +36,12 @@ jobs:
       - name: 测试
         run: |
           . "$VENV_BIN/activate"
+          # light_visitor / light_compiler 等模块位于 antlrparser/，测试用裸 import
+          # （from light_visitor import ...），需把 antlrparser/ 与仓库根加进 PYTHONPATH 才能解析。
+          export PYTHONPATH="$PWD:$PWD/antlrparser"
+          # 只跑「代码无关」的 tests/ 套件；antlrparser/test/ 依赖 ANTLR codegen（本机无 Java）跳过。
           if [ -d tests ] && [ -n "$(find tests -name '*.py' | head -1)" ]; then
-            pytest -v --tb=short
+            pytest tests -v --tb=short
           else
             echo "未检测到测试目录，跳过 pytest"
           fi
