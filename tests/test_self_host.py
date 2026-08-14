@@ -6,7 +6,7 @@ test_self_host.py - 自举编译器编译级测试
 1. 使用 src 后端编译 bootstrap_v3.light 为 Python
 2. 运行生成的 Python 代码
 3. 验证执行无错误
-4. 检查输出是否包含 "Duan" 或 "段言" 等标识符
+4. 检查输出是否包含 "Light" 或 "光明" 等标识符
 """
 
 import pytest
@@ -166,14 +166,14 @@ class TestSelfHostCompile:
         assert '词法分析' in namespace or 'compile_source' in namespace, \
             "命名空间中未找到预期的函数定义"
 
-    def test_generated_code_contains_duan_identifiers(self):
-        """验证生成的代码包含段言相关标识符"""
+    def test_generated_code_contains_light_identifiers(self):
+        """验证生成的代码包含光明相关标识符"""
         py_code, _ = _compile_bootstrap()
 
-        # 检查是否包含 "Duan" 或 "段言" 相关标识
-        has_duan = 'Duan' in py_code or '段言' in py_code or 'duan' in py_code.lower()
+        # 检查是否包含 "light" 或 "光明" 相关标识（品牌统一为光明 / light，原 duan/段言 期望已废止）
+        has_light = 'Light' in py_code or '光明' in py_code or 'light' in py_code.lower()
         has_bootstrap = 'bootstrap' in py_code.lower()
-        has_duan_compiler = '段言' in py_code or 'duan' in py_code.lower()
+        has_light_compiler = '光明' in py_code or 'light' in py_code.lower()
 
         # 检查是否包含核心函数
         has_lexer_funcs = '词法分析' in py_code or 'lexer' in py_code.lower()
@@ -181,14 +181,14 @@ class TestSelfHostCompile:
         has_codegen_funcs = 'generate' in py_code.lower() or 'codegen' in py_code.lower()
 
         print(f"\n--- 生成代码标识符检查 ---")
-        print(f"包含 'Duan'/'段言': {has_duan}")
+        print(f"包含 'Light'/'光明': {has_light}")
         print(f"包含 'bootstrap': {has_bootstrap}")
         print(f"包含词法分析函数: {has_lexer_funcs}")
         print(f"包含解析函数: {has_parser_funcs}")
         print(f"包含代码生成函数: {has_codegen_funcs}")
         print(f"--------------------------")
 
-        assert has_duan_compiler, "生成的代码应包含段言相关标识符"
+        assert has_light_compiler, "生成的代码应包含光明相关标识符"
         assert has_lexer_funcs, "生成的代码应包含词法分析函数"
         assert has_parser_funcs, "生成的代码应包含解析函数"
         assert has_codegen_funcs, "生成的代码应包含代码生成函数"

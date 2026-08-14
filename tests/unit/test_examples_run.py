@@ -112,7 +112,7 @@ EXAMPLE_EXPECTED = {
                          '姓名：李四，学号：2024002\n'
                          '姓名：王五，学号：2024003\n'
                          '学生总数：3\n'
-                         '学校名称：段言学院',
+                         '学校名称：光明学院',
     'calculator.light': '计算结果: 15',
     'student_management.light': '=== 学生信息 ===\n'
                                '姓名: 张三\n'
@@ -157,7 +157,7 @@ EXAMPLE_EXPECTED = {
                         "['0', '0', '1', '1', ' ']\n"
                         '执行步数：\n'
                         '2',
-    'type_annotation_demo.light': '=== 段言类型注解示例 ===\n'
+    'type_annotation_demo.light': '=== 光明类型注解示例 ===\n'
                                  '\n'
                                  '1. 变量类型注解：\n'
                                  '  x: 10 (整数)\n'
@@ -178,7 +178,7 @@ EXAMPLE_EXPECTED = {
                                  "  处理数据('hello') = 文本: 'hello'\n"
                                  '\n'
                                  '=== 类型注解示例完成 ===',
-    'bootstrap_eval.light': '=== 段言自举示例：表达式求值器 ===\n'
+    'bootstrap_eval.light': '=== 光明自举示例：表达式求值器 ===\n'
                            '测试表达式求值：\n'
                            '  ✓ 1+2 = 3 (预期: 3)\n'
                            '  ✓ 10-5*2 = 0 (预期: 0)\n'
@@ -187,7 +187,7 @@ EXAMPLE_EXPECTED = {
                            '  ✓ 3.14*2 = 6.28 (预期: 6.28)\n'
                            '\n'
                            '=== 表达式求值完成 ===',
-    'bootstrap_lexer.light': '=== 段言自举示例：简单词法分析器 ===\n'
+    'bootstrap_lexer.light': '=== 光明自举示例：简单词法分析器 ===\n'
                             '测试源码：\n'
                             '设 x 为 42\n'
                             '打印(x 加 10)\n'

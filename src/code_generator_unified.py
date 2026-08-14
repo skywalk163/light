@@ -48,6 +48,7 @@ class UnifiedCodeGenerator:
         self.type_cache: Dict[int, 'Type'] = {}  # 存储推断的类型
         self.user_functions = set()  # 用户定义的函数名
         self._in_function = False  # 是否在函数/段落内部（控制 return 生成）
+        self._in_class_method = False  # 是否在类方法/构造函数内部（控制 己→self 映射）
         
         # 运算符映射
         self.operator_map = {
@@ -421,6 +422,21 @@ class UnifiedCodeGenerator:
             return f"_{name}"
         return name
     
+    def _resolve_name(self, name: str) -> str:
+        """解析标识符名：先做 己→self 映射，再做 Python 关键字清理。
+
+        对齐 code_generator.py:2041-2046 的既有实现：
+        - 己       → self
+        - 己.属性  → self.属性
+        仅在类方法/构造函数内生效，避免把类外的普通变量名「己」（天干）误映射。
+        """
+        if self._in_class_method and isinstance(name, str):
+            if name == '己':
+                return 'self'
+            if name.startswith('己.'):
+                return 'self.' + name[2:]
+        return self._sanitize_name(name)
+
     def _generate_statement(self, stmt):
         """生成语句（支持统一AST）"""
         if stmt is None:
@@ -1039,10 +1055,13 @@ class UnifiedCodeGenerator:
             params_str = ', '.join(params)
             
             self._add_line(f"def {method.name}({params_str}):")
+            old_in_class_method = self._in_class_method
+            self._in_class_method = True
             self.indent_level += 1
             for stmt in method.body:
                 self._generate_statement(stmt)
             self.indent_level -= 1
+            self._in_class_method = old_in_class_method
             self._add_line("")
         
         # 注册实现关系
@@ -1106,6 +1125,10 @@ class UnifiedCodeGenerator:
         params_str = ', '.join(params)
         self._add_line(f"def __init__({params_str}):")
         
+        old_in_function = self._in_function
+        old_in_class_method = self._in_class_method
+        self._in_function = True
+        self._in_class_method = True
         self.indent_level += 1
         
         # 不自动调用父类构造函数，让用户在构造函数体中显式处理
@@ -1119,6 +1142,8 @@ class UnifiedCodeGenerator:
                 self._generate_statement(s)
         
         self.indent_level -= 1
+        self._in_function = old_in_function
+        self._in_class_method = old_in_class_method
     
     def _generate_method(self, method):
         """生成方法定义"""
@@ -1136,7 +1161,9 @@ class UnifiedCodeGenerator:
         self._add_line(f"def {name}({params_str}):")
         
         old_in_function = self._in_function
+        old_in_class_method = self._in_class_method
         self._in_function = True
+        self._in_class_method = True
         self.indent_level += 1
         if hasattr(method, 'body') and method.body:
             for s in method.body:
@@ -1145,6 +1172,7 @@ class UnifiedCodeGenerator:
             self._add_line("pass")
         self.indent_level -= 1
         self._in_function = old_in_function
+        self._in_class_method = old_in_class_method
     
     def _generate_expr(self, expr):
         """生成表达式"""
@@ -1168,10 +1196,12 @@ class UnifiedCodeGenerator:
         
         # 标识符
         elif is_instance(expr, 'Identifier'):
-            return self._sanitize_name(expr.name)
+            # 己 → self / 己.attr → self.attr（仅类方法内），对齐 code_generator.py:2041-2046
+            return self._resolve_name(expr.name)
         
         elif is_instance(expr, 'SegmentName'):
-            return self._sanitize_name(expr.name)
+            # 粘连的自身方法调用会以 SegmentName('己.方法') 出现，同样需要映射
+            return self._resolve_name(expr.name)
         
         # 二元运算
         elif is_instance(expr, 'BinaryOp'):
@@ -1262,11 +1292,13 @@ class UnifiedCodeGenerator:
                 mapped_method = method_map.get(method_name, method_name)
                 func_name = f"{obj}.{mapped_method}"
             elif is_instance(func_expr, 'Identifier'):
-                func_name = self._sanitize_name(func_expr.name)
+                func_name = self._resolve_name(func_expr.name)
             elif hasattr(func_expr, 'name'):
-                func_name = self._sanitize_name(func_expr.name)
+                # SegmentName 等：粘连写法 己方法() 会以 SegmentName('己.方法') 出现
+                func_name = self._resolve_name(func_expr.name)
             elif isinstance(func_expr, str):
-                func_name = func_expr
+                # 部分解析路径直接把被调名放成字符串（可能是 '己.方法'）
+                func_name = self._resolve_name(func_expr)
             else:
                 func_name = self._generate_expr(func_expr)
             

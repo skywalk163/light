@@ -35,7 +35,7 @@ from type_system import (
     TYPE_NUMBER, TYPE_STRING, TYPE_BOOLEAN, TYPE_NULL, TYPE_ANY, TYPE_UNKNOWN,
 )
 from type_checker import (
-    TypeChecker, TypeCheckerConfig, TypeErrorSeverity,
+    GradedTypeChecker, TypeCheckerConfig, TypeErrorSeverity,
 )
 from core.config import TypeCheckLevel, SegmentTypeMode
 
@@ -410,8 +410,14 @@ def _make_module(segment):
     return types.SimpleNamespace(statements=[], segments=[segment])
 
 
-def _make_segment(name, body, parameters=None, return_type=None, modifiers=None):
-    """构造一个最小段落对象"""
+def _make_segment(name, body, parameters=None, return_type='空', modifiers=None):
+    """构造一个最小段落对象
+
+    return_type 默认给 '空'（而不是 None）：SIGNATURE 档对缺少返回类型标注的段落
+    无条件发 S004 警告（src/type_checker.py:912-918），会污染那些只想观察变量级
+    告警的结果集。'空' 解析为 TYPE_NONE，既跳过 S004，也跳过
+    src/type_checker.py:926 之后的 CFG 返回值分析（S006/S007）。
+    """
     return types.SimpleNamespace(
         name=name,
         body=body,
@@ -424,8 +430,28 @@ def _make_segment(name, body, parameters=None, return_type=None, modifiers=None)
 class TestTypeCheckerWithAnnotations:
     """分级类型检查器与变量类型注解"""
 
-    def test_variable_level_warns_on_missing_annotation(self):
-        """VARIABLE 级别下，缺少类型注解的变量应产生 WARNING"""
+    # 口径变更(v7 合并)：VARIABLE 档以 light 现行实现为准——只对「注解与推断类型冲突」告警，不对缺注解告警。原 duan 期望「缺注解→告警」已废止。
+    def test_variable_level_warns_on_annotation_conflict(self):
+        """VARIABLE 级别下，注解与推断类型冲突的变量应产生 WARNING（V001）"""
+        body = [VarDecl('数量', StringLiteral('十'), type_annotation='整数')]
+        seg = _make_segment('段落一', body)
+        module = _make_module(seg)
+
+        config = TypeCheckerConfig(
+            check_level=TypeCheckLevel.VARIABLE,
+            default_segment_mode=SegmentTypeMode.LOOSE,
+        )
+        checker = GradedTypeChecker(config)
+        results = checker.check(module, inferencer=None)
+
+        warnings = [r for r in results if r.severity == TypeErrorSeverity.WARNING]
+        assert len(warnings) == 1
+        assert warnings[0].code == 'V001'
+        assert '数量' in warnings[0].message
+
+    # 口径变更(v7 合并)：VARIABLE 档以 light 现行实现为准——只对「注解与推断类型冲突」告警，不对缺注解告警。原 duan 期望「缺注解→告警」已废止。
+    def test_variable_level_silent_on_missing_annotation(self):
+        """VARIABLE 级别下，未注解变量不产生 V001（light 语义：缺注解不发声）"""
         body = [VarDecl('未注解变量', NumberLiteral(1), type_annotation=None)]
         seg = _make_segment('段落一', body)
         module = _make_module(seg)
@@ -434,15 +460,14 @@ class TestTypeCheckerWithAnnotations:
             check_level=TypeCheckLevel.VARIABLE,
             default_segment_mode=SegmentTypeMode.LOOSE,
         )
-        checker = TypeChecker(config)
+        checker = GradedTypeChecker(config)
         results = checker.check(module, inferencer=None)
 
-        warnings = [r for r in results if r.severity == TypeErrorSeverity.WARNING]
-        assert len(warnings) == 1
-        assert '未注解变量' in warnings[0].message
+        assert [r for r in results if r.code == 'V001'] == []
+        assert [r for r in results if '未注解变量' in r.message] == []
 
     def test_variable_level_no_warning_with_annotation(self):
-        """VARIABLE 级别下，带类型注解的变量不应产生 WARNING"""
+        """VARIABLE 级别下，带类型注解且类型相符的变量不应产生 WARNING"""
         body = [VarDecl('已注解变量', NumberLiteral(1), type_annotation='整数')]
         seg = _make_segment('段落一', body)
         module = _make_module(seg)
@@ -451,7 +476,7 @@ class TestTypeCheckerWithAnnotations:
             check_level=TypeCheckLevel.VARIABLE,
             default_segment_mode=SegmentTypeMode.LOOSE,
         )
-        checker = TypeChecker(config)
+        checker = GradedTypeChecker(config)
         results = checker.check(module, inferencer=None)
 
         warnings = [r for r in results if r.severity == TypeErrorSeverity.WARNING]
@@ -464,13 +489,13 @@ class TestTypeCheckerWithAnnotations:
         module = _make_module(seg)
 
         config = TypeCheckerConfig(check_level=TypeCheckLevel.NONE)
-        checker = TypeChecker(config)
+        checker = GradedTypeChecker(config)
         results = checker.check(module, inferencer=None)
         assert results == []
 
     def test_signature_level_does_not_check_variables(self):
-        """SIGNATURE 级别（低于 VARIABLE）不检查变量注解缺失"""
-        body = [VarDecl('未注解变量', NumberLiteral(1), type_annotation=None)]
+        """SIGNATURE 级别（低于 VARIABLE）不检查变量类型"""
+        body = [VarDecl('数量', StringLiteral('十'), type_annotation='整数')]
         seg = _make_segment('段落一', body)
         module = _make_module(seg)
 
@@ -478,20 +503,18 @@ class TestTypeCheckerWithAnnotations:
             check_level=TypeCheckLevel.SIGNATURE,
             default_segment_mode=SegmentTypeMode.LOOSE,
         )
-        checker = TypeChecker(config)
+        checker = GradedTypeChecker(config)
         results = checker.check(module, inferencer=None)
 
-        # SIGNATURE 级别不会触发变量级检查
-        variable_warnings = [
-            r for r in results
-            if r.severity == TypeErrorSeverity.WARNING and '未注解变量' in r.message
-        ]
-        assert variable_warnings == []
+        # SIGNATURE 级别不会触发变量级检查：同样的冲突在 VARIABLE 档会产出 V001
+        assert [r for r in results if r.code == 'V001'] == []
 
+    # 口径变更(v7 合并)：VARIABLE 档以 light 现行实现为准——只对「注解与推断类型冲突」告警，不对缺注解告警。原 duan 期望「缺注解→告警」已废止。
     def test_mixed_annotated_and_unannotated(self):
-        """混合场景：只对未注解变量产生警告"""
+        """混合场景：只对「注解与推断类型冲突」的变量产生警告"""
         body = [
-            VarDecl('有注解', NumberLiteral(1), type_annotation='整数'),
+            VarDecl('注解相符', NumberLiteral(1), type_annotation='整数'),
+            VarDecl('注解冲突', StringLiteral('十'), type_annotation='整数'),
             VarDecl('无注解', NumberLiteral(2), type_annotation=None),
         ]
         seg = _make_segment('段落一', body)
@@ -501,13 +524,14 @@ class TestTypeCheckerWithAnnotations:
             check_level=TypeCheckLevel.VARIABLE,
             default_segment_mode=SegmentTypeMode.LOOSE,
         )
-        checker = TypeChecker(config)
+        checker = GradedTypeChecker(config)
         results = checker.check(module, inferencer=None)
 
         warnings = [r for r in results if r.severity == TypeErrorSeverity.WARNING]
-        # 仅有"无注解"变量产生警告（"有注解"已有类型标注且不触发语义推断）
+        # 仅"注解冲突"产生警告："注解相符"类型一致，"无注解"按 light 语义不发声
         assert len(warnings) == 1
-        assert '无注解' in warnings[0].message
+        assert warnings[0].code == 'V001'
+        assert '注解冲突' in warnings[0].message
 
 
 # =============================================================================
@@ -1768,50 +1792,69 @@ class TestTypeScenarioClass(_TypeScenarioBase):
 
 
 class TestTypeScenarioChecker(_TypeScenarioBase):
-    """类型检查器配置分级场景（TypeChecker 独立路径）"""
+    """类型检查器配置分级场景（GradedTypeChecker 独立路径）"""
 
     @staticmethod
     def _make_var_body(annotated=False):
         from ast_nodes_v3 import VarDecl, NumberLiteral
         return [VarDecl('未注解变量', NumberLiteral(1), type_annotation='整数' if annotated else None)]
 
+    @staticmethod
+    def _make_conflict_body():
+        """注解为整数、实际赋字符串——light 语义下唯一会触发 V001 的形态"""
+        from ast_nodes_v3 import VarDecl, StringLiteral
+        return [VarDecl('冲突变量', StringLiteral('十'), type_annotation='整数')]
+
     def test_none_level_skips(self):
-        from type_checker import TypeChecker, TypeCheckerConfig
+        from type_checker import GradedTypeChecker, TypeCheckerConfig
         from core.config import TypeCheckLevel
         seg = _make_segment('段落一', self._make_var_body())
-        checker = TypeChecker(TypeCheckerConfig(check_level=TypeCheckLevel.NONE))
+        checker = GradedTypeChecker(TypeCheckerConfig(check_level=TypeCheckLevel.NONE))
         assert checker.check(_make_module(seg), inferencer=None) == []
 
-    def test_variable_level_warns(self):
-        from type_checker import TypeChecker, TypeCheckerConfig, TypeErrorSeverity
+    # 口径变更(v7 合并)：VARIABLE 档以 light 现行实现为准——只对「注解与推断类型冲突」告警，不对缺注解告警。原 duan 期望「缺注解→告警」已废止。
+    def test_variable_level_warns_on_conflict(self):
+        from type_checker import GradedTypeChecker, TypeCheckerConfig, TypeErrorSeverity
         from core.config import TypeCheckLevel, SegmentTypeMode
-        seg = _make_segment('段落一', self._make_var_body())
         config = TypeCheckerConfig(check_level=TypeCheckLevel.VARIABLE,
                                    default_segment_mode=SegmentTypeMode.LOOSE)
-        results = TypeChecker(config).check(_make_module(seg), inferencer=None)
+        seg = _make_segment('段落一', self._make_conflict_body())
+        results = GradedTypeChecker(config).check(_make_module(seg), inferencer=None)
         warnings = [r for r in results if r.severity == TypeErrorSeverity.WARNING]
         assert len(warnings) == 1
+        assert warnings[0].code == 'V001'
+        assert '冲突变量' in warnings[0].message
+
+    # 口径变更(v7 合并)：VARIABLE 档以 light 现行实现为准——只对「注解与推断类型冲突」告警，不对缺注解告警。原 duan 期望「缺注解→告警」已废止。
+    def test_variable_level_silent_on_missing_annotation(self):
+        from type_checker import GradedTypeChecker, TypeCheckerConfig
+        from core.config import TypeCheckLevel, SegmentTypeMode
+        config = TypeCheckerConfig(check_level=TypeCheckLevel.VARIABLE,
+                                   default_segment_mode=SegmentTypeMode.LOOSE)
+        seg = _make_segment('段落一', self._make_var_body())
+        results = GradedTypeChecker(config).check(_make_module(seg), inferencer=None)
+        assert [r for r in results if r.code == 'V001'] == []
+        assert [r for r in results if '未注解变量' in r.message] == []
 
     def test_variable_level_annotated_no_warn(self):
-        from type_checker import TypeChecker, TypeCheckerConfig, TypeErrorSeverity
+        from type_checker import GradedTypeChecker, TypeCheckerConfig, TypeErrorSeverity
         from core.config import TypeCheckLevel, SegmentTypeMode
         seg = _make_segment('段落一', self._make_var_body(annotated=True))
         config = TypeCheckerConfig(check_level=TypeCheckLevel.VARIABLE,
                                    default_segment_mode=SegmentTypeMode.LOOSE)
-        results = TypeChecker(config).check(_make_module(seg), inferencer=None)
+        results = GradedTypeChecker(config).check(_make_module(seg), inferencer=None)
         warnings = [r for r in results if r.severity == TypeErrorSeverity.WARNING]
         assert warnings == []
 
     def test_signature_level_no_variable_check(self):
-        from type_checker import TypeChecker, TypeCheckerConfig, TypeErrorSeverity
+        from type_checker import GradedTypeChecker, TypeCheckerConfig
         from core.config import TypeCheckLevel, SegmentTypeMode
-        seg = _make_segment('段落一', self._make_var_body())
+        seg = _make_segment('段落一', self._make_conflict_body())
         config = TypeCheckerConfig(check_level=TypeCheckLevel.SIGNATURE,
                                    default_segment_mode=SegmentTypeMode.LOOSE)
-        results = TypeChecker(config).check(_make_module(seg), inferencer=None)
-        var_warnings = [r for r in results
-                        if r.severity == TypeErrorSeverity.WARNING and '未注解变量' in r.message]
-        assert var_warnings == []
+        results = GradedTypeChecker(config).check(_make_module(seg), inferencer=None)
+        # 同样的注解冲突在 VARIABLE 档会产出 V001，SIGNATURE 档不应触发变量级检查
+        assert [r for r in results if r.code == 'V001'] == []
 
     def test_file_directive_parse(self):
         from type_checker import _extract_type_directives

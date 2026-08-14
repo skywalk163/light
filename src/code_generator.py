@@ -2096,6 +2096,11 @@ class PythonCodeGenerator:
         elif isinstance(expr, ParagraphCall):
             name = self._sanitize_name(expr.name)
             
+            # 己.方法() → self.方法()（粘连写法 己方法() 被 parser 折叠成 '己.方法'）
+            # 与本文件 Identifier 分支的 己→self 映射保持一致
+            if self._in_class_method and isinstance(expr.name, str) and expr.name.startswith('己.'):
+                name = 'self.' + expr.name[2:]
+            
             # 检查是否是内置函数（但不覆盖用户自定义的函数）
             if expr.name in self.builtin_map and expr.name not in self._user_defined_functions:
                 py_name = self.builtin_map[expr.name]

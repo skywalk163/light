@@ -271,7 +271,7 @@ class TestTypeCheckerCoverage:
 
     @staticmethod
     def _check(source, level='表达式'):
-        from type_checker import TypeCheckerConfig, TypeChecker, TypeCheckLevel
+        from type_checker import TypeCheckerConfig, GradedTypeChecker, TypeCheckLevel
         from type_inferencer import TypeInferencer
         c = LightCompiler()
         module = c.parse_raw(source)
@@ -279,7 +279,7 @@ class TestTypeCheckerCoverage:
         inf = TypeInferencer()
         inf.infer(module)
         level_map = {'签名': 1, '变量': 2, '表达式': 3}
-        checker = TypeChecker(TypeCheckerConfig(
+        checker = GradedTypeChecker(TypeCheckerConfig(
             check_level=TypeCheckLevel(level_map.get(level, 3))))
         results = checker.check(module, inf)
         return results
@@ -311,7 +311,7 @@ class TestTypeCheckerCoverage:
                '# 类型模式: 严格\n'
                '段落 处理 接收 数据: 整数 返回 整数：\n'
                '  返回 数据 加 1\n')
-        from type_checker import TypeCheckerConfig, TypeChecker
+        from type_checker import TypeCheckerConfig, GradedTypeChecker
         c = LightCompiler()
         module = c.parse_raw(src)
         module = c.adapt(module)
@@ -320,7 +320,7 @@ class TestTypeCheckerCoverage:
         inf.infer(module)
         config = TypeCheckerConfig()
         config = config.apply_file_directives(src)
-        checker = TypeChecker(config)
+        checker = GradedTypeChecker(config)
         results = checker.check(module, inf)
         assert results is not None
 
