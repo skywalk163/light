@@ -25,7 +25,7 @@ class BootstrapMigrator:
             "lines_duan": 0,
         },
         "语法解析器": {
-            "python": "src/duan_parser_v3.py",
+            "python": "src/light_parser_v3.py",
             "duan": "bootstrap/parser.duan",
             "status": "部分完成",
             "lines_python": 0,

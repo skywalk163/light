@@ -30,7 +30,7 @@ sys.path.insert(0, str(_PROJECT_ROOT / 'stdlib'))
 COMPILER_AVAILABLE = False
 try:
     from lexer import Lexer, LexerError
-    from duan_parser_v3 import DuanParser, ParseError
+    from light_parser_v3 import LightParser, ParseError
     from code_generator import PythonCodeGenerator
     from tokens import Token, TokenType
     COMPILER_AVAILABLE = True
@@ -177,7 +177,7 @@ class PlaygroundHandler(BaseHTTPRequestHandler):
         ast_summary = ''
         parse_ok = True
         try:
-            parser = DuanParser()
+            parser = LightParser()
             module = parser.parse(code)
             ast_summary = self._ast_summary(module)
         except ParseError as e:
@@ -210,7 +210,7 @@ class PlaygroundHandler(BaseHTTPRequestHandler):
 
         # 先解析
         try:
-            parser = DuanParser()
+            parser = LightParser()
             module = parser.parse(code)
         except Exception as e:
             self._send_json({

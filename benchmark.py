@@ -201,9 +201,9 @@ def bench_lexer_throughput(bm: Benchmark):
 def bench_parser(bm: Benchmark):
     """语法解析基准"""
     from lexer import Lexer
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     lexer = Lexer()
-    parser = DuanParser()
+    parser = LightParser()
 
     # 预先 tokenize 以单独测量 parser
     tokens = lexer.tokenize(SAMPLE_CODE)
@@ -215,9 +215,9 @@ def bench_parser(bm: Benchmark):
 
 def bench_codegen(bm: Benchmark):
     """代码生成基准"""
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
-    parser = DuanParser()
+    parser = LightParser()
     generator = PythonCodeGenerator()
 
     module = parser.parse(SAMPLE_CODE)
@@ -236,10 +236,10 @@ def bench_full_pipeline(bm: Benchmark):
 def _run_pipeline(source):
     """运行完整编译管线"""
     from lexer import Lexer
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
     lexer = Lexer()
-    parser = DuanParser()
+    parser = LightParser()
     generator = PythonCodeGenerator()
     tokens = lexer.tokenize(source)
     module = parser.parse(source)
@@ -250,11 +250,11 @@ def _run_pipeline(source):
 def bench_compare_python(bm: Benchmark):
     """与 CPython 对比"""
     # 编译并执行段言代码
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
 
     def run_duan():
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse(SAMPLE_CODE)
         generator = PythonCodeGenerator()
         py_code = generator.generate(module)

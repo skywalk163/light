@@ -55,12 +55,27 @@ RATING_LABELS = {
 
 
 def get_feedback_dir() -> Path:
-    """获取反馈数据存储目录"""
-    env_dir = os.environ.get("LIGHT_CONFIG_DIR")
-    if env_dir:
-        base = Path(env_dir)
+    """获取反馈数据存储目录
+
+    配置目录的解析统一交给 first_run.get_config_dir()，那里处理了
+    LIGHT_CONFIG_DIR、旧 DUAN_CONFIG_DIR 兼容，以及 ~/.duan → ~/.light
+    的一次性迁移。这里不再各写一套，避免两处逻辑分叉后指向不同目录。
+    """
+    get_config_dir = None
+    try:
+        from first_run import get_config_dir  # type: ignore
+    except ImportError:
+        try:
+            from .first_run import get_config_dir  # type: ignore
+        except ImportError:
+            pass
+
+    if get_config_dir is not None:
+        base = Path(get_config_dir())
     else:
-        base = Path.home() / ".light"
+        env_dir = os.environ.get("LIGHT_CONFIG_DIR")
+        base = Path(env_dir) if env_dir else Path.home() / ".light"
+
     feedback_dir = base / "feedback"
     feedback_dir.mkdir(parents=True, exist_ok=True)
     return feedback_dir

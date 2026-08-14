@@ -2,7 +2,7 @@
 """
 段言（Duan）编程语言 - REPL v3（基于 v3 解析器）
 
-使用 DuanParser + PythonCodeGenerator 的交互式编程环境，
+使用 LightParser + PythonCodeGenerator 的交互式编程环境，
 支持逐行执行、多行块结构、变量查看、命令历史等功能。
 
 用法：
@@ -94,7 +94,7 @@ class DuanREPLV3:
 
     def _compile_and_run(self, source: str) -> str:
         """使用 v3 解析器编译并运行段言代码"""
-        from duan_parser_v3 import DuanParser, ParseError
+        from light_parser_v3 import LightParser, ParseError
         from code_generator import PythonCodeGenerator, CodeGenError
 
         output_buffer = io.StringIO()
@@ -102,7 +102,7 @@ class DuanREPLV3:
         sys.stdout = output_buffer
 
         try:
-            parser = DuanParser()
+            parser = LightParser()
             module = parser.parse(source)
             if module is None:
                 return "[语法错误] 解析失败"

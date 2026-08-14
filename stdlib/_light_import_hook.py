@@ -24,8 +24,8 @@
 
 用法
 ----
-    import _duan_import_hook
-    _duan_import_hook.install([stdlib_dir, script_dir])
+    import _light_import_hook
+    _light_import_hook.install([stdlib_dir, script_dir])
 """
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def _ensure_compiler_importable(stdlib_dir: str) -> None:
     这里按 stdlib 的同级目录去找。
     """
     try:
-        from duan_parser_v3 import DuanParser  # noqa: F401
+        from light_parser_v3 import LightParser  # noqa: F401
         return
     except ImportError:
         pass
@@ -70,13 +70,13 @@ def _compile_duan(duan_path: str, stdlib_dir: str) -> str:
         return cached
 
     _ensure_compiler_importable(stdlib_dir)
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
 
     with open(duan_path, 'r', encoding='utf-8') as fh:
         source = fh.read()
 
-    module_ast = DuanParser().parse(source)
+    module_ast = LightParser().parse(source)
     generated = PythonCodeGenerator().generate(module_ast)
     _CODE_CACHE[key] = generated
     return generated

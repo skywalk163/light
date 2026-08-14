@@ -5,7 +5,7 @@
 
 分析编译各阶段耗时：
   - 词法分析 (Lexer.tokenize)
-  - 语法解析 (DuanParser.parse)
+  - 语法解析 (LightParser.parse)
   - 代码生成 (PythonCodeGenerator.generate)
   - 总编译流水线
 
@@ -31,7 +31,7 @@ sys.path.insert(0, str(PROJECT_DIR / 'src'))
 sys.path.insert(0, str(PROJECT_DIR))
 
 from lexer import Lexer, LexerError
-from duan_parser_v3 import DuanParser, ParseError
+from light_parser_v3 import LightParser, ParseError
 from code_generator import PythonCodeGenerator
 from ast_nodes_v3 import Module
 
@@ -146,7 +146,7 @@ class CompilerProfiler:
         print(f"  [词法分析] {lex_time:.2f}ms | {lex_mem:.2f}KB | {len(tokens)} tokens")
 
         # Stage 2: 语法解析（含词法分析）
-        parser = DuanParser()
+        parser = LightParser()
         module, parse_time, parse_mem = self.profile_stage("语法解析", parser.parse, source)
         parse_time_excluding_lex = max(parse_time - lex_time, 0)  # 减去词法分析时间
         stages['语法解析（含词法）'] = {'time_ms': round(parse_time, 2), 'memory_kb': round(parse_mem, 2), 'nodes': self._count_ast_nodes(module)}
@@ -222,7 +222,7 @@ class CompilerProfiler:
         lines.append("本报告对段言编译器的各阶段进行性能分析，包括：")
         lines.append("")
         lines.append("- **词法分析** (Lexer.tokenize)：将源码拆分为 Token 流")
-        lines.append("- **语法解析** (DuanParser.parse)：将 Token 流构建为 AST")
+        lines.append("- **语法解析** (LightParser.parse)：将 Token 流构建为 AST")
         lines.append("- **代码生成** (PythonCodeGenerator.generate)：将 AST 转换为 Python 代码")
         lines.append("")
         lines.append("## 测试结果")

@@ -253,9 +253,9 @@ def build_manifest(duan_path, py_path, module_name):
 
 def parses_ok(content):
     """用真实解析器验证生成结果。"""
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     try:
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse(content)
     except Exception as e:
         return False, f'{type(e).__name__}: {str(e).strip().splitlines()[:1]}'

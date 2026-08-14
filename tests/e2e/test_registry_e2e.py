@@ -464,5 +464,108 @@ class TestRegistryServerE2E(unittest.TestCase):
         self.assertEqual(status, 404)
 
 
+class TestRegistryWriteAuth(unittest.TestCase):
+    """写操作鉴权
+
+    历史缺陷：RegistryHandler.admin_token 由 --admin-token 赋值后从未被校验，
+    do_POST / do_PUT / do_DELETE 全部零鉴权，而默认绑定还是 0.0.0.0，
+    等于任何能连上的人都可以发布、改元数据、删包删版本。
+    这组用例锁死修复后的行为：读公开，写必须带令牌。
+    """
+
+    ADMIN_TOKEN = 'test-admin-token-0123456789'
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmpdir = tempfile.mkdtemp(prefix='light_reg_auth_')
+        cls._prev_token = RegistryHandler.admin_token
+        RegistryHandler.admin_token = cls.ADMIN_TOKEN
+        cls.server = HTTPServer(('127.0.0.1', 0), RegistryHandler)
+        cls.base_url = f'http://127.0.0.1:{cls.server.server_address[1]}'
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+        time.sleep(0.1)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+        RegistryHandler.admin_token = cls._prev_token
+        RegistryHandler.storage = None
+        shutil.rmtree(cls.tmpdir, ignore_errors=True)
+
+    def setUp(self):
+        case_dir = os.path.join(self.tmpdir, self._testMethodName)
+        RegistryHandler.storage = PackageStorage(storage_dir=case_dir)
+
+    def _request(self, path, method, data=None, token=None):
+        url = f'{self.base_url}{quote(path, safe="/")}'
+        body = json.dumps(data).encode('utf-8') if data is not None else None
+        req = Request(url, data=body, method=method)
+        if body is not None:
+            req.add_header('Content-Type', 'application/json')
+        if token is not None:
+            req.add_header('Authorization', token)
+        try:
+            with urlopen(req, timeout=5) as resp:
+                return resp.status, json.loads(resp.read().decode('utf-8'))
+        except HTTPError as e:
+            return e.code, json.loads(e.read().decode('utf-8'))
+
+    def _publish(self, name, token=None, version='1.0.0'):
+        return self._request('/api/packages/publish', 'POST',
+                             {'name': name, 'version': version}, token=token)
+
+    # -- 读操作保持公开 ----------------------------------------------------
+
+    def test_get_requires_no_token(self):
+        """配置了令牌也不影响 GET"""
+        status, data = self._request('/api/health', 'GET')
+        self.assertEqual(status, 200)
+        self.assertEqual(data['status'], 'ok')
+
+    # -- 写操作必须带令牌 --------------------------------------------------
+
+    def test_publish_without_token_rejected(self):
+        status, data = self._publish('无令牌包')
+        self.assertEqual(status, 401)
+        self.assertIn('error', data)
+
+    def test_publish_with_wrong_token_rejected(self):
+        status, _ = self._publish('错令牌包', token='Bearer wrong-token')
+        self.assertEqual(status, 401)
+
+    def test_publish_with_bare_token_rejected(self):
+        """必须是 Bearer 方案，裸令牌不接受"""
+        status, _ = self._publish('裸令牌包', token=self.ADMIN_TOKEN)
+        self.assertEqual(status, 401)
+
+    def test_publish_with_valid_token_succeeds(self):
+        status, data = self._publish('有令牌包', token=f'Bearer {self.ADMIN_TOKEN}')
+        self.assertEqual(status, 201)
+        self.assertEqual(data['status'], 'published')
+
+    def test_put_metadata_requires_token(self):
+        self._publish('元数据包', token=f'Bearer {self.ADMIN_TOKEN}')
+        status, _ = self._request('/api/packages/元数据包/metadata', 'PUT',
+                                  {'description': '未授权改写'})
+        self.assertEqual(status, 401)
+        status, _ = self._request('/api/packages/元数据包/metadata', 'PUT',
+                                  {'description': '已授权改写'},
+                                  token=f'Bearer {self.ADMIN_TOKEN}')
+        self.assertEqual(status, 200)
+
+    def test_delete_requires_token(self):
+        self._publish('待删包', token=f'Bearer {self.ADMIN_TOKEN}')
+        status, _ = self._request('/api/packages/待删包', 'DELETE')
+        self.assertEqual(status, 401)
+        # 未授权的删除不能真的把包删掉
+        status, data = self._request('/api/packages/待删包', 'GET')
+        self.assertEqual(status, 200)
+        status, _ = self._request('/api/packages/待删包', 'DELETE',
+                                  token=f'Bearer {self.ADMIN_TOKEN}')
+        self.assertEqual(status, 200)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

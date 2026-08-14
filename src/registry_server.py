@@ -25,16 +25,27 @@ API 端点:
                                             sort=relevance 时按相关度打分）
   GET    /api/stats                         注册表统计
 
+鉴权:
+  所有写操作（POST / PUT / DELETE）都需要通过鉴权，读操作（GET）公开。
+  - 启动时提供了 --admin-token：写操作必须带
+        Authorization: Bearer <token>
+    令牌比较使用 hmac.compare_digest（常数时间），不匹配返回 401。
+  - 未提供 --admin-token：只接受来自本机回环地址的写操作，任何远程写
+    一律返回 403。这样即使误绑到 0.0.0.0 也不会出现匿名发布/删包。
+
 用法:
-  python registry_server.py                    # 启动服务器（默认端口 8080）
+  python registry_server.py                    # 启动服务器（默认 127.0.0.1:8080）
   python registry_server.py --port 9000        # 指定端口
   python registry_server.py --dir ./registry   # 指定存储目录
+  # 对外提供服务时必须同时指定绑定地址与令牌：
+  python registry_server.py --host 0.0.0.0 --admin-token <token>
 """
 
 import os
 import sys
 import json
 import hashlib
+import hmac
 import argparse
 import tempfile
 import zipfile
@@ -494,6 +505,45 @@ class RegistryHandler(BaseHTTPRequestHandler):
         parts = [unquote(p) for p in path.split('/') if p]
         return path, parts, params
 
+    def _client_is_loopback(self) -> bool:
+        """请求是否来自本机回环地址"""
+        host = self.client_address[0] if self.client_address else ''
+        # 兼容 IPv4 回环、IPv6 回环、以及 ::ffff:127.0.0.1 形式
+        return host in ('127.0.0.1', '::1', 'localhost') or host.endswith(':127.0.0.1')
+
+    def _require_admin(self) -> bool:
+        """写操作鉴权。放行返回 True；未通过则已发送 401/403 响应，调用方必须 return。
+
+        策略：
+        - 配置了 admin_token：必须带 Authorization: Bearer <token>，用常数时间比较，
+          不匹配返回 401。
+        - 未配置 admin_token：仅放行本机回环地址的写操作，远程写一律 403。
+          这样即使误绑 0.0.0.0，也不会出现匿名发布/删包/改元数据。
+        """
+        token = type(self).admin_token
+        if token:
+            auth = self.headers.get('Authorization', '')
+            expected = 'Bearer ' + token
+            if not auth or not hmac.compare_digest(auth, expected):
+                self._drain_body()
+                self._send_error('未授权：写操作需要有效的 Authorization: Bearer <token>', 401)
+                return False
+            return True
+        if self._client_is_loopback():
+            return True
+        self._drain_body()
+        self._send_error('服务器未配置 --admin-token，已拒绝远程写操作', 403)
+        return False
+
+    def _drain_body(self):
+        """拒绝请求前先把请求体读掉，避免客户端写入未被消费导致连接被重置"""
+        try:
+            length = int(self.headers.get('Content-Length', 0))
+        except (TypeError, ValueError):
+            return
+        if length > 0:
+            self.rfile.read(length)
+
     def do_GET(self):
         """处理 GET 请求"""
         try:
@@ -640,6 +690,11 @@ class RegistryHandler(BaseHTTPRequestHandler):
         try:
             path, parts, params = self._parse_path_parts()
 
+            # 写操作鉴权
+            if not self._require_admin():
+                return
+
+
             # POST /api/packages/publish - 发布包
             if path == '/api/packages/publish':
                 content_length = int(self.headers.get('Content-Length', 0))
@@ -732,6 +787,11 @@ class RegistryHandler(BaseHTTPRequestHandler):
         try:
             path, parts, params = self._parse_path_parts()
 
+            # 写操作鉴权
+            if not self._require_admin():
+                return
+
+
             # PUT /api/packages/<name>/metadata - 更新元数据
             if len(parts) >= 4 and parts[3] == 'metadata' and parts[1] == 'packages':
                 pkg_name = parts[2]
@@ -754,6 +814,11 @@ class RegistryHandler(BaseHTTPRequestHandler):
         """处理 DELETE 请求"""
         try:
             path, parts, params = self._parse_path_parts()
+
+            # 写操作鉴权
+            if not self._require_admin():
+                return
+
 
             # DELETE /api/packages/<name>/maintainers/<user> - 移除维护者
             # （必须先于「删除版本」判断，否则会被误当成版本号）
@@ -824,14 +889,25 @@ def main():
     parser = argparse.ArgumentParser(description='光明在线包注册表服务器')
     parser.add_argument('--port', type=int, default=8080, help='服务器端口（默认 8080）')
     parser.add_argument('--dir', type=str, default='./registry_data', help='存储目录（默认 ./registry_data）')
-    parser.add_argument('--host', type=str, default='0.0.0.0', help='绑定地址（默认 0.0.0.0）')
-    parser.add_argument('--admin-token', type=str, default='', help='管理员令牌（可选）')
+    parser.add_argument('--host', type=str, default='127.0.0.1',
+                        help='绑定地址（默认 127.0.0.1，仅本机可访问；对外服务需显式指定 0.0.0.0 并配 --admin-token）')
+    parser.add_argument('--admin-token', type=str, default='',
+                        help='管理员令牌。写操作需带 Authorization: Bearer <token>；未设置时只接受本机回环的写操作')
     args = parser.parse_args()
 
     # 初始化存储
     storage = PackageStorage(args.dir)
     RegistryHandler.storage = storage
     RegistryHandler.admin_token = args.admin_token
+
+    # 绑定到非回环地址却没有配置令牌时，写操作会被拒绝——必须让运维立刻看到
+    _is_loopback_bind = args.host in ('127.0.0.1', '::1', 'localhost')
+    if not _is_loopback_bind and not args.admin_token:
+        print('!' * 60, file=sys.stderr)
+        print('警告：绑定到 %s 但未设置 --admin-token。' % args.host, file=sys.stderr)
+        print('      所有远程写操作（发布/删包/改元数据）将被拒绝（403）。', file=sys.stderr)
+        print('      对外提供服务请加上 --admin-token <令牌>。', file=sys.stderr)
+        print('!' * 60, file=sys.stderr)
 
     # 启动服务器
     server = HTTPServer((args.host, args.port), RegistryHandler)

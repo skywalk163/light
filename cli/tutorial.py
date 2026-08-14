@@ -56,10 +56,10 @@ except ImportError:
 
 def _compile_duan(source: str) -> str:
     """用 src 后端编译段言代码为 Python"""
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
 
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source)
     generator = PythonCodeGenerator()
     return generator.generate(module)

@@ -61,12 +61,40 @@ except ImportError:
 def get_config_dir() -> str:
     """获取光明配置目录路径
 
-    优先使用环境变量 LIGHT_CONFIG_DIR，否则使用 ~/.light
+    优先级：
+    1. 环境变量 LIGHT_CONFIG_DIR
+    2. 旧环境变量 DUAN_CONFIG_DIR（兼容，带一次性弃用提示）
+    3. ~/.light —— 若不存在但旧目录 ~/.duan 存在，则一次性迁移过去
     """
     env_dir = os.environ.get('LIGHT_CONFIG_DIR')
     if env_dir:
         return env_dir
-    return os.path.join(os.path.expanduser("~"), ".light")
+
+    # 兼容旧环境变量：仅在新变量未设置时回退，并提示用户迁移
+    legacy_env = os.environ.get('DUAN_CONFIG_DIR')
+    if legacy_env:
+        sys.stderr.write(
+            "[光明] 检测到旧环境变量 DUAN_CONFIG_DIR，已沿用其路径。"
+            "请尽快改用 LIGHT_CONFIG_DIR。\n"
+        )
+        return legacy_env
+
+    home = os.path.expanduser("~")
+    new_dir = os.path.join(home, ".light")
+    legacy_dir = os.path.join(home, ".duan")
+
+    # 一次性迁移：新目录还不存在、但旧目录在，则整目录搬过来，保留历史反馈/教程进度
+    if not os.path.exists(new_dir) and os.path.isdir(legacy_dir):
+        try:
+            os.rename(legacy_dir, new_dir)
+            sys.stderr.write(
+                "[光明] 已将旧配置目录 ~/.duan 迁移到 ~/.light（历史反馈与教程进度已保留）。\n"
+            )
+        except OSError:
+            # 迁移失败（占用/权限等）不应阻断启动，回退使用旧目录
+            return legacy_dir
+
+    return new_dir
 
 
 def get_marker_path() -> str:

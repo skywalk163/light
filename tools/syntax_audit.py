@@ -92,11 +92,11 @@ def summarize_error(text):
 
 def parse_one(path):
     """返回 (ok, err_msg)。ok=True 表示完整解析且无残留 token。"""
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     with io.open(path, encoding='utf-8') as f:
         source = f.read()
     try:
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse(source)
     except Exception as e:
         return False, source, f"{type(e).__name__}: {summarize_error(str(e))}"

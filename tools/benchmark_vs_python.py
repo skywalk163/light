@@ -24,13 +24,13 @@ sys.path.insert(0, str(PROJECT_DIR / 'src'))
 sys.path.insert(0, str(PROJECT_DIR))
 
 # 导入段言编译执行器
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 
 def run_duan_code(source_code: str) -> str:
     """通过 src 后端编译并执行段言代码，返回输出"""
-    parser = DuanParser()
+    parser = LightParser()
     module = parser.parse(source_code)
     if module is None:
         raise RuntimeError("段言解析失败")

@@ -546,9 +546,9 @@ class TutorialEngine:
     def _compile_duan(self, source: str) -> str:
         """编译段言代码为 Python"""
         try:
-            from duan_parser_v3 import DuanParser
+            from light_parser_v3 import LightParser
             from code_generator import PythonCodeGenerator
-            parser = DuanParser()
+            parser = LightParser()
             module = parser.parse(source)
             if module is None:
                 raise RuntimeError("解析失败")

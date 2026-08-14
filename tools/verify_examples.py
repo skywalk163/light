@@ -10,7 +10,7 @@ PROJECT_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_DIR / 'src'))
 sys.path.insert(0, str(PROJECT_DIR))
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 
 EXAMPLES = [
     "examples/todo_app/main.duan",
@@ -23,7 +23,7 @@ EXAMPLES = [
 ]
 
 def verify():
-    parser = DuanParser()
+    parser = LightParser()
     ok = 0
     fail = 0
     errors = []

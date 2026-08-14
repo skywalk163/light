@@ -97,9 +97,9 @@ FIX_RULES = [
 
 def parse_ok(code):
     """返回 (ok, err_first_line)。"""
-    from duan_parser_v3 import DuanParser
+    from light_parser_v3 import LightParser
     try:
-        p = DuanParser()
+        p = LightParser()
         m = p.parse(code)
     except Exception as e:
         msg = str(e)

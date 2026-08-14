@@ -13,7 +13,7 @@ import traceback
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src'))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-from duan_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 
@@ -27,8 +27,8 @@ def sweep(path: str, verbose: bool = False) -> dict:
             fp = os.path.join(root, fn)
             with open(fp, 'r', encoding='utf-8') as f:
                 code = f.read()
-            # 阶段1：解析（解析失败时 DuanParser 可能返回 None，也可能抛 ParseError）
-            parser = DuanParser()
+            # 阶段1：解析（解析失败时 LightParser 可能返回 None，也可能抛 ParseError）
+            parser = LightParser()
             try:
                 ast = parser.parse(code)
             except Exception as e:  # noqa: BLE001

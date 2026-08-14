@@ -647,9 +647,9 @@ class IncrementalBuilder:
                         print(f"[缓存] {f.name} (命中中间缓存)")
                 else:
                     # 使用 src 后端编译
-                    from duan_parser_v3 import DuanParser
+                    from light_parser_v3 import LightParser
                     from code_generator import PythonCodeGenerator
-                    parser = DuanParser()
+                    parser = LightParser()
                     module = parser.parse(source)
                     if module is None:
                         if verbose:
@@ -822,10 +822,10 @@ class IncrementalBuilder:
                 if verbose:
                     print(f"[缓存] {f.name} (命中中间缓存)")
             else:
-                from duan_parser_v3 import DuanParser
+                from light_parser_v3 import LightParser
                 from code_generator import PythonCodeGenerator
 
-                parser = DuanParser()
+                parser = LightParser()
                 module = parser.parse(source)
                 if module is None:
                     if verbose:

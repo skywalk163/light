@@ -13,10 +13,10 @@ steps = [
     ("keywords", "from keywords import VERB_ARITY"),
     ("lexer", "from lexer import Lexer"),
     ("ast_nodes_v3", "from ast_nodes_v3 import EmbedBlock"),
-    ("parser_core", "from parser_core import DuanParserCore"),
+    ("parser_core", "from parser_core import LightParserCore"),
     ("parser_stmt", "from parser_stmt import ParserStmtMixin"),
     ("parser_expr", "from parser_expr import ParserExprMixin"),
-    ("light_parser_v3", "from light_parser_v3 import DuanParser, ImportStmt"),
+    ("light_parser_v3", "from light_parser_v3 import LightParser, ImportStmt"),
     ("module_resolver", "from module_resolver import ModuleResolver"),
     ("code_generator", "from code_generator import PythonCodeGenerator"),
 ]

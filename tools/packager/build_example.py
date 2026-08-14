@@ -128,14 +128,14 @@ def _compile_src(source, entry_name, target_dir):
         (py_file_rel, success) 生成的 .py 文件相对路径和是否成功
     """
     try:
-        from duan_parser_v3 import DuanParser
+        from light_parser_v3 import LightParser
         from code_generator import PythonCodeGenerator
     except ImportError as e:
         print(f"  [错误] 无法导入 SRC 编译模块: {e}", file=sys.stderr)
         return None, False
 
     try:
-        parser = DuanParser()
+        parser = LightParser()
         module = parser.parse(source)
         if module is None:
             print("  [错误] 语法解析失败", file=sys.stderr)
@@ -183,13 +183,13 @@ def _compile_llvm(source, entry_name, target_dir):
         (binary_rel, success) 生成的可执行文件相对路径和是否成功
     """
     try:
-        from compiler import DuanCompiler
+        from compiler import LightCompiler
     except ImportError as e:
         print(f"  [错误] 无法导入 LLVM 编译模块: {e}", file=sys.stderr)
         return None, False
 
     try:
-        compiler = DuanCompiler()
+        compiler = LightCompiler()
         tokens = compiler.tokenize(source)
         raw_ast = compiler.parse_raw(source)
         module = compiler.adapt(raw_ast)
