@@ -138,8 +138,8 @@ class TestMissingStdlibSrcBackendE2E(unittest.TestCase):
         return root
 
     def _run_light(self, root, source):
-        """在 root 内写一个 .duan 源并运行 `duan run`，返回 (rc, stdout, stderr)。"""
-        src_path = os.path.join(root, '_case.duan')
+        """在 root 内写一个 .light 源并运行 `duan run`，返回 (rc, stdout, stderr)。"""
+        src_path = os.path.join(root, '_case.light')
         with open(src_path, 'w', encoding='utf-8') as f:
             f.write(source)
         env = dict(os.environ)

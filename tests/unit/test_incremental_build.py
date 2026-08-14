@@ -30,11 +30,11 @@ class TestIncrementalBuild:
     @pytest.fixture
     def project_dir(self, tmp_path):
         """创建临时项目目录的 fixture"""
-        # 创建测试 .duan 文件
-        main_file = tmp_path / "main.duan"
+        # 创建测试 .light 文件
+        main_file = tmp_path / "main.light"
         main_file.write_text('输出("你好，世界！")。\n', encoding='utf-8')
 
-        utils_file = tmp_path / "utils.duan"
+        utils_file = tmp_path / "utils.light"
         utils_file.write_text('段落 加数(甲, 乙)：\n    返回(甲 加 乙)\n', encoding='utf-8')
 
         return str(tmp_path)
@@ -45,7 +45,7 @@ class TestIncrementalBuild:
 
         builder = IncrementalBuilder(project_dir)
         root = builder.project_dir
-        duan_files = list(root.glob('*.duan'))
+        duan_files = list(root.glob('*.light'))
 
         # 首次编译
         result = builder.build(duan_files, verbose=False)
@@ -68,7 +68,7 @@ class TestIncrementalBuild:
 
         builder = IncrementalBuilder(project_dir)
         root = builder.project_dir
-        duan_files = list(root.glob('*.duan'))
+        duan_files = list(root.glob('*.light'))
 
         # 首次编译
         builder.build(duan_files, verbose=False)
@@ -99,13 +99,13 @@ class TestIncrementalBuild:
 
         builder = IncrementalBuilder(project_dir)
         root = builder.project_dir
-        duan_files = list(root.glob('*.duan'))
+        duan_files = list(root.glob('*.light'))
 
         # 首次编译
         builder.build(duan_files, verbose=False)
 
         # 修改一个文件
-        main_file = root / "main.duan"
+        main_file = root / "main.light"
         time.sleep(0.1)  # 确保 mtime 变化
         main_file.write_text('输出("已修改！")。\n', encoding='utf-8')
 
@@ -124,7 +124,7 @@ class TestIncrementalBuild:
 
         builder = IncrementalBuilder(project_dir)
         root = builder.project_dir
-        duan_files = list(root.glob('*.duan'))
+        duan_files = list(root.glob('*.light'))
 
         # 首次编译
         builder.build(duan_files, verbose=False)
@@ -149,7 +149,7 @@ class TestIncrementalBuild:
 
         builder = IncrementalBuilder(project_dir)
         root = builder.project_dir
-        duan_files = list(root.glob('*.duan'))
+        duan_files = list(root.glob('*.light'))
 
         # 首次编译
         builder.build(duan_files, verbose=False)
@@ -164,7 +164,7 @@ class TestIncrementalBuild:
 
         builder = IncrementalBuilder(project_dir)
         root = builder.project_dir
-        duan_files = list(root.glob('*.duan'))
+        duan_files = list(root.glob('*.light'))
 
         # 首次编译
         builder.build(duan_files, verbose=False)
@@ -181,7 +181,7 @@ class TestIncrementalBuild:
 
         builder = IncrementalBuilder(project_dir)
         root = builder.project_dir
-        duan_files = list(root.glob('*.duan'))
+        duan_files = list(root.glob('*.light'))
 
         # 首次编译
         builder.build(duan_files, verbose=False)
@@ -209,7 +209,7 @@ class TestIncrementalBuild:
 
         builder = IncrementalBuilder(project_dir)
         root = builder.project_dir
-        duan_files = list(root.glob('*.duan'))
+        duan_files = list(root.glob('*.light'))
 
         # 首次编译前检测变更：所有文件都应被检测为变更
         changed, unchanged = builder.detect_changes(duan_files)

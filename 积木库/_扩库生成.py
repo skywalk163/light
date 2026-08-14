@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""第 2 月扩库生成器：批量生成新积木 .duan + 注册进 索引.json（幂等）。
+"""第 2 月扩库生成器：批量生成新积木 .light + 注册进 索引.json（幂等）。
 
 块清单分两类：
   - 直连块：`返回 {符号}({参数})`，符号来自段言 stdlib（零第三方依赖优先）
@@ -224,7 +224,7 @@ def main():
         领域 = 记录[1]
         os.makedirs(_域目录(领域), exist_ok=True)
         名, 内容 = _渲染(记录)
-        with open(os.path.join(_域目录(领域), 名 + '.duan'), 'w', encoding='utf-8') as f:
+        with open(os.path.join(_域目录(领域), 名 + '.light'), 'w', encoding='utf-8') as f:
             f.write(内容)
         _, _, 导出名, 描述, 输入, 输出, *_rest = 记录
         样例 = _rest[-1] if _rest else None
@@ -232,7 +232,7 @@ def main():
             '名称': 名, '领域': 领域, '层级': 0, '描述': 描述,
             '输入': [{'名': n, '类型': t} for n, t in 输入],
             '输出': {'类型': 输出},
-            '稳定性': 'stable', '路径': '%s/%s.duan' % (领域, 名),
+            '稳定性': 'stable', '路径': '%s/%s.light' % (领域, 名),
             '导出名': 导出名, '样例': 样例,
         })
         新增.append(名)

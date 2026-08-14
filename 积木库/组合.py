@@ -448,7 +448,7 @@ def _cli(argv=None):
                    help='验收用：期望输出文本，做语义校验（JSON 等价/数值容差/字符串相等）；不传则只验 rc+非空输出')
     p.add_argument('--json', action='store_true',
                    help='输出结构化 JSON 诊断（需求/策略/候选/兜底理由/缓存/运行结果，机器可读）')
-    p.add_argument('-o', '--输出', default=os.path.join(_HERE, '组合结果.duan'))
+    p.add_argument('-o', '--输出', default=os.path.join(_HERE, '组合结果.light'))
     args = p.parse_args(argv)
 
     # v1.0 失败可诊断：--json 时把决策过程结构化回填，替代散落的 print

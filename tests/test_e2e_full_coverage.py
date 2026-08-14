@@ -47,9 +47,9 @@ class TestBootstrapFullChain:
     """自举编译器全链路测试"""
 
     BOOTSTRAP_FILES = [
-        "bootstrap/bootstrap_level3.duan",
-        "bootstrap/bootstrap_level4.duan",
-        "bootstrap/bootstrap_level5.duan",
+        "bootstrap/bootstrap_level3.light",
+        "bootstrap/bootstrap_level4.light",
+        "bootstrap/bootstrap_level5.light",
     ]
 
     @pytest.mark.parametrize("rel_path", BOOTSTRAP_FILES)
@@ -68,8 +68,8 @@ class TestBootstrapFullChain:
         """自举层级链式编译验证"""
         # 验证 Level 3 能编译 Level 4，Level 4 能编译 Level 5
         levels: Dict[str, str] = {
-            "bootstrap/bootstrap_level3.duan": "bootstrap/bootstrap_level4.duan",
-            "bootstrap/bootstrap_level4.duan": "bootstrap/bootstrap_level5.duan",
+            "bootstrap/bootstrap_level3.light": "bootstrap/bootstrap_level4.light",
+            "bootstrap/bootstrap_level4.light": "bootstrap/bootstrap_level5.light",
         }
         for compiler_src, target_src in levels.items():
             compiler_path = REPO_ROOT / compiler_src
@@ -96,7 +96,7 @@ class TestLlvmFullChain:
   返回 甲 + 乙。
 """
         # 写入临时文件
-        with tempfile.NamedTemporaryFile(suffix=".duan", mode="w", delete=False, encoding="utf-8") as f:
+        with tempfile.NamedTemporaryFile(suffix=".light", mode="w", delete=False, encoding="utf-8") as f:
             f.write(test_source)
             tmp_path = f.name
 
@@ -117,7 +117,7 @@ class TestLlvmFullChain:
 主程序()。
 """
         with tempfile.TemporaryDirectory() as tmpdir:
-            duan_file = Path(tmpdir) / "test.duan"
+            duan_file = Path(tmpdir) / "test.light"
             duan_file.write_text(test_source, encoding="utf-8")
 
             rc, out, err = _run_cli(["compile", str(duan_file), "--target", "llvm", "-o", str(Path(tmpdir) / "test.ll")])
@@ -179,7 +179,7 @@ class TestCompilerFullChain:
         ]
 
         for name, duan_code, expected_python in test_cases:
-            with tempfile.NamedTemporaryFile(suffix=".duan", mode="w", delete=False, encoding="utf-8") as f:
+            with tempfile.NamedTemporaryFile(suffix=".light", mode="w", delete=False, encoding="utf-8") as f:
                 f.write(duan_code)
                 tmp_path = f.name
 
@@ -208,7 +208,7 @@ class TestCompilerFullChain:
 
         for name, code, expected_output in test_programs:
             full_code = f"段落 主程序:\n  {code}\n主程序()。\n"
-            with tempfile.NamedTemporaryFile(suffix=".duan", mode="w", delete=False, encoding="utf-8") as f:
+            with tempfile.NamedTemporaryFile(suffix=".light", mode="w", delete=False, encoding="utf-8") as f:
                 f.write(full_code)
                 tmp_path = f.name
 

@@ -3,7 +3,7 @@
 test_self_host.py - 自举编译器编译级测试
 
 验证内容：
-1. 使用 src 后端编译 bootstrap_v3.duan 为 Python
+1. 使用 src 后端编译 bootstrap_v3.light 为 Python
 2. 运行生成的 Python 代码
 3. 验证执行无错误
 4. 检查输出是否包含 "Duan" 或 "段言" 等标识符
@@ -21,11 +21,11 @@ from lexer import Lexer, LexerError
 from light_parser_v3 import LightParser, ParseError
 from code_generator import PythonCodeGenerator, CodeGenError
 
-BOOTSTRAP_FILE = os.path.join(os.path.dirname(__file__), '..', 'bootstrap', 'bootstrap_v3.duan')
+BOOTSTRAP_FILE = os.path.join(os.path.dirname(__file__), '..', 'bootstrap', 'bootstrap_v3.light')
 
 
 def _compile_bootstrap():
-    """编译 bootstrap_v3.duan 为 Python 代码"""
+    """编译 bootstrap_v3.light 为 Python 代码"""
     assert os.path.exists(BOOTSTRAP_FILE), f"文件不存在: {BOOTSTRAP_FILE}"
 
     with open(BOOTSTRAP_FILE, 'r', encoding='utf-8') as f:
@@ -124,7 +124,7 @@ class TestSelfHostCompile:
     """自举编译器编译级测试"""
 
     def test_compile_bootstrap_success(self):
-        """测试 bootstrap_v3.duan 能被成功编译为 Python"""
+        """测试 bootstrap_v3.light 能被成功编译为 Python"""
         py_code, source = _compile_bootstrap()
 
         assert py_code is not None, "编译返回 None"

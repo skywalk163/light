@@ -53,10 +53,10 @@ def 通过(名):
         print('待审中无此块：' + 名)
         return 1
     blk = hit[0]['块']
-    # 正式入库：写 生成/<名>.duan 并追加索引
+    # 正式入库：写 生成/<名>.light 并追加索引
     兜.注册(blk, 库根=_LIB)
     # 删除待审副本
-    待审文件 = os.path.join(待审目录, '%s.duan' % 名)
+    待审文件 = os.path.join(待审目录, '%s.light' % 名)
     if os.path.isfile(待审文件):
         os.remove(待审文件)
     _写清单([r for r in rows if r['名称'] != 名])
@@ -71,7 +71,7 @@ def 删除(名):
         return 1
     for r in rows:
         if r['名称'] == 名:
-            待审文件 = os.path.join(待审目录, '%s.duan' % 名)
+            待审文件 = os.path.join(待审目录, '%s.light' % 名)
             if os.path.isfile(待审文件):
                 os.remove(待审文件)
     _写清单([r for r in rows if r['名称'] != 名])

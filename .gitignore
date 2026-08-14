@@ -264,8 +264,8 @@ docs/stdlib_llvm_compat_audit.md
 # Playground 临时文件
 playground/README.md
 
-# 根目录测试用 .duan 文件
-test_*.duan
+# 根目录测试用 .light 文件
+test_*.light
 
 # Ollama 模型目录
 ollama_model/new_0.5b/
@@ -316,14 +316,14 @@ lsp/lsp_protocol.py
 # 用户本地 LLM 密钥配置不入库，见 llm_config.example.json
 积木库/llm_config.json
 # 每次运行生成的临时产物
-积木库/组合结果.duan
+积木库/组合结果.light
 # 真·句向量编码缓存（自动重建，不入库）
 积木库/.embed_cache/
 
-积木库/_冒烟工位.duan
-积木库/_冒烟工位_*.duan
-积木库/_探针.duan
-积木库/tmp*.duan
+积木库/_冒烟工位.light
+积木库/_冒烟工位_*.light
+积木库/_探针.light
+积木库/tmp*.light
 积木库/.冒烟残留/
 积木库/.计划缓存.json
 
@@ -331,7 +331,7 @@ lsp/lsp_protocol.py
 blocks_pkg/duan_blocks/_data/
 build_blocks/
 积木库/运行日志.jsonl
-/组合结果.duan
+/组合结果.light
 /运行日志.jsonl
 dist_blocks/
 dist_blocks/
@@ -346,5 +346,5 @@ dist_blocks/
 # 索引备份（跑兜底/改契约前手动留的回滚点，本地保命用，不入库）
 积木库/索引.json.*
 # 临时诊断工位与临时报告
-积木库/_诊断工位*.duan
+积木库/_诊断工位*.light
 积木库/评估/报告/_*.json

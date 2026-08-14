@@ -2,7 +2,7 @@
 """段言积木『层级生成』v0.13 —— 把若干低级积木组合固化成高级积木（成语式宏）。
 
 把一个组合配方（组成步骤）内联展开为一个导出的 段落，相当于段言的「成语式宏」：
-**高级积木 = 低级积木的成语组合**。生成的 .duan 自动注册进 索引.json（层级=1），
+**高级积木 = 低级积木的成语组合**。生成的 .light 自动注册进 索引.json（层级=1），
 即可像普通积木一样被选中、被链式、再被组合成 L2——这正是「3-7 块搭一级、
 层层向上」设想的落地点。
 
@@ -50,7 +50,7 @@ def _并行输出类型(steps, 块表):
 
 
 def generate(配方, 库根=_HERE):
-    """把配方合成一个 L1+ 积木 .duan，返回 (源码, 索引条目)。"""
+    """把配方合成一个 L1+ 积木 .light，返回 (源码, 索引条目)。"""
     名称 = 配方['名称']
     领域 = 配方['领域']
     层级 = 配方.get('层级', 1)
@@ -78,7 +78,7 @@ def generate(配方, 库根=_HERE):
         seen.add(key)
         blk_path = _安全块路径(库根, s.get('路径') or '')
         if not os.path.isfile(blk_path):
-            blk_path = os.path.join(库根, s['领域'], s['块'] + '.duan')
+            blk_path = os.path.join(库根, s['领域'], s['块'] + '.light')
         if os.path.isfile(blk_path):
             lines.append('# ── 积木：%s（%s）──' % (s['块'], s['领域']))
             lines.append(_提取段落(blk_path))
@@ -110,7 +110,7 @@ def generate(配方, 库根=_HERE):
         '输入': 输入,
         '输出': 配方.get('输出', {'类型': '数'}),
         '稳定性': 配方.get('稳定性', 'stable'),
-        '路径': '%s/%s.duan' % (领域, 名称),
+        '路径': '%s/%s.light' % (领域, 名称),
         '导出名': 导出名,
     }
     # v0.20：配方里的可选契约字段必须透传，否则 自动织 标的 选块可见=False 会被丢掉，
@@ -192,7 +192,7 @@ def 自动织(库根=_HERE):
             '输出': {'类型': _并行输出类型(steps, 块表)}, '稳定性': 'generated',
         }
         源码, 条目 = generate(配方, 库根=库根)
-        out = os.path.join(库根, 条目['领域'], 条目['名称'] + '.duan')
+        out = os.path.join(库根, 条目['领域'], 条目['名称'] + '.light')
         os.makedirs(os.path.dirname(out), exist_ok=True)
         with open(out, 'w', encoding='utf-8') as f:
             f.write(源码)
@@ -238,7 +238,7 @@ def 自动织(库根=_HERE):
         if len(steps) < 2:
             continue
         # 名字必须带上输入签名：只用「领域+项数」会让两组不同签名的块重名，
-        # 结果是 .duan 被后者覆盖、索引却留着前者，契约与实现对不上（体检 E7）
+        # 结果是 .light 被后者覆盖、索引却留着前者，契约与实现对不上（体检 E7）
         类型标签 = ''.join((t or '任意').split('[')[0] for t in sig)
         名 = '聚合_%s_%s_%d项' % (领域, 类型标签, len(steps))
         配方 = {
@@ -254,7 +254,7 @@ def 自动织(库根=_HERE):
             '选块可见': False,
         }
         源码, 条目 = generate(配方, 库根=库根)
-        out = os.path.join(库根, 领域, 名 + '.duan')
+        out = os.path.join(库根, 领域, 名 + '.light')
         os.makedirs(os.path.dirname(out), exist_ok=True)
         with open(out, 'w', encoding='utf-8') as f:
             f.write(源码)
@@ -297,7 +297,7 @@ def _cli(argv=None):
         description='段言积木层级生成 v0.13（成语式宏：低级积木 → 高级积木）')
     p.add_argument('配方', nargs='?', default=None, help='组合配方 JSON 路径（--自动 时无需提供）')
     p.add_argument('-o', '--输出', default=None,
-                   help='输出 .duan 路径（缺省 积木库/<领域>/<名称>.duan）')
+                   help='输出 .light 路径（缺省 积木库/<领域>/<名称>.light）')
     p.add_argument('--写索引', action='store_true',
                    help='把生成的积木条目追加进 索引.json（幂等）')
     p.add_argument('--自动', action='store_true',
@@ -317,7 +317,7 @@ def _cli(argv=None):
     源码, 条目 = generate(配方)
 
     out = args.输出 or os.path.join(
-        _HERE, 条目['领域'], 条目['名称'] + '.duan')
+        _HERE, 条目['领域'], 条目['名称'] + '.light')
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, 'w', encoding='utf-8') as f:
         f.write(源码)

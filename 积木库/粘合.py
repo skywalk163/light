@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""段言积木粘合器 v0 —— 把「选块方案」内联合成为单一可运行 .duan。
+"""段言积木粘合器 v0 —— 把「选块方案」内联合成为单一可运行 .light。
 
 移植自 jikuai tools/ai-bridge/glue.py，但关键差异：**内联而非 import**。
-原因：段言单文件 `run` 当前不支持跨 .duan 导入（导入走 Python import
+原因：段言单文件 `run` 当前不支持跨 .light 导入（导入走 Python import
 机制，需整个项目 build 合并）。所以把选中积木的段落定义直接拼进生成文件，
 相当于「成语式宏展开」的简化版——单文件即可 `duan run`，零外部依赖。
 
@@ -18,7 +18,7 @@
     }
 
 用法::
-    python 积木库/粘合.py 方案.json -o 组合结果.duan
+    python 积木库/粘合.py 方案.json -o 组合结果.light
 """
 
 import argparse
@@ -30,7 +30,7 @@ _HERE = os.path.abspath(os.path.dirname(__file__))
 
 
 def _提取段落(路径):
-    """读取积木 .duan，去掉注释行与 `导出` 声明，返回纯段落源码。
+    """读取积木 .light，去掉注释行与 `导出` 声明，返回纯段落源码。
 
     每块文件主体即单一导出段落；去掉头部 `#` 注释与 `导出 X` 行后，
     剩余即是可内联的段落定义。
@@ -75,7 +75,7 @@ def _结果变量(i):
 
 
 def synthesize(方案, 库根=_HERE):
-    """把选块方案合成为单一 .duan 源码字符串。"""
+    """把选块方案合成为单一 .light 源码字符串。"""
     步骤 = 方案.get('步骤') or []
     if not 步骤:
         raise ValueError('方案缺少非空的 步骤 字段')
@@ -94,7 +94,7 @@ def synthesize(方案, 库根=_HERE):
         seen.add(key)
         blk_path = _安全块路径(库根, s.get('路径') or '')
         if not (blk_path and os.path.isfile(blk_path)):
-            blk_path = os.path.join(库根, s['领域'], s['块'] + '.duan')
+            blk_path = os.path.join(库根, s['领域'], s['块'] + '.light')
         if os.path.isfile(blk_path):
             lines.append('# ── 积木：%s（%s）──' % (s['块'], s['领域']))
             lines.append(_提取段落(blk_path))
@@ -130,9 +130,9 @@ def synthesize(方案, 库根=_HERE):
 
 
 def _cli(argv=None):
-    p = argparse.ArgumentParser(description='段言积木粘合器 v0（内联合成 .duan）')
+    p = argparse.ArgumentParser(description='段言积木粘合器 v0（内联合成 .light）')
     p.add_argument('方案', help='选块方案 JSON 文件路径')
-    p.add_argument('-o', '--输出', default=None, help='输出 .duan 路径（缺省则打印到 stdout）')
+    p.add_argument('-o', '--输出', default=None, help='输出 .light 路径（缺省则打印到 stdout）')
     args = p.parse_args(argv)
 
     with open(args.方案, 'r', encoding='utf-8') as f:

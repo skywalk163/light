@@ -3,7 +3,7 @@
 test_self_host.py - 自举编译器自托管验证测试
 
 验证内容：
-1. 使用 src/ 中的 Lexer/LightParser/PythonCodeGenerator 解析 bootstrap_v3.duan
+1. 使用 src/ 中的 Lexer/LightParser/PythonCodeGenerator 解析 bootstrap_v3.light
 2. 验证解析结果是否为有效的 Module AST
 3. 生成 Python 代码并验证语法正确性
 4. 报告统计信息
@@ -22,12 +22,12 @@ from light_parser_v3 import LightParser, ParseError, Module
 from code_generator import PythonCodeGenerator, CodeGenError
 
 BOOTSTRAP_FILE = os.path.join(
-    os.path.dirname(__file__), '..', '..', 'bootstrap', 'bootstrap_v3.duan'
+    os.path.dirname(__file__), '..', '..', 'bootstrap', 'bootstrap_v3.light'
 )
 
 
 def _read_bootstrap():
-    """读取 bootstrap_v3.duan 文件内容"""
+    """读取 bootstrap_v3.light 文件内容"""
     assert os.path.exists(BOOTSTRAP_FILE), f"Bootstrap file not found: {BOOTSTRAP_FILE}"
     with open(BOOTSTRAP_FILE, 'r', encoding='utf-8') as f:
         source = f.read()
@@ -38,7 +38,7 @@ class TestSelfHostLexer:
     """自举编译器词法分析验证"""
 
     def test_lexer_can_tokenize(self):
-        """测试词法分析器能成功分析 bootstrap_v3.duan"""
+        """测试词法分析器能成功分析 bootstrap_v3.light"""
         source = _read_bootstrap()
         lexer = Lexer()
         try:
@@ -55,7 +55,7 @@ class TestSelfHostParser:
     """自举编译器解析验证"""
 
     def test_parser_can_parse(self):
-        """测试解析器能成功解析 bootstrap_v3.duan"""
+        """测试解析器能成功解析 bootstrap_v3.light"""
         source = _read_bootstrap()
         parser = LightParser()
         try:
@@ -162,7 +162,7 @@ class TestSelfHostPipeline:
         print(f"----------------------")
 
     def test_functions_count(self):
-        """验证 bootstrap_v3.duan 中的函数数量"""
+        """验证 bootstrap_v3.light 中的函数数量"""
         source = _read_bootstrap()
         parser = LightParser()
         module = parser.parse(source)

@@ -22,53 +22,53 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 # 已知不参与全链路的示例（需要 FFI C 库、跨模块或特殊运行环境）
 E2E_EXCLUDED = {
-    'ffi_system.duan',
-    'ffi_math.duan',
-    'ffi_comprehensive.duan',
-    'modules/main.duan',
-    'bootstrap_eval.duan',
-    'bootstrap_lexer.duan',
-    'test_turing.duan',
-    'test_para.duan',
+    'ffi_system.light',
+    'ffi_math.light',
+    'ffi_comprehensive.light',
+    'modules/main.light',
+    'bootstrap_eval.light',
+    'bootstrap_lexer.light',
+    'test_turing.light',
+    'test_para.light',
     # 新示例项目（需交互式输入或复杂运行环境）
-    'todo_app/main.duan',
-    'blog_app/main.duan',
-    'data_pipeline/pipeline.duan',
-    'games/snake.duan',
-    'games/guess_number.duan',
-    'algorithms/sorting.duan',
-    'algorithms/data_structures.duan',
+    'todo_app/main.light',
+    'blog_app/main.light',
+    'data_pipeline/pipeline.light',
+    'games/snake.light',
+    'games/guess_number.light',
+    'algorithms/sorting.light',
+    'algorithms/data_structures.light',
     # 少儿编程示例（需交互式输入）
-    'kids/number_game.duan',
-    'kids/story_generator.duan',
+    'kids/number_game.light',
+    'kids/story_generator.light',
     # CLI 工具示例（需命令行参数）
-    'web_crawler/crawler.duan',
+    'web_crawler/crawler.light',
     # 算法库（已计划在未来版本修复语法）
-    'algorithms_lib/主.duan',
+    'algorithms_lib/主.light',
     # 新示例项目（需进一步语法适配）
-    'blog_system/主.duan',
-    'data_pipeline_enhanced/主.duan',
-    'snake_game/主.duan',
-    'todo_cli/主.duan',
+    'blog_system/主.light',
+    'data_pipeline_enhanced/主.light',
+    'snake_game/主.light',
+    'todo_cli/主.light',
     # 数据清洗工具（需命令行参数）
-    'data_cleaner/主程序.duan',
-    'data_cleaner/清洗器.duan',
-    'data_cleaner/分析器.duan',
-    'data_cleaner/转换器.duan',
+    'data_cleaner/主程序.light',
+    'data_cleaner/清洗器.light',
+    'data_cleaner/分析器.light',
+    'data_cleaner/转换器.light',
     # 新示例项目（需交互式输入或复杂运行环境）
-    'games/guess_number/主.duan',
-    'web_crawler/主.duan',
-    'file_tools/batch_rename/主.duan',
-    'web_api/todo_api/主.duan',
-    'chat_bot/主.duan',
-    'markdown_editor/主.duan',
-    'password_manager/主.duan',
+    'games/guess_number/主.light',
+    'web_crawler/主.light',
+    'file_tools/batch_rename/主.light',
+    'web_api/todo_api/主.light',
+    'chat_bot/主.light',
+    'markdown_editor/主.light',
+    'password_manager/主.light',
 }
 
 EXAMPLES_DIR = REPO_ROOT / 'examples'
 EXAMPLE_CANDIDATES = sorted(
     p.relative_to(EXAMPLES_DIR).as_posix()
-    for p in EXAMPLES_DIR.rglob('*.duan')
+    for p in EXAMPLES_DIR.rglob('*.light')
     if p.relative_to(EXAMPLES_DIR).as_posix() not in E2E_EXCLUDED
     and 'weather_app' not in p.relative_to(EXAMPLES_DIR).as_posix()
 )

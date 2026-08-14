@@ -16,8 +16,8 @@ examples 目录示例文件运行测试
 新增可运行示例时，在 EXAMPLE_EXPECTED 中补充条目即可。
 
 不纳入的示例（非语法/编译问题，属外部依赖或后端限制）：
-- FFI 示例（ffi_*.duan）：依赖 Linux 动态库（libc.so.6 / libm.so.6）
-- modules/main.duan、weather_app/main.duan：跨文件模块导入需 ANTLR 后端
+- FFI 示例（ffi_*.light）：依赖 Linux 动态库（libc.so.6 / libm.so.6）
+- modules/main.light、weather_app/main.light：跨文件模块导入需 ANTLR 后端
 """
 
 import io
@@ -36,7 +36,7 @@ from code_generator import PythonCodeGenerator
 
 
 def _run_example(rel_path: str) -> str:
-    """编译并运行 examples/ 下的 .duan 文件，返回去首尾空白的标准输出"""
+    """编译并运行 examples/ 下的 .light 文件，返回去首尾空白的标准输出"""
     path = os.path.join(_project_root, 'examples', rel_path)
     with open(path, 'r', encoding='utf-8') as f:
         code = f.read()
@@ -58,18 +58,18 @@ def _run_example(rel_path: str) -> str:
 
 # 示例文件 -> 期望输出（精确匹配）
 # 紧凑写法/词法器与解析器修复的重点回归项：
-#   hello.duan        含 n减1 / n乘阶乘（紧凑乘法 + 递归调用）
-#   advanced.duan     含 数小于等于二 / 那么返回一（紧凑条件 + 关键字词首）
-#   basic.duan        含 数乘阶乘（紧凑乘法 + 函数调用参数）
+#   hello.light        含 n减1 / n乘阶乘（紧凑乘法 + 递归调用）
+#   advanced.light     含 数小于等于二 / 那么返回一（紧凑条件 + 关键字词首）
+#   basic.light        含 数乘阶乘（紧凑乘法 + 函数调用参数）
 EXAMPLE_EXPECTED = {
     # ---- 紧凑写法回归 ----
-    'hello.duan': '你好，世界！\n'
+    'hello.light': '你好，世界！\n'
                   '5的阶乘是：\n'
                   '120\n'
                   '1到10的和：\n'
                   '55\n'
                   '程序运行完成！',
-    'advanced.duan': '列表：\n'
+    'advanced.light': '列表：\n'
                      '[1, 2, 3, 4, 5]\n'
                      '斐波那契数列：\n'
                      '1\n1\n2\n3\n5\n8\n13\n21\n34\n55\n'
@@ -78,7 +78,7 @@ EXAMPLE_EXPECTED = {
                      '成绩评级：\n'
                      '良好\n'
                      '高级功能演示完成！',
-    'basic.duan': '变量声明：\n'
+    'basic.light': '变量声明：\n'
                   '123\n8\n'
                   '算术运算：\n'
                   '139\n'
@@ -92,10 +92,10 @@ EXAMPLE_EXPECTED = {
                   '1\n2\n3\n4\n5\n'
                   '程序执行完成！',
     # ---- 类与属性语法（属性 名称 等于 默认值）----
-    'class_access_control.duan': '张三 存入 1000，余额：1000\n'
+    'class_access_control.light': '张三 存入 1000，余额：1000\n'
                                  '张三 取出 300，余额：700\n'
                                  '当前余额：700',
-    'class_complete.duan': '=== 小狗 ===\n'
+    'class_complete.light': '=== 小狗 ===\n'
                            '我是旺财，今年3岁。\n'
                            '旺财：汪汪汪！\n'
                            '名字：旺财\n'
@@ -107,14 +107,14 @@ EXAMPLE_EXPECTED = {
                            '咪咪：喵喵喵~\n'
                            '名字：咪咪\n'
                            '颜色：白色',
-    'class_example.duan': '我叫张三，今年20岁。',
-    'class_static.duan': '姓名：张三，学号：2024001\n'
+    'class_example.light': '我叫张三，今年20岁。',
+    'class_static.light': '姓名：张三，学号：2024001\n'
                          '姓名：李四，学号：2024002\n'
                          '姓名：王五，学号：2024003\n'
                          '学生总数：3\n'
                          '学校名称：段言学院',
-    'calculator.duan': '计算结果: 15',
-    'student_management.duan': '=== 学生信息 ===\n'
+    'calculator.light': '计算结果: 15',
+    'student_management.light': '=== 学生信息 ===\n'
                                '姓名: 张三\n'
                                '年龄: 18\n'
                                '平均成绩: 84.33333333333333\n'
@@ -123,21 +123,21 @@ EXAMPLE_EXPECTED = {
                                '年龄: 19\n'
                                '平均成绩: 91.66666666666667',
     # ---- 旧语法迁移（定义 X 等于 Y → 设 X 为 Y）----
-    'module_demo.duan': '=== 数学工具演示 ===\n'
+    'module_demo.light': '=== 数学工具演示 ===\n'
                         '列表: [1, 2, 3, 4, 5]\n'
                         '总和: 15\n'
                         '平均值: 3.0\n'
                         '\n'
                         '模块导入功能在 ANTLR 后端中可用（使用 --backend antlr）。',
     # ---- 其余可运行示例 ----
-    'test_fib.duan': '0\n1\n1\n2\n3\n5\n8\n13\n21\n34',
-    'test_fib_src.duan': '0\n1\n1\n2\n3\n5\n8\n13\n21\n34',
-    'test_hello.duan': '你好，世界！\n84\n8',
-    'test_hello_src.duan': '你好，世界！\n84\n8',
-    'test_para.duan': '你好，世界！\n6\n8',
-    'test_bubble.duan': '排序前：\n[5, 3, 8, 1, 2]\n'
+    'test_fib.light': '0\n1\n1\n2\n3\n5\n8\n13\n21\n34',
+    'test_fib_src.light': '0\n1\n1\n2\n3\n5\n8\n13\n21\n34',
+    'test_hello.light': '你好，世界！\n84\n8',
+    'test_hello_src.light': '你好，世界！\n84\n8',
+    'test_para.light': '你好，世界！\n6\n8',
+    'test_bubble.light': '排序前：\n[5, 3, 8, 1, 2]\n'
                         '排序后：\n[1, 2, 3, 5, 8]',
-    'hanoi.duan': '=== 汉诺塔（3层）===\n'
+    'hanoi.light': '=== 汉诺塔（3层）===\n'
                   '移动盘子 1 从 A 到 C\n'
                   '移动盘子 2 从 A 到 B\n'
                   '移动盘子 1 从 C 到 B\n'
@@ -145,19 +145,19 @@ EXAMPLE_EXPECTED = {
                   '移动盘子 1 从 B 到 A\n'
                   '移动盘子 2 从 B 到 C\n'
                   '移动盘子 1 从 A 到 C',
-    'typed_demo.duan': '8\n120',
+    'typed_demo.light': '8\n120',
     # ---- 本轮扫描修复后新增可运行 ----
-    #   test_turing.duan       _light_builtin.字典设置(...) 不再注入 self 参数（codegen）
+    #   test_turing.light       _light_builtin.字典设置(...) 不再注入 self 参数（codegen）
     #   type_annotation_demo   π 标识符改 圆周率；处理数据 用 是整数/是浮点/是字符串
     #   bootstrap_eval/lexer   三引号 docstring 支持；继续→跳过；添加→列表追加；
     #                          转换→转整数/转浮点；删除/插入→列表弹出/列表插入
-    'test_turing.duan': '初始纸带：\n'
+    'test_turing.light': '初始纸带：\n'
                         "['1', '0', '1', '1', ' ']\n"
                         '最终纸带：\n'
                         "['0', '0', '1', '1', ' ']\n"
                         '执行步数：\n'
                         '2',
-    'type_annotation_demo.duan': '=== 段言类型注解示例 ===\n'
+    'type_annotation_demo.light': '=== 段言类型注解示例 ===\n'
                                  '\n'
                                  '1. 变量类型注解：\n'
                                  '  x: 10 (整数)\n'
@@ -178,7 +178,7 @@ EXAMPLE_EXPECTED = {
                                  "  处理数据('hello') = 文本: 'hello'\n"
                                  '\n'
                                  '=== 类型注解示例完成 ===',
-    'bootstrap_eval.duan': '=== 段言自举示例：表达式求值器 ===\n'
+    'bootstrap_eval.light': '=== 段言自举示例：表达式求值器 ===\n'
                            '测试表达式求值：\n'
                            '  ✓ 1+2 = 3 (预期: 3)\n'
                            '  ✓ 10-5*2 = 0 (预期: 0)\n'
@@ -187,7 +187,7 @@ EXAMPLE_EXPECTED = {
                            '  ✓ 3.14*2 = 6.28 (预期: 6.28)\n'
                            '\n'
                            '=== 表达式求值完成 ===',
-    'bootstrap_lexer.duan': '=== 段言自举示例：简单词法分析器 ===\n'
+    'bootstrap_lexer.light': '=== 段言自举示例：简单词法分析器 ===\n'
                             '测试源码：\n'
                             '设 x 为 42\n'
                             '打印(x 加 10)\n'

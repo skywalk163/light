@@ -120,7 +120,7 @@ def 跑需求(需求, 输入值='[1, 2, 3, 4, 5]', 启用兜底=False, top=3):
             return dict(结果, 成功=False, 错误='粘合失败：%s' % e,
                         引擎日志=缓冲.getvalue())
 
-        输出文件 = os.path.join(_HERE, '_演示运行.duan')
+        输出文件 = os.path.join(_HERE, '_演示运行.light')
         t1 = time.time()
         try:
             rc, out, err = 组合._运行_单次(方案, 输出文件, _取运行时())

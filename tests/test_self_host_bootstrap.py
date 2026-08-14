@@ -88,8 +88,8 @@ def _build_bootstrap_ast() -> Any:
     from lexer import Lexer
     from light_parser_v3 import LightParser
 
-    # 读取 bootstrap_level5.duan（包含全部层级功能）
-    level5_path = os.path.join(_bootstrap_dir, 'bootstrap_level5.duan')
+    # 读取 bootstrap_level5.light（包含全部层级功能）
+    level5_path = os.path.join(_bootstrap_dir, 'bootstrap_level5.light')
     with open(level5_path, 'r', encoding='utf-8') as f:
         source = f.read()
 
@@ -512,9 +512,9 @@ class TestLevel5Advanced:
     def test_try_except(self) -> None:
         """测试 try/except 异常处理
 
-        验证 bootstrap_level5.duan 源码中包含异常处理相关关键字
+        验证 bootstrap_level5.light 源码中包含异常处理相关关键字
         """
-        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level5.duan')
+        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level5.light')
         assert os.path.exists(fpath), f"文件不存在: {fpath}"
         with open(fpath, 'r', encoding='utf-8') as f:
             source = f.read()
@@ -604,9 +604,9 @@ class TestBootstrapSelfCompile:
     """自举编译器能否编译自身测试"""
 
     BOOTSTRAP_FILES = [
-        'bootstrap_level4.duan',
-        'bootstrap_level5.duan',
-        'bootstrap_merged.duan',
+        'bootstrap_level4.light',
+        'bootstrap_level5.light',
+        'bootstrap_merged.light',
     ]
 
     def test_lexer_can_tokenize_bootstrap(self) -> None:
@@ -630,11 +630,11 @@ class TestBootstrapSelfCompile:
             assert len(tokens) > 0, f"令牌列表为空 ({fname})"
 
     def test_parser_can_parse_bootstrap_level4(self) -> None:
-        """测试解析器能解析 bootstrap_level4.duan"""
+        """测试解析器能解析 bootstrap_level4.light"""
         from lexer import Lexer
         from light_parser_v3 import LightParser, ParseError, Module
 
-        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level4.duan')
+        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level4.light')
         assert os.path.exists(fpath), f"文件不存在: {fpath}"
 
         with open(fpath, 'r', encoding='utf-8') as f:
@@ -652,11 +652,11 @@ class TestBootstrapSelfCompile:
         assert len(module.statements) > 0, "Module statements 为空"
 
     def test_parser_can_parse_bootstrap_level5(self) -> None:
-        """测试解析器能解析 bootstrap_level5.duan"""
+        """测试解析器能解析 bootstrap_level5.light"""
         from lexer import Lexer
         from light_parser_v3 import LightParser, ParseError, Module
 
-        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level5.duan')
+        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level5.light')
         assert os.path.exists(fpath), f"文件不存在: {fpath}"
 
         with open(fpath, 'r', encoding='utf-8') as f:
@@ -673,11 +673,11 @@ class TestBootstrapSelfCompile:
         assert len(getattr(module, 'statements', [])) > 0, "Module statements 为空"
 
     def test_codegen_generates_valid_python_from_level4(self) -> None:
-        """测试从 bootstrap_level4.duan 生成有效的 Python 代码"""
+        """测试从 bootstrap_level4.light 生成有效的 Python 代码"""
         from light_parser_v3 import LightParser
         from code_generator_unified import UnifiedCodeGenerator
 
-        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level4.duan')
+        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level4.light')
         with open(fpath, 'r', encoding='utf-8') as f:
             source = f.read()
 
@@ -703,11 +703,11 @@ class TestBootstrapSelfCompile:
             pytest.fail(f"生成的 Python 代码语法错误 (行 {e.lineno}): {e.msg}\n附近代码:\n{context}")
 
     def test_codegen_generates_valid_python_from_level5(self) -> None:
-        """测试从 bootstrap_level5.duan 生成有效的 Python 代码"""
+        """测试从 bootstrap_level5.light 生成有效的 Python 代码"""
         from light_parser_v3 import LightParser
         from code_generator_unified import UnifiedCodeGenerator
 
-        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level5.duan')
+        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level5.light')
         with open(fpath, 'r', encoding='utf-8') as f:
             source = f.read()
 
@@ -733,11 +733,11 @@ class TestBootstrapSelfCompile:
             pytest.fail(f"生成的 Python 代码语法错误 (行 {e.lineno}): {e.msg}\n附近代码:\n{context}")
 
     def test_full_pipeline_level4(self) -> None:
-        """测试 bootstrap_level4.duan 的完整词法→解析→代码生成流水线"""
+        """测试 bootstrap_level4.light 的完整词法→解析→代码生成流水线"""
         from light_parser_v3 import LightParser
         from code_generator_unified import UnifiedCodeGenerator
 
-        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level4.duan')
+        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level4.light')
         with open(fpath, 'r', encoding='utf-8') as f:
             source = f.read()
 
@@ -767,11 +767,11 @@ class TestBootstrapSelfCompile:
         assert source_lines > 100, f"源码行数异常: {source_lines}"
 
     def test_full_pipeline_level5(self) -> None:
-        """测试 bootstrap_level5.duan 的完整词法→解析→代码生成流水线"""
+        """测试 bootstrap_level5.light 的完整词法→解析→代码生成流水线"""
         from light_parser_v3 import LightParser
         from code_generator_unified import UnifiedCodeGenerator
 
-        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level5.duan')
+        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level5.light')
         with open(fpath, 'r', encoding='utf-8') as f:
             source = f.read()
 
@@ -801,8 +801,8 @@ class TestBootstrapSelfCompile:
         assert source_lines > 100, f"源码行数异常: {source_lines}"
 
     def test_bootstrap_merged_exists_and_valid(self) -> None:
-        """测试 bootstrap_merged.duan 存在且包含有效内容"""
-        fpath = os.path.join(_bootstrap_dir, 'bootstrap_merged.duan')
+        """测试 bootstrap_merged.light 存在且包含有效内容"""
+        fpath = os.path.join(_bootstrap_dir, 'bootstrap_merged.light')
         assert os.path.exists(fpath), f"合并版自举编译器文件不存在: {fpath}"
 
         with open(fpath, 'r', encoding='utf-8') as f:
@@ -821,11 +821,11 @@ class TestBootstrapSelfCompile:
             assert len(content) > 100, f"文件内容过短: {fname} ({len(content)} 字符)"
 
     def test_bootstrap_level4_self_test(self) -> None:
-        """测试 bootstrap_level4.duan 中的测试函数可以运行"""
+        """测试 bootstrap_level4.light 中的测试函数可以运行"""
         from light_parser_v3 import LightParser
         from code_generator_unified import UnifiedCodeGenerator
 
-        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level4.duan')
+        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level4.light')
         with open(fpath, 'r', encoding='utf-8') as f:
             source = f.read()
 
@@ -839,11 +839,11 @@ class TestBootstrapSelfCompile:
         compile(py_code, '<string>', 'exec')
 
     def test_bootstrap_level5_self_test(self) -> None:
-        """测试 bootstrap_level5.duan 中的测试函数可以运行"""
+        """测试 bootstrap_level5.light 中的测试函数可以运行"""
         from light_parser_v3 import LightParser
         from code_generator_unified import UnifiedCodeGenerator
 
-        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level5.duan')
+        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level5.light')
         with open(fpath, 'r', encoding='utf-8') as f:
             source = f.read()
 
@@ -862,7 +862,7 @@ class TestBootstrapSelfCompile:
         from code_generator_unified import UnifiedCodeGenerator
 
         # 使用 level5 包含最完整的特性
-        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level5.duan')
+        fpath = os.path.join(_bootstrap_dir, 'bootstrap_level5.light')
         with open(fpath, 'r', encoding='utf-8') as f:
             source = f.read()
 
