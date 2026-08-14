@@ -1,5 +1,5 @@
 # 积木：Cohen f（教育领域，自动生成）
 # 契约：输入 [数] → 输出 数（计算Cohen f效应量）
 导出 Cohenf
-段落 Cohenf 接收 输入：
+段落 Cohenf 接收 输入, eta平方:
     返回 平方根(eta平方 除 (1 减 eta平方))

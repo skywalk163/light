@@ -1,5 +1,5 @@
 # 积木：文本Skip-gram（文本领域，自动生成）
 # 契约：输入 [文本] → 输出 列表（提取Skip-gram）
-导出 文本Skipgram
-段落 文本Skipgram 接收 输入：
-    返回 Skipgram(文本, N, K)
+导出 文本cb_Skipgram
+段落 文本cb_Skipgram 接收 K, N, cb_Skipgram:
+    返回 cb_Skipgram(文本, N, K)

@@ -1,5 +1,5 @@
-# 积木：FEV1/FVC（医学领域，自动生成）
-# 契约：输入 [数] → 输出 数（计算FEV1/FVC比值）
-导出 FEV1/FVC
-段落 FEV1/FVC 接收 输入：
+# 积木：FEV1_FVC（医学领域，自动生成）
+# 契约：输入 [数] → 输出 数（计算FEV1_FVC比值）
+导出 FEV1_FVC
+段落 FEV1_FVC 接收 输入, FEV1, FVC:
     返回 FEV1 除 FVC

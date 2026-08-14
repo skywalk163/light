@@ -1,5 +1,5 @@
 # 积木：Goodman修正（工程领域，自动生成）
 # 契约：输入 [数] → 输出 数（Goodman疲劳修正）
 导出 Goodman
-段落 Goodman 接收 输入：
-    返回 σa 除 (1 减 σm 除 抗拉)
+段落 Goodman 接收 输入, sigmaa, sigmam, 抗拉:
+    返回 sigmaa 除 (1 减 sigmam 除 抗拉)

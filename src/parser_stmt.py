@@ -2467,7 +2467,8 @@ class ParserStmtMixin:
                         else:
                             params.append({'name': param_name, 'type': param_type})
                             break
-                    # 检查是否是 参数名 类型名 语法
+                    # 检查是否是 参数名 类型名 语法（仅当参数名不是关键字时）
+                    # 关键字参数名（如「等待」）后的标识符是参数名的一部分，不是类型注解
                     elif self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
                         next_tok = self._current()
                         next_next = self._peek(1)
@@ -2475,7 +2476,12 @@ class ParserStmtMixin:
                             param_type = self._parse_type_annotation()
                         elif next_tok.type == TokenType.IDENTIFIER and next_next and \
                              (next_next.type == TokenType.COMMA or next_next.type == TokenType.COLON):
-                            param_type = self._parse_type_annotation()
+                            if param_name in ('等待', '异步', '同步'):
+                                # 关键字参数名后紧跟标识符时，合并为复合参数名
+                                # 例如「等待价值」应作为一个参数名，而不是「等待: 价值」
+                                param_name += self._consume(TokenType.IDENTIFIER).value
+                            else:
+                                param_type = self._parse_type_annotation()
                     
                     params.append({'name': param_name, 'type': param_type})
                     # 支持默认值：参数名 等于 默认值 或 参数名 = 默认值

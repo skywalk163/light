@@ -1,5 +1,5 @@
 # 积木：EV/EBITDA（财务领域，自动生成）
 # 契约：输入 [数] → 输出 数（企业价值倍数）
 导出 财务EVEBITDA
-段落 财务EVEBITDA 接收 输入：
+段落 财务EVEBITDA 接收 输入, 企业价值, EBITDA:
     返回 企业价值 除 EBITDA

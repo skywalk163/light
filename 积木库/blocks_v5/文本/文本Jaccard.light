@@ -1,5 +1,5 @@
 # 积木：Jaccard相似（文本领域，自动生成）
 # 契约：输入 [文本] → 输出 数（计算Jaccard相似系数）
-导出 文本Jaccard
-段落 文本Jaccard 接收 输入：
-    返回 Jaccard(文本, 目标)
+导出 文本cb_Jaccard
+段落 文本cb_Jaccard 接收 目标, cb_Jaccard:
+    返回 cb_Jaccard(文本, 目标)

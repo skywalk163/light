@@ -1,5 +1,5 @@
 # 积木：数据Box-Cox（数据领域，自动生成）
 # 契约：输入 [列表] → 输出 列表（Box-Cox变换）
 导出 数据BoxCox
-段落 数据BoxCox 接收 输入：
+段落 数据BoxCox 接收 输入, Box, Cox变换:
     返回 Box-Cox变换

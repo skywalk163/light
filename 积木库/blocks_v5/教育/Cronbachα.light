@@ -1,5 +1,5 @@
 # 积木：Cronbach alpha（教育领域，自动生成）
 # 契约：输入 [数] → 输出 数（计算Cronbach alpha系数）
-导出 Cronbachα
-段落 Cronbachα 接收 输入：
+导出 Cronbachalpha
+段落 Cronbachalpha 接收 输入, 题数, 方差和, 总方差:
     返回 题数 除 (题数 减 1) 乘 (1 减 方差和 除 总方差)

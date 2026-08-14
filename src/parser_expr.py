@@ -328,7 +328,20 @@ class ParserExprMixin:
             return UnaryOp('-', operand)
         
         # 等待表达式：等待 异步操作
+        # 注意：如果等待后跟的是标识符且不是函数调用，则视为复合标识符（如「等待价值」）
         if tok.type == TokenType.KEYWORD and tok.value == '等待':
+            next_tok = self._peek(1)
+            if next_tok and next_tok.type == TokenType.IDENTIFIER:
+                peek2 = self._peek(2)
+                if peek2 and peek2.type != TokenType.LPAREN:
+                    # 复合标识符：等待 + 价值 = 等待价值
+                    self._consume(TokenType.KEYWORD, '等待')
+                    ident = self._consume(TokenType.IDENTIFIER).value
+                    return Identifier('等待' + ident)
+                # 等待 函数名() → await 表达式
+                self._consume(TokenType.KEYWORD, '等待')
+                expr = self._parse_expr()
+                return AwaitExpr(expr)
             self._consume(TokenType.KEYWORD, '等待')
             expr = self._parse_expr()
             return AwaitExpr(expr)
@@ -475,6 +488,15 @@ class ParserExprMixin:
         # 运算符动词由 _parse_add_expr 等方法处理
         if tok.type == TokenType.KEYWORD and tok.value in VERB_ARITY and tok.value not in self.OPERATOR_VERBS:
             verb_name = tok.value
+            # 检查下一个token是否是有效的表达式起始符
+            # 如果不是（如NEWLINE、EOF、RPAREN等），则当作变量名处理
+            # 修复：标准差等统计函数名被用作变量名时导致的ParseError
+            _next = self._peek(1)
+            if _next and _next.type in (TokenType.NEWLINE, TokenType.EOF, TokenType.RPAREN,
+                                         TokenType.RBRACKET, TokenType.RBRACE, TokenType.COMMA,
+                                         TokenType.COLON, TokenType.DOT, TokenType.PERIOD):
+                self._consume()
+                return self._parse_postfix(Identifier(verb_name))
             self._consume()
             
             # 特殊处理：新建（类实例化）
@@ -696,7 +718,9 @@ class ParserExprMixin:
         if tok.type == TokenType.LBRACKET:
             return self._parse_list_literal()
 
-        # Self引用：己属性名 或 己.属性名 或 己（单独使用表示self）
+        # Self引用：己.属性名 或 己属性名（类方法中表示self）
+        # 注意：己单独使用时，由代码生成器根据 _in_class_method 决定是否映射为 self
+        # 这样可以避免将参数名 己（天干地支）错误映射为 self
         if tok.type == TokenType.KEYWORD and tok.value == '己':
             self._consume()
             # 支持 己.属性名 语法（带点号）
@@ -732,11 +756,12 @@ class ParserExprMixin:
                 name_parts.append(self._consume().value)
             if name_parts:
                 attr_name = ''.join(name_parts)
-                expr = Identifier(f"self.{attr_name}")
+                # 代码生成器根据 _in_class_method 决定是否加 self. 前缀
+                expr = Identifier(f"己.{attr_name}")
                 return self._parse_postfix(expr)
             else:
-                # 己单独使用，表示 self
-                expr = Identifier("self")
+                # 己单独使用，由代码生成器根据 _in_class_method 决定是否映射为 self
+                expr = Identifier("己")
                 return self._parse_postfix(expr)
 
         # Super引用：父.方法名() → super().方法名()

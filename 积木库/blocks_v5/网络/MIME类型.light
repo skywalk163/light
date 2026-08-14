@@ -1,5 +1,5 @@
 # 积木：MIME类型（网络领域，自动生成）
 # 契约：输入 [文本] → 输出 文本（文件扩展名转MIME）
-导出 MIME类型
-段落 MIME类型 接收 输入：
-    返回 MIME(输入)
+导出 cb_MIME类型
+段落 cb_MIME类型 接收 输入, cb_MIME:
+    返回 cb_MIME(输入)

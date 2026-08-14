@@ -1735,6 +1735,12 @@ class PythonCodeGenerator:
                 builtin_target = self.builtin_map.get(expr.member)
                 if builtin_target and expr.member not in self.method_name_map:
                     # 内置函数（非标准方法）：转为函数式调用
+                    # 如果目标是 lambda 表达式，需要加括号包裹，避免 lambda 优先级问题
+                    if builtin_target.startswith('lambda '):
+                        if args_str:
+                            return f"({builtin_target})({obj}, {args_str})"
+                        else:
+                            return f"({builtin_target})({obj})"
                     if args_str:
                         return f"{builtin_target}({obj}, {args_str})"
                     else:

@@ -1,5 +1,5 @@
 # 积木：对数平均温差（工程领域，自动生成）
 # 契约：输入 [数] → 输出 数（计算对数平均温差）
 导出 LMTD
-段落 LMTD 接收 输入：
-    返回 (ΔT1 减 ΔT2) 除 对数(ΔT1 除 ΔT2)
+段落 LMTD 接收 输入, DeltaT1, DeltaT2:
+    返回 (DeltaT1 减 DeltaT2) 除 对数(DeltaT1 除 DeltaT2)

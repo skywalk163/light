@@ -1,5 +1,6 @@
 # 积木：验证Session（验证领域，自动生成）
+# 状态：签名占位，无实现
 # 契约：输入 [文本] → 输出 逻辑（验证Session有效性）
 导出 验证Session
-段落 验证Session 接收 输入：
-    返回 验证Session(SessionID)
+段落 验证Session 接收 输入:
+    返回 验证Session(输入)

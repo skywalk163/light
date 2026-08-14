@@ -1,5 +1,5 @@
 # 积木：系统CPU BMI（系统领域，自动生成）
 # 契约：输入 [逻辑] → 输出 逻辑（检测CPU BMI支持）
 导出 CPU BMI
-段落 CPU BMI 接收 输入：
+段落 CPU BMI 接收 输入:
     返回 CPU BMI()

@@ -1,5 +1,5 @@
 # 积木：预应力损失（工程领域，自动生成）
 # 契约：输入 [数] → 输出 数（计算预应力总损失）
 导出 预应力损失
-段落 预应力损失 接收 输入：
-    返回 σl1 加 σl2 加 σl3 加 σl4 加 σl5 加 σl6
+段落 预应力损失 接收 输入, sigmal1, sigmal2, sigmal3, sigmal4, sigmal5, sigmal6:
+    返回 sigmal1 加 sigmal2 加 sigmal3 加 sigmal4 加 sigmal5 加 sigmal6

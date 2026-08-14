@@ -1,5 +1,5 @@
 # 积木：Latin1转UTF8（编码领域，自动生成）
 # 契约：输入 [文本] → 输出 文本（Latin-1到UTF-8）
 导出 Latin1转UTF8
-段落 Latin1转UTF8 接收 输入：
-    返回 编码转换(输入, 'latin1', 'utf-8')
+段落 Latin1转UTF8 接收 输入, cb_编码转换, latin1, utf:
+    返回 cb_编码转换(输入, 'latin1', 'utf-8')

@@ -1,5 +1,5 @@
 # 积木：Ranson评分（医学领域，自动生成）
 # 契约：输入 [数] → 输出 数（计算胰腺炎Ranson评分）
 导出 Ranson评分
-段落 Ranson评分 接收 输入：
+段落 Ranson评分 接收 年龄, WBC, 血糖, LDH, AST:
     返回 年龄 加 WBC 加 血糖 加 LDH 加 AST

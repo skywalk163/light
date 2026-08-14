@@ -1,5 +1,0 @@
-# 积木：Harris-Benedict（医学领域，自动生成）
-# 契约：输入 [数] → 输出 数（Harris-Benedict公式）
-导出 Harris-Benedict
-段落 Harris-Benedict 接收 输入：
-    返回 655 加 9.6 乘 体重 加 1.8 乘 身高 减 4.7 乘 年龄
