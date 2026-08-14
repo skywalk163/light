@@ -1,359 +1,227 @@
-class HTTP请求:
-    def初始化(请求对象):
-        self._请求对象=请求对象
-        self._路径=_解析URL路径(请求对象.路径)
-        self._查询参数=_解析查询参数(请求对象.路径)
-        self._请求头=_转换字典(请求对象.headers)
-        self._方法=请求对象.命令
-        self._正文=无
-        self._JSON=无
-    
-    def获取路径():
-        返回self._路径
-    
-    def获取方法():
-        返回self._方法
-    
-    def获取查询参数(名称=无):
-        如果名称:
-            值列表=self._查询参数.获取(名称,[])
-            返回值列表[0]如果值列表否则无
-        返回{k:v[0]对于k,v在self._查询参数.项()}
-    
-    def获取请求头(名称=无):
-        如果名称:
-            return self._请求头.获取(名称)
-        return self._请求头
-    
-    def获取正文():
-        如果self._正文是无:
-            长度=转换整数(self._请求头.获取('Content-Length',0))
-            self._正文=self._请求对象.读取正文(长度)
-        return self._正文
-    
-    def获取JSON():
-        如果self._JSON是无:
-            尝试:
-                正文=self.获取正文()
-                self._JSON=_解析JSON(正文.解码('utf-8'))
-            除异常:
-                self._JSON=无
-        return self._JSON
-    
-    def获取表单数据():
-        正文=self.获取正文().解码('utf-8')
-        数据=_解析表单(正文)
-        return{k:v[0]对于k,v在数据.项()}
+#     def初始化(请求对象):
+#
+#     def获取路径():
+#         返回self._路径
+#
+#     def获取方法():
+#         返回self._方法
+#
+#     def获取查询参数(名称=无):
+#             返回值列表[0]如果值列表否则无
+#         返回{k:v[0]对于k,v在self._查询参数.项()}
+#
+#     def获取请求头(名称=无):
+#
+#     def获取正文():
+#
+#     def获取JSON():
+#             尝试:
+#             除异常:
+#
+#     def获取表单数据():
+#         数据=_解析表单(正文)
+#
+#     def初始化():
+#
+#     def设置状态码(状态码):
+#
+#     def设置响应头(名称,值):
+#
+#     def设置正文(正文):
+#
+#     def设置JSON(数据):
+#
+#     def设置HTML(HTML):
+#
+#     def设置文本(文本):
+#
+#     def设置二进制(数据,类型='application/octet-stream'):
+#
+#     def重定向(URL,状态码=302):
+#
+#     def获取状态码():
+#
+#     def获取响应头():
+#
+#     def获取正文():
+#
+#     def初始化(主机='127.0.0.1',端口=8080):
+#
+#     def路由(路径,方法='GET'):
+#         def包装(函数):
+#             键=方法.转大写()+':'+路径
+#             返回函数
+#         返回包装
+#
+#     def注册路由(路径,函数,方法='GET'):
+#         键=方法.转大写()+':'+路径
+#
+#     defGET(路径):
+#
+#     defPOST(路径):
+#
+#     defPUT(路径):
+#
+#     defDELETE(路径):
+#
+#     def添加中间件(函数):
+#
+#     def设置静态文件目录(目录):
+#
+#     def启动(阻塞=真):
+#
+#         否则:
+#             import线程
+#             t.启动()
+#
+#     def停止():
+#
+#     def_创建处理器类():
+#         服务端实例=self
+#
+#         class请求处理器:
+#             def处理GET():
+#
+#             def处理POST():
+#
+#             def处理PUT():
+#
+#             def处理DELETE():
+#
+#             def_处理请求(方法):
+#                 请求=HTTP请求(self)
+#                 响应=HTTP响应()
+#
+#                     结果=中间件(请求,响应)
+#
+#                 键=方法+':'+请求.获取路径()
+#                 处理函数=服务端实例._路由.获取(键)
+#
+#                     尝试:
+#                         处理函数(请求,响应)
+#                     除异常(e):
+#                         儿应.设置状态码(500)
+#                         儿应.设置JSON({'错误':字符串(e)})
+#                 否则如果服务端实例._静态文件目录:
+#                     文件路径=_合并路径(服务端实例._静态文件目录,请求.获取路径())
+#                     否则:
+#                         儿应.设置状态码(404)
+#                         儿应.设置文本('404 Not Found')
+#                 否则:
+#                     响应.设置状态码(404)
+#                     响应.设置文本('404 Not Found')
+#
+#             def_发送响应(响应):
+#
+#             def_发送静态文件(文件路径,响应):
+#                 mime类型=_获取MimeType(文件路径)
+#                 内容=_读取文件(文件路径,'rb')
+#                 响应.设置响应头('Content-Type',mime类型)
+#                 响应.设置二进制(内容,mime类型)
+#
+#         return请求处理器
+#
+# def创建HTTP服务端(主机='127.0.0.1',端口=8080):
+#
+# def创建请求(请求对象):
+#
+# def创建响应():
+#
+# def返回JSON(数据):
+#     响应=HTTP响应()
+#     响应.设置JSON(数据)
+#
+# def返回HTML(HTML):
+#     响应=HTTP响应()
+#     儿应.设置HTML(HTML)
+#
+# def返回文本(文本,状态码=200):
+#     响应=HTTP响应()
+#     响应.设置状态码(状态码)
+#     响应.设置文本(文本)
+#
+# def返回404(消息='404 Not Found'):
+#     响应=HTTP响应()
+#     响应.设置状态码(404)
+#     响应.设置文本(消息)
+#
+# def返回500(消息='500 Internal Server Error'):
+#     响应=HTTP响应()
+#     响应.设置状态码(500)
+#     响应.设置文本(消息)
+#
+# def返回重定向(URL):
+#     响应=HTTP响应()
+#     响应.重定向(URL)
+#
+# defCORS中间件(请求,响应):
+#     响应.设置响应头('Access-Control-Allow-Origin','*')
+#     响应.设置响应头('Access-Control-Allow-Methods','GET, POST, PUT, DELETE, OPTIONS')
+#     响应.设置响应头('Access-Control-Allow-Headers','Content-Type, Authorization')
+#
+#         响应.设置状态码(200)
+#
+# defJSON中间件(请求,响应):
+#         请求._JSON=请求.获取JSON()
+#
+# def日志中间件(请求,响应):
+#     打印(请求.获取方法()+' '+请求.获取路径())
+#
+# def静态文件中间件(目录):
+#     def中间件(请求,响应):
+#         路径=请求.获取路径()
+#         文件路径=_合并路径(目录,路径)
+#
+#             mime类型=_获取MimeType(文件路径)
+#             内容=_读取文件(文件路径,'rb')
+#             响应.设置响应头('Content-Type',mime类型)
+#             响应.设置二进制(内容,mime类型)
+#
+# def基础认证中间件(用户名,密码):
+#     def中间件(请求,响应):
+#         认证头=请求.获取请求头('Authorization')
+#
+#             响应.设置状态码(401)
+#             响应.设置响应头('WWW-Authenticate','Basic realm="Login Required"')
+#             响应.设置文本('401 Unauthorized')
+#
+#         尝试:
+#             编码=认证头.替换('Basic ','')
+#             解码=_解码Base64(编码)
+#             用户,密=解码.分割(':')
+#
+#             否则:
+#                 响应.设置状态码(401)
+#                 儿应.设置文本('401 Unauthorized')
+#         除异常:
+#             响应.设置状态码(401)
+#             响应.设置文本('401 Unauthorized')
+#
+# def速率限制中间件(限制=100,时间窗口=60):
+#     请求计数={}
+#
+#     def中间件(请求,响应):
+#         import时间
+#         客户端=请求.获取请求头('X-Forwarded-For')或'unknown'
+#         当前时间=_获取当前时间()
+#
+#             请求计数[客户端]={}
+#             请求计数[客户端]['次数']=0
+#             请求计数[客户端]['开始时间']=当前时间
+#
+#         数据=请求计数[客户端]
+#
+#             数据['次数']=0
+#             数据['开始时间']=当前时间
+#
+#         数据['次数']+=1
+#
+#             响应.设置状态码(429)
+#             响应.设置文本('429 Too Many Requests')
+#
+# 用法：
+#   从《HTTP服务端》导入《HTTP请求》。
 
-
-class HTTP响应:
-    def初始化():
-        self._状态码=200
-        self._响应头={'Content-Type':'text/html; charset=utf-8'}
-        self._正文=b''
-    
-    def设置状态码(状态码):
-        self._状态码=状态码
-    
-    def设置响应头(名称,值):
-        self._响应头[名称]=值
-    
-    def设置正文(正文):
-        self._正文=正文.编码('utf-8')
-    
-    def设置JSON(数据):
-        self._响应头['Content-Type']='application/json; charset=utf-8'
-        self._正文=_生成JSON(数据).编码('utf-8')
-    
-    def设置HTML(HTML):
-        self._响应头['Content-Type']='text/html; charset=utf-8'
-        self._正文=HTML.编码('utf-8')
-    
-    def设置文本(文本):
-        self._响应头['Content-Type']='text/plain; charset=utf-8'
-        self._正文=文本.编码('utf-8')
-    
-    def设置二进制(数据,类型='application/octet-stream'):
-        self._响应头['Content-Type']=类型
-        self._正文=数据
-    
-    def重定向(URL,状态码=302):
-        self._状态码=状态码
-        self._响应头['Location']=URL
-    
-    def获取状态码():
-        return self._状态码
-    
-    def获取响应头():
-        return self._响应头
-    
-    def获取正文():
-        return self._正文
-
-
-class HTTP服务端:
-    def初始化(主机='127.0.0.1',端口=8080):
-        self._主机=主机
-        self._端口=端口
-        self._路由={}
-        self._中间件=[]
-        self._静态文件目录=无
-        self._服务=无
-    
-    def路由(路径,方法='GET'):
-        def包装(函数):
-            键=方法.转大写()+':'+路径
-            self._路由[键]=函数
-            返回函数
-        返回包装
-    
-    def注册路由(路径,函数,方法='GET'):
-        键=方法.转大写()+':'+路径
-        self._路由[键]=函数
-    
-    defGET(路径):
-        return self.路由(路径,'GET')
-    
-    defPOST(路径):
-        return self.路由(路径,'POST')
-    
-    defPUT(路径):
-        return self.路由(路径,'PUT')
-    
-    defDELETE(路径):
-        return self.路由(路径,'DELETE')
-    
-    def添加中间件(函数):
-        self._中间件.追加(函数)
-    
-    def设置静态文件目录(目录):
-        self._静态文件目录=目录
-    
-    def启动(阻塞=真):
-        处理器类=self._创建处理器类()
-        self._服务=_创建TCPServer((self._主机,self._端口),处理器类)
-        
-        如果阻塞:
-            self._服务.持续服务()
-        否则:
-            import线程
-            t=_创建线程(target=self._服务.持续服务)
-            t.启动()
-    
-    def停止():
-        如果self._服务:
-            self._服务.关闭()
-    
-    def_创建处理器类():
-        服务端实例=self
-        
-        class请求处理器:
-            def处理GET():
-                self._处理请求('GET')
-            
-            def处理POST():
-                self._处理请求('POST')
-            
-            def处理PUT():
-                self._处理请求('PUT')
-            
-            def处理DELETE():
-                self._处理请求('DELETE')
-            
-            def_处理请求(方法):
-                请求=HTTP请求(self)
-                响应=HTTP响应()
-                
-                对于中间件在服务端实例._中间件:
-                    结果=中间件(请求,响应)
-                    如果结果==假:
-                        self._发送响应(响应)
-                        return
-                
-                键=方法+':'+请求.获取路径()
-                处理函数=服务端实例._路由.获取(键)
-                
-                如果处理函数:
-                    尝试:
-                        处理函数(请求,响应)
-                    除异常(e):
-                        儿应.设置状态码(500)
-                        儿应.设置JSON({'错误':字符串(e)})
-                否则如果服务端实例._静态文件目录:
-                    文件路径=_合并路径(服务端实例._静态文件目录,请求.获取路径())
-                    如果_文件存在(文件路径):
-                        self._发送静态文件(文件路径,响应)
-                    否则:
-                        儿应.设置状态码(404)
-                        儿应.设置文本('404 Not Found')
-                否则:
-                    响应.设置状态码(404)
-                    响应.设置文本('404 Not Found')
-                
-                self._发送响应(响应)
-            
-            def_发送响应(响应):
-                self.发送状态码(响应.获取状态码())
-                对于名称,值在响应.获取响应头().项():
-                    self.发送头(名称,值)
-                self.结束头()
-                self.写入正文(响应.获取正文())
-            
-            def_发送静态文件(文件路径,响应):
-                mime类型=_获取MimeType(文件路径)
-                内容=_读取文件(文件路径,'rb')
-                响应.设置响应头('Content-Type',mime类型)
-                响应.设置二进制(内容,mime类型)
-        
-        return请求处理器
-
-
-def创建HTTP服务端(主机='127.0.0.1',端口=8080):
-    return HTTP服务端(主机,端口)
-
-
-def创建请求(请求对象):
-    return HTTP请求(请求对象)
-
-
-def创建响应():
-    return HTTP响应()
-
-
-def返回JSON(数据):
-    响应=HTTP响应()
-    响应.设置JSON(数据)
-    return 响应
-
-
-def返回HTML(HTML):
-    响应=HTTP响应()
-    儿应.设置HTML(HTML)
-    return 儿应
-
-
-def返回文本(文本,状态码=200):
-    响应=HTTP响应()
-    响应.设置状态码(状态码)
-    响应.设置文本(文本)
-    return 响应
-
-
-def返回404(消息='404 Not Found'):
-    响应=HTTP响应()
-    响应.设置状态码(404)
-    响应.设置文本(消息)
-    return 响应
-
-
-def返回500(消息='500 Internal Server Error'):
-    响应=HTTP响应()
-    响应.设置状态码(500)
-    响应.设置文本(消息)
-    return 响应
-
-
-def返回重定向(URL):
-    响应=HTTP响应()
-    响应.重定向(URL)
-    return 响应
-
-
-defCORS中间件(请求,响应):
-    响应.设置响应头('Access-Control-Allow-Origin','*')
-    响应.设置响应头('Access-Control-Allow-Methods','GET, POST, PUT, DELETE, OPTIONS')
-    响应.设置响应头('Access-Control-Allow-Headers','Content-Type, Authorization')
-    
-    如果请求.获取方法=='OPTIONS':
-        响应.设置状态码(200)
-        return 假
-    
-    return 真
-
-
-defJSON中间件(请求,响应):
-    如果请求.获取请求头('Content-Type')=='application/json':
-        请求._JSON=请求.获取JSON()
-    return 真
-
-
-def日志中间件(请求,响应):
-    打印(请求.获取方法()+' '+请求.获取路径())
-    return 真
-
-
-def静态文件中间件(目录):
-    def中间件(请求,响应):
-        路径=请求.获取路径()
-        文件路径=_合并路径(目录,路径)
-        
-        如果_文件存在(文件路径):
-            mime类型=_获取MimeType(文件路径)
-            内容=_读取文件(文件路径,'rb')
-            响应.设置响应头('Content-Type',mime类型)
-            响应.设置二进制(内容,mime类型)
-            return 假
-        
-        return 真
-    
-    return 中间件
-
-
-def基础认证中间件(用户名,密码):
-    def中间件(请求,响应):
-        认证头=请求.获取请求头('Authorization')
-        
-        如果不是认证头:
-            响应.设置状态码(401)
-            响应.设置响应头('WWW-Authenticate','Basic realm="Login Required"')
-            响应.设置文本('401 Unauthorized')
-            return 假
-        
-        尝试:
-            编码=认证头.替换('Basic ','')
-            解码=_解码Base64(编码)
-            用户,密=解码.分割(':')
-            
-            如果用户==用户名且密==密码:
-                return 真
-            否则:
-                响应.设置状态码(401)
-                儿应.设置文本('401 Unauthorized')
-                return 假
-        除异常:
-            响应.设置状态码(401)
-            响应.设置文本('401 Unauthorized')
-            return 假
-    
-    return 中间件
-
-
-def速率限制中间件(限制=100,时间窗口=60):
-    请求计数={}
-    
-    def中间件(请求,响应):
-        import时间
-        客户端=请求.获取请求头('X-Forwarded-For')或'unknown'
-        当前时间=_获取当前时间()
-        
-        如果客户端不在请求计数:
-            请求计数[客户端]={}
-            请求计数[客户端]['次数']=0
-            请求计数[客户端]['开始时间']=当前时间
-        
-        数据=请求计数[客户端]
-        
-        如果当前时间-数据['开始时间']>时间窗口:
-            数据['次数']=0
-            数据['开始时间']=当前时间
-        
-        数据['次数']+=1
-        
-        如果数据['次数']>限制:
-            响应.设置状态码(429)
-            响应.设置文本('429 Too Many Requests')
-            return 假
-        
-        return 真
-    
-    return 中间件
+导出 HTTP请求 HTTP响应 HTTP服务端 创建HTTP服务端 创建请求 创建响应。
+导出 返回JSON 返回HTML 返回文本 返回404 返回500 返回重定向。
+导出 CORS中间件 JSON中间件 日志中间件 静态文件中间件 基础认证中间件 速率限制中间件。

@@ -1,7 +1,13 @@
 # 主程序 - 测试模块导入和使用
+# 注意：跨文件模块导入（从《X》导入）需要 ANTLR 后端支持
+# （duan run --backend antlr）；src 后端下请使用 module_demo.duan。
 
 从《math_utils》导入《平方》，《立方》。
 从《string_utils》导入《连接》。
 
-定义甲等于五。
+设甲为五。
 打印甲。
+
+打印(平方(3))。
+打印(立方(3))。
+打印(连接("Hello ", "Duan"))。

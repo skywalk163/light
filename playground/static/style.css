@@ -1970,3 +1970,311 @@ body {
     border-radius: 4px;
     margin-bottom: 8px;
 }
+
+/* =============================================================================
+   示例搜索
+   ============================================================================= */
+
+.example-search {
+    position: relative;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.example-search-icon {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.example-search-input {
+    width: 100%;
+    padding: 6px 10px 6px 28px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: var(--font-sans);
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.example-search-input:focus {
+    border-color: var(--accent-blue);
+}
+
+.example-search-input::placeholder {
+    color: var(--text-muted);
+}
+
+/* =============================================================================
+   调试器 UI
+   ============================================================================= */
+
+.btn-debug {
+    color: var(--accent-orange);
+    border-color: var(--border-color);
+}
+
+.btn-debug:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent-orange);
+}
+
+.btn-debug.active {
+    background: var(--accent-orange);
+    border-color: var(--accent-orange);
+    color: #fff;
+}
+
+.debug-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.debug-toolbar.hidden {
+    display: none;
+}
+
+.btn-debug-step {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+    font-size: 12px;
+}
+
+.btn-debug-step:hover {
+    background: var(--bg-hover);
+}
+
+.btn-debug-stop {
+    color: var(--accent-red);
+    border-color: var(--accent-red);
+}
+
+.btn-debug-stop:hover {
+    background: var(--accent-red);
+    color: #fff;
+}
+
+.debug-toolbar-divider {
+    width: 1px;
+    height: 18px;
+    background: var(--border-color);
+    margin: 0 4px;
+}
+
+.debug-status {
+    font-size: 11px;
+    color: var(--accent-green);
+    margin-left: auto;
+}
+
+.debug-status.paused {
+    color: var(--accent-yellow);
+}
+
+.debug-status.error {
+    color: var(--accent-red);
+}
+
+.debug-layout {
+    display: flex;
+    height: 100%;
+    gap: 0;
+}
+
+.debug-variables {
+    flex: 2;
+    border-right: 1px solid var(--border-color);
+    overflow: auto;
+}
+
+.debug-callstack {
+    flex: 1;
+    border-right: 1px solid var(--border-color);
+    overflow: auto;
+}
+
+.debug-output {
+    flex: 2;
+    overflow: auto;
+}
+
+.debug-panel-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.debug-vars-list,
+.debug-callstack-list,
+.debug-output-content {
+    padding: 4px 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.debug-placeholder {
+    padding: 16px;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    text-align: center;
+}
+
+/* 变量项 */
+.debug-var-item {
+    display: flex;
+    align-items: center;
+    padding: 3px 12px;
+    gap: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.debug-var-item:last-child {
+    border-bottom: none;
+}
+
+.debug-var-name {
+    color: var(--accent-blue);
+    font-weight: 500;
+    min-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.debug-var-type {
+    color: var(--accent-purple);
+    font-size: 11px;
+    min-width: 60px;
+}
+
+.debug-var-value {
+    color: var(--accent-yellow);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 调用栈项 */
+.debug-callstack-item {
+    padding: 4px 12px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 12px;
+}
+
+.debug-callstack-item:last-child {
+    border-bottom: none;
+}
+
+.debug-callstack-name {
+    color: var(--accent-green);
+    font-weight: 500;
+}
+
+.debug-callstack-loc {
+    color: var(--text-muted);
+    font-size: 11px;
+    margin-left: 8px;
+}
+
+.debug-callstack-item.current {
+    background: var(--bg-tertiary);
+    border-left: 3px solid var(--accent-green);
+}
+
+/* 调试输出行 */
+.debug-output-line {
+    padding: 2px 12px;
+    color: var(--text-primary);
+}
+
+/* 断点标志 */
+.editor-breakpoint {
+    background: rgba(248, 81, 73, 0.3);
+}
+
+/* =============================================================================
+   快捷键弹窗
+   ============================================================================= */
+
+.shortcuts-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.shortcut-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.shortcut-item:last-child {
+    border-bottom: none;
+}
+
+.shortcut-keys {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.shortcut-keys kbd {
+    display: inline-block;
+    padding: 3px 8px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    box-shadow: 0 1px 0 var(--border-color);
+    white-space: nowrap;
+}
+
+.shortcut-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+/* 响应式：移动端隐藏调试按钮 */
+@media (max-width: 768px) {
+    .btn-debug {
+        display: none;
+    }
+
+    .debug-layout {
+        flex-direction: column;
+    }
+
+    .debug-variables,
+    .debug-callstack,
+    .debug-output {
+        flex: none;
+        height: 33.33%;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+}

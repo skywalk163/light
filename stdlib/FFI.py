@@ -69,6 +69,10 @@ class FFIManager:
 # 全局 FFI 管理器
 _ffi_manager = FFIManager()
 
+# 用户自定义类型注册表（struct/union/funcptr/typedef 等）
+# 运行时通过 注册类型() 注册，供 获取类型() 查找
+_type_registry: Dict[str, Any] = {}
+
 
 def 加载库(路径: str, 别名: str) -> FFILibrary:
     """加载动态库：加载库(路径, 别名)"""
@@ -105,9 +109,32 @@ FFI_TYPE_MAP = {
 }
 
 
+def 注册类型(名称: str, 类型: Any):
+    """注册用户自定义类型（struct/union/funcptr/typedef）供 获取类型 查找"""
+    _type_registry[名称] = 类型
+
+
 def 获取类型(类型名: str) -> Any:
-    """获取对应的 ctypes 类型"""
-    return FFI_TYPE_MAP.get(类型名, ctypes.c_int)
+    """获取对应的 ctypes 类型。优先查找 FFI_TYPE_MAP，再查找用户自定义类型注册表，
+    最后尝试通过 eval 解析全局作用域中的类型名（如 struct/union 类名）。
+    """
+    # 1) 基本类型映射
+    if 类型名 in FFI_TYPE_MAP:
+        return FFI_TYPE_MAP[类型名]
+    # 2) 用户自定义类型注册表
+    if 类型名 in _type_registry:
+        return _type_registry[类型名]
+    # 3) void* 作为默认回退
+    return ctypes.c_void_p
+
+
+def 获取类型或空(类型名: str) -> Optional[Any]:
+    """获取类型，找不到时返回 None 而非默认值"""
+    if 类型名 in FFI_TYPE_MAP:
+        return FFI_TYPE_MAP[类型名]
+    if 类型名 in _type_registry:
+        return _type_registry[类型名]
+    return None
 
 
 def 声明函数(库别名: str, 函数名: str, 参数类型: List[str], 返回类型: str) -> Any:
@@ -222,9 +249,12 @@ def 指针偏移(指针, 偏移量: int) -> Any:
     return 指针
 
 
-def 创建数组(类型名: str, 大小: int) -> Any:
-    """创建 C 类型数组"""
-    ctype = 获取类型(类型名)
+def 创建数组(类型, 大小: int) -> Any:
+    """创建 C 类型数组，支持字符串类型名或 ctypes 类对象"""
+    if isinstance(类型, str):
+        ctype = 获取类型(类型)
+    else:
+        ctype = 类型
     return (ctype * 大小)()
 
 
@@ -493,6 +523,25 @@ def 获取日志() -> List[str]:
 def 清空日志():
     """清空FFI调试日志"""
     _debug_log.clear()
+
+
+# =============================================================================
+# 别名（对齐 STDLIB_VERB_ARITY 注册名）
+# =============================================================================
+
+def FFI调试():
+    """FFI调试（别名）"""
+    return 启用调试()
+
+
+def FFI禁用调试():
+    """FFI禁用调试（别名）"""
+    return 禁用调试()
+
+
+def FFI获取日志() -> List[str]:
+    """FFI获取日志（别名）"""
+    return 获取日志()
 
 
 def _debug_log_call(函数名: str, 参数: tuple, 返回值: Any = None):

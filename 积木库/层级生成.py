@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""光明积木『层级生成』v0.13 —— 把若干低级积木组合固化成高级积木（成语式宏）。
+"""段言积木『层级生成』v0.13 —— 把若干低级积木组合固化成高级积木（成语式宏）。
 
-把一个组合配方（组成步骤）内联展开为一个导出的 段落，相当于光明的「成语式宏」：
-**高级积木 = 低级积木的成语组合**。生成的 .light 自动注册进 索引.json（层级=1），
+把一个组合配方（组成步骤）内联展开为一个导出的 段落，相当于段言的「成语式宏」：
+**高级积木 = 低级积木的成语组合**。生成的 .duan 自动注册进 索引.json（层级=1），
 即可像普通积木一样被选中、被链式、再被组合成 L2——这正是「3-7 块搭一级、
 层层向上」设想的落地点。
 
@@ -27,15 +27,30 @@ _HERE = os.path.abspath(os.path.dirname(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
-from 粘合 import _提取段落   # noqa: E402
+from 粘合 import _提取段落, _安全块路径   # noqa: E402
 
 
 def _结果变量(i):
     return '赵果%d' % (i + 1)
 
 
+def _并行输出类型(steps, 块表):
+    """并行 L1 的输出 = 各步结果拼成的列表。
+
+    v0.18：各步输出同类型 T 时精确标注为 列表[T]（如 描述统计 -> 列表[数]），
+    异构时才退化为 列表[任意]。此前一律写死 '列表'，上层块永远只能渐进匹配。
+    """
+    ts = set()
+    for s in steps:
+        b = 块表.get(s.get('块')) or {}
+        out = b.get('输出') or {}
+        ts.add((out.get('类型') if isinstance(out, dict) else None) or '任意')
+    只 = ts.pop() if len(ts) == 1 else '任意'
+    return '列表[%s]' % 只
+
+
 def generate(配方, 库根=_HERE):
-    """把配方合成一个 L1+ 积木 .light，返回 (源码, 索引条目)。"""
+    """把配方合成一个 L1+ 积木 .duan，返回 (源码, 索引条目)。"""
     名称 = 配方['名称']
     领域 = 配方['领域']
     层级 = 配方.get('层级', 1)
@@ -48,7 +63,7 @@ def generate(配方, 库根=_HERE):
     入参 = ', '.join(p['名'] for p in 输入) or '入料'
 
     lines = [
-        '# 由 光明积木层级生成 v0.13 自动合成（成语式宏展开）',
+        '# 由 段言积木层级生成 v0.13 自动合成（成语式宏展开）',
         '# 层级：%d · 领域：%s · 名称：%s' % (层级, 领域, 名称),
         '# 描述：' + str(配方.get('描述', '')),
         '',
@@ -61,9 +76,9 @@ def generate(配方, 库根=_HERE):
         if key in seen:
             continue
         seen.add(key)
-        blk_path = os.path.join(库根, s.get('路径') or '')
+        blk_path = _安全块路径(库根, s.get('路径') or '')
         if not os.path.isfile(blk_path):
-            blk_path = os.path.join(库根, s['领域'], s['块'] + '.light')
+            blk_path = os.path.join(库根, s['领域'], s['块'] + '.duan')
         if os.path.isfile(blk_path):
             lines.append('# ── 积木：%s（%s）──' % (s['块'], s['领域']))
             lines.append(_提取段落(blk_path))
@@ -95,9 +110,14 @@ def generate(配方, 库根=_HERE):
         '输入': 输入,
         '输出': 配方.get('输出', {'类型': '数'}),
         '稳定性': 配方.get('稳定性', 'stable'),
-        '路径': '%s/%s.light' % (领域, 名称),
+        '路径': '%s/%s.duan' % (领域, 名称),
         '导出名': 导出名,
     }
+    # v0.20：配方里的可选契约字段必须透传，否则 自动织 标的 选块可见=False 会被丢掉，
+    # 聚合脚手架又会回到候选池里遮蔽被它包含的精确块（跑分 C04 就是这么退化的）
+    for k in ('选块可见', '样例', '期望'):
+        if k in 配方:
+            条目[k] = 配方[k]
     return 源码, 条目
 
 
@@ -169,31 +189,42 @@ def 自动织(库根=_HERE):
             '输入': [{'名': spec['入名'], '类型': spec['入类型']}],
             '组成': steps,
             '返回': '[' + ', '.join('赵果%d' % (i + 1) for i in range(n)) + ']',
-            '输出': {'类型': '列表'}, '稳定性': 'generated',
+            '输出': {'类型': _并行输出类型(steps, 块表)}, '稳定性': 'generated',
         }
         源码, 条目 = generate(配方, 库根=库根)
-        out = os.path.join(库根, 条目['领域'], 条目['名称'] + '.light')
+        out = os.path.join(库根, 条目['领域'], 条目['名称'] + '.duan')
         os.makedirs(os.path.dirname(out), exist_ok=True)
         with open(out, 'w', encoding='utf-8') as f:
             f.write(源码)
         if _写入索引(条目, 索引路径):
             创建.append(条目['名称'])
 
-    # 2) 自动聚类：按「输入类型签名」把同输入的多块聚成「聚合」L1
-    #    （按类型而非参数名聚类，规避 表/序列 等命名差异；限制 2..6 项避免过宽聚合）
+    # 2) 自动聚类：按「领域 + 完整输入类型签名」把同输入的多块聚成「聚合」L1
+    #    v0.19 两处修正：
+    #      a) 参数元数必须全传——旧版无论签名几元都只传首参，导致生成的 L1 一跑就
+    #         「missing positional argument」（冒烟测试首发即抓到 聚合_工具_3项/聚合_文本_2项）
+    #      b) 按领域分桶——旧版按类型全库聚类，会把 网络/工具 之类无关块拼成一盘杂烩，
+    #         生成的「能力」语义上没有意义
+    跳过 = []
     groups = defaultdict(list)
     for b in 块:
         sig = tuple(p.get('类型') for p in (b.get('输入') or []))
-        groups[sig].append(b)
-    for sig, grp in groups.items():
+        if not sig:
+            continue
+        groups[(b.get('领域'), sig)].append(b)
+    for (领域, sig), grp in groups.items():
         grp = [b for b in grp if b.get('导出名')]
         if not (2 <= len(grp) <= 6):
             continue
-        # 领域取多数；入名取首块的参数名（位置调用，命名差异无碍）
-        from collections import Counter
-        领域 = Counter(b.get('领域') for b in grp).most_common(1)[0][0]
-        入名 = (grp[0].get('输入') or [{}])[0].get('名', '入料')
-        入类型 = sig[0] if sig else '列表'
+        # 入名取首块的参数名（位置调用，命名差异无碍）；缺名时按位补
+        首入 = grp[0].get('输入') or []
+        入名表 = []
+        for i, t in enumerate(sig):
+            n = (首入[i].get('名') if i < len(首入) else None) or ('入料%d' % (i + 1))
+            while n in 入名表:                      # 同名参数去重
+                n += '乙'
+            入名表.append(n)
+        入类型 = sig[0]
         seen = set()
         steps = []
         for b in grp:
@@ -202,38 +233,71 @@ def 自动织(库根=_HERE):
             seen.add(b['导出名'])
             steps.append({
                 '块': b['名称'], '领域': b['领域'], '导出名': b['导出名'],
-                '路径': b.get('路径', ''), '参数': [入名],
+                '路径': b.get('路径', ''), '参数': list(入名表),
             })
         if len(steps) < 2:
             continue
-        名 = '聚合_%s_%d项' % (领域, len(steps))
+        # 名字必须带上输入签名：只用「领域+项数」会让两组不同签名的块重名，
+        # 结果是 .duan 被后者覆盖、索引却留着前者，契约与实现对不上（体检 E7）
+        类型标签 = ''.join((t or '任意').split('[')[0] for t in sig)
+        名 = '聚合_%s_%s_%d项' % (领域, 类型标签, len(steps))
         配方 = {
             '名称': 名, '领域': 领域, '层级': 1,
             '描述': '自动织成：对%s输入并行执行 %s，返回结果列表' % (
                 入类型, '、'.join(s['块'] for s in steps)),
             '导出名': 名,
-            '输入': [{'名': 入名, '类型': 入类型}],
+            '输入': [{'名': n, '类型': t} for n, t in zip(入名表, sig)],
             '组成': steps,
             '返回': '[' + ', '.join('赵果%d' % (i + 1) for i in range(len(steps))) + ']',
-            '输出': {'类型': '列表'}, '稳定性': 'generated',
+            '输出': {'类型': _并行输出类型(steps, 块表)}, '稳定性': 'generated',
+            # 自动聚合是组合脚手架，不是一项「能力」：让它参与选块只会遮蔽被它包含的精确块
+            '选块可见': False,
         }
         源码, 条目 = generate(配方, 库根=库根)
-        out = os.path.join(库根, 领域, 名 + '.light')
+        out = os.path.join(库根, 领域, 名 + '.duan')
         os.makedirs(os.path.dirname(out), exist_ok=True)
         with open(out, 'w', encoding='utf-8') as f:
             f.write(源码)
+        # v0.20 冒烟自检闸门：同输入类型 ≠ 同输入语义。
+        # 「地址转数 + 域名提取」都接文本，并联后无论喂什么都必崩一个；
+        # 「JSON解析 + 键值解析」同理。织完先真跑一次，跑不通就不注册。
+        诊 = _冒烟自检(条目, 库根)
+        if 诊 is not None:
+            跳过.append((名, 诊))
+            continue
         if _写入索引(条目, 索引路径):
             创建.append(名)
 
+    if 跳过:
+        print('[自动织] 冒烟未过、未注册：%s'
+              % '、'.join('%s(%s)' % (n, d) for n, d in 跳过))
     return 创建
+
+
+def _冒烟自检(条目, 库根):
+    """真跑一次织出来的块。通过返回 None，否则返回简短原因。"""
+    try:
+        评估目录 = os.path.join(库根, '评估')
+        if 评估目录 not in sys.path:
+            sys.path.insert(0, 评估目录)
+        import 冒烟 as _smoke
+    except Exception:
+        return None      # 冒烟模块不可用时不阻断织造（退化成 v0.19 行为）
+    try:
+        r = _smoke.跑一块(条目)
+    except Exception as e:
+        return '冒烟异常 %s' % e
+    if r.get('状态') == '通过':
+        return None
+    return ('%s %s' % (r.get('状态'), r.get('详情') or ''))[:80]
 
 
 def _cli(argv=None):
     p = argparse.ArgumentParser(
-        description='光明积木层级生成 v0.13（成语式宏：低级积木 → 高级积木）')
+        description='段言积木层级生成 v0.13（成语式宏：低级积木 → 高级积木）')
     p.add_argument('配方', nargs='?', default=None, help='组合配方 JSON 路径（--自动 时无需提供）')
     p.add_argument('-o', '--输出', default=None,
-                   help='输出 .light 路径（缺省 积木库/<领域>/<名称>.light）')
+                   help='输出 .duan 路径（缺省 积木库/<领域>/<名称>.duan）')
     p.add_argument('--写索引', action='store_true',
                    help='把生成的积木条目追加进 索引.json（幂等）')
     p.add_argument('--自动', action='store_true',
@@ -253,7 +317,7 @@ def _cli(argv=None):
     源码, 条目 = generate(配方)
 
     out = args.输出 or os.path.join(
-        _HERE, 条目['领域'], 条目['名称'] + '.light')
+        _HERE, 条目['领域'], 条目['名称'] + '.duan')
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, 'w', encoding='utf-8') as f:
         f.write(源码)

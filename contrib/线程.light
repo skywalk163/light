@@ -1,125 +1,85 @@
-class线程:
-    def__init__(self,函数,*参数,名称=无,守护线程=假,**关键字参数):
-        self._函数=函数
-        self._参数=参数
-        self._关键字参数=关键字参数
-        self._结果=无
-        self._异常=无
-        self._已完成=假
-        self._线程=无
-    
-    def开始(self):
-        self._线程=_创建线程(self._函数,self._参数,self._关键字参数,self)
-    
-    def等待(self,超时=无):
-        返回_等待线程(self._线程,超时)
-    
-    def是否存活(self):
-        返回_线程是否存活(self._线程)
-    
-    def是否完成(self):
-        返回self._已完成
-    
-    def获取结果(self,超时=无):
-        self.等待(超时=超时)
-        如果self._异常不是无:
-            抛出错误(self._异常)
-        如果不self._已完成:
-            抛出错误("线程执行超时")
-        返回self._结果
-    
-    def获取异常(self):
-        返回self._异常
+# class线程:
+#     def__init__(self,函数,*参数,名称=无,守护线程=假,**关键字参数):
+#
+#     def开始(self):
+#
+#     def等待(self,超时=无):
+#
+#     def是否存活(self):
+#
+#     def是否完成(self):
+#         返回self._已完成
+#
+#     def获取结果(self,超时=无):
+#             抛出错误("线程执行超时")
+#         返回self._结果
+#
+#     def获取异常(self):
+#         返回self._异常
+#
+# class互斥锁:
+#     def__init__(self,可重入=假):
+#
+#     def加锁(self,阻塞=真,超时=-1):
+#
+#     def解锁(self):
+#
+#     def已锁定(self):
+#
+# class信号量:
+#     def__init__(self,初始值=1):
+#
+#     def获取(self,阻塞=真,超时=无):
+#
+#     def释放(self,n=1):
+#
+# class事件:
+#     def__init__(self):
+#
+#     def设置(self):
+#
+#     def清除(self):
+#
+#     def是否已设置(self):
+#
+#     def等待(self,超时=无):
+#
+# class线程安全队列:
+#     def__init__(self,最大容量=0):
+#
+#     def入队(self,项目,阻塞=真,超时=无):
+#
+#     def出队(self,阻塞=真,超时=无):
+#
+#     def大小(self):
+#
+#     def空(self):
+#
+#     def满(self):
+#
+#     def清空(self):
+#
+# class线程池:
+#     def__init__(self,最大线程数=4):
+#
+#     def启动(self):
+#
+#     def提交(self,函数,*参数,结果回调=无,**关键字参数):
+#
+#     def等待完成(self):
+#
+#     def关闭(self,等待=真):
+#
+#     def取活跃任务数(self):
+#
+#     def取待处理任务数(self):
+#
+#     def取最大线程数(self):
+#         返回self._最大线程数
+#
+# 用法：
+#   从《线程》导入《创建线程》。
 
-
-class互斥锁:
-    def__init__(self,可重入=假):
-        self._锁=_创建互斥锁(可重入)
-    
-    def加锁(self,阻塞=真,超时=-1):
-        返回_加锁(self._锁,阻塞,超时)
-    
-    def解锁(self):
-        _解锁(self._锁)
-    
-    def已锁定(self):
-        返回_锁是否已锁定(self._锁)
-
-
-class信号量:
-    def__init__(self,初始值=1):
-        self._信号量=_创建信号量(初始值)
-    
-    def获取(self,阻塞=真,超时=无):
-        返回_获取信号量(self._信号量,阻塞,超时)
-    
-    def释放(self,n=1):
-        对于i在范围(n):
-            _释放信号量(self._信号量)
-
-
-class事件:
-    def__init__(self):
-        self._事件=_创建事件()
-    
-    def设置(self):
-        _设置事件(self._事件)
-    
-    def清除(self):
-        _清除事件(self._事件)
-    
-    def是否已设置(self):
-        返回_事件是否已设置(self._事件)
-    
-    def等待(self,超时=无):
-        返回_等待事件(self._事件,超时)
-
-
-class线程安全队列:
-    def__init__(self,最大容量=0):
-        self._队列=_创建线程安全队列(最大容量)
-    
-    def入队(self,项目,阻塞=真,超时=无):
-        _队列入队(self._队列,项目,阻塞,超时)
-    
-    def出队(self,阻塞=真,超时=无):
-        返回_队列出队(self._队列,阻塞,超时)
-    
-    def大小(self):
-        返回_队列大小(self._队列)
-    
-    def空(self):
-        返回_队列空(self._队列)
-    
-    def满(self):
-        返回_队列满(self._队列)
-    
-    def清空(self):
-        _队列清空(self._队列)
-
-
-class线程池:
-    def__init__(self,最大线程数=4):
-        self._最大线程数=最大线程数
-        self._线程池=_创建线程池(最大线程数)
-    
-    def启动(self):
-        _启动线程池(self._线程池)
-    
-    def提交(self,函数,*参数,结果回调=无,**关键字参数):
-        _线程池提交(self._线程池,函数,参数,关键字参数,结果回调)
-    
-    def等待完成(self):
-        _线程池等待完成(self._线程池)
-    
-    def关闭(self,等待=真):
-        _线程池关闭(self._线程池,等待)
-    
-    def取活跃任务数(self):
-        返回_线程池活跃任务数(self._线程池)
-    
-    def取待处理任务数(self):
-        返回_线程池待处理数(self._线程池)
-    
-    def取最大线程数(self):
-        返回self._最大线程数
+导出 创建线程 当前线程 当前线程标识 活跃线程数 主线程 枚举线程。
+导出 线程 互斥锁 信号量 事件 条件变量 栅栏。
+导出 线程安全队列 线程池 并发执行 并发执行带参数。

@@ -1,237 +1,154 @@
-class消息:
-    def__init__(self,内容,类型="普通",发送者=无,消息标识=无):
-        self.类型=类型
-        self.内容=内容
-        self.发送者=发送者
-        self.消息标识=消息标识或者_生成标识()
-        self.时间戳=_当前时间()
+# class消息:
+#     def__init__(self,内容,类型="普通",发送者=无,消息标识=无):
+#
+# classActor引用:
+#     def__init__(self,actor,系统):
+#
+#     def发送(self,消息内容,发送者=无):
+#         发送者路径=发送者.路径如果发送者否则无
+#         msg=消息(消息内容,类型="普通",发送者=发送者路径)
+#         返回msg.消息标识
+#
+#     def请求(self,消息内容,超时=5.0):
+#         结果队列=_创建队列()
+#         消息标识=_生成标识()
+#
+#         def回复处理器(msg):
+#             结果队列.放入(msg.内容)
+#
+#         msg=消息(消息内容,类型="普通",发送者="临时:"+消息标识,消息标识=消息标识)
+#
+#         返回结果队列.取出(超时=超时)
+#
+#     def停止(self):
+#         msg=消息("停止",类型="系统")
+#
+# classActor:
+#     def__init__(self,名称=无):
+#
+#     def接收消息(self,消息):
+#
+#     def_运行(self):
+#         尝试:
+#                 尝试:
+#                 捕获错误:
+#                     继续
+#         最后:
+#
+#     def_启动前(self):
+#         跳过
+#
+#     def_停止后(self):
+#         跳过
+#
+#     def_处理消息(self,msg):
+#                 返回
+#
+#             消息标识=msg.发送者.分割(":",1)[1]
+#         否则:
+#
+#     def处理(self,消息):
+#         返回无
+#
+#     def_处理错误(self,异常):
+#         否则:
+#
+#     def_子Actor错误(self,子Actor,异常):
+#         否则如果self._监督策略=="停止":
+#             子Actor.停止()
+#         否则如果self._监督策略=="继续":
+#             跳过
+#
+#     def_重启子Actor(self,子Actor):
+#         现在=_当前时间()
+#
+#             打印("Actor"+子Actor.路径+"重启次数超限，停止")
+#             子Actor.停止()
+#             返回
+#
+#         子Actor.停止()
+#         子Actor._等待停止()
+#
+#         新Actor=类型(子Actor)(子Actor.名称.分割("/")[-1])
+#         新Actor.路径=子Actor.路径
+#         新Actor._父Actor=self
+#         新Actor._启动()
+#
+#     def创建子Actor(self,actor_class,名称=无):
+#         名称=名称或者"子Actor_"+_生成标识()[:8]
+#         子Actor=actor_class(名称)
+#         子Actor._父Actor=self
+#         子Actor._启动()
+#
+#     def_启动(self):
+#
+#     def_等待停止(self):
+#
+#     def停止(self):
+#         msg=消息("停止",类型="系统")
+#
+#     def设置监督策略(self,策略):
+#
+#     def获取子Actor(self,名称):
+#         返回无
+#
+# classActor系统:
+#     def__init__(self,名称="Actor系统"):
+#
+#     def创建Actor(self,actor_class,名称=无):
+#         名称=名称或者"Actor_"+_生成标识()[:8]
+#             抛出错误("Actor"+名称+"已存在")
+#
+#         actor=actor_class(名称)
+#         actor.路径="/user/"+名称
+#         actor._系统=self
+#         actor._启动()
+#         返回Actor引用(actor,self)
+#
+#     def获取Actor(self,路径):
+#             名称=路径[长度("/user/"):]
+#                 返回Actor引用(actor,self)
+#         返回无
+#
+#     def停止Actor(self,名称):
+#             actor.停止()
+#             actor._等待停止()
+#             删除self._Actors[名称]
+#
+#     def_注册临时回复处理器(self,消息标识,处理器):
+#         尝试:
+#         最后:
+#
+#     def_触发临时回复(self,消息标识,消息):
+#         尝试:
+#         最后:
+#             处理器(消息)
+#
+#     def关闭(self):
+#             actor.停止()
+#             actor._等待停止()
+#
+#     def__enter__(self):
+#         返回self
+#
+#     def__exit__(self,exc_type,exc_val,exc_tb):
+#         返回假
+#
+# class简单Actor(Actor):
+#     def__init__(self,处理函数,名称=无):
+#         父类.__init__(名称)
+#
+#     def处理(self,消息):
+#         返回self._处理函数(消息)
+#
+# def创建Actor系统(名称="Actor系统"):
+#     返回Actor系统(名称)
+#
+# def创建简单Actor(系统,处理函数,名称=无):
+#     返回系统.创建Actor(lambda n=名称:简单Actor(处理函数,n),名称)
+#
+# 用法：
+#   从《Actor模型》导入《消息类型》。
 
-classActor引用:
-    def__init__(self,actor,系统):
-        self._actor=actor
-        self._系统=系统
-        self.路径=actor.路径
-        self.名称=actor.名称
-
-    def发送(self,消息内容,发送者=无):
-        发送者路径=发送者.路径如果发送者否则无
-        msg=消息(消息内容,类型="普通",发送者=发送者路径)
-        self._actor.接收消息(msg)
-        返回msg.消息标识
-
-    def请求(self,消息内容,超时=5.0):
-        结果队列=_创建队列()
-        消息标识=_生成标识()
-
-        def回复处理器(msg):
-            结果队列.放入(msg.内容)
-
-        self._系统._注册临时回复处理器(消息标识,回复处理器)
-
-        msg=消息(消息内容,类型="普通",发送者="临时:"+消息标识,消息标识=消息标识)
-        self._actor.接收消息(msg)
-
-        返回结果队列.取出(超时=超时)
-
-    def停止(self):
-        msg=消息("停止",类型="系统")
-        self._actor.接收消息(msg)
-
-classActor:
-    def__init__(self,名称=无):
-        self.名称=名称或者"Actor_"+_生成标识()[:8]
-        self.路径=self.名称
-        self._邮箱=_创建队列()
-        self._线程=无
-        self._运行中=假
-        self._系统=无
-        self._父Actor=无
-        self._子Actor={}
-        self._监督策略="重启"
-        self._重启次数=0
-        self._最大重启次数=10
-        self._重启窗口=60.0
-        self._重启时间记录=[]
-
-    def接收消息(self,消息):
-        self._邮箱.放入(消息)
-
-    def_运行(self):
-        self._运行中=真
-        self._启动前()
-        尝试:
-            当self._运行中:
-                尝试:
-                    msg=self._邮箱.取出(超时=0.1)
-                    self._处理消息(msg)
-                捕获错误:
-                    继续
-        最后:
-            self._停止后()
-            self._运行中=假
-
-    def_启动前(self):
-        跳过
-
-    def_停止后(self):
-        跳过
-
-    def_处理消息(self,msg):
-        如果msg.类型=="系统":
-            如果msg.内容=="停止":
-                self._运行中=假
-                返回
-
-        如果msg.发送者并且msg.发送者.开始于("临时:"):
-            消息标识=msg.发送者.分割(":",1)[1]
-            结果=self.处理(msg.内容)
-            self._系统._触发临时回复(消息标识,消息(结果,类型="回复"))
-        否则:
-            self.处理(msg.内容)
-
-    def处理(self,消息):
-        返回无
-
-    def_处理错误(self,异常):
-        如果self._父Actor:
-            self._父Actor._子Actor错误(self,异常)
-        否则:
-            打印("Actor"+self.路径+"错误:"+字符串(异常))
-
-    def_子Actor错误(self,子Actor,异常):
-        如果self._监督策略=="重启":
-            self._重启子Actor(子Actor)
-        否则如果self._监督策略=="停止":
-            子Actor.停止()
-        否则如果self._监督策略=="继续":
-            跳过
-
-    def_重启子Actor(self,子Actor):
-        现在=_当前时间()
-        self._重启时间记录=[t对于t在self._重启时间记录如果现在-t<self._重启窗口]
-
-        如果长度(self._重启时间记录)>=self._最大重启次数:
-            打印("Actor"+子Actor.路径+"重启次数超限，停止")
-            子Actor.停止()
-            返回
-
-        self._重启时间记录.添加(现在)
-        子Actor.停止()
-        子Actor._等待停止()
-
-        新Actor=类型(子Actor)(子Actor.名称.分割("/")[-1])
-        self._子Actor[子Actor.名称]=新Actor
-        新Actor.路径=子Actor.路径
-        新Actor._系统=self._系统
-        新Actor._父Actor=self
-        新Actor._启动()
-
-    def创建子Actor(self,actor_class,名称=无):
-        名称=名称或者"子Actor_"+_生成标识()[:8]
-        子Actor=actor_class(名称)
-        子Actor.路径=self.路径+"/"+名称
-        子Actor._系统=self._系统
-        子Actor._父Actor=self
-        self._子Actor[名称]=子Actor
-        子Actor._启动()
-        返回Actor引用(子Actor,self._系统)
-
-    def_启动(self):
-        如果不self._运行中:
-            self._线程=_创建线程(self._运行)
-
-    def_等待停止(self):
-        如果self._线程:
-            _等待线程(self._线程,超时=5.0)
-
-    def停止(self):
-        msg=消息("停止",类型="系统")
-        self.接收消息(msg)
-
-    def设置监督策略(self,策略):
-        self._监督策略=策略
-
-    def获取子Actor(self,名称):
-        子Actor=self._子Actor.获取(名称)
-        如果子Actor:
-            返回Actor引用(子Actor,self._系统)
-        返回无
-
-classActor系统:
-    def__init__(self,名称="Actor系统"):
-        self.名称=名称
-        self._Actors={}
-        self._临时回复处理器={}
-        self._锁=_创建互斥锁()
-        self._运行中=真
-
-    def创建Actor(self,actor_class,名称=无):
-        名称=名称或者"Actor_"+_生成标识()[:8]
-        如果名称在self._Actors:
-            抛出错误("Actor"+名称+"已存在")
-
-        actor=actor_class(名称)
-        actor.路径="/user/"+名称
-        actor._系统=self
-        self._Actors[名称]=actor
-        actor._启动()
-        返回Actor引用(actor,self)
-
-    def获取Actor(self,路径):
-        如果路径.开始于("/user/"):
-            名称=路径[长度("/user/"):]
-            actor=self._Actors.获取(名称)
-            如果actor:
-                返回Actor引用(actor,self)
-        返回无
-
-    def停止Actor(self,名称):
-        actor=self._Actors.获取(名称)
-        如果actor:
-            actor.停止()
-            actor._等待停止()
-            删除self._Actors[名称]
-
-    def_注册临时回复处理器(self,消息标识,处理器):
-        _加锁(self._锁)
-        尝试:
-            self._临时回复处理器[消息标识]=处理器
-        最后:
-            _解锁(self._锁)
-
-    def_触发临时回复(self,消息标识,消息):
-        _加锁(self._锁)
-        尝试:
-            处理器=self._临时回复处理器.弹出(消息标识,无)
-        最后:
-            _解锁(self._锁)
-        如果处理器:
-            处理器(消息)
-
-    def关闭(self):
-        self._运行中=假
-        对于名称,actor在列表(self._Actors.项()):
-            actor.停止()
-            actor._等待停止()
-        self._Actors.清空()
-
-    def__enter__(self):
-        返回self
-
-    def__exit__(self,exc_type,exc_val,exc_tb):
-        self.关闭()
-        返回假
-
-class简单Actor(Actor):
-    def__init__(self,处理函数,名称=无):
-        父类.__init__(名称)
-        self._处理函数=处理函数
-
-    def处理(self,消息):
-        返回self._处理函数(消息)
-
-def创建Actor系统(名称="Actor系统"):
-    返回Actor系统(名称)
-
-def创建简单Actor(系统,处理函数,名称=无):
-    返回系统.创建Actor(lambda n=名称:简单Actor(处理函数,n),名称)
+导出 消息类型 监督策略 消息 Actor引用 Actor Actor系统。
+导出 简单Actor 创建Actor系统 创建简单Actor。

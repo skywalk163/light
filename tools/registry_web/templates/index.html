@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>段言包注册中心</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <a href="/" class="logo">📦 段言包注册中心</a>
+                <div class="search-box">
+                    <form action="/search" method="get">
+                        <input type="text" name="q" placeholder="搜索包名、描述或关键词..." value="{{search_query}}">
+                        <button type="submit">搜索</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="stats-bar">
+            <div class="stat">
+                <span class="stat-number">{{total_packages}}</span>
+                <span class="stat-label">包总数</span>
+            </div>
+            <div class="stat">
+                <span class="stat-number">{{total_downloads}}</span>
+                <span class="stat-label">总下载量</span>
+            </div>
+            <div class="stat">
+                <span class="stat-number">段言</span>
+                <span class="stat-label">语言</span>
+            </div>
+        </div>
+
+        <div class="section-header">
+            <h2>所有包</h2>
+            <span class="badge">注册中心: {{registry_url}}</span>
+        </div>
+
+        <div class="package-grid">
+            {{package_list}}
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>段言（Duan）包注册中心 · 使用 <code>duan pkg install &lt;包名&gt;</code> 安装包</p>
+            <p class="footer-links">
+                <a href="https://gitcode.com/duan-lang" target="_blank">段言官网</a>
+                <a href="https://gitcode.com/duan-lang/registry" target="_blank">段件库</a>
+            </p>
+        </div>
+    </footer>
+</body>
+</html>

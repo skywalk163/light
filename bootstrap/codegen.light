@@ -7,7 +7,7 @@
 导入 light_ast
 导入 token
 
-导出 generate, init_generator, get_output
+导出 generate, init_generator, get_output, gen_match_pattern
 
 # =============================================================================
 # Generator state
@@ -324,6 +324,41 @@
   返回 "None"
 
 # =============================================================================
+# Match pattern code generation
+# =============================================================================
+段落 gen_match_pattern 接收 state, pattern：
+  设 kind 为 列表获取(pattern, 1)
+  设 value 为 列表获取(pattern, 2)
+  设 elements 为 列表获取(pattern, 3)
+  设 type_name 为 列表获取(pattern, 4)
+  设 binding 为 列表获取(pattern, 5)
+  # 通配符
+  如果 kind 等于 "wildcard"：
+    返回 "_"
+  # 数字模式
+  如果 kind 等于 "number"：
+    返回 value
+  # 字符串模式
+  如果 kind 等于 "string"：
+    返回 "'" 加 value 加 "'"
+  # 布尔模式
+  如果 kind 等于 "bool"：
+    如果 value 等于 "真"：
+      返回 "True"
+    返回 "False"
+  # 空模式
+  如果 kind 等于 "null"：
+    返回 "None"
+  # 变量绑定
+  如果 kind 等于 "variable"：
+    返回 binding
+  # 类型检查模式
+  如果 kind 等于 "type_check"：
+    返回 type_name 加 "() as " 加 binding
+  # 默认通配符
+  返回 "_"
+
+# =============================================================================
 # Statement code generation
 # =============================================================================
 段落 gen_stmt 接收 state, node：
@@ -483,6 +518,148 @@
     设 code 为 gen_expr(state, expr)
     add_line(state, code)
     返回
+  # Interface definition: ["interface_def", name, methods, super_interfaces]
+  如果 node_type 等于 "interface_def"：
+    设 name 为 列表获取(node, 1)
+    设 methods 为 列表获取(node, 2)
+    设 super_interfaces 为 列表获取(node, 3)
+    设 bases 为 "ABC"
+    设 i 为 0
+    当 i 小于 列表长度(super_interfaces)：
+      设 bases 为 bases 加 ", " 加 列表获取(super_interfaces, i)
+      i 加上 1
+    add_line(state, "class " 加 name 加 "(" 加 bases 加 "):")
+    indent_push(state)
+    设 j 为 0
+    当 j 小于 列表长度(methods)：
+      设 method 为 列表获取(methods, j)
+      设 method_name 为 列表获取(method, 1)
+      设 params 为 列表获取(method, 2)
+      设 return_type 为 列表获取(method, 3)
+      add_line(state, "@abstractmethod")
+      设 param_str 为 "self"
+      设 k 为 0
+      当 k 小于 列表长度(params)：
+        设 param_pair 为 列表获取(params, k)
+        设 param_str 为 param_str 加 ", " 加 列表获取(param_pair, 0)
+        k 加上 1
+      如果 return_type 不等于 空 且 return_type 不等于 ""：
+        add_line(state, "def " 加 method_name 加 "(" 加 param_str 加 ") -> " 加 return_type 加 ":")
+      否则：
+        add_line(state, "def " 加 method_name 加 "(" 加 param_str 加 "):")
+      indent_push(state)
+      add_line(state, "pass")
+      indent_pop(state)
+      j 加上 1
+    如果 列表长度(methods) 等于 0：
+      add_line(state, "pass")
+    indent_pop(state)
+    add_line(state, "")
+    返回
+  # Match statement: ["match_stmt", subject, cases]
+  如果 node_type 等于 "match_stmt"：
+    设 subject 为 gen_expr(state, 列表获取(node, 1))
+    设 cases 为 列表获取(node, 2)
+    add_line(state, "match " 加 subject 加 ":")
+    indent_push(state)
+    设 i 为 0
+    当 i 小于 列表长度(cases)：
+      设 case_node 为 列表获取(cases, i)
+      设 pattern 为 列表获取(case_node, 1)
+      设 guard 为 列表获取(case_node, 2)
+      设 body 为 列表获取(case_node, 3)
+      # 生成模式代码
+      设 pattern_code 为 gen_match_pattern(state, pattern)
+      设 guard_str 为 ""
+      如果 guard 不等于 空：
+        设 guard_str 为 " if " 加 gen_expr(state, guard)
+      add_line(state, "case " 加 pattern_code 加 guard_str 加 ":")
+      indent_push(state)
+      如果 列表长度(body) 大于 0：
+        设 j 为 0
+        当 j 小于 列表长度(body)：
+          gen_stmt(state, 列表获取(body, j))
+          j 加上 1
+      否则：
+        add_line(state, "pass")
+      indent_pop(state)
+      i 加上 1
+    indent_pop(state)
+    add_line(state, "")
+    返回
+  # With statement: ["with_stmt", context_expr, variable, body]
+  如果 node_type 等于 "with_stmt"：
+    设 context_expr 为 gen_expr(state, 列表获取(node, 1))
+    设 variable 为 列表获取(node, 2)
+    设 body 为 列表获取(node, 3)
+    如果 variable 不等于 空 且 variable 不等于 ""：
+      add_line(state, "with " 加 context_expr 加 " as " 加 variable 加 ":")
+    否则：
+      add_line(state, "with " 加 context_expr 加 ":")
+    indent_push(state)
+    设 i 为 0
+    当 i 小于 列表长度(body)：
+      gen_stmt(state, 列表获取(body, i))
+      i 加上 1
+    indent_pop(state)
+    返回
+  # Try statement: ["try_stmt", try_body, catch_clauses, finally_body]
+  如果 node_type 等于 "try_stmt"：
+    设 try_body 为 列表获取(node, 1)
+    设 catch_clauses 为 列表获取(node, 2)
+    设 finally_body 为 列表获取(node, 3)
+    add_line(state, "try:")
+    indent_push(state)
+    设 i 为 0
+    当 i 小于 列表长度(try_body)：
+      gen_stmt(state, 列表获取(try_body, i))
+      i 加上 1
+    indent_pop(state)
+    # 捕获子句
+    设 j 为 0
+    当 j 小于 列表长度(catch_clauses)：
+      设 clause 为 列表获取(catch_clauses, j)
+      设 catch_type 为 列表获取(clause, 0)
+      设 catch_var 为 列表获取(clause, 1)
+      设 catch_body 为 列表获取(clause, 2)
+      设 except_str 为 "except"
+      如果 catch_type 不等于 空 且 catch_type 不等于 ""：
+        设 except_str 为 except_str 加 " " 加 catch_type
+      如果 catch_var 不等于 空 且 catch_var 不等于 ""：
+        设 except_str 为 except_str 加 " as " 加 catch_var
+      否则 如果 catch_type 等于 空 或 catch_type 等于 ""：
+        设 except_str 为 except_str 加 " Exception"
+      add_line(state, except_str 加 ":")
+      indent_push(state)
+      设 k 为 0
+      当 k 小于 列表长度(catch_body)：
+        gen_stmt(state, 列表获取(catch_body, k))
+        k 加上 1
+      indent_pop(state)
+      j 加上 1
+    # 最终子句
+    如果 finally_body 不等于 空：
+      add_line(state, "finally:")
+      indent_push(state)
+      设 m 为 0
+      当 m 小于 列表长度(finally_body)：
+        gen_stmt(state, 列表获取(finally_body, m))
+        m 加上 1
+      indent_pop(state)
+    返回
+  # Throw statement: ["throw_stmt", value, from_expr]
+  如果 node_type 等于 "throw_stmt"：
+    设 value 为 列表获取(node, 1)
+    设 from_expr 为 列表获取(node, 2)
+    如果 value 等于 空：
+      add_line(state, "raise")
+    否则：
+      设 value_code 为 gen_expr(state, value)
+      设 from_str 为 ""
+      如果 from_expr 不等于 空：
+        设 from_str 为 " from " 加 gen_expr(state, from_expr)
+      add_line(state, "raise " 加 value_code 加 from_str)
+    返回
   # Default: skip unknown nodes
   返回
 
@@ -493,6 +670,7 @@
   add_line(state, "# Generated by Light bootstrap compiler")
   add_line(state, "import sys")
   add_line(state, "import types")
+  add_line(state, "from abc import ABC, abstractmethod")
   add_line(state, "_light_builtin = types.ModuleType('_light_builtin')")
   add_line(state, "_light_builtin.打印 = print")
   add_line(state, "_light_builtin.转字符串 = str")

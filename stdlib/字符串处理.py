@@ -80,6 +80,16 @@ def 截取(s: str, start: int, end: Optional[int] = None) -> str:
     return s[start:end]
 
 
+def 字符串截取(s: str, start: int, end: Optional[int] = None) -> str:
+    """字符串截取（别名，对应 STDLIB_VERB_ARITY 注册）"""
+    return 截取(s, start, end)
+
+
+def 是数字符(s: str) -> bool:
+    """判断字符串是否全为数字字符"""
+    return s.isdigit()
+
+
 def 重复(s: str, n: int) -> str:
     """重复字符串 n 次"""
     return s * n

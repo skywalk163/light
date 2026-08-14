@@ -6,6 +6,7 @@ LLVM 代码生成器 - 类型版 (v3)
 
 from typing import Optional, Tuple, List
 import sys
+import platform as _platform
 import ast_nodes as ast
 try:
     from .codegen import LLVMCodeGen
@@ -13,11 +14,26 @@ except ImportError:
     from codegen import LLVMCodeGen
 
 
+def _detect_target_arch_internal(target_arg: str = None) -> str:
+    """内部目标架构检测函数（避免循环导入）"""
+    if target_arg is None:
+        machine = _platform.machine().lower()
+        if machine in ('aarch64', 'arm64', 'armv8l', 'armv8b'):
+            return 'aarch64'
+        return 'x86_64'
+    target_lower = target_arg.lower().replace('-', '_').replace(' ', '_')
+    if any(t in target_lower for t in ('aarch64', 'arm64', 'armv8')):
+        return 'aarch64'
+    if any(t in target_lower for t in ('x86_64', 'x64', 'amd64', 'x86')):
+        return 'x86_64'
+    return 'x86_64'
+
+
 # LLVM 结构体类型：与 C 端 LightValue 布局匹配
 # C 结构: { int type, int64_t i64, double f64, char* str, int boolean,
 #           int list_size, int list_capacity, struct LightValue** list_data }
 # 注意：为了安全起见，使用足够大的结构体（与 C sizeof(LightValue) 匹配）
-DUANVALUE_STRUCT = '{ i32, i64, double, ptr, i32, i32, i32, ptr }'
+LIGHTVALUE_STRUCT = '{ i32, i64, double, ptr, i32, i32, i32, ptr }'
 
 
 # DWARF 调试信息标记
@@ -45,7 +61,7 @@ _DEBUG_METADATA_KINDS = {
 class TypedLLVMCodeGen(LLVMCodeGen):
     """类型版 LLVM 代码生成器"""
 
-    def __init__(self, target_platform: str = None, debug: bool = False):
+    def __init__(self, target_platform: str = None, target_arch: str = None, debug: bool = False):
         super().__init__()
         self._dv_struct_slots = {}  # 栈上分配的结构体槽位
         self._classes = {}  # 类定义收集：class_name -> ClassDefinition
@@ -67,6 +83,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._coro_resume_point = 0  # 下一个 await 点的编号
         # 目标平台：win32 / linux / darwin，默认根据当前系统判断
         self.target_platform = target_platform or sys.platform
+        # 目标架构：x86_64 / aarch64，默认根据参数或本地架构检测
+        self.target_arch = _detect_target_arch_internal(target_arch) if target_arch else 'x86_64'
         # IR 优化：SSA 值到 slot 指针的缓存，避免冗余 load/store
         self._dv_ssa_to_slot = {}  # dv_ssa_reg -> slot_ptr
         # 调试信息生成（DWARF）
@@ -103,7 +121,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         """为局部变量分配 LightValue 栈空间（重写父类）"""
         if name not in self._local_vars or self._local_vars[name] is None:
             reg = self.new_register()
-            line = f'{reg} = alloca {DUANVALUE_STRUCT}'
+            line = f'{reg} = alloca {LIGHTVALUE_STRUCT}'
             self._pending_allocas.append(line)
             self._local_vars[name] = reg
 
@@ -365,6 +383,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare i32 @dv_register_static_method(ptr, ptr, ptr)',
             f'declare void @dv_call_class_method(ptr, ptr, ptr, ptr, i32)',
             f'declare void @dv_call_static_method(ptr, ptr, ptr, ptr, i32)',
+            # 接口 vtable 分发
+            f'declare i32 @dv_call_interface_method(ptr, ptr, ptr, ptr, ptr, i32)',
             # 异常栈追踪
             f'declare void @dv_stack_push(ptr, ptr, i32)',
             f'declare void @dv_stack_pop()',
@@ -424,7 +444,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         """从临时槽位池中分配一个新的 LightValue 槽位（避免动态 alloca 导致栈溢出）"""
         if self._temp_slot_pool is None:
             reg = self.new_register()
-            self.emit(f'{reg} = alloca {DUANVALUE_STRUCT}')
+            self.emit(f'{reg} = alloca {LIGHTVALUE_STRUCT}')
             return reg
         
         if self._temp_slot_index >= self._temp_slot_pool_size:
@@ -433,37 +453,37 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         idx = self._temp_slot_index
         self._temp_slot_index += 1
         reg = self.new_register()
-        self.emit(f'{reg} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {self._temp_slot_pool}, i64 {idx}')
+        self.emit(f'{reg} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {self._temp_slot_pool}, i64 {idx}')
         return reg
 
     def _set_type(self, slot: str, type_val: int):
         """设置 LightValue 槽位的 type 字段"""
         ptr = self.new_register()
-        self.emit(f'{ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {slot}, i32 0, i32 0')
+        self.emit(f'{ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {slot}, i32 0, i32 0')
         self.emit(f'store i32 {type_val}, ptr {ptr}')
 
     def _set_i64(self, slot: str, i64_val: str):
         """设置 LightValue 槽位的 i64 字段"""
         ptr = self.new_register()
-        self.emit(f'{ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {slot}, i32 0, i32 1')
+        self.emit(f'{ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {slot}, i32 0, i32 1')
         self.emit(f'store i64 {i64_val}, ptr {ptr}')
 
     def _set_f64(self, slot: str, f64_val: str):
         """设置 LightValue 槽位的 f64 字段"""
         ptr = self.new_register()
-        self.emit(f'{ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {slot}, i32 0, i32 2')
+        self.emit(f'{ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {slot}, i32 0, i32 2')
         self.emit(f'store double {f64_val}, ptr {ptr}')
 
     def _set_str(self, slot: str, str_val: str):
         """设置 LightValue 槽位的 str 字段"""
         ptr = self.new_register()
-        self.emit(f'{ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {slot}, i32 0, i32 3')
+        self.emit(f'{ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {slot}, i32 0, i32 3')
         self.emit(f'store ptr {str_val}, ptr {ptr}')
 
     def _load_dv(self, slot: str) -> str:
         """加载整个 LightValue 作为 SSA 值"""
         reg = self.new_register()
-        self.emit(f'{reg} = load {DUANVALUE_STRUCT}, ptr {slot}')
+        self.emit(f'{reg} = load {LIGHTVALUE_STRUCT}, ptr {slot}')
         return reg
 
     def _store_dv(self, dv_reg: str) -> str:
@@ -471,7 +491,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if dv_reg in self._dv_ssa_to_slot:
             return self._dv_ssa_to_slot[dv_reg]
         slot = self._new_dv_slot()
-        self.emit(f'store {DUANVALUE_STRUCT} {dv_reg}, ptr {slot}')
+        self.emit(f'store {LIGHTVALUE_STRUCT} {dv_reg}, ptr {slot}')
         self._dv_ssa_to_slot[dv_reg] = slot
         return slot
 
@@ -567,19 +587,19 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     def _extract_i64(self, dv_reg: str) -> str:
         """从 LightValue 中提取 i64 值"""
         reg = self.new_register()
-        self.emit(f'{reg} = extractvalue {DUANVALUE_STRUCT} {dv_reg}, 1')
+        self.emit(f'{reg} = extractvalue {LIGHTVALUE_STRUCT} {dv_reg}, 1')
         return reg
 
     def _extract_f64(self, dv_reg: str) -> str:
         """从 LightValue 中提取 double 值"""
         reg = self.new_register()
-        self.emit(f'{reg} = extractvalue {DUANVALUE_STRUCT} {dv_reg}, 2')
+        self.emit(f'{reg} = extractvalue {LIGHTVALUE_STRUCT} {dv_reg}, 2')
         return reg
 
     def _extract_bool(self, dv_reg: str) -> str:
         """从 LightValue 中提取 bool 值（返回 i1）"""
         i32_reg = self.new_register()
-        self.emit(f'{i32_reg} = extractvalue {DUANVALUE_STRUCT} {dv_reg}, 4')
+        self.emit(f'{i32_reg} = extractvalue {LIGHTVALUE_STRUCT} {dv_reg}, 4')
         i1_reg = self.new_register()
         self.emit(f'{i1_reg} = trunc i32 {i32_reg} to i1')
         return i1_reg
@@ -588,10 +608,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         """快速创建 INT 类型 LightValue（直接构造结构体）"""
         slot = self._new_dv_slot()
         type_ptr = self.new_register()
-        self.emit(f'{type_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {slot}, i32 0, i32 0')
+        self.emit(f'{type_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {slot}, i32 0, i32 0')
         self.emit(f'store i32 1, ptr {type_ptr}')
         i64_ptr = self.new_register()
-        self.emit(f'{i64_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {slot}, i32 0, i32 1')
+        self.emit(f'{i64_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {slot}, i32 0, i32 1')
         self.emit(f'store i64 {i64_reg}, ptr {i64_ptr}')
         return self._load_dv(slot)
 
@@ -599,10 +619,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         """快速创建 FLOAT 类型 LightValue（直接构造结构体）"""
         slot = self._new_dv_slot()
         type_ptr = self.new_register()
-        self.emit(f'{type_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {slot}, i32 0, i32 0')
+        self.emit(f'{type_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {slot}, i32 0, i32 0')
         self.emit(f'store i32 2, ptr {type_ptr}')
         f64_ptr = self.new_register()
-        self.emit(f'{f64_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {slot}, i32 0, i32 2')
+        self.emit(f'{f64_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {slot}, i32 0, i32 2')
         self.emit(f'store double {f64_reg}, ptr {f64_ptr}')
         return self._load_dv(slot)
 
@@ -1020,15 +1040,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             stack_save = self.new_register()
             self.emit(f'{stack_save} = call ptr @llvm.stacksave()')
             args_arr = self.new_register()
-            self.emit(f'{args_arr} = alloca {DUANVALUE_STRUCT}, i32 {num_args}')
+            self.emit(f'{args_arr} = alloca {LIGHTVALUE_STRUCT}, i32 {num_args}')
             for i, arg_dv in enumerate(args):
                 elem_ptr = self.new_register()
-                self.emit(f'{elem_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {args_arr}, i64 {i}')
-                self.emit(f'store {DUANVALUE_STRUCT} {arg_dv}, ptr {elem_ptr}')
+                self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {args_arr}, i64 {i}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {arg_dv}, ptr {elem_ptr}')
             self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr}, i32 {num_args})')
             self.emit(f'call void @llvm.stackrestore(ptr {stack_save})')
         result = self.new_register()
-        self.emit(f'{result} = load {DUANVALUE_STRUCT}, ptr {result_slot}')
+        self.emit(f'{result} = load {LIGHTVALUE_STRUCT}, ptr {result_slot}')
         return result, 'dv'
 
     def _gen_typed_builtin(self, name: str, args: List[str]) -> Optional[Tuple[str, str]]:
@@ -1057,7 +1077,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if not args:
                 return self._create_int_dv('0'), 'dv'
             dbl = self.new_register()
-            self.emit(f'{dbl} = extractvalue {DUANVALUE_STRUCT} {args[0]}, 2')
+            self.emit(f'{dbl} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 2')
             fmt_reg = self.gen_string_constant("%Y-%m-%d %H:%M:%S")
             out = self.new_register()
             self.emit(f'{out} = call ptr @dv_format_time(double {dbl}, ptr {fmt_reg})')
@@ -1066,7 +1086,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('文件存在', 'file_exists', 'path_exists'):
             if args:
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {DUANVALUE_STRUCT} {args[0]}, 3')
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
                 file_reg = self.new_register()
                 self.emit(f'{file_reg} = call i32 @dv_file_exists(ptr {path_ptr})')
                 cmp = self.new_register()
@@ -1077,7 +1097,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('读取文件', 'read_file', 'load_file', '_读文件'):
             if args:
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {DUANVALUE_STRUCT} {args[0]}, 3')
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
                 out = self.new_register()
                 self.emit(f'{out} = call ptr @dv_read_file(ptr {path_ptr})')
                 return self._create_str_dv(out), 'dv'
@@ -1086,25 +1106,25 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('写入文件', 'write_file', 'save_file'):
             if len(args) >= 2:
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {DUANVALUE_STRUCT} {args[0]}, 3')
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
                 str_ptr = self.new_register()
-                self.emit(f'{str_ptr} = extractvalue {DUANVALUE_STRUCT} {args[1]}, 3')
+                self.emit(f'{str_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
                 self.emit(f'call void @dv_write_file(ptr {path_ptr}, ptr {str_ptr})')
             return self._create_int_dv('0'), 'dv'
 
         if name in ('追加文件', 'append_file', 'write_append'):
             if len(args) >= 2:
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {DUANVALUE_STRUCT} {args[0]}, 3')
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
                 str_ptr = self.new_register()
-                self.emit(f'{str_ptr} = extractvalue {DUANVALUE_STRUCT} {args[1]}, 3')
+                self.emit(f'{str_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
                 self.emit(f'call void @dv_append_file(ptr {path_ptr}, ptr {str_ptr})')
             return self._create_int_dv('0'), 'dv'
 
         if name in ('文件大小', 'file_size'):
             if args:
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {DUANVALUE_STRUCT} {args[0]}, 3')
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
                 size = self.new_register()
                 self.emit(f'{size} = call i64 @dv_file_size(ptr {path_ptr})')
                 return self._create_int_dv(size), 'dv'
@@ -1113,7 +1133,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('删除文件', 'delete_file', 'remove_file'):
             if args:
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {DUANVALUE_STRUCT} {args[0]}, 3')
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
                 ret = self.new_register()
                 self.emit(f'{ret} = call i32 @dv_delete_file(ptr {path_ptr})')
                 ret_i64 = self.new_register()
@@ -1124,14 +1144,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('列出目录', 'list_dir', 'dir_list'):
             if args:
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {DUANVALUE_STRUCT} {args[0]}, 3')
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
                 return self._call_dv_func('dv_list_dir', f'ptr {path_ptr}'), 'dv'
             return self._call_dv_func('dv_list_new'), 'dv'
 
         if name in ('环境变量', 'getenv', 'get_env'):
             if args:
                 name_ptr = self.new_register()
-                self.emit(f'{name_ptr} = extractvalue {DUANVALUE_STRUCT} {args[0]}, 3')
+                self.emit(f'{name_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
                 out = self.new_register()
                 self.emit(f'{out} = call ptr @dv_getenv(ptr {name_ptr})')
                 return self._create_str_dv(out), 'dv'
@@ -1140,9 +1160,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('设置环境变量', 'setenv', 'set_env'):
             if len(args) >= 2:
                 name_ptr = self.new_register()
-                self.emit(f'{name_ptr} = extractvalue {DUANVALUE_STRUCT} {args[0]}, 3')
+                self.emit(f'{name_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
                 val_ptr = self.new_register()
-                self.emit(f'{val_ptr} = extractvalue {DUANVALUE_STRUCT} {args[1]}, 3')
+                self.emit(f'{val_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
                 ret = self.new_register()
                 self.emit(f'{ret} = call i32 @dv_setenv(ptr {name_ptr}, ptr {val_ptr})')
                 ret_i64 = self.new_register()
@@ -1158,7 +1178,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('切换目录', 'chdir', 'cd'):
             if args:
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {DUANVALUE_STRUCT} {args[0]}, 3')
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
                 ret = self.new_register()
                 self.emit(f'{ret} = call i32 @dv_chdir(ptr {path_ptr})')
                 ret_i64 = self.new_register()
@@ -1169,7 +1189,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('执行命令', 'system', 'exec'):
             if args:
                 cmd_ptr = self.new_register()
-                self.emit(f'{cmd_ptr} = extractvalue {DUANVALUE_STRUCT} {args[0]}, 3')
+                self.emit(f'{cmd_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
                 ret = self.new_register()
                 self.emit(f'{ret} = call i32 @dv_system(ptr {cmd_ptr})')
                 ret_i64 = self.new_register()
@@ -1180,7 +1200,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('退出程序', '退出', 'exit'):
             if args:
                 code_i64 = self.new_register()
-                self.emit(f'{code_i64} = extractvalue {DUANVALUE_STRUCT} {args[0]}, 1')
+                self.emit(f'{code_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
                 code_i32 = self.new_register()
                 self.emit(f'{code_i32} = trunc i64 {code_i64} to i32')
                 self.emit(f'call void @dv_exit(i32 {code_i32})')
@@ -1235,30 +1255,30 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('插入', 'insert', 'list_insert'):
             if len(args) >= 3:
                 idx_i64 = self.new_register()
-                self.emit(f'{idx_i64} = extractvalue {DUANVALUE_STRUCT} {args[1]}, 1')
+                self.emit(f'{idx_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
                 return self._call_dv_func('dv_list_insert', args[0], f'i64 {idx_i64}', args[2]), 'dv'
             return self._call_dv_func('dv_list_new'), 'dv'
 
         if name in ('删除', 'remove', 'list_remove'):
             if len(args) >= 2:
                 idx_i64 = self.new_register()
-                self.emit(f'{idx_i64} = extractvalue {DUANVALUE_STRUCT} {args[1]}, 1')
+                self.emit(f'{idx_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
                 return self._call_dv_func('dv_list_remove', args[0], f'i64 {idx_i64}'), 'dv'
             return self._call_dv_func('dv_list_new'), 'dv'
 
         if name in ('设置', 'set', 'list_set'):
             if len(args) >= 3:
                 idx_i64 = self.new_register()
-                self.emit(f'{idx_i64} = extractvalue {DUANVALUE_STRUCT} {args[1]}, 1')
+                self.emit(f'{idx_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
                 return self._call_dv_func('dv_list_set', args[0], f'i64 {idx_i64}', args[2]), 'dv'
             return self._call_dv_func('dv_list_new'), 'dv'
 
         if name in ('索引查找', 'index_of', 'list_index'):
             if len(args) >= 2:
                 slot0 = self._new_dv_slot()
-                self.emit(f'store {DUANVALUE_STRUCT} {args[0]}, ptr {slot0}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {args[0]}, ptr {slot0}')
                 slot1 = self._new_dv_slot()
-                self.emit(f'store {DUANVALUE_STRUCT} {args[1]}, ptr {slot1}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {args[1]}, ptr {slot1}')
                 idx = self.new_register()
                 self.emit(f'{idx} = call i64 @dv_list_index_of(ptr {slot0}, ptr {slot1})')
                 return self._create_int_dv(idx), 'dv'
@@ -1267,9 +1287,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('包含', 'contains', 'list_contains'):
             if len(args) >= 2:
                 slot0 = self._new_dv_slot()
-                self.emit(f'store {DUANVALUE_STRUCT} {args[0]}, ptr {slot0}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {args[0]}, ptr {slot0}')
                 slot1 = self._new_dv_slot()
-                self.emit(f'store {DUANVALUE_STRUCT} {args[1]}, ptr {slot1}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {args[1]}, ptr {slot1}')
                 val = self.new_register()
                 self.emit(f'{val} = call i64 @dv_list_contains(ptr {slot0}, ptr {slot1})')
                 cmp = self.new_register()
@@ -1290,21 +1310,21 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('列表获取',):
             if len(args) >= 2:
                 idx_i64 = self.new_register()
-                self.emit(f'{idx_i64} = extractvalue {DUANVALUE_STRUCT} {args[1]}, 1')
+                self.emit(f'{idx_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
                 return self._call_dv_func('dv_list_get', args[0], f'i64 {idx_i64}'), 'dv'
             return self._create_int_dv('0'), 'dv'
 
         if name in ('字符串获取',):
             if len(args) >= 2:
                 idx_i64 = self.new_register()
-                self.emit(f'{idx_i64} = extractvalue {DUANVALUE_STRUCT} {args[1]}, 1')
+                self.emit(f'{idx_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
                 return self._call_dv_func('dv_str_get', args[0], f'i64 {idx_i64}'), 'dv'
             return self._create_int_dv('0'), 'dv'
 
         if name in ('获取', 'get', '索引'):
             if len(args) >= 2:
                 idx_i64 = self.new_register()
-                self.emit(f'{idx_i64} = extractvalue {DUANVALUE_STRUCT} {args[1]}, 1')
+                self.emit(f'{idx_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
                 obj_slot = self._store_dv(args[0])
                 type_reg = self.new_register()
                 self.emit(f'{type_reg} = load i32, ptr {obj_slot}')
@@ -1379,13 +1399,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('截取', 'substr', 'substring'):
             if len(args) >= 3:
                 start_i64 = self.new_register()
-                self.emit(f'{start_i64} = extractvalue {DUANVALUE_STRUCT} {args[1]}, 1')
+                self.emit(f'{start_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
                 len_i64 = self.new_register()
-                self.emit(f'{len_i64} = extractvalue {DUANVALUE_STRUCT} {args[2]}, 1')
+                self.emit(f'{len_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[2]}, 1')
                 return self._call_dv_func('dv_substr', args[0], f'i64 {start_i64}', f'i64 {len_i64}'), 'dv'
             if len(args) >= 2:
                 start_i64 = self.new_register()
-                self.emit(f'{start_i64} = extractvalue {DUANVALUE_STRUCT} {args[1]}, 1')
+                self.emit(f'{start_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
                 return self._call_dv_func('dv_substr', args[0], f'i64 {start_i64}', f'i64 -1'), 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
 
@@ -1426,9 +1446,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('连接字符串', 'join', 'str_join', 'implode'):
             if len(args) >= 2:
                 list_ptr = self.new_register()
-                self.emit(f'{list_ptr} = extractvalue {DUANVALUE_STRUCT} {args[0]}, 3')
+                self.emit(f'{list_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
                 sep_ptr = self.new_register()
-                self.emit(f'{sep_ptr} = extractvalue {DUANVALUE_STRUCT} {args[1]}, 3')
+                self.emit(f'{sep_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
                 out = self.new_register()
                 self.emit(f'{out} = call ptr @dv_str_join(ptr {list_ptr}, ptr {sep_ptr})')
                 return self._create_str_dv(out), 'dv'
@@ -1443,7 +1463,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if len(args) >= 2:
                 obj_slot = self._store_dv(args[0])
                 class_name_ptr = self.new_register()
-                self.emit(f'{class_name_ptr} = extractvalue {DUANVALUE_STRUCT} {args[1]}, 3')
+                self.emit(f'{class_name_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
                 result = self.new_register()
                 self.emit(f'{result} = call i32 @dv_isinstance(ptr {obj_slot}, ptr {class_name_ptr})')
                 cmp = self.new_register()
@@ -1535,16 +1555,16 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return list_dv, 'dv'
         
         list_slot = self._new_dv_slot()
-        self.emit(f'store {DUANVALUE_STRUCT} {list_dv}, ptr {list_slot}')
+        self.emit(f'store {LIGHTVALUE_STRUCT} {list_dv}, ptr {list_slot}')
         
         for arg in args:
             cur_list = self.new_register()
-            self.emit(f'{cur_list} = load {DUANVALUE_STRUCT}, ptr {list_slot}')
+            self.emit(f'{cur_list} = load {LIGHTVALUE_STRUCT}, ptr {list_slot}')
             new_list = self._call_dv_func('dv_list_append', cur_list, arg)
-            self.emit(f'store {DUANVALUE_STRUCT} {new_list}, ptr {list_slot}')
+            self.emit(f'store {LIGHTVALUE_STRUCT} {new_list}, ptr {list_slot}')
         
         result = self.new_register()
-        self.emit(f'{result} = load {DUANVALUE_STRUCT}, ptr {list_slot}')
+        self.emit(f'{result} = load {LIGHTVALUE_STRUCT}, ptr {list_slot}')
         return result, 'dv'
 
     def _gen_typed_range(self, args: List[str]) -> Tuple[str, str]:
@@ -1555,13 +1575,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 提取数值
         start_i64 = self.new_register()
         end_i64 = self.new_register()
-        self.emit(f'{start_i64} = extractvalue {DUANVALUE_STRUCT} {start_dv}, 1')
-        self.emit(f'{end_i64} = extractvalue {DUANVALUE_STRUCT} {end_dv}, 1')
+        self.emit(f'{start_i64} = extractvalue {LIGHTVALUE_STRUCT} {start_dv}, 1')
+        self.emit(f'{end_i64} = extractvalue {LIGHTVALUE_STRUCT} {end_dv}, 1')
 
         list_dv = self._call_dv_func('dv_list_new')
         # 使用 alloca 保存列表
         list_slot = self._new_dv_slot()
-        self.emit(f'store {DUANVALUE_STRUCT} {list_dv}, ptr {list_slot}')
+        self.emit(f'store {LIGHTVALUE_STRUCT} {list_dv}, ptr {list_slot}')
 
         idx_slot = self.new_register()
         self.emit(f'{idx_slot} = alloca i64')
@@ -1584,9 +1604,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'{cur_val} = load i64, ptr {idx_slot}')
         elem_dv = self._create_int_dv(cur_val)
         list_val_load = self.new_register()
-        self.emit(f'{list_val_load} = load {DUANVALUE_STRUCT}, ptr {list_slot}')
+        self.emit(f'{list_val_load} = load {LIGHTVALUE_STRUCT}, ptr {list_slot}')
         new_list_dv = self._call_dv_func('dv_list_append', list_val_load, elem_dv)
-        self.emit(f'store {DUANVALUE_STRUCT} {new_list_dv}, ptr {list_slot}')
+        self.emit(f'store {LIGHTVALUE_STRUCT} {new_list_dv}, ptr {list_slot}')
         next_i = self.new_register()
         self.emit(f'{next_i} = add i64 {cur_val}, 1')
         self.emit(f'store i64 {next_i}, ptr {idx_slot}')
@@ -1594,7 +1614,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         self.emit(f'{range_end}:')
         final = self.new_register()
-        self.emit(f'{final} = load {DUANVALUE_STRUCT}, ptr {list_slot}')
+        self.emit(f'{final} = load {LIGHTVALUE_STRUCT}, ptr {list_slot}')
         return final, 'dv'
 
     def _gen_typed_property_access(self, expr) -> Tuple[str, str]:
@@ -1645,13 +1665,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 stack_save = self.new_register()
                 self.emit(f'{stack_save} = call ptr @llvm.stacksave()')
                 args_array = self.new_register()
-                self.emit(f'{args_array} = alloca {DUANVALUE_STRUCT}, i32 {num_args}')
+                self.emit(f'{args_array} = alloca {LIGHTVALUE_STRUCT}, i32 {num_args}')
                 
                 for i, arg in enumerate(expr.arguments):
                     arg_dv, _ = self._gen_expression(arg)
                     arg_elem_ptr = self.new_register()
-                    self.emit(f'{arg_elem_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {args_array}, i32 {i}')
-                    self.emit(f'store {DUANVALUE_STRUCT} {arg_dv}, ptr {arg_elem_ptr}')
+                    self.emit(f'{arg_elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {args_array}, i32 {i}')
+                    self.emit(f'store {LIGHTVALUE_STRUCT} {arg_dv}, ptr {arg_elem_ptr}')
                 
                 self.emit(f'call void @dv_call_super_method(ptr {result_slot}, ptr {obj_slot}, ptr {class_name_reg}, ptr {method_name_reg}, ptr {args_array}, i32 {num_args_i32})')
                 self.emit(f'call void @llvm.stackrestore(ptr {stack_save})')
@@ -1695,13 +1715,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                     stack_save = self.new_register()
                     self.emit(f'{stack_save} = call ptr @llvm.stacksave()')
                     args_array = self.new_register()
-                    self.emit(f'{args_array} = alloca {DUANVALUE_STRUCT}, i32 {num_args}')
+                    self.emit(f'{args_array} = alloca {LIGHTVALUE_STRUCT}, i32 {num_args}')
                     
                     for i, arg in enumerate(expr.arguments):
                         arg_dv, _ = self._gen_expression(arg)
                         arg_elem_ptr = self.new_register()
-                        self.emit(f'{arg_elem_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {args_array}, i32 {i}')
-                        self.emit(f'store {DUANVALUE_STRUCT} {arg_dv}, ptr {arg_elem_ptr}')
+                        self.emit(f'{arg_elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {args_array}, i32 {i}')
+                        self.emit(f'store {LIGHTVALUE_STRUCT} {arg_dv}, ptr {arg_elem_ptr}')
                     
                     if method_type == 'static':
                         self.emit(f'call void @dv_call_static_method(ptr {result_slot}, ptr {class_name_reg}, ptr {method_name_reg}, ptr {args_array}, i32 {num_args_i32})')
@@ -1739,13 +1759,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             stack_save = self.new_register()
             self.emit(f'{stack_save} = call ptr @llvm.stacksave()')
             args_array = self.new_register()
-            self.emit(f'{args_array} = alloca {DUANVALUE_STRUCT}, i32 {num_args}')
+            self.emit(f'{args_array} = alloca {LIGHTVALUE_STRUCT}, i32 {num_args}')
             
             for i, arg in enumerate(expr.arguments):
                 arg_dv, _ = self._gen_expression(arg)
                 arg_elem_ptr = self.new_register()
-                self.emit(f'{arg_elem_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {args_array}, i32 {i}')
-                self.emit(f'store {DUANVALUE_STRUCT} {arg_dv}, ptr {arg_elem_ptr}')
+                self.emit(f'{arg_elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {args_array}, i32 {i}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {arg_dv}, ptr {arg_elem_ptr}')
             
             self.emit(f'call void @dv_call_method(ptr {result_slot}, ptr {obj_slot}, ptr {method_name_reg}, ptr {args_array}, i32 {num_args_i32})')
             self.emit(f'call void @llvm.stackrestore(ptr {stack_save})')
@@ -1794,19 +1814,19 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 stack_save = self.new_register()
                 self.emit(f'{stack_save} = call ptr @llvm.stacksave()')
                 args_array = self.new_register()
-                self.emit(f'{args_array} = alloca {DUANVALUE_STRUCT}, i32 {num_args}')
+                self.emit(f'{args_array} = alloca {LIGHTVALUE_STRUCT}, i32 {num_args}')
                 
                 for i, arg in enumerate(args):
                     arg_dv, _ = self._gen_expression(arg)
                     arg_elem_ptr = self.new_register()
-                    self.emit(f'{arg_elem_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {args_array}, i32 {i}')
-                    self.emit(f'store {DUANVALUE_STRUCT} {arg_dv}, ptr {arg_elem_ptr}')
+                    self.emit(f'{arg_elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {args_array}, i32 {i}')
+                    self.emit(f'store {LIGHTVALUE_STRUCT} {arg_dv}, ptr {arg_elem_ptr}')
                 
                 self.emit(f'call void @dv_call_method(ptr {ctor_result_slot}, ptr {obj_slot}, ptr {ctor_name_reg}, ptr {args_array}, i32 {num_args_i32})')
                 self.emit(f'call void @llvm.stackrestore(ptr {stack_save})')
             
             updated_obj = self._load_dv(obj_slot)
-            self.emit(f'store {DUANVALUE_STRUCT} {updated_obj}, ptr {result_slot}')
+            self.emit(f'store {LIGHTVALUE_STRUCT} {updated_obj}, ptr {result_slot}')
         
         return self._load_dv(result_slot), 'dv'
 
@@ -2019,15 +2039,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             stack_save = self.new_register()
             self.emit(f'{stack_save} = call ptr @llvm.stacksave()')
             args_arr = self.new_register()
-            self.emit(f'{args_arr} = alloca {DUANVALUE_STRUCT}, i32 {num_args}')
+            self.emit(f'{args_arr} = alloca {LIGHTVALUE_STRUCT}, i32 {num_args}')
             for i, arg_dv in enumerate(args):
                 elem_ptr = self.new_register()
-                self.emit(f'{elem_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {args_arr}, i64 {i}')
-                self.emit(f'store {DUANVALUE_STRUCT} {arg_dv}, ptr {elem_ptr}')
+                self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {args_arr}, i64 {i}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {arg_dv}, ptr {elem_ptr}')
             self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr}, i32 {num_args})')
             self.emit(f'call void @llvm.stackrestore(ptr {stack_save})')
         result = self.new_register()
-        self.emit(f'{result} = load {DUANVALUE_STRUCT}, ptr {result_slot}')
+        self.emit(f'{result} = load {LIGHTVALUE_STRUCT}, ptr {result_slot}')
         return result, 'dv'
 
     def _gen_typed_index_access(self, expr) -> Tuple[str, str]:
@@ -2038,7 +2058,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         else:
             idx_dv, _ = self._gen_expression(expr.index)
             i64_reg = self.new_register()
-            self.emit(f'{i64_reg} = extractvalue {DUANVALUE_STRUCT} {idx_dv}, 1')
+            self.emit(f'{i64_reg} = extractvalue {LIGHTVALUE_STRUCT} {idx_dv}, 1')
         obj_slot = self._store_dv(obj_dv)
         type_reg = self.new_register()
         self.emit(f'{type_reg} = load i32, ptr {obj_slot}')
@@ -2062,15 +2082,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     def _gen_typed_list_literal(self, expr) -> Tuple[str, str]:
         list_dv = self._call_dv_func('dv_list_new')
         list_slot = self._new_dv_slot()
-        self.emit(f'store {DUANVALUE_STRUCT} {list_dv}, ptr {list_slot}')
+        self.emit(f'store {LIGHTVALUE_STRUCT} {list_dv}, ptr {list_slot}')
         for elem in expr.elements:
             elem_dv, _ = self._gen_expression(elem)
             cur = self.new_register()
-            self.emit(f'{cur} = load {DUANVALUE_STRUCT}, ptr {list_slot}')
+            self.emit(f'{cur} = load {LIGHTVALUE_STRUCT}, ptr {list_slot}')
             new_list = self._call_dv_func('dv_list_append', cur, elem_dv)
-            self.emit(f'store {DUANVALUE_STRUCT} {new_list}, ptr {list_slot}')
+            self.emit(f'store {LIGHTVALUE_STRUCT} {new_list}, ptr {list_slot}')
         final = self.new_register()
-        self.emit(f'{final} = load {DUANVALUE_STRUCT}, ptr {list_slot}')
+        self.emit(f'{final} = load {LIGHTVALUE_STRUCT}, ptr {list_slot}')
         return final, 'dv'
 
     def _gen_typed_conditional(self, expr) -> Tuple[str, str]:
@@ -2091,17 +2111,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         self.emit(f'{then_lab}:')
         then_dv, _ = self._gen_expression(expr.then_expr)
-        self.emit(f'store {DUANVALUE_STRUCT} {then_dv}, ptr {result_slot}')
+        self.emit(f'store {LIGHTVALUE_STRUCT} {then_dv}, ptr {result_slot}')
         self.emit(f'br label %{end_lab}')
 
         self.emit(f'{else_lab}:')
         else_dv, _ = self._gen_expression(expr.else_expr)
-        self.emit(f'store {DUANVALUE_STRUCT} {else_dv}, ptr {result_slot}')
+        self.emit(f'store {LIGHTVALUE_STRUCT} {else_dv}, ptr {result_slot}')
         self.emit(f'br label %{end_lab}')
 
         self.emit(f'{end_lab}:')
         loaded = self.new_register()
-        self.emit(f'{loaded} = load {DUANVALUE_STRUCT}, ptr {result_slot}')
+        self.emit(f'{loaded} = load {LIGHTVALUE_STRUCT}, ptr {result_slot}')
         return loaded, 'dv'
 
     # ============================================================
@@ -2419,11 +2439,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self_var_slot = self._local_vars.get('己')
                 if self_var_slot is not None:
                     self_dv = self.new_register()
-                    self.emit(f'{self_dv} = load {DUANVALUE_STRUCT}, ptr {self_var_slot}')
-                    self.emit(f'store {DUANVALUE_STRUCT} {self_dv}, ptr %self')
+                    self.emit(f'{self_dv} = load {LIGHTVALUE_STRUCT}, ptr {self_var_slot}')
+                    self.emit(f'store {LIGHTVALUE_STRUCT} {self_dv}, ptr %self')
             if stmt.value:
                 dv_val, _ = self._gen_expression(stmt.value)
-                self.emit(f'store {DUANVALUE_STRUCT} {dv_val}, ptr {self._method_result_ptr}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {dv_val}, ptr {self._method_result_ptr}')
             else:
                 self.emit(f'call void @dv_null(ptr {self._method_result_ptr})')
             self.emit('call void @dv_stack_pop()')
@@ -2431,7 +2451,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         elif self._seg_result_ptr is not None:
             if stmt.value:
                 dv_val, _ = self._gen_expression(stmt.value)
-                self.emit(f'store {DUANVALUE_STRUCT} {dv_val}, ptr {self._seg_result_ptr}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {dv_val}, ptr {self._seg_result_ptr}')
             else:
                 self.emit(f'call void @dv_null(ptr {self._seg_result_ptr})')
             self.emit('call void @dv_stack_pop()')
@@ -2440,11 +2460,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if stmt.value:
                 dv_val, _ = self._gen_expression(stmt.value)
                 self.emit('call void @dv_stack_pop()')
-                self.emit(f'ret {DUANVALUE_STRUCT} {dv_val}')
+                self.emit(f'ret {LIGHTVALUE_STRUCT} {dv_val}')
             else:
                 null_dv = self._call_dv_func('dv_null')
                 self.emit('call void @dv_stack_pop()')
-                self.emit(f'ret {DUANVALUE_STRUCT} {null_dv}')
+                self.emit(f'ret {LIGHTVALUE_STRUCT} {null_dv}')
 
     def _gen_typed_print(self, stmt: ast.PrintStatement):
         if stmt.value:
@@ -2504,12 +2524,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         
         # 分配临时槽位池
         self._temp_slot_pool = self.new_register()
-        self.emit(f'{self._temp_slot_pool} = alloca {DUANVALUE_STRUCT}, i32 {self._temp_slot_pool_size}')
+        self.emit(f'{self._temp_slot_pool} = alloca {LIGHTVALUE_STRUCT}, i32 {self._temp_slot_pool_size}')
 
         self._collect_vars_from_stmts(self._module_statements)
         for vname in self._local_vars.keys():
             reg = self.new_register()
-            self.emit(f'{reg} = alloca {DUANVALUE_STRUCT}')
+            self.emit(f'{reg} = alloca {LIGHTVALUE_STRUCT}')
             self._local_vars[vname] = reg
 
         # 注册内置异常类
@@ -2588,7 +2608,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                     safe = self._safe_var_name(name)
                     slot_alloc = self._new_dv_slot()
                     # For globals, store LightValue in a global struct
-                    self.emit(f'store {DUANVALUE_STRUCT} {dv_val}, {DUANVALUE_STRUCT}* @__var_{safe}')
+                    self.emit(f'store {LIGHTVALUE_STRUCT} {dv_val}, {LIGHTVALUE_STRUCT}* @__var_{safe}')
                 return
         self._gen_statement(stmt)
 
@@ -2626,7 +2646,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         
         # 分配临时槽位池（必须是 entry 块的第一个指令，避免动态 alloca）
         self._temp_slot_pool = self.new_register()
-        self.emit(f'{self._temp_slot_pool} = alloca {DUANVALUE_STRUCT}, i32 {self._temp_slot_pool_size}')
+        self.emit(f'{self._temp_slot_pool} = alloca {LIGHTVALUE_STRUCT}, i32 {self._temp_slot_pool_size}')
 
         # 生成函数调试信息（DISubprogram）
         if self._debug:
@@ -2642,7 +2662,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         for vname in self._local_vars.keys():
             reg = self.new_register()
-            self.emit(f'{reg} = alloca {DUANVALUE_STRUCT}')
+            self.emit(f'{reg} = alloca {LIGHTVALUE_STRUCT}')
             self._local_vars[vname] = reg
 
         if params:
@@ -2660,17 +2680,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'br i1 {in_bounds}, label %{then_lab}, label %{else_lab}')
                 self.emit(f'{then_lab}:')
                 elem_ptr = self.new_register()
-                self.emit(f'{elem_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr %args, i64 {i}')
+                self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr %args, i64 {i}')
                 param_val = self.new_register()
-                self.emit(f'{param_val} = load {DUANVALUE_STRUCT}, ptr {elem_ptr}')
-                self.emit(f'store {DUANVALUE_STRUCT} {param_val}, ptr {param_slot}')
+                self.emit(f'{param_val} = load {LIGHTVALUE_STRUCT}, ptr {elem_ptr}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {param_val}, ptr {param_slot}')
                 self.emit(f'br label %{end_lab}')
                 self.emit(f'{else_lab}:')
                 null_slot = self._new_dv_slot()
                 self.emit(f'call void @dv_null(ptr {null_slot})')
                 null_val = self.new_register()
-                self.emit(f'{null_val} = load {DUANVALUE_STRUCT}, ptr {null_slot}')
-                self.emit(f'store {DUANVALUE_STRUCT} {null_val}, ptr {param_slot}')
+                self.emit(f'{null_val} = load {LIGHTVALUE_STRUCT}, ptr {null_slot}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {null_val}, ptr {param_slot}')
                 self.emit(f'br label %{end_lab}')
                 self.emit(f'{end_lab}:')
 
@@ -2743,12 +2763,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         """将协程指针存储到 LightValue result 中"""
         # 设置 type = 100 (DV_TYPE_COROUTINE)
         type_ptr = self.new_register()
-        self.emit(f'{type_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {result_ptr}, i32 0, i32 0')
+        self.emit(f'{type_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {result_ptr}, i32 0, i32 0')
         self.emit(f'store i32 100, ptr {type_ptr}')
         
         # 设置 ptr_val = coro_ptr
         ptr_val_ptr = self.new_register()
-        self.emit(f'{ptr_val_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {result_ptr}, i32 0, i32 3')
+        self.emit(f'{ptr_val_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {result_ptr}, i32 0, i32 3')
         self.emit(f'store ptr {coro_ptr}, ptr {ptr_val_ptr}')
     
     def _gen_coroutine_function(self, name, params, body, coro_func_name):
@@ -2801,8 +2821,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 arg_ptr = self.new_register()
                 self.emit(f'{arg_ptr} = call ptr @dv_coro_get_arg(ptr %coro, i32 {i})')
                 arg_val = self.new_register()
-                self.emit(f'{arg_val} = load {DUANVALUE_STRUCT}, ptr {arg_ptr}')
-                self.emit(f'store {DUANVALUE_STRUCT} {arg_val}, ptr {local_ptr}')
+                self.emit(f'{arg_val} = load {LIGHTVALUE_STRUCT}, ptr {arg_ptr}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {arg_val}, ptr {local_ptr}')
         
         # 加载 resume_point
         # resume_point 在 LightCoroutine 的 offset 4 (state 在 offset 0)
@@ -3006,7 +3026,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 需要先 store 到内存，然后用 GEP 取 ptr_val
         slot = self._store_dv(dv_val)
         ptr_val_ptr = self.new_register()
-        self.emit(f'{ptr_val_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {slot}, i32 0, i32 3')
+        self.emit(f'{ptr_val_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {slot}, i32 0, i32 3')
         ptr_val = self.new_register()
         self.emit(f'{ptr_val} = load ptr, ptr {ptr_val_ptr}')
         return ptr_val
@@ -3054,12 +3074,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'{result_ptr} = call ptr @dv_coro_get_result(ptr {coro_handles[i]})')
             # 复制结果
             result_val = self.new_register()
-            self.emit(f'{result_val} = load {DUANVALUE_STRUCT}, ptr {result_ptr}')
+            self.emit(f'{result_val} = load {LIGHTVALUE_STRUCT}, ptr {result_ptr}')
             # 存储到变量
             self.alloca_local(var_name)
             var_slot = self._local_vars.get(var_name)
             if var_slot:
-                self.emit(f'store {DUANVALUE_STRUCT} {result_val}, ptr {var_slot}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {result_val}, ptr {var_slot}')
 
     def _gen_module_alias(self, module_name: str, seg_name: str, safe_name: str):
         """为段函数生成模块前缀别名，使其他模块可通过 @_seg_{模块名}_{函数名} 引用"""
@@ -3130,7 +3150,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         for vname in self._local_vars.keys():
             reg = self.new_register()
-            self.emit(f'{reg} = alloca {DUANVALUE_STRUCT}')
+            self.emit(f'{reg} = alloca {LIGHTVALUE_STRUCT}')
             self._local_vars[vname] = reg
 
         # 加载 self/cls 变量（仅实例方法和类方法有）
@@ -3138,8 +3158,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self_var_slot = self._local_vars.get('己')
             if self_var_slot is not None:
                 self_dv = self.new_register()
-                self.emit(f'{self_dv} = load {DUANVALUE_STRUCT}, ptr %self')
-                self.emit(f'store {DUANVALUE_STRUCT} {self_dv}, ptr {self_var_slot}')
+                self.emit(f'{self_dv} = load {LIGHTVALUE_STRUCT}, ptr %self')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {self_dv}, ptr {self_var_slot}')
 
         if params:
             num_args_sext = self.new_register()
@@ -3157,17 +3177,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'br i1 {in_bounds}, label %{then_lab}, label %{else_lab}')
                 self.emit(f'{then_lab}:')
                 elem_ptr = self.new_register()
-                self.emit(f'{elem_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr %args, i64 {i}')
+                self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr %args, i64 {i}')
                 param_val = self.new_register()
-                self.emit(f'{param_val} = load {DUANVALUE_STRUCT}, ptr {elem_ptr}')
-                self.emit(f'store {DUANVALUE_STRUCT} {param_val}, ptr {param_slot}')
+                self.emit(f'{param_val} = load {LIGHTVALUE_STRUCT}, ptr {elem_ptr}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {param_val}, ptr {param_slot}')
                 self.emit(f'br label %{end_lab}')
                 self.emit(f'{else_lab}:')
                 null_slot = self._new_dv_slot()
                 self.emit(f'call void @dv_null(ptr {null_slot})')
                 null_val = self.new_register()
-                self.emit(f'{null_val} = load {DUANVALUE_STRUCT}, ptr {null_slot}')
-                self.emit(f'store {DUANVALUE_STRUCT} {null_val}, ptr {param_slot}')
+                self.emit(f'{null_val} = load {LIGHTVALUE_STRUCT}, ptr {null_slot}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {null_val}, ptr {param_slot}')
                 self.emit(f'br label %{end_lab}')
                 self.emit(f'{end_lab}:')
 
@@ -3180,8 +3200,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self_var_slot = self._local_vars.get('己')
                 if self_var_slot is not None:
                     self_dv = self.new_register()
-                    self.emit(f'{self_dv} = load {DUANVALUE_STRUCT}, ptr {self_var_slot}')
-                    self.emit(f'store {DUANVALUE_STRUCT} {self_dv}, ptr %self')
+                    self.emit(f'{self_dv} = load {LIGHTVALUE_STRUCT}, ptr {self_var_slot}')
+                    self.emit(f'store {LIGHTVALUE_STRUCT} {self_dv}, ptr %self')
             self.emit(f'call void @dv_null(ptr %result)')
 
         self.emit('ret void')
@@ -3218,7 +3238,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self._gen_debug_function('main', line=1, param_names=['argc', 'argv'])
 
         self._temp_slot_pool = self.new_register()
-        self.emit(f'{self._temp_slot_pool} = alloca {DUANVALUE_STRUCT}, i32 {self._temp_slot_pool_size}')
+        self.emit(f'{self._temp_slot_pool} = alloca {LIGHTVALUE_STRUCT}, i32 {self._temp_slot_pool_size}')
 
         self.emit('call void @dv_init_args(i32 %argc, ptr %argv)')
         self.emit('call void @__light_init()')
@@ -3255,7 +3275,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                         args_arr = self._new_dv_slot()
                         for i in range(num_params):
                             elem_ptr = self.new_register()
-                            self.emit(f'{elem_ptr} = getelementptr inbounds {DUANVALUE_STRUCT}, ptr {args_arr}, i64 {i}')
+                            self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {args_arr}, i64 {i}')
                             arg_idx = self.new_register()
                             self.emit(f'{arg_idx} = add i32 1, {i}')
                             has_arg = self.new_register()
@@ -3272,15 +3292,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                             arg_slot = self._new_dv_slot()
                             self.emit(f'call void @dv_str(ptr {arg_slot}, ptr {arg_str})')
                             arg_val = self.new_register()
-                            self.emit(f'{arg_val} = load {DUANVALUE_STRUCT}, ptr {arg_slot}')
-                            self.emit(f'store {DUANVALUE_STRUCT} {arg_val}, ptr {elem_ptr}')
+                            self.emit(f'{arg_val} = load {LIGHTVALUE_STRUCT}, ptr {arg_slot}')
+                            self.emit(f'store {LIGHTVALUE_STRUCT} {arg_val}, ptr {elem_ptr}')
                             self.emit(f'br label %{arg_end}')
                             self.emit(f'{arg_else}:')
                             null_slot = self._new_dv_slot()
                             self.emit(f'call void @dv_null(ptr {null_slot})')
                             null_val = self.new_register()
-                            self.emit(f'{null_val} = load {DUANVALUE_STRUCT}, ptr {null_slot}')
-                            self.emit(f'store {DUANVALUE_STRUCT} {null_val}, ptr {elem_ptr}')
+                            self.emit(f'{null_val} = load {LIGHTVALUE_STRUCT}, ptr {null_slot}')
+                            self.emit(f'store {LIGHTVALUE_STRUCT} {null_val}, ptr {elem_ptr}')
                             self.emit(f'br label %{arg_end}')
                             self.emit(f'{arg_end}:')
                         self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr}, i32 {num_params})')
@@ -3304,12 +3324,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in self._globals:
             safe = self._safe_var_name(name)
             reg = self.new_register()
-            self.emit(f'{reg} = load {DUANVALUE_STRUCT}, {DUANVALUE_STRUCT}* @__var_{safe}')
+            self.emit(f'{reg} = load {LIGHTVALUE_STRUCT}, {LIGHTVALUE_STRUCT}* @__var_{safe}')
             return reg
         if name in self._local_vars:
             slot = self._local_vars[name]
             reg = self.new_register()
-            self.emit(f'{reg} = load {DUANVALUE_STRUCT}, ptr {slot}')
+            self.emit(f'{reg} = load {LIGHTVALUE_STRUCT}, ptr {slot}')
             self._dv_ssa_to_slot[reg] = slot
             return reg
         return None
@@ -3318,10 +3338,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         """设置变量（覆写父类）"""
         if name in self._globals:
             safe = self._safe_var_name(name)
-            self.emit(f'store {DUANVALUE_STRUCT} {value_reg}, {DUANVALUE_STRUCT}* @__var_{safe}')
+            self.emit(f'store {LIGHTVALUE_STRUCT} {value_reg}, {LIGHTVALUE_STRUCT}* @__var_{safe}')
         elif name in self._local_vars:
             slot = self._local_vars[name]
-            self.emit(f'store {DUANVALUE_STRUCT} {value_reg}, ptr {slot}')
+            self.emit(f'store {LIGHTVALUE_STRUCT} {value_reg}, ptr {slot}')
         elif name in self._current_func_params:
             self._current_func_params[name] = value_reg
 
@@ -3341,7 +3361,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         lines.append('')
         for name in self._globals:
             safe = self._safe_var_name(name)
-            lines.append(f'@__var_{safe} = global {DUANVALUE_STRUCT} zeroinitializer')
+            lines.append(f'@__var_{safe} = global {LIGHTVALUE_STRUCT} zeroinitializer')
         if self._globals:
             lines.append('')
         lines.extend(self._lines)

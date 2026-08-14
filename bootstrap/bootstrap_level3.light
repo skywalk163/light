@@ -71,7 +71,16 @@
   返回 假
 
 段落 建 接收 t, v：
-  返回 列表创建(t, v)
+  设 lst 为 列表创建()
+  列表追加(lst, t)
+  列表追加(lst, v)
+  返回 lst
+
+段落 创建对 接收 a, b：
+  设 lst 为 列表创建()
+  列表追加(lst, a)
+  列表追加(lst, b)
+  返回 lst
 
 段落 词 接收 src, p, n, s：
   如果 p 小于 n：
@@ -123,10 +132,10 @@
     设 c 为 字符串获取(src, p)
     如果 c 等于 '"'：
       设 tok 为 建("STR", s)
-      返回 列表创建(tok, p 加 1)
+      返回 创建对(tok, p 加 1)
     返回 字符串(src, p 加 1, n, s 加 c)
   设 tok 为 建("STR", s)
-  返回 列表创建(tok, p)
+  返回 创建对(tok, p)
 
 段落 扫注释 接收 src, p, n：
   如果 p 小于 n：
@@ -239,7 +248,7 @@
       设 right 为 列表获取(右结果, 0)
       设 np 为 列表获取(右结果, 1)
       设 left 为 left 加 " or " 加 right
-  返回 列表创建(left, np)
+  返回 创建对(left, np)
 
 段落 且表达式 接收 toks, p：
   设 结果 为 比较表达式(toks, p)
@@ -256,7 +265,7 @@
       设 right 为 列表获取(右结果, 0)
       设 np 为 列表获取(右结果, 1)
       设 left 为 left 加 " and " 加 right
-  返回 列表创建(left, np)
+  返回 创建对(left, np)
 
 段落 比较表达式 接收 toks, p：
   设 结果 为 加减表达式(toks, p)
@@ -269,33 +278,33 @@
       设 右结果 为 加减表达式(toks, np 加 1)
       设 right 为 列表获取(右结果, 0)
       设 np 为 列表获取(右结果, 1)
-      返回 列表创建(left 加 " == " 加 right, np)
+      返回 创建对(left 加 " == " 加 right, np)
     如果 tv 等于 "小于"：
       设 右结果 为 加减表达式(toks, np 加 1)
       设 right 为 列表获取(右结果, 0)
       设 np 为 列表获取(右结果, 1)
-      返回 列表创建(left 加 " < " 加 right, np)
+      返回 创建对(left 加 " < " 加 right, np)
     如果 tv 等于 "大于"：
       设 右结果 为 加减表达式(toks, np 加 1)
       设 right 为 列表获取(右结果, 0)
       设 np 为 列表获取(右结果, 1)
-      返回 列表创建(left 加 " > " 加 right, np)
+      返回 创建对(left 加 " > " 加 right, np)
     如果 tv 等于 "小于等于"：
       设 右结果 为 加减表达式(toks, np 加 1)
       设 right 为 列表获取(右结果, 0)
       设 np 为 列表获取(右结果, 1)
-      返回 列表创建(left 加 " <= " 加 right, np)
+      返回 创建对(left 加 " <= " 加 right, np)
     如果 tv 等于 "大于等于"：
       设 右结果 为 加减表达式(toks, np 加 1)
       设 right 为 列表获取(右结果, 0)
       设 np 为 列表获取(右结果, 1)
-      返回 列表创建(left 加 " >= " 加 right, np)
+      返回 创建对(left 加 " >= " 加 right, np)
     如果 tv 等于 "不等于"：
       设 右结果 为 加减表达式(toks, np 加 1)
       设 right 为 列表获取(右结果, 0)
       设 np 为 列表获取(右结果, 1)
-      返回 列表创建(left 加 " != " 加 right, np)
-  返回 列表创建(left, np)
+      返回 创建对(left 加 " != " 加 right, np)
+  返回 创建对(left, np)
 
 段落 加减表达式 接收 toks, p：
   设 结果 为 乘除表达式(toks, p)
@@ -318,7 +327,7 @@
         设 left 为 left 加 " - " 加 right
       否则：
         设 继续循环 为 假
-  返回 列表创建(left, np)
+  返回 创建对(left, np)
 
 段落 乘除表达式 接收 toks, p：
   设 结果 为 一元表达式(toks, p)
@@ -347,7 +356,7 @@
           设 left 为 left 加 " % " 加 right
         否则：
           设 继续循环 为 假
-  返回 列表创建(left, np)
+  返回 创建对(left, np)
 
 段落 一元表达式 接收 toks, p：
   如果 p 小于 列表长度(toks)：
@@ -356,7 +365,7 @@
       设 结果 为 一元表达式(toks, p 加 1)
       设 expr 为 列表获取(结果, 0)
       设 np 为 列表获取(结果, 1)
-      返回 列表创建("not " 加 expr, np)
+      返回 创建对("not " 加 expr, np)
     如果 列表获取(tok, 0) 等于 "LPAREN"：
       设 结果 为 表达式(toks, p 加 1)
       设 expr 为 列表获取(结果, 0)
@@ -364,10 +373,10 @@
       如果 np 小于 列表长度(toks)：
         设 tok 为 列表获取(toks, np)
         如果 列表获取(tok, 0) 等于 "RPAREN"：
-          返回 列表创建(expr, np 加 1)
-      返回 列表创建(expr, np)
+          返回 创建对(expr, np 加 1)
+      返回 创建对(expr, np)
     如果 列表获取(tok, 0) 等于 "NUM"：
-      返回 列表创建(列表获取(tok, 1), p 加 1)
+      返回 创建对(列表获取(tok, 1), p 加 1)
     如果 列表获取(tok, 0) 等于 "STR"：
       设 s 为 列表获取(tok, 1)
       设 有单引号 为 假
@@ -377,8 +386,8 @@
           设 有单引号 为 真
         设 i 为 i 加 1
       如果 有单引号：
-        返回 列表创建('"' 加 s 加 '"', p 加 1)
-      返回 列表创建("'" 加 s 加 "'", p 加 1)
+        返回 创建对('"' 加 s 加 '"', p 加 1)
+      返回 创建对("'" 加 s 加 "'", p 加 1)
     如果 列表获取(tok, 0) 等于 "ID"：
       设 name 为 列表获取(tok, 1)
       设 np 为 p 加 1
@@ -388,27 +397,27 @@
           设 参数结果 为 解析参数列表(toks, np 加 1)
           设 args 为 列表获取(参数结果, 0)
           设 np 为 列表获取(参数结果, 1)
-          返回 列表创建(name 加 "(" 加 args 加 ")", np)
-      返回 列表创建(name, np)
-  返回 列表创建("None", p)
+          返回 创建对(name 加 "(" 加 args 加 ")", np)
+      返回 创建对(name, np)
+  返回 创建对("None", p)
 
 段落 解析参数列表 接收 toks, p：
   如果 p 小于 列表长度(toks)：
     设 tok 为 列表获取(toks, p)
     如果 列表获取(tok, 0) 等于 "RPAREN"：
-      返回 列表创建("", p 加 1)
+      返回 创建对("", p 加 1)
     设 结果 为 表达式(toks, p)
     设 first 为 列表获取(结果, 0)
     设 np 为 列表获取(结果, 1)
     设 剩余结果 为 解析更多参数(toks, np, first)
     返回 剩余结果
-  返回 列表创建("", p)
+  返回 创建对("", p)
 
 段落 解析更多参数 接收 toks, p, acc：
   当 p 小于 列表长度(toks)：
     设 tok 为 列表获取(toks, p)
     如果 列表获取(tok, 0) 等于 "RPAREN"：
-      返回 列表创建(acc, p 加 1)
+      返回 创建对(acc, p 加 1)
     如果 列表获取(tok, 0) 等于 "COMMA"：
       设 结果 为 表达式(toks, p 加 1)
       设 next_arg 为 列表获取(结果, 0)
@@ -417,7 +426,7 @@
       设 p 为 np
     否则：
       设 p 为 p 加 1
-  返回 列表创建(acc, p)
+  返回 创建对(acc, p)
 
 段落 find_ret 接收 toks, p：
   如果 p 小于 列表长度(toks)：
@@ -426,8 +435,8 @@
       设 结果 为 表达式(toks, p 加 1)
       设 expr 为 列表获取(结果, 0)
       设 np 为 列表获取(结果, 1)
-      返回 列表创建("return " 加 expr, np)
-  返回 列表创建("pass", p)
+      返回 创建对("return " 加 expr, np)
+  返回 创建对("pass", p)
 
 段落 find_end 接收 toks, p：
   当 p 小于 列表长度(toks)：
@@ -474,8 +483,8 @@
             设 结果 为 表达式(toks, np)
             设 expr 为 列表获取(结果, 0)
             设 np 为 列表获取(结果, 1)
-            返回 列表创建(var 加 " = " 加 expr, np)
-  返回 列表创建("", p)
+            返回 创建对(var 加 " = " 加 expr, np)
+  返回 创建对("", p)
 
 段落 find_matching_end 接收 toks, p, level：
   当 p 小于 列表长度(toks)：
@@ -608,9 +617,9 @@
           如果 else_body 等于 ""：
             设 else_body 为 "    pass"
           设 code 为 code 加 "\nelse:\n" 加 else_body
-          返回 列表创建(code, else_end)
-      返回 列表创建(code, end_p)
-  返回 列表创建("", p)
+          返回 创建对(code, else_end)
+      返回 创建对(code, end_p)
+  返回 创建对("", p)
 
 段落 comp_while 接收 toks, p：
   如果 p 小于 列表长度(toks)：
@@ -624,8 +633,8 @@
       设 body 为 compile_block(toks, np, end_p 减 1, "    ", "")
       如果 body 等于 ""：
         设 body 为 "    pass\n"
-      返回 列表创建("while " 加 cond 加 ":\n" 加 body, end_p)
-  返回 列表创建("", p)
+      返回 创建对("while " 加 cond 加 ":\n" 加 body, end_p)
+  返回 创建对("", p)
 
 段落 comp_for 接收 toks, p：
   如果 p 小于 列表长度(toks)：
@@ -647,8 +656,8 @@
             设 body 为 compile_block(toks, np, end_p 减 1, "    ", "")
             如果 body 等于 ""：
               设 body 为 "    pass\n"
-            返回 列表创建("for " 加 var_name 加 " in " 加 iter_expr 加 ":\n" 加 body, end_p)
-  返回 列表创建("", p)
+            返回 创建对("for " 加 var_name 加 " in " 加 iter_expr 加 ":\n" 加 body, end_p)
+  返回 创建对("", p)
 
 段落 compile_stmts 接收 toks, p, out：
   当 p 小于 列表长度(toks)：
@@ -702,19 +711,19 @@
           设 p 为 np
           设 已处理 为 真
     如果 已处理 等于 假 且 tv 等于 "结束"：
-      返回 列表创建(out, p 加 1)
+      返回 创建对(out, p 加 1)
     如果 已处理 等于 假 且 是函数关键字(tv)：
-      返回 列表创建(out, p)
+      返回 创建对(out, p)
     如果 已处理 等于 假：
       设 p 为 p 加 1
-  返回 列表创建(out, p)
+  返回 创建对(out, p)
 
 段落 解析参数 接收 toks, p：
   如果 p 小于 列表长度(toks)：
     设 tok 为 列表获取(toks, p)
     如果 列表获取(tok, 1) 等于 "接收"：
       返回 收集参数(toks, p 加 1, "")
-  返回 列表创建("", p)
+  返回 创建对("", p)
 
 段落 收集参数 接收 toks, p, acc：
   当 p 小于 列表长度(toks)：
@@ -727,8 +736,8 @@
         如果 末字符 等于 "："：
           设 v 为 截取(v, 0, 字符串长度(v) 减 1)
           如果 acc 等于 ""：
-            返回 列表创建(v, p 加 1)
-          返回 列表创建(acc 加 ", " 加 v, p 加 1)
+            返回 创建对(v, p 加 1)
+          返回 创建对(acc 加 ", " 加 v, p 加 1)
       如果 acc 等于 ""：
         设 acc 为 v
       否则：
@@ -739,8 +748,8 @@
       设 p 为 p 加 1
       设 已处理 为 真
     如果 已处理 等于 假：
-      返回 列表创建(acc, p)
-  返回 列表创建(acc, p)
+      返回 创建对(acc, p)
+  返回 创建对(acc, p)
 
 段落 compile_class 接收 toks, p：
   如果 p 小于 列表长度(toks)：
@@ -754,8 +763,8 @@
         设 np 为 np 加 1
       设 end_p 为 find_matching_end(toks, np, 1)
       设 body 为 compile_class_body(toks, np, end_p 减 1, name)
-      返回 列表创建("class " 加 name 加 ":\n" 加 body, end_p)
-  返回 列表创建("", p)
+      返回 创建对("class " 加 name 加 ":\n" 加 body, end_p)
+  返回 创建对("", p)
 
 段落 compile_class_body 接收 toks, p, end_p, class_name：
   设 out 为 ""
@@ -799,7 +808,7 @@
   如果 body 等于 ""：
     设 body 为 "        pass"
   设 code 为 "    def " 加 name 加 "(" 加 self_param 加 "):\n" 加 body 加 "\n"
-  返回 列表创建(code, method_end)
+  返回 创建对(code, method_end)
 
 段落 compile_top 接收 toks, p, out：
   当 p 小于 列表长度(toks)：
@@ -842,7 +851,7 @@
   如果 body 等于 ""：
     设 body 为 "    pass\n"
   设 code 为 "def " 加 name 加 "(" 加 params 加 "):\n" 加 body 加 "\n"
-  返回 列表创建(code, np)
+  返回 创建对(code, np)
 
 段落 编译 接收 src：
   设 header 为 "# Generated by Light Level 3\n"

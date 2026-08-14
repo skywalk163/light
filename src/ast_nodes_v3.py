@@ -195,6 +195,17 @@ class ParagraphCall(ASTNode):
         return f"《{self.name}》({', '.join(map(str, self.args))})"
 
 
+class FunctionCallExpr(ASTNode):
+    """表达式上的函数调用，用于 func()() 或 obj.method()() 等链式调用"""
+    __slots__ = ('callee', 'args')
+    def __init__(self, callee: ASTNode, args: List[ASTNode]):
+        self.callee = callee
+        self.args = args
+    
+    def __repr__(self):
+        return f"Call({self.callee})({', '.join(map(str, self.args))})"
+
+
 class SliceExpr(ASTNode):
     __slots__ = ('start', 'stop', 'step')
     """切片表达式: start:stop:step"""
@@ -262,17 +273,19 @@ class TypeCheckToggleStmt(ASTNode):
 
 
 class TryStmt(ASTNode):
-    __slots__ = ('try_body', 'catch_clauses', 'catch_type', 'catch_var', 'catch_body', 'finally_body')
+    __slots__ = ('try_body', 'catch_clauses', 'catch_type', 'catch_var', 'catch_body', 'finally_body', 'else_body')
     """异常捕获语句"""
     def __init__(self, try_body: List[ASTNode], catch_clauses: List = None, 
                  catch_type: str = None, catch_var: str = None,
-                 catch_body: List[ASTNode] = None, finally_body: List[ASTNode] = None):
+                 catch_body: List[ASTNode] = None, finally_body: List[ASTNode] = None,
+                 else_body: List[ASTNode] = None):
         self.try_body = try_body
         self.catch_clauses = catch_clauses or []
         self.catch_type = catch_type
         self.catch_var = catch_var
         self.catch_body = catch_body or []
         self.finally_body = finally_body or []
+        self.else_body = else_body or []
     
     def __repr__(self):
         if self.catch_clauses:
@@ -303,6 +316,22 @@ class ThrowStmt(ASTNode):
         if self.from_expr:
             return f"ThrowStmt({self.value} from {self.from_expr})"
         return f"ThrowStmt({self.value})"
+
+
+class AssertStmt(ASTNode):
+    __slots__ = ('condition', 'message')
+    """断言语句
+    
+    语法：断言 <条件>, <可选消息>。
+    """
+    def __init__(self, condition: ASTNode, message: ASTNode = None):
+        self.condition = condition
+        self.message = message
+    
+    def __repr__(self):
+        if self.message:
+            return f"AssertStmt({self.condition}, {self.message})"
+        return f"AssertStmt({self.condition})"
 
 
 class Pipeline(ASTNode):
@@ -665,7 +694,7 @@ class DictComprehension(ASTNode):
 
 class DecoratorDefinition(ASTNode):
     __slots__ = ('decorator_name', 'paragraph', 'args')
-    """装饰器定义"""
+    """装饰器定义（单个装饰器 + 被装饰函数）"""
     def __init__(self, decorator_name: str, paragraph, args=None):
         self.decorator_name = decorator_name
         self.paragraph = paragraph
@@ -675,16 +704,50 @@ class DecoratorDefinition(ASTNode):
         return f"DecoratorDefinition(@{self.decorator_name})"
 
 
+class DecoratorInfo(ASTNode):
+    __slots__ = ('name', 'args')
+    """单个装饰器信息（装饰器名 + 可选参数，不含被装饰函数）"""
+    def __init__(self, name: str, args=None):
+        self.name = name
+        self.args = args  # 可选的装饰器参数列表（如 @repeat(3) 中的 [3]）
+    
+    def __repr__(self):
+        return f"DecoratorInfo(@{self.name})"
+
+
+class DecoratedFunction(ASTNode):
+    __slots__ = ('decorators', 'function')
+    """被装饰器装饰的函数（支持装饰器链）"""
+    def __init__(self, decorators: list, function):
+        self.decorators = decorators  # List[DecoratorInfo]
+        self.function = function  # Paragraph 或 MethodDefinition
+    
+    def __repr__(self):
+        return f"DecoratedFunction({[d.name for d in self.decorators]})"
+
+
 class MethodSignature(ASTNode):
-    __slots__ = ('name', 'parameters', 'return_type')
-    """接口方法签名"""
-    def __init__(self, name: str, parameters: List[Parameter] = None, return_type: str = None):
+    __slots__ = ('name', 'parameters', 'return_type', 'body')
+    """接口方法签名
+
+    body 为 None 表示抽象方法（仅声明，实现类必须覆写）；
+    body 为语句列表表示协议提供的默认实现，实现类可直接继承使用。
+    """
+    def __init__(self, name: str, parameters: List[Parameter] = None,
+                 return_type: str = None, body: List = None):
         self.name = name
         self.parameters = parameters or []
         self.return_type = return_type
-    
+        self.body = body
+
+    @property
+    def is_abstract(self) -> bool:
+        """是否为抽象方法（没有默认实现）"""
+        return not self.body
+
     def __repr__(self):
-        return f"MethodSignature({self.name})"
+        kind = 'abstract' if self.is_abstract else 'default'
+        return f"MethodSignature({self.name}, {kind})"
 
 
 class InterfaceDefinition(ASTNode):
@@ -720,16 +783,29 @@ class DestructuringAssignment(ASTNode):
 
 
 class WithStmt(ASTNode):
-    __slots__ = ('context_expr', 'variable', 'body')
+    __slots__ = ('context_expr', 'variable', 'body', 'is_async', 'items')
     """上下文管理器"""
-    def __init__(self, context_expr: ASTNode, variable: str = None, body: List[ASTNode] = None):
+    def __init__(self, context_expr: ASTNode = None, variable: str = None, body: List[ASTNode] = None, is_async: bool = False, items: list = None):
         self.context_expr = context_expr
         self.variable = variable
         self.body = body or []
+        self.is_async = is_async  # 是否为异步上下文管理器（async with）
+        self.items = items  # 多个上下文管理器列表：[(expr, var), ...]
     
     def __repr__(self):
+        prefix = "async " if self.is_async else ""
         var = f" as {self.variable}" if self.variable else ""
-        return f"WithStmt({self.context_expr}{var})"
+        return f"WithStmt({prefix}{self.context_expr}{var})"
+
+
+class YieldStmt(ASTNode):
+    __slots__ = ('value',)
+    """生成语句（yield）"""
+    def __init__(self, value: Optional[ASTNode] = None):
+        self.value = value
+    
+    def __repr__(self):
+        return f"YieldStmt({self.value})"
 
 
 class DictLiteral(ASTNode):
@@ -1179,3 +1255,115 @@ class EmbedBlock(ASTNode):
     
     def __repr__(self):
         return f"EmbedBlock({self.language}, {len(self.code)} chars)"
+
+
+class TypeAnnotation(ASTNode):
+    """类型注解节点
+
+    表示段言的类型注解，支持以下形式：
+    - 基本类型: 整数, 文本, 布尔, 小数, 空
+    - 列表类型: [整数]（整数列表）
+    - 字典类型: {文本: 整数}（文本键、整数值的字典）
+    - 可选类型: 整数?（可选整数）
+    - 函数类型: 接收 整数, 文本 返回 布尔
+
+    类型注解为零成本：仅用于类型检查与文档，不影响运行时语义。
+    """
+    __slots__ = ('base_type', 'is_optional', 'is_list', 'is_dict',
+                 'key_type', 'value_type', 'params', 'return_type')
+
+    # 段言基本类型名 → Python 类型名（与 code_generator._map_type 保持一致）
+    _DUAN_TO_PYTHON = {
+        '整数': 'int',
+        '小数': 'float',
+        '浮数': 'float',
+        '数': 'float',
+        '文本': 'str',
+        '串': 'str',
+        '布尔': 'bool',
+        '空': 'None',
+        '任意': 'Any',
+        '列表': 'list',
+        '列': 'list',
+        '字典': 'dict',
+        '典': 'dict',
+        '集合': 'set',
+        '集': 'set',
+    }
+
+    def __init__(self, base_type: str = '', is_optional: bool = False,
+                 is_list: bool = False, is_dict: bool = False,
+                 key_type: Optional[str] = None, value_type: Optional[str] = None,
+                 params: Optional[List[str]] = None,
+                 return_type: Optional[str] = None,
+                 line: int = 0, col: int = 0):
+        super().__init__(line, col)
+        self.base_type = base_type
+        self.is_optional = is_optional
+        self.is_list = is_list
+        self.is_dict = is_dict
+        self.key_type = key_type
+        self.value_type = value_type
+        self.params = params if params is not None else []
+        self.return_type = return_type
+
+    def _fields(self):
+        """返回字段元组（用于结构化比较/序列化）"""
+        return (self.base_type, self.is_optional, self.is_list, self.is_dict,
+                self.key_type, self.value_type, tuple(self.params), self.return_type)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典表示"""
+        return {
+            'node': 'TypeAnnotation',
+            'base_type': self.base_type,
+            'is_optional': self.is_optional,
+            'is_list': self.is_list,
+            'is_dict': self.is_dict,
+            'key_type': self.key_type,
+            'value_type': self.value_type,
+            'params': list(self.params),
+            'return_type': self.return_type,
+        }
+
+    @classmethod
+    def _map_basic(cls, duan_type: str) -> str:
+        """将段言基本类型名映射为 Python 类型名"""
+        return cls._DUAN_TO_PYTHON.get(duan_type, duan_type)
+
+    def to_python_type(self) -> str:
+        """转换为 Python 类型表达式字符串"""
+        # 函数类型：接收 ... 返回 ...
+        if self.return_type is not None and self.params:
+            param_py = ', '.join(self._map_basic(p) for p in self.params)
+            ret_py = self._map_basic(self.return_type)
+            base = f"Callable[[{param_py}], {ret_py}]"
+        elif self.is_dict:
+            k = self._map_basic(self.key_type) if self.key_type else 'Any'
+            v = self._map_basic(self.value_type) if self.value_type else 'Any'
+            base = f"Dict[{k}, {v}]"
+        elif self.is_list:
+            elem = self._map_basic(self.base_type) if self.base_type else 'Any'
+            base = f"List[{elem}]"
+        else:
+            base = self._map_basic(self.base_type)
+        # 可选包装
+        if self.is_optional:
+            base = f"Optional[{base}]"
+        return base
+
+    def __repr__(self):
+        if self.return_type is not None and self.params:
+            params_str = ', '.join(self.params)
+            s = f"接收 {params_str} 返回 {self.return_type}"
+        elif self.is_dict:
+            k = self.key_type or ''
+            v = self.value_type or ''
+            s = f"{{{k}: {v}}}"
+        elif self.is_list:
+            s = f"[{self.base_type}]"
+        else:
+            s = self.base_type
+        if self.is_optional:
+            s = f"{s}?"
+        return f"TypeAnnotation({s})"

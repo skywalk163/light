@@ -1,4 +1,4 @@
-site_name: 光明 (LightLang) v6.0
+site_name: 光明 (LightLang) v7.0
 site_description: 光明编程语言 - 中文编程语言的全新可能
 site_author: LightLang Team
 repo_url: https://github.com/skywalk163/light
@@ -8,6 +8,9 @@ edit_uri: edit/main/docs/
 theme:
   name: material
   language: zh
+  font:
+    text: Noto Sans SC
+    code: Noto Sans SC
   features:
     - navigation.instant
     - navigation.tracking
@@ -32,6 +35,7 @@ plugins:
   - git-revision-date-localized:
       enable_creation_date: true
 
+
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
@@ -45,6 +49,9 @@ markdown_extensions:
       alternate_style: true
   - pymdownx.tasklist:
       custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - admonition
   - attr_list
   - md_in_html
@@ -58,10 +65,12 @@ extra:
   generator: false
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/light-lang/light
+      link: https://github.com/skywalk163/light
 
+# 导航：合并前两条主线（ours / theirs）导航条目的并集
 nav:
   - 首页: index.md
+  - 快速开始: getting-started.md
   - 用户手册: user_guide.md
   - 发布说明: release_notes_v6.0.md
   - 已知问题: known_issues.md
@@ -84,20 +93,55 @@ nav:
     - 运算符参考: language/operators.md
     - 类型系统: language/types.md
     - 完整语法参考: language/完整语法参考.md
+    - 语法规范: syntax.md
+    - 完整规范文档: 段言-完整规范文档.md
+    - 类系统设计: class_system_design.md
+    - Trait/协议系统: interface-design.md
+    - 模式匹配: interface-plan.md
+    - 泛型与类型注解: superpowers/specs/2026-07-01-level6-type-annotation-design.md
+    - 模块系统: 模块系统与包管理.md
+    - FFI 外部函数接口: ffi.md
+    - 类型推断系统: HM全局类型推断系统.md
+    - 可空类型系统: 可空类型unwrap系统.md
   - 标准库:
     - 标准库索引: stdlib/index.md
+    - 标准库总览: stdlib.md
     - 数学模块: stdlib/math.md
     - 字符串处理: stdlib/string.md
     - JSON 模块: stdlib/json.md
     - 文件系统: stdlib/file.md
     - 日期时间: stdlib/datetime.md
     - 正则表达式: stdlib/regex.md
+    - API 参考总表: API_REFERENCE.md
+    - 内置函数: api/builtins.md
+    - 标准模块: api/stdlib.md
+    - lightpub 生态: lightpub_integration_design.md
+    - lightpub 包文档:
+      - 索引与分类: duanpub/README.md
+  - 教程:
+    - 30 分钟入门: 30分钟入门段言.md
+    - 入门教程: tutorials/入门教程.md
+    - 进阶教程: tutorials/进阶教程.md
+    - 端到端实战: 端到端实战教程.md
+    - 示例代码: examples.md
   - 工具:
     - CLI 使用指南: tools/cli.md
     - Playground 使用: tools/playground.md
     - LSP 集成: tools/lsp.md
     - 调试器: tools/debugger.md
+    - 工具链总览: tools.md
     - 搜索配置: 搜索配置.md
+  - 项目:
+    - 架构设计: architecture.md
+    - 开发指南: DEVELOPMENT_GUIDE.md
+    - 项目结构: 项目结构说明.md
+    - REPL 设计: REPL_DESIGN.md
+    - 引导策略: BOOTSTRAP_STRATEGY.md
+    - LLVM 后端: llvm_backend_design.md
+    - 性能优化: PERFORMANCE_OPTIMIZATION.md
+    - 优化分析: OPTIMIZATION_ANALYSIS.md
+    - 项目计划: 三个月工作计划_2026Q3Q4.md
+    - 进度报告: PROGRESS_REPORT.md
   - 生态:
     - 教学资源: ecosystem/教学资源.md
   - 迁移指南:
@@ -113,4 +157,14 @@ nav:
     - 开发指南: 知识库/开发指南.md
     - 最佳实践: 知识库/最佳实践.md
     - 常见问题: 知识库/常见问题.md
+  - 变更记录:
+    - 版本日志: https://github.com/skywalk163/light/blob/main/CHANGELOG.md
+    - 语言扩展历史: LANGUAGE_EXTENSIONS.md
+    - 语法变更:
+      - v3.1: 统一语法规范_v3.1.md
+      - v3.2: 统一语法规范_v3.2.md
+      - v3.4: 语法变更_v3.4.md
+      - v3.5: 语法变更_v3.5.md
+    - 最终总结: FINAL_SUMMARY.md
   - 贡献指南: contributing.md
+

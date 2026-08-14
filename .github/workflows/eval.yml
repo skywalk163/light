@@ -1,0 +1,64 @@
+name: 积木库五把尺子
+
+# 为什么单独一条流水线：ci.yml 跑的是段言语言本体的 tests/，积木库（选块器 / 概念词典 /
+# 契约索引 / 兜底）此前零 CI 覆盖，回归全靠人手跑脚本。这条流水线把「五把尺子 + 硬门槛」
+# 变成合入 main 的前置条件：留出段掉点、主基准掉链路、块跑不起来，PR 直接红。
+#
+# 门槛写在 积木库/评估/门槛.json（数据不是代码）；判定逻辑见 积木库/评估/ci_eval.py。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '积木库/**'
+      - 'cli/**'
+      - 'src/**'
+      - 'stdlib/**'
+      - '.github/workflows/eval.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '积木库/**'
+      - 'cli/**'
+      - 'src/**'
+      - 'stdlib/**'
+      - '.github/workflows/eval.yml'
+  schedule:
+    # 每天 01:00 UTC ≈ 北京时间 09:00：即使没人提交，也盯一次环境漂移
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: eval-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  五把尺子:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 装积木可选依赖
+        # 少数块（转拼音 / 农历互转）依赖第三方包。装不上也不致命：
+        # 冒烟会把它们标成「缺依赖」单列，不计入可运行率分母（见 冒烟.py v0.27）。
+        continue-on-error: true
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pypinyin lunardate opencc-python-reimplemented
+
+      - name: 五把尺子 + 硬门槛
+        run: python 积木库/评估/ci_eval.py --并发 8
+
+      - name: 上传评测报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 积木库评测报告-${{ github.sha }}
+          path: 积木库/评估/报告/
+          retention-days: 30

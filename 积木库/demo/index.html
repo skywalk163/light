@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>段言积木库 · 演示画廊</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --line:#2a2f3a;
+    --fg:#e6e9ef; --dim:#9aa4b2; --acc:#5b8cff; --acc2:#38d39f;
+    --warn:#f0a742; --bad:#ff6b6b; --code:#0b0d11;
+    --mono:'Cascadia Code','JetBrains Mono',Consolas,'Courier New',monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:system-ui,'Segoe UI','Microsoft YaHei',sans-serif;line-height:1.55}
+  header{padding:22px 26px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#171a21,#12141a)}
+  header h1{margin:0;font-size:20px;letter-spacing:.5px}
+  header p{margin:6px 0 0;color:var(--dim);font-size:13px}
+  header .tag{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:10px;
+    font-size:11px;background:#20304f;color:#9db8ff;border:1px solid #2c4373;vertical-align:middle}
+  .wrap{max-width:1080px;margin:0 auto;padding:22px 20px 60px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:18px;margin-bottom:18px}
+  .card h2{margin:0 0 12px;font-size:15px;color:#cfd6e2;font-weight:600}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label.f{font-size:12px;color:var(--dim);display:block;margin:0 0 4px}
+  input[type=text]{background:var(--code);border:1px solid var(--line);border-radius:8px;
+    color:var(--fg);padding:10px 12px;font-size:14px;width:100%;font-family:var(--mono)}
+  input[type=text]:focus{outline:none;border-color:var(--acc)}
+  .grow{flex:1;min-width:220px}
+  .btn{background:var(--acc);color:#fff;border:none;border-radius:8px;padding:10px 20px;
+    font-size:14px;cursor:pointer;font-weight:600;white-space:nowrap}
+  .btn:hover{filter:brightness(1.08)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);cursor:pointer;user-select:none}
+  .gallery{display:flex;gap:8px;flex-wrap:wrap}
+  .ex{background:var(--panel2);border:1px solid var(--line);border-radius:20px;
+    padding:7px 14px;font-size:13px;cursor:pointer;color:#dfe5ee;transition:.15s}
+  .ex:hover{border-color:var(--acc);color:#fff}
+  .ex b{color:var(--acc2);font-weight:600}
+  .ex small{display:block;color:var(--dim);font-size:11px;margin-top:1px}
+  .status{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12px;margin-bottom:12px}
+  .pill{padding:3px 10px;border-radius:12px;border:1px solid var(--line);background:var(--panel2)}
+  .pill.ok{color:var(--acc2);border-color:#245} .pill.fb{color:var(--warn)}
+  .pill.err{color:var(--bad)}
+  .blocks{display:flex;flex-direction:column;gap:8px}
+  .blk{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--acc);
+    border-radius:8px;padding:10px 12px}
+  .blk .h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .blk .n{font-weight:600;font-family:var(--mono)}
+  .blk .dom{font-size:11px;color:var(--dim);background:#232838;padding:1px 7px;border-radius:8px}
+  .blk .sc{font-size:11px;color:var(--acc2);font-family:var(--mono)}
+  .blk .d{font-size:12px;color:var(--dim);margin-top:3px}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px;
+    overflow:auto;font-family:var(--mono);font-size:12.5px;margin:0;color:#d8dee9;max-height:340px}
+  .out{color:#b7f0d8}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:820px){.grid2{grid-template-columns:1fr}}
+  .metrics{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .metric{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .metric .v{font-size:22px;font-weight:700;font-family:var(--mono);color:var(--acc2)}
+  .metric .k{font-size:11.5px;color:var(--dim);margin-top:2px}
+  .metric .g{font-size:10px;color:#5b6472;margin-top:1px}
+  .muted{color:var(--dim);font-size:12px}
+  details{margin-top:10px}
+  summary{cursor:pointer;color:var(--dim);font-size:12px}
+  .spin{display:inline-block;width:13px;height:13px;border:2px solid #3a4150;border-top-color:var(--acc);
+    border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .hide{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>段言积木库 · Web / API 演示<span class="tag">零外部依赖 · 真实引擎</span></h1>
+  <p>输入自然语言需求 → 引擎选块 → 契约接线 → 内联粘合出 <code>.duan</code> → 真实运行。后端为 Python 标准库 <code>http.server</code>，直接调用 <code>组合.py</code>。</p>
+</header>
+
+<div class="wrap">
+
+  <!-- 输入区 -->
+  <div class="card">
+    <h2>① 需求输入</h2>
+    <div class="row" style="margin-bottom:12px">
+      <div class="grow">
+        <label class="f">需求（自然语言）</label>
+        <input id="need" type="text" placeholder="例如：求和 / 计算方差 / 列表去重" value="求和">
+      </div>
+      <div style="width:260px">
+        <label class="f">共享输入（段言表达式）</label>
+        <input id="input" type="text" value="[1,2,3,4,5,6,7,8,9,10]">
+      </div>
+    </div>
+    <div class="row">
+      <button id="run" class="btn">运行</button>
+      <label class="chk"><input type="checkbox" id="fb"> 启用兜底生成（库外需求现场造块，较慢·耗 token）</label>
+    </div>
+  </div>
+
+  <!-- 示例画廊 -->
+  <div class="card">
+    <h2>② 示例画廊 <span class="muted">（点击即填入并运行，均为零 token 库内命中）</span></h2>
+    <div id="gallery" class="gallery"><span class="muted">加载中…</span></div>
+  </div>
+
+  <!-- 结果区 -->
+  <div class="card" id="resultCard">
+    <h2>③ 运行结果</h2>
+    <div id="empty" class="muted">尚未运行。点上方示例，或输入需求后按「运行」。</div>
+    <div id="result" class="hide">
+      <div id="status" class="status"></div>
+      <div class="grid2">
+        <div>
+          <label class="f">选中块（选块候选 · 带相似度分数）</label>
+          <div id="blocks" class="blocks"></div>
+        </div>
+        <div>
+          <label class="f">运行输出（duan run 真实 stdout）</label>
+          <pre class="out" id="stdout"></pre>
+        </div>
+      </div>
+      <label class="f" style="margin-top:14px">组合出的方案源码（.duan · 内联粘合）</label>
+      <pre id="src"></pre>
+      <details>
+        <summary>引擎决策日志 / 运行错误</summary>
+        <pre id="log" style="margin-top:8px"></pre>
+      </details>
+    </div>
+  </div>
+
+  <!-- 指标区 -->
+  <div class="card">
+    <h2>④ CI 硬门槛指标 <span class="muted">（读自 评估/门槛.json · 纯展示）</span></h2>
+    <div id="metrics" class="metrics"><span class="muted">加载中…</span></div>
+    <div id="metricsMeta" class="muted" style="margin-top:10px"></div>
+  </div>
+
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const el = (t,c,x)=>{const e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e;};
+
+async function 加载示例(){
+  try{
+    const r = await fetch('/api/examples'); const d = await r.json();
+    const g = $('#gallery'); g.innerHTML='';
+    (d.示例||[]).forEach(ex=>{
+      const b = el('div','ex');
+      const t = el('b',null,ex.需求); b.appendChild(t);
+      if(ex.说明) b.appendChild(el('small',null,ex.说明));
+      b.onclick = ()=>{ $('#need').value=ex.需求; $('#input').value=ex.输入值; 运行(); };
+      g.appendChild(b);
+    });
+  }catch(e){ $('#gallery').textContent='示例加载失败：'+e; }
+}
+
+const 指标定义 = [
+  ['主基准','Hit@1','选块命中率'],
+  ['主基准','链路正确率','端到端链路'],
+  ['主基准','库内误兜底率','越低越好'],
+  ['主基准','库外召回','兜底覆盖'],
+  ['接线','总正确率','契约接线'],
+  ['冒烟','可运行率','积木自检'],
+  ['体检','错误数','静态体检'],
+  ['兜底','沉淀成功率','造块留库'],
+];
+async function 加载指标(){
+  try{
+    const r = await fetch('/api/metrics'); const d = await r.json();
+    const box = $('#metrics'); box.innerHTML='';
+    指标定义.forEach(([grp,key,g])=>{
+      const v = d[grp] && d[grp][key];
+      if(v===undefined) return;
+      const m = el('div','metric');
+      let show = v;
+      if(typeof v==='number' && v<=1 && v>0 && !Number.isInteger(v)) show=(v*100).toFixed(0)+'%';
+      else if(typeof v==='number' && (key.includes('率')||key.includes('召回')||key.includes('Hit'))) show=(v*100).toFixed(0)+'%';
+      m.appendChild(el('div','v',show));
+      m.appendChild(el('div','k',key));
+      m.appendChild(el('div','g',grp+' · '+g));
+      box.appendChild(m);
+    });
+    $('#metricsMeta').textContent='版本 '+(d.版本||'?')+' · 基线 '+(d.基线日期||'?')+'　任一项不达标即 CI 失败。';
+  }catch(e){ $('#metrics').textContent='指标加载失败：'+e; }
+}
+
+async function 运行(){
+  const 需求 = $('#need').value.trim();
+  if(!需求){ alert('请输入需求'); return; }
+  const btn = $('#run');
+  btn.disabled=true; const 原=btn.textContent;
+  btn.innerHTML='<span class="spin"></span>运行中';
+  $('#empty').classList.add('hide'); $('#result').classList.remove('hide');
+  $('#status').innerHTML='<span class="pill">正在调用引擎…</span>';
+  $('#blocks').innerHTML=''; $('#stdout').textContent=''; $('#src').textContent=''; $('#log').textContent='';
+  try{
+    const r = await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({需求, 输入值:$('#input').value, 启用兜底:$('#fb').checked})});
+    const d = await r.json();
+    渲染(d);
+  }catch(e){
+    $('#status').innerHTML='<span class="pill err">请求失败：'+e+'</span>';
+  }finally{ btn.disabled=false; btn.textContent=原; }
+}
+
+function 渲染(d){
+  const st = $('#status'); st.innerHTML='';
+  st.appendChild(el('span','pill '+(d.成功?'ok':'err'), d.成功?'运行成功 ✓':'未成功'));
+  if(d.是否兜底) st.appendChild(el('span','pill fb','兜底生成'));
+  if(d.命中缓存) st.appendChild(el('span','pill','缓存命中'));
+  if(d.策略) st.appendChild(el('span','pill','策略：'+d.策略));
+  if(d.规划耗时ms!=null) st.appendChild(el('span','pill','选块 '+d.规划耗时ms+'ms'));
+  if(d.运行耗时ms!=null) st.appendChild(el('span','pill','运行 '+d.运行耗时ms+'ms'));
+  if(d.库内块数!=null) st.appendChild(el('span','pill','库内 '+d.库内块数+' 块'));
+
+  const bs = $('#blocks'); bs.innerHTML='';
+  (d.选中块||[]).forEach(b=>{
+    const c = el('div','blk');
+    const h = el('div','h');
+    h.appendChild(el('span','n',b.名称));
+    const right = el('span'); 
+    right.appendChild(el('span','dom',b.领域)); 
+    right.appendChild(document.createTextNode(' '));
+    right.appendChild(el('span','sc','⌀ '+b.分数));
+    h.appendChild(right);
+    c.appendChild(h);
+    if(b.描述) c.appendChild(el('div','d',b.描述));
+    bs.appendChild(c);
+  });
+  if(!(d.选中块||[]).length) bs.appendChild(el('div','muted',d.错误||'无选中块'));
+  if(d.方案步骤 && d.方案步骤.length){
+    const note = el('div','muted','实际组合步骤：'+d.方案步骤.join(' → '));
+    note.style.marginTop='6px'; bs.appendChild(note);
+  }
+
+  $('#stdout').textContent = d.运行输出 || d.错误 || '（无输出）';
+  $('#src').textContent = d.方案 || '（未生成方案）';
+  let log = (d.引擎日志||'').trim();
+  if(d.兜底理由) log = '兜底理由：'+d.兜底理由+'\n\n'+log;
+  if(d.运行错误) log += '\n\n── 运行 stderr ──\n'+d.运行错误;
+  if(d.错误 && !d.成功) log = (d.错误)+'\n\n'+log;
+  $('#log').textContent = log.trim() || '（无）';
+}
+
+$('#run').onclick = 运行;
+$('#need').addEventListener('keydown', e=>{ if(e.key==='Enter') 运行(); });
+$('#input').addEventListener('keydown', e=>{ if(e.key==='Enter') 运行(); });
+加载示例(); 加载指标();
+</script>
+</body>
+</html>

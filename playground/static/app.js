@@ -1385,6 +1385,7 @@ document.addEventListener('keydown', function(e) {
         closeProjectsModal();
         closeCreateFileModal();
         closeDeleteFileModal();
+        closeShortcutsModal();
     }
 
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
@@ -1394,6 +1395,35 @@ document.addEventListener('keydown', function(e) {
         } else {
             saveCode();
             showToast('代码已保存到浏览器', 'success');
+        }
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        toggleSidebar();
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+        e.preventDefault();
+        openShortcutsModal();
+    }
+
+    if (debugMode && debugSessionId) {
+        if (e.key === 'F5' && !e.shiftKey && !e.ctrlKey) {
+            e.preventDefault();
+            debugContinue();
+        } else if (e.key === 'F10' && !e.shiftKey) {
+            e.preventDefault();
+            debugStepOver();
+        } else if (e.key === 'F11' && !e.shiftKey) {
+            e.preventDefault();
+            debugStepInto();
+        } else if (e.key === 'F11' && e.shiftKey) {
+            e.preventDefault();
+            debugStepOut();
+        } else if (e.key === 'F5' && e.shiftKey) {
+            e.preventDefault();
+            debugStop();
         }
     }
 });
@@ -1423,4 +1453,383 @@ function escapeHtml(text) {
 
 function escapeHtmlAttr(text) {
     return text.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// =============================================================================
+// 调试器 UI
+// =============================================================================
+
+var debugMode = false;
+var debugSessionId = null;
+var debugPollTimer = null;
+
+function toggleDebugMode() {
+    debugMode = !debugMode;
+    var btn = document.getElementById('debugBtn');
+    btn.classList.toggle('active', debugMode);
+
+    if (debugMode) {
+        document.getElementById('debugToolbar').classList.remove('hidden');
+        document.getElementById('debugPanel').classList.remove('hidden');
+        var tabExists = document.querySelector('.tab[data-tab="debug"]');
+        if (!tabExists) {
+            var tabs = document.querySelector('.output-tabs');
+            var tab = document.createElement('button');
+            tab.className = 'tab';
+            tab.dataset.tab = 'debug';
+            tab.textContent = '调试器';
+            tab.onclick = function() { switchTab('debug'); };
+            tabs.appendChild(tab);
+        }
+        switchTab('debug');
+        showToast('调试模式已开启，点击「运行」开始调试', 'info');
+    } else {
+        document.getElementById('debugToolbar').classList.add('hidden');
+        document.getElementById('debugPanel').classList.add('hidden');
+        var debugTab = document.querySelector('.tab[data-tab="debug"]');
+        if (debugTab) debugTab.remove();
+        switchTab('output');
+        if (debugSessionId) {
+            debugStop();
+        }
+        showToast('调试模式已关闭', 'info');
+    }
+}
+
+function startDebugSession() {
+    var code = editor.getValue();
+    if (!code.trim()) {
+        showToast('请输入代码', 'warning');
+        return;
+    }
+
+    setDebugButtonsEnabled(false);
+    updateDebugStatus('启动中...', '');
+
+    fetch(API_BASE + '/api/debug/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code, breakpoints: {} })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            debugSessionId = data.session_id;
+            updateDebugStatus('已暂停', 'paused');
+            setDebugButtonsEnabled(true);
+            renderDebugState(data.state);
+            startDebugPolling();
+            switchTab('debug');
+        } else {
+            updateDebugStatus('启动失败', 'error');
+            showToast('调试启动失败: ' + (data.error || '未知错误'), 'error');
+        }
+    })
+    .catch(function(err) {
+        updateDebugStatus('连接错误', 'error');
+        showToast('网络错误: ' + err.message, 'error');
+    });
+}
+
+function startDebugPolling() {
+    stopDebugPolling();
+    debugPollTimer = setInterval(function() {
+        if (!debugSessionId) return;
+        fetch(API_BASE + '/api/debug/state/' + debugSessionId)
+            .then(function(r) { return r.json(); })
+            .then(function(state) {
+                if (state.error) {
+                    stopDebugPolling();
+                    return;
+                }
+                if (state.stopped && !state.paused) {
+                    stopDebugPolling();
+                    updateDebugStatus('已结束', '');
+                    setDebugButtonsEnabled(false);
+                    if (state.output && state.output.length > 0) {
+                        renderDebugOutput(state.output);
+                    }
+                    return;
+                }
+                renderDebugState(state);
+            })
+            .catch(function() {});
+    }, 500);
+}
+
+function stopDebugPolling() {
+    if (debugPollTimer) {
+        clearInterval(debugPollTimer);
+        debugPollTimer = null;
+    }
+}
+
+function debugStep(action) {
+    if (!debugSessionId) return;
+    setDebugButtonsEnabled(false);
+    updateDebugStatus('执行中...', '');
+
+    fetch(API_BASE + '/api/debug/step/' + debugSessionId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            setDebugButtonsEnabled(true);
+            renderDebugState(data.state);
+            if (data.state.paused) {
+                updateDebugStatus('已暂停', 'paused');
+            } else if (data.state.stopped) {
+                updateDebugStatus('已结束', '');
+                stopDebugPolling();
+                setDebugButtonsEnabled(false);
+            } else {
+                updateDebugStatus('运行中', '');
+            }
+        }
+    })
+    .catch(function() {
+        updateDebugStatus('错误', 'error');
+    });
+}
+
+function debugContinue() {
+    if (!debugSessionId) {
+        startDebugSession();
+        return;
+    }
+    debugStep('continue');
+}
+
+function debugStepOver() {
+    if (!debugSessionId) {
+        startDebugSession();
+        return;
+    }
+    debugStep('over');
+}
+
+function debugStepInto() {
+    if (!debugSessionId) {
+        startDebugSession();
+        return;
+    }
+    debugStep('into');
+}
+
+function debugStepOut() {
+    if (!debugSessionId) {
+        startDebugSession();
+        return;
+    }
+    debugStep('out');
+}
+
+function debugStop() {
+    if (!debugSessionId) return;
+    stopDebugPolling();
+
+    fetch(API_BASE + '/api/debug/stop/' + debugSessionId, {
+        method: 'POST'
+    })
+    .then(function(r) { return r.json(); })
+    .then(function() {
+        debugSessionId = null;
+        updateDebugStatus('已停止', '');
+        setDebugButtonsEnabled(false);
+        document.getElementById('debugVariables').innerHTML = '<div class="debug-placeholder">调试已停止</div>';
+        document.getElementById('debugCallStack').innerHTML = '<div class="debug-placeholder">调试已停止</div>';
+    })
+    .catch(function() {
+        debugSessionId = null;
+        updateDebugStatus('已停止', '');
+    });
+}
+
+function setDebugButtonsEnabled(enabled) {
+    ['debugContinueBtn', 'debugStepOverBtn', 'debugStepIntoBtn', 'debugStepOutBtn'].forEach(function(id) {
+        var btn = document.getElementById(id);
+        if (btn) btn.disabled = !enabled;
+    });
+}
+
+function updateDebugStatus(text, cls) {
+    var el = document.getElementById('debugStatus');
+    if (el) {
+        el.textContent = text;
+        el.className = 'debug-status' + (cls ? ' ' + cls : '');
+    }
+}
+
+function renderDebugState(state) {
+    if (!state) return;
+
+    renderDebugVariables(state.variables);
+    renderDebugCallStack(state.call_stack);
+
+    if (state.output && state.output.length > 0) {
+        renderDebugOutput(state.output);
+    }
+
+    if (state.current_line && editor && editor.revealLineInCenter) {
+        editor.revealLineInCenter(state.current_line);
+    }
+}
+
+function renderDebugVariables(variables) {
+    var el = document.getElementById('debugVariables');
+    if (!el) return;
+
+    if (!variables || variables.length === 0) {
+        el.innerHTML = '<div class="debug-placeholder">暂无变量</div>';
+        return;
+    }
+
+    var html = '';
+    variables.forEach(function(v) {
+        html += '<div class="debug-var-item">';
+        html += '<span class="debug-var-name">' + escapeHtml(v.name) + '</span>';
+        html += '<span class="debug-var-type">' + escapeHtml(v.type) + '</span>';
+        html += '<span class="debug-var-value">' + escapeHtml(v.value) + '</span>';
+        html += '</div>';
+    });
+    el.innerHTML = html;
+}
+
+function renderDebugCallStack(callStack) {
+    var el = document.getElementById('debugCallStack');
+    if (!el) return;
+
+    if (!callStack || callStack.length === 0) {
+        el.innerHTML = '<div class="debug-placeholder">暂无调用栈</div>';
+        return;
+    }
+
+    var html = '';
+    callStack.forEach(function(frame, idx) {
+        var isCurrent = idx === 0;
+        html += '<div class="debug-callstack-item' + (isCurrent ? ' current' : '') + '">';
+        html += '<span class="debug-callstack-name">' + escapeHtml(frame.name || '(全局)') + '</span>';
+        if (frame.line) {
+            html += '<span class="debug-callstack-loc">行 ' + frame.line + '</span>';
+        }
+        html += '</div>';
+    });
+    el.innerHTML = html;
+}
+
+function renderDebugOutput(output) {
+    var el = document.getElementById('debugOutput');
+    if (!el) return;
+    if (!output || output.length === 0) return;
+
+    var html = '';
+    output.forEach(function(line) {
+        if (line.trim()) {
+            html += '<div class="debug-output-line">' + escapeHtml(line) + '</div>';
+        }
+    });
+    if (html) {
+        el.innerHTML = html;
+    }
+}
+
+// 支持调试模式的 runCode
+var originalRunCode = window.runCode;
+window.runCode = function() {
+    if (debugMode) {
+        if (!debugSessionId) {
+            startDebugSession();
+        } else {
+            debugContinue();
+        }
+        return;
+    }
+    originalRunCode();
+};
+
+// =============================================================================
+// 示例搜索
+// =============================================================================
+
+var _allExampleData = null;
+
+function filterExamples(query) {
+    if (!_allExampleData) return;
+    query = (query || '').toLowerCase().trim();
+
+    var list = document.getElementById('exampleList');
+    var html = '';
+
+    _allExampleData.categories.forEach(function(cat) {
+        var filtered = cat.examples.filter(function(ex) {
+            if (!query) return true;
+            return ex.title.toLowerCase().indexOf(query) !== -1 ||
+                   ex.description.toLowerCase().indexOf(query) !== -1 ||
+                   ex.code.toLowerCase().indexOf(query) !== -1;
+        });
+        if (filtered.length === 0) return;
+
+        html += '<div class="example-category">';
+        html += '<div class="example-cat-title">' + escapeHtml(cat.category) + '</div>';
+        filtered.forEach(function(ex) {
+            html += '<div class="example-item" data-id="' + ex.id + '" onclick="loadExample(\'' + ex.id + '\')">';
+            html += '<div class="example-item-title">' + escapeHtml(ex.title) + '</div>';
+            html += '<div class="example-item-desc">' + escapeHtml(ex.description) + '</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+    });
+
+    if (!html) {
+        html = '<div class="example-loading">未找到匹配的示例</div>';
+    }
+    list.innerHTML = html;
+}
+
+// 保存示例数据以支持搜索
+var originalLoadExamples = window.loadExamples;
+window.loadExamples = function() {
+    fetch(API_BASE + '/api/examples')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            _allExampleData = data;
+            var list = document.getElementById('exampleList');
+            var html = '';
+
+            if (data.categories) {
+                data.categories.forEach(function(cat) {
+                    html += '<div class="example-category">';
+                    html += '<div class="example-cat-title">' + escapeHtml(cat.category) + '</div>';
+                    cat.examples.forEach(function(ex) {
+                        html += '<div class="example-item" data-id="' + ex.id + '" onclick="loadExample(\'' + ex.id + '\')">';
+                        html += '<div class="example-item-title">' + escapeHtml(ex.title) + '</div>';
+                        html += '<div class="example-item-desc">' + escapeHtml(ex.description) + '</div>';
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                });
+            }
+            list.innerHTML = html;
+        })
+        .catch(function(err) {
+            document.getElementById('exampleList').innerHTML =
+                '<div class="example-loading">加载失败: ' + escapeHtml(err.message) + '</div>';
+        });
+};
+
+// =============================================================================
+// 快捷键弹窗
+// =============================================================================
+
+function openShortcutsModal() {
+    document.getElementById('shortcutsOverlay').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeShortcutsModal() {
+    document.getElementById('shortcutsOverlay').classList.add('hidden');
+    document.body.style.overflow = '';
 }

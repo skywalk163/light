@@ -180,13 +180,173 @@ def test_async_multiple_await():
 """
     return run_test("async_multiple_await", code)
 
+
+def test_async_with_params():
+    """测试带参数的异步函数"""
+    code = """
+异步 段落 加法(甲, 乙)：
+    输出("加法:")
+    输出(甲)
+    输出(乙)
+    返回(甲 加上 乙)
+结束
+
+输出("程序开始")
+异步作用域：
+    加法(3, 4)
+结束
+输出("程序结束")
+"""
+    return run_test("async_params", code)
+
+
+def test_async_with_condition():
+    """测试异步函数中的条件分支"""
+    code = """
+异步 段落 判断(值)：
+    如果 值 大于 0：
+        输出("正数")
+    否则：
+        输出("非正数")
+    结束
+    返回(值)
+结束
+
+输出("程序开始")
+异步作用域：
+    判断(5)
+    判断(-3)
+结束
+输出("程序结束")
+"""
+    return run_test("async_condition", code)
+
+
+def test_async_scope_results():
+    """测试异步作用域收集结果"""
+    code = """
+异步 段落 取数(值)：
+    返回(值 乘以 2)
+结束
+
+输出("程序开始")
+异步作用域 设为 甲, 乙：
+    取数(10)
+    取数(20)
+结束
+输出("甲:")
+输出(甲)
+输出("乙:")
+输出(乙)
+输出("程序结束")
+"""
+    return run_test("async_scope_results", code)
+
+
+def test_async_with_string():
+    """测试异步函数中的字符串操作"""
+    code = """
+异步 段落 问候(名)：
+    输出("你好")
+    输出(名)
+    返回(名)
+结束
+
+输出("程序开始")
+异步作用域：
+    问候("世界")
+结束
+输出("程序结束")
+"""
+    return run_test("async_string", code)
+
+
+def test_async_nested_scope():
+    """测试嵌套异步作用域"""
+    code = """
+异步 段落 任务A：
+    输出("A")
+    返回(1)
+结束
+
+异步 段落 任务B：
+    输出("B")
+    返回(2)
+结束
+
+输出("开始")
+异步作用域：
+    任务A()
+    任务B()
+结束
+输出("中间")
+异步作用域：
+    任务A()
+    任务B()
+结束
+输出("结束")
+"""
+    return run_test("async_nested_scope", code)
+
+
+def test_async_await_with_condition():
+    """测试 await 结合条件判断"""
+    code = """
+异步 段落 获取值(标记)：
+    如果 标记 等于 1：
+        返回(100)
+    结束
+    返回(200)
+结束
+
+异步 段落 处理器(标记)：
+    设 值 为 等待 获取值(标记)
+    输出("得到:")
+    输出(值)
+    返回(值)
+结束
+
+输出("程序开始")
+异步作用域：
+    处理器(1)
+    处理器(2)
+结束
+输出("程序结束")
+"""
+    return run_test("async_await_condition", code)
+
+
 if __name__ == '__main__':
-    test_async_simple()
-    print()
-    test_async_scope()
-    print()
-    test_async_await()
-    print()
-    test_async_chain()
-    print()
-    test_async_multiple_await()
+    tests = [
+        ("简单异步", test_async_simple),
+        ("异步作用域", test_async_scope),
+        ("await 等待", test_async_await),
+        ("链式 await", test_async_chain),
+        ("多次 await", test_async_multiple_await),
+        ("带参数异步", test_async_with_params),
+        ("条件分支异步", test_async_with_condition),
+        ("作用域结果", test_async_scope_results),
+        ("字符串操作", test_async_with_string),
+        ("嵌套作用域", test_async_nested_scope),
+        ("await 加条件", test_async_await_with_condition),
+    ]
+    
+    passed = 0
+    failed = 0
+    for name, test_fn in tests:
+        try:
+            print()
+            if test_fn():
+                print(f"  [OK] {name}")
+                passed += 1
+            else:
+                print(f"  [失败] {name}")
+                failed += 1
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"  [错误] {name}: {e}")
+            failed += 1
+    
+    print(f"\n总计: {len(tests)}  |  通过: {passed}  |  失败: {failed}")
+    sys.exit(0 if failed == 0 else 1)

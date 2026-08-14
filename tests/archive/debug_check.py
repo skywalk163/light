@@ -1,12 +1,12 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
-from light_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 with open(os.path.join(os.path.dirname(__file__), 'examples', 'advanced.light'), 'r', encoding='utf-8') as f:
     source = f.read()
 
-parser = DuanParser()
+parser = LightParser()
 module = parser.parse(source)
 
 # Find the 评级 function and check the comparison nodes

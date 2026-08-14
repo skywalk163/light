@@ -2,94 +2,81 @@
 """
 P3 终极验证：编译更复杂的 v3.2 程序
 测试 LLVM 后端对多种语言特性的综合支持
+
+说明：原文件为模块级脚本（无 pytest 测试函数），pytest 收集 0 个测试，
+属「虚假通过」（D04 测试可信度债务）。已迁移为真正的 pytest 参数化测试。
+LLVM 编译需依赖 clang，本机未安装时明确跳过（环境缺失，非测试失败）。
 """
+
 import sys
 import os
 import tempfile
 import subprocess
 
-sys.path.insert(0, 'src')
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+import pytest
 from llvm.compiler import compile_source_typed, find_clang
 
+# clang 不可用时跳过（环境缺失，非测试失败）
+try:
+    _CLANG = find_clang()
+    CLANG_AVAILABLE = bool(_CLANG)
+except Exception:
+    _CLANG = None
+    CLANG_AVAILABLE = False
 
-def run_test(name, code, expected_output=None):
-    """编译并运行一个光明程序，返回是否成功"""
-    print(f"\n{'='*60}")
-    print(f"  测试: {name}")
-    print(f"{'='*60}")
+pytestmark = pytest.mark.skipif(
+    not CLANG_AVAILABLE,
+    reason="clang 编译器不可用（未安装 LLVM），跳过 LLVM 编译测试"
+)
 
+
+def _run_llvm_test(code, expected_output):
+    """编译并运行一个光明程序，返回 (成功, 信息)"""
     # 1. 生成 IR
     try:
         ir = compile_source_typed(code, verbose=False)
-        print(f"  [✓] IR 生成成功: {len(ir)} 字符")
     except Exception as e:
-        print(f"  [✗] IR 生成失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+        return False, f"IR 生成失败: {e}"
+
+    if not ir:
+        return False, "IR 生成失败: 空输出"
 
     # 2. 保存 IR 并编译
-    ir_path = f'tests/_p3_{name}.ll'
-    exe_path = f'tests/_p3_{name}.exe'
-    with open(ir_path, 'w', encoding='utf-8') as f:
-        f.write(ir)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ir_path = os.path.join(tmpdir, 'prog.ll')
+        exe_path = os.path.join(tmpdir, 'prog.exe')
+        with open(ir_path, 'w', encoding='utf-8') as f:
+            f.write(ir)
+        try:
+            clang = find_clang()
+            runtime_c = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                '..', 'src', 'llvm', 'runtime_typed.c')
+            result = subprocess.run(
+                [clang, '-O2', '-o', exe_path, ir_path, runtime_c],
+                capture_output=True, text=True, encoding='utf-8', errors='replace',
+                timeout=30
+            )
+            if result.returncode != 0:
+                return False, f"编译失败: {result.stderr[:1000]}"
 
-    try:
-        clang = find_clang()
-        runtime_c = 'src/llvm/runtime_typed.c'
-        result = subprocess.run(
-            [clang, '-O2', '-o', exe_path, ir_path, runtime_c],
-            capture_output=True, text=True, encoding='utf-8', errors='replace',
-            timeout=30
-        )
+            # 3. 运行
+            run_result = subprocess.run(
+                [exe_path],
+                capture_output=True, text=True, encoding='utf-8', errors='replace',
+                timeout=10
+            )
+            output = run_result.stdout.strip()
+            if expected_output is not None and expected_output not in output:
+                return False, f"输出不匹配，期望包含 '{expected_output}'，实际: '{output}'"
+            return True, output
+        except subprocess.TimeoutExpired:
+            return False, "运行超时"
+        except Exception as e:
+            return False, f"错误: {e}"
 
-        if result.returncode != 0:
-            print(f"  [✗] 编译失败!")
-            print(f"  stderr: {result.stderr[:2000]}")
-            return False
-        print(f"  [✓] 编译成功")
-
-        # 3. 运行
-        run_result = subprocess.run(
-            [exe_path],
-            capture_output=True, text=True, encoding='utf-8', errors='replace',
-            timeout=10
-        )
-
-        output = run_result.stdout.strip()
-        print(f"  输出:\n    {output.replace(chr(10), chr(10) + '    ')}")
-
-        if run_result.stderr:
-            print(f"  stderr: {run_result.stderr[:500]}")
-        print(f"  返回码: {run_result.returncode}")
-
-        if expected_output is not None:
-            if expected_output in output:
-                print(f"  [✓] 输出验证通过")
-            else:
-                print(f"  [✗] 输出不匹配，期望包含: {expected_output}")
-                return False
-
-        return True
-
-    except subprocess.TimeoutExpired:
-        print(f"  [✗] 运行超时")
-        return False
-    except Exception as e:
-        print(f"  [✗] 错误: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-    finally:
-        # 清理临时文件
-        for p in [ir_path, exe_path]:
-            if os.path.exists(p):
-                os.unlink(p)
-
-
-# ============================================================
-# 测试用例
-# ============================================================
 
 TESTS = []
 
@@ -379,31 +366,8 @@ TESTS.append((
 ))
 
 
-def main():
-    print("=" * 60)
-    print("  P3 终极验证：复杂 v3.2 程序编译测试")
-    print("=" * 60)
-
-    passed = 0
-    failed = 0
-    failed_tests = []
-
-    for name, code, expected in TESTS:
-        if run_test(name, code, expected):
-            passed += 1
-        else:
-            failed += 1
-            failed_tests.append(name)
-
-    print(f"\n{'='*60}")
-    print(f"  测试结果: {passed} 通过, {failed} 失败, 共 {len(TESTS)} 个")
-    print(f"{'='*60}")
-
-    if failed_tests:
-        print(f"  失败的测试: {', '.join(failed_tests)}")
-
-    return 0 if failed == 0 else 1
-
-
-if __name__ == '__main__':
-    sys.exit(main())
+@pytest.mark.parametrize("name,code,expected", TESTS, ids=[t[0] for t in TESTS])
+def test_llvm_program(name, code, expected):
+    """LLVM 后端编译并运行光明程序，验证输出"""
+    ok, info = _run_llvm_test(code, expected)
+    assert ok, info

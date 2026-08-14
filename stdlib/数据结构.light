@@ -1,404 +1,244 @@
-class栈:
-    def __init__(self,初始元素=None):
-        self._数据=列表(初始元素)if初始元素else[]
-    
-    def压入(self,元素):
-        self._数据.append(元素)
-    
-    def弹出(self):
-        if self.空():
-            抛出错误("栈为空")
-        return self._数据.pop()
-    
-    def顶部(self):
-        if self.空():
-            抛出错误("栈为空")
-        return self._数据[-1]
-    
-    def空(self):
-        return长(self._数据)==0
-    
-    def大小(self):
-        return长(self._数据)
-    
-    def清空(self):
-        self._数据.clear()
-    
-    def转为列表(self):
-        return列表(self._数据)
+# class栈:
+#
+#     def压入(self,元素):
+#
+#     def弹出(self):
+#             抛出错误("栈为空")
+#
+#     def顶部(self):
+#             抛出错误("栈为空")
+#
+#     def空(self):
+#
+#     def大小(self):
+#
+#     def清空(self):
+#
+#     def转为列表(self):
+#
+# class队列:
+#
+#     def入队(self,元素):
+#
+#     def出队(self):
+#             抛出错误("队列为空")
+#
+#     def队首(self):
+#             抛出错误("队列为空")
+#
+#     def队尾(self):
+#             抛出错误("队列为空")
+#
+#     def空(self):
+#
+#     def大小(self):
+#
+#     def清空(self):
+#
+#     def转为列表(self):
+#
+# class双端队列:
+#
+#     def左入队(self,元素):
+#
+#     def右入队(self,元素):
+#
+#     def左出队(self):
+#             抛出错误("队列为空")
+#
+#     def右出队(self):
+#             抛出错误("队列为空")
+#
+#     def队首(self):
+#             抛出错误("队列为空")
+#
+#     def队尾(self):
+#             抛出错误("队列为空")
+#
+#     def空(self):
+#
+#     def大小(self):
+#
+#     def清空(self):
+#
+#     def转为列表(self):
+#
+# class优先队列:
+#
+#     def入队(self,优先级,元素):
+#
+#     def出队(self):
+#             抛出错误("队列为空")
+#
+#     def队首(self):
+#             抛出错误("队列为空")
+#
+#     def队首优先级(self):
+#             抛出错误("队列为空")
+#
+#     def空(self):
+#
+#     def大小(self):
+#
+#     def清空(self):
+#
+# class链表节点:
+#
+# class单链表:
+#
+#     def头部插入(self,值):
+#         新节点=链表节点(值)
+#
+#     def尾部插入(self,值):
+#         新节点=链表节点(值)
+#             while当前.下一个is not None:
+#                 当前=当前.下一个
+#             当前.下一个=新节点
+#
+#     def指定位置插入(self,索引,值):
+#             抛出错误("索引越界")
+#         if索引==0:
+#         新节点=链表节点(值)
+#         for _ in范围(索引-1):
+#             当前=当前.下一个
+#         新节点.下一个=当前.下一个
+#         当前.下一个=新节点
+#
+#     def删除头部(self):
+#             抛出错误("链表为空")
+#         return值
+#
+#     def删除尾部(self):
+#             抛出错误("链表为空")
+#             return值
+#         while当前.下一个.下一个is not None:
+#             当前=当前.下一个
+#         值=当前.下一个.值
+#         当前.下一个=None
+#         return值
+#
+#     def删除指定值(self,值):
+#         while当前.下一个is not None:
+#             if当前.下一个.值==值:
+#                 当前.下一个=当前.下一个.下一个
+#             当前=当前.下一个
+#
+#     def查找(self,值):
+#         索引=0
+#         while当前is not None:
+#             if当前.值==值:
+#                 return索引
+#             当前=当前.下一个
+#             索引+=1
+#
+#     def获取(self,索引):
+#             抛出错误("索引越界")
+#         for _ in范围(索引):
+#             当前=当前.下一个
+#         return当前.值
+#
+#     def修改(self,索引,值):
+#             抛出错误("索引越界")
+#         for _ in范围(索引):
+#             当前=当前.下一个
+#         当前.值=值
+#
+#     def空(self):
+#
+#     def大小(self):
+#
+#     def清空(self):
+#
+#     def转为列表(self):
+#         结果=[]
+#         while当前is not None:
+#             结果.append(当前.值)
+#             当前=当前.下一个
+#         return结果
+#
+# class二叉树节点:
+#
+# class二叉搜索树:
+#
+#     def插入(self,值):
+#
+#         if值<节点.值:
+#             if节点.左子树is None:
+#                 节点.左子树=二叉树节点(值)
+#             if节点.右子树is None:
+#                 节点.右子树=二叉树节点(值)
+#
+#     def查找(self,值):
+#
+#         if节点is None:
+#         if值==节点.值:
+#         elif值<节点.值:
+#
+#     def删除(self,值):
+#
+#         if节点is None:
+#         if值<节点.值:
+#         elif值>节点.值:
+#             if节点.左子树is None:
+#                 return节点.右子树
+#             if节点.右子树is None:
+#                 return节点.左子树
+#             节点.值=最小节点.值
+#         return节点
+#
+#         while节点.左子树is not None:
+#             节点=节点.左子树
+#         return节点
+#
+#     def中序遍历(self):
+#         结果=[]
+#         return结果
+#
+#         if节点is not None:
+#             结果.append(节点.值)
+#
+#     def前序遍历(self):
+#         结果=[]
+#         return结果
+#
+#         if节点is not None:
+#             结果.append(节点.值)
+#
+#     def后序遍历(self):
+#         结果=[]
+#         return结果
+#
+#         if节点is not None:
+#             结果.append(节点.值)
+#
+#     def层序遍历(self):
+#         结果=[]
+#         while队列:
+#             节点=队列.pop(0)
+#             结果.append(节点.值)
+#             if节点.左子树:
+#                 队列.append(节点.左子树)
+#             if节点.右子树:
+#                 队列.append(节点.右子树)
+#         return结果
+#
+#     def高度(self):
+#
+#         if节点is None:
+#
+#     def大小(self):
+#
+#         if节点is None:
+#
+#     def空(self):
+#
+#     def清空(self):
+#
+# 用法：
+#   从《数据结构》导入《栈》。
 
-
-class队列:
-    def __init__(self,初始元素=None):
-        self._数据=列表(初始元素)if初始元素else[]
-    
-    def入队(self,元素):
-        self._数据.append(元素)
-    
-    def出队(self):
-        if self.空():
-            抛出错误("队列为空")
-        return self._数据.pop(0)
-    
-    def队首(self):
-        if self.空():
-            抛出错误("队列为空")
-        return self._数据[0]
-    
-    def队尾(self):
-        if self.空():
-            抛出错误("队列为空")
-        return self._数据[-1]
-    
-    def空(self):
-        return长(self._数据)==0
-    
-    def大小(self):
-        return长(self._数据)
-    
-    def清空(self):
-        self._数据.clear()
-    
-    def转为列表(self):
-        return列表(self._数据)
-
-
-class双端队列:
-    def __init__(self,初始元素=None):
-        self._数据=列表(初始元素)if初始元素else[]
-    
-    def左入队(self,元素):
-        self._数据.insert(0,元素)
-    
-    def右入队(self,元素):
-        self._数据.append(元素)
-    
-    def左出队(self):
-        if self.空():
-            抛出错误("队列为空")
-        return self._数据.pop(0)
-    
-    def右出队(self):
-        if self.空():
-            抛出错误("队列为空")
-        return self._数据.pop()
-    
-    def队首(self):
-        if self.空():
-            抛出错误("队列为空")
-        return self._数据[0]
-    
-    def队尾(self):
-        if self.空():
-            抛出错误("队列为空")
-        return self._数据[-1]
-    
-    def空(self):
-        return长(self._数据)==0
-    
-    def大小(self):
-        return长(self._数据)
-    
-    def清空(self):
-        self._数据.clear()
-    
-    def转为列表(self):
-        return列表(self._数据)
-
-
-class优先队列:
-    def __init__(self):
-        import heapq
-        self._heap=[]
-        self._heapq=heapq
-    
-    def入队(self,优先级,元素):
-        self._heapq.heappush(self._heap,(优先级,元素))
-    
-    def出队(self):
-        if self.空():
-            抛出错误("队列为空")
-        return self._heapq.heappop(self._heap)[1]
-    
-    def队首(self):
-        if self.空():
-            抛出错误("队列为空")
-        return self._heap[0][1]
-    
-    def队首优先级(self):
-        if self.空():
-            抛出错误("队列为空")
-        return self._heap[0][0]
-    
-    def空(self):
-        return长(self._heap)==0
-    
-    def大小(self):
-        return长(self._heap)
-    
-    def清空(self):
-        self._heap.clear()
-
-
-class链表节点:
-    def __init__(self,值):
-        self.值=值
-        self.下一个=None
-
-
-class单链表:
-    def __init__(self):
-        self._头节点=None
-        self._大小=0
-    
-    def头部插入(self,值):
-        新节点=链表节点(值)
-        新节点.下一个=self._头节点
-        self._头节点=新节点
-        self._大小+=1
-    
-    def尾部插入(self,值):
-        新节点=链表节点(值)
-        if self._头节点is None:
-            self._头节点=新节点
-        else:
-            当前=self._头节点
-            while当前.下一个is not None:
-                当前=当前.下一个
-            当前.下一个=新节点
-        self._大小+=1
-    
-    def指定位置插入(self,索引,值):
-        if索引<0或索引>self._大小:
-            抛出错误("索引越界")
-        if索引==0:
-            self.头部插入(值)
-            return
-        新节点=链表节点(值)
-        当前=self._头节点
-        for _ in范围(索引-1):
-            当前=当前.下一个
-        新节点.下一个=当前.下一个
-        当前.下一个=新节点
-        self._大小+=1
-    
-    def删除头部(self):
-        if self._头节点is None:
-            抛出错误("链表为空")
-        值=self._头节点.值
-        self._头节点=self._头节点.下一个
-        self._大小-=1
-        return值
-    
-    def删除尾部(self):
-        if self._头节点is None:
-            抛出错误("链表为空")
-        if self._头节点.下一个is None:
-            值=self._头节点.值
-            self._头节点=None
-            self._大小-=1
-            return值
-        当前=self._头节点
-        while当前.下一个.下一个is not None:
-            当前=当前.下一个
-        值=当前.下一个.值
-        当前.下一个=None
-        self._大小-=1
-        return值
-    
-    def删除指定值(self,值):
-        if self._头节点is None:
-            return False
-        if self._头节点.值==值:
-            self._头节点=self._头节点.下一个
-            self._大小-=1
-            return True
-        当前=self._头节点
-        while当前.下一个is not None:
-            if当前.下一个.值==值:
-                当前.下一个=当前.下一个.下一个
-                self._大小-=1
-                return True
-            当前=当前.下一个
-        return False
-    
-    def查找(self,值):
-        当前=self._头节点
-        索引=0
-        while当前is not None:
-            if当前.值==值:
-                return索引
-            当前=当前.下一个
-            索引+=1
-        return-1
-    
-    def获取(self,索引):
-        if索引<0或索引>=self._大小:
-            抛出错误("索引越界")
-        当前=self._头节点
-        for _ in范围(索引):
-            当前=当前.下一个
-        return当前.值
-    
-    def修改(self,索引,值):
-        if索引<0或索引>=self._大小:
-            抛出错误("索引越界")
-        当前=self._头节点
-        for _ in范围(索引):
-            当前=当前.下一个
-        当前.值=值
-    
-    def空(self):
-        return self._头节点is None
-    
-    def大小(self):
-        return self._大小
-    
-    def清空(self):
-        self._头节点=None
-        self._大小=0
-    
-    def转为列表(self):
-        结果=[]
-        当前=self._头节点
-        while当前is not None:
-            结果.append(当前.值)
-            当前=当前.下一个
-        return结果
-
-
-class二叉树节点:
-    def __init__(self,值):
-        self.值=值
-        self.左子树=None
-        self.右子树=None
-
-
-class二叉搜索树:
-    def __init__(self):
-        self._根节点=None
-    
-    def插入(self,值):
-        if self._根节点is None:
-            self._根节点=二叉树节点(值)
-            return
-        self._插入递归(self._根节点,值)
-    
-    def _插入递归(self,节点,值):
-        if值<节点.值:
-            if节点.左子树is None:
-                节点.左子树=二叉树节点(值)
-            else:
-                self._插入递归(节点.左子树,值)
-        else:
-            if节点.右子树is None:
-                节点.右子树=二叉树节点(值)
-            else:
-                self._插入递归(节点.右子树,值)
-    
-    def查找(self,值):
-        return self._查找递归(self._根节点,值)
-    
-    def _查找递归(self,节点,值):
-        if节点is None:
-            return False
-        if值==节点.值:
-            return True
-        elif值<节点.值:
-            return self._查找递归(节点.左子树,值)
-        else:
-            return self._查找递归(节点.右子树,值)
-    
-    def删除(self,值):
-        self._根节点=self._删除递归(self._根节点,值)
-    
-    def _删除递归(self,节点,值):
-        if节点is None:
-            return None
-        if值<节点.值:
-            节点.左子树=self._删除递归(节点.左子树,值)
-        elif值>节点.值:
-            节点.右子树=self._删除递归(节点.右子树,值)
-        else:
-            if节点.左子树is None:
-                return节点.右子树
-            if节点.右子树is None:
-                return节点.左子树
-            最小节点=self._查找最小(节点.右子树)
-            节点.值=最小节点.值
-            节点.右子树=self._删除递归(节点.右子树,最小节点.值)
-        return节点
-    
-    def _查找最小(self,节点):
-        while节点.左子树is not None:
-            节点=节点.左子树
-        return节点
-    
-    def中序遍历(self):
-        结果=[]
-        self._中序递归(self._根节点,结果)
-        return结果
-    
-    def _中序递归(self,节点,结果):
-        if节点is not None:
-            self._中序递归(节点.左子树,结果)
-            结果.append(节点.值)
-            self._中序递归(节点.右子树,结果)
-    
-    def前序遍历(self):
-        结果=[]
-        self._前序递归(self._根节点,结果)
-        return结果
-    
-    def _前序递归(self,节点,结果):
-        if节点is not None:
-            结果.append(节点.值)
-            self._前序递归(节点.左子树,结果)
-            self._前序递归(节点.右子树,结果)
-    
-    def后序遍历(self):
-        结果=[]
-        self._后序递归(self._根节点,结果)
-        return结果
-    
-    def _后序递归(self,节点,结果):
-        if节点is not None:
-            self._后序递归(节点.左子树,结果)
-            self._后序递归(节点.右子树,结果)
-            结果.append(节点.值)
-    
-    def层序遍历(self):
-        if self._根节点is None:
-            return[]
-        结果=[]
-        队列=[self._根节点]
-        while队列:
-            节点=队列.pop(0)
-            结果.append(节点.值)
-            if节点.左子树:
-                队列.append(节点.左子树)
-            if节点.右子树:
-                队列.append(节点.右子树)
-        return结果
-    
-    def高度(self):
-        return self._高度递归(self._根节点)
-    
-    def _高度递归(self,节点):
-        if节点is None:
-            return 0
-        return 1+最大(self._高度递归(节点.左子树),self._高度递归(节点.右子树))
-    
-    def大小(self):
-        return self._大小递归(self._根节点)
-    
-    def _大小递归(self,节点):
-        if节点is None:
-            return 0
-        return 1+self._大小递归(节点.左子树)+self._大小递归(节点.右子树)
-    
-    def空(self):
-        return self._根节点is None
-    
-    def清空(self):
-        self._根节点=None
+导出 栈 队列 双端队列 优先队列 链表节点 单链表。
+导出 二叉树节点 二叉搜索树 创建栈 入栈 出栈 查看栈顶。
+导出 栈是否为空 栈大小 创建队列 入队 出队 查看队首。
+导出 队列是否为空 队列大小 创建双端队列 左入 右入 左出。
+导出 右出 查看左端 查看右端 双端队列是否为空 双端队列大小。

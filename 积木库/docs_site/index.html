@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>段言积木库 · 使用文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="brand">段言积木库</span>
+  <span class="proto">协议 <b>v1.0.0</b>（当前）/ <i>v1.1 规划中</i></span>
+  <span class="links">
+    <a href="blocks.html">块清单</a>
+    <a href="../协议.md">协议.md</a>
+    <a href="../评估/README.md">评估/README.md</a>
+  </span>
+</div>
+
+<div class="wrap">
+  <header class="hero">
+    <h1>段言积木库 · 使用文档</h1>
+    <p>面向<strong>积木使用者</strong>：用一行自然语言需求拼出可运行的段言程序，常态零 AI token。本页为独立静态文档站，与段言语言本体的 mkdocs 物理分离。</p>
+  </header>
+
+  <nav class="toc">
+    <h3>目录</h3>
+    <ol>
+      <li><a href="#install">安装</a></li>
+      <li><a href="#one-line">一行需求出结果</a></li>
+      <li><a href="#extend">如何扩一块</a></li>
+      <li><a href="#metrics">指标与防回归</a></li>
+      <li><a href="#fallback">真实 LLM 兜底</a></li>
+    </ol>
+  </nav>
+
+  <!-- 1. 安装 -->
+  <section id="install">
+    <h2>1. 安装</h2>
+    <p>积木库已发布到 PyPI（包名 <code>duan-blocks</code>，当前版本 <code>1.0.1</code>）。段言语言本体与积木平台分开安装：</p>
+    <pre><code># 段言语言本体
+pip install duan
+# 积木组合平台（已发 1.0.1）
+pip install duan-blocks
+# 可选：拼音 / 繁简 / 农历等中文能力
+pip install duan-blocks[zh]</code></pre>
+
+    <p>安装后可用命令行 <code>duan-combo</code> 直接跑需求；也可起 Web 演示服务：</p>
+    <pre><code># 交互式演示页 + JSON API（端口可改）
+uvicorn duan_blocks.api:app --port 8123
+#   GET  /       演示页
+#   POST /combo  {"requirement":"半径5的圆有多大","input":"5"}</code></pre>
+
+    <div class="note">
+      <b>本地仓库运行</b>：在本仓库内调试脚本时，使用受管 Python 解释器（已随 WorkBuddy 安装）
+      <code>C:/Users/skywalk/.workbuddy/binaries/python/versions/3.13.12/python.exe</code>。
+      例如运行生成脚本：<code>该python 积木库/docs_site/build_docs.py</code>。
+      仓库内脚本会优先用 <code>cli/duan.py</code> 作为运行时；pip 安装后回退到 <code>duan</code> 命令（见 <code>组合.py</code> 的 <code>_定位运行时</code>）。
+    </div>
+    <div class="note warn">
+      已知边界（诚实声明）：拼音/繁简/历法依赖可选第三方包（<code>pypinyin</code>/<code>opencc</code>/<code>lunardate</code>），缺失时对应块运行期才报错；真实 LLM 兜底需配置 <code>llm_config.json</code> 的 api_key（未配时本地规则覆盖 7 类常见库外意图）。
+    </div>
+  </section>
+
+  <!-- 2. 一行需求出结果 -->
+  <section id="one-line">
+    <h2>2. 一行需求出结果</h2>
+    <p>核心用法只有两步：先用 <code>组合.py</code> 把自然语言需求拼成段言源码，再用段言运行时执行。</p>
+    <pre><code># ① 选块 → 校验 → 契约级接线 → 内联粘合 → 运行，写出 组合结果.duan
+python 积木库/组合.py "对一批数字求和再算平均"
+
+# ② 用段言运行时执行生成的 .duan（rc==0 且非空输出即成功）
+python cli/duan.py run 组合结果.duan</code></pre>
+    <p>组合器默认共享输入为 <code>[1, 2, 3, 4, 5]</code>，可用 <code>--输入</code> 覆盖；<code>--json</code> 输出结构化诊断；<code>--无兜底</code> 可关闭 LLM 兜底。</p>
+    <pre><code>python 积木库/组合.py "半径5的圆面积" --输入 5 --json</code></pre>
+
+    <div class="note ok">
+      <b>常态零 token。</b>选块（概念图向量，零依赖毫秒级）、校验、接线、粘合全部本地运行；
+      仅当「选不准」时才调用一次 LLM 兜底生成新积木，且生成结果<strong>永久沉淀</strong>，下次同需求零 token 复用。
+    </div>
+  </section>
+
+  <!-- 3. 如何扩一块 -->
+  <section id="extend">
+    <h2>3. 如何扩一块</h2>
+    <p>积木库是一张契约索引。每个块在 <code>索引.json</code> 的 <code>块</code> 数组里是一条记录。以「求和」为例，真实字段如下：</p>
+    <pre><code>{
+  "名称": "求和",
+  "领域": "数据",
+  "层级": 0,
+  "描述": "对数值列表求和，返回所有元素之和",
+  "输入": [{"名": "列表", "类型": "列表[数]"}],
+  "输出": {"类型": "数"},
+  "稳定性": "stable",
+  "路径": "数据/求和.duan",
+  "导出名": "汇总"
+}</code></pre>
+    <p>各字段含义（来自 <code>协议.md</code> 冻结的契约格式）：</p>
+    <ul>
+      <li><code>名称</code>：块的中文名（使用者可见）。</li>
+      <li><code>领域</code>：所属领域，如 数据/文本/中文/财务/工具/网络/生成/日期/校验/格式/集合/几何。</li>
+      <li><code>层级</code>：L0 原子块 / L1+ 聚合块（由 <code>层级生成.py</code> 织出）。</li>
+      <li><code>描述</code>：选块器据此匹配需求，写清「具体能力概念」，避开旧概念触发词以免余弦平局被旧块抢答。</li>
+      <li><code>输入</code> / <code>输出</code>：结构化类型（<code>列表[数]</code>/<code>字典[文本,数]</code>/<code>可选[T]</code>/<code>联合[A,B]</code>），供契约级类型闸门接线。</li>
+      <li><code>稳定性</code>：<code>stable</code>（手写 <code>.duan</code> 为准）或 <code>generated</code>（兜底生成、源码内联存 <code>索引.json</code>）。</li>
+      <li><code>路径</code>：源码相对库根位置，缺省时粘合器按 <code>领域/块.duan</code> 回退。</li>
+      <li><code>导出名</code>：粘合进单一 <code>.duan</code> 后的段落导出名，词法器最长匹配消费。</li>
+    </ul>
+
+    <h3>两条铁律（<code>评估/体检.py</code> 强制）</h3>
+    <div class="law"><b>铁律一：段落名 == 导出名。</b> 源码里的 <code>段落</code> 必须与索引的 <code>导出名</code> 完全一致（体检 E4）。</div>
+    <div class="law"><b>铁律二：导出名之间不得互为前缀。</b> 否则词法器最长匹配会把一个名切碎成另一个（体检 W1；曾真实发生过 <code>均值</code> 导出名误写成 <code>中位</code> 与 <code>中位数</code> 互为前缀）。</div>
+
+    <h3>新增一块的最小步骤</h3>
+    <ol>
+      <li>在对应领域目录新建 <code>&lt;名称&gt;.duan</code>，<strong>段落名 == 导出名</strong>，且导出名不与任何现有导出名互为前缀。</li>
+      <li>在 <code>索引.json</code> 的 <code>块</code> 数组追加一条（必填：名称/领域/层级/描述/输入/输出/稳定性/路径/导出名）。</li>
+      <li>跑 <code>python 积木库/评估/体检.py --严格</code> 确认铁律与契约一致通过。</li>
+      <li>跑 <code>python 积木库/评估/冒烟.py --只跑 &lt;领域&gt;</code> 真跑该块，确认输出符合预期。</li>
+    </ol>
+    <div class="note">逐块真实字段见 <a href="blocks.html">块清单</a>（由 <code>build_docs.py</code> 从 <code>索引.json</code> 实时生成，不手抄）。</div>
+  </section>
+
+  <!-- 4. 指标与防回归 -->
+  <section id="metrics">
+    <h2>4. 指标与防回归</h2>
+    <p>质量靠「尺子」量化，任何优化都要能回答「被哪把尺子量到」。使用者侧最相关的五把：</p>
+    <ul>
+      <li><b>选块</b>（<code>评估/跑分.py</code>）：候选块对不对（Hit@1 / 链路正确率）。</li>
+      <li><b>校验</b>（<code>评估/校验器.py</code> 思路）：运行前第二道闸，需求能力概念与所选块无交集即判误选。</li>
+      <li><b>体检</b>（<code>评估/体检.py</code>）：索引与 <code>.duan</code> 源文件一致性，守卫两条铁律。</li>
+      <li><b>冒烟</b>（<code>评估/冒烟.py</code>）：真跑每一块比对期望输出，统计可运行率。</li>
+      <li><b>扰动</b>（<code>评估/扰动跑分.py</code>）：用刻意避开块名用字的迂回说法，测对外泛化召回。</li>
+    </ul>
+    <div class="note">此外还有<strong>真实语料尺子</strong>（<code>评估/真实跑分.py</code>，按调参/留出分段防自欺）与<strong>接线尺子</strong>（<code>评估/接线跑分.py</code>，契约级类型闸门），二者也是 CI 门禁的一部分。</div>
+
+    <h3>兜底跑分门禁（<code>评估/ci_eval.py</code> + <code>评估/门槛.json</code>）</h3>
+    <p><code>ci_eval.py</code> 进程内串起上述各尺子，按 <code>门槛.json</code> 数据驱动判 22 项闸门；任一不达标即非零退出码、CI 标红。门槛可随库演进调整（改 <code>门槛.json</code>，不改代码）。关键门槛（来自真实 <code>门槛.json</code>）：</p>
+    <table>
+      <thead><tr><th>组</th><th>指标</th><th>门槛</th></tr></thead>
+      <tbody>
+        <tr><td>主基准</td><td>Hit@1</td><td class="num">= 1.0</td></tr>
+        <tr><td>主基准</td><td>链路正确率</td><td class="num">= 1.0</td></tr>
+        <tr><td>主基准</td><td>失败条目数 / 库外召回</td><td class="num">0 / = 1.0</td></tr>
+        <tr><td>扰动集</td><td>留出段 concept / hybrid Hit@1</td><td class="num">≥ 0.95</td></tr>
+        <tr><td>扰动集</td><td>全部 concept Hit@3 / 空候选</td><td class="num">≥ 0.99 / ≤ 0</td></tr>
+        <tr><td>体检</td><td>错误数 / 警告数</td><td class="num">≤ 0</td></tr>
+        <tr><td>冒烟</td><td>可运行率 / 问题块数</td><td class="num">= 1.0 / ≤ 0</td></tr>
+        <tr><td>兜底（条件）</td><td>触发率</td><td class="num">≥ 1.0</td></tr>
+        <tr><td>兜底（条件）</td><td>沉淀成功率</td><td class="num">≥ 0.7</td></tr>
+      </tbody>
+    </table>
+    <div class="note warn">兜底两闸为<strong>条件门禁</strong>：仅当 <code>兜底首跑.py</code> 产出 ≥ 10 条兜底样本时激活；未真跑则跳过，避免拿「没测过」当回归。</div>
+    <pre><code># 全量（含并发冒烟，约 50s）
+python 积木库/评估/ci_eval.py --并发 8
+# 快模式（跳过冒烟，秒级）：提交前本地快速回归
+python 积木库/评估/ci_eval.py --快</code></pre>
+  </section>
+
+  <!-- 5. 真实 LLM 兜底 -->
+  <section id="fallback">
+    <h2>5. 真实 LLM 兜底</h2>
+    <p>当组合器对某个需求「选不准」，触发 <code>兜底生成器.py</code> 按契约生成一块新积木：</p>
+    <ul>
+      <li><b>触发信号</b>：① 无候选（概念图余弦≈0，需求库内无对应概念）；② top 分数低于阈值，或契约级接线不可接；③ 校验器判 MISMATCH（本地概念无交集 / LLM 认为组合不满足需求）。</li>
+      <li><b>本地规则先行</b>：未配 API key 时，本地规则覆盖 方差/标准差/中位数/绝对值/斐波那契/阶乘/素数/累加和 等常见库外意图，仍零 token。</li>
+      <li><b>真实 LLM</b>：本地规则也覆盖不了、且配置了 key 时，才调用一次 OpenAI 兼容的 <code>chat/completions</code> 生成新积木。</li>
+    </ul>
+    <div class="note">
+      <b>沉淀与护栏。</b>生成的块写入 <code>生成/&lt;名称&gt;.duan</code> 并注册进 <code>索引.json</code>，下次同需求零 token 复用。
+      若未过护栏（如臆造了不存在的内建名），则由 <code>入待审</code> 写入 <code>生成/待审/</code> 并记入 <code>待审清单.jsonl</code>，<strong>不污染</strong> <code>索引.json</code>；
+      护栏回滚时只注销 <code>生成/</code> 下的生成块，不影响原库条目。
+    </div>
+    <pre><code># 兜底配置优先级（任选其一）
+#   1) 积木库/.env          OPENAI_API_KEY / OPENAI_BASE_URL / OPENAI_MODEL
+#   2) 环境变量              OPENAI_API_KEY / OPENAI_BASE_URL / OPENAI_MODEL
+#   3) 积木库/llm_config.json   {"api_key":"...","base_url":"...","model":"..."}</code></pre>
+  </section>
+
+  <footer>
+    段言积木库独立文档站 · 协议 v1.0.0（当前）/ v1.1 规划中 · 块清单由 <code>build_docs.py</code> 从 <code>索引.json</code> 实时生成（当前 164 块）。
+    本页只读引用 <code>索引.json</code> / <code>协议.md</code> / <code>评估/</code>，未改动任何源文件。
+  </footer>
+</div>
+</body>
+</html>

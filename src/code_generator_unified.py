@@ -87,6 +87,7 @@ class UnifiedCodeGenerator:
             '打印': 'print',
             '显示': 'print',
             '读取': 'input',
+            '输入': 'input',
             # 列表操作动词
             '长': 'len',
             '首': '__import__("operator").itemgetter(0)',
@@ -105,12 +106,14 @@ class UnifiedCodeGenerator:
             '写入文件': '_light_builtin.写入文件',
             '追加文件': '_light_builtin.追加文件',
             '文件存在': '_light_builtin.文件存在',
+            '是文件': '_light_builtin.是文件',
             '目录存在': '_light_builtin.目录存在',
             '路径存在': '_light_builtin.路径存在',
             '创建目录': '_light_builtin.创建目录',
             '删除文件': '_light_builtin.删除文件',
             '删除目录': '_light_builtin.删除目录',
             '列出目录': '_light_builtin.列出目录',
+            '列出文件': '_light_builtin.列出文件',
             '文件大小': '_light_builtin.文件大小',
             '绝对路径': '_light_builtin.绝对路径',
             '连接路径': '_light_builtin.连接路径',
@@ -138,6 +141,7 @@ class UnifiedCodeGenerator:
             '转浮点': '_light_builtin.转浮点',
             '转字符串': '_light_builtin.转字符串',
             '字符串长度': '_light_builtin.字符串长度',
+            '显示宽度': '_light_builtin.显示宽度',
             '分割字符串': '_light_builtin.分割字符串',
             '连接字符串': '_light_builtin.连接字符串',
             '替换字符串': '_light_builtin.替换字符串',
@@ -147,6 +151,7 @@ class UnifiedCodeGenerator:
             '列表获取': '_light_builtin.列表获取',
             '列表追加': '_light_builtin.列表追加',
             '列表弹出': '_light_builtin.列表弹出',
+            '列表插入': '_light_builtin.列表插入',
             '列表排序': '_light_builtin.列表排序',
             '列表反转': '_light_builtin.列表反转',
             '列表包含': '_light_builtin.列表包含',
@@ -248,6 +253,10 @@ class UnifiedCodeGenerator:
         self._add_line("")
         self._add_line("if os.path.isdir(_light_stdlib) and _light_stdlib not in sys.path:")
         self._add_line("    sys.path.insert(0, _light_stdlib)")
+        self._add_line("if os.path.isdir(_light_stdlib):")
+        self._add_line("    _light_parent = os.path.dirname(_light_stdlib)")
+        self._add_line("    if _light_parent not in sys.path:")
+        self._add_line("        sys.path.insert(0, _light_parent)")
         self._add_line("")
         self._add_line("if importlib:")
         self._add_line("    try:")
@@ -268,8 +277,12 @@ class UnifiedCodeGenerator:
         self._add_line("        _light_builtin.打印 = print")
         self._add_line("        _light_builtin.列表创建 = list")
         self._add_line("        _light_builtin.列表追加 = lambda lst, item: lst.append(item)")
+        self._add_line("        _light_builtin.列表获取 = lambda lst, i: lst[i]")
+        self._add_line("        _light_builtin.列表弹出 = lambda lst, i=-1: lst.pop(i)")
+        self._add_line("        _light_builtin.列表插入 = lambda lst, i, v: lst.insert(i, v)")
         self._add_line("        _light_builtin.列表包含 = lambda lst, item: item in lst")
         self._add_line("        _light_builtin.字符串长度 = len")
+        self._add_line("        _light_builtin.显示宽度 = lambda text: sum(2 if __import__('unicodedata').east_asian_width(ch) in ('W', 'F') else 1 for ch in str(text))")
         self._add_line("        _light_builtin.字典创建 = dict")
         self._add_line("        _light_builtin.字典设置 = lambda d, k, v: d.update({k: v})")
         self._add_line("        _light_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)")
@@ -289,6 +302,35 @@ class UnifiedCodeGenerator:
         self._add_line("    _light_builtin.JSON序列化 = lambda obj, indent=2: json.dumps(obj, ensure_ascii=False, indent=indent)")
         self._add_line("")
         
+        self._add_line("# stdlib 物理缺失时的兜底：补齐常用 builtin + 注册 文件系统 模块")
+        self._add_line("for _light_n, _light_f in [")
+        self._add_line("    ('列表排序', lambda lst, 反向=False: lst.sort(reverse=反向)),")
+        self._add_line("    ('列表反转', lambda lst: lst.reverse()),")
+        self._add_line("    ('列表清空', lambda lst: lst.clear()),")
+        self._add_line("    ('列表移除', lambda lst, item: lst.remove(item)),")
+        self._add_line("    ('列表长度', len),")
+        self._add_line("    ('追加文件', lambda path, content, encoding='utf-8': open(path, 'a', encoding=encoding).write(content) or None),")
+        self._add_line("    ('删除文件', lambda path: __import__('os').remove(path) if __import__('os').path.isfile(path) else None),")
+        self._add_line("    ('复制文件', lambda src, dst: __import__('shutil').copy2(src, dst)),")
+        self._add_line("    ('移动文件', lambda src, dst: __import__('shutil').move(src, dst)),")
+        self._add_line("    ('创建目录', lambda path: __import__('os').makedirs(path, exist_ok=True)),")
+        self._add_line("    ('删除目录', lambda path: __import__('shutil').rmtree(path)),")
+        self._add_line("    ('路径连接', lambda *parts: __import__('os').path.join(*parts)),")
+        self._add_line("    ('当前工作目录', lambda: __import__('os').getcwd()),")
+        self._add_line("]:")
+        self._add_line("    if not hasattr(_light_builtin, _light_n):")
+        self._add_line("        setattr(_light_builtin, _light_n, _light_f)")
+        self._add_line("if (not _light_stdlib) or (not os.path.isdir(_light_stdlib or '')):")
+        self._add_line("    try:")
+        self._add_line("        import types as _light_types")
+        self._add_line("        _light_fs = _light_types.ModuleType('文件系统')")
+        self._add_line("        for _light_fn in ('读取文件', '写入文件', '追加文件', '文件存在', '删除文件', '复制文件', '移动文件', '创建目录', '删除目录', '目录存在', '路径连接', '当前工作目录', '读取行'):")
+        self._add_line("            if hasattr(_light_builtin, _light_fn):")
+        self._add_line("                setattr(_light_fs, _light_fn, getattr(_light_builtin, _light_fn))")
+        self._add_line("        sys.modules.setdefault('文件系统', _light_fs)")
+        self._add_line("    except Exception:")
+        self._add_line("        pass")
+
         # 生成导入语句
         if hasattr(module, 'imports') and module.imports:
             for imp in module.imports:
@@ -468,6 +510,10 @@ class UnifiedCodeGenerator:
         # 装饰器定义
         elif is_instance(stmt, 'DecoratorDefinition'):
             self._generate_decorator(stmt)
+        
+        # 装饰器链（多个装饰器 + 函数）
+        elif is_instance(stmt, 'DecoratedFunction'):
+            self._generate_decorated_function_unified(stmt)
         
         # 导入语句
         elif is_instance(stmt, 'ImportStatement') or is_instance(stmt, 'ImportStmt'):
@@ -731,12 +777,28 @@ class UnifiedCodeGenerator:
     
     def _generate_with_stmt(self, stmt):
         """生成上下文管理器语句：使用 表达式 作为 变量：...结束。"""
-        context_expr = self._generate_expr(stmt.context_expr)
-        if hasattr(stmt, 'variable') and stmt.variable:
-            var = self._sanitize_name(stmt.variable)
-            self._add_line(f"with {context_expr} as {var}:")
+        prefix = "async " if hasattr(stmt, 'is_async') and stmt.is_async else ""
+        
+        # 检查是否有多个上下文管理器
+        items = getattr(stmt, 'items', None)
+        if items and len(items) > 1:
+            parts = []
+            for expr, var in items:
+                expr_str = self._generate_expr(expr)
+                if var:
+                    var_name = self._sanitize_name(var)
+                    parts.append(f"{expr_str} as {var_name}")
+                else:
+                    parts.append(expr_str)
+            context_str = ', '.join(parts)
+            self._add_line(f"{prefix}with {context_str}:")
         else:
-            self._add_line(f"with {context_expr}:")
+            context_expr = self._generate_expr(stmt.context_expr)
+            if hasattr(stmt, 'variable') and stmt.variable:
+                var = self._sanitize_name(stmt.variable)
+                self._add_line(f"{prefix}with {context_expr} as {var}:")
+            else:
+                self._add_line(f"{prefix}with {context_expr}:")
         
         self.indent_level += 1
         if hasattr(stmt, 'body') and stmt.body:
@@ -799,6 +861,27 @@ class UnifiedCodeGenerator:
         # 再生成被装饰的段落
         if hasattr(stmt, 'paragraph') and stmt.paragraph:
             self._generate_segment(stmt.paragraph)
+    
+    def _generate_decorated_function_unified(self, stmt):
+        """生成装饰器链（多个装饰器 + 函数定义）"""
+        for decorator_info in getattr(stmt, 'decorators', []):
+            decorator_name = self._sanitize_name(decorator_info.name)
+            decorator_args = getattr(decorator_info, 'args', None)
+            if decorator_args:
+                args_parts = []
+                for a in decorator_args:
+                    if hasattr(a, 'name'):
+                        args_parts.append(f"{a.name}={self._generate_expr(a.value)}")
+                    else:
+                        args_parts.append(self._generate_expr(a))
+                args_str = ', '.join(args_parts)
+                self._add_line(f"@{decorator_name}({args_str})")
+            else:
+                self._add_line(f"@{decorator_name}")
+        # 生成被装饰的函数
+        func = getattr(stmt, 'function', None)
+        if func:
+            self._generate_segment(func)
     
     def _generate_import_stmt(self, stmt):
         """生成导入语句"""
@@ -1219,17 +1302,19 @@ class UnifiedCodeGenerator:
         # 字典字面量
         elif is_instance(expr, 'DictLiteral'):
             entries = []
-            if hasattr(expr, 'entries'):
-                for entry in expr.entries:
-                    key = self._generate_expr(entry.key)
-                    value = self._generate_expr(entry.value)
-                    entries.append(f"{key}: {value}")
-            elif hasattr(expr, 'elements'):
-                for e in expr.elements:
-                    if hasattr(e, 'key') and hasattr(e, 'value'):
-                        key = self._generate_expr(e.key)
-                        value = self._generate_expr(e.value)
-                        entries.append(f"{key}: {value}")
+            raw = getattr(expr, 'entries', None) or getattr(expr, 'elements', None) or []
+            for entry in raw:
+                if isinstance(entry, (tuple, list)) and len(entry) == 2:
+                    key, value = entry
+                    if key is None:
+                        # **展开（_convert_dict_literal 以 (None, expr) 表示）
+                        entries.append(f"**{self._generate_expr(value)}")
+                    else:
+                        entries.append(f"{self._generate_expr(key)}: {self._generate_expr(value)}")
+                elif hasattr(entry, 'key') and hasattr(entry, 'value'):
+                    entries.append(f"{self._generate_expr(entry.key)}: {self._generate_expr(entry.value)}")
+                else:
+                    entries.append(self._generate_expr(entry))
             return f"{{{', '.join(entries)}}}"
         
         # 范围表达式：1至10 -> range(1, 11), 1到10步2 -> range(1, 11, 2)

@@ -1,0 +1,297 @@
+# 段言 - 简易博客系统
+# 基于 Web 框架的简易博客，支持文章列表、查看文章、发布文章
+# 使用 JSON 文件作为持久化存储
+# 用法: duan run examples/blog_system/主.duan
+
+导入 文件系统。
+导入 JSON。
+
+# ===== 配置 =====
+设 数据文件 为 "posts.json"。
+设 服务器地址 为 "127.0.0.1"。
+设 服务器端口 为 8080。
+
+# ===== 数据存储层 =====
+段落 加载文章列表：
+  如果 文件存在(数据文件)：
+    设 内容 为 读取文件(数据文件)。
+    设 数据 为 解析JSON(内容)。
+    返回 数据。
+  否则：
+    返回 []。
+
+段落 保存文章列表 接收 列表：
+  设 数据 为 序列化JSON(列表, 2)。
+  写入文件(数据文件, 数据)。
+
+段落 生成文章ID 接收 列表：
+  设 最大ID 为 0。
+  遍历 文章 于 列表：
+    如果 文章["id"] 大于 最大ID：
+      最大ID 为 文章["id"]。
+  返回 最大ID + 1。
+
+段落 获取当前时间字符串：
+  返回 时间戳()。
+
+# ===== HTML 模板 =====
+设 页面模板 为 "<!DOCTYPE html>
+<html lang='zh-CN'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>{标题}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: #f0f2f5; color: #333; }
+    .container { max-width: 860px; margin: 0 auto; padding: 20px; }
+    header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px 0; text-align: center; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    header h1 { font-size: 32px; letter-spacing: 2px; }
+    header h1 a { color: white; text-decoration: none; }
+    header p { margin-top: 8px; opacity: 0.9; font-size: 14px; }
+    .post { background: white; border-radius: 10px; padding: 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s; }
+    .post:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+    .post h2 { color: #333; margin-bottom: 10px; font-size: 22px; }
+    .post h2 a { color: #333; text-decoration: none; }
+    .post h2 a:hover { color: #667eea; }
+    .post .meta { color: #999; font-size: 13px; margin-bottom: 12px; }
+    .post .meta span { margin-right: 16px; }
+    .post .content { line-height: 1.9; color: #555; }
+    .post .tag { display: inline-block; background: #eef2ff; color: #667eea; padding: 2px 10px; border-radius: 12px; font-size: 12px; margin-right: 4px; }
+    .btn { display: inline-block; background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-size: 14px; border: none; cursor: pointer; transition: opacity 0.2s; }
+    .btn:hover { opacity: 0.9; }
+    .btn-secondary { background: #6c757d; }
+    form { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    form label { display: block; margin-bottom: 6px; font-weight: bold; color: #555; font-size: 14px; }
+    form input, form textarea, form select { width: 100%; padding: 12px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; transition: border-color 0.2s; }
+    form input:focus, form textarea:focus { border-color: #667eea; outline: none; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+    form textarea { height: 300px; resize: vertical; }
+    .nav { text-align: center; margin: 24px 0; }
+    .nav .btn { margin: 0 8px; }
+    .footer { text-align: center; color: #aaa; padding: 30px; font-size: 13px; }
+    .empty-state { text-align: center; padding: 60px 20px; color: #999; }
+    .empty-state p { font-size: 18px; margin-bottom: 20px; }
+    .alert { background: #d4edda; color: #155724; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class='container'>
+      <a href='/' style='color:white;text-decoration:none;'><h1>段言博客</h1></a>
+      <p>用段言编程语言构建的简易博客系统</p>
+    </div>
+  </header>
+  <div class='container'>
+    {内容}
+    <div class='footer'>
+      <p>段言博客 - 基于段言编程语言构建 | 数据存储于 posts.json</p>
+    </div>
+  </div>
+</body>
+</html>"
+
+设 首页模板 为 "<div class='nav'><a href='/new' class='btn'>✏ 写新文章</a></div>
+{文章列表}"
+
+设 文章卡片模板 为 "<div class='post'>
+  <h2><a href='/post/{id}'>{标题}</a></h2>
+  <div class='meta'>
+    <span>📅 {时间}</span>
+    <span>🏷 {标签}</span>
+  </div>
+  <div class='content'>{摘要}...</div>
+  <div style='margin-top:16px;'><a href='/post/{id}' class='btn'>阅读全文</a></div>
+</div>"
+
+设 文章详情模板 为 "<div class='post'>
+  <h2>{标题}</h2>
+  <div class='meta'>
+    <span>📅 {时间}</span>
+    <span>🏷 {标签}</span>
+  </div>
+  <div class='content'>{正文}</div>
+  <div class='nav'>
+    <a href='/' class='btn'>返回首页</a>
+    <a href='/new' class='btn'>写新文章</a>
+  </div>
+</div>"
+
+设 新建文章模板 为 "<h2 style='margin-bottom:24px;'>✏ 写新文章</h2>
+<form method='POST' action='/new'>
+  <label>文章标题</label>
+  <input type='text' name='title' placeholder='请输入文章标题' required>
+
+  <label>标签（用逗号分隔）</label>
+  <input type='text' name='tags' placeholder='例如: 段言, 教程, 编程'>
+
+  <label>文章内容</label>
+  <textarea name='content' placeholder='请输入文章内容...' required></textarea>
+
+  <button type='submit' class='btn'>发布文章</button>
+  <a href='/' class='btn btn-secondary' style='margin-left:8px;'>取消</a>
+</form>"
+
+设 模板404 为 "<div class='post' style='text-align:center;'>
+  <h2 style='font-size:48px;color:#ddd;margin-bottom:10px;'>404</h2>
+  <p style='color:#999;font-size:16px;'>您请求的页面不存在。</p>
+  <div class='nav'><a href='/' class='btn'>返回首页</a></div>
+</div>"
+
+# ===== 渲染辅助函数 =====
+段落 渲染页面 接收 标题, 内容：
+  设 页面 为 页面模板。
+  页面 为 替换字符串(页面, "{标题}", 标题)。
+  页面 为 替换字符串(页面, "{内容}", 内容)。
+  返回 页面。
+
+段落 替换模板 接收 模板, 变量名, 值：
+  返回 替换字符串(模板, "{" + 变量名 + "}", 值)。
+
+# ===== 请求处理函数 =====
+
+# 处理首页请求
+段落 处理首页 接收 请求, 响应：
+  设 文章列表 为 加载文章列表()。
+  设 文章卡片列表 为 ""。
+
+  如果 列表长度(文章列表) 等于 0：
+    设 空状态 为 "<div class='empty-state'>
+      <p>📝 还没有任何文章</p>
+      <a href='/new' class='btn'>发布第一篇文章</a>
+    </div>"
+    设 首页内容 为 替换模板(首页模板, "文章列表", 空状态)。
+    设 HTML 为 渲染页面("段言博客 - 首页", 首页内容)。
+    响应.设置HTML(HTML)。
+    返回。
+
+  # 按时间倒序排列
+  设 序号 为 列表长度(文章列表) - 1。
+  当 序号 大于等于 0：
+    设 文章 为 文章列表[序号]。
+    设 卡片 为 文章卡片模板。
+    卡片 为 替换模板(卡片, "id", 转字符串(文章["id"]))。
+    卡片 为 替换模板(卡片, "标题", 文章["title"])。
+    卡片 为 替换模板(卡片, "时间", 文章["created_at"])。
+
+    设 标签文本 为 ""。
+    如果 字典包含键(文章, "tags") 且 文章["tags"] 不等于 ""：
+      标签文本 为 文章["tags"]。
+    否则：
+      标签文本 为 "未分类"。
+    卡片 为 替换模板(卡片, "标签", 标签文本)。
+
+    设 摘要 为 文章["content"]。
+    如果 字符串长度(摘要) 大于 120：
+      摘要 为 字符串获取(摘要, 0, 120)。
+    卡片 为 替换模板(卡片, "摘要", 摘要)。
+    文章卡片列表 为 文章卡片列表 + 卡片。
+    序号 为 序号 - 1。
+
+  设 首页内容 为 替换模板(首页模板, "文章列表", 文章卡片列表)。
+  设 HTML 为 渲染页面("段言博客 - 首页", 首页内容)。
+  响应.设置HTML(HTML)。
+
+# 处理文章详情请求
+段落 处理文章详情 接收 请求, 响应, 文章编号：
+  设 文章列表 为 加载文章列表()。
+  设 找到 为 假。
+
+  遍历 文章 于 文章列表：
+    如果 文章["id"] 等于 文章编号：
+      找到 为 真。
+      设 文章内容 为 文章详情模板。
+      文章内容 为 替换模板(文章内容, "标题", 文章["title"])。
+      文章内容 为 替换模板(文章内容, "时间", 文章["created_at"])。
+
+      设 标签文本 为 ""。
+      如果 字典包含键(文章, "tags") 且 文章["tags"] 不等于 ""：
+        标签文本 为 文章["tags"]。
+      否则：
+        标签文本 为 "未分类"。
+      文章内容 为 替换模板(文章内容, "标签", 标签文本)。
+
+      设 正文 为 替换字符串(文章["content"], "\n", "<br>")。
+      文章内容 为 替换模板(文章内容, "正文", 正文)。
+      设 HTML 为 渲染页面(文章["title"] + " - 段言博客", 文章内容)。
+      响应.设置HTML(HTML)。
+      跳出。
+
+  如果 找到 等于 假：
+    设 HTML 为 渲染页面("404 - 页面未找到", 模板404)。
+    响应.设置状态码(404)。
+    响应.设置HTML(HTML)。
+
+# 处理新建文章页面
+段落 处理新建页面 接收 请求, 响应：
+  设 HTML 为 渲染页面("写新文章 - 段言博客", 新建文章模板)。
+  响应.设置HTML(HTML)。
+
+# 处理创建文章请求
+段落 处理创建文章 接收 请求, 响应：
+  设 文章列表 为 加载文章列表()。
+  设 表单 为 请求.获取表单数据()。
+
+  设 标题 为 字典获取(表单, "title", "无标题")。
+  设 内容 为 字典获取(表单, "content", "")。
+  设 标签 为 字典获取(表单, "tags", "")。
+
+  设 新文章 为 {
+    "id": 生成文章ID(文章列表),
+    "title": 标题,
+    "content": 内容,
+    "tags": 标签,
+    "created_at": 获取当前时间字符串()
+  }。
+  列表追加(文章列表, 新文章)。
+  保存文章列表(文章列表)。
+
+  打印("新文章发布: " + 标题)。
+  响应.重定向("/")。
+
+# 解析路径中的文章ID
+段落 解析文章ID 接收 路径：
+  设 部分 为 分割字符串(路径, "/")。
+  如果 列表长度(部分) 大于等于 3：
+    返回 转整数(部分[2])。
+  返回 0。
+
+# 主请求路由
+段落 处理请求 接收 请求, 响应：
+  设 路径 为 请求.获取路径()。
+  设 方法 为 请求.获取方法()。
+
+  如果 路径 等于 "/" 且 方法 等于 "GET"：
+    处理首页(请求, 响应)。
+  否则若 路径 等于 "/new" 且 方法 等于 "GET"：
+    处理新建页面(请求, 响应)。
+  否则若 路径 等于 "/new" 且 方法 等于 "POST"：
+    处理创建文章(请求, 响应)。
+  否则若 开头(路径, "/post/") 且 方法 等于 "GET"：
+    设 文章编号 为 解析文章ID(路径)。
+    处理文章详情(请求, 响应, 文章编号)。
+  否则：
+    响应.设置状态码(404)。
+    设 HTML 为 渲染页面("404 - 页面未找到", 模板404)。
+    响应.设置HTML(HTML)。
+
+# ===== 启动服务器 =====
+段落 主程序：
+  打印("======================================")。
+  打印("  段言博客系统 v1.0")。
+  打印("======================================")。
+  打印("  服务器地址: http://" + 服务器地址 + ":" + 转字符串(服务器端口))。
+  打印("  数据存储: " + 数据文件)。
+  打印("======================================")。
+  打印("")。
+
+  设 服务器 为 创建HTTP服务端(服务器地址, 服务器端口)。
+  服务器.注册路由("/", 处理请求, "GET")。
+  服务器.注册路由("/new", 处理请求, "GET")。
+  服务器.注册路由("/new", 处理请求, "POST")。
+  服务器.注册路由("/post/{id}", 处理请求, "GET")。
+
+  打印("博客系统启动在 http://" + 服务器地址 + ":" + 转字符串(服务器端口))。
+  打印("按 Ctrl+C 停止服务器")。
+  服务器.启动(真)。
+
+主程序()。

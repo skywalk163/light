@@ -1,27 +1,37 @@
 # -*- coding: utf-8 -*-
-"""契约级类型化数据流规划 v0.14。
+"""契约级类型化数据流规划 v0.18（类型系统 v2）。
 
 解决 v0.13 链式接线的「多步同类型误接」问题：不再只按「输出类型==输入类型」
 就近瞎接，而是维护符号表（变量→类型），对每个输入槽位做：
-  1) 类型精确匹配（数/文本/列表/逻辑/字典 互不兼容）
-  2) 在匹配变量中按「参数名 vs 来源块名/描述 的字符相似度」排序
-  3) 相似度相同时取最近上游（确定性，非随机）
-  4) 无匹配且提供了默认常量 → 填默认；否则标记 None（不可接，交由兜底生成器）
+  1) 结构化类型匹配（类型.py：列表[T]/可选/联合/字典[K,V]，返回 0~1 匹配度）
+  2) 按「类型匹配度」降序 —— 精确 1.0 优先于渐进 0.6，这是 v0.18 新增的第一排序键，
+     可直接分开 列表[数] 与 列表[文本]，杜绝 求和(切分文本(...)) 这类荒谬接线
+  3) 同匹配度时按「参数名 vs 来源块名/描述 的字符相似度」排序
+  4) 再相同时取最近上游（确定性，非随机）
+  5) 无匹配且提供了默认常量 → 填默认；否则标记 None（不可接，交由兜底生成器）
 """
 
+import os
+import sys
 
-# 类型兼容性：键=目标类型，值=可接纳的源类型集合（v0.14 仅精确相等）
-_兼容表 = {
-    '数': {'数'},
-    '文本': {'文本'},
-    '列表': {'列表'},
-    '逻辑': {'逻辑'},
-    '字典': {'字典'},
-}
+_HERE = os.path.abspath(os.path.dirname(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+import 类型 as T
+
+
+def _匹配度(need, have):
+    """槽位需要 need、变量拥有 have 时的贴合度（0=接不上）。"""
+    try:
+        return T.匹配度(need, have)
+    except T.类型错误:
+        # 契约里写了非法类型串时退化为字符串相等，保证不崩
+        return 1.0 if (need or '') == (have or '') else 0.0
 
 
 def _兼容(need, have):
-    return (need or '') in _兼容表.get(have or '', set())
+    return _匹配度(need, have) > 0.0
 
 
 def _名相似(a, b):
@@ -36,16 +46,11 @@ def _名相似(a, b):
 
 
 def _推断类型(值):
-    s = (值 or '').strip()
-    if s.startswith('['):
-        return '列表'
-    if s.startswith('"') or s.startswith("'"):
-        return '文本'
+    """从段言字面量推断结构化类型串，如 "[1, 2, 3]" -> "列表[数]"。"""
     try:
-        float(s)
-        return '数'
+        return T.格式化(T.推断(值))
     except Exception:
-        return '文本'
+        return '任意'
 
 
 def _查表条目(s, 查表):
@@ -66,8 +71,9 @@ def 规划(步骤, 共享=None, 查表=None, 默认常量=None):
     默认常量 = 默认常量 or {}
     查表 = 查表 or {}
 
-    # 符号表：(变量名, 类型, 来源块名, 来源描述)
+    # 符号表：(变量名, 类型, 来源块名, 来源描述)。前 n共享 个是共享输入，其后是步骤产物。
     符号表 = []
+    n共享 = len(共享)
     for s in 共享:
         符号表.append((
             s['名'],
@@ -94,6 +100,8 @@ def 规划(步骤, 共享=None, 查表=None, 默认常量=None):
         ent = _查表条目(s, 查表) or {}
         输入 = ent.get('输入') or []
         参数 = []
+        本步已用 = set()   # 同一步骤内尽量不把同一个变量塞进多个槽位
+        回退 = False       # 本步有上游产物可用却只能退回共享输入 ⇒ 链式语义被削弱
         for p in 输入:
             pname = p.get('名') or p.get('名称')
             ptype = p.get('类型')
@@ -104,13 +112,28 @@ def 规划(步骤, 共享=None, 查表=None, 默认常量=None):
                 continue
             候选池 = []
             for idx, (vname, vtype, vsrc, vdesc) in enumerate(符号表):
-                if _兼容(ptype, vtype):
-                    名分 = max(_名相似(pname, vsrc), _名相似(pname, vdesc))
-                    候选池.append((vname, 名分, idx))
+                合 = _匹配度(ptype, vtype)
+                if 合 <= 0:
+                    continue
+                名分 = max(_名相似(pname, vsrc), _名相似(pname, vdesc),
+                          _名相似(pname, vname))
+                重复 = 1 if vname in 本步已用 else 0
+                if idx < n共享:
+                    # 共享输入：按声明序（第 1 个共享通常是主数据），且整体让位于上游产物
+                    组, 次 = 1, idx
+                else:
+                    # 步骤产物：最近上游优先
+                    组, 次 = 0, -idx
+                候选池.append((vname, 合, 名分, 重复, 组, 次))
             if 候选池:
-                # 先按名相似度降序，再按出现序号降序（最近上游优先）
-                候选池.sort(key=lambda x: (-x[1], -x[2]))
-                参数.append(候选池[0][0])
+                # 类型匹配度↓ → 未重复占用 → 上游产物优先 → 名相似度↓ → 位置序
+                候选池.sort(key=lambda x: (-x[1], x[3], x[4], -x[2], x[5]))
+                选中, _, _, _, 组, _ = 候选池[0]
+                if i > 0 and 组 == 1:
+                    # 前面有步骤产物，本槽位却只能用共享输入 ⇒ 这不是真正的串联
+                    回退 = True
+                本步已用.add(选中)
+                参数.append(选中)
             else:
                 参数.append(None)  # 无匹配且无可默认 → 不可接，交由兜底生成器
 
@@ -121,9 +144,14 @@ def 规划(步骤, 共享=None, 查表=None, 默认常量=None):
             s.get('块') or s.get('导出名'),
             s.get('说明', ''),
         ))
-        wired.append({**s, '参数': 参数})
+        wired.append({**s, '参数': 参数, '_回退': 回退})
 
     return wired, 符号表
+
+
+def 回退步(步骤):
+    """返回「本该串联却退回共享输入」的步骤块名列表（--链式 时用于提示用户）。"""
+    return [s.get('块') or s.get('导出名') for s in 步骤 if s.get('_回退')]
 
 
 def 不可接(步骤):

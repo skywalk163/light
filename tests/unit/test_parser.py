@@ -48,6 +48,28 @@ class TestParser(unittest.TestCase):
         module = parser.parse(code)
         self.assertIsNotNone(module)
 
+    def test_compact_binary_expr_with_call(self):
+        """测试紧凑写法二元表达式：n乘阶乘(n减1) 应为 n * 阶乘(n-1)，而非函数名合并"""
+        parser = self.Parser()
+        code = '段落 阶乘 接收 n：\n    返回 n乘阶乘(n减1)。'
+        module = parser.parse(code)
+        self.assertIsNotNone(module)
+        stmt = module.statements[0]
+        return_stmt = stmt.body[0]
+        expr = return_stmt.value
+        # 不能是被合并成单个名字的函数调用
+        self.assertNotEqual(getattr(expr, 'name', None), 'n乘阶乘')
+        # 应为二元乘法：n * 阶乘(n - 1)
+        self.assertEqual(expr.__class__.__name__, 'BinaryOp')
+        self.assertEqual(expr.operator, '*')
+        self.assertEqual(expr.left.name, 'n')
+        self.assertEqual(expr.right.__class__.__name__, 'ParagraphCall')
+        self.assertEqual(expr.right.name, '阶乘')
+        # 右操作数的参数是 (n - 1)
+        arg = expr.right.args[0]
+        self.assertEqual(arg.__class__.__name__, 'BinaryOp')
+        self.assertEqual(arg.operator, '-')
+
     def test_if_statement(self):
         """测试条件语句"""
         parser = self.Parser()

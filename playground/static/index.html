@@ -14,13 +14,17 @@
             <span class="logo-sub">Playground v4.0</span>
         </div>
         <div class="nav-center">
-            <button class="btn btn-examples" onclick="toggleSidebar()" title="示例库">
+            <button class="btn btn-examples" onclick="toggleSidebar()" title="示例库 (Ctrl+E)">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 012.5 1h3A1.5 1.5 0 017 2.5v3A1.5 1.5 0 015.5 7h-3A1.5 1.5 0 011 5.5v-3zm8 0A1.5 1.5 0 0110.5 1h3A1.5 1.5 0 0115 2.5v3A1.5 1.5 0 0113.5 7h-3A1.5 1.5 0 019 5.5v-3zm-8 8A1.5 1.5 0 012.5 9h3A1.5 1.5 0 017 10.5v3A1.5 1.5 0 015.5 15h-3A1.5 1.5 0 011 13.5v-3zm8 0A1.5 1.5 0 0110.5 9h3a1.5 1.5 0 011.5 1.5v3a1.5 1.5 0 01-1.5 1.5h-3A1.5 1.5 0 019 13.5v-3z"/></svg>
                 示例
             </button>
             <button class="btn btn-run" onclick="runCode()" id="runBtn">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5-9-5.5z"/></svg>
                 运行
+            </button>
+            <button class="btn btn-debug" onclick="toggleDebugMode()" id="debugBtn" title="调试模式">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6 0a1 1 0 00-1 1v1H4a2 2 0 00-2 2v1H1a1 1 0 000 2h1v1H1a1 1 0 000 2h1v1a2 2 0 002 2h1v1a1 1 0 102 0v-1h1v1a1 1 0 102 0v-1h1a2 2 0 002-2v-1h1a1 1 0 000-2h-1V8h1a1 1 0 000-2h-1V5a2 2 0 00-2-2h-1V1a1 1 0 10-2 0v1H7V1a1 1 0 00-1-1zM4.5 5h7a.5.5 0 01.5.5v5a.5.5 0 01-.5.5h-7a.5.5 0 01-.5-.5v-5a.5.5 0 01.5-.5z"/></svg>
+                调试
             </button>
             <button class="btn btn-clear" onclick="clearOutput()" title="清除输出">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM5.5 4.5L8 7l2.5-2.5L12 5.5 9.5 8 12 10.5 10.5 12 8 9.5 5.5 12 4 10.5 6.5 8 4 5.5l1.5-1z"/></svg>
@@ -67,6 +71,10 @@
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v11a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 13.5v-11zM3 4v5h2V4H3zm4 0v8h2V4H7zm4 0v2h2V4h-2z"/></svg>
                 项目
             </button>
+            <div class="toolbar-divider"></div>
+            <button class="btn btn-icon" onclick="openShortcutsModal()" title="快捷键 (Ctrl+/)">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 0A2.5 2.5 0 001 2.5v11A2.5 2.5 0 003.5 16h9a2.5 2.5 0 002.5-2.5v-11A2.5 2.5 0 0012.5 0h-9zM3 4a1 1 0 012 0v1a1 1 0 01-2 0V4zm4 0a1 1 0 012 0v1a1 1 0 01-2 0V4zm4 0a1 1 0 012 0v1a1 1 0 01-2 0V4zM3 8a1 1 0 012 0v1a1 1 0 01-2 0V8zm4 0a1 1 0 012 0v1a1 1 0 01-2 0V8zm4 0a1 1 0 012 0v1a1 1 0 01-2 0V8zm-8 4a1 1 0 012 0 1 1 0 01-2 0zm4 0a1 1 0 012 0 1 1 0 01-2 0z"/></svg>
+            </button>
         </div>
     </header>
 
@@ -80,6 +88,10 @@
                 <button class="btn btn-close" onclick="toggleSidebar()">✕</button>
             </div>
             <div class="sidebar-panel" id="sidebarExamples">
+                <div class="example-search">
+                    <svg class="example-search-icon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 10-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 001.415-1.414l-3.85-3.85a1.007 1.007 0 00-.115-.1zM12 6.5a5.5 5.5 0 11-11 0 5.5 5.5 0 0111 0z"/></svg>
+                    <input type="text" class="example-search-input" id="exampleSearch" placeholder="搜索示例..." oninput="filterExamples(this.value)">
+                </div>
                 <div class="example-list" id="exampleList">
                     <div class="example-loading">加载中...</div>
                 </div>
@@ -152,6 +164,52 @@
                     <div id="llvmPanel" class="output-panel hidden">
                         <div class="output-placeholder">点击「运行」生成 LLVM IR（需要 llvmlite）</div>
                     </div>
+                    <div id="debugPanel" class="output-panel hidden">
+                        <div class="debug-layout">
+                            <div class="debug-variables">
+                                <div class="debug-panel-title">变量</div>
+                                <div id="debugVariables" class="debug-vars-list">
+                                    <div class="debug-placeholder">暂无变量</div>
+                                </div>
+                            </div>
+                            <div class="debug-callstack">
+                                <div class="debug-panel-title">调用栈</div>
+                                <div id="debugCallStack" class="debug-callstack-list">
+                                    <div class="debug-placeholder">暂无调用栈</div>
+                                </div>
+                            </div>
+                            <div class="debug-output">
+                                <div class="debug-panel-title">输出</div>
+                                <div id="debugOutput" class="debug-output-content">
+                                    <div class="debug-placeholder">调试输出将显示在此处</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="debug-toolbar hidden" id="debugToolbar">
+                    <button class="btn btn-small btn-debug-step" onclick="debugContinue()" title="继续 (F5)" id="debugContinueBtn">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5-9-5.5z"/></svg>
+                        继续
+                    </button>
+                    <button class="btn btn-small btn-debug-step" onclick="debugStepOver()" title="单步跳过 (F10)" id="debugStepOverBtn">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2v12l8-6-8-6z"/></svg>
+                        跳过
+                    </button>
+                    <button class="btn btn-small btn-debug-step" onclick="debugStepInto()" title="单步进入 (F11)" id="debugStepIntoBtn">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2L2 8l6 6V9h6V7H8V2z"/></svg>
+                        进入
+                    </button>
+                    <button class="btn btn-small btn-debug-step" onclick="debugStepOut()" title="单步跳出 (Shift+F11)" id="debugStepOutBtn">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2L2 8l6 6V9h6V7H8V2z" transform="rotate(180,8,8)"/></svg>
+                        跳出
+                    </button>
+                    <span class="debug-toolbar-divider"></span>
+                    <button class="btn btn-small btn-debug-stop" onclick="debugStop()" title="停止调试 (Shift+F5)">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v10H3z"/></svg>
+                        停止
+                    </button>
+                    <span class="debug-status" id="debugStatus">就绪</span>
                 </div>
             </div>
         </div>
@@ -260,6 +318,63 @@
                 <div class="modal-footer" style="margin-top: 16px;text-align: right;">
                     <button class="btn" onclick="closeDeleteFileModal()">取消</button>
                     <button class="btn btn-danger" onclick="confirmDeleteFile()">删除</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 快捷键弹窗 -->
+    <div class="grammar-overlay hidden" id="shortcutsOverlay" onclick="closeShortcutsModal()">
+        <div class="grammar-modal shortcuts-modal" onclick="event.stopPropagation()" style="max-width: 500px;height: auto;">
+            <div class="grammar-modal-header">
+                <div class="grammar-modal-title" style="color: var(--accent-blue);">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 0A2.5 2.5 0 001 2.5v11A2.5 2.5 0 003.5 16h9a2.5 2.5 0 002.5-2.5v-11A2.5 2.5 0 0012.5 0h-9zM3 4a1 1 0 012 0v1a1 1 0 01-2 0V4zm4 0a1 1 0 012 0v1a1 1 0 01-2 0V4zm4 0a1 1 0 012 0v1a1 1 0 01-2 0V4zM3 8a1 1 0 012 0v1a1 1 0 01-2 0V8zm4 0a1 1 0 012 0v1a1 1 0 01-2 0V8zm4 0a1 1 0 012 0v1a1 1 0 01-2 0V8zm-8 4a1 1 0 012 0 1 1 0 01-2 0zm4 0a1 1 0 012 0 1 1 0 01-2 0z"/></svg>
+                    快捷键
+                </div>
+                <button class="btn btn-close" onclick="closeShortcutsModal()" title="关闭">✕</button>
+            </div>
+            <div class="grammar-modal-body" style="padding: 16px 20px;">
+                <div class="shortcuts-grid">
+                    <div class="shortcut-item">
+                        <span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Enter</kbd></span>
+                        <span class="shortcut-desc">运行代码</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>S</kbd></span>
+                        <span class="shortcut-desc">保存代码 / 项目</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>E</kbd></span>
+                        <span class="shortcut-desc">切换示例侧边栏</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>/</kbd></span>
+                        <span class="shortcut-desc">显示快捷键</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-keys"><kbd>F5</kbd></span>
+                        <span class="shortcut-desc">调试：继续执行</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-keys"><kbd>F10</kbd></span>
+                        <span class="shortcut-desc">调试：单步跳过</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-keys"><kbd>F11</kbd></span>
+                        <span class="shortcut-desc">调试：单步进入</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-keys"><kbd>Shift</kbd> + <kbd>F11</kbd></span>
+                        <span class="shortcut-desc">调试：单步跳出</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-keys"><kbd>Shift</kbd> + <kbd>F5</kbd></span>
+                        <span class="shortcut-desc">调试：停止</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-keys"><kbd>Esc</kbd></span>
+                        <span class="shortcut-desc">关闭当前弹窗</span>
+                    </div>
                 </div>
             </div>
         </div>

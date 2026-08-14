@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from module_resolver import ModuleDependencyResolver
+from module_resolver import ModuleDependencyResolver, CircularDependencyError
 from compiler import LightCompiler
 from code_generator_unified import UnifiedCodeGenerator
 
@@ -57,10 +57,10 @@ class TestModuleResolver:
                 f.write(math_utils_code)
 
             # main 模块
-            main_code = '''从 math_utils 导入 加法
+            main_code = '''从 math_utils 导入 加法。
 
-设 结果 为 加法(3, 5)
-打印 结果
+设 结果 为 加法(3, 5)。
+打印 结果。
 '''
             resolver = ModuleDependencyResolver([Path(tmpdir)])
             modules = resolver.resolve_all('main', main_code)
@@ -198,3 +198,115 @@ class TestModuleE2E:
         code = compile_module(combined_code)
         output = run_python_code(code)
         assert '12' in output
+
+
+class TestModuleEnhancements:
+    """3.3.1 模块系统增强测试：循环依赖增强、相对导入、模块缓存"""
+
+    @staticmethod
+    def _write(tmpdir, name, content):
+        p = Path(tmpdir) / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content, encoding='utf-8')
+        return p
+
+    # ------------------------------------------------------------------
+    # 1) 循环依赖检测增强：报错含依赖链路与修复建议
+    # ------------------------------------------------------------------
+    def test_circular_dependency_message(self):
+        """循环依赖报错应包含依赖链路和修复建议"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write(tmpdir, '甲.light', '从 乙 导入 乙函数。\n段落 甲函数：\n  返回 1\n')
+            self._write(tmpdir, '乙.light', '从 甲 导入 甲函数。\n段落 乙函数：\n  返回 2\n')
+            main = '从 甲 导入 甲函数。\n设 结果 为 甲函数()\n'
+            resolver = ModuleDependencyResolver([Path(tmpdir)])
+            with pytest.raises(CircularDependencyError) as exc:
+                resolver.resolve_all('main', main, tmpdir)
+            msg = str(exc.value)
+            assert '循环依赖' in msg
+            assert '修复建议' in msg
+            # 依赖链路应包含环上的两个模块
+            assert '甲' in msg and '乙' in msg
+
+    def test_no_circular_dependency_ok(self):
+        """无循环依赖时不报错，且排序正常"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write(tmpdir, '甲.light', '段落 甲函数：\n  返回 1\n')
+            self._write(tmpdir, '乙.light', '从 甲 导入 甲函数。\n段落 乙函数：\n  返回 2\n')
+            main = '从 乙 导入 乙函数。\n设 结果 为 乙函数()\n'
+            resolver = ModuleDependencyResolver([Path(tmpdir)])
+            modules = resolver.resolve_all('main', main, tmpdir)
+            order = resolver.topological_order()
+            assert 'main' in modules and '乙' in modules and '甲' in modules
+            assert order.index('甲') < order.index('乙') < order.index('main')
+
+    # ------------------------------------------------------------------
+    # 2) 相对导入支持：从 .模块 导入 / 从 ..模块 导入
+    # ------------------------------------------------------------------
+    def test_relative_import_single_dot(self):
+        """从 .工具 导入 函数：解析到当前目录下的模块"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write(tmpdir, '工具.light', '段落 函数：\n  返回 1\n')
+            main = '从 .工具 导入 函数。\n设 结果 为 函数()\n'
+            resolver = ModuleDependencyResolver([Path(tmpdir)])
+            modules = resolver.resolve_all('main', main, tmpdir)
+            assert 'main' in modules
+            assert any(name == '.工具' or name.lstrip('.') == '工具' for name in modules)
+            order = resolver.topological_order()
+            assert '.工具' in order
+
+    def test_relative_import_double_dot(self):
+        """从 ..工具 导入 函数：解析到上级目录中的模块"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write(tmpdir, '工具.light', '段落 函数：\n  返回 1\n')
+            sub = Path(tmpdir) / '子包'
+            sub.mkdir()
+            main = '从 ..工具 导入 函数。\n设 结果 为 函数()\n'
+            resolver = ModuleDependencyResolver([Path(tmpdir)])
+            modules = resolver.resolve_all('main', main, str(sub))
+            assert 'main' in modules
+            assert '..工具' in modules
+
+    def test_relative_import_missing_module(self):
+        """相对导入的模块不存在时，使用占位空模块而非崩溃"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            main = '从 .缺失库 导入 函数。\n设 结果 为 5\n'
+            resolver = ModuleDependencyResolver([Path(tmpdir)])
+            modules = resolver.resolve_all('main', main, tmpdir)
+            assert 'main' in modules
+            assert '.缺失库' in modules
+
+    # ------------------------------------------------------------------
+    # 3) 模块缓存机制：重复导入同一模块不重复解析
+    # ------------------------------------------------------------------
+    def test_module_cache_reuse(self):
+        """同一 resolver 重复 resolve_all：文件未变更时命中缓存，不重复解析"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write(tmpdir, '工具.light', '段落 函数：\n  返回 1\n')
+            main = '从 .工具 导入 函数。\n设 结果 为 函数()\n'
+            resolver = ModuleDependencyResolver([Path(tmpdir)])
+            resolver.resolve_all('main', main, tmpdir)
+            first_parsed = resolver.stats['parsed']
+            assert first_parsed >= 1
+
+            # 第二次解析：应全部命中缓存
+            resolver.resolve_all('main', main, tmpdir)
+            assert resolver.stats['cache_hits'] >= 1
+            assert resolver.stats['parsed'] == first_parsed
+
+            # 修改文件后：mtime/size 变化，应重新解析
+            self._write(tmpdir, '工具.light', '段落 函数：\n  返回 2\n')
+            resolver.resolve_all('main', main, tmpdir)
+            assert resolver.stats['parsed'] > first_parsed
+
+    def test_cache_clear(self):
+        """clear_cache 后缓存清空，再次解析会重新解析"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write(tmpdir, '工具.light', '段落 函数：\n  返回 1\n')
+            main = '从 .工具 导入 函数。\n'
+            resolver = ModuleDependencyResolver([Path(tmpdir)])
+            resolver.resolve_all('main', main, tmpdir)
+            resolver.clear_cache()
+            assert resolver.stats['parsed'] == 0
+            resolver.resolve_all('main', main, tmpdir)
+            assert resolver.stats['parsed'] >= 1

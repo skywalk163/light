@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搜索 "{{search_query}}" - 段言包注册中心</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <a href="/" class="logo">📦 段言包注册中心</a>
+                <div class="search-box">
+                    <form action="/search" method="get">
+                        <input type="text" name="q" placeholder="搜索包名、描述或关键词..." value="{{search_query}}">
+                        <button type="submit">搜索</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="section-header">
+            <h2>搜索结果: "{{search_query}}"</h2>
+            <span class="badge">找到 {{result_count}} 个匹配包</span>
+        </div>
+
+        <div class="package-grid">
+            {{package_list}}
+        </div>
+
+        <div class="back-link">
+            <a href="/">← 返回首页</a>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>段言（Duan）包注册中心 · 使用 <code>duan pkg install &lt;包名&gt;</code> 安装包</p>
+            <p class="footer-links">
+                <a href="https://gitcode.com/duan-lang" target="_blank">段言官网</a>
+                <a href="https://gitcode.com/duan-lang/registry" target="_blank">段件库</a>
+            </p>
+        </div>
+    </footer>
+</body>
+</html>

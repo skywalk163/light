@@ -18,17 +18,25 @@
 import os
 import sys
 import io
+import re
 
 # 增加缩进的关键字
 BLOCK_START = {
-    '如果', '否则如果',
+    '如果', '否则如果', '否则若',
     '遍历', '当',
     '尝试', '捕获',
     '匹配', '情况',
-    '函数', '段落',
+    '函数', '段落', '段',
     '类', '接口',
     '构造',
     '异步',
+    '使用',
+    '嵌入',
+    '标注',
+    '枚举', '结构体',
+    '最终',
+    '继承', '实现',
+    '静态',
     # L0 单字关键字（v4.1）
     '若', '遍', '试', '捕', '配', '否',
 }
@@ -36,43 +44,49 @@ BLOCK_START = {
 # 需要冒号的关键字
 NEEDS_COLON = BLOCK_START | {'否则', '接收', '否', '返', '跳', '过', '抛', '终'}
 
+# 输出关键字（不增加缩进，但需要特殊处理）
+OUTPUT_KW = {'打印', '返回', '抛出', '继续', '跳出', '导出'}
 
-def _get_first_word(content: str) -> str:
-    """获取行内容中的第一个关键字/标识符"""
-    content = content.strip()
-    if not content or content.startswith('#'):
-        return ''
-    # 尝试按空格分割
-    parts = content.split()
-    if parts:
-        return parts[0]
-    return ''
-
-
-def _starts_with_keyword(content: str, keywords: set) -> bool:
-    """检查内容是否以指定关键字开头（考虑无空格语法）"""
-    content = content.strip()
-    for kw in sorted(keywords, key=len, reverse=True):
-        if content == kw or content.startswith(kw + ' ') or content.startswith(kw + '：') or content.startswith(kw + ':'):
-            return True
-        # 处理无空格语法：如果x大于y 中的 如果
-        if content == kw:
-            return True
-    return False
+# 缩进不变量（它们本身不增加缩进，但后续嵌套块需要）
+# 这些关键字在下一行保持缩进
+INDENT_UNCHANGED = {'否则', '否则如果', '否则若', '捕获', '情况', '默认'}
 
 
 def _get_keyword(content: str, keywords: set) -> str:
-    """获取内容开头的关键字"""
+    """获取内容开头的关键字（按长度降序匹配，优先匹配长关键字）"""
     content = content.strip()
+    if not content or content.startswith('#'):
+        return ''
+    
+    # 按长度降序排序，确保长关键字优先匹配（如"否则如果"在"否则"之前）
     for kw in sorted(keywords, key=len, reverse=True):
         if content == kw:
             return kw
-        # 检查是否以关键字开头，后面跟中文或字母
+        # 检查是否以关键字开头，后面跟空格、中文冒号、英文冒号、左括号等
         if content.startswith(kw):
             rest = content[len(kw):]
-            if not rest or rest[0] in ' ：:（(' or '\u4e00' <= rest[0] <= '\u9fff' or rest[0].isalpha():
+            if not rest or rest[0] in ' ：:（(（' or '\u4e00' <= rest[0] <= '\u9fff' or rest[0].isalpha() or rest[0] == '《':
                 return kw
+    # 特殊处理"从"（导入语句）
+    if content.startswith('从') and '导入' in content:
+        return '从'
     return ''
+
+
+def _is_comment_or_empty(content: str) -> bool:
+    """检查是否是注释或空行"""
+    return content.startswith('#') or not content.strip()
+
+
+def _needs_indent(content: str) -> bool:
+    """检查该行是否需要减少缩进"""
+    kw = _get_keyword(content, INDENT_UNCHANGED)
+    return kw in INDENT_UNCHANGED
+
+
+def _needs_dedent(content: str) -> bool:
+    """检查该行是否在缩进减少后还需要额外处理"""
+    return False
 
 
 def format_code(source: str) -> str:
@@ -80,41 +94,59 @@ def format_code(source: str) -> str:
     lines = source.split('\n')
     result = []
     indent = 0
+    # 用于跟踪已处理的行是否在块内
+    in_block_stack = []
 
     for i, line in enumerate(lines):
         stripped = line.rstrip()
         if not stripped:
+            # 保留空行
             result.append('')
             continue
 
         content = stripped.strip()
 
+        # 注释行保持原样不修改
+        if content.startswith('#'):
+            result.append('    ' * indent + content)
+            continue
+
         # 获取关键字
         keyword = _get_keyword(content, NEEDS_COLON)
 
-        # 处理"否则"和"否则如果"：它们应该与对应的"如果"同级
-        if keyword in ('否则', '否则如果', '捕获', '否', '捕'):
+        # 处理"否则"、"否则如果"、"否则若"、"捕获"、"情况"、"默认"以及
+        # L0 单字关键字"否"、"捕"：
+        # 它们应该与对应的上一级（如"如果"、"尝试"、"匹配"）同级
+        if keyword in ('否则', '否则如果', '否则若', '捕获', '情况', '默认', '否', '捕'):
             actual_indent = max(0, indent - 1)
+        elif keyword == '从':
+            # "从"导入语句不增加缩进
+            actual_indent = indent
         else:
             actual_indent = indent
 
-        # 格式化行内容：添加冒号
+        # 格式化行内容：确保块关键字后有冒号
         if not content.startswith('#'):
             if keyword in NEEDS_COLON:
+                # 检查是否已经有冒号（中文或英文）
                 if not content.rstrip().endswith('：') and not content.rstrip().endswith(':'):
-                    content = content + '：'
+                    # 如果行以"："结尾（中文冒号），则不添加
+                    if not content.rstrip().endswith(':'):
+                        content = content + '：'
 
-        result.append('    ' * actual_indent + content)
+        # 构建格式化后的行
+        formatted_line = '    ' * actual_indent + content
+        result.append(formatted_line)
 
         # 更新下一行的缩进
         if keyword in BLOCK_START:
             indent = actual_indent + 1
-        elif keyword in ('否则', '否则如果', '捕获', '否', '捕'):
+        elif keyword in INDENT_UNCHANGED or keyword in ('否', '捕'):
             indent = actual_indent + 1
         else:
             indent = actual_indent
 
-    # 移除末尾空行
+    # 移除末尾空行（保留文件末尾的换行）
     while result and result[-1] == '':
         result.pop()
 

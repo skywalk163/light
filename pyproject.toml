@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "light"
-version = "6.0.0"
-description = "光明（Light）v6.0 — 像中文一样的中文编程语言（五层分层语法架构）"
+version = "7.0.0"
+description = "光明（Light）v7.0 — 像中文一样的中文自然语言编程语言（五层分层语法架构 · 自举编译器 · 积木库）"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
@@ -69,17 +69,19 @@ light = "cli.light:main"
 lightc = "cli.lightc:main"
 
 [tool.setuptools.packages.find]
-include = ["src*", "cli*", "stdlib*", "antlrparser*"]
+include = ["src*", "cli*", "stdlib*", "antlrparser*", "积木库*"]
 exclude = [
     "tests*", "benchmarks*", "examples*", "project*", "bootstrap*",
     "docs*", "tools*", "lsp*", "debug-adapter*", "vscode-extension*", "scripts*",
     "**/test*", "**/*_test*", "**/self_hosted*", "**/light_parser*", "**/light_parser2*", "**/light_parser_new*",
-    "**/web_playground*", "**/*_debug*", "**/ir.py", "**/codegen_x64.py", "**/linker.py"
+    "**/web_playground*", "**/*_debug*", "**/ir.py", "**/codegen_x64.py", "**/linker.py",
+    "积木库/生成*", "积木库/评估/运行日志*", "积木库/评估/*_v*", "积木库/评估/待审*", "积木库/__pycache__*"
 ]
 
 [tool.setuptools.package-data]
 "*" = ["*.light", "*.toml"]
 "stdlib" = ["*.light", "*.py"]
+"积木库" = ["*.light", "*.json", "*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -87,7 +89,9 @@ python_files = ["test_*.py", "_test_*.py"]
 addopts = "-v --tb=short --ignore=tests/archive"
 norecursedirs = ["archive", "__pycache__"]
 
+# 覆盖率：聚焦核心语言链路模块（lexer/parser/compiler/类型系统/codegen），合并双线配置
 [tool.coverage.run]
+branch = false
 source = ["src"]
 omit = [
     "*/tests/*",
@@ -98,6 +102,7 @@ omit = [
 [tool.coverage.report]
 show_missing = true
 skip_empty = true
+skip_covered = true
 
 [tool.flake8]
 max-line-length = 120

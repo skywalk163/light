@@ -1,308 +1,154 @@
-class WebSocket客户端:
-    def初始化(URL):
-        self._URL=URL
-        self._连接=无
-        self._已连接=假
-        self._消息处理器=无
-        self._接收线程=无
-    
-    def连接():
-        解析=_解析URL(self._URL)
-        主机=解析['主机']
-        端口=解析['端口']或80
-        
-        self._连接=_创建Socket()
-        self._连接.连接((主机,端口))
-        
-        键=_编码Base64(_哈希(''))
-        路径=解析['路径']或'/'
-        
-        握手请求=_格式化握手(路径,主机,键)
-        self._连接.发送(握手请求)
-        
-        响应=self._连接.接收(4096)
-        如果'101'在响应且'Switching Protocols'在响应:
-            self._已连接=真
-            return 真
-        return 假
-    
-    def发送文本(文本):
-        self._发送帧(文本.编码('utf-8'),opcode=1)
-    
-    def发送JSON(数据):
-        self._发送帧(_生成JSON(数据).编码('utf-8'),opcode=1)
-    
-    def发送二进制(数据):
-        self._发送帧(数据,opcode=2)
-    
-    def接收():
-        如果不是self._已连接:
-            return 无
-        
-        尝试:
-            帧=self._接收帧()
-            如果帧:
-                opcode,数据=帧
-                如果opcode==1:
-                    return 数据.解码('utf-8')
-                否则如果opcode==2:
-                    return 数据
-            return 无
-        除异常:
-            return 无
-    
-    def接收JSON():
-        消息=self.接收()
-        如果消息:
-            尝试:
-                return _解析JSON(消息)
-            除异常:
-                return 无
-        return 无
-    
-    def设置消息处理器(处理器):
-        self._消息处理器=处理器
-    
-    def开始接收():
-        def接收循环():
-            当self._已连接:
-                消息=self.接收()
-                如果消息且self._消息处理器:
-                    self._消息处理器(消息)
-        
-        self._接收线程=_创建线程(target=接收循环)
-        self._接收线程.启动()
-    
-    def关闭():
-        如果self._已连接:
-            self._发送帧(b'',opcode=8)
-            self._已连接=假
-        如果self._连接:
-            self._连接.关闭()
-    
-    def是否连接():
-        return self._已连接
-    
-    def_发送帧(数据,opcode=1):
-        如果不是self._连接:
-            return
-        
-        长度=长度(数据)
-        
-        如果长度<=125:
-            头=_打包字节(0x80或opcode,长度)
-        否则如果长度<=65535:
-            头=_打包字节(0x80或opcode,126,长度)
-        否则:
-            头=_打包字节(0x80或opcode,127,长度)
-        
-        self._连接.发送(头+数据)
-    
-    def_接收帧():
-        如果不是self._连接:
-            return 无
-        
-        头=self._连接.接收(2)
-        如果不是头:
-            return 无
-        
-        opcode=头[0]且0x0f
-        长度=头[1]且0x7f
-        
-        如果长度==126:
-            长度=_解析整数(self._连接.接收(2))
-        否则如果长度==127:
-            长度=_解析整数(self._连接.接收(8))
-        
-        数据=self._连接.接收(长度)
-        return opcode,数据
+#     def初始化(URL):
+#
+#     def连接():
+#         主机=解析['主机']
+#         端口=解析['端口']或80
+#
+#         键=_编码Base64(_哈希(''))
+#         路径=解析['路径']或'/'
+#
+#         握手请求=_格式化握手(路径,主机,键)
+#
+#     def发送文本(文本):
+#
+#     def发送JSON(数据):
+#
+#     def发送二进制(数据):
+#
+#     def接收():
+#
+#         尝试:
+#                 opcode,数据=帧
+#                 否则如果opcode==2:
+#         除异常:
+#
+#     def接收JSON():
+#             尝试:
+#             除异常:
+#
+#     def设置消息处理器(处理器):
+#
+#     def开始接收():
+#         def接收循环():
+#
+#     def关闭():
+#
+#     def是否连接():
+#
+#     def_发送帧(数据,opcode=1):
+#
+#         长度=长度(数据)
+#
+#             头=_打包字节(0x80或opcode,长度)
+#         否则如果长度<=65535:
+#             头=_打包字节(0x80或opcode,126,长度)
+#         否则:
+#             头=_打包字节(0x80或opcode,127,长度)
+#
+#     def_接收帧():
+#
+#         opcode=头[0]且0x0f
+#         长度=头[1]且0x7f
+#
+#         否则如果长度==127:
+#
+#     def初始化(主机='127.0.0.1',端口=8765):
+#
+#     def设置消息处理器(处理器):
+#
+#     def设置连接处理器(处理器):
+#
+#     def启动():
+#
+#             请求=客户端socket.接收(4096)
+#
+#                 接受键=_生成接受键(键)
+#
+#                 响应=_格式化接受响应(接受键)
+#                 客户端socket.发送(响应)
+#
+#                 客户端=WebSocket客户端连接(客户端socket,地址)
+#
+#     def停止():
+#             客户端.关闭()
+#
+#     def广播(消息):
+#                 客户端.发送文本(消息)
+#
+#     def广播JSON(数据):
+#                 客户端.发送JSON(数据)
+#
+#     def发送给客户端(客户端ID,消息):
+#                 客户端.发送文本(消息)
+#                 中断
+#
+#     def获取客户端列表():
+#
+#     def获取客户端数量():
+#
+#     def_处理客户端(客户端):
+#             消息=客户端.接收()
+#
+#     def_提取WebSocketKey(请求):
+#
+#     def初始化(socket,地址):
+#
+#     def获取ID():
+#
+#     def获取地址():
+#
+#     def发送文本(文本):
+#
+#     def发送JSON(数据):
+#
+#     def发送二进制(数据):
+#
+#     def接收():
+#         尝试:
+#                 opcode,数据=帧
+#                 否则如果opcode==2:
+#         除异常:
+#
+#     def关闭():
+#
+#     def是否连接():
+#
+#     def_发送帧(数据,opcode=1):
+#         长度=长度(数据)
+#
+#             头=_打包字节(0x80或opcode,长度)
+#         否则如果长度<=65535:
+#             头=_打包字节(0x80或opcode,126,长度)
+#         否则:
+#             头=_打包字节(0x80或opcode,127,长度)
+#
+#     def_接收帧():
+#
+#         opcode=头[0]且0x0f
+#         长度=头[1]且0x7f
+#
+#         否则如果长度==127:
+#
+# def创建WebSocket客户端(URL):
+#
+# def创建WebSocket服务端(主机='127.0.0.1',端口=8765):
+#
+# defWebSocket连接(URL):
+#     客户端=WebSocket客户端(URL)
+#     客户端.连接()
+#
+# def发送WebSocket消息(URL,消息):
+#     客户端=WebSocket连接(URL)
+#         客户端.发送文本(消息)
+#         客户端.关闭()
+#
+# def接收WebSocket消息(URL):
+#     客户端=WebSocket连接(URL)
+#         消息=客户端.接收()
+#         客户端.关闭()
+#
+# 用法：
+#   从《WebSocket支持》导入《WebSocket客户端》。
 
-
-class WebSocket服务端:
-    def初始化(主机='127.0.0.1',端口=8765):
-        self._主机=主机
-        self._端口=端口
-        self._服务socket=无
-        self._客户端列表=[]
-        self._消息处理器=无
-        self._连接处理器=无
-        self._运行中=假
-    
-    def设置消息处理器(处理器):
-        self._消息处理器=处理器
-    
-    def设置连接处理器(处理器):
-        self._连接处理器=处理器
-    
-    def启动():
-        self._服务socket=_创建Socket()
-        self._服务socket.绑定((self._主机,self._端口))
-        self._服务socket.监听(5)
-        self._运行中=真
-        
-        当self._运行中:
-            客户端socket,地址=self._服务socket.接受()
-            
-            请求=客户端socket.接收(4096)
-            
-            如果'Upgrade: websocket'在请求:
-                键=self._提取WebSocketKey(请求)
-                接受键=_生成接受键(键)
-                
-                响应=_格式化接受响应(接受键)
-                客户端socket.发送(响应)
-                
-                客户端=WebSocket客户端连接(客户端socket,地址)
-                self._客户端列表.追加(客户端)
-                
-                如果self._连接处理器:
-                    self._连接处理器(客户端)
-                
-                _创建线程(target=self._处理客户端,args=[客户端]).启动()
-    
-    def停止():
-        self._运行中=假
-        对于客户端在self._客户端列表:
-            客户端.关闭()
-        如果self._服务socket:
-            self._服务socket.关闭()
-    
-    def广播(消息):
-        对于客户端在self._客户端列表:
-            如果客户端.是否连接():
-                客户端.发送文本(消息)
-    
-    def广播JSON(数据):
-        对于客户端在self._客户端列表:
-            如果客户端.是否连接():
-                客户端.发送JSON(数据)
-    
-    def发送给客户端(客户端ID,消息):
-        对于客户端在self._客户端列表:
-            如果客户端.获取ID()==客户端ID:
-                客户端.发送文本(消息)
-                中断
-    
-    def获取客户端列表():
-        return self._客户端列表
-    
-    def获取客户端数量():
-        return 长度(self._客户端列表)
-    
-    def_处理客户端(客户端):
-        当self._运行中且客户端.是否连接():
-            消息=客户端.接收()
-            如果消息:
-                如果self._消息处理器:
-                    self._消息处理器(客户端,消息)
-    
-    def_提取WebSocketKey(请求):
-        对于行在请求.分割('\n'):
-            如果'Sec-WebSocket-Key:'在行:
-                return 行.分割(':')[1].去除首尾()
-        return ''
-
-
-class WebSocket客户端连接:
-    def初始化(socket,地址):
-        self._socket=socket
-        self._地址=地址
-        self._ID=字符串(哈希(字符串(地址)))
-        self._已连接=真
-    
-    def获取ID():
-        return self._ID
-    
-    def获取地址():
-        return self._地址
-    
-    def发送文本(文本):
-        self._发送帧(文本.编码('utf-8'),opcode=1)
-    
-    def发送JSON(数据):
-        self._发送帧(_生成JSON(数据).编码('utf-8'),opcode=1)
-    
-    def发送二进制(数据):
-        self._发送帧(数据,opcode=2)
-    
-    def接收():
-        尝试:
-            帧=self._接收帧()
-            如果帧:
-                opcode,数据=帧
-                如果opcode==1:
-                    return 数据.解码('utf-8')
-                否则如果opcode==2:
-                    return 数据
-            return 无
-        除异常:
-            self._已连接=假
-            return 无
-    
-    def关闭():
-        self._发送帧(b'',opcode=8)
-        self._已连接=假
-        self._socket.关闭()
-    
-    def是否连接():
-        return self._已连接
-    
-    def_发送帧(数据,opcode=1):
-        长度=长度(数据)
-        
-        如果长度<=125:
-            头=_打包字节(0x80或opcode,长度)
-        否则如果长度<=65535:
-            头=_打包字节(0x80或opcode,126,长度)
-        否则:
-            头=_打包字节(0x80或opcode,127,长度)
-        
-        self._socket.发送(头+数据)
-    
-    def_接收帧():
-        头=self._socket.接收(2)
-        如果不是头:
-            return 无
-        
-        opcode=头[0]且0x0f
-        长度=头[1]且0x7f
-        
-        如果长度==126:
-            长度=_解析整数(self._socket.接收(2))
-        否则如果长度==127:
-            长度=_解析整数(self._socket.接收(8))
-        
-        数据=self._socket.接收(长度)
-        return opcode,数据
-
-
-def创建WebSocket客户端(URL):
-    return WebSocket客户端(URL)
-
-
-def创建WebSocket服务端(主机='127.0.0.1',端口=8765):
-    return WebSocket服务端(主机,端口)
-
-
-defWebSocket连接(URL):
-    客户端=WebSocket客户端(URL)
-    客户端.连接()
-    return 客户端
-
-
-def发送WebSocket消息(URL,消息):
-    客户端=WebSocket连接(URL)
-    如果客户端.是否连接():
-        客户端.发送文本(消息)
-        客户端.关闭()
-        return 真
-    return 假
-
-
-def接收WebSocket消息(URL):
-    客户端=WebSocket连接(URL)
-    如果客户端.是否连接():
-        消息=客户端.接收()
-        客户端.关闭()
-        return 消息
-    return 无
+导出 WebSocket客户端 WebSocket服务端 WebSocket客户端连接 创建WebSocket客户端。
+导出 创建WebSocket服务端 WebSocket连接 发送WebSocket消息 接收WebSocket消息。

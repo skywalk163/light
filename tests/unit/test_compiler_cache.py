@@ -35,16 +35,16 @@ class TestCompilerCache:
 
     def test_cache_hit_returns_same_result(self, temp_source_file):
         """测试缓存命中：两次编译同一文件结果相同"""
-        from compiler import compile_file, _compile_cache
+        from compiler import compile_file, _compile_cache, _normalize_cache_path
 
         # 第一次编译
         result1 = compile_file(temp_source_file)
         assert result1 is not None
         assert 'ast' in result1
 
-        # 验证缓存已存储
-        abs_path = os.path.abspath(temp_source_file)
-        assert abs_path in _compile_cache
+        # 验证缓存已存储（使用规范化路径作为 key）
+        cache_key = _normalize_cache_path(temp_source_file)
+        assert cache_key in _compile_cache
 
         # 第二次编译（应该命中缓存）
         result2 = compile_file(temp_source_file)
@@ -94,7 +94,7 @@ class TestCompilerCache:
 
     def test_cache_uses_absolute_path(self, tmp_path):
         """测试缓存使用绝对路径作为 key"""
-        from compiler import compile_file, _compile_cache
+        from compiler import compile_file, _compile_cache, _normalize_cache_path
 
         # 清空缓存
         _compile_cache.clear()
@@ -111,11 +111,12 @@ class TestCompilerCache:
             result1 = compile_file(rel_path)
             # 使用绝对路径编译
             result2 = compile_file(abs_path)
-            # 应该命中缓存（使用绝对路径作为 key）
+            # 应该命中缓存（使用规范化路径作为 key）
             assert result1 is result2
         except ValueError:
-            # 跨盘符时跳过相对路径测试，直接验证绝对路径缓存
+            # 跨盘符时跳过相对路径测试，直接验证是否缓存
+            cache_key = _normalize_cache_path(abs_path)
             result1 = compile_file(abs_path)
-            assert abs_path in _compile_cache
+            assert cache_key in _compile_cache
             result2 = compile_file(abs_path)
             assert result1 is result2

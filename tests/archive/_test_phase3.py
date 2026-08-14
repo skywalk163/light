@@ -45,7 +45,7 @@ print()
 print("=" * 50)
 print("2. Python 后端")
 print("=" * 50)
-from light_parser_v3 import DuanParser as PyParser
+from light_parser_v3 import LightParser as PyParser
 from code_generator import PythonCodeGenerator
 
 def test_py(name, source, expected_in_output=None):

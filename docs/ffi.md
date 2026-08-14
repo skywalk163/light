@@ -46,7 +46,7 @@
 加载库 "kernel32.dll" 为 kernel。
 外部 段落 获取当前进程ID 返回 整数 在 kernel。
 
-设 pid 为 获取当前进程ID()
+令 pid = 获取当前进程ID()
 打印 pid  # 输出当前进程ID
 ```
 

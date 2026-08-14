@@ -1,148 +1,107 @@
-import itertools
+#     if键函数is None:
+#         键函数=lambda x:x
+#
+#     结果={}
+#     for元素in可迭代对象:
+#         键=键函数(元素)
+#         if键not in结果:
+#             结果[键]=[]
+#         结果[键].append(元素)
+#     return结果
+#
+#     结果={}
+#     for键,值in可迭代对象:
+#         if键not in结果:
+#             结果[键]=[]
+#         结果[键].append(值)
+#     return结果
+#
+#     return列表(itertools.permutations(可迭代对象,长度))
+#
+#     return列表(itertools.combinations(可迭代对象,长度))
+#
+#     return列表(itertools.combinations_with_replacement(可迭代对象,长度))
+#
+#     return列表(itertools.product(*可迭代对象列表))
+#
+#     return列表(itertools.chain(*可迭代对象列表))
+#
+#     if次数is None:
+#
+#     return列表(itertools.repeat(元素,次数))
+#
+#     return列表(itertools.islice(itertools.count(起始,步长),数量))
+#
+#     return列表(itertools.islice(itertools.cycle(可迭代对象),数量))
+#
+#     return列表(zip(*可迭代对象列表))
+#
+#     return列表(itertools.islice(enumerate(可迭代对象,起始),None))
+#
+#     if函数is None:
+#         函数=lambda x,y:x+y
+#     return列表(itertools.accumulate(可迭代对象,函数))
+#
+#     return列表(itertools.accumulate(可迭代对象))
+#
+#     return列表(itertools.accumulate(可迭代对象,operator.mul))
+#
+#     迭代器=iter(可迭代对象)
+#     return列表(iter(lambda:列表(itertools.islice(迭代器,大小)),[]))
+#
+#     迭代器=iter(可迭代对象)
+#     窗口=列表(itertools.islice(迭代器,窗口大小))
+#     if长(窗口)==窗口大小:
+#         yield元组(窗口)
+#     for元素in迭代器:
+#         窗口=窗口[1:]+[元素]
+#         yield元组(窗口)
+#
+#     return列表(滑动窗口(可迭代对象,窗口大小))
+#
+#     return列表(itertools.pairwise(可迭代对象))
+#
+#     已见=set()
+#     for元素in可迭代对象:
+#         键=键函数(元素)if键函数else元素
+#         if键not in已见:
+#             已见.add(键)
+#             yield元素
+#
+#     return列表(去重(可迭代对象,键函数))
+#
+#     return列表(filter(条件函数,可迭代对象))
+#
+#     return列表(map(函数,可迭代对象))
+#
+#     return列表(filter(None,可迭代对象))
+#
+#     return列表(enumerate(可迭代对象,起始))
+#
+#     return列表(reversed(可迭代对象))
+#
+#     return列表(itertools.islice(可迭代对象,开始,结束,步长))
+#
+#     return列表(itertools.islice(itertools.heapq.nlargest(N,可迭代对象,键函数),N))
+#
+#     return列表(itertools.islice(itertools.heapq.nsmallest(N,可迭代对象,键函数),N))
+#
+#     from数学import阶乘
+#     return阶乘(数量)//阶乘(数量-选取)
+#
+#     from数学import阶乘
+#     if选取>数量-选取:
+#         选取=数量-选取
+#     result=1
+#     for i in范围(选取):
+#         result=result*(数量-i)//(i+1)
+#
+# 用法：
+#   从《迭代工具》导入《计数器》。
 
-定义计数器(可迭代对象):
-    from collections import Counter
-    return Counter(可迭代对象)
-
-定义分组(可迭代对象,键函数=None):
-    if键函数is None:
-        键函数=lambda x:x
-    
-    结果={}
-    for元素in可迭代对象:
-        键=键函数(元素)
-        if键not in结果:
-            结果[键]=[]
-        结果[键].append(元素)
-    return结果
-
-定义分组字典(可迭代对象):
-    结果={}
-    for键,值in可迭代对象:
-        if键not in结果:
-            结果[键]=[]
-        结果[键].append(值)
-    return结果
-
-定义排列(可迭代对象,长度):
-    return列表(itertools.permutations(可迭代对象,长度))
-
-定义组合(可迭代对象,长度):
-    return列表(itertools.combinations(可迭代对象,长度))
-
-定义组合带重复(可迭代对象,长度):
-    return列表(itertools.combinations_with_replacement(可迭代对象,长度))
-
-定义笛卡尔积(*可迭代对象列表):
-    return列表(itertools.product(*可迭代对象列表))
-
-定义链(可迭代对象列表):
-    return itertools.chain(*可迭代对象列表)
-
-定义链到列表(可迭代对象列表):
-    return列表(itertools.chain(*可迭代对象列表))
-
-定义重复(元素,次数=None):
-    if次数is None:
-        return itertools.repeat(元素)
-    return itertools.repeat(元素,次数)
-
-定义重复到列表(元素,次数):
-    return列表(itertools.repeat(元素,次数))
-
-定义计数(起始=0,步长=1):
-    return itertools.count(起始,步长)
-
-定义计数到列表(起始=0,步长=1,数量=10):
-    return列表(itertools.islice(itertools.count(起始,步长),数量))
-
-定义循环(可迭代对象):
-    return itertools.cycle(可迭代对象)
-
-定义循环到列表(可迭代对象,数量):
-    return列表(itertools.islice(itertools.cycle(可迭代对象),数量))
-
-定义压缩(*可迭代对象列表):
-    return列表(zip(*可迭代对象列表))
-
-定义枚举(可迭代对象,起始=0):
-    return列表(itertools.islice(enumerate(可迭代对象,起始),None))
-
-定义累积(可迭代对象,函数=None):
-    if函数is None:
-        函数=lambda x,y:x+y
-    return列表(itertools.accumulate(可迭代对象,函数))
-
-定义累积和(可迭代对象):
-    return列表(itertools.accumulate(可迭代对象))
-
-定义累积积(可迭代对象):
-    import operator
-    return列表(itertools.accumulate(可迭代对象,operator.mul))
-
-定义分组相邻(可迭代对象,大小):
-    迭代器=iter(可迭代对象)
-    return列表(iter(lambda:列表(itertools.islice(迭代器,大小)),[]))
-
-定义滑动窗口(可迭代对象,窗口大小):
-    迭代器=iter(可迭代对象)
-    窗口=列表(itertools.islice(迭代器,窗口大小))
-    if长(窗口)==窗口大小:
-        yield元组(窗口)
-    for元素in迭代器:
-        窗口=窗口[1:]+[元素]
-        yield元组(窗口)
-
-定义滑动窗口到列表(可迭代对象,窗口大小):
-    return列表(滑动窗口(可迭代对象,窗口大小))
-
-定义成对(可迭代对象):
-    return列表(itertools.pairwise(可迭代对象))
-
-定义去重(可迭代对象,键函数=None):
-    已见=set()
-    for元素in可迭代对象:
-        键=键函数(元素)if键函数else元素
-        if键not in已见:
-            已见.add(键)
-            yield元素
-
-定义去重到列表(可迭代对象,键函数=None):
-    return列表(去重(可迭代对象,键函数))
-
-定义筛选(可迭代对象,条件函数):
-    return列表(filter(条件函数,可迭代对象))
-
-定义映射(可迭代对象,函数):
-    return列表(map(函数,可迭代对象))
-
-定义过滤假值(可迭代对象):
-    return列表(filter(None,可迭代对象))
-
-定义枚举带索引(可迭代对象,起始=0):
-    return列表(enumerate(可迭代对象,起始))
-
-定义反转(可迭代对象):
-    return列表(reversed(可迭代对象))
-
-定义切片(可迭代对象,开始=None,结束=None,步长=None):
-    return列表(itertools.islice(可迭代对象,开始,结束,步长))
-
-定义最大N个(可迭代对象,N,键函数=None):
-    return列表(itertools.islice(itertools.heapq.nlargest(N,可迭代对象,键函数),N))
-
-定义最小N个(可迭代对象,N,键函数=None):
-    return列表(itertools.islice(itertools.heapq.nsmallest(N,可迭代对象,键函数),N))
-
-定义排列数(数量,选取):
-    from数学import阶乘
-    return阶乘(数量)//阶乘(数量-选取)
-
-定义组合数(数量,选取):
-    from数学import阶乘
-    if选取>数量-选取:
-        选取=数量-选取
-    result=1
-    for i in范围(选取):
-        result=result*(数量-i)//(i+1)
-    return result
+导出 计数器 分组 分组字典 排列 组合 组合带重复。
+导出 笛卡尔积 链 链到列表 重复 重复到列表 计数。
+导出 计数到列表 循环 循环到列表 压缩 枚举 累积。
+导出 累积和 累积积 分组相邻 滑动窗口 滑动窗口到列表 成对。
+导出 去重 去重到列表 筛选 映射 过滤假值 枚举带索引。
+导出 反转 切片 最大N个 最小N个 排列数 组合数。

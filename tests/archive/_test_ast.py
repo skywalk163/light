@@ -2,13 +2,13 @@ import sys
 sys.path.insert(0, 'src')
 sys.path.insert(0, 'cli')
 
-from light_parser_v3 import DuanParser
+from light_parser_v3 import LightParser
 
 code = """段落 求和 参数 甲 乙 
    返回 甲 加 乙。 
  结束"""
 
-parser = DuanParser()
+parser = LightParser()
 module = parser.parse(code)
 
 # 查看第一个语句（Paragraph）

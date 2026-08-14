@@ -1,0 +1,206 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "Duan",
+    "scopeName": "source.duan",
+    "fileTypes": [".duan"],
+    "patterns": [
+        { "include": "#comments" },
+        { "include": "#strings" },
+        { "include": "#numbers" },
+        { "include": "#keywords" },
+        { "include": "#operators" },
+        { "include": "#builtins" },
+        { "include": "#types" },
+        { "include": "#string_interpolation" },
+        { "include": "#decorator" },
+        { "include": "#punctuation" }
+    ],
+    "repository": {
+        "comments": {
+            "patterns": [
+                {
+                    "name": "comment.line.number-sign.duan",
+                    "begin": "#",
+                    "end": "$",
+                    "beginCaptures": {
+                        "0": { "name": "punctuation.definition.comment.duan" }
+                    }
+                }
+            ]
+        },
+        "strings": {
+            "patterns": [
+                {
+                    "name": "string.quoted.double.duan",
+                    "begin": "\"",
+                    "end": "\"",
+                    "beginCaptures": {
+                        "0": { "name": "punctuation.definition.string.begin.duan" }
+                    },
+                    "endCaptures": {
+                        "0": { "name": "punctuation.definition.string.end.duan" }
+                    },
+                    "patterns": [
+                        {
+                            "include": "#string_interpolation"
+                        },
+                        {
+                            "name": "constant.character.escape.duan",
+                            "match": "\\\\[nrt\"'\\\\]"
+                        }
+                    ]
+                },
+                {
+                    "name": "string.quoted.single.duan",
+                    "begin": "'",
+                    "end": "'",
+                    "beginCaptures": {
+                        "0": { "name": "punctuation.definition.string.begin.duan" }
+                    },
+                    "endCaptures": {
+                        "0": { "name": "punctuation.definition.string.end.duan" }
+                    },
+                    "patterns": [
+                        {
+                            "name": "constant.character.escape.duan",
+                            "match": "\\\\[nrt\"'\\\\]"
+                        }
+                    ]
+                },
+                {
+                    "name": "string.quoted.other.duan",
+                    "begin": "「",
+                    "end": "」",
+                    "beginCaptures": {
+                        "0": { "name": "punctuation.definition.string.begin.duan" }
+                    },
+                    "endCaptures": {
+                        "0": { "name": "punctuation.definition.string.end.duan" }
+                    }
+                }
+            ]
+        },
+        "string_interpolation": {
+            "patterns": [
+                {
+                    "name": "meta.embedded.interpolation.duan",
+                    "begin": "\\{",
+                    "end": "\\}",
+                    "beginCaptures": {
+                        "0": { "name": "punctuation.definition.interpolation.begin.duan" }
+                    },
+                    "endCaptures": {
+                        "0": { "name": "punctuation.definition.interpolation.end.duan" }
+                    },
+                    "patterns": [
+                        { "include": "#keywords" },
+                        { "include": "#operators" },
+                        { "include": "#builtins" },
+                        { "include": "#numbers" },
+                        { "include": "#strings" }
+                    ]
+                }
+            ]
+        },
+        "numbers": {
+            "patterns": [
+                {
+                    "name": "constant.numeric.float.duan",
+                    "match": "\\b[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?\\b"
+                },
+                {
+                    "name": "constant.numeric.integer.duan",
+                    "match": "\\b[0-9]+\\b"
+                },
+                {
+                    "name": "constant.numeric.hex.duan",
+                    "match": "\\b0[xX][0-9a-fA-F]+\\b"
+                },
+                {
+                    "name": "constant.numeric.binary.duan",
+                    "match": "\\b0[bB][01]+\\b"
+                }
+            ]
+        },
+        "keywords": {
+            "patterns": [
+                {
+                    "name": "keyword.control.flow.duan",
+                    "match": "\\b(如果|否则|否则如果|否则若|若|则|遍历|当|循环|跳出|继续|跳过|返回|匹配|情况|默认|结束|为)\\b"
+                },
+                {
+                    "name": "keyword.declaration.duan",
+                    "match": "\\b(段落|段|函数|类|接口|实现|数据|枚举|构造|属性|继承|外部|标注|trait|类型别名|错误|新建|定义|常量|类型|接收|导出|类型)\\b"
+                },
+                {
+                    "name": "keyword.other.duan",
+                    "match": "\\b(导入|从|设|为|使用|尝试|捕获|抛出|最终|异步|等待|嵌入|结束嵌入|并|pass|全局|非局部|删除|断言|静态|类方法|特性|抽象|生成|产出|产出从|是|在|不在|不是|私有|公有|保护|取地址|解引用|指针偏移)\\b"
+                },
+                {
+                    "name": "constant.language.duan",
+                    "match": "\\b(真|假|空|无|己|父)\\b"
+                },
+                {
+                    "name": "keyword.control.import.duan",
+                    "match": "\\b(从|导入|导出|为)\\b"
+                }
+            ]
+        },
+        "operators": {
+            "patterns": [
+                {
+                    "name": "keyword.operator.arithmetic.duan",
+                    "match": "\\b(加|减|乘|除|除以|模|取余|幂|求幂|整除|加上|减去|乘以|于)\\b"
+                },
+                {
+                    "name": "keyword.operator.comparison.duan",
+                    "match": "\\b(等于|不等于|大于|小于|大于等于|小于等于|不小于|不大于)\\b"
+                },
+                {
+                    "name": "keyword.operator.logical.duan",
+                    "match": "\\b(且|与|或|异或|非)\\b"
+                },
+                {
+                    "name": "keyword.operator.bitwise.duan",
+                    "match": "\\b(左移|右移)\\b"
+                }
+            ]
+        },
+        "builtins": {
+            "patterns": [
+                {
+                    "name": "support.function.duan",
+                    "match": "\\b(打印|显示|输出|读取|输入|长度|类型|范围|整数|浮数|小数|字符串|串|列表|列|字典|典|集合|集|布尔|绝对值|最大值|最小值|求和|排序|反转|筛选|映射|打包|枚举|全部|任意|四舍五入|取整|转整数|转小数|转浮点|转字符串|解析JSON|序列化JSON|打开|关闭|读取文件|写入文件|实例检查|等等|列表长度|字符串长度|分割字符串|连接字符串|替换字符串|去除空白|转字符串|字符串包含|列表追加|列表插入|列表移除|列表排序|列表反转|字典键|字典值|字典项|文件存在|创建目录|列出目录|删除文件)\\b"
+                }
+            ]
+        },
+        "types": {
+            "patterns": [
+                {
+                    "name": "support.type.duan",
+                    "match": "\\b(整数|浮数|小数|字符串|串|布尔|列表|列|字典|典|集合|集|元组|空|任意|可选|联合|可调用|可迭代|迭代器|生成器|列表类型|字典类型|集合类型|元组类型|序列|映射|类型|己|指针)\\b"
+                }
+            ]
+        },
+        "decorator": {
+            "patterns": [
+                {
+                    "name": "entity.other.attribute-name.duan",
+                    "match": "@\\w+"
+                }
+            ]
+        },
+        "punctuation": {
+            "patterns": [
+                {
+                    "name": "punctuation.separator.duan",
+                    "match": "：|；|，|。|、"
+                },
+                {
+                    "name": "punctuation.bracket.duan",
+                    "match": "（|）|【|】|《|》"
+                }
+            ]
+        }
+    }
+}

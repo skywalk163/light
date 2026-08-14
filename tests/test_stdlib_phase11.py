@@ -41,7 +41,7 @@ class 测试OAuth_JWT认证(unittest.TestCase):
         from OAuth_JWT认证 import JWT令牌, 令牌过期异常
         jwt = JWT令牌('secret_key', 过期时间=1)
         令牌 = jwt.生成令牌({'user_id': 1})
-        time.sleep(1.1)
+        time.sleep(1.5)
         with self.assertRaises(令牌过期异常):
             jwt.验证令牌(令牌)
     

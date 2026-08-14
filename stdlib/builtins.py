@@ -97,6 +97,11 @@ def 文件存在(path: str) -> bool:
     return os.path.isfile(path)
 
 
+def 是文件(path: str) -> bool:
+    """检查是否为文件"""
+    return os.path.isfile(path)
+
+
 def 目录存在(path: str) -> bool:
     """检查目录是否存在"""
     return os.path.isdir(path)
@@ -155,6 +160,22 @@ def 列出目录(path: str = '.') -> List[str]:
         return os.listdir(path)
     except Exception as e:
         raise RuntimeError(f"列出目录失败 '{path}': {e}")
+
+
+def 列出文件(path: str = '.') -> List[str]:
+    """
+    列出目录中的文件（不包含子目录）
+    
+    参数:
+        path: 目录路径（默认当前目录）
+    
+    返回:
+        文件名列表（仅文件）
+    """
+    try:
+        return [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+    except Exception as e:
+        raise RuntimeError(f"列出文件失败 '{path}': {e}")
 
 
 def 文件大小(path: str) -> int:
@@ -270,6 +291,18 @@ def 执行命令(command: str) -> int:
         退出码
     """
     return os.system(command)
+
+
+def 移动文件系统(source: str, target: str) -> None:
+    """
+    移动文件或目录
+    
+    参数:
+        source: 源路径
+        target: 目标路径
+    """
+    import shutil
+    shutil.move(source, target)
 
 
 # =============================================================================
@@ -397,6 +430,45 @@ def 字符串长度(text: str) -> int:
     return len(text)
 
 
+def 显示宽度(text) -> int:
+    """
+    返回字符串在等宽终端中的显示宽度。
+
+    中文、日文、韩文及全角字符占 2 个单元格，ASCII 及半角字符占 1 个。
+    用于终端边框、表格的对齐（用「显示宽度」替代「字符串长度」算填充）。
+
+    示例:
+        显示宽度("中文abc")  -> 7   (中=2, 文=2, a/b/c=1)
+        显示宽度("hello")    -> 5
+    """
+    import unicodedata
+    _WIDE_RANGES = (
+        (0x1100, 0x115F),   # Hangul Jamo
+        (0x2E80, 0xA4CF),   # CJK 部首补充 / 康熙部首 / 表意文字描述符 / 中日韩符号和标点
+        (0xAC00, 0xD7A3),   # Hangul 音节
+        (0xF900, 0xFAFF),   # CJK 兼容象形文字
+        (0xFE30, 0xFE4F),   # CJK 兼容形式
+        (0xFF00, 0xFF60),   # 全角 ASCII
+        (0xFFE0, 0xFFE6),   # 全角符号
+        (0x3000, 0x303F),   # CJK 符号和标点
+        (0x3040, 0x30FF),   # 平假名 / 片假名
+        (0x3400, 0x4DBF),   # CJK 扩展 A
+        (0x4E00, 0x9FFF),   # CJK 统一表意文字
+        (0x20000, 0x2FFFF), # CJK 扩展 B+
+    )
+    width = 0
+    for ch in str(text):
+        o = ord(ch)
+        wide = any(lo <= o <= hi for lo, hi in _WIDE_RANGES)
+        if not wide:
+            try:
+                wide = unicodedata.east_asian_width(ch) in ('W', 'F')
+            except Exception:
+                wide = False
+        width += 2 if wide else 1
+    return width
+
+
 def 字符串获取(text: str, index: int) -> str:
     """获取字符串中指定位置的字符"""
     return text[index]
@@ -455,6 +527,11 @@ def 结尾(text: str, suffix: str) -> bool:
 def 查找子串(text: str, substring: str) -> int:
     """查找子串位置，未找到返回-1"""
     return text.find(substring)
+
+
+def 最后索引(text: str, substring: str) -> int:
+    """查找子串最后出现位置，未找到返回-1"""
+    return text.rfind(substring)
 
 
 def 替换字符串次数(text: str, old: str, new: str, count: int = -1) -> str:
@@ -546,6 +623,11 @@ def 列表追加(列表, 元素) -> None:
 def 列表弹出(列表, 索引: int = -1):
     """从列表弹出元素"""
     return 列表.pop(索引)
+
+
+def 列表插入(列表, 索引, 元素) -> None:
+    """在指定索引处插入元素"""
+    列表.insert(索引, 元素)
 
 
 def 列表排序(列表, 反向: bool = False) -> None:
@@ -962,7 +1044,7 @@ __all__ = [
     '字符串对齐居中', '字符串对齐左', '字符串对齐右',
     
     # 列表工具
-    '列', '列表长度', '列表追加', '列表弹出',
+    '列', '列表长度', '列表追加', '列表弹出', '列表插入',
     '列表排序', '列表反转', '列表包含',
     
     # 字典工具

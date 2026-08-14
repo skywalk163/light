@@ -1,0 +1,64 @@
+classAES:
+    def__init__(self,密钥=无,模式="CBC"):
+        self._密钥=密钥
+        self._模式=模式
+        self._加密器=无
+    
+    def设置密钥(self,密钥):
+        如果_长度(密钥)不在(16,24,32):
+            抛出错误("密钥长度必须为16/24/32字节")
+        self._密钥=密钥
+    
+    def加密(self,明文,IV=无):
+        如果self._密钥是无:
+            抛出错误("请先设置密钥")
+        如果IV是无:
+            IV=_生成随机字节(16)
+        返回_加密AES(self._密钥,明文,IV)
+    
+    def解密(self,密文,IV):
+        如果self._密钥是无:
+            抛出错误("请先设置密钥")
+        返回_解密AES(self._密钥,密文,IV)
+
+
+classRSA:
+    def__init__(self,公钥=无,私钥=无):
+        self._公钥=公钥
+        self._私钥=私钥
+        self._公钥对象=无
+        self._私钥对象=无
+    
+    def生成密钥对(self,密钥长度=2048):
+        私钥PEM,公钥PEM=_生成RSA密钥对(密钥长度)
+        self._私钥=私钥PEM
+        self._公钥=公钥PEM
+        返回列表(私钥PEM,公钥PEM)
+    
+    def导入公钥(self,公钥PEM):
+        self._公钥=公钥PEM
+        self._公钥对象=_导入RSA公钥(公钥PEM)
+    
+    def导入私钥(self,私钥PEM):
+        self._私钥=私钥PEM
+        self._私钥对象=_导入RSA私钥(私钥PEM)
+    
+    def加密(self,明文):
+        如果self._公钥对象是无:
+            抛出错误("请先导入公钥")
+        返回_RSA加密(self._公钥对象,明文)
+    
+    def解密(self,密文):
+        如果self._私钥对象是无:
+            抛出错误("请先导入私钥")
+        返回_RSA解密(self._私钥对象,密文)
+    
+    def签名(self,数据):
+        如果self._私钥对象是无:
+            抛出错误("请先导入私钥")
+        返回_RSA签名(self._私钥对象,数据)
+    
+    def验证签名(self,数据,签名):
+        如果self._公钥对象是无:
+            抛出错误("请先导入公钥")
+        返回_RSA验证签名(self._公钥对象,数据,签名)

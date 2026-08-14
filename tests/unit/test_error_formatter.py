@@ -7,13 +7,16 @@ import pytest
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from error_formatter import (
     LightErrorFormatter,
     format_runtime_error,
     run_with_friendly_error,
     LIGHT_EXCEPTION_MAP,
+    _levenshtein_distance,
+    _find_similar_names,
+    COMMON_LIGHT_NAMES,
 )
 
 
@@ -34,7 +37,8 @@ class TestFormatter:
     def test_chinese_exc_name(self):
         """测试英文异常名转中文"""
         f = LightErrorFormatter()
-        assert f._chinese_exc_name('NameError') == '变量未定义'
+        # 实现侧 LightErrorFormatter._chinese_exc_name 的映射为 '名称错误'
+        assert f._chinese_exc_name('NameError') == '名称错误'
         assert f._chinese_exc_name('ZeroDivisionError') == '除零错误'
         assert f._chinese_exc_name('UnknownError') == 'UnknownError'
 
@@ -56,7 +60,7 @@ class TestFormatter:
             eval("undefined_var_xyz")
         except NameError as e:
             result = format_runtime_error(source, type(e), e, e.__traceback__)
-            assert '变量未定义' in result
+            assert '名称错误' in result
             assert '拼写' in result
 
     def test_type_error(self):
@@ -85,7 +89,7 @@ class TestFormatter:
             eval("None.nonexistent_attr_xyz")
         except AttributeError as e:
             result = format_runtime_error(source, type(e), e, e.__traceback__)
-            assert '属性不存在' in result
+            assert '属性错误' in result
 
     def test_recursion_error(self):
         """测试递归过深"""
@@ -192,6 +196,143 @@ print('c')
         f = LightErrorFormatter()
         mapping = f.build_full_mapping("无映射的代码\n第二行")
         assert mapping == {}
+
+
+class TestLevenshteinDistance:
+    """测试 Levenshtein 编辑距离"""
+
+    def test_exact_match(self):
+        """测试完全匹配"""
+        assert _levenshtein_distance('hello', 'hello') == 0
+
+    def test_one_substitution(self):
+        """测试一次替换"""
+        assert _levenshtein_distance('hello', 'hallo') == 1
+
+    def test_one_insertion(self):
+        """测试一次插入"""
+        assert _levenshtein_distance('hello', 'helloo') == 1
+
+    def test_one_deletion(self):
+        """测试一次删除"""
+        assert _levenshtein_distance('hello', 'helo') == 1
+
+    def test_completely_different(self):
+        """测试完全不同"""
+        assert _levenshtein_distance('abc', 'xyz') == 3
+
+    def test_empty_string(self):
+        """测试空字符串"""
+        assert _levenshtein_distance('', 'hello') == 5
+        assert _levenshtein_distance('hello', '') == 5
+
+
+class TestFindSimilarNames:
+    """测试相似名称查找"""
+
+    def test_find_exact(self):
+        """测试精确查找"""
+        result = _find_similar_names('打印', {'打印', '打字', '拍印'}, max_distance=2)
+        assert '打印' in result
+
+    def test_similar_chinese(self):
+        """测试中文相似名"""
+        result = _find_similar_names('列表', {'列表', '列外', '例表', '字典'}, max_distance=2)
+        assert '列表' in result
+
+    def test_no_similar(self):
+        """测试无相似名"""
+        result = _find_similar_names('xyz', {'abc', 'def', 'ghi'}, max_distance=1)
+        assert result == []
+
+    def test_max_results(self):
+        """测试最多返回结果数"""
+        result = _find_similar_names('hello', {'hallo', 'hell', 'helo', 'help', 'held'}, max_distance=2, max_results=2)
+        assert len(result) <= 2
+
+
+class TestEnhancedErrorMessages:
+    """测试增强错误信息质量"""
+
+    def test_name_error_with_similar_suggestion(self):
+        """测试未定义变量包含相似名建议"""
+        source = '设 打印 为 1\n设 x 为 打印x'  # 包含 '打印' 变量
+        f = LightErrorFormatter(source)
+        name = f._extract_name_from_msg('NameError', "name 'printx' is not defined")
+        assert name == 'printx'
+        # 相似名建议
+        similar = f._get_similar_name_suggestions('打印x')
+        assert '打印' in similar
+
+    def test_name_error_no_similar(self):
+        """测试未定义变量无相似名"""
+        f = LightErrorFormatter('')
+        name = f._extract_name_from_msg('NameError', "name 'xyz123abc' is not defined")
+        assert name == 'xyz123abc'
+
+    def test_type_error_extract_types(self):
+        """测试类型错误提取类型信息"""
+        source = '设 x 为 "hello" + 1'
+        try:
+            eval("'hello' + 1")
+        except TypeError as e:
+            result = format_runtime_error(source, type(e), e, e.__traceback__)
+            assert '类型错误' in result
+            assert '修复建议' in result
+
+    def test_syntax_error_details(self):
+        """测试语法错误包含详细信息"""
+        source = '段落 测试 接收：\n  打印("hello"'
+        try:
+            compile("def f():\n    print('hello'", '<test>', 'exec')
+        except SyntaxError as e:
+            result = format_runtime_error(source, type(e), e, e.__traceback__)
+            assert '语法错误' in result or 'SyntaxError' in result
+            assert '修复建议' in result
+
+    def test_key_error_with_suggestion(self):
+        """测试键错误包含建议"""
+        source = 'd["未知键"]'
+        try:
+            eval("{'a': 1}['unknown_key']")
+        except KeyError as e:
+            result = format_runtime_error(source, type(e), e, e.__traceback__)
+            assert '键错误' in result
+            assert '字典包含键' in result
+            assert '字典获取' in result
+
+    def test_attribute_error_with_type_hint(self):
+        """测试属性错误包含类型提示"""
+        source = 's.未知属性'
+        try:
+            eval("'hello'.nonexistent_attr")
+        except AttributeError as e:
+            result = format_runtime_error(source, type(e), e, e.__traceback__)
+            assert '属性错误' in result
+            assert 'str' in result or '字符串' in result
+
+    def test_recursion_error_info(self):
+        """测试递归错误包含信息"""
+        source = '段落 无限递归：\n  无限递归()'
+        try:
+            def f(): f()
+            f()
+        except RecursionError as e:
+            result = format_runtime_error(source, type(e), e, e.__traceback__)
+            assert '递归过深' in result
+            assert '递归' in result
+
+    def test_error_message_contains_all_sections(self):
+        """测试错误信息包含所有关键段落"""
+        source = '设 x 为 1 / 0'
+        try:
+            eval("1 / 0")
+        except ZeroDivisionError:
+            result = format_runtime_error(source)
+            assert '错误类型' in result
+            assert '错误信息' in result
+            assert '修复建议' in result
+            assert '更多帮助' in result
 
 
 if __name__ == '__main__':

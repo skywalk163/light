@@ -1,0 +1,57 @@
+name: 积木库五把尺子
+
+# GitCode 版流水线（本仓库 origin 就是 gitcode，github 侧网络长期不可达）。
+# 与 .github/workflows/eval.yml 同一套门槛，差异只在平台约定：
+#   · 工作流目录是 .gitcode/workflows/ ，不是 .github/workflows/
+#   · 运行器是 EulerOS，且**工作目录为 repo_workspace**，命令都得先 cd 进去
+#   · action 名与 GitHub 不同（checkout-action@0.0.1），Python 直接用运行器自带的 python3
+#
+# 判定逻辑：积木库/评估/ci_eval.py ｜ 门槛：积木库/评估/门槛.json
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  eval:
+    runs-on: euleros-2.10.1
+    steps:
+      - uses: checkout-action@0.0.1
+
+      - name: 环境自检
+        run: |
+          cd repo_workspace
+          python3 --version
+          python3 -c "import sys; assert sys.version_info >= (3, 10), '积木库需要 Python ≥ 3.10'"
+
+      - name: 装积木可选依赖（失败不致命）
+        run: |
+          cd repo_workspace
+          python3 -m pip install --user --upgrade pip || true
+          python3 -m pip install --user pypinyin lunardate opencc-python-reimplemented || \
+            echo "可选依赖未装上：相关块会被标为「缺依赖」，不影响门槛判定"
+
+      - name: 五把尺子 + 硬门槛
+        run: |
+          cd repo_workspace
+          python3 积木库/评估/ci_eval.py --并发 8
+
+      - name: 报告摘要
+        if: always()
+        run: |
+          cd repo_workspace
+          python3 - <<'PY'
+          import io, json
+          try:
+              r = json.load(io.open('积木库/评估/报告/ci_eval.json', encoding='utf-8'))
+          except Exception as e:
+              print('报告缺失：%s' % e); raise SystemExit(0)
+          print('结论：%s ｜ 耗时 %ss' % ('全绿' if r['结论']['通过'] else '有回归',
+                                        r['结论']['耗时秒']))
+          for g in r['闸门']:
+              print('%s %s/%s 实测 %s（要求 %s %s）'
+                    % ('OK ' if g['通过'] else 'BAD', g['组'], g['项'],
+                       g['实测'], g['向'], g['门槛']))
+          PY

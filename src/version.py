@@ -6,23 +6,23 @@
 """
 
 # 版本号
-__version__ = "6.0.0"
-VERSION = "6.0.0"
-VERSION_MAJOR = 6
+__version__ = "7.0.0"
+VERSION = "7.0.0"
+VERSION_MAJOR = 7
 VERSION_MINOR = 0
 VERSION_PATCH = 0
 
 # 版本名称
-VERSION_NAME = "v6.0 全面自举与生态建设版"
+VERSION_NAME = "v7.0 双线合并与品牌统一版"
 
 # 发布日期
-RELEASE_DATE = "2026-10-29"
+RELEASE_DATE = "2026-08-14"
 
 # 版本阶段: dev / alpha / beta / rc / stable
 RELEASE_STAGE = "stable"
 
-# 开发分支标志（True 表示当前为 4.0dev 开发分支）
-DEV_BRANCH = True
+# 开发分支标志（True 表示当前为开发分支，非正式发布）
+DEV_BRANCH = False
 
 # 支持的语法层级
 SUPPORTED_LEVELS = ["L0", "L1", "L2", "L3", "L4", "L5", "L6", "L7"]
@@ -32,17 +32,16 @@ COMPILER_BACKENDS = ["python", "llvm", "c", "wasm"]
 
 # 版本描述
 VERSION_DESCRIPTION = """
-光明 v6.0 是自 v5.1 以来的重大版本，历时 12 周开发。
+光明 v7.0 是段言（Duan）与光明（Light）双线合并后的首个统一版本。
 
 核心亮点：
-- 完全自举：Level 8 编译器全部用光明自身编写，4 轮编译收敛
-- 类型系统完善：泛型、联合类型、模式匹配
-- 调试体验增强：统一错误格式、编译错误精准定位、REPL 完善
-- 模块系统与包管理器：包注册表、版本管理、依赖循环检测
-- 生态建设：VSCode 扩展、文档站点、在线 Playground
-- 性能优化：LLVM 优化 Pass 管线、增量编译、DWARF 调试信息
-- 跨平台支持：Windows/Linux/macOS 全平台 CI
-- 测试覆盖：1918+ 测试用例全面覆盖
+- 品牌统一：全面统一为「光明 / Light」，源文件后缀 .light，CLI 为 light / lightc
+- 双线合并：段言 v6.3 与光明 v6.0 的编译器内核逐块融合，保留双方超集能力
+- 类型系统：泛型、联合类型（整数|浮点）、可空类型、模式匹配
+- 三套并行实现：手写 src/、ANTLR4 antlrparser/、自举 bootstrap/（Level 3–7）
+- 积木库：约 10010 个积木，零 token 离线代码生成
+- 编译器后端：Python / LLVM / C / WASM
+- 包生态：light.json + light.lock，包注册表、版本管理、依赖循环检测
 """
 
 # 最低 Python 版本要求
@@ -82,7 +81,7 @@ def get_full_version_string() -> str:
 
 def get_dev_version_string() -> str:
     """获取开发分支版本字符串"""
-    return f"光明 LightLang v4.0dev-{VERSION} (开发分支) — {RELEASE_DATE}"
+    return f"光明 LightLang v{VERSION}dev (开发分支) — {RELEASE_DATE}"
 
 
 def is_dev_branch() -> bool:

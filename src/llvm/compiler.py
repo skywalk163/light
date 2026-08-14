@@ -39,8 +39,12 @@ except ImportError:
     import ast_nodes as ast
 
 
-def get_exe_extension() -> str:
-    """根据当前平台返回可执行文件后缀"""
+def get_exe_extension(target_arch: str = None) -> str:
+    """根据当前平台返回可执行文件后缀
+
+    Args:
+        target_arch: 目标架构（'x64'/'arm64'/None），None 表示本地架构
+    """
     if sys.platform == 'win32':
         return '.exe'
     return ''
@@ -52,6 +56,159 @@ def _strip_exe_ext(path: str) -> str:
     if ext and path.endswith(ext):
         return path[:-len(ext)]
     return path
+
+
+def detect_target_arch(target_arg: str = None) -> str:
+    """检测目标架构
+
+    根据 --target 参数或 -arch 参数自动选择 x64/ARM64 目标三元组。
+
+    Args:
+        target_arg: 目标架构参数（如 'x86_64'、'aarch64'、'arm64'、'x64'）
+
+    Returns:
+        目标架构字符串：'x86_64' 或 'aarch64'
+    """
+    if target_arg is None:
+        return 'x86_64'
+
+    target_lower = target_arg.lower().replace('-', '_').replace(' ', '_')
+
+    # ARM64 架构匹配
+    if any(t in target_lower for t in ('aarch64', 'arm64', 'armv8')):
+        return 'aarch64'
+
+    # x86_64 架构匹配
+    if any(t in target_lower for t in ('x86_64', 'x64', 'amd64', 'x86')):
+        return 'x86_64'
+
+    # 默认返回本地架构
+    import platform as _platform
+    machine = _platform.machine().lower()
+    if machine in ('aarch64', 'arm64', 'armv8l', 'armv8b'):
+        return 'aarch64'
+    return 'x86_64'
+
+
+def get_target_triple(target_arch: str, target_platform: str = None) -> str:
+    """获取 LLVM 目标三元组
+
+    Args:
+        target_arch: 目标架构（'x86_64'/'aarch64'）
+        target_platform: 目标平台（win32/linux/darwin），None 表示当前平台
+
+    Returns:
+        LLVM 目标三元组字符串
+    """
+    if target_platform is None:
+        target_platform = sys.platform
+
+    os_part = {
+        'win32': 'windows-msvc',
+        'linux': 'linux-gnu',
+        'darwin': 'macosx',
+    }.get(target_platform, 'linux-gnu')
+
+    if target_arch == 'aarch64':
+        if target_platform == 'win32':
+            return 'aarch64-pc-windows-msvc'
+        elif target_platform == 'darwin':
+            return 'arm64-apple-macosx'
+        else:
+            return 'aarch64-unknown-linux-gnu'
+    else:
+        if target_platform == 'win32':
+            return 'x86_64-pc-windows-msvc'
+        elif target_platform == 'darwin':
+            return 'x86_64-apple-macosx'
+        else:
+            return 'x86_64-unknown-linux-gnu'
+
+
+def get_optimization_flags(optimize_level: int, optimize_size: bool = False,
+                           lto: bool = False) -> list:
+    """根据优化级别返回 clang 编译参数
+
+    将 -O0/-O1/-O2/-O3 映射到对应的 clang 编译参数，
+    并添加 -mllvm 传递的 LLVM Pass 控制参数。
+
+    Args:
+        optimize_level: 优化级别（0-3）
+        optimize_size: 是否启用 -Os 尺寸优化（覆盖 optimize_level 的 -Ox 标志）
+        lto: 是否启用 LTO (Link Time Optimization)
+
+    Returns:
+        clang 编译参数列表
+    """
+    if optimize_size:
+        flags = ['-Os', '-fdata-sections', '-ffunction-sections']
+        if sys.platform != 'darwin':
+            flags.extend(['-Wl,--gc-sections'])
+        else:
+            flags.extend(['-Wl,-dead_strip'])
+    else:
+        flags = [f'-O{optimize_level}']
+
+    # 根据优化级别添加 LLVM Pass 控制参数
+    if not optimize_size and optimize_level >= 1:
+        # -O1 及以上：启用内联、mem2reg（SSA 构建）
+        flags.extend(['-mllvm', '-inline'])
+        flags.extend(['-mllvm', '-mem2reg'])
+
+    if not optimize_size and optimize_level >= 2:
+        # -O2 及以上：启用循环展开、合并、GVN
+        flags.extend(['-mllvm', '-loop-unroll'])
+        flags.extend(['-mllvm', '-loop-rotate'])
+        flags.extend(['-mllvm', '-gvn'])
+
+    if not optimize_size and optimize_level >= 3:
+        # -O3：启用向量化、SLP、更多循环优化
+        flags.extend(['-mllvm', '-loop-vectorize'])
+        flags.extend(['-mllvm', '-slp-vectorize'])
+        flags.extend(['-mllvm', '-licm'])
+        flags.extend(['-mllvm', '-simplifycfg'])
+
+    # LTO (Link Time Optimization)
+    if lto:
+        flags.append('-flto')
+        if sys.platform == 'win32':
+            flags.append('-fuse-ld=lld')
+        elif sys.platform == 'darwin':
+            flags.append('-flto=full')
+        else:
+            flags.append('-flto=auto')
+
+    return flags
+
+
+def get_size_reduction_summary(original_size: int, stripped_size: int) -> str:
+    """生成体积缩减报告
+
+    Args:
+        original_size: 原始文件大小（字节）
+        stripped_size: 优化后文件大小（字节）
+
+    Returns:
+        格式化的体积缩减报告字符串
+    """
+    reduction = original_size - stripped_size
+    reduction_pct = (reduction / max(original_size, 1)) * 100
+    return (
+        f"体积优化摘要:\n"
+        f"  - 优化前: {_format_size(original_size)}\n"
+        f"  - 优化后: {_format_size(stripped_size)}\n"
+        f"  - 缩减:   {_format_size(reduction)} ({reduction_pct:.1f}%)"
+    )
+
+
+def _format_size(size_bytes: int) -> str:
+    """将字节数格式化为人类可读的大小"""
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    else:
+        return f"{size_bytes / (1024 * 1024):.1f} MB"
 
 
 def compile_source(source: str, verbose: bool = False, opt_level: str = 'O2') -> str:
@@ -145,7 +302,7 @@ def _run_type_check_on_ast(source: str, module, verbose: bool = False):
 
 
 def compile_source_typed(source: str, verbose: bool = False, target_platform: str = None,
-                         debug: bool = False, opt_level: str = 'O2') -> str:
+                         target_arch: str = None, debug: bool = False, opt_level: str = 'O2') -> str:
     """
     编译光明源码为 LLVM IR 字符串（typed 模式）
 
@@ -153,6 +310,7 @@ def compile_source_typed(source: str, verbose: bool = False, target_platform: st
         source: 光明源码字符串
         verbose: 是否输出详细信息
         target_platform: 目标平台（win32/linux/darwin），默认自动检测
+        target_arch: 目标架构（'x86_64'/'aarch64'），影响数据模型选择
         debug: 是否生成 DWARF 调试信息
         opt_level: 优化级别 ('O0', 'O1', 'O2', 'O3', 'Os', 'Oz')，默认 'O2'
 
@@ -180,7 +338,7 @@ def compile_source_typed(source: str, verbose: bool = False, target_platform: st
     if verbose:
         print(f"[3/3] 生成 LLVM IR (typed)...")
 
-    codegen = TypedLLVMCodeGen(target_platform=target_platform, debug=debug)
+    codegen = TypedLLVMCodeGen(target_platform=target_platform, target_arch=target_arch, debug=debug)
     ir = codegen.generate(module)
 
     if verbose:
@@ -244,7 +402,9 @@ def compile_source_to_ir(source: str, output_ll: str = None, verbose: bool = Fal
     return output_ll
 
 
-def compile_light(source_path: str, output_path: str = None, verbose: bool = False, optimize_level: int = 2, debug: bool = False):
+def compile_light(source_path: str, output_path: str = None, verbose: bool = False,
+                  target: str = None, optimize_level: int = 2, debug: bool = False,
+                  optimize_size: bool = False, lto: bool = False, strip: bool = False):
     """
     编译 .light 文件为原生可执行文件
 
@@ -252,8 +412,12 @@ def compile_light(source_path: str, output_path: str = None, verbose: bool = Fal
         source_path: .light 源文件路径
         output_path: 输出 .exe 路径（默认与源文件同名）
         verbose: 是否输出详细信息
+        target: 目标架构（'x86_64'/'aarch64'/'arm64'），默认本地架构
         optimize_level: 优化级别（0-3），默认 2
         debug: 是否生成 DWARF 调试信息
+        optimize_size: 是否启用 -Os 尺寸优化（替代 -O2）
+        lto: 是否启用 LTO (Link Time Optimization)
+        strip: 是否剥离调试符号
     """
     # 读取源码
     with open(source_path, 'r', encoding='utf-8') as f:
@@ -261,6 +425,9 @@ def compile_light(source_path: str, output_path: str = None, verbose: bool = Fal
 
     if verbose:
         print(f"[1/5] 读取源码: {len(source)} 字符")
+
+    # 检测目标架构
+    target_arch = detect_target_arch(target)
 
     # 生成 LLVM IR（传递优化级别）
     opt_level_str = f'O{optimize_level}'
@@ -279,7 +446,7 @@ def compile_light(source_path: str, output_path: str = None, verbose: bool = Fal
         print(f"  IR 已写入: {ll_path} ({len(ir)} 字符)")
 
     # 查找 clang
-    clang = find_clang()
+    clang = find_clang(target_arch=target_arch)
     if verbose:
         print(f"  使用编译器: {clang}")
 
@@ -288,14 +455,15 @@ def compile_light(source_path: str, output_path: str = None, verbose: bool = Fal
     runtime_c = os.path.join(runtime_dir, 'runtime.c')
     runtime_o = base_path + '_runtime.o'
 
-    opt_flag = f'-O{optimize_level}'
+    opt_flags = get_optimization_flags(optimize_level, optimize_size=optimize_size, lto=lto)
+    arch_flags = get_arch_specific_cflags(target_arch)
     debug_flags = ['-g'] if debug else []
 
     if verbose:
         print("[3/6] 编译运行时库...")
 
     result = subprocess.run(
-        [clang, '-c', opt_flag, *debug_flags, runtime_c, '-o', runtime_o],
+        [clang, '-c', *opt_flags, *arch_flags, *debug_flags, runtime_c, '-o', runtime_o],
         capture_output=True, text=True, encoding='utf-8', errors='replace'
     )
     if result.returncode != 0:
@@ -307,22 +475,26 @@ def compile_light(source_path: str, output_path: str = None, verbose: bool = Fal
 
     ir_o = base_path + '.o'
     result = subprocess.run(
-        [clang, '-c', opt_flag, *debug_flags, ll_path, '-o', ir_o],
+        [clang, '-c', *opt_flags, *arch_flags, *debug_flags, ll_path, '-o', ir_o],
         capture_output=True, text=True, encoding='utf-8', errors='replace'
     )
     if result.returncode != 0:
         raise RuntimeError(f"IR 编译失败:\n{result.stderr}")
 
     # 链接为 .exe
-    exe_path = base_path + '.exe'
+    exe_ext = get_exe_extension()
+    exe_path = base_path + exe_ext
     if verbose:
         print(f"[5/6] 链接为 .exe...")
 
-    link_args = [clang, ir_o, runtime_o, '-o', exe_path]
+    link_args = [clang, *arch_flags, ir_o, runtime_o, '-o', exe_path]
     if debug:
         link_args.append('-g')
     if not sys.platform.startswith('win'):
         link_args.append('-lm')
+    # LTO 链接参数
+    if lto:
+        link_args.append('-flto')
 
     result = subprocess.run(
         link_args,
@@ -330,6 +502,24 @@ def compile_light(source_path: str, output_path: str = None, verbose: bool = Fal
     )
     if result.returncode != 0:
         raise RuntimeError(f"链接失败:\n{result.stderr}")
+
+    # 剥离调试符号
+    original_size = os.path.getsize(exe_path) if os.path.exists(exe_path) else 0
+    if strip and not debug:
+        try:
+            if sys.platform == 'win32':
+                strip_tools = ['llvm-strip', 'strip']
+                for tool in strip_tools:
+                    try:
+                        subprocess.run([tool, exe_path], capture_output=True, timeout=30)
+                        break
+                    except (subprocess.SubprocessError, FileNotFoundError):
+                        continue
+            else:
+                subprocess.run(['strip', exe_path], check=True, timeout=30)
+        except (subprocess.SubprocessError, OSError):
+            if verbose:
+                print("  [警告] 无法剥离调试符号")
 
     # 清理临时文件
     if verbose:
@@ -343,13 +533,18 @@ def compile_light(source_path: str, output_path: str = None, verbose: bool = Fal
             pass
 
     if verbose:
-        size = os.path.getsize(exe_path)
-        print(f"编译成功: {source_path} -> {exe_path} ({size} 字节)")
+        final_size = os.path.getsize(exe_path)
+        print(f"编译成功: {source_path} -> {exe_path} ({final_size} 字节)")
+        if original_size > 0 and strip:
+            print(get_size_reduction_summary(original_size, final_size))
 
     return exe_path
 
 
-def compile_light_typed(source_path: str, output_path: str = None, verbose: bool = False, target_platform: str = None, optimize_level: int = 2, debug: bool = False):
+def compile_light_typed(source_path: str, output_path: str = None, verbose: bool = False,
+                        target_platform: str = None, target: str = None,
+                        optimize_level: int = 2, debug: bool = False,
+                        optimize_size: bool = False, lto: bool = False, strip: bool = False):
     """
     编译 .light 文件为原生可执行文件（typed 模式）
 
@@ -360,8 +555,12 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
         output_path: 输出可执行文件路径（默认与源文件同名）
         verbose: 是否输出详细信息
         target_platform: 目标平台（win32/linux/darwin），默认自动检测
+        target: 目标架构（'x86_64'/'aarch64'/'arm64'），默认本地架构
         optimize_level: 优化级别（0-3），默认 2
         debug: 是否生成 DWARF 调试信息
+        optimize_size: 是否启用 -Os 尺寸优化（替代 -O2）
+        lto: 是否启用 LTO (Link Time Optimization)
+        strip: 是否剥离调试符号
     """
     with open(source_path, 'r', encoding='utf-8') as f:
         source = f.read()
@@ -369,9 +568,14 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
     if verbose:
         print(f"[1/5] 读取源码: {len(source)} 字符")
 
+    # 检测目标架构
+    target_arch = detect_target_arch(target)
+    if verbose:
+        print(f"  目标架构: {target_arch}")
+
     opt_level_str = f'O{optimize_level}'
     ir = compile_source_typed(source, verbose=verbose, target_platform=target_platform,
-                              debug=debug, opt_level=opt_level_str)
+                              target_arch=target_arch, debug=debug, opt_level=opt_level_str)
 
     base_path = output_path or source_path.replace('.light', '')
     base_path = _strip_exe_ext(base_path)
@@ -383,7 +587,8 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
     if verbose:
         print(f"  IR 已写入: {ll_path} ({len(ir)} 字符)")
 
-    clang = find_clang()
+    # 根据目标架构查找编译器
+    clang = find_clang(target_arch=target_arch)
     if verbose:
         print(f"  使用编译器: {clang}")
 
@@ -395,14 +600,16 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
     runtime_c = os.path.join(runtime_dir, 'runtime_typed.c')
     runtime_o = base_path + '_runtime.o'
 
-    opt_flag = f'-O{optimize_level}'
+    # 使用优化级别对应的编译参数
+    opt_flags = get_optimization_flags(optimize_level, optimize_size=optimize_size, lto=lto)
+    arch_flags = get_arch_specific_cflags(target_arch)
     debug_flags = ['-g'] if debug else []
 
     if verbose:
         print("[3/6] 编译 typed 运行时库...")
 
     result = subprocess.run(
-        [clang, '-c', opt_flag, *debug_flags, runtime_c, '-o', runtime_o],
+        [clang, '-c', *opt_flags, *arch_flags, *debug_flags, runtime_c, '-o', runtime_o],
         capture_output=True, text=True, encoding='utf-8', errors='replace'
     )
     if result.returncode != 0:
@@ -414,7 +621,7 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
 
     ir_o = base_path + '.o'
     result = subprocess.run(
-        [clang, '-c', opt_flag, *debug_flags, ll_path, '-o', ir_o],
+        [clang, '-c', *opt_flags, *arch_flags, *debug_flags, ll_path, '-o', ir_o],
         capture_output=True, text=True, encoding='utf-8', errors='replace'
     )
     if result.returncode != 0:
@@ -426,11 +633,13 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
     if verbose:
         print(f"[5/6] 链接为可执行文件...")
 
-    link_args = [clang, ir_o, runtime_o, '-o', exe_path]
+    link_args = [clang, *arch_flags, ir_o, runtime_o, '-o', exe_path]
     if debug:
         link_args.append('-g')
     if not sys.platform.startswith('win'):
         link_args.append('-lm')
+    if lto:
+        link_args.append('-flto')
 
     result = subprocess.run(
         link_args,
@@ -438,6 +647,23 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
     )
     if result.returncode != 0:
         raise RuntimeError(f"链接失败:\n{result.stderr}")
+
+    # 剥离调试符号
+    original_size = os.path.getsize(exe_path) if os.path.exists(exe_path) else 0
+    if strip and not debug:
+        try:
+            if sys.platform == 'win32':
+                for tool in ['llvm-strip', 'strip']:
+                    try:
+                        subprocess.run([tool, exe_path], capture_output=True, timeout=30)
+                        break
+                    except (subprocess.SubprocessError, FileNotFoundError):
+                        continue
+            else:
+                subprocess.run(['strip', exe_path], check=True, timeout=30)
+        except (subprocess.SubprocessError, OSError):
+            if verbose:
+                print("  [警告] 无法剥离调试符号")
 
     if verbose:
         print(f"[6/6] 清理临时文件...")
@@ -450,8 +676,10 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
             pass
 
     if verbose:
-        size = os.path.getsize(exe_path)
-        print(f"编译成功: {source_path} -> {exe_path} ({size} 字节)")
+        final_size = os.path.getsize(exe_path)
+        print(f"编译成功: {source_path} -> {exe_path} ({final_size} 字节)")
+        if original_size > 0 and strip:
+            print(get_size_reduction_summary(original_size, final_size))
 
     return exe_path
 
@@ -492,10 +720,89 @@ def verify_ir_with_clang(ll_path: str, clang_path: str = None, verbose: bool = F
     return True
 
 
-def find_clang():
-    """查找 clang 编译器（支持 MSVC 和 MinGW 两种模式）"""
+def verify_ir_with_llvmlite(ll_path: str, verbose: bool = False) -> bool:
+    """使用 llvmlite 本地验证 LLVM IR 文件的语法和结构正确性
+
+    clang 不可用时的替代方案：调用 llvmlite.binding.parse_assembly + verify()
+    做与 clang -x ir 等价的语法/结构验证，不依赖外部工具链。
+
+    Args:
+        ll_path: .ll 文件路径
+        verbose: 是否输出详细信息
+
+    Returns:
+        True 表示验证通过
+
+    Raises:
+        RuntimeError: llvmlite 未安装或 IR 验证失败
+    """
+    try:
+        import llvmlite.binding as _llvm
+    except ImportError:
+        raise RuntimeError(
+            "llvmlite 未安装，且未找到 clang 编译器，无法验证 IR。\n"
+            "请安装 clang（https://llvm.org）或运行 pip install llvmlite。"
+        )
+
+    if verbose:
+        print("  验证 LLVM IR (llvmlite parse_assembly)...")
+
+    try:
+        with open(ll_path, 'r', encoding='utf-8') as f:
+            ir_text = f.read()
+        module = _llvm.parse_assembly(ir_text)
+        module.verify()
+    except Exception as e:  # noqa: BLE001 - 统一转为 RuntimeError 报告
+        raise RuntimeError(f"LLVM IR 验证失败（llvmlite）:\n{e}") from e
+
+    if verbose:
+        print("  IR 验证通过（llvmlite）")
+    return True
+
+
+def verify_ir(ll_path: str, verbose: bool = False) -> bool:
+    """验证 LLVM IR 文件（优先 clang，回退 llvmlite）
+
+    优先使用 clang 验证；clang 不可用时回退到 llvmlite 本地验证，
+    保证 IR 验证在任何环境下都真实执行（而非跳过）。
+
+    Args:
+        ll_path: .ll 文件路径
+        verbose: 是否输出详细信息
+
+    Returns:
+        True 表示验证通过
+
+    Raises:
+        RuntimeError: 两种验证方式均不可用或验证失败
+    """
+    try:
+        return verify_ir_with_clang(ll_path, verbose=verbose)
+    except RuntimeError as e:
+        if "未找到 clang" in str(e):
+            return verify_ir_with_llvmlite(ll_path, verbose=verbose)
+        raise
+
+
+def find_clang(target_arch: str = None):
+    """查找 clang 编译器（支持 MSVC 和 MinGW 两种模式）
+
+    Args:
+        target_arch: 目标架构（'x86_64'/'aarch64'/None），
+                    指定 ARM64 时会检测交叉编译器
+
+    Returns:
+        clang 可执行文件路径
+    """
     import sys as _sys
-    
+
+    # 如果指定了 ARM64 目标，先尝试查找交叉编译器
+    if target_arch == 'aarch64':
+        arm64_candidates = get_arm64_cross_compiler_candidates()
+        for c in arm64_candidates:
+            if os.path.exists(c):
+                return c
+
     # 常见路径（优先 MinGW，因为它自带 C 标准库头文件）
     candidates = [
         # MinGW-w64 LLVM 工具链（自带 C 标准库）
@@ -519,6 +826,55 @@ def find_clang():
         if os.path.exists(mingw_clang):
             return mingw_clang
     raise RuntimeError("未找到 clang 编译器。请安装 LLVM:\n  Windows: https://github.com/llvm/llvm-project/releases\n  macOS: brew install llvm\n  Linux: sudo apt install clang")
+
+
+def get_arm64_cross_compiler_candidates() -> list:
+    """获取 ARM64 交叉编译器候选路径
+
+    Returns:
+        ARM64 交叉编译器候选路径列表
+    """
+    import sys as _sys
+    if _sys.platform == 'win32':
+        return [
+            # llvm-mingw ARM64 工具链
+            r'c:\traework\light\llvm-mingw-20240619-ucrt-aarch64\bin\clang.exe',
+            r'c:\traework\light\llvm-mingw-20240619-ucrt-x86_64\bin\clang.exe',
+            # MSVC ARM64 交叉编译器
+            r'C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\Llvm\bin\clang.exe',
+            # 通用 ARM64 工具链
+            r'E:\Program Files\LLVM\bin\clang.exe',
+            r'C:\Program Files\LLVM\bin\clang.exe',
+        ]
+    elif _sys.platform == 'darwin':
+        return [
+            '/usr/bin/clang',
+            '/usr/local/bin/clang',
+            '/opt/homebrew/bin/clang',
+        ]
+    else:
+        # Linux
+        return [
+            'aarch64-linux-gnu-gcc',
+            'aarch64-linux-gnu-g++',
+            '/usr/bin/aarch64-linux-gnu-gcc',
+            '/usr/bin/clang',
+            '/usr/local/bin/clang',
+        ]
+
+
+def get_arch_specific_cflags(target_arch: str) -> list:
+    """获取架构特定的编译参数
+
+    Args:
+        target_arch: 目标架构（'x86_64'/'aarch64'）
+
+    Returns:
+        架构特定的编译参数列表
+    """
+    if target_arch == 'aarch64':
+        return ['--target=aarch64-linux-gnu']
+    return []
 
 
 def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool = False,
@@ -673,7 +1029,10 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
     return ir
 
 
-def compile_light_project(source_path: str, output_path: str = None, verbose: bool = False, target_platform: str = None, optimize_level: int = 2, debug: bool = False):
+def compile_light_project(source_path: str, output_path: str = None, verbose: bool = False,
+                          target_platform: str = None, target: str = None,
+                          optimize_level: int = 2, debug: bool = False,
+                          optimize_size: bool = False, lto: bool = False, strip: bool = False):
     """
     编译光明项目为原生可执行文件（支持多模块）
 
@@ -684,9 +1043,18 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
         output_path: 输出路径
         verbose: 是否输出详细信息
         target_platform: 目标平台
+        target: 目标架构（'x86_64'/'aarch64'/'arm64'），默认本地架构
         optimize_level: 优化级别（0-3），默认 2
         debug: 是否生成 DWARF 调试信息
+        optimize_size: 是否启用 -Os 尺寸优化（替代 -O2）
+        lto: 是否启用 LTO (Link Time Optimization)
+        strip: 是否剥离调试符号
     """
+    # 检测目标架构
+    target_arch = detect_target_arch(target)
+    if verbose:
+        print(f"  目标架构: {target_arch}")
+
     try:
         from ..module_resolver import ModuleResolver
     except ImportError:
@@ -747,7 +1115,8 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
     if verbose:
         print(f"  IR 已写入: {ll_path} ({len(ir)} 字符)")
 
-    clang = find_clang()
+    # 根据目标架构查找编译器
+    clang = find_clang(target_arch=target_arch)
     if verbose:
         print(f"  使用编译器: {clang}")
 
@@ -759,14 +1128,16 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
     runtime_c = os.path.join(runtime_dir, 'runtime_typed.c')
     runtime_o = base_path + '_runtime.o'
 
-    opt_flag = f'-O{optimize_level}'
+    # 使用优化级别对应的编译参数
+    opt_flags = get_optimization_flags(optimize_level, optimize_size=optimize_size, lto=lto)
+    arch_flags = get_arch_specific_cflags(target_arch)
     debug_flags = ['-g'] if debug else []
 
     if verbose:
         print("[3/5] 编译 typed 运行时库...")
 
     result = subprocess.run(
-        [clang, '-c', opt_flag, *debug_flags, runtime_c, '-o', runtime_o],
+        [clang, '-c', *opt_flags, *arch_flags, *debug_flags, runtime_c, '-o', runtime_o],
         capture_output=True, text=True, encoding='utf-8', errors='replace'
     )
     if result.returncode != 0:
@@ -778,7 +1149,7 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
 
     ir_o = base_path + '.o'
     result = subprocess.run(
-        [clang, '-c', opt_flag, *debug_flags, ll_path, '-o', ir_o],
+        [clang, '-c', *opt_flags, *arch_flags, *debug_flags, ll_path, '-o', ir_o],
         capture_output=True, text=True, encoding='utf-8', errors='replace'
     )
     if result.returncode != 0:
@@ -790,11 +1161,13 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
     if verbose:
         print(f"[5/5] 链接为可执行文件...")
 
-    link_args = [clang, ir_o, runtime_o, '-o', exe_path]
+    link_args = [clang, *arch_flags, ir_o, runtime_o, '-o', exe_path]
     if debug:
         link_args.append('-g')
     if not sys.platform.startswith('win'):
         link_args.append('-lm')
+    if lto:
+        link_args.append('-flto')
 
     result = subprocess.run(
         link_args,
@@ -803,6 +1176,23 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
     if result.returncode != 0:
         raise RuntimeError(f"链接失败:\n{result.stderr}")
 
+    # 剥离调试符号
+    original_size = os.path.getsize(exe_path) if os.path.exists(exe_path) else 0
+    if strip and not debug:
+        try:
+            if sys.platform == 'win32':
+                for tool in ['llvm-strip', 'strip']:
+                    try:
+                        subprocess.run([tool, exe_path], capture_output=True, timeout=30)
+                        break
+                    except (subprocess.SubprocessError, FileNotFoundError):
+                        continue
+            else:
+                subprocess.run(['strip', exe_path], check=True, timeout=30)
+        except (subprocess.SubprocessError, OSError):
+            if verbose:
+                print("  [警告] 无法剥离调试符号")
+
     if verbose:
         for f in [ir_o, runtime_o]:
             try:
@@ -810,19 +1200,246 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
                     os.remove(f)
             except Exception:
                 pass
-        size = os.path.getsize(exe_path)
-        print(f"编译成功: {source_path} -> {exe_path} ({size} 字节)")
+        final_size = os.path.getsize(exe_path)
+        print(f"编译成功: {source_path} -> {exe_path} ({final_size} 字节)")
+        if original_size > 0 and strip:
+            print(get_size_reduction_summary(original_size, final_size))
 
     return exe_path
+
+
+# ===========================================================================
+# LLVMCompiler 类
+# ===========================================================================
+
+
+class LLVMCompiler:
+    """光明 LLVM 编译器类
+
+    封装了从 .light 源码到原生可执行文件的完整编译流水线。
+    支持 Windows、macOS、Linux 三大平台，支持 x86_64 和 ARM64 架构。
+
+    用法:
+        compiler = LLVMCompiler()
+        # 自动检测当前平台编译
+        compiler.compile("hello.light")
+
+        # 指定目标平台
+        compiler.compile("hello.light", target="macos")
+        compiler.compile("hello.light", target="linux")
+
+        # 直接调用平台特定方法
+        compiler.compile_to_macos("hello.light", "hello_macos")
+        compiler.compile_to_linux("hello.light", "hello_linux")
+    """
+
+    # 平台映射表
+    TARGET_PLATFORM_MAP = {
+        "macos": "darwin",
+        "mac": "darwin",
+        "darwin": "darwin",
+        "linux": "linux",
+        "win": "win32",
+        "windows": "win32",
+        "win32": "win32",
+    }
+
+    def __init__(self, verbose: bool = False, optimize_level: int = 2,
+                 debug: bool = False, optimize_size: bool = False,
+                 lto: bool = False, strip: bool = False):
+        """初始化 LLVM 编译器
+
+        Args:
+            verbose: 是否输出详细信息
+            optimize_level: 优化级别（0-3），默认 2
+            debug: 是否生成 DWARF 调试信息
+            optimize_size: 是否启用 -Os 尺寸优化
+            lto: 是否启用 LTO (Link Time Optimization)
+            strip: 是否剥离调试符号
+        """
+        self.verbose = verbose
+        self.optimize_level = optimize_level
+        self.debug = debug
+        self.optimize_size = optimize_size
+        self.lto = lto
+        self.strip = strip
+
+    @staticmethod
+    def detect_platform() -> str:
+        """自动检测当前运行平台
+
+        Returns:
+            "win32" / "darwin" / "linux"
+        """
+        return sys.platform
+
+    @staticmethod
+    def detect_arch() -> str:
+        """自动检测当前架构
+
+        Returns:
+            "x86_64" / "aarch64"
+        """
+        import platform as _p
+        machine = _p.machine().lower()
+        if machine in ('aarch64', 'arm64', 'armv8l', 'armv8b'):
+            return 'aarch64'
+        return 'x86_64'
+
+    @staticmethod
+    def resolve_target_platform(target: str = None) -> str:
+        """解析目标平台参数
+
+        Args:
+            target: 目标平台名称（'macos'/'linux'/'windows' 或 None）
+
+        Returns:
+            平台标识（'darwin'/'linux'/'win32'）
+        """
+        if target is None:
+            return sys.platform
+        target_lower = target.lower().strip()
+        mapped = LLVMCompiler.TARGET_PLATFORM_MAP.get(target_lower)
+        if mapped:
+            return mapped
+        # 尝试部分匹配
+        for key, val in LLVMCompiler.TARGET_PLATFORM_MAP.items():
+            if key in target_lower or target_lower in key:
+                return val
+        # 默认返回当前平台
+        return sys.platform
+
+    def compile(self, source_path: str, output_path: str = None,
+                target: str = None) -> str:
+        """编译 .light 文件为原生可执行文件
+
+        自动检测目标平台，选择合适的编译参数。
+        支持 typed 模式（默认）和 string 模式。
+
+        Args:
+            source_path: .light 源文件路径
+            output_path: 输出可执行文件路径（默认与源文件同名）
+            target: 目标平台（'macos'/'linux'/'windows'/'auto'），
+                    'auto' 或 None 表示自动检测当前平台
+
+        Returns:
+            可执行文件路径
+
+        Raises:
+            RuntimeError: 编译失败时抛出
+        """
+        # 解析目标平台
+        target_platform = self.resolve_target_platform(target)
+
+        if self.verbose:
+            current_platform = sys.platform
+            print(f"[LLVMCompiler] 当前平台: {current_platform}")
+            print(f"[LLVMCompiler] 目标平台: {target_platform} (target={target})")
+            print(f"[LLVMCompiler] 目标架构: {self.detect_arch()}")
+
+        # 选择编译方法
+        try:
+            exe_path = compile_light_typed(
+                source_path=source_path,
+                output_path=output_path,
+                verbose=self.verbose,
+                target_platform=target_platform,
+                target=self.detect_arch(),
+                optimize_level=self.optimize_level,
+                debug=self.debug,
+                optimize_size=self.optimize_size,
+                lto=self.lto,
+                strip=self.strip,
+            )
+            return exe_path
+        except Exception:
+            # 回退到 string 模式
+            if self.verbose:
+                print("[LLVMCompiler] 回退到 string 模式...")
+            exe_path = compile_light(
+                source_path=source_path,
+                output_path=output_path,
+                verbose=self.verbose,
+                target=self.detect_arch(),
+                optimize_level=self.optimize_level,
+                debug=self.debug,
+                optimize_size=self.optimize_size,
+                lto=self.lto,
+                strip=self.strip,
+            )
+            return exe_path
+
+    def compile_to_macos(self, source_path: str, output_path: str = None) -> str:
+        """编译为 macOS 可执行文件
+
+        强制指定目标平台为 macOS (darwin)，
+        使用 macOS 对应的目标三元组（如 x86_64-apple-macosx 或 arm64-apple-macosx）。
+
+        Args:
+            source_path: .light 源文件路径
+            output_path: 输出可执行文件路径（默认与源文件同名）
+
+        Returns:
+            可执行文件路径
+        """
+        if self.verbose:
+            print(f"[LLVMCompiler] 目标: macOS ({self.detect_arch()})")
+
+        return self.compile(source_path, output_path, target="darwin")
+
+    def compile_to_linux(self, source_path: str, output_path: str = None) -> str:
+        """编译为 Linux 可执行文件
+
+        强制指定目标平台为 Linux，
+        使用 Linux 对应的目标三元组（如 x86_64-unknown-linux-gnu 或 aarch64-unknown-linux-gnu）。
+
+        Args:
+            source_path: .light 源文件路径
+            output_path: 输出可执行文件路径（默认与源文件同名）
+
+        Returns:
+            可执行文件路径
+        """
+        if self.verbose:
+            print(f"[LLVMCompiler] 目标: Linux ({self.detect_arch()})")
+
+        return self.compile(source_path, output_path, target="linux")
+
+    def compile_to_windows(self, source_path: str, output_path: str = None) -> str:
+        """编译为 Windows 可执行文件
+
+        强制指定目标平台为 Windows，
+        使用 Windows 对应的目标三元组（如 x86_64-pc-windows-msvc）。
+
+        Args:
+            source_path: .light 源文件路径
+            output_path: 输出可执行文件路径（默认与源文件同名）
+
+        Returns:
+            可执行文件路径
+        """
+        if self.verbose:
+            print(f"[LLVMCompiler] 目标: Windows ({self.detect_arch()})")
+
+        return self.compile(source_path, output_path, target="win32")
 
 
 if __name__ == '__main__':
     import argparse
     ap = argparse.ArgumentParser(description='光明 LLVM 编译器')
     ap.add_argument('source', help='.light 源文件')
-    ap.add_argument('output', nargs='?', help='输出 .exe 路径')
+    ap.add_argument('output', nargs='?', help='输出可执行文件路径')
     ap.add_argument('-v', '--verbose', action='store_true', help='详细输出')
     ap.add_argument('--ir-only', action='store_true', help='仅生成 LLVM IR，不编译为 .exe')
+    ap.add_argument('--optimize-size', action='store_true',
+                    help='启用 -Os 尺寸优化，替代 -O2（可减少 30-50% 体积）')
+    ap.add_argument('--lto', action='store_true',
+                    help='启用 LTO (Link Time Optimization)，进一步优化体积和性能')
+    ap.add_argument('--strip', action='store_true',
+                    help='剥离调试符号，减小最终二进制体积')
+    ap.add_argument('--target', choices=['auto', 'macos', 'linux', 'windows'],
+                    default='auto',
+                    help='目标平台（auto/macos/linux/windows，默认 auto 自动检测）')
     args = ap.parse_args()
 
     try:
@@ -831,7 +1448,16 @@ if __name__ == '__main__':
             output_ll = (args.output or args.source).replace('.light', '.ll')
             compile_source_to_ir(source, output_ll, verbose=True)
         else:
-            compile_light(args.source, args.output, verbose=args.verbose or True)
+            compiler = LLVMCompiler(
+                verbose=args.verbose or True,
+                optimize_size=args.optimize_size,
+                lto=args.lto,
+                strip=args.strip,
+            )
+            if args.target == 'auto':
+                compiler.compile(args.source, args.output)
+            else:
+                compiler.compile(args.source, args.output, target=args.target)
     except Exception as e:
         print(f"编译错误: {e}", file=sys.stderr)
         sys.exit(1)

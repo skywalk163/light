@@ -1,0 +1,133 @@
+导入字符串为str_utils
+导入re
+导入base64
+导入urllib.parse
+
+定义格式化(模板,*参数):
+    返回模板.format(*参数)
+
+定义格式化字典(模板,**参数):
+    返回模板.format(**参数)
+
+设格式化为百分比(值,小数位数=2):
+    返回f"{值*100:.{小数位数}f}%"
+
+定义Base64编码(s):
+    返回base64.b64encode(s.encode('utf-8')).decode('utf-8')
+
+定义Base64解码(s):
+    返回base64.b64decode(s).decode('utf-8')
+
+定义Base32编码(s):
+    返回base64.b32encode(s.encode('utf-8')).decode('utf-8')
+
+定义Base32解码(s):
+    返回base64.b32decode(s).decode('utf-8')
+
+定义十六进制编码(s):
+    return s.encode('utf-8').hex()
+
+定义十六进制解码(s):
+    return bytes.fromhex(s).decode('utf-8')
+
+定义URL编码(s):
+    返回urllib.parse.quote(s)
+
+定义URL解码(s):
+    返回urllib.parse.unquote(s)
+
+定义HTML编码(s):
+    返回s.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace("'",'&#39;')
+
+定义HTML解码(s):
+    返回s.replace('&amp;','&').replace('&lt;','<').replace('&gt;','>').replace('&quot;','"').replace('&#39;',"'")
+
+定义替换正则(s,模式,替换):
+    返回re.sub(模式,替换,s)
+
+定义匹配正则(s,模式):
+    返回bool(re.match(模式,s))
+
+定义查找正则(s,模式):
+    匹配=re.search(模式,s)
+    if匹配:
+        返回匹配.group()
+    返回None
+
+定义查找所有正则(s,模式):
+    返回re.findall(模式,s)
+
+定义分割正则(s,模式):
+    返回re.split(模式,s)
+
+定义是否字母(s):
+    返回s.isalpha()
+
+定义是否数字(s):
+    返回s.isdigit()
+
+定义是否字母数字(s):
+    返回s.isalnum()
+
+定义是否空白(s):
+    返回s.isspace()
+
+定义是否全大写(s):
+    返回s.isupper()
+
+定义是否全小写(s):
+    返回s.islower()
+
+定义是否标题格式(s):
+    返回s.istitle()
+
+定义重复字符串(s,次数):
+    返回s*次数
+
+定义反转字符串(s):
+    返回s[::-1]
+
+定义字符列表(s):
+    返回列(s)
+
+定义字符连接(列表):
+    返回''.join(列表)
+
+定义单词分割(s):
+    返回s.split()
+
+定义单词连接(列表):
+    返回' '.join(列表)
+
+定义首字母大写(s):
+    返回s.capitalize()
+
+定义每个单词首字母大写(s):
+    返回s.title()
+
+定义大小写互换(s):
+    返回s.swapcase()
+
+定义填充字符串(s,长度,字符=' '):
+    返回s.center(长度,字符)
+
+定义左填充(s,长度,字符=' '):
+    返回s.ljust(长度,字符)
+
+定义右填充(s,长度,字符=' '):
+    返回s.rjust(长度,字符)
+
+定义零填充(s,长度):
+    返回s.zfill(长度)
+
+定义移除前缀(s,前缀):
+    return s.removeprefix(前缀)
+
+定义移除后缀(s,后缀):
+    return s.removesuffix(后缀)
+
+定义替换多个(s,替换字典):
+    结果=s
+    for旧,新in替换字典.items():
+        结果=结果.replace(旧,新)
+    返回结果

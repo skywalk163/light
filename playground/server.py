@@ -873,7 +873,8 @@ def delete_project(name):
 def get_project_file(name, filepath):
     """读取项目中的单个文件"""
     proj_dir = _get_project_dir(name)
-    fpath = os.path.join(proj_dir, filepath)
+    safe_path = filepath.replace('..', '_').replace('/', '_').replace('\\', '_')
+    fpath = os.path.join(proj_dir, safe_path)
     if not os.path.exists(fpath):
         return jsonify({'error': '文件未找到'}), 404
     with open(fpath, 'r', encoding='utf-8') as f:

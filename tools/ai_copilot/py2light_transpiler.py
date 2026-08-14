@@ -9,14 +9,6 @@ Python → 光明 确定性转译器
     from py2light_transpiler import Py2LightTranspiler
     t = Py2LightTranspiler()
     light_code = t.transpile(python_code)
-
-改进（v4.0）:
-    - 增强 for 循环处理（支持 for-else）
-    - 增强列表推导式（支持条件过滤）
-    - 增强字典操作（支持 dict.get, dict.items 等）
-    - 增强异常处理（支持 try-else-finally）
-    - 增强 walrus 操作符 (:=)
-    - 增强 with 语句多上下文管理
 """
 import ast
 
@@ -102,34 +94,87 @@ BUILTIN_FUNC_MAP = {
     'isinstance': '实例检查',
     'range':     'range',
     'len':       'len',
-    'open':      'open',
+    'open':      '打开',
     'enumerate': 'enumerate',
-    'ord':       'ord',       # 保留原名
-    'chr':       'chr',       # 保留原名
-    'hex':       'hex',       # 保留原名
-    'bin':       'bin',       # 保留原名
-    'oct':       'oct',       # 保留原名
-    'repr':      'repr',      # 保留原名
-    'format':    'format',    # 保留原名
-    'bytes':     '字节',      # 新增
-    'bytearray': '字节数组',  # 新增
-    'memoryview':'内存视图',  # 新增
-    'iter':      '迭代器',    # 新增
-    'next':      '下一个',    # 新增
-    'slice':     '切片',      # 新增
-    'super':     '父',        # 新增
-    'object':    '对象',      # 新增
-    'property':  '特性',      # 新增
-    'staticmethod':'静态方法',# 新增
-    'classmethod':'类方法',   # 新增
-    'hasattr':   '有属性',    # 新增
-    'getattr':   '获取属性',  # 新增
-    'setattr':   '设置属性',  # 新增
-    'delattr':   '删除属性',  # 新增
-    'callable':  '可调用',    # 新增
-    'dir':       '目录',      # 新增
-    'vars':      '变量',      # 新增
-    'id':        '标识',      # 新增
+}
+
+# 方法名映射：Python 对象方法 → 光明函数调用
+METHOD_MAP = {
+    'upper':    '字符串转大写',
+    'lower':    '字符串转小写',
+    'strip':    '字符串去空白',
+    'split':    '字符串分割',
+    'replace':  '字符串替换',
+    'find':     '字符串查找',
+    'index':    '字符串查找',
+    'startswith': '字符串开头是',
+    'endswith':   '字符串结尾是',
+    'count':    '字符串计数',
+    'join':     '字符串拼接',
+    'append':   '追加',
+    'pop':      '弹出',
+    'remove':   '删除',
+    'clear':    '清空',
+    'insert':   '插入',
+    'sort':     '排序',
+    'reverse':  '反转',
+    'keys':     '键列表',
+    'values':   '值列表',
+    'items':    '项目',
+    'get':      '获取',
+    'encode':   '编码',
+    'decode':   '解码',
+    'read':     '读取',
+    'write':    '写入',
+    'close':    '关闭',
+}
+
+# typing 模块类型名映射（v5.5）
+TYPING_MAP = {
+    'List': '列表类型',
+    'Dict': '字典类型',
+    'Set': '集合类型',
+    'Tuple': '元组类型',
+    'Optional': '可选类型',
+    'Union': '联合类型',
+    'Any': '任意类型',
+    'Callable': '可调用类型',
+    'Iterable': '可迭代类型',
+    'Iterator': '迭代器类型',
+    'Generator': '生成器类型',
+    'Sequence': '序列类型',
+    'Mapping': '映射类型',
+    'TypeVar': '类型变量',
+    'Generic': '泛型类型',
+    'Protocol': '协议类型',
+    'Final': '最终类型',
+    'Literal': '字面量类型',
+    'NamedTuple': '命名元组',
+    'NewType': '新类型',
+    'TypeAlias': '类型别名',
+    'Self': '自身类型',
+}
+
+# v5.0 异常名映射
+EXCEPTION_MAP = {
+    'StopIteration':     '迭代停止',
+    'StopAsyncIteration': '异步迭代停止',
+    'ValueError':        '数值错误',
+    'TypeError':         '类型错误',
+    'KeyError':          '键错误',
+    'IndexError':        '索引错误',
+    'ZeroDivisionError': '除以零',
+    'FileNotFoundError': '文件未找到',
+    'PermissionError':   '权限错误',
+    'AttributeError':    '属性错误',
+    'ImportError':       '导入错误',
+    'ModuleNotFoundError': '模块未找到',
+    'RuntimeError':      '运行时错误',
+    'RecursionError':    '递归错误',
+    'MemoryError':       '内存错误',
+    'OverflowError':     '溢出错误',
+    'AssertionError':    '断言错误',
+    'Exception':         '异常',
 }
 
 NAME_MAP = {
@@ -151,6 +196,165 @@ BINOP_PRECEDENCE = {
     ast.BitXor: 2,
     ast.BitOr: 1,
 }
+
+
+class FeatureUsageCollector(ast.NodeVisitor):
+    """收集 Python 源码中使用的语言特性统计"""
+
+    FEATURE_CATEGORIES = {
+        'match_case': 'match-case 模式匹配',
+        'async_await': 'async/await 异步',
+        'decorator': '装饰器',
+        'type_annotation': '类型注解',
+        'lambda': 'lambda 匿名函数',
+        'generator': '生成器 (yield)',
+        'list_comp': '列表推导式',
+        'dict_comp': '字典推导式',
+        'set_comp': '集合推导式',
+        'generator_expr': '生成器表达式',
+        'fstring': 'f-string',
+        'star_import': '星号导入 (from x import *)',
+        'relative_import': '相对导入',
+        'annotated_assign': '类型注解赋值',
+        'named_expr': '海象运算符 (:=)',
+        'exception_chain': '异常链 (raise ... from)',
+        'class': '类定义',
+        'dataclass': '数据类 (dataclass)',
+        'property': 'property 特性',
+        'staticmethod': 'staticmethod',
+        'classmethod': 'classmethod',
+        'with': '上下文管理器 (with)',
+        'try_except': '异常处理 (try/except)',
+    }
+
+    def __init__(self):
+        self.features = {}
+        for key in self.FEATURE_CATEGORIES:
+            self.features[key] = 0
+
+    def visit_Match(self, node):
+        self.features['match_case'] += 1
+        self.generic_visit(node)
+
+    def visit_AsyncFunctionDef(self, node):
+        self.features['async_await'] += 1
+        self.generic_visit(node)
+
+    def visit_Await(self, node):
+        self.features['async_await'] += 1
+        self.generic_visit(node)
+
+    def visit_AsyncFor(self, node):
+        self.features['async_await'] += 1
+        self.generic_visit(node)
+
+    def visit_AsyncWith(self, node):
+        self.features['async_await'] += 1
+        self.generic_visit(node)
+
+    def visit_FunctionDef(self, node):
+        if node.decorator_list:
+            self.features['decorator'] += 1
+            for dec in node.decorator_list:
+                if isinstance(dec, ast.Name):
+                    if dec.id == 'staticmethod':
+                        self.features['staticmethod'] += 1
+                    elif dec.id == 'classmethod':
+                        self.features['classmethod'] += 1
+                    elif dec.id == 'property':
+                        self.features['property'] += 1
+        if node.returns:
+            self.features['type_annotation'] += 1
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node):
+        self.features['type_annotation'] += 1
+        if isinstance(node.annotation, ast.Name) and node.annotation.id == 'dataclass':
+            self.features['dataclass'] += 1
+        self.generic_visit(node)
+
+    def visit_ClassDef(self, node):
+        self.features['class'] += 1
+        for dec in node.decorator_list:
+            if isinstance(dec, ast.Name) and dec.id == 'dataclass':
+                self.features['dataclass'] += 1
+        self.generic_visit(node)
+
+    def visit_Lambda(self, node):
+        self.features['lambda'] += 1
+        self.generic_visit(node)
+
+    def visit_Yield(self, node):
+        self.features['generator'] += 1
+        self.generic_visit(node)
+
+    def visit_YieldFrom(self, node):
+        self.features['generator'] += 1
+        self.generic_visit(node)
+
+    def visit_ListComp(self, node):
+        self.features['list_comp'] += 1
+        self.generic_visit(node)
+
+    def visit_DictComp(self, node):
+        self.features['dict_comp'] += 1
+        self.generic_visit(node)
+
+    def visit_SetComp(self, node):
+        self.features['set_comp'] += 1
+        self.generic_visit(node)
+
+    def visit_GeneratorExp(self, node):
+        self.features['generator_expr'] += 1
+        self.generic_visit(node)
+
+    def visit_JoinedStr(self, node):
+        # 只统计包含格式化的 f-string (非纯字符串)
+        has_fmt = any(isinstance(v, ast.FormattedValue) for v in node.values)
+        if has_fmt:
+            self.features['fstring'] += 1
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node):
+        if any(a.name == '*' for a in node.names):
+            self.features['star_import'] += 1
+        if node.level and node.level > 0:
+            self.features['relative_import'] += 1
+        self.generic_visit(node)
+
+    def visit_NamedExpr(self, node):
+        self.features['named_expr'] += 1
+        self.generic_visit(node)
+
+    def visit_Raise(self, node):
+        if node.cause:
+            self.features['exception_chain'] += 1
+        self.generic_visit(node)
+
+    def visit_With(self, node):
+        self.features['with'] += 1
+        self.generic_visit(node)
+
+    def visit_Try(self, node):
+        self.features['try_except'] += 1
+        self.generic_visit(node)
+
+    def get_summary(self) -> dict:
+        """返回非零特性统计"""
+        return {k: v for k, v in sorted(self.features.items()) if v > 0}
+
+    def get_report_lines(self) -> list:
+        """生成特性统计报告行"""
+        summary = self.get_summary()
+        if not summary:
+            return ["(未检测到特殊 Python 特性)\n"]
+        lines = []
+        lines.append("| 特性 | 使用次数 |")
+        lines.append("|------|---------|")
+        for key, count in summary.items():
+            label = self.FEATURE_CATEGORIES.get(key, key)
+            lines.append(f"| {label} | {count} |")
+        return lines
 
 
 class Py2LightTranspiler:
@@ -287,10 +491,16 @@ class Py2LightTranspiler:
         name = node.name
         params = self._format_params(node.args, is_method)
 
+        # 类型注解（返回值）
+        return_annotation = ""
+        if node.returns:
+            ret_type = self._visit_expr(node.returns) if not isinstance(node.returns, ast.Name) else node.returns.id
+            return_annotation = f" 返回 {ret_type}"
+
         if params:
-            self._emit(f"{prefix}函数 {name} 接收 {params}：")
+            self._emit(f"{prefix}段落 {name} 接收 {params}{return_annotation}：")
         else:
-            self._emit(f"{prefix}函数 {name}：")
+            self._emit(f"{prefix}段落 {name}{return_annotation}：")
 
         self.indent_level += 1
         for stmt in node.body:
@@ -468,7 +678,7 @@ class Py2LightTranspiler:
             self._emit(f"{prefix}遍历 {target_str} 于 {range_expr}：")
         else:
             iter_str = self._visit_expr(node.iter)
-            self._emit(f"{prefix}遍历 {target_str} 之 {iter_str}：")
+            self._emit(f"{prefix}遍历 {target_str} 于 {iter_str}：")
 
         self.indent_level += 1
         for stmt in node.body:
@@ -566,6 +776,19 @@ class Py2LightTranspiler:
     def _visit_ExceptHandler(self, handler: ast.ExceptHandler):
         if handler.type:
             type_str = self._visit_expr(handler.type)
+            # 异常名映射（v5.5）
+            if isinstance(handler.type, ast.Name):
+                mapped = EXCEPTION_MAP.get(handler.type.id, handler.type.id)
+                if mapped != handler.type.id:
+                    type_str = mapped
+            elif isinstance(handler.type, ast.Tuple):
+                mapped_elts = []
+                for elt in handler.type.elts:
+                    if isinstance(elt, ast.Name):
+                        mapped_elts.append(EXCEPTION_MAP.get(elt.id, elt.id))
+                    else:
+                        mapped_elts.append(self._visit_expr(elt))
+                type_str = f"({', '.join(mapped_elts)})"
             if handler.name:
                 self._emit(f"捕获 {type_str} 为 {handler.name}：")
             else:
@@ -583,10 +806,21 @@ class Py2LightTranspiler:
             self._emit("抛出")
         elif node.cause:
             exc_str = self._visit_expr(node.exc)
+            # 异常名映射
+            if isinstance(node.exc, ast.Call) and isinstance(node.exc.func, ast.Name):
+                exc_name = node.exc.func.id
+                if exc_name in EXCEPTION_MAP:
+                    exc_str = exc_str.replace(exc_name, EXCEPTION_MAP[exc_name], 1)
             cause_str = self._visit_expr(node.cause)
-            self._emit(f"抛出 {exc_str} from {cause_str}")
+            self._emit(f"抛出 {exc_str} 来自 {cause_str}")
         else:
             exc_str = self._visit_expr(node.exc)
+            # 异常名映射
+            if isinstance(node.exc, ast.Call) and isinstance(node.exc.func, ast.Name):
+                exc_name = node.exc.func.id
+                if exc_name in EXCEPTION_MAP:
+                    exc_str = self._visit_expr(node.exc)
+                    exc_str = exc_str.replace(exc_name, EXCEPTION_MAP[exc_name], 1)
             self._emit(f"抛出 {exc_str}")
 
     def _visit_Import(self, node: ast.Import):
@@ -598,12 +832,17 @@ class Py2LightTranspiler:
 
     def _visit_ImportFrom(self, node: ast.ImportFrom):
         module = node.module or ""
+        # typing 模块映射（v5.5）
+        if module in ('typing', 'typing_extensions'):
+            module = '类型工具'
         names = []
         for alias in node.names:
+            # 类型名映射
+            name = TYPING_MAP.get(alias.name, alias.name)
             if alias.asname:
-                names.append(f"{alias.name} 为 {alias.asname}")
+                names.append(f"{name} 为 {alias.asname}")
             else:
-                names.append(alias.name)
+                names.append(name)
         names_str = ", ".join(names)
         self._emit(f"从 {module} 导入 {names_str}")
 
@@ -802,9 +1041,36 @@ class Py2LightTranspiler:
         if isinstance(node.func, ast.Name) and node.func.id == 'super':
             return '父'
 
-        func_str = self._visit_expr(node.func)
+        # 处理链式方法调用：如 "hello".upper().strip()
+        if isinstance(node.func, ast.Attribute):
+            attr_name = node.func.attr
+            value_str = self._visit_expr(node.func.value)
 
-        # 内置函数翻译（仅当 func 是 Name 节点时，且优先保留 _visit_expr 的翻译结果）
+            # 如果方法名在 METHOD_MAP 中，转换为函数调用形式
+            if attr_name in METHOD_MAP:
+                func_name = METHOD_MAP[attr_name]
+                args = []
+                for arg in node.args:
+                    if isinstance(arg, ast.Starred):
+                        args.append(f"*{self._visit_expr(arg.value)}")
+                    else:
+                        args.append(self._visit_expr(arg))
+                for kw in node.keywords:
+                    if kw.arg is None:
+                        args.append(f"**{self._visit_expr(kw.value)}")
+                    else:
+                        args.append(f"{kw.arg}={self._visit_expr(kw.value)}")
+                args_str = ", ".join(args)
+                if args_str:
+                    return f"{func_name}({value_str}, {args_str})"
+                else:
+                    return f"{func_name}({value_str})"
+            else:
+                func_str = f"{value_str}.{attr_name}"
+        else:
+            func_str = self._visit_expr(node.func)
+
+        # 内置函数翻译（仅当 func 是 Name 节点时）
         if isinstance(node.func, ast.Name):
             translated = BUILTIN_FUNC_MAP.get(node.func.id, func_str)
             func_str = translated
@@ -864,7 +1130,7 @@ class Py2LightTranspiler:
         test_str = self._visit_expr(node.test)
         body_str = self._visit_expr(node.body)
         orelse_str = self._visit_expr(node.orelse)
-        return f"{body_str} 如果 {test_str} 否则 {orelse_str}"
+        return f"如果 {test_str} 则 {body_str} 否则 {orelse_str}"
 
     def _visit_ListComp(self, node: ast.ListComp) -> str:
         elt_str = self._visit_expr(node.elt)
@@ -872,7 +1138,7 @@ class Py2LightTranspiler:
         for gen in node.generators:
             target_str = self._format_target(gen.target)
             iter_str = self._visit_expr(gen.iter)
-            gen_str = f"遍历 {target_str} 之 {iter_str}"
+            gen_str = f"遍历 {target_str} 于 {iter_str}"
             for cond in gen.ifs:
                 cond_str = self._visit_expr(cond)
                 gen_str += f" 若 {cond_str}"
@@ -886,7 +1152,7 @@ class Py2LightTranspiler:
         for gen in node.generators:
             target_str = self._format_target(gen.target)
             iter_str = self._visit_expr(gen.iter)
-            gen_str = f"遍历 {target_str} 之 {iter_str}"
+            gen_str = f"遍历 {target_str} 于 {iter_str}"
             for cond in gen.ifs:
                 cond_str = self._visit_expr(cond)
                 gen_str += f" 若 {cond_str}"
@@ -899,7 +1165,7 @@ class Py2LightTranspiler:
         for gen in node.generators:
             target_str = self._format_target(gen.target)
             iter_str = self._visit_expr(gen.iter)
-            gen_str = f"遍历 {target_str} 之 {iter_str}"
+            gen_str = f"遍历 {target_str} 于 {iter_str}"
             for cond in gen.ifs:
                 cond_str = self._visit_expr(cond)
                 gen_str += f" 若 {cond_str}"
@@ -932,7 +1198,7 @@ class Py2LightTranspiler:
                     parts.append(f"{{{inner}{conversion}:{spec}}}")
                 else:
                     parts.append(f"{{{inner}{conversion}}}")
-        return f'f"{''.join(parts)}"'
+        return 'f"' + "".join(parts) + '"'
 
     def _visit_Starred(self, node: ast.Starred) -> str:
         return f"*{self._visit_expr(node.value)}"
@@ -968,7 +1234,12 @@ class Py2LightTranspiler:
 
         regular_args = all_args[start_idx:]
         for arg in regular_args:
-            parts.append(arg.arg)
+            param_name = arg.arg
+            # 类型注解
+            if arg.annotation:
+                ann_str = self._visit_expr(arg.annotation) if not isinstance(arg.annotation, ast.Name) else arg.annotation.id
+                param_name = f"{param_name}（{ann_str}）"
+            parts.append(param_name)
 
         # 默认值（对齐到 args.args 末尾）
         defaults = args.defaults
@@ -983,11 +1254,19 @@ class Py2LightTranspiler:
 
         # *args
         if args.vararg:
-            parts.append(f"*{args.vararg.arg}")
+            vararg_name = args.vararg.arg
+            if args.vararg.annotation:
+                ann_str = self._visit_expr(args.vararg.annotation) if not isinstance(args.vararg.annotation, ast.Name) else args.vararg.annotation.id
+                vararg_name = f"{vararg_name}（{ann_str}）"
+            parts.append(f"*{vararg_name}")
 
         # **kwargs
         if args.kwarg:
-            parts.append(f"**{args.kwarg.arg}")
+            kwarg_name = args.kwarg.arg
+            if args.kwarg.annotation:
+                ann_str = self._visit_expr(args.kwarg.annotation) if not isinstance(args.kwarg.annotation, ast.Name) else args.kwarg.annotation.id
+                kwarg_name = f"{kwarg_name}（{ann_str}）"
+            parts.append(f"**{kwarg_name}")
 
         return ", ".join(parts)
 

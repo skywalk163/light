@@ -49,10 +49,12 @@ class CircularDependencyError(ModuleError):
         message = "检测到循环依赖:\n  " + " → ".join(cycle)
         message += "\n\n修复建议:"
         message += "\n  1. 检查模块间的导入关系，避免相互引用"
-        message += "\n  2. 将公共功能提取到独立模块"
+        message += "\n  2. 将公共功能提取到独立模块，由相互依赖的双方共同引用"
         message += "\n  3. 使用接口抽象解耦模块依赖"
+        message += "\n  4. 在段落内部延迟导入（局部导入），避免模块级循环"
+        message += "\n  5. 检查模块名是否写错，导致误导入"
         if len(cycle) >= 2:
-            message += f"\n  4. 请检查模块「{cycle[0]}」和「{cycle[1]}」之间的相互导入"
+            message += f"\n  6. 请检查模块「{cycle[0]}」和「{cycle[1]}」之间的相互导入"
         super().__init__(message)
 
 
@@ -241,7 +243,7 @@ class ModuleResolver:
         # 2. 从搜索路径查找
         search_dirs.extend(self.search_paths)
         
-        # 3. 从环境变量 DUAN_PATH 查找
+        # 3. 从环境变量 LIGHT_PATH 查找
         light_path = os.environ.get('LIGHT_PATH', '')
         if light_path:
             search_dirs.extend(light_path.split(os.pathsep))
@@ -772,13 +774,15 @@ class CircularDependencyError(Exception):
 
     def __init__(self, cycle: List[str]):
         self.cycle = list(cycle)
-        message = "检测到循环依赖:\n  " + " -> ".join(self.cycle)
+        message = "检测到循环依赖:\n  " + " → ".join(self.cycle)
         message += "\n\n修复建议:"
         message += "\n  1. 检查模块间的导入关系，避免相互引用"
-        message += "\n  2. 将公共功能提取到独立模块"
+        message += "\n  2. 将公共功能提取到独立模块，由相互依赖的双方共同引用"
         message += "\n  3. 使用接口抽象解耦模块依赖"
+        message += "\n  4. 在段落内部延迟导入（局部导入），避免模块级循环"
+        message += "\n  5. 检查模块名是否写错，导致误导入"
         if len(self.cycle) >= 2:
-            message += f"\n  4. 请检查模块「{self.cycle[0]}」和「{self.cycle[1]}」之间的相互导入"
+            message += f"\n  6. 请检查模块「{self.cycle[0]}」和「{self.cycle[1]}」之间的相互导入"
         super().__init__(message)
 
 
@@ -786,23 +790,42 @@ class ModuleDependencyResolver:
     """递归解析入口模块及所有 import 依赖，进行循环检测与拓扑排序。
 
     与模块中的 ImportStmt（`导入 模块`、`从 模块 导入 符号`）协同工作。
+    支持相对导入（`从 .模块 导入 符号` / `从 ..模块 导入 符号`），
+    并对已解析的文件提供缓存（按修改时间自动失效）。
     """
 
     def __init__(self, search_paths: List[Path]):
         # 规范化搜索路径
         self.search_paths: List[Path] = [Path(p) for p in search_paths]
         self.modules: Dict[str, ResolvedModule] = {}
+        # 文件级缓存：key=绝对路径字符串
+        # value = {'mtime': int, 'size': int, 'source': str, 'ast': Any,
+        #          'imports': List[str], 'exports': List[str]}
+        self._cache: Dict[str, Dict[str, Any]] = {}
+        # 统计：parsed=实际解析次数，cache_hits=缓存命中次数
+        self.stats: Dict[str, int] = {'parsed': 0, 'cache_hits': 0}
+
+    def clear_cache(self) -> None:
+        """清空模块缓存与统计信息。"""
+        self._cache.clear()
+        self.stats = {'parsed': 0, 'cache_hits': 0}
 
     # ------------------------------------------------------------------
     # 公共接口
     # ------------------------------------------------------------------
-    def resolve_all(self, entry_module_name: str, source: str
-                     ) -> Dict[str, ResolvedModule]:
-        """从入口模块出发，递归解析所有导入的模块。"""
+    def resolve_all(self, entry_module_name: str, source: str,
+                    entry_dir: Optional[str] = None
+                    ) -> Dict[str, ResolvedModule]:
+        """从入口模块出发，递归解析所有导入的模块。
+
+        缓存统计（stats.parsed / stats.cache_hits）跨调用累计，
+        仅在构造或 clear_cache() 时清零。
+        """
         visited: Set[str] = set()
         stack: List[str] = []
+        self.modules.clear()
         try:
-            self._resolve_recursive(entry_module_name, source, visited, stack)
+            self._resolve_recursive(entry_module_name, source, visited, stack, entry_dir)
         except CircularDependencyError:
             raise
         return self.modules
@@ -811,19 +834,20 @@ class ModuleDependencyResolver:
         """返回模块拓扑排序结果（被依赖的在前）。"""
         order: List[str] = []
         visited: Set[str] = set()
-        temp: Set[str] = set()
+        temp: List[str] = []  # 有序递归栈（用于保序检测循环）
 
         def visit(name: str) -> None:
             if name in visited:
                 return
             if name in temp:
-                cycle = list(temp) + [name]
+                idx = temp.index(name)
+                cycle = temp[idx:] + [name]
                 raise CircularDependencyError(cycle)
-            temp.add(name)
+            temp.append(name)
             if name in self.modules:
                 for imp in self.modules[name].imports:
                     visit(imp)
-            temp.discard(name)
+            temp.pop()
             visited.add(name)
             order.append(name)
 
@@ -836,8 +860,10 @@ class ModuleDependencyResolver:
     # ------------------------------------------------------------------
     # 内部实现
     # ------------------------------------------------------------------
-    def _resolve_recursive(self, module_name: str, source: str,
-                           visited: Set[str], stack: List[str]) -> None:
+    def _resolve_recursive(self, module_name: str, source: Optional[str],
+                           visited: Set[str], stack: List[str],
+                           module_dir: Optional[str] = None,
+                           module_path: Optional[Path] = None) -> None:
         if module_name in visited:
             return
         if module_name in stack:
@@ -845,21 +871,26 @@ class ModuleDependencyResolver:
             cycle = stack[idx:] + [module_name]
             raise CircularDependencyError(cycle)
 
-        # 解析 AST
-        try:
-            from light_parser_v3 import LightParser  # type: ignore
-            parser = LightParser()
-            ast_node = parser.parse(source)
-        except Exception:
-            # 解析失败，跳过（由 compiler 报告错误）
-            ast_node = None
-
-        imports = self._extract_imports(ast_node)
-        exports = self._extract_exports(ast_node)
+        if source is None:
+            # 子模块：优先使用文件级缓存（按 mtime/size 自动失效）
+            loaded = self._load_resolved(module_path) if module_path else None
+            if loaded is None:
+                return
+            source, ast_node, imports, exports = loaded
+            default_path = module_path
+        else:
+            # 入口模块：source 由调用方提供，直接解析
+            ast_node = self._parse_ast(source)
+            imports = self._extract_imports(ast_node)
+            exports = self._extract_exports(ast_node)
+            default_path = self._find_module_path(module_name, module_dir)
+            if default_path is None:
+                # 入口可能只是内存中的源码（无对应文件），
+                # 用入口目录作为逻辑路径，保证相对导入基准正确
+                default_path = (Path(module_dir) / f"{module_name}.light") \
+                    if module_dir else Path(f"{module_name}.light")
 
         # 记录已解析模块
-        default_path = self._find_module_path(module_name) or \
-            Path(f"{module_name}.light")
         self.modules[module_name] = ResolvedModule(
             name=module_name,
             path=default_path,
@@ -873,13 +904,14 @@ class ModuleDependencyResolver:
 
         # 递归解析导入
         new_stack = stack + [module_name]
+        current_dir = str(default_path.parent)
         for imp in imports:
             if imp in visited:
                 continue
             if imp in new_stack:
                 raise CircularDependencyError(new_stack + [imp])
-            module_path = self._find_module_path(imp)
-            if module_path is None:
+            imp_path = self._find_module_path(imp, current_dir)
+            if imp_path is None:
                 # 找不到文件的模块，使用占位空模块（由 compiler 做警告）
                 self.modules[imp] = ResolvedModule(
                     name=imp,
@@ -891,14 +923,57 @@ class ModuleDependencyResolver:
                 )
                 visited.add(imp)
                 continue
-            try:
-                sub_source = module_path.read_text(encoding="utf-8")
-            except OSError:
-                continue
-            self._resolve_recursive(imp, sub_source, visited, new_stack)
+            self._resolve_recursive(imp, None, visited, new_stack,
+                                    str(imp_path.parent), imp_path)
 
         # 所有依赖处理完毕，再标记 visited
         visited.add(module_name)
+
+    def _parse_ast(self, source: str) -> Any:
+        """解析光明源码为 AST（解析失败时返回 None，由 compiler 报告错误）。"""
+        try:
+            from light_parser_v3 import LightParser  # type: ignore
+            parser = LightParser()
+            return parser.parse(source)
+        except Exception:
+            return None
+
+    def _load_resolved(self, module_path: Path) -> Optional[Tuple[str, Any, List[str], List[str]]]:
+        """带文件级缓存的模块加载。
+
+        返回 (source, ast, imports, exports)；文件不存在或读取失败时返回 None。
+        同一路径的模块在文件未变更时只解析一次，之后命中缓存。
+        """
+        if module_path is None:
+            return None
+        key = str(module_path.resolve())
+        try:
+            st = module_path.stat()
+            mtime, size = st.st_mtime_ns, st.st_size
+        except OSError:
+            return None
+        cached = self._cache.get(key)
+        if cached is not None and cached['mtime'] == mtime and cached['size'] == size:
+            self.stats['cache_hits'] += 1
+            return (cached['source'], cached['ast'],
+                    cached['imports'], cached['exports'])
+        try:
+            source = module_path.read_text(encoding="utf-8")
+        except OSError:
+            return None
+        ast_node = self._parse_ast(source)
+        imports = self._extract_imports(ast_node)
+        exports = self._extract_exports(ast_node)
+        self.stats['parsed'] += 1
+        self._cache[key] = {
+            'mtime': mtime,
+            'size': size,
+            'source': source,
+            'ast': ast_node,
+            'imports': imports,
+            'exports': exports,
+        }
+        return (source, ast_node, imports, exports)
 
     def _extract_imports(self, ast_node: Any) -> List[str]:
         """从 AST 中提取所有导入的模块名（支持 导入 / 使用 两种语法）。"""
@@ -909,7 +984,7 @@ class ModuleDependencyResolver:
         for stmt in statements:
             type_name = type(stmt).__name__
             if type_name == "ImportStmt":
-                # `导入 模块` 或 `从 模块 导入 符号`
+                # `导入 模块` 或 `从 模块 导入 符号`（含相对导入 .模块）
                 mod_name = getattr(stmt, "module_name", None)
                 if mod_name:
                     imports.append(mod_name)
@@ -955,19 +1030,53 @@ class ModuleDependencyResolver:
                     names.append(str(name))
         return list(dict.fromkeys(names))
 
-    def _find_module_path(self, module_name: str) -> Optional[Path]:
-        """根据模块名在搜索路径中寻找 .light 文件。"""
+    def _find_module_path(self, module_name: str,
+                          base_dir: Optional[str] = None) -> Optional[Path]:
+        """根据模块名在搜索路径中寻找 .light 文件。
+
+        支持相对导入（`.模块` / `..模块`，基于 base_dir 解析）：
+        - `.工具`  → base_dir/工具.light
+        - `..工具` → base_dir 的上级目录/工具.light
+        """
         if not module_name:
+            return None
+        # 相对导入：.模块 / ..模块（. 表示当前目录，.. 表示上级目录）
+        if module_name.startswith('.'):
+            if not base_dir:
+                return None
+            dots = len(module_name) - len(module_name.lstrip('.'))
+            rel = module_name[dots:]
+            base = Path(base_dir)
+            for _ in range(dots - 1):
+                base = base.parent
+            if rel:
+                for suffix in ('.light', '.py'):
+                    cand = base / (rel + suffix)
+                    if cand.is_file():
+                        return cand
+            else:
+                # 纯点前缀（如 从 . 导入）：以 base_dir 自身为包目录，
+                # 在其中查找与 base_dir 同名的模块文件
+                for suffix in ('.light', '.py'):
+                    cand = base / (base.name + suffix)
+                    if cand.is_file():
+                        return cand
             return None
         candidates = [
             f"{module_name}.light",
             module_name.replace(".", os.sep) + ".light",
             module_name.replace("/", os.sep) + ".light",
         ]
-        seen: Set[str] = set()
-        for base in self.search_paths:
+        dirs: List[Path] = []
+        if base_dir:
+            dirs.append(Path(base_dir))
+        dirs.extend(self.search_paths)
+        for base in dirs:
             if not base.exists():
                 continue
+            # seen 仅在当前目录内去重（module_name 无分隔符时三个候选相同）；
+            # 若跨目录共用会导致第一个目录之后的搜索路径全部被跳过
+            seen: Set[str] = set()
             for cand in candidates:
                 if cand in seen:
                     continue

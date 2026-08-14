@@ -1,0 +1,35 @@
+{
+    "comments": {
+        "lineComment": "#"
+    },
+    "brackets": [
+        ["（", "）"],
+        ["【", "】"],
+        ["{", "}"],
+        ["[", "]"],
+        ["《", "》"]
+    ],
+    "autoClosingPairs": [
+        { "open": "（", "close": "）" },
+        { "open": "【", "close": "】" },
+        { "open": "{", "close": "}" },
+        { "open": "[", "close": "]" },
+        { "open": "《", "close": "》" },
+        { "open": "\"", "close": "\"", "notIn": ["string"] },
+        { "open": "'", "close": "'", "notIn": ["string"] }
+    ],
+    "surroundingPairs": [
+        { "open": "（", "close": "）" },
+        { "open": "【", "close": "】" },
+        { "open": "{", "close": "}" },
+        { "open": "[", "close": "]" },
+        { "open": "《", "close": "》" },
+        { "open": "\"", "close": "\"" },
+        { "open": "'", "close": "'" }
+    ],
+    "indentationRules": {
+        "increaseIndentPattern": "：\\s*$",
+        "decreaseIndentPattern": "^\\s*(结束|返回|跳出|跳过)\\b"
+    },
+    "wordPattern": "([\\w\\u4e00-\\u9fff]+)"
+}

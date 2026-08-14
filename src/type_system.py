@@ -932,15 +932,15 @@ def unify(t1: Type, t2: Type, subs: Optional[TypeSubstitution] = None) -> TypeSu
     if id1 == TYPE_ID_ANY or id1 == TYPE_ID_UNKNOWN or id2 == TYPE_ID_ANY or id2 == TYPE_ID_UNKNOWN:
         return subs
 
-    # 空类型
-    if id1 == TYPE_ID_NULL or id2 == TYPE_ID_NULL:
-        return subs
-
     # 类型变量
     if id1 == TYPE_ID_TVAR:
         return _unify_type_var(t1, t2, subs)
     if id2 == TYPE_ID_TVAR:
         return _unify_type_var(t2, t1, subs)
+
+    # 空类型（须在类型变量分支之后，否则 R~空 时 R 无法绑定）
+    if id1 == TYPE_ID_NULL or id2 == TYPE_ID_NULL:
+        return subs
 
     # 相同基本类型（数/串/布尔）
     if id1 == id2:
@@ -1066,6 +1066,12 @@ def unify(t1: Type, t2: Type, subs: Optional[TypeSubstitution] = None) -> TypeSu
         return subs
 
     # 不同 ID —— 尝试兼容模式
+    # 可空类型 ↔ 内部类型：可选<T> 与 T 兼容（T 可安全赋给可空；可选解包后为 T）
+    if id1 == TYPE_ID_OPTIONAL and id2 != TYPE_ID_OPTIONAL:
+        return unify(t1.inner_type, t2, subs)
+    if id2 == TYPE_ID_OPTIONAL and id1 != TYPE_ID_OPTIONAL:
+        return unify(t1, t2.inner_type, subs)
+
     # 泛型实例 ↔ 类类型同名
     if id1 == TYPE_ID_GENERIC_INSTANCE and id2 == TYPE_ID_CLASS:
         if t1.base_name == t2.class_name and t2.type_args is None:
@@ -1461,13 +1467,15 @@ class TypeParser:
             params = self._split_top_level(params_part, ',')
             param_types = [self.parse(p) for p in params]
             return FunctionType(param_types, self.parse(return_part))
-        # 泛型/复合：基名[参数列表]
-        if '[' in expr and expr.endswith(']'):
-            bracket = expr.index('[')
+        # 泛型/复合：基名[参数列表] 或 基名<参数列表>
+        # 同时支持尖括号形式（列表<整数> / 字典<字符串, 小数> / 可选<整数>）
+        if ('[' in expr and expr.endswith(']')) or ('<' in expr and expr.endswith('>')):
+            open_char = '[' if expr.endswith(']') else '<'
+            bracket = expr.find(open_char)
             base = expr[:bracket].strip()
             args_str = expr[bracket + 1:-1].strip()
             if args_str:
-                # 字典特殊处理：键: 值
+                # 字典特殊处理：键: 值（方括号形式）或 键, 值（尖括号形式）
                 if base in ('字典', 'Map', '映射') and ':' in args_str:
                     # 顶层 ':' 切分
                     key_part, _, val_part = args_str.partition(':')
@@ -1490,6 +1498,10 @@ class TypeParser:
                 return DictType(k, v)
             if base in ('元组', 'Tuple'):
                 return TupleType(type_args)
+            # 可空类型：可选<整数> / 可空<整数>
+            if base in ('可选', '可空', 'Optional'):
+                inner = type_args[0] if type_args else AnyType()
+                return OptionalTypeWrapper(inner)
             # 其他：泛型实例
             return GenericTypeInstance(base, type_args)
         # 元组 notation: (T1, T2, ...)  （且不含 ->）
@@ -1590,15 +1602,15 @@ class TypeParser:
         return False
 
     def _split_top_level(self, expr: str, sep: str) -> List[str]:
-        """按顶层分隔符切分（忽略嵌套 [] () {} 内的分隔符）"""
+        """按顶层分隔符切分（忽略嵌套 [] () {} <> 内的分隔符）"""
         parts = []
         depth = 0
         current = []
         for ch in expr:
-            if ch in '[({':
+            if ch in '[({<':
                 depth += 1
                 current.append(ch)
-            elif ch in '])}':
+            elif ch in '])}>':
                 depth -= 1
                 current.append(ch)
             elif ch == sep[0] and depth == 0:

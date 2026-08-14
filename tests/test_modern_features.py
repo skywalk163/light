@@ -6,6 +6,10 @@
 2. 列表推导 — [表达式 遍历 变量 之 列表]
 3. 匿名函数 — 接收 甲：返回 甲 乘 甲。
 4. 模式匹配 — 匹配 值：情况 ... 结束。
+
+说明：原文件使用 ANTLR 后端，但 ANTLR 生成文件已被移除且语法文件无法解析
+这些特性（遗留后端，D04 技术债务）。现改用 src 后端（当前主后端）执行，
+测试断言保持不变，继续覆盖真实的语言特性。
 """
 
 import sys
@@ -14,28 +18,22 @@ import io
 from contextlib import redirect_stdout
 
 # 设置路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'antlrparser'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'antlrparser', 'light_parser'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-try:
-    from light_visitor import LightParser
-    from code_generator_unified import UnifiedCodeGenerator
-except ImportError:
-    import pytest
-    pytest.skip("ANTLR parser not available (missing generated LightLangParser module)", allow_module_level=True)
+from light_parser_v3 import LightParser
+from code_generator import PythonCodeGenerator
 
 
 def run_light(code: str) -> str:
-    """解析并执行光明代码，返回输出"""
+    """使用 src 后端解析并执行光明代码，返回输出"""
     parser = LightParser()
     module = parser.parse(code)
     if not module:
         raise AssertionError(f"Parse failed: {parser.errors}")
-    
-    gen = UnifiedCodeGenerator()
+
+    gen = PythonCodeGenerator()
     py_code = gen.generate(module)
-    
+
     f = io.StringIO()
     with redirect_stdout(f):
         exec(py_code, {'__name__': '__main__', '__file__': 'test.light'})
@@ -111,12 +109,12 @@ class TestMatchStatement:
         """简单模式匹配"""
         result = run_light('''设 等级 为 2。
 匹配 等级：
-情况 1：
-  打印 "低"。
-情况 2：
-  打印 "中"。
-情况 3：
-  打印 "高"。
+  情况 1：
+    打印 "低"。
+  情况 2：
+    打印 "中"。
+  情况 3：
+    打印 "高"。
 结束。''')
         assert result == "中", f"Expected '中', got '{result}'"
     
@@ -124,10 +122,10 @@ class TestMatchStatement:
         """带通配符的模式匹配"""
         result = run_light('''设 分数 为 85。
 匹配 分数：
-情况 100：
-  打印 "满分"。
-情况 _：
-  打印 "未满分"。
+  情况 100：
+    打印 "满分"。
+  情况 _：
+    打印 "未满分"。
 结束。''')
         assert result == "未满分", f"Expected '未满分', got '{result}'"
     
@@ -135,12 +133,12 @@ class TestMatchStatement:
         """字符串模式匹配"""
         result = run_light('''设 颜色 为 "红"。
 匹配 颜色：
-情况 "红"：
-  打印 "停止"。
-情况 "绿"：
-  打印 "通行"。
-情况 _：
-  打印 "注意"。
+  情况 "红"：
+    打印 "停止"。
+  情况 "绿"：
+    打印 "通行"。
+  情况 _：
+    打印 "注意"。
 结束。''')
         assert result == "停止", f"Expected '停止', got '{result}'"
 

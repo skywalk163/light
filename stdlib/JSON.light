@@ -1,171 +1,145 @@
-导入json
-导入csv
-导入io
+# 导入json
+# 导入csv
+# 导入io
+#
+#     返回json.loads(字符串)
+#
+#     返回json.dumps(数据,ensure_ascii=False,indent=缩进)
+#
+#     返回json.dumps(数据,ensure_ascii=False,indent=2)
+#
+#         json.loads(字符串)
+#         返回True
+#         返回False
+#
+#     if文件路径:
+#         with打开(文件路径,'w',newline='',encoding='utf-8')as f:
+#             writer=csv.DictWriter(f,fieldnames=数据[0].keys())
+#             writer.writeheader()
+#             writer.writerows(数据)
+#         output=io.StringIO()
+#         writer=csv.DictWriter(output,fieldnames=数据[0].keys())
+#         writer.writeheader()
+#         writer.writerows(数据)
+#
+#     with打开(文件路径,'r',encoding='utf-8')as f:
+#         reader=csv.DictReader(f)
+#         返回列表(reader)
+#
+#         缩进字符串=' '*缩进级别*缩进
+#         if isinstance(数据,dict):
+#             结果=''
+#             for键,值in数据.items():
+#                 结果+=f'{缩进字符串}<{键}>\n'
+#                 结果+=_转XML(值,缩进级别+1)
+#                 结果+=f'{缩进字符串}</{键}>\n'
+#             返回结果
+#             结果=''
+#             for项in数据:
+#                 结果+=_转XML(项,缩进级别)
+#             返回结果
+#
+#     类型=schema.get('type')
+#     if类型=='object':
+#         if not isinstance(数据,dict):
+#             返回False
+#         属性=schema.get('properties',{})
+#         for键,属性Schema in属性.items():
+#             if键in数据and not _验证Schema(数据[键],属性Schema):
+#                 返回False
+#         必填=schema.get('required',[])
+#         for键in必填:
+#             if键not in数据:
+#                 返回False
+#         返回True
+#     elif类型=='array':
+#         if not isinstance(数据,list):
+#             返回False
+#         项Schema=schema.get('items')
+#         if项Schema:
+#             for项in数据:
+#                 if not _验证Schema(项,项Schema):
+#                     返回False
+#         最小长度=schema.get('minItems')
+#         if最小长度and len(数据)<最小长度:
+#             返回False
+#         最大长度=schema.get('maxItems')
+#         if最大长度and len(数据)>最大长度:
+#             返回False
+#         返回True
+#     elif类型=='string':
+#         if not isinstance(数据,str):
+#             返回False
+#         最小长度=schema.get('minLength')
+#         if最小长度and len(数据)<最小长度:
+#             返回False
+#         最大长度=schema.get('maxLength')
+#         if最大长度and len(数据)>最大长度:
+#             返回False
+#         模式=schema.get('pattern')
+#         if模式:
+#             if not re.match(模式,数据):
+#                 返回False
+#         返回True
+#     elif类型=='number':
+#     elif类型=='integer':
+#     elif类型=='boolean':
+#     elif类型=='null':
+#         return数据is None
+#
+#         返回_验证Schema(数据,schema)
+#         返回False
+#
+#     if not isinstance(基础,dict)or not isinstance(其他,dict):
+#         返回其他
+#     结果=基础.copy()
+#     结果.update(其他)
+#     返回结果
+#
+#     if not isinstance(基础,dict)or not isinstance(其他,dict):
+#         返回其他
+#     结果=基础.copy()
+#     for键,值in其他.items():
+#         if键in结果and isinstance(结果[键],dict)and isinstance(值,dict):
+#             结果[键]=_深合并(结果[键],值)
+#             结果[键]=值
+#     返回结果
+#
+#     返回_深合并(基础,其他)
+#
+#     当前=数据
+#     部分=路径.split('.')
+#     for部分in部分:
+#         if isinstance(当前,dict):
+#             当前=当前.get(部分)
+#             索引=整数(部分)
+#             if索引<len(当前):
+#                 当前=当前[索引]
+#                 当前=None
+#             当前=None
+#         if当前is None:
+#             返回默认值
+#     返回当前
+#
+#     if isinstance(数据,dict)and键in数据:
+#         del数据[键]
+#     返回数据
+#
+#     if isinstance(数据,dict):
+#         返回列表(数据.keys())
+#     返回[]
+#
+#     if isinstance(数据,dict):
+#         返回列表(数据.values())
+#     返回[]
 
-定义解析JSON(字符串):
-    返回json.loads(字符串)
-
-定义序列化JSON(数据,缩进=None):
-    返回json.dumps(数据,ensure_ascii=False,indent=缩进)
-
-定义美化JSON(数据):
-    返回json.dumps(数据,ensure_ascii=False,indent=2)
-
-定义验证JSON(字符串):
-    try:
-        json.loads(字符串)
-        返回True
-    except:
-        返回False
-
-定义JSON转CSV(数据,文件路径=None):
-    if文件路径:
-        with打开(文件路径,'w',newline='',encoding='utf-8')as f:
-            writer=csv.DictWriter(f,fieldnames=数据[0].keys())
-            writer.writeheader()
-            writer.writerows(数据)
-    else:
-        output=io.StringIO()
-        writer=csv.DictWriter(output,fieldnames=数据[0].keys())
-        writer.writeheader()
-        writer.writerows(数据)
-        return output.getvalue()
-
-定义CSV转JSON(文件路径):
-    with打开(文件路径,'r',encoding='utf-8')as f:
-        reader=csv.DictReader(f)
-        返回列表(reader)
-
-定义JSON转XML(数据,根元素='root',缩进=2):
-    def _转XML(数据,缩进级别=0):
-        缩进字符串=' '*缩进级别*缩进
-        if isinstance(数据,dict):
-            结果=''
-            for键,值in数据.items():
-                结果+=f'{缩进字符串}<{键}>\n'
-                结果+=_转XML(值,缩进级别+1)
-                结果+=f'{缩进字符串}</{键}>\n'
-            返回结果
-        elif isinstance(数据,list):
-            结果=''
-            for项in数据:
-                结果+=_转XML(项,缩进级别)
-            返回结果
-        else:
-            return f'{缩进字符串}{数据}\n'
-    
-    return f'<?xml version="1.0" encoding="UTF-8"?>\n<{根元素}>\n{_转XML(数据,1)}</{根元素}>'
-
-def _验证Schema(数据,schema):
-    类型=schema.get('type')
-    if类型=='object':
-        if not isinstance(数据,dict):
-            返回False
-        属性=schema.get('properties',{})
-        for键,属性Schema in属性.items():
-            if键in数据and not _验证Schema(数据[键],属性Schema):
-                返回False
-        必填=schema.get('required',[])
-        for键in必填:
-            if键not in数据:
-                返回False
-        返回True
-    elif类型=='array':
-        if not isinstance(数据,list):
-            返回False
-        项Schema=schema.get('items')
-        if项Schema:
-            for项in数据:
-                if not _验证Schema(项,项Schema):
-                    返回False
-        最小长度=schema.get('minItems')
-        if最小长度and len(数据)<最小长度:
-            返回False
-        最大长度=schema.get('maxItems')
-        if最大长度and len(数据)>最大长度:
-            返回False
-        返回True
-    elif类型=='string':
-        if not isinstance(数据,str):
-            返回False
-        最小长度=schema.get('minLength')
-        if最小长度and len(数据)<最小长度:
-            返回False
-        最大长度=schema.get('maxLength')
-        if最大长度and len(数据)>最大长度:
-            返回False
-        模式=schema.get('pattern')
-        if模式:
-            import re
-            if not re.match(模式,数据):
-                返回False
-        返回True
-    elif类型=='number':
-        return isinstance(数据,(int,float))
-    elif类型=='integer':
-        return isinstance(数据,int)
-    elif类型=='boolean':
-        return isinstance(数据,bool)
-    elif类型=='null':
-        return数据is None
-    return True
-
-定义JSONSchema验证(数据,schema):
-    try:
-        返回_验证Schema(数据,schema)
-    except:
-        返回False
-
-定义JSON合并(基础,其他):
-    if not isinstance(基础,dict)or not isinstance(其他,dict):
-        返回其他
-    结果=基础.copy()
-    结果.update(其他)
-    返回结果
-
-def _深合并(基础,其他):
-    if not isinstance(基础,dict)or not isinstance(其他,dict):
-        返回其他
-    结果=基础.copy()
-    for键,值in其他.items():
-        if键in结果and isinstance(结果[键],dict)and isinstance(值,dict):
-            结果[键]=_深合并(结果[键],值)
-        else:
-            结果[键]=值
-    返回结果
-
-定义JSON深合并(基础,其他):
-    返回_深合并(基础,其他)
-
-定义JSON提取值(数据,路径,默认值=None):
-    当前=数据
-    部分=路径.split('.')
-    for部分in部分:
-        if isinstance(当前,dict):
-            当前=当前.get(部分)
-        elif isinstance(当前,list)and部分.isdigit():
-            索引=整数(部分)
-            if索引<len(当前):
-                当前=当前[索引]
-            else:
-                当前=None
-        else:
-            当前=None
-        if当前is None:
-            返回默认值
-    返回当前
-
-定义JSON删除键(数据,键):
-    if isinstance(数据,dict)and键in数据:
-        del数据[键]
-    返回数据
-
-定义JSON键列表(数据):
-    if isinstance(数据,dict):
-        返回列表(数据.keys())
-    返回[]
-
-定义JSON值列表(数据):
-    if isinstance(数据,dict):
-        返回列表(数据.values())
-    返回[]
+导出 解析JSON 序列化JSON 美化JSON 读取JSON文件 写入JSON文件 JSON转Python。
+导出 Python转JSON JSON转字典 JSON转列表 验证JSON 验证JSON文件 JSON合并。
+导出 JSON深合并 JSON提取值 JSON查找 JSON过滤 JSON映射 JSON聚合。
+导出 JSON分组 JSON排序 JSON去重 JSON扁平化 JSON展开 JSON转CSV。
+导出 CSV转JSON JSON键列表 JSON值列表 JSON长度 JSON类型 JSON转字符串。
+导出 字符串转JSON JSON文件转字典 字典转JSON文件 JSON格式化 JSON压缩 JSON比较。
+导出 JSON差异 JSONSchema验证 JSON转XML 生成JSON 字典转JSON 列表转JSON。
+导出 JSON验证 JSON深拷贝 JSON设置值 JSON删除键 JSON遍历 JSON计数。
+导出 JSON转换XML JSON转Python对象 Python对象转JSON JSON格式化美化 JSON获取大小。
+导出 JSON版本 JSON编码器 JSON解码器。

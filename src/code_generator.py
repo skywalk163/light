@@ -14,8 +14,9 @@ import ast_nodes as ast_nodes_module
 
 
 # 需要导入新的AST节点类型
-from light_parser_v3 import ImportStmt, ExportStmt, IndexAccess, SliceExpr, SetComprehension, TupleLiteral, BreakStmt, ContinueStmt, PassStmt, ClassInstantiation, MemberAccess, TryStmt, ThrowStmt, Parameter, ParameterList, StringInterpolation, ListComprehension, LambdaExpression, MatchStmt, MatchCase, MatchPattern, DictComprehension, DestructuringAssignment, WithStmt, DecoratorDefinition, DictLiteral, InterfaceDefinition, MethodSignature, IndexedAssignment, RangeExpr, FFILoadLibrary, FFIFunctionDecl, FFIStructDef, FFICallbackDef, FFICreateArray, FFISetArrayElement, FFIAllocMemory, FFIFreeMemory, FFISetPointerValue, FFISetErrno, FFITryCatch, FFIEnumDef, FFIUnionDef, FFICreateCallback, FFIVarArgsDecl, FFIStructByValue, FFILibraryPath, FFITypedefDef, FFIBitfieldDef, FFIFuncPtrDef, FFIDebugConfig, FFIPreprocessorDef
-from ast_nodes_v3 import Assignment, TypeCheckToggleStmt, AwaitExpr, KeywordArg, IndexedCompoundAssignment, PassStmt, AssignmentExpression, SetLiteral, EmbedBlock
+from light_parser_v3 import ImportStmt, ExportStmt, IndexAccess, SliceExpr, SetComprehension, TupleLiteral, BreakStmt, ContinueStmt, PassStmt, ClassInstantiation, MemberAccess, TryStmt, ThrowStmt, Parameter, ParameterList, StringInterpolation, ListComprehension, LambdaExpression, MatchStmt, MatchCase, MatchPattern, DictComprehension, DestructuringAssignment, WithStmt, DecoratorDefinition, DictLiteral, InterfaceDefinition, MethodSignature, IndexedAssignment, RangeExpr, FFILoadLibrary, FFIFunctionDecl, FFIStructDef, FFICallbackDef, FFICreateArray, FFISetArrayElement, FFIAllocMemory, FFIFreeMemory, FFISetPointerValue, FFISetErrno, FFITryCatch, FFIEnumDef, FFIUnionDef, FFICreateCallback, FFIVarArgsDecl, FFIStructByValue, FFILibraryPath, FFITypedefDef, FFIBitfieldDef, FFIFuncPtrDef, FFIDebugConfig, FFIPreprocessorDef, FFIPointerType, FFIArrayType, FFIAddressOf, FFIDereference, FFIPointerOffset, FFIGetLastError, FFIGetErrno
+from ast_nodes_v3 import Assignment, TypeCheckToggleStmt, AwaitExpr, KeywordArg, IndexedCompoundAssignment, PassStmt, AssignmentExpression, SetLiteral, EmbedBlock, FunctionCallExpr, CatchClause, YieldStmt, AsyncScope, DecoratedFunction, DecoratorInfo, AssertStmt
+from ast_nodes import ExpressionStatement, SegmentName
 
 
 # =============================================================================
@@ -52,6 +53,9 @@ class PythonCodeGenerator:
         # 是否需要导入 ABC/abstractmethod
         self._needs_abc = False
         
+        # 是否需要导入 asyncio
+        self._needs_asyncio = False
+        
         # 运行时类型检查开关（默认关闭，零开销）
         self._runtime_type_check = False
         
@@ -82,14 +86,13 @@ class PythonCodeGenerator:
         self.method_name_map = {
             '追加': 'append',
             '添加': 'append',
-            '长度': '__len__',
-            '取长度': '__len__',
             '插入': 'insert',
             '删除': 'remove',
             '弹出': 'pop',
             '清空': 'clear',
             '反转': 'reverse',
             '包含': '__contains__',
+            '排序': 'sort',
             '获取': 'get',
             '设置': '__setitem__',
             # 字符串方法
@@ -105,10 +108,44 @@ class PythonCodeGenerator:
             '查找': 'find',
             '计数': 'count',
         }
-        
+
+        # 方法定义名映射：与方法调用映射(method_name_map)保持一致，使
+        # 用户自定义类的方法“定义名”与“调用名”在生成的 Python 中一致。
+        # 调用侧 method_name_map 会把 弹出->pop、插入->insert 等翻译成中文
+        # 调用(obj.pop())，但定义侧原先保留中文(def 弹出)，导致
+        # 'X' object has no attribute 'pop'。此处把定义名也翻译过去即可对齐。
+        # 排除 长度/取长度/包含：它们的调用被特判为 len(obj) / (item in obj)，
+        # 与方法签名不匹配，翻译成 __len__/__contains__ 会破坏参数，故保留中文。
+        self._method_def_name_map = {
+            k: v for k, v in self.method_name_map.items()
+            if k not in ('长度', '取长度', '包含')
+        }
+
         # 模块名映射（中文到Python模块）
         # 注意：有独立 stdlib 实现（含中文函数名）的模块不要映射到 Python 标准库
         self.module_name_map = {
+        }
+        
+        # 异常名映射（中文→Python）
+        self.exception_name_map = {
+            '迭代停止': 'StopIteration',
+            '值错误': 'ValueError',
+            '类型错误': 'TypeError',
+            '索引错误': 'IndexError',
+            '键错误': 'KeyError',
+            '属性错误': 'AttributeError',
+            '导入错误': 'ImportError',
+            '零除错误': 'ZeroDivisionError',
+            '文件错误': 'FileNotFoundError',
+            '运行时错误': 'RuntimeError',
+            '溢出错误': 'OverflowError',
+            '递归错误': 'RecursionError',
+            '内存错误': 'MemoryError',
+            '系统错误': 'SystemError',
+            '断言错误': 'AssertionError',
+            '停止迭代': 'StopIteration',
+            '错误': 'Exception',
+            '异常': 'Exception',
         }
         
         # 运算符映射
@@ -156,10 +193,14 @@ class PythonCodeGenerator:
             '输出': 'print',
             '断言': '_light_assert',
             '读取': 'input',
+            '输入': 'input',
             '长': 'len',
             '长度': 'len',
             '首': 'lambda x: x[0]',
             '末': 'lambda x: x[-1]',
+            # 可空类型解包（等价于 值!）
+            'unwrap': '_light_unwrap',
+            '解包': '_light_unwrap',
             
             # 数学函数（P1-1：补全反向映射）
             '求和': 'sum',
@@ -216,12 +257,14 @@ class PythonCodeGenerator:
             '写入文件': '_light_builtin.写入文件',
             '追加文件': '_light_builtin.追加文件',
             '文件存在': '_light_builtin.文件存在',
+            '是文件': '_light_builtin.是文件',
             '目录存在': '_light_builtin.目录存在',
             '路径存在': '_light_builtin.路径存在',
             '创建目录': '_light_builtin.创建目录',
             '删除文件': '_light_builtin.删除文件',
             '删除目录': '_light_builtin.删除目录',
             '列出目录': '_light_builtin.列出目录',
+            '列出文件': '_light_builtin.列出文件',
             '文件大小': '_light_builtin.文件大小',
             
             # 路径操作
@@ -239,6 +282,7 @@ class PythonCodeGenerator:
             '当前目录': '_light_builtin.当前目录',
             '切换目录': '_light_builtin.切换目录',
             '执行命令': '_light_builtin.执行命令',
+            '移动文件系统': '_light_builtin.移动文件系统',
 
             # 标准输入输出
             '读取行': '_light_builtin.读取行',
@@ -277,6 +321,7 @@ class PythonCodeGenerator:
             '到数字': '_light_builtin.转浮点',
             '转数字': '_light_builtin.转浮点',
             '字符串长度': '_light_builtin.字符串长度',
+            '显示宽度': '_light_builtin.显示宽度',
             '字符串获取': '_light_builtin.字符串获取',
             '字符串包含': '_light_builtin.字符串包含',
             '包含': '_light_builtin.包含',
@@ -294,6 +339,7 @@ class PythonCodeGenerator:
             '开头': '_light_builtin.开头',
             '结尾': '_light_builtin.结尾',
             '查找子串': '_light_builtin.查找子串',
+            '最后索引': '_light_builtin.最后索引',
             '替换字符串次数': '_light_builtin.替换字符串次数',
             '截取到末尾': '_light_builtin.截取到末尾',
             '字符串计数': '_light_builtin.字符串计数',
@@ -312,6 +358,7 @@ class PythonCodeGenerator:
             '列表获取': '_light_builtin.列表获取',
             '列表追加': '_light_builtin.列表追加',
             '列表弹出': '_light_builtin.列表弹出',
+            '列表插入': '_light_builtin.列表插入',
             '列表排序': '_light_builtin.列表排序',
             '列表反转': '_light_builtin.列表反转',
             '列表包含': '_light_builtin.列表包含',
@@ -339,6 +386,11 @@ class PythonCodeGenerator:
             # 日期时间
             '时间戳': '_light_builtin.时间戳',
             '格式化时间': '_light_builtin.格式化时间',
+
+            # 随机数
+            '随机整数': '_light_builtin.随机整数',
+            '随机浮点': '_light_builtin.随机浮点',
+            '随机选择': '_light_builtin.随机选择',
 
             # C FFI 指针/数组/错误处理
             '取地址': '_light_ffi.取地址',
@@ -380,11 +432,70 @@ class PythonCodeGenerator:
             '获取宏': '_light_ffi.获取宏',
         }
     
+    def _register_imported_names(self, module) -> None:
+        """把 import 显式引入的名字登记为「用户已定义」。
+
+        为什么必须做：内置函数映射（builtin_map）是无条件替换的，
+        `范围(0,3)` 会被直接翻译成 `range(0,3)`。于是
+        `从《列表工具》导入《范围》` 之后再调用 `范围`，拿到的仍是
+        Python 的 range —— 用户导入的东西被静默忽略了。更糟的是
+        `包含` 这类映射到 `_light_builtin.包含`（该内置并不存在），
+        运行期直接 AttributeError。
+
+        显式导入是用户最强的意图表达，必须压过内置映射。否则
+        「用光明写光明标准库」只要撞上内置名就永远调不通。
+
+        这里做整棵树的遍历（含类体、函数体里的局部导入），
+        并在生成任何代码之前完成，所以不受书写顺序影响。
+        """
+        # AST 节点用 __slots__，各类块语句的子语句字段名不统一，逐个尝试
+        CHILD_ATTRS = (
+            'statements', 'body', 'then_body', 'else_body', 'orelse',
+            'try_body', 'catch_body', 'finally_body', 'catch_clauses',
+            'methods', 'members', 'cases', 'stages',
+        )
+
+        seen = set()
+
+        def walk(node):
+            if node is None:
+                return
+            if isinstance(node, (list, tuple)):
+                for item in node:
+                    walk(item)
+                return
+            if id(node) in seen:
+                return
+            seen.add(id(node))
+
+            if isinstance(node, ImportStmt):
+                for sym in (getattr(node, 'symbols', None) or ()):
+                    if isinstance(sym, str) and sym:
+                        self._user_defined_functions.add(sym)
+                alias = getattr(node, 'alias', None)
+                if isinstance(alias, str) and alias:
+                    self._user_defined_functions.add(alias)
+
+            for attr in CHILD_ATTRS:
+                child = getattr(node, attr, None)
+                if isinstance(child, (list, tuple)):
+                    walk(child)
+
+        try:
+            walk(getattr(module, 'statements', None))
+        except Exception:
+            # 预扫描失败不应阻断编译，最坏退化成旧行为
+            pass
+    
     def generate(self, module: Module) -> str:
         """生成Python代码"""
         self.output_lines = []
         self.indent_level = 0  # 重置缩进级别，防止跨条目状态污染
         self._user_defined_functions = set()  # 重置用户自定义函数追踪
+        self._ffi_user_types = {}  # 重置 FFI 用户自定义类型注册表
+        
+        # 预扫描：显式 import 进来的名字优先级高于内置函数映射
+        self._register_imported_names(module)
         
         # 添加文件头
         self._add_line("# 由光明编译器生成")
@@ -395,8 +506,7 @@ class PythonCodeGenerator:
         self._add_line("import sys")
         self._add_line("import os")
         self._add_line("import ctypes")
-        self._add_line("import stdlib.FFI as _light_ffi")
-        self._add_line("from typing import Any")
+        self._add_line("from typing import Any, Optional")
         self._add_line("import math")
         self._add_line("import random")
         self._add_line("")
@@ -423,6 +533,31 @@ class PythonCodeGenerator:
         self._add_line("")
         self._add_line("if _light_stdlib and _light_stdlib not in sys.path:")
         self._add_line("    sys.path.insert(0, _light_stdlib)")
+        self._add_line("if _light_stdlib:")
+        self._add_line("    _light_parent = os.path.dirname(_light_stdlib)")
+        self._add_line("    if _light_parent not in sys.path:")
+        self._add_line("        sys.path.insert(0, _light_parent)")
+        self._add_line("")
+        self._add_line("# 让 import 机制认识纯光明模块（只有 .light、没有 .py 的那种）")
+        self._add_line("try:")
+        self._add_line("    import _light_import_hook as _light_hook")
+        self._add_line("    _light_hook.install([_light_stdlib, _light_file_dir, os.getcwd()])")
+        self._add_line("except Exception:")
+        self._add_line("    pass")
+        self._add_line("")
+        # FFI 模块：尽量导入；失败时降级为占位对象，避免非 FFI 程序因 stdlib 路径问题整体崩溃。
+        # 对应 E2E 失败项 F01：编译产物不可移植，临时目录无 stdlib 时 import 直接抛错。
+        # _light_ffi_available 为「FFI 可用」特征位，下游/测试可据此判断 FFI 能力是否具备。
+        self._add_line("# FFI 模块：尽量导入；失败则降级为占位对象（见 _light_ffi_available 特征位），避免非 FFI 程序因 stdlib 路径缺失而整体崩溃")
+        self._add_line("try:")
+        self._add_line("    import stdlib.FFI as _light_ffi")
+        self._add_line("    _light_ffi_available = True")
+        self._add_line("except Exception:")
+        self._add_line("    _light_ffi_available = False")
+        self._add_line("    class _LightFFIUnavailable:")
+        self._add_line("        def __getattr__(self, _name):")
+        self._add_line("            raise RuntimeError('FFI 不可用：未能导入 stdlib.FFI（请确认 stdlib 路径已加入 sys.path）')")
+        self._add_line("    _light_ffi = _LightFFIUnavailable()")
         self._add_line("")
         self._add_line("if importlib:")
         self._add_line("    try:")
@@ -465,14 +600,27 @@ class PythonCodeGenerator:
         self._add_line("        _light_builtin.列表长度 = len")
         self._add_line("        _light_builtin.列 = lambda *args: list(args)")
         self._add_line("        _light_builtin.列表追加 = lambda lst, item: lst.append(item)")
+        self._add_line("        _light_builtin.列表获取 = lambda lst, i: lst[i]")
+        self._add_line("        _light_builtin.列表弹出 = lambda lst, i=-1: lst.pop(i)")
+        self._add_line("        _light_builtin.列表插入 = lambda lst, i, v: lst.insert(i, v)")
         self._add_line("        _light_builtin.列表包含 = lambda lst, item: item in lst")
-        self._add_line("        _light_builtin.包含 = lambda container, item: item in container")
+        self._add_line("        _light_builtin.包含 = lambda sub, s: sub in s")
+        self._add_line("        _light_builtin.字符串包含 = lambda s, sub: sub in s")
+        self._add_line("        _light_builtin.字符串替换 = lambda s, old, new: s.replace(old, new)")
+        self._add_line("        _light_builtin.字符串反转 = lambda s: s[::-1]")
         self._add_line("        _light_builtin.字符串长度 = len")
+        self._add_line("        _light_builtin.显示宽度 = lambda text: sum(2 if __import__('unicodedata').east_asian_width(ch) in ('W', 'F') else 1 for ch in str(text))")
+        self._add_line("        _light_builtin.字符串获取 = lambda s, i: s[i]")
         self._add_line("        _light_builtin.截取 = lambda s, start, end: s[start:end]")
         self._add_line("        _light_builtin.转大写 = lambda s: s.upper()")
         self._add_line("        _light_builtin.转小写 = lambda s: s.lower()")
         self._add_line("        _light_builtin.结尾 = lambda s, suffix: s.endswith(suffix)")
         self._add_line("        _light_builtin.开头 = lambda s, prefix: s.startswith(prefix)")
+        self._add_line("        _light_builtin.去除空白 = lambda s: s.strip()")
+        self._add_line("        _light_builtin.分割字符串 = lambda s, sep=None: s.split(sep)")
+        self._add_line("        _light_builtin.连接字符串 = lambda parts, sep='': sep.join(parts)")
+        self._add_line("        _light_builtin.替换字符串 = lambda s, old, new: s.replace(old, new)")
+        self._add_line("        _light_builtin.字符串分割 = lambda s, sep=None: s.split(sep)")
         self._add_line("        _light_builtin.字典创建 = dict")
         self._add_line("        _light_builtin.字典设置 = lambda d, k, v: d.update({k: v})")
         self._add_line("        _light_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)")
@@ -505,12 +653,26 @@ class PythonCodeGenerator:
         self._add_line("    _light_builtin.列表长度 = len")
         self._add_line("    _light_builtin.列 = lambda *args: list(args)")
         self._add_line("    _light_builtin.列表追加 = lambda lst, item: lst.append(item)")
+        self._add_line("    _light_builtin.列表获取 = lambda lst, i: lst[i]")
+        self._add_line("    _light_builtin.列表弹出 = lambda lst, i=-1: lst.pop(i)")
+        self._add_line("    _light_builtin.列表插入 = lambda lst, i, v: lst.insert(i, v)")
         self._add_line("    _light_builtin.列表包含 = lambda lst, item: item in lst")
         self._add_line("    _light_builtin.包含 = lambda sub, s: sub in s")
+        self._add_line("    _light_builtin.字符串包含 = lambda s, sub: sub in s")
+        self._add_line("    _light_builtin.字符串替换 = lambda s, old, new: s.replace(old, new)")
+        self._add_line("    _light_builtin.字符串反转 = lambda s: s[::-1]")
         self._add_line("    _light_builtin.字符串长度 = len")
+        self._add_line("    _light_builtin.字符串获取 = lambda s, i: s[i]")
         self._add_line("    _light_builtin.截取 = lambda s, start, end: s[start:end]")
         self._add_line("    _light_builtin.转大写 = lambda s: s.upper()")
         self._add_line("    _light_builtin.转小写 = lambda s: s.lower()")
+        self._add_line("    _light_builtin.结尾 = lambda s, suffix: s.endswith(suffix)")
+        self._add_line("    _light_builtin.开头 = lambda s, prefix: s.startswith(prefix)")
+        self._add_line("    _light_builtin.去除空白 = lambda s: s.strip()")
+        self._add_line("    _light_builtin.分割字符串 = lambda s, sep=None: s.split(sep)")
+        self._add_line("    _light_builtin.连接字符串 = lambda parts, sep='': sep.join(parts)")
+        self._add_line("    _light_builtin.替换字符串 = lambda s, old, new: s.replace(old, new)")
+        self._add_line("    _light_builtin.字符串分割 = lambda s, sep=None: s.split(sep)")
         self._add_line("    _light_builtin.字典创建 = dict")
         self._add_line("    _light_builtin.字典设置 = lambda d, k, v: d.update({k: v})")
         self._add_line("    _light_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)")
@@ -519,6 +681,35 @@ class PythonCodeGenerator:
         self._add_line("    _light_builtin.时间戳 = lambda: __import__('time').time()")
         self._add_line("    _light_builtin.格式化时间 = lambda t, f='%Y-%m-%d %H:%M:%S': __import__('datetime').datetime.fromtimestamp(t).strftime(f) if isinstance(t, (int, float)) else __import__('datetime').datetime.strptime(t, '%Y-%m-%d %H:%M:%S').strftime(f)")
         self._add_line("")
+
+        self._add_line("# stdlib 物理缺失时的兜底：补齐常用 builtin + 注册 文件系统 模块")
+        self._add_line("for _light_n, _light_f in [")
+        self._add_line("    ('列表排序', lambda lst, 反向=False: lst.sort(reverse=反向)),")
+        self._add_line("    ('列表反转', lambda lst: lst.reverse()),")
+        self._add_line("    ('列表清空', lambda lst: lst.clear()),")
+        self._add_line("    ('列表移除', lambda lst, item: lst.remove(item)),")
+        self._add_line("    ('列表长度', len),")
+        self._add_line("    ('追加文件', lambda path, content, encoding='utf-8': open(path, 'a', encoding=encoding).write(content) or None),")
+        self._add_line("    ('删除文件', lambda path: __import__('os').remove(path) if __import__('os').path.isfile(path) else None),")
+        self._add_line("    ('复制文件', lambda src, dst: __import__('shutil').copy2(src, dst)),")
+        self._add_line("    ('移动文件', lambda src, dst: __import__('shutil').move(src, dst)),")
+        self._add_line("    ('创建目录', lambda path: __import__('os').makedirs(path, exist_ok=True)),")
+        self._add_line("    ('删除目录', lambda path: __import__('shutil').rmtree(path)),")
+        self._add_line("    ('路径连接', lambda *parts: __import__('os').path.join(*parts)),")
+        self._add_line("    ('当前工作目录', lambda: __import__('os').getcwd()),")
+        self._add_line("]:")
+        self._add_line("    if not hasattr(_light_builtin, _light_n):")
+        self._add_line("        setattr(_light_builtin, _light_n, _light_f)")
+        self._add_line("if (not _light_stdlib) or (not os.path.isdir(_light_stdlib or '')):")
+        self._add_line("    try:")
+        self._add_line("        import types as _light_types")
+        self._add_line("        _light_fs = _light_types.ModuleType('文件系统')")
+        self._add_line("        for _light_fn in ('读取文件', '写入文件', '追加文件', '文件存在', '删除文件', '复制文件', '移动文件', '创建目录', '删除目录', '目录存在', '路径连接', '当前工作目录', '读取行'):")
+        self._add_line("            if hasattr(_light_builtin, _light_fn):")
+        self._add_line("                setattr(_light_fs, _light_fn, getattr(_light_builtin, _light_fn))")
+        self._add_line("        sys.modules.setdefault('文件系统', _light_fs)")
+        self._add_line("    except Exception:")
+        self._add_line("        pass")
 
         # 可空类型解包辅助函数：_light_unwrap(x) = assert x is not None; return x
         self._add_line("# 可空类型解包辅助函数")
@@ -530,6 +721,16 @@ class PythonCodeGenerator:
         self._add_line("def _light_assert(_cond, _msg=''):")
         self._add_line("    if not _cond:")
         self._add_line("        raise AssertionError(_msg)")
+        self._add_line("")
+        # 连接辅助函数：中文里「列表.连接(分隔符)」和「分隔符.连接(列表)」都通顺，
+        # 但 join 只接受后者。原先无条件发射 obj.join(arg)，前者一律
+        # AttributeError: 'list' object has no attribute 'join'
+        # （LLM 兜底生成的「词序反转」块正是栽在这里）。按运行期类型分派即可两种都成立。
+        self._add_line("# 连接辅助函数（列表.连接(分隔符) 与 分隔符.连接(列表) 均可）")
+        self._add_line("def _light_join(_o, _s=''):")
+        self._add_line("    if isinstance(_o, str):")
+        self._add_line("        return _o.join(_s)")
+        self._add_line("    return _s.join([_x if isinstance(_x, str) else str(_x) for _x in _o])")
         self._add_line("")
 
         # 生成语句
@@ -550,6 +751,18 @@ class PythonCodeGenerator:
                     break
             self.output_lines.insert(insert_pos, "")
             self.output_lines.insert(insert_pos, abc_import)
+        
+        if self._needs_asyncio:
+            asyncio_import = "import asyncio"
+            # 插入在文件头之后，第一个语句之前
+            insert_pos = 0
+            for i, line in enumerate(self.output_lines):
+                if line.startswith("#") or line == "":
+                    insert_pos = i + 1
+                else:
+                    break
+            self.output_lines.insert(insert_pos, "")
+            self.output_lines.insert(insert_pos, asyncio_import)
         
         return self._build_output()
     
@@ -633,6 +846,8 @@ class PythonCodeGenerator:
             self._generate_try_stmt(stmt)
         elif isinstance(stmt, ThrowStmt):
             self._generate_throw_stmt(stmt)
+        elif isinstance(stmt, AssertStmt):
+            self._generate_assert_stmt(stmt)
         elif isinstance(stmt, ParagraphCall):
             # 动词调用作为独立语句
             expr_code = self._generate_expr(stmt)
@@ -696,6 +911,9 @@ class PythonCodeGenerator:
         elif isinstance(stmt, DecoratorDefinition):
             # 装饰器定义
             self._generate_decorator_definition(stmt)
+        elif isinstance(stmt, DecoratedFunction):
+            # 装饰器链（多个装饰器 + 函数）
+            self._generate_decorated_function(stmt)
         elif isinstance(stmt, InterfaceDefinition):
             # 接口定义
             self._generate_interface_definition(stmt)
@@ -755,6 +973,16 @@ class PythonCodeGenerator:
             # 等待语句 → await expression
             inner = self._generate_expr(stmt.expression)
             self._add_line(f"await {inner}")
+        elif isinstance(stmt, YieldStmt):
+            # 生成语句 → yield expression
+            if stmt.value:
+                value = self._generate_expr(stmt.value)
+                self._add_line(f"yield {value}")
+            else:
+                self._add_line("yield")
+        elif isinstance(stmt, AsyncScope):
+            # 异步作用域（结构化并发）
+            self._generate_async_scope(stmt)
         elif type(stmt).__name__ == 'CForStmt':
             # C风格for循环
             self._generate_c_for_stmt(stmt)
@@ -762,12 +990,24 @@ class PythonCodeGenerator:
             # 花括号代码块
             for s in stmt.statements:
                 self._generate_statement(s)
+        elif isinstance(stmt, ExpressionStatement):
+            # 表达式语句包装（如 "打印 xxx。" 解析为 ExpressionStatement）
+            expr_str = self._generate_expr(stmt.expression)
+            self._add_line(expr_str)
         elif isinstance(stmt, (IndexAccess, MemberAccess, ParagraphCall)):
             # 表达式语句（如 obj[key].append(v) 或 obj.method()）
             expr_str = self._generate_expr(stmt)
             self._add_line(expr_str)
         elif isinstance(stmt, EmbedBlock):
             self._generate_embed_block(stmt)
+        elif isinstance(stmt, StringLiteral):
+            # 裸字符串语句（docstring）生成：配合 lexer/parser 的三引号 docstring 修复
+            # （lexer.py _tokenize_string、parser_stmt.py _parse_statement），
+            # 这里输出 Python 字符串表达式语句——
+            # Python 会把函数/类/模块体首行的字符串视为 docstring，
+            # 其余位置的裸字符串为无操作表达式（与 Python 语义一致）。
+            # 修复前该节点没有语句级分支，会抛 CodeGenError「未知语句类型」。
+            self._add_line(self._generate_expr(stmt))
         else:
             raise CodeGenError(f"未知语句类型", type(stmt).__name__)
     
@@ -800,7 +1040,7 @@ class PythonCodeGenerator:
                 self._add_line(f"_light_check_type({name}, '{light_type}', '{stmt.name}')")
     
     def _map_type(self, light_type: str) -> str:
-        """将光明类型名映射为Python类型名"""
+        """将光明类型名映射为Python类型名（支持泛型尖括号/方括号）"""
         type_map = {
             '整数': 'int',
             '小数': 'float',
@@ -818,7 +1058,32 @@ class PythonCodeGenerator:
             '空': 'None',
             '数': 'float',
         }
-        return type_map.get(light_type, light_type)
+        stripped = (light_type or '').strip()
+        # 泛型形式：列表<整数> / 字典<字符串, 小数> / 可选<整数> / 列表[整数]
+        if stripped.endswith('>') or stripped.endswith(']'):
+            open_char = '<' if stripped.endswith('>') else '['
+            bracket = stripped.find(open_char)
+            if bracket > 0:
+                base = stripped[:bracket].strip()
+                args_str = stripped[bracket + 1:-1].strip()
+                if base in ('列表', '列', 'List'):
+                    if args_str:
+                        # 嵌套泛型递归映射：列表<列表<整数>> → list[list[int]]
+                        first_arg = args_str.split(',')[0].strip()
+                        return f"list[{self._map_type(first_arg)}]"
+                    return 'list'
+                if base in ('字典', '典', 'Map'):
+                    return 'dict'
+                if base in ('集合', '集', 'Set'):
+                    return 'set'
+                if base in ('元组', 'Tuple'):
+                    return 'tuple'
+                if base in ('可选', '可空', 'Optional'):
+                    inner = self._map_type(args_str) if args_str else 'Any'
+                    return f"Optional[{inner}]"
+                # 未知泛型基名：退化为基名本身
+                return type_map.get(base, base)
+        return type_map.get(stripped, stripped)
     
     def _generate_if_stmt(self, stmt: IfStmt):
         """生成条件语句"""
@@ -1011,6 +1276,53 @@ class PythonCodeGenerator:
             else:
                 self._add_line("pass")
     
+    def _generate_catch_clause(self, catch_type, catch_var, catch_body):
+        """生成单个except块"""
+        if catch_type == '外部错误':
+            # FFI 外部错误处理
+            if catch_var:
+                self._add_line(f"except (ctypes.ArgumentError, OSError, RuntimeError) as {self._sanitize_name(catch_var)}:")
+            else:
+                self._add_line("except (ctypes.ArgumentError, OSError, RuntimeError):")
+        elif catch_type and catch_var:
+            # 捕获指定类型 + 变量：except 值错误 as 错误:
+            # 支持多类型捕获：(Type1, Type2) 格式
+            ct = self._resolve_exception_type(catch_type)
+            if ',' in ct:
+                ct = f"({ct})"
+            self._add_line(f"except {ct} as {self._sanitize_name(catch_var)}:")
+        elif catch_type:
+            # 捕获指定类型无变量：except 值错误:
+            ct = self._resolve_exception_type(catch_type)
+            if ',' in ct:
+                ct = f"({ct})"
+            self._add_line(f"except {ct}:")
+        elif catch_var:
+            # 无类型有变量（向后兼容）：except Exception as 错误:
+            self._add_line(f"except Exception as {self._sanitize_name(catch_var)}:")
+        else:
+            # 无类型无变量：except Exception:
+            self._add_line("except Exception:")
+        
+        self.indent_level += 1
+        if catch_body:
+            for s in catch_body:
+                self._generate_statement(s)
+        else:
+            self._add_line("pass")
+        self.indent_level -= 1
+
+    def _resolve_exception_type(self, type_name: str) -> str:
+        """将光明异常类型名解析为Python异常类型名"""
+        # 检查是否在异常名映射中
+        if type_name in self.exception_name_map:
+            return self.exception_name_map[type_name]
+        # 检查是否已经是Python内置异常名
+        import builtins
+        if hasattr(builtins, type_name):
+            return type_name
+        return type_name
+
     def _generate_try_stmt(self, stmt: TryStmt):
         """生成异常捕获语句"""
         # try块
@@ -1023,38 +1335,17 @@ class PythonCodeGenerator:
             self._add_line("pass")
         self.indent_level -= 1
         
-        # except块
-        if stmt.catch_body:
-            if stmt.catch_type == '外部错误':
-                # FFI 外部错误处理
-                if stmt.catch_var:
-                    self._add_line(f"except (ctypes.ArgumentError, OSError, RuntimeError) as {stmt.catch_var}:")
-                else:
-                    self._add_line("except (ctypes.ArgumentError, OSError, RuntimeError):")
-            elif stmt.catch_type and stmt.catch_var:
-                # 捕获指定类型 + 变量：except 值错误 as 错误:
-                # 支持多类型捕获：(Type1, Type2) 格式
-                ct = stmt.catch_type
-                if ',' in ct:
-                    ct = f"({ct})"
-                self._add_line(f"except {ct} as {stmt.catch_var}:")
-            elif stmt.catch_type:
-                # 捕获指定类型无变量：except 值错误:
-                ct = stmt.catch_type
-                if ',' in ct:
-                    ct = f"({ct})"
-                self._add_line(f"except {ct}:")
-            elif stmt.catch_var:
-                # 无类型有变量（向后兼容）：except Exception as 错误:
-                self._add_line(f"except Exception as {stmt.catch_var}:")
-            else:
-                # 无类型无变量：except Exception:
-                self._add_line("except Exception:")
-            
-            self.indent_level += 1
-            for s in stmt.catch_body:
-                self._generate_statement(s)
-            self.indent_level -= 1
+        # 优先使用 catch_clauses 列表（支持多捕获块）
+        if stmt.catch_clauses:
+            for clause in stmt.catch_clauses:
+                if isinstance(clause, CatchClause):
+                    self._generate_catch_clause(clause.catch_type, clause.catch_var, clause.catch_body)
+                elif isinstance(clause, tuple) and len(clause) == 3:
+                    ct, cv, cb = clause
+                    self._generate_catch_clause(ct, cv, cb)
+        elif stmt.catch_body:
+            # 向后兼容：使用旧的单捕获块字段
+            self._generate_catch_clause(stmt.catch_type, stmt.catch_var, stmt.catch_body)
         else:
             # 有尝试块但没有捕获块：生成默认except块
             self._add_line("except Exception:")
@@ -1069,12 +1360,42 @@ class PythonCodeGenerator:
             for s in stmt.finally_body:
                 self._generate_statement(s)
             self.indent_level -= 1
+        
+        # else块（try块没有异常时执行）
+        if stmt.else_body:
+            self._add_line("else:")
+            self.indent_level += 1
+            for s in stmt.else_body:
+                self._generate_statement(s)
+            self.indent_level -= 1
     
     def _generate_throw_stmt(self, stmt: ThrowStmt):
         """生成抛出异常语句"""
         if stmt.value is None:
             # 裸抛出：重新抛出当前异常
             self._add_line("raise")
+            return
+        # 检查是否抛出已知中文异常名（如 迭代停止 → StopIteration）
+        if isinstance(stmt.value, Identifier) and stmt.value.name in self.exception_name_map:
+            py_exc_name = self.exception_name_map[stmt.value.name]
+            from_part = ""
+            if stmt.from_expr:
+                from_val = self._generate_expr(stmt.from_expr)
+                from_part = f" from {from_val}"
+            self._add_line(f"raise {py_exc_name}(){from_part}")
+            return
+        # 检查是否抛出带参数的中文异常名（如 运行时错误("消息")）
+        if isinstance(stmt.value, ParagraphCall) and stmt.value.name in self.exception_name_map:
+            py_exc_name = self.exception_name_map[stmt.value.name]
+            args = []
+            for arg in stmt.value.args:
+                args.append(self._generate_expr(arg))
+            args_str = ', '.join(args)
+            from_part = ""
+            if stmt.from_expr:
+                from_val = self._generate_expr(stmt.from_expr)
+                from_part = f" from {from_val}"
+            self._add_line(f"raise {py_exc_name}({args_str}){from_part}")
             return
         value = self._generate_expr(stmt.value)
         # 确保抛出的是合法异常对象（Python 3 不允许 raise 字符串）
@@ -1084,6 +1405,19 @@ class PythonCodeGenerator:
             from_part = f" from {from_val}"
         self._add_line(f"_light_exc = {value}")
         self._add_line(f"raise _light_exc if isinstance(_light_exc, BaseException) else Exception(_light_exc){from_part}")
+    
+    def _generate_assert_stmt(self, stmt: AssertStmt):
+        """生成断言语句
+        
+        语法：断言 <条件>，<可选消息>。
+        生成：assert <条件>, <消息>
+        """
+        cond = self._generate_expr(stmt.condition)
+        if stmt.message:
+            msg = self._generate_expr(stmt.message)
+            self._add_line(f"assert {cond}, {msg}")
+        else:
+            self._add_line(f"assert {cond}")
     
     def _generate_self_assignment(self, stmt):
         """生成self赋值语句"""
@@ -1272,26 +1606,49 @@ class PythonCodeGenerator:
         self._add_line("")
     
     def _generate_abstract_method(self, method: MethodSignature):
-        """生成抽象方法"""
-        self._needs_abc = True
+        """生成协议方法。
+
+        无方法体 → 抽象方法（@abstractmethod + pass）；
+        有方法体 → 默认实现（普通方法，实现类可直接继承或覆写）。
+        """
         method_name = self._sanitize_name(method.name)
-        
+
         # 参数列表
         params = ['self']
         for param in method.parameters:
-            param_name = self._sanitize_name(param.name)
-            params.append(param_name)
-        
+            params.append(self._sanitize_name(param.name))
         params_str = ', '.join(params)
-        
-        self._add_line("@abstractmethod")
+
+        has_body = bool(getattr(method, 'body', None))
+        if not has_body:
+            self._needs_abc = True
+            self._add_line("@abstractmethod")
+
         if method.return_type:
-            ret_type = self._sanitize_name(method.return_type)
+            # 必须走 _map_type 做光明→Python 类型映射，
+            # 直接用 _sanitize_name 会把「整数」原样写进注解导致 NameError。
+            ret_type = self._map_type(method.return_type)
             self._add_line(f"def {method_name}({params_str}) -> {ret_type}:")
         else:
             self._add_line(f"def {method_name}({params_str}):")
+
         self.indent_level += 1
-        self._add_line("pass")
+        if has_body:
+            emitted = len(self.output_lines)
+            # 必须置位 _in_function，否则方法体里的「返回」会被当成模块级语句
+            # 降级成 print(...)，默认实现将永远返回 None。
+            prev_in_function = self._in_function
+            self._in_function = True
+            try:
+                for stmt in method.body:
+                    self._generate_statement(stmt)
+            finally:
+                self._in_function = prev_in_function
+            # 方法体可能全是注释等不产出代码的节点，兜底补 pass
+            if len(self.output_lines) == emitted:
+                self._add_line("pass")
+        else:
+            self._add_line("pass")
         self.indent_level -= 1
     
     def _generate_match_stmt(self, stmt: MatchStmt):
@@ -1327,6 +1684,22 @@ class PythonCodeGenerator:
             self._add_line("pass")
         self.indent_level -= 1
     
+    _TYPE_NAME_MAP = {
+        '整数': 'int', '整数型': 'int', '整型': 'int',
+        '小数': 'float', '浮数': 'float', '浮点数': 'float', '浮点': 'float',
+        '文本': 'str', '串': 'str', '字符串': 'str',
+        '列表': 'list', '列': 'list', '数组': 'list',
+        '字典': 'dict', '典': 'dict', '词典': 'dict', '映射': 'dict',
+        '集合': 'set', '集': 'set',
+        '布尔': 'bool', '布尔值': 'bool',
+        '空': 'None', '空值': 'None',
+        '任意': 'object', '任意类型': 'object',
+    }
+
+    def _sanitize_type_name(self, name: str) -> str:
+        """将光明类型名转换为Python类型名"""
+        return self._TYPE_NAME_MAP.get(name, self._sanitize_name(name))
+
     def _generate_match_pattern(self, pattern: MatchPattern) -> str:
         """生成匹配模式"""
         if pattern.kind == 'wildcard':
@@ -1346,23 +1719,43 @@ class PythonCodeGenerator:
             elements = [self._generate_match_pattern(e) for e in pattern.elements]
             return f"[{', '.join(elements)}]"
         elif pattern.kind == 'type_check':
-            type_name = self._sanitize_name(pattern.type_name)
+            type_name = self._sanitize_type_name(pattern.type_name)
             binding = self._sanitize_name(pattern.binding)
             return f"{type_name}() as {binding}"
         return '_'
 
     def _generate_with_stmt(self, stmt: WithStmt):
         """生成上下文管理语句"""
-        context_expr = self._generate_expr(stmt.context_expr)
-        # 在 with 语句中，读取文件(...) 应替换为 open(...)
-        context_expr = context_expr.replace('_light_builtin.读取文件', 'open').replace('读取文件', 'open')
-        # 写入文件(...) 也应替换为 open(..., 'w')
-        context_expr = context_expr.replace('_light_builtin.写入文件', 'open').replace('写入文件', 'open')
-        if stmt.variable:
-            var_name = self._sanitize_name(stmt.variable)
-            self._add_line(f"with {context_expr} as {var_name}:")
+        prefix = "async " if getattr(stmt, 'is_async', False) else ""
+        
+        # 检查是否有多个上下文管理器
+        items = getattr(stmt, 'items', None)
+        if items and len(items) > 1:
+            # 多个上下文管理器
+            parts = []
+            for expr, var in items:
+                expr_str = self._generate_expr(expr)
+                # 文件操作替换
+                expr_str = expr_str.replace('_light_builtin.读取文件', 'open').replace('读取文件', 'open')
+                expr_str = expr_str.replace('_light_builtin.写入文件', 'open').replace('写入文件', 'open')
+                if var:
+                    var_name = self._sanitize_name(var)
+                    parts.append(f"{expr_str} as {var_name}")
+                else:
+                    parts.append(expr_str)
+            context_str = ', '.join(parts)
+            self._add_line(f"{prefix}with {context_str}:")
         else:
-            self._add_line(f"with {context_expr}:")
+            context_expr = self._generate_expr(stmt.context_expr)
+            # 在 with 语句中，读取文件(...) 应替换为 open(...)
+            context_expr = context_expr.replace('_light_builtin.读取文件', 'open').replace('读取文件', 'open')
+            # 写入文件(...) 也应替换为 open(..., 'w')
+            context_expr = context_expr.replace('_light_builtin.写入文件', 'open').replace('写入文件', 'open')
+            if stmt.variable:
+                var_name = self._sanitize_name(stmt.variable)
+                self._add_line(f"{prefix}with {context_expr} as {var_name}:")
+            else:
+                self._add_line(f"{prefix}with {context_expr}:")
         self.indent_level += 1
         if stmt.body:
             for s in stmt.body:
@@ -1370,6 +1763,29 @@ class PythonCodeGenerator:
         else:
             self._add_line("pass")
         self.indent_level -= 1
+
+    def _generate_async_scope(self, stmt: AsyncScope):
+        """生成异步作用域（结构化并发，使用 asyncio.gather 实现）"""
+        if not stmt.tasks:
+            self._add_line("pass")
+            return
+        
+        # 生成任务表达式
+        task_exprs = []
+        for task in stmt.tasks:
+            expr = self._generate_expr(task)
+            task_exprs.append(expr)
+        
+        task_str = ', '.join(task_exprs)
+        
+        # 需要导入 asyncio
+        self._needs_asyncio = True
+        
+        if stmt.result_vars:
+            vars_str = ', '.join(self._sanitize_name(v) for v in stmt.result_vars)
+            self._add_line(f"{vars_str} = await asyncio.gather({task_str})")
+        else:
+            self._add_line(f"await asyncio.gather({task_str})")
 
     def _generate_decorator_definition(self, stmt: DecoratorDefinition):
         """生成装饰器定义"""
@@ -1390,10 +1806,12 @@ class PythonCodeGenerator:
                 self._needs_abc = True
         else:
             # 自定义装饰器（支持带参数：@decorator(args)）
+            # 使用 getattr 兼容旧 AST（ast_nodes.DecoratorDefinition 无 args 字段）
             sanitized = self._sanitize_name(decorator_name)
-            if stmt.args:
+            decorator_args = getattr(stmt, 'args', None)
+            if decorator_args:
                 args_parts = []
-                for a in stmt.args:
+                for a in decorator_args:
                     if isinstance(a, KeywordArg):
                         args_parts.append(f"{a.name}={self._generate_expr(a.value)}")
                     else:
@@ -1408,14 +1826,55 @@ class PythonCodeGenerator:
         else:
             raise CodeGenError("装饰器后必须是段落定义", type(stmt.paragraph).__name__)
 
+    def _generate_decorated_function(self, stmt: DecoratedFunction):
+        """生成装饰器链（多个装饰器 + 函数定义）"""
+        # 按顺序为每个装饰器生成 @ 行
+        for decorator_info in stmt.decorators:
+            decorator_name = decorator_info.name
+            sanitized = self._sanitize_name(decorator_name)
+            decorator_args = decorator_info.args
+            if decorator_args:
+                args_parts = []
+                for a in decorator_args:
+                    if isinstance(a, KeywordArg):
+                        args_parts.append(f"{a.name}={self._generate_expr(a.value)}")
+                    else:
+                        args_parts.append(self._generate_expr(a))
+                args_str = ', '.join(args_parts)
+                self._add_line(f"@{sanitized}({args_str})")
+            else:
+                self._add_line(f"@{sanitized}")
+        
+        # 生成被装饰的函数
+        if isinstance(stmt.function, Paragraph):
+            self._generate_paragraph(stmt.function)
+        else:
+            raise CodeGenError("装饰器链后必须是段落定义", type(stmt.function).__name__)
+
     def _generate_method(self, method, class_attributes=None):
         """生成方法定义"""
         method_name = method.name
 
         # 构造函数特殊处理
-        is_ctor = getattr(method, 'is_constructor', False) or method_name == '构造'
+        is_ctor = getattr(method, 'is_constructor', False) or method_name in ('构造', '初始化')
         if is_ctor:
             method_name = '__init__'
+
+        # 迭代器协议方法名映射
+        if method_name == '__迭代__':
+            method_name = '__iter__'
+        elif method_name == '__下一项__':
+            method_name = '__next__'
+        # 上下文管理器协议方法名映射
+        elif method_name == '__进入__':
+            method_name = '__enter__'
+        elif method_name == '__退出__':
+            method_name = '__exit__'
+
+        # 方法定义名翻译：与调用侧 method_name_map 对齐（见 _method_def_name_map）
+        # 必须在协议名/构造名映射之后、私有前缀之前执行。映射表中不含魔术方法
+        # 名，故 __init__/__iter__ 等会原样返回，无需额外判断。
+        method_name = self._method_def_name_map.get(method_name, method_name)
 
         # 静态方法不需要 self 参数
         is_static = getattr(method, 'is_static', False)
@@ -1593,7 +2052,31 @@ class PythonCodeGenerator:
         # 检查 ast_nodes 模块中的 Identifier（兼容两种定义）
         elif hasattr(expr, 'name') and hasattr(expr, 'line'):
             # 可能是来自 ast_nodes 的 Identifier
-            return self._sanitize_name(expr.name)
+            name_val = expr.name
+            if isinstance(name_val, str):
+                return self._sanitize_name(name_val)
+            elif hasattr(name_val, 'name'):
+                # SegmentName 嵌套：name 字段本身可能是 SegmentName 对象
+                # 尝试递归提取字符串
+                inner = name_val
+                while hasattr(inner, 'name') and not isinstance(inner.name, str):
+                    inner = inner.name
+                if hasattr(inner, 'name'):
+                    return self._sanitize_name(inner.name)
+                return self._sanitize_name(str(inner))
+            return self._sanitize_name(str(name_val))
+        
+        elif isinstance(expr, SegmentName):
+            # SegmentName 段落名
+            name_val = expr.name
+            if isinstance(name_val, str):
+                return self._sanitize_name(name_val)
+            # 递归提取
+            while hasattr(name_val, 'name') and not isinstance(name_val.name, str):
+                name_val = name_val.name
+            if hasattr(name_val, 'name'):
+                return self._sanitize_name(name_val.name)
+            return self._sanitize_name(str(name_val))
         
         elif isinstance(expr, BinaryOp):
             left = self._generate_expr(expr.left)
@@ -1604,7 +2087,11 @@ class PythonCodeGenerator:
         elif isinstance(expr, UnaryOp):
             operand = self._generate_expr(expr.operand)
             op = self.operator_map.get(expr.operator, expr.operator)
-            return f"({op} {operand})"
+            # 符号运算符不留空格：(-5) 而非 (- 5)
+            # 关键字运算符（not, ~等）需要留空格：(not x) 而非 (notx)
+            if op in ('not', '~', 'not '):
+                return f"({op} {operand})"
+            return f"({op}{operand})"
         
         elif isinstance(expr, ParagraphCall):
             name = self._sanitize_name(expr.name)
@@ -1633,6 +2120,18 @@ class PythonCodeGenerator:
                 return f"({py_name})({args_str})"
             
             return f"{py_name}({args_str})"
+        
+        elif isinstance(expr, FunctionCallExpr):
+            # 链式函数调用：expr()  → callee(args)
+            callee = self._generate_expr(expr.callee)
+            args = []
+            for arg in expr.args:
+                if isinstance(arg, KeywordArg):
+                    args.append(f"{arg.name}={self._generate_expr(arg.value)}")
+                else:
+                    args.append(self._generate_expr(arg))
+            args_str = ', '.join(args)
+            return f"{callee}({args_str})"
         
         elif isinstance(expr, Pipeline):
             # 管道操作：从左到右依次调用
@@ -1719,8 +2218,16 @@ class PythonCodeGenerator:
                 if expr.member == '长度':
                     return f"len({obj})"
                 # 特殊处理：包含方法 -> item in obj
+                # 必须加括号：`in` 在 Python 里是比较运算符，会与外层比较串成链式比较。
+                # 例如 `文本.包含("z") 等于 假` 若发射成 `"z" in 文本 == False`，
+                # Python 解释为 `("z" in 文本) and (文本 == False)`，恒为假 —— 
+                # 分支永不进入、程序静默无输出（rc=0），坏块因此逃过护栏。
                 elif expr.member == '包含':
-                    return f"{args_str} in {obj}"
+                    return f"({args_str} in {obj})"
+                # 特殊处理：连接 -> 运行期分派（见 _light_join）。只接管「带 1 个实参」
+                # 的调用，`连接对象.连接()` 这类用户自定义无参方法保持原样透传。
+                elif expr.member == '连接' and len(expr.args) == 1:
+                    return f"_light_join({obj}, {args_str})"
 
                 # 特殊处理：cb_前缀的回调函数调用
                 # obj.cb_xxx(args) → cb_xxx(args)
@@ -1735,6 +2242,12 @@ class PythonCodeGenerator:
                 builtin_target = self.builtin_map.get(expr.member)
                 if builtin_target and expr.member not in self.method_name_map:
                     # 内置函数（非标准方法）：转为函数式调用
+                    # 若 obj 本身已是内置命名空间（_light_builtin.方法(...)，如
+                    # test_turing.light 的 _light_builtin.字典设置(...)），方法名已可
+                    # 直接调用，不能再把 _light_builtin 注入为第一个参数，
+                    # 否则会多出一个参数（lambda 形参不匹配，TypeError）。
+                    if obj == '_light_builtin':
+                        return f"{builtin_target}({args_str})"
                     # 如果目标是 lambda 表达式，需要加括号包裹，避免 lambda 优先级问题
                     if builtin_target.startswith('lambda '):
                         if args_str:
@@ -1776,6 +2289,7 @@ class PythonCodeGenerator:
         elif isinstance(expr, StringInterpolation):
             # 字符串插值 -> f-string
             parts = []
+            expr_parts = []  # 表达式部分（花括号内代码），用于选择外层引号
             for part in expr.parts:
                 if isinstance(part, str):
                     # 转义特殊字符（反斜杠、换行、回车、制表符）
@@ -1785,21 +2299,39 @@ class PythonCodeGenerator:
                     # 带格式说明符的表达式：(expr_node, format_spec)
                     expr_code = self._generate_expr(part[0])
                     parts.append('{' + expr_code + ':' + part[1] + '}')
+                    expr_parts.append(expr_code)
                 elif isinstance(part, ASTNode):
                     # 生成表达式代码并放入花括号
                     expr_code = self._generate_expr(part)
                     parts.append('{' + expr_code + '}')
-            fstr = ''.join(parts)
-            # 选择合适的外层引号：如果内容包含双引号，使用单引号避免冲突
-            if '"' in fstr:
-                if "'" in fstr:
-                    # 两种引号都有，转义双引号并保留双引号外层
-                    fstr = fstr.replace('"', '\\"')
-                    return f'f"{fstr}"'
-                else:
-                    return f"f'{fstr}'"
+                    expr_parts.append(expr_code)
+
+            # 选择外层引号并只在【字面量部分】转义，避免破坏花括号内表达式。
+            #
+            # Bug 根因：原实现先拼接整个 f-string，再用 fstr.replace('"', '\\"')
+            # 全局转义双引号。若花括号内表达式含字符串（如 {处理数据("hello")}），
+            # 表达式里的 " 会被转成 \" —— 在 f-string 花括号内属于无效语法
+            # （"unexpected character after line continuation character"）。
+            #
+            # 修复方案：
+            # 1) 表达式部分由 _generate_expr 生成（字符串统一用双引号），
+            #    因此只要表达式含 "，外层引号就必须选单引号 '（花括号内出现 " 合法）；
+            # 2) 外层引号只出现在字面量部分，若字面量含同种引号则仅在该处转义
+            #    （花括号外的 \' 或 \" 是合法转义）。
+            if any('"' in p for p in expr_parts):
+                outer = "'"
+            elif any("'" in p for p in parts if isinstance(p, str)):
+                outer = '"'
             else:
-                return f'f"{fstr}"'
+                outer = '"'
+            # 仅转义字面量部分中的外层引号
+            out = []
+            for p in parts:
+                if isinstance(p, str) and outer in p:
+                    out.append(p.replace(outer, '\\' + outer))
+                else:
+                    out.append(p)
+            return f"f{outer}{''.join(out)}{outer}"
         
         elif isinstance(expr, ListComprehension):
             # 列表推导 -> [expr for var in iterable if condition ...]
@@ -1926,6 +2458,22 @@ class PythonCodeGenerator:
             # 等待表达式 → await expression
             inner = self._generate_expr(expr.expression)
             return f"await {inner}"
+        
+        # FFI 表达式节点
+        elif isinstance(expr, FFIPointerType):
+            return self._generate_ffi_pointer_type(expr)
+        elif isinstance(expr, FFIArrayType):
+            return self._generate_ffi_array_type(expr)
+        elif isinstance(expr, FFIAddressOf):
+            return self._generate_ffi_address_of(expr)
+        elif isinstance(expr, FFIDereference):
+            return self._generate_ffi_dereference(expr)
+        elif isinstance(expr, FFIPointerOffset):
+            return self._generate_ffi_pointer_offset(expr)
+        elif isinstance(expr, FFIGetLastError):
+            return self._generate_ffi_get_last_error(expr)
+        elif isinstance(expr, FFIGetErrno):
+            return self._generate_ffi_get_errno(expr)
         
         else:
             raise CodeGenError(f"不支持的表达式类型", type(expr).__name__)
@@ -2144,7 +2692,7 @@ class PythonCodeGenerator:
     # C FFI 代码生成方法
     # =========================================================================
 
-    # FFI 类型映射：光明类型 → ctypes 类型
+    # FFI 基本类型映射：光明类型 → ctypes 类型表达式
     _ffi_type_map = {
         '整数': 'ctypes.c_int',
         '小数': 'ctypes.c_double',
@@ -2156,6 +2704,21 @@ class PythonCodeGenerator:
         '数': 'ctypes.c_double',
         '无': 'None',
     }
+
+    # 用户自定义 FFI 类型名 → 生成的 Python 类型表达式
+    # 在 _generate_ffi_struct_def / _union_def / _funcptr_def / _typedef_def 中注册
+    _ffi_user_types: Dict[str, str] = {}
+
+    def _get_ffi_type(self, type_name: str) -> str:
+        """解析 FFI 类型名 → ctypes 类型表达式。
+        优先查找基本类型映射，再查找用户自定义类型。
+        """
+        if type_name in self._ffi_type_map:
+            return self._ffi_type_map[type_name]
+        if type_name in self._ffi_user_types:
+            return self._ffi_user_types[type_name]
+        # 未知类型：回退到 void*
+        return 'ctypes.c_void_p'
 
     def _generate_ffi_load_library(self, stmt: FFILoadLibrary):
         """生成加载动态库代码"""
@@ -2174,12 +2737,12 @@ class PythonCodeGenerator:
         arg_types = []
         for p in stmt.params:
             light_type = p.get('type', '整数')
-            ctype = self._ffi_type_map.get(light_type, 'ctypes.c_int')
+            ctype = self._get_ffi_type(light_type)
             arg_types.append(ctype)
 
         restype = 'None'
         if stmt.return_type:
-            restype = self._ffi_type_map.get(stmt.return_type, 'ctypes.c_int')
+            restype = self._get_ffi_type(stmt.return_type)
 
         # 生成 ctypes 函数绑定
         self._add_line(f"# 外部函数声明: {c_name}({', '.join(p['name'] for p in stmt.params)})")
@@ -2227,7 +2790,7 @@ class PythonCodeGenerator:
         fields_code = []
         for f in stmt.fields:
             fname = self._sanitize_name(f['name'])
-            ftype = self._ffi_type_map.get(f['type'], 'ctypes.c_int')
+            ftype = self._get_ffi_type(f['type'])
             fields_code.append(f"('{fname}', {ftype})")
         fields_str = ', '.join(fields_code)
         self._add_line(f"# 外部结构体: {name}")
@@ -2236,6 +2799,10 @@ class PythonCodeGenerator:
         self._add_line(f"_fields_ = [{fields_str}]")
         self.indent_level -= 1
         self._add_line("")
+        # 注册到用户自定义类型表，供后续使用（如作为函数参数/返回类型、嵌套结构体字段）
+        self._ffi_user_types[stmt.name] = name
+        # 也注册到运行时类型注册表，供 获取类型() 在运行时查找
+        self._add_line(f"_light_ffi.注册类型('{stmt.name}', {name})")
 
     def _generate_ffi_callback_def(self, stmt: FFICallbackDef):
         """生成外部回调类型定义"""
@@ -2243,20 +2810,23 @@ class PythonCodeGenerator:
         arg_types = []
         for p in stmt.params:
             light_type = p.get('type', '整数')
-            ctype = self._ffi_type_map.get(light_type, 'ctypes.c_int')
+            ctype = self._get_ffi_type(light_type)
             arg_types.append(ctype)
         restype = 'None'
         if stmt.return_type:
-            restype = self._ffi_type_map.get(stmt.return_type, 'ctypes.c_int')
+            restype = self._get_ffi_type(stmt.return_type)
         arg_types_str = ', '.join(arg_types)
         self._add_line(f"# 外部回调类型: {name}")
         self._add_line(f"{name} = ctypes.CFUNCTYPE({restype}, {arg_types_str})")
         self._add_line("")
+        # 注册回调类型，供函数声明等使用
+        self._ffi_user_types[stmt.name] = name
+        self._add_line(f"_light_ffi.注册类型('{stmt.name}', {name})")
 
     def _generate_ffi_create_array(self, stmt: FFICreateArray):
         """生成创建数组代码"""
         base_type = stmt.base_type
-        ctype = self._ffi_type_map.get(base_type, 'ctypes.c_int')
+        ctype = self._get_ffi_type(base_type)
         size = self._generate_expr(stmt.size)
         name = self._sanitize_name(stmt.base_type)
         self._add_line(f"# 创建数组: {base_type}[{size}]")
@@ -2324,7 +2894,7 @@ class PythonCodeGenerator:
         fields_code = []
         for f in stmt.fields:
             fname = self._sanitize_name(f['name'])
-            ftype = self._ffi_type_map.get(f['type'], 'ctypes.c_int')
+            ftype = self._get_ffi_type(f['type'])
             fields_code.append(f"('{fname}', {ftype})")
         fields_str = ', '.join(fields_code)
         self._add_line(f"# C联合体: {name}")
@@ -2333,6 +2903,9 @@ class PythonCodeGenerator:
         self._add_line(f"_fields_ = [{fields_str}]")
         self.indent_level -= 1
         self._add_line("")
+        # 注册联合体类型
+        self._ffi_user_types[stmt.name] = name
+        self._add_line(f"_light_ffi.注册类型('{stmt.name}', {name})")
 
     def _generate_ffi_varargs_decl(self, stmt: FFIVarArgsDecl):
         """生成变长参数函数声明代码"""
@@ -2343,12 +2916,12 @@ class PythonCodeGenerator:
         arg_types = []
         for p in stmt.params:
             light_type = p.get('type', '整数')
-            ctype = self._ffi_type_map.get(light_type, 'ctypes.c_int')
+            ctype = self._get_ffi_type(light_type)
             arg_types.append(ctype)
         
         restype = 'None'
         if stmt.return_type:
-            restype = self._ffi_type_map.get(stmt.return_type, 'ctypes.c_int')
+            restype = self._get_ffi_type(stmt.return_type)
         
         self._add_line(f"# 变长参数函数声明: {c_name}")
         self._add_line(f"_{name}_ffi = {library_alias}.{c_name}")
@@ -2401,15 +2974,18 @@ class PythonCodeGenerator:
     def _generate_ffi_typedef_def(self, stmt: FFITypedefDef):
         """生成C类型别名代码"""
         name = self._sanitize_name(stmt.name)
-        base_type = self._ffi_type_map.get(stmt.base_type, stmt.base_type)
+        base_type = self._get_ffi_type(stmt.base_type)
         self._add_line(f"# C类型别名: {name} -> {base_type}")
         self._add_line(f"{name} = {base_type}")
         self._add_line("")
+        # 注册类型别名
+        self._ffi_user_types[stmt.name] = name
+        self._add_line(f"_light_ffi.注册类型('{stmt.name}', {name})")
 
     def _generate_ffi_bitfield_def(self, stmt: FFIBitfieldDef):
         """生成C位域定义代码"""
         name = self._sanitize_name(stmt.name)
-        base_type = self._ffi_type_map.get(stmt.base_type, 'ctypes.c_int')
+        base_type = self._get_ffi_type(stmt.base_type)
         fields_code = []
         for f in stmt.fields:
             fname = self._sanitize_name(f['name'])
@@ -2429,15 +3005,18 @@ class PythonCodeGenerator:
         arg_types = []
         for p in stmt.params:
             light_type = p.get('type', '整数')
-            ctype = self._ffi_type_map.get(light_type, 'ctypes.c_int')
+            ctype = self._get_ffi_type(light_type)
             arg_types.append(ctype)
         restype = 'None'
         if stmt.return_type:
-            restype = self._ffi_type_map.get(stmt.return_type, 'ctypes.c_int')
+            restype = self._get_ffi_type(stmt.return_type)
         arg_types_str = ', '.join(arg_types) if arg_types else ''
         self._add_line(f"# C函数指针类型: {name}")
         self._add_line(f"{name} = ctypes.CFUNCTYPE({restype}, {arg_types_str})")
         self._add_line("")
+        # 注册函数指针类型
+        self._ffi_user_types[stmt.name] = name
+        self._add_line(f"_light_ffi.注册类型('{stmt.name}', {name})")
 
     def _generate_ffi_debug_config(self, stmt: FFIDebugConfig):
         """生成FFI调试配置代码"""
@@ -2458,6 +3037,47 @@ class PythonCodeGenerator:
         self._add_line(f"# C预处理器宏: {name} = {stmt.value}")
         self._add_line(f"_light_ffi.定义宏('{name}', {repr(stmt.value)})")
         self._add_line("")
+
+    # =========================================================================
+    # C FFI 表达式级代码生成（第二阶段：指针/数组/错误处理）
+    # =========================================================================
+
+    def _generate_ffi_pointer_type(self, expr: FFIPointerType) -> str:
+        """生成指针类型表达式：指针[整数] → ctypes.POINTER(ctypes.c_int)"""
+        base_type = self._get_ffi_type(expr.base_type)
+        return f"ctypes.POINTER({base_type})"
+
+    def _generate_ffi_array_type(self, expr: FFIArrayType) -> str:
+        """生成数组类型表达式：数组[整数, 5] → (ctypes.c_int * 5)"""
+        base_type = self._get_ffi_type(expr.base_type)
+        if expr.size is not None:
+            size = self._generate_expr(expr.size) if isinstance(expr.size, ASTNode) else str(expr.size)
+            return f"({base_type} * {size})"
+        return f"({base_type} * 0)"
+
+    def _generate_ffi_address_of(self, expr: FFIAddressOf) -> str:
+        """生成取地址表达式：取地址(变量) → ctypes.pointer(变量)"""
+        target = self._generate_expr(expr.target)
+        return f"ctypes.pointer({target})"
+
+    def _generate_ffi_dereference(self, expr: FFIDereference) -> str:
+        """生成解引用表达式：解引用(指针) → 指针[0]"""
+        pointer = self._generate_expr(expr.pointer)
+        return f"{pointer}[0]"
+
+    def _generate_ffi_pointer_offset(self, expr: FFIPointerOffset) -> str:
+        """生成指针偏移表达式：指针偏移(指针, 偏移量) → ctypes.cast(指针, ctypes.POINTER(ctypes.c_byte))[偏移量]"""
+        pointer = self._generate_expr(expr.pointer)
+        offset = self._generate_expr(expr.offset)
+        return f"ctypes.cast({pointer}, ctypes.POINTER(ctypes.c_byte))[{offset}]"
+
+    def _generate_ffi_get_last_error(self, expr: FFIGetLastError) -> str:
+        """生成获取FFI错误表达式：获取FFI错误() → _light_ffi.获取FFI错误()"""
+        return "_light_ffi.获取FFI错误()"
+
+    def _generate_ffi_get_errno(self, expr: FFIGetErrno) -> str:
+        """生成获取系统错误码表达式：获取系统错误码() → ctypes.get_errno()"""
+        return "ctypes.get_errno()"
 
     def _generate_embed_block(self, stmt: EmbedBlock):
         """生成嵌入块代码（v4.0 分层架构 L3/L4 统一入口）
@@ -2508,10 +3128,10 @@ class PythonCodeGenerator:
             db_var = lang_label or "default"
             self._add_line(f"# --- L3: 引 SQL {lang_label}（原生参数化 sqlite3，防注入）---")
             self._add_line("import sqlite3 as _light_sqlite3")
-            self._add_line(f"if '_DUAN_SQL_CONNS' not in globals(): _DUAN_SQL_CONNS = {{}}")
-            self._add_line(f"if '{db_var}' not in _DUAN_SQL_CONNS:")
-            self._add_line(f"    _DUAN_SQL_CONNS['{db_var}'] = _light_sqlite3.connect(':memory:' if '{db_var}' == 'default' else '{db_var}.db')")
-            self._add_line(f"    _DUAN_SQL_CONNS['{db_var}'].row_factory = _light_sqlite3.Row")
+            self._add_line(f"if '_LIGHT_SQL_CONNS' not in globals(): _LIGHT_SQL_CONNS = {{}}")
+            self._add_line(f"if '{db_var}' not in _LIGHT_SQL_CONNS:")
+            self._add_line(f"    _LIGHT_SQL_CONNS['{db_var}'] = _light_sqlite3.connect(':memory:' if '{db_var}' == 'default' else '{db_var}.db')")
+            self._add_line(f"    _LIGHT_SQL_CONNS['{db_var}'].row_factory = _light_sqlite3.Row")
             # 遍历 code（多行按 ; 分语句，允许 -- 注释）
             statements = [s.strip() for s in code.split(';') if s.strip()]
             for idx, raw_sql in enumerate(statements):
@@ -2525,16 +3145,16 @@ class PythonCodeGenerator:
                     # 返回 list[dict] 的查询函数
                     fn_name = f"l3_sql_{db_var or 'default'}_q{idx}" if statements else f"l3_sql_query_{db_var}"
                     self._add_line(f"def {fn_name}(params=()):")
-                    self._add_line(f"    _c = _DUAN_SQL_CONNS['{db_var}'].cursor()")
+                    self._add_line(f"    _c = _LIGHT_SQL_CONNS['{db_var}'].cursor()")
                     self._add_line(f"    _c.execute({sql_py_repr}, tuple(params))")
                     self._add_line(f"    return [dict(_r) for _r in _c.fetchall()]")
                 else:
                     # 返回影响行数的 DDL/DML 函数
                     fn_name = f"l3_sql_{db_var or 'default'}_e{idx}" if statements else f"l3_sql_exec_{db_var}"
                     self._add_line(f"def {fn_name}(params=()):")
-                    self._add_line(f"    _c = _DUAN_SQL_CONNS['{db_var}'].cursor()")
+                    self._add_line(f"    _c = _LIGHT_SQL_CONNS['{db_var}'].cursor()")
                     self._add_line(f"    _c.execute({sql_py_repr}, tuple(params))")
-                    self._add_line(f"    _DUAN_SQL_CONNS['{db_var}'].commit()")
+                    self._add_line(f"    _LIGHT_SQL_CONNS['{db_var}'].commit()")
                     self._add_line(f"    return _c.rowcount")
             self._add_line(f"# --- 结束 L3 引 SQL {lang_label}（共 {len(statements)} 条语句）---")
             return
@@ -2586,7 +3206,7 @@ class PythonCodeGenerator:
             self._add_line(f"# --- L3: 引 公式 {expr_name}（sympy 封装）---")
             self._add_line("try:")
             self._add_line("    import sympy as _light_l3_sym")
-            self._add_line("except Exception as _DUAN_L3_SYM_ERR:")
+            self._add_line("except Exception as _LIGHT_L3_SYM_ERR:")
             self._add_line("    _light_l3_sym = None")
             # 解析公式行：支持 解...= / d/dx... / ∫(... →...) / 直接化简 / 矩阵乘法
             for idx, raw_line in enumerate(code.split('\n')):
@@ -2601,7 +3221,7 @@ class PythonCodeGenerator:
                     lhs, rhs = m_solve.group(1), m_solve.group(2)
                     fn_name = f"l3_math_solve_{safe_name}_{idx}"
                     self._add_line(f"def {fn_name}(**kw):")
-                    self._add_line("    if not _light_l3_sym: raise RuntimeError(f'sympy未装: {_DUAN_L3_SYM_ERR}')")
+                    self._add_line("    if not _light_l3_sym: raise RuntimeError(f'sympy未装: {_LIGHT_L3_SYM_ERR}')")
                     self._add_line(f"    from sympy import Eq, solve, symbols, sympify")
                     self._add_line(f"    _all_sym = list(set(sympify({lhs!r}).free_symbols) | set(sympify({rhs!r}).free_symbols))")
                     self._add_line(f"    for _s in _all_sym: globals().setdefault(str(_s), _s)")
@@ -2614,7 +3234,7 @@ class PythonCodeGenerator:
                     vn, ex = m_diff.group(1), m_diff.group(2)
                     fn_name = f"l3_math_diff_{safe_name}_{vn}_{idx}"
                     self._add_line(f"def {fn_name}():")
-                    self._add_line("    if not _light_l3_sym: raise RuntimeError(f'sympy未装: {_DUAN_L3_SYM_ERR}')")
+                    self._add_line("    if not _light_l3_sym: raise RuntimeError(f'sympy未装: {_LIGHT_L3_SYM_ERR}')")
                     self._add_line(f"    from sympy import diff, sympify, symbols")
                     self._add_line(f"    v = symbols({vn!r})")
                     self._add_line(f"    return str(diff(sympify({ex!r}), v))")
@@ -2630,7 +3250,7 @@ class PythonCodeGenerator:
                         vn = 'x'
                     fn_name = f"l3_math_int_{safe_name}_{vn}_{idx}"
                     self._add_line(f"def {fn_name}():")
-                    self._add_line("    if not _light_l3_sym: raise RuntimeError(f'sympy未装: {_DUAN_L3_SYM_ERR}')")
+                    self._add_line("    if not _light_l3_sym: raise RuntimeError(f'sympy未装: {_LIGHT_L3_SYM_ERR}')")
                     self._add_line(f"    from sympy import integrate, sympify, symbols")
                     self._add_line(f"    v = symbols({vn!r}); f = sympify({f.strip()!r})")
                     self._add_line(f"    r = integrate(f, (v, sympify({a!r}), sympify({b!r})))")
@@ -2642,7 +3262,7 @@ class PythonCodeGenerator:
                 if m_mat:
                     fn_name = f"l3_math_mat_{safe_name}_{idx}"
                     self._add_line(f"def {fn_name}():")
-                    self._add_line("    if not _light_l3_sym: raise RuntimeError(f'sympy未装: {_DUAN_L3_SYM_ERR}')")
+                    self._add_line("    if not _light_l3_sym: raise RuntimeError(f'sympy未装: {_LIGHT_L3_SYM_ERR}')")
                     self._add_line(f"    from sympy import Matrix")
                     self._add_line(f"    R = Matrix({m_mat.group(1)}) * Matrix({m_mat.group(2)})")
                     self._add_line(f"    return [list(row) for row in R.tolist()]")
@@ -2650,7 +3270,7 @@ class PythonCodeGenerator:
                 # 默认：表达式化简
                 fn_name = f"l3_math_simp_{safe_name}_{idx}"
                 self._add_line(f"def {fn_name}():")
-                self._add_line("    if not _light_l3_sym: raise RuntimeError(f'sympy未装: {_DUAN_L3_SYM_ERR}')")
+                self._add_line("    if not _light_l3_sym: raise RuntimeError(f'sympy未装: {_LIGHT_L3_SYM_ERR}')")
                 self._add_line(f"    from sympy import simplify, sympify")
                 self._add_line(f"    return str(simplify(sympify({line_clean!r})))")
             self._add_line(f"# --- 结束 L3 引 公式 {expr_name} ---")
@@ -2665,44 +3285,44 @@ class PythonCodeGenerator:
             self._add_line("import subprocess as _light_sp")
             self._add_line("import sys as _light_sys")
             self._add_line("import re as _light_l4_re")
-            self._add_line("_DUAN_C_CODE = '''")
+            self._add_line("_LIGHT_C_CODE = '''")
             for line in code.split('\n'):
                 self._add_line(line)
             self._add_line("'''")
             # 平台检测：.so vs .dll
-            self._add_line("_DUAN_C_EXT = '.dll' if _light_sys.platform == 'win32' else '.so'")
+            self._add_line("_LIGHT_C_EXT = '.dll' if _light_sys.platform == 'win32' else '.so'")
             # 编译器检测：gcc > cc > clang
-            self._add_line("_DUAN_C_CC = None")
-            self._add_line("for _DUAN_C_CAND in ['gcc', 'cc', 'clang']:")
+            self._add_line("_LIGHT_C_CC = None")
+            self._add_line("for _LIGHT_C_CAND in ['gcc', 'cc', 'clang']:")
             self._add_line("    try:")
-            self._add_line("        _light_sp.run([_DUAN_C_CAND, '--version'], capture_output=True, check=True)")
-            self._add_line("        _DUAN_C_CC = _DUAN_C_CAND; break")
+            self._add_line("        _light_sp.run([_LIGHT_C_CAND, '--version'], capture_output=True, check=True)")
+            self._add_line("        _LIGHT_C_CC = _LIGHT_C_CAND; break")
             self._add_line("    except Exception: pass")
             # 写临时 C 文件
-            self._add_line("_DUAN_C_SRC = _light_tmp.NamedTemporaryFile(suffix='.c', delete=False, mode='w', encoding='utf-8')")
-            self._add_line("_DUAN_C_SRC.write('#include <stdlib.h>\\n#include <string.h>\\n#include <math.h>\\n')")
-            self._add_line("_DUAN_C_SRC.write(_DUAN_C_CODE)")
-            self._add_line("_DUAN_C_SRC.close()")
-            self._add_line("_DUAN_C_LIB = _DUAN_C_SRC.name.replace('.c', _DUAN_C_EXT)")
+            self._add_line("_LIGHT_C_SRC = _light_tmp.NamedTemporaryFile(suffix='.c', delete=False, mode='w', encoding='utf-8')")
+            self._add_line("_LIGHT_C_SRC.write('#include <stdlib.h>\\n#include <string.h>\\n#include <math.h>\\n')")
+            self._add_line("_LIGHT_C_SRC.write(_LIGHT_C_CODE)")
+            self._add_line("_LIGHT_C_SRC.close()")
+            self._add_line("_LIGHT_C_LIB = _LIGHT_C_SRC.name.replace('.c', _LIGHT_C_EXT)")
             # 编译
-            self._add_line("if _DUAN_C_CC:")
-            self._add_line("    _light_sp.run([_DUAN_C_CC, '-shared', '-fPIC', '-O2', '-o', _DUAN_C_LIB, _DUAN_C_SRC.name, '-lm'], check=True)")
+            self._add_line("if _LIGHT_C_CC:")
+            self._add_line("    _light_sp.run([_LIGHT_C_CC, '-shared', '-fPIC', '-O2', '-o', _LIGHT_C_LIB, _LIGHT_C_SRC.name, '-lm'], check=True)")
             # 加载动态库
-            self._add_line("_DUAN_C_DLL = _light_ctypes.CDLL(_DUAN_C_LIB) if _DUAN_C_CC else None")
+            self._add_line("_LIGHT_C_DLL = _light_ctypes.CDLL(_LIGHT_C_LIB) if _LIGHT_C_CC else None")
             # 自动解析 C 函数签名，生成 Python 可调用封装
-            self._add_line("_DUAN_C_FUNCS = _light_l4_re.findall(r'(?:int|float|double|void|long|char\\s*\\*)\\s+(\\w+)\\s*\\(', _DUAN_C_CODE)")
-            self._add_line("for _DUAN_C_FN in _DUAN_C_FUNCS:")
-            self._add_line("    if _DUAN_C_DLL:")
+            self._add_line("_LIGHT_C_FUNCS = _light_l4_re.findall(r'(?:int|float|double|void|long|char\\s*\\*)\\s+(\\w+)\\s*\\(', _LIGHT_C_CODE)")
+            self._add_line("for _LIGHT_C_FN in _LIGHT_C_FUNCS:")
+            self._add_line("    if _LIGHT_C_DLL:")
             self._add_line("        try:")
             # 尝试推断返回类型和参数类型
-            self._add_line("            _DUAN_C_FN_OBJ = getattr(_DUAN_C_DLL, _DUAN_C_FN)")
-            self._add_line("            _DUAN_C_FN_OBJ.restype = _light_ctypes.c_double")
-            self._add_line("            globals()[_DUAN_C_FN] = _DUAN_C_FN_OBJ")
+            self._add_line("            _LIGHT_C_FN_OBJ = getattr(_LIGHT_C_DLL, _LIGHT_C_FN)")
+            self._add_line("            _LIGHT_C_FN_OBJ.restype = _light_ctypes.c_double")
+            self._add_line("            globals()[_LIGHT_C_FN] = _LIGHT_C_FN_OBJ")
             self._add_line("        except Exception:")
-            self._add_line("            globals()[_DUAN_C_FN] = lambda *a, _fn=_DUAN_C_FN: f'[C:{_fn} 未加载]'")
+            self._add_line("            globals()[_LIGHT_C_FN] = lambda *a, _fn=_LIGHT_C_FN: f'[C:{_fn} 未加载]'")
             self._add_line("    else:")
-            self._add_line("        globals()[_DUAN_C_FN] = lambda *a, _fn=_DUAN_C_FN: f'[C:{_fn} 编译器未找到]'")
-            self._add_line("del _DUAN_C_CODE, _DUAN_C_FN, _DUAN_C_FUNCS")
+            self._add_line("        globals()[_LIGHT_C_FN] = lambda *a, _fn=_LIGHT_C_FN: f'[C:{_fn} 编译器未找到]'")
+            self._add_line("del _LIGHT_C_CODE, _LIGHT_C_FN, _LIGHT_C_FUNCS")
             self._add_line(f"# --- 结束 L4 引 C ---")
             return
 
@@ -2715,45 +3335,45 @@ class PythonCodeGenerator:
             self._add_line("import subprocess as _light_sp")
             self._add_line("import sys as _light_sys")
             self._add_line("import re as _light_l4_re")
-            self._add_line("_DUAN_GO_CODE = '''")
+            self._add_line("_LIGHT_GO_CODE = '''")
             for line in code.split('\n'):
                 self._add_line(line)
             self._add_line("'''")
             # 检测 Go 编译器
-            self._add_line("_DUAN_GO_OK = False")
+            self._add_line("_LIGHT_GO_OK = False")
             self._add_line("try:")
             self._add_line("    _light_sp.run(['go', 'version'], capture_output=True, check=True)")
-            self._add_line("    _DUAN_GO_OK = True")
+            self._add_line("    _LIGHT_GO_OK = True")
             self._add_line("except Exception: pass")
             # 写 Go 源文件
-            self._add_line("if _DUAN_GO_OK:")
-            self._add_line("    _DUAN_GO_EXT = '.dll' if _light_sys.platform == 'win32' else '.so'")
-            self._add_line("    _DUAN_GO_DIR = _light_tmp.mkdtemp(prefix='light_go_')")
-            self._add_line("    _DUAN_GO_SRC = _light_os.path.join(_DUAN_GO_DIR, 'main.go')")
+            self._add_line("if _LIGHT_GO_OK:")
+            self._add_line("    _LIGHT_GO_EXT = '.dll' if _light_sys.platform == 'win32' else '.so'")
+            self._add_line("    _LIGHT_GO_DIR = _light_tmp.mkdtemp(prefix='light_go_')")
+            self._add_line("    _LIGHT_GO_SRC = _light_os.path.join(_LIGHT_GO_DIR, 'main.go')")
             # 包装 Go 代码为 c-shared 导出库
-            self._add_line("    _DUAN_GO_WRAPPED = 'package main\\n\\nimport \"C\"\\n\\n' + _DUAN_GO_CODE")
-            self._add_line("    with open(_DUAN_GO_SRC, 'w', encoding='utf-8') as _f: _f.write(_DUAN_GO_WRAPPED)")
+            self._add_line("    _LIGHT_GO_WRAPPED = 'package main\\n\\nimport \"C\"\\n\\n' + _LIGHT_GO_CODE")
+            self._add_line("    with open(_LIGHT_GO_SRC, 'w', encoding='utf-8') as _f: _f.write(_LIGHT_GO_WRAPPED)")
             # 初始化 go.mod
-            self._add_line("    _light_sp.run(['go', 'mod', 'init', 'light_l4_go'], cwd=_DUAN_GO_DIR, capture_output=True)")
+            self._add_line("    _light_sp.run(['go', 'mod', 'init', 'light_l4_go'], cwd=_LIGHT_GO_DIR, capture_output=True)")
             # 编译为 c-shared 库
-            self._add_line("    _DUAN_GO_LIB = _light_os.path.join(_DUAN_GO_DIR, 'light_go' + _DUAN_GO_EXT)")
+            self._add_line("    _LIGHT_GO_LIB = _light_os.path.join(_LIGHT_GO_DIR, 'light_go' + _LIGHT_GO_EXT)")
             self._add_line("    try:")
-            self._add_line("        _light_sp.run(['go', 'build', '-buildmode=c-shared', '-o', _DUAN_GO_LIB, _DUAN_GO_SRC], cwd=_DUAN_GO_DIR, check=True)")
-            self._add_line("        _DUAN_GO_DLL = _light_ctypes.CDLL(_DUAN_GO_LIB)")
+            self._add_line("        _light_sp.run(['go', 'build', '-buildmode=c-shared', '-o', _LIGHT_GO_LIB, _LIGHT_GO_SRC], cwd=_LIGHT_GO_DIR, check=True)")
+            self._add_line("        _LIGHT_GO_DLL = _light_ctypes.CDLL(_LIGHT_GO_LIB)")
             # 自动解析 //export GoFuncName 导出函数
-            self._add_line("        _DUAN_GO_EXPORTS = _light_l4_re.findall(r'//export\\s+(\\w+)', _DUAN_GO_CODE)")
-            self._add_line("        for _DUAN_GO_FN in _DUAN_GO_EXPORTS:")
+            self._add_line("        _LIGHT_GO_EXPORTS = _light_l4_re.findall(r'//export\\s+(\\w+)', _LIGHT_GO_CODE)")
+            self._add_line("        for _LIGHT_GO_FN in _LIGHT_GO_EXPORTS:")
             self._add_line("            try:")
-            self._add_line("                _DUAN_GO_FN_OBJ = getattr(_DUAN_GO_DLL, _DUAN_GO_FN)")
-            self._add_line("                _DUAN_GO_FN_OBJ.restype = _light_ctypes.c_double")
-            self._add_line("                globals()[_DUAN_GO_FN] = _DUAN_GO_FN_OBJ")
+            self._add_line("                _LIGHT_GO_FN_OBJ = getattr(_LIGHT_GO_DLL, _LIGHT_GO_FN)")
+            self._add_line("                _LIGHT_GO_FN_OBJ.restype = _light_ctypes.c_double")
+            self._add_line("                globals()[_LIGHT_GO_FN] = _LIGHT_GO_FN_OBJ")
             self._add_line("            except Exception:")
-            self._add_line("                globals()[_DUAN_GO_FN] = lambda *a, _fn=_DUAN_GO_FN: f'[Go:{_fn} 未加载]'")
-            self._add_line("    except Exception as _DUAN_GO_ERR:")
-            self._add_line("        print(f'[L4 Go] 编译失败: {_DUAN_GO_ERR}')")
+            self._add_line("                globals()[_LIGHT_GO_FN] = lambda *a, _fn=_LIGHT_GO_FN: f'[Go:{_fn} 未加载]'")
+            self._add_line("    except Exception as _LIGHT_GO_ERR:")
+            self._add_line("        print(f'[L4 Go] 编译失败: {_LIGHT_GO_ERR}')")
             self._add_line("else:")
             self._add_line("    print('[L4 Go] Go 编译器未安装, 跳过')")
-            self._add_line("del _DUAN_GO_CODE")
+            self._add_line("del _LIGHT_GO_CODE")
             self._add_line(f"# --- 结束 L4 引 Go ---")
             return
 
@@ -2765,47 +3385,47 @@ class PythonCodeGenerator:
             self._add_line("import subprocess as _light_sp")
             self._add_line("import sys as _light_sys")
             self._add_line("import json as _light_json")
-            self._add_line("_DUAN_MBT_CODE = '''")
+            self._add_line("_LIGHT_MBT_CODE = '''")
             for line in code.split('\n'):
                 self._add_line(line)
             self._add_line("'''")
             # 检测 MoonBit 工具链
-            self._add_line("_DUAN_MBT_OK = False")
+            self._add_line("_LIGHT_MBT_OK = False")
             self._add_line("try:")
             self._add_line("    _light_sp.run(['moon', 'version'], capture_output=True, check=True)")
-            self._add_line("    _DUAN_MBT_OK = True")
+            self._add_line("    _LIGHT_MBT_OK = True")
             self._add_line("except Exception: pass")
             # 创建 MoonBit 项目并编译
-            self._add_line("if _DUAN_MBT_OK:")
-            self._add_line("    _DUAN_MBT_DIR = _light_tmp.mkdtemp(prefix='light_mbt_')")
-            self._add_line("    _DUAN_MBT_SRC = _light_os.path.join(_DUAN_MBT_DIR, 'main.mbt')")
-            self._add_line("    with open(_DUAN_MBT_SRC, 'w', encoding='utf-8') as _f: _f.write(_DUAN_MBT_CODE)")
+            self._add_line("if _LIGHT_MBT_OK:")
+            self._add_line("    _LIGHT_MBT_DIR = _light_tmp.mkdtemp(prefix='light_mbt_')")
+            self._add_line("    _LIGHT_MBT_SRC = _light_os.path.join(_LIGHT_MBT_DIR, 'main.mbt')")
+            self._add_line("    with open(_LIGHT_MBT_SRC, 'w', encoding='utf-8') as _f: _f.write(_LIGHT_MBT_CODE)")
             # 生成 moon.pkg.json
-            self._add_line("    _DUAN_MBT_PKG = _light_os.path.join(_DUAN_MBT_DIR, 'moon.pkg.json')")
-            self._add_line("    with open(_DUAN_MBT_PKG, 'w') as _f: _light_json.dump({}, _f)")
+            self._add_line("    _LIGHT_MBT_PKG = _light_os.path.join(_LIGHT_MBT_DIR, 'moon.pkg.json')")
+            self._add_line("    with open(_LIGHT_MBT_PKG, 'w') as _f: _light_json.dump({}, _f)")
             # 编译为 wasm
             self._add_line("    try:")
-            self._add_line("        _light_sp.run(['moon', 'build', '--target', 'wasm'], cwd=_DUAN_MBT_DIR, check=True, capture_output=True)")
+            self._add_line("        _light_sp.run(['moon', 'build', '--target', 'wasm'], cwd=_LIGHT_MBT_DIR, check=True, capture_output=True)")
             # 尝试用 wasmtime 执行
-            self._add_line("        _DUAN_MBT_WASM = _light_os.path.join(_DUAN_MBT_DIR, 'target', 'wasm', 'release', 'build', 'main.wasm')")
-            self._add_line("        if not _light_os.path.exists(_DUAN_MBT_WASM):")
+            self._add_line("        _LIGHT_MBT_WASM = _light_os.path.join(_LIGHT_MBT_DIR, 'target', 'wasm', 'release', 'build', 'main.wasm')")
+            self._add_line("        if not _light_os.path.exists(_LIGHT_MBT_WASM):")
             # 尝试其他路径
-            self._add_line("            _DUAN_MBT_WASM = _light_os.path.join(_DUAN_MBT_DIR, 'target', 'wasm', 'debug', 'build', 'main.wasm')")
-            self._add_line("        if _light_os.path.exists(_DUAN_MBT_WASM):")
+            self._add_line("            _LIGHT_MBT_WASM = _light_os.path.join(_LIGHT_MBT_DIR, 'target', 'wasm', 'debug', 'build', 'main.wasm')")
+            self._add_line("        if _light_os.path.exists(_LIGHT_MBT_WASM):")
             self._add_line("            try:")
-            self._add_line("                _DUAN_MBT_OUT = _light_sp.run(['wasmtime', _DUAN_MBT_WASM], capture_output=True, text=True, timeout=30)")
-            self._add_line("                print(f'[MoonBit wasm] {_DUAN_MBT_OUT.stdout.strip()}')")
-            self._add_line("                if _DUAN_MBT_OUT.stderr: print(f'[MoonBit wasm stderr] {_DUAN_MBT_OUT.stderr.strip()}')")
-            self._add_line("            except Exception as _DUAN_MBT_WASM_ERR:")
-            self._add_line("                print(f'[MoonBit] wasm 编译成功但 wasmtime 执行失败: {_DUAN_MBT_WASM_ERR}')")
-            self._add_line("                print(f'[MoonBit] wasm 文件位于: {_DUAN_MBT_WASM}')")
+            self._add_line("                _LIGHT_MBT_OUT = _light_sp.run(['wasmtime', _LIGHT_MBT_WASM], capture_output=True, text=True, timeout=30)")
+            self._add_line("                print(f'[MoonBit wasm] {_LIGHT_MBT_OUT.stdout.strip()}')")
+            self._add_line("                if _LIGHT_MBT_OUT.stderr: print(f'[MoonBit wasm stderr] {_LIGHT_MBT_OUT.stderr.strip()}')")
+            self._add_line("            except Exception as _LIGHT_MBT_WASM_ERR:")
+            self._add_line("                print(f'[MoonBit] wasm 编译成功但 wasmtime 执行失败: {_LIGHT_MBT_WASM_ERR}')")
+            self._add_line("                print(f'[MoonBit] wasm 文件位于: {_LIGHT_MBT_WASM}')")
             self._add_line("        else:")
             self._add_line("            print(f'[MoonBit] 编译完成但未找到 wasm 文件')")
-            self._add_line("    except Exception as _DUAN_MBT_ERR:")
-            self._add_line("        print(f'[L4 MoonBit] 编译失败: {_DUAN_MBT_ERR}')")
+            self._add_line("    except Exception as _LIGHT_MBT_ERR:")
+            self._add_line("        print(f'[L4 MoonBit] 编译失败: {_LIGHT_MBT_ERR}')")
             self._add_line("else:")
             self._add_line("    print('[L4 MoonBit] MoonBit 工具链未安装, 跳过')")
-            self._add_line("del _DUAN_MBT_CODE")
+            self._add_line("del _LIGHT_MBT_CODE")
             self._add_line(f"# --- 结束 L4 引 MoonBit ---")
             return
 

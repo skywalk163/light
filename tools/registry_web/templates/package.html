@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{package_name}} - 段言包注册中心</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <a href="/" class="logo">📦 段言包注册中心</a>
+                <div class="search-box">
+                    <form action="/search" method="get">
+                        <input type="text" name="q" placeholder="搜索包名、描述或关键词..." value="{{search_query}}">
+                        <button type="submit">搜索</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <nav class="breadcrumb">
+            <a href="/">首页</a> / <span>{{package_name}}</span>
+        </nav>
+
+        <div class="package-detail">
+            <div class="detail-header">
+                <div>
+                    <h1>{{package_name}} <span class="version-tag">v{{package_version}}</span></h1>
+                    <p class="detail-desc">{{package_description}}</p>
+                </div>
+            </div>
+
+            <div class="detail-info">
+                <div class="info-section">
+                    <h3>基本信息</h3>
+                    <table class="info-table">
+                        <tr>
+                            <td class="label">作者</td>
+                            <td>{{package_author}}</td>
+                        </tr>
+                        <tr>
+                            <td class="label">版本</td>
+                            <td>v{{package_version}}</td>
+                        </tr>
+                        <tr>
+                            <td class="label">关键词</td>
+                            <td>{{package_keywords}}</td>
+                        </tr>
+                        <tr>
+                            <td class="label">依赖</td>
+                            <td>{{package_dependencies}}</td>
+                        </tr>
+                        <tr>
+                            <td class="label">下载量</td>
+                            <td>{{package_downloads}}</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="info-section">
+                    <h3>安装</h3>
+                    <div class="install-box">
+                        <code>{{install_command}}</code>
+                        <button class="copy-btn" onclick="navigator.clipboard.writeText('{{install_command}}')">复制</button>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3>链接</h3>
+                    <div class="links">
+                        <a href="{{package_repository}}" target="_blank" class="link-btn">📂 源代码仓库</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="back-link">
+            <a href="/">← 返回首页</a>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>段言（Duan）包注册中心 · 使用 <code>duan pkg install &lt;包名&gt;</code> 安装包</p>
+            <p class="footer-links">
+                <a href="https://gitcode.com/duan-lang" target="_blank">段言官网</a>
+                <a href="https://gitcode.com/duan-lang/registry" target="_blank">段件库</a>
+            </p>
+        </div>
+    </footer>
+</body>
+</html>

@@ -459,7 +459,8 @@ class 测试任务队列调度器(unittest.TestCase):
         执行时间 = time.time() + 0.1
         scheduler.添加定时任务(执行时间, 任务)
         scheduler.启动()
-        time.sleep(0.2)
+        # 增加等待时间避免全量测试时的时序抖动
+        time.sleep(0.5)
         scheduler.停止()
         
         self.assertTrue(执行了[0])

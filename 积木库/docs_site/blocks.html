@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>积木库 · 块清单（共 163 块）</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="brand">段言积木库</span>
+  <span class="proto">协议 <b>v1.0.0</b>（当前）/ <i>v1.1 规划中</i></span>
+  <span class="links">
+    <a href="index.html">文档首页</a>
+    <a href="../协议.md">协议.md</a>
+    <a href="../评估/README.md">评估/README.md</a>
+  </span>
+</div>
+<div class="wrap">
+  <header class="hero">
+    <h1>积木清单</h1>
+    <p>共 <b>163</b> 块 · 协议版本 <code>1.1.0</code> · 本页由 <code>build_docs.py</code> 从 <code>索引.json</code> 实时生成，切勿手抄。</p>
+  </header>
+
+  <div class="toolbar">
+    <input id="q" placeholder="搜索名称 / 描述 / 导出名…" oninput="过滤()">
+    <select id="dom" onchange="过滤()">
+      <option value="">全部领域</option>
+    </select>
+    <span class="count" id="c"></span>
+  </div>
+
+  <table id="tbl">
+    <thead>
+      <tr><th>名称</th><th>领域</th><th>层级</th><th>描述</th><th>稳定性</th><th>输入</th><th>输出</th><th>导出名</th><th>路径</th></tr>
+    </thead>
+    <tbody>
+<tr><td><b>求和</b></td><td>数据</td><td class="num">0</td><td>对数值列表求和，返回所有元素之和</td><td><span class="badge stable">stable</span></td><td>列表:列表[数]</td><td>数</td><td><code>汇总</code></td><td><code>数据/求和.duan</code></td></tr>
+<tr><td><b>均值</b></td><td>数据</td><td class="num">0</td><td>对数值列表算算术平均数，即总和除以元素个数</td><td><span class="badge stable">stable</span></td><td>列表:列表[数]</td><td>数</td><td><code>平均</code></td><td><code>数据/均值.duan</code></td></tr>
+<tr><td><b>最大</b></td><td>数据</td><td class="num">0</td><td>返回数值列表中的最大值</td><td><span class="badge stable">stable</span></td><td>列表:列表[数]</td><td>数</td><td><code>极大</code></td><td><code>数据/最大.duan</code></td></tr>
+<tr><td><b>最小</b></td><td>数据</td><td class="num">0</td><td>返回数值列表中的最小值</td><td><span class="badge stable">stable</span></td><td>列表:列表[数]</td><td>数</td><td><code>极小</code></td><td><code>数据/最小.duan</code></td></tr>
+<tr><td><b>计数</b></td><td>数据</td><td class="num">0</td><td>返回数值列表的元素个数（长度）</td><td><span class="badge stable">stable</span></td><td>列表:列表[任意]</td><td>数</td><td><code>计数</code></td><td><code>数据/计数.duan</code></td></tr>
+<tr><td><b>个税</b></td><td>财务</td><td class="num">0</td><td>中国大陆个税月度速算，起征点5000，七级超额累进，输入月收入返回应缴税额</td><td><span class="badge stable">stable</span></td><td>月收:数</td><td>数</td><td><code>税</code></td><td><code>财务/个税.duan</code></td></tr>
+<tr><td><b>保留分</b></td><td>财务</td><td class="num">0</td><td>把金额四舍五入到分（两位小数），中国会计惯例的四舍五入</td><td><span class="badge stable">stable</span></td><td>数值:数</td><td>数</td><td><code>留分</code></td><td><code>财务/保留分.duan</code></td></tr>
+<tr><td><b>分页参数</b></td><td>网络</td><td class="num">0</td><td>总数加每页数，生成各页 offset 列表，用于 offset/limit 分页</td><td><span class="badge stable">stable</span></td><td>总数:数；每页:数</td><td>列表[数]</td><td><code>分页</code></td><td><code>网络/分页参数.duan</code></td></tr>
+<tr><td><b>去空格</b></td><td>文本</td><td class="num">0</td><td>去掉文本首尾空白字符</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>净字</code></td><td><code>文本/去空格.duan</code></td></tr>
+<tr><td><b>转小写</b></td><td>文本</td><td class="num">0</td><td>把文本中的英文字母全部转成小写</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>小化</code></td><td><code>文本/转小写.duan</code></td></tr>
+<tr><td><b>转大写</b></td><td>文本</td><td class="num">0</td><td>把文本中的英文字母全部转成大写</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>大化</code></td><td><code>文本/转大写.duan</code></td></tr>
+<tr><td><b>反转文本</b></td><td>文本</td><td class="num">0</td><td>把文本的字符顺序整体倒置</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>颠倒</code></td><td><code>文本/反转文本.duan</code></td></tr>
+<tr><td><b>替换文本</b></td><td>文本</td><td class="num">0</td><td>把文本中全部出现的旧子串替换成新子串</td><td><span class="badge stable">stable</span></td><td>文本:文本；旧:文本；新:文本</td><td>文本</td><td><code>替换</code></td><td><code>文本/替换文本.duan</code></td></tr>
+<tr><td><b>文本长度</b></td><td>文本</td><td class="num">0</td><td>返回文本的字符个数，中文按字计</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>数</td><td><code>字长</code></td><td><code>文本/文本长度.duan</code></td></tr>
+<tr><td><b>拼接文本</b></td><td>文本</td><td class="num">0</td><td>用分隔符把列表里的元素连接成一个字符串</td><td><span class="badge stable">stable</span></td><td>列表:列表[任意]；分隔:文本</td><td>文本</td><td><code>串接</code></td><td><code>文本/拼接文本.duan</code></td></tr>
+<tr><td><b>提取数字</b></td><td>文本</td><td class="num">0</td><td>按出现顺序抽出文本中的所有数字，支持小数</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>列表[数]</td><td><code>抽数</code></td><td><code>文本/提取数字.duan</code></td></tr>
+<tr><td><b>包含</b></td><td>文本</td><td class="num">0</td><td>判断子串是否出现在文本中，返回真或假</td><td><span class="badge stable">stable</span></td><td>文本:文本；子:文本</td><td>逻辑</td><td><code>含有</code></td><td><code>文本/包含.duan</code></td></tr>
+<tr><td><b>切分文本</b></td><td>文本</td><td class="num">0</td><td>按分隔符把文本切成若干段，返回字符串列表</td><td><span class="badge stable">stable</span></td><td>文本:文本；分隔:文本</td><td>列表[文本]</td><td><code>切开</code></td><td><code>文本/切分文本.duan</code></td></tr>
+<tr><td><b>数字转中文</b></td><td>中文</td><td class="num">0</td><td>把整数转成中文读法，如 123 转成 一百二十三，支持到万亿级与负数</td><td><span class="badge stable">stable</span></td><td>数值:数</td><td>文本</td><td><code>念数</code></td><td><code>中文/数字转中文.duan</code></td></tr>
+<tr><td><b>中文转数字</b></td><td>中文</td><td class="num">0</td><td>把中文读法转回整数，如 一百二十三 转成 123，与数字转中文互逆</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>数</td><td><code>读数</code></td><td><code>中文/中文转数字.duan</code></td></tr>
+<tr><td><b>人民币大写</b></td><td>中文</td><td class="num">0</td><td>把金额转成财务大写，如 1234.56 转成 壹仟贰佰叁拾肆元伍角陆分</td><td><span class="badge stable">stable</span></td><td>数值:数</td><td>文本</td><td><code>大写</code></td><td><code>中文/人民币大写.duan</code></td></tr>
+<tr><td><b>生成范围</b></td><td>工具</td><td class="num">0</td><td>生成左闭右开的等差数列列表，步长可为负</td><td><span class="badge stable">stable</span></td><td>起:数；止:数；步:数</td><td>列表[数]</td><td><code>区间</code></td><td><code>工具/生成范围.duan</code></td></tr>
+<tr><td><b>排序列表</b></td><td>工具</td><td class="num">0</td><td>把列表升序排序，返回新表且不改动原表</td><td><span class="badge stable">stable</span></td><td>列表:列表[任意]</td><td>列表[任意]</td><td><code>排列</code></td><td><code>工具/排序列表.duan</code></td></tr>
+<tr><td><b>取唯一</b></td><td>工具</td><td class="num">0</td><td>去掉列表中的重复元素，保留首次出现的顺序</td><td><span class="badge stable">stable</span></td><td>列表:列表[任意]</td><td>列表[任意]</td><td><code>去重</code></td><td><code>工具/取唯一.duan</code></td></tr>
+<tr><td><b>取偶数</b></td><td>工具</td><td class="num">0</td><td>从数值列表中筛出能被2整除的元素</td><td><span class="badge stable">stable</span></td><td>列表:列表[数]</td><td>列表[数]</td><td><code>偶筛</code></td><td><code>工具/取偶数.duan</code></td></tr>
+<tr><td><b>取奇数</b></td><td>工具</td><td class="num">0</td><td>从数值列表中筛出不能被2整除的元素</td><td><span class="badge stable">stable</span></td><td>列表:列表[数]</td><td>列表[数]</td><td><code>奇筛</code></td><td><code>工具/取奇数.duan</code></td></tr>
+<tr><td><b>取余数</b></td><td>工具</td><td class="num">0</td><td>求甲除以乙的余数</td><td><span class="badge stable">stable</span></td><td>甲:数；乙:数</td><td>数</td><td><code>余</code></td><td><code>工具/取余数.duan</code></td></tr>
+<tr><td><b>求幂</b></td><td>工具</td><td class="num">0</td><td>求底的指次方</td><td><span class="badge stable">stable</span></td><td>底:数；指:数</td><td>数</td><td><code>乘方</code></td><td><code>工具/求幂.duan</code></td></tr>
+<tr><td><b>拼接列表</b></td><td>工具</td><td class="num">0</td><td>把两个列表首尾相接成新表，不改动原表</td><td><span class="badge stable">stable</span></td><td>表甲:列表[任意]；表乙:列表[任意]</td><td>列表[任意]</td><td><code>并表</code></td><td><code>工具/拼接列表.duan</code></td></tr>
+<tr><td><b>取子列表</b></td><td>工具</td><td class="num">0</td><td>取列表中索引起到止减一的元素，越界自动裁剪</td><td><span class="badge stable">stable</span></td><td>列表:列表[任意]；起:数；止:数</td><td>列表[任意]</td><td><code>切片</code></td><td><code>工具/取子列表.duan</code></td></tr>
+<tr><td><b>范围跨度</b></td><td>数据</td><td class="num">1</td><td>列表最大值减最小值，即数据的极差/跨度，衡量离散程度</td><td><span class="badge stable">stable</span></td><td>序列:列表[数]</td><td>数</td><td><code>跨度</code></td><td><code>数据/范围跨度.duan</code></td></tr>
+<tr><td><b>统计双指标</b></td><td>数据</td><td class="num">2</td><td>对数值列表同时给出算术均值与极差跨度，作为基础描述统计组合（L2 = L0 均值 + L1 范围跨度）</td><td><span class="badge stable">stable</span></td><td>序列:列表[数]</td><td>列表[数]</td><td><code>双标</code></td><td><code>数据/统计双指标.duan</code></td></tr>
+<tr><td><b>方差</b></td><td>生成</td><td class="num">0</td><td>计算一组数的方差</td><td><span class="badge generated">generated</span></td><td>序列:列表[数]</td><td>数</td><td><code>方差</code></td><td><code>生成/方差.duan</code></td></tr>
+<tr><td><b>中位数</b></td><td>生成</td><td class="num">0</td><td>计算一组数的中位数</td><td><span class="badge generated">generated</span></td><td>序列:列表[数]</td><td>数</td><td><code>中位数</code></td><td><code>生成/中位数.duan</code></td></tr>
+<tr><td><b>斐波那契</b></td><td>生成</td><td class="num">0</td><td>生成斐波那契数列前 n 项</td><td><span class="badge generated">generated</span></td><td>n:数</td><td>列表[数]</td><td><code>斐波那契</code></td><td><code>生成/斐波那契.duan</code></td></tr>
+<tr><td><b>阶乘</b></td><td>生成</td><td class="num">0</td><td>计算 n 的阶乘（n!）</td><td><span class="badge generated">generated</span></td><td>n:数</td><td>数</td><td><code>阶乘</code></td><td><code>生成/阶乘.duan</code></td></tr>
+<tr><td><b>素数</b></td><td>生成</td><td class="num">0</td><td>判断 n 是否为素数（1=是，0=否）</td><td><span class="badge generated">generated</span></td><td>n:数</td><td>数</td><td><code>素数</code></td><td><code>生成/素数.duan</code></td></tr>
+<tr><td><b>描述统计</b></td><td>数据</td><td class="num">1</td><td>基础描述统计：对列表并行给出 均值/最大/最小/计数/方差/中位数</td><td><span class="badge generated">generated</span></td><td>序列:列表[数]</td><td>列表[数]</td><td><code>描述统计</code></td><td><code>数据/描述统计.duan</code></td></tr>
+<tr><td><b>中文数字</b></td><td>中文</td><td class="num">1</td><td>中文数字能力：对数值给出 人民币大写 与 中文读数</td><td><span class="badge generated">generated</span></td><td>值:数</td><td>列表[文本]</td><td><code>中文数字</code></td><td><code>中文/中文数字.duan</code></td></tr>
+<tr><td><b>样本方差</b></td><td>生成</td><td class="num">0</td><td>计算一组数的样本方差</td><td><span class="badge generated">generated</span></td><td>序列:列表[数]</td><td>数</td><td><code>样本方差</code></td><td><code>生成/样本方差.duan</code></td></tr>
+<tr><td><b>闰年</b></td><td>日期</td><td class="num">0</td><td>判断某一年是不是闰年（格里高利历：四年一闰、百年不闰、四百年再闰）</td><td><span class="badge stable">stable</span></td><td>年份:数</td><td>逻辑</td><td><code>判闰年</code></td><td><code>日期/闰年.duan</code></td></tr>
+<tr><td><b>月天数</b></td><td>日期</td><td class="num">0</td><td>给定年份和月份，返回这个月有多少天，二月自动按闰年判断</td><td><span class="badge stable">stable</span></td><td>年份:数；月份:数</td><td>数</td><td><code>月天数</code></td><td><code>日期/月天数.duan</code></td></tr>
+<tr><td><b>日序号</b></td><td>日期</td><td class="num">0</td><td>计算某个日期是当年的第几天（年积日）</td><td><span class="badge stable">stable</span></td><td>年份:数；月份:数；日子:数</td><td>数</td><td><code>日序号</code></td><td><code>日期/日序号.duan</code></td></tr>
+<tr><td><b>儒略日</b></td><td>日期</td><td class="num">0</td><td>把公历日期换算成儒略日序数，便于做日期加减</td><td><span class="badge stable">stable</span></td><td>年份:数；月份:数；日子:数</td><td>数</td><td><code>儒略日</code></td><td><code>日期/儒略日.duan</code></td></tr>
+<tr><td><b>天数差</b></td><td>日期</td><td class="num">0</td><td>计算两个日期之间相差多少天</td><td><span class="badge stable">stable</span></td><td>起年:数；起月:数；起日:数；止年:数；止月:数；止日:数</td><td>数</td><td><code>天数差</code></td><td><code>日期/天数差.duan</code></td></tr>
+<tr><td><b>星期几</b></td><td>日期</td><td class="num">0</td><td>算出某个日期是星期几，返回星期一到星期日</td><td><span class="badge stable">stable</span></td><td>年份:数；月份:数；日子:数</td><td>文本</td><td><code>星期几</code></td><td><code>日期/星期几.duan</code></td></tr>
+<tr><td><b>日期文本</b></td><td>日期</td><td class="num">0</td><td>把年月日补零格式化成 YYYY-MM-DD 形式的文本</td><td><span class="badge stable">stable</span></td><td>年份:数；月份:数；日子:数</td><td>文本</td><td><code>日期文本</code></td><td><code>日期/日期文本.duan</code></td></tr>
+<tr><td><b>时间格式</b></td><td>日期</td><td class="num">0</td><td>把 Unix 时间戳格式化成年-月-日形式的可读时间文本</td><td><span class="badge stable">stable</span></td><td>秒数:数；模板:文本</td><td>文本</td><td><code>时间格式</code></td><td><code>日期/时间格式.duan</code></td></tr>
+<tr><td><b>卡号校验</b></td><td>校验</td><td class="num">0</td><td>用 Luhn 算法校验银行卡号是否合法</td><td><span class="badge stable">stable</span></td><td>卡号:文本</td><td>逻辑</td><td><code>卡校验</code></td><td><code>校验/卡号校验.duan</code></td></tr>
+<tr><td><b>身份证</b></td><td>校验</td><td class="num">0</td><td>校验 18 位身份证号码的校验位是否正确</td><td><span class="badge stable">stable</span></td><td>号码:文本</td><td>逻辑</td><td><code>身份证</code></td><td><code>校验/身份证.duan</code></td></tr>
+<tr><td><b>邮箱校验</b></td><td>校验</td><td class="num">0</td><td>检查邮箱地址格式是否合法</td><td><span class="badge stable">stable</span></td><td>地址:文本</td><td>逻辑</td><td><code>邮箱验</code></td><td><code>校验/邮箱校验.duan</code></td></tr>
+<tr><td><b>手机校验</b></td><td>校验</td><td class="num">0</td><td>检查中国大陆手机号码格式是否合法</td><td><span class="badge stable">stable</span></td><td>号码:文本</td><td>逻辑</td><td><code>手机验</code></td><td><code>校验/手机校验.duan</code></td></tr>
+<tr><td><b>密码强度</b></td><td>校验</td><td class="num">0</td><td>给密码打强度分，按数字、小写、大写、符号、长度各计一分</td><td><span class="badge stable">stable</span></td><td>密码:文本</td><td>数</td><td><code>密码强度</code></td><td><code>校验/密码强度.duan</code></td></tr>
+<tr><td><b>纯数字</b></td><td>校验</td><td class="num">0</td><td>判断一段文本是不是全部由数字字符组成</td><td><span class="badge stable">stable</span></td><td>内容:文本</td><td>逻辑</td><td><code>纯数字</code></td><td><code>校验/纯数字.duan</code></td></tr>
+<tr><td><b>JSON解析</b></td><td>格式</td><td class="num">0</td><td>把一段 JSON 字符串解析成列表或字典对象</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>任意</td><td><code>JSON解析</code></td><td><code>格式/JSON解析.duan</code></td></tr>
+<tr><td><b>JSON文本</b></td><td>格式</td><td class="num">0</td><td>把列表或字典对象序列化成 JSON 文本输出</td><td><span class="badge stable">stable</span></td><td>数值:任意</td><td>文本</td><td><code>JSON文本</code></td><td><code>格式/JSON文本.duan</code></td></tr>
+<tr><td><b>CSV解析</b></td><td>格式</td><td class="num">0</td><td>把 CSV 文本按行按分隔符拆成二维表格</td><td><span class="badge stable">stable</span></td><td>文本:文本；隔符:文本</td><td>列表[列表[文本]]</td><td><code>CSV解析</code></td><td><code>格式/CSV解析.duan</code></td></tr>
+<tr><td><b>键值解析</b></td><td>格式</td><td class="num">0</td><td>把 a=1;b=2 这种键值串解析成字典</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>字典[文本,文本]</td><td><code>键值解析</code></td><td><code>格式/键值解析.duan</code></td></tr>
+<tr><td><b>标准差</b></td><td>数据</td><td class="num">0</td><td>计算这组数的总体标准差，衡量数据离散程度</td><td><span class="badge stable">stable</span></td><td>列表:列表[数]</td><td>数</td><td><code>标准差</code></td><td><code>数据/标准差.duan</code></td></tr>
+<tr><td><b>前缀和</b></td><td>数据</td><td class="num">0</td><td>生成列表的前缀和序列，每一项是前面所有项的累加</td><td><span class="badge stable">stable</span></td><td>列表:列表[数]</td><td>列表[数]</td><td><code>前缀和</code></td><td><code>数据/前缀和.duan</code></td></tr>
+<tr><td><b>众数</b></td><td>数据</td><td class="num">0</td><td>找出这组数据里出现次数最多的那个值</td><td><span class="badge stable">stable</span></td><td>列表:列表[数]</td><td>数</td><td><code>众数</code></td><td><code>数据/众数.duan</code></td></tr>
+<tr><td><b>归一化</b></td><td>数据</td><td class="num">0</td><td>把一组数线性缩放到 0 到 1 之间</td><td><span class="badge stable">stable</span></td><td>列表:列表[数]</td><td>列表[数]</td><td><code>归一化</code></td><td><code>数据/归一化.duan</code></td></tr>
+<tr><td><b>百分位</b></td><td>数据</td><td class="num">0</td><td>求这组数据的第几百分位数，比如 P50 P90</td><td><span class="badge stable">stable</span></td><td>列表:列表[数]；分位:数</td><td>数</td><td><code>百分位</code></td><td><code>数据/百分位.duan</code></td></tr>
+<tr><td><b>绝对值</b></td><td>工具</td><td class="num">0</td><td>求一个数的绝对值，去掉正负号</td><td><span class="badge stable">stable</span></td><td>数值:数</td><td>数</td><td><code>取绝对</code></td><td><code>工具/取绝对.duan</code></td></tr>
+<tr><td><b>最大公约</b></td><td>工具</td><td class="num">0</td><td>求两个整数的最大公约数</td><td><span class="badge stable">stable</span></td><td>甲数:数；乙数:数</td><td>数</td><td><code>最大公约</code></td><td><code>工具/最大公约.duan</code></td></tr>
+<tr><td><b>最小公倍</b></td><td>工具</td><td class="num">0</td><td>求两个整数的最小公倍数</td><td><span class="badge stable">stable</span></td><td>甲数:数；乙数:数</td><td>数</td><td><code>最小公倍</code></td><td><code>工具/最小公倍.duan</code></td></tr>
+<tr><td><b>数值限幅</b></td><td>工具</td><td class="num">0</td><td>把数值夹在上下界之间，超出就取边界值</td><td><span class="badge stable">stable</span></td><td>数值:数；下界:数；上界:数</td><td>数</td><td><code>数值限幅</code></td><td><code>工具/数值限幅.duan</code></td></tr>
+<tr><td><b>随机标识</b></td><td>工具</td><td class="num">0</td><td>生成一个随机的唯一标识串，类似 UUID</td><td><span class="badge stable">stable</span></td><td>段数:数</td><td>文本</td><td><code>随机标识</code></td><td><code>工具/随机标识.duan</code></td></tr>
+<tr><td><b>地址转数</b></td><td>网络</td><td class="num">0</td><td>把点分十进制的 IP 地址转换成整数</td><td><span class="badge stable">stable</span></td><td>地址:文本</td><td>数</td><td><code>地址转数</code></td><td><code>网络/地址转数.duan</code></td></tr>
+<tr><td><b>数转地址</b></td><td>网络</td><td class="num">0</td><td>把整数还原成点分十进制的 IP 地址</td><td><span class="badge stable">stable</span></td><td>数值:数</td><td>文本</td><td><code>数转地址</code></td><td><code>网络/数转地址.duan</code></td></tr>
+<tr><td><b>域名提取</b></td><td>网络</td><td class="num">0</td><td>从一条 URL 里取出主机域名部分</td><td><span class="badge stable">stable</span></td><td>网址:文本</td><td>文本</td><td><code>域名提取</code></td><td><code>网络/域名提取.duan</code></td></tr>
+<tr><td><b>编辑距离</b></td><td>文本</td><td class="num">0</td><td>计算两段文本之间的编辑距离（Levenshtein 距离）</td><td><span class="badge stable">stable</span></td><td>甲文:文本；乙文:文本</td><td>数</td><td><code>编辑距离</code></td><td><code>文本/编辑距离.duan</code></td></tr>
+<tr><td><b>文本相似</b></td><td>文本</td><td class="num">0</td><td>计算两段文本的相似度，返回 0 到 1 之间的分数</td><td><span class="badge stable">stable</span></td><td>甲文:文本；乙文:文本</td><td>数</td><td><code>文本相似</code></td><td><code>文本/文本相似.duan</code></td></tr>
+<tr><td><b>词首大写</b></td><td>文本</td><td class="num">0</td><td>把英文句子里每个单词的首字母改成大写</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>词首大写</code></td><td><code>文本/词首大写.duan</code></td></tr>
+<tr><td><b>左侧补零</b></td><td>文本</td><td class="num">0</td><td>在文本左侧补零，凑够指定宽度</td><td><span class="badge stable">stable</span></td><td>文本:文本；宽度:数</td><td>文本</td><td><code>左侧补零</code></td><td><code>文本/左侧补零.duan</code></td></tr>
+<tr><td><b>网址合法</b></td><td>校验</td><td class="num">0</td><td>检查一条 URL 网址的格式是否合法</td><td><span class="badge stable">stable</span></td><td>网址:文本</td><td>逻辑</td><td><code>网址合法</code></td><td><code>校验/网址合法.duan</code></td></tr>
+<tr><td><b>日期合法</b></td><td>日期</td><td class="num">0</td><td>检查年月日组成的日期是不是真实存在</td><td><span class="badge stable">stable</span></td><td>年份:数；月份:数；日子:数</td><td>逻辑</td><td><code>日期合法</code></td><td><code>日期/日期合法.duan</code></td></tr>
+<tr><td><b>汉字计数</b></td><td>中文</td><td class="num">0</td><td>统计一段文本里有多少个汉字</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>数</td><td><code>汉字计数</code></td><td><code>中文/汉字计数.duan</code></td></tr>
+<tr><td><b>复利终值</b></td><td>财务</td><td class="num">0</td><td>按复利计算本金若干期后的终值</td><td><span class="badge stable">stable</span></td><td>本金:数；利率:数；期数:数</td><td>数</td><td><code>复利终值</code></td><td><code>财务/复利终值.duan</code></td></tr>
+<tr><td><b>等额本息</b></td><td>财务</td><td class="num">0</td><td>算等额本息贷款每个月要还多少钱</td><td><span class="badge stable">stable</span></td><td>本金:数；月利率:数；月数:数</td><td>数</td><td><code>等额本息</code></td><td><code>财务/等额本息.duan</code></td></tr>
+<tr><td><b>聚合_财务_数_2项</b></td><td>财务</td><td class="num">1</td><td>自动织成：对数输入并行执行 个税、保留分，返回结果列表</td><td><span class="badge generated">generated</span></td><td>月收:数</td><td>列表[数]</td><td><code>聚合_财务_数_2项</code></td><td><code>财务/聚合_财务_数_2项.duan</code></td></tr>
+<tr><td><b>聚合_文本_文本文本_4项</b></td><td>文本</td><td class="num">1</td><td>自动织成：对文本输入并行执行 包含、切分文本、编辑距离、文本相似，返回结果列表</td><td><span class="badge generated">generated</span></td><td>文本:文本；子:文本</td><td>列表[任意]</td><td><code>聚合_文本_文本文本_4项</code></td><td><code>文本/聚合_文本_文本文本_4项.duan</code></td></tr>
+<tr><td><b>聚合_中文_数_3项</b></td><td>中文</td><td class="num">1</td><td>自动织成：对数输入并行执行 数字转中文、人民币大写、中文数字，返回结果列表</td><td><span class="badge generated">generated</span></td><td>数值:数</td><td>列表[任意]</td><td><code>聚合_中文_数_3项</code></td><td><code>中文/聚合_中文_数_3项.duan</code></td></tr>
+<tr><td><b>聚合_中文_文本_2项</b></td><td>中文</td><td class="num">1</td><td>自动织成：对文本输入并行执行 中文转数字、汉字计数，返回结果列表</td><td><span class="badge generated">generated</span></td><td>文本:文本</td><td>列表[数]</td><td><code>聚合_中文_文本_2项</code></td><td><code>中文/聚合_中文_文本_2项.duan</code></td></tr>
+<tr><td><b>聚合_工具_数数数_2项</b></td><td>工具</td><td class="num">1</td><td>自动织成：对数输入并行执行 生成范围、数值限幅，返回结果列表</td><td><span class="badge generated">generated</span></td><td>起:数；止:数；步:数</td><td>列表[任意]</td><td><code>聚合_工具_数数数_2项</code></td><td><code>工具/聚合_工具_数数数_2项.duan</code></td></tr>
+<tr><td><b>聚合_工具_列表_2项</b></td><td>工具</td><td class="num">1</td><td>自动织成：对列表[任意]输入并行执行 排序列表、取唯一，返回结果列表</td><td><span class="badge generated">generated</span></td><td>列表:列表[任意]</td><td>列表[列表[任意]]</td><td><code>聚合_工具_列表_2项</code></td><td><code>工具/聚合_工具_列表_2项.duan</code></td></tr>
+<tr><td><b>聚合_工具_数数_4项</b></td><td>工具</td><td class="num">1</td><td>自动织成：对数输入并行执行 取余数、求幂、最大公约、最小公倍，返回结果列表</td><td><span class="badge generated">generated</span></td><td>甲:数；乙:数</td><td>列表[数]</td><td><code>聚合_工具_数数_4项</code></td><td><code>工具/聚合_工具_数数_4项.duan</code></td></tr>
+<tr><td><b>聚合_生成_列表_3项</b></td><td>生成</td><td class="num">1</td><td>自动织成：对列表[数]输入并行执行 方差、中位数、样本方差，返回结果列表</td><td><span class="badge generated">generated</span></td><td>序列:列表[数]</td><td>列表[数]</td><td><code>聚合_生成_列表_3项</code></td><td><code>生成/聚合_生成_列表_3项.duan</code></td></tr>
+<tr><td><b>聚合_生成_数_3项</b></td><td>生成</td><td class="num">1</td><td>自动织成：对数输入并行执行 斐波那契、阶乘、素数，返回结果列表</td><td><span class="badge generated">generated</span></td><td>n:数</td><td>列表[任意]</td><td><code>聚合_生成_数_3项</code></td><td><code>生成/聚合_生成_数_3项.duan</code></td></tr>
+<tr><td><b>聚合_日期_数数数_5项</b></td><td>日期</td><td class="num">1</td><td>自动织成：对数输入并行执行 日序号、儒略日、星期几、日期文本、日期合法，返回结果列表</td><td><span class="badge generated">generated</span></td><td>年份:数；月份:数；日子:数</td><td>列表[任意]</td><td><code>聚合_日期_数数数_5项</code></td><td><code>日期/聚合_日期_数数数_5项.duan</code></td></tr>
+<tr><td><b>聚合_工具_数_2项</b></td><td>工具</td><td class="num">1</td><td>自动织成：对数输入并行执行 绝对值、随机标识，返回结果列表</td><td><span class="badge generated">generated</span></td><td>数值:数</td><td>列表[任意]</td><td><code>聚合_工具_数_2项</code></td><td><code>工具/聚合_工具_数_2项.duan</code></td></tr>
+<tr><td><b>聚合_财务_数数数_2项</b></td><td>财务</td><td class="num">1</td><td>自动织成：对数输入并行执行 复利终值、等额本息，返回结果列表</td><td><span class="badge generated">generated</span></td><td>本金:数；利率:数；期数:数</td><td>列表[数]</td><td><code>聚合_财务_数数数_2项</code></td><td><code>财务/聚合_财务_数数数_2项.duan</code></td></tr>
+<tr><td><b>转拼音</b></td><td>中文</td><td class="num">0</td><td>把中文文本转换成汉语拼音，多字之间用空格分隔</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>拼音</code></td><td><code>中文/转拼音.duan</code></td></tr>
+<tr><td><b>简转繁</b></td><td>中文</td><td class="num">0</td><td>把简体中文转换成繁体中文</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>转繁体</code></td><td><code>中文/简转繁.duan</code></td></tr>
+<tr><td><b>繁转简</b></td><td>中文</td><td class="num">0</td><td>把繁体中文转换成简体中文</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>转简体</code></td><td><code>中文/繁转简.duan</code></td></tr>
+<tr><td><b>提取邮箱</b></td><td>格式</td><td class="num">0</td><td>用正则表达式从文本中提取所有邮箱地址，返回列表</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>列表[文本]</td><td><code>提取邮箱</code></td><td><code>格式/提取邮箱.duan</code></td></tr>
+<tr><td><b>Base64编码</b></td><td>格式</td><td class="num">0</td><td>对字符串做 Base64 编码，返回编码后的文本</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>Base64</code></td><td><code>格式/Base64编码.duan</code></td></tr>
+<tr><td><b>读取CSV</b></td><td>格式</td><td class="num">0</td><td>读取本地 CSV 文件的内容，返回二维列表（每行是一个列表）</td><td><span class="badge stable">stable</span></td><td>路径:文本</td><td>列表[列表[文本]]</td><td><code>读CSV</code></td><td><code>格式/读取CSV.duan</code></td></tr>
+<tr><td><b>集合交集</b></td><td>集合</td><td class="num">0</td><td>求两个列表的公共元素（去重后的交集）</td><td><span class="badge stable">stable</span></td><td>甲:列表[任意]；乙:列表[任意]</td><td>列表[任意]</td><td><code>求交</code></td><td><code>集合/集合交集.duan</code></td></tr>
+<tr><td><b>集合差集</b></td><td>集合</td><td class="num">0</td><td>返回在甲中但不在乙中的元素（差集）</td><td><span class="badge stable">stable</span></td><td>甲:列表[任意]；乙:列表[任意]</td><td>列表[任意]</td><td><code>求差</code></td><td><code>集合/集合差集.duan</code></td></tr>
+<tr><td><b>集合补集</b></td><td>集合</td><td class="num">0</td><td>以乙为全集，返回乙中不在甲里的元素（补集）</td><td><span class="badge stable">stable</span></td><td>甲:列表[任意]；乙:列表[任意]</td><td>列表[任意]</td><td><code>求补</code></td><td><code>集合/集合补集.duan</code></td></tr>
+<tr><td><b>集合并集</b></td><td>集合</td><td class="num">0</td><td>合并两个列表并去重（并集）</td><td><span class="badge stable">stable</span></td><td>甲:列表[任意]；乙:列表[任意]</td><td>列表[任意]</td><td><code>并集</code></td><td><code>集合/集合并集.duan</code></td></tr>
+<tr><td><b>列表转集合</b></td><td>集合</td><td class="num">0</td><td>把列表转成集合</td><td><span class="badge stable">stable</span></td><td>列表:列表[任意]</td><td>任意</td><td><code>转集合</code></td><td><code>集合/列表转集合.duan</code></td></tr>
+<tr><td><b>列表扁平化</b></td><td>集合</td><td class="num">0</td><td>把嵌套列表展平成一维列表</td><td><span class="badge stable">stable</span></td><td>列表:列表[任意]</td><td>列表[任意]</td><td><code>压平</code></td><td><code>集合/列表扁平化.duan</code></td></tr>
+<tr><td><b>列表打乱</b></td><td>集合</td><td class="num">0</td><td>随机打乱列表顺序（返回新列表）</td><td><span class="badge stable">stable</span></td><td>列表:列表[任意]</td><td>列表[任意]</td><td><code>乱序</code></td><td><code>集合/列表打乱.duan</code></td></tr>
+<tr><td><b>平方根</b></td><td>工具</td><td class="num">0</td><td>求一个数的平方根</td><td><span class="badge stable">stable</span></td><td>数:数</td><td>数</td><td><code>开平方</code></td><td><code>工具/平方根.duan</code></td></tr>
+<tr><td><b>立方根</b></td><td>工具</td><td class="num">0</td><td>求一个数的立方根</td><td><span class="badge stable">stable</span></td><td>数:数</td><td>数</td><td><code>开立方</code></td><td><code>工具/立方根.duan</code></td></tr>
+<tr><td><b>正弦</b></td><td>工具</td><td class="num">0</td><td>求一个角的正弦值（弧度）</td><td><span class="badge stable">stable</span></td><td>弧度:数</td><td>数</td><td><code>正弦值</code></td><td><code>工具/正弦.duan</code></td></tr>
+<tr><td><b>余弦</b></td><td>工具</td><td class="num">0</td><td>求一个角的余弦值（弧度）</td><td><span class="badge stable">stable</span></td><td>弧度:数</td><td>数</td><td><code>求余弦</code></td><td><code>工具/余弦.duan</code></td></tr>
+<tr><td><b>弧度转角度</b></td><td>工具</td><td class="num">0</td><td>把弧度换算成角度</td><td><span class="badge stable">stable</span></td><td>弧度:数</td><td>数</td><td><code>转角度</code></td><td><code>工具/弧度转角度.duan</code></td></tr>
+<tr><td><b>角度转弧度</b></td><td>工具</td><td class="num">0</td><td>把角度换算成弧度</td><td><span class="badge stable">stable</span></td><td>角度:数</td><td>数</td><td><code>转弧度</code></td><td><code>工具/角度转弧度.duan</code></td></tr>
+<tr><td><b>矩形面积</b></td><td>几何</td><td class="num">0</td><td>计算矩形的面积（长乘宽）</td><td><span class="badge stable">stable</span></td><td>甲:数；乙:数</td><td>数</td><td><code>矩形面积</code></td><td><code>几何/矩形面积.duan</code></td></tr>
+<tr><td><b>圆面积</b></td><td>几何</td><td class="num">0</td><td>计算圆面积（π 乘半径平方）</td><td><span class="badge stable">stable</span></td><td>半径:数</td><td>数</td><td><code>圆面积</code></td><td><code>几何/圆面积.duan</code></td></tr>
+<tr><td><b>曼哈顿距离</b></td><td>几何</td><td class="num">0</td><td>计算两点间的曼哈顿距离（横纵差绝对值之和）</td><td><span class="badge stable">stable</span></td><td>x1:数；y1:数；x2:数；y2:数</td><td>数</td><td><code>曼哈顿</code></td><td><code>几何/曼哈顿距离.duan</code></td></tr>
+<tr><td><b>向量点积</b></td><td>几何</td><td class="num">0</td><td>计算两个二维向量的点积 x1*x2+y1*y2</td><td><span class="badge stable">stable</span></td><td>x1:数；y1:数；x2:数；y2:数</td><td>数</td><td><code>点积</code></td><td><code>几何/向量点积.duan</code></td></tr>
+<tr><td><b>几何平均</b></td><td>数据</td><td class="num">0</td><td>计算列表的几何平均数（n 次根号下连乘）</td><td><span class="badge stable">stable</span></td><td>列表:列表[数]</td><td>数</td><td><code>几何平均</code></td><td><code>数据/几何平均.duan</code></td></tr>
+<tr><td><b>调和平均</b></td><td>数据</td><td class="num">0</td><td>计算列表的调和平均数（倒数均值的倒数）</td><td><span class="badge stable">stable</span></td><td>列表:列表[数]</td><td>数</td><td><code>调和平均</code></td><td><code>数据/调和平均.duan</code></td></tr>
+<tr><td><b>加权平均</b></td><td>数据</td><td class="num">0</td><td>按权重列表计算加权平均数</td><td><span class="badge stable">stable</span></td><td>数值:列表[数]；权重:列表[数]</td><td>数</td><td><code>加权平均</code></td><td><code>数据/加权平均.duan</code></td></tr>
+<tr><td><b>相关系数</b></td><td>数据</td><td class="num">0</td><td>计算两组数据的皮尔逊相关系数</td><td><span class="badge stable">stable</span></td><td>甲:列表[数]；乙:列表[数]</td><td>数</td><td><code>相关系数</code></td><td><code>数据/相关系数.duan</code></td></tr>
+<tr><td><b>单利终值</b></td><td>财务</td><td class="num">0</td><td>单利终值：本金乘(1加利率乘年限)</td><td><span class="badge stable">stable</span></td><td>本金:数；利率:数；年限:数</td><td>数</td><td><code>单利终值</code></td><td><code>财务/单利终值.duan</code></td></tr>
+<tr><td><b>年化收益</b></td><td>财务</td><td class="num">0</td><td>年化收益率：(终值除初值)开年限次方减1</td><td><span class="badge stable">stable</span></td><td>初值:数；终值:数；年限:数</td><td>数</td><td><code>年化收益</code></td><td><code>财务/年化收益.duan</code></td></tr>
+<tr><td><b>净现值</b></td><td>财务</td><td class="num">0</td><td>净现值 NPV：Σ现金流/(1+利率)^期数</td><td><span class="badge stable">stable</span></td><td>现金流:列表[数]；利率:数</td><td>数</td><td><code>净现值</code></td><td><code>财务/净现值.duan</code></td></tr>
+<tr><td><b>汇率换算</b></td><td>财务</td><td class="num">0</td><td>按汇率把金额从一个币种换算到另一个</td><td><span class="badge stable">stable</span></td><td>金额:数；汇率:数</td><td>数</td><td><code>汇率换算</code></td><td><code>财务/汇率换算.duan</code></td></tr>
+<tr><td><b>URL编码</b></td><td>网络</td><td class="num">0</td><td>把文本做 URL 百分号编码</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>网址编码</code></td><td><code>网络/URL编码.duan</code></td></tr>
+<tr><td><b>URL解码</b></td><td>网络</td><td class="num">0</td><td>把 URL 百分号编码还原成原文</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>网址解码</code></td><td><code>网络/URL解码.duan</code></td></tr>
+<tr><td><b>HTML编码</b></td><td>格式</td><td class="num">0</td><td>把特殊字符转成 HTML 实体</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>标签编码</code></td><td><code>格式/HTML编码.duan</code></td></tr>
+<tr><td><b>HTML解码</b></td><td>格式</td><td class="num">0</td><td>把 HTML 实体还原成字符</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>标签解码</code></td><td><code>格式/HTML解码.duan</code></td></tr>
+<tr><td><b>Base32编码</b></td><td>格式</td><td class="num">0</td><td>把文本做 Base32 编码</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>Base32</code></td><td><code>格式/Base32编码.duan</code></td></tr>
+<tr><td><b>MD5哈希</b></td><td>格式</td><td class="num">0</td><td>计算文本的 MD5 摘要</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>取MD5</code></td><td><code>格式/MD5哈希.duan</code></td></tr>
+<tr><td><b>SHA1哈希</b></td><td>格式</td><td class="num">0</td><td>计算文本的 SHA1 摘要</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>取SHA1</code></td><td><code>格式/SHA1哈希.duan</code></td></tr>
+<tr><td><b>SHA256哈希</b></td><td>格式</td><td class="num">0</td><td>计算文本的 SHA256 摘要</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>取SHA256</code></td><td><code>格式/SHA256哈希.duan</code></td></tr>
+<tr><td><b>SHA512哈希</b></td><td>格式</td><td class="num">0</td><td>计算文本的 SHA512 摘要</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>取SHA512</code></td><td><code>格式/SHA512哈希.duan</code></td></tr>
+<tr><td><b>Hex编码</b></td><td>格式</td><td class="num">0</td><td>把文本转成十六进制表示</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>Hex编码</code></td><td><code>格式/Hex编码.duan</code></td></tr>
+<tr><td><b>Hex解码</b></td><td>格式</td><td class="num">0</td><td>把十六进制表示还原成文本</td><td><span class="badge stable">stable</span></td><td>文本:文本</td><td>文本</td><td><code>Hex解码</code></td><td><code>格式/Hex解码.duan</code></td></tr>
+<tr><td><b>读取文本文件</b></td><td>工具</td><td class="num">0</td><td>读取本地文本文件的全部内容</td><td><span class="badge stable">stable</span></td><td>路径:文本</td><td>文本</td><td><code>读文本</code></td><td><code>工具/读取文本文件.duan</code></td></tr>
+<tr><td><b>写入文本文件</b></td><td>工具</td><td class="num">0</td><td>把内容写入文本文件（返回路径）</td><td><span class="badge stable">stable</span></td><td>路径:文本；内容:文本</td><td>文本</td><td><code>写文本</code></td><td><code>工具/写入文本文件.duan</code></td></tr>
+<tr><td><b>文件存在</b></td><td>工具</td><td class="num">0</td><td>判断文件是否存在</td><td><span class="badge stable">stable</span></td><td>路径:文本</td><td>逻辑</td><td><code>判存在</code></td><td><code>工具/文件存在.duan</code></td></tr>
+<tr><td><b>列目录文件</b></td><td>工具</td><td class="num">0</td><td>列出目录下的所有文件名</td><td><span class="badge stable">stable</span></td><td>路径:文本</td><td>列表[文本]</td><td><code>列文件</code></td><td><code>工具/列目录文件.duan</code></td></tr>
+<tr><td><b>文件大小</b></td><td>工具</td><td class="num">0</td><td>返回文件大小（字节）</td><td><span class="badge stable">stable</span></td><td>路径:文本</td><td>数</td><td><code>字节数</code></td><td><code>工具/文件大小.duan</code></td></tr>
+<tr><td><b>公历转农历</b></td><td>日期</td><td class="num">0</td><td>把公历年月日转成农历日期</td><td><span class="badge stable">stable</span></td><td>年:数；月:数；日:数</td><td>文本</td><td><code>农历日期</code></td><td><code>日期/公历转农历.duan</code></td></tr>
+<tr><td><b>农历转公历</b></td><td>日期</td><td class="num">0</td><td>把农历年月日转成公历日期</td><td><span class="badge stable">stable</span></td><td>年:数；月:数；日:数</td><td>文本</td><td><code>公历日期</code></td><td><code>日期/农历转公历.duan</code></td></tr>
+<tr><td><b>节气查询</b></td><td>日期</td><td class="num">0</td><td>查询某年的指定节气日期</td><td><span class="badge stable">stable</span></td><td>年:数；名称:文本</td><td>文本</td><td><code>查节气</code></td><td><code>日期/节气查询.duan</code></td></tr>
+<tr><td><b>天干地支</b></td><td>日期</td><td class="num">0</td><td>按序号取天干（0-9）</td><td><span class="badge stable">stable</span></td><td>序号:数</td><td>文本</td><td><code>取天干</code></td><td><code>日期/天干地支.duan</code></td></tr>
+<tr><td><b>JSON美化</b></td><td>格式</td><td class="num">0</td><td>把对象格式化成缩进的 JSON 文本</td><td><span class="badge stable">stable</span></td><td>对象:任意</td><td>文本</td><td><code>JSON美化</code></td><td><code>格式/JSON美化.duan</code></td></tr>
+<tr><td><b>列表反转</b></td><td>工具</td><td class="num">0</td><td>把列表元素顺序反转</td><td><span class="badge stable">stable</span></td><td>列表:列表[任意]</td><td>列表[任意]</td><td><code>反序</code></td><td><code>工具/列表反转.duan</code></td></tr>
+<tr><td><b>整数除法</b></td><td>工具</td><td class="num">0</td><td>求两数整除的商（向下取整）</td><td><span class="badge stable">stable</span></td><td>甲:数；乙:数</td><td>数</td><td><code>整除</code></td><td><code>工具/整数除法.duan</code></td></tr>
+<tr><td><b>圆周长</b></td><td>几何</td><td class="num">0</td><td>计算圆周长（2π乘半径）</td><td><span class="badge stable">stable</span></td><td>半径:数</td><td>数</td><td><code>圆周长</code></td><td><code>几何/圆周长.duan</code></td></tr>
+<tr><td><b>立方体积</b></td><td>几何</td><td class="num">0</td><td>计算立方体体积，即边长乘边长再乘边长</td><td><span class="badge stable">stable</span></td><td>边长:数</td><td>数</td><td><code>立方体积</code></td><td><code>几何/立方体积.duan</code></td></tr>
+<tr><td><b>百分比</b></td><td>财务</td><td class="num">0</td><td>计算部分占总量的百分比</td><td><span class="badge stable">stable</span></td><td>部分:数；总量:数</td><td>数</td><td><code>百分比</code></td><td><code>财务/百分比.duan</code></td></tr>
+<tr><td><b>二进制</b></td><td>生成</td><td class="num">0</td><td>把十进制数转成二进制（各位列表）</td><td><span class="badge generated">generated</span></td><td>n:数</td><td>列表[数]</td><td><code>转二进制</code></td><td><code>生成/二进制.duan</code></td></tr>
+<tr><td><b>公里转英里</b></td><td>生成</td><td class="num">0</td><td>将公里换算为英里</td><td><span class="badge generated">generated</span></td><td>公里:数</td><td>数</td><td><code>公里转英里</code></td><td><code>生成/公里转英里.duan</code></td></tr>
+<tr><td><b>摄氏转华氏</b></td><td>生成</td><td class="num">0</td><td>将摄氏温度换算为华氏温度</td><td><span class="badge generated">generated</span></td><td>摄氏:数</td><td>数</td><td><code>摄氏转华氏</code></td><td><code>生成/摄氏转华氏.duan</code></td></tr>
+<tr><td><b>摄氏转开尔文</b></td><td>生成</td><td class="num">0</td><td>将摄氏温度转换为开尔文温度</td><td><span class="badge generated">generated</span></td><td>摄氏:数</td><td>数</td><td><code>摄氏转开尔文</code></td><td><code>生成/摄氏转开尔文.duan</code></td></tr>
+<tr><td><b>轻松口语化</b></td><td>生成</td><td class="num">0</td><td>将“您好”改写为轻松的问候语“嗨”</td><td><span class="badge generated">generated</span></td><td>文本:文本</td><td>文本</td><td><code>轻松口语化</code></td><td><code>生成/轻松口语化.duan</code></td></tr>
+<tr><td><b>翻译为日文</b></td><td>生成</td><td class="num">0</td><td>将中文文本翻译为日文</td><td><span class="badge generated">generated</span></td><td>文本:文本</td><td>文本</td><td><code>翻译为日文</code></td><td><code>生成/翻译为日文.duan</code></td></tr>
+<tr><td><b>一句话概括</b></td><td>生成</td><td class="num">0</td><td>从新闻句子列表中提取第一句作为一句话概括</td><td><span class="badge generated">generated</span></td><td>句子列表:列表[文本]</td><td>文本</td><td><code>一句话概括</code></td><td><code>生成/一句话概括.duan</code></td></tr>
+<tr><td><b>统计字母出现次数</b></td><td>生成</td><td class="num">0</td><td>统计给定字符串中每个字母出现的次数（忽略空格）</td><td><span class="badge generated">generated</span></td><td>文本:文本</td><td>列表[列表[任意]]</td><td><code>统计字母出现次数</code></td><td><code>生成/统计字母出现次数.duan</code></td></tr>
+<tr><td><b>日期加天数</b></td><td>生成</td><td class="num">0</td><td>计算指定日期（整数格式YYYYMMDD）之后指定天数的日期，返回整数格式YYYYMMDD。例如：日期加天数(20260811, 100) 返回 20261119。</td><td><span class="badge generated">generated</span></td><td>开始日期:整数；天数:整数</td><td>整数</td><td><code>日期加天数</code></td><td><code>生成/日期加天数.duan</code></td></tr>
+<tr><td><b>情感判断</b></td><td>生成</td><td class="num">0</td><td>判断给定文本的情感是正面还是负面</td><td><span class="badge generated">generated</span></td><td>文本:字符串</td><td>字符串</td><td><code>情感判断</code></td><td><code>生成/情感判断.duan</code></td></tr>
+<tr><td><b>判断回文</b></td><td>生成</td><td class="num">0</td><td>判断给定字符串是否为回文</td><td><span class="badge generated">generated</span></td><td>文本:字符串</td><td>布尔</td><td><code>回文判断</code></td><td><code>生成/判断回文.duan</code></td></tr>
+<tr><td><b>英文日期转标准</b></td><td>生成</td><td class="num">0</td><td>将英文日期（如 Aug 11, 2026）转换为 ISO 格式 2026-08-11</td><td><span class="badge generated">generated</span></td><td>输入:字符串</td><td>字符串</td><td><code>英文日期转标准</code></td><td><code>生成/英文日期转标准.duan</code></td></tr>
+<tr><td><b>Markdown标题转HTML</b></td><td>生成</td><td class="num">0</td><td>将 Markdown 标题转换为对应的 HTML 标题标签</td><td><span class="badge generated">generated</span></td><td>标记文本:字符串</td><td>字符串</td><td><code>Markdown标题转HTML</code></td><td><code>生成/Markdown标题转HTML.duan</code></td></tr>
+<tr><td><b>两点距离</b></td><td>几何</td><td class="num">0</td><td>计算平面上两点(x1,y1)-(x2,y2)的欧氏距离</td><td><span class="badge stable">stable</span></td><td>x1:数；y1:数；x2:数；y2:数</td><td>数</td><td><code>两点距离</code></td><td><code>几何/两点距离.duan</code></td></tr>
+    </tbody>
+  </table>
+
+  <footer>
+    生成于 2026-08-14 01:47 · 数据来源 <code>../索引.json</code>（只读，未改动）· 受管 python 运行 build_docs.py 重新生成。
+  </footer>
+</div>
+
+<script>
+function 领域集合(){
+  var s = new Set();
+  document.querySelectorAll('#tbl tbody tr').forEach(function(tr){
+    s.add(tr.children[1].textContent.trim());
+  });
+  return Array.from(s).sort();
+}
+function 填充领域(){
+  var sel = document.getElementById('dom');
+  var 现有 = new Set(Array.from(sel.options).map(function(o){return o.value;}));
+  领域集合().forEach(function(d){
+    if(!现有.has(d)){ var o=document.createElement('option'); o.value=d; o.textContent=d; sel.appendChild(o); }
+  });
+}
+function 过滤(){
+  var q = document.getElementById('q').value.trim().toLowerCase();
+  var dom = document.getElementById('dom').value;
+  var n = 0;
+  document.querySelectorAll('#tbl tbody tr').forEach(function(tr){
+    var t = tr.textContent.toLowerCase();
+    var d = tr.children[1].textContent.trim();
+    var ok = (q==='' || t.indexOf(q)>=0) && (dom==='' || d===dom);
+    tr.style.display = ok ? '' : 'none';
+    if(ok) n++;
+  });
+  document.getElementById('c').textContent = '显示 ' + n + ' / 163';
+}
+填充领域(); 过滤();
+</script>
+</body>
+</html>

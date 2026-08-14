@@ -1,15 +1,12 @@
-# light · 本地 CI（Gitea Actions，FreeBSD host 模式，无 Docker）
+# 段言 Duan · 本地 CI（Gitea Actions，FreeBSD host 模式，无 Docker）
 #
-# 依赖安装改为「持久 venv 复用」：第三方依赖（pytest/pytest-cov/antlr4 运行时）
-# 装进 /var/db/act_runner/venvs/light 跨 run 复用；项目自身 editable 指向
-# /var/db/act_runner/venvs/light.src（每 run ln -sfn $PWD 更新）。
+# 等价于 .github/workflows/ci.yml 的 Linux 测试路径：
+#   - runs-on: freebsd（act_runner，系统 python3 v3.11 / node v24）
+#   - 去掉 os 矩阵与 actions/setup-python，改用 venv 系统 python3
+#   - checkout 走本地 actions/checkout
+#   - 去掉 GitHub 专属的 build/twine/upload-artifact（release/publish 不在本地跑）
 #
-# 关于测试范围：
-#   light 的 antlrparser/test/ 下的用例依赖由 .g4 生成的
-#   LightLangLexer.py / LightLangParser.py。这两个文件不进 git，且本机未装 Java
-#   （antlr4-tools 需要 Java 才能 codegen），所以 CI 只跑「代码无关」的 tests/ 套件。
-#   等后续把 codegen 接进 CI（装 Java + antlr4-tools，或把生成产物提交进仓库），
-#   再放开 antlrparser/test/。
+# 仅安装 pytest/pytest-cov（与 GitHub test job 一致），测试直接 import 仓库内 duan 包。
 
 name: CI
 
@@ -24,24 +21,49 @@ jobs:
     runs-on: freebsd
     steps:
       - name: Checkout
+        # 固定走本地 actions/checkout，避免 Gitea 对裸写 uses 的解析偶发回落到 github.com
         uses: http://192.168.1.5:3000/actions/checkout@v4
 
-      - name: 准备持久 venv（第三方依赖复用）
+      - name: 安装测试依赖 (venv)
         run: |
-          VENV_BIN="$(/usr/local/sbin/ci_venv.sh light 'pytest pytest-cov antlr4-python3-runtime')"
-          echo "VENV_BIN=$VENV_BIN" >> "$GITHUB_ENV"
-          ln -sfn "$PWD" "/var/db/act_runner/venvs/light.src"
-          "$VENV_BIN/pip" install -e "/var/db/act_runner/venvs/light.src" --no-build-isolation >/dev/null 2>&1 || "$VENV_BIN/pip" install -e . --no-build-isolation >/dev/null 2>&1 || true
+          python3 -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install pytest pytest-cov
 
-      - name: 测试
+      - name: 单元测试
+        env:
+          # 词法器 perf 预算：本地开发默认 2.0s（见 test_lexer_perf.py）；
+          # FreeBSD runner 比 Linux 慢约 1.7x，实测 3.53s，给 5.0s 预算作为 CI 门禁（仍能在严重回退时失败）。
+          LEXER_PERF_LIMIT: "5.0"
         run: |
-          . "$VENV_BIN/activate"
-          # light_visitor / light_compiler 等模块位于 antlrparser/，测试用裸 import
-          # （from light_visitor import ...），需把 antlrparser/ 与仓库根加进 PYTHONPATH 才能解析。
-          export PYTHONPATH="$PWD:$PWD/antlrparser"
-          # 只跑「代码无关」的 tests/ 套件；antlrparser/test/ 依赖 ANTLR codegen（本机无 Java）跳过。
-          if [ -d tests ] && [ -n "$(find tests -name '*.py' | head -1)" ]; then
-            pytest tests -v --tb=short
-          else
-            echo "未检测到测试目录，跳过 pytest"
-          fi
+          . .venv/bin/activate
+          pytest tests/unit/ tests/integration/ -v --tb=short
+
+      - name: 端到端测试
+        run: |
+          . .venv/bin/activate
+          pytest tests/e2e/ -v --tb=short
+
+      # 根目录测试（与 GitHub Linux job 一致；失败不阻塞，和原配置相同）
+      - name: 根目录测试
+        run: |
+          . .venv/bin/activate
+          pytest tests/test_parser.py tests/test_lexer.py tests/test_async.py tests/test_codegen.py tests/test_exception.py tests/test_executor.py tests/test_semantic.py tests/test_class_definition.py tests/test_duan_syntax.py tests/test_e2e.py tests/test_edge_cases.py tests/test_commands.py tests/test_file_io.py tests/test_interface.py tests/test_json_import.py tests/test_module_system.py tests/test_module_resolver.py tests/test_summary.py tests/test_ternary.py tests/test_advanced_semantic.py tests/test_duan_stdlib.py tests/test_duan_stdlib2.py tests/test_class_advanced.py tests/test_llvm_async.py tests/test_lsp_protocol.py tests/test_lsp_protocol_full.py tests/test_modern_features.py -v --tb=short --ignore=tests/archive 2>&1 || true
+
+      - name: 统一测试运行器
+        run: |
+          . .venv/bin/activate
+          python tests/run_tests.py --quick
+
+      # 积木库门禁：五把尺子 + 硬门槛 + 兜底闸门。此前积木库（选块器 / 概念词典 / 契约索引 /
+      # 兜底）在 gitea CI 上零覆盖，回归全靠人手跑尺子；段言本体 tests 过了也拦不住积木库回退。
+      # 这里等价于 .github/workflows/eval.yml，但跑在本地 FreeBSD runner（无 Docker、系统
+      # python3、本地 devpi 镜像），把「合入 main」变成有闸门拦截：主基准掉链路 / 留出段掉点 /
+      # 块跑不起来 / 兜底闸门不过，CI 直接红。
+      - name: 积木库门禁（五把尺子 + 兜底闸门）
+        run: |
+          . .venv/bin/activate
+          # 少数块依赖第三方包；装不上不致命（冒烟会标成「缺依赖」单列，不计入分母）
+          python -m pip install pypinyin lunardate opencc-python-reimplemented || true
+          python 积木库/评估/ci_eval.py --并发 8

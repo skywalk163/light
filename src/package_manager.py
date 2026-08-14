@@ -366,6 +366,267 @@ description = ""
         return None
 
     # ------------------------------------------------------------------
+    # 发布流程自动化
+    # ------------------------------------------------------------------
+
+    # 发布检查清单
+    PUBLISH_CHECKLIST = [
+        ('package.toml', '项目配置文件', True),
+        ('README.md', '项目说明文档', True),
+        ('LICENSE', '开源许可证', True),
+        ('主.duan', '入口源文件', False),
+    ]
+
+    def _publish_checklist(self, report_only: bool = False) -> Dict[str, Any]:
+        """验证发布检查清单。
+
+        Args:
+            report_only: 如果为 True，仅生成报告不输出到控制台
+
+        Returns:
+            {'pass': bool, 'checks': [{'item': str, 'exists': bool, 'required': bool, 'desc': str}, ...]}
+        """
+        checks = []
+        all_pass = True
+        for filename, desc, required in self.PUBLISH_CHECKLIST:
+            file_path = self.project_root / filename
+            exists = file_path.exists()
+            status = '✅' if exists else ('❌' if required else '⚠️')
+            if required and not exists:
+                all_pass = False
+            checks.append({
+                'item': filename,
+                'exists': exists,
+                'required': required,
+                'desc': desc,
+                'status': status,
+            })
+            if not report_only:
+                if exists:
+                    print(f"  {status} {filename:<20} ({desc})")
+                elif required:
+                    print(f"  {status} {filename:<20} ({desc}) — 缺少必填文件")
+                else:
+                    print(f"  {status} {filename:<20} ({desc}) — 可选，建议添加")
+
+        return {'pass': all_pass, 'checks': checks}
+
+    def _generate_docs(self, output_path: Optional[str] = None) -> str:
+        """自动生成包的文档（基于入口模块的代码注释）。
+
+        Args:
+            output_path: 文档输出路径（默认: <项目根>/README.md）
+
+        Returns:
+            生成的文档内容
+        """
+        entry_path = self.project_root / (self.config.entry if self.config else '主.duan')
+        docs_content = []
+        pkg_name = self.config.name if self.config else self.project_root.name
+
+        docs_content.append(f"# {pkg_name}\n")
+        if self.config and self.config.description:
+            docs_content.append(f"{self.config.description}\n")
+
+        docs_content.append(f"## 概述\n")
+        docs_content.append(f"这是段言语言包 **{pkg_name}** 的自动生成文档。\n")
+
+        if self.config:
+            docs_content.append(f"## 基本信息\n")
+            docs_content.append(f"- **版本**: {self.config.version}")
+            docs_content.append(f"- **入口**: {self.config.entry}")
+            if self.config.authors:
+                docs_content.append(f"- **作者**: {', '.join(self.config.authors)}")
+            if self.config.dependencies:
+                docs_content.append(f"- **依赖**: {', '.join(f'{k} ({v})' for k, v in self.config.dependencies.items())}")
+            docs_content.append("")
+
+        # 从入口文件提取段落注释
+        if entry_path.exists():
+            try:
+                source = entry_path.read_text(encoding='utf-8')
+                docs_content.append(f"## 模块接口\n")
+                para_count = 0
+                for line in source.splitlines():
+                    line = line.strip()
+                    if line.startswith('段落 '):
+                        para_count += 1
+                        # 提取段落名和参数
+                        parts = line[3:].split('接收', 1)
+                        para_name = parts[0].strip()
+                        if len(parts) > 1:
+                            params = '接收 ' + parts[1].rstrip('：:').strip()
+                        else:
+                            params = ''
+                        docs_content.append(f"- `{para_name}` {params}")
+                if para_count == 0:
+                    docs_content.append("（未发现导出的段落定义）")
+                docs_content.append("")
+            except Exception:
+                docs_content.append("（无法读取入口文件）\n")
+
+        docs_content.append(f"## 安装\n")
+        docs_content.append(f"```bash")
+        docs_content.append(f"duan pkg install {pkg_name}")
+        docs_content.append(f"```\n")
+
+        docs_content.append(f"## 依赖\n")
+        if self.config and self.config.dependencies:
+            for dep_name, dep_ver in self.config.dependencies.items():
+                docs_content.append(f"- **{dep_name}**: {dep_ver}")
+        else:
+            docs_content.append("无外部依赖。\n")
+
+        docs_content.append("")
+        docs_content.append("---")
+        docs_content.append(f"> 此文档由段言包管理器自动生成 — {__import__('time').strftime('%Y-%m-%d %H:%M:%S')}")
+
+        docs_text = '\n'.join(docs_content)
+
+        if output_path:
+            out = Path(output_path)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(docs_text, encoding='utf-8')
+            print(f"  📝 文档已写入: {out}")
+        else:
+            # 默认写入 README.md
+            readme_path = self.project_root / 'README.md'
+            readme_path.write_text(docs_text, encoding='utf-8')
+            print(f"  📝 文档已写入: {readme_path}")
+
+        return docs_text
+
+    def publish_project(self, auto_docs: bool = False, dry_run: bool = False,
+                        verify: bool = False, registry_url: Optional[str] = None) -> Dict[str, Any]:
+        """发布项目到包注册中心。
+
+        Args:
+            auto_docs: 是否自动生成文档
+            dry_run: 仅验证不实际发布
+            verify: 是否验证包结构
+            registry_url: 注册中心 URL（默认使用本地注册中心）
+
+        Returns:
+            {'success': bool, 'message': str, 'details': dict}
+        """
+        # 加载配置
+        if self.config is None:
+            cfg = self.load_config()
+            if cfg is None:
+                return {'success': False, 'message': '未找到 package.toml', 'details': {}}
+
+        pkg_name = self.config.name
+        pkg_version = self.config.version
+
+        print(f"📦 正在准备发布: {pkg_name} v{pkg_version}")
+        print()
+
+        # 验证检查清单
+        print("📋 发布检查清单:")
+        checklist_result = self._publish_checklist()
+        print()
+        if not checklist_result['pass']:
+            print("❌ 发布检查清单未通过，请修复上述问题后重试。")
+            return {'success': False, 'message': '发布检查清单未通过', 'details': checklist_result}
+
+        # --verify: 只验证结构
+        if verify:
+            print("🔍 验证包结构...")
+            if self._verify_package_structure():
+                print("✅ 包结构验证通过")
+            else:
+                print("❌ 包结构验证失败")
+                return {'success': False, 'message': '包结构验证失败', 'details': {}}
+            return {'success': True, 'message': '验证通过', 'details': checklist_result}
+
+        # --auto-docs: 自动生成文档
+        if auto_docs:
+            print("📝 自动生成文档...")
+            self._generate_docs()
+            print()
+
+        # --dry-run: 仅验证，不发布
+        if dry_run:
+            print("🏁 干运行模式 — 验证通过，未实际发布。")
+            print(f"   使用 'duan pkg publish' 发布 {pkg_name} v{pkg_version}")
+            return {
+                'success': True,
+                'message': '干运行验证通过',
+                'details': {
+                    'name': pkg_name,
+                    'version': pkg_version,
+                    'dry_run': True,
+                    'checklist': checklist_result,
+                }
+            }
+
+        # 实际发布
+        try:
+            # 尝试通过 package_installer 发布
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from package_installer import PackageInstaller
+            installer = PackageInstaller(project_root=self.project_root, registry_url=registry_url)
+            success = installer.publish(str(self.project_root))
+            if success:
+                print(f"✅ 发布成功: {pkg_name} v{pkg_version}")
+                return {'success': True, 'message': f'发布成功: {pkg_name} v{pkg_version}', 'details': {}}
+            else:
+                print(f"❌ 发布失败")
+                return {'success': False, 'message': '发布失败', 'details': {}}
+        except ImportError:
+            print(f"❌ 发布失败: 无法导入 PackageInstaller")
+            return {'success': False, 'message': '无法导入发布模块', 'details': {}}
+        except Exception as e:
+            print(f"❌ 发布失败: {e}")
+            return {'success': False, 'message': f'发布失败: {e}', 'details': {}}
+
+    def _verify_package_structure(self) -> bool:
+        """验证包结构完整性。"""
+        all_ok = True
+
+        # 检查 package.toml 可解析
+        toml_path = self.project_root / 'package.toml'
+        if toml_path.exists():
+            try:
+                data = TomlParser().parse(toml_path.read_text(encoding='utf-8'))
+                pkg = data.get('package', {})
+                if not pkg.get('name'):
+                    print("  ❌ package.toml: [package].name 不能为空")
+                    all_ok = False
+                if not pkg.get('version'):
+                    print("  ❌ package.toml: [package].version 不能为空")
+                    all_ok = False
+                print("  ✅ package.toml 解析正常")
+            except Exception as e:
+                print(f"  ❌ package.toml 解析失败: {e}")
+                all_ok = False
+        else:
+            print("  ❌ 缺少 package.toml")
+            all_ok = False
+
+        # 检查入口文件
+        if self.config and self.config.entry:
+            entry_path = self.project_root / self.config.entry
+            if entry_path.exists():
+                print(f"  ✅ 入口文件存在: {self.config.entry}")
+            else:
+                print(f"  ❌ 入口文件缺失: {self.config.entry}")
+                all_ok = False
+
+        # 检查 .duan 源文件
+        duan_files = list(self.project_root.glob('*.duan'))
+        if duan_files:
+            print(f"  ✅ 发现 {len(duan_files)} 个 .duan 源文件")
+        else:
+            print("  ⚠️  未发现 .duan 源文件（可能为空包）")
+
+        # 检查依赖可解析
+        if self.config and self.config.dependencies:
+            print(f"  ℹ️  依赖: {', '.join(self.config.dependencies.keys())}")
+
+        return all_ok
+
+    # ------------------------------------------------------------------
     # 构建与运行
     # ------------------------------------------------------------------
     def build_project(self) -> Dict[str, Any]:
@@ -542,14 +803,18 @@ description = ""
 
         return path_deps
 
-    def build_project_native(self, output_path: str = None, verbose: bool = False) -> str:
+    def build_project_native(self, output_path: str = None, verbose: bool = False,
+                             target: str = None) -> str:
         """使用 LLVM 后端编译项目为原生可执行文件。
 
         自动解析 path 依赖，收集所有模块源码，编译合并为单一可执行文件。
+        支持 --target 参数指定目标平台（macos/linux/windows/auto）。
 
         Args:
             output_path: 输出路径
             verbose: 是否输出详细信息
+            target: 目标平台（'macos'/'linux'/'windows'/'auto'/'None'），
+                    None 或 'auto' 表示自动检测当前平台
 
         Returns:
             可执行文件路径
@@ -609,9 +874,26 @@ description = ""
 
         # 使用 LLVM 后端编译
         sys.path.insert(0, str(Path(__file__).resolve().parent))
-        from llvm.compiler import compile_modules_typed, find_clang
+        from llvm.compiler import LLVMCompiler, find_clang
         import subprocess as _sp
 
+        # 解析目标平台
+        if target and target != 'auto':
+            # 使用 LLVMCompiler 处理跨平台编译
+            compiler = LLVMCompiler(verbose=verbose)
+            target_platform = compiler.resolve_target_platform(target)
+            if verbose:
+                print(f"[PackageManager] 目标平台: {target_platform} (target={target})")
+            # 跨平台编译直接使用 LLVMCompiler.compile
+            # （注意：cross-compilation 需要对应的交叉编译器）
+            exe_path = compiler.compile(
+                str(entry_path),
+                output_path=output_path,
+                target=target,
+            )
+            return exe_path
+
+        # 自动检测平台（默认行为）
         ir = compile_modules_typed(sources, main_module=main_name, verbose=verbose)
 
         base_path = output_path or str(entry_path).replace('.light', '')
@@ -713,12 +995,27 @@ def run_package(project_root: Optional[Path] = None) -> int:
 
 if __name__ == "__main__":
     args = sys.argv[1:]
-    cmd = args[0] if args else "build"
+    if not args:
+        print("用法:")
+        print("  python package_manager.py init [名称]             初始化项目")
+        print("  python package_manager.py build                    编译项目")
+        print("  python package_manager.py run                      运行项目")
+        print("  python package_manager.py publish [选项]           发布项目")
+        print()
+        print("发布选项:")
+        print("  --auto-docs    自动生成文档")
+        print("  --dry-run      仅验证，不实际发布")
+        print("  --verify       验证包结构")
+        print("  --registry-url 指定注册中心 URL")
+        sys.exit(2)
+
+    cmd = args[0]
 
     if cmd == "init":
         name = args[1] if len(args) > 1 else None
         ok = init_package(Path.cwd(), name)
         sys.exit(0 if ok else 1)
+
     elif cmd == "build":
         result = build_package(Path.cwd())
         if result.get("success"):
@@ -727,9 +1024,35 @@ if __name__ == "__main__":
         else:
             print(f"✗ 构建失败: {result.get('errors', [])}")
             sys.exit(1)
+
     elif cmd == "run":
         code = run_package(Path.cwd())
         sys.exit(code)
+
+    elif cmd == "publish":
+        # 解析发布选项
+        auto_docs = '--auto-docs' in args
+        dry_run = '--dry-run' in args
+        verify = '--verify' in args
+        registry_url = None
+        if '--registry-url' in args:
+            idx = args.index('--registry-url')
+            if idx + 1 < len(args):
+                registry_url = args[idx + 1]
+
+        pm = PackageManager(Path.cwd())
+        result = pm.publish_project(
+            auto_docs=auto_docs,
+            dry_run=dry_run,
+            verify=verify,
+            registry_url=registry_url,
+        )
+        if result.get('success'):
+            sys.exit(0)
+        else:
+            sys.exit(1)
+
     else:
-        print(f"用法: python package_manager.py {{init|build|run}}")
+        print(f"未知命令: {cmd}")
+        print("支持的命令: init, build, run, publish")
         sys.exit(2)

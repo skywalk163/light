@@ -2,7 +2,7 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from compiler import DuanCompiler, compile_source, parse_source, tokenize_source
+from compiler import LightCompiler, compile_source, parse_source, tokenize_source
 
 TESTS = []
 PASS = []
@@ -28,7 +28,7 @@ def run(name, fn):
 
 # 便捷：编译 + 断言
 def compile_and_check(src, var_name=None, expected_type_str=None, expect_errors=False):
-    c = DuanCompiler()
+    c = LightCompiler()
     c.compile(src)
     if not expect_errors:
         assert len(c.errors) == 0, f"期望无错误，但得到: {c.errors}"
@@ -81,7 +81,7 @@ register('变量-列表字面量', test_var_list)
 
 
 def test_var_multiple_declarations():
-    c = DuanCompiler()
+    c = LightCompiler()
     c.compile('设甲为三。设乙为五加一。设丙为甲加乙。')
     assert len(c.errors) == 0, f"错误: {c.errors}"
     sym = c._inferencer.symbol_table.lookup('丙')
@@ -94,14 +94,14 @@ register('变量-多个声明', test_var_multiple_declarations)
 # =============================================================================
 
 def test_paragraph_call():
-    c = DuanCompiler()
+    c = LightCompiler()
     c.compile('打印(三)。')
     assert len(c.errors) == 0
 register('段落-调用', test_paragraph_call)
 
 
 def test_paragraph_def_and_call():
-    c = DuanCompiler()
+    c = LightCompiler()
     c.compile('段落 倍(值)  设结果为值乘二。 返回结果。 结束。')
     # 检查段落被注册
     sym = c._inferencer.symbol_table.lookup('倍')
@@ -114,21 +114,21 @@ register('段落-定义', test_paragraph_def_and_call)
 # =============================================================================
 
 def test_if_stmt():
-    c = DuanCompiler()
+    c = LightCompiler()
     c.compile('如果甲大于零那么: 打印(甲)。 结束。')
     assert len(c.errors) == 0
 register('语句-条件', test_if_stmt)
 
 
 def test_foreach_stmt():
-    c = DuanCompiler()
+    c = LightCompiler()
     c.compile('遍历项在列表: 打印(项)。 结束。')
     assert len(c.errors) == 0
 register('语句-遍历', test_foreach_stmt)
 
 
 def test_while_stmt():
-    c = DuanCompiler()
+    c = LightCompiler()
     c.compile('当甲大于零: 打印(甲)。 结束。')
     assert len(c.errors) == 0
 register('语句-当循环', test_while_stmt)
@@ -140,7 +140,7 @@ register('语句-当循环', test_while_stmt)
 
 def test_end_to_end_compile():
     """完整端到端：源码 → tokens → AST → 类型检查"""
-    c = DuanCompiler()
+    c = LightCompiler()
     result = c.compile('设甲为三。设乙为甲加一。')
 
     # 验证每个阶段都产生输出

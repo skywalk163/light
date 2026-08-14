@@ -21,6 +21,7 @@
 
 from syntax_card import generate_syntax_card, generate_pitfalls, generate_example_pairs
 from snippets import SNIPPETS, get_snippets_prompt, get_snippet
+from typing import Optional
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -378,6 +379,63 @@ def _generate_verb_block() -> str:
             entries.append(f"{v}({arity}参)")
         lines.append(f"  {cat}：" + " / ".join(entries))
     return "\n".join(lines)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Python ↔ 光明 双向翻译
+# ═══════════════════════════════════════════════════════════════════
+
+def python_to_light(python_code: str, file_path: Optional[str] = None) -> str:
+    """将 Python 代码翻译为光明代码
+
+    使用 Py2LightTranspiler 将 Python AST 逐节点映射为光明代码。
+    支持 Python 基本语法：import, def, class, if/elif/else, for, while,
+    try/except, with, return, yield, async/await, 赋值, 表达式等。
+
+    Args:
+        python_code: Python 源码字符串，如果不为空则直接翻译
+        file_path: Python 文件路径，如果 python_code 为空则读取文件
+
+    Returns:
+        翻译后的光明代码字符串
+
+    Raises:
+        SyntaxError: 如果 Python 代码有语法错误
+        FileNotFoundError: 如果文件不存在
+
+    示例:
+        >>> python_to_light("def add(a, b): return a + b")
+        段落 add 接收 a, b：
+            返回 a 加上 b
+    """
+    from translator import python_to_light as _translate
+    return _translate(python_code, file_path)
+
+
+def light_to_python(light_code: str, file_path: Optional[str] = None) -> str:
+    """将光明代码翻译为 Python 代码
+
+    使用 PythonCodeGenerator 将光明 AST 转换为 Python 代码。
+    光明的中文关键字被映射为对应的 Python 英文关键字。
+
+    Args:
+        light_code: 光明源码字符串，如果不为空则直接翻译
+        file_path: 光明文件路径，如果 light_code 为空则读取文件
+
+    Returns:
+        翻译后的 Python 代码字符串
+
+    Raises:
+        ValueError: 如果光明代码有语法错误
+        FileNotFoundError: 如果文件不存在
+
+    示例:
+        >>> light_to_python("段落 add 接收 a, b：\\n    返回 a 加上 b")
+        def add(a, b):
+            return a + b
+    """
+    from translator import light_to_python as _translate
+    return _translate(light_code, file_path)
 
 
 if __name__ == "__main__":

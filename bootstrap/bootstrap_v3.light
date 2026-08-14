@@ -1,5 +1,5 @@
 # bootstrap_v3.light - v3.2 自举编译器（合并版）
-# 由 merge_bootstrap.py 自动生成
+# 由 merge_bootstrap.py / build_bootstrap_release.py 自动生成
 
 
 # ===== token.light =====
@@ -59,9 +59,14 @@
   列表追加(关键字列表, "中的")
   列表追加(关键字列表, "类")
   列表追加(关键字列表, "接口")
+  列表追加(关键字列表, "协议")
   列表追加(关键字列表, "尝试")
   列表追加(关键字列表, "捕获")
   列表追加(关键字列表, "抛出")
+  列表追加(关键字列表, "匹配")
+  列表追加(关键字列表, "情况")
+  列表追加(关键字列表, "使用")
+  列表追加(关键字列表, "最终")
   返回 列表包含(关键字列表, 文本)
 
 # =============================================================================
@@ -276,6 +281,82 @@
   返回 node
 
 # =============================================================================
+# Interface / Protocol definition nodes
+# =============================================================================
+段落 make_interface_def 接收 name, methods, super_interfaces：
+  设 node 为 列表创建()
+  列表追加(node, "interface_def")
+  列表追加(node, name)
+  列表追加(node, methods)
+  列表追加(node, super_interfaces)
+  返回 node
+
+段落 make_method_signature 接收 name, params, return_type：
+  设 node 为 列表创建()
+  列表追加(node, "method_signature")
+  列表追加(node, name)
+  列表追加(node, params)
+  列表追加(node, return_type)
+  返回 node
+
+# =============================================================================
+# Match statement nodes
+# =============================================================================
+段落 make_match_stmt 接收 subject, cases：
+  设 node 为 列表创建()
+  列表追加(node, "match_stmt")
+  列表追加(node, subject)
+  列表追加(node, cases)
+  返回 node
+
+段落 make_match_case 接收 pattern, guard, body：
+  设 node 为 列表创建()
+  列表追加(node, "match_case")
+  列表追加(node, pattern)
+  列表追加(node, guard)
+  列表追加(node, body)
+  返回 node
+
+段落 make_match_pattern 接收 kind, value, elements, type_name, binding：
+  设 node 为 列表创建()
+  列表追加(node, "match_pattern")
+  列表追加(node, kind)
+  列表追加(node, value)
+  列表追加(node, elements)
+  列表追加(node, type_name)
+  列表追加(node, binding)
+  返回 node
+
+# =============================================================================
+# With statement (context manager) node
+# =============================================================================
+段落 make_with_stmt 接收 context_expr, variable, body：
+  设 node 为 列表创建()
+  列表追加(node, "with_stmt")
+  列表追加(node, context_expr)
+  列表追加(node, variable)
+  列表追加(node, body)
+  返回 node
+
+# =============================================================================
+# Try / Throw statement nodes
+# =============================================================================
+段落 make_try_stmt 接收 try_body, catch_clauses, finally_body：
+  设 node 为 列表创建()
+  列表追加(node, "try_stmt")
+  列表追加(node, try_body)
+  列表追加(node, catch_clauses)
+  列表追加(node, finally_body)
+  返回 node
+
+段落 make_throw_stmt 接收 value, from_expr：
+  设 node 为 列表创建()
+  列表追加(node, "throw_stmt")
+  列表追加(node, value)
+  列表追加(node, from_expr)
+  返回 node
+
+# =============================================================================
 # Node access utilities
 # =============================================================================
 段落 node_type 接收 node：
@@ -356,6 +437,10 @@
   列表追加(列表, "标注")
   列表追加(列表, "的")
   列表追加(列表, "常量")
+  列表追加(列表, "匹配")
+  列表追加(列表, "情况")
+  列表追加(列表, "协议")
+  列表追加(列表, "最终")
   返回 列表
 
 段落 创建符号映射：
@@ -438,8 +523,8 @@
 段落 匹配关键字 接收 文本, 关键字列表：
   设 最佳关键字 为 空
   设 索引 为 0
-  设 列表长度 为 列表长度(关键字列表)
-  当 索引 小于 列表长度:
+  设 列表总长 为 列表长度(关键字列表)
+  当 索引 小于 列表总长:
     设 关键字 为 列表获取(关键字列表, 索引)
     设 关键字长度 为 字符串长度(关键字)
     设 文本长度 为 字符串长度(文本)
@@ -1458,6 +1543,465 @@
   返回 [node, p]
 
 # =============================================================================
+# Interface definition parsing
+# =============================================================================
+段落 parse_interface_body 接收 tokens, pos：
+  设 methods 为 列表创建()
+  设 p 为 pos
+  当 p 小于 列表长度(tokens)：
+    设 tok 为 列表获取(tokens, p)
+    设 ttype 为 字典获取(tok, "种别")
+    设 tval 为 字典获取(tok, "值")
+    # 遇到 DEDENT 或 EOF 结束
+    如果 ttype 等于 "反缩进" 或 ttype 等于 "结束"：
+      跳出
+    # 跳过空行
+    如果 ttype 等于 "换行"：
+      p 加上 1
+      跳过
+    # 方法签名：段落 方法名 接收 参数 返回 类型。
+    如果 ttype 等于 "关键字" 且 (tval 等于 "段落" 或 tval 等于 "函数")：
+      p 加上 1
+      # 方法名
+      设 name_tok 为 列表获取(tokens, p)
+      设 method_name 为 字典获取(name_tok, "值")
+      p 加上 1
+      # 参数
+      设 params 为 列表创建()
+      如果 p 小于 列表长度(tokens)：
+        设 next_tok 为 列表获取(tokens, p)
+        如果 字典获取(next_tok, "种别") 等于 "关键字" 且 字典获取(next_tok, "值") 等于 "接收"：
+          p 加上 1
+          当 p 小于 列表长度(tokens)：
+            设 pt 为 列表获取(tokens, p)
+            设 pt_type 为 字典获取(pt, "种别")
+            如果 pt_type 等于 "标识符"：
+              设 param_name 为 字典获取(pt, "值")
+              p 加上 1
+              # 可选类型注解
+              设 param_type 为 空
+              如果 p 小于 列表长度(tokens)：
+                设 col_tok 为 列表获取(tokens, p)
+                如果 字典获取(col_tok, "种别") 等于 "冒号"：
+                  p 加上 1
+                  设 type_tok 为 列表获取(tokens, p)
+                  如果 字典获取(type_tok, "种别") 等于 "标识符"：
+                    设 param_type 为 字典获取(type_tok, "值")
+                    p 加上 1
+              设 param_pair 为 列表创建()
+              列表追加(param_pair, param_name)
+              列表追加(param_pair, param_type)
+              列表追加(params, param_pair)
+              如果 p 小于 列表长度(tokens)：
+                设 sep 为 列表获取(tokens, p)
+                如果 字典获取(sep, "种别") 等于 "逗号"：
+                  p 加上 1
+                否则：
+                  跳出
+            否则：
+              跳出
+      # 返回类型（可选）
+      设 return_type 为 空
+      如果 p 小于 列表长度(tokens)：
+        设 next_tok 为 列表获取(tokens, p)
+        如果 字典获取(next_tok, "种别") 等于 "关键字" 且 字典获取(next_tok, "值") 等于 "返回"：
+          p 加上 1
+          设 ret_tok 为 列表获取(tokens, p)
+          如果 字典获取(ret_tok, "种别") 等于 "标识符"：
+            设 return_type 为 字典获取(ret_tok, "值")
+            p 加上 1
+      # 跳过句号
+      如果 p 小于 列表长度(tokens)：
+        设 per_tok 为 列表获取(tokens, p)
+        如果 字典获取(per_tok, "种别") 等于 "句号"：
+          p 加上 1
+      设 sig 为 make_method_signature(method_name, params, return_type)
+      列表追加(methods, sig)
+      跳过
+    # 其他未知 token，跳过
+    p 加上 1
+  返回 [methods, p]
+
+段落 parse_interface_def 接收 tokens, pos：
+  设 kw 为 列表获取(tokens, pos)  # 接口 or 协议
+  设 p 为 pos 加 1
+  # 接口名
+  设 name_tok 为 列表获取(tokens, p)
+  设 name 为 字典获取(name_tok, "值")
+  p 加上 1
+  # 基接口（可选）
+  设 super_interfaces 为 列表创建()
+  如果 p 小于 列表长度(tokens)：
+    设 next_tok 为 列表获取(tokens, p)
+    如果 字典获取(next_tok, "种别") 等于 "关键字" 且 字典获取(next_tok, "值") 等于 "继承"：
+      p 加上 1
+      当 真：
+        如果 p 小于 列表长度(tokens)：
+          设 si_tok 为 列表获取(tokens, p)
+          设 si_type 为 字典获取(si_tok, "种别")
+          如果 si_type 等于 "标识符"：
+            列表追加(super_interfaces, 字典获取(si_tok, "值"))
+            p 加上 1
+          否则：
+            跳出
+          如果 p 小于 列表长度(tokens)：
+            设 sep 为 列表获取(tokens, p)
+            如果 字典获取(sep, "种别") 等于 "逗号"：
+              p 加上 1
+            否则：
+              跳出
+        否则：
+          跳出
+  # 跳过冒号
+  如果 p 小于 列表长度(tokens)：
+    设 col_tok 为 列表获取(tokens, p)
+    如果 字典获取(col_tok, "种别") 等于 "冒号"：
+      p 加上 1
+  # 解析接口体
+  设 p 为 skip_newlines(tokens, p)
+  设 methods 为 列表创建()
+  如果 p 小于 列表长度(tokens)：
+    设 indent_tok 为 列表获取(tokens, p)
+    如果 字典获取(indent_tok, "种别") 等于 "缩进"：
+      p 加上 1
+      设 body_result 为 parse_interface_body(tokens, p)
+      设 methods 为 列表获取(body_result, 0)
+      p 等于 列表获取(body_result, 1)
+      # 跳过反缩进
+      如果 p 小于 列表长度(tokens)：
+        设 dedent_tok 为 列表获取(tokens, p)
+        如果 字典获取(dedent_tok, "种别") 等于 "反缩进"：
+          p 加上 1
+  设 node 为 make_interface_def(name, methods, super_interfaces)
+  返回 [node, p]
+
+# =============================================================================
+# Match statement parsing
+# =============================================================================
+段落 parse_match_pattern 接收 tokens, pos：
+  设 tok 为 列表获取(tokens, pos)
+  设 ttype 为 字典获取(tok, "种别")
+  设 tval 为 字典获取(tok, "值")
+  # 通配符：_
+  如果 ttype 等于 "标识符" 且 tval 等于 "_"：
+    返回 [make_match_pattern("wildcard", 空, 列表创建(), "", ""), pos 加 1]
+  # 数字模式
+  如果 ttype 等于 "数字"：
+    返回 [make_match_pattern("number", tval, 列表创建(), "", ""), pos 加 1]
+  # 字符串模式
+  如果 ttype 等于 "字符串"：
+    返回 [make_match_pattern("string", tval, 列表创建(), "", ""), pos 加 1]
+  # 关键字字面量
+  如果 ttype 等于 "关键字"：
+    如果 tval 等于 "真" 或 tval 等于 "假"：
+      返回 [make_match_pattern("bool", tval, 列表创建(), "", ""), pos 加 1]
+    如果 tval 等于 "空"：
+      返回 [make_match_pattern("null", 空, 列表创建(), "", ""), pos 加 1]
+    # 关键字作为变量绑定
+    返回 [make_match_pattern("variable", 空, 列表创建(), "", tval), pos 加 1]
+  # 标识符作为变量绑定或类型检查
+  如果 ttype 等于 "标识符"：
+    设 name 为 tval
+    设 p 为 pos 加 1
+    如果 p 小于 列表长度(tokens)：
+      设 next_tok 为 列表获取(tokens, p)
+      设 nttype 为 字典获取(next_tok, "种别")
+      设 ntval 为 字典获取(next_tok, "值")
+      # 类型检查：类型 变量名
+      如果 nttype 等于 "标识符" 且 ntval 不等于 "_"：
+        返回 [make_match_pattern("type_check", 空, 列表创建(), name, ntval), p 加 1]
+    返回 [make_match_pattern("variable", 空, 列表创建(), "", name), pos 加 1]
+  # 默认通配符
+  返回 [make_match_pattern("wildcard", 空, 列表创建(), "", ""), pos 加 1]
+
+段落 parse_match_case 接收 tokens, pos：
+  设 p 为 pos  # 当前 token 是 "情况"
+  设 tok 为 列表获取(tokens, p)
+  # 消耗 "情况"
+  如果 字典获取(tok, "种别") 等于 "关键字" 且 字典获取(tok, "值") 等于 "情况"：
+    p 加上 1
+  # 解析模式
+  设 pattern_result 为 parse_match_pattern(tokens, p)
+  设 pattern 为 列表获取(pattern_result, 0)
+  p 等于 列表获取(pattern_result, 1)
+  # 守卫条件（可选）：若 expr
+  设 guard 为 空
+  如果 p 小于 列表长度(tokens)：
+    设 guard_tok 为 列表获取(tokens, p)
+    如果 字典获取(guard_tok, "种别") 等于 "关键字" 且 (字典获取(guard_tok, "值") 等于 "若" 或 字典获取(guard_tok, "值") 等于 "如果")：
+      p 加上 1
+      设 guard_result 为 parse_expr(tokens, p)
+      设 guard 为 列表获取(guard_result, 0)
+      p 等于 列表获取(guard_result, 1)
+  # 跳过冒号
+  如果 p 小于 列表长度(tokens)：
+    设 col_tok 为 列表获取(tokens, p)
+    如果 字典获取(col_tok, "种别") 等于 "冒号"：
+      p 加上 1
+  # 解析分支体
+  设 p 为 skip_newlines(tokens, p)
+  设 body 为 列表创建()
+  如果 p 小于 列表长度(tokens)：
+    设 indent_tok 为 列表获取(tokens, p)
+    如果 字典获取(indent_tok, "种别") 等于 "缩进"：
+      p 加上 1
+      当 p 小于 列表长度(tokens)：
+        设 stmt_tok 为 列表获取(tokens, p)
+        设 stype 为 字典获取(stmt_tok, "种别")
+        如果 stype 等于 "反缩进" 或 stype 等于 "结束"：
+          跳出
+        # 遇到下一个"情况"时停止
+        如果 stype 等于 "关键字" 且 字典获取(stmt_tok, "值") 等于 "情况"：
+          跳出
+        设 stmt_result 为 parse_stmt(tokens, p)
+        如果 列表获取(stmt_result, 0) 不等于 空：
+          列表追加(body, 列表获取(stmt_result, 0))
+        p 等于 列表获取(stmt_result, 1)
+        设 p 为 skip_newlines(tokens, p)
+      # 跳过反缩进
+      如果 p 小于 列表长度(tokens)：
+        设 dedent_tok 为 列表获取(tokens, p)
+        如果 字典获取(dedent_tok, "种别") 等于 "反缩进"：
+          p 加上 1
+  设 node 为 make_match_case(pattern, guard, body)
+  返回 [node, p]
+
+段落 parse_match_stmt 接收 tokens, pos：
+  设 tok 为 列表获取(tokens, pos)  # 匹配
+  设 p 为 pos 加 1
+  # 解析匹配的值
+  设 subject_result 为 parse_expr(tokens, p)
+  设 subject 为 列表获取(subject_result, 0)
+  p 等于 列表获取(subject_result, 1)
+  # 跳过冒号
+  如果 p 小于 列表长度(tokens)：
+    设 col_tok 为 列表获取(tokens, p)
+    如果 字典获取(col_tok, "种别") 等于 "冒号"：
+      p 加上 1
+  # 解析各个情况分支
+  设 p 为 skip_newlines(tokens, p)
+  设 cases 为 列表创建()
+  如果 p 小于 列表长度(tokens)：
+    设 indent_tok 为 列表获取(tokens, p)
+    如果 字典获取(indent_tok, "种别") 等于 "缩进"：
+      p 加上 1
+      当 p 小于 列表长度(tokens)：
+        设 case_tok 为 列表获取(tokens, p)
+        设 ctype 为 字典获取(case_tok, "种别")
+        如果 ctype 等于 "反缩进" 或 ctype 等于 "结束"：
+          跳出
+        如果 ctype 等于 "关键字" 且 字典获取(case_tok, "值") 等于 "情况"：
+          设 case_result 为 parse_match_case(tokens, p)
+          如果 列表获取(case_result, 0) 不等于 空：
+            列表追加(cases, 列表获取(case_result, 0))
+          p 等于 列表获取(case_result, 1)
+          设 p 为 skip_newlines(tokens, p)
+          跳过
+        # 跳过空行
+        如果 ctype 等于 "换行"：
+          p 加上 1
+          跳过
+        # 其他情况停止
+        跳出
+      # 跳过反缩进
+      如果 p 小于 列表长度(tokens)：
+        设 dedent_tok 为 列表获取(tokens, p)
+        如果 字典获取(dedent_tok, "种别") 等于 "反缩进"：
+          p 加上 1
+  设 node 为 make_match_stmt(subject, cases)
+  返回 [node, p]
+
+# =============================================================================
+# With statement parsing
+# =============================================================================
+段落 parse_with_stmt 接收 tokens, pos：
+  设 tok 为 列表获取(tokens, pos)  # 使用
+  设 p 为 pos 加 1
+  # 解析上下文表达式
+  设 expr_result 为 parse_expr(tokens, p)
+  设 context_expr 为 列表获取(expr_result, 0)
+  p 等于 列表获取(expr_result, 1)
+  # 解析 "为 变量"（可选）
+  设 variable 为 空
+  如果 p 小于 列表长度(tokens)：
+    设 as_tok 为 列表获取(tokens, p)
+    如果 字典获取(as_tok, "种别") 等于 "关键字" 且 字典获取(as_tok, "值") 等于 "为"：
+      p 加上 1
+      如果 p 小于 列表长度(tokens)：
+        设 var_tok 为 列表获取(tokens, p)
+        设 var_type 为 字典获取(var_tok, "种别")
+        如果 var_type 等于 "标识符" 或 var_type 等于 "关键字"：
+          设 variable 为 字典获取(var_tok, "值")
+          p 加上 1
+  # 跳过冒号
+  如果 p 小于 列表长度(tokens)：
+    设 col_tok 为 列表获取(tokens, p)
+    如果 字典获取(col_tok, "种别") 等于 "冒号"：
+      p 加上 1
+  # 解析体
+  设 p 为 skip_newlines(tokens, p)
+  设 body 为 列表创建()
+  如果 p 小于 列表长度(tokens)：
+    设 indent_tok 为 列表获取(tokens, p)
+    如果 字典获取(indent_tok, "种别") 等于 "缩进"：
+      p 加上 1
+      设 block_result 为 parse_block(tokens, p)
+      设 body 为 列表获取(block_result, 0)
+      p 等于 列表获取(block_result, 1)
+      # 跳过反缩进
+      如果 p 小于 列表长度(tokens)：
+        设 dedent_tok 为 列表获取(tokens, p)
+        如果 字典获取(dedent_tok, "种别") 等于 "反缩进"：
+          p 加上 1
+  设 node 为 make_with_stmt(context_expr, variable, body)
+  返回 [node, p]
+
+# =============================================================================
+# Try / Throw statement parsing
+# =============================================================================
+段落 parse_try_stmt 接收 tokens, pos：
+  设 tok 为 列表获取(tokens, pos)  # 尝试
+  设 p 为 pos 加 1
+  # 跳过冒号
+  如果 p 小于 列表长度(tokens)：
+    设 col_tok 为 列表获取(tokens, p)
+    如果 字典获取(col_tok, "种别") 等于 "冒号"：
+      p 加上 1
+  # 解析 try 体
+  设 p 为 skip_newlines(tokens, p)
+  设 try_body 为 列表创建()
+  如果 p 小于 列表长度(tokens)：
+    设 indent_tok 为 列表获取(tokens, p)
+    如果 字典获取(indent_tok, "种别") 等于 "缩进"：
+      p 加上 1
+      设 block_result 为 parse_block(tokens, p)
+      设 try_body 为 列表获取(block_result, 0)
+      p 等于 列表获取(block_result, 1)
+      # 跳过反缩进
+      如果 p 小于 列表长度(tokens)：
+        设 dedent_tok 为 列表获取(tokens, p)
+        如果 字典获取(dedent_tok, "种别") 等于 "反缩进"：
+          p 加上 1
+  # 解析捕获子句
+  设 catch_clauses 为 列表创建()
+  当 p 小于 列表长度(tokens)：
+    设 p 为 skip_newlines(tokens, p)
+    如果 p 大于等于 列表长度(tokens)：
+      跳出
+    设 catch_tok 为 列表获取(tokens, p)
+    如果 字典获取(catch_tok, "种别") 等于 "关键字" 且 字典获取(catch_tok, "值") 等于 "捕获"：
+      p 加上 1
+      # 解析捕获类型和变量
+      设 catch_type 为 空
+      设 catch_var 为 空
+      如果 p 小于 列表长度(tokens)：
+        设 type_tok 为 列表获取(tokens, p)
+        设 tt 为 字典获取(type_tok, "种别")
+        如果 tt 等于 "标识符" 或 tt 等于 "关键字"：
+          设 first_val 为 字典获取(type_tok, "值")
+          p 加上 1
+          # 检查下一个 token 是否也是标识符（类型 + 变量名）
+          如果 p 小于 列表长度(tokens)：
+            设 next_tok 为 列表获取(tokens, p)
+            设 nt 为 字典获取(next_tok, "种别")
+            设 nv 为 字典获取(next_tok, "值")
+            如果 nt 等于 "标识符" 或 (nt 等于 "关键字" 且 nv 不等于 "冒号" 且 nv 不等于 "：" 且 nv 不等于 "："):
+              设 catch_type 为 first_val
+              设 catch_var 为 nv
+              p 加上 1
+            否则：
+              设 catch_var 为 first_val
+          否则：
+            设 catch_var 为 first_val
+      # 跳过冒号
+      如果 p 小于 列表长度(tokens)：
+        设 col_tok 为 列表获取(tokens, p)
+        如果 字典获取(col_tok, "种别") 等于 "冒号"：
+          p 加上 1
+      # 解析捕获体
+      设 p 为 skip_newlines(tokens, p)
+      设 catch_body 为 列表创建()
+      如果 p 小于 列表长度(tokens)：
+        设 indent_tok 为 列表获取(tokens, p)
+        如果 字典获取(indent_tok, "种别") 等于 "缩进"：
+          p 加上 1
+          设 block_result 为 parse_block(tokens, p)
+          设 catch_body 为 列表获取(block_result, 0)
+          p 等于 列表获取(block_result, 1)
+          # 跳过反缩进
+          如果 p 小于 列表长度(tokens)：
+            设 dedent_tok 为 列表获取(tokens, p)
+            如果 字典获取(dedent_tok, "种别") 等于 "反缩进"：
+              p 加上 1
+      设 clause 为 列表创建()
+      列表追加(clause, catch_type)
+      列表追加(clause, catch_var)
+      列表追加(clause, catch_body)
+      列表追加(catch_clauses, clause)
+      跳过
+    否则：
+      跳出
+  # 解析最终子句（可选）
+  设 finally_body 为 空
+  设 p 为 skip_newlines(tokens, p)
+  如果 p 小于 列表长度(tokens)：
+    设 finally_tok 为 列表获取(tokens, p)
+    如果 字典获取(finally_tok, "种别") 等于 "关键字" 且 字典获取(finally_tok, "值") 等于 "最终"：
+      p 加上 1
+      # 跳过冒号
+      如果 p 小于 列表长度(tokens)：
+        设 col_tok 为 列表获取(tokens, p)
+        如果 字典获取(col_tok, "种别") 等于 "冒号"：
+          p 加上 1
+      # 解析最终体
+      设 p 为 skip_newlines(tokens, p)
+      设 fb 为 列表创建()
+      如果 p 小于 列表长度(tokens)：
+        设 indent_tok 为 列表获取(tokens, p)
+        如果 字典获取(indent_tok, "种别") 等于 "缩进"：
+          p 加上 1
+          设 block_result 为 parse_block(tokens, p)
+          设 fb 为 列表获取(block_result, 0)
+          p 等于 列表获取(block_result, 1)
+          # 跳过反缩进
+          如果 p 小于 列表长度(tokens)：
+            设 dedent_tok 为 列表获取(tokens, p)
+            如果 字典获取(dedent_tok, "种别") 等于 "反缩进"：
+              p 加上 1
+      设 finally_body 为 fb
+  设 node 为 make_try_stmt(try_body, catch_clauses, finally_body)
+  返回 [node, p]
+
+段落 parse_throw_stmt 接收 tokens, pos：
+  设 tok 为 列表获取(tokens, pos)  # 抛出
+  设 p 为 pos 加 1
+  # 跳过空行
+  设 p 为 skip_newlines(tokens, p)
+  # 检查是否有值
+  如果 p 小于 列表长度(tokens)：
+    设 next_tok 为 列表获取(tokens, p)
+    设 ttype 为 字典获取(next_tok, "种别")
+    如果 ttype 等于 "句号" 或 ttype 等于 "反缩进" 或 ttype 等于 "结束"：
+      设 node 为 make_throw_stmt(空, 空)
+      返回 [node, p 加 1]
+    设 result 为 parse_expr(tokens, p)
+    设 value 为 列表获取(result, 0)
+    p 等于 列表获取(result, 1)
+    # 检查 "from" 子句
+    设 from_expr 为 空
+    如果 p 小于 列表长度(tokens)：
+      设 from_tok 为 列表获取(tokens, p)
+      如果 字典获取(from_tok, "种别") 等于 "关键字" 且 字典获取(from_tok, "值") 等于 "从"：
+        p 加上 1
+        设 from_result 为 parse_expr(tokens, p)
+        设 from_expr 为 列表获取(from_result, 0)
+        p 等于 列表获取(from_result, 1)
+    设 node 为 make_throw_stmt(value, from_expr)
+    返回 [node, p]
+  设 node 为 make_throw_stmt(空, 空)
+  返回 [node, p]
+
+# =============================================================================
 # Statement dispatcher
 # =============================================================================
 段落 parse_stmt 接收 tokens, pos：
@@ -1492,6 +2036,26 @@
   # If: 如果 cond： body 结束。
   如果 ttype 等于 "关键字" 且 tval 等于 "如果"：
     设 result 为 parse_if(tokens, pos)
+    返回 result
+  # Interface/Protocol: 接口 Name：... 或 协议 Name：...
+  如果 ttype 等于 "关键字" 且 (tval 等于 "接口" 或 tval 等于 "协议")：
+    设 result 为 parse_interface_def(tokens, pos)
+    返回 result
+  # Match: 匹配 expr：情况 pattern：body...
+  如果 ttype 等于 "关键字" 且 tval 等于 "匹配"：
+    设 result 为 parse_match_stmt(tokens, pos)
+    返回 result
+  # With: 使用 expr 为 var：body...
+  如果 ttype 等于 "关键字" 且 tval 等于 "使用"：
+    设 result 为 parse_with_stmt(tokens, pos)
+    返回 result
+  # Try: 尝试：body... 捕获 type：body... 最终：body...
+  如果 ttype 等于 "关键字" 且 tval 等于 "尝试"：
+    设 result 为 parse_try_stmt(tokens, pos)
+    返回 result
+  # Throw: 抛出 expr 从 expr。
+  如果 ttype 等于 "关键字" 且 tval 等于 "抛出"：
+    设 result 为 parse_throw_stmt(tokens, pos)
     返回 result
   # While: 当 cond： body 结束。
   如果 ttype 等于 "关键字" 且 tval 等于 "当"：
@@ -1960,6 +2524,41 @@
   返回 "None"
 
 # =============================================================================
+# Match pattern code generation
+# =============================================================================
+段落 gen_match_pattern 接收 state, pattern：
+  设 kind 为 列表获取(pattern, 1)
+  设 value 为 列表获取(pattern, 2)
+  设 elements 为 列表获取(pattern, 3)
+  设 type_name 为 列表获取(pattern, 4)
+  设 binding 为 列表获取(pattern, 5)
+  # 通配符
+  如果 kind 等于 "wildcard"：
+    返回 "_"
+  # 数字模式
+  如果 kind 等于 "number"：
+    返回 value
+  # 字符串模式
+  如果 kind 等于 "string"：
+    返回 "'" 加 value 加 "'"
+  # 布尔模式
+  如果 kind 等于 "bool"：
+    如果 value 等于 "真"：
+      返回 "True"
+    返回 "False"
+  # 空模式
+  如果 kind 等于 "null"：
+    返回 "None"
+  # 变量绑定
+  如果 kind 等于 "variable"：
+    返回 binding
+  # 类型检查模式
+  如果 kind 等于 "type_check"：
+    返回 type_name 加 "() as " 加 binding
+  # 默认通配符
+  返回 "_"
+
+# =============================================================================
 # Statement code generation
 # =============================================================================
 段落 gen_stmt 接收 state, node：
@@ -2119,6 +2718,148 @@
     设 code 为 gen_expr(state, expr)
     add_line(state, code)
     返回
+  # Interface definition: ["interface_def", name, methods, super_interfaces]
+  如果 node_type 等于 "interface_def"：
+    设 name 为 列表获取(node, 1)
+    设 methods 为 列表获取(node, 2)
+    设 super_interfaces 为 列表获取(node, 3)
+    设 bases 为 "ABC"
+    设 i 为 0
+    当 i 小于 列表长度(super_interfaces)：
+      设 bases 为 bases 加 ", " 加 列表获取(super_interfaces, i)
+      i 加上 1
+    add_line(state, "class " 加 name 加 "(" 加 bases 加 "):")
+    indent_push(state)
+    设 j 为 0
+    当 j 小于 列表长度(methods)：
+      设 method 为 列表获取(methods, j)
+      设 method_name 为 列表获取(method, 1)
+      设 params 为 列表获取(method, 2)
+      设 return_type 为 列表获取(method, 3)
+      add_line(state, "@abstractmethod")
+      设 param_str 为 "self"
+      设 k 为 0
+      当 k 小于 列表长度(params)：
+        设 param_pair 为 列表获取(params, k)
+        设 param_str 为 param_str 加 ", " 加 列表获取(param_pair, 0)
+        k 加上 1
+      如果 return_type 不等于 空 且 return_type 不等于 ""：
+        add_line(state, "def " 加 method_name 加 "(" 加 param_str 加 ") -> " 加 return_type 加 ":")
+      否则：
+        add_line(state, "def " 加 method_name 加 "(" 加 param_str 加 "):")
+      indent_push(state)
+      add_line(state, "pass")
+      indent_pop(state)
+      j 加上 1
+    如果 列表长度(methods) 等于 0：
+      add_line(state, "pass")
+    indent_pop(state)
+    add_line(state, "")
+    返回
+  # Match statement: ["match_stmt", subject, cases]
+  如果 node_type 等于 "match_stmt"：
+    设 subject 为 gen_expr(state, 列表获取(node, 1))
+    设 cases 为 列表获取(node, 2)
+    add_line(state, "match " 加 subject 加 ":")
+    indent_push(state)
+    设 i 为 0
+    当 i 小于 列表长度(cases)：
+      设 case_node 为 列表获取(cases, i)
+      设 pattern 为 列表获取(case_node, 1)
+      设 guard 为 列表获取(case_node, 2)
+      设 body 为 列表获取(case_node, 3)
+      # 生成模式代码
+      设 pattern_code 为 gen_match_pattern(state, pattern)
+      设 guard_str 为 ""
+      如果 guard 不等于 空：
+        设 guard_str 为 " if " 加 gen_expr(state, guard)
+      add_line(state, "case " 加 pattern_code 加 guard_str 加 ":")
+      indent_push(state)
+      如果 列表长度(body) 大于 0：
+        设 j 为 0
+        当 j 小于 列表长度(body)：
+          gen_stmt(state, 列表获取(body, j))
+          j 加上 1
+      否则：
+        add_line(state, "pass")
+      indent_pop(state)
+      i 加上 1
+    indent_pop(state)
+    add_line(state, "")
+    返回
+  # With statement: ["with_stmt", context_expr, variable, body]
+  如果 node_type 等于 "with_stmt"：
+    设 context_expr 为 gen_expr(state, 列表获取(node, 1))
+    设 variable 为 列表获取(node, 2)
+    设 body 为 列表获取(node, 3)
+    如果 variable 不等于 空 且 variable 不等于 ""：
+      add_line(state, "with " 加 context_expr 加 " as " 加 variable 加 ":")
+    否则：
+      add_line(state, "with " 加 context_expr 加 ":")
+    indent_push(state)
+    设 i 为 0
+    当 i 小于 列表长度(body)：
+      gen_stmt(state, 列表获取(body, i))
+      i 加上 1
+    indent_pop(state)
+    返回
+  # Try statement: ["try_stmt", try_body, catch_clauses, finally_body]
+  如果 node_type 等于 "try_stmt"：
+    设 try_body 为 列表获取(node, 1)
+    设 catch_clauses 为 列表获取(node, 2)
+    设 finally_body 为 列表获取(node, 3)
+    add_line(state, "try:")
+    indent_push(state)
+    设 i 为 0
+    当 i 小于 列表长度(try_body)：
+      gen_stmt(state, 列表获取(try_body, i))
+      i 加上 1
+    indent_pop(state)
+    # 捕获子句
+    设 j 为 0
+    当 j 小于 列表长度(catch_clauses)：
+      设 clause 为 列表获取(catch_clauses, j)
+      设 catch_type 为 列表获取(clause, 0)
+      设 catch_var 为 列表获取(clause, 1)
+      设 catch_body 为 列表获取(clause, 2)
+      设 except_str 为 "except"
+      如果 catch_type 不等于 空 且 catch_type 不等于 ""：
+        设 except_str 为 except_str 加 " " 加 catch_type
+      如果 catch_var 不等于 空 且 catch_var 不等于 ""：
+        设 except_str 为 except_str 加 " as " 加 catch_var
+      否则 如果 catch_type 等于 空 或 catch_type 等于 ""：
+        设 except_str 为 except_str 加 " Exception"
+      add_line(state, except_str 加 ":")
+      indent_push(state)
+      设 k 为 0
+      当 k 小于 列表长度(catch_body)：
+        gen_stmt(state, 列表获取(catch_body, k))
+        k 加上 1
+      indent_pop(state)
+      j 加上 1
+    # 最终子句
+    如果 finally_body 不等于 空：
+      add_line(state, "finally:")
+      indent_push(state)
+      设 m 为 0
+      当 m 小于 列表长度(finally_body)：
+        gen_stmt(state, 列表获取(finally_body, m))
+        m 加上 1
+      indent_pop(state)
+    返回
+  # Throw statement: ["throw_stmt", value, from_expr]
+  如果 node_type 等于 "throw_stmt"：
+    设 value 为 列表获取(node, 1)
+    设 from_expr 为 列表获取(node, 2)
+    如果 value 等于 空：
+      add_line(state, "raise")
+    否则：
+      设 value_code 为 gen_expr(state, value)
+      设 from_str 为 ""
+      如果 from_expr 不等于 空：
+        设 from_str 为 " from " 加 gen_expr(state, from_expr)
+      add_line(state, "raise " 加 value_code 加 from_str)
+    返回
   # Default: skip unknown nodes
   返回
 
@@ -2129,6 +2870,7 @@
   add_line(state, "# Generated by Light bootstrap compiler")
   add_line(state, "import sys")
   add_line(state, "import types")
+  add_line(state, "from abc import ABC, abstractmethod")
   add_line(state, "_light_builtin = types.ModuleType('_light_builtin')")
   add_line(state, "_light_builtin.打印 = print")
   add_line(state, "_light_builtin.转字符串 = str")
@@ -2263,4 +3005,3 @@
 段落 main 接收 filepath：
   设 py_code 为 compile_file(filepath)
   打印(py_code)
-

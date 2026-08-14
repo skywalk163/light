@@ -17,6 +17,7 @@
   light compile hello.light -o out.py  # 编译为 Python
 """
 
+import ast
 import re
 import sys
 import os
@@ -40,7 +41,10 @@ try:
     if is_dev_branch():
         VERSION = f'光明编译器 v4.0dev-{LANG_VERSION} (开发分支)'
 except ImportError:
-    VERSION = '光明编译器 v1.10.3'
+    VERSION = '光明编译器 v7.0.0'
+
+# 反馈收集子命令
+from feedback_collector import setup_feedback_subparser, run_feedback_cli
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -103,21 +107,134 @@ def _compile_src(source: str) -> str:
     return generator.generate(module)
 
 
+def _resolve_local_imports(source: str, source_dir: str) -> dict:
+    """解析源代码中的本地模块导入，递归查找所有 .light 依赖
+
+    Returns:
+        {module_name: compiled_python_code, ...}
+    """
+    from light_parser_v3 import LightParser, ImportStmt
+    from code_generator import PythonCodeGenerator
+    from pathlib import Path
+
+    parser = LightParser()
+    module = parser.parse(source)
+    if module is None:
+        return {}
+
+    def _collect_imports(mod):
+        """从模块的 statements 中收集所有 ImportStmt"""
+        result = []
+        for stmt in getattr(mod, 'statements', None) or []:
+            if isinstance(stmt, ImportStmt):
+                result.append(stmt)
+        return result
+
+    result = {}
+    visited = set()
+
+    def _resolve_one(mod_name: str, base_dir: str):
+        if mod_name in visited:
+            return
+        visited.add(mod_name)
+
+        # 查找 .light 文件
+        mod_path = Path(base_dir) / f"{mod_name}.light"
+        if not mod_path.exists():
+            return
+
+        mod_src = mod_path.read_text(encoding='utf-8')
+        mod_parser = LightParser()
+        mod_module = mod_parser.parse(mod_src)
+        if mod_module is None:
+            return
+
+        # 编译
+        gen = PythonCodeGenerator()
+        code = gen.generate(mod_module)
+        result[mod_name] = code
+
+        # 递归解析子导入
+        for imp in _collect_imports(mod_module):
+            child_mod = imp.module_name
+            if child_mod not in visited and getattr(imp, 'language', None) is None:
+                _resolve_one(child_mod, base_dir)
+
+    # 解析主文件的所有导入
+    for imp in _collect_imports(module):
+        mod_name = imp.module_name
+        if getattr(imp, 'language', None) is None:
+            _resolve_one(mod_name, source_dir)
+
+    return result
+
+
 def _run_src(source: str, file_path: str | None = None) -> str:
-    """用 src 后端执行，返回输出"""
+    """用 src 后端执行，返回输出（支持多模块依赖自动解析）"""
     import os
+    from pathlib import Path
 
-    py_code = _compile_src(source)
+    # 解析本地模块依赖
+    source_dir = os.path.dirname(os.path.abspath(file_path)) if file_path else os.getcwd()
+    dep_modules = _resolve_local_imports(source, source_dir)
+
+    # 编译主文件
+    main_code = _compile_src(source)
+
+    # 构建完整代码：依赖模块在前，主文件在后
+    # 注意：生成的代码中 import 语句会引用光明模块名（如 '引擎'），
+    # 而 Python 找不到这些模块。因此我们注入依赖模块的代码，
+    # 并替换所有代码中的 "from 模块名 import" 为注释，
+    # 因为依赖模块的代码已经定义了所有需要的符号。
+
+    import re
+
+    # 先收集所有代码（deps + main）到一个字符串
+    combined_parts = []
+    for mod_name, dep_code in dep_modules.items():
+        combined_parts.append(f"# === 光明模块: {mod_name} ===\n")
+        combined_parts.append(dep_code)
+        combined_parts.append("\n")
+    combined_parts.append(main_code)
+    py_code = ''.join(combined_parts)
+
+    # 对所有代码，替换本地模块的 import 为注释
+    for mod_name in dep_modules:
+        py_code = re.sub(
+            rf'^from\s+{re.escape(mod_name)}\s+import\s+.*$',
+            f'# 已注入: from {mod_name} import ... (模块代码已内联)',
+            py_code,
+            flags=re.MULTILINE
+        )
+        py_code = re.sub(
+            rf'^import\s+{re.escape(mod_name)}\s*$',
+            f'# 已注入: import {mod_name} (模块代码已内联)',
+            py_code,
+            flags=re.MULTILINE
+        )
+
+    # 执行
     output_lines = []
-
+    import sys as _sys
     def _capture_print(*args, **kwargs):
         line = ' '.join(str(a) for a in args)
         output_lines.append(line)
+        # 实时输出并立即刷新，避免运行中途异常导致缓冲内容（已打印的部分）丢失
+        print(*args, **kwargs)
+        _sys.stdout.flush()
 
     namespace = {'print': _capture_print, '__name__': '__main__'}
     if file_path:
         namespace['__file__'] = os.path.abspath(file_path)
-    exec(py_code, namespace)
+    # 添加源文件目录到 Python 路径，确保 `导入 Python:` 能找到本地 .py 模块
+    import sys
+    sys.path.insert(0, source_dir)
+    try:
+        exec(py_code, namespace)
+    finally:
+        # 执行后移除临时路径，避免影响后续调用
+        if sys.path[0] == source_dir:
+            sys.path.pop(0)
     return '\n'.join(output_lines)
 
 
@@ -188,13 +305,18 @@ def cmd_run(args):
 
     try:
         if args.backend == 'src':
-            output = _run_src(source, file_path=args.file)
-            if output:
-                print(output)
+            # 输出已由 _run_src 实时打印（含异常前的部分），不再二次打印
+            _run_src(source, file_path=args.file)
         else:
             _run_antlr(source)
 
+    except SystemExit:
+        # 运行期若经 光明 运行时走到 sys.exit（含非零码，代表运行期错误），
+        # 必须原样上浮，不能当作成功（rc==0 会被护栏误判为通过）。
+        raise
     except Exception as e:
+        # 运行期错误（越界/除零/NameError…）必须「浮出水面」：打 stderr 且返回非零 rc，
+        # 否则护栏（组合.py `_成功` / 冒烟.py）依赖的「rc==0 且 非空 stdout」会把它误判为成功。
         print(format_error(source, e), file=sys.stderr)
         if args.verbose:
             import traceback
@@ -393,10 +515,12 @@ def cmd_tokens(args):
 
 def cmd_check(args):
     """语法检查：解析源代码但不执行"""
+    from enhanced_errors import format_error
     source = _read_source(args.file)
 
     errors = []
     warnings = []
+    module = None
 
     try:
         if args.backend == 'src':
@@ -404,7 +528,18 @@ def cmd_check(args):
             parser = LightParser()
             module = parser.parse(source)
             if module is None:
-                errors.append("解析失败：返回空模块")
+                first_unparsed = None
+                for i in range(parser.pos, len(parser.tokens)):
+                    t = parser.tokens[i]
+                    if t.type.name not in ('NEWLINE', 'DEDENT', 'INDENT', 'DOT', 'EOF'):
+                        first_unparsed = t
+                        break
+                if first_unparsed:
+                    err_msg = f"解析失败：无法识别语法 '{first_unparsed.value}'"
+                    formatted = format_error(source, Exception(err_msg), first_unparsed.line, first_unparsed.col)
+                    errors.append(formatted)
+                else:
+                    errors.append("解析失败：返回空模块")
             else:
                 # 检查是否有未消费的实质性 token（解析器提前停止）
                 first_unparsed = None
@@ -414,10 +549,9 @@ def cmd_check(args):
                         first_unparsed = t
                         break
                 if first_unparsed:
-                    errors.append(
-                        f"解析失败：无法识别代码语法。"
-                        f"第{first_unparsed.line}行第{first_unparsed.col}列附近: '{first_unparsed.value}'"
-                    )
+                    err_msg = f"解析失败：无法识别语法 '{first_unparsed.value}'"
+                    formatted = format_error(source, Exception(err_msg), first_unparsed.line, first_unparsed.col)
+                    errors.append(formatted)
         else:
             from light_visitor import LightParser
             from code_generator_unified import UnifiedCodeGenerator
@@ -425,9 +559,30 @@ def cmd_check(args):
             parser = LightParser()
             module = parser.parse(processed_source)
             if module is None:
-                errors.extend(parser.errors)
+                for err in parser.errors:
+                    errors.append(err)
     except Exception as e:
-        errors.append(str(e))
+        # 使用增强错误格式化器
+        try:
+            formatted = format_error(source, e)
+            errors.append(formatted)
+        except Exception:
+            errors.append(str(e))
+
+    # 解析通过 ≠ 能跑：再走一遍代码生成，拦截「check 通过但 run 失败」的情况
+    if not errors and module is not None and args.backend == 'src':
+        try:
+            from code_generator import PythonCodeGenerator
+            generated = PythonCodeGenerator().generate(module)
+            try:
+                compile(generated, args.file, 'exec')
+            except SyntaxError as se:
+                errors.append(
+                    f"代码生成结果非法（生成的 Python 无法编译）：{se.msg}"
+                    f"（生成代码第 {se.lineno} 行）"
+                )
+        except Exception as e:
+            errors.append(f"代码生成失败：{type(e).__name__}: {e}")
 
     # 简单统计
     lines = source.split('\n')
@@ -440,28 +595,29 @@ def cmd_check(args):
         'comment_lines': sum(1 for l in lines if _is_comment_line(l)),
     }
 
-    print(f"检查文件: {args.file}")
-    print(f"  总行数: {stats['total_lines']}")
-    print(f"  代码行: {stats['code_lines']}")
-    print(f"  注释行: {stats['comment_lines']}")
+    print(f"📄 检查文件: {args.file}")
+    print(f"   总行数: {stats['total_lines']}")
+    print(f"   代码行: {stats['code_lines']}")
+    print(f"   注释行: {stats['comment_lines']}")
 
     if errors:
         print(f"\n❌ 发现 {len(errors)} 个错误:")
         for err in errors:
-            print(f"    - {err}")
+            print(f"  {err}")
         sys.exit(1)
     else:
         print(f"\n✅ 语法检查通过，未发现错误。")
 
-    # 类型检查
-    if args.type_check:
-        _run_type_check(source, args.type_check, args.file)
+    # 默认启用类型检查（除非显式指定 --no-type-check）
+    if not getattr(args, 'no_type_check', False):
+        _run_type_check(source, getattr(args, 'type_check', '表达式'), args.file)
 
 
 def _run_type_check(source: str, level_str: str, file_path: str):
     """运行类型检查并输出结果"""
     from compiler import LightCompiler
     from core.config import TypeCheckLevel
+    from enhanced_errors import format_error
 
     level_map = {
         '签名': TypeCheckLevel.SIGNATURE, 'signature': TypeCheckLevel.SIGNATURE,
@@ -475,7 +631,11 @@ def _run_type_check(source: str, level_str: str, file_path: str):
     compiler._config.type_check_level = level
 
     # 解析并运行类型检查
-    result = compiler.compile(source, optimize=False)
+    try:
+        result = compiler.compile(source, optimize=False)
+    except Exception as e:
+        print(format_error(source, e), file=sys.stderr)
+        sys.exit(1)
 
     print(f"\n━━━ 类型检查（级别: {level_str}）━━━")
 
@@ -488,7 +648,15 @@ def _run_type_check(source: str, level_str: str, file_path: str):
     if type_errors:
         print(f"\n❌ 类型错误 ({len(type_errors)} 个):")
         for e in type_errors:
-            print(f"  {e}")
+            # 尝试提取行号并显示源码上下文
+            import re
+            line_match = re.search(r'第(\d+)行', e)
+            if line_match:
+                line_num = int(line_match.group(1))
+                formatted = format_error(source, Exception(e), line_num)
+                print(f"  {formatted}")
+            else:
+                print(f"  {e}")
         sys.exit(1)
     else:
         print("✅ 类型检查通过")
@@ -518,8 +686,14 @@ def cmd_init(args):
     print(f"✅ 项目 '{project_name}' 初始化完成")
     print(f"   模板: {template.name} ({template.description})")
     print(f"   目录: {project_dir.resolve()}")
-    print(f"   配置: package.toml")
+    print(f"   配置: light.json")
     print(f"   入口: 主.light")
+    print(f"   目录结构:")
+    print(f"     {project_name}/")
+    print(f"     ├── light.json      项目配置文件")
+    print(f"     ├── 主.light        入口文件")
+    print(f"     ├── src/            源代码目录")
+    print(f"     └── tests/          测试目录")
     print(f"\n可用命令:")
     print(f"   light pkg run                  运行项目")
     print(f"   light pkg build                编译项目")
@@ -529,13 +703,192 @@ def cmd_init(args):
         print(f"   {t['name']:8} - {t['description']}")
 
 
+def _load_lightpub_index():
+    """加载 lightpub 包索引"""
+    try:
+        from stdlib.lightpub.__index__ import PACKAGES, CATEGORIES, PRIORITY
+        return PACKAGES, CATEGORIES, PRIORITY
+    except ImportError:
+        try:
+            sys.path.insert(0, os.path.join(_PROJECT_DIR, 'stdlib'))
+            from lightpub.__index__ import PACKAGES, CATEGORIES, PRIORITY
+            return PACKAGES, CATEGORIES, PRIORITY
+        except ImportError:
+            return {}, {}, {}
+
+
+CATEGORY_NAMES = {
+    'dev': '开发工具', 'net': '网络通信', 'database': '数据库',
+    'security': '安全加密', 'language': '语言特性', 'media': '多媒体',
+    'graphics': '图形渲染', 'infrastructure': '基础设施', 'output': '输出生成',
+}
+
+
+def cmd_pkg_search(args):
+    """按关键词搜索 lightpub 包"""
+    # 远程搜索
+    if getattr(args, 'remote', False):
+        from package_installer import PackageInstaller
+        project_root = Path(getattr(args, 'project', '.')).resolve()
+        registry_url = getattr(args, 'registry_url', None)
+        if not registry_url:
+            registry_url = 'http://localhost:8000'
+        installer = PackageInstaller(project_root=project_root, registry_url=registry_url)
+        results = installer.remote_search(args.keyword)
+        if not results:
+            print(f"未找到匹配 '{args.keyword}' 的包")
+        return
+
+    PACKAGES, _, _ = _load_lightpub_index()
+    keyword = args.keyword.lower()
+    results = []
+
+    for name, info in PACKAGES.items():
+        # 搜索包名
+        if keyword in name.lower():
+            results.append((name, info))
+            continue
+        # 搜索关键词
+        for kw in info.get('keywords', []):
+            if keyword in kw.lower():
+                results.append((name, info))
+                break
+        # 搜索描述
+        if keyword in info.get('description', '').lower():
+            if (name, info) not in results:
+                results.append((name, info))
+
+    if not results:
+        print(f"未找到匹配 '{args.keyword}' 的包")
+        return
+
+    print(f"找到 {len(results)} 个匹配包:")
+    print()
+    for name, info in sorted(results, key=lambda x: x[0]):
+        priority = info.get('priority', '')
+        desc = info.get('description', '')
+        version = info.get('version', '')
+        print(f"  {name:20} v{version:6} [{priority}] {desc}")
+
+
+def cmd_pkg_info(args):
+    """查看包详情"""
+    PACKAGES, _, _ = _load_lightpub_index()
+    pkg_name = args.package_name
+    info = PACKAGES.get(pkg_name)
+
+    if not info:
+        # 尝试模糊匹配
+        matches = [n for n in PACKAGES if pkg_name.lower() in n.lower()]
+        if matches:
+            print(f"未找到包 '{pkg_name}'，您是不是要找：")
+            for m in matches[:5]:
+                print(f"  - {m}")
+        else:
+            print(f"错误: 未找到包 '{pkg_name}'")
+        return
+
+    cat_name = CATEGORY_NAMES.get(info.get('category', ''), info.get('category', '未分类'))
+    print(f"=== {pkg_name} ===")
+    print(f"  描述:     {info.get('description', '')}")
+    print(f"  版本:     {info.get('version', '')}")
+    print(f"  分类:     {cat_name}")
+    print(f"  优先级:   {info.get('priority', '')}")
+    print(f"  函数数:   {info.get('function_count', 0)}")
+    print(f"  FFI 数:   {info.get('ffi_count', 0)}")
+
+    stdlib_eq = info.get('stdlib_equivalent')
+    if stdlib_eq:
+        print(f"  stdlib:   {stdlib_eq}")
+
+    deps = info.get('dependencies', [])
+    if deps:
+        print(f"  依赖:     {', '.join(deps)}")
+
+    keywords = info.get('keywords', [])
+    if keywords:
+        print(f"  关键词:   {', '.join(keywords)}")
+
+    note = info.get('note', '')
+    if note:
+        print(f"  备注:     {note}")
+
+    functions = info.get('functions', [])
+    if functions:
+        print(f"\n  函数列表 ({len(functions)} 个):")
+        for func in functions:
+            print(f"    - {func}")
+
+    print(f"\n  导入方式: 导入 {pkg_name} 或 导入 标准{pkg_name}")
+
+
+def cmd_pkg_list(args):
+    """按类别列出包"""
+    PACKAGES, CATEGORIES, PRIORITY = _load_lightpub_index()
+
+    if args.category:
+        cat_name = CATEGORY_NAMES.get(args.category, args.category)
+        pkg_list = CATEGORIES.get(args.category, [])
+        if not pkg_list:
+            print(f"分类 '{cat_name}' 中没有包")
+            return
+        print(f"=== {cat_name} ({len(pkg_list)} 个包) ===")
+        print()
+        for name in sorted(pkg_list):
+            info = PACKAGES.get(name, {})
+            desc = info.get('description', '')
+            priority = info.get('priority', '')
+            print(f"  {name:20} [{priority}] {desc}")
+    elif args.priority:
+        label = {'P0': '核心包', 'P1': '高频包', 'P2': '扩展包'}.get(args.priority, args.priority)
+        pkg_list = PRIORITY.get(args.priority, [])
+        if not pkg_list:
+            print(f"优先级 '{args.priority}' 中没有包")
+            return
+        print(f"=== {label} ({len(pkg_list)} 个包) ===")
+        print()
+        for name in sorted(pkg_list):
+            info = PACKAGES.get(name, {})
+            desc = info.get('description', '')
+            print(f"  {name:20} {desc}")
+    else:
+        print(f"=== lightpub 包列表 ({len(PACKAGES)} 个包) ===")
+        print()
+        print(f"可用分类: {', '.join(sorted(CATEGORIES.keys()))}")
+        print(f"可用优先级: P0 (核心), P1 (高频), P2 (扩展)")
+        print()
+        print(f"用法: light pkg list --category <分类名>")
+        print(f"      light pkg list --priority P0")
+        print(f"      light pkg search <关键词>")
+
+
 def cmd_pkg(args):
-    """包管理子命令（统一入口：init/build/run/native）"""
+    """包管理子命令（统一入口：init/build/run/native/search/info/list/update/publish）"""
+    pkg_command = getattr(args, 'pkg_command', None)
+
+    # 搜索/信息/列表命令直接处理
+    if pkg_command == 'search':
+        cmd_pkg_search(args)
+        return
+    elif pkg_command == 'info':
+        cmd_pkg_info(args)
+        return
+    elif pkg_command == 'list':
+        cmd_pkg_list(args)
+        return
+    elif pkg_command == 'update':
+        cmd_pkg_update(args)
+        return
+    elif pkg_command == 'publish':
+        cmd_pkg_publish(args)
+        return
+
+    # 其余命令需要 PackageManager
     from package_manager import PackageManager
 
     project_root = Path(getattr(args, 'project', None) or '.').resolve()
 
-    if args.pkg_command == 'init':
+    if pkg_command == 'init':
         name = args.name
         if name:
             # 在 ./name/ 子目录下初始化
@@ -559,19 +912,37 @@ def cmd_pkg(args):
             sys.exit(1)
 
     elif args.pkg_command == 'build':
-        pm = PackageManager(project_root=project_root)
-        result = pm.build_project()
-        if result.get('success'):
-            print(f"✅ 构建成功")
-            print(f"   入口: {result.get('entry', '')}")
-            order = result.get('order', [])
-            if order:
-                print(f"   模块拓扑顺序: {' -> '.join(order)}")
+        if getattr(args, 'incremental', False):
+            # 增量编译
+            try:
+                from incremental_build import incremental_build_cli
+                result = incremental_build_cli(
+                    project_dir=project_root,
+                    force=getattr(args, 'force', False),
+                    verbose=True
+                )
+                if result == 0:
+                    print(f"✅ 增量构建成功")
+                else:
+                    print(f"❌ 增量构建失败", file=sys.stderr)
+                    sys.exit(1)
+            except ImportError as e:
+                print(f"❌ 增量编译模块不可用: {e}", file=sys.stderr)
+                sys.exit(1)
         else:
-            print("❌ 构建失败:", file=sys.stderr)
-            for err in result.get('errors', []):
-                print(f"   - {err}", file=sys.stderr)
-            sys.exit(1)
+            pm = PackageManager(project_root=project_root)
+            result = pm.build_project()
+            if result.get('success'):
+                print(f"✅ 构建成功")
+                print(f"   入口: {result.get('entry', '')}")
+                order = result.get('order', [])
+                if order:
+                    print(f"   模块拓扑顺序: {' -> '.join(order)}")
+            else:
+                print("❌ 构建失败:", file=sys.stderr)
+                for err in result.get('errors', []):
+                    print(f"   - {err}", file=sys.stderr)
+                sys.exit(1)
 
     elif args.pkg_command == 'run':
         pm = PackageManager(project_root=project_root)
@@ -584,7 +955,8 @@ def cmd_pkg(args):
         try:
             output = pm.build_project_native(
                 output_path=args.output,
-                verbose=args.verbose
+                verbose=args.verbose,
+                target=args.target
             )
             print(f"✅ 原生编译成功: {output}")
         except Exception as e:
@@ -604,6 +976,12 @@ def cmd_test(args):
     from test_runner import run_tests, run_single_file
 
     if args.file:
+        if os.path.isdir(args.file):
+            return run_tests(
+                args.file,
+                filter_pattern=args.filter,
+                verbose=args.verbose
+            )
         return run_single_file(args.file, verbose=args.verbose)
     else:
         return run_tests(
@@ -643,6 +1021,53 @@ def cmd_publish(args):
     """发布光明段件"""
     from package_installer import run_publish
     run_publish(args)
+
+
+def cmd_pkg_update(args):
+    """更新光明段件"""
+    from package_installer import run_update
+    run_update(args)
+
+
+def cmd_pkg_publish(args):
+    """发布光明段件（pkg 子命令）"""
+    from package_installer import run_publish
+    run_publish(args)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# py2light 转译命令
+# ═══════════════════════════════════════════════════════════════════
+
+def cmd_py2light(args):
+    """将 Python 代码转译为光明代码"""
+    _AI_DIR = os.path.join(_PROJECT_DIR, 'tools', 'ai_copilot')
+    sys.path.insert(0, _AI_DIR)
+
+    from py2light_transpiler import Py2LightTranspiler, TranspileError, FeatureUsageCollector
+
+    if args.file:
+        with open(args.file, 'r', encoding='utf-8') as f:
+            code = f.read()
+    else:
+        code = sys.stdin.read()
+
+    if args.stats:
+        collector = FeatureUsageCollector()
+        tree = compile(code, '<input>', 'exec', ast.PyCF_ONLY_AST)
+        collector.visit(tree)
+        print("Python 特性统计:")
+        for line in collector.get_report_lines():
+            print(line)
+        return
+
+    transpiler = Py2LightTranspiler()
+    try:
+        result = transpiler.transpile(code)
+        print(result)
+    except TranspileError as e:
+        print(f"转译错误: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -860,12 +1285,14 @@ def main():
     tok_p.add_argument('file', help='源文件路径')
 
     # ── check ──
-    check_p = subparsers.add_parser('check', help='语法检查')
+    check_p = subparsers.add_parser('check', help='语法检查（默认启用类型检查）')
     check_p.add_argument('file', help='源文件路径')
     check_p.add_argument('--backend', choices=['antlr', 'src'], default='src',
                          help='使用的后端（默认: src）')
     check_p.add_argument('--type-check', choices=['签名', '变量', '表达式', 'signature', 'variable', 'expression'],
-                         default=None, help='启用类型检查并指定级别')
+                         default='表达式', help='类型检查级别（默认: 表达式）')
+    check_p.add_argument('--no-type-check', action='store_true',
+                         help='跳过类型检查')
 
     # ── type-check ──
     tc_p = subparsers.add_parser('type-check', help='独立类型检查')
@@ -880,20 +1307,50 @@ def main():
                         default='default', help='项目模板（默认: default）')
 
     # ── pkg ──
-    pkg_p = subparsers.add_parser('pkg', help='包管理（init/build/run/native）')
+    pkg_p = subparsers.add_parser('pkg', help='包管理（init/build/run/native/search/info/list/update/publish）')
     pkg_p.add_argument('--project', '-p', default='.', help='项目根目录（默认: 当前目录）')
     pkg_sub = pkg_p.add_subparsers(dest='pkg_command', help='包管理子命令')
 
     pkg_init = pkg_sub.add_parser('init', help='初始化新包（创建 package.toml 与 主.light）')
     pkg_init.add_argument('name', nargs='?', default=None, help='包名（默认: 目录名）')
 
-    pkg_sub.add_parser('build', help='编译整个项目')
+    pkg_build = pkg_sub.add_parser('build', help='编译整个项目')
+    pkg_build.add_argument('--incremental', action='store_true', help='使用增量编译（仅编译变更文件）')
+    pkg_build.add_argument('--force', '-f', action='store_true', help='强制全量编译（忽略增量缓存）')
 
     pkg_sub.add_parser('run', help='运行项目入口')
 
     pkg_native = pkg_sub.add_parser('native', help='使用 LLVM 后端编译为原生可执行文件')
     pkg_native.add_argument('-o', '--output', default=None, help='输出文件路径')
     pkg_native.add_argument('-v', '--verbose', action='store_true', help='详细输出')
+    pkg_native.add_argument('--target', default=None,
+                            choices=['auto', 'macos', 'linux', 'windows'],
+                            help='目标平台（auto/macos/linux/windows，默认 auto 自动检测）')
+
+    # ── pkg search ──
+    pkg_search = pkg_sub.add_parser('search', help='搜索 lightpub 包')
+    pkg_search.add_argument('keyword', help='搜索关键词（包名/描述/关键词）')
+    pkg_search.add_argument('--remote', '-r', action='store_true', help='从远程注册中心搜索')
+    pkg_search.add_argument('--registry-url', default=None, help='远程注册中心 URL（默认: http://localhost:8000）')
+
+    # ── pkg info ──
+    pkg_info = pkg_sub.add_parser('info', help='查看 lightpub 包详情')
+    pkg_info.add_argument('package_name', help='包名')
+
+    # ── pkg list ──
+    pkg_list = pkg_sub.add_parser('list', help='列出 lightpub 包')
+    pkg_list.add_argument('--category', '-c', default=None, help='按分类筛选（dev/net/database/security/language 等）')
+    pkg_list.add_argument('--priority', '-p', default=None, choices=['P0', 'P1', 'P2'], help='按优先级筛选')
+
+    # ── pkg update ──
+    pkg_update = pkg_sub.add_parser('update', help='更新段件到最新版本')
+    pkg_update.add_argument('package', nargs='?', default=None, help='段件名（默认空）')
+    pkg_update.add_argument('--all', '-a', action='store_true', help='更新所有已安装段件')
+    pkg_update.add_argument('--check', '-c', action='store_true', help='检查可用更新，不安装')
+
+    # ── pkg publish ──
+    pkg_publish = pkg_sub.add_parser('publish', help='发布段件到本地索引')
+    pkg_publish.add_argument('--path', default=None, help='段件项目路径（默认: 当前目录）')
 
     # ── ai ──
     ai_p = subparsers.add_parser('ai', help='AI Copilot 辅助工具（算力不足场景下的光明代码生成）')
@@ -967,10 +1424,12 @@ def main():
     install_p.add_argument('--uninstall', default=None, help='卸载段件')
     install_p.add_argument('--update-registry', action='store_true', help='从远程更新本地段件库缓存')
     install_p.add_argument('--registry-url', default=None, help='远程段件库 URL')
+    install_p.add_argument('--with-deps', action='store_true', help='自动安装依赖')
     install_p.add_argument('-p', '--project', default='.', help='项目目录')
 
     # ── publish ──
-    publish_p = subparsers.add_parser('publish', help='发布段件（生成段件库条目并显示 PR 指引）')
+    publish_p = subparsers.add_parser('publish', help='发布段件到本地索引')
+    publish_p.add_argument('--path', default=None, help='段件项目路径（默认: 当前目录）')
     publish_p.add_argument('-p', '--project', default='.', help='项目目录')
 
     # ── repl ──
@@ -981,6 +1440,14 @@ def main():
     tutorial_p = subparsers.add_parser('tutorial', help='30 分钟入门光明交互式教程')
     tutorial_p.add_argument('--step', action='store_true', help='逐步运行（每节暂停）')
     tutorial_p.add_argument('--repl', action='store_true', help='交互式练习模式')
+
+    # ── py2light ──
+    py2light_p = subparsers.add_parser('py2light', help='将 Python 代码转译为光明代码')
+    py2light_p.add_argument('file', nargs='?', help='Python 源文件路径（默认从 stdin 读取）')
+    py2light_p.add_argument('--stats', action='store_true', help='显示 Python 特性统计信息')
+
+    # ── feedback ──
+    setup_feedback_subparser(subparsers)
 
     args = parser.parse_args()
 
@@ -1048,6 +1515,13 @@ def main():
         if args.repl:
             sys.argv.append('--repl')
         tutorial_main()
+
+    elif args.command == 'py2light':
+        cmd_py2light(args)
+
+    elif args.command == 'feedback':
+        exit_code = run_feedback_cli(args)
+        sys.exit(exit_code)
 
 
 if __name__ == '__main__':

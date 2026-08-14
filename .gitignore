@@ -216,3 +216,135 @@ ollama_model/merged_2b/
 !ollama_model/Modelfile*
 !ollama_model/test_*.py
 !ollama_model/test_*_results.json
+
+# AI Copilot 中间脚本（不入库）
+tools/ai_copilot/_*.py
+tools/ai_copilot/fix_dataset_v*.py
+tools/ai_copilot/sft_dataset_backup*.jsonl
+tools/ai_copilot/*.csv
+tools/ai_copilot/sft_dataset_clean_backup*.jsonl
+tools/ai_copilot/sft_dataset_ernie*.jsonl
+tools/ai_copilot/analyze_*.py
+tools/ai_copilot/verify_*.py
+tools/ai_copilot/test_*.py
+tools/ai_copilot/remote_*.py
+tools/ai_copilot/tmp_*.py
+tools/ai_copilot/data*.csv
+tools/ai_copilot/input*.csv
+tools/ai_copilot/output*.csv
+tools/ai_copilot/*.md
+
+# SSH 部署脚本（不入库）
+ssh_*.py
+
+# 根目录调试/分析脚本
+_categorize.py
+_run_full.py
+_run_tests.py
+analyze*.py
+test4b.py
+verify_dict_spread.py
+测试所有示例.py
+
+# 临时目录
+tmp/
+tmp_repo/
+tmp_upload/
+example1/
+
+# 外部工具
+llama.cpp/
+
+# 文档生成产物
+docs/P9_stdlib_design.md
+docs/RELEASE_NOTES.md
+docs/llvm_backend_analysis.md
+docs/stdlib_llvm_compat_audit.md
+
+# Playground 临时文件
+playground/README.md
+
+# 根目录测试用 .duan 文件
+test_*.duan
+
+# Ollama 模型目录
+ollama_model/new_0.5b/
+ollama_model/new_2b/
+
+# AI Copilot 零星产物
+tools/ai_copilot/ernie_sft_dataset.jsonl
+tools/ai_copilot/fix_dataset.py
+tools/ai_copilot/fix_py_bugs.py
+tools/ai_copilot/supplement_v8.py
+
+# 其他工具脚本
+tools/fix_*.py
+tools/test_migrate.py
+tools/verify_migration.py
+
+# IDE 目录
+.trae/
+
+# Ollama 旧版 Modelfile
+ollama_model/Modelfile.v7_*
+
+# 构建输出目录
+output/
+
+# 其他杂项
+Other/
+
+# 迁移工具脚本
+tools/migrate_cstyle.py
+
+# 覆盖率数据
+.coverage
+
+# 归档的旧脚本（git 历史已保留，不再跟踪）
+archive/
+tests/archive/
+
+# LSP 协议生成的 Python 文件
+lsp/lsp_protocol.py
+
+# 工作区内部数据（非临时缓存，但不应入库）
+.workbuddy/
+
+# ===== 段言积木组合（积木库/） =====
+# 索引与配方是系统核心，必须入库（覆盖上方全局 *.json 忽略）
+!积木库/**/*.json
+# 用户本地 LLM 密钥配置不入库，见 llm_config.example.json
+积木库/llm_config.json
+# 每次运行生成的临时产物
+积木库/组合结果.duan
+# 真·句向量编码缓存（自动重建，不入库）
+积木库/.embed_cache/
+
+积木库/_冒烟工位.duan
+积木库/_冒烟工位_*.duan
+积木库/_探针.duan
+积木库/tmp*.duan
+积木库/.冒烟残留/
+积木库/.计划缓存.json
+
+# duan-blocks 构建产物（python blocks_pkg/打包数据.py 生成）
+blocks_pkg/duan_blocks/_data/
+build_blocks/
+积木库/运行日志.jsonl
+/组合结果.duan
+/运行日志.jsonl
+dist_blocks/
+dist_blocks/
+# 评估工具运行期产物（非源码，CI/本地跑分时会再生）
+积木库/评估/规划/
+积木库/评估/报告/_护栏校验.json
+积木库/评估/报告/_基线快照.json
+# 生成/：仅忽略「待审」（未审结）与「_验证」（测试脚手架）；已审结的兜底块需入库（否则 CI 体检 E3 报路径不存在）
+积木库/生成/待审/
+积木库/生成/_验证/
+积木库/.env
+# 索引备份（跑兜底/改契约前手动留的回滚点，本地保命用，不入库）
+积木库/索引.json.*
+# 临时诊断工位与临时报告
+积木库/_诊断工位*.duan
+积木库/评估/报告/_*.json

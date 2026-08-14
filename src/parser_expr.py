@@ -14,7 +14,10 @@
 
 from typing import List, Any, Optional, Union
 from tokens import Token, TokenType
-from keywords import VERB_ARITY, ALL_KEYWORDS, KEYWORDS_SPECIAL, ALL_KEYWORDS
+from keywords import (
+    VERB_ARITY, STDLIB_VERB_ARITY, ALL_VERB_ARITY,
+    KEYWORDS_DOUBLE, KEYWORDS_SPECIAL, ALL_KEYWORDS,
+)
 from ast_nodes_v3 import *
 from ast_nodes import UnwrapExpression
 from parser_core import ParseError
@@ -128,6 +131,11 @@ class ParserExprMixin:
                 break
             if tok.type == TokenType.KEYWORD and tok.value in self.OPERATOR_VERBS:
                 op = self._consume().value
+                # 处理"大于 等于"和"小于 等于"（空格分隔的两关键字，如"年龄 大于 等于 18"）
+                if op in ('大于', '小于') and self._current() and \
+                   self._current().type == TokenType.KEYWORD and self._current().value == '等于':
+                    self._consume()  # 消耗"等于"
+                    op = '大于等于' if op == '大于' else '小于等于'
                 right = self._parse_add_expr()
                 left = BinaryOp(self.COMPARISON_OP_MAP.get(op, op), left, right)
             elif tok.type == TokenType.LESS:
@@ -602,6 +610,9 @@ class ParserExprMixin:
                         if next_tok.type in (TokenType.DOT, TokenType.PERIOD, TokenType.RPAREN, TokenType.RBRACKET,
                                              TokenType.NEWLINE, TokenType.DEDENT, TokenType.INDENT):
                             break
+                        # 三元条件表达式「如果 ... 那么 ... 否则 ...」等表达式起始关键字不能作为参数终止符，
+                        # 否则「打印 如果 条件 那么 A 否则 B」会被截断为 打印 然后 如果 被当作语句
+                        # （_EXPR_START_KEYWORDS 已覆盖「如果」及其他表达式起始关键字）
                         if next_tok.type == TokenType.KEYWORD and next_tok.value in ALL_KEYWORDS and next_tok.value not in _EXPR_START_KEYWORDS:
                             break
                         # 收集完整表达式（支持嵌套函数调用、比较和逻辑运算符）
@@ -685,7 +696,7 @@ class ParserExprMixin:
                 # 无括号：动词 参数1 参数2（如"幂 二 十"）
                 # 使用元数驱动参数收集
                 self._consume()
-                arity = VERB_ARITY.get(name, 2)
+                arity = ALL_VERB_ARITY.get(name, 2)
                 args = []
                 if arity == -1:
                     # 可变参数
@@ -864,7 +875,22 @@ class ParserExprMixin:
                     else:
                         break
                 if self._current() and self._current().type == TokenType.LPAREN:
-                    name = ''.join(_fn_parts2)
+                    _fn_candidate = ''.join(_fn_parts2)
+                    # 函数名含运算符动词的合并需以「用户已定义该名字」为前提。
+                    #
+                    # Bug 根因：词法器把 "n乘阶乘(" 拆成 标识符 n + 动词 乘 + 标识符 阶乘，
+                    # 解析器原先无条件把这些相邻令牌合并成函数名 "n乘阶乘"，使本应是
+                    # 乘法表达式 n * 阶乘(...) 的紧凑写法被误当成函数调用（NameError）。
+                    #
+                    # 修复方案：合并结果必须是 lexer 预扫描出的用户定义
+                    # （lexer.user_definitions，来自段落/方法/变量声明）才生效，
+                    # 否则回退令牌位置，交由二元运算符解析机制处理。
+                    # 与 _parse_primary / _collect_single_arg 保持同一套规则（三处必须同步）。
+                    _user_defs = getattr(self.lexer, 'user_definitions', None) or set()
+                    if _fn_candidate in _user_defs:
+                        name = _fn_candidate
+                    else:
+                        self.pos = _fn_saved_pos
                 else:
                     self.pos = _fn_saved_pos
             
@@ -877,7 +903,7 @@ class ParserExprMixin:
                 while self._current():
                     nt = self._current()
                     # 停止条件
-                    if nt.type in (TokenType.DOT, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
+                    if nt.type in (TokenType.DOT, TokenType.PERIOD, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
                         break
                     # 遇到动词运算符停止（如加、减、大于等）
                     if nt.type == TokenType.KEYWORD and nt.value in self.OPERATOR_VERBS:
@@ -922,7 +948,7 @@ class ParserExprMixin:
                 while self._current():
                     nt = self._current()
                     # 停止条件
-                    if nt.type in (TokenType.DOT, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
+                    if nt.type in (TokenType.DOT, TokenType.PERIOD, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
                         break
                     # 遇到动词运算符停止
                     if nt.type == TokenType.KEYWORD and nt.value in self.OPERATOR_VERBS:
@@ -1011,13 +1037,25 @@ class ParserExprMixin:
                 expr = StringInterpolation(parts)
                 return self._parse_postfix(expr)
             
-            # 合并连续的 IDENTIFIER 令牌（用于处理 tokenizer 将 "字典创建" 拆分为两个 IDENTIFIER 的情况）
-            # 但不合并运算符动词（如"减去"、"取余"等）
+            # 合并连续的 IDENTIFIER 令牌（tokenizer 可能把 "字典创建" 拆成两个 IDENTIFIER）。
+            # 不合并运算符动词（如"减去"、"取余"等）。
+            #
+            # Bug 根因：原实现合并时不检查令牌在源码中是否相邻（无空格），
+            # 使 "转字符串 x"（转字符串 与 x 之间有空格）被错误合并成 "转字符串x"。
+            #
+            # 修复方案：用列号追踪相邻性 —— 仅当后一个 IDENTIFIER 的起始列恰好等于
+            # 前一个令牌的结束列（col + len(value)）时才合并；带空格的 "转字符串 x"
+            # 保持为两个独立标识符（转字符串 为函数调用，x 为参数）。
+            _prev_col = tok.col + len(tok.value)
             while self._current() and self._current().type == TokenType.IDENTIFIER \
                     and self._current().value not in self.ADD_OP_MAP \
                     and self._current().value not in self.MUL_OP_MAP \
                     and self._current().value != '不':
+                _cur = self._current()
+                if _cur.col != _prev_col:
+                    break
                 name += self._consume().value
+                _prev_col = _cur.col + len(_cur.value)
             
             # 函数名含动词关键字合并（如"添加模板"被拆分为 添+加+模+板，其中加/模是 OPERATOR_VERBS）
             # 仅当 token 在源码中相邻（无空格）且合并后紧跟 ( 时才合并
@@ -1051,7 +1089,22 @@ class ParserExprMixin:
                     else:
                         break
                 if self._current() and self._current().type == TokenType.LPAREN:
-                    name = ''.join(_fn_parts)
+                    _fn_candidate = ''.join(_fn_parts)
+                    # 函数名含运算符动词的合并需以「用户已定义该名字」为前提。
+                    #
+                    # Bug 根因：词法器把 "n乘阶乘(" 拆成 标识符 n + 动词 乘 + 标识符 阶乘，
+                    # 解析器原先无条件合并成函数名 "n乘阶乘"，使紧凑乘法表达式
+                    # n * 阶乘(n-1) 被误当成函数调用（NameError）。
+                    #
+                    # 修复方案：合并结果必须是 lexer 预扫描出的用户定义
+                    # （lexer.user_definitions，来自段落/方法/变量声明）才生效，
+                    # 否则回退令牌位置，交由二元运算符机制解析（n * 阶乘((n-1))）。
+                    # 与 _collect_primary_arg / _collect_single_arg 保持同一套规则（三处必须同步）。
+                    _user_defs = getattr(self.lexer, 'user_definitions', None) or set()
+                    if _fn_candidate in _user_defs:
+                        name = _fn_candidate
+                    else:
+                        self.pos = _fn_saved_pos
                 else:
                     self.pos = _fn_saved_pos
             
@@ -1085,43 +1138,114 @@ class ParserExprMixin:
                 expr = Identifier(name)
             else:
                 # 检查是否是段落调用（标识符后跟参数）
+                # 如果是已知的 stdlib 动词，使用其 arity 限制参数收集
+                stdlib_arity = STDLIB_VERB_ARITY.get(name)
                 args = []
-                while self._current():
-                    next_tok = self._current()
-                    # 停止条件：句号、逗号、右括号
-                    if next_tok.type in (TokenType.DOT, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
-                        break
-                    # 遇到运算符动词停止
-                    if next_tok.type == TokenType.KEYWORD and next_tok.value in self.OPERATOR_VERBS:
-                        break
-                    # 遇到IDENTIFIER类型的运算符（如"减去"）停止
-                    if next_tok.type == TokenType.IDENTIFIER and                        (next_tok.value in self.ADD_OP_MAP or next_tok.value in self.MUL_OP_MAP):
-                        break
-                    # 遇到"不"（not in的前缀）停止
-                    if next_tok.type == TokenType.IDENTIFIER and next_tok.value == '不':
-                        break
-                    # 遇到其他关键字（除运算符动词外）停止
-                    if next_tok.type == TokenType.KEYWORD and next_tok.value in ALL_KEYWORDS:
-                        break
-                    
-                    # 收集单个参数（只收集primary，不包含运算）
-                    if next_tok.type == TokenType.NUMBER:
-                        args.append(NumberLiteral(self._consume().value))
-                    elif next_tok.type == TokenType.CHINESE_NUM:
-                        args.append(NumberLiteral(self._consume().value))
-                    elif next_tok.type == TokenType.STRING:
-                        args.append(StringLiteral(self._consume().value))
-                    elif next_tok.type == TokenType.IDENTIFIER:
-                        # 收集标识符作为独立参数（不嵌套）
-                        args.append(Identifier(self._consume().value))
+
+                # 括号语法：函数(参数1, 参数2)
+
+                if self._current() and self._current().type == TokenType.LPAREN:
+                    self._consume(TokenType.LPAREN)
+                    while self._current() and self._current().type != TokenType.RPAREN:
+                        if self._current().type == TokenType.COMMA:
+                            self._consume(TokenType.COMMA)
+                            continue
+                        arg = self._parse_comparison()
+                        if arg:
+                            args.append(arg)
+                        else:
+                            break
+                    if self._current() and self._current().type == TokenType.RPAREN:
+                        self._consume(TokenType.RPAREN)
+                    expr = ParagraphCall(name, args) if args else ParagraphCall(name, [])
+                    return self._parse_postfix(expr)
+
+                # 无括号语法：使用 arity 限制参数收集
+                if stdlib_arity is not None:
+                    if stdlib_arity == 0:
+                        # 无参数函数
+                        expr = ParagraphCall(name, [])
+                    elif stdlib_arity == -1:
+                        # 可变参数：收集到阻断符为止
+                        while self._current():
+                            next_tok = self._current()
+                            if next_tok.type in (TokenType.DOT, TokenType.PERIOD, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
+                                break
+                            if next_tok.type == TokenType.KEYWORD and next_tok.value in KEYWORDS_DOUBLE:
+                                break
+                            if next_tok.type == TokenType.KEYWORD and next_tok.value in self.OPERATOR_VERBS:
+                                break
+                            if next_tok.type == TokenType.IDENTIFIER and (next_tok.value in self.ADD_OP_MAP or next_tok.value in self.MUL_OP_MAP):
+                                break
+                            if next_tok.type == TokenType.IDENTIFIER and next_tok.value == '\u4e0d':
+                                break
+                            if next_tok.type == TokenType.NUMBER:
+                                args.append(NumberLiteral(self._consume().value))
+                            elif next_tok.type == TokenType.CHINESE_NUM:
+                                args.append(NumberLiteral(self._consume().value))
+                            elif next_tok.type == TokenType.STRING:
+                                args.append(StringLiteral(self._consume().value))
+                            elif next_tok.type == TokenType.IDENTIFIER:
+                                args.append(Identifier(self._consume().value))
+                            else:
+                                break
+                        expr = ParagraphCall(name, args)
                     else:
-                        break
-                
-                # 如果有参数，作为段落调用
-                if args:
-                    expr = ParagraphCall(name, args)
+
+                        # 固定参数：收集指定数量
+                        for _ in range(stdlib_arity):
+                            if not self._current():
+                                break
+                            next_tok = self._current()
+                            if next_tok.type in (TokenType.DOT, TokenType.PERIOD, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
+                                break
+                            if next_tok.type == TokenType.KEYWORD and next_tok.value in KEYWORDS_DOUBLE:
+                                break
+                            if next_tok.type == TokenType.KEYWORD and next_tok.value in self.OPERATOR_VERBS:
+                                break
+                            if next_tok.type == TokenType.IDENTIFIER and (next_tok.value in self.ADD_OP_MAP or next_tok.value in self.MUL_OP_MAP):
+                                break
+                            if next_tok.type == TokenType.IDENTIFIER and next_tok.value == '\u4e0d':
+                                break
+                            if next_tok.type == TokenType.NUMBER:
+                                args.append(NumberLiteral(self._consume().value))
+                            elif next_tok.type == TokenType.CHINESE_NUM:
+                                args.append(NumberLiteral(self._consume().value))
+                            elif next_tok.type == TokenType.STRING:
+                                args.append(StringLiteral(self._consume().value))
+                            elif next_tok.type == TokenType.IDENTIFIER:
+                                args.append(Identifier(self._consume().value))
+                            else:
+                                break
+                        expr = ParagraphCall(name, args)
                 else:
-                    expr = Identifier(name)
+                    # 普通标识符：保持原有的贪婪收集行为
+                    while self._current():
+                        next_tok = self._current()
+                        if next_tok.type in (TokenType.DOT, TokenType.PERIOD, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
+                            break
+                        if next_tok.type == TokenType.KEYWORD and next_tok.value in self.OPERATOR_VERBS:
+                            break
+                        if next_tok.type == TokenType.IDENTIFIER and                            (next_tok.value in self.ADD_OP_MAP or next_tok.value in self.MUL_OP_MAP):
+                            break
+                        if next_tok.type == TokenType.IDENTIFIER and next_tok.value == '不':
+                            break
+                        if next_tok.type == TokenType.KEYWORD and next_tok.value in KEYWORDS_DOUBLE:
+                            break
+                        if next_tok.type == TokenType.NUMBER:
+                            args.append(NumberLiteral(self._consume().value))
+                        elif next_tok.type == TokenType.CHINESE_NUM:
+                            args.append(NumberLiteral(self._consume().value))
+                        elif next_tok.type == TokenType.STRING:
+                            args.append(StringLiteral(self._consume().value))
+                        elif next_tok.type == TokenType.IDENTIFIER:
+                            args.append(Identifier(self._consume().value))
+                        else:
+                            break
+                    if args:
+                        expr = ParagraphCall(name, args)
+                    else:
+                        expr = Identifier(name)
             
             return self._parse_postfix(expr)
         
@@ -1134,7 +1258,7 @@ class ParserExprMixin:
             args = []
             while self._current():
                 next_tok = self._current()
-                if next_tok.type in (TokenType.DOT, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
+                if next_tok.type in (TokenType.DOT, TokenType.PERIOD, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
                     break
                 if next_tok.type == TokenType.KEYWORD and next_tok.value in ALL_KEYWORDS:
                     break
@@ -1214,7 +1338,7 @@ class ParserExprMixin:
                 while self._current():
                     next_tok = self._current()
                     # 停止条件：句号、逗号、右括号
-                    if next_tok.type in (TokenType.DOT, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
+                    if next_tok.type in (TokenType.DOT, TokenType.PERIOD, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
                         break
                     # 遇到运算符动词停止
                     if next_tok.type == TokenType.KEYWORD and next_tok.value in self.OPERATOR_VERBS:
@@ -1253,7 +1377,7 @@ class ParserExprMixin:
             args = []
             while self._current():
                 next_tok = self._current()
-                if next_tok.type in (TokenType.DOT, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
+                if next_tok.type in (TokenType.DOT, TokenType.PERIOD, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
                     break
                 if next_tok.type == TokenType.KEYWORD and next_tok.value in ALL_KEYWORDS and next_tok.value not in _EXPR_START_KEYWORDS:
                     break
@@ -1320,17 +1444,27 @@ class ParserExprMixin:
                 format_spec = expr_text[colon_idx+1:].strip()
             else:
                 expr_part = expr_text
-            if not re.match(r'^[\u4e00-\u9fa5a-zA-Z_][\u4e00-\u9fa5a-zA-Z0-9_.\[\]"\'\u3010\u3011]*$', expr_part):
+            if re.match(r'^[\u4e00-\u9fa5a-zA-Z_][\u4e00-\u9fa5a-zA-Z0-9_.\[\]"\'\u3010\u3011]*$', expr_part):
+                # 简单标识符：{甲}、{对象.属性}、{列表[0]}
+                if m.start() > last_end:
+                    parts.append(value[last_end:m.start()])
+                if format_spec:
+                    parts.append((Identifier(expr_part), format_spec))
+                else:
+                    parts.append(Identifier(expr_part))
+                last_end = m.end()
+                continue
+            # 表达式插值：{甲 乘 甲}、{平方(甲)} — 子解析验证并生成表达式节点
+            expr_node = self._try_parse_interp_expr(expr_part)
+            if expr_node is None:
                 has_invalid = True
                 break
-            # 插值前的普通文本
             if m.start() > last_end:
                 parts.append(value[last_end:m.start()])
-            # 插值表达式（作为标识符），如果有格式说明符则存储为元组
             if format_spec:
-                parts.append((Identifier(expr_part), format_spec))
+                parts.append((expr_node, format_spec))
             else:
-                parts.append(Identifier(expr_part))
+                parts.append(expr_node)
             last_end = m.end()
 
         # 如果有无效的插值模式，整个字符串不作为插值处理
@@ -1342,11 +1476,45 @@ class ParserExprMixin:
             parts.append(value[last_end:])
 
         # 如果只有普通文本（没有真正的插值），返回 None
-        has_expr = any(isinstance(p, (Identifier, tuple)) for p in parts)
+        has_expr = any(not isinstance(p, str) for p in parts)
         if not has_expr:
             return None
 
         return StringInterpolation(parts)
+
+    def _try_parse_interp_expr(self, expr_text: str):
+        """尝试将插值内容作为光明表达式解析；成功返回 ASTNode，失败返回 None"""
+        import re
+        # 快速拒绝模板字符/特殊符号（如 {%原始%}、反引号、反斜杠），不视为插值
+        if re.search(r'[%\`\\]', expr_text):
+            return None
+        try:
+            from lexer import Lexer
+            from light_parser_v3 import LightParser
+            sub_lexer = Lexer()
+            sub_tokens = sub_lexer.tokenize(expr_text)
+            sub_parser = LightParser()
+            sub_parser.tokens = sub_tokens
+            sub_parser.pos = 0
+            node = sub_parser._parse_expr()
+            # 必须消费完所有 token（容错末尾 EOF token），避免接受残句如 {甲 乘}
+            if node is not None and sub_parser.pos >= len(sub_tokens) - 1:
+                # Bug 根因（合并回归）：本方法（表达式插值兜底）来自段言侧，比
+                # light 原先"仅允许简单标识符"的严格判定宽松得多。JSON 字面量
+                # 形如 '{"name": "光明", "version": 4}' 会被 {…} 正则整体命中，
+                # 再按第一个冒号切成 expr_part='"name"' + format_spec='"光明"…'，
+                # 而 '"name"' 恰好能作为【纯字符串字面量】表达式解析成功，于是
+                # 普通 JSON 串被误判为插值、生成出 f'{"name":…}' 直接炸掉。
+                # 纯字面量（字符串/数字/布尔/空）插值本身没有任何意义（等价于
+                # 直接写该字面量），light 原实现也不接受，故一律拒绝。
+                if type(node).__name__ in (
+                    'StringLiteral', 'NumberLiteral', 'BooleanLiteral', 'NullLiteral',
+                ):
+                    return None
+                return node
+        except Exception:
+            pass
+        return None
 
 
     def _parse_c_anonymous_function(self) -> ASTNode:
@@ -1504,8 +1672,8 @@ class ParserExprMixin:
         body = self._parse_comparison()
         
         # 可选的句号
-        if self._current() and self._current().type == TokenType.DOT:
-            self._consume(TokenType.DOT)
+        if self._current() and self._current().type == TokenType.PERIOD:
+            self._consume(TokenType.PERIOD)
         
         return LambdaExpression(params, body)
 
@@ -1769,6 +1937,34 @@ class ParserExprMixin:
         self._consume(TokenType.RBRACE)
         return self._parse_postfix(DictLiteral(entries))
 
+    def _列表字面量下标(self, node: ASTNode) -> ASTNode:
+        """列表字面量紧跟后缀符时，把后缀接到字面量上。
+
+        为什么必须做：字典/集合字面量都走 _parse_postfix，唯独列表字面量直接返回
+        （见 _parse_primary 的 `return self._parse_list_literal()`），于是
+        `[1,2,3][0]` 被解析成「两个相邻表达式」，静默算出 `([1,2,3], [0])`
+        且 rc=0 —— 错误结果冒充成功，护栏（rc==0 且有输出）抓不到。
+        同理，`[1,2,3].连接(",")` 也会因 `.` 未被接上而报「意外的标记 .」。
+
+        这里在下一个 token 是「后缀触发符」时转交 _parse_postfix。_parse_postfix 自身
+        只在遇到 BANG/LPAREN/DOT/「的」/「之」/LBRACKET 时才动作，其余（逗号、右括号、
+        换行）一律原样返回，故影响面仅限真正的后缀写法，不改变 `设 表 为 [1,2,3]`、
+        嵌套列表 `[[1],[2]]`、`打印([1,2,3])` 等行为。
+        """
+        tok = self._current()
+        if tok is None:
+            return node
+        _后缀触发 = (
+            tok.type == TokenType.LBRACKET
+            or tok.type == TokenType.DOT
+            or tok.type == TokenType.BANG
+            or tok.type == TokenType.LPAREN
+            or (tok.type == TokenType.KEYWORD and tok.value in ('的', '之'))
+        )
+        if _后缀触发:
+            return self._parse_postfix(node)
+        return node
+
     def _parse_list_literal(self) -> ASTNode:
         """解析列表字面量或列表推导
         
@@ -1921,11 +2117,11 @@ class ParserExprMixin:
             # 单个generator时保持向后兼容
             if len(generators) == 1:
                 var, it, cond = generators[0]
-                return ListComprehension(first_expr, var, it, cond)
+                return self._列表字面量下标(ListComprehension(first_expr, var, it, cond))
             else:
                 # 多重generator
                 first_gen = generators[0]
-                return ListComprehension(first_expr, first_gen[0], first_gen[1], first_gen[2], generators=generators)
+                return self._列表字面量下标(ListComprehension(first_expr, first_gen[0], first_gen[1], first_gen[2], generators=generators))
 
         # 普通列表字面量：元素, 元素, ...
         elements = [first_expr]
@@ -1939,7 +2135,7 @@ class ParserExprMixin:
             elem = self._parse_comparison()
             elements.append(elem)
         self._consume(TokenType.RBRACKET)
-        return ListLiteral(elements)
+        return self._列表字面量下标(ListLiteral(elements))
     
     def _parse_fstring_parts(self, str_val: str) -> list:
         """解析 f-string 内容，返回交替的 str 和 ASTNode 列表"""
@@ -2037,7 +2233,41 @@ class ParserExprMixin:
                 elif isinstance(expr, str):
                     func_name = expr
                 else:
-                    return self._error(f"不支持在复杂表达式后进行括号调用: {type(expr).__name__}（可将'()'改为'。'或去掉括号）")
+                    # 链式调用：expr()  → FunctionCallExpr(expr, args)
+                    # 支持 func()()、obj.method()()、func()().method() 等
+                    args = []
+                    while not self._match(TokenType.RPAREN):
+                        if self._current() and self._current().type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
+                            self._consume()
+                            continue
+                        if self._current() and self._current().type == TokenType.STAR:
+                            self._consume(TokenType.STAR)
+                            if self._current() and self._current().type == TokenType.STAR:
+                                self._consume(TokenType.STAR)
+                                arg = self._parse_comparison()
+                                if arg is not None and isinstance(arg, Identifier):
+                                    args.append(Identifier(f'**{arg.name}'))
+                            else:
+                                arg = self._parse_comparison()
+                                if arg is not None and isinstance(arg, Identifier):
+                                    args.append(Identifier(f'*{arg.name}'))
+                            if self._match(TokenType.COMMA):
+                                self._consume(TokenType.COMMA)
+                            continue
+                        arg = self._parse_comparison()
+                        if arg is not None:
+                            args.append(arg)
+                        else:
+                            break
+                        if self._match(TokenType.COMMA):
+                            self._consume(TokenType.COMMA)
+                        while self._current() and self._current().type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
+                            self._consume()
+                    if self._current() and self._current().type == TokenType.RPAREN:
+                        self._consume(TokenType.RPAREN)
+                    from ast_nodes_v3 import FunctionCallExpr
+                    expr = FunctionCallExpr(expr, args)
+                    continue
 
                 # 收集参数（直到右括号）- 使用比较表达式而非完整表达式
                 # 以避免逗号被当作管道操作符处理
@@ -2163,10 +2393,8 @@ class ParserExprMixin:
             # "obj.属性" / "obj.方法()" 或 "obj的属性" / "obj的方法()"
             is_dot_access = False
             if tok.type == TokenType.DOT:
-                # 检查是否是英文点号（成员访问）还是中文句号（语句结束）        
-                if tok.value == '.':
-                    is_dot_access = True
-                # 中文句号(。)是语句结束符，不进行成员访问
+                # DOT 已在 lexer 层拆分：DOT 始终是英文点号（成员访问），PERIOD 是中文句号（语句结束）
+                is_dot_access = True
 
             # 「的」作为光明原生属性访问运算符
             # 「.」用于 FFI/外部库调用（如 requests.get）
@@ -2271,7 +2499,7 @@ class ParserExprMixin:
                         while self._current():
                             next_tok = self._current()
                             # 阻断符：句号、逗号、右括号、右中括号、关键字      
-                            if next_tok.type in (TokenType.DOT, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
+                            if next_tok.type in (TokenType.DOT, TokenType.PERIOD, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET):
                                 break
                             if next_tok.type == TokenType.KEYWORD and (next_tok.value in ALL_KEYWORDS or next_tok.value in VERB_ARITY) and next_tok.value not in _EXPR_START_KEYWORDS:
                                 break

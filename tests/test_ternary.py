@@ -1,27 +1,40 @@
-"""测试三元条件表达式"""
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'antlrparser'))
+"""测试三元条件表达式
 
+说明：原文件为模块级脚本（无 pytest 测试函数），pytest 收集 0 个测试，
+属「虚假通过」（D04 测试可信度债务）。已迁移为真正的 pytest 参数化测试，
+使用 src 后端（当前主后端）执行，覆盖与旧脚本完全相同的用例。
+"""
+
+import sys
+import os
+import io
+from contextlib import redirect_stdout
+
+# 设置路径
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+import pytest
 from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 
-def run_light(code):
-    """解析并执行光明代码，返回输出"""
+def run_light(code: str) -> str:
+    """使用 src 后端解析并执行光明代码，返回输出"""
     parser = LightParser()
     module = parser.parse(code)
+    if not module:
+        raise AssertionError(f"Parse failed: {parser.errors}")
+
     gen = PythonCodeGenerator()
     py_code = gen.generate(module)
-    import io
-    from contextlib import redirect_stdout
+
     f = io.StringIO()
     with redirect_stdout(f):
-        exec(py_code)
+        exec(py_code, {'__name__': '__main__', '__file__': 'test.light'})
     return f.getvalue().strip()
 
 
-tests = [
+TERNARY_TESTS = [
     ("设 甲 为 如果 1 小于 2 那么 10 否则 20。打印 甲。", "10"),
     ("设 甲 为 如果 1 大于 2 那么 10 否则 20。打印 甲。", "20"),
     ('打印 如果 真 那么 "是" 否则 "否"。', "是"),
@@ -42,21 +55,11 @@ tests = [
     ("设 甲 为 2。打印 如果 甲 大于 5 那么 甲 乘 2 否则 甲 除 2。", "1.0"),
 ]
 
-passed = 0
-failed = 0
-for code, expected in tests:
-    try:
-        result = run_light(code)
-        if result == str(expected):
-            passed += 1
-            print(f"[PASS] {code[:60]}")
-        else:
-            failed += 1
-            print(f"[FAIL] {code[:60]}")
-            print(f"       期望: {expected}, 实际: {result}")
-    except Exception as e:
-        failed += 1
-        print(f"[FAIL] {code[:60]}")
-        print(f"       错误: {e}")
 
-print(f"\n总计: {passed + failed}, 通过: {passed}, 失败: {failed}")
+
+@pytest.mark.parametrize("code,expected", TERNARY_TESTS,
+                         ids=[f"case_{i}" for i in range(len(TERNARY_TESTS))])
+def test_ternary_expression(code, expected):
+    """三元条件表达式求值"""
+    result = run_light(code)
+    assert result == str(expected), f"期望: {expected}, 实际: {result}"

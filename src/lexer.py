@@ -16,7 +16,7 @@ from enum import Enum
 from tokens import Token, TokenType
 from keywords import (
     ALL_KEYWORDS, KEYWORDS_DOUBLE, KEYWORDS_LOGIC, KEYWORDS_SPECIAL,
-    VERB_ARITY, BUILTIN_TYPES, SYMBOL_MAP, BLOCKING_SYMBOLS
+    VERB_ARITY, STDLIB_VERB_ARITY, ALL_VERB_ARITY, BUILTIN_TYPES, SYMBOL_MAP, BLOCKING_SYMBOLS
 )
 
 # 运算符动词集合（用于分词时识别运算符）
@@ -197,6 +197,31 @@ COMMON_COMPOUND_WORDS = frozenset({
     'p_cmp值',
     # 数学领域
     '数学二分法', 'p_分法',
+    # 中文异常类型名
+    '迭代停止', '停止迭代',
+    '值错误', '类型错误', '索引错误', '键错误', '属性错误',
+    '导入错误', '零除错误', '文件错误', '运行时错误',
+    '溢出错误', '递归错误', '内存错误', '系统错误', '断言错误',
+    '外部错误', 'FFI错误', '系统错误码',
+    # 正则表达式函数名（含"匹配"关键字，需保护）
+    '正则匹配', '编译正则表达式',
+    # 异步 I/O 函数名
+    '异步读取文件', '异步写入文件', '异步追加文件',
+    '异步读取二进制', '异步写入二进制',
+    '异步HTTP获取', '异步睡眠',
+    '创建事件循环', '事件循环运行', '事件循环停止',
+    '事件循环创建任务', '异步任务等待', '异步任务取消',
+    # 文件路径/配置相关标识符
+    '配置文件路径',
+    # 通用复合标识符（防止被 pre-scan 前缀匹配误拆分）
+    '环节序', '记录列表', '行列表', '环节列表', '环节数据',
+    '当前环节数', '总环节数', '问题文本', '输入文本',
+    '上边框', '生成分析阶段', '系统提示词', '下边框', '最终答案', '历史记录', '次序值', '新环节',
+    '数字列表', '名称列表', '值列表', '键列表', '元素列表', '参数列表', '项目列表', '文件列表',
+    '生成问候语', '生成分析',
+    # 测试函数名（含ASCII下划线 + 含关键字的函数名）
+    '测试_生成问候语', '测试_计算平均数',
+    '当前环节', '环节1', '环节2', '环节3', '环节4', '环节数据',
 })
 
 # CJK 汉字范围
@@ -208,6 +233,28 @@ def _is_han_fast(ch: str) -> bool:
     """判断是否为汉字（直接比较 codepoint，CJK 范围是连续的，无需缓存）"""
     cp = ord(ch)
     return _HAN_START <= cp <= _HAN_END
+
+
+# 非 ASCII、非汉字的「字母类」字符缓存（希腊字母 π/α/θ、西里尔字母、假名等）
+_EXTRA_LETTER_CACHE = {}
+
+
+def _is_extra_letter(ch: str) -> bool:
+    """判断是否为可用于标识符的其他 Unicode 字母。
+
+    数学库里 `弧度π`、`角度θ` 这类命名很自然，但这些字符既不是 ASCII 字母
+    也不在 CJK 区间，早期实现会直接抛「未知字符」，导致 stdlib/数学 里
+    含 π 的导出名在段言侧完全不可用。这里放行 Unicode 字母类字符；
+    标点、符号、emoji 仍然会被拒绝。
+    """
+    cp = ord(ch)
+    if cp < 128 or _HAN_START <= cp <= _HAN_END:
+        return False
+    cached = _EXTRA_LETTER_CACHE.get(ch)
+    if cached is None:
+        cached = ch.isalpha()
+        _EXTRA_LETTER_CACHE[ch] = cached
+    return cached
 
 
 # ASCII 字符分类查表（0-127）
@@ -273,6 +320,9 @@ _ALL_KEYWORDS_BY_LENGTH: Dict[int, frozenset] = {}
 _MAX_KEYWORD_LEN = 0
 _ALL_MAX_KEYWORD_LEN = 0
 
+# 关键字起始字符集合（用于快速跳过不匹配的位置）
+_KEYWORD_START_CHARS: frozenset = frozenset()
+
 for kw in ALL_KEYWORDS:
     length = len(kw)
     if length not in _KEYWORDS_BY_LENGTH:
@@ -288,6 +338,9 @@ for kw in _ALL_KEYWORDS_WITH_VERBS:
     _ALL_KEYWORDS_BY_LENGTH[length] = _ALL_KEYWORDS_BY_LENGTH[length] | {kw}
     if length > _ALL_MAX_KEYWORD_LEN:
         _ALL_MAX_KEYWORD_LEN = length
+
+# 构建关键字起始字符集合（用于快速跳过不匹配的位置）
+_KEYWORD_START_CHARS = frozenset({kw[0] for kw in _ALL_KEYWORDS_WITH_VERBS if kw})
 
 # 中文数字集合（模块级）
 _SIMPLE_CHINESE_NUMBERS = frozenset({
@@ -421,7 +474,7 @@ class Lexer:
         self.all_max_keyword_len = _ALL_MAX_KEYWORD_LEN
         self._symbol_token_map = _SYMBOL_TOKEN_MAP
     
-    def tokenize(self, source: str = None) -> List[Token]:
+    def tokenize(self, source: str = None, extra_definitions: set = None) -> List[Token]:
         """将源码转为 Token 流
         
         支持两种调用方式：
@@ -430,6 +483,7 @@ class Lexer:
         
         Args:
             source: 要分析的源码字符串（可选，默认使用构造时传入的）
+            extra_definitions: 跨模块的用户定义标识符集合（如已注册模块的导出函数名）
         """
         if source is None:
             source = self._source
@@ -442,8 +496,16 @@ class Lexer:
         col = 1
         n = len(source)
 
-        # 预扫描：收集用户定义的标识符
+        # 预扫描：收集用户定义的标识符（段落名 / 方法名 / 变量名等）
         user_definitions = self._scan_user_definitions(source)
+        if extra_definitions:
+            user_definitions = user_definitions | extra_definitions
+        # 暴露给解析器：parser_expr 需要区分「含运算符动词的函数名」（如 添加任务，
+        # 用户确实定义了该段落）与「紧凑二元表达式」（如 n乘阶乘 中 乘 是运算符，
+        # n乘 并不是用户定义）。因此把预扫描结果通过 self.user_definitions 属性
+        # 共享给 parser_expr 的 _parse_primary / _collect_primary_arg / _collect_single_arg，
+        # 供它们在合并"动词函数名"前做合法性校验（见 parser_expr.py 对应注释）。
+        self.user_definitions = user_definitions
 
         # 处理缩进
         indent_stack = [0]
@@ -632,7 +694,7 @@ class Lexer:
             
             # 处理标识符和关键字（核心：无空格分词）
             ch_i = source[i]
-            if _is_han_fast(ch_i) or _is_ascii_alpha(ch_i) or ch_i == '_':
+            if _is_han_fast(ch_i) or _is_ascii_alpha(ch_i) or ch_i == '_' or _is_extra_letter(ch_i):
                 new_tokens, consumed = self._tokenize_identifier_or_keyword(source, i, line, col, user_definitions)
                 tokens.extend(new_tokens)
                 col += consumed
@@ -796,10 +858,15 @@ class Lexer:
         _kw_by_len = _ALL_KEYWORDS_BY_LENGTH
         _max_len = _ALL_MAX_KEYWORD_LEN
         _compound_safe = self.compound_safe_single_keywords
+        _start_chars = _KEYWORD_START_CHARS
         
         # 缓存 text_len 避免重复计算
         if text_len is None:
             text_len = len(text)
+        
+        # 快速路径：如果当前字符不能起始任何关键字，直接返回
+        if pos < text_len and text[pos] not in _start_chars:
+            return None, 0
         
         max_possible = min(_max_len, text_len - pos)
         
@@ -876,6 +943,21 @@ class Lexer:
         """处理字符串"""
         start_col = col
         quote_char = source[i]
+
+        # 三引号字符串（docstring）："""...""" 或 '''...'''
+        # Bug 根因：原实现只按成对引号处理，"""...""" 会被拆成三个 STRING token
+        # （"" + "内容" + ""），作为独立语句时首 token 为空字符串，解析器报
+        # "无法识别的语法元素：''"（bootstrap_eval/lexer.duan 的 docstring 失败）。
+        # 修复方案：检测连续三个相同引号，把整个三引号块作为单个 STRING token 消费，
+        # 内容为三引号之间的原文（支持跨行），供裸字符串语句（docstring）解析使用。
+        if i + 2 < len(source) and source[i] == source[i + 1] == source[i + 2]:
+            triple = quote_char * 3
+            close_idx = source.find(triple, i + 3)
+            if close_idx == -1:
+                raise LexerError(
+                    f"字符串未闭合: 三引号 '{triple}' 缺少匹配的结束符", line, start_col)
+            value = source[i + 3:close_idx]
+            return Token(TokenType.STRING, value, line, start_col), close_idx + 3 - i
 
         if quote_char in _QUOTE_MAP:
             # 中文引号
@@ -1184,6 +1266,18 @@ class Lexer:
         _Token = Token
         _TokenType = TokenType
 
+        # 白名单优先（仅限「汉字 + 数字/英文」混排的名字）
+        #
+        # 预扫描已把 导出/导入 列表、函数名等收进 user_definitions，但纯汉字路径
+        # 只在 _tokenize_chinese_sequence 里查白名单，遇到 `随机0到1` 这种带数字的
+        # 名字会先切出 `随机0`，再把 `到` 当成关键字，名字被拦腰截断。
+        # 这里只处理「含混排后缀」的情形，纯汉字标识符的既有行为完全不变。
+        if user_definitions:
+            mixed = self._match_mixed_user_definition(source, i, user_definitions)
+            if mixed:
+                tokens.append(_Token(_TokenType.IDENTIFIER, mixed, line, col))
+                return tokens, len(mixed)
+
         # 收集连续的汉字（或英文标识符）
         if _is_han(source[i]):
             # 汉字处理：实现三层分词
@@ -1194,12 +1288,14 @@ class Lexer:
             if next_pos < n:
                 next_ch = source[next_pos]
                 cp_next = ord(next_ch)
-                if cp_next < 128 and (_is_ascii_alnum_f(next_ch) or next_ch == '_'):
+                if (cp_next < 128 and (_is_ascii_alnum_f(next_ch) or next_ch == '_')) \
+                        or _is_extra_letter(next_ch):
                     j = next_pos
                     while j < n:
                         ch = source[j]
                         cp = ord(ch)
-                        if cp < 128 and (_is_ascii_alnum_f(ch) or ch == '_'):
+                        if (cp < 128 and (_is_ascii_alnum_f(ch) or ch == '_')) \
+                                or _is_extra_letter(ch):
                             j += 1
                         else:
                             break
@@ -1218,19 +1314,77 @@ class Lexer:
                                 tokens[-1] = _Token(_TokenType.IDENTIFIER, last.value + suffix, last.line, last.col)
                                 consumed += len(suffix)
 
+                        # 继续收集ASCII后缀后的汉字（如"阶段1标题" → 完整标识符）
+                        # 注意：只有当后继汉字不是关键字时才合并，避免误合并"循环i从1"
+                        after_ascii = i + consumed
+                        while after_ascii < n and _is_han(source[after_ascii]):
+                            # 先收集完整的汉字后缀
+                            k = after_ascii
+                            while k < n and _is_han(source[k]):
+                                k += 1
+                            han_suffix = source[after_ascii:k]
+                            
+                            # 检查整个标识符是否在常见复合词中（如"测试_生成问候语"）
+                            full_combined = tokens[-1].value + han_suffix
+                            if full_combined in COMMON_COMPOUND_WORDS:
+                                tokens[-1] = _Token(_TokenType.IDENTIFIER, full_combined, tokens[-1].line, tokens[-1].col)
+                                consumed += len(han_suffix)
+                                after_ascii = i + consumed
+                                continue
+                            
+                            # 检查后继汉字是否是关键字（包括动词运算符和语句关键字）
+                            han_kw, kw_len = self._match_keyword(source, after_ascii)
+                            if han_kw and han_kw in _ALL_KEYWORDS_WITH_VERBS:
+                                break  # 是关键字，不合并，交给后续分词处理
+                            # 收集连续的汉字作为标识符后缀
+                            tokens[-1] = _Token(_TokenType.IDENTIFIER, tokens[-1].value + han_suffix, tokens[-1].line, tokens[-1].col)
+                            consumed += len(han_suffix)
+                            after_ascii = i + consumed
+
+                    elif tokens and tokens[-1].type == TokenType.KEYWORD:
+                        # 检查关键字+ASCII后缀+后续汉字是否构成复合关键字或用户定义标识符
+                        # 例如"读取N字节"中"读取"是关键字、后面是ASCII"N"和汉字"字节"，
+                        # 但"读取N字节"整体在 ALL_VERB_ARITY 中，应作为单个关键字输出。
+                        # 又如"读取LSP消息"是用户定义的函数名，应作为单个标识符输出。
+                        after_ascii = j
+                        while after_ascii < n and _is_han(source[after_ascii]):
+                            after_ascii += 1
+                        han_suffix = source[j:after_ascii]
+                        combined = tokens[-1].value + suffix + han_suffix
+                        if combined in ALL_VERB_ARITY:
+                            tokens[-1] = _Token(_TokenType.KEYWORD, combined, tokens[-1].line, tokens[-1].col)
+                            consumed += len(suffix) + len(han_suffix)
+                        elif user_definitions and combined in user_definitions:
+                            tokens[-1] = _Token(_TokenType.IDENTIFIER, combined, tokens[-1].line, tokens[-1].col)
+                            consumed += len(suffix) + len(han_suffix)
+
             return tokens, consumed
         else:
-            # 英文标识符：收集连续的字母、数字、下划线
+            # 英文标识符：收集连续的字母、数字、下划线（含 π/α 等 Unicode 字母）
             j = i + 1
-            while j < n and (_is_ascii_alnum_f(source[j]) or source[j] == '_'):
+            while j < n and (_is_ascii_alnum_f(source[j]) or source[j] == '_'
+                             or _is_extra_letter(source[j])):
                 j += 1
 
             # 检查是否紧跟汉字（如 evennum集），如果是则合并
             # 但只合并非关键字的汉字，避免破坏 left至right 这类范围表达式
             # 同时检查汉字序列中是否包含成员访问符（之、的），遇到则停止合并
+            #
+            # Bug 根因：原实现只判断汉字序列开头是否命中 ALL_KEYWORDS，但运算符动词
+            # （减/乘/除/至/等于 等）存放在 VERB_ARITY 而【不在】ALL_KEYWORDS，导致
+            # "n减1" 中 "减" 未被识别为关键字，汉字序列被整体并入标识符，
+            # "n减1" 被切成单个标识符 "n减"，运行时产生 NameError。
+            #
+            # 修复方案：从汉字起点 j 处用 _match_keyword 做最长关键字匹配（该函数同时
+            # 覆盖 VERB_ARITY 中的运算符动词，是 ALL_KEYWORDS 的超集），一旦命中关键字
+            # 立即停止合并，从而把 "n减1" 正确切分为 标识符 n + 关键字 减 + 数字 1；
+            # 未命中关键字的纯后缀汉字（如 evennum 后的 集）仍按原逻辑合并。
             member_access_kw = {'之', '的'}
             while j < n and _is_han(source[j]):
-                # 检查从 j 开始的汉字序列是否包含成员访问符
+                # 从 j 处做最长关键字匹配（_match_keyword 覆盖 VERB_ARITY 中的动词）
+                han_kw, _ = self._match_keyword(source, j)
+                if han_kw:
+                    break
                 k = j
                 while k < n and _is_han(source[k]):
                     if source[k] in member_access_kw:
@@ -1240,13 +1394,11 @@ class Lexer:
                     # 遇到成员访问符，将汉字合并到成员访问符前，后续由中文序列分词处理
                     j = k
                     break
-                # 检查汉字序列是否是关键字
-                if k > j:
-                    han_seq = source[j:k]
-                    # 如果汉字序列是关键字，则不合并
-                    if han_seq in ALL_KEYWORDS:
-                        break
                 j = k
+
+            # 收集尾随的下划线（如 __迭代__ 末尾的 _）
+            while j < n and source[j] == '_':
+                j += 1
 
             word = source[i:j]
             if word in ALL_KEYWORDS:
@@ -1256,6 +1408,47 @@ class Lexer:
 
             return tokens, j - i
     
+    def _match_mixed_user_definition(self, source: str, i: int, user_definitions: Set[str]):
+        """在位置 i 处对「含数字/英文的用户定义名」做最长匹配。
+
+        只有当名字在纯汉字前缀之后还有 ASCII/其他字母后缀时才生效，
+        避免干扰既有的纯汉字分词逻辑（那条路径自己会查白名单）。
+
+        例：`导出 随机0到1。` 预扫描已把 `随机0到1` 加入白名单，
+        这里整体返回，防止被切成 `随机0` + 关键字`到` + `1`。
+        """
+        n = len(source)
+        han_end = i
+        while han_end < n and _is_han_fast(source[han_end]):
+            han_end += 1
+
+        j = han_end
+        while j < n:
+            ch = source[j]
+            if _is_ascii_alnum(ch) or ch == '_' or _is_han_fast(ch) or _is_extra_letter(ch):
+                j += 1
+            else:
+                break
+
+        if j <= han_end:
+            return None  # 没有混排后缀，交给原有逻辑
+
+        while j > han_end:
+            candidate = source[i:j]
+            if candidate in user_definitions and candidate not in ALL_KEYWORDS:
+                # 不能在标识符「中间」停下：若 candidate 之后仍是合法的标识符续接字符
+                # （ASCII 字母/数字/下划线/其他 Unicode 字母/汉字），说明这只是一个更长名字
+                # 的前缀，应当继续缩短，否则会把 `ai_api_helper`（白名单里只有被误拆的 `ai`）
+                # 错切成 `ai` + `_api_helper`，运行期报 No module named 'ai'。
+                after = source[j] if j < n else ''
+                if after and (after == '_' or _is_ascii_alnum(after)
+                              or _is_han_fast(after) or _is_extra_letter(after)):
+                    j -= 1
+                    continue
+                return candidate
+            j -= 1
+        return None
+
     def _tokenize_chinese_sequence(self, source: str, i: int, line: int, col: int, tokens: List[Token], user_definitions: Set[str] = None) -> int:
         """
         处理连续的汉字序列（实现三层分词）
@@ -1301,6 +1494,30 @@ class Lexer:
             # 遇到符号，结束
             if ch in _symbol_map or ch in _punctuation:
                 break
+
+            # 先检查完整汉字序列是否在常见复合词中（优先级高于中文数字拆分）
+            # 例如"零除错误"不应被拆分为 零(数字)+除错误
+            _full_seq_collected = None
+            if ch in _simple_nums or ch in _cn_digits:
+                _j = pos
+                while _j < n and _is_han(source[_j]):
+                    if source[_j] in _symbol_map or source[_j] in _punctuation:
+                        break
+                    _j += 1
+                _full_seq = source[pos:_j]
+                if _full_seq in _common_compounds or _full_seq in user_definitions:
+                    _full_seq_collected = _full_seq
+
+            if _full_seq_collected:
+                # 完整标识符在常见复合词或用户定义中，整体输出，不拆分
+                kw_check, _ = _match_kw(source, pos)
+                if kw_check == _full_seq_collected:
+                    _tokens_append(_Token(_TokenType.KEYWORD, _full_seq_collected, line, current_col))
+                else:
+                    _tokens_append(_Token(_TokenType.IDENTIFIER, _full_seq_collected, line, current_col))
+                consumed += len(_full_seq_collected)
+                current_col += len(_full_seq_collected)
+                continue
 
             # 检查是否是简单中文数字（一～十）
             if ch in _simple_nums:
@@ -1397,6 +1614,17 @@ class Lexer:
                 kw_check, _ = _match_kw(source, pos)
                 if kw_check == full_identifier:
                     full_is_keyword = True
+                # Bug 根因（合并回归）：关键字表拆分为 VERB_ARITY(核心动词) +
+                # STDLIB_VERB_ARITY(标准库函数名) 之后，_match_kw 背后的
+                # _ALL_KEYWORDS_WITH_VERBS 只并入了 VERB_ARITY，标准库复合动词
+                # （列表包含 / 列表长度 / 解析JSON …）对上面这个 kw_check 判断
+                # 完全不可见。于是当用户变量名恰好是标准库函数名的前缀时
+                # （如 设 列表 为 [...] 之后调用 列表包含(列表, 2)），下面的
+                # 用户定义前缀匹配会把 列表包含 撕成 列表 + 包含，而 包含 是
+                # 运算符关键字，最终被解析成二元 contains 表达式而非函数调用。
+                # 修复：标准库函数名与关键字同等对待，不参与前缀拆分。
+                if not full_is_keyword and full_identifier in STDLIB_VERB_ARITY:
+                    full_is_keyword = True
                 if not full_is_keyword:
                     for plen in range(len(full_identifier) - 1, 0, -1):
                         prefix = full_identifier[:plen]
@@ -1421,6 +1649,15 @@ class Lexer:
                         consumed += len(prefix_matched)
                         current_col += len(prefix_matched)
                         continue
+            
+            # 检查完整标识符是否是 stdlib 函数名（在 STDLIB_VERB_ARITY 中但不在 VERB_ARITY 中）
+            # 如果是，直接作为 IDENTIFIER 输出，不拆分（防止"字典设置"被拆为 字典+设+置）
+            # 注意：VERB_ARITY 中的核心动词仍需作为 KEYWORD 处理
+            if full_identifier in STDLIB_VERB_ARITY and full_identifier not in VERB_ARITY:
+                _tokens_append(_Token(_TokenType.IDENTIFIER, full_identifier, line, current_col))
+                consumed += len(full_identifier)
+                current_col += len(full_identifier)
+                continue
             
             # 第一层：尝试最长匹配关键字
             keyword, length = _match_kw(source, pos)
@@ -1534,7 +1771,9 @@ class Lexer:
                             # 单字 compound_safe 关键字：直接跳过
                             skip_kw = True
                         elif sub_kw in IDENTIFIER_SAFE_KEYWORDS:
-                            # 标识符安全关键字（如"函数"、"输出"）：是复合标识符的一部分，跳过
+                            # 标识符安全关键字（如"函数"、"输出"）：是复合标识符的一部分，跳过。
+                            # 注：此处不检查 scan_pos——词首的 VERB_ARITY 动词（如"输出格式"中的
+                            # "输出"）已在第一层 1264 行判定为复合词前缀，应整体并入标识符
                             skip_kw = True
                         
                         if not skip_kw:
@@ -1547,6 +1786,14 @@ class Lexer:
                     # 有内嵌关键字，分段输出
                     scan_pos = 0
                     while scan_pos < len(full_identifier):
+                        # 当前剩余串整体是 stdlib 函数名（如"阶乘"）时，作为整体标识符输出，
+                        # 防止"数乘阶乘"被误拆为 数 乘 阶 乘（D08：嵌入式拆分不破坏已知函数名）
+                        if full_identifier in STDLIB_VERB_ARITY and full_identifier not in VERB_ARITY:
+                            tokens.append(Token(TokenType.IDENTIFIER, full_identifier, line, current_col))
+                            consumed += len(full_identifier)
+                            current_col += len(full_identifier)
+                            full_identifier = ''
+                            break
                         abs_pos = i + consumed + scan_pos
                         sub_kw, sub_len = self._match_keyword(source, abs_pos)
                         if sub_kw and sub_kw not in user_definitions:
@@ -1614,9 +1861,22 @@ class Lexer:
                                 # 策略：多字比较运算符总是作为关键字识别
                                 pass  # 不跳过，继续输出为关键字
                             elif sub_len > 1 and sub_kw in IDENTIFIER_SAFE_KEYWORDS:
-                                # 标识符安全关键字（如"函数"、"输出"）：跳过，作为复合标识符的一部分
-                                scan_pos += sub_len
-                                continue
+                                # IDENTIFIER_SAFE_KEYWORDS（函数/段落/输出/返回 等）常作
+                                # 复合标识符的后缀部分（如 处理函数 / 输出列表），
+                                # 因此默认跳过、并入标识符。
+                                #
+                                # Bug 根因：原实现【无条件】跳过这些关键字，导致紧随其
+                                # 他关键字之后、位于剩余标识符开头的安全关键字也被吞掉，
+                                # 例如 "那么返回一" 中的 "返回"（紧跟 那么）被并入，
+                                # "返回一" 被并成单个标识符，丢失关键字语义。
+                                #
+                                # 修复方案：仅当 scan_pos > 0（即该关键字位于复合词
+                                # 【后缀】位置，如 处理返回 中的 返回）时才跳过；
+                                # 位于词首（scan_pos == 0）时按普通关键字输出，
+                                # "那么返回一" 正确切分为 那么 + 返回 + 一。
+                                if scan_pos > 0:
+                                    scan_pos += sub_len
+                                    continue
                             elif sub_len > 1:
                                 # 其他多字关键字（如接收、段落等），直接输出
                                 pass  # 不跳过，继续输出为关键字
@@ -1717,18 +1977,32 @@ class Lexer:
         用于避免将用户定义的标识符错误拆分为关键字
         """
         definitions = set()
-        i = 0
         n = len(source)
         _is_han = _is_han_fast
         _is_space_tab = _is_ascii_space_tab
+
+        # 使用 str.find() 跳跃到关键位置，避免逐字符扫描
+        # 搜索目标：'《' (段落/类/方法定义), '设' (变量定义), '定义' (变量定义), '函数', '段落' (函数定义), '导' (导出/导入 列表)
+        search_targets = ('《', '设', '定', '函', '段', '导')
+        i = 0
 
         # 安全计数器（防止意外死循环）
         _scan_safety = 0
 
         while i < n:
             _scan_safety += 1
-            if _scan_safety > 1000000:
+            if _scan_safety > 100000:
                 raise RuntimeError(f"_scan_user_definitions 超出安全上限 ({_scan_safety}次迭代), i={i}, n={n}")
+
+            # 找到下一个目标字符的最近位置
+            next_pos = n
+            for target in search_targets:
+                p = source.find(target, i)
+                if p != -1 and p < next_pos:
+                    next_pos = p
+            if next_pos >= n:
+                break
+            i = next_pos
 
             # 查找段落定义：《段名》段 或 《类名》类 或 《方法名》方法(参数)
             if source[i] == '《':
@@ -1745,7 +2019,7 @@ class Lexer:
                         # 检查后跟"方法("：收集括号内的参数名，并注册方法名
                         if source[next_start:next_start+2] == '方法' and next_start+2 < n and source[next_start+2] == '(':
                             # 注册方法名（如"添加成绩"、"打印信息"）
-                            if name not in ALL_KEYWORDS and name not in VERB_ARITY:
+                            if name not in ALL_KEYWORDS and name not in ALL_VERB_ARITY:
                                 definitions.add(name)
                             # 收集括号内的参数
                             p = next_start + 3  # 跳过 方法(
@@ -1769,9 +2043,42 @@ class Lexer:
                                 else:
                                     # 非汉字的参数（如ASCII字符'x'），向前移动一位避免死循环
                                     p += 1
-                        elif name not in ALL_KEYWORDS and name not in VERB_ARITY:
+                        elif name not in ALL_KEYWORDS and name not in ALL_VERB_ARITY:
                             definitions.add(name)
                 i = k + 1
+                continue
+
+            # 查找 "导出 名称1 名称2 ..." 或 "从 模块 导入 名称1 名称2 ..."
+            # 将导出/导入列表中的名字也加入白名单，避免带关键字前缀的名字被拆分成 关键字 + 标识符
+            # 例如 "导出 生成AI阶段提示。" -> "生成" 是关键字，若不加入白名单会被拆成 KEYWORD(生成) + IDENTIFIER(AI阶段提示)
+            if source[i:i+2] in ('导出', '导入'):
+                j = i + 2
+                # 跳过名称列表前的所有空白（含换行、全角空格）
+                while j < n and source[j] in ' \t\n\r\f\v　':
+                    j += 1
+                # 逐段收集名字（名字以空白分隔，遇到句号或换行结束）
+                while j < n and source[j] not in '。\n':
+                    # 跳过名字之间的空白
+                    while j < n and source[j] in ' \t\n\r\f\v　':
+                        j += 1
+                    if j >= n or source[j] in '。\n':
+                        break
+                    # 收集一个标识符：汉字 或 ASCII 字母/数字/下划线/点（支持中英混合、
+                    # 含下划线的 Python 模块名，如 生成AI阶段提示、ai_api_helper、a.b.c）
+                    k = j
+                    while k < n and (_is_han(source[k]) or _is_ascii_alnum(source[k])
+                                     or source[k] == '_' or source[k] == '.') and source[k] not in ' \t\n\r\f\v　。':
+                        k += 1
+                    if k > j:
+                        name = source[j:k]
+                        if name not in ALL_KEYWORDS:
+                            definitions.add(name)
+                        j = k
+                    else:
+                        # 遇到非标识符、非空白字符（如冒号、标点）时跳过一个字符，
+                        # 避免死循环。例如 "导入 Python: ai_api_helper。" 中的 ":"
+                        j += 1
+                i = j
                 continue
 
             # 查找 "函数/段落 段名 参数 参数名" 格式
@@ -1781,8 +2088,10 @@ class Lexer:
                 while j < n and _is_space_tab(source[j]):
                     j += 1
                 # 收集段名（遇到段落语法关键字或冒号停止）
+                # 支持汉字和ASCII字母数字的标识符
                 k = j
-                while k < n and _is_han(source[k]):
+                while k < n and (_is_han(source[k]) or _is_ascii_alnum(source[k])
+                                 or source[k] == '_'):
                     # 检查当前位置是否匹配段落语法关键字（接收、返回）
                     kw, kw_len = self._match_keyword(source, k)
                     if kw and kw_len > 0 and kw in ('接收', '返回'):
@@ -1794,32 +2103,39 @@ class Lexer:
                     if segment_name not in ALL_KEYWORDS:
                         definitions.add(segment_name)
 
-                # 检查是否有 "参数" 关键字
+                # 检查是否有 "接收" 或 "参数" 关键字（旧式 接收 / 新式 参数）
+                # 旧式「段落 名 接收 参数：」的参数名必须整体注册进白名单，
+                # 否则含已注册子名的复合参数名（如 年月）会被最长匹配切碎成 年/月
                 j = k
                 while j < n and _is_space_tab(source[j]):
                     j += 1
-                if source[j:j+2] == '参数':
+                if source[j:j+2] in ('接收', '参数'):
                     j += 2
                     # 跳过空白
                     while j < n and _is_space_tab(source[j]):
                         j += 1
-                    # 收集参数名（可能多个参数）
+                    # 收集参数名（可能多个参数，空格或中英文逗号分隔，遇冒号/句号/换行结束）
+                    # 支持汉字和 ASCII 字母数字的标识符
                     while j < n:
+                        prev_j = j
                         k = j
-                        while k < n and _is_han(source[k]) and source[k] not in '。：':
+                        while k < n and (_is_han(source[k]) or _is_ascii_alnum(source[k])
+                                         or source[k] == '_') and source[k] not in '。：，, 、；;':
                             k += 1
                         if k > j:
                             param_name = source[j:k]
                             # 排除关键字和动词
-                            if param_name not in ALL_KEYWORDS and param_name not in VERB_ARITY:
+                            if param_name not in ALL_KEYWORDS and param_name not in ALL_VERB_ARITY:
                                 definitions.add(param_name)
                         j = k
-                        # 跳过空白
-                        while j < n and _is_space_tab(source[j]):
+                        # 跳过空白与参数分隔符（中英文逗号/顿号/分号）
+                        while j < n and (_is_space_tab(source[j]) or source[j] in '，,、；;'):
                             j += 1
-                        # 检查是否结束（句号、冒号或换行）
                         if j >= n or source[j] in '。：\n':
                             break
+                        # 兜底：本回合无任何前进则跳过一个字符，避免遇到非常规分隔符时死循环
+                        if j == prev_j:
+                            j += 1
                 i = j
                 continue
 
@@ -1877,8 +2193,10 @@ class Lexer:
                 while j < n and _is_space_tab(source[j]):
                     j += 1
                 # 收集标识符（收集到赋值关键字"等于"/"为"为止）
+                # 支持汉字和ASCII字母数字组成的标识符（如"变量1"、"数据2"）
                 k = j
-                while k < n and _is_han(source[k]):
+                while k < n and (_is_han(source[k]) or _is_ascii_alnum(source[k])
+                                 or source[k] == '_'):
                     # 只把赋值关键字（等于、为）作为断点
                     # 其他关键字（如结束、返回、跳过等）都可以是变量名的一部分
                     next_kw, length = self._match_keyword(source, k)
@@ -1899,9 +2217,11 @@ class Lexer:
                 while j < n and _is_space_tab(source[j]):
                     j += 1
                 # 收集标识符（设 甲 为/等于 值）
+                # 支持汉字和ASCII字母数字组成的标识符（如"环节1"、"数据2"）
                 k = j
                 collected_something = False
-                while k < n and _is_han(source[k]):
+                while k < n and (_is_han(source[k]) or _is_ascii_alnum(source[k])
+                                 or source[k] == '_'):
                     # 只检查是否遇到"为"或"等于"关键字（跳过空格），动词在开头时可跳过
                     lookahead = k
                     while lookahead < n and _is_space_tab(source[lookahead]):

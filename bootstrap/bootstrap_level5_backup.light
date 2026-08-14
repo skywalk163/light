@@ -1,9 +1,53 @@
-# 光明自举编译器 - Level 4
-# 支持完整的面向对象：属性访问、方法调用、继承
-# 基于 Level 3，增加类的完整支持
+# 光明自举编译器 - Level 5
+# 支持完整的面向对象、异常处理、装饰器
+# 基于 Level 4，增加 try/except/raise/装饰器/导入导出
+# 面向对象部分：属性访问、方法调用、继承
 
 段落 关键字列表：
-  返回 列表创建("设", "段落", "段", "返回", "结束", "为", "如果", "否则", "当", "接收", "加", "减", "乘", "除", "取模", "等于", "小于", "大于", "小于等于", "大于等于", "不等于", "且", "或", "非", "遍历", "在", "类", "属性", "己", "继承", "父", "尝试", "捕获", "最终", "抛出", "导入", "导出")
+  设 kws 为 列表创建()
+  列表追加(kws, "设")
+  列表追加(kws, "段落")
+  列表追加(kws, "段")
+  列表追加(kws, "返回")
+  列表追加(kws, "结束")
+  列表追加(kws, "为")
+  列表追加(kws, "如果")
+  列表追加(kws, "否则")
+  列表追加(kws, "当")
+  列表追加(kws, "接收")
+  列表追加(kws, "加")
+  列表追加(kws, "减")
+  列表追加(kws, "乘")
+  列表追加(kws, "除")
+  列表追加(kws, "取模")
+  列表追加(kws, "等于")
+  列表追加(kws, "小于")
+  列表追加(kws, "大于")
+  列表追加(kws, "小于等于")
+  列表追加(kws, "大于等于")
+  列表追加(kws, "不等于")
+  列表追加(kws, "且")
+  列表追加(kws, "或")
+  列表追加(kws, "非")
+  列表追加(kws, "遍历")
+  列表追加(kws, "在")
+  列表追加(kws, "类")
+  列表追加(kws, "属性")
+  列表追加(kws, "己")
+  列表追加(kws, "继承")
+  列表追加(kws, "父")
+  列表追加(kws, "尝试")
+  列表追加(kws, "捕获")
+  列表追加(kws, "最终")
+  列表追加(kws, "抛出")
+  列表追加(kws, "导入")
+  列表追加(kws, "导出")
+  列表追加(kws, "匹配")
+  列表追加(kws, "情形")
+  列表追加(kws, "异步")
+  列表追加(kws, "等待")
+  列表追加(kws, "使用")
+  返回 kws
 
 段落 是关键字 接收 w：
   设 kws 为 关键字列表()
@@ -22,7 +66,16 @@
   返回 假
 
 段落 建 接收 t, v：
-  返回 列表创建(t, v)
+  设 lst 为 列表创建()
+  列表追加(lst, t)
+  列表追加(lst, v)
+  返回 lst
+
+段落 创建对 接收 a, b：
+  设 lst 为 列表创建()
+  列表追加(lst, a)
+  列表追加(lst, b)
+  返回 lst
 
 段落 词 接收 src, p, n, s：
   当 p 小于 n：
@@ -96,11 +149,11 @@
     设 c 为 字符串获取(src, p)
     如果 c 等于 '"'：
       设 tok 为 建("STR", s)
-      返回 列表创建(tok, p 加 1)
+      返回 创建对(tok, p 加 1)
     设 s 为 s 加 c
     设 p 为 p 加 1
   设 tok 为 建("STR", s)
-  返回 列表创建(tok, p)
+  返回 创建对(tok, p)
 
 段落 扫注释 接收 src, p, n：
   当 p 小于 n：
@@ -171,6 +224,10 @@
       列表插入(toks, 建("DOT", "."))
       设 p 为 p 加 1
       设 已处理 为 真
+    如果 已处理 等于 假 且 c 等于 "@"：
+      列表追加(toks, 建("AT", "@"))
+      设 p 为 p 加 1
+      设 已处理 为 真
     如果 已处理 等于 假 且 c 大于等于 "0"：
       如果 c 小于等于 "9"：
         设 tok 为 数字(src, p, n, "")
@@ -217,7 +274,7 @@
       设 right 为 列表获取(右结果, 0)
       设 np 为 列表获取(右结果, 1)
       设 left 为 left 加 " or " 加 right
-  返回 列表创建(left, np)
+  返回 创建对(left, np)
 
 段落 逻辑合取表达式 接收 toks, p：
   设 结果 为 比较表达式(toks, p)
@@ -234,7 +291,7 @@
       设 right 为 列表获取(右结果, 0)
       设 np 为 列表获取(右结果, 1)
       设 left 为 left 加 " and " 加 right
-  返回 列表创建(left, np)
+  返回 创建对(left, np)
 
 段落 比较表达式 接收 toks, p：
   设 结果 为 算术和差表达式(toks, p)
@@ -247,33 +304,33 @@
       设 右结果 为 算术和差表达式(toks, np 加 1)
       设 right 为 列表获取(右结果, 0)
       设 np 为 列表获取(右结果, 1)
-      返回 列表创建(left 加 " == " 加 right, np)
+      返回 创建对(left 加 " == " 加 right, np)
     如果 tv 等于 "小于"：
       设 右结果 为 算术和差表达式(toks, np 加 1)
       设 right 为 列表获取(右结果, 0)
       设 np 为 列表获取(右结果, 1)
-      返回 列表创建(left 加 " < " 加 right, np)
+      返回 创建对(left 加 " < " 加 right, np)
     如果 tv 等于 "大于"：
       设 右结果 为 算术和差表达式(toks, np 加 1)
       设 right 为 列表获取(右结果, 0)
       设 np 为 列表获取(右结果, 1)
-      返回 列表创建(left 加 " > " 加 right, np)
+      返回 创建对(left 加 " > " 加 right, np)
     如果 tv 等于 "小于等于"：
       设 右结果 为 算术和差表达式(toks, np 加 1)
       设 right 为 列表获取(右结果, 0)
       设 np 为 列表获取(右结果, 1)
-      返回 列表创建(left 加 " <= " 加 right, np)
+      返回 创建对(left 加 " <= " 加 right, np)
     如果 tv 等于 "大于等于"：
       设 右结果 为 算术和差表达式(toks, np 加 1)
       设 right 为 列表获取(右结果, 0)
       设 np 为 列表获取(右结果, 1)
-      返回 列表创建(left 加 " >= " 加 right, np)
+      返回 创建对(left 加 " >= " 加 right, np)
     如果 tv 等于 "不等于"：
       设 右结果 为 算术和差表达式(toks, np 加 1)
       设 right 为 列表获取(右结果, 0)
       设 np 为 列表获取(右结果, 1)
-      返回 列表创建(left 加 " != " 加 right, np)
-  返回 列表创建(left, np)
+      返回 创建对(left 加 " != " 加 right, np)
+  返回 创建对(left, np)
 
 段落 算术和差表达式 接收 toks, p：
   设 结果 为 算术积商表达式(toks, p)
@@ -296,7 +353,7 @@
         设 left 为 left 加 " - " 加 right
       否则：
         设 继续循环 为 假
-  返回 列表创建(left, np)
+  返回 创建对(left, np)
 
 段落 算术积商表达式 接收 toks, p：
   设 结果 为 成员表达式(toks, p)
@@ -325,7 +382,7 @@
           设 left 为 left 加 " % " 加 right
         否则：
           设 继续循环 为 假
-  返回 列表创建(left, np)
+  返回 创建对(left, np)
 
 段落 成员表达式 接收 toks, p：
   设 结果 为 一元表达式(toks, p)
@@ -355,8 +412,8 @@
         否则：
           设 left 为 left 加 "." 加 attr_name
     否则：
-      返回 列表创建(left, np)
-  返回 列表创建(left, np)
+      返回 创建对(left, np)
+  返回 创建对(left, np)
 
 段落 一元表达式 接收 toks, p：
   如果 p 小于 列表长度(toks)：
@@ -365,7 +422,7 @@
       设 结果 为 一元表达式(toks, p 加 1)
       设 expr 为 列表获取(结果, 0)
       设 np 为 列表获取(结果, 1)
-      返回 列表创建("not " 加 expr, np)
+      返回 创建对("not " 加 expr, np)
     如果 列表获取(tok, 0) 等于 "KW" 且 列表获取(tok, 1) 等于 "己"：
       返回 处理成员链(toks, p 加 1, "self")
     如果 列表获取(tok, 0) 等于 "KW" 且 列表获取(tok, 1) 等于 "父"：
@@ -377,10 +434,10 @@
       如果 np 小于 列表长度(toks)：
         设 tok 为 列表获取(toks, np)
         如果 列表获取(tok, 0) 等于 "RPAREN"：
-          返回 列表创建("(" 加 expr 加 ")", np 加 1)
-      返回 列表创建("(" 加 expr 加 ")", np)
+          返回 创建对("(" 加 expr 加 ")", np 加 1)
+      返回 创建对("(" 加 expr 加 ")", np)
     如果 列表获取(tok, 0) 等于 "NUM"：
-      返回 列表创建(列表获取(tok, 1), p 加 1)
+      返回 创建对(列表获取(tok, 1), p 加 1)
     如果 列表获取(tok, 0) 等于 "STR"：
       设 s 为 列表获取(tok, 1)
       设 有单引号 为 假
@@ -390,8 +447,8 @@
           设 有单引号 为 真
         设 i 为 i 加 1
       如果 有单引号：
-        返回 列表创建('"' 加 s 加 '"', p 加 1)
-      返回 列表创建("'" 加 s 加 "'", p 加 1)
+        返回 创建对('"' 加 s 加 '"', p 加 1)
+      返回 创建对("'" 加 s 加 "'", p 加 1)
     如果 列表获取(tok, 0) 等于 "ID"：
       设 name 为 列表获取(tok, 1)
       设 np 为 p 加 1
@@ -401,27 +458,27 @@
           设 参数结果 为 解析参数列表(toks, np 加 1)
           设 args 为 列表获取(参数结果, 0)
           设 np 为 列表获取(参数结果, 1)
-          返回 列表创建(name 加 "(" 加 args 加 ")", np)
-      返回 列表创建(name, np)
-  返回 列表创建("None", p)
+          返回 创建对(name 加 "(" 加 args 加 ")", np)
+      返回 创建对(name, np)
+  返回 创建对("None", p)
 
 段落 解析参数列表 接收 toks, p：
   如果 p 小于 列表长度(toks)：
     设 tok 为 列表获取(toks, p)
     如果 列表获取(tok, 0) 等于 "RPAREN"：
-      返回 列表创建("", p 加 1)
+      返回 创建对("", p 加 1)
     设 结果 为 表达式(toks, p)
     设 first 为 列表获取(结果, 0)
     设 np 为 列表获取(结果, 1)
     设 剩余结果 为 解析更多参数(toks, np, first)
     返回 剩余结果
-  返回 列表创建("", p)
+  返回 创建对("", p)
 
 段落 解析更多参数 接收 toks, p, acc：
   当 p 小于 列表长度(toks)：
     设 tok 为 列表获取(toks, p)
     如果 列表获取(tok, 0) 等于 "RPAREN"：
-      返回 列表创建(acc, p 加 1)
+      返回 创建对(acc, p 加 1)
     如果 列表获取(tok, 0) 等于 "COMMA"：
       设 结果 为 表达式(toks, p 加 1)
       设 next_arg 为 列表获取(结果, 0)
@@ -430,7 +487,7 @@
       设 p 为 np
     否则：
       设 p 为 p 加 1
-  返回 列表创建(acc, p)
+  返回 创建对(acc, p)
 
 段落 find_ret 接收 toks, p：
   如果 p 小于 列表长度(toks)：
@@ -439,8 +496,8 @@
       设 结果 为 表达式(toks, p 加 1)
       设 expr 为 列表获取(结果, 0)
       设 np 为 列表获取(结果, 1)
-      返回 列表创建("return " 加 expr, np)
-  返回 列表创建("pass", p)
+      返回 创建对("return " 加 expr, np)
+  返回 创建对("pass", p)
 
 段落 find_end 接收 toks, p：
   当 p 小于 列表长度(toks)：
@@ -500,7 +557,7 @@
               设 结果 为 表达式(toks, np)
               设 expr 为 列表获取(结果, 0)
               设 np 为 列表获取(结果, 1)
-              返回 列表创建(var_expr 加 " = " 加 expr, np)
+              返回 创建对(var_expr 加 " = " 加 expr, np)
         否则：
           设 var 为 列表获取(first_tok, 1)
           设 np 为 np 加 1
@@ -511,9 +568,9 @@
               设 结果 为 表达式(toks, np)
               设 expr 为 列表获取(结果, 0)
               设 np 为 列表获取(结果, 1)
-              返回 列表创建(var 加 " = " 加 expr, np)
-      返回 列表创建("", p 加 1)
-  返回 列表创建("", p)
+              返回 创建对(var 加 " = " 加 expr, np)
+      返回 创建对("", p 加 1)
+  返回 创建对("", p)
 
 段落 comp_throw 接收 toks, p：
   如果 p 小于 列表长度(toks)：
@@ -531,8 +588,8 @@
           设 stmt 为 "raise " 加 expr
       否则：
         设 stmt 为 "raise " 加 expr
-      返回 列表创建(stmt, np)
-  返回 列表创建("", p)
+      返回 创建对(stmt, np)
+  返回 创建对("", p)
 
 段落 异常型映射 接收 name：
   如果 name 等于 "异常"：
@@ -589,7 +646,7 @@
         如果 继续扫描：
           设 scan_p 为 scan_p 加 1
       如果 try_end 等于 9999：
-        返回 列表创建("", p 加 1)
+        返回 创建对("", p 加 1)
       设 body_indent 为 indent 加 "    "
       设 try_body_end 为 np
       如果 列表长度(catch_positions) 大于 0：
@@ -700,8 +757,35 @@
         设 fin_result 为 compile_block(toks, finally_pos 加 1, try_end, body_indent, "")
         设 out 为 out 加 fin_result
       结束
-      返回 列表创建(out, try_end 加 1)
-  返回 列表创建("", p)
+      返回 创建对(out, try_end 加 1)
+  返回 创建对("", p)
+
+段落 编译装饰器 接收 toks, p：
+  """编译单个装饰器行，返回装饰器代码和下一个位置"""
+  如果 p 小于 列表长度(toks)：
+    设 tok 为 列表获取(toks, p)
+    如果 列表获取(tok, 0) 等于 "AT"：
+      设 np 为 p 加 1
+      设 结果 为 表达式(toks, np)
+      设 expr 为 列表获取(结果, 0)
+      设 np 为 列表获取(结果, 1)
+      返回 创建对("@" 加 expr, np)
+  返回 创建对("", p)
+
+段落 收集装饰器 接收 toks, p：
+  """收集连续的装饰器行，返回装饰器列表和下一个位置"""
+  设 decors 为 列表创建()
+  设 继续循环 为 真
+  当 继续循环 且 p 小于 列表长度(toks)：
+    设 tok 为 列表获取(toks, p)
+    如果 列表获取(tok, 0) 等于 "AT"：
+      设 结果 为 编译装饰器(toks, p)
+      设 decor 为 列表获取(结果, 0)
+      设 p 为 列表获取(结果, 1)
+      列表追加(decors, decor)
+    否则：
+      设 继续循环 为 假
+  返回 创建对(decors, p)
 
 段落 find_matching_end 接收 toks, p, level：
   当 p 小于 列表长度(toks)：
@@ -721,6 +805,10 @@
       如果 tv 等于 "段"：
         设 level 为 level 加 1
       如果 tv 等于 "尝试"：
+        设 level 为 level 加 1
+      如果 tv 等于 "匹配"：
+        设 level 为 level 加 1
+      如果 tv 等于 "使用"：
         设 level 为 level 加 1
       如果 tv 等于 "否则"：
         如果 level 等于 1：
@@ -812,6 +900,34 @@
         设 out 为 out 加 stmt
         设 p 为 np
         设 已处理 为 真
+      如果 已处理 等于 假 且 tv 等于 "匹配"：
+        设 结果 为 comp_match(toks, p)
+        设 stmt 为 列表获取(结果, 0)
+        设 np 为 列表获取(结果, 1)
+        设 out 为 out 加 add_indent(stmt, indent)
+        设 p 为 np
+        设 已处理 为 真
+      如果 已处理 等于 假 且 tv 等于 "使用"：
+        设 结果 为 comp_with(toks, p)
+        设 stmt 为 列表获取(结果, 0)
+        设 np 为 列表获取(结果, 1)
+        设 out 为 out 加 add_indent(stmt, indent)
+        设 p 为 np
+        设 已处理 为 真
+      如果 已处理 等于 假 且 tv 等于 "等待"：
+        设 结果 为 表达式(toks, p 加 1)
+        设 expr 为 列表获取(结果, 0)
+        设 np 为 列表获取(结果, 1)
+        设 out 为 out 加 indent 加 "await " 加 expr 加 "\n"
+        设 p 为 np
+        设 已处理 为 真
+      如果 已处理 等于 假 且 列表获取(tok, 0) 等于 "AT"：
+        设 结果 为 编译装饰器(toks, p)
+        设 decor 为 列表获取(结果, 0)
+        设 np 为 列表获取(结果, 1)
+        设 out 为 out 加 indent 加 decor 加 "\n"
+        设 p 为 np
+        设 已处理 为 真
       如果 已处理 等于 假 且 列表获取(tok, 0) 等于 "ID"：
         设 np 为 p 加 1
         如果 np 小于 列表长度(toks)：
@@ -895,9 +1011,9 @@
           如果 else_body 等于 ""：
             设 else_body 为 "    pass"
           设 code 为 code 加 "\nelse:\n" 加 else_body
-          返回 列表创建(code, else_end)
-      返回 列表创建(code, end_p)
-  返回 列表创建("", p)
+          返回 创建对(code, else_end)
+      返回 创建对(code, end_p)
+  返回 创建对("", p)
 
 段落 comp_while 接收 toks, p：
   如果 p 小于 列表长度(toks)：
@@ -911,8 +1027,8 @@
       设 body 为 compile_block(toks, np, end_p 减 1, "    ", "")
       如果 body 等于 ""：
         设 body 为 "    pass\n"
-      返回 列表创建("while " 加 cond 加 ":\n" 加 body, end_p)
-  返回 列表创建("", p)
+      返回 创建对("while " 加 cond 加 ":\n" 加 body, end_p)
+  返回 创建对("", p)
 
 段落 comp_for 接收 toks, p：
   如果 p 小于 列表长度(toks)：
@@ -934,8 +1050,73 @@
             设 body 为 compile_block(toks, np, end_p 减 1, "    ", "")
             如果 body 等于 ""：
               设 body 为 "    pass\n"
-            返回 列表创建("for " 加 var_name 加 " in " 加 iter_expr 加 ":\n" 加 body, end_p)
-  返回 列表创建("", p)
+            返回 创建对("for " 加 var_name 加 " in " 加 iter_expr 加 ":\n" 加 body, end_p)
+  返回 创建对("", p)
+
+段落 comp_match 接收 toks, p：
+  如果 p 小于 列表长度(toks)：
+    设 tok 为 列表获取(toks, p)
+    如果 列表获取(tok, 1) 等于 "匹配"：
+      设 np 为 p 加 1
+      设 结果 为 表达式(toks, np)
+      设 value 为 列表获取(结果, 0)
+      设 np 为 列表获取(结果, 1)
+      设 end_p 为 find_matching_end(toks, np, 1)
+      设 out 为 "match " 加 value 加 ":\n"
+      设 扫描中 为 真
+      设 scan_p 为 np
+      当 scan_p 小于 end_p 减 1 且 扫描中：
+        设 st 为 列表获取(toks, scan_p)
+        如果 列表获取(st, 0) 等于 "KW" 且 列表获取(st, 1) 等于 "情形"：
+          设 case_p 为 scan_p 加 1
+          设 case_end 为 end_p 减 1
+          设 ci 为 scan_p 加 1
+          当 ci 小于 end_p 减 1：
+            设 ct 为 列表获取(toks, ci)
+            如果 列表获取(ct, 0) 等于 "KW" 且 列表获取(ct, 1) 等于 "情形"：
+              设 case_end 为 ci
+              跳出
+            设 ci 为 ci 加 1
+          设 模式结果 为 表达式(toks, case_p)
+          设 pattern 为 列表获取(模式结果, 0)
+          设 case_body_p 为 列表获取(模式结果, 1)
+          设 body 为 compile_block(toks, case_body_p, case_end, "        ", "")
+          如果 body 等于 ""：
+            设 body 为 "        pass\n"
+          设 out 为 out 加 "    case " 加 pattern 加 ":\n" 加 body
+          设 scan_p 为 case_end
+        否则：
+          设 scan_p 为 scan_p 加 1
+      返回 创建对(out, end_p)
+  返回 创建对("", p)
+
+段落 comp_with 接收 toks, p：
+  如果 p 小于 列表长度(toks)：
+    设 tok 为 列表获取(toks, p)
+    如果 列表获取(tok, 1) 等于 "使用"：
+      设 np 为 p 加 1
+      设 结果 为 表达式(toks, np)
+      设 expr 为 列表获取(结果, 0)
+      设 np 为 列表获取(结果, 1)
+      设 var_name 为 ""
+      如果 np 小于 列表长度(toks)：
+        设 nt 为 列表获取(toks, np)
+        如果 列表获取(nt, 0) 等于 "KW" 且 列表获取(nt, 1) 等于 "为"：
+          设 np 为 np 加 1
+          如果 np 小于 列表长度(toks)：
+            设 vt 为 列表获取(toks, np)
+            设 var_name 为 列表获取(vt, 1)
+            设 np 为 np 加 1
+      设 end_p 为 find_matching_end(toks, np, 1)
+      设 body 为 compile_block(toks, np, end_p 减 1, "    ", "")
+      如果 body 等于 ""：
+        设 body 为 "    pass\n"
+      设 with_stmt 为 "with " 加 expr
+      如果 var_name 不等于 ""：
+        设 with_stmt 为 with_stmt 加 " as " 加 var_name
+      设 with_stmt 为 with_stmt 加 ":\n" 加 body
+      返回 创建对(with_stmt, end_p)
+  返回 创建对("", p)
 
 段落 compile_stmts 接收 toks, p, out：
   当 p 小于 列表长度(toks)：
@@ -991,6 +1172,34 @@
       设 out 为 out 加 stmt
       设 p 为 np
       设 已处理 为 真
+    如果 已处理 等于 假 且 tv 等于 "匹配"：
+      设 结果 为 comp_match(toks, p)
+      设 stmt 为 列表获取(结果, 0)
+      设 np 为 列表获取(结果, 1)
+      设 out 为 out 加 add_indent(stmt, "    ")
+      设 p 为 np
+      设 已处理 为 真
+    如果 已处理 等于 假 且 tv 等于 "使用"：
+      设 结果 为 comp_with(toks, p)
+      设 stmt 为 列表获取(结果, 0)
+      设 np 为 列表获取(结果, 1)
+      设 out 为 out 加 add_indent(stmt, "    ")
+      设 p 为 np
+      设 已处理 为 真
+    如果 已处理 等于 假 且 tv 等于 "等待"：
+      设 结果 为 表达式(toks, p 加 1)
+      设 expr 为 列表获取(结果, 0)
+      设 np 为 列表获取(结果, 1)
+      设 out 为 out 加 "    await " 加 expr 加 "\n"
+      设 p 为 np
+      设 已处理 为 真
+    如果 已处理 等于 假 且 列表获取(tok, 0) 等于 "AT"：
+      设 结果 为 编译装饰器(toks, p)
+      设 decor 为 列表获取(结果, 0)
+      设 np 为 列表获取(结果, 1)
+      设 out 为 out 加 "    " 加 decor 加 "\n"
+      设 p 为 np
+      设 已处理 为 真
     如果 已处理 等于 假 且 列表获取(tok, 0) 等于 "ID"：
       设 np 为 p 加 1
       如果 np 小于 列表长度(toks)：
@@ -1021,19 +1230,19 @@
           设 p 为 np
           设 已处理 为 真
     如果 已处理 等于 假 且 tv 等于 "结束"：
-      返回 列表创建(out, p 加 1)
+      返回 创建对(out, p 加 1)
     如果 已处理 等于 假 且 是函数关键字(tv)：
-      返回 列表创建(out, p)
+      返回 创建对(out, p)
     如果 已处理 等于 假：
       设 p 为 p 加 1
-  返回 列表创建(out, p)
+  返回 创建对(out, p)
 
 段落 解析参数 接收 toks, p：
   如果 p 小于 列表长度(toks)：
     设 tok 为 列表获取(toks, p)
     如果 列表获取(tok, 1) 等于 "接收"：
       返回 收集参数(toks, p 加 1, "")
-  返回 列表创建("", p)
+  返回 创建对("", p)
 
 段落 收集参数 接收 toks, p, acc：
   当 p 小于 列表长度(toks)：
@@ -1046,8 +1255,8 @@
         如果 末字符 等于 "："：
           设 v 为 截取(v, 0, 字符串长度(v) 减 1)
           如果 acc 等于 ""：
-            返回 列表创建(v, p 加 1)
-          返回 列表创建(acc 加 ", " 加 v, p 加 1)
+            返回 创建对(v, p 加 1)
+          返回 创建对(acc 加 ", " 加 v, p 加 1)
       如果 acc 等于 ""：
         设 acc 为 v
       否则：
@@ -1067,8 +1276,8 @@
       设 p 为 p 加 1
       设 已处理 为 真
     如果 已处理 等于 假：
-      返回 列表创建(acc, p)
-  返回 列表创建(acc, p)
+      返回 创建对(acc, p)
+  返回 创建对(acc, p)
 
 段落 compile_class 接收 toks, p：
   如果 p 小于 列表长度(toks)：
@@ -1101,8 +1310,8 @@
       如果 parent_name 不等于 ""：
         设 class_def 为 class_def 加 "(" 加 parent_name 加 ")"
       设 class_def 为 class_def 加 ":\n" 加 body
-      返回 列表创建(class_def, end_p)
-  返回 列表创建("", p)
+      返回 创建对(class_def, end_p)
+  返回 创建对("", p)
 
 段落 compile_class_body 接收 toks, p, end_p, class_name：
   设 out 为 ""
@@ -1121,6 +1330,17 @@
       设 p 为 列表获取(func结果, 1)
       设 out 为 out 加 method_code
       设 已处理 为 真
+    如果 已处理 等于 假 且 tv 等于 "异步"：
+      设 np 为 p 加 1
+      如果 np 小于 end_p：
+        设 nt 为 列表获取(toks, np)
+        如果 列表获取(nt, 0) 等于 "KW" 且 是函数关键字(列表获取(nt, 1))：
+          设 方法结果 为 compile_class_method(toks, np, class_name)
+          设 method_code 为 列表获取(方法结果, 0)
+          设 p 为 列表获取(方法结果, 1)
+          设 method_code 为 "    async " 加 截取(method_code, 4, 字符串长度(method_code))
+          设 out 为 out 加 method_code
+          设 已处理 为 真
     如果 已处理 等于 假 且 tv 等于 "结束"：
       返回 out
     如果 已处理 等于 假：
@@ -1129,6 +1349,17 @@
 
 段落 compile_class_method 接收 toks, p, class_name：
   设 tok 为 列表获取(toks, p)
+  设 decor_lines 为 ""
+  # 检查是否有装饰器
+  如果 列表获取(tok, 0) 等于 "AT"：
+    设 装饰器结果 为 收集装饰器(toks, p)
+    设 decors 为 列表获取(装饰器结果, 0)
+    设 p 为 列表获取(装饰器结果, 1)
+    设 i 为 0
+    当 i 小于 列表长度(decors)：
+      设 decor_lines 为 decor_lines 加 "        " 加 列表获取(decors, i) 加 "\n"
+      设 i 为 i 加 1
+    设 tok 为 列表获取(toks, p)
   设 np 为 p 加 1
   设 name 为 ""
   如果 np 小于 列表长度(toks)：
@@ -1153,15 +1384,37 @@
   设 body 为 compile_block(toks, np, method_end 减 1, "        ", "")
   如果 body 等于 ""：
     设 body 为 "        pass"
-  设 code 为 "    def " 加 name 加 "(" 加 final_params 加 "):\n" 加 body 加 "\n"
-  返回 列表创建(code, method_end)
+  设 code 为 decor_lines 加 "    def " 加 name 加 "(" 加 final_params 加 "):\n" 加 body 加 "\n"
+  返回 创建对(code, method_end)
 
 段落 compile_top 接收 toks, p, out：
   当 p 小于 列表长度(toks)：
     设 tok 为 列表获取(toks, p)
     设 tv 为 列表获取(tok, 1)
     设 已处理 为 假
-    如果 tv 等于 "类"：
+    如果 列表获取(tok, 0) 等于 "AT"：
+      设 装饰器结果 为 收集装饰器(toks, p)
+      设 decors 为 列表获取(装饰器结果, 0)
+      设 np 为 列表获取(装饰器结果, 1)
+      设 next_tok 为 列表获取(toks, np)
+      设 next_tv 为 列表获取(next_tok, 1)
+      如果 next_tv 等于 "类"：
+        设 类结果 为 compile_class(toks, np)
+        设 class_code 为 列表获取(类结果, 0)
+        设 np 为 列表获取(类结果, 1)
+        设 i 为 0
+        当 i 小于 列表长度(decors)：
+          设 out 为 out 加 列表获取(decors, i) 加 "\n"
+          设 i 为 i 加 1
+        设 out 为 out 加 class_code 加 "\n"
+      否则：
+        设 函数结果 为 compile_single_func(toks, np, decors)
+        设 func_code 为 列表获取(函数结果, 0)
+        设 np 为 列表获取(函数结果, 1)
+        设 out 为 out 加 func_code
+      设 p 为 np
+      设 已处理 为 真
+    如果 已处理 等于 假 且 tv 等于 "类"：
       设 结果 为 compile_class(toks, p)
       设 class_code 为 列表获取(结果, 0)
       设 np 为 列表获取(结果, 1)
@@ -1169,7 +1422,7 @@
       设 p 为 np
       设 已处理 为 真
     如果 已处理 等于 假 且 是函数关键字(tv)：
-      设 结果 为 compile_single_func(toks, p)
+      设 结果 为 compile_single_func(toks, p, 列表创建())
       设 func_code 为 列表获取(结果, 0)
       设 np 为 列表获取(结果, 1)
       设 out 为 out 加 func_code
@@ -1189,11 +1442,36 @@
       设 out 为 out 加 stmt
       设 p 为 np
       设 已处理 为 真
+    如果 已处理 等于 假 且 tv 等于 "匹配"：
+      设 结果 为 comp_match(toks, p)
+      设 stmt 为 列表获取(结果, 0)
+      设 np 为 列表获取(结果, 1)
+      设 out 为 out 加 stmt 加 "\n"
+      设 p 为 np
+      设 已处理 为 真
+    如果 已处理 等于 假 且 tv 等于 "使用"：
+      设 结果 为 comp_with(toks, p)
+      设 stmt 为 列表获取(结果, 0)
+      设 np 为 列表获取(结果, 1)
+      设 out 为 out 加 stmt 加 "\n"
+      设 p 为 np
+      设 已处理 为 真
+    如果 已处理 等于 假 且 tv 等于 "异步"：
+      设 np 为 p 加 1
+      如果 np 小于 列表长度(toks)：
+        设 nt 为 列表获取(toks, np)
+        如果 列表获取(nt, 0) 等于 "KW" 且 是函数关键字(列表获取(nt, 1))：
+          设 函数结果 为 compile_single_func(toks, np, 列表创建())
+          设 func_code 为 列表获取(函数结果, 0)
+          设 np 为 列表获取(函数结果, 1)
+          设 out 为 out 加 "async " 加 func_code
+          设 p 为 np
+          设 已处理 为 真
     如果 已处理 等于 假：
       设 p 为 p 加 1
   返回 out
 
-段落 compile_single_func 接收 toks, p：
+段落 compile_single_func 接收 toks, p, decors：
   设 tok 为 列表获取(toks, p)
   设 np 为 p 加 1
   设 name 为 ""
@@ -1214,8 +1492,13 @@
   设 np 为 列表获取(body结果, 1)
   如果 body 等于 ""：
     设 body 为 "    pass\n"
-  设 code 为 "def " 加 name 加 "(" 加 params 加 "):\n" 加 body 加 "\n"
-  返回 列表创建(code, np)
+  设 decor_lines 为 ""
+  设 i 为 0
+  当 i 小于 列表长度(decors)：
+    设 decor_lines 为 decor_lines 加 列表获取(decors, i) 加 "\n"
+    设 i 为 i 加 1
+  设 code 为 decor_lines 加 "def " 加 name 加 "(" 加 params 加 "):\n" 加 body 加 "\n"
+  返回 创建对(code, np)
 
 段落 压缩代码 接收 src：
   设 n 为 字符串长度(src)
@@ -1252,14 +1535,14 @@
   返回 out
 
 段落 编译 接收 src：
-  设 header 为 "# Generated by Light Level 4\n"
+  设 header 为 "# Generated by Light Level 5\n"
   设 toks 为 词法(src)
   设 code 为 compile_top(toks, 0, "")
   设 result 为 header 加 code
   返回 压缩代码(result)
 
 段落 测试：
-  打印 "=== Level 4 测试 ==="
+  打印 "=== Level 5 测试 ==="
   打印 ""
 
   打印 "--- 测试1: 基本函数 ---"
@@ -1280,10 +1563,28 @@
   打印 编译(src3)
   打印 ""
 
-  打印 "Level 4 验证通过！"
+  打印 "--- 测试4: 装饰器 ---"
+  设 src4 为 "@日志 段落 log 接收 x： 返回 x 结束"
+  打印 "源: " 加 src4
+  打印 编译(src4)
+  打印 ""
+
+  打印 "--- 测试5: try/except ---"
+  设 src5 为 "段落 safe 尝试 返回 1 捕获 异常 返回 0 结束 结束"
+  打印 "源: " 加 src5
+  打印 编译(src5)
+  打印 ""
+
+  打印 "--- 测试6: 抛出 ---"
+  设 src6 为 "段落 test 抛出 值错误 结束"
+  打印 "源: " 加 src6
+  打印 编译(src6)
+  打印 ""
+
+  打印 "Level 5 验证通过！"
 
 段落 主函数：
-  打印 "光明 Level 4 启动"
+  打印 "光明 Level 5 启动"
   打印 ""
   测试()
 

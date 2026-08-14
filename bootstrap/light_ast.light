@@ -29,6 +29,14 @@
 导出 make_unary_op
 导出 make_func_call
 导出 make_member_access
+导出 make_try_stmt
+导出 make_throw_stmt
+导出 make_interface_def
+导出 make_method_signature
+导出 make_match_stmt
+导出 make_match_case
+导出 make_match_pattern
+导出 make_with_stmt
 导出 node_type
 导出 node_data
 
@@ -203,6 +211,82 @@
   设 node 为 列表创建()
   列表追加(node, "template_string")
   列表追加(node, value)
+  返回 node
+
+# =============================================================================
+# Interface / Protocol definition nodes
+# =============================================================================
+段落 make_interface_def 接收 name, methods, super_interfaces：
+  设 node 为 列表创建()
+  列表追加(node, "interface_def")
+  列表追加(node, name)
+  列表追加(node, methods)
+  列表追加(node, super_interfaces)
+  返回 node
+
+段落 make_method_signature 接收 name, params, return_type：
+  设 node 为 列表创建()
+  列表追加(node, "method_signature")
+  列表追加(node, name)
+  列表追加(node, params)
+  列表追加(node, return_type)
+  返回 node
+
+# =============================================================================
+# Match statement nodes
+# =============================================================================
+段落 make_match_stmt 接收 subject, cases：
+  设 node 为 列表创建()
+  列表追加(node, "match_stmt")
+  列表追加(node, subject)
+  列表追加(node, cases)
+  返回 node
+
+段落 make_match_case 接收 pattern, guard, body：
+  设 node 为 列表创建()
+  列表追加(node, "match_case")
+  列表追加(node, pattern)
+  列表追加(node, guard)
+  列表追加(node, body)
+  返回 node
+
+段落 make_match_pattern 接收 kind, value, elements, type_name, binding：
+  设 node 为 列表创建()
+  列表追加(node, "match_pattern")
+  列表追加(node, kind)
+  列表追加(node, value)
+  列表追加(node, elements)
+  列表追加(node, type_name)
+  列表追加(node, binding)
+  返回 node
+
+# =============================================================================
+# With statement (context manager) node
+# =============================================================================
+段落 make_with_stmt 接收 context_expr, variable, body：
+  设 node 为 列表创建()
+  列表追加(node, "with_stmt")
+  列表追加(node, context_expr)
+  列表追加(node, variable)
+  列表追加(node, body)
+  返回 node
+
+# =============================================================================
+# Try / Throw statement nodes
+# =============================================================================
+段落 make_try_stmt 接收 try_body, catch_clauses, finally_body：
+  设 node 为 列表创建()
+  列表追加(node, "try_stmt")
+  列表追加(node, try_body)
+  列表追加(node, catch_clauses)
+  列表追加(node, finally_body)
+  返回 node
+
+段落 make_throw_stmt 接收 value, from_expr：
+  设 node 为 列表创建()
+  列表追加(node, "throw_stmt")
+  列表追加(node, value)
+  列表追加(node, from_expr)
   返回 node
 
 # =============================================================================

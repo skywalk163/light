@@ -1,0 +1,133 @@
+导入os
+导入shutil
+导入tempfile
+
+定义读取文件(路径,编码='utf-8'):
+    with打开(路径,'r',encoding=编码)as文件:
+        返回文件.read()
+
+定义写入文件(路径,内容,编码='utf-8'):
+    with打开(路径,'w',encoding=编码)as文件:
+        文件.write(内容)
+
+定义追加文件(路径,内容,编码='utf-8'):
+    with打开(路径,'a',encoding=编码)as文件:
+        文件.write(内容)
+
+定义文件存在(路径):
+    返回os.path.isfile(路径)
+
+定义目录存在(路径):
+    返回os.path.isdir(路径)
+
+定义路径存在(路径):
+    返回os.path.exists(路径)
+
+定义创建目录(路径,递归=False):
+    if递归:
+        os.makedirs(路径,exist_ok=True)
+    else:
+        os.mkdir(路径)
+
+定义删除文件(路径):
+    os.remove(路径)
+
+定义删除目录(路径,递归=False):
+    if递归:
+        shutil.rmtree(路径)
+    else:
+        os.rmdir(路径)
+
+定义列出目录(路径):
+    返回os.listdir(路径)
+
+定义文件大小(路径):
+    返回os.path.getsize(路径)
+
+定义路径连接(*部分):
+    返回os.path.join(*部分)
+
+定义绝对路径(路径):
+    返回os.path.abspath(路径)
+
+定义规范化路径(路径):
+    返回os.path.normpath(路径)
+
+定义获取文件名(路径):
+    返回os.path.basename(路径)
+
+定义获取扩展名(路径):
+    返回os.path.splitext(路径)[1]
+
+定义获取目录名(路径):
+    返回os.path.dirname(路径)
+
+定义是否绝对路径(路径):
+    返回os.path.isabs(路径)
+
+定义遍历目录(路径,递归=False):
+    if递归:
+        结果=[]
+        for根,目录,文件in os.walk(路径):
+            for f in文件:
+                结果.追加(os.path.join(根,f))
+        返回结果
+    返回[os.path.join(路径,f)for f in os.listdir(路径)if os.path.isfile(os.path.join(路径,f))]
+
+定义遍历目录树(路径):
+    返回遍历目录(路径,递归=True)
+
+定义文件属性(路径):
+    stat=os.stat(路径)
+    返回{
+        '大小':stat.st_size,
+        '修改时间':stat.st_mtime,
+        '访问时间':stat.st_atime,
+        '创建时间':stat.st_ctime,
+        '权限':oct(stat.st_mode)[-4:],
+    }
+
+定义文件修改时间(路径):
+    返回os.path.getmtime(路径)
+
+定义文件创建时间(路径):
+    返回os.path.getctime(路径)
+
+定义文件修改时间字符串(路径,格式='%Y-%m-%d%H:%M:%S'):
+    from datetime import datetime
+    时间戳=os.path.getmtime(路径)
+    返回datetime.fromtimestamp(时间戳).strftime(格式)
+
+定义复制文件(源,目标):
+    shutil.copy2(源,目标)
+
+定义移动文件(源,目标):
+    shutil.move(源,目标)
+
+定义重命名文件(旧名,新名):
+    os.rename(旧名,新名)
+
+定义创建临时文件():
+    文件=tempfile.NamedTemporaryFile(delete=False)
+    文件.close()
+    返回文件.name
+
+定义创建临时目录():
+    返回tempfile.mkdtemp()
+
+定义删除临时文件(路径):
+    if os.path.exists(路径):
+        os.remove(路径)
+
+定义删除临时目录(路径):
+    if os.path.exists(路径):
+        shutil.rmtree(路径)
+
+定义获取磁盘使用情况(路径='.'):
+    使用=shutil.disk_usage(路径)
+    返回{
+        '总大小':使用.total,
+        '已用':使用.used,
+        '可用':使用.free,
+        '使用率':使用.used/使用.total*100,
+    }

@@ -65,7 +65,13 @@ class TestLexerPerformance(unittest.TestCase):
             raise unittest.SkipTest(f"Lexer 模块不可用: {e}")
 
     def test_lexer_performance_10000_lines(self):
-        """测试 10000 行代码词法分析在 1 秒内完成"""
+        """测试 10000 行代码词法分析性能
+
+        perf 预算（秒）可通过环境变量 LEXER_PERF_LIMIT 覆盖，默认 2.0：
+        - 本地开发（快速机器）保持严格 2.0s 预算，方便第一时间发现回退；
+        - CI 在较慢的 runner（如 FreeBSD host）上通过 LEXER_PERF_LIMIT 放宽到实测值+余量，
+          避免平台差异误伤合入门禁，同时仍能在严重回退（如 O(n^2)）时失败。
+        """
         test_code = generate_test_code(10000)
         lexer = self.Lexer(test_code)
 
@@ -75,9 +81,11 @@ class TestLexerPerformance(unittest.TestCase):
 
         elapsed = end_time - start_time
 
+        limit = float(os.environ.get("LEXER_PERF_LIMIT", "2.0"))
+
         self.assertGreater(len(tokens), 0, "词法分析未生成任何 token")
-        self.assertLess(elapsed, 10.0,
-                        f"词法分析耗时 {elapsed:.4f} 秒，超过 10 秒限制")
+        self.assertLess(elapsed, limit,
+                        f"词法分析耗时 {elapsed:.4f} 秒，超过 {limit:.1f} 秒限制")
 
         print(f"\n[性能测试] 10000 行代码词法分析耗时: {elapsed:.4f} 秒")
         print(f"[性能测试] 生成 Token 数量: {len(tokens)}")

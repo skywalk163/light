@@ -1,111 +1,27 @@
-import random
-import hashlib
+#     random.seed(种子)
+#
+#     random.setstate(状态)
+#
+#     random.shuffle(序列)
+#     return序列
+#
+#     副本=序列.copy()
+#     random.shuffle(副本)
+#     return副本
+#
+#     项列表=列表(字典.items())
+#     random.shuffle(项列表)
+#     return字典(项列表)
+#
+#     哈希值=int(hashlib.md5(str(输入值).encode()).hexdigest(),16)
+#     return哈希值%(最大值+1)
+#
+# 用法：
+#   从《随机》导入《设置随机种子》。
 
-定义设置随机种子(种子):
-    random.seed(种子)
-
-定义获取随机种子():
-    return random.getstate()
-
-定义设置随机状态(状态):
-    random.setstate(状态)
-
-定义随机整数(最小值=0,最大值=100):
-    return random.randint(最小值,最大值)
-
-定义随机浮点数(最小值=0.0,最大值=1.0):
-    return random.uniform(最小值,最大值)
-
-定义随机0到1():
-    return random.random()
-
-定义随机正态分布(均值=0.0,标准差=1.0):
-    return random.normalvariate(均值,标准差)
-
-定义随机指数分布(均值=1.0):
-    return random.expovariate(1.0/均值)
-
-定义随机对数正态分布(均值=0.0,标准差=1.0):
-    return random.lognormvariate(均值,标准差)
-
-定义随机伽马分布(形状,尺度=1.0):
-    return random.gammavariate(形状,尺度)
-
-定义随机贝塔分布(alpha,beta):
-    return random.betavariate(alpha,beta)
-
-定义随机三角分布(低,高,众数):
-    return random.triangular(低,高,众数)
-
-定义随机选择(序列):
-    return random.choice(序列)
-
-定义随机选择多个(序列,数量):
-    return random.choices(序列,k=数量)
-
-定义随机采样(序列,数量):
-    return random.sample(序列,数量)
-
-定义随机打乱(序列):
-    random.shuffle(序列)
-    return序列
-
-定义随机打乱副本(序列):
-    副本=序列.copy()
-    random.shuffle(副本)
-    return副本
-
-定义随机布尔():
-    return random.choice([True,False])
-
-定义随机字符(字符集='abcdefghijklmnopqrstuvwxyz'):
-    return random.choice(字符集)
-
-定义随机字符串(长度,字符集='abcdefghijklmnopqrstuvwxyz'):
-    return''.join(random.choice(字符集)for _ in范围(长度))
-
-定义随机大写字母():
-    return random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
-
-定义随机小写字母():
-    return random.choice('abcdefghijklmnopqrstuvwxyz')
-
-定义随机数字():
-    return random.choice('0123456789')
-
-定义随机字母数字():
-    return random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789')
-
-定义随机十六进制(长度):
-    return''.join(random.choice('0123456789abcdef')for _ in范围(长度))
-
-定义随机UUID():
-    import uuid
-    return str(uuid.uuid4())
-
-定义随机颜色十六进制():
-    return f'#{random.randint(0,255):02x}{random.randint(0,255):02x}{random.randint(0,255):02x}'
-
-定义随机RGB():
-    return (random.randint(0,255),random.randint(0,255),random.randint(0,255))
-
-定义随机概率(概率):
-    return random.random()<概率
-
-定义随机权重选择(序列,权重):
-    return random.choices(序列,weights=权重,k=1)[0]
-
-定义随机权重选择多个(序列,权重,数量):
-    return random.choices(序列,weights=权重,k=数量)
-
-定义随机范围采样(最小值,最大值,数量):
-    return random.sample(范围(最小值,最大值+1),数量)
-
-定义随机打乱字典项(字典):
-    项列表=列表(字典.items())
-    random.shuffle(项列表)
-    return字典(项列表)
-
-定义基于哈希的随机(输入值,最大值=100):
-    哈希值=int(hashlib.md5(str(输入值).encode()).hexdigest(),16)
-    return哈希值%(最大值+1)
+导出 设置随机种子 获取随机种子 设置随机状态 随机整数 随机浮点数 随机0到1。
+导出 随机正态分布 随机指数分布 随机对数正态分布 随机伽马分布 随机贝塔分布 随机三角分布。
+导出 随机选择 随机选择多个 随机采样 随机打乱 随机打乱副本 随机布尔。
+导出 随机字符 随机字符串 随机大写字母 随机小写字母 随机数字 随机字母数字。
+导出 随机十六进制 随机UUID 随机颜色十六进制 随机RGB 随机概率 随机权重选择。
+导出 随机权重选择多个 随机范围采样 随机打乱字典项 基于哈希的随机。

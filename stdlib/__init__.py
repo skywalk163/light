@@ -310,3 +310,8 @@ try:
     from .数据验证 import *
 except ImportError:
     pass
+
+try:
+    from .中文NLP import *
+except ImportError:
+    pass

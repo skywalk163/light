@@ -150,6 +150,38 @@ class TestLexer(unittest.TestCase):
                 self.assertGreater(len(keyword_tokens), 0,
                                  f"关键字 {keyword} 未被正确识别")
 
+    def test_compact_ascii_operator(self):
+        """测试 ASCII 标识符后紧跟运算符动词的紧凑写法（n减1）"""
+        # 运算符动词（减/等于）不在 ALL_KEYWORDS，只在 VERB_ARITY，
+        # 之前会被误并进 ASCII 标识符（n减 → 单个标识符），现已修复
+        lexer = self.Lexer('n减1')
+        tokens = lexer.tokenize()
+        non_eof = [t for t in tokens if t.type != self.TokenType.EOF]
+        self.assertEqual(
+            [(t.type, t.value) for t in non_eof],
+            [(self.TokenType.IDENTIFIER, 'n'),
+             (self.TokenType.KEYWORD, '减'),
+             (self.TokenType.NUMBER, 1)],
+        )
+        # 紧凑范围表达式：left至right 不再被并成单个标识符
+        lexer = self.Lexer('left至right')
+        tokens = lexer.tokenize()
+        non_eof = [t for t in tokens if t.type != self.TokenType.EOF]
+        self.assertEqual(
+            [(t.type, t.value) for t in non_eof],
+            [(self.TokenType.IDENTIFIER, 'left'),
+             (self.TokenType.KEYWORD, '至'),
+             (self.TokenType.IDENTIFIER, 'right')],
+        )
+        # 合法复合标识符仍应整体合并（evennum集）
+        lexer = self.Lexer('evennum集')
+        tokens = lexer.tokenize()
+        non_eof = [t for t in tokens if t.type != self.TokenType.EOF]
+        self.assertEqual(
+            [(t.type, t.value) for t in non_eof],
+            [(self.TokenType.IDENTIFIER, 'evennum集')],
+        )
+
     def test_eof_token(self):
         """测试 EOF token"""
         lexer = self.Lexer('x')

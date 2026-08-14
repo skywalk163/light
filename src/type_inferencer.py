@@ -1288,11 +1288,19 @@ class TypeInferencer:
 
         # 可空性检查
         if isinstance(expr_type, NullType) and type_annotation and '|空' not in type_annotation:
-            self._add_error(
-                f"空安全错误: 变量 '{stmt.name}' 声明为不可空类型 {type_annotation}，"
-                f"但不能赋值为空",
-                node=stmt
-            )
+            # 可选<整数> / 可空<整数> 尖括号形式也应视为可空类型
+            anno_is_optional = False
+            try:
+                anno_parsed = self._parse_type_string(type_annotation)
+                anno_is_optional = isinstance(anno_parsed, OptionalTypeWrapper)
+            except Exception:
+                pass
+            if not anno_is_optional:
+                self._add_error(
+                    f"空安全错误: 变量 '{stmt.name}' 声明为不可空类型 {type_annotation}，"
+                    f"但不能赋值为空",
+                    node=stmt
+                )
 
         is_mutable = getattr(stmt, 'is_mutable', False)
         self.symbol_table.define(stmt.name, 'variable', final_type, is_mutable)
@@ -1767,6 +1775,9 @@ class TypeInferencer:
             # 特殊处理：'空'、'None' 等是「可空的底类型」，被推断为 NullType
             if expr.name in ('None', '空', 'null', 'NULL'):
                 result_type = TYPE_NULL
+            # '真'/'假' 等布尔字面量（若未被解析为 BooleanLiteral）
+            elif expr.name in ('True', '真', 'False', '假'):
+                result_type = TYPE_BOOLEAN
             else:
                 symbol = self.symbol_table.lookup(expr.name)
                 if symbol:
@@ -1787,21 +1798,29 @@ class TypeInferencer:
             op = expr.operator
 
             # ⭐ 可空类型强制检查：可空类型不能直接参与运算，必须先 unwrap
+            # 例外：判空比较（可选值 == 空 / != 空）合法
             def _is_nullable(t):
                 return isinstance(t, (OptionalTypeWrapper, NullType))
 
+            def _is_null_compare(op, left_t, right_t):
+                """判断是否为判空比较：==/!= 且一侧为空字面量"""
+                return op in ('==', '等于', '!=', '不等于') and (
+                    isinstance(left_t, NullType) or isinstance(right_t, NullType))
+
             if _is_nullable(left_type) and not isinstance(right_type, (AnyType, UnknownType, TypeVar)):
-                self._add_error(
-                    f"可空类型不能直接参与运算 '{op}': 左侧类型为 {left_type}，"
-                    f"需要先使用 '!' 或 'unwrap()' 解包",
-                    node=expr
-                )
+                if not _is_null_compare(op, left_type, right_type):
+                    self._add_error(
+                        f"可空类型不能直接参与运算 '{op}': 左侧类型为 {left_type}，"
+                        f"需要先使用 '!' 或 'unwrap()' 解包",
+                        node=expr
+                    )
             if _is_nullable(right_type) and not isinstance(left_type, (AnyType, UnknownType, TypeVar)):
-                self._add_error(
-                    f"可空类型不能直接参与运算 '{op}': 右侧类型为 {right_type}，"
-                    f"需要先使用 '!' 或 'unwrap()' 解包",
-                    node=expr
-                )
+                if not _is_null_compare(op, left_type, right_type):
+                    self._add_error(
+                        f"可空类型不能直接参与运算 '{op}': 右侧类型为 {right_type}，"
+                        f"需要先使用 '!' 或 'unwrap()' 解包",
+                        node=expr
+                    )
 
             # 小工具：HM 风格双向合一，把 TypeVar 约束为具体类型
             # 同时把产生的替换累积到 self._hm_subs（若在段体推断上下文）
@@ -2290,6 +2309,7 @@ class TypeInferencer:
             '长': TYPE_NUMBER,
             '长度': TYPE_NUMBER,
             '字符串长度': TYPE_NUMBER,
+            '显示宽度': TYPE_NUMBER,
             '列表长度': TYPE_NUMBER,
             '转整数': TYPE_NUMBER,
             '转为整数': TYPE_NUMBER,

@@ -1,0 +1,91 @@
+name: VS Code Extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+    paths:
+      - 'vscode-extension/**'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: '发布操作'
+        type: choice
+        default: 'package'
+        options:
+          - package
+          - publish
+
+jobs:
+  package:
+    name: 打包 .vsix
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vscode-extension
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 安装 @vscode/vsce
+        run: npm install -g @vscode/vsce
+
+      - name: 打包扩展
+        run: vsce package --out duan-${{ github.ref_name }}.vsix
+
+      - name: 验证 .vsix 文件
+        run: |
+          ls -lh duan-${{ github.ref_name }}.vsix
+          vsce ls --json duan-${{ github.ref_name }}.vsix | head -20
+
+      - name: 上传 .vsix 构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: duan-vsce-${{ github.ref_name }}
+          path: vscode-extension/duan-${{ github.ref_name }}.vsix
+          if-no-files-found: error
+
+  publish:
+    name: 发布到 VS Code Marketplace
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vscode-extension
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 安装 @vscode/vsce
+        run: npm install -g @vscode/vsce
+
+      - name: 发布到 VS Code Marketplace
+        run: vsce publish -p ${{ secrets.VSCE_PAT }} --packagePath duan-${{ github.ref_name }}.vsix
+
+      - name: 发布到 Open VSX Registry
+        continue-on-error: true
+        run: |
+          npx ovsx publish duan-${{ github.ref_name }}.vsix -p ${{ secrets.OVSX_PAT }} || echo "Open VSX 发布跳过（未配置 OVSX_PAT）"
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: 段言 ${{ github.ref_name }}
+          body: |
+            ## 段言 ${{ github.ref_name }} — VS Code 扩展
+
+            请从附件下载 .vsix 文件手动安装，或通过 VS Code 扩展市场安装。
+          files: vscode-extension/duan-${{ github.ref_name }}.vsix
+          draft: true
+          prerelease: false

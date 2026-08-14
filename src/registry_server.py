@@ -2,16 +2,28 @@
 """
 光明在线包注册表服务器 (Light Package Registry)
 
-提供 HTTP API 用于包的发布、搜索、安装和版本管理。
+提供 HTTP API 用于包的发布、搜索、安装、版本与元数据管理。
 
 API 端点:
-  GET  /api/packages                   列出所有包
-  GET  /api/packages/<name>            获取包信息
-  GET  /api/packages/<name>/<version>  获取指定版本
-  GET  /api/packages/<name>/download   下载包（最新版本）
-  POST /api/packages/publish           发布包
-  GET  /api/search?q=<query>           搜索包
-  GET  /api/stats                      注册表统计
+  GET    /api/health                        健康检查
+  GET    /api/packages                      列出所有包
+  GET    /api/packages/<name>               获取包信息
+  GET    /api/packages/<name>/<version>     获取指定版本
+  GET    /api/packages/<name>/versions      列出所有版本
+  GET    /api/packages/<name>/dependencies  依赖关系图
+  GET    /api/packages/<name>/download      下载包（最新版本）
+  GET    /api/packages/<name>/download/<version>  下载指定版本
+  POST   /api/packages/publish              发布包（校验语义化版本号）
+  PUT    /api/packages/<name>/metadata      更新元数据
+  POST   /api/packages/<name>/maintainers   添加维护者
+  DELETE /api/packages/<name>/maintainers/<user>  移除维护者
+  POST   /api/packages/<name>/deprecate     标记弃用
+  POST   /api/packages/<name>/undeprecate   取消弃用
+  DELETE /api/packages/<name>/<version>     删除指定版本
+  DELETE /api/packages/<name>               删除整个包（含所有版本）
+  GET    /api/search?q=<query>              搜索包（支持排序/分页/过滤，
+                                            sort=relevance 时按相关度打分）
+  GET    /api/stats                         注册表统计
 
 用法:
   python registry_server.py                    # 启动服务器（默认端口 8080）
@@ -27,10 +39,11 @@ import argparse
 import tempfile
 import zipfile
 import shutil
+import re
 from pathlib import Path
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 from typing import Dict, Any, Optional, List, Tuple
 
 
@@ -179,7 +192,12 @@ class PackageStorage:
     def search_packages(self, query: str, sort_by: str = 'downloads',
                          order: str = 'desc', page: int = 1, page_size: int = 20,
                          author: str = '', keyword: str = '') -> Tuple[List[Dict], int]:
-        """搜索包，支持排序、分页、过滤"""
+        """搜索包，支持排序、分页、过滤
+
+        sort_by 取值：downloads（默认） / name / updated / relevance。
+        relevance 使用相关度打分：包名精确 100、包名部分 80、
+        关键词精确 70、关键词部分 50、描述命中 30。
+        """
         results = []
         q = query.lower().strip() if query else ''
 
@@ -209,6 +227,7 @@ class PackageStorage:
                 'updated': info.get('updated', ''),
                 'keywords': info.get('keywords', []),
                 'deprecated': info.get('deprecated', False),
+                'score': self._relevance_score(q, name, info),
             })
 
         # 排序
@@ -219,6 +238,9 @@ class PackageStorage:
             results.sort(key=lambda x: x.get('updated', ''), reverse=reverse)
         elif sort_by == 'downloads':
             results.sort(key=lambda x: x.get('downloads', 0), reverse=reverse)
+        elif sort_by == 'relevance':
+            results.sort(key=lambda x: (x.get('score', 0), x.get('downloads', 0)),
+                         reverse=reverse)
         else:
             results.sort(key=lambda x: x.get('downloads', 0), reverse=True)
 
@@ -228,6 +250,25 @@ class PackageStorage:
         end = start + page_size
 
         return results[start:end], total
+
+    @staticmethod
+    def _relevance_score(query: str, name: str, info: Dict) -> int:
+        """计算搜索相关度得分（query 需为小写）"""
+        if not query:
+            return 0
+        score = 0
+        if query == name.lower():
+            score = 100
+        elif query in name.lower():
+            score = 80
+        for kw in info.get('keywords', []):
+            if query == kw.lower():
+                score = max(score, 70)
+            elif query in kw.lower():
+                score = max(score, 50)
+        if query in info.get('description', '').lower():
+            score = max(score, 30)
+        return score
 
     def get_stats(self) -> Dict:
         """获取统计信息"""
@@ -290,6 +331,32 @@ class PackageStorage:
             if pkg_dir.exists():
                 shutil.rmtree(pkg_dir)
 
+        self._save_index()
+        return True
+
+    def delete_package(self, name: str) -> bool:
+        """删除整个包（含所有版本与包文件）"""
+        info = self.index['packages'].get(name)
+        if not info:
+            return False
+        version_count = len(info.get('versions', {}))
+        del self.index['packages'][name]
+        self.index['stats']['total_packages'] = max(
+            0, self.index['stats'].get('total_packages', 0) - 1)
+        self.index['stats']['total_versions'] = max(
+            0, self.index['stats'].get('total_versions', 0) - version_count)
+        pkg_dir = self.packages_dir / name
+        if pkg_dir.exists():
+            shutil.rmtree(pkg_dir)
+        self._save_index()
+        return True
+
+    def record_download(self, name: str) -> bool:
+        """仅记录一次下载计数（不返回包内容）"""
+        info = self.index['packages'].get(name)
+        if not info:
+            return False
+        info['downloads'] = info.get('downloads', 0) + 1
         self._save_index()
         return True
 
@@ -401,6 +468,8 @@ class RegistryHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
 
@@ -418,11 +487,11 @@ class RegistryHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _parse_path_parts(self) -> tuple:
-        """解析路径为结构化部分"""
+        """解析路径为结构化部分（路径段做 URL 解码，支持中文包名）"""
         parsed = urlparse(self.path)
         path = parsed.path.rstrip('/')
         params = parse_qs(parsed.query)
-        parts = [p for p in path.split('/') if p]
+        parts = [unquote(p) for p in path.split('/') if p]
         return path, parts, params
 
     def do_GET(self):
@@ -550,6 +619,7 @@ class RegistryHandler(BaseHTTPRequestHandler):
                         'GET  /api/packages/{name}/versions',
                         'GET  /api/packages/{name}/dependencies',
                         'DELETE /api/packages/{name}/{version}',
+                        'DELETE /api/packages/{name}',
                         'PUT  /api/packages/{name}/metadata',
                         'POST /api/packages/{name}/maintainers',
                         'DELETE /api/packages/{name}/maintainers/{user}',
@@ -589,6 +659,12 @@ class RegistryHandler(BaseHTTPRequestHandler):
                     if not pkg_name or not version:
                         self._send_error('Missing required fields: name, version', 400)
                         return
+
+                    # 版本号必须符合语义化版本格式
+                    if not re.match(r'^\d+\.\d+\.\d+', str(version)):
+                        self._send_error(f'版本号格式无效: {version}（应为 x.y.z）', 400)
+                        return
+
 
                     pkg_content = data.get('content')
                     if pkg_content:
@@ -679,8 +755,18 @@ class RegistryHandler(BaseHTTPRequestHandler):
         try:
             path, parts, params = self._parse_path_parts()
 
+            # DELETE /api/packages/<name>/maintainers/<user> - 移除维护者
+            # （必须先于「删除版本」判断，否则会被误当成版本号）
+            if len(parts) >= 5 and parts[3] == 'maintainers' and parts[1] == 'packages':
+                pkg_name = parts[2]
+                maintainer = parts[4]
+                if self.storage.remove_maintainer(pkg_name, maintainer):
+                    self._send_json({'status': 'removed', 'maintainer': maintainer})
+                else:
+                    self._send_error(f'包 {pkg_name} 未找到', 404)
+
             # DELETE /api/packages/<name>/<version> - 删除版本
-            if len(parts) >= 4 and parts[1] == 'packages':
+            elif len(parts) >= 4 and parts[1] == 'packages':
                 pkg_name = parts[2]
                 version = parts[3]
                 if self.storage.delete_version(pkg_name, version):
@@ -688,12 +774,11 @@ class RegistryHandler(BaseHTTPRequestHandler):
                 else:
                     self._send_error(f'版本 {pkg_name} v{version} 未找到', 404)
 
-            # DELETE /api/packages/<name>/maintainers/<user> - 移除维护者
-            elif len(parts) >= 5 and parts[3] == 'maintainers' and parts[1] == 'packages':
+            # DELETE /api/packages/<name> - 删除整个包（含所有版本）
+            elif len(parts) == 3 and parts[1] == 'packages':
                 pkg_name = parts[2]
-                maintainer = parts[4]
-                if self.storage.remove_maintainer(pkg_name, maintainer):
-                    self._send_json({'status': 'removed', 'maintainer': maintainer})
+                if self.storage.delete_package(pkg_name):
+                    self._send_json({'status': 'deleted', 'name': pkg_name})
                 else:
                     self._send_error(f'包 {pkg_name} 未找到', 404)
 
@@ -762,11 +847,13 @@ def main():
     print(f'║  按 Ctrl+C 停止服务器')
     print(f'╚══════════════════════════════════════════╝')
 
+
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         print('\n服务器已停止')
         server.shutdown()
+        server.server_close()
 
 
 if __name__ == '__main__':

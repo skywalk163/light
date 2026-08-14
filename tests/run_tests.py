@@ -194,7 +194,7 @@ def _check_src_exists():
 
 
 def _check_bootstrap_exists():
-    bootstrap_py = os.path.join(PROJECT_DIR, 'bootstrap', 'bootstrap_v3_compiled.py')
+    bootstrap_py = os.path.join(PROJECT_DIR, 'bootstrap', 'release', 'bootstrap_compiler.py')
     assert os.path.exists(bootstrap_py), "Bootstrap 编译器不存在"
     return "存在"
 

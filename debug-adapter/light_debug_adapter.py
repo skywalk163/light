@@ -38,6 +38,15 @@ class DebugAdapter:
         self._current_frame = None
         self._source_code = ''
         self._program_path = ''
+        # 异常断点配置
+        self._exception_breakpoint_filters: Dict[str, bool] = {}
+        self._last_exception_info: Optional[Dict] = None
+        # 数据断点
+        self._data_breakpoints: Dict[str, Dict] = {}
+        self._data_breakpoint_id_counter = 1
+        # 变量引用系统（用于嵌套展开）
+        self._variable_reference_counter = 2
+        self._variable_references: Dict[int, tuple] = {}
         
     def send_response(self, request_seq: int, success: bool, body: Dict = None, command: str = '', message: str = ''):
         """发送响应"""
@@ -85,11 +94,17 @@ class DebugAdapter:
             'initialize': self._handle_initialize,
             'launch': self._handle_launch,
             'setBreakpoints': self._handle_set_breakpoints,
+            'setExceptionBreakpoints': self._handle_set_exception_breakpoints,
+            'setDataBreakpoints': self._handle_set_data_breakpoints,
             'configurationDone': self._handle_configuration_done,
             'threads': self._handle_threads,
             'stackTrace': self._handle_stack_trace,
             'scopes': self._handle_scopes,
             'variables': self._handle_variables,
+            'setVariable': self._handle_set_variable,
+            'evaluate': self._handle_evaluate,
+            'exceptionInfo': self._handle_exception_info,
+            'completions': self._handle_completions,
             'pause': self._handle_pause,
             'continue': self._handle_continue,
             'next': self._handle_next,
@@ -120,10 +135,12 @@ class DebugAdapter:
             'supportsStepBack': False,
             'supportsRestartFrame': False,
             'supportsCompletionsRequest': True,
-            'supportsExceptionInfoRequest': True,
-            'supportsFunctionBreakpoints': False,
             'supportsConditionalBreakpoints': True,
+            'supportsDataBreakpoints': True,
             'supportsEvaluateForHovers': True,
+            'supportsExceptionInfoRequest': True,
+            'supportsExceptionOptions': True,
+            'supportsFunctionBreakpoints': False,
             'supportsLoadedSourcesRequest': False,
             'supportsProgressReporting': False,
             'supportsReadMemoryRequest': False,
@@ -146,9 +163,7 @@ class DebugAdapter:
             'supportsTerminateThreadsRequest': False,
             'supportsModulesRequest': False,
             'additionalModuleColumns': [],
-            'supportedChecksumKinds': [],
-            'supportsExceptionOptions': True,
-            'supportsExceptionDetailsRequest': True
+            'supportedChecksumKinds': []
         }
     
     def _handle_launch(self, args: Dict) -> Dict:
@@ -179,6 +194,23 @@ class DebugAdapter:
             })
         
         return {'breakpoints': actual_breakpoints}
+    
+    def _handle_set_exception_breakpoints(self, args: Dict) -> Dict:
+        """处理异常断点设置请求"""
+        filters = args.get('filters', [])
+        filter_options = args.get('filterOptions', [])
+        
+        # 存储异常断点过滤器配置
+        self._exception_breakpoint_filters = {}
+        for f in filters:
+            self._exception_breakpoint_filters[f] = True
+        
+        # 处理详细的 filterOptions
+        for opt in filter_options:
+            filter_id = opt.get('filterId', '')
+            self._exception_breakpoint_filters[filter_id] = opt.get('default', True)
+        
+        return {}
     
     def _handle_configuration_done(self, args: Dict) -> Dict:
         """处理配置完成请求"""
@@ -236,27 +268,175 @@ class DebugAdapter:
         }
     
     def _handle_variables(self, args: Dict) -> Dict:
-        """处理变量请求"""
+        """处理变量请求（支持嵌套展开）"""
         ref = args.get('variablesReference', 0)
         variables = []
         
         if ref == 1:  # 局部变量
             for name, value in self.variables.items():
+                var_ref = self._get_variable_reference(name, value)
                 variables.append({
                     'name': name,
                     'value': self._format_value(value),
                     'type': type(value).__name__,
-                    'variablesReference': 0
+                    'variablesReference': var_ref
                 })
         elif ref == 2:  # 全局变量
-            variables.append({
-                'name': '全局作用域',
-                'value': '<global>',
-                'type': 'module',
-                'variablesReference': 0
-            })
+            if self._current_frame:
+                for name, value in self._current_frame.f_globals.items():
+                    if not name.startswith('_'):
+                        var_ref = self._get_variable_reference(name, value)
+                        variables.append({
+                            'name': name,
+                            'value': self._format_value(value),
+                            'type': type(value).__name__,
+                            'variablesReference': var_ref
+                        })
+        else:
+            # 嵌套变量展开
+            container = self._variable_references.get(ref)
+            if container:
+                name, obj, type_name = container
+                variables = self._get_child_variables(obj)
         
         return {'variables': variables}
+    
+    def _handle_set_variable(self, args: Dict) -> Dict:
+        """处理设置变量请求"""
+        name = args.get('name', '')
+        value_str = args.get('value', '')
+        ref = args.get('variablesReference', 0)
+        
+        # 解析字符串值为实际类型
+        try:
+            converted_value = self._parse_value(value_str)
+        except Exception:
+            converted_value = value_str
+        
+        # 根据引用ID确定变量作用域
+        if ref == 1:  # 局部变量
+            self.variables[name] = converted_value
+            if self._current_frame:
+                try:
+                    self._current_frame.f_locals[name] = converted_value
+                except Exception:
+                    pass
+        elif ref == 2:  # 全局变量
+            if self._current_frame:
+                try:
+                    self._current_frame.f_globals[name] = converted_value
+                except Exception:
+                    pass
+        else:
+            # 嵌套容器中的变量
+            container = self._variable_references.get(ref)
+            if container:
+                _, obj, _ = container
+                if isinstance(obj, dict):
+                    obj[name] = converted_value
+                elif isinstance(obj, (list, tuple)):
+                    try:
+                        idx = int(name)
+                        obj[idx] = converted_value
+                    except (ValueError, IndexError):
+                        pass
+                elif hasattr(obj, '__dict__'):
+                    setattr(obj, name, converted_value)
+        
+        var_ref = self._get_variable_reference(name, converted_value)
+        return {
+            'value': self._format_value(converted_value),
+            'type': type(converted_value).__name__,
+            'variablesReference': var_ref
+        }
+    
+    def _get_variable_reference(self, name: str, value: Any) -> int:
+        """获取变量的引用ID（用于嵌套展开）"""
+        if value is None:
+            return 0
+        if isinstance(value, (bool, int, float, str, bytes, bytearray)):
+            return 0
+        if callable(value):
+            return 0
+        # 列表、字典、元组、集合、自定义对象都可展开
+        if isinstance(value, (list, tuple, dict, set)):
+            self._variable_reference_counter += 1
+            ref = self._variable_reference_counter
+            self._variable_references[ref] = (name, value, type(value).__name__)
+            return ref
+        # 有 __dict__ 的对象
+        if hasattr(value, '__dict__'):
+            self._variable_reference_counter += 1
+            ref = self._variable_reference_counter
+            self._variable_references[ref] = (name, value, type(value).__name__)
+            return ref
+        return 0
+    
+    def _get_child_variables(self, obj: Any) -> List[Dict]:
+        """获取容器对象的子变量"""
+        variables = []
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                var_ref = self._get_variable_reference(str(key), value)
+                variables.append({
+                    'name': str(key),
+                    'value': self._format_value(value),
+                    'type': type(value).__name__,
+                    'variablesReference': var_ref
+                })
+        elif isinstance(obj, (list, tuple)):
+            for i, item in enumerate(obj):
+                var_ref = self._get_variable_reference(str(i), item)
+                variables.append({
+                    'name': str(i),
+                    'value': self._format_value(item),
+                    'type': type(item).__name__,
+                    'variablesReference': var_ref,
+                    'indexedVariables': len(obj)
+                })
+        elif isinstance(obj, set):
+            for i, item in enumerate(sorted(obj, key=str)):
+                var_ref = self._get_variable_reference(str(i), item)
+                variables.append({
+                    'name': str(i),
+                    'value': self._format_value(item),
+                    'type': type(item).__name__,
+                    'variablesReference': var_ref
+                })
+        elif hasattr(obj, '__dict__'):
+            for attr_name, attr_value in obj.__dict__.items():
+                if not attr_name.startswith('_'):
+                    var_ref = self._get_variable_reference(attr_name, attr_value)
+                    variables.append({
+                        'name': attr_name,
+                        'value': self._format_value(attr_value),
+                        'type': type(attr_value).__name__,
+                        'variablesReference': var_ref
+                    })
+        return variables
+    
+    def _parse_value(self, value_str: str) -> Any:
+        """解析字符串值为Python值"""
+        if value_str in ('空', 'None', 'null'):
+            return None
+        if value_str in ('真', 'True', 'true'):
+            return True
+        if value_str in ('假', 'False', 'false'):
+            return False
+        # 带引号的字符串
+        if (value_str.startswith('"') and value_str.endswith('"')) or \
+           (value_str.startswith("'") and value_str.endswith("'")):
+            return value_str[1:-1]
+        # 数字
+        try:
+            return int(value_str)
+        except ValueError:
+            pass
+        try:
+            return float(value_str)
+        except ValueError:
+            pass
+        return value_str
     
     def _handle_pause(self, args: Dict) -> Dict:
         """处理暂停请求"""
@@ -292,6 +472,205 @@ class DebugAdapter:
         self.debugger.start()
         self._pause_event.set()
         return {}
+
+    def _handle_evaluate(self, args: Dict) -> Dict:
+        """处理表达式求值请求（支持悬停求值、监视、调试控制台）"""
+        expression = args.get('expression', '')
+        frame_id = args.get('frameId', None)
+        context = args.get('context', '')  # 'watch', 'repl', 'hover', 'clipboard'
+
+        try:
+            result = None
+            if self._current_frame:
+                # 尝试在当前帧上下文中求值
+                try:
+                    result = eval(expression, self._current_frame.f_globals, self._current_frame.f_locals)
+                except Exception:
+                    # 尝试仅作为变量名查找
+                    if expression in self._current_frame.f_locals:
+                        result = self._current_frame.f_locals[expression]
+                    elif expression in self._current_frame.f_globals:
+                        result = self._current_frame.f_globals[expression]
+                    else:
+                        raise NameError(f"未定义的变量: {expression}")
+            else:
+                # 在变量字典中查找
+                if expression in self.variables:
+                    result = self.variables[expression]
+                else:
+                    raise NameError(f"未定义的变量: {expression}")
+
+            var_ref = self._get_variable_reference(expression, result)
+            indexed = 0
+            named = 0
+            if isinstance(result, (list, tuple)):
+                indexed = len(result)
+            if isinstance(result, dict):
+                named = len(result)
+
+            return {
+                'result': self._format_value(result),
+                'type': type(result).__name__,
+                'variablesReference': var_ref,
+                'indexedVariables': indexed,
+                'namedVariables': named
+            }
+        except Exception as e:
+            return {
+                'result': f"错误: {e}",
+                'type': 'error',
+                'variablesReference': 0
+            }
+
+    def _handle_set_data_breakpoints(self, args: Dict) -> Dict:
+        """处理数据断点设置请求"""
+        breakpoints = args.get('breakpoints', [])
+        data_breakpoints = []
+
+        self._data_breakpoints.clear()
+        for bp in breakpoints:
+            name = bp.get('name', '')
+            data_bp_id = self._data_breakpoint_id_counter
+            self._data_breakpoint_id_counter += 1
+
+            # 获取当前值作为基准
+            current_value = self._get_data_breakpoint_value(name)
+            self._data_breakpoints[name] = {
+                'id': data_bp_id,
+                'previous_value': current_value
+            }
+
+            data_breakpoints.append({
+                'id': data_bp_id,
+                'verified': True,
+                'description': f'监视变量 "{name}"'
+            })
+
+        return {'breakpoints': data_breakpoints}
+
+    def _get_data_breakpoint_value(self, name: str) -> Any:
+        """获取数据断点监视的变量值"""
+        if name in self.variables:
+            return self.variables[name]
+        if self._current_frame:
+            if name in self._current_frame.f_locals:
+                return self._current_frame.f_locals[name]
+            if name in self._current_frame.f_globals:
+                return self._current_frame.f_globals[name]
+        return None
+
+    def _check_data_breakpoints(self) -> bool:
+        """检查数据断点是否命中"""
+        if not self._data_breakpoints:
+            return False
+        for name, info in list(self._data_breakpoints.items()):
+            current_value = self._get_data_breakpoint_value(name)
+            if current_value != info['previous_value']:
+                info['previous_value'] = current_value
+                self.send_event('stopped', {
+                    'reason': 'data breakpoint',
+                    'description': f'变量 "{name}" 的值已改变',
+                    'text': f'"{name}" 从 {info["previous_value"]} 变为 {current_value}',
+                    'threadId': 1,
+                    'allThreadsStopped': True,
+                    'hitBreakpointIds': [info['id']]
+                })
+                return True
+        return False
+
+    def _handle_exception_info(self, args: Dict) -> Dict:
+        """处理异常信息请求"""
+        thread_id = args.get('threadId', 1)
+
+        # 优先使用缓存的最新异常信息
+        if self._last_exception_info:
+            return self._last_exception_info
+
+        # 从调试器获取异常信息
+        if self.debugger.last_exception:
+            exc = self.debugger.last_exception
+            exc_type = type(exc)
+            tb_str = ''.join(traceback.format_exception_only(exc_type, exc)).strip()
+            return {
+                'exceptionId': exc_type.__name__,
+                'description': str(exc),
+                'breakMode': 'always',
+                'details': {
+                    'message': str(exc),
+                    'typeName': exc_type.__name__,
+                    'stackTrace': tb_str
+                }
+            }
+
+        return {
+            'exceptionId': 'unknown',
+            'description': '无异常信息',
+            'breakMode': 'unhandled'
+        }
+
+    def _handle_completions(self, args: Dict) -> Dict:
+        """处理调试控制台自动补全请求"""
+        text = args.get('text', '')
+        column = args.get('column', len(text))
+        line = args.get('line', 0)
+
+        # 提取当前输入的前缀
+        prefix = text[:column].split()[-1] if text[:column].strip() else ''
+
+        targets = []
+        seen = set()
+
+        # 添加关键字
+        keywords = [
+            'if', 'else', 'elif', 'while', 'for', 'in', 'break', 'continue',
+            'return', 'def', 'class', 'import', 'from', 'as', 'pass', 'del',
+            'True', 'False', 'None', 'and', 'or', 'not', 'is', 'try',
+            'except', 'finally', 'raise', 'with', 'yield', 'lambda',
+            'print', 'len', 'range', 'type', 'int', 'str', 'float',
+            'list', 'dict', 'set', 'tuple', 'bool', 'repr', 'str',
+            'min', 'max', 'sum', 'abs', 'sorted', 'reversed', 'enumerate',
+            'zip', 'map', 'filter', 'any', 'all', 'isinstance', 'hasattr',
+            'getattr', 'setattr', 'dir', 'vars', 'locals', 'globals'
+        ]
+
+        for kw in keywords:
+            if kw.startswith(prefix) and kw not in seen:
+                targets.append({
+                    'label': kw,
+                    'type': 'keyword'
+                })
+                seen.add(kw)
+
+        # 添加变量名
+        for name in self.variables:
+            if name.startswith(prefix) and name not in seen:
+                targets.append({
+                    'label': name,
+                    'type': 'variable',
+                    'text': name
+                })
+                seen.add(name)
+
+        # 添加当前帧中的局部变量和全局变量
+        if self._current_frame:
+            for name in self._current_frame.f_locals:
+                if name.startswith(prefix) and name not in seen:
+                    targets.append({
+                        'label': name,
+                        'type': 'variable',
+                        'text': name
+                    })
+                    seen.add(name)
+            for name in self._current_frame.f_globals:
+                if name.startswith(prefix) and not name.startswith('_') and name not in seen:
+                    targets.append({
+                        'label': name,
+                        'type': 'variable',
+                        'text': name
+                    })
+                    seen.add(name)
+
+        return {'targets': targets[:100]}
 
     def _handle_disconnect(self, args: Dict) -> Dict:
         """处理断开连接请求"""
@@ -346,8 +725,22 @@ class DebugAdapter:
                     {'name': f.f_code.co_name, 'file': f.f_code.co_filename, 'line': f.f_lineno}
                     for f in self._get_frames(frame)
                 ]
+
+                # 检查数据断点
+                if self._check_data_breakpoints():
+                    self._pause_event.clear()
+                    self._pause_event.wait()
+                    return
+
+                # 检查是否因异常停止
+                reason = 'breakpoint'
+                if self.debugger.check_breakpoint(file, line):
+                    reason = 'breakpoint'
+                elif self.debugger.step_mode != LightDebugger.STEP_NONE:
+                    reason = 'step'
+
                 self.send_event('stopped', {
-                    'reason': 'breakpoint' if self.debugger.check_breakpoint(file, line) else 'step',
+                    'reason': reason,
                     'threadId': 1,
                     'allThreadsStopped': True
                 })
@@ -367,10 +760,28 @@ class DebugAdapter:
                         exec_globals = {'__name__': '__main__', '__file__': program_path}
                         exec(compiled, exec_globals)
                 except Exception as e:
+                    # 捕获异常信息供后续查询
+                    self._last_exception_info = {
+                        'exceptionId': type(e).__name__,
+                        'description': str(e),
+                        'breakMode': 'always',
+                        'details': {
+                            'message': str(e),
+                            'typeName': type(e).__name__,
+                            'stackTrace': traceback.format_exc()
+                        }
+                    }
                     light_error = self._format_light_error(e, source, python_code)
                     self.send_event('output', {
                         'category': 'stderr',
                         'output': light_error
+                    })
+                    self.send_event('stopped', {
+                        'reason': 'exception',
+                        'description': str(e),
+                        'text': type(e).__name__,
+                        'threadId': 1,
+                        'allThreadsStopped': True
                     })
                 finally:
                     sys.stdout = old_stdout
@@ -482,39 +893,43 @@ class LightOutputCapture:
             self.buffer = ''
 
 
-def run_debug_adapter():
-    """运行调试适配器"""
+def main():
+    """启动调试适配器"""
     adapter = DebugAdapter()
     
-    def read_message() -> Optional[Dict]:
-        """读取消息"""
-        headers = {}
-        while True:
-            line = sys.stdin.readline()
-            if not line:
-                return None
-            line = line.strip()
-            if not line:
-                break
-            if ':' in line:
-                key, value = line.split(':', 1)
-                headers[key.strip().lower()] = value.strip()
-        
-        content_length = int(headers.get('content-length', '0'))
-        if content_length <= 0:
-            return None
-        
-        content = sys.stdin.buffer.read(content_length).decode('utf-8')
-        return json.loads(content)
-    
-    # 主循环
     while True:
-        message = read_message()
-        if message is None:
-            break
-        
-        adapter.handle_message(message)
+        try:
+            # Read Content-Length header
+            header = ''
+            while True:
+                line = sys.stdin.readline()
+                if not line:
+                    return
+                header += line
+                if line == '\r\n' or line == '\n':
+                    break
+            
+            # Parse Content-Length
+            match = __import__('re').search(r'Content-Length:\s*(\d+)', header)
+            if not match:
+                continue
+            
+            content_length = int(match.group(1))
+            
+            # Read the JSON content
+            content = sys.stdin.read(content_length)
+            if not content:
+                continue
+            
+            message = json.loads(content)
+            adapter.handle_message(message)
+            
+        except Exception as e:
+            adapter.send_event('output', {
+                'category': 'stderr',
+                'output': f'适配器错误: {e}\n'
+            })
 
 
 if __name__ == '__main__':
-    run_debug_adapter()
+    main()

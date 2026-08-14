@@ -137,14 +137,77 @@ def list_packages(category: str = None, priority: str = None) -> list[str]:
 # 桥接：P0 包路由到现有 stdlib Python 实现
 # =============================================================================
 
-# P0 包名 → stdlib Python 模块名映射
-# 这些包已有 Python 实现，导入时直接路由到 stdlib
+# P0 包名 → lightpub 桥接模块名映射
+# 这些包已有 Python 桥接实现，导入时路由到 stdlib/lightpub/ 下的桥接模块
+# 桥接模块封装 Python 标准库，提供中文名 API
 _STDLIB_BRIDGE = {
-    '文件系统':   '文件系统',     # stdlib/文件系统.py
-    'JSON':       'JSON',         # stdlib/JSON.py（含中文函数名）
-    'CSV':        'csv',          # Python 标准库 csv（无中文函数名，直接透传）
-    '正则表达式': '正则表达式',   # stdlib/正则表达式.py（含中文函数名）
-    '日期时间':   '日期时间',     # stdlib/日期时间.py（含中文函数名）
+    # ---- P0: 核心包 ----
+    '文件系统':   '文件系统',     # 桥接: stdlib/lightpub/文件系统.py → os/shutil
+    'JSON':       'JSON',         # 桥接: stdlib/lightpub/JSON.py → json
+    'CSV':        'CSV',          # 桥接: stdlib/lightpub/CSV.py → csv
+    '正则表达式': '正则表达式',   # 桥接: stdlib/lightpub/正则表达式.py → re
+    '日期时间':   '日期时间',     # 桥接: stdlib/lightpub/日期时间.py → datetime/time
+    '数学运算':   '数学运算',     # 桥接: stdlib/lightpub/数学运算.py → math
+    '加密':       '加密',         # 桥接: stdlib/lightpub/加密.py → hashlib/hmac
+    # ---- P1: 高频包 ----
+    'HTTP客户端': 'HTTP客户端',   # 桥接: stdlib/lightpub/HTTP客户端.py → urllib.request
+    'SQLite':     'SQLite',       # 桥接: stdlib/lightpub/SQLite.py → sqlite3
+    'Socket':     'Socket',       # 桥接: stdlib/lightpub/Socket.py → socket
+    # ---- 系统工具 ----
+    '线程':       '线程',         # 桥接: stdlib/lightpub/线程.py → threading
+    '进程管理':   '进程管理',     # 桥接: stdlib/lightpub/进程管理.py → subprocess
+    '环境变量':   '环境变量',     # 桥接: stdlib/lightpub/环境变量.py → os.environ
+    '系统信息':   '系统信息',     # 桥接: stdlib/lightpub/系统信息.py → platform
+    '路径处理':   '路径处理',     # 桥接: stdlib/lightpub/路径处理.py → os.path
+    '网络工具':   '网络工具',     # 桥接: stdlib/lightpub/网络工具.py → ipaddress/socket
+    '随机数':     '随机数',       # 桥接: stdlib/lightpub/随机数.py → random
+    '缓存系统':   '缓存系统',     # 桥接: stdlib/lightpub/缓存系统.py → functools
+    '连接池':     '连接池',       # 桥接: stdlib/lightpub/连接池.py → queue
+    # ---- 数据结构 ----
+    '数据结构':   '数据结构',     # 桥接: stdlib/lightpub/数据结构.py → collections
+    '集合扩展':   '集合扩展',     # 桥接: stdlib/lightpub/集合扩展.py → itertools
+    '排序与搜索': '排序与搜索',   # 桥接: stdlib/lightpub/排序与搜索.py → bisect/heapq
+    '算法工具':   '算法工具',     # 桥接: stdlib/lightpub/算法工具.py → heapq
+    # ---- 编码与压缩 ----
+    '二进制编码': '二进制编码',   # 桥接: stdlib/lightpub/二进制编码.py → base64
+    '压缩算法':   '压缩算法',     # 桥接: stdlib/lightpub/压缩算法.py → gzip/zlib
+    # ---- 字符串与类型 ----
+    '字符串处理': '字符串处理',   # 桥接: stdlib/lightpub/字符串处理.py → builtins
+    '类型工具':   '类型工具',     # 桥接: stdlib/lightpub/类型工具.py → builtins
+    '错误处理':   '错误处理',     # 桥接: stdlib/lightpub/错误处理.py → builtins
+    # ---- 数值与统计 ----
+    '数值计算':   '数值计算',     # 桥接: stdlib/lightpub/数值计算.py → math
+    '统计分析':   '统计分析',     # 桥接: stdlib/lightpub/统计分析.py → statistics
+    # ---- 安全与加密 ----
+    '哈希':       '哈希',         # 桥接: stdlib/lightpub/哈希.py → hashlib
+    '加密算法':   '加密算法',     # 桥接: stdlib/lightpub/加密算法.py → hashlib
+    '密码哈希':   '密码哈希',     # 桥接: stdlib/lightpub/密码哈希.py → hashlib
+    '证书':       '证书',         # 桥接: stdlib/lightpub/证书.py → ssl
+    # ---- 异步与并发 ----
+    '事件驱动':   '事件驱动',     # 桥接: stdlib/lightpub/事件驱动.py → asyncio
+    '协程':       '协程',         # 桥接: stdlib/lightpub/协程.py → asyncio
+    '异步运行时': '异步运行时',   # 桥接: stdlib/lightpub/异步运行时.py → asyncio
+    '并行计算':   '并行计算',     # 桥接: stdlib/lightpub/并行计算.py → concurrent.futures
+    '迭代器工具': '迭代器工具',   # 桥接: stdlib/lightpub/迭代器工具.py → itertools
+    # ---- 队列与消息 ----
+    '任务队列':   '任务队列',     # 桥接: stdlib/lightpub/任务队列.py → queue
+    '消息队列':   '消息队列',     # 桥接: stdlib/lightpub/消息队列.py → queue
+    # ---- 网络协议 ----
+    'URL解析':    'URL解析',      # 桥接: stdlib/lightpub/URL解析.py → urllib.parse
+    '邮件':       '邮件',         # 桥接: stdlib/lightpub/邮件.py → smtplib
+    # ---- 数据格式 ----
+    '数据导入导出': '数据导入导出', # 桥接: stdlib/lightpub/数据导入导出.py → csv/json
+    '文件上传':   '文件上传',     # 桥接: stdlib/lightpub/文件上传.py → cgi
+    # ---- 框架工具 ----
+    '日志系统':   '日志系统',     # 桥接: stdlib/lightpub/日志系统.py → logging
+    '命令行参数': '命令行参数',   # 桥接: stdlib/lightpub/命令行参数.py → argparse
+    '性能分析':   '性能分析',     # 桥接: stdlib/lightpub/性能分析.py → time
+    '模板渲染':   '模板渲染',     # 桥接: stdlib/lightpub/模板渲染.py → string.Template
+    '日期序列':   '日期序列',     # 桥接: stdlib/lightpub/日期序列.py → datetime
+    # ---- 框架库 ----
+    '单元测试框架': '单元测试框架', # 桥接: stdlib/lightpub/单元测试框架.py → unittest
+    '配置管理':   '配置管理',     # 桥接: stdlib/lightpub/配置管理.py → configparser
+    'HTTP服务端': 'HTTP服务端',   # 桥接: stdlib/lightpub/HTTP服务端.py → http.server
 }
 
 
@@ -275,6 +338,52 @@ def print_summary():
     print(f"按分类:")
     for cat, count in sorted(stats['categories'].items()):
         print(f"  {cat}: {count} 包")
+
+
+# =============================================================================
+# 友好错误提示：访问不存在的属性时给出迁移建议
+# =============================================================================
+
+# 常见 stdlib 函数名 → lightpub 包名映射（用于友好提示）
+_FUNCTION_TO_PACKAGE = {
+    '读取文件': '文件系统', '写入文件': '文件系统', '文件存在': '文件系统',
+    '解析JSON': 'JSON', '生成JSON': 'JSON',
+    '读取CSV': 'CSV', '写入CSV': 'CSV',
+    '匹配': '正则表达式', '搜索': '正则表达式', '替换': '正则表达式',
+    '当前时间': '日期时间', '格式化时间': '日期时间',
+    '排序': None, '去重': None,  # 核心动词，无需导入
+}
+
+
+def __getattr__(name):
+    """
+    模块级 __getattr__：当用户直接访问 stdlib.lightpub.<name> 失败时，
+    提供友好提示，引导用户正确导入。
+    """
+    # 检查是否是已知的 stdlib 函数名
+    pkg = _FUNCTION_TO_PACKAGE.get(name)
+    if pkg:
+        raise AttributeError(
+            f"'{name}' 是 lightpub 包 '{pkg}' 中的函数。\n"
+            f"请在光明代码中使用：导入 {pkg}\n"
+            f"然后调用：{pkg}.{name}(...)"
+        )
+
+    # 检查是否是 lightpub 包名（用户可能想获取包信息）
+    if name in PACKAGES:
+        raise AttributeError(
+            f"'{name}' 是 lightpub 包名，不能直接访问。\n"
+            f"请使用 get_package_info('{name}') 获取包元数据，\n"
+            f"或在光明代码中使用：导入 {name}"
+        )
+
+    # 通用提示
+    raise AttributeError(
+        f"模块 'stdlib.lightpub' 没有属性 '{name}'。\n"
+        f"可用函数：resolve_import, get_package_info, list_packages, "
+        f"get_functions, search_functions, get_stdlib_bridge\n"
+        f"可用包列表：list_packages()"
+    )
 
 
 if __name__ == '__main__':

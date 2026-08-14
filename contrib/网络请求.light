@@ -1,69 +1,54 @@
-class响应:
-    def__init__(self,状态码,响应头,内容,请求地址):
-        self._状态码=状态码
-        self._响应头=响应头
-        self._内容=内容
-        self._请求地址=请求地址
-    
-    def取状态码(self):
-        返回self._状态码
-    
-    def是否成功(self):
-        返回self._状态码>=200且self._状态码<300
-    
-    def取响应头(self):
-        返回self._响应头
-    
-    def取内容(self):
-        返回self._内容
-    
-    def取文本(self):
-        返回_解码文本(self._内容)
-    
-    def取请求地址(self):
-        返回self._请求地址
-    
-    defJSON(self):
-        返回_解析JSON(self.取文本())
-    
-    def保存到文件(self,文件路径):
-        _保存二进制文件(文件路径,self._内容)
-    
-    def取头(self,名称,默认值=无):
-        返回self._响应头取(self._响应头,名称,默认值)
+# class响应:
+#     def__init__(self,状态码,响应头,内容,请求地址):
+#
+#     def取状态码(self):
+#         返回self._状态码
+#
+#     def是否成功(self):
+#         返回self._状态码>=200且self._状态码<300
+#
+#     def取响应头(self):
+#         返回self._响应头
+#
+#     def取内容(self):
+#         返回self._内容
+#
+#     def取文本(self):
+#
+#     def取请求地址(self):
+#         返回self._请求地址
+#
+#     defJSON(self):
+#
+#     def保存到文件(self,文件路径):
+#
+#     def取头(self,名称,默认值=无):
+#
+# class会话:
+#     def__init__(self):
+#
+#     def设置请求头(self,请求头):
+#
+#     def设置超时(self,超时):
+#
+#     defGET(self,地址,参数=无,请求头=无,超时=无):
+#
+#     defPOST(self,地址,数据=无,JSON数据=无,参数=无,请求头=无,超时=无):
+#
+#     defPUT(self,地址,数据=无,JSON数据=无,参数=无,请求头=无,超时=无):
+#
+#     defDELETE(self,地址,参数=无,请求头=无,超时=无):
+#
+#     defPATCH(self,地址,数据=无,JSON数据=无,参数=无,请求头=无,超时=无):
+#
+#     defHEAD(self,地址,参数=无,请求头=无,超时=无):
+#
+#     defOPTIONS(self,地址,参数=无,请求头=无,超时=无):
+#
+# 用法：
+#   从《网络请求》导入《响应》。
 
-
-class会话:
-    def__init__(self):
-        self._会话=_创建会话()
-        self._默认请求头={}
-        self._超时=无
-    
-    def设置请求头(self,请求头):
-        self._默认请求头=请求头
-        _设置会话默认头(self._会话,请求头)
-    
-    def设置超时(self,超时):
-        self._超时=超时
-        _设置会话超时(self._会话,超时)
-    
-    defGET(self,地址,参数=无,请求头=无,超时=无):
-        返回_会话请求(self._会话,"GET",地址,无,无,参数,请求头,超时)
-    
-    defPOST(self,地址,数据=无,JSON数据=无,参数=无,请求头=无,超时=无):
-        返回_会话请求(self._会话,"POST",地址,数据,JSON数据,参数,请求头,超时)
-    
-    defPUT(self,地址,数据=无,JSON数据=无,参数=无,请求头=无,超时=无):
-        返回_会话请求(self._会话,"PUT",地址,数据,JSON数据,参数,请求头,超时)
-    
-    defDELETE(self,地址,参数=无,请求头=无,超时=无):
-        返回_会话请求(self._会话,"DELETE",地址,无,无,参数,请求头,超时)
-    
-    defPATCH(self,地址,数据=无,JSON数据=无,参数=无,请求头=无,超时=无):
-        返回_会话请求(self._会话,"PATCH",地址,数据,JSON数据,参数,请求头,超时)
-    
-    defHEAD(self,地址,参数=无,请求头=无,超时=无):
-        返回_会话请求(self._会话,"HEAD",地址,无,无,参数,请求头,超时)
-    
-    defOPTIONS(self,地址,参数=无,请求头=无,超时=无):
-        返回_会话请求(self._会话,"OPTIONS",地址,无,无,参数,请求头,超时)
+导出 响应 请求错误 超时错误 连接错误 HTTP错误 GET请求。
+导出 POST请求 PUT请求 DELETE请求 PATCH请求 HEAD请求 OPTIONS请求。
+导出 下载文件 会话 编码URL 解码URL 解析URL 拼接URL。
+导出 解析查询串。

@@ -1,4 +1,4 @@
-# 光明（Light）API 参考 v1.0
+# 光明（Light）API 参考 v4.2
 
 ## 目录
 
@@ -27,8 +27,8 @@ from compiler import LightCompiler
 
 compiler = LightCompiler()
 result = compiler.compile("""
-    定义 消息 等于 "你好，光明！"。
-    显示 消息。
+    设 消息 为 "你好，光明！"
+    打印 消息
 """)
 
 if result.success:
@@ -44,7 +44,7 @@ else:
 from light_parser_v3 import LightParser
 
 parser = LightParser()
-module = parser.parse("定义 x 等于 10。")
+module = parser.parse("设 x 为 10")
 print("AST 节点数:", len(module.statements))
 ```
 
@@ -111,10 +111,10 @@ from light_parser_v3 import LightParser
 
 parser = LightParser()
 module = parser.parse("""
-    定义 x 等于 10。
-    定义 y 等于 20。
-    如果 x 小于 y：
-        显示 "x 较小"。
+    设 x 为 10
+    设 y 为 20
+    如果 x < y：
+        打印 "x 较小"
 """)
 
 for stmt in module.statements:
@@ -229,7 +229,7 @@ from code_generator import PythonCodeGenerator
 parser = LightParser()
 generator = PythonCodeGenerator()
 
-ast = parser.parse("定义 消息 等于 '你好'。")
+ast = parser.parse("设 消息 为 '你好'")
 code = generator.generate(ast)
 
 # 执行生成的代码
@@ -316,8 +316,8 @@ resolved = resolver.resolve_module("我的模块")
 **使用示例:**
 
 ```
-导入 数学。
-显示 数学.加(1, 2)。
+导入 数学
+打印 数学.加(1, 2)
 ```
 
 ---
@@ -379,33 +379,33 @@ python -m cli.light
 python -m cli.light examples/hello.light
 
 # 执行代码片段
-python -m cli.light -c '显示 "你好"。'
+python -m cli.light -c '打印 "你好"'
 ```
 
-### `duanc` 命令 (编译器)
+### `lightc` 命令 (编译器)
 
 ```bash
 # 编译文件为 Python
-python -m cli.duanc examples/hello.light
+python -m cli.lightc examples/hello.light
 
 # 编译并运行
-python -m cli.duanc examples/hello.light --run
+python -m cli.lightc examples/hello.light --run
 
 # 指定输出文件
-python -m cli.duanc examples/hello.light -o hello.py
+python -m cli.lightc examples/hello.light -o hello.py
 ```
 
 ### 项目管理
 
 ```bash
 # 初始化新项目
-python -m cli.duanc init my_project
+python -m cli.lightc init my_project
 
 # 构建项目
-python -m cli.duanc build
+python -m cli.lightc build
 
 # 运行项目
-python -m cli.duanc run
+python -m cli.lightc run
 ```
 
 ---
@@ -414,7 +414,7 @@ python -m cli.duanc run
 
 ```toml
 name = "我的项目"
-version = "1.0.0"
+version = "4.2.0"
 description = "光明示例项目"
 authors = ["作者名"]
 
@@ -438,9 +438,9 @@ target = "python"
 from compiler import LightCompiler
 
 c = LightCompiler()
-print(c.version())  # 1.0.0
+print(c.version())  # 4.2.0
 ```
 
 ---
 
-*本文件随光明 v1.0 同步更新*
+*本文件随光明 v4.2 同步更新*

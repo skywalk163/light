@@ -7,8 +7,22 @@
   - cli: 命令行工具
   - lib: 库/包
   - web: Web 应用
+
+每个模板同时生成 package.toml 与 light.json 两份配置文件
+（package_installer 两种格式都支持，light.json 格式如下）：
+  {
+      "name": "<项目名>",
+      "version": "0.1.0",
+      "description": "<描述>",
+      "dependencies": {},
+      "build": {
+          "entry": "主.light",
+          "output_dir": "dist"
+      }
+  }
 """
 
+import json
 import os
 from pathlib import Path
 
@@ -23,6 +37,11 @@ class ProjectTemplate:
     def create(self, project_dir: Path):
         """创建项目结构"""
         raise NotImplementedError
+
+    def _write_light_json(self, project_dir: Path, config: dict):
+        """写入 light.json 配置文件"""
+        path = project_dir / 'light.json'
+        path.write_text(json.dumps(config, ensure_ascii=False, indent=4), encoding='utf-8')
 
 
 class DefaultTemplate(ProjectTemplate):
@@ -44,6 +63,18 @@ description = "光明项目"
 [dependencies]
 '''
         (project_dir / 'package.toml').write_text(pkg_content, encoding='utf-8')
+
+        # light.json（与 package_installer 的 parse_light_json 对应）
+        self._write_light_json(project_dir, {
+            "name": project_dir.name,
+            "version": "0.1.0",
+            "description": "光明项目",
+            "dependencies": {},
+            "build": {
+                "entry": "主.light",
+                "output_dir": "dist"
+            }
+        })
 
         # 主.light
         main_content = '''# 主程序入口
@@ -70,6 +101,17 @@ description = "光明命令行工具"
 [dependencies]
 '''
         (project_dir / 'package.toml').write_text(pkg_content, encoding='utf-8')
+
+        self._write_light_json(project_dir, {
+            "name": project_dir.name,
+            "version": "0.1.0",
+            "description": "光明命令行工具",
+            "dependencies": {},
+            "build": {
+                "entry": "主.light",
+                "output_dir": "dist"
+            }
+        })
 
         main_content = '''# 命令行工具入口
 导入 系统
@@ -139,6 +181,17 @@ description = "光明库"
 [dependencies]
 '''
         (project_dir / 'package.toml').write_text(pkg_content, encoding='utf-8')
+
+        self._write_light_json(project_dir, {
+            "name": project_dir.name,
+            "version": "0.1.0",
+            "description": "光明库",
+            "dependencies": {},
+            "build": {
+                "entry": "主.light",
+                "output_dir": "dist"
+            }
+        })
 
         main_content = '''# 库入口
 # 导出公共 API
@@ -238,6 +291,17 @@ description = "光明 Web 应用"
 [dependencies]
 '''
         (project_dir / 'package.toml').write_text(pkg_content, encoding='utf-8')
+
+        self._write_light_json(project_dir, {
+            "name": project_dir.name,
+            "version": "0.1.0",
+            "description": "光明 Web 应用",
+            "dependencies": {},
+            "build": {
+                "entry": "主.light",
+                "output_dir": "dist"
+            }
+        })
 
         main_content = '''# Web 应用入口
 导入 网络

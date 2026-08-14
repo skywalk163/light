@@ -70,7 +70,7 @@ print()
 print("=" * 50)
 print("2. Python 后端（解析+代码生成）")
 print("=" * 50)
-from light_parser_v3 import DuanParser as PyParser, CompoundAssignment
+from light_parser_v3 import LightParser as PyParser, CompoundAssignment
 from code_generator import PythonCodeGenerator
 
 def test_py(name, source, expected_py=None):
@@ -132,7 +132,7 @@ print("=" * 50)
 print("3. ANTLR 后端（解析+访问器）")
 print("=" * 50)
 sys.path.insert(0, os.path.join('.', 'antlrparser'))
-from antlrparser.light_visitor import DuanParser as LightLangVisitor
+from antlrparser.light_visitor import LightParser as LightLangVisitor
 
 def test_antlr(name, source, expected_target=None, expected_op=None, expected_val=None):
     global all_ok

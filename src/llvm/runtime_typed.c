@@ -66,6 +66,9 @@ int dv_register_interface(const char* name);
 int dv_register_interface_method(const char* interface_name, const char* method_name, const char* signature);
 int dv_register_class_implements(const char* class_name, const char* interface_name);
 int dv_class_implements_interface(const char* class_name, const char* interface_name);
+int dv_call_interface_method(DuanValue* result, DuanValue* obj,
+                              const char* interface_name, const char* method_name,
+                              DuanValue* args, int num_args);
 
 /* ================================================================
  * 内部工具
@@ -3524,6 +3527,56 @@ int dv_class_implements_interface(const char* class_name, const char* interface_
         return dv_class_implements_interface(cls->super_name, interface_name);
     }
 
+    return 0;
+}
+
+/* 通过接口调用方法（接口 vtable 分发）
+ *
+ * 根据对象类型查找方法，验证对象类是否实现了指定接口，
+ * 然后调用该方法。这是接口多态的核心实现。
+ *
+ * 参数：
+ *   result: 输出结果
+ *   obj: 对象指针
+ *   interface_name: 接口名
+ *   method_name: 方法名
+ *   args: 参数数组
+ *   num_args: 参数个数
+ *
+ * 返回：0 表示成功，-1 表示失败（接口未实现或方法未找到）
+ */
+int dv_call_interface_method(DuanValue* result, DuanValue* obj,
+                              const char* interface_name, const char* method_name,
+                              DuanValue* args, int num_args) {
+    if (!result || !obj || !interface_name || !method_name) {
+        if (result) dv_null(result);
+        return -1;
+    }
+
+    /* 获取对象类名 */
+    char class_name[MAX_CLASS_NAME_LEN];
+    dv_get_class_name(obj, class_name, sizeof(class_name));
+    if (!class_name[0]) {
+        dv_null(result);
+        return -1;
+    }
+
+    /* 验证类是否实现了指定接口 */
+    if (!dv_class_implements_interface(class_name, interface_name)) {
+        dv_null(result);
+        return -1;
+    }
+
+    /* 在类层次中查找方法 */
+    void* func_ptr = dv_find_method(class_name, method_name);
+    if (!func_ptr) {
+        dv_null(result);
+        return -1;
+    }
+
+    /* 调用方法 */
+    DuanMethodFunc method = (DuanMethodFunc)func_ptr;
+    method(result, obj, args, num_args);
     return 0;
 }
 

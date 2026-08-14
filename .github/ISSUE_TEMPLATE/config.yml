@@ -1,0 +1,17 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 文档站
+    url: https://skywalk163.github.io/duan/
+    about: 查阅段言官方文档，包括入门指南、语法规范、API 参考等
+  - name: 💬 GitHub Discussions
+    url: https://github.com/skywalk163/duan/discussions
+    about: 在 Discussions 中进行一般讨论、提问、功能建议和项目展示
+  - name: ❓ 常见问题（FAQ）
+    url: https://github.com/skywalk163/duan/wiki/FAQ
+    about: 查看常见问题解答，可能已有您需要的答案
+  - name: 🤖 AI Copilot 帮助
+    url: https://github.com/skywalk163/duan/discussions/categories/help
+    about: 使用段言 AI Copilot 时遇到的问题
+  - name: 🔒 安全漏洞报告
+    url: https://github.com/skywalk163/duan/security/policy
+    about: 请通过安全渠道报告安全漏洞，不要公开提交 Issue

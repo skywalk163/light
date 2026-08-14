@@ -4,6 +4,76 @@
 
 ---
 
+## 目录
+
+- [应用案例库](#应用案例库)
+- [学习示例](#学习示例按难度排序)
+- [测试/参考示例](#测试参考示例)
+- [语法说明](#语法说明)
+- [运行方式](#运行方式)
+- [示例详解](#示例详解)
+- [注意事项](#注意事项)
+- [编写新示例](#编写新示例)
+
+---
+
+## 应用案例库
+
+以下三个完整应用案例使用 v6.0 新式语法编写，演示光明在实际场景中的应用：
+
+| 项目 | 目录 | 说明 | 运行命令 |
+|------|------|------|----------|
+| Web 爬虫 | [web_crawler/](web_crawler/) | 递归抓取网页链接，生成站点地图 | `light run examples/web_crawler/crawler.light <URL>` |
+| 数据处理管道 | [data_pipeline/](data_pipeline/) | CSV → 清洗 → 聚合 → SQLite → JSON 的 ETL 流程 | `light run examples/data_pipeline/pipeline.light` |
+| CLI 文件整理器 | [cli_tool/](cli_tool/) | 按文件类型自动分类整理，支持预览模式和自定义规则 | `light run examples/cli_tool/file_organizer.light [目录]` |
+
+### 1. Web 爬虫 — [web_crawler/](web_crawler/)
+
+使用光明标准库实现 HTTP 请求、正则表达式解析、递归爬取和站点地图生成。支持可配置深度、域名限制、自动去重、非 HTML 资源过滤。
+
+```bash
+# 抓取单个页面
+light run examples/web_crawler/crawler.light "https://example.com"
+
+# 递归抓取 2 层深度
+light run examples/web_crawler/crawler.light "https://example.com" 2
+```
+
+涉及特性：`段落`、`设`、`如果`/`否则若`/`否则`、`遍历`、`当`、`尝试`/`捕获`、`导入`、正则表达式、HTTP 请求、JSON 序列化。
+
+### 2. 数据处理管道 — [data_pipeline/](data_pipeline/)
+
+完整的 ETL 数据处理流程：读取 CSV → 数据清洗（去重、标准化字段名、过滤无效记录）→ 聚合分析（分组求和/平均/最大/最小）→ 存储到 SQLite → 导出 JSON 报告。
+
+```bash
+# 使用默认样本数据
+light run examples/data_pipeline/pipeline.light
+
+# 使用自定义数据
+light run examples/data_pipeline/pipeline.light 我的数据.csv
+```
+
+涉及特性：`段落`（多返回值）、`设`、`如果`/`否则若`/`否则`、`遍历`、`当`（`跳过`/`跳出`）、`尝试`/`捕获`、`导入`（文件系统、JSON、数据库）、字典/列表操作、字符串处理、文件读写、数据库操作。
+
+### 3. CLI 文件整理器 — [cli_tool/](cli_tool/)
+
+功能完整的命令行工具，按扩展名自动分类文件到 Images/、Documents/、Archives/ 等文件夹。支持 `--dry-run` 预览模式、`--config` 自定义规则、进度条显示和汇总报告。
+
+```bash
+# 预览模式
+light run examples/cli_tool/file_organizer.light ./下载 --dry-run
+
+# 使用自定义规则
+light run examples/cli_tool/file_organizer.light ./桌面 -c 我的规则.json
+
+# 查看帮助
+light run examples/cli_tool/file_organizer.light --help
+```
+
+涉及特性：`段落`、`设`、`如果`/`否则若`/`否则`、`遍历`、`当`、`尝试`/`捕获`、`导入`（文件系统、JSON）、命令行参数解析、文件系统操作、JSON 配置。
+
+---
+
 ## 学习示例（按难度排序）
 
 | 文件 | 难度 | 演示内容 | 后端 |
@@ -85,11 +155,27 @@
 pip install antlr4-tools antlr4-python3-runtime
 ```
 
-### 使用 ANTLR 解释器（推荐）
+### 运行应用案例（新式语法，推荐使用 CLI 工具）
 
 ```bash
 # 进入项目根目录
-cd g:\dumategithub\light
+cd c:\dumatework\light
+
+# 运行 Web 爬虫
+light run examples/web_crawler/crawler.light "https://example.com"
+
+# 运行数据处理管道
+light run examples/data_pipeline/pipeline.light
+
+# 运行 CLI 文件整理器
+light run examples/cli_tool/file_organizer.light . --dry-run
+```
+
+### 使用 ANTLR 解释器
+
+```bash
+# 进入项目根目录
+cd c:\dumatework\light
 
 # 运行 Hello World
 python -c "

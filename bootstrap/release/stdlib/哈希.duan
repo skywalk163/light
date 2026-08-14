@@ -1,0 +1,9 @@
+# 段言标准库 - 哈希与加密模块
+#
+# 用法：
+#   从《哈希》导入《MD5》，《SHA256》，《Base64编码》。
+
+导出 MD5 SHA1 SHA256 SHA512。
+导出 HMAC_SHA256。
+导出 Base64编码 Base64解码。
+导出 Base64URL编码 Base64URL解码。

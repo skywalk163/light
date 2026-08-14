@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>段言 DuanLang - 一个月开发计划</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --warn: #d29922;
+    --danger: #f85149;
+    --purple: #bc8cff;
+    --orange: #f0883e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    line-height: 1.6;
+    padding: 0;
+  }
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #1a1f3a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 40px 20px 30px;
+    text-align: center;
+  }
+  .header h1 {
+    font-size: 2.2em;
+    color: var(--accent);
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+  }
+  .header .subtitle {
+    color: var(--text-dim);
+    font-size: 1.1em;
+    margin-bottom: 6px;
+  }
+  .header .meta {
+    display: inline-flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 12px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+  }
+  .badge-blue { background: rgba(88,166,255,0.15); color: var(--accent); border: 1px solid rgba(88,166,255,0.3); }
+  .badge-green { background: rgba(63,185,80,0.15); color: var(--accent2); border: 1px solid rgba(63,185,80,0.3); }
+  .badge-orange { background: rgba(240,136,62,0.15); color: var(--orange); border: 1px solid rgba(240,136,62,0.3); }
+  .badge-purple { background: rgba(188,140,255,0.15); color: var(--purple); border: 1px solid rgba(188,140,255,0.3); }
+  .badge-red { background: rgba(248,81,73,0.15); color: var(--danger); border: 1px solid rgba(248,81,73,0.3); }
+
+  /* Stats Bar */
+  .stats-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+    padding: 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 20px;
+    text-align: center;
+    min-width: 120px;
+  }
+  .stat-card .num { font-size: 1.8em; font-weight: 700; }
+  .stat-card .label { font-size: 0.8em; color: var(--text-dim); margin-top: 2px; }
+  .stat-card.green .num { color: var(--accent2); }
+  .stat-card.red .num { color: var(--danger); }
+  .stat-card.blue .num { color: var(--accent); }
+  .stat-card.orange .num { color: var(--orange); }
+  .stat-card.purple .num { color: var(--purple); }
+
+  /* Container */
+  .container { max-width: 1400px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  /* Section */
+  .section { margin-bottom: 40px; }
+  .section-title {
+    font-size: 1.5em;
+    color: var(--text);
+    border-left: 4px solid var(--accent);
+    padding-left: 12px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Timeline */
+  .timeline {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 900px) { .timeline { grid-template-columns: 1fr; } }
+  .week-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .week-card:hover { border-color: var(--accent); }
+  .week-header {
+    padding: 14px 16px;
+    font-weight: 700;
+    font-size: 1.05em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .week-header.w1 { background: linear-gradient(135deg, rgba(248,81,73,0.2), rgba(248,81,73,0.05)); border-bottom: 2px solid var(--danger); }
+  .week-header.w2 { background: linear-gradient(135deg, rgba(240,136,62,0.2), rgba(240,136,62,0.05)); border-bottom: 2px solid var(--orange); }
+  .week-header.w3 { background: linear-gradient(135deg, rgba(88,166,255,0.2), rgba(88,166,255,0.05)); border-bottom: 2px solid var(--accent); }
+  .week-header.w4 { background: linear-gradient(135deg, rgba(63,185,80,0.2), rgba(63,185,80,0.05)); border-bottom: 2px solid var(--accent2); }
+  .week-goal {
+    padding: 10px 16px;
+    font-size: 0.88em;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    font-style: italic;
+  }
+  .week-body { padding: 8px 0; }
+  .task-item {
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(48,54,61,0.5);
+    transition: background 0.15s;
+  }
+  .task-item:hover { background: rgba(88,166,255,0.05); }
+  .task-item:last-child { border-bottom: none; }
+  .task-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .task-id {
+    font-family: "Cascadia Code", "Consolas", monospace;
+    font-size: 0.8em;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .task-desc {
+    font-size: 0.85em;
+    color: var(--text);
+    flex: 1;
+  }
+  .task-meta {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+  .mini-badge {
+    font-size: 0.7em;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .mb-p0 { background: rgba(248,81,73,0.15); color: var(--danger); }
+  .mb-p1 { background: rgba(240,136,62,0.15); color: var(--orange); }
+  .mb-p2 { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .mb-dm { background: rgba(188,140,255,0.12); color: var(--purple); }
+  .mb-trae { background: rgba(63,185,80,0.12); color: var(--accent2); }
+  .mb-manual { background: rgba(139,148,158,0.15); color: var(--text-dim); }
+  .mb-effort { background: rgba(210,153,34,0.12); color: var(--warn); }
+
+  /* Task Table */
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85em;
+  }
+  th, td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--surface2);
+    color: var(--accent);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    white-space: nowrap;
+  }
+  tbody tr:hover { background: rgba(88,166,255,0.04); }
+  td code {
+    font-family: "Cascadia Code", "Consolas", monospace;
+    font-size: 0.9em;
+    color: var(--purple);
+    background: rgba(188,140,255,0.08);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+
+  /* Dependency Graph */
+  .dep-graph {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    overflow-x: auto;
+  }
+  .dep-graph pre {
+    font-family: "Cascadia Code", "Consolas", monospace;
+    font-size: 0.82em;
+    line-height: 1.8;
+    color: var(--text);
+    white-space: pre;
+  }
+  .dep-graph .arrow { color: var(--accent); }
+  .dep-graph .p0 { color: var(--danger); font-weight: 700; }
+  .dep-graph .p1 { color: var(--orange); font-weight: 700; }
+  .dep-graph .p2 { color: var(--accent); font-weight: 700; }
+  .dep-graph .done { color: var(--accent2); text-decoration: line-through; }
+  .dep-graph .crit { color: var(--warn); }
+
+  /* Risk Cards */
+  .risk-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+  .risk-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    border-left: 3px solid;
+  }
+  .risk-card.high { border-left-color: var(--danger); }
+  .risk-card.medium { border-left-color: var(--warn); }
+  .risk-card.low { border-left-color: var(--accent2); }
+  .risk-card h4 { font-size: 1em; margin-bottom: 6px; }
+  .risk-card .risk-desc { font-size: 0.85em; color: var(--text-dim); margin-bottom: 8px; }
+  .risk-card .risk-fix { font-size: 0.82em; color: var(--accent2); }
+  .risk-card .risk-level {
+    float: right;
+    font-size: 0.7em;
+    padding: 1px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  /* Checklist */
+  .checklist {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+  }
+  .checklist ul { list-style: none; }
+  .checklist li {
+    padding: 6px 0;
+    font-size: 0.9em;
+    padding-left: 24px;
+    position: relative;
+  }
+  .checklist li::before {
+    content: "\2610";
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-size: 1.1em;
+  }
+  .checklist li.must::before { color: var(--danger); }
+  .checklist .group-title {
+    font-weight: 700;
+    color: var(--accent);
+    margin-top: 12px;
+    margin-bottom: 4px;
+    font-size: 0.95em;
+  }
+
+  /* Tech Debt */
+  .debt-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 12px;
+  }
+  .debt-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .debt-card h4 { font-size: 0.95em; margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .debt-card p { font-size: 0.82em; color: var(--text-dim); }
+  .debt-card .files { font-family: monospace; font-size: 0.78em; color: var(--purple); margin-top: 4px; }
+
+  /* Summary Box */
+  .summary-box {
+    background: linear-gradient(135deg, var(--surface), var(--surface2));
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 30px;
+  }
+  .summary-box h3 { color: var(--accent); margin-bottom: 10px; }
+  .summary-box p { font-size: 0.9em; color: var(--text-dim); margin-bottom: 6px; }
+  .summary-box strong { color: var(--text); }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 30px 20px;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.85em;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<div class="header">
+  <h1>段言 DuanLang - 一个月开发计划</h1>
+  <div class="subtitle">2026.08.05 - 2026.09.03 | v3.5 &rarr; v4.0 "生态闭环"</div>
+  <div class="meta">
+    <span class="badge badge-blue">基线: commit 59c127d</span>
+    <span class="badge badge-green">1370 tests passed</span>
+    <span class="badge badge-red">5 pre-existing failed</span>
+    <span class="badge badge-purple">30000+ 行代码</span>
+    <span class="badge badge-orange">109 duanpub 包</span>
+  </div>
+</div>
+
+<!-- ===== STATS BAR ===== -->
+<div class="stats-bar">
+  <div class="stat-card green">
+    <div class="num">1370</div>
+    <div class="label">测试通过</div>
+  </div>
+  <div class="stat-card red">
+    <div class="num">5</div>
+    <div class="label">已知失败</div>
+  </div>
+  <div class="stat-card blue">
+    <div class="num">62</div>
+    <div class="label">源码文件</div>
+  </div>
+  <div class="stat-card purple">
+    <div class="num">38</div>
+    <div class="label">标准库模块</div>
+  </div>
+  <div class="stat-card orange">
+    <div class="num">91</div>
+    <div class="label">测试文件</div>
+  </div>
+  <div class="stat-card green">
+    <div class="num">109</div>
+    <div class="label">duanpub 包</div>
+  </div>
+  <div class="stat-card blue">
+    <div class="num">18</div>
+    <div class="label">计划任务</div>
+  </div>
+  <div class="stat-card orange">
+    <div class="num">~22</div>
+    <div class="label">预估人天</div>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ===== SUMMARY ===== -->
+<div class="summary-box">
+  <h3>计划总览</h3>
+  <p><strong>目标:</strong> 将段言从"语法骨架已成型"推进到"生态闭环可用"——修复全部已知 bug，完成 duanpub 三级桥接，打通转译器端到端链路，完善开发者工具链，月末发布 v4.0。</p>
+  <p><strong>四周节奏:</strong> W1 清债（修 bug + 补测试） &rarr; W2 筑基（duanpub 桥接 + 转译器增强） &rarr; W3 扩展（开发者工具 + 性能优化） &rarr; W4 收束（文档统一 + 打包发布）</p>
+  <p><strong>关键路径:</strong> T01 修复5个失败 &rarr; T06 FFI补齐 &rarr; T08 duanpub P1桥接 &rarr; T12 CLI打包 &rarr; T15 文档统一 &rarr; T17 v4.0发布</p>
+  <p><strong>零回归红线:</strong> 每周结束测试通过数不低于上周，pre-existing 失败数只能减少不能增加。</p>
+</div>
+
+<!-- ===== WEEK TIMELINE ===== -->
+<div class="section">
+  <div class="section-title">四周时间线</div>
+  <div class="timeline">
+
+    <!-- Week 1 -->
+    <div class="week-card">
+      <div class="week-header w1">
+        <span>Week 1 (08/05-08/11)</span>
+        <span class="badge badge-red">清债</span>
+      </div>
+      <div class="week-goal">目标: 5个 pre-existing 失败清零，FFI 缺失函数补齐，代码审计遗留修复</div>
+      <div class="week-body">
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T01</span>
+            <span class="task-desc">修复 5 个 pre-existing 测试失败</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p0">P0</span>
+            <span class="mini-badge mb-dm">DuMate</span>
+            <span class="mini-badge mb-effort">2d</span>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T02</span>
+            <span class="task-desc">FFI 模块补齐 30 个缺失中文函数</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p0">P0</span>
+            <span class="mini-badge mb-dm">DuMate</span>
+            <span class="mini-badge mb-effort">2d</span>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T03</span>
+            <span class="task-desc">Lexer 前缀拆分 bug 修复（使用/返回 等）</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p1">P1</span>
+            <span class="mini-badge mb-dm">DuMate</span>
+            <span class="mini-badge mb-effort">1d</span>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T04</span>
+            <span class="task-desc">Parser 装饰器 + 接口方法 bug 修复</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p1">P1</span>
+            <span class="mini-badge mb-dm">DuMate</span>
+            <span class="mini-badge mb-effort">1d</span>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T05</span>
+            <span class="task-desc">stdlib API 名称不一致修复</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p2">P2</span>
+            <span class="mini-badge mb-dm">DuMate</span>
+            <span class="mini-badge mb-effort">0.5d</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Week 2 -->
+    <div class="week-card">
+      <div class="week-header w2">
+        <span>Week 2 (08/12-08/18)</span>
+        <span class="badge badge-orange">筑基</span>
+      </div>
+      <div class="week-goal">目标: duanpub P1 三模块桥接完成，转译器链式调用+语义校验，旧语法残留清理</div>
+      <div class="week-body">
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T06</span>
+            <span class="task-desc">duanpub P1 桥接: HTTP客户端 + Socket + SQLite</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p0">P0</span>
+            <span class="mini-badge mb-dm">DuMate</span>
+            <span class="mini-badge mb-effort">2d</span>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T07</span>
+            <span class="task-desc">17 个源_cstyle.duan + 3 个源.duan 花括号残留清理</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p1">P1</span>
+            <span class="mini-badge mb-dm">DuMate</span>
+            <span class="mini-badge mb-effort">0.5d</span>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T08</span>
+            <span class="task-desc">转译器链式调用 bug 修复 + builtin 反向映射补全</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p0">P0</span>
+            <span class="mini-badge mb-trae">Trae</span>
+            <span class="mini-badge mb-effort">1.5d</span>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T09</span>
+            <span class="task-desc">转译器语义校验与转译报告增强</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p1">P1</span>
+            <span class="mini-badge mb-trae">Trae</span>
+            <span class="mini-badge mb-effort">1d</span>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T10</span>
+            <span class="task-desc">模块解析器 "从...导入..." 语法修复</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p1">P1</span>
+            <span class="mini-badge mb-dm">DuMate</span>
+            <span class="mini-badge mb-effort">1d</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Week 3 -->
+    <div class="week-card">
+      <div class="week-header w3">
+        <span>Week 3 (08/19-08/25)</span>
+        <span class="badge badge-blue">扩展</span>
+      </div>
+      <div class="week-goal">目标: CLI 打包发布，VS Code 扩展增强，Web Playground 上线，性能基准建立</div>
+      <div class="week-body">
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T11</span>
+            <span class="task-desc">CLI 打包: duan run / duan build / duan pkg</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p0">P0</span>
+            <span class="mini-badge mb-dm">DuMate</span>
+            <span class="mini-badge mb-effort">2d</span>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T12</span>
+            <span class="task-desc">VS Code 扩展增强: 语义高亮 + 智能提示 + 调试器</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p1">P1</span>
+            <span class="mini-badge mb-dm">DuMate</span>
+            <span class="mini-badge mb-effort">2d</span>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T13</span>
+            <span class="task-desc">Web Playground 完善: 在线编辑 + 实时运行</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p1">P1</span>
+            <span class="mini-badge mb-manual">人工</span>
+            <span class="mini-badge mb-effort">1.5d</span>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T14</span>
+            <span class="task-desc">性能基准测试: 编译速度 + 内存 + 与 CPython 对比</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p2">P2</span>
+            <span class="mini-badge mb-dm">DuMate</span>
+            <span class="mini-badge mb-effort">1d</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Week 4 -->
+    <div class="week-card">
+      <div class="week-header w4">
+        <span>Week 4 (08/26-09/03)</span>
+        <span class="badge badge-green">收束</span>
+      </div>
+      <div class="week-goal">目标: 文档全面统一，端到端教程验证，v4.0 发布检查清单通过</div>
+      <div class="week-body">
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T15</span>
+            <span class="task-desc">文档统一: 57 个 .md 过时语法更新到 v3.5</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p0">P0</span>
+            <span class="mini-badge mb-dm">DuMate</span>
+            <span class="mini-badge mb-effort">2d</span>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T16</span>
+            <span class="task-desc">端到端教程验证: 8 步全流程走通</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p0">P0</span>
+            <span class="mini-badge mb-dm">DuMate</span>
+            <span class="mini-badge mb-effort">1d</span>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T17</span>
+            <span class="task-desc">v4.0 发布: CHANGELOG + Release Tag + 打包分发</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p0">P0</span>
+            <span class="mini-badge mb-dm">DuMate</span>
+            <span class="mini-badge mb-effort">1d</span>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-head">
+            <span class="task-id">T18</span>
+            <span class="task-desc">全量回归测试 + 发布检查清单</span>
+          </div>
+          <div class="task-meta">
+            <span class="mini-badge mb-p0">P0</span>
+            <span class="mini-badge mb-dm">DuMate</span>
+            <span class="mini-badge mb-effort">0.5d</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== TASK DETAIL TABLE ===== -->
+<div class="section">
+  <div class="section-title">任务明细表</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>任务</th>
+          <th>优先级</th>
+          <th>负责方</th>
+          <th>工作量</th>
+          <th>关键文件</th>
+          <th>验收标准</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- W1 -->
+        <tr style="border-top: 2px solid var(--danger);">
+          <td colspan="7" style="background: rgba(248,81,73,0.08); color: var(--danger); font-weight: 700; text-align: center;">Week 1: 清债 (08/05-08/11)</td>
+        </tr>
+        <tr>
+          <td><code>T01</code></td>
+          <td>修复 5 个 pre-existing 测试失败</td>
+          <td><span class="mini-badge mb-p0">P0</span></td>
+          <td>DuMate</td>
+          <td>2d</td>
+          <td><code>tests/test_edge_cases.py</code><br><code>tests/e2e/test_module_e2e.py</code><br><code>tests/unit/test_ir_verify.py</code></td>
+          <td>1375 passed / 0 failed<br>浮点精度修复、模块依赖修复、clang 可选跳过</td>
+        </tr>
+        <tr>
+          <td><code>T02</code></td>
+          <td>FFI 模块补齐 30 个缺失中文函数</td>
+          <td><span class="mini-badge mb-p0">P0</span></td>
+          <td>DuMate</td>
+          <td>2d</td>
+          <td><code>src/stdlib/FFI.py</code><br><code>src/code_generator.py</code> (builtin_map)</td>
+          <td>27 个 FFI 失败测试转通过<br>取地址、创建数组等函数实现</td>
+        </tr>
+        <tr>
+          <td><code>T03</code></td>
+          <td>Lexer 前缀拆分 bug 修复</td>
+          <td><span class="mini-badge mb-p1">P1</span></td>
+          <td>DuMate</td>
+          <td>1d</td>
+          <td><code>src/lexer.py</code> (_COMPOUND_SAFE_MULTI_KEYWORDS)</td>
+          <td>"使用CSV""返回值"等不被误拆<br>新增 10+ 测试用例</td>
+        </tr>
+        <tr>
+          <td><code>T04</code></td>
+          <td>Parser 装饰器 + 接口方法 bug 修复</td>
+          <td><span class="mini-badge mb-p1">P1</span></td>
+          <td>DuMate</td>
+          <td>1d</td>
+          <td><code>src/parser_core.py:208</code><br><code>src/parser_stmt.py</code></td>
+          <td>@抽象 等装饰器后跟接口方法不报错<br>类旧语法生成正确</td>
+        </tr>
+        <tr>
+          <td><code>T05</code></td>
+          <td>stdlib API 名称不一致修复</td>
+          <td><span class="mini-badge mb-p2">P2</span></td>
+          <td>DuMate</td>
+          <td>0.5d</td>
+          <td><code>stdlib/日期时间.py</code> 等</td>
+          <td>函数名与测试期望一致<br>"加天数"&rarr;"添加天数"等</td>
+        </tr>
+
+        <!-- W2 -->
+        <tr style="border-top: 2px solid var(--orange);">
+          <td colspan="7" style="background: rgba(240,136,62,0.08); color: var(--orange); font-weight: 700; text-align: center;">Week 2: 筑基 (08/12-08/18)</td>
+        </tr>
+        <tr>
+          <td><code>T06</code></td>
+          <td>duanpub P1 桥接: HTTP客户端 + Socket + SQLite</td>
+          <td><span class="mini-badge mb-p0">P0</span></td>
+          <td>DuMate</td>
+          <td>2d</td>
+          <td><code>stdlib/duanpub/__init__.py</code> (get_stdlib_bridge)<br><code>stdlib/duanpub/HTTP客户端.py</code><br><code>stdlib/duanpub/Socket.py</code><br><code>stdlib/duanpub/SQLite.py</code></td>
+          <td>3 个 P1 包可 <code>导入</code> 使用<br>端到端: 导入 HTTP客户端 &rarr; 发请求 &rarr; 解析响应</td>
+        </tr>
+        <tr>
+          <td><code>T07</code></td>
+          <td>旧语法残留清理 (花括号)</td>
+          <td><span class="mini-badge mb-p1">P1</span></td>
+          <td>DuMate</td>
+          <td>0.5d</td>
+          <td><code>stdlib/duanpub/</code> 下 20 个 .duan 文件</td>
+          <td>0 个文件含 <code>{ }</code> 花括号<br>migrate_syntax --duanpub 全通过</td>
+        </tr>
+        <tr>
+          <td><code>T08</code></td>
+          <td>转译器链式调用修复 + builtin 反向映射</td>
+          <td><span class="mini-badge mb-p0">P0</span></td>
+          <td>Trae</td>
+          <td>1.5d</td>
+          <td><code>tools/ai_copilot/py2duan_transpiler.py</code> (_visit_Attribute)<br><code>tools/ai_copilot/pyproject2duan.py</code><br><code>tools/ai_copilot/build.py</code> (_restore_builtins)</td>
+          <td><code>a.b.c()</code> 正确转译<br>builtin 反向映射 100% 覆盖<br>转译后段言代码可被 DuanParser 解析</td>
+        </tr>
+        <tr>
+          <td><code>T09</code></td>
+          <td>转译器语义校验与转译报告</td>
+          <td><span class="mini-badge mb-p1">P1</span></td>
+          <td>Trae</td>
+          <td>1d</td>
+          <td><code>tools/ai_copilot/pyproject2duan.py</code> (_validate_duan)<br>CONVERSION_REPORT.md 生成</td>
+          <td>报告含: 文件级状态 + 失败行号 + 修复建议<br>Python 特性使用统计</td>
+        </tr>
+        <tr>
+          <td><code>T10</code></td>
+          <td>模块解析器 "从...导入..." 语法修复</td>
+          <td><span class="mini-badge mb-p1">P1</span></td>
+          <td>DuMate</td>
+          <td>1d</td>
+          <td><code>src/module_resolver.py</code> 或<br><code>src/parser_stmt.py</code> (import 解析)</td>
+          <td><code>从 X 导入 Y</code> 正确解析<br>多级路径 <code>从 A.B 导入 C</code> 支持</td>
+        </tr>
+
+        <!-- W3 -->
+        <tr style="border-top: 2px solid var(--accent);">
+          <td colspan="7" style="background: rgba(88,166,255,0.08); color: var(--accent); font-weight: 700; text-align: center;">Week 3: 扩展 (08/19-08/25)</td>
+        </tr>
+        <tr>
+          <td><code>T11</code></td>
+          <td>CLI 打包: duan run / build / pkg</td>
+          <td><span class="mini-badge mb-p0">P0</span></td>
+          <td>DuMate</td>
+          <td>2d</td>
+          <td><code>cli/duan_unified.py</code><br><code>pyproject.toml</code> (entry_points)<br><code>setup.cfg</code> 或 <code>build.py</code></td>
+          <td><code>pip install duan-lang</code> 后 <code>duan run hello.duan</code> 可用<br><code>duan build</code> 生成 .py 输出<br><code>duan pkg init/build</code> 创建项目</td>
+        </tr>
+        <tr>
+          <td><code>T12</code></td>
+          <td>VS Code 扩展增强</td>
+          <td><span class="mini-badge mb-p1">P1</span></td>
+          <td>DuMate</td>
+          <td>2d</td>
+          <td><code>vscode-extension/src/extension.ts</code><br><code>vscode-extension/syntaxes/</code><br><code>vscode-extension/snippets/</code></td>
+          <td>语义高亮覆盖全部关键字<br>代码片段 (snippets) 30+<br>Hover 提示 + 基础诊断</td>
+        </tr>
+        <tr>
+          <td><code>T13</code></td>
+          <td>Web Playground 完善</td>
+          <td><span class="mini-badge mb-p1">P1</span></td>
+          <td>人工</td>
+          <td>1.5d</td>
+          <td><code>playground/server.py</code><br><code>playground/static/</code> (app.js, index.html)</td>
+          <td>浏览器中编辑 .duan 并实时运行<br>示例代码库 10+<br>分享链接功能</td>
+        </tr>
+        <tr>
+          <td><code>T14</code></td>
+          <td>性能基准测试建立</td>
+          <td><span class="mini-badge mb-p2">P2</span></td>
+          <td>DuMate</td>
+          <td>1d</td>
+          <td><code>benchmarks/programs/</code><br><code>tests/performance_benchmark.py</code></td>
+          <td>编译速度 / 内存占用 / 执行速度基准数据<br>与 CPython 对比报告<br>回归基准线写入文档</td>
+        </tr>
+
+        <!-- W4 -->
+        <tr style="border-top: 2px solid var(--accent2);">
+          <td colspan="7" style="background: rgba(63,185,80,0.08); color: var(--accent2); font-weight: 700; text-align: center;">Week 4: 收束 (08/26-09/03)</td>
+        </tr>
+        <tr>
+          <td><code>T15</code></td>
+          <td>文档统一: 过时语法更新到 v3.5</td>
+          <td><span class="mini-badge mb-p0">P0</span></td>
+          <td>DuMate</td>
+          <td>2d</td>
+          <td><code>docs/</code> 下全部 57 个 .md<br>重点: 统一语法规范、API_REFERENCE、USER_MANUAL</td>
+          <td>0 个文档含 v1.x 过时语法<br>统一使用 v3.4+ 风格 (函数名() / 令 x=v)<br>README.md 更新为 v4.0</td>
+        </tr>
+        <tr>
+          <td><code>T16</code></td>
+          <td>端到端教程验证</td>
+          <td><span class="mini-badge mb-p0">P0</span></td>
+          <td>DuMate</td>
+          <td>1d</td>
+          <td><code>docs/端到端实战教程.md</code><br><code>examples/weather_app/</code></td>
+          <td>8 步全流程走通: Hello &rarr; 变量 &rarr; 函数 &rarr; 类 &rarr; 文件IO &rarr; duanpub 导入 &rarr; 异常处理 &rarr; 转译迁移</td>
+        </tr>
+        <tr>
+          <td><code>T17</code></td>
+          <td>v4.0 发布打包</td>
+          <td><span class="mini-badge mb-p0">P0</span></td>
+          <td>DuMate</td>
+          <td>1d</td>
+          <td><code>CHANGELOG.md</code><br><code>pyproject.toml</code> (version bump)<br>Git tag <code>v4.0</code></td>
+          <td>CHANGELOG 完整<br>pip install 可用<br>GitHub Release 发布</td>
+        </tr>
+        <tr>
+          <td><code>T18</code></td>
+          <td>全量回归测试 + 发布检查</td>
+          <td><span class="mini-badge mb-p0">P0</span></td>
+          <td>DuMate</td>
+          <td>0.5d</td>
+          <td><code>tests/</code> 全量<br>发布检查清单 (见下方)</td>
+          <td>0 新增失败<br>发布检查清单全通过<br>CLI + VS Code + Playground 三端验证</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===== DEPENDENCY GRAPH ===== -->
+<div class="section">
+  <div class="section-title">任务依赖关系图</div>
+  <div class="dep-graph">
+<pre>
+                    <span class="crit">===== 关键路径 (Critical Path) =====</span>
+
+  T01(修5失败) <span class="arrow">&rarr;</span> T02(FFI补齐) <span class="arrow">&rarr;</span> T06(duanpub P1) <span class="arrow">&rarr;</span> T11(CLI打包) <span class="arrow">&rarr;</span> T15(文档统一) <span class="arrow">&rarr;</span> T17(v4.0发布)
+      <span class="p0">P0 2d</span>      <span class="p0">P0 2d</span>      <span class="p0">P0 2d</span>       <span class="p0">P0 2d</span>       <span class="p0">P0 2d</span>        <span class="p0">P0 1d</span>
+
+                    <span class="crit">===== 完整依赖拓扑 =====</span>
+
+  Week 1:
+  T01(修5失败) <span class="arrow">&rarr;</span> T03(Lexer修复) <span class="arrow">&rarr;</span> T04(Parser修复) <span class="arrow">&rarr;</span> T05(stdlib API)
+       <span class="p0">P0</span>            <span class="p1">P1</span>             <span class="p1">P1</span>             <span class="p2">P2</span>
+       |
+       +--&gt; T02(FFI补齐) -- Week 1 末交付: 1375+ passed / 0 failed
+            <span class="p0">P0</span>
+
+  Week 2:
+  T02 <span class="arrow">&rarr;</span> T06(duanpub P1桥接) <span class="arrow">&rarr;</span> T07(旧语法清理) <span class="arrow">&rarr;</span> T10(模块解析修复)
+            <span class="p0">P0</span>                <span class="p1">P1</span>               <span class="p1">P1</span>
+            |
+            +-- (并行, 无依赖) --&gt; T08(转译器链式) <span class="arrow">&rarr;</span> T09(转译器报告)
+                                   <span class="p0">P0 (Trae)</span>          <span class="p1">P1 (Trae)</span>
+
+  Week 3:
+  T06 <span class="arrow">&rarr;</span> T11(CLI打包) -- Week 3 关键交付
+       <span class="p0">P0</span>
+       |
+       +--&gt; T12(VS Code增强)  -- 依赖 T11 的 CLI 接口
+            <span class="p1">P1</span>
+       +--&gt; T13(Web Playground) -- 依赖 T06 的 duanpub 导入能力
+            <span class="p1">P1</span>
+       +--&gt; T14(性能基准)      -- 独立, 可随时做
+            <span class="p2">P2</span>
+
+  Week 4:
+  T11 <span class="arrow">&rarr;</span> T15(文档统一) <span class="arrow">&rarr;</span> T16(端到端验证) <span class="arrow">&rarr;</span> T17(v4.0发布) <span class="arrow">&rarr;</span> T18(全量回归)
+       <span class="p0">P0</span>          <span class="p0">P0</span>            <span class="p0">P0</span>            <span class="p0">P0</span>          <span class="p0">P0</span>
+
+  <span class="crit">注: 标注 "并行" 的任务组之间无依赖, 可同时推进。Trae 负责的任务 (T08/T09) 与 DuMate 任务天然并行。</span>
+</pre>
+  </div>
+</div>
+
+<!-- ===== TECH DEBT INVENTORY ===== -->
+<div class="section">
+  <div class="section-title">技术债清单 (代码审计发现)</div>
+  <div class="debt-list">
+    <div class="debt-card">
+      <h4>FFI 缺失函数 <span class="badge badge-red">P0</span></h4>
+      <p>约 30 个中文函数实现缺失（取地址、创建数组等），导致 27 个测试失败。builtin_map 已引用但无实现。</p>
+      <div class="files">src/stdlib/FFI.py | src/code_generator.py</div>
+    </div>
+    <div class="debt-card">
+      <h4>Lexer 前缀拆分 <span class="badge badge-orange">P1</span></h4>
+      <p>_COMPOUND_SAFE_MULTI_KEYWORDS 仅含"关闭""开启"，导致"使用CSV""返回值"等被误拆。</p>
+      <div class="files">src/lexer.py</div>
+    </div>
+    <div class="debt-card">
+      <h4>Parser 装饰器 bug <span class="badge badge-orange">P1</span></h4>
+      <p>@抽象 等装饰器后跟接口方法时报错。类旧语法生成缺少 self。</p>
+      <div class="files">src/parser_core.py:208 | src/parser_stmt.py</div>
+    </div>
+    <div class="debt-card">
+      <h4>stdlib API 不匹配 <span class="badge badge-blue">P2</span></h4>
+      <p>日期时间.py 函数名（"加天数"）与测试期望（"添加天数"）不一致，多处类似问题。</p>
+      <div class="files">stdlib/日期时间.py 等</div>
+    </div>
+    <div class="debt-card">
+      <h4>duanpub P1 未桥接 <span class="badge badge-red">P0</span></h4>
+      <p>3 个 P1 包（HTTP客户端/Socket/SQLite）已创建但无运行时桥接，无法导入使用。</p>
+      <div class="files">stdlib/duanpub/__init__.py | stdlib/duanpub/HTTP客户端.py</div>
+    </div>
+    <div class="debt-card">
+      <h4>花括号语法残留 <span class="badge badge-orange">P1</span></h4>
+      <p>17 个源_cstyle.duan + 3 个源.duan 仍含 C 风格花括号 <code>{ }</code> 语法。</p>
+      <div class="files">stdlib/duanpub/ 下 20 个 .duan 文件</div>
+    </div>
+    <div class="debt-card">
+      <h4>转译器链式调用 bug <span class="badge badge-red">P0</span></h4>
+      <p>pyproject2duan.py 链式方法调用 <code>a.b.c()</code> 转译不正确。builtin 反向映射不全。</p>
+      <div class="files">tools/ai_copilot/py2duan_transpiler.py | pyproject2duan.py</div>
+    </div>
+    <div class="debt-card">
+      <h4>模块解析器缺陷 <span class="badge badge-orange">P1</span></h4>
+      <p>未识别 "从...导入..." 语法。模块依赖解析 e2e 测试失败。</p>
+      <div class="files">src/module_resolver.py | src/parser_stmt.py</div>
+    </div>
+    <div class="debt-card">
+      <h4>文档过时 <span class="badge badge-red">P0</span></h4>
+      <p>57 个 .md 文件中大量使用 v1.x 过时语法（段落/接收/结束 等），未更新到 v3.4+ 风格。</p>
+      <div class="files">docs/ 下全部文档</div>
+    </div>
+    <div class="debt-card">
+      <h4>CLI 未打包 <span class="badge badge-red">P0</span></h4>
+      <p>有 cli/duan_unified.py 但未做 pip 打包，用户无法 <code>pip install</code> 后直接使用。</p>
+      <div class="files">cli/duan_unified.py | pyproject.toml</div>
+    </div>
+    <div class="debt-card">
+      <h4>5 个 pre-existing 失败 <span class="badge badge-red">P0</span></h4>
+      <p>浮点精度(2)、模块依赖(1)、flaky JWT(1)、clang 缺失(1)，影响 CI 信号可靠性。</p>
+      <div class="files">tests/test_edge_cases.py | tests/e2e/test_module_e2e.py</div>
+    </div>
+    <div class="debt-card">
+      <h4>102 个 P2 包无运行时 <span class="badge badge-blue">P2</span></h4>
+      <p>duanpub 109 包中仅 4 个 P0 有桥接，3 个 P1 待桥接，102 个 P2 包仅有索引无运行时加载机制。</p>
+      <div class="files">stdlib/duanpub/__init__.py | tools/gen_duanpub_index.py</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== RISK ANALYSIS ===== -->
+<div class="section">
+  <div class="section-title">风险分析与应急方案</div>
+  <div class="risk-grid">
+    <div class="risk-card high">
+      <h4>R1: FFI 函数实现复杂度超预期 <span class="risk-level badge badge-red">高</span></h4>
+      <div class="risk-desc">30 个缺失函数中部分涉及底层内存操作（取地址、指针解引用），实现难度可能超出 2 天预算。</div>
+      <div class="risk-fix"><strong>应急:</strong> 先实现测试直接引用的 15 个核心函数，剩余标记为 NotImplemented 并跳过对应测试，W2 补齐。</div>
+    </div>
+    <div class="risk-card high">
+      <h4>R2: duanpub P1 桥接遇到运行时依赖 <span class="risk-level badge badge-red">高</span></h4>
+      <div class="risk-desc">HTTP客户端/Socket 依赖 Python 标准库 socket/urllib，桥接层可能遇到异步 IO 兼容问题。</div>
+      <div class="risk-fix"><strong>应急:</strong> 降级为同步实现 + W3 补充异步支持；若 socket 过于复杂，先只做 SQLite 桥接。</div>
+    </div>
+    <div class="risk-card medium">
+      <h4>R3: 转译器修复与 DuMate 并行冲突 <span class="risk-level badge badge-orange">中</span></h4>
+      <div class="risk-desc">T08/T09 由 Trae 负责，若与 DuMate 修改的文件存在交集可能导致 merge 冲突。</div>
+      <div class="risk-fix"><strong>应急:</strong> 文件隔离: Trae 只动 <code>tools/ai_copilot/</code>，DuMate 不碰该目录。冲突时以 DuMate 为主。</div>
+    </div>
+    <div class="risk-card medium">
+      <h4>R4: 文档统一工作量超预期 <span class="risk-level badge badge-orange">中</span></h4>
+      <div class="risk-desc">57 个 .md 文件逐一审查+更新可能超过 2 天。</div>
+      <div class="risk-fix"><strong>应急:</strong> 用 migrate_syntax.py 的 --md 模式批量扫描过时语法；优先修核心 10 个文档，剩余标为 "v1.x 参考"。</div>
+    </div>
+    <div class="risk-card medium">
+      <h4>R5: CLI 打包遇到依赖问题 <span class="risk-level badge badge-orange">中</span></h4>
+      <div class="risk-desc">pip 打包可能遇到 entry_point 配置、数据文件包含（.duan 模板/语法文件）等打包问题。</div>
+      <div class="risk-fix"><strong>应急:</strong> 先做 zipapp (python -m zipapp) 一键打包，W4 再做正式 PyPI 发布。</div>
+    </div>
+    <div class="risk-card low">
+      <h4>R6: 性能基准结果不理想 <span class="risk-level badge badge-green">低</span></h4>
+      <div class="risk-desc">段言通过 Python AST 转译执行，性能必然低于原生 Python，对比数据可能不好看。</div>
+      <div class="risk-fix"><strong>应急:</strong> 定位为"功能完整性优先于性能"，基准数据仅作内部参考，不对外发布。记录优化方向留待 v4.1。</div>
+    </div>
+    <div class="risk-card low">
+      <h4>R7: Web Playground 部署环境限制 <span class="risk-level badge badge-green">低</span></h4>
+      <div class="risk-desc">本地 Playground 需要后端运行 Python，公开部署需要服务器资源。</div>
+      <div class="risk-fix"><strong>应急:</strong> W3 做本地版（localhost），公开版留待后续。可考虑 WASM 编译路线。</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== RELEASE CHECKLIST ===== -->
+<div class="section">
+  <div class="section-title">v4.0 发布检查清单</div>
+  <div class="checklist">
+    <div class="group-title">编译器核心</div>
+    <ul>
+      <li class="must">全量测试通过: 0 failed (pre-existing 失败全部修复或标记 skip)</li>
+      <li class="must">Lexer 无前缀拆分 bug（"使用CSV" 等不误拆）</li>
+      <li class="must">Parser 装饰器 + 接口方法 bug 修复</li>
+      <li class="must">FFI 30 个缺失函数全部实现</li>
+      <li>模块解析器支持 "从...导入..." 语法</li>
+      <li>17+3 个旧语法 .duan 文件花括号清理完毕</li>
+    </ul>
+    <div class="group-title">生态工具</div>
+    <ul>
+      <li class="must">duanpub P1 三模块（HTTP/Socket/SQLite）可导入使用</li>
+      <li class="must">转译器链式调用 + builtin 反向映射修复</li>
+      <li class="must">转译器报告含文件级状态 + 失败行号 + 修复建议</li>
+      <li>CLI <code>duan run/build/pkg</code> 命令可用</li>
+      <li>VS Code 扩展: 语义高亮 + snippets + hover 提示</li>
+      <li>Web Playground 本地可运行</li>
+    </ul>
+    <div class="group-title">文档与教程</div>
+    <ul>
+      <li class="must">57 个 .md 文档过时语法清理（核心 10 个必更新）</li>
+      <li class="must">端到端实战教程 8 步全流程走通</li>
+      <li>README.md 更新为 v4.0 (安装/快速上手/示例)</li>
+      <li>CHANGELOG.md 完整记录 v3.5 &rarr; v4.0 变更</li>
+      <li>统一语法规范文档更新到 v4.0</li>
+    </ul>
+    <div class="group-title">发布</div>
+    <ul>
+      <li class="must">Git tag <code>v4.0</code> 创建</li>
+      <li class="must">pyproject.toml 版本号更新为 4.0.0</li>
+      <li>GitHub Release 发布（含 CHANGELOG + 安装包）</li>
+      <li>三端验证: CLI + VS Code + Playground</li>
+      <li>性能基准数据记录（内部参考）</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ===== SUCCESS CRITERIA ===== -->
+<div class="section">
+  <div class="section-title">月末成功标准定义</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>维度</th>
+          <th>当前 (v3.5)</th>
+          <th>目标 (v4.0)</th>
+          <th>衡量方式</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>测试通过率</td>
+          <td>1370 passed / 5 failed</td>
+          <td><strong>1380+ passed / 0 failed</strong></td>
+          <td><code>pytest tests/ -q --tb=no</code></td>
+        </tr>
+        <tr>
+          <td>FFI 覆盖</td>
+          <td>~30 函数缺失</td>
+          <td><strong>0 缺失</strong></td>
+          <td>FFI 测试全通过</td>
+        </tr>
+        <tr>
+          <td>duanpub 可用包</td>
+          <td>4/109 (P0 only)</td>
+          <td><strong>7/109 (P0 + P1)</strong></td>
+          <td>导入 HTTP/Socket/SQLite 可用</td>
+        </tr>
+        <tr>
+          <td>转译器覆盖率</td>
+          <td>~85% (链式 bug + builtin 缺失)</td>
+          <td><strong>95%+</strong></td>
+          <td>转译报告统计</td>
+        </tr>
+        <tr>
+          <td>文档一致性</td>
+          <td>57 个 .md 大量过时</td>
+          <td><strong>核心 10 个 100% 更新</strong></td>
+          <td>migrate_syntax --md 扫描</td>
+        </tr>
+        <tr>
+          <td>安装方式</td>
+          <td>手动 git clone</td>
+          <td><strong>pip install duan-lang</strong></td>
+          <td>pip install 后 duan run 可用</td>
+        </tr>
+        <tr>
+          <td>VS Code 扩展</td>
+          <td>基础语法高亮</td>
+          <td><strong>+ snippets + hover + 诊断</strong></td>
+          <td>VS Code 中安装 .vsix 测试</td>
+        </tr>
+        <tr>
+          <td>端到端体验</td>
+          <td>教程到实战断层</td>
+          <td><strong>8 步全流程走通</strong></td>
+          <td>新手按教程操作无阻塞</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===== WORKLOAD SUMMARY ===== -->
+<div class="section">
+  <div class="section-title">工作量汇总</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>周次</th>
+          <th>主题</th>
+          <th>任务数</th>
+          <th>DuMate</th>
+          <th>Trae</th>
+          <th>人工</th>
+          <th>合计人天</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Week 1</td>
+          <td>清债</td>
+          <td>5</td>
+          <td>6.5d</td>
+          <td>-</td>
+          <td>-</td>
+          <td><strong>6.5d</strong></td>
+        </tr>
+        <tr>
+          <td>Week 2</td>
+          <td>筑基</td>
+          <td>5</td>
+          <td>4.5d</td>
+          <td>2.5d</td>
+          <td>-</td>
+          <td><strong>7.0d</strong></td>
+        </tr>
+        <tr>
+          <td>Week 3</td>
+          <td>扩展</td>
+          <td>4</td>
+          <td>5.0d</td>
+          <td>-</td>
+          <td>1.5d</td>
+          <td><strong>6.5d</strong></td>
+        </tr>
+        <tr>
+          <td>Week 4</td>
+          <td>收束</td>
+          <td>4</td>
+          <td>4.5d</td>
+          <td>-</td>
+          <td>-</td>
+          <td><strong>4.5d</strong></td>
+        </tr>
+        <tr style="border-top: 2px solid var(--accent);">
+          <td colspan="3" style="text-align: right; font-weight: 700;">合计</td>
+          <td>20.5d</td>
+          <td>2.5d</td>
+          <td>1.5d</td>
+          <td><strong>24.5d</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top: 12px; font-size: 0.85em; color: var(--text-dim);">
+    注: 按 1 人全职计算约 25 个工作日（5 周），若 DuMate + Trae 并行则约 4 周可完成。预估含 10% 缓冲。
+  </p>
+</div>
+
+</div>
+
+<!-- ===== FOOTER ===== -->
+<div class="footer">
+  <p>段言 DuanLang 一个月开发计划 | 生成日期: 2026-08-04 | 基线: v3.5 (commit 59c127d)</p>
+  <p>1370 tests passed | 62000+ lines | 109 duanpub packages | 62 src files | 91 test files</p>
+</div>
+
+</body>
+</html>
