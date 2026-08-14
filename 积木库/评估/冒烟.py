@@ -9,7 +9,7 @@
 做法：对索引里的每一块，
   1. 按 `样例` 字段（若有）或**结构化类型**推导一组默认实参；
   2. 内联该块源码 + 一行调用，写成临时 .light；
-  3. `python cli/duan.py run` 执行，比对是否报错 / 是否命中 `期望` 值。
+  3. `python cli/light.py run` 执行，比对是否报错 / 是否命中 `期望` 值。
 
 类型驱动的默认实参正是类型系统 v2 的红利：契约写成 `列表[数]` 才能自动造出
 `[3, 1, 4, 1, 5]` 而不是瞎猜。
@@ -175,7 +175,7 @@ def 跑一块(块, python=None, 工位=None):
         f.write(源)
     if True:
         r = subprocess.run(
-            [python or sys.executable, os.path.join(_ROOT, 'cli', 'duan.py'),
+            [python or sys.executable, os.path.join(_ROOT, 'cli', 'light.py'),
              'run', tmp],
             capture_output=True, text=True, encoding='utf-8',
             errors='replace', cwd=_ROOT, timeout=120)

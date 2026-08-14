@@ -32,7 +32,7 @@ def _run_cli(args: List[str], cwd: Path = None) -> Tuple[int, str, str]:
     if cwd is None:
         cwd = REPO_ROOT
     result = subprocess.run(
-        [sys.executable, "-m", "cli.duan_unified"] + args,
+        [sys.executable, "-m", "cli.light_unified"] + args,
         capture_output=True, text=True, timeout=60,
         cwd=str(cwd),
     )

@@ -77,7 +77,7 @@ EXAMPLE_CANDIDATES = sorted(
 def _run_cli(args, cwd=None):
     """以子进程调用 duan CLI，返回 (returncode, stdout, stderr)"""
     result = subprocess.run(
-        [sys.executable, '-m', 'cli.duan_unified'] + args,
+        [sys.executable, '-m', 'cli.light_unified'] + args,
         capture_output=True, text=True, cwd=str(cwd or REPO_ROOT),
         timeout=120,
     )

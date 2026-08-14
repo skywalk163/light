@@ -44,22 +44,22 @@ from 兜底生成器 import generate_block, 注册, local_rule_block, 注销, �
 
 
 def _定位运行时():
-    """定位段言运行时：优先仓库内 cli/duan.py（开发模式），pip 安装后回退到 duan 命令。
+    """定位光明运行时：优先仓库内 cli/light.py（开发模式），pip 安装后回退到 light 命令。
 
-    v1.0 pip 化：duan-blocks 包安装后不再有仓库路径，此时用已安装的 `duan` 命令
-    （pyproject.toml 的 console script）执行 `duan run`。
+    v1.0 pip 化：包安装后不再有仓库路径，此时用已安装的 `light` 命令
+    （pyproject.toml 的 console script）执行 `light run`。
     返回可执行路径或命令名。
     """
-    repo_duan = os.path.join(_REPO, 'cli', 'duan.py')
-    if os.path.isfile(repo_duan):
-        return repo_duan
+    repo_light = os.path.join(_REPO, 'cli', 'light.py')
+    if os.path.isfile(repo_light):
+        return repo_light
     from shutil import which
-    cmd = which('duan')
+    cmd = which('light')
     if cmd:
         return cmd
     raise RuntimeError(
-        '找不到段言运行时：仓库内 cli/duan.py 不存在，也未安装 duan 命令。'
-        '请先 pip install duan 或在本仓库内运行。')
+        '找不到光明运行时：仓库内 cli/light.py 不存在，也未安装 light 命令。'
+        '请先 pip install 或在本仓库内运行。')
 
 
 def _全量查表(索引):
@@ -362,16 +362,16 @@ def 组合(需求, 输入值="[1, 2, 3, 4, 5]", top=3, 语义=False, 关键词=F
     return 方案, 候选
 
 
-def _运行_单次(方案, 输出, duan):
-    """合成 → 运行单个段言文件，返回 (rc, stdout, stderr)。供执行闭环重试复用。
+def _运行_单次(方案, 输出, 运行时):
+    """合成 → 运行单个光明文件，返回 (rc, stdout, stderr)。供执行闭环重试复用。
 
-    `duan` 可能是仓库内 cli/duan.py（需 sys.executable 前缀）或已安装的 `duan`
+    `运行时` 可能是仓库内 cli/light.py（需 sys.executable 前缀）或已安装的 `light`
     命令名（直接调用）。按是否以 .py 结尾区分。
     """
     code = synthesize(方案)
     with open(输出, 'w', encoding='utf-8') as f:
         f.write(code)
-    cmd = [sys.executable, duan] if duan.endswith('.py') else [duan]
+    cmd = [sys.executable, 运行时] if 运行时.endswith('.py') else [运行时]
     try:
         r = subprocess.run(cmd + ['run', 输出],
                            capture_output=True, text=True, timeout=60)
@@ -411,7 +411,7 @@ def _语义匹配(实际, 期望):
 def _成功(rc, out, 期望=None):
     """判断一次段言运行是否真的成功。
 
-    段言 src 后端（cli/duan.py run 默认）会**静默吞掉运行期错误**：
+    段言 src 后端（cli/light.py run 默认）会**静默吞掉运行期错误**：
     `a[99]` 越界、`1 除 0` 等都返回 rc=0 且 stdout 为空。
     因此『成功』必须同时要求 rc==0 **且** 有非空 stdout —— 正常生成的方案
     必有「打印」步骤，成功必有输出；只有崩溃才会 rc=0 且空输出。
@@ -477,7 +477,7 @@ def _cli(argv=None):
     for c in 候选:
         print('  %s（%s）分数=%s' % (c['名称'], c['领域'], c['分数']))
 
-    duan = _定位运行时()
+    运行时 = _定位运行时()
     索引 = load_index()
     查表 = _全量查表(索引)
     # 执行闭环：主方案跑挂自动换次优候选重跑，都挂再触发兜底生成。
@@ -495,7 +495,7 @@ def _cli(argv=None):
     运行记录 = []
     for 标签, 方案_i in 尝试:
         print('\n── 运行（%s）──' % 标签)
-        rc, out, err = _运行_单次(方案_i, args.输出, duan)
+        rc, out, err = _运行_单次(方案_i, args.输出, 运行时)
         if out.strip():
             print(out.rstrip())
         if _成功(rc, out, args.期望):
@@ -518,7 +518,7 @@ def _cli(argv=None):
         if res2:
             方案2, _ = res2
             print('\n── 运行（兜底生成）──')
-            rc, out, err = _运行_单次(方案2, args.输出, duan)
+            rc, out, err = _运行_单次(方案2, args.输出, 运行时)
             if out.strip():
                 print(out.rstrip())
             if _成功(rc, out, args.期望):
