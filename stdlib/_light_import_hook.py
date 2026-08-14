@@ -134,14 +134,16 @@ class DuanFinder(importlib.abc.MetaPathFinder):
             return None
         try:
             for base in self.search_paths:
-                duan_file = os.path.join(base, fullname + '.duan')
-                if not os.path.isfile(duan_file):
-                    continue
-                # 同名 .py 存在 => .duan 只是清单，让标准机制加载 .py
-                if os.path.isfile(os.path.join(base, fullname + '.py')):
-                    return None
-                loader = DuanLoader(fullname, duan_file, self._stdlib_dir)
-                return importlib.util.spec_from_loader(fullname, loader)
+                # 后缀迁移期：.light 为主，.duan 为历史残留，两者都找
+                for ext in ('.light', '.duan'):
+                    duan_file = os.path.join(base, fullname + ext)
+                    if not os.path.isfile(duan_file):
+                        continue
+                    # 同名 .py 存在 => 源文件只是清单，让标准机制加载 .py
+                    if os.path.isfile(os.path.join(base, fullname + '.py')):
+                        return None
+                    loader = DuanLoader(fullname, duan_file, self._stdlib_dir)
+                    return importlib.util.spec_from_loader(fullname, loader)
         except Exception:
             # 钩子出问题绝不能影响正常 import
             return None

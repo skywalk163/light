@@ -287,12 +287,14 @@ def main():
             print(f'跳过不存在的目录: {d}')
             continue
         for name in sorted(os.listdir(full)):
-            if not name.endswith('.duan'):
+            if not name.endswith(('.light', '.duan')):
                 continue
             duan = os.path.join(full, name)
-            py = duan[:-5] + '.py'
+            # 不能写死 [:-5]：.duan 是 5 字符而 .light 是 6 字符
+            stem = os.path.splitext(name)[0]
+            py = os.path.join(full, stem + '.py')
             if os.path.exists(py):
-                targets.append((d, name[:-5], duan, py))
+                targets.append((d, stem, duan, py))
 
     rebuilt, skipped_code, skipped_ok, failed = [], [], [], []
 

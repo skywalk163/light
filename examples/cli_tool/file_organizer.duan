@@ -31,7 +31,7 @@
     "description": "视频文件"
   },
   "Code": {
-    "extensions": [".py", ".js", ".ts", ".java", ".c", ".cpp", ".h", ".hpp", ".go", ".rs", ".rb", ".php", ".swift", ".kt", ".scala", ".duan"],
+    "extensions": [".py", ".js", ".ts", ".java", ".c", ".cpp", ".h", ".hpp", ".go", ".rs", ".rb", ".php", ".swift", ".kt", ".scala", ".light", ".duan"],
     "description": "代码文件"
   },
   "Executables": {

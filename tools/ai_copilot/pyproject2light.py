@@ -927,7 +927,7 @@ def build_all():
     else:
         # 退化为扫描目录
         duan_files = [str(p.relative_to(PROJECT_DIR))
-                      for p in PROJECT_DIR.rglob("*.duan")
+                      for p in list(PROJECT_DIR.rglob("*.light")) + list(PROJECT_DIR.rglob("*.duan"))
                       if "build" not in str(p)]
 
     if not duan_files:

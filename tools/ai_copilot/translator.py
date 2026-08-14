@@ -966,7 +966,7 @@ class LightToPythonTranslator:
 
         for root, dirs, files in os.walk(source_dir):
             for file in files:
-                if not file.endswith('.duan'):
+                if not file.endswith(('.light', '.duan')):
                     continue
                 src_path = os.path.join(root, file)
                 rel_path = os.path.relpath(src_path, source_dir)

@@ -122,7 +122,7 @@ def main():
             if '__pycache__' in dirpath or '.bak' in dirpath:
                 continue
             for n in sorted(names):
-                if n.endswith('.duan'):
+                if n.endswith(('.light', '.duan')):
                     files.append(os.path.join(dirpath, n))
 
     results = []

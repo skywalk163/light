@@ -1099,7 +1099,7 @@ def _extract_from_examples() -> List[tuple]:
         return pairs
 
     for fname in sorted(os.listdir(examples_dir)):
-        if not fname.endswith('.duan'):
+        if not fname.endswith(('.light', '.duan')):
             continue
         filepath = os.path.join(examples_dir, fname)
         with open(filepath, 'r', encoding='utf-8') as f:

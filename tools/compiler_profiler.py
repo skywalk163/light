@@ -301,7 +301,7 @@ class CompilerProfiler:
         files = []
         for root, _dirs, filenames in os.walk(example_dir):
             for f in filenames:
-                if f.endswith('.duan'):
+                if f.endswith(('.light', '.duan')):
                     files.append(os.path.join(root, f))
 
         print(f"\n找到 {len(files)} 个段言文件")

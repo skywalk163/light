@@ -118,8 +118,8 @@ class PlaygroundHandler(BaseHTTPRequestHandler):
         if not name:
             self._send_error(400, '文件名不能为空')
             return
-        if not name.endswith('.duan'):
-            self._send_error(400, '文件名必须以 .duan 结尾')
+        if not name.endswith(('.light', '.duan')):
+            self._send_error(400, '文件名必须以 .light 或 .duan 结尾')
             return
         if name in self.files:
             self._send_error(400, '文件已存在')

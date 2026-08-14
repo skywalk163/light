@@ -923,12 +923,15 @@ def incremental_build_cli(project_dir: str = '.', force: bool = False,
         print(f"[错误] 目录不存在: {root}", file=__import__('sys').stderr)
         return 1
 
-    duan_files = list(root.glob('*.duan'))
+    # 后缀迁移期：.light 为主，.duan 为历史残留，两者都收
+    duan_files = list(root.glob('*.light')) + list(root.glob('*.duan'))
     if not duan_files:
-        print(f"[错误] 未找到 .duan 文件: {root}", file=__import__('sys').stderr)
+        print(f"[错误] 未找到 .light/.duan 源文件: {root}", file=__import__('sys').stderr)
         return 1
 
-    main_file = root / 'main.duan'
+    main_file = root / 'main.light'
+    if not main_file.exists():
+        main_file = root / 'main.duan'
     if not main_file.exists():
         main_file = duan_files[0]
 

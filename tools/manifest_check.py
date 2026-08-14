@@ -93,7 +93,7 @@ def main(argv: list[str]) -> int:
         if not base.is_dir():
             print(f'跳过（目录不存在）: {d}')
             continue
-        for duan in sorted(base.glob('*.duan')):
+        for duan in sorted(list(base.glob('*.light')) + list(base.glob('*.duan'))):
             total += 1
             py = duan.with_suffix('.py')
             if not py.exists():

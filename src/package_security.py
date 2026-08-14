@@ -245,9 +245,10 @@ class PackageSigner:
             except Exception:
                 pass
 
-        # 收集所有需要签名的文件
+        # 收集所有需要签名的文件（.light 为主，.duan 为历史残留，两者都签，
+        # 否则漏签源文件会让签名指纹不覆盖代码，形成安全漏洞）
         files_to_sign = []
-        for ext in ['*.duan', '*.toml', '*.json', '*.md', 'LICENSE']:
+        for ext in ['*.light', '*.duan', '*.toml', '*.json', '*.md', 'LICENSE']:
             files_to_sign.extend(package_dir.glob(ext))
 
         # 计算哈希

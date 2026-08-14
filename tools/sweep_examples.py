@@ -21,7 +21,7 @@ def sweep(path: str, verbose: bool = False) -> dict:
     results = {}
     for root, _dirs, files in os.walk(path):
         for fn in sorted(files):
-            if not fn.endswith('.duan'):
+            if not fn.endswith(('.light', '.duan')):
                 continue
             rel = os.path.relpath(os.path.join(root, fn), path)
             fp = os.path.join(root, fn)

@@ -374,7 +374,7 @@ description = ""
         ('package.toml', '项目配置文件', True),
         ('README.md', '项目说明文档', True),
         ('LICENSE', '开源许可证', True),
-        ('主.duan', '入口源文件', False),
+        ('主.light', '入口源文件', False),
     ]
 
     def _publish_checklist(self, report_only: bool = False) -> Dict[str, Any]:
@@ -420,7 +420,7 @@ description = ""
         Returns:
             生成的文档内容
         """
-        entry_path = self.project_root / (self.config.entry if self.config else '主.duan')
+        entry_path = self.project_root / (self.config.entry if self.config else '主.light')
         docs_content = []
         pkg_name = self.config.name if self.config else self.project_root.name
 
@@ -613,12 +613,12 @@ description = ""
                 print(f"  ❌ 入口文件缺失: {self.config.entry}")
                 all_ok = False
 
-        # 检查 .duan 源文件
-        duan_files = list(self.project_root.glob('*.duan'))
+        # 检查源文件（.light 为主，.duan 为历史残留，两者都算）
+        duan_files = list(self.project_root.glob('*.light')) + list(self.project_root.glob('*.duan'))
         if duan_files:
-            print(f"  ✅ 发现 {len(duan_files)} 个 .duan 源文件")
+            print(f"  ✅ 发现 {len(duan_files)} 个 .light/.duan 源文件")
         else:
-            print("  ⚠️  未发现 .duan 源文件（可能为空包）")
+            print("  ⚠️  未发现 .light/.duan 源文件（可能为空包）")
 
         # 检查依赖可解析
         if self.config and self.config.dependencies:
