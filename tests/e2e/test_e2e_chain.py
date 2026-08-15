@@ -52,6 +52,13 @@ E2E_EXCLUDED = {
     # 少儿编程示例（需交互式输入）
     'kids/number_game.light',
     'kids/story_generator.light',
+    # 图形示例（Python 块调 turtle 并 s.exitonclick()，会阻塞到子进程 120s 超时）
+    # v7：这是全量跑分抖动的主要来源——同一 HEAD 同一机器，run/product 两档
+    # 各自跑通与否只取决于机器负载，导致 failed 数在 67/68/72 之间漂。
+    # 排除而非改例子：例子本身是合法的 L1 教学示例（画笑脸要停在窗口上才有意义），
+    # 阻塞是「测试脚手架不该驱动交互式图形程序」的问题，不是例子的问题。
+    'L1_baihua/10_引Python画笑脸.light',
+
     # CLI 工具示例（需命令行参数）
     'web_crawler/crawler.light',
     # 算法库（已计划在未来版本修复语法）
