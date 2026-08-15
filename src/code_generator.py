@@ -2207,8 +2207,28 @@ class PythonCodeGenerator:
         elif isinstance(expr, BinaryOp):
             left = self._generate_expr(expr.left)
             right = self._generate_expr(expr.right)
+            # v7 单 08：`包含` 的内部占位符（产生点 src/parser_core.py:270）。
+            # 下面那行 operator_map.get(op, op) 的兜底语义是「查不到就原样透传」，
+            # 于是 `@@contains@@` 直接漏进产物：
+            #   如果 文件名 包含 关键词  ->  if (文件名 @@contains@@ 关键词):
+            # SyntaxError。unified 后端 code_generator_unified.py:1247-1248 有这段
+            # 处理，本文件漏了——占位符协议只在一个后端落实。
+            #
+            # 注意方向：`包含` 是唯一一个**操作数需要交换**的比较运算符。
+            # `A 包含 B` 语义是「A 含有 B」-> Python `B in A`。
+            # 绝不能只往 operator_map 加一条 '@@contains@@': 'in'，那会发射
+            # `A in B`，语法过得去而语义反了，把响亮的 SyntaxError 换成 rc=0
+            # 无输出的静默错答案，比现状更坏。三处佐证同向：parser_core.py:270
+            # 注释、code_generator_unified.py:1248、以及本文件成员形式 :2382。
+            #
+            # 括号必须留：`in` 是比较运算符，裸发射会与外层比较串成链式比较
+            # （`x in y == False` -> `(x in y) and (y == False)`，恒假），
+            # 与成员形式 :2378-2381 踩过的是同一个坑。
+            if expr.operator == '@@contains@@':
+                return f"({right} in {left})"
             op = self.operator_map.get(expr.operator, expr.operator)
             return f"({left} {op} {right})"
+
         
         elif isinstance(expr, UnaryOp):
             operand = self._generate_expr(expr.operand)

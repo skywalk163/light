@@ -117,6 +117,44 @@ class TestLexer(unittest.TestCase):
         self.assertEqual(sig[0], ('IDENTIFIER', '二元运算符表'))
         self.assertIn(('KEYWORD', '等于'), sig)
 
+    # ---- v7 新单 C：r"…" 原始字符串前缀 ----
+    # 原实现把 r 切成 IDENTIFIER(r)，紧跟字符串独立成 STRING，产物 r(...) 调用，
+    # 运行期 NameError。收窄新增：字母紧贴引号才当前缀，且施加 raw 语义。
+
+    def test_raw_string_prefix_double_quote(self):
+        """r"…" 整体是一个 STRING，不再切出 IDENTIFIER(r)"""
+        sig = self._sig('设 甲 为 r"\\d{4}"')
+        self.assertNotIn(('IDENTIFIER', 'r'), sig)
+        strings = [v for (typ, v) in sig if typ == 'STRING']
+        self.assertEqual(strings, ['\\d{4}'])   # raw：反斜杠原样保留
+
+    def test_raw_string_prefix_single_quote_and_R(self):
+        for src, want in [("设 甲 为 r'\\d+'", '\\d+'),
+                          ('设 甲 为 R"\\w*"', '\\w*')]:
+            with self.subTest(src=src):
+                sig = self._sig(src)
+                self.assertNotIn(('IDENTIFIER', 'r'), sig)
+                self.assertNotIn(('IDENTIFIER', 'R'), sig)
+                self.assertIn(('STRING', want), sig)
+
+    def test_raw_string_does_not_translate_escapes(self):
+        """raw 语义：\\n \\r 等不翻译，逐字保留"""
+        sig = self._sig('设 甲 为 r"a\\nb"')
+        self.assertIn(('STRING', 'a\\nb'), sig)          # 未翻译
+        self.assertNotIn(('STRING', 'a\nb'), sig)
+
+    def test_plain_string_still_translates_escapes(self):
+        """非 raw 字符串仍翻译转义（收窄不影响普通字符串）"""
+        sig = self._sig('设 甲 为 "a\\nb"')
+        self.assertIn(('STRING', 'a\nb'), sig)           # 翻译成真换行
+
+    def test_r_as_variable_not_prefix_when_spaced(self):
+        """r 后有空格 / 不贴引号时仍是普通标识符，不误判为前缀"""
+        sig = self._sig('设 r 为 1')
+        self.assertIn(('IDENTIFIER', 'r'), sig)
+        self.assertNotIn(('STRING', ''), sig)
+
+
 
     def test_arithmetic_operator_compound_words(self):
         """测试算术运算符复合词不拆分（v4.2 修复）

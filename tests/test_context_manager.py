@@ -304,5 +304,83 @@ class TestAwaitMemberAccess:
         assert 'await' not in result
 
 
+class TestBracketCallArity:
+    """v7 单 04：括号式调用不再被内置动词的 arity 截断
+
+    `求和` 在 VERB_ARITY 里 arity=1，用户却可以定义 `段 求和(a, b)`。
+    原实现用 arity 给括号式收参循环封顶，把 `求和(10, 20)` 编成 `求和(10)`，
+    编译期不报错、运行期才炸，属静默错译。括号与逗号已界定边界，不该再套 arity。
+    """
+
+    def test_two_args_not_truncated(self):
+        result = _compile_ok('段 求和(a, b)：\n  返回 a + b\n打印(求和(10, 20))\n')
+        assert '求和(10, 20)' in result
+
+    def test_three_args_not_truncated(self):
+        """不是「只丢最后一个」：原实现会丢掉 arity 之后的全部"""
+        result = _compile_ok('段 求和(a, b, c)：\n  返回 a + b + c\n打印(求和(1, 2, 3))\n')
+        assert '求和(1, 2, 3)' in result
+
+    def test_nested_call_not_truncated(self):
+        result = _compile_ok('段 求和(a, b)：\n  返回 a + b\n打印(求和(求和(1, 2), 3))\n')
+        assert '求和(求和(1, 2), 3)' in result
+
+    def test_non_verb_name_unchanged(self):
+        """名字不撞内置动词时走标识符路径，行为不变"""
+        result = _compile_ok('段 加法(a, b)：\n  返回 a + b\n打印(加法(10, 20))\n')
+        assert '加法(10, 20)' in result
+
+    def test_args_fewer_than_arity_unchanged(self):
+        """实参数 ≤ arity 的旧输入产物不变（收满即遇 RPAREN 停）"""
+        result = _compile_ok('打印(长度([1, 2, 3]))\n')
+        assert 'len([1, 2, 3])' in result
+
+
+class TestContainsOperator:
+    """v7 单 08：`包含` 的内部占位符 @@contains@@ 不再泄漏，且操作数方向正确
+
+    `A 包含 B` 语义是「A 含有 B」→ Python `B in A`，操作数必须交换。
+    只把占位符替换成 `in` 而不交换，会得到语法通过、语义相反的静默错译，
+    比原来的 SyntaxError 更坏。
+    """
+
+    _SRC = ('段落 查找 接收 文件名, 关键词:\n'
+            '  如果 文件名 包含 关键词:\n'
+            '    打印("命中")。\n')
+
+    def test_placeholder_not_leaked(self):
+        assert '@@' not in _compile_ok(self._SRC)
+
+    def test_operand_order_swapped(self):
+        """容器在左、被找的东西在右 → 产物必须是 关键词 in 文件名"""
+        result = _compile_ok(self._SRC)
+        assert '(关键词 in 文件名)' in result
+        assert '(文件名 in 关键词)' not in result
+
+    def test_compound_or_expression(self):
+        """工单原形：或复合条件里也不泄漏、方向不变"""
+        result = _compile_ok('段落 查找 接收 文件名, 关键词:\n'
+                             '  如果 关键词 等于 "" 或 文件名 包含 关键词:\n'
+                             '    打印("命中")。\n')
+        assert '@@' not in result
+        assert '(关键词 in 文件名)' in result
+
+    def test_parens_kept_to_avoid_chained_comparison(self):
+        """括号必须留：in 是比较运算符，裸发射会与外层比较串成链式比较
+
+        `x in y == False` 会被 Python 解释成 `(x in y) and (y == False)`，恒假。
+        """
+        result = _compile_ok('段落 查找 接收 文件名, 关键词:\n'
+                             '  如果 (文件名 包含 关键词) 等于 假:\n'
+                             '    打印("未命中")。\n')
+        assert '(关键词 in 文件名)' in result
+
+    def test_other_operators_unchanged(self):
+        """不含 包含 的运算符不受影响"""
+        result = _compile_ok('设 甲 为 1 加 2\n')
+        assert '@@' not in result
+        assert '(1 + 2)' in result
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

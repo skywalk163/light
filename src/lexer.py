@@ -698,6 +698,44 @@ class Lexer:
                 i += consumed
                 continue
             
+            # 处理原始字符串：r"..." / R"..."（v7 新单 C）
+            #
+            # 原来没有这条判据，`r` 在下面的 ASCII 标识符分派处被整体吞成
+            # IDENTIFIER('r')，紧跟的字符串再独立成 STRING，于是
+            #   设 甲 = r"\d{4}"   ->  甲 = r("\d{4}")
+            # parse OK、compile 无 error，运行期才炸 NameError: name 'r' is
+            # not defined。属静默错译（demo2_regex 4 处全中）。
+            #
+            # 判据与上面 f 前缀同源：字母**紧贴**引号才算前缀。
+            #   r"x"  -> 前缀
+            #   r "x" -> 标识符 r + 字符串（有空格，不受影响）
+            #   设 r 为 1 / 打印 r -> r 不贴引号，不受影响
+            # 全仓 37255 个 .light 扫过：非注释非嵌入块的「字母紧贴引号」现场
+            # 里没有一处是「变量 r 恰好后跟字符串」，判据零误伤。
+            #
+            # raw=True 不能省：_tokenize_string 会翻译 \n \t \r \\ \x.. \0
+            # （仅「未识别转义」如 \d 才原样保留）。只改调用形状而不施加 raw
+            # 语义，等于把「调用错译」换成「转义错译」——
+            # bootstrap/release/stdlib/正则表达式.light:174 的 r'\r?\n' 就会被改坏。
+            #
+            # 前缀集合本轮只做 r/R（产品裁定）：
+            #   - docs/L2_文言体语法规范_v4.0.md:93-96 是唯一把字符串前缀写进
+            #     规范的地方，且只列了 r
+            #   - f 不动：裸串 "用户{姓名}" 已由 codegen 自动变成 f-string，
+            #     中文侧插值不依赖前缀，另加 f 语义是冗余
+            #   - b 另立单：bytes 要语义正确需 codegen 配合（bytes vs str），
+            #     范围大于本单（contrib/HTTP客户端.light 的 b'' 归那张单）
+            #   - u 不做：Python 3 里是空操作
+            if (source[i] in 'rR' and i + 1 < n and source[i+1] in '"\''
+                    and not (i > 0 and (source[i-1].isalnum() or source[i-1] == '_'))):
+                token, consumed = self._tokenize_string(source, i + 1, line, col + 1, raw=True)
+                tokens.append(token)
+                consumed += 1  # 计入 r 前缀本身
+                col += consumed
+                i += consumed
+                continue
+            
+
             # 处理中文数字（不在此处拦截单个字符，而是交给 _tokenize_chinese_sequence 处理复合数字）
             # 注释：SIMPLE_CHINESE_NUMBERS 单个字符拦截会破坏复合数字（如"零点一"、"一百"）
             # 以及以数字开头的函数名（如"四舍五入"）的解析
@@ -975,8 +1013,14 @@ class Lexer:
         
         return None, 0
     
-    def _tokenize_string(self, source: str, i: int, line: int, col: int) -> Tuple[Token, int]:
-        """处理字符串"""
+    def _tokenize_string(self, source: str, i: int, line: int, col: int,
+                         raw: bool = False) -> Tuple[Token, int]:
+        """处理字符串
+
+        raw=True 时施加原始字符串语义：不翻译任何转义序列，反斜杠逐字保留。
+        由 v7 新单 C 的 `r"…"` 前缀路径传入，见 tokenize() 主循环里的前缀特判。
+        """
+
         start_col = col
         quote_char = source[i]
 
@@ -1015,7 +1059,14 @@ class Lexer:
             j = i + 1
             chars = []
             while j < len(source) and source[j] != quote_char:
-                if source[j] == '\\' and j + 1 < len(source):
+                if raw and source[j] == '\\' and j + 1 < len(source):
+                    # 原始字符串：反斜杠不翻译，但仍参与「下一个字符不作为闭合引号」
+                    # 的扫描（与 Python 一致：r"a\"b" 的值是 a\"b，字符串不在中间截断）。
+                    chars.append(source[j])
+                    chars.append(source[j + 1])
+                    j += 2
+                    continue
+                if not raw and source[j] == '\\' and j + 1 < len(source):
                     next_ch = source[j + 1]
                     if next_ch == 'n':
                         chars.append('\n')

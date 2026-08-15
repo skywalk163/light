@@ -635,9 +635,28 @@ class ParserExprMixin:
                 # 检查是否使用了括号语法：动词(参数1, 参数2)
                 if self._current() and self._current().type == TokenType.LPAREN:
                     # 括号式参数：列表追加(成绩, 分数)
+                    #
+                    # v7 单 04：这里原来是 `while not RPAREN and collected < arity`，
+                    # 拿动词的内置元数去截断**用户已用括号界定好**的参数列表。
+                    # `求和` 在 keywords.py 的 VERB_ARITY 里 arity=1，于是
+                    # `段 求和(a, b)` + `求和(10, 20)` 只收到 `10`，下面 :659 的
+                    # 「跳过剩余 token 直到右括号」把 `, 20` 整段吞掉，产物变成
+                    # `求和(10)`，运行期才炸 missing 1 required positional argument。
+                    # 不是只丢最后一个：三参 `求和(1,2,3)` 会丢掉 arity 之后的全部。
+                    # 编译期不报错、产物语义与源码不符，属静默错译。
+                    #
+                    # arity 上限的存在意义是给**无括号并置式**（`求和 10 20`）消歧——
+                    # 那种写法没有分隔符，必须靠元数知道抓几个。而括号式的
+                    # `(` … `)` 与 `,` 已经把边界写死了，再套 arity 纯属误用。
+                    # 故去掉括号式这一侧的 arity 上限，:672 起的无括号分支不动。
+                    #
+                    # 单向放宽：对「实参数 ≤ arity」的一切旧输入，收满即遇 RPAREN 停，
+                    # 产物逐字节不变；只有原本被吞参的输入改为忠实收全。不会凭空
+                    # 产生原先没有的语义——要么正确执行，要么用户真传错参时得到
+                    # 清晰的 Python TypeError。
                     self._consume(TokenType.LPAREN)
                     collected = 0
-                    while not self._match(TokenType.RPAREN) and collected < arity:
+                    while not self._match(TokenType.RPAREN):
                         if self._current() and self._current().type == TokenType.COMMA:
                             self._consume(TokenType.COMMA)
                             continue
@@ -649,6 +668,7 @@ class ParserExprMixin:
                             break
                         if self._match(TokenType.COMMA):
                             self._consume(TokenType.COMMA)
+
                     # 跳过剩余的 token 直到右括号
                     while self._current() and self._current().type != TokenType.RPAREN:
                         self._consume()
