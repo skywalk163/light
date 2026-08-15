@@ -333,6 +333,8 @@ build_blocks/
 积木库/运行日志.jsonl
 /组合结果.light
 /运行日志.jsonl
+# e2e 跑 L3 SQL 示例（examples/L3_domain/demo1_sql.light 等）在仓库根落下的 sqlite 库
+/成绩.db
 dist_blocks/
 dist_blocks/
 # 评估工具运行期产物（非源码，CI/本地跑分时会再生）

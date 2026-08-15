@@ -2024,12 +2024,83 @@ class ParserStmtMixin:
         
         return result
     
+    # ------------------------------------------------------------------
+    # 遍历循环：连接词 → 语序 映射表（单 01 已定口径，按连接词纯语法消歧）
+    #
+    # 变量在前： 遍 变量[, 变量...] <连接词> 可迭代对象
+    #   于     examples/L0_core/04_遍_循环.light:7 `遍 果 于 水果：`
+    #   在     tests/test_core_coverage.py:161     `遍历 i 在 1 到 10：`
+    #   中的   docs/统一语法规范_v3.2.md:164        `遍历 项 中的 列表：`
+    #   之     tests/test_edge_cases.py:338        `遍历 项 之 列表：`
+    #          （历史上两种语序混用，无法纯语法消歧：`遍 甲 之 乙` 的 token 序列
+    #          完全一致。v7 合并裁定裸 `之` 一律为「变量在前」；需要「可迭代对象
+    #          在前」必须写 `之为` 或 `为`。口径已同步至
+    #          docs/L1_白话体语法规范_v4.0.md 9.1 与 docs/guide/常见问题.md）
+
+    #
+    # 可迭代对象在前： 遍 可迭代对象 <连接词> 变量[, 变量...]
+    #   为     docs/L1_白话体语法规范_v4.0.md:601、docs/guide/常见问题.md:244
+    #          examples/E阶段_L3L4原生语法/E1_L3_SQL原生.light:41 `遍 好成绩 为 行:`
+    #   之为   docs/L1_白话体语法规范_v4.0.md:318 `遍[1,2,3]之为i:`
+    #          docs/L2_文言体语法规范_v4.0.md:367 `遍 列表 之为 元素:`
+    #          （词法上是 `之` + `为` 两个 token，故可与裸 `之` 纯语法区分）
+    # ------------------------------------------------------------------
+    FOREACH_CONNECTORS_VAR_FIRST = frozenset({'之', '在', '于', '中的'})
+    FOREACH_CONNECTORS_ITER_FIRST = frozenset({'为'})
+    FOREACH_CONNECTORS = FOREACH_CONNECTORS_VAR_FIRST | FOREACH_CONNECTORS_ITER_FIRST
+
+    def _scan_foreach_names(self):
+        """前瞻：把当前位置尝试识别为「名字列表」（`名 (, 名)*` 紧跟连接词）。
+
+        纯语法判定，不看标识符含义、不查符号表。命中则把 self.pos 推进到
+        连接词之前并返回名字列表；不命中则完全回滚并返回 None。
+        """
+        saved = self.pos
+        names = []
+        while True:
+            tok = self._current()
+            if tok is None or tok.type not in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                break
+            if tok.type == TokenType.KEYWORD and tok.value in self.FOREACH_CONNECTORS:
+                break
+            names.append(tok.value)
+            self.pos += 1
+            nxt = self._current()
+            if nxt is not None and nxt.type == TokenType.COMMA:
+                self.pos += 1
+                continue
+            break
+        tok = self._current()
+        if names and tok is not None and tok.type == TokenType.KEYWORD \
+                and tok.value in self.FOREACH_CONNECTORS:
+            return names
+        self.pos = saved
+        return None
+
+    def _parse_foreach_targets(self):
+        """解析循环目标名列表 `名 (, 名)*`，返回 Python for 目标文本。"""
+        names = []
+        while True:
+            tok = self._current()
+            if tok is None or tok.type not in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                break
+            names.append(self._consume().value)
+            nxt = self._current()
+            if nxt is not None and nxt.type == TokenType.COMMA:
+                self._consume()
+                continue
+            break
+        return ', '.join(names) if names else '_'
+
     def _parse_foreach_stmt(self, is_async: bool = False) -> ForeachStmt:
         """解析遍历循环
-        
-        语法：遍 变量 之/于/在/中的 可迭代对象:
-              遍 变量 之/于/在/中的 可迭代对象{ body }
+
+        语法（语序由连接词决定，见 FOREACH_CONNECTORS_* 映射表）：
+              遍 变量 之/于/在/中的 可迭代对象:
+              遍 变量, 变量 之/于/在/中的 可迭代对象:
+              遍 可迭代对象 为/之为 变量[, 变量]:
               遍 变量 之/于/在/中的 起始 至 结束:
+              上述各式亦支持 C 风格 `{ body }`
         """
         # 跳过 NEWLINE
         if self._current() and self._current().type == TokenType.NEWLINE:
@@ -2043,43 +2114,86 @@ class ParserStmtMixin:
         else:
             self._consume(TokenType.KEYWORD, '遍历')
         
-        FOREACH_CONNECTORS = frozenset({'之', '在', '于', '中的'})
-        
-        # 语序：遍 变量 之 可迭代对象
-        # 先解析变量名（简单标识符）
-        var_tok = self._current()
-        if var_tok and var_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
-            variable = self._consume().value
-        else:
-            variable = '_'
-        
-        # 解析连接词
-        tok = self._current()
-        if tok and tok.type == TokenType.KEYWORD and tok.value in FOREACH_CONNECTORS:
-            connector = self._consume().value
-        else:
-            self._error(f"遍历循环期望'在'、'之'、'于'或'中的'，但得到 {tok.type} = '{tok.value}'", tok.line, tok.col)
-        
-        # 设置上下文标志，防止"之"在可迭代对象表达式中被当作成员访问符消耗
-        old_foreach_context = self._in_foreach_context
-        self._in_foreach_context = True
-        
-        # 解析可迭代对象表达式（完整表达式）
-        iterable = self._parse_expr()
-        
-        # 恢复上下文标志
-        self._in_foreach_context = old_foreach_context
-        
-        # 处理隐式范围表达式：遍 i 于 1 至 N
-        # 当可迭代对象表达式之后还有非终止符 token 时，尝试解析为范围结束表达式
-        if self._current() and self._current().type not in (TokenType.COLON, TokenType.LBRACE, TokenType.NEWLINE, TokenType.PERIOD):
-            range_saved_pos = self.pos
+        # ---- 第一操作数：可能是「变量名列表」，也可能是「可迭代对象表达式」 ----
+        # 先做纯语法前瞻：`名 (, 名)*` 且紧跟连接词 → 认定为名字列表。
+        # 前瞻失败（如 `范围(1,10)`、`[1,2,3]`、`配置.项()`）才按表达式解析，
+        # 这条回退路径在改动前一律是解析错误，属纯新增能力。
+        lhs_names = self._scan_foreach_names()
+        lhs_expr = None
+        if lhs_names is None:
+            old_foreach_context = self._in_foreach_context
+            self._in_foreach_context = True
             try:
-                end_expr = self._parse_add_expr()
-                if self.pos > range_saved_pos:
-                    iterable = RangeExpr(iterable, end_expr, None)
-            except Exception:
-                self.pos = range_saved_pos
+                lhs_expr = self._parse_expr()
+            finally:
+                self._in_foreach_context = old_foreach_context
+
+        # ---- 连接词：决定语序。`之为` 是 `之`+`为` 两个 token，优先整体匹配 ----
+        tok = self._current()
+        if tok is not None and tok.type == TokenType.KEYWORD and tok.value in self.FOREACH_CONNECTORS:
+            nxt = self._peek(1)
+            if (tok.value == '之' and nxt is not None
+                    and nxt.type == TokenType.KEYWORD and nxt.value == '为'):
+                self._consume()
+                self._consume()
+                connector = '之为'
+            else:
+                connector = self._consume().value
+        else:
+            self._error(
+                f"遍历循环期望'在'、'之'、'于'、'中的'、'为'或'之为'，但得到 {tok.type} = '{tok.value}'",
+                tok.line, tok.col)
+
+        if connector in self.FOREACH_CONNECTORS_ITER_FIRST or connector == '之为':
+            # 可迭代对象在前：遍 可迭代对象 为/之为 变量[, 变量]
+            if lhs_expr is not None:
+                iterable = lhs_expr
+            elif len(lhs_names) == 1:
+                iterable = Identifier(lhs_names[0])
+            else:
+                # 多个名字不可能是可迭代对象，判为语法错误而非猜测
+                self._error(
+                    f"遍历循环连接词 '{connector}' 要求「可迭代对象在前」，"
+                    f"但前面出现了多个名字：{', '.join(lhs_names)}",
+                    tok.line, tok.col)
+            variable = self._parse_foreach_targets()
+        else:
+            # 变量在前：遍 变量[, 变量] 之/于/在/中的 可迭代对象
+            if lhs_names is not None:
+                variable = ', '.join(lhs_names)
+            elif isinstance(lhs_expr, Identifier):
+                variable = lhs_expr.name
+            else:
+                # 连接词判定为「变量在前」，但变量位置不是名字（如 `遍[1,2,3]之为i`
+                # 在紧凑分词下被切成 `之` + `为i`）。此处报错，避免退化成
+                # `for _ in ...` 这种静默错编。
+                self._error(
+                    f"遍历循环连接词 '{connector}' 要求「变量在前」，"
+                    f"但连接词左侧不是循环变量名",
+                    tok.line, tok.col)
+
+
+            # 设置上下文标志，防止"之"在可迭代对象表达式中被当作成员访问符消耗
+            old_foreach_context = self._in_foreach_context
+            self._in_foreach_context = True
+
+            # 解析可迭代对象表达式（完整表达式）
+            iterable = self._parse_expr()
+
+            # 恢复上下文标志
+            self._in_foreach_context = old_foreach_context
+
+            # 处理隐式范围表达式：遍 i 于 1 至 N
+            # 当可迭代对象表达式之后还有非终止符 token 时，尝试解析为范围结束表达式
+            if self._current() and self._current().type not in (TokenType.COLON, TokenType.LBRACE, TokenType.NEWLINE, TokenType.PERIOD):
+                range_saved_pos = self.pos
+                try:
+                    end_expr = self._parse_add_expr()
+                    if self.pos > range_saved_pos:
+                        iterable = RangeExpr(iterable, end_expr, None)
+                except Exception:
+                    self.pos = range_saved_pos
+
         
         # C风格花括号体：遍历 x 于 列表{ body }
         if self._current() and self._current().type == TokenType.LBRACE:
