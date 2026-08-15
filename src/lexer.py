@@ -1726,11 +1726,42 @@ class Lexer:
                     continue
                 elif num_value is not None and num_len > 0:
                     # 前缀是中文数字（如"九十那么"中的"九十"）
-                    # 输出CHINESE_NUM，剩余部分由后续循环处理
-                    _tokens_append(_Token(_TokenType.CHINESE_NUM, num_value, line, current_col))
-                    consumed += num_len
-                    current_col += num_len
-                    continue
+                    #
+                    # v7 新单 A：原判据是「只要有数字前缀就切」，于是把
+                    # `百分位数` 切成 CHINESE_NUM(100) + IDENTIFIER(分位数)、
+                    # `万能钥匙` 切成 CHINESE_NUM(10000) + IDENTIFIER(能钥匙)。
+                    # 更糟的是 `设 甲 为 百分位数` 这种切错的流仍能**解析通过**
+                    # （数字后跟标识符被当成别的形状消费掉），属静默错译：
+                    # 不报错，但产物语义与源码不符。
+                    #
+                    # 慢速回退路径（本文件 :2105-2127 / :2117-2127）的口径与此
+                    # 矛盾——那里只认 `num_len == len(full_identifier)`，else 直接
+                    # 整体输出标识符，**根本没有前缀切分**。两条扫描路径对同一串
+                    # 汉字给出不同 token 流，说明前缀切分是快速路径独有的越界行为。
+                    #
+                    # 收窄为：**仅当数字前缀之后紧跟关键字时才切**。
+                    #   九十那么大 → 余部 `那么大` 以关键字 `那么` 开头 → 照切（保住原用例）
+                    #   百分位数   → 余部 `分位数` 不以关键字开头 → 整体标识符（修掉 bug）
+                    #   万能钥匙   → 余部 `能钥匙` 不以关键字开头 → 整体标识符
+                    #   一百零一 / 三点一四 → 走上面 :1721「整串都是数字」分支，零影响
+                    # 这是**单向收窄**：原本会切的，改后要么仍切、要么不再切；
+                    # 不存在「原本不切、改后反而切了」的方向，故不会新造切分。
+                    #
+                    # 注意：不切的那一侧**只能落空、不能自行输出标识符**。
+                    # 全仓 A/B token 流比对（37255 个 .light）抓到过这个错法：
+                    # 一旦在此直接 emit(full_identifier) 并 continue，就绕过了下面
+                    # :1762 起的用户定义前缀匹配、:1810 的 stdlib 名判定、:1817 起的
+                    # 嵌入关键字扫描。`二元运算符表等于_元` 因此被整块吞成一个标识符，
+                    # 中间的 `等于` 关键字消失（antlrparser/self_hosted/parser.light）。
+                    # 正确做法是让它继续往下走常规标识符流程，由既有逻辑决定怎么切。
+                    rest_kw, _rest_len = _match_kw(source, pos + num_len)
+                    if rest_kw:
+                        # 输出CHINESE_NUM，剩余部分由后续循环处理
+                        _tokens_append(_Token(_TokenType.CHINESE_NUM, num_value, line, current_col))
+                        consumed += num_len
+                        current_col += num_len
+                        continue
+                    # 余部不是关键字：不在此处切分，落空交给下面的常规标识符流程
             
             # 检查前缀是否在用户定义中（如"阶乘结果"在定义中，当前标识符为"阶乘结果等于"）
             # 但若完整标识符本身是关键字（如"列表弹出"在VERB_ARITY中），则优先识别为关键字

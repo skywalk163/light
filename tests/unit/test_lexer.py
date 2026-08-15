@@ -66,6 +66,58 @@ class TestLexer(unittest.TestCase):
         cn_num_tokens = [t for t in tokens if t.type == self.TokenType.CHINESE_NUM]
         self.assertEqual(len(cn_num_tokens), 2)
 
+    def _sig(self, source):
+        """把源码转成 (类型名, 值) 序列，去掉 EOF/NEWLINE/INDENT/DEDENT 噪声"""
+        skip = {'EOF', 'NEWLINE', 'INDENT', 'DEDENT'}
+        return [
+            (t.type.name, t.value)
+            for t in self.Lexer(source).tokenize()
+            if t.type.name not in skip
+        ]
+
+    # ---- v7 新单 A：中文数词前缀切分收窄 ----
+    # 原实现「只要标识符以中文数词开头就切」，把 百分位数 切成
+    # CHINESE_NUM(100) + IDENTIFIER(分位数)。这类流往往还能解析通过，
+    # 属静默错译。收窄后：仅当数词之后紧跟关键字才切。
+
+    def test_number_prefix_not_split_when_rest_is_not_keyword(self):
+        """数词前缀后面不是关键字 → 整体作为标识符，不拆分"""
+        for word in ('百分位数', '万能钥匙', '四元数', '二叉树节点',
+                     '千粒重', '十六进制数字', '二氧化碳吸收', '五数汇总'):
+            with self.subTest(word=word):
+                self.assertEqual(self._sig(word), [('IDENTIFIER', word)])
+
+    def test_number_prefix_still_split_when_rest_is_keyword(self):
+        """数词前缀后面紧跟关键字 → 仍然拆分（保住原有行为）"""
+        sig = self._sig('九十那么大')
+        self.assertEqual(sig[0], ('CHINESE_NUM', 90))
+        self.assertEqual(sig[1], ('KEYWORD', '那么'))
+
+    def test_whole_identifier_is_number_unaffected(self):
+        """整串都是中文数字 → 仍走整串分支，收窄不影响"""
+        self.assertEqual(self._sig('一百零一'), [('CHINESE_NUM', 101)])
+        self.assertEqual(self._sig('三点一四'), [('CHINESE_NUM', 3.14)])
+        self.assertEqual(self._sig('九十九'), [('CHINESE_NUM', 99)])
+
+    def test_number_prefix_word_in_assignment(self):
+        """静默错译的原始现场：设 甲 为 百分位数"""
+        self.assertEqual(
+            self._sig('设 甲 为 百分位数'),
+            [('KEYWORD', '设'), ('IDENTIFIER', '甲'),
+             ('KEYWORD', '为'), ('IDENTIFIER', '百分位数')],
+        )
+
+    def test_number_prefix_word_keeps_embedded_keyword(self):
+        """不切数词前缀时，仍须让后续常规流程识别词中关键字
+
+        反例守护：若在数词分支里直接整块吐出标识符并 continue，
+        就会绕过嵌入关键字扫描，把 二元运算符表等于甲 吞成一个标识符。
+        """
+        sig = self._sig('二元运算符表等于甲')
+        self.assertEqual(sig[0], ('IDENTIFIER', '二元运算符表'))
+        self.assertIn(('KEYWORD', '等于'), sig)
+
+
     def test_arithmetic_operator_compound_words(self):
         """测试算术运算符复合词不拆分（v4.2 修复）
         "加法"、"减法"、"乘法"、"除法" 应整体识别为标识符，不拆分为关键字+字
