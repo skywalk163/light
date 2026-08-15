@@ -75,6 +75,13 @@ class PythonCodeGenerator:
         self._user_defined_functions: set = set()
         # 当前方法参数名追踪（避免将参数名误判为类属性）
         self._current_method_params: set = set()
+        # 局部变量名追踪（作用域敏感）：一旦某名字被「设/段落参数/循环变量/
+        # with-as/解包/异常绑定」等形式绑定为局部变量，它就遮蔽同名的内置函数
+        # 映射（映射→map、读取→input、范围→range 等），此后不再做内置式改写。
+        # 进出段落/类方法时用 _push_scope/_pop_scope 保存与恢复，防止局部名泄漏
+        # 到模块级或污染兄弟段落。存的是「光明源码里的原始名字」（与 expr.name、
+        # _user_defined_functions 的键一致），不是 sanitize 之后的 Python 名。
+        self._local_variables: set = set()
         
         # 是否在函数/段落内部（控制 return 生成）
         self._in_function: bool = False
@@ -487,11 +494,68 @@ class PythonCodeGenerator:
             # 预扫描失败不应阻断编译，最坏退化成旧行为
             pass
     
+    # ------------------------------------------------------------------
+    # 局部变量作用域跟踪（单 03：内置名劫持局部变量）
+    #
+    # 为什么不复用 _user_defined_functions：那个集合是「整个模块全局、只增不减」
+    # 的（import 符号 + 段落名），语义上是"这个名字是用户的函数"。局部变量必须
+    # 是作用域敏感的——`段落 甲` 里的 `设 映射 为 …` 不能让 `段落 乙` 里真正想调
+    # 内置 `映射(f, 列)` 的地方跟着失效。所以另开一个可保存/恢复的集合。
+    # ------------------------------------------------------------------
+    def _bind_local(self, *names) -> None:
+        """把名字登记为「当前作用域的局部变量」。
+
+        接受 str / Parameter 节点 / 可迭代（列表、元组），非法值静默跳过——
+        代码生成器不应因为一个绑定形式没见过就整体崩掉。
+        """
+        for n in names:
+            if n is None:
+                continue
+            if isinstance(n, (list, tuple, set)):
+                self._bind_local(*n)
+                continue
+            if not isinstance(n, str):
+                # Parameter / Identifier 之类节点：取 .name
+                n = getattr(n, 'name', None)
+                if not isinstance(n, str):
+                    continue
+            n = n.strip()
+            if not n:
+                continue
+            # `己.当前` 这类是属性而非局部变量，不登记（否则会误遮蔽同名内置）
+            if '.' in n:
+                continue
+            self._local_variables.add(n)
+
+    def _push_local_scope(self) -> set:
+        """进入段落/方法：继承外层可见的局部名，返回快照供 _pop_local_scope 恢复。
+
+        继承（而非清空）是刻意的：Python 里嵌套函数能读到外层/模块级变量，
+        所以外层的 `设 映射 为 …` 在内层依然遮蔽内置 `映射`。
+        """
+        saved = self._local_variables
+        self._local_variables = set(saved)
+        return saved
+
+    def _pop_local_scope(self, saved: set) -> None:
+        """离开段落/方法：丢弃本作用域新增的绑定，恢复外层视图。"""
+        self._local_variables = saved
+
+    def _shadows_builtin(self, name) -> bool:
+        """该名字是否已被局部变量绑定、从而遮蔽了内置函数映射。
+
+        用户显式定义的函数（_user_defined_functions）走原有护栏，不在此处判定。
+        """
+        return (isinstance(name, str)
+                and name in self._local_variables
+                and name not in self._user_defined_functions)
+
     def generate(self, module: Module) -> str:
         """生成Python代码"""
         self.output_lines = []
         self.indent_level = 0  # 重置缩进级别，防止跨条目状态污染
         self._user_defined_functions = set()  # 重置用户自定义函数追踪
+        self._local_variables = set()  # 重置局部变量追踪
         self._ffi_user_types = {}  # 重置 FFI 用户自定义类型注册表
         
         # 预扫描：显式 import 进来的名字优先级高于内置函数映射
@@ -886,6 +950,9 @@ class PythonCodeGenerator:
             # 普通赋值语句：甲 = 值
             target = self._generate_expr(stmt.target)
             value = self._generate_expr(stmt.value)
+            # 绑定形式⑤：普通赋值。target 为简单名字时才算局部绑定；
+            # `甲[丁] = …`、`己.X = …` 由各自的分支处理，_bind_local 会跳过带点的名字。
+            self._bind_local(stmt.target)
             self._add_line(f"{target} = {value}")
         elif isinstance(stmt, IndexedAssignment):
             # 索引赋值语句：甲[丁] = 值
@@ -902,6 +969,8 @@ class PythonCodeGenerator:
             self._generate_match_stmt(stmt)
         elif isinstance(stmt, DestructuringAssignment):
             # 解构赋值：a, b = value
+            # 绑定形式⑤：解包目标全部登记为局部变量。
+            self._bind_local(*stmt.variables)
             vars_str = ', '.join(self._sanitize_name(v) for v in stmt.variables)
             value = self._generate_expr(stmt.value)
             self._add_line(f"{vars_str} = {value}")
@@ -1015,6 +1084,12 @@ class PythonCodeGenerator:
         """生成变量声明"""
         name = self._sanitize_name(stmt.name)
         value = self._generate_expr(stmt.value)
+        
+        # 绑定形式①：`设 X 为 …`。必须在 value 生成之后登记，否则
+        # `设 映射 为 映射(f, 列)`（用内置结果初始化同名变量）的右侧会被自己遮蔽。
+        # 类属性赋值（己.X / 类属性名）不是局部变量，不登记。
+        if not (self._in_class_method and stmt.name in self._class_attr_names):
+            self._bind_local(stmt.name)
         
         # 处理 己.xxx 形式的属性赋值
         if name.startswith('己.'):
@@ -1138,6 +1213,11 @@ class PythonCodeGenerator:
         var_name = self._sanitize_name(stmt.variable)
         iterable = self._generate_expr(stmt.iterable)
         
+        # 绑定形式③：循环变量。在 iterable 生成之后登记（可迭代对象里若真的调了
+        # 同名内置，不该被循环变量遮蔽）。循环变量在 Python 里循环结束后仍然在作用
+        # 域内，所以不做出循环即失效的处理。
+        self._bind_local(stmt.variable)
+        
         for_keyword = "async for" if getattr(stmt, 'is_async', False) else "for"
         self._add_line(f"{for_keyword} {var_name} in {iterable}:")
         
@@ -1198,13 +1278,16 @@ class PythonCodeGenerator:
         
         # 从段落体中提取参数声明
         params = []
+        raw_param_names = []  # 绑定形式②用：参数的「源码原名」（未 sanitize）
         body_without_params = []
         for s in (stmt.body or []):
             if isinstance(s, Parameter):
                 params.append({'name': self._sanitize_name(s.name), 'type': s.type_annotation})
+                raw_param_names.append(s.name)
             elif isinstance(s, ParameterList):
                 for param_name in s.params:
                     params.append({'name': self._sanitize_name(param_name), 'type': None})
+                    raw_param_names.append(param_name)
             else:
                 body_without_params.append(s)
         
@@ -1212,6 +1295,7 @@ class PythonCodeGenerator:
         for param in (stmt.params or []):
             param_name = self._sanitize_name(param['name'])
             param_type = param.get('type')
+            raw_param_names.append(param['name'])
             existing = next((p for p in params if p['name'] == param_name), None)
             if existing:
                 if param_type:
@@ -1244,6 +1328,11 @@ class PythonCodeGenerator:
         self._user_defined_functions.add(stmt.name)
         
         old_in_function = self._in_function
+        # 进入段落作用域：继承外层可见的局部名，再登记本段落的参数
+        # （绑定形式②：段落参数）。段落体里 `设 …` 新增的绑定在退出时丢弃，
+        # 不会泄漏到模块级、也不会污染兄弟段落。
+        saved_locals = self._push_local_scope()
+        self._bind_local(*raw_param_names)
         self._in_function = True
         self.indent_level += 1
         if body_without_params:
@@ -1253,6 +1342,7 @@ class PythonCodeGenerator:
             self._add_line("pass")
         self.indent_level -= 1
         self._in_function = old_in_function
+        self._pop_local_scope(saved_locals)
         
         self._add_line("")
     
@@ -1278,6 +1368,9 @@ class PythonCodeGenerator:
     
     def _generate_catch_clause(self, catch_type, catch_var, catch_body):
         """生成单个except块"""
+        # 绑定形式⑥：异常绑定 `捕获 X 为 变量`。变量在 except 体内是局部名，
+        # 必须遮蔽同名内置（否则 `捕获 值错误 为 映射` 后引用 映射 会变成 map()）。
+        self._bind_local(catch_var)
         if catch_type == '外部错误':
             # FFI 外部错误处理
             if catch_var:
@@ -1740,6 +1833,8 @@ class PythonCodeGenerator:
                 expr_str = expr_str.replace('_light_builtin.写入文件', 'open').replace('写入文件', 'open')
                 if var:
                     var_name = self._sanitize_name(var)
+                    # 绑定形式④：`使用 … 为 变量`（多上下文管理器形式）
+                    self._bind_local(var)
                     parts.append(f"{expr_str} as {var_name}")
                 else:
                     parts.append(expr_str)
@@ -1753,6 +1848,8 @@ class PythonCodeGenerator:
             context_expr = context_expr.replace('_light_builtin.写入文件', 'open').replace('写入文件', 'open')
             if stmt.variable:
                 var_name = self._sanitize_name(stmt.variable)
+                # 绑定形式④：`使用 … 为 变量`（单上下文管理器形式）
+                self._bind_local(stmt.variable)
                 self._add_line(f"{prefix}with {context_expr} as {var_name}:")
             else:
                 self._add_line(f"{prefix}with {context_expr}:")
@@ -1782,6 +1879,8 @@ class PythonCodeGenerator:
         self._needs_asyncio = True
         
         if stmt.result_vars:
+            # 绑定形式⑤：异步作用域的结果变量也是解包目标
+            self._bind_local(*stmt.result_vars)
             vars_str = ', '.join(self._sanitize_name(v) for v in stmt.result_vars)
             self._add_line(f"{vars_str} = await asyncio.gather({task_str})")
         else:
@@ -1932,6 +2031,10 @@ class PythonCodeGenerator:
 
         old_in_function = self._in_function
         old_in_class = self._in_class_method
+        # 进入类方法作用域（绑定形式②：方法参数）。_current_method_params 收的是
+        # 「排除 self. 前缀」用的同一批原名，直接复用，避免两处各扫一遍参数表。
+        saved_locals = self._push_local_scope()
+        self._bind_local(*self._current_method_params)
         self._in_function = True
         self._in_class_method = not is_static
         self.indent_level += 1
@@ -1992,6 +2095,8 @@ class PythonCodeGenerator:
         self._in_function = old_in_function
         self._in_class_method = old_in_class
         self._current_method_params = set()
+        # 离开类方法作用域：方法内的局部绑定不泄漏到类体/模块级
+        self._pop_local_scope(saved_locals)
     
     def _generate_expr(self, expr: ASTNode) -> str:
         """生成表达式"""
@@ -2101,8 +2206,17 @@ class PythonCodeGenerator:
             if self._in_class_method and isinstance(expr.name, str) and expr.name.startswith('己.'):
                 name = 'self.' + expr.name[2:]
             
-            # 检查是否是内置函数（但不覆盖用户自定义的函数）
-            if expr.name in self.builtin_map and expr.name not in self._user_defined_functions:
+            # 单 03·路径1：局部变量遮蔽内置名。
+            # parser 对「内置/动词名」做了特判——即便是裸引用（如 `映射['a']` 里的
+            # `映射`）也会解析成零参 ParagraphCall。若该名字已被绑定为局部变量，它
+            # 就不再是内置函数，绝不能翻译成 map()/input()：
+            #   - 零参（裸引用）：发射变量名本身，让外层 IndexAccess 等拿到 `映射`
+            #     而非 `map()`；
+            #   - 带参（把局部变量当可调用对象调用）：发射 `变量名(args)`。
+            shadowed = self._shadows_builtin(expr.name)
+            
+            # 检查是否是内置函数（但不覆盖用户自定义的函数 / 已被局部变量遮蔽的名字）
+            if (not shadowed) and expr.name in self.builtin_map and expr.name not in self._user_defined_functions:
                 py_name = self.builtin_map[expr.name]
             else:
                 py_name = name
@@ -2118,6 +2232,10 @@ class PythonCodeGenerator:
                 else:
                     args.append(self._generate_expr(arg))
             args_str = ', '.join(args)
+            
+            # 被局部变量遮蔽且为裸引用（零参）：发射裸变量名，不加调用括号
+            if shadowed and not expr.args:
+                return py_name
             
             # 如果函数名是lambda表达式，需要加括号包裹，避免lambda body被误认为函数调用参数
             # 例如：随机(0, 10) → (lambda *a: __import__("random").random())(0, 10)
@@ -2240,29 +2358,36 @@ class PythonCodeGenerator:
                 if expr.member.startswith('cb_'):
                     return f"{mapped_member}({args_str})"
 
-                # P5 核心改造：内置函数式优先
-                # 如果方法名在 builtin_map 中，转为函数式调用
-                # 这样 obj.方法(args) 自动转为 内置函数(obj, args)
-                # 但 method_name_map 中的标准方法（如 追加→append）仍保留为方法调用
+                # P5 核心改造：内置函数式优先 —— 单 03 已收窄，见下方边界说明。
+                #
+                # 原实现：只要 member 在 builtin_map 且不在 method_name_map，就把
+                # `obj.成员(args)` 改写成 `内置(obj, args)`。这条改写是**静默错译的
+                # 源头**：`计数.读取()` → `input(计数)`（跑到 stdin 上去了）、
+                # `f.读取()` → `input(f)`（把文件对象当提示串）。用户写 `obj.成员`
+                # 时表达的是「向这个对象要一个方法」，不是「把这个对象喂给内置函数」。
+                #
+                # 收窄后的边界：**只有 obj 本身就是内置命名空间时才做函数式改写**。
+                # 目前唯一的内置命名空间是 `_light_builtin`（见 test_turing.light 的
+                # `_light_builtin.字典设置(...)`：方法名已在命名空间上，直接调用即可，
+                # 且不能把命名空间自己注入成第一个实参）。其余一切 `obj.成员(...)`
+                # 统一按方法调用发射。
+                #
+                # 为什么这不会伤到「正常映射」——它们根本走不到这里：
+                #   · 追加→append、插入→insert、弹出→pop、排序→sort、反转→reverse、
+                #     替换→replace、分割→split… 都在 method_name_map 里，被本行的
+                #     `expr.member not in self.method_name_map` 条件挡在外面，走
+                #     下面的 `obj.{mapped_member}(...)`；
+                #   · 长度→len(obj) 在 :2223 单独特判并直接 return；
+                #   · 包含→(x in obj) 在 :2230 单独特判并直接 return；
+                #   · 连接→_light_join 在 :2234 单独特判并直接 return；
+                #   · 函数式的 长度([1,2])/范围(0,3) 是 ParagraphCall，不经过
+                #     MemberAccess 分支，内置映射照旧生效。
                 builtin_target = self.builtin_map.get(expr.member)
-                if builtin_target and expr.member not in self.method_name_map:
-                    # 内置函数（非标准方法）：转为函数式调用
-                    # 若 obj 本身已是内置命名空间（_light_builtin.方法(...)，如
-                    # test_turing.light 的 _light_builtin.字典设置(...)），方法名已可
-                    # 直接调用，不能再把 _light_builtin 注入为第一个参数，
-                    # 否则会多出一个参数（lambda 形参不匹配，TypeError）。
-                    if obj == '_light_builtin':
-                        return f"{builtin_target}({args_str})"
-                    # 如果目标是 lambda 表达式，需要加括号包裹，避免 lambda 优先级问题
-                    if builtin_target.startswith('lambda '):
-                        if args_str:
-                            return f"({builtin_target})({obj}, {args_str})"
-                        else:
-                            return f"({builtin_target})({obj})"
-                    if args_str:
-                        return f"{builtin_target}({obj}, {args_str})"
-                    else:
-                        return f"{builtin_target}({obj})"
+                if (builtin_target and expr.member not in self.method_name_map
+                        and obj == '_light_builtin'):
+                    # obj 已是内置命名空间：方法名可直接调用，不能再把
+                    # _light_builtin 注入为第一个参数（会多出一个实参，TypeError）。
+                    return f"{builtin_target}({args_str})"
 
                 return f"{obj}.{mapped_member}({args_str})"
             else:

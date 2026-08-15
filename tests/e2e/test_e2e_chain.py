@@ -10,6 +10,7 @@
 覆盖 ≥10 个示例程序（3.4.1 验收标准）。
 """
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,16 @@ import pytest
 
 # 项目根目录（tests/e2e/ → 项目根）
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+# 子进程运行环境：强制 UTF-8。
+# Windows 控制台默认 cp936(GBK)，示例里的补充平面 emoji（如 📁 🎨）
+# 会让子进程 print 抛 UnicodeEncodeError，与被测代码正确性无关。
+# 只改执行环境编码，不改任何断言。
+E2E_SUBPROC_ENV = {
+    **os.environ,
+    'PYTHONUTF8': '1',
+    'PYTHONIOENCODING': 'utf-8',
+}
 
 # 已知不参与全链路的示例（需要 FFI C 库、跨模块或特殊运行环境）
 E2E_EXCLUDED = {
@@ -79,7 +90,7 @@ def _run_cli(args, cwd=None):
     result = subprocess.run(
         [sys.executable, '-m', 'cli.light_unified'] + args,
         capture_output=True, text=True, cwd=str(cwd or REPO_ROOT),
-        timeout=120,
+        timeout=120, env=E2E_SUBPROC_ENV,
     )
     return result.returncode, result.stdout, result.stderr
 
@@ -114,6 +125,7 @@ def test_duan_compile_and_run_product(rel_path):
         result = subprocess.run(
             [sys.executable, str(out_py)],
             capture_output=True, text=True, cwd=str(REPO_ROOT), timeout=120,
+            env=E2E_SUBPROC_ENV,
         )
         assert result.returncode == 0, \
             f"运行产物失败 ({rel_path}):\n{result.stderr}\n{result.stdout}"
