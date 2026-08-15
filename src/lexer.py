@@ -9,6 +9,7 @@
 参考：newlisp/yan 的无空格分词实现
 """
 
+import re
 from dataclasses import dataclass
 from typing import List, Set, Dict, Optional, Tuple
 from enum import Enum
@@ -434,6 +435,41 @@ _SYMBOL_TOKEN_MAP = {
     '!': TokenType.BANG,
     '\uff01': TokenType.BANG,
 }
+
+
+# ---------------------------------------------------------------------------
+# L4 外语引用块的导出函数名提取（v7 单 20）
+#
+# 背景：`引 C:` / `引 Go:` 块里定义的函数，会在产物运行期被绑进模块 globals()，
+# 因此在光明侧就是「用户显式声明的名字」。但这些名字若含内置动词（如 J1 的
+# `快速求和` 尾部含 `求和`、J2 直接导出 `求和`），词法层的最长前缀匹配会把它
+# 切碎（快速求和 -> IDENTIFIER 快速 + KEYWORD 求和），生成层的 builtin_map 还会
+# 把它顶替成 sum / math.factorial，最终产物根本调不到外语函数。
+#
+# 这两条正则必须与 src/code_generator.py 里运行期实际绑定用的正则**逐字同源**：
+#   C  : src/code_generator.py:3443
+#   Go : src/code_generator.py:3494
+# 若白名单登记的名字集合与 globals() 实际绑定的集合不相等，就会把「名字被拆碎」
+# 换成「名字未绑定」，同样是 NameError，只是换了个位置。
+_L4_C_DECL_RE = re.compile(r'(?:int|float|double|void|long|char\s*\*)\s+(\w+)\s*\(')
+_L4_GO_EXPORT_RE = re.compile(r'//export\s+(\w+)')
+
+
+def extract_embed_export_names(language: str, code: str) -> Set[str]:
+    """从 L4 嵌入源码里提取「会被绑进光明命名空间的导出函数名」。
+
+    只有 C 与 Go 两种语言在运行期往 globals() 写名字；MoonBit
+    （src/code_generator.py:3510-3560）与 Python 沙箱分支都不写，
+    因此这里对它们必须返回空集 —— 否则白名单有名、运行期无绑定，
+    反而制造新的 NameError（J3_MoonBit_快速排序 就靠这条保持现状）。
+    """
+    tokens = (language or '').strip().split()
+    lang = tokens[0].lower() if tokens else ''
+    if lang == 'c':
+        return set(_L4_C_DECL_RE.findall(code))
+    if lang in ('go', 'golang'):
+        return set(_L4_GO_EXPORT_RE.findall(code))
+    return set()
 
 
 class LexerError(Exception):
@@ -2111,6 +2147,56 @@ class Lexer:
         n = len(source)
         _is_han = _is_han_fast
         _is_space_tab = _is_ascii_space_tab
+
+        # ---- v7 单 20：先把 L4 引 C/Go 块的导出函数名登记进白名单 ----
+        #
+        # 为什么必须在词法预扫描阶段做：Lexer.tokenize 第一件事就是调用本方法拿
+        # user_definitions，随后传给 _tokenize_identifier_or_keyword。等 parser 拿到
+        # token 时，J1 的 `快速求和` 已经是 IDENTIFIER 快速 + KEYWORD 求和 两颗，
+        # 信息已丢，任何后置补救都来不及。
+        #
+        # 为什么单开一遍扫描而不塞进下面的主循环：主循环的 search_targets 跳跃与
+        # 各分支的 i 推进耦合很紧，插一个分支进去容易悄悄改变既有登记行为。这里
+        # 纯加性 —— 只往 definitions 里加名字，主循环一个字节都不动。
+        #
+        # 前缀门槛与真实分词器保持一致（见主循环的嵌入块检测段）：'嵌入' 两字；
+        # '引' 必须紧跟空格/制表/冒号/换行，避免把 引号/引用 这类复合词误判。
+        # 额外加「行首门槛」：块前缀之前只能是空白。本方法是裸文本预扫描、不认
+        # 字符串字面量，而仓内确实有字符串里写着 引 Python: 的例子
+        # （examples/L4_python/all_in_one_demo.light:90、demo4_requests_http.light:30），
+        # 行首门槛正好把它们挡在外面 —— 真实分词器不会踩这个坑，因为字符串在
+        # 更早的分支就被整体吞掉了。
+        _probe = 0
+        while _probe < n:
+            _p1 = source.find('引', _probe)
+            _p2 = source.find('嵌入', _probe)
+            if _p1 == -1 and _p2 == -1:
+                break
+            if _p1 == -1 or (_p2 != -1 and _p2 < _p1):
+                _hit, _prefix = _p2, 2
+            else:
+                _hit, _prefix = _p1, 1
+                if not (_hit + 1 < n and source[_hit + 1] in ' \t:\n'):
+                    _probe = _hit + 1
+                    continue
+            _line_start = source.rfind('\n', 0, _hit) + 1
+            if source[_line_start:_hit].strip():
+                _probe = _hit + 1
+                continue
+            # 复用分词器自己的块定界（含单 15 的缩进回归/EOF 闭合），保证
+            # 「预扫描认定的块体」与「分词认定的块体」同源，不会错位。
+            try:
+                _tok, _ = self._tokenize_embed_block(source, _hit, 1, 1, _prefix)
+            except LexerError:
+                # 零缩进块体且无显式结束标记 —— 分词阶段会照样报错，
+                # 预扫描不越权代替它报，跳过即可。
+                _tok = None
+            if _tok is not None and isinstance(_tok.value, tuple) and len(_tok.value) == 2:
+                definitions |= extract_embed_export_names(_tok.value[0], _tok.value[1])
+            # 只前进一个字符、不跳过块体：今天的主循环本来就会扫进块体并从中
+            # 登记 设/段/导 之类的名字，跳过块体会减少既有白名单、可能打红既有绿。
+            _probe = _hit + 1
+
 
         # 使用 str.find() 跳跃到关键位置，避免逐字符扫描
         # 搜索目标：'《' (段落/类/方法定义), '设' (变量定义), '定义' (变量定义), '函数', '段落' (函数定义), '导' (导出/导入 列表)

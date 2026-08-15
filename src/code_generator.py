@@ -10,6 +10,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 from typing import List, Optional, Dict
 from light_parser_v3 import *
 from keywords import VERB_ARITY
+# v7 单 20：L4 引 C/Go 块导出名提取，与词法预扫描共用同一份正则（见 lexer.py）
+from lexer import extract_embed_export_names
 import ast_nodes as ast_nodes_module
 
 
@@ -322,6 +324,15 @@ class PythonCodeGenerator:
             '转整数': '_light_builtin.转整数',
             '转浮点': '_light_builtin.转浮点',
             '转串': '_light_builtin.转字符串',
+            # v7 单 19：短类型名兼作转换函数。规范把 串()/整()/列() 当一组三兄弟
+            # 明文承诺（docs/L2_文言体语法规范_v4.0.md:287 一行内两种身份并用：
+            # 设 文字: 串 = 串(123)；同段 :286 整(...)、:288 列(...)），而实现里
+            # 只有 列 落地了（:363 '列': '_light_builtin.列'），串 与 整 从缺。
+            # 与长名同族（走 stdlib）而不是映射到 str/int，是为了跟已落地的 列 一致。
+            # 类型注解一侧不受影响：注解走 _map_type / _TYPE_NAME_MAP 两个
+            # 字符串映射，从不读 builtin_map。
+            '串': '_light_builtin.转字符串',
+            '整': '_light_builtin.转整数',
             '转字符串': '_light_builtin.转字符串',
             '到字符串': '_light_builtin.转字符串',
             '转换字符串': '_light_builtin.转字符串',
@@ -482,6 +493,16 @@ class PythonCodeGenerator:
                 alias = getattr(node, 'alias', None)
                 if isinstance(alias, str) and alias:
                     self._user_defined_functions.add(alias)
+
+            # v7 单 20：L4 引 C/Go 块导出的函数名与显式 import 同级 —— 都是
+            # 「用户显式声明了这个名字」，必须压过 builtin_map。否则 J2 的
+            # `引 Go:` 里 //export 求和，光明侧 求和(...) 仍被顶成 sum(...)。
+            # 必须放在这个预扫描里而不是 _generate_embed_block 里懒登记：
+            # CodeGenerator 是单遍生成，块写在调用点之后时懒登记来不及。
+            if isinstance(node, EmbedBlock):
+                self._user_defined_functions |= extract_embed_export_names(
+                    getattr(node, 'language', '') or '',
+                    getattr(node, 'code', '') or '')
 
             for attr in CHILD_ATTRS:
                 child = getattr(node, attr, None)
@@ -3452,7 +3473,9 @@ class PythonCodeGenerator:
             self._add_line("            globals()[_LIGHT_C_FN] = lambda *a, _fn=_LIGHT_C_FN: f'[C:{_fn} 未加载]'")
             self._add_line("    else:")
             self._add_line("        globals()[_LIGHT_C_FN] = lambda *a, _fn=_LIGHT_C_FN: f'[C:{_fn} 编译器未找到]'")
-            self._add_line("del _LIGHT_C_CODE, _LIGHT_C_FN, _LIGHT_C_FUNCS")
+            # v7 单 20：不要 del 循环变量 _LIGHT_C_FN —— 块内提不出任何函数声明时
+            # （如只有 #define 的 C 块）它从未被绑定，del 会 NameError 打断整个产物。
+            self._add_line("del _LIGHT_C_CODE, _LIGHT_C_FUNCS")
             self._add_line(f"# --- 结束 L4 引 C ---")
             return
 
@@ -3469,6 +3492,9 @@ class PythonCodeGenerator:
             for line in code.split('\n'):
                 self._add_line(line)
             self._add_line("'''")
+            # v7 单 20：导出名提取提到 go 探测之外（对齐 C 路径 :3443 的无条件提取）。
+            # 原实现把 findall 放在 build 成功的 try 里，无 go 时连"要绑哪些名字"都不知道。
+            self._add_line("_LIGHT_GO_EXPORTS = _light_l4_re.findall(r'//export\\s+(\\w+)', _LIGHT_GO_CODE)")
             # 检测 Go 编译器
             self._add_line("_LIGHT_GO_OK = False")
             self._add_line("try:")
@@ -3490,8 +3516,6 @@ class PythonCodeGenerator:
             self._add_line("    try:")
             self._add_line("        _light_sp.run(['go', 'build', '-buildmode=c-shared', '-o', _LIGHT_GO_LIB, _LIGHT_GO_SRC], cwd=_LIGHT_GO_DIR, check=True)")
             self._add_line("        _LIGHT_GO_DLL = _light_ctypes.CDLL(_LIGHT_GO_LIB)")
-            # 自动解析 //export GoFuncName 导出函数
-            self._add_line("        _LIGHT_GO_EXPORTS = _light_l4_re.findall(r'//export\\s+(\\w+)', _LIGHT_GO_CODE)")
             self._add_line("        for _LIGHT_GO_FN in _LIGHT_GO_EXPORTS:")
             self._add_line("            try:")
             self._add_line("                _LIGHT_GO_FN_OBJ = getattr(_LIGHT_GO_DLL, _LIGHT_GO_FN)")
@@ -3503,7 +3527,15 @@ class PythonCodeGenerator:
             self._add_line("        print(f'[L4 Go] 编译失败: {_LIGHT_GO_ERR}')")
             self._add_line("else:")
             self._add_line("    print('[L4 Go] Go 编译器未安装, 跳过')")
-            self._add_line("del _LIGHT_GO_CODE")
+            # v7 单 20：无论 go 是否安装、build 是否成功，导出名都必须绑上占位，
+            # 与 C 路径的三分支全覆盖（:3450/:3452/:3454）对齐。原实现只在
+            # build 成功的 try 块里绑定，无 go 时 `斐波那契(10)` 直接 NameError。
+            # `not in globals()` 保证 build 成功时不覆盖上面绑好的真实函数对象。
+            self._add_line("for _LIGHT_GO_FN in _LIGHT_GO_EXPORTS:")
+            self._add_line("    if _LIGHT_GO_FN not in globals():")
+            self._add_line("        globals()[_LIGHT_GO_FN] = lambda *a, _fn=_LIGHT_GO_FN: f'[Go:{_fn} 编译器未找到]'")
+            # 不要 del 循环变量 _LIGHT_GO_FN：导出名为空时它从未被绑定，del 会 NameError
+            self._add_line("del _LIGHT_GO_CODE, _LIGHT_GO_EXPORTS")
             self._add_line(f"# --- 结束 L4 引 Go ---")
             return
 
