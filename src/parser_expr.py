@@ -33,6 +33,18 @@ _EXPR_START_KEYWORDS = frozenset({
     '真', '假', '空',  # 特殊值
 })
 
+# 具名实参（kwarg=value）参数名收集时的停止关键字集合。
+# 与 _parse_postfix 里 C 风格 kwarg 检测原本内联的那份保持字面一致，
+# v7 新单 B 把它抽成模块常量，供 _try_parse_kwarg 单点复用（三处括号式
+# 收参循环 + 后缀调用共享同一判据，避免行为分叉）。
+_KWARG_NAME_STOP_KEYWORDS = frozenset({
+    '为', '等于', '接收', '返回', '令', '循环', '断言', '输出',
+    '如果', '否则', '那么', '若', '则', '当', '遍历', '设', '定义',
+    '类', '构造', '函数', '段落', '尝试', '捕获', '抛出', '最终', '导入',
+    '导出', '从', '真', '假', '空', '且', '或', '非', '与', '等待',
+    '匹配', '情况', '的', '之', '对', '步', '至', '到',
+})
+
 
 class ParserExprMixin:
     """表达式解析混入类"""
@@ -45,6 +57,53 @@ class ParserExprMixin:
         if tok.type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT, TokenType.DOT, TokenType.PERIOD):
             return True
         return False
+
+    def _try_parse_kwarg(self) -> Optional['ASTNode']:
+        """尝试把当前位置解析为括号式调用里的关键字实参 `标识符 = 表达式`。
+
+        成功：返回 KeywordArg 节点，游标停在该实参值之后。
+        失败：原样回退游标并返回 None，交由调用方按位置实参解析。
+
+        —— v7 新单 B（具名实参 kwarg=value）——
+        括号式调用里原本没有「标识符 + `=` → 关键字实参」这条产生式：
+        `甲(a = 1)`、`排序(xs, 依据 = …)` 都在遇到 `=` 时抛
+        「意外的标记『=』」。本方法补齐这条产生式，语义与 Python
+        `kwarg=value` 一致。
+
+        消歧判据（实测反例见 .scratch/probe_kwarg*.py）：
+        - **只认 EQUALS**（`=`，本仓 tokens.py:43 的赋值 token）。比较运算符
+          `==` 是独立的 EQ_EQ token（lexer.py:982），收完名字后看到的是
+          EQ_EQ 而非 EQUALS，于是回退成位置实参——`f(a == 1)` / `若 a == 1`
+          绝不会被误当具名实参。
+        - 参数名允许由多个相邻 token 拼成（lexer 会把「步长天」切成数段），
+          但一旦碰到语句/表达式起始关键字（_KWARG_NAME_STOP_KEYWORDS）即停，
+          避免把 `依据` 后面的 `段`… 并进名字。
+        - 值用 _parse_comparison() 解析，与既有 C 风格 kwarg（_parse_postfix）
+          和 `接收` lambda 的取值粒度一致。
+        """
+        cur = self._current()
+        if not cur or cur.type not in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+            return None
+        saved_pos = self.pos
+        name_parts = []
+        while self._current():
+            t = self._current()
+            if t.type == TokenType.IDENTIFIER:
+                name_parts.append(self._consume().value)
+            elif t.type == TokenType.KEYWORD and t.value not in _KWARG_NAME_STOP_KEYWORDS:
+                name_parts.append(self._consume().value)
+            else:
+                break
+        if name_parts and self._current() and self._current().type == TokenType.EQUALS:
+            self._consume(TokenType.EQUALS)
+            value = self._parse_comparison()
+            if value is not None:
+                from ast_nodes_v3 import KeywordArg
+                return KeywordArg(''.join(name_parts), value)
+        # 不是具名实参（没有 `=`，或 `=` 后取不到值）：回退，按位置实参重解析
+        self.pos = saved_pos
+        return None
+
     
     def _parse_expr(self) -> ASTNode:
         """解析表达式（支持管道操作符、逻辑运算符和后置三元）"""
@@ -660,6 +719,16 @@ class ParserExprMixin:
                         if self._current() and self._current().type == TokenType.COMMA:
                             self._consume(TokenType.COMMA)
                             continue
+                        # v7 新单 B（第 3 票）：具名实参 `名 = 值`。
+                        # `排序(学生列表, 依据 = f)` 里 `依据` 是参数名，不是表达式。
+                        # 改前实测：ParseError「意外的标记: 「=」」（不是静默错译）。
+                        kwarg = self._try_parse_keyword_arg()
+                        if kwarg is not None:
+                            args.append(kwarg)
+                            collected += 1
+                            if self._match(TokenType.COMMA):
+                                self._consume(TokenType.COMMA)
+                            continue
                         arg = self._parse_logical_expr()
                         if arg:
                             args.append(arg)
@@ -668,6 +737,7 @@ class ParserExprMixin:
                             break
                         if self._match(TokenType.COMMA):
                             self._consume(TokenType.COMMA)
+
 
                     # 跳过剩余的 token 直到右括号
                     while self._current() and self._current().type != TokenType.RPAREN:
@@ -1545,6 +1615,62 @@ class ParserExprMixin:
             pass
         return None
 
+
+    # 具名实参名里不能出现的关键字：它们是语句/运算符起始符，
+    # 一旦被当成参数名的一部分吞掉，就会把真正的表达式切坏。
+    # 与 _parse_postfix 里既有的两处同款判据（本文件 :2321 / :2496）保持一致。
+    _KWARG_STOP_KEYWORDS = frozenset({
+        '为', '等于', '接收', '返回', '令', '循环', '断言', '输出',
+        '如果', '否则', '那么', '若', '则', '当', '遍历', '设', '定义',
+        '类', '构造', '函数', '段落', '尝试', '捕获', '抛出', '最终', '导入',
+        '导出', '从', '真', '假', '空', '且', '或', '非', '与', '等待',
+        '匹配', '情况', '的', '之', '对', '步', '至', '到',
+    })
+
+    def _try_parse_keyword_arg(self):
+        """尝试把当前位置解析成具名实参 `名 = 值`，失败则原位回退并返回 None。
+
+        判据（纯词法，不做语义猜测）：
+          一串连续的 IDENTIFIER / 非停用 KEYWORD  +  紧跟一个 EQUALS。
+
+        为什么这个判据无歧义：
+          · `=` 的 token 是 EQUALS（`src/tokens.py:43`），而比较用的 `==` 是
+            另一个 token EQ_EQ（`src/tokens.py:54`）——词法上就分开了，不会混。
+          · 赋值在光明里是**语句**而不是表达式（无海象运算符，见 :52 的显式拒绝），
+            所以括号实参区里出现裸 `=` 只可能是具名实参。实测佐证：改前
+            `排序(xs, 依据 = f)` 直接 ParseError「意外的标记: 「=」」，
+            而 `排序(xs, 甲 == 乙)` 正常产出 `sorted(xs, (甲 == 乙))`。
+            即：**当前能解析成功的输入，实参区里一定没有 EQUALS**，
+            故本判据只可能把「原本报错」的输入变成「正确解析」，
+            不可能改写任何既有产物（单向放宽）。
+
+        名字允许多 token 拼接，是因为 lexer 会把 `获取函数` 这类名字切成
+        `获取` + `函数`；只有在确认后面紧跟 `=` 时才提交，否则 self.pos 原样还原。
+
+        返回 KeywordArg（`src/ast_nodes_v3.py:1229`，code_generator 已支持，
+        见 `src/code_generator.py:2270-2274` 的 ParagraphCall 分支）。
+        """
+        saved_pos = self.pos
+        name_parts = []
+        while self._current():
+            tok = self._current()
+            if tok.type == TokenType.IDENTIFIER:
+                name_parts.append(self._consume().value)
+            elif tok.type == TokenType.KEYWORD and tok.value not in self._KWARG_STOP_KEYWORDS:
+                name_parts.append(self._consume().value)
+            else:
+                break
+        if not (name_parts and self._current() and self._current().type == TokenType.EQUALS):
+            self.pos = saved_pos
+            return None
+        self._consume(TokenType.EQUALS)
+        value = self._parse_logical_expr()
+        if value is None:
+            # 取不到值就整体回退，宁可维持原来的报错，也不要吞掉半个实参
+            self.pos = saved_pos
+            return None
+        from ast_nodes_v3 import KeywordArg
+        return KeywordArg(''.join(name_parts), value)
 
     def _parse_c_anonymous_function(self) -> ASTNode:
         """解析C风格匿名函数：函数(params){body}
