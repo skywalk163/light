@@ -337,16 +337,25 @@ class ParserExprMixin:
         
         # 等待表达式：等待 异步操作
         # 注意：如果等待后跟的是标识符且不是函数调用，则视为复合标识符（如「等待价值」）
+        #
+        # v7 单 07：原判据只认「等待 标识符(」一种「这是 await 而非复合词」的形状，
+        # 漏了「等待 标识符.成员」。`等待 f.读取()` 的 token 流是
+        #   KEYWORD(等待) IDENTIFIER(f) DOT(.) KEYWORD(读取) LPAREN RPAREN
+        # peek2 是 DOT，于是走进下面的复合标识符分支，只吃掉 `等待`+`f` 返回
+        # Identifier('等待f')，`.读取()` 整段被丢在流里没人消费，报
+        # 「无法识别的语法元素：'.'」。`等待 对象.方法()` 是异步代码最常见的写法，
+        # 判为编译器缺陷。DOT 归入「后续是 await 表达式」一侧即可，
+        # RPAREN/NEWLINE 等仍留在复合标识符一侧，`等待价值` 零影响。
         if tok.type == TokenType.KEYWORD and tok.value == '等待':
             next_tok = self._peek(1)
             if next_tok and next_tok.type == TokenType.IDENTIFIER:
                 peek2 = self._peek(2)
-                if peek2 and peek2.type != TokenType.LPAREN:
+                if peek2 and peek2.type not in (TokenType.LPAREN, TokenType.DOT):
                     # 复合标识符：等待 + 价值 = 等待价值
                     self._consume(TokenType.KEYWORD, '等待')
                     ident = self._consume(TokenType.IDENTIFIER).value
                     return Identifier('等待' + ident)
-                # 等待 函数名() → await 表达式
+                # 等待 函数名() / 等待 对象.成员 → await 表达式
                 self._consume(TokenType.KEYWORD, '等待')
                 expr = self._parse_expr()
                 return AwaitExpr(expr)

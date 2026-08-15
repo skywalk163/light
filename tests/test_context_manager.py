@@ -250,5 +250,59 @@ class TestWithEndToEnd:
         assert 'async with ' in result
 
 
+# =============================================================================
+# 7. 等待(await) 与复合标识符的消歧边界（v7 单 07 回归）
+# =============================================================================
+
+class TestAwaitMemberAccess:
+    """`等待 对象.成员` 必须解析成 await 表达式，而 `等待X` 仍是复合标识符
+
+    v7 单 07：`src/parser_expr.py` 的 `等待` 分支原先只把「等待 标识符(」当 await，
+    peek2 是 DOT 时误走复合标识符分支，只吃掉 `等待`+`f` 返回 Identifier('等待f')，
+    `.读取()` 被丢在 token 流里没人消费 → ParseError「无法识别的语法元素：'.'」。
+    修复把 DOT 一并归入 await 一侧。这里两头都测，防止修复方向倒过来打穿复合标识符。
+    """
+
+    def test_await_member_call(self):
+        """等待 + 内置名成员：不应报错，且成员名不被内置映射改写"""
+        result = _compile_ok('等待 f.读取()\n')
+        assert 'await f.读取()' in result
+        # 单 03 的成员访问护栏仍在：不能退化成 await input(f)
+        assert 'input(f)' not in result
+
+    def test_await_member_call_non_builtin(self):
+        """等待 + 非内置名成员"""
+        result = _compile_ok('等待 f.抓取()\n')
+        assert 'await f.抓取()' in result
+
+    def test_await_chained_member(self):
+        """等待 + 链式成员访问"""
+        result = _compile_ok('等待 甲.乙.丙()\n')
+        assert 'await 甲.乙.丙()' in result
+
+    def test_await_plain_call_unchanged(self):
+        """等待 + 普通调用：原有行为不变"""
+        result = _compile_ok('等待 读取(f)\n')
+        assert 'await ' in result
+
+    def test_compound_identifier_before_rparen(self):
+        """等待价值 在右括号前仍是复合标识符，不是 await"""
+        result = _compile_ok('打印(等待价值)\n')
+        assert 'print(等待价值)' in result
+        assert 'await' not in result
+
+    def test_compound_identifier_before_newline(self):
+        """等待价值 在行尾仍是复合标识符"""
+        result = _compile_ok('设 甲 为 等待价值\n')
+        assert '甲 = 等待价值' in result
+        assert 'await' not in result
+
+    def test_compound_identifier_before_operator(self):
+        """等待结果 后跟运算符时仍是复合标识符"""
+        result = _compile_ok('设 甲 为 等待结果 加 1\n')
+        assert '等待结果' in result
+        assert 'await' not in result
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
