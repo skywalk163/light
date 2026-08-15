@@ -21,8 +21,8 @@
 
 # L4 层：引用 Python 代码
 引 Python:
-import math
-result = math.sqrt(16)
+    import math
+    result = math.sqrt(16)
 出 result
 
 印("16 的平方根：")

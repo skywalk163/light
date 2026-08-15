@@ -1150,9 +1150,31 @@ class Lexer:
         if j < n:
             j += 1  # 跳过换行
         
-        # 收集嵌入代码，直到遇到 "结束嵌入" 或 "结束引"（两种都可，容错）
+        # 计算「开启行」的缩进宽度（v7 单 15）
+        #
+        # 本方法是字符级扫描器，不经过 token 流，拿不到 INDENT/DEDENT。要支持
+        # 「缩进回归自动闭合」就必须自己算出 引/嵌入 所在行的缩进。
+        # 不能用入参 col - 1 代替：主循环换行段（:540-546）对 \t 做 indent += 4
+        # 而 col 只 += 1，制表符缩进会失真。这里按与 :540-546 完全相同的口径重算。
+        _line_head = i
+        while _line_head > 0 and source[_line_head - 1] != '\n':
+            _line_head -= 1
+        open_indent = 0
+        for _c in source[_line_head:i]:
+            if _c == '\t':
+                open_indent += 4
+            elif _c == ' ':
+                open_indent += 1
+            else:
+                # 开启行在 引/嵌入 之前还有非空白内容（如行内块），缩进无意义
+                open_indent = -1
+                break
+
+        # 收集嵌入代码，直到遇到 "结束嵌入" 或 "结束引"（两种都可，容错），
+        # 或者发生缩进回归（v7 单 15）
         code_lines = []
         end_markers = ('结束嵌入', '结束引')
+        body_indent = None
         while j < n:
             # 检查当前行是否为结束标记
             # 跳过行首空白
@@ -1177,15 +1199,46 @@ class Lexer:
                         consumed = after + 1 - i
                     code = '\n'.join(code_lines)
                     return Token(TokenType.EMBED_BLOCK, (language, code), line, start_col), consumed
-            
+
+            # 缩进回归闭合（v7 单 15）
+            #
+            # 口径依据：docs/分层语法设计_v4.0.md:748 明列「缩进回归」为合法闭合方式；
+            # docs/知识库/语言规范.md:170-173 的官方 L4 示例本身就省略 结束引 ——
+            #     引 Python:
+            #         def hello():
+            #             return "Hello from Python"
+            #     出 hello          ← 回到开启行缩进，块在此闭合
+            # 因此「块体缩进 > 开启行缩进」时，首个缩进 ≤ 开启行的非空行即闭合点。
+            #
+            # 只对「缩进式块体」生效（body_indent > open_indent）。零缩进块体
+            # （块体与 引 同列）在词法层无法与普通 light 语句区分，不做启发式，
+            # 仍走下面的未闭合报错。
+            _blank = k >= n or source[k] == '\n'
+            if not _blank and open_indent >= 0:
+                _cur_indent = 0
+                for _c in source[line_start:k]:
+                    _cur_indent += 4 if _c == '\t' else 1
+                if body_indent is None:
+                    body_indent = _cur_indent
+                elif body_indent > open_indent and _cur_indent <= open_indent:
+                    # 缩进回归：在本行之前闭合，本行不消耗，交回主循环当普通 light 语句
+                    code = '\n'.join(code_lines)
+                    return Token(TokenType.EMBED_BLOCK, (language, code), line, start_col), line_start - i
+
             # 收集这一行
             line_end = j
             while line_end < n and source[line_end] != '\n':
                 line_end += 1
             code_lines.append(source[line_start:line_end] if line_end < n else source[line_start:])
             j = line_end + 1 if line_end < n else n
-        
-        # 到达 EOF 仍未找到结束标记
+
+        # 到达 EOF：缩进式块体按缩进回归的极限情形正常闭合
+        # （文件以缩进块体结尾、没写 结束引，仍是合法的「缩进回归」）
+        if body_indent is not None and open_indent >= 0 and body_indent > open_indent:
+            code = '\n'.join(code_lines)
+            return Token(TokenType.EMBED_BLOCK, (language, code), line, start_col), n - i
+
+        # 零缩进块体且无显式结束标记 —— 无法无歧义闭合，保持报错
         raise LexerError(
             f"L4引用/嵌入块未闭合：缺少「结束嵌入」或「结束引」标记",
             line, start_col
@@ -1307,12 +1360,50 @@ class Lexer:
                             tokens[-1] = _Token(_TokenType.IDENTIFIER, last.value + suffix, last.line, last.col)
                             consumed += len(suffix)
                         elif last.type == TokenType.KEYWORD:
-                            # 关键字后紧跟ASCII字母（如"分割Pointer_内部"），合并为完整标识符
-                            # 语法如"引 Python:"中间有空格，不会进入此分支
-                            # 不合并数字后缀（如"至10"、"为123"），避免破坏范围表达式/赋值
+                            # 关键字后紧跟ASCII字母时的合并——**必须凭已知名字放行**（v7 单 02）
+                            #
+                            # 缺陷史：本分支原先只判 `suffix[0].isalpha() or == '_'` 就无条件合并，
+                            # 并把 token 类型从 KEYWORD 降级成 IDENTIFIER。_tokenize_chinese_sequence
+                            # 已经按最长前缀匹配正确切出了 KEYWORD 设/如果/打印/遍历/自，这里又粘回去，
+                            # 于是 `设x为10` → IDENTIFIER '设x'、`打印x` → '打印x'、`left自right` →
+                            # 'left' + '自right'，把 Level 6「语句内无空格」整个特性推翻了一半。
+                            #
+                            # 规范依据（light 自己的规格，非 duan）：
+                            #   docs/superpowers/specs/2026-07-01-level6-type-annotation-design.md:16
+                            #     「无空格分词：语句内关键字与标识符紧密相连，词法分析通过最长前缀匹配自动拆分」
+                            #   同文件 :31-38  2.1 节给出最长前缀匹配四步算法
+                            #   同文件 :41-48  2.2 节把 设/为/段/类/己 等约 45 个关键字列为支持无空格分词
+                            #   同文件 :332    「有空格的写法（设 x 为 10）和无空格的写法（设x为10）都支持」
+                            # 断言依据：tests/test_level6_lexer.py:41-53 / :56-67 / :95-109
+                            #
+                            # 放行条件（三档，缺一不可）：
+                            # 1) 成员名上下文：紧邻的前一个源字符是 `.`。`.` 之后按定义是属性/方法名，
+                            #    不可能是语句关键字。若不放行会打穿
+                            #    examples/L3_domain/demo4_echarts.light:64 `l3_chart.导出JSON()`、
+                            #    :69 `l3_chart.导出HTML(...)`、examples/chat_bot/主.light:42 `.段言到Python(...)`
+                            #    注意这里必须看源码字符而不是 tokens[-2]——本方法的 `tokens`
+                            #    是 :1262 新建的局部列表，看不到外层已发射的 DOT。
+                            # 2) 合并结果（含紧随的汉字后缀）是内置复合动词名：如 读取N字节
+                            #    （src/keywords.py:283 在 ALL_VERB_ARITY 中）
+                            # 3) 合并结果在 user_definitions 里：即 :500-508 预扫描认定的用户自定义名
+                            #    （如 lsp/lsp_protocol.light:22 `段落 读取LSP消息()`）
+                            # 其余情况一律不合并，KEYWORD 保持独立，ASCII 后缀交回主循环单独分词。
+                            #
+                            # 注意：IDENTIFIER 分支（上面 1306-1308）**不受本次收窄影响**——
+                            # tests/test_level6_lexer.py:70-92 明确期望 `循环i从1到10` 里 `循环i`
+                            # 是单个 IDENTIFIER（`循环` 不是关键字，走的就是 IDENTIFIER 分支）。
                             if suffix[0].isalpha() or suffix[0] == '_':
-                                tokens[-1] = _Token(_TokenType.IDENTIFIER, last.value + suffix, last.line, last.col)
-                                consumed += len(suffix)
+                                _han_end = j
+                                while _han_end < n and _is_han(source[_han_end]):
+                                    _han_end += 1
+                                _cand_ascii = last.value + suffix
+                                _cand_full = _cand_ascii + source[j:_han_end]
+                                _after_dot = i > 0 and source[i - 1] == '.'
+                                if (_after_dot
+                                        or _cand_full in ALL_VERB_ARITY or _cand_ascii in ALL_VERB_ARITY
+                                        or _cand_full in user_definitions or _cand_ascii in user_definitions):
+                                    tokens[-1] = _Token(_TokenType.IDENTIFIER, last.value + suffix, last.line, last.col)
+                                    consumed += len(suffix)
 
                         # 继续收集ASCII后缀后的汉字（如"阶段1标题" → 完整标识符）
                         # 注意：只有当后继汉字不是关键字时才合并，避免误合并"循环i从1"
@@ -1739,6 +1830,26 @@ class Lexer:
                 # 未匹配到关键字（或单字动词被跳过），检查是否内嵌有关键字
                 # 例如"初始值加数值"中的"加"应该被识别为关键字
                 # 单字关键字和 OPERATOR_VERBS 中的多字关键字（如大于、小于、等于）都可能内嵌
+                #
+                # v7 单 02 第二缺口：「运算符在词尾 → 不拆分」这条保护（下面 :1795-1798 与
+                # :1879-1885）原先只看纯汉字序列 full_identifier 的右边界，没看**汉字序列
+                # 之后紧邻的源字符**。于是 `甲加1。` 里的汉字序列是 `甲加`（停在数字 1），
+                # `加` 被判成词尾而不拆，`甲加` 整体成 IDENTIFIER，返回后再被
+                # :1306-1308 把 `1` 粘上 → 最终只剩 IDENTIFIER '甲加1' + PERIOD 两个 token，
+                # 期望的 4 个（甲 / 加 / 1 / 。）拿不到，BinaryOp 也就无从生成。
+                # 判据：若汉字序列之后紧跟 ASCII 数字，说明这是「左操作数 运算符 数字」的
+                # 表达式而不是复合词收尾，运算符不该按词尾豁免。
+                # 只放行 ASCII 数字、不放行 ASCII 字母，是刻意收窄——`体重增加`（尾部无字符）
+                # 与 `数乘阶乘(` （尾部是括号）都不受影响。
+                #
+                # 已知边界（实测确认）：**已声明的名字不受影响**——`设 衰减1 为 0.9`、
+                # `导出 衰减1`、`段落 优化 接收 衰减1：` 三种声明都会让 `衰减1` 进
+                # user_definitions，从而在 :1275-1279 的 _match_mixed_user_definition
+                # 整体返回，根本走不到这里。只有**未声明的自由名字**（如
+                # 积木库/blocks/函数/函数Adam.light:5 里既没声明也没导出的 衰减1）会被拆开，
+                # 而那种名字本来就是 NameError，拆不拆都跑不了。
+                _seq_tail = i + consumed + len(full_identifier)
+                _tail_is_digit_operand = _seq_tail < n and _is_ascii_digit(source[_seq_tail])
                 embedded_found = False
                 scan_pos = 0
                 while scan_pos < len(full_identifier):
@@ -1756,7 +1867,9 @@ class Lexer:
                                     skip_kw = True
                             # 检查运算符是否在标识符词尾（如"体重增加"中的"加"）
                             # 在词尾时，作为复合词的一部分，不拆分
-                            if scan_pos + sub_len >= len(full_identifier):
+                            # 例外（v7 单 02）：汉字序列后紧跟 ASCII 数字时不算词尾，
+                            # 见上面 _tail_is_digit_operand 的说明（`甲加1`、`值加1`）
+                            if scan_pos + sub_len >= len(full_identifier) and not _tail_is_digit_operand:
                                 skip_kw = True
                             # 否则作为运算符识别（不跳过）
                             # 例如：甲加乙 -> [甲] [加] [乙]
@@ -1816,10 +1929,25 @@ class Lexer:
                                 # 单字 compound_safe 关键字（非"当"）
                                 if sub_kw in OPERATOR_VERBS:
                                     if scan_pos == 0:
-                                        # 运算符在词首，作为复合词的一部分（如"加法"、"减法"）
+                                        # 运算符在词首，通常是复合词的一部分（如"加法"、"减法"）
                                         # 例如：加法(3, 5) → 加法 作为整体标识符
-                                        scan_pos += sub_len
-                                        continue
+                                        #
+                                        # 例外（v7 单 02）：若「运算符之后的剩余部分」本身就是一个
+                                        # 已知名字，则该运算符是真运算符而不是复合词前缀。
+                                        # 典型：`n乘阶乘(n减1)` 中英文分支已正确切出 IDENTIFIER 'n'，
+                                        # 随后的汉字序列是 `乘阶乘`；无此例外时会被切成
+                                        # IDENTIFIER '乘阶' + KEYWORD '乘'，再被
+                                        # parser_expr 的相邻 IDENTIFIER 合并粘成 'n乘阶'
+                                        # （tests/unit/test_parser.py:65 报 `'n乘阶' != 'n'`）。
+                                        # `阶乘` 在 src/keywords.py 的 STDLIB_VERB_ARITY 中，
+                                        # 据此判定 `乘` 是运算符，正确切成 乘(KW) + 阶乘(ID)。
+                                        # 反例保护：`加法` 的剩余部分 `法` 不是已知名字，仍按复合词整体保留。
+                                        _rest = full_identifier[sub_len:]
+                                        if not (_rest in STDLIB_VERB_ARITY
+                                                or _rest in ALL_VERB_ARITY
+                                                or _rest in user_definitions):
+                                            scan_pos += sub_len
+                                            continue
                                     # 运算符在词中，识别为关键字（不跳过）
                                     # 例如：甲加乙 -> [甲] [加] [乙]
                                     pass
@@ -1842,7 +1970,10 @@ class Lexer:
                                 # 在词尾时，作为复合词的一部分，不拆分
                                 # 例如：体重增加 → 体重增加 作为整体标识符
                                 # 注意：在词中时（如"甲加乙"），运算符应作为关键字分隔符
-                                if scan_pos + sub_len >= len(full_identifier):
+                                # 例外（v7 单 02）：汉字序列后紧跟 ASCII 数字时不算词尾，
+                                # 与上面探测循环的判据保持一致，否则探测说「有内嵌关键字」
+                                # 而输出循环又跳过，会走进不一致的分支
+                                if scan_pos + sub_len >= len(full_identifier) and not _tail_is_digit_operand:
                                     # 运算符在词尾，作为复合词的一部分
                                     scan_pos += sub_len
                                     continue
