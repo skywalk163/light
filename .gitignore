@@ -82,6 +82,10 @@ bootstrap/_*.py
 bootstrap/generate_*.py
 bootstrap/verify_*.py
 bootstrap/test_*.py
+# bootstrap_level{3,4,5}.py 由 tests/test_e2e_full_coverage.py 编译同名 .light 时重新生成，
+# 全仓无任何 import/打包/CI 依赖它们（见 v7 单 23 裁决），因此不入库
+bootstrap/bootstrap_level*.py
+
 
 # 基准测试报告（生成产物，不入库）
 benchmarks/reports/
