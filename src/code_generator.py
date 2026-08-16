@@ -1002,7 +1002,16 @@ class PythonCodeGenerator:
             self._bind_local(*stmt.variables)
             vars_str = ', '.join(self._sanitize_name(v) for v in stmt.variables)
             value = self._generate_expr(stmt.value)
+            # 多目标共享注解（新单 G）：Python 不允许 `a, b: T = f()`，
+            # 所以先给每个目标发一条纯注解行（`a: T` / `b: T`），再发解包语句。
+            # 纯注解行不产生赋值、不覆盖后面解包出来的值，只登记类型。
+            ann = getattr(stmt, 'type_annotation', None)
+            if ann:
+                mapped = self._map_type(ann)
+                for v in stmt.variables:
+                    self._add_line(f"{self._sanitize_name(v)}: {mapped}")
             self._add_line(f"{vars_str} = {value}")
+
         elif isinstance(stmt, WithStmt):
             # 上下文管理器
             self._generate_with_stmt(stmt)

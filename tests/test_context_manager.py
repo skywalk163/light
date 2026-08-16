@@ -1308,6 +1308,44 @@ class TestL0SingleCharClassKeywords:
         assert ns["甲"]() == 3
 
 
+class TestMultiTargetAnnotation:
+    """v7 新单 G：多目标带共享类型注解 `设 甲, 乙: 数 为 造()`。
+
+    口径（用户裁定 broadcast）：Python 不允许 `甲, 乙: float = f()`（SyntaxError），
+    所以注解**广播**成每个目标一条纯注解行，再发解包语句。无注解的多目标解包
+    （语料里的真实形状 `设 表头, 数据 为 读取(...)`）行为完全不变。
+    """
+
+    def test_annotation_broadcasts_to_each_target(self):
+        code = _compile_ok("段 甲():\n    设 a, b: 数 为 (1, 2)\n    返 a + b\n")
+        assert "a: float" in code
+        assert "b: float" in code
+        assert "a, b = (1, 2)" in code
+        # 关键：绝不能发 Python 里非法的 `a, b: float = ...`
+        assert "a, b: float" not in code
+        ns = {}
+        exec(compile(code, "gen_g_annot", "exec"), ns)
+        assert ns["甲"]() == 3
+
+    def test_no_annotation_unchanged(self):
+        """语料真实形状：无注解多目标解包，产物与从前一致"""
+        code = _compile_ok("段 甲():\n    设 表头, 数据 为 (1, 2)\n    返 表头\n")
+        assert "表头, 数据 = (1, 2)" in code
+        assert ": float" not in code  # 没有注解就不该冒出任何注解行
+        ns = {}
+        exec(compile(code, "gen_g_plain", "exec"), ns)
+        assert ns["甲"]() == 1
+
+    def test_three_targets_annotation(self):
+        code = _compile_ok("段 甲():\n    设 a, b, c: 整数 为 (1, 2, 3)\n    返 a + b + c\n")
+        assert "a: int" in code and "b: int" in code and "c: int" in code
+        assert "a, b, c = (1, 2, 3)" in code
+        ns = {}
+        exec(compile(code, "gen_g_three", "exec"), ns)
+        assert ns["甲"]() == 6
+
+
+
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

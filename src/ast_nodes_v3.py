@@ -766,15 +766,22 @@ class InterfaceDefinition(ASTNode):
 
 
 class DestructuringAssignment(ASTNode):
-    __slots__ = ('variables', 'value', 'style')
+    __slots__ = ('variables', 'value', 'style', 'type_annotation')
     """解构赋值
     
     style: 'tuple' 或 'list'，区分元组解构和列表解构
+    type_annotation: 多目标共享的类型注解（`设 甲, 乙: 数 为 造()`）。
+        Python 不允许给解包目标加注解（`甲, 乙: float = f()` 是 SyntaxError），
+        所以 codegen 把它**广播**成每个目标一条纯注解行，再发解包语句。
+        口径见 docs/v7_失败用例根因聚类工单.md 新单 G。
     """
-    def __init__(self, variables: List[str], value: ASTNode, style: str = 'tuple'):
+    def __init__(self, variables: List[str], value: ASTNode, style: str = 'tuple',
+                 type_annotation: str = None):
         self.variables = variables
         self.value = value
         self.style = style  # 'tuple' 或 'list'
+        self.type_annotation = type_annotation
+
     
     def __repr__(self):
         bracket = '(' if self.style == 'tuple' else '['

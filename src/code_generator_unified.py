@@ -895,7 +895,15 @@ class UnifiedCodeGenerator:
         """生成解构赋值：设 (甲, 乙) 为 元组"""
         variables = ', '.join(self._sanitize_name(v) for v in stmt.variables)
         value = self._generate_expr(stmt.value)
+        # 多目标共享注解（新单 G）：与 src 后端同口径——Python 不允许
+        # `甲, 乙: T = f()`，所以先给每个目标发一条纯注解行再发解包语句。
+        ann = getattr(stmt, 'type_annotation', None)
+        if ann:
+            mapped = self._map_return_type(ann)
+            for v in stmt.variables:
+                self._add_line(f"{self._sanitize_name(v)}: {mapped}")
         self._add_line(f"{variables} = {value}")
+
 
     def _generate_defer_stmt(self, stmt):
         """生成推迟语句（用 try/finally 模拟 defer）"""

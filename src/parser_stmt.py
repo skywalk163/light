@@ -1656,6 +1656,18 @@ class ParserStmtMixin:
                     variables.append(self._consume(TokenType.KEYWORD).value)
                 else:
                     break
+            # 多目标共享的类型注解：设 甲, 乙: 数 为 造()
+            #
+            # 单目标路径（本文件 :1778）早就支持 `: 类型`，多目标路径原先直接
+            # 要求 为/等于/=，撞到冒号只会报「期望'为'或'等于'，但得到 冒号」——
+            # 错误指向的位置对，说的话却把人往「你漏写了为」上引。
+            # 口径（新单 G 裁定）：注解**广播**到每个目标，codegen 先发每个目标
+            # 一条纯注解行再发解包语句。Python 不允许 `甲, 乙: float = f()`
+            # （SyntaxError），所以只能这么落地。
+            multi_type_annotation = None
+            if self._current() and self._current().type == TokenType.COLON:
+                self._consume(TokenType.COLON)
+                multi_type_annotation = self._parse_type_annotation()
             # 为
             if self._match(TokenType.KEYWORD, '为'):
                 self._consume(TokenType.KEYWORD, '为')
@@ -1679,7 +1691,9 @@ class ParserStmtMixin:
                 value = TupleLiteral(values)
             if self._current() and self._current().type == TokenType.PERIOD:
                 self._consume(TokenType.PERIOD)
-            return DestructuringAssignment(variables, value, style='tuple')
+            return DestructuringAssignment(variables, value, style='tuple',
+                                           type_annotation=multi_type_annotation)
+
         
         # 支持属性赋值：设 obj.attr 为 value 或 设 己.attr 为 value
         if self._current() and self._current().type == TokenType.DOT:
