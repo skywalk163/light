@@ -760,6 +760,32 @@ class Lexer:
                 i += consumed
                 continue
             
+            # 处理字节串：b"..." / B"..."（v7 新单 H，单 C 里明确挂账的那条）
+            #
+            # 判据与上面的 r / f 前缀同源：字母**紧贴**引号才算前缀。
+            #   b''  -> 前缀            b "x" -> 标识符 b + 字符串（有空格）
+            #   设 b 为 1 / 打印 b     -> b 不贴引号，不受影响
+            # 不做的：`rb''`/`br''` 组合前缀。`rb'` 在 r 分支上 source[i+1]=='b'
+            # 不匹配，会整体落到标识符路径 —— 全仓零处使用，本轮不扩判据。
+            #
+            # 为什么必须新开 BYTES token 而不是复用 STRING：
+            # bytes 与 str 在 Python 里是不同类型，这个信息要一路带到 codegen。
+            # r 前缀不需要新 token，因为「原样保留反斜杠」只是**值**的变换；
+            # bytes 是**类型**的变换，值一模一样的 '' 和 b'' 产物必须不同。
+            #
+            # 修的是静默错译：原先 b'abc' 被切成 IDENTIFIER('b') + STRING('abc')，
+            # 发出 b("abc")，编译无错、运行期 NameError: name 'b' is not defined。
+            # 空的 b'' 更糟，在默认参数位置直接 ParseError。
+            if (source[i] in 'bB' and i + 1 < n and source[i+1] in '"\''
+                    and not (i > 0 and (source[i-1].isalnum() or source[i-1] == '_'))):
+                token, consumed = self._tokenize_string(source, i + 1, line, col + 1)
+                token.type = TokenType.BYTES
+                tokens.append(token)
+                consumed += 1  # 计入 b 前缀本身
+                col += consumed
+                i += consumed
+                continue
+            
 
             # 处理中文数字（不在此处拦截单个字符，而是交给 _tokenize_chinese_sequence 处理复合数字）
             # 注释：SIMPLE_CHINESE_NUMBERS 单个字符拦截会破坏复合数字（如"零点一"、"一百"）

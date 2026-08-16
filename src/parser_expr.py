@@ -571,6 +571,13 @@ class ParserExprMixin:
             expr = StringLiteral(tok.value)
             return self._parse_postfix(expr)
 
+        # 字节串 b"..."（v7 新单 H）
+        # 不走插值检测：bytes 里没有中文插值语义，Python 也不支持 bf"" 组合。
+        if tok.type == TokenType.BYTES:
+            self._consume()
+            return self._parse_postfix(StringLiteral(tok.value, is_bytes=True))
+
+
         # 特殊值（真、假、空）
         if tok.type == TokenType.KEYWORD and tok.value in KEYWORDS_SPECIAL:
             self._consume()
@@ -996,6 +1003,11 @@ class ParserExprMixin:
             self._consume()
             return StringLiteral(tok.value)
 
+        # 字节串 b"..."（v7 新单 H）
+        if tok.type == TokenType.BYTES:
+            self._consume()
+            return StringLiteral(tok.value, is_bytes=True)
+
         # 标识符（检查是否为函数调用，如"字符串长度 日期"）
         if tok.type == TokenType.IDENTIFIER:
             name = tok.value
@@ -1179,6 +1191,11 @@ class ParserExprMixin:
         if tok.type == TokenType.STRING:
             self._consume()
             return StringLiteral(tok.value)
+
+        # 字节串 b"..."（v7 新单 H）
+        if tok.type == TokenType.BYTES:
+            self._consume()
+            return StringLiteral(tok.value, is_bytes=True)
 
         # 标识符
         if tok.type == TokenType.IDENTIFIER:
@@ -1475,6 +1492,11 @@ class ParserExprMixin:
         if tok.type == TokenType.STRING:
             self._consume()
             return StringLiteral(tok.value)
+
+        # 字节串 b"..."（v7 新单 H）
+        if tok.type == TokenType.BYTES:
+            self._consume()
+            return StringLiteral(tok.value, is_bytes=True)
 
         # 标识符
         if tok.type == TokenType.IDENTIFIER:

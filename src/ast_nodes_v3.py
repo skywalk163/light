@@ -165,13 +165,21 @@ class NumberLiteral(ASTNode):
 
 
 class StringLiteral(ASTNode):
-    __slots__ = ('value',)
-    """字符串字面量"""
-    def __init__(self, value: str):
+    __slots__ = ('value', 'is_bytes')
+    """字符串字面量
+
+    is_bytes: 是否是字节串字面量（源码里的 `b'...'` / `B'...'`，v7 新单 H）。
+        bytes 与 str 在 Python 里是**不同类型**，所以这个标记必须一直带到
+        codegen——只发 `'...'` 会让 `请求数据=b''` 变成 str，喂给
+        urllib/socket 这类只吃 bytes 的接口时运行期才炸。
+    """
+    def __init__(self, value: str, is_bytes: bool = False):
         self.value = value
-    
+        self.is_bytes = is_bytes
+
     def __repr__(self):
-        return f'"{self.value}"'
+        return f'{"b" if self.is_bytes else ""}"{self.value}"'
+
 
 
 class Identifier(ASTNode):

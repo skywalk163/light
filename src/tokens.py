@@ -19,6 +19,7 @@ class TokenType(Enum):
     NUMBER = auto()      # 数字（整数或浮点数）
     STRING = auto()      # 字符串
     FSTRING = auto()     # f-string（格式化字符串）
+    BYTES = auto()       # 字节串 b"..." / B"..."（v7 新单 H）
     CHINESE_NUM = auto() # 中文数字（三、五、十等）
     
     # 标识符和关键字

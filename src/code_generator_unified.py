@@ -1349,7 +1349,12 @@ class UnifiedCodeGenerator:
             return str(expr.value)
         
         elif is_instance(expr, 'StringLiteral'):
+            # 字节串（v7 新单 H）：与 src 后端同口径，必须发 b'...'。
+            # 非 ASCII 要转 \xNN（`b"中文"` 是 SyntaxError），交给 repr(bytes) 保证。
+            if getattr(expr, 'is_bytes', False):
+                return repr(expr.value.encode('utf-8'))
             return repr(expr.value)
+
         
         elif is_instance(expr, 'BooleanLiteral'):
             return 'True' if expr.value else 'False'

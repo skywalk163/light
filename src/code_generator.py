@@ -2215,6 +2215,14 @@ class PythonCodeGenerator:
             return str(expr.value)
         
         elif isinstance(expr, StringLiteral):
+            # 字节串（v7 新单 H）：必须发 b'...' 而不是 '...'——bytes 与 str 在
+            # Python 里是不同类型，发成 str 喂给只吃 bytes 的接口就是运行期才炸。
+            #
+            # 用 repr(bytes) 生成而不是手工拼 b"...": 一是转义规则由 CPython 自己
+            # 保证，二是非 ASCII 字符必须转成 \xNN（`b"中文"` 是 SyntaxError），
+            # 手工拼很容易漏掉这一条。
+            if getattr(expr, 'is_bytes', False):
+                return repr(expr.value.encode('utf-8'))
             # 转义引号和不可见字符
             value = expr.value
             # 先处理反斜杠（必须是第一步）
@@ -2222,6 +2230,7 @@ class PythonCodeGenerator:
             # 再处理不可见字符
             value = value.replace('\r', '\\r').replace('\n', '\\n').replace('\t', '\\t').replace('"', '\\"').replace('\0', '\\0').replace('\x00', '\\0')
             return f'"{value}"'
+
         
         elif isinstance(expr, Identifier):
             # 中文数字整体匹配优先（在任何名字改写之前，避免被后缀规则误切）

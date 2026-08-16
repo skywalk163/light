@@ -1345,6 +1345,68 @@ class TestMultiTargetAnnotation:
         assert ns["甲"]() == 6
 
 
+class TestBytesLiteral:
+    """v7 新单 H：字节串前缀 `b'...'` / `B'...'`。
+
+    单 C 里明确挂账「b 另立单」——bytes 要语义正确需 codegen 配合。
+    原先 b'abc' 被切成 IDENTIFIER('b')+STRING('abc') 发出 b("abc")，编译过、
+    运行期 NameError；空的 b'' 在默认参数位置直接 ParseError。
+    """
+
+    def test_bytes_literal_emits_b_prefix(self):
+        code = _compile_ok("设 x 为 b'abc'。\n")
+        assert "x = b'abc'" in code
+        assert "b(" not in code  # 绝不能是 b("abc") 那种函数调用错译
+        ns = {}
+        exec(compile(code, "gen_h_bytes", "exec"), ns)
+        assert ns["x"] == b'abc'
+        assert isinstance(ns["x"], bytes)
+
+    def test_bytes_double_quote(self):
+        code = _compile_ok('设 x 为 b"xy"。\n')
+        ns = {}
+        exec(compile(code, "gen_h_bytes2", "exec"), ns)
+        assert ns["x"] == b'xy' and isinstance(ns["x"], bytes)
+
+    def test_bytes_as_call_argument(self):
+        code = _compile_ok("段 甲(数据):\n    返 数据\n设 x 为 甲(b'')。\n")
+        assert "甲(b'')" in code
+        ns = {}
+        exec(compile(code, "gen_h_arg", "exec"), ns)
+        assert ns["x"] == b'' and isinstance(ns["x"], bytes)
+
+    def test_uppercase_B_prefix(self):
+        code = _compile_ok("设 x 为 B'AB'。\n")
+        ns = {}
+        exec(compile(code, "gen_h_upper", "exec"), ns)
+        assert ns["x"] == b'AB' and isinstance(ns["x"], bytes)
+
+    def test_bytes_non_ascii_escaped(self):
+        """非 ASCII 内容必须转成 \\xNN——`b"中文"` 直接写是 SyntaxError"""
+        code = _compile_ok("设 x 为 b'中'。\n")
+        ns = {}
+        exec(compile(code, "gen_h_nonascii", "exec"), ns)
+        assert ns["x"] == '中'.encode('utf-8') and isinstance(ns["x"], bytes)
+
+    def test_bare_b_variable_unaffected(self):
+        """裸变量 b（不贴引号）不受前缀判据影响"""
+        code = _compile_ok("段 甲():\n    设 b 为 1\n    返 b\n")
+        assert "b = 1" in code
+        ns = {}
+        exec(compile(code, "gen_h_bare", "exec"), ns)
+        assert ns["甲"]() == 1
+
+    def test_b_space_string_not_prefix(self):
+        """b 与引号被逗号隔开：b 是独立标识符，不能被吃成 bytes 前缀"""
+        # 不 exec（b 未定义）。断言必须收敛到发射出的那一行——产物前导 preamble
+        # 本身就含 b' 子串，全文扫描会误报。
+        code = _compile_ok("设 结果 为 拼接(b, \"x\")。\n")
+        line = [ln for ln in code.splitlines() if ln.lstrip().startswith("结果 =")][0]
+        assert '(b, "x")' in line                        # b 作为独立实参传入
+        assert "(b'" not in line and '(b"' not in line    # 没被吃成 bytes 前缀
+
+
+
 
 
 if __name__ == '__main__':
