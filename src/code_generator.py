@@ -3811,14 +3811,35 @@ class PythonCodeGenerator:
             self._add_line("    _light_sp.run([_LIGHT_C_CC, '-shared', '-fPIC', '-O2', '-o', _LIGHT_C_LIB, _LIGHT_C_SRC.name, '-lm'], check=True)")
             # 加载动态库
             self._add_line("_LIGHT_C_DLL = _light_ctypes.CDLL(_LIGHT_C_LIB) if _LIGHT_C_CC else None")
-            # 自动解析 C 函数签名，生成 Python 可调用封装
-            self._add_line("_LIGHT_C_FUNCS = _light_l4_re.findall(r'(?:int|float|double|void|long|char\\s*\\*)\\s+(\\w+)\\s*\\(', _LIGHT_C_CODE)")
-            self._add_line("for _LIGHT_C_FN in _LIGHT_C_FUNCS:")
+            # 自动解析 C 函数签名（返回类型 + 形参类型），据此设 restype / argtypes。
+            # v7 单 25：旧实现只抓函数名、把每个函数 restype 硬编码成 c_double 且从不设 argtypes。
+            # 后果：(1) 返回 int 的函数（如 阶乘）被按 double 读 xmm0，结果全错；(2) 缺 argtypes 时
+            # ctypes 按默认 c_int 传参，标量被当指针 → 解引用非法地址 → 在有 C 工具链的平台
+            # （FreeBSD/Linux）上 SIGSEGV。设 argtypes 后，参数不匹配的调用改抛 ctypes.ArgumentError
+            # （可诊断、不崩进程）。注：形参解析走简单启发式，够 L4 教学示例用；复杂声明退化为 c_int/void*。
+            self._add_line("_LIGHT_C_CTYPE = {'int': _light_ctypes.c_int, 'long': _light_ctypes.c_long, 'short': _light_ctypes.c_short, 'char': _light_ctypes.c_char, 'float': _light_ctypes.c_float, 'double': _light_ctypes.c_double, 'void': None}")
+            self._add_line("def _light_c_type(_decl):")
+            self._add_line("    _decl = _decl.replace('const', '').strip()")
+            self._add_line("    if not _decl or _decl == 'void':")
+            self._add_line("        return None")
+            self._add_line("    _ptr = ('*' in _decl)")
+            self._add_line("    _toks = _decl.replace('*', ' ').split()")
+            self._add_line("    _base = _toks[0] if _toks else 'void'")
+            self._add_line("    if _ptr:")
+            self._add_line("        if _base == 'char':")
+            self._add_line("            return _light_ctypes.c_char_p")
+            self._add_line("        _bt = _LIGHT_C_CTYPE.get(_base)")
+            self._add_line("        return _light_ctypes.POINTER(_bt) if _bt is not None else _light_ctypes.c_void_p")
+            self._add_line("    return _LIGHT_C_CTYPE.get(_base, _light_ctypes.c_int)")
+            self._add_line("_LIGHT_C_SIGS = _light_l4_re.findall(r'([A-Za-z_][\\w ]*?[\\w*])\\s+(\\w+)\\s*\\(([^)]*)\\)\\s*\\{', _LIGHT_C_CODE)")
+            self._add_line("for _LIGHT_C_RET, _LIGHT_C_FN, _LIGHT_C_PARAMS in _LIGHT_C_SIGS:")
             self._add_line("    if _LIGHT_C_DLL:")
             self._add_line("        try:")
-            # 尝试推断返回类型和参数类型
             self._add_line("            _LIGHT_C_FN_OBJ = getattr(_LIGHT_C_DLL, _LIGHT_C_FN)")
-            self._add_line("            _LIGHT_C_FN_OBJ.restype = _light_ctypes.c_double")
+            self._add_line("            _LIGHT_C_FN_OBJ.restype = _light_c_type(_LIGHT_C_RET)")
+            self._add_line("            _LIGHT_C_AT = [_light_c_type(_p) for _p in _LIGHT_C_PARAMS.split(',') if _p.strip() and _p.strip() != 'void']")
+            self._add_line("            if _LIGHT_C_AT:")
+            self._add_line("                _LIGHT_C_FN_OBJ.argtypes = _LIGHT_C_AT")
             self._add_line("            globals()[_LIGHT_C_FN] = _LIGHT_C_FN_OBJ")
             self._add_line("        except Exception:")
             self._add_line("            globals()[_LIGHT_C_FN] = lambda *a, _fn=_LIGHT_C_FN: f'[C:{_fn} 未加载]'")
@@ -3826,7 +3847,7 @@ class PythonCodeGenerator:
             self._add_line("        globals()[_LIGHT_C_FN] = lambda *a, _fn=_LIGHT_C_FN: f'[C:{_fn} 编译器未找到]'")
             # v7 单 20：不要 del 循环变量 _LIGHT_C_FN —— 块内提不出任何函数声明时
             # （如只有 #define 的 C 块）它从未被绑定，del 会 NameError 打断整个产物。
-            self._add_line("del _LIGHT_C_CODE, _LIGHT_C_FUNCS")
+            self._add_line("del _LIGHT_C_CODE, _LIGHT_C_SIGS")
             self._add_line(f"# --- 结束 L4 引 C ---")
             return
 

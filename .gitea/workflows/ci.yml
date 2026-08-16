@@ -49,9 +49,10 @@ jobs:
       - name: 单元 + 集成测试（产出 junit）
         env:
           # 词法器 perf 预算：本地开发默认 2.0s（见 test_lexer_perf.py）；
-          # FreeBSD runner 比 Linux 慢约 1.7x，实测 3.53s，给 5.0s 作为 CI 门禁
-          # （仍能在严重回退时失败）。
-          LEXER_PERF_LIMIT: "5.0"
+          # FreeBSD host runner 与 e2e 争抢时会被重载拖慢——run 19 实测 12.76s
+          # （同轮 unit 步整体 170s vs 常态 47s），5.0s 会周期性误伤门禁。
+          # v7 单 25 口径：提到 20.0（实测最坏值约 1.5 倍余量），仍能拦下 O(n^2) 级回退。
+          LEXER_PERF_LIMIT: "20.0"
         run: |
           . .venv/bin/activate
           mkdir -p .ci

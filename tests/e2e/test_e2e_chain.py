@@ -36,6 +36,12 @@ E2E_EXCLUDED = {
     'ffi_system.light',
     'ffi_math.light',
     'ffi_comprehensive.light',
+    # v7 单 25：J1 需真实 C 工具链（引 C 块 gcc/cc 编译 + ctypes 加载）。
+    # 有工具链的平台（FreeBSD/Linux）上，J1 源码调用 快速求和(1,2,3,4,5) 与 C 签名
+    # (double* arr, int n) 不匹配——这是被测输入自身的语义错误（硬规则 2 禁止改 examples）。
+    # 编译器侧已修好安全性（code_generator 现按签名设 argtypes/restype，误用会抛
+    # ctypes.ArgumentError 而非 SIGSEGV），但产物仍无法正确运行，故与其它 ffi_* 同类排除。
+    'J阶段_L4_C_Go_MoonBit/J1_C_快速求和.light',
     'modules/main.light',
     'bootstrap_eval.light',
     'bootstrap_lexer.light',
