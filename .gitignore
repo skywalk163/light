@@ -186,6 +186,11 @@ src/test_*.py
 *.log
 *.txt
 
+# CI 基础设施：必须入库，豁免上面的通用忽略规则
+# （check_*.py 会误伤闸门脚本，*.txt 会误伤基线清单）
+!tools/ci/check_regression.py
+!tests/ci_baseline_failures.txt
+
 # AI Copilot 训练产物
 tools/ai_copilot/output/
 tools/ai_copilot/model_cache/
@@ -299,6 +304,10 @@ tools/migrate_cstyle.py
 
 # 覆盖率数据
 .coverage
+
+# CI 回归闸门的 junit 中间产物（.gitea/workflows/ci.yml 写入，本地手跑也会生成）
+.ci/
+
 
 # 归档的旧脚本（git 历史已保留，不再跟踪）
 archive/

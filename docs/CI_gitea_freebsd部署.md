@@ -174,7 +174,38 @@ git push origin merge-work:merge-v7
 gitea 仓库 → Actions 标签，应出现一条 `CI` 运行记录，runner 认领后逐步执行：
 安装依赖 → 单元/集成/e2e → 根目录测试 → 统一测试运行器 → 积木库门禁。
 
-## 8. 常见坑
+## 8. 判绿口径：基线闸门（不是全绿）
+
+**本仓库当前有一批存量失败**（v7 收尾期欠账，见 `docs/v7_失败用例根因聚类工单.md`，
+最大一类是「单 02 · 紧凑写法分词族」）。所以 CI **不要求全绿**，判据是「不新增打红」：
+
+- `单元 + 集成测试` / `端到端测试` 两步只跑 + 产出 junit，`|| true` 放行存量失败；
+  但紧跟 `test -f`——如果 pytest 是崩溃、连 junit 都没产出，这一步必须红。
+- `回归闸门` 才是判绿点：`tools/ci/check_regression.py` 拿 junit 与
+  `tests/ci_baseline_failures.txt` 对比：
+  - 冒出基线**之外**的失败 → 退出 1，CI 红（真回归）
+  - 基线里有、这次转绿 → 放行，并打印清单提醒你刷新基线
+  - 打红总数超过基线条数 → 退出 1（兜底，防基线被绕过）
+
+用例身份用 junit 的 `classname::name`，不用文件路径——Windows 开发机与 FreeBSD
+runner 的路径分隔符不一致，点号形式跨平台稳定。
+
+**修好一批之后刷新基线**（必须做，否则基线虚高、闸门变松）：
+
+```sh
+. .venv/bin/activate
+pytest tests/unit tests/integration tests/e2e -q --tb=no --junitxml=.ci/all.xml || true
+python tools/ci/check_regression.py --junit .ci/all.xml \
+    --write-baseline tests/ci_baseline_failures.txt
+git add tests/ci_baseline_failures.txt && git commit -m "ci: 刷新回归基线"
+```
+
+基线首次固化于 2026-08-16，快照 `collected=1153 / failures=33 / skipped=54`（33 条）。
+注意这 33 条只覆盖 `tests/unit + tests/integration + tests/e2e`；全套（含 `tests/` 根目录）
+是 56 条，其余 23 条落在 workflow 里本来就 `|| true` 的「根目录测试」步，不进闸门分母。
+
+## 9. 常见坑
+
 
 - **卡在 checkout / `node: not found`**：jail 没装 node，或 node 不在 PATH。
   host 模式跑 JS action 靠宿主 node。

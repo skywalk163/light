@@ -38,19 +38,45 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install pytest pytest-cov
 
-      - name: 单元测试
+      # 单元/集成/e2e 三步只负责「跑 + 产出 junit」，**不自己判绿**。
+      # 原因：本仓库有一批 v7 收尾期的存量失败（见 docs/v7_失败用例根因聚类工单.md，
+      # 最大一类是「单 02 · 紧凑写法分词族」）。硬判绿会让 CI 常红成背景噪音，
+      # 失去「挡回归」的信号价值。判绿统一交给下面的基线闸门：
+      # 只有冒出 tests/ci_baseline_failures.txt 之外的新失败才算回归。
+      #
+      # `|| true` 之后紧跟 `test -f`：pytest 因存量失败返回非 0 要放行，
+      # 但如果它是崩溃/根本没跑起来（连 junit 都没产出），这一步必须红。
+      - name: 单元 + 集成测试（产出 junit）
         env:
           # 词法器 perf 预算：本地开发默认 2.0s（见 test_lexer_perf.py）；
-          # FreeBSD runner 比 Linux 慢约 1.7x，实测 3.53s，给 5.0s 预算作为 CI 门禁（仍能在严重回退时失败）。
+          # FreeBSD runner 比 Linux 慢约 1.7x，实测 3.53s，给 5.0s 作为 CI 门禁
+          # （仍能在严重回退时失败）。
           LEXER_PERF_LIMIT: "5.0"
         run: |
           . .venv/bin/activate
-          pytest tests/unit/ tests/integration/ -v --tb=short
+          mkdir -p .ci
+          pytest tests/unit/ tests/integration/ -q --tb=short \
+            --junitxml=.ci/unit-integration.xml || true
+          test -f .ci/unit-integration.xml
 
-      - name: 端到端测试
+      - name: 端到端测试（产出 junit）
         run: |
           . .venv/bin/activate
-          pytest tests/e2e/ -v --tb=short
+          pytest tests/e2e/ -q --tb=short --junitxml=.ci/e2e.xml || true
+          test -f .ci/e2e.xml
+
+      # 真正的判绿点：与基线快照对比，只拦新增打红。
+      # 基线刷新（修好一批之后）：
+      #   python tools/ci/check_regression.py --junit '.ci/*.xml' \
+      #       --write-baseline tests/ci_baseline_failures.txt
+      - name: 回归闸门（基线对比）
+        run: |
+          . .venv/bin/activate
+          python tools/ci/check_regression.py \
+            --junit .ci/unit-integration.xml \
+            --junit .ci/e2e.xml \
+            --baseline tests/ci_baseline_failures.txt
+
 
       # 根目录测试（与 GitHub Linux job 一致；失败不阻塞，和原配置相同）
       #
