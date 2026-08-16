@@ -285,6 +285,141 @@ class TestLexer(unittest.TestCase):
         self.assertEqual(len(tokens), 1)
         self.assertEqual(tokens[0].type, self.TokenType.EOF)
 
+    # ---- v7 新单 B 改点1：模块/标准库/打印 进 IDENTIFIER_SAFE_KEYWORDS ----
+    # 这三个常作复合标识符的词中/词尾成分（学生模块 / 可打印 / 我的标准库），
+    # 原先会在那里触发拆分：学生模块 → IDENTIFIER(学生)+KEYWORD(模块)。
+    # 但它们只享受「词中/词尾」豁免，词首仍是关键字——打印 是 print，
+    # 词首豁免会把 `打印甲` 这种无空格 print 语句吞成一个自由标识符。
+
+    def test_identifier_safe_module_print_merged_inside_word(self):
+        """模块/标准库/打印 在词中、词尾时整词不切"""
+        cases = {
+            '学生模块': '学生模块',
+            '可打印': '可打印',
+            '可打印标志': '可打印标志',
+            '可打印字符': '可打印字符',
+            '是可打印': '是可打印',
+            '我的标准库': '我的标准库',
+        }
+        for src, whole in cases.items():
+            with self.subTest(src=src):
+                self.assertEqual(self._sig(src), [('IDENTIFIER', whole)])
+
+    def test_identifier_safe_module_print_in_real_statements(self):
+        """examples/L2_wenyan 的真实写法：导入清单与接口名不再被切碎"""
+        self.assertEqual(
+            self._sig('导 学生模块 出 人, 学生, 可打印'),
+            [('KEYWORD', '导'), ('IDENTIFIER', '学生模块'), ('KEYWORD', '出'),
+             ('IDENTIFIER', '人'), ('COMMA', ','), ('IDENTIFIER', '学生'),
+             ('COMMA', ','), ('IDENTIFIER', '可打印')],
+        )
+        self.assertEqual(
+            self._sig('接 可打印:'),
+            [('KEYWORD', '接'), ('IDENTIFIER', '可打印'), ('COLON', ':')],
+        )
+
+    def test_identifier_safe_module_print_still_keyword_at_word_start(self):
+        """词首语义不能坏：模块/标准库/打印 在词首仍是 KEYWORD
+
+        `打印` 是全语言最高频关键字（print），且无空格写法是一等写法
+        （见 src/lexer.py 顶部 docstring「元数驱动参数收集 - 打印 甲」），
+        所以 `打印甲`/`打印结果` 必须仍切出 KEYWORD(打印)。
+        """
+        expected = {
+            '模块 甲:': [('KEYWORD', '模块'), ('IDENTIFIER', '甲'), ('COLON', ':')],
+            '打印 "x"': [('KEYWORD', '打印'), ('STRING', 'x')],
+            '打印 学生模块': [('KEYWORD', '打印'), ('IDENTIFIER', '学生模块')],
+            '标准库 数学': [('KEYWORD', '标准库'), ('IDENTIFIER', '数学')],
+            # 无空格写法（最高风险）
+            '打印甲': [('KEYWORD', '打印'), ('IDENTIFIER', '甲')],
+            '打印结果': [('KEYWORD', '打印'), ('IDENTIFIER', '结果')],
+            '打印甲乙丙': [('KEYWORD', '打印'), ('IDENTIFIER', '甲乙丙')],
+            '模块甲': [('KEYWORD', '模块'), ('IDENTIFIER', '甲')],
+            '标准库甲': [('KEYWORD', '标准库'), ('IDENTIFIER', '甲')],
+        }
+        for src, sig in expected.items():
+            with self.subTest(src=src):
+                self.assertEqual(self._sig(src), sig)
+
+    def test_identifier_safe_merge_keeps_embedded_keyword(self):
+        """反例守卫：新成员并入标识符时，不许连词中真关键字一起吞掉
+
+        仿 test_number_prefix_word_keeps_embedded_keyword：合并逻辑只能吃掉
+        模块/标准库/打印 自己，`学生模块等于甲` 中间的 等于 必须还在；
+        `打印甲加1` 的 加 也必须还在（否则 print 的实参表达式会被吞平）。
+        """
+        self.assertEqual(
+            self._sig('学生模块等于甲'),
+            [('IDENTIFIER', '学生模块'), ('KEYWORD', '等于'), ('IDENTIFIER', '甲')],
+        )
+        self.assertEqual(
+            self._sig('打印甲加1'),
+            [('KEYWORD', '打印'), ('IDENTIFIER', '甲'),
+             ('KEYWORD', '加'), ('NUMBER', 1)],
+        )
+        self.assertEqual(
+            self._sig('甲加可打印'),
+            [('IDENTIFIER', '甲'), ('KEYWORD', '加'), ('IDENTIFIER', '可打印')],
+        )
+
+    # ---- v7 新单 B 改点2：_skip_compound_safe_and_match 返回值失配 ----
+    # 原实现命中 compound-safe 单字后递归到 pos+1，把内层关键字的 value 配上
+    # 内层的 length 一起返回：_match_keyword('自之姓名',0) → ('之',1)。
+    # 调用方消费 1 个字符（自）却记成 之，`自之姓名` 切成
+    # KEYWORD(之) KEYWORD(之) IDENTIFIER(姓名)，self 语义静默丢失。
+
+    def test_compound_safe_single_before_member_access(self):
+        """自之X 等价于 自.X：首 token 必须是 KEYWORD(自)"""
+        self.assertEqual(
+            self._sig('自之姓名'),
+            [('KEYWORD', '自'), ('KEYWORD', '之'), ('IDENTIFIER', '姓名')],
+        )
+        self.assertEqual(
+            self._sig('自之'),
+            [('KEYWORD', '自'), ('KEYWORD', '之')],
+        )
+        # 不限 自：任何 compound-safe 单字关键字紧跟成员访问符 之 都是同一缺陷
+        for ch in ('且', '过', '类', '父', '段'):
+            with self.subTest(ch=ch):
+                self.assertEqual(
+                    self._sig(ch + '之姓名'),
+                    [('KEYWORD', ch), ('KEYWORD', '之'), ('IDENTIFIER', '姓名')],
+                )
+
+    def test_match_keyword_return_value_is_aligned(self):
+        """直接探针：返回的关键字必须就是 text[pos:pos+长度]"""
+        lexer = self.Lexer('')
+        for text in ('自之姓名', '且之', '过之', '类之', '父之'):
+            with self.subTest(text=text):
+                kw, length = lexer._match_keyword(text, 0)
+                self.assertEqual((kw, length), (text[0], 1))
+
+    def test_compound_safe_control_group_unchanged(self):
+        """对照组：改点2 不得改动这些既有切法"""
+        expected = {
+            # 己 不在 compound-safe 表里，本来就是对的
+            '己之姓名': [('KEYWORD', '己'), ('KEYWORD', '之'), ('IDENTIFIER', '姓名')],
+            '自': [('KEYWORD', '自')],
+            '自.姓名': [('KEYWORD', '自'), ('DOT', '.'), ('IDENTIFIER', '姓名')],
+            # compound-safe 的原始用途：单独出现不当关键字、作长词组成部分不拆
+            '典': [('IDENTIFIER', '典')],
+            '字典': [('IDENTIFIER', '字典')],
+            '词典': [('IDENTIFIER', '词典')],
+            '路径段': [('IDENTIFIER', '路径段')],
+            '甲序': [('IDENTIFIER', '甲序')],
+            '自蛙': [('IDENTIFIER', '自蛙')],
+            '自动化': [('IDENTIFIER', '自动化')],
+            # 后随运算符（而非成员访问符）时仍按原样：自 不升级成关键字
+            '自加乙': [('IDENTIFIER', '自'), ('KEYWORD', '加'), ('IDENTIFIER', '乙')],
+            # compound-safe 运算符后跟另一个 compound-safe 单字：整体保留
+            # （去除空格 是自由的 stdlib 名，切开即 NameError）
+            '去除空格': [('IDENTIFIER', '去除空格')],
+        }
+        for src, sig in expected.items():
+            with self.subTest(src=src):
+                self.assertEqual(self._sig(src), sig)
+
 
 if __name__ == '__main__':
     unittest.main()
+

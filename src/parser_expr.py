@@ -33,6 +33,19 @@ _EXPR_START_KEYWORDS = frozenset({
     '真', '假', '空',  # 特殊值
 })
 
+# 具名实参（kwarg=value）参数名收集时的停用关键字集合（v7 新单 B）。
+# 与 _parse_postfix 里既有的两处 C 风格 kwarg 检测同款判据保持字面一致，
+# 抽成模块常量供 _try_parse_keyword_arg 单点复用（三处括号式收参循环共享），
+# 避免多处判据分叉。收名字时一旦碰到这些语句/表达式起始关键字即停，
+# 防止把 `依据` 后面的 `段`… 误并进参数名。
+_KWARG_NAME_STOP_KEYWORDS = frozenset({
+    '为', '等于', '接收', '返回', '令', '循环', '断言', '输出',
+    '如果', '否则', '那么', '若', '则', '当', '遍历', '设', '定义',
+    '类', '构造', '函数', '段落', '尝试', '捕获', '抛出', '最终', '导入',
+    '导出', '从', '真', '假', '空', '且', '或', '非', '与', '等待',
+    '匹配', '情况', '的', '之', '对', '步', '至', '到',
+})
+
 
 class ParserExprMixin:
     """表达式解析混入类"""
@@ -45,6 +58,59 @@ class ParserExprMixin:
         if tok.type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT, TokenType.DOT, TokenType.PERIOD):
             return True
         return False
+
+    def _try_parse_keyword_arg(self) -> Optional[ASTNode]:
+        """尝试把当前位置解析成具名实参 `名 = 值`；失败则原位回退并返回 None。
+
+        —— v7 新单 B（具名实参 kwarg=value），上一轮修单 04 时备案的独立缺陷 ——
+        括号式收参循环里原本没有「标识符 + `=` → 关键字实参」这条产生式，
+        实测（改前）`甲(a = 1)` / `排序(xs, 依据 = f)` 一律抛
+        「意外的标记: 「=」」。本方法补齐该产生式，产出 KeywordArg
+        （ast_nodes_v3.py:1229），code_generator 的 ParagraphCall 分支
+        （code_generator.py:2270-2274）已能把它发射成 Python `名=值`。
+
+        判据（纯词法，不做语义猜测）：
+          连续的 IDENTIFIER / 非停用 KEYWORD 若干个  +  紧跟一个 EQUALS。
+
+        为什么这个判据不会把比较误判成赋值：
+          · `=` 的 token 是 EQUALS（tokens.py:43），比较用的 `==` 是另一个
+            token EQ_EQ（tokens.py:54，lexer.py:981-982 双字符优先匹配）。
+            词法层面就已分开，收完名字看到 EQ_EQ 即回退成位置实参，
+            故 `f(a == 1)`、`若 a == 1:` 不受影响（实测见报告反例）。
+          · 赋值在光明里是**语句**不是表达式（海象运算符被 :52 显式拒绝），
+            所以括号实参区里出现裸 `=` 只可能是具名实参。
+          · 单向放宽：改前实参区一出现 EQUALS 就是 ParseError，即当前**能**
+            解析成功的输入实参区里一定没有 EQUALS。因此本产生式只可能把
+            「原本报错」变成「正确解析」，不可能改写任何既有产物。
+
+        名字允许多 token 拼接：lexer 会把 `步长天` / `获取函数` 这类名字切成
+        数段，只有确认后面紧跟 `=` 时才提交，否则 self.pos 原样还原。
+        """
+        cur = self._current()
+        if not cur or cur.type not in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+            return None
+        saved_pos = self.pos
+        name_parts = []
+        while self._current():
+            t = self._current()
+            if t.type == TokenType.IDENTIFIER:
+                name_parts.append(self._consume().value)
+            elif t.type == TokenType.KEYWORD and t.value not in _KWARG_NAME_STOP_KEYWORDS:
+                name_parts.append(self._consume().value)
+            else:
+                break
+        if not (name_parts and self._current() and self._current().type == TokenType.EQUALS):
+            self.pos = saved_pos
+            return None
+        self._consume(TokenType.EQUALS)
+        value = self._parse_logical_expr()
+        if value is None:
+            # 取不到值就整体回退：宁可维持原来的报错，也不要吞掉半个实参
+            self.pos = saved_pos
+            return None
+        from ast_nodes_v3 import KeywordArg
+        return KeywordArg(''.join(name_parts), value)
+
     
     def _parse_expr(self) -> ASTNode:
         """解析表达式（支持管道操作符、逻辑运算符和后置三元）"""
@@ -466,6 +532,27 @@ class ParserExprMixin:
             expr = NumberLiteral(tok.value)
             return self._parse_postfix(expr)
 
+        # 表达式位置的 `段(参数…) 返 <表达式>` = 匿名函数（v7 新单 B）
+        # 真实用例 examples/L2_wenyan/主程序.light:58：
+        #     设 排名 = 排序(学生列表, 依据 = 段(x) 返 -x之取平均分())
+        # 改前实测：`段(x)` 被当成「调用名为 段 的函数」，后面的 `返 -x…` 又被当成
+        # 同一个调用的第二个位置实参，产出
+        #     sorted(学生列表, 依据=段(x), (返 - x.取平均分()))
+        # ——python 直接 SyntaxError（positional argument follows keyword argument）。
+        #
+        # `段` 在**语句**位置是函数定义关键字，走的是 parser_stmt 那条路，不经过这里；
+        # 本分支只在表达式位置生效，不影响 `段 名(…):` 的定义语法。
+        #
+        # 判据保守：必须凑齐 `段` `(` …参数… `)` `返` 才认。`返` 不出现就把 self.pos
+        # 原样还原、退回原有的调用解析——回退后行为与改前逐字一致，既不会把已有
+        # `段(x)` 形态改坏，也不会新造静默错译。
+        if tok.type == TokenType.KEYWORD and tok.value == '段':
+            _lam_saved_pos = self.pos
+            lam = self._try_parse_duan_lambda()
+            if lam is not None:
+                return self._parse_postfix(lam)
+            self.pos = _lam_saved_pos
+
         # C风格匿名函数：函数(params){body}
         if tok.type == TokenType.KEYWORD and tok.value == '函数':
             return self._parse_c_anonymous_function()
@@ -660,6 +747,19 @@ class ParserExprMixin:
                         if self._current() and self._current().type == TokenType.COMMA:
                             self._consume(TokenType.COMMA)
                             continue
+                        # v7 新单 B（第 3 票）：具名实参 `名 = 值`。
+                        # `排序(学生列表, 依据 = f)` 里 `依据` 是参数名而非表达式；
+                        # 改前实测 ParseError「意外的标记: 「=」」（不是静默错译）。
+                        # 判据与回退理由见 _try_parse_keyword_arg 的 docstring：
+                        # 取不到「名 + EQUALS」就原位回退，走下面原来的位置实参路径，
+                        # 故对不含 `=` 的旧输入产物逐字节不变。
+                        kwarg = self._try_parse_keyword_arg()
+                        if kwarg is not None:
+                            args.append(kwarg)
+                            collected += 1
+                            if self._match(TokenType.COMMA):
+                                self._consume(TokenType.COMMA)
+                            continue
                         arg = self._parse_logical_expr()
                         if arg:
                             args.append(arg)
@@ -668,6 +768,7 @@ class ParserExprMixin:
                             break
                         if self._match(TokenType.COMMA):
                             self._consume(TokenType.COMMA)
+
 
                     # 跳过剩余的 token 直到右括号
                     while self._current() and self._current().type != TokenType.RPAREN:
@@ -1545,6 +1646,53 @@ class ParserExprMixin:
             pass
         return None
 
+
+    def _try_parse_duan_lambda(self):
+        """尝试解析表达式位置的 `段(参数…) 返 <表达式>` 匿名函数（v7 新单 B）。
+
+        凑齐要素返回 LambdaExpression；缺 `(`、缺 `)`、缺 `返` 一律返回 None，
+        由调用方还原 self.pos 退回普通调用解析。全程只前移 self.pos、不抛异常，
+        保证「不认」时的行为与改动前逐字一致。
+        """
+        # 段
+        if not (self._current() and self._current().type == TokenType.KEYWORD
+                and self._current().value == '段'):
+            return None
+        self._consume(TokenType.KEYWORD, '段')
+
+        # (
+        if not (self._current() and self._current().type == TokenType.LPAREN):
+            return None
+        self._consume(TokenType.LPAREN)
+
+        # 参数名列表，逗号分隔，允许空参
+        params = []
+        while self._current() and self._current().type != TokenType.RPAREN:
+            tok = self._current()
+            if tok.type == TokenType.COMMA:
+                self._consume(TokenType.COMMA)
+                continue
+            if tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                params.append(self._consume().value)
+            else:
+                return None
+
+        # )
+        if not (self._current() and self._current().type == TokenType.RPAREN):
+            return None
+        self._consume(TokenType.RPAREN)
+
+        # 返 / 返回：没有它就不是匿名函数，回退
+        if not (self._current() and self._current().type == TokenType.KEYWORD
+                and self._current().value in ('返', '返回')):
+            return None
+        self._consume(TokenType.KEYWORD, self._current().value)
+
+        # 函数体：单个表达式
+        body = self._parse_expr()
+        if body is None:
+            return None
+        return LambdaExpression(params, body)
 
     def _parse_c_anonymous_function(self) -> ASTNode:
         """解析C风格匿名函数：函数(params){body}

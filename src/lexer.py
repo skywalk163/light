@@ -40,7 +40,32 @@ IDENTIFIER_SAFE_KEYWORDS = frozenset({
     '排序',  # 排序（如"排序完成"、"排序分数"应为复合标识符）
     '匹配',  '配',  # 匹配/配（如"配置"、"完全匹配"应为复合标识符）
     '包含',  # 包含（如"字典包含键"、"列表包含项"应为复合标识符）
+    # v7 新单 B：模块 / 标准库 / 打印 也常作复合标识符的词中、词尾成分
+    # （学生模块 / 可打印 / 我的标准库），词中词尾不应触发拆分。
+    # 见下面 IDENTIFIER_SAFE_SUFFIX_ONLY_KEYWORDS：这三个只享受「词中/词尾」豁免，
+    # 词首仍必须作关键字（打印 是 print，词首豁免会把 print 语句吞成标识符）。
+    '模块', '标准库', '打印',
 })
+
+# IDENTIFIER_SAFE_KEYWORDS 的子集：**只在词中/词尾**享受不拆分豁免。
+#
+# 背景（v7 新单 B）：IDENTIFIER_SAFE_KEYWORDS 在 _tokenize_chinese_sequence 的
+# 嵌入关键字扫描里有两处判据，口径并不一致——
+#   * 输出循环：带 `scan_pos > 0` 门（词首仍作关键字）；
+#   * 探测循环：无条件跳过（词首也被并入标识符）。
+# 既有成员按后者落地：`输出甲` → IDENTIFIER('输出甲')、`输出格式` → IDENTIFIER
+# （探测循环那行注释明确要这个行为，不能动）。
+# 但 `打印` 是 print，且在 VERB_ARITY 中（keywords.py:253），词首遇到更长的汉字
+# 序列时会被第一层的「多字动词作复合词前缀」判据跳过、落到探测循环。若沿用既有
+# 成员的无条件跳过，`打印甲` / `打印结果` / `打印日志` 会从
+# KEYWORD(打印)+IDENTIFIER 退化成单个 IDENTIFIER —— 无空格写法是本语言的一等
+# 写法（见本文件顶部 docstring 第 3 条「元数驱动参数收集 - 打印 甲」），
+# 那等于把 print 语句静默改写成一个自由标识符。
+# 因此这三个新成员在探测循环里补 `scan_pos > 0` 门，与输出循环对齐。
+IDENTIFIER_SAFE_SUFFIX_ONLY_KEYWORDS = frozenset({
+    '模块', '标准库', '打印',
+})
+
 
 # 常见复合词保护列表（这些词包含运算符动词或中文数字，但应该作为整体识别）
 COMMON_COMPOUND_WORDS = frozenset({
@@ -916,18 +941,56 @@ class Lexer:
     def _match_keyword(self, text: str, pos: int) -> Tuple[Optional[str], int]:
         """
         最长匹配关键字
-        
-        注意：compound_safe_single 中的单字关键字（如"典"）不应在独立上下文中匹配，
-        仅当它们是更长关键字的组成部分时才使用。
-        递归调用 _skip_compound_safe_and_match 处理这种情况。
-        
+
+        注意：compound_safe_single 中的单字关键字（如"自"、"过"）**是否**应该在
+        当前位置成词，由调用方按上下文判定（词首/词中/词尾、后随字符等），
+        判据集中在 _tokenize_chinese_sequence 的三处：第一层的「单字动词在词首
+        且词长>1 时跳过」、嵌入扫描探测循环、嵌入扫描输出循环。
+        本函数只负责「从 pos 起最长能匹配到哪个关键字」。
+
+
         Returns:
             (匹配到的关键字, 匹配长度) 或 (None, 0)
+            匹配长度恒等于 len(匹配到的关键字)，且关键字恒等于 text[pos:pos+长度]。
         """
         return self._skip_compound_safe_and_match(text, pos)
     
     def _skip_compound_safe_and_match(self, text: str, pos: int, text_len: int = None) -> Tuple[Optional[str], int]:
-        """尝试匹配关键字，遇到 compound_safe 关键字时跳过并继续匹配后续内容"""
+        """从 pos 起做关键字匹配；遇到 compound-safe 单字关键字时尝试递归看后续。
+
+        v7 新单 B 修复的是**返回值失配**，不是递归本身。原实现在命中
+        _COMPOUND_SAFE_SINGLE_KEYWORDS 的单字（且后面还有内容）时递归到 pos+1，
+        然后把**内层的 value 和内层的 length 原样返回**——既没折算偏移，也没退回
+        外层候选：
+
+            _match_keyword('自之姓名', 0) -> ('之', 1)   # 应为 ('自', 1)
+
+        调用方消费 1 个字符（`自`）却记成 `之`，`自之姓名` 被切成
+        KEYWORD(之) KEYWORD(之) IDENTIFIER(姓名)，self 语义静默丢失。
+
+        为什么**不**直接删掉递归、退化成纯最长匹配：
+          递归的返回值有一个被下游长期依赖的**副作用语义**——「一串 compound-safe
+          单字后面若没有真正的关键字，就回报最内层那颗 compound-safe 单字（会被
+          调用方 skip 掉）」。例如 `除空格` 里 `除`(compound-safe 运算符) 后跟
+          `空`(compound-safe)，旧实现回报 ('空',1)，被 :2001/:2046 当作 compound-safe
+          跳过，于是 `去除空格` 整体保留为一个标识符（stdlib 函数名）。若改成纯最长
+          匹配，`除` 会作为运算符浮现、把 `去除空格` 切成 去+除+空格（实测 37255 文件
+          A/B 比对抓到这类回归 100+ 处：10的幂/索引/种类/阶乘 …）。这些串大多是没进
+          user_definitions 的自由名，切开即 NameError——正是本票严禁的静默错译。
+
+        因此只做**最小对齐修复**，且只认成员访问符 `之`：
+          * 递归找到的 kw 是 `之`（唯一被移出 compound-safe 表的分隔符，见 :388
+            「之 是成员访问符，应始终拆分」）→ pos 处这颗 compound-safe 单字才是
+            该成的词，返回与 pos 对齐的 (candidate, length)；
+          * 其余一切情况（后续是别的普通关键字、或又是 compound-safe 单字、或没
+            找到）→ 原样返回内层结果，历史行为一字不改。
+        为什么不放宽成「任意非 compound-safe 关键字」：那会连 `对于`(对+于)、
+        `10的幂`(…+幂)、`是否为空`(是+否+为) 这类既有切法一起改掉——实测全仓
+        A/B 因此多出 100+ 处漂移、42 个文件受影响；收窄到 `之` 后只剩 16 处
+        `KEYWORD(之)+KEYWORD(之) → KEYWORD(自)+KEYWORD(之)`，全部是本票要修的形状。
+        判据即：`自之X` 修好；`去除空格`、`对于`、`是否`、`10的幂` 一个都不动。
+        """
+
         # 局部变量缓存
         _kw_by_len = _ALL_KEYWORDS_BY_LENGTH
         _max_len = _ALL_MAX_KEYWORD_LEN
@@ -953,15 +1016,31 @@ class Lexer:
                     # 检查是否是 compound_safe_single 中的单字关键字
                     if (length == 1 and candidate in _compound_safe
                             and pos + length < text_len):
-                        # 单字 compound_safe 关键字（如"典"），后面还有内容，
-                        # 跳过它，尝试匹配后续内容
+                        # 单字 compound_safe 关键字（如"自"、"除"），后面还有内容，
+                        # 递归看紧跟的位置能否成词。
                         kw, l = self._skip_compound_safe_and_match(text, pos + 1, text_len)
                         if kw:
+                            if kw == '之':
+                                # 后续是成员访问符 `之`（唯一被移出 compound-safe 的
+                                # 分隔符，见 :388「之 始终拆分」）：pos 处这颗
+                                # compound-safe 单字才是最长匹配，返回与 pos 对齐的
+                                # (candidate, length)。`自之X` 由此修成 KEYWORD(自)…。
+                                #
+                                # 只认 `之`、不认「任意非 compound-safe 关键字」：后者会
+                                # 把 `对于`(对+于)、`10的幂`(…幂+幂) 之类 compound-safe
+                                # 单字紧跟普通关键字的既有切法一并改掉——实测 A/B 多出
+                                # 100+ 处 `对于/幂/是否` 漂移。历史上这些串靠「回报内层
+                                # 关键字」被下游 skip/整体保留，必须原样保留。
+                                return candidate, length
+                            # 其它情况（后续仍是 compound-safe 单字，或普通关键字）
+                            # 一律保持历史行为：回报内层结果（会被上层 skip 或按原样
+                            # 处理），A/B 零漂移。
                             return kw, l
                         # 后续无法形成关键字，继续使用当前关键字
                     return candidate, length
         
         return None, 0
+
     
     def _try_match_symbol(self, source: str, i: int, line: int, col: int) -> Tuple[Optional[Token], int]:
         """尝试匹配符号"""
@@ -1896,8 +1975,18 @@ class Lexer:
                             num_val, num_len = _try_parse_cn_num(remaining, 0)
                             if num_val is not None and num_len >= len(remaining):
                                 is_chinese_num = True
-                        if not is_chinese_num:
+                        # 例外（v7 新单 B）：紧跟成员访问符 `之` 时，该单字不可能是
+                        # 复合词前缀——`之` 已被排除出 compound-safe（见 :388 注释
+                        # 「之 是成员访问符，应始终拆分」），词边界就在下一个字符处。
+                        # `自之姓名` 等价于 `自.姓名`，首 token 必须是 KEYWORD(自)
+                        # 才能拿到 self 语义；跳过后会落到嵌入扫描，被当成标识符前缀
+                        # 吐成 IDENTIFIER(自)，`自` 退化为一个未定义的自由变量。
+                        # 对照：`自加乙`（后随运算符）、`自动化`/`自蛙`（后随普通汉字）
+                        # 都不满足本例外，仍按复合词前缀跳过，行为不变。
+                        _member_access_follows = remaining.startswith('之')
+                        if not is_chinese_num and not _member_access_follows:
                             skip_verb = True
+
                 
                 # 动词在词首且后面还有内容时跳过：动词作为复合标识符前缀时不应拆分
                 # 例如"输出格式"不应拆为 输出(关键字)+格式，而应作为整体标识符
@@ -2005,7 +2094,15 @@ class Lexer:
                             # 标识符安全关键字（如"函数"、"输出"）：是复合标识符的一部分，跳过。
                             # 注：此处不检查 scan_pos——词首的 VERB_ARITY 动词（如"输出格式"中的
                             # "输出"）已在第一层 1264 行判定为复合词前缀，应整体并入标识符
-                            skip_kw = True
+                            #
+                            # 例外（v7 新单 B）：IDENTIFIER_SAFE_SUFFIX_ONLY_KEYWORDS
+                            # （模块/标准库/打印）只在词中、词尾豁免，词首仍作关键字。
+                            # 否则 `打印甲` 会被整体并成 IDENTIFIER('打印甲')，
+                            # 把 print 语句静默改写成一个自由标识符。判据与输出循环
+                            # 的 `scan_pos > 0` 门一致（见下面 IDENTIFIER_SAFE 分支）。
+                            if scan_pos > 0 or sub_kw not in IDENTIFIER_SAFE_SUFFIX_ONLY_KEYWORDS:
+                                skip_kw = True
+
                         
                         if not skip_kw:
                             # 不是需要跳过的关键字，标记为内嵌关键字

@@ -396,7 +396,20 @@ class UnifiedCodeGenerator:
             self._add_line(f'{main_name}()')
             self.indent_level -= 1
         
+        # 单 B·修复4：接口/抽象方法产物用到 ABC/abstractmethod，需在文件头后补导入。
+        # 与 src 后端 code_generator.py:827-838 同一机制（找到头部注释/空行后插入）。
+        if getattr(self, '_needs_abc', False):
+            insert_pos = 0
+            for i, line in enumerate(self.output_lines):
+                if line.startswith("#") or line == "":
+                    insert_pos = i + 1
+                else:
+                    break
+            self.output_lines.insert(insert_pos, "")
+            self.output_lines.insert(insert_pos, "from abc import ABC, abstractmethod")
+
         return self._build_output()
+
     
     def _build_output(self) -> str:
         """构建最终输出字符串"""
@@ -422,20 +435,65 @@ class UnifiedCodeGenerator:
             return f"_{name}"
         return name
     
-    def _resolve_name(self, name: str) -> str:
-        """解析标识符名：先做 己→self 映射，再做 Python 关键字清理。
+    # ---- 与 src 后端对齐的三张表（单 B·修复5）----------------------------
+    # 权威定义在 code_generator.PythonCodeGenerator 上（_SELF_NAMES /
+    # _CTOR_NAMES / _MEMBER_SUFFIX_MAP）。这里刻意**不 import** 那个模块（它
+    # `from light_parser_v3 import *`，为三个常量拖进整条解析链不值当），而是
+    # 抄一份并由 tests/test_context_manager.py::TestBackendParity 断言两边逐项
+    # 相等——改一边忘另一边会当场打红，不会再出现「同一份源码两个后端语义不同」。
+    _SELF_NAMES = ('己', '自')
+    _CTOR_NAMES = ('构造', '初始化')
+    _MEMBER_SUFFIX_MAP = (
+        ('的长度', 'len({o})'),
+        ('的项', '{o}.items()'),
+        ('的键', '{o}.keys()'),
+        ('的值', '{o}.values()'),
+    )
 
-        对齐 code_generator.py:2041-2046 的既有实现：
-        - 己       → self
-        - 己.属性  → self.属性
-        仅在类方法/构造函数内生效，避免把类外的普通变量名「己」（天干）误映射。
+    def _is_self_param(self, param_name) -> bool:
+        """形参名是否是 self 引用（己/自）——方法定义已无条件注入 self，
+        源码里显式写出的 自/己 必须吃掉，否则 `def 打印(self, 自)` 重复注入。"""
+        return isinstance(param_name, str) and param_name in self._SELF_NAMES
+
+    def _split_member_suffix(self, name):
+        """拆 `X的项` 这类复合标识符的成员后缀，命中返回 (对象原名, 输出模板)。
+        与 code_generator.py::_split_member_suffix 同语义（含「对象部分非空」约束）。"""
+        if not isinstance(name, str):
+            return None
+        for suffix, tmpl in self._MEMBER_SUFFIX_MAP:
+            if name.endswith(suffix) and len(name) > len(suffix):
+                obj = name[:-len(suffix)]
+                if obj and not obj.endswith('.'):
+                    return obj, tmpl
+        return None
+
+    def _resolve_name(self, name: str) -> str:
+        """解析标识符名：先做 己/自 → self 映射与 `的X` 后缀改写，再做关键字清理。
+
+        对齐 code_generator.py::_resolve_identifier_name：
+        - 己 / 自            → self
+        - 己.属性 / 自.属性   → self.属性
+        - X的长度/的项/的键/的值 → len(X) / X.items() / X.keys() / X.values()
+        self 映射仅在类方法/构造函数内生效，避免把类外的普通变量名「己」（天干）误映射。
+        `的X` 改写不受此限：它是词法层不切 `的` 带来的必然后果，与是否在类里无关。
         """
-        if self._in_class_method and isinstance(name, str):
-            if name == '己':
-                return 'self'
-            if name.startswith('己.'):
-                return 'self.' + name[2:]
+        if not isinstance(name, str):
+            return self._sanitize_name(name)
+
+        split = self._split_member_suffix(name)
+        if split is not None:
+            obj_raw, tmpl = split
+            # 对象部分必须再走一遍本函数：`自.成绩的项` 里的 自 也要归一成 self
+            return tmpl.format(o=self._resolve_name(obj_raw))
+
+        if self._in_class_method:
+            for sref in self._SELF_NAMES:
+                if name == sref:
+                    return 'self'
+                if name.startswith(sref + '.'):
+                    return 'self.' + name[len(sref) + 1:]
         return self._sanitize_name(name)
+
 
     def _generate_statement(self, stmt):
         """生成语句（支持统一AST）"""
@@ -557,6 +615,15 @@ class UnifiedCodeGenerator:
         elif is_instance(stmt, 'ClassDefinition'):
             self._generate_class(stmt)
         
+        # 接口定义（`接 X:`）
+        # 单 B·修复4：本分支原先缺失，InterfaceDefinition 会掉进下面的兜底
+        # `print("警告：未知语句类型")` —— 只打印警告、不抛错，于是 unified 后端把
+        # 接口声明**静默丢弃**（实测产物里连 class 都没有）。src 后端有
+        # code_generator.py:_generate_interface_definition，两后端语义因此分叉。
+        elif is_instance(stmt, 'InterfaceDefinition'):
+            self._generate_interface_definition(stmt)
+        
+
         # 推迟语句（defer）
         elif is_instance(stmt, 'DeferStatement') or is_instance(stmt, 'DeferStmt'):
             self._generate_defer_stmt(stmt)
@@ -1068,6 +1135,94 @@ class UnifiedCodeGenerator:
         self._add_line(f"# {type_name} implements {trait_name}")
         self._add_line("")
 
+    # ---- 接口定义（单 B·修复4：与 src 后端对齐）--------------------------
+    # 参照 src/code_generator.py:1697-1766 的
+    # _generate_interface_definition / _generate_abstract_method 实现，
+    # 语义必须一致：接口 -> class X(ABC)；无方法体 -> @abstractmethod + pass；
+    # 有方法体 -> 普通方法（默认实现）。
+    _LIGHT_TYPE_MAP = {
+        '整数': 'int', '小数': 'float', '浮数': 'float', '数': 'float',
+        '文本': 'str', '串': 'str', '布尔': 'bool',
+        '列表': 'list', '列': 'list', '字典': 'dict', '典': 'dict',
+        '集合': 'set', '集': 'set', '任意': 'Any', '空': 'None',
+    }
+
+    def _map_return_type(self, light_type):
+        """光明类型名 -> Python 类型名。
+
+        必须做映射：直接把 `串` 写进 `-> 串` 注解会在运行期 NameError
+        （注解在 def 执行时求值）。表与 src 的 _map_type 保持一致；
+        表外的名字原样透传（用户自定义类名本就该原样出现）。
+        """
+        if not light_type:
+            return None
+        t = str(light_type).strip()
+        return self._LIGHT_TYPE_MAP.get(t, self._sanitize_name(t))
+
+    def _generate_interface_definition(self, stmt):
+        """生成接口定义（`接 X:` -> class X(ABC)）"""
+        self._needs_abc = True
+        class_name = self._sanitize_name(stmt.name)
+
+        bases = ['ABC']
+        for sup in (getattr(stmt, 'super_interfaces', None) or []):
+            bases.append(self._sanitize_name(sup if isinstance(sup, str) else getattr(sup, 'name', str(sup))))
+
+        self._add_line(f"class {class_name}({', '.join(bases)}):")
+        self.indent_level += 1
+
+        methods = getattr(stmt, 'methods', None) or []
+        for method in methods:
+            self._generate_abstract_method(method)
+        if not methods:
+            self._add_line("pass")
+
+        self.indent_level -= 1
+        self._add_line("")
+
+    def _generate_abstract_method(self, method):
+        """生成协议方法：无方法体 -> 抽象方法；有方法体 -> 默认实现。"""
+        method_name = self._sanitize_name(method.name)
+
+        params = ['self']
+        for param in (getattr(method, 'parameters', None) or []):
+            raw = param.name if hasattr(param, 'name') else str(param)
+            # self 已在上一行注入；接口签名恰恰最常显式写 `自`
+            # （docs/L2_文言体语法规范_v4.0.md:590-591 的 `段 打印(自) -> 空`），
+            # 不过滤会发射 `def 打印(self, 自)`。与 src 侧同一口径。
+            if self._is_self_param(raw):
+                continue
+            params.append(self._sanitize_name(raw))
+        params_str = ', '.join(params)
+
+        has_body = bool(getattr(method, 'body', None))
+        if not has_body:
+            self._needs_abc = True
+            self._add_line("@abstractmethod")
+
+        ret_type = self._map_return_type(getattr(method, 'return_type', None))
+        if ret_type:
+            self._add_line(f"def {method_name}({params_str}) -> {ret_type}:")
+        else:
+            self._add_line(f"def {method_name}({params_str}):")
+
+        self.indent_level += 1
+        if has_body:
+            emitted = len(self.output_lines)
+            prev_in_function = self._in_function
+            self._in_function = True
+            try:
+                for s in method.body:
+                    self._generate_statement(s)
+            finally:
+                self._in_function = prev_in_function
+            # 方法体可能全是注释等不产出代码的节点，兜底补 pass
+            if len(self.output_lines) == emitted:
+                self._add_line("pass")
+        else:
+            self._add_line("pass")
+        self.indent_level -= 1
+
     def _generate_class(self, cls):
         """生成类定义"""
         name = self._sanitize_name(cls.name)
@@ -1288,6 +1443,11 @@ class UnifiedCodeGenerator:
                     '排序': 'sort', '反转': 'reverse', '拷贝': 'copy',
                     '长度': '__len__', '获取': 'get', '设置': 'update',
                     '删除': 'remove', '包含': '__contains__',
+                    # 单 B·修复3 的 unified 侧对齐：调用侧 构造/初始化 -> __init__，
+                    # 与 code_generator.py 的 MemberAccess 分支（member in _CTOR_NAMES）
+                    # 同口径。否则 `父之构造(...)` 在 unified 里发 `父.构造(...)`，
+                    # 运行期 AttributeError —— 与 src 侧分叉。
+                    '构造': '__init__', '初始化': '__init__',
                 }
                 mapped_method = method_map.get(method_name, method_name)
                 func_name = f"{obj}.{mapped_method}"

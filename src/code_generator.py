@@ -336,6 +336,14 @@ class PythonCodeGenerator:
             '转字符串': '_light_builtin.转字符串',
             '到字符串': '_light_builtin.转字符串',
             '转换字符串': '_light_builtin.转字符串',
+            # v7 新单 B：`转成字符串` 是本族第 6 个拼法。
+            # 取证：全仓 grep 只在 examples/L2_wenyan/学生模块.light:34,49 与
+            # examples/L1_vs_L2_README.md 出现，**实现里从未定义过**，所以
+            # examples/L2_wenyan/主程序.light 跑到 字符串化() 就 NameError。
+            # 判为「别名从缺」而非「例子写错」：本族已收 转串/串/转字符串/到字符串/
+            # 转换字符串 五个同义拼法（:326,:334,:336-338），可见设计上就是宽松收词；
+            # 而例子是被测输入不许改（硬规则 2）。补别名零新机制、零新语义。
+            '转成字符串': '_light_builtin.转字符串',
             '到数字': '_light_builtin.转浮点',
             '转数字': '_light_builtin.转浮点',
             '字符串长度': '_light_builtin.字符串长度',
@@ -1112,9 +1120,10 @@ class PythonCodeGenerator:
         if not (self._in_class_method and stmt.name in self._class_attr_names):
             self._bind_local(stmt.name)
         
-        # 处理 己.xxx 形式的属性赋值
-        if name.startswith('己.'):
-            name = 'self.' + name[2:]
+        # 处理 己.xxx / 自.xxx 形式的属性赋值（两个 self 引用名一视同仁，
+        # 见 _SELF_NAMES；只补 己 会让 `自.x 为 …` 发射出裸 `自.x` → NameError）
+        name = self._map_self_prefix(name)
+
         
         type_annotation = ''
         if stmt.type_annotation:
@@ -1651,12 +1660,39 @@ class PythonCodeGenerator:
                     ctor_method = method
                     break
 
-        # 生成静态属性（类变量）
+        # 生成类级字段（类体内的 `设 名[: 类型] [= 值]`，见
+        # src/parser_stmt.py:3526-3558 —— 它给 AttributeDeclaration 带上了
+        # type_annotation，is_static=True）。
+        #
+        # 三形态必须分开发射，混一起就是单 B 那两处缺陷：
+        #   ① `设 总数: 数 = 0`  -> `总数: float = 0`
+        #      注解**不能丢**。丢了以后类型检查/IDE/文档全瞎，且与模块级
+        #      `设 总数: 数 = 0`（走 _generate_var_decl:1120-1123，一直正确发
+        #      `总数: float = 0`）行为分叉——同一条语法两个产物。
+        #   ② `设 姓名: 串`（无初值）-> `姓名: str`（**纯注解**）
+        #      规范依据 docs/L2_文言体语法规范_v4.0.md:599-600 / :622-623。
+        #      绝不能补 `= None`：那会真的创建一个类属性，语义从「声明字段类型」
+        #      变成「所有实例共享一个默认值」。对可变类型是经典坑（一个实例
+        #      改了字典，全类都变），对 examples/L2_wenyan/学生模块.light:24
+        #      的 `设 成绩: 典` + 构造里 `自之成绩 = {}` 则是「类属性 None +
+        #      实例属性 dict」两套并存的语义混乱。纯注解不产生类属性，实例
+        #      属性行为完全由 __init__ 决定，问题自然消失。
+        #   ③ 既无注解又无初值 -> 保持 `名 = None`
+        #      没有注解可发，又不能什么都不发（字段声明会整个消失），
+        #      沿用旧行为不动，避免无谓回归。
+        #
+        # 类型映射走 _map_type（不是 _sanitize_type_name）：与 VarDecl 同一条
+        # 通路，泛型 `列表<整数>` / `可选<整数>` 才能一致地映成 list[int] /
+        # Optional[int]。两处用不同映射表迟早再分叉一次。
         for attr in static_attrs:
             attr_name = self._sanitize_name(attr.name)
+            light_type = getattr(attr, 'type_annotation', None)
+            annotation = f": {self._map_type(light_type)}" if light_type else ''
             if attr.default_value:
                 default = self._generate_expr(attr.default_value)
-                self._add_line(f"{attr_name} = {default}")
+                self._add_line(f"{attr_name}{annotation} = {default}")
+            elif annotation:
+                self._add_line(f"{attr_name}{annotation}")
             else:
                 self._add_line(f"{attr_name} = None")
 
@@ -1728,8 +1764,15 @@ class PythonCodeGenerator:
         method_name = self._sanitize_name(method.name)
 
         # 参数列表
+        # 与 _generate_method 同一口径：self 已在上一行无条件注入，源码里**显式
+        # 写出**的 自/己 形参必须吃掉。接口签名恰恰是最常写 `自` 的地方——
+        # docs/L2_文言体语法规范_v4.0.md:590-591 的示范签名就是 `段 打印(自) -> 空`，
+        # 不过滤会发射 `def 打印(self, 自)`：实现类按零参调用即 TypeError，
+        # 按一参调用又和 `己/自 → self` 的方法体写法对不上。
         params = ['self']
         for param in method.parameters:
+            if self._is_self_param(param.name):
+                continue
             params.append(self._sanitize_name(param.name))
         params_str = ', '.join(params)
 
@@ -1976,9 +2019,10 @@ class PythonCodeGenerator:
         method_name = method.name
 
         # 构造函数特殊处理
-        is_ctor = getattr(method, 'is_constructor', False) or method_name in ('构造', '初始化')
+        is_ctor = getattr(method, 'is_constructor', False) or method_name in self._CTOR_NAMES
         if is_ctor:
             method_name = '__init__'
+
 
         # 迭代器协议方法名映射
         if method_name == '__迭代__':
@@ -2013,6 +2057,10 @@ class PythonCodeGenerator:
 
         # 收集参数名（用于排除 self. 前缀）
         self._current_method_params = set()
+        # 是否已注入 self —— 只有注入过才吞掉源码里显式写出的 自/己 形参。
+        # 静态方法 params 是空的（上方 `[] if is_static`），此时若也吞掉就会
+        # 静默少一个形参 → 调用侧 TypeError，比多一个名字更难查。
+        swallow_self = 'self' in params
         # 兼容 MethodDefinition(.parameters) 和 Paragraph(.params)
         method_params = getattr(method, 'parameters', None)
         if method_params is None:
@@ -2021,13 +2069,25 @@ class PythonCodeGenerator:
             for param in method_params:
                 # Paragraph 的 params 是 List[Dict[str,str]]，MethodDefinition 的是 List[Parameter]
                 if isinstance(param, dict):
-                    param_name = self._sanitize_name(param.get('name', ''))
-                    self._current_method_params.add(param.get('name', ''))
+                    raw_param = param.get('name', '')
+                    # 显式写出的 自/己 形参：方法定义已无条件注入 self（上方
+                    # params=['self']），这里必须吃掉，否则发射
+                    # `def __init__(self, self, ...)` → SyntaxError。
+                    # 同时把原名登记进 _current_method_params，让方法体里的
+                    # 自/己 走 _resolve_identifier_name 归一成 self。
+                    if swallow_self and self._is_self_param(raw_param):
+                        self._current_method_params.add(raw_param)
+                        continue
+                    param_name = self._sanitize_name(raw_param)
+                    self._current_method_params.add(raw_param)
                     if param.get('default'):
                         params.append(f"{param_name}={param['default']}")
                     else:
                         params.append(param_name)
                 else:
+                    if swallow_self and self._is_self_param(param.name):
+                        self._current_method_params.add(param.name)
+                        continue
                     param_name = self._sanitize_name(param.name)
                     self._current_method_params.add(param.name)
                     if getattr(param, 'default_value', None):
@@ -2035,6 +2095,7 @@ class PythonCodeGenerator:
                         params.append(f"{param_name}={default}")
                     else:
                         params.append(param_name)
+
 
         params_str = ', '.join(params)
 
@@ -2154,26 +2215,28 @@ class PythonCodeGenerator:
             return f'"{value}"'
         
         elif isinstance(expr, Identifier):
-            name = expr.name
-            # 检查是否以"的长度"结尾（如"文本的长度"、"列表的长度"）
-            # 这是 lexer 合并为单个标识符的成员访问，仅处理"长度"模式
-            if name.endswith('的长度'):
-                obj = name[:-3]  # 去掉"的长度"
-                return f"len({self._sanitize_name(obj)})"
-            name = self._sanitize_name(name)
-            # 检查是否是中文数字
+            # 中文数字整体匹配优先（在任何名字改写之前，避免被后缀规则误切）
             if expr.name in self.chinese_numbers:
                 return str(self.chinese_numbers[expr.name])
-            # 己 → self（仅在类方法中），己.attr → self.attr
-            if self._in_class_method:
-                if name == '己':
-                    return 'self'
-                if name.startswith('己.'):
-                    return 'self.' + name[2:]
-            # 类方法中，如果引用的是类属性且不是参数名，添加 self. 前缀
-            if self._in_class_method and expr.name in self._class_attr_names and expr.name not in self._current_method_params:
-                return f"self.{name}"
-            return name
+
+            # 复合标识符的成员后缀改写。
+            # lexer 对纯汉字序列**不切** `的`（设计，见 docs/L1_白话体语法规范_v4.0.md:589），
+            # 所以 `成绩的项` 到这里是单个 IDENTIFIER，只能在 codegen 做后缀重写。
+            # 白名单（长度/键/值）见 docs/L1_白话体语法规范_v4.0.md:591 与
+            # docs/guide/常见问题.md:232；`的项` → .items() 的二元组语义见
+            # docs/知识库/最佳实践.md:90（项[0]/项[1]）与 docs/L2_..._v4.0.md:372（`配置.项()`）。
+            #
+            # 改写必须在 `己 → self` 解析**之后**才算完：对象部分要走同一条
+            # 名字解析路径，否则类方法里的 `己之成绩的项` 会漏出裸 `己`。
+            # 所以这里把「拆后缀」与「解析对象名」分成两步，两者共用
+            # _resolve_identifier_name()，不再各写一份 self 前缀逻辑。
+            split = self._split_member_suffix(expr.name)
+            if split is not None:
+                obj_raw, tmpl = split
+                return tmpl.format(o=self._resolve_identifier_name(obj_raw))
+
+            return self._resolve_identifier_name(expr.name)
+
         
         # 检查 ast_nodes 模块中的 Identifier（兼容两种定义）
         elif hasattr(expr, 'name') and hasattr(expr, 'line'):
@@ -2242,10 +2305,12 @@ class PythonCodeGenerator:
         elif isinstance(expr, ParagraphCall):
             name = self._sanitize_name(expr.name)
             
-            # 己.方法() → self.方法()（粘连写法 己方法() 被 parser 折叠成 '己.方法'）
-            # 与本文件 Identifier 分支的 己→self 映射保持一致
-            if self._in_class_method and isinstance(expr.name, str) and expr.name.startswith('己.'):
-                name = 'self.' + expr.name[2:]
+            # 己.方法() / 自.方法() → self.方法()（粘连写法 己方法() 被 parser
+            # 折叠成 '己.方法'）。两个 self 引用名共用 _map_self_prefix，与本文件
+            # Identifier 分支 / VarDecl 分支的映射保持同一口径。
+            if self._in_class_method and isinstance(expr.name, str):
+                name = self._map_self_prefix(expr.name)
+
             
             # 单 03·路径1：局部变量遮蔽内置名。
             # parser 对「内置/动词名」做了特判——即便是裸引用（如 `映射['a']` 里的
@@ -2269,7 +2334,8 @@ class PythonCodeGenerator:
             args = []
             for arg in expr.args:
                 if isinstance(arg, KeywordArg):
-                    args.append(f"{arg.name}={self._generate_expr(arg.value)}")
+                    kw = self._kwarg_name(py_name, arg.name)
+                    args.append(f"{kw}={self._generate_expr(arg.value)}")
                 else:
                     args.append(self._generate_expr(arg))
             args_str = ', '.join(args)
@@ -2366,6 +2432,14 @@ class PythonCodeGenerator:
                     return mapped
             
             if expr.is_method_call:
+                # `的X` 后缀被 lexer 从成员名尾部切出、又被无括号成员调用解析
+                # 吞成"唯一实参"的修复（见 _match_orphan_suffix_call 的详述）。
+                # 必须在生成实参、走方法调用逻辑**之前**拦截，否则会发射
+                # `self.成绩(的项)` 这种能编译、运行期才炸的静默错译。
+                orphan = self._match_orphan_suffix_call(expr)
+                if orphan is not None:
+                    return orphan
+
                 # 方法调用（支持关键字参数）
                 args = []
                 for arg in expr.args:
@@ -2376,11 +2450,20 @@ class PythonCodeGenerator:
                 args_str = ', '.join(args)
 
                 # 特殊处理：父.构造(...) -> super().__init__(...)
-                if obj == "super()" and expr.member == '构造':
+                if obj == "super()" and expr.member in self._CTOR_NAMES:
                     return f"super().__init__({args_str})"
+                # 成员调用侧的构造名映射：`人之构造(...)` -> `人.__init__(...)`。
+                # 与方法**定义**侧共用同一张 _CTOR_NAMES（见 _generate_method:
+                # is_ctor 判定），避免定义把 构造 译成 __init__ 而调用仍发 .构造
+                # 导致运行期 AttributeError（examples/L2_wenyan/学生模块.light:27）。
+                # 只作用于成员调用；名字恰好叫「构造」的普通函数是 ParagraphCall，
+                # 不经过本分支，不受影响。
+                if expr.member in self._CTOR_NAMES:
+                    return f"{obj}.__init__({args_str})"
                 # 特殊处理：长度方法 -> len(obj)
                 if expr.member == '长度':
                     return f"len({obj})"
+
                 # 特殊处理：包含方法 -> item in obj
                 # 必须加括号：`in` 在 Python 里是比较运算符，会与外层比较串成链式比较。
                 # 例如 `文本.包含("z") 等于 假` 若发射成 `"z" in 文本 == False`，
@@ -2436,7 +2519,15 @@ class PythonCodeGenerator:
                 # 特殊处理：长度属性 -> len(obj)（即使不是方法调用）
                 if expr.member == '长度':
                     return f"len({obj})"
+                # 复合成员名的后缀改写：`X.成绩的项` -> `X.成绩.items()`。
+                # 与 Identifier 分支共用 _split_member_suffix，两处不各写一份表。
+                # 只在属性访问侧做：`的项/的键/的值/的长度` 结尾的名字不会是方法名。
+                split = self._split_member_suffix(expr.member)
+                if split is not None:
+                    inner_raw, tmpl = split
+                    return tmpl.format(o=f"{obj}.{self._sanitize_name(inner_raw)}")
                 return f"{obj}.{mapped_member}"
+
         
         elif isinstance(expr, ListLiteral):
             # 列表字面量
@@ -2649,6 +2740,195 @@ class PythonCodeGenerator:
         else:
             raise CodeGenError(f"不支持的表达式类型", type(expr).__name__)
     
+    # ---- 构造方法名（定义侧 / 调用侧共用唯一判据）----------------------
+    # 定义侧：_generate_method 的 is_ctor 判定
+    # 调用侧：MemberAccess 方法调用分支
+    # 两侧必须读同一个元组，否则「定义译成 __init__、调用仍发 .构造」会再次分叉
+    # （examples/L2_wenyan/学生模块.light:27 就是这么炸的）。
+    _CTOR_NAMES = ('构造', '初始化')
+
+    # ---- self 引用名 -----------------------------------------------------
+    # `己` 与 `自` 在 src/parser_expr.py:27 已同为 self 引用登记，codegen 必须
+    # 一视同仁：表达式位置、方法形参位置、实参位置三处都要归一成 self，
+    # 否则同一个方法里会出现「形参叫 自、方法体里叫 self」两套名字 → NameError。
+    _SELF_NAMES = ('己', '自')
+
+    def _is_self_param(self, param_name) -> bool:
+        """形参名是否是 self 引用（己/自）。
+
+        方法定义已经无条件注入了 self（见 _generate_method 的 params=['self']），
+        所以源码里**显式写出**的 自/己 形参必须被吃掉，否则会发射
+        `def __init__(self, self, ...)` —— SyntaxError（duplicate argument）。
+        """
+        return isinstance(param_name, str) and param_name in self._SELF_NAMES
+
+    # ---- 复合标识符的成员后缀改写（`的X`）------------------------------
+
+    #
+    # lexer 对纯汉字序列不切 `的`（设计；docs/L1_白话体语法规范_v4.0.md:589），
+    # 于是 `成绩的项` 抵达 codegen 时是**单个** IDENTIFIER。规范给的落地方式是
+    # 「代码生成阶段按白名单把已知属性名拆出来」——白名单条文见
+    # docs/L1_白话体语法规范_v4.0.md:591 与 docs/guide/常见问题.md:232
+    # （列举 长度 / 首 / 尾 / 键 / 值）。
+    #
+    # 本表只收「有规范条文或实例依据」的四条：
+    #   的长度 -> len(X)        原有行为，docs 明列，全仓 27 处在用
+    #   的项   -> X.items()     docs/知识库/最佳实践.md:90 用 `的项` + 项[0]/项[1]（二元组）；
+    #                           docs/L2_文言体语法规范_v4.0.md:372/482 的方法形式 `配置.项()`
+    #                           搭配 `之为 键, 值`，同为 (k,v) 语义；
+    #                           examples/L2_wenyan/学生模块.light:39 `自之成绩的项` + 项[1]
+    #   的键   -> X.keys()      docs 白名单明列「键」
+    #   的值   -> X.values()    docs 白名单明列「值」
+    #
+    # **不要**继续往这张表里加没有依据的词。全仓 37255 个 .light 扫描结果显示，
+    # 内置函数的**中文具名实参名** → Python 形参名（v7 新单 B）
+    #
+    # 背景：`排序(学生列表, 依据 = 段(x) 返 -x之取平均分())`
+    # （examples/L2_wenyan/主程序.light:58）里 `依据` 是中文写的形参名。
+    # `排序` 经 builtin_map 映射成 `sorted` 之后，实参名若原样透传就发射
+    # `sorted(xs, 依据=...)` → 运行期 `TypeError: sorted() got an unexpected
+    # keyword argument '依据'`。语法过得去、跑起来才炸。
+    #
+    # 判据严格按「(Python 被调名, 中文实参名)」配对，不做单边的按名替换——
+    # 否则任何用户函数只要形参恰好叫 `依据` 就会被改名，那是新的静默错译。
+    # 表里只收有实例依据的条目；查不到就原样透传（保持改动前行为，且运行期
+    # 会立刻抛 TypeError，不会静默跑出错结果）。
+    _BUILTIN_KWARG_NAME_MAP = {
+        ('sorted', '依据'): 'key',
+        # 逆序 / 倒序 都收：单测 test_multiple_keyword_args 写的是 `倒序`，
+        # 漏收就会静默发射 `sorted(xs, 倒序=True)` → 运行期 TypeError。
+        ('sorted', '逆序'): 'reverse',
+        ('sorted', '倒序'): 'reverse',
+    }
+
+    def _kwarg_name(self, py_callee: str, raw_name: str) -> str:
+        """把中文具名实参名翻译成内置函数的 Python 形参名；查不到则原样返回。"""
+        return self._BUILTIN_KWARG_NAME_MAP.get((py_callee, raw_name), raw_name)
+
+    # 高频 `的X` 后缀绝大多数是**用户自己的标识符**而非成员访问：
+    #   的量 17（物质的量）、的额 16（标的额）、的幂 8（数学十的幂）、
+    #   的大小 6（集合差集的大小）、的第几天 6（年中的第几天）、的物变化 6（标的物变化）、
+    #   的个数 3（比当前小的个数）……
+    # 把它们纳入改写会把正常变量/函数名直接编坏。
+    _MEMBER_SUFFIX_MAP = (
+        ('的长度', 'len({o})'),
+        ('的项', '{o}.items()'),
+        ('的键', '{o}.keys()'),
+        ('的值', '{o}.values()'),
+    )
+
+    def _is_known_binding(self, name: str) -> bool:
+        """名字是否已经是一个「用户自己声明过的名字」。
+
+        用于 `的X` 后缀改写的否决判据：如果整个 `X的Y` 本身就是用户声明的
+        变量/字段/形参/函数名，那它是一个普通标识符，绝不能再拆成成员访问。
+
+        为什么必须有这条：`设 目的项 = 5` 后 `打印 目的项` 在加这条之前实测发射
+        `目的项 = 5` + `print(目.items())`（.scratch/probe_out.txt:C8）——赋值侧
+        按整名发、读取侧按后缀拆，两侧对不上。`目` 通常未定义所以是 NameError，
+        但只要恰好存在一个叫 `目` 的名字，就变成「能编译、语义全错」的静默错译。
+        全仓 37255 个 .light 实测没有 `目的项/目的` 这类名字（.scratch/de_scan.txt
+        C 节），所以这条判据在本仓不改变任何现有产物，纯属护栏。
+        """
+        if not isinstance(name, str) or not name:
+            return False
+        return (name in self._local_variables
+                or name in self._class_attr_names
+                or name in self._current_method_params
+                or name in self._user_defined_functions)
+
+    def _split_member_suffix(self, name: str):
+        """拆复合标识符的成员后缀。
+
+        命中返回 (对象部分原名, 输出模板)，模板用 `{o}` 占位对象代码；
+        不命中返回 None。要求对象部分非空——`的项` 这种整体就是后缀的名字
+        不改写（否则会发射出 `.items()` 这种半截表达式）。
+        """
+        if not isinstance(name, str):
+            return None
+        # 整名就是用户声明过的名字 -> 普通标识符，不拆（见 _is_known_binding）
+        if self._is_known_binding(name):
+            return None
+        for suffix, tmpl in self._MEMBER_SUFFIX_MAP:
+            if name.endswith(suffix) and len(name) > len(suffix):
+                obj = name[:-len(suffix)]
+                # 对象部分不能以 `.` 收尾（如 `己.的项`），那不是成员访问
+                if obj and not obj.endswith('.'):
+                    return obj, tmpl
+        return None
+
+    def _match_orphan_suffix_call(self, expr):
+        """成员访问被 lexer 切碎后错吞成"方法调用"的 `的X` 后缀修复。
+
+        背景（实测取证，见 .scratch/report_annot_member.md）：lexer 对纯汉字
+        序列本不切 `的`，但当尾巴前的名字（如 `成绩`）已作为类字段登记进符号表
+        时，`成绩的项` 会被切成 IDENTIFIER(成绩) + IDENTIFIER(的项) 两个 token
+        （实测 .scratch/lex_prog.txt:S1 与 S2 对照）。于是 `自之成绩的项` 被
+        parser_expr.py:2606-2625 的无括号成员调用分支解析成
+        MemberAccess(obj=自, member=成绩, is_method_call=True, args=[Id(的项)])
+        ——`的项` 被当成了唯一实参。直接发射就是 `self.成绩(的项)`：
+        Python 能编译，运行期才炸（AttributeError / 把 dict 当函数调）。
+
+        这里不另起一套后缀表，而是复用 Identifier / 属性访问两条路径共用的
+        _MEMBER_SUFFIX_MAP：只要唯一实参**整体**是某个已知后缀 token
+        （的项/的长度/的键/的值），就判定这是 `obj.member的X` 的成员后缀访问，
+        按同一套模板把 `obj.member` 折进去。命中返回产物字符串，否则 None。
+
+        安全性：全仓 37255 个 .light 扫描（.scratch/de_scan.txt）确认，
+        `的项/的长度/的键/的值` 从不作为独立标识符出现（一旦独立就会被切开），
+        故「唯一实参恰好整体等于后缀」只可能来自这条切分假象，不会误伤真实实参。
+        """
+        args = getattr(expr, 'args', None) or []
+        if len(args) != 1:
+            return None
+        arg = args[0]
+        arg_name = getattr(arg, 'name', None)
+        if not isinstance(arg_name, str):
+            return None
+        for suffix, tmpl in self._MEMBER_SUFFIX_MAP:
+            if arg_name == suffix:
+                obj = self._generate_expr(expr.obj)
+                member = self._sanitize_name(expr.member)
+                return tmpl.format(o=f"{obj}.{member}")
+        return None
+
+
+    def _map_self_prefix(self, name: str) -> str:
+        """把 `己.X` / `自.X`（以及裸 `己`/`自`）里的 self 引用名换成 `self`。
+
+        不做类属性 self. 注入，只管「已经带点的 self 引用前缀」这一件事，
+        供 VarDecl 赋值目标与 ParagraphCall 粘连方法名两处共用——它们拿到的
+        已经是折叠好的带点名字，不能再走 _resolve_identifier_name 的类属性分支
+        （否则 `己.x` 会被当成类属性名再套一层 self.）。
+        """
+        if not isinstance(name, str):
+            return name
+        for sref in self._SELF_NAMES:
+            if name == sref:
+                return 'self'
+            if name.startswith(sref + '.'):
+                return 'self.' + name[len(sref) + 1:]
+        return name
+
+    def _resolve_identifier_name(self, raw_name: str) -> str:
+        """把光明标识符原名解析成 Python 名（含类方法内的 self 归一）。
+
+        与 Identifier 分支共用：后缀改写拆出的「对象部分」也必须走这里，
+        否则 `己之成绩的项` 会漏出裸 `己`（NameError）。
+        """
+        name = self._sanitize_name(raw_name)
+        # 己/自 → self（仅在类方法中），己.attr / 自.attr → self.attr
+        if self._in_class_method:
+            mapped = self._map_self_prefix(name)
+            if mapped != name:
+                return mapped
+
+        # 类方法中，如果引用的是类属性且不是参数名，添加 self. 前缀
+        if (self._in_class_method and raw_name in self._class_attr_names
+                and raw_name not in self._current_method_params):
+            return f"self.{name}"
+        return name
+
     def _sanitize_name(self, name: str) -> str:
         """清理名称（转换为合法Python标识符）"""
         # 中文变量名在Python3中是合法的

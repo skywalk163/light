@@ -650,11 +650,23 @@ class ParserStmtMixin:
         # 保存当前位置（在消耗己之后），用于回退到无点号情况
         saved_pos = self.pos
         
-        # 先检查：己.属性名 = value 语法（己后直接跟DOT）
-        if self._current() and self._current().type == TokenType.DOT:
+        # 先检查：己.属性名 = value 语法（己后直接跟成员访问符 . / 之 / 的）
+        #
+        # Bug 根因：原先只认 DOT。`自之成绩[科目] = 分数`
+        # （examples/L2_wenyan/学生模块.light:35）在 `自` 之后是 KEYWORD `之`，
+        # 于是掉到下面「原来的 SelfAssignment 处理逻辑」，那段把 `之` 当成属性名的
+        # 第一个字拼进去（得到 self.之成绩，实测 `自之成绩 = {}` → `self.之成绩 = {}`
+        # 是静默错译），而且它不认索引后缀，`[` 直接报「期望'为'或'等于'」。
+        # 这里把 `之`/`的` 与 DOT 等同看待，交给下面这条早已支持链式访问 + 索引后缀
+        # 的成熟路径。对照：`己.成绩[科目] = 分数` 一直是对的。
+        if self._current() and (
+                self._current().type == TokenType.DOT
+                or (self._current().type == TokenType.KEYWORD
+                    and self._current().value in ('之', '的'))):
             # 这是 己.属性名 = value 语法 或 己.方法名() 方法调用
             # 手动解析 己.属性名，避免 _parse_expr 把后续运算符也消耗掉
-            self._consume(TokenType.DOT)  # 消耗 .
+            self._consume()  # 消耗成员访问符 . / 之 / 的
+
             
             # 获取属性名
             attr_tok = self._current()
@@ -669,12 +681,15 @@ class ParserStmtMixin:
             from ast_nodes_v3 import MemberAccess
             target_expr = MemberAccess(Identifier("self"), attr_name, False, [])
             
-            # 深层链式访问：己.data.value 或 己.cache["key"]
-            # 继续解析后续的 .属性 和 [索引] 链
+            # 深层链式访问：己.data.value 或 己.cache["key"] 或 自之成绩[科目]
+            # 继续解析后续的 .属性 / 之属性 / 的属性 和 [索引] 链
             while self._current():
-                if self._current().type == TokenType.DOT:
-                    self._consume(TokenType.DOT)  # 消耗 .
+                if (self._current().type == TokenType.DOT
+                        or (self._current().type == TokenType.KEYWORD
+                            and self._current().value in ('之', '的'))):
+                    self._consume()  # 消耗成员访问符 . / 之 / 的
                     member_tok = self._current()
+
                     if member_tok and member_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
                         member_name = member_tok.value
                         self._consume()
@@ -684,7 +699,7 @@ class ParserStmtMixin:
                         break
                 elif self._current().type == TokenType.LBRACKET:
                     self._consume(TokenType.LBRACKET)
-                    from ast_nodes_v3 import IndexAccess
+                    # 同上：不要在函数内 import IndexAccess，第 17 行已 import *。
                     index = self._parse_expr()
                     self._consume(TokenType.RBRACKET)
                     target_expr = IndexAccess(target_expr, index)
@@ -838,13 +853,30 @@ class ParserStmtMixin:
         name_tok = self._consume(TokenType.IDENTIFIER)
         name = name_tok.value
         
-        # 检查属性赋值：obj.attr 等于/为/= 值（v3.4 新增）
+        # 检查属性赋值：obj.attr / obj之attr / obj的attr 等于/为/= 值（v3.4 新增）
         # 支持链式：obj.a.b.c = value
-        if self._current() and self._current().type == TokenType.DOT:
+        #
+        # 中文成员访问符也要认：parser_expr.py:2428-2431 已明确「的」是光明原生
+        # 属性访问符、「.」留给 FFI/外部库，「之」是历史写法。原先这里只认 DOT，
+        # 于是 `自之姓名 = 姓名`（examples/L2_wenyan/学生模块.light:15）在 `自`
+        # 之后遇到 KEYWORD `之` 就掉出赋值分支、回退成表达式语句，把 `自之姓名`
+        # 读完后 `=` 落到语句层，报「赋值需要使用「设」或「令」关键字」。
+        # 对照：`己.姓名 = 姓名`（DOT）与 `设 自之姓名 为 姓名`（走 设 语句）都通。
+        #
+        # 判据仍是纯语法且完全可回退：收完目标链之后必须紧跟 等于/为/=，
+        # 否则整段回退到标识符之前交给 _parse_expr_stmt()——所以
+        # `s1之录入成绩("语文", 88)` 这类方法调用语句逐字不变。
+        if self._current() and (
+                self._current().type == TokenType.DOT
+                or (self._current().type == TokenType.KEYWORD
+                    and self._current().value in ('之', '的'))):
             # 构建链式成员访问目标
             target = Identifier(name)
-            while self._current() and self._current().type == TokenType.DOT:
-                self._consume(TokenType.DOT)
+            while self._current() and (
+                    self._current().type == TokenType.DOT
+                    or (self._current().type == TokenType.KEYWORD
+                        and self._current().value in ('之', '的'))):
+                self._consume()  # 成员访问符：. / 之 / 的
                 attr_tok = self._current()
                 if attr_tok and attr_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
                     attr_name = self._consume().value
@@ -853,7 +885,14 @@ class ParserStmtMixin:
                     # 属性名不是有效的标识符/关键字，回退
                     self.pos = saved_pos
                     return self._parse_expr_stmt()
-            
+
+            # 成员链之后的索引后缀：`自之成绩[科目] = 分数`（学生模块.light:35）
+            while self._current() and self._current().type == TokenType.LBRACKET:
+                self._consume(TokenType.LBRACKET)
+                idx_expr = self._parse_expr()
+                self._consume(TokenType.RBRACKET)
+                target = IndexAccess(target, idx_expr)
+
             # 检查等于/为/=
             if self._match(TokenType.KEYWORD, '等于') or self._match(TokenType.KEYWORD, '为') or self._match(TokenType.EQUALS):
                 self._consume()
@@ -866,6 +905,7 @@ class ParserStmtMixin:
             # 不是赋值，可能是表达式语句（如 obj.a.b()）
             self.pos = saved_pos
             return self._parse_expr_stmt()
+
         
         # 检查索引赋值：甲[丁] 为/等于 值。 或 甲[丁][戊] 为/等于 值。
         if self._current() and self._current().type == TokenType.LBRACKET:
@@ -874,7 +914,12 @@ class ParserStmtMixin:
             self._consume(TokenType.RBRACKET)
             
             # 构建索引访问链：甲[丁][戊] → IndexAccess(IndexAccess(Identifier("甲"), 丁), 戊)
-            from ast_nodes_v3 import IndexAccess
+            # IndexAccess 走本文件第 17 行的 `from ast_nodes_v3 import *`。
+            # 这里原先有一句函数内 `from ast_nodes_v3 import IndexAccess`，
+            # 那会把 IndexAccess 变成整个 _parse_assignment_stmt 的局部名，于是
+            # 上面第 894 行（成员链索引后缀，本轮新增）先执行时抛
+            # UnboundLocalError，把本该是 ParseError 的诊断变成解析器内部崩溃
+            # （实测样本 bootstrap/release/stdlib/对象池缓存.light）。已删除。
             target = IndexAccess(Identifier(name), index)
             while self._current() and self._current().type == TokenType.LBRACKET:
                 self._consume(TokenType.LBRACKET)
@@ -1306,6 +1351,71 @@ class ParserStmtMixin:
             else:
                 break
         
+        # 检查是否是 "导 模块 出 符号一, 符号二" 语法（from-import 的正装形式）
+        #
+        # 「出」在两种上下文里语义完全不同，必须按位置区分：
+        #   1. 语句开头的「出 A, B」 → 导出声明，声明本模块对外暴露什么
+        #      → __all__ = ['A', 'B']（由 _parse_export_stmt 处理，不在这里）
+        #   2. 「导 X 出 A, B」里的「出」 → from-import 的 import-list 引导词
+        #      → from X import A, B（本分支）
+        #
+        # 缺这一支时，`导 X 出 A, B` 只会被消费成「导 X」，剩下的「出 A, B」
+        # 落回 _parse_statement 被当成**独立的导出声明**，产出
+        #     import X
+        #     __all__ = ['A', 'B']
+        # 两处都错：A/B 在导入方一个名字都没绑定（用到就 NameError），而
+        # __all__ 写在导入方也毫无意义（它是导出方的声明）。解析、代码生成、
+        # python compile 全过，只有运行期才炸——典型的静默错译。
+        if len(module_entries) == 1 and (self._match(TokenType.KEYWORD, '出')
+                                         or self._match(TokenType.KEYWORD, '导出')):
+            self._consume(TokenType.KEYWORD, self._current().value)
+            symbols = []
+            while True:
+                if self._match(TokenType.LBOOK):
+                    # 书名号语法：《符号》
+                    self._consume(TokenType.LBOOK)
+                    symbols.append(self._consume(TokenType.IDENTIFIER).value)
+                    self._consume(TokenType.RBOOK)
+                elif self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                    # 「为」是别名引导词，不是符号名，必须在这里截断，
+                    # 否则 `导 X 出 A 为 P` 会把「为」「P」也当成导入符号。
+                    if self._current().value == '为':
+                        break
+                    symbols.append(self._consume().value)
+                else:
+                    break
+
+                if self._match(TokenType.COMMA):
+                    self._consume(TokenType.COMMA)
+                    continue
+                # 空格分隔的更多符号 / 紧邻的书名号
+                if self._current() and self._current().type in (
+                        TokenType.IDENTIFIER, TokenType.KEYWORD, TokenType.LBOOK):
+                    if self._current().value == '为':
+                        break
+                    continue
+                break
+
+            if not symbols:
+                tok = self._current()
+                self._error(
+                    "「导 %s 出 ...」后面缺少要导入的名称" % module_entries[0][0],
+                    tok.line if tok else 0, tok.col if tok else 0)
+
+            # 别名（可选）：导 X 出 A 为 P → from X import A as P
+            fi_alias = module_entries[0][1]
+            if self._match(TokenType.KEYWORD, '为'):
+                self._consume(TokenType.KEYWORD, '为')
+                if self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                    fi_alias = self._consume().value
+
+            # 句号（可选）
+            if self._current() and self._current().type == TokenType.PERIOD:
+                self._consume(TokenType.PERIOD)
+
+            return ImportStmt(module_entries[0][0], symbols=symbols,
+                              alias=fi_alias, language=language)
+
         # 检查是否是 "导入 符号 从 模块" 语法（from import 的倒装形式）
         if self._match(TokenType.KEYWORD, '从'):
             self._consume(TokenType.KEYWORD, '从')
@@ -1709,6 +1819,14 @@ class ParserStmtMixin:
         elif self._match(TokenType.EQUALS):
             self._consume(TokenType.EQUALS)
             value = self._parse_expr()
+        elif type_annotation is not None:
+            # 注解-无初值声明：设 姓名: 串（没有 为/等于/=）
+            #
+            # 规范要求这个形式：docs/L2_文言体语法规范_v4.0.md:599-600、:622-623。
+            # 原先无条件要求 为/等于/=，模块级和类体内都报
+            # ParseError「期望'为'或'等于'，但得到 换行」。
+            # 只在已经吃到 `: 类型` 时才允许省略初值：裸 `设 x` 仍然报错。
+            value = None
         else:
             tok = self._current()
             raise ParseError(
@@ -2077,6 +2195,63 @@ class ParserStmtMixin:
         self.pos = saved
         return None
 
+    # ------------------------------------------------------------------
+    # 裁决 E：`遍 <任意表达式> 为 <变量>:`
+    #
+    # 根因（实测取证）：`为` 在 parser_core.py:263 属于 OPERATOR_VERBS，
+    # 且 parser_core.py:271 把它映射成 `==`。所以当第一操作数不是「裸名字列表」
+    # （`_scan_foreach_names` 前瞻失败，如 `d的项`、`范围(1,10)`）而走
+    # `_parse_expr()` 时，parser_expr.py:132-140 的比较循环会把连接词 `为`
+    # 当成 `==` 吞掉，整行被读成 `<可迭代对象> == <变量>`；随后连接词检查
+    # 看到的是 `:`，报「遍历循环期望'在'、'之'、'于'、'中的'、'为'或'之为'，
+    # 但得到 「:」」。裸标识符形（`遍 xs 为 项`）之所以一直是绿的，是因为
+    # `_scan_foreach_names` 抢先命中了名字列表路径，压根没走表达式解析。
+    #
+    # 消歧判据（纯语法，不做语义推断，与既定「遍历语序按连接词区分」口径一致）：
+    # 先在 foreach 头部做一次括号深度感知的只读前瞻，找第一个 **深度 0** 的 `为`：
+    #   * 若它前一个（深度 0 的）token 是 `之`，那是 `之为`，交回原有路径
+    #     ——原有路径本来就对，`_in_foreach_context` 会让 `之` 及时停下；
+    #   * 否则判定为「可迭代对象在前 + 单字 `为`」形态，于是
+    #       1) 把 `为` 临时从 self.OPERATOR_VERBS 摘掉，比较循环就会在 `为`
+    #          处 break，表达式恰好停在连接词之前（不需要回溯）；
+    #       2) 把 `_in_foreach_context` 置 False——既然已经出现 `为`，语序
+    #          已定为「可迭代对象在前」，头部里的 `之` 就不可能是连接词，
+    #          必须恢复它的成员访问语义，否则 `遍 自之成绩的项 为 项` 会被
+    #          切成「变量 自 + 连接词 之」。
+    # 头部边界：深度 0 的 COLON，或 NEWLINE / 输入结束。
+    # ------------------------------------------------------------------
+    _FOREACH_HEADER_OPEN = (TokenType.LPAREN, TokenType.LBRACKET, TokenType.LBRACE)
+    _FOREACH_HEADER_CLOSE = (TokenType.RPAREN, TokenType.RBRACKET, TokenType.RBRACE)
+
+    def _scan_foreach_lone_wei(self) -> bool:
+        """前瞻：foreach 头部是否存在「单字 `为`」连接词（`之为` 不算）。
+
+        纯只读，不移动 self.pos。
+        """
+        depth = 0
+        i = self.pos
+        prev = None  # 上一个深度 0 的实义 token
+        while i < len(self.tokens):
+            tok = self.tokens[i]
+            if tok.type in self._FOREACH_HEADER_OPEN:
+                depth += 1
+            elif tok.type in self._FOREACH_HEADER_CLOSE:
+                depth -= 1
+            elif depth == 0:
+                # 头部结束：没找到 `为`
+                if tok.type in (TokenType.COLON, TokenType.NEWLINE):
+                    return False
+                if tok.type == TokenType.KEYWORD and tok.value == '为':
+                    # `之为` 走原有路径
+                    return not (prev is not None
+                                and prev.type == TokenType.KEYWORD
+                                and prev.value == '之')
+            if depth == 0 and tok.type not in (
+                    TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
+                prev = tok
+            i += 1
+        return False
+
     def _parse_foreach_targets(self):
         """解析循环目标名列表 `名 (, 名)*`，返回 Python for 目标文本。"""
         names = []
@@ -2118,15 +2293,38 @@ class ParserStmtMixin:
         # 先做纯语法前瞻：`名 (, 名)*` 且紧跟连接词 → 认定为名字列表。
         # 前瞻失败（如 `范围(1,10)`、`[1,2,3]`、`配置.项()`）才按表达式解析，
         # 这条回退路径在改动前一律是解析错误，属纯新增能力。
-        lhs_names = self._scan_foreach_names()
+        # ---- 第一操作数：可能是「变量名列表」，也可能是「可迭代对象表达式」 ----
+        # 裁决 E 优先级：先看头部有没有深度 0 的单字 `为`。有 → 语序已定为
+        # 「可迭代对象在前」，绝不能再走名字列表路径。
+        #
+        # 必须放在 `_scan_foreach_names` **之前**：`遍 自之成绩的项 为 项:` 里
+        # `自` 是裸名字、紧跟的 `之` 又恰好在连接词表里，名字列表前瞻会误命中
+        # ['自'] 并把 `之` 当连接词，于是产出 `for 自 in (自之成绩的项 == 项)`
+        # ——这正是 examples/L2_wenyan/学生模块.light:39 改前的静默错编。
+        iter_first_wei = self._scan_foreach_lone_wei()
+
+        # 名字列表前瞻（纯语法）：`名 (, 名)*` 且紧跟连接词 → 认定为名字列表。
+        # 前瞻失败（如 `范围(1,10)`、`[1,2,3]`、`配置.项()`）才按表达式解析。
+        lhs_names = None if iter_first_wei else self._scan_foreach_names()
         lhs_expr = None
         if lhs_names is None:
             old_foreach_context = self._in_foreach_context
-            self._in_foreach_context = True
+            saved_operator_verbs = self.OPERATOR_VERBS
+            if iter_first_wei:
+                # 摘掉 `为`：parser_expr 的比较循环会在连接词处 break，
+                # 表达式恰好停在 `为` 之前，不再吞成 `==`。
+                self.OPERATOR_VERBS = saved_operator_verbs - {'为'}
+                # 语序已定，头部里的 `之` 只能是成员访问，恢复其正常语义。
+                self._in_foreach_context = False
+            else:
+                self._in_foreach_context = True
             try:
                 lhs_expr = self._parse_expr()
             finally:
+                self.OPERATOR_VERBS = saved_operator_verbs
                 self._in_foreach_context = old_foreach_context
+
+
 
         # ---- 连接词：决定语序。`之为` 是 `之`+`为` 两个 token，优先整体匹配 ----
         tok = self._current()
@@ -2335,6 +2533,44 @@ class ParserStmtMixin:
         
         return ReturnStmt(value)
     
+    def _parse_clause_body(self) -> List[ASTNode]:
+        """解析「引导词 + 冒号 + 换行 + INDENT ... DEDENT」形式的子句块体，
+        并**正确收束本块自己的 DEDENT**。
+
+        与直接 `self._parse_body()` 的差别（这正是缺陷根因）：
+        _parse_body 的契约是「调用者已消耗当前块的 INDENT」（见其 docstring），
+        它内部的 depth 只用来跟踪**嵌套**结构。直接调用而不先消耗 INDENT 时，
+        本块自己的 INDENT 会被当成嵌套记进 depth（0→1），于是块结束的那个
+        DEDENT 只把 depth 减回 0 而**不会停止循环**，块后面的**兄弟**语句
+        就被继续吞进本块。
+
+        试/捕/终 三个块过去都是直接调用 _parse_body()，只是「碰巧」能停住：
+        try 块后面紧跟 `捕`、catch 块后面紧跟 `终`，而 _parse_body 对
+        捕/终/否则/结束 这几个关键字有 break。一旦块后面是**普通语句**
+        （最终块是最后一个子句，天然如此），就没有任何 break 条件，后续
+        兄弟语句被静默并入块内——解析、代码生成、python compile 全过，
+        只有运行期语义是错的（典型静默错译）。
+
+        本方法按 _parse_body 的契约来：先消耗本块的 INDENT，让 depth 从 0
+        起算，块结束的 DEDENT 便会在 depth==0 时被看到 → _parse_body 停止并
+        把 DEDENT 留给本方法消耗。这与「否则」子句（_parse_try_stmt 里原本
+        就写对了的那一支）用的是同一套写法。
+        """
+        while self._current() and self._current().type == TokenType.NEWLINE:
+            self._consume(TokenType.NEWLINE)
+
+        indented = False
+        if self._current() and self._current().type == TokenType.INDENT:
+            self._consume(TokenType.INDENT)
+            indented = True
+
+        body = self._parse_body()
+
+        if indented and self._current() and self._current().type == TokenType.DEDENT:
+            self._consume(TokenType.DEDENT)
+
+        return body
+
     def _parse_catch_clause(self):
         """解析单个捕获子句
         
@@ -2506,8 +2742,14 @@ class ParserStmtMixin:
             # 冒号
             self._consume(TokenType.COLON)
             
-            # finally块
-            finally_body = self._parse_body()
+            # finally块。
+            # 必须用 _parse_clause_body（消耗本块 INDENT/DEDENT）而不是裸
+            # _parse_body()：最终块是 try 语句的最后一个子句，其后紧跟的
+            # 是**兄弟**语句而非 捕/终/否则/结束 等能触发 _parse_body 停止的
+            # 关键字。裸 _parse_body 会把本块 INDENT 记成嵌套 depth，块结束的
+            # DEDENT 只把 depth 减回 0 而不停止，导致后续兄弟语句被静默吞进
+            # finally 块（见 _parse_clause_body 的 docstring）。
+            finally_body = self._parse_clause_body()
         
         # 否则（可选）- try 块的 else 子句，没有异常时执行
         else_body = []
@@ -3395,6 +3637,74 @@ class ParserStmtMixin:
             is_constructor=(method_name == '初始化' or method_name == '构造')
         )
 
+    def _parse_class_field_declaration(self, access_modifier: str = 'public',
+                                       is_static: bool = False) -> AttributeDeclaration:
+        """解析类体内的字段声明，转成 AttributeDeclaration。
+
+        支持两种等价写法：
+        - `设 名[: 类型] [为/= 值]`（文言体）
+        - `令 名 = 值`（C 风格，`_parse_c_var_decl` 产出同样的 VarDecl）
+
+        规范依据：docs/L2_文言体语法规范_v4.0.md:543（设 总数: 数 = 0）、
+        :599-600 与 :622-623（设 姓名: 串，无初值）。
+
+        `设`/`令` 写在类体内表达的是类级字段（类字段/类属性），因此统一
+        is_static=True，由 code_generator 落在 class 体内，
+        而不是塞进自动生成的 __init__。
+        """
+        tok = self._current()
+        if tok is not None and tok.type == TokenType.IDENTIFIER and tok.value == '令':
+            node = self._parse_c_var_decl()
+        else:
+            node = self._parse_set_stmt()
+        if not isinstance(node, VarDecl):
+            self._error(
+                "类体内的'设'/'令'只支持「名[: 类型] [为 值]」形式的字段声明"
+                f"（当前写法解析为 {type(node).__name__}）",
+                tok.line if tok else 0, tok.col if tok else 0,
+                tok.value if tok else None)
+        return AttributeDeclaration(
+            name=node.name,
+            type_annotation=node.type_annotation,
+            default_value=node.value,
+            access_modifier=access_modifier,
+            is_static=True,
+        )
+
+    # 类头部引导词：类名 / 基类名 / 接口名的收集循环遇到它们必须停止，
+    # 否则 `类 学生 接 可打印:` 会被吞成类名 "学生接可打印"。
+    # `接` 是 `实现` 的单字同义词（规范 L2 v4.0 §一 定义与类型四字：类 承 接 配）。
+    _CLASS_HEADER_STOP_KEYWORDS = ('继承', '承', '实现', '接')
+
+    def _parse_class_ref_list(self) -> List[str]:
+        """收集逗号分隔的类型引用名列表（用于 `承`/`继承` 与 `实现`/`接` 之后）。
+
+        - 单个名字可由多个 token 组成（如"可打印"被词法切成"可"+"打印"）；
+        - 遇到逗号开始下一个名字；
+        - 遇到冒号/句号/换行，或另一个类头部引导词（承/继承/实现/接）时整体结束，
+          因此 `类 学生 承 人 接 可打印, 可序列化:` 能被正确切分。
+        """
+        names: List[str] = []
+        while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+            if (self._current().type == TokenType.KEYWORD
+                    and self._current().value in self._CLASS_HEADER_STOP_KEYWORDS):
+                break
+            parts = []
+            while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                if (self._current().type == TokenType.KEYWORD
+                        and self._current().value in self._CLASS_HEADER_STOP_KEYWORDS):
+                    break
+                parts.append(self._consume().value)
+            if parts:
+                names.append(''.join(parts))
+            else:
+                break
+            if self._match(TokenType.COMMA):
+                self._consume(TokenType.COMMA)
+                continue
+            break
+        return names
+
     def _parse_class_definition(self) -> ClassDefinition:
         """解析类定义
 
@@ -3421,8 +3731,17 @@ class ParserStmtMixin:
         name_tok = self._current()
         if name_tok and name_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
             while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
-                # 检查是否遇到"继承"或"实现"关键字
-                if self._current().type == TokenType.KEYWORD and self._current().value in ('继承', '承', '实现'):
+                # 检查是否遇到类头部引导词（继承/承/实现/接/接口）。
+                #
+                # Bug 根因：原先停止词表缺少单字 `接`，于是 `类 学生 接 可打印:`
+                # 的 `接` 与 `可打印` 被类名收集循环吞掉，静默错译成
+                # `class 学生接可打印:`（既没有基类也没有接口）。
+                #
+                # name_parts 非空才停止：类名本身可以以这些字开头（如 `类 接口测试:`），
+                # 空名字停止会把类名整段丢掉。
+                if (name_parts
+                        and self._current().type == TokenType.KEYWORD
+                        and self._current().value in self._CLASS_HEADER_STOP_KEYWORDS):
                     break
                 # 检查是否遇到句号或冒号
                 if self._current().type in (TokenType.PERIOD, TokenType.COLON):    
@@ -3448,34 +3767,27 @@ class ParserStmtMixin:
             else:
                 self._error(f"期望右方括号 ']'，但得到 {self._current()}")
 
-        # 继承？（可选）
+        # 继承？（可选）支持逗号分隔多个基类：类 学生 承 人, 甲:
         base_classes = []
         if self._current() and self._current().type == TokenType.KEYWORD and self._current().value in ('继承', '承'):
             self._consume(TokenType.KEYWORD, self._current().value)
-            base_tok = self._current()
-            if base_tok and base_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
-                base_classes = [base_tok.value]
-                self._consume()
-            else:
-                self._error(f"期望父类名，但得到 {base_tok.type if base_tok else '输入结束'}")
+            base_classes = self._parse_class_ref_list()
+            if not base_classes:
+                tok = self._current()
+                self._error(f"期望父类名，但得到 {tok.type if tok else '输入结束'}",
+                            tok.line if tok else 0, tok.col if tok else 0)
 
-        # 实现接口（可选）
+        # 实现接口（可选）。`接` 是 `实现` 的同义词（规范 L2 v4.0 §一、把
+        # `类 承 接 配` 列为四字定义词）。支持逗号分隔多接口，也支持与 `承`
+        # 同行组合：类 X 承 Y 接 A, B:
         interfaces = []
-        if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '实现':
-            self._consume(TokenType.KEYWORD, '实现')
-            while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
-                # 收集多 token 名称（如"可打印"被拆为"可"+"打印"）
-                parts = []
-                while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
-                    if self._current().type in (TokenType.COLON, TokenType.PERIOD):
-                        break
-                    parts.append(self._consume().value)
-                if parts:
-                    interfaces.append(''.join(parts))
-                if self._match(TokenType.COMMA):
-                    self._consume(TokenType.COMMA)
-                else:
-                    break
+        if self._current() and self._current().type == TokenType.KEYWORD and self._current().value in ('实现', '接'):
+            self._consume(TokenType.KEYWORD, self._current().value)
+            interfaces = self._parse_class_ref_list()
+            if not interfaces:
+                tok = self._current()
+                self._error(f"期望接口名，但得到 {tok.type if tok else '输入结束'}",
+                            tok.line if tok else 0, tok.col if tok else 0)
 
         # 句号或冒号
         if self._current() and self._current().type == TokenType.PERIOD:
@@ -3568,7 +3880,11 @@ class ParserStmtMixin:
                     methods.append(method)
 
                 # 方法定义（支持公有、私有、保护和静态）
-                elif tok.type == TokenType.KEYWORD and tok.value in ('函数', '段落'):
+                # 单字 `段` 与 `段落`/`函数` 同义（parser_core.PARAGRAPH_KEYWORDS）。
+                # Bug 根因：这里原先只认 ('函数','段落')，L0 单字 `段` 落到末尾的
+                # `else: break`，类体提前结束，剩余成员被丢回模块级当独立语句解析，
+                # 于是 `类 人:\n 段 介绍():` 静默错译成模块级 `def 介绍():`。
+                elif self._is_paragraph_kw(tok):
                     method = self._parse_method_definition(is_constructor=False)
                     method.access_modifier = access_modifier
                     method.is_static = is_static
@@ -3579,12 +3895,33 @@ class ParserStmtMixin:
                     method.access_modifier = 'private'
                     methods.append(method)
 
+                # 类字段声明：设 名[: 类型] [为/= 值] / 令 名 = 值（C 风格同义写法）
+                # 规范 docs/L2_文言体语法规范_v4.0.md:543、:599-600、:622-623
+                elif ((tok.type == TokenType.KEYWORD and tok.value == '设')
+                        or (tok.type == TokenType.IDENTIFIER and tok.value == '令')):
+                    attr = self._parse_class_field_declaration(
+                        access_modifier=access_modifier, is_static=is_static)
+                    attributes.append(attr)
+
+                # 空体占位：过 / 跳过 / 继续 / pass（类体内不产生成员）
+                elif ((tok.type == TokenType.KEYWORD and tok.value in ('过', '跳过', '继续'))
+                        or (tok.type == TokenType.IDENTIFIER and tok.value == 'pass')):
+                    self._consume()
+                    if self._current() and self._current().type == TokenType.PERIOD:
+                        self._consume(TokenType.PERIOD)
+                    continue
+
                 # 结束标记（方法定义结束后的"结束。"）
-                elif tok.type == TokenType.IDENTIFIER and tok.value == '结束':
-                    self._consume(TokenType.IDENTIFIER, '结束')
+                elif tok.value == '结束' and tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                    self._consume()
                     # 可选句号
                     if self._current() and self._current().type == TokenType.PERIOD:
                         self._consume(TokenType.PERIOD)
+                    continue
+
+                # 孤立句号：跳过
+                elif tok.type == TokenType.PERIOD:
+                    self._consume(TokenType.PERIOD)
                     continue
 
                 # 装饰器：@静态方法、@类方法、@特性、@抽象 等
@@ -3607,9 +3944,17 @@ class ParserStmtMixin:
                                     method.is_abstract = True
                                 methods.append(method)
 
-                # 其他情况（不应该发生）
+                # 其他情况：类体内不支持的成员声明。
+                #
+                # 这里原先是 `break`，会静默结束类体并把剩余成员泄漏到模块级
+                # （方法变模块函数、字段变模块变量），且全程 PARSE-OK 无任何提示。
+                # 静默错译远比报错危险，故改为明确报错。
+                # 注意：类体的正常收尾走上面的 DEDENT 分支，不经过此处。
                 else:
-                    break
+                    self._error(
+                        f"类体内不支持的成员声明：'{tok.value}'"
+                        f"（类体内可用：属性/私属性/设/构造/函数/段落/段/私段落/@装饰器/过/结束）",
+                        tok.line, tok.col, tok.value)
 
         return ClassDefinition(
             name=class_name,
@@ -3691,12 +4036,12 @@ class ParserStmtMixin:
             self._consume(TokenType.KEYWORD, '构造')
             method_name = '__init__'
         else:
-            # 段落
-            tok = self._current()
-            if tok and tok.type == TokenType.KEYWORD and tok.value in ('函数', '段落'):
-                self._consume(TokenType.KEYWORD)
+            # 段落 / 函数 / 单字 段（三者同义，见 parser_core.PARAGRAPH_KEYWORDS）
+            if self._match_paragraph_kw():
+                self._consume_paragraph_kw()
             else:
-                self._error(f"期望'函数'（或兼容写法'段落'），但得到'{tok.value if tok else '输入结束'}'", 
+                tok = self._current()
+                self._error(f"期望'函数'（或兼容写法'段落'/'段'），但得到'{tok.value if tok else '输入结束'}'",
                                 tok.line if tok else 0, tok.col if tok else 0, tok.value if tok else None)
             
             # 方法名可能是IDENTIFIER或KEYWORD（如"加""减""乘"）
@@ -3986,8 +4331,11 @@ class ParserStmtMixin:
                     self._consume(TokenType.NEWLINE)
                     continue
 
-                # 方法签名：函数/段落 方法名 接收 参数名 返回 类型
-                if tok.type == TokenType.KEYWORD and tok.value in ('函数', '段落'):
+                # 方法签名：函数/段落/段 方法名 接收 参数名 返回 类型
+                # 单字 `段` 与 `段落`/`函数` 同义。原先只认 ('函数','段落')，
+                # `接 可打印:\n 段 字符串化() -> 串` 会落进末尾的 `else: break`，
+                # 接口体提前结束，成员被丢回模块级静默错译成 `段()` + `字符串化()(串)`。
+                if self._is_paragraph_kw(tok):
                     sig = self._parse_method_signature()
                     methods.append(sig)
 
@@ -3996,9 +4344,34 @@ class ParserStmtMixin:
                     attr = self._parse_attribute_declaration()
                     properties.append(attr)
 
-                # 其他情况（不应该发生）
+                # 空体占位：过 / 跳过 / 继续 / pass
+                elif ((tok.type == TokenType.KEYWORD and tok.value in ('过', '跳过', '继续'))
+                        or (tok.type == TokenType.IDENTIFIER and tok.value == 'pass')):
+                    self._consume()
+                    if self._current() and self._current().type == TokenType.PERIOD:
+                        self._consume(TokenType.PERIOD)
+                    continue
+
+                # 结束标记
+                elif tok.value == '结束' and tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                    self._consume()
+                    if self._current() and self._current().type == TokenType.PERIOD:
+                        self._consume(TokenType.PERIOD)
+                    continue
+
+                # 孤立句号：跳过
+                elif tok.type == TokenType.PERIOD:
+                    self._consume(TokenType.PERIOD)
+                    continue
+
+                # 其他情况：接口体内不支持的成员声明。
+                # 原先是 `break`（静默结束接口体，成员泄漏到模块级），改为明确报错。
+                # 注意：接口体的正常收尾走上面的 DEDENT 分支，不经过此处。
                 else:
-                    break
+                    self._error(
+                        f"接口体内不支持的成员声明：'{tok.value}'"
+                        f"（接口体内可用：函数/段落/段/属性/过/结束）",
+                        tok.line, tok.col, tok.value)
 
         return InterfaceDefinition(name, methods, properties, super_interfaces) 
 
@@ -4020,14 +4393,12 @@ class ParserStmtMixin:
             段落 方法名 接收 参数名：
                 语句。
         """
-        # 消耗 函数 或 段落 关键字
-        if self._match(TokenType.KEYWORD, '函数'):
-            self._consume(TokenType.KEYWORD, '函数')
-        elif self._match(TokenType.KEYWORD, '段落'):
-            self._consume(TokenType.KEYWORD, '段落')
+        # 消耗 函数 / 段落 / 单字 段（三者同义）
+        if self._match_paragraph_kw():
+            self._consume_paragraph_kw()
         else:
             tok = self._current()
-            self._error(f"期望'函数'（或兼容写法'段落'），但得到'{tok.value if tok else '输入结束'}'",
+            self._error(f"期望'函数'（或兼容写法'段落'/'段'），但得到'{tok.value if tok else '输入结束'}'",
                         tok.line if tok else 0, tok.col if tok else 0)
 
         # 方法名（可能由多个token组成，如"从JSON"被拆为从+JSON）
@@ -4092,10 +4463,16 @@ class ParserStmtMixin:
                     continue
                 break
 
-        # 返回类型（可选）
+        # 返回类型（可选）：返回 类型 / -> 类型
         return_type = None
         if self._match(TokenType.KEYWORD, '返回'):
             self._consume(TokenType.KEYWORD, self._current().value)  # 返回 / 返
+            return_type = self._parse_type_annotation()
+        elif self._current() and self._current().type == TokenType.ARROW:
+            # `段 字符串化() -> 串`（规范写法）。原先只认关键字 `返回`，
+            # ARROW 落到接口体循环的兜底分支被当成"不支持的成员声明"。
+            # 类方法路径早已支持 ARROW（本文件 :3957-3958），此处对齐。
+            self._consume(TokenType.ARROW)
             return_type = self._parse_type_annotation()
 
         # 默认实现方法体（可选）：冒号 + 缩进块
@@ -4162,12 +4539,19 @@ class ParserStmtMixin:
                 # 如果下一个 token 是"情况"，说明还有更多 case，继续循环
                 if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '情况':
                     continue
+                # 默认分支（其他/否）也要继续，否则 `其他:` 会落回顶层语句解析
+                if self._is_match_default_lead(self._current()):
+                    continue
                 # 否则匹配块结束
                 break
 
             # 情况分支
             if tok.type == TokenType.KEYWORD and tok.value == '情况':
                 case = self._parse_match_case()
+                cases.append(case)
+            # 默认分支：其他 / 否
+            elif self._is_match_default_lead(tok):
+                case = self._parse_match_case(default_branch=True)
                 cases.append(case)
             else:
                 # 跳过无法识别的token
@@ -4457,17 +4841,72 @@ class ParserStmtMixin:
 
         return DecoratorDefinition(decorator_name, paragraph, decorator_args)
 
-    def _parse_match_case(self) -> MatchCase:
-        """解析匹配分支：情况 模式：语句..."""
-        # 情况
-        self._consume(TokenType.KEYWORD, '情况')
+    # 默认分支引导词。`其他` 全仓未注册为关键字（词法上是 IDENTIFIER），
+    # 按裁定不提升为关键字，只在 match 块里额外接受值为 `其他` 的 IDENTIFIER；
+    # `否` 是关键字（src/keywords.py:51，否则的 L0 单字），规范
+    # docs/L2_文言体语法规范_v4.0.md:384-407 用 `否:` 作默认分支，一并接受。
+    _MATCH_DEFAULT_WORDS = ('其他', '否', '否则')
 
-        # 解析模式
-        pattern = self._parse_match_pattern()
+    # 布尔守卫式判据（纯语法）：模式解析完成后若当前 token 属于以下比较/逻辑运算符，
+    # 说明 `情况 <...>` 后面其实是一个布尔表达式，而不是模式。
+    _MATCH_GUARD_OP_TYPES = frozenset({
+        TokenType.LESS, TokenType.GREATER,
+        TokenType.LESS_EQUAL, TokenType.GREATER_EQUAL,
+        TokenType.EQ_EQ, TokenType.NOT_EQ,
+    })
+    # 中文运算符（parser_core.COMPARISON_OP_MAP / LOGICAL_OP_MAP，
+    # 故意不含 '为'：`为` 在语句层另有含义）
+    _MATCH_GUARD_OP_KEYWORDS = frozenset({
+        '大于', '小于', '等于', '不等于', '大于等于', '小于等于',
+        '不小于', '不大于', '包含', '且', '与', '或',
+    })
+
+    def _is_match_default_lead(self, tok: Optional[Token]) -> bool:
+        """当前 token 是否是 match 默认分支引导词（其他 / 否 / 否则）"""
+        return (tok is not None
+                and tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD)
+                and tok.value in self._MATCH_DEFAULT_WORDS)
+
+    def _is_match_guard_operator(self, tok: Optional[Token]) -> bool:
+        """当前 token 是否是比较/逻辑运算符（用于布尔守卫式的纯语法判据）"""
+        if tok is None:
+            return False
+        if tok.type in self._MATCH_GUARD_OP_TYPES:
+            return True
+        return tok.type == TokenType.KEYWORD and tok.value in self._MATCH_GUARD_OP_KEYWORDS
+
+    def _parse_match_case(self, default_branch: bool = False) -> MatchCase:
+        """解析匹配分支：情况 模式[ 若 条件]：语句...  /  其他：语句...
+
+        default_branch=True 时当前 token 是 `其他`/`否`，等价于 `情况 _`。
+        """
+        guard = None
+        if default_branch:
+            # 其他 / 否 → 通配模式（codegen 发射 case _:）
+            self._consume()
+            pattern = MatchPattern('wildcard')
+        else:
+            # 情况
+            self._consume(TokenType.KEYWORD, '情况')
+
+            # 解析模式
+            pattern_start = self.pos
+            pattern = self._parse_match_pattern()
+
+            # 布尔守卫式：情况 a >= 90: → case _ if (a >= 90):
+            #
+            # 纯语法判据：模式解析完后若紧跟比较/逻辑运算符，说明这一段本来是
+            # 布尔表达式（模式解析已经把 `a` 误当捕获模式吃掉），回退到模式起点
+            # 整体按表达式重解析。不做语义推断：`情况 <裸标识符>:`（后面直接跟冒号）
+            # 仍按捕获模式处理，不因为主语是 `真` 就改读法。
+            if self._is_match_guard_operator(self._current()):
+                self.pos = pattern_start
+                guard = self._parse_expr()
+                pattern = MatchPattern('wildcard')
 
         # 可选的守卫条件：若 条件
-        guard = None
-        if self._current() and self._current().type == TokenType.KEYWORD and self._current().value in ('若', '如果'):
+        if guard is None and self._current() and self._current().type == TokenType.KEYWORD \
+                and self._current().value in ('若', '如果'):
             self._consume(TokenType.KEYWORD)
             guard = self._parse_expr()
 
@@ -4494,8 +4933,10 @@ class ParserStmtMixin:
                 self._consume(TokenType.INDENT)
                 continue
 
-            # 遇到下一个"情况"或 DEDENT，停止
+            # 遇到下一个"情况"、默认分支引导词或 DEDENT，停止
             if tok.type == TokenType.KEYWORD and tok.value == '情况':
+                break
+            if self._is_match_default_lead(tok):
                 break
             if tok.type == TokenType.DEDENT:
                 break
