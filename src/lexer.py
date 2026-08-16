@@ -2094,7 +2094,30 @@ class Lexer:
                 # 而那种名字本来就是 NameError，拆不拆都跑不了。
                 _seq_tail = i + consumed + len(full_identifier)
                 _tail_is_digit_operand = _seq_tail < n and _is_ascii_digit(source[_seq_tail])
+                # v7 单 02 收尾：汉字序列后紧跟 **ASCII 字母** 时的同族缺口。
+                #
+                # 上面那条只放行 ASCII 数字，于是 `甲加1` 拆得对、`和加i` 拆不对：
+                # examples/hello.light:18 `设和为和加i` 里 `加` 被判词尾豁免，
+                # `和加` 整体成 IDENTIFIER、再把 `i` 粘上 → 产物 `和 = 和加i` → NameError。
+                #
+                # 但**不能**照搬数字那条放宽成「任意 ASCII 字母」——实测会把
+                # `增加count` 拆成 增+加+count、`取模_链式2` 拆成 取+模+_链式+2，
+                # 这类复合词/积木名一拆即字面失真（全仓这种形状 64 处、31 个文件，
+                # 其中真运算符只有 `和加i` 一处）。字母尾与数字尾的本质差别：
+                # `增加count` 这种「复合动词 + ASCII 后缀」的命名完全合法，
+                # 而 `甲加1` 不可能是复合词收尾。
+                #
+                # 判据（比数字那条多一道门）：运算符左边那段必须是**本文件已声明的名字**
+                # （在 user_definitions 里）。`设 和 为 0` 让 `和` 进 user_definitions，
+                # 于是 `和加i` 判成「左操作数 运算符 右操作数」；而 `增`/`取`/`删`
+                # 都不是声明过的名字，`增加count`/`取模_链式2`/`删除x` 一个都不动。
+                #
+                # 下面两处词尾豁免（探测循环 / 输出循环）必须用同一套判据，否则探测说
+                # 「有内嵌关键字」而输出循环又跳过，会走进不一致的分支。
+                _tail_is_alpha_operand = _seq_tail < n and _is_ascii_alpha(source[_seq_tail])
+
                 embedded_found = False
+
                 scan_pos = 0
                 while scan_pos < len(full_identifier):
                     sub_kw, sub_len = self._match_keyword(source, i + consumed + scan_pos)
@@ -2112,8 +2135,14 @@ class Lexer:
                             # 检查运算符是否在标识符词尾（如"体重增加"中的"加"）
                             # 在词尾时，作为复合词的一部分，不拆分
                             # 例外（v7 单 02）：汉字序列后紧跟 ASCII 数字时不算词尾，
-                            # 见上面 _tail_is_digit_operand 的说明（`甲加1`、`值加1`）
-                            if scan_pos + sub_len >= len(full_identifier) and not _tail_is_digit_operand:
+                            # 见上面 _tail_is_digit_operand 的说明（`甲加1`、`值加1`）；
+                            # 紧跟 ASCII 字母时还要求运算符左边是已声明的名字（`和加i`）
+                            if (scan_pos + sub_len >= len(full_identifier)
+                                    and not _tail_is_digit_operand
+                                    and not (_tail_is_alpha_operand
+                                             and full_identifier[:scan_pos] in user_definitions)):
+
+
                                 skip_kw = True
                             # 否则作为运算符识别（不跳过）
                             # 例如：甲加乙 -> [甲] [加] [乙]
@@ -2225,7 +2254,12 @@ class Lexer:
                                 # 例外（v7 单 02）：汉字序列后紧跟 ASCII 数字时不算词尾，
                                 # 与上面探测循环的判据保持一致，否则探测说「有内嵌关键字」
                                 # 而输出循环又跳过，会走进不一致的分支
-                                if scan_pos + sub_len >= len(full_identifier) and not _tail_is_digit_operand:
+                                if (scan_pos + sub_len >= len(full_identifier)
+                                        and not _tail_is_digit_operand
+                                        and not (_tail_is_alpha_operand
+                                                 and full_identifier[:scan_pos] in user_definitions)):
+
+
                                     # 运算符在词尾，作为复合词的一部分
                                     scan_pos += sub_len
                                     continue
