@@ -1406,6 +1406,98 @@ class TestBytesLiteral:
         assert "(b'" not in line and '(b"' not in line    # 没被吃成 bytes 前缀
 
 
+class TestChaoSuper:
+    """v7 新单 I：`超` = super
+
+    L2 v4.0 规范（docs/L2_文言体语法规范_v4.0.md:433/574/927）写的 super 是
+    `超.方法()`，实现侧一直只认 `父`——规范承诺从未落地。原先 `超.构(...)`
+    发出 `超.__init__(...)`，编译过、运行期 NameError（静默错编）。
+    本单把 `超` 按形状接到 `父` 已有的通路上，两者完全等价。
+    """
+
+    _SRC = (
+        "类 动物：\n"
+        "  性 名称\n"
+        "\n"
+        "  构 接收 名称：\n"
+        "    己名称 为 名称\n"
+        "\n"
+        "  段 描述：\n"
+        "    返 己名称\n"
+        "\n"
+        "类 狗 承 动物：\n"
+        "  性 品种\n"
+        "\n"
+        "  构 接收 名称, 品种：\n"
+        "    %s\n"
+        "    己品种 为 品种\n"
+        "\n"
+        "  段 详情：\n"
+        "    返 %s\n"
+        "\n"
+        "设 旺财 为 新 狗(\"旺财\", \"金毛\")\n"
+    )
+
+    def _gen(self, ctor, meth):
+        code = _compile_ok(self._SRC % (ctor, meth))
+        ns = {}
+        exec(compile(code, "gen_i_chao", "exec"), ns)
+        return code, ns
+
+    def test_chao_dot_ctor_is_super_init(self):
+        code, ns = self._gen("超.构(名称)", "超.描述()")
+        assert "super().__init__(名称)" in code
+        assert "超.__init__" not in code     # 旧的静默错编形状
+        assert ns["旺财"].名称 == "旺财"
+
+    def test_chao_dot_plain_method(self):
+        code, ns = self._gen("超.构(名称)", "超.描述()")
+        assert "return super().描述()" in code
+        assert ns["旺财"].详情() == "旺财"
+
+    def test_chao_zhi_form(self):
+        """文言体 `超 之 构(...)` 与点号形式等价（`之` 已废弃但仍兼容）"""
+        code, ns = self._gen("超 之 构(名称)", "超 之 描述()")
+        assert "super().__init__(名称)" in code
+        assert ns["旺财"].详情() == "旺财"
+
+    def test_chao_de_form(self):
+        """`超 的 构(...)`——`的` 是当前推荐的成员访问符，必须与 `父 的 构` 等价"""
+        de = _compile_ok(self._SRC % ("超 的 构(名称)", "超 的 描述()"))
+        fu_de = _compile_ok(self._SRC % ("父 的 构(名称)", "父 的 描述()"))
+        assert "super().__init__(名称)" in de
+        assert de == fu_de
+        ns = {}
+        exec(compile(de, "gen_i_de", "exec"), ns)
+        assert ns["旺财"].详情() == "旺财"
+
+
+    def test_chao_matches_fu_byte_for_byte(self):
+        """`超` 只是 `父` 的另一种写法：两者产物必须逐字节相同"""
+        fu = _compile_ok(self._SRC % ("父.构(名称)", "父.描述()"))
+        chao = _compile_ok(self._SRC % ("超.构(名称)", "超.描述()"))
+        assert fu == chao
+
+    def test_bare_chao_still_identifier(self):
+        """裸 `超`（后面没有 . / 之）仍是普通变量，不能变成 super()"""
+        code = _compile_ok("段 甲():\n    设 超 为 1\n    返 超\n")
+        assert "超 = 1" in code
+        assert "super()" not in code
+        ns = {}
+        exec(compile(code, "gen_i_bare", "exec"), ns)
+        assert ns["甲"]() == 1
+
+    def test_compound_words_with_chao_unaffected(self):
+        """超时/超集 等复合词不受影响——这是 `超` 不升关键字的原因"""
+        code = _compile_ok("段 甲():\n    设 超时 为 5\n    设 超集 为 7\n    返 超时 + 超集\n")
+        assert "超时 = 5" in code and "超集 = 7" in code
+        assert "super()" not in code
+        ns = {}
+        exec(compile(code, "gen_i_compound", "exec"), ns)
+        assert ns["甲"]() == 12
+
+
+
 
 
 

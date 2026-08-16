@@ -818,6 +818,25 @@ class ParserExprMixin:
             self._consume(TokenType.RPAREN)
             return self._parse_postfix(ClassInstantiation(class_name, args))
 
+        # 同上，但走 `超`（v7 新单 I）。
+        # L2 v4.0 规范（docs/L2_文言体语法规范_v4.0.md:433/574/927）写的 super 形状是
+        # `超.方法()`，而实现侧一直只认 `父`——规范承诺从未落地，写 `超.构(...)` 会被当成
+        # 未定义标识符 `超`，编译过、运行期 NameError（静默错编）。
+        # `超` 不升关键字：超时/超集/超参数/超几何/超导… 复合词会被 lexer 切碎
+        # （同 `性`/`构`/`新` 的判断）。改按形状识别——IDENTIFIER('超') 后紧跟
+        # 成员访问符（`.` / `的` / 已废弃的 `之`）才是 super，裸 `超` 仍是普通标识符。
+        # 三种访问符都要认：`的` 是当前推荐写法，`.` 是 ASCII 形式，`之` 兼容旧文言体。
+        #
+        # 落点必须在下面那条「标识符」通吃分支之前：`超` 是 IDENTIFIER，一旦落进
+        # _collect_single_arg 就再也回不来了（`父` 是 KEYWORD 所以能放在更后面）。
+        _nxt = self._peek(1)
+        if (tok.type == TokenType.IDENTIFIER and tok.value == '超'
+                and _nxt is not None
+                and (_nxt.type == TokenType.DOT
+                     or (_nxt.type == TokenType.KEYWORD and _nxt.value in ('的', '之')))):
+            self._consume()
+            return self._parse_postfix(Identifier("super()"))
+
         # 标识符：可能带参数（段落调用）
         if tok.type == TokenType.IDENTIFIER:
             return self._collect_single_arg()
@@ -943,6 +962,8 @@ class ParserExprMixin:
             self._consume()
             expr = Identifier("super()")
             return self._parse_postfix(expr)
+
+
 
         # 段落调用：函数/段落 段名(参数)
         if tok.type == TokenType.KEYWORD and tok.value in ('函数', '段落'):
