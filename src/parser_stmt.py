@@ -3874,6 +3874,28 @@ class ParserStmtMixin:
                     attr.access_modifier = 'private'
                     attributes.append(attr)
 
+                # L0 v4.0 单字成员声明：`性` ≡ 属性，`构` ≡ 构造
+                # （examples/L0_core/06_类_面向对象.light 用的就是这一套写法）
+                #
+                # 判据用 IDENTIFIER 而不是 KEYWORD，是**有意为之**：`性`/`构` 是
+                # 高频构词字（性能、性别、结构、构建、构造…），一旦加进
+                # keywords.ALL_KEYWORDS 就会在词法层把大量标识符切碎，血溅半径
+                # 远大于本单收益。实测（.scratch token 探针）这两个字在类体成员
+                # 位置本来就是独立 IDENTIFIER token，按位置识别即可，词法零改动。
+                #
+                # 安全性：类体成员位置上的 IDENTIFIER 此前一律落到本 elif 链末尾
+                # 的 self._error（"类体内不支持的成员声明"），所以这两个分支只能
+                # 把「原本报错」变成「能解析」，不可能改变任何既有能过的语义。
+                elif tok.type == TokenType.IDENTIFIER and tok.value == '性':
+                    attr = self._parse_attribute_declaration()
+                    attr.access_modifier = access_modifier
+                    attr.is_static = is_static
+                    attributes.append(attr)
+                elif tok.type == TokenType.IDENTIFIER and tok.value == '构':
+                    method = self._parse_method_definition(is_constructor=True)
+                    methods.append(method)
+
+
                 # 构造函数
                 elif tok.type == TokenType.KEYWORD and tok.value == '构造':
                     method = self._parse_method_definition(is_constructor=True)
@@ -3953,7 +3975,8 @@ class ParserStmtMixin:
                 else:
                     self._error(
                         f"类体内不支持的成员声明：'{tok.value}'"
-                        f"（类体内可用：属性/私属性/设/构造/函数/段落/段/私段落/@装饰器/过/结束）",
+                        f"（类体内可用：属性/私属性/性/设/构造/构/函数/段落/段/私段落/@装饰器/过/结束）",
+
                         tok.line, tok.col, tok.value)
 
         return ClassDefinition(
@@ -3969,9 +3992,17 @@ class ParserStmtMixin:
         """解析属性声明
 
         语法：属性 属性名 [等于 默认值] [。]
+             性  属性名 [等于 默认值] [。]   ← L0 v4.0 单字写法，同义
         """
         # 属性
-        self._consume(TokenType.KEYWORD, '属性')
+        # 单字 `性` 在词法层是 IDENTIFIER（有意不升为保留字，见类体分发处注释），
+        # 所以不能直接 _consume(KEYWORD, '属性')。
+        if (self._current() and self._current().type == TokenType.IDENTIFIER
+                and self._current().value == '性'):
+            self._consume()
+        else:
+            self._consume(TokenType.KEYWORD, '属性')
+
 
         # 属性名（支持多字标识符，如"余额"被拆分为"余"+"额"）
         attr_name_parts = []
@@ -4032,9 +4063,15 @@ class ParserStmtMixin:
         method_name = None
 
         if is_constructor:
-            # 构造
-            self._consume(TokenType.KEYWORD, '构造')
+            # 构造 / 构（L0 v4.0 单字写法，同义）
+            # `构` 在词法层是 IDENTIFIER，理由同 `性`（见类体成员分发处注释）。
+            if (self._current() and self._current().type == TokenType.IDENTIFIER
+                    and self._current().value == '构'):
+                self._consume()
+            else:
+                self._consume(TokenType.KEYWORD, '构造')
             method_name = '__init__'
+
         else:
             # 段落 / 函数 / 单字 段（三者同义，见 parser_core.PARAGRAPH_KEYWORDS）
             if self._match_paragraph_kw():

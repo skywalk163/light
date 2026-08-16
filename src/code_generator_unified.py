@@ -442,7 +442,7 @@ class UnifiedCodeGenerator:
     # 抄一份并由 tests/test_context_manager.py::TestBackendParity 断言两边逐项
     # 相等——改一边忘另一边会当场打红，不会再出现「同一份源码两个后端语义不同」。
     _SELF_NAMES = ('己', '自')
-    _CTOR_NAMES = ('构造', '初始化')
+    _CTOR_NAMES = ('构造', '初始化', '构')
     _MEMBER_SUFFIX_MAP = (
         ('的长度', 'len({o})'),
         ('的项', '{o}.items()'),
@@ -1447,7 +1447,8 @@ class UnifiedCodeGenerator:
                     # 与 code_generator.py 的 MemberAccess 分支（member in _CTOR_NAMES）
                     # 同口径。否则 `父之构造(...)` 在 unified 里发 `父.构造(...)`，
                     # 运行期 AttributeError —— 与 src 侧分叉。
-                    '构造': '__init__', '初始化': '__init__',
+                    # `构` 是 L0 v4.0 单字构造写法（examples/L0_core/06_...），同口径。
+                    '构造': '__init__', '初始化': '__init__', '构': '__init__',
                 }
                 mapped_method = method_map.get(method_name, method_name)
                 func_name = f"{obj}.{mapped_method}"

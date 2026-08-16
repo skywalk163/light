@@ -1231,5 +1231,83 @@ class TestB补票2_的X后缀改写:
         assert ns["甲"]() == 5
 
 
+class TestL0SingleCharClassKeywords:
+    """v7 新单 E：L0 v4.0 单字类关键字 `性`(属性) / `构`(构造) / `新`(实例化)。
+
+    被测输入 examples/L0_core/06_类_面向对象.light 用的就是这一套。
+    `性`/`构`/`新` **不是**保留字（是高频构词字，升为关键字会在词法层切碎
+    性能/结构/新增 之类的标识符），由解析器按位置形状识别，所以这里既断产物
+    形状、也 exec 起来真跑，确认没有「编译过、一跑就炸」。
+    """
+
+    _SRC = (
+        "类 动物：\n"
+        "  性 名称\n"
+        "  性 年龄\n"
+        "\n"
+        "  构 接收 名称, 年龄：\n"
+        "    己名称 为 名称\n"
+        "    己年龄 为 年龄\n"
+        "\n"
+        "  段 描述：\n"
+        "    返 己名称\n"
+        "\n"
+        "类 狗 承 动物：\n"
+        "  性 品种\n"
+        "\n"
+        "  构 接收 名称, 年龄, 品种：\n"
+        "    父.构(名称, 年龄)\n"
+        "    己品种 为 品种\n"
+        "\n"
+        "设 旺财 为 新 狗(\"旺财\", 3, \"金毛\")\n"
+    )
+
+    def _gen(self):
+        code = _compile_ok(self._SRC)
+        ns = {}
+        exec(compile(code, "gen_l0_oop", "exec"), ns)
+        return code, ns
+
+    def test_性_declares_instance_attr(self):
+        code, ns = self._gen()
+        assert "def __init__(self, 名称, 年龄)" in code
+        assert "self.名称 = 名称" in code
+
+    def test_构_is_init_not_a_plain_method(self):
+        code, _ = self._gen()
+        assert "def 构(" not in code
+
+    def test_父构_calls_super_init(self):
+        code, ns = self._gen()
+        # 不能是 super().构(...)——那在 Python 里是 AttributeError
+        assert "super().__init__(名称, 年龄)" in code
+        assert "super().构(" not in code
+        assert ns["旺财"].名称 == "旺财" and ns["旺财"].年龄 == 3
+
+    def test_新_instantiates_class(self):
+        code, ns = self._gen()
+        assert '狗("旺财", 3, "金毛")' in code
+        assert ns["旺财"].品种 == "金毛"
+
+    def test_继承链可用(self):
+        _, ns = self._gen()
+        assert ns["旺财"].描述() == "旺财"
+
+    def test_新_不吞普通标识符(self):
+        """`新` 只在「新 + 标识符 + (」形状下才是实例化，别处仍是普通变量名"""
+        code = _compile_ok("段 甲():\n    设 新 为 7\n    返 新\n")
+        ns = {}
+        exec(compile(code, "gen_xin_var", "exec"), ns)
+        assert ns["甲"]() == 7
+
+    def test_性能之类的标识符没被切碎(self):
+        """`性`/`构` 未升为保留字的直接体现"""
+        code = _compile_ok("段 甲():\n    设 性能 为 1\n    设 结构 为 2\n    返 性能 + 结构\n")
+        ns = {}
+        exec(compile(code, "gen_no_split", "exec"), ns)
+        assert ns["甲"]() == 3
+
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

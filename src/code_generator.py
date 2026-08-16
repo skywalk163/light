@@ -1654,7 +1654,7 @@ class PythonCodeGenerator:
         if hasattr(stmt, 'methods') and stmt.methods:
             for method in stmt.methods:
                 method_name = method.name if hasattr(method, 'name') else ''
-                is_ctor = getattr(method, 'is_constructor', False) or method_name in ('构造', '初始化')
+                is_ctor = getattr(method, 'is_constructor', False) or method_name in self._CTOR_NAMES
                 if is_ctor or method_name == '__init__':
                     has_constructor = True
                     ctor_method = method
@@ -1713,7 +1713,7 @@ class PythonCodeGenerator:
         if hasattr(stmt, 'methods') and stmt.methods:
             for method in stmt.methods:
                 method_name = method.name if hasattr(method, 'name') else ''
-                is_ctor = getattr(method, 'is_constructor', False) or method_name in ('构造', '初始化')
+                is_ctor = getattr(method, 'is_constructor', False) or method_name in self._CTOR_NAMES
                 if is_ctor and instance_attrs:
                     self._generate_method(method, instance_attrs)
                 else:
@@ -2745,7 +2745,11 @@ class PythonCodeGenerator:
     # 调用侧：MemberAccess 方法调用分支
     # 两侧必须读同一个元组，否则「定义译成 __init__、调用仍发 .构造」会再次分叉
     # （examples/L2_wenyan/学生模块.light:27 就是这么炸的）。
-    _CTOR_NAMES = ('构造', '初始化')
+    # `构` 是 L0 v4.0 单字写法（examples/L0_core/06_类_面向对象.light），与
+    # `构造` 同义：定义侧 `构 接收 …` 已在 parser_stmt 归一成 __init__，调用侧
+    # `父.构(…)` 也必须映射成 super().__init__(…)，否则发出 super().构(…) 运行期
+    # AttributeError。三处（super 调用 / obj 调用 / 定义判定）共读本元组。
+    _CTOR_NAMES = ('构造', '初始化', '构')
 
     # ---- self 引用名 -----------------------------------------------------
     # `己` 与 `自` 在 src/parser_expr.py:27 已同为 self 引用登记，codegen 必须

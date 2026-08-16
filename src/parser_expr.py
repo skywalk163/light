@@ -786,9 +786,35 @@ class ParserExprMixin:
             expr = ParagraphCall(verb_name, args)
             return self._parse_postfix(expr)
 
+        # L0 v4.0 单字 `新`（≡ 新建）类实例化：新 类名(参数...)
+        #
+        # 与 `性`/`构` 同理，`新` 有意**不**升为保留字（新增、更新、最新、新建…
+        # 都含此字，升为关键字会在词法层切碎大量标识符）。这里按三 token 形状
+        # 识别：IDENTIFIER('新') + IDENTIFIER(类名) + LPAREN。
+        # 只收带括号的形式——无括号的 `新 类名 参数...` 与「标识符并列」歧义，
+        # 不值得为它扩大判据；需要时写 `新建` 双字形式。
+        if (tok.type == TokenType.IDENTIFIER and tok.value == '新'
+                and self._peek(1) and self._peek(1).type == TokenType.IDENTIFIER
+                and self._peek(2) and self._peek(2).type == TokenType.LPAREN):
+            self._consume()                      # 新
+            class_name = self._consume().value   # 类名
+            self._consume(TokenType.LPAREN)
+            args = []
+            while self._current() and self._current().type != TokenType.RPAREN:
+                if self._current().type == TokenType.COMMA:
+                    self._consume(TokenType.COMMA)
+                    continue
+                arg = self._parse_comparison()
+                if arg is None:
+                    break
+                args.append(arg)
+            self._consume(TokenType.RPAREN)
+            return self._parse_postfix(ClassInstantiation(class_name, args))
+
         # 标识符：可能带参数（段落调用）
         if tok.type == TokenType.IDENTIFIER:
             return self._collect_single_arg()
+
 
         # 运算符动词作为函数调用（如"除(10, 0)"或"幂 二 十"）
         if tok.type == TokenType.KEYWORD and tok.value in self.OPERATOR_VERBS:
