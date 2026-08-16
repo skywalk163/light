@@ -3632,7 +3632,11 @@ class PythonCodeGenerator:
             self._add_line("import sqlite3 as _light_sqlite3")
             self._add_line(f"if '_LIGHT_SQL_CONNS' not in globals(): _LIGHT_SQL_CONNS = {{}}")
             self._add_line(f"if '{db_var}' not in _LIGHT_SQL_CONNS:")
-            self._add_line(f"    _LIGHT_SQL_CONNS['{db_var}'] = _light_sqlite3.connect(':memory:' if '{db_var}' == 'default' else '{db_var}.db')")
+            # v7 单 26：带标签的 SQL 块过去 connect('{label}.db')，会在 CWD（e2e 两腿均
+            # cwd=REPO_ROOT）落一个持久磁盘文件（如 成绩.db），跨进程存活，导致第二次运行时
+            # 非幂等的 CREATE TABLE 报 "table already exists"。标签本意只是区分同一程序内的
+            # 多个连接，并非跨运行持久化——故一律用进程内内存库，按标签分键即可。
+            self._add_line(f"    _LIGHT_SQL_CONNS['{db_var}'] = _light_sqlite3.connect(':memory:')")
             self._add_line(f"    _LIGHT_SQL_CONNS['{db_var}'].row_factory = _light_sqlite3.Row")
             # 遍历 code（多行按 ; 分语句，允许 -- 注释）
             statements = [s.strip() for s in code.split(';') if s.strip()]
@@ -3640,8 +3644,12 @@ class PythonCodeGenerator:
                 # 跳过纯注释
                 if all(line.lstrip().startswith('--') for line in raw_sql.split('\n') if line.strip()):
                     continue
-                verb = raw_sql.lstrip().split(None, 1)[0].upper() if raw_sql.strip() else ''
                 sql_one_line = " ".join(line.strip() for line in raw_sql.split('\n') if line.strip() and not line.lstrip().startswith('--'))
+                # v7 单 26：动词必须从「剥掉 -- 注释行之后」的 SQL 取。
+                # 旧写法 raw_sql.lstrip().split()[0] 只吃掉空白，遇到「-- 注释\nSELECT ...」
+                # 会把动词判成 '--' 落到 DDL 分支，于是本该生成的 l3_sql_{标签}_q{n}
+                # 变成了 _e{n}（E1 报 name 'l3_sql_成绩_q4' is not defined 即此）。
+                verb = sql_one_line.split(None, 1)[0].upper() if sql_one_line else ''
                 sql_py_repr = repr(sql_one_line)
                 if verb in ('SELECT', 'PRAGMA', 'WITH', 'EXPLAIN', 'SHOW'):
                     # 返回 list[dict] 的查询函数

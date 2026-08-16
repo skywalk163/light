@@ -81,6 +81,12 @@ KEYWORDS_EXCEPTION = {
     '捕',  # 捕获
     '抛',  # 抛出
     '终',  # 最终
+    # v7 单 26：'掷' 是文档承诺的 throw 同义别名（docs/language/l0-core.md:97、
+    # keywords.md:33、guide/迁移指南.md:27、完整语法参考.md:180 均列出），
+    # 但 src/ 里从未落地，导致 examples/L0_core/07_试_异常处理.light 的 掷(...)
+    # 被当成未定义标识符。判为「别名从缺」（先例见 code_generator.py 转成字符串族）。
+    # 注意：不进 KEYWORDS_L0_CORE —— 那是冻结的 30 字表，'掷' 只是别名。
+    '掷',  # 抛出（同 '抛'）
 }
 
 # 类与对象（新增）

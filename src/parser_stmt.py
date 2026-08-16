@@ -289,8 +289,8 @@ class ParserStmtMixin:
         if tok.type == TokenType.KEYWORD and tok.value in ('尝试', '试'):
             return self._parse_try_stmt()
         
-        # 抛出异常：抛出 / 抛
-        if tok.type == TokenType.KEYWORD and tok.value in ('抛出', '抛'):
+        # 抛出异常：抛出 / 抛 / 掷（v7 单 26：'掷' 是文档承诺的别名，见 keywords.py）
+        if tok.type == TokenType.KEYWORD and tok.value in ('抛出', '抛', '掷'):
             return self._parse_throw_stmt()
         
         # 生成器/生成语句：生成 表达式
@@ -1013,7 +1013,7 @@ class ParserStmtMixin:
             '类', '构造', '函数', '段落', '尝试', '捕获', '抛出', '最终', '导入',
             '导出', '从', '真', '假', '空', '且', '或', '非', '与', '等待',
             '匹配', '的', '之', '对', '步', '至', '到',
-            '导', '出', '遍', '返', '跳', '过', '试', '捕', '抛', '终', '配', '否', '接', '承', '自',
+            '导', '出', '遍', '返', '跳', '过', '试', '捕', '抛', '掷', '终', '配', '否', '接', '承', '自',
         })
         while self._current():
             tok = self._current()
@@ -1102,7 +1102,7 @@ class ParserStmtMixin:
             '类', '构造', '函数', '段落', '尝试', '捕获', '抛出', '最终', '导入',
             '导出', '从', '真', '假', '空', '且', '或', '非', '与', '等待',
             '匹配', '情况', '的', '之', '对', '步', '至', '到', '在', '于', '中的',
-            '导', '出', '遍', '返', '跳', '过', '试', '捕', '抛', '终', '配', '否', '接', '承', '自',
+            '导', '出', '遍', '返', '跳', '过', '试', '捕', '抛', '掷', '终', '配', '否', '接', '承', '自',
         })
         while self._current():
             tok = self._current()
@@ -2512,7 +2512,7 @@ class ParserStmtMixin:
                     else:
                         is_stmt_keyword = (tok.value in ('设', '定义', '当', '如果', '若', '遍历', '遍',
                                                           '打印', '导入', '导', '导出', '出', '跳出', '跳', '跳过', '过', '继续',
-                                                          '尝试', '试', '抛出', '抛', '匹配', '配', '返回', '返', '属性', 
+                                                          '尝试', '试', '抛出', '抛', '掷', '匹配', '配', '返回', '返', '属性', 
                                                           '构造', '类', '接口', '接'))
                 if not is_stmt_keyword:
                     # 先解析第一个表达式（不含逗号/管道）
@@ -3030,7 +3030,7 @@ class ParserStmtMixin:
             )
             self._consume(TokenType.KEYWORD, '接收')
             
-            _stmt_keywords = {'设', '定义', '当', '如果', '若', '遍历', '遍', '返回', '返', '打印', '导入', '导', '导出', '出', '跳出', '跳', '跳过', '过', '尝试', '试', '抛出', '抛', '匹配', '配', '类', '接口', '接'}
+            _stmt_keywords = {'设', '定义', '当', '如果', '若', '遍历', '遍', '返回', '返', '打印', '导入', '导', '导出', '出', '跳出', '跳', '跳过', '过', '尝试', '试', '抛出', '抛', '掷', '匹配', '配', '类', '接口', '接'}
             while self._current() and self._current().type != TokenType.COLON:
                 tok = self._current()
                 if tok.type == TokenType.KEYWORD and (tok.value == '返回' or tok.value == '返' or tok.value in _stmt_keywords):
@@ -3409,7 +3409,7 @@ class ParserStmtMixin:
         if self._match(TokenType.KEYWORD, '接收'):
             self._consume(TokenType.KEYWORD, '接收')
             
-            _stmt_keywords = {'设', '定义', '当', '如果', '若', '遍历', '遍', '返回', '返', '打印', '导入', '导', '导出', '出', '跳出', '跳', '跳过', '过', '尝试', '试', '抛出', '抛', '匹配', '配', '类', '接口', '接'}
+            _stmt_keywords = {'设', '定义', '当', '如果', '若', '遍历', '遍', '返回', '返', '打印', '导入', '导', '导出', '出', '跳出', '跳', '跳过', '过', '尝试', '试', '抛出', '抛', '掷', '匹配', '配', '类', '接口', '接'}
             while self._current() and self._current().type != TokenType.COLON:
                 tok = self._current()
                 if tok.type == TokenType.KEYWORD and (tok.value == '返回' or tok.value == '返' or tok.value in _stmt_keywords):
@@ -4818,7 +4818,7 @@ class ParserStmtMixin:
                     '类', '构造', '函数', '段落', '尝试', '捕获', '抛出', '最终', '导入',
                     '导出', '从', '真', '假', '空', '且', '或', '非', '与', '等待',
                     '匹配', '情况', '的', '之', '对', '步', '至', '到',
-                    '导', '出', '遍', '返', '跳', '过', '试', '捕', '抛', '终', '配', '否', '接', '承', '自',
+                    '导', '出', '遍', '返', '跳', '过', '试', '捕', '抛', '掷', '终', '配', '否', '接', '承', '自',
                 })
                 while self._current():
                     _t = self._current()
