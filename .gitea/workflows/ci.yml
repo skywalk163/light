@@ -1,20 +1,27 @@
-# 段言 Duan · 本地 CI（Gitea Actions，FreeBSD host 模式，无 Docker）
+# 光明 Light · 本地 CI（Gitea Actions，FreeBSD host 模式，无 Docker）
+#
+# 这份文件源自段言侧，v7 合并后主干是 light，已按主干校正（见下方「根目录测试」注释）。
 #
 # 等价于 .github/workflows/ci.yml 的 Linux 测试路径：
-#   - runs-on: freebsd（act_runner，系统 python3 v3.11 / node v24）
-#   - 去掉 os 矩阵与 actions/setup-python，改用 venv 系统 python3
-#   - checkout 走本地 actions/checkout
+#   - runs-on: freebsd（act_runner host 执行器；FreeBSD 无原生 Docker，只能 host 模式）
+#   - 去掉 os 矩阵与 actions/setup-python，改用 jail 内系统 python3 建 venv
+#   - checkout 走本地 actions/checkout 镜像
 #   - 去掉 GitHub 专属的 build/twine/upload-artifact（release/publish 不在本地跑）
 #
-# 仅安装 pytest/pytest-cov（与 GitHub test job 一致），测试直接 import 仓库内 duan 包。
+# 仅安装 pytest/pytest-cov（与 GitHub test job 一致）；本项目 runtime 依赖为空
+# （pyproject dependencies=[]），测试直接 import 仓库内 src/ 模块。
+#
+# runner 部署（jail + act_runner 自编译 + 标签/镜像）见 docs/CI_gitea_freebsd部署.md。
+
 
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, merge-v7]
   pull_request:
-    branches: [main]
+    branches: [main, merge-v7]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -46,10 +53,17 @@ jobs:
           pytest tests/e2e/ -v --tb=short
 
       # 根目录测试（与 GitHub Linux job 一致；失败不阻塞，和原配置相同）
+      #
+      # 注意：文件名必须跟着主干走。合并后 light 是主干，段言旧名
+      # test_duan_syntax / test_duan_stdlib / test_duan_stdlib2 在本仓库并不存在；
+      # 这一步结尾是 `|| true`，点错名字不会报错、只会一个用例都没跑到——假绿比没有更坏。
+      # 已改回实际存在的 test_light_syntax / test_light_stdlib / test_light_stdlib2
+      # （全部 27 个文件已逐个核对存在）。
       - name: 根目录测试
         run: |
           . .venv/bin/activate
-          pytest tests/test_parser.py tests/test_lexer.py tests/test_async.py tests/test_codegen.py tests/test_exception.py tests/test_executor.py tests/test_semantic.py tests/test_class_definition.py tests/test_duan_syntax.py tests/test_e2e.py tests/test_edge_cases.py tests/test_commands.py tests/test_file_io.py tests/test_interface.py tests/test_json_import.py tests/test_module_system.py tests/test_module_resolver.py tests/test_summary.py tests/test_ternary.py tests/test_advanced_semantic.py tests/test_duan_stdlib.py tests/test_duan_stdlib2.py tests/test_class_advanced.py tests/test_llvm_async.py tests/test_lsp_protocol.py tests/test_lsp_protocol_full.py tests/test_modern_features.py -v --tb=short --ignore=tests/archive 2>&1 || true
+          pytest tests/test_parser.py tests/test_lexer.py tests/test_async.py tests/test_codegen.py tests/test_exception.py tests/test_executor.py tests/test_semantic.py tests/test_class_definition.py tests/test_light_syntax.py tests/test_e2e.py tests/test_edge_cases.py tests/test_commands.py tests/test_file_io.py tests/test_interface.py tests/test_json_import.py tests/test_module_system.py tests/test_module_resolver.py tests/test_summary.py tests/test_ternary.py tests/test_advanced_semantic.py tests/test_light_stdlib.py tests/test_light_stdlib2.py tests/test_class_advanced.py tests/test_llvm_async.py tests/test_lsp_protocol.py tests/test_lsp_protocol_full.py tests/test_modern_features.py -v --tb=short --ignore=tests/archive 2>&1 || true
+
 
       - name: 统一测试运行器
         run: |
