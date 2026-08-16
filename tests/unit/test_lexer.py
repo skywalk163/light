@@ -419,6 +419,56 @@ class TestLexer(unittest.TestCase):
             with self.subTest(src=src):
                 self.assertEqual(self._sig(src), sig)
 
+    # ---- v7 单 F：compound-safe 表的同族补全（首 / 末 / 余 / 配）----
+    # 单 B 只把返回值失配收窄修到 `之` 这一支，同族其余触发字仍在字面失真：
+    #   去除首尾 -> ID(去) KW(首) KW(首) ID(尾)   # `除` 消失、`首` 被复制
+    # 根因是这四个字既是关键字又是高频构词字，却没进
+    # _COMPOUND_SAFE_SINGLE_KEYWORDS，于是词首不让路。
+
+    def test_compound_safe_supplement_merges_words(self):
+        """首/末/余/配 作构词字时整体保留为标识符"""
+        expected = {
+            '去除首尾': [('IDENTIFIER', '去除首尾')],
+            '首字母大写': [('IDENTIFIER', '首字母大写')],
+            '首项': [('IDENTIFIER', '首项')],
+            '月末': [('IDENTIFIER', '月末')],
+            '周末': [('IDENTIFIER', '周末')],
+            '期末资产': [('IDENTIFIER', '期末资产')],
+            '余额': [('IDENTIFIER', '余额')],
+            '剩余时间': [('IDENTIFIER', '剩余时间')],
+            '冗余度': [('IDENTIFIER', '冗余度')],
+            '配置': [('IDENTIFIER', '配置')],
+            '配对': [('IDENTIFIER', '配对')],
+            '配位数': [('IDENTIFIER', '配位数')],
+        }
+        for src, sig in expected.items():
+            with self.subTest(src=src):
+                self.assertEqual(self._sig(src), sig)
+
+    def test_compound_safe_supplement_keeps_keyword_role(self):
+        """对照组：这四个字单独出现 / 空格分隔时仍是关键字，动词与模式匹配不受损"""
+        expected = {
+            '首': [('KEYWORD', '首')],
+            '末': [('KEYWORD', '末')],
+            '余': [('KEYWORD', '余')],
+            '配': [('KEYWORD', '配')],
+            '首 列表': [('KEYWORD', '首'), ('IDENTIFIER', '列表')],
+            '末 列表': [('KEYWORD', '末'), ('IDENTIFIER', '列表')],
+        }
+        for src, sig in expected.items():
+            with self.subTest(src=src):
+                self.assertEqual(self._sig(src), sig)
+
+    def test_compound_safe_supplement_no_literal_loss(self):
+        """核心判据：token value 拼起来不得丢字、不得复制字
+
+        旧行为 `去除首尾` 拼出来是「去首首尾」——源码里的 `除` 没了、`首` 多了一个。
+        """
+        for src in ('去除首尾', '首字母大写', '月末', '余额', '配置', '剩余时间'):
+            with self.subTest(src=src):
+                joined = ''.join(v for _, v in self._sig(src))
+                self.assertEqual(joined, src)
+
 
 if __name__ == '__main__':
     unittest.main()
