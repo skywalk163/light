@@ -124,6 +124,108 @@ class LightUnifiedCLI:
         
         return 0
     
+    # 已知的标准库 / Python 模块名（不应被当成用户模块预编译或落盘）
+    KNOWN_STDLIB = {
+        '文件系统', 'JSON', 'sys', '字符串工具', '数学', '时间', '日期时间',
+        'csv', 'json', 'os', 're', 'random', 'math', 'datetime', 'time',
+        'pathlib', 'typing', 'collections', 'itertools', 'functools',
+        'subprocess', 'shutil', 'glob', 'tempfile', 'io', 'builtins',
+        '复制', 'os路径',
+    }
+
+    @classmethod
+    def _find_user_module_path(cls, mod_name: str, source_dir: str):
+        """在源文件目录、再退一级目录里找 <模块名>.light，找不到返回 None
+
+        run 路径（_register_user_modules）与 compile 路径（_emit_user_modules）
+        必须共用这一套查找判据。两边各写一份是本仓库单 D 的成因：run 找得到、
+        compile 找不到，于是 run 绿、产物红。
+        """
+        mod_path = os.path.join(source_dir, f"{mod_name}.light")
+        if os.path.exists(mod_path):
+            return mod_path
+        alt_path = os.path.join(os.path.dirname(source_dir), f"{mod_name}.light")
+        if os.path.exists(alt_path):
+            return alt_path
+        return None
+
+    @classmethod
+    def _iter_user_module_deps(cls, source: str, source_dir: str, seen: set):
+        """解析 source，逐个 yield (模块名, 模块文件路径, 模块源码)
+
+        只认用户模块：跳过 KNOWN_STDLIB、跳过 language 为 python/c 的外语导入、
+        跳过磁盘上找不到 .light 的（当成标准库或第三方，交给下游报错）。
+        yield 之前就把模块名放进 seen，用于防循环依赖。
+        """
+        from light_parser_v3 import LightParser, ImportStmt
+
+        try:
+            module = LightParser().parse(source)
+        except Exception:
+            return
+        if not module:
+            return
+
+        for stmt in getattr(module, 'statements', []):
+            if not isinstance(stmt, ImportStmt):
+                continue
+            mod_name = stmt.module_name
+            if mod_name in seen or mod_name in cls.KNOWN_STDLIB:
+                continue
+            if getattr(stmt, 'language', None) in ('python', 'c'):
+                continue
+            mod_path = cls._find_user_module_path(mod_name, source_dir)
+            if mod_path is None:
+                continue
+            try:
+                with open(mod_path, 'r', encoding='utf-8') as f:
+                    mod_source = f.read()
+            except OSError:
+                continue
+            seen.add(mod_name)
+            yield mod_name, mod_path, mod_source
+
+    def _emit_user_modules(self, source: str, source_dir: str,
+                           output_dir: str, emitted: set = None) -> list:
+        """把 source 依赖的用户模块一并编译落盘到 output_dir，使产物自包含
+
+        compile 出来的产物里 `导 学生模块 出 …` 被译成
+        `from 学生模块 import …`；Python 运行脚本时会把脚本所在目录放到
+        sys.path[0]，所以只要把 学生模块.py 落在产物**同目录**，这句 import
+        就能解析。不这样做的话产物只在「恰好 cwd 有依赖」时能跑——
+        e2e 把产物写到临时目录，于是必炸 ModuleNotFoundError。
+
+        递归处理依赖的依赖。返回已落盘的模块名列表。
+        """
+        from light_parser_v3 import LightParser
+        from code_generator import PythonCodeGenerator
+
+        if emitted is None:
+            emitted = set()
+        written = []
+
+        for mod_name, mod_path, mod_source in self._iter_user_module_deps(
+                source, source_dir, emitted):
+            # 先递归，保证依赖的依赖也落盘
+            written.extend(self._emit_user_modules(
+                mod_source, os.path.dirname(mod_path), output_dir, emitted))
+            try:
+                mod_module = LightParser().parse(mod_source, filename=mod_path)
+                if not mod_module:
+                    continue
+                mod_py_code = PythonCodeGenerator().generate(mod_module)
+            except Exception as e:
+                # 依赖模块自己编不过：明确告警，不静默产出半残产物
+                print(f"[警告] 依赖模块编译失败，产物将不自包含: {mod_path}: {e}",
+                      file=sys.stderr)
+                continue
+            out_path = os.path.join(output_dir, f"{mod_name}.py")
+            with open(out_path, 'w', encoding='utf-8') as f:
+                f.write(mod_py_code)
+            written.append(mod_name)
+
+        return written
+
     def _register_user_modules(self, source: str, source_dir: str,
                                 registered: set = None,
                                 exported_names: set = None) -> None:
@@ -141,7 +243,7 @@ class LightUnifiedCLI:
             exported_names: 收集到的所有模块导出函数名集合（用于跨模块标识符识别）
         """
         import types
-        from light_parser_v3 import LightParser, ImportStmt
+        from light_parser_v3 import LightParser
         from code_generator import PythonCodeGenerator
 
         if registered is None:
@@ -149,47 +251,10 @@ class LightUnifiedCLI:
         # 防止重复收集导出名
         _already_collected = set()
 
-        # 已知的标准库 / Python 模块名（不应被预编译）
-        KNOWN_STDLIB = {
-            '文件系统', 'JSON', 'sys', '字符串工具', '数学', '时间', '日期时间',
-            'csv', 'json', 'os', 're', 'random', 'math', 'datetime', 'time',
-            'pathlib', 'typing', 'collections', 'itertools', 'functools',
-            'subprocess', 'shutil', 'glob', 'tempfile', 'io', 'builtins',
-            '复制', 'os路径',
-        }
-
-        # 解析源码以提取导入语句
-        parser = LightParser()
-        module = parser.parse(source)
-        if not module:
-            return
-
-        for stmt in getattr(module, 'statements', []):
-            if not isinstance(stmt, ImportStmt):
-                continue
-            mod_name = stmt.module_name
-            if mod_name in registered or mod_name in KNOWN_STDLIB:
-                continue
-            if getattr(stmt, 'language', None) in ('python', 'c'):
-                continue
-
-            # 检查模块文件是否存在
-            mod_path = os.path.join(source_dir, f"{mod_name}.light")
-            if not os.path.exists(mod_path):
-                # 尝试从项目根目录查找
-                alt_path = os.path.join(os.path.dirname(source_dir), f"{mod_name}.light")
-                if os.path.exists(alt_path):
-                    mod_path = alt_path
-                else:
-                    continue
-
-            # 读取模块源码
-            with open(mod_path, 'r', encoding='utf-8') as f:
-                mod_source = f.read()
-
-            # 标记为已注册，防止循环依赖
-            registered.add(mod_name)
-
+        # 依赖发现走 _iter_user_module_deps（与 compile 路径的
+        # _emit_user_modules 共用同一套判据，见该方法注释）
+        for mod_name, mod_path, mod_source in self._iter_user_module_deps(
+                source, source_dir, registered):
             # 递归注册模块自身的导入
             self._register_user_modules(mod_source, os.path.dirname(mod_path), registered, exported_names)
 
@@ -216,6 +281,7 @@ class LightUnifiedCLI:
             except Exception:
                 # 注册失败时不中断，让后续的 import 抛出更清晰的错误
                 pass
+
 
     def compile_with_src(self, source: str, output_file: Optional[str] = None,
                          run: bool = False, target: str = 'python',
@@ -297,7 +363,19 @@ class LightUnifiedCLI:
                 with open(output_file, 'w', encoding='utf-8') as f:
                     f.write(python_code)
                 print(f"[成功] 已生成: {output_file}")
-            
+
+                # 让产物自包含：把依赖的用户模块一并编译到产物同目录。
+                # 上面的 _register_user_modules 只往本进程 sys.modules 里塞对象，
+                # 进程一退出就没了；写出去的 .py 里那句 `from 学生模块 import …`
+                # 于是成为悬空引用（单 D）。
+                if source_file:
+                    out_dir = os.path.dirname(os.path.abspath(output_file))
+                    src_dir = os.path.dirname(os.path.abspath(source_file))
+                    emitted = self._emit_user_modules(source, src_dir, out_dir)
+                    if emitted:
+                        print("[成功] 已随产物生成依赖模块: "
+                              + ', '.join(f'{m}.py' for m in emitted))
+
             if run:
                 try:
                     exec_globals = {
