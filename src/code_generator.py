@@ -1153,26 +1153,56 @@ class PythonCodeGenerator:
             else:
                 self._add_line(f"_light_check_type({name}, '{light_type}', '{stmt.name}')")
     
+    # 光明类型名 -> Python 注解类型名。注意：这与 :1853 的 _TYPE_NAME_MAP（服务
+    # match 模式的 isinstance 检查，'任意'->object）**故意不同**——注解走 typing 语义，
+    # '任意'->Any。这里是「注解映射」的唯一权威表，不要再在方法内起局部小表（单 24：
+    # 曾因局部表缺 '字符串'/'浮点' 等，未命中的中文类型名原样泄漏进 Python 注解，
+    # 在 Python<3.14 上求值即 NameError；本机 3.14 PEP649 延迟求值把它掩盖了）。
+    _LIGHT_TYPE_MAP = {
+        '整数': 'int', '整数型': 'int', '整型': 'int',
+        '小数': 'float', '浮数': 'float', '浮点': 'float', '浮点数': 'float', '数': 'float',
+        '文本': 'str', '串': 'str', '字符串': 'str',
+        '布尔': 'bool', '布尔值': 'bool',
+        '列表': 'list', '列': 'list', '数组': 'list',
+        '字典': 'dict', '典': 'dict', '词典': 'dict', '映射': 'dict',
+        '集合': 'set', '集': 'set',
+        '任意': 'Any', '任意类型': 'Any',
+        '空': 'None', '空值': 'None',
+    }
+
+    @staticmethod
+    def _split_top_level(s: str, sep: str):
+        """按 sep 切分，但只在方括号/尖括号深度为 0 处切——避免把
+        `字典<字符串, 整数|字符串>` 里的逗号/竖线误切开。"""
+        parts, buf, depth = [], '', 0
+        for ch in s:
+            if ch in '<[':
+                depth += 1
+            elif ch in '>]':
+                depth = max(0, depth - 1)
+            if ch == sep and depth == 0:
+                parts.append(buf)
+                buf = ''
+            else:
+                buf += ch
+        parts.append(buf)
+        return [p.strip() for p in parts]
+
     def _map_type(self, light_type: str) -> str:
-        """将光明类型名映射为Python类型名（支持泛型尖括号/方括号）"""
-        type_map = {
-            '整数': 'int',
-            '小数': 'float',
-            '浮数': 'float',
-            '文本': 'str',
-            '串': 'str',
-            '布尔': 'bool',
-            '列表': 'list',
-            '列': 'list',
-            '字典': 'dict',
-            '典': 'dict',
-            '集合': 'set',
-            '集': 'set',
-            '任意': 'Any',
-            '空': 'None',
-            '数': 'float',
-        }
+        """将光明类型名映射为Python类型名（支持泛型、联合类型、可空前缀）"""
         stripped = (light_type or '').strip()
+        if not stripped:
+            return stripped
+        # 联合类型：整数|字符串 -> int | str（只切顶层 | ）
+        if '|' in stripped:
+            parts = self._split_top_level(stripped, '|')
+            if len(parts) > 1:
+                return ' | '.join(self._map_type(p) for p in parts)
+        # 裸可空/可选前缀（无括号）：可空字符串 -> Optional[str]
+        for pre in ('可空', '可选'):
+            if stripped.startswith(pre) and len(stripped) > len(pre) \
+                    and stripped[len(pre)] not in '<[':
+                return f"Optional[{self._map_type(stripped[len(pre):])}]"
         # 泛型形式：列表<整数> / 字典<字符串, 小数> / 可选<整数> / 列表[整数]
         if stripped.endswith('>') or stripped.endswith(']'):
             open_char = '<' if stripped.endswith('>') else '['
@@ -1180,24 +1210,23 @@ class PythonCodeGenerator:
             if bracket > 0:
                 base = stripped[:bracket].strip()
                 args_str = stripped[bracket + 1:-1].strip()
-                if base in ('列表', '列', 'List'):
-                    if args_str:
-                        # 嵌套泛型递归映射：列表<列表<整数>> → list[list[int]]
-                        first_arg = args_str.split(',')[0].strip()
-                        return f"list[{self._map_type(first_arg)}]"
-                    return 'list'
-                if base in ('字典', '典', 'Map'):
+                # 括号感知切分，嵌套泛型不会被逗号劈坏
+                args = self._split_top_level(args_str, ',') if args_str else []
+                if base in ('列表', '列', '数组', 'List'):
+                    # 嵌套泛型递归映射：列表<列表<整数>> → list[list[int]]
+                    return f"list[{self._map_type(args[0])}]" if args else 'list'
+                if base in ('字典', '典', '词典', '映射', 'Map', 'Dict'):
                     return 'dict'
                 if base in ('集合', '集', 'Set'):
                     return 'set'
                 if base in ('元组', 'Tuple'):
                     return 'tuple'
                 if base in ('可选', '可空', 'Optional'):
-                    inner = self._map_type(args_str) if args_str else 'Any'
+                    inner = self._map_type(args[0]) if args else 'Any'
                     return f"Optional[{inner}]"
                 # 未知泛型基名：退化为基名本身
-                return type_map.get(base, base)
-        return type_map.get(stripped, stripped)
+                return self._LIGHT_TYPE_MAP.get(base, base)
+        return self._LIGHT_TYPE_MAP.get(stripped, stripped)
     
     def _generate_if_stmt(self, stmt: IfStmt):
         """生成条件语句"""
