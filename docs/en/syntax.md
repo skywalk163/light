@@ -296,11 +296,14 @@ Duan uses `段落` (paragraph) to define functions:
 匹配 值：
     情况 1：
         打印("一")
-    情况 2, 3：
-        打印("二或三")
-    默认：
+    情况 2：
+        打印("二")
+    情况 3：
+        打印("三")
+    其他：
         打印("其他")
 ```
+
 
 ## Pipeline Operator
 
