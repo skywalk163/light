@@ -443,6 +443,9 @@ _COMPOUND_SAFE_SINGLE_KEYWORDS = frozenset({
     # `幂` 有意不加：`10的幂` 的错根在「的」递归吞掉分隔符（另一支缺陷），加 `幂`
     # 只把 幂+幂 改成 幂+ID(幂)，`的` 字面仍丢，不能真修；且 `幂` 是算术运算符
     # （OPERATOR_VERBS），进表风险大。留待「的 递归」单独处置。
+    # v7 单 27 补全 —— `匹`/`例` 本单起成为关键字（KEYWORDS_MATCH），必须同时进本表：
+    '匹',   # 匹配/匹配结果/匹配项 —— 全仓 89 处词首 `匹X`，不保护会被切成 匹+配
+    '例',   # 例如/例1 —— 词首仅 3 处，仍一并保护（示例/比例/案例 里 `例` 不在词首，不受影响）
 })
 
 # 符号到 TokenType 的映射（模块级常量）
@@ -1674,6 +1677,26 @@ class Lexer:
             # 立即停止合并，从而把 "n减1" 正确切分为 标识符 n + 关键字 减 + 数字 1；
             # 未命中关键字的纯后缀汉字（如 evennum 后的 集）仍按原逻辑合并。
             member_access_kw = {'之', '的'}
+
+            # snake_case 名字中的汉字段：`_` 后紧跟汉字时，这颗汉字必然是名字的一部分，
+            # 不可能是运算符或语句关键字 —— 光明不会写 `foo_减1` 来表示减法。
+            # L3 领域层生成的函数名正是这个形状（把块标签拼进名字）：
+            #   l3_math_solve_例1_2 / l3_math_int_例1_x_8 / l3_sql_成绩_q2
+            # （examples/E阶段_L3L4原生语法/E3_L3_公式数学原生.light:33,46 等）。
+            # 若照下面的通用规则在关键字处断开，名字会碎成
+            #   IDENTIFIER(l3_math_solve_) KEYWORD(例) NUMBER(1) IDENTIFIER(_2)
+            # 编译期报「例 是保留关键字，不能直接作为语句开头」。
+            # 因此此处整段吞掉「汉字/字母/数字/下划线」混排，直到真正的分隔符。
+            # `n减1`、`left至right` 的汉字前面不是 `_`，走原路，一字不改。
+            if j < n and _is_han(source[j]) and source[j - 1] == '_':
+                while j < n and (_is_han(source[j]) or _is_ascii_alnum_f(source[j])
+                                 or source[j] == '_' or _is_extra_letter(source[j])):
+                    if source[j] in member_access_kw:
+                        break
+                    j += 1
+                tokens.append(_Token(_TokenType.IDENTIFIER, source[i:j], line, col))
+                return tokens, j - i
+
             while j < n and _is_han(source[j]):
                 # 从 j 处做最长关键字匹配（_match_keyword 覆盖 VERB_ARITY 中的动词）
                 han_kw, _ = self._match_keyword(source, j)

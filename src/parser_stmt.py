@@ -361,8 +361,8 @@ class ParserStmtMixin:
         if tok.type == TokenType.KEYWORD and tok.value in ('接口', '接', '协议'):
             return self._parse_interface_definition()
 
-        # 模式匹配：匹配 / 配
-        if tok.type == TokenType.KEYWORD and tok.value in ('匹配', '配'):
+        # 模式匹配：匹配 / 配 / 匹（v7 单 27：'匹' 是 L0 冻结表承诺的别名）
+        if tok.type == TokenType.KEYWORD and tok.value in ('匹配', '配', '匹'):
             return self._parse_match_stmt()
 
         # 上下文管理器：使用
@@ -1416,6 +1416,45 @@ class ParserStmtMixin:
             return ImportStmt(module_entries[0][0], symbols=symbols,
                               alias=fi_alias, language=language)
 
+        # v7 单 27：「导 <名> 自 <模块>」—— 模块绑定形（import <模块> as <名>）
+        #
+        # 「自」也要按位置区分两种语义（同上面「出」的处置）：
+        #   1. 语句开头的「自」→ self/this（_parse_statement:403 → _parse_self_assignment），
+        #      如 `自.姓名 = 姓名`。本分支只在「导 <名>」已消费之后才可能命中，够不到那里。
+        #   2. 「导 <名> 自 <模块>」里的「自」→ 模块来源引导词
+        #      （docs/language/l0-core.md:66、docs/language/keywords.md:13 列 `自` = 从）
+        #
+        # 与「从」分支（下面）的语义差别：
+        #   `导入 X 从 Y` = from Y import X   —— 取符号
+        #   `导 X 自 Y`   = import Y as X     —— 绑模块
+        # 故 `导 数学 自 数学` → `import 数学`（名与源同名时不发多余的 as），
+        # 之后 `数学.圆周率` 才有模块对象可取属性。若照「从」分支译成
+        # `from 数学 import 数学` 会 ImportError——数学 模块里没有叫 数学 的名字。
+        #
+        # 缺这一支时，「自 数学」落回 _parse_statement 被当成 self 赋值，
+        # 报「期望'为'或'等于'」——与本例真实意图毫无关系的误导性错误。
+        if len(module_entries) == 1 and self._match(TokenType.KEYWORD, '自'):
+            self._consume(TokenType.KEYWORD, '自')
+            src_tok = self._current()
+            if not (src_tok and src_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD)):
+                self._error("「导 %s 自 ...」后面缺少模块名" % module_entries[0][0],
+                            src_tok.line if src_tok else 0, src_tok.col if src_tok else 0)
+            real_module = self._consume().value
+            while self._current() and self._current().type == TokenType.DOT:
+                self._consume(TokenType.DOT)
+                next_tok = self._current()
+                if next_tok and next_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                    real_module += '.' + self._consume().value
+                else:
+                    self.pos -= 1
+                    break
+            # 句号（可选）
+            if self._current() and self._current().type == TokenType.PERIOD:
+                self._consume(TokenType.PERIOD)
+            local_name = module_entries[0][1] or module_entries[0][0]
+            alias = None if local_name == real_module else local_name
+            return ImportStmt(real_module, symbols=None, alias=alias, language=language)
+
         # 检查是否是 "导入 符号 从 模块" 语法（from import 的倒装形式）
         if self._match(TokenType.KEYWORD, '从'):
             self._consume(TokenType.KEYWORD, '从')
@@ -2063,11 +2102,11 @@ class ParserStmtMixin:
         result = IfStmt(condition, then_body, None)
         current = result
         
-        # 循环处理否则如果/否则分支
-        while self._current() and (self._match(TokenType.KEYWORD, '否则') or self._match(TokenType.KEYWORD, '否') or self._match(TokenType.KEYWORD, '否则若')):
-            if self._match(TokenType.KEYWORD, '否则若'):
-                # 否则若：作为单个token的elif
-                self._consume(TokenType.KEYWORD, '否则若')
+        # 循环处理否则如果/否则分支（'或若' 是 v7 单 27 补齐的 '否则若' 同义别名）
+        while self._current() and (self._match(TokenType.KEYWORD, '否则') or self._match(TokenType.KEYWORD, '否') or self._match(TokenType.KEYWORD, '否则若') or self._match(TokenType.KEYWORD, '或若')):
+            if self._match(TokenType.KEYWORD, '否则若') or self._match(TokenType.KEYWORD, '或若'):
+                # 否则若 / 或若：作为单个token的elif
+                self._consume(TokenType.KEYWORD, self._current().value)
                 elif_condition = self._parse_expr()
                 
                 if self._match(TokenType.KEYWORD, '则'):
@@ -3335,7 +3374,7 @@ class ParserStmtMixin:
                 if next_tok and next_tok.type == TokenType.KEYWORD and next_tok.value in ('如果', '若'):
                     # 否则如果 - 这是 if 语句的 elif 分支，停止解析让调用者处理
                     break
-            if stop_on_else and depth == 0 and tok.type == TokenType.KEYWORD and tok.value in ('否则若', '否若'):
+            if stop_on_else and depth == 0 and tok.type == TokenType.KEYWORD and tok.value in ('否则若', '否若', '或若'):
                 # 否则若 - 作为单个token的elif，停止解析让调用者处理
                 break
 
@@ -4587,8 +4626,8 @@ class ParserStmtMixin:
                 # 检查后面是否还有 NEWLINE 或另一个 DEDENT
                 while self._current() and self._current().type == TokenType.NEWLINE:
                     self._consume(TokenType.NEWLINE)
-                # 如果下一个 token 是"情况"，说明还有更多 case，继续循环
-                if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '情况':
+                # 如果下一个 token 是"情况"/"例"，说明还有更多 case，继续循环
+                if self._current() and self._current().type == TokenType.KEYWORD and self._current().value in ('情况', '例'):
                     continue
                 # 默认分支（其他/否）也要继续，否则 `其他:` 会落回顶层语句解析
                 if self._is_match_default_lead(self._current()):
@@ -4596,8 +4635,8 @@ class ParserStmtMixin:
                 # 否则匹配块结束
                 break
 
-            # 情况分支
-            if tok.type == TokenType.KEYWORD and tok.value == '情况':
+            # 情况分支（'例' 是 v7 单 27 补齐的 case 别名）
+            if tok.type == TokenType.KEYWORD and tok.value in ('情况', '例'):
                 case = self._parse_match_case()
                 cases.append(case)
             # 默认分支：其他 / 否
@@ -4937,23 +4976,27 @@ class ParserStmtMixin:
             self._consume()
             pattern = MatchPattern('wildcard')
         else:
-            # 情况
-            self._consume(TokenType.KEYWORD, '情况')
+            # 情况 / 例（v7 单 27：'例' 是 case 别名）
+            self._consume(TokenType.KEYWORD, self._current().value)
 
-            # 解析模式
-            pattern_start = self.pos
-            pattern = self._parse_match_pattern()
-
-            # 布尔守卫式：情况 a >= 90: → case _ if (a >= 90):
-            #
-            # 纯语法判据：模式解析完后若紧跟比较/逻辑运算符，说明这一段本来是
-            # 布尔表达式（模式解析已经把 `a` 误当捕获模式吃掉），回退到模式起点
-            # 整体按表达式重解析。不做语义推断：`情况 <裸标识符>:`（后面直接跟冒号）
-            # 仍按捕获模式处理，不因为主语是 `真` 就改读法。
-            if self._is_match_guard_operator(self._current()):
-                self.pos = pattern_start
-                guard = self._parse_expr()
+            # `情况：` / `例：`（引导词后直接冒号）→ 通配默认分支（等价 case _:）
+            if self._current() and self._current().type == TokenType.COLON:
                 pattern = MatchPattern('wildcard')
+            else:
+                # 解析模式
+                pattern_start = self.pos
+                pattern = self._parse_match_pattern()
+
+                # 布尔守卫式：情况 a >= 90: → case _ if (a >= 90):
+                #
+                # 纯语法判据：模式解析完后若紧跟比较/逻辑运算符，说明这一段本来是
+                # 布尔表达式（模式解析已经把 `a` 误当捕获模式吃掉），回退到模式起点
+                # 整体按表达式重解析。不做语义推断：`情况 <裸标识符>:`（后面直接跟冒号）
+                # 仍按捕获模式处理，不因为主语是 `真` 就改读法。
+                if self._is_match_guard_operator(self._current()):
+                    self.pos = pattern_start
+                    guard = self._parse_expr()
+                    pattern = MatchPattern('wildcard')
 
         # 可选的守卫条件：若 条件
         if guard is None and self._current() and self._current().type == TokenType.KEYWORD \
@@ -5060,12 +5103,26 @@ class ParserStmtMixin:
             if next_tok and next_tok.type == TokenType.IDENTIFIER and next_tok.value != '_':
                 binding = self._consume(TokenType.IDENTIFIER).value
                 return MatchPattern('type_check', type_name=name, binding=binding)
+            # v7 单 27：无绑定的裸类型名也是类型检查模式（`例 整数：` → `case int():`）。
+            # 规范 docs/language/完整语法参考.md:534-544 的示例正是这个形态。
+            # 旧实现一律判成变量捕获，生成 `case 整数:` —— 捕获模式不可反驳，
+            # 会让后续分支全部 unreachable，Python 直接编译报错。
+            if name in BUILTIN_TYPES:
+                return MatchPattern('type_check', type_name=name, binding='')
             return MatchPattern('variable', binding=name)
 
         # 关键字作为模式
         if tok.type == TokenType.KEYWORD:
             name = tok.value
             self._consume()
+            # v7 单 27：部分类型名词法上是 KEYWORD（如 `列` 在 VERB_ARITY 里），
+            # 同样要走类型检查，且同样支持带绑定形式 `例 列 值：`。
+            if name in BUILTIN_TYPES:
+                next_tok = self._current()
+                if next_tok and next_tok.type == TokenType.IDENTIFIER and next_tok.value != '_':
+                    binding = self._consume(TokenType.IDENTIFIER).value
+                    return MatchPattern('type_check', type_name=name, binding=binding)
+                return MatchPattern('type_check', type_name=name, binding='')
             return MatchPattern('variable', binding=name)
 
         return MatchPattern('wildcard')

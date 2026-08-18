@@ -4,6 +4,7 @@
 提供数学运算函数：pow, sqrt, sin, cos, tan, random, floor, ceil, round, pi
 """
 
+import builtins as _builtins
 import math
 import cmath
 import random as _random
@@ -30,7 +31,7 @@ def 最小值(甲: Number, 乙: Number) -> Number:
 
 def 幂(底数: Number, 指数: Number) -> float:
     """幂运算：底数 ^ 指数"""
-    return pow(底数, 指数)
+    return 底数 ** 指数
 
 
 def 平方根(x: Number) -> float:
@@ -659,7 +660,28 @@ __all__ = [
     # 合并自数学工具
     '平方', '是奇数', '是偶数', '是素数',
     '最大公约数', '最小公倍数', '累加',
+
+    # 英文别名（见模块文档字符串）
+    'pi', 'pow', 'sqrt', 'sin', 'cos', 'tan',
+    'random', 'floor', 'ceil', 'round',
 ]
+
+
+# =============================================================================
+# 英文别名：模块文档字符串承诺的 pow, sqrt, sin, cos, tan, random, floor, ceil,
+# round, pi。仅做名字绑定，语义与 math/random 标准库一致。
+# =============================================================================
+
+pi = math.pi
+pow = math.pow
+sqrt = math.sqrt
+sin = math.sin
+cos = math.cos
+tan = math.tan
+random = _random.random
+floor = math.floor
+ceil = math.ceil
+round = _builtins.round
 
 
 # =============================================================================

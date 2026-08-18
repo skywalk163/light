@@ -1895,6 +1895,14 @@ class PythonCodeGenerator:
         """将光明类型名转换为Python类型名"""
         return self._TYPE_NAME_MAP.get(name, self._sanitize_name(name))
 
+    # v7 单 27：match 类模式里的「泛称类型」——Python 侧没有单一对应类，须发 or-pattern。
+    # 只映成 int 会让 `例 数：` 漏掉浮点。不放进 _TYPE_NAME_MAP 是因为那张表是 str→str，
+    # 还被 isinstance 一路复用，塞联合会污染其它消费方。
+    _MATCH_UNION_TYPE_MAP = {
+        '数': ('int', 'float'),
+        '数字': ('int', 'float'),
+    }
+
     def _generate_match_pattern(self, pattern: MatchPattern) -> str:
         """生成匹配模式"""
         if pattern.kind == 'wildcard':
@@ -1914,9 +1922,16 @@ class PythonCodeGenerator:
             elements = [self._generate_match_pattern(e) for e in pattern.elements]
             return f"[{', '.join(elements)}]"
         elif pattern.kind == 'type_check':
-            type_name = self._sanitize_type_name(pattern.type_name)
-            binding = self._sanitize_name(pattern.binding)
-            return f"{type_name}() as {binding}"
+            union = self._MATCH_UNION_TYPE_MAP.get(pattern.type_name)
+            if union:
+                cls_pat = ' | '.join(f"{t}()" for t in union)
+            else:
+                cls_pat = f"{self._sanitize_type_name(pattern.type_name)}()"
+            # v7 单 27：无绑定的裸类型模式（`例 整数：`）不能发 `int() as `——
+            # `as` 后必须有名字，否则产物是非法 Python。
+            if not pattern.binding:
+                return cls_pat
+            return f"{cls_pat} as {self._sanitize_name(pattern.binding)}"
         return '_'
 
     def _generate_with_stmt(self, stmt: WithStmt):
@@ -2507,8 +2522,13 @@ class PythonCodeGenerator:
                 # 不经过本分支，不受影响。
                 if expr.member in self._CTOR_NAMES:
                     return f"{obj}.__init__({args_str})"
-                # 特殊处理：长度方法 -> len(obj)
-                if expr.member == '长度':
+                # 特殊处理：长度方法 -> len(obj)。
+                # 只接管**无实参**的调用：`列表.长度()` 才是「求这个对象的长度」。
+                # 带实参时 obj 是命名空间、长度 是它的一元函数
+                # （`字符串处理.长度(文本)`，examples/L0_core/10_导_模块导入.light:20），
+                # 原先无条件改写会把实参整个丢掉、并对模块本身求 len ——
+                # 编译期无声通过，运行期报 object of type 'module' has no len()。
+                if expr.member == '长度' and not expr.args:
                     return f"len({obj})"
 
                 # 特殊处理：包含方法 -> item in obj
