@@ -412,22 +412,26 @@ class ParserExprMixin:
         # 「无法识别的语法元素：'.'」。`等待 对象.方法()` 是异步代码最常见的写法，
         # 判为编译器缺陷。DOT 归入「后续是 await 表达式」一侧即可，
         # RPAREN/NEWLINE 等仍留在复合标识符一侧，`等待价值` 零影响。
-        if tok.type == TokenType.KEYWORD and tok.value == '等待':
+        # v7 单 31-C：`等` 是 L0 冻结表承诺的 await 单字别名，与 `等待` 同分支处理。
+        if tok.type == TokenType.KEYWORD and tok.value in ('等待', '等'):
+            kw = tok.value
             next_tok = self._peek(1)
             if next_tok and next_tok.type == TokenType.IDENTIFIER:
                 peek2 = self._peek(2)
                 if peek2 and peek2.type not in (TokenType.LPAREN, TokenType.DOT):
-                    # 复合标识符：等待 + 价值 = 等待价值
-                    self._consume(TokenType.KEYWORD, '等待')
+                    # 复合标识符：等待 + 价值 = 等待价值（`等` 因 compound-safe 一般在
+                    # 词法层就并成整词，极少走到这里；保留分支与 `等待` 语义对齐）
+                    self._consume(TokenType.KEYWORD, kw)
                     ident = self._consume(TokenType.IDENTIFIER).value
-                    return Identifier('等待' + ident)
+                    return Identifier(kw + ident)
                 # 等待 函数名() / 等待 对象.成员 → await 表达式
-                self._consume(TokenType.KEYWORD, '等待')
+                self._consume(TokenType.KEYWORD, kw)
                 expr = self._parse_expr()
                 return AwaitExpr(expr)
-            self._consume(TokenType.KEYWORD, '等待')
+            self._consume(TokenType.KEYWORD, kw)
             expr = self._parse_expr()
             return AwaitExpr(expr)
+
         
         # 三元条件表达式：如果 条件 那么 值1 否则 值2
         # 也支持：如果 条件 则 值1 否则 值2

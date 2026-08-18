@@ -144,7 +144,20 @@ KEYWORDS_MODULE = {
 # 异步/并发（新增）
 KEYWORDS_ASYNC = {
     '异步', '等待', '作用域',
+    # v7 单 31-C：'等' 是 L0 冻结表（docs/language/l0-core.md:113-118「## 异步（2字）」）
+    # 承诺的 await，src/ 从未落地。旧行为是**静默错编**：`设 乙 为 等 丙()。`
+    # 编成 `乙 = 等(丙)()`（`等` 落成 IDENTIFIER，按缺省 arity=1 当一元函数调用），
+    # 编译期零提示，运行期才 NameError。判为「别名从缺」（先例：单 26 '掷'、
+    # 单 31-A '断'/'跃'、单 31-B '现'）。不进 KEYWORDS_L0_CORE（冻结表，lexer 不消费它）。
+    # 必须同时进 lexer 的 _COMPOUND_SAFE_SINGLE_KEYWORDS：`等` 全仓词首 7680 处，
+    # 其中 `等于`(7204)/`等待`(41) 靠 len-2 最长匹配自保，但 等级/等价/等额本息/
+    # 等压过程 这类只能靠 compound-safe 兜。已过全仓 token A/B：0 文件漂移。
+    #
+    # 同族的 `异`(async) 本单**不做**：全仓 A/B 有 2 处切法漂移
+    # （bootstrap/release/stdlib/日志系统增强.light、装饰器.light）待逐例判定。
+    '等',  # await（同 '等待'）
 }
+
 
 # 生成器（yield）
 KEYWORDS_GENERATOR = {

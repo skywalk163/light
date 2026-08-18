@@ -340,9 +340,10 @@ class ParserStmtMixin:
                 return para
             # 否则作为普通标识符处理
         
-        # 等待表达式作为语句：等待 异步调用。
-        if tok.type == TokenType.KEYWORD and tok.value == '等待':
+        # 等待表达式作为语句：等待 异步调用。（`等` 是 v7 单 31-C 补的 L0 单字别名）
+        if tok.type == TokenType.KEYWORD and tok.value in ('等待', '等'):
             return self._parse_expr_stmt()
+
         
         # 段落定义：函数/段落/段 段名 接收 参数
         # 注意：段落调用（段落段名(参数)）由表达式解析器处理
@@ -3914,6 +3915,15 @@ class ParserStmtMixin:
                     continue
 
                 # 访问修饰符检测
+                #
+                # v7 单 31-C：`私`/`护` 是 L0 冻结表（docs/language/l0-core.md:120-128
+                # 「## 修饰（4字）」）承诺的 私有 / 受保护，`src/` 从未落地——旧行为是
+                # 类体兜底分支硬报「类体内不支持的成员声明：'私'」。
+                # 判据用 **IDENTIFIER 而非 KEYWORD**，与下方 `性`/`构` 同一范式（理由见
+                # :3963 起那段注释）：这三个字都是高频构词字（全仓词首 护 23 / 私 80 /
+                # 静 121 处），进 `ALL_KEYWORDS` 就得在词法层动最长匹配，风险远高于收益；
+                # 而「类体成员位置的裸 IDENTIFIER」此前**一律落到 else 报错**，所以在这里
+                # 加分支只可能把「原本报错」变成「能解析」，不可能改动任何既有能过的语义。
                 access_modifier = 'public'
                 is_static = False
                 if tok.type == TokenType.KEYWORD and tok.value == '私有':
@@ -3928,12 +3938,25 @@ class ParserStmtMixin:
                     access_modifier = 'protected'
                     self._consume(TokenType.KEYWORD, '保护')
                     tok = self._current()
+                elif tok.type == TokenType.IDENTIFIER and tok.value == '私':
+                    access_modifier = 'private'
+                    self._consume(TokenType.IDENTIFIER, '私')
+                    tok = self._current()
+                elif tok.type == TokenType.IDENTIFIER and tok.value == '护':
+                    access_modifier = 'protected'
+                    self._consume(TokenType.IDENTIFIER, '护')
+                    tok = self._current()
 
-                # 静态修饰符检测
+                # 静态修饰符检测（`静` 同上，L0 冻结表 :128 承诺的 静态）
                 if tok.type == TokenType.KEYWORD and tok.value == '静态':
                     is_static = True
                     self._consume(TokenType.KEYWORD, '静态')
                     tok = self._current()
+                elif tok.type == TokenType.IDENTIFIER and tok.value == '静':
+                    is_static = True
+                    self._consume(TokenType.IDENTIFIER, '静')
+                    tok = self._current()
+
 
                 # 类方法修饰符检测
                 is_classmethod = False
@@ -4061,7 +4084,9 @@ class ParserStmtMixin:
                 else:
                     self._error(
                         f"类体内不支持的成员声明：'{tok.value}'"
-                        f"（类体内可用：属性/私属性/性/设/构造/构/函数/段落/段/私段落/@装饰器/过/结束）",
+                        f"（类体内可用：属性/私属性/性/设/构造/构/函数/段落/段/私段落/@装饰器/过/结束；"
+                        f"修饰符前缀：私有/公有/保护/静态/类方法/特性，或单字 私/护/静）",
+
 
                         tok.line, tok.col, tok.value)
 
