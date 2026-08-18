@@ -3,7 +3,13 @@
 # 语义：CI 只拦「基线之外」的新增打红；修好一批后重新生成并提交本文件。
 #   python3 tools/ci/check_regression.py --junit .ci/report.xml \
 #       --write-baseline tests/ci_baseline_failures.txt
-# 快照汇总：collected=1203 failures=16 errors=0 skipped=55
+# 快照汇总：collected=1203 failures=14 errors=0 skipped=55
+# v7 单 29（族 4）已下线 2 条：
+#   - L3_domain/demo4_echarts、demo5_markdown（均只有 product 那条腿）：
+#     `引 Python:` 块 import 的 l3_echarts/l3_markdown 住在编译器 src/ 里，
+#     产物换进程裸跑时 sys.path 上没有那一档。已改为 compile 时按 L3_MODULES
+#     白名单把模块 .py 随产物落盘（cli/light_unified.py 的 _emit_runtime_modules）。
+#     两个模块只依赖 json/re/typing，无三方依赖，CI 上同样成立。
 # v7 单 28（族 2）已下线 4 条：
 #   - L3_domain/all_in_one_L3_demo（run+product）：sympy 走 try/except 兜底，
 #     无硬三方依赖；旧红纯属编译缺陷（否→非 + `;` 语句分隔），已修，CI 上稳定转绿。
@@ -13,8 +19,6 @@
 #   CI（FreeBSD，仅装 pytest）无此二库 → 仍红，属存量三方依赖欠账，不因本机装库而下线。
 tests.e2e.test_e2e_chain::test_duan_compile_and_run_product[E\u9636\u6bb5_L3L4\u539f\u751f\u8bed\u6cd5/E4_L4_\u6c99\u7bb1\u9694\u79bb\u9a8c\u8bc1.light]
 tests.e2e.test_e2e_chain::test_duan_compile_and_run_product[L3_domain/demo3_math.light]
-tests.e2e.test_e2e_chain::test_duan_compile_and_run_product[L3_domain/demo4_echarts.light]
-tests.e2e.test_e2e_chain::test_duan_compile_and_run_product[L3_domain/demo5_markdown.light]
 tests.e2e.test_e2e_chain::test_duan_compile_and_run_product[L4_python/all_in_one_demo.light]
 tests.e2e.test_e2e_chain::test_duan_compile_and_run_product[L4_python/demo1_numpy_mean.light]
 tests.e2e.test_e2e_chain::test_duan_compile_and_run_product[L4_python/demo2_pandas_csv.light]

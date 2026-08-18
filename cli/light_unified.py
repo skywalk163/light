@@ -226,6 +226,85 @@ class LightUnifiedCLI:
 
         return written
 
+    @classmethod
+    def _iter_runtime_module_deps(cls, source: str):
+        """yield 出 source 里被 import 到的「编译器自带 L3 运行时模块」名
+
+        判据是 src/compiler.py 的 `L3_MODULES` 白名单：**不在白名单里的名字一律
+        不碰**。不能改成「凡 import 不到的就复制」——那等于允许把任意路径的文件
+        往产物目录搬。白名单里新增 l3_* 模块时，本机制自动覆盖到，无需再改这里。
+
+        只匹配真正的 import 语句（行首可有缩进），所以注释或字符串里提到模块名
+        不会误命中。
+        """
+        import re
+
+        try:
+            from compiler import L3_MODULES
+        except ImportError:
+            return
+
+        pattern = re.compile(
+            r'(?:^|\n)[ \t]*(?:from[ \t]+([A-Za-z_]\w*)[ \t]+import\b'
+            r'|import[ \t]+([A-Za-z_]\w*))')
+        seen = set()
+        for m in pattern.finditer(source):
+            name = m.group(1) or m.group(2)
+            if name in L3_MODULES and name not in seen:
+                seen.add(name)
+                yield name
+
+    def _emit_runtime_modules(self, source: str, output_dir: str) -> list:
+        """把 `引 Python:` 块里 import 的编译器自带 L3 运行时模块复制到产物同目录
+
+        `引 Python:` 块的代码被**原样**塞进产物的 `_LIGHT_L4_SRC` 字符串里 exec
+        （见 src/code_generator.py 的 `_generate_embed_block` python 分支），所以
+        示例里那句 `from l3_echarts import L3ECharts` 在产物里照样要解析。而
+        `l3_echarts.py` 物理上住在编译器的 `src/` 目录，产物引导段只把 `stdlib/`
+        与项目根铺进 sys.path（src/code_generator.py:611-639），**从来没有 src/
+        那一档**；`src/` 是包（有 `__init__.py`），包内模块也不会作为顶层名暴露。
+
+        `duan run` 那条腿之所以是绿的，纯粹因为 cli/light_unified.py:36-42 为编译器
+        自己 insert 了 `src/`，`l3_*` 搭了便车；compile 出的产物换进程裸跑就没人铺了。
+
+        修法与 `_emit_user_modules` 同构（单 D 先例）：Python 跑脚本时 sys.path[0]
+        是脚本所在目录，把模块 `.py` 复制到产物**同目录**即可解析——产物也就真的
+        能脱离本仓库跑，而不是只在「恰好站在仓库里」时能跑。
+
+        用 importlib 定位模块文件而非拼 `<repo>/src/`，这样开发模式与
+        `pip install` 后的安装模式都成立。返回已落盘的模块名列表。
+        """
+        import importlib
+        import shutil
+
+        written = []
+        for mod_name in self._iter_runtime_module_deps(source):
+            try:
+                mod = importlib.import_module(mod_name)
+                mod_file = getattr(mod, '__file__', None)
+            except Exception as e:
+                print(f"[警告] L3 运行时模块加载失败，产物将不自包含: {mod_name}: {e}",
+                      file=sys.stderr)
+                continue
+            if not mod_file or not os.path.isfile(mod_file):
+                print(f"[警告] L3 运行时模块无源码文件，产物将不自包含: {mod_name}",
+                      file=sys.stderr)
+                continue
+            out_path = os.path.join(output_dir, f"{mod_name}.py")
+            if os.path.abspath(out_path) == os.path.abspath(mod_file):
+                # 产物就写在模块自己旁边（例如 -o 指到 src/），无需复制
+                written.append(mod_name)
+                continue
+            try:
+                shutil.copyfile(mod_file, out_path)
+            except OSError as e:
+                print(f"[警告] L3 运行时模块复制失败，产物将不自包含: {mod_name}: {e}",
+                      file=sys.stderr)
+                continue
+            written.append(mod_name)
+
+        return written
+
     def _register_user_modules(self, source: str, source_dir: str,
                                 registered: set = None,
                                 exported_names: set = None) -> None:
@@ -375,6 +454,15 @@ class LightUnifiedCLI:
                     if emitted:
                         print("[成功] 已随产物生成依赖模块: "
                               + ', '.join(f'{m}.py' for m in emitted))
+
+                # 同理：`引 Python:` 块里 import 的 L3 运行时模块（l3_echarts 等）
+                # 住在编译器 src/ 里，产物换进程裸跑时 sys.path 上没有那一档，
+                # 也要一并落盘（单 29）。这条不依赖 source_file。
+                out_dir = os.path.dirname(os.path.abspath(output_file))
+                emitted_rt = self._emit_runtime_modules(source, out_dir)
+                if emitted_rt:
+                    print("[成功] 已随产物生成 L3 运行时模块: "
+                          + ', '.join(f'{m}.py' for m in emitted_rt))
 
             if run:
                 try:
