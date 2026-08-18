@@ -27,7 +27,9 @@
 #   - py312 只有 gdbm/sqlite3/tkinter，科学计算包一个都没有
 #     → 把 venv 换成 python3.12 是净亏（白丢现成的 numpy 和 requests），不做。
 #   - `pkg install` 目前被两件事卡住：`/usr` 是只读 nullfs 挂载；quarterly 仓库的包
-#     按 userland 1404000 构建而本机是 1403000（需 IGNORE_OSVERSION）。宿主侧待办。
+#     按 userland 1404000 构建而本机是 1403000（需 IGNORE_OSVERSION）。
+#     **2026-08-18 用户裁决：搁置**——安全原因不做宿主挂载变更，FreeBSD 升级条件也不成熟。
+#     族 3 剩余 12 条按长期环境欠账留在基线里，不要再提议 remount /usr 或升级系统。
 # 因此这里的 venv 加 `--system-site-packages`：零宿主改动，把已装的 numpy 暴露给 CI venv，
 # 让 demo1_numpy_mean（只依赖 numpy）真跑。其余 6 例仍缺包，继续留在基线里。
 
