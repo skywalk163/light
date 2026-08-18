@@ -18,7 +18,7 @@
 # `ERROR: Could not find a version that satisfies the requirement numpy>=1.22
 # (from versions: none)`，且列版本时先 `Read timed out`。不是 FreeBSD 编译失败，
 # 是索引侧根本取不到包。已回退这一步；这批红仍按存量环境欠账留在
-# tests/ci_baseline_failures.txt（族 3 共 14 条 = 7 示例 × 2 腿）。
+# tests/ci_baseline_failures.txt（族 3 原 14 条 = 7 示例 × 2 腿，现存 12 条）。
 # 要真正装齐，需在宿主侧解决：给 devpi 镜像补上游/预热这几个包，或走
 # `pkg install py311-numpy …` + venv `--system-site-packages`（需 jail 内 root）。
 #
