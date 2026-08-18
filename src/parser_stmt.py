@@ -3756,7 +3756,10 @@ class ParserStmtMixin:
     # 类头部引导词：类名 / 基类名 / 接口名的收集循环遇到它们必须停止，
     # 否则 `类 学生 接 可打印:` 会被吞成类名 "学生接可打印"。
     # `接` 是 `实现` 的单字同义词（规范 L2 v4.0 §一 定义与类型四字：类 承 接 配）。
-    _CLASS_HEADER_STOP_KEYWORDS = ('继承', '承', '实现', '接')
+    # v7 单 31-B 追加 `现`：L0 冻结表 docs/language/l0-core.md:58 把 `现` 定为「实现接口」。
+    # 不进这张停止词表的后果是**静默错编**：`类 学生 现 可打印:` 被类名收集循环整段吞掉，
+    # 编成 `class 学生现可打印:`（类名粘连、接口丢失、编译期零提示），形同当年缺 `接` 的 bug。
+    _CLASS_HEADER_STOP_KEYWORDS = ('继承', '承', '实现', '接', '现')
 
     def _parse_class_ref_list(self) -> List[str]:
         """收集逗号分隔的类型引用名列表（用于 `承`/`继承` 与 `实现`/`接` 之后）。
@@ -3860,10 +3863,11 @@ class ParserStmtMixin:
                             tok.line if tok else 0, tok.col if tok else 0)
 
         # 实现接口（可选）。`接` 是 `实现` 的同义词（规范 L2 v4.0 §一、把
-        # `类 承 接 配` 列为四字定义词）。支持逗号分隔多接口，也支持与 `承`
-        # 同行组合：类 X 承 Y 接 A, B:
+        # `类 承 接 配` 列为四字定义词）；`现` 是 L0 冻结表 :58 承诺的同义词
+        # （v7 单 31-B）。支持逗号分隔多接口，也支持与 `承` 同行组合：
+        # 类 X 承 Y 接 A, B: / 类 X 承 Y 现 A, B:
         interfaces = []
-        if self._current() and self._current().type == TokenType.KEYWORD and self._current().value in ('实现', '接'):
+        if self._current() and self._current().type == TokenType.KEYWORD and self._current().value in ('实现', '接', '现'):
             self._consume(TokenType.KEYWORD, self._current().value)
             interfaces = self._parse_class_ref_list()
             if not interfaces:
