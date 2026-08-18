@@ -42,6 +42,17 @@ E2E_EXCLUDED = {
     # 编译器侧已修好安全性（code_generator 现按签名设 argtypes/restype，误用会抛
     # ctypes.ArgumentError 而非 SIGSEGV），但产物仍无法正确运行，故与其它 ffi_* 同类排除。
     'J阶段_L4_C_Go_MoonBit/J1_C_快速求和.light',
+    # v7 单 28：F3 用 `[2*x 对于 x 在 X]` 写列表推导，而规范只承诺
+    # `[表达式 遍历 变量 之/于 列表]`（docs/统一语法规范_v3.1.md:459-460、
+    # docs/syntax.md:267）——全 docs 无 `对于 … 在 …` 推导式规范，`对于→遍历`
+    # 只存在于未接入主管线的 src/elastic_syntax.py:38，且全仓仅此一文件两行这么写。
+    # 判为示例写法越界（硬规则 2 禁止改 examples）。
+    # 词法上 `对于` 会被切成两个 KEYWORD『于』（`对` 是复合词安全单字，
+    # _skip_compound_safe_and_match 只对后随 `之` 做返回值对齐）——放宽那处正是
+    # 上一轮特意收窄的口径，实测会让全仓分词漂移，故不动。
+    # 该文件里另一个真缺陷（具名实参 `步长天=1`）已在本单修好（parser_expr.py
+    # 的 _collect_single_arg 括号分支补齐 _try_parse_keyword_arg）。
+    'F阶段_标准库增强/F3_段言侧三个增强模块示例.light',
     'modules/main.light',
     'bootstrap_eval.light',
     'bootstrap_lexer.light',

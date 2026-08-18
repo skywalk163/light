@@ -331,6 +331,18 @@ class LightParserCore:
             if tok.type == TokenType.NEWLINE:
                 self._consume(TokenType.NEWLINE)
                 continue
+
+            # 分号：同行多语句分隔符（`设 甲 为 1; 设 乙 为 2`）。
+            # 文档明文承诺 `;` 与全角 `；` 等价（docs/段言-完整规范文档.md:345-346、
+            # :660-664、docs/统一语法规范_v3.1.md:171），此前从未实现。
+            # 这里是 parse() 实际走的容错顶层循环，必须与 parser_stmt._parse_module
+            # 的严格版同口径，否则两条路径行为分叉。
+            # C 风格 `循环(init; cond; incr)` 的分号在括号内、由 _parse_c_for_loop
+            # 自己 _consume，流不到这里。
+            if tok.type == TokenType.SEMICOLON:
+                self._consume(TokenType.SEMICOLON)
+                continue
+
             
             # 跳过孤立句号
             if tok.type == TokenType.PERIOD:

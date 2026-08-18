@@ -824,7 +824,20 @@ class Lexer:
                 token, consumed = self._tokenize_embed_block(source, i, line, col, embed_prefix_len)
                 if token:
                     tokens.append(token)
-                    col += consumed
+                    # 嵌入块整块吞掉（含块体里的所有换行）。此前这里只推进 col/i、
+                    # 从不推进 line，于是块之后所有 token 的行号都停在块起始行，
+                    # 报错定位整体偏移「块体行数」（实测 all_in_one_L3_demo 偏 33 行、
+                    # E4_L4_沙箱隔离验证 偏 27 行），任何报错都没法按行号回源码。
+                    # 这里只修 token 的 line/col 元数据，不动 token 的类型、数量、顺序，
+                    # 也不动 _tokenize_embed_block 的三条闭合路径（结束引 / 缩进回归 / EOF）。
+                    swallowed = source[i:i + consumed]
+                    newline_count = swallowed.count('\n')
+                    if newline_count:
+                        line += newline_count
+                        # 块尾那一行的真实列：最后一个换行之后的字符数 + 1
+                        col = consumed - swallowed.rfind('\n')
+                    else:
+                        col += consumed
                     i += consumed
                     continue
 
@@ -2699,7 +2712,14 @@ class Lexer:
                         k += 1
                 if k > j:
                     name = source[j:k]
-                    definitions.add(name)
+                    # 只排除真正的关键字 —— 与 :2664（段 的形参分支）、:2735（设 分支）
+                    # 同口径。本分支此前漏了这道闸门，导致注释里的「自定义段。」被当成
+                    # 用户定义名 `段`（预扫描是裸文本扫描，不跳注释也不跳字符串），
+                    # 随后 `段 主():` 的 `段` 被降级成 IDENTIFIER，整个文件解析崩掉
+                    # （examples/E阶段_L3L4原生语法/E4_L4_沙箱隔离验证.light:70 的注释）。
+                    # 关键字本就不能当用户变量名，不该出现在 user_definitions 里。
+                    if name not in ALL_KEYWORDS:
+                        definitions.add(name)
                 i = k
             elif source[i] == '设':
                 j = i + 1

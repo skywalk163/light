@@ -150,6 +150,13 @@ class ParserStmtMixin:
                 self._consume(TokenType.NEWLINE)
                 continue
 
+            # 分号：同行多语句分隔符。与 parser_core._parse_module_with_recovery
+            # 的容错版同口径（见那里的注释）。
+            if tok.type == TokenType.SEMICOLON:
+                self._consume(TokenType.SEMICOLON)
+                continue
+
+
             # 跳过孤立的句号（结构定义结束后的可选终止符）
             if tok.type == TokenType.PERIOD:
                 self._consume(TokenType.PERIOD)
@@ -555,6 +562,15 @@ class ParserStmtMixin:
         elif tok.type == TokenType.EQUALS:
             self._error(
                 f"赋值需要使用「设」或「令」关键字。如：设 甲 为 10。或：令 甲 = 10。",
+                tok.line, tok.col, tok.value
+            )
+        elif tok.type in (TokenType.INDENT, TokenType.DEDENT):
+            # INDENT/DEDENT 的 value 是缩进宽度整数，直接塞进 '{tok.value}' 会打出
+            # 「无法识别的语法元素：'4'」这种误导信息（把内部计数当成源码片段）。
+            # 走到这里说明缩进没对齐到任何语句块，改报缩进问题本身。
+            self._error(
+                "缩进不正确：这一行的缩进层级没有对应的语句块。"
+                "请检查上一条语句是否以「：」结尾、或本行缩进是否多/少了一级。",
                 tok.line, tok.col, tok.value
             )
         else:
@@ -3331,6 +3347,18 @@ class ParserStmtMixin:
         while self._current() and count < max_statements:
             tok = self._current()
             
+            # 分号：同行多语句分隔符（`打印 ""; 打印 "x"`）。
+            # 文档明文承诺 `;` 与全角 `；` 等价、可在一行里分隔多个独立语句
+            # （docs/段言-完整规范文档.md:345-346,356-357,660-664、
+            #  docs/统一语法规范_v3.1.md:171），此前从未实现。
+            # 与 NEWLINE 的区别：单行模式（allow_single_line）下 NEWLINE 要 break，
+            # 而 `;` 恰恰是「本行还有下一句」，必须继续收。
+            # C 风格 `循环(init; cond; incr)` 头部的分号在 _parse_c_for_loop 内部
+            # 就被 _consume 掉了（:1169-1179，先吃 LPAREN 再逐段解析），流不到这里。
+            if tok.type == TokenType.SEMICOLON:
+                self._consume(TokenType.SEMICOLON)
+                continue
+
             # 跳过 NEWLINE token
             if tok.type == TokenType.NEWLINE:
                 if allow_single_line:
