@@ -8,8 +8,16 @@
 #   - checkout 走本地 actions/checkout 镜像
 #   - 去掉 GitHub 专属的 build/twine/upload-artifact（release/publish 不在本地跑）
 #
-# 仅安装 pytest/pytest-cov（与 GitHub test job 一致）；本项目 runtime 依赖为空
+# 测试依赖只装 pytest/pytest-cov（与 GitHub test job 一致）；本项目 runtime 依赖为空
 # （pyproject dependencies=[]），测试直接 import 仓库内 src/ 模块。
+#
+# v7 单 30（族 3）起另加一步装示例侧三方库（numpy/pandas/matplotlib/scikit-learn/sympy）：
+# examples/L4_python/*.light 与 examples/L3_domain/demo3_math.light 在 `引 Python:` 块里
+# 是**裸 import**（无 try/except 兜底），缺库时 e2e 两条腿必红。这批红不是编译器缺陷
+# （已实测：屏蔽这几个库后 7 个示例各只报一条 `[运行错误] No module named 'X'`，
+# 无任何解析/生成期错误），而是 CI 环境欠账。装齐依赖让它们在 CI 上真跑，
+# 比排除示例更能守住 L4 Python 直通层的全链路覆盖。
+
 #
 # runner 部署（jail + act_runner 自编译 + 标签/镜像）见 docs/CI_gitea_freebsd部署.md。
 
@@ -37,6 +45,27 @@ jobs:
           . .venv/bin/activate
           python -m pip install --upgrade pip
           python -m pip install pytest pytest-cov
+
+      # v7 单 30（族 3）：示例侧三方库。版本下界统一由两份 requirements 维护，
+      # 这里只引用、不复制常量，避免两处漂移。
+      #   examples/L4_python/requirements.txt   numpy/pandas/matplotlib/requests/scikit-learn
+      #   examples/L3_domain/requirements_L3.txt sympy
+      # 这一步**不加 `|| true`**：FreeBSD 无这些包的 wheel，需源码构建（numpy/scipy/
+      # sklearn 要编译器与 BLAS）。若装不上，必须在这里当场红出来——而不是放行到
+      # e2e 阶段变成一堆 `No module named` 的新增打红，让人误判成编译器回归。
+      - name: 安装示例三方依赖（族 3 e2e 需要）
+        run: |
+          . .venv/bin/activate
+          python -m pip install \
+            -r examples/L4_python/requirements.txt \
+            -r examples/L3_domain/requirements_L3.txt
+          python - <<'PY'
+          import importlib
+          for m in ('numpy', 'pandas', 'matplotlib', 'sklearn', 'sympy', 'requests'):
+              importlib.import_module(m)
+              print('ok', m)
+          PY
+
 
       # 单元/集成/e2e 三步只负责「跑 + 产出 junit」，**不自己判绿**。
       # 原因：本仓库有一批 v7 收尾期的存量失败（见 docs/v7_失败用例根因聚类工单.md，
