@@ -321,7 +321,8 @@ class ParserStmtMixin:
             return self._parse_yield_stmt()
         
         # 异步相关：异步 段落 / 异步作用域 / 异步 遍历 / 等待
-        if tok.type == TokenType.KEYWORD and tok.value == '异步':
+        # （`异` 是 v7 单 31-G 补的 L0 单字别名，与 `异步` 等价；`等` 见单 31-C）
+        if tok.type == TokenType.KEYWORD and tok.value in ('异步', '异'):
             # 查看下一个 token 判断是异步段落还是异步作用域还是异步遍历
             next_tok = self._peek(1)
             if next_tok and next_tok.type == TokenType.KEYWORD and next_tok.value in ('函数', '段落', '段'):
@@ -332,7 +333,7 @@ class ParserStmtMixin:
                 return self._parse_async_scope()
             elif next_tok and next_tok.type == TokenType.KEYWORD and next_tok.value in ('遍历', '遍'):
                 # 异步遍历：异步 遍历 变量 于 可迭代对象
-                self._consume(TokenType.KEYWORD, '异步')
+                self._consume(TokenType.KEYWORD)  # 异步 / 异
                 return self._parse_foreach_stmt(is_async=True)
             else:
                 # 默认为异步段落（向前兼容）
@@ -3281,10 +3282,18 @@ class ParserStmtMixin:
         return Paragraph(name, params, return_type, body, generic_params=generic_params)
     
     def _parse_async_paragraph(self) -> Paragraph:
-        """解析异步段落定义：异步 段落/函数/段 段名 ..."""
-        # 异步
-        self._consume(TokenType.KEYWORD, '异步')
-        
+        """解析异步段落定义：异步 段落/函数/段 段名 ...
+
+        v7 单 31-G：`异` 是 `异步` 的 L0 单字别名，此处一并接受；
+        存入 modifiers 的一律归一为 `'异步'`，下游（code_generator 判 async def）不用改。
+        """
+        # 异步 / 异
+        tok = self._current()
+        if tok and tok.type == TokenType.KEYWORD and tok.value == '异':
+            self._consume(TokenType.KEYWORD, '异')
+        else:
+            self._consume(TokenType.KEYWORD, '异步')
+
         # 调用普通段落解析
         para = self._parse_paragraph_v2()
         
@@ -3311,7 +3320,8 @@ class ParserStmtMixin:
             任务2
         结束
         """
-        self._consume(TokenType.KEYWORD, '异步')
+        # 异步 / 异（v7 单 31-G 单字别名）
+        self._consume(TokenType.KEYWORD)
         self._consume(TokenType.KEYWORD, '作用域')
         
         # 可选的结果变量名列表
@@ -4808,10 +4818,10 @@ class ParserStmtMixin:
             # 不是通配符导入，回退
             self.pos = saved_pos
 
-        # 检测异步上下文管理器：使用 异步 ...
+        # 检测异步上下文管理器：使用 异步 ...（`异` 是 v7 单 31-G 的单字别名）
         is_async = False
-        if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '异步':
-            self._consume(TokenType.KEYWORD, '异步')
+        if self._current() and self._current().type == TokenType.KEYWORD and self._current().value in ('异步', '异'):
+            self._consume(TokenType.KEYWORD)
             is_async = True
 
         # 解析上下文管理器列表（支持多个：使用 expr1 为 v1, expr2 为 v2）
