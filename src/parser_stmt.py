@@ -193,7 +193,23 @@ class ParserStmtMixin:
         # 导入语句：导入 / 导
         if tok.type == TokenType.KEYWORD and tok.value in ('导入', '导'):
             return self._parse_import_stmt()
-        
+
+        # 导入语句单字别名 `引`（v7 单 31-F，L0 冻结表 docs/language/l0-core.md:64
+        # 「模块（3字）」把 `引` 定为「导入/引用」）。
+        #
+        # 与本单另两个字不同：`引` **本来就是关键字**（KEYWORDS_EMBED，且已在
+        # `_COMPOUND_SAFE_SINGLE_KEYWORDS` 里），缺的只是这条 parser 分支——
+        # 所以词法层与关键字表零改动，A/B 风险为 0。
+        #
+        # 与 L4 嵌入块（`引 Python:` … `结束引`）的消歧**已经在词法层完成**，这里
+        # 不需要再判冒号：`lexer._tokenize_embed_block` 要求语言名后面必须紧跟冒号，
+        # 否则回报 `(None, 0)`、不吞任何字符，控制流落到普通标识符/关键字分词，
+        # 于是 `引 数学。` 到达 parser 的形态是 KEYWORD('引') + IDENTIFIER('数学') +
+        # PERIOD；而写成 `引 Python:` 的合法嵌入块会被词法器整块吃掉成一个
+        # EMBED_BLOCK token（上面 :190 那条分支处理），根本不会走到这里。
+        if tok.type == TokenType.KEYWORD and tok.value == '引':
+            return self._parse_import_stmt()
+
         # 从...导入语句：从
         if tok.type == TokenType.KEYWORD and tok.value == '从':
             return self._parse_from_import_stmt()
@@ -367,6 +383,22 @@ class ParserStmtMixin:
 
         # 接口定义：接口 / 接 / 协议 接口名
         if tok.type == TokenType.KEYWORD and tok.value in ('接口', '接', '协议'):
+            return self._parse_interface_definition()
+
+        # 接口定义单字别名 `约`（v7 单 31-F，L0 冻结表 docs/language/l0-core.md:57）。
+        #
+        # 走「范式 A」：判 **IDENTIFIER 而非 KEYWORD**，词法层与关键字表零改动。
+        # 先例是单 31-C 的 `私`/`护`/`静`（见 :3917 起那段注释）。之所以不进
+        # `ALL_KEYWORDS`：`约` 是高频构词字（全仓代码侧词内 198 处，最大公约数/归约/
+        # 违约金/约束…），进表就得在词法层动最长匹配，风险远大于收益。
+        #
+        # **必须带前视守卫**，不能只判「裸 IDENTIFIER 是 `约`」：`约 等于 1。` 这种
+        # 以 `约` 为变量名的赋值语句今天是合法的（落到 :535 的赋值分支），无条件抢过来
+        # 会把能跑的代码改坏。守卫取「本行内出现冒号」——即文档承诺的 `约 名：` 形态；
+        # 该形态今天**一律硬报错**（实测与从不进任何关键字表的对照字 `鱼` 报错逐字相同，
+        # 见工单 31-E），所以新增分支只可能把「原本报错」变成「能解析」。
+        if (tok.type == TokenType.IDENTIFIER and tok.value == '约'
+                and self._is_interface_char_header()):
             return self._parse_interface_definition()
 
         # 模式匹配：匹配 / 配 / 匹（v7 单 27：'匹' 是 L0 冻结表承诺的别名）
@@ -3946,6 +3978,15 @@ class ParserStmtMixin:
                     access_modifier = 'protected'
                     self._consume(TokenType.IDENTIFIER, '护')
                     tok = self._current()
+                elif tok.type == TokenType.IDENTIFIER and tok.value == '公':
+                    # v7 单 31-F 补上同族第四个字（l0-core.md:127 `公`=公共）。
+                    # 与上面 `私`/`护` 同一范式、同一理由：31-C 落地时 `公` 因「全仓
+                    # A/B 有 5 文件切法漂移」被留下，但那 5 例是**范式 B（进关键字表）**
+                    # 的代价（`CNF公式` 会切成 `CNF`+`公式`）；走这里的范式 A 后代价归零。
+                    access_modifier = 'public'
+                    self._consume(TokenType.IDENTIFIER, '公')
+                    tok = self._current()
+
 
                 # 静态修饰符检测（`静` 同上，L0 冻结表 :128 承诺的 静态）
                 if tok.type == TokenType.KEYWORD and tok.value == '静态':
@@ -4085,7 +4126,7 @@ class ParserStmtMixin:
                     self._error(
                         f"类体内不支持的成员声明：'{tok.value}'"
                         f"（类体内可用：属性/私属性/性/设/构造/构/函数/段落/段/私段落/@装饰器/过/结束；"
-                        f"修饰符前缀：私有/公有/保护/静态/类方法/特性，或单字 私/护/静）",
+                        f"修饰符前缀：私有/公有/保护/静态/类方法/特性，或单字 私/公/护/静）",
 
 
                         tok.line, tok.col, tok.value)
@@ -4396,6 +4437,33 @@ class ParserStmtMixin:
             generic_params=generic_params,
         )
 
+    def _is_interface_char_header(self) -> bool:
+        """前视：当前的裸 `约` 是否是「接口声明头」而不是普通标识符。
+
+        判据是「本行（到 NEWLINE 为止）里出现冒号」，即 L0 冻结表承诺的
+        `约 接口名：` / `约 接口名 继承 父：` 形态。为什么必须带这条守卫：
+        `约 等于 1。` 这类以 `约` 为变量名的语句今天是合法的（走赋值分支），
+        无条件把裸 `约` 当接口关键字会把能跑的代码改坏。
+
+        反过来，带冒号的那个形态今天**一律硬报错**（实测与从不进任何关键字表的
+        对照字 `鱼` 报错逐字相同，见工单 31-E），所以此处返回 True 的输入集合
+        与「原本能编过的输入集合」不相交——这正是范式 A 成立的前提。
+        """
+        idx = self.pos + 1  # 跳过 `约` 自身
+        # 名字至少要有一个 token，且不能立刻就是冒号（`约：` 不是接口声明）
+        if idx >= len(self.tokens):
+            return False
+        if self.tokens[idx].type not in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+            return False
+        while idx < len(self.tokens):
+            t = self.tokens[idx]
+            if t.type == TokenType.COLON:
+                return True
+            if t.type in (TokenType.NEWLINE, TokenType.PERIOD, TokenType.EOF):
+                return False
+            idx += 1
+        return False
+
     def _parse_interface_definition(self) -> InterfaceDefinition:
         """解析接口定义
 
@@ -4409,9 +4477,14 @@ class ParserStmtMixin:
           ...
         """
         # 接口 / 接 / 协议（支持 '接口'、'接' 和 '协议' 关键字）
+        # v7 单 31-F：另接受裸 IDENTIFIER `约`（范式 A，词法层零改动）。
+        # 调用方 `_parse_statement` 已用 `_is_interface_char_header()` 前视过，
+        # 这里只负责把那个 token 吃掉。
         trait_kw = self._current()
         if trait_kw and trait_kw.type == TokenType.KEYWORD and trait_kw.value in ('接口', '接', '协议'):
             self._consume(TokenType.KEYWORD, trait_kw.value)
+        elif trait_kw and trait_kw.type == TokenType.IDENTIFIER and trait_kw.value == '约':
+            self._consume(TokenType.IDENTIFIER, '约')
         else:
             self._error(f"期望'接口'或'协议'，但得到 {trait_kw.type if trait_kw else '输入结束'}")
 

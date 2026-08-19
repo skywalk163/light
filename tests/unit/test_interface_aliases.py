@@ -30,6 +30,12 @@
 不是静默错编，所以可以等到该失配被正面修掉之后再补。详见工单 31-B。
 本文件末尾有一条守卫用例，确保 `约` 仍**不是**关键字——将来谁要加它，必须先看工单。
 
+**后续（31-D / 31-F 补记）**：那处返回值失配已由 31-D 正面修掉；`约` 已由
+**31-F 落地**，但走的是**范式 A**（parser 判裸 IDENTIFIER，词法层与关键字表零改动），
+所以文末那条守卫**依然有效**、语义从「功能未做」变为「故意不进表」。
+`约` 的正面行为回归见 `tests/unit/test_l0_char_aliases_paradigm_ac.py`。
+
+
 全部判据不依赖 Python 版本、平台或任何外部工具链。
 """
 
@@ -155,15 +161,25 @@ class TestCompoundIdentifiersSurvive(unittest.TestCase):
 
 
 class TestInterfaceCharDeferred(unittest.TestCase):
-    """`约` 本单有意未落地的守卫。
+    """`约` **不进关键字表**的守卫（注意：31-F 起 `约` 已落地，走范式 A）。
 
-    见模块 docstring 与工单 31-B：`约` 进关键字表会让 `合约乘数` 丢掉 `约` 整字
-    （lexer 历史返回值失配）。谁要解掉这条守卫，先把那处失配正面修掉并做全仓 A/B。
+    历史：31-B 当年既不落地 `约`、也让它留在表外，理由是「进表会踩 lexer 返回值
+    失配、把 `合约乘数` 编成 `合 * 乘数`」。那处失配已由 **31-D 正面修掉**，
+    **31-F 最终落地了 `约`**——但走的是**范式 A**（parser 判裸 IDENTIFIER，见
+    `src/parser_stmt.py:_is_interface_char_header`），所以 `约` 至今仍**不该**进
+    `ALL_KEYWORDS` / `_COMPOUND_SAFE_SINGLE_KEYWORDS`：进表要动最长匹配，而
+    `约` 全仓代码侧词内 198 处，风险大于收益。
+
+    因此本类的断言语义**没变**（`约` 仍不是关键字），但含义从「功能未做」变成
+    「功能已用范式 A 做掉、故意不进表」。`约` 的正面行为回归见
+    `tests/unit/test_l0_char_aliases_paradigm_ac.py`。谁要把 `约` 塞进 keywords.py，
+    先读那两个文件。
     """
 
     def test_约_仍不是关键字(self):
         self.assertNotIn('约', ALL_KEYWORDS)
         self.assertNotIn('约', _COMPOUND_SAFE_SINGLE_KEYWORDS)
+
 
     def test_含约标识符不丢字(self):
         for name in ('合约乘数', '约定俗成', '契约检查', '节约能源'):

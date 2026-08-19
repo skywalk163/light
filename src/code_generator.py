@@ -200,6 +200,23 @@ class PythonCodeGenerator:
             '打印': 'print',
             '显示': 'print',
             '输出': 'print',
+            # v7 单 31-F：`写`=write，与 `印`=print 同属 L0 冻结表
+            # docs/language/l0-core.md:91-96「## 输出（2字）」，src/ 从未落地。
+            # 旧行为是**静默错编**：`写(甲)` 原样发射 `写(甲)` → 运行期 NameError。
+            #
+            # 走「范式 C」而不是进关键字表（范式 B），是用户裁决的路线，理由三条
+            # （详见工单 31-F）：
+            # (1) `写` 全仓代码侧词内 797 处（大写 99 / 小写 80 / 转小写 27 …），
+            #     进 `ALL_KEYWORDS` + compound-safe 表会把 `大写`/`小写` 从中间切开；
+            # (2) `积木库/blocks_v5/网络/HTTP方法判断.light` 把 `写` 当**数据值**用
+            #     （`POST, 写, 其他` 的分支枚举），进关键字表会把那种写法改坏，而
+            #     builtin_map 只在**调用点**生效，天然兼容；
+            # (3) 先例就在上面三行：`印`→print 也是靠这张表落地的，词法层零改动。
+            #
+            # 映射到 `写入输出` 而不是 print：`写` 的语义是 write（不换行），
+            # stdlib/builtins.py:337 的 `写入输出` 正是 `sys.stdout.write` + flush。
+            '写': '_light_builtin.写入输出',
+
             '断言': '_light_assert',
             '读取': 'input',
             '输入': 'input',
