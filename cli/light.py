@@ -39,7 +39,7 @@ try:
     from src.version import DEV_BRANCH, VERSION as LANG_VERSION, is_dev_branch, get_dev_version_string
     VERSION = f'光明编译器 v{LANG_VERSION}'
     if is_dev_branch():
-        VERSION = f'光明编译器 v4.0dev-{LANG_VERSION} (开发分支)'
+        VERSION = f'光明编译器 v{LANG_VERSION}dev (开发分支)'
 except ImportError:
     VERSION = '光明编译器 v7.0.0'
 

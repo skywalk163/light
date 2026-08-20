@@ -1,0 +1,2142 @@
+{
+ "note": "本文件由 tools/ci/gen_doc_examples_baseline.py 生成，勿手改；分类口径见 tests/unit/test_doc_examples_gate.py 模块文档串",
+ "total_scanned": 1052,
+ "failing": 305,
+ "entries": [
+  {
+   "file": "docs/30分钟入门段言.md",
+   "hash": "28466b86b468",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# ❌ 错误"
+  },
+  {
+   "file": "docs/30分钟入门段言.md",
+   "hash": "3dd847eccbbd",
+   "category": "REPL",
+   "exc": "ParseError",
+   "first_line": ">>> 打印 \"你好，REPL！\""
+  },
+  {
+   "file": "docs/30分钟入门段言.md",
+   "hash": "434ac9966df8",
+   "category": "REPL",
+   "exc": "ParseError",
+   "first_line": ">>> 如果 10 > 5："
+  },
+  {
+   "file": "docs/30分钟入门段言.md",
+   "hash": "4b2bb28106dc",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# ❌ 错误：这是赋值，不是比较"
+  },
+  {
+   "file": "docs/30分钟入门段言.md",
+   "hash": "54b2e7db2919",
+   "category": "ROT",
+   "exc": "LexerError",
+   "first_line": "# ❌ 错误"
+  },
+  {
+   "file": "docs/30分钟入门段言.md",
+   "hash": "cd380ddcec69",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# ❌ 错误"
+  },
+  {
+   "file": "docs/30分钟入门段言.md",
+   "hash": "ee1a42bad812",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "类 学生："
+  },
+  {
+   "file": "docs/30分钟入门段言.md",
+   "hash": "fb9a31cf75d0",
+   "category": "REPL",
+   "exc": "LexerError",
+   "first_line": ">>> # 快速计算"
+  },
+  {
+   "file": "docs/BOOTSTRAP_STRATEGY.md",
+   "hash": "01d6c56d01e3",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 创建令牌"
+  },
+  {
+   "file": "docs/BOOTSTRAP_STRATEGY.md",
+   "hash": "325e143be933",
+   "category": "PSEUDO",
+   "exc": "LexerError",
+   "first_line": "compile_source(source: 字符串) → 字符串"
+  },
+  {
+   "file": "docs/BOOTSTRAP_STRATEGY.md",
+   "hash": "3e4a3579e74a",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 函数名 接收 参数1, 参数2："
+  },
+  {
+   "file": "docs/BOOTSTRAP_STRATEGY.md",
+   "hash": "ece9ac38320c",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 示例：变量声明节点"
+  },
+  {
+   "file": "docs/FILE_IO_REPORT.md",
+   "hash": "3e56167697b3",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 路径拼接"
+  },
+  {
+   "file": "docs/FILE_IO_REPORT.md",
+   "hash": "6abee601a3fa",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "尝试："
+  },
+  {
+   "file": "docs/FILE_IO_REPORT.md",
+   "hash": "6fdc6bc5c760",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 写入文件"
+  },
+  {
+   "file": "docs/FILE_IO_REPORT.md",
+   "hash": "9c2cfefad5e3",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 创建目录"
+  },
+  {
+   "file": "docs/FINAL_SUMMARY.md",
+   "hash": "38eb935d9773",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "类 学生："
+  },
+  {
+   "file": "docs/HM全局类型推断系统.md",
+   "hash": "1807ba6bb710",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "段落 恒等(值):"
+  },
+  {
+   "file": "docs/HM全局类型推断系统.md",
+   "hash": "3cdb80304668",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "定义 列表 等于 [一, 二, 三]。"
+  },
+  {
+   "file": "docs/HM全局类型推断系统.md",
+   "hash": "5fc16e0bcc97",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "接口 可比较:"
+  },
+  {
+   "file": "docs/HM全局类型推断系统.md",
+   "hash": "66d4e491745d",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "段落 加(甲, 乙):"
+  },
+  {
+   "file": "docs/HM全局类型推断系统.md",
+   "hash": "ac722cfdf26a",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "定义 值 等于 获取可能空的值()。"
+  },
+  {
+   "file": "docs/HM全局类型推断系统.md",
+   "hash": "cfa963cd131a",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "段落 乘积(甲, 乙):"
+  },
+  {
+   "file": "docs/HM全局类型推断系统.md",
+   "hash": "d1848d2fa471",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "定义 年龄 等于 二十五。"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "049e243f6a8a",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设配置={\"端口\":8080,\"主机\":\"localhost\"}"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "0d7bd491042e",
+   "category": "PSEUDO",
+   "exc": "ParseError",
+   "first_line": "段求和(列表):"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "0fe695068f01",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设人={\"姓名\":\"张三\",\"年龄\":15}"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "14891ce3d541",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 基本 try-catch"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "5d1528950cd3",
+   "category": "PSEUDO",
+   "exc": "ParseError",
+   "first_line": "# 基本赋值"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "64ba3685c205",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 文体: 白话"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "6869d4b2c63f",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设平方=段(x):返x*x"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "7116505d0b7e",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设i=0"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "81d419c5e60d",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 条件循环(while)"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "8f2b0073938f",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 文体: 白话"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "a594f2f70204",
+   "category": "PSEUDO",
+   "exc": "ParseError",
+   "first_line": "# 单行"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "a70436c7d1cc",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设列表=[3,1,4,1,5]"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "aa7818b5f34a",
+   "category": "PSEUDO",
+   "exc": "ParseError",
+   "first_line": "段《快速排序》(列表):"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "b4d5b2d8ab8d",
+   "category": "PSEUDO",
+   "exc": "ParseError",
+   "first_line": "设等级=若分数>=60:\"及格\"否:\"不及格\""
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "d1bef8bf04ad",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 简单 if"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "d33aa927f24b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 文体: 白话"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "d801ac38de9b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 遍历列表"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "e5ae72661ed0",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "若甲>5:"
+  },
+  {
+   "file": "docs/L1_白话体语法规范_v4.0.md",
+   "hash": "f3fb3b62eaa2",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设数据=[3,1,4,1,5]"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "0517e4d8d6a4",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "// 带类型注解"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "0743054958e9",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "// L3:数学公式直接写"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "211101497169",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "// 设 函数变量: 段(参数类型) -> 返回类型"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "24bd6615eed7",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "// 完整形式:段 名称(参数: 类型, ...) -> 返回类型:"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "454084cef1ce",
+   "category": "ROT",
+   "exc": "LexerError",
+   "first_line": "// 类型后加 ? 表示可为空(可选类型)"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "4ffadd6ac7be",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 列表泛型"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "54c128deadfb",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "// if / elif / else"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "79294cf719a9",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "// 文件: 数学工具.light"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "8352d78fec98",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "// try-catch-finally 完整形式"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "8b575e2fc628",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "// 方式1:整个模块导入"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "8bf3f0aeee12",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "// 单行注释"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "932d0f7cfd04",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 等级: 串 = 若 分数 >= 60: \"及格\" 否: \"不及格\""
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "96bb68c04302",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "// 类型别名: 用 类 ... = 类型"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "9a70cc767b23",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "// 返回函数"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "ad5e7ef225f5",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 文体: 文言"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "b11667874750",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "// 类型判断:是 关键字"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "b7ddae9f166c",
+   "category": "ROT",
+   "exc": "LexerError",
+   "first_line": "// 方案A:协程风格(类 async/await)"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "ca7760959f2e",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "// 当循环(while)"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "cec4da367aca",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 列表"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "d7a53e00236b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "类 学生:"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "ed1dc11fa5aa",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "// 装饰器是高阶函数:段(段(...)->A) -> 段(...)->A"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "ee62c6b81518",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "// 默认参数"
+  },
+  {
+   "file": "docs/L2_文言体语法规范_v4.0.md",
+   "hash": "f61e1ac4587f",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "// 属性访问"
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "01a4dba5d830",
+   "category": "ESCAPED",
+   "exc": "LexerError",
+   "first_line": "类 大学生 继承 学生："
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "11711ba99ca9",
+   "category": "ESCAPED",
+   "exc": "LexerError",
+   "first_line": "异常 年龄错误 继承 异常："
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "1a11b01cae0a",
+   "category": "ESCAPED",
+   "exc": "LexerError",
+   "first_line": "尝试："
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "24562c99e035",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "模块 数学工具："
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "39dc3503681c",
+   "category": "ESCAPED",
+   "exc": "LexerError",
+   "first_line": "尝试："
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "45a8580eee48",
+   "category": "ESCAPED",
+   "exc": "LexerError",
+   "first_line": "从 标准库 导入 json。"
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "559647e77e7c",
+   "category": "ESCAPED",
+   "exc": "LexerError",
+   "first_line": "类 银行账户："
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "8e47fafe560d",
+   "category": "ESCAPED",
+   "exc": "LexerError",
+   "first_line": "使用 打开参数\\\"data.txt\\\" 为 文件："
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "8f0b11719e07",
+   "category": "ESCAPED",
+   "exc": "LexerError",
+   "first_line": "装饰器 计时："
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "9e93274f395e",
+   "category": "ESCAPED",
+   "exc": "LexerError",
+   "first_line": "定义学生等于创建学生参数\\\"张三\\\"，20。"
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "b147d59ee4ce",
+   "category": "ESCAPED",
+   "exc": "LexerError",
+   "first_line": "从 数学工具 导入 加法, 乘法。"
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "c0226ec06150",
+   "category": "ESCAPED",
+   "exc": "LexerError",
+   "first_line": "定义列表等于\\\"甲\\\"，\\\"乙\\\"，\\\"丙\\\"。"
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "c9b8d36a6e3b",
+   "category": "ESCAPED",
+   "exc": "LexerError",
+   "first_line": "类 学生："
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "cbf10477a7a7",
+   "category": "ESCAPED",
+   "exc": "LexerError",
+   "first_line": "段 检查年龄(年龄)："
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "d7117daac989",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "定义平方等于匿名(数): 数乘数。"
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "dc34328a1a77",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "定义列表等于1，2，3，4，5。"
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "f3d560394550",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "从 数学工具 导入 加法, 乘法。"
+  },
+  {
+   "file": "docs/LANGUAGE_EXTENSIONS.md",
+   "hash": "f98f8fa1df88",
+   "category": "ESCAPED",
+   "exc": "LexerError",
+   "first_line": "尝试："
+  },
+  {
+   "file": "docs/USER_MANUAL.md",
+   "hash": "28ab7b43ee5f",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 这是单行注释（推荐使用）"
+  },
+  {
+   "file": "docs/USER_MANUAL.md",
+   "hash": "71f1ae62444b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "类 计数器："
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "053af9e7c70a",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 声明函数 接收 库别名：文本, 函数名：文本, 参数类型列表, 返回类型：文本："
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "0aa21346f9d4",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 调用函数 接收 库别名：文本, 函数名：文本, 参数列表："
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "14c59e59da6d",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 包含。"
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "30e328420633",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 查找索引。"
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "384062ae995a",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 最小值。"
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "6a2e063487e2",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 数字转中文(数值, 大写=假):"
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "6b8efe1393e2",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 求和。"
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "9f9061893d0f",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 反转列表。"
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "a48a7a1e029c",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 平均值。"
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "df022f7f310e",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 农历转公历(年, 月, 日, 闰月=假):"
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "e0ad8652eb05",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 转拼音(文本, 首字母模式=假):"
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "eb39e5547f71",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 农历完整日期(年, 月, 日, 闰月=假):"
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "eefb1c54e071",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 范围。"
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "efa52414eed8",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 计数。"
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "f32f402a0f5c",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 连接。"
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "f94eecf99e1b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 最大值。"
+  },
+  {
+   "file": "docs/api/stdlib.md",
+   "hash": "fa543768a6ae",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 农历月名(月, 闰月=假):"
+  },
+  {
+   "file": "docs/blog/中文编程的语义密度优势.md",
+   "hash": "2747e4c1457a",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "如果 值 是 字符串 类型："
+  },
+  {
+   "file": "docs/blog/中文编程的语义密度优势.md",
+   "hash": "2ec8ff95b842",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "匹配 状态："
+  },
+  {
+   "file": "docs/blog/中文编程的语义密度优势.md",
+   "hash": "66a7266caa1b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 及格学生 为 列表.过滤(学生列表, 段落 学生：学生.分数 >= 60)"
+  },
+  {
+   "file": "docs/blog/中文编程的语义密度优势.md",
+   "hash": "758ee9ec710c",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 金融风控规则示例"
+  },
+  {
+   "file": "docs/blog/中文编程的语义密度优势.md",
+   "hash": "9a574a19f47b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 结果 为 数据 |> 过滤无效 |> 排序 |> 格式化输出"
+  },
+  {
+   "file": "docs/blog/中文编程的语义密度优势.md",
+   "hash": "b3fd2ab95daa",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 代码诗·素数"
+  },
+  {
+   "file": "docs/blog/段言v6.0正式发布.md",
+   "hash": "026fe531c5a4",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "使用 打开文件(\"data.txt\", \"r\") 为 文件："
+  },
+  {
+   "file": "docs/blog/段言v6.0正式发布.md",
+   "hash": "1fb692886e54",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "导入 段言博客框架。"
+  },
+  {
+   "file": "docs/blog/段言v6.0正式发布.md",
+   "hash": "4e9674b178bc",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "尝试："
+  },
+  {
+   "file": "docs/blog/段言v6.0正式发布.md",
+   "hash": "c6fb6e53ee27",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 日志记录 接收 函数："
+  },
+  {
+   "file": "docs/blog/段言v6.0正式发布.md",
+   "hash": "e79d3ec38a16",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "异步 段落 获取用户数据 接收 用户ID："
+  },
+  {
+   "file": "docs/blog/段言v6.0正式发布.md",
+   "hash": "ec5718ba0588",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "匹配 值："
+  },
+  {
+   "file": "docs/blog/段言v6.0正式发布.md",
+   "hash": "ff891846e9de",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "匹配 分数："
+  },
+  {
+   "file": "docs/blog/段言v6.2新特性介绍.md",
+   "hash": "ae6242190936",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 数据清洗工具核心功能"
+  },
+  {
+   "file": "docs/blog/段言自举编译器架构解析.md",
+   "hash": "495b0c9f6a15",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 生成代码 接收 AST:"
+  },
+  {
+   "file": "docs/blog/段言自举编译器架构解析.md",
+   "hash": "530c832fa538",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# AST 节点定义（简化版）"
+  },
+  {
+   "file": "docs/blog/段言自举编译器架构解析.md",
+   "hash": "fcb13a162824",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 解析程序 接收 令牌列表:"
+  },
+  {
+   "file": "docs/blog/用段言写实用工具——数据清洗实战.md",
+   "hash": "4073f08d0288",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 主流程"
+  },
+  {
+   "file": "docs/blog/用段言写实用工具——数据清洗实战.md",
+   "hash": "86aaa0aa69aa",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 数据清洗工具 —— 核心模块"
+  },
+  {
+   "file": "docs/blog/用段言写实用工具——数据清洗实战.md",
+   "hash": "cb1424afe201",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 检测编码 接收 路径："
+  },
+  {
+   "file": "docs/blog/用段言写实用工具——数据清洗实战.md",
+   "hash": "ed2cfd821a28",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 修整所有字段 接收 数据："
+  },
+  {
+   "file": "docs/blog/用段言构建Web应用.md",
+   "hash": "33bcb08b923c",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "导入 段言博客框架。"
+  },
+  {
+   "file": "docs/duanpub/2D绘图.md",
+   "hash": "1630d7d2cca2",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "导入 2D绘图"
+  },
+  {
+   "file": "docs/en/getting-started.md",
+   "hash": "18e2e7a9237b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "异步 段落 获取数据 接收 url："
+  },
+  {
+   "file": "docs/en/getting-started.md",
+   "hash": "872551078c38",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 加倍 为 参数 x => x * 2"
+  },
+  {
+   "file": "docs/en/getting-started.md",
+   "hash": "d84dfa232307",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 可能为空 为 可空(\"hello\")"
+  },
+  {
+   "file": "docs/en/getting-started.md",
+   "hash": "eb652b479f42",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 结果 为 数据 |> 过滤 |> 映射 |> 归约"
+  },
+  {
+   "file": "docs/en/syntax.md",
+   "hash": "255760e4554e",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 学生管理系统示例"
+  },
+  {
+   "file": "docs/en/syntax.md",
+   "hash": "40a2dfe7126b",
+   "category": "PSEUDO",
+   "exc": "ParseError",
+   "first_line": "甲 且 乙            # Logical AND"
+  },
+  {
+   "file": "docs/en/syntax.md",
+   "hash": "4691f4af08be",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 加倍 为 参数 x => x * 2"
+  },
+  {
+   "file": "docs/en/syntax.md",
+   "hash": "c3ce5fa11eb5",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "异步 段落 获取数据 接收 url："
+  },
+  {
+   "file": "docs/en/syntax.md",
+   "hash": "d84dfa232307",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 可能为空 为 可空(\"hello\")"
+  },
+  {
+   "file": "docs/en/syntax.md",
+   "hash": "eb652b479f42",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 结果 为 数据 |> 过滤 |> 映射 |> 归约"
+  },
+  {
+   "file": "docs/en/web-framework.md",
+   "hash": "93a0d5681ad7",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "导入 HTTP服务端"
+  },
+  {
+   "file": "docs/en/web-framework.md",
+   "hash": "94f59d2121ed",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "导入 HTTP服务端"
+  },
+  {
+   "file": "docs/en/web-framework.md",
+   "hash": "c453dbcb590b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "类 博客："
+  },
+  {
+   "file": "docs/examples.md",
+   "hash": "7da1ee254fe5",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 计算斐波那契数列"
+  },
+  {
+   "file": "docs/ffi.md",
+   "hash": "0d118295ef3c",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "外部 结构体 点 {"
+  },
+  {
+   "file": "docs/ffi.md",
+   "hash": "1dfe68d7fc8e",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "外部 结构体 矩形 {"
+  },
+  {
+   "file": "docs/ffi.md",
+   "hash": "251dc438e4a6",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "定义宏(\"最大连接\", \"100\")"
+  },
+  {
+   "file": "docs/ffi.md",
+   "hash": "26353a045a86",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "尝试："
+  },
+  {
+   "file": "docs/ffi.md",
+   "hash": "3ead56b9a2f0",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "外部 回调 回调类型 接收 整数 返回 整数"
+  },
+  {
+   "file": "docs/ffi.md",
+   "hash": "66e63d4f79a5",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "外部 枚举 颜色 {"
+  },
+  {
+   "file": "docs/ffi.md",
+   "hash": "9e3ad4e0bcf4",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "外部 联合体 数值 {"
+  },
+  {
+   "file": "docs/ffi.md",
+   "hash": "abc5b822b102",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "外部 调试 {"
+  },
+  {
+   "file": "docs/ffi.md",
+   "hash": "cef65381bffb",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "外部 位域 标志 : 整数 {"
+  },
+  {
+   "file": "docs/ffi.md",
+   "hash": "f1a8f8d847d6",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "启用调试()"
+  },
+  {
+   "file": "docs/file_io_design.md",
+   "hash": "0b09b2d35be6",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "导入《路径》。"
+  },
+  {
+   "file": "docs/file_io_design.md",
+   "hash": "2b08e209aafa",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "导入《系统》。"
+  },
+  {
+   "file": "docs/file_io_design.md",
+   "hash": "4616f6b23d0e",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "《读取文件》段(路径)："
+  },
+  {
+   "file": "docs/file_io_design.md",
+   "hash": "4b117063021b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 日志文件处理"
+  },
+  {
+   "file": "docs/file_io_design.md",
+   "hash": "51bfdc7ec586",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 简单编译器示例"
+  },
+  {
+   "file": "docs/file_io_design.md",
+   "hash": "5a673c2354e9",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 方式1：内置函数"
+  },
+  {
+   "file": "docs/file_io_design.md",
+   "hash": "69fbc1c83d77",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "《写入文件》段(路径, 内容)："
+  },
+  {
+   "file": "docs/file_io_design.md",
+   "hash": "906c0092687d",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "导入《文件》。"
+  },
+  {
+   "file": "docs/file_io_design.md",
+   "hash": "a0a69fb0cbc9",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 文件大小"
+  },
+  {
+   "file": "docs/file_io_design.md",
+   "hash": "a9b6bc4a8645",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 方式1：内置函数"
+  },
+  {
+   "file": "docs/file_io_design.md",
+   "hash": "ab429bce9402",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "定义文件等于打开文件参数\"log.txt\"，\"a\"。"
+  },
+  {
+   "file": "docs/file_io_design.md",
+   "hash": "daa5c6152400",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "如果文件存在参数\"config.light\"那么"
+  },
+  {
+   "file": "docs/file_io_design.md",
+   "hash": "dd2fe1a513b8",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 逐行读取"
+  },
+  {
+   "file": "docs/file_io_design.md",
+   "hash": "ed6fa9ed0875",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 创建目录"
+  },
+  {
+   "file": "docs/getting-started.md",
+   "hash": "a4251261651f",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "异步 段落 获取数据 接收 url："
+  },
+  {
+   "file": "docs/guide/常见问题.md",
+   "hash": "9890dfe9685b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设配置={\"端口\":8080,\"主机\":\"localhost\"}"
+  },
+  {
+   "file": "docs/interface-design.md",
+   "hash": "a3a77949b1f3",
+   "category": "REPL",
+   "exc": "ParseError",
+   "first_line": "类 文档 实现 可打印, 可保存："
+  },
+  {
+   "file": "docs/light_lite_spec.md",
+   "hash": "be2e2e17984a",
+   "category": "PSEUDO",
+   "exc": "ParseError",
+   "first_line": "非 条件"
+  },
+  {
+   "file": "docs/light_lite_spec.md",
+   "hash": "d7377d617408",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 函数名 接收 参数1, 参数2："
+  },
+  {
+   "file": "docs/llvm_backend_design.md",
+   "hash": "b0877150f2ad",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "异步作用域"
+  },
+  {
+   "file": "docs/module_system_design.md",
+   "hash": "619dad86e740",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 主程序"
+  },
+  {
+   "file": "docs/module_system_design.md",
+   "hash": "670342c5d0b5",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "导入《数学库》。"
+  },
+  {
+   "file": "docs/module_system_design.md",
+   "hash": "9813593c7b0c",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 方式1：模块名作为前缀"
+  },
+  {
+   "file": "docs/module_system_design.md",
+   "hash": "9e13581386a9",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 使用系统模块"
+  },
+  {
+   "file": "docs/module_system_design.md",
+   "hash": "cc157a8ec198",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 模块别名"
+  },
+  {
+   "file": "docs/module_system_design.md",
+   "hash": "f5a05a9a5490",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 导入整个模块"
+  },
+  {
+   "file": "docs/module_system_design.md",
+   "hash": "ffea08d4a29b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 从模块导入特定函数"
+  },
+  {
+   "file": "docs/release_notes_v6.1.0.md",
+   "hash": "73e99035435f",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 农历支持"
+  },
+  {
+   "file": "docs/release_notes_v6.1.0.md",
+   "hash": "975e7f0b43d4",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# Cookie 会话支持"
+  },
+  {
+   "file": "docs/superpowers/plans/2026-07-01-level6-type-annotation.md",
+   "hash": "7d35de242945",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段 关键字列表："
+  },
+  {
+   "file": "docs/superpowers/plans/2026-07-01-level6-type-annotation.md",
+   "hash": "9767f0ea1c4b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段测试："
+  },
+  {
+   "file": "docs/superpowers/plans/2026-07-01-level6-type-annotation.md",
+   "hash": "b0e993b1f5e6",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段 词 接收 src, p, n, s："
+  },
+  {
+   "file": "docs/superpowers/plans/2026-07-01-level6-type-annotation.md",
+   "hash": "f834b84802a0",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段 前缀匹配 接收 s, kws："
+  },
+  {
+   "file": "docs/syntax.md",
+   "hash": "18e2e7a9237b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "异步 段落 获取数据 接收 url："
+  },
+  {
+   "file": "docs/syntax.md",
+   "hash": "b1e659605a39",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 算术运算符（符号与中文等价）"
+  },
+  {
+   "file": "docs/syntax.md",
+   "hash": "d84dfa232307",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 可能为空 为 可空(\"hello\")"
+  },
+  {
+   "file": "docs/syntax.md",
+   "hash": "eb652b479f42",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 结果 为 数据 |> 过滤 |> 映射 |> 归约"
+  },
+  {
+   "file": "docs/syntax.md",
+   "hash": "f71fa89a33bb",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 加倍 为 参数 x => x * 2"
+  },
+  {
+   "file": "docs/tutorials/入门教程.md",
+   "hash": "13545ffdbf10",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "类 狗："
+  },
+  {
+   "file": "docs/tutorials/入门教程.md",
+   "hash": "af395c2d531e",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "类 学生："
+  },
+  {
+   "file": "docs/tutorials/入门教程.md",
+   "hash": "e871d02bc824",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 整数  为 42          # 整数"
+  },
+  {
+   "file": "docs/tutorials/进阶教程.md",
+   "hash": "a30883393b30",
+   "category": "ESCAPED",
+   "exc": "ParseError",
+   "first_line": "从 贡献.HTTP客户端 导入 获取, 提交, 请求"
+  },
+  {
+   "file": "docs/tutorials/进阶教程.md",
+   "hash": "d1e4cbbf48d7",
+   "category": "ESCAPED",
+   "exc": "ParseError",
+   "first_line": "从 贡献.HTTP服务端 导入 创建服务器, 路由, 请求, 响应"
+  },
+  {
+   "file": "docs/tutorials/进阶教程.md",
+   "hash": "e4e9003c4400",
+   "category": "ESCAPED",
+   "exc": "ParseError",
+   "first_line": "从 贡献.HTTP服务端 导入 创建服务器, 路由, 请求, 响应"
+  },
+  {
+   "file": "docs/tutorials/进阶教程.md",
+   "hash": "ea3f6a81ac8c",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 定义 C 结构体"
+  },
+  {
+   "file": "docs/tutorials/进阶教程.md",
+   "hash": "f3e4c7f4d05a",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 打印调试信息"
+  },
+  {
+   "file": "docs/v4_beginner_ecosystem_plan.md",
+   "hash": "33fcbd79833c",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 方式1: 模块导入"
+  },
+  {
+   "file": "docs/video_scripts/段言Web开发实战.md",
+   "hash": "18b7eb20f6e5",
+   "category": "ANNOTATED",
+   "exc": "ParseError",
+   "first_line": "# 文章详情页"
+  },
+  {
+   "file": "docs/video_scripts/段言Web开发实战.md",
+   "hash": "3757954d6b19",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 主.duan - 添加错误处理"
+  },
+  {
+   "file": "docs/video_scripts/段言Web开发实战.md",
+   "hash": "704565e73eb1",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 更新文章"
+  },
+  {
+   "file": "docs/video_scripts/段言Web开发实战.md",
+   "hash": "e7660eda991c",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 模型.duan - 博客数据模型"
+  },
+  {
+   "file": "docs/video_scripts/段言Web开发实战.md",
+   "hash": "f74a4e79bc34",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 在 路由.duan 中继续"
+  },
+  {
+   "file": "docs/video_scripts/段言数据处理入门.md",
+   "hash": "50113213fe4b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 统计分析模块"
+  },
+  {
+   "file": "docs/video_scripts/段言数据处理入门.md",
+   "hash": "b4621221bf0d",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 数据管道引擎"
+  },
+  {
+   "file": "docs/video_scripts/段言数据处理入门.md",
+   "hash": "dabd265556ef",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 管道配置"
+  },
+  {
+   "file": "docs/video_scripts/段言数据处理入门.md",
+   "hash": "e82c22ae89f8",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 批量数据处理"
+  },
+  {
+   "file": "docs/五分钟入门段言.md",
+   "hash": "0f3b4c5b8405",
+   "category": "REPL",
+   "exc": "ParseError",
+   "first_line": ">>> 打招呼(\"张三\")"
+  },
+  {
+   "file": "docs/五分钟入门段言.md",
+   "hash": "6f1c2e22897c",
+   "category": "REPL",
+   "exc": "ParseError",
+   "first_line": ">>> 段落 加法 接收 a, b："
+  },
+  {
+   "file": "docs/五分钟入门段言.md",
+   "hash": "710113df8324",
+   "category": "REPL",
+   "exc": "ParseError",
+   "first_line": ">>> 打印 \"你好，世界！\""
+  },
+  {
+   "file": "docs/五分钟入门段言.md",
+   "hash": "7ca44d40967b",
+   "category": "REPL",
+   "exc": "ParseError",
+   "first_line": ">>> 段落 打招呼 接收 姓名："
+  },
+  {
+   "file": "docs/五分钟入门段言.md",
+   "hash": "82f462b37da8",
+   "category": "REPL",
+   "exc": "ParseError",
+   "first_line": ">>> x * y"
+  },
+  {
+   "file": "docs/五分钟入门段言.md",
+   "hash": "865f528eaff0",
+   "category": "REPL",
+   "exc": "ParseError",
+   "first_line": ">>> 遍历 i 从 1 到 5："
+  },
+  {
+   "file": "docs/五分钟入门段言.md",
+   "hash": "887c143c350e",
+   "category": "REPL",
+   "exc": "ParseError",
+   "first_line": ">>> 遍历 i 从 1 到 5："
+  },
+  {
+   "file": "docs/五分钟入门段言.md",
+   "hash": "f8de6f4e05b3",
+   "category": "REPL",
+   "exc": "ParseError",
+   "first_line": ">>> 设 x 为 10"
+  },
+  {
+   "file": "docs/五分钟入门段言.md",
+   "hash": "fa252d9cb216",
+   "category": "REPL",
+   "exc": "ParseError",
+   "first_line": ">>> 设 分数 为 45"
+  },
+  {
+   "file": "docs/五分钟入门段言.md",
+   "hash": "ff89aadde6a0",
+   "category": "REPL",
+   "exc": "ParseError",
+   "first_line": ">>> 设 分数 为 85"
+  },
+  {
+   "file": "docs/从段言到LLVM.md",
+   "hash": "0abe043299c1",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "类 动物："
+  },
+  {
+   "file": "docs/从段言到LLVM.md",
+   "hash": "ba0bcf6c25cb",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "遍历 i 从 1 到 10："
+  },
+  {
+   "file": "docs/从段言到Python.md",
+   "hash": "060628413fe8",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "从 文件系统 导入 列出目录, 文件存在, 文件信息"
+  },
+  {
+   "file": "docs/从段言到Python.md",
+   "hash": "a09953a291ee",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "从 CSV 导入 解析CSV文件, 序列化CSV文件, 转字典列表"
+  },
+  {
+   "file": "docs/从段言到Python.md",
+   "hash": "cae66a94ce2c",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "从 HTTP客户端 导入 HTTP客户端"
+  },
+  {
+   "file": "docs/分层语法设计_v4.0.md",
+   "hash": "0b4bb2a475be",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 文体: 文言"
+  },
+  {
+   "file": "docs/分层语法设计_v4.0.md",
+   "hash": "114008cf3e65",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设成绩=[85,92,78,63,95]"
+  },
+  {
+   "file": "docs/分层语法设计_v4.0.md",
+   "hash": "284466e281e4",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 文体: 白话"
+  },
+  {
+   "file": "docs/分层语法设计_v4.0.md",
+   "hash": "4e84acdf83ee",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 文体: 文言"
+  },
+  {
+   "file": "docs/分层语法设计_v4.0.md",
+   "hash": "6791b4ea48c2",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 中文结构 SQL,无需引块"
+  },
+  {
+   "file": "docs/分层语法设计_v4.0.md",
+   "hash": "9ae1e0daa0da",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 文体: 文言"
+  },
+  {
+   "file": "docs/分层语法设计_v4.0.md",
+   "hash": "9c2eefcb3fe5",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 文体: 白话"
+  },
+  {
+   "file": "docs/分层语法设计_v4.0.md",
+   "hash": "ac5a871930b6",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设甲=10"
+  },
+  {
+   "file": "docs/分层语法设计_v4.0.md",
+   "hash": "c36ec764f078",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 文体: 文言"
+  },
+  {
+   "file": "docs/分层语法设计_v4.0.md",
+   "hash": "d632ea5dc7bf",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "# 数学符号直接写,作为光明表达式"
+  },
+  {
+   "file": "docs/分层语法设计_v4.0.md",
+   "hash": "dca4afcdd690",
+   "category": "ROT",
+   "exc": "LexerError",
+   "first_line": "# Python 单步引用"
+  },
+  {
+   "file": "docs/分层语法设计_v4.0.md",
+   "hash": "e47ec4d2c0a2",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 文体: 文言"
+  },
+  {
+   "file": "docs/分层语法设计_v4.0.md",
+   "hash": "ee54001d6893",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段阶乘(n):"
+  },
+  {
+   "file": "docs/分层语法设计_v4.0.md",
+   "hash": "f72dbf899eb6",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 模式 = /\\d{4}-\\d{2}-\\d{2}/"
+  },
+  {
+   "file": "docs/可空类型unwrap系统.md",
+   "hash": "3309c128539b",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "定义 值 等于 空。"
+  },
+  {
+   "file": "docs/可空类型unwrap系统.md",
+   "hash": "5928b07cab23",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "定义 值 等于 五。"
+  },
+  {
+   "file": "docs/可空类型unwrap系统.md",
+   "hash": "5eaedf2de4dc",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "定义 对象 等于 获取可能空的对象()。"
+  },
+  {
+   "file": "docs/可空类型unwrap系统.md",
+   "hash": "6957161ac6e5",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 安全获取(列表, 索引):"
+  },
+  {
+   "file": "docs/可空类型unwrap系统.md",
+   "hash": "79fc09d64c48",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "定义 值 等于 获取可能空的数据()。"
+  },
+  {
+   "file": "docs/可空类型unwrap系统.md",
+   "hash": "82785fc837c2",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "定义 x 等于 获取值()。   ← 推断为 数|空"
+  },
+  {
+   "file": "docs/可空类型unwrap系统.md",
+   "hash": "86a6dc8bc94d",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "段落 获取年龄():"
+  },
+  {
+   "file": "docs/可空类型unwrap系统.md",
+   "hash": "8d588b9a04f3",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "段落 打印(消息):"
+  },
+  {
+   "file": "docs/可空类型unwrap系统.md",
+   "hash": "95dd26a2d66d",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "段落 获取():"
+  },
+  {
+   "file": "docs/可空类型unwrap系统.md",
+   "hash": "c444a8c550a1",
+   "category": "ANNOTATED",
+   "exc": "LexerError",
+   "first_line": "段落 或默认(值, 默认):"
+  },
+  {
+   "file": "docs/可空类型unwrap系统.md",
+   "hash": "f4d4dc1012a1",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 好"
+  },
+  {
+   "file": "docs/模块系统与包管理.md",
+   "hash": "d3bd9964031d",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "从 math 导入 加法。"
+  },
+  {
+   "file": "docs/段言与Python对比案例.md",
+   "hash": "3dd4efd97818",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 快速排序"
+  },
+  {
+   "file": "docs/段言与Python对比案例.md",
+   "hash": "90e62c4467db",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "从 CSV 导入 解析CSV文件, 序列化CSV文件, 转字典列表"
+  },
+  {
+   "file": "docs/段言与Python对比案例.md",
+   "hash": "cae66a94ce2c",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "从 HTTP客户端 导入 HTTP客户端"
+  },
+  {
+   "file": "docs/知识库/常见问题.md",
+   "hash": "394ee6f2c0c3",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段 首元素[T](列表: 列表[T]) -> T:"
+  },
+  {
+   "file": "docs/知识库/语言规范.md",
+   "hash": "7ba3a8fd34fc",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# L1 白话体"
+  },
+  {
+   "file": "docs/知识库/语言规范.md",
+   "hash": "c2bb528d6a64",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# L1 白话体"
+  },
+  {
+   "file": "docs/知识库/语言规范.md",
+   "hash": "e880f6aacf62",
+   "category": "PSEUDO",
+   "exc": "ParseError",
+   "first_line": "# 列表"
+  },
+  {
+   "file": "docs/端到端实战教程.md",
+   "hash": "707ebeb96e05",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 天气应用配置"
+  },
+  {
+   "file": "docs/端到端实战教程.md",
+   "hash": "c506ec8db3e1",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "从 配置 导入 城市列表, 获取城市名, API_KEY, BASE_URL"
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "080625e47369",
+   "category": "PSEUDO",
+   "exc": "ParseError",
+   "first_line": "123          # 整数"
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "0f7b237560ff",
+   "category": "PSEUDO",
+   "exc": "ParseError",
+   "first_line": "己属性名          # 访问属性"
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "1a7d355b00f6",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "[甲 乘以 甲 遍历 甲 之 数列]"
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "1bf3a38c9d14",
+   "category": "PSEUDO",
+   "exc": "ParseError",
+   "first_line": "【\"名\"：\"张三\"，\"龄\"：20】  # 中文方括号字典"
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "2df0864e87cb",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "接收 参数：返回 表达式"
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "42bbae024ba6",
+   "category": "PSEUDO",
+   "exc": "ParseError",
+   "first_line": "1至10          # range(1, 11)"
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "480f7b6bc138",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "类 栈[T]："
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "66ae6729641b",
+   "category": "PSEUDO",
+   "exc": "ParseError",
+   "first_line": "数据 -> 处理 -> 输出"
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "68888c5d61a9",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "【键：值 遍历 变量 之 列表】"
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "72a3b51beb71",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "[表达式 遍历 变量 之 列表]"
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "9610d38832ed",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "类 类名 实现 接口1, 接口2："
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "a050db9fe549",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "@装饰器名 标注 段落定义"
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "a6edcfe4ae5d",
+   "category": "PSEUDO",
+   "exc": "ParseError",
+   "first_line": "甲 且 乙"
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "b2d473138b59",
+   "category": "PSEUDO",
+   "exc": "ParseError",
+   "first_line": "对象.属性"
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "d144d8161d4d",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "接口 接口名："
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "f67b6faa7704",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 [首，次，...余] 为 [1, 2, 3, 4, 5]"
+  },
+  {
+   "file": "docs/统一语法规范_v3.1.md",
+   "hash": "f876648b6890",
+   "category": "PSEUDO",
+   "exc": "LexerError",
+   "first_line": "[1, 2, 3]           # 英文逗号"
+  },
+  {
+   "file": "docs/设计哲学与定位.md",
+   "hash": "2533fcd4170b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 段言：自然语序的列表推导"
+  },
+  {
+   "file": "docs/设计哲学与定位.md",
+   "hash": "296fe166022d",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 元数驱动解析示例"
+  },
+  {
+   "file": "docs/设计哲学与定位.md",
+   "hash": "8151b8e584b9",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 段言：中文关键字模式匹配"
+  },
+  {
+   "file": "docs/设计哲学与定位.md",
+   "hash": "cd30cd7fe112",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 快速排序 接收 数组："
+  },
+  {
+   "file": "docs/语义密度与代码诗.md",
+   "hash": "006675137f72",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 斐波那契 接收 n："
+  },
+  {
+   "file": "docs/语义密度与代码诗.md",
+   "hash": "2cad076c47a5",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 平方数"
+  },
+  {
+   "file": "docs/语义密度与代码诗.md",
+   "hash": "4d5fc4a35400",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 二分查找 接收 数组, 目标："
+  },
+  {
+   "file": "docs/语义密度与代码诗.md",
+   "hash": "586ddbfae75b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "转置 = [[行[i] 遍历 行 于 矩阵] 遍历 i 于 范围(列表长度(矩阵[0]))]"
+  },
+  {
+   "file": "docs/语义密度与代码诗.md",
+   "hash": "7536a6dca571",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 素数筛选 接收 n："
+  },
+  {
+   "file": "docs/语义密度与代码诗.md",
+   "hash": "754eb3862e6a",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "结果 = [x 遍历 x 于 数组 若 x 大于 5]"
+  },
+  {
+   "file": "docs/语义密度与代码诗.md",
+   "hash": "a887e4ac6d3a",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# 状态机"
+  },
+  {
+   "file": "docs/语义密度与代码诗.md",
+   "hash": "c71112ef1ab9",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 快速排序 接收 数组："
+  },
+  {
+   "file": "docs/语义密度与代码诗.md",
+   "hash": "c71112ef1ab9",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 快速排序 接收 数组："
+  },
+  {
+   "file": "docs/语义密度与代码诗.md",
+   "hash": "ca07794063cb",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 反转单词 接收 字符串："
+  },
+  {
+   "file": "docs/语义密度与代码诗.md",
+   "hash": "f550edda3951",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "匹配 形状："
+  },
+  {
+   "file": "docs/语义密度示例集.md",
+   "hash": "31800c926ba2",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 数字 为 范围(1, 11)"
+  },
+  {
+   "file": "docs/语义密度示例集.md",
+   "hash": "4ea9abbc360f",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 清洗文本 接收 文本："
+  },
+  {
+   "file": "docs/语义密度示例集.md",
+   "hash": "52678019fa79",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 用户列表 为 ["
+  },
+  {
+   "file": "docs/语义密度示例集.md",
+   "hash": "5d48454129e4",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 销售数据 为 ["
+  },
+  {
+   "file": "docs/语义密度示例集.md",
+   "hash": "6b86203c8c66",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 规范化用户名 接收 名称："
+  },
+  {
+   "file": "docs/语义密度示例集.md",
+   "hash": "961b05671174",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 成绩 为 {\"张三\": 95, \"李四\": 82, \"王五\": 90, \"赵六\": 73, \"孙七\": 98}"
+  },
+  {
+   "file": "docs/语义密度示例集.md",
+   "hash": "abff1876b3c4",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 处理 接收 值："
+  },
+  {
+   "file": "docs/语义密度示例集.md",
+   "hash": "b6213d199617",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 文本 为 \"apple banana apple cherry banana apple\""
+  },
+  {
+   "file": "docs/语义密度示例集.md",
+   "hash": "ce57a7b43809",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 学生列表 为 ["
+  },
+  {
+   "file": "docs/语义密度示例集.md",
+   "hash": "d2a5cb13787b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 解析 接收 数据："
+  },
+  {
+   "file": "docs/语义密度示例集.md",
+   "hash": "d7820b07ad58",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 数字 为 [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
+  },
+  {
+   "file": "docs/语义密度示例集.md",
+   "hash": "e3ed953870c9",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "设 文本 为 \"\"\"# 配置文件"
+  },
+  {
+   "file": "docs/语义密度示例集.md",
+   "hash": "e40db4b0a844",
+   "category": "COMPILER_BUG",
+   "exc": "HostileSkipped",
+   "first_line": "段落 列表求和 接收 数字列表："
+  },
+  {
+   "file": "docs/语义密度示例集.md",
+   "hash": "f656341f0d8b",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "段落 评级 接收 分数："
+  },
+  {
+   "file": "docs/迁移指南_v5到v6.md",
+   "hash": "0994dcfb05c8",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# v5.x — 基础异常处理"
+  },
+  {
+   "file": "docs/迁移指南_v5到v6.md",
+   "hash": "38371292f5df",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# v5.x — 传统条件判断"
+  },
+  {
+   "file": "docs/迁移指南_v5到v6.md",
+   "hash": "dc8e268f2311",
+   "category": "ROT",
+   "exc": "ParseError",
+   "first_line": "# v5.x — 手动管理资源"
+  }
+ ]
+}

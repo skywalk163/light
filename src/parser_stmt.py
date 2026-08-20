@@ -5794,8 +5794,8 @@ class ParserStmtMixin:
                 self._error("期望 ']' 结束类型别名泛型参数")
         
         # 等号
-        if self._current() and self._current().type == TokenType.ASSIGN:
-            self._consume(TokenType.ASSIGN)  # 消耗 =
+        if self._current() and self._current().type == TokenType.EQUALS:
+            self._consume(TokenType.EQUALS)  # 消耗 =
         else:
             # 也支持中文冒号 ： 或 为 关键字
             if self._current() and self._current().type == TokenType.COLON:
@@ -5823,7 +5823,7 @@ class ParserStmtMixin:
             target_type=target_type,
             generic_params=generic_params,
         )
-        result.line, result.col = line, col
+        result.line, result.column = line, col
         return result
 
     def _parse_ffi_typedef_def(self) -> FFITypedefDef:

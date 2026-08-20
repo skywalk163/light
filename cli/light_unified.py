@@ -26,7 +26,7 @@ from typing import Optional, List
 # 版本信息
 try:
     from src.version import DEV_BRANCH, VERSION as LANG_VERSION, is_dev_branch, get_dev_version_string
-    DEV_VERSION_STR = f'光明 v4.0dev-{LANG_VERSION} (开发分支)'
+    DEV_VERSION_STR = f'光明 v{LANG_VERSION}dev (开发分支)'
     STABLE_VERSION_STR = f'光明 v{LANG_VERSION}'
     VERSION_STR = DEV_VERSION_STR if is_dev_branch() else STABLE_VERSION_STR
 except ImportError:

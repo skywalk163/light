@@ -1,5 +1,5 @@
 #!/bin/bash
-# 段言（DuanLang）v6.1.0 Linux .deb 安装包构建脚本
+# 段言（DuanLang）v7.0.0 Linux .deb 安装包构建脚本
 # 需要 dpkg-dev
 # 安装命令: sudo apt install dpkg-dev
 
@@ -8,7 +8,7 @@ set -e
 PROJECT_ROOT="$(cd "$(dirname "$0")/../../" && pwd)"
 INSTALLER_DIR="$PROJECT_ROOT/tools/installer/linux"
 OUTPUT_DIR="$PROJECT_ROOT/output/linux"
-VERSION="6.1.0"
+VERSION="7.0.0"
 PACKAGE_NAME="duan_$VERSION"
 DEB_NAME="duan_${VERSION}_all.deb"
 
@@ -29,7 +29,7 @@ mkdir -p "$CONTROL_DIR"
 # 3. 创建 control 文件
 cat > "$CONTROL_DIR/control" << 'CONTROL'
 Package: duan
-Version: 6.1.0
+Version: 7.0.0
 Section: devel
 Priority: optional
 Architecture: all

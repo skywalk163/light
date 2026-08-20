@@ -34,10 +34,26 @@ _EXPR_START_KEYWORDS = frozenset({
 })
 
 # 具名实参（kwarg=value）参数名收集时的停用关键字集合（v7 新单 B）。
-# 与 _parse_postfix 里既有的两处 C 风格 kwarg 检测同款判据保持字面一致，
-# 抽成模块常量供 _try_parse_keyword_arg 单点复用（三处括号式收参循环共享），
-# 避免多处判据分叉。收名字时一旦碰到这些语句/表达式起始关键字即停，
+# 全仓唯一定义点：收名字时一旦碰到这些语句/表达式起始关键字即停，
 # 防止把 `依据` 后面的 `段`… 误并进参数名。
+#
+# 引用点共 3 处（本文件内，按符号名定位，不写行号以免注释随编辑漂移；
+# grep `_KWARG_NAME_STOP_KEYWORDS` 可一次列全）：
+#   · _try_parse_keyword_arg() —— 被两条收参循环各调用一次。实测这条 helper
+#     接走了绝大多数写法：`甲(a = 1)`、`排序(数组, 依据 = 键)`、`对象的方法(参数 = 1)`
+#     全走 helper。
+#   · 成员方法调用括号收参循环内联使用（_kwarg_stop_kws）。实测只有**英文点号**
+#     写法 `对象.方法(参数 = 1)`（FFI/外部库调用）会进这里，「的」字写法不会。
+#   · ParagraphCall 括号收参循环内联使用（_kwarg_stop_kws）。用 sys.settrace 试过
+#     12 种候选写法都没命中它的 kwarg 段落——helper 先接走了，暂未找到可达输入。
+#     保留不删是因为判据本身没错，删它属于无实证依据的清理；但别拿它当已验证路径。
+# 两处内联不改调 helper，是因为取值粒度（_parse_comparison）与回退行为跟
+# helper（_parse_logical_expr）不同，合并会改语义；此处只统一「判据集合」
+# 这一份数据，杜绝集合本身漂移。守卫见
+# tests/unit/test_prescan_embed_semicolon_kwarg.py 末两个测试类。
+#
+# 注意：_fn_stop / _fn_stop2 看着像同一份表，其实多了「在/于/中的/包含」四项，
+# 服务的是**函数名动词合并**而不是 kwarg 收名，不可与本常量合并。
 _KWARG_NAME_STOP_KEYWORDS = frozenset({
     '为', '等于', '接收', '返回', '令', '循环', '断言', '输出',
     '如果', '否则', '那么', '若', '则', '当', '遍历', '设', '定义',
@@ -2547,15 +2563,10 @@ class ParserExprMixin:
                         continue
                     # 支持 C 风格关键字参数：name = value
                     # name 可能由多个 token 组成（如 "获取函数" 被拆分为 "获取"+函数"）
+                    # 停用字判据统一走模块常量，与 _try_parse_keyword_arg 单点同源，避免分叉。
                     _kwarg_saved_pos = self.pos
                     _kwarg_name_parts = []
-                    _kwarg_stop_kws = frozenset({
-                        '为', '等于', '接收', '返回', '令', '循环', '断言', '输出',
-                        '如果', '否则', '那么', '若', '则', '当', '遍历', '设', '定义',
-                        '类', '构造', '函数', '段落', '尝试', '捕获', '抛出', '最终', '导入',
-                        '导出', '从', '真', '假', '空', '且', '或', '非', '与', '等待',
-                        '匹配', '情况', '的', '之', '对', '步', '至', '到',
-                    })
+                    _kwarg_stop_kws = _KWARG_NAME_STOP_KEYWORDS
                     while self._current():
                         _t = self._current()
                         if _t.type == TokenType.IDENTIFIER:
@@ -2722,15 +2733,10 @@ class ParserExprMixin:
                                     self._consume(TokenType.COMMA)
                                 continue
                             # 支持关键字参数：name = value
+                            # 停用字判据统一走模块常量，与 _try_parse_keyword_arg 单点同源，避免分叉。
                             _kwarg_saved_pos = self.pos
                             _kwarg_name_parts = []
-                            _kwarg_stop_kws = frozenset({
-                                '为', '等于', '接收', '返回', '令', '循环', '断言', '输出',
-                                '如果', '否则', '那么', '若', '则', '当', '遍历', '设', '定义',
-                                '类', '构造', '函数', '段落', '尝试', '捕获', '抛出', '最终', '导入',
-                                '导出', '从', '真', '假', '空', '且', '或', '非', '与', '等待',
-                                '匹配', '情况', '的', '之', '对', '步', '至', '到',
-                            })
+                            _kwarg_stop_kws = _KWARG_NAME_STOP_KEYWORDS
                             while self._current():
                                 _t = self._current()
                                 if _t.type == TokenType.IDENTIFIER:

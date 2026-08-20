@@ -1,5 +1,5 @@
 #!/bin/bash
-# 段言（DuanLang）v6.1.0 macOS 安装包构建脚本
+# 段言（DuanLang）v7.0.0 macOS 安装包构建脚本
 # 需要 Xcode Command Line Tools（pkgbuild + productbuild）
 # 安装命令: xcode-select --install
 
@@ -8,7 +8,7 @@ set -e
 PROJECT_ROOT="$(cd "$(dirname "$0")/../../" && pwd)"
 INSTALLER_DIR="$PROJECT_ROOT/tools/installer/macos"
 OUTPUT_DIR="$PROJECT_ROOT/output/macos"
-VERSION="6.1.0"
+VERSION="7.0.0"
 PKG_NAME="duan-$VERSION.pkg"
 
 echo "================================================"

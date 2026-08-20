@@ -391,13 +391,18 @@ class TestRegression(unittest.TestCase):
     """回归测试：确保新功能不破坏现有功能"""
 
     def test_l0_keywords(self):
-        """测试 L0 关键字定义完整性"""
-        from keywords import KEYWORDS_L0_CORE
-        # 30 个核心关键字
-        self.assertGreaterEqual(len(KEYWORDS_L0_CORE), 25)
-        # 关键控制流关键字
+        """L0 控制流/异常关键字都在真关键字集 ALL_KEYWORDS 里。
+
+        注意：曾经这里查的是 `keywords.KEYWORDS_L0_CORE`——那张「30 字冻结表」
+        已于 2026-08-20 删除（lexer 从不消费它、且与文档 44 字表是两组字，
+        理由见 src/keywords.py 文件头）。L0 字表的权威现在是
+        docs/language/l0-core.md，逐字落地校验在 tests/unit/test_spec_docs_sync.py。
+        本用例只保留一个粗粒度冒烟：核心控制流/异常字确实是真关键字。
+        """
+        from keywords import ALL_KEYWORDS
         for kw in ['若', '否', '当', '遍', '返', '试', '捕', '抛', '终']:
-            self.assertIn(kw, KEYWORDS_L0_CORE)
+            self.assertIn(kw, ALL_KEYWORDS)
+
 
     def test_lexer_recognizes_l0_keywords(self):
         """测试词法分析器识别 L0 关键字"""

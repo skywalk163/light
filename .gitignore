@@ -194,6 +194,9 @@ src/test_*.py
 # （check_*.py 会误伤闸门脚本，*.txt 会误伤基线清单）
 !tools/ci/check_regression.py
 !tests/ci_baseline_failures.txt
+# 文档代码块闸门的分类基线：被第 46 行的全局 *.json 误伤。
+# 不入库的话 test_doc_examples_gate.py 在干净克隆里会 FileNotFoundError，闸门整条失效。
+!tests/unit/doc_examples_baseline.json
 
 # AI Copilot 训练产物
 tools/ai_copilot/output/

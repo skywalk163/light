@@ -1,10 +1,10 @@
-; 段言（DuanLang）v6.1.0 Windows 安装包配置文件
+; 段言（DuanLang）v7.0.0 Windows 安装包配置文件
 ; 需要 Inno Setup 6+ 编译
 ; 下载地址: https://jrsoftware.org/isdl.php
 
 #define MyAppName "段言"
 #define MyAppNameEnglish "DuanLang"
-#define MyAppVersion "6.1.0"
+#define MyAppVersion "7.0.0"
 #define MyAppPublisher "Duan Contributors"
 #define MyAppURL "https://github.com/skywalk163/duan"
 #define MyAppExeName "duan.exe"

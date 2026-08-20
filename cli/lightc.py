@@ -42,6 +42,7 @@ from light_parser_v3 import LightParser
 from semantic_analyzer import SemanticAnalyzer
 from code_generator import PythonCodeGenerator
 from core.errors import LightError, LexerError, ParserError, SemanticError
+from version import VERSION as _LANG_VERSION
 
 
 class LightCompiler:
@@ -140,7 +141,7 @@ def main():
     parser.add_argument('-v', '--verbose', action='store_true', help='详细输出')
     
     # 其他选项
-    parser.add_argument('--version', action='version', version='光明编译器 v7.0.0')
+    parser.add_argument('--version', action='version', version=f'光明编译器 v{_LANG_VERSION}')
     parser.add_argument('--init', action='store_true', help='创建示例项目')
     
     # 解析参数

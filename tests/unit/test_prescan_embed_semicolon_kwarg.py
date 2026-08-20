@@ -31,7 +31,16 @@ examples/F阶段_标准库增强/F3_段言侧三个增强模块示例.light 的�
 
 判据全部走「词法器 token 类型/行号」或「解析 .light 看是否成树/报错文案」，
 不依赖具体 Python 版本或平台，也不依赖任何第三方科学库。
+
+—— 追加：v7 kwarg 判据收敛单（本文件末两个类）——
+上面第 4 条只保证「括号里能写 `名=值`」，没管这条判据的**数据源有几份**。
+处置遗留 stash 时发现 parser_expr.py 里同一份 44 字停用集合存了 3 份
+（模块常量 + 两条内联收参分支各一份副本），加字时会静默漂移。
+收敛后内联分支改引模块常量，并补 TestKwargStopKeywordsSinglePoint（源码级，
+钉住「只有一个定义点」）与 TestKwargAtEveryBracketSite（行为级，钉住 4 条
+收参循环都还能出 `名=值`，且 `==` 不被误读成具名实参）。
 """
+
 
 import os
 import sys
@@ -154,6 +163,126 @@ class TestKeywordArgInBracketCall(unittest.TestCase):
     def test_multiple_named_args(self):
         tree, errs = _parse('设 甲 为 某函数(起=1, 止=10, 步长天=2)\n')
         self.assertIsNotNone(tree, '括号调用多命名实参解析失败: %s' % errs)
+
+
+class TestKwargStopKeywordsSinglePoint(unittest.TestCase):
+    """v7 收敛单：kwarg 停用字判据在 parser_expr.py 里只能有**一个定义点**。
+
+    背景（本轮 stash 处置时发现的遗留分叉隐患）：
+    「具名实参 `名 = 值`」这条产生式落在 4 条括号式收参循环上，其中
+      · 2 条走 helper `_try_parse_keyword_arg()`；
+      · 2 条（ParagraphCall 括号收参、`obj的方法(...)` 括号收参）保留内联实现，
+        因为取值粒度是 `_parse_comparison` 而 helper 用 `_parse_logical_expr`，
+        回退行为也不同，合并会改语义。
+    收敛前这 2 条内联分支各自复制了一份 44 字停用集合（与模块常量逐字相同），
+    共 3 份同款数据。任何人往 `_KWARG_NAME_STOP_KEYWORDS` 加一个字，两份内联
+    副本会静默漂移——判据分叉的典型形状，且不会被任何行为测试打红。
+    收敛做法：只统一「判据集合」这一份数据（内联分支改引模块常量），不动取值粒度。
+
+    本类是**源码级**守卫，配 TestKwargAtEveryBracketSite 的行为级守卫一起用：
+    行为测试只能证明「现在对」，证不了「没有第二份表」。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        path = os.path.join(_ROOT, 'src', 'parser_expr.py')
+        with open(path, 'r', encoding='utf-8') as f:
+            cls.源码 = f.read()
+        cls.源码路径 = path
+
+    def test_停用集合只有一个定义点(self):
+        次数 = self.源码.count('_KWARG_NAME_STOP_KEYWORDS = frozenset({')
+        self.assertEqual(1, 次数,
+                         '_KWARG_NAME_STOP_KEYWORDS 的 frozenset 定义点应恰好 1 处，实得 %d 处' % 次数)
+
+    def test_内联分支不得自建停用集合(self):
+        # 收敛后内联分支只允许 `_kwarg_stop_kws = _KWARG_NAME_STOP_KEYWORDS`，
+        # 一旦有人重新写回 `_kwarg_stop_kws = frozenset({...})`，此断言打红。
+        self.assertNotIn('_kwarg_stop_kws = frozenset(', self.源码,
+                         '内联收参分支又自建了一份 kwarg 停用集合，判据已分叉')
+
+    def test_每处内联赋值都指向模块常量(self):
+        赋值 = [行.strip() for 行 in self.源码.splitlines()
+                if 行.strip().startswith('_kwarg_stop_kws =')]
+        self.assertTrue(赋值, '未找到 _kwarg_stop_kws 赋值，内联收参分支可能被改名')
+        for 行 in 赋值:
+            self.assertEqual('_kwarg_stop_kws = _KWARG_NAME_STOP_KEYWORDS', 行,
+                             '内联赋值未指向模块常量: %s' % 行)
+
+    def test_不得与函数名动词合并表混淆(self):
+        """`_fn_stop` / `_fn_stop2` 看着像同一份表，实际多 4 项，不可合并。
+
+        它们服务的是**函数名动词合并**（`获取函数` 拼名），比 kwarg 停用集合多
+        「在/于/中的/包含」。若哪天有人图省事把两者合并，kwarg 参数名里就再也
+        写不出含「在/于/包含」的名字了。这里从反面钉住：模块常量**不含**这 4 项。
+        """
+        from parser_expr import _KWARG_NAME_STOP_KEYWORDS
+        for 字 in ('在', '于', '中的', '包含'):
+            self.assertNotIn(字, _KWARG_NAME_STOP_KEYWORDS,
+                             'kwarg 停用集合混进了函数名动词合并表专有的「%s」' % 字)
+
+
+class TestKwargAtEveryBracketSite(unittest.TestCase):
+    """行为级守卫：括号式收参的各条 kwarg 路径都要真能出 `名=值`。
+
+    判据取「生成的 Python 末行」，因为 code_generator 会在前面吐一大段
+    stdlib 前导，只有末行是本次语句的产物。
+
+    路由实测（sys.settrace 记录 parser_expr.py 行命中，逐条核过）：
+      · `甲(a = 1)`、`排序(数组, 依据 = 键)`、`对象的方法(参数 = 1)`
+        —— 都走 helper `_try_parse_keyword_arg`，**不进**两处内联分支；
+      · `对象.方法(参数 = 1)`（英文点号 = FFI/外部库调用写法）
+        —— 唯一进「成员方法调用」内联分支的写法；
+      · ParagraphCall 内联分支的 kwarg 段落，12 种候选写法全都没命中，
+        实测未找到可达输入（helper 先接走了），故本类不为它编造覆盖。
+        这一条只由 TestKwargStopKeywordsSinglePoint 的源码级断言守着。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from code_generator import PythonCodeGenerator
+        except ImportError as e:                          # pragma: no cover
+            raise unittest.SkipTest('code_generator 不可用: %s' % e)
+        cls.Gen = PythonCodeGenerator
+
+    def _末行(self, 源码):
+        tree, errs = _parse(源码)
+        self.assertIsNotNone(tree, '%r 解析失败: %s' % (源码, errs))
+        out = self.Gen().generate(tree)
+        行 = [l for l in out.strip().split('\n') if l.strip()]
+        return 行[-1]
+
+    def test_英文点号成员调用走内联分支(self):
+        """`对象.方法(参数 = 1)`——实测唯一进「成员方法调用」内联收参分支的写法。
+
+        反跑证过：把该分支的 EQUALS 判据改成别的 token，只有本用例打红。
+        """
+        self.assertIn('参数=1', self._末行('设 甲 为 对象.方法(参数 = 1)。'))
+
+    def test_的字成员调用(self):
+        # 走 helper，不进内联分支；与上一条一起把两条路由都钉住
+        self.assertIn('参数=1', self._末行('设 乙 为 对象的方法(参数 = 1)。'))
+
+    def test_段落调用具名实参(self):
+        # 走 helper。排序→sorted、依据→key 由 builtin_map 落地
+        self.assertIn('key=', self._末行('设 丙 为 排序(数组, 依据 = 键)。'))
+
+    def test_helper分支多个具名实参(self):
+        末行 = self._末行('设 丁 为 甲(a = 1, b = 2)。')
+        self.assertIn('a=1', 末行)
+        self.assertIn('b=2', 末行)
+
+    def test_比较运算不得被误读成具名实参(self):
+        """`==` 是独立的 EQ_EQ token，收名字后看到它必须回退成位置实参。
+
+        这是整条产生式「单向放宽」的关键反例：若判据写成看见 `=` 就当 kwarg，
+        `甲(乙 == 丙)` 会被改写成 `甲(乙=丙)`——静默错译，比报错危险得多。
+        """
+        末行 = self._末行('设 戊 为 甲(乙 == 丙)。')
+        self.assertIn('==', 末行, '比较运算被吞成了具名实参: %s' % 末行)
+
+
 
 
 class TestIndentErrorMessage(unittest.TestCase):

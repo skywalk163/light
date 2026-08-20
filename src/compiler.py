@@ -28,6 +28,7 @@ from optimizer import (
 )
 from errors import LightError, LightErrorFormatter, format_source_context, format_error_with_context
 from errors import CompilerErrorCollector, ErrorEntry
+from version import VERSION as _LANG_VERSION
 
 # 导入编译缓存系统
 try:
@@ -910,8 +911,8 @@ class LightCompiler:
         result = compiler.compile_project('/path/to/project')
     """
 
-    # 光明编译器版本号
-    VERSION = "6.1.0"
+    # 光明编译器版本号（唯一真源 src/version.py，禁止写死字面量）
+    VERSION = _LANG_VERSION
 
     def __init__(self, project_root: Optional[str] = None):
         from core.config import LightConfig

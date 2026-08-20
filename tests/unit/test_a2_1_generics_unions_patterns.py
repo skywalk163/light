@@ -2072,5 +2072,78 @@ class TestTypeAlias(unittest.TestCase):
         self.assertIn('新别名', self.inf.type_aliases)
 
 
+class TestTypeAliasFromSource(unittest.TestCase):
+    """从**源码**解析类型别名（回归：2026-08-20 两处内部崩溃）。
+
+    为什么单独加这一类：上面的 TestTypeAlias 全部直接 new 出 TypeAlias 节点或
+    往 inferencer 里塞字典，**从来没有一条走过 parser**。于是
+    `src/parser_stmt.py::_parse_type_alias` 里的两处笔误活了下来，谁也没发现
+    `类型 X = Y。` 这句根本编不过：
+
+    1. `TokenType.ASSIGN` —— 该枚举成员不存在（词法器发的是 `EQUALS`），
+       抛 `AttributeError: type object 'TokenType' has no attribute 'ASSIGN'`。
+    2. 修好第 1 处后暴露第 2 处：`result.line, result.col = ...`，而 `ASTNode`
+       的字段叫 `column`；`TypeAlias` 是 `@dataclass(slots=True)`，没有
+       `__dict__`，于是抛 `'TypeAlias' object has no attribute 'col'`。
+
+    两处都是**内部崩溃**而非语法报错，所以是编译器缺陷：文档教了这个写法，
+    外部使用者照抄就撞 AttributeError（这正是文档示例门禁里 3 条
+    COMPILER_BUG 的来源，见 tests/unit/test_doc_examples_gate.py）。
+
+    本类断言的是「源码进、AST 出」这条链路本身，任何一处笔误复发都会红。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from light_parser_v3 import LightParser
+            cls.LightParser = LightParser
+        except ImportError as e:
+            raise unittest.SkipTest(f"LightParser 模块不可用: {e}")
+
+    def _解析别名(self, 源码):
+        module = self.LightParser().parse(源码)
+        nodes = list(getattr(module, 'statements', None) or [])
+        nodes += list(getattr(module, 'type_aliases', None) or [])
+        aliases = [n for n in nodes if type(n).__name__ == 'TypeAlias']
+        self.assertEqual(1, len(aliases),
+                         f"{源码!r} 应解析出恰好 1 个 TypeAlias，实得 {len(aliases)}")
+        return aliases[0]
+
+    def test_等号形式(self):
+        """`类型 名 = 类型定义。`——原先抛 TokenType.ASSIGN AttributeError。"""
+        alias = self._解析别名('类型 数字列表 = 列表[数]。')
+        self.assertEqual('数字列表', alias.name)
+        self.assertIn('列表', alias.target_type)
+
+    def test_中文冒号形式(self):
+        """`类型 名：类型定义。`——分隔符的另一种合法写法。"""
+        alias = self._解析别名('类型 数字列表：列表[数]。')
+        self.assertEqual('数字列表', alias.name)
+
+    def test_为字形式(self):
+        """`类型 名 为 类型定义。`——分隔符的第三种合法写法。"""
+        alias = self._解析别名('类型 数字列表 为 列表[数]。')
+        self.assertEqual('数字列表', alias.name)
+
+    def test_带泛型参数(self):
+        alias = self._解析别名('类型 映射[K, V] = 字典[K, V]。')
+        self.assertEqual('映射', alias.name)
+        self.assertEqual(['K', 'V'], alias.generic_params)
+
+    def test_位置信息写在column而不是col(self):
+        """回归 slots 崩溃：位置必须落在 `column` 字段上。
+
+        写 `.col` 在 `slots=True` 的节点上是硬崩溃而非静默失败，所以这里同时
+        断言 `column` 有值、且 `col` 这个错名字并不存在。
+        """
+        alias = self._解析别名('类型 数字列表 = 列表[数]。')
+        self.assertEqual(1, alias.line)
+        self.assertEqual(1, alias.column)
+        self.assertFalse(hasattr(alias, 'col'),
+                         "TypeAlias 上出现了 col 字段——位置字段名应统一为 column")
+
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
