@@ -21,20 +21,35 @@
 #include <errno.h>
 
 #ifdef _WIN32
+/* winsock2.h must be included BEFORE windows.h to avoid redefinition */
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <io.h>
 #include <direct.h>
+#pragma comment(lib, "ws2_32.lib")
 #define F_OK 0
 #define access _access
 #else
 #include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/select.h>
+#include <netdb.h>
 #endif
 
 /* ================================================================
  * 类型定义
  * ================================================================ */
 
-typedef struct LightValue {
+typedef struct LightValue LightValue;
+/* DuanValue is an alias for LightValue (legacy interface system) */
+typedef LightValue DuanValue;
+/* DuanMethodFunc: function pointer type for interface method dispatch */
+typedef void (*DuanMethodFunc)(DuanValue* result, DuanValue* obj,
+                               DuanValue* args, int num_args);
+struct LightValue {
     int type;          /* 0=NULL 1=INT 2=FLOAT 3=STR 4=LIST 5=BOOL 6=OBJ 7=DICT 8=REF */
     int64_t i64;       /* INT */
     double f64;        /* FLOAT */
@@ -48,7 +63,7 @@ typedef struct LightValue {
        list_data 存储键值对: [key1, val1, key2, val2, ...]
        list_size = 键值对数量
        list_capacity = 已分配容量（对数，list_data 有 2*list_capacity 个槽位） */
-} LightValue;
+};
 
 /* type=8 REF: 引用类型，str 字段存储被引用的 LightValue* 指针
    用于 dv_dict_get 返回对字典内部值的引用，使原地修改（如列表追加）能传播回字典 */
@@ -4021,7 +4036,7 @@ void dv_get_type_name(LightValue* obj, char* buf, int buf_size) {
 typedef void (*LightCoroFunc)(LightValue*, void*, LightValue*, int);
 
 /* 最大协程数 */
-#define DV_MAX_COROUTINES 256
+#define DV_MAX_COROUTINES 4096
 
 /* 协程句柄结构体 */
 typedef struct LightCoroutine {
@@ -4340,4 +4355,451 @@ LightFuture* dv_future_from_value(LightValue* val) {
         f->ready = 1;
     }
     return f;
+}
+
+/* ================================================================
+ * B1: 网络/Socket 原语
+ * ================================================================ */
+
+#ifdef _WIN32
+static int g_winsock_initialized = 0;
+
+static void dv_winsock_init(void) {
+    if (!g_winsock_initialized) {
+        WSADATA wsa;
+        WSAStartup(MAKEWORD(2, 2), &wsa);
+        g_winsock_initialized = 1;
+    }
+}
+
+/* MSVC 没有 __attribute__((constructor))，用 CRT 段注册 */
+#if defined(_MSC_VER)
+#pragma section(".CRT$XCU", read)
+static void __cdecl dv_winsock_ctor(void) { dv_winsock_init(); }
+__declspec(allocate(".CRT$XCU")) void (*dv_winsock_ptr)(void) = dv_winsock_ctor;
+#endif
+#endif /* _WIN32 */
+
+static char g_socket_error_msg[256] = {0};
+static int g_socket_error_code = 0;
+
+int dv_socket_create(int domain, int type) {
+#ifdef _WIN32
+    dv_winsock_init();
+#endif
+    int fd = (int)socket(domain, type, 0);
+    if (fd < 0) {
+#ifdef _WIN32
+        g_socket_error_code = WSAGetLastError();
+#else
+        g_socket_error_code = errno;
+#endif
+    }
+    return fd;
+}
+
+int dv_socket_connect(int fd, const char* host, int port) {
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons((u_short)port);
+
+    /* 尝试直接 inet_addr，失败则 getaddrinfo */
+    unsigned long ip = inet_addr(host);
+    if (ip == INADDR_NONE) {
+        struct hostent* he = gethostbyname(host);
+        if (!he) {
+            g_socket_error_code = -1;
+            snprintf(g_socket_error_msg, sizeof(g_socket_error_msg), "无法解析主机: %s", host);
+            return -1;
+        }
+        memcpy(&addr.sin_addr, he->h_addr_list[0], he->h_length);
+    } else {
+        addr.sin_addr.s_addr = ip;
+    }
+
+    int ret = connect(fd, (struct sockaddr*)&addr, sizeof(addr));
+    if (ret < 0) {
+#ifdef _WIN32
+        g_socket_error_code = WSAGetLastError();
+        snprintf(g_socket_error_msg, sizeof(g_socket_error_msg), "connect: errno %d", g_socket_error_code);
+#else
+        g_socket_error_code = errno;
+        snprintf(g_socket_error_msg, sizeof(g_socket_error_msg), "connect: errno %d (%s)", errno, strerror(errno));
+#endif
+    }
+    return ret;
+}
+
+int dv_socket_bind(int fd, const char* host, int port) {
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons((u_short)port);
+    addr.sin_addr.s_addr = (host && host[0]) ? inet_addr(host) : htonl(INADDR_ANY);
+    return bind(fd, (struct sockaddr*)&addr, sizeof(addr));
+}
+
+int dv_socket_listen(int fd, int backlog) {
+    return listen(fd, backlog);
+}
+
+int dv_socket_accept(int fd) {
+    struct sockaddr_in addr;
+    socklen_t len = sizeof(addr);
+    return (int)accept(fd, (struct sockaddr*)&addr, &len);
+}
+
+int dv_socket_send(int fd, const char* data) {
+    if (!data) return 0;
+    int len = (int)strlen(data);
+    return (int)send(fd, data, len, 0);
+}
+
+void dv_socket_recv(LightValue* result, int fd, int max_bytes) {
+    if (!result) return;
+    if (max_bytes <= 0) max_bytes = 4096;
+    char* buf = (char*)malloc(max_bytes + 1);
+    if (!buf) { dv_null(result); return; }
+    int n = (int)recv(fd, buf, max_bytes, 0);
+    if (n <= 0) {
+        free(buf);
+        dv_str(result, "");
+        return;
+    }
+    buf[n] = '\0';
+    dv_str(result, buf);
+    free(buf);
+}
+
+int dv_socket_close(int fd) {
+#ifdef _WIN32
+    return closesocket(fd);
+#else
+    return close(fd);
+#endif
+}
+
+int dv_socket_shutdown(int fd, int how) {
+    return shutdown(fd, how);
+}
+
+int dv_socket_set_nonblocking(int fd, int enable) {
+#ifdef _WIN32
+    u_long mode = enable ? 1 : 0;
+    return ioctlsocket(fd, FIONBIO, &mode);
+#else
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags < 0) return -1;
+    if (enable) flags |= O_NONBLOCK; else flags &= ~O_NONBLOCK;
+    return fcntl(fd, F_SETFL, flags);
+#endif
+}
+
+const char* dv_socket_last_error(void) {
+    return g_socket_error_msg;
+}
+
+int dv_socket_last_error_code(void) {
+    return g_socket_error_code;
+}
+
+const char* dv_socket_get_peer_addr(int fd) {
+    static char buf[64];
+    struct sockaddr_in addr;
+    socklen_t len = sizeof(addr);
+    if (getpeername(fd, (struct sockaddr*)&addr, &len) == 0) {
+        snprintf(buf, sizeof(buf), "%s:%d", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+    } else {
+        buf[0] = '\0';
+    }
+    return buf;
+}
+
+/* ================================================================
+ * B2: IO 多路复用 (select-based poller)
+ * ================================================================ */
+
+#define DV_POLL_READ  1
+#define DV_POLL_WRITE 2
+#define DV_POLLER_MAX 256
+
+typedef struct {
+    int registered_fds[DV_POLLER_MAX];
+    int registered_events[DV_POLLER_MAX];
+    int num_registered;
+#ifdef _WIN32
+    fd_set read_fds;
+    fd_set write_fds;
+#else
+    fd_set read_fds;
+    fd_set write_fds;
+    int max_fd;
+#endif
+} LightPoller;
+
+LightPoller* dv_poller_create(void) {
+    LightPoller* p = (LightPoller*)calloc(1, sizeof(LightPoller));
+    return p;
+}
+
+int dv_poller_register(LightPoller* p, int fd, int events) {
+    if (!p || p->num_registered >= DV_POLLER_MAX) return -1;
+    /* 检查是否已注册 */
+    for (int i = 0; i < p->num_registered; i++) {
+        if (p->registered_fds[i] == fd) {
+            p->registered_events[i] = events;
+            return 0;
+        }
+    }
+    p->registered_fds[p->num_registered] = fd;
+    p->registered_events[p->num_registered] = events;
+    p->num_registered++;
+    return 0;
+}
+
+int dv_poller_unregister(LightPoller* p, int fd) {
+    if (!p) return -1;
+    for (int i = 0; i < p->num_registered; i++) {
+        if (p->registered_fds[i] == fd) {
+            /* 用最后一个元素填补 */
+            p->num_registered--;
+            p->registered_fds[i] = p->registered_fds[p->num_registered];
+            p->registered_events[i] = p->registered_events[p->num_registered];
+            return 0;
+        }
+    }
+    return -1;
+}
+
+int dv_poller_wait(LightPoller* p, int timeout_ms, int* out_fds, int* out_events) {
+    if (!p || p->num_registered == 0) return 0;
+
+    FD_ZERO(&p->read_fds);
+    FD_ZERO(&p->write_fds);
+#ifndef _WIN32
+    p->max_fd = -1;
+#endif
+
+    for (int i = 0; i < p->num_registered; i++) {
+        int fd = p->registered_fds[i];
+        int events = p->registered_events[i];
+        if (events & DV_POLL_READ) FD_SET(fd, &p->read_fds);
+        if (events & DV_POLL_WRITE) FD_SET(fd, &p->write_fds);
+#ifndef _WIN32
+        if (fd > p->max_fd) p->max_fd = fd;
+#endif
+    }
+
+    struct timeval tv;
+    struct timeval* ptv = NULL;
+    if (timeout_ms >= 0) {
+        tv.tv_sec = timeout_ms / 1000;
+        tv.tv_usec = (timeout_ms % 1000) * 1000;
+        ptv = &tv;
+    }
+
+    int ready;
+#ifdef _WIN32
+    ready = select(0, &p->read_fds, &p->write_fds, NULL, ptv);
+#else
+    ready = select(p->max_fd + 1, &p->read_fds, &p->write_fds, NULL, ptv);
+#endif
+
+    if (ready <= 0) return 0;
+
+    int count = 0;
+    for (int i = 0; i < p->num_registered && count < 256; i++) {
+        int fd = p->registered_fds[i];
+        int events = 0;
+        if (FD_ISSET(fd, &p->read_fds)) events |= DV_POLL_READ;
+        if (FD_ISSET(fd, &p->write_fds)) events |= DV_POLL_WRITE;
+        if (events) {
+            out_fds[count] = fd;
+            out_events[count] = events;
+            count++;
+        }
+    }
+    return count;
+}
+
+void dv_poller_destroy(LightPoller* p) {
+    if (p) free(p);
+}
+
+/* ================================================================
+ * B3: 事件循环 — 调度器 IO 唤醒 + sleep
+ * ================================================================ */
+
+/* IO 等待队列 */
+typedef struct LightIOWait {
+    int fd;
+    int events;
+    LightCoroutine* coro;
+    struct LightIOWait* next;
+} LightIOWait;
+
+/* 定时器链表 */
+typedef struct LightTimer {
+    int64_t expire_ms;
+    LightCoroutine* coro;
+    struct LightTimer* next;
+} LightTimer;
+
+static LightIOWait* g_io_wait_head = NULL;
+static LightTimer* g_timer_head = NULL;
+static LightPoller* g_poller = NULL;
+
+static int64_t dv_now_ms(void) {
+#ifdef _WIN32
+    static LARGE_INTEGER freq = {0};
+    if (freq.QuadPart == 0) QueryPerformanceFrequency(&freq);
+    LARGE_INTEGER now;
+    QueryPerformanceCounter(&now);
+    return (int64_t)(now.QuadPart * 1000 / freq.QuadPart);
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+#endif
+}
+
+/* 让当前协程挂起等待 IO */
+void dv_coro_await_io(LightCoroutine* coro, int fd, int events) {
+    if (!coro || fd < 0) return;
+    if (!g_poller) g_poller = dv_poller_create();
+    dv_poller_register(g_poller, fd, events);
+
+    LightIOWait* entry = (LightIOWait*)calloc(1, sizeof(LightIOWait));
+    if (!entry) return;
+    entry->fd = fd;
+    entry->events = events;
+    entry->coro = coro;
+    entry->next = g_io_wait_head;
+    g_io_wait_head = entry;
+
+    coro->state = DV_CORO_SUSPENDED;
+    coro->waiting_for = (LightFuture*)entry;
+}
+
+/* 让当前协程睡眠 ms 毫秒 */
+void dv_coro_sleep(LightCoroutine* coro, int ms) {
+    if (!coro || ms <= 0) return;
+
+    LightTimer* timer = (LightTimer*)calloc(1, sizeof(LightTimer));
+    if (!timer) return;
+    timer->expire_ms = dv_now_ms() + ms;
+    timer->coro = coro;
+    timer->next = NULL;
+
+    /* 按到期时间插入排序 */
+    if (!g_timer_head || timer->expire_ms < g_timer_head->expire_ms) {
+        timer->next = g_timer_head;
+        g_timer_head = timer;
+    } else {
+        LightTimer* cur = g_timer_head;
+        while (cur->next && cur->next->expire_ms <= timer->expire_ms) {
+            cur = cur->next;
+        }
+        timer->next = cur->next;
+        cur->next = timer;
+    }
+
+    coro->state = DV_CORO_SUSPENDED;
+    coro->waiting_for = (LightFuture*)timer;
+}
+
+/* 平台级 sleep（非协程环境） */
+void dv_platform_sleep(int ms) {
+#ifdef _WIN32
+    Sleep(ms);
+#else
+    struct timespec ts;
+    ts.tv_sec = ms / 1000;
+    ts.tv_nsec = (ms % 1000) * 1000000;
+    nanosleep(&ts, NULL);
+#endif
+}
+
+/* 处理到期定时器，返回下一个定时器剩余毫秒（-1 表示无定时器） */
+static int dv_process_timers(void) {
+    if (!g_timer_head) return -1;
+
+    int64_t now = dv_now_ms();
+    int count = 0;
+
+    while (g_timer_head && g_timer_head->expire_ms <= now) {
+        LightTimer* t = g_timer_head;
+        g_timer_head = t->next;
+
+        /* 唤醒协程：放回 run_queue */
+        t->coro->state = DV_CORO_READY;
+        t->coro->waiting_for = NULL;
+        t->coro->next = g_scheduler.run_queue;
+        g_scheduler.run_queue = t->coro;
+        free(t);
+        count++;
+    }
+
+    if (g_timer_head) {
+        int64_t remaining = g_timer_head->expire_ms - dv_now_ms();
+        return remaining > 0 ? (int)remaining : 0;
+    }
+    return -1;
+}
+
+/* 事件循环主函数 */
+void dv_scheduler_run_event_loop(void) {
+    while (g_scheduler.run_queue || g_io_wait_head || g_timer_head) {
+        /* 1. 跑完所有就绪协程 */
+        while (g_scheduler.run_queue) {
+            LightCoroutine* coro = g_scheduler.run_queue;
+            g_scheduler.run_queue = coro->next;
+            coro->next = NULL;
+            dv_coro_resume(coro);
+        }
+
+        /* 2. 处理到期定时器 */
+        int timer_remaining = dv_process_timers();
+
+        /* 3. 计算 poller 超时 */
+        int poll_timeout;
+        if (g_io_wait_head) {
+            poll_timeout = (timer_remaining >= 0) ? timer_remaining : -1;
+        } else if (timer_remaining >= 0) {
+            poll_timeout = timer_remaining;
+        } else {
+            break;  /* 没有IO等待、没有定时器、没有就绪协程 → 退出 */
+        }
+
+        /* 4. 调用 poller 等待 IO 就绪 */
+        if (g_io_wait_head && g_poller) {
+            int out_fds[256];
+            int out_events[256];
+            int ready = dv_poller_wait(g_poller, poll_timeout, out_fds, out_events);
+
+            /* 5. 把就绪 fd 对应的协程移回 run_queue */
+            for (int i = 0; i < ready; i++) {
+                LightIOWait** pp = &g_io_wait_head;
+                while (*pp) {
+                    LightIOWait* entry = *pp;
+                    if (entry->fd == out_fds[i]) {
+                        *pp = entry->next;
+                        entry->coro->state = DV_CORO_READY;
+                        entry->coro->waiting_for = NULL;
+                        entry->coro->next = g_scheduler.run_queue;
+                        g_scheduler.run_queue = entry->coro;
+                        dv_poller_unregister(g_poller, entry->fd);
+                        free(entry);
+                        break;
+                    }
+                    pp = &entry->next;
+                }
+            }
+        } else if (poll_timeout > 0) {
+            /* 只有定时器，没有IO等待：睡眠到下一个定时器到期 */
+            dv_platform_sleep(poll_timeout);
+            dv_process_timers();
+        }
+    }
 }
