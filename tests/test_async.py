@@ -565,7 +565,8 @@ class TestAsyncGeneratorEndToEnd:
 结束。
 
 # 运行
-等待 主()。
+异步 运行 主()。
+
 """
         py_code = _compile_async(code)
         # 验证代码生成包含 async for
@@ -669,7 +670,8 @@ class TestAsyncEventLoop:
   打印 结果。
 结束。
 
-等待 主()。
+异步 运行 主()。
+
 """
         py_code = _compile_async(code)
         assert 'async def 异步任务' in py_code
@@ -677,7 +679,11 @@ class TestAsyncEventLoop:
         assert 'await 异步任务()' in py_code or 'return 42' in py_code
 
     def test_async_scope_codegen(self):
-        """验证异步作用域（结构化并发）代码生成"""
+        """验证异步作用域（结构化并发）代码生成
+
+        A1 起 `异步 作用域` 必须写在 异步 段落 里：它编成 `await asyncio.gather(...)`，
+        模块级的 await 是非法 Python。顶层要跑就用启动语句 `异步 运行 主()。`
+        """
         code = """
 异步 函数 任务A():
   返回 "A"。
@@ -687,14 +693,19 @@ class TestAsyncEventLoop:
   返回 "B"。
 结束。
 
-异步 作用域:
-  任务A()
-  任务B()
+异步 函数 主():
+  异步 作用域:
+    任务A()
+    任务B()
+  结束。
 结束。
+
+异步 运行 主()。
 """
         py_code = _compile_async(code)
         # 应包含 asyncio.gather
         assert 'asyncio.gather' in py_code, f"Expected 'asyncio.gather' in:\n{py_code}"
+        assert 'asyncio.run' in py_code, f"Expected 'asyncio.run' in:\n{py_code}"
 
     def test_async_scope_with_result_vars(self):
         """验证带结果变量的异步作用域"""
@@ -707,14 +718,19 @@ class TestAsyncEventLoop:
   返回 "配置"。
 结束。
 
-异步 作用域 结果:
-  获取数据()
-  获取配置()
+异步 函数 主():
+  异步 作用域 结果:
+    获取数据()
+    获取配置()
+  结束。
 结束。
+
+异步 运行 主()。
 """
         py_code = _compile_async(code)
         # 应包含结果变量赋值
         assert 'asyncio.gather' in py_code, f"Expected 'asyncio.gather' in:\n{py_code}"
+
 
 
 class TestAsyncEdgeCases:
@@ -746,7 +762,8 @@ class TestAsyncEdgeCases:
   结束。
 结束。
 
-等待 主()。
+异步 运行 主()。
+
 """
         py_code = _compile_async(code)
         assert 'async for' in py_code, f"Expected 'async for' in:\n{py_code}"
@@ -769,7 +786,8 @@ class TestAsyncEdgeCases:
   打印 结果。
 结束。
 
-等待 主()。
+异步 运行 主()。
+
 """
         py_code = _compile_async(code)
         assert 'async def 内层' in py_code
