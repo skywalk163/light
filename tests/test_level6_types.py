@@ -765,13 +765,25 @@ class TestTypeParser:
         t = self.parser.parse('数|空')
         assert t._type_id == 7  # TYPE_ID_OPTIONAL
 
-    def test_parse_function_with_parens_is_single_tuple_param(self):
-        """带括号的 (数, 串) -> 布尔：括号触发元组规则，等价于单参数（元组）函数
+    def test_parse_function_with_parens_is_multi_param(self):
+        """带括号的 (数, 串) -> 布尔：括号只是分组，等价于两参数函数
 
-        这是 TypeParser 既有行为：params_part 仍带括号时，
-        _split_top_level 不会在括号内切分，整体被解析为 TupleType。
+        口径以设计文档为准（docs/superpowers/specs/
+        2026-07-01-level6-type-annotation-design.md：
+        `(整数, 小数) -> 布尔  // 等价于 接收整数,小数返回布尔`）。
+        TypeParser 的函数类型分支先剥外层括号，再按顶层逗号切分。
+        单参元组要写 `元组[数, 串] -> 布尔`（见下一条）。
         """
         t = self.parser.parse('(数, 串) -> 布尔')
+        assert t._type_id == 12  # TYPE_ID_FUNCTION
+        assert len(t.param_types) == 2
+        assert t.param_types[0]._type_id == TYPE_NUMBER._type_id
+        assert t.param_types[1]._type_id == TYPE_STRING._type_id
+        assert t.return_type._type_id == TYPE_BOOLEAN._type_id
+
+    def test_parse_function_tuple_param_needs_tuple_syntax(self):
+        """单参元组只能显式写 元组[...]：剥外层括号不该让元组参数无法表达"""
+        t = self.parser.parse('元组[数, 串] -> 布尔')
         assert t._type_id == 12  # TYPE_ID_FUNCTION
         assert len(t.param_types) == 1
         assert t.param_types[0]._type_id == 10  # TYPE_ID_TUPLE
