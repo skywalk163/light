@@ -137,77 +137,35 @@ def list_packages(category: str = None, priority: str = None) -> list[str]:
 # 桥接：P0 包路由到现有 stdlib Python 实现
 # =============================================================================
 
-# P0 包名 → lightpub 桥接模块名映射
-# 这些包已有 Python 桥接实现，导入时路由到 stdlib/lightpub/ 下的桥接模块
-# 桥接模块封装 Python 标准库，提供中文名 API
+# P0 包名 → Python 模块名映射。
+#
+# 2026-08-21 缩表：这里原有 53 条，实测盘点后砍到 4 条。砍掉的不是「指向不存在
+# 的模块」——那 53 个桥接文件全都在。砍掉的是**永远查不到的条目**：
+#
+#   * 本表唯一的调用者是 get_stdlib_bridge()，而它只在
+#     src/code_generator.py 的 **P0 分支**里被调用（见该文件
+#     _resolve_lightpub_import）。P1/P2 由那个函数统一按
+#     「stdlib/ 根目录同名模块优先，否则 stdlib.lightpub.<包名>」处理，
+#     根本不看本表。原表 53 条里有 49 条 priority≠P0，等于摆着不生效。
+#   * 另有 5 条（加密 / 日期时间 / 数学运算 / 单元测试框架 / 配置管理）连
+#     PACKAGES 都没有——它们在外部数据源 C:\dumatework\lightpub\packages\ 里
+#     没有对应包，所以 resolve_import() 直接返回 None，本表更没机会被查。
+#     其中 `导入 加密` / `导入 日期时间` 目前能用纯属巧合：stdlib/加密.py 与
+#     stdlib/日期时间.py 恰好存在，走的是恒等映射那条路。
+#     `导入 数学运算` / `导入 单元测试框架` / `导入 配置管理` 则确实不可用，
+#     尽管 stdlib/lightpub/ 下有它们的桥接模块——**要启用得先在 lightpub
+#     数据源里补包，再重跑 tools/gen_lightpub_index.py**，不能靠手编元数据。
+#
+# 保留 4 条 P0 的意义也仅在于「显式声明」：P0 分支在本表查不到时会退回
+# `return real_name`，结果与恒等映射一致。所以往表里加非 P0 条目**不会有任何
+# 效果**，别再加了（tools/lightpub_bridge.py --update-init 已改为只写 P0）。
+# 一致性由 tests/unit/test_lightpub_bridge_table.py 守住。
 _STDLIB_BRIDGE = {
-    # ---- P0: 核心包 ----
+    # ---- P0: 核心包（唯一会被 get_stdlib_bridge 查到的一档）----
     '文件系统':   '文件系统',     # 桥接: stdlib/lightpub/文件系统.py → os/shutil
     'JSON':       'JSON',         # 桥接: stdlib/lightpub/JSON.py → json
     'CSV':        'CSV',          # 桥接: stdlib/lightpub/CSV.py → csv
     '正则表达式': '正则表达式',   # 桥接: stdlib/lightpub/正则表达式.py → re
-    '日期时间':   '日期时间',     # 桥接: stdlib/lightpub/日期时间.py → datetime/time
-    '数学运算':   '数学运算',     # 桥接: stdlib/lightpub/数学运算.py → math
-    '加密':       '加密',         # 桥接: stdlib/lightpub/加密.py → hashlib/hmac
-    # ---- P1: 高频包 ----
-    'HTTP客户端': 'HTTP客户端',   # 桥接: stdlib/lightpub/HTTP客户端.py → urllib.request
-    'SQLite':     'SQLite',       # 桥接: stdlib/lightpub/SQLite.py → sqlite3
-    'Socket':     'Socket',       # 桥接: stdlib/lightpub/Socket.py → socket
-    # ---- 系统工具 ----
-    '线程':       '线程',         # 桥接: stdlib/lightpub/线程.py → threading
-    '进程管理':   '进程管理',     # 桥接: stdlib/lightpub/进程管理.py → subprocess
-    '环境变量':   '环境变量',     # 桥接: stdlib/lightpub/环境变量.py → os.environ
-    '系统信息':   '系统信息',     # 桥接: stdlib/lightpub/系统信息.py → platform
-    '路径处理':   '路径处理',     # 桥接: stdlib/lightpub/路径处理.py → os.path
-    '网络工具':   '网络工具',     # 桥接: stdlib/lightpub/网络工具.py → ipaddress/socket
-    '随机数':     '随机数',       # 桥接: stdlib/lightpub/随机数.py → random
-    '缓存系统':   '缓存系统',     # 桥接: stdlib/lightpub/缓存系统.py → functools
-    '连接池':     '连接池',       # 桥接: stdlib/lightpub/连接池.py → queue
-    # ---- 数据结构 ----
-    '数据结构':   '数据结构',     # 桥接: stdlib/lightpub/数据结构.py → collections
-    '集合扩展':   '集合扩展',     # 桥接: stdlib/lightpub/集合扩展.py → itertools
-    '排序与搜索': '排序与搜索',   # 桥接: stdlib/lightpub/排序与搜索.py → bisect/heapq
-    '算法工具':   '算法工具',     # 桥接: stdlib/lightpub/算法工具.py → heapq
-    # ---- 编码与压缩 ----
-    '二进制编码': '二进制编码',   # 桥接: stdlib/lightpub/二进制编码.py → base64
-    '压缩算法':   '压缩算法',     # 桥接: stdlib/lightpub/压缩算法.py → gzip/zlib
-    # ---- 字符串与类型 ----
-    '字符串处理': '字符串处理',   # 桥接: stdlib/lightpub/字符串处理.py → builtins
-    '类型工具':   '类型工具',     # 桥接: stdlib/lightpub/类型工具.py → builtins
-    '错误处理':   '错误处理',     # 桥接: stdlib/lightpub/错误处理.py → builtins
-    # ---- 数值与统计 ----
-    '数值计算':   '数值计算',     # 桥接: stdlib/lightpub/数值计算.py → math
-    '统计分析':   '统计分析',     # 桥接: stdlib/lightpub/统计分析.py → statistics
-    # ---- 安全与加密 ----
-    '哈希':       '哈希',         # 桥接: stdlib/lightpub/哈希.py → hashlib
-    '加密算法':   '加密算法',     # 桥接: stdlib/lightpub/加密算法.py → hashlib
-    '密码哈希':   '密码哈希',     # 桥接: stdlib/lightpub/密码哈希.py → hashlib
-    '证书':       '证书',         # 桥接: stdlib/lightpub/证书.py → ssl
-    # ---- 异步与并发 ----
-    '事件驱动':   '事件驱动',     # 桥接: stdlib/lightpub/事件驱动.py → asyncio
-    '协程':       '协程',         # 桥接: stdlib/lightpub/协程.py → asyncio
-    '异步运行时': '异步运行时',   # 桥接: stdlib/lightpub/异步运行时.py → asyncio
-    '并行计算':   '并行计算',     # 桥接: stdlib/lightpub/并行计算.py → concurrent.futures
-    '迭代器工具': '迭代器工具',   # 桥接: stdlib/lightpub/迭代器工具.py → itertools
-    # ---- 队列与消息 ----
-    '任务队列':   '任务队列',     # 桥接: stdlib/lightpub/任务队列.py → queue
-    '消息队列':   '消息队列',     # 桥接: stdlib/lightpub/消息队列.py → queue
-    # ---- 网络协议 ----
-    'URL解析':    'URL解析',      # 桥接: stdlib/lightpub/URL解析.py → urllib.parse
-    '邮件':       '邮件',         # 桥接: stdlib/lightpub/邮件.py → smtplib
-    # ---- 数据格式 ----
-    '数据导入导出': '数据导入导出', # 桥接: stdlib/lightpub/数据导入导出.py → csv/json
-    '文件上传':   '文件上传',     # 桥接: stdlib/lightpub/文件上传.py → cgi
-    # ---- 框架工具 ----
-    '日志系统':   '日志系统',     # 桥接: stdlib/lightpub/日志系统.py → logging
-    '命令行参数': '命令行参数',   # 桥接: stdlib/lightpub/命令行参数.py → argparse
-    '性能分析':   '性能分析',     # 桥接: stdlib/lightpub/性能分析.py → time
-    '模板渲染':   '模板渲染',     # 桥接: stdlib/lightpub/模板渲染.py → string.Template
-    '日期序列':   '日期序列',     # 桥接: stdlib/lightpub/日期序列.py → datetime
-    # ---- 框架库 ----
-    '单元测试框架': '单元测试框架', # 桥接: stdlib/lightpub/单元测试框架.py → unittest
-    '配置管理':   '配置管理',     # 桥接: stdlib/lightpub/配置管理.py → configparser
-    'HTTP服务端': 'HTTP服务端',   # 桥接: stdlib/lightpub/HTTP服务端.py → http.server
 }
 
 

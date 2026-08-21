@@ -723,9 +723,20 @@ def main():
             generated_bridges.append(pkg_name)
 
     # 更新 __init__.py
+    # 2026-08-21：只写 P0。_STDLIB_BRIDGE 的唯一读者是 get_stdlib_bridge()，
+    # 而它只在代码生成器的 P0 分支里被调用；P1/P2 走
+    # 「stdlib/ 根目录同名优先，否则 stdlib.lightpub.<包名>」那条路，不看这张表。
+    # 以前无条件写入，于是表里攒了 49 条永远查不到的条目，误导得很厉害。
     if args.update_init and generated_bridges and not args.dry_run:
-        new_bridges = {name: name for name in generated_bridges}
-        update_init_bridge_map(new_bridges)
+        packages = load_index()          # 返回 PACKAGES 字典本身
+        p0_bridges = {name: name for name in generated_bridges
+                      if packages.get(name, {}).get('priority') == 'P0'}
+        skipped = [n for n in generated_bridges if n not in p0_bridges]
+        if skipped:
+            print(f"\n跳过 _STDLIB_BRIDGE 写入（非 P0，写进去也不会被查）: {', '.join(skipped)}")
+        if p0_bridges:
+            update_init_bridge_map(p0_bridges)
+
 
     # 总结
     if not args.dry_run:

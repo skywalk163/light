@@ -76,15 +76,22 @@ class TestCLITools(unittest.TestCase):
             self.skipTest("light_unified.py 不存在")
 
         try:
+            # 刻意不用 text=True：那会让 subprocess 按**父进程的**编码去解子进程输出。
+            # 父进程一旦开了 UTF-8 模式（`python -X utf8` / `PYTHONUTF8=1` /
+            # `PYTHONIOENCODING=utf-8`），Windows 上子进程仍按 GBK 写 stdout，
+            # 于是读取线程抛 UnicodeDecodeError → result.stdout 变 None →
+            # `None + str` 抛 TypeError，用例假红（实测：同一 HEAD 加 -X utf8 即红，
+            # 去掉即绿）。这里自己拿字节、按 UTF-8 宽松解码：断言的 `--backend`
+            # 是纯 ASCII，GBK 的多字节字符不会把 ASCII 字节切出来，所以无论子进程
+            # 实际用 UTF-8 还是 GBK，这个断言都成立。
             result = subprocess.run(
                 [sys.executable, cli_unified, '--help'],
                 capture_output=True,
-                text=True,
                 timeout=10,
                 cwd=_project_root
             )
             # 验证帮助信息包含关键内容
-            output = result.stdout + result.stderr
+            output = (result.stdout + result.stderr).decode('utf-8', errors='replace')
             self.assertIn('--backend', output)
         except subprocess.TimeoutExpired:
             self.fail("CLI 执行超时")

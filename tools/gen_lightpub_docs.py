@@ -112,11 +112,44 @@ def extract_python_docstrings(filepath: str) -> dict:
     return result, module_doc
 
 
+_状态缓存 = {}
+
+
+def 实现状态(pkg_name: str):
+    """按实测判定一个包的实现状态。
+
+    返回 (状态标签, [裸名判定, 标准名判定])。
+
+    2026-08-21：加这个是因为「元数据里登记了 109 个包」和「本仓库真能用几个包」
+    差得很远——102 个 P2 包里大部分在 stdlib/lightpub/ 下没有桥接实现。
+    以前文档只字不提，读者只能靠导入块的围栏标签去猜。现在在「包信息」表里
+    明说，缺失变成显式承诺而不是沉默的缺口。
+
+    刻意**不**在 stdlib/lightpub/__index__.py 的 PACKAGES 里加静态 status 字段：
+    那个文件是从外部数据源 C:\\dumatework\\lightpub\\packages\\ 一次性快照出来的
+    生成物，静态状态字段既会随实现推进而腐烂、又会在下次重跑
+    tools/gen_lightpub_index.py 时被抹掉。状态只有一个事实来源——
+    tools/lightpub_importability.py 的实测判定，与文档围栏、CI 闸门同源。
+    """
+    if pkg_name in _状态缓存:
+        return _状态缓存[pkg_name]
+    结论表 = [判定(f'导入 {pkg_name}'), 判定(f'导入 标准{pkg_name}')]
+    if any(c.可用 for c in 结论表):
+        标签 = '✅ 已实现，可直接导入'
+    elif all(c.原因 == 'COMPILE_ERR' for c in 结论表):
+        标签 = '🚧 规划中 — 包名在本仓库过不了词法分析，导入语句编译不过'
+    else:
+        标签 = '🚧 规划中 — 元数据已登记，本仓库尚未提供实现'
+    _状态缓存[pkg_name] = (标签, 结论表)
+    return _状态缓存[pkg_name]
+
+
 def generate_package_doc(pkg_name: str, pkg_info: dict) -> str:
     """为单个包生成 Markdown 文档"""
     lines = []
     cat_name = CATEGORY_NAMES.get(pkg_info.get('category', ''), pkg_info.get('category', '未分类'))
     priority_label = PRIORITY_LABELS.get(pkg_info.get('priority', ''), '')
+    状态标签, 结论表 = 实现状态(pkg_name)
 
     # 标题
     lines.append(f'# {pkg_name}')
@@ -132,8 +165,10 @@ def generate_package_doc(pkg_name: str, pkg_info: dict) -> str:
     lines.append(f'| 版本 | {pkg_info.get("version", "-")} |')
     lines.append(f'| 分类 | {cat_name} |')
     lines.append(f'| 优先级 | {priority_label} |')
+    lines.append(f'| 实现状态 | {状态标签} |')
     lines.append(f'| 公开函数 | {pkg_info.get("function_count", 0)} |')
     lines.append(f'| FFI 声明 | {pkg_info.get("ffi_count", 0)} |')
+
 
     stdlib_eq = pkg_info.get('stdlib_equivalent')
     if stdlib_eq:
@@ -172,7 +207,7 @@ def generate_package_doc(pkg_name: str, pkg_info: dict) -> str:
         if 序号:
             lines.append('或')
             lines.append('')
-        结论 = 判定(语句)
+        结论 = 结论表[序号]
         if 结论.可用:
             lines.append('```light')
             lines.append(语句)
@@ -249,14 +284,15 @@ def generate_category_index() -> str:
         lines.append('')
         lines.append(f'共 {len(pkg_list)} 个包')
         lines.append('')
-        lines.append('| 包名 | 描述 | 优先级 | 函数数 |')
-        lines.append('|------|------|--------|--------|')
+        lines.append('| 包名 | 描述 | 优先级 | 函数数 | 实现状态 |')
+        lines.append('|------|------|--------|--------|----------|')
         for pkg_name in sorted(pkg_list):
             info = PACKAGES.get(pkg_name, {})
             desc = info.get('description', '')
             priority = info.get('priority', '')
             func_count = info.get('function_count', 0)
-            lines.append(f'| [{pkg_name}]({pkg_name}.md) | {desc} | {priority} | {func_count} |')
+            状态 = '✅ 可用' if 实现状态(pkg_name)[0].startswith('✅') else '🚧 规划中'
+            lines.append(f'| [{pkg_name}]({pkg_name}.md) | {desc} | {priority} | {func_count} | {状态} |')
         lines.append('')
 
     # 按优先级浏览
@@ -278,6 +314,8 @@ def generate_category_index() -> str:
         lines.append('')
 
     # 统计信息
+    可用 = sorted(n for n in PACKAGES if 实现状态(n)[0].startswith('✅'))
+    规划中 = sorted(n for n in PACKAGES if n not in 可用)
     lines.append('## 统计信息')
     lines.append('')
     lines.append(f'- **总包数:** {TOTAL_PACKAGES}')
@@ -287,6 +325,29 @@ def generate_category_index() -> str:
     lines.append(f'- **P1 (需新建):** {len(PRIORITY.get("P1", []))} 包')
     lines.append(f'- **P2 (扩展):** {len(PRIORITY.get("P2", []))} 包')
     lines.append('')
+    lines.append('## 实现状态')
+    lines.append('')
+    lines.append(f'- ✅ **可用:** {len(可用)} 包 —— `导入 <包名>` 或 `导入 标准<包名>` 至少一种真能跑通')
+    lines.append(f'- 🚧 **规划中:** {len(规划中)} 包 —— 元数据已登记，本仓库尚未提供实现')
+    lines.append('')
+    lines.append('上面这两个数字不是手工维护的，也不是 `__index__.py` 里的静态字段。'
+                 '每次生成文档时由 `tools/lightpub_importability.py` **实测**得出：'
+                 '调真正的代码生成器编译 `导入 X`、抠出它实际吐的 `import` 行、再真 import 一遍。')
+    lines.append('')
+    lines.append('之所以不在 `stdlib/lightpub/__index__.py` 的 `PACKAGES` 里加一个 `status` 字段：'
+                 '那个文件是从外部数据源一次性快照出来的生成物，静态状态字段既会随实现推进而腐烂，'
+                 '又会在下次重跑 `tools/gen_lightpub_index.py` 时被抹掉。'
+                 '状态只留一个事实来源，和文档围栏标签、CI 闸门 '
+                 '`tests/unit/test_lightpub_doc_importability.py` 完全同源。')
+    lines.append('')
+    if 规划中:
+        lines.append('<details><summary>🚧 规划中的包（点开查看完整清单）</summary>')
+        lines.append('')
+        for n in 规划中:
+            lines.append(f'- [{n}]({n}.md) — {实现状态(n)[0].split("—", 1)[-1].strip()}')
+        lines.append('')
+        lines.append('</details>')
+        lines.append('')
     lines.append(f'*文档生成时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}*')
     lines.append('')
 
