@@ -31,9 +31,21 @@ sys.path.insert(0, _PROJECT_DIR)
 LIGHTPUB_DIR = os.path.join(_PROJECT_DIR, 'stdlib', 'lightpub')
 DOCS_DIR = os.path.join(_PROJECT_DIR, 'docs', 'lightpub')
 
+# 进度输出里有 ✓ / ✅，在 GBK 控制台（或被重定向成 GBK 管道）上会
+# UnicodeEncodeError，而且崩点在 f.write(doc) 之后——生成会停在半路，
+# 留下一个只改了几篇的 docs/lightpub/。只放宽编码错误处理，不改成 UTF-8：
+# 包名是中文，GBK 本身放得下，换编码反而会让重定向出来的文件变成混合编码。
+try:
+    sys.stdout.reconfigure(errors='replace')
+except (AttributeError, ValueError):
+    pass
+
 # 加载包索引
 sys.path.insert(0, os.path.dirname(LIGHTPUB_DIR))
 from lightpub.__index__ import PACKAGES, CATEGORIES, PRIORITY, TOTAL_PACKAGES
+
+# 导入方式代码块的围栏标签，按「这条导入语句在本仓库到底跑不跑得通」逐块判定
+from lightpub_importability import 判定
 
 # 分类中文名映射
 CATEGORY_NAMES = {
@@ -144,18 +156,38 @@ def generate_package_doc(pkg_name: str, pkg_info: dict) -> str:
         lines.append('')
 
     # 导入方式
+    #
+    # 2026-08-21：这里原本无条件写死 ```duan 两个块，等于对每个包都承诺
+    # 「这样写就能用」。实测 109 篇 × 2 块 = 218 块里只有 98 块真跑得通，
+    # 其余 120 块要么本仓没实现、要么包名过不了词法。文档示例扫描面只验证
+    # 「能否编译」，`导入 GUI框架` 编译得过、运行才 ModuleNotFoundError，
+    # 它一个都抓不到。所以围栏标签改成按真实可导入性逐块判定：
+    # 跑得通才给光明围栏，跑不通降 ```text 并写清跑不通的原因。
+    # 判定不在这里复刻 P0/P1/P2 分支——tools/lightpub_importability.py
+    # 直接调真正的代码生成器，让判据和编译器物理上不可能漂移。
     lines.append('## 导入方式')
     lines.append('')
-    lines.append('```duan')
-    lines.append(f'导入 {pkg_name}')
-    lines.append('```')
-    lines.append('')
-    lines.append('或')
-    lines.append('')
-    lines.append('```duan')
-    lines.append(f'导入 标准{pkg_name}')
-    lines.append('```')
-    lines.append('')
+    语句表 = [f'导入 {pkg_name}', f'导入 标准{pkg_name}']
+    for 序号, 语句 in enumerate(语句表):
+        if 序号:
+            lines.append('或')
+            lines.append('')
+        结论 = 判定(语句)
+        if 结论.可用:
+            lines.append('```light')
+            lines.append(语句)
+            lines.append('```')
+        else:
+            lines.append(f'> ⚠️ 这种写法在本仓库跑不通：{结论.说明}')
+            lines.append('>')
+            lines.append('> 代码块因此标为 `text` 而非光明围栏，不参与文档示例编译扫描——'
+                         '免得它冒充一个能用的示例。')
+            lines.append('')
+            lines.append('```text')
+            lines.append(语句)
+            lines.append('```')
+        lines.append('')
+
 
     # 函数列表
     functions = pkg_info.get('functions', [])
@@ -202,7 +234,7 @@ def generate_package_doc(pkg_name: str, pkg_info: dict) -> str:
 def generate_category_index() -> str:
     """生成分类索引页面"""
     lines = []
-    lines.append('# duanpub 包文档索引')
+    lines.append('# lightpub 包文档索引')
     lines.append('')
     lines.append(f'> 共 {TOTAL_PACKAGES} 个包，{sum(p.get("function_count", 0) for p in PACKAGES.values())} 个公开函数')
     lines.append('')
@@ -267,7 +299,7 @@ def ensure_docs_dir():
 
 
 def main():
-    print(f"duanpub 包文档生成工具")
+    print(f"lightpub 包文档生成工具")
     print(f"=" * 40)
     print(f"总包数: {TOTAL_PACKAGES}")
     print()

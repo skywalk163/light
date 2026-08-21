@@ -123,6 +123,21 @@ jobs:
           . .venv/bin/activate
           python tests/run_tests.py --quick
 
+      # lightpub 文档可导入性闸门。
+      # 这条本来就在 tests/unit/ 里，会被上面的回归闸门覆盖；单列一步是因为
+      # 回归闸门是「与基线对比」——刷一次基线就能把它压下去。文档说谎不该有
+      # 「进基线」这个选项，所以这里再挂一道不看基线的硬判绿点。
+      #
+      # 它补的是已有文档示例扫描面（tests/unit/doc_block_scan.py）的盲区：
+      # 那道扫描只验证「能否编译」，而 `导入 GUI框架` 编译完全正常、
+      # 生成 `import stdlib.lightpub.GUI框架`，运行时才 ModuleNotFoundError。
+      # 编译期正确、运行期骗人的块，只有真去 import 一遍才抓得到。
+      - name: lightpub 文档可导入性闸门
+        run: |
+          . .venv/bin/activate
+          pytest tests/unit/test_lightpub_doc_importability.py -v --tb=short
+
+
       # 积木库门禁：五把尺子 + 硬门槛 + 兜底闸门。此前积木库（选块器 / 概念词典 / 契约索引 /
       # 兜底）在 gitea CI 上零覆盖，回归全靠人手跑尺子；段言本体 tests 过了也拦不住积木库回退。
       # 这里等价于 .github/workflows/eval.yml，但跑在本地 FreeBSD runner（无 Docker、系统

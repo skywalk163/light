@@ -3128,6 +3128,16 @@ class PythonCodeGenerator:
             if stmt.alias:
                 self._add_line(f"import {mapped_module} as {stmt.alias}")
                 self._imported_symbols.add(stmt.alias)
+            elif mapped_module and mapped_module.startswith('stdlib.lightpub.'):
+                # 2026-08-21：桥接模块路径是带点的（stdlib.lightpub.X），
+                # 裸 `import stdlib.lightpub.X` 只把 `stdlib` 绑进命名空间，
+                # 后续 `X.某函数()` 必然 NameError——`导入 HTTP客户端` 一直是
+                # 「导入不报错、一用就崩」。补一个 as 别名，绑定回光明里的模块名。
+                # 判据刻意收窄到 lightpub 前缀：泛化成「含点就加别名」会把
+                # `导入 os.path` 编成 `import os.path as os.path`（语法错误）。
+                local_name = module_name[2:] if module_name.startswith('标准') else module_name
+                self._add_line(f"import {mapped_module} as {local_name}")
+                self._imported_symbols.add(local_name)
             else:
                 self._add_line(f"import {mapped_module}")
                 self._imported_symbols.add(module_name)
@@ -3170,8 +3180,27 @@ class PythonCodeGenerator:
         
         解析顺序：
         1. lightpub P0 包 → get_stdlib_bridge() 返回 Python 模块名
-        2. lightpub P1 包 → 返回 "stdlib.lightpub.<包名>"（桥接模块路径）
+        2. lightpub P1/P2 包 → 返回 "stdlib.lightpub.<包名>"（桥接模块路径）
         3. 未命中 → 返回 None（回退到 module_name_map）
+
+        2026-08-21：P2 原本没有任何分支，直接掉到函数末尾 return None，于是
+        `导入 YAML` 被恒等映射成 `import YAML`，去 stdlib/ 根目录找 YAML.py——
+        那里没有，`stdlib/lightpub/YAML.py` 才有，但没人生成这个前缀。
+        109 个包里 102 个是 P2，等于绝大多数 lightpub 包从来就导不进来。
+        这里给 P2 补上路由。
+
+        但**根目录优先**：同一个中文名下可能同时存在
+        `stdlib/字符串处理.py`（功能完整，有 大写/长度）和
+        `stdlib/lightpub/字符串处理.py`（桥接版，API 更窄）。补路由的第一版
+        无条件改道 lightpub，把 examples/L0_core/10_导_模块导入.light 跑红了
+        （`module 'stdlib.lightpub.字符串处理' has no attribute '大写'`）——
+        等于给每个「名字在根目录也存在」的 P2 包偷偷换了实现。
+        受影响的是 XML / 哈希 / 字符串处理 / 数据结构 / 线程 这 5 个。
+
+        所以要探测文件是否存在。这里确实是 codegen 阶段摸文件系统，
+        但摸的是 `stdlib/`——它随编译器一起发布，不是用户机器上的变量，
+        不构成「同一份源码在不同机器编出不同 Python」。而不探测的代价是
+        静默换实现，比这点不确定性严重得多。
         """
         try:
             import sys
@@ -3198,14 +3227,25 @@ class PythonCodeGenerator:
                 # 没有桥接映射时，用真实包名作为 Python 模块名
                 return real_name
             
-            # P1: 有 Python 桥接模块
-            if priority == 'P1':
+            # P1 / P2: 桥接模块放在 stdlib/lightpub/ 下。但根目录同名模块优先——
+            # 见上面 docstring 里 字符串处理 的踩坑。
+            if priority in ('P1', 'P2'):
                 # 去掉"标准"前缀后得到真实包名
                 real_name = module_name[2:] if module_name.startswith('标准') else module_name
+                if self._stdlib_root_has(real_name):
+                    return real_name
                 return 'stdlib.lightpub.' + real_name
         except Exception:
             pass
         return None
+
+    @staticmethod
+    def _stdlib_root_has(name: str) -> bool:
+        """stdlib/ 根目录是否已有同名模块（.py 或 .light）。"""
+        import os
+        stdlib_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'stdlib')
+        return (os.path.isfile(os.path.join(stdlib_dir, name + '.py'))
+                or os.path.isfile(os.path.join(stdlib_dir, name + '.light')))
 
     
     def _is_chinese(self, text: str) -> bool:
