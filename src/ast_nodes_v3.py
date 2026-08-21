@@ -814,13 +814,18 @@ class WithStmt(ASTNode):
 
 
 class YieldStmt(ASTNode):
-    __slots__ = ('value',)
-    """生成语句（yield）"""
-    def __init__(self, value: Optional[ASTNode] = None):
+    # is_from：`生成 全部 X。` → `yield from X`（生成器委托，A2）。
+    # 必须进 __slots__——ASTNode 全族用 __slots__，parser 侧无法动态挂属性。
+    __slots__ = ('value', 'is_from')
+    """生成语句（yield / yield from）"""
+    def __init__(self, value: Optional[ASTNode] = None, is_from: bool = False):
         self.value = value
+        self.is_from = is_from
     
     def __repr__(self):
-        return f"YieldStmt({self.value})"
+        kind = 'YieldFromStmt' if self.is_from else 'YieldStmt'
+        return f"{kind}({self.value})"
+
 
 
 class DictLiteral(ASTNode):
@@ -875,9 +880,43 @@ class AsyncScope(ASTNode):
     def __init__(self, tasks: List[ASTNode], result_vars: List[str] = None):
         self.tasks = tasks
         self.result_vars = result_vars or []
-    
+
     def __repr__(self):
         return f"异步作用域({len(self.tasks)}个任务)"
+
+
+class RunAsyncStmt(ASTNode):
+    __slots__ = ('call',)
+    """异步启动语句：`异步 运行 主()。` → `asyncio.run(主())`（A1）
+
+    这是把 `异步 段落` 真正跑起来的唯一入口。在它之前，光明侧写不出任何
+    能执行的 async 程序：顶层 `等待 主()。` 生成模块级裸 await，Python 直接
+    SyntaxError。
+    """
+    def __init__(self, call: ASTNode):
+        self.call = call
+
+    def __repr__(self):
+        return f"异步运行({self.call})"
+
+
+class ScopeDeclStmt(ASTNode):
+    __slots__ = ('names', 'kind')
+    """作用域声明：`全局 计数。` → `global 计数`；`外层 值。` → `nonlocal 值`（A5）
+
+    kind 取 'global' / 'nonlocal'。在它落地之前，函数体内没有任何办法写回外层
+    变量：`设 计数 为 计数 加上 1` 一律编成函数内的局部赋值（Python 语义），
+    而源码里的 `全局 计数。` 被当成并置式调用编成 `全局(计数)`，运行期 NameError
+    ——又一处静默错编。
+    """
+    def __init__(self, names: List[str], kind: str):
+        self.names = names
+        self.kind = kind
+
+    def __repr__(self):
+        return f"作用域声明({self.kind}: {', '.join(self.names)})"
+
+
 
 
 # =============================================================================

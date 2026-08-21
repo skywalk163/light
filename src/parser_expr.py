@@ -65,7 +65,28 @@ _KWARG_NAME_STOP_KEYWORDS = frozenset({
 
 class ParserExprMixin:
     """表达式解析混入类"""
-    
+
+    def _consume_comprehension_connector(self) -> bool:
+        """吃掉推导式的「变量—可迭代对象」连接词，成功返回 True，不匹配则原位不动。
+
+        A7：连接词表直接读 parser_stmt.py 的 FOREACH_CONNECTORS_VAR_FIRST
+        （之/在/于/中的），与 遍历 语句同一个单点——两个 Mixin 最终组装成同一个
+        LightParser 类（light_parser_v3.py:43），所以 self 上取得到。
+
+        修复前四处推导式（集合/字典/列表内字典/列表）各自硬写 `之`/`在` 两支，
+        而同一段代码里的变量名停止词表写的是 {之, 在, 于, 中的}：于是
+        `[项 遍历 项 于 数据]` 的变量名在 `于` 处正确断开，紧接着连接词判断又
+        不认 `于`，直接硬报错「列表推导期望'之'或'在'」——同一个概念两张表、
+        表还不一样，是这次漏洞的根因，所以这里改成引用而不是复制第五份。
+        """
+        tok = self._current()
+        if (tok is not None and tok.type == TokenType.KEYWORD
+                and tok.value in self.FOREACH_CONNECTORS_VAR_FIRST):
+            self._consume()
+            return True
+        return False
+
+
     def _is_expr_terminator(self) -> bool:
         """检查当前 token 是否是表达式终止符"""
         tok = self._current()
@@ -711,6 +732,17 @@ class ParserExprMixin:
                                 arg = self._parse_logical_expr()
                                 if arg and isinstance(arg, Identifier):
                                     args.append(Identifier(f'*{arg.name}'))
+                            if self._match(TokenType.COMMA):
+                                self._consume(TokenType.COMMA)
+                            continue
+                        # A4：可变参数动词的具名实参 `打印(甲 = 1)`。
+                        # 固定元数分支（:790）早就有这条产生式，可变元数分支漏了，
+                        # 于是 `打印(甲 = 1)` 仍抛「意外的标记: 「=」」。判据与回退
+                        # 见 _try_parse_keyword_arg：取不到「名 + EQUALS」原位回退，
+                        # 不含 `=` 的旧输入产物逐字节不变。
+                        kwarg = self._try_parse_keyword_arg()
+                        if kwarg is not None:
+                            args.append(kwarg)
                             if self._match(TokenType.COMMA):
                                 self._consume(TokenType.COMMA)
                             continue
@@ -2029,7 +2061,7 @@ class ParserExprMixin:
             # 集合推导模式 - 支持多重遍历
             generators = []  # List of (variable_str, iterable_ast, condition_ast_or_None)
             
-            _sc_stop_keywords = frozenset({'之', '在', '于', '中的'})
+            _sc_stop_keywords = self.FOREACH_CONNECTORS_VAR_FIRST
             
             while self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '遍历':
                 self._consume(TokenType.KEYWORD, '遍历')
@@ -2054,14 +2086,10 @@ class ParserExprMixin:
                     variables = ['_']
                 variable = ', '.join(variables)
 
-                # 之 / 在
-                if self._match(TokenType.KEYWORD, '之'):
-                    self._consume(TokenType.KEYWORD, '之')
-                elif self._match(TokenType.KEYWORD, '在'):
-                    self._consume(TokenType.KEYWORD, '在')
-                else:
+                # 连接词：与 遍历 语句同一张表（A7）
+                if not self._consume_comprehension_connector():
                     tok = self._current()
-                    return self._error(f"集合推导期望'之'或'在'",
+                    return self._error("集合推导期望'之'、'在'、'于'或'中的'",
                                      tok.line if tok else 0, tok.col if tok else 0)
                 
                 # 可迭代对象
@@ -2122,7 +2150,7 @@ class ParserExprMixin:
             # 字典推导模式 - 支持多重遍历
             generators = []  # List of (variable_str, iterable_ast, condition_ast_or_None)
             
-            _dc_stop_keywords = frozenset({'之', '在', '于', '中的'})
+            _dc_stop_keywords = self.FOREACH_CONNECTORS_VAR_FIRST
             
             while self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '遍历':
                 self._consume(TokenType.KEYWORD, '遍历')
@@ -2148,13 +2176,10 @@ class ParserExprMixin:
                 variable = ', '.join(variables)
                 
                 # 之 / 在
-                if self._match(TokenType.KEYWORD, '之'):
-                    self._consume(TokenType.KEYWORD, '之')
-                elif self._match(TokenType.KEYWORD, '在'):
-                    self._consume(TokenType.KEYWORD, '在')
-                else:
+                # 连接词：与 遍历 语句同一张表（A7）
+                if not self._consume_comprehension_connector():
                     tok = self._current()
-                    return self._error(f"字典推导期望'之'或'在'",
+                    return self._error("字典推导期望'之'、'在'、'于'或'中的'",
                                      tok.line if tok else 0, tok.col if tok else 0)
                 
                 # 可迭代对象
@@ -2279,7 +2304,7 @@ class ParserExprMixin:
                 # 字典推导模式 - 支持多重遍历
                 generators = []  # List of (variable_str, iterable_ast, condition_ast_or_None)
                 
-                _ldc_stop_keywords = frozenset({'之', '在', '于', '中的'})
+                _ldc_stop_keywords = self.FOREACH_CONNECTORS_VAR_FIRST
                 
                 while self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '遍历':
                     self._consume(TokenType.KEYWORD, '遍历')
@@ -2303,14 +2328,10 @@ class ParserExprMixin:
                         variables = ['_']
                     variable = ', '.join(variables)
 
-                    # 之
-                    if self._match(TokenType.KEYWORD, '之'):
-                        self._consume(TokenType.KEYWORD, '之')
-                    elif self._match(TokenType.KEYWORD, '在'):
-                        self._consume(TokenType.KEYWORD, '在')
-                    else:
+                    # 连接词：与 遍历 语句同一张表（A7）
+                    if not self._consume_comprehension_connector():
                         tok = self._current()
-                        return self._error(f"字典推导期望'之'或'在'",
+                        return self._error("字典推导期望'之'、'在'、'于'或'中的'",
                                          tok.line if tok else 0, tok.col if tok else 0)
 
                     # 可迭代对象
@@ -2355,7 +2376,7 @@ class ParserExprMixin:
 
                 # 变量名（支持多变量：k, v）
                 # 如果遍历后直接跟 之/在，说明变量名为空，默认用 _
-                _lc_stop_keywords = frozenset({'之', '在', '于', '中的'})
+                _lc_stop_keywords = self.FOREACH_CONNECTORS_VAR_FIRST
                 variables = []
                 if self._current() and not (self._current().type == TokenType.KEYWORD and self._current().value in _lc_stop_keywords):
                     while True:
@@ -2375,14 +2396,10 @@ class ParserExprMixin:
                     variables = ['_']
                 variable = ', '.join(variables)
 
-                # 之 / 在
-                if self._match(TokenType.KEYWORD, '之'):
-                    self._consume(TokenType.KEYWORD, '之')
-                elif self._match(TokenType.KEYWORD, '在'):
-                    self._consume(TokenType.KEYWORD, '在')
-                else:
+                # 连接词：与 遍历 语句同一张表（A7）
+                if not self._consume_comprehension_connector():
                     tok = self._current()
-                    return self._error(f"列表推导期望'之'或'在'，但得到 {tok.type if tok else '输入结束'}",
+                    return self._error(f"列表推导期望'之'、'在'、'于'或'中的'，但得到 {tok.type if tok else '输入结束'}",
                                      tok.line if tok else 0, tok.col if tok else 0)
 
                 # 可迭代对象
@@ -2614,7 +2631,7 @@ class ParserExprMixin:
                         # 检查是否是生成器表达式：表达式 遍历 变量 之 可迭代对象
                         if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '遍历':
                             generators = []
-                            _ge_stop = frozenset({'之', '在', '于', '中的'})
+                            _ge_stop = self.FOREACH_CONNECTORS_VAR_FIRST
                             while self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '遍历':
                                 self._consume(TokenType.KEYWORD, '遍历')
                                 variables = []
@@ -2634,11 +2651,8 @@ class ParserExprMixin:
                                 if not variables:
                                     variables = ['_']
                                 variable = ', '.join(variables)
-                                if self._match(TokenType.KEYWORD, '之'):
-                                    self._consume(TokenType.KEYWORD, '之')
-                                elif self._match(TokenType.KEYWORD, '在'):
-                                    self._consume(TokenType.KEYWORD, '在')
-                                else:
+                                # 连接词：与 遍历 语句同一张表（A7）
+                                if not self._consume_comprehension_connector():
                                     break
                                 iterable = self._parse_comparison()
                                 condition = None
