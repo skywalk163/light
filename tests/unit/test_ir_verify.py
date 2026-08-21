@@ -83,6 +83,68 @@ class TestVerifyFunction(unittest.TestCase):
         self.assertTrue(any('终止指令之后' in e for e in errors),
                         f"应检测到死代码，实际: {errors}")
 
+    def test_verify_function_multiline_switch(self):
+        """多行 switch 不算「终止指令之后的多余指令」
+
+        协程状态机函数 `_coro_*` 必含 switch。逐行扫描器曾把 case 行与 `]`
+        各记一条误报（每个 switch 恰好 2 条），一旦 IR 以多行形式发射，
+        含协程的编译就会全部被自写验证器拦死。
+        """
+        func_lines = [
+            'define void @_coro_f1(ptr %frame) {',
+            'entry:',
+            '  %1 = load i32, ptr %frame',
+            '  switch i32 %1, label %coro_end [',
+            '    i32 0, label %resume_0',
+            '    i32 1, label %resume_1',
+            '  ]',
+            'resume_0:',
+            '  ret void',
+            'resume_1:',
+            '  ret void',
+            'coro_end:',
+            '  ret void',
+            '}',
+        ]
+        errors = self.core._verify_function(func_lines, '_coro_f1')
+        self.assertEqual(errors, [], f"多行 switch 不应报错，实际: {errors}")
+
+    def test_verify_function_single_line_switch(self):
+        """单行 switch（codegen_typed 当前的发射形态）同样通过"""
+        func_lines = [
+            'define void @_coro_f1(ptr %frame) {',
+            'entry:',
+            '  %1 = load i32, ptr %frame',
+            '  switch i32 %1, label %coro_end [ i32 0, label %resume_0 ]',
+            'resume_0:',
+            '  ret void',
+            'coro_end:',
+            '  ret void',
+            '}',
+        ]
+        errors = self.core._verify_function(func_lines, '_coro_f1')
+        self.assertEqual(errors, [], f"单行 switch 不应报错，实际: {errors}")
+
+    def test_verify_function_dead_code_after_multiline_switch(self):
+        """多行 switch 之后**真正**的死代码仍要被抓住（护栏不能放水）"""
+        func_lines = [
+            'define void @_coro_f1(ptr %frame) {',
+            'entry:',
+            '  switch i32 0, label %coro_end [',
+            '    i32 0, label %resume_0',
+            '  ]',
+            '  %2 = add i32 1, 2',
+            'resume_0:',
+            '  ret void',
+            'coro_end:',
+            '  ret void',
+            '}',
+        ]
+        errors = self.core._verify_function(func_lines, '_coro_f1')
+        self.assertTrue(any('终止指令之后' in e for e in errors),
+                        f"switch 之后的死代码应被检测到，实际: {errors}")
+
+
     def test_verify_function_multiple_blocks(self):
         """验证多基本块函数（if-else）通过"""
         func_lines = [

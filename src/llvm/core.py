@@ -332,7 +332,20 @@ class LLVMCodeGenCore:
                 if block_has_terminator:
                     errors.append(f"函数 {func_name}: 基本块 '{current_block}' 在终止指令之后存在多余指令")
                 block_has_terminator = True
+                # 多行终止指令（典型是 switch）：
+                #   switch i32 %r, label %end [
+                #     i32 0, label %resume_0
+                #   ]
+                # 后续 case 行与 `]` 是同一条指令的一部分，不是「终止指令之后的多余
+                # 指令」。逐行扫描器此前把它们各记一条误报（每个 switch 恰好 2 条）。
+                # 按方括号配平把整条指令一次吃掉：同行内配平的 `[4 x i32]` 之类
+                # 深度为 0，不受影响。
+                depth = line.count('[') - line.count(']')
+                while depth > 0 and i + 1 < len(func_lines):
+                    i += 1
+                    depth += func_lines[i].count('[') - func_lines[i].count(']')
             elif block_has_terminator:
+
                 # 终止指令之后存在非终止指令（死代码）
                 errors.append(f"函数 {func_name}: 基本块 '{current_block}' 在终止指令之后存在多余指令")
 
