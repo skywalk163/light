@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编程语言 - REPL v3（基于 v3 解析器）
+光明（Light）编程语言 - REPL v3（基于 v3 解析器）
 
 使用 LightParser + PythonCodeGenerator 的交互式编程环境，
 支持逐行执行、多行块结构、变量查看、命令历史等功能。
 
 用法：
-  duan repl              # 启动 REPL（使用旧版，自动回退到 v3）
-  duan repl --v3         # 启动基于 v3 解析器的 REPL
+  light repl              # 启动 REPL（使用旧版，自动回退到 v3）
+  light repl --v3         # 启动基于 v3 解析器的 REPL
 """
 
 import sys
@@ -24,9 +24,9 @@ if _src_path not in sys.path:
 
 BANNER = """
 ╔══════════════════════════════════════════════════════════════════╗
-║           段言（DuanLang）交互式解析器 v3.0                       ║
+║           光明（Light）交互式解析器 v3.0                       ║
 ╠══════════════════════════════════════════════════════════════════╣
-║  输入段言代码，按回车执行。                                       ║
+║  输入光明代码，按回车执行。                                       ║
 ║                                                                  ║
 ║  命令:                                                           ║
 ║    帮助 / help    - 显示此帮助信息                                ║
@@ -34,7 +34,7 @@ BANNER = """
 ║    变量 / vars    - 显示当前所有变量                              ║
 ║    清除 / clear   - 清除所有变量                                  ║
 ║    历史 / history - 显示命令历史                                  ║
-║    加载 / load    - 加载并执行 .duan 文件                         ║
+║    加载 / load    - 加载并执行 .light 文件                         ║
 ║                                                                  ║
 ║  快捷键:                                                         ║
 ║    Ctrl+C  - 取消当前输入                                        ║
@@ -44,7 +44,7 @@ BANNER = """
 
 HELP_TEXT = """
 ╔══════════════════════════════════════════════════════════════════╗
-║                        段言 REPL 帮助                            ║
+║                        光明 REPL 帮助                            ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║  一般命令:                                                        ║
 ║    帮助 / help      - 显示此帮助信息                              ║
@@ -52,7 +52,7 @@ HELP_TEXT = """
 ║    变量 / vars      - 显示当前所有变量                            ║
 ║    清除 / clear     - 清除所有变量                                ║
 ║    历史 / history   - 显示命令历史                                ║
-║    加载 / load      - 加载并执行 .duan 文件                       ║
+║    加载 / load      - 加载并执行 .light 文件                       ║
 ║                                                                  ║
 ║  REPL 支持多行块结构：                                            ║
 ║    输入以「:」结尾的语句会进入多行模式，                               ║
@@ -68,8 +68,8 @@ HELP_TEXT = """
 """
 
 
-class DuanREPLV3:
-    """基于 v3 解析器的段言交互式解释器"""
+class LightREPLV3:
+    """基于 v3 解析器的光明交互式解释器"""
 
     def __init__(self):
         self.globals: Dict[str, Any] = {
@@ -93,7 +93,7 @@ class DuanREPLV3:
         self.block_indent = 0
 
     def _compile_and_run(self, source: str) -> str:
-        """使用 v3 解析器编译并运行段言代码"""
+        """使用 v3 解析器编译并运行光明代码"""
         from light_parser_v3 import LightParser, ParseError
         from code_generator import PythonCodeGenerator, CodeGenError
 
@@ -208,7 +208,7 @@ class DuanREPLV3:
         print("╚══════════════════════════════════════════════════════════╝")
 
     def load_file(self, filepath: str):
-        """加载并执行 .duan 文件"""
+        """加载并执行 .light 文件"""
         if not os.path.exists(filepath):
             print(f"✗ 文件不存在: {filepath}")
             return
@@ -413,7 +413,7 @@ class DuanREPLV3:
 
 def main():
     """REPL v3 入口函数"""
-    repl = DuanREPLV3()
+    repl = LightREPLV3()
     repl.run()
 
 

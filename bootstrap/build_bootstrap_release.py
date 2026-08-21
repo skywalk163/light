@@ -162,10 +162,10 @@ def step_verify_bootstrap(py_code):
     print("  测试程序语法: 通过")
 
     # 执行
-    test_ns = {'_duan_builtin': type(sys)('_duan_builtin')}
-    test_ns['_duan_builtin'].打印 = print
-    test_ns['_duan_builtin'].转字符串 = str
-    test_ns['_duan_builtin'].转整数 = int
+    test_ns = {'_light_builtin': type(sys)('_light_builtin')}
+    test_ns['_light_builtin'].打印 = print
+    test_ns['_light_builtin'].转字符串 = str
+    test_ns['_light_builtin'].转整数 = int
     exec(result_py, test_ns)
     print("  测试程序执行: 成功")
 
@@ -423,7 +423,7 @@ def step_verify_release():
             if result.returncode == 0:
                 # 验证输出能正确执行
                 try:
-                    exec(result.stdout, {'_duan_builtin': type(sys)('_duan_builtin')})
+                    exec(result.stdout, {'_light_builtin': type(sys)('_light_builtin')})
                     print(f"  发布包验证: 通过")
                 except Exception as e:
                     print(f"  发布包验证: 输出执行失败 - {e}")

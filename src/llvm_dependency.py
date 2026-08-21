@@ -1,5 +1,5 @@
 """
-段言 LLVM 依赖管理模块
+光明 LLVM 依赖管理模块
 
 功能：
 1. 检测系统是否已安装 LLVM/clang
@@ -161,12 +161,12 @@ def find_clang() -> Optional[str]:
             if os.path.exists(vs_path):
                 return os.path.abspath(vs_path)
 
-    # 4. 检查 llvm-mingw 工具链
+    # 4. 检查 llvm-mingw 工具链（如需可通过 LIGHT_LLVM_MINGW 环境变量指定 bin/clang.exe）
     if sys.platform == 'win32':
-        mingw_dirs = [
-            r'c:\traework\duan\llvm-mingw-20240619-ucrt-x86_64\bin\clang.exe',
-            r'c:\traework\duan\llvm-mingw-20240619-ucrt-aarch64\bin\clang.exe',
-        ]
+        mingw_dirs = []
+        env_mingw = os.environ.get('LIGHT_LLVM_MINGW')
+        if env_mingw:
+            mingw_dirs.append(env_mingw)
         for mingw in mingw_dirs:
             if os.path.exists(mingw):
                 return os.path.abspath(mingw)
@@ -348,11 +348,29 @@ class LLVMAutoDownloader:
 
     @staticmethod
     def _default_install_dir() -> str:
-        """获取默认安装目录"""
+        """获取默认安装目录（并把旧 duan 时期的缓存目录一次性搬过来）
+
+        LLVM 缓存动辄几百 MB，重新下载代价大，所以照 ~/.duan → ~/.light 的做法
+        做一次性 rename：新目录不存在、旧目录存在时才搬，搬完就再也不看旧路径。
+        目录名属品牌路径（硬切换改成 light），缓存内容属用户数据（要保住）。
+        """
         home = os.path.expanduser('~')
         if sys.platform == 'win32':
-            return os.path.join(home, 'AppData', 'Local', 'duan', 'llvm')
-        return os.path.join(home, '.duan', 'llvm')
+            new_dir = os.path.join(home, 'AppData', 'Local', 'light', 'llvm')
+            legacy_dir = os.path.join(home, 'AppData', 'Local', 'duan', 'llvm')
+        else:
+            new_dir = os.path.join(home, '.light', 'llvm')
+            legacy_dir = os.path.join(home, '.duan', 'llvm')
+
+        if not os.path.exists(new_dir) and os.path.isdir(legacy_dir):
+            try:
+                os.makedirs(os.path.dirname(new_dir), exist_ok=True)
+                os.rename(legacy_dir, new_dir)
+                print(f"[光明] 已将旧 LLVM 缓存目录 {legacy_dir} 迁移到 {new_dir}")
+            except OSError:
+                # 搬不动就用新目录重新下载，绝不因迁移失败而中断
+                pass
+        return new_dir
 
     def _ensure_dir(self):
         """确保安装目录存在"""
@@ -776,7 +794,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description='段言 LLVM 依赖管理工具',
+        description='光明 LLVM 依赖管理工具',
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument('action', nargs='?', default='check',

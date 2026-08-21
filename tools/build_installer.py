@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言（DuanLang）一键安装包构建脚本
+光明（Light）一键安装包构建脚本
 
 用法：
   python tools/build_installer.py                   # 自动检测当前平台并显示构建指导
@@ -28,14 +28,14 @@ TOOLS_DIR = Path(__file__).resolve().parent
 INSTALLER_DIR = TOOLS_DIR / "installer"
 OUTPUT_DIR = PROJECT_ROOT / "output"
 
-# 段言元信息（与 pyproject.toml 保持一致）
-DUAN_NAME = "duan"
-DUAN_VERSION = "6.1.0"
-DUAN_DISPLAY_NAME = "段言"
-DUAN_MIN_PYTHON = (3, 10)
-DUAN_ENTRY_POINTS = {
-    "duan": "cli.duan_unified:main",
-    "duanc": "cli.duanc:main",
+# 光明元信息（与 pyproject.toml 保持一致）
+LIGHT_NAME = "light"
+LIGHT_VERSION = "7.0.0"
+LIGHT_DISPLAY_NAME = "光明"
+LIGHT_MIN_PYTHON = (3, 10)
+LIGHT_ENTRY_POINTS = {
+    "light": "cli.light_unified:main",
+    "lightc": "cli.lightc:main",
 }
 
 
@@ -83,18 +83,18 @@ def get_python_version() -> Tuple[int, int, int]:
 def check_python_version() -> bool:
     """检查 Python 版本是否满足最低要求"""
     current = get_python_version()[:2]
-    if current >= DUAN_MIN_PYTHON:
+    if current >= LIGHT_MIN_PYTHON:
         _print_step(
             f"Python 版本 {'.'.join(map(str, current))}",
             "ok",
-            f"满足最低要求 {'.'.join(map(str, DUAN_MIN_PYTHON))}",
+            f"满足最低要求 {'.'.join(map(str, LIGHT_MIN_PYTHON))}",
         )
         return True
     else:
         _print_step(
             f"Python 版本 {'.'.join(map(str, current))}",
             "fail",
-            f"需要 >= {'.'.join(map(str, DUAN_MIN_PYTHON))}",
+            f"需要 >= {'.'.join(map(str, LIGHT_MIN_PYTHON))}",
         )
         return False
 
@@ -170,8 +170,8 @@ def _is_package_installed(package_name: str) -> bool:
 
 
 def build_wheel() -> Optional[Path]:
-    """构建段言 wheel 包"""
-    _print_step("构建段言 wheel 包", "info")
+    """构建光明 wheel 包"""
+    _print_step("构建光明 wheel 包", "info")
 
     try:
         result = subprocess.run(
@@ -446,7 +446,7 @@ def show_build_instructions(target_platform: str) -> None:
                 ("4. 创建 macOS 构建脚本",
                  "创建 tools/installer/macos/build_pkg.sh（参考设计文档）"),
                 ("5. 准备图标资源",
-                 "创建 tools/installer/macos/Resources/duan.icns"),
+                 "创建 tools/installer/macos/Resources/light.icns"),
                 ("6. 构建 Wheel 包", "python -m build --wheel"),
                 ("7. 构建安装包", f"python {Path(__file__).name} --platform mac"),
             ],
@@ -479,14 +479,14 @@ def show_platform_info() -> None:
     _print_step("操作系统", "info", f"{platform.system()} {platform.release()}")
     _print_step("架构", "info", platform.machine())
     _print_step("Python 版本", "info", f"{sys.version}")
-    _print_step("项目版本", "info", f"{DUAN_DISPLAY_NAME} v{DUAN_VERSION}")
+    _print_step("项目版本", "info", f"{LIGHT_DISPLAY_NAME} v{LIGHT_VERSION}")
     _print_step("项目路径", "info", str(PROJECT_ROOT))
     print()
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description=f"{DUAN_DISPLAY_NAME} v{DUAN_VERSION} 一键安装包构建脚本",
+        description=f"{LIGHT_DISPLAY_NAME} v{LIGHT_VERSION} 一键安装包构建脚本",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
@@ -525,8 +525,8 @@ def main():
     args = parser.parse_args()
 
     # 显示启动信息
-    _print_header(f"{DUAN_DISPLAY_NAME} 一键安装包构建工具 v1.0")
-    print(f"  项目: {DUAN_DISPLAY_NAME} v{DUAN_VERSION}")
+    _print_header(f"{LIGHT_DISPLAY_NAME} 一键安装包构建工具 v1.0")
+    print(f"  项目: {LIGHT_DISPLAY_NAME} v{LIGHT_VERSION}")
     print(f"  Python: {sys.version.split()[0]}")
     print(f"  平台: {platform.system()} {platform.release()} ({platform.machine()})")
     print()

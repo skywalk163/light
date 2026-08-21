@@ -1,5 +1,5 @@
 """
-段言（Duan）编程语言 - 增量编译系统
+光明（Light）编程语言 - 增量编译系统
 
 基于文件变更检测和依赖图追踪，实现仅重新编译变更文件及其依赖链。
 
@@ -369,11 +369,11 @@ class IncrementalBuilder:
             return self._get_mtime(output_path)
         return 0.0
 
-    def detect_changes(self, duan_files: List[Path]) -> Tuple[Set[str], Set[str]]:
+    def detect_changes(self, light_files: List[Path]) -> Tuple[Set[str], Set[str]]:
         """检测文件变更
 
         Args:
-            duan_files: 项目中的 .duan 文件列表
+            light_files: 项目中的 .light 文件列表
 
         Returns:
             (changed_files, unchanged_files): 变更和未变更的文件路径集合
@@ -381,7 +381,7 @@ class IncrementalBuilder:
         changed: Set[str] = set()
         unchanged: Set[str] = set()
 
-        for f in duan_files:
+        for f in light_files:
             fpath = str(f.resolve())
             current_mtime = self._get_mtime(f)
             current_hash = self._content_hash(f)
@@ -428,13 +428,13 @@ class IncrementalBuilder:
         except Exception:
             return {}
 
-    def _update_dep_graph_from_cache(self, duan_files: List[Path]) -> Dict[str, List[str]]:
+    def _update_dep_graph_from_cache(self, light_files: List[Path]) -> Dict[str, List[str]]:
         """从缓存中构建或更新依赖图
 
         优先使用缓存中的依赖图，避免重复解析。
 
         Args:
-            duan_files: 项目中的 .duan 文件列表
+            light_files: 项目中的 .light 文件列表
 
         Returns:
             依赖图字典
@@ -445,7 +445,7 @@ class IncrementalBuilder:
 
         # 否则构建新的依赖图
         graph = {}
-        for f in duan_files:
+        for f in light_files:
             try:
                 source = f.read_text(encoding='utf-8')
                 # 快速扫描导入语句（不完整解析）
@@ -526,13 +526,13 @@ class IncrementalBuilder:
 
         return affected
 
-    def build(self, duan_files: List[Path], main_file: Optional[Path] = None,
+    def build(self, light_files: List[Path], main_file: Optional[Path] = None,
               force: bool = False, verbose: bool = True, fast: bool = False,
               parallel: bool = True, max_workers: int = None) -> int:
         """执行增量编译
 
         Args:
-            duan_files: 项目中的 .duan 文件列表
+            light_files: 项目中的 .light 文件列表
             main_file: 入口文件（用于构建依赖图）
             force: 强制全量编译
             verbose: 是否输出详细信息
@@ -549,22 +549,22 @@ class IncrementalBuilder:
         if force:
             if verbose:
                 print("[增量编译] 强制全量编译")
-            return self._full_build(duan_files, verbose, fast=fast,
+            return self._full_build(light_files, verbose, fast=fast,
                                     parallel=parallel, max_workers=max_workers)
 
         # 1. 检测变更
-        changed, unchanged = self.detect_changes(duan_files)
+        changed, unchanged = self.detect_changes(light_files)
 
         if not changed:
             if verbose:
                 print(f"[增量编译] 所有文件均未变更，跳过编译")
-            return len(duan_files)
+            return len(light_files)
 
         # 2. 构建依赖图，计算受影响范围
         if main_file and main_file.exists():
             dep_graph = self._build_dep_graph(main_file)
         else:
-            dep_graph = self._update_dep_graph_from_cache(duan_files)
+            dep_graph = self._update_dep_graph_from_cache(light_files)
 
         if dep_graph:
             affected = self._get_dependent_files(changed, dep_graph)
@@ -575,7 +575,7 @@ class IncrementalBuilder:
             print(f"[增量编译] 变更文件: {len(changed)}, 受影响文件: {len(affected)}, 跳过: {len(unchanged)}")
 
         # 3. 编译受影响文件
-        files_to_build = [f for f in duan_files if str(f.resolve()) in affected]
+        files_to_build = [f for f in light_files if str(f.resolve()) in affected]
         result = self._compile_files(files_to_build, verbose, fast=fast,
                                      parallel=parallel, max_workers=max_workers,
                                      dep_graph=dep_graph)
@@ -591,11 +591,11 @@ class IncrementalBuilder:
 
         return result
 
-    def _full_build(self, duan_files: List[Path], verbose: bool = True,
+    def _full_build(self, light_files: List[Path], verbose: bool = True,
                     fast: bool = False, parallel: bool = True,
                     max_workers: int = None) -> int:
         """全量编译（不使用增量缓存）"""
-        return self._compile_files(duan_files, verbose, fast=fast,
+        return self._compile_files(light_files, verbose, fast=fast,
                                    parallel=parallel, max_workers=max_workers)
 
     def _compile_files(self, files: List[Path], verbose: bool = True,
@@ -607,7 +607,7 @@ class IncrementalBuilder:
         支持并行编译（通过依赖图分组，同一组内无依赖关系的文件可并行编译）。
 
         Args:
-            files: 要编译的 .duan 文件列表
+            files: 要编译的 .light 文件列表
             verbose: 是否输出详细信息
             fast: 快速模式，跳过非关键优化
             parallel: 是否启用并行编译
@@ -797,7 +797,7 @@ class IncrementalBuilder:
         """编译单个文件
 
         Args:
-            f: .duan 文件路径
+            f: .light 文件路径
             verbose: 是否输出详细信息
             fast: 快速模式
 

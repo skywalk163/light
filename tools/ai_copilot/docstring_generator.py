@@ -2,13 +2,13 @@
 光明（Light）编程语言 - 文档注释生成器
 
 功能：
-  读取一个 .duan 文件，使用 lexer + parser 解析，
+  读取一个 .light 文件，使用 lexer + parser 解析，
   为每个段落（函数）定义自动生成中文文档注释。
   注释包含：功能描述模板、参数说明、返回值说明。
 
 用法：
-  python tools/ai_copilot/docstring_generator.py <file.duan>
-  python tools/ai_copilot/docstring_generator.py <file.duan> --stdout   # 输出到标准输出
+  python tools/ai_copilot/docstring_generator.py <file.light>
+  python tools/ai_copilot/docstring_generator.py <file.light> --stdout   # 输出到标准输出
 """
 
 import sys
@@ -202,7 +202,7 @@ def format_docstring_comment(doc_lines: List[str], indent: str = '') -> str:
 # =============================================================================
 
 def process_file(filepath: str, to_stdout: bool = False) -> Optional[str]:
-    """处理单个 .duan 文件，生成带文档注释的版本"""
+    """处理单个 .light 文件，生成带文档注释的版本"""
     if not os.path.exists(filepath):
         print(f"错误: 文件不存在: {filepath}", file=sys.stderr)
         return None
@@ -327,7 +327,7 @@ def _insert_docstrings(source: str, lines: List[str], paragraphs: List[Paragraph
 def main():
     if len(sys.argv) < 2:
         print(__doc__, file=sys.stderr)
-        print(f"用法: python {os.path.basename(__file__)} <file.duan> [--stdout]", file=sys.stderr)
+        print(f"用法: python {os.path.basename(__file__)} <file.light> [--stdout]", file=sys.stderr)
         sys.exit(1)
 
     filepath = sys.argv[1]

@@ -426,7 +426,7 @@ async function loadPyodideWithPackages() {{
 # 浏览器端光明运行时
 # =============================================================================
 
-DUAN_WASM_RUNTIME_JS = """
+LIGHT_WASM_RUNTIME_JS = """
 /**
  * 光明 (Light) WebAssembly 浏览器运行时 v4.1
  *

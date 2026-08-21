@@ -511,14 +511,14 @@ class PythonToLightTranslator:
         self,
         source_dir: str,
         target_dir: str,
-        direction: str = 'to-duan'
+        direction: str = 'to-light'
     ) -> Dict[str, str]:
         """批量翻译整个目录中的文件
 
         Args:
             source_dir: 源目录路径
             target_dir: 目标目录路径
-            direction: 翻译方向，'to-duan' 或 'to-python'
+            direction: 翻译方向，'to-light' 或 'to-python'
 
         Returns:
             文件路径到翻译结果的映射字典
@@ -532,11 +532,11 @@ class PythonToLightTranslator:
         os.makedirs(target_dir, exist_ok=True)
         results: Dict[str, str] = {}
 
-        if direction == 'to-duan':
+        if direction == 'to-light':
             ext_pattern = '.py'
-            target_ext = '.duan'
+            target_ext = '.light'
         else:
-            ext_pattern = '.duan'
+            ext_pattern = '.light'
             target_ext = '.py'
 
         for root, dirs, files in os.walk(source_dir):
@@ -554,7 +554,7 @@ class PythonToLightTranslator:
                     with open(src_path, 'r', encoding='utf-8') as f:
                         code = f.read()
 
-                    if direction == 'to-duan':
+                    if direction == 'to-light':
                         result = self.translate(code)
                     else:
                         from .translator import light_to_python
@@ -709,7 +709,7 @@ class PythonToLightTranslator:
             包含验证结果的字典:
             {
                 "original": 原始 Python 代码,
-                "duan": 翻译后的光明代码,
+                "light": 翻译后的光明代码,
                 "roundtrip": 往返后的 Python 代码,
                 "valid": 往返翻译是否有效,
                 "errors": 错误列表
@@ -717,7 +717,7 @@ class PythonToLightTranslator:
         """
         result: Dict[str, Any] = {
             "original": python_code,
-            "duan": "",
+            "light": "",
             "roundtrip": "",
             "valid": False,
             "errors": []
@@ -726,7 +726,7 @@ class PythonToLightTranslator:
         try:
             # Python → 光明
             light_code = self.translate(python_code)
-            result["duan"] = light_code
+            result["light"] = light_code
         except Exception as e:
             result["errors"].append(f"Python→光明 翻译失败: {e}")
             return result
@@ -845,7 +845,7 @@ class LightToPythonTranslator:
         """将光明文件翻译为 Python 代码
 
         Args:
-            file_path: 光明文件路径 (.duan)
+            file_path: 光明文件路径 (.light)
 
         Returns:
             翻译后的 Python 代码字符串
@@ -1188,7 +1188,7 @@ def main() -> None:
         description='光明 ↔ Python 双向翻译器',
     )
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--to-duan', metavar='FILE',
+    group.add_argument('--to-light', metavar='FILE',
                        help='将 Python 文件翻译为光明')
     group.add_argument('--to-python', metavar='FILE',
                        help='将光明文件翻译为 Python')
@@ -1212,10 +1212,10 @@ def main() -> None:
                     print(f"  {k:8s} → {v}")
             return
 
-        if args.to_duan:
+        if args.to_light:
             if args.analyze:
-                features = analyze_code_features(file_path=args.to_duan)
-                print(f"Python 文件 {args.to_duan} 特性分析:")
+                features = analyze_code_features(file_path=args.to_light)
+                print(f"Python 文件 {args.to_light} 特性分析:")
                 print("=" * 50)
                 if features:
                     for name, count in features.items():
@@ -1223,8 +1223,8 @@ def main() -> None:
                 else:
                     print("  (未检测到特殊 Python 特性)")
                 return
-            result = python_to_light('', file_path=args.to_duan)
-            source_label = f"Python 文件 {args.to_duan}"
+            result = python_to_light('', file_path=args.to_light)
+            source_label = f"Python 文件 {args.to_light}"
         elif args.to_python:
             result = light_to_python('', file_path=args.to_python)
             source_label = f"光明文件 {args.to_python}"

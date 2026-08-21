@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言 vs Python 性能基准测试
+光明 vs Python 性能基准测试
 
-运行相同算法在 Python 和 段言（通过 src 解释器）中的执行时间对比。
+运行相同算法在 Python 和 光明（通过 src 解释器）中的执行时间对比。
 生成比较报告到 docs/性能基准_vs_Python.md
 
 用法:
@@ -23,17 +23,17 @@ PROJECT_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_DIR / 'src'))
 sys.path.insert(0, str(PROJECT_DIR))
 
-# 导入段言编译执行器
+# 导入光明编译执行器
 from light_parser_v3 import LightParser
 from code_generator import PythonCodeGenerator
 
 
-def run_duan_code(source_code: str) -> str:
-    """通过 src 后端编译并执行段言代码，返回输出"""
+def run_light_code(source_code: str) -> str:
+    """通过 src 后端编译并执行光明代码，返回输出"""
     parser = LightParser()
     module = parser.parse(source_code)
     if module is None:
-        raise RuntimeError("段言解析失败")
+        raise RuntimeError("光明解析失败")
 
     generator = PythonCodeGenerator()
     py_code = generator.generate(module)
@@ -57,11 +57,11 @@ def time_python(code):
     return namespace, elapsed
 
 
-def time_duan(code_template: str, iterations: int = 1) -> float:
-    """测量段言代码执行时间"""
+def time_light(code_template: str, iterations: int = 1) -> float:
+    """测量光明代码执行时间"""
     start = time.perf_counter()
     for _ in range(iterations):
-        run_duan_code(code_template)
+        run_light_code(code_template)
     elapsed = time.perf_counter() - start
     return elapsed / iterations
 
@@ -78,7 +78,7 @@ for i in range(30):
     fibonacci(i)
 """
 
-DUAN_FIBONACCI_CODE = """
+LIGHT_FIBONACCI_CODE = """
 段落 斐波那契 接收 n：
   如果 n 小于等于 1：
     返回 n。
@@ -106,7 +106,7 @@ def sieve(n):
 sieve(100000)
 """
 
-DUAN_PRIME_CODE = """
+LIGHT_PRIME_CODE = """
 段落 素数筛 接收 n：
   设 标记 为 []。
   设 i 为 0。
@@ -154,7 +154,7 @@ data = [i for i in range(200, 0, -1)]
 bubble_sort(data)
 """
 
-DUAN_BUBBLE_CODE = """
+LIGHT_BUBBLE_CODE = """
 段落 冒泡排序 接收 数组：
   设 n 为 列表长度(数组)。
   设 i 为 0。
@@ -190,7 +190,7 @@ def factorial(n):
 factorial(500)
 """
 
-DUAN_FACTORIAL_CODE = """
+LIGHT_FACTORIAL_CODE = """
 段落 阶乘 接收 n：
   如果 n 小于等于 1：
     返回 1。
@@ -212,7 +212,7 @@ def hanoi(n, source, target, auxiliary):
 hanoi(20, 'A', 'C', 'B')
 """
 
-DUAN_HANOI_CODE = """
+LIGHT_HANOI_CODE = """
 段落 汉诺塔 接收 n, 来源, 目标, 辅助：
   如果 n 等于 1：
     返回。
@@ -239,7 +239,7 @@ def list_ops():
 list_ops()
 """
 
-DUAN_LIST_OPS_CODE = """
+LIGHT_LIST_OPS_CODE = """
 段落 列表操作：
   设 数据 为 []。
   设 i 为 0。
@@ -277,7 +277,7 @@ def str_ops():
 str_ops()
 """
 
-DUAN_STR_CODE = """
+LIGHT_STR_CODE = """
 段落 字符串操作：
   设 s 为 ""。
   设 i 为 0。
@@ -311,7 +311,7 @@ def matrix_mul(n):
 matrix_mul(50)
 """
 
-DUAN_MATRIX_CODE = """
+LIGHT_MATRIX_CODE = """
 段落 矩阵乘法 接收 n：
   设 A 为 []。
   设 i 为 0。
@@ -380,7 +380,7 @@ data = [random.randint(0, 10000) for _ in range(5000)]
 quicksort(data)
 """
 
-DUAN_QUICKSORT_CODE = """
+LIGHT_QUICKSORT_CODE = """
 段落 快速排序 接收 数组：
   如果 列表长度(数组) 小于等于 1：
     返回 数组。
@@ -428,7 +428,7 @@ for _ in range(20):
     d = json.loads(s)
 """
 
-DUAN_JSON_CODE = """
+LIGHT_JSON_CODE = """
 设 数据 为 {}。
 设 用户列表 为 []。
 设 i 为 0。
@@ -468,7 +468,7 @@ for _ in range(5):
         data = f.read()
 """
 
-DUAN_FILEIO_CODE = """
+LIGHT_FILEIO_CODE = """
 段落 文件IO 接收：
   设 内容 为 ""。
   设 i 为 0。
@@ -498,7 +498,7 @@ def list_concat():
 list_concat()
 """
 
-DUAN_LIST_CONCAT_CODE = """
+LIGHT_LIST_CONCAT_CODE = """
 段落 列表拼接：
   设 结果 为 []。
   设 i 为 0。
@@ -529,7 +529,7 @@ def dict_ops():
 dict_ops()
 """
 
-DUAN_DICT_CODE = """
+LIGHT_DICT_CODE = """
 段落 字典操作：
   设 d 为 {}。
   设 i 为 0。
@@ -548,9 +548,9 @@ DUAN_DICT_CODE = """
 """
 
 
-def run_benchmark(name: str, py_code: str, duan_code: str,
-                  py_iterations: int = 3, duan_iterations: int = 1):
-    """运行单次基准测试，返回 (name, python_time, duan_time, ratio)"""
+def run_benchmark(name: str, py_code: str, light_code: str,
+                  py_iterations: int = 3, light_iterations: int = 1):
+    """运行单次基准测试，返回 (name, python_time, light_time, ratio)"""
     print(f"  运行基准测试: {name}...")
 
     # Python 基准
@@ -560,62 +560,62 @@ def run_benchmark(name: str, py_code: str, duan_code: str,
         py_times.append(t)
     py_avg = sum(py_times) / len(py_times)
 
-    # 段言基准
-    duan_times = []
-    for _ in range(max(1, duan_iterations)):
+    # 光明基准
+    light_times = []
+    for _ in range(max(1, light_iterations)):
         try:
-            t = time_duan(duan_code)
-            duan_times.append(t)
+            t = time_light(light_code)
+            light_times.append(t)
         except Exception as e:
-            print(f"    段言执行错误: {e}")
+            print(f"    光明执行错误: {e}")
             return (name, py_avg, None, None)
 
-    duan_avg = sum(duan_times) / len(duan_times)
+    light_avg = sum(light_times) / len(light_times)
 
-    if duan_avg > 0 and py_avg > 0:
-        ratio = duan_avg / py_avg
+    if light_avg > 0 and py_avg > 0:
+        ratio = light_avg / py_avg
     else:
         ratio = None
 
-    print(f"    Python: {py_avg:.6f}s, 段言: {duan_avg:.6f}s, 比率: {ratio:.2f}x" if ratio else
-          f"    Python: {py_avg:.6f}s, 段言: {duan_avg:.6f}s")
-    return (name, py_avg, duan_avg, ratio)
+    print(f"    Python: {py_avg:.6f}s, 光明: {light_avg:.6f}s, 比率: {ratio:.2f}x" if ratio else
+          f"    Python: {py_avg:.6f}s, 光明: {light_avg:.6f}s")
+    return (name, py_avg, light_avg, ratio)
 
 
 def generate_report(results: list, output_path: str):
     """生成 Markdown 报告"""
     lines = []
-    lines.append("# 段言 vs Python 性能基准测试报告")
+    lines.append("# 光明 vs Python 性能基准测试报告")
     lines.append("")
     lines.append("> 生成时间: 2026-08-07")
-    lines.append("> 测试环境: 段言 v5.5.0 (SRC 后端) vs Python 3.x")
+    lines.append("> 测试环境: 光明 v5.5.0 (SRC 后端) vs Python 3.x")
     lines.append("")
     lines.append("## 测试概述")
     lines.append("")
-    lines.append("本报告对比了段言编程语言（通过 SRC 后端解释执行）与 Python 在相同算法下的执行性能。")
+    lines.append("本报告对比了光明编程语言（通过 SRC 后端解释执行）与 Python 在相同算法下的执行性能。")
     lines.append("")
-    lines.append("| 测试编号 | 测试名称 | Python 耗时 (s) | 段言耗时 (s) | 比率 (段言/Python) |")
+    lines.append("| 测试编号 | 测试名称 | Python 耗时 (s) | 光明耗时 (s) | 比率 (光明/Python) |")
     lines.append("|---------|---------|----------------|-------------|-------------------|")
 
-    for i, (name, py_time, duan_time, ratio) in enumerate(results, 1):
+    for i, (name, py_time, light_time, ratio) in enumerate(results, 1):
         py_str = f"{py_time:.6f}" if py_time is not None else "N/A"
-        duan_str = f"{duan_time:.6f}" if duan_time is not None else "失败"
+        light_str = f"{light_time:.6f}" if light_time is not None else "失败"
         ratio_str = f"{ratio:.2f}x" if ratio is not None else "N/A"
-        lines.append(f"| {i} | {name} | {py_str} | {duan_str} | {ratio_str} |")
+        lines.append(f"| {i} | {name} | {py_str} | {light_str} | {ratio_str} |")
 
     lines.append("")
     lines.append("## 测试详情")
     lines.append("")
 
-    for i, (name, py_time, duan_time, ratio) in enumerate(results, 1):
+    for i, (name, py_time, light_time, ratio) in enumerate(results, 1):
         lines.append(f"### {i}. {name}")
         lines.append("")
         if py_time is not None:
             lines.append(f"- Python 耗时: **{py_time:.6f}** 秒")
-        if duan_time is not None:
-            lines.append(f"- 段言耗时: **{duan_time:.6f}** 秒")
+        if light_time is not None:
+            lines.append(f"- 光明耗时: **{light_time:.6f}** 秒")
         if ratio is not None:
-            lines.append(f"- 性能比率: **{ratio:.2f}x** (段言是 Python 的 {ratio:.2f} 倍)")
+            lines.append(f"- 性能比率: **{ratio:.2f}x** (光明是 Python 的 {ratio:.2f} 倍)")
         lines.append("")
 
     # 计算平均比率
@@ -627,7 +627,7 @@ def generate_report(results: list, output_path: str):
         lines.append(f"- 共完成 **{len(results)}** 项基准测试")
         lines.append(f"- **{len(valid_ratios)}** 项测试成功完成")
         lines.append(f"- **{len(results) - len(valid_ratios)}** 项测试失败")
-        lines.append(f"- 段言平均执行时间为 Python 的 **{avg_ratio:.2f} 倍**")
+        lines.append(f"- 光明平均执行时间为 Python 的 **{avg_ratio:.2f} 倍**")
         lines.append("")
 
         # 按场景分类
@@ -646,7 +646,7 @@ def generate_report(results: list, output_path: str):
                 lines.append(f"| {label} | {names} | {avg:.2f}x |")
         lines.append("")
 
-        lines.append("> 注：段言目前通过 SRC 后端解释执行（编译为 Python 字节码再运行），")
+        lines.append("> 注：光明目前通过 SRC 后端解释执行（编译为 Python 字节码再运行），")
         lines.append("> 性能差距主要来源于解释执行的开销。未来 LLVM 后端完成后将大幅提升性能。")
         lines.append("")
 
@@ -658,30 +658,30 @@ def generate_report(results: list, output_path: str):
 
 def main():
     print("=" * 60)
-    print("段言 vs Python 性能基准测试")
+    print("光明 vs Python 性能基准测试")
     print("=" * 60)
     print()
 
     benchmarks = [
-        ("斐波那契数列 (n=30)", PY_FIBONACCI_CODE, DUAN_FIBONACCI_CODE, 3, 1),
-        ("素数筛法 (n=10000)", PY_PRIME_CODE, DUAN_PRIME_CODE, 3, 1),
-        ("冒泡排序 (n=200)", PY_BUBBLE_CODE, DUAN_BUBBLE_CODE, 3, 1),
-        ("阶乘计算 (n=100)", PY_FACTORIAL_CODE, DUAN_FACTORIAL_CODE, 3, 1),
-        ("汉诺塔 (n=15)", PY_HANOI_CODE, DUAN_HANOI_CODE, 3, 1),
-        ("列表操作 (1000次)", PY_LIST_OPS_CODE, DUAN_LIST_OPS_CODE, 3, 1),
-        ("字符串操作 (200次)", PY_STR_CODE, DUAN_STR_CODE, 3, 1),
-        ("矩阵乘法 (30x30)", PY_MATRIX_CODE, DUAN_MATRIX_CODE, 3, 1),
-        ("快速排序 (n=1000)", PY_QUICKSORT_CODE, DUAN_QUICKSORT_CODE, 3, 1),
-        ("JSON 序列化/解析", PY_JSON_CODE, DUAN_JSON_CODE, 3, 1),
-        ("文件 I/O 读写", PY_FILEIO_CODE, DUAN_FILEIO_CODE, 3, 1),
-        ("大列表拼接 (2500元素)", PY_LIST_CONCAT_CODE, DUAN_LIST_CONCAT_CODE, 3, 1),
-        ("字典操作 (2000键值)", PY_DICT_CODE, DUAN_DICT_CODE, 3, 1),
+        ("斐波那契数列 (n=30)", PY_FIBONACCI_CODE, LIGHT_FIBONACCI_CODE, 3, 1),
+        ("素数筛法 (n=10000)", PY_PRIME_CODE, LIGHT_PRIME_CODE, 3, 1),
+        ("冒泡排序 (n=200)", PY_BUBBLE_CODE, LIGHT_BUBBLE_CODE, 3, 1),
+        ("阶乘计算 (n=100)", PY_FACTORIAL_CODE, LIGHT_FACTORIAL_CODE, 3, 1),
+        ("汉诺塔 (n=15)", PY_HANOI_CODE, LIGHT_HANOI_CODE, 3, 1),
+        ("列表操作 (1000次)", PY_LIST_OPS_CODE, LIGHT_LIST_OPS_CODE, 3, 1),
+        ("字符串操作 (200次)", PY_STR_CODE, LIGHT_STR_CODE, 3, 1),
+        ("矩阵乘法 (30x30)", PY_MATRIX_CODE, LIGHT_MATRIX_CODE, 3, 1),
+        ("快速排序 (n=1000)", PY_QUICKSORT_CODE, LIGHT_QUICKSORT_CODE, 3, 1),
+        ("JSON 序列化/解析", PY_JSON_CODE, LIGHT_JSON_CODE, 3, 1),
+        ("文件 I/O 读写", PY_FILEIO_CODE, LIGHT_FILEIO_CODE, 3, 1),
+        ("大列表拼接 (2500元素)", PY_LIST_CONCAT_CODE, LIGHT_LIST_CONCAT_CODE, 3, 1),
+        ("字典操作 (2000键值)", PY_DICT_CODE, LIGHT_DICT_CODE, 3, 1),
     ]
 
     results = []
-    for name, py_code, duan_code, py_iter, duan_iter in benchmarks:
+    for name, py_code, light_code, py_iter, light_iter in benchmarks:
         try:
-            result = run_benchmark(name, py_code, duan_code, py_iter, duan_iter)
+            result = run_benchmark(name, py_code, light_code, py_iter, light_iter)
             results.append(result)
         except Exception as e:
             print(f"  基准测试失败 [{name}]: {e}")

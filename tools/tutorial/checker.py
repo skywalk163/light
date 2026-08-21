@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言（Duan）练习检查脚本
+光明（Light）练习检查脚本
 
-自动运行指定练习的 .duan 文件，将实际输出与预期输出比较，
+自动运行指定练习的 .light 文件，将实际输出与预期输出比较，
 并输出检查结果（通过/失败 + 差异）。
 
 用法：
@@ -78,12 +78,12 @@ def find_exercise_dir(name: str) -> str:
 
 def find_solution_file(name: str) -> str:
     """返回参考答案文件路径"""
-    return os.path.join(_EXERCISES_DIR, f"{name}_solution.duan")
+    return os.path.join(_EXERCISES_DIR, f"{name}_solution.light")
 
 
 def find_skeleton_file(name: str) -> str:
     """返回骨架代码文件路径"""
-    return os.path.join(_EXERCISES_DIR, f"{name}.duan")
+    return os.path.join(_EXERCISES_DIR, f"{name}.light")
 
 
 def find_md_file(name: str) -> str:
@@ -111,18 +111,18 @@ def parse_expected_output(md_path: str) -> str:
     return ""
 
 
-def run_duan_file(filepath: str) -> tuple[int, str, str]:
+def run_light_file(filepath: str) -> tuple[int, str, str]:
     """
-    运行 .duan 文件，返回 (返回码, stdout, stderr)。
+    运行 .light 文件，返回 (返回码, stdout, stderr)。
 
-    使用 subprocess 调用 duan_unified 解释器。
+    使用 subprocess 调用 light_unified 解释器。
     """
     cmd = [
         sys.executable,
         "-X",
         "utf8",
         "-m",
-        "cli.duan_unified",
+        "cli.light_unified",
         "run",
         filepath,
     ]
@@ -195,7 +195,7 @@ def check_exercise(name: str, show_diff: bool = False) -> dict:
     result["expected"] = expected
 
     # 运行参考答案文件
-    returncode, stdout, stderr = run_duan_file(solution_file)
+    returncode, stdout, stderr = run_light_file(solution_file)
 
     if returncode != 0:
         result["error"] = f"运行失败（返回码 {returncode}）"
@@ -268,7 +268,7 @@ def print_exercise_result(result: dict, show_diff: bool = False):
 # ── 命令实现 ──────────────────────────────────────────────────────
 def cmd_list():
     """列出所有练习"""
-    print(f"\n{color('段言练习列表', Colors.BOLD, Colors.CYAN)}")
+    print(f"\n{color('光明练习列表', Colors.BOLD, Colors.CYAN)}")
     print(f"{'=' * 60}")
     print(f"  {'编号':<6} {'练习名':<20} {'说明文件':<20} {'骨架代码':<20} {'参考答案':<20}")
     print(f"{'-' * 60}")
@@ -325,7 +325,7 @@ def run_all(show_diff: bool = False):
     failed = 0
     errors = 0
 
-    print(f"\n{color('段言练习检查报告', Colors.BOLD, Colors.CYAN)}")
+    print(f"\n{color('光明练习检查报告', Colors.BOLD, Colors.CYAN)}")
     print(f"{'=' * 60}")
     print(f"  开始检查 {total} 个练习...\n")
 
@@ -362,7 +362,7 @@ def run_all(show_diff: bool = False):
 # ── 主入口 ────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(
-        description="段言（Duan）练习检查脚本",
+        description="光明（Light）练习检查脚本",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "示例:\n"

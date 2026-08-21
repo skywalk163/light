@@ -153,7 +153,7 @@ def step2_execute_and_compile(py_code):
 
                 # 执行生成的代码
                 try:
-                    exec(test_py, {'_duan_builtin': namespace.get('_duan_builtin', types.ModuleType('_duan_builtin'))})
+                    exec(test_py, {'_light_builtin': namespace.get('_light_builtin', types.ModuleType('_light_builtin'))})
                     print(f"    执行: 成功")
                 except Exception as e:
                     print(f"    执行: 失败 - {e}")
@@ -211,19 +211,19 @@ def step3_verify_consistency(py_code):
                 print(f"    {backend_name} 后端语法: 失败 - {e}")
 
         # 执行两种代码，对比结果
-        test_ns_src = {'_duan_builtin': types.ModuleType('_duan_builtin')}
-        test_ns_src['_duan_builtin'].打印 = print
-        test_ns_src['_duan_builtin'].转字符串 = str
-        test_ns_src['_duan_builtin'].转整数 = int
-        test_ns_src['_duan_builtin'].列表创建 = list
-        test_ns_src['_duan_builtin'].列表长度 = len
-        test_ns_src['_duan_builtin'].列表追加 = lambda lst, item: lst.append(item)
-        test_ns_src['_duan_builtin'].字典创建 = dict
-        test_ns_src['_duan_builtin'].字典获取 = lambda d, k, default=None: d.get(k, default)
-        test_ns_src['_duan_builtin'].字典设置 = lambda d, k, v: d.update({k: v})
-        test_ns_src['_duan_builtin'].字符串获取 = lambda s, i: s[i]
-        test_ns_src['_duan_builtin'].字符串长度 = len
-        test_ns_src['_duan_builtin'].截取 = lambda s, start, end: s[start:end]
+        test_ns_src = {'_light_builtin': types.ModuleType('_light_builtin')}
+        test_ns_src['_light_builtin'].打印 = print
+        test_ns_src['_light_builtin'].转字符串 = str
+        test_ns_src['_light_builtin'].转整数 = int
+        test_ns_src['_light_builtin'].列表创建 = list
+        test_ns_src['_light_builtin'].列表长度 = len
+        test_ns_src['_light_builtin'].列表追加 = lambda lst, item: lst.append(item)
+        test_ns_src['_light_builtin'].字典创建 = dict
+        test_ns_src['_light_builtin'].字典获取 = lambda d, k, default=None: d.get(k, default)
+        test_ns_src['_light_builtin'].字典设置 = lambda d, k, v: d.update({k: v})
+        test_ns_src['_light_builtin'].字符串获取 = lambda s, i: s[i]
+        test_ns_src['_light_builtin'].字符串长度 = len
+        test_ns_src['_light_builtin'].截取 = lambda s, start, end: s[start:end]
 
         test_ns_bs = dict(test_ns_src)
 

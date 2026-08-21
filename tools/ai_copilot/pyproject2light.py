@@ -18,7 +18,7 @@ Python 项目 -> 光明项目 批量转译器
         (保留原始目录结构)
         *.light          -- 转译后的光明源文件
         (非 .py 文件原样复制)
-        duan.json        -- 项目清单
+        light.json        -- 项目清单
         CONVERSION_REPORT.md -- 转译报告
         build.py         -- 构建脚本（.light -> .py 编译运行）
 """
@@ -218,9 +218,9 @@ class ProjectTranspiler:
         # 3. 遍历转译
         self._walk_and_transpile()
 
-        # 4. 生成 duan.json
+        # 4. 生成 light.json
         if not self.dry_run:
-            self._generate_duan_json()
+            self._generate_light_json()
 
         # 5. 生成 CONVERSION_REPORT.md
         if not self.dry_run:
@@ -315,15 +315,15 @@ class ProjectTranspiler:
                 pass
 
             # 转译
-            duan_code = self.transpiler.transpile(py_code)
+            light_code = self.transpiler.transpile(py_code)
             result["status"] = "transpiled"
             self.stats["transpiled"] += 1
 
             # import 路径重写：光明的"从 X.Y 导入 Z"不支持点号路径
-            duan_code = self._rewrite_imports(duan_code, rel_path)
+            light_code = self._rewrite_imports(light_code, rel_path)
 
             # 光明解析器验证（返回详细结果）
-            validate_result = self._validate_light(duan_code)
+            validate_result = self._validate_light(light_code)
             result["parse_ok"] = validate_result["success"]
             result["parse_error"] = validate_result["error"]
             result["parse_error_type"] = validate_result["error_type"]
@@ -338,7 +338,7 @@ class ProjectTranspiler:
                 dst_file = self.out_dir / light_rel_path
                 dst_file.parent.mkdir(parents=True, exist_ok=True)
                 with open(dst_file, "w", encoding="utf-8") as f:
-                    f.write(duan_code)
+                    f.write(light_code)
 
             self._log(f"  [OK] {rel_path} -> {light_rel_path}"
                       + ("" if validate_result["success"] else "  [PARSE WARNING]"))
@@ -427,7 +427,7 @@ class ProjectTranspiler:
 
     # ---------- Import 路径重写 ----------
 
-    def _rewrite_imports(self, duan_code: str, rel_path: Path) -> str:
+    def _rewrite_imports(self, light_code: str, rel_path: Path) -> str:
         """重写光明代码中的 import 语句，使其兼容光明解析器。
 
         光明的"从 X.Y 导入 Z"不支持模块路径中的点号。
@@ -441,7 +441,7 @@ class ProjectTranspiler:
         """
         import re
 
-        lines = duan_code.split("\n")
+        lines = light_code.split("\n")
         rewritten = []
 
         for line in lines:
@@ -474,8 +474,8 @@ class ProjectTranspiler:
 
     # ---------- 光明解析器验证 ----------
 
-    def _validate_light(self, duan_code: str) -> dict:
-        """用光明解析器验证 .duan 代码是否能成功解析
+    def _validate_light(self, light_code: str) -> dict:
+        """用光明解析器验证 .light 代码是否能成功解析
 
         Returns:
             dict with keys:
@@ -491,7 +491,7 @@ class ProjectTranspiler:
 
             from light_parser_v3 import LightParser
             parser = LightParser()
-            module = parser.parse(duan_code)
+            module = parser.parse(light_code)
             if module is not None:
                 return {"success": True, "error": None, "error_type": None, "lineno": None}
             else:
@@ -508,15 +508,15 @@ class ProjectTranspiler:
                 lineno = int(m.group(1))
             return {"success": False, "error": error_msg, "error_type": error_type, "lineno": lineno}
 
-    # ---------- 生成 duan.json ----------
+    # ---------- 生成 light.json ----------
 
-    def _generate_duan_json(self):
-        """生成项目清单 duan.json"""
-        duan_files = []
+    def _generate_light_json(self):
+        """生成项目清单 light.json"""
+        light_files = []
         for r in self.file_results:
             if r["status"] == "transpiled":
-                duan_files.append({
-                    "duan": r["dst"],
+                light_files.append({
+                    "light": r["dst"],
                     "original_py": r["src"],
                     "parse_validated": r["parse_ok"],
                 })
@@ -528,7 +528,7 @@ class ProjectTranspiler:
             "output_dir": str(self.out_dir),
             "stats": self.stats,
             "feature_stats": dict(self.feature_stats),
-            "duan_files": duan_files,
+            "light_files": light_files,
             "imports": {
                 "local": {k: v for k, v in sorted(self.all_imports["local"].items())},
                 "stdlib": {k: v for k, v in sorted(self.all_imports["stdlib"].items())},
@@ -537,7 +537,7 @@ class ProjectTranspiler:
             "local_modules": sorted(self.local_module_names),
         }
 
-        json_path = self.out_dir / "duan.json"
+        json_path = self.out_dir / "light.json"
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(manifest, f, ensure_ascii=False, indent=2)
 
@@ -730,8 +730,8 @@ class ProjectTranspiler:
             lines.append(f"### 手动修复步骤\n")
             lines.append("1. 查看上方的失败详情，定位具体文件和行号")
             lines.append("2. 对照原始 Python 源码和转译后的光明代码，找出差异")
-            lines.append("3. 手动编辑 `.duan` 文件修复问题")
-            lines.append("4. 运行 `python -m light_parser_v3 <file>.duan` 验证修复")
+            lines.append("3. 手动编辑 `.light` 文件修复问题")
+            lines.append("4. 运行 `python -m light_parser_v3 <file>.light` 验证修复")
             lines.append("")
 
         # 使用说明
@@ -742,14 +742,14 @@ class ProjectTranspiler:
         lines.append("python build.py")
         lines.append("")
         lines.append("# 方法 2: 使用光明 CLI 逐文件编译")
-        lines.append("duan compile main.duan -o main.py")
+        lines.append("light compile main.light -o main.py")
         lines.append("python main.py")
         lines.append("```")
         lines.append("")
         lines.append("### 注意事项\n")
         lines.append("- 第三方库 import 保持原样，运行时需要 `pip install` 对应的包")
         lines.append("- 转译失败的文件已保留原始 .py 文件作为 fallback")
-        lines.append("- `build.py` 会将所有 .duan 文件编译为 .py 并保留目录结构")
+        lines.append("- `build.py` 会将所有 .light 文件编译为 .py 并保留目录结构")
 
         report_path = self.out_dir / "CONVERSION_REPORT.md"
         with open(report_path, "w", encoding="utf-8") as f:
@@ -761,18 +761,18 @@ class ProjectTranspiler:
 
     def _generate_build_script(self):
         """生成 build.py 构建脚本"""
-        # 确定 duan CLI 路径
+        # 确定 light CLI 路径
         project_root = Path(_SCRIPT_DIR).parent.parent
-        duan_cli = project_root / "cli" / "duan.py"
+        light_cli = project_root / "cli" / "light.py"
 
         build_code = f'''#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 build.py - 光明项目构建脚本
-将项目中所有 .duan 文件编译为 .py 文件，保留目录结构。
+将项目中所有 .light 文件编译为 .py 文件，保留目录结构。
 
 用法:
-    python build.py              # 编译所有 .duan 文件
+    python build.py              # 编译所有 .light 文件
     python build.py --run <file> # 编译并运行指定文件
     python build.py --clean      # 清理编译产物
 """
@@ -784,26 +784,26 @@ import argparse
 from pathlib import Path
 
 # 光明项目根目录
-DUAN_PROJECT_ROOT = r"{project_root}"
-SRC_DIR = os.path.join(DUAN_PROJECT_ROOT, "src")
-CLI_DIR = os.path.join(DUAN_PROJECT_ROOT, "cli")
+LIGHT_PROJECT_ROOT = r"{project_root}"
+SRC_DIR = os.path.join(LIGHT_PROJECT_ROOT, "src")
+CLI_DIR = os.path.join(LIGHT_PROJECT_ROOT, "cli")
 
 # 确保 import 路径
 sys.path.insert(0, SRC_DIR)
 sys.path.insert(0, CLI_DIR)
-sys.path.insert(0, DUAN_PROJECT_ROOT)
+sys.path.insert(0, LIGHT_PROJECT_ROOT)
 
 # 当前光明项目目录（即 build.py 所在目录）
 PROJECT_DIR = Path(__file__).parent.resolve()
 
 
-def compile_duan_to_py(duan_path: Path, py_path: Path = None) -> bool:
-    """编译单个 .duan 文件为 .py 文件"""
+def compile_light_to_py(light_path: Path, py_path: Path = None) -> bool:
+    """编译单个 .light 文件为 .py 文件"""
     if py_path is None:
-        py_path = duan_path.with_suffix(".py")
+        py_path = light_path.with_suffix(".py")
 
     try:
-        with open(duan_path, "r", encoding="utf-8") as f:
+        with open(light_path, "r", encoding="utf-8") as f:
             source = f.read()
 
         from light_parser_v3 import LightParser
@@ -812,7 +812,7 @@ def compile_duan_to_py(duan_path: Path, py_path: Path = None) -> bool:
         parser = LightParser()
         module = parser.parse(source)
         if module is None:
-            print(f"  [FAIL] {{duan_path}}: 解析失败")
+            print(f"  [FAIL] {{light_path}}: 解析失败")
             return False
 
         generator = PythonCodeGenerator()
@@ -828,26 +828,26 @@ def compile_duan_to_py(duan_path: Path, py_path: Path = None) -> bool:
         with open(py_path, "w", encoding="utf-8") as f:
             f.write(py_code)
 
-        print(f"  [OK] {{duan_path}} -> {{py_path}}")
+        print(f"  [OK] {{light_path}} -> {{py_path}}")
         return True
 
     except Exception as e:
-        print(f"  [FAIL] {{duan_path}}: {{e}}")
+        print(f"  [FAIL] {{light_path}}: {{e}}")
         return False
 
 
-def _restore_imports(py_code: str, duan_source: str) -> str:
-    """从 .duan 源码中提取 @import 注释，注入到生成的 .py 代码中。
+def _restore_imports(py_code: str, light_source: str) -> str:
+    """从 .light 源码中提取 @import 注释，注入到生成的 .py 代码中。
 
     光明编译器在解析时会丢弃注释行，所以 @import 注释不会出现在 .py 中。
-    本函数从 .duan 源文件提取这些注释，转为 Python import 语句，
+    本函数从 .light 源文件提取这些注释，转为 Python import 语句，
     插入到 .py 代码的用户代码区域开头。
     """
     import re
 
-    # 从 .duan 源码提取 @import 行
+    # 从 .light 源码提取 @import 行
     import_lines = []
-    for line in duan_source.split("\\n"):
+    for line in light_source.split("\\n"):
         m = re.match(r'^\\s*# @import: (.+)$', line)
         if m:
             import_lines.append(m.group(1).strip())
@@ -857,13 +857,13 @@ def _restore_imports(py_code: str, duan_source: str) -> str:
 
     # 在 .py 代码中找到用户代码区域的开头
     # 光明代码生成器在运行时前导代码之后输出用户代码
-    # 找到最后一个 _duan_assert 函数定义后的位置
+    # 找到最后一个 _light_assert 函数定义后的位置
     py_lines = py_code.split("\\n")
     insert_pos = None
 
     for i, line in enumerate(py_lines):
-        if "_duan_assert" in line and "def " in line:
-            # 找到 _duan_assert 函数结束位置
+        if "_light_assert" in line and "def " in line:
+            # 找到 _light_assert 函数结束位置
             j = i + 1
             while j < len(py_lines):
                 if py_lines[j].strip() and not py_lines[j].startswith(" ") and not py_lines[j].startswith("\\t"):
@@ -886,7 +886,7 @@ def _restore_imports(py_code: str, duan_source: str) -> str:
 
 # 光明内置函数名 -> Python 函数名映射
 # 只包含光明代码生成器未正确映射回 Python 的函数
-_DUAN_BUILTIN_REVERSE = {{
+_LIGHT_BUILTIN_REVERSE = {{
     '求和': 'sum', '整数': 'int', '浮数': 'float', '串': 'str',
     '布尔': 'bool', '典': 'dict', '集': 'set', '类型': 'type',
     '绝对值': 'abs', '四舍五入': 'round', '最小': 'min', '最大': 'max',
@@ -904,11 +904,11 @@ def _restore_builtins(py_code: str) -> str:
     """
     import re
 
-    for duan_name, py_name in _DUAN_BUILTIN_REVERSE.items():
+    for light_name, py_name in _LIGHT_BUILTIN_REVERSE.items():
         # 匹配: 函数名( 参数 -> py_name( 参数
         # 需要确保前面不是 . 或字母（避免替换方法名/变量名的一部分）
         py_code = re.sub(
-            r'(?<![.\\w])' + duan_name + r'\\(',
+            r'(?<![.\\w])' + light_name + r'\\(',
             py_name + '(',
             py_code
         )
@@ -917,36 +917,36 @@ def _restore_builtins(py_code: str) -> str:
 
 
 def build_all():
-    """编译项目中所有 .duan 文件"""
+    """编译项目中所有 .light 文件"""
     # 读取项目清单
-    manifest_path = PROJECT_DIR / "duan.json"
+    manifest_path = PROJECT_DIR / "light.json"
     if manifest_path.exists():
         with open(manifest_path, "r", encoding="utf-8") as f:
             manifest = json.load(f)
-        duan_files = [entry["duan"] for entry in manifest.get("duan_files", [])]
+        light_files = [entry["light"] for entry in manifest.get("light_files", [])]
     else:
         # 退化为扫描目录
-        duan_files = [str(p.relative_to(PROJECT_DIR))
+        light_files = [str(p.relative_to(PROJECT_DIR))
                       for p in PROJECT_DIR.rglob("*.light")
                       if "build" not in str(p)]
 
-    if not duan_files:
+    if not light_files:
         print("未找到 .light 文件")
         return False
 
-    print(f"开始编译 {{len(duan_files)}} 个光明文件...")
+    print(f"开始编译 {{len(light_files)}} 个光明文件...")
     success = 0
     failed = 0
 
-    for duan_rel in duan_files:
-        duan_path = PROJECT_DIR / duan_rel
-        py_path = duan_path.with_suffix(".py")
+    for light_rel in light_files:
+        light_path = PROJECT_DIR / light_rel
+        py_path = light_path.with_suffix(".py")
 
-        if not duan_path.exists():
-            print(f"  [SKIP] {{duan_rel}}: 文件不存在")
+        if not light_path.exists():
+            print(f"  [SKIP] {{light_rel}}: 文件不存在")
             continue
 
-        if compile_duan_to_py(duan_path, py_path):
+        if compile_light_to_py(light_path, py_path):
             success += 1
         else:
             failed += 1
@@ -955,16 +955,16 @@ def build_all():
     return failed == 0
 
 
-def run_file(duan_rel: str):
+def run_file(light_rel: str):
     """编译并运行指定光明文件"""
-    duan_path = PROJECT_DIR / duan_rel
-    if not duan_path.exists():
-        print(f"文件不存在: {{duan_path}}")
+    light_path = PROJECT_DIR / light_rel
+    if not light_path.exists():
+        print(f"文件不存在: {{light_path}}")
         sys.exit(1)
 
-    py_path = duan_path.with_suffix(".py")
-    print(f"编译 {{duan_rel}} ...")
-    if not compile_duan_to_py(duan_path, py_path):
+    py_path = light_path.with_suffix(".py")
+    print(f"编译 {{light_rel}} ...")
+    if not compile_light_to_py(light_path, py_path):
         sys.exit(1)
 
     print(f"\\n运行 {{py_path.relative_to(PROJECT_DIR)}} ...")
@@ -974,7 +974,7 @@ def run_file(duan_rel: str):
 
 
 def clean():
-    """清理编译产物（删除所有 .py 文件，保留 .duan）"""
+    """清理编译产物（删除所有 .py 文件，保留 .light）"""
     count = 0
     for py_file in PROJECT_DIR.rglob("*.py"):
         if py_file.name == "build.py":
@@ -987,7 +987,7 @@ def clean():
 
 def main():
     parser = argparse.ArgumentParser(description="光明项目构建脚本")
-    parser.add_argument("--run", metavar="FILE", help="编译并运行指定 .duan 文件")
+    parser.add_argument("--run", metavar="FILE", help="编译并运行指定 .light 文件")
     parser.add_argument("--clean", action="store_true", help="清理编译产物")
     args = parser.parse_args()
 
@@ -1048,13 +1048,13 @@ if __name__ == "__main__":
         else:
             print()
             print("  产物文件:")
-            print(f"    - duan.json (项目清单)")
+            print(f"    - light.json (项目清单)")
             print(f"    - CONVERSION_REPORT.md (转译报告)")
             print(f"    - build.py (构建脚本)")
             print()
             print("  下一步:")
-            print("    python build.py          # 编译 .duan -> .py")
-            print("    python build.py --run main.duan  # 编译并运行")
+            print("    python build.py          # 编译 .light -> .py")
+            print("    python build.py --run main.light  # 编译并运行")
 
         print("=" * 60)
 
@@ -1075,7 +1075,7 @@ def main():
     )
     parser.add_argument("src", help="Python 源项目目录")
     parser.add_argument("-o", "--output", default=None,
-                        help="输出目录（默认: <源目录>_duan）")
+                        help="输出目录（默认: <源目录>_light）")
     parser.add_argument("--dry-run", action="store_true",
                         help="预览模式，不实际写入文件")
     parser.add_argument("-v", "--verbose", action="store_true",
@@ -1090,7 +1090,7 @@ def main():
 
     out_dir = args.output
     if out_dir is None:
-        out_dir = str(Path(src_dir).resolve()) + "_duan"
+        out_dir = str(Path(src_dir).resolve()) + "_light"
 
     transpiler = ProjectTranspiler(
         src_dir=src_dir,
