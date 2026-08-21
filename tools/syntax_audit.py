@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""段言语法体检：批量解析全仓 .duan 文件，统计真实可解析率并归类失败原因。
+"""光明语法体检：批量解析全仓 .light 文件，统计真实可解析率并归类失败原因。
 
 用法：
     .venv/Scripts/python.exe -X utf8 tools/syntax_audit.py [目录...]
@@ -102,7 +102,7 @@ def parse_one(path):
         return False, source, f"{type(e).__name__}: {summarize_error(str(e))}"
     if module is None:
         return False, source, "解析失败：返回空模块"
-    # 与 duan check 一致：检测未消费的实质性 token
+    # 与 light check 一致：检测未消费的实质性 token
     for i in range(parser.pos, len(parser.tokens)):
         t = parser.tokens[i]
         if t.type.name not in ('NEWLINE', 'DEDENT', 'INDENT', 'DOT', 'EOF'):
@@ -122,7 +122,7 @@ def main():
             if '__pycache__' in dirpath or '.bak' in dirpath:
                 continue
             for n in sorted(names):
-                if n.endswith(('.light', '.duan')):
+                if n.endswith('.light'):
                     files.append(os.path.join(dirpath, n))
 
     results = []
@@ -147,7 +147,7 @@ def main():
     failed = total - passed
 
     print("=" * 68)
-    print("段言语法体检报告")
+    print("光明语法体检报告")
     print("=" * 68)
     print(f"扫描目录: {', '.join(dirs)}")
     print(f"文件总数: {total}   通过: {passed}   失败: {failed}   "

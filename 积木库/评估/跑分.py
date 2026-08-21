@@ -233,7 +233,7 @@ def _cli(argv=None):
     args = p.parse_args(argv)
 
     if args.real:
-        os.environ['DUAN_EMBED_REAL'] = '1'
+        os.environ['LIGHT_EMBED_REAL'] = '1'
 
     基准 = 载入基准()
     索引 = load_index()
@@ -241,7 +241,7 @@ def _cli(argv=None):
     阈值 = args.阈值 if args.阈值 is not None else _默认阈值[args.策略]
 
     用真 = (args.策略 == 'embedding'
-            and os.environ.get('DUAN_EMBED_REAL') == '1' and _真向量可用())
+            and os.environ.get('LIGHT_EMBED_REAL') == '1' and _真向量可用())
     模式 = ('真·句向量' if 用真 else
             ('概念图向量' if args.策略 in ('embedding', '概念图') else args.策略))
 

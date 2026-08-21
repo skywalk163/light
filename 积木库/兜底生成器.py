@@ -62,10 +62,10 @@ def load_config():
                     cfg[k] = j[k]
         except Exception:
             pass
-    # 3) DUAN_NO_LLM=1 强制关闭 LLM（校验器/兜底一并降级为本地规则）。
+    # 3) LIGHT_NO_LLM=1 强制关闭 LLM（校验器/兜底一并降级为本地规则）。
     #    评估与 CI 必须可复现且零 token：一旦 .env 配了真实 key，校验器会转为 LLM 判定，
     #    主基准结果随模型漂移（v0.28 实测把 89 条基准从 1.0 打到 0.9888），故 CI 默认置此位。
-    if str(os.environ.get('DUAN_NO_LLM', '')).lower() in ('1', 'true', 'yes', 'on'):
+    if str(os.environ.get('LIGHT_NO_LLM', '')).lower() in ('1', 'true', 'yes', 'on'):
         cfg['api_key'] = ''
     return cfg
 

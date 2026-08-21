@@ -1,4 +1,4 @@
-# 段言（DuanLang）发布检查清单
+# 光明（Light）发布检查清单
 
 > 版本：1.0 | 最后更新：2026-08-07
 
@@ -8,9 +8,9 @@
 
 ### 1.1 编译器核心
 
-- [ ] 所有 `.duan` 示例文件能通过 `duan run` 正常运行
-- [ ] SRC 后端编译通过（`python -m cli.duan_unified compile --backend src`）
-- [ ] ANTLR 后端编译通过（`python -m cli.duan_unified compile --backend antlr`）
+- [ ] 所有 `.light` 示例文件能通过 `light run` 正常运行
+- [ ] SRC 后端编译通过（`python -m cli.light_unified compile --backend src`）
+- [ ] ANTLR 后端编译通过（`python -m cli.light_unified compile --backend antlr`）
 - [ ] REPL 模式正常启动并执行语句
 - [ ] 回归测试全部通过（`python -m pytest tests/` 或 `python examples/test_all_examples.py`）
 - [ ] 无新引入的 Python 语法错误或 ImportError
@@ -91,15 +91,15 @@ output/
 ### 4.1 版本号检查
 
 - [ ] `pyproject.toml` 中的版本号已更新
-- [ ] `cli/duan_unified.py` 中的 `--version` 输出版本号正确
+- [ ] `cli/light_unified.py` 中的 `--version` 输出版本号正确
 - [ ] 所有安装包构建脚本中的版本号一致
 - [ ] Git tag 版本号与代码版本号一致
 
 ### 4.2 发布前最终验证
 
-- [ ] 在**全新环境**（无预装段言）中测试安装包安装
-- [ ] 安装后验证 `duan --version` 输出正确版本
-- [ ] 安装后验证 `duan run examples/hello.duan` 正常运行
+- [ ] 在**全新环境**（无预装光明）中测试安装包安装
+- [ ] 安装后验证 `light --version` 输出正确版本
+- [ ] 安装后验证 `light run examples/hello.light` 正常运行
 - [ ] 验证示例工具可执行文件能独立运行
 - [ ] 验证卸载功能彻底清除安装文件
 - [ ] 测试静默安装模式（`/VERYSILENT` 或等效参数）
@@ -127,9 +127,9 @@ python tools/packager/build_example.py --list
 python tools/packager/build_example.py --backend src
 
 # 核心功能验证
-python -m cli.duan_unified --version
-python -m cli.duan_unified run examples/hello.duan
-python -m cli.duan_unified run examples/basic.duan --backend src
+python -m cli.light_unified --version
+python -m cli.light_unified run examples/hello.light
+python -m cli.light_unified run examples/basic.light --backend src
 
 # 安装包构建（Windows）
 # ISCC.exe tools/installer/windows/setup.iss

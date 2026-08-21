@@ -30,7 +30,7 @@ tools/
 archive/
 *.bat
 *.sh
-*.duan
+*.light
 *.csv
 *.jsonl
 *.svg

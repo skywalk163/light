@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）包安全模块
+光明（Light）包安全模块
 
 提供第三方包依赖的认证、签名验证和安全检查。
 
@@ -8,7 +8,7 @@
   1. 包签名验证 — 验证包内容的完整性和来源
   2. TOFU（Trust On First Use）模型 — 首次信任，记录指纹，后续变更告警
   3. 已知漏洞依赖检查 — 内置 CVE 数据库，扫描依赖中的已知漏洞
-  4. CLI 命令: duan pkg verify <package>
+  4. CLI 命令: light pkg verify <package>
 
 安全模型：
   - 包签名使用 SHA-256 哈希生成完整性指纹
@@ -129,7 +129,7 @@ class TOFUStore:
                 base = Path(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')))
             else:
                 base = Path(os.environ.get('XDG_DATA_HOME', os.path.expanduser('~/.local/share')))
-            store_dir = str(base / 'duan' / 'security')
+            store_dir = str(base / 'light' / 'security')
         self._store_dir = Path(store_dir)
         self._store_dir.mkdir(parents=True, exist_ok=True)
         self._store_path = self._store_dir / self.STORE_FILENAME
@@ -221,7 +221,7 @@ class PackageSigner:
     def generate_signature(cls, package_dir: Path) -> SignatureInfo:
         """为包目录生成签名。
 
-        遍历包目录中的所有 .duan 和配置文件，计算 SHA-256 哈希。
+        遍历包目录中的所有 .light 和配置文件，计算 SHA-256 哈希。
 
         Args:
             package_dir: 包目录路径
@@ -245,10 +245,10 @@ class PackageSigner:
             except Exception:
                 pass
 
-        # 收集所有需要签名的文件（.light 为主，.duan 为历史残留，两者都签，
-        # 否则漏签源文件会让签名指纹不覆盖代码，形成安全漏洞）
+        # 收集所有需要签名的文件（源文件后缀只认 .light；漏签源文件会让
+        # 签名指纹不覆盖代码，形成安全漏洞）
         files_to_sign = []
-        for ext in ['*.light', '*.duan', '*.toml', '*.json', '*.md', 'LICENSE']:
+        for ext in ['*.light', '*.toml', '*.json', '*.md', 'LICENSE']:
             files_to_sign.extend(package_dir.glob(ext))
 
         # 计算哈希
@@ -542,17 +542,17 @@ class PackageVerifier:
 # =============================================================================
 
 SECURITY_MODEL_DOC = """
-# 段言包安全模型
+# 光明包安全模型
 
 ## 概述
 
-段言包安全模块提供了三层安全保护机制，确保第三方包依赖的
+光明包安全模块提供了三层安全保护机制，确保第三方包依赖的
 完整性、可追溯性和安全性。
 
 ## 第一层：签名验证（完整性）
 
 每个包在安装时都会计算其内容的 SHA-256 哈希值作为"指纹"。
-此指纹覆盖包中的所有 .duan 源文件、配置文件（package.toml）、
+此指纹覆盖包中的所有 .light 源文件、配置文件（package.toml）、
 文档（README.md）和许可证文件（LICENSE）。
 
 验证流程：
@@ -571,8 +571,8 @@ TOFU 模型在首次安装一个包时记录其完整性指纹，并标记为"�
 - 无记录 → 首次使用，自动添加信任记录
 
 信任库存储位置：
-- Windows: %LOCALAPPDATA%/duan/security/tofu_trust_store.json
-- Linux/macOS: ~/.local/share/duan/security/tofu_trust_store.json
+- Windows: %LOCALAPPDATA%/light/security/tofu_trust_store.json
+- Linux/macOS: ~/.local/share/light/security/tofu_trust_store.json
 
 ## 第三层：已知漏洞检查
 
@@ -588,22 +588,22 @@ TOFU 模型在首次安装一个包时记录其完整性指纹，并标记为"�
 ## CLI 命令
 
 ### 验证包
-  duan pkg verify <包名>         验证指定包
-  duan pkg verify <包名> --version 1.0.0  指定版本
-  duan pkg verify <包名> --dir ./packages/包名  指定包目录
+  light pkg verify <包名>         验证指定包
+  light pkg verify <包名> --version 1.0.0  指定版本
+  light pkg verify <包名> --dir ./packages/包名  指定包目录
 
 ### 信任管理
-  duan pkg verify --list-trusted   列出所有已信任的包
-  duan pkg verify --reset <包名>   重置指定包的信任状态
-  duan pkg verify --clear-all      清除所有信任记录
+  light pkg verify --list-trusted   列出所有已信任的包
+  light pkg verify --reset <包名>   重置指定包的信任状态
+  light pkg verify --clear-all      清除所有信任记录
 
 ### 漏洞检查
-  duan pkg verify --check-vulns    检查所有依赖的漏洞
+  light pkg verify --check-vulns    检查所有依赖的漏洞
 
 ## 最佳实践
 
-1. 定期运行 `duan pkg verify --check-vulns` 检查依赖漏洞
-2. 包发布前运行 `duan pkg publish --verify` 验证包结构
+1. 定期运行 `light pkg verify --check-vulns` 检查依赖漏洞
+2. 包发布前运行 `light pkg publish --verify` 验证包结构
 3. 收到指纹变更警告时，确认包来源是否可信
 4. 在 CI/CD 流程中加入包验证步骤
 """

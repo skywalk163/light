@@ -259,7 +259,7 @@ def validate(需求, 候选, 索引=None):
 
     关键：LLM 校验不可用时（429/超时）**保守触发兜底**（不信任候选），
     而非静默降级到本地「放行」。否则库外意图会被本地概念判定误判为通过→库内错块。
-    该分支仅在『配置了 api_key』时可达；89 主基准默认 DUAN_NO_LLM=1 抹空 key，
+    该分支仅在『配置了 api_key』时可达；89 主基准默认 LIGHT_NO_LLM=1 抹空 key，
     直接走 _local_validate，不受影响。
     """
     cfg = load_config()

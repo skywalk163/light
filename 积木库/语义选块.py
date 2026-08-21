@@ -200,8 +200,8 @@ def semantic_select(需求, index, top=None):
     # 真·向量路径（零 token，仅本地推理）
     # v0.24：默认不自动启用真向量——Windows 批量调用 sentence_transformers 会硬崩，
     # 且基准显示真向量（0.823）反不如概念图（0.984）。与 embedding选块.py 约定对齐：
-    # 仅 DUAN_EMBED_REAL=1 显式启用，默认走 TF-IDF（混合选块二级补召回依赖此默认）。
-    if _真向量检索可用() and os.environ.get('DUAN_EMBED_REAL') == '1':
+    # 仅 LIGHT_EMBED_REAL=1 显式启用，默认走 TF-IDF（混合选块二级补召回依赖此默认）。
+    if _真向量检索可用() and os.environ.get('LIGHT_EMBED_REAL') == '1':
         try:
             retr = _向量检索(blocks)
             picked = retr.检索(需求, top or 5)

@@ -1,7 +1,7 @@
 """
-段言自举编译器迁移辅助工具
+光明自举编译器迁移辅助工具
 
-帮助将 Python 实现的编译器组件逐步迁移到段言自身实现。
+帮助将 Python 实现的编译器组件逐步迁移到光明自身实现。
 监控迁移进度，生成迁移报告。
 """
 
@@ -19,59 +19,59 @@ class BootstrapMigrator:
     COMPILER_COMPONENTS = {
         "词法分析器": {
             "python": "src/lexer.py",
-            "duan": "bootstrap/lexer.duan",
+            "light": "bootstrap/lexer.light",
             "status": "已完成",
             "lines_python": 0,
-            "lines_duan": 0,
+            "lines_light": 0,
         },
         "语法解析器": {
             "python": "src/light_parser_v3.py",
-            "duan": "bootstrap/parser.duan",
+            "light": "bootstrap/parser.light",
             "status": "部分完成",
             "lines_python": 0,
-            "lines_duan": 0,
+            "lines_light": 0,
         },
         "AST定义": {
             "python": "src/ast_nodes_v3.py",
-            "duan": "bootstrap/duan_ast.duan",
+            "light": "bootstrap/light_ast.light",
             "status": "已完成",
             "lines_python": 0,
-            "lines_duan": 0,
+            "lines_light": 0,
         },
         "代码生成器": {
             "python": "src/code_generator.py",
-            "duan": "bootstrap/codegen.duan",
+            "light": "bootstrap/codegen.light",
             "status": "部分完成",
             "lines_python": 0,
-            "lines_duan": 0,
+            "lines_light": 0,
         },
         "类型检查器": {
             "python": "src/type_checker.py",
-            "duan": None,
+            "light": None,
             "status": "未开始",
             "lines_python": 0,
-            "lines_duan": 0,
+            "lines_light": 0,
         },
         "类型推断器": {
             "python": "src/type_inferencer.py",
-            "duan": None,
+            "light": None,
             "status": "未开始",
             "lines_python": 0,
-            "lines_duan": 0,
+            "lines_light": 0,
         },
         "编译器管道": {
             "python": "src/compiler.py",
-            "duan": "bootstrap/compiler.duan",
+            "light": "bootstrap/compiler.light",
             "status": "部分完成",
             "lines_python": 0,
-            "lines_duan": 0,
+            "lines_light": 0,
         },
         "主程序入口": {
-            "python": "cli/duan_unified.py",
-            "duan": "bootstrap/main.duan",
+            "python": "cli/light_unified.py",
+            "light": "bootstrap/main.light",
             "status": "部分完成",
             "lines_python": 0,
-            "lines_duan": 0,
+            "lines_light": 0,
         },
     }
     
@@ -95,10 +95,10 @@ class BootstrapMigrator:
         """更新所有组件的行数统计"""
         for name, info in self.COMPILER_COMPONENTS.items():
             py_path = info["python"]
-            duan_path = info["duan"]
+            light_path = info["light"]
             info["lines_python"] = self.count_lines(py_path)
-            if duan_path:
-                info["lines_duan"] = self.count_lines(duan_path)
+            if light_path:
+                info["lines_light"] = self.count_lines(light_path)
         return self.COMPILER_COMPONENTS
     
     def calculate_progress(self) -> Dict:
@@ -108,24 +108,24 @@ class BootstrapMigrator:
         total_python_lines = sum(
             c["lines_python"] for c in self.COMPILER_COMPONENTS.values()
         )
-        total_duan_lines = sum(
-            c["lines_duan"] for c in self.COMPILER_COMPONENTS.values()
+        total_light_lines = sum(
+            c["lines_light"] for c in self.COMPILER_COMPONENTS.values()
         )
         
-        # 已完成组件（有段言实现且状态为"已完成"）
+        # 已完成组件（有光明实现且状态为"已完成"）
         completed = sum(
             1 for c in self.COMPILER_COMPONENTS.values()
-            if c["duan"] and c["status"] == "已完成"
+            if c["light"] and c["status"] == "已完成"
         )
         # 部分完成组件
         partial = sum(
             1 for c in self.COMPILER_COMPONENTS.values()
-            if c["duan"] and c["status"] == "部分完成"
+            if c["light"] and c["status"] == "部分完成"
         )
         # 未开始组件
         not_started = sum(
             1 for c in self.COMPILER_COMPONENTS.values()
-            if not c["duan"] or c["status"] == "未开始"
+            if not c["light"] or c["status"] == "未开始"
         )
         
         total = len(self.COMPILER_COMPONENTS)
@@ -139,8 +139,8 @@ class BootstrapMigrator:
             "not_started": not_started,
             "progress_percent": round(weighted, 1),
             "total_python_lines": total_python_lines,
-            "total_duan_lines": total_duan_lines,
-            "migration_ratio": round(total_duan_lines / max(total_python_lines, 1) * 100, 1),
+            "total_light_lines": total_light_lines,
+            "migration_ratio": round(total_light_lines / max(total_python_lines, 1) * 100, 1),
         }
     
     def generate_report(self) -> str:
@@ -150,22 +150,22 @@ class BootstrapMigrator:
         
         lines = []
         lines.append("=" * 60)
-        lines.append("  段言自举编译器迁移进度报告")
+        lines.append("  光明自举编译器迁移进度报告")
         lines.append("=" * 60)
         lines.append(f"  生成时间: {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M')}")
         lines.append("")
         lines.append(f"  总体进度: {stats['progress_percent']}%")
         lines.append(f"  组件: {stats['completed']} 已完成 / {stats['partial']} 部分 / {stats['not_started']} 未开始 (共{stats['total_components']})")
-        lines.append(f"  Python: {stats['total_python_lines']} 行  →  段言: {stats['total_duan_lines']} 行 (迁移率 {stats['migration_ratio']}%)")
+        lines.append(f"  Python: {stats['total_python_lines']} 行  →  光明: {stats['total_light_lines']} 行 (迁移率 {stats['migration_ratio']}%)")
         lines.append("")
         lines.append("-" * 60)
-        lines.append(f"  {'组件名称':<12} {'状态':<8} {'Python行数':<10} {'段言行数':<10}")
+        lines.append(f"  {'组件名称':<12} {'状态':<8} {'Python行数':<10} {'光明行数':<10}")
         lines.append("-" * 60)
         for name, info in self.COMPILER_COMPONENTS.items():
             status = info["status"]
             py_lines = info["lines_python"]
-            duan_lines = info["lines_duan"]
-            lines.append(f"  {name:<12} {status:<8} {py_lines:<10} {duan_lines:<10}")
+            light_lines = info["lines_light"]
+            lines.append(f"  {name:<12} {status:<8} {py_lines:<10} {light_lines:<10}")
         lines.append("-" * 60)
         lines.append("")
         lines.append("  待完成项:")

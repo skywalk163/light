@@ -326,7 +326,15 @@ class DuanREPLV3:
             from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
             from prompt_toolkit.key_binding import KeyBindings
 
-            history_file = os.path.join(os.path.expanduser('~'), '.duan_history')
+            # 历史文件跟随光明配置目录（LIGHT_CONFIG_DIR，默认 ~/.light），
+            # 不再单独用 HOME 下的旧历史文件，也不做读旧文件的兼容。
+            try:
+                from first_run import get_config_dir  # type: ignore
+                history_dir = get_config_dir()
+            except ImportError:
+                history_dir = os.path.join(os.path.expanduser('~'), '.light')
+            os.makedirs(history_dir, exist_ok=True)
+            history_file = os.path.join(history_dir, 'history')
             kb = KeyBindings()
 
             session = PromptSession(

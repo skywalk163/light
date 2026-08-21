@@ -22,7 +22,7 @@ embedding选块.py 里：真·句向量做主检索时链路正确率从 0.984 �
 重排分源
 --------
 默认 TF-IDF 字符 n-gram（复用 语义选块.py，零依赖、亚毫秒）。
-装了 sentence_transformers 且 DUAN_EMBED_REAL=1 时改用真·句向量——
+装了 sentence_transformers 且 LIGHT_EMBED_REAL=1 时改用真·句向量——
 真向量在「宽召回后精排」这个位置才发挥得出来，做主检索反而有害。
 """
 import argparse
@@ -41,11 +41,11 @@ from 语义选块 import (_TFIDF, _切词, _扩展同义词, _余弦 as _tfidf�
                     semantic_select)
 
 # 并列判定阈值：概念分与 top1 差距在此以内视为「分不清」
-DELTA = float(os.environ.get('DUAN_HYBRID_DELTA', '0.03'))
+DELTA = float(os.environ.get('LIGHT_HYBRID_DELTA', '0.03'))
 # 融合权重：概念图占多少（其余给语义分）
-ALPHA = float(os.environ.get('DUAN_HYBRID_ALPHA', '0.7'))
+ALPHA = float(os.environ.get('LIGHT_HYBRID_ALPHA', '0.7'))
 # 补召回候选的「待裁决分」：高于所有兜底阈值，好让流程走到校验器那一步
-补召回分 = float(os.environ.get('DUAN_HYBRID_BACKFILL', '0.5'))
+补召回分 = float(os.environ.get('LIGHT_HYBRID_BACKFILL', '0.5'))
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +170,7 @@ def hybrid_select(需求, index, top=None, alpha=None, delta=None, real=None,
         return 候选[:top] if top else 候选
 
     if real is None:
-        real = os.environ.get('DUAN_EMBED_REAL') == '1'
+        real = os.environ.get('LIGHT_EMBED_REAL') == '1'
     a = ALPHA if alpha is None else alpha
 
     # 3) 群内重排

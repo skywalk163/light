@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-遍历 examples/ 下所有 .duan 示例，逐阶段（解析/生成/运行）报告状态。
+遍历 examples/ 下所有 .light 示例，逐阶段（解析/生成/运行）报告状态。
 
 用途：快速发现未被单元测试覆盖的示例是否存在语法/编译/运行问题。
 用法：python tools/sweep_examples.py [--verbose]
@@ -21,7 +21,7 @@ def sweep(path: str, verbose: bool = False) -> dict:
     results = {}
     for root, _dirs, files in os.walk(path):
         for fn in sorted(files):
-            if not fn.endswith(('.light', '.duan')):
+            if not fn.endswith('.light'):
                 continue
             rel = os.path.relpath(os.path.join(root, fn), path)
             fp = os.path.join(root, fn)

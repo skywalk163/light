@@ -613,12 +613,12 @@ description = ""
                 print(f"  ❌ 入口文件缺失: {self.config.entry}")
                 all_ok = False
 
-        # 检查源文件（.light 为主，.duan 为历史残留，两者都算）
-        duan_files = list(self.project_root.glob('*.light')) + list(self.project_root.glob('*.duan'))
-        if duan_files:
-            print(f"  ✅ 发现 {len(duan_files)} 个 .light/.duan 源文件")
+        # 检查源文件（v7 起源文件后缀只认 .light）
+        light_files = list(self.project_root.glob('*.light'))
+        if light_files:
+            print(f"  ✅ 发现 {len(light_files)} 个 .light 源文件")
         else:
-            print("  ⚠️  未发现 .light/.duan 源文件（可能为空包）")
+            print("  ⚠️  未发现 .light 源文件（可能为空包）")
 
         # 检查依赖可解析
         if self.config and self.config.dependencies:

@@ -1012,25 +1012,25 @@ def cmd_profile(args):
 
 
 def cmd_install(args):
-    """安装光明段件"""
+    """安装光明包"""
     from package_installer import run_install
     run_install(args)
 
 
 def cmd_publish(args):
-    """发布光明段件"""
+    """发布光明包"""
     from package_installer import run_publish
     run_publish(args)
 
 
 def cmd_pkg_update(args):
-    """更新光明段件"""
+    """更新光明包"""
     from package_installer import run_update
     run_update(args)
 
 
 def cmd_pkg_publish(args):
-    """发布光明段件（pkg 子命令）"""
+    """发布光明包（pkg 子命令）"""
     from package_installer import run_publish
     run_publish(args)
 
@@ -1228,6 +1228,31 @@ def _cmd_ai(args):
         )
         print(prompt)
 
+    elif ai_cmd == 'translate':
+        from translator import PythonToLightTranslator, LightToPythonTranslator
+
+        if args.to_light:
+            src_path, translator, err_label = args.to_light, PythonToLightTranslator(), 'Python 语法错误'
+        else:
+            src_path, translator, err_label = args.to_python, LightToPythonTranslator(), '光明语法错误'
+
+        if not os.path.isfile(src_path):
+            print(f"文件不存在: {src_path}")
+            return
+        try:
+            result = translator.translate_file(src_path)
+        except (SyntaxError, ValueError) as e:
+            print(f"{err_label}: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        if args.output:
+            with open(args.output, 'w', encoding='utf-8') as f:
+                f.write(result)
+            print(f"翻译完成，输出到: {args.output}")
+        else:
+            print(result)
+
+
 
 # ═══════════════════════════════════════════════════════════════════
 # 主入口
@@ -1343,14 +1368,14 @@ def main():
     pkg_list.add_argument('--priority', '-p', default=None, choices=['P0', 'P1', 'P2'], help='按优先级筛选')
 
     # ── pkg update ──
-    pkg_update = pkg_sub.add_parser('update', help='更新段件到最新版本')
-    pkg_update.add_argument('package', nargs='?', default=None, help='段件名（默认空）')
-    pkg_update.add_argument('--all', '-a', action='store_true', help='更新所有已安装段件')
+    pkg_update = pkg_sub.add_parser('update', help='更新包到最新版本')
+    pkg_update.add_argument('package', nargs='?', default=None, help='包名（默认空）')
+    pkg_update.add_argument('--all', '-a', action='store_true', help='更新所有已安装包')
     pkg_update.add_argument('--check', '-c', action='store_true', help='检查可用更新，不安装')
 
     # ── pkg publish ──
-    pkg_publish = pkg_sub.add_parser('publish', help='发布段件到本地索引')
-    pkg_publish.add_argument('--path', default=None, help='段件项目路径（默认: 当前目录）')
+    pkg_publish = pkg_sub.add_parser('publish', help='发布包到本地索引')
+    pkg_publish.add_argument('--path', default=None, help='包项目路径（默认: 当前目录）')
 
     # ── ai ──
     ai_p = subparsers.add_parser('ai', help='AI Copilot 辅助工具（算力不足场景下的光明代码生成）')
@@ -1389,6 +1414,16 @@ def main():
     ai_fix.add_argument('--model-size', choices=['small', 'medium', 'large'],
                         default='medium', help='目标模型大小（默认medium）')
 
+    ai_translate = ai_sub.add_parser(
+        'translate',
+        help='Python ↔ 光明 双向翻译（文件级；交互模式见 tools/ai_copilot/cli.py translate --interactive）')
+    ai_tr_group = ai_translate.add_mutually_exclusive_group(required=True)
+    ai_tr_group.add_argument('--to-light', metavar='FILE', help='将 Python 文件翻译为光明')
+    ai_tr_group.add_argument('--to-python', metavar='FILE', help='将光明文件翻译为 Python')
+    ai_translate.add_argument('-o', '--output', metavar='FILE',
+                              help='输出文件路径（默认打印到标准输出）')
+
+
     # ── test ──
     test_p = subparsers.add_parser('test', help='运行光明测试')
     test_p.add_argument('file', nargs='?', help='测试文件路径（默认自动发现）')
@@ -1414,22 +1449,22 @@ def main():
     profile_p.add_argument('--cprofile', action='store_true', help='使用 cProfile 详细分析')
 
     # ── install ──
-    install_p = subparsers.add_parser('install', help='安装光明段件')
-    install_p.add_argument('package', nargs='?', default=None, help='段件名')
+    install_p = subparsers.add_parser('install', help='安装光明包')
+    install_p.add_argument('package', nargs='?', default=None, help='包名')
     install_p.add_argument('--git', default=None, help='从 Git 仓库安装')
     install_p.add_argument('--path', default=None, help='从本地路径安装')
-    install_p.add_argument('--search', default=None, help='搜索段件')
-    install_p.add_argument('--list', action='store_true', help='列出已安装的段件')
-    install_p.add_argument('--registry', action='store_true', help='列出段件库中所有段件')
-    install_p.add_argument('--uninstall', default=None, help='卸载段件')
-    install_p.add_argument('--update-registry', action='store_true', help='从远程更新本地段件库缓存')
-    install_p.add_argument('--registry-url', default=None, help='远程段件库 URL')
+    install_p.add_argument('--search', default=None, help='搜索包')
+    install_p.add_argument('--list', action='store_true', help='列出已安装的包')
+    install_p.add_argument('--registry', action='store_true', help='列出包库中所有包')
+    install_p.add_argument('--uninstall', default=None, help='卸载包')
+    install_p.add_argument('--update-registry', action='store_true', help='从远程更新本地包库缓存')
+    install_p.add_argument('--registry-url', default=None, help='远程包库 URL')
     install_p.add_argument('--with-deps', action='store_true', help='自动安装依赖')
     install_p.add_argument('-p', '--project', default='.', help='项目目录')
 
     # ── publish ──
-    publish_p = subparsers.add_parser('publish', help='发布段件到本地索引')
-    publish_p.add_argument('--path', default=None, help='段件项目路径（默认: 当前目录）')
+    publish_p = subparsers.add_parser('publish', help='发布包到本地索引')
+    publish_p.add_argument('--path', default=None, help='包项目路径（默认: 当前目录）')
     publish_p.add_argument('-p', '--project', default='.', help='项目目录')
 
     # ── repl ──

@@ -5,7 +5,7 @@
 1. 模块查找（搜索 .light 文件和目录模块）
 2. 模块解析（使用 ANTLR 解析器）
 3. 模块缓存（避免重复解析）
-4. 搜索路径管理（当前目录 + DUAN_PATH 环境变量）
+4. 搜索路径管理（当前目录 + LIGHT_PATH 环境变量）
 5. 目录模块（包）支持
 6. 循环导入检测
 """
@@ -96,8 +96,8 @@ class ModuleResolver:
         # 2. 从搜索路径查找
         search_dirs.extend(self.search_paths)
 
-        # 3. 从环境变量 DUAN_PATH 查找
-        light_path = os.environ.get('DUAN_PATH', '')
+        # 3. 从环境变量 LIGHT_PATH 查找
+        light_path = os.environ.get('LIGHT_PATH', '')
         if light_path:
             search_dirs.extend(light_path.split(os.pathsep))
 

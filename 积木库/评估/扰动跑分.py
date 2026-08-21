@@ -39,8 +39,8 @@ def 载入(path=None):
     'tfidf': lambda q, idx: semantic_select(q, idx, top=5),
 }
 
-# 真·句向量（需 sentence_transformers + 已缓存模型）：DUAN_EVAL_REAL=1 时加测
-if os.environ.get('DUAN_EVAL_REAL') == '1':
+# 真·句向量（需 sentence_transformers + 已缓存模型）：LIGHT_EVAL_REAL=1 时加测
+if os.environ.get('LIGHT_EVAL_REAL') == '1':
     选块器['real'] = lambda q, idx: embedding_select(q, idx, top=5, real=True)
 
 

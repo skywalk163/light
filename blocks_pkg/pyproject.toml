@@ -3,13 +3,13 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "duan-blocks"
+name = "light-blocks"
 version = "1.0.1"
-description = "段言积木组合平台——零 token 组合式代码生成（选块/校验/接线/粘合全本地）"
+description = "光明积木组合平台——零 token 组合式代码生成（选块/校验/接线/粘合全本地）"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Duan Contributors"},
+    {name = "Light Contributors"},
 ]
 keywords = ["programming-language", "chinese", "compositional-generation", "zero-token"]
 requires-python = ">=3.10"
@@ -25,10 +25,10 @@ dev = [
 ]
 
 [project.scripts]
-duan-combo = "duan_blocks.cli:main"
+light-combo = "light_blocks.cli:main"
 
 [tool.setuptools]
-packages = ["duan_blocks"]
+packages = ["light_blocks"]
 
 [tool.setuptools.package-data]
-duan_blocks = ["_data/**/*"]
+light_blocks = ["_data/**/*"]

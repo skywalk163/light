@@ -1,8 +1,8 @@
 """
 verify_bootstrap_cycle.py - 自举循环验证
 
-验证 bootstrap_v3.duan 自举编译器的完整循环：
-  Step 1 (A→B): 用 SRC 后端编译 bootstrap_v3.duan → Python 代码
+验证 bootstrap_v3.light 自举编译器的完整循环：
+  Step 1 (A→B): 用 SRC 后端编译 bootstrap_v3.light → Python 代码
   Step 2 (B→C): 执行生成的 Python 代码（自举编译器），用它编译一个简单程序
   Step 3 (C→D): 对比 Step 1 和 Step 2 的输出，确保一致性
 
@@ -78,12 +78,12 @@ TEST_PROGRAMS = {
 # =============================================================================
 
 def step1_compile_bootstrap_compiler():
-    """Step 1: 用 SRC 后端编译 bootstrap_v3.duan 到 Python 代码"""
+    """Step 1: 用 SRC 后端编译 bootstrap_v3.light 到 Python 代码"""
     print("=" * 60)
     print("Step 1: 编译自举编译器 (A → B)")
     print("=" * 60)
 
-    bootstrap_path = os.path.join(_script_dir, 'bootstrap_v3.duan')
+    bootstrap_path = os.path.join(_script_dir, 'bootstrap_v3.light')
     if not os.path.exists(bootstrap_path):
         print(f"  ERROR: 未找到 {bootstrap_path}")
         return None
@@ -244,8 +244,8 @@ def step3_verify_consistency(py_code):
 
 def main():
     print("=" * 60)
-    print("  段言自举循环验证")
-    print(f"  自举编译器: {os.path.join(_script_dir, 'bootstrap_v3.duan')}")
+    print("  光明自举循环验证")
+    print(f"  自举编译器: {os.path.join(_script_dir, 'bootstrap_v3.light')}")
     print("=" * 60)
     print()
 
@@ -267,14 +267,14 @@ def main():
     print("=" * 60)
     print("验证总结")
     print("=" * 60)
-    print(f"  自举编译器: bootstrap_v3.duan")
+    print(f"  自举编译器: bootstrap_v3.light")
     print(f"  Step 1 (编译自举编译器): 通过")
     print(f"  Step 2 (执行并编译测试): {'通过' if step2_ok else '部分失败'}")
     print(f"  Step 3 (一致性验证): 完成")
     print()
     if step2_ok:
         print("结论: 自举循环验证通过！")
-        print("bootstrap_v3.duan 可以成功编译自身，并正确编译测试程序。")
+        print("bootstrap_v3.light 可以成功编译自身，并正确编译测试程序。")
     else:
         print("结论: 自举循环验证部分通过，需要检查具体失败项。")
         sys.exit(1)

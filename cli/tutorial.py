@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-30 分钟入门段言 — 交互式教程运行器
+30 分钟入门光明 — 交互式教程运行器
 
 用法：
-  duan tutorial                  # 运行完整教程
-  duan tutorial --step           # 逐步运行（每节暂停）
-  duan tutorial --repl           # 交互式练习模式
+  light tutorial                  # 运行完整教程
+  light tutorial --step           # 逐步运行（每节暂停）
+  light tutorial --repl           # 交互式练习模式
 """
 
 import os
@@ -54,8 +54,8 @@ except ImportError:
                          'box', 'label', 'demo', 'star']}
 
 
-def _compile_duan(source: str) -> str:
-    """用 src 后端编译段言代码为 Python"""
+def _compile_light(source: str) -> str:
+    """用 src 后端编译光明代码为 Python"""
     from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
 
@@ -65,9 +65,9 @@ def _compile_duan(source: str) -> str:
     return generator.generate(module)
 
 
-def _run_duan(source: str, file_path: str | None = None, namespace: dict | None = None) -> str:
-    """执行段言代码，返回输出。可传入持久化 namespace 以跨调用保留变量。"""
-    py_code = _compile_duan(source)
+def _run_light(source: str, file_path: str | None = None, namespace: dict | None = None) -> str:
+    """执行光明代码，返回输出。可传入持久化 namespace 以跨调用保留变量。"""
+    py_code = _compile_light(source)
     output_lines = []
 
     def _capture_print(*args, **kwargs):
@@ -86,28 +86,28 @@ def _run_duan(source: str, file_path: str | None = None, namespace: dict | None 
 
 def _find_tutorial() -> str:
     """查找教程文件路径"""
-    path = os.path.join(_CLI_DIR, 'tutorial_30min.duan')
+    path = os.path.join(_CLI_DIR, 'tutorial_30min.light')
     if os.path.isfile(path):
         return path
-    path = os.path.join(_PROJECT_DIR, 'tutorial_30min.duan')
+    path = os.path.join(_PROJECT_DIR, 'tutorial_30min.light')
     if os.path.isfile(path):
         return path
     raise FileNotFoundError(
-        "找不到教程文件 tutorial_30min.duan。\n"
-        "请确保 duan 包已正确安装：pip install duan"
+        "找不到教程文件 tutorial_30min.light。\n"
+        "请确保 light 包已正确安装：pip install light"
     )
 
 
 def run_full_tutorial():
     """运行完整教程（一次性输出）"""
     print(f"{C['title']}╔══════════════════════════════════════════════════════╗")
-    print(f"║     🀄  30 分钟入门段言 — 交互式教程  🀄            ║")
+    print(f"║     🀄  30 分钟入门光明 — 交互式教程  🀄            ║")
     print(f"║     用中文写代码，让编程回归直觉                     ║")
     print(f"╚══════════════════════════════════════════════════════╝{C['reset']}")
     print()
 
     tutorial_path = _find_tutorial()
-    output = _run_duan(open(tutorial_path, encoding='utf-8').read(), tutorial_path)
+    output = _run_light(open(tutorial_path, encoding='utf-8').read(), tutorial_path)
     print(output)
 
 
@@ -142,7 +142,7 @@ def run_step_by_step():
                 break
 
         try:
-            output = _run_duan(section)
+            output = _run_light(section)
             print(output)
         except Exception as e:
             print(f"{C['error']}运行出错: {e}{C['reset']}")
@@ -177,7 +177,7 @@ def _friendly_error(e: Exception) -> str:
                 f"    • 括号不匹配")
     if 'unexpected indent' in msg.lower():
         return (f"缩进错误\n"
-                f"  提示：段言用 4 个空格缩进，请检查代码块缩进是否一致\n"
+                f"  提示：光明用 4 个空格缩进，请检查代码块缩进是否一致\n"
                 f"  注意：不要混用空格和 Tab！")
     if 'unexpected EOF' in msg.lower() or 'EOF while' in msg.lower():
         return (f"代码不完整\n"
@@ -212,7 +212,7 @@ def _friendly_error(e: Exception) -> str:
                 f"  提示：请检查传入的值是否符合预期格式")
     if 'IndentationError' in msg:
         return (f"缩进错误\n"
-                f"  提示：段言代码块需要 4 个空格缩进，请确保缩进统一")
+                f"  提示：光明代码块需要 4 个空格缩进，请确保缩进统一")
     return f"出错啦：{msg}"
 
 
@@ -242,12 +242,24 @@ def _user_vars(namespace: dict) -> list:
 # 进度保存与恢复
 # ═══════════════════════════════════════════════════════════════════
 
-PROGRESS_FILE = os.path.join(os.path.expanduser("~"), ".duan_tutorial_progress")
+def _progress_file_path() -> str:
+    """教程进度文件路径：统一放在光明配置目录（LIGHT_CONFIG_DIR 或 ~/.light）下"""
+    try:
+        from first_run import get_config_dir
+        config_dir = get_config_dir()
+    except ImportError:
+        # 极端情况下（src 不在路径中）退化为默认配置目录
+        config_dir = os.path.join(os.path.expanduser("~"), ".light")
+    return os.path.join(config_dir, "tutorial_progress")
+
+
+PROGRESS_FILE = _progress_file_path()
 
 
 def _save_progress(current_exercise: int, completed: set):
     """保存教程进度"""
     try:
+        os.makedirs(os.path.dirname(PROGRESS_FILE), exist_ok=True)
         with open(PROGRESS_FILE, 'w', encoding='utf-8') as f:
             json.dump({'current': current_exercise, 'completed': list(completed)}, f)
     except Exception:
@@ -314,19 +326,19 @@ def interactive_repl():
 
     # ── 欢迎画面 ──
     print(f"{C['title']}╔══════════════════════════════════════════════════════════╗")
-    print(f"║       🀄  30 分钟入门段言 — 交互式练习  🀄              ║")
+    print(f"║       🀄  30 分钟入门光明 — 交互式练习  🀄              ║")
     print(f"║       用中文写代码，让编程回归直觉                       ║")
     print(f"╚══════════════════════════════════════════════════════════╝{C['reset']}")
     print()
-    print(f"  {C['highlight']}欢迎来到段言互动课堂！{C['reset']}")
-    print(f"  段言（Duan）是一门用中文写代码的编程语言。")
+    print(f"  {C['highlight']}欢迎来到光明互动课堂！{C['reset']}")
+    print(f"  光明（Light）是一门用中文写代码的编程语言。")
     print(f"  在这个练习中，你会依次学到：")
     print()
     print(f"    {C['success']}→{C['reset']}  变量、运算、条件、循环、函数、列表")
     print(f"    {C['success']}→{C['reset']}  字符串、字典、枚举、异常、综合挑战")
     print()
     print(f"  {C['dim']}怎么玩？{C['reset']}")
-    print(f"  {C['dim']}  • 直接输入段言代码，按 Enter 执行{C['reset']}")
+    print(f"  {C['dim']}  • 直接输入光明代码，按 Enter 执行{C['reset']}")
     print(f"  {C['dim']}  • 输入 >>> 进入多行模式（适合写 if/for/段落）{C['reset']}")
     print(f"  {C['dim']}  • 输入 demo 查看正确答案参考{C['reset']}")
     print(f"  {C['dim']}  • 输入 next/prev 切换练习，reset 清空变量{C['reset']}")
@@ -342,7 +354,7 @@ def interactive_repl():
             'title': '变量与赋值',
             'knowledge': (
                 f"  {C['label']}📖 知识讲堂{C['reset']}\n"
-                f"  段言用「设 变量名 为 值」来声明变量。\n"
+                f"  光明用「设 变量名 为 值」来声明变量。\n"
                 f"  用「打印(内容)」来输出内容到屏幕。\n"
                 f"  变量名可以用中文，如：设 名字 为 \"小明\""
             ),
@@ -356,7 +368,7 @@ def interactive_repl():
             'title': '算术运算',
             'knowledge': (
                 f"  {C['label']}📖 知识讲堂{C['reset']}\n"
-                f"  段言支持中文运算符：加(+)、减(-)、乘(×)、除(÷)。\n"
+                f"  光明支持中文运算符：加(+)、减(-)、乘(×)、除(÷)。\n"
                 f"  也可以用符号：+ - * / \n"
                 f"  取余用「取余」，如：10 取余 3 得 1"
             ),
@@ -413,14 +425,14 @@ def interactive_repl():
             'title': '函数（段落）',
             'knowledge': (
                 f"  {C['label']}📖 知识讲堂{C['reset']}\n"
-                f"  段言用「段落」关键字定义函数。\n"
+                f"  光明用「段落」关键字定义函数。\n"
                 f"  语法：段落 函数名(参数): ... 返回 值\n"
                 f"  调用：函数名(参数)"
             ),
             'goal': '定义一个 greet 函数，返回问候语',
-            'hint': '段落 greet(name):\n    返回 "你好, " + name\n打印(greet("段言"))',
-            'demo_code': '段落 greet(name):\n    返回 "你好, " + name\n打印(greet("段言"))',
-            'expected_exact': '你好, 段言',
+            'hint': '段落 greet(name):\n    返回 "你好, " + name\n打印(greet("光明"))',
+            'demo_code': '段落 greet(name):\n    返回 "你好, " + name\n打印(greet("光明"))',
+            'expected_exact': '你好, 光明',
         },
         # ── 练习 7: 列表索引 ──
         {
@@ -545,7 +557,7 @@ def interactive_repl():
             'title': '列表推导式',
             'knowledge': (
                 f"  {C['label']}📖 知识讲堂{C['reset']}\n"
-                f"  段言支持列表推导式（简洁的列表生成方式）。\n"
+                f"  光明支持列表推导式（简洁的列表生成方式）。\n"
                 f"  语法：[表达式 遍历 变量 在 列表]\n"
                 f"  如：[x 乘 x 遍历 x 在 [1,2,3]] 生成 [1, 4, 9]\n"
                 f"  相当于 Python 的 [x*x for x in [1,2,3]]"
@@ -568,9 +580,9 @@ def interactive_repl():
                 f"  - 用列表长度统计任务数量"
             ),
             'goal': '实现一个待办列表程序',
-            'hint': '设 todos 为 []\n段落 添加任务(任务):\n    todos.添加(任务)\n    打印("已添加: " + 任务)\n添加任务("学习段言")\n添加任务("写第一个程序")\n遍历 idx, task 在 枚举(todos):\n    打印(转字符串(idx 加 1) + ". " + task)\n打印("共 " + 转字符串(列表长度(todos)) + " 个任务")',
-            'demo_code': '设 todos 为 []\n段落 添加任务(任务):\n    todos.添加(任务)\n    打印("已添加: " + 任务)\n添加任务("学习段言")\n添加任务("写第一个程序")\n遍历 idx, task 在 枚举(todos):\n    打印(转字符串(idx 加 1) + ". " + task)\n打印("共 " + 转字符串(列表长度(todos)) + " 个任务")',
-            'expected_lines': ['已添加: 学习段言', '已添加: 写第一个程序', '1. 学习段言', '2. 写第一个程序', '共 2 个任务'],
+            'hint': '设 todos 为 []\n段落 添加任务(任务):\n    todos.添加(任务)\n    打印("已添加: " + 任务)\n添加任务("学习光明")\n添加任务("写第一个程序")\n遍历 idx, task 在 枚举(todos):\n    打印(转字符串(idx 加 1) + ". " + task)\n打印("共 " + 转字符串(列表长度(todos)) + " 个任务")',
+            'demo_code': '设 todos 为 []\n段落 添加任务(任务):\n    todos.添加(任务)\n    打印("已添加: " + 任务)\n添加任务("学习光明")\n添加任务("写第一个程序")\n遍历 idx, task 在 枚举(todos):\n    打印(转字符串(idx 加 1) + ". " + task)\n打印("共 " + 转字符串(列表长度(todos)) + " 个任务")',
+            'expected_lines': ['已添加: 学习光明', '已添加: 写第一个程序', '1. 学习光明', '2. 写第一个程序', '共 2 个任务'],
         },
     ]
 
@@ -643,9 +655,9 @@ def interactive_repl():
                 prompt = f"{C['prompt']}{multi_line_count + 1:>2}│ {C['reset']}"
                 user_input = input(prompt)
             else:
-                user_input = input(f"{C['prompt']}段言> {C['reset']}")
+                user_input = input(f"{C['prompt']}光明> {C['reset']}")
         except (EOFError, KeyboardInterrupt):
-            print(f"\n{C['success']}再见！期待下次一起写段言 🀄{C['reset']}")
+            print(f"\n{C['success']}再见！期待下次一起写光明 🀄{C['reset']}")
             break
 
         # ── 多行模式：空行结束 ──
@@ -656,7 +668,7 @@ def interactive_repl():
             multi_line_count = 0
             if code.strip():
                 try:
-                    output = _run_duan(code, namespace=repl_namespace)
+                    output = _run_light(code, namespace=repl_namespace)
                     last_output = output
                     error_count = 0
                     if output:
@@ -689,7 +701,7 @@ def interactive_repl():
             done_count = len(completed)
             if done_count > 0:
                 print(f"\n{C['success']}本次完成了 {done_count}/{total} 个练习，很棒！{C['reset']}")
-            print(f"{C['success']}再见！期待下次一起写段言 🀄{C['reset']}")
+            print(f"{C['success']}再见！期待下次一起写光明 🀄{C['reset']}")
             break
 
         # ── 命令：help ──
@@ -763,7 +775,7 @@ def interactive_repl():
 
         # ── 单行代码执行 ──
         try:
-            output = _run_duan(user_input, namespace=repl_namespace)
+            output = _run_light(user_input, namespace=repl_namespace)
             last_output = output
             error_count = 0
             if output:
@@ -799,7 +811,7 @@ def _show_help(total: int, completed: set):
     print(f"  {C['success']}quit     {C['reset']} 退出教程")
     print(f"  {C['success']}>>>      {C['reset']} 进入多行模式（写 if/for/段落 用）")
     print(f"  {C['dim']}──────────────────────────────────────────────{C['reset']}")
-    print(f"  {C['tip']}直接输入段言代码即可执行！{C['reset']}")
+    print(f"  {C['tip']}直接输入光明代码即可执行！{C['reset']}")
     print(f"  {C['tip']}变量会跨行保留，方便分步操作。{C['reset']}")
     print(f"  {C['tip']}不会写？输入 demo 看答案，再自己试试！{C['reset']}")
     print(f"  {C['dim']}  进度：{len(completed)}/{total} 个练习已完成{C['reset']}")
@@ -829,14 +841,14 @@ def _show_completion_summary(total: int, completed: set):
     print(f"  {C['success']}  ✅ 列表推导式              ✅ 综合实战{C['reset']}")
     print()
     print(f"  {C['highlight']}📚 下一步：{C['reset']}")
-    print(f"  {C['dim']}  • 运行 duan repl 进入交互式解释器，自由探索{C['reset']}")
-    print(f"  {C['dim']}  • 运行 duan tutorial 查看完整教程内容{C['reset']}")
-    print(f"  {C['dim']}  • 访问 https://github.com/skywalk163/duan 查看更多资源{C['reset']}")
+    print(f"  {C['dim']}  • 运行 light repl 进入交互式解释器，自由探索{C['reset']}")
+    print(f"  {C['dim']}  • 运行 light tutorial 查看完整教程内容{C['reset']}")
+    print(f"  {C['dim']}  • 访问 https://github.com/skywalk163/light 查看更多资源{C['reset']}")
     print()
 
 
 def main():
-    parser = argparse.ArgumentParser(description='30 分钟入门段言 — 交互式教程')
+    parser = argparse.ArgumentParser(description='30 分钟入门光明 — 交互式教程')
     parser.add_argument('--step', action='store_true', help='逐步运行（每节暂停）')
     parser.add_argument('--repl', action='store_true', help='交互式练习模式')
     parser.add_argument('--full', action='store_true', help='一次性运行完整教程（默认）')

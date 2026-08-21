@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-段言多文件 Playground - Web 编辑器
+光明多文件 Playground - Web 编辑器
 
-提供基于浏览器的段言编辑环境，支持多文件编辑、编译运行、错误提示。
+提供基于浏览器的光明编辑环境，支持多文件编辑、编译运行、错误提示。
 
 用法:
-    python tools/duan_playground.py [--port 8080] [--host 127.0.0.1]
+    python tools/light_playground.py [--port 8080] [--host 127.0.0.1]
 """
 
 import sys
@@ -46,10 +46,10 @@ class PlaygroundHandler(BaseHTTPRequestHandler):
 
     # 文件系统 - 存储用户代码（内存中）
     files = {
-        'main.duan': '打印("你好，世界！")\n',
-        'lib.duan': '# 在此编写工具函数\n段落 加 接收 a, b:\n    返回 a + b\n',
+        'main.light': '打印("你好，世界！")\n',
+        'lib.light': '# 在此编写工具函数\n段落 加 接收 a, b:\n    返回 a + b\n',
     }
-    current_file = 'main.duan'
+    current_file = 'main.light'
 
     # ---------- HTTP 方法 ----------
 
@@ -118,8 +118,8 @@ class PlaygroundHandler(BaseHTTPRequestHandler):
         if not name:
             self._send_error(400, '文件名不能为空')
             return
-        if not name.endswith(('.light', '.duan')):
-            self._send_error(400, '文件名必须以 .light 或 .duan 结尾')
+        if not name.endswith('.light'):
+            self._send_error(400, '文件名必须以 .light 结尾')
             return
         if name in self.files:
             self._send_error(400, '文件已存在')
@@ -148,7 +148,7 @@ class PlaygroundHandler(BaseHTTPRequestHandler):
         self._send_json({'success': True})
 
     def _handle_compile(self):
-        """编译段言代码：词法分析 + 语法分析，返回 tokens 和 AST 摘要"""
+        """编译光明代码：词法分析 + 语法分析，返回 tokens 和 AST 摘要"""
         if not COMPILER_AVAILABLE:
             self._send_json({
                 'success': False,
@@ -195,7 +195,7 @@ class PlaygroundHandler(BaseHTTPRequestHandler):
         })
 
     def _handle_run(self):
-        """编译并运行段言代码"""
+        """编译并运行光明代码"""
         if not COMPILER_AVAILABLE:
             self._send_json({
                 'success': False,
@@ -206,7 +206,7 @@ class PlaygroundHandler(BaseHTTPRequestHandler):
 
         data = self._read_json()
         code = data.get('code', '')
-        filename = data.get('filename', 'main.duan')
+        filename = data.get('filename', 'main.light')
 
         # 先解析
         try:
@@ -330,7 +330,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>段言 Playground</title>
+    <title>光明 Playground</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #1e1e1e; color: #d4d4d4; height: 100vh; display: flex; flex-direction: column; }
@@ -379,7 +379,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
 </head>
 <body>
     <div class="toolbar">
-        <h1>段言 Playground</h1>
+        <h1>光明 Playground</h1>
         <button class="primary" onclick="runCode()">▶ 运行</button>
         <button onclick="compileCode()">⚙ 编译</button>
         <span style="flex:1"></span>
@@ -390,7 +390,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             <div class="header">文件</div>
             <div class="file-list" id="fileList"></div>
             <div class="new-file">
-                <input type="text" placeholder="新建文件.duan" id="newFileName" onkeydown="if(event.key==='Enter')createFile()">
+                <input type="text" placeholder="新建文件.light" id="newFileName" onkeydown="if(event.key==='Enter')createFile()">
             </div>
         </div>
         <div class="editor-panel">
@@ -482,7 +482,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             fetch('/api/run', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({code: code, filename: currentFile || 'main.duan'})
+                body: JSON.stringify({code: code, filename: currentFile || 'main.light'})
             })
             .then(r => r.json())
             .then(data => {
@@ -513,7 +513,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             fetch('/api/compile', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({code: code, filename: currentFile || 'main.duan'})
+                body: JSON.stringify({code: code, filename: currentFile || 'main.light'})
             })
             .then(r => r.json())
             .then(data => {
@@ -542,8 +542,8 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             const input = document.getElementById('newFileName');
             const name = input.value.trim();
             if (!name) return;
-            if (!name.endsWith('.duan')) {
-                setStatus('文件名必须以 .duan 结尾');
+            if (!name.endsWith('.light')) {
+                setStatus('文件名必须以 .light 结尾');
                 return;
             }
             fetch('/api/files/create', {
@@ -652,7 +652,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
 def parse_args():
     """解析命令行参数"""
     import argparse
-    parser = argparse.ArgumentParser(description='段言 Playground - Web 编辑器')
+    parser = argparse.ArgumentParser(description='光明 Playground - Web 编辑器')
     parser.add_argument('--port', type=int, default=8080, help='监听端口 (默认: 8080)')
     parser.add_argument('--host', type=str, default='127.0.0.1', help='监听地址 (默认: 127.0.0.1)')
     return parser.parse_args()
@@ -661,7 +661,7 @@ def parse_args():
 def run_server(host='127.0.0.1', port=8080):
     """启动 HTTP 服务器"""
     server = HTTPServer((host, port), PlaygroundHandler)
-    print(f"段言 Playground 已启动!")
+    print(f"光明 Playground 已启动!")
     print(f"  访问地址: http://{host}:{port}")
     print(f"  编译器: {'可用' if COMPILER_AVAILABLE else '不可用 (请检查 src/ 目录)'}")
     print(f"  按 Ctrl+C 停止服务器")

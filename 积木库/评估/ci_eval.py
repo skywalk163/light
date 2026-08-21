@@ -17,7 +17,7 @@
   · 尺子只被调用、不被修改 —— ci_eval 不重算任何指标，口径与人工跑完全一致；
   · 「缺依赖」不算失败 —— 少数块依赖 pypinyin/lunardate，环境没装时单列，不污染门槛
     （CI 里会装齐，本机没装也能跑，见 冒烟.py v0.27）；
-  · 零 token 且可复现 —— 默认置 DUAN_NO_LLM=1，屏蔽校验器的 LLM 判定（本地 .env 配了真实
+  · 零 token 且可复现 —— 默认置 LIGHT_NO_LLM=1，屏蔽校验器的 LLM 判定（本地 .env 配了真实
     key 也不会走网络），否则主基准会随模型漂移；确需真实 LLM 时加 --允许LLM。
 
 用法：
@@ -338,9 +338,9 @@ def main(argv=None):
     # 零 token 锁：CI 必须可复现且不花钱。
     # 背景（v0.28 实测）：一旦本地 .env 配了真实 api_key，校验器.py 会自动切到「LLM 判定」，
     # 89 条主基准的 兜底理由 变成模型自然语言 → 链路正确率从 1.0 掉到 0.9888，且每跑一次都烧 token。
-    # 因此这里默认置 DUAN_NO_LLM=1（load_config 会把 api_key 抹空），除非显式 --允许LLM。
+    # 因此这里默认置 LIGHT_NO_LLM=1（load_config 会把 api_key 抹空），除非显式 --允许LLM。
     if not a.允许LLM:
-        os.environ['DUAN_NO_LLM'] = '1'
+        os.environ['LIGHT_NO_LLM'] = '1'
 
     t0 = time.time()
     旧报告 = 读旧报告(a.对比)          # 先读后写，见 读旧报告 注释

@@ -152,7 +152,7 @@ def 读门槛():
 
 class 处理器(BaseHTTPRequestHandler):
     # HTTP 头必须 latin-1 可编码，故服务名用 ASCII（写中文会 UnicodeEncodeError）
-    server_version = 'duan-blocks-demo/1.0'
+    server_version = 'light-blocks-demo/1.0'
     protocol_version = 'HTTP/1.1'
 
     def log_message(self, fmt, *args):

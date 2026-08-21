@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言（DuanLang）示例项目打包脚本
+光明（Light）示例项目打包脚本
 
-将 examples/ 目录下的 .duan 示例项目编译为可独立分发的工具包。
+将 examples/ 目录下的 .light 示例项目编译为可独立分发的工具包。
 支持两种后端：
   - src（Python 解释执行）：编译为 .py 并生成包装脚本
   - llvm（LLVM 原生编译）：生成 LLVM IR，再尝试编译为原生二进制
@@ -25,7 +25,7 @@ from pathlib import Path
 # 项目根目录（tools/packager/../../）
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# 确保可以导入段言编译器模块
+# 确保可以导入光明编译器模块
 _src_path = os.path.join(PROJECT_ROOT, 'src')
 _antlr_path = os.path.join(PROJECT_ROOT, 'antlrparser')
 if os.path.isdir(_src_path):
@@ -39,12 +39,12 @@ if PROJECT_ROOT not in sys.path:
 # 示例项目打包配置
 # ============================================================
 # 每项配置：
-#   entry:    .duan 入口文件（相对项目根目录）
+#   entry:    .light 入口文件（相对项目根目录）
 #   files:    需要打包到输出目录的附加文件
 #   description: 工具描述
 EXAMPLES = {
     "data_cleaner": {
-        "entry": "examples/data_cleaner/主程序.duan",
+        "entry": "examples/data_cleaner/主程序.light",
         "files": [
             "examples/data_cleaner/README.md",
             "examples/data_cleaner/sample_data.csv",
@@ -52,7 +52,7 @@ EXAMPLES = {
         "description": "数据清洗工具 - CSV/JSON 数据处理",
     },
     "data_pipeline": {
-        "entry": "examples/data_pipeline/pipeline.duan",
+        "entry": "examples/data_pipeline/pipeline.light",
         "files": [
             "examples/data_pipeline/README.md",
             "examples/data_pipeline/sample_data.csv",
@@ -60,14 +60,14 @@ EXAMPLES = {
         "description": "数据处理管道 - CSV 读取/清洗/聚合/存储/导出 ETL 工具",
     },
     "web_crawler": {
-        "entry": "examples/web_crawler/crawler.duan",
+        "entry": "examples/web_crawler/crawler.light",
         "files": [
             "examples/web_crawler/README.md",
         ],
         "description": "Web 爬虫 - 递归抓取网页链接，生成站点地图",
     },
     "cli_tool": {
-        "entry": "examples/cli_tool/file_organizer.duan",
+        "entry": "examples/cli_tool/file_organizer.light",
         "files": [
             "examples/cli_tool/README.md",
         ],
@@ -117,10 +117,10 @@ def _make_executable_script(target_dir, entry_name, py_file_rel, backend):
 
 
 def _compile_src(source, entry_name, target_dir):
-    """使用 SRC 后端编译 .duan 为 .py
+    """使用 SRC 后端编译 .light 为 .py
 
     Args:
-        source: .duan 源码
+        source: .light 源码
         entry_name: 示例名称
         target_dir: 目标输出目录
 
@@ -146,7 +146,7 @@ def _compile_src(source, entry_name, target_dir):
 
         py_file = os.path.join(target_dir, f"{entry_name}.py")
         with open(py_file, 'w', encoding='utf-8') as f:
-            f.write("# 由段言编译器自动生成\n")
+            f.write("# 由光明编译器自动生成\n")
             f.write("# 源文件: 请勿直接编辑此文件\n")
             f.write("# 用法: python 此文件 [参数...]\n")
             f.write("# -*- coding: utf-8 -*-\n")
@@ -172,10 +172,10 @@ def _compile_src(source, entry_name, target_dir):
 
 
 def _compile_llvm(source, entry_name, target_dir):
-    """使用 LLVM 后端编译 .duan 为 LLVM IR 并尝试生成原生二进制
+    """使用 LLVM 后端编译 .light 为 LLVM IR 并尝试生成原生二进制
 
     Args:
-        source: .duan 源码
+        source: .light 源码
         entry_name: 示例名称
         target_dir: 目标输出目录
 
@@ -366,7 +366,7 @@ def list_examples():
 
 def main():
     parser = argparse.ArgumentParser(
-        description="段言（DuanLang）示例项目打包工具",
+        description="光明（Light）示例项目打包工具",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:

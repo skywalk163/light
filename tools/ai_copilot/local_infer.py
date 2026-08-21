@@ -91,7 +91,7 @@ def _detect_base_model(lora_path: str) -> str:
 
 _LORA_PATH = _find_lora_path()
 _MERGED_PATH = os.environ.get(
-    "DUAN_MERGED_MODEL",
+    "LIGHT_MERGED_MODEL",
     _find_merged_path(),
 )
 # 基础模型路径根据 LoRA 路径自动推断

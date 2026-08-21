@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-段言自举循环验证工具
+光明自举循环验证工具
 
 验证自举编译器能否编译自身，实现自举循环（self-hosting cycle）。
 这是 100% 自举达成的终极验证。
 
 验证流程：
-1. 使用 Python 编译器编译 bootstrap_v3.duan → 生成编译器 A
-2. 使用编译器 A 编译 bootstrap_v3.duan → 生成编译器 B
+1. 使用 Python 编译器编译 bootstrap_v3.light → 生成编译器 A
+2. 使用编译器 A 编译 bootstrap_v3.light → 生成编译器 B
 3. 比较编译器 A 和 B 的输出是否一致
 4. 如果一致，则自举循环验证通过
 """
@@ -45,8 +45,8 @@ class BootstrapCycleVerifier:
         with open(filepath, "rb") as f:
             return hashlib.sha256(f.read()).hexdigest()
 
-    def _compile_duan(self, source_file: Path, output_file: Path) -> Tuple[bool, str]:
-        """使用 duan CLI 编译 .duan 文件
+    def _compile_light(self, source_file: Path, output_file: Path) -> Tuple[bool, str]:
+        """使用 light CLI 编译 .light 文件
 
         Args:
             source_file: 源文件路径
@@ -57,7 +57,7 @@ class BootstrapCycleVerifier:
         """
         try:
             result = subprocess.run(
-                [sys.executable, "-m", "cli.duan_unified", "compile", str(source_file), "-o", str(output_file)],
+                [sys.executable, "-m", "cli.light_unified", "compile", str(source_file), "-o", str(output_file)],
                 capture_output=True, text=True, timeout=60,
                 cwd=str(self.project_root),
             )
@@ -108,10 +108,10 @@ class BootstrapCycleVerifier:
         # 步骤 1: 检查自举编译器源文件
         step1: Dict = {"name": "检查自举编译器源文件", "status": "跳过", "detail": ""}
         bootstrap_files = [
-            self.bootstrap_dir / "bootstrap_v3.duan",
-            self.bootstrap_dir / "bootstrap_level3.duan",
-            self.bootstrap_dir / "bootstrap_level4.duan",
-            self.bootstrap_dir / "bootstrap_level5.duan",
+            self.bootstrap_dir / "bootstrap_v3.light",
+            self.bootstrap_dir / "bootstrap_level3.light",
+            self.bootstrap_dir / "bootstrap_level4.light",
+            self.bootstrap_dir / "bootstrap_level5.light",
         ]
         existing = [f for f in bootstrap_files if f.exists()]
         if len(existing) >= 2:
@@ -133,7 +133,7 @@ class BootstrapCycleVerifier:
             compiler_a = tmp_path / "compiler_a.py"
 
             source = existing[0]  # 使用第一个存在的自举编译器源文件
-            success, msg = self._compile_duan(source, compiler_a)
+            success, msg = self._compile_light(source, compiler_a)
             if success and compiler_a.exists():
                 step2["status"] = "通过"
                 step2["detail"] = f"已生成编译器 A: {compiler_a}"
@@ -213,18 +213,18 @@ class BootstrapCycleVerifier:
         return result
 
     def verify_all_components(self) -> Dict:
-        """验证所有编译器组件是否已有段言实现
+        """验证所有编译器组件是否已有光明实现
 
         Returns:
             组件覆盖情况字典
         """
         components: Dict[str, str] = {
-            "词法分析器": "bootstrap/lexer.duan",
-            "语法解析器": "bootstrap/parser.duan",
-            "AST定义": "bootstrap/duan_ast.duan",
-            "代码生成器": "bootstrap/codegen.duan",
-            "编译器管道": "bootstrap/compiler.duan",
-            "主程序入口": "bootstrap/main.duan",
+            "词法分析器": "bootstrap/lexer.light",
+            "语法解析器": "bootstrap/parser.light",
+            "AST定义": "bootstrap/light_ast.light",
+            "代码生成器": "bootstrap/codegen.light",
+            "编译器管道": "bootstrap/compiler.light",
+            "主程序入口": "bootstrap/main.light",
         }
 
         result: Dict = {
@@ -261,13 +261,13 @@ class BootstrapCycleVerifier:
 
         lines: List[str] = []
         lines.append("=" * 60)
-        lines.append("  段言 100% 自举验证报告")
+        lines.append("  光明 100% 自举验证报告")
         lines.append("=" * 60)
         lines.append(f"  验证时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         lines.append("")
 
         # 组件覆盖
-        lines.append("【编译器组件段言实现覆盖】")
+        lines.append("【编译器组件光明实现覆盖】")
         lines.append(f"  总组件数: {components['total']}")
         lines.append(f"  已实现:   {components['implemented']}")
         lines.append(f"  缺失:     {len(components['missing'])}")
@@ -290,7 +290,7 @@ class BootstrapCycleVerifier:
         # 最终结论
         if cycle_result["passed"]:
             lines.append("  ★ 最终结论: 自举循环验证通过！")
-            lines.append("    段言已具备 100% 自举能力，可以用自身编译自身。")
+            lines.append("    光明已具备 100% 自举能力，可以用自身编译自身。")
         else:
             lines.append("  ☆ 最终结论: 自举循环验证进行中")
             lines.append(f"    组件覆盖率: {components['implemented']}/{components['total']}")

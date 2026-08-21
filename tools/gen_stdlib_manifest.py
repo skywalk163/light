@@ -6,21 +6,21 @@
 背景
 ----
 stdlib 与 contrib 下的模块，真正的实现都在同名 `.py` 文件里，
-配套的 `.duan` 文件只是一份**导出清单**（manifest），形如：
+配套的 `.light` 文件只是一份**导出清单**（manifest），形如：
 
-    # 段言标准库 - 哈希与加密模块
+    # 光明标准库 - 哈希与加密模块
     #
     # 用法：
     #   从《哈希》导入《MD5》。
 
     导出 MD5 SHA1 SHA256 SHA512。
 
-但历史上有大量 `.duan` 被当成「说明文档」来写：整篇是没有 `#` 前缀的
-散文，于是词法器把「段言标准库」这类文字当成关键字，导致解析全红。
+但历史上有大量 `.light` 被当成「说明文档」来写：整篇是没有 `#` 前缀的
+散文，于是词法器把「光明标准库」这类文字当成关键字，导致解析全红。
 本工具把这些文件重建为合法清单：
 
 1. 从 `.py` 的 `__all__`（或公开的顶层 def/class）提取导出名；
-2. 把原 `.duan` 里的散文说明整体转成 `#` 注释（**文档不丢**）；
+2. 把原 `.light` 里的散文说明整体转成 `#` 注释（**文档不丢**）；
 3. 追加 `导出 ...。` 语句；
 4. 生成后立即用真实解析器验证，**解析不通过就不写盘**。
 
@@ -50,7 +50,7 @@ sys.path.insert(0, os.path.join(ROOT, 'src'))
 
 DEFAULT_DIRS = ['stdlib', 'contrib']
 
-# 判定「这一行是段言代码」而不是散文说明。三条规则互补：
+# 判定「这一行是光明代码」而不是散文说明。三条规则互补：
 #
 # 1) CODE_LINE_RX：关键字 + 分隔符的常规写法（`段落 X(...)`、`导出 A B。`）。
 #    要求关键字后必须有分隔符，避免误伤 “创建计数器(可迭代对象) - 统计…” 这类文档行。
@@ -140,7 +140,7 @@ def module_doc_first_line(py_path):
 # ---------------------------------------------------------------- 清单生成
 
 def classify_lines(text):
-    """把原 .duan 拆成 (文档行, 代码行)。文档行保留顺序，用于转注释。"""
+    """把原 .light 拆成 (文档行, 代码行)。文档行保留顺序，用于转注释。"""
     doc_lines, code_lines = [], []
     for line in text.splitlines():
         s = line.strip()
@@ -201,7 +201,7 @@ def legacy_defined_names(code_lines):
 def coverage_report(code_lines, exports):
     """旧代码定义的名字是否都能在 .py 导出里找到。
 
-    返回 (已覆盖数, 未覆盖名字列表)。未覆盖说明 .duan 里可能有 .py 没有的
+    返回 (已覆盖数, 未覆盖名字列表)。未覆盖说明 .light 里可能有 .py 没有的
     独有实现，此时丢弃旧代码是危险的，必须人工介入。
     """
     defined = legacy_defined_names(code_lines)
@@ -226,20 +226,20 @@ def chunk_names(names):
     return lines
 
 
-def build_manifest(duan_path, py_path, module_name):
+def build_manifest(manifest_path, py_path, module_name):
     """返回 (新内容, 导出名列表, 来源, 原代码行, 错误)。"""
     names, source = extract_exports(py_path)
     if not names:
         return None, None, source, None, f'无法提取导出名（{source}）'
 
-    with io.open(duan_path, encoding='utf-8') as f:
+    with io.open(manifest_path, encoding='utf-8') as f:
         original = f.read()
     doc_lines, code_lines = classify_lines(original)
 
     header = to_comment_block(doc_lines)
     if not header:
         desc = module_doc_first_line(py_path) or f'{module_name}模块'
-        header = [f'# 段言标准库 - {desc}']
+        header = [f'# 光明标准库 - {desc}']
 
     # 补一条统一的用法示例（原文档没写过 从《…》导入 才补）
     joined = '\n'.join(header)
@@ -271,7 +271,7 @@ def parses_ok(content):
 # ---------------------------------------------------------------- 主流程
 
 def main():
-    ap = argparse.ArgumentParser(description='生成 stdlib/contrib 的段言导出清单')
+    ap = argparse.ArgumentParser(description='生成 stdlib/contrib 的光明导出清单')
     ap.add_argument('dirs', nargs='*', default=None, help='要处理的目录，默认 stdlib contrib')
     ap.add_argument('--apply', action='store_true', help='真正写盘（默认仅预览）')
     ap.add_argument('--force', action='store_true', help='连含旧代码的文件也一起重建')
@@ -287,29 +287,29 @@ def main():
             print(f'跳过不存在的目录: {d}')
             continue
         for name in sorted(os.listdir(full)):
-            if not name.endswith(('.light', '.duan')):
+            if not name.endswith('.light'):
                 continue
-            duan = os.path.join(full, name)
-            # 不能写死 [:-5]：.duan 是 5 字符而 .light 是 6 字符
+            manifest = os.path.join(full, name)
+            # 用 splitext 取主名，不写死切片长度，避免后缀长度变化时截错
             stem = os.path.splitext(name)[0]
             py = os.path.join(full, stem + '.py')
             if os.path.exists(py):
-                targets.append((d, stem, duan, py))
+                targets.append((d, stem, manifest, py))
 
     rebuilt, skipped_code, skipped_ok, failed = [], [], [], []
 
-    for d, mod, duan, py in targets:
+    for d, mod, manifest, py in targets:
         # 已经能解析的清单不动
-        with io.open(duan, encoding='utf-8') as f:
+        with io.open(manifest, encoding='utf-8') as f:
             cur = f.read()
         ok_now, _ = parses_ok(cur)
         if ok_now:
-            skipped_ok.append(f'{d}/{mod}.duan')
+            skipped_ok.append(f'{d}/{mod}.light')
             continue
 
-        content, names, source, code_lines, err = build_manifest(duan, py, mod)
+        content, names, source, code_lines, err = build_manifest(manifest, py, mod)
         if err:
-            failed.append((f'{d}/{mod}.duan', err))
+            failed.append((f'{d}/{mod}.light', err))
             continue
 
         # 旧代码能否安全丢弃：它定义的名字必须都已在 .py 的导出里
@@ -317,29 +317,29 @@ def main():
             covered, missing = coverage_report(code_lines, names)
             if missing and not args.force:
                 skipped_code.append((
-                    f'{d}/{mod}.duan', len(code_lines),
+                    f'{d}/{mod}.light', len(code_lines),
                     f'{len(missing)} 个名字 .py 里没有: ' + '、'.join(missing[:3])
                 ))
                 continue
 
         ok, why = parses_ok(content)
         if not ok:
-            failed.append((f'{d}/{mod}.duan', f'生成结果仍无法解析: {why}'))
+            failed.append((f'{d}/{mod}.light', f'生成结果仍无法解析: {why}'))
             continue
 
         if args.apply:
-            with io.open(duan + '.bak_before_manifest', 'w', encoding='utf-8', newline='\n') as f:
+            with io.open(manifest + '.bak_before_manifest', 'w', encoding='utf-8', newline='\n') as f:
                 f.write(cur)
-            with io.open(duan, 'w', encoding='utf-8', newline='\n') as f:
+            with io.open(manifest, 'w', encoding='utf-8', newline='\n') as f:
                 f.write(content)
-        rebuilt.append((f'{d}/{mod}.duan', len(names), source, len(code_lines or [])))
+        rebuilt.append((f'{d}/{mod}.light', len(names), source, len(code_lines or [])))
 
     # ---- 报告 ----
     mode = '已写盘' if args.apply else '预览（未写盘，加 --apply 执行）'
     print('=' * 66)
     print(f'导出清单生成器 — {mode}')
     print('=' * 66)
-    print(f'扫描目录: {", ".join(dirs)}   有 .py 配套的 .duan: {len(targets)}')
+    print(f'扫描目录: {", ".join(dirs)}   有 .py 配套的 .light: {len(targets)}')
     print(f'  ✅ 原本就合法: {len(skipped_ok)}')
     print(f'  🔧 重建清单:   {len(rebuilt)}')
     print(f'  ⏭  含旧代码跳过: {len(skipped_code)}')

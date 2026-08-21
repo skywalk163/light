@@ -33,7 +33,7 @@ if _HERE not in sys.path:
 
 缓存路径 = os.path.join(_HERE, '.计划缓存.json')
 版本 = 'v0.21'
-上限 = int(os.environ.get('DUAN_PLAN_CACHE_MAX', '500'))
+上限 = int(os.environ.get('LIGHT_PLAN_CACHE_MAX', '500'))
 
 
 # ---------------------------------------------------------------------------

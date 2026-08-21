@@ -57,9 +57,9 @@ RATING_LABELS = {
 def get_feedback_dir() -> Path:
     """获取反馈数据存储目录
 
-    配置目录的解析统一交给 first_run.get_config_dir()，那里处理了
-    LIGHT_CONFIG_DIR、旧 DUAN_CONFIG_DIR 兼容，以及 ~/.duan → ~/.light
-    的一次性迁移。这里不再各写一套，避免两处逻辑分叉后指向不同目录。
+    配置目录的解析统一交给 first_run.get_config_dir()，那里处理 LIGHT_CONFIG_DIR
+    与 ~/.duan → ~/.light 的一次性目录迁移；旧环境变量 DUAN_CONFIG_DIR 已随硬切换
+    删除，不再读取。这里不再各写一套，避免两处逻辑分叉后指向不同目录。
     """
     get_config_dir = None
     try:

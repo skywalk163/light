@@ -1,42 +1,42 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言 AI Copilot — 命令行入口
+光明 AI Copilot — 命令行入口
 
-集成到 duan CLI 的子命令，提供算力不足场景下的段言代码生成辅助。
+集成到 light CLI 的子命令，提供算力不足场景下的光明代码生成辅助。
 
 用法：
     # 生成 prompt（粘贴给任意 AI 使用）
-    duan ai prompt "写一个二分查找函数"
-    duan ai prompt --mode translate "def add(a, b): return a + b"
-    duan ai prompt --mode paragraph "写一个阶乘段落"
+    light ai prompt "写一个二分查找函数"
+    light ai prompt --mode translate "def add(a, b): return a + b"
+    light ai prompt --mode paragraph "写一个阶乘段落"
 
     # 输出语法速查卡（精简版/完整版）
-    duan ai card
-    duan ai card --full
+    light ai card
+    light ai card --full
 
     # 列出代码片段库
-    duan ai snippets
+    light ai snippets
 
-    # Python→段言对照示例
-    duan ai examples
+    # Python→光明对照示例
+    light ai examples
 
-    # 校验段言代码（语法检查 + 运行）
-    duan ai check hello.duan
+    # 校验光明代码（语法检查 + 运行）
+    light ai check hello.light
 
     # 交互式代码生成（多轮对话）
-    duan ai interactive
-    duan ai interactive --model "Qwen/Qwen2.5-0.5B-Instruct"
+    light ai interactive
+    light ai interactive --model "Qwen/Qwen2.5-0.5B-Instruct"
 
     # 基于上下文的错误修复
-    duan ai fix hello.duan
-    duan ai fix hello.duan --error "语法错误: 缺少冒号"
-    duan ai fix hello.duan --apply
+    light ai fix hello.light
+    light ai fix hello.light --error "语法错误: 缺少冒号"
+    light ai fix hello.light --apply
 
-    # Python↔段言双向翻译
-    duan ai translate --to-duan hello.py
-    duan ai translate --to-python hello.duan
-    duan ai translate --interactive
+    # Python↔光明双向翻译
+    light ai translate --to-light hello.py
+    light ai translate --to-python hello.light
+    light ai translate --interactive
 """
 
 import argparse
@@ -167,14 +167,14 @@ def cmd_snippets(args):
 
 
 def cmd_examples(args):
-    """输出 Python→段言对照示例"""
+    """输出 Python→光明对照示例"""
     _ensure_utf8()
     from syntax_card import generate_example_pairs
     print(generate_example_pairs())
 
 
 def cmd_check(args):
-    """校验段言代码文件"""
+    """校验光明代码文件"""
     _ensure_utf8()
     filepath = args.file
 
@@ -185,7 +185,7 @@ def cmd_check(args):
     # Step 1: 语法检查
     print(f"[1/2] 语法检查: {filepath}")
     result = subprocess.run(
-        [sys.executable, '-m', 'cli.duan', 'check', filepath],
+        [sys.executable, '-m', 'cli.light', 'check', filepath],
         capture_output=True, text=True, encoding='utf-8',
         cwd=_PROJECT_DIR,
     )
@@ -201,7 +201,7 @@ def cmd_check(args):
     if args.run:
         print(f"[2/2] 运行测试: {filepath}")
         result = subprocess.run(
-            [sys.executable, '-m', 'cli.duan', 'run', filepath],
+            [sys.executable, '-m', 'cli.light', 'run', filepath],
             capture_output=True, text=True, encoding='utf-8',
             cwd=_PROJECT_DIR,
             timeout=args.timeout,
@@ -243,9 +243,9 @@ def cmd_interactive(args):
     conversation = Conversation(max_turns=args.max_turns)
 
     print("=" * 50)
-    print("段言 AI Copilot — 交互式代码生成")
+    print("光明 AI Copilot — 交互式代码生成")
     print("=" * 50)
-    print("输入自然语言描述来生成段言代码")
+    print("输入自然语言描述来生成光明代码")
     print("特殊命令:")
     print("  exit/quit    — 退出")
     print("  history      — 查看对话历史")
@@ -304,7 +304,7 @@ def cmd_interactive(args):
         if offline_model and offline_model.model_available:
             # 使用离线模型
             context = conversation.get_context()
-            prompt = f"对话历史:\n{context}\n\n请生成段言代码: {user_input}"
+            prompt = f"对话历史:\n{context}\n\n请生成光明代码: {user_input}"
             response = offline_model.generate(prompt)
         else:
             # 使用规则引擎
@@ -326,7 +326,7 @@ def _rule_based_generate(user_input: str, conversation: Conversation) -> str:
 
     if is_refinement and last_code:
         # 这是对已有代码的修改请求
-        prompt = f"当前代码:\n{last_code}\n\n修改需求: {user_input}\n\n请输出修改后的完整段言代码:"
+        prompt = f"当前代码:\n{last_code}\n\n修改需求: {user_input}\n\n请输出修改后的完整光明代码:"
         mode = "paragraph"
     else:
         # 这是新代码生成请求
@@ -390,7 +390,7 @@ def cmd_fix_context(args):
 
 
 def _detect_syntax_errors(content: str) -> List[str]:
-    """检测段言代码中的常见语法错误"""
+    """检测光明代码中的常见语法错误"""
     errors = []
     lines = content.split('\n')
 
@@ -432,10 +432,10 @@ def _detect_syntax_errors(content: str) -> List[str]:
             'or': '或',
             'not': '非',
         }
-        for py_kw, duan_kw in keyword_map.items():
-            if py_kw in stripped and duan_kw not in stripped:
-                # 避免误报：如果已经在使用段言关键字则跳过
-                if not any(duan_kw in stripped for duan_kw in ['段落', '打印', '返回', '类', '如果', '否则', '遍历', '当', '尝试', '捕获', '使用', '异步', '等待', '导入', '从', '真', '假', '空', '且', '或', '非']):
+        for py_kw, light_kw in keyword_map.items():
+            if py_kw in stripped and light_kw not in stripped:
+                # 避免误报：如果已经在使用光明关键字则跳过
+                if not any(light_kw in stripped for light_kw in ['段落', '打印', '返回', '类', '如果', '否则', '遍历', '当', '尝试', '捕获', '使用', '异步', '等待', '导入', '从', '真', '假', '空', '且', '或', '非']):
                     pass  # 可能含 Python 关键字，但需要更精确的判断
 
     return errors
@@ -451,7 +451,7 @@ def _generate_fixes(content: str, errors: List[str], user_error: Optional[str]) 
         model = OfflineModel()
         if model.model_available:
             error_context = user_error or '\n'.join(errors) if errors else '未知错误'
-            prompt = f"修复以下段言代码中的错误:\n\n代码:\n{content}\n\n错误:\n{error_context}\n\n请输出修复后的完整段言代码:"
+            prompt = f"修复以下光明代码中的错误:\n\n代码:\n{content}\n\n错误:\n{error_context}\n\n请输出修复后的完整光明代码:"
             fix_code = model.fix_syntax(prompt)
             if fix_code and fix_code != content:
                 fixes.append({
@@ -546,18 +546,18 @@ def _rule_based_fix(content: str, errors: List[str], user_error: Optional[str]) 
 
 
 # ═══════════════════════════════════════════════════════════════════
-# Python ↔ 段言 双向翻译
+# Python ↔ 光明 双向翻译
 # ═══════════════════════════════════════════════════════════════════
 
 def cmd_translate(args):
-    """Python ↔ 段言 双向翻译"""
+    """Python ↔ 光明 双向翻译"""
     _ensure_utf8()
 
     from translator import PythonToLightTranslator, LightToPythonTranslator
 
-    if args.to_duan:
-        # Python → 段言
-        file_path = args.to_duan
+    if args.to_light:
+        # Python → 光明
+        file_path = args.to_light
         if not os.path.isfile(file_path):
             print(f"文件不存在: {file_path}")
             sys.exit(1)
@@ -578,7 +578,7 @@ def cmd_translate(args):
             sys.exit(1)
 
     elif args.to_python:
-        # 段言 → Python
+        # 光明 → Python
         file_path = args.to_python
         if not os.path.isfile(file_path):
             print(f"文件不存在: {file_path}")
@@ -593,7 +593,7 @@ def cmd_translate(args):
             else:
                 print(result)
         except ValueError as e:
-            print(f"段言语法错误: {e}", file=sys.stderr)
+            print(f"光明语法错误: {e}", file=sys.stderr)
             sys.exit(1)
         except Exception as e:
             print(f"翻译错误: {e}", file=sys.stderr)
@@ -602,20 +602,20 @@ def cmd_translate(args):
     elif args.interactive:
         # 交互式翻译模式
         print("=" * 50)
-        print("段言 ↔ Python 双向翻译 — 交互模式")
+        print("光明 ↔ Python 双向翻译 — 交互模式")
         print("=" * 50)
-        print("输入 Python 代码翻译为段言，或输入段言代码翻译为 Python")
-        print("特殊命令: exit/quit — 退出, mode py — 切到 Python→段言模式")
-        print("         mode duan — 切到 段言→Python 模式")
+        print("输入 Python 代码翻译为光明，或输入光明代码翻译为 Python")
+        print("特殊命令: exit/quit — 退出, mode py — 切到 Python→光明模式")
+        print("         mode light — 切到 光明→Python 模式")
         print("=" * 50)
 
-        mode = "py_to_light"  # 默认 Python→段言
+        mode = "py_to_light"  # 默认 Python→光明
         py_translator = PythonToLightTranslator()
         light_translator = LightToPythonTranslator()
 
         while True:
             try:
-                user_input = input(f"\n[{ 'Python→段言' if mode == 'py_to_light' else '段言→Python' }] > ").strip()
+                user_input = input(f"\n[{ 'Python→光明' if mode == 'py_to_light' else '光明→Python' }] > ").strip()
             except (EOFError, KeyboardInterrupt):
                 print("\n\n再见！")
                 break
@@ -629,18 +629,18 @@ def cmd_translate(args):
 
             if user_input.lower() == 'mode py':
                 mode = "py_to_light"
-                print("切换到 Python→段言 模式")
+                print("切换到 Python→光明 模式")
                 continue
 
-            if user_input.lower() == 'mode duan':
-                mode = "duan_to_py"
-                print("切换到 段言→Python 模式")
+            if user_input.lower() == 'mode light':
+                mode = "light_to_py"
+                print("切换到 光明→Python 模式")
                 continue
 
             try:
                 if mode == "py_to_light":
                     result = py_translator.translate(user_input)
-                    print(f"\n→ 段言:\n{result}")
+                    print(f"\n→ 光明:\n{result}")
                 else:
                     result = light_translator.translate(user_input)
                     print(f"\n→ Python:\n{result}")
@@ -656,13 +656,13 @@ def cmd_translate(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        prog='duan ai',
-        description='段言 AI Copilot — 算力不足场景下的段言代码生成辅助工具',
+        prog='light ai',
+        description='光明 AI Copilot — 算力不足场景下的光明代码生成辅助工具',
     )
     subparsers = parser.add_subparsers(dest='command', help='子命令')
 
     # prompt 子命令
-    p_prompt = subparsers.add_parser('prompt', help='生成让 AI 写段言代码的 prompt')
+    p_prompt = subparsers.add_parser('prompt', help='生成让 AI 写光明代码的 prompt')
     p_prompt.add_argument('input', help='需求描述或 Python 代码（也支持文件路径）')
     p_prompt.add_argument('--mode', choices=['auto', 'translate', 'create', 'paragraph'],
                          default='auto', help='生成模式（默认 auto 自动检测）')
@@ -670,7 +670,7 @@ def main():
     p_prompt.set_defaults(func=cmd_prompt)
 
     # card 子命令
-    p_card = subparsers.add_parser('card', help='输出段言语法速查卡')
+    p_card = subparsers.add_parser('card', help='输出光明语法速查卡')
     p_card.add_argument('--full', action='store_true', help='完整版（默认精简版）')
     p_card.add_argument('--verbs', action='store_true', help='包含动词参数参照表')
     p_card.set_defaults(func=cmd_card)
@@ -681,12 +681,12 @@ def main():
     p_snippets.set_defaults(func=cmd_snippets)
 
     # examples 子命令
-    p_examples = subparsers.add_parser('examples', help='Python→段言对照示例')
+    p_examples = subparsers.add_parser('examples', help='Python→光明对照示例')
     p_examples.set_defaults(func=cmd_examples)
 
     # check 子命令
-    p_check = subparsers.add_parser('check', help='校验段言代码（语法+运行）')
-    p_check.add_argument('file', help='段言代码文件路径')
+    p_check = subparsers.add_parser('check', help='校验光明代码（语法+运行）')
+    p_check.add_argument('file', help='光明代码文件路径')
     p_check.add_argument('--run', action='store_true', help='同时运行测试')
     p_check.add_argument('--timeout', type=int, default=10, help='运行超时秒数（默认10）')
     p_check.set_defaults(func=cmd_check)
@@ -699,19 +699,19 @@ def main():
 
     # fix 子命令 (D24: 基于上下文的修复)
     p_fix = subparsers.add_parser('fix', help='基于文件上下文的代码修复')
-    p_fix.add_argument('file', help='段言代码文件路径')
+    p_fix.add_argument('file', help='光明代码文件路径')
     p_fix.add_argument('--error', '-e', default=None, help='错误描述（可选，默认自动检测）')
     p_fix.add_argument('--apply', '-a', action='store_true', help='直接应用修复到文件')
     p_fix.add_argument('--output', '-o', default=None, help='输出文件路径（默认覆盖原文件）')
     p_fix.set_defaults(func=cmd_fix_context)
 
-    # translate 子命令 (D25: Python↔段言双向翻译)
-    p_translate = subparsers.add_parser('translate', help='Python ↔ 段言 双向翻译')
+    # translate 子命令 (D25: Python↔光明双向翻译)
+    p_translate = subparsers.add_parser('translate', help='Python ↔ 光明 双向翻译')
     translate_group = p_translate.add_mutually_exclusive_group()
-    translate_group.add_argument('--to-duan', metavar='FILE',
-                                 help='将 Python 文件翻译为段言')
+    translate_group.add_argument('--to-light', metavar='FILE',
+                                 help='将 Python 文件翻译为光明')
     translate_group.add_argument('--to-python', metavar='FILE',
-                                 help='将段言文件翻译为 Python')
+                                 help='将光明文件翻译为 Python')
     translate_group.add_argument('--interactive', action='store_true',
                                  help='交互式翻译模式')
     p_translate.add_argument('--output', '-o', metavar='FILE',

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""验证所有段言示例文件的语法正确性"""
+"""验证所有光明示例文件的语法正确性"""
 
 import sys
 import os
@@ -13,13 +13,13 @@ sys.path.insert(0, str(PROJECT_DIR))
 from light_parser_v3 import LightParser
 
 EXAMPLES = [
-    "examples/todo_app/main.duan",
-    "examples/blog_app/main.duan",
-    "examples/data_pipeline/pipeline.duan",
-    "examples/games/guess_number.duan",
-    "examples/games/snake.duan",
-    "examples/algorithms/sorting.duan",
-    "examples/algorithms/data_structures.duan",
+    "examples/todo_app/main.light",
+    "examples/blog_app/main.light",
+    "examples/data_pipeline/pipeline.light",
+    "examples/games/guess_number.light",
+    "examples/games/snake.light",
+    "examples/algorithms/sorting.light",
+    "examples/algorithms/data_structures.light",
 ]
 
 def verify():

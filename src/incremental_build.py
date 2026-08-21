@@ -7,7 +7,7 @@
 1. 文件变更检测：基于 mtime + SHA256 内容哈希
 2. 依赖图追踪：利用 module_resolver 的依赖图
 3. 增量编译：仅重新编译变更文件及其下游依赖
-4. 构建缓存：.duan_build_cache.json 持久化构建状态
+4. 构建缓存：.light_build_cache.json 持久化构建状态
 5. 并行编译：独立模块并行编译加速
 6. 快速模式：--fast 跳过非关键优化
 7. 编译时间统计
@@ -298,7 +298,7 @@ class IncrementalBuilder:
         builder.build(changed_files, fast=True)
     """
 
-    CACHE_FILENAME = '.duan_build_cache.json'
+    CACHE_FILENAME = '.light_build_cache.json'
 
     def __init__(self, project_dir: str = '.'):
         self.project_dir = Path(project_dir).resolve()
@@ -923,20 +923,20 @@ def incremental_build_cli(project_dir: str = '.', force: bool = False,
         print(f"[错误] 目录不存在: {root}", file=__import__('sys').stderr)
         return 1
 
-    # 后缀迁移期：.light 为主，.duan 为历史残留，两者都收
-    duan_files = list(root.glob('*.light')) + list(root.glob('*.duan'))
-    if not duan_files:
-        print(f"[错误] 未找到 .light/.duan 源文件: {root}", file=__import__('sys').stderr)
+    # v7 起源文件后缀只认 .light
+    light_files = list(root.glob('*.light'))
+    if not light_files:
+        print(f"[错误] 未找到 .light 源文件: {root}", file=__import__('sys').stderr)
+        print("[提示] .duan 是 v6 及更早的后缀，v7 起不再支持，请重命名为 .light",
+              file=__import__('sys').stderr)
         return 1
 
     main_file = root / 'main.light'
     if not main_file.exists():
-        main_file = root / 'main.duan'
-    if not main_file.exists():
-        main_file = duan_files[0]
+        main_file = light_files[0]
 
     builder = IncrementalBuilder(project_dir)
-    result = builder.build(duan_files, main_file=main_file, force=force,
+    result = builder.build(light_files, main_file=main_file, force=force,
                            verbose=verbose, fast=fast, parallel=parallel,
                            max_workers=jobs)
 

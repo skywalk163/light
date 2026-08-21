@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""恢复并修复 story_generator.duan"""
+"""恢复并修复 story_generator.light"""
 import re
 
 # 读取当前损坏的文件
-with open(r'examples/kids/story_generator.duan', 'r', encoding='utf-8') as f:
+with open(r'examples/kids/story_generator.light', 'r', encoding='utf-8') as f:
     current = f.read()
 
 # 检查文件是否损坏（行104是否太长）
@@ -12,9 +12,9 @@ if len(lines) > 100 and len(lines[103]) > 500:
     print("文件已损坏，需要从原始内容恢复")
     
     # 原始内容（从之前的读取中获取）
-    original = r"""# 段言少儿编程 - 故事生成器
+    original = r"""# 光明少儿编程 - 故事生成器
 # 输入角色、地点和动作，电脑帮你编故事！
-# 运行: duan run examples/kids/story_generator.duan
+# 运行: light run examples/kids/story_generator.light
 
 # =============================================
 # 故事模板库
@@ -154,7 +154,7 @@ if len(lines) > 100 and len(lines[103]) > 500:
 # =============================================
 段落 主程序 接收:
     打印 "╔══════════════════════════════════════╗"
-    打印 "║     📖 段言故事生成器 📖              ║"
+    打印 "║     📖 光明故事生成器 📖              ║"
     打印 "║     输入你的创意，生成精彩故事！      ║"
     打印 "╚══════════════════════════════════════╝"
     打印 ""
@@ -251,7 +251,7 @@ if len(lines) > 100 and len(lines[103]) > 500:
     # 修复：将多行模板字符串合并为单行
     # 找到所有多行字符串并合并
     fixed = original
-    with open(r'examples/kids/story_generator.duan', 'w', encoding='utf-8') as f:
+    with open(r'examples/kids/story_generator.light', 'w', encoding='utf-8') as f:
         f.write(fixed)
     print("文件已恢复")
 else:

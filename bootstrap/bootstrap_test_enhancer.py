@@ -26,11 +26,11 @@ class BootstrapTestEnhancer:
     def run_level_test(self, level: int) -> Dict:
         """运行指定层级的功能测试"""
         test_files = {
-            1: "bootstrap_level3.duan",    # Level 1: 基础表达式
-            2: "bootstrap_level3.duan",    # Level 2: 条件判断
-            3: "bootstrap_level3.duan",    # Level 3: 函数/循环
-            4: "bootstrap_level4.duan",    # Level 4: 列表/字典/模块
-            5: "bootstrap_level5.duan",    # Level 5: 高级特性
+            1: "bootstrap_level3.light",    # Level 1: 基础表达式
+            2: "bootstrap_level3.light",    # Level 2: 条件判断
+            3: "bootstrap_level3.light",    # Level 3: 函数/循环
+            4: "bootstrap_level4.light",    # Level 4: 列表/字典/模块
+            5: "bootstrap_level5.light",    # Level 5: 高级特性
         }
         
         filename = test_files.get(level)
@@ -44,7 +44,7 @@ class BootstrapTestEnhancer:
         # 尝试编译运行
         try:
             result = subprocess.run(
-                [sys.executable, "-m", "cli.duan_unified", "run", str(filepath)],
+                [sys.executable, "-m", "cli.light_unified", "run", str(filepath)],
                 capture_output=True, text=True, timeout=30,
                 cwd=str(self.project_root),
             )

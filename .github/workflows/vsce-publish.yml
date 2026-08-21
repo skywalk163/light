@@ -36,18 +36,18 @@ jobs:
         run: npm install -g @vscode/vsce
 
       - name: 打包扩展
-        run: vsce package --out duan-${{ github.ref_name }}.vsix
+        run: vsce package --out light-${{ github.ref_name }}.vsix
 
       - name: 验证 .vsix 文件
         run: |
-          ls -lh duan-${{ github.ref_name }}.vsix
-          vsce ls --json duan-${{ github.ref_name }}.vsix | head -20
+          ls -lh light-${{ github.ref_name }}.vsix
+          vsce ls --json light-${{ github.ref_name }}.vsix | head -20
 
       - name: 上传 .vsix 构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: duan-vsce-${{ github.ref_name }}
-          path: vscode-extension/duan-${{ github.ref_name }}.vsix
+          name: light-vsce-${{ github.ref_name }}
+          path: vscode-extension/light-${{ github.ref_name }}.vsix
           if-no-files-found: error
 
   publish:
@@ -71,21 +71,21 @@ jobs:
         run: npm install -g @vscode/vsce
 
       - name: 发布到 VS Code Marketplace
-        run: vsce publish -p ${{ secrets.VSCE_PAT }} --packagePath duan-${{ github.ref_name }}.vsix
+        run: vsce publish -p ${{ secrets.VSCE_PAT }} --packagePath light-${{ github.ref_name }}.vsix
 
       - name: 发布到 Open VSX Registry
         continue-on-error: true
         run: |
-          npx ovsx publish duan-${{ github.ref_name }}.vsix -p ${{ secrets.OVSX_PAT }} || echo "Open VSX 发布跳过（未配置 OVSX_PAT）"
+          npx ovsx publish light-${{ github.ref_name }}.vsix -p ${{ secrets.OVSX_PAT }} || echo "Open VSX 发布跳过（未配置 OVSX_PAT）"
 
       - name: 创建 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: 段言 ${{ github.ref_name }}
+          name: 光明 ${{ github.ref_name }}
           body: |
-            ## 段言 ${{ github.ref_name }} — VS Code 扩展
+            ## 光明 ${{ github.ref_name }} — VS Code 扩展
 
             请从附件下载 .vsix 文件手动安装，或通过 VS Code 扩展市场安装。
-          files: vscode-extension/duan-${{ github.ref_name }}.vsix
+          files: vscode-extension/light-${{ github.ref_name }}.vsix
           draft: true
           prerelease: false

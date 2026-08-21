@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""duan-blocks Web/API：FastAPI 包装 组合.py。
+"""light-blocks Web/API：FastAPI 包装 组合.py。
 
   GET  /           演示页（输入需求实时看组合）
   GET  /health    健康检查
@@ -7,7 +7,7 @@
                     hybrid?, threshold?, no_verify?, no_cache?, no_fallback?}
                    → {成功, 候选, 是兜底, 运行, 诊断}
 
-运行：uvicorn duan_blocks.api:app --port 8123
+运行：uvicorn light_blocks.api:app --port 8123
 """
 import json
 import os
@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from .cli import 积木库路径, _加载组合
 
-app = FastAPI(title='duan-blocks', description='段言积木组合平台 · 零 token 组合式代码生成')
+app = FastAPI(title='light-blocks', description='光明积木组合平台 · 零 token 组合式代码生成')
 
 _组合模块 = None
 
@@ -82,8 +82,8 @@ def combo(r: 请求):
                 '错误': '未能生成方案（可开兜底或换输入）'}
     方案, 候选 = res
     是兜底 = bool(方案.get('_兜底'))
-    duan = mod._定位运行时()
-    rc, out, err = mod._运行_单次(方案, os.path.join(积木库路径(), '组合结果.duan'), duan)
+    运行时 = mod._定位运行时()
+    rc, out, err = mod._运行_单次(方案, os.path.join(积木库路径(), '组合结果.light'), 运行时)
     成功 = mod._成功(rc, out)
     诊断['成功'] = 成功
     诊断['最终rc'] = rc or 0
@@ -106,7 +106,7 @@ _页面 = """<!DOCTYPE html>
 <html lang="zh">
 <head>
 <meta charset="utf-8">
-<title>段言积木组合平台</title>
+<title>光明积木组合平台</title>
 <style>
   body{font-family:-apple-system,'Segoe UI','Microsoft YaHei',sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:#fafafa;color:#222}
   h1{font-size:1.4rem;font-weight:600}
@@ -121,10 +121,10 @@ _页面 = """<!DOCTYPE html>
 </style>
 </head>
 <body>
-<h1>段言积木组合平台</h1>
-<p class="sub">零 token · 全离线 · 选块/校验/接线/粘合 → 可运行 .duan</p>
+<h1>光明积木组合平台</h1>
+<p class="sub">零 token · 全离线 · 选块/校验/接线/粘合 → 可运行 .light</p>
 <textarea id="q" placeholder="例如：对一批数字求和再算平均"></textarea>
-<input id="inp" placeholder="输入（段言表达式），默认 [1,2,3,4,5]" value="[1, 2, 3, 4, 5]">
+<input id="inp" placeholder="输入（光明表达式），默认 [1,2,3,4,5]" value="[1, 2, 3, 4, 5]">
 <button id="run" onclick="go()">组合并运行</button>
 <div id="out" style="margin-top:1rem"></div>
 <script>

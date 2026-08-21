@@ -16,11 +16,11 @@ Python 项目 -> 光明项目 批量转译器
 产物:
     输出目录/
         (保留原始目录结构)
-        *.duan           -- 转译后的光明源文件
+        *.light          -- 转译后的光明源文件
         (非 .py 文件原样复制)
         duan.json        -- 项目清单
         CONVERSION_REPORT.md -- 转译报告
-        build.py         -- 构建脚本（.duan -> .py 编译运行）
+        build.py         -- 构建脚本（.light -> .py 编译运行）
 """
 import ast
 import json
@@ -275,11 +275,11 @@ class ProjectTranspiler:
                     self._copy_file(src_file, rel_path)
 
     def _transpile_file(self, src_file: Path, rel_path: Path):
-        """转换单个 .py 文件为 .duan"""
-        duan_rel_path = rel_path.with_suffix(".duan")
+        """转换单个 .py 文件为 .light"""
+        light_rel_path = rel_path.with_suffix(".light")
         result = {
             "src": str(rel_path),
-            "dst": str(duan_rel_path),
+            "dst": str(light_rel_path),
             "status": "pending",
             "error": None,
             "parse_ok": None,
@@ -333,14 +333,14 @@ class ProjectTranspiler:
             else:
                 self.stats["parse_failed"] += 1
 
-            # 写入 .duan 文件
+            # 写入 .light 文件
             if not self.dry_run:
-                dst_file = self.out_dir / duan_rel_path
+                dst_file = self.out_dir / light_rel_path
                 dst_file.parent.mkdir(parents=True, exist_ok=True)
                 with open(dst_file, "w", encoding="utf-8") as f:
                     f.write(duan_code)
 
-            self._log(f"  [OK] {rel_path} -> {duan_rel_path}"
+            self._log(f"  [OK] {rel_path} -> {light_rel_path}"
                       + ("" if validate_result["success"] else "  [PARSE WARNING]"))
 
         except TranspileError as e:
@@ -927,11 +927,11 @@ def build_all():
     else:
         # 退化为扫描目录
         duan_files = [str(p.relative_to(PROJECT_DIR))
-                      for p in list(PROJECT_DIR.rglob("*.light")) + list(PROJECT_DIR.rglob("*.duan"))
+                      for p in PROJECT_DIR.rglob("*.light")
                       if "build" not in str(p)]
 
     if not duan_files:
-        print("未找到 .duan 文件")
+        print("未找到 .light 文件")
         return False
 
     print(f"开始编译 {{len(duan_files)}} 个光明文件...")

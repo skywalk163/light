@@ -23,8 +23,8 @@
     python 积木库/embedding选块.py "斐波那契数列第10项" --top 3   # 概念图→空候选→兜底
     python 积木库/embedding选块.py "把金额写成人民币大写" --real    # 强制走真·句向量
 可选环境变量：
-    DUAN_EMBED_MODEL  模型名（默认 shibing624/text2vec-base-chinese）
-    DUAN_EMBED_FLOOR  真向量相似度地板（默认 0.15）
+    LIGHT_EMBED_MODEL  模型名（默认 shibing624/text2vec-base-chinese）
+    LIGHT_EMBED_FLOOR  真向量相似度地板（默认 0.15）
 """
 
 import argparse
@@ -342,9 +342,9 @@ def _余弦(a, b):
 # ---------------------------------------------------------------------------
 # 真·句向量检索（可选升级，零 token 仅本地推理；需 sentence_transformers）
 # ---------------------------------------------------------------------------
-_EMBED_MODEL_ENV = 'DUAN_EMBED_MODEL'
+_EMBED_MODEL_ENV = 'LIGHT_EMBED_MODEL'
 _DEFAULT_MODEL = 'shibing624/text2vec-base-chinese'
-_REAL_FLOOR_ENV = 'DUAN_EMBED_FLOOR'
+_REAL_FLOOR_ENV = 'LIGHT_EMBED_FLOOR'
 _CACHE_DIR = os.path.join(_HERE, '.embed_cache')
 
 # 概念图向量用的余弦地板（二值向量，相似度天然偏低）
@@ -478,9 +478,9 @@ def embedding_select(需求, index, top=None, real=None):
     # v0.17：默认不再自动启用真向量。基准跑分（评估/跑分.py，62 条）显示在本库规模下
     # 概念图 0.984 链路正确率 / 0.1ms，而 text2vec 真向量仅 0.823 / 3700ms——短查询与
     # 长描述的句向量相似度趋同（各向异性），反而把「求和/最大/计数」冲散到统计块上。
-    # 因此真向量降级为显式实验选项：--real 或 DUAN_EMBED_REAL=1。
+    # 因此真向量降级为显式实验选项：--real 或 LIGHT_EMBED_REAL=1。
     if real is None:
-        real = True if os.environ.get('DUAN_EMBED_REAL') == '1' else None
+        real = True if os.environ.get('LIGHT_EMBED_REAL') == '1' else None
     use_real = bool(real)
     if use_real:
         try:

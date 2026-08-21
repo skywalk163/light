@@ -63,27 +63,28 @@ def get_config_dir() -> str:
 
     优先级：
     1. 环境变量 LIGHT_CONFIG_DIR
-    2. 旧环境变量 DUAN_CONFIG_DIR（兼容，带一次性弃用提示）
-    3. ~/.light —— 若不存在但旧目录 ~/.duan 存在，则一次性迁移过去
+    2. ~/.light —— 若不存在但旧目录 ~/.duan 存在，则一次性迁移过去
+
+    这里刻意区分「契约别名」与「用户数据搬运」，二者处置相反：
+
+    - **旧环境变量别名已删除**：不再读 DUAN_CONFIG_DIR。环境变量是对外契约，
+      光明已硬切换到 LIGHT_* 前缀；继续认旧名只会长期留下「到底以哪个为准」
+      的二义，配置来源也无法单点。故一次切干净——即使设了 DUAN_CONFIG_DIR
+      也**一律忽略**，行为等同于没设。
+    - **~/.duan → ~/.light 的一次性目录迁移保留**：它搬的是用户已有的数据
+      （历史反馈、教程进度），不是契约别名。删掉它并不会让契约更干净，只会
+      让老用户升级后配置凭空消失，所以必须留着，且迁移时明确告知用户。
     """
     env_dir = os.environ.get('LIGHT_CONFIG_DIR')
     if env_dir:
         return env_dir
 
-    # 兼容旧环境变量：仅在新变量未设置时回退，并提示用户迁移
-    legacy_env = os.environ.get('DUAN_CONFIG_DIR')
-    if legacy_env:
-        sys.stderr.write(
-            "[光明] 检测到旧环境变量 DUAN_CONFIG_DIR，已沿用其路径。"
-            "请尽快改用 LIGHT_CONFIG_DIR。\n"
-        )
-        return legacy_env
-
     home = os.path.expanduser("~")
     new_dir = os.path.join(home, ".light")
     legacy_dir = os.path.join(home, ".duan")
 
-    # 一次性迁移：新目录还不存在、但旧目录在，则整目录搬过来，保留历史反馈/教程进度
+    # 一次性数据迁移（非契约别名，区分见上方 docstring）：新目录还不存在、但旧目录
+    # 在，则整目录搬过来，保留历史反馈/教程进度
     if not os.path.exists(new_dir) and os.path.isdir(legacy_dir):
         try:
             os.rename(legacy_dir, new_dir)

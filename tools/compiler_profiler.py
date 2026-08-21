@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编译器性能分析工具
+光明（Light）编译器性能分析工具
 
 分析编译各阶段耗时：
   - 词法分析 (Lexer.tokenize)
@@ -12,7 +12,7 @@
 支持大文件（100KB+）性能测试、内存使用分析。
 
 用法:
-  python tools/compiler_profiler.py [file.duan]
+  python tools/compiler_profiler.py [file.light]
   python tools/compiler_profiler.py --generate-large  # 生成大文件并测试
   python tools/compiler_profiler.py --report          # 生成性能分析报告
 """
@@ -37,9 +37,9 @@ from ast_nodes_v3 import Module
 
 
 def generate_large_test_file(size_kb: int = 100) -> str:
-    """生成大段言测试文件，用于性能测试"""
+    """生成大光明测试文件，用于性能测试"""
     lines = []
-    lines.append("# 大型段言性能测试文件\n")
+    lines.append("# 大型光明性能测试文件\n")
     lines.append("导入 数学\n")
     lines.append("")
 
@@ -204,7 +204,7 @@ class CompilerProfiler:
         return count
 
     def profile_file(self, filepath: str) -> Dict:
-        """分析单个段言文件"""
+        """分析单个光明文件"""
         with open(filepath, 'r', encoding='utf-8') as f:
             source = f.read()
         return self.profile_compilation(source, Path(filepath).name)
@@ -212,14 +212,14 @@ class CompilerProfiler:
     def generate_report(self, output_path: str):
         """生成 Markdown 性能分析报告"""
         lines = []
-        lines.append("# 段言编译器性能分析报告")
+        lines.append("# 光明编译器性能分析报告")
         lines.append("")
         lines.append("> 生成时间: 2026-08-07")
-        lines.append("> 测试环境: 段言 v5.5.0 (SRC 后端)")
+        lines.append("> 测试环境: 光明 v5.5.0 (SRC 后端)")
         lines.append("")
         lines.append("## 测试概述")
         lines.append("")
-        lines.append("本报告对段言编译器的各阶段进行性能分析，包括：")
+        lines.append("本报告对光明编译器的各阶段进行性能分析，包括：")
         lines.append("")
         lines.append("- **词法分析** (Lexer.tokenize)：将源码拆分为 Token 流")
         lines.append("- **语法解析** (LightParser.parse)：将 Token 流构建为 AST")
@@ -301,10 +301,10 @@ class CompilerProfiler:
         files = []
         for root, _dirs, filenames in os.walk(example_dir):
             for f in filenames:
-                if f.endswith(('.light', '.duan')):
+                if f.endswith('.light'):
                     files.append(os.path.join(root, f))
 
-        print(f"\n找到 {len(files)} 个段言文件")
+        print(f"\n找到 {len(files)} 个光明文件")
         for filepath in sorted(files):
             try:
                 self.profile_file(filepath)
@@ -314,8 +314,8 @@ class CompilerProfiler:
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description='段言编译器性能分析工具')
-    parser.add_argument('file', nargs='?', help='要分析的段言文件')
+    parser = argparse.ArgumentParser(description='光明编译器性能分析工具')
+    parser.add_argument('file', nargs='?', help='要分析的光明文件')
     parser.add_argument('--generate-large', action='store_true', help='生成大文件并测试')
     parser.add_argument('--report', action='store_true', help='生成性能分析报告')
     parser.add_argument('--examples', action='store_true', help='分析所有示例文件')
@@ -339,12 +339,12 @@ def main():
     if not args.file and not args.examples and not args.generate_large:
         # 默认：分析标准示例文件 + 大文件
         examples = [
-            str(PROJECT_DIR / 'examples' / 'hello.duan'),
-            str(PROJECT_DIR / 'examples' / 'basic.duan'),
-            str(PROJECT_DIR / 'examples' / 'hanoi.duan'),
-            str(PROJECT_DIR / 'examples' / 'calculator.duan'),
-            str(PROJECT_DIR / 'examples' / 'class_example.duan'),
-            str(PROJECT_DIR / 'examples' / 'student_management.duan'),
+            str(PROJECT_DIR / 'examples' / 'hello.light'),
+            str(PROJECT_DIR / 'examples' / 'basic.light'),
+            str(PROJECT_DIR / 'examples' / 'hanoi.light'),
+            str(PROJECT_DIR / 'examples' / 'calculator.light'),
+            str(PROJECT_DIR / 'examples' / 'class_example.light'),
+            str(PROJECT_DIR / 'examples' / 'student_management.light'),
         ]
         for filepath in examples:
             if os.path.isfile(filepath):

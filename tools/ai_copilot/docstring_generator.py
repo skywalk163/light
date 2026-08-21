@@ -337,8 +337,8 @@ def main():
         print(f"错误: 文件不存在: {filepath}", file=sys.stderr)
         sys.exit(1)
 
-    if not filepath.endswith(('.light', '.duan')):
-        print(f"警告: 文件后缀不是 .light/.duan，仍将继续处理: {filepath}", file=sys.stderr)
+    if not filepath.endswith('.light'):
+        print(f"警告: 文件后缀不是 .light，仍将继续处理: {filepath}", file=sys.stderr)
 
     result = process_file(filepath, to_stdout=to_stdout)
     if result is None:

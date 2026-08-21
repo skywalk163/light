@@ -2,7 +2,7 @@
 build_bootstrap_release.py - 自举编译器发布构建
 
 构建自举编译器二进制发布包：
-  1. 合并所有 bootstrap 模块 -> bootstrap_v3.duan
+  1. 合并所有 bootstrap 模块 -> bootstrap_v3.light
   2. 用 SRC 后端编译为 Python 代码
   3. 尝试用 PyInstaller 打包为独立可执行文件
   4. 验证构建产物
@@ -53,20 +53,20 @@ def step_clean():
 
 
 def step_merge_modules():
-    """合并所有 bootstrap 模块为 bootstrap_v3.duan"""
+    """合并所有 bootstrap 模块为 bootstrap_v3.light"""
     print("=" * 60)
-    print("Step 1: 合并 bootstrap 模块 -> bootstrap_v3.duan")
+    print("Step 1: 合并 bootstrap 模块 -> bootstrap_v3.light")
     print("=" * 60)
 
     from merge_bootstrap import modules, bootstrap_dir
 
-    output_path = os.path.join(bootstrap_dir, 'bootstrap_v3.duan')
+    output_path = os.path.join(bootstrap_dir, 'bootstrap_v3.light')
     if os.path.exists(output_path):
         os.remove(output_path)
 
     # 重新运行 merge_bootstrap 的主逻辑
     output_lines = [
-        "# bootstrap_v3.duan - v3.2 自举编译器（合并版）",
+        "# bootstrap_v3.light - v3.2 自举编译器（合并版）",
         "# 由 merge_bootstrap.py / build_bootstrap_release.py 自动生成",
         "",
     ]
@@ -99,9 +99,9 @@ def step_merge_modules():
 
 
 def step_compile_bootstrap(bootstrap_path):
-    """用 SRC 后端编译 bootstrap_v3.duan 为 Python 代码"""
+    """用 SRC 后端编译 bootstrap_v3.light 为 Python 代码"""
     print("=" * 60)
-    print("Step 2: 编译自举编译器 (Duan -> Python)")
+    print("Step 2: 编译自举编译器 (Light -> Python)")
     print("=" * 60)
 
     from run_compiler import compile_bootstrap_dir
@@ -181,8 +181,8 @@ def step_create_wrapper(py_code, output_py):
 
     os.makedirs(DIST_DIR, exist_ok=True)
 
-    # 创建 duan-compiler.py 包装脚本
-    wrapper_path = os.path.join(DIST_DIR, 'duan-compiler.py')
+    # 创建 light-compiler.py 包装脚本
+    wrapper_path = os.path.join(DIST_DIR, 'light-compiler.py')
     # 将编译器代码编码为 base64 以避免 repr 转义问题
     import base64
     py_code_bytes = py_code.encode('utf-8')
@@ -190,13 +190,13 @@ def step_create_wrapper(py_code, output_py):
     with open(wrapper_path, 'w', encoding='utf-8') as f:
         f.write(f'''#!/usr/bin/env python3
 """
-Duan Bootstrap Compiler - 段言自举编译器
+Light Bootstrap Compiler - 光明自举编译器
 版本: 3.2.0
 
 用法:
-    python duan-compiler.py <source.duan> [output.py]
+    python light-compiler.py <source.light> [output.py]
 
-编译 .duan 文件为 Python 代码。
+编译 .light 文件为 Python 代码。
 """
 
 import sys
@@ -271,14 +271,14 @@ def step_try_pyinstaller(wrapper_path):
         print()
         return None
 
-    exe_dir = os.path.join(DIST_DIR, 'duan-compiler')
+    exe_dir = os.path.join(DIST_DIR, 'light-compiler')
     os.makedirs(exe_dir, exist_ok=True)
 
     try:
         subprocess.run(
             [sys.executable, '-m', 'PyInstaller',
              '--onefile',
-             '--name', 'duan-compiler',
+             '--name', 'light-compiler',
              '--distpath', exe_dir,
              '--specpath', BUILD_DIR,
              '--workpath', os.path.join(BUILD_DIR, 'pyinstaller'),
@@ -289,7 +289,7 @@ def step_try_pyinstaller(wrapper_path):
             timeout=120
         )
 
-        exe_path = os.path.join(exe_dir, 'duan-compiler.exe')
+        exe_path = os.path.join(exe_dir, 'light-compiler.exe')
         if os.path.exists(exe_path):
             file_size = os.path.getsize(exe_path)
             print(f"  EXE 已生成: {exe_path} ({file_size / 1024:.1f} KB)")
@@ -324,21 +324,21 @@ def step_package_release(exe_path, output_py):
     print(f"  复制: bootstrap_compiler.py -> {RELEASE_DIR}")
 
     # 复制包装脚本
-    wrapper_src = os.path.join(DIST_DIR, 'duan-compiler.py')
+    wrapper_src = os.path.join(DIST_DIR, 'light-compiler.py')
     if os.path.exists(wrapper_src):
-        shutil.copy2(wrapper_src, os.path.join(RELEASE_DIR, 'duan-compiler.py'))
-        print(f"  复制: duan-compiler.py -> {RELEASE_DIR}")
+        shutil.copy2(wrapper_src, os.path.join(RELEASE_DIR, 'light-compiler.py'))
+        print(f"  复制: light-compiler.py -> {RELEASE_DIR}")
 
     # 复制 EXE（如果存在）
     if exe_path and os.path.exists(exe_path):
-        shutil.copy2(exe_path, os.path.join(RELEASE_DIR, 'duan-compiler.exe'))
-        print(f"  复制: duan-compiler.exe -> {RELEASE_DIR}")
+        shutil.copy2(exe_path, os.path.join(RELEASE_DIR, 'light-compiler.exe'))
+        print(f"  复制: light-compiler.exe -> {RELEASE_DIR}")
 
-    # 复制 bootstrap_v3.duan
-    bootstrap_src = os.path.join(_script_dir, 'bootstrap_v3.duan')
+    # 复制 bootstrap_v3.light
+    bootstrap_src = os.path.join(_script_dir, 'bootstrap_v3.light')
     if os.path.exists(bootstrap_src):
-        shutil.copy2(bootstrap_src, os.path.join(RELEASE_DIR, 'bootstrap_v3.duan'))
-        print(f"  复制: bootstrap_v3.duan -> {RELEASE_DIR}")
+        shutil.copy2(bootstrap_src, os.path.join(RELEASE_DIR, 'bootstrap_v3.light'))
+        print(f"  复制: bootstrap_v3.light -> {RELEASE_DIR}")
 
     # 复制 stdlib 目录
     stdlib_src = os.path.join(_project_dir, 'stdlib')
@@ -352,27 +352,27 @@ def step_package_release(exe_path, output_py):
     # 创建 README.txt
     readme_path = os.path.join(RELEASE_DIR, 'README.txt')
     with open(readme_path, 'w', encoding='utf-8') as f:
-        f.write("""Duan Bootstrap Compiler v3.2.0 - 段言自举编译器
+        f.write("""Light Bootstrap Compiler v3.2.0 - 光明自举编译器
 =============================================
 
 文件说明:
   bootstrap_compiler.py  - 自举编译器 Python 源码
-  duan-compiler.py       - 命令行包装脚本
-  duan-compiler.exe      - 独立可执行文件（如有）
-  bootstrap_v3.duan      - 自举编译器段言源码
-  stdlib/                - 段言标准库（运行时必需）
+  light-compiler.py       - 命令行包装脚本
+  light-compiler.exe      - 独立可执行文件（如有）
+  bootstrap_v3.light      - 自举编译器光明源码
+  stdlib/                - 光明标准库（运行时必需）
 
 依赖:
   - Python 3.8+
   - stdlib/ 目录必须与脚本在同一目录
 
 用法:
-  python duan-compiler.py <source.duan> [output.py]
+  python light-compiler.py <source.light> [output.py]
   或
-  duan-compiler.exe <source.duan> [output.py]
+  light-compiler.exe <source.light> [output.py]
 
 示例:
-  python duan-compiler.py hello.duan hello.py
+  python light-compiler.py hello.light hello.py
 
 构建日期: %s
 """ % __import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
@@ -390,8 +390,8 @@ def step_verify_release():
     # 检查关键文件
     required_files = [
         'bootstrap_compiler.py',
-        'duan-compiler.py',
-        'bootstrap_v3.duan',
+        'light-compiler.py',
+        'bootstrap_v3.light',
         'README.txt',
     ]
 
@@ -405,12 +405,12 @@ def step_verify_release():
         if not exists:
             all_ok = False
 
-    # 验证 duan-compiler.py 能正常工作
-    wrapper_path = os.path.join(RELEASE_DIR, 'duan-compiler.py')
+    # 验证 light-compiler.py 能正常工作
+    wrapper_path = os.path.join(RELEASE_DIR, 'light-compiler.py')
     if os.path.exists(wrapper_path):
         try:
             # 创建一个临时测试文件
-            test_file = os.path.join(RELEASE_DIR, '_test_temp.duan')
+            test_file = os.path.join(RELEASE_DIR, '_test_temp.light')
             with open(test_file, 'w', encoding='utf-8') as f:
                 f.write('段落 测试 接收 x：\n  返回 x 乘 2\n\n打印(测试(21))\n')
 
@@ -459,7 +459,7 @@ def main():
         return
 
     print("=" * 60)
-    print("  段言自举编译器发布构建")
+    print("  光明自举编译器发布构建")
     print(f"  项目目录: {_project_dir}")
     print("=" * 60)
     print()

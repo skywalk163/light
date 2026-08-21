@@ -8,9 +8,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 from run_compiler import compile_bootstrap_dir, execute_generated_code
 
 def run_bootstrap_compiler(code, filename='<test>'):
-    """使用自举编译器编译段言代码"""
+    """使用自举编译器编译光明代码"""
     tmp_dir = tempfile.mkdtemp()
-    src_path = os.path.join(tmp_dir, 'test.duan')
+    src_path = os.path.join(tmp_dir, 'test.light')
     with open(src_path, 'w', encoding='utf-8') as f:
         f.write(code)
     result = compile_bootstrap_dir(src_path)

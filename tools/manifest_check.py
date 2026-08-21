@@ -1,6 +1,6 @@
-"""校验 .duan 清单文件的「导出」名是否都能在配对的 .py 实现里真实导入。
+"""校验 .light 清单文件的「导出」名是否都能在配对的 .py 实现里真实导入。
 
-用途：stdlib/contrib 下的 .duan 是导出清单（manifest），真正实现在同名 .py。
+用途：stdlib/contrib 下的 .light 是导出清单（manifest），真正实现在同名 .py。
 若清单里写了 .py 并未提供的名字，用户 `从《模块》导入《名字》` 时会在运行期炸掉，
 而语法体检（syntax_audit）是发现不了的——它只管解析。
 
@@ -24,10 +24,10 @@ EXPORT_RX = re.compile(r'^\s*导出\s+(.+?)[。\.]?\s*$')
 SPLIT_RX = re.compile(r'[\s,，、]+')
 
 
-def manifest_exports(duan_path: pathlib.Path) -> list[str]:
-    """从 .duan 清单里抽出所有导出名（忽略 # 注释行）。"""
+def manifest_exports(manifest_path: pathlib.Path) -> list[str]:
+    """从 .light 清单里抽出所有导出名（忽略 # 注释行）。"""
     names: list[str] = []
-    for line in duan_path.read_text(encoding='utf-8').splitlines():
+    for line in manifest_path.read_text(encoding='utf-8').splitlines():
         if line.lstrip().startswith('#'):
             continue
         m = EXPORT_RX.match(line)
@@ -93,24 +93,24 @@ def main(argv: list[str]) -> int:
         if not base.is_dir():
             print(f'跳过（目录不存在）: {d}')
             continue
-        for duan in sorted(list(base.glob('*.light')) + list(base.glob('*.duan'))):
+        for manifest in sorted(base.glob('*.light')):
             total += 1
-            py = duan.with_suffix('.py')
+            py = manifest.with_suffix('.py')
             if not py.exists():
-                no_py.append(f'{d}/{duan.name}')
+                no_py.append(f'{d}/{manifest.name}')
                 continue
-            exports = manifest_exports(duan)
+            exports = manifest_exports(manifest)
             if not exports:
                 continue
             available = py_public_names(py)
             if available is None:
-                skipped.append(f'{d}/{duan.name}')
+                skipped.append(f'{d}/{manifest.name}')
                 continue
             checked += 1
             missing = [n for n in exports if n not in available]
             if missing:
                 problems.append({
-                    'file': f'{d}/{duan.name}',
+                    'file': f'{d}/{manifest.name}',
                     'exports': len(exports),
                     'missing': missing,
                 })
@@ -118,10 +118,10 @@ def main(argv: list[str]) -> int:
                 clean += 1
 
     print('=' * 62)
-    print('段言清单一致性检查（.duan 导出名 ⇄ .py 实现）')
+    print('光明清单一致性检查（.light 导出名 ⇄ .py 实现）')
     print('=' * 62)
-    print(f'.duan 总数: {total}   有 .py 配对且已检查: {checked}   全部匹配: {clean}')
-    print(f'无 .py 配对（纯段言模块，跳过）: {len(no_py)}')
+    print(f'.light 总数: {total}   有 .py 配对且已检查: {checked}   全部匹配: {clean}')
+    print(f'无 .py 配对（纯光明模块，跳过）: {len(no_py)}')
     if skipped:
         print(f'静态解析不可靠（star import 等）: {len(skipped)} -> {", ".join(skipped)}')
     print()

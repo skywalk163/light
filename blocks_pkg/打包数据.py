@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""构建 wheel 数据：把 积木库 复制进 duan_blocks/_data/积木库，随 duan-blocks 分发。
+"""构建 wheel 数据：把 积木库 复制进 light_blocks/_data/积木库，随 light-blocks 分发。
 
 用法：python blocks_pkg/打包数据.py   （先跑它，再 pip wheel / pip install）
 """
@@ -9,10 +9,10 @@ import shutil
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _SRC = os.path.join(_ROOT, '积木库')
 _DST = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                    'duan_blocks', '_data', '积木库')
+                    'light_blocks', '_data', '积木库')
 
-_排除名 = {'__pycache__', '.embed_cache', '组合结果.duan', '_冒烟工位.duan',
-           '_验块工位.duan', '_冒烟写.txt', '节点缓存'}
+_排除名 = {'__pycache__', '.embed_cache', '组合结果.light', '_冒烟工位.light',
+           '_验块工位.light', '_冒烟写.txt', '节点缓存'}
 _排除尾 = ('.pyc',)
 
 

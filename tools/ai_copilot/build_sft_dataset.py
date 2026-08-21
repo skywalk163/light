@@ -1088,9 +1088,9 @@ def _expand_variants(pairs: List[tuple]) -> List[tuple]:
 # ═══════════════════════════════════════════════════════════════════
 
 def _extract_from_examples() -> List[tuple]:
-    """从 examples/ 目录的 .duan 文件提取代码片段
+    """从 examples/ 目录的 .light 文件提取代码片段
 
-    注意：部分 .duan 文件使用旧语法，需要标注但不用于核心训练
+    注意：部分 .light 文件使用旧语法，需要标注但不用于核心训练
     """
     examples_dir = os.path.join(_PROJECT_DIR, 'examples')
     pairs = []
@@ -1099,7 +1099,7 @@ def _extract_from_examples() -> List[tuple]:
         return pairs
 
     for fname in sorted(os.listdir(examples_dir)):
-        if not fname.endswith(('.light', '.duan')):
+        if not fname.endswith('.light'):
             continue
         filepath = os.path.join(examples_dir, fname)
         with open(filepath, 'r', encoding='utf-8') as f:
@@ -1115,7 +1115,7 @@ def _extract_from_examples() -> List[tuple]:
         is_new_syntax = any(kw in content for kw in ['接收', '遍历', '设 '])
 
         if is_new_syntax and not is_old_syntax:
-            pairs.append(("示例-" + fname.replace('.duan', ''), "", content))
+            pairs.append(("示例-" + fname.replace('.light', ''), "", content))
 
     return pairs
 

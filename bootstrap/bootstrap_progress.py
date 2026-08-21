@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编程语言 - 自举编译器进度检查工具
+光明（Light）编程语言 - 自举编译器进度检查工具
 
-评估 bootstrap_level4.duan 和 bootstrap_level5.duan 中每个层级的功能完成度，
+评估 bootstrap_level4.light 和 bootstrap_level5.light 中每个层级的功能完成度，
 生成进度报告，列出尚未自举的功能。
 
 用法：
@@ -20,7 +20,7 @@ from typing import Dict, List, Set, Tuple, Optional
 class BootstrapProgressChecker:
     """自举编译器进度检查器
 
-    分析 bootstrap_level4.duan 和 bootstrap_level5.duan 的源代码，
+    分析 bootstrap_level4.light 和 bootstrap_level5.light 的源代码，
     评估每个层级的功能完成度，并生成进度报告。
     """
 
@@ -136,8 +136,8 @@ class BootstrapProgressChecker:
 
     def _load_sources(self) -> None:
         """加载自举编译器源码"""
-        level4_path = os.path.join(self.bootstrap_dir, "bootstrap_level4.duan")
-        level5_path = os.path.join(self.bootstrap_dir, "bootstrap_level5.duan")
+        level4_path = os.path.join(self.bootstrap_dir, "bootstrap_level4.light")
+        level5_path = os.path.join(self.bootstrap_dir, "bootstrap_level5.light")
 
         if os.path.exists(level4_path):
             with open(level4_path, "r", encoding="utf-8") as f:
@@ -260,7 +260,7 @@ class BootstrapProgressChecker:
 
         lines: List[str] = []
         lines.append("=" * 60)
-        lines.append("  段言（Duan）自举编译器进度报告")
+        lines.append("  光明（Light）自举编译器进度报告")
         lines.append("=" * 60)
         lines.append("")
 
