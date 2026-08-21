@@ -1,9 +1,9 @@
 """
-类型工具 — duanpub 桥接模块
+类型工具 — lightpub 桥接模块
 
-基于 Python 内置类型系统封装，函数名对齐 duanpub/packages/类型工具/源.duan。
+基于 Python 内置类型系统封装，函数名对齐上游 duanpub（段言时期）packages/类型工具/源.duan。
 
-duanpub 原始包通过 C FFI 实现运行时类型检查，
+上游 duanpub 原始包通过 C FFI 实现运行时类型检查，
 本桥接模块用 Python 内置 isinstance/type 等替代，提供等价的类型检查与转换功能。
 """
 

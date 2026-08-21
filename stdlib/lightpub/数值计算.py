@@ -1,9 +1,9 @@
 """
-数值计算 — duanpub 桥接模块
+数值计算 — lightpub 桥接模块
 
-基于 Python math 库封装，函数名对齐 duanpub/packages/数值计算/源.duan。
+基于 Python math 库封装，函数名对齐上游 duanpub（段言时期）packages/数值计算/源.duan。
 
-duanpub 原始包通过 C FFI 调用底层数学库，
+上游 duanpub 原始包通过 C FFI 调用底层数学库，
 本桥接模块用 Python math 模块替代，提供等价的数值计算功能。
 """
 

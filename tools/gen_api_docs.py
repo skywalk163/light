@@ -21,7 +21,7 @@ from pathlib import Path
 # 项目根目录
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STDLIB_DIR = PROJECT_ROOT / "stdlib"
-DUANPUB_DIR = STDLIB_DIR / "duanpub"
+LIGHTPUB_DIR = STDLIB_DIR / "lightpub"
 OUTPUT_DIR = PROJECT_ROOT / "docs" / "api"
 
 # 模块中文名映射
@@ -271,11 +271,11 @@ def scan_stdlib_modules() -> list[tuple[str, str]]:
     return modules
 
 
-def scan_duanpub_modules() -> list[tuple[str, str]]:
-    """扫描 duanpub 目录，返回 (模块名, 文件路径) 列表"""
+def scan_lightpub_modules() -> list[tuple[str, str]]:
+    """扫描 lightpub 目录，返回 (模块名, 文件路径) 列表"""
     modules = []
     
-    for item in sorted(DUANPUB_DIR.iterdir()):
+    for item in sorted(LIGHTPUB_DIR.iterdir()):
         if item.is_file() and item.suffix == ".py" and item.name not in ("__init__.py", "__index__.py"):
             module_name = item.stem
             modules.append((module_name, str(item)))
@@ -285,7 +285,7 @@ def scan_duanpub_modules() -> list[tuple[str, str]]:
 
 def generate_index_page(modules: list[tuple[str, str]], source_type: str) -> str:
     """生成 API 文档索引页"""
-    title = "duanpub 桥接模块" if source_type == "duanpub" else "标准库模块"
+    title = "lightpub 桥接模块" if source_type == "lightpub" else "标准库模块"
     
     lines = [
         f"# {title} API",
@@ -302,8 +302,8 @@ def generate_index_page(modules: list[tuple[str, str]], source_type: str) -> str
     
     for module_name, _ in modules:
         display_name = MODULE_NAME_MAP.get(module_name, module_name)
-        if source_type == "duanpub":
-            lines.append(f"| [{display_name}]({module_name}.md) | duanpub 桥接模块 |")
+        if source_type == "lightpub":
+            lines.append(f"| [{display_name}]({module_name}.md) | lightpub 桥接模块 |")
         else:
             lines.append(f"| [{display_name}]({module_name}.md) | 标准库模块 |")
     
@@ -318,9 +318,9 @@ def generate_all(output_dir: str, target_modules: list[str] = None):
 
     # 扫描标准库模块
     stdlib_modules = scan_stdlib_modules()
-    duanpub_modules = scan_duanpub_modules()
+    lightpub_modules = scan_lightpub_modules()
 
-    all_modules = stdlib_modules + duanpub_modules
+    all_modules = stdlib_modules + lightpub_modules
 
     if target_modules:
         all_modules = [(name, path) for name, path in all_modules if name in target_modules]
@@ -363,12 +363,12 @@ def main():
 
     if args.list_modules:
         stdlib_modules = scan_stdlib_modules()
-        duanpub_modules = scan_duanpub_modules()
+        lightpub_modules = scan_lightpub_modules()
         print("标准库模块:")
         for name, path in stdlib_modules:
             print(f"  {name}  ({path})")
-        print("\nduanpub 桥接模块:")
-        for name, path in duanpub_modules:
+        print("\nlightpub 桥接模块:")
+        for name, path in lightpub_modules:
             print(f"  {name}  ({path})")
         return
 

@@ -1,9 +1,9 @@
 """
-数据结构 — duanpub 桥接模块
+数据结构 — lightpub 桥接模块
 
-基于 Python collections 库封装，函数名对齐 duanpub/packages/数据结构/源.duan。
+基于 Python collections 库封装，函数名对齐上游 duanpub（段言时期）packages/数据结构/源.duan。
 
-duanpub 原始包通过 C FFI 实现链表、栈、队列、堆、树、图等数据结构，
+上游 duanpub 原始包通过 C FFI 实现链表、栈、队列、堆、树、图等数据结构，
 本桥接模块用 Python 标准库实现，提供等价的数据结构功能。
 """
 

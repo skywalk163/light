@@ -1,9 +1,9 @@
 """
-文件上传 — duanpub 桥接模块
+文件上传 — lightpub 桥接模块
 
-基于 Python cgi / os / uuid / hashlib / mimetypes 库封装，函数名对齐 duanpub/packages/文件上传/源.duan。
+基于 Python cgi / os / uuid / hashlib / mimetypes 库封装，函数名对齐上游 duanpub（段言时期）packages/文件上传/源.duan。
 
-duanpub 原始包通过 C FFI 实现 HTTP 多部分表单解析，
+上游 duanpub 原始包通过 C FFI 实现 HTTP 多部分表单解析，
 本桥接模块用 Python 标准库替代，提供文件上传处理功能。
 """
 

@@ -37,7 +37,7 @@ pip install -e .
 
 Create a file named `hello.duan`:
 
-```段言
+```光明
 打印 "Hello, World!"
 ```
 
@@ -59,7 +59,7 @@ Congratulations! You've just run your first Duan program.
 
 ### Comments
 
-```段言
+```光明
 # This is a single-line comment
 ```
 
@@ -67,7 +67,7 @@ Congratulations! You've just run your first Duan program.
 
 Duan uses `设` (set) to declare variables:
 
-```段言
+```光明
 设 姓名 为 "Alice"         # String
 设 年龄 为 25              # Integer
 设 分数 为 95.5            # Float
@@ -80,7 +80,7 @@ Duan uses `设` (set) to declare variables:
 
 Duan supports both symbolic and Chinese operators:
 
-```段言
+```光明
 设 甲 为 10
 设 乙 为 3
 
@@ -94,7 +94,7 @@ Duan supports both symbolic and Chinese operators:
 
 ### Conditional Statements
 
-```段言
+```光明
 设 分数 为 85
 
 如果 分数 >= 90：
@@ -111,14 +111,14 @@ Duan supports three types of loops:
 
 **For-range loop:**
 
-```段言
+```光明
 遍历 i 在 1 到 5：
     打印 i
 ```
 
 **For-each loop:**
 
-```段言
+```光明
 设 水果 为 ["苹果", "香蕉", "橘子"]
 遍历 水果 为 果：
     打印 果
@@ -126,7 +126,7 @@ Duan supports three types of loops:
 
 **While loop:**
 
-```段言
+```光明
 设 计数 为 0
 当 计数 < 5：
     打印 计数
@@ -135,7 +135,7 @@ Duan supports three types of loops:
 
 **Loop control:**
 
-```段言
+```光明
 遍历 i 在 1 到 10：
     如果 i % 2 == 0：
         跳过   # continue
@@ -148,7 +148,7 @@ Duan supports three types of loops:
 
 Duan uses `段落` (paragraph) to define functions:
 
-```段言
+```光明
 段落 加法 接收 甲, 乙:
     返回 甲 + 乙
 
@@ -158,7 +158,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 Functions with default parameters:
 
-```段言
+```光明
 段落 问候 接收 名字 = "世界":
     打印 "你好，" + 名字 + "！"
 
@@ -168,7 +168,7 @@ Functions with default parameters:
 
 ### Classes and Objects
 
-```段言
+```光明
 类 动物：
     属性 名字
 
@@ -184,7 +184,7 @@ Functions with default parameters:
 
 ### Lists and Dictionaries
 
-```段言
+```光明
 # Lists
 设 数字 为 [1, 2, 3, 4, 5]
 数字.追加(6)
@@ -199,7 +199,7 @@ Functions with default parameters:
 
 ### String Interpolation
 
-```段言
+```光明
 设 名字 为 "段言"
 设 版本 为 6.0
 打印(f"语言：{名字}，版本：{版本}")
@@ -207,7 +207,7 @@ Functions with default parameters:
 
 ### Pattern Matching
 
-```段言
+```光明
 匹配 值：
     情况 1：
         打印("一")
@@ -222,7 +222,7 @@ Functions with default parameters:
 
 ### Async/Await
 
-```段言
+```光明
 异步 段落 获取数据 接收 url：
     返回 等待 请求(url)
 
@@ -235,7 +235,7 @@ Functions with default parameters:
 
 ### Context Managers
 
-```段言
+```光明
 使用 打开文件("test.txt") 为 文件：
     设 内容 为 文件.读取()
     打印 内容
@@ -243,7 +243,7 @@ Functions with default parameters:
 
 ### Lambda Expressions
 
-```段言
+```光明
 设 加倍 为 段(x) 返 x * 2
 打印 加倍(5)  # Output: 10
 
@@ -254,7 +254,7 @@ Functions with default parameters:
 
 ### List Comprehensions
 
-```段言
+```光明
 # Basic list comprehension
 设 平方数 为 [x * x 遍历 x 之 范围(1, 6)]
 打印 平方数  # [1, 4, 9, 16, 25]
@@ -266,7 +266,7 @@ Functions with default parameters:
 
 ### Pipeline Operator
 
-```段言
+```光明
 # Pipe with -> : each stage's result feeds the next
 设 结果 为 (数据 -> 过滤 -> 映射)
 设 汇总 为 归约(结果)
@@ -274,14 +274,14 @@ Functions with default parameters:
 
 ### Type Annotations (v6.0)
 
-```段言
+```光明
 段落 加法 接收 a:整数, b:整数 返回 整数：
     返回 a + b
 ```
 
 ### Nullable Types (v6.0)
 
-```段言
+```光明
 设 可能为空 为 可空("hello")
 如果 可能为空 != 空：
     打印 安全展开(可能为空)
@@ -289,7 +289,7 @@ Functions with default parameters:
 
 ### Interfaces & Protocols (v6.0)
 
-```段言
+```光明
 协议 可打印：
     段落 打印 接收：
 
@@ -300,7 +300,7 @@ Functions with default parameters:
 
 ### Exception Handling
 
-```段言
+```光明
 尝试：
     设 结果 为 10 / 0
 捕获 Exception 为 错误：
@@ -311,7 +311,7 @@ Functions with default parameters:
 
 ### Modules
 
-```段言
+```光明
 # Import entire module
 导入 数学
 

@@ -1,9 +1,9 @@
 """
-密码哈希 — duanpub 桥接模块
+密码哈希 — lightpub 桥接模块
 
-基于 Python hashlib 库封装，函数名对齐 duanpub/packages/密码哈希/源.duan。
+基于 Python hashlib 库封装，函数名对齐上游 duanpub（段言时期）packages/密码哈希/源.duan。
 
-duanpub 原始包通过 C FFI 调用 bcrypt/scrypt 密码哈希库，
+上游 duanpub 原始包通过 C FFI 调用 bcrypt/scrypt 密码哈希库，
 本桥接模块用 Python hashlib 的 scrypt + pbkdf2 替代，
 提供安全的密码哈希与验证功能。
 """

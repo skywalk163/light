@@ -1,9 +1,9 @@
 """
-排序与搜索 — duanpub 桥接模块
+排序与搜索 — lightpub 桥接模块
 
-基于 Python bisect / heapq 库封装，函数名对齐 duanpub/packages/排序与搜索/源.duan。
+基于 Python bisect / heapq 库封装，函数名对齐上游 duanpub（段言时期）packages/排序与搜索/源.duan。
 
-duanpub 原始包通过 C FFI 实现排序与搜索算法，
+上游 duanpub 原始包通过 C FFI 实现排序与搜索算法，
 本桥接模块用 Python bisect/heapq 模块替代，提供等价的排序与搜索功能。
 """
 

@@ -1,10 +1,10 @@
 """
-二进制编码 — duanpub 桥接模块
+二进制编码 — lightpub 桥接模块
 
 基于 Python base64 / binascii / urllib.parse 库封装，
-函数名对齐 duanpub/packages/二进制编码/源.duan。
+函数名对齐上游 duanpub（段言时期）packages/二进制编码/源.duan。
 
-duanpub 原始包通过 C FFI 实现编码/解码，
+上游 duanpub 原始包通过 C FFI 实现编码/解码，
 本桥接模块用 Python 标准库替代，提供等价的 Base64/Base32/Hex/URL/百分号编码功能。
 """
 

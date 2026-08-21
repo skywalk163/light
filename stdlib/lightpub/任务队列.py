@@ -1,10 +1,10 @@
 """
-任务队列 — duanpub 桥接模块
+任务队列 — lightpub 桥接模块
 
 基于 Python queue / threading / time 库封装，
-函数名对齐 duanpub/packages/任务队列/源.duan。
+函数名对齐上游 duanpub（段言时期）packages/任务队列/源.duan。
 
-duanpub 原始包通过 C FFI 实现任务队列系统，
+上游 duanpub 原始包通过 C FFI 实现任务队列系统，
 本桥接模块用 Python 标准库替代，提供等价的异步/延迟/定时任务功能。
 """
 

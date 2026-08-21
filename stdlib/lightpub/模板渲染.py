@@ -1,10 +1,10 @@
 """
-模板渲染 — duanpub 桥接模块
+模板渲染 — lightpub 桥接模块
 
 基于 Python string.Template / html / re 等库封装，
-函数名对齐 duanpub/packages/模板渲染/源.duan。
+函数名对齐上游 duanpub（段言时期）packages/模板渲染/源.duan。
 
-duanpub 原始包通过 C FFI 实现模板引擎，
+上游 duanpub 原始包通过 C FFI 实现模板引擎，
 本桥接模块用 Python 标准库替代，提供等价的模板渲染功能。
 """
 

@@ -1,9 +1,9 @@
 """
-邮件 — duanpub 桥接模块
+邮件 — lightpub 桥接模块
 
-基于 Python smtplib/email 库封装，函数名对齐 duanpub/packages/邮件/源.duan。
+基于 Python smtplib/email 库封装，函数名对齐上游 duanpub（段言时期）packages/邮件/源.duan。
 
-duanpub 原始包通过 C FFI 实现 SMTP 客户端、邮件格式解析，
+上游 duanpub 原始包通过 C FFI 实现 SMTP 客户端、邮件格式解析，
 本桥接模块用 Python smtplib/email 模块替代，提供等价的邮件功能。
 """
 

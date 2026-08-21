@@ -1,10 +1,10 @@
 """
-日期序列 — duanpub 桥接模块
+日期序列 — lightpub 桥接模块
 
 基于 Python datetime / time / calendar 库封装，
-函数名对齐 duanpub/packages/日期序列/源.duan。
+函数名对齐上游 duanpub（段言时期）packages/日期序列/源.duan。
 
-duanpub 原始包通过 C FFI 实现日期序列功能，
+上游 duanpub 原始包通过 C FFI 实现日期序列功能，
 本桥接模块用 Python 标准库替代，提供等价的日期序列处理功能。
 """
 

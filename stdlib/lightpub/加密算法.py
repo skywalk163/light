@@ -1,9 +1,9 @@
 """
-加密算法 — duanpub 桥接模块
+加密算法 — lightpub 桥接模块
 
-基于 Python hashlib / base64 / cryptography 库封装，函数名对齐 duanpub/packages/加密算法/源.duan。
+基于 Python hashlib / base64 / cryptography 库封装，函数名对齐上游 duanpub（段言时期）packages/加密算法/源.duan。
 
-duanpub 原始包通过 C FFI 调用 OpenSSL EVP 加密接口，
+上游 duanpub 原始包通过 C FFI 调用 OpenSSL EVP 加密接口，
 本桥接模块用 Python 标准库（hashlib + base64 + hashlib 回退）替代，
 提供对称加密/解密功能。
 

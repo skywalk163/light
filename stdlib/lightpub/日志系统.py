@@ -1,9 +1,9 @@
 """
-日志系统 — duanpub 桥接模块
+日志系统 — lightpub 桥接模块
 
-基于 Python logging 库封装，函数名对齐 duanpub/packages/日志系统/源.duan。
+基于 Python logging 库封装，函数名对齐上游 duanpub（段言时期）packages/日志系统/源.duan。
 
-duanpub 原始包通过 C FFI 调用系统日志接口，
+上游 duanpub 原始包通过 C FFI 调用系统日志接口，
 本桥接模块用 Python logging 模块替代，提供等价的日志功能。
 """
 

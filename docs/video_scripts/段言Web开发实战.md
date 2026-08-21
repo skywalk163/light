@@ -89,7 +89,7 @@ blog_app/
 
 **画面：** 编写 主.duan 文件头部
 
-```段言
+```光明
 # 主.duan - 博客系统入口
 
 # 导入 HTTP 服务端模块
@@ -117,7 +117,7 @@ blog_app/
 
 **画面：** 编写最小 Web 服务器
 
-```段言
+```光明
 段落 首页 接收 请求：
     返回 响应(200, {"内容类型": "text/html"}, "<h1>欢迎来到段言博客！</h1>")
 
@@ -163,7 +163,7 @@ duan run 主.duan
 
 **画面：** 编写 路由.duan
 
-```段言
+```光明
 # 路由.duan - 路由配置模块
 
 从 贡献.HTTP服务端 导入 路由, 响应, 请求
@@ -211,7 +211,7 @@ duan run 主.duan
 
 **画面：** 编写页面处理函数
 
-```段言
+```光明
 # 页面.duan - 页面渲染模块
 
 从 贡献.HTTP服务端 导入 响应
@@ -254,7 +254,7 @@ duan run 主.duan
 
 **画面：** 编写 API 处理函数
 
-```段言
+```光明
 # 在 路由.duan 中继续
 
 段落 API创建文章 接收 请求：
@@ -293,7 +293,7 @@ duan run 主.duan
 
 **画面：** 编写带参数的路由处理
 
-```段言
+```光明
 # 文章详情页
 段落 文章详情 接收 请求：
     设 文章ID 为 转整数(请求.参数["id"])
@@ -336,7 +336,7 @@ duan run 主.duan
 
 **画面：** 编写更新和删除处理
 
-```段言
+```光明
 # 更新文章
 段落 API更新文章 接收 请求：
     设 文章ID 为 转整数(请求.参数["id"])
@@ -430,7 +430,7 @@ duan run 主.duan
 
 **画面：** 编写模板渲染引擎
 
-```段言
+```光明
 # 页面.duan - 添加模板渲染功能
 
 从 文件系统 导入 读取
@@ -531,7 +531,7 @@ footer { text-align: center; color: #999; margin-top: 50px; padding: 20px; }
 
 **画面：** 编写关于页面
 
-```段言
+```光明
 段落 关于页面 接收 请求：
     设 HTML 为 "<!DOCTYPE html><html><head><title>关于 - 段言博客</title>"
     HTML = HTML + "<link rel='stylesheet' href='/static/style.css'></head><body>"
@@ -566,7 +566,7 @@ footer { text-align: center; color: #999; margin-top: 50px; padding: 20px; }
 
 **画面：** 编写 模型.duan
 
-```段言
+```光明
 # 模型.duan - 博客数据模型
 
 从 日期时间 导入 当前时间, 格式化时间
@@ -632,7 +632,7 @@ footer { text-align: center; color: #999; margin-top: 50px; padding: 20px; }
 
 **画面：** 编写 数据库.duan
 
-```段言
+```光明
 # 数据库.duan - 数据持久化模块
 
 从 文件系统 导入 读取, 写入, 文件存在
@@ -694,7 +694,7 @@ footer { text-align: center; color: #999; margin-top: 50px; padding: 20px; }
 
 **画面：** 完善 主.duan
 
-```段言
+```光明
 # 主.duan - 博客系统完整入口
 
 # 导入模块
@@ -823,7 +823,7 @@ curl -X DELETE http://localhost:3000/api/文章/1
 
 **画面：** 添加错误处理中间件
 
-```段言
+```光明
 # 主.duan - 添加错误处理
 
 段落 错误处理中间件 接收 请求, 下一个:

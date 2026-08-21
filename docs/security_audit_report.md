@@ -48,7 +48,7 @@
 
 ### 2.3 无风险：URL 解析中的 password 参数
 
-`stdlib/duanpub/邮件.py`、`stdlib/duanpub/URL解析.py` 中的 `password` 参数为正常库函数参数，用于运行时配置，非硬编码凭据。
+`stdlib/lightpub/邮件.py`、`stdlib/lightpub/URL解析.py` 中的 `password` 参数为正常库函数参数，用于运行时配置，非硬编码凭据。
 
 ### 2.4 无风险：密码校验函数
 

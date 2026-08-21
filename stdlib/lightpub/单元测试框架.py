@@ -1,11 +1,11 @@
 """
-单元测试框架 — duanpub 桥接模块
+单元测试框架 — lightpub 桥接模块
 
-基于 Python unittest 库封装，函数名对齐 duanpub/packages/单元测试框架/源.duan。
+基于 Python unittest 库封装，函数名对齐上游 duanpub（段言时期）packages/单元测试框架/源.duan。
 
-duanpub 原始包通过 C FFI 实现自研测试框架，
+上游 duanpub 原始包通过 C FFI 实现自研测试框架，
 本桥接模块用 Python unittest 模块替代，提供等价的测试功能。
-函数签名与 duanpub 包保持一致。
+函数签名与上游 duanpub（段言时期）包保持一致。
 """
 
 import unittest as _unittest

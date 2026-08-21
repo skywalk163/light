@@ -1,9 +1,9 @@
 """
-压缩算法 — duanpub 桥接模块
+压缩算法 — lightpub 桥接模块
 
-基于 Python gzip / zlib 标准库封装，函数名对齐 duanpub/packages/压缩算法/源.duan。
+基于 Python gzip / zlib 标准库封装，函数名对齐上游 duanpub（段言时期）packages/压缩算法/源.duan。
 
-duanpub 原始包通过 C FFI 调用 zlib/lz4/zstd 库，
+上游 duanpub 原始包通过 C FFI 调用 zlib/lz4/zstd 库，
 本桥接模块用 Python 标准库替代：
   - gzip压缩/解压: Python gzip 模块
   - zlib压缩/解压: Python zlib 模块

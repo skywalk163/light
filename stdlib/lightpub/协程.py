@@ -1,9 +1,9 @@
 """
-协程 — duanpub 桥接模块
+协程 — lightpub 桥接模块
 
-基于 Python asyncio 库封装，函数名对齐 duanpub/packages/协程/源.duan。
+基于 Python asyncio 库封装，函数名对齐上游 duanpub（段言时期）packages/协程/源.duan。
 
-duanpub 原始包通过 C FFI 实现协程调度、通道通信、生成器、选择器，
+上游 duanpub 原始包通过 C FFI 实现协程调度、通道通信、生成器、选择器，
 本桥接模块用 Python asyncio 模块替代，提供等价的协程功能。
 """
 

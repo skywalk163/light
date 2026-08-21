@@ -1,9 +1,9 @@
 """
-日期时间 — duanpub 桥接模块
+日期时间 — lightpub 桥接模块
 
-基于 Python datetime / time 库封装，函数名对齐 duanpub/packages/时间日期/源.duan。
+基于 Python datetime / time 库封装，函数名对齐上游 duanpub（段言时期）packages/时间日期/源.duan。
 
-duanpub 原始包通过 C FFI 调用系统时间 API，
+上游 duanpub 原始包通过 C FFI 调用系统时间 API，
 本桥接模块用 Python datetime/time 模块替代，提供等价的时间日期功能。
 """
 

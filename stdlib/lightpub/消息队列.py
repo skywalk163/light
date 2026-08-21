@@ -1,9 +1,9 @@
 """
-消息队列 — duanpub 桥接模块
+消息队列 — lightpub 桥接模块
 
-基于 Python queue 库封装，函数名对齐 duanpub/packages/消息队列/源.duan。
+基于 Python queue 库封装，函数名对齐上游 duanpub（段言时期）packages/消息队列/源.duan。
 
-duanpub 原始包通过 C FFI 实现发布/订阅、消息代理、队列系统，
+上游 duanpub 原始包通过 C FFI 实现发布/订阅、消息代理、队列系统，
 本桥接模块用 Python queue 模块替代，提供等价的消消息队列功能。
 """
 

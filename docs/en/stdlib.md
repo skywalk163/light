@@ -322,7 +322,7 @@ CLI argument parsing:
 
 ## Usage Example
 
-```段言
+```光明
 # Import modules
 导入 数学
 导入 文件系统

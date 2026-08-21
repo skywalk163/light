@@ -1,18 +1,18 @@
 """
-JSON — duanpub 桥接模块
+JSON — lightpub 桥接模块
 
-基于 Python json 库封装，函数名对齐 duanpub/packages/JSON/源.duan。
+基于 Python json 库封装，函数名对齐上游 duanpub（段言时期）packages/JSON/源.duan。
 
-duanpub 原始包通过 C FFI 实现自研 JSON 解析器，
+上游 duanpub 原始包通过 C FFI 实现自研 JSON 解析器，
 本桥接模块用 Python json 模块替代，提供等价的 JSON 解析与序列化功能。
-函数签名与 duanpub 包保持一致。
+函数签名与上游 duanpub（段言时期）包保持一致。
 """
 
 import json as _json
 
 
 # =============================================================================
-# 核心解析/序列化函数（对齐 duanpub 源.duan 的 API 设计）
+# 核心解析/序列化函数（对齐上游 duanpub（段言时期）源.duan 的 API 设计）
 # =============================================================================
 
 def 解析JSON(文本):

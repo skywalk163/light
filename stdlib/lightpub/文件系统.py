@@ -1,9 +1,9 @@
 """
-文件系统 — duanpub 桥接模块
+文件系统 — lightpub 桥接模块
 
-基于 Python os / shutil / pathlib 库封装，函数名对齐 duanpub/packages/文件系统/源.duan。
+基于 Python os / shutil / pathlib 库封装，函数名对齐上游 duanpub（段言时期）packages/文件系统/源.duan。
 
-duanpub 原始包通过 C FFI 直接调用操作系统文件 API，
+上游 duanpub 原始包通过 C FFI 直接调用操作系统文件 API，
 本桥接模块用 Python os/shutil/pathlib 模块替代，提供等价的文件系统操作功能。
 """
 

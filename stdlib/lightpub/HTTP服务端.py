@@ -1,10 +1,10 @@
 """
-HTTP服务端 — duanpub 桥接模块
+HTTP服务端 — lightpub 桥接模块
 
 基于 Python http.server 模块封装，提供中文名 API 用于创建 HTTP 服务端。
 
-duanpub 原始包通过 C FFI 实现 HTTP 服务器，本桥接模块用 Python http.server 替代，
-提供等价的 HTTP 服务端功能。函数签名与 duanpub 包保持一致。
+上游 duanpub 原始包通过 C FFI 实现 HTTP 服务器，本桥接模块用 Python http.server 替代，
+提供等价的 HTTP 服务端功能。函数签名与上游 duanpub（段言时期）包保持一致。
 
 支持功能：
 - 路由注册（GET/POST/PUT/DELETE/PATCH）

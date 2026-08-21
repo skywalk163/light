@@ -1,9 +1,9 @@
 """
-系统信息 — duanpub 桥接模块
+系统信息 — lightpub 桥接模块
 
-基于 Python platform / os / time 库封装，函数名对齐 duanpub/packages/系统信息/源.duan。
+基于 Python platform / os / time 库封装，函数名对齐上游 duanpub（段言时期）packages/系统信息/源.duan。
 
-duanpub 原始包通过 C FFI 直接调用系统 API 获取系统信息，
+上游 duanpub 原始包通过 C FFI 直接调用系统 API 获取系统信息，
 本桥接模块用 Python platform/os 模块替代，提供等价的系统信息获取功能。
 """
 

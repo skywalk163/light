@@ -9,13 +9,13 @@
 
 ### Comments
 
-```段言
+```光明
 # This is a single-line comment
 ```
 
 ### Variable Declaration
 
-```段言
+```光明
 设 年龄 为 25                # 设 ... 为 declares a variable
 设 姓名 为 "Alice"
 设 价格 为 3.14
@@ -38,7 +38,7 @@
 
 #### Arithmetic Operators
 
-```段言
+```光明
 # Symbolic operators (Chinese equivalents also work)
 设 结果 为 10 + 5    # Addition (also: 10 加 5)
 设 结果 为 10 - 5    # Subtraction (also: 10 减 5)
@@ -51,7 +51,7 @@
 
 #### Comparison Operators
 
-```段言
+```光明
 甲 > 乙             # Greater than (also: 甲 大于 乙)
 甲 < 乙             # Less than (also: 甲 小于 乙)
 甲 == 乙            # Equal to (also: 甲 等于 乙)
@@ -62,7 +62,7 @@
 
 #### Logical Operators
 
-```段言
+```光明
 甲 且 乙            # Logical AND
 甲 或 乙            # Logical OR
 设 结果 为 非 甲     # Logical NOT (非 may only appear inside an expression)
@@ -72,7 +72,7 @@
 
 ### Conditional Statements
 
-```段言
+```光明
 设 分数 为 85
 
 如果 分数 >= 90：
@@ -87,14 +87,14 @@
 
 #### For-Range Loop
 
-```段言
+```光明
 遍历 i 在 1 到 5：
     打印 i
 ```
 
 #### For-Each Loop
 
-```段言
+```光明
 设 水果 为 ["苹果", "香蕉", "橘子"]
 遍历 水果 为 果：
     打印 果
@@ -102,7 +102,7 @@
 
 #### While Loop
 
-```段言
+```光明
 设 计数 为 0
 当 计数 < 5：
     打印 计数
@@ -111,7 +111,7 @@
 
 #### Loop Control
 
-```段言
+```光明
 遍历 i 在 1 到 10：
     如果 i % 2 == 0：
         跳过   # continue — skip to next iteration
@@ -124,7 +124,7 @@
 
 Duan uses `段落` (paragraph) to define functions:
 
-```段言
+```光明
 段落 加法 接收 甲, 乙：
     返回 甲 + 乙
 
@@ -134,7 +134,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ### Default Parameters
 
-```段言
+```光明
 段落 问候 接收 名字 = "世界"：
     打印 "你好，" + 名字 + "！"
 
@@ -144,7 +144,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ### Return Values
 
-```段言
+```光明
 段落 计算 接收 甲, 乙：
     返回 甲 + 乙, 甲 - 乙  # Multiple return values
 
@@ -155,7 +155,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ## Classes and Objects
 
-```段言
+```光明
 类 动物：
     属性 名字
 
@@ -171,7 +171,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ### Class Inheritance
 
-```段言
+```光明
 类 狗 继承 动物：
     属性 品种
 
@@ -187,7 +187,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ### List Operations
 
-```段言
+```光明
 设 数字 为 [1, 2, 3, 4, 5]
 数字.追加(6)          # Append
 打印 数字[0]          # Access: 1
@@ -198,7 +198,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ### Dictionary Operations
 
-```段言
+```光明
 设 学生 为 {"名字": "张三", "年龄": 25}
 打印 学生["名字"]     # Access: 张三
 学生["成绩"] = 95     # Set value
@@ -208,7 +208,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ## String Interpolation
 
-```段言
+```光明
 设 名字 为 "段言"
 设 版本 为 5.5
 打印(f"语言：{名字}，版本：{版本}")
@@ -216,7 +216,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ## Exception Handling
 
-```段言
+```光明
 尝试：
     设 结果 为 10 / 0
 捕获 Exception 为 错误：
@@ -229,7 +229,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ### Import
 
-```段言
+```光明
 # Import entire module
 导入 数学
 
@@ -247,7 +247,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ### Export
 
-```段言
+```光明
 导出 我的函数, 我的类
 ```
 
@@ -255,7 +255,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ### Generic Functions
 
-```段言
+```光明
 段落 恒等[T] 接收 x：
     返回 x
 
@@ -265,7 +265,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ### Generic Classes
 
-```段言
+```光明
 类 栈[T]：
     属性 数据
 
@@ -281,7 +281,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ## Lambda Expressions
 
-```段言
+```光明
 设 加倍 为 段(x) 返 x * 2
 打印 加倍(5)  # Output: 10
 
@@ -292,7 +292,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ## Pattern Matching
 
-```段言
+```光明
 匹配 值：
     情况 1：
         打印("一")
@@ -307,7 +307,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ## Pipeline Operator
 
-```段言
+```光明
 # Pipe with -> : each stage's result feeds the next
 设 结果 为 (数据 -> 过滤 -> 映射)
 设 汇总 为 归约(结果)
@@ -315,7 +315,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ## Async/Await
 
-```段言
+```光明
 异步 段落 获取数据 接收 url：
     返回 等待 请求(url)
 
@@ -328,7 +328,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ## Full Example
 
-```段言
+```光明
 # 学生管理系统示例
 类 学生：
     属性 名字
@@ -366,14 +366,14 @@ Duan uses `段落` (paragraph) to define functions:
 
 ### Type Annotations
 
-```段言
+```光明
 段落 加法 接收 a:整数, b:整数 返回 整数：
     返回 a + b
 ```
 
 ### Nullable Types
 
-```段言
+```光明
 设 可能为空 为 可空("hello")
 如果 可能为空 != 空：
     打印 安全展开(可能为空)
@@ -381,7 +381,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ### Interfaces & Protocols
 
-```段言
+```光明
 协议 可打印：
     段落 打印 接收：
 

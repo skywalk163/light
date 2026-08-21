@@ -1,9 +1,9 @@
 """
-算法工具 — duanpub 桥接模块
+算法工具 — lightpub 桥接模块
 
-基于 Python bisect / heapq 库封装，函数名对齐 duanpub/packages/算法工具/源.duan。
+基于 Python bisect / heapq 库封装，函数名对齐上游 duanpub（段言时期）packages/算法工具/源.duan。
 
-duanpub 原始包通过 C FFI 实现常用算法和数据结构，
+上游 duanpub 原始包通过 C FFI 实现常用算法和数据结构，
 本桥接模块用 Python 标准库替代，提供优先级队列、并查集、动态规划等算法功能。
 """
 

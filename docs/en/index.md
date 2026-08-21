@@ -41,7 +41,7 @@ duan --version
 
 Create `hello.duan`:
 
-```段言
+```光明
 打印 "Hello, Duan!"
 ```
 
@@ -57,7 +57,7 @@ Output: `Hello, Duan!`
 
 ### Variables
 
-```段言
+```光明
 设 姓名 为 "Alice"
 设 年龄 为 25
 设 分数 为 95.5
@@ -65,7 +65,7 @@ Output: `Hello, Duan!`
 
 ### Functions
 
-```段言
+```光明
 段落 加法 接收 甲, 乙:
     返回 甲 + 乙
 
@@ -75,7 +75,7 @@ Output: `Hello, Duan!`
 
 ### Conditionals
 
-```段言
+```光明
 设 分数 为 85
 
 如果 分数 >= 90：
@@ -88,7 +88,7 @@ Output: `Hello, Duan!`
 
 ### Loops
 
-```段言
+```光明
 # Range loop
 遍历 i 在 1 到 5：
     打印 i
@@ -107,7 +107,7 @@ Output: `Hello, Duan!`
 
 ### Classes and Objects
 
-```段言
+```光明
 类 动物：
     属性 名字
 
@@ -123,7 +123,7 @@ Output: `Hello, Duan!`
 
 ### Exception Handling
 
-```段言
+```光明
 尝试：
     设 结果 为 10 / 0
 捕获 Exception 为 错误：

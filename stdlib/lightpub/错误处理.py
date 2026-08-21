@@ -1,9 +1,9 @@
 """
-错误处理 — duanpub 桥接模块
+错误处理 — lightpub 桥接模块
 
-基于 Python 异常机制封装，函数名对齐 duanpub/packages/错误处理/源.duan。
+基于 Python 异常机制封装，函数名对齐上游 duanpub（段言时期）packages/错误处理/源.duan。
 
-duanpub 原始包通过 C FFI 实现错误链和 Result 类型，
+上游 duanpub 原始包通过 C FFI 实现错误链和 Result 类型，
 本桥接模块用 Python 类模拟，提供等价的错误处理功能。
 """
 

@@ -1,9 +1,9 @@
 """
-集合扩展 — duanpub 桥接模块
+集合扩展 — lightpub 桥接模块
 
-基于 Python itertools / collections 库封装，函数名对齐 duanpub/packages/集合扩展/源.duan。
+基于 Python itertools / collections 库封装，函数名对齐上游 duanpub（段言时期）packages/集合扩展/源.duan。
 
-duanpub 原始包通过 C FFI 实现集合操作，
+上游 duanpub 原始包通过 C FFI 实现集合操作，
 本桥接模块用 Python 内置函数和标准库替代，提供等价的列表、字典、集合扩展操作功能。
 """
 

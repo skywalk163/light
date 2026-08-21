@@ -1,9 +1,9 @@
 """
-随机数 — duanpub 桥接模块
+随机数 — lightpub 桥接模块
 
-基于 Python random 库封装，函数名对齐 duanpub/packages/随机数/源.duan。
+基于 Python random 库封装，函数名对齐上游 duanpub（段言时期）packages/随机数/源.duan。
 
-duanpub 原始包通过 C FFI 直接调用操作系统随机数 API，
+上游 duanpub 原始包通过 C FFI 直接调用操作系统随机数 API，
 本桥接模块用 Python random 模块替代，提供等价的随机数生成功能。
 """
 

@@ -1,9 +1,9 @@
 """
-线程 — duanpub 桥接模块
+线程 — lightpub 桥接模块
 
-基于 Python threading 库封装，函数名对齐 duanpub/packages/线程/源.duan。
+基于 Python threading 库封装，函数名对齐上游 duanpub（段言时期）packages/线程/源.duan。
 
-duanpub 原始包通过 C FFI 直接调用操作系统线程 API，
+上游 duanpub 原始包通过 C FFI 直接调用操作系统线程 API，
 本桥接模块用 Python threading 模块替代，提供等价的线程与同步原语功能。
 """
 

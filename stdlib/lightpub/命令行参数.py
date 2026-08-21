@@ -1,9 +1,9 @@
 """
-命令行参数 — duanpub 桥接模块
+命令行参数 — lightpub 桥接模块
 
-基于 Python argparse 库封装，函数名对齐 duanpub/packages/命令行参数/源.duan。
+基于 Python argparse 库封装，函数名对齐上游 duanpub（段言时期）packages/命令行参数/源.duan。
 
-duanpub 原始包通过 C FFI 实现命令行参数解析，
+上游 duanpub 原始包通过 C FFI 实现命令行参数解析，
 本桥接模块用 Python argparse 标准库替代，提供等价的参数解析功能。
 """
 

@@ -1,9 +1,9 @@
 """
-进程管理 — duanpub 桥接模块
+进程管理 — lightpub 桥接模块
 
-基于 Python subprocess/os 库封装，函数名对齐 duanpub/packages/进程管理/源.duan。
+基于 Python subprocess/os 库封装，函数名对齐上游 duanpub（段言时期）packages/进程管理/源.duan。
 
-duanpub 原始包通过 C FFI 直接调用操作系统进程 API，
+上游 duanpub 原始包通过 C FFI 直接调用操作系统进程 API，
 本桥接模块用 Python subprocess/os 模块替代，提供等价的进程管理功能。
 """
 

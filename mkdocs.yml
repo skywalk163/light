@@ -117,7 +117,7 @@ nav:
     - 标准模块: api/stdlib.md
     - lightpub 生态: lightpub_integration_design.md
     - lightpub 包文档:
-      - 索引与分类: duanpub/README.md
+      - 索引与分类: lightpub/README.md
   - 教程:
     - 30 分钟入门: 30分钟入门段言.md
     - 入门教程: tutorials/入门教程.md

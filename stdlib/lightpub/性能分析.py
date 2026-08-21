@@ -1,9 +1,9 @@
 """
-性能分析 — duanpub 桥接模块
+性能分析 — lightpub 桥接模块
 
-基于 Python time/profile 等库封装，函数名对齐 duanpub/packages/性能分析/源.duan。
+基于 Python time/profile 等库封装，函数名对齐上游 duanpub（段言时期）packages/性能分析/源.duan。
 
-duanpub 原始包通过 C FFI 实现 CPU 采样、内存分析、火焰图生成，
+上游 duanpub 原始包通过 C FFI 实现 CPU 采样、内存分析、火焰图生成，
 本桥接模块用 Python time/tracemalloc/cProfile 等模块替代，提供等价的性能分析功能。
 """
 

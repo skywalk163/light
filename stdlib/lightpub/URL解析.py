@@ -1,9 +1,9 @@
 """
-URL解析 — duanpub 桥接模块
+URL解析 — lightpub 桥接模块
 
-基于 Python urllib.parse 库封装，函数名对齐 duanpub/packages/URL解析/源.duan。
+基于 Python urllib.parse 库封装，函数名对齐上游 duanpub（段言时期）packages/URL解析/源.duan。
 
-duanpub 原始包通过 C FFI 实现 URL 解析功能，
+上游 duanpub 原始包通过 C FFI 实现 URL 解析功能，
 本桥接模块用 Python urllib.parse 标准库替代，提供等价的 URL 解析与构建功能。
 """
 

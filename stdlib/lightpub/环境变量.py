@@ -1,9 +1,9 @@
 """
-环境变量 — duanpub 桥接模块
+环境变量 — lightpub 桥接模块
 
-基于 Python os.environ / os.path 库封装，函数名对齐 duanpub/packages/环境变量/源.duan。
+基于 Python os.environ / os.path 库封装，函数名对齐上游 duanpub（段言时期）packages/环境变量/源.duan。
 
-duanpub 原始包通过 C FFI 直接调用操作系统环境变量 API，
+上游 duanpub 原始包通过 C FFI 直接调用操作系统环境变量 API，
 本桥接模块用 Python os 模块替代，提供等价的系统环境变量操作功能。
 """
 

@@ -1,9 +1,9 @@
 """
-哈希 — duanpub 桥接模块
+哈希 — lightpub 桥接模块
 
-基于 Python hashlib / hmac 库封装，函数名对齐 duanpub/packages/哈希/源.duan。
+基于 Python hashlib / hmac 库封装，函数名对齐上游 duanpub（段言时期）packages/哈希/源.duan。
 
-duanpub 原始包通过 C FFI 调用 OpenSSL 库，
+上游 duanpub 原始包通过 C FFI 调用 OpenSSL 库，
 本桥接模块用 Python hashlib/hmac 模块替代，提供等价的哈希与 HMAC 功能。
 """
 

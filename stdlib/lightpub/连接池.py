@@ -1,9 +1,9 @@
 """
-连接池 — duanpub 桥接模块
+连接池 — lightpub 桥接模块
 
-基于 Python queue 库封装，函数名对齐 duanpub/packages/连接池/源.duan。
+基于 Python queue 库封装，函数名对齐上游 duanpub（段言时期）packages/连接池/源.duan。
 
-duanpub 原始包通过 C FFI 实现数据库连接池，
+上游 duanpub 原始包通过 C FFI 实现数据库连接池，
 本桥接模块用 Python queue 模块替代，提供等价的连接池功能。
 """
 

@@ -1,9 +1,9 @@
 """
-异步运行时 — duanpub 桥接模块
+异步运行时 — lightpub 桥接模块
 
-基于 Python asyncio 库封装，函数名对齐 duanpub/packages/异步运行时/源.duan。
+基于 Python asyncio 库封装，函数名对齐上游 duanpub（段言时期）packages/异步运行时/源.duan。
 
-duanpub 原始包通过 C FFI 实现异步运行时，
+上游 duanpub 原始包通过 C FFI 实现异步运行时，
 本桥接模块用 Python asyncio 模块替代，提供等价的 Future/Promise/EventLoop 功能。
 """
 

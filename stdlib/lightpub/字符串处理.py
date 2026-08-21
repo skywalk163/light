@@ -1,10 +1,10 @@
 """
-字符串处理 — duanpub 桥接模块
+字符串处理 — lightpub 桥接模块
 
 基于 Python unicodedata / difflib / re 等库封装，
-函数名对齐 duanpub/packages/字符串处理/源.duan。
+函数名对齐上游 duanpub（段言时期）packages/字符串处理/源.duan。
 
-duanpub 原始包通过 C FFI 实现 Unicode 处理和字符串操作，
+上游 duanpub 原始包通过 C FFI 实现 Unicode 处理和字符串操作，
 本桥接模块用 Python 标准库替代，提供等价的字符串处理功能。
 """
 

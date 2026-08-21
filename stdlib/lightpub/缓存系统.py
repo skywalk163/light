@@ -1,9 +1,9 @@
 """
-缓存系统 — duanpub 桥接模块
+缓存系统 — lightpub 桥接模块
 
-基于 Python functools 库封装，函数名对齐 duanpub/packages/缓存系统/源.duan。
+基于 Python functools 库封装，函数名对齐上游 duanpub（段言时期）packages/缓存系统/源.duan。
 
-duanpub 原始包通过 C FFI 实现多级缓存/LRU/LFU/TTL淘汰策略，
+上游 duanpub 原始包通过 C FFI 实现多级缓存/LRU/LFU/TTL淘汰策略，
 本桥接模块用 Python functools.lru_cache 和 dict 替代，提供等价的缓存功能。
 """
 

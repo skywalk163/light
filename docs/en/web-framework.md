@@ -11,7 +11,7 @@ Duan provides a powerful web development framework through the `HTTP服务端` (
 
 Create a simple HTTP server:
 
-```段言
+```光明
 导入 HTTP服务端
 
 段落 主页 接收 请求：
@@ -46,7 +46,7 @@ The HTTP server module provides:
 
 ### Response Types
 
-```段言
+```光明
 # HTML response
 返回 HTML响应("<h1>Hello</h1>")
 
@@ -78,7 +78,7 @@ blog_app/
 
 ### Data Model (`模型.duan`)
 
-```段言
+```光明
 类 博客：
     属性 标题
     属性 内容
@@ -101,7 +101,7 @@ blog_app/
 
 ### Route Configuration (`路由.duan`)
 
-```段言
+```光明
 导入 HTTP服务端
 导入 模型
 
@@ -134,7 +134,7 @@ HTTP服务端.路由("POST", "/发布", 发布页)
 
 ### Entry Point (`主.duan`)
 
-```段言
+```光明
 导入 HTTP服务端
 导入 路由
 
@@ -150,7 +150,7 @@ HTTP服务端.启动("0.0.0.0", 8080)
 
 Duan supports middleware for common web tasks:
 
-```段言
+```光明
 # CORS middleware
 使用 CORS中间件()：
     HTTP服务端.路由("GET", "/api", API处理)
@@ -168,7 +168,7 @@ Duan supports middleware for common web tasks:
 
 Create a JSON API for your blog:
 
-```段言
+```光明
 导入 HTTP服务端
 导入 JSON
 
@@ -198,7 +198,7 @@ HTTP服务端.路由("POST", "/api/posts", 创建文章)
 
 ## Session Management
 
-```段言
+```光明
 # Start a session
 设 会话 为 创建会话(请求)
 
@@ -214,7 +214,7 @@ HTTP服务端.路由("POST", "/api/posts", 创建文章)
 
 ## Static File Serving
 
-```段言
+```光明
 # Serve static files from a directory
 HTTP服务端.静态文件("public", "/static")
 
@@ -237,7 +237,7 @@ duan pkg -p blog_app native -o blog_server.exe
 
 ### Environment Configuration
 
-```段言
+```光明
 导入 环境变量
 
 设 端口 为 环境变量.获取("PORT", "8080")
@@ -253,6 +253,6 @@ See the [blog tutorial](../blog/用段言构建Web应用.md) for a complete walk
 ## Related Resources
 
 - 📖 [HTTP Server API](../api/HTTP服务端.md) — HTTP server module reference
-- 📦 [Web Framework Package](../duanpub/Web框架.md) — duanpub web framework
+- 📦 [Web Framework Package](../lightpub/Web框架.md) — duanpub web framework
 - 🎬 [Video Tutorial](../video_scripts/段言Web开发实战.md) — 10-minute web development tutorial
 - 📝 [Blog Tutorial](../blog/用段言构建Web应用.md) — Complete blog system tutorial

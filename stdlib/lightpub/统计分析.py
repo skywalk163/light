@@ -1,9 +1,9 @@
 """
-统计分析 — duanpub 桥接模块
+统计分析 — lightpub 桥接模块
 
-基于 Python statistics / math / scipy.stats 库封装，函数名对齐 duanpub/packages/统计分析/源.duan。
+基于 Python statistics / math / scipy.stats 库封装，函数名对齐上游 duanpub（段言时期）packages/统计分析/源.duan。
 
-duanpub 原始包通过 C FFI 调用数值计算库，
+上游 duanpub 原始包通过 C FFI 调用数值计算库，
 本桥接模块用 Python 标准库 statistics 和 math 模块替代，提供等价的统计分析功能。
 """
 

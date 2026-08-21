@@ -318,7 +318,7 @@ for i, ex in enumerate(exercises):
 - `src/parser_expr.py` — 动词调用解析改为运行时名称查找
 - `src/parser_stmt.py` — 同上
 - `src/code_generator.py` — 库函数调用生成改为属性访问或名称查找
-- `stdlib/duanpub/__init__.py` — 加载器需支持未导入时的友好报错
+- `stdlib/lightpub/__init__.py` — 加载器需支持未导入时的友好报错
 
 ### 目标
 
@@ -361,7 +361,7 @@ MD5哈希, SHA1哈希, Base64编码...
 ```
 
 #### 3.3 向后兼容层
-在 `stdlib/duanpub/__init__.py` 加载器中，当用户直接使用未导入的 stdlib 函数时，不报"未定义"错误，而是：
+在 `stdlib/lightpub/__init__.py` 加载器中，当用户直接使用未导入的 stdlib 函数时，不报"未定义"错误，而是：
 
 ```python
 # 友好提示而非 NameError
@@ -482,7 +482,7 @@ examples/weather_app/
 ```
 
 `main.duan` 示例：
-```duan
+```light
 导入 文件系统。
 导入 JSON。
 从 HTTP客户端 导入 获取。
@@ -534,7 +534,7 @@ result = obj.method().chain().value
 self.data.items.append(10)
 ```
 转译为：
-```duan
+```light
 设 结果 为 obj.方法().链式().值。
 己.data.items.列表追加(10)。
 ```
