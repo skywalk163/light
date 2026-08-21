@@ -1,0 +1,217 @@
+# 模式校验.light —— JSON Schema (Draft 2020-12 子集) 校验器（纯光明实现）
+#
+# 依赖图（DAG）：本文件独立，不依赖 SSE / 流式 / 大模型客户端。
+# 能力：
+#   - 关键字：type / enum / const / required / properties / items / $ref / $defs /
+#     allOf / anyOf / oneOf / not / minLength / maxLength / pattern /
+#     minimum / maximum / minItems / maxItems / uniqueItems
+#   - 结果：["通过": 布尔, "错误": [["路径": JSON Pointer, "关键字": ..., "消息": ...]]]
+#   - 无裸捕获；错误路径为 JSON Pointer（"" 根，"/属性名" "/数组下标" 拼接）
+导入 re
+
+类 模式校验器:
+  设 defs 等于 {}
+
+  段落 构造 接收:
+    设 己.defs 为 {}
+
+  # ---- 入口 ----
+  段落 校验 接收 数据, schema:
+    设 errs 为 []
+    设 己.defs 为 {}
+    如果 己.有键(schema, "$defs"):
+      设 己.defs 为 schema["$defs"]
+    己.校验节点(数据, schema, "", errs)
+    设 通过 为 (长(errs) == 0)
+    返回 ["通过": 通过, "错误": errs]
+
+  # ---- 递归校验单个节点；错误写入 errs（引用共享）----
+  段落 校验节点 接收 d, schema, path, errs:
+    如果 己.有键(schema, "$ref"):
+      设 目标 为 己.解析引用(schema["$ref"])
+      如果 目标 == 空:
+        己.记错误(errs, path, "$ref", "无法解析引用: " 加上 schema["$ref"])
+        返回
+      设 schema 为 目标
+    如果 己.有键(schema, "type"):
+      设 tname 为 schema["type"]
+      如果 非 己.类型匹配(d, tname):
+        己.记错误(errs, path, "type", "期望类型 " 加上 tname 加上 "，实际 " 加上 己.类型名(d))
+        返回
+    如果 己.有键(schema, "enum"):
+      设 命中 为 假
+      遍历 项 之 schema["enum"]:
+        如果 己.eq(d, 项):
+          设 命中 为 真
+      如果 非 命中:
+        己.记错误(errs, path, "enum", "值不在枚举列表中")
+    如果 己.有键(schema, "const"):
+      如果 非 己.eq(d, schema["const"]):
+        己.记错误(errs, path, "const", "值不等于 const")
+    如果 己.有键(schema, "allOf"):
+      遍历 子 之 schema["allOf"]:
+        己.校验节点(d, 子, path, errs)
+    如果 己.有键(schema, "anyOf"):
+      设 通过数 为 0
+      遍历 子 之 schema["anyOf"]:
+        如果 己.sub_pass(d, 子, path):
+          设 通过数 为 通过数 加上 1
+      如果 通过数 == 0:
+        己.记错误(errs, path, "anyOf", "不满足 anyOf 中任意一个子模式")
+    如果 己.有键(schema, "oneOf"):
+      设 通过数 为 0
+      遍历 子 之 schema["oneOf"]:
+        如果 己.sub_pass(d, 子, path):
+          设 通过数 为 通过数 加上 1
+      如果 通过数 != 1:
+        己.记错误(errs, path, "oneOf", "必须恰好满足一个子模式，实际 " 加上 转字符串(通过数))
+    如果 己.有键(schema, "not"):
+      如果 己.sub_pass(d, schema["not"], path):
+        己.记错误(errs, path, "not", "不应满足 not 子模式")
+    # ---- object 关键字（仅当 d 是字典）----
+    如果 type(d) == dict:
+      如果 己.有键(schema, "properties"):
+        设 props 为 schema["properties"]
+        遍历 k 之 props:
+          如果 己.有键(d, k):
+            设 子路径 为 path 加上 "/" 加上 k
+            己.校验节点(d[k], props[k], 子路径, errs)
+      如果 己.有键(schema, "required"):
+        遍历 k 之 schema["required"]:
+          如果 非 己.有键(d, k):
+            己.记错误(errs, path, "required", "缺少必需属性 " 加上 k)
+    # ---- array 关键字（仅当 d 是列表）----
+    如果 type(d) == list:
+      如果 己.有键(schema, "items"):
+        设 items_schema 为 schema["items"]
+        设 i 为 0
+        当 i < 长(d):
+          设 子路径 为 path 加上 "/" 加上 转字符串(i)
+          己.校验节点(d[i], items_schema, 子路径, errs)
+          设 i 为 i 加上 1
+      如果 己.有键(schema, "minItems"):
+        如果 长(d) < schema["minItems"]:
+          己.记错误(errs, path, "minItems", "数组项数小于最小值")
+      如果 己.有键(schema, "maxItems"):
+        如果 长(d) > schema["maxItems"]:
+          己.记错误(errs, path, "maxItems", "数组项数大于最大值")
+      如果 己.有键(schema, "uniqueItems"):
+        如果 schema["uniqueItems"] 且 非 己.去重(d):
+          己.记错误(errs, path, "uniqueItems", "数组存在重复项")
+    # ---- 字符串约束（仅当 d 是字符串）----
+    如果 type(d) == str:
+      如果 己.有键(schema, "minLength"):
+        如果 长(d) < schema["minLength"]:
+          己.记错误(errs, path, "minLength", "字符串长度小于最小值")
+      如果 己.有键(schema, "maxLength"):
+        如果 长(d) > schema["maxLength"]:
+          己.记错误(errs, path, "maxLength", "字符串长度大于最大值")
+      如果 己.有键(schema, "pattern"):
+        如果 非 re.search(schema["pattern"], d):
+          己.记错误(errs, path, "pattern", "不匹配正则 " 加上 schema["pattern"])
+    # ---- 数值约束（仅当 d 是整数或小数）----
+    如果 (type(d) == int) 或 (type(d) == float):
+      如果 己.有键(schema, "minimum"):
+        如果 d < schema["minimum"]:
+          己.记错误(errs, path, "minimum", "数值小于最小值")
+      如果 己.有键(schema, "maximum"):
+        如果 d > schema["maximum"]:
+          己.记错误(errs, path, "maximum", "数值大于最大值")
+
+  # ---- 组合关键字用的“只判通过” ----
+  段落 sub_pass 接收 d, schema, path:
+    设 tmp 为 []
+    己.校验节点(d, schema, path, tmp)
+    返回 长(tmp) == 0
+
+  # ---- 记录错误 ----
+  段落 记错误 接收 errs, path, kw, 消息:
+    errs.追加(["路径": path, "关键字": kw, "消息": 消息])
+
+  # ---- 键存在判断（绕开“x 在 字典”不支持）----
+  段落 有键 接收 obj, k:
+    返回 列表包含(obj.keys(), k)
+
+  # ---- 类型匹配 ----
+  段落 类型匹配 接收 d, tname:
+    如果 tname == "string":
+      返回 type(d) == str
+    如果 tname == "integer":
+      返回 type(d) == int
+    如果 tname == "number":
+      返回 (type(d) == int) 或 (type(d) == float)
+    如果 tname == "boolean":
+      返回 type(d) == bool
+    如果 tname == "array":
+      返回 type(d) == list
+    如果 tname == "object":
+      返回 type(d) == dict
+    如果 tname == "null":
+      返回 d == 空
+    返回 真
+
+  # ---- 人类可读类型名（用于错误消息）----
+  段落 类型名 接收 d:
+    如果 type(d) == str:
+      返回 "字符串"
+    如果 type(d) == int:
+      返回 "整数"
+    如果 type(d) == float:
+      返回 "小数"
+    如果 type(d) == bool:
+      返回 "布尔"
+    如果 type(d) == list:
+      返回 "数组"
+    如果 type(d) == dict:
+      返回 "对象"
+    如果 d == 空:
+      返回 "空"
+    返回 转字符串(type(d))
+
+  # ---- 深比较（列表/字典递归）----
+  段落 eq 接收 a, b:
+    如果 type(a) != type(b):
+      返回 假
+    如果 type(a) == list:
+      如果 长(a) != 长(b):
+        返回 假
+      设 i 为 0
+      当 i < 长(a):
+        如果 非 己.eq(a[i], b[i]):
+          返回 假
+        设 i 为 i 加上 1
+      返回 真
+    如果 type(a) == dict:
+      如果 长(a) != 长(b):
+        返回 假
+      遍历 k 之 a:
+        如果 非 己.有键(b, k):
+          返回 假
+        如果 非 己.eq(a[k], b[k]):
+          返回 假
+      返回 真
+    返回 a == b
+
+  # ---- 数组去重判断 ----
+  段落 去重 接收 d:
+    设 i 为 0
+    当 i < 长(d):
+      设 j 为 i 加上 1
+      当 j < 长(d):
+        如果 己.eq(d[i], d[j]):
+          返回 假
+        设 j 为 j 加上 1
+      设 i 为 i 加上 1
+    返回 真
+
+  # ---- 解析 $ref（仅支持 "#/$defs/名字" 形式）----
+  段落 解析引用 接收 ref:
+    设 前缀 为 "#/$defs/"
+    如果 非 ref.开头(前缀):
+      返回 空
+    设 名 为 ref[长(前缀):]
+    如果 己.有键(己.defs, 名):
+      返回 己.defs[名]
+    返回 空
+
+导出 模式校验器

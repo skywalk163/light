@@ -199,7 +199,10 @@ class TestLogging(unittest.TestCase):
         from 日志 import 设置日志轮转
         import os
         
-        temp_file = os.path.join(tempfile.gettempdir(), 'test_log_rotation.txt')
+        # 修复：固定文件名会在多 agent 并行时撞车，改用 mkstemp 唯一名
+        import tempfile
+        fd, temp_file = tempfile.mkstemp(suffix='.txt', prefix='_taskC_logrot_')
+        os.close(fd)
         
         try:
             with open(temp_file, 'w') as f:
