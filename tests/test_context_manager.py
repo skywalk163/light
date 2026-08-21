@@ -97,10 +97,15 @@ class TestAsyncWith:
     """测试使用 异步 上下文管理器"""
 
     def test_async_with_basic(self):
-        """基本异步上下文管理器"""
+        """基本异步上下文管理器
+
+        A1 起 `等待` 必须写在段落体内：模块级的 await 是非法 Python，
+        codegen 现在直接报错，所以这里包进 `异步 函数`。
+        """
         code = """
-使用 异步 打开文件("test.txt") 为 f:
-  等待 f.读取()
+异步 函数 主():
+  使用 异步 打开文件("test.txt") 为 f:
+    等待 f.读取()
 """
         result = _compile_ok(code)
         assert 'async with ' in result
@@ -108,9 +113,10 @@ class TestAsyncWith:
     def test_async_with_await(self):
         """异步上下文管理器 + 等待"""
         code = """
-使用 异步 连接数据库() 为 db:
-  设 结果 为 等待 db.查询("SELECT 1")
-  输出(结果)
+异步 函数 主():
+  使用 异步 连接数据库() 为 db:
+    设 结果 为 等待 db.查询("SELECT 1")
+    输出(结果)
 """
         result = _compile_ok(code)
         assert 'async with ' in result
@@ -214,8 +220,9 @@ class TestWithCodeGen:
     def test_codegen_async_with(self):
         """异步上下文管理器代码生成"""
         code = """
-使用 异步 打开文件("test.txt") 为 f:
-  等待 f.读取()
+异步 函数 主():
+  使用 异步 打开文件("test.txt") 为 f:
+    等待 f.读取()
 """
         result = _compile_ok(code)
         assert 'async with ' in result
@@ -242,9 +249,10 @@ class TestWithEndToEnd:
     def test_async_with_file(self):
         """异步文件读取"""
         code = """
-使用 异步 打开文件("data.txt") 为 f:
-  设 内容 为 等待 f.读取()
-  输出(内容)
+异步 函数 主():
+  使用 异步 打开文件("data.txt") 为 f:
+    设 内容 为 等待 f.读取()
+    输出(内容)
 """
         result = _compile_ok(code)
         assert 'async with ' in result
@@ -264,25 +272,29 @@ class TestAwaitMemberAccess:
     """
 
     def test_await_member_call(self):
-        """等待 + 内置名成员：不应报错，且成员名不被内置映射改写"""
-        result = _compile_ok('等待 f.读取()\n')
+        """等待 + 内置名成员：不应报错，且成员名不被内置映射改写
+
+        A1 起 `等待` 必须在段落体内，因此下面四条都包进 `异步 函数 主()`；
+        被测的仍是 `等待 对象.成员` 的消歧，与包装层无关。
+        """
+        result = _compile_ok('异步 函数 主():\n  等待 f.读取()\n')
         assert 'await f.读取()' in result
         # 单 03 的成员访问护栏仍在：不能退化成 await input(f)
         assert 'input(f)' not in result
 
     def test_await_member_call_non_builtin(self):
         """等待 + 非内置名成员"""
-        result = _compile_ok('等待 f.抓取()\n')
+        result = _compile_ok('异步 函数 主():\n  等待 f.抓取()\n')
         assert 'await f.抓取()' in result
 
     def test_await_chained_member(self):
         """等待 + 链式成员访问"""
-        result = _compile_ok('等待 甲.乙.丙()\n')
+        result = _compile_ok('异步 函数 主():\n  等待 甲.乙.丙()\n')
         assert 'await 甲.乙.丙()' in result
 
     def test_await_plain_call_unchanged(self):
         """等待 + 普通调用：原有行为不变"""
-        result = _compile_ok('等待 读取(f)\n')
+        result = _compile_ok('异步 函数 主():\n  等待 读取(f)\n')
         assert 'await ' in result
 
     def test_compound_identifier_before_rparen(self):
