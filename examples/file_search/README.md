@@ -7,14 +7,14 @@
 ## 运行方式
 
 ```bash
-# 搜索所有 .duan 文件
-duan run examples/file_search/主.duan .duan
+# 搜索所有 .light 文件
+light run examples/file_search/主.light .light
 
 # 搜索包含 "src" 的 .py 文件
-duan run examples/file_search/主.duan .py src
+light run examples/file_search/主.light .py src
 
 # 搜索所有文件（不筛选）
-duan run examples/file_search/主.duan ""
+light run examples/file_search/主.light ""
 ```
 
 ## 功能说明
@@ -26,7 +26,7 @@ duan run examples/file_search/主.duan ""
 
 ## 代码统计
 
-- `主.duan`：约 45 行
+- `主.light`：约 45 行
 
 ## 学习要点
 

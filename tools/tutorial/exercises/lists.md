@@ -23,4 +23,4 @@
 ```
 
 ## 参考答案
-见 [lists_solution.duan](lists_solution.duan)
+见 [lists_solution.light](lists_solution.light)

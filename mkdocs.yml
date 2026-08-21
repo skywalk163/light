@@ -94,7 +94,7 @@ nav:
     - 类型系统: language/types.md
     - 完整语法参考: language/完整语法参考.md
     - 语法规范: syntax.md
-    - 完整规范文档: 段言-完整规范文档.md
+    - 完整规范文档: 光明-完整规范文档.md
     - 类系统设计: class_system_design.md
     - Trait/协议系统: interface-design.md
     - 模式匹配: interface-plan.md
@@ -119,7 +119,7 @@ nav:
     - lightpub 包文档:
       - 索引与分类: lightpub/README.md
   - 教程:
-    - 30 分钟入门: 30分钟入门段言.md
+    - 30 分钟入门: 30分钟入门光明.md
     - 入门教程: tutorials/入门教程.md
     - 进阶教程: tutorials/进阶教程.md
     - 端到端实战: 端到端实战教程.md

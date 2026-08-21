@@ -1,6 +1,6 @@
-# 段言 - 数据结构算法库
+# 光明 - 数据结构算法库
 # 包含链表、栈、队列、二叉树等数据结构实现
-# 用法: duan run examples/algorithms/data_structures.duan
+# 用法: light run examples/algorithms/data_structures.light
 
 # ===== 1. 链表 (Linked List) =====
 类 链表节点：

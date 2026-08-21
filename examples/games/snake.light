@@ -1,6 +1,6 @@
-# 段言 - 贪吃蛇游戏（文本终端版）
+# 光明 - 贪吃蛇游戏（文本终端版）
 # 使用键盘 WASD 控制方向
-# 用法: duan run examples/games/snake.duan
+# 用法: light run examples/games/snake.light
 
 # 游戏常量
 设 宽度 为 20。

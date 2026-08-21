@@ -1,6 +1,6 @@
 # 中文网页爬虫
 
-使用段言编程语言实现的简单中文网页爬虫。通过 HTTP 请求获取网页内容，提取中文文本，递归抓取链接并生成站点地图报告。
+使用光明编程语言实现的简单中文网页爬虫。通过 HTTP 请求获取网页内容，提取中文文本，递归抓取链接并生成站点地图报告。
 
 ## 功能
 
@@ -19,13 +19,13 @@
 
 ```bash
 # 基本用法 - 抓取单层页面
-duan run examples/web_crawler/主.duan "https://example.com"
+light run examples/web_crawler/主.light "https://example.com"
 
 # 指定抓取深度 - 递归抓取 2 层
-duan run examples/web_crawler/主.duan "https://example.com" 2
+light run examples/web_crawler/主.light "https://example.com" 2
 
 # 查看帮助信息
-duan run examples/web_crawler/主.duan
+light run examples/web_crawler/主.light
 ```
 
 ## 参数说明

@@ -34,7 +34,7 @@ typedef struct {
 
 ## 类元信息系统
 
-### DuanClassInfo 结构体
+### LightClassInfo 结构体
 
 ```c
 #define MAX_CLASSES 128
@@ -51,9 +51,9 @@ typedef struct {
     int method_flags[MAX_METHODS_PER_CLASS];  // 0=实例方法, 1=类方法, 2=静态方法
     int num_attrs;
     char attr_names[MAX_ATTRS_PER_CLASS][MAX_CLASS_NAME_LEN];
-} DuanClassInfo;
+} LightClassInfo;
 
-static DuanClassInfo __dv_classes[MAX_CLASSES];
+static LightClassInfo __dv_classes[MAX_CLASSES];
 static int __dv_num_classes = 0;
 ```
 
@@ -108,7 +108,7 @@ dv_find_method(class_name, "method")
 
 ### 继承实现
 
-1. **父类记录**：`DuanClassInfo.super_name` 存储父类名
+1. **父类记录**：`LightClassInfo.super_name` 存储父类名
 2. **属性继承**：`dv_class_new_named` 创建对象时，递归收集所有父类属性
 3. **方法覆盖**：子类方法同名覆盖，查找时优先返回子类实现
 
@@ -133,7 +133,7 @@ int dv_isinstance(LightValue* obj, const char* class_name) {
 
     // 递归向上查找父类链
     while (strcmp(actual_class, class_name) != 0) {
-        DuanClassInfo* cls = dv_find_class(actual_class);
+        LightClassInfo* cls = dv_find_class(actual_class);
         if (!cls || !cls->super_name[0]) return 0;
         strcpy(actual_class, cls->super_name);
     }

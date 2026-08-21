@@ -1,6 +1,6 @@
 ---
 name: 问题求助
-about: 在使用段言过程中遇到问题，寻求社区帮助
+about: 在使用光明过程中遇到问题，寻求社区帮助
 title: '[求助] '
 labels: help
 assignees: ''
@@ -14,7 +14,7 @@ assignees: ''
 
 - 操作系统： [例如 Windows 11 / macOS 14 / Ubuntu 22.04]
 - Python 版本： [例如 Python 3.12.0]
-- 段言版本： [运行 `duan --version` 输出，若使用 v6.0]
+- 光明版本： [运行 `light --version` 输出，若使用 v6.0]
 - 安装方式： [pip install / 源码安装]
 
 ## 复现步骤
@@ -22,7 +22,7 @@ assignees: ''
 请提供可复现问题的步骤和代码：
 
 ```光明
-# 您的段言代码
+# 您的光明代码
 ```
 
 ## 尝试过的解决方法
@@ -55,6 +55,6 @@ assignees: ''
 
 ### 提问指南
 
-- 提问前请先搜索 [已有讨论](https://github.com/skywalk163/duan/discussions)，避免重复提问
+- 提问前请先搜索 [已有讨论](https://github.com/skywalk163/light/discussions)，避免重复提问
 - 提供尽可能完整的信息，便于他人快速定位问题
 - 问题解决后请回复确认，并标记为已解决

@@ -730,7 +730,7 @@ AST访问者基类
 
 **模块说明**: 光明（Light）编程语言 - Python代码生成器（统一AST版本）
 
-支持统一AST格式，兼容来自duan_ast和ast_unified的AST节点
+支持统一AST格式，兼容来自light_ast和ast_unified的AST节点
 集成类型推断系统，正确处理字符串连接和数字加法
 
 ### 函数 `is_instance(node, class_name)`
@@ -2200,7 +2200,7 @@ PE/COFF可执行文件格式
 **模块说明**: 光明（Light）编程语言 - 模块解析器
 
 实现功能：
-1. 模块查找（搜索.duan文件）
+1. 模块查找（搜索.light文件）
 2. 依赖图构建
 3. 循环依赖检测
 4. 拓扑排序（确定编译顺序）
@@ -3182,7 +3182,7 @@ Token 数据结构
 
 光明类型基类
 
-### 函数 `to_duan(self)`
+### 函数 `to_light(self)`
 
 ### 函数 `to_python(self)`
 
@@ -3194,7 +3194,7 @@ Token 数据结构
 
 基本类型
 
-### 函数 `to_duan(self)`
+### 函数 `to_light(self)`
 
 ### 函数 `to_python(self)`
 
@@ -3204,7 +3204,7 @@ Token 数据结构
 
 列表类型：列表<元素类型>
 
-### 函数 `to_duan(self)`
+### 函数 `to_light(self)`
 
 ### 函数 `to_python(self)`
 
@@ -3214,7 +3214,7 @@ Token 数据结构
 
 字典类型：字典<键类型, 值类型>
 
-### 函数 `to_duan(self)`
+### 函数 `to_light(self)`
 
 ### 函数 `to_python(self)`
 
@@ -3224,7 +3224,7 @@ Token 数据结构
 
 联合类型：整数|浮点、字符串|空
 
-### 函数 `to_duan(self)`
+### 函数 `to_light(self)`
 
 ### 函数 `to_python(self)`
 
@@ -3234,7 +3234,7 @@ Token 数据结构
 
 可选类型：可空整数
 
-### 函数 `to_duan(self)`
+### 函数 `to_light(self)`
 
 ### 函数 `to_python(self)`
 
@@ -3244,7 +3244,7 @@ Token 数据结构
 
 函数类型：(参数类型) -> 返回类型
 
-### 函数 `to_duan(self)`
+### 函数 `to_light(self)`
 
 ### 函数 `to_python(self)`
 
@@ -3254,7 +3254,7 @@ Token 数据结构
 
 任意类型（未标注或无法推导）
 
-### 函数 `to_duan(self)`
+### 函数 `to_light(self)`
 
 ### 函数 `to_python(self)`
 
@@ -3266,7 +3266,7 @@ Token 数据结构
     
     用于表示泛型类型参数，如列表[T] 中的 T。
 
-### 函数 `to_duan(self)`
+### 函数 `to_light(self)`
 
 ### 函数 `to_python(self)`
 
@@ -3276,7 +3276,7 @@ Token 数据结构
 
 泛型类型实例化（如 列表[T]、字典[K, V]）
 
-### 函数 `to_duan(self)`
+### 函数 `to_light(self)`
 
 ### 函数 `to_python(self)`
 
@@ -3931,6 +3931,6 @@ Copy-on-Write: O(1) 克隆，延迟复制映射
     Returns:
         JSON 字符串
 
-### 类 `DuanWasmRuntime`
+### 类 `LightWasmRuntime`
 
 ---

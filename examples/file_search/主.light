@@ -1,9 +1,9 @@
-# 段言 - 文件搜索工具
+# 光明 - 文件搜索工具
 # 功能: 按文件名关键词搜索文件，支持扩展名筛选
-# 用法: duan run examples/file_search/主.duan <关键词> [扩展名]
+# 用法: light run examples/file_search/主.light <关键词> [扩展名]
 # 示例:
-#   duan run examples/file_search/主.duan .duan
-#   duan run examples/file_search/主.duan .py src
+#   light run examples/file_search/主.light .light
+#   light run examples/file_search/主.light .py src
 
 导入 sys。
 导入 文件系统。

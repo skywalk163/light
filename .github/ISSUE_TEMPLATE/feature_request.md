@@ -1,6 +1,6 @@
 ---
 name: 功能请求
-about: 为段言提出新功能建议
+about: 为光明提出新功能建议
 title: '[Feature] '
 labels: enhancement
 assignees: ''

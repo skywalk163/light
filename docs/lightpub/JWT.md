@@ -16,12 +16,12 @@
 
 ## 导入方式
 
-```duan
+```light
 导入 JWT
 ```
 
 或
 
-```duan
+```light
 导入 标准JWT
 ```

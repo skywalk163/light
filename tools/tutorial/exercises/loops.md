@@ -22,4 +22,4 @@
 ```
 
 ## 参考答案
-见 [loops_solution.duan](loops_solution.duan)
+见 [loops_solution.light](loops_solution.light)

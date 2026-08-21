@@ -1,4 +1,4 @@
-# 段言 Markdown 到 HTML 转换器
+# 光明 Markdown 到 HTML 转换器
 # 将 Markdown 文本转换为 HTML 格式
 
 段落 转义HTML 接收 文本 :
@@ -152,7 +152,7 @@
     返回 HTML.连接("\n")
 
 段落 主函数 接收 :
-    打印("段言 Markdown 编辑器")
+    打印("光明 Markdown 编辑器")
     打印("=" * 40)
     打印("请输入 Markdown 内容（输入 'END' 单独一行结束）:")
     打印("=" * 40)

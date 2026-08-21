@@ -1,5 +1,5 @@
-# 段言 - 命令行待办事项管理应用
-# 用法: duan run examples/todo_app/main.duan [命令] [参数]
+# 光明 - 命令行待办事项管理应用
+# 用法: light run examples/todo_app/main.light [命令] [参数]
 # 命令: add, list, complete, delete, search
 
 导入 文件系统。

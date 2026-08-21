@@ -24,4 +24,4 @@
 ```
 
 ## 参考答案
-见 [comprehensive_solution.duan](comprehensive_solution.duan)
+见 [comprehensive_solution.light](comprehensive_solution.light)

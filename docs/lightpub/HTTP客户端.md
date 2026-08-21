@@ -19,12 +19,12 @@
 
 ## 导入方式
 
-```duan
+```light
 导入 HTTP客户端
 ```
 
 或
 
-```duan
+```light
 导入 标准HTTP客户端
 ```

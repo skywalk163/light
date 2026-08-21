@@ -1,6 +1,6 @@
-# 段言 - 待办事项 RESTful API
+# 光明 - 待办事项 RESTful API
 # 功能: 基于 Web 框架的待办事项管理 API，支持 CRUD 操作
-# 用法: duan run examples/web_api/todo_api/主.duan
+# 用法: light run examples/web_api/todo_api/主.light
 # API 端点:
 #   GET    /api/todos    - 获取所有待办事项
 #   GET    /api/todos/:id - 获取单个待办事项
@@ -148,7 +148,7 @@
 段落 健康检查 接收 请求, 响应:
   响应.设置JSON({
     "status": "ok",
-    "service": "段言待办事项 API",
+    "service": "光明待办事项 API",
     "version": "1.0.0"
   })。
   # 模拟 OPTIONS 请求的 CORS 头
@@ -211,7 +211,7 @@
 段落 主程序:
   打印("")。
   打印("=" * 50)。
-  打印("  段言待办事项 API v1.0")。
+  打印("  光明待办事项 API v1.0")。
   打印("=" * 50)。
   打印("  服务器地址: http://" + 服务器地址 + ":" + 转字符串(服务器端口))。
   打印("  数据存储: " + 数据文件)。

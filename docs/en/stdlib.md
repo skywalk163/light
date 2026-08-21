@@ -3,7 +3,7 @@
 > **Version:** v6.0
 > **Last updated:** 2026-08-07
 
-Duan provides a rich standard library with **60+ modules** organized in **13 phases**, located in the `stdlib/` directory. Each module has both Python (`.py`) and Duan (`.duan`) implementations.
+Light provides a rich standard library with **60+ modules** organized in **13 phases**, located in the `stdlib/` directory. Each module has both Python (`.py`) and Light (`.light`) implementations.
 
 ---
 
@@ -342,10 +342,10 @@ CLI argument parsing:
 ```
 stdlib/
 ├── builtins.py              # Built-in functions
-├── 数学.py / 数学.duan       # Math utilities
-├── 字符串处理.py / .duan     # String processing
-├── 文件系统.py / .duan       # File system
-├── JSON.py / .duan           # JSON handling
+├── 数学.py / 数学.light       # Math utilities
+├── 字符串处理.py / .light     # String processing
+├── 文件系统.py / .light       # File system
+├── JSON.py / .light           # JSON handling
 ├── ...                       # 60+ modules
 └── __init__.py               # Package init
 ```

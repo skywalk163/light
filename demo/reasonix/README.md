@@ -1,10 +1,10 @@
 # Reasonix 推理引擎
 
-> 段言 (Duan) 编程语言能力演示 — 基于 Chain-of-Thought 的多步推理引擎
+> 光明 (Light) 编程语言能力演示 — 基于 Chain-of-Thought 的多步推理引擎
 
 ## 概述
 
-Reasonix 是一个交互式推理引擎 demo，展示段言编程语言在复杂推理任务中的应用能力。它通过 **4 阶段 Chain-of-Thought** 推理流程，对用户提出的问题进行分析和解答。
+Reasonix 是一个交互式推理引擎 demo，展示光明编程语言在复杂推理任务中的应用能力。它通过 **4 阶段 Chain-of-Thought** 推理流程，对用户提出的问题进行分析和解答。
 
 支持两种运行模式：
 
@@ -46,13 +46,13 @@ cp demo/reasonix/.env.example demo/reasonix/.env
 在项目根目录执行：
 
 ```bash
-python -m cli.duan run demo/reasonix/主.duan --backend src
+python -m cli.light run demo/reasonix/主.light --backend src
 ```
 
-或者使用 `duan` 命令（如果已安装）：
+或者使用 `light` 命令（如果已安装）：
 
 ```bash
-duan run demo/reasonix/主.duan --backend src
+light run demo/reasonix/主.light --backend src
 ```
 
 ### 4. 使用
@@ -99,24 +99,24 @@ demo/reasonix/
 ├── .env.example      # API 配置模板（已提交到仓库）
 ├── .env              # API 配置（已加入 .gitignore，不提交）
 ├── ai_api_helper.py  # Python 辅助模块，封装 AI API HTTP 调用
-├── 主.duan           # 主入口，交互式 CLI 界面
-├── 引擎.duan         # 核心引擎，管理推理流程
-├── 思考链.duan       # 思考链数据结构，记录推理过程
-├── 提示词.duan       # AI 提示词模板，生成阶段提示
-├── 工具.duan         # 工具函数，格式化输出、UI 显示
+├── 主.light           # 主入口，交互式 CLI 界面
+├── 引擎.light         # 核心引擎，管理推理流程
+├── 思考链.light       # 思考链数据结构，记录推理过程
+├── 提示词.light       # AI 提示词模板，生成阶段提示
+├── 工具.light         # 工具函数，格式化输出、UI 显示
 └── README.md         # 本文件
 ```
 
 ### 模块依赖关系
 
 ```
-主.duan
-  ├── 引擎.duan
-  │     ├── 思考链.duan
-  │     ├── 提示词.duan
-  │     ├── 工具.duan
+主.light
+  ├── 引擎.light
+  │     ├── 思考链.light
+  │     ├── 提示词.light
+  │     ├── 工具.light
   │     └── ai_api_helper.py (Python)
-  └── 工具.duan
+  └── 工具.light
 ```
 
 ## AI 模式 vs 模拟模式

@@ -5,13 +5,13 @@
 ## 运行方式
 
 ```bash
-duan run examples/community/snake_game/主.duan
+light run examples/community/snake_game/主.light
 ```
 
 或者直接运行源文件：
 
 ```bash
-duan run examples/snake_game/主.duan
+light run examples/snake_game/主.light
 ```
 
 ## 功能说明
@@ -40,7 +40,7 @@ duan run examples/snake_game/主.duan
 
 | 文件 | 行数（不含注释和空行） | 说明 |
 |------|----------------------|------|
-| `主.duan` | 273 行 | 完整游戏逻辑，含画面绘制、碰撞检测、分数管理 |
+| `主.light` | 273 行 | 完整游戏逻辑，含画面绘制、碰撞检测、分数管理 |
 
 ## 学习要点
 

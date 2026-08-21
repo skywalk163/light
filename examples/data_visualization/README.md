@@ -7,7 +7,7 @@
 ## 运行方式
 
 ```bash
-duan run examples/data_visualization/主.duan
+light run examples/data_visualization/主.light
 ```
 
 ## 功能说明
@@ -17,7 +17,7 @@ duan run examples/data_visualization/主.duan
 
 ## 代码统计
 
-- `主.duan`：约 60 行
+- `主.light`：约 60 行
 
 ## 学习要点
 

@@ -16,13 +16,13 @@
 
 ## 导入方式
 
-```duan
+```light
 导入 NoSQL连接器
 ```
 
 或
 
-```duan
+```light
 导入 标准NoSQL连接器
 ```
 

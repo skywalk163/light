@@ -3,7 +3,7 @@
 > **最后更新：** 2026-08-07
 > **适用版本：** v6.2.0
 
-本指南为段言（Duan）社区维护者和贡献者提供 GitHub Discussions 的运营规范，包括分类定义、模板使用、FAQ 管理和审核流程。
+本指南为光明（Light）社区维护者和贡献者提供 GitHub Discussions 的运营规范，包括分类定义、模板使用、FAQ 管理和审核流程。
 
 ---
 
@@ -21,14 +21,14 @@
 
 ### 1.1 分类定义
 
-段言社区的 GitHub Discussions 使用以下分类体系：
+光明社区的 GitHub Discussions 使用以下分类体系：
 
 | 分类 | 图标 | 标签 | 说明 | 适用场景 |
 |------|------|------|------|----------|
-| **一般讨论** | 💡 | `general` | 关于段言的一般性讨论、想法交流或社区互动 | 社区公告、语言设计讨论、技术交流 |
-| **问题求助** | ❓ | `help` | 在使用段言过程中遇到问题，寻求社区帮助 | 安装问题、编译错误、使用困惑 |
-| **功能建议** | 🚀 | `ideas` | 为段言提出新的功能建议或改进想法 | 新语法特性、标准库扩展、工具改进 |
-| **展示分享** | 🎨 | `showcase` | 分享您用段言构建的项目、工具或创意作品 | 项目展示、代码片段、创意作品 |
+| **一般讨论** | 💡 | `general` | 关于光明的一般性讨论、想法交流或社区互动 | 社区公告、语言设计讨论、技术交流 |
+| **问题求助** | ❓ | `help` | 在使用光明过程中遇到问题，寻求社区帮助 | 安装问题、编译错误、使用困惑 |
+| **功能建议** | 🚀 | `ideas` | 为光明提出新的功能建议或改进想法 | 新语法特性、标准库扩展、工具改进 |
+| **展示分享** | 🎨 | `showcase` | 分享您用光明构建的项目、工具或创意作品 | 项目展示、代码片段、创意作品 |
 | **问答** | ✅ | `qna` | 有明确答案的问答式讨论 | 技术问题、最佳实践、解决方案 |
 | **公告** | 📢 | `announcements` | 官方发布的重要公告（仅限维护者） | 版本发布、社区活动、重要通知 |
 
@@ -101,7 +101,7 @@
 ## 环境信息
 - 操作系统：[Windows 11 / macOS 14 / Ubuntu 22.04]
 - Python 版本：[3.10 / 3.11 / 3.12]
-- 段言版本：[运行 `duan --version` 的输出]
+- 光明版本：[运行 `light --version` 的输出]
 - 安装方式：[pip install / 源码安装]
 
 ## 最小可复现代码
@@ -195,69 +195,69 @@
 
 ### 3.1 安装与入门
 
-#### Q: 如何安装段言？
+#### Q: 如何安装光明？
 ```bash
-pip install duan
+pip install light
 ```
-安装完成后运行 `duan --version` 验证。
+安装完成后运行 `light --version` 验证。
 
-#### Q: 段言需要 Python 环境吗？
-是的，段言编译器基于 Python 实现，需要 Python 3.10 或更高版本。
+#### Q: 光明需要 Python 环境吗？
+是的，光明编译器基于 Python 实现，需要 Python 3.10 或更高版本。
 
-#### Q: 段言支持哪些操作系统？
-段言支持 Windows、macOS 和 Linux 三大主流操作系统。
+#### Q: 光明支持哪些操作系统？
+光明支持 Windows、macOS 和 Linux 三大主流操作系统。
 
-#### Q: 如何运行一个段言程序？
+#### Q: 如何运行一个光明程序？
 ```bash
-duan run hello.duan
+light run hello.light
 ```
 或编译为可执行文件：
 ```bash
-duan compile hello.duan --backend llvm-typed
+light compile hello.light --backend llvm-typed
 ```
 
 ### 3.2 语言特性
 
-#### Q: 段言和 Python 的关系是什么？
-段言的编译器使用 Python 实现，但段言本身是一门独立的编程语言，拥有自己的语法、类型系统和标准库。
+#### Q: 光明和 Python 的关系是什么？
+光明的编译器使用 Python 实现，但光明本身是一门独立的编程语言，拥有自己的语法、类型系统和标准库。
 
-#### Q: 段言支持面向对象编程吗？
-是的，段言支持类、继承、接口、多态等面向对象特性。
+#### Q: 光明支持面向对象编程吗？
+是的，光明支持类、继承、接口、多态等面向对象特性。
 
-#### Q: 段言的性能如何？
-段言支持 LLVM 原生编译，性能接近 C 语言。解释执行模式适合开发和调试。
+#### Q: 光明的性能如何？
+光明支持 LLVM 原生编译，性能接近 C 语言。解释执行模式适合开发和调试。
 
-#### Q: 段言支持中文关键字，那英文关键字还支持吗？
-段言同时支持中文和英文关键字，`打印` 和 `print` 等价，`如果` 和 `if` 等价。
+#### Q: 光明支持中文关键字，那英文关键字还支持吗？
+光明同时支持中文和英文关键字，`打印` 和 `print` 等价，`如果` 和 `if` 等价。
 
 ### 3.3 开发与贡献
 
-#### Q: 如何参与段言开发？
+#### Q: 如何参与光明开发？
 请参考[贡献指南](../CONTRIBUTING.md)和[开发指南](../DEVELOPMENT_GUIDE.md)。
 
-#### Q: 段言使用什么许可证？
-段言使用 MIT 许可证，完全开源免费。
+#### Q: 光明使用什么许可证？
+光明使用 MIT 许可证，完全开源免费。
 
 #### Q: 如何报告 Bug？
-请在 GitHub Issues 中提交 Bug 报告，使用 [Bug 报告模板](https://github.com/skywalk163/duan/issues/new?template=bug_report.md)。
+请在 GitHub Issues 中提交 Bug 报告，使用 [Bug 报告模板](https://github.com/skywalk163/light/issues/new?template=bug_report.md)。
 
-#### Q: 段言有包管理器吗？
-有的，段言内置了 `duan pkg` 包管理命令和 duanpub 包注册中心。
+#### Q: 光明有包管理器吗？
+有的，光明内置了 `light pkg` 包管理命令和 duanpub 包注册中心。
 
 ### 3.4 社区与支持
 
-#### Q: 段言社区在哪里？
+#### Q: 光明社区在哪里？
 - **GitHub Discussions**：技术讨论和问题求助
 - **GitHub Issues**：Bug 报告和功能请求
-- **文档站**：https://skywalk163.github.io/duan/
+- **文档站**：https://skywalk163.github.io/light/
 
 #### Q: 如何获取帮助？
 1. 先在 FAQ 和已有讨论中搜索
 2. 在 GitHub Discussions 的「问题求助」分类提问
 3. 提供完整的环境信息和复现步骤
 
-#### Q: 段言有官方文档吗？
-有的，请访问 [文档站](https://skywalk163.github.io/duan/)。
+#### Q: 光明有官方文档吗？
+有的，请访问 [文档站](https://skywalk163.github.io/light/)。
 
 ---
 
@@ -283,10 +283,10 @@ duan compile hello.duan --backend llvm-typed
 
 #### 需要警惕的行为
 
-- **广告垃圾**：与段言无关的商业推广
+- **广告垃圾**：与光明无关的商业推广
 - **人身攻击**：针对个人的侮辱性言论
 - **重复发布**：相同内容多次发布
-- **偏离主题**：与段言无关的讨论
+- **偏离主题**：与光明无关的讨论
 - **恶意行为**：蓄意破坏社区氛围
 
 ### 4.3 升级处理
@@ -323,7 +323,7 @@ duan compile hello.duan --backend llvm-typed
 
 ### 5.1 行为准则概述
 
-段言社区遵循 [CODE_OF_CONDUCT.md](../../CODE_OF_CONDUCT.md) 中定义的行为准则。所有 Discussions 参与者（包括提问者、回答者、浏览者）都应遵守：
+光明社区遵循 [CODE_OF_CONDUCT.md](../../CODE_OF_CONDUCT.md) 中定义的行为准则。所有 Discussions 参与者（包括提问者、回答者、浏览者）都应遵守：
 
 1. **尊重他人**：尊重所有社区成员，无论其技术水平、背景和经验
 2. **包容开放**：欢迎所有水平的开发者，从新手到专家
@@ -385,6 +385,6 @@ duan compile hello.duan --backend llvm-typed
 
 ---
 
-> 段言项目地址：[https://github.com/skywalk163/duan](https://github.com/skywalk163/duan)
-> 文档站：[https://skywalk163.github.io/duan/](https://skywalk163.github.io/duan/)
+> 光明项目地址：[https://github.com/skywalk163/light](https://github.com/skywalk163/light)
+> 文档站：[https://skywalk163.github.io/light/](https://skywalk163.github.io/light/)
 > 许可证：MIT

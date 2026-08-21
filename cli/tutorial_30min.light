@@ -1005,7 +1005,7 @@ print("")
 print("    examples/ 目录   — 更多示例代码")
 print("    docs/ 目录       — 完整文档")
 print("    GitHub           — https://github.com/skywalk163/light")
-print("    交互式教程文档   — docs/30分钟入门段言.md")
+print("    交互式教程文档   — docs/30分钟入门光明.md")
 print("")
 
 # ============================================================

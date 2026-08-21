@@ -1375,7 +1375,7 @@ class ParserExprMixin:
                         # 收参路径（:763 的 arity 路径、:2545 的后缀链式括号路径），
                         # 唯独这条「无 arity 记录的标识符括号调用」漏接，导致
                         # `日期范围(甲, 乙, 步长天=1)` 抛「意外的标记: 「=」」
-                        # （examples/F阶段_标准库增强/F3_段言侧三个增强模块示例.light:21）。
+                        # （examples/F阶段_标准库增强/F3_光明侧三个增强模块示例.light:21）。
                         # 该方法失败时 self.pos 原位回退，且 `==` 是 EQ_EQ 与 `=` 词法层
                         # 就分开，故 f(a == 1) 不受影响 —— 单向放宽。
                         kwarg = self._try_parse_keyword_arg()

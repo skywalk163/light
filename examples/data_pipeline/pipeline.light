@@ -1,7 +1,7 @@
-# 段言 - 数据处理管道示例
+# 光明 - 数据处理管道示例
 # 读取 CSV → 清洗数据 → 聚合分析 → 存储 SQLite → 导出 JSON
-# 用法: duan run examples/data_pipeline/pipeline.duan [样本数据文件]
-# 示例: duan run examples/data_pipeline/pipeline.duan sample_data.csv
+# 用法: light run examples/data_pipeline/pipeline.light [样本数据文件]
+# 示例: light run examples/data_pipeline/pipeline.light sample_data.csv
 
 导入 文件系统。
 导入 JSON。
@@ -397,7 +397,7 @@
     数据文件 为 参数[1]。
 
   打印("=" * 50)。
-  打印("  段言数据管道 v1.0")。
+  打印("  光明数据管道 v1.0")。
   打印("=" * 50)。
   打印("数据文件: " + 数据文件)。
   打印("=" * 50)。

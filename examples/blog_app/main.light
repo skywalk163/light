@@ -1,6 +1,6 @@
-# 段言 - 博客系统 Web 应用
+# 光明 - 博客系统 Web 应用
 # 基于 HTTP 服务端框架的简单博客
-# 用法: duan run examples/blog_app/main.duan
+# 用法: light run examples/blog_app/main.light
 
 导入 文件系统。
 导入 JSON。
@@ -11,7 +11,7 @@
 <head>
   <meta charset='UTF-8'>
   <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-  <title>段言博客</title>
+  <title>光明博客</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Microsoft YaHei', sans-serif; background: #f5f5f5; color: #333; }
@@ -36,14 +36,14 @@
 <body>
   <header>
     <div class='container'>
-      <a href='/'><h1>段言博客</h1></a>
-      <p>用段言编程语言构建的简单博客系统</p>
+      <a href='/'><h1>光明博客</h1></a>
+      <p>用光明编程语言构建的简单博客系统</p>
     </div>
   </header>
   <div class='container'>
     {内容}
     <div class='footer'>
-      <p>段言博客 - 用段言编程语言构建</p>
+      <p>光明博客 - 用光明编程语言构建</p>
     </div>
   </div>
 </body>

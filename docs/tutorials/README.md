@@ -1,7 +1,7 @@
-# 段言学习路径地图
+# 光明学习路径地图
 
 > **版本：** v6.2
-> 本文档为不同背景的学习者提供个性化的学习路径，帮助你高效掌握段言编程语言。
+> 本文档为不同背景的学习者提供个性化的学习路径，帮助你高效掌握光明编程语言。
 
 ---
 
@@ -10,7 +10,7 @@
 | 教程 | 预计时间 | 适合人群 | 前置要求 |
 |------|---------|---------|---------|
 | [入门教程](入门教程.md) | 2-3 小时 | 编程初学者 | 无 |
-| [30分钟入门段言](../30分钟入门段言.md) | 30 分钟 | 所有用户 | 无 |
+| [30分钟入门光明](../30分钟入门光明.md) | 30 分钟 | 所有用户 | 无 |
 | [进阶教程](进阶教程.md) | 3-4 小时 | 有编程经验者 | 入门教程 或 30分钟入门 |
 | 应用案例（examples/ 目录） | 2-3 小时/案例 | 有基础者 | 进阶教程 |
 | [交互式教程](../../src/interactive_tutorial.py) | 20-30 分钟 | 所有用户 | 无 |
@@ -53,17 +53,17 @@
 
 ### 路径二：有编程经验开发者
 
-如果你已经熟悉其他编程语言（Python、JavaScript 等），快速上手段言：
+如果你已经熟悉其他编程语言（Python、JavaScript 等），快速上手光明：
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  ① 30分钟入门 (30分钟)                                          │
-│  └─ 快速了解段言语法特性、REPL 使用                              │
+│  └─ 快速了解光明语法特性、REPL 使用                              │
 ├─────────────────────────────────────────────────────────────────┤
 │  ② 对比案例 (30分钟-1小时)                                      │
-│  └─ examples/basic.duan → 基础语法对比                          │
-│  └─ examples/advanced.duan → 高级特性对比                       │
-│  └─ examples/hello.duan → 最小示例                              │
+│  └─ examples/basic.light → 基础语法对比                          │
+│  └─ examples/advanced.light → 高级特性对比                       │
+│  └─ examples/hello.light → 最小示例                              │
 ├─────────────────────────────────────────────────────────────────┤
 │  ③ 进阶教程 (3-4小时)                                           │
 │  └─ 重点：FFI 外部函数接口、Web 应用开发、并发编程               │
@@ -85,12 +85,12 @@
 
 ### 路径三：教育工作者
 
-如果你计划用段言进行编程教学：
+如果你计划用光明进行编程教学：
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  ① 入门教程 (2-3小时)                                           │
-│  └─ 完整了解段言的教学内容体系                                   │
+│  └─ 完整了解光明的教学内容体系                                   │
 ├─────────────────────────────────────────────────────────────────┤
 │  ② 少儿趣味示例 (1-2小时)                                       │
 │  └─ examples/kids/ → 为青少年设计的趣味编程示例                  │
@@ -101,7 +101,7 @@
 │  └─ 从简单到复杂，循序渐进                                       │
 ├─────────────────────────────────────────────────────────────────┤
 │  ④ 设计哲学与语言特性 (按需)                                     │
-│  └─ 理解段言为什么这样设计                                       │
+│  └─ 理解光明为什么这样设计                                       │
 │  └─ 中文关键字、自然语言编程的理念                               │
 │  └─ 对比其他中文编程语言                                         │
 ├─────────────────────────────────────────────────────────────────┤
@@ -120,14 +120,14 @@
 
 ### 路径四：少儿编程学习者（8-14 岁）
 
-如果你希望为孩子或学生规划段言编程学习路径：
+如果你希望为孩子或学生规划光明编程学习路径：
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  ① 趣味示例入门 (1-2小时)                                       │
-│  └─ examples/kids/draw_shapes.duan → 图形绘制，感受编程乐趣     │
-│  └─ examples/kids/number_game.duan → 猜数字，学习变量和条件     │
-│  └─ examples/kids/story_generator.duan → 故事生成器，学习函数   │
+│  └─ examples/kids/draw_shapes.light → 图形绘制，感受编程乐趣     │
+│  └─ examples/kids/number_game.light → 猜数字，学习变量和条件     │
+│  └─ examples/kids/story_generator.light → 故事生成器，学习函数   │
 ├─────────────────────────────────────────────────────────────────┤
 │  ② 30分钟入门 (30分钟，家长陪同)                                 │
 │  └─ 简单了解变量、条件、循环的概念                               │
@@ -136,8 +136,8 @@
 │  └─ docs/教育者指南.md → 分龄教学方案和课程大纲                  │
 ├─────────────────────────────────────────────────────────────────┤
 │  ④ 游戏示例扩展 (可选)                                           │
-│  └─ examples/games/guess_number.duan → 完整游戏体验              │
-│  └─ examples/games/snake.duan → 经典贪吃蛇                      │
+│  └─ examples/games/guess_number.light → 完整游戏体验              │
+│  └─ examples/games/snake.light → 经典贪吃蛇                      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -156,17 +156,17 @@
 |------|------|------|
 | 入门教程 | `docs/tutorials/入门教程.md` | 从零开始的编程入门 |
 | 进阶教程 | `docs/tutorials/进阶教程.md` | FFI、Web、并发等高级主题 |
-| 30分钟入门 | `docs/30分钟入门段言.md` | 快速上手，含 REPL 和调试 |
+| 30分钟入门 | `docs/30分钟入门光明.md` | 快速上手，含 REPL 和调试 |
 | 语法手册 | `docs/syntax.md` | 完整语法参考 |
 | 标准库文档 | `docs/stdlib.md` | 所有标准库模块说明 |
-| 从段言到Python | `docs/从段言到Python.md` | 段言→Python 迁移指南 |
-| 从段言到LLVM | `docs/从段言到LLVM.md` | 编译原理与原生编译 |
+| 从光明到Python | `docs/从光明到Python.md` | 光明→Python 迁移指南 |
+| 从光明到LLVM | `docs/从光明到LLVM.md` | 编译原理与原生编译 |
 
 ### 设计哲学
 
 | 资源 | 路径 | 说明 |
 |------|------|------|
-| 语义密度与代码诗 | `docs/语义密度与代码诗.md` | 段言信息压缩之美 |
+| 语义密度与代码诗 | `docs/语义密度与代码诗.md` | 光明信息压缩之美 |
 | 语义密度示例集 | `docs/语义密度示例集.md` | 20+ 高密度实战案例 |
 | 教育者指南 | `docs/教育者指南.md` | K12 编程教育方案 |
 
@@ -174,58 +174,58 @@
 
 | 资源 | 路径 | 说明 |
 |------|------|------|
-| Hello World | `examples/hello.duan` | 最小可运行示例 |
-| 基础语法 | `examples/basic.duan` | 变量、运算、条件、循环、函数 |
-| 高级功能 | `examples/advanced.duan` | 列表、斐波那契、高阶函数 |
-| 类定义 | `examples/class_example.duan` | 面向对象编程示例 |
-| 计算器 | `examples/calculator.duan` | 类与方法的综合应用 |
-| 学生管理 | `examples/student_management.duan` | 多对象管理 |
-| 汉诺塔 | `examples/hanoi.duan` | 递归算法演示 |
-| 模块演示 | `examples/module_demo.duan` | 模块导入与导出 |
-| 猜数字游戏 | `examples/games/guess_number.duan` | 完整游戏程序 |
-| 贪吃蛇游戏 | `examples/games/snake.duan` | 经典游戏 |
+| Hello World | `examples/hello.light` | 最小可运行示例 |
+| 基础语法 | `examples/basic.light` | 变量、运算、条件、循环、函数 |
+| 高级功能 | `examples/advanced.light` | 列表、斐波那契、高阶函数 |
+| 类定义 | `examples/class_example.light` | 面向对象编程示例 |
+| 计算器 | `examples/calculator.light` | 类与方法的综合应用 |
+| 学生管理 | `examples/student_management.light` | 多对象管理 |
+| 汉诺塔 | `examples/hanoi.light` | 递归算法演示 |
+| 模块演示 | `examples/module_demo.light` | 模块导入与导出 |
+| 猜数字游戏 | `examples/games/guess_number.light` | 完整游戏程序 |
+| 贪吃蛇游戏 | `examples/games/snake.light` | 经典游戏 |
 
 ### 应用案例
 
 | 项目 | 路径 | 说明 |
 |------|------|------|
-| Web 爬虫 | `examples/web_crawler/crawler.duan` | 递归抓取网页链接 |
-| 数据处理管道 | `examples/data_pipeline/pipeline.duan` | CSV 清洗、聚合、存储 |
-| CLI 文件整理器 | `examples/cli_tool/file_organizer.duan` | 自动分类文件 |
-| 博客系统 | `examples/blog_system/主.duan` | 完整 Web 博客应用 |
-| 待办事项应用 | `examples/todo_app/main.duan` | 命令行待办管理 |
-| 天气应用 | `examples/weather_app/main.duan` | API 调用与数据显示 |
-| 数据管道增强版 | `examples/data_pipeline_enhanced/主.duan` | 进阶 ETL 流程 |
-| 贪吃蛇游戏 | `examples/snake_game/主.duan` | 完整游戏实现 |
-| 排序算法 | `examples/algorithms/sorting.duan` | 多种排序算法 |
-| 数据结构 | `examples/algorithms/data_structures.duan` | 常用数据结构实现 |
+| Web 爬虫 | `examples/web_crawler/crawler.light` | 递归抓取网页链接 |
+| 数据处理管道 | `examples/data_pipeline/pipeline.light` | CSV 清洗、聚合、存储 |
+| CLI 文件整理器 | `examples/cli_tool/file_organizer.light` | 自动分类文件 |
+| 博客系统 | `examples/blog_system/主.light` | 完整 Web 博客应用 |
+| 待办事项应用 | `examples/todo_app/main.light` | 命令行待办管理 |
+| 天气应用 | `examples/weather_app/main.light` | API 调用与数据显示 |
+| 数据管道增强版 | `examples/data_pipeline_enhanced/主.light` | 进阶 ETL 流程 |
+| 贪吃蛇游戏 | `examples/snake_game/主.light` | 完整游戏实现 |
+| 排序算法 | `examples/algorithms/sorting.light` | 多种排序算法 |
+| 数据结构 | `examples/algorithms/data_structures.light` | 常用数据结构实现 |
 
 ### 少儿趣味编程
 
 | 示例 | 路径 | 说明 |
 |------|------|------|
-| 图形绘制 | `examples/kids/draw_shapes.duan` | 用 ASCII 艺术画图形 |
-| 猜数字游戏 | `examples/kids/number_game.duan` | 带分数的猜数字游戏 |
-| 故事生成器 | `examples/kids/story_generator.duan` | 模板式故事创作 |
+| 图形绘制 | `examples/kids/draw_shapes.light` | 用 ASCII 艺术画图形 |
+| 猜数字游戏 | `examples/kids/number_game.light` | 带分数的猜数字游戏 |
+| 故事生成器 | `examples/kids/story_generator.light` | 模板式故事创作 |
 | 家长/教师指南 | `examples/kids/README.md` | 教学指导说明 |
 
 ### 视频教程
 
 | 视频 | 时长 | 说明 |
 |------|------|------|
-| [5分钟入门段言](../video_scripts/5分钟入门段言.md) | 5 分钟 | 零基础快速入门 |
-| [段言Web开发实战](../video_scripts/段言Web开发实战.md) | 35 分钟 | 从零构建 Web 应用 |
-| [段言数据处理入门](../video_scripts/段言数据处理入门.md) | 35 分钟 | 数据清洗与分析 |
+| [5分钟入门光明](../video_scripts/5分钟入门光明.md) | 5 分钟 | 零基础快速入门 |
+| [光明Web开发实战](../video_scripts/光明Web开发实战.md) | 35 分钟 | 从零构建 Web 应用 |
+| [光明数据处理入门](../video_scripts/光明数据处理入门.md) | 35 分钟 | 数据清洗与分析 |
 
 ### 交互式工具
 
 | 工具 | 路径/命令 | 说明 |
 |------|----------|------|
 | 交互式教程 | `src/interactive_tutorial.py` | 命令行交互练习 |
-| REPL | `duan repl` | 交互式编程环境 |
-| 调试器 | `duan debug` | 断点调试工具 |
-| AI 辅助 | `duan ai generate "需求"` | AI 生成段言代码 |
-| 语法速查 | `duan ai card` | 语法速查卡 |
+| REPL | `light repl` | 交互式编程环境 |
+| 调试器 | `light debug` | 断点调试工具 |
+| AI 辅助 | `light ai generate "需求"` | AI 生成光明代码 |
+| 语法速查 | `light ai card` | 语法速查卡 |
 
 ---
 
@@ -244,13 +244,13 @@
 ## 🎯 学习建议
 
 1. **动手为主**：编程是实践技能，每个知识点学完后立即动手写代码
-2. **善用 REPL**：`duan repl` 让你可以快速验证想法，无需创建文件
+2. **善用 REPL**：`light repl` 让你可以快速验证想法，无需创建文件
 3. **从错误中学习**：遇到错误提示，耐心阅读并理解原因
 4. **循序渐进**：不要跳步，基础知识不牢固会影响后续学习
 5. **多读示例**：`examples/` 目录中有大量可运行的代码，阅读并修改它们
-6. **使用调试器**：`duan debug` 帮助你理解代码的执行流程
+6. **使用调试器**：`light debug` 帮助你理解代码的执行流程
 7. **加入社区**：遇到问题可以查阅文档或寻求帮助
 
 ---
 
-> **开始学习：** 选择适合你的路径，从 [入门教程](入门教程.md) 或 [30分钟入门段言](../30分钟入门段言.md) 开始吧！
+> **开始学习：** 选择适合你的路径，从 [入门教程](入门教程.md) 或 [30分钟入门光明](../30分钟入门光明.md) 开始吧！

@@ -1,4 +1,4 @@
-# 段言（Duan）项目路线图
+# 光明（Light）项目路线图
 
 > **最后更新：** 2026-08-07
 > **当前版本：** v5.5.0
@@ -16,7 +16,7 @@
 | 三级类型检查 | ✅ 已完成 | 签名级、变量级、表达式级类型检查 |
 | 空安全系统 | ✅ 已完成 | `可空` 类型注解与 `unwrap` 安全展开 |
 | SRC 后端稳定 | ✅ 已完成 | 手写递归下降解析器，无需 ANTLR 依赖 |
-| 基础包管理 | ✅ 已完成 | `package.toml` 项目配置，`duan pkg init/build/run` |
+| 基础包管理 | ✅ 已完成 | `package.toml` 项目配置，`light pkg init/build/run` |
 
 ### v5.1.0 — 标准库扩展
 
@@ -42,11 +42,11 @@
 
 | 里程碑 | 状态 | 说明 |
 |--------|------|------|
-| AI Copilot 基础命令 | ✅ 已完成 | `duan ai generate/fix/card/snippets/check` |
+| AI Copilot 基础命令 | ✅ 已完成 | `light ai generate/fix/card/snippets/check` |
 | LoRA 微调训练 | ✅ 已完成 | Qwen3-8B/3.5-2B LoRA/QLoRA 一键微调 |
 | ERNIE 微调方案 | ✅ 已完成 | ERNIE-4.5-0.3B 轻量级翻译器 |
-| 训练数据集 | ✅ 已完成 | 881 条 Python↔段言 v3.2 对照数据 |
-| Ollama 模型发布 | ✅ 已完成 | `airoot/duan-translator` 已上线 Ollama 官网 |
+| 训练数据集 | ✅ 已完成 | 881 条 Python↔光明 v3.2 对照数据 |
+| Ollama 模型发布 | ✅ 已完成 | `airoot/light-translator` 已上线 Ollama 官网 |
 
 ### v5.4.0 — 开发工具链
 
@@ -63,7 +63,7 @@
 | 里程碑 | 状态 | 说明 |
 |--------|------|------|
 | duanpub 包管理器 | ✅ 已完成 | 包索引、安装、依赖管理、发布流程 |
-| duan.json 配置 | ✅ 已完成 | 项目配置文件标准 |
+| light.json 配置 | ✅ 已完成 | 项目配置文件标准 |
 | 包依赖解析 | ✅ 已完成 | 语义化版本依赖解析 |
 | 文档系统完善 | ✅ 已完成 | API 文档、duanpub 文档、语法规范 |
 | 性能优化 | ✅ 已完成 | 常量折叠、死代码消除、循环不变式外提 |
@@ -129,7 +129,7 @@
 
 | 目标 | 预计版本 | 说明 |
 |------|----------|------|
-| Web 框架 | v6.2 | 基于段言的 Web 开发框架，路由/中间件/模板 |
+| Web 框架 | v6.2 | 基于光明的 Web 开发框架，路由/中间件/模板 |
 | 移动端支持 | v6.2 | Android/iOS 交叉编译支持 |
 | 科学计算库 | v6.2 | 数值计算、矩阵运算、数据可视化 |
 | 游戏开发框架 | v6.2 | 2D/3D 游戏引擎绑定 |
@@ -139,8 +139,8 @@
 
 | 目标 | 说明 |
 |------|------|
-| **自举编译器成熟** | 段言编译器完全用段言编写，能编译自身 |
-| **原生 IDE** | 基于段言的 IDE，支持可视化编程 |
+| **自举编译器成熟** | 光明编译器完全用光明编写，能编译自身 |
+| **原生 IDE** | 基于光明的 IDE，支持可视化编程 |
 | **教育生态** | 面向中小学编程教育的完整课程体系 |
 | **企业级特性** | 性能分析、分布式追踪、服务网格集成 |
 | **AI 原生集成** | 编译器内嵌 AI 推理引擎，智能代码补全和错误修复 |
@@ -163,12 +163,12 @@
 
 ## 五、如何参与
 
-- 💬 **讨论**：在 [GitHub Discussions](https://github.com/skywalk163/duan/discussions) 发起讨论
-- 🐛 **报告 Bug**：提交 [Bug Report](https://github.com/skywalk163/duan/issues/new?template=bug_report.md)
-- 💡 **建议功能**：提交 [Feature Request](https://github.com/skywalk163/duan/issues/new?template=feature_request.md)
+- 💬 **讨论**：在 [GitHub Discussions](https://github.com/skywalk163/light/discussions) 发起讨论
+- 🐛 **报告 Bug**：提交 [Bug Report](https://github.com/skywalk163/light/issues/new?template=bug_report.md)
+- 💡 **建议功能**：提交 [Feature Request](https://github.com/skywalk163/light/issues/new?template=feature_request.md)
 - 🔧 **贡献代码**：参考 [CONTRIBUTING.md](../CONTRIBUTING.md) 和 [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md)
 - 📖 **完善文档**：欢迎提交文档改进的 PR
 
 ---
 
-> 路线图会随着社区反馈和项目进展持续更新。最新版本请关注 [GitHub Releases](https://github.com/skywalk163/duan/releases)。
+> 路线图会随着社区反馈和项目进展持续更新。最新版本请关注 [GitHub Releases](https://github.com/skywalk163/light/releases)。

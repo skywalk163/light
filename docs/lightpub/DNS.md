@@ -18,12 +18,12 @@
 
 ## 导入方式
 
-```duan
+```light
 导入 DNS
 ```
 
 或
 
-```duan
+```light
 导入 标准DNS
 ```

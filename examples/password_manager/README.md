@@ -1,6 +1,6 @@
-# 段言密码管理器
+# 光明密码管理器
 
-一个使用段言编写的密码生成和存储管理工具。
+一个使用光明编写的密码生成和存储管理工具。
 
 ## 功能
 
@@ -13,7 +13,7 @@
 ## 运行
 
 ```bash
-python -m cli.duan run examples/password_manager/主.duan
+python -m cli.light run examples/password_manager/主.light
 ```
 
 ## 安全提示

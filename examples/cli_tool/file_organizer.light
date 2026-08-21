@@ -1,7 +1,7 @@
-# 段言 - 文件整理器 CLI 工具
+# 光明 - 文件整理器 CLI 工具
 # 按文件扩展名自动分类整理文件到对应文件夹
-# 用法: duan run examples/cli_tool/file_organizer.duan [目录] [选项]
-# 示例: duan run examples/cli_tool/file_organizer.duan ./ --dry-run
+# 用法: light run examples/cli_tool/file_organizer.light [目录] [选项]
+# 示例: light run examples/cli_tool/file_organizer.light ./ --dry-run
 
 导入 文件系统。
 导入 JSON。
@@ -31,7 +31,7 @@
     "description": "视频文件"
   },
   "Code": {
-    "extensions": [".py", ".js", ".ts", ".java", ".c", ".cpp", ".h", ".hpp", ".go", ".rs", ".rb", ".php", ".swift", ".kt", ".scala", ".light", ".duan"],
+    "extensions": [".py", ".js", ".ts", ".java", ".c", ".cpp", ".h", ".hpp", ".go", ".rs", ".rb", ".php", ".swift", ".kt", ".scala", ".light", ".light"],
     "description": "代码文件"
   },
   "Executables": {
@@ -287,7 +287,7 @@
 
 段落 解析参数 接收 参数列表:
   # 安全默认：不带参数运行时只做预览，绝不真的搬动文件。
-  # （此前默认是"实际执行 + 当前目录"，直接 duan run 就会就地整理仓库。）
+  # （此前默认是"实际执行 + 当前目录"，直接 light run 就会就地整理仓库。）
   # 必须显式传 --execute / -x 才会落盘。
   设 结果 为 {
     "directory": ".",
@@ -340,10 +340,10 @@
 # 显示帮助信息
 段落 显示帮助:
   打印("")。
-  打印("段言文件整理器 - 按类型自动分类整理文件")。
+  打印("光明文件整理器 - 按类型自动分类整理文件")。
   打印("")。
   打印("用法:")。
-  打印("  duan run examples/cli_tool/file_organizer.duan [目录] [选项]")。
+  打印("  light run examples/cli_tool/file_organizer.light [目录] [选项]")。
   打印("")。
   打印("参数:")。
   打印("  目录       要整理的目录路径（默认: 当前目录）")。
@@ -356,10 +356,10 @@
   打印("  -h, --help         显示此帮助信息")。
   打印("")。
   打印("示例:")。
-  打印("  duan run examples/cli_tool/file_organizer.duan                        # 预览当前目录（不会改动）")。
-  打印("  duan run examples/cli_tool/file_organizer.duan ./下载 -x               # 真正整理下载目录")。
-  打印("  duan run examples/cli_tool/file_organizer.duan ./桌面 -c my_rules.json # 使用自定义规则")。
-  打印("  duan run examples/cli_tool/file_organizer.duan ./文档 -o ./整理后       # 输出到指定目录")。
+  打印("  light run examples/cli_tool/file_organizer.light                        # 预览当前目录（不会改动）")。
+  打印("  light run examples/cli_tool/file_organizer.light ./下载 -x               # 真正整理下载目录")。
+  打印("  light run examples/cli_tool/file_organizer.light ./桌面 -c my_rules.json # 使用自定义规则")。
+  打印("  light run examples/cli_tool/file_organizer.light ./文档 -o ./整理后       # 输出到指定目录")。
   打印("")。
   打印("分类规则:")。
   打印("  Images/       .jpg .jpeg .png .gif .bmp .svg .webp 等")。
@@ -367,7 +367,7 @@
   打印("  Archives/    .zip .rar .tar .gz .7z .bz2 等")。
   打印("  Audio/       .mp3 .wav .flac .aac .ogg 等")。
   打印("  Video/       .mp4 .avi .mkv .mov .wmv .webm 等")。
-  打印("  Code/        .py .js .ts .java .c .cpp .go .rs .duan 等")。
+  打印("  Code/        .py .js .ts .java .c .cpp .go .rs .light 等")。
   打印("  Executables/ .exe .msi .bat .sh .app .dll 等")。
   打印("  Other/       其他未分类文件")。
   打印("")。
@@ -401,7 +401,7 @@
 
   # 打印起始信息
   打印("=" * 50)。
-  打印("  段言文件整理器 v1.0")。
+  打印("  光明文件整理器 v1.0")。
   打印("=" * 50)。
   打印("扫描目录: " + 目录路径)。
   打印("输出目录: " + 输出目录)。

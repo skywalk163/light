@@ -1,6 +1,6 @@
-# 段言 - 终端数据可视化工具
+# 光明 - 终端数据可视化工具
 # 功能: 使用 ASCII 字符在终端绘制柱状图、折线图
-# 用法: duan run examples/data_visualization/主.duan
+# 用法: light run examples/data_visualization/主.light
 
 段落 绘制柱状图 接收 数据, 标题:
   打印("")。

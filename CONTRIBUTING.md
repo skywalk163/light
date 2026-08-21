@@ -1,8 +1,8 @@
-# 欢迎为段言做贡献！🎉
+# 欢迎为光明做贡献！🎉
 
-你好！感谢你对段言（Duan）编程语言的关注。无论你是经验丰富的开发者，还是刚刚开始学习编程的新手，我们都热忱欢迎你为段言贡献力量。
+你好！感谢你对光明（Light）编程语言的关注。无论你是经验丰富的开发者，还是刚刚开始学习编程的新手，我们都热忱欢迎你为光明贡献力量。
 
-段言是一门**中文编程语言**，我们的社区也秉承中文友善的理念。这份指南完全用中文编写，希望能帮助每一位中文开发者轻松上手，参与到开源贡献中来。
+光明是一门**中文编程语言**，我们的社区也秉承中文友善的理念。这份指南完全用中文编写，希望能帮助每一位中文开发者轻松上手，参与到开源贡献中来。
 
 ## 你可以贡献什么？
 
@@ -10,8 +10,8 @@
 - 💡 **提出建议** — 你有好的想法？我们洗耳恭听
 - 📖 **改进文档** — 修正错别字、补充说明、写教程
 - 💻 **提交代码** — 修复 Bug、新增功能、优化性能
-- 📦 **贡献标准库** — 给段言添加更多实用的功能模块
-- ✍️ **写博客** — 分享你使用段言的经验和心得
+- 📦 **贡献标准库** — 给光明添加更多实用的功能模块
+- ✍️ **写博客** — 分享你使用光明的经验和心得
 - 🗣 **参与讨论** — 帮助其他新手解答问题
 
 ---
@@ -20,7 +20,7 @@
 
 ### 第一步：Fork 项目
 
-访问段言仓库：https://github.com/skywalk163/duan
+访问光明仓库：https://github.com/skywalk163/light
 
 点击页面右上角的 **Fork** 按钮，把项目复制一份到你的 GitHub 账号下。
 
@@ -30,11 +30,11 @@
 
 ```bash
 # 把你 fork 的仓库克隆到本地
-git clone https://github.com/你的用户名/duan.git
-cd duan
+git clone https://github.com/你的用户名/light.git
+cd light
 
 # 添加上游仓库（原项目），方便同步最新代码
-git remote add upstream https://github.com/skywalk163/duan.git
+git remote add upstream https://github.com/skywalk163/light.git
 ```
 
 > 💡 把 `你的用户名` 替换成你的 GitHub 用户名。
@@ -43,22 +43,22 @@ git remote add upstream https://github.com/skywalk163/duan.git
 
 ## 开发环境配置
 
-段言的编译器是用 Python 写的，所以配置起来很简单。
+光明的编译器是用 Python 写的，所以配置起来很简单。
 
 ### 你需要准备
 
 | 工具 | 版本要求 | 说明 |
 |------|----------|------|
-| **Python** | 3.10 或更高（推荐 3.12） | 段言编译器运行的基础 |
+| **Python** | 3.10 或更高（推荐 3.12） | 光明编译器运行的基础 |
 | **Git** | 2.30 以上 | 版本管理 |
-| **VS Code**（可选） | 最新版 | 推荐安装段言扩展，获得语法高亮和代码提示 |
+| **VS Code**（可选） | 最新版 | 推荐安装光明扩展，获得语法高亮和代码提示 |
 | **LLVM/Clang**（可选） | 14+ | 如果你要用 LLVM 后端编译 |
 
 ### 安装步骤
 
 ```bash
 # 1. 进入项目目录
-cd duan
+cd light
 
 # 2. 创建虚拟环境（推荐）
 python -m venv venv
@@ -81,10 +81,10 @@ pip install pytest pytest-cov
 
 ```bash
 # 查看版本号
-python -m cli.duan --version
+python -m cli.light --version
 
-# 运行一个简单的段言程序
-python -m cli.duan run examples/hello.duan
+# 运行一个简单的光明程序
+python -m cli.light run examples/hello.light
 
 # 输出应该是：你好，世界！
 ```
@@ -98,7 +98,7 @@ python -m cli.duan run examples/hello.duan
 了解项目结构，能帮你快速找到需要修改的代码。
 
 ```
-duan/
+light/
 ├── src/                  # 核心编译器源码
 │   ├── lexer.py          # 词法分析器（把代码拆成单词）
 │   ├── parser_core.py    # 语法分析器核心（把单词拼成语法树）
@@ -116,8 +116,8 @@ duan/
 │   └── ...
 │
 ├── cli/                  # 命令行工具
-│   ├── duan.py           # 主命令行入口
-│   ├── duan_unified.py   # 统一命令行接口
+│   ├── light.py           # 主命令行入口
+│   ├── light_unified.py   # 统一命令行接口
 │   └── tutorial.py       # 交互式教程
 │
 ├── stdlib/               # 标准库（Python 实现）
@@ -143,27 +143,27 @@ duan/
 │   └── ...
 │
 ├── examples/             # 示例代码
-│   ├── hello.duan        # Hello World
-│   ├── basic.duan        # 基础语法示例
+│   ├── hello.light        # Hello World
+│   ├── basic.light        # 基础语法示例
 │   ├── web_crawler/      # 网页爬虫示例
 │   ├── games/            # 游戏示例
 │   └── ...
 │
-├── bootstrap/            # 自举编译器（用段言写的编译器）
-│   ├── lexer.duan        # 词法分析器（段言版）
-│   ├── parser.duan       # 语法分析器（段言版）
-│   ├── compiler.duan     # 编译器（段言版）
+├── bootstrap/            # 自举编译器（用光明写的编译器）
+│   ├── lexer.light        # 词法分析器（光明版）
+│   ├── parser.light       # 语法分析器（光明版）
+│   ├── compiler.light     # 编译器（光明版）
 │   └── ...
 │
 ├── antlrparser/          # ANTLR 解析器（另一种解析方式）
-│   ├── DuanLangLexer.g4  # ANTLR 词法规则
-│   ├── DuanLangParser.g4 # ANTLR 语法规则
-│   ├── duan_interpreter.py # 解释器
+│   ├── LightLexer.g4  # ANTLR 词法规则
+│   ├── LightParser.g4 # ANTLR 语法规则
+│   ├── light_interpreter.py # 解释器
 │   └── ...
 │
 ├── contrib/              # 社区贡献模块
-│   ├── HTTP服务端.duan   # HTTP 服务端
-│   ├── HTTP客户端.duan   # HTTP 客户端
+│   ├── HTTP服务端.light   # HTTP 服务端
+│   ├── HTTP客户端.light   # HTTP 客户端
 │   └── ...
 │
 ├── tools/                # 开发工具
@@ -181,11 +181,11 @@ duan/
 |------|------|------------|
 | `src/` | 核心编译器，包含词法、语法、语义分析、代码生成 | 有编译器开发经验 |
 | `cli/` | 命令行工具，用户和编译器交互的窗口 | 有 Python 命令行经验 |
-| `stdlib/` | 标准库，段言内置功能的 Python 实现 | 有 Python 开发经验 |
+| `stdlib/` | 标准库，光明内置功能的 Python 实现 | 有 Python 开发经验 |
 | `tests/` | 测试用例，保证代码质量的重要防线 | 任何水平的开发者 |
-| `docs/` | 文档和教程，帮助用户学习段言 | 喜欢写作的开发者 |
-| `examples/` | 示例代码，展示段言的实际应用 | 想分享段言使用技巧 |
-| `bootstrap/` | 自举编译器，用段言本身编写的编译器 | 熟悉段言语法的开发者 |
+| `docs/` | 文档和教程，帮助用户学习光明 | 喜欢写作的开发者 |
+| `examples/` | 示例代码，展示光明的实际应用 | 想分享光明使用技巧 |
+| `bootstrap/` | 自举编译器，用光明本身编写的编译器 | 熟悉光明语法的开发者 |
 | `contrib/` | 社区贡献的实用模块 | 想贡献新功能的开发者 |
 
 ---
@@ -194,13 +194,13 @@ duan/
 
 ### Python 环境要求
 
-段言编译器使用 Python 编写，以下是推荐的开发环境配置：
+光明编译器使用 Python 编写，以下是推荐的开发环境配置：
 
 | 工具 | 版本要求 | 用途 |
 |------|----------|------|
 | **Python** | 3.10 ~ 3.13 | 编译器运行环境 |
 | **Git** | 2.30+ | 版本控制 |
-| **VS Code** | 最新版 | 推荐 IDE（含段言扩展） |
+| **VS Code** | 最新版 | 推荐 IDE（含光明扩展） |
 | **pytest** | 7.0+ | 测试框架 |
 | **ANTLR** (可选) | 4.13+ | 备选解析后端 |
 
@@ -208,8 +208,8 @@ duan/
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/skywalk163/duan.git
-cd duan
+git clone https://github.com/skywalk163/light.git
+cd light
 
 # 2. 创建并激活虚拟环境
 # Windows:
@@ -230,8 +230,8 @@ pip install -e ".[dev]"
 pip install -e ".[antlr]"
 
 # 6. 验证安装
-python -m cli.duan_unified --version
-python -m cli.duan_unified run examples/hello.duan
+python -m cli.light_unified --version
+python -m cli.light_unified run examples/hello.light
 ```
 
 ### 验证开发环境
@@ -240,10 +240,10 @@ python -m cli.duan_unified run examples/hello.duan
 
 ```bash
 # 查看版本号
-python -m cli.duan_unified --version
+python -m cli.light_unified --version
 
 # 运行 Hello World
-python -m cli.duan_unified run examples/hello.duan
+python -m cli.light_unified run examples/hello.light
 
 # 运行测试套件
 python -m pytest tests/ -q --tb=short
@@ -398,7 +398,7 @@ python -m pytest tests/ --cov=src --cov-report=html
 
 ## 如何贡献翻译
 
-段言项目支持多语言文档，欢迎贡献翻译！
+光明项目支持多语言文档，欢迎贡献翻译！
 
 ### 翻译范围
 
@@ -514,9 +514,9 @@ git push origin feature/你的功能名称
 
 ## 代码规范
 
-### 段言代码规范
+### 光明代码规范
 
-段言代码使用 v6.0 语法，请遵循以下规范：
+光明代码使用 v6.0 语法，请遵循以下规范：
 
 | 项目 | 规范 |
 |------|------|
@@ -531,8 +531,8 @@ git push origin feature/你的功能名称
 示例：
 
 ```光明
-# 推荐的段言代码风格
-设 姓名 为 "段言"
+# 推荐的光明代码风格
+设 姓名 为 "光明"
 
 段落 问候 接收 名字:
   打印("你好，" + 名字 + "！")
@@ -551,7 +551,7 @@ git push origin feature/你的功能名称
 | 变量名 | 中文或英文，小写开头 | `姓名`, `user_name` |
 | 函数名 | 中文或英文，动词开头 | `获取用户`, `calculateSum` |
 | 常量 | 全大写 | `MAX_COUNT`, `π` |
-| 文件名 | 中文或英文，小写 | `主.duan`, `main.duan` |
+| 文件名 | 中文或英文，小写 | `主.light`, `main.light` |
 
 ### 注释规范
 
@@ -575,7 +575,7 @@ git push origin feature/你的功能名称
 
 ### 提交 Issue 的模板
 
-在 [Issues 页面](https://github.com/skywalk163/duan/issues) 点击 **New Issue**，请尽量包含以下信息：
+在 [Issues 页面](https://github.com/skywalk163/light/issues) 点击 **New Issue**，请尽量包含以下信息：
 
 **Bug 报告模板：**
 
@@ -584,7 +584,7 @@ git push origin feature/你的功能名称
 请清晰简洁地描述这个 Bug 是什么。
 
 ## 复现步骤
-1. 执行命令：`duan run xxx.duan`
+1. 执行命令：`light run xxx.light`
 2. 输入：...
 3. 看到错误：...
 
@@ -597,7 +597,7 @@ git push origin feature/你的功能名称
 ## 环境信息
 - 操作系统：Windows 10 / macOS 14 / Ubuntu 22.04
 - Python 版本：3.12
-- 段言版本：v6.2.0
+- 光明版本：v6.2.0
 
 ## 补充信息
 其他你觉得有用的信息。
@@ -620,13 +620,13 @@ git push origin feature/你的功能名称
 
 ## 如何贡献文档
 
-文档是项目的重要组成部分，好的文档能帮助更多人学习和使用段言。
+文档是项目的重要组成部分，好的文档能帮助更多人学习和使用光明。
 
 你可以这样贡献文档：
 
 1. **修正错误** — 发现文档中有错别字、语法错误或过时的内容，直接修改
 2. **补充说明** — 某个功能说明不够详细？补充更多例子和解释
-3. **写教程** — 分享你使用段言的经验，教别人做有趣的事情
+3. **写教程** — 分享你使用光明的经验，教别人做有趣的事情
 4. **翻译文档** — 帮助把中文文档翻译成英文，或把英文文档翻译成中文
 
 文档目录在 `docs/` 下，使用 Markdown 格式编写。
@@ -644,12 +644,12 @@ mkdocs serve
 
 ## 如何贡献示例
 
-想展示段言的某个好用功能？欢迎贡献示例代码！
+想展示光明的某个好用功能？欢迎贡献示例代码！
 
 示例放在 `examples/` 目录下，请遵循以下规则：
 
 1. 每个示例放在独立的子目录中
-2. 主文件命名为 `主.duan`
+2. 主文件命名为 `主.light`
 3. 附带 `README.md` 说明文档
 4. 代码要有中文注释
 5. README 要包含：
@@ -667,9 +667,9 @@ mkdocs serve
 
 | 渠道 | 地址 | 说明 |
 |------|------|------|
-| **GitHub Issues** | https://github.com/skywalk163/duan/issues | 报告 Bug 和提功能建议 |
-| **GitHub Discussions** | https://github.com/skywalk163/duan/discussions | 一般讨论、提问、分享 |
-| **文档站** | https://skywalk163.github.io/duan/ | 查看完整的文档和教程 |
+| **GitHub Issues** | https://github.com/skywalk163/light/issues | 报告 Bug 和提功能建议 |
+| **GitHub Discussions** | https://github.com/skywalk163/light/discussions | 一般讨论、提问、分享 |
+| **文档站** | https://skywalk163.github.io/light/ | 查看完整的文档和教程 |
 | **微信群** | 请关注项目 README 中的二维码 | 实时交流，快速响应 |
 
 ### 交流建议
@@ -683,14 +683,14 @@ mkdocs serve
 
 ## 写在最后
 
-每一份贡献都让段言变得更好，无论你贡献的是代码、文档、测试还是社区讨论，我们都衷心感谢你！
+每一份贡献都让光明变得更好，无论你贡献的是代码、文档、测试还是社区讨论，我们都衷心感谢你！
 
-还记得吗？段言是一门**中文编程语言**，我们的社区也应该是中文开发者最温暖的家。不要因为自己"不够厉害"就不敢参与，每个专家都曾经是新手。勇敢地迈出第一步吧！
+还记得吗？光明是一门**中文编程语言**，我们的社区也应该是中文开发者最温暖的家。不要因为自己"不够厉害"就不敢参与，每个专家都曾经是新手。勇敢地迈出第一步吧！
 
 让我们一起，用中文编程，让编程变得更简单、更有趣！🚀
 
 ---
 
-> **段言项目地址**：https://github.com/skywalk163/duan
-> **文档站**：https://skywalk163.github.io/duan/
+> **光明项目地址**：https://github.com/skywalk163/light
+> **文档站**：https://skywalk163.github.io/light/
 > **许可证**：MIT

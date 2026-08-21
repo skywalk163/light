@@ -21,4 +21,4 @@
 ```
 
 ## 参考答案
-见 [variables_solution.duan](variables_solution.duan)
+见 [variables_solution.light](variables_solution.light)

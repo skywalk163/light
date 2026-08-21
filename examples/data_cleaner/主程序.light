@@ -1,6 +1,6 @@
-# 段言 - 数据清洗工具主程序
+# 光明 - 数据清洗工具主程序
 # 命令行数据清洗工具，支持 CSV/JSON 数据处理
-# 用法: duan run examples/data_cleaner/主程序.duan --input sample_data.csv
+# 用法: light run examples/data_cleaner/主程序.light --input sample_data.csv
 
 导入 文件系统。
 导入 JSON。
@@ -113,9 +113,9 @@
 
 段落 打印帮助信息():
   打印("")。
-  打印("数据清洗工具 - 段言实现的 CSV/JSON 数据处理工具")。
+  打印("数据清洗工具 - 光明实现的 CSV/JSON 数据处理工具")。
   打印("")。
-  打印("用法: duan run 主程序.duan [选项]")。
+  打印("用法: light run 主程序.light [选项]")。
   打印("")。
   打印("选项:")。
   打印("  --input, -i  文件路径     输入文件（支持 .csv 或 .json）")。
@@ -128,17 +128,17 @@
   打印("  --help, -h              显示此帮助信息")。
   打印("")。
   打印("示例:")。
-  打印("  duan run 主程序.duan --input sample_data.csv --output result.json")。
-  打印("  duan run 主程序.duan -i data.csv -o result.md -f markdown")。
-  打印("  duan run 主程序.duan -i data.csv --sort 薪资:降序 --filter 城市 等于 北京")。
-  打印("  duan run 主程序.duan -i data.csv -op 去除空值,去除重复,检测异常")。
+  打印("  light run 主程序.light --input sample_data.csv --output result.json")。
+  打印("  light run 主程序.light -i data.csv -o result.md -f markdown")。
+  打印("  light run 主程序.light -i data.csv --sort 薪资:降序 --filter 城市 等于 北京")。
+  打印("  light run 主程序.light -i data.csv -op 去除空值,去除重复,检测异常")。
   打印("")。
 结束。
 
 # ===== 主程序逻辑 =====
 段落 主程序():
   打印("=" * 60)。
-  打印("  段言数据清洗工具 v1.0")。
+  打印("  光明数据清洗工具 v1.0")。
   打印("=" * 60)。
   设 参数 为 解析命令行参数(sys.argv)。
   如果 参数 等于 空 那么:
@@ -248,7 +248,7 @@
   结束。
   打印("\n[5/5] 生成处理摘要...")。
   设 摘要 为 {
-    "工具": "段言数据清洗工具",
+    "工具": "光明数据清洗工具",
     "版本": "1.0",
     "输入文件": 参数["input"],
     "输出文件": 输出文件,

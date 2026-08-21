@@ -1,19 +1,19 @@
-# 段言 AI 聊天机器人
+# 光明 AI 聊天机器人
 
-一个简单的智能对话机器人示例，使用段言语言编写。
+一个简单的智能对话机器人示例，使用光明语言编写。
 
 ## 功能
 
 - 支持中文命令交互
 - 问候与时间显示
-- 代码翻译（Python ↔ 段言）
+- 代码翻译（Python ↔ 光明）
 - 简单计算器
 - 天气查询（占位）
 
 ## 运行
 
 ```bash
-python -m cli.duan run examples/chat_bot/主.duan
+python -m cli.light run examples/chat_bot/主.light
 ```
 
 ## 命令列表
@@ -21,8 +21,8 @@ python -m cli.duan run examples/chat_bot/主.duan
 | 命令 | 说明 |
 |------|------|
 | 你好 / 打招呼 | 问候 |
-| 翻译 <内容> 到 Python | 翻译段言到 Python |
-| 翻译 <内容> 到 段言 | 翻译 Python 到段言 |
+| 翻译 <内容> 到 Python | 翻译光明到 Python |
+| 翻译 <内容> 到 光明 | 翻译 Python 到光明 |
 | 计算 <表达式> | 计算数学表达式 |
 | 天气 <城市> | 查询天气 |
 | 时间 / 几点了 | 显示当前时间 |

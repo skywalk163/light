@@ -52,7 +52,7 @@ E2E_EXCLUDED = {
     # 上一轮特意收窄的口径，实测会让全仓分词漂移，故不动。
     # 该文件里另一个真缺陷（具名实参 `步长天=1`）已在本单修好（parser_expr.py
     # 的 _collect_single_arg 括号分支补齐 _try_parse_keyword_arg）。
-    'F阶段_标准库增强/F3_段言侧三个增强模块示例.light',
+    'F阶段_标准库增强/F3_光明侧三个增强模块示例.light',
     'modules/main.light',
     'bootstrap_eval.light',
     'bootstrap_lexer.light',

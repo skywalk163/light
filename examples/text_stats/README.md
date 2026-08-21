@@ -8,10 +8,10 @@
 
 ```bash
 # 统计自身文件
-duan run examples/text_stats/主.duan examples/text_stats/主.duan
+light run examples/text_stats/主.light examples/text_stats/主.light
 
 # 统计其他文件
-duan run examples/text_stats/主.duan 你的文件.txt
+light run examples/text_stats/主.light 你的文件.txt
 ```
 
 ## 功能说明
@@ -23,7 +23,7 @@ duan run examples/text_stats/主.duan 你的文件.txt
 
 ## 代码统计
 
-- `主.duan`：约 50 行
+- `主.light`：约 50 行
 
 ## 学习要点
 

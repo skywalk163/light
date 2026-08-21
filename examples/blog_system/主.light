@@ -1,7 +1,7 @@
-# 段言 - 简易博客系统
+# 光明 - 简易博客系统
 # 基于 Web 框架的简易博客，支持文章列表、查看文章、发布文章
 # 使用 JSON 文件作为持久化存储
-# 用法: duan run examples/blog_system/主.duan
+# 用法: light run examples/blog_system/主.light
 
 导入 文件系统。
 导入 JSON。
@@ -77,14 +77,14 @@
 <body>
   <header>
     <div class='container'>
-      <a href='/' style='color:white;text-decoration:none;'><h1>段言博客</h1></a>
-      <p>用段言编程语言构建的简易博客系统</p>
+      <a href='/' style='color:white;text-decoration:none;'><h1>光明博客</h1></a>
+      <p>用光明编程语言构建的简易博客系统</p>
     </div>
   </header>
   <div class='container'>
     {内容}
     <div class='footer'>
-      <p>段言博客 - 基于段言编程语言构建 | 数据存储于 posts.json</p>
+      <p>光明博客 - 基于光明编程语言构建 | 数据存储于 posts.json</p>
     </div>
   </div>
 </body>
@@ -122,7 +122,7 @@
   <input type='text' name='title' placeholder='请输入文章标题' required>
 
   <label>标签（用逗号分隔）</label>
-  <input type='text' name='tags' placeholder='例如: 段言, 教程, 编程'>
+  <input type='text' name='tags' placeholder='例如: 光明, 教程, 编程'>
 
   <label>文章内容</label>
   <textarea name='content' placeholder='请输入文章内容...' required></textarea>
@@ -160,7 +160,7 @@
       <a href='/new' class='btn'>发布第一篇文章</a>
     </div>"
     设 首页内容 为 替换模板(首页模板, "文章列表", 空状态)。
-    设 HTML 为 渲染页面("段言博客 - 首页", 首页内容)。
+    设 HTML 为 渲染页面("光明博客 - 首页", 首页内容)。
     响应.设置HTML(HTML)。
     返回。
 
@@ -188,7 +188,7 @@
     序号 为 序号 - 1。
 
   设 首页内容 为 替换模板(首页模板, "文章列表", 文章卡片列表)。
-  设 HTML 为 渲染页面("段言博客 - 首页", 首页内容)。
+  设 HTML 为 渲染页面("光明博客 - 首页", 首页内容)。
   响应.设置HTML(HTML)。
 
 # 处理文章详情请求
@@ -212,7 +212,7 @@
 
       设 正文 为 替换字符串(文章["content"], "\n", "<br>")。
       文章内容 为 替换模板(文章内容, "正文", 正文)。
-      设 HTML 为 渲染页面(文章["title"] + " - 段言博客", 文章内容)。
+      设 HTML 为 渲染页面(文章["title"] + " - 光明博客", 文章内容)。
       响应.设置HTML(HTML)。
       跳出。
 
@@ -223,7 +223,7 @@
 
 # 处理新建文章页面
 段落 处理新建页面 接收 请求, 响应：
-  设 HTML 为 渲染页面("写新文章 - 段言博客", 新建文章模板)。
+  设 HTML 为 渲染页面("写新文章 - 光明博客", 新建文章模板)。
   响应.设置HTML(HTML)。
 
 # 处理创建文章请求
@@ -277,7 +277,7 @@
 # ===== 启动服务器 =====
 段落 主程序：
   打印("======================================")。
-  打印("  段言博客系统 v1.0")。
+  打印("  光明博客系统 v1.0")。
   打印("======================================")。
   打印("  服务器地址: http://" + 服务器地址 + ":" + 转字符串(服务器端口))。
   打印("  数据存储: " + 数据文件)。

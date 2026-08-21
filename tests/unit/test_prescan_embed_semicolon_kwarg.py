@@ -2,7 +2,7 @@
 """v7 单 28 回归用例（族 2）：五处独立缺陷的平台/版本无关守卫。
 
 对应 examples/E阶段/E4_L4_沙箱隔离验证.light、examples/L3_domain/all_in_one_L3_demo.light、
-examples/F阶段_标准库增强/F3_段言侧三个增强模块示例.light 的打红根因：
+examples/F阶段_标准库增强/F3_光明侧三个增强模块示例.light 的打红根因：
 
 1. 词法预扫描（_scan_user_definitions）是**裸预扫描**，不跳过注释也不跳过字符串。
    `定义` 分支把其后标识符收进 user_definitions，若该集合里混入真关键字，
@@ -15,7 +15,7 @@ examples/F阶段_标准库增强/F3_段言侧三个增强模块示例.light 的�
    修复：吞掉嵌入块时按吞掉内容里的 `\\n` 数量同步前移 line/col。
 
 3. `;`/`；` 作为语句分隔符（同一行写多条语句），文档承诺
-   （docs/段言-完整规范文档.md 语句分隔一节）。此前只有 C 风格 `循环(init;cond;incr)`
+   （docs/光明-完整规范文档.md 语句分隔一节）。此前只有 C 风格 `循环(init;cond;incr)`
    在 `_parse_c_for_loop` 里显式吃掉分号；顶层/段体/花括号体的语句序列循环、
    以及 `打印 a; 打印 b` 这类变参动词的无括号取参循环都不认分号。
    修复：在语句序列循环与取参循环里遇 SEMICOLON 跳过/断开；C 风格循环因先吃

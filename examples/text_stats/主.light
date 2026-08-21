@@ -1,8 +1,8 @@
-# 段言 - 文本统计分析工具
+# 光明 - 文本统计分析工具
 # 功能: 统计文本的字符数、单词数、行数、中文字符数
-# 用法: duan run examples/text_stats/主.duan <文件路径>
+# 用法: light run examples/text_stats/主.light <文件路径>
 # 示例:
-#   duan run examples/text_stats/主.duan 主.duan
+#   light run examples/text_stats/主.light 主.light
 
 导入 sys。
 导入 文件系统。
@@ -30,7 +30,7 @@
 段落 主程序:
   设 参数 为 sys.argv。
   如果 列表长度(参数) 小于 2:
-    打印("用法: duan run examples/text_stats/主.duan <文件路径>")。
+    打印("用法: light run examples/text_stats/主.light <文件路径>")。
     返回。
   设 文件路径 为 参数[1]。
   如果 文件存在(文件路径) 等于 假:

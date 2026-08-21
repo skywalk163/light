@@ -189,14 +189,14 @@ def _generate_hint(message: str, token_value: str = None) -> str:
     
     # T1.3 教程链接提示
     _tutorial_links = {
-        'COLON': '参考教程：30分钟入门段言.md 第3章「条件判断」',
-        'KEYWORD': '参考教程：30分钟入门段言.md 第2章「变量与赋值」',
-        'FUNCTION': '参考教程：30分钟入门段言.md 第6章「函数/段落」',
-        'CLASS': '参考教程：30分钟入门段言.md 第8章「类与对象」',
-        'LPAREN': '参考教程：30分钟入门段言.md 第6章「函数/段落」',
-        'RPAREN': '参考教程：30分钟入门段言.md 第6章「函数/段落」',
-        'INDENT': '参考教程：30分钟入门段言.md 第3章「条件判断」',
-        'DEDENT': '参考教程：30分钟入门段言.md 第3章「条件判断」',
+        'COLON': '参考教程：30分钟入门光明.md 第3章「条件判断」',
+        'KEYWORD': '参考教程：30分钟入门光明.md 第2章「变量与赋值」',
+        'FUNCTION': '参考教程：30分钟入门光明.md 第6章「函数/段落」',
+        'CLASS': '参考教程：30分钟入门光明.md 第8章「类与对象」',
+        'LPAREN': '参考教程：30分钟入门光明.md 第6章「函数/段落」',
+        'RPAREN': '参考教程：30分钟入门光明.md 第6章「函数/段落」',
+        'INDENT': '参考教程：30分钟入门光明.md 第3章「条件判断」',
+        'DEDENT': '参考教程：30分钟入门光明.md 第3章「条件判断」',
     }
     # 如果消息中包含 TokenType 相关信息，追加教程链接
     for tok_type, link in _tutorial_links.items():
@@ -234,13 +234,13 @@ def _generate_hint(message: str, token_value: str = None) -> str:
 def _get_tutorial_link(message: str) -> str:
     """T1.3: 根据错误消息中的 TokenType 返回教程链接"""
     _tutorial_links = {
-        'COLON': '30分钟入门段言.md 第3章「条件判断」',
-        'LPAREN': '30分钟入门段言.md 第6章「函数/段落」',
-        'RPAREN': '30分钟入门段言.md 第6章「函数/段落」',
-        'INDENT': '30分钟入门段言.md 第3章「条件判断」',
-        'DEDENT': '30分钟入门段言.md 第3章「条件判断」',
-        'LBRACKET': '30分钟入门段言.md 第7章「列表与字典」',
-        'RBRACKET': '30分钟入门段言.md 第7章「列表与字典」',
+        'COLON': '30分钟入门光明.md 第3章「条件判断」',
+        'LPAREN': '30分钟入门光明.md 第6章「函数/段落」',
+        'RPAREN': '30分钟入门光明.md 第6章「函数/段落」',
+        'INDENT': '30分钟入门光明.md 第3章「条件判断」',
+        'DEDENT': '30分钟入门光明.md 第3章「条件判断」',
+        'LBRACKET': '30分钟入门光明.md 第7章「列表与字典」',
+        'RBRACKET': '30分钟入门光明.md 第7章「列表与字典」',
     }
     for tok_type, link in _tutorial_links.items():
         if f'TokenType.{tok_type}' in message:
@@ -333,7 +333,7 @@ class LightParserCore:
                 continue
 
             # 分号：同行多语句分隔符（`设 甲 为 1; 设 乙 为 2`）。
-            # 文档明文承诺 `;` 与全角 `；` 等价（docs/段言-完整规范文档.md:345-346、
+            # 文档明文承诺 `;` 与全角 `；` 等价（docs/光明-完整规范文档.md:345-346、
             # :660-664、docs/统一语法规范_v3.1.md:171），此前从未实现。
             # 这里是 parse() 实际走的容错顶层循环，必须与 parser_stmt._parse_module
             # 的严格版同口径，否则两条路径行为分叉。

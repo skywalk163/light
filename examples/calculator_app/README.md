@@ -7,7 +7,7 @@
 ## 运行方式
 
 ```bash
-duan run examples/calculator_app/主.duan + 5
+light run examples/calculator_app/主.light + 5
 ```
 
 ## 功能说明
@@ -20,21 +20,21 @@ duan run examples/calculator_app/主.duan + 5
 
 ```bash
 # 从 0 开始加 5
-duan run examples/calculator_app/主.duan + 5
+light run examples/calculator_app/主.light + 5
 # 输出: 结果: 5
 
 # 从 0 开始乘以 3
-duan run examples/calculator_app/主.duan \* 3
+light run examples/calculator_app/主.light \* 3
 # 输出: 结果: 0
 
 # 从 0 开始加 10
-duan run examples/calculator_app/主.duan + 10
+light run examples/calculator_app/主.light + 10
 # 输出: 结果: 10
 ```
 
 ## 代码统计
 
-- `主.duan`：约 65 行
+- `主.light`：约 65 行
 
 ## 学习要点
 

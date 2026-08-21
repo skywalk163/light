@@ -1,17 +1,17 @@
 # 猜数字游戏
 
-带分数的猜数字交互游戏，适合初学者入门段言编程。
+带分数的猜数字交互游戏，适合初学者入门光明编程。
 
 ## 运行方式
 
 ```bash
-duan run examples/community/guess_number/主.duan
+light run examples/community/guess_number/主.light
 ```
 
 或者直接运行源文件：
 
 ```bash
-duan run examples/games/guess_number.duan
+light run examples/games/guess_number.light
 ```
 
 ## 功能说明
@@ -27,7 +27,7 @@ duan run examples/games/guess_number.duan
 
 | 文件 | 行数（不含注释和空行） |
 |------|----------------------|
-| `主.duan` | 35 行 |
+| `主.light` | 35 行 |
 
 ## 学习要点
 

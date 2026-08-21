@@ -18,13 +18,13 @@
 
 ## 导入方式
 
-```duan
+```light
 导入 JSON
 ```
 
 或
 
-```duan
+```light
 导入 标准JSON
 ```
 

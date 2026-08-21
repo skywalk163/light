@@ -16,13 +16,13 @@
 
 ## 导入方式
 
-```duan
+```light
 导入 YAML
 ```
 
 或
 
-```duan
+```light
 导入 标准YAML
 ```
 

@@ -6,19 +6,19 @@
 
 ```bash
 # 整理当前目录
-duan run examples/cli_tool/file_organizer.duan
+light run examples/cli_tool/file_organizer.light
 
 # 预览模式 - 查看整理结果但不实际移动文件
-duan run examples/cli_tool/file_organizer.duan ./下载 --dry-run
+light run examples/cli_tool/file_organizer.light ./下载 --dry-run
 
 # 使用自定义规则
-duan run examples/cli_tool/file_organizer.duan ./桌面 -c 我的规则.json
+light run examples/cli_tool/file_organizer.light ./桌面 -c 我的规则.json
 
 # 指定输出目录
-duan run examples/cli_tool/file_organizer.duan ./文档 -o ./整理后
+light run examples/cli_tool/file_organizer.light ./文档 -o ./整理后
 
 # 查看帮助
-duan run examples/cli_tool/file_organizer.duan --help
+light run examples/cli_tool/file_organizer.light --help
 ```
 
 ## 功能说明
@@ -36,7 +36,7 @@ duan run examples/cli_tool/file_organizer.duan --help
 
 | 文件 | 行数（不含注释和空行） | 说明 |
 |------|----------------------|------|
-| `file_organizer.duan` | 433 行 | 完整命令行工具，含参数解析、文件操作、进度显示 |
+| `file_organizer.light` | 433 行 | 完整命令行工具，含参数解析、文件操作、进度显示 |
 
 ## 学习要点
 

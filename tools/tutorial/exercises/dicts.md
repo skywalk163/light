@@ -22,4 +22,4 @@
 ```
 
 ## 参考答案
-见 [dicts_solution.duan](dicts_solution.duan)
+见 [dicts_solution.light](dicts_solution.light)

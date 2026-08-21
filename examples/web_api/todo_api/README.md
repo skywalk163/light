@@ -1,6 +1,6 @@
 # 待办事项 RESTful API
 
-使用段言编程语言和内置 Web 框架实现的 RESTful API 服务，提供完整的待办事项 CRUD 操作，支持 JSON 数据格式和 CORS 跨域访问。
+使用光明编程语言和内置 Web 框架实现的 RESTful API 服务，提供完整的待办事项 CRUD 操作，支持 JSON 数据格式和 CORS 跨域访问。
 
 ## 功能
 
@@ -18,7 +18,7 @@
 
 ```bash
 # 启动 API 服务器
-duan run examples/web_api/todo_api/主.duan
+light run examples/web_api/todo_api/主.light
 ```
 
 服务器启动后，可以使用 `curl`、`Postman` 或浏览器访问 API。
@@ -32,7 +32,7 @@ curl http://127.0.0.1:3000/api/todos
 # 创建新待办事项
 curl -X POST http://127.0.0.1:3000/api/todos \
   -H "Content-Type: application/json" \
-  -d '{"title": "学习段言编程", "completed": false}'
+  -d '{"title": "学习光明编程", "completed": false}'
 
 # 获取单个待办事项
 curl http://127.0.0.1:3000/api/todos/1
@@ -40,7 +40,7 @@ curl http://127.0.0.1:3000/api/todos/1
 # 更新待办事项
 curl -X PUT http://127.0.0.1:3000/api/todos/1 \
   -H "Content-Type: application/json" \
-  -d '{"title": "学习段言编程", "completed": true}'
+  -d '{"title": "学习光明编程", "completed": true}'
 
 # 删除待办事项
 curl -X DELETE http://127.0.0.1:3000/api/todos/1
@@ -62,7 +62,7 @@ GET /api/todos
 [
   {
     "id": 1,
-    "title": "学习段言编程",
+    "title": "学习光明编程",
     "completed": false,
     "created_at": "2024-01-01 12:00:00",
     "updated_at": "2024-01-01 12:00:00"

@@ -17,13 +17,13 @@
 
 ## 导入方式
 
-```duan
+```light
 导入 Socket
 ```
 
 或
 
-```duan
+```light
 导入 标准Socket
 ```
 

@@ -1,4 +1,4 @@
-# 从段言到 LLVM —— 段言编译原理与原生编译指南
+# 从光明到 LLVM —— 光明编译原理与原生编译指南
 
 > **版本：** v6.2  
 > **更新日期：** 2026-08-07  
@@ -9,25 +9,25 @@
 
 ## 目录
 
-1. [段言的编译管线](#1-段言的编译管线)
-2. [从段言到 Python 字节码（SRC 后端）](#2-从段言到-python-字节码src-后端)
-3. [从段言到 LLVM IR（Typed 后端）](#3-从段言到-llvm-irtyped-后端)
-4. [段言代码的 LLVM IR 对照速查](#4-段言代码的-llvm-ir-对照速查)
+1. [光明的编译管线](#1-光明的编译管线)
+2. [从光明到 Python 字节码（SRC 后端）](#2-从光明到-python-字节码src-后端)
+3. [从光明到 LLVM IR（Typed 后端）](#3-从光明到-llvm-irtyped-后端)
+4. [光明代码的 LLVM IR 对照速查](#4-光明代码的-llvm-ir-对照速查)
 5. [运行时库与运行时机制](#5-运行时库与运行时机制)
 6. [性能优化策略](#6-性能优化策略)
-7. [实战：编译一个段言程序为独立 EXE](#7-实战编译一个段言程序为独立-exe)
+7. [实战：编译一个光明程序为独立 EXE](#7-实战编译一个光明程序为独立-exe)
 8. [常见问题](#8-常见问题)
 
 ---
 
-## 1. 段言的编译管线
+## 1. 光明的编译管线
 
-段言采用**双后端架构**：开发阶段使用 SRC 后端（编译为 Python 字节码）以获得快速迭代，生产阶段使用 LLVM 后端（编译为原生机器码）以获得极致性能。
+光明采用**双后端架构**：开发阶段使用 SRC 后端（编译为 Python 字节码）以获得快速迭代，生产阶段使用 LLVM 后端（编译为原生机器码）以获得极致性能。
 
 ### 1.1 完整编译流程
 
 ```
-.duan 源文件
+.light 源文件
     │
     ▼
 ┌──────────────────┐
@@ -37,7 +37,7 @@
          │
          ▼
 ┌──────────────────┐
-│    语法分析      │  DuanParser v3 (duan_parser_v3)
+│    语法分析      │  LightParser v3 (light_parser_v3)
 │  AST 构建        │  → v3 AST (抽象语法树)
 └────────┬─────────┘
          │
@@ -80,7 +80,7 @@
 | 组件 | 文件 | 职责 |
 |------|------|------|
 | Lexer | `lexer.py` | 词法分析，将源码切分为 Token 流 |
-| DuanParser v3 | `duan_parser_v3` | 语法分析，构建 v3 AST |
+| LightParser v3 | `light_parser_v3` | 语法分析，构建 v3 AST |
 | AstAdapter | `compiler.py` | 将 v3 AST 适配为统一 AST |
 | SrcCodeGen | `codegen.py` | 生成 Python 字节码（SRC 后端） |
 | TypedLLVMCodeGen | `codegen_typed.py` | 生成 LLVM IR（Typed 后端） |
@@ -90,29 +90,29 @@
 
 ---
 
-## 2. 从段言到 Python 字节码（SRC 后端）
+## 2. 从光明到 Python 字节码（SRC 后端）
 
 ### 2.1 工作原理
 
-SRC 后端将段言源码编译为 Python 字节码（`.pyc`），由 CPython 虚拟机执行。这是段言的默认开发模式。
+SRC 后端将光明源码编译为 Python 字节码（`.pyc`），由 CPython 虚拟机执行。这是光明的默认开发模式。
 
 ### 2.2 编译流程
 
 ```
-段言源码 → 词法分析 → 语法分析 → AST → SrcCodeGen → Python AST → compile() → .pyc → CPython 执行
+光明源码 → 词法分析 → 语法分析 → AST → SrcCodeGen → Python AST → compile() → .pyc → CPython 执行
 ```
 
 ### 2.3 关键特性
 
 - **启动速度**：秒级，无需等待 clang 编译
 - **调试体验**：完整的 Python 回溯栈，可直接使用 Python 调试器
-- **生态桥接**：段言代码可以直接调用 Python 库（numpy、pandas、requests 等）
+- **生态桥接**：光明代码可以直接调用 Python 库（numpy、pandas、requests 等）
 - **性能特征**：受限于 CPython 解释执行，适合开发阶段和性能不敏感的场景
 
 ### 2.4 代码示例
 
 ```光明
-# hello.duan
+# hello.light
 打印 "你好，世界！"
 
 设 名字 为 输入("请输入你的名字：")
@@ -131,32 +131,32 @@ print("你好，" + name)
 
 ```bash
 # 默认使用 SRC 后端
-duan run hello.duan
+light run hello.light
 
 # 显式指定 SRC 后端
-duan run hello.duan --backend src
+light run hello.light --backend src
 
 # 编译为 Python 字节码文件
-duan build hello.duan -o hello.pyc --backend src
+light build hello.light -o hello.pyc --backend src
 ```
 
 ---
 
-## 3. 从段言到 LLVM IR（Typed 后端）
+## 3. 从光明到 LLVM IR（Typed 后端）
 
 ### 3.1 工作原理
 
-Typed 后端是段言 LLVM 编译的主力模式。它将段言源码编译为 LLVM IR，然后通过 clang 编译为目标平台的原生机器码。
+Typed 后端是光明 LLVM 编译的主力模式。它将光明源码编译为 LLVM IR，然后通过 clang 编译为目标平台的原生机器码。
 
 ### 3.2 核心设计
 
-#### 3.2.1 DuanValue 类型系统
+#### 3.2.1 LightValue 类型系统
 
-所有段言值在 LLVM IR 中统一表示为 `DuanValue` 结构体，通过指针传递：
+所有光明值在 LLVM IR 中统一表示为 `LightValue` 结构体，通过指针传递：
 
 ```llvm
 ; LLVM IR 定义（与 C 端布局完全匹配）
-%struct.DuanValue = type {
+%struct.LightValue = type {
     i32,        ; type: 0=NULL 1=INT 2=FLOAT 3=STR 4=LIST 5=BOOL
     i64,        ; i64_val: 整数
     double,     ; f64_val: 浮点数
@@ -170,7 +170,7 @@ Typed 后端是段言 LLVM 编译的主力模式。它将段言源码编译为 L
 
 #### 3.2.2 指针传递调用约定
 
-所有段言函数（段落）和类方法统一使用指针传递：
+所有光明函数（段落）和类方法统一使用指针传递：
 
 ```llvm
 ; 段落函数签名
@@ -190,7 +190,7 @@ define void @_method_类名_方法名(ptr %result, ptr %self, ptr %args, i32 %nu
 
 | 维度 | String 模式（旧版） | Typed 模式（推荐） |
 |------|-------------------|-------------------|
-| 类型存储 | 所有值存为 i8* 字符串 | DuanValue 结构体（原生类型） |
+| 类型存储 | 所有值存为 i8* 字符串 | LightValue 结构体（原生类型） |
 | 算术运算 | atoi → 运算 → itoa | 直接 i64/double 指令 |
 | 性能 | 较差 | 优异（接近 C） |
 | 传递方式 | 值传递 | 指针传递（避免 ABI 不兼容） |
@@ -199,28 +199,28 @@ define void @_method_类名_方法名(ptr %result, ptr %self, ptr %args, i32 %nu
 ### 3.4 编译入口
 
 ```python
-from llvm.compiler import compile_duan_typed
+from llvm.compiler import compile_light_typed
 
 # 编译单文件
-exe_path = compile_duan_typed('hello.duan', verbose=True)
+exe_path = compile_light_typed('hello.light', verbose=True)
 print(f'编译成功: {exe_path}')
 
 # 指定输出路径
-compile_duan_typed('hello.duan', output_path='dist/hello.exe')
+compile_light_typed('hello.light', output_path='dist/hello.exe')
 
 # 设置优化级别
-compile_duan_typed('hello.duan', opt_level='-O2')
+compile_light_typed('hello.light', opt_level='-O2')
 ```
 
 ---
 
-## 4. 段言代码的 LLVM IR 对照速查
+## 4. 光明代码的 LLVM IR 对照速查
 
-本章提供 12 个段言代码片段及其对应的 LLVM IR，帮助理解段言到 LLVM 的编译映射。
+本章提供 12 个光明代码片段及其对应的 LLVM IR，帮助理解光明到 LLVM 的编译映射。
 
 ### 4.1 变量赋值
 
-**段言代码：**
+**光明代码：**
 ```光明
 设 x 为 10
 ```
@@ -228,28 +228,28 @@ compile_duan_typed('hello.duan', opt_level='-O2')
 **LLVM IR：**
 ```llvm
 ; 分配栈空间
-%x_slot = alloca %struct.DuanValue
+%x_slot = alloca %struct.LightValue
 
-; 构造 DuanValue（INT 类型）
-%type_ptr = getelementptr %struct.DuanValue, ptr %x_slot, i32 0, i32 0
+; 构造 LightValue（INT 类型）
+%type_ptr = getelementptr %struct.LightValue, ptr %x_slot, i32 0, i32 0
 store i32 1, ptr %type_ptr          ; type = INT (1)
-%i64_ptr = getelementptr %struct.DuanValue, ptr %x_slot, i32 0, i32 1
+%i64_ptr = getelementptr %struct.LightValue, ptr %x_slot, i32 0, i32 1
 store i64 10, ptr %i64_ptr          ; i64_val = 10
 ```
 
 **类型优化后的 LLVM IR（当编译器知道 x 为 INT 时）：**
 ```llvm
-%x_slot = alloca %struct.DuanValue
-%type_ptr = getelementptr %struct.DuanValue, ptr %x_slot, i32 0, i32 0
+%x_slot = alloca %struct.LightValue
+%type_ptr = getelementptr %struct.LightValue, ptr %x_slot, i32 0, i32 0
 store i32 1, ptr %type_ptr
-%i64_ptr = getelementptr %struct.DuanValue, ptr %x_slot, i32 0, i32 1
+%i64_ptr = getelementptr %struct.LightValue, ptr %x_slot, i32 0, i32 1
 store i64 10, ptr %i64_ptr
 ; 省去了对 dv_int() 运行时函数的调用
 ```
 
 ### 4.2 算术运算
 
-**段言代码：**
+**光明代码：**
 ```光明
 设 结果 为 x 加 y
 ```
@@ -263,28 +263,28 @@ call void @dv_add(ptr %result_slot, ptr %x_slot, ptr %y_slot)
 **LLVM IR（类型优化，已知均为 INT）：**
 ```llvm
 ; 提取 x 的 i64 值
-%x_i64 = extractvalue %struct.DuanValue %x_dv, 1
+%x_i64 = extractvalue %struct.LightValue %x_dv, 1
 ; 提取 y 的 i64 值
-%y_i64 = extractvalue %struct.DuanValue %y_dv, 1
+%y_i64 = extractvalue %struct.LightValue %y_dv, 1
 ; 原生 add 指令
 %sum = add i64 %x_i64, %y_i64
-; 快速构造 DuanValue 结果
-%type_ptr = getelementptr %struct.DuanValue, ptr %result_slot, i32 0, i32 0
+; 快速构造 LightValue 结果
+%type_ptr = getelementptr %struct.LightValue, ptr %result_slot, i32 0, i32 0
 store i32 1, ptr %type_ptr
-%i64_ptr = getelementptr %struct.DuanValue, ptr %result_slot, i32 0, i32 1
+%i64_ptr = getelementptr %struct.LightValue, ptr %result_slot, i32 0, i32 1
 store i64 %sum, ptr %i64_ptr
 ```
 
 **LLVM IR（类型优化，已知均为 FLOAT）：**
 ```llvm
-%x_f64 = extractvalue %struct.DuanValue %x_dv, 2
-%y_f64 = extractvalue %struct.DuanValue %y_dv, 2
+%x_f64 = extractvalue %struct.LightValue %x_dv, 2
+%y_f64 = extractvalue %struct.LightValue %y_dv, 2
 %sum = fadd double %x_f64, %y_f64
 ```
 
 ### 4.3 条件判断
 
-**段言代码：**
+**光明代码：**
 ```光明
 如果 x 大于 0：
     打印 "正数"
@@ -293,7 +293,7 @@ store i64 %sum, ptr %i64_ptr
 **LLVM IR（类型优化，已知 x 为 INT）：**
 ```llvm
 ; 提取 x 的 i64 值
-%x_i64 = extractvalue %struct.DuanValue %x_dv, 1
+%x_i64 = extractvalue %struct.LightValue %x_dv, 1
 ; 与 0 比较
 %cmp = icmp sgt i64 %x_i64, 0
 br i1 %cmp, label %if_then_1, label %if_end_2
@@ -309,17 +309,17 @@ if_end_2:
 
 **未优化时（调用运行时比较函数）：**
 ```llvm
-%cmp_dv = alloca %struct.DuanValue
+%cmp_dv = alloca %struct.LightValue
 call void @dv_gt(ptr %cmp_dv, ptr %x_slot, ptr %zero_slot)
 ; 提取布尔字段
-%bool_val = extractvalue %struct.DuanValue %cmp_dv, 4
+%bool_val = extractvalue %struct.LightValue %cmp_dv, 4
 %i1_val = trunc i32 %bool_val to i1
 br i1 %i1_val, label %if_then_1, label %if_end_2
 ```
 
 ### 4.4 函数调用
 
-**段言代码：**
+**光明代码：**
 ```光明
 打印 "你好，世界！"
 ```
@@ -335,7 +335,7 @@ call void @dv_println(ptr @str_你好世界)
 
 ### 4.5 自定义函数（段落）
 
-**段言代码：**
+**光明代码：**
 ```光明
 段落 加法 接收 a, b：
     返回 a 加 b
@@ -346,8 +346,8 @@ call void @dv_println(ptr @str_你好世界)
 define void @_seg_加法(ptr %result, ptr %args, i32 %num_args) {
 entry:
   ; 获取参数
-  %a_ptr = getelementptr %struct.DuanValue, ptr %args, i32 0
-  %b_ptr = getelementptr %struct.DuanValue, ptr %args, i32 1
+  %a_ptr = getelementptr %struct.LightValue, ptr %args, i32 0
+  %b_ptr = getelementptr %struct.LightValue, ptr %args, i32 1
   
   ; 调用 dv_add
   call void @dv_add(ptr %result, ptr %a_ptr, ptr %b_ptr)
@@ -358,17 +358,17 @@ entry:
 **调用方：**
 ```llvm
 ; 在栈上分配参数数组
-%args = alloca [2 x %struct.DuanValue]
+%args = alloca [2 x %struct.LightValue]
 ; 填充参数
 ; ...
 ; 调用段落
-%result = alloca %struct.DuanValue
+%result = alloca %struct.LightValue
 call void @_seg_加法(ptr %result, ptr %args, i32 2)
 ```
 
 ### 4.6 循环（遍历）
 
-**段言代码：**
+**光明代码：**
 ```光明
 遍历 i 于 范围(1, 11)：
     打印 i
@@ -377,7 +377,7 @@ call void @_seg_加法(ptr %result, ptr %args, i32 2)
 **LLVM IR：**
 ```llvm
 ; 初始化
-%i_slot = alloca %struct.DuanValue
+%i_slot = alloca %struct.LightValue
 %i_i64 = alloca i64
 store i64 1, ptr %i_i64
 br label %loop_cond_1
@@ -388,10 +388,10 @@ loop_cond_1:
   br i1 %done, label %loop_end_3, label %loop_body_2
 
 loop_body_2:
-  ; 构造 DuanValue 用于打印
-  %type_ptr = getelementptr %struct.DuanValue, ptr %i_slot, i32 0, i32 0
+  ; 构造 LightValue 用于打印
+  %type_ptr = getelementptr %struct.LightValue, ptr %i_slot, i32 0, i32 0
   store i32 1, ptr %type_ptr
-  %i64_ptr = getelementptr %struct.DuanValue, ptr %i_slot, i32 0, i32 1
+  %i64_ptr = getelementptr %struct.LightValue, ptr %i_slot, i32 0, i32 1
   store i64 %i_val, ptr %i64_ptr
   call void @dv_println(ptr %i_slot)
   ; i++
@@ -405,7 +405,7 @@ loop_end_3:
 
 ### 4.7 循环（当）
 
-**段言代码：**
+**光明代码：**
 ```光明
 当 条件：
     执行操作
@@ -417,7 +417,7 @@ br label %while_cond_1
 
 while_cond_1:
   ; 评估条件表达式 -> %cond_i1
-  %cond_val = extractvalue %struct.DuanValue %cond_dv, 4
+  %cond_val = extractvalue %struct.LightValue %cond_dv, 4
   %cond_i1 = trunc i32 %cond_val to i1
   br i1 %cond_i1, label %while_body_2, label %while_end_3
 
@@ -432,7 +432,7 @@ while_end_3:
 
 ### 4.8 类与方法
 
-**段言代码：**
+**光明代码：**
 ```光明
 类 动物：
     构造 接收 名字：
@@ -447,7 +447,7 @@ while_end_3:
 ```llvm
 ; 构造方法
 define void @_method_动物_构造(ptr %result, ptr %self, ptr %args, i32 %num_args) {
-  %name_ptr = getelementptr %struct.DuanValue, ptr %args, i32 0
+  %name_ptr = getelementptr %struct.LightValue, ptr %args, i32 0
   call void @dv_class_set_member(ptr %self, ptr @str_名字, ptr %name_ptr)
   ret void
 }
@@ -455,7 +455,7 @@ define void @_method_动物_构造(ptr %result, ptr %self, ptr %args, i32 %num_a
 ; 实例方法
 define void @_method_动物_叫(ptr %result, ptr %self, ptr %args, i32 %num_args) {
   ; 获取 self.名字 并打印
-  %name_val = alloca %struct.DuanValue
+  %name_val = alloca %struct.LightValue
   call void @dv_class_get_member(ptr %name_val, ptr %self, ptr @str_名字)
   call void @dv_println(ptr %name_val)
   ret void
@@ -470,7 +470,7 @@ define void @_method_动物_叫(ptr %result, ptr %self, ptr %args, i32 %num_args
 
 ### 4.9 异常处理
 
-**段言代码：**
+**光明代码：**
 ```光明
 尝试：
     设 结果 为 10 除以 0
@@ -500,7 +500,7 @@ try_body_1:
 catch_dispatch_1:
   ; 获取异常消息
   %exc_str = call ptr @dv_get_exception_str()
-  ; 构造 DuanValue 赋值给 e
+  ; 构造 LightValue 赋值给 e
   ; ...
   call void @dv_try_pop()
   br label %catch_body_1
@@ -516,7 +516,7 @@ finally_1:
 
 ### 4.10 列表操作
 
-**段言代码：**
+**光明代码：**
 ```光明
 设 列表 为 [1, 2, 3]
 列表追加(列表, 4)
@@ -533,14 +533,14 @@ call void @dv_list_append(ptr %list, ptr %elem_3_ptr)
 ; 再追加一个
 call void @dv_list_append(ptr %list, ptr %elem_4_ptr)
 
-; 包装为 DuanValue
+; 包装为 LightValue
 store i32 4, ptr %list_type_ptr    ; type = LIST
 store ptr %list, ptr %list_data_ptr ; list_data
 ```
 
 ### 4.11 异步/协程
 
-**段言代码：**
+**光明代码：**
 ```光明
 异步 段落 获取数据 接收 URL：
     设 响应 为 等待 请求(URL)
@@ -553,7 +553,7 @@ store ptr %list, ptr %list_data_ptr ; list_data
 define void @_coro_获取数据(ptr %result, ptr %coro, ptr %args, i32 %num_args) {
 entry:
   ; 加载恢复点
-  %rp_ptr = getelementptr %struct.DuanCoroutine, ptr %coro, i32 0, i32 1
+  %rp_ptr = getelementptr %struct.LightCoroutine, ptr %coro, i32 0, i32 1
   %rp = load i32, ptr %rp_ptr
   ; Duff's device 状态机
   switch i32 %rp, label %coro_end [
@@ -582,7 +582,7 @@ coro_end:
 ; 包装函数（异步段落）
 define void @_seg_获取数据(ptr %result, ptr %args, i32 %num_args) {
   %coro = call ptr @dv_coro_create(ptr @_coro_获取数据, ptr %args, i32 %num_args, i32 %num_locals)
-  ; 将协程指针存储为 DuanValue
+  ; 将协程指针存储为 LightValue
   store ptr %coro, ptr %result_str_ptr
   ret void
 }
@@ -590,7 +590,7 @@ define void @_seg_获取数据(ptr %result, ptr %args, i32 %num_args) {
 
 ### 4.12 模块导入与导出
 
-**段言代码：**
+**光明代码：**
 ```光明
 # 导出
 导出 阶乘
@@ -623,7 +623,7 @@ call void @_seg__数学工具_阶乘(ptr %result, ptr %args, i32 1)
 
 ### 4.13 布尔运算
 
-**段言代码：**
+**光明代码：**
 ```光明
 如果 x 大于 0 且 x 小于 100：
     打印 "范围内"
@@ -631,7 +631,7 @@ call void @_seg__数学工具_阶乘(ptr %result, ptr %args, i32 1)
 
 **LLVM IR：**
 ```llvm
-%x_i64 = extractvalue %struct.DuanValue %x_dv, 1
+%x_i64 = extractvalue %struct.LightValue %x_dv, 1
 %gt0 = icmp sgt i64 %x_i64, 0
 %lt100 = icmp slt i64 %x_i64, 100
 %and = and i1 %gt0, %lt100
@@ -640,9 +640,9 @@ br i1 %and, label %if_then_1, label %if_end_2
 
 ### 4.14 对照表汇总
 
-| 段言语法 | LLVM IR 模式 | 说明 |
+| 光明语法 | LLVM IR 模式 | 说明 |
 |---------|-------------|------|
-| `设 x 为 10` | `alloca` + `store` | 栈上分配 + 构造 DuanValue |
+| `设 x 为 10` | `alloca` + `store` | 栈上分配 + 构造 LightValue |
 | `x 加 y` | `add` / `fadd` 或 `call @dv_add` | 类型已知时用原生指令 |
 | `x 大于 y` | `icmp` / `fcmp` 或 `call @dv_gt` | 类型已知时用原生比较 |
 | `如果 ...：` | `br i1 %cond` | 条件分支 |
@@ -666,10 +666,10 @@ br i1 %and, label %if_then_1, label %if_end_2
 | `runtime_typed.c` | 类型化运行时库（C 实现） | Typed 后端 |
 | `runtime.c` | String 模式运行时库 | 旧版 String 后端 |
 
-### 5.2 DuanValue 结构体
+### 5.2 LightValue 结构体
 
 ```c
-typedef struct DuanValue {
+typedef struct LightValue {
     int type;              /* 0=NULL 1=INT 2=FLOAT 3=STR 4=LIST 5=BOOL 6=CLASS */
     int64_t i64;           /* INT 类型的值 */
     double f64;            /* FLOAT 类型的值 */
@@ -678,13 +678,13 @@ typedef struct DuanValue {
     /* LIST 类型专用字段 */
     int list_size;         /* 当前元素数量 */
     int list_capacity;     /* 分配的数组容量 */
-    struct DuanValue** list_data; /* 元素指针数组 */
-} DuanValue;
+    struct LightValue** list_data; /* 元素指针数组 */
+} LightValue;
 ```
 
 **类型标记对照：**
 
-| 值 | 常量 | 段言类型 | 有效字段 |
+| 值 | 常量 | 光明类型 | 有效字段 |
 |----|------|---------|---------|
 | 0 | DV_NULL | 空 | — |
 | 1 | DV_INT | 数/整数 | `i64` |
@@ -700,38 +700,38 @@ typedef struct DuanValue {
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| `dv_null` | `void dv_null(DuanValue* result)` | 构造空值 |
-| `dv_int` | `void dv_int(DuanValue* result, int64_t v)` | 构造整数 |
-| `dv_float` | `void dv_float(DuanValue* result, double v)` | 构造浮点数 |
-| `dv_str` | `void dv_str(DuanValue* result, const char* v)` | 构造字符串 |
-| `dv_bool` | `void dv_bool(DuanValue* result, int v)` | 构造布尔值 |
+| `dv_null` | `void dv_null(LightValue* result)` | 构造空值 |
+| `dv_int` | `void dv_int(LightValue* result, int64_t v)` | 构造整数 |
+| `dv_float` | `void dv_float(LightValue* result, double v)` | 构造浮点数 |
+| `dv_str` | `void dv_str(LightValue* result, const char* v)` | 构造字符串 |
+| `dv_bool` | `void dv_bool(LightValue* result, int v)` | 构造布尔值 |
 
 #### 算术运算
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| `dv_add` | `void dv_add(DuanValue* r, DuanValue* a, DuanValue* b)` | 加法 |
-| `dv_sub` | `void dv_sub(DuanValue* r, DuanValue* a, DuanValue* b)` | 减法 |
-| `dv_mul` | `void dv_mul(DuanValue* r, DuanValue* a, DuanValue* b)` | 乘法 |
-| `dv_div` | `void dv_div(DuanValue* r, DuanValue* a, DuanValue* b)` | 除法 |
+| `dv_add` | `void dv_add(LightValue* r, LightValue* a, LightValue* b)` | 加法 |
+| `dv_sub` | `void dv_sub(LightValue* r, LightValue* a, LightValue* b)` | 减法 |
+| `dv_mul` | `void dv_mul(LightValue* r, LightValue* a, LightValue* b)` | 乘法 |
+| `dv_div` | `void dv_div(LightValue* r, LightValue* a, LightValue* b)` | 除法 |
 
 #### 比较运算
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| `dv_eq` | `void dv_eq(DuanValue* r, DuanValue* a, DuanValue* b)` | 等于 |
-| `dv_lt` | `void dv_lt(DuanValue* r, DuanValue* a, DuanValue* b)` | 小于 |
-| `dv_gt` | `void dv_gt(DuanValue* r, DuanValue* a, DuanValue* b)` | 大于 |
-| `dv_le` | `void dv_le(DuanValue* r, DuanValue* a, DuanValue* b)` | 小于等于 |
-| `dv_ge` | `void dv_ge(DuanValue* r, DuanValue* a, DuanValue* b)` | 大于等于 |
+| `dv_eq` | `void dv_eq(LightValue* r, LightValue* a, LightValue* b)` | 等于 |
+| `dv_lt` | `void dv_lt(LightValue* r, LightValue* a, LightValue* b)` | 小于 |
+| `dv_gt` | `void dv_gt(LightValue* r, LightValue* a, LightValue* b)` | 大于 |
+| `dv_le` | `void dv_le(LightValue* r, LightValue* a, LightValue* b)` | 小于等于 |
+| `dv_ge` | `void dv_ge(LightValue* r, LightValue* a, LightValue* b)` | 大于等于 |
 
 #### I/O 操作
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| `dv_print` | `void dv_print(DuanValue* v)` | 打印（不换行） |
-| `dv_println` | `void dv_println(DuanValue* v)` | 打印（换行） |
-| `dv_input` | `void dv_input(DuanValue* r, DuanValue* prompt)` | 读取输入 |
+| `dv_print` | `void dv_print(LightValue* v)` | 打印（不换行） |
+| `dv_println` | `void dv_println(LightValue* v)` | 打印（换行） |
+| `dv_input` | `void dv_input(LightValue* r, LightValue* prompt)` | 读取输入 |
 
 #### 字符串操作
 
@@ -788,11 +788,11 @@ typedef struct DuanValue {
 
 ### 5.4 内存管理机制
 
-段言的运行时库使用 `malloc`/`free` 手动管理内存，没有自动垃圾回收。
+光明的运行时库使用 `malloc`/`free` 手动管理内存，没有自动垃圾回收。
 
 **内存分配策略：**
 
-- **DuanValue 结构体**：通常在 LLVM IR 中通过 `alloca` 在栈上分配
+- **LightValue 结构体**：通常在 LLVM IR 中通过 `alloca` 在栈上分配
 - **字符串数据**：堆分配，通过 `dv_str` 构造时复制
 - **列表数据**：动态数组，自动扩容（初始容量 4，每次扩容翻倍）
 - **协程局部变量**：堆分配，跨 await 点持久化
@@ -810,7 +810,7 @@ alloca（栈上分配，函数返回自动释放）
 
 ### 5.5 异常传播机制
 
-段言的异常处理基于 C 标准库的 `setjmp`/`longjmp` 实现非局部跳转。
+光明的异常处理基于 C 标准库的 `setjmp`/`longjmp` 实现非局部跳转。
 
 **跨平台适配：**
 
@@ -842,24 +842,24 @@ static char __dv_exception_str[1024];
 
 ### 5.6 协程调度机制
 
-段言的协程采用 **Duff's device** 模式，通过在生成的 LLVM IR 中嵌入 `switch(resume_point)` 状态机实现协程的挂起与恢复。
+光明的协程采用 **Duff's device** 模式，通过在生成的 LLVM IR 中嵌入 `switch(resume_point)` 状态机实现协程的挂起与恢复。
 
-**DuanCoroutine 结构体：**
+**LightCoroutine 结构体：**
 
 ```c
-typedef struct DuanCoroutine {
+typedef struct LightCoroutine {
     int state;              // DV_CORO_READY/SUSPENDED/DONE/ERROR
     int resume_point;       // 恢复点（Duff's device 的 case 标签）
-    DuanCoroFunc func;      // 协程函数指针
-    DuanValue result;       // 返回值
-    DuanValue* args;        // 参数数组（堆分配）
+    LightCoroFunc func;      // 协程函数指针
+    LightValue result;       // 返回值
+    LightValue* args;        // 参数数组（堆分配）
     int num_args;           // 参数数量
-    DuanValue* locals;      // 局部变量数组（堆分配，跨 await 持久化）
+    LightValue* locals;      // 局部变量数组（堆分配，跨 await 持久化）
     int num_locals;         // 局部变量数量
-    struct DuanFuture* waiting_for;   // 等待的 Future
-    struct DuanFuture* future;         // 关联的 Future
-    struct DuanCoroutine* next;        // 调度器链表指针
-} DuanCoroutine;
+    struct LightFuture* waiting_for;   // 等待的 Future
+    struct LightFuture* future;         // 关联的 Future
+    struct LightCoroutine* next;        // 调度器链表指针
+} LightCoroutine;
 ```
 
 **调度器模型：**
@@ -882,7 +882,7 @@ Future 完成 → 批量唤醒所有等待协程 → 放回可运行队列
 
 ### 6.1 编译器优化级别
 
-段言 LLVM 后端支持多级优化，通过 clang 编译时传递优化标志：
+光明 LLVM 后端支持多级优化，通过 clang 编译时传递优化标志：
 
 | 级别 | 标志 | 说明 | 适用场景 |
 |------|------|------|---------|
@@ -895,24 +895,24 @@ Future 完成 → 批量唤醒所有等待协程 → 放回可运行队列
 
 ```bash
 # 默认使用 -O2
-duan build hello.duan -o hello.exe
+light build hello.light -o hello.exe
 
 # 指定优化级别
-duan build hello.duan -o hello.exe --opt -O3
+light build hello.light -o hello.exe --opt -O3
 
 # 调试模式，无优化
-duan build hello.duan -o hello_debug.exe --opt -O0
+light build hello.light -o hello_debug.exe --opt -O0
 ```
 
 ### 6.2 类型信息优化（Level 8）
 
-这是段言编译器中最重要的优化手段。当编译器能确定操作数的类型时，直接使用 LLVM 原生指令替代运行时函数调用，消除函数调用开销和类型分派开销。
+这是光明编译器中最重要的优化手段。当编译器能确定操作数的类型时，直接使用 LLVM 原生指令替代运行时函数调用，消除函数调用开销和类型分派开销。
 
 **优化效果对比：**
 
 | 操作 | 未优化 | 类型优化后 |
 |------|--------|-----------|
-| `x 加 y`（INT） | `call @dv_add` → 类型检查 → 提取值 → 运算 → 包装结果 | `add i64` → 直接构造 DuanValue |
+| `x 加 y`（INT） | `call @dv_add` → 类型检查 → 提取值 → 运算 → 包装结果 | `add i64` → 直接构造 LightValue |
 | `x 大于 0`（INT） | `call @dv_gt` → 类型分派 → 比较 | `icmp sgt i64` |
 | `如果 x：`（BOOL） | `call @dv_eq` → 判断是否为空 | `extractvalue → trunc to i1` |
 
@@ -943,17 +943,17 @@ self._var_types: Dict[str, int] = {
 
 ### 6.3 增量编译
 
-段言支持增量编译，缓存已编译的模块，避免重复编译：
+光明支持增量编译，缓存已编译的模块，避免重复编译：
 
 ```
-编译 hello.duan（依赖 math.duan、io.duan）
+编译 hello.light（依赖 math.light、io.light）
     │
-    ├── math.duan → 编译为 math.ll → 缓存
-    ├── io.duan   → 编译为 io.ll   → 缓存
-    └── hello.duan → 编译为 hello.ll
+    ├── math.light → 编译为 math.ll → 缓存
+    ├── io.light   → 编译为 io.ll   → 缓存
+    └── hello.light → 编译为 hello.ll
         │
-        如果 math.duan 未修改 → 直接使用缓存的 math.ll
-        如果 math.duan 已修改 → 重新编译并更新缓存
+        如果 math.light 未修改 → 直接使用缓存的 math.ll
+        如果 math.light 已修改 → 重新编译并更新缓存
 ```
 
 ### 6.4 缓存系统
@@ -962,7 +962,7 @@ self._var_types: Dict[str, int] = {
 
 - **缓存键**：源文件内容哈希（SHA256）
 - **缓存内容**：编译生成的 LLVM IR（`.ll` 文件）
-- **缓存位置**：`.duan_cache/` 目录
+- **缓存位置**：`.light_cache/` 目录
 - **失效条件**：源文件内容变化、依赖模块变化
 
 ### 6.5 链接时优化（LTO）
@@ -971,7 +971,7 @@ LTO 允许 LLVM 在链接阶段对整个程序进行跨模块优化：
 
 ```bash
 # 启用 LTO
-duan build hello.duan -o hello.exe --opt -flto
+light build hello.light -o hello.exe --opt -flto
 
 # LTO 的优势：
 # - 跨模块函数内联
@@ -982,23 +982,23 @@ duan build hello.duan -o hello.exe --opt -flto
 
 ### 6.6 交叉编译
 
-段言支持为目标平台编译原生可执行文件：
+光明支持为目标平台编译原生可执行文件：
 
 ```bash
 # 为 Linux x64 编译（在 Windows 上）
-duan build hello.duan -o hello_linux --target linux
+light build hello.light -o hello_linux --target linux
 
 # 为 macOS x64 编译
-duan build hello.duan -o hello_macos --target darwin
+light build hello.light -o hello_macos --target darwin
 
 # 指定目标架构
-duan build hello.duan -o hello_arm64 --target linux --arch arm64
+light build hello.light -o hello_arm64 --target linux --arch arm64
 ```
 
 **交叉编译原理：**
 
 ```
-段言源码 → LLVM IR（平台无关）
+光明源码 → LLVM IR（平台无关）
     → 使用目标平台的 clang 交叉编译器
     → 链接目标平台的运行时库
     → 生成目标平台的可执行文件
@@ -1019,23 +1019,23 @@ duan build hello.duan -o hello_arm64 --target linux --arch arm64
 
 ---
 
-## 7. 实战：编译一个段言程序为独立 EXE
+## 7. 实战：编译一个光明程序为独立 EXE
 
 ### 7.1 最简单的示例
 
 **创建源码：**
 ```光明
-# hello.duan
+# hello.light
 打印 "你好，世界！"
 ```
 
 **编译为独立 EXE：**
 ```bash
 # 使用默认配置（LLVM 后端）
-duan build hello.duan -o hello.exe
+light build hello.light -o hello.exe
 
 # 或显式指定 LLVM 后端
-duan build hello.duan -o hello --backend llvm
+light build hello.light -o hello --backend llvm
 
 # 运行
 ./hello.exe
@@ -1047,13 +1047,13 @@ duan build hello.duan -o hello --backend llvm
 **项目结构：**
 ```
 my_project/
-├── main.duan
-├── math_tools.duan
-├── io_utils.duan
+├── main.light
+├── math_tools.light
+├── io_utils.light
 └── package.toml
 ```
 
-**main.duan：**
+**main.light：**
 ```光明
 从 math_tools 导入 阶乘
 从 io_utils 导入 提示输入
@@ -1067,7 +1067,7 @@ my_project/
 主程序()
 ```
 
-**math_tools.duan：**
+**math_tools.light：**
 ```光明
 导出 阶乘
 
@@ -1077,7 +1077,7 @@ my_project/
     返回 n 乘 阶乘(n 减 1)
 ```
 
-**io_utils.duan：**
+**io_utils.light：**
 ```光明
 导出 提示输入
 
@@ -1089,13 +1089,13 @@ my_project/
 **编译步骤：**
 ```bash
 # 方式一：直接编译主文件（自动解析依赖）
-duan build main.duan -o my_app.exe
+light build main.light -o my_app.exe
 
 # 方式二：使用包管理器编译
-duan build --package my_project -o my_app.exe
+light build --package my_project -o my_app.exe
 
 # 方式三：分步编译（用于调试）
-duan build main.duan -o main.ll --backend llvm --emit-ir
+light build main.light -o main.ll --backend llvm --emit-ir
 clang -O2 main.ll runtime_typed.c -o my_app.exe
 ```
 
@@ -1103,7 +1103,7 @@ clang -O2 main.ll runtime_typed.c -o my_app.exe
 
 ```
 1. 源码准备阶段
-   ├── 编写 .duan 源文件
+   ├── 编写 .light 源文件
    ├── 配置 package.toml（可选）
    └── 确保运行时库在搜索路径中
 
@@ -1129,7 +1129,7 @@ clang -O2 main.ll runtime_typed.c -o my_app.exe
 
 ```bash
 # 只生成 LLVM IR，不编译为可执行文件
-duan build hello.duan -o hello.ll --backend llvm --emit-ir
+light build hello.light -o hello.ll --backend llvm --emit-ir
 
 # 查看生成的 IR
 cat hello.ll
@@ -1139,10 +1139,10 @@ cat hello.ll
 
 ```bash
 # 输出详细编译日志
-duan build hello.duan -o hello.exe --verbose
+light build hello.light -o hello.exe --verbose
 
 # 保留中间文件
-duan build hello.duan -o hello.exe --keep-temps
+light build hello.light -o hello.exe --keep-temps
 
 # 生成的中间文件：
 #   hello.ll    - LLVM IR
@@ -1154,13 +1154,13 @@ duan build hello.duan -o hello.exe --keep-temps
 
 ```bash
 # 最终发布命令
-duan build hello.duan -o dist/hello.exe ^
+light build hello.light -o dist/hello.exe ^
     --backend llvm ^
     --opt -O2 ^
     --verbose
 
 # 分发时只需 hello.exe 文件
-# 目标机器无需安装段言或 Python
+# 目标机器无需安装光明或 Python
 ```
 
 ---
@@ -1181,9 +1181,9 @@ duan build hello.duan -o dist/hello.exe ^
 设置运行时库路径：
 ```bash
 # 设置环境变量
-set DUAN_RUNTIME_DIR=C:\path\to\duan\runtime
+set LIGHT_RUNTIME_DIR=C:\path\to\light\runtime
 # 或在编译时指定
-duan build hello.duan -o hello.exe --runtime-dir ./runtime
+light build hello.light -o hello.exe --runtime-dir ./runtime
 ```
 
 ### 8.2 运行时错误
@@ -1191,14 +1191,14 @@ duan build hello.duan -o hello.exe --runtime-dir ./runtime
 **Q: 运行时 Segmentation Fault**
 
 可能原因：
-1. DuanValue 结构体布局不匹配（LLVM IR 端与 C 端的定义不一致）
+1. LightValue 结构体布局不匹配（LLVM IR 端与 C 端的定义不一致）
 2. 指针传递时使用了已释放的栈地址
 3. 列表操作越界
 
 **排查方法：**
 ```bash
 # 使用 AddressSanitizer 编译
-duan build hello.duan -o hello.exe --opt -fsanitize=address
+light build hello.light -o hello.exe --opt -fsanitize=address
 
 # 运行时会显示内存错误位置
 ```
@@ -1231,7 +1231,7 @@ duan build hello.duan -o hello.exe --opt -fsanitize=address
 **Q: 在 Windows 上编译的 EXE 能在 Linux 上运行吗？**
 
 不能直接运行。需要：
-- 使用交叉编译：`duan build hello.duan --target linux`
+- 使用交叉编译：`light build hello.light --target linux`
 - 或在目标平台重新编译
 
 **Q: macOS 支持情况**
@@ -1246,17 +1246,17 @@ macOS 支持正在开发中。当前已知问题：
 **Q: 如何查看编译生成的 LLVM IR？**
 
 ```bash
-duan build hello.duan -o hello.ll --backend llvm --emit-ir
+light build hello.light -o hello.ll --backend llvm --emit-ir
 ```
 
-**Q: 如何调试段言程序？**
+**Q: 如何调试光明程序？**
 
 ```bash
 # 开发阶段使用 SRC 后端（可获取 Python 回溯）
-duan run hello.duan --backend src
+light run hello.light --backend src
 
 # 生产阶段使用 LLVM 后端 + 调试信息
-duan build hello.duan -o hello.exe --opt -g
+light build hello.light -o hello.exe --opt -g
 # 然后使用 gdb/lldb 调试
 gdb hello.exe
 ```
@@ -1265,8 +1265,8 @@ gdb hello.exe
 
 ```bash
 # 设置日志级别
-set DUAN_LOG_LEVEL=DEBUG
-duan build hello.duan -o hello.exe --verbose
+set LIGHT_LOG_LEVEL=DEBUG
+light build hello.light -o hello.exe --verbose
 ```
 
 ---
@@ -1280,7 +1280,7 @@ duan build hello.duan -o hello.exe --verbose
 | `src/llvm/codegen_typed.py` | Typed 后端代码生成器 |
 | `src/llvm/compiler.py` | 编译入口 |
 | `src/llvm/lexer.py` | 词法分析器 |
-| `src/llvm/duan_parser_v3.py` | 语法分析器 |
+| `src/llvm/light_parser_v3.py` | 语法分析器 |
 | `runtime/runtime_typed.c` | 类型化运行时库 |
 | `src/llvm/llvm_backend_design.md` | LLVM 后端设计文档 |
 
@@ -1288,11 +1288,11 @@ duan build hello.duan -o hello.exe --verbose
 
 - [LLVM Language Reference](https://llvm.org/docs/LangRef.html) — LLVM IR 语言参考
 - [LLVM Programmer's Manual](https://llvm.org/docs/ProgrammersManual.html) — LLVM 编程手册
-- [段言设计哲学与定位](设计哲学与定位.md) — 段言整体架构设计
-- [LLVM 后端设计文档](llvm_backend_design.md) — 段言 LLVM 后端详细设计
+- [光明设计哲学与定位](设计哲学与定位.md) — 光明整体架构设计
+- [LLVM 后端设计文档](llvm_backend_design.md) — 光明 LLVM 后端详细设计
 
 ---
 
-> **项目地址：** [https://github.com/skywalk163/duan](https://github.com/skywalk163/duan)  
+> **项目地址：** [https://github.com/skywalk163/light](https://github.com/skywalk163/light)  
 > **文档索引：** [index.md](index.md)  
 > **许可证：** MIT

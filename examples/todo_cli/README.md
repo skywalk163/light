@@ -1,6 +1,6 @@
 # CLI 待办事项管理器
 
-用段言语言编写的命令行待办事项管理工具，演示完整的 CRUD 操作、JSON 文件持久化存储和命令行参数解析。
+用光明语言编写的命令行待办事项管理工具，演示完整的 CRUD 操作、JSON 文件持久化存储和命令行参数解析。
 
 ## 功能
 
@@ -17,18 +17,18 @@
 
 ```bash
 cd examples/todo_cli
-duan run 主.duan help
-duan run 主.duan add "学习段言编程语言"
-duan run 主.duan add "完成示例项目"
-duan run 主.duan list
-duan run 主.duan complete 1
-duan run 主.duan edit 2 "完成所有示例项目"
-duan run 主.duan search 示例
-duan run 主.duan delete 2
+light run 主.light help
+light run 主.light add "学习光明编程语言"
+light run 主.light add "完成示例项目"
+light run 主.light list
+light run 主.light complete 1
+light run 主.light edit 2 "完成所有示例项目"
+light run 主.light search 示例
+light run 主.light delete 2
 ```
 
 ## 项目结构
 
-- `主.duan` — 主程序入口，包含所有功能实现
+- `主.light` — 主程序入口，包含所有功能实现
 - `todos.json` — 自动生成的数据存储文件
 - `README.md` — 项目说明文档

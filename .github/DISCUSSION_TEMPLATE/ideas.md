@@ -1,6 +1,6 @@
 ---
 name: 功能建议
-about: 为段言提出新的功能建议或改进想法
+about: 为光明提出新的功能建议或改进想法
 title: '[建议] '
 labels: ideas
 assignees: ''
@@ -50,6 +50,6 @@ assignees: ''
 
 ### 建议指南
 
-- 建议前请搜索 [已有讨论](https://github.com/skywalk163/duan/discussions)，避免重复
+- 建议前请搜索 [已有讨论](https://github.com/skywalk163/light/discussions)，避免重复
 - 建议越具体越好，最好包含使用示例
 - 欢迎参与实现！如果您有兴趣贡献代码，请在建议中说明

@@ -17,12 +17,12 @@
 
 ## 导入方式
 
-```duan
+```light
 导入 SQLite
 ```
 
 或
 
-```duan
+```light
 导入 标准SQLite
 ```

@@ -2,10 +2,10 @@
 导入 网络
 
 段落 处理首页 接收 请求：
-  返回 "<html><body><h1>你好，段言 Web！</h1></body></html>"
+  返回 "<html><body><h1>你好，光明 Web！</h1></body></html>"
 
 段落 处理关于 接收 请求：
-  返回 "<html><body><h1>关于页面</h1><p>这是一个段言 Web 应用。</p></body></html>"
+  返回 "<html><body><h1>关于页面</h1><p>这是一个光明 Web 应用。</p></body></html>"
 
 段落 主程序：
   打印("启动 Web 服务器...")

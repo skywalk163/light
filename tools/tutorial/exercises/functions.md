@@ -18,4 +18,4 @@
 ```
 
 ## 参考答案
-见 [functions_solution.duan](functions_solution.duan)
+见 [functions_solution.light](functions_solution.light)

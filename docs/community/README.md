@@ -1,9 +1,9 @@
-# 段言社区
+# 光明社区
 
 > **最后更新：** 2026-08-07
 > **当前版本：** v6.0.0
 
-欢迎来到段言（Duan）编程语言社区！段言是一门基于中文的现代化编程语言，采用中文关键字，让编程更加直观易懂。
+欢迎来到光明（Light）编程语言社区！光明是一门基于中文的现代化编程语言，采用中文关键字，让编程更加直观易懂。
 
 ---
 
@@ -11,35 +11,35 @@
 
 ### 💬 GitHub Discussions
 
-GitHub Discussions 是段言社区的主要交流平台，支持分类讨论：
+GitHub Discussions 是光明社区的主要交流平台，支持分类讨论：
 
 | 分类 | 说明 | 链接 |
 |------|------|------|
-| 💡 **一般讨论** | 发起关于段言的一般性讨论、想法交流或社区互动 | [进入](https://github.com/skywalk163/duan/discussions/categories/general) |
-| ❓ **问题求助** | 在使用段言过程中遇到问题，寻求社区帮助 | [进入](https://github.com/skywalk163/duan/discussions/categories/help) |
-| 🚀 **功能建议** | 为段言提出新的功能建议或改进想法 | [进入](https://github.com/skywalk163/duan/discussions/categories/ideas) |
-| 🎨 **展示分享** | 分享您用段言构建的项目、工具或创意作品 | [进入](https://github.com/skywalk163/duan/discussions/categories/showcase) |
+| 💡 **一般讨论** | 发起关于光明的一般性讨论、想法交流或社区互动 | [进入](https://github.com/skywalk163/light/discussions/categories/general) |
+| ❓ **问题求助** | 在使用光明过程中遇到问题，寻求社区帮助 | [进入](https://github.com/skywalk163/light/discussions/categories/help) |
+| 🚀 **功能建议** | 为光明提出新的功能建议或改进想法 | [进入](https://github.com/skywalk163/light/discussions/categories/ideas) |
+| 🎨 **展示分享** | 分享您用光明构建的项目、工具或创意作品 | [进入](https://github.com/skywalk163/light/discussions/categories/showcase) |
 
 ### 🐛 GitHub Issues
 
 用于报告 Bug 和跟踪开发任务：
 
-- [提交 Bug 报告](https://github.com/skywalk163/duan/issues/new?template=bug_report.md)
-- [提交功能请求](https://github.com/skywalk163/duan/issues/new?template=feature_request.md)
-- [查看所有 Issue](https://github.com/skywalk163/duan/issues)
+- [提交 Bug 报告](https://github.com/skywalk163/light/issues/new?template=bug_report.md)
+- [提交功能请求](https://github.com/skywalk163/light/issues/new?template=feature_request.md)
+- [查看所有 Issue](https://github.com/skywalk163/light/issues)
 
 ### 📖 文档站
 
-段言官方文档站，包含完整的语言参考、标准库文档和教程：
+光明官方文档站，包含完整的语言参考、标准库文档和教程：
 
-- **地址**：[https://skywalk163.github.io/duan/](https://skywalk163.github.io/duan/)
+- **地址**：[https://skywalk163.github.io/light/](https://skywalk163.github.io/light/)
 - **内容**：入门指南、语法规范、API 参考、教程、博客
 
 ### ⭐ GitHub 仓库
 
-段言是完全开源的项目，欢迎 Star 和 Fork：
+光明是完全开源的项目，欢迎 Star 和 Fork：
 
-- **仓库地址**：[https://github.com/skywalk163/duan](https://github.com/skywalk163/duan)
+- **仓库地址**：[https://github.com/skywalk163/light](https://github.com/skywalk163/light)
 - **许可证**：MIT
 
 ---
@@ -51,7 +51,7 @@ GitHub Discussions 是段言社区的主要交流平台，支持分类讨论：
 在社区提问时，请遵循以下原则：
 
 1. **先搜索**：提问前先搜索已有讨论和 Issue，避免重复提问
-2. **提供完整信息**：包括操作系统、Python 版本、段言版本、错误信息等
+2. **提供完整信息**：包括操作系统、Python 版本、光明版本、错误信息等
 3. **提供可复现的代码**：附上最小可复现示例
 4. **描述尝试过的方案**：说明你已经尝试过哪些解决方法
 5. **友善礼貌**：保持友善和尊重的沟通方式
@@ -71,7 +71,7 @@ GitHub Discussions 是段言社区的主要交流平台，支持分类讨论：
 1. **文档改进**：修正错别字、改进示例代码、完善文档内容
 2. **Bug 报告**：在使用过程中发现 Bug 并提交 Issue
 3. **简单修复**：查找标注 `good first issue` 标签的 Issue
-4. **示例代码**：用段言编写有趣的示例程序
+4. **示例代码**：用光明编写有趣的示例程序
 5. **社区答疑**：在 Discussions 中回答其他成员的问题
 
 ---
@@ -82,7 +82,7 @@ GitHub Discussions 是段言社区的主要交流平台，支持分类讨论：
 
 | 文档 | 说明 |
 |------|------|
-| [快速开始](../getting-started.md) | 安装和运行段言 |
+| [快速开始](../getting-started.md) | 安装和运行光明 |
 | [语法规范](../syntax.md) | 完整语法参考 |
 | [标准库](../stdlib.md) | 内置模块说明 |
 | [工具链](../tools.md) | CLI、LSP、调试器、AI Copilot |
@@ -91,12 +91,12 @@ GitHub Discussions 是段言社区的主要交流平台，支持分类讨论：
 
 ### 技术博客
 
-- [段言 v6.0 正式发布——中文编程语言的新里程碑](../blog/段言v6.0正式发布.md)
-- [用段言构建 Web 应用——从零到一的实战指南](../blog/用段言构建Web应用.md)
-- [段言编译器架构解析——自举编译器的实现之路](../blog/段言自举编译器架构解析.md)
-- [段言入门指南：用中文自然语言编程](../blog/段言入门指南.md)
-- [段言编译器架构解析：从中文到机器码的完整旅程](../blog/段言编译器架构解析.md)
-- [中文编程语言的未来：段言的设计哲学与愿景](../blog/中文编程语言的未来.md)
+- [光明 v6.0 正式发布——中文编程语言的新里程碑](../blog/光明v6.0正式发布.md)
+- [用光明构建 Web 应用——从零到一的实战指南](../blog/用光明构建Web应用.md)
+- [光明编译器架构解析——自举编译器的实现之路](../blog/光明自举编译器架构解析.md)
+- [光明入门指南：用中文自然语言编程](../blog/光明入门指南.md)
+- [光明编译器架构解析：从中文到机器码的完整旅程](../blog/光明编译器架构解析.md)
+- [中文编程语言的未来：光明的设计哲学与愿景](../blog/中文编程语言的未来.md)
 
 ### 示例项目
 
@@ -131,7 +131,7 @@ GitHub Discussions 是段言社区的主要交流平台，支持分类讨论：
 
 ## 社区行为准则
 
-段言社区遵循以下行为准则：
+光明社区遵循以下行为准则：
 
 - **尊重他人**：尊重所有社区成员，无论其技术水平、背景和经验
 - **包容开放**：欢迎所有水平的开发者，从新手到专家
@@ -143,17 +143,17 @@ GitHub Discussions 是段言社区的主要交流平台，支持分类讨论：
 
 ## 加入我们
 
-段言社区正在成长中，我们期待你的加入！
+光明社区正在成长中，我们期待你的加入！
 
-- ⭐ **Star 项目**：[github.com/skywalk163/duan](https://github.com/skywalk163/duan)
-- 🐛 **报告 Bug**：[新建 Issue](https://github.com/skywalk163/duan/issues/new)
-- 💬 **参与讨论**：[GitHub Discussions](https://github.com/skywalk163/duan/discussions)
-- 🔧 **贡献代码**：[Fork 项目](https://github.com/skywalk163/duan/fork)
+- ⭐ **Star 项目**：[github.com/skywalk163/light](https://github.com/skywalk163/light)
+- 🐛 **报告 Bug**：[新建 Issue](https://github.com/skywalk163/light/issues/new)
+- 💬 **参与讨论**：[GitHub Discussions](https://github.com/skywalk163/light/discussions)
+- 🔧 **贡献代码**：[Fork 项目](https://github.com/skywalk163/light/fork)
 - 📖 **完善文档**：帮助改进文档和教程
 - 🌐 **翻译**：帮助翻译文档到其他语言
 
 ---
 
-> 段言项目地址：[https://github.com/skywalk163/duan](https://github.com/skywalk163/duan)
-> 文档站：[https://skywalk163.github.io/duan/](https://skywalk163.github.io/duan/)
+> 光明项目地址：[https://github.com/skywalk163/light](https://github.com/skywalk163/light)
+> 文档站：[https://skywalk163.github.io/light/](https://skywalk163.github.io/light/)
 > 许可证：MIT

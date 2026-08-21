@@ -1,7 +1,7 @@
-# 段言 - 中文网页爬虫
+# 光明 - 中文网页爬虫
 # 功能: 使用 HTTP 请求获取网页内容，提取中文文本，生成站点地图
-# 用法: duan run examples/web_crawler/主.duan <URL> [深度]
-# 示例: duan run examples/web_crawler/主.duan "https://example.com" 2
+# 用法: light run examples/web_crawler/主.light <URL> [深度]
+# 示例: light run examples/web_crawler/主.light "https://example.com" 2
 
 导入 文件系统。
 导入 JSON。
@@ -10,7 +10,7 @@
 # ===== 配置 =====
 设 默认深度 为 1。
 设 请求超时 为 10。
-设 用户代理 为 "DuanLang-Crawler/1.0"。
+设 用户代理 为 "Light-Crawler/1.0"。
 
 # ===== 全局状态 =====
 设 已访问链接 为 []。
@@ -227,17 +227,17 @@
 # 显示帮助
 段落 显示帮助:
   打印("")。
-  打印("段言中文网页爬虫 - 使用方法:")。
+  打印("光明中文网页爬虫 - 使用方法:")。
   打印("")。
-  打印("  duan run examples/web_crawler/主.duan <URL> [深度]")。
+  打印("  light run examples/web_crawler/主.light <URL> [深度]")。
   打印("")。
   打印("参数:")。
   打印("  URL       起始抓取地址（必填）")。
   打印("  深度      递归抓取深度（可选，默认 " + 转字符串(默认深度) + "）")。
   打印("")。
   打印("示例:")。
-  打印("  duan run examples/web_crawler/主.duan https://example.com")。
-  打印("  duan run examples/web_crawler/主.duan https://example.com 2")。
+  打印("  light run examples/web_crawler/主.light https://example.com")。
+  打印("  light run examples/web_crawler/主.light https://example.com 2")。
   打印("")。
 
 # ===== 主程序 =====
@@ -257,7 +257,7 @@
     打印("错误: 无效的 URL - " + 起始URL)。
     返回。
   打印("=" * 60)。
-  打印("  段言中文网页爬虫 v1.0")。
+  打印("  光明中文网页爬虫 v1.0")。
   打印("=" * 60)。
   打印("起始 URL: " + 起始URL)。
   打印("目标域名: " + 目标域名)。

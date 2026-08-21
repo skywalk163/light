@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>段言积木库 · 演示画廊</title>
+<title>光明积木库 · 演示画廊</title>
 <style>
   :root{
     --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --line:#2a2f3a;
@@ -74,8 +74,8 @@
 </head>
 <body>
 <header>
-  <h1>段言积木库 · Web / API 演示<span class="tag">零外部依赖 · 真实引擎</span></h1>
-  <p>输入自然语言需求 → 引擎选块 → 契约接线 → 内联粘合出 <code>.duan</code> → 真实运行。后端为 Python 标准库 <code>http.server</code>，直接调用 <code>组合.py</code>。</p>
+  <h1>光明积木库 · Web / API 演示<span class="tag">零外部依赖 · 真实引擎</span></h1>
+  <p>输入自然语言需求 → 引擎选块 → 契约接线 → 内联粘合出 <code>.light</code> → 真实运行。后端为 Python 标准库 <code>http.server</code>，直接调用 <code>组合.py</code>。</p>
 </header>
 
 <div class="wrap">
@@ -89,7 +89,7 @@
         <input id="need" type="text" placeholder="例如：求和 / 计算方差 / 列表去重" value="求和">
       </div>
       <div style="width:260px">
-        <label class="f">共享输入（段言表达式）</label>
+        <label class="f">共享输入（光明表达式）</label>
         <input id="input" type="text" value="[1,2,3,4,5,6,7,8,9,10]">
       </div>
     </div>
@@ -117,11 +117,11 @@
           <div id="blocks" class="blocks"></div>
         </div>
         <div>
-          <label class="f">运行输出（duan run 真实 stdout）</label>
+          <label class="f">运行输出（light run 真实 stdout）</label>
           <pre class="out" id="stdout"></pre>
         </div>
       </div>
-      <label class="f" style="margin-top:14px">组合出的方案源码（.duan · 内联粘合）</label>
+      <label class="f" style="margin-top:14px">组合出的方案源码（.light · 内联粘合）</label>
       <pre id="src"></pre>
       <details>
         <summary>引擎决策日志 / 运行错误</summary>

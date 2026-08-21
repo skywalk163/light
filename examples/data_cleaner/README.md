@@ -1,6 +1,6 @@
-# 段言数据清洗工具
+# 光明数据清洗工具
 
-一个用段言（DuanLang）编写的实用数据清洗与处理工具，支持 CSV/JSON 数据的清洗、分析和格式转换。
+一个用光明（Light）编写的实用数据清洗与处理工具，支持 CSV/JSON 数据的清洗、分析和格式转换。
 
 ## 功能特点
 
@@ -30,7 +30,7 @@
 
 ## 安装要求
 
-- 段言语言环境（DuanLang）
+- 光明语言环境（Light）
 - 无需额外依赖
 
 ## 使用方法
@@ -39,35 +39,35 @@
 
 ```bash
 # 使用默认参数运行（读取 sample_data.csv，输出 JSON）
-duan run 主程序.duan
+light run 主程序.light
 
 # 指定输入和输出文件
-duan run 主程序.duan --input sample_data.csv --output result.json
+light run 主程序.light --input sample_data.csv --output result.json
 
 # 输出为 Markdown 表格
-duan run 主程序.duan -i sample_data.csv -o report.md -f markdown
+light run 主程序.light -i sample_data.csv -o report.md -f markdown
 
 # 输出为 CSV
-duan run 主程序.duan -i sample_data.csv -o cleaned.csv -f csv
+light run 主程序.light -i sample_data.csv -o cleaned.csv -f csv
 ```
 
 ### 高级用法
 
 ```bash
 # 指定清洗操作
-duan run 主程序.duan -i sample_data.csv -op 去除空值,去除重复,标准化数字,检测异常
+light run 主程序.light -i sample_data.csv -op 去除空值,去除重复,标准化数字,检测异常
 
 # 数据排序
-duan run 主程序.duan -i sample_data.csv --sort 薪资:降序
+light run 主程序.light -i sample_data.csv --sort 薪资:降序
 
 # 数据过滤
-duan run 主程序.duan -i sample_data.csv --filter 城市 等于 北京
+light run 主程序.light -i sample_data.csv --filter 城市 等于 北京
 
 # 列选择
-duan run 主程序.duan -i sample_data.csv --select 姓名,年龄,城市,薪资
+light run 主程序.light -i sample_data.csv --select 姓名,年龄,城市,薪资
 
 # 组合使用
-duan run 主程序.duan -i sample_data.csv -o result.md -f markdown --sort 薪资:降序 --filter 城市 等于 北京
+light run 主程序.light -i sample_data.csv -o result.md -f markdown --sort 薪资:降序 --filter 城市 等于 北京
 ```
 
 ### 命令行参数
@@ -148,10 +148,10 @@ duan run 主程序.duan -i sample_data.csv -o result.md -f markdown --sort 薪�
 ```
 data_cleaner/
 ├── README.md          # 使用说明
-├── 主程序.duan         # 主入口
-├── 清洗器.duan         # 数据清洗核心模块
-├── 分析器.duan         # 数据分析模块
-├── 转换器.duan         # 数据格式转换模块
+├── 主程序.light         # 主入口
+├── 清洗器.light         # 数据清洗核心模块
+├── 分析器.light         # 数据分析模块
+├── 转换器.light         # 数据格式转换模块
 └── sample_data.csv    # 示例数据文件
 ```
 

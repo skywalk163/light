@@ -3,7 +3,7 @@
 > **Version:** v6.0
 > **Last updated:** 2026-08-07
 
-Duan provides a powerful web development framework through the `HTTP服务端` (HTTP Server) standard library and the `Web框架` duanpub package. You can build web applications using Chinese keywords and natural syntax.
+Light provides a powerful web development framework through the `HTTP服务端` (HTTP Server) standard library and the `Web框架` duanpub package. You can build web applications using Chinese keywords and natural syntax.
 
 ---
 
@@ -17,7 +17,7 @@ Create a simple HTTP server:
 段落 主页 接收 请求：
     返回 HTML响应("
 
-# Hello, Duan Web!
+# Hello, Light Web!
 ")
 
 HTTP服务端.路由("GET", "/", 主页)
@@ -28,7 +28,7 @@ HTTP服务端.启动("0.0.0.0", 8080)
 Run it:
 
 ```bash
-duan run server.duan
+light run server.light
 ```
 
 ## Key Components
@@ -70,13 +70,13 @@ The HTTP server module provides:
 ```
 blog_app/
 ├── package.toml
-├── 主.duan          # Entry point
-├── 路由.duan        # Route configuration
-├── 模型.duan        # Data models
-└── 页面.duan        # Page rendering
+├── 主.light          # Entry point
+├── 路由.light        # Route configuration
+├── 模型.light        # Data models
+└── 页面.light        # Page rendering
 ```
 
-### Data Model (`模型.duan`)
+### Data Model (`模型.light`)
 
 ```光明
 类 博客：
@@ -99,7 +99,7 @@ blog_app/
 导出 博客
 ```
 
-### Route Configuration (`路由.duan`)
+### Route Configuration (`路由.light`)
 
 ```光明
 导入 HTTP服务端
@@ -132,7 +132,7 @@ HTTP服务端.路由("POST", "/发布", 发布页)
 导出 路由
 ```
 
-### Entry Point (`主.duan`)
+### Entry Point (`主.light`)
 
 ```光明
 导入 HTTP服务端
@@ -148,7 +148,7 @@ HTTP服务端.启动("0.0.0.0", 8080)
 
 ## Middleware Support
 
-Duan supports middleware for common web tasks:
+Light supports middleware for common web tasks:
 
 ```光明
 # CORS middleware
@@ -228,10 +228,10 @@ HTTP服务端.静态文件("public", "/static")
 
 ```bash
 # Run with production settings
-duan pkg -p blog_app run
+light pkg -p blog_app run
 
 # Native compilation with LLVM
-duan pkg -p blog_app native -o blog_server.exe
+light pkg -p blog_app native -o blog_server.exe
 ./blog_server.exe
 ```
 
@@ -248,11 +248,11 @@ HTTP服务端.启动(主机, 转整数(端口))
 
 ## Complete Example
 
-See the [blog tutorial](../blog/用段言构建Web应用.md) for a complete walkthrough of building a blog system with Duan's web framework.
+See the [blog tutorial](../blog/用光明构建Web应用.md) for a complete walkthrough of building a blog system with Light's web framework.
 
 ## Related Resources
 
 - 📖 [HTTP Server API](../api/HTTP服务端.md) — HTTP server module reference
 - 📦 [Web Framework Package](../lightpub/Web框架.md) — duanpub web framework
-- 🎬 [Video Tutorial](../video_scripts/段言Web开发实战.md) — 10-minute web development tutorial
-- 📝 [Blog Tutorial](../blog/用段言构建Web应用.md) — Complete blog system tutorial
+- 🎬 [Video Tutorial](../video_scripts/光明Web开发实战.md) — 10-minute web development tutorial
+- 📝 [Blog Tutorial](../blog/用光明构建Web应用.md) — Complete blog system tutorial

@@ -122,7 +122,7 @@
 
 ## Functions (段落)
 
-Duan uses `段落` (paragraph) to define functions:
+Light uses `段落` (paragraph) to define functions:
 
 ```光明
 段落 加法 接收 甲, 乙：
@@ -139,7 +139,7 @@ Duan uses `段落` (paragraph) to define functions:
     打印 "你好，" + 名字 + "！"
 
 问候()        # Output: 你好，世界！
-问候("段言")  # Output: 你好，段言！
+问候("光明")  # Output: 你好，光明！
 ```
 
 ### Return Values
@@ -209,7 +209,7 @@ Duan uses `段落` (paragraph) to define functions:
 ## String Interpolation
 
 ```光明
-设 名字 为 "段言"
+设 名字 为 "光明"
 设 版本 为 5.5
 打印(f"语言：{名字}，版本：{版本}")
 ```

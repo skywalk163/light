@@ -1,6 +1,6 @@
-# 段言 - CLI 待办事项管理器
+# 光明 - CLI 待办事项管理器
 # 完整 CRUD 操作，JSON 文件持久化存储
-# 用法: duan run examples/todo_cli/主.duan [命令] [参数]
+# 用法: light run examples/todo_cli/主.light [命令] [参数]
 # 命令: add, list, complete, delete, edit, clear, search, help
 
 导入 文件系统。

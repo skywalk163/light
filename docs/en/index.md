@@ -1,18 +1,18 @@
-# Duan (段言) Programming Language
+# Light (光明) Programming Language
 
 > **Version:** v6.0
 > **Last updated:** 2026-08-07
 
-**Duan** is a modern programming language with Chinese keywords, designed to make programming more intuitive and accessible for Chinese speakers.
+**Light** is a modern programming language with Chinese keywords, designed to make programming more intuitive and accessible for Chinese speakers.
 
 ## Overview
 
-Duan (段言, literally "Segment Language") is a Chinese natural language programming language. It uses Chinese keywords and syntax, allowing Chinese speakers to write code in their native language without translating their thoughts into English first.
+Light (光明, literally "Segment Language") is a Chinese natural language programming language. It uses Chinese keywords and syntax, allowing Chinese speakers to write code in their native language without translating their thoughts into English first.
 
 ## Key Features
 
 - 🀄 **Chinese Syntax**: All keywords are in Chinese, making it accessible to Chinese speakers
-- 🚀 **Self-hosting Compiler**: The compiler itself is written in Duan (95 functions, ~62KB)
+- 🚀 **Self-hosting Compiler**: The compiler itself is written in Light (95 functions, ~62KB)
 - ⚡ **LLVM Native Compilation**: Compile to native machine code (EXE) without Python runtime
 - 📦 **Dual-backend Architecture**: Python interpreter execution + LLVM native compilation
 - 🔧 **Rich Standard Library**: 60+ modules covering math, file I/O, JSON, HTTP, encryption, FFI, etc.
@@ -28,30 +28,30 @@ Duan (段言, literally "Segment Language") is a Chinese natural language progra
 ## Installation
 
 ```bash
-pip install duan
+pip install light
 ```
 
 Verify installation:
 
 ```bash
-duan --version
+light --version
 ```
 
 ## Quick Start
 
-Create `hello.duan`:
+Create `hello.light`:
 
 ```光明
-打印 "Hello, Duan!"
+打印 "Hello, Light!"
 ```
 
 Run it:
 
 ```bash
-duan run hello.duan
+light run hello.light
 ```
 
-Output: `Hello, Duan!`
+Output: `Hello, Light!`
 
 ## Basic Syntax
 
@@ -135,25 +135,25 @@ Output: `Hello, Duan!`
 ## CLI Commands
 
 ```bash
-duan run hello.duan           # Run a program
-duan compile hello.duan       # Compile to Python
-duan ast hello.duan           # Show AST
-duan tokens hello.duan        # Show token stream
-duan check hello.duan         # Syntax check
-duan repl                     # Interactive REPL
-duan tutorial                 # Interactive tutorial
-duan pkg init myproject       # Initialize a project
-duan pkg -p myproject build   # Build project
-duan ai generate "排序算法"    # AI-assisted code generation
+light run hello.light           # Run a program
+light compile hello.light       # Compile to Python
+light ast hello.light           # Show AST
+light tokens hello.light        # Show token stream
+light check hello.light         # Syntax check
+light repl                     # Interactive REPL
+light tutorial                 # Interactive tutorial
+light pkg init myproject       # Initialize a project
+light pkg -p myproject build   # Build project
+light ai generate "排序算法"    # AI-assisted code generation
 ```
 
 ## Backend Options
 
 | Backend | Command | Description | Dependencies |
 |---------|---------|-------------|--------------|
-| **SRC** (default) | `duan run hello.duan` | Hand-written parser, v3.2 syntax | **None** |
-| ANTLR | `duan run hello.duan --backend antlr` | ANTLR parser, compatibility mode | `pip install antlr4-python3-runtime` |
-| LLVM | `duan compile hello.duan --backend llvm-typed -o hello.exe` | Native compilation to EXE | LLVM/Clang |
+| **SRC** (default) | `light run hello.light` | Hand-written parser, v3.2 syntax | **None** |
+| ANTLR | `light run hello.light --backend antlr` | ANTLR parser, compatibility mode | `pip install antlr4-python3-runtime` |
+| LLVM | `light compile hello.light --backend llvm-typed -o hello.exe` | Native compilation to EXE | LLVM/Clang |
 
 ## Documentation
 
@@ -170,13 +170,13 @@ duan ai generate "排序算法"    # AI-assisted code generation
 
 Current version: **v6.0**
 
-Duan v6.0 introduces type annotations, nullable types, interfaces/protocols, enhanced pattern matching, async/await support, and comprehensive package management. The language is under active development with a focus on self-hosting compiler and native compilation via LLVM.
+Light v6.0 introduces type annotations, nullable types, interfaces/protocols, enhanced pattern matching, async/await support, and comprehensive package management. The language is under active development with a focus on self-hosting compiler and native compilation via LLVM.
 
 ## Contributing
 
-- 💬 **Discuss**: Start a [GitHub Discussion](https://github.com/skywalk163/duan/discussions)
-- 🐛 **Report Bug**: Submit a [Bug Report](https://github.com/skywalk163/duan/issues/new?template=bug_report.md)
-- 💡 **Feature Request**: Submit a [Feature Request](https://github.com/skywalk163/duan/issues/new?template=feature_request.md)
+- 💬 **Discuss**: Start a [GitHub Discussion](https://github.com/skywalk163/light/discussions)
+- 🐛 **Report Bug**: Submit a [Bug Report](https://github.com/skywalk163/light/issues/new?template=bug_report.md)
+- 💡 **Feature Request**: Submit a [Feature Request](https://github.com/skywalk163/light/issues/new?template=feature_request.md)
 - 🔧 **Contribute Code**: See [CONTRIBUTING.md](../../CONTRIBUTING.md)
 
 ## License

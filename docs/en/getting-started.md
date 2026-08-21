@@ -1,4 +1,4 @@
-# Getting Started with Duan
+# Getting Started with Light
 
 > **Version:** v6.0
 > **Last updated:** 2026-08-07
@@ -15,27 +15,27 @@
 ### Install from PyPI (Recommended)
 
 ```bash
-pip install duan
+pip install light
 ```
 
 After installation, verify the CLI tool:
 
 ```bash
-duan --version
-duan --help
+light --version
+light --help
 ```
 
 ### Install from Source
 
 ```bash
-git clone https://github.com/skywalk163/duan.git
-cd duan
+git clone https://github.com/skywalk163/light.git
+cd light
 pip install -e .
 ```
 
 ## Hello World
 
-Create a file named `hello.duan`:
+Create a file named `hello.light`:
 
 ```光明
 打印 "Hello, World!"
@@ -44,7 +44,7 @@ Create a file named `hello.duan`:
 Run it:
 
 ```bash
-duan run hello.duan
+light run hello.light
 ```
 
 Output:
@@ -53,7 +53,7 @@ Output:
 Hello, World!
 ```
 
-Congratulations! You've just run your first Duan program.
+Congratulations! You've just run your first Light program.
 
 ## Basic Syntax Tour
 
@@ -65,7 +65,7 @@ Congratulations! You've just run your first Duan program.
 
 ### Variables
 
-Duan uses `设` (set) to declare variables:
+Light uses `设` (set) to declare variables:
 
 ```光明
 设 姓名 为 "Alice"         # String
@@ -78,7 +78,7 @@ Duan uses `设` (set) to declare variables:
 
 ### Arithmetic Operators
 
-Duan supports both symbolic and Chinese operators:
+Light supports both symbolic and Chinese operators:
 
 ```光明
 设 甲 为 10
@@ -107,7 +107,7 @@ Duan supports both symbolic and Chinese operators:
 
 ### Loops
 
-Duan supports three types of loops:
+Light supports three types of loops:
 
 **For-range loop:**
 
@@ -146,7 +146,7 @@ Duan supports three types of loops:
 
 ### Functions (段落)
 
-Duan uses `段落` (paragraph) to define functions:
+Light uses `段落` (paragraph) to define functions:
 
 ```光明
 段落 加法 接收 甲, 乙:
@@ -163,7 +163,7 @@ Functions with default parameters:
     打印 "你好，" + 名字 + "！"
 
 问候()        # Output: 你好，世界！
-问候("段言")  # Output: 你好，段言！
+问候("光明")  # Output: 你好，光明！
 ```
 
 ### Classes and Objects
@@ -200,7 +200,7 @@ Functions with default parameters:
 ### String Interpolation
 
 ```光明
-设 名字 为 "段言"
+设 名字 为 "光明"
 设 版本 为 6.0
 打印(f"语言：{名字}，版本：{版本}")
 ```
@@ -328,48 +328,48 @@ Functions with default parameters:
 ### Basic Commands
 
 ```bash
-# Run a Duan program
-duan run hello.duan
+# Run a Light program
+light run hello.light
 
 # Compile to Python
-duan compile hello.duan -o hello.py
+light compile hello.light -o hello.py
 
 # Check syntax only
-duan check hello.duan
+light check hello.light
 
 # Show AST (Abstract Syntax Tree)
-duan ast hello.duan
+light ast hello.light
 
 # Show token stream
-duan tokens hello.duan
+light tokens hello.light
 ```
 
 ### Interactive REPL
 
 ```bash
-duan repl
+light repl
 ```
 
 ### Interactive Tutorial
 
 ```bash
-duan tutorial
+light tutorial
 ```
 
 ### Package Management
 
 ```bash
-duan pkg init myproject     # Initialize a new project
-duan pkg -p myproject build # Build the project
-duan pkg -p myproject run   # Run the project
+light pkg init myproject     # Initialize a new project
+light pkg -p myproject build # Build the project
+light pkg -p myproject run   # Run the project
 ```
 
 ### AI-Assisted Development
 
 ```bash
-duan ai generate "binary search function"  # Generate code with AI
-duan ai card                               # Show syntax reference card
-duan ai check hello.duan                   # Backend compatibility check
+light ai generate "binary search function"  # Generate code with AI
+light ai card                               # Show syntax reference card
+light ai check hello.light                   # Backend compatibility check
 ```
 
 ## Example Programs
@@ -377,24 +377,24 @@ duan ai check hello.duan                   # Backend compatibility check
 The project includes several example programs:
 
 ```bash
-duan run examples/hello.duan
-duan run examples/basic.duan
-duan run examples/class_example.duan
-duan run examples/hanoi.duan
-duan run examples/calculator.duan
+light run examples/hello.light
+light run examples/basic.light
+light run examples/class_example.light
+light run examples/hanoi.light
+light run examples/calculator.light
 ```
 
 ## What's Next?
 
-- 📖 [Full Tutorial (Chinese)](../30分钟入门段言.md) — Comprehensive 30-minute tutorial
+- 📖 [Full Tutorial (Chinese)](../30分钟入门光明.md) — Comprehensive 30-minute tutorial
 - 📚 [Syntax Reference](../syntax.md) — Complete language syntax
 - 🛠️ [Toolchain](../tools.md) — CLI, LSP, debugger, AI Copilot
 - 📦 [Package Manager Guide](../包管理器使用指南.md) — duanpub package management
 - 🌐 [API Reference](../api/index.md) — Standard library documentation
 - 📋 [Roadmap](../ROADMAP.md) — Version planning and vision
-- 📝 [Blog: Introduction to Duan](../blog/段言入门指南.md) — Detailed introduction
+- 📝 [Blog: Introduction to Light](../blog/光明入门指南.md) — Detailed introduction
 
 ---
 
-> Project Repository: [github.com/skywalk163/duan](https://github.com/skywalk163/duan)
+> Project Repository: [github.com/skywalk163/light](https://github.com/skywalk163/light)
 > License: MIT

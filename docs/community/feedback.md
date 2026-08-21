@@ -3,13 +3,13 @@
 > **最后更新：** 2026-08-07
 > **适用版本：** v6.2.1
 
-感谢您使用段言（Duan）编程语言！您的反馈是我们改进产品的重要依据。本指南说明了如何提交有价值的反馈，并介绍了所有可用的反馈渠道。
+感谢您使用光明（Light）编程语言！您的反馈是我们改进产品的重要依据。本指南说明了如何提交有价值的反馈，并介绍了所有可用的反馈渠道。
 
 ---
 
 ## 为什么需要您的反馈？
 
-段言还是一个年轻的语言，您的每一条反馈都直接影响着它的发展方向。通过反馈，我们可以：
+光明还是一个年轻的语言，您的每一条反馈都直接影响着它的发展方向。通过反馈，我们可以：
 
 - **发现 Bug**：及时修复问题，提升稳定性
 - **了解需求**：知道用户最需要什么功能，合理规划开发优先级
@@ -37,33 +37,33 @@
 
 **适用场景**：Bug 报告、功能请求、任务跟踪
 
-**地址**：[https://github.com/skywalk163/duan/issues](https://github.com/skywalk163/duan/issues)
+**地址**：[https://github.com/skywalk163/light/issues](https://github.com/skywalk163/light/issues)
 
 **提交方式**：
-- [Bug 报告模板](https://github.com/skywalk163/duan/issues/new?template=bug_report.md)
-- [功能请求模板](https://github.com/skywalk163/duan/issues/new?template=feature_request.md)
+- [Bug 报告模板](https://github.com/skywalk163/light/issues/new?template=bug_report.md)
+- [功能请求模板](https://github.com/skywalk163/light/issues/new?template=feature_request.md)
 
 **好的 Bug 报告包含**：
 
 1. **清晰的问题描述**：用一句话说明发生了什么问题
 2. **完整的复现步骤**：从创建文件到运行命令的完整过程
 3. **最小可复现代码**：尽可能精简的代码片段
-4. **环境信息**：操作系统、Python 版本、段言版本
+4. **环境信息**：操作系统、Python 版本、光明版本
 5. **完整的错误信息**：复制完整的错误输出，不要截取片段
 
 **示例**：
 
 ```markdown
 ## 描述
-使用 `duan run` 运行包含中文注释的文件时，词法分析器报错。
+使用 `light run` 运行包含中文注释的文件时，词法分析器报错。
 
 ## 复现步骤
-1. 创建文件 test.duan，内容为：
+1. 创建文件 test.light，内容为：
    ```光明
    # 这是一条中文注释
    打印 "你好"
    ```
-2. 运行：`duan run test.duan`
+2. 运行：`light run test.light`
 3. 看到错误：
    ```
    SyntaxError: 第 1 行：意外的字符 '#'
@@ -72,24 +72,24 @@
 ## 环境信息
 - 操作系统：Windows 11
 - Python 版本：3.12.0
-- 段言版本：v6.2.1
-- 安装方式：pip install duan
+- 光明版本：v6.2.1
+- 安装方式：pip install light
 ```
 
 ### 💬 GitHub Discussions
 
 **适用场景**：技术讨论、问题求助、作品展示、功能建议
 
-**地址**：[https://github.com/skywalk163/duan/discussions](https://github.com/skywalk163/duan/discussions)
+**地址**：[https://github.com/skywalk163/light/discussions](https://github.com/skywalk163/light/discussions)
 
 **分类说明**：
 
 | 分类 | 说明 |
 |------|------|
-| 💡 **一般讨论** | 关于段言的一般性讨论、想法交流或社区互动 |
-| ❓ **问题求助** | 在使用段言过程中遇到问题，寻求社区帮助 |
-| 🚀 **功能建议** | 为段言提出新的功能建议或改进想法 |
-| 🎨 **展示分享** | 分享您用段言构建的项目、工具或创意作品 |
+| 💡 **一般讨论** | 关于光明的一般性讨论、想法交流或社区互动 |
+| ❓ **问题求助** | 在使用光明过程中遇到问题，寻求社区帮助 |
+| 🚀 **功能建议** | 为光明提出新的功能建议或改进想法 |
+| 🎨 **展示分享** | 分享您用光明构建的项目、工具或创意作品 |
 | ✅ **问答** | 有明确答案的问答式讨论 |
 
 详细运营指南请参考 [Discussions 运营指南](discussions_guide.md)。
@@ -99,9 +99,9 @@
 **适用场景**：发现文档中的错误、遗漏或不清楚的地方
 
 **提交方式**：
-- 直接在文档页面的 [GitHub 源码](https://github.com/skywalk163/duan/tree/main/docs) 上提交 PR
-- 在 [GitHub Discussions](https://github.com/skywalk163/duan/discussions) 中发起讨论
-- 提交 [Issue](https://github.com/skywalk163/duan/issues/new) 并标注为 `docs`
+- 直接在文档页面的 [GitHub 源码](https://github.com/skywalk163/light/tree/main/docs) 上提交 PR
+- 在 [GitHub Discussions](https://github.com/skywalk163/light/discussions) 中发起讨论
+- 提交 [Issue](https://github.com/skywalk163/light/issues/new) 并标注为 `docs`
 
 **好的文档反馈包含**：
 
@@ -114,7 +114,7 @@
 
 **适用场景**：实时交流、快速问答、社区互动
 
-**加入方式**：请关注项目 [README.md](https://github.com/skywalk163/duan) 中的微信群二维码，扫码加入。
+**加入方式**：请关注项目 [README.md](https://github.com/skywalk163/light) 中的微信群二维码，扫码加入。
 
 **群规**：
 - 禁止广告和无关内容
@@ -125,7 +125,7 @@
 
 **适用场景**：实时交流、新手求助
 
-**群号**：请关注项目 [README.md](https://github.com/skywalk163/duan) 中的 QQ 群号码。
+**群号**：请关注项目 [README.md](https://github.com/skywalk163/light) 中的 QQ 群号码。
 
 ### 📧 邮件反馈
 
@@ -172,11 +172,11 @@
 
 ```markdown
 ## 问题描述
-在使用 `duan compile` 命令编译包含类型注解的文件时，LLVM 后端
+在使用 `light compile` 命令编译包含类型注解的文件时，LLVM 后端
 报错 "TypeError: unsupported type"。这个问题在 v6.2.1 中仍然存在。
 
 ## 复现步骤
-1. 创建文件 test.duan：
+1. 创建文件 test.light：
    ```光明
    段落 加法 接收 甲: 整数, 乙: 整数 -> 整数:
        返回 甲 + 乙
@@ -184,18 +184,18 @@
    设 结果 为 加法(3, 5)
    打印 结果
    ```
-2. 运行：`duan compile test.duan --backend llvm-typed`
+2. 运行：`light compile test.light --backend llvm-typed`
 3. 错误信息：
    ```
    TypeError: unsupported type: 整数
-   File "test.duan", line 1, in 加法
+   File "test.light", line 1, in 加法
    ```
 
 ## 环境信息
 - 操作系统：macOS 14.5
 - Python 版本：3.12.3
-- 段言版本：v6.2.1
-- 安装方式：pip install duan
+- 光明版本：v6.2.1
+- 安装方式：pip install light
 
 ## 期望行为
 应该能成功编译并生成可执行文件。
@@ -204,7 +204,7 @@
 ### 不够好的反馈示例
 
 ```markdown
-段言有问题，JSON 解析不了，快点修一下。
+光明有问题，JSON 解析不了，快点修一下。
 ```
 
 **问题**：信息不完整，无法定位问题。
@@ -250,7 +250,7 @@
 ## 环境信息
 - 操作系统：[操作系统名称和版本]
 - Python 版本：[Python 版本号]
-- 段言版本：[运行 `duan --version` 的输出]
+- 光明版本：[运行 `light --version` 的输出]
 - 安装方式：[pip install / 源码安装]
 ```
 
@@ -317,7 +317,7 @@
 
 ## 参与语言设计
 
-除了提交反馈，您还可以直接参与段言的语言设计：
+除了提交反馈，您还可以直接参与光明的语言设计：
 
 - **RFC 流程**：重大语言特性变更会通过 RFC（Request for Comments）流程讨论
 - **功能投票**：社区成员可以对候选功能进行投票
@@ -329,8 +329,8 @@
 
 除了 GitHub 之外，你也可以通过以下方式联系我们：
 
-- **文档站**：[https://skywalk163.github.io/duan/](https://skywalk163.github.io/duan/)
-- **项目仓库**：[https://github.com/skywalk163/duan](https://github.com/skywalk163/duan)
+- **文档站**：[https://skywalk163.github.io/light/](https://skywalk163.github.io/light/)
+- **项目仓库**：[https://github.com/skywalk163/light](https://github.com/skywalk163/light)
 - **微信群**：请关注项目 README 中的二维码
 - **QQ 群**：请关注项目 README 中的群号
 
@@ -338,10 +338,10 @@
 
 ## 感谢
 
-感谢您花时间阅读这份反馈指南。您的每一条反馈都让段言变得更好。我们期待听到您的声音！
+感谢您花时间阅读这份反馈指南。您的每一条反馈都让光明变得更好。我们期待听到您的声音！
 
 ---
 
-> 段言项目地址：[https://github.com/skywalk163/duan](https://github.com/skywalk163/duan)
-> 文档站：[https://skywalk163.github.io/duan/](https://skywalk163.github.io/duan/)
+> 光明项目地址：[https://github.com/skywalk163/light](https://github.com/skywalk163/light)
+> 文档站：[https://skywalk163.github.io/light/](https://skywalk163.github.io/light/)
 > 许可证：MIT

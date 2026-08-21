@@ -1,6 +1,6 @@
-# 段言 - 贪吃蛇游戏（终端版）
+# 光明 - 贪吃蛇游戏（终端版）
 # 使用 WASD 控制方向，支持分数显示与碰撞检测
-# 用法: duan run examples/snake_game/主.duan
+# 用法: light run examples/snake_game/主.light
 
 导入 文件系统。
 

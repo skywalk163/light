@@ -6,10 +6,10 @@
 
 ```bash
 # 使用默认样本数据
-duan run examples/data_pipeline/pipeline.duan
+light run examples/data_pipeline/pipeline.light
 
 # 指定自定义 CSV 文件
-duan run examples/data_pipeline/pipeline.duan 我的数据.csv
+light run examples/data_pipeline/pipeline.light 我的数据.csv
 ```
 
 ## 功能说明
@@ -37,11 +37,11 @@ duan run examples/data_pipeline/pipeline.duan 我的数据.csv
 
 | 文件 | 行数（不含注释和空行） | 说明 |
 |------|----------------------|------|
-| `pipeline.duan` | 477 行 | 完整 ETL 管道，含数据处理全流程 |
+| `pipeline.light` | 477 行 | 完整 ETL 管道，含数据处理全流程 |
 
 ## 学习要点
 
-- **段言标准库**：`导入 文件系统`、`导入 JSON`、`导入 数据库` 三大标准库
+- **光明标准库**：`导入 文件系统`、`导入 JSON`、`导入 数据库` 三大标准库
 - **多返回值函数**：段落函数返回多个值
 - **字典与列表操作**：复杂数据结构的增删改查
 - **字符串处理**：`分割字符串()`、`替换字符串()`、`去除空格()`、`转小写()`、`连接字符串()` 等

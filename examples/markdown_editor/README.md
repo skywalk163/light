@@ -1,6 +1,6 @@
-# 段言 Markdown 编辑器
+# 光明 Markdown 编辑器
 
-一个使用段言语言编写的 Markdown 到 HTML 转换器。
+一个使用光明语言编写的 Markdown 到 HTML 转换器。
 
 ## 功能
 
@@ -16,7 +16,7 @@
 ## 运行
 
 ```bash
-python -m cli.duan run examples/markdown_editor/主.duan
+python -m cli.light run examples/markdown_editor/主.light
 ```
 
 ## 使用

@@ -1,4 +1,4 @@
-# 段言（DuanLang）IDE 配置指南
+# 光明（Light）IDE 配置指南
 
 ## 目录
 
@@ -17,7 +17,7 @@
 
 1. 打开 VS Code
 2. 进入扩展市场（`Ctrl+Shift+X`）
-3. 搜索 `段言` 或 `DuanLang`
+3. 搜索 `光明` 或 `Light`
 4. 点击安装
 
 ### 手动安装（VSIX）
@@ -27,7 +27,7 @@ cd vscode-extension
 npm install
 npm run compile
 npx vsce package
-code --install-extension duan-language-*.vsix
+code --install-extension light-language-*.vsix
 ```
 
 ### 功能特性
@@ -47,7 +47,7 @@ code --install-extension duan-language-*.vsix
 
 | 命令 | 快捷键 | 说明 |
 |------|--------|------|
-| 运行当前文件 | `Ctrl+Shift+R` | 解释执行当前段言文件 |
+| 运行当前文件 | `Ctrl+Shift+R` | 解释执行当前光明文件 |
 | 编译当前文件 | `Ctrl+Shift+B` | 编译为 Python 文件 |
 | 语法检查 | `Ctrl+Shift+C` | 检查语法错误 |
 | 编译（可选后端） | `Ctrl+Shift+E` | 编译当前文件 |
@@ -62,19 +62,19 @@ code --install-extension duan-language-*.vsix
 ```json
 {
     "files.associations": {
-        "*.duan": "duan"
+        "*.light": "light"
     },
-    "[duan]": {
+    "[light]": {
         "editor.tabSize": 4,
         "editor.insertSpaces": true,
         "editor.formatOnSave": true,
         "editor.suggest.snippetsPreventQuickSuggestions": false
     },
-    "duan.trace.server": "off",
-    "duan.format.enable": true,
-    "duan.format.indentSize": 4,
-    "duan.format.trimTrailingWhitespace": true,
-    "duan.format.insertFinalNewline": true
+    "light.trace.server": "off",
+    "light.format.enable": true,
+    "light.format.indentSize": 4,
+    "light.format.trimTrailingWhitespace": true,
+    "light.format.insertFinalNewline": true
 }
 ```
 
@@ -87,7 +87,7 @@ code --install-extension duan-language-*.vsix
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "duan",
+            "type": "light",
             "request": "launch",
             "name": "调试当前文件",
             "program": "${file}",
@@ -101,7 +101,7 @@ code --install-extension duan-language-*.vsix
 
 ## JetBrains IDEs 配置
 
-JetBrains 全系 IDE（IntelliJ IDEA、PyCharm、GoLand 等）通过 **LSP 插件** 支持段言。
+JetBrains 全系 IDE（IntelliJ IDEA、PyCharm、GoLand 等）通过 **LSP 插件** 支持光明。
 
 ### 安装步骤
 
@@ -116,20 +116,20 @@ JetBrains 全系 IDE（IntelliJ IDEA、PyCharm、GoLand 等）通过 **LSP 插�
 3. 配置如下：
 
 ```
-Name: 段言
-Language ID: duan
-File types: duan
-Extension: duan
+Name: 光明
+Language ID: light
+File types: light
+Extension: light
 Server command: python
-Arguments: <项目路径>/lsp/duan_lsp.py
+Arguments: <项目路径>/lsp/light_lsp.py
 Transport: stdio
 ```
 
 ### 文件关联
 
 1. 进入 `File → Settings → Editor → File Types`
-2. 在 Recognized File Types 中找到 `duan`（或新建）
-3. 在 Registered Patterns 中添加 `*.duan`
+2. 在 Recognized File Types 中找到 `light`（或新建）
+3. 在 Registered Patterns 中添加 `*.light`
 
 ### 推荐插件
 
@@ -157,10 +157,10 @@ Plug 'neoclide/coc.nvim', {'branch': 'release'}
 ```json
 {
     "languageserver": {
-        "duan": {
+        "light": {
             "command": "python",
-            "args": ["<项目路径>/lsp/duan_lsp.py"],
-            "filetypes": ["duan"],
+            "args": ["<项目路径>/lsp/light_lsp.py"],
+            "filetypes": ["light"],
             "rootPatterns": [".git", "package.toml"],
             "settings": {}
         }
@@ -174,13 +174,13 @@ Plug 'neoclide/coc.nvim', {'branch': 'release'}
 
 ```vim
 " 文件类型检测
-autocmd BufRead,BufNewFile *.duan set filetype=duan
+autocmd BufRead,BufNewFile *.light set filetype=light
 
 " 语法高亮
 syntax on
 
 " 缩进设置
-autocmd FileType duan setlocal tabstop=4 shiftwidth=4 expandtab
+autocmd FileType light setlocal tabstop=4 shiftwidth=4 expandtab
 ```
 
 ### 方式二：通过内置 LSP（Neovim 0.5+）
@@ -189,14 +189,14 @@ autocmd FileType duan setlocal tabstop=4 shiftwidth=4 expandtab
 
 ```lua
 vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
-    pattern = "*.duan",
+    pattern = "*.light",
     callback = function()
-        vim.bo.filetype = "duan"
+        vim.bo.filetype = "light"
     end,
 })
 
 vim.api.nvim_create_autocmd("FileType", {
-    pattern = "duan",
+    pattern = "light",
     callback = function()
         vim.bo.tabstop = 4
         vim.bo.shiftwidth = 4
@@ -206,55 +206,55 @@ vim.api.nvim_create_autocmd("FileType", {
 
 -- LSP 配置
 local lspconfig = require("lspconfig")
-lspconfig.duan = {
+lspconfig.light = {
     default_config = {
-        cmd = { "python", "<项目路径>/lsp/duan_lsp.py" },
-        filetypes = { "duan" },
+        cmd = { "python", "<项目路径>/lsp/light_lsp.py" },
+        filetypes = { "light" },
         root_dir = lspconfig.util.find_git_ancestor,
         settings = {},
     },
 }
-lspconfig.duan.setup({})
+lspconfig.light.setup({})
 ```
 
 ### 语法高亮文件
 
-创建 `~/.config/nvim/syntax/duan.vim`：
+创建 `~/.config/nvim/syntax/light.vim`：
 
 ```vim
 if exists("b:current_syntax")
   finish
 endif
 
-syntax keyword duanKeyword 设 为 定义 常量 如果 否则 否则若 若 那么 则 遍历 当 跳出 跳过 返回 结束 段落 函数 段 接收 类 继承 构造 属性 接口 实现 协议 导入 导出 从 尝试 捕获 抛出 最终 异步 等待 使用 匹配 情况 真 假 空 无 新建 己 父 抽象 静态 私有 公有 保护 嵌入 结束嵌入 标注 可空 断言 创建 加载 类型 对于 范围 输入 打印 求幂 整除 取余
+syntax keyword lightKeyword 设 为 定义 常量 如果 否则 否则若 若 那么 则 遍历 当 跳出 跳过 返回 结束 段落 函数 段 接收 类 继承 构造 属性 接口 实现 协议 导入 导出 从 尝试 捕获 抛出 最终 异步 等待 使用 匹配 情况 真 假 空 无 新建 己 父 抽象 静态 私有 公有 保护 嵌入 结束嵌入 标注 可空 断言 创建 加载 类型 对于 范围 输入 打印 求幂 整除 取余
 
-syntax keyword duanType 整数 浮数 小数 字符串 文本 列表 字典 集合 布尔 任意 数 串 列 典 集 可空
+syntax keyword lightType 整数 浮数 小数 字符串 文本 列表 字典 集合 布尔 任意 数 串 列 典 集 可空
 
-syntax keyword duanBoolean 真 假
-syntax keyword duanNull 空 无
+syntax keyword lightBoolean 真 假
+syntax keyword lightNull 空 无
 
-syntax match duanComment "#.*$"
-syntax region duanString start='"' end='"' contains=duanEscape
-syntax region duanString start="'" end="'" contains=duanEscape
-syntax region duanString start='`' end='`' contains=duanEscape
-syntax region duanString start='「' end='」'
-syntax match duanEscape "\\." contained
+syntax match lightComment "#.*$"
+syntax region lightString start='"' end='"' contains=lightEscape
+syntax region lightString start="'" end="'" contains=lightEscape
+syntax region lightString start='`' end='`' contains=lightEscape
+syntax region lightString start='「' end='」'
+syntax match lightEscape "\\." contained
 
-syntax match duanNumber "\v<\d+>"
-syntax match duanNumber "\v<\d+\.\d+([eE][+-]?\d+)?>"
-syntax match duanNumber "\v<0[xX][0-9a-fA-F]+>"
-syntax match duanNumber "\v<0[bB][01]+>"
+syntax match lightNumber "\v<\d+>"
+syntax match lightNumber "\v<\d+\.\d+([eE][+-]?\d+)?>"
+syntax match lightNumber "\v<0[xX][0-9a-fA-F]+>"
+syntax match lightNumber "\v<0[bB][01]+>"
 
-highlight link duanKeyword Keyword
-highlight link duanType Type
-highlight link duanBoolean Boolean
-highlight link duanNull Constant
-highlight link duanComment Comment
-highlight link duanString String
-highlight link duanNumber Number
-highlight link duanEscape SpecialChar
+highlight link lightKeyword Keyword
+highlight link lightType Type
+highlight link lightBoolean Boolean
+highlight link lightNull Constant
+highlight link lightComment Comment
+highlight link lightString String
+highlight link lightNumber Number
+highlight link lightEscape SpecialChar
 
-let b:current_syntax = "duan"
+let b:current_syntax = "light"
 ```
 
 ---
@@ -271,7 +271,7 @@ let b:current_syntax = "duan"
   :ensure t
   :commands lsp)
 
-;; 注册段言客户端
+;; 注册光明客户端
 (require 'lsp-mode)
 ```
 
@@ -281,23 +281,23 @@ let b:current_syntax = "duan"
 (lsp-register-client
  (make-lsp-client
   :new-connection (lsp-stdio-connection
-                   '("python" "<项目路径>/lsp/duan_lsp.py"))
-  :activation-fn (lsp-activate-on "duan")
-  :server-id 'duan-ls
+                   '("python" "<项目路径>/lsp/light_lsp.py"))
+  :activation-fn (lsp-activate-on "light")
+  :server-id 'light-ls
   :multi-root t))
 
 ;; 文件类型关联
-(add-to-list 'auto-mode-alist '("\\.duan\\'" . duan-mode))
+(add-to-list 'auto-mode-alist '("\\.light\\'" . light-mode))
 ```
 
 #### 语法高亮
 
-创建 `duan-mode.el`：
+创建 `light-mode.el`：
 
 ```elisp
-(define-derived-mode duan-mode prog-mode "段言"
-  "段言编程语言的主模式"
-  (setq font-lock-defaults '(duan-font-lock-keywords))
+(define-derived-mode light-mode prog-mode "光明"
+  "光明编程语言的主模式"
+  (setq font-lock-defaults '(light-font-lock-keywords))
 
   ;; 缩进设置
   (setq tab-width 4)
@@ -307,7 +307,7 @@ let b:current_syntax = "duan"
   (setq comment-start "#")
   (setq comment-end ""))
 
-(defvar duan-font-lock-keywords
+(defvar light-font-lock-keywords
   `((,(regexp-opt '("设" "为" "定义" "常量" "如果" "否则" "否则若"
                     "若" "那么" "则" "遍历" "当" "跳出" "跳过"
                     "返回" "结束" "段落" "函数" "段" "接收" "类"
@@ -337,7 +337,7 @@ let b:current_syntax = "duan"
     ("\\(\\d+\\)" . font-lock-constant-face)
     ("\\(0[xX][0-9a-fA-F]+\\)" . font-lock-constant-face)))
 
-(provide 'duan-mode)
+(provide 'light-mode)
 ```
 
 ### 方式二：通过 eglot
@@ -347,9 +347,9 @@ let b:current_syntax = "duan"
   :ensure t
   :config
   (add-to-list 'eglot-server-programs
-               '(duan-mode . ("python" "<项目路径>/lsp/duan_lsp.py"))))
+               '(light-mode . ("python" "<项目路径>/lsp/light_lsp.py"))))
 
-(add-to-list 'auto-mode-alist '("\\.duan\\'" . duan-mode))
+(add-to-list 'auto-mode-alist '("\\.light\\'" . light-mode))
 ```
 
 ---
@@ -358,7 +358,7 @@ let b:current_syntax = "duan"
 
 ### 字符编码
 
-所有段言源文件应使用 **UTF-8** 编码保存。建议在编辑器中设置：
+所有光明源文件应使用 **UTF-8** 编码保存。建议在编辑器中设置：
 
 ```json
 { "files.encoding": "utf8" }
@@ -366,7 +366,7 @@ let b:current_syntax = "duan"
 
 ### 缩进风格
 
-段言推荐使用 **4 空格缩进**（不使用制表符）：
+光明推荐使用 **4 空格缩进**（不使用制表符）：
 
 ```json
 { "editor.tabSize": 4, "editor.insertSpaces": true }
@@ -405,28 +405,28 @@ let b:current_syntax = "duan"
 
 2. 检查 LSP 服务器路径是否正确：
    ```bash
-   python <项目路径>/lsp/duan_lsp.py
+   python <项目路径>/lsp/light_lsp.py
    ```
    如果看到 `Content-Length: ...` 输出，说明服务器正常。
 
 3. 检查 VS Code 输出日志：
    - 打开 `查看 → 输出`
-   - 在下拉菜单中选择 `段言` 或 `段言 LSP Trace`
+   - 在下拉菜单中选择 `光明` 或 `光明 LSP Trace`
 
 4. 重启 LSP 服务器：
-   - 点击状态栏的段言图标
-   - 或执行命令 `段言: 重启语言服务器`
+   - 点击状态栏的光明图标
+   - 或执行命令 `光明: 重启语言服务器`
 
 ### 语法高亮不生效
 
-**症状**：.duan 文件没有颜色高亮。
+**症状**：.light 文件没有颜色高亮。
 
 **解决方案**：
 
-1. 确保文件扩展名为 `.duan`
+1. 确保文件扩展名为 `.light`
 2. 手动设置语言模式：
-   - VS Code: 右下角语言模式 → 选择 `段言`
-   - 其他编辑器: 设置文件类型为 `duan`
+   - VS Code: 右下角语言模式 → 选择 `光明`
+   - 其他编辑器: 设置文件类型为 `light`
 3. 重新加载窗口
 
 ### 代码补全不工作
@@ -436,7 +436,7 @@ let b:current_syntax = "duan"
 **解决方案**：
 
 1. 确认 LSP 服务器已启动（状态栏显示 ✓）
-2. 检查是否在 `.duan` 文件中编辑
+2. 检查是否在 `.light` 文件中编辑
 3. 尝试手动触发补全：`Ctrl+Space`
 4. 在 VS Code 设置中检查：
    ```json
@@ -451,9 +451,9 @@ let b:current_syntax = "duan"
 
 1. 确保设置中启用格式化：
    ```json
-   { "duan.format.enable": true }
+   { "light.format.enable": true }
    ```
-2. 确认文件语言为 `duan`
+2. 确认文件语言为 `light`
 
 ### 调试器无法启动
 
@@ -463,9 +463,9 @@ let b:current_syntax = "duan"
 
 1. 确保已创建 `.vscode/launch.json` 调试配置
 2. 检查调试适配器路径：
-   - 默认路径：`<项目>/vscode-extension/debug-adapter/duan_debug_adapter.py`
+   - 默认路径：`<项目>/vscode-extension/debug-adapter/light_debug_adapter.py`
    - 确保 Python 依赖已安装
-3. 在 `.duan` 文件中设置断点后再启动调试
+3. 在 `.light` 文件中设置断点后再启动调试
 
 ### 跨平台路径问题
 
@@ -477,4 +477,4 @@ let b:current_syntax = "duan"
 
 ---
 
-*段言 v6.0.0 — 用中文，写世界*
+*光明 v6.0.0 — 用中文，写世界*

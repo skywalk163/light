@@ -16,12 +16,12 @@
 
 ## 导入方式
 
-```duan
+```light
 导入 OAuth客户端
 ```
 
 或
 
-```duan
+```light
 导入 标准OAuth客户端
 ```

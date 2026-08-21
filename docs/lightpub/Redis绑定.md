@@ -16,13 +16,13 @@
 
 ## 导入方式
 
-```duan
+```light
 导入 Redis绑定
 ```
 
 或
 
-```duan
+```light
 导入 标准Redis绑定
 ```
 

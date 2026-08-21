@@ -1,6 +1,6 @@
 # 数据处理管道示例
 
-演示如何使用段言标准库实现一个完整的数据处理管道（ETL），涵盖数据读取、清洗、聚合、存储和导出的全流程。
+演示如何使用光明标准库实现一个完整的数据处理管道（ETL），涵盖数据读取、清洗、聚合、存储和导出的全流程。
 
 ## 功能
 
@@ -15,10 +15,10 @@
 
 ```bash
 # 使用默认样本数据
-duan run examples/data_pipeline/pipeline.duan
+light run examples/data_pipeline/pipeline.light
 
 # 指定自定义 CSV 文件
-duan run examples/data_pipeline/pipeline.duan 我的数据.csv
+light run examples/data_pipeline/pipeline.light 我的数据.csv
 ```
 
 ## 管道流程

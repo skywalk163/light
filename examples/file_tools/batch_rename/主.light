@@ -1,9 +1,9 @@
-# 段言 - 文件批量重命名工具
+# 光明 - 文件批量重命名工具
 # 功能: 支持添加前缀、后缀的批量文件重命名工具
-# 用法: duan run examples/file_tools/batch_rename/主.duan <目录> [选项]
+# 用法: light run examples/file_tools/batch_rename/主.light <目录> [选项]
 # 示例:
-#   duan run examples/file_tools/batch_rename/主.duan ./我的文件 --prefix "备份_"
-#   duan run examples/file_tools/batch_rename/主.duan ./照片 --suffix "_v2"
+#   light run examples/file_tools/batch_rename/主.light ./我的文件 --prefix "备份_"
+#   light run examples/file_tools/batch_rename/主.light ./照片 --suffix "_v2"
 
 导入 sys。
 
@@ -79,9 +79,9 @@
 
 # 显示帮助信息
 段落 显示帮助:
-  打印("段言文件批量重命名工具")。
+  打印("光明文件批量重命名工具")。
   打印("")。
-  打印("  duan run examples/file_tools/batch_rename/主.duan <目录> [选项]")。
+  打印("  light run examples/file_tools/batch_rename/主.light <目录> [选项]")。
   打印("")。
   打印("选项:")。
   打印("  --prefix <文本>    添加前缀")。
@@ -125,7 +125,7 @@
   如果 非 解析参数(sys.argv):
     返回。
   打印("")。
-  打印("段言文件批量重命名工具")。
+  打印("光明文件批量重命名工具")。
   打印("目标目录: " + 当前目录)。
   如果 要添加前缀 不等于 "":
     打印("添加前缀: " + 要添加前缀)。

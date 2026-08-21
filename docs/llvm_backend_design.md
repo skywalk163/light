@@ -162,7 +162,7 @@ LLVM 要求 alloca 指令必须在函数入口块（entry block）中。通过 `
 
 ```python
 # 收集阶段
-self._pending_allocas.append(f'{reg} = alloca {DUANVALUE_STRUCT}')
+self._pending_allocas.append(f'{reg} = alloca {LIGHTVALUE_STRUCT}')
 
 # 函数入口统一生成
 for alloca in self._pending_allocas:
@@ -545,7 +545,7 @@ print(f'编译成功: {exe_path}')
 typedef struct LightCoroutine {
     int state;             // 协程状态：DV_CORO_READY/SUSPENDED/DONE/ERROR
     int resume_point;      // 恢复点（Duff's device 的 case 标签）
-    DuanCoroFunc func;     // 协程函数指针
+    LightCoroFunc func;     // 协程函数指针
     LightValue result;      // 返回值
     LightValue* args;       // 参数数组（堆分配）
     int num_args;          // 参数数量
@@ -572,7 +572,7 @@ typedef struct LightFuture {
 ```llvm
 define void @_coro_xxx(ptr %result, ptr %coro, ptr %args, i32 %num_args)
 ```
-与运行时 `DuanCoroFunc` typedef 匹配。
+与运行时 `LightCoroFunc` typedef 匹配。
 
 ### 代码生成策略
 

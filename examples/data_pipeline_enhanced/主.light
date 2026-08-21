@@ -1,6 +1,6 @@
-# 段言 - 数据管道增强版
+# 光明 - 数据管道增强版
 # CSV → JSON → SQLite 数据流水线，含数据验证、错误处理与日志
-# 用法: duan run examples/data_pipeline_enhanced/主.duan
+# 用法: light run examples/data_pipeline_enhanced/主.light
 
 导入 文件系统。
 导入 JSON。

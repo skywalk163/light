@@ -1,6 +1,6 @@
-# 段言 - 排序与搜索算法库
+# 光明 - 排序与搜索算法库
 # 包含 12+ 种经典算法实现
-# 用法: duan run examples/algorithms/sorting.duan
+# 用法: light run examples/algorithms/sorting.light
 
 # ===== 工具函数 =====
 

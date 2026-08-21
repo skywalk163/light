@@ -60,70 +60,70 @@
    "first_line": "类 文档 实现 可打印, 可保存："
   },
   {
-   "file": "docs/五分钟入门段言.md",
+   "file": "docs/五分钟入门光明.md",
    "hash": "0f3b4c5b8405",
    "category": "REPL",
    "exc": "ParseError",
    "first_line": ">>> 打招呼(\"张三\")"
   },
   {
-   "file": "docs/五分钟入门段言.md",
+   "file": "docs/五分钟入门光明.md",
    "hash": "6f1c2e22897c",
    "category": "REPL",
    "exc": "ParseError",
    "first_line": ">>> 段落 加法 接收 a, b："
   },
   {
-   "file": "docs/五分钟入门段言.md",
+   "file": "docs/五分钟入门光明.md",
    "hash": "710113df8324",
    "category": "REPL",
    "exc": "ParseError",
    "first_line": ">>> 打印 \"你好，世界！\""
   },
   {
-   "file": "docs/五分钟入门段言.md",
+   "file": "docs/五分钟入门光明.md",
    "hash": "7ca44d40967b",
    "category": "REPL",
    "exc": "ParseError",
    "first_line": ">>> 段落 打招呼 接收 姓名："
   },
   {
-   "file": "docs/五分钟入门段言.md",
+   "file": "docs/五分钟入门光明.md",
    "hash": "82f462b37da8",
    "category": "REPL",
    "exc": "ParseError",
    "first_line": ">>> x * y"
   },
   {
-   "file": "docs/五分钟入门段言.md",
+   "file": "docs/五分钟入门光明.md",
    "hash": "865f528eaff0",
    "category": "REPL",
    "exc": "ParseError",
    "first_line": ">>> 遍历 i 从 1 到 5："
   },
   {
-   "file": "docs/五分钟入门段言.md",
+   "file": "docs/五分钟入门光明.md",
    "hash": "887c143c350e",
    "category": "REPL",
    "exc": "ParseError",
    "first_line": ">>> 遍历 i 从 1 到 5："
   },
   {
-   "file": "docs/五分钟入门段言.md",
+   "file": "docs/五分钟入门光明.md",
    "hash": "f8de6f4e05b3",
    "category": "REPL",
    "exc": "ParseError",
    "first_line": ">>> 设 x 为 10"
   },
   {
-   "file": "docs/五分钟入门段言.md",
+   "file": "docs/五分钟入门光明.md",
    "hash": "fa252d9cb216",
    "category": "REPL",
    "exc": "ParseError",
    "first_line": ">>> 设 分数 为 45"
   },
   {
-   "file": "docs/五分钟入门段言.md",
+   "file": "docs/五分钟入门光明.md",
    "hash": "ff89aadde6a0",
    "category": "REPL",
    "exc": "ParseError",

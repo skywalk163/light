@@ -18,13 +18,13 @@
 
 ## 导入方式
 
-```duan
+```light
 导入 CSV
 ```
 
 或
 
-```duan
+```light
 导入 标准CSV
 ```
 

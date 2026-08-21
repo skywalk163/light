@@ -1,6 +1,6 @@
 # 文件批量重命名工具
 
-使用段言编程语言实现的命令行文件批量重命名工具。支持添加前缀、添加后缀、替换文本等操作，适用于批量整理文件。
+使用光明编程语言实现的命令行文件批量重命名工具。支持添加前缀、添加后缀、替换文本等操作，适用于批量整理文件。
 
 ## 功能
 
@@ -17,22 +17,22 @@
 
 ```bash
 # 预览模式 - 查看将要执行的操作
-duan run examples/file_tools/batch_rename/主.duan ./图片 --prefix "旅行_" --ext ".jpg" --dry-run
+light run examples/file_tools/batch_rename/主.light ./图片 --prefix "旅行_" --ext ".jpg" --dry-run
 
 # 为所有文件添加前缀
-duan run examples/file_tools/batch_rename/主.duan ./文档 --prefix "2024_"
+light run examples/file_tools/batch_rename/主.light ./文档 --prefix "2024_"
 
 # 为所有文件添加后缀
-duan run examples/file_tools/batch_rename/主.duan ./照片 --suffix "_已处理"
+light run examples/file_tools/batch_rename/主.light ./照片 --suffix "_已处理"
 
 # 替换文件名中的文本
-duan run examples/file_tools/batch_rename/主.duan ./报告 --replace "草稿" "正式版"
+light run examples/file_tools/batch_rename/主.light ./报告 --replace "草稿" "正式版"
 
 # 限定扩展名 + 添加前缀 + 递归子目录
-duan run examples/file_tools/batch_rename/主.duan ./代码 --prefix "备份_" --ext ".py" --recursive
+light run examples/file_tools/batch_rename/主.light ./代码 --prefix "备份_" --ext ".py" --recursive
 
 # 查看帮助
-duan run examples/file_tools/batch_rename/主.duan --help
+light run examples/file_tools/batch_rename/主.light --help
 ```
 
 ## 参数说明

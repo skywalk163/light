@@ -3,7 +3,7 @@
 > **Version:** v6.0
 > **Last updated:** 2026-08-07
 
-Duan's package manager, **duanpub**, allows you to publish, discover, and install reusable packages (called "段件" / duanjian).
+Light's package manager, **duanpub**, allows you to publish, discover, and install reusable packages (called "段件" / lightjian).
 
 ---
 
@@ -13,61 +13,61 @@ Duan's package manager, **duanpub**, allows you to publish, discover, and instal
 
 ```bash
 # Install a package from the registry
-duan install 标准数学扩展
+light install 标准数学扩展
 
 # Install from a Git repository (auto-detects platform)
-duan install --git https://github.com/duan-lang/duan-math-ext.git
+light install --git https://github.com/light-lang/light-math-ext.git
 
 # Install from a local path
-duan install --path ./my-package
+light install --path ./my-package
 
 # Install with dependencies
-duan install --with-deps 标准数学扩展
+light install --with-deps 标准数学扩展
 ```
 
 ### Searching for Packages
 
 ```bash
 # Search the registry
-duan install --search 网络
+light install --search 网络
 
 # List all available packages
-duan install --registry
+light install --registry
 ```
 
 ### Managing Installed Packages
 
 ```bash
 # List installed packages
-duan install --list
+light install --list
 
 # Uninstall a package
-duan install --uninstall 标准数学扩展
+light install --uninstall 标准数学扩展
 
 # Update a package
-duan pkg update 标准数学扩展
+light pkg update 标准数学扩展
 
 # Update all packages
-duan pkg update --all
+light pkg update --all
 
 # Check for available updates
-duan pkg update --check
+light pkg update --check
 ```
 
 ## Project Configuration
 
 ### package.toml
 
-Each Duan project uses a `package.toml` file for configuration:
+Each Light project uses a `package.toml` file for configuration:
 
 ```toml
-# 段言项目配置
+# 光明项目配置
 [package]
 name = "my-project"
 version = "0.1.0"
-entry = "主.duan"
+entry = "主.light"
 authors = ["Your Name"]
-description = "My awesome Duan project"
+description = "My awesome Light project"
 
 [dependencies]
 标准数学扩展 = "1.0.0"
@@ -78,39 +78,39 @@ description = "My awesome Duan project"
 
 ```bash
 # Initialize a new project
-duan pkg init myproject
+light pkg init myproject
 
 # This creates:
 #   myproject/
 #   ├── package.toml
-#   └── 主.duan
+#   └── 主.light
 ```
 
 ### Building and Running
 
 ```bash
 # Build the project
-duan pkg -p myproject build
+light pkg -p myproject build
 
 # Run the project
-duan pkg -p myproject run
+light pkg -p myproject run
 
 # Native compilation with LLVM backend
-duan pkg -p myproject native -o output.exe
+light pkg -p myproject native -o output.exe
 ```
 
 ## Publishing Packages
 
 ### Package Structure
 
-A valid Duan package must have:
+A valid Light package must have:
 
 ```
 my-package/
 ├── package.toml          # Package configuration
-├── 主.duan               # Entry point
-├── 模块1.duan            # Module files
-└── 模块2.duan
+├── 主.light               # Entry point
+├── 模块1.light            # Module files
+└── 模块2.light
 ```
 
 ### Publishing Steps
@@ -133,10 +133,10 @@ mirrors = [
 2. **Publish locally** (for testing):
 
 ```bash
-duan publish
+light publish
 ```
 
-3. **Submit to the registry** by creating a Pull Request to the [duan-lang/registry](https://gitcode.com/duan-lang/registry) repository.
+3. **Submit to the registry** by creating a Pull Request to the [light-lang/registry](https://gitcode.com/light-lang/registry) repository.
 
 ## Registry API
 
@@ -178,7 +178,7 @@ curl "http://localhost:8000/api/v1/search?q=数学"
 
 ### Version Constraints
 
-Duan supports semantic versioning constraints:
+Light supports semantic versioning constraints:
 
 | Constraint | Example | Description |
 |------------|---------|-------------|
@@ -190,7 +190,7 @@ Duan supports semantic versioning constraints:
 
 ### Lock File
 
-The `duan.lock` file ensures reproducible builds by recording exact versions:
+The `light.lock` file ensures reproducible builds by recording exact versions:
 
 ```json
 {
@@ -218,7 +218,7 @@ The package installer supports multiple Git platforms for faster downloads:
 The installer automatically tests all mirrors and selects the fastest one:
 
 ```bash
-duan install 标准数学扩展
+light install 标准数学扩展
 #  测速中（3 个镜像，超时 2.0s）...
 #  测速完成:
 #    gitcode   120ms ██████████ 极快
@@ -235,7 +235,7 @@ duan install 标准数学扩展
 # 1. Create your project
 mkdir my-utils
 cd my-utils
-duan pkg init
+light pkg init
 
 # 2. Edit package.toml
 cat > package.toml << 'EOF'
@@ -243,15 +243,15 @@ cat > package.toml << 'EOF'
 name = "my-utils"
 version = "1.0.0"
 description = "Collection of utility functions"
-author = "Duan Developer"
+author = "Light Developer"
 keywords = ["utility", "helpers"]
 mirrors = [
-    "https://github.com/duan-developer/my-utils.git",
+    "https://github.com/light-developer/my-utils.git",
 ]
 EOF
 
 # 3. Write your code
-cat > 主.duan << 'EOF'
+cat > 主.light << 'EOF'
 段落 问候 接收 名字：
     打印("你好，" + 名字 + "！")
 
@@ -262,12 +262,12 @@ cat > 主.duan << 'EOF'
 EOF
 
 # 4. Test locally
-duan pkg run
+light pkg run
 
 # 5. Publish to local registry
-duan publish
+light publish
 
 # 6. Install in another project
 cd ../other-project
-duan install my-utils
+light install my-utils
 ```

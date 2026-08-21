@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>段言积木库 · 使用文档</title>
+<title>光明积木库 · 使用文档</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="topbar">
-  <span class="brand">段言积木库</span>
+  <span class="brand">光明积木库</span>
   <span class="proto">协议 <b>v1.0.0</b>（当前）/ <i>v1.1 规划中</i></span>
   <span class="links">
     <a href="blocks.html">块清单</a>
@@ -19,8 +19,8 @@
 
 <div class="wrap">
   <header class="hero">
-    <h1>段言积木库 · 使用文档</h1>
-    <p>面向<strong>积木使用者</strong>：用一行自然语言需求拼出可运行的段言程序，常态零 AI token。本页为独立静态文档站，与段言语言本体的 mkdocs 物理分离。</p>
+    <h1>光明积木库 · 使用文档</h1>
+    <p>面向<strong>积木使用者</strong>：用一行自然语言需求拼出可运行的光明程序，常态零 AI token。本页为独立静态文档站，与光明语言本体的 mkdocs 物理分离。</p>
   </header>
 
   <nav class="toc">
@@ -37,17 +37,17 @@
   <!-- 1. 安装 -->
   <section id="install">
     <h2>1. 安装</h2>
-    <p>积木库已发布到 PyPI（包名 <code>duan-blocks</code>，当前版本 <code>1.0.1</code>）。段言语言本体与积木平台分开安装：</p>
-    <pre><code># 段言语言本体
-pip install duan
+    <p>积木库已发布到 PyPI（包名 <code>light-blocks</code>，当前版本 <code>1.0.1</code>）。光明语言本体与积木平台分开安装：</p>
+    <pre><code># 光明语言本体
+pip install light
 # 积木组合平台（已发 1.0.1）
-pip install duan-blocks
+pip install light-blocks
 # 可选：拼音 / 繁简 / 农历等中文能力
-pip install duan-blocks[zh]</code></pre>
+pip install light-blocks[zh]</code></pre>
 
-    <p>安装后可用命令行 <code>duan-combo</code> 直接跑需求；也可起 Web 演示服务：</p>
+    <p>安装后可用命令行 <code>light-combo</code> 直接跑需求；也可起 Web 演示服务：</p>
     <pre><code># 交互式演示页 + JSON API（端口可改）
-uvicorn duan_blocks.api:app --port 8123
+uvicorn light_blocks.api:app --port 8123
 #   GET  /       演示页
 #   POST /combo  {"requirement":"半径5的圆有多大","input":"5"}</code></pre>
 
@@ -55,7 +55,7 @@ uvicorn duan_blocks.api:app --port 8123
       <b>本地仓库运行</b>：在本仓库内调试脚本时，使用受管 Python 解释器（已随 WorkBuddy 安装）
       <code>C:/Users/skywalk/.workbuddy/binaries/python/versions/3.13.12/python.exe</code>。
       例如运行生成脚本：<code>该python 积木库/docs_site/build_docs.py</code>。
-      仓库内脚本会优先用 <code>cli/duan.py</code> 作为运行时；pip 安装后回退到 <code>duan</code> 命令（见 <code>组合.py</code> 的 <code>_定位运行时</code>）。
+      仓库内脚本会优先用 <code>cli/light.py</code> 作为运行时；pip 安装后回退到 <code>light</code> 命令（见 <code>组合.py</code> 的 <code>_定位运行时</code>）。
     </div>
     <div class="note warn">
       已知边界（诚实声明）：拼音/繁简/历法依赖可选第三方包（<code>pypinyin</code>/<code>opencc</code>/<code>lunardate</code>），缺失时对应块运行期才报错；真实 LLM 兜底需配置 <code>llm_config.json</code> 的 api_key（未配时本地规则覆盖 7 类常见库外意图）。
@@ -65,12 +65,12 @@ uvicorn duan_blocks.api:app --port 8123
   <!-- 2. 一行需求出结果 -->
   <section id="one-line">
     <h2>2. 一行需求出结果</h2>
-    <p>核心用法只有两步：先用 <code>组合.py</code> 把自然语言需求拼成段言源码，再用段言运行时执行。</p>
-    <pre><code># ① 选块 → 校验 → 契约级接线 → 内联粘合 → 运行，写出 组合结果.duan
+    <p>核心用法只有两步：先用 <code>组合.py</code> 把自然语言需求拼成光明源码，再用光明运行时执行。</p>
+    <pre><code># ① 选块 → 校验 → 契约级接线 → 内联粘合 → 运行，写出 组合结果.light
 python 积木库/组合.py "对一批数字求和再算平均"
 
-# ② 用段言运行时执行生成的 .duan（rc==0 且非空输出即成功）
-python cli/duan.py run 组合结果.duan</code></pre>
+# ② 用光明运行时执行生成的 .light（rc==0 且非空输出即成功）
+python cli/light.py run 组合结果.light</code></pre>
     <p>组合器默认共享输入为 <code>[1, 2, 3, 4, 5]</code>，可用 <code>--输入</code> 覆盖；<code>--json</code> 输出结构化诊断；<code>--无兜底</code> 可关闭 LLM 兜底。</p>
     <pre><code>python 积木库/组合.py "半径5的圆面积" --输入 5 --json</code></pre>
 
@@ -92,7 +92,7 @@ python cli/duan.py run 组合结果.duan</code></pre>
   "输入": [{"名": "列表", "类型": "列表[数]"}],
   "输出": {"类型": "数"},
   "稳定性": "stable",
-  "路径": "数据/求和.duan",
+  "路径": "数据/求和.light",
   "导出名": "汇总"
 }</code></pre>
     <p>各字段含义（来自 <code>协议.md</code> 冻结的契约格式）：</p>
@@ -102,9 +102,9 @@ python cli/duan.py run 组合结果.duan</code></pre>
       <li><code>层级</code>：L0 原子块 / L1+ 聚合块（由 <code>层级生成.py</code> 织出）。</li>
       <li><code>描述</code>：选块器据此匹配需求，写清「具体能力概念」，避开旧概念触发词以免余弦平局被旧块抢答。</li>
       <li><code>输入</code> / <code>输出</code>：结构化类型（<code>列表[数]</code>/<code>字典[文本,数]</code>/<code>可选[T]</code>/<code>联合[A,B]</code>），供契约级类型闸门接线。</li>
-      <li><code>稳定性</code>：<code>stable</code>（手写 <code>.duan</code> 为准）或 <code>generated</code>（兜底生成、源码内联存 <code>索引.json</code>）。</li>
-      <li><code>路径</code>：源码相对库根位置，缺省时粘合器按 <code>领域/块.duan</code> 回退。</li>
-      <li><code>导出名</code>：粘合进单一 <code>.duan</code> 后的段落导出名，词法器最长匹配消费。</li>
+      <li><code>稳定性</code>：<code>stable</code>（手写 <code>.light</code> 为准）或 <code>generated</code>（兜底生成、源码内联存 <code>索引.json</code>）。</li>
+      <li><code>路径</code>：源码相对库根位置，缺省时粘合器按 <code>领域/块.light</code> 回退。</li>
+      <li><code>导出名</code>：粘合进单一 <code>.light</code> 后的段落导出名，词法器最长匹配消费。</li>
     </ul>
 
     <h3>两条铁律（<code>评估/体检.py</code> 强制）</h3>
@@ -113,7 +113,7 @@ python cli/duan.py run 组合结果.duan</code></pre>
 
     <h3>新增一块的最小步骤</h3>
     <ol>
-      <li>在对应领域目录新建 <code>&lt;名称&gt;.duan</code>，<strong>段落名 == 导出名</strong>，且导出名不与任何现有导出名互为前缀。</li>
+      <li>在对应领域目录新建 <code>&lt;名称&gt;.light</code>，<strong>段落名 == 导出名</strong>，且导出名不与任何现有导出名互为前缀。</li>
       <li>在 <code>索引.json</code> 的 <code>块</code> 数组追加一条（必填：名称/领域/层级/描述/输入/输出/稳定性/路径/导出名）。</li>
       <li>跑 <code>python 积木库/评估/体检.py --严格</code> 确认铁律与契约一致通过。</li>
       <li>跑 <code>python 积木库/评估/冒烟.py --只跑 &lt;领域&gt;</code> 真跑该块，确认输出符合预期。</li>
@@ -128,7 +128,7 @@ python cli/duan.py run 组合结果.duan</code></pre>
     <ul>
       <li><b>选块</b>（<code>评估/跑分.py</code>）：候选块对不对（Hit@1 / 链路正确率）。</li>
       <li><b>校验</b>（<code>评估/校验器.py</code> 思路）：运行前第二道闸，需求能力概念与所选块无交集即判误选。</li>
-      <li><b>体检</b>（<code>评估/体检.py</code>）：索引与 <code>.duan</code> 源文件一致性，守卫两条铁律。</li>
+      <li><b>体检</b>（<code>评估/体检.py</code>）：索引与 <code>.light</code> 源文件一致性，守卫两条铁律。</li>
       <li><b>冒烟</b>（<code>评估/冒烟.py</code>）：真跑每一块比对期望输出，统计可运行率。</li>
       <li><b>扰动</b>（<code>评估/扰动跑分.py</code>）：用刻意避开块名用字的迂回说法，测对外泛化召回。</li>
     </ul>
@@ -167,7 +167,7 @@ python 积木库/评估/ci_eval.py --快</code></pre>
       <li><b>真实 LLM</b>：本地规则也覆盖不了、且配置了 key 时，才调用一次 OpenAI 兼容的 <code>chat/completions</code> 生成新积木。</li>
     </ul>
     <div class="note">
-      <b>沉淀与护栏。</b>生成的块写入 <code>生成/&lt;名称&gt;.duan</code> 并注册进 <code>索引.json</code>，下次同需求零 token 复用。
+      <b>沉淀与护栏。</b>生成的块写入 <code>生成/&lt;名称&gt;.light</code> 并注册进 <code>索引.json</code>，下次同需求零 token 复用。
       若未过护栏（如臆造了不存在的内建名），则由 <code>入待审</code> 写入 <code>生成/待审/</code> 并记入 <code>待审清单.jsonl</code>，<strong>不污染</strong> <code>索引.json</code>；
       护栏回滚时只注销 <code>生成/</code> 下的生成块，不影响原库条目。
     </div>
@@ -178,7 +178,7 @@ python 积木库/评估/ci_eval.py --快</code></pre>
   </section>
 
   <footer>
-    段言积木库独立文档站 · 协议 v1.0.0（当前）/ v1.1 规划中 · 块清单由 <code>build_docs.py</code> 从 <code>索引.json</code> 实时生成（当前 164 块）。
+    光明积木库独立文档站 · 协议 v1.0.0（当前）/ v1.1 规划中 · 块清单由 <code>build_docs.py</code> 从 <code>索引.json</code> 实时生成（当前 164 块）。
     本页只读引用 <code>索引.json</code> / <code>协议.md</code> / <code>评估/</code>，未改动任何源文件。
   </footer>
 </div>

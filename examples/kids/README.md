@@ -1,4 +1,4 @@
-# 段言少儿编程趣味示例
+# 光明少儿编程趣味示例
 
 > **版本：** v6.2
 > 专为 8-14 岁青少年设计的编程学习示例，让编程变得有趣又简单！
@@ -9,20 +9,20 @@
 
 | 文件 | 难度 | 说明 |
 |------|------|------|
-| [draw_shapes.duan](draw_shapes.duan) | ⭐ 入门 | 用 ASCII 艺术画各种图形 |
-| [number_game.duan](number_game.duan) | ⭐⭐ 基础 | 带分数的猜数字游戏 |
-| [story_generator.duan](story_generator.duan) | ⭐⭐⭐ 进阶 | 多模板故事生成器 |
+| [draw_shapes.light](draw_shapes.light) | ⭐ 入门 | 用 ASCII 艺术画各种图形 |
+| [number_game.light](number_game.light) | ⭐⭐ 基础 | 带分数的猜数字游戏 |
+| [story_generator.light](story_generator.light) | ⭐⭐⭐ 进阶 | 多模板故事生成器 |
 
 ---
 
 ## 🎯 学习目标
 
-### 1. 图形绘制 — draw_shapes.duan
+### 1. 图形绘制 — draw_shapes.light
 **核心概念：** 循环、条件判断、字符串拼接、函数
 **适合年龄：** 8-12 岁
 **运行方式：**
 ```bash
-duan run examples/kids/draw_shapes.duan
+light run examples/kids/draw_shapes.light
 ```
 
 **孩子将学到：**
@@ -41,12 +41,12 @@ duan run examples/kids/draw_shapes.duan
 
 ---
 
-### 2. 猜数字游戏 — number_game.duan
+### 2. 猜数字游戏 — number_game.light
 **核心概念：** 变量、条件判断、循环、用户输入、函数、列表
 **适合年龄：** 10-14 岁
 **运行方式：**
 ```bash
-duan run examples/kids/number_game.duan
+light run examples/kids/number_game.light
 ```
 
 **孩子将学到：**
@@ -66,12 +66,12 @@ duan run examples/kids/number_game.duan
 
 ---
 
-### 3. 故事生成器 — story_generator.duan
+### 3. 故事生成器 — story_generator.light
 **核心概念：** 字符串、列表、字典、函数、模块化、模板引擎
 **适合年龄：** 10-14 岁
 **运行方式：**
 ```bash
-duan run examples/kids/story_generator.duan
+light run examples/kids/story_generator.light
 ```
 
 **孩子将学到：**
@@ -98,9 +98,9 @@ duan run examples/kids/story_generator.duan
 
 | 学生年龄 | 推荐示例 | 预计时间 | 教学重点 |
 |---------|---------|---------|---------|
-| 8-10 岁 | draw_shapes.duan | 1-2 次课 | 逻辑思维、循环概念 |
-| 10-12 岁 | number_game.duan | 2-3 次课 | 变量、条件、交互 |
-| 12-14 岁 | story_generator.duan | 3-4 次课 | 函数、模块化、创意 |
+| 8-10 岁 | draw_shapes.light | 1-2 次课 | 逻辑思维、循环概念 |
+| 10-12 岁 | number_game.light | 2-3 次课 | 变量、条件、交互 |
+| 12-14 岁 | story_generator.light | 3-4 次课 | 函数、模块化、创意 |
 
 ### 教学方法
 
@@ -125,16 +125,16 @@ duan run examples/kids/story_generator.duan
 ### 常见问题
 
 **Q：孩子需要懂英语吗？**
-A：不需要！段言的关键字全部是中文，示例中的函数名和变量名也都是中文，孩子可以完全用中文思考。
+A：不需要！光明的关键字全部是中文，示例中的函数名和变量名也都是中文，孩子可以完全用中文思考。
 
 **Q：需要安装什么软件？**
-A：需要安装 Python 3.10+ 和段言编译器。请参考 `docs/30分钟入门段言.md` 中的安装教程。
+A：需要安装 Python 3.10+ 和光明编译器。请参考 `docs/30分钟入门光明.md` 中的安装教程。
 
-**Q：孩子学段言对其他语言有帮助吗？**
-A：非常有帮助！段言的编程逻辑（变量、循环、条件、函数）和其他编程语言完全一致。学会段言后，再学 Python、JavaScript 等语言会非常轻松。
+**Q：孩子学光明对其他语言有帮助吗？**
+A：非常有帮助！光明的编程逻辑（变量、循环、条件、函数）和其他编程语言完全一致。学会光明后，再学 Python、JavaScript 等语言会非常轻松。
 
 **Q：运行命令是什么？**
-A：在终端中进入项目根目录，运行 `duan run examples/kids/文件名.duan`。
+A：在终端中进入项目根目录，运行 `light run examples/kids/文件名.light`。
 
 ---
 
@@ -153,7 +153,7 @@ A：在终端中进入项目根目录，运行 `duan run examples/kids/文件名
 ## 📝 运行环境要求
 
 - Python 3.10 或更高版本
-- 段言编译器 v6.2 或更高版本
+- 光明编译器 v6.2 或更高版本
 - 操作系统：Windows / macOS / Linux 均可
 
-> **开始学习：** 打开终端，运行 `duan run examples/kids/draw_shapes.duan`，开始你的编程之旅吧！
+> **开始学习：** 打开终端，运行 `light run examples/kids/draw_shapes.light`，开始你的编程之旅吧！
