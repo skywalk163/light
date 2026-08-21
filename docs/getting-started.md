@@ -161,7 +161,8 @@ light run hello.light
 异步 段落 获取数据 接收 url：
     返回 等待 请求(url)
 
-异步 范围：
+# 异步入口也必须是一个 异步 段落
+异步 段落 主流程()：
     设 数据 为 等待 获取数据("https://api.example.com")
     打印 数据
 ```

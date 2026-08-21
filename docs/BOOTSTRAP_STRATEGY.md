@@ -95,7 +95,7 @@ Level 7：类型注解系统 + 自举收敛验证（已完成）
 
 ```光明
 段落 函数名 接收 参数1, 参数2：
-  定义 result 等于 表达式。
+  设 result 为 表达式。
   返回 result。
 结束。
 ```
@@ -161,7 +161,7 @@ Level 7：类型注解系统 + 自举收敛验证（已完成）
 ```光明
 # 创建令牌
 段落 创建令牌 接收 种别, 值, 横, 纵：
-  定义 令牌 等于 《字典创建》()。
+  设 令牌 为 《字典创建》()。
   《字典设置》(令牌, "种别", 种别)。
   《字典设置》(令牌, "值", 值)。
   《字典设置》(令牌, "横", 横)。
@@ -176,10 +176,10 @@ Level 7：类型注解系统 + 自举收敛验证（已完成）
 
 ```光明
 # 示例：变量声明节点
-["var_decl", "名称", ["number", "42"]]
+设 变量声明节点 为 ["var_decl", "名称", ["number", "42"]]
 
 # 示例：函数定义节点
-["paragraph_def", "函数名", ["参数1", "参数2"], [body_stmt1, body_stmt2]]
+设 函数定义节点 为 ["paragraph_def", "函数名", ["参数1", "参数2"], [body_stmt1, body_stmt2]]
 ```
 
 支持的节点类型：`program`, `paragraph_def`, `var_decl`, `assign`, `compound_assign`, `if_stmt`, `while_loop`, `return`, `expr_stmt`, `identifier`, `number`, `string`, `boolean`, `null`, `binary_op`, `unary_op`, `func_call`, `member_access`
@@ -191,13 +191,15 @@ Level 7：类型注解系统 + 自举收敛验证（已完成）
 ### 5.1 编译器API
 
 ```光明
-compile_source(source: 字符串) → 字符串
+段 compile_source(source: 字符串) -> 字符串：
   # 输入：光明源代码
   # 输出：Python 代码
+  返回 ""
 
-compile_file(filepath: 字符串) → 字符串
+段 compile_file(filepath: 字符串) -> 字符串：
   # 输入：光明源代码文件路径
   # 输出：Python 代码
+  返回 ""
 ```
 
 ### 5.2 运行方式

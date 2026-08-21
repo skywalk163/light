@@ -222,6 +222,11 @@ class ParserStmtMixin:
         if tok.type == TokenType.KEYWORD and tok.value == '定义':
             return self._parse_var_decl()
         
+        # 常量修饰符前缀：常 设 名 为 值。（v7 单 33）
+        # `常量` 是等义双字写法。必须排在 '设' 分支之前。
+        if tok.type == TokenType.KEYWORD and tok.value in ('常', '常量'):
+            return self._parse_const_modifier()
+
         # 变量声明：设...为...
         if tok.type == TokenType.KEYWORD and tok.value == '设':
             return self._parse_set_stmt()
@@ -1663,7 +1668,32 @@ class ParserStmtMixin:
                 self._consume(TokenType.PERIOD)
         
         return ImportStmt(module_name, symbols=symbols, alias=alias)
-    
+
+    def _parse_const_modifier(self) -> ASTNode:
+        """解析常量修饰符前缀：`常 设 名 为 值。`（v7 单 33）。
+
+        `常` 是 `docs/language/l0-core.md`「修饰（5字）」承诺的最后一个缺口；
+        `常量`（双字）在 `KEYWORDS_DEFINE` 里挂了很久但同样没有解析路径，
+        写 `常量 甲 为 1。` 一直报「「常量」是保留关键字，不能直接作为语句开头」。
+        本单把整族一次收掉：两种写法都作为 `设` 语句的**前缀修饰符**。
+
+        产物语义（必须说清，别当成实现了 const）：Python 没有常量，本修饰符
+        **不改变产物**——`常 设 甲 为 1。` 与 `设 甲 为 1。` 编出同一行赋值。
+        它的价值在于消灭旧的**静默错编**：落地前 `常 设 甲 为 1。` 会先编出一行
+        多余的 `常()` 函数调用再接赋值，编译期零提示、运行期 NameError。
+        真正的不可重赋值检查若要做，是另一支单（需要作用域跟踪），不在本单。
+        """
+        修饰符 = self._current().value
+        self._consume(TokenType.KEYWORD)          # 吃掉 常 / 常量
+        nxt = self._current()
+        if not (nxt and nxt.type == TokenType.KEYWORD and nxt.value == '设'):
+            self._error(
+                f"「{修饰符}」是常量修饰符，后面必须跟「设」。"
+                f"如：{修饰符} 设 圆周率 为 3.14159。",
+                getattr(nxt, 'line', 0), getattr(nxt, 'col', 0),
+                getattr(nxt, 'value', None))
+        return self._parse_set_stmt()
+
     def _parse_set_stmt(self) -> ASTNode:
         """解析变量声明：设 变量名 为 值。或 设 变量 为 类型 = 值。或 解构赋值：设（甲，乙）为 元组。"""
         # 设

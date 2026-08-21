@@ -65,7 +65,7 @@
 ```段言
 甲 且 乙            # Logical AND
 甲 或 乙            # Logical OR
-非 甲               # Logical NOT
+设 结果 为 非 甲     # Logical NOT (非 may only appear inside an expression)
 ```
 
 ## Control Flow
@@ -282,12 +282,12 @@ Duan uses `段落` (paragraph) to define functions:
 ## Lambda Expressions
 
 ```段言
-设 加倍 为 参数 x => x * 2
+设 加倍 为 段(x) 返 x * 2
 打印 加倍(5)  # Output: 10
 
 # Using lambda with list operations
 设 数字 为 [1, 2, 3, 4, 5]
-设 加倍后 为 映射(数字, 参数 x => x * 2)
+设 加倍后 为 映射(数字, 段(x) 返 x * 2)
 ```
 
 ## Pattern Matching
@@ -308,7 +308,9 @@ Duan uses `段落` (paragraph) to define functions:
 ## Pipeline Operator
 
 ```段言
-设 结果 为 数据 |> 过滤 |> 映射 |> 归约
+# Pipe with -> : each stage's result feeds the next
+设 结果 为 (数据 -> 过滤 -> 映射)
+设 汇总 为 归约(结果)
 ```
 
 ## Async/Await
@@ -317,9 +319,10 @@ Duan uses `段落` (paragraph) to define functions:
 异步 段落 获取数据 接收 url：
     返回 等待 请求(url)
 
-异步 范围：
-    任务 数据 = 获取数据("https://api.example.com")
-    任务 更多 = 获取数据("https://api.example.com/more")
+# The async entry point must also be an 异步 段落
+异步 段落 主流程()：
+    设 数据 为 等待 获取数据("https://api.example.com")
+    设 更多 为 等待 获取数据("https://api.example.com/more")
     等待 全部(数据, 更多)
 ```
 
@@ -328,7 +331,9 @@ Duan uses `段落` (paragraph) to define functions:
 ```段言
 # 学生管理系统示例
 类 学生：
-    属性 名字, 年龄, 成绩
+    属性 名字
+    属性 年龄
+    属性 成绩
 
     构造 接收 名字, 年龄, 成绩：
         己.名字 为 名字
@@ -370,7 +375,7 @@ Duan uses `段落` (paragraph) to define functions:
 
 ```段言
 设 可能为空 为 可空("hello")
-如果 可能为空 不是 空：
+如果 可能为空 != 空：
     打印 安全展开(可能为空)
 ```
 

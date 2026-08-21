@@ -226,9 +226,10 @@ Functions with default parameters:
 异步 段落 获取数据 接收 url：
     返回 等待 请求(url)
 
-异步 范围：
-    任务 数据 为 获取数据("https://api.example.com")
-    任务 更多 为 获取数据("https://api.example.com/more")
+# The async entry point must also be an 异步 段落
+异步 段落 主流程()：
+    设 数据 为 等待 获取数据("https://api.example.com")
+    设 更多 为 等待 获取数据("https://api.example.com/more")
     等待 全部(数据, 更多)
 ```
 
@@ -243,12 +244,12 @@ Functions with default parameters:
 ### Lambda Expressions
 
 ```段言
-设 加倍 为 参数 x => x * 2
+设 加倍 为 段(x) 返 x * 2
 打印 加倍(5)  # Output: 10
 
 # With list operations
 设 数字 为 [1, 2, 3, 4, 5]
-设 加倍后 为 映射(数字, 参数 x => x * 2)
+设 加倍后 为 映射(数字, 段(x) 返 x * 2)
 ```
 
 ### List Comprehensions
@@ -266,7 +267,9 @@ Functions with default parameters:
 ### Pipeline Operator
 
 ```段言
-设 结果 为 数据 |> 过滤 |> 映射 |> 归约
+# Pipe with -> : each stage's result feeds the next
+设 结果 为 (数据 -> 过滤 -> 映射)
+设 汇总 为 归约(结果)
 ```
 
 ### Type Annotations (v6.0)
@@ -280,7 +283,7 @@ Functions with default parameters:
 
 ```段言
 设 可能为空 为 可空("hello")
-如果 可能为空 不是 空：
+如果 可能为空 != 空：
     打印 安全展开(可能为空)
 ```
 

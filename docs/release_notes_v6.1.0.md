@@ -56,7 +56,7 @@
 设 响应 为 获取("https://api.example.com", 代理=代理)
 
 # 异步请求
-异步 设 响应 为 异步获取("https://api.example.com/data")
+设 响应 为 等待 异步获取("https://api.example.com/data")
 
 # 文件上传下载
 设 结果 为 下载文件("https://example.com/file.zip", "本地路径/file.zip")
@@ -70,7 +70,7 @@
 打印 农历日期.年  # 输出：丙午年
 
 # 时区转换
-设 纽约时间 为 转时区(现在(), "America/New_York")
+设 纽约时间 为 转时区(当前时间(), "America/New_York")
 
 # 中文日期解析
 设 日期 为 解析中文日期("2026年11月7日")

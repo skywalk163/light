@@ -921,8 +921,8 @@
               否则：
                 设 catch_type 为 列表获取(ct, 1)
                 设 ctp 为 ctp 加 1
+              结束
             结束
-          结束
           结束
           如果 找类型 且 catch_type 不等于 "" 且 ctt 等于 "ID"：
             设 ctv 为 列表获取(ct, 1)
@@ -938,7 +938,7 @@
             否则：
               设 catch_body_start 为 ctp
               设 找类型 为 假
-          结束
+            结束
           结束
           如果 找类型 且 catch_type 不等于 "" 且 ctt 不等于 "ID"：
             设 catch_body_start 为 ctp

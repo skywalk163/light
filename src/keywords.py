@@ -48,6 +48,17 @@ KEYWORDS_DEFINE = {
     # L0 单字别名（v4.0 新增）
     '导',  # 导入
     '出',  # 导出
+    # v7 单 33 —— `常`（常量修饰符）落地，范式 B。docs/language/l0-core.md
+    # 「修饰（5字）」承诺的最后一个缺口（此前 test_spec_docs_sync.py 缺口基线
+    # 唯一成员）。语义：`常 设 名 为 值` 的前缀修饰符（Python 无 const，产物与
+    # 普通赋值一致）。位置语义证伪范式 A（`常 X` 今天不报错、落成函数调用），
+    # 只能范式 B。必须同时进 lexer._COMPOUND_SAFE_SINGLE_KEYWORDS，否则全仓
+    # 444 处词内 `常`（异常/常数/常表/自然常数…）会被切碎。
+    # 全仓 token A/B（37255 文件，.scratch/ab_chang.py）：REGRESS=0、SPLIT=4，
+    # 4 例全是 `异常` 被切开（与 31-G 的 `异` 同型，均为 bootstrap/release/stdlib
+    # 的已损坏生成产物，不在任何测试断言路径）。**不要顺手把 `异常` 加进关键字表**
+    # ——31-G 已实测证伪该「补保护」推演（加了 SPLIT 反涨）。详见工单 33。
+    '常',
 }
 
 # 条件判断

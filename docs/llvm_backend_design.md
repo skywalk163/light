@@ -628,7 +628,7 @@ define void @_seg_xxx(ptr %result, ptr %args, i32 %num_args) {
 ### 异步作用域（结构化并发）
 
 ```光明
-异步作用域
+异步作用域：
     任务1()
     任务2()
 结束

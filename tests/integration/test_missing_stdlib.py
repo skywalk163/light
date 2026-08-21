@@ -74,12 +74,21 @@ class TestMissingStdlibUnified(unittest.TestCase):
         self._saved_cwd = os.getcwd()
         self._tmp = tempfile.mkdtemp(prefix='duan_missing_stdlib_')
         os.chdir(self._tmp)
-        # 清掉可能残留的 文件系统 stub，确保每次都从兜底逻辑重新注册
-        sys.modules.pop('文件系统', None)
+        # 清掉可能残留的 文件系统 stub，确保每次都从兜底逻辑重新注册。
+        # 注意：这里会把真实的 stdlib/文件系统 也从 sys.modules 摘掉，兜底逻辑随后会
+        # setdefault 一个只有少数函数的合成 stub。若不在 tearDown 里还原，后续用例
+        # （如 tests/test_stdlib_complete.py::TestFileSystem）再 `from 文件系统 import`
+        # 就会拿到这个残留 stub 并报
+        # `ImportError: cannot import name '文件大小' from '文件系统' (unknown location)`。
+        self._saved_fs_module = sys.modules.pop('文件系统', None)
 
     def tearDown(self):
         os.chdir(self._saved_cwd)
         shutil.rmtree(self._tmp, ignore_errors=True)
+        # 还原 sys.modules['文件系统']，避免把兜底 stub 泄漏给后续用例
+        sys.modules.pop('文件系统', None)
+        if self._saved_fs_module is not None:
+            sys.modules['文件系统'] = self._saved_fs_module
 
     def test_list_sort_missing_stdlib(self):
         """列表排序 在 stdlib 缺失时不应再抛 AttributeError。"""
