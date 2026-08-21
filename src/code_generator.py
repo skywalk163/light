@@ -2966,6 +2966,16 @@ class PythonCodeGenerator:
 
         第一实参若是 lambda 字面量，说明写的是旧的「函数在前」语序：
         换序后会发射 `map(lambda …, 数据)`，又是一次静默错编。直接编译期报错。
+
+        主线验收补的护栏：只在能**正面判定**语序时才换序——第一实参是数据形态
+        （字面量／推导式／范围／带参调用／下标…），或第二实参是函数形态
+        （lambda 字面量／已登记的段落名与导入符号）。两侧都判不定就不换序，
+        保持源码语序并发编译期告警。
+
+        为什么必须有这条：积木库 blocks_v4/blocks_v5 的 函数映射.light 写的是
+        `返回 映射(甲, 输入)`（旧 Python 语序，甲 是函数形参）。无条件换序编成
+        `map(输入, 甲)`——参数颠倒，而 map 惰性求值不会立刻抛错，属于本项目
+        明令禁止的静默错编，且 ci_eval 的「可运行率」判据完全盖不住它。
         """
         if shadowed or not isinstance(verb, str):
             return args
@@ -2978,7 +2988,54 @@ class PythonCodeGenerator:
                 f"「{verb}」的参数顺序是「数据在前、函数在后」："
                 f"请写成 {verb}(数据, 接收 项：…) 而不是 {verb}(接收 项：…, 数据)",
                 'ParagraphCall')
-        return [args[1], args[0]]
+        if self._looks_data_arg(args[0]) or self._looks_callable_arg(args[1]):
+            return [args[1], args[0]]
+        self._warn_ambiguous_arg_order(verb)
+        return args
+
+    # 数据形态：一眼能看出是「被遍历的东西」而不是函数
+    _DATA_SHAPE_NODES = (ListLiteral, TupleLiteral, SetLiteral, DictLiteral,
+                         StringLiteral, NumberLiteral, StringInterpolation,
+                         ListComprehension, SetComprehension, DictComprehension,
+                         RangeExpr, IndexAccess, SliceExpr, BinaryOp)
+
+    def _looks_data_arg(self, arg) -> bool:
+        """实参能否**正面判定**为数据形态。判不定一律 False（不猜）。"""
+        if isinstance(arg, self._DATA_SHAPE_NODES):
+            return True
+        # 带实参的调用，其返回值按数据看：映射(范围(1,10), 加倍)
+        if isinstance(arg, (ParagraphCall, FunctionCallExpr)):
+            return bool(getattr(arg, 'args', None))
+        return False
+
+    def _looks_callable_arg(self, arg) -> bool:
+        """实参能否**正面判定**为函数形态：lambda 字面量，或已登记的用户函数名。
+
+        `_user_defined_functions` 是单遍生成边走边登记的，所以「先用后定义」的
+        段落名判不出来——那种写法落到判不定分支（不换序 + 告警）。宁可少换一次，
+        也不静默换错。
+        """
+        if isinstance(arg, LambdaExpression):
+            return True
+        if isinstance(arg, ParagraphCall) and getattr(arg, 'args', None):
+            return False
+        name = getattr(arg, 'name', None)
+        return isinstance(name, str) and name in self._user_defined_functions
+
+    def _warn_ambiguous_arg_order(self, verb: str) -> None:
+        """语序判不定时告警。同一动词只报一次，避免刷屏。"""
+        seen = getattr(self, '_arg_order_warned', None)
+        if seen is None:
+            seen = set()
+            self._arg_order_warned = seen
+        if verb in seen:
+            return
+        seen.add(verb)
+        sys.stderr.write(
+            f"[光明·告警] 「{verb}」的两个实参都判不定语序（都是裸名字），"
+            f"已按源码语序原样发射、未做「数据在前」换序。"
+            f"若本意是数据在前，请把函数实参写成 lambda 或已声明的段落名以消歧。\n")
+
 
 
     # 高频 `的X` 后缀绝大多数是**用户自己的标识符**而非成员访问：
