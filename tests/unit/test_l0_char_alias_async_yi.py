@@ -131,9 +131,14 @@ class TestAsyncCharAliasEquivalence(unittest.TestCase):
         self.assertIsInstance(名为甲[0], ast.AsyncFunctionDef)
 
     def test_异作用域与异步作用域等价(self):
-        """作用域形态单列：产物不是 Async* 节点，而是 `await asyncio.gather(...)`。"""
-        a = _compile('异 作用域：\n    打印 1。\n结束\n')
-        b = _compile('异步 作用域：\n    打印 1。\n结束\n')
+        """作用域形态单列：产物不是 Async* 节点，而是 `await asyncio.gather(...)`。
+
+        必须包在异步段落里：`异步 作用域` 编出的是 `await asyncio.gather(...)`，
+        写在模块顶层就是模块级裸 await（Python `SyntaxError`），因此 codegen
+        现在在顶层直接报错（单 A1）。本用例原先正是断言那种顶层写法能编过。
+        """
+        a = _compile('异 段 主()：\n    异 作用域：\n        打印 1。\n    结束\n结束\n')
+        b = _compile('异步 段 主()：\n    异步 作用域：\n        打印 1。\n    结束\n结束\n')
         self.assertEqual(a, b)
         self.assertIn('asyncio.gather', a)
 

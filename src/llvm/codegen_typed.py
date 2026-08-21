@@ -424,6 +424,31 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_coro_set_result(ptr, ptr)',
             f'declare ptr @dv_coro_get_local(ptr, i32)',
             f'declare ptr @dv_coro_get_arg(ptr, i32)',
+            # 网络/Socket (Task B1)
+            f'declare i32 @dv_socket_create(i32, i32)',
+            f'declare i32 @dv_socket_connect(i32, ptr, i32)',
+            f'declare i32 @dv_socket_bind(i32, ptr, i32)',
+            f'declare i32 @dv_socket_listen(i32, i32)',
+            f'declare i32 @dv_socket_accept(i32)',
+            f'declare i32 @dv_socket_send(i32, ptr)',
+            f'declare void @dv_socket_recv(ptr, i32, i32)',
+            f'declare i32 @dv_socket_close(i32)',
+            f'declare i32 @dv_socket_shutdown(i32, i32)',
+            f'declare i32 @dv_socket_set_nonblocking(i32, i32)',
+            f'declare ptr @dv_socket_last_error()',
+            f'declare i32 @dv_socket_last_error_code()',
+            f'declare ptr @dv_socket_get_peer_addr(i32)',
+            # IO 多路复用 (Task B2)
+            f'declare ptr @dv_poller_create()',
+            f'declare i32 @dv_poller_register(ptr, i32, i32)',
+            f'declare i32 @dv_poller_unregister(ptr, i32)',
+            f'declare i32 @dv_poller_wait(ptr, i32, ptr, ptr)',
+            f'declare void @dv_poller_destroy(ptr)',
+            # 事件循环 (Task B3)
+            f'declare void @dv_coro_await_io(ptr, i32, i32)',
+            f'declare void @dv_coro_sleep(ptr, i32)',
+            f'declare void @dv_scheduler_run_event_loop()',
+            f'declare void @dv_platform_sleep(i32)',
         ]
         for f in funcs:
             self._func_decls.add(f)
@@ -1546,6 +1571,209 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._load_dv(result_slot), 'dv'
             return self._call_dv_func('dv_null'), 'dv'
 
+        # ---- 网络/Socket 内置函数 (Task B1) ----
+        if name in ('创建socket', 'socket_create'):
+            if len(args) >= 2:
+                d_i64 = self.new_register()
+                self.emit(f'{d_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                d_i32 = self.new_register()
+                self.emit(f'{d_i32} = trunc i64 {d_i64} to i32')
+                t_i64 = self.new_register()
+                self.emit(f'{t_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
+                t_i32 = self.new_register()
+                self.emit(f'{t_i32} = trunc i64 {t_i64} to i32')
+                fd = self.new_register()
+                self.emit(f'{fd} = call i32 @dv_socket_create(i32 {d_i32}, i32 {t_i32})')
+                fd_i64 = self.new_register()
+                self.emit(f'{fd_i64} = sext i32 {fd} to i64')
+                return self._create_int_dv(fd_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        if name in ('连接socket', 'socket_connect'):
+            if len(args) >= 3:
+                fd_i64 = self.new_register()
+                self.emit(f'{fd_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                fd_i32 = self.new_register()
+                self.emit(f'{fd_i32} = trunc i64 {fd_i64} to i32')
+                host_ptr = self._extract_ptr_from_dv(args[1])
+                port_i64 = self.new_register()
+                self.emit(f'{port_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[2]}, 1')
+                port_i32 = self.new_register()
+                self.emit(f'{port_i32} = trunc i64 {port_i64} to i32')
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_socket_connect(i32 {fd_i32}, ptr {host_ptr}, i32 {port_i32})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        if name in ('发送socket', 'socket_send'):
+            if len(args) >= 2:
+                fd_i64 = self.new_register()
+                self.emit(f'{fd_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                fd_i32 = self.new_register()
+                self.emit(f'{fd_i32} = trunc i64 {fd_i64} to i32')
+                data_ptr = self._extract_ptr_from_dv(args[1])
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_socket_send(i32 {fd_i32}, ptr {data_ptr})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        if name in ('接收socket', 'socket_recv'):
+            if len(args) >= 2:
+                fd_i64 = self.new_register()
+                self.emit(f'{fd_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                fd_i32 = self.new_register()
+                self.emit(f'{fd_i32} = trunc i64 {fd_i64} to i32')
+                mb_i64 = self.new_register()
+                self.emit(f'{mb_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
+                mb_i32 = self.new_register()
+                self.emit(f'{mb_i32} = trunc i64 {mb_i64} to i32')
+                result_slot = self._new_dv_slot()
+                self.emit(f'call void @dv_socket_recv(ptr {result_slot}, i32 {fd_i32}, i32 {mb_i32})')
+                return self._load_dv(result_slot), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
+        if name in ('关闭socket', 'socket_close'):
+            if args:
+                fd_i64 = self.new_register()
+                self.emit(f'{fd_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                fd_i32 = self.new_register()
+                self.emit(f'{fd_i32} = trunc i64 {fd_i64} to i32')
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_socket_close(i32 {fd_i32})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        if name in ('socket错误', 'socket_last_error'):
+            err_ptr = self.new_register()
+            self.emit(f'{err_ptr} = call ptr @dv_socket_last_error()')
+            return self._create_str_dv(err_ptr), 'dv'
+
+        if name in ('socket错误码', 'socket_last_error_code'):
+            ret = self.new_register()
+            self.emit(f'{ret} = call i32 @dv_socket_last_error_code()')
+            ret_i64 = self.new_register()
+            self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+            return self._create_int_dv(ret_i64), 'dv'
+
+        # ---- IO 多路复用内置函数 (Task B2) ----
+        if name in ('创建poller', 'poller_create'):
+            poller_ptr = self.new_register()
+            self.emit(f'{poller_ptr} = call ptr @dv_poller_create()')
+            # 用 type=8 REF 存储 poller 指针在 str 字段
+            slot = self._new_dv_slot()
+            # 直接构造: type=8, str=poller_ptr
+            self.emit(f'call void @dv_int(ptr {slot}, i64 0)')  # 先初始化
+            # 内联设置 type=8 和 str 字段
+            t_ptr = self.new_register()
+            self.emit(f'{t_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {slot}, i32 0, i32 0')
+            self.emit(f'store i32 8, ptr {t_ptr}')
+            s_ptr = self.new_register()
+            self.emit(f'{s_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {slot}, i32 0, i32 3')
+            self.emit(f'store ptr {poller_ptr}, ptr {s_ptr}')
+            return self._load_dv(slot), 'dv'
+
+        if name in ('销毁poller', 'poller_destroy'):
+            if args:
+                p_ptr = self._extract_ptr_from_dv(args[0])
+                self.emit(f'call void @dv_poller_destroy(ptr {p_ptr})')
+            return self._create_int_dv('0'), 'dv'
+
+        if name in ('注册poller', 'poller_register'):
+            if len(args) >= 3:
+                p_ptr = self._extract_ptr_from_dv(args[0])
+                fd_i64 = self.new_register()
+                self.emit(f'{fd_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
+                fd_i32 = self.new_register()
+                self.emit(f'{fd_i32} = trunc i64 {fd_i64} to i32')
+                ev_i64 = self.new_register()
+                self.emit(f'{ev_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[2]}, 1')
+                ev_i32 = self.new_register()
+                self.emit(f'{ev_i32} = trunc i64 {ev_i64} to i32')
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_poller_register(ptr {p_ptr}, i32 {fd_i32}, i32 {ev_i32})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        if name in ('poller_wait',):
+            if len(args) >= 2:
+                p_ptr = self._extract_ptr_from_dv(args[0])
+                to_i64 = self.new_register()
+                self.emit(f'{to_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
+                to_i32 = self.new_register()
+                self.emit(f'{to_i32} = trunc i64 {to_i64} to i32')
+                fds_arr = self.new_register()
+                self.emit(f'{fds_arr} = alloca i32, i32 256')
+                ev_arr = self.new_register()
+                self.emit(f'{ev_arr} = alloca i32, i32 256')
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_poller_wait(ptr {p_ptr}, i32 {to_i32}, ptr {fds_arr}, ptr {ev_arr})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        # ---- 事件循环内置函数 (Task B3) ----
+        if name in ('运行事件循环', 'run_event_loop'):
+            self.emit(f'call void @dv_scheduler_run_event_loop()')
+            return self._create_int_dv('0'), 'dv'
+
+        if name in ('睡眠', 'sleep'):
+            if args:
+                ms_i64 = self.new_register()
+                self.emit(f'{ms_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                ms_i32 = self.new_register()
+                self.emit(f'{ms_i32} = trunc i64 {ms_i64} to i32')
+                if self._in_coroutine:
+                    point_num = self._coro_resume_point
+                    self._coro_resume_point += 1
+                    resume_label = self._coro_resume_labels.get(point_num + 1)
+                    rp_ptr = self.new_register()
+                    self.emit(f'{rp_ptr} = getelementptr inbounds i8, ptr %coro, i32 4')
+                    self.emit(f'store i32 {point_num + 1}, ptr {rp_ptr}')
+                    self.emit(f'call void @dv_coro_sleep(ptr %coro, i32 {ms_i32})')
+                    self.emit(f'ret void')
+                    if resume_label:
+                        self.emit(f'{resume_label}:')
+                    else:
+                        fallback = self.new_label(f'sleep_resume_{point_num}')
+                        self.emit(f'{fallback}:')
+                else:
+                    self.emit(f'call void @dv_platform_sleep(i32 {ms_i32})')
+            return self._create_int_dv('0'), 'dv'
+
+        if name in ('await_io',):
+            if len(args) >= 2:
+                fd_i64 = self.new_register()
+                self.emit(f'{fd_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                fd_i32 = self.new_register()
+                self.emit(f'{fd_i32} = trunc i64 {fd_i64} to i32')
+                ev_i64 = self.new_register()
+                self.emit(f'{ev_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
+                ev_i32 = self.new_register()
+                self.emit(f'{ev_i32} = trunc i64 {ev_i64} to i32')
+                if self._in_coroutine:
+                    point_num = self._coro_resume_point
+                    self._coro_resume_point += 1
+                    resume_label = self._coro_resume_labels.get(point_num + 1)
+                    rp_ptr = self.new_register()
+                    self.emit(f'{rp_ptr} = getelementptr inbounds i8, ptr %coro, i32 4')
+                    self.emit(f'store i32 {point_num + 1}, ptr {rp_ptr}')
+                    self.emit(f'call void @dv_coro_await_io(ptr %coro, i32 {fd_i32}, i32 {ev_i32})')
+                    self.emit(f'ret void')
+                    if resume_label:
+                        self.emit(f'{resume_label}:')
+                    else:
+                        fallback = self.new_label(f'io_resume_{point_num}')
+                        self.emit(f'{fallback}:')
+            return self._create_int_dv('0'), 'dv'
         return None
 
     def _gen_typed_list_from_builtin_args(self, args: List[str]) -> Tuple[str, str]:
@@ -2794,9 +3022,16 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._coro_resume_point = 0
         # 保存 await 点标签映射: point_num -> resume_label
         self._coro_resume_labels = {}
+        # 初始化临时槽位池（否则会使用上一个函数残留的池指针）
+        self._temp_slot_index = 0
+        self._dv_ssa_to_slot = {}
         
         self.emit(f'define void @{coro_func_name}(ptr %result, ptr %coro, ptr %args, i32 %num_args) {{')
         self.emit('entry:')
+        
+        # 分配临时槽位池
+        self._temp_slot_pool = self.new_register()
+        self.emit(f'{self._temp_slot_pool} = alloca {LIGHTVALUE_STRUCT}, i32 {self._temp_slot_pool_size}')
         
         # 收集变量
         self._collect_vars_from_stmts(body)
@@ -2837,12 +3072,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             resume_labels.append(self.new_label(f'resume_{i}'))
             self._coro_resume_labels[i] = resume_labels[i]
         
-        # 生成 switch 语句
+        # 生成 switch 语句（单行，避免验证器将 case 行误判为终止指令后的死代码）
         switch_end_label = self.new_label('coro_switch_end')
-        self.emit(f'switch i32 {rp_val}, label %{switch_end_label} [')
-        for i in range(num_await + 1):
-            self.emit(f'  i32 {i}, label %{resume_labels[i]}')
-        self.emit(f']')
+        cases = ' '.join(f'i32 {i}, label %{resume_labels[i]}' for i in range(num_await + 1))
+        self.emit(f'switch i32 {rp_val}, label %{switch_end_label} [ {cases} ]')
         
         # 生成每个 resume 点和对应的代码
         # 注意：我们只有一个 resume_0 作为入口，然后在生成 body 时遇到 await 再插入 resume_N
@@ -2950,6 +3183,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         
         # 函数调用
         if isinstance(node, ast.FunctionCall):
+            # 睡眠/await_io 是 yield 点（在协程中产生 ret void + resume label）
+            call_name = None
+            if hasattr(node, 'name'):
+                if hasattr(node.name, 'name'):
+                    call_name = node.name.name
+                elif isinstance(node.name, str):
+                    call_name = node.name
+            if call_name in ('睡眠', 'sleep', 'await_io'):
+                count += 1
             for arg in (node.arguments or []):
                 count += self._count_await_in_node(arg)
             return count

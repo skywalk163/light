@@ -492,6 +492,8 @@ def compile_light(source_path: str, output_path: str = None, verbose: bool = Fal
         link_args.append('-g')
     if not sys.platform.startswith('win'):
         link_args.append('-lm')
+    if sys.platform == 'win32':
+        link_args.append('-lws2_32')
     # LTO 链接参数
     if lto:
         link_args.append('-flto')
@@ -638,6 +640,8 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
         link_args.append('-g')
     if not sys.platform.startswith('win'):
         link_args.append('-lm')
+    if sys.platform == 'win32':
+        link_args.append('-lws2_32')
     if lto:
         link_args.append('-flto')
 
@@ -1166,6 +1170,8 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
         link_args.append('-g')
     if not sys.platform.startswith('win'):
         link_args.append('-lm')
+    if sys.platform == 'win32':
+        link_args.append('-lws2_32')
     if lto:
         link_args.append('-flto')
 

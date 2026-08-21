@@ -17,7 +17,7 @@ import ast_nodes as ast_nodes_module
 
 # 需要导入新的AST节点类型
 from light_parser_v3 import ImportStmt, ExportStmt, IndexAccess, SliceExpr, SetComprehension, TupleLiteral, BreakStmt, ContinueStmt, PassStmt, ClassInstantiation, MemberAccess, TryStmt, ThrowStmt, Parameter, ParameterList, StringInterpolation, ListComprehension, LambdaExpression, MatchStmt, MatchCase, MatchPattern, DictComprehension, DestructuringAssignment, WithStmt, DecoratorDefinition, DictLiteral, InterfaceDefinition, MethodSignature, IndexedAssignment, RangeExpr, FFILoadLibrary, FFIFunctionDecl, FFIStructDef, FFICallbackDef, FFICreateArray, FFISetArrayElement, FFIAllocMemory, FFIFreeMemory, FFISetPointerValue, FFISetErrno, FFITryCatch, FFIEnumDef, FFIUnionDef, FFICreateCallback, FFIVarArgsDecl, FFIStructByValue, FFILibraryPath, FFITypedefDef, FFIBitfieldDef, FFIFuncPtrDef, FFIDebugConfig, FFIPreprocessorDef, FFIPointerType, FFIArrayType, FFIAddressOf, FFIDereference, FFIPointerOffset, FFIGetLastError, FFIGetErrno
-from ast_nodes_v3 import Assignment, TypeCheckToggleStmt, AwaitExpr, KeywordArg, IndexedCompoundAssignment, PassStmt, AssignmentExpression, SetLiteral, EmbedBlock, FunctionCallExpr, CatchClause, YieldStmt, AsyncScope, DecoratedFunction, DecoratorInfo, AssertStmt
+from ast_nodes_v3 import Assignment, TypeCheckToggleStmt, AwaitExpr, KeywordArg, IndexedCompoundAssignment, PassStmt, AssignmentExpression, SetLiteral, EmbedBlock, FunctionCallExpr, CatchClause, YieldStmt, AsyncScope, RunAsyncStmt, ScopeDeclStmt, DecoratedFunction, DecoratorInfo, AssertStmt
 from ast_nodes import ExpressionStatement, SegmentName
 
 
@@ -1095,15 +1095,35 @@ class PythonCodeGenerator:
             self._generate_ffi_preprocessor_def(stmt)
         elif isinstance(stmt, AwaitExpr):
             # 等待语句 → await expression
+            self._require_async_context('等待')
             inner = self._generate_expr(stmt.expression)
             self._add_line(f"await {inner}")
+        elif isinstance(stmt, RunAsyncStmt):
+            # A1 异步启动入口：异步 运行 主()。 → asyncio.run(主())
+            self._needs_asyncio = True
+            call = self._generate_expr(stmt.call)
+            self._add_line(f"asyncio.run({call})")
+
+        elif isinstance(stmt, ScopeDeclStmt):
+            # A5 作用域声明：全局 计数。 → global 计数；外层 值。 → nonlocal 值
+            if not self._in_function:
+                word = '全局' if stmt.kind == 'global' else '外层'
+                raise CodeGenError(
+                    f"「{word}」只能写在段落（函数）体内："
+                    f"模块级的变量本来就在最外层作用域，无需声明。",
+                    'ScopeDeclStmt')
+            self._add_line(f"{stmt.kind} {', '.join(stmt.names)}")
+
+
         elif isinstance(stmt, YieldStmt):
-            # 生成语句 → yield expression
+            # 生成语句 → yield expression；`生成 全部 X。` → yield from X（A2）
             if stmt.value:
                 value = self._generate_expr(stmt.value)
-                self._add_line(f"yield {value}")
+                keyword = "yield from" if getattr(stmt, 'is_from', False) else "yield"
+                self._add_line(f"{keyword} {value}")
             else:
                 self._add_line("yield")
+
         elif isinstance(stmt, AsyncScope):
             # 异步作用域（结构化并发）
             self._generate_async_scope(stmt)
@@ -1385,17 +1405,27 @@ class PythonCodeGenerator:
             if existing:
                 if param_type:
                     existing['type'] = param_type
+                if param.get('default') is not None:
+                    existing['default'] = param['default']
             else:
-                params.append({'name': param_name, 'type': param_type})
+                params.append({'name': param_name, 'type': param_type,
+                               'default': param.get('default')})
         
-        # 生成带类型注解的参数列表
+        # 生成带类型注解的参数列表（A4：`接收 端口 等于 443` → `端口=443`）
         params_parts = []
         for p in params:
             if p['type']:
                 python_type = self._map_type(p['type'])
-                params_parts.append(f"{p['name']}: {python_type}")
+                part = f"{p['name']}: {python_type}"
             else:
-                params_parts.append(p['name'])
+                part = p['name']
+            default = p.get('default')
+            if default is not None:
+                # 带注解时 PEP 8 要求 `名: 类型 = 值`，无注解时是 `名=值`
+                sep = ' = ' if p['type'] else '='
+                part = f"{part}{sep}{self._generate_expr(default)}"
+            params_parts.append(part)
+
         
         params_str = ', '.join(params_parts) if params_parts else ''
         
@@ -1757,11 +1787,15 @@ class PythonCodeGenerator:
             self.indent_level += 1
             for attr in instance_attrs:
                 attr_name = self._sanitize_name(attr.name)
+                # A6：`属性 次数：整数 为 0。` 的类型标注落成注解式赋值，
+                # 不然声明出来的类型在产物里彻底消失。
+                type_ann = getattr(attr, 'type_annotation', None)
+                annotation = f": {self._map_type(type_ann)}" if type_ann else ''
                 if attr.default_value:
                     default = self._generate_expr(attr.default_value)
-                    self._add_line(f"self.{attr_name} = {default}")
+                    self._add_line(f"self.{attr_name}{annotation} = {default}")
                 else:
-                    self._add_line(f"self.{attr_name} = None")
+                    self._add_line(f"self.{attr_name}{annotation} = None")
             self.indent_level -= 1
 
         # 生成方法
@@ -1995,9 +2029,24 @@ class PythonCodeGenerator:
             self._add_line("pass")
         self.indent_level -= 1
 
+    def _require_async_context(self, feature: str) -> None:
+        """A1：模块级（顶层）不许出现 `等待` / `异步 作用域`。
+
+        修复前顶层 `等待 主()。` 会生成模块级裸 `await 主()`，Python 直接
+        `SyntaxError: 'await' outside function`——报的是产物的错，用户看不懂
+        自己该改哪里。改成编译期报错并指路到 A1 新增的启动入口。
+        """
+        if not self._in_function:
+            raise CodeGenError(
+                f"「{feature}」只能写在 异步 段落 里面；"
+                f"要在顶层跑异步代码请用启动语句 `异步 运行 主()。`",
+                'RunAsyncStmt')
+
     def _generate_async_scope(self, stmt: AsyncScope):
         """生成异步作用域（结构化并发，使用 asyncio.gather 实现）"""
+        self._require_async_context('异步 作用域')
         if not stmt.tasks:
+
             self._add_line("pass")
             return
         
@@ -2410,8 +2459,11 @@ class PythonCodeGenerator:
                     py_name = f"self.{name}"
             
             # 参数（支持关键字参数）
+            # A3：`映射`/`筛选` 是「数据在前、函数在后」的中文语序，Python 侧却是
+            # (函数, 可迭代对象)。在这里换序，见 _reorder_data_first_args。
+            call_args = self._reorder_data_first_args(expr.name, py_name, shadowed, expr.args)
             args = []
-            for arg in expr.args:
+            for arg in call_args:
                 if isinstance(arg, KeywordArg):
                     kw = self._kwarg_name(py_name, arg.name)
                     args.append(f"{kw}={self._generate_expr(arg.value)}")
@@ -2802,6 +2854,7 @@ class PythonCodeGenerator:
 
         elif isinstance(expr, AwaitExpr):
             # 等待表达式 → await expression
+            self._require_async_context('等待')
             inner = self._generate_expr(expr.expression)
             return f"await {inner}"
         
@@ -2892,6 +2945,98 @@ class PythonCodeGenerator:
     def _kwarg_name(self, py_callee: str, raw_name: str) -> str:
         """把中文具名实参名翻译成内置函数的 Python 形参名；查不到则原样返回。"""
         return self._BUILTIN_KWARG_NAME_MAP.get((py_callee, raw_name), raw_name)
+
+    # ---- A3：数据在前的高阶动词换序 -------------------------------------
+    #
+    # 规范权威 docs/光明-完整规范文档.md:2553-2554 明列：
+    #   源码 `筛选列表条件` 等价 `filter(条件, 列表)`
+    #   源码 `映射列表函数` 等价 `map(函数, 列表)`
+    # 即光明侧一律「数据在前、函数在后」（谓宾结构：映射「这批数据」用「这个函数」），
+    # Python 侧则是 (函数, 可迭代对象)。此前 codegen 按源序直落，
+    # `映射([1,2], 接收 数：…)` 发射成 `map([1,2], lambda …)`，
+    # 运行期 `TypeError: 'function' object is not iterable`——语法过得去、跑起来才炸。
+    #
+    # 只对「恰好两个位置实参」换序：
+    #   · 单实参是管道式 `数据 -> 映射(函数)`，换序无意义（Pipeline 分支另行拼装）；
+    #   · 含具名实参时位置语义已由名字表达，不再动顺序。
+    _DATA_FIRST_BUILTINS = {'映射': 'map', '筛选': 'filter'}
+
+    def _reorder_data_first_args(self, verb, py_name, shadowed, args):
+        """把「数据在前」的光明语序换成 Python 的 (函数, 可迭代对象)。
+
+        第一实参若是 lambda 字面量，说明写的是旧的「函数在前」语序：
+        换序后会发射 `map(lambda …, 数据)`，又是一次静默错编。直接编译期报错。
+
+        主线验收补的护栏：只在能**正面判定**语序时才换序——第一实参是数据形态
+        （字面量／推导式／范围／带参调用／下标…），或第二实参是函数形态
+        （lambda 字面量／已登记的段落名与导入符号）。两侧都判不定就不换序，
+        保持源码语序并发编译期告警。
+
+        为什么必须有这条：积木库 blocks_v4/blocks_v5 的 函数映射.light 写的是
+        `返回 映射(甲, 输入)`（旧 Python 语序，甲 是函数形参）。无条件换序编成
+        `map(输入, 甲)`——参数颠倒，而 map 惰性求值不会立刻抛错，属于本项目
+        明令禁止的静默错编，且 ci_eval 的「可运行率」判据完全盖不住它。
+        """
+        if shadowed or not isinstance(verb, str):
+            return args
+        if self._DATA_FIRST_BUILTINS.get(verb) != py_name:
+            return args
+        if len(args) != 2 or any(isinstance(a, KeywordArg) for a in args):
+            return args
+        if isinstance(args[0], LambdaExpression):
+            raise CodeGenError(
+                f"「{verb}」的参数顺序是「数据在前、函数在后」："
+                f"请写成 {verb}(数据, 接收 项：…) 而不是 {verb}(接收 项：…, 数据)",
+                'ParagraphCall')
+        if self._looks_data_arg(args[0]) or self._looks_callable_arg(args[1]):
+            return [args[1], args[0]]
+        self._warn_ambiguous_arg_order(verb)
+        return args
+
+    # 数据形态：一眼能看出是「被遍历的东西」而不是函数
+    _DATA_SHAPE_NODES = (ListLiteral, TupleLiteral, SetLiteral, DictLiteral,
+                         StringLiteral, NumberLiteral, StringInterpolation,
+                         ListComprehension, SetComprehension, DictComprehension,
+                         RangeExpr, IndexAccess, SliceExpr, BinaryOp)
+
+    def _looks_data_arg(self, arg) -> bool:
+        """实参能否**正面判定**为数据形态。判不定一律 False（不猜）。"""
+        if isinstance(arg, self._DATA_SHAPE_NODES):
+            return True
+        # 带实参的调用，其返回值按数据看：映射(范围(1,10), 加倍)
+        if isinstance(arg, (ParagraphCall, FunctionCallExpr)):
+            return bool(getattr(arg, 'args', None))
+        return False
+
+    def _looks_callable_arg(self, arg) -> bool:
+        """实参能否**正面判定**为函数形态：lambda 字面量，或已登记的用户函数名。
+
+        `_user_defined_functions` 是单遍生成边走边登记的，所以「先用后定义」的
+        段落名判不出来——那种写法落到判不定分支（不换序 + 告警）。宁可少换一次，
+        也不静默换错。
+        """
+        if isinstance(arg, LambdaExpression):
+            return True
+        if isinstance(arg, ParagraphCall) and getattr(arg, 'args', None):
+            return False
+        name = getattr(arg, 'name', None)
+        return isinstance(name, str) and name in self._user_defined_functions
+
+    def _warn_ambiguous_arg_order(self, verb: str) -> None:
+        """语序判不定时告警。同一动词只报一次，避免刷屏。"""
+        seen = getattr(self, '_arg_order_warned', None)
+        if seen is None:
+            seen = set()
+            self._arg_order_warned = seen
+        if verb in seen:
+            return
+        seen.add(verb)
+        sys.stderr.write(
+            f"[光明·告警] 「{verb}」的两个实参都判不定语序（都是裸名字），"
+            f"已按源码语序原样发射、未做「数据在前」换序。"
+            f"若本意是数据在前，请把函数实参写成 lambda 或已声明的段落名以消歧。\n")
+
+
 
     # 高频 `的X` 后缀绝大多数是**用户自己的标识符**而非成员访问：
     #   的量 17（物质的量）、的额 16（标的额）、的幂 8（数学十的幂）、

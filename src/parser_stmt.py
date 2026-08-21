@@ -340,7 +340,12 @@ class ParserStmtMixin:
                 # 异步遍历：异步 遍历 变量 于 可迭代对象
                 self._consume(TokenType.KEYWORD)  # 异步 / 异
                 return self._parse_foreach_stmt(is_async=True)
+            elif next_tok and next_tok.value == '运行':
+                # A1 异步启动入口：异步 运行 主()。 → asyncio.run(主())
+                return self._parse_run_async_stmt()
+
             else:
+
                 # 默认为异步段落（向前兼容）
                 return self._parse_async_paragraph()
         
@@ -569,6 +574,13 @@ class ParserStmtMixin:
         if tok.type == TokenType.IDENTIFIER and tok.value == '断言':
             return self._parse_assert_stmt()
 
+        # A5 作用域声明：全局 名。/ 外层 名。（范式 A：词法零改动，见
+        # _is_scope_decl_header 的判据说明）
+        if tok.type == TokenType.IDENTIFIER and tok.value in self._SCOPE_DECL_WORDS:
+            if self._is_scope_decl_header():
+                return self._parse_scope_decl_stmt()
+
+
         # 赋值语句：标识符 等于 值。
         if tok.type == TokenType.IDENTIFIER:
             return self._parse_assignment_stmt()
@@ -653,6 +665,64 @@ class ParserStmtMixin:
             self._consume(TokenType.PERIOD)
         
         return AssertStmt(condition, message)
+
+    # A5：`全局` / `外层` 对应的 Python 作用域声明关键字
+    _SCOPE_DECL_WORDS = {'全局': 'global', '外层': 'nonlocal'}
+
+    def _is_scope_decl_header(self) -> bool:
+        """前视：当前的裸 `全局` / `外层` 是否是作用域声明头。
+
+        判据是严格形态 `全局 名[，名]*。`——`全局` 之后只能是标识符与逗号，
+        直到句号/换行/EOF 为止。为什么要卡这么死（范式 A 的成立前提）：
+
+        · 今天 `全局 计数。` 被当成并置式调用编成 `全局(计数)`，运行期 NameError，
+          即这个形态的输入集合与「原本能跑的程序」不相交（实测产物见工单 A5）。
+        · 反过来 `全局 = 1。`（EQUALS）、`全局(甲)`（LPAREN）、`全局 等于 1。`
+          （KEYWORD）这些今天合法的写法一律返回 False，原样走赋值/表达式分支。
+          src/templates/data_analysis/分析.light:103 的 `外层 = 外层 + 1` 就落在
+          这一侧，所以那个文件逐字不变。
+
+        选范式 A（词法零改动）而不是把两词加进关键字表，是因为实测加表会连带
+        两处回归：`全局搜索搜索` 在没有声明的调用位置被切成 `全局`+`搜索搜索`；
+        `外层 = 外层 + 1` 因 parser_stmt.py:578 的赋值分支只认 IDENTIFIER 而
+        直接报「「外层」是保留关键字」。
+        """
+        idx = self.pos + 1  # 跳过 `全局` / `外层` 自身
+        expect_name = True
+        seen_name = False
+        while idx < len(self.tokens):
+            t = self.tokens[idx]
+            if expect_name:
+                if t.type != TokenType.IDENTIFIER:
+                    return False
+                seen_name = True
+                expect_name = False
+            else:
+                if t.type == TokenType.COMMA:
+                    expect_name = True
+                elif t.type in (TokenType.PERIOD, TokenType.NEWLINE, TokenType.EOF):
+                    return seen_name
+                else:
+                    return False
+            idx += 1
+        return False
+
+    def _parse_scope_decl_stmt(self) -> ASTNode:
+        """解析作用域声明：全局 计数。/ 外层 值, 次数。"""
+        from ast_nodes_v3 import ScopeDeclStmt
+
+        word_tok = self._consume(TokenType.IDENTIFIER)
+        kind = self._SCOPE_DECL_WORDS[word_tok.value]
+
+        names = [self._consume(TokenType.IDENTIFIER).value]
+        while self._current() and self._current().type == TokenType.COMMA:
+            self._consume(TokenType.COMMA)
+            names.append(self._consume(TokenType.IDENTIFIER).value)
+
+        if self._current() and self._current().type == TokenType.PERIOD:
+            self._consume(TokenType.PERIOD)
+
+        return ScopeDeclStmt(names, kind)
 
     def _parse_expr_stmt(self) -> ASTNode:
         """解析表达式语句（动词调用等）"""
@@ -2950,7 +3020,7 @@ class ParserStmtMixin:
     def _parse_yield_stmt(self):
         """解析生成语句
         
-        语法：生成 表达式。 或 生成。
+        语法：生成 表达式。 / 生成。 / 生成 全部 表达式。（生成器委托 yield from）
         """
         from ast_nodes_v3 import YieldStmt
         # 生成
@@ -2964,6 +3034,27 @@ class ParserStmtMixin:
                 self._consume(TokenType.PERIOD)
             return YieldStmt(None)
         
+        # A2 生成器委托：`生成 全部 乙()。` → `yield from 乙()`
+        # `全部` 已是既有词（builtin_map 里 全部→all、`导出 全部` 也用它），语义贴合。
+        # 判据是「全部 后面不是左括号」：`生成 全部(列)。` 仍是把 all(列) 的布尔结果
+        # yield 出去，那是普通表达式，不能被抢走。
+        nxt = self._peek(1)
+        if (tok.value == '全部'
+                and not (nxt and nxt.type == TokenType.LPAREN)):
+            self._consume()  # 全部
+            value = self._parse_expr()
+            if self._current() and self._current().type == TokenType.PERIOD:
+                self._consume(TokenType.PERIOD)
+            return YieldStmt(value, is_from=True)
+        
+        # `生成 从 乙()。` 曾静默编成 `yield 从` + `乙()` 两条语句（编译期零提示，
+        # 运行期才炸 NameError）。委托只认 `生成 全部`，这条写法必须报错。
+        if tok.value in ('从', 'from'):
+            self._error(
+                "生成器委托请写 `生成 全部 表达式。`（等价 yield from），"
+                "不支持 `生成 从 …`",
+                getattr(tok, 'line', 0), getattr(tok, 'column', 0), tok.value)
+        
         # 生成值
         value = self._parse_expr()
         
@@ -2973,7 +3064,65 @@ class ParserStmtMixin:
         
         return YieldStmt(value)
 
+
+    def _attach_param_default(self, params) -> None:
+        """把 `等于`/`=` 之后的默认值挂到最近一个形参上（A4）。调用前 `等于` 已被消耗。
+
+        `接收` 形参表原先只是把默认值 token 消耗进一个**从不写回**的局部变量
+        （旧 default_val），于是 `段落 连接 接收 主机, 端口 等于 443` 编成
+        `def 连接(主机, 端口)`，调用 `连接("h", 超时 = 5)` 运行期才炸 missing
+        positional argument。括号式方法形参那条通路（本文件 :4397 起）早就落地了
+        默认值，只有 `接收` 这条漏了——语法过得去、跑起来才炸，属静默错编。
+
+        只收单 token 字面量/标识符，与 :4402 同一判据：`接收` 形参表没有括号
+        界定边界，放宽成完整表达式会把后面的 `返回 类型` 或体冒号一起吃掉。
+        """
+        tok = self._current()
+        if not tok or tok.type not in (TokenType.NUMBER, TokenType.CHINESE_NUM,
+                                       TokenType.STRING, TokenType.IDENTIFIER,
+                                       TokenType.KEYWORD):
+            return
+        val = self._consume().value
+        if tok.type == TokenType.NUMBER:
+            val_str = str(val)
+            default_value = NumberLiteral(float(val_str) if '.' in val_str else int(val_str))
+        elif tok.type == TokenType.CHINESE_NUM:
+            # 词法层已把中文数字转成 int（lexer.py:1584/1947）
+            default_value = NumberLiteral(val)
+        elif tok.type == TokenType.STRING:
+            default_value = StringLiteral(val)
+        elif val == '真':
+            default_value = Identifier('True')
+        elif val == '假':
+            default_value = Identifier('False')
+        elif val == '空':
+            default_value = Identifier('None')
+        else:
+            default_value = Identifier(val)
+        if params:
+            params[-1]['default'] = default_value
+
+    def _parse_run_async_stmt(self):
+        """解析异步启动语句：`异步 运行 主()。` → `asyncio.run(主())`
+
+        为什么落在 `异步 运行` 而不是任务书建议的 `运行 异步`：后者要求把
+        `运行` 提成全局关键字，而全仓 .light 里 `运行` 已被当作段落名与形参名
+        使用（examples/J阶段_L4_C_Go_MoonBit/J1_C_快速求和.light:16 `段 运行():`、
+        积木库/blocks_v5/网络/网络可用性.light:4 形参 `运行`），提关键字会直接
+        打红这些文件。`异步 运行` 把 `运行` 限制在 `异步` 之后的上下文里识别，
+        既零新增关键字（无需全仓 token A/B 扫描），又与既有
+        `异步 段落 / 异步 遍历 / 异步 作用域` 同族同头，风格一致。
+        """
+        from ast_nodes_v3 import RunAsyncStmt
+        self._consume(TokenType.KEYWORD)   # 异步 / 异
+        self._consume()                    # 运行
+        call = self._parse_expr()
+        if self._current() and self._current().type == TokenType.PERIOD:
+            self._consume(TokenType.PERIOD)
+        return RunAsyncStmt(call)
+
     def _is_paragraph_definition(self) -> bool:
+
         """向前扫描，判断 段落 主(...) 是段落定义还是段落调用。
         
         段落定义：段落 主()： 或 段落 主(参数1, 参数2)： 或 段落 主(参数) 返回 类型：
@@ -3218,9 +3367,7 @@ class ParserStmtMixin:
                     # 支持默认值：参数名 等于 默认值 或 参数名 = 默认值
                     if self._current() and ((self._current().type == TokenType.KEYWORD and self._current().value == '等于') or self._current().type == TokenType.EQUALS):
                         self._consume()
-                        # 消耗默认值表达式（简单的字面量或标识符）
-                        if self._current() and self._current().type in (TokenType.NUMBER, TokenType.CHINESE_NUM, TokenType.STRING, TokenType.IDENTIFIER, TokenType.KEYWORD):
-                            default_val = self._consume().value
+                        self._attach_param_default(params)
                 elif tok.type == TokenType.KEYWORD:
                     if tok.value == '接收':
                         self._consume(TokenType.KEYWORD, tok.value)
@@ -3230,9 +3377,9 @@ class ParserStmtMixin:
                     if tok.value == '等于':
                         # 这是前一个参数的默认值，消耗它和值
                         self._consume(TokenType.KEYWORD, '等于')
-                        if self._current() and self._current().type in (TokenType.NUMBER, TokenType.CHINESE_NUM, TokenType.STRING, TokenType.IDENTIFIER, TokenType.KEYWORD):
-                            default_val = self._consume().value
+                        self._attach_param_default(params)
                         continue
+
                     param_name = self._consume(TokenType.KEYWORD).value
                     param_type = None
                     
@@ -3267,10 +3414,10 @@ class ParserStmtMixin:
                     # 支持默认值：参数名 等于 默认值 或 参数名 = 默认值
                     if self._current() and ((self._current().type == TokenType.KEYWORD and self._current().value == '等于') or self._current().type == TokenType.EQUALS):
                         self._consume()
-                        if self._current() and self._current().type in (TokenType.NUMBER, TokenType.CHINESE_NUM, TokenType.STRING, TokenType.IDENTIFIER, TokenType.KEYWORD):
-                            default_val = self._consume().value
+                        self._attach_param_default(params)
                 else:
                     break
+
         
         return_type = None
         if (self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '返回'):
@@ -4183,8 +4330,17 @@ class ParserStmtMixin:
     def _parse_attribute_declaration(self) -> AttributeDeclaration:
         """解析属性声明
 
-        语法：属性 属性名 [等于 默认值] [。]
-             性  属性名 [等于 默认值] [。]   ← L0 v4.0 单字写法，同义
+        语法：属性 属性名 [：类型] [等于/为 默认值] [。]
+             性  属性名 [：类型] [等于/为 默认值] [。]   ← L0 v4.0 单字写法，同义
+
+        A6 补齐两处（补齐前都是硬报错，见工单 A6）：
+        · `为` 与 `等于` 同义。光明其余各处赋值一律两词通用（`设 甲 为 1`／
+          `令 甲 = 1`），只有属性默认值单认 `等于`：`属性 横 为 0。` 在属性名
+          收集处于 `为` 停下、默认值分支又不认 `为`，`为` 掉回类体循环，报
+          「类体内不支持的成员声明：'为'」。
+        · `：类型` 之前被属性名收集循环的 COLON 分支跳出后无人接手，同样掉回
+          类体循环报错；而 AttributeDeclaration 早就有 type_annotation 槽位，
+          类级字段（`设 名: 类型 为 值`）也一直在用它。
         """
         # 属性
         # 单字 `性` 在词法层是 IDENTIFIER（有意不升为保留字，见类体分发处注释），
@@ -4225,17 +4381,26 @@ class ParserStmtMixin:
         else:
             attr_name = ''.join(attr_name_parts)
 
-        # 默认值（可选）
+        # 类型标注（可选）：属性 次数：整数
+        type_annotation = None
+        if self._current() and self._current().type == TokenType.COLON:
+            self._consume(TokenType.COLON)
+            type_annotation = self._parse_type_annotation()
+
+        # 默认值（可选）：等于 与 为 同义
         default_value = None
-        if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '等于':
-            self._consume(TokenType.KEYWORD, '等于')
+        if (self._current() and self._current().type == TokenType.KEYWORD
+                and self._current().value in ('等于', '为')):
+            self._consume()
             default_value = self._parse_expr()
 
         # 句号（可选）
         if self._current() and self._current().type == TokenType.PERIOD:
             self._consume(TokenType.PERIOD)
 
-        return AttributeDeclaration(name=attr_name, default_value=default_value)
+        return AttributeDeclaration(name=attr_name,
+                                    type_annotation=type_annotation,
+                                    default_value=default_value)
 
     def _parse_method_definition(self, is_constructor=False) -> MethodDefinition:
         """解析方法定义
