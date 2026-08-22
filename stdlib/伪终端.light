@@ -1,0 +1,524 @@
+导入 ctypes。
+导入 os。
+导入 sys。
+导入 subprocess。
+导入 threading。
+导入 time。
+导入 struct。
+导入 importlib。
+
+# ============================================================
+# 伪终端（纯光明实现，D2-3）
+#
+# 提供真正的 PTY/ConPTY 会话，供交互式工具（git、npm、REPL 等）使用：
+#  - Windows：ConPTY（CreatePseudoConsole，Win10 1809+），经 ctypes 调 Win32 API
+#  - POSIX：openpty/forkpty（经 importlib 动态导入 pty，避免 Windows 上静态
+#    导入失败导致整个模块不可加载）
+#
+# 接口与 进程树.light 对齐：
+#  - 取主句柄()/取主fd()：拿到底层句柄/fd
+#  - 读输出()：读回原始字节流（含 ANSI 转义，不做解析）
+#  - 写输入(块)：向子进程 stdin 写字节
+#  - 窗口大小调整(宽, 高)：改终端尺寸（ConPTY ResizePseudoConsole / ioctl TIOCSWINSZ）
+#  - 是否存活()：轮询子进程是否还活着
+#  - 关闭()：优雅关闭（先给 stdin EOF → 宽限等待退出 → 强杀 → 关句柄/fd）
+#
+# 范围克制（本轮）：
+#  - 只要求"能起一个 PTY、跑一条命令、读到带 ANSI 的输出、正常关闭"。
+#  - ANSI 转义序列的解析/剥离不在本轮（移交）。
+#  - 杀进程只按自己 spawn 得到的 PID/句柄，绝不按进程名。
+#
+# 平台缺失时**明确报错**（伪控制台错误），不许静默退化成管道模式——静默退化
+# 会让上层误以为拿到了 tty（行缓冲/颜色/交互行为全变）。
+#  - Windows < 1809：kernel32 无 CreatePseudoConsole → 抛错
+#  - POSIX 无 pty 模块：importlib 导入失败 → 抛错
+#
+# 已知语言缺陷规避：
+#  - 词法器 user_definitions 前缀拆分 bug（己.X 为 Y 若 X 有已登记前缀会被拆碎）：
+#    本文件局部变量刻意避开属性名的严格前缀（用 进程块 而非 进程、安全块 而非
+#    安全、缓冲区 而非 缓冲）。
+# ============================================================
+
+# ---- 异常 ----
+类 伪控制台错误 继承 Exception:
+  段落 构造 接收 消息:
+    父.构造(消息)
+
+# ---- ConPTY 常量（仅 Windows 分支使用）----
+类 常数:
+  设 伪控制台属性 等于 131094       # PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE = 0x20016
+  设 扩展启动信息 等于 524288       # EXTENDED_STARTUPINFO_PRESENT = 0x80000
+  设 统一环境标志 等于 1024         # CREATE_UNICODE_ENVIRONMENT = 0x400
+  设 新进程组标志 等于 512          # CREATE_NEW_PROCESS_GROUP = 0x200
+  设 使用标准句柄 等于 256          # STARTF_USESTDHANDLES = 0x100
+  设 等待超时 等于 258              # WAIT_TIMEOUT
+  设 无限等待 等于 4294967295       # INFINITE = 0xFFFFFFFF（无符号）
+
+# ---- ctypes 结构（Windows ConPTY）----
+# 光明解析器不支持「继承 ctypes.Structure」的点号基类写法；且存在一个 codegen
+# 缺陷：模块级变量后跟 () 调用时括号会被吞（`设 乙 为 甲()` → `乙 = 甲`）。
+# 绕法：把所有结构体类装进模块级字典，用 `结构体表["X"]()` 调用——字典索引后
+# 跟 () 的调用不会被吞。字典增量构建（后面的类引用前面已放入的类）。
+设 结构体表 为 {}。
+结构体表["安全属性"] 为 type("安全属性", tuple([ctypes.Structure]), {"_fields_": [("nLength", ctypes.c_ulong), ("lpSecurityDescriptor", ctypes.c_void_p), ("bInheritHandle", ctypes.c_int)]})
+结构体表["COORD"] 为 type("COORD", tuple([ctypes.Structure]), {"_fields_": [("X", ctypes.c_short), ("Y", ctypes.c_short)]})
+结构体表["进程信息"] 为 type("进程信息", tuple([ctypes.Structure]), {"_fields_": [("hProcess", ctypes.c_void_p), ("hThread", ctypes.c_void_p), ("dwProcessId", ctypes.c_ulong), ("dwThreadId", ctypes.c_ulong)]})
+结构体表["启动信息"] 为 type("启动信息", tuple([ctypes.Structure]), {"_fields_": [
+    ("cb", ctypes.c_ulong),
+    ("lpReserved", ctypes.c_wchar_p),
+    ("lpDesktop", ctypes.c_wchar_p),
+    ("lpTitle", ctypes.c_wchar_p),
+    ("dwX", ctypes.c_ulong),
+    ("dwY", ctypes.c_ulong),
+    ("dwXSize", ctypes.c_ulong),
+    ("dwYSize", ctypes.c_ulong),
+    ("dwXCountChars", ctypes.c_ulong),
+    ("dwYCountChars", ctypes.c_ulong),
+    ("dwFillAttribute", ctypes.c_ulong),
+    ("dwFlags", ctypes.c_ulong),
+    ("wShowWindow", ctypes.c_ushort),
+    ("cbReserved2", ctypes.c_ushort),
+    ("lpReserved2", ctypes.c_void_p),
+    ("hStdInput", ctypes.c_void_p),
+    ("hStdOutput", ctypes.c_void_p),
+    ("hStdError", ctypes.c_void_p),
+]})
+结构体表["启动信息扩展"] 为 type("启动信息扩展", tuple([ctypes.Structure]), {"_fields_": [("StartupInfo", 结构体表["启动信息"]), ("lpAttributeList", ctypes.c_void_p)]})
+
+# ---- 伪终端 ----
+类 伪控制台:
+  属性 平台 等于 空
+  属性 主句柄 等于 空           # Windows: HPCON；POSIX: 无
+  属性 输入读端 等于 空          # Windows: ConPTY 输入读端（CreateProcess 后关闭）
+  属性 输入写端 等于 空          # Windows: 父进程写 stdin 的写端
+  属性 输出读端 等于 空          # Windows: 父进程读 stdout 的读端
+  属性 输出写端 等于 空          # Windows: ConPTY 输出写端（CreateProcess 后关闭）
+  属性 主fd 等于 -1              # POSIX: master fd
+  属性 从fd 等于 -1              # POSIX: slave fd（父进程侧用后即关）
+  属性 进程句柄 等于 空          # Windows: CreateProcess 返回的 hProcess
+  属性 进程线程句柄 等于 空      # Windows: hThread
+  属性 子pid 等于 0              # Windows: dwProcessId；POSIX: forkpty 返回值
+  属性 列表指针 等于 空            # Windows: PROC_THREAD_ATTRIBUTE_LIST 指针
+  属性 读线程 等于 空
+  属性 停止标志 等于 假
+  属性 输出块表 等于 []          # bytes 块列表（线程安全由 缓冲锁 保证）
+  属性 缓冲锁 等于 空
+  属性 宽度 等于 120
+  属性 高度 等于 30
+
+  段落 初始化 接收 命令数组, 配置:
+    己.平台 为 sys.platform。
+    己.输出块表 为 []。
+    己.缓冲锁 为 threading.Lock()。
+    己.宽度 为 配置.get("宽度", 120)。
+    己.高度 为 配置.get("高度", 30)。
+    如果 己.平台 等于 "win32":
+      己.启动Windows(命令数组, 配置)。
+    否则:
+      己.启动POSIX(命令数组, 配置)。
+    结束。
+
+  # ==================== Windows：ConPTY ====================
+
+  # 一次性配置 kernel32 函数签名（幂等，重复调用无害）
+  段落 配置WinAPI:
+    设 k32 为 ctypes.windll.kernel32。
+    k32.CreatePipe.argtypes 为 [ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p, ctypes.c_ulong]
+    k32.CreatePipe.restype 为 ctypes.c_int
+    k32.CreatePseudoConsole.argtypes 为 [结构体表["COORD"], ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(ctypes.c_void_p)]
+    k32.CreatePseudoConsole.restype 为 ctypes.c_long
+    k32.ResizePseudoConsole.argtypes 为 [ctypes.c_void_p, 结构体表["COORD"]]
+    k32.ResizePseudoConsole.restype 为 ctypes.c_long
+    k32.ClosePseudoConsole.argtypes 为 [ctypes.c_void_p]
+    k32.ClosePseudoConsole.restype 为 空
+    k32.InitializeProcThreadAttributeList.argtypes 为 [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_ulong, ctypes.POINTER(ctypes.c_size_t)]
+    k32.InitializeProcThreadAttributeList.restype 为 ctypes.c_int
+    k32.UpdateProcThreadAttribute.argtypes 为 [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_void_p]
+    k32.UpdateProcThreadAttribute.restype 为 ctypes.c_int
+    k32.DeleteProcThreadAttributeList.argtypes 为 [ctypes.c_void_p]
+    k32.DeleteProcThreadAttributeList.restype 为 空
+    k32.CreateProcessW.argtypes 为 [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_ulong, ctypes.c_void_p, ctypes.c_wchar_p, ctypes.POINTER(结构体表["启动信息"]), ctypes.POINTER(结构体表["进程信息"])]
+    k32.CreateProcessW.restype 为 ctypes.c_int
+    k32.WaitForSingleObject.argtypes 为 [ctypes.c_void_p, ctypes.c_ulong]
+    k32.WaitForSingleObject.restype 为 ctypes.c_ulong
+    k32.TerminateProcess.argtypes 为 [ctypes.c_void_p, ctypes.c_ulong]
+    k32.TerminateProcess.restype 为 ctypes.c_int
+    k32.CloseHandle.argtypes 为 [ctypes.c_void_p]
+    k32.CloseHandle.restype 为 ctypes.c_int
+    k32.ReadFile.argtypes 为 [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong), ctypes.c_void_p]
+    k32.ReadFile.restype 为 ctypes.c_int
+    k32.WriteFile.argtypes 为 [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong), ctypes.c_void_p]
+    k32.WriteFile.restype 为 ctypes.c_int
+    k32.GetLastError.argtypes 为 []
+    k32.GetLastError.restype 为 ctypes.c_ulong
+
+  段落 启动Windows 接收 命令数组, 配置:
+    己.配置WinAPI()。
+    设 k32 为 ctypes.windll.kernel32。
+    # 平台版本检查：无 CreatePseudoConsole 即 < Win10 1809 → 明确报错，绝不降级
+    设 创建器 为 空。
+    尝试:
+      创建器 为 k32.CreatePseudoConsole。
+    捕获 错误:
+      创建器 为 空。
+    结束。
+    如果 创建器 等于 空:
+      抛 伪控制台错误("本平台需 Win10 1809+（kernel32 无 CreatePseudoConsole），不能降级为管道模式")
+    结束。
+    # 两条管道：输入管道（ConPTY 读 = 输入读端，父写 = 输入写端）、
+    #           输出管道（父读 = 输出读端，ConPTY 写 = 输出写端）
+    设 输入读端 为 ctypes.c_void_p()。
+    设 输入写端 为 ctypes.c_void_p()。
+    设 输出读端 为 ctypes.c_void_p()。
+    设 输出写端 为 ctypes.c_void_p()。
+    设 安全块 为 结构体表["安全属性"]()。
+    安全块.nLength 为 ctypes.sizeof(结构体表["安全属性"])。
+    安全块.lpSecurityDescriptor 为 空。
+    安全块.bInheritHandle 为 1。
+    如果 k32.CreatePipe(ctypes.byref(输入读端), ctypes.byref(输入写端), ctypes.byref(安全块), 0) 等于 0:
+      抛 伪控制台错误("CreatePipe(输入) 失败，错误码 " + str(k32.GetLastError()))
+    结束。
+    如果 k32.CreatePipe(ctypes.byref(输出读端), ctypes.byref(输出写端), ctypes.byref(安全块), 0) 等于 0:
+      抛 伪控制台错误("CreatePipe(输出) 失败，错误码 " + str(k32.GetLastError()))
+    结束。
+    # 创建伪控制台
+    设 尺寸 为 结构体表["COORD"](己.宽度, 己.高度)。
+    设 控制台句柄 为 ctypes.c_void_p()。
+    设 hr 为 k32.CreatePseudoConsole(尺寸, 输入读端, 输出写端, 0, ctypes.byref(控制台句柄))。
+    如果 hr 不等于 0:
+      抛 伪控制台错误("CreatePseudoConsole 失败 HRESULT " + str(hr) + "（本平台需 Win10 1809+）")
+    结束。
+    己.主句柄 为 控制台句柄。
+    己.输入读端 为 输入读端。
+    己.输入写端 为 输入写端。
+    己.输出读端 为 输出读端。
+    己.输出写端 为 输出写端。
+    # STARTUPINFOEX：把伪控制台挂到子进程上
+    设 扩展 为 结构体表["启动信息扩展"]()。
+    扩展.StartupInfo.cb 为 ctypes.sizeof(结构体表["启动信息扩展"])。
+    扩展.StartupInfo.dwFlags 为 常数.使用标准句柄。
+    扩展.StartupInfo.hStdInput 为 己.输入读端。
+    扩展.StartupInfo.hStdOutput 为 己.输出写端。
+    扩展.StartupInfo.hStdError 为 己.输出写端。
+    设 表大小 为 ctypes.c_size_t(0)。
+    k32.InitializeProcThreadAttributeList(空, 1, 0, ctypes.byref(表大小))。
+    设 表指针 为 ctypes.cast(ctypes.create_string_buffer(表大小.value), ctypes.c_void_p)。
+    设 ok 为 k32.InitializeProcThreadAttributeList(表指针, 1, 0, ctypes.byref(表大小))。
+    如果 ok 等于 0:
+      抛 伪控制台错误("InitializeProcThreadAttributeList 失败，错误码 " + str(k32.GetLastError()))
+    结束。
+    设 更新 为 k32.UpdateProcThreadAttribute(表指针, 0, 常数.伪控制台属性, 控制台句柄, ctypes.sizeof(ctypes.c_void_p), 空, 空)。
+    如果 更新 等于 0:
+      抛 伪控制台错误("UpdateProcThreadAttribute 失败，错误码 " + str(k32.GetLastError()))
+    结束。
+    己.列表指针 为 表指针。
+    # 创建子进程（命令只走参数数组 → list2cmdline；bInheritHandles=TRUE 让
+    # ConPTY 的管道端进子进程；环境默认继承，不做额外过滤——需要过滤的调用方
+    # 请自行拼 lpEnvironment 或先用 进程树 的思路洗一遍）
+    设 命令行 为 ctypes.create_unicode_buffer(subprocess.list2cmdline(命令数组))。
+    设 进程块 为 结构体表["进程信息"]()。
+    设 创建标志 为 常数.扩展启动信息 加上 常数.新进程组标志 加上 常数.统一环境标志。
+    设 启动成功 为 k32.CreateProcessW(空, 命令行, 空, 空, 1, 创建标志, 空, 空, ctypes.byref(扩展.StartupInfo), ctypes.byref(进程块))。
+    如果 启动成功 等于 0:
+      抛 伪控制台错误("CreateProcessW 失败，错误码 " + str(k32.GetLastError()))
+    结束。
+    己.进程句柄 为 进程块.hProcess。
+    己.进程线程句柄 为 进程块.hThread。
+    己.子pid 为 进程块.dwProcessId。
+    # 父进程不再需要 ConPTY 侧的管道端（子进程已复制）
+    k32.CloseHandle(己.输入读端)。
+    k32.CloseHandle(己.输出写端)。
+    己.输入读端 为 空。
+    己.输出写端 为 空。
+    # 读线程
+    设 t 为 threading.Thread(空, 己.读循环Windows, 空, [])。
+    t.daemon 为 True。
+    己.读线程 为 t。
+    t.start()。
+
+  # Windows 读线程：阻塞读输出管道，关闭时 ReadFile 返回 0 → 退出
+  段落 读循环Windows:
+    设 缓冲区 为 ctypes.create_string_buffer(65536)。
+    当 真:
+      如果 己.停止标志:
+        跳出。
+      结束。
+      设 已读 为 ctypes.c_ulong(0)。
+      设 ok 为 ctypes.windll.kernel32.ReadFile(己.输出读端, 缓冲区, 65536, ctypes.byref(已读), 空)。
+      如果 ok 等于 0:
+        跳出。
+      结束。
+      如果 已读.value 等于 0:
+        跳出。
+      结束。
+      # 注意：`缓冲区.raw[0:已读.value]` 这种「成员访问后紧跟切片」会被 codegen
+      # 误编成字典+调用（`.raw({0:...})`），所以先取出 raw 再对变量切片。
+      设 原始 为 缓冲区.raw。
+      设 块 为 原始[0:已读.value]。
+      己.加输出(块)。
+    结束。
+
+  # ==================== POSIX：openpty/forkpty ====================
+
+  段落 启动POSIX 接收 命令数组, 配置:
+    设 pty 为 空。
+    尝试:
+      pty 为 importlib.import_module("pty")。
+    捕获 错误:
+      抛 伪控制台错误("POSIX 平台缺少 pty 模块：" + str(错误))
+    结束。
+    设 主从 为 pty.openpty()。
+    己.主fd 为 主从[0]。
+    己.从fd 为 主从[1]。
+    己.设窗口大小POSIX(己.宽度, 己.高度)。
+    # forkpty：子进程自动 setsid + 接管控制终端（这是真 tty 的关键）
+    设 子pid 为 pty.fork()。
+    如果 子pid 等于 0:
+      # 子进程：exec 命令；失败则退出码 127（绝不能回落到管道模式）
+      尝试:
+        os.execvp(命令数组[0], 命令数组)。
+      捕获 错误:
+        os._exit(127)。
+      结束。
+    结束。
+    己.子pid 为 子pid。
+    os.close(己.从fd)。
+    己.从fd 为 -1。
+    os.set_blocking(己.主fd, 假)。
+    设 t 为 threading.Thread(空, 己.读循环POSIX, 空, [])。
+    t.daemon 为 True。
+    己.读线程 为 t。
+    t.start()。
+
+  # POSIX 读线程：非阻塞读 master，EAGAIN 时小睡继续
+  段落 读循环POSIX:
+    当 真:
+      如果 己.停止标志:
+        跳出。
+      结束。
+      尝试:
+        设 块 为 os.read(己.主fd, 8192)。
+        如果 长度(块) 等于 0:
+          跳出。
+        结束。
+        己.加输出(块)。
+      捕获 错误:
+        如果 己.停止标志:
+          跳出。
+        结束。
+        设 码 为 0。
+        尝试:
+          码 为 错误.errno。
+        捕获 错误:
+          码 为 0。
+        结束。
+        如果 码 不等于 11:
+          # EAGAIN=11：非阻塞读暂时无数据 → 继续；其它错误 → 退出
+          跳出。
+        结束。
+      结束。
+      time.sleep(0.005)。
+    结束。
+
+  # ==================== 公共接口 ====================
+
+  # 原始字节输出（含 ANSI 转义，本轮不解析）。线程安全。
+  段落 读输出:
+    设 全部 为 b""。
+    己.缓冲锁.acquire()。
+    遍历 块 于 己.输出块表:
+      全部 为 全部 + 块。
+    结束。
+    己.缓冲锁.release()。
+    返回 全部。
+
+  # 累计输出字节数（便于轮询判断"有新数据"）
+  段落 输出长度:
+    设 总数 为 0。
+    己.缓冲锁.acquire()。
+    遍历 块 于 己.输出块表:
+      总数 为 总数 + 长度(块)。
+    结束。
+    己.缓冲锁.release()。
+    返回 总数。
+
+  段落 加输出 接收 块:
+    己.缓冲锁.acquire()。
+    己.输出块表.追加(块)。
+    己.缓冲锁.release()。
+
+  # 向子进程 stdin 写字节；返回是否成功写入
+  段落 写输入 接收 块:
+    如果 己.平台 等于 "win32":
+      如果 己.输入写端 等于 空:
+        返回 假。
+      结束。
+      设 缓冲区 为 ctypes.create_string_buffer(块)。
+      设 已写 为 ctypes.c_ulong(0)。
+      设 ok 为 ctypes.windll.kernel32.WriteFile(己.输入写端, 缓冲区, 长度(块), ctypes.byref(已写), 空)。
+      返回 ok 不等于 0。
+    否则:
+      如果 己.主fd 小于 0:
+        返回 假。
+      结束。
+      尝试:
+        os.write(己.主fd, 块)。
+        返回 真。
+      捕获 错误:
+        返回 假。
+      结束。
+    结束。
+
+  # 拿到底层句柄（Windows HPCON / POSIX 无）
+  段落 取主句柄:
+    返回 己.主句柄。
+
+  # 拿到底层 fd（POSIX master fd / Windows 无）
+  段落 取主fd:
+    返回 己.主fd。
+
+  # 终端窗口大小（列 x 行）
+  段落 设窗口大小 接收 宽度, 高度:
+    己.宽度 为 宽度。
+    己.高度 为 高度。
+    如果 己.平台 等于 "win32":
+      己.设窗口大小Windows(宽度, 高度)。
+    否则:
+      己.设窗口大小POSIX(宽度, 高度)。
+    结束。
+
+  段落 设窗口大小Windows 接收 宽度, 高度:
+    设 尺寸 为 结构体表["COORD"](宽度, 高度)。
+    设 hr 为 ctypes.windll.kernel32.ResizePseudoConsole(己.主句柄, 尺寸)。
+    如果 hr 不等于 0:
+      抛 伪控制台错误("ResizePseudoConsole 失败 HRESULT " + str(hr))
+    结束。
+
+  段落 设窗口大小POSIX 接收 宽度, 高度:
+    设 fcntl 为 空。
+    尝试:
+      fcntl 为 importlib.import_module("fcntl")。
+    捕获 错误:
+      返回。
+    结束。
+    设 包 为 struct.pack("HHHH", 高度, 宽度, 0, 0)。
+    fcntl.ioctl(己.主fd, 21523, 包)。   # TIOCSWINSZ = 0x5413 = 21523
+
+  # 轮询子进程是否存活（绝不按进程名）
+  段落 是否存活:
+    如果 己.平台 等于 "win32":
+      如果 己.进程句柄 等于 空:
+        返回 假。
+      结束。
+      设 等态 为 ctypes.windll.kernel32.WaitForSingleObject(己.进程句柄, 0)。
+      返回 等态 等于 常数.等待超时。
+    否则:
+      如果 己.子pid 等于 0:
+        返回 假。
+      结束。
+      设 结果 为 [0, 0]。
+      尝试:
+        结果 为 os.waitpid(己.子pid, os.WNOHANG)。
+      捕获 错误:
+        返回 假。
+      结束。
+      返回 结果[0] 等于 0。
+    结束。
+
+  # 优雅关闭：stdin EOF → 宽限等待 → 强杀 → 关句柄/fd。幂等。
+  段落 关闭:
+    如果 己.停止标志:
+      返回。
+    结束。
+    己.停止标志 为 真。
+    如果 己.平台 等于 "win32":
+      己.关闭Windows()。
+    否则:
+      己.关闭POSIX()。
+    结束。
+
+  段落 关闭Windows:
+    设 k32 为 ctypes.windll.kernel32。
+    # 1) 关输入写端 → 子进程 stdin 收到 EOF
+    如果 己.输入写端 不等于 空:
+      k32.CloseHandle(己.输入写端)。
+      己.输入写端 为 空。
+    结束。
+    # 2) 宽限 2s 等自然退出；未退则 TerminateProcess
+    设 等态 为 k32.WaitForSingleObject(己.进程句柄, 2000)。
+    如果 等态 等于 常数.无限等待:
+      抛 伪控制台错误("WaitForSingleObject 失败")
+    结束。
+    如果 等态 等于 常数.等待超时:
+      k32.TerminateProcess(己.进程句柄, 1)。
+      k32.WaitForSingleObject(己.进程句柄, 2000)。
+    结束。
+    # 3) 关伪控制台与句柄（只关自己 spawn 得到的句柄）
+    k32.ClosePseudoConsole(己.主句柄)。
+    己.主句柄 为 空。
+    如果 己.输出读端 不等于 空:
+      k32.CloseHandle(己.输出读端)。
+      己.输出读端 为 空。
+    结束。
+    如果 己.进程句柄 不等于 空:
+      k32.CloseHandle(己.进程句柄)。
+      己.进程句柄 为 空。
+    结束。
+    如果 己.进程线程句柄 不等于 空:
+      k32.CloseHandle(己.进程线程句柄)。
+      己.进程线程句柄 为 空。
+    结束。
+    如果 己.列表指针 不等于 空:
+      k32.DeleteProcThreadAttributeList(己.列表指针)。
+      己.列表指针 为 空。
+    结束。
+    如果 己.读线程 不等于 空:
+      己.读线程.join(1)。
+      己.读线程 为 空。
+    结束。
+
+  段落 关闭POSIX:
+    # 1) 关 master → 子进程读 stdin 拿 EOF / SIGHUP
+    如果 己.主fd 大于等于 0:
+      尝试:
+        os.close(己.主fd)。
+      捕获 错误:
+      结束。
+      己.主fd 为 -1。
+    结束。
+    # 2) 宽限等子进程退出；超时 SIGTERM → SIGKILL（只按自己 spawn 的 pid）
+    设 死 为 己.等待子进程POSIX(2000)。
+    如果 死 等于 假:
+      尝试:
+        os.kill(己.子pid, 15)。
+      捕获 错误:
+      结束。
+      己.等待子进程POSIX(1000)。
+      尝试:
+        os.kill(己.子pid, 9)。
+      捕获 错误:
+      结束。
+      己.等待子进程POSIX(1000)。
+    结束。
+    如果 己.读线程 不等于 空:
+      己.读线程.join(1)。
+      己.读线程 为 空。
+    结束。
+
+  # 轮询 waitpid 直到子进程被回收或超时；返回是否确认已死
+  段落 等待子进程POSIX 接收 毫秒:
+    设 截止 为 时间戳() * 1000 加上 毫秒。
+    当 真:
+      尝试:
+        设 结果 为 os.waitpid(己.子pid, os.WNOHANG)。
+        如果 结果[0] 等于 己.子pid:
+          返回 真。
+        结束。
+      捕获 错误:
+        返回 真。
+      结束。
+      如果 时间戳() * 1000 大于 截止:
+        返回 假。
+      结束。
+      time.sleep(0.03)。
+    结束。
