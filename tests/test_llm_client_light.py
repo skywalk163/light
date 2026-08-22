@@ -2,8 +2,9 @@
 """
 test_llm_client_light.py —— stdlib/大模型客户端.light 的 OpenAI 兼容 LLM 客户端测试
 
-离线部分：本地 fake HTTP/SSE 服务器（端口固定 19250，属 19200-19299 范围；
-绑定前检查占用，被占用直接失败，不做 +1 自动重试），回放录制好的 SSE 字节。
+离线部分：本地 fake HTTP/SSE 服务器（bind 端口 0，由内核分配空闲端口；见
+FakeServer.__init__ 里为什么不再用写死的 19250），回放录制好的 SSE 字节。
+
 覆盖：流式文本增量组装、流式 tool_calls（index 分组、name 只首片、arguments 逐片拼接）、
      非流式对话、HTTP 4xx 错误。
 真实 API 部分：仅当环境变量 DEEPSEEK_API_KEY 存在时执行（否则 skip），
@@ -25,8 +26,6 @@ import _light_import_hook
 _light_import_hook.install([_STDLIB])
 
 from 大模型客户端 import 大模型客户端
-
-FAKE_PORT = 19250
 
 
 def _resp_200_event_stream(chunks):
@@ -52,11 +51,21 @@ class FakeServer(threading.Thread):
         self.mode = mode
         self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            self.srv.bind(("127.0.0.1", FAKE_PORT))
-        except OSError as e:
-            pytest.fail("fake server 端口 %d 被占用（不做 +1 重试）: %s" % (FAKE_PORT, e))
+        # 端口 0 = 由内核分配一个当前空闲端口。
+        #
+        # 原先是 bind 到写死的 19250。那条「端口写死、不许 +1 重试」的口径出自
+        # 任务书/协作规程.md，理由是当年四路 agent 同机各自 worktree 并行开发，
+        # +1 会漂进别人的端口段；合并到单一主干后这个理由不再成立。
+        # 而 CI 现在跑 pytest -n auto（xdist 默认 --dist=load），同文件的用例被
+        # 打散到多个 worker 并发执行，每条用例都去 bind 同一个 19250 —— 一个赢、
+        # 其余全报 EADDRINUSE（run #65 上 6 条里红了 5 条）。SO_REUSEADDR 只覆盖
+        # TIME_WAIT 残留，覆盖不了「另一个活着的 listener」。
+        #
+        # 内核分配既不是「随机取」也不是「+1 重试」，冲突在原理上不存在。
+        self.srv.bind(("127.0.0.1", 0))
+        self.port = self.srv.getsockname()[1]
         self.srv.listen(8)
+
 
     def run(self):
         while True:
@@ -135,21 +144,19 @@ def fake_server():
             pass
 
 
-def _client():
-    return 大模型客户端("http://127.0.0.1:%d" % FAKE_PORT, "test-model", "")
+def _client(服务器):
+    return 大模型客户端("http://127.0.0.1:%d" % 服务器.port, "test-model", "")
 
 
 class TestStreaming:
     def test_text_increments_assembled(self, fake_server):
-        fake_server("stream_text")
-        c = _client()
+        c = _client(fake_server("stream_text"))
         blocks = list(c.流式对话([{"role": "user", "content": "hi"}]))
         contents = [b["内容增量"] for b in blocks if not b["结束"]]
         assert "".join(contents) == "你好！"
 
     def test_final_block_carries_full_state(self, fake_server):
-        fake_server("stream_text")
-        c = _client()
+        c = _client(fake_server("stream_text"))
         blocks = list(c.流式对话([{"role": "user", "content": "hi"}]))
         final = [b for b in blocks if b["结束"]]
         assert len(final) == 1
@@ -158,8 +165,7 @@ class TestStreaming:
         assert final[0]["完成原因"] == "stop"
 
     def test_tool_calls_index_grouped(self, fake_server):
-        fake_server("stream_tool")
-        c = _client()
+        c = _client(fake_server("stream_tool"))
         blocks = list(c.流式对话([{"role": "user", "content": "天气"}]))
         final = [b for b in blocks if b["结束"]][0]
         tc = final["工具调用增量"]
@@ -168,8 +174,7 @@ class TestStreaming:
         assert tc[0]["arguments"] == '{"city":"BJ"}'
 
     def test_done_sentinel_terminates(self, fake_server):
-        fake_server("stream_text")
-        c = _client()
+        c = _client(fake_server("stream_text"))
         blocks = list(c.流式对话([{"role": "user", "content": "hi"}]))
         # [DONE] 之后不会再产出内容块
         assert all(b["内容增量"] != "[DONE]" for b in blocks)
@@ -177,8 +182,7 @@ class TestStreaming:
 
 class TestNonStreaming:
     def test_message_returned(self, fake_server):
-        fake_server("nonstream")
-        c = _client()
+        c = _client(fake_server("nonstream"))
         msg = c.对话([{"role": "user", "content": "hi"}])
         assert msg["content"] == "非流式回复"
         assert msg["role"] == "assistant"
@@ -186,12 +190,12 @@ class TestNonStreaming:
 
 class TestHTTPError:
     def test_raises_with_status(self, fake_server):
-        fake_server("httperr")
-        c = _client()
+        c = _client(fake_server("httperr"))
         with pytest.raises(Exception) as ei:
             c.对话([{"role": "user", "content": "hi"}])
         assert ei.type.__name__ == "HTTP错误"
         assert ei.value.状态 == 401
+
 
 
 # ---- 真实 API（无 key 时 skip，key 仅从环境变量读取）----

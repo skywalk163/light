@@ -2,8 +2,9 @@
 """
 test_agent_loop_light.py —— stdlib/代理循环.light 的 agent 循环离线测试
 
-本地 fake HTTP/SSE 服务器（端口 19255，属 19200-19299 段；绑定前检查占用，
-被占用直接失败，不做 +1 自动重试）按"调用轮次序"回放录制好的 SSE 响应。
+本地 fake HTTP/SSE 服务器（bind 端口 0，由内核分配空闲端口；见
+FakeLoopServer.__init__ 里为什么不再用写死的 19255）按"调用轮次序"回放录制好的 SSE 响应。
+
 
 覆盖：
   1. 单次 tool_calls 往返：助手先回工具调用 → 工具被执行 → 结果作为 tool 消息
@@ -30,7 +31,6 @@ _light_import_hook.install([_STDLIB])
 
 from 代理循环 import 代理循环
 
-LOOP_PORT = 19255
 
 
 def _sse_frame(obj):
@@ -98,11 +98,14 @@ class FakeLoopServer(threading.Thread):
         self.request_count = 0
         self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            self.srv.bind(("127.0.0.1", LOOP_PORT))
-        except OSError as e:
-            pytest.fail("agent loop fake server 端口 %d 被占用（不做 +1 重试）: %s" % (LOOP_PORT, e))
+        # 端口 0 = 由内核分配空闲端口。原先 bind 写死的 19255，在 CI 的
+        # pytest -n auto（xdist 默认 --dist=load）下同文件用例被打散到多个 worker
+        # 并发 bind 同一端口，一个赢其余全 EADDRINUSE（run #65 上 4 条红了 3 条）。
+        # 详细缘由见 tests/test_llm_client_light.py 的 FakeServer.__init__。
+        self.srv.bind(("127.0.0.1", 0))
+        self.port = self.srv.getsockname()[1]
         self.srv.listen(8)
+
 
     def run(self):
         while True:
@@ -168,9 +171,9 @@ WEATHER_SCHEMA = {
 }
 
 
-def _make_agent(events=None):
+def _make_agent(服务器, events=None):
     agent = 代理循环(
-        "http://127.0.0.1:%d" % LOOP_PORT,
+        "http://127.0.0.1:%d" % 服务器.port,
         "test-model",
         "",
         最大轮数值=6,
@@ -186,8 +189,8 @@ def _make_agent(events=None):
 
 class TestToolCallRoundtrip:
     def test_tool_called_and_final_reply(self, loop_server):
-        loop_server([_resp_valid_tool_call(), _resp_stop()])
-        agent, calls = _make_agent()
+        s = loop_server([_resp_valid_tool_call(), _resp_stop()])
+        agent, calls = _make_agent(s)
         reply = agent.运行("今天北京天气怎么样")
         assert reply == "今日北京晴天"
         # 会话应结束为 stop，工具调用被正确执行过一次
@@ -211,8 +214,8 @@ class TestValidationRetry:
     def test_invalid_args_fed_back_then_ok(self, loop_server):
         # 第一轮参数非法（city 是数字，schema 要求 string）→ 不进工具实现；
         # 第二轮合法 → 工具执行；第三轮 stop。
-        loop_server([_resp_invalid_tool_call(), _resp_valid_tool_call(), _resp_stop()])
-        agent, calls = _make_agent()
+        s = loop_server([_resp_invalid_tool_call(), _resp_valid_tool_call(), _resp_stop()])
+        agent, calls = _make_agent(s)
         reply = agent.运行("查北京天气")
         assert reply == "今日北京晴天"
         msgs = agent.会话列表()
@@ -227,14 +230,14 @@ class TestValidationRetry:
 class TestMaxRounds:
     def test_terminates_after_max_rounds(self, loop_server):
         # 模型每次都回 tool_calls（循环永不自然 stop）→ 必须在 最大轮数 轮后收敛
+        s = loop_server([_resp_valid_tool_call()])
         agent = 代理循环(
-            "http://127.0.0.1:%d" % LOOP_PORT,
+            "http://127.0.0.1:%d" % s.port,
             "test-model",
             "",
             最大轮数值=3,
             消息上限值=20,
         )
-        loop_server([_resp_valid_tool_call()])
         agent.注册工具("get_weather", "查询天气", WEATHER_SCHEMA, lambda p: "晴天")
         events = []
         agent.订阅("轮次结束", lambda payload: events.append(payload["轮次"]))
@@ -246,9 +249,9 @@ class TestMaxRounds:
 
 class TestEventOrder:
     def test_events_broadcast_in_order(self, loop_server):
-        loop_server([_resp_valid_tool_call(), _resp_stop()])
+        s = loop_server([_resp_valid_tool_call(), _resp_stop()])
         events = []
-        agent, _ = _make_agent(events)
+        agent, _ = _make_agent(s, events)
         agent.运行("北京天气")
         # 事件类型按首轮 tool → 次轮 stop 的顺序出现
         assert events[0] == "请求开始"

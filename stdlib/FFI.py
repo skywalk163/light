@@ -365,8 +365,18 @@ def 解析库路径(平台映射: Dict[str, str]) -> str:
         plat_key = 'linux'
     else:
         plat_key = current_platform
-    
+
+    # 平台映射通常只写 win/linux/mac 三键。FreeBSD 等其它 ELF 系统按上面的 else
+    # 分支会拿到 'freebsd'，三键里一个都匹配不上，最后 return 出一个空串——
+    # 调用方拿到空路径去 load 库，报的错跟平台八竿子打不着。这里让它退到
+    # 'linux' 键：同为 ELF + .so 命名约定，是这批系统上唯一说得通的选择。
+    # 若映射里显式写了 'freebsd' 键，上面的精确匹配会先命中，这条不会生效。
+    if plat_key not in 平台映射 and plat_key not in ('win', 'mac', 'linux'):
+        if 'linux' in 平台映射:
+            plat_key = 'linux'
+
     for key, path in 平台映射.items():
+
         if key.lower() == plat_key:
             if os.path.exists(path):
                 return path

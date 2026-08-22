@@ -770,11 +770,17 @@ def test_runtime_library_path_platform():
 
     # 获取平台
     plat = 获取平台()
-    assert plat in ('windows', 'linux', 'darwin')
+    # freebsd 是 gitea runner 的平台，漏了它这条断言在 CI 上必红；
+    # tests/test_ffi_phase3.py:222 的同义断言早就带上了 freebsd，这里是两份判据
+    # 只改了一份的漂移。
+    assert plat in ('windows', 'linux', 'darwin', 'freebsd')
 
     # 解析库路径（使用当前平台）
     result = 解析库路径({'win': 'msvcrt.dll', 'linux': 'libm.so.6', 'mac': 'libm.dylib'})
-    assert result is not None
+    # 只断言 not None 抓不住真缺陷：平台表漏了本平台时它返回的是空串，
+    # '' is not None 照样通过，而调用方拿空路径去 load 库会报个八竿子打不着的错。
+    assert result, f"平台 {plat} 在平台表里没有对应项，解析库路径 返回了空值"
+
 
     # 查找库（可能返回 None 或库路径）
     lib_path = 查找库('c')

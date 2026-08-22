@@ -30,7 +30,6 @@ _light_import_hook.install([_STDLIB])
 
 from 流式 import HTTP客户端, 连接错误
 
-TLS_PORT = 19260  # 属 19200-19299 段
 TMP_ROOT = None   # _taskC2_ 前缀临时目录，pytest 结束自动清理
 
 
@@ -96,11 +95,15 @@ class TLSServer(threading.Thread):
         self.ctx.load_cert_chain(certfile, keyfile)
         self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            self.srv.bind(("127.0.0.1", TLS_PORT))
-        except OSError as e:
-            pytest.fail("TLS server 端口 %d 被占用（不做 +1 重试）: %s" % (TLS_PORT, e))
+        # 端口 0 = 由内核分配空闲端口。原先 bind 写死的 19260，与
+        # test_llm_client_light / test_agent_loop_light 是同一个坑：CI 的
+        # pytest -n auto 把用例打散到多个 worker 并发 bind 同一端口。那两个文件
+        # 已经在 run #65 上红了，这里只是因为 TLSServer 处理完一次连接就自己
+        # close、占用窗口短而侥幸没红。详见 test_llm_client_light.py 的 FakeServer。
+        self.srv.bind(("127.0.0.1", 0))
+        self.port = self.srv.getsockname()[1]
         self.srv.listen(8)
+
 
     def run(self):
         tls_conn = None
@@ -167,7 +170,7 @@ def tls_server(certs):
 def test_tls_with_ca_handshake_and_sse(certs, tls_server):
     """正例：传入自签 CA → 握手成功，SSE 帧正确解析。"""
     cafile = certs[0]
-    c = HTTP客户端("127.0.0.1", TLS_PORT)
+    c = HTTP客户端("127.0.0.1", tls_server.port)
     c.配置TLS(True, True, cafile, None)  # 校验证书=真，证书列表=自签 CA
     hdr = c.发送("GET", "/v1/chat/completions", {}, "")
     assert hdr[0] == 200
@@ -183,16 +186,21 @@ def test_tls_with_ca_handshake_and_sse(certs, tls_server):
 
 def test_tls_without_ca_fails_handshake(certs, tls_server):
     """负例：不传 CA（系统根证书）→ 自签证书校验失败，抛明确的光明异常。"""
-    c = HTTP客户端("127.0.0.1", TLS_PORT)
+    c = HTTP客户端("127.0.0.1", tls_server.port)
     c.配置TLS(True, True, None, None)  # 校验证书保持默认开，但不提供该自签 CA
     with pytest.raises(连接错误) as ei:
         c.发送("GET", "/v1/chat/completions", {}, "")
     assert "TLS" in str(ei.value) or "握手" in str(ei.value)
 
 
-def test_tls_disabled_uses_plaintext_server(certs):
-    """对照：关闭 TLS 时连接普通明文语义（配置 Tls=假 不报错、TLS 不发）。"""
-    c = HTTP客户端("127.0.0.1", TLS_PORT)
+def test_tls_disabled_uses_plaintext_server(certs, tls_server):
+    """对照：关闭 TLS 时连接普通明文语义（配置 Tls=假 不报错、TLS 不发）。
+
+    原先这条没要 tls_server fixture，实际连的是一个没人监听的端口，靠
+    connection refused 混过 pytest.raises —— 注释说的「对 TLS server 直接发明文」
+    从来没真发生过。补上 fixture 让它做到它声称做的事。
+    """
+    c = HTTP客户端("127.0.0.1", tls_server.port)
     c.配置TLS(False, True, None, None)
     # 对 TLS server 直接发明文会被 TLS 层判为非法，应抛连接/读取错误而非静默成功
     with pytest.raises(Exception):
