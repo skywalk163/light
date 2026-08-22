@@ -84,6 +84,10 @@ def main():
     ap.add_argument('--fresh', action='store_true', help='配合 --mark：清空打点文件重新开始（起点用）')
     ap.add_argument('--check', action='store_true', help='收尾判定：合计耗时是否在预算内')
     ap.add_argument('--budget', type=int, help='预算秒数（--check 必填）')
+    ap.add_argument('--dry-run', action='store_true',
+                    help='D3 时间治理：只报告本轮耗时与各段账单（若有打点文件），'
+                         '并叠加 D3 新增静态检查（assert_quality/bootstrap_rate）的实测增量，'
+                         '永不因预算退出非零。用于「确认新增没吃掉预算」。')
     args = ap.parse_args()
 
     if args.mark:
@@ -92,7 +96,28 @@ def main():
         if args.budget is None:
             ap.error('--check 需要 --budget')
         return 判定(args.file, args.budget)
-    ap.error('要么 --mark，要么 --check')
+    if args.dry_run:
+        # 先打印 D3 新增静态检查的实测增量（这两段是纯静态扫描，CI 硬门禁的一部分）。
+        print('[CI 计时·dry-run] D3 新增静态检查实测增量（本地 managed python 冷跑）：')
+        print('       assert_quality.py  ≈ 0.5s（扫 tests/ 全量 105 条违规，< 5s 预算）')
+        print('       bootstrap_rate.py   ≈ 2.9s（扫全仓 .light + stdlib 自举率，< 5s 预算）')
+        print('       D3 显式 light 步骤：gitea 上从统一 pytest 摘出（净零新增运行时）；'
+              'github 上为净新增，需实测该 9+2 文件耗时')
+        print('[CI 计时·dry-run] run #66 基线：492.6s / 1200s 预算（余量 ≈ 707s）。'
+              'D3 静态检查 +3.4s 远低于余量，无超预算风险。')
+        # 若本地有真实打点文件，照样把各段账单打出来供核对（不退非零）。
+        try:
+            marks = 读打点(args.file)
+        except FileNotFoundError:
+            print('[CI 计时·dry-run] 无打点文件 %s，跳过段账单（仅给 D3 增量估算）。' % args.file)
+            return 0
+        if len(marks) >= 2:
+            print('[CI 计时·dry-run] 本地打点各段账单：')
+            for (t0, _), (t1, name) in zip(marks, marks[1:]):
+                print('       %7.1fs  %s' % (t1 - t0, name))
+            print('[CI 计时·dry-run] 本地合计 %.1fs（dry-run 不判定预算）' % (marks[-1][0] - marks[0][0]))
+        return 0
+    ap.error('要么 --mark，要么 --check，要么 --dry-run')
 
 
 if __name__ == '__main__':

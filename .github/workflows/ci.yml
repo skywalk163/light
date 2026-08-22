@@ -48,6 +48,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install pytest
+          # cryptography 是 tests/test_tls_light.py 的测试侧硬依赖（模块级
+          # `from cryptography import x509`，用来在临时目录生成自签证书）。
+          # 下面那道 TLS/SSE 硬判绿点没有 || true，缺了它整步 collect 就红——
+          # 而且红的是「装不上依赖」，不是「TLS 实现坏了」，属于噪声红。
+          python -m pip install cryptography
+
 
       # 运行单元测试（所有平台）
       - name: Unit Tests
@@ -85,6 +91,37 @@ jobs:
         if: runner.os != 'Linux'
         run: |
           pytest tests/test_parser.py tests/test_lexer.py tests/test_light_syntax.py tests/test_edge_cases.py tests/test_commands.py tests/test_module_system.py tests/test_summary.py -q 2>&1 || true
+
+      # D3-3：纯光明测试显式清单（soft 可见性 + 耗时归账）。
+      # 9 个文件走 soft 口径：结尾 || true，失败放行但 junit 照产。
+      - name: Pure-Light Tests (explicit, soft)
+        if: runner.os == 'Linux'
+        run: |
+          pytest tests/test_agent_loop_light.py tests/test_bootstrap_light.py \
+            tests/test_event_bus_light.py tests/test_llm_client_light.py \
+            tests/test_path_guard_light.py tests/test_plugin_light.py \
+            tests/test_process_tree_light.py tests/test_pty_light.py \
+            tests/test_schema_light.py -q 2>&1 || true
+
+      # D3-3：硬判绿点（不允许 soft）。两份文件头明写「纯离线、不许 skip」，是 M4/M5 判据。
+      # 无 || true → 失败即红。（test_deepseek_mock.py / test_agent_tools_light.py 属 A3/B3，
+      # 合入后由对应任务升级；本轮 main 尚不存在，不在此列。）
+      - name: Pure-Light Hard Gate (TLS/SSE)
+        if: runner.os == 'Linux'
+        run: |
+          pytest tests/test_tls_light.py tests/test_sse_light.py -q
+
+      # D3-1/D3-2：两道质量度量门禁（只在 Linux 跑一份，跨平台跑它没有额外信号）。
+      # 都是基线对比、只拦新增；权威副本在 .gitea/workflows/ci.yml，这边是镜像验证。
+      - name: 断言质量门禁（假绿形态·基线对比）
+        if: runner.os == 'Linux'
+        run: |
+          python tools/ci/assert_quality.py --root tests
+
+      - name: 自举率门禁（文件维度·不许回退）
+        if: runner.os == 'Linux'
+        run: |
+          python tools/ci/bootstrap_rate.py --root .
 
       # 时间预算硬闸门。always()：前面红了也要把耗时账单打出来，否则一红就没时间数据。
       - name: 时间预算闸门
