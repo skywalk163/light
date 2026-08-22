@@ -14,7 +14,8 @@
 # 跨平台安全执行外部命令，并支持：
 #  - 分离进程组/进程树（POSIX setsid 建新会话组；Windows CREATE_NEW_PROCESS_GROUP
 #    =0x200），超时/杀树时能杀掉整棵树（含孙子进程）而不只杀直接子进程
-#  - 信号升级链：先优雅 SIGTERM / taskkill /T /PID → 宽限期后强制 SIGKILL / taskkill /F
+#  - 信号升级链：POSIX 先 SIGTERM → 宽限期后 SIGKILL；Windows 直接 taskkill /F /T
+#    （不带 /F 的 taskkill 对控制台进程无效，且会先杀根、丢掉后代——见 杀树 里的实测记录）
 #  - 有界输出：内存只保留尾部 N 字节（默认 64KB），超出部分写 spill 文件（O_EXCL 防
 #    symlink 攻击），并在截断处插入明确标记
 #  - 总超时 + 空闲超时（多久无新输出算卡死），超时走杀树并返回"超时"结果
@@ -411,19 +412,22 @@
     结果.耗时毫秒 为 int(时间戳() * 1000 减去 己.开始时刻)。
     返回 结果。
 
-  # 杀整棵树：Windows taskkill /T（优雅→宽限→/F）；POSIX os.killpg（SIGTERM→SIGKILL）
+  # 杀整棵树：Windows taskkill /F /T（一次拿下整棵树）；POSIX os.killpg（SIGTERM→SIGKILL）
   段落 杀树 接收 宽限期毫秒:
     如果 己.进程对象 等于 空:
       返回。
     结束。
     设 pid 为 己.进程对象.pid。
     如果 sys.platform 等于 "win32":
-      subprocess.call(["taskkill", "/T", "/PID", str(pid)])。
+      # Windows 上刻意不做「优雅」这一步。原本的 taskkill /T（不带 /F）→ 宽限期
+      # → /F /T 有个致命的顺序漏洞：控制台进程不响应 WM_CLOSE，不带 /F 的
+      # taskkill 对后代报「只能强行终止」，却可能先把根干掉；根一死，/T 就再也
+      # 枚举不到那些后代，是否存活() 也变成假，升级那一步根本不会跑，孙子进程
+      # 被孤立着继续跑到底。2026-08-22 本机实测：孙子进程写出了存活标记文件，
+      # 而工具还在返回「进程树已被杀死（含子进程）」——报文与事实相反。
+      # /F /T 在一次快照里走完整棵树，没有这个中途丢后代的窗口。
+      subprocess.call(["taskkill", "/F", "/T", "/PID", str(pid)], -1, 空, 空, subprocess.DEVNULL, subprocess.DEVNULL)。
       己.等待到死(宽限期毫秒)。
-      如果 己.是否存活():
-        subprocess.call(["taskkill", "/F", "/T", "/PID", str(pid)])。
-        己.等待到死(宽限期毫秒)。
-      结束。
     否则:
       尝试:
         os.killpg(pid, signal.SIGTERM)。
