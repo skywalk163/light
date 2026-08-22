@@ -240,11 +240,53 @@ class TestMaxRounds:
         )
         agent.注册工具("get_weather", "查询天气", WEATHER_SCHEMA, lambda p: "晴天")
         events = []
-        agent.订阅("轮次结束", lambda payload: events.append(payload["轮次"]))
+        # A3-7 回归：这里以前写的是 `lambda payload: ...`（一参）。事件总线以
+        # `处理器(事件名, 载荷)` 两参调用，于是每次发布都抛 TypeError 并被错误
+        # 隔离吞掉，events 恒为空 —— 下面那条断言曾经是 `<= 3`，在空集合上恒真，
+        # 整条用例**空转通过**。现在两处都修了：签名改两参，断言改等值。
+        agent.订阅("轮次结束", lambda 事件名, payload: events.append(payload["轮次"]))
         # 不应抛出（网络层正常，只是轮数耗尽），运行正常返回
         agent.运行("无限工具")
-        # 最多执行 3 轮；事件里最多出现 3 个 轮次
-        assert len(events) <= 3
+        # 等值断言：模型每轮都回 tool_calls，所以恰好跑满 3 轮，轮次编号 0/1/2。
+        # 不许再用 `<=` 这类上界断言——集合为空时它恒真，是假绿的常见形态。
+        assert events == [0, 1, 2]
+
+
+class TestHandlerSignatureGuard:
+    """A3-7：订阅时就拦下签名不匹配，而不是发布时被错误隔离吞掉。"""
+
+    def test_one_arg_handler_rejected_at_subscribe(self, loop_server):
+        s = loop_server([_resp_stop()])
+        agent, _ = _make_agent(s)
+        with pytest.raises(Exception) as ei:
+            agent.订阅("轮次结束", lambda payload: None)
+        assert ei.type.__name__ == "处理器签名错误"
+        # 报错必须说清正确写法，否则改错的人只会把 lambda 再猜一遍
+        assert "两个位置实参" in str(ei.value)
+
+    def test_two_arg_handler_accepted_and_really_called(self, loop_server):
+        s = loop_server([_resp_stop()])
+        agent, _ = _make_agent(s)
+        收到 = []
+        agent.订阅("轮次结束", lambda 事件名, 载荷: 收到.append(事件名))
+        agent.运行("你好")
+        # 正向断言：真的收到了事件（而不是"没报错就算过"）
+        assert 收到 == ["轮次结束"]
+
+    def test_isolated_handler_error_is_reported_to_stderr(self, loop_server, capfd):
+        """错误隔离保留，但不许沉默：被隔离的异常必须出现在 stderr。"""
+        s = loop_server([_resp_stop()])
+        agent, _ = _make_agent(s)
+
+        def 会炸的处理器(事件名, 载荷):
+            raise RuntimeError("_taskA3_故意炸")
+
+        agent.订阅("轮次结束", 会炸的处理器)
+        agent.运行("你好")
+        err = capfd.readouterr().err
+        assert "_taskA3_故意炸" in err
+        assert "[事件总线]" in err
+
 
 
 class TestEventOrder:
