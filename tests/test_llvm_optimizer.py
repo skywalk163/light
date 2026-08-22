@@ -888,7 +888,7 @@ class Test槽位池按真实用量分配(unittest.TestCase):
         from llvm.compiler import compile_source_typed, find_clang
 
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        from llvm运行时 import 取运行时对象
+        from llvm运行时 import 取运行时对象, 取链接库参数
 
         try:
             clang = find_clang()
@@ -907,7 +907,7 @@ class Test槽位池按真实用量分配(unittest.TestCase):
             with open(ir路径, 'w', encoding='utf-8') as f:
                 f.write(ir)
             编译 = subprocess.run(
-                [clang, '-O2', '-o', exe路径, ir路径, 运行时对象],
+                [clang, '-O2', '-o', exe路径, ir路径, 运行时对象, *取链接库参数()],
                 capture_output=True, text=True, encoding='utf-8', errors='replace',
                 timeout=120,
             )

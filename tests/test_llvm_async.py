@@ -9,7 +9,7 @@ from llvm.compiler import compile_source_typed, find_clang
 
 # 运行时目标码整场只编一次（缘由与实测数字见 tests/llvm运行时.py 头部注释）
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from llvm运行时 import 取运行时对象
+from llvm运行时 import 取运行时对象, 取链接库参数
 
 def run_test(name, code):
     """运行一个测试"""
@@ -32,7 +32,7 @@ def run_test(name, code):
         exe_path = f'tests/_test_{name}.exe'
         
         result = subprocess.run(
-            [clang, '-O2', '-o', exe_path, ir_path, runtime_o],
+            [clang, '-O2', '-o', exe_path, ir_path, runtime_o, *取链接库参数()],
             capture_output=True, text=True, encoding='utf-8', errors='replace'
         )
         

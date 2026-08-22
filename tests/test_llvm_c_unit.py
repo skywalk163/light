@@ -39,6 +39,7 @@ import pytest
 # Reuse the compiler detection from test_llvm_net
 sys.path.insert(0, os.path.dirname(__file__))
 from test_llvm_net import _find_clang_safely, _find_msvc_safely
+from llvm运行时 import 取链接库参数
 
 CLANG_PATH = _find_clang_safely()
 MSVC_VCVARS = _find_msvc_safely()
@@ -112,15 +113,16 @@ class EchoServer:
 def _compile_c_test(extra_args=(), out_path=None):
     """Compile the C test program. Returns True on success.
 
-    B2-4: runtime_typed.c 现在引用 Schannel/证书链 API，链接必须带
-    secur32/crypt32，否则一定报未解析符号。
+    B2-4: runtime_typed.c 现在引用 Schannel/证书链 API，Windows 上链接必须带
+    secur32/crypt32，否则一定报未解析符号；非 Windows 上则要 -lm。这批库参数
+    统一走 取链接库参数()，别在这里再抄一份平台判断。
     """
     exe = out_path or EXE_PATH
     if HAS_CLANG:
         cmd = [CLANG_PATH, '-O2', '-o', exe, C_TEST_SOURCE,
                '-D_CRT_SECURE_NO_WARNINGS']
         cmd.extend(extra_args)
-        cmd.extend(['-lws2_32', '-lsecur32', '-lcrypt32'])
+        cmd.extend(取链接库参数())
         result = subprocess.run(
             cmd,
             capture_output=True, text=True, encoding='utf-8', errors='replace',

@@ -109,3 +109,29 @@ def 取运行时对象(clang, 额外参数=()):
 
     _目标码缓存[缓存键] = 目标路径
     return 目标路径
+
+
+def 取链接库参数():
+    """返回本平台链接可执行文件所需的库参数，直接取自生产实现。
+
+    不在这里复制一份平台判断：判据的唯一来源是
+    src/llvm/compiler.py 的 get_link_libs()。测试与生产用同一个函数，
+    「测试的链接参数与 compiler.py 对齐」才是源码级事实而不是注释里的承诺。
+
+    历史：这批测试原先各自硬编码——test_llvm_net/c_unit/tls 无条件塞
+    ['-lws2_32','-lsecur32','-lcrypt32']，另外 4 个文件什么都不加。结果
+    Windows 上全绿，FreeBSD 上前者 `unable to find library -lws2_32`、
+    后者 `undefined symbol: sin/cos/pow/...`（非 Windows 上 libm 不自动链）。
+
+    Raises:
+        RuntimeError: 导不进生产模块时直接抛，不回退到本地复制的判断——
+                      静默回退会让平台差异重新变成看不见的假绿。
+    """
+    try:
+        from llvm.compiler import get_link_libs
+    except ImportError as 原因:
+        raise RuntimeError(
+            "无法从 src/llvm/compiler.py 导入 get_link_libs()，"
+            "链接库参数不允许在测试里另抄一份，请先修好导入路径"
+        ) from 原因
+    return list(get_link_libs())

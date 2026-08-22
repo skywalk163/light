@@ -28,6 +28,10 @@ import time
 
 import pytest
 
+# 链接库参数的唯一来源：src/llvm/compiler.py 的 get_link_libs()
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from llvm运行时 import 取链接库参数
+
 # ── 常量 ──────────────────────────────────────────────
 TLS_PORT = 19160
 CLANG = shutil.which("clang") or r"C:\Program Files\LLVM\bin\clang.exe"
@@ -189,12 +193,12 @@ def _compile_tls_test():
     if not os.path.exists(CLANG):
         pytest.skip(f"clang 不存在: {CLANG}")
 
-    # 编译参数与 compiler.py 的链接标志对齐
+    # 链接库参数取自生产实现（compiler.py 的 get_link_libs），不在这里另抄
     cmd = [
         CLANG, "-O2",
         c_source,
         "-o", EXE_PATH,
-        "-lws2_32", "-lsecur32", "-lcrypt32",
+        *取链接库参数(),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:

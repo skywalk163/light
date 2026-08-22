@@ -32,7 +32,7 @@ from llvm.compiler import compile_source_typed  # type: ignore[import]
 
 # 运行时目标码整场只编一次（缘由与实测数字见 tests/llvm运行时.py 头部注释）
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from llvm运行时 import 取运行时对象  # type: ignore[import]
+from llvm运行时 import 取运行时对象, 取链接库参数  # type: ignore[import]
 
 
 
@@ -464,8 +464,7 @@ def run_net_test(name, code, expected_output=None, expected_returncode=0, timeou
         exe_path = f'tests/_taskB2_{name}.exe'
         result = subprocess.run(
             [CLANG_PATH, '-O2', '-o', exe_path, ir_path, runtime_o,
-             # B2-4: secur32/crypt32 是 Schannel TLS 与证书链校验的依赖
-             '-lws2_32', '-lsecur32', '-lcrypt32'],
+             *取链接库参数()],
             capture_output=True, text=True, encoding='utf-8', errors='replace'
         )
 

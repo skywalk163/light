@@ -50,6 +50,22 @@ def get_exe_extension(target_arch: str = None) -> str:
     return ''
 
 
+def get_link_libs() -> list:
+    """按平台返回链接可执行文件所需的库参数
+
+    这是全仓唯一的判据来源：生产链路（本文件三处链接点）与测试侧的 clang
+    链接命令都必须调它，不允许各自硬编码——否则一边改了另一边不知道，
+    就会出现「Windows 上全绿、FreeBSD 上整条 clang 腿链不上」这类只在
+    另一个平台才暴露的红。
+
+    - 非 Windows：libm 不自动链，缺 -lm 会 undefined symbol: sin/cos/pow/...
+    - Windows：ws2_32 是 socket，secur32/crypt32 是 Schannel TLS 与证书链校验
+    """
+    if sys.platform == 'win32':
+        return ['-lws2_32', '-lsecur32', '-lcrypt32']
+    return ['-lm']
+
+
 def _strip_exe_ext(path: str) -> str:
     """移除路径中的可执行文件后缀（跨平台）"""
     ext = get_exe_extension()
@@ -490,10 +506,7 @@ def compile_light(source_path: str, output_path: str = None, verbose: bool = Fal
     link_args = [clang, *arch_flags, ir_o, runtime_o, '-o', exe_path]
     if debug:
         link_args.append('-g')
-    if not sys.platform.startswith('win'):
-        link_args.append('-lm')
-    if sys.platform == 'win32':
-        link_args.extend(['-lws2_32', '-lsecur32', '-lcrypt32'])  # B2-4: secur32/crypt32 for Schannel TLS
+    link_args.extend(get_link_libs())
     # LTO 链接参数
     if lto:
         link_args.append('-flto')
@@ -638,10 +651,7 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
     link_args = [clang, *arch_flags, ir_o, runtime_o, '-o', exe_path]
     if debug:
         link_args.append('-g')
-    if not sys.platform.startswith('win'):
-        link_args.append('-lm')
-    if sys.platform == 'win32':
-        link_args.extend(['-lws2_32', '-lsecur32', '-lcrypt32'])  # B2-4: secur32/crypt32 for Schannel TLS
+    link_args.extend(get_link_libs())
     if lto:
         link_args.append('-flto')
 
@@ -1168,10 +1178,7 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
     link_args = [clang, *arch_flags, ir_o, runtime_o, '-o', exe_path]
     if debug:
         link_args.append('-g')
-    if not sys.platform.startswith('win'):
-        link_args.append('-lm')
-    if sys.platform == 'win32':
-        link_args.extend(['-lws2_32', '-lsecur32', '-lcrypt32'])  # B2-4: secur32/crypt32 for Schannel TLS
+    link_args.extend(get_link_libs())
     if lto:
         link_args.append('-flto')
 
