@@ -228,6 +228,106 @@ class TestCLayerUnit:
         assert result.returncode == 0, \
             f"Compilation errors:\n{result.stderr[:2000]}"
 
+    def test_poller_backend_and_capacity_accounting(self):
+        """B2-3: 后端自报 + 超容量必须「明确拒绝或长上去」，不许静默丢 fd
+
+        这条看的是 C 程序打出来的 POLLER_BACKEND= / GROW_* 明细，
+        而不是只看有没有 [PASS]：静默丢 fd 时 accepted+rejected != made，
+        C 侧会判 [FAIL]，这里再把数字复核一遍。
+        """
+        assert _compile_c_test(), "C test compilation failed"
+        port = 19151
+        server = EchoServer(port)
+        server.start()
+        try:
+            result = subprocess.run(
+                [EXE_PATH, str(port)],
+                capture_output=True, text=True, encoding='utf-8', errors='replace',
+                timeout=60
+            )
+            print(result.stdout)
+            assert result.returncode == 0, f"C 层用例有失败:\n{result.stdout}"
+
+            kv = {}
+            for line in result.stdout.splitlines():
+                for token in line.split():
+                    if '=' in token:
+                        k, _, v = token.partition('=')
+                        kv[k] = v
+            backend = kv.get('POLLER_BACKEND')
+            assert backend in ('WSAPoll', 'poll', 'select'), \
+                f"未知 poller 后端: {backend!r}"
+            if sys.platform == 'win32':
+                assert backend == 'WSAPoll', \
+                    f"Windows 默认应走 WSAPoll（Vista+），实到 {backend}"
+
+            made = int(kv['GROW_MADE'])
+            accepted = int(kv['GROW_ACCEPTED'])
+            rejected = int(kv['GROW_REJECTED'])
+            count = int(kv['GROW_COUNT'])
+            assert made > 256, f"只造出 {made} 个 socket，测不到超容量（初始容量 256）"
+            assert accepted + rejected == made, \
+                f"账对不上（made={made} accepted={accepted} rejected={rejected}）—— 有 fd 被静默丢了"
+            assert count == accepted, f"poller 计数 {count} != 接受数 {accepted}"
+            if backend in ('WSAPoll', 'poll'):
+                assert rejected == 0, f"可增长后端却拒了 {rejected} 个"
+                assert count > 256, "注册表没有长过初始容量 256"
+        finally:
+            server.stop()
+            try:
+                if os.path.exists(EXE_PATH):
+                    os.remove(EXE_PATH)
+            except Exception:
+                pass
+
+    def test_select_fallback_is_compile_time_macro(self):
+        """B2-3: select 回退必须仍是编译期宏，且在 FD_SETSIZE 处显式拒绝
+
+        任务书要求「保留 select 作为编译期宏回退，不做运行时选择」。
+        没有这条测试，宏分支腐烂了不会有人知道 —— 主路径永远走 WSAPoll。
+        """
+        if not HAS_CLANG:
+            pytest.skip("缺 clang: DV_POLLER_FORCE_SELECT 宏分支是否还能编译、"
+                        "以及 select 回退在 FD_SETSIZE 处是否显式拒绝，均未验证")
+        alt_exe = EXE_PATH.replace('.exe', '_select.exe')
+        assert _compile_c_test(extra_args=['-DDV_POLLER_FORCE_SELECT'],
+                               out_path=alt_exe), \
+            "DV_POLLER_FORCE_SELECT 分支编译失败（select 回退已腐烂）"
+        port = 19152
+        server = EchoServer(port)
+        server.start()
+        try:
+            result = subprocess.run(
+                [alt_exe, str(port)],
+                capture_output=True, text=True, encoding='utf-8', errors='replace',
+                timeout=60
+            )
+            print(result.stdout)
+            kv = {}
+            for line in result.stdout.splitlines():
+                for token in line.split():
+                    if '=' in token:
+                        k, _, v = token.partition('=')
+                        kv[k] = v
+            assert kv.get('POLLER_BACKEND') == 'select', \
+                f"强制 select 后自报的却是 {kv.get('POLLER_BACKEND')!r}"
+            made = int(kv['GROW_MADE'])
+            accepted = int(kv['GROW_ACCEPTED'])
+            rejected = int(kv['GROW_REJECTED'])
+            assert accepted + rejected == made, \
+                f"select 分支静默丢了 fd（made={made} accepted={accepted} rejected={rejected}）"
+            assert rejected > 0, \
+                "select 分支在 300 个 fd 下一个都没拒 —— FD_SETSIZE 上限没生效"
+            assert result.returncode == 0, f"select 分支有用例失败:\n{result.stdout}"
+        finally:
+            server.stop()
+            for p in (alt_exe, alt_exe.replace('.exe', '.obj')):
+                try:
+                    if os.path.exists(p):
+                        os.remove(p)
+                except Exception:
+                    pass
+
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '-s'])
