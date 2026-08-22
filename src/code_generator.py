@@ -4163,9 +4163,9 @@ class PythonCodeGenerator:
             self._add_line(f"# --- 结束 L3 引 公式 {expr_name} ---")
             return
 
-        # -------- L4: C 嵌入（gcc 编译 + ctypes 动态加载）--------
+        # -------- L4: C 嵌入（gcc/clang 编译 + ctypes 动态加载）--------
         if lang_main in ('c',):
-            self._add_line(f"# --- L4: 引 C（gcc 编译 + ctypes 动态加载）---")
+            self._add_line(f"# --- L4: 引 C（gcc/clang 编译 + ctypes 动态加载）---")
             self._add_line("import ctypes as _light_ctypes")
             self._add_line("import tempfile as _light_tmp")
             self._add_line("import os as _light_os")
@@ -4178,6 +4178,11 @@ class PythonCodeGenerator:
             self._add_line("'''")
             # 平台检测：.so vs .dll
             self._add_line("_LIGHT_C_EXT = '.dll' if _light_sys.platform == 'win32' else '.so'")
+            # 签名提取必须在编译**之前**：Windows/MSVC ABI 下 DLL 默认不导出任何符号，
+            # 回退命令要按符号逐个拼 -Wl,/EXPORT:<名>，所以「有哪些函数」是编译命令的输入，
+            # 不能像旧实现那样等编译完再抓。提取结果同时喂给后面的 restype/argtypes 绑定循环。
+            self._add_line("_LIGHT_C_SIGS = _light_l4_re.findall(r'([A-Za-z_][\\w ]*?[\\w*])\\s+(\\w+)\\s*\\(([^)]*)\\)\\s*\\{', _LIGHT_C_CODE)")
+            self._add_line("_LIGHT_C_EXPORTS = [_s[1] for _s in _LIGHT_C_SIGS]")
             # 编译器检测：gcc > cc > clang
             self._add_line("_LIGHT_C_CC = None")
             self._add_line("for _LIGHT_C_CAND in ['gcc', 'cc', 'clang']:")
@@ -4191,11 +4196,35 @@ class PythonCodeGenerator:
             self._add_line("_LIGHT_C_SRC.write(_LIGHT_C_CODE)")
             self._add_line("_LIGHT_C_SRC.close()")
             self._add_line("_LIGHT_C_LIB = _LIGHT_C_SRC.name.replace('.c', _LIGHT_C_EXT)")
-            # 编译
+            # 编译：GNU 风格优先，失败后回退到 Windows/link.exe 风格。
+            # 为什么是「先试 GNU、失败再回退」而不是「按 sys.platform 直接分叉」：
+            #   (1) mingw/cygwin 的 gcc 跑在 win32 上时 -fPIC 只是告警、且默认导出全部符号，
+            #       GNU 那条命令本来就能成——按平台硬分叉会把这类工具链一并踢到回退路上；
+            #   (2) 反过来，clang 在 Windows 上以 msvc 为默认 target，-fPIC 是硬错误
+            #       （unsupported option），-lm 也会让 lld-link 去找不存在的 m.lib，所以必须有回退；
+            #   (3) 先 GNU 后回退能让 Linux/macOS 的行为与旧实现逐字节一致，零回归面。
+            # 回退命令去掉 -fPIC / -lm（Windows 上前者非法、后者的 libm 已并入 CRT），
+            # 并按符号逐个加 -Wl,/EXPORT:<名> —— clang 驱动 link.exe/lld-link 时这样即可
+            # 把符号导出到 DLL，不必额外生成 .def 文件。
+            self._add_line("_LIGHT_C_DLL = None")
             self._add_line("if _LIGHT_C_CC:")
-            self._add_line("    _light_sp.run([_LIGHT_C_CC, '-shared', '-fPIC', '-O2', '-o', _LIGHT_C_LIB, _LIGHT_C_SRC.name, '-lm'], check=True)")
-            # 加载动态库
-            self._add_line("_LIGHT_C_DLL = _light_ctypes.CDLL(_LIGHT_C_LIB) if _LIGHT_C_CC else None")
+            self._add_line("    _LIGHT_C_CMD_GNU = [_LIGHT_C_CC, '-shared', '-fPIC', '-O2', '-o', _LIGHT_C_LIB, _LIGHT_C_SRC.name, '-lm']")
+            self._add_line("    _LIGHT_C_CMD_WIN = [_LIGHT_C_CC, '-shared', '-O2', '-o', _LIGHT_C_LIB] + ['-Wl,/EXPORT:' + _s for _s in _LIGHT_C_EXPORTS] + [_LIGHT_C_SRC.name]")
+            self._add_line("    def _light_c_try(_cmd):")
+            self._add_line("        try:")
+            self._add_line("            _r = _light_sp.run(_cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')")
+            self._add_line("            return _r.returncode, (_r.stderr or '') + (_r.stdout or '')")
+            self._add_line("        except Exception as _e:")
+            self._add_line("            return -1, '%s: %s' % (type(_e).__name__, _e)")
+            self._add_line("    _LIGHT_C_RC1, _LIGHT_C_ERR1 = _light_c_try(_LIGHT_C_CMD_GNU)")
+            self._add_line("    if _LIGHT_C_RC1 == 0:")
+            self._add_line("        _LIGHT_C_DLL = _light_ctypes.CDLL(_LIGHT_C_LIB)")
+            self._add_line("    else:")
+            # 两条都失败才报错，且把两次的命令行与 stderr 原样带出（不许吞掉）。
+            self._add_line("        _LIGHT_C_RC2, _LIGHT_C_ERR2 = _light_c_try(_LIGHT_C_CMD_WIN)")
+            self._add_line("        if _LIGHT_C_RC2 != 0:")
+            self._add_line("            raise RuntimeError('引 C 编译失败：两种命令均未成功\\n[1] GNU 风格 (rc=%s): %s\\n%s\\n[2] Windows/link.exe 风格 (rc=%s): %s\\n%s' % (_LIGHT_C_RC1, ' '.join(_LIGHT_C_CMD_GNU), _LIGHT_C_ERR1.strip(), _LIGHT_C_RC2, ' '.join(_LIGHT_C_CMD_WIN), _LIGHT_C_ERR2.strip()))")
+            self._add_line("        _LIGHT_C_DLL = _light_ctypes.CDLL(_LIGHT_C_LIB)")
             # 自动解析 C 函数签名（返回类型 + 形参类型），据此设 restype / argtypes。
             # v7 单 25：旧实现只抓函数名、把每个函数 restype 硬编码成 c_double 且从不设 argtypes。
             # 后果：(1) 返回 int 的函数（如 阶乘）被按 double 读 xmm0，结果全错；(2) 缺 argtypes 时
@@ -4216,7 +4245,7 @@ class PythonCodeGenerator:
             self._add_line("        _bt = _LIGHT_C_CTYPE.get(_base)")
             self._add_line("        return _light_ctypes.POINTER(_bt) if _bt is not None else _light_ctypes.c_void_p")
             self._add_line("    return _LIGHT_C_CTYPE.get(_base, _light_ctypes.c_int)")
-            self._add_line("_LIGHT_C_SIGS = _light_l4_re.findall(r'([A-Za-z_][\\w ]*?[\\w*])\\s+(\\w+)\\s*\\(([^)]*)\\)\\s*\\{', _LIGHT_C_CODE)")
+            # _LIGHT_C_SIGS 已在编译之前提取（见上），这里直接消费。
             self._add_line("for _LIGHT_C_RET, _LIGHT_C_FN, _LIGHT_C_PARAMS in _LIGHT_C_SIGS:")
             self._add_line("    if _LIGHT_C_DLL:")
             self._add_line("        try:")
@@ -4232,7 +4261,7 @@ class PythonCodeGenerator:
             self._add_line("        globals()[_LIGHT_C_FN] = lambda *a, _fn=_LIGHT_C_FN: f'[C:{_fn} 编译器未找到]'")
             # v7 单 20：不要 del 循环变量 _LIGHT_C_FN —— 块内提不出任何函数声明时
             # （如只有 #define 的 C 块）它从未被绑定，del 会 NameError 打断整个产物。
-            self._add_line("del _LIGHT_C_CODE, _LIGHT_C_SIGS")
+            self._add_line("del _LIGHT_C_CODE, _LIGHT_C_SIGS, _LIGHT_C_EXPORTS")
             self._add_line(f"# --- 结束 L4 引 C ---")
             return
 

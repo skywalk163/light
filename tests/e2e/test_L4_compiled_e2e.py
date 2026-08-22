@@ -19,6 +19,15 @@ from code_generator import PythonCodeGenerator
 
 
 def _run_light(code: str) -> str:
+    return _run_light_ns(code)[0]
+
+
+def _run_light_ns(code: str):
+    """执行光明代码，返回 (stdout, 执行后的命名空间)。
+
+    返回命名空间是为了让测试能直接拿到 L4 绑定进去的 ctypes 函数对象，
+    做「真调用取返回值」的断言，而不是只对生成代码做字符串匹配。
+    """
     parser = LightParser()
     ast = parser.parse(code)
     if ast is None:
@@ -31,9 +40,20 @@ def _run_light(code: str) -> str:
     try:
         namespace = {'__name__': '__main__'}
         exec(py_code, namespace)
-        return sys.stdout.getvalue()
+        return sys.stdout.getvalue(), namespace
     finally:
         sys.stdout = old_stdout
+
+
+def _find_c_compiler():
+    """按 L4 发射器的候选顺序探测真实可执行的 C 编译器，返回 (名字, 绝对路径) 或 None。"""
+    import shutil
+    for _cand in ['gcc', 'cc', 'clang']:
+        _p = shutil.which(_cand)
+        if _p:
+            return _cand, _p
+    return None
+
 
 
 def _has_toolchain(tool: str) -> bool:
@@ -82,6 +102,61 @@ class TestL4_C_Compile_E2E(unittest.TestCase):
 '''
         output = _run_light(code)
         self.assertIn("C 编译块已生成", output)
+
+    def test_c_真编译真调用_取值正确(self):
+        """引 C：真编译成动态库、真通过 ctypes 调用、断言返回值。
+
+        覆盖 int 与 double 两种返回类型（restype/argtypes 绑定的两条分支），
+        并顺带守住 Windows 回退路径——本机只有 clang/MSVC target 时，
+        GNU 风格那条命令必然失败（-fPIC 非法），能取到值就说明回退真的生效了。
+        """
+        _cc = _find_c_compiler()
+        if _cc is None:
+            self.skipTest(
+                "本机 PATH 上 shutil.which 找不到 gcc / cc / clang 中的任何一个，"
+                "无 C 编译器可用，无法真编译"
+            )
+        code = '''
+引 C:
+    int fact(int n) {
+        int r = 1;
+        for (int i = 2; i <= n; i++) r *= i;
+        return r;
+    }
+
+    double tri(double h) {
+        return 6.0 * h / 2.0;
+    }
+结束引
+
+打印("C 已就绪")
+'''
+        output, ns = _run_light_ns(code)
+        self.assertIn("C 已就绪", output)
+
+        # 必须真的绑上了名字（否则下面取不到函数对象）
+        for _name in ('fact', 'tri'):
+            self.assertIn(_name, ns, f"{_name} 未被绑定到命名空间")
+
+        fact = ns['fact']
+        tri = ns['tri']
+
+        # 真调用，拿真返回值
+        got_fact = fact(5)
+        got_tri = tri(2.5)
+
+        self.assertNotIsInstance(
+            got_fact, str,
+            f"fact 返回了占位字符串（说明编译/加载失败被降级吞掉）: {got_fact!r}"
+        )
+        self.assertNotIsInstance(
+            got_tri, str,
+            f"tri 返回了占位字符串（说明编译/加载失败被降级吞掉）: {got_tri!r}"
+        )
+        self.assertEqual(120, got_fact, f"fact(5) 应为 120，实得 {got_fact!r}（编译器: {_cc[1]}）")
+        self.assertAlmostEqual(7.5, got_tri, places=9,
+                               msg=f"tri(2.5) 应为 7.5，实得 {got_tri!r}（编译器: {_cc[1]}）")
+
 
 
 # ==========================================================
