@@ -50,20 +50,48 @@ static int test_positive(int port, const char* cert_path) {
     }
     printf("[PASS] dv_tls_wrap(fd,localhost)\n");
 
-    /* 4. 握手（可重入，最多 100 轮） */
-    int hs_ok = 0;
-    for (int i = 0; i < 100; i++) {
-        int r = dv_tls_handshake(tls);
-        if (r == DV_TLS_OK) { hs_ok = 1; break; }
-        if (r == DV_TLS_WANT_READ || r == DV_TLS_WANT_WRITE) {
-            dv_platform_sleep(10);
-            continue;
-        }
-        printf("[FAIL] dv_tls_handshake round %d: %s\n", i, dv_tls_last_error());
+    /* 4. 握手（可重入，用 poller 等待 IO 就绪而非 sleep 轮询）
+     * 这验证了 dv_tls_want_event + dv_poller_wait 的集成：
+     * 握手挂回 IO 等待队列的设计目标在这里被真实验证。 */
+    LightPoller* hs_poller = dv_poller_create();
+    if (!hs_poller) {
+        printf("[FAIL] dv_poller_create for handshake\n");
         dv_tls_free(tls);
         dv_socket_close(fd);
         return 1;
     }
+    int hs_ok = 0;
+    for (int i = 0; i < 200; i++) {
+        int r = dv_tls_handshake(tls);
+        if (r == DV_TLS_OK) { hs_ok = 1; break; }
+        if (r == DV_TLS_WANT_READ || r == DV_TLS_WANT_WRITE) {
+            /* 用 poller 等 IO 就绪，不再 sleep 轮询 */
+            int want = dv_tls_want_event(tls);
+            dv_poller_register(hs_poller, fd, want);
+            int ready_fds[1];
+            int ready_events[1];
+            int n = dv_poller_wait_n(hs_poller, 2000, ready_fds, ready_events, 1);
+            if (n < 0) {
+                printf("[FAIL] dv_poller_wait_n during handshake: %s\n", dv_poller_last_error());
+                dv_poller_destroy(hs_poller);
+                dv_tls_free(tls);
+                dv_socket_close(fd);
+                return 1;
+            }
+            if (n == 0) {
+                /* 超时，再试一轮 handshake（可能已就绪但 poller 边沿触发错过） */
+                continue;
+            }
+            dv_poller_unregister(hs_poller, fd);
+            continue;
+        }
+        printf("[FAIL] dv_tls_handshake round %d: %s\n", i, dv_tls_last_error());
+        dv_poller_destroy(hs_poller);
+        dv_tls_free(tls);
+        dv_socket_close(fd);
+        return 1;
+    }
+    dv_poller_destroy(hs_poller);
     if (!hs_ok) {
         printf("[FAIL] dv_tls_handshake timeout\n");
         dv_tls_free(tls);
@@ -83,13 +111,21 @@ static int test_positive(int port, const char* cert_path) {
     }
     printf("[PASS] dv_tls_send(%s)=%d\n", msg, sent);
 
-    /* 6. 接收回显（可能需要多轮 decrypt） */
+    /* 6. 接收回显（用 poller 等待 IO 就绪，用 dv_tls_recv_status 区分状态） */
     char recv_buf[256] = {0};
     int got_it = 0;
-    for (int i = 0; i < 100; i++) {
+    LightPoller* recv_poller = dv_poller_create();
+    if (!recv_poller) {
+        printf("[FAIL] dv_poller_create for recv\n");
+        dv_tls_free(tls);
+        dv_socket_close(fd);
+        return 1;
+    }
+    for (int i = 0; i < 200; i++) {
         LightValue result;
         memset(&result, 0, sizeof(result));
         dv_tls_recv(&result, tls, 256);
+        int status = dv_tls_recv_status(tls);
         if (result.type == 3 && result.str && result.str[0]) {
             strncpy(recv_buf, result.str, sizeof(recv_buf) - 1);
             dv_free(&result);
@@ -97,8 +133,22 @@ static int test_positive(int port, const char* cert_path) {
             break;
         }
         dv_free(&result);
-        dv_platform_sleep(10);
+        /* 用 recv_status 精确判断下一步 */
+        if (status == DV_TLS_WANT_READ) {
+            dv_poller_register(recv_poller, fd, DV_POLL_READ);
+            int ready_fds[1];
+            int ready_events[1];
+            int n = dv_poller_wait_n(recv_poller, 2000, ready_fds, ready_events, 1);
+            if (n > 0) dv_poller_unregister(recv_poller, fd);
+        } else if (status == DV_TLS_CLOSED) {
+            printf("[FAIL] dv_tls_recv: peer closed before echo\n");
+            break;
+        } else if (status == DV_TLS_ERROR) {
+            printf("[FAIL] dv_tls_recv error: %s\n", dv_tls_last_error());
+            break;
+        }
     }
+    dv_poller_destroy(recv_poller);
     if (!got_it) {
         printf("[FAIL] dv_tls_recv: timeout, last_error=%s\n", dv_tls_last_error());
         dv_tls_free(tls);
@@ -144,9 +194,17 @@ static int test_negative(int port) {
         return 1;
     }
 
-    /* 握手应该失败（自签证书不在系统根存储中） */
+    /* 握手应该失败（自签证书不在系统根存储中）。
+     * 用 poller 等待而非 sleep 轮询，与正例同口径。 */
+    LightPoller* neg_poller = dv_poller_create();
+    if (!neg_poller) {
+        printf("[FAIL] dv_poller_create for negative test\n");
+        dv_tls_free(tls);
+        dv_socket_close(fd);
+        return 1;
+    }
     int hs_failed = 0;
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 200; i++) {
         int r = dv_tls_handshake(tls);
         if (r == DV_TLS_OK) {
             /* 握手成功了 —— 不应该！ */
@@ -156,9 +214,15 @@ static int test_negative(int port) {
             hs_failed = 1;
             break;
         }
-        /* WANT_READ / WANT_WRITE → 继续等 */
-        dv_platform_sleep(10);
+        /* WANT_READ / WANT_WRITE → 用 poller 等 IO 就绪 */
+        int want = dv_tls_want_event(tls);
+        dv_poller_register(neg_poller, fd, want);
+        int ready_fds[1];
+        int ready_events[1];
+        int n = dv_poller_wait_n(neg_poller, 2000, ready_fds, ready_events, 1);
+        if (n > 0) dv_poller_unregister(neg_poller, fd);
     }
+    dv_poller_destroy(neg_poller);
 
     dv_tls_free(tls);
     dv_socket_close(fd);

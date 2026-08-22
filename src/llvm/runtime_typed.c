@@ -4621,19 +4621,21 @@ static int dv_poller_grow(LightPoller* p, int need) {
     if (need <= p->capacity) return 0;
     int cap = p->capacity ? p->capacity : DV_POLLER_MAX;
     while (cap < need) cap *= 2;
+    /* 两步 realloc：先 realloc 到临时指针，都成功才 swap + 更新 capacity。
+     * 避免第二个 realloc 失败时 registered_fds 已更新但 capacity 未更新，
+     * 导致后续操作读写不匹配的缓冲区。 */
     int* nf = (int*)realloc(p->registered_fds, (size_t)cap * sizeof(int));
-    if (!nf) {
+    int* ne = nf ? (int*)realloc(p->registered_events, (size_t)cap * sizeof(int)) : NULL;
+    if (!nf || !ne) {
+        /* realloc 失败时原指针仍有效，不需要 free 原来的；
+         * 但 nf 可能在 ne 失败前已分配，需要释放 */
+        free(nf);
+        free(ne);
         snprintf(g_poller_error, sizeof(g_poller_error),
-                 "poller 注册表扩容失败（目标 %d 项），拒绝注册而不静默丢 fd", cap);
+                 "poller 扩容失败（目标 %d 项），拒绝注册而不静默丢 fd", cap);
         return -1;
     }
     p->registered_fds = nf;
-    int* ne = (int*)realloc(p->registered_events, (size_t)cap * sizeof(int));
-    if (!ne) {
-        snprintf(g_poller_error, sizeof(g_poller_error),
-                 "poller 事件表扩容失败（目标 %d 项），拒绝注册而不静默丢 fd", cap);
-        return -1;
-    }
     p->registered_events = ne;
     p->capacity = cap;
     return 0;
@@ -4822,10 +4824,17 @@ int dv_poller_wait_n(LightPoller* p, int timeout_ms, int* out_fds, int* out_even
 #endif
 }
 
-/* 兼容旧 ABI：codegen 生成的调用点固定分配 256 槽位的输出数组 */
+/* 兼容旧 ABI：codegen 生成的调用点固定分配 256 槽位的输出数组。
+ * wait_n 返回 -1 时表示真正的错误（超容量、poll 失败等），不能静默吞成 0
+ * （0 表示"没有就绪"，调用方无法区分）。此处往 stderr 打错误后返回 0，
+ * 保持 ABI 兼容但不再静默。 */
 int dv_poller_wait(LightPoller* p, int timeout_ms, int* out_fds, int* out_events) {
     int n = dv_poller_wait_n(p, timeout_ms, out_fds, out_events, 256);
-    return n < 0 ? 0 : n;
+    if (n < 0) {
+        fprintf(stderr, "dv_poller_wait: %s\n", dv_poller_last_error());
+        return 0;
+    }
+    return n;
 }
 
 void dv_poller_destroy(LightPoller* p) {
@@ -5120,6 +5129,7 @@ typedef struct LightTLS {
     int hs_started;
     int need_more_input;
     int peer_closed;
+    int recv_status;            /* 最近一次 dv_tls_recv 的状态：DV_TLS_OK/WANT_READ/CLOSED/ERROR */
 
     char* enc;                  /* 已收到但未解密的密文 */
     int enc_len;
@@ -5545,18 +5555,19 @@ int dv_tls_is_ready(LightTLS* t) {
     return (t && t->handshake_done) ? 1 : 0;
 }
 
-int dv_tls_send(LightTLS* t, const char* data) {
+/* 带长度的发送：可以处理含 NUL 字节的二进制数据（如 WebSocket 二进制帧）。
+ * 返回已发送的明文字节数；WANT_WRITE 时返回已排队部分；ERROR 返回 -1。 */
+int dv_tls_send_n(LightTLS* t, const char* data, int len) {
     if (!t || !t->handshake_done) {
         snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_send: 握手未完成");
         return DV_TLS_ERROR;
     }
     int fr = dv_tls_flush(t);
     if (fr != DV_TLS_OK) return fr;
-    if (!data) return 0;
-    int total = (int)strlen(data);
+    if (!data || len <= 0) return 0;
     int sent = 0;
-    while (sent < total) {
-        int chunk = total - sent;
+    while (sent < len) {
+        int chunk = len - sent;
         if (chunk > (int)t->sizes.cbMaximumMessage) chunk = (int)t->sizes.cbMaximumMessage;
         unsigned long need = t->sizes.cbHeader + (unsigned long)chunk + t->sizes.cbTrailer;
         char* rec = (char*)malloc(need);
@@ -5593,6 +5604,11 @@ int dv_tls_send(LightTLS* t, const char* data) {
         }
     }
     return sent;
+}
+
+/* 旧 ABI：用 strlen 限制，不能发含 NUL 的二进制数据。等价于 dv_tls_send_n(t, data, strlen(data))。 */
+int dv_tls_send(LightTLS* t, const char* data) {
+    return dv_tls_send_n(t, data, data ? (int)strlen(data) : 0);
 }
 
 int dv_tls_flush_public(LightTLS* t) {
@@ -5669,6 +5685,7 @@ void dv_tls_recv(LightValue* result, LightTLS* t, int max_bytes) {
     if (!result) return;
     if (!t || !t->handshake_done) {
         snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_recv: 握手未完成");
+        if (t) t->recv_status = DV_TLS_ERROR;
         dv_str(result, "");
         return;
     }
@@ -5677,21 +5694,38 @@ void dv_tls_recv(LightValue* result, LightTLS* t, int max_bytes) {
     if (t->plain_off >= t->plain_len) {
         int r = dv_tls_decrypt_step(t);
         if (r != DV_TLS_OK) {
-            /* WANT_READ / CLOSED / ERROR 都返回空串；具体原因看 dv_tls_last_error / 状态位 */
+            /* 记录状态让调用方可查：WANT_READ / CLOSED / ERROR 不再混在一起 */
+            t->recv_status = r;
             dv_str(result, "");
             return;
         }
     }
     int avail = t->plain_len - t->plain_off;
-    if (avail <= 0) { dv_str(result, ""); return; }
+    if (avail <= 0) {
+        t->recv_status = DV_TLS_WANT_READ;
+        dv_str(result, "");
+        return;
+    }
     int n = avail < max_bytes ? avail : max_bytes;
     char* tmp = (char*)malloc((size_t)n + 1);
-    if (!tmp) { dv_str(result, ""); return; }
+    if (!tmp) {
+        t->recv_status = DV_TLS_ERROR;
+        snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_recv: 临时缓冲分配失败");
+        dv_str(result, "");
+        return;
+    }
     memcpy(tmp, t->plain + t->plain_off, (size_t)n);
     tmp[n] = '\0';
     t->plain_off += n;
+    t->recv_status = DV_TLS_OK;
     dv_str(result, tmp);
     free(tmp);
+}
+
+/* 查询最近一次 dv_tls_recv 的状态：
+ * DV_TLS_OK=有数据 / DV_TLS_WANT_READ=需要更多输入 / DV_TLS_CLOSED=对端关闭 / DV_TLS_ERROR=错误 */
+int dv_tls_recv_status(LightTLS* t) {
+    return t ? t->recv_status : DV_TLS_ERROR;
 }
 
 void dv_tls_free(LightTLS* t) {
@@ -5722,11 +5756,13 @@ LightTLS* dv_tls_wrap(int fd, const char* host) {
 }
 int dv_tls_handshake(LightTLS* t) { (void)t; dv_tls_unsupported(); return DV_TLS_ERROR; }
 int dv_tls_send(LightTLS* t, const char* data) { (void)t; (void)data; dv_tls_unsupported(); return DV_TLS_ERROR; }
+int dv_tls_send_n(LightTLS* t, const char* data, int len) { (void)t; (void)data; (void)len; dv_tls_unsupported(); return DV_TLS_ERROR; }
 void dv_tls_recv(LightValue* result, LightTLS* t, int max_bytes) {
     (void)t; (void)max_bytes;
     dv_tls_unsupported();
     if (result) dv_str(result, "");
 }
+int dv_tls_recv_status(LightTLS* t) { (void)t; return DV_TLS_ERROR; }
 void dv_tls_free(LightTLS* t) { free(t); }
 int dv_tls_set_verify(LightTLS* t, int enable) { (void)t; (void)enable; dv_tls_unsupported(); return -1; }
 int dv_tls_add_trusted_cert_file(const char* path) { (void)path; dv_tls_unsupported(); return -1; }
