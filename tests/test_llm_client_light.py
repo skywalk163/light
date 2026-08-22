@@ -107,6 +107,28 @@ class FakeServer(threading.Thread):
                 b"data: [DONE]\r\n\r\n",
             ])
             return _resp_200_event_stream([body])
+        if m == "stream_null":
+            # 真实 DeepSeek 的分帧形状（2026-08-22 在线实测，端点 api.deepseek.com、
+            # 模型 deepseek-v4-flash）：**显式 null**，不是「键缺席」。
+            #   第一帧  {"role":"assistant","content":null}
+            #   工具帧  {"content":null,"tool_calls":[{...,"function":{"name":...}}]}
+            #   续帧    function 里只有 arguments，name 键有时带且为 null
+            # 原实现只判「键在不在」，键在但值为 null 时直接拿去拼字符串 →
+            # TypeError: can only concatenate str (not "NoneType") to str。
+            # 离线 mock 当时刻意「缺席的键就不出现」，正好绕开了这个形状，
+            # 所以离线全绿而真连必崩。这条用例把真实形状钉在离线侧。
+            body = b"".join([
+                _sse_frame({"choices": [{"delta": {"role": "assistant", "content": None}, "finish_reason": None}]}),
+                _sse_frame({"choices": [{"delta": {"content": "在下", "role": None}, "finish_reason": None}]}),
+                _sse_frame({"choices": [{"delta": {"content": None, "tool_calls": [
+                    {"index": 0, "id": "call_real_1", "function": {"name": "get_weather", "arguments": ""}}]},
+                    "finish_reason": None}]}),
+                _sse_frame({"choices": [{"delta": {"content": None, "tool_calls": [
+                    {"index": 0, "function": {"name": None, "arguments": '{"city":"BJ"}'}}]},
+                    "finish_reason": "tool_calls"}]}),
+                b"data: [DONE]\r\n\r\n",
+            ])
+            return _resp_200_event_stream([body])
         if m == "nonstream":
             payload = {"choices": [{"message": {"role": "assistant", "content": "非流式回复"}}]}
             body = json.dumps(payload).encode("utf-8")
@@ -180,6 +202,40 @@ class TestStreaming:
         assert all(b["内容增量"] != "[DONE]" for b in blocks)
 
 
+class Test显式null的分帧:
+    """真实 DeepSeek 会发 `"content": null`（键在、值是 null），不是把键省掉。
+
+    这一组是**在线实测反哺离线**的产物：2026-08-22 用真 key 跑
+    TestRealAPI::test_stream_chat 直接崩在
+    `TypeError: can only concatenate str (not "NoneType") to str`，
+    而当时离线 6 条全绿——因为离线 mock 一直「缺席的键就不出现」。
+    """
+
+    def test_content为null时不崩且当空串处理(self, fake_server):
+        c = _client(fake_server("stream_null"))
+        blocks = list(c.流式对话([{"role": "user", "content": "天气"}]))
+        文本 = "".join(b["内容增量"] for b in blocks if not b["结束"])
+        assert 文本 == "在下"
+        终块 = [b for b in blocks if b["结束"]][0]
+        assert 终块["累积内容"] == "在下"
+
+    def test_role为null时不覆盖已拿到的角色(self, fake_server):
+        c = _client(fake_server("stream_null"))
+        终块 = [b for b in c.流式对话([{"role": "user", "content": "天气"}]) if b["结束"]][0]
+        assert 终块["角色"] == "assistant"
+
+    def test_function里name为null时不覆盖先前拿到的名字(self, fake_server):
+        c = _client(fake_server("stream_null"))
+        终块 = [b for b in c.流式对话([{"role": "user", "content": "天气"}]) if b["结束"]][0]
+        调用 = 终块["工具调用增量"]
+        assert len(调用) == 1
+        assert 调用[0]["name"] == "get_weather"
+        assert 调用[0]["arguments"] == '{"city":"BJ"}'
+        assert 调用[0]["id"] == "call_real_1"
+        assert 终块["完成原因"] == "tool_calls"
+
+
+
 class TestNonStreaming:
     def test_message_returned(self, fake_server):
         c = _client(fake_server("nonstream"))
@@ -200,6 +256,12 @@ class TestHTTPError:
 
 # ---- 真实 API（无 key 时 skip，key 仅从环境变量读取）----
 #
+# 端点与模型名也从环境变量取，缺省是 DeepSeek 官方站。原因：本机的 key 放在
+# 积木库/.env 里，用的是 OpenAI 兼容变量名（OPENAI_API_KEY/BASE_URL/MODEL），
+# 端点未必是 api.deepseek.com。写死端点会让「key 对但端点不对」表现成 401，
+# 归因困难。跑法：
+#   $env:DEEPSEEK_API_KEY=<key>; $env:DEEPSEEK_BASE_URL=<端点>; $env:DEEPSEEK_MODEL=<模型>
+#
 # ⚠️ skip 掩盖分析（交付报告第 5 项要求逐条写明）：
 # 这三条 skip 掩盖的**只是**「真实 DeepSeek 对我们的 tools 声明与 SSE 分帧的
 # 接受度」——也就是「对方认不认」。**不掩盖 tool_call 功能本身**：功能由
@@ -207,16 +269,20 @@ class TestHTTPError:
 # 任何机器上都必须绿）。
 # 这条区分很重要：第二轮就是因为把「无 key 则 skip」当成了功能验证的替代，
 # 才让「请求体里没有 tools」这个协议断点藏了整整一轮。
+_在线端点 = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+_在线模型 = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+
+
 @pytest.mark.skipif(not os.getenv("DEEPSEEK_API_KEY"), reason="未设置 DEEPSEEK_API_KEY")
 class TestRealAPI:
     def test_stream_chat(self):
-        c = 大模型客户端("https://api.deepseek.com", "deepseek-chat", os.getenv("DEEPSEEK_API_KEY"))
+        c = 大模型客户端(_在线端点, _在线模型, os.getenv("DEEPSEEK_API_KEY"))
         blocks = list(c.流式对话([{"role": "user", "content": "只回复两个字：你好"}]))
         joined = "".join(b["内容增量"] for b in blocks if not b["结束"])
         assert joined != ""
 
     def test_nonstream_chat(self):
-        c = 大模型客户端("https://api.deepseek.com", "deepseek-chat", os.getenv("DEEPSEEK_API_KEY"))
+        c = 大模型客户端(_在线端点, _在线模型, os.getenv("DEEPSEEK_API_KEY"))
         msg = c.对话([{"role": "user", "content": "只回复两个字：你好"}])
         assert msg.get("content", "") != ""
 
@@ -227,7 +293,7 @@ class TestRealAPI:
         供人工核对请求/响应原文。
         """
         key = os.getenv("DEEPSEEK_API_KEY")
-        c = 大模型客户端("https://api.deepseek.com", "deepseek-chat", key)
+        c = 大模型客户端(_在线端点, _在线模型, key)
         工具声明 = [{
             "type": "function",
             "function": {
@@ -258,6 +324,7 @@ class TestRealAPI:
             打码 = "***" + (key[-4:] if key and len(key) >= 4 else "")
             with open(os.path.join(留档目录, "M4_在线往返实录.txt"), "w", encoding="utf-8") as fh:
                 fh.write("DEEPSEEK_API_KEY（已打码）: %s\n" % 打码)
+                fh.write("端点: %s\n模型: %s\n" % (_在线端点, _在线模型))
                 fh.write("下发的 tools 声明:\n%s\n\n" % json.dumps(工具声明, ensure_ascii=False, indent=2))
                 fh.write("聚合后的 tool_calls:\n%s\n\n" % json.dumps(调用, ensure_ascii=False, indent=2))
                 fh.write("finish_reason: %s\n" % 终块["完成原因"])
