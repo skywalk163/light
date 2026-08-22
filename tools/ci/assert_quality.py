@@ -33,6 +33,8 @@ import json
 import os
 import re
 import sys
+import tokenize
+
 
 # ── 三类模式的静态判定 ────────────────────────────────────────────────────────
 # 1) 字符串断言式：只拦「产物字面量」目标，避免把正常的 `in code` 也误伤成海量基线。
@@ -72,6 +74,31 @@ _DEFAULT_BASELINE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                  "assert_quality_baseline.json")
 
 
+def _prose_lines(full):
+    """返回「不该被当代码看」的行号集合：注释行 + 多行字符串（含 docstring）内部的行。
+
+    为什么需要：正文里引用一条假绿写法当反面教材是完全正当的——
+    tests/test_generics_c3.py 的模块 docstring 里写着「不做 `assert 'T' in py_code`
+    那种字符串断言式假测试」，纯正则会把这句**说明文字**当成违规命中，逼着人把一条
+    并不存在的违规写进基线。用 tokenize 把注释与多行字符串的行捞出来跳过。
+    单行字符串不跳（那种把假绿写法当数据放在一行里的情况极少，且真要出现也该看一眼）。
+    """
+    prose = set()
+    try:
+        with open(full, "rb") as fh:
+            for tok in tokenize.tokenize(fh.readline):
+                if tok.type == tokenize.COMMENT:
+                    prose.add(tok.start[0])
+                elif tok.type == tokenize.STRING and tok.end[0] > tok.start[0]:
+                    for ln in range(tok.start[0], tok.end[0] + 1):
+                        prose.add(ln)
+    except (OSError, tokenize.TokenError, SyntaxError, IndentationError,
+            UnicodeDecodeError):
+        # 词法都过不去的文件不做豁免：宁可多报一条，也不因为解析失败静默放过。
+        return set()
+    return prose
+
+
 def scan_tree(root):
     """返回 {category: [ {file, line, text}, ... ]} 与总数。"""
     found = {cat: [] for cat in CATEGORIES}
@@ -87,6 +114,7 @@ def scan_tree(root):
                 continue  # 不扫自己
             full = os.path.join(dirpath, fn)
             rel = os.path.relpath(full, root)
+            prose = None
             try:
                 with open(full, encoding="utf-8", errors="replace") as fh:
                     for i, line in enumerate(fh, 1):
@@ -97,6 +125,11 @@ def scan_tree(root):
                         m = RE_MASTER.search(stripped)
                         if not m:
                             continue
+                        # 命中了才付 tokenize 的代价，且每个文件只付一次
+                        if prose is None:
+                            prose = _prose_lines(full)
+                        if i in prose:
+                            continue
                         # 命中后细分到具体类别（在短字符串上做，代价极小）
                         for cat, (_, rx, _) in CATEGORIES.items():
                             if rx.search(stripped):
@@ -105,6 +138,7 @@ def scan_tree(root):
             except OSError:
                 continue
     return found
+
 
 
 def load_baseline(path):

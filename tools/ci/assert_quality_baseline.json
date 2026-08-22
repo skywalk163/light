@@ -16,12 +16,6 @@
       "text": "assert len(inf.errors) <= 3, f\"错误过多: {inf.errors}\""
     },
     {
-      "file": "test_agent_loop_light.py",
-      "line": 247,
-      "cat": "upper-bound",
-      "text": "assert len(events) <= 3"
-    },
-    {
       "file": "test_async.py",
       "line": 468,
       "cat": "string-assert",
@@ -344,12 +338,6 @@
       "line": 232,
       "cat": "string-assert",
       "text": "assert '1024' in py_code"
-    },
-    {
-      "file": "test_frontend_blockers_run.py",
-      "line": 4,
-      "cat": "string-assert",
-      "text": "为什么不用字符串断言：现存 tests/test_async.py 全是 `assert 'async def' in py_code`"
     },
     {
       "file": "test_interface.py",
