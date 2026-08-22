@@ -10,7 +10,13 @@ import os
 import io
 
 # 设置UTF-8编码输出（使用reconfigure避免关闭底层buffer）
-sys.stdout.reconfigure(encoding='utf-8')
+# errors='replace' 不是可选项：pytest 下 sys.stdout 是**全场共用**的捕获流，
+# 这里一旦把它收成 strict UTF-8，后面任何用例的孙进程往同一个 fd 写 GBK/ANSI
+# 字节，就会在 teardown 抛 UnicodeDecodeError，并且从那条用例起整场
+# setup/teardown 连锁报错（实测约 3565 errors、约 1780 条用例根本没真跑）。
+# PYTHONUTF8=1 挡不住——reconfigure 的 strict errors 覆盖了它。
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 

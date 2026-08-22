@@ -7,7 +7,11 @@ import sys
 import os
 import io
 
-sys.stdout.reconfigure(encoding='utf-8')
+# errors='replace' 见 tests/unit/test_capture_encoding_guard.py：pytest 下
+# sys.stdout 是全场共用的捕获流，收成 strict UTF-8 会让后续用例的孙进程
+# 写入 GBK 字节时在 teardown 连锁报错。
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'antlrparser'))
 
 # 检查 ANTLR 解析器是否可用
