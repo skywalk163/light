@@ -82,6 +82,21 @@ def _compile_light(light_path: str, stdlib_dir: str) -> str:
     return generated
 
 
+def _is_pure_light(light_file: str) -> bool:
+    """判断一个 .light 文件是否显式声明为「纯光明实现」。
+
+    约定：文件首行（注释行）包含魔数「纯光明实现」即视为纯光明模块，
+    钩子将优先加载它并无视同名 .py 的存在。该机制用于「自举率」：
+    让真正由光明写成的实现不再被同名 .py 兜底遮蔽。
+    """
+    try:
+        with open(light_file, 'r', encoding='utf-8') as fh:
+            head = fh.readline() + fh.readline()
+            return '纯光明实现' in head
+    except Exception:
+        return False
+
+
 class LightLoader(importlib.abc.Loader):
     """把 .light 编译后执行到模块命名空间里。"""
 
@@ -137,9 +152,11 @@ class LightFinder(importlib.abc.MetaPathFinder):
                 light_file = os.path.join(base, fullname + '.light')
                 if not os.path.isfile(light_file):
                     continue
-                # 同名 .py 存在 => 源文件只是清单，让标准机制加载 .py
+                # 同名 .py 存在 => 除非 .light 显式声明「纯光明实现」，否则源文件只是
+                # 清单，让标准机制加载 .py（优先原则保持不变，只是开了纯光明出口）。
                 if os.path.isfile(os.path.join(base, fullname + '.py')):
-                    return None
+                    if not _is_pure_light(light_file):
+                        return None
                 loader = LightLoader(fullname, light_file, self._stdlib_dir)
                 return importlib.util.spec_from_loader(fullname, loader)
         except Exception:
@@ -162,8 +179,11 @@ def install(search_paths) -> LightFinder:
         finder.extend(search_paths)
         return finder
     finder = LightFinder(search_paths)
-    # 放在末尾：优先让标准机制处理 .py，找不到时才轮到我们
-    sys.meta_path.append(finder)
+    # 必须插到标准 PathFinder 之前，才能在存在同名 .py 时也接管纯光明模块：
+    # 标准机制看到 .py 就直接加载，挂在队尾的查找器根本不会被轮到。
+    # 我们的 find_spec 对「无 .light 文件」或「非纯光明且同名 .py 存在」返回 None，
+    # 因此会安全地让位给标准机制，不影响普通模块。
+    sys.meta_path.insert(1, finder)
     return finder
 
 
