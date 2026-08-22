@@ -2356,6 +2356,32 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     # 语句生成（重写，使用 LightValue）
     # ============================================================
 
+    # A2-1：AstAdapter（src/compiler.py:305-307）对它不认识的 v3 节点不报错，
+    # 而是包成 `ExpressionStatement(Identifier("<unknown:XXX>"))`。原生腿于是把
+    # `全局 计数。`/`生成 X。` 编成一次标识符取值，既不实现也不提示——产物行为错误
+    # 却编译成功。下面这个前缀就是那道伪装的唯一识别特征。
+    _ADAPTER_UNKNOWN_PREFIX = '<unknown:'
+
+    # 转译后端的正确调用方式，所有拒绝文案共用一份，避免文案漂移
+    _FALLBACK_HINT = '原生后端暂不支持，请用转译后端（python -m cli.light_unified run）'
+
+    @staticmethod
+    def _stmt_source_line(stmt) -> str:
+        """取语句的源码行号；取不到就说明取不到，不许伪造一个 0 出来。"""
+        line = getattr(stmt, 'lineno', None)
+        if not line:
+            # AstAdapter 造 ExpressionStatement 时不带行号，内层表达式也没有
+            inner = getattr(stmt, 'expression', None)
+            line = getattr(inner, 'lineno', None) if inner is not None else None
+        return str(line) if line else '未知（适配层未保留行号）'
+
+    def _reject_unsupported_stmt(self, type_name: str, stmt):
+        """原生后端遇到未实现的语句类型：显式炸，不许静默丢弃。"""
+        raise NotImplementedError(
+            f"原生后端暂不支持语句类型「{type_name}」"
+            f"（源码行 {self._stmt_source_line(stmt)}）：{self._FALLBACK_HINT}"
+        )
+
     def _gen_statement(self, stmt):
         if stmt is None:
             return
@@ -2392,6 +2418,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self._gen_typed_throw(stmt)
         elif isinstance(stmt, ast.ExpressionStatement):
             expr = stmt.expression
+            # A2-1：先拆掉适配层的伪装——`<unknown:XXX>` 不是标识符，是一条被
+            # 悄悄降级的语句，必须报出它原来的 v3 类型名。
+            if isinstance(expr, ast.Identifier) and isinstance(expr.name, str) \
+                    and expr.name.startswith(self._ADAPTER_UNKNOWN_PREFIX):
+                inner = expr.name[len(self._ADAPTER_UNKNOWN_PREFIX):].rstrip('>')
+                self._reject_unsupported_stmt(inner, stmt)
             if isinstance(expr, ast.FunctionCall) and isinstance(expr.name, ast.PropertyAccess):
                 method_name = expr.name.property_name
                 obj = expr.name.obj
@@ -2407,6 +2439,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             pass
         elif hasattr(ast, 'AsyncScope') and isinstance(stmt, ast.AsyncScope):
             self._gen_async_scope(stmt)
+        else:
+            # A2-1：链尾兜底。以前这里什么都没有，未知语句被静默吃掉。
+            self._reject_unsupported_stmt(type(stmt).__name__, stmt)
 
     def _gen_typed_var_decl(self, stmt: ast.VariableDeclaration):
         self.alloca_local(stmt.name)

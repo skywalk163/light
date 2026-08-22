@@ -57,6 +57,15 @@ class PythonCodeGenerator:
         
         # 是否需要导入 asyncio
         self._needs_asyncio = False
+
+        # A2-4：本文件出现过的泛型参数名（有序、去重）。泛型早就解析进了 AST
+        # （parser_stmt.py:4059 类 / :4449 段落 / :5973 类型别名 → generic_params），
+        # 类型层也消费了（type_inferencer.py:329），但发射侧此前全文 grep
+        # `generic_params|TypeVar|Generic` 零命中——`类 栈[T]:` 被编成 `class 栈:`，
+        # 泛型信息在产物里彻底消失。这里收集，generate() 末尾统一补
+        # `from typing import Generic, TypeVar` 与 `T = TypeVar('T')`。
+        self._generic_params: List[str] = []
+
         
         # 运行时类型检查开关（默认关闭，零开销）
         self._runtime_type_check = False
@@ -216,6 +225,36 @@ class PythonCodeGenerator:
             # 映射到 `写入输出` 而不是 print：`写` 的语义是 write（不换行），
             # stdlib/builtins.py:337 的 `写入输出` 正是 `sys.stdout.write` + flush。
             '写': '_light_builtin.写入输出',
+
+            # ---- A2-3 异步并发原语 ----
+            # 为什么放在 builtin_map 而不是继续往 src/lexer.py 的标识符白名单里加名字：
+            # 白名单只保证「这几个汉字不被切开」，codegen 不认就原样发射成一个裸标识符，
+            # 用户写了就是运行期 NameError。第二轮总纲 §5 把这种「词法白名单式假实现」
+            # 列为明令禁止的形态——加名字必须同时加映射。
+            #
+            # 这几条落在这里而不是 `_light_builtin.*`：它们就是 asyncio 的语义本身，
+            # 没有需要包一层的地方；`import asyncio` 由 :2453 那处按需触发，与
+            # `异步 运行`（RunAsyncStmt，:1101）共用同一个 _needs_asyncio 开关。
+            #
+            # `并发等待` 需要把列表实参摊平成 *args，`首个完成` 需要补
+            # return_when kwarg，两处都在 :2495 附近。
+            '异步睡眠': 'asyncio.sleep',
+            '限时': 'asyncio.wait_for',
+            '创建任务': 'asyncio.create_task',
+            '并发等待': 'asyncio.gather',
+            '首个完成': 'asyncio.wait',
+
+            # 这里**故意没有** `异步读取文件`/`异步写入文件`/`异步追加文件`。
+            # 曾经加过 `'异步读取文件': '_light_builtin.异步读取文件'` 这样三条，
+            # 但 `stdlib/builtins.py` 里没有这三个函数（真实现只在
+            # `stdlib/lightpub/异步运行时.py`，那份第一行是裸 `import aiofiles`），
+            # 而 `stdlib/` 是本轮明令不许碰的地盘。映射指向不存在的目标只是把
+            # NameError 换成 AttributeError，属于「只有壳」的形态，所以撤掉。
+            # 名字仍留在 `src/lexer.py` 的复合词表里——那是为了不被关键字 `异步`
+            # 切成两截（切开会静默错编，详见该处注释），当前行为是**响亮报错**。
+            # 补零依赖实现见 `docs/known_issues.md` 的移交条目。
+
+
 
             '断言': '_light_assert',
             '读取': 'input',
@@ -873,7 +912,23 @@ class PythonCodeGenerator:
                     break
             self.output_lines.insert(insert_pos, "")
             self.output_lines.insert(insert_pos, asyncio_import)
-        
+
+        # A2-4：泛型参数的 TypeVar 定义。沿用上面两块的「按需插入文件头」机制。
+        # 必须插在最前面：`class 栈(Generic[T])` 与 `表对 = list[T]` 都是**执行期**
+        # 求值 T，定义晚一行产物就 NameError。
+        if self._generic_params:
+            insert_pos = 0
+            for i, line in enumerate(self.output_lines):
+                if line.startswith("#") or line == "":
+                    insert_pos = i + 1
+                else:
+                    break
+            block = ["from typing import Generic, TypeVar"]
+            block += [f"{p} = TypeVar('{p}')" for p in self._generic_params]
+            block.append("")
+            for line in reversed(block):
+                self.output_lines.insert(insert_pos, line)
+
         return self._build_output()
     
     def _build_output(self) -> str:
@@ -1006,6 +1061,9 @@ class PythonCodeGenerator:
         elif isinstance(stmt, ClassDefinition):
             # 类定义
             self._generate_class_definition(stmt)
+        elif isinstance(stmt, ast_nodes_module.TypeAlias):
+            # A2-4：类型别名。以前没有这条分支，落到链尾 CodeGenError。
+            self._generate_type_alias(stmt)
         elif isinstance(stmt, MemberAccess):
             # 成员访问作为独立语句
             expr_code = self._generate_expr(stmt)
@@ -1380,6 +1438,14 @@ class PythonCodeGenerator:
     def _generate_paragraph(self, stmt: Paragraph):
         """生成段落定义"""
         name = self._sanitize_name(stmt.name)
+
+        # A2-4：段落级泛型（`段落 首个[T] 接收 表：`）。Python 3.12 以前 def 头上
+        # 没有泛型参数位（`def f[T](...)` 是 3.12 语法，产物要能在更老的解释器上跑），
+        # 所以这里只登记 TypeVar，让形参/返回值注解里的 T 有定义可指。
+        # 不登记的后果不是「少个语法糖」：`段落 首个[T] 接收 表: 列表[T]` 会发射出
+        # 引用未定义名 T 的注解，产物一导入就 NameError。
+        self._register_generic_params(getattr(stmt, 'generic_params', None))
+
         
         # 从段落体中提取参数声明
         params = []
@@ -1683,6 +1749,51 @@ class PythonCodeGenerator:
         else:
             self._add_line(f"{target} = {value}")
 
+    def _register_generic_params(self, params) -> List[str]:
+        """A2-4：登记泛型参数名，返回 sanitize 后的有序去重列表。
+
+        登记的作用是让 generate() 在文件头补出 `T = TypeVar('T')`。三处调用点：
+        类定义（`类 栈[T]：`）、段落定义（`段落 首个[T] 接收 表：`）、
+        类型别名（`类型 表对[T] = 列表。`）。参数名在光明里是中文/单字母标识符，
+        `_sanitize_name` 只挡「数字开头」，其它原样保留。
+        """
+        if not params:
+            return []
+        names = []
+        for p in params:
+            if not isinstance(p, str) or not p.strip():
+                continue
+            name = self._sanitize_name(p.strip())
+            if name not in names:
+                names.append(name)
+            if name not in self._generic_params:
+                self._generic_params.append(name)
+        return names
+
+    def _generate_type_alias(self, stmt):
+        """A2-4：生成类型别名。
+
+        改动前这个节点在 `_generate_statement` 里没有分支，直接落到链尾
+        `raise CodeGenError("未知语句类型")`——`类型 数表 = 列表。` 一行就让整个
+        文件编不出来（实测 run/compile 都是 rc=1）。它不是静默错编，是硬失败，
+        但同样意味着「解析得了、发射不出」。
+
+        发射形态：
+        - 无泛型参数：`数表 = list`
+        - 有泛型参数：`表对 = list[T]`（TypeVar 由 generate() 补在头部）
+
+        泛型别名下标写在目标类型上而不是丢掉：丢掉就成了静默降级
+        （`表对[整数]` 与 `表对` 编出同一个东西）。目标类型不可下标时
+        Python 在导入期就 TypeError，属于「炸得响」而非静默错。
+        """
+        name = self._sanitize_name(stmt.name)
+        target = self._map_type(stmt.target_type) or 'object'
+        generic = self._register_generic_params(getattr(stmt, 'generic_params', None))
+        if generic:
+            self._add_line(f"{name} = {target}[{', '.join(generic)}]")
+        else:
+            self._add_line(f"{name} = {target}")
+
     def _generate_class_definition(self, stmt):
         """生成类定义"""
         class_name = self._sanitize_name(stmt.name)
@@ -1701,15 +1812,37 @@ class PythonCodeGenerator:
             self._needs_abc = True
             if 'ABC' not in all_bases:
                 all_bases.insert(0, 'ABC')
+        # A2-4：泛型参数发射。`类 栈[T]：` 以前编成 `class 栈:`——parser 存了
+        # generic_params（parser_stmt.py:4393），发射侧一个字都不看，泛型在产物里
+        # 静默消失。这里补 `Generic[T]` 基类；TypeVar 定义由 generate() 统一补在头部。
+        # 位置放在 all_bases 末尾：Python 要求 Generic 在 MRO 里可以在任意位置，但
+        # 放最后能保证用户写的父类顺序不被改（继承语义不变）。
+        generic_bases = self._register_generic_params(getattr(stmt, 'generic_params', None))
+        if generic_bases:
+            all_bases.append(f"Generic[{', '.join(generic_bases)}]")
         if all_bases:
-            bases = ', '.join(self._sanitize_name(b) for b in all_bases)
+            # Generic[...] 已经是完整表达式，不能再过 _sanitize_name（它只处理裸名）
+            bases = ', '.join(b if b.startswith('Generic[') else self._sanitize_name(b)
+                              for b in all_bases)
             self._add_line(f"class {class_name}({bases}):")
         else:
             self._add_line(f"class {class_name}:")
 
         self.indent_level += 1
 
-        # 分离静态属性和实例属性
+        # A2-5 嵌套类：`类 外：` 体内的 `类 内：` 发射成 Python 的嵌套类。
+        #
+        # 放在类体最前面（静态字段与方法之前）有两个理由：
+        # ① 类体是**顺序执行**的，静态字段若引用内层类（`设 默认 为 内()。`）
+        #    就要求内层已经绑定；
+        # ② 递归调用会覆写 self._class_attr_names / _class_method_names 这两个
+        #    「当前类」状态，而外层这两组名字在下面才收集——顺序放对就不用存档还原。
+        nested_classes = list(getattr(stmt, 'nested_classes', None) or [])
+        for nested in nested_classes:
+            self._generate_class_definition(nested)
+            self._add_line("")
+
+
         static_attrs = []
         instance_attrs = []
         if hasattr(stmt, 'attributes') and stmt.attributes:
@@ -1809,7 +1942,8 @@ class PythonCodeGenerator:
                     self._generate_method(method)
 
         # 如果类体为空，添加 pass
-        if not static_attrs and not instance_attrs and not (hasattr(stmt, 'methods') and stmt.methods):
+        if (not static_attrs and not instance_attrs and not nested_classes
+                and not (hasattr(stmt, 'methods') and stmt.methods)):
             self._add_line("pass")
 
         # 清理类属性追踪
@@ -1832,7 +1966,9 @@ class PythonCodeGenerator:
         
         self._add_line(f"class {class_name}({bases_str}):")
         self.indent_level += 1
-        
+
+
+
         # 生成抽象方法
         for method in stmt.methods:
             self._generate_abstract_method(method)
@@ -2452,7 +2588,13 @@ class PythonCodeGenerator:
             # 检查是否是内置函数（但不覆盖用户自定义的函数 / 已被局部变量遮蔽的名字）
             if (not shadowed) and expr.name in self.builtin_map and expr.name not in self._user_defined_functions:
                 py_name = self.builtin_map[expr.name]
+                # A2-3：映射到 asyncio.* 的原语需要产物头部有 `import asyncio`。
+                # 与 RunAsyncStmt（:1101）共用同一个开关，所以只写 `等待 异步睡眠(1)。`
+                # 而没写 `异步 运行 …` 的文件也能拿到 import。
+                if py_name.startswith('asyncio.'):
+                    self._needs_asyncio = True
             else:
+
                 py_name = name
                 # 类方法中，如果调用的是同类其他方法，添加 self. 前缀
                 if self._in_class_method and expr.name in self._class_method_names:
@@ -2469,9 +2611,22 @@ class PythonCodeGenerator:
                     args.append(f"{kw}={self._generate_expr(arg.value)}")
                 else:
                     args.append(self._generate_expr(arg))
+            # A2-3：`并发等待(任务表)` 的 Python 对应是 gather(*任务表)——语义是
+            # 「把这一串协程一起等」，而不是「等一个列表」。不摊平就会把 list 当成
+            # 单个 awaitable 传进去，运行期报 TypeError，属静默错编的近亲。
+            if (py_name == 'asyncio.gather' and len(args) == 1
+                    and not any(isinstance(a, KeywordArg) for a in call_args)):
+                args = [f"*{args[0]}"]
+            # A2-3：`首个完成(任务表)` 是竞速，asyncio 里对应
+            # wait(..., return_when=FIRST_COMPLETED)。`wait` 的默认值是「全部完成」，
+            # 少这个 kwarg 就是语义反过来还不报错——同属静默错编，所以在这里补齐。
+            if (py_name == 'asyncio.wait' and len(args) == 1
+                    and not any(isinstance(a, KeywordArg) for a in call_args)):
+                args = [args[0], 'return_when=asyncio.FIRST_COMPLETED']
             args_str = ', '.join(args)
             
             # 被局部变量遮蔽且为裸引用（零参）：发射裸变量名，不加调用括号
+
             if shadowed and not expr.args:
                 return py_name
             

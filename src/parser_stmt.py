@@ -41,6 +41,27 @@ class Block(ASTNode):
         return f"Block({len(self.statements)} stmts)"
 
 
+class ClassDefinitionWithNested(ClassDefinition):
+    """A2-5：带嵌套类的类定义。
+
+    为什么是子类而不是给 `ClassDefinition` 加字段：宿主节点在
+    `ast_nodes_v3.py:504-505`，`__slots__` 固定为六项且基类 `ASTNode` 也有
+    `__slots__`（实例没有 `__dict__`，动态挂属性直接 AttributeError）；而
+    `ast_nodes_v3.py` **不在任务 A2 的可改文件清单里**（任务书「交付要求」①）。
+    子类加一个 slot 同时满足两个约束：`isinstance(x, ClassDefinition)` 仍为真，
+    既有消费方（`type_inferencer` / `compiler.AstAdapter` / `llvm` 侧）零改动；
+    而且**没有嵌套类时根本不构造这个子类**，对既有产物零影响。
+    """
+    __slots__ = ('nested_classes',)
+
+    def __init__(self, *args, nested_classes=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.nested_classes = nested_classes or []
+
+    def __repr__(self):
+        return f"ClassDefinitionWithNested({self.name}, 嵌套 {len(self.nested_classes)})"
+
+
 class ParserStmtMixin:
     """语句解析混入类"""
     
@@ -576,9 +597,14 @@ class ParserStmtMixin:
 
         # A5 作用域声明：全局 名。/ 外层 名。（范式 A：词法零改动，见
         # _is_scope_decl_header 的判据说明）
-        if tok.type == TokenType.IDENTIFIER and tok.value in self._SCOPE_DECL_WORDS:
-            if self._is_scope_decl_header():
-                return self._parse_scope_decl_stmt()
+        # A2-2：判据不能只看单 token——`外` 一旦成为本文件的段落名，`外层` 会被
+        # 切成 `外` + `层` 两个 IDENTIFIER，旧判据直接漏掉、静默编成 `外层(计数)`。
+        scope_span = self._scope_decl_word_span()
+        if scope_span is not None:
+            scope_word, scope_tokens = scope_span
+            if self._is_scope_decl_header(scope_tokens):
+                return self._parse_scope_decl_stmt(scope_word, scope_tokens)
+
 
 
         # 赋值语句：标识符 等于 值。
@@ -669,8 +695,60 @@ class ParserStmtMixin:
     # A5：`全局` / `外层` 对应的 Python 作用域声明关键字
     _SCOPE_DECL_WORDS = {'全局': 'global', '外层': 'nonlocal'}
 
-    def _is_scope_decl_header(self) -> bool:
+    # A2-2：这两个词都是双字，被切开最多两个 token；留 1 个余量防单字再拆
+    _SCOPE_DECL_MAX_TOKENS = 3
+
+    def _scope_decl_word_span(self):
+        """当前位置是否拼出一个作用域声明词；返回 (词, 占用 token 数) 或 None。
+
+        为什么不能只比单个 token 的 value（A2-2 的根因）：光明的分词是上下文相关的。
+        文件里只要出现过 `段落 外(...)`，`外` 就被登记成定义名，于是同一文件里的
+        `外层 计数。` 会被切成 `IDENTIFIER '外'` + `IDENTIFIER '层'`——旧判据不命中，
+        语句被当成并置调用静默编成 `外层(计数)`，编译期零提示、运行期 NameError，
+        跟修单前一模一样。孤立写法能切成单 token，所以常规用例照不出来。
+
+        为什么这条路不会反过来打破「`外` 作段落名」的现有用例：拼接只在**源码里
+        字面相邻**时才做（同一行、后一个 token 的列号正好等于前一个的列号 + 字符数），
+        并且拼出来的整体必须**逐字等于** `全局`/`外层`。因此
+          · `外()。`     → 下一个 token 是 LPAREN，不是 IDENTIFIER，不拼；
+          · `外 为 1。`  → 下一个是 KEYWORD `为`，不拼；
+          · `外 层()`    → 拼成 `外层`，但 _is_scope_decl_header 见到 LPAREN 返回 False；
+          · `全局搜索搜索(甲)` → 首 token 已等于 `全局`，走单 token 分支，同样被
+            header 判据挡在 LPAREN 上。
+        三处现有用例（templates/data_analysis/分析.light 的 `外层 = 外层 + 1`、
+        段落名 `外`、函数名 `全局搜索搜索`）都落在返回 None / header 判 False 一侧。
+        """
+        tok = self._current()
+        if tok is None or tok.type != TokenType.IDENTIFIER or not isinstance(tok.value, str):
+            return None
+        if tok.value in self._SCOPE_DECL_WORDS:
+            return tok.value, 1
+        text = tok.value
+        if not any(w.startswith(text) for w in self._SCOPE_DECL_WORDS):
+            return None
+        prev = tok
+        idx = self.pos + 1
+        used = 1
+        while idx < len(self.tokens) and used < self._SCOPE_DECL_MAX_TOKENS:
+            t = self.tokens[idx]
+            if t.type != TokenType.IDENTIFIER or not isinstance(t.value, str):
+                return None
+            if t.line != prev.line or t.col != prev.col + len(str(prev.value)):
+                return None  # 中间有空白或别的字符：这是两个词，不是一个词被切开
+            text += t.value
+            used += 1
+            if text in self._SCOPE_DECL_WORDS:
+                return text, used
+            if not any(w.startswith(text) for w in self._SCOPE_DECL_WORDS):
+                return None
+            prev = t
+            idx += 1
+        return None
+
+    def _is_scope_decl_header(self, word_tokens: int = 1) -> bool:
         """前视：当前的裸 `全局` / `外层` 是否是作用域声明头。
+
+        `word_tokens` 是声明词自身占用的 token 数（分词可能把双字词切成两个）。
 
         判据是严格形态 `全局 名[，名]*。`——`全局` 之后只能是标识符与逗号，
         直到句号/换行/EOF 为止。为什么要卡这么死（范式 A 的成立前提）：
@@ -687,7 +765,8 @@ class ParserStmtMixin:
         `外层 = 外层 + 1` 因 parser_stmt.py:578 的赋值分支只认 IDENTIFIER 而
         直接报「「外层」是保留关键字」。
         """
-        idx = self.pos + 1  # 跳过 `全局` / `外层` 自身
+        idx = self.pos + word_tokens  # 跳过 `全局` / `外层` 自身（可能占多个 token）
+
         expect_name = True
         seen_name = False
         while idx < len(self.tokens):
@@ -707,12 +786,21 @@ class ParserStmtMixin:
             idx += 1
         return False
 
-    def _parse_scope_decl_stmt(self) -> ASTNode:
-        """解析作用域声明：全局 计数。/ 外层 值, 次数。"""
+    def _parse_scope_decl_stmt(self, word: str = None, word_tokens: int = 1) -> ASTNode:
+        """解析作用域声明：全局 计数。/ 外层 值, 次数。
+
+        `word` / `word_tokens` 由 _scope_decl_word_span 给出：分词可能把 `外层`
+        切成两个 token，这里要把它们全部吃掉再读名字列表。
+        """
         from ast_nodes_v3 import ScopeDeclStmt
 
-        word_tok = self._consume(TokenType.IDENTIFIER)
-        kind = self._SCOPE_DECL_WORDS[word_tok.value]
+        first_tok = self._consume(TokenType.IDENTIFIER)
+        for _ in range(word_tokens - 1):
+            self._consume(TokenType.IDENTIFIER)
+        if word is None:
+            word = first_tok.value
+        kind = self._SCOPE_DECL_WORDS[word]
+
 
         names = [self._consume(TokenType.IDENTIFIER).value]
         while self._current() and self._current().type == TokenType.COMMA:
@@ -4106,12 +4194,17 @@ class ParserStmtMixin:
         # 类体
         attributes = []
         methods = []
+        nested_classes = []
 
         # 解析类体（依赖 INDENT/DEDENT 结构）
         # 首先跳过 NEWLINE，然后检查是否有 INDENT（表示有类体）
         while self._current() and self._current().type == TokenType.NEWLINE:
             self._consume(TokenType.NEWLINE)
         if self._current() and self._current().type == TokenType.INDENT:
+            # A2-5：记下本类体的缩进宽度。INDENT/DEDENT 的 value 都是缩进层级
+            # （lexer.py:690 / :695，DEDENT 带的是**退回到的**层级），嵌套类要靠它
+            # 才能分清「方法体结束」和「本类结束」。
+            body_indent = self._current().value
             self._consume(TokenType.INDENT)  # 消耗 INDENT
             
             while self._current():
@@ -4122,6 +4215,12 @@ class ParserStmtMixin:
                     if tok.value == 0:
                         # 完全结束类体
                         self._consume(TokenType.DEDENT)
+                        break
+                    elif isinstance(body_indent, int) and tok.value < body_indent:
+                        # A2-5：退到比本类体更浅的层级 → 本类（嵌套类）结束。
+                        # **不消耗**：这个 DEDENT 属于外层类体，留给外层的循环处理，
+                        # 否则外层会少收一个 DEDENT 而把后续成员当成本类的成员吞掉。
+                        # 顶层类走不到这里（它只可能 DEDENT 到 0，已被上面接住）。
                         break
                     else:
                         # 中间级别的 DEDENT（方法体结束等），消耗后继续
@@ -4238,6 +4337,16 @@ class ParserStmtMixin:
                     method = self._parse_method_definition(is_constructor=True)
                     methods.append(method)
 
+                # A2-5：嵌套类。类体内 `类 消息：` 递归走同一个类定义解析器。
+                # 改动前这里没有分支，`类` 落到链尾 self._error（「类体内不支持的
+                # 成员声明：'类'」）并级联出一串缩进错（实测一段 10 行的
+                # `类 会话/类 消息` 报 10 个错）。递归安全性：本方法只用局部状态
+                # （attributes/methods/nested_classes/body_indent 都是局部变量），
+                # 嵌套层数由缩进天然限制。
+                elif tok.type == TokenType.KEYWORD and tok.value == '类':
+                    nested_classes.append(self._parse_class_definition())
+
+
                 # 方法定义（支持公有、私有、保护和静态）
                 # 单字 `段` 与 `段落`/`函数` 同义（parser_core.PARAGRAPH_KEYWORDS）。
                 # Bug 根因：这里原先只认 ('函数','段落')，L0 单字 `段` 落到末尾的
@@ -4312,19 +4421,28 @@ class ParserStmtMixin:
                 else:
                     self._error(
                         f"类体内不支持的成员声明：'{tok.value}'"
-                        f"（类体内可用：属性/私属性/性/设/构造/构/函数/段落/段/私段落/@装饰器/过/结束；"
+                        f"（类体内可用：属性/私属性/性/设/构造/构/函数/段落/段/私段落/类/@装饰器/过/结束；"
                         f"修饰符前缀：私有/公有/保护/静态/类方法/特性，或单字 私/公/护/静）",
 
 
                         tok.line, tok.col, tok.value)
 
-        return ClassDefinition(
+        # A2-5：只有真有嵌套类时才换成子类节点。`ast_nodes_v3.ClassDefinition`
+        # 不在 A2 可改文件之列，所以嵌套字段挂在本文件的子类上（见文件头部
+        # `ClassDefinitionWithNested`）——**无嵌套时必须还回原类**，否则给基类
+        # 传 `nested_classes=` 会 TypeError。
+        node_cls = ClassDefinitionWithNested if nested_classes else ClassDefinition
+        kwargs = {}
+        if nested_classes:
+            kwargs['nested_classes'] = nested_classes
+        return node_cls(
             name=class_name,
             attributes=attributes,
             methods=methods,
             base_classes=base_classes,
             generic_params=generic_params,
             interfaces=interfaces,
+            **kwargs,
         )
 
     def _parse_attribute_declaration(self) -> AttributeDeclaration:

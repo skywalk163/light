@@ -51,7 +51,17 @@ class CircularDependencyError(ModuleError):
         message += "\n  1. 检查模块间的导入关系，避免相互引用"
         message += "\n  2. 将公共功能提取到独立模块，由相互依赖的双方共同引用"
         message += "\n  3. 使用接口抽象解耦模块依赖"
-        message += "\n  4. 在段落内部延迟导入（局部导入），避免模块级循环"
+        # A2-6：这一条以前只写「在段落内部延迟导入」五个字，而实测那条绕法**当时并不
+        # 工作**（依赖抽取的文本兜底把缩进的导入也算成模块级依赖，环照报）。已在
+        # `_extract_imports_from_text` 修好，同时把建议写成可照抄的形状——文档腐烂的
+        # 修法是让建议真能用，不是把建议删掉。
+        message += "\n  4. 把回边改成**段落体内的延迟导入**（缩进写在段落里，"
+        message += "调用时才执行，不计入模块级依赖）："
+        message += "\n       《乙活》段()："
+        message += "\n         从《甲》导入《甲活》。      ← 缩进，不是顶格"
+        message += "\n         返回 甲活()。"
+        message += "\n       结束。"
+        message += "\n     注意：顶格写的导入一律算模块级依赖，照旧拒绝成环。"
         message += "\n  5. 检查模块名是否写错，导致误导入"
         if len(cycle) >= 2:
             message += f"\n  6. 请检查模块「{cycle[0]}」和「{cycle[1]}」之间的相互导入"
@@ -493,37 +503,59 @@ class ModuleResolver:
     
     def _extract_imports_from_text(self, source: str) -> Set[str]:
         """
-        从源码文本中提取"从...导入..."语句声明的模块依赖。
-        
+        从源码文本中提取"从...导入..."语句声明的**模块级**依赖。
+
         支持格式：
         - 从《模块名》导入《符号》。
         - 从《模块名》导入《符号一》，《符号二》。
         - 导入《模块名》。
-        
+
+        A2-6：**只认顶格（无缩进）的导入行**。
+
+        为什么：本方法是 `parse_module` 的兜底（AST 里没抽到 ImportStmt 时才调，
+        见 :352-354），而 AST 那条路只扫 `module_ast.statements`（顶层）。两条路
+        口径原本不一致——一个模块如果**只在段落体内**写导入，AST 抽到 0 条、于是
+        落到本方法，本方法 `line.strip()` 之后把缩进信息扔掉，把段落体内的延迟导入
+        也算成模块级依赖。实测（`_taskA2_probe9.py`，两模块对照）：回边写在段落体内
+        的那组，`延迟乙` 的 `imports=0` 却 `dependencies=['延迟甲']`，
+        `detect_circular_dependency` 照样报环 `['延迟甲','延迟乙','延迟甲']`——
+        也就是说 CircularDependencyError 文案 :54 里官方建议的那条绕法
+        「在段落内部延迟导入」**自己不工作**。
+
+        判据取「行首有无空白」而不是解析：本方法存在的前提就是解析已经失败或没抽到，
+        不能反过来依赖解析。缩进的导入是函数体内的局部导入，按 Python 语义它在
+        **调用时**才执行，模块级依赖图里本来就不该有这条边。
+
+        顶层循环依赖照旧拒绝（`detect_circular_dependency` / `topological_sort`
+        一行未动，没有任何放行开关）。
+
         Args:
             source: 源码文本
-        
+
         Returns:
-            依赖模块名集合
+            模块级依赖模块名集合
         """
         import re
         dependencies = set()
-        for line in source.split('\n'):
-            line = line.strip()
-            
+        for raw_line in source.split('\n'):
+            # 顶格判据：有前导空白 → 段落/类体内的延迟导入，不计入模块级依赖
+            if raw_line[:1] in (' ', '\t'):
+                continue
+            line = raw_line.strip()
+
             # 格式: 从《模块名》导入...
             if line.startswith('从'):
                 match = re.match(r'从《([^》]+)》', line)
                 if match:
                     dependencies.add(match.group(1))
                 continue
-            
+
             # 格式: 导入《模块名》。
             if line.startswith('导入'):
                 match = re.match(r'导入《([^》]+)》', line)
                 if match:
                     dependencies.add(match.group(1))
-        
+
         return dependencies
     
     def build_dependency_graph(self, main_module: str, from_dir: str = None) -> DependencyGraph:

@@ -55,8 +55,12 @@
 设 代理 为 { "http": "http://proxy:8080", "https": "https://proxy:8080" }
 设 响应 为 获取("https://api.example.com", 代理=代理)
 
-# 异步请求
-设 响应 为 等待 异步获取("https://api.example.com/data")
+# 异步请求：`等待` 只能写在 异步 段落 里，且被等待的名字不能以 `异步` 开头
+# （以 `异步` 开头又不在词法复合词表里的名字会被切成修饰符 `异步` + 余下部分）
+异步 段落 取数据 接收 网址：
+    返回 等待 网络获取(网址)
+
+异步 运行 取数据("https://api.example.com/data")
 
 # 文件上传下载
 设 结果 为 下载文件("https://example.com/file.zip", "本地路径/file.zip")
