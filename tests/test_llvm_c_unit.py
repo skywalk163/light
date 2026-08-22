@@ -267,7 +267,14 @@ class TestCLayerUnit:
             accepted = int(kv['GROW_ACCEPTED'])
             rejected = int(kv['GROW_REJECTED'])
             count = int(kv['GROW_COUNT'])
+            want = int(kv['GROW_WANT'])
+            assert made == want, (
+                f"只造出 {made}/{want} 个 socket，超容量判据没压到上限"
+                f"（fd 上限 FD_LIMIT={kv.get('FD_LIMIT')}，"
+                f"POSIX 上需要 ulimit -n / kern.maxfilesperproc 放开）"
+            )
             assert made > 256, f"只造出 {made} 个 socket，测不到超容量（初始容量 256）"
+
             assert accepted + rejected == made, \
                 f"账对不上（made={made} accepted={accepted} rejected={rejected}）—— 有 fd 被静默丢了"
             assert count == accepted, f"poller 计数 {count} != 接受数 {accepted}"
@@ -316,11 +323,20 @@ class TestCLayerUnit:
             made = int(kv['GROW_MADE'])
             accepted = int(kv['GROW_ACCEPTED'])
             rejected = int(kv['GROW_REJECTED'])
+            want = int(kv['GROW_WANT'])
+            fd_setsize = int(kv['POLLER_FD_SETSIZE'])
             assert accepted + rejected == made, \
                 f"select 分支静默丢了 fd（made={made} accepted={accepted} rejected={rejected}）"
-            assert rejected > 0, \
-                "select 分支在 300 个 fd 下一个都没拒 —— FD_SETSIZE 上限没生效"
+            assert made == want, (
+                f"只造出 {made}/{want} 个 socket，压不到 FD_SETSIZE={fd_setsize}，"
+                f"这条判据等于没测（FD_LIMIT={kv.get('FD_LIMIT')}）"
+            )
+            assert rejected > 0, (
+                f"select 分支在 {made} 个 fd 下一个都没拒 —— "
+                f"FD_SETSIZE={fd_setsize} 上限没生效"
+            )
             assert result.returncode == 0, f"select 分支有用例失败:\n{result.stdout}"
+
         finally:
             server.stop()
             for p in (alt_exe, alt_exe.replace('.exe', '.obj')):

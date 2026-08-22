@@ -18,6 +18,28 @@
 /* Include runtime directly - it has no main() */
 #include "../src/llvm/runtime_typed.c"
 
+#ifndef _WIN32
+#include <sys/resource.h>
+/* 把本进程的 fd 软上限抬到 need+32。
+ *
+ * 超容量用例要真开到 FD_SETSIZE 以上（POSIX 上是 1024+），而 FreeBSD/Linux 的
+ * 默认软上限常常就卡在 1024 附近，不抬的话 socket() 会先于 poller 判据失败，
+ * 「上限生效」这条断言就变成了「环境不够用」。只动软上限、且不超过硬上限，
+ * 抬不动就返回 -1 让调用方把实情打出来，不静默降级。 */
+static int raise_fd_limit(int need) {
+    struct rlimit rl;
+    rlim_t target;
+    if (getrlimit(RLIMIT_NOFILE, &rl) != 0) return -1;
+    target = (rlim_t)need + 32;
+    if (rl.rlim_cur >= target) return (int)rl.rlim_cur;
+    if (rl.rlim_max != RLIM_INFINITY && target > rl.rlim_max) target = rl.rlim_max;
+    rl.rlim_cur = target;
+    if (setrlimit(RLIMIT_NOFILE, &rl) != 0) return -1;
+    return (int)target;
+}
+#endif
+
+
 static int tests_total = 0;
 static int tests_passed = 0;
 static int tests_failed = 0;
@@ -212,10 +234,24 @@ int main(int argc, char** argv) {
      * 两种情况都必须满足 accepted + rejected == made ——
      * 静默丢 fd 会让这条账对不上，那是本项目最高优先级缺陷类型。 */
     {
-        const int want = 300;
+        /* want 必须同时压过两条上限，否则判据是空的：
+         *  - select 回退的 FD_SETSIZE：Windows(winsock2) 64，FreeBSD/Linux 1024
+         *  - 可增长后端的初始容量 DV_POLLER_MAX(256)
+         * 原先写死 300，只压得住 Windows 的 64；在 FD_SETSIZE=1024 的平台上
+         * 一个都拒不掉，「上限生效」变成了一句空话 —— 这正是 FreeBSD 上
+         * test_select_fallback_is_compile_time_macro 打红的真实成因。 */
+        const int fd_cap = (int)FD_SETSIZE + 64;
+        const int grow_cap = DV_POLLER_MAX + 44;
+        const int want = fd_cap > grow_cap ? fd_cap : grow_cap;
         LightPoller* pg = dv_poller_create();
         int* gfds = (int*)calloc((size_t)want, sizeof(int));
         int made = 0, accepted = 0, rejected = 0;
+        int fd_limit = -1;
+#ifndef _WIN32
+        fd_limit = raise_fd_limit(want);
+#endif
+        printf("POLLER_FD_SETSIZE=%d GROW_WANT=%d FD_LIMIT=%d\n",
+               (int)FD_SETSIZE, want, fd_limit);
         if (pg && gfds) {
             for (int i = 0; i < want; i++) {
                 int gfd = dv_socket_create(2, 1);
@@ -233,6 +269,11 @@ int main(int argc, char** argv) {
             test_check("dv_poller_count == accepted",
                        dv_poller_count(pg) == accepted,
                        "registration table count disagrees with accept count");
+            /* 开不满 want 个 socket 时上面两条照样过，但上限判据已经废了。
+             * 这条把「环境 fd 不够」暴露成明确失败，而不是让判据静默变弱。 */
+            test_check("over-capacity: could actually open GROW_WANT sockets",
+                       made == want,
+                       "fd 不够开满 -> 抬 ulimit -n / sysctl kern.maxfilesperproc");
             if (rejected > 0) {
                 test_check("rejection writes an explicit error message",
                            dv_poller_last_error()[0] != '\0',
@@ -247,11 +288,13 @@ int main(int argc, char** argv) {
         } else {
             test_fail("poller over-capacity setup", "alloc failed");
             test_fail("dv_poller_count == accepted", "alloc failed");
+            test_fail("over-capacity: could actually open GROW_WANT sockets", "alloc failed");
             test_fail("over-capacity behaviour", "alloc failed");
         }
         if (gfds) free(gfds);
         if (pg) dv_poller_destroy(pg);
     }
+
 
     /* ====== Summary ====== */
     printf("\n=== C Layer Results: %d/%d passed, %d failed ===\n",
