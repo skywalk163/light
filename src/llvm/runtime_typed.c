@@ -41,6 +41,10 @@
 #include <arpa/inet.h>
 #include <sys/select.h>
 #include <netdb.h>
+/* dv_socket_set_nonblocking 用 fcntl/F_GETFL/F_SETFL/O_NONBLOCK。
+   glibc 会经别的头间接带出来，FreeBSD/clang 不会，缺这行在 FreeBSD 上是
+   4 个 error（use of undeclared identifier），整条 clang 腿全崩。 */
+#include <fcntl.h>
 #endif
 
 /* ================================================================
