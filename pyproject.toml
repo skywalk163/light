@@ -86,7 +86,10 @@ exclude = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "_test_*.py"]
-addopts = "-v --tb=short --ignore=tests/archive"
+# 不放 `-v`：全量约 3800 条用例，逐条打印只是把 log 撑大、把 CI 拖慢，
+# 定位失败靠 --tb=short 就够。--durations=15 让「哪一条慢」每轮自报，
+# 免得下次又要专门测一遍才知道时间花在哪（2026-08-22 CI 时间治理）。
+addopts = "--tb=short --durations=15 --ignore=tests/archive"
 norecursedirs = ["archive", "__pycache__"]
 
 # 覆盖率：聚焦核心语言链路模块（lexer/parser/compiler/类型系统/codegen），合并双线配置

@@ -366,3 +366,9 @@ dist_blocks/
 # 临时诊断工位与临时报告
 积木库/_诊断工位*.light
 积木库/评估/报告/_*.json
+
+# MSVC 编译中间产物：tests/test_llvm_net.py 用 cl.exe 把 src/llvm/runtime_typed.c
+# 编成 _taskB_runtime.dll 时（见该文件 :127 的 `cl.exe /LD "{runtime_c}" /Fe:...`），
+# cl 会把 .obj 落在**当前工作目录**也就是仓库根，而不是 /Fe: 指定的目录。
+/runtime_typed.obj
+

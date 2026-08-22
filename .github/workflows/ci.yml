@@ -1,3 +1,15 @@
+# 光明 Light · GitHub CI
+#
+# ── 2026-08-22 CI 时间治理（用户裁决）─────────────────────────────────────────
+# 预算：pull_request ≤ 600s，push main ≤ 1200s，**超了按红**（见最后一步）。
+# GitHub 侧这一轮只做「削矩阵 + 加缓存 + 去无用依赖」：
+#   - PR 只跑 ubuntu × (3.10, 3.13) —— 4 个 py × 3 个 os = 12 份重复跑，
+#     对一个纯 stdlib 项目基本是在重复验证同一件事；跨 os/py 全矩阵挪到 push main。
+#   - actions/setup-python 开 pip 缓存。
+#   - 装依赖去掉 pytest-cov：从来没有一步用过 --cov，纯白装。
+#   - 去掉「统一测试运行器」步（tests/run_tests.py --quick 只是 4 条 os.path.exists
+#     断言，零信号却要付一次解释器启动）。
+# 权威门禁在 .gitea/workflows/ci.yml（带基线闸门 + 积木库门禁）；这边是镜像验证。
 name: CI
 
 on:
@@ -13,38 +25,45 @@ jobs:
     continue-on-error: ${{ matrix.os != 'ubuntu-latest' }}
     strategy:
       fail-fast: false
+      # PR 走窄矩阵（2 份），push main / 手动触发走全矩阵（12 份）。
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        os: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest","windows-latest","macos-latest"]') }}
+        python-version: ${{ github.event_name == 'pull_request' && fromJSON('["3.10","3.13"]') || fromJSON('["3.10","3.11","3.12","3.13"]') }}
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: 计时起点
+        shell: bash
+        run: python tools/ci/time_budget.py --mark 起点 --fresh
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest pytest-cov
+          python -m pip install pytest
 
       # 运行单元测试（所有平台）
       - name: Unit Tests
         run: |
-          pytest tests/unit/ -v --tb=short
+          pytest tests/unit/
 
       # 运行集成测试
       - name: Integration Tests
         run: |
-          pytest tests/integration/ -v --tb=short
+          pytest tests/integration/
 
       # 运行端到端测试（Linux/macOS）
       - name: End-to-End Tests
         if: runner.os != 'Windows'
         run: |
-          pytest tests/e2e/ -v --tb=short
+          pytest tests/e2e/
 
       # 运行 legacy 功能测试（Linux 完整运行）
       - name: Legacy Feature Tests
@@ -55,22 +74,27 @@ jobs:
           python tests/_test_null_safety.py
           python tests/_test_package_system.py
 
-      # 运行根目录测试文件（Linux 完整运行，其他平台基础运行）
+      # 根目录测试（历史口径：不阻塞。文件名必须跟着主干走——结尾是 `|| true`，
+      # 点错名字不会报错、只会一个用例都没跑到，假绿比没有更坏。已逐个核对存在。）
       - name: Root Directory Tests (Linux)
         if: runner.os == 'Linux'
         run: |
-          pytest tests/test_parser.py tests/test_lexer.py tests/test_async.py tests/test_codegen.py tests/test_exception.py tests/test_executor.py tests/test_semantic.py tests/test_class_definition.py tests/test_light_syntax.py tests/test_e2e.py tests/test_edge_cases.py tests/test_commands.py tests/test_file_io.py tests/test_interface.py tests/test_json_import.py tests/test_module_system.py tests/test_module_resolver.py tests/test_summary.py tests/test_ternary.py tests/test_advanced_semantic.py tests/test_light_stdlib.py tests/test_light_stdlib2.py tests/test_class_advanced.py tests/test_llvm_async.py tests/test_lsp_protocol.py tests/test_lsp_protocol_full.py tests/test_modern_features.py -v --tb=short --ignore=tests/archive 2>&1 || true
+          pytest tests/test_parser.py tests/test_lexer.py tests/test_async.py tests/test_codegen.py tests/test_exception.py tests/test_executor.py tests/test_semantic.py tests/test_class_definition.py tests/test_light_syntax.py tests/test_e2e.py tests/test_edge_cases.py tests/test_commands.py tests/test_file_io.py tests/test_interface.py tests/test_json_import.py tests/test_module_system.py tests/test_module_resolver.py tests/test_summary.py tests/test_ternary.py tests/test_advanced_semantic.py tests/test_light_stdlib.py tests/test_light_stdlib2.py tests/test_class_advanced.py tests/test_llvm_async.py tests/test_lsp_protocol.py tests/test_lsp_protocol_full.py tests/test_modern_features.py -q 2>&1 || true
 
       - name: Root Directory Tests (Cross-platform)
         if: runner.os != 'Linux'
         run: |
-          pytest tests/test_parser.py tests/test_lexer.py tests/test_light_syntax.py tests/test_edge_cases.py tests/test_commands.py tests/test_module_system.py tests/test_summary.py -v --tb=short --ignore=tests/archive 2>&1 || true
+          pytest tests/test_parser.py tests/test_lexer.py tests/test_light_syntax.py tests/test_edge_cases.py tests/test_commands.py tests/test_module_system.py tests/test_summary.py -q 2>&1 || true
 
-      # 统一测试运行器（Linux 完整运行）
-      - name: Unified Test Runner
-        if: runner.os == 'Linux'
+      # 时间预算硬闸门。always()：前面红了也要把耗时账单打出来，否则一红就没时间数据。
+      - name: 时间预算闸门
+        if: always()
+        shell: bash
         run: |
-          python tests/run_tests.py --quick
+          python tools/ci/time_budget.py --mark 测试收尾
+          BUDGET=1200
+          if [ "${{ github.event_name }}" = "pull_request" ]; then BUDGET=600; fi
+          python tools/ci/time_budget.py --check --budget $BUDGET
 
   lint:
     runs-on: ubuntu-latest
@@ -79,6 +103,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - name: Install lint tools
         run: |
           python -m pip install --upgrade pip
@@ -96,6 +122,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - name: Build package
         run: |
           python -m pip install --upgrade pip build
@@ -110,8 +138,11 @@ jobs:
           name: dist
           path: dist/
 
-  # 独立可执行文件构建（光明侧原有产物 light6）
+  # 独立可执行文件构建（光明侧原有产物 light6）。
+  # 三平台打包每次都要装 pyinstaller + 冷启动，只在 push main / 手动触发时跑；
+  # PR 阶段不需要三个平台的二进制。
   exe:
+    if: github.event_name != 'pull_request'
     runs-on: ${{ matrix.os }}
     needs: test
     strategy:
@@ -130,6 +161,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - name: Install build tools
         run: |
           python -m pip install --upgrade pip

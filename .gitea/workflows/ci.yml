@@ -1,6 +1,6 @@
 # 光明 Light · 本地 CI（Gitea Actions，FreeBSD host 模式，无 Docker）
 #
-# 这份文件源自段言侧，v7 合并后主干是 light，已按主干校正（见下方「根目录测试」注释）。
+# 这份文件源自段言侧，v7 合并后主干是 light，已按主干校正。
 #
 # 等价于 .github/workflows/ci.yml 的 Linux 测试路径：
 #   - runs-on: freebsd（act_runner host 执行器；FreeBSD 无原生 Docker，只能 host 模式）
@@ -8,8 +8,8 @@
 #   - checkout 走本地 actions/checkout 镜像
 #   - 去掉 GitHub 专属的 build/twine/upload-artifact（release/publish 不在本地跑）
 #
-# 测试依赖只装 pytest/pytest-cov（与 GitHub test job 一致）；本项目 runtime 依赖为空
-# （pyproject dependencies=[]），测试直接 import 仓库内 src/ 模块。
+# 测试依赖只装 pytest（本项目 runtime 依赖为空，pyproject dependencies=[]，测试直接
+# import 仓库内 src/ 模块）。pytest-cov 曾装但从未有一步用 --cov，2026-08-22 去掉。
 #
 # v7 单 30（族 3）曾试过在这里加一步装示例侧三方库（numpy/pandas/matplotlib/
 # scikit-learn/sympy），让 examples/L4_python/* 与 L3_domain/demo3_math 在 CI 上真跑。
@@ -32,12 +32,26 @@
 #     族 3 剩余 12 条按长期环境欠账留在基线里，不要再提议 remount /usr 或升级系统。
 # 因此这里的 venv 加 `--system-site-packages`：零宿主改动，把已装的 numpy 暴露给 CI venv，
 # 让 demo1_numpy_mean（只依赖 numpy）真跑。其余 6 例仍缺包，继续留在基线里。
-
-
 #
 # runner 部署（jail + act_runner 自编译 + 标签/镜像）见 docs/CI_gitea_freebsd部署.md。
-
-
+#
+# ── 2026-08-22 CI 时间治理（用户裁决）─────────────────────────────────────────
+# 预算：pull_request ≤ 600s，push main ≤ 1200s，**超了按红**（不是文档里的建议）。
+# 判定见最后一步；打点用 tools/ci/time_budget.py，各段耗时会打在同一处，
+# 不用翻整份 raw log 猜时间花哪了。
+#
+# 这一轮做的三件事：
+#   1) 步骤去重：原先「单元+集成」「e2e」「根目录 27 个文件」「统一测试运行器」四步里，
+#      根目录那步是 `-v … || true`（不判绿、不产 junit），统一运行器 `--quick` 只是 4 条
+#      `os.path.exists` 断言——两步合计几乎零信号却各付一次解释器启动 + 一遍收集。
+#      现在收成两次 pytest：一次 `tests`（排除 e2e）+ 一次 `tests/e2e`。
+#      注意：合并后覆盖面是**变大**的（根目录实际有 ~130 个 test_*.py，旧步只点了 27 个）。
+#      为了不让「省启动」偷偷变成「口径升级」，回归闸门对根目录那批传
+#      `--soft-classname`：照跑、照报，但不拦——与旧 `|| true` 等价。
+#   2) 并行：装得上 pytest-xdist 就 `-n auto`，装不上退回串行（devpi 镜像不保证有，
+#      所以 `|| true` + import 探测，绝不因为缺包让 CI 红）。
+#   3) 日志瘦身：pyproject 的 addopts 去掉了全局 `-v`（约 3800 条用例逐条打印纯属浪费），
+#      改成 `--durations=15`，谁慢每轮自报。
 name: CI
 
 on:
@@ -55,16 +69,23 @@ jobs:
         # 固定走本地 actions/checkout，避免 Gitea 对裸写 uses 的解析偶发回落到 github.com
         uses: http://192.168.1.5:3000/actions/checkout@v4
 
+      # 计时起点要压在装依赖**之前**：装依赖也是 CI 时间，不能不算。
+      - name: 计时起点
+        run: python3 tools/ci/time_budget.py --mark 起点 --fresh
+
       - name: 安装测试依赖 (venv)
         run: |
           python3 -m venv --system-site-packages .venv
           . .venv/bin/activate
           python -m pip install --upgrade pip
-          python -m pip install pytest pytest-cov
+          python -m pip install pytest
+          # xdist 是加速项而非依赖：本地 devpi 镜像不保证有，装不上就串行跑。
+          python -m pip install pytest-xdist || true
 
+      - name: 计时打点（装依赖）
+        run: python3 tools/ci/time_budget.py --mark 装依赖
 
-
-      # 单元/集成/e2e 三步只负责「跑 + 产出 junit」，**不自己判绿**。
+      # 这一步只负责「跑 + 产出 junit」，**不自己判绿**。
       # 原因：本仓库有一批 v7 收尾期的存量失败（见 docs/v7_失败用例根因聚类工单.md，
       # 最大一类是「单 02 · 紧凑写法分词族」）。硬判绿会让 CI 常红成背景噪音，
       # 失去「挡回归」的信号价值。判绿统一交给下面的基线闸门：
@@ -72,7 +93,7 @@ jobs:
       #
       # `|| true` 之后紧跟 `test -f`：pytest 因存量失败返回非 0 要放行，
       # 但如果它是崩溃/根本没跑起来（连 junit 都没产出），这一步必须红。
-      - name: 单元 + 集成测试（产出 junit）
+      - name: 全量测试（除 e2e，产出 junit）
         env:
           # 词法器 perf 预算：本地开发默认 2.0s（见 test_lexer_perf.py）；
           # FreeBSD host runner 与 e2e 争抢时会被重载拖慢——run 19 实测 12.76s
@@ -82,51 +103,50 @@ jobs:
         run: |
           . .venv/bin/activate
           mkdir -p .ci
-          pytest tests/unit/ tests/integration/ -q --tb=short \
-            --junitxml=.ci/unit-integration.xml || true
-          test -f .ci/unit-integration.xml
+          if python -c 'import xdist' >/dev/null 2>&1; then PAR="-n auto"; else PAR=""; fi
+          echo "[CI] 并行参数：${PAR:-（串行：未装 pytest-xdist）}"
+          pytest tests --ignore=tests/e2e -q $PAR \
+            --junitxml=.ci/non-e2e.xml || true
+          test -f .ci/non-e2e.xml
 
+      - name: 计时打点（全量除 e2e）
+        run: python3 tools/ci/time_budget.py --mark 全量除e2e
+
+      # e2e 单独一轮：它的成本几乎全是子进程启动（tests/e2e/test_e2e_chain.py 每个
+      # 用例 spawn 一到两次 `python -m cli.light_unified`，117 个示例 ≈ 350 次启动）。
+      # 和上面合在一起跑没有额外收益，分开还能让 --durations 的归属清楚。
       - name: 端到端测试（产出 junit）
         run: |
           . .venv/bin/activate
-          pytest tests/e2e/ -q --tb=short --junitxml=.ci/e2e.xml || true
+          if python -c 'import xdist' >/dev/null 2>&1; then PAR="-n auto"; else PAR=""; fi
+          pytest tests/e2e -q $PAR --junitxml=.ci/e2e.xml || true
           test -f .ci/e2e.xml
+
+      - name: 计时打点（e2e）
+        run: python3 tools/ci/time_budget.py --mark e2e
 
       # 真正的判绿点：与基线快照对比，只拦新增打红。
       # 基线刷新（修好一批之后）：
       #   python tools/ci/check_regression.py --junit '.ci/*.xml' \
       #       --write-baseline tests/ci_baseline_failures.txt
+      #
+      # --soft-classname 两条覆盖根目录 tests/test_*.py 与 tests/_test_*.py：
+      # 它们在旧配置里是 `|| true` 跑的非阻塞步，并入统一 pytest 后保持同一口径。
+      # tests/unit/**、tests/integration/**、tests/e2e/** 不在豁免内，照常硬判。
       - name: 回归闸门（基线对比）
         run: |
           . .venv/bin/activate
           python tools/ci/check_regression.py \
-            --junit .ci/unit-integration.xml \
+            --junit .ci/non-e2e.xml \
             --junit .ci/e2e.xml \
-            --baseline tests/ci_baseline_failures.txt
-
-
-      # 根目录测试（与 GitHub Linux job 一致；失败不阻塞，和原配置相同）
-      #
-      # 注意：文件名必须跟着主干走。合并后 light 是主干，段言旧名
-      # test_duan_syntax / test_duan_stdlib / test_duan_stdlib2 在本仓库并不存在；
-      # 这一步结尾是 `|| true`，点错名字不会报错、只会一个用例都没跑到——假绿比没有更坏。
-      # 已改回实际存在的 test_light_syntax / test_light_stdlib / test_light_stdlib2
-      # （全部 27 个文件已逐个核对存在）。
-      - name: 根目录测试
-        run: |
-          . .venv/bin/activate
-          pytest tests/test_parser.py tests/test_lexer.py tests/test_async.py tests/test_codegen.py tests/test_exception.py tests/test_executor.py tests/test_semantic.py tests/test_class_definition.py tests/test_light_syntax.py tests/test_e2e.py tests/test_edge_cases.py tests/test_commands.py tests/test_file_io.py tests/test_interface.py tests/test_json_import.py tests/test_module_system.py tests/test_module_resolver.py tests/test_summary.py tests/test_ternary.py tests/test_advanced_semantic.py tests/test_light_stdlib.py tests/test_light_stdlib2.py tests/test_class_advanced.py tests/test_llvm_async.py tests/test_lsp_protocol.py tests/test_lsp_protocol_full.py tests/test_modern_features.py -v --tb=short --ignore=tests/archive 2>&1 || true
-
-
-      - name: 统一测试运行器
-        run: |
-          . .venv/bin/activate
-          python tests/run_tests.py --quick
+            --baseline tests/ci_baseline_failures.txt \
+            --soft-classname 'tests.test_*' \
+            --soft-classname 'tests._test_*'
 
       # lightpub 文档可导入性闸门。
-      # 这条本来就在 tests/unit/ 里，会被上面的回归闸门覆盖；单列一步是因为
-      # 回归闸门是「与基线对比」——刷一次基线就能把它压下去。文档说谎不该有
-      # 「进基线」这个选项，所以这里再挂一道不看基线的硬判绿点。
+      # 这条本来就在 tests/unit/ 里、上面那轮已经跑过；这里**故意重跑一遍**（几秒），
+      # 因为回归闸门是「与基线对比」——刷一次基线就能把它压下去。文档说谎不该有
+      # 「进基线」这个选项，所以再挂一道不看基线的硬判绿点。
       #
       # 它补的是已有文档示例扫描面（tests/unit/doc_block_scan.py）的盲区：
       # 那道扫描只验证「能否编译」，而 `导入 GUI框架` 编译完全正常、
@@ -135,8 +155,7 @@ jobs:
       - name: lightpub 文档可导入性闸门
         run: |
           . .venv/bin/activate
-          pytest tests/unit/test_lightpub_doc_importability.py -v --tb=short
-
+          pytest tests/unit/test_lightpub_doc_importability.py -q
 
       # 积木库门禁：五把尺子 + 硬门槛 + 兜底闸门。此前积木库（选块器 / 概念词典 / 契约索引 /
       # 兜底）在 gitea CI 上零覆盖，回归全靠人手跑尺子；段言本体 tests 过了也拦不住积木库回退。
@@ -149,3 +168,15 @@ jobs:
           # 少数块依赖第三方包；装不上不致命（冒烟会标成「缺依赖」单列，不计入分母）
           python -m pip install pypinyin lunardate opencc-python-reimplemented || true
           python 积木库/评估/ci_eval.py --并发 8
+
+      # 时间预算硬闸门（2026-08-22 用户裁决）：PR ≤ 600s，push main ≤ 1200s。
+      # always() 是故意的：前面哪一步红了，也要把耗时账单打出来——不然一红就看不到时间数据，
+      # 下次还是只能靠猜。
+      - name: 时间预算闸门
+        if: always()
+        run: |
+          . .venv/bin/activate
+          python tools/ci/time_budget.py --mark 闸门与积木库
+          BUDGET=1200
+          if [ "${{ github.event_name }}" = "pull_request" ]; then BUDGET=600; fi
+          python tools/ci/time_budget.py --check --budget $BUDGET
