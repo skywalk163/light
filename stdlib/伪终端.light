@@ -396,13 +396,25 @@
 
   段落 设窗口大小POSIX 接收 宽度, 高度:
     设 fcntl 为 空。
+    设 termios 为 空。
     尝试:
       fcntl 为 importlib.import_module("fcntl")。
+      termios 为 importlib.import_module("termios")。
     捕获 错误:
-      返回。
+      抛 伪控制台错误("POSIX 平台缺少 fcntl/termios，无法设窗口大小：" + str(错误))
     结束。
+    # TIOCSWINSZ 的请求号不是跨平台常量，必须问 termios 要本平台的真值：
+    # Linux 是 0x5414，BSD 系（FreeBSD/macOS）走 _IOW 编码，是 0x80087467。
+    # 原先写死 21523，两层错：
+    #   ① 21523 = 0x5413 是 Linux 的 TIOCGWINSZ（读尺寸），不是写，
+    #      所以即使在 Linux 上这段也从没真改过窗口大小，只是没人发现；
+    #   ② 在 FreeBSD 上 0x5413 根本不是合法请求号，ioctl 直接
+    #      ENOTTY(Errno 25)。而本段是 启动POSIX 构造时就调的，
+    #      于是「起 PTY」本身就抛，整条 POSIX 腿三条用例全崩。
+    设 请求号 为 termios.TIOCSWINSZ。
     设 包 为 struct.pack("HHHH", 高度, 宽度, 0, 0)。
-    fcntl.ioctl(己.主fd, 21523, 包)。   # TIOCSWINSZ = 0x5413 = 21523
+    fcntl.ioctl(己.主fd, 请求号, 包)。
+
 
   # 轮询子进程是否存活（绝不按进程名）
   段落 是否存活:

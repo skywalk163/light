@@ -900,8 +900,13 @@ class TestBootstrapSelfCompile:
         report = checker.generate_report()
         assert report is not None, "报告生成返回 None"
         assert len(report) > 100, "报告内容过短"
-        assert '段言' in report, "报告应包含语言名称"
+        assert '光明' in report, "报告应包含语言名称"
+        # 这条原先断言的是 '段言'。报告头早就是「光明（Light）自举编译器进度报告」
+        # （bootstrap_progress.py:263），所以是判据陈旧、不是产物出错。
+        # 段言项目已停止开发，旧品牌名再出现在产物里就是回归。
+        assert '段言' not in report, "报告里不该再出现旧品牌名「段言」"
         assert 'Level' in report, "报告应包含层级信息"
+
 
         print(f"\n自举编译器进度: {stats['completed']}/{stats['total_features']} "
               f"({stats['completion_percentage']}%) 完成")
