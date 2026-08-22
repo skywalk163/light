@@ -29,7 +29,9 @@ if _STDLIB not in sys.path:
 import _light_import_hook
 _light_import_hook.install([_STDLIB])
 
-from 代理循环 import 代理循环
+from 代理循环 import 代理循环, 会话
+from 事件总线 import 取消令牌
+
 
 
 
@@ -301,3 +303,132 @@ class TestEventOrder:
         assert "增量到达" in events
         assert events.count("轮次结束") == 2
         assert "请求开始" in events[events.index("轮次结束") + 1:]
+
+
+# ==================================================== A3-4：退避是真指数
+class Test退避:
+    def test_退避序列是指数且封顶(self, loop_server):
+        s = loop_server([_resp_stop()])
+        agent, _ = _make_agent(s)
+        assert [agent.退避秒(n) for n in (1, 2, 3, 4, 5, 6, 7)] == [
+            0.2, 0.4, 0.8, 1.6, 3.2, 6.4, 8.0
+        ]
+        # 改动前是 0.2 * 尝试次数（线性 0.2/0.4/0.6…），而文件头与
+        # 自测报告_任务C2.md 都自称「指数退避」。这条断言把口径钉死。
+
+    def test_网络失败时按指数序列真睡了(self):
+        # 指向一个必然连不上的端口（127.0.0.1:1），每轮都失败 → 走满重试
+        agent = 代理循环("http://127.0.0.1:1", "test-model", "",
+                     最大轮数值=2, 消息上限值=20)
+        agent.重试次数 = 4
+        睡了 = []
+        # 睡眠收敛到单点（己.睡眠），所以能在实例上替掉，不必真等 1.4 秒
+        agent.睡眠 = lambda 秒: 睡了.append(秒)
+        with pytest.raises(Exception):
+            agent.运行("你好")
+        # 重试 4 次 = 失败 3 次后各睡一次，第 4 次直接抛
+        assert 睡了 == [0.2, 0.4, 0.8]
+
+
+# ==================================================== A3-6：token 预算截断
+def _会话(消息们):
+    c = 会话()
+    for m in 消息们:
+        c.追加原始(m)
+    return c
+
+
+class Test词元预算截断:
+    def test_不启用时返回0且不动历史(self):
+        c = _会话([{"role": "user", "content": "甲"}])
+        assert c.按预算截断(0) == 0
+        assert len(c.列表()) == 1
+
+    def test_压到预算以内且保留前导system(self):
+        消息们 = [{"role": "system", "content": "你是助手"}]
+        for i in range(30):
+            消息们.append({"role": "user", "content": "问题%d " % i + "填充" * 50})
+        c = _会话(消息们)
+        用量 = c.按预算截断(400)
+        剩下 = c.列表()
+        assert 用量 <= 400
+        assert 剩下[0]["role"] == "system"        # system 永远保留
+        assert len(剩下) < len(消息们)             # 真的截了
+        # 保留的是**最新**的，不是最早的
+        assert "问题29" in 剩下[-1]["content"]
+
+    def test_绝不切开tool_calls与其配对的tool消息(self):
+        消息们 = [
+            {"role": "system", "content": "S"},
+            {"role": "user", "content": "旧问题" + "填" * 200},
+            {"role": "assistant", "content": "",
+             "tool_calls": [{"id": "call_0", "type": "function",
+                             "function": {"name": "f", "arguments": "{}"}}]},
+            {"role": "tool", "tool_call_id": "call_0", "name": "f",
+             "content": "工具结果" + "填" * 200},
+            {"role": "user", "content": "新问题"},
+        ]
+        # 逐个预算档位都扫一遍：任何档位下都不许出现「孤儿 tool」或
+        # 「有 tool_calls 却没有对应 tool 结果」——这两种都会让服务端直接 400。
+        for 预算 in range(40, 600, 20):
+            c = _会话([dict(m) for m in 消息们])
+            c.按预算截断(预算)
+            剩下 = c.列表()
+            已声明 = set()
+            for m in 剩下:
+                if m["role"] == "assistant" and m.get("tool_calls"):
+                    已声明 = {tc["id"] for tc in m["tool_calls"]}
+                if m["role"] == "tool":
+                    assert m["tool_call_id"] in 已声明, (
+                        "预算=%d 时出现了孤儿 tool 消息：%r" % (预算, 剩下))
+            # 反向：assistant 声明了工具调用，就必须能看到对应的 tool 结果
+            for i, m in enumerate(剩下):
+                if m["role"] == "assistant" and m.get("tool_calls"):
+                    后续 = [x for x in 剩下[i + 1:] if x["role"] == "tool"]
+                    落地 = {x["tool_call_id"] for x in 后续}
+                    assert {tc["id"] for tc in m["tool_calls"]} <= 落地, (
+                        "预算=%d 时 assistant.tool_calls 与它的 tool 结果被切开了：%r"
+                        % (预算, 剩下))
+
+    def test_单条超预算时截内容并留标记(self):
+        c = _会话([{"role": "user", "content": "很长" * 2000}])
+        c.按预算截断(100)
+        剩下 = c.列表()
+        # 不许静默丢整条：「模型看不到自己刚读的文件」比「看到被截断的文件」难查一百倍
+        assert len(剩下) == 1
+        assert "已截断" in 剩下[0]["content"]
+        assert len(剩下[0]["content"]) < len("很长" * 2000)
+
+    def test_可注入真tokenizer(self):
+        c = _会话([{"role": "user", "content": "甲"}, {"role": "user", "content": "乙"}])
+        c.估算器 = lambda 消息体: 100     # 每条恒定 100
+        assert c.估算总量() == 200
+        c.按预算截断(150)
+        assert len(c.列表()) == 1        # 只装得下一条
+
+
+# ==================================================== A3-5：取消令牌接入
+class Test取消令牌:
+    def test_令牌置位后不再发起新一轮(self, loop_server):
+        # 模型每轮都回 tool_calls（永不自然停），最大轮数给足；靠取消收敛
+        s = loop_server([_resp_valid_tool_call()])
+        agent = 代理循环("http://127.0.0.1:%d" % s.port, "test-model", "",
+                     最大轮数值=8, 消息上限值=20)
+        令牌 = 取消令牌()
+        agent.取消令牌 = 令牌
+        轮次 = []
+        agent.订阅("请求开始", lambda 事件名, 载荷: 轮次.append(载荷["轮次"]))
+
+        def 天气(参数):
+            令牌.取消()          # 工具执行中收到中断
+            return "晴天"
+
+        agent.注册工具("get_weather", "查天气", WEATHER_SCHEMA, 天气)
+        agent.运行("北京天气")
+        # 第 0 轮发出，工具里取消 → 不再有第 1 轮。等值断言，不用上界。
+        assert 轮次 == [0]
+
+    def test_未挂令牌时行为不变(self, loop_server):
+        s = loop_server([_resp_valid_tool_call(), _resp_stop()])
+        agent, _ = _make_agent(s)
+        assert agent.运行("北京天气") == "今日北京晴天"

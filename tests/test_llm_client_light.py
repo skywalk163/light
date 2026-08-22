@@ -199,6 +199,14 @@ class TestHTTPError:
 
 
 # ---- 真实 API（无 key 时 skip，key 仅从环境变量读取）----
+#
+# ⚠️ skip 掩盖分析（交付报告第 5 项要求逐条写明）：
+# 这三条 skip 掩盖的**只是**「真实 DeepSeek 对我们的 tools 声明与 SSE 分帧的
+# 接受度」——也就是「对方认不认」。**不掩盖 tool_call 功能本身**：功能由
+# tests/test_deepseek_mock.py 守（那个 mock 会解析并断言请求体，无 skip、
+# 任何机器上都必须绿）。
+# 这条区分很重要：第二轮就是因为把「无 key 则 skip」当成了功能验证的替代，
+# 才让「请求体里没有 tools」这个协议断点藏了整整一轮。
 @pytest.mark.skipif(not os.getenv("DEEPSEEK_API_KEY"), reason="未设置 DEEPSEEK_API_KEY")
 class TestRealAPI:
     def test_stream_chat(self):
@@ -211,3 +219,46 @@ class TestRealAPI:
         c = 大模型客户端("https://api.deepseek.com", "deepseek-chat", os.getenv("DEEPSEEK_API_KEY"))
         msg = c.对话([{"role": "user", "content": "只回复两个字：你好"}])
         assert msg.get("content", "") != ""
+
+    def test_真实模型接受tools声明并返回tool_calls(self):
+        """M4 在线轨：证明真实 DeepSeek 认我们发的 tools。
+
+        产物落盘到 第三轮留档/M4_在线往返实录.txt（key 打码，只留后 4 位），
+        供人工核对请求/响应原文。
+        """
+        key = os.getenv("DEEPSEEK_API_KEY")
+        c = 大模型客户端("https://api.deepseek.com", "deepseek-chat", key)
+        工具声明 = [{
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "查询指定城市的当前天气",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string", "description": "城市名"}},
+                    "required": ["city"],
+                },
+            },
+        }]
+        c.配置工具(工具声明, "auto")
+        blocks = list(c.流式对话([
+            {"role": "user", "content": "北京现在天气怎么样？请调用 get_weather 工具查询。"},
+        ]))
+        终块 = [b for b in blocks if b["结束"]][0]
+        调用 = 终块["工具调用增量"]
+        assert 调用, "真实模型没有返回 tool_calls —— 说明它没有接受我们发的 tools 声明"
+        assert 调用[0]["name"] == "get_weather"
+        参数 = json.loads(调用[0]["arguments"])
+        assert "city" in 参数
+
+        留档目录 = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "第三轮留档")
+        if os.path.isdir(留档目录):
+            打码 = "***" + (key[-4:] if key and len(key) >= 4 else "")
+            with open(os.path.join(留档目录, "M4_在线往返实录.txt"), "w", encoding="utf-8") as fh:
+                fh.write("DEEPSEEK_API_KEY（已打码）: %s\n" % 打码)
+                fh.write("下发的 tools 声明:\n%s\n\n" % json.dumps(工具声明, ensure_ascii=False, indent=2))
+                fh.write("聚合后的 tool_calls:\n%s\n\n" % json.dumps(调用, ensure_ascii=False, indent=2))
+                fh.write("finish_reason: %s\n" % 终块["完成原因"])
+
