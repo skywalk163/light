@@ -289,6 +289,7 @@ class AstAdapter:
             'RangeExpr': self._convert_range_expr,
             'AwaitExpr': self._convert_await_expr,
             'AsyncScope': self._convert_async_scope,
+            'PassStmt': self._convert_pass_stmt,
         }
 
     # ------------------------------------------------------------------
@@ -330,6 +331,9 @@ class AstAdapter:
             if item is None:
                 continue
             converted = self.convert(item)
+            # C3-4：转换器可能返回 None（如 PassStmt 空语句编成 no-op），直接跳过。
+            if converted is None:
+                continue
             # 表达式需要包装为 ExpressionStatement
             if not isinstance(converted, (
                 ast.VariableDeclaration, ast.Assignment, ast.IfStatement,
@@ -558,6 +562,15 @@ class AstAdapter:
     def _convert_continue_stmt(self, node) -> ast.ContinueStatement:
         return ast.ContinueStatement()
 
+    def _convert_pass_stmt(self, node):
+        """C3-4：`pass`（空语句）语义上就是 no-op，编成空操作而不是报错。
+
+        返回 None：`_to_list_stmts` 会跳过 None，于是模块/段落体内不生成任何产物。
+        之前 PassStmt 没有转换器，走 `<unknown:PassStmt>` 报「不支持 空语句」——
+        对一条什么都没干的语句报不支持，很荒谬。
+        """
+        return None
+
     def _convert_class_definition(self, node) -> ast.ClassDefinition:
         # 分离构造函数和方法
         constructor = None
@@ -758,9 +771,17 @@ class AstAdapter:
     def _convert_throw_stmt(self, node) -> ast.ThrowStatement:
         return ast.ThrowStatement(value=self.convert(node.value) if node.value else None)
 
-    def _convert_string_interpolation(self, node) -> ast.StringLiteral:
-        # 简化处理：直接转换为字符串字面量
-        return ast.StringLiteral(value=str(getattr(node, 'value', '')))
+    def _convert_string_interpolation(self, node) -> ast.StringInterpolation:
+        """C3-2：把 v3 StringInterpolation 的 parts（交替 str 与 ASTNode）无损转成
+        ast.StringInterpolation，供代码生成器做「分段 + 拼接」降级实现。
+        改动前直接转成 StringLiteral 且值恒为空串——插值被静默吃掉。"""
+        parts = []
+        for part in getattr(node, 'parts', []):
+            if isinstance(part, str):
+                parts.append(part)
+            else:
+                parts.append(self.convert(part))
+        return ast.StringInterpolation(parts=parts)
 
     def _convert_interface_definition(self, node) -> ast.InterfaceDefinition:
         methods = []

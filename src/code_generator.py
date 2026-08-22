@@ -36,6 +36,14 @@ class CodeGenError(Exception):
         super().__init__(msg)
 
 
+# C3-7：异步文件原语 = 「只有词法名、没有实现」。lexer 复合词表保留这三个名字
+# 是为了不被关键字 `异步` 切成两截（切开会静默错编，见 src/lexer.py:245-254），
+# 但 codegen 侧没有映射（真实现只在 stdlib/lightpub/异步运行时.py，依赖 aiofiles，
+# 而 stdlib/ 是别的任务的地盘）。旧行为：编译成功 → 运行期 NameError。C3-7 选
+# 方案 B：在 codegen 提前到**编译期**报错并指路。
+_ASYNC_FILE_NAMES = frozenset({'异步读取文件', '异步写入文件', '异步追加文件'})
+
+
 # =============================================================================
 # Python代码生成器
 # =============================================================================
@@ -2335,6 +2343,14 @@ class PythonCodeGenerator:
                         continue
                     param_name = self._sanitize_name(raw_param)
                     self._current_method_params.add(raw_param)
+                    # C3-5：形参类型注解必须真发射。改动前 `段落 压入 接收 值: T：`
+                    # 产出 `def 压入(self, 值):`，注解被静默丢掉——泛型类的
+                    # `T = TypeVar('T')` 变成孤立的无用声明，get_type_hints 解析不出
+                    # 形参类型。与 _generate_paragraph(:1481-1493) 同口径：有注解发
+                    # 注解，有默认值按 PEP8 用 `名: 类型 = 值`。
+                    param_type = param.get('type')
+                    if param_type:
+                        param_name = f"{param_name}: {self._map_type(param_type)}"
                     if param.get('default'):
                         params.append(f"{param_name}={param['default']}")
                     else:
@@ -2345,12 +2361,26 @@ class PythonCodeGenerator:
                         continue
                     param_name = self._sanitize_name(param.name)
                     self._current_method_params.add(param.name)
+                    param_type = getattr(param, 'type_annotation', None)
+                    if param_type:
+                        ann_name = f"{param_name}: {self._map_type(param_type)}"
+                    else:
+                        ann_name = param_name
                     if getattr(param, 'default_value', None):
                         default = self._generate_expr(param.default_value)
-                        params.append(f"{param_name}={default}")
+                        # 带注解时 PEP 8 要求 `名: 类型 = 值`，无注解时是 `名=值`
+                        sep = ' = ' if param_type else '='
+                        params.append(f"{ann_name}{sep}{default}")
                     else:
-                        params.append(param_name)
+                        params.append(ann_name)
 
+
+        # C3-5：方法返回类型注解（`返回 类型` / `-> 类型`）。改动前从不发射——
+        # 泛型段落/方法返回 `T` 时产物注解缺失，TypeVar 照样成了无用声明。
+        return_type_annotation = ''
+        if getattr(method, 'return_type', None):
+            python_return_type = self._map_type(method.return_type)
+            return_type_annotation = f" -> {python_return_type}"
 
         params_str = ', '.join(params)
 
@@ -2364,7 +2394,7 @@ class PythonCodeGenerator:
             self._add_line(f"@classmethod")
         if getattr(method, 'is_property', False):
             self._add_line("@property")
-        self._add_line(f"def {method_name}({params_str}):")
+        self._add_line(f"def {method_name}({params_str}){return_type_annotation}:")
 
         old_in_function = self._in_function
         old_in_class = self._in_class_method
@@ -2568,7 +2598,19 @@ class PythonCodeGenerator:
         
         elif isinstance(expr, ParagraphCall):
             name = self._sanitize_name(expr.name)
-            
+
+            # C3-7：异步文件原语编译期报错。名字在 lexer 复合词表里（防被 `异步`
+            # 关键字切两截），但 codegen 无映射——旧行为编译成功、运行期 NameError。
+            # 提前到编译期，文案指到同步替代，避免用户跑起来才炸。
+            if (isinstance(expr.name, str) and expr.name in _ASYNC_FILE_NAMES
+                    and not self._shadows_builtin(expr.name)
+                    and expr.name not in self._user_defined_functions):
+                raise CodeGenError(
+                    f"异步文件原语「{expr.name}」暂无实现。"
+                    f"请改用同步「读取文件 / 写入文件 / 追加文件」，"
+                    f"或等待 stdlib 提供异步文件 IO。",
+                    'ParagraphCall')
+
             # 己.方法() / 自.方法() → self.方法()（粘连写法 己方法() 被 parser
             # 折叠成 '己.方法'）。两个 self 引用名共用 _map_self_prefix，与本文件
             # Identifier 分支 / VarDecl 分支的映射保持同一口径。

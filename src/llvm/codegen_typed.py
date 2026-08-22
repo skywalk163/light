@@ -822,6 +822,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if expr is None:
             return self._create_int_dv('0'), 'dv'
 
+        # C3-1：适配层把未知节点包成 ExpressionStatement(Identifier("<unknown:XXX>"))，
+        # 不管它出现在语句位还是表达式位。语句位由 _gen_statement 拆，这里拆表达式位——
+        # 先剥掉 ExpressionStatement 外壳，让下面的 Identifier 前缀检查接得住。
+        if isinstance(expr, ast.ExpressionStatement):
+            return self._gen_expression(expr.expression)
+
         if isinstance(expr, ast.NumberLiteral):
             val = expr.value
             if isinstance(val, int) or (isinstance(val, str) and val.isdigit()):
@@ -840,6 +846,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return self._call_dv_func('dv_null'), 'dv'
 
         if isinstance(expr, ast.Identifier):
+            # C3-1：适配层也会把未知表达式节点包成 Identifier("<unknown:XXX>")。
+            # 必须先拆开报原 v3 类型名，否则会报成「未定义变量 <unknown:DictLiteral>」，
+            # 把线索藏起来。
+            if isinstance(expr.name, str) and expr.name.startswith(self._ADAPTER_UNKNOWN_PREFIX):
+                inner = expr.name[len(self._ADAPTER_UNKNOWN_PREFIX):].rstrip('>')
+                self._reject_unsupported_expr(inner, expr)
             return self._gen_typed_identifier(expr)
 
         if isinstance(expr, ast.BinaryOp):
@@ -857,14 +869,31 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if builtin is not None:
                 return builtin
             if expr.name in self._segments:
-                return self._gen_typed_segment_call(expr.name, args)
-            return self._create_int_dv('0'), 'dv'
+                # 名字已定义，却走不到正常返回——说明是类型推断问题，不是名字问题。
+                try:
+                    return self._gen_typed_segment_call(expr.name, args)
+                except NotImplementedError:
+                    raise
+                except Exception as e:
+                    raise NotImplementedError(
+                        f"段落「{expr.name}」的调用类型推断失败"
+                        f"（源码行 {self._stmt_source_line(expr)}）：{e}。"
+                        f"名字已定义，问题在类型上。{self._FALLBACK_HINT}"
+                    ) from e
+            # C3-1：拼错名字的段落调用，报错并列出已定义候选。
+            self._reject_unknown_call(expr.name, expr)
 
         if isinstance(expr, ast.IndexAccess):
             return self._gen_typed_index_access(expr)
 
         if isinstance(expr, ast.ListLiteral):
             return self._gen_typed_list_literal(expr)
+
+        if isinstance(expr, ast.DictLiteral):
+            return self._gen_typed_dict_literal(expr)
+
+        if isinstance(expr, ast.StringInterpolation):
+            return self._gen_typed_string_interpolation(expr)
 
         if isinstance(expr, ast.ConditionalExpression):
             return self._gen_typed_conditional(expr)
@@ -882,7 +911,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if hasattr(ast, 'AwaitExpression') and isinstance(expr, ast.AwaitExpression):
             return self._gen_await_expression(expr)
 
-        return self._create_int_dv('0'), 'dv'
+        # C3-1：表达式层链尾兜底。以前这里把一切未支持表达式静默编成整数 0——
+        # 字典字面量 / Lambda / 推导式 / 切片 / UnwrapExpression / Pipeline 全是
+        # 「编译成功、产物行为错误」。现在与语句层同一口径：响亮报错。
+        self._reject_unsupported_expr(type(expr).__name__, expr)
 
     def _gen_typed_identifier(self, expr: ast.Identifier) -> Tuple[str, str]:
         name = expr.name
@@ -939,6 +971,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             '加': ('add', 'fadd'), '减': ('sub', 'fsub'),
             '乘': ('mul', 'fmul'), '除': ('sdiv', 'fdiv'),
             '模': ('srem', 'frem'),
+            # C3-1：`整除`（//）。parser 已把 `整除` 归一成 '//'，改动前它不是任何
+            # 映射的键，一路静默走链尾 dv_add——`7 整除 2` 算出 9。双整数的类型
+            # 优化路径用 sdiv（截断整除，与 runtime dv_div 双整数分支一致）；
+            # 通用路径走 dv_div（双整数时也整除）。
+            '//': ('sdiv', 'fdiv'),
         }
 
         if op in arith_ops:
@@ -987,6 +1024,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             '%': 'dv_mod', '**': 'dv_pow',
             '加': 'dv_add', '减': 'dv_sub', '乘': 'dv_mul', '除': 'dv_div',
             '模': 'dv_mod', '幂': 'dv_pow',
+            '//': 'dv_div',  # C3-1：`整除`——通用路径 dv_div 双整数时即整除
         }
         if op in type_map:
             dv_func = type_map[op]
@@ -1032,7 +1070,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{result_i1} = or i1 {left_i1}, {right_i1}')
             return self._create_bool_dv(result_i1), 'dv'
 
-        return self._call_dv_func('dv_add', left_dv, right_dv), 'dv'
+        # C3-1：二元运算符链尾兜底。以前这里把一切不认识的运算符静默编成
+        # `dv_add`——`X 管道 Y`（管道式写法本轮不做）会被编成 `X + Y`，
+        # 编译成功、产物行为错误，与表达式层链尾是同一类静默降级。现在响亮报错，
+        # 并给出已支持的运算符清单，把「哪个运算符能用」从猜变成查。
+        raise NotImplementedError(
+            f"原生后端暂不支持二元运算符「{op}」"
+            f"（源码行 {self._stmt_source_line(expr)}）。"
+            f"已支持：加/减/乘/除/模/幂/连接/比较/逻辑。{self._FALLBACK_HINT}"
+        )
 
     def _i64_to_f64(self, i64_reg: str) -> str:
         """将 i64 转换为 double"""
@@ -1106,7 +1152,20 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if func_name in self._imports:
             return self._gen_imported_segment_call(func_name, args)
 
-        return self._create_int_dv('0'), 'dv'
+        # C3-2：AstAdapter 把 v3 SliceExpr（`表[1:2]`）转成对 `slice` 的调用，
+        # 而原生运行时没有切片原语。以前报「未定义的段落：slice」，把「切片不支持」
+        # 藏成「拼错名字」——指路到可用的替代写法。
+        if func_name == 'slice':
+            raise NotImplementedError(
+                f"原生后端暂不支持切片表达式（SliceExpr）"
+                f"（源码行 {self._stmt_source_line(expr)}）。"
+                f"请改用 截取/子串 或转译后端（python -m cli.light_unified run）"
+            )
+
+        # C3-1：拼错名字的函数/段落调用（AstAdapter 把 v3 ParagraphCall 转成
+        # FunctionCall，所以「未知段落」真正落在这里）。以前静默编成整数 0，
+        # 现在报错并列出本模块已定义候选。
+        self._reject_unknown_call(func_name, expr)
 
     def _gen_imported_segment_call(self, name: str, args: List[str]) -> Tuple[str, str]:
         """调用从其他模块导入的段函数"""
@@ -1312,6 +1371,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('新建', '新建列表', 'new_list', '列表创建'):
             return self._call_dv_func('dv_list_new'), 'dv'
+
+        if name in ('列', 'list', '列表'):
+            # C3-1：`列(1, 2, 3)` 构造带元素的列表（走漏到链尾兜底前就该支持的
+            # 常规形态）。无参数时等价于空列表。
+            return self._gen_typed_list_from_args(args), 'dv'
 
         if name in ('追加', 'append', '列表追加'):
             if len(args) >= 2:
@@ -2482,32 +2546,97 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
     def _gen_typed_index_access(self, expr) -> Tuple[str, str]:
         obj_dv, _ = self._gen_expression(expr.obj)
+        # 索引既要做成 i64（字符串/列表下标），也要保留 LightValue（字典键）。
+        # 字符串用 i64；列表用 i64；字典（type=7）要传整个 LightValue 做键。
         if isinstance(expr.index, ast.NumberLiteral):
             idx_val = int(expr.index.value)
             i64_reg = f'{idx_val}'
+            key_slot = self._new_dv_slot()
+            self.emit(f'call void @dv_int(ptr {key_slot}, i64 {i64_reg})')
         else:
             idx_dv, _ = self._gen_expression(expr.index)
             i64_reg = self.new_register()
             self.emit(f'{i64_reg} = extractvalue {LIGHTVALUE_STRUCT} {idx_dv}, 1')
+            key_slot = self._store_dv(idx_dv)
         obj_slot = self._store_dv(obj_dv)
         type_reg = self.new_register()
         self.emit(f'{type_reg} = load i32, ptr {obj_slot}')
         is_str = self.new_register()
         self.emit(f'{is_str} = icmp eq i32 {type_reg}, 3')
-        then_lab = self.new_label('idx_str')
-        else_lab = self.new_label('idx_list')
+        is_dict = self.new_register()
+        self.emit(f'{is_dict} = icmp eq i32 {type_reg}, 7')
+        str_lab = self.new_label('idx_str')
+        dict_lab = self.new_label('idx_dict')
+        list_lab = self.new_label('idx_list')
         end_lab = self.new_label('idx_end')
         result_slot = self._new_dv_slot()
-        self.emit(f'br i1 {is_str}, label %{then_lab}, label %{else_lab}')
-        self.emit(f'{then_lab}:')
+        not_str_lab = self.new_label('idx_not_str')
+        self.emit(f'br i1 {is_str}, label %{str_lab}, label %{not_str_lab}')
+        self.emit(f'{not_str_lab}:')
+        self.emit(f'br i1 {is_dict}, label %{dict_lab}, label %{list_lab}')
+        self.emit(f'{str_lab}:')
         self.emit(f'call void @dv_str_get(ptr {result_slot}, ptr {obj_slot}, i64 {i64_reg})')
         self.emit(f'br label %{end_lab}')
-        self.emit(f'{else_lab}:')
+        self.emit(f'{dict_lab}:')
+        self.emit(f'call void @dv_dict_get(ptr {result_slot}, ptr {obj_slot}, ptr {key_slot})')
+        self.emit(f'br label %{end_lab}')
+        self.emit(f'{list_lab}:')
         self.emit(f'call void @dv_list_get(ptr {result_slot}, ptr {obj_slot}, i64 {i64_reg})')
         self.emit(f'br label %{end_lab}')
         self.emit(f'{end_lab}:')
         result = self._load_dv(result_slot)
         return result, 'dv'
+
+    def _gen_typed_list_from_args(self, args: List[str]) -> str:
+        """C3-1：从一组已生成的 LightValue 构造列表（`列(1, 2, 3)`）。"""
+        list_dv = self._call_dv_func('dv_list_new')
+        list_slot = self._new_dv_slot()
+        self.emit(f'store {LIGHTVALUE_STRUCT} {list_dv}, ptr {list_slot}')
+        for elem_dv in args:
+            cur = self.new_register()
+            self.emit(f'{cur} = load {LIGHTVALUE_STRUCT}, ptr {list_slot}')
+            new_list = self._call_dv_func('dv_list_append', cur, elem_dv)
+            self.emit(f'store {LIGHTVALUE_STRUCT} {new_list}, ptr {list_slot}')
+        final = self.new_register()
+        self.emit(f'{final} = load {LIGHTVALUE_STRUCT}, ptr {list_slot}')
+        return final
+
+    def _gen_typed_dict_literal(self, expr) -> Tuple[str, str]:
+        """C3-2：字典字面量 `[键: 值]`。runtime 侧 dv_dict_new/dv_dict_set 已有，
+        缺的只是字面量构造——逐条目 dv_dict_set 进空字典。
+        `**展开`（entries 里 key 为 None）本轮不做，显式报错。
+        """
+        dict_dv = self._call_dv_func('dv_dict_new')
+        dict_slot = self._new_dv_slot()
+        self.emit(f'store {LIGHTVALUE_STRUCT} {dict_dv}, ptr {dict_slot}')
+        for entry in expr.entries:
+            key, value = entry
+            if key is None:
+                self._reject_unsupported_expr('DictExpand', entry)
+            key_dv, _ = self._gen_expression(key)
+            value_dv, _ = self._gen_expression(value)
+            cur = self.new_register()
+            self.emit(f'{cur} = load {LIGHTVALUE_STRUCT}, ptr {dict_slot}')
+            new_dict = self._call_dv_func('dv_dict_set', cur, key_dv, value_dv)
+            self.emit(f'store {LIGHTVALUE_STRUCT} {new_dict}, ptr {dict_slot}')
+        final = self.new_register()
+        self.emit(f'{final} = load {LIGHTVALUE_STRUCT}, ptr {dict_slot}')
+        return final, 'dv'
+
+    def _gen_typed_string_interpolation(self, expr) -> Tuple[str, str]:
+        """C3-2：字符串插值降级实现——拆成若干段 + 字符串拼接（dv_concat）。
+
+        不真做 format 机制：每段先求值成字符串（字面段直接进字符串常量，
+        表达式段求值后用 dv_concat 自动转字符串），逐段拼起来。
+        """
+        result_dv = self._create_str_dv(self.gen_string_constant(""))
+        for part in expr.parts:
+            if isinstance(part, str):
+                part_dv = self._create_str_dv(self.gen_string_constant(part))
+            else:
+                part_dv, _ = self._gen_expression(part)
+            result_dv = self._call_dv_func('dv_concat', result_dv, part_dv)
+        return result_dv, 'dv'
 
     def _gen_typed_list_literal(self, expr) -> Tuple[str, str]:
         list_dv = self._call_dv_func('dv_list_new')
@@ -2582,6 +2711,36 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         raise NotImplementedError(
             f"原生后端暂不支持语句类型「{type_name}」"
             f"（源码行 {self._stmt_source_line(stmt)}）：{self._FALLBACK_HINT}"
+        )
+
+    def _reject_unsupported_expr(self, type_name: str, expr):
+        """C3-1：原生后端遇到未实现的表达式类型：显式炸，不许静默编成整数 0。
+
+        与 `_reject_unsupported_stmt` 同一口径（复用行号获取逻辑），区别只在
+        「表达式」三字——让用户知道自己写坏的是表达式不是语句。
+        """
+        raise NotImplementedError(
+            f"原生后端暂不支持表达式「{type_name}」"
+            f"（源码行 {self._stmt_source_line(expr)}）：{self._FALLBACK_HINT}"
+        )
+
+    def _reject_unknown_call(self, name: str, expr, kind: str = '段落'):
+        """C3-1：调用了未定义的段落/函数：列出本模块已定义候选，不许静默编成 0。
+
+        拼错名字的调用（`计算总和(表)` 写成 `计算总和`）是最坑的静默降级——
+        旧行为编成 `结果 = 0` 且编译成功。现在报错并给出候选，省掉猜名字的时间。
+        候选多于 10 个时截断到前 10 个 + 总数。
+        """
+        candidates = sorted(k for k in self._segments.keys())
+        if len(candidates) > 10:
+            cand_text = ', '.join(candidates[:10]) + f' 等共 {len(candidates)} 个'
+        elif candidates:
+            cand_text = ', '.join(candidates)
+        else:
+            cand_text = '（本模块未定义任何段落）'
+        raise NotImplementedError(
+            f"未定义的{kind}：{name}（源码行 {self._stmt_source_line(expr)}）。"
+            f"本模块已定义：{cand_text}。{self._FALLBACK_HINT}"
         )
 
     def _gen_statement(self, stmt):

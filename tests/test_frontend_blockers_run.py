@@ -653,10 +653,41 @@ def test_a23_用户自定义段落压过异步原语名():
         ['3'])
 
 
-def test_a23_异步文件三名字仍是一个词且失败得响():
-    """A2-3：`异步读取文件`/`异步写入文件`/`异步追加文件` 的**现状钉桩**。
+def _run_product_allow_compile_fail(source: str):
+    """product 腿的「允许编译期失败」变体：`duan compile` 编译期就报错时，
+    把编译错误本身当作结果返回，而不是硬断言编译成功。
 
-    这三个名字在 `src/lexer.py` 的 COMMON_COMPOUND_WORDS 里（本轮保留原状），
+    用途：C3-7 把 `异步*文件` 的失败从「运行期 NameError」提前到了**编译期**
+    （src/code_generator.py 编译期报错，文案指向同步替代），所以这条钉桩用例的
+    product 腿允许编译失败——失败得响照样成立，且更早、信息量更大。
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        src = Path(tmpdir) / 'probe.light'
+        src.write_text(source, encoding='utf-8')
+        out_py = Path(tmpdir) / 'product.py'
+        c = subprocess.run(
+            [sys.executable, '-m', 'cli.light_unified',
+             'compile', str(src), '-o', str(out_py)],
+            capture_output=True, text=True, encoding='utf-8',
+            cwd=str(REPO_ROOT), timeout=120, env=SUBPROC_ENV,
+        )
+        if c.returncode != 0:
+            # 编译期报错就是本轮要的「失败得响」结果（报错文案含完整原语名）。
+            return c.returncode, c.stdout, c.stderr
+        assert out_py.exists(), f"产物未生成:\n{c.stdout}"
+        r = subprocess.run(
+            [sys.executable, str(out_py)],
+            capture_output=True, text=True, encoding='utf-8',
+            cwd=str(REPO_ROOT), timeout=120, env=SUBPROC_ENV,
+        )
+        return r.returncode, r.stdout, r.stderr
+
+
+def test_a23_异步文件三名字仍是一个词且失败得响():
+    """A2-3 钉桩（C3-7 更新判据）：`异步读取文件`/`异步写入文件`/`异步追加文件`
+    必须是「失败得响」，不是静默错编。
+
+    这三个名字在 `src/lexer.py` 的 COMMON_COMPOUND_WORDS 里（保留原状），
     但**没有任何实现**——真实现只在 `stdlib/lightpub/异步运行时.py`，而那份代码
     第一行就是裸 `import aiofiles`（在 try 之前），`except ImportError` 是死代码。
     补零依赖实现要动 `stdlib/`，是任务 A2 明令不许碰的地盘，已进移交清单。
@@ -665,8 +696,11 @@ def test_a23_异步文件三名字仍是一个词且失败得响():
     - 若把名字从复合词表里删掉，`异步` 是关键字，会被切成 KEYWORD `异步` +
       IDENTIFIER `读取文件`，`设 内容 为 等待 异步读取文件("a")。` 静默编成
       `内容 = await 异步` 加一条结果被丢弃的 `读取文件('a')`——编译通过、语义全错。
-    - 现在的行为是产物里出现完整的 `异步读取文件(...)` 调用，运行期报错，
-      用户一眼看到缺的就是这个名字。
+    - 本轮 C3-7 之前：产物里出现完整的 `异步读取文件(...)` 调用，**运行期**报错。
+    - C3-7 之后（选方案 B）：`src/code_generator.py` 把失败提前到**编译期**，
+      报错文案含完整原语名并指到同步替代。判据不变：必须失败（rc != 0），
+      且报错里出现**完整名字**。只提 `异步` 或只提 `读取文件` 即视为「又被切开」
+      的回归。
 
     判据：必须失败（rc != 0），且报错里出现**完整名字**。只提 `异步` 或
     只提 `读取文件` 即视为「又被切开」的回归。
@@ -678,7 +712,8 @@ def test_a23_异步文件三名字仍是一个词且失败得响():
         '\n'
         '异步 运行 主()。\n'
     )
-    for leg, runner in (('run', _run_light), ('product', _run_product)):
+    for leg, runner in (('run', _run_light),
+                        ('product', _run_product_allow_compile_fail)):
         rc, out, err = runner(source)
         assert rc != 0, f"[{leg}] `异步读取文件` 没有实现，期望失败但退出码为 0:\n{out}"
         combined = err + out
