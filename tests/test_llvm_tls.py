@@ -244,7 +244,9 @@ class TestTLSCLayer:
         """负例：不加信任锚 → 握手必须失败"""
         result = subprocess.run(
             [EXE_PATH, "negative", str(TLS_PORT)],
-            capture_output=True, text=True, timeout=30
+            capture_output=True, text=True,
+            encoding="utf-8", errors="replace",
+            timeout=30
         )
         assert result.returncode == 0, \
             f"负例 exit code={result.returncode}\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"

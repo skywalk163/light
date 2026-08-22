@@ -103,6 +103,6 @@
 | `b""` bytes 字面量 | 用字符串代替（二进制不安全） | bytes 类型或二进制安全字符串 |
 | `缓冲[0:分隔]` 切片 | 手写循环逐字符拷贝 | `[start:end]` 切片语法 |
 | `导入 socket` | C 层已有 `dv_socket_*`，需虚拟模块映射 | `导入 socket` 自动映射到 native socket |
-| `.encode("utf-8")` | C 屽 `dv_str_encode` 函数 | `.encode()` 方法注册 |
+| `.encode("utf-8")` | C 层加 `dv_str_encode` 函数 | `.encode()` 方法注册 |
 | `codecs.getincrementaldecoder` | 一次性解码 | 增量 UTF-8 解码器 |
 | `s.recv()` / `s.sendall()` | `dv_socket_recv` / `dv_socket_send` | socket 对象方法封装 |
