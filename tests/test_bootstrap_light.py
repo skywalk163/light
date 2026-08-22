@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 test_bootstrap_light.py —— C2-3 新写的 5 个纯光明自举模块测试
-覆盖：断言工具 / 字符串工具 / 数据结构 / JSON编解码 / 日期时间轻量。
+覆盖：断言工具轻量 / 字符串工具轻量 / 数据结构轻量 / JSON编解码 / 日期时间轻量。
 
-注：第 5 个模块原名 日期时间，与 stdlib/日期时间.py（100+ 导出的真实现）撞名并把它
-完全遮蔽，导致 tests/test_datetime.py 变成 collection error。主线修复后纯光明那份
-改名 日期时间轻量（同 JSON → JSON编解码 的处置），《日期时间》仍由 .py 提供。
+注：这 5 个模块里有 4 个原先直接叫 断言工具 / 字符串工具 / 数据结构 / 日期时间，
+带「纯光明实现」魔数后被导入钩子（stdlib/_light_import_hook.py:155）用来**完全遮蔽**
+同名 .py——不是兜底，是彻底取代。而那几份 .py 的导出数分别是 77 / 81 / 29 / 100+，
+纯光明那几份只有 9 / 28 / 14 / 11，遮蔽等于能力倒退（日期时间那次直接让
+tests/test_datetime.py 变成 collection error，数据结构那次打红 test_stdlib_phase2.py
+三条）。主线修复统一加「轻量」后缀（同 JSON → JSON编解码 的处置），原模块名仍由 .py 提供。
 """
 import os
 import sys
@@ -20,16 +23,17 @@ if _STDLIB not in sys.path:
 import _light_import_hook
 _light_import_hook.install([_STDLIB])
 
-from 断言工具 import 断言真, 断言假, 断言等于, 断言不为空
-from 字符串工具 import (
+from 断言工具轻量 import 断言真, 断言假, 断言等于, 断言不为空
+from 字符串工具轻量 import (
     转大写, 转小写, 首字母大写, 反转字符串, 分割字符串, 连接字符串,
     子串查找, 以子串开头, 以子串结尾, 替换多个空白, 英文分词, 字符计数,
     左填充, 重复字符串,
 )
-from 数据结构 import 栈, 队列, 双端队列, 优先队列
-from 数据结构 import 创建栈, 入栈, 出栈, 栈是否为空, 栈大小
+from 数据结构轻量 import 栈, 队列, 双端队列, 优先队列
+from 数据结构轻量 import 创建栈, 入栈, 出栈, 栈是否为空, 栈大小
 from JSON编解码 import 编码, 解码
 from 日期时间轻量 import 两个数字, 格式化当前时间, 获取年份, 当前时间戳
+
 
 
 class Test断言工具:

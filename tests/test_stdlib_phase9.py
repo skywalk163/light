@@ -2,7 +2,9 @@
 第九阶段测试用例 - 测试与调试标准库
 """
 import sys
-sys.path.insert(0, 'c:/traework/light/stdlib')
+# 路径由 tests/conftest.py 按 __file__ 统一推导（含 stdlib/ 与 contrib/）。
+# 原先这里写死 'c:/traework/light/stdlib'，别的机器上不存在，整文件 ImportError。
+
 
 import unittest
 

@@ -13,9 +13,19 @@ import os
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _src_dir = os.path.join(_project_root, 'src')
 _tools_dir = os.path.join(_project_root, 'tools')
+# stdlib/ 与 contrib/ 也要在路径上：tests/test_stdlib_phase9~13.py 直接
+# `import 测试框架` 这类裸模块名，那批模块实际住在 stdlib/ 和 contrib/ 下。
+# 它们原先各自 sys.path.insert 了 'c:/traework/light/stdlib' /
+# 'c:/dumatework/light/stdlib' 这类别的机器上的绝对路径，换机器就整文件 ImportError；
+# 路径统一收到这里按 __file__ 推导，测试文件里不再出现绝对路径。
+_stdlib_dir = os.path.join(_project_root, 'stdlib')
+_contrib_dir = os.path.join(_project_root, 'contrib')
 sys.path.insert(0, _project_root)
 sys.path.insert(0, _src_dir)
 sys.path.insert(0, _tools_dir)
+sys.path.insert(0, _stdlib_dir)
+sys.path.insert(0, _contrib_dir)
+
 
 
 @pytest.fixture(autouse=True)

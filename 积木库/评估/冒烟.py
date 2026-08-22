@@ -174,11 +174,16 @@ def 跑一块(块, python=None, 工位=None):
     with open(tmp, 'w', encoding='utf-8') as f:
         f.write(源)
     if True:
+        # 子进程的**编码端**必须钉住：父侧只写了 encoding='utf-8' 是解码端防护，
+        # 子进程若按 Windows 默认 GBK 输出，中文示例的 print 会直接 UnicodeEncodeError
+        # 或写出 GBK 字节，被这里当成乱码/空输出误判成冒烟不通过。
+        _子环境 = dict(os.environ, PYTHONIOENCODING='utf-8')
         r = subprocess.run(
             [python or sys.executable, os.path.join(_ROOT, 'cli', 'light.py'),
              'run', tmp],
             capture_output=True, text=True, encoding='utf-8',
-            errors='replace', cwd=_ROOT, timeout=120)
+            errors='replace', cwd=_ROOT, timeout=120, env=_子环境)
+
         out = (r.stdout or '').strip()
         err = (r.stderr or '').strip()
         # v0.24：段言 src 后端会**静默吞掉运行期错误**（越界/除零都 rc=0 且 stdout 空，

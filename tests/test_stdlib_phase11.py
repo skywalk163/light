@@ -2,8 +2,9 @@
 第十一阶段测试用例 - 安全与权限
 """
 import sys
-sys.path.insert(0, 'c:/dumatework/light/stdlib')
-sys.path.insert(0, 'c:/dumatework/light/contrib')
+# 路径由 tests/conftest.py 按 __file__ 统一推导（含 stdlib/ 与 contrib/）。
+# 原先这里写死 'c:/dumatework/light/{stdlib,contrib}'，别的机器上不存在。
+
 
 import unittest
 import time
