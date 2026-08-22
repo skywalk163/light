@@ -18,6 +18,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 import pytest
 from llvm.compiler import compile_source_typed, find_clang
 
+# 运行时目标码整场只编一次（缘由与实测数字见 tests/llvm运行时.py 头部注释）
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from llvm运行时 import 取运行时对象
+
+
 # clang 不可用时跳过（环境缺失，非测试失败）
 try:
     _CLANG = find_clang()
@@ -51,11 +56,9 @@ def _run_llvm_test(code, expected_output):
             f.write(ir)
         try:
             clang = find_clang()
-            runtime_c = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)),
-                '..', 'src', 'llvm', 'runtime_typed.c')
+            runtime_o = 取运行时对象(clang)
             result = subprocess.run(
-                [clang, '-O2', '-o', exe_path, ir_path, runtime_c],
+                [clang, '-O2', '-o', exe_path, ir_path, runtime_o],
                 capture_output=True, text=True, encoding='utf-8', errors='replace',
                 timeout=30
             )

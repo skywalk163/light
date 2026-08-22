@@ -7,6 +7,10 @@ sys.path.insert(0, 'src')
 
 from llvm.compiler import compile_source_typed, find_clang
 
+# 运行时目标码整场只编一次（缘由与实测数字见 tests/llvm运行时.py 头部注释）
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from llvm运行时 import 取运行时对象
+
 
 def run_llvm_test(name, code, expected_output=None, expected_returncode=0):
     """运行一个 LLVM 后端异常处理测试"""
@@ -25,11 +29,11 @@ def run_llvm_test(name, code, expected_output=None, expected_returncode=0):
         
         # 编译为可执行文件
         clang = find_clang()
-        runtime_c = 'src/llvm/runtime_typed.c'
+        runtime_o = 取运行时对象(clang)
         exe_path = f'tests/_test_{name}.exe'
         
         result = subprocess.run(
-            [clang, '-O2', '-o', exe_path, ir_path, runtime_c],
+            [clang, '-O2', '-o', exe_path, ir_path, runtime_o],
             capture_output=True, text=True, encoding='utf-8', errors='replace'
         )
         

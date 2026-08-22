@@ -30,6 +30,11 @@ sys.path.insert(0, 'src')
 
 from llvm.compiler import compile_source_typed  # type: ignore[import]
 
+# 运行时目标码整场只编一次（缘由与实测数字见 tests/llvm运行时.py 头部注释）
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from llvm运行时 import 取运行时对象  # type: ignore[import]
+
+
 
 # ================================================================
 # 编译器探测
@@ -378,10 +383,10 @@ def run_net_test(name, code, expected_output=None, expected_returncode=0, timeou
 
     if CLANG_PATH:
         # ---- clang 方式：编译到 exe 再运行 ----
-        runtime_c = 'src/llvm/runtime_typed.c'
+        runtime_o = 取运行时对象(CLANG_PATH)
         exe_path = f'tests/_taskB_{name}.exe'
         result = subprocess.run(
-            [CLANG_PATH, '-O2', '-o', exe_path, ir_path, runtime_c, '-lws2_32'],
+            [CLANG_PATH, '-O2', '-o', exe_path, ir_path, runtime_o, '-lws2_32'],
             capture_output=True, text=True, encoding='utf-8', errors='replace'
         )
         if result.returncode != 0:
