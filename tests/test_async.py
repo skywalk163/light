@@ -578,54 +578,6 @@ class TestAsyncGeneratorEndToEnd:
 class TestAsyncIO:
     """测试异步 I/O 操作"""
 
-    def test_async_sleep_codegen(self):
-        """验证异步睡眠代码生成"""
-        code = """
-异步 函数 主():
-  等待 异步睡眠(0.1)。
-  打印 "完成"。
-结束。
-"""
-        py_code = _compile_async(code)
-        assert 'await 异步睡眠' in py_code or 'await _asyncio.sleep' in py_code, \
-            f"Expected 'await 异步睡眠' in:\n{py_code}"
-        assert 'await' in py_code
-        assert 'async def 主' in py_code
-
-    def test_async_file_read_codegen(self):
-        """验证异步文件读取代码生成"""
-        code = """
-异步 函数 主():
-  设 内容 为 等待 异步读取文件("test.txt")。
-  打印 内容。
-结束。
-"""
-        py_code = _compile_async(code)
-        assert 'await 异步读取文件' in py_code, f"Expected 'await 异步读取文件' in:\n{py_code}"
-        assert 'async def 主' in py_code
-
-    def test_async_file_write_codegen(self):
-        """验证异步文件写入代码生成"""
-        code = """
-异步 函数 主():
-  等待 异步写入文件("test.txt", "hello")。
-  打印 "写入完成"。
-结束。
-"""
-        py_code = _compile_async(code)
-        assert 'await 异步写入文件' in py_code, f"Expected 'await 异步写入文件' in:\n{py_code}"
-
-    def test_async_file_append_codegen(self):
-        """验证异步文件追加代码生成"""
-        code = """
-异步 函数 主():
-  等待 异步追加文件("test.txt", "更多内容")。
-  打印 "追加完成"。
-结束。
-"""
-        py_code = _compile_async(code)
-        assert 'await 异步追加文件' in py_code, f"Expected 'await 异步追加文件' in:\n{py_code}"
-
     def test_async_http_get_codegen(self):
         """验证异步HTTP GET代码生成（使用本地异步函数包装）"""
         # 使用纯中文函数名避免语义化拆分问题

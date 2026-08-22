@@ -493,7 +493,7 @@ def compile_light(source_path: str, output_path: str = None, verbose: bool = Fal
     if not sys.platform.startswith('win'):
         link_args.append('-lm')
     if sys.platform == 'win32':
-        link_args.append('-lws2_32')
+        link_args.extend(['-lws2_32', '-lsecur32', '-lcrypt32'])  # B2-4: secur32/crypt32 for Schannel TLS
     # LTO 链接参数
     if lto:
         link_args.append('-flto')
@@ -641,7 +641,7 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
     if not sys.platform.startswith('win'):
         link_args.append('-lm')
     if sys.platform == 'win32':
-        link_args.append('-lws2_32')
+        link_args.extend(['-lws2_32', '-lsecur32', '-lcrypt32'])  # B2-4: secur32/crypt32 for Schannel TLS
     if lto:
         link_args.append('-flto')
 
@@ -1171,7 +1171,7 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
     if not sys.platform.startswith('win'):
         link_args.append('-lm')
     if sys.platform == 'win32':
-        link_args.append('-lws2_32')
+        link_args.extend(['-lws2_32', '-lsecur32', '-lcrypt32'])  # B2-4: secur32/crypt32 for Schannel TLS
     if lto:
         link_args.append('-flto')
 

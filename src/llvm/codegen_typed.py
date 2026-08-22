@@ -447,6 +447,21 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             # 事件循环 (Task B3)
             f'declare void @dv_coro_await_io(ptr, i32, i32)',
             f'declare void @dv_coro_sleep(ptr, i32)',
+            # ---- 原生 TLS (Task B2-4) ----
+            f'declare ptr @dv_tls_wrap(i32, ptr)',
+            f'declare i32 @dv_tls_handshake(ptr)',
+            f'declare i32 @dv_tls_send(ptr, ptr)',
+            f'declare void @dv_tls_recv(ptr, ptr, i32)',
+            f'declare void @dv_tls_free(ptr)',
+            f'declare i32 @dv_tls_set_verify(ptr, i32)',
+            f'declare i32 @dv_tls_add_trusted_cert_file(ptr)',
+            f'declare i32 @dv_tls_want_event(ptr)',
+            f'declare i32 @dv_tls_is_ready(ptr)',
+            f'declare i32 @dv_tls_flush_public(ptr)',
+            f'declare ptr @dv_tls_last_error()',
+            f'declare ptr @dv_poller_last_error()',
+            f'declare ptr @dv_poller_backend()',
+            f'declare i32 @dv_poller_count(ptr)',
             f'declare void @dv_scheduler_run_event_loop()',
             f'declare void @dv_platform_sleep(i32)',
         ]
@@ -1774,6 +1789,125 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                         fallback = self.new_label(f'io_resume_{point_num}')
                         self.emit(f'{fallback}:')
             return self._create_int_dv('0'), 'dv'
+
+        # ---- 原生 TLS 内置函数 (Task B2-4) ----
+        # 语义与 socket 家族对齐：句柄用 type=8 REF 装指针，返回码走 INT，
+        # 收数据走 STR。握手返回 0=完成 / 1=WANT_READ / 2=WANT_WRITE / -1=错误，
+        # 配合 `等待事件tls` + `await_io` 就能在事件循环里非阻塞握手。
+        if name in ('包装tls', 'tls_wrap'):
+            if len(args) >= 2:
+                fd_i64 = self.new_register()
+                self.emit(f'{fd_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                fd_i32 = self.new_register()
+                self.emit(f'{fd_i32} = trunc i64 {fd_i64} to i32')
+                host_ptr = self._extract_ptr_from_dv(args[1])
+                tls_ptr = self.new_register()
+                self.emit(f'{tls_ptr} = call ptr @dv_tls_wrap(i32 {fd_i32}, ptr {host_ptr})')
+                slot = self._new_dv_slot()
+                self.emit(f'call void @dv_int(ptr {slot}, i64 0)')
+                t_ptr = self.new_register()
+                self.emit(f'{t_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {slot}, i32 0, i32 0')
+                self.emit(f'store i32 8, ptr {t_ptr}')
+                s_ptr = self.new_register()
+                self.emit(f'{s_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {slot}, i32 0, i32 3')
+                self.emit(f'store ptr {tls_ptr}, ptr {s_ptr}')
+                return self._load_dv(slot), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        _tls_int_unary = {
+            ('握手tls', 'tls_handshake'): 'dv_tls_handshake',
+            ('等待事件tls', 'tls_want_event'): 'dv_tls_want_event',
+            ('就绪tls', 'tls_is_ready'): 'dv_tls_is_ready',
+            ('冲刷tls', 'tls_flush'): 'dv_tls_flush_public',
+        }
+        for _names, _cfunc in _tls_int_unary.items():
+            if name in _names:
+                if args:
+                    t_ptr = self._extract_ptr_from_dv(args[0])
+                    ret = self.new_register()
+                    self.emit(f'{ret} = call i32 @{_cfunc}(ptr {t_ptr})')
+                    ret_i64 = self.new_register()
+                    self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                    return self._create_int_dv(ret_i64), 'dv'
+                return self._create_int_dv('-1'), 'dv'
+
+        if name in ('发送tls', 'tls_send'):
+            if len(args) >= 2:
+                t_ptr = self._extract_ptr_from_dv(args[0])
+                data_ptr = self._extract_ptr_from_dv(args[1])
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_tls_send(ptr {t_ptr}, ptr {data_ptr})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        if name in ('接收tls', 'tls_recv'):
+            if len(args) >= 2:
+                t_ptr = self._extract_ptr_from_dv(args[0])
+                mb_i64 = self.new_register()
+                self.emit(f'{mb_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
+                mb_i32 = self.new_register()
+                self.emit(f'{mb_i32} = trunc i64 {mb_i64} to i32')
+                result_slot = self._new_dv_slot()
+                self.emit(f'call void @dv_tls_recv(ptr {result_slot}, ptr {t_ptr}, i32 {mb_i32})')
+                return self._load_dv(result_slot), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
+        if name in ('释放tls', 'tls_free'):
+            if args:
+                t_ptr = self._extract_ptr_from_dv(args[0])
+                self.emit(f'call void @dv_tls_free(ptr {t_ptr})')
+            return self._create_int_dv('0'), 'dv'
+
+        if name in ('校验tls', 'tls_set_verify'):
+            if len(args) >= 2:
+                t_ptr = self._extract_ptr_from_dv(args[0])
+                en_i64 = self.new_register()
+                self.emit(f'{en_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
+                en_i32 = self.new_register()
+                self.emit(f'{en_i32} = trunc i64 {en_i64} to i32')
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_tls_set_verify(ptr {t_ptr}, i32 {en_i32})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        if name in ('信任证书tls', 'tls_add_trusted_cert'):
+            if args:
+                path_ptr = self._extract_ptr_from_dv(args[0])
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_tls_add_trusted_cert_file(ptr {path_ptr})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        if name in ('错误tls', 'tls_last_error'):
+            err_ptr = self.new_register()
+            self.emit(f'{err_ptr} = call ptr @dv_tls_last_error()')
+            return self._create_str_dv(err_ptr), 'dv'
+
+        if name in ('poller错误', 'poller_last_error'):
+            err_ptr = self.new_register()
+            self.emit(f'{err_ptr} = call ptr @dv_poller_last_error()')
+            return self._create_str_dv(err_ptr), 'dv'
+
+        if name in ('poller后端', 'poller_backend'):
+            b_ptr = self.new_register()
+            self.emit(f'{b_ptr} = call ptr @dv_poller_backend()')
+            return self._create_str_dv(b_ptr), 'dv'
+
+        if name in ('poller计数', 'poller_count'):
+            if args:
+                p_ptr = self._extract_ptr_from_dv(args[0])
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_poller_count(ptr {p_ptr})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
         return None
 
     def _gen_typed_list_from_builtin_args(self, args: List[str]) -> Tuple[str, str]:
@@ -2356,6 +2490,32 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     # 语句生成（重写，使用 LightValue）
     # ============================================================
 
+    # A2-1：AstAdapter（src/compiler.py:305-307）对它不认识的 v3 节点不报错，
+    # 而是包成 `ExpressionStatement(Identifier("<unknown:XXX>"))`。原生腿于是把
+    # `全局 计数。`/`生成 X。` 编成一次标识符取值，既不实现也不提示——产物行为错误
+    # 却编译成功。下面这个前缀就是那道伪装的唯一识别特征。
+    _ADAPTER_UNKNOWN_PREFIX = '<unknown:'
+
+    # 转译后端的正确调用方式，所有拒绝文案共用一份，避免文案漂移
+    _FALLBACK_HINT = '原生后端暂不支持，请用转译后端（python -m cli.light_unified run）'
+
+    @staticmethod
+    def _stmt_source_line(stmt) -> str:
+        """取语句的源码行号；取不到就说明取不到，不许伪造一个 0 出来。"""
+        line = getattr(stmt, 'lineno', None)
+        if not line:
+            # AstAdapter 造 ExpressionStatement 时不带行号，内层表达式也没有
+            inner = getattr(stmt, 'expression', None)
+            line = getattr(inner, 'lineno', None) if inner is not None else None
+        return str(line) if line else '未知（适配层未保留行号）'
+
+    def _reject_unsupported_stmt(self, type_name: str, stmt):
+        """原生后端遇到未实现的语句类型：显式炸，不许静默丢弃。"""
+        raise NotImplementedError(
+            f"原生后端暂不支持语句类型「{type_name}」"
+            f"（源码行 {self._stmt_source_line(stmt)}）：{self._FALLBACK_HINT}"
+        )
+
     def _gen_statement(self, stmt):
         if stmt is None:
             return
@@ -2392,6 +2552,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self._gen_typed_throw(stmt)
         elif isinstance(stmt, ast.ExpressionStatement):
             expr = stmt.expression
+            # A2-1：先拆掉适配层的伪装——`<unknown:XXX>` 不是标识符，是一条被
+            # 悄悄降级的语句，必须报出它原来的 v3 类型名。
+            if isinstance(expr, ast.Identifier) and isinstance(expr.name, str) \
+                    and expr.name.startswith(self._ADAPTER_UNKNOWN_PREFIX):
+                inner = expr.name[len(self._ADAPTER_UNKNOWN_PREFIX):].rstrip('>')
+                self._reject_unsupported_stmt(inner, stmt)
             if isinstance(expr, ast.FunctionCall) and isinstance(expr.name, ast.PropertyAccess):
                 method_name = expr.name.property_name
                 obj = expr.name.obj
@@ -2407,6 +2573,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             pass
         elif hasattr(ast, 'AsyncScope') and isinstance(stmt, ast.AsyncScope):
             self._gen_async_scope(stmt)
+        else:
+            # A2-1：链尾兜底。以前这里什么都没有，未知语句被静默吃掉。
+            self._reject_unsupported_stmt(type(stmt).__name__, stmt)
 
     def _gen_typed_var_decl(self, stmt: ast.VariableDeclaration):
         self.alloca_local(stmt.name)

@@ -413,18 +413,48 @@ class ParserExprMixin:
         
         return left
     
+    # P0（A2-3 续）：这些关键字是**修饰符**，永远不可能是一个值。
+    #
+    # 背景：`异步` 是关键字，凡是以它开头又没进 src/lexer.py 复合词表的名字
+    # （`异步读取二进制`/`异步写入二进制`/`异步HTTP获取`/`异步任务等待`/
+    # `异步任务取消`）都会被切成 KEYWORD `异步` + IDENTIFIER 余下部分。
+    # 切开之后 `等待 异步任务取消(x)` 实测编成两条语句：
+    #     果 = await 异步        ← 不存在的名字
+    #     异步任务取消 的实参调用结果被丢弃
+    # 一路 PARSE-OK，属于最高优先级的静默错编。
+    #
+    # 为什么在这里拦而不是继续往词法白名单里加名字：加名字只能解决已知的
+    # 那几个，用户自己写 `异步取数()` 一样中招；而 `异步` 在**表达式位置**
+    # 从来没有合法含义——`异步 运行 主()`、`异步 段落 X()`、`异步 遍历 …`
+    # 全部在语句层处理，不经过 _parse_primary。所以这里拦是通则，且不可能
+    # 误伤任何原本能过的写法（反跑护栏见
+    # tests/test_frontend_blockers_run.py::test_p0_异步修饰符不许当值用）。
+    _MODIFIER_ONLY_KEYWORDS = {'异步'}
+
     def _parse_primary(self) -> ASTNode:
         """解析基本表达式"""
         tok = self._current()
         
         if tok is None:
             return self._error(f"意外的输入结束")
+
+        if (tok.type == TokenType.KEYWORD
+                and tok.value in self._MODIFIER_ONLY_KEYWORDS):
+            return self._error(
+                f"`{tok.value}` 是修饰符，不能当值使用。"
+                f"常见原因：名字以 `{tok.value}` 开头但编译器不认识它，"
+                f"于是被切成 `{tok.value}` + 余下部分。"
+                f"请改用有真映射的名字（异步睡眠/并发等待/限时/创建任务/首个完成），"
+                f"或把自定义异步段落改成不以 `{tok.value}` 开头的名字。",
+
+                tok.line, tok.col)
         
         # 一元运算符：非（逻辑非）
         if tok.type == TokenType.KEYWORD and tok.value == '非':
             self._consume(TokenType.KEYWORD, '非')
             operand = self._parse_primary()
             return UnaryOp('非', operand)
+
         
         # 一元负号
         if tok.type == TokenType.MINUS:
@@ -450,21 +480,32 @@ class ParserExprMixin:
         # 判为编译器缺陷。DOT 归入「后续是 await 表达式」一侧即可，
         # RPAREN/NEWLINE 等仍留在复合标识符一侧，`等待价值` 零影响。
         # v7 单 31-C：`等` 是 L0 冻结表承诺的 await 单字别名，与 `等待` 同分支处理。
+        #
+        # P3（A2-3 续）：判据补上**源码相邻**这一条。原判据只看下一个 token 的类型，
+        # 于是 `设 结果 为 等待 任务甲。` —— peek2 是 PERIOD，不是 LPAREN/DOT ——
+        # 落进复合标识符分支，静默编成 `结果 = 等待任务甲`（一个不存在的名字）。
+        # 这是静默错编：`等待 限时(...)`/`等待 报()` 之所以看不出问题，是因为它们
+        # 后面跟着 LPAREN。真正区分「一个被词法切开的词」和「await 一个变量」的，
+        # 是**中间有没有空白**：`等待价值` 两个 token 首尾相接（col 7+len 2 == 9），
+        # `等待 任务甲` 中间有空格（col 7+2 == 9 != 10）。相邻才拼名字。
         if tok.type == TokenType.KEYWORD and tok.value in ('等待', '等'):
             kw = tok.value
             next_tok = self._peek(1)
             if next_tok and next_tok.type == TokenType.IDENTIFIER:
                 peek2 = self._peek(2)
-                if peek2 and peek2.type not in (TokenType.LPAREN, TokenType.DOT):
+                紧邻 = (next_tok.line == tok.line
+                        and next_tok.col == tok.col + len(kw))
+                if 紧邻 and peek2 and peek2.type not in (TokenType.LPAREN, TokenType.DOT):
                     # 复合标识符：等待 + 价值 = 等待价值（`等` 因 compound-safe 一般在
                     # 词法层就并成整词，极少走到这里；保留分支与 `等待` 语义对齐）
                     self._consume(TokenType.KEYWORD, kw)
                     ident = self._consume(TokenType.IDENTIFIER).value
                     return Identifier(kw + ident)
-                # 等待 函数名() / 等待 对象.成员 → await 表达式
+                # 等待 函数名() / 等待 对象.成员 / 等待 变量 → await 表达式
                 self._consume(TokenType.KEYWORD, kw)
                 expr = self._parse_expr()
                 return AwaitExpr(expr)
+
             self._consume(TokenType.KEYWORD, kw)
             expr = self._parse_expr()
             return AwaitExpr(expr)

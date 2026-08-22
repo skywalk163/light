@@ -152,3 +152,81 @@
 | 日期 | 版本 | 变更 |
 |------|------|------|
 | 2026-10-29 | v6.0.0 | 初始版本，基于 v6.0 发布时的已知问题 |
+| 2026-08-22 | 任务 A2 第二轮 | 新增第九节（原生后端未支持语句清单）、第十节（语言层本轮口径变更） |
+
+---
+
+## 九、原生（LLVM）后端未支持的语句类型清单
+
+**口径**：这里说的「未支持」= 用 `python -m cli.light_unified compile`（原生/LLVM
+后端）会**明确报错**。同一份源码走转译后端（`python -m cli.light_unified run`）
+大多是正常的——两个后端的能力面不一样，不要互相推断。
+
+改动前这份清单不存在，因为**根本报不出来**：`TypedLLVMCodeGen._gen_statement` 的
+`isinstance` 链没有 `else`，不认识的语句被静默丢弃，编译成功、IR 生成、程序少干
+一件事而无任何提示。本轮补了链尾兜底，并拆掉了上游 `AstAdapter` 的一层伪装
+（无转换器的 v3 节点被包成 `ExpressionStatement(Identifier("<unknown:XXX>"))`，
+在后端看起来是一条合法表达式语句）。
+
+### 9.1 两个漏点的位置
+
+| 层 | 位置 | 原行为 | 现行为 |
+|----|------|--------|--------|
+| 上游 | `src/compiler.py::AstAdapter.convert` | 无转换器 → 包成 `<unknown:XXX>` | 后端识破并报出原 v3 类型名 |
+| 下游 | `src/llvm/codegen_typed.py::_gen_statement` | 链尾无 `else`，静默丢弃 | `NotImplementedError`，文案含类型名 + 指向转译后端 |
+
+### 9.2 静态清单
+
+上游（v3 语句类节点共 27 个，其中 **10 个**没有适配层转换器）：
+`AssertStmt`、`DecoratorDefinition`、`EmbedBlock`、`FFIFunctionDecl`、
+`FFIVarArgsDecl`、`PassStmt`、`RunAsyncStmt`、`ScopeDeclStmt`、
+`TypeCheckToggleStmt`、`YieldStmt`。
+
+下游（`_gen_statement` 只有 **16** 条分支：`VariableDeclaration`、`Assignment`、
+`SelfAssignment`、`CompoundAssignment`、`IfStatement`、`ForeachStatement`、
+`WhileStatement`、`ReturnStatement`、`BreakStatement`、`ContinueStatement`、
+`PrintStatement`、`TryStatement`、`ThrowStatement`、`ExpressionStatement`、
+`ImportStatement`、`AsyncScope`）。适配层能产出、但这 16 条都不覆盖的 legacy
+节点有 **28 种**，落链尾兜底，其中作为语句出现的主要是
+`MatchStatement`、`WithStatement`、`DestructuringAssignment`、`SegmentDefinition`
+（嵌套段落）、`InterfaceDefinition`、`MethodDefinition`、`AttributeDeclaration`。
+
+**注意 `ImportStatement` 是 `pass`**：原生后端把导入语句**编成空操作**，既不报错
+也不加载模块。它不在「会报错」清单里，属于另一类问题（静默无效），本轮未动。
+
+### 9.3 实测分桶（24 条片段，`compile_source_typed` 直跑）
+
+| 桶 | 条数 | 成员 |
+|----|------|------|
+| 能编 | 16 | 赋值/变量声明、`如果`、`遍历`、`当`、段落、`返回`、`跳出`、`继续`、`尝试`/`捕获`、`抛出`、`打印`、`引`（空操作）、类（非嵌套）、接口、`导出`、`延迟` |
+| 明确拒绝 | 6 | `全局`(ScopeDeclStmt)、`外层`(先撞 SegmentDefinition)、`生成`(YieldStmt)、`断言`(AssertStmt)、类型别名(TypeAlias)、嵌套类(ClassDefinitionWithNested) |
+| 更早的层拦下 | 2 | `匹配`（v3 解析器语法就没通）、`异步域`（同上） |
+
+`外层` 报的是 `SegmentDefinition` 而不是 `ScopeDeclStmt`：`外层` 只能写在嵌套
+段落里，而**嵌套段落本身原生就不支持**，所以先被它拦下。报真正拦下它的那一层，
+不编造。
+
+守卫在 `tests/unit/test_llvm_stmt_coverage.py`（正跑 6 条 + 反跑 5 条 + 2 条静态
+断言，共 13 个用例）。
+
+### 9.4 已知缺口
+
+- **拒绝文案里没有源码行号**。`AstAdapter` 转换时不带 `lineno`，后端拿不到行号，
+  文案里如实写成「源码行 未知（适配层未保留行号）」。要真给行号得改
+  `src/compiler.py`（本轮范围之外）。
+
+---
+
+## 十、语言层本轮口径变更（任务 A2 第二轮）
+
+| 项 | 口径 |
+|----|------|
+| `外层` / `全局` | 词法器可能把它们与后面的名字切成多个 token，作用域声明的识别改为按 token 跨度判定，不再依赖「整体成一个词」 |
+| 异步原语 | `异步睡眠`/`限时`/`创建任务`/`并发等待`/`首个完成` 映射到 `asyncio` 对应函数，按需插 `import asyncio` |
+| `异步读取文件`/`异步写入文件`/`异步追加文件` | **只有词法保护、没有实现**：整体仍成一个词，调用时报 `NameError` 指向完整名字。实现需要动 `stdlib/`，不在本轮范围 |
+| 泛型 | 类 / 段落 / 类型别名的 `generic_params` 现在会产出 `TypeVar` + `Generic[T]`；段落只登记 `TypeVar`（`def f[T]` 要 3.12+） |
+| 嵌套类 | 类体内允许 `类`，转译后端可用；原生后端明确拒绝（见 9.3） |
+| 段落体内的延迟导入 | 缩进行的导入**不计入模块级依赖**，可用来打破环；顶格写的导入照旧算模块级依赖、照旧拒绝成环，没有绕过开关 |
+| `?` 可空后缀 | **永不支持**。写 `设 甲: 整数? 为 无。` 报错并指向 `可空 整数` |
+| `异步` 在表达式位置 | 一律**编译期拒绝**。凡是以 `异步` 开头又不在词法复合词表里的名字（`异步读取二进制`、用户自造的 `异步取数` 等）会被切成 `异步` + 余下部分，改动前静默编成 `await 异步` 加一条结果被丢弃的调用；现在报「`异步` 是修饰符」。`异步 段落`/`异步 遍历`/`异步 运行` 走语句层，不受影响 |
+| `等待 <名字>` | 判据是**源码是否相邻**：`等待价值`（两 token 首尾相接）仍当一个名字，`等待 任务甲`（中间有空白）编成 `await 任务甲`。改动前后者被静默拼成不存在的名字 `等待任务甲` |
