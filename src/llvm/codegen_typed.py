@@ -103,7 +103,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 临时槽位池：使用单个数组替代多个 alloca，避免循环中动态栈分配
         self._temp_slot_pool = None  # 池数组的指针
         self._temp_slot_index = 0    # 当前可用槽位索引
-        self._temp_slot_pool_size = 2048  # 池大小（每个函数最多 2048 个临时槽位）
+        # 池大小上限（每个函数最多这么多临时槽位；真实分配量按用量回填，见
+        # _begin_temp_slot_pool / _emit_temp_slot_pool）
+        self._temp_slot_pool_size = 2048
+        # 占位 alloca 在 self._lines 里的下标；函数体发射完毕后回填真实槽位数
+        self._temp_slot_pool_line = None
 
     @property
     def is_windows(self) -> bool:
@@ -482,7 +486,42 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     # LightValue 堆栈操作
     # ============================================================
 
+    def _begin_temp_slot_pool(self):
+        """在当前位置放下临时槽位池的**占位** alloca，并记住它的行号。
+
+        为什么要延迟填数：`alloca {LIGHTVALUE_STRUCT}, i32 2048` 是发射时就写死的，
+        LIGHTVALUE_STRUCT 对齐后 48 字节，48 x 2048 ≈ 96KB/帧——递归稍深就爆栈
+        （Windows 默认 1MB 栈只够约 10 层）。而"这个函数到底用了几个临时槽位"要等
+        函数体全部发射完才知道（就是 self._temp_slot_index 的终值）。
+        所以先发一行占位、把 self._lines 的下标记进 self._temp_slot_pool_line，
+        函数体收尾时由 self._emit_temp_slot_pool() 用真实用量回填。
+
+        占位行本身写成合法的 `i32 1`：万一回填没跑到（异常等），产出的仍是合法 IR
+        而不是语法垃圾。
+        """
+        self._temp_slot_pool = self.new_register()
+        self._temp_slot_pool_line = len(self._lines)
+        self.emit(f'{self._temp_slot_pool} = alloca {LIGHTVALUE_STRUCT}, i32 1'
+                  f'  ; 占位：真实槽位数由 _emit_temp_slot_pool() 回填')
+
+    def _emit_temp_slot_pool(self):
+        """用本函数真实用到的槽位数回填临时槽位池的 alloca 行。
+
+        必须在函数体（含所有 _new_dv_slot 调用）发射完毕、`}` 之前调用。
+        """
+        if self._temp_slot_pool_line is None or self._temp_slot_pool is None:
+            return
+        idx = self._temp_slot_pool_line
+        self._temp_slot_pool_line = None
+        if not (0 <= idx < len(self._lines)):
+            return
+        # 一个槽位都没用也要留 1 个：alloca 的元素个数为 0 虽然合法，但没必要
+        # 让下游工具面对零长数组
+        真实用量 = max(self._temp_slot_index, 1)
+        self._lines[idx] = f'{self._temp_slot_pool} = alloca {LIGHTVALUE_STRUCT}, i32 {真实用量}'
+
     def _new_dv_slot(self) -> str:
+
         """从临时槽位池中分配一个新的 LightValue 槽位（避免动态 alloca 导致栈溢出）"""
         if self._temp_slot_pool is None:
             reg = self.new_register()
@@ -2949,8 +2988,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit('entry:')
         
         # 分配临时槽位池
-        self._temp_slot_pool = self.new_register()
-        self.emit(f'{self._temp_slot_pool} = alloca {LIGHTVALUE_STRUCT}, i32 {self._temp_slot_pool_size}')
+        self._begin_temp_slot_pool()
 
         self._collect_vars_from_stmts(self._module_statements)
         for vname in self._local_vars.keys():
@@ -3022,6 +3060,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self._gen_global_statement(stmt)
 
         self.emit('ret void')
+        # 函数体发射完毕，用真实槽位用量回填池大小
+        self._emit_temp_slot_pool()
         self.emit('}')
         self.emit_blank()
 
@@ -3071,8 +3111,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit('entry:')
         
         # 分配临时槽位池（必须是 entry 块的第一个指令，避免动态 alloca）
-        self._temp_slot_pool = self.new_register()
-        self.emit(f'{self._temp_slot_pool} = alloca {LIGHTVALUE_STRUCT}, i32 {self._temp_slot_pool_size}')
+        self._begin_temp_slot_pool()
 
         # 生成函数调试信息（DISubprogram）
         if self._debug:
@@ -3127,6 +3166,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'call void @dv_null(ptr %result)')
             self.emit('call void @dv_stack_pop()')
             self.emit('ret void')
+        # 函数体发射完毕，用真实槽位用量回填池大小
+        self._emit_temp_slot_pool()
         self.emit('}')
         self.emit_blank()
         self._seg_result_ptr = None
@@ -3228,8 +3269,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit('entry:')
         
         # 分配临时槽位池
-        self._temp_slot_pool = self.new_register()
-        self.emit(f'{self._temp_slot_pool} = alloca {LIGHTVALUE_STRUCT}, i32 {self._temp_slot_pool_size}')
+        self._begin_temp_slot_pool()
         
         # 收集变量
         self._collect_vars_from_stmts(body)
@@ -3297,6 +3337,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'{switch_end_label}:')
         self.emit(f'ret void')
         
+        # 函数体发射完毕，用真实槽位用量回填池大小
+        self._emit_temp_slot_pool()
         self.emit('}')
         self.emit_blank()
         
@@ -3677,8 +3719,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if self._debug:
             self._gen_debug_function('main', line=1, param_names=['argc', 'argv'])
 
-        self._temp_slot_pool = self.new_register()
-        self.emit(f'{self._temp_slot_pool} = alloca {LIGHTVALUE_STRUCT}, i32 {self._temp_slot_pool_size}')
+        self._begin_temp_slot_pool()
 
         self.emit('call void @dv_init_args(i32 %argc, ptr %argv)')
         self.emit('call void @__light_init()')
@@ -3748,6 +3789,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                     break
 
         self.emit('ret i32 0')
+        # 函数体发射完毕，用真实槽位用量回填池大小
+        self._emit_temp_slot_pool()
         self.emit('}')
         self.emit_blank()
         # 结束 main 函数调试作用域

@@ -293,12 +293,13 @@ class OptimizationPipeline:
             r'%(\d+) = load i8\*, i8\*\* %(\d+)\s*\n\s*store i8\* %\1, i8\*\* %\2',
             '', ir
         )
-        # 消除连续的 br 跳转
-        ir = re.sub(
-            r'br label %(\w+)\s*\n\s*\1:',
-            r'\1:',
-            ir
-        )
+        # 注意：这里原本有一条「消除连续的 br 跳转」规则：
+        #     re.sub(r'br label %(\w+)\s*\n\s*\1:', r'\1:', ir)
+        # 它把无条件跳转删掉、只留目标标签，于是前驱基本块失去终结指令，
+        # 产出的 IR 非法（clang 在标签行报 "expected instruction opcode"）。
+        # 而且窥孔层面拿不到前驱个数，无法判断这条 br 是否是目标块的唯一入口，
+        # 单前驱才可以删。删块合并的活儿交给 _merge_blocks_pass（那里做引用
+        # 计数），此处不再做这个替换。
         # 消除冗余的 alloca（分配后立即 store 再 load）
         ir = re.sub(
             r'%(\d+) = alloca i8\*\s*\n\s*store i8\* (%\w+), i8\*\* %\1\s*\n\s*%(\d+) = load i8\*, i8\*\* %\1',
@@ -362,21 +363,96 @@ class OptimizationPipeline:
 
         return ir
 
+    # 标签名字符集：LLVM 的裸标识符允许字母数字与 [-$._]
+    _LABEL_CHARS = r'[\w.$-]+'
+
+    @staticmethod
+    def _count_label_refs(text: str) -> Dict[str, int]:
+        """统计文本里每个基本块标签被引用（即被当作前驱目标）的次数。
+
+        必须覆盖本仓真实发射/消费的**全部**引用形式，漏一种就会把多前驱
+        误判成单前驱、进而删掉不该删的 br：
+
+        1. `br label %X`                       —— 无条件跳转（本文件 _merge_blocks_pass）
+        2. `br i1 %c, label %X, label %Y`      —— 条件跳转（opt_passes.py:349 消费此形态）
+        3. `switch i32 %r, label %D [ i32 0, label %X ... ]`
+           —— codegen_typed.py:3276 把 switch 发射成**单行**（case 之间以空格分隔），
+              但 src/llvm/core.py 的验证器（commit e27277c2）已按方括号配平支持多行
+              形态，所以这里对单行/多行都必须成立。做法是不去解析 switch 的结构，
+              直接统计所有 `label %X`，default 与每个 case 各记一次。
+        4. `%r = phi i32 [ %v, %X ], [ 3, %Y ]`
+           —— phi 的来源块也是前驱（opt_passes.py:365/475、本文件 _loop_invariant_
+              code_motion_pass:486 都按这个形态匹配）。
+
+        第 1~3 类统一由 `label %X` 覆盖（invoke 的 to/unwind 目标同理）；第 4 类
+        单独扫方括号里 `, %X ]` 的形状——`[4 x i32]` 这类类型写法逗号后面不是 `%`，
+        不会误计。
+        """
+        counts: Dict[str, int] = {}
+        chars = OptimizationPipeline._LABEL_CHARS
+        for name in re.findall(rf'\blabel\s+%({chars})', text):
+            counts[name] = counts.get(name, 0) + 1
+        for name in re.findall(rf'\[[^\[\]]*?,\s*%({chars})\s*\]', text):
+            counts[name] = counts.get(name, 0) + 1
+        return counts
+
+    @staticmethod
+    def _label_ref_counts_by_line(lines: List[str]) -> List[Dict[str, int]]:
+        """给每一行配一张「其所属函数内」的标签引用计数表。
+
+        标签是函数作用域的：`entry` / `endif_2` 这类名字会在多个函数里重复出现，
+        跨函数合并统计会把单前驱错算成多前驱（偏保守、不产生非法 IR，但会白白
+        放过可合并的块）。函数外的行（全局声明等）退回整模块计数兜底。
+        """
+        module_table = OptimizationPipeline._count_label_refs('\n'.join(lines))
+        tables: List[Dict[str, int]] = [module_table] * len(lines)
+        n = len(lines)
+        i = 0
+        while i < n:
+            if re.match(r'\s*define\b', lines[i]):
+                j = i
+                # 函数体的收尾是单独一行的 `}`（结构体类型 `{ i32, ... }` 写在行内，
+                # 不会被误当成函数结尾）
+                while j < n and not re.match(r'\s*\}\s*$', lines[j]):
+                    j += 1
+                end = min(j, n - 1)
+                table = OptimizationPipeline._count_label_refs('\n'.join(lines[i:end + 1]))
+                for k in range(i, end + 1):
+                    tables[k] = table
+                i = end + 1
+            else:
+                i += 1
+        return tables
+
     @staticmethod
     def _merge_blocks_pass(ir: str) -> str:
-        """合并连续的基本块"""
+        """合并连续的基本块
+
+        只在「本行是 `br label %X`、下一行就是 `X:`、且 X 在本函数内**只被引用
+        一次**」时才合并。此时那唯一一次引用就是这条 br，删掉 br 之后标签变成
+        死标签，连标签行一起删掉才是真正的块合并——只删 br 留标签的话，前驱块
+        失去终结指令、后面又跟着一个标签行，产出的 IR 非法（clang 在标签行报
+        "expected instruction opcode"）。
+
+        目标标签被引用多次（别的 br / switch case / phi 还指着它）时，那条 br
+        是必需的终结指令，一律保留。
+        """
         lines = ir.split('\n')
+        ref_tables = OptimizationPipeline._label_ref_counts_by_line(lines)
+        chars = OptimizationPipeline._LABEL_CHARS
         result = []
         i = 0
         while i < len(lines):
             line = lines[i]
             next_line = lines[i + 1] if i + 1 < len(lines) else ''
-            br_match = re.match(r'\s*br label %(\w+)', line)
-            next_label_match = re.match(r'\s*(\w+):', next_line) if next_line else None
+            br_match = re.match(rf'\s*br label %({chars})\s*$', line)
+            next_label_match = re.match(rf'\s*({chars}):\s*$', next_line) if next_line else None
             if br_match and next_label_match and br_match.group(1) == next_label_match.group(1):
-                # 跳过 br 指令（合并到下一个块）
-                i += 1
-                continue
+                if ref_tables[i].get(br_match.group(1), 0) <= 1:
+                    # 单前驱：br 与标签行一起删掉，两块真正并成一块
+                    i += 2
+                    continue
+                # 多前驱：保留 br（否则当前块没有终结指令）
             result.append(line)
             i += 1
         return '\n'.join(result)
