@@ -267,24 +267,37 @@
     捕获 错误:
       抛 伪控制台错误("POSIX 平台缺少 pty 模块：" + str(错误))
     结束。
-    设 主从 为 pty.openpty()。
-    己.主fd 为 主从[0]。
-    己.从fd 为 主从[1]。
-    己.设窗口大小POSIX(己.宽度, 己.高度)。
     # forkpty：子进程自动 setsid + 接管控制终端（这是真 tty 的关键）
-    设 子pid 为 pty.fork()。
-    如果 子pid 等于 0:
+    #
+    # pty.fork() 返回的是 (pid, master_fd) 元组，**不是**裸 pid。原先写
+    # `设 子pid 为 pty.fork()` 再用 `子pid 等于 0` 判分支——元组永远不等于 0，
+    # 于是**子进程根本不进 execvp 分支**，而是当成父进程继续往下跑。
+    # 在 pytest-xdist 下的表现是 worker 被 fork 成两份、同一个 item 被上报两次，
+    # 整场 session 直接 INTERNALERROR（xdist load 调度器 list.remove 失败）。
+    # 这一处此前从未被执行过，所以谁都没发现（POSIX 腿在 FreeBSD 上更早就
+    # 死在 ioctl 请求号上了，压根到不了这里）。
+    #
+    # 另一处连带错：原先先 openpty() 开一对 fd、再 fork 出第二对 pty，
+    # 己.主fd 指着前者，而子进程的控制终端是后者——从 己.主fd 读永远是空。
+    # 现在只用 pty.fork() 这一对，主fd 取它返回的第二项。
+    设 分叉 为 pty.fork()。
+    如果 分叉[0] 等于 0:
       # 子进程：exec 命令；失败则退出码 127（绝不能回落到管道模式）
       尝试:
         os.execvp(命令数组[0], 命令数组)。
       捕获 错误:
         os._exit(127)。
       结束。
+      # execvp 正常时不会走到这里；真走到了说明 exec 没生效，
+      # 子进程绝不允许继续跑父进程的代码（那就是上面那个 fork 双跑缺陷）。
+      os._exit(127)。
     结束。
-    己.子pid 为 子pid。
-    os.close(己.从fd)。
+    己.子pid 为 分叉[0]。
+    己.主fd 为 分叉[1]。
     己.从fd 为 -1。
+    己.设窗口大小POSIX(己.宽度, 己.高度)。
     os.set_blocking(己.主fd, 假)。
+
     设 t 为 threading.Thread(空, 己.读循环POSIX, 空, [])。
     t.daemon 为 True。
     己.读线程 为 t。
