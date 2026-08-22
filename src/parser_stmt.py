@@ -278,6 +278,24 @@ class ParserStmtMixin:
         # 遍历循环：遍历 / 遍
         if tok.type == TokenType.KEYWORD and tok.value in ('遍历', '遍'):
             return self._parse_foreach_stmt()
+
+        # C3-6：`对于 … 在 …` 遍历写法（含 `对于 每个 X 在 [...]`）。
+        # 判定：文档从未承诺过这种写法（口径 9）。`对于` 在词法上不是关键字，
+        # 被切成 `对`(IDENTIFIER) + `于`(KEYWORD)，于是旧行为一路掉进表达式解析、
+        # 在冒号处报「无法识别的语法元素：'：'」，把用户往错误方向引。
+        # 这里识别出「对 + 于」这个 `对于` 的忠实切法，直接给指路文案。
+        # 只看这两个 token，绝不碰词法层（`对`/`于` 仍是单字，见
+        # tests/unit/test_lexer_compound_safe_alignment.py::TestDropSignaturesFixed::test_对于）。
+        if tok.type == TokenType.IDENTIFIER and tok.value == '对':
+            nxt = self._peek(1)
+            if nxt is not None and nxt.type == TokenType.KEYWORD and nxt.value == '于':
+                self._error(
+                    "「对于 … 在 …」不是光明支持的遍历写法。"
+                    "光明遍历循环的写法是「遍历 X 于 表：」，例如：遍历 项 于 列表：。"
+                    "另注意：推导式（列表/字典）的介词是「之/在」，"
+                    "遍历语句的介词是「于」，两者不要混用。",
+                    tok.line, tok.col, tok.value
+                )
         
         # 当循环：当
         if tok.type == TokenType.KEYWORD and tok.value == '当':
