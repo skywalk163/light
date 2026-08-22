@@ -404,14 +404,28 @@ class EchoServer:
 # 编译运行工具
 # ================================================================
 
-# 最近一次 run_net_test 的真实运行结果（用于让测试对输出做结构化断言，
-# 而不是只判「stdout 里有没有某个词」）
-_LAST_RUN = {'stdout': '', 'stderr': '', 'returncode': None}
+# 最近一次 run_net_test 的真实运行结果。用 RunResult 对象消除全局可变状态：
+# 调用方直接拿返回值的 .stdout_lines 做断言，不再依赖测试执行顺序。
+class RunResult:
+    """run_net_test 的返回值：既可当 bool 用（__bool__），又能拿结构化输出。"""
+    __slots__ = ('success', 'stdout', 'stderr', 'returncode')
 
+    def __init__(self, success, stdout='', stderr='', returncode=None):
+        self.success = success
+        self.stdout = stdout
+        self.stderr = stderr
+        self.returncode = returncode
 
-def last_stdout_lines():
-    """把最近一次运行的 stdout 切成非空行列表"""
-    return [ln.strip() for ln in _LAST_RUN['stdout'].splitlines() if ln.strip()]
+    def __bool__(self):
+        return self.success
+
+    def __repr__(self):
+        return f"RunResult(success={self.success}, returncode={self.returncode})"
+
+    @property
+    def stdout_lines(self):
+        """把 stdout 切成非空行列表"""
+        return [ln.strip() for ln in self.stdout.splitlines() if ln.strip()]
 
 
 def run_net_test(name, code, expected_output=None, expected_returncode=0, timeout=15,
@@ -432,7 +446,7 @@ def run_net_test(name, code, expected_output=None, expected_returncode=0, timeou
         ir = compile_source_typed(code, verbose=False, opt_level='O0')
     except Exception as e:
         print(f"IR 生成失败: {e}")
-        return False
+        return RunResult(False)
 
     # 保存 IR（_taskB2_ 前缀，供调试）
     ir_path = f'tests/_taskB2_{name}.ll'
@@ -452,7 +466,7 @@ def run_net_test(name, code, expected_output=None, expected_returncode=0, timeou
         if result.returncode != 0:
             print(f"clang 编译失败!\nstderr: {result.stderr[:3000]}")
             _cleanup(ir_path)
-            return False
+            return RunResult(False)
         print(f"编译成功 (clang)")
 
         try:
@@ -464,7 +478,7 @@ def run_net_test(name, code, expected_output=None, expected_returncode=0, timeou
         except subprocess.TimeoutExpired:
             print(f"运行超时 ({timeout}s)")
             _cleanup(ir_path, exe_path)
-            return False
+            return RunResult(False)
 
         stdout_str = run_result.stdout
         stderr_str = run_result.stderr
@@ -478,7 +492,7 @@ def run_net_test(name, code, expected_output=None, expected_returncode=0, timeou
         except Exception as e:
             print(f"MCJIT 执行失败: {e}")
             _cleanup(ir_path)
-            return False
+            return RunResult(False)
         print(f"执行成功 (MCJIT + MSVC DLL)")
         _cleanup(ir_path)
 
@@ -487,14 +501,10 @@ def run_net_test(name, code, expected_output=None, expected_returncode=0, timeou
         print(f"错误输出: {stderr_str}")
     print(f"返回码: {retcode}")
 
-    # 留给调用方做真实断言（不止「包含某子串」）
-    global _LAST_RUN
-    _LAST_RUN = {'stdout': stdout_str, 'stderr': stderr_str, 'returncode': retcode}
-
     # 检查返回码
     if retcode != expected_returncode:
         print(f"返回码不匹配: 期望 {expected_returncode}, 得到 {retcode}")
-        return False
+        return RunResult(False, stdout_str, stderr_str, retcode)
 
     # 检查输出：字符串按「包含」判，list/tuple 则每一条都必须包含
     if expected_output is not None:
@@ -503,9 +513,9 @@ def run_net_test(name, code, expected_output=None, expected_returncode=0, timeou
         for exp in expected_list:
             if exp not in stdout_str:
                 print(f"输出不匹配: 期望包含 '{exp}'")
-                return False
+                return RunResult(False, stdout_str, stderr_str, retcode)
 
-    return True
+    return RunResult(True, stdout_str, stderr_str, retcode)
 
 
 def _cleanup(*paths):
@@ -578,8 +588,9 @@ data = socket_recv(fd, 1024)
 输出(data)
 socket_close(fd)
 """
-            assert run_net_test("b1_large", code), "编译或运行失败"
-            lines = last_stdout_lines()
+            result = run_net_test("b1_large", code)
+            assert result, "编译或运行失败"
+            lines = result.stdout_lines
             assert lines, "没有任何输出"
             # 以前只断言 "A"*100，256 字节被截成 100 也算过；这里要求原样回来
             assert lines[0] == "A" * 256, \
@@ -602,8 +613,9 @@ ret = 连接socket(fd, "127.0.0.1", {port})
 输出(socket错误())
 socket_close(fd)
 """
-        assert run_net_test("b1_error", code), "编译或运行失败"
-        lines = last_stdout_lines()
+        result = run_net_test("b1_error", code)
+        assert result, "编译或运行失败"
+        lines = result.stdout_lines
         assert len(lines) >= 3, f"期望至少 3 行输出，实到 {lines}"
         assert lines[0] == "-1", f"连接失败应返回 -1，实到 {lines[0]}"
         # 错误码必须是非 0 整数：0 表示 runtime 根本没记错误
@@ -639,8 +651,9 @@ fd = 创建socket(2, 1)
 socket_close(fd)
 输出("销毁完成")
 """
-        assert run_net_test("b2_poller_basic", code), "编译或运行失败"
-        lines = last_stdout_lines()
+        result = run_net_test("b2_poller_basic", code)
+        assert result, "编译或运行失败"
+        lines = result.stdout_lines
         assert len(lines) >= 4, f"期望 4 行输出，实到 {lines}"
         # 后端必须是本轮三条之一，且是编译期宏选出来的那一条
         assert lines[0] in ("WSAPoll", "poll", "select"), f"未知 poller 后端: {lines[0]!r}"
@@ -678,8 +691,9 @@ data = socket_recv(fd1, 1024)
 socket_close(fd1)
 socket_close(fd2)
 """
-            assert run_net_test("b2_poller_select", code), "编译或运行失败"
-            lines = last_stdout_lines()
+            result = run_net_test("b2_poller_select", code)
+            assert result, "编译或运行失败"
+            lines = result.stdout_lines
             assert len(lines) >= 2, f"期望 2 行输出，实到 {lines}"
             # 以前完全没断言 ready 数：poller 返回 0（谁都没就绪）时靠 recv 阻塞也能过
             assert lines[0].isdigit(), f"就绪数不是整数: {lines[0]!r}"
@@ -714,8 +728,9 @@ class TestB3EventLoop:
 运行事件循环()
 输出("结束")
 """
-        assert run_net_test("b3_sleep", code), "编译或运行失败"
-        lines = last_stdout_lines()
+        result = run_net_test("b3_sleep", code)
+        assert result, "编译或运行失败"
+        lines = result.stdout_lines
         # 以前只断言 "sleep前"：协程在 yield 点之后再没恢复过也算过
         assert lines == ["开始", "sleep前", "sleep后", "结束"], \
             f"协程 yield/恢复顺序不对: {lines}"
@@ -752,8 +767,9 @@ class TestB3EventLoop:
 回显2()
 运行事件循环()
 """
-            assert run_net_test("b3_concurrent", code), "编译或运行失败"
-            lines = last_stdout_lines()
+            result = run_net_test("b3_concurrent", code)
+            assert result, "编译或运行失败"
+            lines = result.stdout_lines
             # 以前只断言 hello1：段落2 完全没跑（或事件循环卡死在段落1）也算过
             assert "hello1" in lines, f"段落1 没拿到回包: {lines}"
             assert "hello2" in lines, f"段落2 没拿到回包（事件循环没并发驱动）: {lines}"
@@ -794,8 +810,9 @@ class TestB3EventLoop:
 测试变量保持()
 运行事件循环()
 """
-            assert run_net_test("b3_var_preserve", code), "编译或运行失败"
-            lines = last_stdout_lines()
+            result = run_net_test("b3_var_preserve", code)
+            assert result, "编译或运行失败"
+            lines = result.stdout_lines
             # 以前断言 "42"：第一行的 42 就足够让它绿，而第二个 42 才是要测的那个
             assert lines == ["42", "test", "42"], \
                 f"await_io 前后局部变量未保活（或 echo 没回来）: {lines}"
@@ -815,8 +832,9 @@ class TestClangLegOnly:
         code = """
 输出("原生二进制活着")
 """
-        assert run_net_test("leg_clang", code, leg='clang'), "clang 腿失败"
-        assert last_stdout_lines() == ["原生二进制活着"]
+        result = run_net_test("leg_clang", code, leg='clang')
+        assert result, "clang 腿失败"
+        assert result.stdout_lines == ["原生二进制活着"]
 
 
 @skip_no_mcjit_leg
@@ -832,8 +850,9 @@ class TestMcjitLegOnly:
         code = """
 输出("MCJIT 进程内执行")
 """
-        assert run_net_test("leg_mcjit", code, leg='mcjit'), "MCJIT 腿失败"
-        assert last_stdout_lines() == ["MCJIT 进程内执行"]
+        result = run_net_test("leg_mcjit", code, leg='mcjit')
+        assert result, "MCJIT 腿失败"
+        assert result.stdout_lines == ["MCJIT 进程内执行"]
 
     def test_mcjit_verifies_socket_ir(self):
         """带 socket/poller 调用的 IR 也必须过 verify（外部声明签名对得上）"""
@@ -845,8 +864,9 @@ fd = 创建socket(2, 1)
 销毁poller(p)
 socket_close(fd)
 """
-        assert run_net_test("leg_mcjit_net", code, leg='mcjit'), "MCJIT 腿 socket IR 失败"
-        assert last_stdout_lines() == ["1"]
+        result = run_net_test("leg_mcjit_net", code, leg='mcjit')
+        assert result, "MCJIT 腿 socket IR 失败"
+        assert result.stdout_lines == ["1"]
 
 
 if __name__ == '__main__':

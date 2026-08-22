@@ -451,7 +451,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare ptr @dv_tls_wrap(i32, ptr)',
             f'declare i32 @dv_tls_handshake(ptr)',
             f'declare i32 @dv_tls_send(ptr, ptr)',
+            f'declare i32 @dv_tls_send_n(ptr, ptr, i32)',
             f'declare void @dv_tls_recv(ptr, ptr, i32)',
+            f'declare i32 @dv_tls_recv_status(ptr)',
             f'declare void @dv_tls_free(ptr)',
             f'declare i32 @dv_tls_set_verify(ptr, i32)',
             f'declare i32 @dv_tls_add_trusted_cert_file(ptr)',
@@ -1842,6 +1844,22 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._create_int_dv(ret_i64), 'dv'
             return self._create_int_dv('-1'), 'dv'
 
+        if name in ('发送tls长度', 'tls_send_n'):
+            """带长度的 TLS 发送：可发含 NUL 字节的二进制数据"""
+            if len(args) >= 3:
+                t_ptr = self._extract_ptr_from_dv(args[0])
+                data_ptr = self._extract_ptr_from_dv(args[1])
+                len_i64 = self.new_register()
+                self.emit(f'{len_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[2]}, 1')
+                len_i32 = self.new_register()
+                self.emit(f'{len_i32} = trunc i64 {len_i64} to i32')
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_tls_send_n(ptr {t_ptr}, ptr {data_ptr}, i32 {len_i32})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
         if name in ('接收tls', 'tls_recv'):
             if len(args) >= 2:
                 t_ptr = self._extract_ptr_from_dv(args[0])
@@ -1853,6 +1871,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'call void @dv_tls_recv(ptr {result_slot}, ptr {t_ptr}, i32 {mb_i32})')
                 return self._load_dv(result_slot), 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
+        if name in ('接收状态tls', 'tls_recv_status'):
+            """查询最近一次 dv_tls_recv 的状态：0=有数据 / 1=WANT_READ / -1=ERROR / -2=CLOSED"""
+            if args:
+                t_ptr = self._extract_ptr_from_dv(args[0])
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_tls_recv_status(ptr {t_ptr})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
 
         if name in ('释放tls', 'tls_free'):
             if args:
