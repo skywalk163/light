@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 test_bootstrap_light.py —— C2-3 新写的 5 个纯光明自举模块测试
-覆盖：断言工具 / 字符串工具 / 数据结构 / JSON编解码 / 日期时间。
+覆盖：断言工具 / 字符串工具 / 数据结构 / JSON编解码 / 日期时间轻量。
+
+注：第 5 个模块原名 日期时间，与 stdlib/日期时间.py（100+ 导出的真实现）撞名并把它
+完全遮蔽，导致 tests/test_datetime.py 变成 collection error。主线修复后纯光明那份
+改名 日期时间轻量（同 JSON → JSON编解码 的处置），《日期时间》仍由 .py 提供。
 """
 import os
 import sys
@@ -25,7 +29,7 @@ from 字符串工具 import (
 from 数据结构 import 栈, 队列, 双端队列, 优先队列
 from 数据结构 import 创建栈, 入栈, 出栈, 栈是否为空, 栈大小
 from JSON编解码 import 编码, 解码
-from 日期时间 import 两个数字, 格式化当前时间, 获取年份, 当前时间戳
+from 日期时间轻量 import 两个数字, 格式化当前时间, 获取年份, 当前时间戳
 
 
 class Test断言工具:
@@ -143,7 +147,7 @@ class TestJSON编解码:
         assert isinstance(解码("4.25"), float)
 
 
-class Test日期时间:
+class Test日期时间轻量:
     def test_pad(self):
         assert 两个数字(5) == "05"
         assert 两个数字(12) == "12"

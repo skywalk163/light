@@ -47,3 +47,22 @@ def test_is_pure_light_helper():
     assert _light_import_hook._is_pure_light(light_path) is True
     other = os.path.join(_STDLIB, "格式化.light")
     assert _light_import_hook._is_pure_light(other) is False
+
+
+def test_datetime_still_resolves_to_py():
+    """回归护栏：《日期时间》必须仍解析到能力更全的 stdlib/日期时间.py。
+
+    C2 曾把一份 11 导出的纯光明实现写成 日期时间.light 并加魔数，于是它遮蔽了
+    100+ 导出的 日期时间.py，tests/test_datetime.py 退化成 collection error 并
+    中断整个非 e2e 全量。纯光明那份已改名《日期时间轻量》。
+    """
+    import importlib
+    mod = importlib.import_module("日期时间")
+    assert not hasattr(mod, "__light_source__")
+    assert getattr(mod, "__file__", "").endswith(".py")
+    # .py 独有的能力面（类 + 农历），.light 那 11 个导出里没有
+    assert hasattr(mod, "日期时间") and hasattr(mod, "农历日期")
+
+    轻量 = importlib.import_module("日期时间轻量")
+    assert getattr(轻量, "__light_source__", "").endswith(".light")
+    assert 轻量.两个数字(5) == "05"
