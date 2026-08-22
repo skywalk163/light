@@ -38,8 +38,50 @@ EXE_PATH = os.path.join(CERT_DIR, "_taskB2_tls_test.exe")
 ECHO_MSG = "hello_tls_c_unit"
 
 # ── 自签证书生成 ──────────────────────────────────────
-def _generate_self_signed_cert():
-    """用 openssl 生成 CN=localhost 的自签证书"""
+def _generate_with_cryptography():
+    """用 cryptography 生成自签证书（不依赖外部命令）。成功返回 True"""
+    try:
+        import ipaddress
+        import datetime
+        from cryptography import x509
+        from cryptography.x509.oid import NameOID
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+    except ImportError:
+        return False
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - datetime.timedelta(minutes=5))
+        .not_valid_after(now + datetime.timedelta(days=1))
+        .add_extension(x509.SubjectAlternativeName([
+            x509.DNSName("localhost"),
+            x509.IPAddress(ipaddress.IPv4Address("127.0.0.1")),
+        ]), critical=False)
+        # 自签要当信任锚用，必须是 CA 证书，否则 Schannel 链构建过不去
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .sign(key, hashes.SHA256())
+    )
+    with open(CERT_FILE, "wb") as f:
+        f.write(cert.public_bytes(serialization.Encoding.PEM))
+    with open(KEY_FILE, "wb") as f:
+        f.write(key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption(),
+        ))
+    return True
+
+
+def _generate_with_openssl():
+    """用 openssl 命令生成。openssl 不在 PATH 时返回 False（而不是抛 FileNotFoundError）"""
     cmd = [
         "openssl", "req", "-x509", "-newkey", "rsa:2048",
         "-keyout", KEY_FILE,
@@ -48,12 +90,32 @@ def _generate_self_signed_cert():
         "-subj", "/CN=localhost",
         "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+    except (FileNotFoundError, OSError):
+        return False
     if result.returncode != 0:
-        pytest.skip(f"openssl 生成证书失败: {result.stderr}")
-    # 确保证书是 PEM 格式
-    if not os.path.exists(CERT_FILE) or not os.path.exists(KEY_FILE):
-        pytest.skip("证书文件未生成")
+        print(f"openssl 生成证书失败: {result.stderr[:1000]}")
+        return False
+    return os.path.exists(CERT_FILE) and os.path.exists(KEY_FILE)
+
+
+def _generate_self_signed_cert():
+    """生成 CN=localhost 的自签证书。
+
+    优先 cryptography（纯 Python 依赖，本机已有），openssl 只作回退 ——
+    原实现直接 subprocess 调 openssl，本机 PATH 里没有它时抛
+    FileNotFoundError，导致整类用例 **ERROR 而不是优雅 skip**，
+    正是 B2-1 要修的那种「skip 判据不成立」。
+    """
+    if _generate_with_cryptography():
+        return
+    if _generate_with_openssl():
+        return
+    pytest.skip(
+        "缺 cryptography 且 PATH 里没有 openssl，无法生成自签证书: "
+        "TLS 握手/收发/证书校验负例全部未验证（dv_tls_* 一行没跑过）"
+    )
 
 
 # ── TLS Echo Server ───────────────────────────────────
@@ -164,7 +226,12 @@ class TestTLSCLayer:
         """正例：添加信任锚 → 握手成功 → 收发回显"""
         result = subprocess.run(
             [EXE_PATH, "positive", str(TLS_PORT), CERT_FILE],
-            capture_output=True, text=True, timeout=30
+            capture_output=True, text=True,
+            # C 侧打的是 UTF-8（含 Schannel 中文错误文本）；不指定编码会用
+            # 本机 gbk 解码，读取线程抛 UnicodeDecodeError 后 stdout 变成 None，
+            # 断言随即报 "NoneType is not a container"，看着像测试逻辑错。
+            encoding="utf-8", errors="replace",
+            timeout=30
         )
         assert result.returncode == 0, \
             f"正例 exit code={result.returncode}\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
