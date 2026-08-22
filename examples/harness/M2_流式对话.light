@@ -8,7 +8,12 @@
 #
 # 运行前（key 只从环境变量读取，绝不硬编码/打印）：
 #   $env:DEEPSEEK_API_KEY="你的key"
-#   python cli/lightc.py examples/harness/M2_流式对话.light --run
+#   python cli/light.py run examples/harness/M2_流式对话.light
+#
+# 原先这里写的是 `python cli/lightc.py <文件> --run`。那条命令对**任何**输入都必崩：
+# cli/lightc.py 里 `SemanticAnalyzer()` 少传 module 参数（TypeError），照抄的人会以为
+# 是本脚本坏了。可用入口是 cli/light.py 的 run 子命令。
+
 #
 # 依赖图：代理循环 → 大模型客户端 → 流式 → SSE；→ 模式校验；→ 事件总线；→ 进程树
 导入 os
