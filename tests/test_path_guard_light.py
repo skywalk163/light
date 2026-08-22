@@ -132,7 +132,7 @@ class Test符号链接逃逸:
             except Exception:
                 pass
         if 模式 is None:
-            pytest.skip(f"symlink 与 junction 都不可用（掩盖：链接逃逸从未真机验证）")
+            pytest.xfail(f"symlink 与 junction 都不可用（掩盖：链接逃逸从未真机验证）")
         try:
             # 链接在护栏内（realpath 前），但 realpath 后指向外部 → 必须拒
             assert 护栏.检查(str(链接)) is False, \
@@ -169,7 +169,7 @@ class Test符号链接逃逸:
             capture_output=True, text=True, timeout=10,
         )
         if r.returncode != 0 or not os.path.exists(str(链接)):
-            pytest.skip(f"junction 创建失败（掩盖：junction 逃逸从未真机验证）：{r.stderr}")
+            pytest.xfail(f"junction 创建失败（掩盖：junction 逃逸从未真机验证）：{r.stderr}")
         try:
             assert 护栏.检查(str(链接)) is False, "junction 指向外部必须被拒"
             with pytest.raises(路径护栏错误):
@@ -306,8 +306,8 @@ class Test口径与已知缺口:
         r = subprocess.run(["cmd", "/c", "mklink", "/H", str(链), str(外文件)],
                            capture_output=True, text=True, timeout=10)
         if r.returncode != 0 or not os.path.exists(str(链)):
-            pytest.skip("本机 mklink /H 失败（跨卷或策略禁用）。掩盖的事实是："
-                        "硬链接缺口本次未实测，头部那句结论仍只是推导")
+            pytest.xfail("本机 mklink /H 失败（跨卷或策略禁用）。掩盖的事实是："
+                         "硬链接缺口本次未实测，头部那句结论仍只是推导")
         护栏 = 路径护栏(str(根), {})
         assert 护栏.检查(str(链)) is True                          # 缺口：判在内
         assert 护栏.读取(str(链)) == "根外的数据".encode("utf-8")   # 数据却在根外
@@ -331,8 +331,8 @@ class Test口径与已知缺口:
         r = subprocess.run(["cmd", "/c", "mklink", "/J", str(根 / "会被换掉"), str(外)],
                            capture_output=True, text=True, timeout=10)
         if r.returncode != 0:
-            pytest.skip("本机 mklink /J 失败。掩盖的事实是：TOCTOU 窗口本次未实证，"
-                        "头部那句「存在 TOCTOU 窗口」仍只是推导")
+            pytest.xfail("本机 mklink /J 失败。掩盖的事实是：TOCTOU 窗口本次未实证，"
+                         "头部那句「存在 TOCTOU 窗口」仍只是推导")
         # 同一个原始入参，现在解析到根外——判定早已发生，护栏拦不住这次替换
         assert 护栏.检查(str(根 / "会被换掉" / "文件.txt")) is False
 
