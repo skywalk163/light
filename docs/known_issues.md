@@ -24,9 +24,10 @@
 
 ### P1 — 影响使用体验
 
-- [ ] **[P1] 异常捕获语法增强**：当前异常处理支持 `捕获` 块，但尚未支持 `捕获 类型 as 变量` 的语法形式。
-  - **影响**：无法在捕获异常时直接获取异常对象
-  - **计划**：v6.1 中实现
+- [x] **[P1] 异常捕获语法增强**：`捕获 类型 as 变量` 语法**已支持**（D3 复核确认）。
+  - **证据**：`bootstrap/test_level6_full.py:304` 实跑 `捕获 值错误 as e`；语言规格文档亦写明该形式。
+  - **原文档（「尚未支持」）属过期条目，D3-2026-08-23 更正**。
+  - **影响**：无（能力已具备，无需 v6.1 计划项）
 
 - [ ] **[P1] 减法运算符歧义处理**：在 `a-1` 这样的表达式中，`-` 可能被识别为负号前缀而非减法运算符。
   - **影响**：需要用户在 `-` 前后加空格以避免歧义
@@ -343,4 +344,42 @@ Windows 下按 GBK 输出会被当成乱码误判成冒烟不通过；现钉 `PY
 
 整个文件被注释掉、只剩形状，`stdlib/日期时间.light` 是其中之一（正因为没有魔数所以无害）。
 待定方案是缩成「导出清单 + 显式 NotImplemented」，会影响自举率口径，未决。
+
+---
+
+## 十三、仓库债务登记（D3 本轮明文标注，2026-08-23）
+
+第三轮 D3 复核盘点出的结构性债务。**只标注、不代修**（多数属 A2/A3 基础设施范围）。
+代修需走对应任务，勿在 D3 里为求门禁通过而放宽判据或顺手改。
+
+### 13.1 `llvm_backend.py` 名不副实（根目录）
+
+根目录 `llvm_backend.py`（6302 字节）并不生成 IR，只是 `clang` 的命令行包装
+（把光明源码喂给 clang 做原生编译）。名字暗示"后端"，实际是"编译器驱动壳"。
+**影响**：后来者按名索骥会误判它产出 LLVM IR。**处置**：重命名为
+`llvm_driver.py` 或在文件头补一行职责说明（代修走 A2/A3）。
+
+### 13.2 两条 LLVM 代码生成路径并存
+
+- 新：`src/llvm/`（codegen_typed.py 等），由 `cli/light.py:342/366` 经
+  `from src.llvm.compiler import compile_light[_typed]` 调用。
+- 旧：`antlrparser/llvm_codegen.py`（`LLVMCodeGen`），由 `src/compiler.py:1523`
+  `from llvm_codegen import LLVMCodeGen` 调用。
+两条路径被不同 CLI 分别拉起，行为面与维护状态不一致，是回归的高危分叉点。
+**处置**：统一到 `src/llvm/`，废弃 `antlrparser/llvm_codegen.py`（代修走 A2/A3）。
+
+### 13.3 `--target wasm` 的实际去向（需核实）
+
+`cli/light_unified.py:1056` 的 `--target` 含 `wasm` 选项，且仓库存在
+`src/wasm_target.py`（`compile_to_wasm`，支持 `pyodide` / `standalone` 两种模式）。
+D3-7 任务书原称"--target wasm 静默生成 .py"——**当前代码看并非如此**（已有独立
+wasm 实现）。该声称可能已过期，标记**待核实**：确认 `--target wasm` 是否仍有一条
+静默回退 `.py` 的支路，若有则修，若无则更新任务书措辞。
+
+### 13.4 `stdlib/lightpub/__init__.py:45` 路由到仓库外绝对路径
+
+见 §12.5（已记录）。指向 `C:\dumatework\lightpub`，跨机器即断；其 `__index__.py`
+还声明了本仓库不存在的模块。本轮 JSON 已用换名 `JSON编解码` 规避，不依赖 lightpub，
+但该项属长期一致性债务，记入此处汇总。
+
 

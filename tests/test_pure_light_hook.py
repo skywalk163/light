@@ -11,8 +11,11 @@ test_pure_light_hook.py —— 验证 stdlib/_light_import_hook.py 的「纯光�
   __file__ 以 .light 结尾），且功能可用。
 - 默认路径不变：未声明纯光明的模块（如 格式化，有同名 .py）仍走 .py 兜底。
 """
+import glob
 import os
 import sys
+
+import pytest
 
 _STDLIB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "stdlib")
 if _STDLIB not in sys.path:
@@ -66,3 +69,58 @@ def test_datetime_still_resolves_to_py():
     轻量 = importlib.import_module("日期时间轻量")
     assert getattr(轻量, "__light_source__", "").endswith(".light")
     assert 轻量.两个数字(5) == "05"
+
+
+# ── D3-5 首两行魔数守卫 ──────────────────────────────────────────────────────
+# `_light_import_hook._is_pure_light()` 只读首两行（见 stdlib/_light_import_hook.py）。
+# 凡 .light 内**任何位置**含「纯光明实现」但首两行没有的，一旦有人建了同名 .py，
+# 这份 .light 会被静默遮蔽（行为倒退，且无任何报错）。
+#
+# 已知 5 个真实现魔数不在首两行，属 A3/B3 独占文件：
+#   伪终端.light:11 / 事件总线.light:4 / 插件.light:5 / 进程树.light:12 / 路径护栏.light:5
+# 本轮（D3）只加检查、不改文件；A3/B3 尚未合入 main，所以先按 **warn（xfail）**
+# 处理，不阻断 CI。A3/B3 合入并把魔数提到首两行后，本 warn 自动消失；
+# 若届时仍残留，应改为硬红并追问对应任务。
+_KNOWN_MAGIC_NOT_FIRST2 = {
+    "伪终端", "事件总线", "插件", "进程树", "路径护栏",
+}
+_MAGIC = "纯光明实现"
+
+
+def test_magic_number_in_first_two_lines():
+    """防定时炸弹：含「纯光明实现」但首两行没有的 .light 必须打红。
+
+    已知 5 个（A3/B3 待修）→ 本次按 warn（xfail）；新出现的违反 → 硬红。
+    """
+    violations = []
+    for full in glob.glob(os.path.join(_STDLIB, "*.light")):
+        name = os.path.splitext(os.path.basename(full))[0]
+        try:
+            with open(full, encoding="utf-8", errors="replace") as fh:
+                lines = fh.readlines()
+                text = "".join(lines)
+        except OSError:
+            continue
+        if _MAGIC not in text:
+            continue
+        if _MAGIC in "".join(lines[:2]):
+            continue  # 魔数已在首两行，安全
+        violations.append(name)
+
+    # 新出现的违反（不在已知 5 个里）一律硬红——这是本门禁的价值所在。
+    new = [v for v in violations if v not in _KNOWN_MAGIC_NOT_FIRST2]
+    if new:
+        pytest.fail(
+            "以下 .light 含「纯光明实现」但不在首两行，会被同名 .py 静默遮蔽（新出现，须硬红）：%s"
+            % new
+        )
+
+    # 已知 5 个仍违规 → warn（xfail），不阻断 CI，但在报告里点名催 A3/B3 修。
+    # TODO(D3-5): A3 修 事件总线、B3 修其余 4 个，并把魔数提到首两行后，
+    #             本 xfail 会自动消失；若 A3/B3 合入后仍残留，改为硬红。
+    # 截止条件：A3/B3 合入 main 后的下一轮 D3 收口时移除本 warn。
+    known_still = [v for v in violations if v in _KNOWN_MAGIC_NOT_FIRST2]
+    if known_still:
+        pytest.xfail(
+            "已知 5 个真实现魔数不在首两行（A3/B3 待修，warn 不红）：%s" % known_still
+        )

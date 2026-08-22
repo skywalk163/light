@@ -47,6 +47,10 @@ tests/debug_*.py
 !project/*.json
 !积木库/索引.json
 !积木库/积木库_导出_v4.json
+# CI 门禁基线不是数据产物，是判绿依据，必须进仓。
+# （被上面那条 *.json 吃掉过一次：脚本进了仓、基线没进，CI 上找不到基线直接 rc=2 长红。）
+!tools/ci/*_baseline.json
+
 
 # 临时文件
 *.tmp

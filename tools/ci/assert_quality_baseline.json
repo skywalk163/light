@@ -1,0 +1,643 @@
+{
+  "version": 1,
+  "note": "假测试门禁基线快照：本仓库当前的既有违规。新增即红；修好一批后重新生成并提交本文件。",
+  "scanned_root": "tests",
+  "categories": {
+    "string-assert": "字符串断言式",
+    "upper-bound": "上界断言式",
+    "trivial-ge0": "恒真断言式",
+    "returncode-in": "成败都算通过"
+  },
+  "violations": [
+    {
+      "file": "_test_hm_inference.py",
+      "line": 525,
+      "cat": "upper-bound",
+      "text": "assert len(inf.errors) <= 3, f\"错误过多: {inf.errors}\""
+    },
+    {
+      "file": "test_agent_loop_light.py",
+      "line": 247,
+      "cat": "upper-bound",
+      "text": "assert len(events) <= 3"
+    },
+    {
+      "file": "test_async.py",
+      "line": 468,
+      "cat": "string-assert",
+      "text": "assert 'async def 生成数字' in py_code, f\"Expected 'async def' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 470,
+      "cat": "string-assert",
+      "text": "assert 'yield' in py_code, f\"Expected 'yield' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 472,
+      "cat": "string-assert",
+      "text": "assert 'yield 1' in py_code, f\"Expected 'yield 1' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 473,
+      "cat": "string-assert",
+      "text": "assert 'yield 2' in py_code, f\"Expected 'yield 2' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 474,
+      "cat": "string-assert",
+      "text": "assert 'yield 3' in py_code, f\"Expected 'yield 3' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 487,
+      "cat": "string-assert",
+      "text": "assert 'def 生成数字' in py_code, f\"Expected 'def' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 490,
+      "cat": "string-assert",
+      "text": "assert 'yield 1' in py_code, f\"Expected 'yield 1' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 491,
+      "cat": "string-assert",
+      "text": "assert 'yield 2' in py_code, f\"Expected 'yield 2' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 492,
+      "cat": "string-assert",
+      "text": "assert 'yield 3' in py_code, f\"Expected 'yield 3' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 507,
+      "cat": "string-assert",
+      "text": "assert 'yield' in py_code, f\"Expected 'yield' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 508,
+      "cat": "string-assert",
+      "text": "assert 'def 生成平方' in py_code, f\"Expected 'def 生成平方' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 510,
+      "cat": "string-assert",
+      "text": "assert 'i*i' in py_code.replace(' ', ''), f\"Expected 'i*i' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 521,
+      "cat": "string-assert",
+      "text": "assert 'async def 异步生成器' in py_code"
+    },
+    {
+      "file": "test_async.py",
+      "line": 522,
+      "cat": "string-assert",
+      "text": "assert 'yield 1' in py_code"
+    },
+    {
+      "file": "test_async.py",
+      "line": 523,
+      "cat": "string-assert",
+      "text": "assert 'yield 2' in py_code"
+    },
+    {
+      "file": "test_async.py",
+      "line": 573,
+      "cat": "string-assert",
+      "text": "assert 'async for' in py_code, f\"Expected 'async for' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 574,
+      "cat": "string-assert",
+      "text": "assert 'async def 范围' in py_code, f\"Expected 'async def 范围' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 575,
+      "cat": "string-assert",
+      "text": "assert 'yield' in py_code, f\"Expected 'yield' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 595,
+      "cat": "string-assert",
+      "text": "assert 'await 网络请求()' in py_code, f\"Expected 'await 网络请求()' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 596,
+      "cat": "string-assert",
+      "text": "assert 'async def 主' in py_code"
+    },
+    {
+      "file": "test_async.py",
+      "line": 610,
+      "cat": "string-assert",
+      "text": "assert '创建事件循环' in py_code or '_asyncio.new_event_loop' in py_code or 'asyncio.' in py_code, \\"
+    },
+    {
+      "file": "test_async.py",
+      "line": 629,
+      "cat": "string-assert",
+      "text": "assert 'async def 异步任务' in py_code"
+    },
+    {
+      "file": "test_async.py",
+      "line": 630,
+      "cat": "string-assert",
+      "text": "assert 'async def 主' in py_code"
+    },
+    {
+      "file": "test_async.py",
+      "line": 631,
+      "cat": "string-assert",
+      "text": "assert 'await 异步任务()' in py_code or 'return 42' in py_code"
+    },
+    {
+      "file": "test_async.py",
+      "line": 659,
+      "cat": "string-assert",
+      "text": "assert 'asyncio.gather' in py_code, f\"Expected 'asyncio.gather' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 660,
+      "cat": "string-assert",
+      "text": "assert 'asyncio.run' in py_code, f\"Expected 'asyncio.run' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 684,
+      "cat": "string-assert",
+      "text": "assert 'asyncio.gather' in py_code, f\"Expected 'asyncio.gather' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 699,
+      "cat": "string-assert",
+      "text": "assert 'async def 空任务' in py_code"
+    },
+    {
+      "file": "test_async.py",
+      "line": 700,
+      "cat": "string-assert",
+      "text": "assert 'pass' in py_code or '打印' in py_code, f\"Expected body in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 721,
+      "cat": "string-assert",
+      "text": "assert 'async for' in py_code, f\"Expected 'async for' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 722,
+      "cat": "string-assert",
+      "text": "assert 'await 处理' in py_code or 'await' in py_code, f\"Expected 'await' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 745,
+      "cat": "string-assert",
+      "text": "assert 'async def 内层' in py_code"
+    },
+    {
+      "file": "test_async.py",
+      "line": 746,
+      "cat": "string-assert",
+      "text": "assert 'async def 外层' in py_code"
+    },
+    {
+      "file": "test_async.py",
+      "line": 747,
+      "cat": "string-assert",
+      "text": "assert 'async def 主' in py_code"
+    },
+    {
+      "file": "test_async.py",
+      "line": 748,
+      "cat": "string-assert",
+      "text": "assert 'await 内层()' in py_code, f\"Expected 'await 内层()' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 749,
+      "cat": "string-assert",
+      "text": "assert 'await 外层()' in py_code, f\"Expected 'await 外层()' in:\\n{py_code}\""
+    },
+    {
+      "file": "test_ffi_phase3.py",
+      "line": 122,
+      "cat": "string-assert",
+      "text": "assert 'class 颜色:' in py_code or 'class 颜色' in py_code"
+    },
+    {
+      "file": "test_ffi_phase3.py",
+      "line": 123,
+      "cat": "string-assert",
+      "text": "assert '红 = 0' in py_code or '红=0' in py_code"
+    },
+    {
+      "file": "test_ffi_phase3.py",
+      "line": 124,
+      "cat": "string-assert",
+      "text": "assert '绿 = 1' in py_code or '绿=1' in py_code"
+    },
+    {
+      "file": "test_ffi_phase3.py",
+      "line": 125,
+      "cat": "string-assert",
+      "text": "assert '蓝 = 2' in py_code or '蓝=2' in py_code"
+    },
+    {
+      "file": "test_ffi_phase3.py",
+      "line": 139,
+      "cat": "string-assert",
+      "text": "assert 'ctypes.Union' in py_code"
+    },
+    {
+      "file": "test_ffi_phase3.py",
+      "line": 140,
+      "cat": "string-assert",
+      "text": "assert '_fields_' in py_code"
+    },
+    {
+      "file": "test_ffi_phase3.py",
+      "line": 154,
+      "cat": "string-assert",
+      "text": "assert 'printf' in py_code"
+    },
+    {
+      "file": "test_ffi_phase3.py",
+      "line": 155,
+      "cat": "string-assert",
+      "text": "assert '*args' in py_code"
+    },
+    {
+      "file": "test_ffi_phase4.py",
+      "line": 171,
+      "cat": "string-assert",
+      "text": "assert '尺寸' in py_code"
+    },
+    {
+      "file": "test_ffi_phase4.py",
+      "line": 172,
+      "cat": "string-assert",
+      "text": "assert 'ctypes' in py_code"
+    },
+    {
+      "file": "test_ffi_phase4.py",
+      "line": 186,
+      "cat": "string-assert",
+      "text": "assert '_fields_' in py_code"
+    },
+    {
+      "file": "test_ffi_phase4.py",
+      "line": 187,
+      "cat": "string-assert",
+      "text": "assert '标志' in py_code"
+    },
+    {
+      "file": "test_ffi_phase4.py",
+      "line": 201,
+      "cat": "string-assert",
+      "text": "assert 'CFUNCTYPE' in py_code"
+    },
+    {
+      "file": "test_ffi_phase4.py",
+      "line": 202,
+      "cat": "string-assert",
+      "text": "assert '比较器' in py_code"
+    },
+    {
+      "file": "test_ffi_phase4.py",
+      "line": 216,
+      "cat": "string-assert",
+      "text": "assert 'set_debug' in py_code"
+    },
+    {
+      "file": "test_ffi_phase4.py",
+      "line": 217,
+      "cat": "string-assert",
+      "text": "assert 'enabled=True' in py_code"
+    },
+    {
+      "file": "test_ffi_phase4.py",
+      "line": 231,
+      "cat": "string-assert",
+      "text": "assert '定义宏' in py_code"
+    },
+    {
+      "file": "test_ffi_phase4.py",
+      "line": 232,
+      "cat": "string-assert",
+      "text": "assert '1024' in py_code"
+    },
+    {
+      "file": "test_frontend_blockers_run.py",
+      "line": 4,
+      "cat": "string-assert",
+      "text": "为什么不用字符串断言：现存 tests/test_async.py 全是 `assert 'async def' in py_code`"
+    },
+    {
+      "file": "test_interface.py",
+      "line": 29,
+      "cat": "string-assert",
+      "text": "assert 'from abc import ABC, abstractmethod' in py_code"
+    },
+    {
+      "file": "test_interface.py",
+      "line": 30,
+      "cat": "string-assert",
+      "text": "assert 'class 可打印(ABC):' in py_code"
+    },
+    {
+      "file": "test_interface.py",
+      "line": 31,
+      "cat": "string-assert",
+      "text": "assert '@abstractmethod' in py_code"
+    },
+    {
+      "file": "test_interface.py",
+      "line": 32,
+      "cat": "string-assert",
+      "text": "assert 'def 输出(self) -> str:' in py_code or 'def 输出(self) -> 串:' in py_code"
+    },
+    {
+      "file": "test_interface.py",
+      "line": 43,
+      "cat": "string-assert",
+      "text": "assert 'class 可保存(ABC, 可打印):' in py_code or 'class 可保存(可打印):' in py_code"
+    },
+    {
+      "file": "test_interface.py",
+      "line": 60,
+      "cat": "string-assert",
+      "text": "assert 'class 文档(可打印):' in py_code"
+    },
+    {
+      "file": "test_interface.py",
+      "line": 73,
+      "cat": "string-assert",
+      "text": "assert '@abstractmethod' in py_code"
+    },
+    {
+      "file": "test_iterator_protocol.py",
+      "line": 70,
+      "cat": "string-assert",
+      "text": "assert 'def __iter__(self):' in py_code, f\"__iter__ not found in:\\n{py_code}\""
+    },
+    {
+      "file": "test_iterator_protocol.py",
+      "line": 71,
+      "cat": "string-assert",
+      "text": "assert 'def __next__(self):' in py_code, f\"__next__ not found in:\\n{py_code}\""
+    },
+    {
+      "file": "test_iterator_protocol.py",
+      "line": 72,
+      "cat": "string-assert",
+      "text": "assert 'StopIteration' in py_code or '迭代停止' in py_code"
+    },
+    {
+      "file": "test_iterator_protocol.py",
+      "line": 147,
+      "cat": "string-assert",
+      "text": "assert 'raise StopIteration' in py_code or 'StopIteration' in py_code"
+    },
+    {
+      "file": "test_self_host.py",
+      "line": 132,
+      "cat": "string-assert",
+      "text": "assert 'def ' in py_code, \"编译结果未包含函数定义\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 316,
+      "cat": "string-assert",
+      "text": "assert 'def 返回答案' in py_code, \"生成的代码应包含函数定义\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 317,
+      "cat": "string-assert",
+      "text": "assert 'return 42' in py_code, \"生成的代码应包含 return 42\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 521,
+      "cat": "string-assert",
+      "text": "assert '尝试' in source, \"bootstrap_level5 应包含 尝试 关键字\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 522,
+      "cat": "string-assert",
+      "text": "assert '捕获' in source, \"bootstrap_level5 应包含 捕获 关键字\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 523,
+      "cat": "string-assert",
+      "text": "assert '抛出' in source, \"bootstrap_level5 应包含 抛出 关键字\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 541,
+      "cat": "string-assert",
+      "text": "assert 'raise' in py_code"
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 564,
+      "cat": "string-assert",
+      "text": "assert 'class ' in py_code, \"生成的代码应包含 class\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 565,
+      "cat": "string-assert",
+      "text": "assert 'def ' in py_code, \"生成的代码应包含 def\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 695,
+      "cat": "string-assert",
+      "text": "assert 'def ' in py_code, \"生成的代码未包含函数定义\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 725,
+      "cat": "string-assert",
+      "text": "assert 'def ' in py_code, \"生成的代码未包含函数定义\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 876,
+      "cat": "string-assert",
+      "text": "assert 'def ' in py_code, \"缺少函数定义\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 877,
+      "cat": "string-assert",
+      "text": "assert 'if ' in py_code or 'elif ' in py_code, \"缺少条件判断\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 878,
+      "cat": "string-assert",
+      "text": "assert 'for ' in py_code or 'while ' in py_code, \"缺少循环\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 879,
+      "cat": "string-assert",
+      "text": "assert 'class ' in py_code, \"缺少类定义\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 880,
+      "cat": "string-assert",
+      "text": "assert 'try' in py_code, \"缺少异常处理\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 881,
+      "cat": "string-assert",
+      "text": "assert 'raise' in py_code, \"缺少抛出语句\""
+    },
+    {
+      "file": "test_trait_system.py",
+      "line": 39,
+      "cat": "string-assert",
+      "text": "assert 'from abc import ABC, abstractmethod' in py_code"
+    },
+    {
+      "file": "test_trait_system.py",
+      "line": 40,
+      "cat": "string-assert",
+      "text": "assert 'class 可序列化(ABC):' in py_code"
+    },
+    {
+      "file": "test_trait_system.py",
+      "line": 41,
+      "cat": "string-assert",
+      "text": "assert '@abstractmethod' in py_code"
+    },
+    {
+      "file": "test_trait_system.py",
+      "line": 42,
+      "cat": "string-assert",
+      "text": "assert 'def 转JSON(self)' in py_code"
+    },
+    {
+      "file": "test_trait_system.py",
+      "line": 43,
+      "cat": "string-assert",
+      "text": "assert 'def 从JSON(self, 数据)' in py_code"
+    },
+    {
+      "file": "test_trait_system.py",
+      "line": 58,
+      "cat": "string-assert",
+      "text": "assert 'class 可打印(ABC):' in py_code"
+    },
+    {
+      "file": "test_trait_system.py",
+      "line": 59,
+      "cat": "string-assert",
+      "text": "assert 'class 可保存(ABC, 可打印):' in py_code or 'class 可保存(可打印):' in py_code"
+    },
+    {
+      "file": "test_trait_system.py",
+      "line": 76,
+      "cat": "string-assert",
+      "text": "assert 'class 文档(可打印):' in py_code"
+    },
+    {
+      "file": "test_trait_system.py",
+      "line": 107,
+      "cat": "string-assert",
+      "text": "assert 'class 文档(可打印, 可保存):' in py_code"
+    },
+    {
+      "file": "test_trait_system.py",
+      "line": 138,
+      "cat": "string-assert",
+      "text": "assert 'class 文档(可打印):' in py_code"
+    },
+    {
+      "file": "test_trait_system.py",
+      "line": 139,
+      "cat": "string-assert",
+      "text": "assert 'class 图片(可打印):' in py_code"
+    },
+    {
+      "file": "test_trait_system.py",
+      "line": 178,
+      "cat": "string-assert",
+      "text": "assert '@abstractmethod' in py_code"
+    },
+    {
+      "file": "test_trait_system.py",
+      "line": 179,
+      "cat": "string-assert",
+      "text": "assert 'class 形状(ABC):' in py_code or 'ABC' in py_code"
+    },
+    {
+      "file": "test_trait_system.py",
+      "line": 204,
+      "cat": "string-assert",
+      "text": "assert 'class 文档(可打印, 可保存):' in py_code"
+    },
+    {
+      "file": "unit\\test_bootstrap_compiler.py",
+      "line": 164,
+      "cat": "string-assert",
+      "text": "assert '词法分析' in source or '创建关键字列表' in source"
+    },
+    {
+      "file": "unit\\test_error_formatter.py",
+      "line": 251,
+      "cat": "upper-bound",
+      "text": "assert len(result) <= 2"
+    },
+    {
+      "file": "unit\\test_self_host.py",
+      "line": 97,
+      "cat": "string-assert",
+      "text": "assert 'def ' in py_code, \"生成的代码未包含函数定义\""
+    },
+    {
+      "file": "unit\\test_self_host.py",
+      "line": 133,
+      "cat": "string-assert",
+      "text": "assert 'def ' in py_code, \"缺少函数定义\""
+    },
+    {
+      "file": "unit\\test_self_host.py",
+      "line": 134,
+      "cat": "string-assert",
+      "text": "assert '词法分析' in py_code or 'lexer' in py_code.lower(), \"缺少词法分析相关代码\""
+    },
+    {
+      "file": "unit\\test_self_host.py",
+      "line": 135,
+      "cat": "string-assert",
+      "text": "assert 'parse' in py_code.lower(), \"缺少解析相关代码\""
+    }
+  ]
+}

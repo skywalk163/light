@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "note": "自举率基线快照：文件维度自举率只许升不许降。行维度虚高，不许引用。",
+  "file_dim_rate": 0.23529411764705882,
+  "stdlib_light_total": 68,
+  "stdlib_light_has_impl": 16
+}

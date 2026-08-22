@@ -105,7 +105,22 @@ jobs:
           mkdir -p .ci
           if python -c 'import xdist' >/dev/null 2>&1; then PAR="-n auto"; else PAR=""; fi
           echo "[CI] 并行参数：${PAR:-（串行：未装 pytest-xdist）}"
-          pytest tests --ignore=tests/e2e -q $PAR \
+          # D3-3：纯光明测试（*_light.py）从这一轮统一 pytest 里摘出来单独跑，
+          # 既给可见性、也单独归账耗时。它们的判绿口径仍是 soft（走下面的回归闸门
+          # --soft-classname 'tests.test_*'），不悄悄升级成判绿点。
+          pytest tests --ignore=tests/e2e \
+            --ignore=tests/test_agent_loop_light.py \
+            --ignore=tests/test_bootstrap_light.py \
+            --ignore=tests/test_event_bus_light.py \
+            --ignore=tests/test_llm_client_light.py \
+            --ignore=tests/test_path_guard_light.py \
+            --ignore=tests/test_plugin_light.py \
+            --ignore=tests/test_process_tree_light.py \
+            --ignore=tests/test_pty_light.py \
+            --ignore=tests/test_schema_light.py \
+            --ignore=tests/test_sse_light.py \
+            --ignore=tests/test_tls_light.py \
+            -q $PAR \
             --junitxml=.ci/non-e2e.xml || true
           test -f .ci/non-e2e.xml
 
@@ -121,6 +136,30 @@ jobs:
           if python -c 'import xdist' >/dev/null 2>&1; then PAR="-n auto"; else PAR=""; fi
           pytest tests/e2e -q $PAR --junitxml=.ci/e2e.xml || true
           test -f .ci/e2e.xml
+
+      # D3-3：纯光明测试显式清单（soft 可见性 + 耗时归账）。
+      # 这 9 个文件走 soft 口径（与上面统一 pytest 摘出前的覆盖一致，只是单独成步）。
+      # 判绿不拦：结尾 || true，失败放行但 junit 照产，交给下面回归闸门按基线对比。
+      - name: 纯光明测试（显式清单·soft）
+        run: |
+          . .venv/bin/activate
+          if python -c 'import xdist' >/dev/null 2>&1; then PAR="-n auto"; else PAR=""; fi
+          pytest tests/test_agent_loop_light.py tests/test_bootstrap_light.py \
+            tests/test_event_bus_light.py tests/test_llm_client_light.py \
+            tests/test_path_guard_light.py tests/test_plugin_light.py \
+            tests/test_process_tree_light.py tests/test_pty_light.py \
+            tests/test_schema_light.py -q $PAR --junitxml=.ci/light_soft.xml || true
+          test -f .ci/light_soft.xml
+
+      # D3-3：硬判绿点（不允许 soft）。这两份文件头已明写「纯离线、不许 skip」，
+      # 是 M4/M5 的判据，必须真过。无 || true → 失败即红。
+      # （test_deepseek_mock.py / test_agent_tools_light.py 属 A3/B3，合入后由对应任务升级，
+      #   本轮 main 尚不存在，不在此列。）
+      - name: 纯光明硬判绿点（TLS/SSE）
+        run: |
+          . .venv/bin/activate
+          pytest tests/test_tls_light.py tests/test_sse_light.py -q --junitxml=.ci/light_hard.xml
+          test -f .ci/light_hard.xml
 
       - name: 计时打点（e2e）
         run: python3 tools/ci/time_budget.py --mark e2e
@@ -139,6 +178,7 @@ jobs:
           python tools/ci/check_regression.py \
             --junit .ci/non-e2e.xml \
             --junit .ci/e2e.xml \
+            --junit .ci/light_soft.xml \
             --baseline tests/ci_baseline_failures.txt \
             --soft-classname 'tests.test_*' \
             --soft-classname 'tests._test_*'
@@ -168,6 +208,24 @@ jobs:
           # 少数块依赖第三方包；装不上不致命（冒烟会标成「缺依赖」单列，不计入分母）
           python -m pip install pypinyin lunardate opencc-python-reimplemented || true
           python 积木库/评估/ci_eval.py --并发 8
+
+      # D3-1/D3-2：两道质量度量门禁。都是「基线对比、只拦新增」，不是一刀切阈值——
+      # 存量违规按白名单 + 计数上限锁住，删一条不能换新增一条（白名单按 file:line:cat
+      # 精确匹配）。刷新基线要显式改命令：
+      #   python tools/ci/assert_quality.py --write-baseline tests/ci_baseline_assert_quality.txt
+      #   python tools/ci/bootstrap_rate.py --write-baseline tests/ci_baseline_bootstrap.txt
+      - name: 断言质量门禁（假绿形态·基线对比）
+        run: |
+          . .venv/bin/activate
+          python tools/ci/assert_quality.py --root tests
+
+      # 自举率门禁：口径见 任务书/第三轮总纲 §2.3 —— **只认文件维度**
+      # （stdlib 下每个 .light 文件有无 decl ≥ 1 的真实现），行维度只打印不判绿。
+      # 门禁守两条：已破零的文件不许退回 0；文件维度自举率不许下降。
+      - name: 自举率门禁（文件维度·不许回退）
+        run: |
+          . .venv/bin/activate
+          python tools/ci/bootstrap_rate.py --root .
 
       # 时间预算硬闸门（2026-08-22 用户裁决）：PR ≤ 600s，push main ≤ 1200s。
       # always() 是故意的：前面哪一步红了，也要把耗时账单打出来——不然一红就看不到时间数据，
