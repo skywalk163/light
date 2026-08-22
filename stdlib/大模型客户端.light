@@ -149,6 +149,12 @@
         设 已有["arguments"] 为 已有["arguments"] 加上 参
       否则:
         设 新项 为 ["index": idx, "name": 名, "arguments": 参]
+        # 保留服务端 tool_call 的 id；缺失时用 call_<index> 兜底，确保正文
+        # assistant.tool_calls[].id 与工具分流追加的 tool 消息 id 一致。
+        如果 己.有键(tc, "id") 且 tc["id"] != "":
+          设 新项["id"] 为 tc["id"]
+        否则:
+          设 新项["id"] 为 "call_" 加上 转字符串(idx)
         表[idx] 为 新项
       结果.追加(表[idx])
     返回 结果

@@ -198,6 +198,13 @@ class TestToolCallRoundtrip:
         tool_msg = msgs[2]
         assert tool_msg["name"] == "get_weather"
         assert "晴天" in tool_msg["content"]
+        # C2 回归：tool 消息的 tool_call_id 必须能对上 assistant.tool_calls[].id，
+        # 否则真实 DeepSeek 第二轮会拒（invalid tool_call_id）。离线帧不带服务端 id，
+        # 走 call_<index> 兜底，仍须一致。
+        assistant_msg = msgs[1]
+        assistant_ids = [tc["id"] for tc in assistant_msg["tool_calls"]]
+        assert assistant_ids == ["call_0"]
+        assert tool_msg["tool_call_id"] in assistant_ids
 
 
 class TestValidationRetry:
