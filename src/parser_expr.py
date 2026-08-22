@@ -480,21 +480,32 @@ class ParserExprMixin:
         # 判为编译器缺陷。DOT 归入「后续是 await 表达式」一侧即可，
         # RPAREN/NEWLINE 等仍留在复合标识符一侧，`等待价值` 零影响。
         # v7 单 31-C：`等` 是 L0 冻结表承诺的 await 单字别名，与 `等待` 同分支处理。
+        #
+        # P3（A2-3 续）：判据补上**源码相邻**这一条。原判据只看下一个 token 的类型，
+        # 于是 `设 结果 为 等待 任务甲。` —— peek2 是 PERIOD，不是 LPAREN/DOT ——
+        # 落进复合标识符分支，静默编成 `结果 = 等待任务甲`（一个不存在的名字）。
+        # 这是静默错编：`等待 限时(...)`/`等待 报()` 之所以看不出问题，是因为它们
+        # 后面跟着 LPAREN。真正区分「一个被词法切开的词」和「await 一个变量」的，
+        # 是**中间有没有空白**：`等待价值` 两个 token 首尾相接（col 7+len 2 == 9），
+        # `等待 任务甲` 中间有空格（col 7+2 == 9 != 10）。相邻才拼名字。
         if tok.type == TokenType.KEYWORD and tok.value in ('等待', '等'):
             kw = tok.value
             next_tok = self._peek(1)
             if next_tok and next_tok.type == TokenType.IDENTIFIER:
                 peek2 = self._peek(2)
-                if peek2 and peek2.type not in (TokenType.LPAREN, TokenType.DOT):
+                紧邻 = (next_tok.line == tok.line
+                        and next_tok.col == tok.col + len(kw))
+                if 紧邻 and peek2 and peek2.type not in (TokenType.LPAREN, TokenType.DOT):
                     # 复合标识符：等待 + 价值 = 等待价值（`等` 因 compound-safe 一般在
                     # 词法层就并成整词，极少走到这里；保留分支与 `等待` 语义对齐）
                     self._consume(TokenType.KEYWORD, kw)
                     ident = self._consume(TokenType.IDENTIFIER).value
                     return Identifier(kw + ident)
-                # 等待 函数名() / 等待 对象.成员 → await 表达式
+                # 等待 函数名() / 等待 对象.成员 / 等待 变量 → await 表达式
                 self._consume(TokenType.KEYWORD, kw)
                 expr = self._parse_expr()
                 return AwaitExpr(expr)
+
             self._consume(TokenType.KEYWORD, kw)
             expr = self._parse_expr()
             return AwaitExpr(expr)
