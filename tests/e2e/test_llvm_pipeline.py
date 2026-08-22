@@ -40,6 +40,19 @@ class TestLLVMGeneration(unittest.TestCase):
 
     def test_simple_ir_generation(self):
         """测试简单 IR 生成"""
+        light_llvm = os.path.join(self.antlr_dir, 'light_llvm.py')
+        if not os.path.exists(light_llvm):
+            self.skipTest("antlrparser/light_llvm.py 不存在, 跳过 IR 生成测试")
+
+        # antlrparser 旧路径依赖 antlr4 运行时, 缺失时 skip 而非 error
+        try:
+            import antlr4  # noqa: F401
+        except ImportError:
+            self.skipTest(
+                "缺 antlr4 运行时: antlrparser/light_llvm.py 旧路径 IR 生成未验证, "
+                "src/llvm/ 新路径的 IR 生成由 tests/test_llvm_net.py 覆盖"
+            )
+
         # 创建临时测试文件
         test_code = '段落 主程序：\n    打印 "hello"'
         with tempfile.NamedTemporaryFile(mode='w', suffix='.light',
@@ -50,21 +63,28 @@ class TestLLVMGeneration(unittest.TestCase):
         try:
             # 尝试生成 IR
             result = subprocess.run(
-                [sys.executable, os.path.join(self.antlr_dir, 'light_llvm.py'), temp_file],
+                [sys.executable, light_llvm, temp_file],
                 capture_output=True,
                 text=True,
                 timeout=60,
                 cwd=_project_root
             )
-            # 检查是否生成了 .ll 文件
+            # 真判据: returncode 必须为 0 (成功), 不再接受 1 (有错误但能运行)
+            self.assertEqual(
+                result.returncode, 0,
+                f"light_llvm.py 返回码 {result.returncode} (期望 0):\n"
+                f"stdout: {result.stdout[:500]}\nstderr: {result.stderr[:500]}"
+            )
+            # 必须生成 .ll 文件
             ll_file = temp_file.replace('.light', '.ll')
-            if os.path.exists(ll_file):
-                with open(ll_file, 'r', encoding='utf-8') as f:
-                    ir_content = f.read()
-                # 验证 IR 内容
-                self.assertIn('define', ir_content)
-            # 或者检查编译器输出
-            self.assertIn(result.returncode, [0, 1])  # 0=成功, 1=有错误但能运行
+            self.assertTrue(
+                os.path.exists(ll_file),
+                f"未生成 .ll 文件: {ll_file}\nstdout: {result.stdout[:500]}"
+            )
+            with open(ll_file, 'r', encoding='utf-8') as f:
+                ir_content = f.read()
+            # 验证 IR 内容包含函数定义
+            self.assertIn('define', ir_content, "IR 中未找到 define 关键字")
         except subprocess.TimeoutExpired:
             self.skipTest("LLVM 编译超时")
         finally:

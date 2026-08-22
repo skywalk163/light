@@ -21,6 +21,10 @@
 #include <errno.h>
 
 #ifdef _WIN32
+/* WSAPoll 与 Schannel 需要 Vista+ 的 SDK 表面；必须在 winsock2.h 之前定死 */
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0601
+#endif
 /* winsock2.h must be included BEFORE windows.h to avoid redefinition */
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -4517,20 +4521,69 @@ const char* dv_socket_get_peer_addr(int fd) {
 }
 
 /* ================================================================
- * B2: IO 多路复用 (select-based poller)
+ * B2: IO 多路复用 (WSAPoll / poll，select 为编译期 fallback)
+ *
+ * 后端选择是**编译期**的，不做运行期动态选择（运行期选择会引入难查的
+ * 平台差异）：
+ *   - Windows           → WSAPoll（Vista+）
+ *   - POSIX             → poll
+ *   - -DDV_POLLER_FORCE_SELECT → select（保留的 fallback）
+ *
+ * 上限：WSAPoll/poll 两条路径**没有 FD_SETSIZE 硬上限**，注册表按需
+ * 翻倍增长。select fallback 仍受 FD_SETSIZE 限制，超限时
+ * dv_poller_register 返回 -1 并写 g_poller_error，**绝不静默丢 fd**。
  * ================================================================ */
 
 #define DV_POLL_READ  1
 #define DV_POLL_WRITE 2
+
+/* 兼容旧口径：初始容量，不再是硬上限（select fallback 除外） */
 #define DV_POLLER_MAX 256
 
+#if defined(DV_POLLER_FORCE_SELECT)
+#  define DV_POLLER_BACKEND_SELECT 1
+#  define DV_POLLER_BACKEND_NAME "select"
+#elif defined(_WIN32)
+#  define DV_POLLER_BACKEND_WSAPOLL 1
+#  define DV_POLLER_BACKEND_NAME "WSAPoll"
+#else
+#  define DV_POLLER_BACKEND_POLL 1
+#  define DV_POLLER_BACKEND_NAME "poll"
+#endif
+
+#if defined(DV_POLLER_BACKEND_POLL)
+#include <poll.h>
+#endif
+
+/* 三条后端的字段/标志名对齐 */
+#if defined(DV_POLLER_BACKEND_WSAPOLL)
+#  define SOCKET_LIKE_FD    SOCKET
+#  define POLLRDNORM_COMPAT POLLRDNORM
+#  define POLLWRNORM_COMPAT POLLWRNORM
+#  define POLLHUP_COMPAT    POLLHUP
+#  define POLLERR_COMPAT    POLLERR
+#  define POLLNVAL_COMPAT   POLLNVAL
+#elif defined(DV_POLLER_BACKEND_POLL)
+#  define SOCKET_LIKE_FD    int
+#  define POLLRDNORM_COMPAT (POLLIN | POLLRDNORM)
+#  define POLLWRNORM_COMPAT (POLLOUT | POLLWRNORM)
+#  define POLLHUP_COMPAT    POLLHUP
+#  define POLLERR_COMPAT    POLLERR
+#  define POLLNVAL_COMPAT   POLLNVAL
+#endif
+
+
 typedef struct {
-    int registered_fds[DV_POLLER_MAX];
-    int registered_events[DV_POLLER_MAX];
+    int* registered_fds;       /* 按需增长 */
+    int* registered_events;
     int num_registered;
-#ifdef _WIN32
-    fd_set read_fds;
-    fd_set write_fds;
+    int capacity;
+#if defined(DV_POLLER_BACKEND_WSAPOLL)
+    WSAPOLLFD* pfds;
+    int pfds_capacity;
+#elif defined(DV_POLLER_BACKEND_POLL)
+    struct pollfd* pfds;
+    int pfds_capacity;
 #else
     fd_set read_fds;
     fd_set write_fds;
@@ -4538,13 +4591,63 @@ typedef struct {
 #endif
 } LightPoller;
 
+static char g_poller_error[256] = {0};
+
+const char* dv_poller_last_error(void) {
+    return g_poller_error;
+}
+
+const char* dv_poller_backend(void) {
+    return DV_POLLER_BACKEND_NAME;
+}
+
 LightPoller* dv_poller_create(void) {
     LightPoller* p = (LightPoller*)calloc(1, sizeof(LightPoller));
+    if (!p) return NULL;
+    p->capacity = DV_POLLER_MAX;
+    p->registered_fds = (int*)calloc(p->capacity, sizeof(int));
+    p->registered_events = (int*)calloc(p->capacity, sizeof(int));
+    if (!p->registered_fds || !p->registered_events) {
+        free(p->registered_fds);
+        free(p->registered_events);
+        free(p);
+        return NULL;
+    }
     return p;
 }
 
+/* 把注册表扩到至少 need 个槽位。成功返回 0，失败返回 -1（并写错误文本） */
+static int dv_poller_grow(LightPoller* p, int need) {
+    if (need <= p->capacity) return 0;
+    int cap = p->capacity ? p->capacity : DV_POLLER_MAX;
+    while (cap < need) cap *= 2;
+    int* nf = (int*)realloc(p->registered_fds, (size_t)cap * sizeof(int));
+    if (!nf) {
+        snprintf(g_poller_error, sizeof(g_poller_error),
+                 "poller 注册表扩容失败（目标 %d 项），拒绝注册而不静默丢 fd", cap);
+        return -1;
+    }
+    p->registered_fds = nf;
+    int* ne = (int*)realloc(p->registered_events, (size_t)cap * sizeof(int));
+    if (!ne) {
+        snprintf(g_poller_error, sizeof(g_poller_error),
+                 "poller 事件表扩容失败（目标 %d 项），拒绝注册而不静默丢 fd", cap);
+        return -1;
+    }
+    p->registered_events = ne;
+    p->capacity = cap;
+    return 0;
+}
+
 int dv_poller_register(LightPoller* p, int fd, int events) {
-    if (!p || p->num_registered >= DV_POLLER_MAX) return -1;
+    if (!p) {
+        snprintf(g_poller_error, sizeof(g_poller_error), "poller 为空，无法注册 fd %d", fd);
+        return -1;
+    }
+    if (fd < 0) {
+        snprintf(g_poller_error, sizeof(g_poller_error), "非法 fd %d，拒绝注册", fd);
+        return -1;
+    }
     /* 检查是否已注册 */
     for (int i = 0; i < p->num_registered; i++) {
         if (p->registered_fds[i] == fd) {
@@ -4552,6 +4655,25 @@ int dv_poller_register(LightPoller* p, int fd, int events) {
             return 0;
         }
     }
+#if defined(DV_POLLER_BACKEND_SELECT)
+    /* select fallback：FD_SETSIZE 是硬上限，超限必须明确报错而不是静默丢 */
+    if (p->num_registered >= (int)FD_SETSIZE) {
+        snprintf(g_poller_error, sizeof(g_poller_error),
+                 "select 后端已达 FD_SETSIZE=%d 上限，拒绝注册 fd %d（改用 WSAPoll/poll 后端）",
+                 (int)FD_SETSIZE, fd);
+        return -1;
+    }
+#ifndef _WIN32
+    /* POSIX select：fd 值本身必须 < FD_SETSIZE，否则 FD_SET 越界写 */
+    if (fd >= (int)FD_SETSIZE) {
+        snprintf(g_poller_error, sizeof(g_poller_error),
+                 "select 后端 fd %d >= FD_SETSIZE=%d，FD_SET 会越界，拒绝注册",
+                 fd, (int)FD_SETSIZE);
+        return -1;
+    }
+#endif
+#endif
+    if (dv_poller_grow(p, p->num_registered + 1) != 0) return -1;
     p->registered_fds[p->num_registered] = fd;
     p->registered_events[p->num_registered] = events;
     p->num_registered++;
@@ -4572,15 +4694,26 @@ int dv_poller_unregister(LightPoller* p, int fd) {
     return -1;
 }
 
-int dv_poller_wait(LightPoller* p, int timeout_ms, int* out_fds, int* out_events) {
-    if (!p || p->num_registered == 0) return 0;
+int dv_poller_count(LightPoller* p) {
+    return p ? p->num_registered : -1;
+}
 
+/* 带容量的等待：out_capacity 是 out_fds/out_events 的槽位数。
+ * 就绪数超过容量时**不静默截断**：返回 -1 并写错误文本。 */
+int dv_poller_wait_n(LightPoller* p, int timeout_ms, int* out_fds, int* out_events,
+                     int out_capacity) {
+    if (!p || p->num_registered == 0) return 0;
+    if (!out_fds || !out_events || out_capacity <= 0) {
+        snprintf(g_poller_error, sizeof(g_poller_error), "dv_poller_wait_n 输出缓冲非法");
+        return -1;
+    }
+
+#if defined(DV_POLLER_BACKEND_SELECT)
     FD_ZERO(&p->read_fds);
     FD_ZERO(&p->write_fds);
 #ifndef _WIN32
     p->max_fd = -1;
 #endif
-
     for (int i = 0; i < p->num_registered; i++) {
         int fd = p->registered_fds[i];
         int events = p->registered_events[i];
@@ -4590,7 +4723,6 @@ int dv_poller_wait(LightPoller* p, int timeout_ms, int* out_fds, int* out_events
         if (fd > p->max_fd) p->max_fd = fd;
 #endif
     }
-
     struct timeval tv;
     struct timeval* ptv = NULL;
     if (timeout_ms >= 0) {
@@ -4598,33 +4730,112 @@ int dv_poller_wait(LightPoller* p, int timeout_ms, int* out_fds, int* out_events
         tv.tv_usec = (timeout_ms % 1000) * 1000;
         ptv = &tv;
     }
-
     int ready;
 #ifdef _WIN32
     ready = select(0, &p->read_fds, &p->write_fds, NULL, ptv);
 #else
     ready = select(p->max_fd + 1, &p->read_fds, &p->write_fds, NULL, ptv);
 #endif
-
     if (ready <= 0) return 0;
-
     int count = 0;
-    for (int i = 0; i < p->num_registered && count < 256; i++) {
+    for (int i = 0; i < p->num_registered; i++) {
         int fd = p->registered_fds[i];
-        int events = 0;
-        if (FD_ISSET(fd, &p->read_fds)) events |= DV_POLL_READ;
-        if (FD_ISSET(fd, &p->write_fds)) events |= DV_POLL_WRITE;
-        if (events) {
-            out_fds[count] = fd;
-            out_events[count] = events;
-            count++;
+        int ev = 0;
+        if (FD_ISSET(fd, &p->read_fds)) ev |= DV_POLL_READ;
+        if (FD_ISSET(fd, &p->write_fds)) ev |= DV_POLL_WRITE;
+        if (!ev) continue;
+        if (count >= out_capacity) {
+            snprintf(g_poller_error, sizeof(g_poller_error),
+                     "就绪 fd 数超出输出缓冲容量 %d，拒绝截断上报", out_capacity);
+            return -1;
         }
+        out_fds[count] = fd;
+        out_events[count] = ev;
+        count++;
     }
     return count;
+#else
+    /* WSAPoll / poll 共用路径：pollfd 数组按注册数增长 */
+    if (p->pfds_capacity < p->num_registered) {
+        int cap = p->pfds_capacity ? p->pfds_capacity : DV_POLLER_MAX;
+        while (cap < p->num_registered) cap *= 2;
+#if defined(DV_POLLER_BACKEND_WSAPOLL)
+        WSAPOLLFD* np = (WSAPOLLFD*)realloc(p->pfds, (size_t)cap * sizeof(WSAPOLLFD));
+#else
+        struct pollfd* np = (struct pollfd*)realloc(p->pfds, (size_t)cap * sizeof(struct pollfd));
+#endif
+        if (!np) {
+            snprintf(g_poller_error, sizeof(g_poller_error),
+                     "pollfd 数组扩容失败（目标 %d 项）", cap);
+            return -1;
+        }
+        p->pfds = np;
+        p->pfds_capacity = cap;
+    }
+
+    for (int i = 0; i < p->num_registered; i++) {
+        p->pfds[i].fd = (SOCKET_LIKE_FD)p->registered_fds[i];
+        short ev = 0;
+        if (p->registered_events[i] & DV_POLL_READ) ev |= POLLRDNORM_COMPAT;
+        if (p->registered_events[i] & DV_POLL_WRITE) ev |= POLLWRNORM_COMPAT;
+        p->pfds[i].events = ev;
+        p->pfds[i].revents = 0;
+    }
+
+    int ready;
+#if defined(DV_POLLER_BACKEND_WSAPOLL)
+    ready = WSAPoll(p->pfds, (ULONG)p->num_registered, timeout_ms);
+#else
+    ready = poll(p->pfds, (nfds_t)p->num_registered, timeout_ms);
+#endif
+    if (ready < 0) {
+#ifdef _WIN32
+        snprintf(g_poller_error, sizeof(g_poller_error),
+                 "%s 失败: errno %d", DV_POLLER_BACKEND_NAME, WSAGetLastError());
+#else
+        snprintf(g_poller_error, sizeof(g_poller_error),
+                 "%s 失败: errno %d (%s)", DV_POLLER_BACKEND_NAME, errno, strerror(errno));
+#endif
+        return -1;
+    }
+    if (ready == 0) return 0;
+
+    int count = 0;
+    for (int i = 0; i < p->num_registered; i++) {
+        short re = p->pfds[i].revents;
+        if (!re) continue;
+        int ev = 0;
+        if (re & (POLLRDNORM_COMPAT | POLLHUP_COMPAT | POLLERR_COMPAT | POLLNVAL_COMPAT))
+            ev |= DV_POLL_READ;
+        if (re & POLLWRNORM_COMPAT) ev |= DV_POLL_WRITE;
+        if (!ev) continue;
+        if (count >= out_capacity) {
+            snprintf(g_poller_error, sizeof(g_poller_error),
+                     "就绪 fd 数超出输出缓冲容量 %d，拒绝截断上报", out_capacity);
+            return -1;
+        }
+        out_fds[count] = p->registered_fds[i];
+        out_events[count] = ev;
+        count++;
+    }
+    return count;
+#endif
+}
+
+/* 兼容旧 ABI：codegen 生成的调用点固定分配 256 槽位的输出数组 */
+int dv_poller_wait(LightPoller* p, int timeout_ms, int* out_fds, int* out_events) {
+    int n = dv_poller_wait_n(p, timeout_ms, out_fds, out_events, 256);
+    return n < 0 ? 0 : n;
 }
 
 void dv_poller_destroy(LightPoller* p) {
-    if (p) free(p);
+    if (!p) return;
+    free(p->registered_fds);
+    free(p->registered_events);
+#if !defined(DV_POLLER_BACKEND_SELECT)
+    free(p->pfds);
+#endif
+    free(p);
 }
 
 /* ================================================================
@@ -4664,14 +4875,42 @@ static int64_t dv_now_ms(void) {
 #endif
 }
 
-/* 让当前协程挂起等待 IO */
+/* 让当前协程挂起等待 IO
+ *
+ * 注册失败（poller 满 / 扩容失败 / 非法 fd）时**不静默丢 fd**：
+ * 往 stderr 打醒目错误，并把协程直接放回 run_queue，让它继续往下跑
+ * （后续 recv 会以自己的错误路径失败），而不是永远挂在等待队列里。 */
 void dv_coro_await_io(LightCoroutine* coro, int fd, int events) {
     if (!coro || fd < 0) return;
     if (!g_poller) g_poller = dv_poller_create();
-    dv_poller_register(g_poller, fd, events);
+    if (!g_poller) {
+        fprintf(stderr, "[光明·事件循环] poller 创建失败，fd %d 无法等待 IO\n", fd);
+        coro->state = DV_CORO_READY;
+        coro->waiting_for = NULL;
+        coro->next = g_scheduler.run_queue;
+        g_scheduler.run_queue = coro;
+        return;
+    }
+    if (dv_poller_register(g_poller, fd, events) != 0) {
+        fprintf(stderr, "[光明·事件循环] fd %d 注册 poller 失败：%s\n",
+                fd, dv_poller_last_error());
+        coro->state = DV_CORO_READY;
+        coro->waiting_for = NULL;
+        coro->next = g_scheduler.run_queue;
+        g_scheduler.run_queue = coro;
+        return;
+    }
 
     LightIOWait* entry = (LightIOWait*)calloc(1, sizeof(LightIOWait));
-    if (!entry) return;
+    if (!entry) {
+        fprintf(stderr, "[光明·事件循环] IO 等待项分配失败，fd %d 放回就绪队列\n", fd);
+        dv_poller_unregister(g_poller, fd);
+        coro->state = DV_CORO_READY;
+        coro->waiting_for = NULL;
+        coro->next = g_scheduler.run_queue;
+        g_scheduler.run_queue = coro;
+        return;
+    }
     entry->fd = fd;
     entry->events = events;
     entry->coro = coro;
@@ -4774,9 +5013,24 @@ void dv_scheduler_run_event_loop(void) {
 
         /* 4. 调用 poller 等待 IO 就绪 */
         if (g_io_wait_head && g_poller) {
-            int out_fds[256];
-            int out_events[256];
-            int ready = dv_poller_wait(g_poller, poll_timeout, out_fds, out_events);
+            /* 输出缓冲按注册数分配，就绪数永远装得下 —— 不给「静默截断」留口子 */
+            int cap = dv_poller_count(g_poller);
+            if (cap < 1) cap = 1;
+            int* out_fds = (int*)malloc((size_t)cap * sizeof(int));
+            int* out_events = (int*)malloc((size_t)cap * sizeof(int));
+            if (!out_fds || !out_events) {
+                free(out_fds);
+                free(out_events);
+                fprintf(stderr, "[光明·事件循环] 就绪缓冲分配失败，退出事件循环\n");
+                break;
+            }
+            int ready = dv_poller_wait_n(g_poller, poll_timeout, out_fds, out_events, cap);
+            if (ready < 0) {
+                fprintf(stderr, "[光明·事件循环] poller 等待失败：%s\n", dv_poller_last_error());
+                free(out_fds);
+                free(out_events);
+                break;
+            }
 
             /* 5. 把就绪 fd 对应的协程移回 run_queue */
             for (int i = 0; i < ready; i++) {
@@ -4796,6 +5050,8 @@ void dv_scheduler_run_event_loop(void) {
                     pp = &entry->next;
                 }
             }
+            free(out_fds);
+            free(out_events);
         } else if (poll_timeout > 0) {
             /* 只有定时器，没有IO等待：睡眠到下一个定时器到期 */
             dv_platform_sleep(poll_timeout);
@@ -4803,3 +5059,680 @@ void dv_scheduler_run_event_loop(void) {
         }
     }
 }
+
+/* ================================================================
+ * B2-4: 原生 TLS —— Windows Schannel 客户端
+ *
+ * 设计口径（与 dv_socket_* 对齐 + 能和 dv_coro_await_io 协作）：
+ *
+ *   dv_tls_wrap(fd, host)   包一个已 connect 的 fd，不自己发起连接
+ *   dv_tls_handshake(t)     可重入的握手状态机，返回
+ *                           0=完成 / 1=WANT_READ / 2=WANT_WRITE / -1=错误
+ *   dv_tls_want_event(t)    把 WANT_* 翻成 DV_POLL_READ/DV_POLL_WRITE，
+ *                           调用方直接喂给 dv_coro_await_io，**不阻塞事件循环**
+ *   dv_tls_send / dv_tls_recv / dv_tls_free
+ *
+ * 为什么选 Schannel 而不是 OpenSSL/mbedTLS：Schannel 是系统自带，
+ * 不引入第三方依赖、不改分发形态，与本项目「不装库」的口径一致。
+ *
+ * 证书校验**默认开启**（g_tls_verify_default=1）。
+ *   - 默认信任锚 = 系统根存储
+ *   - dv_tls_add_trusted_cert_file(path) 追加显式信任锚（curl --cacert 语义），
+ *     一旦设置就用「独占根」引擎，只认这一批根 —— 比系统根更严
+ *   - dv_tls_set_verify(t, 0) 才关校验，且每次调用都往 stderr 打醒目告警
+ * ================================================================ */
+
+#define DV_TLS_OK          0
+#define DV_TLS_WANT_READ   1
+#define DV_TLS_WANT_WRITE  2
+#define DV_TLS_ERROR      (-1)
+#define DV_TLS_CLOSED     (-2)
+
+static char g_tls_error[512] = {0};
+static int g_tls_verify_default = 1;   /* 校验默认开启 —— 安全红线 */
+
+const char* dv_tls_last_error(void) {
+    return g_tls_error;
+}
+
+#ifdef _WIN32
+
+#define SECURITY_WIN32
+#include <sspi.h>
+#include <schannel.h>
+#include <wincrypt.h>
+#pragma comment(lib, "secur32.lib")
+#pragma comment(lib, "crypt32.lib")
+
+/* 显式信任锚（--cacert 语义）：非 NULL 时作为独占根 */
+static HCERTSTORE g_tls_extra_roots = NULL;
+static HCERTCHAINENGINE g_tls_chain_engine = NULL;
+
+typedef struct LightTLS {
+    int fd;
+    char host[256];
+    CredHandle cred;
+    CtxtHandle ctx;
+    int cred_ok;
+    int ctx_ok;
+    int verify;                 /* 1=校验证书 */
+    int handshake_done;
+    int hs_started;
+    int need_more_input;
+    int peer_closed;
+
+    char* enc;                  /* 已收到但未解密的密文 */
+    int enc_len;
+    int enc_cap;
+
+    char* plain;                /* 已解密未取走的明文 */
+    int plain_len;
+    int plain_off;
+    int plain_cap;
+
+    char* out_pending;          /* 尚未写完的密文（非阻塞 socket 用） */
+    int out_len;
+    int out_off;
+    int out_cap;
+
+    SecPkgContext_StreamSizes sizes;
+} LightTLS;
+
+static int dv_tls_would_block(void) {
+    int e = WSAGetLastError();
+    return (e == WSAEWOULDBLOCK || e == WSAEINPROGRESS);
+}
+
+static int dv_tls_buf_reserve(char** buf, int* cap, int need) {
+    if (*cap >= need) return 0;
+    int c = *cap ? *cap : 4096;
+    while (c < need) c *= 2;
+    char* nb = (char*)realloc(*buf, (size_t)c);
+    if (!nb) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "TLS 缓冲扩容失败（目标 %d 字节）", c);
+        return -1;
+    }
+    *buf = nb;
+    *cap = c;
+    return 0;
+}
+
+/* 把 out_pending 里剩下的字节写出去。0=写完 / DV_TLS_WANT_WRITE / DV_TLS_ERROR */
+static int dv_tls_flush(LightTLS* t) {
+    while (t->out_off < t->out_len) {
+        int n = send(t->fd, t->out_pending + t->out_off, t->out_len - t->out_off, 0);
+        if (n > 0) {
+            t->out_off += n;
+            continue;
+        }
+        if (n < 0 && dv_tls_would_block()) return DV_TLS_WANT_WRITE;
+        snprintf(g_tls_error, sizeof(g_tls_error), "TLS 写 socket 失败: errno %d", WSAGetLastError());
+        return DV_TLS_ERROR;
+    }
+    t->out_off = 0;
+    t->out_len = 0;
+    return DV_TLS_OK;
+}
+
+static int dv_tls_queue_out(LightTLS* t, const char* data, int len) {
+    if (len <= 0) return DV_TLS_OK;
+    /* 先把已排队的压实 */
+    if (t->out_off > 0 && t->out_off == t->out_len) { t->out_off = 0; t->out_len = 0; }
+    if (dv_tls_buf_reserve(&t->out_pending, &t->out_cap, t->out_len + len) != 0) return DV_TLS_ERROR;
+    memcpy(t->out_pending + t->out_len, data, (size_t)len);
+    t->out_len += len;
+    return dv_tls_flush(t);
+}
+
+/* 从 socket 读一批密文。>0=读到字节数 / DV_TLS_WANT_READ / 0=对端关闭 / DV_TLS_ERROR */
+static int dv_tls_fill(LightTLS* t) {
+    const int chunk = 8192;
+    if (dv_tls_buf_reserve(&t->enc, &t->enc_cap, t->enc_len + chunk) != 0) return DV_TLS_ERROR;
+    int n = recv(t->fd, t->enc + t->enc_len, chunk, 0);
+    if (n > 0) {
+        t->enc_len += n;
+        return n;
+    }
+    if (n == 0) {
+        t->peer_closed = 1;
+        return 0;
+    }
+    if (dv_tls_would_block()) return DV_TLS_WANT_READ;
+    snprintf(g_tls_error, sizeof(g_tls_error), "TLS 读 socket 失败: errno %d", WSAGetLastError());
+    return DV_TLS_ERROR;
+}
+
+static int dv_tls_acquire_cred(LightTLS* t) {
+    SCHANNEL_CRED sc;
+    memset(&sc, 0, sizeof(sc));
+    sc.dwVersion = SCHANNEL_CRED_VERSION;
+    /* 手动校验：证书链由我们自己按 g_tls_extra_roots / 系统根判定，
+       这样「显式信任锚」和「关校验」两条路径都走同一段可审计的代码 */
+    sc.dwFlags = SCH_CRED_NO_DEFAULT_CREDS | SCH_CRED_MANUAL_CRED_VALIDATION;
+    SECURITY_STATUS ss = AcquireCredentialsHandleA(NULL, (char*)UNISP_NAME_A, SECPKG_CRED_OUTBOUND,
+                                                  NULL, &sc, NULL, NULL, &t->cred, NULL);
+    if (ss != SEC_E_OK) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "AcquireCredentialsHandle 失败: 0x%lx", (unsigned long)ss);
+        return -1;
+    }
+    t->cred_ok = 1;
+    return 0;
+}
+
+/* 证书链校验：主机名 + 有效期 + 信任锚。0=通过 / -1=不通过（写 g_tls_error） */
+static int dv_tls_verify_peer(LightTLS* t) {
+    PCCERT_CONTEXT peer = NULL;
+    SECURITY_STATUS ss = QueryContextAttributesA(&t->ctx, SECPKG_ATTR_REMOTE_CERT_CONTEXT, &peer);
+    if (ss != SEC_E_OK || !peer) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "取对端证书失败: 0x%lx", (unsigned long)ss);
+        return -1;
+    }
+
+    CERT_CHAIN_PARA para;
+    memset(&para, 0, sizeof(para));
+    para.cbSize = sizeof(para);
+    LPCSTR usage[] = { szOID_PKIX_KP_SERVER_AUTH };
+    para.RequestedUsage.dwType = USAGE_MATCH_TYPE_AND;
+    para.RequestedUsage.Usage.cUsageIdentifier = 1;
+    para.RequestedUsage.Usage.rgpszUsageIdentifier = (LPSTR*)usage;
+
+    PCCERT_CHAIN_CONTEXT chain = NULL;
+    HCERTCHAINENGINE engine = g_tls_chain_engine ? g_tls_chain_engine : HCCE_CURRENT_USER;
+    if (!CertGetCertificateChain(engine, peer, NULL, peer->hCertStore, &para, 0, NULL, &chain)) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "构建证书链失败: 0x%lx", (unsigned long)GetLastError());
+        CertFreeCertificateContext(peer);
+        return -1;
+    }
+
+    /* 主机名 + SSL 策略 */
+    wchar_t whost[256];
+    int wn = MultiByteToWideChar(CP_UTF8, 0, t->host, -1, whost, 255);
+    if (wn <= 0) whost[0] = L'\0';
+
+    SSL_EXTRA_CERT_CHAIN_POLICY_PARA sslpara;
+    memset(&sslpara, 0, sizeof(sslpara));
+    sslpara.cbSize = sizeof(sslpara);
+    sslpara.dwAuthType = AUTHTYPE_SERVER;
+    sslpara.pwszServerName = whost;
+
+    CERT_CHAIN_POLICY_PARA polpara;
+    memset(&polpara, 0, sizeof(polpara));
+    polpara.cbSize = sizeof(polpara);
+    polpara.pvExtraPolicyPara = &sslpara;
+
+    CERT_CHAIN_POLICY_STATUS polstatus;
+    memset(&polstatus, 0, sizeof(polstatus));
+    polstatus.cbSize = sizeof(polstatus);
+
+    int ok = 0;
+    if (!CertVerifyCertificateChainPolicy(CERT_CHAIN_POLICY_SSL, chain, &polpara, &polstatus)) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "证书策略校验调用失败: 0x%lx",
+                 (unsigned long)GetLastError());
+    } else if (polstatus.dwError != 0) {
+        snprintf(g_tls_error, sizeof(g_tls_error),
+                 "证书校验不通过: 0x%lx（链错误 0x%lx）",
+                 (unsigned long)polstatus.dwError,
+                 (unsigned long)chain->TrustStatus.dwErrorStatus);
+    } else if (chain->TrustStatus.dwErrorStatus != 0) {
+        snprintf(g_tls_error, sizeof(g_tls_error),
+                 "证书链不可信: 0x%lx", (unsigned long)chain->TrustStatus.dwErrorStatus);
+    } else {
+        ok = 1;
+    }
+
+    CertFreeCertificateChain(chain);
+    CertFreeCertificateContext(peer);
+    return ok ? 0 : -1;
+}
+
+LightTLS* dv_tls_wrap(int fd, const char* host) {
+    if (fd < 0) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_wrap: 非法 fd %d", fd);
+        return NULL;
+    }
+    LightTLS* t = (LightTLS*)calloc(1, sizeof(LightTLS));
+    if (!t) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_wrap: 内存不足");
+        return NULL;
+    }
+    t->fd = fd;
+    t->verify = g_tls_verify_default;
+    if (host && host[0]) {
+        strncpy(t->host, host, sizeof(t->host) - 1);
+    } else {
+        /* 没有主机名就无法做主机名校验 —— 明确拒绝而不是静默降级 */
+        snprintf(g_tls_error, sizeof(g_tls_error),
+                 "dv_tls_wrap: 必须给主机名（SNI + 主机名校验都要它），拒绝无名包装");
+        free(t);
+        return NULL;
+    }
+    return t;
+}
+
+int dv_tls_set_verify(LightTLS* t, int enable) {
+    if (!t) return -1;
+    t->verify = enable ? 1 : 0;
+    if (!enable) {
+        fprintf(stderr,
+                "\n***** 【安全告警】TLS 证书校验已被显式关闭（host=%s）*****\n"
+                "***** 该连接可被中间人劫持，仅允许在受控测试中使用    *****\n\n",
+                t->host);
+        fflush(stderr);
+    }
+    return 0;
+}
+
+int dv_tls_add_trusted_cert_file(const char* path) {
+    if (!path || !path[0]) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_add_trusted_cert_file: 路径为空");
+        return -1;
+    }
+    FILE* f = fopen(path, "rb");
+    if (!f) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "打开信任锚文件失败: %s", path);
+        return -1;
+    }
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (sz <= 0 || sz > 4 * 1024 * 1024) {
+        fclose(f);
+        snprintf(g_tls_error, sizeof(g_tls_error), "信任锚文件大小异常: %ld", sz);
+        return -1;
+    }
+    unsigned char* raw = (unsigned char*)malloc((size_t)sz + 1);
+    if (!raw) { fclose(f); return -1; }
+    size_t got = fread(raw, 1, (size_t)sz, f);
+    fclose(f);
+    raw[got] = 0;
+
+    /* PEM → DER；不是 PEM 就按 DER 直接用 */
+    unsigned char* der = NULL;
+    DWORD der_len = 0;
+    int der_owned = 0;
+    if (strstr((char*)raw, "-----BEGIN")) {
+        if (!CryptStringToBinaryA((LPCSTR)raw, (DWORD)got, CRYPT_STRING_BASE64HEADER,
+                                  NULL, &der_len, NULL, NULL)) {
+            free(raw);
+            snprintf(g_tls_error, sizeof(g_tls_error), "PEM 解码长度探测失败: 0x%lx",
+                     (unsigned long)GetLastError());
+            return -1;
+        }
+        der = (unsigned char*)malloc(der_len);
+        if (!der) { free(raw); return -1; }
+        if (!CryptStringToBinaryA((LPCSTR)raw, (DWORD)got, CRYPT_STRING_BASE64HEADER,
+                                  der, &der_len, NULL, NULL)) {
+            free(der);
+            free(raw);
+            snprintf(g_tls_error, sizeof(g_tls_error), "PEM 解码失败: 0x%lx",
+                     (unsigned long)GetLastError());
+            return -1;
+        }
+        der_owned = 1;
+    } else {
+        der = raw;
+        der_len = (DWORD)got;
+    }
+
+    if (!g_tls_extra_roots) {
+        g_tls_extra_roots = CertOpenStore(CERT_STORE_PROV_MEMORY, 0, 0,
+                                         CERT_STORE_CREATE_NEW_FLAG, NULL);
+        if (!g_tls_extra_roots) {
+            if (der_owned) free(der);
+            free(raw);
+            snprintf(g_tls_error, sizeof(g_tls_error), "创建信任锚存储失败");
+            return -1;
+        }
+    }
+
+    BOOL added = CertAddEncodedCertificateToStore(g_tls_extra_roots, X509_ASN_ENCODING,
+                                                  der, der_len, CERT_STORE_ADD_ALWAYS, NULL);
+    if (der_owned) free(der);
+    free(raw);
+    if (!added) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "加入信任锚失败: 0x%lx",
+                 (unsigned long)GetLastError());
+        return -1;
+    }
+
+    /* 用「独占根」引擎：只认显式给的这批根，比系统根更严 */
+    if (g_tls_chain_engine) {
+        CertFreeCertificateChainEngine(g_tls_chain_engine);
+        g_tls_chain_engine = NULL;
+    }
+    CERT_CHAIN_ENGINE_CONFIG cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.cbSize = sizeof(cfg);
+    cfg.hExclusiveRoot = g_tls_extra_roots;
+    if (!CertCreateCertificateChainEngine(&cfg, &g_tls_chain_engine)) {
+        g_tls_chain_engine = NULL;
+        snprintf(g_tls_error, sizeof(g_tls_error), "创建独占根链引擎失败: 0x%lx",
+                 (unsigned long)GetLastError());
+        return -1;
+    }
+    return 0;
+}
+
+int dv_tls_handshake(LightTLS* t) {
+    if (!t) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_handshake: 句柄为空");
+        return DV_TLS_ERROR;
+    }
+    if (t->handshake_done) return DV_TLS_OK;
+
+    /* 上一轮没写完的先写完 */
+    int fr = dv_tls_flush(t);
+    if (fr != DV_TLS_OK) return fr;
+
+    if (!t->cred_ok && dv_tls_acquire_cred(t) != 0) return DV_TLS_ERROR;
+
+    DWORD req = ISC_REQ_SEQUENCE_DETECT | ISC_REQ_REPLAY_DETECT | ISC_REQ_CONFIDENTIALITY |
+                ISC_RET_EXTENDED_ERROR | ISC_REQ_ALLOCATE_MEMORY | ISC_REQ_STREAM;
+
+    if (!t->hs_started) {
+        SecBuffer outb;
+        outb.pvBuffer = NULL; outb.BufferType = SECBUFFER_TOKEN; outb.cbBuffer = 0;
+        SecBufferDesc outd;
+        outd.ulVersion = SECBUFFER_VERSION; outd.cBuffers = 1; outd.pBuffers = &outb;
+        DWORD outflags = 0;
+        SECURITY_STATUS ss = InitializeSecurityContextA(&t->cred, NULL, t->host, req, 0, 0,
+                                                       NULL, 0, &t->ctx, &outd, &outflags, NULL);
+        if (ss != SEC_I_CONTINUE_NEEDED) {
+            snprintf(g_tls_error, sizeof(g_tls_error),
+                     "InitializeSecurityContext(首轮) 失败: 0x%lx", (unsigned long)ss);
+            return DV_TLS_ERROR;
+        }
+        t->ctx_ok = 1;
+        t->hs_started = 1;
+        int qr = DV_TLS_OK;
+        if (outb.cbBuffer && outb.pvBuffer) {
+            qr = dv_tls_queue_out(t, (const char*)outb.pvBuffer, (int)outb.cbBuffer);
+            FreeContextBuffer(outb.pvBuffer);
+        }
+        if (qr != DV_TLS_OK) return qr;
+        t->need_more_input = 1;
+    }
+
+    for (;;) {
+        if (t->need_more_input || t->enc_len == 0) {
+            int r = dv_tls_fill(t);
+            if (r == DV_TLS_WANT_READ) return DV_TLS_WANT_READ;
+            if (r == DV_TLS_ERROR) return DV_TLS_ERROR;
+            if (r == 0) {
+                snprintf(g_tls_error, sizeof(g_tls_error), "握手中对端关闭连接");
+                return DV_TLS_ERROR;
+            }
+            t->need_more_input = 0;
+        }
+
+        SecBuffer inb[2];
+        inb[0].pvBuffer = t->enc; inb[0].cbBuffer = (unsigned long)t->enc_len;
+        inb[0].BufferType = SECBUFFER_TOKEN;
+        inb[1].pvBuffer = NULL; inb[1].cbBuffer = 0; inb[1].BufferType = SECBUFFER_EMPTY;
+        SecBufferDesc ind;
+        ind.ulVersion = SECBUFFER_VERSION; ind.cBuffers = 2; ind.pBuffers = inb;
+
+        SecBuffer outb[2];
+        outb[0].pvBuffer = NULL; outb[0].cbBuffer = 0; outb[0].BufferType = SECBUFFER_TOKEN;
+        outb[1].pvBuffer = NULL; outb[1].cbBuffer = 0; outb[1].BufferType = SECBUFFER_ALERT;
+        SecBufferDesc outd;
+        outd.ulVersion = SECBUFFER_VERSION; outd.cBuffers = 2; outd.pBuffers = outb;
+
+        DWORD outflags = 0;
+        SECURITY_STATUS ss = InitializeSecurityContextA(&t->cred, &t->ctx, t->host, req, 0, 0,
+                                                       &ind, 0, NULL, &outd, &outflags, NULL);
+
+        if (ss == SEC_E_INCOMPLETE_MESSAGE) {
+            t->need_more_input = 1;
+            continue;
+        }
+
+        int qr = DV_TLS_OK;
+        if (outb[0].cbBuffer && outb[0].pvBuffer) {
+            qr = dv_tls_queue_out(t, (const char*)outb[0].pvBuffer, (int)outb[0].cbBuffer);
+        }
+        if (outb[0].pvBuffer) FreeContextBuffer(outb[0].pvBuffer);
+        if (outb[1].pvBuffer) FreeContextBuffer(outb[1].pvBuffer);
+
+        /* 处理未消费的尾巴 */
+        if (inb[1].BufferType == SECBUFFER_EXTRA && inb[1].cbBuffer > 0) {
+            int extra = (int)inb[1].cbBuffer;
+            memmove(t->enc, t->enc + (t->enc_len - extra), (size_t)extra);
+            t->enc_len = extra;
+        } else if (ss != SEC_E_INCOMPLETE_MESSAGE) {
+            t->enc_len = 0;
+        }
+
+        if (qr == DV_TLS_ERROR) return DV_TLS_ERROR;
+
+        if (ss == SEC_I_CONTINUE_NEEDED) {
+            if (qr == DV_TLS_WANT_WRITE) return DV_TLS_WANT_WRITE;
+            t->need_more_input = (t->enc_len == 0);
+            continue;
+        }
+        if (ss == SEC_E_OK) {
+            if (qr == DV_TLS_WANT_WRITE) return DV_TLS_WANT_WRITE;
+            if (t->verify) {
+                if (dv_tls_verify_peer(t) != 0) return DV_TLS_ERROR;
+            } else {
+                fprintf(stderr, "[光明·TLS] 警告：host=%s 的证书校验被跳过\n", t->host);
+            }
+            SECURITY_STATUS qs = QueryContextAttributesA(&t->ctx, SECPKG_ATTR_STREAM_SIZES, &t->sizes);
+            if (qs != SEC_E_OK) {
+                snprintf(g_tls_error, sizeof(g_tls_error), "取 StreamSizes 失败: 0x%lx",
+                         (unsigned long)qs);
+                return DV_TLS_ERROR;
+            }
+            t->handshake_done = 1;
+            return DV_TLS_OK;
+        }
+        if (ss == SEC_I_INCOMPLETE_CREDENTIALS) {
+            snprintf(g_tls_error, sizeof(g_tls_error), "对端要求客户端证书，本实现不支持");
+            return DV_TLS_ERROR;
+        }
+        snprintf(g_tls_error, sizeof(g_tls_error), "TLS 握手失败: 0x%lx", (unsigned long)ss);
+        return DV_TLS_ERROR;
+    }
+}
+
+int dv_tls_want_event(LightTLS* t) {
+    if (!t) return DV_POLL_READ;
+    if (t->out_off < t->out_len) return DV_POLL_WRITE;
+    return DV_POLL_READ;
+}
+
+int dv_tls_is_ready(LightTLS* t) {
+    return (t && t->handshake_done) ? 1 : 0;
+}
+
+int dv_tls_send(LightTLS* t, const char* data) {
+    if (!t || !t->handshake_done) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_send: 握手未完成");
+        return DV_TLS_ERROR;
+    }
+    int fr = dv_tls_flush(t);
+    if (fr != DV_TLS_OK) return fr;
+    if (!data) return 0;
+    int total = (int)strlen(data);
+    int sent = 0;
+    while (sent < total) {
+        int chunk = total - sent;
+        if (chunk > (int)t->sizes.cbMaximumMessage) chunk = (int)t->sizes.cbMaximumMessage;
+        unsigned long need = t->sizes.cbHeader + (unsigned long)chunk + t->sizes.cbTrailer;
+        char* rec = (char*)malloc(need);
+        if (!rec) {
+            snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_send: 记录缓冲分配失败");
+            return DV_TLS_ERROR;
+        }
+        memcpy(rec + t->sizes.cbHeader, data + sent, (size_t)chunk);
+
+        SecBuffer b[4];
+        b[0].pvBuffer = rec; b[0].cbBuffer = t->sizes.cbHeader; b[0].BufferType = SECBUFFER_STREAM_HEADER;
+        b[1].pvBuffer = rec + t->sizes.cbHeader; b[1].cbBuffer = (unsigned long)chunk;
+        b[1].BufferType = SECBUFFER_DATA;
+        b[2].pvBuffer = rec + t->sizes.cbHeader + chunk; b[2].cbBuffer = t->sizes.cbTrailer;
+        b[2].BufferType = SECBUFFER_STREAM_TRAILER;
+        b[3].pvBuffer = NULL; b[3].cbBuffer = 0; b[3].BufferType = SECBUFFER_EMPTY;
+        SecBufferDesc d;
+        d.ulVersion = SECBUFFER_VERSION; d.cBuffers = 4; d.pBuffers = b;
+
+        SECURITY_STATUS ss = EncryptMessage(&t->ctx, 0, &d, 0);
+        if (ss != SEC_E_OK) {
+            free(rec);
+            snprintf(g_tls_error, sizeof(g_tls_error), "EncryptMessage 失败: 0x%lx", (unsigned long)ss);
+            return DV_TLS_ERROR;
+        }
+        int reclen = (int)(b[0].cbBuffer + b[1].cbBuffer + b[2].cbBuffer);
+        int qr = dv_tls_queue_out(t, rec, reclen);
+        free(rec);
+        if (qr == DV_TLS_ERROR) return DV_TLS_ERROR;
+        sent += chunk;
+        if (qr == DV_TLS_WANT_WRITE) {
+            /* 已排队但没写完：明文层面算已接收，调用方等可写后调 dv_tls_flush_public */
+            return sent;
+        }
+    }
+    return sent;
+}
+
+int dv_tls_flush_public(LightTLS* t) {
+    if (!t) return DV_TLS_ERROR;
+    return dv_tls_flush(t);
+}
+
+/* 解密一轮：把 enc 里能解的搬到 plain。0=有进展 / WANT_READ / CLOSED / ERROR */
+static int dv_tls_decrypt_step(LightTLS* t) {
+    for (;;) {
+        if (t->enc_len == 0) {
+            int r = dv_tls_fill(t);
+            if (r == DV_TLS_WANT_READ) return DV_TLS_WANT_READ;
+            if (r == DV_TLS_ERROR) return DV_TLS_ERROR;
+            if (r == 0) return DV_TLS_CLOSED;
+        }
+
+        SecBuffer b[4];
+        b[0].pvBuffer = t->enc; b[0].cbBuffer = (unsigned long)t->enc_len;
+        b[0].BufferType = SECBUFFER_DATA;
+        for (int i = 1; i < 4; i++) {
+            b[i].pvBuffer = NULL; b[i].cbBuffer = 0; b[i].BufferType = SECBUFFER_EMPTY;
+        }
+        SecBufferDesc d;
+        d.ulVersion = SECBUFFER_VERSION; d.cBuffers = 4; d.pBuffers = b;
+
+        SECURITY_STATUS ss = DecryptMessage(&t->ctx, &d, 0, NULL);
+        if (ss == SEC_E_INCOMPLETE_MESSAGE) {
+            int r = dv_tls_fill(t);
+            if (r == DV_TLS_WANT_READ) return DV_TLS_WANT_READ;
+            if (r == DV_TLS_ERROR) return DV_TLS_ERROR;
+            if (r == 0) return DV_TLS_CLOSED;
+            continue;
+        }
+        if (ss == SEC_I_CONTEXT_EXPIRED) {
+            t->peer_closed = 1;
+            t->enc_len = 0;
+            return DV_TLS_CLOSED;
+        }
+        if (ss != SEC_E_OK) {
+            snprintf(g_tls_error, sizeof(g_tls_error), "DecryptMessage 失败: 0x%lx", (unsigned long)ss);
+            return DV_TLS_ERROR;
+        }
+
+        SecBuffer* data = NULL;
+        SecBuffer* extra = NULL;
+        for (int i = 0; i < 4; i++) {
+            if (!data && b[i].BufferType == SECBUFFER_DATA) data = &b[i];
+            else if (!extra && b[i].BufferType == SECBUFFER_EXTRA) extra = &b[i];
+        }
+        if (data && data->cbBuffer > 0) {
+            /* 压实 plain 后追加 */
+            if (t->plain_off > 0) {
+                memmove(t->plain, t->plain + t->plain_off, (size_t)(t->plain_len - t->plain_off));
+                t->plain_len -= t->plain_off;
+                t->plain_off = 0;
+            }
+            if (dv_tls_buf_reserve(&t->plain, &t->plain_cap, t->plain_len + (int)data->cbBuffer) != 0)
+                return DV_TLS_ERROR;
+            memcpy(t->plain + t->plain_len, data->pvBuffer, data->cbBuffer);
+            t->plain_len += (int)data->cbBuffer;
+        }
+        if (extra && extra->cbBuffer > 0) {
+            memmove(t->enc, extra->pvBuffer, extra->cbBuffer);
+            t->enc_len = (int)extra->cbBuffer;
+        } else {
+            t->enc_len = 0;
+        }
+        return DV_TLS_OK;
+    }
+}
+
+void dv_tls_recv(LightValue* result, LightTLS* t, int max_bytes) {
+    if (!result) return;
+    if (!t || !t->handshake_done) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_recv: 握手未完成");
+        dv_str(result, "");
+        return;
+    }
+    if (max_bytes <= 0) max_bytes = 4096;
+
+    if (t->plain_off >= t->plain_len) {
+        int r = dv_tls_decrypt_step(t);
+        if (r != DV_TLS_OK) {
+            /* WANT_READ / CLOSED / ERROR 都返回空串；具体原因看 dv_tls_last_error / 状态位 */
+            dv_str(result, "");
+            return;
+        }
+    }
+    int avail = t->plain_len - t->plain_off;
+    if (avail <= 0) { dv_str(result, ""); return; }
+    int n = avail < max_bytes ? avail : max_bytes;
+    char* tmp = (char*)malloc((size_t)n + 1);
+    if (!tmp) { dv_str(result, ""); return; }
+    memcpy(tmp, t->plain + t->plain_off, (size_t)n);
+    tmp[n] = '\0';
+    t->plain_off += n;
+    dv_str(result, tmp);
+    free(tmp);
+}
+
+void dv_tls_free(LightTLS* t) {
+    if (!t) return;
+    if (t->ctx_ok) DeleteSecurityContext(&t->ctx);
+    if (t->cred_ok) FreeCredentialsHandle(&t->cred);
+    free(t->enc);
+    free(t->plain);
+    free(t->out_pending);
+    free(t);
+}
+
+const char* dv_tls_backend(void) { return "Schannel"; }
+
+#else  /* 非 Windows */
+
+typedef struct LightTLS { int fd; } LightTLS;
+
+static void dv_tls_unsupported(void) {
+    snprintf(g_tls_error, sizeof(g_tls_error),
+             "本平台未实现原生 TLS：当前只有 Windows Schannel 后端（POSIX 待补 mbedTLS）");
+}
+
+LightTLS* dv_tls_wrap(int fd, const char* host) {
+    (void)fd; (void)host;
+    dv_tls_unsupported();
+    return NULL;
+}
+int dv_tls_handshake(LightTLS* t) { (void)t; dv_tls_unsupported(); return DV_TLS_ERROR; }
+int dv_tls_send(LightTLS* t, const char* data) { (void)t; (void)data; dv_tls_unsupported(); return DV_TLS_ERROR; }
+void dv_tls_recv(LightValue* result, LightTLS* t, int max_bytes) {
+    (void)t; (void)max_bytes;
+    dv_tls_unsupported();
+    if (result) dv_str(result, "");
+}
+void dv_tls_free(LightTLS* t) { free(t); }
+int dv_tls_set_verify(LightTLS* t, int enable) { (void)t; (void)enable; dv_tls_unsupported(); return -1; }
+int dv_tls_add_trusted_cert_file(const char* path) { (void)path; dv_tls_unsupported(); return -1; }
+int dv_tls_want_event(LightTLS* t) { (void)t; return DV_POLL_READ; }
+int dv_tls_is_ready(LightTLS* t) { (void)t; return 0; }
+int dv_tls_flush_public(LightTLS* t) { (void)t; return DV_TLS_ERROR; }
+const char* dv_tls_backend(void) { return "none"; }
+
+#endif /* _WIN32 */
