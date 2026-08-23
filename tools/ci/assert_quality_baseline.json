@@ -1,19 +1,347 @@
 {
-  "version": 1,
+  "version": 2,
   "note": "假测试门禁基线快照：本仓库当前的既有违规。新增即红；修好一批后重新生成并提交本文件。",
+  "built_from_commit": "e1dbfc3aa1e2",
   "scanned_root": "tests",
   "categories": {
     "string-assert": "字符串断言式",
+    "assertin-string": "unittest字符串断言",
     "upper-bound": "上界断言式",
+    "lower-bound": "下界断言式",
+    "not-none": "非空断言式",
     "trivial-ge0": "恒真断言式",
     "returncode-in": "成败都算通过"
   },
   "violations": [
     {
       "file": "_test_hm_inference.py",
+      "line": 104,
+      "cat": "not-none",
+      "text": "assert subs is not None"
+    },
+    {
+      "file": "_test_hm_inference.py",
+      "line": 127,
+      "cat": "not-none",
+      "text": "assert sym is not None, \"'恒等' 未注册\""
+    },
+    {
+      "file": "_test_hm_inference.py",
+      "line": 473,
+      "cat": "not-none",
+      "text": "assert sym is not None"
+    },
+    {
+      "file": "_test_hm_inference.py",
       "line": 525,
       "cat": "upper-bound",
       "text": "assert len(inf.errors) <= 3, f\"错误过多: {inf.errors}\""
+    },
+    {
+      "file": "_test_three_features.py",
+      "line": 298,
+      "cat": "not-none",
+      "text": "assert _x is not None, \"尝试解包空值\""
+    },
+    {
+      "file": "_test_three_features.py",
+      "line": 317,
+      "cat": "not-none",
+      "text": "assert _x is not None, \"尝试解包空值\""
+    },
+    {
+      "file": "_test_three_features.py",
+      "line": 329,
+      "cat": "not-none",
+      "text": "assert _x is not None, \"尝试解包空值\""
+    },
+    {
+      "file": "_test_three_features.py",
+      "line": 341,
+      "cat": "not-none",
+      "text": "assert _x is not None, \"尝试解包空值\""
+    },
+    {
+      "file": "_test_three_features.py",
+      "line": 354,
+      "cat": "not-none",
+      "text": "assert _x is not None, \"尝试解包空值\""
+    },
+    {
+      "file": "_test_three_features.py",
+      "line": 368,
+      "cat": "not-none",
+      "text": "assert _x is not None, \"尝试解包空值\""
+    },
+    {
+      "file": "_test_three_features.py",
+      "line": 633,
+      "cat": "not-none",
+      "text": "assert x is not None, \"尝试解包空值\""
+    },
+    {
+      "file": "_test_three_features.py",
+      "line": 699,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"段落\", source)"
+    },
+    {
+      "file": "_test_three_features.py",
+      "line": 700,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"结束\", source)"
+    },
+    {
+      "file": "_test_three_features.py",
+      "line": 701,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"设\", source)"
+    },
+    {
+      "file": "_test_three_features.py",
+      "line": 702,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"为\", source)"
+    },
+    {
+      "file": "_test_three_features.py",
+      "line": 732,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"空\", source)"
+    },
+    {
+      "file": "_test_three_features.py",
+      "line": 733,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"!\", source)"
+    },
+    {
+      "file": "_test_three_features.py",
+      "line": 746,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"导入\", source)"
+    },
+    {
+      "file": "_test_three_features.py",
+      "line": 747,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"从\", source)"
+    },
+    {
+      "file": "archive/_test_phase2_generics.py",
+      "line": 70,
+      "cat": "not-none",
+      "text": "assert sym is not None, \"'映射' 符号应存在\""
+    },
+    {
+      "file": "archive/_test_phase3_interfaces.py",
+      "line": 149,
+      "cat": "not-none",
+      "text": "assert sym is not None"
+    },
+    {
+      "file": "archive/_test_phase3_interfaces.py",
+      "line": 286,
+      "cat": "not-none",
+      "text": "assert tv.constraint is not None"
+    },
+    {
+      "file": "archive/_test_phase3_interfaces.py",
+      "line": 378,
+      "cat": "not-none",
+      "text": "assert t_resolved.constraint is not None"
+    },
+    {
+      "file": "archive/_test_phase4_inference.py",
+      "line": 57,
+      "cat": "not-none",
+      "text": "assert sym is not None"
+    },
+    {
+      "file": "archive/_test_phase4_inference.py",
+      "line": 143,
+      "cat": "not-none",
+      "text": "assert sym_x is not None, \"x 应被定义\""
+    },
+    {
+      "file": "archive/_test_phase4_inference.py",
+      "line": 144,
+      "cat": "not-none",
+      "text": "assert sym_y is not None, \"y 应被定义\""
+    },
+    {
+      "file": "archive/_test_phase4_inference.py",
+      "line": 355,
+      "cat": "not-none",
+      "text": "assert sym is not None"
+    },
+    {
+      "file": "archive/_test_phase4_inference.py",
+      "line": 390,
+      "cat": "not-none",
+      "text": "assert sym is not None"
+    },
+    {
+      "file": "archive/_test_phase5_compiler.py",
+      "line": 37,
+      "cat": "not-none",
+      "text": "assert sym is not None, f\"变量 '{var_name}' 未定义\""
+    },
+    {
+      "file": "archive/_test_phase5_compiler.py",
+      "line": 88,
+      "cat": "not-none",
+      "text": "assert sym is not None"
+    },
+    {
+      "file": "archive/_test_phase5_compiler.py",
+      "line": 108,
+      "cat": "not-none",
+      "text": "assert sym is not None, \"'倍' 段落应已注册\""
+    },
+    {
+      "file": "archive/_test_phase5_compiler.py",
+      "line": 154,
+      "cat": "not-none",
+      "text": "assert sym is not None"
+    },
+    {
+      "file": "archive/_test_phase5_compiler.py",
+      "line": 157,
+      "cat": "not-none",
+      "text": "assert sym2 is not None"
+    },
+    {
+      "file": "archive/_test_phase5_compiler.py",
+      "line": 165,
+      "cat": "not-none",
+      "text": "assert module is not None"
+    },
+    {
+      "file": "e2e/test_e2e_chain.py",
+      "line": 134,
+      "cat": "lower-bound",
+      "text": "assert len(EXAMPLE_CANDIDATES) >= 10, \\"
+    },
+    {
+      "file": "e2e/test_module_e2e.py",
+      "line": 116,
+      "cat": "lower-bound",
+      "text": "assert len(order) >= 2"
+    },
+    {
+      "file": "test_Web框架.py",
+      "line": 721,
+      "cat": "not-none",
+      "text": "assert session_id is not None"
+    },
+    {
+      "file": "test_Web框架.py",
+      "line": 778,
+      "cat": "not-none",
+      "text": "assert app._路由表 is not None"
+    },
+    {
+      "file": "test_Web框架.py",
+      "line": 814,
+      "cat": "not-none",
+      "text": "assert t is not None"
+    },
+    {
+      "file": "test_Web框架.py",
+      "line": 860,
+      "cat": "not-none",
+      "text": "assert engine is not None"
+    },
+    {
+      "file": "test_Web框架.py",
+      "line": 861,
+      "cat": "not-none",
+      "text": "assert app._模板引擎 is not None"
+    },
+    {
+      "file": "test_advanced_semantic.py",
+      "line": 30,
+      "cat": "not-none",
+      "text": "assert info is not None"
+    },
+    {
+      "file": "test_advanced_semantic.py",
+      "line": 83,
+      "cat": "not-none",
+      "text": "assert result is not None"
+    },
+    {
+      "file": "test_advanced_semantic.py",
+      "line": 88,
+      "cat": "not-none",
+      "text": "assert result is not None"
+    },
+    {
+      "file": "test_advanced_semantic.py",
+      "line": 93,
+      "cat": "not-none",
+      "text": "assert result is not None"
+    },
+    {
+      "file": "test_advanced_semantic.py",
+      "line": 98,
+      "cat": "not-none",
+      "text": "assert result is not None"
+    },
+    {
+      "file": "test_advanced_semantic.py",
+      "line": 119,
+      "cat": "not-none",
+      "text": "assert semantic_type is not None"
+    },
+    {
+      "file": "test_advanced_semantic.py",
+      "line": 131,
+      "cat": "not-none",
+      "text": "assert semantic_type is not None"
+    },
+    {
+      "file": "test_advanced_semantic.py",
+      "line": 164,
+      "cat": "not-none",
+      "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_advanced_semantic.py",
+      "line": 182,
+      "cat": "not-none",
+      "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_advanced_semantic.py",
+      "line": 196,
+      "cat": "not-none",
+      "text": "assert result is not None"
+    },
+    {
+      "file": "test_advanced_semantic.py",
+      "line": 205,
+      "cat": "not-none",
+      "text": "assert result is not None"
+    },
+    {
+      "file": "test_advanced_semantic.py",
+      "line": 226,
+      "cat": "not-none",
+      "text": "assert semantic_type is not None"
+    },
+    {
+      "file": "test_agent_tools_light.py",
+      "line": 412,
+      "cat": "not-none",
+      "text": "assert 孙pid is not None, f\"没抓到孙子 PID，本用例无法判定杀树：\\n{结果}\""
+    },
+    {
+      "file": "test_async.py",
+      "line": 390,
+      "cat": "lower-bound",
+      "text": "assert len(lines) >= 2"
     },
     {
       "file": "test_async.py",
@@ -232,6 +560,216 @@
       "text": "assert 'await 外层()' in py_code, f\"Expected 'await 外层()' in:\\n{py_code}\""
     },
     {
+      "file": "test_context_manager.py",
+      "line": 159,
+      "cat": "lower-bound",
+      "text": "assert len(module.statements) >= 1"
+    },
+    {
+      "file": "test_context_manager.py",
+      "line": 166,
+      "cat": "not-none",
+      "text": "assert with_stmt is not None, \"未找到 WithStmt 节点\""
+    },
+    {
+      "file": "test_context_manager.py",
+      "line": 182,
+      "cat": "not-none",
+      "text": "assert with_stmt is not None"
+    },
+    {
+      "file": "test_context_manager.py",
+      "line": 198,
+      "cat": "not-none",
+      "text": "assert with_stmt is not None"
+    },
+    {
+      "file": "test_context_manager.py",
+      "line": 199,
+      "cat": "not-none",
+      "text": "assert with_stmt.items is not None"
+    },
+    {
+      "file": "test_context_manager.py",
+      "line": 812,
+      "cat": "not-none",
+      "text": "assert vd.type_annotation is not None"
+    },
+    {
+      "file": "test_core_coverage.py",
+      "line": 292,
+      "cat": "not-none",
+      "text": "assert results is not None"
+    },
+    {
+      "file": "test_core_coverage.py",
+      "line": 299,
+      "cat": "not-none",
+      "text": "assert results is not None"
+    },
+    {
+      "file": "test_core_coverage.py",
+      "line": 306,
+      "cat": "not-none",
+      "text": "assert results is not None"
+    },
+    {
+      "file": "test_core_coverage.py",
+      "line": 325,
+      "cat": "not-none",
+      "text": "assert results is not None"
+    },
+    {
+      "file": "test_e2e.py",
+      "line": 39,
+      "cat": "not-none",
+      "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_e2e.py",
+      "line": 46,
+      "cat": "not-none",
+      "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_e2e.py",
+      "line": 58,
+      "cat": "not-none",
+      "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_e2e.py",
+      "line": 82,
+      "cat": "not-none",
+      "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_e2e.py",
+      "line": 89,
+      "cat": "not-none",
+      "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_e2e.py",
+      "line": 114,
+      "cat": "not-none",
+      "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_e2e.py",
+      "line": 121,
+      "cat": "not-none",
+      "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_e2e.py",
+      "line": 129,
+      "cat": "not-none",
+      "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_e2e.py",
+      "line": 153,
+      "cat": "not-none",
+      "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_e2e.py",
+      "line": 160,
+      "cat": "not-none",
+      "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_e2e.py",
+      "line": 184,
+      "cat": "not-none",
+      "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_e2e.py",
+      "line": 190,
+      "cat": "not-none",
+      "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_e2e.py",
+      "line": 249,
+      "cat": "not-none",
+      "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_e2e.py",
+      "line": 255,
+      "cat": "not-none",
+      "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_error_messages.py",
+      "line": 254,
+      "cat": "not-none",
+      "text": "assert engine is not None"
+    },
+    {
+      "file": "test_error_messages.py",
+      "line": 648,
+      "cat": "not-none",
+      "text": "assert EnhancedREPL is not None"
+    },
+    {
+      "file": "test_ffi.py",
+      "line": 258,
+      "cat": "not-none",
+      "text": "assert lib is not None"
+    },
+    {
+      "file": "test_ffi.py",
+      "line": 612,
+      "cat": "not-none",
+      "text": "assert offset_ptr is not None"
+    },
+    {
+      "file": "test_ffi.py",
+      "line": 844,
+      "cat": "not-none",
+      "text": "assert cb is not None"
+    },
+    {
+      "file": "test_ffi.py",
+      "line": 890,
+      "cat": "not-none",
+      "text": "assert buf is not None"
+    },
+    {
+      "file": "test_ffi.py",
+      "line": 898,
+      "cat": "not-none",
+      "text": "assert buf2 is not None"
+    },
+    {
+      "file": "test_ffi.py",
+      "line": 910,
+      "cat": "not-none",
+      "text": "assert arr is not None"
+    },
+    {
+      "file": "test_ffi_phase2.py",
+      "line": 132,
+      "cat": "not-none",
+      "text": "assert ptr is not None"
+    },
+    {
+      "file": "test_ffi_phase2.py",
+      "line": 187,
+      "cat": "not-none",
+      "text": "assert mem is not None"
+    },
+    {
+      "file": "test_ffi_phase2.py",
+      "line": 241,
+      "cat": "not-none",
+      "text": "assert lib is not None"
+    },
+    {
       "file": "test_ffi_phase3.py",
       "line": 122,
       "cat": "string-assert",
@@ -278,6 +816,18 @@
       "line": 155,
       "cat": "string-assert",
       "text": "assert '*args' in py_code"
+    },
+    {
+      "file": "test_ffi_phase3.py",
+      "line": 210,
+      "cat": "not-none",
+      "text": "assert cb is not None"
+    },
+    {
+      "file": "test_ffi_phase3.py",
+      "line": 313,
+      "cat": "not-none",
+      "text": "assert ptr is not None"
     },
     {
       "file": "test_ffi_phase4.py",
@@ -338,6 +888,360 @@
       "line": 232,
       "cat": "string-assert",
       "text": "assert '1024' in py_code"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 108,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"最大连接\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 109,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"_light_ffi.定义宏\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 110,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"100\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 116,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"默认路径\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 117,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"/tmp/light\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 123,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"最大连接数\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 124,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"1000\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 134,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"正弦\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 135,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"数学库\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 136,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"ctypes\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 142,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"幂\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 143,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"底\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 144,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"指数\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 150,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"设置标题\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 160,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"点\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 161,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"ctypes.Structure\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 162,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"甲\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 163,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"乙\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 169,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"用户\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 170,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"编号\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 171,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"姓名\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 172,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"分数\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 182,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"比较回调\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 183,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"CFUNCTYPE\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 189,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"通知回调\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 190,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"CFUNCTYPE\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 200,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"颜色\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 201,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"红\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 202,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"绿\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 203,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"蓝\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 209,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"错误码\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 210,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"成功\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 220,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"数据\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 221,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"ctypes.Union\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 231,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"标志位\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 232,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"可读\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 233,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"可写\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 243,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"长度\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 244,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"c_int\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 259,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"C\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 260,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"add\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 261,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"stdio.h\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 585,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"最大连接\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 586,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"_light_ffi.定义宏\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 655,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"C库\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 656,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"时间结构\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 657,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"星期\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 658,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"比较器\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 659,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"获取时间\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 660,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"版本\", py_code)"
+    },
+    {
+      "file": "test_ffi_stdlib_mock.py",
+      "line": 661,
+      "cat": "assertin-string",
+      "text": "self.assertIn(\"ctypes\", py_code)"
+    },
+    {
+      "file": "test_filesystem.py",
+      "line": 141,
+      "cat": "not-none",
+      "text": "assert 权限 is not None"
+    },
+    {
+      "file": "test_filesystem.py",
+      "line": 483,
+      "cat": "lower-bound",
+      "text": "assert len(重复) >= 1"
+    },
+    {
+      "file": "test_http_client.py",
+      "line": 311,
+      "cat": "not-none",
+      "text": "assert result is not None"
+    },
+    {
+      "file": "test_incremental_compiler.py",
+      "line": 33,
+      "cat": "not-none",
+      "text": "assert DependencyGraph is not None"
+    },
+    {
+      "file": "test_incremental_compiler.py",
+      "line": 196,
+      "cat": "not-none",
+      "text": "assert IncrementalCompiler is not None"
+    },
+    {
+      "file": "test_incremental_compiler.py",
+      "line": 200,
+      "cat": "not-none",
+      "text": "assert compiler is not None"
+    },
+    {
+      "file": "test_incremental_compiler.py",
+      "line": 201,
+      "cat": "not-none",
+      "text": "assert compiler.cache is not None"
+    },
+    {
+      "file": "test_incremental_compiler.py",
+      "line": 202,
+      "cat": "not-none",
+      "text": "assert compiler.dep_graph is not None"
     },
     {
       "file": "test_interface.py",
@@ -401,9 +1305,309 @@
     },
     {
       "file": "test_iterator_protocol.py",
+      "line": 115,
+      "cat": "lower-bound",
+      "text": "assert len(lines) >= 3, f\"Expected 3 lines, got {lines}\""
+    },
+    {
+      "file": "test_iterator_protocol.py",
       "line": 147,
       "cat": "string-assert",
       "text": "assert 'raise StopIteration' in py_code or 'StopIteration' in py_code"
+    },
+    {
+      "file": "test_level6_types.py",
+      "line": 827,
+      "cat": "not-none",
+      "text": "assert sym is not None"
+    },
+    {
+      "file": "test_level6_types.py",
+      "line": 852,
+      "cat": "not-none",
+      "text": "assert resolved is not None"
+    },
+    {
+      "file": "test_level6_types.py",
+      "line": 1017,
+      "cat": "not-none",
+      "text": "assert sym is not None"
+    },
+    {
+      "file": "test_level6_types.py",
+      "line": 1037,
+      "cat": "not-none",
+      "text": "assert sym is not None"
+    },
+    {
+      "file": "test_level6_types.py",
+      "line": 1316,
+      "cat": "not-none",
+      "text": "assert sym is not None, f\"未找到段落 {seg_name}\""
+    },
+    {
+      "file": "test_level6_types.py",
+      "line": 1753,
+      "cat": "not-none",
+      "text": "assert sym is not None"
+    },
+    {
+      "file": "test_linter.py",
+      "line": 106,
+      "cat": "lower-bound",
+      "text": "assert len(arg_mismatch) >= 1, f\"期望检测到参数数量不匹配，实际{len(arg_mismatch)}\""
+    },
+    {
+      "file": "test_linter.py",
+      "line": 118,
+      "cat": "lower-bound",
+      "text": "assert len(naming) >= 1, f\"期望检测到命名不规范\""
+    },
+    {
+      "file": "test_linter.py",
+      "line": 130,
+      "cat": "lower-bound",
+      "text": "assert len(long_func) >= 1, f\"期望检测到函数过长\""
+    },
+    {
+      "file": "test_linter.py",
+      "line": 148,
+      "cat": "lower-bound",
+      "text": "assert len(deep_nest) >= 1, f\"期望检测到嵌套过深\""
+    },
+    {
+      "file": "test_linter.py",
+      "line": 161,
+      "cat": "lower-bound",
+      "text": "assert len(no_annotation) >= 1, f\"期望检测到缺少类型注解\""
+    },
+    {
+      "file": "test_linter.py",
+      "line": 177,
+      "cat": "lower-bound",
+      "text": "assert len(unused_import) >= 2, f\"期望检测到2个未使用导入，实际{len(unused_import)}\""
+    },
+    {
+      "file": "test_linter.py",
+      "line": 204,
+      "cat": "lower-bound",
+      "text": "assert len(deprecated) >= 1, f\"期望检测到废弃语法\""
+    },
+    {
+      "file": "test_linter.py",
+      "line": 250,
+      "cat": "lower-bound",
+      "text": "assert len(todo) >= 1, f\"期望检测到TODO标记，实际{len(todo)}\""
+    },
+    {
+      "file": "test_linter.py",
+      "line": 260,
+      "cat": "lower-bound",
+      "text": "assert len(fixme) >= 1, f\"期望检测到FIXME标记，实际{len(fixme)}\""
+    },
+    {
+      "file": "test_linter.py",
+      "line": 337,
+      "cat": "lower-bound",
+      "text": "assert len(trailing) >= 1, f\"期望检测到行尾空白，实际{len(trailing)}\""
+    },
+    {
+      "file": "test_llvm_net.py",
+      "line": 370,
+      "cat": "not-none",
+      "text": "assert self._sock is not None"
+    },
+    {
+      "file": "test_llvm_net.py",
+      "line": 624,
+      "cat": "lower-bound",
+      "text": "assert len(lines) >= 3, f\"期望至少 3 行输出，实到 {lines}\""
+    },
+    {
+      "file": "test_llvm_net.py",
+      "line": 662,
+      "cat": "lower-bound",
+      "text": "assert len(lines) >= 4, f\"期望 4 行输出，实到 {lines}\""
+    },
+    {
+      "file": "test_llvm_net.py",
+      "line": 702,
+      "cat": "lower-bound",
+      "text": "assert len(lines) >= 2, f\"期望 2 行输出，实到 {lines}\""
+    },
+    {
+      "file": "test_llvm_optimization.py",
+      "line": 29,
+      "cat": "not-none",
+      "text": "assert OptimizationPipeline is not None"
+    },
+    {
+      "file": "test_llvm_optimization.py",
+      "line": 30,
+      "cat": "not-none",
+      "text": "assert PassStats is not None"
+    },
+    {
+      "file": "test_llvm_optimization.py",
+      "line": 40,
+      "cat": "not-none",
+      "text": "assert pipeline.passes is not None"
+    },
+    {
+      "file": "test_llvm_optimization.py",
+      "line": 48,
+      "cat": "lower-bound",
+      "text": "assert len(o1.passes) >= 1"
+    },
+    {
+      "file": "test_llvm_optimization.py",
+      "line": 182,
+      "cat": "not-none",
+      "text": "assert SizeOptimizer is not None"
+    },
+    {
+      "file": "test_llvm_optimization.py",
+      "line": 263,
+      "cat": "not-none",
+      "text": "assert StartupOptimizer is not None"
+    },
+    {
+      "file": "test_llvm_optimization.py",
+      "line": 342,
+      "cat": "not-none",
+      "text": "assert DwarfDebugInfo is not None"
+    },
+    {
+      "file": "test_llvm_optimization.py",
+      "line": 343,
+      "cat": "not-none",
+      "text": "assert DwarfScope is not None"
+    },
+    {
+      "file": "test_llvm_optimization.py",
+      "line": 460,
+      "cat": "not-none",
+      "text": "assert mapping is not None"
+    },
+    {
+      "file": "test_lsp_protocol.py",
+      "line": 30,
+      "cat": "not-none",
+      "text": "assert module is not None, f\"解析失败: {getattr(parser, 'errors', [])}\""
+    },
+    {
+      "file": "test_lsp_protocol.py",
+      "line": 117,
+      "cat": "not-none",
+      "text": "assert init_resp is not None, f\"未解析到 initialize 响应:\\n{result.stdout}\""
+    },
+    {
+      "file": "test_lsp_protocol.py",
+      "line": 123,
+      "cat": "not-none",
+      "text": "assert shutdown_resp is not None, f\"未解析到 shutdown 响应:\\n{result.stdout}\""
+    },
+    {
+      "file": "test_migration.py",
+      "line": 185,
+      "cat": "lower-bound",
+      "text": "assert len(changes) >= 1, f\"期望检测到变更，实际{len(changes)}\""
+    },
+    {
+      "file": "test_migration.py",
+      "line": 282,
+      "cat": "lower-bound",
+      "text": "assert len(import_changes) >= 1, f\"期望检测到导入语法变更，实际{len(import_changes)}\""
+    },
+    {
+      "file": "test_new_modules.py",
+      "line": 63,
+      "cat": "not-none",
+      "text": "assert 单个 is not None"
+    },
+    {
+      "file": "test_new_modules.py",
+      "line": 322,
+      "cat": "not-none",
+      "text": "assert 秒表2 is not None"
+    },
+    {
+      "file": "test_new_modules.py",
+      "line": 577,
+      "cat": "not-none",
+      "text": "assert python路径 is not None"
+    },
+    {
+      "file": "test_new_modules.py",
+      "line": 729,
+      "cat": "not-none",
+      "text": "assert 最相似 is not None"
+    },
+    {
+      "file": "test_parser.py",
+      "line": 73,
+      "cat": "not-none",
+      "text": "assert stmt.value is not None"
+    },
+    {
+      "file": "test_parser.py",
+      "line": 106,
+      "cat": "not-none",
+      "text": "assert stmt.condition is not None"
+    },
+    {
+      "file": "test_parser.py",
+      "line": 115,
+      "cat": "not-none",
+      "text": "assert stmt.else_body is not None"
+    },
+    {
+      "file": "test_parser.py",
+      "line": 184,
+      "cat": "lower-bound",
+      "text": "assert len(stmt.body) >= 1"
+    },
+    {
+      "file": "test_parser.py",
+      "line": 220,
+      "cat": "lower-bound",
+      "text": "assert len(module.statements) >= 1"
+    },
+    {
+      "file": "test_parser.py",
+      "line": 249,
+      "cat": "lower-bound",
+      "text": "assert len(module.statements) >= 2"
+    },
+    {
+      "file": "test_parser.py",
+      "line": 262,
+      "cat": "lower-bound",
+      "text": "assert len(module.statements) >= 2"
+    },
+    {
+      "file": "test_process_tree_light.py",
+      "line": 115,
+      "cat": "not-none",
+      "text": "assert 结果.溢出文件 is not None"
+    },
+    {
+      "file": "test_process_tree_light.py",
+      "line": 197,
+      "cat": "not-none",
+      "text": "assert 结果.采用编码 is not None"
+    },
+    {
+      "file": "test_process_tree_light.py",
+      "line": 263,
+      "cat": "not-none",
+      "text": "assert 结果.溢出文件 is not None"
+    },
+    {
+      "file": "test_self_host.py",
+      "line": 130,
+      "cat": "not-none",
+      "text": "assert py_code is not None, \"编译返回 None\""
     },
     {
       "file": "test_self_host.py",
@@ -461,9 +1665,39 @@
     },
     {
       "file": "test_self_host_bootstrap.py",
+      "line": 629,
+      "cat": "not-none",
+      "text": "assert tokens is not None, f\"词法分析返回 None ({fname})\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 649,
+      "cat": "not-none",
+      "text": "assert module is not None, \"解析返回 None\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 671,
+      "cat": "not-none",
+      "text": "assert module is not None, \"解析返回 None\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 693,
+      "cat": "not-none",
+      "text": "assert py_code is not None, \"代码生成返回 None\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
       "line": 695,
       "cat": "string-assert",
       "text": "assert 'def ' in py_code, \"生成的代码未包含函数定义\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 723,
+      "cat": "not-none",
+      "text": "assert py_code is not None, \"代码生成返回 None\""
     },
     {
       "file": "test_self_host_bootstrap.py",
@@ -506,6 +1740,24 @@
       "line": 881,
       "cat": "string-assert",
       "text": "assert 'raise' in py_code, \"缺少抛出语句\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 893,
+      "cat": "not-none",
+      "text": "assert progress is not None, \"进度检查返回 None\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 901,
+      "cat": "not-none",
+      "text": "assert report is not None, \"报告生成返回 None\""
+    },
+    {
+      "file": "test_stdlib_third_party.py",
+      "line": 133,
+      "cat": "not-none",
+      "text": "assert now is not None"
     },
     {
       "file": "test_trait_system.py",
@@ -592,16 +1844,514 @@
       "text": "assert 'class 文档(可打印, 可保存):' in py_code"
     },
     {
+      "file": "test_type_checker_cli.py",
+      "line": 36,
+      "cat": "not-none",
+      "text": "assert module is not None, \"模块不应为 None\""
+    },
+    {
+      "file": "test_type_checker_cli.py",
+      "line": 50,
+      "cat": "not-none",
+      "text": "assert module is not None, \"模块不应为 None\""
+    },
+    {
+      "file": "test_type_checker_cli.py",
+      "line": 64,
+      "cat": "not-none",
+      "text": "assert module is not None, \"模块不应为 None\""
+    },
+    {
+      "file": "test_type_checker_compiler_integration.py",
+      "line": 50,
+      "cat": "not-none",
+      "text": "assert inferencer is not None, \"类型推断器不应为 None\""
+    },
+    {
+      "file": "test_type_checker_compiler_integration.py",
+      "line": 68,
+      "cat": "not-none",
+      "text": "assert inferencer is not None, \"NONE 级别也应返回 inferencer\""
+    },
+    {
+      "file": "test_type_checker_compiler_integration.py",
+      "line": 86,
+      "cat": "not-none",
+      "text": "assert inferencer is not None, \"即使有类型错误，inferencer 也不应为 None\""
+    },
+    {
+      "file": "test_type_checker_compiler_integration.py",
+      "line": 105,
+      "cat": "not-none",
+      "text": "assert inferencer is not None, \"签名级检查不应崩溃\""
+    },
+    {
+      "file": "test_type_checker_compiler_integration.py",
+      "line": 120,
+      "cat": "not-none",
+      "text": "assert inferencer is not None, \"严格模式不应崩溃\""
+    },
+    {
+      "file": "test_type_checker_compiler_integration.py",
+      "line": 144,
+      "cat": "not-none",
+      "text": "assert inferencer is not None, \"类型推断不应为空\""
+    },
+    {
+      "file": "test_type_checker_compiler_integration.py",
+      "line": 161,
+      "cat": "not-none",
+      "text": "assert inferencer is not None, \"类型推断不应崩溃\""
+    },
+    {
+      "file": "test_type_checker_compiler_integration.py",
+      "line": 185,
+      "cat": "not-none",
+      "text": "assert inferencer is not None, \"泛型段落编译不应崩溃\""
+    },
+    {
+      "file": "test_type_system_v4_2.py",
+      "line": 314,
+      "cat": "lower-bound",
+      "text": "assert len(warnings) >= 2, f\"至少应有2个警告（参数+返回），实际 {len(warnings)}\""
+    },
+    {
+      "file": "test_type_system_v4_2.py",
+      "line": 582,
+      "cat": "not-none",
+      "text": "assert t is not None, \"嵌套泛型不应返回 None\""
+    },
+    {
       "file": "unit/test_bootstrap_compiler.py",
       "line": 164,
       "cat": "string-assert",
       "text": "assert '词法分析' in source or '创建关键字列表' in source"
     },
     {
+      "file": "unit/test_c_backend.py",
+      "line": 148,
+      "cat": "assertin-string",
+      "text": "self.assertIn('printf', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 154,
+      "cat": "assertin-string",
+      "text": "self.assertIn('printf', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 155,
+      "cat": "assertin-string",
+      "text": "self.assertIn('%d', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 160,
+      "cat": "assertin-string",
+      "text": "self.assertIn('%s%d', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 199,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int fact(', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 200,
+      "cat": "assertin-string",
+      "text": "self.assertIn('if ((n <= 1))', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 201,
+      "cat": "assertin-string",
+      "text": "self.assertIn('return 1;', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 202,
+      "cat": "assertin-string",
+      "text": "self.assertIn('return (n * fact((n - 1)));', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 211,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int add(', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 212,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int a', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 213,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int b', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 222,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int main()', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 245,
+      "cat": "assertin-string",
+      "text": "self.assertIn('if ((x > 0))', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 246,
+      "cat": "assertin-string",
+      "text": "self.assertIn('printf', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 256,
+      "cat": "assertin-string",
+      "text": "self.assertIn('if ((x > 0))', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 257,
+      "cat": "assertin-string",
+      "text": "self.assertIn('} else {', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 270,
+      "cat": "assertin-string",
+      "text": "self.assertIn('if ((x > 0))', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 271,
+      "cat": "assertin-string",
+      "text": "self.assertIn('} else if ((x < 0))', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 272,
+      "cat": "assertin-string",
+      "text": "self.assertIn('} else {', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 295,
+      "cat": "assertin-string",
+      "text": "self.assertIn('while ((i < 10))', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 315,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int x = 42;', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 325,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int x = ', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 326,
+      "cat": "assertin-string",
+      "text": "self.assertIn('(10 + 20)', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 334,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int x = 10;', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 336,
+      "cat": "assertin-string",
+      "text": "self.assertIn('x = (x + 1);', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 360,
+      "cat": "assertin-string",
+      "text": "self.assertIn('for (int i = 0; i < 10; i++)', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 385,
+      "cat": "assertin-string",
+      "text": "self.assertIn('printf', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 386,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int main(', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 401,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int fact(', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 402,
+      "cat": "assertin-string",
+      "text": "self.assertIn('return (n * fact((n - 1)));', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 403,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int main(', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 416,
+      "cat": "assertin-string",
+      "text": "self.assertIn('if ((score >= 80))', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 417,
+      "cat": "assertin-string",
+      "text": "self.assertIn('} else {', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 430,
+      "cat": "assertin-string",
+      "text": "self.assertIn('while ((i < 5))', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 442,
+      "cat": "assertin-string",
+      "text": "self.assertIn('(10 + (20 * 3))', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 443,
+      "cat": "assertin-string",
+      "text": "self.assertIn('(100 / 4)', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 444,
+      "cat": "assertin-string",
+      "text": "self.assertIn('(10 % 3)', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 455,
+      "cat": "assertin-string",
+      "text": "self.assertIn('const char*', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 466,
+      "cat": "assertin-string",
+      "text": "self.assertIn('if ((1 > 0))', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 477,
+      "cat": "assertin-string",
+      "text": "self.assertIn('&&', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 489,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int main(', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 499,
+      "cat": "assertin-string",
+      "text": "self.assertIn('#include <stdio.h>', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 500,
+      "cat": "assertin-string",
+      "text": "self.assertIn('#include <stdlib.h>', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 501,
+      "cat": "assertin-string",
+      "text": "self.assertIn('void light_print(', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 517,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int add(', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 518,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int mul(', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 519,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int main(', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 591,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int x = 10;', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 592,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int y = ', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 661,
+      "cat": "assertin-string",
+      "text": "self.assertIn('2147483647', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 675,
+      "cat": "assertin-string",
+      "text": "self.assertIn('if ((x > 0))', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 706,
+      "cat": "assertin-string",
+      "text": "self.assertIn('int flag = 1;', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 716,
+      "cat": "assertin-string",
+      "text": "self.assertIn('-42', c_code)"
+    },
+    {
+      "file": "unit/test_c_backend.py",
+      "line": 729,
+      "cat": "assertin-string",
+      "text": "self.assertIn('while ((i < 3))', c_code)"
+    },
+    {
+      "file": "unit/test_codegen_perf.py",
+      "line": 42,
+      "cat": "not-none",
+      "text": "assert code is not None"
+    },
+    {
+      "file": "unit/test_codegen_perf.py",
+      "line": 69,
+      "cat": "not-none",
+      "text": "assert code is not None"
+    },
+    {
+      "file": "unit/test_codegen_perf.py",
+      "line": 108,
+      "cat": "not-none",
+      "text": "assert code is not None"
+    },
+    {
+      "file": "unit/test_compiler_cache.py",
+      "line": 42,
+      "cat": "not-none",
+      "text": "assert result1 is not None"
+    },
+    {
+      "file": "unit/test_compiler_cache.py",
+      "line": 61,
+      "cat": "not-none",
+      "text": "assert result1 is not None"
+    },
+    {
+      "file": "unit/test_compiler_cache.py",
+      "line": 81,
+      "cat": "not-none",
+      "text": "assert result1 is not None"
+    },
+    {
       "file": "unit/test_error_formatter.py",
       "line": 251,
       "cat": "upper-bound",
       "text": "assert len(result) <= 2"
+    },
+    {
+      "file": "unit/test_lsp.py",
+      "line": 57,
+      "cat": "not-none",
+      "text": "assert doc is not None"
+    },
+    {
+      "file": "unit/test_lsp.py",
+      "line": 211,
+      "cat": "not-none",
+      "text": "assert result is not None"
+    },
+    {
+      "file": "unit/test_lsp.py",
+      "line": 234,
+      "cat": "not-none",
+      "text": "assert result is not None"
+    },
+    {
+      "file": "unit/test_lsp.py",
+      "line": 257,
+      "cat": "not-none",
+      "text": "assert result is not None"
+    },
+    {
+      "file": "unit/test_lsp.py",
+      "line": 293,
+      "cat": "not-none",
+      "text": "assert result is not None"
+    },
+    {
+      "file": "unit/test_lsp.py",
+      "line": 460,
+      "cat": "not-none",
+      "text": "assert result is not None"
+    },
+    {
+      "file": "unit/test_optimizers.py",
+      "line": 222,
+      "cat": "not-none",
+      "text": "assert module is not None"
+    },
+    {
+      "file": "unit/test_self_host.py",
+      "line": 49,
+      "cat": "not-none",
+      "text": "assert tokens is not None, \"词法分析返回 None\""
+    },
+    {
+      "file": "unit/test_self_host.py",
+      "line": 66,
+      "cat": "not-none",
+      "text": "assert module is not None, \"解析返回 None\""
+    },
+    {
+      "file": "unit/test_self_host.py",
+      "line": 95,
+      "cat": "not-none",
+      "text": "assert py_code is not None, \"代码生成返回 None\""
     },
     {
       "file": "unit/test_self_host.py",

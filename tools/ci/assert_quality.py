@@ -13,12 +13,35 @@
   - 一次性清零不现实（全仓量大），但必须「止血」：存量允许存在、只许减不许增。
   - 违规报告给 `file:line` + 违规类型 + 一句「为什么这是假绿」。
 
-扫描的三类模式（与 `第三轮留档/假测试普查清单.md` 口径一致）：
+扫描的形态（与 `第三轮留档/假测试普查清单.md` 口径一致，第四轮 D4-1 扩了三类）：
   1) 字符串断言式：`assert '<x>' in py_code|ir|c_code|source|产物`
      —— 测的是编译器/产物输出的字面量，不是行为。
   2) 上界断言式：`assert len(...) <= N`（集合为空时恒真，最隐蔽）
      以及 `assert len(...) >= 0`（长度恒非负，恒真）。
   3) 成败都算通过：`assert returncode in [0, 1]` 这类。
+
+第四轮 D4-1 新增三类（总纲 §2.2 实测所得，已裁决取**保守口径**）：
+  4) unittest 写法的字符串断言：`self.assertIn('<x>', <产物变量>)`
+     —— 与形态 1 完全同源，只是换了 unittest API 就绕过了整道门禁。
+     实测 113 处 > 形态 1 的 101 处，**它放过的比它拦住的还多**。
+  5) 下界断言式：`assert len(...) >= N`（N>0）—— 只断「至少有几个」，
+     多出来的、错位的、重复的一概不管；集合非空即恒真。
+  6) 非空断言式：`assert <名字或属性> is not None` —— 只断「不是 None」，零信号。
+
+  形态 4/5/6 一律取**保守口径**（第四轮总纲已裁决）：
+  - 形态 4 沿用形态 1 的 `_STR_TARGETS` 产物变量白名单，**不扫任意字符串字面量**。
+    放宽到「第一参数是字符串字面量」的全部 `assertIn` 是 636 处（52 文件），
+    `self.assertIn(` 总调用 718 处（57 文件）——那个口径会把大量正当断言拖进基线。
+  - 形态 6 只收「裸名字 / 点属性」这一种目标，**不收下标与函数调用**：
+    `assert d['k'] is not None` 至少断了键存在（否则 KeyError），
+    `assert f() is not None` 至少真调了一次 f——都还剩一点信号，保守起见不算违规。
+    宽口径（任意表达式）实测 174 处，保守口径 151 处。
+
+关于两个「零命中」形态（`trivial-ge0` / `returncode-in`）：
+  这两类**当前全仓零命中**，是预防性形态而非正在生效的拦截。为免有人误以为
+  它俩在拦什么，报文里单列一节「预防性形态（当前零命中）」显式点名，
+  不混在命中统计里。保留而不删的理由：`len(...) >= 0` 不被形态 5 覆盖
+  （形态 5 只收 N>0），删掉就真没人拦了。
 
 用法：
   # 对比模式（CI 用，新增即红）
@@ -36,7 +59,7 @@ import sys
 import tokenize
 
 
-# ── 三类模式的静态判定 ────────────────────────────────────────────────────────
+# ── 各形态的静态判定 ──────────────────────────────────────────────────────────
 # 1) 字符串断言式：只拦「产物字面量」目标，避免把正常的 `in code` 也误伤成海量基线。
 _STR_TARGETS = r"(?:py_code|pycode|ir|c_code|source|产物)"
 RE_STRING_ASSERT = re.compile(
@@ -49,25 +72,56 @@ RE_TRIVIAL_GE = re.compile(r"assert\s+len\([^()]*\)\s*>=\s*0\b")
 # 3) 成败都算通过：returncode in [...]
 RE_RETURNCODE_IN = re.compile(r"assert\s+returncode\s+in\s*\[")
 
+# 4) unittest 写法的字符串断言：assertIn('<x>', <产物变量>)。
+#    不写死 `self.`：辅助函数里 `tc.assertIn(...)` / 直接 `assertIn(...)` 同样该拦。
+#    `\b` 前缀防止把 `assertNotIn` 误当 `assertIn`（NotIn 断的是「不包含」，
+#    那是有方向的断言，不属于本形态）。
+RE_ASSERTIN_STR = re.compile(
+    r"\bassertIn\(\s*['\"][^'\"]*['\"]\s*,\s*" + _STR_TARGETS + r"\b"
+)
+# 5) 下界断言式：len(...) >= N，N>0。N=0 归 trivial-ge0，不在这里重复计。
+RE_LOWER_BOUND = re.compile(r"assert\s+len\([^()]*\)\s*>=\s*[1-9]\d*")
+# 6) 非空断言式：assert <裸名字或点属性> is not None。
+#    目标只收标识符与点属性（含中文标识符），**不收下标 `d['k']` 与调用 `f()`**——
+#    保守口径，理由见模块 docstring。尾部锚点收 `,`（带断言消息）、`#`（行尾注释）
+#    与行尾三种，避免把 `assert x is not None and len(x) == 3` 这类复合断言算进来
+#    （那种有真信号）。
+RE_NOT_NONE = re.compile(
+    r"assert\s+[A-Za-z_\u4e00-\u9fff][\w.\u4e00-\u9fff]*\s+is\s+not\s+None\s*(?:,|#|$)"
+)
+
 CATEGORIES = {
     "string-assert": ("字符串断言式", RE_STRING_ASSERT,
         "测的是编译器/产物输出的字面量，不是行为；产物变了才发现的洞永远发现不了。"),
+    "assertin-string": ("unittest字符串断言", RE_ASSERTIN_STR,
+        "assertIn('x', py_code) 与 assert 'x' in py_code 完全同源，"
+        "换个 unittest API 就绕过门禁——这类实测比 assert 写法还多。"),
     "upper-bound": ("上界断言式", RE_UPPER_BOUND,
         "len(...) <= N：集合为空时恒真，是最隐蔽的假绿（事件总线案例即此形态）。"),
+    "lower-bound": ("下界断言式", RE_LOWER_BOUND,
+        "len(...) >= N：只断「至少有几个」，多出来的/错位的/重复的一概不管，集合非空即恒真。"),
+    "not-none": ("非空断言式", RE_NOT_NONE,
+        "x is not None：只断「不是 None」，对值、类型、结构零约束，是零信号断言。"),
     "trivial-ge0": ("恒真断言式", RE_TRIVIAL_GE,
         "len(...) >= 0：长度恒非负，这条断言永远为真，零信号。"),
     "returncode-in": ("成败都算通过", RE_RETURNCODE_IN,
         "returncode in [0,1]：成功失败都算通过，等于没测。"),
 }
 
+# 预防性形态：当前全仓零命中，保留是为了防新增，不是正在拦什么。
+# 报文里单列，不让人误以为它俩在生效（第四轮 D4-1 要求）。
+PREVENTIVE = ("trivial-ge0", "returncode-in")
+
 # 单条合并正则：每行只做一次 .search，命中后再细分到具体类别（匹配极少，代价可忽略）。
 RE_MASTER = re.compile(
     r"assert\s+(?:"
     r"['\"][^'\"]*['\"]\s+in\s+" + _STR_TARGETS + r"\b"
     r"|len\([^()]*\)\s*<=\s*\d+"
-    r"|len\([^()]*\)\s*>=\s*0\b"
+    r"|len\([^()]*\)\s*>=\s*\d+"
+    r"|[A-Za-z_\u4e00-\u9fff][\w.\u4e00-\u9fff]*\s+is\s+not\s+None\s*(?:,|#|$)"
     r")"
     r"|assert\s+returncode\s+in\s*\["
+    r"|\bassertIn\(\s*['\"][^'\"]*['\"]\s*,\s*" + _STR_TARGETS + r"\b"
 )
 
 _DEFAULT_BASELINE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -77,6 +131,36 @@ _DEFAULT_BASELINE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 def _posix(path):
     """把路径分隔符归一成 `/`：基线要跨平台可比，键里不能带 `os.sep`。"""
     return path.replace("\\", "/")
+
+
+def _当前提交():
+    """基线是从哪个提交生成的——写进基线文件，便于判断它是否已过期。
+
+    不起 git 子进程（本脚本承诺零子进程、< 5s），直接读 .git 里的 ref。
+    读不到就返回 "unknown"，不影响门禁判定。
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    root = os.path.dirname(os.path.dirname(here))
+    gitpath = os.path.join(root, ".git")
+    try:
+        if os.path.isfile(gitpath):  # worktree：.git 是指向真实 gitdir 的文件
+            with open(gitpath, encoding="utf-8") as fh:
+                gitpath = fh.read().strip().split("gitdir:", 1)[1].strip()
+        head = os.path.join(gitpath, "HEAD")
+        with open(head, encoding="utf-8") as fh:
+            ref = fh.read().strip()
+        if ref.startswith("ref:"):
+            name = ref.split(None, 1)[1]
+            # worktree 的分支 ref 可能在 commondir 里，两处都试
+            for base in (gitpath, os.path.join(gitpath, "..", "..")):
+                p = os.path.join(base, name.replace("/", os.sep))
+                if os.path.isfile(p):
+                    with open(p, encoding="utf-8") as fh:
+                        return fh.read().strip()[:12]
+            return "unknown"
+        return ref[:12]
+    except (OSError, IndexError, UnicodeDecodeError):
+        return "unknown"
 
 
 def _prose_lines(full):
@@ -193,12 +277,22 @@ def main():
     for cat, (label, _, _) in CATEGORIES.items():
         n = len(found[cat])
         if n:
-            print("       %-14s %3d 条" % (label, n))
+            print("       %-18s %3d 条  (%s)" % (label, n, cat))
+    # 零命中的预防性形态单列，别让人以为它在拦什么（第四轮 D4-1）。
+    空跑 = [c for c in PREVENTIVE if not found[c]]
+    if 空跑:
+        print("       预防性形态（当前零命中，只防新增，未在拦任何存量）：%s"
+              % "、".join("%s/%s" % (CATEGORIES[c][0], c) for c in 空跑))
+    非空预防 = [c for c in PREVENTIVE if found[c]]
+    if 非空预防:
+        print("       注意：以下预防性形态**已不再是零命中**，请更新脚本注释：%s"
+              % "、".join(非空预防))
 
     if args.write_baseline:
         data = {
-            "version": 1,
+            "version": 2,
             "note": "假测试门禁基线快照：本仓库当前的既有违规。新增即红；修好一批后重新生成并提交本文件。",
+            "built_from_commit": _当前提交(),
             "scanned_root": args.root,
             "categories": {c: CATEGORIES[c][0] for c in CATEGORIES},
             "violations": [
@@ -231,9 +325,19 @@ def main():
     else:
         print("[假测试门禁] 无新增违规。")
 
-    removed = len(base_keys - cur_keys)
-    if removed:
-        print("[假测试门禁] 相比基线已减少 %d 条（修好了就更新基线：--write-baseline）：" % removed)
+    # 存量条目已消失 = 有人修好了，或有人把那批代码删/挪了。
+    # 原实现只打了一个数字后跟冒号却什么都不列，等于让人自己去猜是哪几条——
+    # 而这正是合并点最需要的信息：D4 的基线在前三路合入前生成，C4 改完
+    # tests/test_async.py 之后会有一批条目失效，必须被点名提示重建，
+    # 否则失效条目会给「同文件同行号的新违规」留一张永久赦免票。
+    stale = sorted(base_keys - cur_keys)
+    if stale:
+        print("[假测试门禁] 相比基线已减少 %d 条。这些基线条目在当前代码里已不存在，"
+              "请用 --write-baseline 重建基线（失效条目会给同位置的新违规留赦免票）：" % len(stale))
+        for k in stale[:40]:
+            print("       - %s" % k)
+        if len(stale) > 40:
+            print("       …… 另有 %d 条，完整清单用 --write-baseline 重建后对比" % (len(stale) - 40))
 
     if new_violations:
         print("[假测试门禁] 红：出现了基线条目之外的新增假绿断言。")

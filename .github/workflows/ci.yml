@@ -10,6 +10,18 @@
 #   - 去掉「统一测试运行器」步（tests/run_tests.py --quick 只是 4 条 os.path.exists
 #     断言，零信号却要付一次解释器启动）。
 # 权威门禁在 .gitea/workflows/ci.yml（带基线闸门 + 积木库门禁）；这边是镜像验证。
+#
+# ── 2026-08-23 D4-3：判绿语义与 gitea 对齐 ─────────────────────────────────
+# 之前这边是「裸硬判 + 无兜底 || true」：unit/integration/e2e 失败直接红（e2e 有
+# 12 条存量三方依赖欠账在 tests/ci_baseline_failures.txt 里，gitea 用基线豁免、
+# 这边却直接红），root/pure-light 三处 `|| true` 连 junit 都不产（collect error
+# 一个用例没跑也绿，注释还谎称「junit 照产」）。两边判绿语义相反。
+# D4-3 裁决（方案 A：github 也接回归闸门，判绿语义对齐 gitea）：
+#   - e2e / root / pure-light：`|| true` 后紧跟 `test -f` 存在性兜底 + 产 junit，
+#     交给末尾的回归闸门（check_regression.py，基线对比、只拦新增打红）；
+#   - unit / integration：保持硬判（当前零存量失败，硬判不产生噪音）；
+#   - 补 lightpub 文档可导入性闸门（gitea 有、这边漏了）。
+# 积木库门禁在独立 eval.yml（路径过滤 + cron），与 gitea 内联版功能等价，不重复挂。
 name: CI
 
 on:
@@ -66,12 +78,23 @@ jobs:
           pytest tests/integration/
 
       # 运行端到端测试（Linux/macOS）
+      # D4-3：e2e 有 12 条存量三方依赖欠账（tests/ci_baseline_failures.txt，全在
+      # tests.e2e.test_e2e_chain 下，见 L4/L3 demo 缺 numpy/pandas 等）。裸硬判会让
+      # 这里常红成背景噪音。对齐 gitea：`|| true` 放行存量失败 + 产 junit，
+      # 判绿交给末尾回归闸门做基线对比；`test -f` 兜住「连 junit 都没产出」的崩溃。
       - name: End-to-End Tests
         if: runner.os != 'Windows'
         run: |
-          pytest tests/e2e/
+          mkdir -p .ci
+          pytest tests/e2e/ --junitxml=.ci/e2e.xml -q || true
+          test -f .ci/e2e.xml
 
       # 运行 legacy 功能测试（Linux 完整运行）
+      # D4-3 裁决：保持硬判（不接回归闸门）。依据：这 4 个脚本（pyproject
+      # python_files 含 _test_*.py，本可直接被 pytest 收集）在本机实测全部绿
+      # （rc=0），基线里也没有它们的存量失败条目——硬判不会引入噪音红，
+      # 反而是「新增即红」的最严口径。gitea 侧靠 --soft-classname 'tests._test_*'
+      # 豁免的是 pytest 收集形态，两条路殊途同归。
       - name: Legacy Feature Tests
         if: runner.os == 'Linux'
         run: |
@@ -82,26 +105,40 @@ jobs:
 
       # 根目录测试（历史口径：不阻塞。文件名必须跟着主干走——结尾是 `|| true`，
       # 点错名字不会报错、只会一个用例都没跑到，假绿比没有更坏。已逐个核对存在。）
+      # D4-3：补 junitxml + test -f 存在性兜底（原来 || true 后什么检查都没有，
+      # collect error 一个用例没跑也算绿）。classname 是 tests.test_*，正好落在
+      # 回归闸门 --soft-classname 'tests.test_*' 豁免里：照跑照报、不拦，
+      # 与 gitea 侧对根目录那批的口径一致。
       - name: Root Directory Tests (Linux)
         if: runner.os == 'Linux'
         run: |
-          pytest tests/test_parser.py tests/test_lexer.py tests/test_async.py tests/test_codegen.py tests/test_exception.py tests/test_executor.py tests/test_semantic.py tests/test_class_definition.py tests/test_light_syntax.py tests/test_e2e.py tests/test_edge_cases.py tests/test_commands.py tests/test_file_io.py tests/test_interface.py tests/test_json_import.py tests/test_module_system.py tests/test_module_resolver.py tests/test_summary.py tests/test_ternary.py tests/test_advanced_semantic.py tests/test_light_stdlib.py tests/test_light_stdlib2.py tests/test_class_advanced.py tests/test_llvm_async.py tests/test_lsp_protocol.py tests/test_lsp_protocol_full.py tests/test_modern_features.py -q 2>&1 || true
+          mkdir -p .ci
+          pytest tests/test_parser.py tests/test_lexer.py tests/test_async.py tests/test_codegen.py tests/test_exception.py tests/test_executor.py tests/test_semantic.py tests/test_class_definition.py tests/test_light_syntax.py tests/test_e2e.py tests/test_edge_cases.py tests/test_commands.py tests/test_file_io.py tests/test_interface.py tests/test_json_import.py tests/test_module_system.py tests/test_module_resolver.py tests/test_summary.py tests/test_ternary.py tests/test_advanced_semantic.py tests/test_light_stdlib.py tests/test_light_stdlib2.py tests/test_class_advanced.py tests/test_llvm_async.py tests/test_lsp_protocol.py tests/test_lsp_protocol_full.py tests/test_modern_features.py -q --junitxml=.ci/root.xml 2>&1 || true
+          test -f .ci/root.xml
 
       - name: Root Directory Tests (Cross-platform)
         if: runner.os != 'Linux'
+        # Windows runner 默认 shell 是 pwsh，test -f / || 语义不同，显式 bash（runner 自带 Git Bash）
+        shell: bash
         run: |
-          pytest tests/test_parser.py tests/test_lexer.py tests/test_light_syntax.py tests/test_edge_cases.py tests/test_commands.py tests/test_module_system.py tests/test_summary.py -q 2>&1 || true
+          mkdir -p .ci
+          pytest tests/test_parser.py tests/test_lexer.py tests/test_light_syntax.py tests/test_edge_cases.py tests/test_commands.py tests/test_module_system.py tests/test_summary.py -q --junitxml=.ci/root_other.xml 2>&1 || true
+          test -f .ci/root_other.xml
 
       # D3-3：纯光明测试显式清单（soft 可见性 + 耗时归账）。
       # 9 个文件走 soft 口径：结尾 || true，失败放行但 junit 照产。
+      # D4-3：补 junitxml + test -f 兜底（原来只写 || true、注释声称 junit 照产，
+      # 实际根本没 --junitxml——collect error 照样绿。现在是真产。）
       - name: Pure-Light Tests (explicit, soft)
         if: runner.os == 'Linux'
         run: |
+          mkdir -p .ci
           pytest tests/test_agent_loop_light.py tests/test_bootstrap_light.py \
             tests/test_event_bus_light.py tests/test_llm_client_light.py \
             tests/test_path_guard_light.py tests/test_plugin_light.py \
             tests/test_process_tree_light.py tests/test_pty_light.py \
-            tests/test_schema_light.py -q 2>&1 || true
+            tests/test_schema_light.py -q --junitxml=.ci/light_soft.xml 2>&1 || true
+          test -f .ci/light_soft.xml
 
       # D3-3：硬判绿点（不允许 soft）。两份文件头明写「纯离线、不许 skip」，是 M4/M5 判据。
       # 无 || true → 失败即红。（test_deepseek_mock.py / test_agent_tools_light.py 属 A3/B3，
@@ -110,6 +147,33 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           pytest tests/test_tls_light.py tests/test_sse_light.py -q
+
+      # D4-3：真正的判绿点（与 gitea :175-184 对齐）。基线对比、只拦新增打红。
+      # 吃 e2e/root/pure-light 三份 junit：
+      #   - e2e：12 条存量三方依赖欠账在 tests/ci_baseline_failures.txt 里，基线豁免；
+      #   - root / pure-light：classname 是 tests.test_*，命中 --soft-classname，
+      #     照跑照报、不拦（保留历史 || true 的非阻塞口径，与 gitea 一致）；
+      #   - unit / integration 保持硬判（当前零存量失败），不喂进这里。
+      # 崩溃兜底由各测试步的 `test -f` 承担：junit 没产出 → 那一步自己就红了。
+      - name: 回归闸门（基线对比）
+        if: runner.os == 'Linux'
+        run: |
+          python tools/ci/check_regression.py \
+            --junit .ci/e2e.xml \
+            --junit .ci/root.xml \
+            --junit .ci/light_soft.xml \
+            --baseline tests/ci_baseline_failures.txt \
+            --soft-classname 'tests.test_*' \
+            --soft-classname 'tests._test_*'
+
+      # D4-3：补 lightpub 文档可导入性闸门（gitea :195-198 有、这边漏了）。
+      # 文档示例只能编译、import 时才 ModuleNotFoundError 的块（如 导入 GUI框架），
+      # 只有真去 import 一遍才抓得到；回归闸门是「与基线对比」，刷一次基线能压下去，
+      # 文档说谎不该有「进基线」的选项，所以挂一道不看基线的硬判绿点。
+      - name: lightpub 文档可导入性闸门
+        if: runner.os == 'Linux'
+        run: |
+          pytest tests/unit/test_lightpub_doc_importability.py -q
 
       # D3-1/D3-2：两道质量度量门禁（只在 Linux 跑一份，跨平台跑它没有额外信号）。
       # 都是基线对比、只拦新增；权威副本在 .gitea/workflows/ci.yml，这边是镜像验证。
@@ -148,7 +212,17 @@ jobs:
           python -m pip install flake8
       - name: Lint check
         run: |
-          flake8 src/ cli/ --count --statistics --max-line-length=120 || true
+          # D4-3：`|| true` 的崩溃兜底。flake8 退出码语义：0=无违规、1=有违规（不阻塞，
+          # 数量由 --count --statistics 呈现）、>1=内部错误/崩溃。兜底只拦 >1——
+          # 崩溃时报错会写进 stdout，用 test -s 反而假绿，所以不靠文件存在性。
+          # 这里不 mkdir：lint 是独立 job，无 .ci 目录；直接重定向到仓库根。
+          flake8 src/ cli/ --count --statistics --max-line-length=120 > flake8_report.txt 2>&1
+          rc=$?
+          if [ $rc -gt 1 ]; then
+            echo "flake8 异常退出（rc=$rc），判红"
+            exit $rc
+          fi
+          echo "flake8 完成（rc=$rc：0=无违规，1=有违规不阻塞），报告见 flake8_report.txt"
 
   build:
     runs-on: ubuntu-latest

@@ -1,0 +1,59 @@
+# D4-4 反跑证明：`time_budget.py --dry-run` 已删除 + 两份引用文档勘误
+
+**任务书判据**（D4-4）：`--dry-run` 打硬编码字面量（`time_budget.py:99-119`，写着
+「105 条违规」真值 103、「run #66 基线：492.6s」），没有一次 `time.time()` 调用，
+唯一出口 `return 0`；从未被任何 workflow 调用，却作为「确认新增没吃掉预算」的证据
+被引用过（`第三轮留档/D3交付报告.md:95,227`、`合并报告_第三轮.md:191`）。
+
+**裁决：删掉 `--dry-run` 开关**（任务书二选一里的第二项），两份引用文档加勘误。
+选删不选改的理由：
+1. 它从未被任何 workflow 调用（CI 只用 `--mark` / `--check`），实际风险 = 0，
+   但作为证据引用过——硬编码字面量会腐坏（今天「105 条」就已失真为 103），
+   留着是埋雷，删掉最干净；
+2. 改成真测量需要真跑 assert_quality/bootstrap_rate 计时，但这俩脚本在 CI 里
+   本来就有自己的耗时打点（time_budget --mark 段账单），再做一个重复测量器
+   收益为零、维护成本为正；
+3. `--check` 是真判定（超预算退出 1），**保留未动**——判据本体的能力没损失。
+
+## 验证 1：`--dry-run` 已不存在（argparse 报错而非静默绿）
+
+```
+$ python tools/ci/time_budget.py --dry-run
+usage: time_budget.py [-h] [--file FILE] [--mark MARK] [--fresh] [--check [--budget BUDGET]]
+time_budget.py: error: unrecognized arguments: --dry-run
+```
+退出码 2。旧行为是「打印硬编码 + 退出 0（永远绿）」——现在任何引用它的人
+会立刻收到参数错误，而不是被一份永远不会红的假账单骗过去。
+
+## 验证 2：`--mark` / `--check` 真判定仍在（且会红）
+
+```
+$ python tools/ci/time_budget.py --mark 起点 --fresh
+[CI 计时] 打点 起点
+$ sleep 2
+$ python tools/ci/time_budget.py --mark 测试
+[CI 计时] 打点 测试
+$ python tools/ci/time_budget.py --check --budget 1
+[CI 计时] 各段耗时：
+         2.0s  测试
+[CI 计时] 本轮合计 2.0s / 预算 1s
+[CI 计时] 超预算 1.0s，按红处理。
+```
+退出码 1（真红）。→ 说明删 `--dry-run` 没有误伤 `--check` 的真判定。
+
+## 验证 3：两份引用文档勘误到位
+
+| 文档 | 原引用 | 勘误后 |
+|---|---|---|
+| `第三轮留档/D3交付报告.md:20` | `time_budget.py` 加 `--dry-run` | 标注「该开关在第四轮 D4-4 已删除，见 §四末勘误」 |
+| `第三轮留档/D3交付报告.md:81` | 新增 `--dry-run` 说明 | 追加「勘误（第四轮 D4-4）：该开关已删除」+ 理由 |
+| `第三轮留档/D3交付报告.md:95` | `--dry-run` 打印增量估算，退出 0 | 标注「开关已删，见 §四末」 |
+| `第三轮留档/D3交付报告.md:227` | 未改，记为移交 | 标注「已处理——开关删除，理由同上」 |
+| `合并报告_第三轮.md:191` | `--dry-run` 打硬编码时间串——移交 | 划线 + 标注「勘误（第四轮 D4-4）：开关已删除」 |
+
+## 结论
+
+- `--dry-run` 开关已从 `tools/ci/time_budget.py` 删除（argparse 参数 + 整段逻辑 +
+  错误提示文案），`--check` / `--mark` / `--fresh` / `--budget` 原样保留。
+- 两份引用文档 5 处引用全部加勘误，指向第四轮留档。
+- 反跑成立：参数不存在的报错 = 最硬的「别再引用它」信号；真判定能力无损。
