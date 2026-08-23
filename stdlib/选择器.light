@@ -100,10 +100,18 @@
 
 # TLS 非阻塞：SSLWantReadError 必须回选择器等「读」，SSLWantWriteError 等「写」，
 # 不许当普通 EAGAIN 一律等读、也不许吞掉。裸 socket 用 errno.EAGAIN / EWOULDBLOCK。
+#
+# 取 errno 必须走 getattr 兜底：这两个段落是被 流式.light 的 `收` 在「捕获一切」的
+# 处理器里调用的，进来的可能是没有 errno 的异常（SSL socket 被 unwrap 后 recv 抛
+# ValueError；套接字已置空后再调 收 抛 AttributeError）。直接写 e.errno 会让
+# AttributeError 从 except 内部逃出去，而 main 上的原实现是把**所有**异常都包成
+# 读取错误 —— 那是第四轮总纲 §4.2 冻结的契约。
+# 2026-08-23 合并期实测：是否愿等读(ValueError('boom')) 抛
+# AttributeError: 'ValueError' object has no attribute 'errno'。
 段落 是否愿等读 接收 e:
   如果 type(e) == ssl.SSLWantReadError:
     返回 真
-  设 错误号 为 e.errno
+  设 错误号 为 getattr(e, "errno", 空)
   如果 错误号 == errno.EAGAIN 或 错误号 == errno.EWOULDBLOCK:
     返回 真
   返回 假

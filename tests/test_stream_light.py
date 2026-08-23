@@ -237,5 +237,75 @@ class TestStreamRoundTrip:
         m.srv.close()
 
 
+# ---------------------------------------------------------------------------
+# 合并期补的两条（第四轮 C4 只读复核的 P1-1 / P1-2，由主线在合并点补齐）
+# ---------------------------------------------------------------------------
+class TestReadContractAtMerge:
+    """守 `收` 的两条容易被悄悄改坏的语义。
+
+    这两条不是 C4 交付漏做，是复核时发现「实现是对的但无人看守」：
+    - P1-1：`收` 的错误契约是「所有异常都包成 读取错误」（总纲 §4.2 冻结）。
+      原实现 `是否愿等读` 里直接取 `e.errno`，遇到没有 errno 的异常
+      （SSL socket unwrap 后 recv 抛 ValueError；套接字置空后再调 收 抛 AttributeError）
+      会让 AttributeError 从 except 内部逃出去，绕开 读取错误。
+    - P1-2：超时语义从 `settimeout` 改成了「选择器累计等待」，
+      `截止/剩余` 的计算一处符号写错就会变成永等 —— 全 tests 原来一条都没断过它。
+    """
+
+    def test_无errno的异常不被误判成可等待(self):
+        """P1-1：没有 errno 的异常必须安静地返回假，让调用方走到 抛 读取错误 那一支。"""
+        # 修前这三行会抛 AttributeError: 'ValueError' object has no attribute 'errno'
+        assert 是否愿等读(ValueError("boom")) is False
+        assert 是否愿等写(ValueError("boom")) is False
+        assert 是否愿等读(AttributeError("套接字已置空")) is False
+        assert 是否愿等写(AttributeError("套接字已置空")) is False
+        # 真正该被判可等待的仍然可等待（防止一刀切成假）
+        assert 是否愿等读(ssl.SSLWantReadError()) is True
+        assert 是否愿等写(ssl.SSLWantWriteError()) is True
+
+    def test_读超时抛读取错误且不永等(self):
+        """P1-2：头到了体永远不来时，收 必须在 超时读取 附近抛 读取错误，不许永等。"""
+        srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(4)
+        port = srv.getsockname()[1]
+        held = []
+
+        def serve():
+            try:
+                conn, _ = srv.accept()
+            except OSError:
+                return
+            held.append(conn)
+            try:
+                conn.recv(4096)
+                # 声明有 16 字节体，但一个字节都不发 —— 制造纯超时场景
+                conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 16\r\n\r\n")
+            except OSError:
+                return
+            time.sleep(3.0)
+
+        threading.Thread(target=serve, daemon=True).start()
+        try:
+            c = HTTP客户端("127.0.0.1", port)
+            c.超时读取 = 0.4
+            hdr = c.发送("GET", "/", {}, "")
+            assert hdr[0] == 200
+            t0 = time.monotonic()
+            with pytest.raises(读取错误):
+                c.收(4096)
+            elapsed = time.monotonic() - t0
+            # 下界防「立刻抛」（那说明根本没等），上界防「永等」
+            assert 0.3 < elapsed < 2.0, f"超时应在 0.4s 附近生效，实际 {elapsed:.3f}s"
+        finally:
+            srv.close()
+            for conn in held:
+                try:
+                    conn.close()
+                except OSError:
+                    pass
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
