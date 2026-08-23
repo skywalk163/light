@@ -1267,10 +1267,28 @@ class PythonCodeGenerator:
         name = self._sanitize_name(stmt.name)
         value = self._generate_expr(stmt.value)
         
+        # 写入侧的「这是类属性吗」判据必须与读取侧（_resolve_identifier_name:3483）
+        # **逐条一致**：那边写了 `raw_name not in self._current_method_params`，
+        # 这边原先没写，于是同一个名字读是局部、写是 self. —— 方法参数与类属性同名时
+        # `设 参数名 为 …` 被发成 `self.参数名 = …`，参数本身没被改。
+        #
+        # 实测代价（第六轮 2026-08-23 真发网踩到）：stdlib/大模型客户端.light:57-60
+        #   如果 密钥 == "":
+        #     设 密钥 为 os.getenv("DEEPSEEK_API_KEY", "")
+        #   己.密钥 为 密钥
+        # 编成 `self.密钥 = os.getenv(...)` 紧跟 `self.密钥 = 密钥`（空串），
+        # 于是「key 留空则从环境变量取」这条文档承诺**从来没生效过**，
+        # 真发网拿 401 Authentication Fails。编译期无警告，属静默错编。
+        是类属性 = (self._in_class_method
+                     and stmt.name in self._class_attr_names
+                     and stmt.name not in self._current_method_params)
+
+
+
         # 绑定形式①：`设 X 为 …`。必须在 value 生成之后登记，否则
         # `设 映射 为 映射(f, 列)`（用内置结果初始化同名变量）的右侧会被自己遮蔽。
         # 类属性赋值（己.X / 类属性名）不是局部变量，不登记。
-        if not (self._in_class_method and stmt.name in self._class_attr_names):
+        if not 是类属性:
             self._bind_local(stmt.name)
         
         # 处理 己.xxx / 自.xxx 形式的属性赋值（两个 self 引用名一视同仁，
@@ -1284,7 +1302,7 @@ class PythonCodeGenerator:
             type_annotation = f': {python_type}'
         
         # 类方法中，如果变量是类属性，使用 self. 前缀
-        if self._in_class_method and stmt.name in self._class_attr_names:
+        if 是类属性:
             self._add_line(f"self.{name}{type_annotation} = {value}")
         else:
             self._add_line(f"{name}{type_annotation} = {value}")
@@ -1292,10 +1310,11 @@ class PythonCodeGenerator:
         # 运行时类型检查（仅在开启时生成）
         if self._runtime_type_check and stmt.type_annotation:
             light_type = stmt.type_annotation
-            if self._in_class_method and stmt.name in self._class_attr_names:
+            if 是类属性:
                 self._add_line(f"_light_check_type(self.{name}, '{light_type}', '{stmt.name}')")
             else:
                 self._add_line(f"_light_check_type({name}, '{light_type}', '{stmt.name}')")
+
     
     # 光明类型名 -> Python 注解类型名。注意：这与 :1853 的 _TYPE_NAME_MAP（服务
     # match 模式的 isinstance 检查，'任意'->object）**故意不同**——注解走 typing 语义，
@@ -2763,9 +2782,16 @@ class PythonCodeGenerator:
                 args = [args[0], 'return_when=asyncio.FIRST_COMPLETED']
             args_str = ', '.join(args)
             
-            # 被局部变量遮蔽且为裸引用（零参）：发射裸变量名，不加调用括号
+            # 被局部变量遮蔽且为裸引用（零参、源码里没写括号）：发射裸变量名。
+            #
+            # 零参调用 `目标()` 与裸引用 `目标` 的 name/args 完全相同，光凭 args
+            # 判空会把 `等待 目标()`、`设 结果 为 目标()` 一起吞掉括号，编出
+            # `await 目标` / `结果 = 目标`——协程对象没被调用就去 await，或者把函数
+            # 对象当结果存起来，编译期不报错，属静默错编。第六轮给 ParagraphCall
+            # 加了 `带括号`（见 src/ast_nodes_v3.py），真括号路径置 True，这里据此放行。
+            if shadowed and not expr.args and not expr.带括号:
 
-            if shadowed and not expr.args:
+
                 return py_name
             
             # 如果函数名是lambda表达式，需要加括号包裹，避免lambda body被误认为函数调用参数

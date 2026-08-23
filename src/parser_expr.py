@@ -810,10 +810,15 @@ class ParserExprMixin:
             # 收集参数（元数驱动）
             arity = VERB_ARITY[verb_name]
             args = []
+            # 记住源码里是否真写了 `(`：零参时这是「裸引用 目标」与「零参调用 目标()」
+            # 的唯一分界（两者 name/args 全同），下面三条子分支（arity 0 / -1 / 固定）
+            # 的括号支各自把它置 True，出口 ParagraphCall 原样带走。
+            带括号 = False
 
             if arity == 0:
                 # 无参数函数：支持 "刷新输出" 或 "刷新输出()"
                 if self._current() and self._current().type == TokenType.LPAREN:
+                    带括号 = True
                     self._consume(TokenType.LPAREN)
                     # 跳过可选的空格/内容直到右括号
                     while self._current() and self._current().type != TokenType.RPAREN:
@@ -825,6 +830,7 @@ class ParserExprMixin:
                 # 检查是否使用了括号语法
                 if self._current() and self._current().type == TokenType.LPAREN:
                     # 括号式参数：列(参数1, 参数2, 参数3)
+                    带括号 = True
                     self._consume(TokenType.LPAREN)
                     while not self._match(TokenType.RPAREN):
                         if self._current() and self._current().type == TokenType.COMMA:
@@ -917,9 +923,11 @@ class ParserExprMixin:
                     # 产物逐字节不变；只有原本被吞参的输入改为忠实收全。不会凭空
                     # 产生原先没有的语义——要么正确执行，要么用户真传错参时得到
                     # 清晰的 Python TypeError。
+                    带括号 = True
                     self._consume(TokenType.LPAREN)
                     collected = 0
                     while not self._match(TokenType.RPAREN):
+
                         if self._current() and self._current().type == TokenType.COMMA:
                             self._consume(TokenType.COMMA)
                             continue
@@ -959,7 +967,7 @@ class ParserExprMixin:
                             if arg:
                                 args.append(arg)
 
-            expr = ParagraphCall(verb_name, args)
+            expr = ParagraphCall(verb_name, args, 带括号=带括号)
             return self._parse_postfix(expr)
 
         # L0 v4.0 单字 `新`（≡ 新建）类实例化：新 类名(参数...)
@@ -1041,7 +1049,7 @@ class ParserExprMixin:
                     else:
                         break
                 self._consume(TokenType.RPAREN)
-                expr = ParagraphCall(name, args)
+                expr = ParagraphCall(name, args, 带括号=True)
                 return self._parse_postfix(expr)
             else:
                 # 无括号：动词 参数1 参数2（如"幂 二 十"）
@@ -1157,7 +1165,7 @@ class ParserExprMixin:
                         continue
                     args.append(self._parse_expr())
                 self._consume(TokenType.RPAREN)
-                expr = ParagraphCall(name, args)
+                expr = ParagraphCall(name, args, 带括号=True)
             else:
                 expr = Identifier(name)
             return self._parse_postfix(expr)
@@ -1540,7 +1548,7 @@ class ParserExprMixin:
                             break
                     if self._current() and self._current().type == TokenType.RPAREN:
                         self._consume(TokenType.RPAREN)
-                    expr = ParagraphCall(name, args) if args else ParagraphCall(name, [])
+                    expr = ParagraphCall(name, args, 带括号=True)
                     return self._parse_postfix(expr)
 
                 # 无括号语法：使用 arity 限制参数收集
@@ -2813,7 +2821,7 @@ class ParserExprMixin:
                         self._consume()
 
                 self._consume(TokenType.RPAREN)
-                expr = ParagraphCall(func_name, args)
+                expr = ParagraphCall(func_name, args, 带括号=True)
                 continue
 
             # 成员访问：obj.member 或 obj.method()
@@ -3012,7 +3020,7 @@ class ParserExprMixin:
 
             self._consume(TokenType.RPAREN)
 
-            return ParagraphCall(name, args)
+            return ParagraphCall(name, args, 带括号=True)
 
         # 否则是字符串字面量
         return StringLiteral(name)

@@ -193,11 +193,21 @@ class Identifier(ASTNode):
 
 
 class ParagraphCall(ASTNode):
-    __slots__ = ('name', 'args')
-    """段落调用"""
-    def __init__(self, name: str, args: List[ASTNode]):
+    __slots__ = ('name', 'args', '带括号')
+    """段落调用
+
+    `带括号` 记录**源码里是否真的写了 `(`**。零参时这是唯一能区分
+    「裸引用 `目标`」与「零参调用 `目标()`」的信息——两者的 name/args 完全相同，
+    而代码生成器在名字被局部变量遮蔽时要据此决定发 `目标` 还是 `目标()`
+    （见 src/code_generator.py 的 shadowed 分支）。
+
+    默认 False：解析器里大量「裸名按元数收参」的构造点不写这个参数，
+    行为与加这个字段之前逐字节一致；只有真括号路径显式传 True。
+    """
+    def __init__(self, name: str, args: List[ASTNode], 带括号: bool = False):
         self.name = name
         self.args = args
+        self.带括号 = 带括号
     
     def __repr__(self):
         return f"《{self.name}》({', '.join(map(str, self.args))})"
