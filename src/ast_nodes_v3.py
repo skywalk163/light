@@ -627,11 +627,12 @@ class SetComprehension(ASTNode):
 
 
 class LambdaExpression(ASTNode):
-    __slots__ = ('params', 'body')
+    __slots__ = ('params', 'body', 'body_statements')
     """匿名函数"""
-    def __init__(self, params: List[str], body: ASTNode):
+    def __init__(self, params: List[str], body: ASTNode, body_statements: List[ASTNode] = None):
         self.params = params
         self.body = body
+        self.body_statements = body_statements or []
     
     def __repr__(self):
         return f"Lambda({', '.join(self.params)}: {self.body})"

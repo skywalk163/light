@@ -310,6 +310,7 @@ class LambdaExpression(ASTNode):
     """匿名函数：接收 甲：返回 甲 乘 甲。"""
     parameters: List[Parameter] = field(default_factory=list)
     body: ASTNode = None                # 表达式体
+    body_statements: List[ASTNode] = field(default_factory=list)  # 多语句体（C风格匿名函数）
 
 
 @dataclass(slots=True)
