@@ -143,6 +143,10 @@ RE_MASTER = re.compile(
 _DEFAULT_BASELINE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                  "assert_quality_baseline.json")
 
+# 编译器生成的 .py 首行标记，见 src/code_generator.py 的 `# 由光明编译器生成`。
+GENERATED_MARK = "由光明编译器生成"
+
+
 
 def _posix(path):
     """把路径分隔符归一成 `/`：基线要跨平台可比，键里不能带 `os.sep`。"""
@@ -227,7 +231,17 @@ def scan_tree(root):
             try:
                 with open(full, encoding="utf-8", errors="replace") as fh:
                     for i, line in enumerate(fh, 1):
+                        # 编译器生成的 .py 一律豁免（第六轮口径裁决）。
+                        # 这些文件的内容由 src/code_generator.py 决定，作者是编译器
+                        # 而不是人；把它们当「人写的测试」来判假测试，只会让「测试
+                        # 里编译一份真文件」这件事变成必须记得写临时目录的地雷
+                        # （产物一旦落在树里，CI 的门禁步骤就无条件红）。
+                        # 代价记在明处：这类文件里的真问题门禁看不见——要防的是
+                        # 生成器本身生成弱断言，那是 code_generator 的测试该管的事。
+                        if i == 1 and GENERATED_MARK in line:
+                            break
                         # 廉价预筛：绝大多数行不含 'assert'/'returncode'，直接跳过正则。
+
                         if "assert" not in line and "returncode" not in line:
                             continue
                         stripped = line.rstrip("\n")

@@ -128,6 +128,24 @@ class TestScanTreeEndToEnd(unittest.TestCase):
         # 报文单列靠这个元组；被人顺手删掉的话两条形态会混进存量统计
         self.assertEqual(AQ.PREVENTIVE, ("trivial-ge0", "returncode-in"))
 
+    def test_编译器生成的py整份豁免(self):
+        """首行 `# 由光明编译器生成` 的文件不扫（第六轮口径裁决）。
+
+        这些文件的内容由 src/code_generator.py 决定，作者是编译器不是人；
+        当成人写的测试来判假测试，只会让「测试里编译一份真文件」变成
+        必须记得写临时目录的地雷。
+        """
+        文本 = ("# " + AQ.GENERATED_MARK + "\n"
+                "def f(xs, returncode):\n" + S["ge0"] + "\n" + S["rc_in"] + "\n")
+        self.assertEqual(self._扫(文本), {})
+
+    def test_标记不在首行则照扫(self):
+        """反向守护：豁免只认首行，不许拿这句注释当免死金牌插在文件中间。"""
+        文本 = ("def f(xs, returncode):\n"
+                "# " + AQ.GENERATED_MARK + "\n" + S["ge0"] + "\n" + S["rc_in"] + "\n")
+        self.assertEqual(self._扫(文本), {"trivial-ge0": 1, "returncode-in": 1})
+
+
 
 class Test查自导入(unittest.TestCase):
     """自举率防造假：`.light` 里转手导入同名 `.py`。"""
