@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "note": "假测试门禁基线快照：本仓库当前的既有违规。新增即红；修好一批后重新生成并提交本文件。",
-  "built_from_commit": "8c7d6292b066",
+  "note": "假测试门禁基线快照：本仓库当前的既有违规。新增即红；修好一批后重新生成并提交本文件。built_from_commit 是**生成基线时的 HEAD**，也就是携带本基线那个提交的父提交；若它在当前分支上不可达，说明基线是从被改写/丢弃的提交上生成的，必须重新生成。",
+  "built_from_commit": "b3ce3752037b",
   "scanned_root": "tests",
   "categories": {
     "string-assert": "字符串断言式",
@@ -189,6 +189,18 @@
     },
     {
       "file": "archive/_test_phase5_compiler.py",
+      "line": 50,
+      "cat": "lower-bound",
+      "text": "assert len(tokens) > 0"
+    },
+    {
+      "file": "archive/_test_phase5_compiler.py",
+      "line": 55,
+      "cat": "lower-bound",
+      "text": "assert len(tokens) > 0"
+    },
+    {
+      "file": "archive/_test_phase5_compiler.py",
       "line": 88,
       "cat": "not-none",
       "text": "assert sym is not None"
@@ -218,6 +230,12 @@
       "text": "assert module is not None"
     },
     {
+      "file": "archive/_test_phase5_compiler.py",
+      "line": 166,
+      "cat": "lower-bound",
+      "text": "assert len(module.statements) > 0"
+    },
+    {
       "file": "e2e/test_e2e_chain.py",
       "line": 134,
       "cat": "lower-bound",
@@ -228,6 +246,12 @@
       "line": 116,
       "cat": "lower-bound",
       "text": "assert len(order) >= 2"
+    },
+    {
+      "file": "test_Web框架.py",
+      "line": 466,
+      "cat": "lower-bound",
+      "text": "assert len(resp._cookies) > 0"
     },
     {
       "file": "test_Web框架.py",
@@ -338,10 +362,22 @@
       "text": "assert 孙pid is not None, f\"没抓到孙子 PID，本用例无法判定杀树：\\n{结果}\""
     },
     {
+      "file": "test_agent_tools_light.py",
+      "line": 669,
+      "cat": "lower-bound",
+      "text": "assert len(以字节) > 1024 and b\"BBBB\" in 以字节, f\"溢出文件内容不对：{len(以字节)} 字节\""
+    },
+    {
       "file": "test_async.py",
       "line": 656,
       "cat": "not-none",
       "text": "assert expr_type is not None, \"await 表达式应被推断出类型\""
+    },
+    {
+      "file": "test_chinese_errors.py",
+      "line": 98,
+      "cat": "lower-bound",
+      "text": "assert len(hint) > 0, f\"{exc_type} 的修改指引为空\""
     },
     {
       "file": "test_context_manager.py",
@@ -408,6 +444,12 @@
       "line": 39,
       "cat": "not-none",
       "text": "assert python_code is not None"
+    },
+    {
+      "file": "test_e2e.py",
+      "line": 40,
+      "cat": "lower-bound",
+      "text": "assert len(python_code) > 0"
     },
     {
       "file": "test_e2e.py",
@@ -488,10 +530,64 @@
       "text": "assert python_code is not None"
     },
     {
+      "file": "test_e2e_full_coverage.py",
+      "line": 158,
+      "cat": "lower-bound",
+      "text": "assert len(packages) > 0, \"内置注册表为空\""
+    },
+    {
+      "file": "test_e2e_full_coverage.py",
+      "line": 161,
+      "cat": "lower-bound",
+      "text": "assert len(chinese_packages) > 0, \"内置注册表中无中文包名\""
+    },
+    {
+      "file": "test_error_messages.py",
+      "line": 87,
+      "cat": "lower-bound",
+      "text": "assert len(err.fix_suggestions) > 0"
+    },
+    {
+      "file": "test_error_messages.py",
+      "line": 95,
+      "cat": "lower-bound",
+      "text": "assert len(err.fix_suggestions) > 0"
+    },
+    {
+      "file": "test_error_messages.py",
+      "line": 114,
+      "cat": "lower-bound",
+      "text": "assert len(err.fix_suggestions) > 0"
+    },
+    {
+      "file": "test_error_messages.py",
+      "line": 122,
+      "cat": "lower-bound",
+      "text": "assert len(err.fix_suggestions) > 0"
+    },
+    {
+      "file": "test_error_messages.py",
+      "line": 232,
+      "cat": "lower-bound",
+      "text": "assert len(suggestions) > 0"
+    },
+    {
       "file": "test_error_messages.py",
       "line": 254,
       "cat": "not-none",
       "text": "assert engine is not None"
+    },
+    {
+      "file": "test_error_messages.py",
+      "line": 505,
+      "cat": "lower-bound",
+      "text": "assert len(completions) > 0"
+    },
+    {
+      "file": "test_error_messages.py",
+      "line": 523,
+      "cat": "lower-bound",
+      "text": "assert len(completions) > 0"
     },
     {
       "file": "test_error_messages.py",
@@ -510,6 +606,12 @@
       "line": 612,
       "cat": "not-none",
       "text": "assert offset_ptr is not None"
+    },
+    {
+      "file": "test_ffi.py",
+      "line": 712,
+      "cat": "lower-bound",
+      "text": "assert len(logs) > 0"
     },
     {
       "file": "test_ffi.py",
@@ -534,6 +636,12 @@
       "line": 910,
       "cat": "not-none",
       "text": "assert arr is not None"
+    },
+    {
+      "file": "test_ffi_phase2.py",
+      "line": 31,
+      "cat": "lower-bound",
+      "text": "assert len(module.statements) > 0"
     },
     {
       "file": "test_ffi_phase2.py",
@@ -614,6 +722,12 @@
       "text": "assert ptr is not None"
     },
     {
+      "file": "test_ffi_phase3.py",
+      "line": 350,
+      "cat": "lower-bound",
+      "text": "assert len(gen._module_statements) > 0"
+    },
+    {
       "file": "test_ffi_phase4.py",
       "line": 171,
       "cat": "string-assert",
@@ -672,6 +786,12 @@
       "line": 232,
       "cat": "string-assert",
       "text": "assert '1024' in py_code"
+    },
+    {
+      "file": "test_ffi_phase4.py",
+      "line": 356,
+      "cat": "lower-bound",
+      "text": "assert len(gen._module_statements) > 0"
     },
     {
       "file": "test_ffi_stdlib_mock.py",
@@ -998,6 +1118,12 @@
       "text": "assert result is not None"
     },
     {
+      "file": "test_http_client.py",
+      "line": 591,
+      "cat": "lower-bound",
+      "text": "assert len(chunks) > 0"
+    },
+    {
       "file": "test_incremental_compiler.py",
       "line": 33,
       "cat": "not-none",
@@ -1245,15 +1371,39 @@
     },
     {
       "file": "test_llvm_optimization.py",
+      "line": 111,
+      "cat": "lower-bound",
+      "text": "assert len(result) > 0"
+    },
+    {
+      "file": "test_llvm_optimization.py",
       "line": 182,
       "cat": "not-none",
       "text": "assert SizeOptimizer is not None"
     },
     {
       "file": "test_llvm_optimization.py",
+      "line": 196,
+      "cat": "lower-bound",
+      "text": "assert len(result) > 0"
+    },
+    {
+      "file": "test_llvm_optimization.py",
+      "line": 249,
+      "cat": "lower-bound",
+      "text": "assert len(result) > 0"
+    },
+    {
+      "file": "test_llvm_optimization.py",
       "line": 263,
       "cat": "not-none",
       "text": "assert StartupOptimizer is not None"
+    },
+    {
+      "file": "test_llvm_optimization.py",
+      "line": 277,
+      "cat": "lower-bound",
+      "text": "assert len(result) > 0"
     },
     {
       "file": "test_llvm_optimization.py",
@@ -1278,6 +1428,12 @@
       "line": 30,
       "cat": "not-none",
       "text": "assert module is not None, f\"解析失败: {getattr(parser, 'errors', [])}\""
+    },
+    {
+      "file": "test_lsp_protocol.py",
+      "line": 88,
+      "cat": "lower-bound",
+      "text": "assert len(py) > 100"
     },
     {
       "file": "test_lsp_protocol.py",
@@ -1311,6 +1467,12 @@
     },
     {
       "file": "test_new_modules.py",
+      "line": 86,
+      "cat": "lower-bound",
+      "text": "assert len(结构) > 0"
+    },
+    {
+      "file": "test_new_modules.py",
       "line": 322,
       "cat": "not-none",
       "text": "assert 秒表2 is not None"
@@ -1323,9 +1485,27 @@
     },
     {
       "file": "test_new_modules.py",
+      "line": 705,
+      "cat": "lower-bound",
+      "text": "assert len(diff) > 0"
+    },
+    {
+      "file": "test_new_modules.py",
+      "line": 725,
+      "cat": "lower-bound",
+      "text": "assert len(相似列表) > 0"
+    },
+    {
+      "file": "test_new_modules.py",
       "line": 729,
       "cat": "not-none",
       "text": "assert 最相似 is not None"
+    },
+    {
+      "file": "test_new_modules.py",
+      "line": 733,
+      "cat": "lower-bound",
+      "text": "assert len(比较结果) > 0"
     },
     {
       "file": "test_parser.py",
@@ -1395,6 +1575,12 @@
     },
     {
       "file": "test_self_host.py",
+      "line": 131,
+      "cat": "lower-bound",
+      "text": "assert len(py_code) > 0, \"编译结果为空\""
+    },
+    {
+      "file": "test_self_host.py",
       "line": 132,
       "cat": "string-assert",
       "text": "assert 'def ' in py_code, \"编译结果未包含函数定义\""
@@ -1455,9 +1641,21 @@
     },
     {
       "file": "test_self_host_bootstrap.py",
+      "line": 630,
+      "cat": "lower-bound",
+      "text": "assert len(tokens) > 0, f\"令牌列表为空 ({fname})\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
       "line": 649,
       "cat": "not-none",
       "text": "assert module is not None, \"解析返回 None\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 652,
+      "cat": "lower-bound",
+      "text": "assert len(module.statements) > 0, \"Module statements 为空\""
     },
     {
       "file": "test_self_host_bootstrap.py",
@@ -1473,6 +1671,12 @@
     },
     {
       "file": "test_self_host_bootstrap.py",
+      "line": 694,
+      "cat": "lower-bound",
+      "text": "assert len(py_code) > 0, \"生成的代码为空\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
       "line": 695,
       "cat": "string-assert",
       "text": "assert 'def ' in py_code, \"生成的代码未包含函数定义\""
@@ -1485,9 +1689,27 @@
     },
     {
       "file": "test_self_host_bootstrap.py",
+      "line": 724,
+      "cat": "lower-bound",
+      "text": "assert len(py_code) > 0, \"生成的代码为空\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
       "line": 725,
       "cat": "string-assert",
       "text": "assert 'def ' in py_code, \"生成的代码未包含函数定义\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 811,
+      "cat": "lower-bound",
+      "text": "assert len(content) > 500, f\"内容过短: {len(content)} 字符\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 821,
+      "cat": "lower-bound",
+      "text": "assert len(content) > 100, f\"文件内容过短: {fname} ({len(content)} 字符)\""
     },
     {
       "file": "test_self_host_bootstrap.py",
@@ -1536,6 +1758,24 @@
       "line": 901,
       "cat": "not-none",
       "text": "assert report is not None, \"报告生成返回 None\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 902,
+      "cat": "lower-bound",
+      "text": "assert len(report) > 100, \"报告内容过短\""
+    },
+    {
+      "file": "test_self_host_bootstrap.py",
+      "line": 940,
+      "cat": "lower-bound",
+      "text": "assert len(content) > 50, \"验证脚本内容过短\""
+    },
+    {
+      "file": "test_semantic.py",
+      "line": 116,
+      "cat": "lower-bound",
+      "text": "assert len(analyzer.errors) > 0"
     },
     {
       "file": "test_stdlib_third_party.py",
@@ -1641,9 +1881,27 @@
     },
     {
       "file": "test_type_checker_cli.py",
+      "line": 52,
+      "cat": "lower-bound",
+      "text": "assert len(issues) > 0, f\"类型不匹配应产生警告，实际 {len(issues)}\""
+    },
+    {
+      "file": "test_type_checker_cli.py",
       "line": 64,
       "cat": "not-none",
       "text": "assert module is not None, \"模块不应为 None\""
+    },
+    {
+      "file": "test_type_checker_cli.py",
+      "line": 67,
+      "cat": "lower-bound",
+      "text": "assert len(errors) > 0, f\"严格模式应有错误，实际 {len(errors)}\""
+    },
+    {
+      "file": "test_type_checker_cli.py",
+      "line": 79,
+      "cat": "lower-bound",
+      "text": "assert len(issues) > 0, f\"语法错误应产生问题，实际 {len(issues)}\""
     },
     {
       "file": "test_type_checker_compiler_integration.py",
@@ -1683,6 +1941,12 @@
     },
     {
       "file": "test_type_checker_compiler_integration.py",
+      "line": 146,
+      "cat": "lower-bound",
+      "text": "assert len(type_cache) > 0, \"应该有一些推断结果\""
+    },
+    {
+      "file": "test_type_checker_compiler_integration.py",
       "line": 161,
       "cat": "not-none",
       "text": "assert inferencer is not None, \"类型推断不应崩溃\""
@@ -1695,9 +1959,21 @@
     },
     {
       "file": "test_type_system_v4_2.py",
+      "line": 312,
+      "cat": "lower-bound",
+      "text": "assert len(results) > 0, f\"缺少标注的段落应产生警告，实际 {len(results)} 个\""
+    },
+    {
+      "file": "test_type_system_v4_2.py",
       "line": 314,
       "cat": "lower-bound",
       "text": "assert len(warnings) >= 2, f\"至少应有2个警告（参数+返回），实际 {len(warnings)}\""
+    },
+    {
+      "file": "test_type_system_v4_2.py",
+      "line": 363,
+      "cat": "lower-bound",
+      "text": "assert len(errors) > 0, f\"严格模式缺少标注应产生错误，实际 {len(errors)} 个错误\""
     },
     {
       "file": "test_type_system_v4_2.py",
@@ -1707,9 +1983,63 @@
     },
     {
       "file": "unit/test_bootstrap_compiler.py",
+      "line": 163,
+      "cat": "lower-bound",
+      "text": "assert len(source) > 100, \"Lexer source is too short\""
+    },
+    {
+      "file": "unit/test_bootstrap_compiler.py",
       "line": 164,
       "cat": "string-assert",
       "text": "assert '词法分析' in source or '创建关键字列表' in source"
+    },
+    {
+      "file": "unit/test_bootstrap_compiler.py",
+      "line": 411,
+      "cat": "lower-bound",
+      "text": "assert len(content) > 100"
+    },
+    {
+      "file": "unit/test_bootstrap_compiler.py",
+      "line": 420,
+      "cat": "lower-bound",
+      "text": "assert len(content) > 100"
+    },
+    {
+      "file": "unit/test_bootstrap_compiler.py",
+      "line": 429,
+      "cat": "lower-bound",
+      "text": "assert len(content) > 100"
+    },
+    {
+      "file": "unit/test_bootstrap_compiler.py",
+      "line": 438,
+      "cat": "lower-bound",
+      "text": "assert len(content) > 50"
+    },
+    {
+      "file": "unit/test_bootstrap_compiler.py",
+      "line": 447,
+      "cat": "lower-bound",
+      "text": "assert len(content) > 20"
+    },
+    {
+      "file": "unit/test_bootstrap_compiler.py",
+      "line": 456,
+      "cat": "lower-bound",
+      "text": "assert len(content) > 50"
+    },
+    {
+      "file": "unit/test_bootstrap_compiler.py",
+      "line": 464,
+      "cat": "lower-bound",
+      "text": "assert len(content) > 20"
+    },
+    {
+      "file": "unit/test_bootstrap_compiler.py",
+      "line": 472,
+      "cat": "lower-bound",
+      "text": "assert len(content) > 500"
     },
     {
       "file": "unit/test_c_backend.py",
@@ -2036,10 +2366,22 @@
       "text": "self.assertIn('while ((i < 3))', c_code)"
     },
     {
+      "file": "unit/test_capture_encoding_guard.py",
+      "line": 118,
+      "cat": "lower-bound",
+      "text": "assert len(_被收集) > 50, f'只找到 {len(_被收集)} 个被收集模块，路径大概率错了'"
+    },
+    {
       "file": "unit/test_codegen_perf.py",
       "line": 42,
       "cat": "not-none",
       "text": "assert code is not None"
+    },
+    {
+      "file": "unit/test_codegen_perf.py",
+      "line": 43,
+      "cat": "lower-bound",
+      "text": "assert len(code) > 0"
     },
     {
       "file": "unit/test_codegen_perf.py",
@@ -2049,9 +2391,21 @@
     },
     {
       "file": "unit/test_codegen_perf.py",
+      "line": 70,
+      "cat": "lower-bound",
+      "text": "assert len(code) > 0"
+    },
+    {
+      "file": "unit/test_codegen_perf.py",
       "line": 108,
       "cat": "not-none",
       "text": "assert code is not None"
+    },
+    {
+      "file": "unit/test_codegen_perf.py",
+      "line": 128,
+      "cat": "lower-bound",
+      "text": "assert len(lines) > 0"
     },
     {
       "file": "unit/test_compiler_cache.py",
@@ -2078,10 +2432,28 @@
       "text": "assert len(result) <= 2"
     },
     {
+      "file": "unit/test_link_libs_guard.py",
+      "line": 126,
+      "cat": "lower-bound",
+      "text": "assert len(_被收集) > 50, f'只找到 {len(_被收集)} 个被收集模块，路径大概率错了'"
+    },
+    {
+      "file": "unit/test_llvm_stmt_coverage.py",
+      "line": 136,
+      "cat": "lower-bound",
+      "text": "assert len(ir) > 1000, f'{名称}：IR 短得不像真产物（{len(ir)} 字符）'"
+    },
+    {
       "file": "unit/test_lsp.py",
       "line": 57,
       "cat": "not-none",
       "text": "assert doc is not None"
+    },
+    {
+      "file": "unit/test_lsp.py",
+      "line": 160,
+      "cat": "lower-bound",
+      "text": "assert len(result['items']) > 0"
     },
     {
       "file": "unit/test_lsp.py",
@@ -2109,6 +2481,12 @@
     },
     {
       "file": "unit/test_lsp.py",
+      "line": 358,
+      "cat": "lower-bound",
+      "text": "assert len(symbols) > 0"
+    },
+    {
+      "file": "unit/test_lsp.py",
       "line": 460,
       "cat": "not-none",
       "text": "assert result is not None"
@@ -2127,15 +2505,33 @@
     },
     {
       "file": "unit/test_self_host.py",
+      "line": 50,
+      "cat": "lower-bound",
+      "text": "assert len(tokens) > 0, \"令牌列表为空\""
+    },
+    {
+      "file": "unit/test_self_host.py",
       "line": 66,
       "cat": "not-none",
       "text": "assert module is not None, \"解析返回 None\""
     },
     {
       "file": "unit/test_self_host.py",
+      "line": 77,
+      "cat": "lower-bound",
+      "text": "assert len(module.statements) > 0, \"Module statements 为空\""
+    },
+    {
+      "file": "unit/test_self_host.py",
       "line": 95,
       "cat": "not-none",
       "text": "assert py_code is not None, \"代码生成返回 None\""
+    },
+    {
+      "file": "unit/test_self_host.py",
+      "line": 96,
+      "cat": "lower-bound",
+      "text": "assert len(py_code) > 0, \"生成的代码为空\""
     },
     {
       "file": "unit/test_self_host.py",

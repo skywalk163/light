@@ -1,4 +1,12 @@
-# D4-4 反跑证明：`time_budget.py --dry-run` 已删除 + 两份引用文档勘误
+# D4-4 删除验证：`time_budget.py --dry-run` 已删除 + 两份引用文档勘误
+
+> **合并期勘误（复核回补）：本文档不是反跑证明，原标题名不副实。**
+> 下面「验证 1」是**存在性检查**（参数没了 → argparse 报错），不是反跑：
+> 反跑要求「把实现改坏 → 判据变红 → 恢复 → 证明树干净」，而这里被删掉的东西
+> 本来就永远返回 0，没有「变红」这一态可反。真正带判别力的是**验证 2**
+> （`--check` 超预算返回 1），它证明删 `--dry-run` 没有误伤真判定。
+> 标题已从「反跑证明」改为「删除验证」；文件名保持不动，避免打断已有引用。
+
 
 **任务书判据**（D4-4）：`--dry-run` 打硬编码字面量（`time_budget.py:99-119`，写着
 「105 条违规」真值 103、「run #66 基线：492.6s」），没有一次 `time.time()` 调用，
@@ -19,10 +27,13 @@
 
 ```
 $ python tools/ci/time_budget.py --dry-run
-usage: time_budget.py [-h] [--file FILE] [--mark MARK] [--fresh] [--check [--budget BUDGET]]
+usage: time_budget.py [-h] [--file FILE] [--mark MARK] [--fresh] [--check]
+                      [--budget BUDGET]
 time_budget.py: error: unrecognized arguments: --dry-run
 ```
-退出码 2。旧行为是「打印硬编码 + 退出 0（永远绿）」——现在任何引用它的人
+退出码 2（合并期原样重跑核对，与上面逐字一致；原留档把 usage 手工折成了
+`[--check [--budget BUDGET]]` 一行，与真实输出不符，已按实跑订正）。
+旧行为是「打印硬编码 + 退出 0（永远绿）」——现在任何引用它的人
 会立刻收到参数错误，而不是被一份永远不会红的假账单骗过去。
 
 ## 验证 2：`--mark` / `--check` 真判定仍在（且会红）

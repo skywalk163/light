@@ -9,9 +9,11 @@ r"""语言自举率 + 引 Python 逃逸计数门禁（第三轮 D3-4 建，第�
   - code    = 非空且不以 `#` 开头的行
   - decl    = 含 `段落` / `类` / `函数` 定义的行
   - 有真实现 ⇔ decl ≥ 1 **且**没有转手调用同名 `.py`（见下「防造假」）
-  - **主报文件维度**（本次实测 17/69 = 24.64%）；行维度虚高，脚本里明确标注不许引用
-    ——按本脚本自己的口径实算是 decl 364 / code 4034 = 9.02%（第三轮文档串里
-    写的「16/68 ≈ 23.5%」与「行维度 85.8%」两个数都与真值不符，第四轮 D4-2 已订正）。
+  - **主报文件维度**（合并期实测 18/70 = 25.71%）；行维度虚高，脚本里明确标注不许引用
+    ——按本脚本自己的口径实算是 decl 388 / code 4350 = 8.92%（第三轮文档串里
+    写的「16/68 ≈ 23.5%」与「行维度 85.8%」两个数都与真值不符，第四轮 D4-2 已订正；
+    D4-2 留档里的 17/69 = 24.64% 与 364/4034 = 9.02% 是**合并前**的快照，
+    C4/A4/B4 进 main 后已变，这里按 main 的实跑值订正）。
   - 引 Python 计数：`引\s*Python[：:]`（覆盖全角/半角冒号），排除
     `.git` / `__pycache__` / `.light_cache` / `docs-site` / `.ml_cache`。
     当前真值：stdlib/ 下 0 处；全仓 .light 源码 19 处（15 个文件，全在
@@ -157,16 +159,16 @@ def 查自导入(full, 模块名):
     见模块 docstring 的「误判/漏判边界」。
     """
     命中 = []
-    try:
-        with open(full, encoding="utf-8", errors="replace") as fh:
-            for i, raw in enumerate(fh, 1):
-                s = raw.strip()
-                if not s or s.startswith("#") or 模块名 not in s:
-                    continue
-                if 模块名 in 取模块名位置(s):
-                    命中.append((i, s))
-    except OSError:
-        pass
+    # 合并期回补：这里原来是 `except OSError: pass`——读不到文件就当「没造假」，
+    # 方向偏向放行。防造假检查失效必须判红而不是默默通过，所以改成失败即抬错：
+    # 文件是 os.walk 刚枚举出来的，此刻 OSError 本身就是异常状况。
+    with open(full, encoding="utf-8", errors="replace") as fh:
+        for i, raw in enumerate(fh, 1):
+            s = raw.strip()
+            if not s or s.startswith("#") or 模块名 not in s:
+                continue
+            if 模块名 in 取模块名位置(s):
+                命中.append((i, s))
     return 命中
 
 # 扫描时跳过的目录
@@ -392,7 +394,10 @@ def main():
         data = {
             "version": 2,
             "note": ("自举率基线快照：文件维度自举率只许升不许降；影子数只许降不许升。"
-                     "行维度虚高，不许引用。口径见 tools/ci/bootstrap_rate.py docstring。"),
+                     "行维度虚高，不许引用。口径见 tools/ci/bootstrap_rate.py docstring。"
+                     "built_from_commit 是**生成基线时的 HEAD**，也就是携带本基线那个提交的父提交；"
+                     "若它在当前分支上不可达（git cat-file -e 失败或非 HEAD 祖先），"
+                     "说明基线是从被改写/丢弃的提交上生成的，必须重新生成。"),
             "file_dim_rate": stdlib["file_dim_rate"],
             "stdlib_light_total": stdlib["stdlib_light_total"],
             "stdlib_light_has_impl": stdlib["stdlib_light_has_impl"],

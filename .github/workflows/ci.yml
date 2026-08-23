@@ -216,9 +216,16 @@ jobs:
           # 数量由 --count --statistics 呈现）、>1=内部错误/崩溃。兜底只拦 >1——
           # 崩溃时报错会写进 stdout，用 test -s 反而假绿，所以不靠文件存在性。
           # 这里不 mkdir：lint 是独立 job，无 .ci 目录；直接重定向到仓库根。
-          flake8 src/ cli/ --count --statistics --max-line-length=120 > flake8_report.txt 2>&1
-          rc=$?
-          if [ $rc -gt 1 ]; then
+          #
+          # 合并期修（D4-3 回补）：`rc=$?` 必须挂在 `|| ` 上，不能单独起一行。
+          # GitHub Actions 的 `run:` 默认 shell 是 `bash -e -o pipefail`，flake8 一有违规
+          # 就 exit 1，`set -e` 当场中止整步——下一行的 `rc=$?` 根本执行不到，
+          # 于是「1=有违规不阻塞」的语义被反转成「有违规就判红」。
+          # 本机 bash 两向实测：`(exit 1); rc=$?; echo reached-$rc` → 整步 exit 1 且
+          # reached 一行从未打印；换成 `(exit 1) || rc=$?` → 打印 reached-1 且整步 exit 0。
+          rc=0
+          flake8 src/ cli/ --count --statistics --max-line-length=120 > flake8_report.txt 2>&1 || rc=$?
+          if [ "$rc" -gt 1 ]; then
             echo "flake8 异常退出（rc=$rc），判红"
             exit $rc
           fi
