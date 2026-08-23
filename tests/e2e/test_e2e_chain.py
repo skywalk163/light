@@ -98,7 +98,17 @@ E2E_EXCLUDED = {
     'chat_bot/主.light',
     'markdown_editor/主.light',
     'password_manager/主.light',
+    # 第三轮 A3：harness 主程序需要 LLM 端点 + 沙箱目录（DEEPSEEK_API_KEY /
+    # HARNESS_SANDBOX），缺环境时它按设计打印提示并 `返回 2`（rc≠0），
+    # 而本链路对每个示例都是「零环境跑一遍、断言 rc==0」。
+    # 排除而非改例子：它的真覆盖在 tests/test_harness_e2e.py —— 那里起一个
+    # 协议等价的本地 mock，把它整进程跑起来，并断言沙箱里的文件真的落盘、内容真的对。
+    # 让它在缺环境时 `返回 0` 才是假绿（什么都没干却报成功）。
+    # 2026-08-23 合并后 gitea 回归闸门实测：不排除会新增 2 条打红
+    # （test_duan_run / test_duan_compile_and_run_product 各一条）。
+    'harness/主程序.light',
 }
+
 
 EXAMPLES_DIR = REPO_ROOT / 'examples'
 EXAMPLE_CANDIDATES = sorted(

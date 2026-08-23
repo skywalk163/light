@@ -561,16 +561,28 @@ class Test路径护栏逃逸:
             shutil.rmtree(str(外目录), ignore_errors=True)
 
     def test_大小写差异不影响护栏(self, tmp_path):
-        """Windows 不区分大小写：C:\\Sandbox vs c:\\sandbox 应同一判定
+        """大小写归一：C:\\Sandbox 与 c:\\sandbox 必须是同一判定
 
-        断言用的是文件内容里的独有标记，不是文件名的子串——用文件名的子串会被
-        错误消息回显的入参路径喂饱，变成恒真。
+        两条口径都是踩过坑才这么写的：
+        1. 断言用文件内容里的独有标记，不用文件名的子串——文件名子串会被错误消息
+           回显的入参路径喂饱，变成恒真（这个用例原来就是这毛病）。
+        2. 「换个大小写还能读到」只在大小写不敏感的文件系统上成立，所以**实测探一下**
+           当前文件系统，不按 sys.platform 猜（macOS 默认不敏感、Linux 上挂的
+           NTFS/exFAT 也不敏感）。2026-08-23 gitea 上就是因为按 Windows 写死判据，
+           在 Linux runner 上打红。敏感的一侧换判据：必须干净地报不存在，
+           绝不能凭空返回内容。
         """
         循环, 工具 = _装备(str(tmp_path))
         (tmp_path / "CaseTest.txt").write_text("内容标记_9f3a2b", encoding="utf-8")
-        # 用不同大小写读同一文件应成功（Windows normcase 归一）
+        大小写不敏感 = (tmp_path / "casetest.txt").exists()
+
         结果 = 工具["read_file"]["实现"]({"path": "casetest.txt"})
-        assert "内容标记_9f3a2b" in 结果
+        if 大小写不敏感:
+            assert "内容标记_9f3a2b" in 结果
+        else:
+            assert "内容标记_9f3a2b" not in 结果
+            assert "文件不存在" in 结果
+
 
     def test_尾随空格点不穿透(self, tmp_path):
         """Windows 会静默剥掉 foo. → foo，护栏不应被绕过"""
