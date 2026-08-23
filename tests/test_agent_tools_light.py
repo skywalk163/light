@@ -378,12 +378,20 @@ class TestGrep:
         """B4-4 复现：grep 递归遍历沙箱内 junction 指向沙箱外时，旧实现
         isdir 即递归——外部目录树被真实遍历、外部文件内容被搜索回显，
         构成旁路信号。新实现逐层重新过护栏：链接目标在沙箱外 → 未展开。
-        断言：未展开提示可见；外部文件内容与文件名任何一个都不出现。"""
+        断言：未展开提示可见；外部文件内容与文件名任何一个都不出现。
+
+        合并期修：外部文件内容原来写的是「秘密标记_9f3a2b_leak」，而 grep 的模式是
+        「LEAK_9f3a2b」——大小写和顺序都对不上，也就是说**即便 junction 真被遍历**，
+        这个模式也匹配不到那个文件，:398/:399 两条永远不会触发，是空断言。
+        现在把外部内容改成真的含 LEAK_9f3a2b，让「被遍历」这件事有机会暴露出来。
+        注意不能反过来断「LEAK_9f3a2b not in 结果」：未找到匹配时的提示里会把
+        模式原样回显，那种断言天生红，属于另一种假判据。"""
         self._需要junction()
         循环, 工具 = _装备(str(tmp_path))
         外目录 = tmp_path.parent / "_taskB4_grep_target"
         外目录.mkdir(exist_ok=True)
-        (外目录 / "_taskB4_secret.txt").write_text("秘密标记_9f3a2b_leak", encoding="utf-8")
+        (外目录 / "_taskB4_secret.txt").write_text(
+            "LEAK_9f3a2b 秘密标记_9f3a2b", encoding="utf-8")
         子目录 = tmp_path / "sub"
         子目录.mkdir()
         (子目录 / "inside.txt").write_text("inside\n", encoding="utf-8")
@@ -594,15 +602,84 @@ class TestRunCommand:
         结果 = 工具["run_command"]["实现"]({"command": ["echo", "hi", "there"]})
         assert "hi there" in 结果, f"多参数应完整进入命令行：\n{结果}"
 
-    def test_shell分号注入面真实生效(self, tmp_path):
-        """B4-5：shell 语义下 ; 是真实注入面（用户显式允许shell 的自担行为）。
-        多元素数组必须整体进入 shell：["echo","x;","echo","INJECTED_9f3a2b"]
-        旧实现 POSIX 分支只执行 echo（其余元素沦为 $0/$1），INJECTED 不出现；
-        修复后 cmd /c 与 sh -c 下 INJECTED 都会出现。"""
+    def test_工具描述随shell开关说真话(self, tmp_path):
+        """描述是直接喂给模型的契约文本。原来无论开关如何都写「不拼 shell」，
+        开着 允许shell 时那是假话——模型会以为 `;` 会被转义。
+        两个方向都断：关着时不能出现「shell 模式」，开着时必须出现。"""
+        _, 关着 = _装备(str(tmp_path))
+        描述关 = 关着["run_command"]["描述"]
+        assert "不拼 shell" in 描述关, f"默认口径应明说不拼 shell：{描述关}"
+        assert "shell 模式" not in 描述关, f"没开开关却宣称 shell 模式：{描述关}"
+
+        _, 开着 = _装备(str(tmp_path), {"允许shell": True})
+        描述开 = 开着["run_command"]["描述"]
+        assert "shell 模式" in 描述开, f"开了开关却不告知模型：{描述开}"
+        assert "不拼 shell" not in 描述开, f"开了开关还说不拼 shell（假话）：{描述开}"
+
+    def test_溢出文件落在沙箱内且只回显相对名(self, tmp_path):
+        """合并期补的守卫：原实现把溢出目录设成 tempfile.gettempdir()，
+        等于 run_command 一条就能在沙箱**外**落盘，而且把宿主机绝对路径回显给模型。
+
+        这条判据以前一个都没有——整个测试文件里 grep 不到「溢出」二字，
+        所以那个越界一直没人看着。三个方向一起卡：
+        1. 沙箱根下真的多出了溢出文件（证明落点变了，不是「没触发溢出」蒙过去）；
+        2. 系统临时目录下一个都没多（证明旧落点确实不再被用）；
+        3. 回显的是相对名、不含路径分隔符（证明没把宿主机目录结构泄给模型）。
+        """
+        import tempfile as _tf
+        临时目录 = _tf.gettempdir()
+        临时旧集 = set(os.listdir(临时目录))
+
+        # 上限压到 1KB，让 40KB 输出必然溢出（默认 65536 时这条命令根本不溢出）
+        循环, 工具 = _装备(str(tmp_path), {"输出上限": 1024})
+        结果 = 工具["run_command"]["实现"]({
+            "command": [sys.executable, "-c", "print('B'*40000)"],
+        })
+        assert "输出超限" in 结果, f"40KB 输出应触发溢出：\n{结果[:400]}"
+
+        沙箱内 = [n for n in os.listdir(str(tmp_path)) if "spill" in n]
+        临时新增 = [n for n in set(os.listdir(临时目录)) - 临时旧集 if "spill" in n]
+        # 先断「没落到沙箱外」——这才是被修的那个缺陷，让它先报会直接指名问题；
+        # 再断「确实落进了沙箱」——防止哪天改成两边都不落（那就等于丢了完整输出）。
+        assert 临时新增 == [], f"系统临时目录不该再落溢出文件，多出：{临时新增}"
+        assert len(沙箱内) == 1, f"沙箱根下应有且只有 1 个溢出文件，实际 {沙箱内}"
+
+        assert 沙箱内[0] in 结果, f"回显里应给出沙箱内相对名：\n{结果[-300:]}"
+        尾段 = 结果[结果.index("输出超限"):]
+        assert os.sep not in 尾段, f"不许回显含路径分隔符的绝对路径：\n{尾段}"
+        assert str(tmp_path) not in 结果, f"不许回显沙箱绝对路径：\n{尾段}"
+        # 完整输出确实在那个文件里，不是个空壳
+        以字节 = (tmp_path / 沙箱内[0]).read_bytes()
+        assert len(以字节) > 1024 and b"BBBB" in 以字节, f"溢出文件内容不对：{len(以字节)} 字节"
+
+    def test_shell分号在POSIX是真分隔符而在cmd不是(self, tmp_path):
+        """合并期改判：原用例名叫「分号注入面真实生效」，断言只有 `标记 in 结果`。
+
+        那条断言在两种相反的实现下都是绿的，所以它什么也没证明：
+        - 真走 shell（; 被当分隔符）→ 输出是两行 `x` 和 `INJECTED_9f3a2b`；
+        - 每个元素都被 shlex.quote（; 变字面量）→ 输出是一行
+          `x; echo INJECTED_9f3a2b`，照样含 `标记`。
+        Windows 的 cmd /c 更直接：它根本不把 `;` 当分隔符，所以本机跑的一直是
+        「没有注入」那一支，用例名却写着「注入面真实生效」。
+
+        判据必须落在**能区分两者的形状**上，而不是那个到处都在的子串。
+        实现口径见 代理工具集.light 的 允许shell 段落：join、不加引用。
+        """
         标记 = "INJECTED_9f3a2b"
         循环, 工具 = _装备(str(tmp_path), {"允许shell": True})
         结果 = 工具["run_command"]["实现"]({"command": ["echo", "x;", "echo", 标记]})
-        assert 标记 in 结果, f"注入面未生效（元素被丢弃或未入 shell）：\n{结果}"
+        assert 标记 in 结果, f"元素被丢弃或未入命令行：\n{结果}"
+        if sys.platform == "win32":
+            # cmd /c 无 `;` 分隔语义：整条是一次 echo，字面量必须原样出现。
+            # 若哪天 Windows 分支改成起 sh 或自己解析分号，这条会红。
+            assert f"x; echo {标记}" in 结果, (
+                f"cmd /c 下 `;` 不是分隔符，应原样回显整串：\n{结果}")
+        else:
+            # POSIX sh：`;` 是分隔符，第二条 echo 被独立执行，
+            # 因此**不该**再出现 `x; echo` 这个字面量。加引用的实现会在这里红。
+            assert f"x; echo {标记}" not in 结果, (
+                f"`;` 未被 sh 当分隔符（元素被引用成字面量了）：\n{结果}")
+            assert "x" in 结果, f"第一条 echo 的输出丢了：\n{结果}"
 
     def test_shell命令替换与反引号注入面(self, tmp_path):
         """B4-5：$() 与反引号注入面 —— POSIX sh 专属；Windows cmd /c 无此
@@ -837,7 +914,11 @@ class Test可行动错误描述:
         循环, 工具 = _装备(str(tmp_path))
         结果 = 工具["write_file"]["实现"]({"path": "no/such/dir/file.txt", "content": "x"})
         assert "父目录不存在" in 结果
-        assert "list_dir" in 结果 or "确认" in 结果 or "检查" in 结果
+        # 合并期收紧：原来是 `"list_dir" in 结果 or "确认" in 结果 or "检查" in 结果`，
+        # 最弱的那一支「检查」几乎在任何中文报错里都会出现，等于这条断言没门槛。
+        # 「可行动」的实质是给出下一步能照抄的动作，所以直接钉住工具名。
+        assert "list_dir" in 结果, f"可行动错误要指名下一步用的工具：{结果!r}"
+        assert "不会自动创建" in 结果, f"要说清不自动建目录这个行为：{结果!r}"
 
     def test_编辑未命中含提示(self, tmp_path):
         循环, 工具 = _装备(str(tmp_path))
