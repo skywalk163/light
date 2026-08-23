@@ -292,6 +292,46 @@ def _read_source(file_path: str) -> str:
 # 子命令实现
 # ═══════════════════════════════════════════════════════════════════
 
+def cmd_harness(args):
+    """light harness run：deepseek-harness MVP 的 CLI 包装（第五轮 D5）。
+
+    把 --eval-set/--report/--concurrency/--rate/--retries/--delay 映射成
+    HARNESS_* 环境变量，转发到 examples/harness/评测驱动.light 的 run。
+    评测驱动.light 是 D5 的端到端主入口（读 JSONL → 并发跑 LLM → 打分 →
+    Markdown+JSON 报告），CLI 包装只是让它有一个干净的入口，不重复实现。
+    """
+    if getattr(args, 'harness_cmd', None) != 'run':
+        print("用法: light harness run [--eval-set 路径] [--report 前缀] "
+              "[--concurrency N] [--rate N] [--retries N] [--delay 秒]",
+              file=sys.stderr)
+        sys.exit(1)
+    评测驱动 = os.path.join(_PROJECT_DIR, "examples", "harness", "评测驱动.light")
+    if not os.path.exists(评测驱动):
+        print(f"错误: 未找到 harness 主入口 {评测驱动}", file=sys.stderr)
+        sys.exit(2)
+    # 参数 → 环境变量（未传的参数不覆盖，让 评测驱动.light 用它的默认值）
+    参数表 = [
+        ("eval_set", "HARNESS_EVAL_SET"),
+        ("report", "HARNESS_REPORT"),
+        ("concurrency", "HARNESS_CONCURRENCY"),
+        ("rate", "HARNESS_RATE"),
+        ("retries", "HARNESS_RETRIES"),
+        ("delay", "HARNESS_DELAY_SEC"),
+    ]
+    for 属性, 环境名 in 参数表:
+        值 = getattr(args, 属性, None)
+        if 值:
+            os.environ[环境名] = 值
+    # 复用 cmd_run 的执行链路（src 后端，依赖内联 + import hook）
+    run_args = argparse.Namespace(
+        file=评测驱动,
+        backend=args.backend,
+        watch=False,
+        verbose=args.verbose,
+    )
+    cmd_run(run_args)
+
+
 def cmd_run(args):
     """解释执行光明源代码"""
     from enhanced_errors import format_error
@@ -1288,6 +1328,21 @@ def main():
     run_p.add_argument('--watch', '-w', action='store_true',
                        help='监视文件变化，自动重新运行')
 
+    # ── harness（第五轮 D5：deepseek-harness MVP 的 CLI 包装）──
+    # 转发到 examples/harness/评测驱动.light；参数映射为 HARNESS_* 环境变量。
+    harness_p = subparsers.add_parser('harness', help='deepseek-harness MVP（examples/harness/）')
+    harness_sub = harness_p.add_subparsers(dest='harness_cmd', help='harness 子命令')
+    harness_run_p = harness_sub.add_parser('run', help='端到端评测：读 JSONL → 并发跑 LLM → 打分 → 出报告')
+    harness_run_p.add_argument('--eval-set', default=None, help='评测集 JSONL 路径（默认 examples/harness/评测集.jsonl）')
+    harness_run_p.add_argument('--report', default=None, help='报告输出前缀（默认 examples/harness/评测报告）')
+    harness_run_p.add_argument('--concurrency', default=None, help='并发上限（默认 2）')
+    harness_run_p.add_argument('--rate', default=None, help='每秒请求上限（默认 10）')
+    harness_run_p.add_argument('--retries', default=None, help='重试次数（默认 3）')
+    harness_run_p.add_argument('--delay', default=None, help='mock 通道每请求延迟秒（默认 0.2）')
+    harness_run_p.add_argument('--backend', choices=['antlr', 'src'], default='src',
+                               help='使用的后端（默认: src）')
+    harness_run_p.add_argument('--verbose', action='store_true', help='详细输出')
+
     # ── compile ──
     comp_p = subparsers.add_parser('compile', help='编译为 Python 文件')
     comp_p.add_argument('file', help='源文件路径')
@@ -1557,6 +1612,9 @@ def main():
     elif args.command == 'feedback':
         exit_code = run_feedback_cli(args)
         sys.exit(exit_code)
+
+    elif args.command == 'harness':
+        cmd_harness(args)
 
 
 if __name__ == '__main__':
