@@ -274,6 +274,23 @@ class LightParserCore:
     MUL_OP_MAP = {'乘': '*', '除': '/', '模': '%', '乘以': '*', '除以': '/', '模以': '%', '取余': '%', '整除': '//'}
     POWER_OP_MAP = {'幂': '**', '幂以': '**'}
     LOGICAL_OP_MAP = {'且': 'and', '与': 'and', '或': 'or'}
+
+    # B5 位运算算符映射（Python 口径优先级：位或 < 位异或 < 位与 < 位移 < 算术）
+    # 六个中文词已在 lexer COMMON_COMPOUND_WORDS 保护，不会被关键字切开
+    # 值用中文词本身，不直接用 Python 符号——因为 operator_map 里 '^' 已被
+    # 映射为 '**'（幂），直接发 '^' 会被二次翻译成幂运算。改发中文词，
+    # 由 code_generator.operator_map 统一做中文→Python 符号映射。
+    BITWISE_OR_MAP = {'位或': '位或'}
+    BITWISE_XOR_MAP = {'位异或': '位异或'}
+    BITWISE_AND_MAP = {'位与': '位与'}
+    SHIFT_OP_MAP = {'左移': '左移', '右移': '右移'}
+    # 位非是一元前缀算符（~），在 _parse_primary 中识别
+    # 全部位运算词合集——供 _collect_single_arg / _collect_primary_arg
+    # 判定「下一个 IDENTIFIER 是位运算符而非函数实参」，停止收参。
+    BITWISE_OP_WORDS = frozenset(
+        set(BITWISE_OR_MAP) | set(BITWISE_XOR_MAP) |
+        set(BITWISE_AND_MAP) | set(SHIFT_OP_MAP) | {'位非'}
+    )
     
     def __init__(self):
         self.lexer = Lexer()

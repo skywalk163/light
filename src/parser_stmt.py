@@ -360,6 +360,11 @@ class ParserStmtMixin:
         if tok.type == TokenType.KEYWORD and tok.value in ('抛出', '抛', '掷'):
             return self._parse_throw_stmt()
         
+        # B5：推迟语句（defer）—— 推迟 体在作用域退出时执行（FILO 栈序）
+        if tok.type == TokenType.KEYWORD and tok.value == '推迟':
+            return self._parse_defer_stmt()
+
+        
         # 生成器/生成语句：生成 表达式
         if tok.type == TokenType.KEYWORD and tok.value == '生成':
             return self._parse_yield_stmt()
@@ -1243,7 +1248,7 @@ class ParserStmtMixin:
             '如果', '否则', '那么', '若', '则', '当', '遍历', '设', '定义',
             '类', '构造', '函数', '段落', '尝试', '捕获', '抛出', '最终', '导入',
             '导出', '从', '真', '假', '空', '且', '或', '非', '与', '等待',
-            '匹配', '的', '之', '对', '步', '至', '到',
+            '匹配', '的', '之', '对', '步', '至', '到', '推迟',
             '导', '出', '遍', '返', '跳', '过', '试', '捕', '抛', '掷', '终', '配', '否', '接', '承', '自',
         })
         while self._current():
@@ -2809,7 +2814,7 @@ class ParserStmtMixin:
                                                           '打印', '导入', '导', '导出', '出', '跳出', '跳', '跳过', '过', '继续',
                                                           '断', '跃',
                                                           '尝试', '试', '抛出', '抛', '掷', '匹配', '配', '返回', '返', '属性',
-                                                          '构造', '类', '接口', '接'))
+                                                          '构造', '类', '接口', '接', '推迟'))
                 if not is_stmt_keyword:
                     # 先解析第一个表达式（不含逗号/管道）
                     first = self._parse_logical_expr()
@@ -3123,6 +3128,47 @@ class ParserStmtMixin:
         
         return ThrowStmt(value, from_expr)
 
+    def _parse_defer_stmt(self):
+        """解析推迟语句（B5：defer）
+
+        语法：推迟 语句。 或 推迟：\n  语句1\n  语句2\n
+        语义：推迟体在作用域退出时执行（FILO 栈序），包括提前 return 和异常路径。
+        """
+        from ast_nodes import DeferStatement
+        # 推迟
+        self._consume(TokenType.KEYWORD, '推迟')
+
+        # 两种形式：
+        # 1. 单语句：推迟 打印("清理")。
+        # 2. 块语句：推迟：
+        #        语句1
+        #        语句2
+        tok = self._current()
+        if tok and tok.type == TokenType.COLON:
+            # 块形式：推迟：\n  body
+            self._consume(TokenType.COLON)
+            # 跳过 NEWLINE，消费 INDENT（_parse_body 要求调用者已消耗 INDENT）
+            while self._current() and self._current().type == TokenType.NEWLINE:
+                self._consume(TokenType.NEWLINE)
+            indented = False
+            if self._current() and self._current().type == TokenType.INDENT:
+                self._consume(TokenType.INDENT)
+                indented = True
+            body = self._parse_body()
+            if indented and self._current() and self._current().type == TokenType.DEDENT:
+                self._consume(TokenType.DEDENT)
+        else:
+            # 单语句形式：推迟 <语句>
+            stmt = self._parse_statement()
+            body = [stmt] if stmt else []
+
+        # 句号（可选）
+        if self._current() and self._current().type == TokenType.PERIOD:
+            self._consume(TokenType.PERIOD)
+
+        return DeferStatement(body=body)
+
+
     def _parse_yield_stmt(self):
         """解析生成语句
         
@@ -3341,7 +3387,7 @@ class ParserStmtMixin:
         # 支持括号式参数：段名(参数1, 参数2)： 或 《段名》段(参数1, 参数2)：
         if self._match(TokenType.LPAREN):
             self._consume(TokenType.LPAREN)
-            _stmt_keywords_paren = {'设', '定义', '当', '如果', '若', '遍历', '返回', '打印', '导入', '导出', '跳出', '跳过', '尝试', '抛出', '匹配'}
+            _stmt_keywords_paren = {'设', '定义', '当', '如果', '若', '遍历', '返回', '打印', '导入', '导出', '跳出', '跳过', '尝试', '抛出', '匹配', '推迟'}
             while self._current() and self._current().type != TokenType.RPAREN:
                 tok = self._current()
                 if tok.type == TokenType.COMMA:
@@ -3371,7 +3417,7 @@ class ParserStmtMixin:
             self._consume(TokenType.RPAREN)
             # 支持括号外的参数类型标注：(a):整数, b:整数
             param_idx = 0
-            _type_annotation_keywords = {'返回', '设', '定义', '当', '如果', '若', '遍历', '打印', '导入', '导出', '跳出', '跳过', '尝试', '抛出', '匹配', '异步', '等待'}
+            _type_annotation_keywords = {'返回', '设', '定义', '当', '如果', '若', '遍历', '打印', '导入', '导出', '跳出', '跳过', '尝试', '抛出', '匹配', '异步', '等待', '推迟'}
             while (self._current() and self._current().type == TokenType.COLON
                    and param_idx < len(params)):
                 next_tok = self._peek(1)
@@ -3405,7 +3451,7 @@ class ParserStmtMixin:
             )
             self._consume(TokenType.KEYWORD, '接收')
             
-            _stmt_keywords = {'设', '定义', '当', '如果', '若', '遍历', '遍', '返回', '返', '打印', '导入', '导', '导出', '出', '跳出', '跳', '跳过', '过', '断', '跃', '尝试', '试', '抛出', '抛', '掷', '匹配', '配', '类', '接口', '接'}
+            _stmt_keywords = {'设', '定义', '当', '如果', '若', '遍历', '遍', '返回', '返', '打印', '导入', '导', '导出', '出', '跳出', '跳', '跳过', '过', '断', '跃', '尝试', '试', '抛出', '抛', '掷', '匹配', '配', '类', '接口', '接', '推迟'}
             while self._current() and self._current().type != TokenType.COLON:
                 tok = self._current()
                 if tok.type == TokenType.KEYWORD and (tok.value == '返回' or tok.value == '返' or tok.value in _stmt_keywords):
@@ -3768,7 +3814,7 @@ class ParserStmtMixin:
                 if allow_single_line:
                     next_tok = self._current()
                     if next_tok and next_tok.type == TokenType.KEYWORD:
-                        if next_tok.value in ('返回', '设', '定义', '打印', '导入', '导出', '跳出', '跳过', '抛出', '如果', '若', '当', '遍历'):
+                        if next_tok.value in ('返回', '设', '定义', '打印', '导入', '导出', '跳出', '跳过', '抛出', '如果', '若', '当', '遍历', '推迟'):
                             break
             else:
                 break
@@ -3803,7 +3849,7 @@ class ParserStmtMixin:
         if self._match(TokenType.KEYWORD, '接收'):
             self._consume(TokenType.KEYWORD, '接收')
             
-            _stmt_keywords = {'设', '定义', '当', '如果', '若', '遍历', '遍', '返回', '返', '打印', '导入', '导', '导出', '出', '跳出', '跳', '跳过', '过', '断', '跃', '尝试', '试', '抛出', '抛', '掷', '匹配', '配', '类', '接口', '接'}
+            _stmt_keywords = {'设', '定义', '当', '如果', '若', '遍历', '遍', '返回', '返', '打印', '导入', '导', '导出', '出', '跳出', '跳', '跳过', '过', '断', '跃', '尝试', '试', '抛出', '抛', '掷', '匹配', '配', '类', '接口', '接', '推迟'}
             while self._current() and self._current().type != TokenType.COLON:
                 tok = self._current()
                 if tok.type == TokenType.KEYWORD and (tok.value == '返回' or tok.value == '返' or tok.value in _stmt_keywords):
@@ -5251,7 +5297,7 @@ class ParserStmtMixin:
                     '如果', '否则', '那么', '若', '则', '当', '遍历', '设', '定义',
                     '类', '构造', '函数', '段落', '尝试', '捕获', '抛出', '最终', '导入',
                     '导出', '从', '真', '假', '空', '且', '或', '非', '与', '等待',
-                    '匹配', '情况', '的', '之', '对', '步', '至', '到',
+                    '匹配', '情况', '的', '之', '对', '步', '至', '到', '推迟',
                 })
                 while self._current():
                     _t = self._current()
@@ -5328,7 +5374,7 @@ class ParserStmtMixin:
                     '如果', '否则', '那么', '若', '则', '当', '遍历', '设', '定义',
                     '类', '构造', '函数', '段落', '尝试', '捕获', '抛出', '最终', '导入',
                     '导出', '从', '真', '假', '空', '且', '或', '非', '与', '等待',
-                    '匹配', '情况', '的', '之', '对', '步', '至', '到',
+                    '匹配', '情况', '的', '之', '对', '步', '至', '到', '推迟',
                     '导', '出', '遍', '返', '跳', '过', '试', '捕', '抛', '掷', '终', '配', '否', '接', '承', '自',
                 })
                 while self._current():

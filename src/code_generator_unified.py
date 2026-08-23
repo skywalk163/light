@@ -49,6 +49,8 @@ class UnifiedCodeGenerator:
         self.user_functions = set()  # 用户定义的函数名
         self._in_function = False  # 是否在函数/段落内部（控制 return 生成）
         self._in_class_method = False  # 是否在类方法/构造函数内部（控制 己→self 映射）
+        self._needs_asyncio = False  # B5：是否需要 import asyncio
+        self._needs_async_iter = False  # B5：是否需要 _light_async_iter 辅助
         
         # 运算符映射
         self.operator_map = {
@@ -365,8 +367,22 @@ class UnifiedCodeGenerator:
         
         # 生成语句
         if hasattr(module, 'statements'):
+            # B5：检查模块级语句是否含 DeferStatement，如有则包 try/finally
+            _has_defer = any(is_instance(s, 'DeferStatement') for s in module.statements)
+            if _has_defer:
+                self._add_line("_light_defers = []")
+                self._add_line("try:")
+                self.indent_level += 1
             for stmt in module.statements:
                 self._generate_statement(stmt)
+            if _has_defer:
+                self.indent_level -= 1
+                self._add_line("finally:")
+                self.indent_level += 1
+                self._add_line("for _d in reversed(_light_defers):")
+                self.indent_level += 1
+                self._add_line("_d()")
+                self.indent_level -= 1
         
         # 如果定义了主程序函数，且模块顶层没有显式调用，自动添加入口调用
         has_main = '主程序' in self.user_functions or 'mean' in self.user_functions
@@ -407,6 +423,36 @@ class UnifiedCodeGenerator:
                     break
             self.output_lines.insert(insert_pos, "")
             self.output_lines.insert(insert_pos, "from abc import ABC, abstractmethod")
+
+        # B5：异步遍历泛化——按需插入 _light_async_iter 与 asyncio 导入
+        if self._needs_asyncio:
+            insert_pos = 0
+            for i, line in enumerate(self.output_lines):
+                if line.startswith("#") or line == "":
+                    insert_pos = i + 1
+                else:
+                    break
+            self.output_lines.insert(insert_pos, "")
+            self.output_lines.insert(insert_pos, "import asyncio")
+        if self._needs_async_iter:
+            insert_pos = 0
+            for i, line in enumerate(self.output_lines):
+                if line.startswith("#") or line == "":
+                    insert_pos = i + 1
+                else:
+                    break
+            block = [
+                "async def _light_async_iter(_iterable):",
+                "    if hasattr(_iterable, '__aiter__'):",
+                "        async for _item in _iterable:",
+                "            yield _item",
+                "    else:",
+                "        for _item in _iterable:",
+                "            yield _item",
+                "",
+            ]
+            for line in reversed(block):
+                self.output_lines.insert(insert_pos, line)
 
         return self._build_output()
 
@@ -732,7 +778,14 @@ class UnifiedCodeGenerator:
         """生成遍历循环"""
         var_name = self._sanitize_name(stmt.variable)
         iterable = self._generate_expr(stmt.iterable)
-        self._add_line(f"for {var_name} in {iterable}:")
+        is_async = getattr(stmt, 'is_async', False)
+        if is_async:
+            # B5：异步遍历泛化——用 _light_async_iter 包装，普通 list 也能 async for
+            self._needs_async_iter = True
+            self._needs_asyncio = True
+            self._add_line(f"async for {var_name} in _light_async_iter({iterable}):")
+        else:
+            self._add_line(f"for {var_name} in {iterable}:")
         
         self.indent_level += 1
         for s in stmt.body:
@@ -906,21 +959,26 @@ class UnifiedCodeGenerator:
 
 
     def _generate_defer_stmt(self, stmt):
-        """生成推迟语句（用 try/finally 模拟 defer）"""
-        # 使用 try/finally 包裹 defer 体
-        self._add_line("try:")
+        """生成推迟语句（B5：defer —— FILO 延迟执行）
+
+        新语义：推迟体在作用域退出时执行（栈序 FILO），不再就地内联。
+        实现：把推迟体注册到 _light_defers 列表，由段落作用域的
+        try/finally 反序执行。
+        """
+        defer_id = getattr(self, '_defer_counter', 0)
+        self._defer_counter = defer_id + 1
+        func_name = f"_light_defer_{defer_id}"
+
+        self._add_line(f"def {func_name}():")
         self.indent_level += 1
-        # 暂存 defer 体中的语句（需要在 finally 中执行）
-        defer_body = list(stmt.body)
-        # 在 try 块中生成一个占位语句，实际逻辑在 finally 中
-        self._add_line("pass")
+        if stmt.body:
+            for s in stmt.body:
+                self._generate_statement(s)
+        else:
+            self._add_line("pass")
         self.indent_level -= 1
-        
-        self._add_line("finally:")
-        self.indent_level += 1
-        for s in defer_body:
-            self._generate_statement(s)
-        self.indent_level -= 1
+        self._add_line(f"_light_defers.append({func_name})")
+
 
     def _generate_async_scope(self, stmt):
         """生成并行作用域（结构化并发，使用 asyncio.gather 实现）"""

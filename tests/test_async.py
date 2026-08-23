@@ -131,12 +131,12 @@ class TestDeferStatement:
     """测试推迟语句（defer → try/finally，行为级）"""
 
     def test_defer_code_generation(self):
-        """defer 真跑：断 UnifiedCodeGenerator 对 defer 的*真实*运行时行为。
+        """B5：defer 真跑 —— 新语义（FILO 延迟执行）。
 
-        实测：该生成器把 defer 体**内联**放入语句序列（开始→推迟执行→结束），
-        并未延迟到作用域退出才执行。C4-4 只要求真跑断行为、不再看字符串，
-        故如实断言内联顺序；「defer 应推迟执行」与这里的偏差记入移交清单，
-        属语言层语义待澄清项（不改 src/）。
+        旧实现把 defer 体内联（开始→推迟执行→结束），B5 改为：
+        推迟体在作用域退出时执行（栈序 FILO），顺序为 开始→结束→推迟执行。
+        该判据由 B5 修改，原因是旧实现（unified 的 try-body-pass / finally-内联）
+        语义等于不推迟，与 `推迟` 关键字语义不符。
         """
         module = Module(
             statements=[
@@ -151,11 +151,11 @@ class TestDeferStatement:
         )
         output = run_code(module)
         lines = [l.strip() for l in output.split('\n') if l.strip()]
-        # 真实行为：defer 体内联执行，顺序为 开始→推迟执行→结束（见 docstring）
-        assert lines == ['开始', '推迟执行', '结束'], f"defer 执行顺序: {lines}"
+        # B5 新语义：推迟体在作用域退出时执行，顺序为 开始→结束→推迟执行
+        assert lines == ['开始', '结束', '推迟执行'], f"defer 执行顺序: {lines}"
 
     def test_defer_try_finally_structure(self):
-        """defer 真跑：body 被真实执行一次（该生成器为内联语义，见上一用例）"""
+        """defer 真跑：body 被真实执行一次（unified 链路）"""
         module = Module(
             statements=[
                 DeferStatement(
@@ -168,6 +168,196 @@ class TestDeferStatement:
         output = run_code(module)
         # 作用域退出时，deferred 的清理代码应真实执行
         assert output == '清理', f"defer 应打印一次 清理，实际: {output!r}"
+
+    # ---- 主链路（PythonCodeGenerator）行为判据 ----
+
+    def test_defer_main_chain_basic(self):
+        """主链路真跑：推迟体在作用域退出时执行（FILO），不是内联执行。
+
+        判据：输出顺序为 开始→结束→推迟执行（推迟在段落体结束后才跑）。
+        反面：旧实现输出 开始→推迟执行→结束（内联 = 不推迟）。
+        """
+        src = """
+段落 测试:
+  打印 "开始"。
+  推迟 打印 "推迟执行"。
+  打印 "结束"。
+结束。
+
+测试()。
+"""
+        out = _run(src)
+        lines = [l.strip() for l in out.split('\n') if l.strip()]
+        assert lines == ['开始', '结束', '推迟执行'], \
+            f"主链路 defer 顺序应为 开始→结束→推迟执行，实际: {lines}"
+
+    def test_defer_main_chain_filo_multiple(self):
+        """主链路真跑：多个推迟按 FILO（后进先出）执行。
+
+        判据：注册顺序 第一→第二，执行顺序 第二→第一（栈序）。
+        """
+        src = """
+段落 测试:
+  推迟 打印 "第一"。
+  推迟 打印 "第二"。
+  打印 "主体"。
+结束。
+
+测试()。
+"""
+        out = _run(src)
+        lines = [l.strip() for l in out.split('\n') if l.strip()]
+        assert lines == ['主体', '第二', '第一'], \
+            f"多 defer FILO 顺序应为 主体→第二→第一，实际: {lines}"
+
+    def test_defer_main_chain_early_return(self):
+        """主链路真跑：提前返回时推迟体仍执行。
+
+        判据：return 后推迟体仍然跑，输出 before-return→清理。
+        "不应执行" 不可出现在输出中（return 后的语句被跳过）。
+        """
+        src = """
+段落 测试:
+  推迟 打印 "清理"。
+  打印 "before-return"。
+  返回。
+  打印 "不应执行"。
+结束。
+
+测试()。
+"""
+        out = _run(src)
+        lines = [l.strip() for l in out.split('\n') if l.strip()]
+        assert lines == ['before-return', '清理'], \
+            f"early return 时 defer 应执行，顺序 before-return→清理，实际: {lines}"
+
+    def test_defer_main_chain_exception_path(self):
+        """主链路真跑：异常路径上推迟体仍执行（finally 语义）。
+
+        判据：抛出异常后推迟体先执行（异常清理），再传播异常被外层捕获。
+        输出顺序 before-raise→异常清理→caught。
+        """
+        src = """
+段落 测试:
+  推迟 打印 "异常清理"。
+  打印 "before-raise"。
+  抛出 值错误("测试异常")。
+  打印 "不应执行"。
+结束。
+
+尝试:
+  测试()。
+捕获 值错误:
+  打印 "caught"。
+"""
+        out = _run(src)
+        lines = [l.strip() for l in out.split('\n') if l.strip()]
+        assert lines == ['before-raise', '异常清理', 'caught'], \
+            f"异常路径 defer 应执行，顺序 before-raise→异常清理→caught，实际: {lines}"
+
+    def test_defer_main_chain_block_form(self):
+        """主链路真跑：块形式推迟（推迟：\\n  body）正确解析且延迟执行。
+
+        判据：块体在主体之后执行，输出 主体→块-第一→块-第二。
+        """
+        src = """
+段落 测试:
+  推迟:
+    打印 "块-第一"。
+    打印 "块-第二"。
+  打印 "主体"。
+结束。
+
+测试()。
+"""
+        out = _run(src)
+        lines = [l.strip() for l in out.split('\n') if l.strip()]
+        assert lines == ['主体', '块-第一', '块-第二'], \
+            f"块形式 defer 应在主体后执行，顺序 主体→块-第一→块-第二，实际: {lines}"
+
+
+class TestAsyncForeachGeneralization:
+    """B5：异步遍历泛化——普通 list 与异步生成器都能用「异步 遍历」"""
+
+    def test_async_foreach_on_normal_list(self):
+        """主链路真跑：异步遍历普通 list 收集结果。
+
+        判据：[1,2,3] 每项乘 2 后追加到结果列表，输出 [2, 4, 6]。
+        反面：直接发 `async for` 不包装会抛 TypeError: 'async for' requires __aiter__。
+        """
+        src = """
+异步 函数 测试():
+  设 结果 为 []
+  异步 遍历 项 于 [1, 2, 3]:
+    结果.追加(项 * 2)
+  打印 结果。
+结束。
+
+异步 运行 测试()。
+"""
+        out = _run(src)
+        assert out == '[2, 4, 6]', f"异步遍历普通 list 应收集结果 [2, 4, 6]，实际: {out!r}"
+
+    def test_async_foreach_on_async_generator(self):
+        """主链路真跑：异步遍历异步生成器走原路 async for。
+
+        判据：异步生成器 yield 1/2/3，异步遍历打印各值，输出 1→2→3。
+        """
+        src = """
+异步 函数 生成器():
+  生成 1。
+  生成 2。
+  生成 3。
+结束。
+
+异步 函数 测试():
+  异步 遍历 项 于 生成器():
+    打印 项。
+  结束。
+结束。
+
+异步 运行 测试()。
+"""
+        out = _run(src)
+        lines = [l.strip() for l in out.split('\n') if l.strip()]
+        assert lines == ['1', '2', '3'], \
+            f"异步遍历异步生成器应输出 1→2→3，实际: {lines}"
+
+    def test_async_foreach_on_range(self):
+        """主链路真跑：异步遍历 range 回退收集语义。
+
+        判据：range(1,5) 求和 = 1+2+3+4 = 10。
+        """
+        src = """
+异步 函数 测试():
+  设 总和 为 0。
+  异步 遍历 项 于 范围(1, 5):
+    设 总和 为 总和 + 项。
+  打印 总和。
+结束。
+
+异步 运行 测试()。
+"""
+        out = _run(src)
+        assert out == '10', f"异步遍历 range 求和应为 10，实际: {out!r}"
+
+    def test_sync_foreach_not_affected(self):
+        """主链路真跑：同步遍历不受异步遍历泛化影响。
+
+        判据：同步遍历 [10,20,30] 各加 1，输出 [11, 21, 31]。
+        """
+        src = """
+段落 测试:
+  设 结果 为 []
+  遍历 项 于 [10, 20, 30]:
+    结果.追加(项 + 1)
+  打印 结果。
+结束。
+
+测试()。
+"""
+        out = _run(src)
+        assert out == '[11, 21, 31]', f"同步遍历不受影响应为 [11, 21, 31]，实际: {out!r}"
 
 
 class TestAsyncScope:

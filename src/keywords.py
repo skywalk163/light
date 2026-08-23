@@ -108,12 +108,15 @@ KEYWORDS_TYPE = {
 
 # 异常处理
 KEYWORDS_EXCEPTION = {
-    '尝试', '捕获', '抛出', '最终',
+    '尝试', '捕获', '抛出', '最终', '推迟',
     # L0 单字别名（v4.0 新增）
     '试',  # 尝试
     '捕',  # 捕获
     '抛',  # 抛出
     '终',  # 最终
+    # B5：推迟（defer）—— 语义为延迟到作用域退出时执行（FILO 栈序），
+    # 与 try/finally 同属异常/资源管理域，故归入 KEYWORDS_EXCEPTION。
+    # `推`/`迟` 均非关键字，无切词风险。
     # v7 单 26：'掷' 是文档承诺的 throw 同义别名（docs/language/l0-core.md:97、
     # keywords.md:33、guide/迁移指南.md:27、完整语法参考.md:180 均列出），
     # 但 src/ 里从未落地，导致 examples/L0_core/07_试_异常处理.light 的 掷(...)

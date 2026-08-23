@@ -18,7 +18,7 @@ import ast_nodes as ast_nodes_module
 # 需要导入新的AST节点类型
 from light_parser_v3 import ImportStmt, ExportStmt, IndexAccess, SliceExpr, SetComprehension, TupleLiteral, BreakStmt, ContinueStmt, PassStmt, ClassInstantiation, MemberAccess, TryStmt, ThrowStmt, Parameter, ParameterList, StringInterpolation, ListComprehension, LambdaExpression, MatchStmt, MatchCase, MatchPattern, DictComprehension, DestructuringAssignment, WithStmt, DecoratorDefinition, DictLiteral, InterfaceDefinition, MethodSignature, IndexedAssignment, RangeExpr, FFILoadLibrary, FFIFunctionDecl, FFIStructDef, FFICallbackDef, FFICreateArray, FFISetArrayElement, FFIAllocMemory, FFIFreeMemory, FFISetPointerValue, FFISetErrno, FFITryCatch, FFIEnumDef, FFIUnionDef, FFICreateCallback, FFIVarArgsDecl, FFIStructByValue, FFILibraryPath, FFITypedefDef, FFIBitfieldDef, FFIFuncPtrDef, FFIDebugConfig, FFIPreprocessorDef, FFIPointerType, FFIArrayType, FFIAddressOf, FFIDereference, FFIPointerOffset, FFIGetLastError, FFIGetErrno
 from ast_nodes_v3 import Assignment, TypeCheckToggleStmt, AwaitExpr, KeywordArg, IndexedCompoundAssignment, PassStmt, AssignmentExpression, SetLiteral, EmbedBlock, FunctionCallExpr, CatchClause, YieldStmt, AsyncScope, RunAsyncStmt, ScopeDeclStmt, DecoratedFunction, DecoratorInfo, AssertStmt
-from ast_nodes import ExpressionStatement, SegmentName
+from ast_nodes import ExpressionStatement, SegmentName, DeferStatement
 
 
 # =============================================================================
@@ -77,6 +77,15 @@ class PythonCodeGenerator:
         
         # 运行时类型检查开关（默认关闭，零开销）
         self._runtime_type_check = False
+        
+        # 多语句匿名函数计数器（生成 _light_lambda_N 命名函数）
+        self._lambda_counter: int = 0
+        
+        # B5：推迟语句计数器（生成 _light_defer_N 命名函数）
+        self._defer_counter: int = 0
+        
+        # B5：异步遍历泛化——是否需要 _light_async_iter 辅助函数
+        self._needs_async_iter: bool = False
         
         # 中文数字映射
         self.chinese_numbers = {
@@ -208,6 +217,13 @@ class PythonCodeGenerator:
             '与': 'and',
             '或': 'or',
             '非': 'not',
+            # 位运算（中文中缀）
+            '位与': '&',
+            '位或': '|',
+            '位异或': '^',
+            '左移': '<<',
+            '右移': '>>',
+            '位非': '~',
         }
         
         # 内置函数映射
@@ -937,6 +953,29 @@ class PythonCodeGenerator:
             for line in reversed(block):
                 self.output_lines.insert(insert_pos, line)
 
+        # B5：异步遍历泛化——按需插入 _light_async_iter 辅助函数。
+        # 该函数运行时探测 __aiter__：异步生成器走原路 async for，
+        # 普通 list/range 等同步可迭代对象回退为逐个 yield。
+        if self._needs_async_iter:
+            insert_pos = 0
+            for i, line in enumerate(self.output_lines):
+                if line.startswith("#") or line == "":
+                    insert_pos = i + 1
+                else:
+                    break
+            block = [
+                "async def _light_async_iter(_iterable):",
+                "    if hasattr(_iterable, '__aiter__'):",
+                "        async for _item in _iterable:",
+                "            yield _item",
+                "    else:",
+                "        for _item in _iterable:",
+                "            yield _item",
+                "",
+            ]
+            for line in reversed(block):
+                self.output_lines.insert(insert_pos, line)
+
         return self._build_output()
     
     def _build_output(self) -> str:
@@ -1019,6 +1058,8 @@ class PythonCodeGenerator:
             self._generate_try_stmt(stmt)
         elif isinstance(stmt, ThrowStmt):
             self._generate_throw_stmt(stmt)
+        elif isinstance(stmt, DeferStatement):
+            self._generate_defer_stmt(stmt)
         elif isinstance(stmt, AssertStmt):
             self._generate_assert_stmt(stmt)
         elif isinstance(stmt, ParagraphCall):
@@ -1389,8 +1430,18 @@ class PythonCodeGenerator:
         # 域内，所以不做出循环即失效的处理。
         self._bind_local(stmt.variable)
         
-        for_keyword = "async for" if getattr(stmt, 'is_async', False) else "for"
-        self._add_line(f"{for_keyword} {var_name} in {iterable}:")
+        is_async = getattr(stmt, 'is_async', False)
+        if is_async:
+            # B5：异步遍历泛化——用 _light_async_iter 包装可迭代对象。
+            # 该辅助函数运行时探测 __aiter__：异步生成器走原路 async for，
+            # 普通 list/range 等同步可迭代对象回退为逐个 yield。
+            # 不包装直接发 `async for` 会在普通 list 上抛
+            # TypeError: 'async for' requires an object with __aiter__ method
+            self._needs_async_iter = True
+            self._needs_asyncio = True
+            self._add_line(f"async for {var_name} in _light_async_iter({iterable}):")
+        else:
+            self._add_line(f"for {var_name} in {iterable}:")
         
         old_in_loop = self._in_loop
         self._in_loop = True
@@ -1524,11 +1575,31 @@ class PythonCodeGenerator:
         self._bind_local(*raw_param_names)
         self._in_function = True
         self.indent_level += 1
+
+        # B5：推迟语句（defer）—— 如果段落体含 DeferStatement，
+        # 包一层 try/finally，finally 里反序执行所有注册的 defer 函数。
+        has_defer = any(isinstance(s, DeferStatement) for s in body_without_params)
+        if has_defer:
+            self._add_line("_light_defers = []")
+            self._add_line("try:")
+            self.indent_level += 1
+
         if body_without_params:
             for s in body_without_params:
                 self._generate_statement(s)
         else:
             self._add_line("pass")
+
+        if has_defer:
+            self.indent_level -= 1  # exit try body
+            self._add_line("finally:")
+            self.indent_level += 1  # enter finally body
+            self._add_line("for _d in reversed(_light_defers):")
+            self.indent_level += 1  # enter for body
+            self._add_line("_d()")
+            self.indent_level -= 1  # exit for body
+            self.indent_level -= 1  # exit finally body
+
         self.indent_level -= 1
         self._in_function = old_in_function
         self._pop_local_scope(saved_locals)
@@ -1687,6 +1758,31 @@ class PythonCodeGenerator:
             from_part = f" from {from_val}"
         self._add_line(f"_light_exc = {value}")
         self._add_line(f"raise _light_exc if isinstance(_light_exc, BaseException) else Exception(_light_exc){from_part}")
+
+    def _generate_defer_stmt(self, stmt: DeferStatement):
+        """生成推迟语句（B5：defer）
+
+        语义：推迟体在作用域退出时执行（FILO 栈序）。
+        实现：把推迟体注册到当前作用域的 _light_defers 列表，
+        在段落作用域退出时由 try/finally 反序执行。
+        """
+        defer_id = self._defer_counter
+        self._defer_counter += 1
+        func_name = f"_light_defer_{defer_id}"
+
+        # 先生成 defer 体函数定义
+        self._add_line(f"def {func_name}():")
+        self.indent_level += 1
+        if stmt.body:
+            for s in stmt.body:
+                self._generate_statement(s)
+        else:
+            self._add_line("pass")
+        self.indent_level -= 1
+
+        # 注册到延迟执行列表
+        self._add_line(f"_light_defers.append({func_name})")
+
     
     def _generate_assert_stmt(self, stmt: AssertStmt):
         """生成断言语句
@@ -2980,6 +3076,29 @@ class PythonCodeGenerator:
         
         elif isinstance(expr, LambdaExpression):
             # 匿名函数 -> lambda params: body
+            # 多语句体 -> 生成命名函数 _light_lambda_N 并返回函数名
+            if getattr(expr, 'body_statements', None):
+                self._lambda_counter += 1
+                func_name = f"_light_lambda_{self._lambda_counter}"
+                params = ', '.join(self._sanitize_name(p) for p in expr.params)
+                self._add_line(f"def {func_name}({params}):")
+                self.indent_level += 1
+                _saved_in_func = self._in_function
+                self._in_function = True
+                for stmt in expr.body_statements:
+                    self._generate_statement(stmt)
+                # 如果没有显式 return，补一个
+                has_return = any(
+                    type(s).__name__ in ('ReturnStmt', 'ReturnStatement')
+                    for s in expr.body_statements
+                )
+                if not has_return:
+                    body_str = self._generate_expr(expr.body) if expr.body else "None"
+                    self._add_line(f"return {body_str}")
+                self._in_function = _saved_in_func
+                self.indent_level -= 1
+                return func_name
+            # 单表达式体 -> lambda
             params = ', '.join(self._sanitize_name(p) for p in expr.params)
             body = self._generate_expr(expr.body)
             return f"lambda {params}: {body}"
