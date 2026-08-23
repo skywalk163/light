@@ -74,6 +74,11 @@ _DEFAULT_BASELINE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                  "assert_quality_baseline.json")
 
 
+def _posix(path):
+    """把路径分隔符归一成 `/`：基线要跨平台可比，键里不能带 `os.sep`。"""
+    return path.replace("\\", "/")
+
+
 def _prose_lines(full):
     """返回「不该被当代码看」的行号集合：注释行 + 多行字符串（含 docstring）内部的行。
 
@@ -113,7 +118,11 @@ def scan_tree(root):
             if fn == "assert_quality.py":
                 continue  # 不扫自己
             full = os.path.join(dirpath, fn)
-            rel = os.path.relpath(full, root)
+            # 一律用 POSIX 分隔符做 key。基线在 Windows 上生成时 relpath 给的是
+            # `unit\test_self_host.py`，同一条违规在 FreeBSD runner 上是
+            # `unit/test_self_host.py`，键对不上就被判成「6 条新增 + 6 条减少」，
+            # 门禁在 CI 上无条件长红。2026-08-23 gitea run 71 就是这么红的。
+            rel = _posix(os.path.relpath(full, root))
             prose = None
             try:
                 with open(full, encoding="utf-8", errors="replace") as fh:
@@ -151,7 +160,9 @@ def load_baseline(path):
 
 
 def violation_key(v):
-    return "%s:%d:%s" % (v["file"], v["line"], v["cat"] if "cat" in v else "")
+    # 存量基线里可能还留着 Windows 分隔符的条目，读的时候一并归一，
+    # 免得非要重写基线才能跨平台对得上。
+    return "%s:%d:%s" % (_posix(v["file"]), v["line"], v["cat"] if "cat" in v else "")
 
 
 def main():

@@ -592,37 +592,37 @@
       "text": "assert 'class 文档(可打印, 可保存):' in py_code"
     },
     {
-      "file": "unit\\test_bootstrap_compiler.py",
+      "file": "unit/test_bootstrap_compiler.py",
       "line": 164,
       "cat": "string-assert",
       "text": "assert '词法分析' in source or '创建关键字列表' in source"
     },
     {
-      "file": "unit\\test_error_formatter.py",
+      "file": "unit/test_error_formatter.py",
       "line": 251,
       "cat": "upper-bound",
       "text": "assert len(result) <= 2"
     },
     {
-      "file": "unit\\test_self_host.py",
+      "file": "unit/test_self_host.py",
       "line": 97,
       "cat": "string-assert",
       "text": "assert 'def ' in py_code, \"生成的代码未包含函数定义\""
     },
     {
-      "file": "unit\\test_self_host.py",
+      "file": "unit/test_self_host.py",
       "line": 133,
       "cat": "string-assert",
       "text": "assert 'def ' in py_code, \"缺少函数定义\""
     },
     {
-      "file": "unit\\test_self_host.py",
+      "file": "unit/test_self_host.py",
       "line": 134,
       "cat": "string-assert",
       "text": "assert '词法分析' in py_code or 'lexer' in py_code.lower(), \"缺少词法分析相关代码\""
     },
     {
-      "file": "unit\\test_self_host.py",
+      "file": "unit/test_self_host.py",
       "line": 135,
       "cat": "string-assert",
       "text": "assert 'parse' in py_code.lower(), \"缺少解析相关代码\""
