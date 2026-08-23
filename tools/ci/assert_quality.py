@@ -46,10 +46,15 @@
   （形态 5 只收 N>0），删掉就真没人拦了。
 
 用法：
-  # 对比模式（CI 用，新增即红）
-  python3 tools/ci/assert_quality.py --root tests
+  # 对比模式（CI 用，新增即红）。扫描根 = 全仓：2026-08-23 用户裁决，
+  # 原来只扫 tests/，同形态违规在 tests/ 之外还有 50 条，门禁覆盖面窄于
+  # 它自己声明的形态覆盖面。全仓实测 1.7s，仍在 <5s 承诺内。
+  python3 tools/ci/assert_quality.py --root .
   # 生成/刷新基线（修好一批后手工执行并提交）
-  python3 tools/ci/assert_quality.py --root tests --write-baseline tools/ci/assert_quality_baseline.json
+  python3 tools/ci/assert_quality.py --root . --write-baseline tools/ci/assert_quality_baseline.json
+
+  注意：换 --root 会让基线里所有 key 一起变（key 是相对 --root 的路径），
+  必须整份重生成，不能只补差量；换根造成的「全量新增」不是回归。
 """
 from __future__ import annotations
 

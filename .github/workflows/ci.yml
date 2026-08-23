@@ -180,7 +180,8 @@ jobs:
       - name: 断言质量门禁（假绿形态·基线对比）
         if: runner.os == 'Linux'
         run: |
-          python tools/ci/assert_quality.py --root tests
+          # 扫描根 = 全仓（2026-08-23 用户裁决），与 .gitea 权威副本保持一致。
+          python tools/ci/assert_quality.py --root .
 
       - name: 自举率门禁（文件维度·不许回退）
         if: runner.os == 'Linux'

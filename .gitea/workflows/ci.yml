@@ -217,7 +217,10 @@ jobs:
       - name: 断言质量门禁（假绿形态·基线对比）
         run: |
           . .venv/bin/activate
-          python tools/ci/assert_quality.py --root tests
+          # 扫描根 = 全仓（2026-08-23 用户裁决）。原来只扫 tests/，同形态违规在
+          # tests/ 之外还有 50 条（antlrparser/、tools/、examples/ 的自测脚本），
+          # 门禁的覆盖面窄于它自己声明的形态覆盖面。全仓实测 1.7s，仍在 <5s 承诺内。
+          python tools/ci/assert_quality.py --root .
 
       # 自举率门禁：口径见 任务书/第三轮总纲 §2.3 —— **只认文件维度**
       # （stdlib 下每个 .light 文件有无 decl ≥ 1 的真实现），行维度只打印不判绿。
