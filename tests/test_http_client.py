@@ -313,9 +313,17 @@ def test_get_json():
 
 
 def test_get_json_non_200():
-    """测试非 200 时获取 JSON 返回 None"""
-    result = 获取JSON(f'{_服务器.url}/status/404')
-    assert result is None
+    """非 200 时 获取JSON 必须抛 HTTP状态错误，且带得走状态码与响应。
+
+    第六轮口径变更：原实现 `return None`，把「服务端拒了」和「服务端真返回
+    JSON null」压成同一个空值，调用方无法区分——「零静默降级」要拦的形态。
+    """
+    with pytest.raises(HTTP状态错误) as 错误信息:
+        获取JSON(f'{_服务器.url}/status/404')
+    错误 = 错误信息.value
+    assert 错误.状态码 == 404, f"状态码应原样带出，实际 {错误.状态码}"
+    assert 错误.响应.status == 404, "响应对象应挂在异常上（为 None 则这里 AttributeError）"
+    assert str(_服务器.url) in str(错误), f"消息里应带 URL，实际 {错误}"
 
 
 def test_send_json():

@@ -122,7 +122,8 @@ HTTP HEAD 请求，返回 HTTPResponse
 
 ### `获取JSON(url, headers = None, timeout = 30)`
 
-GET 请求并解析 JSON 响应，返回 dict/list
+GET 请求并解析 JSON 响应，返回 dict/list。**非 200 抛 `HTTP状态错误`**
+（异常上带 `状态码` / `消息` / `响应`），不返回 `None`。
 
 **参数：**
 

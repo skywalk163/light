@@ -587,11 +587,16 @@ def HTTP选项(url, 请求头=None, 超时=30, 跟随重定向=True, SSL验证=T
 # =============================================================================
 
 def 获取JSON(url, 查询参数=None, 请求头=None, 超时=30):
-    """GET 请求并解析 JSON 响应，返回 dict/list"""
+    """GET 请求并解析 JSON 响应，返回 dict/list。
+
+    非 200 抛 `HTTP状态错误`（带状态码与响应），**不返回 None**：
+    把「服务端拒了」和「服务端返回了 JSON null」压成同一个空值，
+    调用方无法区分，正是「零静默降级」口径要拦的形态。
+    """
     resp = HTTP获取(url, 查询参数=查询参数, 请求头=请求头, 超时=超时)
-    if resp.status == 200:
-        return resp.json()
-    return None
+    if resp.status != 200:
+        raise HTTP状态错误(resp.status, f"获取JSON 未拿到 200：{url}", resp)
+    return resp.json()
 
 
 def 发送JSON(url, data, method='POST', 请求头=None, 超时=30):
