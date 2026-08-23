@@ -1,9 +1,9 @@
 {
   "version": 2,
   "note": "自举率基线快照：文件维度自举率只许升不许降；影子数只许降不许升。行维度虚高，不许引用。口径见 tools/ci/bootstrap_rate.py docstring。built_from_commit 是**生成基线时的 HEAD**，也就是携带本基线那个提交的父提交；若它在当前分支上不可达（git cat-file -e 失败或非 HEAD 祖先），说明基线是从被改写/丢弃的提交上生成的，必须重新生成。",
-  "file_dim_rate": 0.2571428571428571,
-  "stdlib_light_total": 70,
-  "stdlib_light_has_impl": 18,
+  "file_dim_rate": 0.2972972972972973,
+  "stdlib_light_total": 74,
+  "stdlib_light_has_impl": 22,
   "shadow_count": 53,
-  "built_from_commit": "b3ce3752037b"
+  "built_from_commit": "fc5bcd6ceafb"
 }

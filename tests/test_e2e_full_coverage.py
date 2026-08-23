@@ -56,13 +56,22 @@ class TestBootstrapFullChain:
     def test_bootstrap_file_compiles(self, rel_path: str) -> None:
         """自举编译器文件应能成功编译
 
+        产物落到临时目录，不落回 `bootstrap/`：`bootstrap/bootstrap_level*.py`
+        命中 `.gitignore:91`，是不进仓的生成物。但 CI 的「断言质量门禁」步排在
+        全量测试**之后**、扫全仓 `.py`，本用例把产物写回源码树就等于每轮 CI
+        自己造 3 条「新增假绿断言」（生成码里有 `assert _x is not None`）——
+        基线里加它们是虚高，不加就长红，唯一的出路是别把产物写进仓库。
+
         Args:
             rel_path: 自举编译器文件的相对路径
         """
         file_path = REPO_ROOT / rel_path
         assert file_path.exists(), f"文件不存在: {file_path}"
-        rc, out, err = _run_cli(["compile", str(file_path), "-o", str(file_path.with_suffix(".py"))])
-        assert rc == 0, f"编译失败 ({rel_path}):\n{err}"
+        with tempfile.TemporaryDirectory() as 产物目录:
+            产物 = Path(产物目录) / (file_path.stem + ".py")
+            rc, out, err = _run_cli(["compile", str(file_path), "-o", str(产物)])
+            assert rc == 0, f"编译失败 ({rel_path}):\n{err}"
+            assert 产物.exists(), f"未生成产物 ({rel_path}): {产物}"
 
     def test_bootstrap_chain_compilation(self) -> None:
         """自举层级链式编译验证"""
@@ -77,9 +86,12 @@ class TestBootstrapFullChain:
             if not compiler_path.exists() or not target_path.exists():
                 pytest.skip(f"源文件缺失: {compiler_src} 或 {target_src}")
 
-            # 编译目标文件
-            rc, out, err = _run_cli(["compile", str(target_path)])
-            assert rc == 0, f"链式编译失败 ({target_src}):\n{err}"
+            # 编译目标文件（产物同样进临时目录，理由见 test_bootstrap_file_compiles）
+            with tempfile.TemporaryDirectory() as 产物目录:
+                产物 = Path(产物目录) / (target_path.stem + ".py")
+                rc, out, err = _run_cli(["compile", str(target_path), "-o", str(产物)])
+                assert rc == 0, f"链式编译失败 ({target_src}):\n{err}"
+
 
 
 # =============================================================================

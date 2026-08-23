@@ -225,19 +225,32 @@ class TestBitwiseInBlocks:
             assert r.returncode == 0, f"{fname} 编译失败: {r.stderr[:200]}"
 
     def test_bitnot_block_compiles(self):
-        """位取反积木文件可编译"""
+        """位取反积木文件可编译
+
+        产物必须落到临时目录：`compile` 不给 `-o` 就把 `.py` 写在源文件旁边，
+        而 `积木库/**` 下没有任何 `.py` 是被跟踪的。CI 里断言质量门禁
+        （`.gitea/workflows/ci.yml` 的「断言质量门禁」步）排在全量测试**之后**、
+        扫的是全仓 `.py`，于是这份产物会被当成新增假绿断言（生成码里有
+        `assert _x is not None`）把 CI 打红。
+        """
         import subprocess
+        import tempfile
         from pathlib import Path
 
         fpath = Path('积木库/blocks_v5/计算机/位取反.light')
         if not fpath.exists():
             return
-        r = subprocess.run(
-            [sys.executable, '-m', 'cli.light_unified', 'compile', str(fpath)],
-            capture_output=True, text=True, encoding='utf-8',
-            cwd='.', timeout=15,
-        )
-        assert r.returncode == 0, f"位取反.light 编译失败: {r.stderr[:200]}"
+        with tempfile.TemporaryDirectory() as 产物目录:
+            out = Path(产物目录) / '位取反.py'
+            r = subprocess.run(
+                [sys.executable, '-m', 'cli.light_unified', 'compile', str(fpath),
+                 '-o', str(out)],
+                capture_output=True, text=True, encoding='utf-8',
+                cwd='.', timeout=15,
+            )
+            assert r.returncode == 0, f"位取反.light 编译失败: {r.stderr[:200]}"
+            assert out.exists(), f"未生成产物 {out}"
+
 
 
 class Test函数当标识符:
