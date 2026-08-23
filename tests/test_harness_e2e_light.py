@@ -39,9 +39,14 @@ def _跑评测(报告目录, 额外环境=None, 超时=180):
     环境 = {
         **os.environ,
         "HARNESS_REPORT": os.path.join(str(报告目录), "评测报告"),
+        # 第六轮给驱动加了 HARNESS_CHANNEL=real 真实后端。这里**钉死 mock**：
+        # 这个 dict 继承 os.environ，开发者环境里留着一个 HARNESS_CHANNEL=real
+        # 就会让这一整套「零发网」用例真发网到 api.deepseek.com。
+        "HARNESS_CHANNEL": "mock",
         "PYTHONUTF8": "1",
         "PYTHONIOENCODING": "utf-8",
     }
+
     if 额外环境:
         环境.update(额外环境)
     结果 = subprocess.run(
@@ -178,3 +183,24 @@ class Test缺环境早退:
         assert rc == 2
         标准输出 = _文本(输出)
         assert "评测集不存在" in 标准输出
+
+    def test_real通道缺key时非零退出且不降级(self, tmp_path):
+        """HARNESS_CHANNEL=real 且无 key：必须退 2，不许静默降级回 mock。
+
+        降级回 mock 会让「真实实测」和「mock 复读」产出同一份报告——
+        报告数字看起来齐全，读的人无法分辨它到底发过网没有。
+        本用例不发网：缺 key 的判断在建通道之前。
+        """
+        环境 = {"HARNESS_CHANNEL": "real", "DEEPSEEK_API_KEY": ""}
+        rc, 报告路径, 输出 = _跑评测(tmp_path, 环境)
+        assert rc == 2, "real 通道缺 key 应退 2，实际 %d\n%s" % (rc, _文本(输出))
+        标准输出 = _文本(输出)
+        assert "DEEPSEEK_API_KEY" in 标准输出, 标准输出
+        assert not os.path.exists(报告路径), "缺 key 早退不该写出报告"
+
+    def test_mock报告标注通道(self, tmp_path):
+        """报告元信息里必须写明通道，否则两种模式的报告长得一模一样。"""
+        rc, 报告路径, 输出 = _跑评测(tmp_path, {"HARNESS_DELAY_SEC": "0.01"})
+        assert rc == 0, _文本(输出)
+        assert _读报告(报告路径)["元信息"]["通道"] == "mock"
+

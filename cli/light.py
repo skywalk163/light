@@ -295,22 +295,27 @@ def _read_source(file_path: str) -> str:
 def cmd_harness(args):
     """light harness run：deepseek-harness MVP 的 CLI 包装（第五轮 D5）。
 
-    把 --eval-set/--report/--concurrency/--rate/--retries/--delay 映射成
+    把 --channel/--eval-set/--report/--concurrency/--rate/--retries/--delay 映射成
     HARNESS_* 环境变量，转发到 examples/harness/评测驱动.light 的 run。
     评测驱动.light 是 D5 的端到端主入口（读 JSONL → 并发跑 LLM → 打分 →
     Markdown+JSON 报告），CLI 包装只是让它有一个干净的入口，不重复实现。
+
+    `--channel real` 走真实 DeepSeek（第六轮把真实通道从「临时文件跑完即删」
+    改成常驻可选后端）；缺 DEEPSEEK_API_KEY 时驱动直接退 2，不降级回 mock。
     """
     if getattr(args, 'harness_cmd', None) != 'run':
-        print("用法: light harness run [--eval-set 路径] [--report 前缀] "
-              "[--concurrency N] [--rate N] [--retries N] [--delay 秒]",
+        print("用法: light harness run [--channel mock|real] [--eval-set 路径] "
+              "[--report 前缀] [--concurrency N] [--rate N] [--retries N] [--delay 秒]",
               file=sys.stderr)
         sys.exit(1)
+
     评测驱动 = os.path.join(_PROJECT_DIR, "examples", "harness", "评测驱动.light")
     if not os.path.exists(评测驱动):
         print(f"错误: 未找到 harness 主入口 {评测驱动}", file=sys.stderr)
         sys.exit(2)
     # 参数 → 环境变量（未传的参数不覆盖，让 评测驱动.light 用它的默认值）
     参数表 = [
+        ("channel", "HARNESS_CHANNEL"),
         ("eval_set", "HARNESS_EVAL_SET"),
         ("report", "HARNESS_REPORT"),
         ("concurrency", "HARNESS_CONCURRENCY"),
@@ -318,6 +323,7 @@ def cmd_harness(args):
         ("retries", "HARNESS_RETRIES"),
         ("delay", "HARNESS_DELAY_SEC"),
     ]
+
     for 属性, 环境名 in 参数表:
         值 = getattr(args, 属性, None)
         if 值:
@@ -1333,6 +1339,9 @@ def main():
     harness_p = subparsers.add_parser('harness', help='deepseek-harness MVP（examples/harness/）')
     harness_sub = harness_p.add_subparsers(dest='harness_cmd', help='harness 子命令')
     harness_run_p = harness_sub.add_parser('run', help='端到端评测：读 JSONL → 并发跑 LLM → 打分 → 出报告')
+    harness_run_p.add_argument('--channel', choices=['mock', 'real'], default=None,
+                               help='LLM 通道：mock=确定性桩零发网（默认）/ real=真实 DeepSeek（需 DEEPSEEK_API_KEY）')
+
     harness_run_p.add_argument('--eval-set', default=None, help='评测集 JSONL 路径（默认 examples/harness/评测集.jsonl）')
     harness_run_p.add_argument('--report', default=None, help='报告输出前缀（默认 examples/harness/评测报告）')
     harness_run_p.add_argument('--concurrency', default=None, help='并发上限（默认 2）')

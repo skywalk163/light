@@ -8,20 +8,27 @@
 #   （同步版 `流式对话` 签名冻结、无同名重载，二者异名共存；增量块字段与同步版
 #     逐字一致：角色/内容增量/工具调用增量/累积内容/完成原因/结束）
 #
-# 运行（mock 场景，零 key 零发网）：
+# 运行（mock 场景，零 key 零发网；默认）：
 #   python -m cli.light_unified run examples/harness/评测驱动.light
-# 真实 DeepSeek 场景（A5 合入后替换 LLM通道 为 stdlib 大模型客户端）：
-#   $env:DEEPSEEK_API_KEY="..." ; python -m cli.light_unified run examples/harness/评测驱动.light
+# 真实 DeepSeek 场景（第六轮：常驻可选后端，不再是临时文件）：
+#   $env:HARNESS_CHANNEL="real" ; $env:DEEPSEEK_API_KEY="..."
+#   python cli/light.py harness run --channel real --concurrency 2 --report %TEMP%\harness_real\评测报告
+#   报告前缀请指到仓库外：评测报告.md 会变成未跟踪文件，评测报告.json 被 .gitignore
+#   的全局 *.json 吃掉（git status 看不见，只有 dir 能看见）。
 #
 # 环境变量（全部可选，均有确定性默认值）：
+#   HARNESS_CHANNEL        mock（默认，确定性桩零发网）/ real（真实 DeepSeek，需 key）
 #   HARNESS_EVAL_SET       评测集 JSONL 路径（默认 examples/harness/评测集.jsonl）
 #   HARNESS_REPORT         报告输出前缀（默认 examples/harness/评测报告）
 #   HARNESS_CONCURRENCY    并发上限（默认 2）
 #   HARNESS_RATE           每秒请求上限（默认 10）
 #   HARNESS_RETRIES        重试次数（默认 3）
 #   HARNESS_DELAY_SEC      mock 通道每请求延迟秒（默认 0.2；真实通道忽略）
-#   HARNESS_FAULT_TIMEOUT_PROMPTS  逗号分隔，命中即注入超时（打红/重试测试用）
-#   HARNESS_FAULT_ERROR_PROMPTS    逗号分隔，命中即注入连接错误（打红/重试测试用）
+#   HARNESS_FAULT_TIMEOUT_PROMPTS  逗号分隔，命中即注入超时（打红/重试测试用；仅 mock）
+#   HARNESS_FAULT_ERROR_PROMPTS    逗号分隔，命中即注入连接错误（打红/重试测试用；仅 mock）
+#   DEEPSEEK_API_KEY / DEEPSEEK_BASE_URL / DEEPSEEK_MODEL   仅 real 通道读
+#     （键名与 tests/test_llm_client_light.py:272-273 一致，不另起一套）
+
 #
 # e2e 处置（交付报告必答项，任务书 §4.4）：
 #   本文件选 **(b)：加进 tests/e2e/test_e2e_chain.py 的 E2E_EXCLUDED，真覆盖放
@@ -37,6 +44,9 @@
 导入 sys
 导入 time
 从 LLM通道 导入 LLM通道
+从 真实通道 导入 真实通道
+
+
 从 编排 导入 任务池运行, 等令牌, 带重试对话
 从 打分 导入 单条打分, 批量汇总
 从 行流 导入 读取评测集, 取坏行
@@ -96,6 +106,7 @@
   行表.append("# DeepSeek Harness 评测报告")
   行表.append("")
   行表.append("- 评测集：" 加上 元信息["评测集路径"])
+  行表.append("- 通道：" 加上 元信息["通道"] 加上 "（mock=确定性桩零发网 / real=真实 DeepSeek）")
   行表.append("- 并发上限：" 加上 转字符串(元信息["并发上限"]))
   行表.append("- 速率上限：" 加上 转字符串(元信息["速率上限"]) 加上 " 次/秒")
   行表.append("- 重试次数：" 加上 转字符串(元信息["重试次数"]))
@@ -138,10 +149,26 @@
   如果 非 os.path.exists(评测集路径):
     打印("评测集不存在：" 加上 评测集路径)
     sys.exit(2)
-  # 通道配置：确定性答案表 + 故障注入（来自环境变量，默认空）
-  设 超时表 为 取提示词表("HARNESS_FAULT_TIMEOUT_PROMPTS")
-  设 错误表 为 取提示词表("HARNESS_FAULT_ERROR_PROMPTS")
-  设 通道 为 新建 LLM通道(["答案表": 内置答案表, "默认回答": "（未命中）", "延迟秒": 延迟秒, "故障表": ["超时": 超时表, "错误": 错误表]])
+  # 通道：默认 mock（确定性答案表 + 故障注入，零发网）；HARNESS_CHANNEL=real 走真实 DeepSeek。
+  # 第六轮口径裁决：真实通道做成**常驻可选后端**，不再像第五轮那样用「临时文件跑完即删」——
+  # 那次的代价是这次想复跑就得从零重建一遍通道。默认仍是 mock，所以 CI 不发网。
+  设 通道模式 为 取环境("HARNESS_CHANNEL", "mock")
+  设 通道 为 空
+  如果 通道模式 == "real":
+    # 端点/模型的环境变量名与 tests/test_llm_client_light.py:272-273 一致，不另起一套。
+    设 在线端点 为 取环境("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+    设 在线模型 为 取环境("DEEPSEEK_MODEL", "deepseek-chat")
+    # 无 key 直接退，不许静默降级回 mock：那会让「真实实测」和「mock 复读」出同一份报告。
+    如果 os.environ.get("DEEPSEEK_API_KEY", "") == "":
+      打印("HARNESS_CHANNEL=real 需要 DEEPSEEK_API_KEY（不降级回 mock）")
+      sys.exit(2)
+    打印("通道=real 端点=" 加上 在线端点 加上 " 模型=" 加上 在线模型)
+    设 通道 为 新建 真实通道(在线端点, 在线模型, "")
+  否则:
+    设 超时表 为 取提示词表("HARNESS_FAULT_TIMEOUT_PROMPTS")
+    设 错误表 为 取提示词表("HARNESS_FAULT_ERROR_PROMPTS")
+    设 通道 为 新建 LLM通道(["答案表": 内置答案表, "默认回答": "（未命中）", "延迟秒": 延迟秒, "故障表": ["超时": 超时表, "错误": 错误表]])
+
   # 加载评测集
   设 条目表 为 读取评测集(评测集路径)
   设 坏行 为 取坏行()
@@ -154,7 +181,7 @@
   设 总耗时 为 time.time() - 起点
   # 汇总与报告
   设 汇总 为 批量汇总(结果表)
-  设 元信息 为 ["评测集路径": 评测集路径, "并发上限": 并发上限, "速率上限": 速率上限, "重试次数": 重试次数, "总耗时": 总耗时]
+  设 元信息 为 ["通道": 通道模式, "评测集路径": 评测集路径, "并发上限": 并发上限, "速率上限": 速率上限, "重试次数": 重试次数, "总耗时": 总耗时]
   设 报告体 为 ["元信息": 元信息, "条目": 结果表, "汇总": 汇总]
   # 报告父目录不存在时先建出来（mock 测试把报告指进临时目录）
   设 报告目录 为 os.path.dirname(报告前缀)
