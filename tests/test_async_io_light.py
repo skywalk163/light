@@ -21,14 +21,20 @@ test_async_io_light.py —— 任务 A5 / M11：语言层 `等待` 真驱动网�
 """
 import asyncio
 import inspect
+import ipaddress
 import json
 import os
+import shutil
 import socket
+import ssl
 import sys
+import tempfile
 import threading
 import time
+from datetime import datetime, timedelta, timezone
 
 import pytest
+
 
 _STDLIB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "stdlib")
 if _STDLIB not in sys.path:
@@ -454,5 +460,223 @@ class Test异步按行读取:
         assert 行们 == ["你好世界", "第二行"]
 
 
+# ---------------------------------------------------------------------------
+# 6. TLS 上的异步读腿：SSLWantRead 分流真的走通了吗
+# ---------------------------------------------------------------------------
+# 这一节补的是 A5 首版报告里点名的最大未实测面。明文 socket 上 `recv` 抛的是
+# BlockingIOError(EAGAIN)，TLS 上抛的是 ssl.SSLWantReadError —— 两条是**不同的异常
+# 分支**（选择器.是否愿等读 里分别判），只测明文等于只测了一半。
+#
+# 顺便记一个本来可能咬人的点：TLS 有自己的内部缓冲，socket 层「不可读」时 SSL 层
+# 仍可能有整条记录待解密。`探测就绪` 说「没就绪」并不代表没数据——好在 协程收 的
+# 循环里探测结果**只决定睡多久**，下一轮无条件重试 recv，所以这种情形只是多睡一个
+# 粒度，不会假死。若哪天改成「探测说没就绪就不重试」，这一节会当场红。
+def _生成证书(目录):
+    """自签 CA + 127.0.0.1 服务器证书。cryptography 只在测试侧用，不进 .light。
+
+    故意**局部导入**：缺 cryptography 时只让这一节报错，不连带把结构/时序/反跑
+    三连判据一起拖成收集失败（总纲 §5.7）。
+    """
+    from cryptography import x509
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
+
+    ca密钥 = rsa.generate_private_key(public_exponent=65537, key_size=2048,
+                                      backend=default_backend())
+    ca名 = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "taskA5-Test-CA")])
+    ca = (
+        x509.CertificateBuilder()
+        .subject_name(ca名).issuer_name(ca名)
+        .public_key(ca密钥.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.now(timezone.utc))
+        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=1))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        # CA 的 KeyUsage 同样不是装饰：缺了报「CA cert does not include key usage
+        # extension」（实测）。参数顺序照 cryptography 的位置参数：
+        # digital_signature / content_commitment / key_encipherment / data_encipherment
+        # / key_agreement / key_cert_sign / crl_sign / encipher_only / decipher_only
+        .add_extension(x509.KeyUsage(True, True, True, False, False, True, True,
+                                    False, False), critical=True)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(ca密钥.public_key()),
+                       critical=False)
+        .sign(ca密钥, hashes.SHA256(), default_backend())
+    )
+    ca文件 = os.path.join(目录, "_taskA5_ca.pem")
+    with open(ca文件, "wb") as f:
+        f.write(ca.public_bytes(serialization.Encoding.PEM))
+
+    服务器密钥 = rsa.generate_private_key(public_exponent=65537, key_size=2048,
+                                          backend=default_backend())
+    服务器名 = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "127.0.0.1")])
+    服务器证书 = (
+        x509.CertificateBuilder()
+        .subject_name(服务器名).issuer_name(ca名)
+        .public_key(服务器密钥.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.now(timezone.utc))
+        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=1))
+        .add_extension(x509.SubjectAlternativeName(
+            [x509.IPAddress(ipaddress.ip_address("127.0.0.1"))]), critical=False)
+        .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]),
+                       critical=False)
+        # AuthorityKeyIdentifier 不是可选装饰：Python 3.14 的校验器缺了它就直接
+        # 「Missing Authority Key Identifier」拒证（实测），与 test_tls_light.py 同款。
+        .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(
+            ca密钥.public_key()), critical=False)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(
+            服务器密钥.public_key()), critical=False)
+        .sign(ca密钥, hashes.SHA256(), default_backend())
+    )
+    证书文件 = os.path.join(目录, "_taskA5_server.crt")
+    with open(证书文件, "wb") as f:
+        f.write(服务器证书.public_bytes(serialization.Encoding.PEM))
+    密钥文件 = os.path.join(目录, "_taskA5_server.key")
+    with open(密钥文件, "wb") as f:
+        f.write(服务器密钥.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.TraditionalOpenSSL,
+            serialization.NoEncryption()))
+    return ca文件, 证书文件, 密钥文件
+
+
+class TLS延迟服务器(_基础服务器):
+    """TLS 版「响应头立即到、体延迟 delay 秒」，可接多条连接。"""
+
+    def __init__(self, 证书文件, 密钥文件, 载荷, delay=延迟):
+        self.ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        self.ctx.load_cert_chain(证书文件, 密钥文件)
+        self.载荷 = 载荷
+        self.delay = delay
+        super().__init__()
+
+    def _服务(self, conn):
+        加密连接 = None
+        try:
+            加密连接 = self.ctx.wrap_socket(conn, server_side=True)
+            self._吃请求(加密连接)
+            加密连接.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n"
+                             % len(self.载荷))
+            time.sleep(self.delay)
+            加密连接.sendall(self.载荷)
+        except OSError:
+            pass
+        finally:
+            if 加密连接 is not None:
+                try:
+                    加密连接.close()
+                except OSError:
+                    pass
+            else:
+                try:
+                    conn.close()
+                except OSError:
+                    pass
+
+
+@pytest.fixture(scope="module")
+def 证书():
+    目录 = tempfile.mkdtemp(prefix="_taskA5_")
+    try:
+        yield _生成证书(目录)
+    finally:
+        shutil.rmtree(目录, ignore_errors=True)
+
+
+async def _读一路TLS(端口, ca文件):
+    c = HTTP客户端("127.0.0.1", 端口)
+    c.配置TLS(True, True, ca文件, None)
+    c.超时读取 = 5.0
+    状态 = c.发送("GET", "/", {}, "")[0]
+    数据 = b""
+    async for 块 in 协程读体(c):
+        数据 += 块
+    return 状态, 数据
+
+
+class TestTLS异步读腿:
+    def test_tls异步读体拿到完整体且不占用事件循环(self, 证书, 服务器工厂):
+        ca文件, 证书文件, 密钥文件 = 证书
+        载荷 = b"T" * 300
+        服 = 服务器工厂(TLS延迟服务器(证书文件, 密钥文件, 载荷))
+        标记 = {"停": False}
+        计数 = {"次": 0}
+
+        async def 主():
+            async def 读():
+                try:
+                    return await _读一路TLS(服.port, ca文件)
+                finally:
+                    标记["停"] = True
+            结果, _ = await asyncio.gather(读(), _心跳(标记, 计数))
+            return 结果
+
+        状态, 数据 = asyncio.run(主())
+        assert 状态 == 200
+        assert 数据 == 载荷
+        print("\n[TLS 心跳] 0.5s 体延迟期间事件循环被唤醒 %d 次" % 计数["次"], flush=True)
+        assert 计数["次"] >= 5
+
+    def test_两路TLS串行与并发的关系(self, 证书, 服务器工厂):
+        ca文件, 证书文件, 密钥文件 = 证书
+        甲, 乙 = b"T" * 300, b"S" * 300
+
+        async def 串行():
+            s1 = 服务器工厂(TLS延迟服务器(证书文件, 密钥文件, 甲))
+            s2 = 服务器工厂(TLS延迟服务器(证书文件, 密钥文件, 乙))
+            t0 = time.monotonic()
+            一 = await _读一路TLS(s1.port, ca文件)
+            二 = await _读一路TLS(s2.port, ca文件)
+            return time.monotonic() - t0, 一, 二
+
+        async def 并发():
+            s1 = 服务器工厂(TLS延迟服务器(证书文件, 密钥文件, 甲))
+            s2 = 服务器工厂(TLS延迟服务器(证书文件, 密钥文件, 乙))
+            t0 = time.monotonic()
+            一, 二 = await asyncio.gather(_读一路TLS(s1.port, ca文件),
+                                          _读一路TLS(s2.port, ca文件))
+            return time.monotonic() - t0, 一, 二
+
+        串行秒, 串一, 串二 = asyncio.run(串行())
+        并发秒, 并一, 并二 = asyncio.run(并发())
+        print("\n[TLS] 串行 %.2fs / 并发 %.2fs" % (串行秒, 并发秒), flush=True)
+        assert (串一[1], 串二[1]) == (甲, 乙)
+        assert (并一[1], 并二[1]) == (甲, 乙)
+        assert 串行秒 > 串行门限
+        assert 并发秒 < 并发门限
+
+    def test_tls异步腿的读超时抛读取错误(self, 证书, 服务器工厂):
+        """服务端把体拖到 2s，客户端 超时读取=0.5s → 必须抛 读取错误，不许静默截断。
+
+        这条同时守住 TLS 分支上的**超时归属**：走的是 协程收 里那句
+        `time.monotonic() >= 截止` → 读取错误，而不是被 want-read 无限重试挂死。
+        """
+        from 流式 import 读取错误
+        ca文件, 证书文件, 密钥文件 = 证书
+        服 = 服务器工厂(TLS延迟服务器(证书文件, 密钥文件, b"T" * 300, delay=2.0))
+
+        async def 跑():
+            c = HTTP客户端("127.0.0.1", 服.port)
+            c.配置TLS(True, True, ca文件, None)
+            c.超时读取 = 0.5
+            c.发送("GET", "/", {}, "")
+            数据 = b""
+            async for 块 in 协程读体(c):
+                数据 += 块
+            return 数据
+
+        起 = time.monotonic()
+        with pytest.raises(读取错误) as 捕:
+            asyncio.run(跑())
+        用时 = time.monotonic() - 起
+        print("\n[TLS 超时] %.2fs 抛出：%s" % (用时, 捕.value), flush=True)
+        assert "超时" in str(捕.value)
+        assert 用时 < 1.5
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-s"]))
+
+
