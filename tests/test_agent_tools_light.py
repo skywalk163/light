@@ -198,6 +198,34 @@ class TestWriteFile:
         工具["write_file"]["实现"]({"path": "cn.txt", "content": 内容})
         assert (tmp_path / "cn.txt").read_text(encoding="utf-8") == 内容
 
+    def test_写path点被拒绝且沙箱外无落盘(self, tmp_path):
+        """B4-1 复现：write_file 传 path="." 时，目标实路径 == 沙箱根目录，
+        父目录 = dirname(根) = 沙箱根**之外**；旧实现把临时文件裸建在沙箱外
+        （父目录 isdir 通过），随后 os.replace 失败才 unlink。
+
+        断言三件事：
+          1. 沙箱根的父目录在调用前后没有任何新增文件（真落过盘必然可见）；
+          2. 不许对「目标==根目录」声称写入成功；
+          3. 拒绝行为必须明确（越界式外部可见错误），而不是与 OS 拉扯后
+             返回「原子替换失败」这种内部错误 —— 那是在掩盖越界写。
+        """
+        循环, 工具 = _装备(str(tmp_path))
+        父目录 = tmp_path.parent
+        前 = set(os.listdir(str(父目录)))
+        结果 = 工具["write_file"]["实现"]({"path": ".", "content": "x"})
+        后 = set(os.listdir(str(父目录)))
+        新增 = 后 - 前
+        assert 新增 == set(), f"沙箱外（{父目录}）新增了文件：{新增}"
+        assert "已写入" not in 结果
+        assert "越界" in 结果, f"必须明确拒绝（越界），实际返回：{结果!r}"
+
+    def test_写根目录本身被拒(self, tmp_path):
+        """path 解析成根目录本身（"." 或 "/" 或 根路径本身）都必须拒绝，不许绕。"""
+        循环, 工具 = _装备(str(tmp_path))
+        for 退化 in ["/", str(tmp_path), str(tmp_path) + "/"]:
+            结果 = 工具["write_file"]["实现"]({"path": 退化, "content": "x"})
+            assert "越界" in 结果, f"path={退化!r} 应被明确拒绝（越界），实际：{结果!r}"
+
 
 # ============================================================
 # edit_file
@@ -346,6 +374,78 @@ class TestGrep:
         assert "match.py" in 结果
         assert "match.txt" not in 结果
 
+    def test_junction指向外部不被递归且不外泄(self, tmp_path):
+        """B4-4 复现：grep 递归遍历沙箱内 junction 指向沙箱外时，旧实现
+        isdir 即递归——外部目录树被真实遍历、外部文件内容被搜索回显，
+        构成旁路信号。新实现逐层重新过护栏：链接目标在沙箱外 → 未展开。
+        断言：未展开提示可见；外部文件内容与文件名任何一个都不出现。"""
+        self._需要junction()
+        循环, 工具 = _装备(str(tmp_path))
+        外目录 = tmp_path.parent / "_taskB4_grep_target"
+        外目录.mkdir(exist_ok=True)
+        (外目录 / "_taskB4_secret.txt").write_text("秘密标记_9f3a2b_leak", encoding="utf-8")
+        子目录 = tmp_path / "sub"
+        子目录.mkdir()
+        (子目录 / "inside.txt").write_text("inside\n", encoding="utf-8")
+        链接 = 子目录 / "_taskB4_grep_link"
+        r = subprocess.run(["cmd", "/c", "mklink", "/J", str(链接), str(外目录)],
+                           capture_output=True, text=True, timeout=10)
+        if r.returncode != 0 or not 链接.exists():
+            pytest.xfail(f"mklink /J 失败（掩盖：grep junction 未验证）：{r.stderr}")
+        try:
+            结果 = 工具["grep"]["实现"]({"pattern": "LEAK_9f3a2b"})
+            assert "指向沙箱外，未展开" in 结果, f"应回显未展开提示：\n{结果}"
+            assert "秘密标记_9f3a2b" not in 结果, "外部文件内容被搜索到：\n" + 结果
+            assert "_taskB4_secret.txt" not in 结果, "外部文件名被回显：\n" + 结果
+        finally:
+            try:
+                os.rmdir(str(链接))
+            except OSError:
+                pass
+            shutil.rmtree(str(外目录), ignore_errors=True)
+
+    def test_junction外部不膨胀遍历文件数(self, tmp_path):
+        """B4-4：外部文件数不能被算进「遍历文件数」回显——那是旁路信号。
+        沙箱内 1 个文件 + 外部 6 个：未匹配时遍历文件数必须是 1。"""
+        self._需要junction()
+        循环, 工具 = _装备(str(tmp_path))
+        外目录 = tmp_path.parent / "_taskB4_grep_count"
+        外目录.mkdir(exist_ok=True)
+        for i in range(6):
+            (外目录 / f"_taskB4_ext{i}.txt").write_text("x", encoding="utf-8")
+        子目录 = tmp_path / "sub"
+        子目录.mkdir()
+        (子目录 / "one.txt").write_text("y", encoding="utf-8")
+        链接 = 子目录 / "_taskB4_grep_count_link"
+        r = subprocess.run(["cmd", "/c", "mklink", "/J", str(链接), str(外目录)],
+                           capture_output=True, text=True, timeout=10)
+        if r.returncode != 0 or not 链接.exists():
+            pytest.xfail(f"mklink /J 失败（掩盖：遍历计数未验证）：{r.stderr}")
+        try:
+            结果 = 工具["grep"]["实现"]({"pattern": "ZZZ_NO_SUCH_PATTERN"})
+            assert "遍历文件数: 1" in 结果, f"外部文件数被算进遍历数（旁路信号）：\n{结果}"
+        finally:
+            try:
+                os.rmdir(str(链接))
+            except OSError:
+                pass
+            shutil.rmtree(str(外目录), ignore_errors=True)
+
+    def test_单文件搜索读取失败回显不吞(self, tmp_path):
+        """B4-4：搜索文件 的 `捕获 错误: 返回` 吞掉一切 → 应回显 [读取失败:。
+        用沙箱内不存在的单文件路径触发 open 的 FileNotFoundError——
+        旧实现静默吞掉返回「未找到匹配」，新实现必须把错误带出来。"""
+        循环, 工具 = _装备(str(tmp_path))
+        (tmp_path / "ok.txt").write_text("hi\n", encoding="utf-8")
+        结果 = 工具["grep"]["实现"]({"pattern": "hi", "path": "sub/_taskB4_gone.txt"})
+        assert "读取失败" in 结果, f"读取失败必须回显（不许吞）：\n{结果}"
+
+    def _需要junction(self):
+        if sys.platform != "win32":
+            pytest.skip("junction 是 Windows 专属")
+
+
+
 
 # ============================================================
 # run_command
@@ -479,8 +579,85 @@ class TestRunCommand:
         结果 = 工具["run_command"]["实现"]({
             "command": ["__taskB3_不存在_cmd_xyz__"],
         })
-        # 不存在命令应该有错误信息或非零退出码
-        assert "退出码" in 结果 or "失败" in 结果
+        # 任务书 §8 假绿清理：旧断言 `退出码 or 失败` 近似恒真（成功输出也含
+        # [退出码: N]）。改为只认明确的启动失败口径，并断言不可能是退出码 0。
+        assert "启动失败" in 结果 or "不存在" in 结果 or "未找到" in 结果, f"启动失败需明确口径：\n{结果}"
+        assert "退出码: 0" not in 结果, f"命令不存在不可能有退出码 0：\n{结果}"
+
+    def test_shell多参数不再被当参数0丢弃(self, tmp_path):
+        """B4-5 复现：允许shell 时，旧实现 POSIX 分支 ["sh","-c"]+数组 把
+        后续参数当 $0 静默吞掉（["ls","-la"] → sh -c ls -la）。
+        Windows 侧实测 cmd /c 逐参数拼接；POSIX 侧 sh -c 按修复语义把
+        整条数组 join 成一串交付 —— 本机为 Windows，sh -c 分支属推导。
+        核心断言：「hi there」两个词都出现——旧实现只回显 hi。"""
+        循环, 工具 = _装备(str(tmp_path), {"允许shell": True})
+        结果 = 工具["run_command"]["实现"]({"command": ["echo", "hi", "there"]})
+        assert "hi there" in 结果, f"多参数应完整进入命令行：\n{结果}"
+
+    def test_shell分号注入面真实生效(self, tmp_path):
+        """B4-5：shell 语义下 ; 是真实注入面（用户显式允许shell 的自担行为）。
+        多元素数组必须整体进入 shell：["echo","x;","echo","INJECTED_9f3a2b"]
+        旧实现 POSIX 分支只执行 echo（其余元素沦为 $0/$1），INJECTED 不出现；
+        修复后 cmd /c 与 sh -c 下 INJECTED 都会出现。"""
+        标记 = "INJECTED_9f3a2b"
+        循环, 工具 = _装备(str(tmp_path), {"允许shell": True})
+        结果 = 工具["run_command"]["实现"]({"command": ["echo", "x;", "echo", 标记]})
+        assert 标记 in 结果, f"注入面未生效（元素被丢弃或未入 shell）：\n{结果}"
+
+    def test_shell命令替换与反引号注入面(self, tmp_path):
+        """B4-5：$() 与反引号注入面 —— POSIX sh 专属；Windows cmd /c 无此
+        语义，本机为 Windows，故本用例按推导标记（POSIX 上实测）。"""
+        if sys.platform == "win32":
+            pytest.skip("$()/反引号是 POSIX sh 语义，Windows cmd /c 无此分支")
+        标记 = "_taskB4_cmdsubst_marker"
+        循环, 工具 = _装备(str(tmp_path), {"允许shell": True})
+        结果1 = 工具["run_command"]["实现"]({"command": ["echo", f"$(echo {标记})"]})
+        assert 标记 in 结果1, f"$() 命令替换未走 shell 求值：\n{结果1}"
+        结果2 = 工具["run_command"]["实现"]({"command": ["echo", f"`echo {标记}_bt`"]})
+        assert f"{标记}_bt" in 结果2, f"反引号命令替换未走 shell 求值：\n{结果2}"
+
+    @pytest.mark.parametrize("敏感名", [
+        "AWS_SECRET_ACCESS_KEY",
+        "SECRET_KEY",
+        "PGPASSWORD",
+        "AWS_ACCESS_KEY_ID",
+        "GOOGLE_APPLICATION_CREDENTIALS",
+        "DATABASE_URL",
+        "_TASKB4_TEST_PASSPHRASE",
+    ])
+    def test_敏感变量逐个不漏传(self, tmp_path, 敏感名):
+        """B4-6：关键词包含式。七个旧漏网名逐一喂给子进程环境——
+        透传即泄露，必须查不到。"""
+        os.environ[敏感名] = "_taskB4_leaked_value_9f2"
+        try:
+            循环, 工具 = _装备(str(tmp_path))
+            探针 = f"import os; print(os.environ.get({敏感名!r}, 'NOT_FOUND'))"
+            结果 = 工具["run_command"]["实现"]({
+                "command": [sys.executable, "-c", 探针],
+            })
+            assert "NOT_FOUND" in 结果, f"{敏感名} 被透传给了子进程:\n{结果}"
+            assert "_taskB4_leaked_value_9f2" not in 结果
+        finally:
+            del os.environ[敏感名]
+
+    @pytest.mark.parametrize("对照名", ["PATH", "HOME", "LANG", "TMPDIR", "USERPROFILE"])
+    def test_敏感过滤不误伤普通变量(self, tmp_path, 对照名):
+        """B4-6：对照名不许被拒——PATH/HOME/LANG 必须原样透传。
+        变量不存在时先设一个无害值再断言，测完还原。"""
+        maybe = os.environ.get(对照名)
+        try:
+            if maybe is None:
+                os.environ[对照名] = "_taskB4_plain_" + 对照名
+            循环, 工具 = _装备(str(tmp_path))
+            探针 = f"import os; print(os.environ.get({对照名!r}, 'MISSING'))"
+            结果 = 工具["run_command"]["实现"]({
+                "command": [sys.executable, "-c", 探针],
+            })
+            assert "MISSING" not in 结果, f"{对照名} 被敏感过滤误伤（拒了）：\n{结果}"
+        finally:
+            if maybe is None:
+                os.environ.pop(对照名, None)
+
 
 
 # ============================================================
@@ -490,8 +667,20 @@ class Test路径护栏逃逸:
     def test_两点穿越被拒(self, tmp_path):
         循环, 工具 = _装备(str(tmp_path))
         (tmp_path / "inside.txt").write_text("inside", encoding="utf-8")
-        结果 = 工具["read_file"]["实现"]({"path": "../../../etc/passwd"})
-        assert "越界" in 结果 or "护栏" in 结果 or "不存在" in 结果
+        外文件 = tmp_path.parent / "_taskB4_dotdot_target.txt"
+        外文件.write_text("外部标记_5a6b7c8d", encoding="utf-8")
+        try:
+            # B4 假绿清理：旧断言含「不存在」兜底——Windows 上 '../../../etc/passwd'
+            # 即使被放行也返回「文件不存在」而过关，穿越判据从未守住。
+            # 改为：只认明确的越界/护栏拦截字样；再以真实存在的外部文件对照
+            # （读它必须报越界，绝不能返回内容）。
+            结果1 = 工具["read_file"]["实现"]({"path": "../../../etc/passwd"})
+            assert "越界" in 结果1 or "护栏" in 结果1, f"穿越必须明确拦截：{结果1!r}"
+            结果2 = 工具["read_file"]["实现"]({"path": "../" + 外文件.name})
+            assert "越界" in 结果2 or "护栏" in 结果2, f"外部真实文件必须拦：{结果2!r}"
+            assert "外部标记_5a6b7c8d" not in 结果2, "外部文件内容被读出：\n" + 结果2
+        finally:
+            外文件.unlink(missing_ok=True)
 
     def test_绝对路径指向沙箱外被拒(self, tmp_path):
         循环, 工具 = _装备(str(tmp_path))
