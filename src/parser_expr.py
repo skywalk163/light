@@ -1141,6 +1141,11 @@ class ParserExprMixin:
             while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
                 name_parts.append(self._consume().value)
             if not name_parts:
+                # 关键字后直接跟 `(`：这里的「函数/段落」是被当普通变量名用
+                # （如形参 `函数: 段` 在 `结果.追加(函数(项))` 里的调用），
+                # 而不是段落调用 `函数 段名(...)`。退回标识符走通用调用后缀。
+                if self._current() and self._current().type == TokenType.LPAREN:
+                    return self._parse_postfix(Identifier(tok.value))
                 return self._error("函数/段落调用后应跟段名", tok.line, tok.col)
             name = ''.join(name_parts)
             if self._current() and self._current().type == TokenType.LPAREN:
