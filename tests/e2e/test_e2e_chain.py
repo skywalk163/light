@@ -107,6 +107,19 @@ E2E_EXCLUDED = {
     # 2026-08-23 合并后 gitea 回归闸门实测：不排除会新增 2 条打红
     # （test_duan_run / test_duan_compile_and_run_product 各一条）。
     'harness/主程序.light',
+    # 第五轮 D5：评测驱动 是 harness 的端到端主入口。它无 key 时虽 rc=0，
+    # 但 E2E_SUBPROC_ENV 继承 DEEPSEEK_API_KEY——本机/runner 有 key 时 run 它会
+    # **真发网**到 api.deepseek.com（总纲 §4.4 硬约束）。排除而非改例子：
+    # 它的真覆盖在 tests/test_harness_e2e_light.py —— 用内置确定性 mock 通道
+    # 整进程跑起来，断言报告数字与手算逐项相等、并发时序断关系、故障注入重试路径。
+    # （LLM通道/编排/打分/行流 四个支撑模块是纯定义文件，零副作用零网络，
+    #   e2e 零环境跑它们 rc=0，不排除。）
+    'harness/评测驱动.light',
+    # 第五轮 D5：M2_流式对话 无 key 早退 rc=0 可以过本链路，但它的 启动 段落
+    # 在 DEEPSEEK_API_KEY 存在时会真调 api.deepseek.com（有 key 时 e2e 真发网）。
+    # 与 评测驱动 同因排除；它的真覆盖同样在 tests/test_harness_e2e_light.py
+    # （异步入口 + 流式对话链路，指向本地 mock）。
+    'harness/M2_流式对话.light',
 }
 
 
