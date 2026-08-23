@@ -383,3 +383,45 @@ wasm 实现）。该声称可能已过期，标记**待核实**：确认 `--targ
 但该项属长期一致性债务，记入此处汇总。
 
 
+
+## 十四、第四轮移交与债务（D4 本轮，2026-08-23）
+
+### 14.1 15 处 `sys.stdout/stderr.reconfigure` 缺 `errors='replace'`（D4-5 普查，移交）
+
+全仓 AST 普查：`reconfigure` 缺 `errors=` 的调用共 **15 处**，全在 D4 独占清单之外
+（护栏 `tests/unit/test_capture_encoding_guard.py` 只扫 pytest 收集面 test_*/_test_*/conftest，
+这些文件不在收集面内，护栏管不到）。风险分级：
+
+- **高（模块顶层，CI 直接调）**：
+  - `积木库/评估/ci_eval.py:53` —— gitea 积木库门禁直接 `python 积木库/评估/ci_eval.py --并发 8`，顶层 try/except 包裹
+  - `积木库/评估/跑分.py:36` —— 跑分脚本顶层 try/except 包裹
+- **中（函数体内，CLI 路径）**：`cli/light.py:1080`（`_ensure_utf8()`，AI Copilot 子命令）
+- **低（工具链脚本函数体内）**：`tools/ai_copilot/` 下 12 处（build_sft_dataset.py:2203、
+  build_sft_dataset_v10.py:1591、cli.py:119、diagnose_loss.py:169、download_model.py:144、
+  local_infer.py:573、merge_and_convert.py:349、pipeline.py:444、prompt_generator.py:180、
+  snippets.py:231、train_cpu_lora.py:546、train_gpu_lora.py:1038）
+
+修复动作统一为 `sys.stdout.reconfigure(encoding='utf-8', errors='replace')`。
+**先修 1、2 号**（模块顶层 + CI 判绿路径）。修完复查：`git grep "reconfigure(encoding"`。
+
+### 14.2 `stdlib/列表工具.light` 第 1 行注释与事实不符（D4-2 核验发现）
+
+`stdlib/列表工具.light:1` 注释声称「无同名 .py 兜底，优先加载 .light」，但实测存在
+`stdlib/列表工具.py`（1813 字节）。该 .light 是真实现（decl=10，有设/当/返回算法体），
+不是转手调用，**不构成造假**，但注释撒谎。应改为如实说明「有同名 .py，但本文件是
+自举实现，加载优先级见 module_resolver」。属轻量文档债务，交主线顺手修。
+
+### 14.3 `tests/_test_*.py` 的 legacy 脚本直跑与 pytest 收集双轨（D4-3 核实）
+
+`pyproject.toml:88` `python_files = ["test_*.py", "_test_*.py"]` 会让 `_test_*.py`
+同时被 pytest 收集；github ci.yml 的 Legacy Feature Tests 步用 `python xxx.py` 直跑
+同一批文件（本机实测 4 脚本全绿 rc=0）。两条轨覆盖相同文件、判据一致（新增失败即红），
+但存在「改了 pytest 收集行为却没同步直跑脚本」的维护风险，登记备忘。
+
+### 14.4 D4-1 基线从 394 降到 358 的存量清理（合并点已核，无需动作）
+
+C4 重写 `tests/test_async.py`（802 行变更）清掉了 37 条存量违规（string-assert 36 +
+其他 1）；B4 修掉 `test_agent_tools_light.py` 1 条。合并后基线重建为 **358 条**
+（string-assert 65 + assertin-string 113 + upper-bound 2 + lower-bound 26 + not-none 152），
+与任务书 §D4-1 预估的 390-400 有偏差，偏差来源 = C4 实际清存量，**不是**门禁口径问题。
+基线 `built_from_commit` 已指向合并后提交。

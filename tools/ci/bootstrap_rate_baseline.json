@@ -1,9 +1,9 @@
 {
   "version": 2,
   "note": "自举率基线快照：文件维度自举率只许升不许降；影子数只许降不许升。行维度虚高，不许引用。口径见 tools/ci/bootstrap_rate.py docstring。",
-  "file_dim_rate": 0.2463768115942029,
-  "stdlib_light_total": 69,
-  "stdlib_light_has_impl": 17,
+  "file_dim_rate": 0.2571428571428571,
+  "stdlib_light_total": 70,
+  "stdlib_light_has_impl": 18,
   "shadow_count": 53,
-  "built_from_commit": "e1dbfc3aa1e2"
+  "built_from_commit": "8c7d6292b066"
 }
