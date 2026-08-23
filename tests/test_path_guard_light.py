@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-任务D2-4：路径护栏（纯光明实现）定向测试
+任务D2-4 + B4：路径护栏（纯光明实现）定向测试
 
 **先说清这测的是什么**：`stdlib/路径护栏.light` 是防误操作的**路径名判定**，
 不是安全沙箱。所以本文件不写「攻击被挡住」式断言，只钉两类事实：
   (a) 六条口径按设计生效（见 stdlib/路径护栏.light 头部）；
-  (b) 两条**已知缺口确实存在**（硬链接、TOCTOU 窗口）——反向钉住，防止后人
-      把它当安全边界用；哪天有人以为补上了，那两条会红。
+  (b) 两条缺口（硬链接、TOCTOU 窗口）在 B4 轮已裁决做真防护并**翻成正向
+      断言**：硬链接以「拒绝 st_nlink>1 的文件」封住，TOCTOU 以「打开后
+      os.fstat 复核」收窄——对应的测试现在断言缺口被补上（见
+      test_硬链接指向根外被拒 / test_TOCTOU复核抓住判定后替换）。
 
 覆盖：
   - 根内可读写（写入→续写→读取 往返）、核准返回归一化路径
@@ -22,10 +24,12 @@ skip 掩盖分析（本机实跑结果：Windows 上 0 skip，junction 与硬链
   - `test_链接指向外部被拒` 内部两级回退：os.symlink（要管理员/开发者模式）→
     mklink /J。**两者都失败才 skip**，那时掩盖的是「链接逃逸从未真机验证」。
     本机实测走的是哪条会在断言消息里带出来。
-  - `test_junction指向外部被拒` / `test_硬链接是已知封不住的缺口` /
-    `test_TOCTOU窗口真实存在` 三条带 `skipif(platform != win32)`：在 POSIX 上
-    跳过掩盖的是——这三条结论在 POSIX 上仍只是推导（POSIX 无 junction 概念，
-    要改用 symlink/os.link 复现），**未实测**。
+  - `test_junction指向外部被拒` / `test_硬链接指向根外被拒` 两条带
+    skipif(platform != win32)：在 POSIX 上跳过掩盖的是——这两条结论在 POSIX
+    上仍只是推导（POSIX 无 junction 概念，要改用 symlink/os.link 复现），
+    **未实测**。
+  - `test_TOCTOU复核抓住判定后替换` 用普通文件替换复现（os.replace +
+    重建），跨平台可跑，无 skip。
   - `test_读失败不被吞成空bytes` 不是 skip，但有一处覆盖不到：Windows 上对目录
     os.open 就直接 PermissionError，所以模块里手写的「os.read 失败 → 先关句柄
     再抛」那条分支本次没被走到（见自测报告未实测项）。
@@ -254,10 +258,9 @@ class Test白名单扩展与环境:
 
 
 class Test口径与已知缺口:
-    """本类里有两条测试**断言缺口存在**，不是断言缺口被补上。
-
-    哪天有人以为补上了，它们会红，从而逼他同时改 stdlib/路径护栏.light 的头部
-    结论与 自测报告_任务D2.md ——防止「护栏被当成沙箱用」这类误读悄悄发生。
+    """本类里的两条缺口测试（硬链接、TOCTOU）在 B4 轮已从「断言缺口存在」
+    翻转为「断言缺口被补上」——同时更新了 stdlib/路径护栏.light 的头部结论
+    与机读 安全声明（代码修了声明没改 = 交付缺陷，第三轮 D3 被退回过）。
     """
 
     def test_安全声明自报不是安全边界(self, tmp_path):
@@ -290,14 +293,19 @@ class Test口径与已知缺口:
         assert 护栏.检查(str(tmp_path / "还没建" / "更深" / "新文件.txt")) is True
         assert 护栏.检查(str(tmp_path.parent / "还没建" / "新文件.txt")) is False
 
+
     @pytest.mark.skipif(
         sys.platform != "win32",
         reason="用 Windows 的 mklink /H 建硬链接。POSIX 上跳过掩盖了："
-               "「硬链接在 POSIX 上同样封不住」这一条仍是推导，未实测。",
+               "「st_nlink>1 拒绝」在 POSIX 上是同一套 os.stat 语义（st_nlink 同为真值），"
+               "但本用例的链路未在 POSIX 实测，仍属推导。",
     )
-    def test_硬链接是已知封不住的缺口(self, tmp_path):
-        """硬链接没有可解析的目标，realpath 原样返回根内路径 → 护栏判「在内」，
-        而读到的数据其实在根外。**本测试钉住这个缺口存在。**"""
+    def test_硬链接指向根外被拒(self, tmp_path):
+        """B4-2：根内硬链接指向根外文件——拒绝 st_nlink>1 的文件。
+
+        原来这是「封不住的缺口」钉子（realpath 解析不了硬链接，判「在内」、
+        数据在根外）。本轮裁决做真防护：检查必须判拒、读取必须抛错；
+        根内普通文件（nlink==1）不得被误伤。"""
         根 = tmp_path / "_taskD2_硬链根"
         根.mkdir()
         外文件 = tmp_path / "_taskD2_硬链目标.txt"
@@ -307,34 +315,57 @@ class Test口径与已知缺口:
                            capture_output=True, text=True, timeout=10)
         if r.returncode != 0 or not os.path.exists(str(链)):
             pytest.xfail("本机 mklink /H 失败（跨卷或策略禁用）。掩盖的事实是："
-                         "硬链接缺口本次未实测，头部那句结论仍只是推导")
+                         "硬链接拒绝本次未实测，结论仍只是推导")
         护栏 = 路径护栏(str(根), {})
-        assert 护栏.检查(str(链)) is True                          # 缺口：判在内
-        assert 护栏.读取(str(链)) == "根外的数据".encode("utf-8")   # 数据却在根外
+        # 修复后：硬链接不再算「在护栏内」——检查判拒、读取/写入抛错
+        assert 护栏.检查(str(链)) is False, "硬链接文件必须被判拒（st_nlink>1）"
+        with pytest.raises(路径护栏错误):
+            护栏.读取(str(链))
+        with pytest.raises(路径护栏错误):
+            护栏.写入(str(链), b"x")
+        # 误伤面检查：根内普通文件（nlink==1）不受影响
+        普通 = 根 / "_taskD2_普通.txt"
+        普通.write_bytes("普通".encode("utf-8"))
+        assert 护栏.检查(str(普通)) is True
+        assert 护栏.读取(str(普通)) == "普通".encode("utf-8")
+        # 原文件在根外照旧被拒（护栏对越界的判定没有因为 nlink 检查而松动）
+        assert 护栏.检查(str(外文件)) is False
 
-    @pytest.mark.skipif(
-        sys.platform != "win32",
-        reason="用 Windows 的 mklink /J 制造替换。POSIX 上跳过掩盖了："
-               "「TOCTOU 窗口」在 POSIX 上未实证（原理相同，用 symlink 复现）。",
-    )
-    def test_TOCTOU窗口真实存在(self, tmp_path):
-        """判定通过之后、真正 open 之前，路径可以被换掉。**本测试钉住窗口存在**，
-        证明护栏只拦失误、拦不住并发替换。"""
+    def test_TOCTOU复核抓住判定后替换(self, tmp_path):
+        """B4-3：判定通过之后、真正 open 之前路径被换掉——打开后 fstat 复核
+        必须抓住 inode 变化并拒绝，不许读到被换入的文件。
+
+        用 护栏.测试钩子 注入替换：钩子在「核准之后、os.open 之前」被调用。
+        原来这是「窗口真实存在」钉子（判定后替换拦不住）；本轮裁决做真防护，
+        窗口必须被复核收窄。跨平台：普通文件替换即可复现，不依赖 junction。
+        """
         根 = tmp_path / "_taskD2_窗口根"
-        (根 / "会被换掉").mkdir(parents=True)
-        外 = tmp_path / "_taskD2_窗口外"
-        外.mkdir()
+        根.mkdir()
         护栏 = 路径护栏(str(根), {})
-        判 = 护栏.核准(str(根 / "会被换掉" / "文件.txt"))     # 此刻：在根内
-        assert 判 == os.path.normcase(os.path.realpath(str(根 / "会被换掉" / "文件.txt")))
-        os.rmdir(str(根 / "会被换掉"))
-        r = subprocess.run(["cmd", "/c", "mklink", "/J", str(根 / "会被换掉"), str(外)],
-                           capture_output=True, text=True, timeout=10)
-        if r.returncode != 0:
-            pytest.xfail("本机 mklink /J 失败。掩盖的事实是：TOCTOU 窗口本次未实证，"
-                         "头部那句「存在 TOCTOU 窗口」仍只是推导")
-        # 同一个原始入参，现在解析到根外——判定早已发生，护栏拦不住这次替换
-        assert 护栏.检查(str(根 / "会被换掉" / "文件.txt")) is False
+        目标 = 根 / "_taskD2_文件.txt"
+        目标.write_bytes("内部数据".encode("utf-8"))
+        备份 = 根 / "_taskD2_被挪走的旧inode.txt"
+        calls = []
+
+        def 换掉(实):
+            # 判定后、打开前：把目标文件换成另一个 inode（旧文件挪走）
+            calls.append(实)
+            os.replace(str(目标), str(备份))
+            目标.write_bytes("外部数据".encode("utf-8"))  # 新 inode，内容不同
+
+        护栏.测试钩子 = 换掉
+        try:
+            结果 = 护栏.读取(str(目标))
+        except Exception as 错误:
+            结果 = 错误
+        finally:
+            护栏.测试钩子 = None
+        assert len(calls) == 1, "测试钩子必须被调用（否则用例自身失效）"
+        assert isinstance(结果, Exception), \
+            f"读取必须被复核拦下（inode 变了），实际竟成功返回：{结果!r}"
+        assert "TOCTOU" in str(结果), f"错误消息必须点明 TOCTOU，实际：{结果!r}"
+        # 复核拒绝的是「读进被换入的文件」；旧 inode 的数据没有被侧信道读出
+        assert 备份.read_bytes() == "内部数据".encode("utf-8")
 
 
 class Test读写不吞错:
