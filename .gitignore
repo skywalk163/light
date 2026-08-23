@@ -198,6 +198,10 @@ src/test_*.py
 # （check_*.py 会误伤闸门脚本，*.txt 会误伤基线清单）
 !tools/ci/check_regression.py
 !tests/ci_baseline_failures.txt
+# 跨平台闸门的基线（第四轮非阻塞项-1 新增）：同样被上面第 195 行的 `*.txt` 吃掉。
+# 漏了这条豁免，CI 上 `--baseline` 指向一个不存在的文件，闸门整条抬错——
+# 与 doc_examples_baseline.json 是同一类坑，第三轮已经踩过一次。
+!tests/ci_baseline_failures_crossplat.txt
 # 文档代码块闸门的分类基线：被第 46 行的全局 *.json 误伤。
 # 不入库的话 test_doc_examples_gate.py 在干净克隆里会 FileNotFoundError，闸门整条失效。
 !tests/unit/doc_examples_baseline.json

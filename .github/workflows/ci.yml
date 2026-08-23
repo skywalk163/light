@@ -125,6 +125,30 @@ jobs:
           pytest tests/test_parser.py tests/test_lexer.py tests/test_light_syntax.py tests/test_edge_cases.py tests/test_commands.py tests/test_module_system.py tests/test_summary.py -q --junitxml=.ci/root_other.xml 2>&1 || true
           test -f .ci/root_other.xml
 
+      # 合并期补：给 root_other.xml 接上真正的消费者。
+      # 原来这份 junit 产出后没有任何步骤读它，只有上一步的 `test -f` 看一眼文件在不在——
+      # 而 pytest 遇到 collect error 照样会写出 junit，`test -f` 因此过得去（D4-3 的探针
+      # 已实测过这一点：步内绿、是回归闸门把它抓出来的）。跨平台 job 从来没有闸门，
+      # 于是「Windows/macOS 上整批一个用例都没跑起来」是静默通过的。
+      #
+      # 口径不变（关键）：这批 classname 是 tests.test_*，命中 --soft-classname → 失败只报不拦，
+      # 与 Linux 侧一致；而 collect error 在 junit 里 classname 是空串，
+      # fnmatch('', 'tests.test_*') 为假 → **不被豁免、照样判红**。
+      # 也就是说这道闸门只新增「没跑起来」这一种拦截力，不改变任何既有失败的阻塞性。
+      # 基线用单独的空文件，不复用 Linux 那份 12 条 e2e 欠账——否则每次跨平台跑都会
+      # 把那 12 条报成「已不再打红、记得更新基线」，那是错的建议。理由见文件头。
+      - name: 回归闸门（跨平台·只拦「没跑起来」）
+        if: runner.os != 'Linux'
+        shell: bash
+        run: |
+          python tools/ci/check_regression.py \
+            --junit .ci/root_other.xml \
+            --baseline tests/ci_baseline_failures_crossplat.txt \
+            --soft-classname 'tests.test_*' \
+            --soft-classname 'tests._test_*'
+
+
+
       # D3-3：纯光明测试显式清单（soft 可见性 + 耗时归账）。
       # 9 个文件走 soft 口径：结尾 || true，失败放行但 junit 照产。
       # D4-3：补 junitxml + test -f 兜底（原来只写 || true、注释声称 junit 照产，

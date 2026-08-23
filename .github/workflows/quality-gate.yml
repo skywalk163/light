@@ -3,12 +3,31 @@
 # 在 PR 和 push 到 main/4.0dev 时运行：
 #   1. Lint 检查（flake8）
 #   2. 运行全量测试
-#   3. 检查测试覆盖率（不低于 80%）
+#   3. 检查测试覆盖率（阈值 25%，见下「口径」）
 #   4. 构建验证
 #
 # 如果任何步骤失败，PR 将被标记为未通过检查。
+#
+# ── 口径与执行现状（2026-08-23 合并期复核补记）─────────────────────────
+# **本文件当前不在任何地方执行。** 仓库只有两个远端：gitea（192.168.1.5，读
+# `.gitea/workflows/`）与 origin（gitcode.com，不跑 GitHub Actions）。整个
+# `.github/workflows/` 树是镜像/文档，没有 GitHub 远端来触发它。
+# 这也正是 `.github/workflows/ci.yml` 里 flake8 那步的 `rc=$?` 不可达
+# 能一直没被发现的原因——它从来没真跑过。改这里的东西不会影响判绿，
+# 但仍要保持真实：文档说谎比没有文档更坏。
+#
+# 与 `.github/workflows/ci.yml` 的三处口径差异（**有意保留、不是漏改**）：
+#   1. flake8：本文件是硬判红（有违规即拦）；ci.yml 是「rc>1 才拦，rc=1
+#      有违规不阻塞」。本文件更严，不下调——收紧不需要理由，放宽才需要。
+#   2. 扫描范围：本文件多扫一个 `contrib`。
+#   3. 测试口径：本文件是「全量 + 覆盖率」，ci.yml 是「基线对比、只拦新增」。
+#      两者并存时以 ci.yml（= `.gitea` 权威副本的镜像）为发布准入判据。
+#
+# 覆盖率阈值 25% 是当前真值口径：原文件头写「不低于 80%」而步骤名与代码都是
+# 25%，两处对不上——按代码订正文件头，不是把阈值抬到 80%（那会一夜长红）。
 
 name: Quality Gate
+
 
 on:
   push:
@@ -108,22 +127,29 @@ jobs:
 
       - name: 检查测试覆盖率（不低于 25%）
         run: |
+          # 合并期修：原来这里是 `except Exception: print('无法解析...跳过'); sys.exit(0)`——
+          # 覆盖率报告缺失或损坏就当通过，是标准的假绿：上一步 `continue-on-error: true`
+          # 一旦让 pytest 崩在生成 coverage-full.xml 之前，这道门禁就永远绿。
+          # 改成解析失败即判红：门禁的判据不可用 ≠ 判据通过。
           python -c "
           import sys, xml.etree.ElementTree as ET
           try:
               t = ET.parse('coverage-full.xml')
-              r = t.getroot()
-              p = float(r.get('line-rate', 0)) * 100
-              print(f'测试覆盖率: {p:.2f}%')
-              if p >= 25.0:
-                  print(f'覆盖率达标 ({p:.2f}% >= 25.0%)')
-              else:
-                  print(f'覆盖率不足 ({p:.2f}% < 25.0%)')
-                  sys.exit(1)
-          except Exception as e:
-              print(f'无法解析覆盖率报告: {e}, 跳过')
-              sys.exit(0)
+          except (OSError, ET.ParseError) as e:
+              print(f'覆盖率报告不可用（{e}）——门禁判据缺失，判红而不是跳过')
+              sys.exit(1)
+          rate = t.getroot().get('line-rate')
+          if rate is None:
+              print('coverage-full.xml 里没有 line-rate 属性，判红')
+              sys.exit(1)
+          p = float(rate) * 100
+          print(f'测试覆盖率: {p:.2f}%')
+          if p < 25.0:
+              print(f'覆盖率不足 ({p:.2f}% < 25.0%)')
+              sys.exit(1)
+          print(f'覆盖率达标 ({p:.2f}% >= 25.0%)')
           "
+
 
       - name: 上传覆盖率报告
         uses: actions/upload-artifact@v7

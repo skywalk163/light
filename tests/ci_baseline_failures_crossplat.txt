@@ -1,0 +1,20 @@
+# 跨平台（Windows / macOS）root 测试的回归基线：**故意为空**。
+# 身份格式：junit 的 classname::name
+#
+# 为什么单独一份、而且是空的：
+#   跨平台 job 跑的是 tests/test_*.py 那批，classname 是 tests.test_*，全部命中
+#   `--soft-classname 'tests.test_*'` —— 失败只报不拦，与 Linux 侧口径一致，
+#   所以这份基线里本来就不该有任何条目。
+#   这道闸门唯一新增的拦截力是「整批没跑起来」：pytest collect error 在 junit 里
+#   写成 classname 为空串的 testcase + <error>，fnmatch('', 'tests.test_*') 为假
+#   → 不被豁免 → 判红。（本机实测：collect error 时 pytest 照样写出 junit，
+#   所以老口径里只有 `test -f` 的存在性检查是过得去的，静默放行。）
+#
+# 不复用 tests/ci_baseline_failures.txt 的原因：那份是 Linux e2e 的 12 条存量欠账，
+# 拿来对比这份 junit 会让 12 条全部被报成「已不再打红、记得更新基线」——
+# 一句在跨平台 job 上完全错误的建议。宁可多一个空文件，不要一段误导人的输出。
+#
+# 刷新（正常情况下不需要）：
+#   python3 tools/ci/check_regression.py --junit .ci/root_other.xml \
+#       --write-baseline tests/ci_baseline_failures_crossplat.txt \
+#       --soft-classname 'tests.test_*' --soft-classname 'tests._test_*'
