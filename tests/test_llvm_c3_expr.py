@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from llvm.compiler import compile_source_typed, find_clang  # noqa: E402
+from _native_helpers import require_clang  # noqa: E402  TODO(移交:A7)
 from llvm运行时 import 取运行时对象, 取链接库参数  # noqa: E402
 
 _CODEGEN_TYPED = os.path.join(
@@ -33,7 +34,7 @@ _CODEGEN_TYPED = os.path.join(
 def _run_native(source: str, timeout: int = 20):
     """`.light → IR → clang → exe` 全链路，返回 (returncode, stdout)。"""
     ir = compile_source_typed(source)
-    clang = find_clang()
+    clang = require_clang()  # TODO(移交:A7): 缺 clang 时 skip 而非 error
     runtime_o = 取运行时对象(clang)
     with tempfile.TemporaryDirectory(prefix='_taskC3_') as tmp:
         ir_path = os.path.join(tmp, 'probe.ll')
@@ -211,3 +212,99 @@ def test_pass_stmt_在段落体内():
         '  返回 7。\n'
         '打印 甲()。\n',
         ['7'])
+
+
+# =============================================================================
+# B7 选做：双后端一致性（同一份 .light 走原生腿与转译后端，断 stdout 逐字节一致）
+# =============================================================================
+
+def _run_transpiled(source: str, timeout: int = 20):
+    """转译后端：.light -> Python -> 运行，返回 (returncode, stdout)。"""
+    import tempfile
+    with tempfile.NamedTemporaryFile(
+            mode='w', suffix='.light', prefix='_taskB7_transpiled_',
+            delete=False, encoding='utf-8') as f:
+        f.write(source)
+        src_path = f.name
+    try:
+        result = subprocess.run(
+            [sys.executable, '-m', 'cli.light_unified', 'run', src_path],
+            capture_output=True, text=True, encoding='utf-8', errors='replace',
+            timeout=timeout)
+        return result.returncode, result.stdout.strip()
+    finally:
+        os.unlink(src_path)
+
+
+def _assert_dual_backend(source: str, expected_lines=None):
+    """同一份 .light 走原生腿和转译后端，断 stdout 逐字节一致。
+
+    若 expected_lines 给定，同时断言两边都匹配期望输出。
+    """
+    native_rc, native_out = _run_native(source)
+    assert native_rc == 0, f'原生腿退出码 {native_rc}，stdout: {native_out!r}'
+    trans_rc, trans_out = _run_transpiled(source)
+    assert trans_rc == 0, f'转译后端退出码 {trans_rc}，stdout: {trans_out!r}'
+    assert native_out == trans_out, \
+        f'双后端 stdout 不一致:\n  原生腿: {native_out!r}\n  转译后端: {trans_out!r}'
+    if expected_lines is not None:
+        expected = '\n'.join(s.strip() for s in expected_lines)
+        assert native_out == expected, \
+            f'stdout 与期望不符:\n  期望: {expected!r}\n  实际: {native_out!r}'
+
+
+def test_双后端一致_基本算术():
+    # 注意：不用「除以」——原生腿整数除法(4/3=1) vs 转译后端浮点除法(4/3=1.333)
+    # 这是已知语义差异，归因记录在自测报告中。用「整除」保证一致。
+    _assert_dual_backend(
+        '设 甲 为 3。\n'
+        '设 乙 为 4。\n'
+        '打印 甲 加 乙。\n'
+        '打印 甲 乘 乙。\n'
+        '打印 乙 减 甲。\n'
+        '打印 乙 整除 甲。\n',
+        ['7', '12', '1', '1'])
+
+
+def test_双后端一致_字符串拼接():
+    _assert_dual_backend(
+        '设 名 为 "光明"。\n'
+        '设 版本 为 "4.2"。\n'
+        '打印 名 加 版本。\n',
+        ['光明4.2'])
+
+
+def test_双后端一致_条件分支():
+    _assert_dual_backend(
+        '设 甲 为 10。\n'
+        '如果 甲 大于 5：\n'
+        '  打印 "大"。\n'
+        '否则：\n'
+        '  打印 "小"。\n',
+        ['大'])
+
+
+def test_双后端一致_循环():
+    _assert_dual_backend(
+        '设 甲 为 0。\n'
+        '当 甲 小于 5：\n'
+        '  打印 甲。\n'
+        '  设 甲 为 甲 加 1。\n',
+        ['0', '1', '2', '3', '4'])
+
+
+def test_双后端一致_段落调用():
+    _assert_dual_backend(
+        '段落 平方(甲)：\n'
+        '  返回 甲 乘 甲。\n'
+        '打印 平方(5)。\n'
+        '打印 平方(7)。\n',
+        ['25', '49'])
+
+
+def test_双后端一致_列表操作():
+    _assert_dual_backend(
+        '设 甲 为 [1, 2, 3]。\n'
+        '打印 甲[0]。\n'
+        '打印 甲[2]。\n',
+        ['1', '3'])
