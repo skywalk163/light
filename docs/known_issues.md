@@ -669,7 +669,11 @@ strict、整场级联炸」的坑（见十四节），要单独一轮带反跑�
 - 处置：`docs/从光明到LLVM.md §1.0` 新增「工具链底线」小节 + §8.1 两条 Q；
   `.gitea/workflows/ci.yml` 新增「工具链盘点（clang 版本·只报告）」一步
   （**只报告不判绿**：缺 clang 时原生测试按设计 skip，不该因宿主 clang 旧就整轮红）。
-- 未验证：FreeBSD runner 自带 clang 的版本（报告 §5 第 2 条），CI 那步跑起来就能看到。
+- 未验证：~~FreeBSD runner 自带 clang 的版本~~ —— **gitea run 94（2026-08-24）已实测**：
+  `FreeBSD clang version 19.1.7`，**≥18，满足底线**，新加那步没打警告。
+  同一份日志还坐实了 #L3 的隐性依赖：`Requirement already satisfied: cryptography in
+  /usr/local/lib/python3.11/site-packages (44.0.3)` —— 这台 runner 上新加的 pip 装依赖
+  是空转，蹭的就是系统 site-packages 那份；换台干净 runner 才会真装。
 
 ### 17.2 #L2 [中] POSIX 侧原生 TLS 是 stub（有壳无实现）
 
