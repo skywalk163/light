@@ -13,11 +13,13 @@ test_pure_light_hook.py —— 验证 stdlib/_light_import_hook.py 的「纯光�
 """
 import glob
 import os
+import re
 import sys
 
 import pytest
 
-_STDLIB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "stdlib")
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_STDLIB = os.path.join(_ROOT, "stdlib")
 if _STDLIB not in sys.path:
     sys.path.insert(0, _STDLIB)
 import _light_import_hook
@@ -164,3 +166,34 @@ def test_任何light都不许应答仅大小写不同的标准库名():
             if finder.find_spec(标准名) is not None:
                 劫持.append((name, 标准名))
     assert 劫持 == [], "以下 .light 会劫持仅大小写不同的标准库模块：%s" % 劫持
+
+
+# ── 第九轮 S1 合并点：门面导出面必须盖住全部消费方（不只 examples/tests）──────────
+# 症状：C9 把 文件系统.py 换成 文件系统.light 门面时按「examples/tests 用到的名」数导出，
+# 漏了 积木库/工具/列目录文件.light 要的 文件列表 → CI 的积木库闸门红（可运行率
+# 0.9945 < 1.0、问题块数 1），而本机七道门禁与全部 pytest 全绿，红只在 CI 才出现。
+# 本判据把「积木库消费的名字」纳入本机可跑范围：凡 stdlib 有纯光明门面的模块，
+# 积木库里 `从《模块》导入《名》` 的名字必须真在门面的 导出 行里。
+_BLOCKS = os.path.join(_ROOT, "积木库")
+_IMPORT_RE = re.compile(r"从《([^》]+)》导入《([^》]+)》")
+
+
+def test_积木库导入的名字必须在纯光明门面的导出面内():
+    门面 = {}
+    for full in glob.glob(os.path.join(_STDLIB, "*.light")):
+        text = open(full, encoding="utf-8").read()
+        if _MAGIC not in "".join(text.splitlines(keepends=True)[:2]):
+            continue  # 不是门面（没被钩子接管），仍走同名 .py，不受本判据约束
+        导出名 = set()
+        for line in text.splitlines():
+            if line.startswith("导出 "):
+                导出名 |= set(line[3:].rstrip("。").split())
+        门面[os.path.splitext(os.path.basename(full))[0]] = 导出名
+    assert 门面, "stdlib 里一个纯光明门面都没找到，判据不成立"
+
+    缺口 = []
+    for full in glob.glob(os.path.join(_BLOCKS, "**", "*.light"), recursive=True):
+        for 模块, 名 in _IMPORT_RE.findall(open(full, encoding="utf-8").read()):
+            if 模块 in 门面 and 名 not in 门面[模块]:
+                缺口.append((os.path.relpath(full, _ROOT), 模块, 名))
+    assert 缺口 == [], "积木库要的名字不在门面导出面里（CI 积木库闸门会红）：%s" % 缺口
