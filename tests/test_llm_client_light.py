@@ -129,6 +129,25 @@ class FakeServer(threading.Thread):
                 b"data: [DONE]\r\n\r\n",
             ])
             return _resp_200_event_stream([body])
+        if m == "stream_usage":
+            # 带 usage 的流式响应：含一个 choices 为空数组的 usage-only 帧（OpenAI 流式
+            # include_usage 的标准形态）。本用例钉住「用量」在收尾块被正确读出。
+            body = b"".join([
+                _sse_frame({"choices": [{"delta": {"role": "assistant", "content": "你"}, "finish_reason": None}]}),
+                _sse_frame({"choices": [{"delta": {"content": "好"}, "finish_reason": "stop"}]}),
+                _sse_frame({"choices": [], "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}}),
+                b"data: [DONE]\r\n\r\n",
+            ])
+            return _resp_200_event_stream([body])
+        if m == "stream_nousage":
+            # 不带 usage 的响应：只有内容帧，绝无 usage 字段。
+            # 钉住「用量」是空字典 {} 而非 {"输入词元": 0, ...}（防止「没拿到」与「真是 0」混为一谈）。
+            body = b"".join([
+                _sse_frame({"choices": [{"delta": {"role": "assistant", "content": "你"}, "finish_reason": None}]}),
+                _sse_frame({"choices": [{"delta": {"content": "好"}, "finish_reason": "stop"}]}),
+                b"data: [DONE]\r\n\r\n",
+            ])
+            return _resp_200_event_stream([body])
         if m == "nonstream":
             payload = {"choices": [{"message": {"role": "assistant", "content": "非流式回复"}}]}
             body = json.dumps(payload).encode("utf-8")
@@ -252,6 +271,36 @@ class TestHTTPError:
         assert ei.type.__name__ == "HTTP错误"
         assert ei.value.状态 == 401
 
+
+
+class TestUsageCollection:
+    """§3.2 usage 采集：增量块第七字段「用量」，收尾块带真实三数字；取不到则空字典（非 0）。"""
+
+    def test_closing_block_carries_usage_numbers(self, fake_server):
+        c = _client(fake_server("stream_usage"))
+        blocks = list(c.流式对话([{"role": "user", "content": "hi"}]))
+        终块 = [b for b in blocks if b["结束"]][0]
+        assert 终块["用量"] == {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+
+    def test_usage_only_frame_carries_usage_and_not_terminates(self, fake_server):
+        c = _client(fake_server("stream_usage"))
+        blocks = list(c.流式对话([{"role": "user", "content": "hi"}]))
+        # usage-only 帧本身不是终止帧，且带 用量
+        用量帧 = [b for b in blocks if b["用量"] != {} and not b["结束"]]
+        assert len(用量帧) == 1
+        assert 用量帧[0]["用量"] == {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+        # 内容帧的 用量 是空字典（尚未到 usage）
+        内容帧 = [b for b in blocks if not b["结束"] and b["内容增量"] != ""]
+        assert all(b["用量"] == {} for b in 内容帧)
+
+    def test_no_usage_yields_empty_dict_not_zero(self, fake_server):
+        c = _client(fake_server("stream_nousage"))
+        blocks = list(c.流式对话([{"role": "user", "content": "hi"}]))
+        终块 = [b for b in blocks if b["结束"]][0]
+        assert 终块["用量"] == {}
+        # 整条链路没有任何一块的 用量 是 0 或含 0 数字
+        for b in blocks:
+            assert b["用量"] == {}
 
 
 # ---- 真实 API（无 key 时 skip，key 仅从环境变量读取）----
