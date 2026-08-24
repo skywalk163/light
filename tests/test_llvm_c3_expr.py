@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""任务 C3-2：原生腿补的几个表达式——真跑，不许只断言 IR 文本。
+"""任务 C3-2 / A9-S2：原生腿补的几个表达式——真跑，不许只断言 IR 文本。
 
 按「判据表靠源码级断言守单点 / 新能力必须真跑并断言 stdout」的既定口径：
 `.light → IR → clang → exe` 全链路跑起来，断言 stdout（或断言炸得响亮）。
@@ -9,7 +9,9 @@
 · DictLiteral 真跑（harness 消息/载荷全是字典，原生腿承载 harness 的硬前提）
 · StringInterpolation 真跑（降级实现：拆段 + 字符串拼接）
 · RangeExpr（经 `范围()` 内置）真跑
-· 未支持表达式的报错路径（C3-1）与 SliceExpr 的指路文案（C3-2 决策：不做切片）
+· SliceExpr 真跑（A9-S2：字符串切片 + 列表切片）
+· ListComprehension 真跑（A9-S2：[表达式 遍历 变量 于 列表 若 条件]）
+· 未支持表达式的报错路径（C3-1）
 · PassStmt 编成空操作（C3-4）
 """
 
@@ -125,7 +127,6 @@ def test_range_expr_真跑():
 # =============================================================================
 
 _拒绝用例 = [
-    ('字典推导', '打印([数 乘 2 遍历 数 于 [1, 2]])。\n', 'ListComprehension'),
     ('集合字面量表达式位', '设 甲 为 {1, 2}。\n', 'SetLiteral'),
     ('元组字面量', '设 甲 为 (1, 2)。\n', 'TupleLiteral'),
     ('Lambda', '设 平方 为 接收 甲：返回 甲 乘 甲。\n', 'LambdaExpression'),
@@ -149,12 +150,66 @@ def test_未支持表达式必须抛错且文案含类型名(名称, 源码, 类
     assert '转译后端' in 文案, f'{名称}：文案没给出可走的后端，实际是：{文案}'
 
 
-def test_切片表达式报错指路():
-    """SliceExpr 本轮不做切片：报错要指到可用的替代，不许藏成「未定义段落」。"""
-    with pytest.raises(NotImplementedError) as ei:
-        compile_source_typed('设 甲 为 [1, 2, 3]。\n设 乙 为 甲[1:2]。\n')
-    文案 = str(ei.value)
-    assert 'SliceExpr' in 文案 and '截取' in 文案, f'切片文案没指路，实际是：{文案}'
+def test_切片表达式字符串真跑():
+    """SliceExpr A9-S2：字符串切片 [start:stop] / [start:] / [:stop] / [:] 真跑。"""
+    _assert_stdout(
+        '设 s 为 "HelloWorld"。\n'
+        '打印 s[0:5]。\n'
+        '打印 s[5:]。\n'
+        '打印 s[:5]。\n'
+        '打印 s[:]。\n'
+        '打印 s[2:7]。\n',
+        ['Hello', 'World', 'Hello', 'HelloWorld', 'lloWo'])
+
+
+def test_切片表达式列表真跑():
+    """SliceExpr A9-S2：列表切片 [start:stop] / [start:] / [:stop] / [:] 真跑。"""
+    _assert_stdout(
+        '设 a 为 [1, 2, 3, 4, 5]。\n'
+        '设 b 为 a[1:3]。\n'
+        '打印 b[0]。\n'
+        '打印 b[1]。\n'
+        '设 c 为 a[3:]。\n'
+        '打印 c[0]。\n'
+        '打印 c[1]。\n'
+        '设 d 为 a[:2]。\n'
+        '打印 d[0]。\n'
+        '打印 d[1]。\n'
+        '设 e 为 a[:]。\n'
+        '打印 e[0]。\n'
+        '打印 e[4]。\n',
+        ['2', '3', '4', '5', '1', '2', '1', '5'])
+
+
+def test_列表推导真跑():
+    """ListComprehension A9-S2：[表达式 遍历 变量 于 列表] 真跑，含条件过滤。"""
+    _assert_stdout(
+        '设 a 为 [1, 2, 3]。\n'
+        '设 b 为 [x 遍历 x 于 a]。\n'
+        '打印 b[0]。\n'
+        '打印 b[1]。\n'
+        '打印 b[2]。\n'
+        '设 c 为 [x 乘 2 遍历 x 于 a]。\n'
+        '打印 c[0]。\n'
+        '打印 c[1]。\n'
+        '打印 c[2]。\n',
+        ['1', '2', '3', '2', '4', '6'])
+
+
+def test_列表推导带条件真跑():
+    """ListComprehension A9-S2：带「若 条件」的列表推导真跑。"""
+    _assert_stdout(
+        '设 a 为 [1, 2, 3, 4, 5]。\n'
+        '设 b 为 [x 遍历 x 于 a 若 x 大于 2]。\n'
+        '打印 b[0]。\n'
+        '打印 b[1]。\n'
+        '打印 b[2]。\n'
+        '设 c 为 [x 乘 x 遍历 x 于 a 若 x 大于 1]。\n'
+        '打印 c[0]。\n'
+        '打印 c[1]。\n'
+        '打印 c[2]。\n'
+        '打印 c[3]。\n',
+        ['3', '4', '5', '4', '9', '16', '25'])
 
 
 def test_未知段落调用报错列出候选():
