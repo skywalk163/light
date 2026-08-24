@@ -59,7 +59,20 @@ r"""语言自举率 + 引 Python 逃逸计数门禁（第三轮 D3-4 建，第�
   - 自举率只许升不许降（基线写进 bootstrap_rate_baseline.json）。
   - **影子数只许降不许升**（D4-2 新增，基线同文件 `shadow_count` 字段）。
   - **自导入命中 > 0 即红**（D4-2 新增，防造假）。
+  - **关键路径自举率只许升不许降**（第七轮 E7 新增子指标，见 `scan_critical_path`；
+    清单数据 `tools/ci/critical_path_modules.json` 可增不可删，基线字段
+    `critical_path_rate` / `critical_path_modules`）。
   - stdlib/lightpub/ 下 .light 数量当前 0、.py 56 —— 记入报告，不设门禁。
+
+第七轮 E7 补的两件事：
+  1. **「引 Python」这条逃逸计数有个大洞**：它只数关键字，而真实逃逸走 `导入 os`
+     再直调 `os.path.isabs` —— 那条通道由 `tools/ci/python_direct_calls.py`
+     单独计数，本脚本不重复判。「引 Python 逃逸 0」这句话六轮来一直真、
+     一直没意义，就是因为只有这里在数。
+  2. **自举率无权重**：22/74 里 `JSON.light`(decl 0) 与 `文件系统.light`(decl 0)
+     都在分母、对分子零贡献，而它们承载评测集读取与报告写盘。主指标口径不动
+     （历史数字要可比），改为新增「关键路径自举率」子指标，遮蔽判定按当前机制：
+     `.light` 首**两行**含魔数「纯光明实现」才取代同名 `.py`。
 
 用法：
   # 对比模式（CI 用）
@@ -286,6 +299,96 @@ def scan_stdlib(root):
     }
 
 
+_魔数 = "纯光明实现"
+_关键路径清单 = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "critical_path_modules.json")
+
+
+def _是纯光明(light_file):
+    """`.light` 首**两行**是否含魔数「纯光明实现」——含则取代同名 `.py`。
+
+    与 `stdlib/_light_import_hook.py::_is_pure_light` 同口径（它读的也是
+    `fh.readline() + fh.readline()`）。**流传的「首行」「`:140-142`」都是过期说法**，
+    现行机制是首两行 + 取代出口；`PURE_LIGHT_ONLY` 这个开关在代码里根本不存在。
+    """
+    try:
+        with open(light_file, encoding="utf-8", errors="replace") as fh:
+            head = fh.readline() + fh.readline()
+        return _魔数 in head
+    except OSError:
+        return False
+
+
+def 读关键路径清单(path=None):
+    """关键路径模块名清单（数据在 tools/ci/critical_path_modules.json，可增不可删）。"""
+    with open(path or _关键路径清单, encoding="utf-8") as fh:
+        data = json.load(fh)
+    模块 = data.get("模块")
+    if not isinstance(模块, list) or not 模块:
+        raise ValueError("关键路径清单缺 `模块` 数组或为空")
+    return 模块
+
+
+def scan_critical_path(root, 模块清单):
+    """关键路径自举率子指标（第七轮 E7 新增，总纲 §3.4）。
+
+    为什么要单开一条：文件维度自举率不含权重，`stdlib/JSON.light`（decl 0）与
+    `stdlib/文件系统.light`（decl 0）都在分母里、对分子零贡献，而它们承载评测集
+    读取与报告写盘。**指标涨了，关键路径自举率还是 0。** 改权重公式会让历史数字
+    不可比，所以这里加一条独立子指标，只看清单里的模块。
+
+    计入分子的条件（两条都要满足）：
+      1. 存在同名 `.light` 且 decl ≥ 1（有真实现，不是纯 `导出` 清单）；
+      2. **未被同名 `.py` 遮蔽**——要么没有同名 `.py`，要么 `.light` 首两行带
+         魔数「纯光明实现」从而取代它（`_是纯光明`）。
+
+    清单里还不存在的模块（本轮 D7 才建的 `JSON核心` / `文件流`）照样进分母：
+    缺的就是缺的，这正是这条指标该疼的地方。
+
+    **不硬编码任何文件名**：D7 新增的取代成员会自动被认出来——它只要挂上魔数、
+    有 decl，这里就自动计入分子，`impl_with_shadow` 也会自动把它列进「取代」。
+    """
+    stdlib_dir = os.path.join(root, "stdlib")
+    明细 = []
+    有实现 = 0
+    for 名 in 模块清单:
+        light = None
+        for full in iter_light_files(stdlib_dir) if os.path.isdir(stdlib_dir) else []:
+            if os.path.basename(full) == 名 + ".light":
+                light = full
+                break
+        if light is None:
+            明细.append({"模块": 名, "计入": False, "原因": "无同名 .light"})
+            continue
+        try:
+            with open(light, encoding="utf-8", errors="replace") as fh:
+                _, decl = count_code_decl(fh)
+        except OSError:
+            明细.append({"模块": 名, "计入": False, "原因": "读不动 .light"})
+            continue
+        影子 = os.path.isfile(light[:-len(".light")] + ".py")
+        纯光明 = _是纯光明(light)
+        if decl < 1:
+            明细.append({"模块": 名, "计入": False,
+                         "原因": "decl 0（只有 导出 清单，实现在同名 .py 里）"})
+            continue
+        if 影子 and not 纯光明:
+            明细.append({"模块": 名, "计入": False,
+                         "原因": "有同名 .py 且首两行无魔数 → 运行期被 .py 遮蔽"})
+            continue
+        有实现 += 1
+        明细.append({"模块": 名, "计入": True,
+                     "原因": "取代同名 .py（魔数在首两行）" if 影子 else "无同名 .py"})
+    总数 = len(模块清单)
+    return {
+        "critical_path_total": 总数,
+        "critical_path_has_impl": 有实现,
+        "critical_path_rate": (有实现 / 总数) if 总数 else 0.0,
+        "critical_path_modules": list(模块清单),
+        "critical_path_detail": 明细,
+    }
+
+
 def count_python_escape(root):
     """全仓扫 .light 里的「引 Python」：返回 (stdlib 计数, 全仓计数, 全仓文件数, 命中清单)。"""
     stdlib_hits = 0
@@ -344,6 +447,11 @@ def main():
     stdlib = scan_stdlib(args.root)
     stdlib_esc, repo_esc, repo_files, repo_detail = count_python_escape(args.root)
     lightpub = count_lightpub(args.root)
+    try:
+        关键路径 = scan_critical_path(args.root, 读关键路径清单())
+    except (OSError, ValueError) as e:
+        print("[自举率门禁] 红：读不动关键路径清单 tools/ci/critical_path_modules.json：%s" % e)
+        return 2
 
     # —— 行维度口径（明确标注：虚高、不许引用）——
     # 这里只做统计展示，不在门禁里使用。
@@ -376,7 +484,17 @@ def main():
               "算法可见性需人工核验（不设门禁，粗判据的已知盲区）："
               % len(stdlib["impl_with_shadow"]))
         for f in stdlib["impl_with_shadow"][:30]:
-            print("       - %s" % f)
+            # 取代 / 被遮蔽：靠首两行魔数区分，不硬编码文件名——
+            # D7 新增的取代成员会自动出现在这里并标成「取代」。
+            纯 = _是纯光明(os.path.join(args.root, f.replace("/", os.sep)))
+            print("       - %s（%s）" % (f, "取代同名 .py（魔数在首两行）" if 纯
+                                        else "⚠ 无魔数 → 运行期仍被同名 .py 遮蔽"))
+    print("[自举率门禁] 关键路径自举率（子指标，只升不降）：%d/%d = %.2f%%"
+          % (关键路径["critical_path_has_impl"], 关键路径["critical_path_total"],
+             关键路径["critical_path_rate"] * 100))
+    for d in 关键路径["critical_path_detail"]:
+        if not d["计入"]:
+            print("       - 未计入：%s —— %s" % (d["模块"], d["原因"]))
     print("[自举率门禁] stdlib 「引 Python」逃逸：%d 处" % stdlib_esc)
     print("[自举率门禁] 全仓 .light 「引 Python」：%d 处 / %d 文件（教学示例不算违规）"
           % (repo_esc, repo_files))
@@ -392,8 +510,10 @@ def main():
                   "先把造假清掉再刷基线。" % len(stdlib["fake_hits"]))
             return 1
         data = {
-            "version": 2,
-            "note": ("自举率基线快照：文件维度自举率只许升不许降；影子数只许降不许升。"
+            "version": 3,
+            "note": ("自举率基线快照：文件维度自举率只许升不许降；影子数只许降不许升；"
+                     "关键路径自举率（第七轮 E7 新增子指标）只许升不许降，"
+                     "且关键路径清单可增不可删（清单数据在 tools/ci/critical_path_modules.json）。"
                      "行维度虚高，不许引用。口径见 tools/ci/bootstrap_rate.py docstring。"
                      "built_from_commit 是**生成基线时的 HEAD**，也就是携带本基线那个提交的父提交；"
                      "若它在当前分支上不可达（git cat-file -e 失败或非 HEAD 祖先），"
@@ -402,6 +522,10 @@ def main():
             "stdlib_light_total": stdlib["stdlib_light_total"],
             "stdlib_light_has_impl": stdlib["stdlib_light_has_impl"],
             "shadow_count": stdlib["shadow_count"],
+            "critical_path_total": 关键路径["critical_path_total"],
+            "critical_path_has_impl": 关键路径["critical_path_has_impl"],
+            "critical_path_rate": 关键路径["critical_path_rate"],
+            "critical_path_modules": 关键路径["critical_path_modules"],
             "built_from_commit": _当前提交(args.root),
         }
         with open(args.write_baseline, "w", encoding="utf-8", newline="\n") as fh:
@@ -467,13 +591,46 @@ def main():
     else:
         print("[自举率门禁] 自举率持平基线 %.2f%%。" % (base_rate * 100))
 
+    # —— E7 新增判据：关键路径自举率只升不降 + 清单可增不可删 ——
+    # 与主指标分开判：主指标是文件维度无权重口径，历史数字要可比，不动它。
+    base_cp_rate = baseline.get("critical_path_rate")
+    base_cp_modules = baseline.get("critical_path_modules")
+    关键路径已判定 = base_cp_rate is not None
+    if not 关键路径已判定:
+        print("[自举率门禁] 警告：基线 %s 缺 critical_path_rate 字段（version < 3），"
+              "本次**未判定**关键路径维度。请用 --write-baseline 刷新基线。"
+              % args.baseline)
+    else:
+        if isinstance(base_cp_modules, list):
+            少了 = [m for m in base_cp_modules
+                    if m not in 关键路径["critical_path_modules"]]
+            if 少了:
+                print("[自举率门禁] 红：关键路径清单里的模块被删了：%s"
+                      "（清单可增不可删——删掉做不到的那条等于把指标改成自己能过的样子）"
+                      % "、".join(少了))
+                red = True
+        if 关键路径["critical_path_rate"] < base_cp_rate - 1e-9:
+            print("[自举率门禁] 红：关键路径自举率 %.2f%% 低于基线 %.2f%%（只许升不许降）。"
+                  % (关键路径["critical_path_rate"] * 100, base_cp_rate * 100))
+            red = True
+        elif 关键路径["critical_path_rate"] > base_cp_rate + 1e-9:
+            print("[自举率门禁] 关键路径自举率提升 %.2f%% → %.2f%%"
+                  "（请用 --write-baseline 更新基线）。"
+                  % (base_cp_rate * 100, 关键路径["critical_path_rate"] * 100))
+        else:
+            print("[自举率门禁] 关键路径自举率持平基线 %.2f%%。" % (base_cp_rate * 100))
+
+
     if red:
         return 1
-    if 影子已判定:
-        print("[自举率门禁] 通过：破零守住、自举率未降、影子数未升、无转手造假。")
+    未判定 = [名 for 名, 判 in (("影子数", 影子已判定),
+                               ("关键路径", 关键路径已判定)) if not 判]
+    if not 未判定:
+        print("[自举率门禁] 通过：破零守住、自举率未降、影子数未升、"
+              "关键路径未降、无转手造假。")
     else:
         print("[自举率门禁] 通过：破零守住、自举率未降、无转手造假"
-              "（影子数维度**未判定**，基线待刷新）。")
+              "（%s 维度**未判定**，基线待刷新）。" % "/".join(未判定))
     return 0
 
 

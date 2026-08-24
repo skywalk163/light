@@ -18,6 +18,21 @@
 
 本文件把这三处从「零命中、未验证」变成「零命中、已验证可用」。
 
+第七轮 E7 追加两道新门禁的**双向反跑**（这两条不是零命中，但棘轮型门禁有另一个
+盲区：只验「加违规判红」，不验「删基线条目也判红」——而基线是人手改的文本文件，
+删一条就消红的门禁等于没有门禁）：
+
+- `tools/ci/python_direct_calls.py`：`.light` 里 `导入 os` 后直调 `os.xxx` 的行数。
+  连带钉住三条误伤边界（注释 / 多行串 / 单行串里的 `os.path.join` 都不算，
+  光明模块不算，模块名被 `设 … 为` 重新绑定后不算）。
+- `tools/ci/spec_coverage.py`：功能对标清单完成度（done 只升不降 + 逐条不许退回
+  + 条目不许消失 + 证据文件必须存在但**行号不校验**）。
+- `tools/ci/bootstrap_rate.py::scan_critical_path`：关键路径自举率子指标，
+  遮蔽判定钉在「首**两行**魔数」这个边界上，与 `stdlib/_light_import_hook.py`
+  的 `_is_pure_light` 同源（写死「首行」或「前十行」都会与运行期脱节，
+  而那种脱节不会有任何红灯提示）。
+
+
 ## 判据必须是有分辨力的
 
 每条断言都配一条「几乎一样但不该命中」的反例，钉住正则真正 key 在哪个形状上：
@@ -35,6 +50,8 @@
 
 import importlib.util
 import os
+import sys
+import tempfile
 import unittest
 
 _CI_DIR = os.path.join(
@@ -54,6 +71,22 @@ def _load(name):
 
 AQ = _load("assert_quality")
 BR = _load("bootstrap_rate")
+PD = _load("python_direct_calls")
+SC = _load("spec_coverage")
+
+
+def _跑(mod, *argv):
+    """按 CLI 口径跑一遍门禁并拿 rc：门禁的判绿语义只有 main() 说得准。
+
+    单测正则「拦不拦」只能证明形态对，证不了「整条门禁会不会红」——
+    第四轮踩过的就是这个（形态在、门禁没拦）。所以这里直接过 main()。
+    """
+    旧 = sys.argv
+    sys.argv = ["gate"] + list(argv)
+    try:
+        return mod.main()
+    finally:
+        sys.argv = 旧
 
 # label|code —— 见模块 docstring 末段：必须留在三引号块内。
 _SAMPLES = """
@@ -194,6 +227,269 @@ class Test查自导入(unittest.TestCase):
         self.assertEqual(r["stdlib_light_total"], 2)
         self.assertEqual(r["stdlib_light_has_impl"], 1)      # 只有 乙
         self.assertEqual([h["file"] for h in r["fake_hits"]], ["stdlib/甲.light"])
+
+
+# ── 第七轮 E7：两道新门禁的双向反跑 ─────────────────────────────────────────
+#
+# 「加违规判红」是一半，「删基线条目也判红」是另一半。只做前一半的门禁有个
+# 现成的绕过路径：把基线里那条删掉，红就没了——而基线是人手改的文本文件。
+#
+# .light 样例同样必须留在三引号块里（`_prose_lines()` 不豁免单行字符串）。
+_LIGHT样例 = {
+    "直调": """导入 os
+段落 主：
+  设 路径 为 os.path.join("甲", "乙")
+  返回 路径
+""",
+    "注释与串里不算": """导入 os
+# os.path.join("这是注释，不该判红")
+段落 主：
+  设 说明 为 \"\"\"多行串里写 os.path.join(a, b) 当反面教材
+  第二行也提一次 os.makedirs(d)，照样不该判红\"\"\"
+  设 单行 为 "os.listdir(d) 在单行串里也不算"
+  返回 说明
+""",
+    "光明模块不算": """从 JSON 导入 解析JSON
+导入 JSON
+段落 主：
+  返回 JSON.解析JSON("[]")
+""",
+    "重绑定不算": """导入 os
+段落 主：
+  设 os 为 ["path": 1]
+  返回 os.path
+""",
+}
+
+
+class TestPython直调计数(unittest.TestCase):
+    """`导入 os` 后直调 `os.xxx` 的行数——六轮来没有任何门禁数过这条通道。"""
+
+    def _树(self, d, **文件):
+        os.makedirs(os.path.join(d, "stdlib"), exist_ok=True)
+        for 名, 文本 in 文件.items():
+            with open(os.path.join(d, 名 + ".light"), "w", encoding="utf-8") as fh:
+                fh.write(文本)
+
+    def test_真直调计一行(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._树(d, 甲=_LIGHT样例["直调"])
+            per_file, details, _排除, _模块 = PD.scan_tree(d)
+        self.assertEqual(per_file, {"甲.light": 1})
+        self.assertEqual([(行, 名) for 行, 名, _t in details["甲.light"]], [(3, "os")])
+
+    def test_注释与多行串里不判红(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._树(d, 甲=_LIGHT样例["注释与串里不算"])
+            per_file, _详, _排除, _模块 = PD.scan_tree(d)
+        # 反面教材写在注释/字符串里是正当的，纯正则会误伤成违规
+        self.assertEqual(per_file, {})
+
+    def test_光明模块不算逃逸(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._树(d, 甲=_LIGHT样例["光明模块不算"])
+            with open(os.path.join(d, "stdlib", "JSON.light"), "w",
+                      encoding="utf-8") as fh:
+                fh.write("段落 解析JSON 接收 文本：\n  返回 []\n")
+            per_file, _详, 排除, _模块 = PD.scan_tree(d)
+        self.assertEqual(per_file, {})
+        self.assertEqual([名 for 名, _因 in 排除["甲.light"]], ["JSON"])
+
+    def test_模块名被重新绑定后不算(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._树(d, 甲=_LIGHT样例["重绑定不算"])
+            per_file, _详, 排除, _模块 = PD.scan_tree(d)
+        self.assertEqual(per_file, {})
+        self.assertEqual([名 for 名, _因 in 排除["甲.light"]], ["os"])
+
+    def test_双向反跑(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._树(d, 甲=_LIGHT样例["直调"])
+            基线 = os.path.join(d, "python_direct_baseline.json")
+            self.assertEqual(_跑(PD, "--root", d, "--write-baseline", 基线), 0)
+            # 基线内、无改动 → 绿
+            self.assertEqual(_跑(PD, "--root", d, "--baseline", 基线), 0)
+            # 方向一：加一行 os.path.join → 红
+            with open(os.path.join(d, "甲.light"), "a", encoding="utf-8") as fh:
+                fh.write("段落 又一处：\n  返回 os.path.join(\"丙\", \"丁\")\n")
+            self.assertEqual(_跑(PD, "--root", d, "--baseline", 基线), 1)
+            # 方向二：把基线条目删掉想消红 → 照样红（棘轮不认手改）
+            import json as _json
+            with open(基线, encoding="utf-8") as fh:
+                data = _json.load(fh)
+            data["files"] = {}
+            data["total"] = 0
+            with open(基线, "w", encoding="utf-8") as fh:
+                _json.dump(data, fh, ensure_ascii=False)
+            self.assertEqual(_跑(PD, "--root", d, "--baseline", 基线), 1)
+
+    def test_基线自相矛盾即红(self):
+        # 防手改：total 与 files 之和不符，说明有人只改了总数
+        with tempfile.TemporaryDirectory() as d:
+            self._树(d, 甲=_LIGHT样例["直调"])
+            基线 = os.path.join(d, "b.json")
+            import json as _json
+            with open(基线, "w", encoding="utf-8") as fh:
+                _json.dump({"total": 99, "files": {"甲.light": 1}}, fh,
+                           ensure_ascii=False)
+            self.assertEqual(_跑(PD, "--root", d, "--baseline", 基线), 1)
+
+
+class Test关键路径自举率(unittest.TestCase):
+    """遮蔽判定必须按当前机制：首**两行**含魔数才取代同名 `.py`。"""
+
+    def _建(self, stdlib, 名, 文本, 带py=False):
+        with open(os.path.join(stdlib, 名 + ".light"), "w", encoding="utf-8") as fh:
+            fh.write(文本)
+        if 带py:
+            with open(os.path.join(stdlib, 名 + ".py"), "w", encoding="utf-8") as fh:
+                fh.write("# 影子\n")
+
+    def test_四种形态各归其位(self):
+        with tempfile.TemporaryDirectory() as d:
+            stdlib = os.path.join(d, "stdlib")
+            os.makedirs(stdlib)
+            self._建(stdlib, "甲", "段落 主：\n  返回 1\n")                       # 计入
+            self._建(stdlib, "乙", "段落 主：\n  返回 1\n", 带py=True)            # 被遮蔽
+            self._建(stdlib, "丙", "# 纯光明实现\n段落 主：\n  返回 1\n", 带py=True)  # 取代
+            self._建(stdlib, "丁", "导出 甲。\n")                                # decl 0
+            # 魔数在第 3 行 → 钩子看不见（它只读两行），不算取代
+            self._建(stdlib, "戊", "# 一\n# 二\n# 纯光明实现\n段落 主：\n  返回 1\n",
+                     带py=True)
+            r = BR.scan_critical_path(d, ["甲", "乙", "丙", "丁", "戊", "缺失"])
+        计入 = {x["模块"]: x["计入"] for x in r["critical_path_detail"]}
+        self.assertEqual(计入, {"甲": True, "乙": False, "丙": True,
+                               "丁": False, "戊": False, "缺失": False})
+        self.assertEqual((r["critical_path_has_impl"], r["critical_path_total"]),
+                         (2, 6))
+
+    def test_清单删条目判红(self):
+        # 清单可增不可删：删掉做不到的那条 = 把指标改成自己能过的样子
+        with tempfile.TemporaryDirectory() as d:
+            stdlib = os.path.join(d, "stdlib")
+            os.makedirs(stdlib)
+            self._建(stdlib, "甲", "段落 主：\n  返回 1\n")
+            import json as _json
+            清单 = os.path.join(d, "modules.json")
+            基线 = os.path.join(d, "bootstrap_rate_baseline.json")
+            with open(清单, "w", encoding="utf-8") as fh:
+                _json.dump({"模块": ["甲", "乙"]}, fh, ensure_ascii=False)
+            旧清单 = BR._关键路径清单
+            try:
+                BR._关键路径清单 = 清单
+                self.assertEqual(_跑(BR, "--root", d, "--write-baseline", 基线), 0)
+                self.assertEqual(_跑(BR, "--root", d, "--baseline", 基线), 0)
+                with open(清单, "w", encoding="utf-8") as fh:
+                    _json.dump({"模块": ["甲"]}, fh, ensure_ascii=False)  # 删掉 乙
+                self.assertEqual(_跑(BR, "--root", d, "--baseline", 基线), 1)
+            finally:
+                BR._关键路径清单 = 旧清单
+
+    def test_魔数口径与钩子同源(self):
+        """`_是纯光明` 读的行数必须与 stdlib/_light_import_hook.py 一致。
+
+        钩子读的是 `fh.readline() + fh.readline()`（两行）。这里钉住边界：
+        第 2 行算、第 3 行不算——写死「首行」或「前十行」都会让子指标与运行期
+        真实行为脱节，那种脱节不会有任何红灯提示。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            p2 = os.path.join(d, "二.light")
+            p3 = os.path.join(d, "三.light")
+            with open(p2, "w", encoding="utf-8") as fh:
+                fh.write("# 头\n# 纯光明实现\n段落 主：\n")
+            with open(p3, "w", encoding="utf-8") as fh:
+                fh.write("# 头\n# 中\n# 纯光明实现\n段落 主：\n")
+            self.assertTrue(BR._是纯光明(p2))
+            self.assertFalse(BR._是纯光明(p3))
+
+
+_清单样例 = {
+    "编号": 1,
+    "功能": "样例功能",
+    "状态": "done",
+    "证据": ["证据.light:1-2"],
+    "本轮目标": "保持",
+    "备注": "",
+}
+
+
+class Test功能对标清单(unittest.TestCase):
+    """完成度门禁：done 只升不降、逐条不许退回、证据文件必须存在。"""
+
+    def _写(self, d, 条目):
+        import json as _json
+        os.makedirs(os.path.join(d, "任务书"), exist_ok=True)
+        p = os.path.join(d, "任务书", "功能对标清单_harness.json")
+        with open(p, "w", encoding="utf-8") as fh:
+            _json.dump({"条目": 条目}, fh, ensure_ascii=False)
+        return p
+
+    def _备(self, d):
+        with open(os.path.join(d, "证据.light"), "w", encoding="utf-8") as fh:
+            fh.write("段落 主：\n  返回 1\n")
+
+    def test_双向反跑(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._备(d)
+            清单 = self._写(d, [dict(_清单样例)])
+            基线 = os.path.join(d, "spec_coverage_baseline.json")
+            self.assertEqual(_跑(SC, "--root", d, "--list", 清单,
+                                "--write-baseline", 基线), 0)
+            self.assertEqual(_跑(SC, "--root", d, "--list", 清单,
+                                "--baseline", 基线), 0)
+            # 方向一：done 退成 none（带备注，schema 合规）→ 完成度掉了，红
+            退 = dict(_清单样例)
+            退["状态"] = "none"
+            退["备注"] = "本轮不做"
+            self._写(d, [退])
+            self.assertEqual(_跑(SC, "--root", d, "--list", 清单,
+                                "--baseline", 基线), 1)
+            # 方向二：条目整条删掉想消红 → 照样红（基线编号必须还在）
+            留 = dict(_清单样例)
+            留["编号"] = 2
+            self._写(d, [留])
+            self.assertEqual(_跑(SC, "--root", d, "--list", 清单,
+                                "--baseline", 基线), 1)
+
+    def test_done没证据即红(self):
+        with tempfile.TemporaryDirectory() as d:
+            无证 = dict(_清单样例)
+            无证["证据"] = []
+            清单 = self._写(d, [无证])
+            self.assertEqual(_跑(SC, "--root", d, "--list", 清单), 1)
+
+    def test_证据文件不存在即红(self):
+        with tempfile.TemporaryDirectory() as d:
+            清单 = self._写(d, [dict(_清单样例)])   # 没建 证据.light
+            self.assertEqual(_跑(SC, "--root", d, "--list", 清单), 1)
+
+    def test_none缺备注即红(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._备(d)
+            无备 = dict(_清单样例)
+            无备["状态"] = "none"
+            无备["备注"] = "   "
+            清单 = self._写(d, [无备])
+            self.assertEqual(_跑(SC, "--root", d, "--list", 清单), 1)
+
+    def test_状态值域外即红(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._备(d)
+            怪 = dict(_清单样例)
+            怪["状态"] = "基本完成"
+            清单 = self._写(d, [怪])
+            self.assertEqual(_跑(SC, "--root", d, "--list", 清单), 1)
+
+    def test_行号漂移不判红(self):
+        """证据只校验文件存在，不校验行号——行号会随任何编辑漂移。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._备(d)
+            漂 = dict(_清单样例)
+            漂["证据"] = ["证据.light:99999"]      # 文件只有两行
+            清单 = self._写(d, [漂])
+            self.assertEqual(_跑(SC, "--root", d, "--list", 清单,
+                                "--write-baseline",
+                                os.path.join(d, "b.json")), 0)
 
 
 if __name__ == "__main__":

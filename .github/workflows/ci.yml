@@ -1,5 +1,15 @@
 # 光明 Light · GitHub CI
 #
+# ⚠️ 事实先说清楚（第七轮 E7 记账）：**本项目当前没有 GitHub 远端，这整棵 .github/ 树
+# 一次都没有执行过。** 唯一真正跑的 CI 是 `.gitea/workflows/ci.yml`（本地 FreeBSD
+# runner）。因此：
+#   - 这边的步骤只是「与权威副本保持对齐」的镜像，改了它**不会**在任何地方被验证；
+#     判据要真，就得同时改 .gitea 那份并看 gitea 的 run 结果。
+#   - 跨平台闸门（下面那道 `if: runner.os != 'Linux'` 的回归闸门）**只存在于这里**，
+#     也就是说它至今一次没跑过——别把它当成「Windows/macOS 有覆盖」的证据。
+#   - **不要删这棵树**：将来启用 GitHub 远端时它就是现成的（第四轮已裁决保留）。
+#
+
 # ── 2026-08-22 CI 时间治理（用户裁决）─────────────────────────────────────────
 # 预算：pull_request ≤ 600s，push main ≤ 1200s，**超了按红**（见最后一步）。
 # GitHub 侧这一轮只做「削矩阵 + 加缓存 + 去无用依赖」：
@@ -211,6 +221,20 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           python tools/ci/bootstrap_rate.py --root .
+
+      # E7（第七轮 M20）：两道新度量门禁，与 .gitea 权威副本逐字对齐。
+      # 纯静态扫描（不 import、不编译任何 .light），秒级；只在 Linux 跑一份，
+      # 跨平台跑它没有额外信号。硬判绿点，不加 || true。
+      - name: Python 直调计数门禁（口径见脚本 docstring·只降不升）
+        if: runner.os == 'Linux'
+        run: |
+          python tools/ci/python_direct_calls.py --root .
+
+      - name: 功能对标清单门禁（完成度只升不降）
+        if: runner.os == 'Linux'
+        run: |
+          python tools/ci/spec_coverage.py --root .
+
 
       # 时间预算硬闸门。always()：前面红了也要把耗时账单打出来，否则一红就没时间数据。
       - name: 时间预算闸门
