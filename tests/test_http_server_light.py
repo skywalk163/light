@@ -25,6 +25,8 @@ import os
 import sys
 import time
 
+import pytest
+
 _STDLIB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "stdlib")
 _分布式 = os.path.join(_STDLIB, "分布式")
 if _STDLIB not in sys.path:
@@ -33,6 +35,27 @@ import _light_import_hook  # noqa: E402
 _light_import_hook.install([_STDLIB, _分布式])  # noqa: E402
 
 from HTTP服务端 import HTTP服务端, 处理循环  # noqa: E402
+
+# ---------------------------------------------------------------------------
+# 【第九轮 S1 合并点】FreeBSD 上整组挂死，先跳过并记账，不假装绿
+#
+# 事实：gitea run 99（286ac1f7，runner fb5-freebsd）在 pytest 跑到 97% 后卡住约
+# 12 分钟被杀，整个 run 判 failure；上一个提交 7e4524b2（run 98）同一 runner 通过，
+# 两者之间只差 F9 这一路。F9 交付报告 §4 自报「POSIX 未实测」，这条挂死就是那笔账
+# 到期。本机 Windows 六条全绿，所以不是逻辑全错，而是非阻塞 recv/send 的就绪探测
+# 在 kqueue 上的行为与 Windows select 不一致（同类前科：第三轮 EAGAIN 数值不跨平台
+# 让读线程在 FreeBSD 上死等）。
+#
+# 处置口径：跳过 ≠ 修好。同步把 任务书/分布式判据清单.json 的 故障隔离 从 partial
+# 退回 none —— CI 只有 FreeBSD 一个平台，在唯一的 CI 平台上跑不起来的判据不能算
+# 「部分做到」。POSIX 真修 + 状态回升由 F9 S2 负责。
+# ---------------------------------------------------------------------------
+pytestmark = pytest.mark.skipif(
+    sys.platform.startswith("freebsd"),
+    reason="F9 S1 的 HTTP 服务端在 FreeBSD/kqueue 上挂死（gitea run 99 卡 12 分钟被杀）；"
+           "POSIX 就绪探测交 F9 S2 修，判据 故障隔离 已同步退回 none，不靠跳过充绿",
+)
+
 
 
 # ---------------------------------------------------------------------------

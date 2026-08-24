@@ -84,11 +84,11 @@
     },
     {
       "能力": "故障隔离",
-      "状态": "partial",
+      "状态": "none",
       "判据": "tests/test_http_server_light.py:254",
       "反跑": "改 stdlib/分布式/HTTP服务端.light:190：把 对端中途关闭时的 抛出 新建 连接中断 改成 静默返回（当合法请求处理），tests/test_http_server_light.py:254 的 错误数 >= 1 断言立即立红；连接级隔离失效则节点级隔离无从谈起",
       "本阶段目标": "S1：连接级故障隔离（客户端中途断开/单连接异常不影响服务端与其他连接）；S3：节点级（一个节点炸不影响其余节点）",
-      "备注": "开工时为零。S1 已落地连接级：tests/test_http_server_light.py:254 客户端中途断开服务端不崩且后续请求仍 200、:183 并发 10 连接互不阻塞。节点级（master/worker 层，一个 worker 炸不影响其余）S3 验收。单机侧同类欠账（并发.light 的 并发等待 不带 return_exceptions，一条异常炸全场）仍是 E9 的靶子，不在此路重复建。"
+      "备注": "开工时为零。【S1 合并点从 partial 退回 none】F9 交的连接级实现只在 Windows 本机绿：gitea run 99（286ac1f7，runner fb5-freebsd）pytest 跑到 97% 挂死约 12 分钟被杀，整个 run 判 failure；相邻提交 7e4524b2（run 98）同一 runner 通过，两者差异只有 F9 这一路。CI 只有 FreeBSD 一个平台，在唯一 CI 平台上跑不起来的判据不算「部分做到」，故退回 none。测试已按平台跳过（tests/test_http_server_light.py 的 pytestmark，理由与取证写在文件头），跳过不等于修好。欠账：非阻塞 recv/send 的就绪探测在 kqueue 上与 Windows select 行为不一致（同类前科：第三轮 EAGAIN 数值不跨平台让读线程在 FreeBSD 死等）。F9 S2 负责真修 POSIX 并把状态升回。节点级（master/worker 层，一个 worker 炸不影响其余）S3 验收。单机侧同类欠账已由 E9 的 任务池 失败模式 收掉。"
     }
   ]
 }
