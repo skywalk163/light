@@ -19,12 +19,13 @@ tool_call id 配对、参数透传）。它证明不了「examples/harness/主�
 代理循环.执行工具 会把工具抛出的任何异常吞成 "工具执行出错: …" 的 tool 消息喂回
 模型（这是刻意的——要让模型自己看到失败）。所以「主程序打出了最终回复」完全
 可以在工具从头到尾没成功过的情况下成立。只有断言磁盘状态才能区分这两种情况。
-
-⚠️ 工具集来源：主程序.light 现在自带 write_file/read_file/list_dir 三件套（都经
-stdlib/路径护栏.light 核准）。B3 的 stdlib/代理工具集.light 合入后，主程序里那段
-应整体换成 代理工具集.注册全部(代理, 沙箱根, 选项)，本文件的断言（磁盘副作用 +
-越界被拦）**不需要改**——这正是按行为而不是按实现写判据的好处。
 """
+
+# ⚠️ 工具集来源：主程序.light 收口时已切到 stdlib/代理工具集.light 的 `注册全部(代理, 沙箱根, 选项)`
+# （替掉了自带的 write_file/read_file/list_dir 三件套），六个工具一次注册。
+# 本文件断言的是**磁盘副作用 + 越界被拦**——工具集换型后按行为重写的部分：
+#   工具下发名单   → 现在是 6 个（read/write/edit_file/list_dir/grep/run_command，注册顺序）
+#   写嵌套路径     → 代理工具集 的 write_file **不自动建父目录**，需先建目录再写（新增建目录步骤）
 import json
 import os
 import subprocess
@@ -135,9 +136,9 @@ class Test沙箱内真干活:
         assert len(s.payloads) == 2
         assert s.violations == []
 
-        # 4) 三个工具都按注册顺序下发了（例子文件真的把工具告诉了模型）
+        # 4) 六个工具都按注册顺序下发了（代理工具集 的注册顺序 read/edit/write/list/grep/run）
         名字们 = [t["function"]["name"] for t in s.payloads[0]["tools"]]
-        assert 名字们 == ["write_file", "read_file", "list_dir"]
+        assert 名字们 == ["read_file", "write_file", "edit_file", "list_dir", "grep", "run_command"]
 
         # 5) 系统提示作为首条消息，且带上了沙箱根（模型需要知道自己被关在哪）
         首条 = s.payloads[0]["messages"][0]
@@ -151,7 +152,11 @@ class Test沙箱内真干活:
         assert "工具执行出错" not in 工具消息["content"]
         assert "已写入" in 工具消息["content"]
 
-    def test_子目录不存在时先建目录再写(self, 起mock, tmp_path):
+    def test_写嵌套路径且父目录已存在内容逐字相等(self, 起mock, tmp_path):
+        # 代理工具集 的 write_file **不自动建父目录**（须先建目录再写），与旧自带
+        # 三件套不同。这里先建好父目录，验证写嵌套路径仍落到沙箱内。
+        嵌套根 = tmp_path / "产物" / "深"
+        嵌套根.mkdir(parents=True)
         s = 起mock([_写文件响应("产物/深/一层.txt", "嵌套也行"), _最终回复("建好了。")])
         结果 = _跑主程序(s, tmp_path, "在 产物/深/ 下建 一层.txt")
         assert 结果.returncode == 0, _文本(结果.stderr)
