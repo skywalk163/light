@@ -124,3 +124,42 @@ def test_magic_number_in_first_two_lines():
         pytest.xfail(
             "已知 5 个真实现魔数不在首两行（A3/B3 待修，warn 不红）：%s" % known_still
         )
+
+
+# ── 第九轮 S1 合并点：大小写不敏感文件系统导致的标准库劫持 ──────────────────────
+# C9 给 stdlib/JSON.light 加了「纯光明实现」魔数后，钩子原来的 os.path.isfile
+# 在 Windows / macOS 上把 `json` 也当成命中（json.light ≡ JSON.light），于是
+# Python 标准库的 `import json` 被换成只有中文导出名的光明门面。任何第三方库里
+# 的 `from json import loads`（pandas/core/generic.py 就有）当场 ImportError，
+# 表现为 5 条 e2e 产物运行失败，且报错栈跟光明毫无字面关系。
+def test_标准库json不被同名不同壳的light劫持():
+    import importlib
+    mod = importlib.import_module("json")
+    assert not hasattr(mod, "__light_source__"), (
+        "钩子劫持了标准库 json，实际来源：%s" % getattr(mod, "__file__", None)
+    )
+    # 只断言「不是 .light」不够——第三方库要的是 loads 这个名字真能取到。
+    assert mod.loads("[]") == []
+
+
+def test_大写JSON仍走纯光明门面():
+    """反向护栏：修大小写命中不许把真·纯光明模块一起关掉。"""
+    import importlib
+    mod = importlib.import_module("JSON")
+    assert getattr(mod, "__light_source__", "").endswith("JSON.light")
+    assert mod.解析JSON("[]") == []
+
+
+def test_任何light都不许应答仅大小写不同的标准库名():
+    """通用判据：把 5 条 e2e 的具体症状升级成对全部 .light 的结构约束。"""
+    finder = _light_import_hook._current_finder()
+    assert finder is not None, "钩子未安装，本判据无意义"
+    劫持 = []
+    for full in glob.glob(os.path.join(_STDLIB, "*.light")):
+        name = os.path.splitext(os.path.basename(full))[0]
+        for 标准名 in sys.stdlib_module_names:
+            if 标准名 == name or 标准名.lower() != name.lower():
+                continue
+            if finder.find_spec(标准名) is not None:
+                劫持.append((name, 标准名))
+    assert 劫持 == [], "以下 .light 会劫持仅大小写不同的标准库模块：%s" % 劫持

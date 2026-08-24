@@ -97,7 +97,25 @@ def _is_pure_light(light_file: str) -> bool:
         return False
 
 
+def _exists_exact(base: str, name: str) -> bool:
+    """判断 base 目录下是否存在**名字大小写完全相同**的文件。
+
+    不能只用 `os.path.isfile`：Windows / macOS 的文件系统大小写不敏感，
+    `stdlib/json.light` 会命中 `stdlib/JSON.light`。一旦 JSON.light 声明了
+    「纯光明实现」，钩子就会把 Python 标准库的 `import json` 也劫持成光明门面，
+    于是任何第三方库里的 `from json import loads`（pandas 就有）当场 ImportError。
+    模块名必须逐字符相等，钩子才许应答。
+    """
+    if not os.path.isfile(os.path.join(base, name)):
+        return False
+    try:
+        return name in os.listdir(base)
+    except OSError:
+        return False
+
+
 class LightLoader(importlib.abc.Loader):
+
     """把 .light 编译后执行到模块命名空间里。"""
 
     def __init__(self, fullname: str, light_path: str, stdlib_dir: str):
@@ -150,11 +168,11 @@ class LightFinder(importlib.abc.MetaPathFinder):
         try:
             for base in self.search_paths:
                 light_file = os.path.join(base, fullname + '.light')
-                if not os.path.isfile(light_file):
+                if not _exists_exact(base, fullname + '.light'):
                     continue
                 # 同名 .py 存在 => 除非 .light 显式声明「纯光明实现」，否则源文件只是
                 # 清单，让标准机制加载 .py（优先原则保持不变，只是开了纯光明出口）。
-                if os.path.isfile(os.path.join(base, fullname + '.py')):
+                if _exists_exact(base, fullname + '.py'):
                     if not _is_pure_light(light_file):
                         return None
                 loader = LightLoader(fullname, light_file, self._stdlib_dir)
