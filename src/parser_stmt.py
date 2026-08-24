@@ -2978,8 +2978,12 @@ class ParserStmtMixin:
         if self._match(TokenType.COLON):
             self._consume(TokenType.COLON)
         
-        # catch块
-        catch_body = self._parse_body()
+        # catch块。
+        # 必须用 _parse_clause_body（消耗本块 INDENT/DEDENT）而不是裸
+        # _parse_body()：catch 块后面可能紧跟**兄弟**语句（当 catch 是最后一个
+        # 子句时），这些普通语句不触发 _parse_body 的关键字 break，会被静默吞入
+        # except 块——典型折叠 bug（见 _parse_clause_body docstring）。
+        catch_body = self._parse_clause_body()
         
         return catch_type, catch_var, catch_body
     
@@ -3027,8 +3031,13 @@ class ParserStmtMixin:
         # 冒号
         self._consume(TokenType.COLON)
         
-        # try块
-        try_body = self._parse_body()
+        # try块。
+        # 与 catch/finally 块统一使用 _parse_clause_body：先消耗本块 INDENT，
+        # 再调 _parse_body（depth 从 0 起算），最后消耗 DEDENT。
+        # 此前用裸 _parse_body()「碰巧」能停住（try 后面紧跟 捕/终/结束 等
+        # 关键字，_parse_body 有 break），但 DEDENT 的消耗路径不规范，且
+        # 与 catch 块的修固保持一致。
+        try_body = self._parse_clause_body()
         
         # 捕获（可选，支持多个）
         catch_clauses = []
@@ -4410,6 +4419,24 @@ class ParserStmtMixin:
                 elif tok.type == TokenType.KEYWORD and tok.value == '类':
                     nested_classes.append(self._parse_class_definition())
 
+
+                # 异步方法：异步 段落/函数/段 方法名 ...
+                #
+                # 类体内 `异步 段落 名字():` 以前落到链尾 self._error（「类体内不支持
+                # 的成员声明：'异步'」），导致 stdlib/流式.light 的四个异步读腿只能甩到
+                # 模块级。这里复用 _parse_async_paragraph（返回 Paragraph + modifiers
+                # 含 '异步'），code_generator 的 _generate_method 通过 getattr(method,
+                # 'modifiers', []) 检测 '异步' 来发射 async def。
+                #
+                # 安全性：此前 `异步` 在类体内一律落到 else 报错，加分支只可能把
+                # 「原本报错」变成「能解析」。名字限制裁决（不许以「异步」开头）
+                # 在 _parse_paragraph_v2 里已有，这里不放开。
+                elif tok.type == TokenType.KEYWORD and tok.value in ('异步', '异'):
+                    method = self._parse_async_paragraph()
+                    method.access_modifier = access_modifier
+                    method.is_static = is_static
+                    method.is_classmethod = is_classmethod
+                    methods.append(method)
 
                 # 方法定义（支持公有、私有、保护和静态）
                 # 单字 `段` 与 `段落`/`函数` 同义（parser_core.PARAGRAPH_KEYWORDS）。

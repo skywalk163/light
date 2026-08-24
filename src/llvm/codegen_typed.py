@@ -911,6 +911,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if hasattr(ast, 'AwaitExpression') and isinstance(expr, ast.AwaitExpression):
             return self._gen_await_expression(expr)
 
+        # A9-S2：列表推导 [表达式 遍历 变量 之 列表 若 条件]
+        if isinstance(expr, ast.ListComprehension):
+            return self._gen_typed_list_comprehension(expr)
+
         # C3-1：表达式层链尾兜底。以前这里把一切未支持表达式静默编成整数 0——
         # 字典字面量 / Lambda / 推导式 / 切片 / UnwrapExpression / Pipeline 全是
         # 「编译成功、产物行为错误」。现在与语句层同一口径：响亮报错。
@@ -1152,14 +1156,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if func_name in self._imports:
             return self._gen_imported_segment_call(func_name, args)
 
-        # C3-2：AstAdapter 把 v3 SliceExpr（`表[1:2]`）转成对 `slice` 的调用，
-        # 而原生运行时没有切片原语。以前报「未定义的段落：slice」，把「切片不支持」
-        # 藏成「拼错名字」——指路到可用的替代写法。
+        # A9-S2：AstAdapter 把 v3 SliceExpr（`表[1:2]`）转成对 `slice` 的调用。
+        # 切片作为索引操作已在 _gen_typed_index_access 中拦截实现。
+        # 如果走到这里，说明 `slice` 被当作独立函数调用（非索引位），语义不对。
         if func_name == 'slice':
             raise NotImplementedError(
-                f"原生后端暂不支持切片表达式（SliceExpr）"
+                f"slice 不能作为独立函数调用——请用索引语法 `表[起:止]`"
                 f"（源码行 {self._stmt_source_line(expr)}）。"
-                f"请改用 截取/子串 或转译后端（python -m cli.light_unified run）"
             )
 
         # C3-1：拼错名字的函数/段落调用（AstAdapter 把 v3 ParagraphCall 转成
@@ -2545,6 +2548,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return result, 'dv'
 
     def _gen_typed_index_access(self, expr) -> Tuple[str, str]:
+        # A9-S2：SliceExpr — 适配层把 obj[start:stop] 转成
+        # IndexAccess(obj, FunctionCall('slice', start, stop))。在正常索引处理前拦截。
+        if isinstance(expr.index, ast.FunctionCall) and \
+                isinstance(expr.index.name, ast.Identifier) and \
+                expr.index.name.name == 'slice':
+            return self._gen_typed_slice(expr.obj, expr.index.arguments)
         obj_dv, _ = self._gen_expression(expr.obj)
         # 索引既要做成 i64（字符串/列表下标），也要保留 LightValue（字典键）。
         # 字符串用 i64；列表用 i64；字典（type=7）要传整个 LightValue 做键。
@@ -2586,6 +2595,216 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'{end_lab}:')
         result = self._load_dv(result_slot)
         return result, 'dv'
+
+    def _gen_typed_slice(self, obj_ast, args) -> Tuple[str, str]:
+        """A9-S2: 切片 obj[start:stop] / obj[start:] / obj[:stop] / obj[:]
+
+        适配层把 v3 SliceExpr 转成 FunctionCall('slice', start, stop, step)，
+        包在 IndexAccess(obj, FunctionCall('slice',...)) 里。_gen_typed_index_access
+        拦截后调到这里。推翻 C3-2「切片不做」决策——stdlib 用了 52 次，是最高频未支持节点。
+
+        字符串用 dv_substr(result, str, start, len)；
+        列表用 dv_list_new + 循环 dv_list_get + dv_list_append。
+        step 参数暂不支持（stdlib 中 0 次使用）。
+        """
+        obj_dv, _ = self._gen_expression(obj_ast)
+        obj_slot = self._store_dv(obj_dv)
+
+        # 解析 start/stop（默认 start=0, stop=len）
+        start_i64 = '0'
+        stop_is_len = True
+        stop_i64 = None
+
+        if len(args) >= 1 and args[0] is not None:
+            start_dv, _ = self._gen_expression(args[0])
+            start_i64 = self.new_register()
+            self.emit(f'{start_i64} = extractvalue {LIGHTVALUE_STRUCT} {start_dv}, 1')
+        if len(args) >= 2 and args[1] is not None:
+            stop_dv, _ = self._gen_expression(args[1])
+            stop_i64 = self.new_register()
+            self.emit(f'{stop_i64} = extractvalue {LIGHTVALUE_STRUCT} {stop_dv}, 1')
+            stop_is_len = False
+        if len(args) >= 3 and args[2] is not None:
+            raise NotImplementedError(
+                f"原生后端切片暂不支持 step 参数"
+                f"（源码行 {self._stmt_source_line(obj_ast)}）。"
+            )
+
+        # 获取对象类型（3=字符串, 6=列表）
+        type_reg = self.new_register()
+        self.emit(f'{type_reg} = load i32, ptr {obj_slot}')
+        is_str = self.new_register()
+        self.emit(f'{is_str} = icmp eq i32 {type_reg}, 3')
+
+        str_lab = self.new_label('slice_str')
+        list_lab = self.new_label('slice_list')
+        end_lab = self.new_label('slice_end')
+        result_slot = self._new_dv_slot()
+
+        not_str_lab = self.new_label('slice_not_str')
+        self.emit(f'br i1 {is_str}, label %{str_lab}, label %{not_str_lab}')
+        self.emit(f'{not_str_lab}:')
+        self.emit(f'br label %{list_lab}')
+
+        # ── 字符串切片：dv_substr(result, str, start, len) ──
+        self.emit(f'{str_lab}:')
+        if stop_is_len:
+            str_len = self.new_register()
+            self.emit(f'{str_len} = call i64 @dv_str_len(ptr {obj_slot})')
+            slice_len = self.new_register()
+            self.emit(f'{slice_len} = sub i64 {str_len}, {start_i64}')
+        else:
+            slice_len = self.new_register()
+            self.emit(f'{slice_len} = sub i64 {stop_i64}, {start_i64}')
+        # 处理负长度（start > stop → 空串）
+        is_neg = self.new_register()
+        self.emit(f'{is_neg} = icmp slt i64 {slice_len}, 0')
+        safe_len = self.new_register()
+        self.emit(f'{safe_len} = select i1 {is_neg}, i64 0, i64 {slice_len}')
+        self.emit(f'call void @dv_substr(ptr {result_slot}, ptr {obj_slot}, i64 {start_i64}, i64 {safe_len})')
+        self.emit(f'br label %{end_lab}')
+
+        # ── 列表切片：创建新列表，循环复制 ──
+        self.emit(f'{list_lab}:')
+        new_list_dv = self._call_dv_func('dv_list_new')
+        new_list_slot = self._new_dv_slot()
+        self.emit(f'store {LIGHTVALUE_STRUCT} {new_list_dv}, ptr {new_list_slot}')
+
+        list_len = self.new_register()
+        self.emit(f'{list_len} = call i64 @dv_list_len(ptr {obj_slot})')
+
+        if stop_is_len:
+            stop_val = list_len
+        else:
+            stop_val = stop_i64
+
+        # i = start
+        i_slot = self.new_register()
+        self.emit(f'{i_slot} = alloca i64')
+        self.emit(f'store i64 {start_i64}, ptr {i_slot}')
+
+        cond_lab = self.new_label('slice_cond')
+        body_lab = self.new_label('slice_body')
+        done_lab = self.new_label('slice_done')
+
+        self.emit(f'br label %{cond_lab}')
+        self.emit(f'{cond_lab}:')
+        i_val = self.new_register()
+        self.emit(f'{i_val} = load i64, ptr {i_slot}')
+        cmp = self.new_register()
+        self.emit(f'{cmp} = icmp slt i64 {i_val}, {stop_val}')
+        self.emit(f'br i1 {cmp}, label %{body_lab}, label %{done_lab}')
+
+        self.emit(f'{body_lab}:')
+        elem_slot = self._new_dv_slot()
+        self.emit(f'call void @dv_list_get(ptr {elem_slot}, ptr {obj_slot}, i64 {i_val})')
+        # 用原地追加模式（result == list 同槽），避免 _call_dv_func 的
+        # result_slot 未初始化导致 dv_list_append 跳过 dv_clone。
+        cur_list = self.new_register()
+        self.emit(f'{cur_list} = load {LIGHTVALUE_STRUCT}, ptr {new_list_slot}')
+        list_arg_slot = self._store_dv(cur_list)
+        elem_dv = self._load_dv(elem_slot)
+        elem_arg_slot = self._store_dv(elem_dv)
+        self.emit(f'call void @dv_list_append(ptr {list_arg_slot}, ptr {list_arg_slot}, ptr {elem_arg_slot})')
+        new_list = self._load_dv(list_arg_slot)
+        self.emit(f'store {LIGHTVALUE_STRUCT} {new_list}, ptr {new_list_slot}')
+        next_i = self.new_register()
+        self.emit(f'{next_i} = add i64 {i_val}, 1')
+        self.emit(f'store i64 {next_i}, ptr {i_slot}')
+        self.emit(f'br label %{cond_lab}')
+
+        self.emit(f'{done_lab}:')
+        final = self.new_register()
+        self.emit(f'{final} = load {LIGHTVALUE_STRUCT}, ptr {new_list_slot}')
+        self.emit(f'store {LIGHTVALUE_STRUCT} {final}, ptr {result_slot}')
+        self.emit(f'br label %{end_lab}')
+
+        self.emit(f'{end_lab}:')
+        result = self._load_dv(result_slot)
+        return result, 'dv'
+
+    def _gen_typed_list_comprehension(self, expr) -> Tuple[str, str]:
+        """A9-S2: 列表推导 [表达式 遍历 变量 之 列表 若 条件]
+
+        适配层把 v3 ListComprehension 转成 v1 ListComprehension（保留
+        expression/variable/iterable/condition 四字段）。这里生成循环：
+        创建空列表 → 遍历 iterable → 设循环变量 → 检查 condition → 追加 expression。
+        """
+        # 生成可迭代对象
+        iter_dv, _ = self._gen_expression(expr.iterable)
+        iter_slot = self._store_dv(iter_dv)
+
+        # 创建结果列表
+        result_dv = self._call_dv_func('dv_list_new')
+        result_slot = self._new_dv_slot()
+        self.emit(f'store {LIGHTVALUE_STRUCT} {result_dv}, ptr {result_slot}')
+
+        # 获取长度
+        list_len = self.new_register()
+        self.emit(f'{list_len} = call i64 @dv_list_len(ptr {iter_slot})')
+
+        # 循环变量（用 slot pool 而非 alloca_local，因为 typed codegen
+        # 不 flush _pending_allocas，alloca 指令会丢失导致未定义值）
+        var_name = expr.variable
+        var_slot = self._new_dv_slot()
+        self._local_vars[var_name] = var_slot
+
+        # i = 0
+        i_slot = self.new_register()
+        self.emit(f'{i_slot} = alloca i64')
+        self.emit(f'store i64 0, ptr {i_slot}')
+
+        cond_lab = self.new_label('lc_cond')
+        body_lab = self.new_label('lc_body')
+        filter_lab = self.new_label('lc_filter')
+        append_lab = self.new_label('lc_append')
+        next_lab = self.new_label('lc_next')
+        done_lab = self.new_label('lc_done')
+
+        self.emit(f'br label %{cond_lab}')
+        self.emit(f'{cond_lab}:')
+        i_val = self.new_register()
+        self.emit(f'{i_val} = load i64, ptr {i_slot}')
+        cmp = self.new_register()
+        self.emit(f'{cmp} = icmp slt i64 {i_val}, {list_len}')
+        self.emit(f'br i1 {cmp}, label %{body_lab}, label %{done_lab}')
+
+        self.emit(f'{body_lab}:')
+        # 取出元素
+        elem_dv = self._call_dv_func('dv_list_get', iter_dv, f'i64 {i_val}')
+        self.set_var(var_name, elem_dv)
+
+        # 检查条件（如果有）
+        if expr.condition is not None:
+            cond_dv, _ = self._gen_expression(expr.condition)
+            cond_i1 = self._gen_condition_i1(expr.condition, cond_dv)
+            self.emit(f'br i1 {cond_i1}, label %{append_lab}, label %{next_lab}')
+        else:
+            self.emit(f'br label %{append_lab}')
+
+        self.emit(f'{append_lab}:')
+        # 计算输出表达式
+        out_dv, _ = self._gen_expression(expr.expression)
+        # 原地追加模式（result == list 同槽），避免未初始化 result_slot 问题
+        cur_list = self.new_register()
+        self.emit(f'{cur_list} = load {LIGHTVALUE_STRUCT}, ptr {result_slot}')
+        list_arg_slot = self._store_dv(cur_list)
+        elem_arg_slot = self._store_dv(out_dv)
+        self.emit(f'call void @dv_list_append(ptr {list_arg_slot}, ptr {list_arg_slot}, ptr {elem_arg_slot})')
+        new_list = self._load_dv(list_arg_slot)
+        self.emit(f'store {LIGHTVALUE_STRUCT} {new_list}, ptr {result_slot}')
+        self.emit(f'br label %{next_lab}')
+
+        self.emit(f'{next_lab}:')
+        next_i = self.new_register()
+        self.emit(f'{next_i} = add i64 {i_val}, 1')
+        self.emit(f'store i64 {next_i}, ptr {i_slot}')
+        self.emit(f'br label %{cond_lab}')
+
+        self.emit(f'{done_lab}:')
+        final = self.new_register()
+        self.emit(f'{final} = load {LIGHTVALUE_STRUCT}, ptr {result_slot}')
+        return final, 'dv'
 
     def _gen_typed_list_from_args(self, args: List[str]) -> str:
         """C3-1：从一组已生成的 LightValue 构造列表（`列(1, 2, 3)`）。"""

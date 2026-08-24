@@ -2967,7 +2967,10 @@ class ParserExprMixin:
                         if not self._match(TokenType.RBRACKET):
                             step = self._parse_expr()
                     self._consume(TokenType.RBRACKET)
-                    expr = IndexAccess(expr, SliceExpr(None, stop, step))
+                    # A9-S2: start 缺省时填 NumberLiteral(0) 而非 None，
+                    # 使 AstAdapter 始终把 start 放进 args[0]，避免 [:stop]
+                    # 与 [start:] 在转译后无法区分。
+                    expr = IndexAccess(expr, SliceExpr(NumberLiteral(0), stop, step))
                 else:
                     start = self._parse_expr()
                     if self._match(TokenType.COLON):

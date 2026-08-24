@@ -2509,7 +2509,13 @@ class PythonCodeGenerator:
             self._add_line(f"@classmethod")
         if getattr(method, 'is_property', False):
             self._add_line("@property")
-        self._add_line(f"def {method_name}({params_str}){return_type_annotation}:")
+
+        # A9：异步方法——类体内 `异步 段落 名字():` 经 _parse_async_paragraph
+        # 产出 Paragraph（modifiers 含 '异步'），MethodDefinition 无 modifiers 槽
+        # 但 getattr 默认 [] 不影响。_generate_paragraph 同口径（:1583）。
+        is_async = '异步' in (getattr(method, 'modifiers', []) or [])
+        def_prefix = "async def" if is_async else "def"
+        self._add_line(f"{def_prefix} {method_name}({params_str}){return_type_annotation}:")
 
         old_in_function = self._in_function
         old_in_class = self._in_class_method
