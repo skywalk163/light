@@ -278,6 +278,35 @@ jobs:
           . .venv/bin/activate
           python tools/ci/spec_coverage.py --root .
 
+      # G9（第九轮 M22/M23/M24）：三道新度量门禁，同样是纯静态扫描（各 1s 级），
+      # 挨着既有门禁段放，不与测试并发（第五轮教训：门禁与测试并发会把测试中途
+      # 生成的产物扫成「新增违规」）。硬判绿点，不加 || true。
+      #
+      # 3) 地板自举率：stdlib/builtins.py 的 114 个内置函数被注入进每一份产物，
+      #    却没有同名 .light，六轮来不在任何指标的分母里 —— 最大的度量盲区。
+      #    分母扣掉真边界（文件 I/O / 环境 / stdio / 时间源 / 随机源），
+      #    比例只升不降，且 native_required 名单新增即红（防「挪进豁免缩分母」）。
+      - name: 地板自举率门禁（builtins 搬迁·只升不降）
+        run: |
+          . .venv/bin/activate
+          python tools/ci/floor_bootstrap.py --root .
+
+      # 4) 原生腿产品清单：模块级 / CLI 路径级 / 平台级三张表。
+      #    原生可编译比例只升不降；坏路径数只降不升；平台矩阵未实测格数只降不升
+      #    （这条专治「只在 Windows 测过就声称跨平台」）。
+      - name: 原生腿产品门禁（模块/CLI/平台三表）
+        run: |
+          . .venv/bin/activate
+          python tools/ci/native_product.py --root .
+
+      # 5) 分布式判据清单：done 必须同时有可定位的判据与含动作词的反跑。
+      #    **没有反跑就不算判据**（总纲 §5 红线 3，继承第七轮「上界断言是假绿主形态」）。
+      - name: 分布式判据门禁（没有反跑就不算判据）
+        run: |
+          . .venv/bin/activate
+          python tools/ci/dist_criteria.py --root .
+
+
 
       # 时间预算硬闸门（2026-08-22 用户裁决）：PR ≤ 600s，push main ≤ 1200s。
       # always() 是故意的：前面哪一步红了，也要把耗时账单打出来——不然一红就看不到时间数据，
