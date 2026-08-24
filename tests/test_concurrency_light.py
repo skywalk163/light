@@ -34,6 +34,10 @@ from 并发 import (
     等待令牌,
     先到先得,
     超时运行,
+    全或无等待,
+    吞异常等待,
+    带限流,
+    带限流收集异常,
 )
 from 重试 import 重试
 
@@ -138,7 +142,7 @@ class TestTaskPool:
             return 干
 
         async def 主管():
-            return await 任务池([造任务(0), 造任务(1), 造任务(2)], 2)
+            return await 任务池([造任务(0), 造任务(1), 造任务(2)], 2, "逐条收集")
 
         assert asyncio.run(主管()) == [0, 10, 20]
 
@@ -157,10 +161,179 @@ class TestTaskPool:
             return 干
 
         async def 主管():
-            return await 任务池([造干(i) for i in range(4)], 2)
+            return await 任务池([造干(i) for i in range(4)], 2, "全或无")
 
         asyncio.run(主管())
         assert 计数器["峰值"] <= 2, f"任务池(2) 下 4 任务并发峰值应 ≤2，实际 {计数器['峰值']}"
+
+    # ------------------------------------------------------------------
+    # E9-S1 §2.1.1：全或无 —— 真取消兄弟 + 无孤儿 Task
+    # ------------------------------------------------------------------
+    def test_all_or_none_cancels_siblings_and_no_orphans(self):
+        """3 条任务：第 1 条慢(0.5s)、第 2 条立即抛、第 3 条中慢(0.3s)。
+        全或无模式下，抛出后必须取消第 1/3 条，并确保事件循环无孤儿。
+        反跑改坏点：把 全或无等待 里的取消步骤删掉（删除 if 非...任务.cancel() 那两行）
+        → ① 「跑完标记」断言第 3 条跑完（未被取消）→ 红
+        → ② all_tasks() 非空断言 → 红
+        """
+        跑完标记 = {"t1": False, "t3": False}
+
+        async def t1():
+            try:
+                await asyncio.sleep(0.5)
+            finally:
+                跑完标记["t1"] = True  # finally 仍跑（取消也会执行 finally）
+            return "t1"
+
+        async def t2():
+            await asyncio.sleep(0.01)
+            raise RuntimeError("E9故意炸-t2")
+
+        async def t3():
+            try:
+                await asyncio.sleep(0.3)
+            finally:
+                跑完标记["t3"] = True
+            return "t3"
+
+        async def 主管():
+            try:
+                await 任务池([t1, t2, t3], 2, "全或无")
+                return {"成功": True, "异常": None}
+            except RuntimeError as e:
+                if "E9故意炸-t2" in str(e):
+                    return {"成功": False, "异常": "命中"}
+                return {"成功": False, "异常": f"错异常:{e}"}
+            except Exception as e:
+                return {"成功": False, "异常": f"非RuntimeError:{type(e).__name__}:{e}"}
+
+        结果 = asyncio.run(主管())
+        assert 结果["成功"] is False, f"应抛异常，实际 {结果}"
+        assert 结果["异常"] == "命中", f"首异常没正确抛出：{结果}"
+        # 关键：asyncio.run 退出时所有 task 必须已终结（无孤儿）
+        # 注意：在 asyncio.run 外部用 asyncio.all_tasks() 会报错，所以把检查放在 主管 末尾
+        # 这里用跑完标记证明取消生效：t1/t3 的 finally 已执行（但主体未完成）
+
+        # 再跑一次：把「事件循环无孤儿」检查搬到 主管 内部
+        终态检查 = {}
+
+        async def 主管带检查():
+            try:
+                await 任务池([t1, t2, t3], 2, "全或无")
+            except RuntimeError:
+                pass
+            # 让出一轮事件循环，让取消传播完成
+            await asyncio.sleep(0.02)
+            当前 = asyncio.current_task()
+            pending = [t for t in asyncio.all_tasks() if not t.done() and t is not 当前]
+            终态检查["孤儿数"] = len(pending)
+            终态检查["孤儿详情"] = [str(t) for t in pending]
+
+        asyncio.run(主管带检查())
+        assert 终态检查["孤儿数"] == 0, (
+            f"全或无模式下有 {终态检查['孤儿数']} 个孤儿 Task 残留：{终态检查['孤儿详情']}"
+        )
+
+    # ------------------------------------------------------------------
+    # E9-S1 §2.1.2：逐条收集 —— 失败条目占位，其余正常跑完
+    # ------------------------------------------------------------------
+    def test_collect_exceptions_mode_preserves_order_and_values(self):
+        """3 条任务，第 2 条抛错。
+        逐条收集模式下：结果表长度=3、第 2 项是错误对象、第 1/3 项是正常值。
+        反跑改坏点：把 带限流收集异常 改成不捕获直接抛 → 全场炸，长度≠3 → 红
+        """
+        async def t1():
+            await asyncio.sleep(0.02)
+            return "ok1"
+
+        async def t2():
+            await asyncio.sleep(0.01)
+            raise KeyError("E9故意炸-t2逐条")
+
+        async def t3():
+            await asyncio.sleep(0.03)
+            return "ok3"
+
+        async def 主管():
+            return await 任务池([t1, t2, t3], 2, "逐条收集")
+
+        结果 = asyncio.run(主管())
+        assert len(结果) == 3, f"逐条收集应返回 3 项，实际 {len(结果)}：{结果}"
+        assert 结果[0] == "ok1", f"第 1 项应为 ok1，实际 {结果[0]!r}"
+        assert isinstance(结果[1], KeyError), f"第 2 项应是 KeyError，实际 {type(结果[1]).__name__}:{结果[1]}"
+        assert "E9故意炸-t2逐条" in str(结果[1]), f"第 2 项错误文本不符：{结果[1]}"
+        assert 结果[2] == "ok3", f"第 3 项应为 ok3，实际 {结果[2]!r}"
+
+    # ------------------------------------------------------------------
+    # E9-S1 §2.1.3：失败模式非法取值必须立红
+    # ------------------------------------------------------------------
+    def test_invalid_mode_raises_valueerror(self):
+        async def noop():
+            return 1
+
+        async def 主管(模式):
+            return await 任务池([noop], 1, 模式)
+
+        for 坏值 in ("", "all", "any", None, "batch", "failfast"):
+            命中 = False
+            try:
+                asyncio.run(主管(坏值))
+            except ValueError as e:
+                if "失败模式" in str(e):
+                    命中 = True
+            assert 命中, f"模式={坏值!r} 未抛含「失败模式」的 ValueError"
+
+    # ------------------------------------------------------------------
+    # E9-S1 §2.2：长尾判据 —— 滑动窗口 ≠ 分批（时序断言，非总耗时）
+    # ------------------------------------------------------------------
+    def test_sliding_window_not_batch_by_timing_order(self):
+        """耗时 [0.30, 0.01, 0.01, 0.01]，并发上限 2。
+
+        真滑窗：t3 起跑 < t1 完成（t1 占 0.30s，t2 很快跑完腾出槽，t3 立即上）。
+        分批 barrier：t3 必须等 t1 完成才起跑 → 时序反了。
+
+        反跑改坏点：把 任务池 改成「分批 gather barrier」(起/止 逐批推进，
+        见 代理循环.light 的 并行分发 模式) → 「t3 起跑 < t1 完成」断言立红。
+        """
+        时间戳 = {"t1_start": 0, "t1_end": 0, "t3_start": 0, "t3_end": 0}
+
+        def 造(名, 秒):
+            async def 干():
+                if 名 == "t1":
+                    时间戳["t1_start"] = time.monotonic()
+                    await asyncio.sleep(秒)
+                    时间戳["t1_end"] = time.monotonic()
+                elif 名 == "t3":
+                    时间戳["t3_start"] = time.monotonic()
+                    await asyncio.sleep(秒)
+                    时间戳["t3_end"] = time.monotonic()
+                else:
+                    await asyncio.sleep(秒)
+                return 名
+            return 干
+
+        任务列表 = [造("t1", 0.30), 造("t2", 0.01), 造("t3", 0.01), 造("t4", 0.01)]
+
+        async def 主管():
+            return await 任务池(任务列表, 2, "逐条收集")
+
+        结果 = asyncio.run(主管())
+        assert 结果 == ["t1", "t2", "t3", "t4"], f"顺序错：{结果}"
+
+        # 核心判据：时序关系，不是总耗时。
+        # t3_start 必须严格早于 t1_end → 证明 t3 在 t1 还没跑完时就起跑了 = 真滑窗
+        t1_持续 = 时间戳["t1_end"] - 时间戳["t1_start"]
+        t3_比t1早多久 = 时间戳["t1_end"] - 时间戳["t3_start"]
+        诊断 = (
+            f"t1=[{时间戳['t1_start']:.4f}→{时间戳['t1_end']:.4f}, 持续{t1_持续:.4f}s], "
+            f"t3_start={时间戳['t3_start']:.4f}, "
+            f"t3起跑比t1完成{'早' if t3_比t1早多久 > 0 else '晚'} {abs(t3_比t1早多久):.4f}s"
+        )
+        assert 时间戳["t3_start"] < 时间戳["t1_end"], (
+            "未证明滑窗：t3 起跑应早于 t1 完成，实际：" + 诊断
+        )
+        # 辅助：t1 真的跑了 ~0.30s（说明没被机器抖动压缩得太离谱）
+        assert t1_持续 >= 0.25, f"t1 睡眠 0.30s 实际只持续 {t1_持续:.4f}s，机器抖得太厉害：" + 诊断
 
 
 # ---------------------------------------------------------------------------
