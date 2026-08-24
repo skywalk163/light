@@ -79,11 +79,39 @@ jobs:
           . .venv/bin/activate
           python -m pip install --upgrade pip
           python -m pip install pytest
+          # cryptography 是**测试侧**依赖（tests/test_tls_light.py 用它在临时目录生成自签
+          # 证书），不进 .light 实现、不破坏「运行时零第三方依赖」。以前没写在这里也绿，
+          # 靠的是 `--system-site-packages` 从 runner 系统 python 里蹭到了一份 ——
+          # 那是隐性依赖：换台干净 runner，下面「纯光明测试（硬）」那步会直接红。
+          # 2026-08-24 Linux 实测记录见 POSIX验证报告_Linux.md §E.3。
+          # 装不上也不在这一步拦：test_tls_light.py 侧有响亮降级（一条红代表全文件），
+          # 信号不会丢，反而能指到根因。
+          python -m pip install cryptography || true
           # xdist 是加速项而非依赖：本地 devpi 镜像不保证有，装不上就串行跑。
           python -m pip install pytest-xdist || true
 
       - name: 计时打点（装依赖）
         run: python3 tools/ci/time_budget.py --mark 装依赖
+
+      # 原生腿的工具链底线是 **clang ≥ 18**：生成的 IR 是 opaque pointer 风格（`ptr` 类型），
+      # clang-14 全档拒收、clang-15 也不行（O0/O1 typed-pointer 报错，O2/O3 指令编号报错），
+      # clang-18 四档全绿。实测三版对照见 docs/POSIX验证报告_Linux.md §B / §4 #L1，
+      # 文档口径见 docs/从光明到LLVM.md §1.0。
+      # 这一步**只报告、不判绿**：本 runner（FreeBSD jail）的 clang 版本此前从未记录，
+      # 而缺 clang 时原生测试按设计 skip（Linux 实测 `7 passed, 30 skipped`），
+      # 不该因为宿主装的是旧 clang 或没装 clang 就把整轮 CI 变红。
+      - name: 工具链盘点（clang 版本·只报告）
+        run: |
+          if command -v clang >/dev/null 2>&1; then
+            clang --version | head -n 1
+            MAJOR=$(clang --version | sed -n 's/.*version \([0-9][0-9]*\).*/\1/p' | head -n 1)
+            if [ -n "$MAJOR" ] && [ "$MAJOR" -lt 18 ]; then
+              echo "[CI][警告] clang 主版本 $MAJOR < 18：原生腿 12 格矩阵在 14/15 上全红（opaque pointer IR 被拒），相关红/skip 属工具链版本门槛，不是项目回退。"
+            fi
+          else
+            echo "[CI] 未装 clang：原生腿相关测试按设计 skip。"
+          fi
+
 
       # 这一步只负责「跑 + 产出 junit」，**不自己判绿**。
       # 原因：本仓库有一批 v7 收尾期的存量失败（见 docs/v7_失败用例根因聚类工单.md，

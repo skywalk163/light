@@ -643,3 +643,67 @@ strict、整场级联炸」的坑（见十四节），要单独一轮带反跑�
 - **判据缺口三条**：并发无长尾判据；`用量/成本/p50/p95` 在报告层无断言；事件总线无
   「两实例并发各自只收到自己的事件」用例。
 
+
+---
+
+## 十七、POSIX/Linux 实测账（2026-08-24，A7 交付的 Linux 实机验证）
+
+来源：`docs/POSIX验证报告_Linux.md`（Ubuntu 22.04.5 + clang-18 + Python 3.12.13 实机跑，
+非读代码推断）。同目录还有 `docs/POSIX验证报告.md`（Windows/沙箱版，早一轮）。
+两份报告是**外部交付物存档**，不是本仓库的历史文档，引用时按 §号 定位。
+
+已在本轮直接处置的：**#L3**（缺 cryptography 导致整轮 pytest collect abort）——
+`tests/test_tls_light.py` 改成响亮降级（缺依赖时一条红代表全文件，只有显式
+`LIGHT_ALLOW_SKIP_TLS_TEST=1` 才整文件 skip），并在 `.gitea/workflows/ci.yml`
+装依赖那步补 `pip install cryptography || true`。**没有**按报告建议用
+`pytest.importorskip` —— 那会让「纯离线、不许 skip」的文件在缺依赖时静默全绿。
+**#L4** 无需动作（Windows 专属，Linux 侧 LTO 直接可用）。
+
+### 17.1 #L1 [高·环境门槛] 原生腿要求 clang ≥ 18（已写进文档/CI）
+
+- 现象：同一批 IR 在 clang-14 四档全红（`ptr type is only supported in -opaque-pointers
+  mode … error: expected type`）、clang-15 也全红（O2/O3 另报
+  `instruction expected to be numbered '%0'`）、clang-18 四档全绿（12 格矩阵 12/12）。
+- 性质：**不是项目缺陷**，是工具链版本门槛（IR 走 opaque pointer 现代风格）。
+  Ubuntu 22.04 自带的 clang-14 完全不可用。clang-16/17 未逐版实测。
+- 处置：`docs/从光明到LLVM.md §1.0` 新增「工具链底线」小节 + §8.1 两条 Q；
+  `.gitea/workflows/ci.yml` 新增「工具链盘点（clang 版本·只报告）」一步
+  （**只报告不判绿**：缺 clang 时原生测试按设计 skip，不该因宿主 clang 旧就整轮红）。
+- 未验证：FreeBSD runner 自带 clang 的版本（报告 §5 第 2 条），CI 那步跑起来就能看到。
+
+### 17.2 #L2 [中] POSIX 侧原生 TLS 是 stub（有壳无实现）
+
+- 证据：`runtime_typed.c:5747-5778`，POSIX 分支 `backend=none`、`dv_tls_wrap` → NULL，
+  任何握手调用立即失败。Windows 侧的 Schannel 后端是真的。
+- 口径纠正：`docs/POSIX验证报告_Linux.md` 已把「`dv_tls_last_error()` POSIX 未导出」
+  的怀疑证伪——它定义在 `runtime_typed.c:5107`、在 `#ifdef _WIN32` 之前无条件存在，
+  POSIX 上返回可读错误 `本平台未实现原生 TLS：当前只有 Windows Schannel 后端（POSIX 待补 mbedTLS）`。
+  所以缺的是**实现**，不是错误可见性。
+- 排期：第九轮 M23（原生腿）候选。补 mbedTLS/OpenSSL 后端属新增能力，不在本轮范围。
+- 记账口径：凡文档/清单写「原生 TLS 可用」的地方，必须标 **Windows-only**。
+
+### 17.3 #L5 [中] 溢出文件的**绝对路径**被拼进标准输出（跨平台真缺陷，Windows 是假绿）
+
+报告把它记成「Linux 特有」，**本轮核查后改判：两个平台都漏，Windows 只是断言瞎了**。
+
+- 真正的泄漏点：`stdlib/进程树.light:248` ——
+  `设 标记 为 "...[已省略 N 字节，完整输出见 " + 己.溢出路径 + "]..."`，
+  `己.溢出路径` 是 `os.path.join(己.目录, 名)` 的**绝对路径**，被 prepend 到
+  `结果.标准输出` 的**开头**。合并期修 P0-1 时只把
+  `stdlib/代理工具集.light:658` 那条尾部提示改成了 `os.path.basename`，
+  上游这条省略标记漏了。
+- 为什么 Windows 绿：`stdlib/路径护栏.light:105-112 规范路径` 在 Windows 上做
+  `os.path.normcase`（全小写），沙箱根目录因此是小写，拼出来的路径也是小写；而
+  `tests/test_agent_tools_light.py:666` 的 `str(tmp_path) not in 结果` 是**大小写敏感**的，
+  于是漏检。本机实测（`_probeL5_` 探针）：输出头部确实带
+  `c:\users\...\appdata\local\temp\_probel5_xxxx\_taskD2_spill_1_....bin`，
+  同一断言判定 `NOLEAK`。Linux 上 normcase 是空操作，路径逐字相等 → 红。
+- 为什么 `:665` 那条 `os.sep not in 尾段` 也没拦住：`尾段` 从 `"输出超限"` 起算，
+  泄漏在它**前面**的正文里。
+- 影响：给模型的输出里带宿主机目录结构（用户名、盘符、临时目录布局），
+  而模型只能用沙箱内相对名（`read_file` 受 核准 管），绝对路径对它毫无用处。
+- 修法（未做，排期第九轮）：`进程树.light:248` 改成回显 `os.path.basename(己.溢出路径)`
+  —— 但 `进程树` 是通用库、调用方不一定有沙箱，得先定「相对谁」的口径；
+  同时把 `:666` 的断言改成大小写不敏感（否则 Windows 上继续假绿，改完也测不出）。
+
+

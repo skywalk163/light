@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 test_tls_light.py —— stdlib/流式.light 的 TLS 传输层测试（纯离线，不许 skip）
+
+唯一的例外是「缺 cryptography」这一种：那时也不许静默转绿，走下面的响亮降级
+（一条红代表全文件；只有显式设 LIGHT_ALLOW_SKIP_TLS_TEST=1 才整文件 skip）。
 """
 import ipaddress
 import os
@@ -16,11 +19,52 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 # cryptography 仅用于在本机临时目录生成自签证书（测试侧，不进入 .light 实现）
-from cryptography import x509
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.x509.oid import NameOID
+#
+# 为什么不是裸 `from cryptography import x509`：裸 import 在没装 cryptography 的机器上是
+# **整文件收集错误**，而 `pytest tests --ignore=tests/e2e` 会因此 `Interrupted: 1 error
+# during collection` —— 整轮 abort，不是一条红。2026-08-24 Linux 实测踩到
+# （`POSIX验证报告_Linux.md` §E.3；Windows 侧没暴露只因为本机装了 cryptography）。
+#
+# 为什么也不是 `pytest.importorskip`：本文件的契约写在上面的模块 docstring 里 ——
+# **纯离线、不许 skip**。静默 skip 等于悄悄把整份 TLS 覆盖丢掉，还显示为绿。
+#
+# 口径是「响亮降级」，两档：
+#   1. 缺依赖 + 没开显式开关 → 只留一条 `test_缺cryptography必须响亮降级` 打红
+#      （进 junit、被回归闸门当新增红拦下），其余用例 skip 且理由指回那条红；
+#   2. 缺依赖 + `LIGHT_ALLOW_SKIP_TLS_TEST=1` → 整文件 skip，理由写明是人为放行。
+try:
+    from cryptography import x509
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import NameOID
+
+    _缺cryptography = None
+except ImportError as _导入错误:
+    x509 = default_backend = hashes = serialization = rsa = NameOID = None
+    _缺cryptography = str(_导入错误)
+
+_红用例名 = "test_缺cryptography必须响亮降级"
+
+if _缺cryptography is not None and os.environ.get("LIGHT_ALLOW_SKIP_TLS_TEST") == "1":
+    pytest.skip(
+        "显式放行（LIGHT_ALLOW_SKIP_TLS_TEST=1）：%s —— TLS 覆盖本轮为零，别当成绿"
+        % _缺cryptography,
+        allow_module_level=True,
+    )
+
+if _缺cryptography is not None:
+
+    def test_缺cryptography必须响亮降级():
+        pytest.fail(
+            "本机缺 cryptography（%s）：TLS 测试无法生成自签证书，本文件的 TLS 覆盖为零。\n"
+            "修法二选一：装上 cryptography（测试侧依赖，不进 .light 实现，不破坏"
+            "「运行时零第三方依赖」）；或确认要放弃这轮 TLS 覆盖时显式设"
+            "LIGHT_ALLOW_SKIP_TLS_TEST=1。**不许靠 importorskip 静默转绿。**"
+            % _缺cryptography
+        )
+
+
 
 _STDLIB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "stdlib")
 if _STDLIB not in sys.path:
@@ -148,6 +192,10 @@ class TLSServer(threading.Thread):
 @pytest.fixture(scope="module")
 def certs():
     """在测试临时目录生成证书；目录用 _taskC2_ 前缀，结束自动清理。"""
+    # 缺 cryptography 时在这里 skip：让那三条真 TLS 用例显示为 skipped（理由指回红用例），
+    # 由 test_缺cryptography必须响亮降级 那一条红代表整文件，免得 3 条 setup ERROR 盖住原因。
+    if _缺cryptography is not None:
+        pytest.skip("缺 cryptography：本条由 %s 代表（见文件头注记）" % _红用例名)
     tmp = tempfile.mkdtemp(prefix="_taskC2_")
     cafile, certfile, keyfile = _gen_cert(tmp)
     yield cafile, certfile, keyfile

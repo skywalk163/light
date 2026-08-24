@@ -24,6 +24,19 @@
 
 光明采用**双后端架构**：开发阶段使用 SRC 后端（编译为 Python 字节码）以获得快速迭代，生产阶段使用 LLVM 后端（编译为原生机器码）以获得极致性能。
 
+### 1.0 工具链底线：clang ≥ 18（硬要求）
+
+原生（LLVM）后端生成的是 **opaque pointer 风格 IR**（`ptr` 类型），旧版 clang 直接拒收：
+
+- **clang 14**：O0/O1/O2/O3 全部失败 —— `warning: ptr type is only supported in -opaque-pointers mode … error: expected type`
+- **clang 15**：同样全部失败（O0/O1 报上面同一条；O2/O3 另报 `error: instruction expected to be numbered '%0'`）
+- **clang 18**：四档优化全绿（实测 12 格矩阵 12/12）
+- clang 16/17 未逐版实测，分界只到「≥18 一定行、≤15 一定不行」
+
+因此 **Ubuntu 22.04 自带的 clang-14 完全不能用**，装 clang-18 才行（apt.llvm.org 直连很慢，可用清华 TUNA 镜像 `mirrors.tuna.tsinghua.edu.cn/llvm-apt`）。FreeBSD 侧随系统 clang 的版本尚未核实，若低于 18 会撞同一堵墙。
+
+实测依据：`docs/POSIX验证报告_Linux.md` §B 与 §4 #L1（Ubuntu 22.04.5 + clang 14/15/18 三版对照）。
+
 ### 1.1 完整编译流程
 
 ```
@@ -1171,10 +1184,14 @@ light build hello.light -o dist/hello.exe ^
 
 **Q: `clang: command not found`**
 
-确保 clang 已安装并在 PATH 中：
+确保 clang 已安装并在 PATH 中，且**版本 ≥ 18**（见 §1.0，低版本装了也编不过）：
 - Windows：通过 Visual Studio Installer 安装 LLVM/Clang 工具链
-- Linux：`apt install clang llvm` 或 `yum install clang llvm`
+- Linux：`apt install clang-18 lld-18`（发行版仓库里的 `clang` 元包可能仍指向 14/15，那是不可用的）
 - macOS：`xcode-select --install` 或 `brew install llvm`
+
+**Q: `ptr type is only supported in -opaque-pointers mode` / `expected type` / `instruction expected to be numbered '%0'`**
+
+clang 版本太低（14/15），不是 IR 生成有 bug。换 clang ≥ 18，见 §1.0。
 
 **Q: 编译时提示 `runtime_typed.c` 找不到**
 
