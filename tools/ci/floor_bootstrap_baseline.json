@@ -1,12 +1,12 @@
 {
   "version": 1,
   "note": "地板自举率基线（第九轮 G9 建）。口径见 tools/ci/floor_bootstrap.py docstring。rate 只升不降；native_required_count 只降不升；denominator 只升不降；native_required 名单新增即红。**只在合并点重建**（总纲 §5 红线 5）。",
-  "built_from_commit": "5478ebfed56d",
+  "built_from_commit": "10b5fc1d2fd7",
   "list_path": "任务书/自举地板清单.json",
   "builtins_path": "stdlib/builtins.py",
   "total": 114,
-  "native_required_count": 32,
-  "denominator": 82,
+  "native_required_count": 34,
+  "denominator": 80,
   "light_count": 0,
   "rate": 0.0,
   "native_required": [
@@ -41,6 +41,8 @@
     "路径存在",
     "追加文件",
     "退出程序",
-    "随机浮点"
+    "随机整数",
+    "随机浮点",
+    "随机选择"
   ]
 }

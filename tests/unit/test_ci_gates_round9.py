@@ -94,7 +94,8 @@ def _写文本(path, 文本):
 
 _假地板 = """# -*- coding: utf-8 -*-
 def 甲():
-    return 1
+    import 内置核心
+    return 内置核心.甲()
 
 
 def 乙():
@@ -127,16 +128,22 @@ _落点 = """# 纯光明实现
 """
 
 
-def _地板条(名, 语言="python", 边界=False, 证据="", 备注=""):
+def _地板条(名, 分类="movable", 落点="", 证据行=""):
+    """C9 版清单的条目形状（S1 合并点裁决：结构以清单所有权方 C9 为准）。"""
     return {
         "名字": 名,
         "职责": "样例职责",
-        "当前实现语言": 语言,
-        "native_required": 边界,
-        "计划落点": "",
-        "证据": 证据,
-        "备注": 备注 or ("真边界：样例" if 边界 else ""),
+        "当前实现语言": "Python（builtins.py）",
+        "分类": 分类,
+        "目标落点": 落点 or ("真边界：样例" if 分类 == "native_required" else ""),
+        "证据行": 证据行,
     }
+
+
+def _已搬迁条(名="甲"):
+    """已就位且 builtins.py 真转发到 内置核心.light 的条目 → 计入分子。"""
+    return _地板条(名, "has_light_impl", "stdlib/内置核心.light",
+                   "stdlib/内置核心.light:4")
 
 
 class Test地板自举率(unittest.TestCase):
@@ -154,7 +161,7 @@ class Test地板自举率(unittest.TestCase):
         if 带影子:
             _写文本(os.path.join(d, "stdlib", "内置核心.py"), "# 影子\n")
         清单 = os.path.join(d, "任务书", "自举地板清单.json")
-        _写json(清单, {"条目": 条目})
+        _写json(清单, {"函数": 条目})
         return 清单
 
     def test_名单双向咬合(self):
@@ -165,17 +172,17 @@ class Test地板自举率(unittest.TestCase):
             self.assertEqual(_跑(FB, "--root", d, "--list", 清单,
                                 "--baseline", 缺基线), 1)
             # 方向二：清单多写一个代码里没有的 丙 → 红（防吹牛）
-            _写json(清单, {"条目": [_地板条("甲"), _地板条("乙"), _地板条("丙")]})
+            _写json(清单, {"函数": [_地板条("甲"), _地板条("乙"), _地板条("丙")]})
             self.assertEqual(_跑(FB, "--root", d, "--list", 清单,
                                 "--baseline", 缺基线), 1)
             # 逐个相等 → 校验通过（此时只差基线，rc=2 而非 1）
-            _写json(清单, {"条目": [_地板条("甲"), _地板条("乙")]})
+            _写json(清单, {"函数": [_地板条("甲"), _地板条("乙")]})
             self.assertEqual(_跑(FB, "--root", d, "--list", 清单,
                                 "--baseline", 缺基线), 2)
 
     def test_证据必须落在定义行的窗口内(self):
         with tempfile.TemporaryDirectory() as d:
-            条 = _地板条("甲", "light", 证据="stdlib/内置核心.light:4")
+            条 = _已搬迁条("甲")
             清单 = self._树(d, [条, _地板条("乙")])
             基线 = os.path.join(d, "b.json")
             # 行号正指 `段落 甲` 那一行 → 过
@@ -183,8 +190,8 @@ class Test地板自举率(unittest.TestCase):
                                 "--write-baseline", 基线), 0)
             self.assertEqual(_读json(基线)["light_count"], 1)
             # ±2 窗口内（第 6 行 vs 定义在第 4 行）→ 仍过，留给正常编辑漂移
-            条["证据"] = "stdlib/内置核心.light:6"
-            _写json(清单, {"条目": [条, _地板条("乙")]})
+            条["证据行"] = "stdlib/内置核心.light:6"
+            _写json(清单, {"函数": [条, _地板条("乙")]})
             self.assertEqual(_跑(FB, "--root", d, "--list", 清单,
                                 "--baseline", 基线), 0)
 
@@ -195,63 +202,80 @@ class Test地板自举率(unittest.TestCase):
         真判据必须红，因为那一行没有任何 `段落 甲`。
         """
         with tempfile.TemporaryDirectory() as d:
-            条 = _地板条("甲", "light", 证据="stdlib/内置核心.light:20")
+            条 = _已搬迁条("甲")
+            条["证据行"] = "stdlib/内置核心.light:20"
             清单 = self._树(d, [条, _地板条("乙")])
             self.assertEqual(_跑(FB, "--root", d, "--list", 清单), 1)
 
     def test_被同名py遮蔽的落点不算搬迁(self):
         with tempfile.TemporaryDirectory() as d:
-            条 = _地板条("甲", "light", 证据="stdlib/内置核心.light:4")
             # 有同名 .py 但首两行挂了魔数 → 取代成立，算搬迁
-            清单 = self._树(d, [条, _地板条("乙")], 带影子=True, 影子有魔数=True)
+            清单 = self._树(d, [_已搬迁条("甲"), _地板条("乙")],
+                            带影子=True, 影子有魔数=True)
             self.assertEqual(_跑(FB, "--root", d, "--list", 清单,
                                 "--write-baseline", os.path.join(d, "b.json")), 0)
         with tempfile.TemporaryDirectory() as d:
-            条 = _地板条("甲", "light", 证据="stdlib/内置核心.light:4")
             # 同样的实现，只是魔数没了 → 运行期跑的是 .py，判红
-            清单 = self._树(d, [条, _地板条("乙")], 带影子=True, 影子有魔数=False)
+            清单 = self._树(d, [_已搬迁条("甲"), _地板条("乙")],
+                            带影子=True, 影子有魔数=False)
             self.assertEqual(_跑(FB, "--root", d, "--list", 清单), 1)
+
+    def test_替身就位但builtins没转发_不计入分子(self):
+        """S1 合并点裁决的核心反跑（任务书/地板清单裁决_S1.md §4）。
+
+        `乙` 在 内置核心.light 里有真 `段落 乙`，但 builtins.py 的 乙 还是
+        `return 2` —— 运行期跑的仍是 Python，所以不算搬迁，分子只有 甲。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            乙 = _地板条("乙", "has_light_impl", "stdlib/内置核心.light",
+                        "stdlib/内置核心.light:7")
+            清单 = self._树(d, [_已搬迁条("甲"), 乙])
+            基线 = os.path.join(d, "b.json")
+            self.assertEqual(_跑(FB, "--root", d, "--list", 清单,
+                                "--write-baseline", 基线), 0)
+            b = _读json(基线)
+            self.assertEqual((b["light_count"], b["denominator"]), (1, 2))
 
     def test_豁免新增即红且分母不许缩(self):
         with tempfile.TemporaryDirectory() as d:
-            条甲 = _地板条("甲", "light", 证据="stdlib/内置核心.light:4")
-            清单 = self._树(d, [条甲, _地板条("乙")])
+            清单 = self._树(d, [_已搬迁条("甲"), _地板条("乙")])
             基线 = os.path.join(d, "b.json")
             self.assertEqual(_跑(FB, "--root", d, "--list", 清单,
                                 "--write-baseline", 基线), 0)
             b = _读json(基线)
             self.assertEqual((b["denominator"], b["native_required_count"]), (2, 0))
             # 把 乙 挪进豁免：分母 2→1，比例 50%→100%，看着是进步，实为缩分母
-            _写json(清单, {"条目": [条甲, _地板条("乙", 边界=True)]})
+            _写json(清单, {"函数": [_已搬迁条("甲"),
+                                   _地板条("乙", "native_required")]})
             self.assertEqual(_跑(FB, "--root", d, "--list", 清单,
                                 "--baseline", 基线), 1)
 
     def test_自举率退回即红(self):
         with tempfile.TemporaryDirectory() as d:
-            条甲 = _地板条("甲", "light", 证据="stdlib/内置核心.light:4")
-            清单 = self._树(d, [条甲, _地板条("乙")])
+            清单 = self._树(d, [_已搬迁条("甲"), _地板条("乙")])
             基线 = os.path.join(d, "b.json")
             self.assertEqual(_跑(FB, "--root", d, "--list", 清单,
                                 "--write-baseline", 基线), 0)
-            _写json(清单, {"条目": [_地板条("甲"), _地板条("乙")]})   # 搬回 python
+            # 甲 退回 movable（等于把搬迁记账撤了）→ 分子 1→0
+            _写json(清单, {"函数": [_地板条("甲"), _地板条("乙")]})
             self.assertEqual(_跑(FB, "--root", d, "--list", 清单,
                                 "--baseline", 基线), 1)
 
     def test_豁免必须写理由(self):
         with tempfile.TemporaryDirectory() as d:
-            条 = _地板条("甲", 边界=True)
-            条["备注"] = "   "
+            条 = _地板条("甲", "native_required")
+            条["目标落点"] = "   "
             清单 = self._树(d, [条, _地板条("乙")])
             self.assertEqual(_跑(FB, "--root", d, "--list", 清单), 1)
 
-    def test_未分类的null判红(self):
-        """`--sync-list` 补进来的新条目 native_required 是 null。
+    def test_未分类的空判红(self):
+        """`--sync-list` 补进来的新条目 `分类` 是空串。
 
-        留 null 等于分母口径没定，必须逼人做裁决而不是默默放过。
+        留空等于分母口径没定，必须逼人做裁决而不是默默放过。
         """
         with tempfile.TemporaryDirectory() as d:
             条 = _地板条("甲")
-            条["native_required"] = None
+            条["分类"] = ""
             清单 = self._树(d, [条, _地板条("乙")])
             self.assertEqual(_跑(FB, "--root", d, "--list", 清单), 1)
 
@@ -259,15 +283,14 @@ class Test地板自举率(unittest.TestCase):
         """sync 覆盖已有条目就会抹平 C9 填的搬迁进度，所以必须只增不改。
         """
         with tempfile.TemporaryDirectory() as d:
-            条甲 = _地板条("甲", "light", 证据="stdlib/内置核心.light:4")
-            清单 = self._树(d, [条甲])
+            清单 = self._树(d, [_已搬迁条("甲")])
             self.assertEqual(_跑(FB, "--root", d, "--list", 清单, "--sync-list"), 0)
-            条目 = {c["名字"]: c for c in _读json(清单)["条目"]}
+            条目 = {c["名字"]: c for c in _读json(清单)["函数"]}
             # 中文名不按字面序断言（`乙` 的码位小于 `甲`），只断集合
             self.assertEqual(set(条目), {"甲", "乙"})
-            self.assertEqual(条目["甲"]["证据"], "stdlib/内置核心.light:4")
-            self.assertEqual(条目["甲"]["当前实现语言"], "light")
-            self.assertIsNone(条目["乙"]["native_required"])
+            self.assertEqual(条目["甲"]["证据行"], "stdlib/内置核心.light:4")
+            self.assertEqual(条目["甲"]["分类"], "has_light_impl")
+            self.assertEqual(条目["乙"]["分类"], "")
 
 
 # ── 原生腿产品清单 ────────────────────────────────────────────────────────

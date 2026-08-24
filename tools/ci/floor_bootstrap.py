@@ -26,8 +26,11 @@ r"""地板自举率门禁（第九轮 G9 建，M22 的新增子判据）。
 时间戳、随机源这些必须落到系统调用的东西，用光明写不出来也不该假装写得出来。
 不扣的话这条指标永远到不了 100%，就会变成没人看的摆设。
 
-**分子只数「非 native_required 且 当前实现语言 == light」的条目**：边界项已经从
-分母里扣掉了，若它也能进分子，比例会 > 100%。
+**分子只数「地板真的搬过去了」的条目**：`分类 == has_light_impl` 只表示光明替身
+已就位；必须 `builtins.py` 里该函数体真的转发到那个光明模块才计入分子。
+S1 合并点裁决（`任务书/地板清单裁决_S1.md` §4）：12 条替身是真的，但
+`builtins.py:482 分割字符串` 还是 `return text.split(separator)`，运行期跑的仍是
+Python —— 「隔壁有个同名光明文件」不算搬迁，否则这条指标就是自我表扬。
 
 ## 三条防造假（每条都能反跑，见 tests/unit/test_ci_gates_round9.py）
 
@@ -54,10 +57,14 @@ r"""地板自举率门禁（第九轮 G9 建，M22 的新增子判据）。
 
 ## 谁填哪个字段
 
-- **C9**：`当前实现语言` / `证据` / `计划落点`（搬迁进度是它的活）
-- **G9**：`native_required` + 对应 `备注`（分母口径归度量方，改它要走裁决）
-- 两边都要写 `备注`：`native_required` 为真必须写清为什么是真边界，
-  不许只打个勾就把分母改小。
+清单结构以 C9 版为准（任务书 C9 §3 要求分五类：`native_required` / `movable` /
+`has_light_impl` / `duplicate` / `unused`；布尔字段表达不了 duplicate 与 unused，
+而这两类是 S3 删码的输入）。字段归属：
+
+- **C9**：`当前实现语言` / `目标落点` / `证据行`（搬迁进度是它的活）
+- **G9**：`分类`（分母口径归度量方，改它要走主线裁决，见 任务书/地板清单裁决_S1.md）
+- `native_required` 必须在 `目标落点` 里写清为什么是真边界、原生腿哪个符号对应
+  （这条同时是 B9 的输入），不许只打个标签就把分母改小。
 
 用法：
   # 对比模式（CI 用）
@@ -85,8 +92,8 @@ _DEFAULT_BASELINE = os.path.join(_HERE, "floor_bootstrap_baseline.json")
 _DEFAULT_清单 = os.path.join("任务书", "自举地板清单.json")
 _地板源 = os.path.join("stdlib", "builtins.py")
 
-语言值域 = ("python", "light")
-必填字段 = ("名字", "职责", "当前实现语言", "native_required", "计划落点", "证据", "备注")
+必填字段 = ("名字", "职责", "当前实现语言", "分类", "目标落点", "证据行")
+分类值域 = ("native_required", "movable", "has_light_impl", "duplicate", "unused")
 
 # 复用 bootstrap_rate 的两个既定口径：定义行判据（RE_DECL）与魔数判据（_是纯光明）。
 # 再写第二份必然分叉——第二轮就是三个自举率口径互相打架。
@@ -123,17 +130,59 @@ def 读地板函数名(root, 源=None):
             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
 
 
+def 读地板函数节点(root, 源=None):
+    """返回 {函数名: ast 函数节点}，用于判「是不是真转发到光明实现」。
+
+    分子不能只看「有没有同名光明实现」：`stdlib/字符串工具轻量.light` 写好了，
+    但 `builtins.py:482 分割字符串` 的函数体还是 `return text.split(separator)`，
+    运行期每一份产物执行的仍然是 Python —— 那就不算地板搬迁（S1 合并点裁决，
+    见 任务书/地板清单裁决_S1.md §4）。
+    """
+    path = 源 or os.path.join(root, _地板源)
+    with io.open(path, encoding="utf-8") as fh:
+        tree = ast.parse(fh.read())
+    return {n.name: n for n in tree.body
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
+
+
+def 是否转发(节点, 模块名):
+    """函数体里是否真的引用了光明模块 `模块名`。
+
+    **只认 ast 里的标识符与 import，不做文本包含判定**。文本判定连踩两次假绿：
+      - 签名行 `def 解析JSON(...)` 自带 `JSON`；
+      - 错误串 `raise RuntimeError(f"JSON 解析失败: {e}")` 也自带 `JSON`；
+      - `美化JSON` 里调的是兄弟 Python 函数 `序列化JSON`，同样含 `JSON`。
+    三条都会让「隔壁有个同名光明文件」冒充「地板已搬迁」。
+    """
+    if 节点 is None or not 模块名:
+        return False
+    for 子 in ast.walk(节点):
+        if isinstance(子, ast.Import):
+            for a in 子.names:
+                if a.name.split(".")[0] == 模块名:
+                    return True
+        elif isinstance(子, ast.ImportFrom):
+            if (子.module or "").split(".")[0] == 模块名:
+                return True
+        elif isinstance(子, ast.Name) and 子.id == 模块名:
+            return True
+        elif isinstance(子, ast.Attribute) and 子.attr == 模块名:
+            return True
+    return False
+
+
 def 读清单(path):
     with io.open(path, encoding="utf-8") as fh:
         data = json.load(fh)
-    条目 = data.get("条目")
+    条目 = data.get("函数")
     if not isinstance(条目, list) or not 条目:
-        raise ValueError("清单缺 `条目` 数组或为空")
+        raise ValueError("清单缺 `函数` 数组或为空")
     return data, 条目
 
 
+
 def 校验证据(root, 证据, 名字):
-    """证据必须指到真的 `段落/类/函数` 定义行。返回问题字符串，无问题返回 None。
+    """证据必须指到真的 `段落/类/函数` 定义行。返回 (问题字符串或 None, 模块名或 None)。
 
     判据（都可反跑）：
       1. 形如 `path:line`；
@@ -144,19 +193,19 @@ def 校验证据(root, 证据, 名字):
     """
     m = _RE_证据.match(str(证据).strip())
     if not m:
-        return "证据 `%s` 不是 `文件:行号` 形态" % 证据
+        return "证据行 `%s` 不是 `文件:行号` 形态" % 证据, None
     rel = m.group("file").strip()
     行号 = int(m.group("line"))
     full = os.path.join(root, rel.replace("/", os.sep))
     if not os.path.isfile(full):
-        return "证据文件不存在：%s" % rel
+        return "证据文件不存在：%s" % rel, None
     if not rel.endswith(".light"):
-        return ("证据 %s 不是 `.light`：登记成 light 就必须指向光明源码，"
-                "指到 `.py` 等于没搬" % rel)
+        return ("证据行指向 %s 而不是 `.light`：这个字段要证明「光明实现存在」，"
+                "指到 builtins.py 只能证明「Python 版存在」，自我否证" % rel), None
     with io.open(full, encoding="utf-8", errors="replace") as fh:
         lines = fh.read().splitlines()
     if not (1 <= 行号 <= len(lines)):
-        return "证据 %s:%d 行号越界（文件共 %d 行）" % (rel, 行号, len(lines))
+        return "证据 %s:%d 行号越界（文件共 %d 行）" % (rel, 行号, len(lines)), None
     起 = max(0, 行号 - 1 - 窗口)
     止 = min(len(lines), 行号 + 窗口)
     命中 = [i + 1 for i in range(起, 止)
@@ -164,20 +213,29 @@ def 校验证据(root, 证据, 名字):
     if not 命中:
         return ("证据 %s:%d 的 ±%d 行窗口里找不到「既是 段落/类/函数 定义行、"
                 "又含 `%s`」的行（当前行：%s）"
-                % (rel, 行号, 窗口, 名字, lines[行号 - 1].strip()[:60]))
+                % (rel, 行号, 窗口, 名字, lines[行号 - 1].strip()[:60])), None
     影子 = full[:-len(".light")] + ".py"
     if os.path.isfile(影子) and not _是纯光明(full):
         return ("落点 %s 有同名 `.py` 且首两行无魔数「纯光明实现」→ 运行期真正被"
-                "执行的是那个 `.py`，这份光明实现跑不到，不算搬迁" % rel)
-    return None
+                "执行的是那个 `.py`，这份光明实现跑不到，不算搬迁" % rel), None
+    模块名 = os.path.basename(rel)[:-len(".light")]
+    return None, 模块名
 
 
-def 校验(root, 条目, 真名单):
-    """返回 (问题清单, 统计字典)。"""
+def 校验(root, 条目, 真名单, 函数节点):
+    """返回 (问题清单, 统计字典)。
+
+    分子口径（S1 合并点裁决，任务书/地板清单裁决_S1.md §4）：
+    `has_light_impl` 只表示「光明替身已就位」，**不等于地板已搬迁**。
+    只有 `builtins.py` 里该函数体真的转发到那个光明模块（函数体内出现证据文件的
+    模块名）才计入分子 —— 否则运行期跑的还是 Python，指标就成了「隔壁有个同名
+    文件」的自我表扬。
+    """
     问题 = []
     见过 = set()
     清单名 = []
-    light数 = 0
+    已转发 = 0
+    待接线 = []
     边界数 = 0
     未分类 = []
     for i, 条 in enumerate(条目, 1):
@@ -195,41 +253,37 @@ def 校验(root, 条目, 真名单):
         if not str(条["职责"]).strip():
             问题.append("%s 职责为空（登记不写职责，后面没人判得出该不该搬）" % 名字)
 
-        边界 = 条["native_required"]
-        if 边界 is None:
+        分类 = 条["分类"]
+        if 分类 is None or not str(分类).strip():
             未分类.append(名字)
             continue
-        if not isinstance(边界, bool):
-            问题.append("%s native_required 必须是布尔（当前 %r）" % (名字, 边界))
+        if 分类 not in 分类值域:
+            问题.append("%s 分类 `%s` 不在值域 %s 内"
+                        % (名字, 分类, "/".join(分类值域)))
             continue
-        if 边界:
-            边界数 += 1
-            if not str(条["备注"]).strip():
-                问题.append("%s native_required 为真但备注为空 —— 豁免会缩小分母，"
-                            "必须写清为什么是真边界（文件 I/O / 环境 / stdio / "
-                            "时间源 / 随机源 / 进程）" % 名字)
 
-        语言 = 条["当前实现语言"]
-        if 语言 not in 语言值域:
-            问题.append("%s 当前实现语言 `%s` 不在值域 %s 内"
-                        % (名字, 语言, "/".join(语言值域)))
+        if 分类 == "native_required":
+            边界数 += 1
+            if not str(条["目标落点"]).strip():
+                问题.append("%s 是 native_required 但目标落点为空 —— 豁免会缩小分母，"
+                            "必须写清为什么是真边界、原生腿由哪个符号对应" % 名字)
             continue
-        if 语言 == "light":
-            坏 = 校验证据(root, 条["证据"], 名字)
+
+        if 分类 == "has_light_impl":
+            坏, 模块名 = 校验证据(root, 条["证据行"], 名字)
             if 坏:
-                问题.append("%s 登记为 light 但%s" % (名字, 坏))
+                问题.append("%s 登记为 has_light_impl 但%s" % (名字, 坏))
                 continue
-            if 边界:
-                问题.append("%s 既是 native_required 又登记成 light：边界项已从分母"
-                            "扣除，不能再进分子（会算出 >100%%）。真用光明写出来了"
-                            "就把 native_required 改成 false 并说明怎么做到的" % 名字)
-                continue
-            light数 += 1
+            体 = 函数节点.get(名字)
+            if 模块名 and 是否转发(体, 模块名):
+                已转发 += 1
+            else:
+                待接线.append("%s→%s" % (名字, 模块名))
 
     if 未分类:
-        问题.append("以下 %d 条 native_required 是 null（未分类）：%s。"
+        问题.append("以下 %d 条 分类 为空（未分类）：%s。"
                     "新条目由 --sync-list 补进来时留空，必须做完裁决再进 CI ——"
-                    "留 null 就等于分母口径没定"
+                    "留空就等于分母口径没定"
                     % (len(未分类), "、".join(未分类[:20])))
 
     真集 = set(真名单)
@@ -248,11 +302,13 @@ def 校验(root, 条目, 真名单):
         "total": len(清单名),
         "native_required_count": 边界数,
         "denominator": 分母,
-        "light_count": light数,
-        "rate": (light数 / 分母) if 分母 else 0.0,
+        "light_count": 已转发,
+        "pending_wiring": sorted(待接线),
+        "rate": (已转发 / 分母) if 分母 else 0.0,
         "native_required": sorted(条["名字"] for 条 in 条目
-                                  if 条.get("native_required") is True),
+                                  if 条.get("分类") == "native_required"),
     }
+
 
 
 def sync_list(root, 清单路径, 真名单):
@@ -270,17 +326,16 @@ def sync_list(root, 清单路径, 真名单):
         条目.append({
             "名字": 名,
             "职责": "",
-            "当前实现语言": "python",
-            "native_required": None,
-            "计划落点": "",
-            "证据": "",
-            "备注": "",
+            "当前实现语言": "Python（builtins.py）",
+            "分类": "",
+            "目标落点": "",
+            "证据行": "",
         })
-    data["条目"] = 条目
+    data["函数"] = 条目
     with io.open(清单路径, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(data, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
-    print("[地板门禁] 已补入 %d 条新条目（native_required 留 null，待裁决）：%s"
+    print("[地板门禁] 已补入 %d 条新条目（分类留空，待裁决）：%s"
           % (len(新增), "、".join(新增) or "（无）"))
     if 多余:
         print("[地板门禁] 清单里有 %d 条 builtins.py 已不存在：%s"
@@ -309,6 +364,7 @@ def main():
     清单路径 = args.清单 or os.path.join(args.root, _DEFAULT_清单)
     try:
         真名单 = 读地板函数名(args.root, args.builtins)
+        函数节点 = 读地板函数节点(args.root, args.builtins)
     except (OSError, SyntaxError, ValueError) as e:
         print("[地板门禁] 读不动地板源 %s：%s"
               % (args.builtins or _地板源, e))
@@ -323,13 +379,16 @@ def main():
     if args.sync_list:
         return sync_list(args.root, 清单路径, 真名单)
 
-    问题, 统计 = 校验(args.root, 条目, 真名单)
+    问题, 统计 = 校验(args.root, 条目, 真名单, 函数节点)
 
     print("[地板门禁] 地板源 %s：%d 个顶层函数；清单 %s：%d 条"
           % (_posix(_地板源), len(真名单), _posix(_DEFAULT_清单), 统计["total"]))
     print("[地板门禁] 地板自举率 = %d/%d = %.2f%%（分母已扣掉 %d 条 native_required 真边界）"
           % (统计["light_count"], 统计["denominator"], 统计["rate"] * 100,
              统计["native_required_count"]))
+    if 统计["pending_wiring"]:
+        print("[地板门禁] 光明替身已就位但 builtins.py 尚未转发的 %d 条（不计入分子）：%s"
+              % (len(统计["pending_wiring"]), "、".join(统计["pending_wiring"])))
 
     if 问题:
         print("[地板门禁] 红：清单有 %d 处不合规：" % len(问题))

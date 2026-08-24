@@ -342,6 +342,20 @@
   },
   "CLI路径状态表": [
     {
+      "命令": "run/compile --backend src",
+      "前端": "cli/light.py",
+      "后端": "Python 转译链（src/compiler.py）",
+      "状态": "可用",
+      "说明": "默认后端，全量测试跑在这条路径上。主线在 S1 合并点补的记账行——门禁要求源码 --backend choices 的每个取值都有账，归属仍是 B9"
+    },
+    {
+      "命令": "run/compile --backend antlr",
+      "前端": "cli/light.py",
+      "后端": "ANTLR 前端 + Python 转译链",
+      "状态": "可用",
+      "说明": "ANTLR 语法前端路径。主线在 S1 合并点补的记账行，归属仍是 B9"
+    },
+    {
       "命令": "run --backend native",
       "前端": "cli/light.py",
       "后端": "compile_light_typed",

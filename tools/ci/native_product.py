@@ -72,11 +72,21 @@ _CLI源 = os.path.join("cli", "light.py")
 
 模块状态值域 = ("可编译", "不可编译", "未实测")
 CLI状态值域 = ("可用", "坏", "未实现", "未实测")
-矩阵状态值域 = ("已实测通过", "已实测失败", "未实测")
+矩阵状态值域 = ("已实测通过", "已实测失败", "桩", "未实测")
 
 模块必填 = ("模块", "状态", "阻断原因", "证据", "备注")
 CLI必填 = ("路径", "后端取值", "状态", "证据", "备注")
 矩阵必填 = ("平台", "能力", "状态", "证据", "备注")
+
+_RE_后端取值 = re.compile(r"--backend\s+([\w\-/ ]+)")
+
+# B9 版清单里用了值域外的状态词。这里做同义词归一而不是去改 B9 的清单：
+# 清单所有权在 B9（任务书 G9 §2.2），门禁只负责判。语义对齐理由写在值里。
+CLI状态同义 = {
+    "未打通": "未实现",      # 「原生腿能 import stdlib」这条路径尚未实现，不是坏掉
+}
+
+
 
 _spec = importlib.util.spec_from_file_location(
     "_g9_np_bootstrap_rate", os.path.join(_HERE, "bootstrap_rate.py"))
@@ -94,13 +104,93 @@ def _posix(path):
     return path.replace("\\", "/")
 
 
+def 规范化(data):
+    """把 B9 版清单的形状归一成门禁判的三张平表。
+
+    B9 是清单所有权方（任务书 G9 §2.2「清单由 B9 产出」），所以**清单不动、门禁适配**：
+
+      - `stdlib原生可编译矩阵`：dict{模块: {状态, 阻断}} → 平表 `模块表`
+      - `CLI路径状态表`：{命令, 前端, 后端, 状态, 说明} → 平表 `CLI路径表`
+        （`后端取值` 从 `命令` 串里的 `--backend X / Y` 抽出来，不再要求 B9 手填）
+      - `平台矩阵`：宽表（每行一个平台、每列一个能力）→ 长表（一格一条）
+        状态词映射：`真实测*`→已实测通过，`桩*`→桩，`未实测*`→未实测
+
+    已经是门禁形状（G9 骨架那种）的清单原样返回，两种都能读。
+    """
+    if all(isinstance(data.get(k), list) for k in ("模块表", "CLI路径表", "平台矩阵")):
+        return data
+
+    依据 = str(data.get("依据", "")).strip()
+    出 = dict(data)
+
+    模块表 = []
+    for 模块, v in (data.get("stdlib原生可编译矩阵") or {}).items():
+        v = v if isinstance(v, dict) else {}
+        状态 = v.get("状态", "未实测")
+        阻断 = str(v.get("阻断", "")).strip()
+        模块表.append({
+            "模块": 模块,
+            "状态": 状态,
+            "阻断原因": "" if 状态 == "可编译" else 阻断,
+            # 可编译必须有一条含 light 的可复跑命令：B9 的 依据 字段就是那条判定命令
+            "证据": (v.get("证据") or 依据) if 状态 == "可编译" else "",
+            "备注": 阻断 if 状态 == "可编译" else "",
+        })
+    出["模块表"] = 模块表
+
+    CLI表 = []
+    for 条 in (data.get("CLI路径状态表") or []):
+        命令 = str(条.get("命令", "")).strip()
+        取值 = []
+        for m in _RE_后端取值.finditer(命令):
+            取值 += [t.strip() for t in m.group(1).split("/") if t.strip()]
+        原状态 = 条.get("状态", "未实测")
+        CLI表.append({
+            "路径": 命令,
+            "后端取值": 取值,
+            "状态": CLI状态同义.get(原状态, 原状态),
+            "证据": str(条.get("后端", "")).strip(),
+            "备注": str(条.get("说明", "")).strip(),
+        })
+    出["CLI路径表"] = CLI表
+
+    宽 = data.get("平台矩阵") or []
+    if 宽 and isinstance(宽[0], dict) and "能力" not in 宽[0]:
+        长 = []
+        for 行 in 宽:
+            平台 = 行.get("平台", "?")
+            for 能力, 值 in 行.items():
+                if 能力 == "平台":
+                    continue
+                原 = str(值).strip()
+                if 原.startswith("真实测"):
+                    状态 = "已实测通过"
+                elif 原.startswith("桩"):
+                    状态 = "桩"
+                elif 原.startswith("未实测"):
+                    状态 = "未实测"
+                else:
+                    状态 = "已实测失败"
+                长.append({
+                    "平台": 平台,
+                    "能力": 能力,
+                    "状态": 状态,
+                    "证据": 原 if 状态 == "已实测通过" else "",
+                    "备注": 原,
+                })
+        出["平台矩阵"] = 长
+    return 出
+
+
 def 读清单(path):
     with io.open(path, encoding="utf-8") as fh:
         data = json.load(fh)
+    data = 规范化(data)
     for 表 in ("模块表", "CLI路径表", "平台矩阵"):
         if not isinstance(data.get(表), list) or not data[表]:
             raise ValueError("清单缺 `%s` 数组或为空" % 表)
     return data
+
 
 
 def 实际模块名(root):
@@ -234,6 +324,7 @@ def 校验(root, data):
         "cli_total": len(data["CLI路径表"]),
         "matrix_untested": 矩阵计数["未实测"],
         "matrix_passed": 矩阵计数["已实测通过"],
+        "matrix_stub": 矩阵计数["桩"],
         "matrix_total": len(data["平台矩阵"]),
         "backend_choices": 真取值,
         "backend_已摘除": 已摘除,
@@ -242,18 +333,31 @@ def 校验(root, data):
 
 
 def sync_list(root, 清单路径):
-    """把 `stdlib/` 下新增的 `.light` 补进模块表（状态 `未实测`）。只增不改。"""
-    data = 读清单(清单路径)
-    有 = {条.get("模块") for 条 in data["模块表"]}
+    """把 `stdlib/` 下新增的 `.light` 补进模块表（状态 `未实测`）。只增不改。
+
+    **按清单原始形状回写**：B9 版的模块表是 `stdlib原生可编译矩阵`（dict），
+    要是把门禁内部归一后的平表 dump 回去，等于用适配层覆盖了所有权方的清单。
+    """
+    with io.open(清单路径, encoding="utf-8") as fh:
+        raw = json.load(fh)
     真 = 实际模块名(root)
-    新增 = [名 for 名 in 真 if 名 not in 有]
-    多余 = sorted(有 - set(真))
-    for 名 in 新增:
-        data["模块表"].append({
-            "模块": 名, "状态": "未实测", "阻断原因": "", "证据": "", "备注": "",
-        })
+    if isinstance(raw.get("stdlib原生可编译矩阵"), dict):
+        矩阵 = raw["stdlib原生可编译矩阵"]
+        新增 = [名 for 名 in 真 if 名 not in 矩阵]
+        多余 = sorted(set(矩阵) - set(真))
+        for 名 in 新增:
+            矩阵[名] = {"状态": "未实测", "阻断": ""}
+    else:
+        有 = {条.get("模块") for 条 in raw.get("模块表", [])}
+        新增 = [名 for 名 in 真 if 名 not in 有]
+        多余 = sorted(有 - set(真))
+        raw.setdefault("模块表", [])
+        for 名 in 新增:
+            raw["模块表"].append({
+                "模块": 名, "状态": "未实测", "阻断原因": "", "证据": "", "备注": "",
+            })
     with io.open(清单路径, "w", encoding="utf-8", newline="\n") as fh:
-        json.dump(data, fh, ensure_ascii=False, indent=2)
+        json.dump(raw, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
     print("[原生产品门禁] 已补入 %d 条模块（状态 未实测）：%s"
           % (len(新增), "、".join(新增) or "（无）"))
@@ -301,8 +405,9 @@ def main():
         print("[原生产品门禁] 告警（不判红）：CLI路径表登记了源码里已无的后端取值：%s"
               "（摘除死腿是许可处置，记得同步把表里那条改成 未实现 或删除）"
               % "、".join(统计["backend_已摘除"]))
-    print("[原生产品门禁] 平台矩阵：%d 格，已实测通过 %d / 未实测 %d"
-          % (统计["matrix_total"], 统计["matrix_passed"], 统计["matrix_untested"]))
+    print("[原生产品门禁] 平台矩阵：%d 格，已实测通过 %d / 桩 %d / 未实测 %d"
+          % (统计["matrix_total"], 统计["matrix_passed"],
+             统计["matrix_stub"], 统计["matrix_untested"]))
 
     if 问题:
         print("[原生产品门禁] 红：清单有 %d 处不合规：" % len(问题))
@@ -323,7 +428,8 @@ def main():
         }
         for k in ("module_total", "module_compilable", "module_untested",
                   "module_rate", "cli_broken", "cli_total",
-                  "matrix_untested", "matrix_passed", "matrix_total"):
+                  "matrix_untested", "matrix_passed", "matrix_stub",
+                  "matrix_total"):
             out[k] = 统计[k]
         with io.open(args.write_baseline, "w", encoding="utf-8", newline="\n") as fh:
             json.dump(out, fh, ensure_ascii=False, indent=2)
@@ -380,6 +486,8 @@ def main():
     red = 只降("matrix_untested", "平台矩阵未实测格数",
                "这条专治「只在 Windows 测过就声称跨平台」。") or red
     red = 只升("matrix_passed", "平台矩阵已实测通过格数") or red
+    red = 只降("matrix_stub", "平台矩阵桩格数",
+               "桩不是实现：POSIX TLS 的 dv_tls_unsupported 这类格子只能越来越少。") or red
 
     base_总 = baseline.get("module_total")
     if base_总 is not None and 统计["module_total"] < base_总:

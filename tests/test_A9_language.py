@@ -186,22 +186,24 @@ class TestS12CatchFoldingFix:
 '''
         code = _gen(src)
         lines = code.split('\n')
-        # 找到 except 行和 after 行的缩进
-        except_indent = None
-        after_indent = None
-        try_indent = None
+        # 找到 try/except/after 三行的缩进。用 dict 收集而不是三个 None 变量：
+        # `assert x is not None` 是零信号断言（假测试门禁 [非空断言式]），
+        # 「三个标记都找到了」这件事要用一条有判别力的等式来断。
+        缩进 = {}
         for line in lines:
             stripped = line.lstrip()
             indent = len(line) - len(stripped)
             if stripped.startswith('try:'):
-                try_indent = indent
+                缩进['try'] = indent
             elif stripped.startswith('except'):
-                except_indent = indent
+                缩进['except'] = indent
             elif 'after' in stripped and 'print' in stripped:
-                after_indent = indent
-        assert try_indent is not None, "没有找到 try:"
-        assert except_indent is not None, "没有找到 except"
-        assert after_indent is not None, "没有找到 after print"
+                缩进['after'] = indent
+        assert set(缩进) == {'try', 'except', 'after'}, \
+            "生成代码里缺关键标记，实际找到：%s\n%s" % (sorted(缩进), code)
+        try_indent = 缩进['try']
+        except_indent = 缩进['except']
+        after_indent = 缩进['after']
         # after 应与 try 同级（不在 except 块内）
         assert after_indent == try_indent, \
             f"after 的缩进({after_indent})应等于 try({try_indent})，" \

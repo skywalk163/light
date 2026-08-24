@@ -1,15 +1,16 @@
 {
   "version": 1,
   "note": "原生腿产品清单基线（第九轮 G9 建）。口径见 tools/ci/native_product.py docstring。module_rate 只升不降；module_untested 只降不升；cli_broken 只降不升；matrix_untested 只降不升；matrix_passed 只升不降。**只在合并点重建**（总纲 §5 红线 5）。",
-  "built_from_commit": "5478ebfed56d",
+  "built_from_commit": "10b5fc1d2fd7",
   "list_path": "任务书/原生腿产品清单.json",
   "module_total": 76,
-  "module_compilable": 0,
-  "module_untested": 76,
-  "module_rate": 0.0,
+  "module_compilable": 1,
+  "module_untested": 0,
+  "module_rate": 0.013157894736842105,
   "cli_broken": 1,
-  "cli_total": 8,
-  "matrix_untested": 8,
-  "matrix_passed": 4,
-  "matrix_total": 12
+  "cli_total": 10,
+  "matrix_untested": 4,
+  "matrix_passed": 10,
+  "matrix_stub": 2,
+  "matrix_total": 16
 }

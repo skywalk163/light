@@ -11,8 +11,8 @@
     "S1 裁决说明：随机整数/随机浮点/随机选择 虽在 数学.py 有同名，但本质是随机源 → 归 native_required；",
     "求和 归 has_light_impl（列表工具.light decl 10 真光明实现）；去除空白 的中文NLP.light 是空壳 → 归 movable。",
     "unused 本批为 0：全仓调用点核查（examples/tests/src/contrib/bootstrap 等）114 个均有调用点。",
-    "has_light_impl 计数 12 = JSON 3（C9 门面）+ 字符串工具轻量 8 + 列表工具 求和 1。",
-    "S2 目标 ≥40%：12/80 = 15% → 需再搬 ≥20 个 movable 到光明层。"
+    "S1 合并点裁决（任务书/地板清单裁决_S1.md）：绝对路径 改判 native_required（os.path.abspath 要读进程 cwd）；格式化时间 改判 movable（不读当前时间，纯计算+时区）；随机整数/随机选择 维持 native_required（random 是真熵源）。分母 = 114 − 34 = 80。",
+    "分子口径：has_light_impl 的 12 条光明替身都是真实现（段落定义行可定位、不被同名 .py 遮蔽），但 builtins.py 的函数体还没转发过去，运行期执行的仍是 Python，故 S1 分子 = 0。"
   ],
   "版本": 1,
   "归属": "C9 建（S1），G9 守门禁",
@@ -25,10 +25,12 @@
     "unused": 0
   },
   "地板自举率基线_S1": {
-    "分子（纯光明实现数）": 12,
+    "分子（builtins.py 已转发到光明实现的条数）": 0,
     "分母（总数 − native_required）": 80,
-    "数值": "12/80 = 15.0%",
-    "S2 目标": "≥40%（≥32 个纯光明实现）"
+    "数值": "0/80 = 0.0%",
+    "口径": "has_light_impl 只表示光明替身已就位；builtins.py 函数体尚未转发，运行期跑的仍是 Python，故不计入分子（S1 合并点裁决，见 任务书/地板清单裁决_S1.md §4）",
+    "替身已就位待接线": 12,
+    "S2 目标": "≥40%（把 movable + has_light_impl 接进 builtins.py 的转发）"
   },
   "函数": [
     {
@@ -195,8 +197,8 @@
       "名字": "格式化时间",
       "职责": "将时间戳或时间字符串格式化为指定格式",
       "当前实现语言": "Python（builtins.py）",
-      "分类": "native_required",
-      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "分类": "movable",
+      "目标落点": "stdlib/日期时间轻量.light（纯计算：不读当前时间，入参已是时间戳/字符串；注意 fromtimestamp 依赖本机时区，搬迁时需显式传时区或接受 UTC）",
       "证据行": "stdlib/builtins.py:756"
     },
     {
@@ -309,7 +311,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "has_light_impl",
       "目标落点": "stdlib/字符串工具轻量.light",
-      "证据行": "stdlib/builtins.py:482"
+      "证据行": "stdlib/字符串工具轻量.light:50"
     },
     {
       "名字": "去除右侧空白",
@@ -317,7 +319,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "has_light_impl",
       "目标落点": "stdlib/字符串工具轻量.light",
-      "证据行": "stdlib/builtins.py:574"
+      "证据行": "stdlib/字符串工具轻量.light:76"
     },
     {
       "名字": "去除左侧空白",
@@ -325,7 +327,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "has_light_impl",
       "目标落点": "stdlib/字符串工具轻量.light",
-      "证据行": "stdlib/builtins.py:569"
+      "证据行": "stdlib/字符串工具轻量.light:73"
     },
     {
       "名字": "字符串长度",
@@ -333,7 +335,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "has_light_impl",
       "目标落点": "stdlib/字符串工具轻量.light",
-      "证据行": "stdlib/builtins.py:428"
+      "证据行": "stdlib/字符串工具轻量.light:114"
     },
     {
       "名字": "序列化JSON",
@@ -341,7 +343,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "has_light_impl",
       "目标落点": "stdlib/JSON.light（转发 JSON核心.light）",
-      "证据行": "stdlib/builtins.py:388"
+      "证据行": "stdlib/JSON.light:17"
     },
     {
       "名字": "替换字符串",
@@ -349,7 +351,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "has_light_impl",
       "目标落点": "stdlib/字符串工具轻量.light",
-      "证据行": "stdlib/builtins.py:492"
+      "证据行": "stdlib/字符串工具轻量.light:67"
     },
     {
       "名字": "求和",
@@ -357,7 +359,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "has_light_impl",
       "目标落点": "stdlib/列表工具.light",
-      "证据行": "stdlib/builtins.py:954"
+      "证据行": "stdlib/列表工具.light:15"
     },
     {
       "名字": "美化JSON",
@@ -365,7 +367,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "has_light_impl",
       "目标落点": "stdlib/JSON.light（转发 JSON核心.light）",
-      "证据行": "stdlib/builtins.py:398"
+      "证据行": "stdlib/JSON.light:23"
     },
     {
       "名字": "解析JSON",
@@ -373,7 +375,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "has_light_impl",
       "目标落点": "stdlib/JSON.light（转发 JSON核心.light）",
-      "证据行": "stdlib/builtins.py:380"
+      "证据行": "stdlib/JSON.light:13"
     },
     {
       "名字": "转大写",
@@ -381,7 +383,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "has_light_impl",
       "目标落点": "stdlib/字符串工具轻量.light",
-      "证据行": "stdlib/builtins.py:502"
+      "证据行": "stdlib/字符串工具轻量.light:21"
     },
     {
       "名字": "转小写",
@@ -389,7 +391,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "has_light_impl",
       "目标落点": "stdlib/字符串工具轻量.light",
-      "证据行": "stdlib/builtins.py:507"
+      "证据行": "stdlib/字符串工具轻量.light:24"
     },
     {
       "名字": "连接字符串",
@@ -397,7 +399,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "has_light_impl",
       "目标落点": "stdlib/字符串工具轻量.light",
-      "证据行": "stdlib/builtins.py:487"
+      "证据行": "stdlib/字符串工具轻量.light:56"
     },
     {
       "名字": "分割扩展名",
@@ -795,8 +797,8 @@
       "名字": "绝对路径",
       "职责": "获取绝对路径",
       "当前实现语言": "Python（builtins.py）",
-      "分类": "movable",
-      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（需进程 cwd：__duan_env_getcwd + path join）；S2 前保留 builtins.py",
       "证据行": "stdlib/builtins.py:201"
     },
     {
