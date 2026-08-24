@@ -28,7 +28,7 @@ def run_test(name, code):
             f.write(ir)
         
         # 编译为可执行文件
-        clang = require_clang()  # TODO(移交:A7): 缺 clang 时 skip 而非 error
+        clang = require_clang()  # 缺 clang 判 skip，不许 collect error
         runtime_o = 取运行时对象(clang)
         exe_path = f'tests/_test_{name}.exe'
         

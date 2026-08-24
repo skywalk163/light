@@ -3424,13 +3424,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._temp_slot_index = 0
         self._dv_ssa_to_slot = {}
         
-        # TODO(移交:A7): 协程函数属性移交点。
-        # 若 A7 确定 optnone/noinline 必须在 codegen 侧发射，在此行加属性：
-        #   define void @{coro_func_name}(...) optnone noinline {
-        # 依据：O2 优化会破坏协程 yield 基本块（Duff's device），
-        #       记忆笔记 feedback-duan-light-syntax.md 记录此问题。
-        # 当前测试用 -O2 且通过，说明现有用例未触发该问题；
-        # A7 合入后若新增更复杂的 yield 场景，可能需要在此加 optnone。
+        # 协程函数定义处。B7 曾在此挂 TODO(移交:A7)，说「O2 会打坏协程 yield
+        # 基本块（Duff's device），也许得在这儿发 optnone/noinline」——
+        # **A7 已实测证伪**：O0/O1/O2/O3 四档全绿（12 格矩阵，见
+        # tests/test_native_cli.py），协程在任何优化档下都对。当时那批 O2 崩溃的
+        # 真元凶是 startup_optimizer.py 把函数属性写在返回类型之后产出非法 IR
+        # （每个程序都有 __light_init，所以 O3 对任何源码都炸），以及
+        # optimizer_pipeline 用 `\{[^}]*\}` 匹配函数体、遇到 `alloca { i64, i8* }`
+        # 就把函数腰斩。两处 A7 已修。结论：**这里不需要加属性**。
         self.emit(f'define void @{coro_func_name}(ptr %result, ptr %coro, ptr %args, i32 %num_args) {{')
         self.emit('entry:')
         

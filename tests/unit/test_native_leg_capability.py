@@ -86,6 +86,16 @@ def _取方法体(src: str, name: str) -> str:
     return src[i:j if j > 0 else len(src)]
 
 
+def _方法行区间(src: str, name: str):
+    """返回方法体的 (首行号, 末行号)，1-based 闭区间。"""
+    i = src.find(f'def {name}(')
+    assert i > 0, f'找不到 {name}'
+    j = src.find('\n    def ', i + 10)
+    起 = src[:i].count('\n') + 1
+    止 = (src[:j].count('\n') + 1) if j > 0 else src.count('\n') + 1
+    return 起, 止
+
+
 def _提取内置名(method_src: str) -> set:
     """从 _gen_typed_builtin 方法体里提取所有注册的内置函数名（含中英文别名）。"""
     names = set()
@@ -174,9 +184,20 @@ def test_内置函数清单与代码一致():
 
 
 def test_内置函数证据行号可定位():
-    """JSON 清单里每条 builtin 的 evidence 行号必须指向 codegen_typed.py 里的真实行。"""
+    """JSON 清单里每条 builtin 的 evidence 行号必须**真指到注册它的那一行**。
+
+    两条判据（都可反跑）：
+    1. 行号落在 `_gen_typed_builtin` 方法体的行区间内 —— 挡「行号随手填个数」；
+    2. 那一行的文本里出现该内置名 —— 挡「行号在区间内但指错行」。
+
+    合并期收紧：B7 原稿只断「1 <= 行号 <= 文件总行数」并把真判据注释掉
+    （「放宽：只要行号在合理范围内即可」）。codegen_typed.py 四千行，任何
+    数字都过，那条判据等于不存在——正是「上界断言」这一假绿形态。
+    """
     data = _加载清单()
-    src_lines = _源码().splitlines()
+    src = _源码()
+    src_lines = src.splitlines()
+    起, 止 = _方法行区间(src, '_gen_typed_builtin')
     errors = []
     for e in data['tables']['builtin_functions']['entries']:
         ev = e.get('evidence', '')
@@ -185,11 +206,15 @@ def test_内置函数证据行号可定位():
             errors.append(f"{e['name']}: evidence 格式不对: {ev}")
             continue
         lineno = int(m.group(1))
-        if lineno < 1 or lineno > len(src_lines):
-            errors.append(f"{e['name']}: 行号越界 {lineno}")
+        if not (起 <= lineno <= 止):
+            errors.append(
+                f"{e['name']}: 行号 {lineno} 在 _gen_typed_builtin "
+                f"区间 [{起}, {止}] 之外")
             continue
-        # 该行必须在 _gen_typed_builtin 方法体内（粗检：行文本含 if name in 或 dict entry）
-        # 放宽：只要行号在合理范围内即可
+        if e['name'] not in src_lines[lineno - 1]:
+            errors.append(
+                f"{e['name']}: codegen_typed.py:{lineno} 那一行没有这个名字："
+                f"{src_lines[lineno - 1].strip()[:60]}")
     assert not errors, '内置函数证据行号问题:\n' + '\n'.join(errors)
 
 
@@ -260,8 +285,11 @@ def test_JSON清单存在且结构完整():
     """JSON 能力清单必须存在且包含四张表。"""
     data = _加载清单()
     assert data['schema_version'] == '1.0', f'schema_version 不对: {data["schema_version"]}'
-    assert data['baseline_commit'] == '4250f1fc', \
-        f'baseline_commit 不对: {data["baseline_commit"]}'
+    # baseline_commit 只断「在册且是个短 SHA」，不写死具体值：写死 HEAD 的 SHA
+    # 是第五轮已裁决过的坑（commit 1ff86237「总纲不再写死 HEAD 的 SHA」），
+    # 一旦合并/改基线就得改测试，改测试的人只会把断言删掉。
+    assert re.fullmatch(r'[0-9a-f]{7,40}', data.get('baseline_commit', '')), \
+        f'baseline_commit 不是短 SHA: {data.get("baseline_commit")!r}'
     for table_name in ('statement_nodes', 'expression_nodes',
                        'builtin_functions', 'runtime_symbols'):
         assert table_name in data['tables'], f'JSON 缺少表: {table_name}'

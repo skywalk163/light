@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""Generate docs/原生腿能力清单.json from source extraction."""
+"""重新生成 `docs/原生腿能力清单.json`（原生腿能力清单的机读版）。
+
+四张表（语句节点 / 表达式节点 / 内置函数 / 运行时符号）全部从源码里抽，
+每条带 `文件:行号` 证据。清单由 `tests/unit/test_native_leg_capability.py`
+双向咬合：代码加了 JSON 没登记会红（防腐烂），JSON 写了代码没有的也会红（防吹牛）。
+
+所以改了 codegen 的分派链 / 内置表 / `declare` 之后，跑一次本脚本即可：
+
+    python scripts/gen_native_capability_json.py
+
+（第七轮 B7 交付。原名 `_taskB7_gen_json.py`——`_taskB7_` 是按规程收尾要删掉的
+临时前缀，而这脚本是长期要留的工具，所以合并期改成了正式名字。）
+"""
 import json, re, os, sys
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

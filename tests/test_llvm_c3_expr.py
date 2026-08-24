@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from llvm.compiler import compile_source_typed, find_clang  # noqa: E402
-from _native_helpers import require_clang  # noqa: E402  TODO(移交:A7)
+from _native_helpers import require_clang  # noqa: E402
 from llvm运行时 import 取运行时对象, 取链接库参数  # noqa: E402
 
 _CODEGEN_TYPED = os.path.join(
@@ -34,7 +34,7 @@ _CODEGEN_TYPED = os.path.join(
 def _run_native(source: str, timeout: int = 20):
     """`.light → IR → clang → exe` 全链路，返回 (returncode, stdout)。"""
     ir = compile_source_typed(source)
-    clang = require_clang()  # TODO(移交:A7): 缺 clang 时 skip 而非 error
+    clang = require_clang()  # 缺 clang 判 skip，不许 collect error
     runtime_o = 取运行时对象(clang)
     with tempfile.TemporaryDirectory(prefix='_taskC3_') as tmp:
         ir_path = os.path.join(tmp, 'probe.ll')
@@ -219,10 +219,21 @@ def test_pass_stmt_在段落体内():
 # =============================================================================
 
 def _run_transpiled(source: str, timeout: int = 20):
-    """转译后端：.light -> Python -> 运行，返回 (returncode, stdout)。"""
-    import tempfile
+    """转译后端：.light -> Python -> 运行，返回 (returncode, stdout)。
+
+    **必须给子进程钉 `PYTHONIOENCODING=utf-8`**：转译后端最终是一个 Python
+    进程，输出重定向进管道时 Python 用的是平台 ANSI 代码页（Windows 中文机
+    上是 cp936），而原生腿的 exe 直接吐 UTF-8 字节。不钉编码就会拿 GBK 字节
+    按 utf-8 解，`光明` 变成 `\\ufffd\\ufffd\\ufffd\\ufffd`，于是这组用例在
+    「外面已经设了 PYTHONUTF8」的机器上绿、在没设的机器上红 —— 本机绿 CI 红
+    的老坑。这里只钉这一个子进程，不动全场环境变量。
+
+    两条腿的 stdout 编码本身确实不一致（登记在
+    `docs/known_issues.md` 十五节），那是另一件事：本函数比的是**字符**，
+    不是字节，所以先把两边统一解成 str 再比。
+    """
     with tempfile.NamedTemporaryFile(
-            mode='w', suffix='.light', prefix='_taskB7_transpiled_',
+            mode='w', suffix='.light', prefix='_dual_backend_',
             delete=False, encoding='utf-8') as f:
         f.write(source)
         src_path = f.name
@@ -230,6 +241,7 @@ def _run_transpiled(source: str, timeout: int = 20):
         result = subprocess.run(
             [sys.executable, '-m', 'cli.light_unified', 'run', src_path],
             capture_output=True, text=True, encoding='utf-8', errors='replace',
+            env=dict(os.environ, PYTHONIOENCODING='utf-8'),
             timeout=timeout)
         return result.returncode, result.stdout.strip()
     finally:
