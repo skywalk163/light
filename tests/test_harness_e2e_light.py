@@ -43,6 +43,13 @@ def _跑评测(报告目录, 额外环境=None, 超时=180):
         # 这个 dict 继承 os.environ，开发者环境里留着一个 HARNESS_CHANNEL=real
         # 就会让这一整套「零发网」用例真发网到 api.deepseek.com。
         "HARNESS_CHANNEL": "mock",
+        # 同理钉死 single：第七轮 C7 给驱动加了 HARNESS_MODE=agent，开发者 shell 里
+        # 残留一个 agent 就会让这一整套「单轮零工具」用例跑成 agent 链（评测集都换了），
+        # 断言全错却指不到根因。第八轮实地踩过一次。
+        "HARNESS_MODE": "single",
+        # 单价同样钉空：残留的 HARNESS_PRICE_IN/OUT 会让「未配置单价」那条断言本机红。
+        "HARNESS_PRICE_IN": "",
+        "HARNESS_PRICE_OUT": "",
         "PYTHONUTF8": "1",
         "PYTHONIOENCODING": "utf-8",
     }
@@ -203,4 +210,45 @@ class Test缺环境早退:
         rc, 报告路径, 输出 = _跑评测(tmp_path, {"HARNESS_DELAY_SEC": "0.01"})
         assert rc == 0, _文本(输出)
         assert _读报告(报告路径)["元信息"]["通道"] == "mock"
+
+
+class Test用量与成本进报告:
+    """第八轮：用量透传端到端（#11 的兑现判据）。
+
+    mock 通道的词元数是**字符数替身**（LLM通道.造桩用量），所以报告里的总数
+    必须精确等于逐条 prompt / 输出 的字符数之和 —— 可手算对账，等值断言。
+    """
+
+    def test_单模用量等于逐条字符数之和(self, tmp_path):
+        rc, 报告路径, 输出 = _跑评测(tmp_path, {"HARNESS_DELAY_SEC": "0"})
+        assert rc == 0, _文本(输出)
+        报告 = _读报告(报告路径)
+        入 = sum(len(e["prompt"]) for e in 报告["条目"])
+        出 = sum(len(e["输出"]) for e in 报告["条目"])
+        assert 报告["汇总"]["用量"] == {"总输入词元": 入, "总输出词元": 出}
+        # 逐条也要带上，否则汇总对了也可能是别处硬编的
+        assert [e["输入词元"] for e in 报告["条目"]] == [len(e["prompt"]) for e in 报告["条目"]]
+        # 没给单价：成本估算 留空串 + 说明写明缘由，**不许拿 0 冒充**
+        assert 报告["汇总"]["成本"]["成本估算"] == ""
+        assert 报告["汇总"]["成本"]["成本说明"] == "未配置单价"
+
+    def test_配了单价就按每千词元算出成本(self, tmp_path):
+        rc, 报告路径, 输出 = _跑评测(
+            tmp_path,
+            {"HARNESS_DELAY_SEC": "0", "HARNESS_PRICE_IN": "0.5", "HARNESS_PRICE_OUT": "1.5"},
+        )
+        assert rc == 0, _文本(输出)
+        报告 = _读报告(报告路径)
+        用量 = 报告["汇总"]["用量"]
+        期望 = (用量["总输入词元"] / 1000) * 0.5 + (用量["总输出词元"] / 1000) * 1.5
+        assert 报告["汇总"]["成本"]["成本估算"] == pytest.approx(期望)
+        assert 报告["汇总"]["成本"]["成本说明"] == "已按每千词元单价估算"
+
+    def test_只给一半单价当没配(self, tmp_path):
+        """拿 0 当另一半会算出个「看着像真的、其实只算了一半」的成本，比不算更坏。"""
+        rc, 报告路径, 输出 = _跑评测(
+            tmp_path, {"HARNESS_DELAY_SEC": "0", "HARNESS_PRICE_IN": "0.5"}
+        )
+        assert rc == 0, _文本(输出)
+        assert _读报告(报告路径)["汇总"]["成本"]["成本说明"] == "未配置单价"
 

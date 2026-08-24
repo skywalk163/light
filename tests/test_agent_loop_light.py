@@ -432,3 +432,62 @@ class Test取消令牌:
         s = loop_server([_resp_valid_tool_call(), _resp_stop()])
         agent, _ = _make_agent(s)
         assert agent.运行("北京天气") == "今日北京晴天"
+
+
+# ============================================ 第八轮：用量（token usage）透传
+# 这里守的是那个透传断点：代理循环.单轮请求 以前只从块里取
+# 完成原因/内容增量/工具调用增量，块上的「用量」被原地丢掉，于是评测报告的
+# 用量/成本 永远是空的。三条判据分别钉住：接住、逐轮相加、没采到时留空。
+def _usage_frame(pt, ct):
+    # usage-only 帧：choices 为空数组、只带 usage（OpenAI 兼容服务端在
+    # stream_options.include_usage 打开时就是这么发的）
+    return _sse_frame({
+        "choices": [],
+        "usage": {"prompt_tokens": pt, "completion_tokens": ct, "total_tokens": pt + ct},
+    })
+
+
+def _resp_stop_with_usage(pt, ct):
+    return _resp_200_event_stream([
+        _sse_frame(_frame({"role": "assistant", "content": "今日"}, None)),
+        _sse_frame(_frame({"content": "北京晴天"}, None)),
+        _sse_frame(_frame({}, "stop")),
+        _usage_frame(pt, ct),
+        b"data: [DONE]\r\n\r\n",
+    ])
+
+
+def _resp_tool_call_with_usage(pt, ct):
+    return _resp_200_event_stream([
+        _sse_frame(_tool_frame("get_weather")),
+        _sse_frame(_tool_frame(None, '{"city":"BJ"}')),
+        _sse_frame(_frame({}, "tool_calls")),
+        _usage_frame(pt, ct),
+        b"data: [DONE]\r\n\r\n",
+    ])
+
+
+class Test用量透传:
+    def test_单轮的usage被接住(self, loop_server):
+        s = loop_server([_resp_stop_with_usage(11, 7)])
+        agent, _ = _make_agent(s)
+        assert agent.运行("今天北京天气怎么样") == "今日北京晴天"
+        # 等值断言：usage-only 帧发 11/7，收尾块又把同一份重发一遍；
+        # 若实现改成「逐块相加」这里会变成 22/14，正是要拦的形态。
+        assert agent.总输入词元 == 11
+        assert agent.总输出词元 == 7
+
+    def test_多轮逐轮相加而不是被后一轮覆盖(self, loop_server):
+        s = loop_server([_resp_tool_call_with_usage(3, 2), _resp_stop_with_usage(11, 7)])
+        agent, _ = _make_agent(s)
+        assert agent.运行("今天北京天气怎么样") == "今日北京晴天"
+        assert agent.总输入词元 == 14      # 3 + 11
+        assert agent.总输出词元 == 9       # 2 + 7
+
+    def test_服务端不发usage时留空而不是零(self, loop_server):
+        # 「没采到」与「真的是 0」必须可区分：这里必须是 None，不许是 0
+        s = loop_server([_resp_stop()])
+        agent, _ = _make_agent(s)
+        agent.运行("今天北京天气怎么样")
+        assert agent.总输入词元 is None
+        assert agent.总输出词元 is None

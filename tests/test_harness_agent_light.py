@@ -92,6 +92,35 @@ class TestM18功能:
         assert 元["模式"] == "agent"
         assert 元["工具"] == "on"
 
+    def test_多轮的用量按轮累加且失败条目留空(self, tmp_path):
+        """第八轮：agent 链的用量透传（#11 的兑现判据）。
+
+        mock 的词元是字符数替身：一条工具题跑 2 轮，两轮都把同一个 prompt 发上去，
+        所以 输入词元 == 2 * len(prompt)（这正好证明「逐轮累加」而不是「只留最后一轮」）；
+        输出词元 == len(最终回复)（第 1 轮只发 tool_calls、正文为空）。
+        故障条目没跑完 → 输入/输出词元 必须是 None，**不许是 0**。
+        """
+        rc, 报告路径, 输出, 错误 = _跑评测(tmp_path)
+        assert rc == 0, "%s\n%s" % (_文本(输出), _文本(错误))
+        报告 = _读报告(报告路径)
+        by_prompt = {e["prompt"]: e for e in 报告["条目"]}
+
+        for prompt in ["中国的首都是哪个城市", "法国的首都是哪个城市"]:
+            e = by_prompt[prompt]
+            assert e["完成轮数"] == 2, e
+            assert e["输入词元"] == 2 * len(prompt), e
+            assert e["输出词元"] == len(e["输出"]), e
+
+        for prompt in ["注入超时", "注入HTTP401", "注入OSError"]:
+            e = by_prompt[prompt]
+            assert e["输入词元"] is None, e
+            assert e["输出词元"] is None, e
+
+        # 汇总只累计采到的那几条
+        采到的 = [e for e in 报告["条目"] if e["输入词元"] is not None]
+        assert 报告["汇总"]["用量"]["总输入词元"] == sum(e["输入词元"] for e in 采到的)
+        assert 报告["汇总"]["用量"]["总输出词元"] == sum(e["输出词元"] for e in 采到的)
+
 
 class TestM18韧性:
     """四类故障各一条，整场跑完、报告落盘、四条各带正确错误分类。"""
