@@ -68,3 +68,21 @@ skip_without_clang = pytest.mark.skipif(
         "退出码透传、产物清理都没被看过"
     ),
 )
+
+
+def require_clang():
+    """在**用例执行期**要 clang：拿不到就 skip，不许 error（第七轮 B7）。
+
+    `skip_without_clang` 是 collect 期的装饰器口径；第一层 IR 用例是一堆
+    共享 `run_test(...)` 辅助函数的裸 `def test_x()`，装饰不到位，改在辅助
+    函数里调本函数。两者判定同源（都走 `探测clang()`）。
+    """
+    路径 = 探测clang()
+    if 路径 is None:
+        pytest.skip('clang 不可用：原生腿用例缺编译器，判 skip 而非 error')
+    return 路径
+
+
+def have_clang() -> bool:
+    """clang 是否可用（不 skip，供反跑探针自查用）。"""
+    return 探测clang() is not None

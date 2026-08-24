@@ -6,6 +6,7 @@ import tempfile
 sys.path.insert(0, 'src')
 
 from llvm.compiler import compile_source_typed, find_clang
+from _native_helpers import require_clang  # TODO(移交:A7)
 
 # 运行时目标码整场只编一次（缘由与实测数字见 tests/llvm运行时.py 头部注释）
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -28,7 +29,7 @@ def run_llvm_test(name, code, expected_output=None, expected_returncode=0):
             f.write(ir)
         
         # 编译为可执行文件
-        clang = find_clang()
+        clang = require_clang()  # TODO(移交:A7): 缺 clang 时 skip 而非 error
         runtime_o = 取运行时对象(clang)
         exe_path = f'tests/_test_{name}.exe'
         
