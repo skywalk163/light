@@ -323,10 +323,10 @@ define i32 @main() {
         opt.optimize(ir)
         stats = opt.get_stats()
         assert 'precomputed_expressions' in stats
-        assert 'inlined_hot_functions' in stats
         assert 'deferred_inits' in stats
         assert 'hot_cold_split' in stats
         assert 'precompiled_hot' in stats
+        assert 'inlined_hot_functions' not in stats  # A7 删掉了这一步：它不内联、只删定义（理由见 startup_optimizer.py 模块注释）
 
 
 # ============================================================================

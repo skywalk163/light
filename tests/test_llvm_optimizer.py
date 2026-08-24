@@ -926,5 +926,178 @@ class Test槽位池按真实用量分配(unittest.TestCase):
             shutil.rmtree(临时目录, ignore_errors=True)
 
 
+class TestO3管线产出合法IR(unittest.TestCase):
+    """O3 档（管线 + StartupOptimizer）产出的 IR 必须能被 clang 收下
+
+    第七轮 A7 修的两条：`StartupOptimizer._hot_cold_splitting` 把 `cold` /
+    `inlinehint` 插在**返回类型后面**（`define void cold @f()` → clang 报
+    "expected function name"），以及那条名为「内联热函数」的步骤用
+    `{[^}]*}` 找函数体、在行内结构体类型的第一个 `}` 处腰斩函数
+    （协程函数体必含这类类型，产出 `, i32 8` 这种悬空片段）。
+
+    判据是「clang 真解析这段 IR」，不是 grep IR 文本里有没有 cold 这个词 ——
+    正是「有这个词就算过」让这两条缺陷活了六轮。
+    """
+
+    单函数IR = ('define void @init_thing() {\n'
+                'entry:\n'
+                '  ret void\n'
+                '}\n')
+
+    带结构体的协程式IR = ('define void @coro_body(i8* %frame) {\n'
+                          'entry:\n'
+                          '  %slot = alloca { i64, i8* }, align 8\n'
+                          '  %head = getelementptr inbounds { i64, i8* }, '
+                          '{ i64, i8* }* %slot, i32 0, i32 0\n'
+                          '  store i64 7, i64* %head, align 8\n'
+                          '  ret void\n'
+                          '}\n'
+                          'define i32 @main() {\n'
+                          'entry:\n'
+                          '  call void @coro_body(i8* null)\n'
+                          '  ret i32 0\n'
+                          '}\n')
+
+
+    def setUp(self):
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from _native_helpers import CLANG_PATH  # type: ignore[import]
+
+        if CLANG_PATH is None:
+            self.skipTest(
+                "缺 clang：O3 档 IR 的合法性无法验证 —— "
+                "属性位置错、函数被腰斩这两类缺陷都只有 clang 的 parser 能抓"
+            )
+        self.clang = CLANG_PATH
+
+    def _clang能解析(self, ir):
+        """返回 (是否通过, clang 的前几行报错)"""
+        import subprocess
+
+        with tempfile.TemporaryDirectory(prefix='_taskA7_') as 目录:
+            路径 = os.path.join(目录, 'probe.ll')
+            with open(路径, 'w', encoding='utf-8') as f:
+                f.write(ir)
+            结果 = subprocess.run(
+                [self.clang, '-c', '-x', 'ir', 路径, '-o', 路径 + '.o'],
+                capture_output=True, text=True, encoding='utf-8',
+                errors='replace', timeout=120,
+            )
+        return 结果.returncode == 0, 结果.stderr.strip().splitlines()[:3]
+
+    def test_hot_cold属性写在参数表之后(self):
+        from llvm.startup_optimizer import StartupOptimizer
+
+        结果 = StartupOptimizer()._hot_cold_splitting(self.单函数IR)
+        通过, 报错 = self._clang能解析(结果)
+        self.assertTrue(通过, f"打了 cold 之后 clang 收不下这段 IR: {报错}\n{结果}")
+
+    def test_协程式IR走完O3全流程仍合法(self):
+        from llvm.optimizer_pipeline import OptimizationPipeline
+        from llvm.startup_optimizer import StartupOptimizer
+
+        管线结果 = OptimizationPipeline(opt_level='O3').run(self.带结构体的协程式IR)
+        最终 = StartupOptimizer().optimize(管线结果)
+        通过, 报错 = self._clang能解析(最终)
+        self.assertTrue(通过, f"O3 全流程产出非法 IR: {报错}\n{最终}")
+        # 函数没被腰斩：两个 define 与两个收尾 } 都还在
+        self.assertEqual(最终.count('define '), 2, f"函数定义被删/被截断:\n{最终}")
+
+    def test_有调用点的函数不许被删(self):
+        """反面：`@协程体` 被 main 调着，任何「清理」pass 都不许删它的定义
+
+        它只有 4 条指令、又只被调用一次，正好落在旧
+        `_inline_small_functions_pass` 的「删掉定义、留下调用点」判据里 ——
+        那样链接期就是 undefined symbol。
+        """
+        from llvm.optimizer_pipeline import OptimizationPipeline
+
+        结果 = OptimizationPipeline._inline_small_functions_pass(self.带结构体的协程式IR)
+        self.assertIn('define void @coro_body', 结果,
+                      f"有调用点的函数定义被删了:\n{结果}")
+
+
+    def test_无调用点的小函数仍会被清掉(self):
+        """反跑：护栏别收得太紧 —— 真的零引用时该删还是要删"""
+        from llvm.optimizer_pipeline import OptimizationPipeline
+
+        ir = ('define void @没人调我() {\n'
+              'entry:\n'
+              '  ret void\n'
+              '}\n'
+              'define i32 @main() {\n'
+              'entry:\n'
+              '  ret i32 0\n'
+              '}\n')
+        结果 = OptimizationPipeline._inline_small_functions_pass(ir)
+        self.assertNotIn('@没人调我', 结果, f"零引用的函数没被清掉:\n{结果}")
+        self.assertIn('define i32 @main', 结果, f"main 被误删:\n{结果}")
+
+    def test_删函数体含行内结构体类型的函数时不留悬空片段(self):
+        """零引用 + 函数体里有 `{ i64, i8* }`：删干净，不许腰斩
+
+        旧写法 `define ...\\{[^}]*\\}` 会在**结构体类型的那个 `}`** 处收尾，
+        于是删掉的是「函数头 + 半个函数体」，剩下的后半截（`* %slot, align 8`、
+        `ret void`、`}`）挂在模块顶层，clang 直接 "expected top-level entity"。
+        """
+        from llvm.optimizer_pipeline import OptimizationPipeline
+
+        ir = ('define void @orphan() {\n'
+              'entry:\n'
+              '  %slot = alloca { i64, i8* }, align 8\n'
+              '  ret void\n'
+              '}\n'
+              'define i32 @main() {\n'
+              'entry:\n'
+              '  ret i32 0\n'
+              '}\n')
+        结果 = OptimizationPipeline._inline_small_functions_pass(ir)
+        通过, 报错 = self._clang能解析(结果)
+        self.assertTrue(通过, f"清理之后 IR 非法（函数被腰斩）: {报错}\n{结果}")
+        self.assertNotIn('@orphan', 结果, f"零引用的函数没被清掉:\n{结果}")
+
+
+
+class Test优化标志不带legacyPass名(unittest.TestCase):
+    """`get_optimization_flags` 发出的 flag，clang 必须能全部收下
+
+    第七轮之前它把 `-mllvm -inline`、`-mllvm -gvn` 这类 legacy PassManager
+    的 pass 名塞给 clang，clang 22 一个都不认，于是 O1/O2/O3 全部编译失败 ——
+    而 `compile --backend llvm-typed` 的默认档就是 O2。
+
+    判据是「拿这批 flag 真跑一次 clang」，不是断言 flag 列表里没有某个字符串：
+    真正会坏的是 clang 认不认，而不是我们的字符串长什么样。
+    """
+
+    def setUp(self):
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from _native_helpers import CLANG_PATH  # type: ignore[import]
+
+        if CLANG_PATH is None:
+            self.skipTest("缺 clang：优化档位标志是否被 clang 接受无法验证")
+        self.clang = CLANG_PATH
+
+    def test_四档标志都能真编译一个C文件(self):
+        import subprocess
+
+        from llvm.compiler import get_optimization_flags
+
+        for 档位 in (0, 1, 2, 3):
+            flags = get_optimization_flags(档位)
+            with tempfile.TemporaryDirectory(prefix='_taskA7_') as 目录:
+                c路径 = os.path.join(目录, 'probe.c')
+                with open(c路径, 'w', encoding='utf-8') as f:
+                    f.write('int probe_main(void) { return 0; }\n')
+
+                结果 = subprocess.run(
+                    [self.clang, '-c', *flags, c路径, '-o', os.path.join(目录, 'probe.o')],
+                    capture_output=True, text=True, encoding='utf-8',
+                    errors='replace', timeout=120,
+                )
+            self.assertEqual(
+                结果.returncode, 0,
+                f"O{档位} 的标志 {flags} 被 clang 拒了:\n{结果.stderr[:800]}")
+
+
 if __name__ == '__main__':
     unittest.main()

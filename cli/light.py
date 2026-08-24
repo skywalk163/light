@@ -305,8 +305,10 @@ def cmd_harness(args):
     """
     if getattr(args, 'harness_cmd', None) != 'run':
         print("用法: light harness run [--channel mock|real] [--eval-set 路径] "
-              "[--report 前缀] [--concurrency N] [--rate N] [--retries N] [--delay 秒]",
+              "[--report 前缀] [--concurrency N] [--rate N] [--retries N] [--delay 秒] "
+              "[--mode single|agent] [--tools off|on] [--price-in 单价] [--price-out 单价]",
               file=sys.stderr)
+
         sys.exit(1)
 
     评测驱动 = os.path.join(_PROJECT_DIR, "examples", "harness", "评测驱动.light")
@@ -322,12 +324,24 @@ def cmd_harness(args):
         ("rate", "HARNESS_RATE"),
         ("retries", "HARNESS_RETRIES"),
         ("delay", "HARNESS_DELAY_SEC"),
+        # 第七轮 §4.2 冻结的三组：语义归 C7/D7，转发归 A7。
+        # A7 排在合并顺序第 2 位，C7/D7 在后面，所以这里先只保证
+        # 「参数被转发成正确的环境变量」，`.light` 侧何时消费与本条无关。
+        ("mode", "HARNESS_MODE"),
+        ("tools", "HARNESS_TOOLS"),
+        ("price_in", "HARNESS_PRICE_IN"),
+        ("price_out", "HARNESS_PRICE_OUT"),
     ]
+
 
     for 属性, 环境名 in 参数表:
         值 = getattr(args, 属性, None)
-        if 值:
+        # 注意判空口径：`if 值:` 会把 `--delay 0`、`--rate 0` 这类**有意义的 0**
+        # 当假值静默丢弃，于是用户以为自己关掉了延迟、实际跑的是驱动默认 0.2s。
+        # 只有「没传」才不覆盖，传了就一律转发。
+        if 值 is not None:
             os.environ[环境名] = 值
+
     # 复用 cmd_run 的执行链路（src 后端，依赖内联 + import hook）
     run_args = argparse.Namespace(
         file=评测驱动,
@@ -338,11 +352,97 @@ def cmd_harness(args):
     cmd_run(run_args)
 
 
+def _native_backend_compile(file_path: str, backend: str, out_base: str,
+                            opt_level: int, verbose: bool):
+    """走生产路径把 .light 编成可执行文件，返回 exe 路径
+
+    与 `cmd_compile` 用的是同一批入口（`compile_light` / `compile_light_typed`），
+    刻意不另开一条链路：`run --backend llvm-typed` 必须和
+    `compile --backend llvm-typed` 编出来的是同一个东西。
+    """
+    try:
+        from src.llvm.compiler import compile_light, compile_light_typed
+    except ImportError:
+        try:
+            from llvm.compiler import compile_light, compile_light_typed
+        except ImportError:
+            from ..llvm.compiler import compile_light, compile_light_typed
+
+    if backend == 'llvm':
+        return compile_light(file_path, out_base, verbose=verbose,
+                            optimize_level=opt_level)
+    return compile_light_typed(file_path, out_base, verbose=verbose,
+                              optimize_level=opt_level)
+
+
+def _run_native(args):
+    """原生后端的 run：编译到临时目录 → 执行产物 → 透传退出码
+
+    三条硬口径：
+    1. **产物一律落 `tempfile.TemporaryDirectory()`**，不写源码树（`.ll`/`.o`/
+       `.exe` 都在临时目录里生灭）。
+    2. **退出码原样透传**：源码里 `退出(3)` → 本命令 rc == 3。
+       不做 `rc in [0,1]` 那种「反正非崩就算过」的处理。
+    3. 编译失败时给一行人能读的错误（clang 的 stderr 摘要），
+       traceback 只在 `--verbose` 下出现。
+    """
+    import tempfile
+
+    opt_level = 2
+    优化 = getattr(args, 'optimize', None)
+    if 优化 and 优化.startswith('O'):
+        try:
+            opt_level = int(优化[1:])
+        except ValueError:
+            opt_level = 2
+
+    源文件 = args.file
+    if not os.path.exists(源文件):
+        print(f"错误: 文件不存在 {源文件}", file=sys.stderr)
+        sys.exit(1)
+
+    with tempfile.TemporaryDirectory(prefix='light_native_') as 临时目录:
+        产物基名 = os.path.join(临时目录, Path(源文件).stem)
+
+
+        try:
+            exe = _native_backend_compile(源文件, args.backend, 产物基名,
+                                          opt_level, args.verbose)
+        except Exception as e:
+            print(f"原生编译失败（--backend {args.backend}）: {e}", file=sys.stderr)
+            if args.verbose:
+                import traceback
+                traceback.print_exc()
+            sys.exit(1)
+
+        if not os.path.exists(exe):
+            print(f"原生编译未产出可执行文件: {exe}", file=sys.stderr)
+            sys.exit(1)
+
+        # 不捕获子进程输出：让它直接写到本进程的 stdout/stderr，
+        # 避免多一层编码转换（中文输出在 Windows 控制台上尤其容易被打坏）。
+        结果 = subprocess.run([exe])
+        sys.stdout.flush()
+        if 结果.returncode != 0:
+            sys.exit(结果.returncode)
+
+
+
+
 def cmd_run(args):
     """解释执行光明源代码"""
     from enhanced_errors import format_error
 
+    if args.backend in ('llvm', 'llvm-typed'):
+        # 原生后端不是解释执行：编译到临时目录再跑产物
+        if args.watch:
+            print("错误: --watch 不支持原生后端（llvm/llvm-typed）", file=sys.stderr)
+            sys.exit(1)
+        _run_native(args)
+        return
+
     if args.watch:
+
         from file_watcher import run_with_watch
         run_with_watch(args.file, backend=args.backend)
         return
@@ -1329,8 +1429,12 @@ def main():
     # ── run ──
     run_p = subparsers.add_parser('run', help='解释执行光明源代码')
     run_p.add_argument('file', help='源文件路径')
-    run_p.add_argument('--backend', choices=['antlr', 'src'], default='src',
-                       help='使用的后端（默认: src，无需额外依赖；antlr 需安装 antlr4-python3-runtime）')
+    run_p.add_argument('--backend', choices=['antlr', 'src', 'llvm', 'llvm-typed'], default='src',
+                       help='使用的后端（默认: src，无需额外依赖；antlr 需安装 antlr4-python3-runtime；'
+                            'llvm/llvm-typed 走原生腿：编译到临时目录再执行产物，需安装 LLVM）')
+    run_p.add_argument('--optimize', choices=['O0', 'O1', 'O2', 'O3'], default='O2',
+                       help='原生后端（llvm/llvm-typed）的优化级别（默认: O2；解释后端忽略此项）')
+
     run_p.add_argument('--watch', '-w', action='store_true',
                        help='监视文件变化，自动重新运行')
 
@@ -1348,6 +1452,16 @@ def main():
     harness_run_p.add_argument('--rate', default=None, help='每秒请求上限（默认 10）')
     harness_run_p.add_argument('--retries', default=None, help='重试次数（默认 3）')
     harness_run_p.add_argument('--delay', default=None, help='mock 通道每请求延迟秒（默认 0.2）')
+    # 第七轮 §4.2：语义由 C7/D7 定义，A7 只负责转发成 HARNESS_* 环境变量。
+    harness_run_p.add_argument('--mode', choices=['single', 'agent'], default=None,
+                               help='评测模式：single=单轮（默认，保持现有行为）/ agent=多轮 agent（C7）')
+    harness_run_p.add_argument('--tools', choices=['off', 'on'], default=None,
+                               help='是否给模型下发工具（默认 off）（C7）')
+    harness_run_p.add_argument('--price-in', default=None,
+                               help='输入词元单价（默认空 = 不算成本）（D7）')
+    harness_run_p.add_argument('--price-out', default=None,
+                               help='输出词元单价（默认空 = 不算成本）（D7）')
+
     harness_run_p.add_argument('--backend', choices=['antlr', 'src'], default='src',
                                help='使用的后端（默认: src）')
     harness_run_p.add_argument('--verbose', action='store_true', help='详细输出')

@@ -2,12 +2,18 @@
 
 策略：
 - 延迟初始化（懒加载）
-- 预编译热函数
+- 预编译热函数（打 inlinehint，真正的内联交给 clang 的 -O2/-O3）
 - 函数分块（hot/cold 分离）
-- 函数内联（热函数优先内联）
 - 预计算（编译时计算常量表达式）
 - 延迟初始化优化（全局变量按需初始化）
+
+第七轮 A7 去掉了一条名为「内联热函数」的步骤：它并不内联，而是**删掉被调用
+函数的定义、把调用点留在原地**，并且靠 `\\{[^}]*\\}` 找函数体 —— 遇到函数体里
+的行内结构体类型（`{ i64, i8* }`）就在第一个 `}` 处截断，把函数腰斩，产出
+`, i32 8` 这类悬空片段。协程函数体必然含这类类型，所以 O3 档一碰协程就废。
+真正的内联是 clang `-O2/-O3` 的活儿，此处不再重复。
 """
+
 
 import re
 from typing import List, Dict, Set, Optional, Tuple
@@ -28,11 +34,11 @@ class StartupOptimizer:
             'deferred_inits': 0,
             'hot_cold_split': 0,
             'precompiled_hot': 0,
-            'inlined_hot_functions': 0,
             'precomputed_expressions': 0,
         }
 
     def optimize(self, ir: str) -> str:
+
         """运行所有启动时间优化
 
         Args:
@@ -42,11 +48,11 @@ class StartupOptimizer:
             优化后的 IR 字符串
         """
         ir = self._precompute_expressions(ir)
-        ir = self._inline_hot_functions(ir)
         ir = self._defer_initialization(ir)
         ir = self._hot_cold_splitting(ir)
         ir = self._precompile_hot_functions(ir)
         return ir
+
 
     def _precompute_expressions(self, ir: str) -> str:
         """预计算表达式
@@ -113,66 +119,56 @@ class StartupOptimizer:
 
         return '\n'.join(result)
 
-    def _inline_hot_functions(self, ir: str) -> str:
-        """内联热函数
+    # LLVM 文本 IR 里函数属性（cold / inlinehint / optnone…）**必须写在参数表
+    # 之后**：
+    #     define void @f() cold {          合法
+    #     define void cold @f() {          非法 —— clang 报 "expected function name"
+    # 第七轮之前本文件把属性插在返回类型后面（`define\s+\w+` 之后），于是
+    # O3 档产出的 IR 一律无法被 clang 解析。生产路径上表现为
+    # `LLVM IR 验证失败（clang -x ir）: ... error: expected function name`，
+    # 而所有原生用例都用 O0 生成 IR、绕过了这条路，所以六轮没人看见。
+    _DEFINE_LINE = re.compile(r'^\s*define\b')
+    _FUNC_NAME = re.compile(r'@([\w.$-]+)\s*\(')
 
-        将频繁调用的小函数内联展开，减少函数调用开销。
+    @staticmethod
+    def _split_define_line(line: str):
+        """把一行 `define ... @名字(参数) [属性] {` 拆成 (前缀, 属性段, 函数名)
 
-        Args:
-            ir: LLVM IR 字符串
-
-        Returns:
-            优化后的 IR 字符串
+        拆不开（不是单行 define 头、或者没有以 `{` 收尾）时返回 None ——
+        调用方原样保留该行，不猜。
         """
-        # 统计函数调用次数
-        call_counts: Dict[str, int] = {}
-        for m in re.finditer(r'@(\w+)\s*\(', ir):
-            func_name = m.group(1)
-            if not func_name.startswith('light_') and not func_name.startswith('__'):
-                call_counts[func_name] = call_counts.get(func_name, 0) + 1
+        if not StartupOptimizer._DEFINE_LINE.match(line):
+            return None
+        stripped = line.rstrip()
+        if not stripped.endswith('{'):
+            return None
+        name_match = StartupOptimizer._FUNC_NAME.search(stripped)
+        if not name_match:
+            return None
+        close = stripped.rfind(')')
+        if close < name_match.end() - 1:
+            return None
+        head = stripped[:close + 1]
+        attrs = stripped[close + 1:-1].strip()
+        return head, attrs, name_match.group(1)
 
-        # 提取小函数定义
-        func_pattern = re.compile(
-            r'(define\s+.*?@(\w+)\s*\(.*?\))\s*\{([^}]*)\}',
-            re.DOTALL
-        )
+    @classmethod
+    def _add_fn_attr(cls, line: str, attr: str):
+        """给单行 define 头补一个函数属性，返回 (新行, 是否真的加上了)"""
+        parts = cls._split_define_line(line)
+        if parts is None:
+            return line, False
+        head, attrs, _name = parts
+        if attr in attrs.split():
+            return line, False
+        attrs = f'{attrs} {attr}'.strip()
+        return f'{head} {attrs} ' + '{', True
 
-        small_hot_funcs = {}
-        for m in func_pattern.finditer(ir):
-            func_name = m.group(2)
-            func_body = m.group(3).strip()
 
-            # 跳过 main 和初始化函数
-            if func_name in ('main', '__light_init'):
-                continue
 
-            # 统计指令数
-            instr_count = 0
-            for line in func_body.split('\n'):
-                line = line.strip()
-                if line and not line.endswith(':') and not line.startswith(';'):
-                    instr_count += 1
-
-            # 热函数条件：被调用多次且体较小
-            if call_counts.get(func_name, 0) >= 2 and instr_count <= 8:
-                small_hot_funcs[func_name] = func_body
-
-        # 内联热函数（移除定义，因为调用点会直接展开）
-        for func_name in small_hot_funcs:
-            # 仅当只有少数调用点时内联
-            if call_counts.get(func_name, 0) <= 3:
-                ir = re.sub(
-                    rf'define\s+.*?@{re.escape(func_name)}\s*\(.*?\)\s*\{{[^}}]*\}}',
-                    '',
-                    ir,
-                    count=1,
-                    flags=re.DOTALL
-                )
-                self.stats['inlined_hot_functions'] += 1
-
-        return ir
 
     def _defer_initialization(self, ir: str) -> str:
+
         """延迟初始化（懒加载）
 
         将全局变量的初始化从启动时推迟到首次使用时。
@@ -231,7 +227,8 @@ class StartupOptimizer:
         """函数分块（hot/cold 分离）
 
         将函数分为热（频繁执行）和冷（不常执行）两部分。
-        冷代码被标记为 cold 属性，提示编译器优化。
+        冷函数打 `cold`、其余打 `inlinehint`，属性一律写在参数表之后
+        （见 `_add_fn_attr` 上方那段关于位置的说明）。
 
         Args:
             ir: LLVM IR 字符串
@@ -239,61 +236,30 @@ class StartupOptimizer:
         Returns:
             优化后的 IR 字符串
         """
-        lines = ir.split('\n')
+        # 冷函数特征：名称包含 init / cleanup / free / error / 例外 / 清理
+        cold_patterns = ['init', 'cleanup', 'free', 'error', '例外', '清理']
         result = []
 
-        for line in lines:
-            stripped = line.strip()
-
-            # 检测函数定义
-            define_match = re.match(r'(define\s+\w+\s*@(\w+)\s*\(.*?\))\s*\{', stripped)
-            if define_match:
-                func_header = define_match.group(1)
-                func_name = define_match.group(2)
-
-                # 判断是否为冷函数
-                # 冷函数特征：名称包含"init"、"cleanup"、"free"、"error"
-                cold_patterns = ['init', 'cleanup', 'free', 'error', '例外', '清理']
-                is_cold = any(p in func_name.lower() for p in cold_patterns)
-
-                if is_cold:
-                    # 添加 cold 属性
-                    cold_header = func_header.rstrip('{').strip()
-                    # 插入 cold 属性
-                    if 'cold' not in cold_header:
-                        # 在返回类型后添加 cold
-                        cold_header = re.sub(
-                            r'(define\s+\w+)',
-                            r'\1 cold',
-                            cold_header
-                        )
-                        result.append(cold_header + ' {')
-                        self.stats['hot_cold_split'] += 1
-                    else:
-                        result.append(line)
-                else:
-                    # 热函数添加 inlinehint
-                    hot_header = func_header.rstrip('{').strip()
-                    if 'inlinehint' not in hot_header:
-                        hot_header = re.sub(
-                            r'(define\s+\w+)',
-                            r'\1 inlinehint',
-                            hot_header
-                        )
-                        result.append(hot_header + ' {')
-                        self.stats['hot_cold_split'] += 1
-                    else:
-                        result.append(line)
-            else:
+        for line in ir.split('\n'):
+            parts = self._split_define_line(line)
+            if parts is None:
                 result.append(line)
+                continue
+            _head, _attrs, func_name = parts
+            attr = 'cold' if any(p in func_name.lower() for p in cold_patterns) else 'inlinehint'
+            new_line, changed = self._add_fn_attr(line, attr)
+            if changed:
+                self.stats['hot_cold_split'] += 1
+            result.append(new_line)
 
         return '\n'.join(result)
+
 
     def _precompile_hot_functions(self, ir: str) -> str:
         """预编译热函数
 
-        标记热函数，提示编译器优先优化。
-        热函数特征：被频繁调用的小函数。
+        标记热函数（被调用多次的内部函数），提示编译器优先内联。
+        属性位置同 `_hot_cold_splitting`：写在参数表之后。
 
         Args:
             ir: LLVM IR 字符串
@@ -303,42 +269,30 @@ class StartupOptimizer:
         """
         # 统计函数调用次数
         call_counts: Dict[str, int] = {}
-        func_pattern = re.compile(r'@(\w+)\s*\(')
-
-        for m in func_pattern.finditer(ir):
+        for m in re.finditer(r'@([\w.$-]+)\s*\(', ir):
             func_name = m.group(1)
-            # 排除外部函数（以 light_ 开头）
+            # 排除外部函数（以 light_ 开头）与编译器内部函数（__ 前缀）
             if not func_name.startswith('light_') and not func_name.startswith('__'):
                 call_counts[func_name] = call_counts.get(func_name, 0) + 1
 
-        # 标记热函数
-        lines = ir.split('\n')
         result = []
-
-        for line in lines:
-            stripped = line.strip()
-            define_match = re.match(r'(define\s+\w+\s*@(\w+)\s*\(.*?\))\s*\{', stripped)
-            if define_match:
-                func_header = define_match.group(1)
-                func_name = define_match.group(2)
-
-                # 如果函数被调用多次且不是外部函数，标记为 hot
-                if call_counts.get(func_name, 0) > 1:
-                    # 添加 inlinehint 属性
-                    if 'inlinehint' not in func_header:
-                        func_header = re.sub(
-                            r'(define\s+\w+)',
-                            r'\1 inlinehint',
-                            func_header
-                        )
-                        self.stats['precompiled_hot'] += 1
-                    result.append(func_header + ' {')
-                else:
-                    result.append(line)
+        for line in ir.split('\n'):
+            parts = self._split_define_line(line)
+            if parts is None:
+                result.append(line)
+                continue
+            _head, _attrs, func_name = parts
+            # 计数含定义行自身，> 1 才说明真有调用点
+            if call_counts.get(func_name, 0) > 1:
+                new_line, changed = self._add_fn_attr(line, 'inlinehint')
+                if changed:
+                    self.stats['precompiled_hot'] += 1
+                result.append(new_line)
             else:
                 result.append(line)
 
         return '\n'.join(result)
+
 
     def get_stats(self) -> Dict[str, int]:
         """获取优化统计信息

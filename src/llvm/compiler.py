@@ -66,6 +66,30 @@ def get_link_libs() -> list:
     return ['-lm']
 
 
+def get_lto_link_flags() -> list:
+    """LTO 需要的参数（**编译侧与链接侧共用的唯一来源**）
+
+    与 `get_link_libs()` 同一个道理：平台差异只许有一份。
+
+    第七轮 A7 之前的形态是「编译侧 `get_optimization_flags()` 里判平台、
+    三个链接点各自只 `append('-flto')`」，于是 Windows 上 `lto=True` 100% 链不上：
+    默认链接器不支持 LTO，clang 直接 `error: LTO requires -fuse-ld=lld`。
+    编译侧带了 `-fuse-ld=lld` 也没用 —— 那是链接器选择参数，必须出现在链接命令里。
+
+    这条是外部 POSIX 验证那一轮实测出来的（`compile_light_typed(..., lto=True)`
+    → `RuntimeError: 链接失败`），在此之前「LTO 未真跑」被记成未验证项。
+
+    - win32：`-flto` + `-fuse-ld=lld`（默认链接器不认 LTO 字节码）
+    - darwin：`-flto=full`（ld64 走全量 LTO；不再叠一个裸 `-flto`）
+    - 其余（Linux/BSD）：`-flto=auto`（让 clang 按核数选并行 ThinLTO）
+    """
+    if sys.platform == 'win32':
+        return ['-flto', '-fuse-ld=lld']
+    if sys.platform == 'darwin':
+        return ['-flto=full']
+    return ['-flto=auto']
+
+
 def _strip_exe_ext(path: str) -> str:
     """移除路径中的可执行文件后缀（跨平台）"""
     ext = get_exe_extension()
@@ -145,8 +169,23 @@ def get_optimization_flags(optimize_level: int, optimize_size: bool = False,
                            lto: bool = False) -> list:
     """根据优化级别返回 clang 编译参数
 
-    将 -O0/-O1/-O2/-O3 映射到对应的 clang 编译参数，
-    并添加 -mllvm 传递的 LLVM Pass 控制参数。
+    只发 clang 自己认的档位标志（`-O0`/`-O1`/`-O2`/`-O3`、`-Os`、`-flto`），
+    **不再用 `-mllvm` 传 legacy pass 名**。
+
+    为什么去掉 `-mllvm -inline -mem2reg -loop-unroll -loop-rotate -gvn
+    -loop-vectorize -slp-vectorize -licm -simplifycfg`（第七轮 A7 裁决 (a)）：
+
+    1. 这些名字属于 LLVM 的 legacy PassManager。clang 从新 PassManager 起不再
+       注册它们，clang 22 上每一个都报 `Unknown command line argument '-inline'`
+       并让整条 clang 调用退非零 —— 于是 O1/O2/O3 全部编译失败，而
+       `compile --backend llvm-typed` 的默认档就是 O2（`cli/light.py`），
+       也就是「默认档不可用」。
+    2. `-O2` 本身就是一整套新 PM 管线（含 inline/mem2reg/gvn/licm/simplifycfg/
+       向量化），手动再塞同名 pass 是在重复它、而且顺序更差。
+    3. 按 clang 版本探测分支（方案 b）会把版本矩阵引进来：本机 clang 22、
+       CI 是 FreeBSD 另一套，两边行为分叉的成本高于收益。
+
+    代价：失去「精细控制 pass 顺序」这一从未被任何用例验证过的能力。
 
     Args:
         optimize_level: 优化级别（0-3）
@@ -165,34 +204,10 @@ def get_optimization_flags(optimize_level: int, optimize_size: bool = False,
     else:
         flags = [f'-O{optimize_level}']
 
-    # 根据优化级别添加 LLVM Pass 控制参数
-    if not optimize_size and optimize_level >= 1:
-        # -O1 及以上：启用内联、mem2reg（SSA 构建）
-        flags.extend(['-mllvm', '-inline'])
-        flags.extend(['-mllvm', '-mem2reg'])
-
-    if not optimize_size and optimize_level >= 2:
-        # -O2 及以上：启用循环展开、合并、GVN
-        flags.extend(['-mllvm', '-loop-unroll'])
-        flags.extend(['-mllvm', '-loop-rotate'])
-        flags.extend(['-mllvm', '-gvn'])
-
-    if not optimize_size and optimize_level >= 3:
-        # -O3：启用向量化、SLP、更多循环优化
-        flags.extend(['-mllvm', '-loop-vectorize'])
-        flags.extend(['-mllvm', '-slp-vectorize'])
-        flags.extend(['-mllvm', '-licm'])
-        flags.extend(['-mllvm', '-simplifycfg'])
-
-    # LTO (Link Time Optimization)
+    # LTO (Link Time Optimization)：参数表在 get_lto_link_flags() 里单点维护，
+    # 链接侧三个点调的是同一个函数——平台差异不许有第二份。
     if lto:
-        flags.append('-flto')
-        if sys.platform == 'win32':
-            flags.append('-fuse-ld=lld')
-        elif sys.platform == 'darwin':
-            flags.append('-flto=full')
-        else:
-            flags.append('-flto=auto')
+        flags.extend(get_lto_link_flags())
 
     return flags
 
@@ -509,7 +524,8 @@ def compile_light(source_path: str, output_path: str = None, verbose: bool = Fal
     link_args.extend(get_link_libs())
     # LTO 链接参数
     if lto:
-        link_args.append('-flto')
+        link_args.extend(get_lto_link_flags())
+
 
     result = subprocess.run(
         link_args,
@@ -653,7 +669,7 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
         link_args.append('-g')
     link_args.extend(get_link_libs())
     if lto:
-        link_args.append('-flto')
+        link_args.extend(get_lto_link_flags())
 
     result = subprocess.run(
         link_args,
@@ -809,6 +825,22 @@ def find_clang(target_arch: str = None):
         clang 可执行文件路径
     """
     import sys as _sys
+
+    # 显式覆盖，优先级最高：指到一个不存在的路径就等价于「本机没有 clang」。
+    # 为什么需要这条：候选表里 `C:\Program Files\LLVM\bin\clang.exe`、
+    # `/usr/bin/clang` 是硬编码绝对路径且排在 PATH 探测之前，所以「把 clang 从
+    # PATH 里摘掉」根本模拟不出缺 clang（外部 POSIX 验证那轮实测：摘 PATH 后
+    # 原生用例照跑 31 passed，不是 skip）。没有这条，「缺 clang 必须 skip 而不是
+    # error」这条判据只能靠 monkeypatch `os.path.exists`，等于没有环境级判据。
+    覆盖 = os.environ.get('LIGHT_CLANG')
+    if 覆盖:
+        if os.path.exists(覆盖):
+            return 覆盖
+        raise RuntimeError(
+            f"LIGHT_CLANG 指向的路径不存在: {覆盖}\n"
+            "（这个环境变量是显式覆盖，设了就不再回落候选表；"
+            "指到不存在的路径即用于模拟「本机没有 clang」）")
+
 
     # 如果指定了 ARM64 目标，先尝试查找交叉编译器
     if target_arch == 'aarch64':
@@ -1180,7 +1212,7 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
         link_args.append('-g')
     link_args.extend(get_link_libs())
     if lto:
-        link_args.append('-flto')
+        link_args.extend(get_lto_link_flags())
 
     result = subprocess.run(
         link_args,

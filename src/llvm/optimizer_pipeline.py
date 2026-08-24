@@ -328,40 +328,81 @@ class OptimizationPipeline:
 
     @staticmethod
     def _remove_unused_functions_pass(ir: str) -> str:
-        """移除未使用的函数定义（除 main 外）
+        """移除未使用的函数定义（除 main / __light_init 外）
 
-        检测所有内部函数定义，如果未被其他函数调用则移除。
+        判据：函数名除了自己的 `define` 行以外，全模块再无任何出现。
         """
-        # 收集所有内部函数（非 declare）
-        internal_funcs = {}
-        func_pattern = re.compile(r'define\s+.*?@(\w+)\s*\(', re.DOTALL)
-        for m in func_pattern.finditer(ir):
-            func_name = m.group(1)
-            if func_name != 'main':
-                internal_funcs[func_name] = True
+        return OptimizationPipeline._drop_unreferenced_functions(ir)
 
-        # 统计引用次数
-        for func_name in list(internal_funcs.keys()):
-            # 跳过 main 和 __light_init
-            if func_name in ('main', '__light_init'):
+    # ------------------------------------------------------------------
+    # 函数体定位：**按行扫**，不用 `\{[^}]*\}` 这类正则
+    # ------------------------------------------------------------------
+    # 历史缺陷（第七轮 A7 修）：本文件与 startup_optimizer.py 都用
+    #   rf'define\s+.*?@{name}\s*\(.*?\)\s*\{{[^}}]*\}}'
+    # 找函数体。`[^}]*` 在遇到函数体里的行内结构体类型（`{ i64, i8* }`、
+    # `%结构 = type { i32, i8* }`）时会在第一个 `}` 处停住，于是删掉的是
+    # 「函数头 + 半个函数体」，剩下的后半截变成悬空文本（`, i32 8`），
+    # 产出的 IR 连 clang 的 parser 都过不了。协程函数体必然含这类类型。
+    #
+    # 本仓 codegen 的函数体收尾恒为**单独一行的 `}`**（结构体类型写在行内），
+    # 所以按行扫是可靠的，且与 `_label_ref_counts_by_line` 的既有口径同源。
+
+    @staticmethod
+    def _function_spans(lines: List[str]) -> List[tuple]:
+        """返回 [(define 行号, 收尾 `}` 行号, 函数名)]，找不到名字的跳过"""
+        chars = OptimizationPipeline._LABEL_CHARS
+        spans = []
+        n = len(lines)
+        i = 0
+        while i < n:
+            if re.match(r'\s*define\b', lines[i]):
+                name_match = re.search(rf'@({chars})\s*\(', lines[i])
+                j = i
+                while j < n and not re.match(r'\s*\}\s*$', lines[j]):
+                    j += 1
+                end = min(j, n - 1)
+                if name_match:
+                    spans.append((i, end, name_match.group(1)))
+                i = end + 1
+            else:
+                i += 1
+        return spans
+
+    @staticmethod
+    def _drop_unreferenced_functions(ir: str, max_instrs: int = None) -> str:
+        """删掉「除定义行外全模块零引用」的内部函数定义
+
+        Args:
+            ir: LLVM IR 字符串
+            max_instrs: 只删指令数不超过该值的函数；None 表示不限
+        """
+        lines = ir.split('\n')
+        spans = OptimizationPipeline._function_spans(lines)
+        drop = set()
+        for start, end, name in spans:
+            if name in ('main', '__light_init'):
                 continue
-            # 在 IR 中搜索 @func_name（排除定义行）
-            count = 0
-            for line in ir.split('\n'):
-                if f'@{func_name}' in line:
-                    # 如果这一行是定义（define），不算引用
-                    if not line.strip().startswith('define'):
-                        count += 1
-            if count == 0:
-                # 未被引用，移除整个函数定义
-                # 匹配 define ... @func_name(...) { ... }
-                pattern = re.compile(
-                    rf'define\s+.*?@{re.escape(func_name)}\s*\(.*?\)\s*\{{[^}}]*\}}',
-                    re.DOTALL
-                )
-                ir = pattern.sub('', ir)
+            body = lines[start + 1:end]
+            if max_instrs is not None:
+                instrs = [l.strip() for l in body
+                          if l.strip() and not l.strip().endswith(':')
+                          and not l.strip().startswith(';')]
+                if len(instrs) > max_instrs:
+                    continue
+            token = f'@{name}'
+            referenced = False
+            for idx, line in enumerate(lines):
+                if idx == start:
+                    continue  # 定义行自身不算引用
+                if re.search(rf'{re.escape(token)}\b', line):
+                    referenced = True
+                    break
+            if not referenced:
+                drop.update(range(start, end + 1))
+        if not drop:
+            return ir
+        return '\n'.join(l for i, l in enumerate(lines) if i not in drop)
 
-        return ir
 
     # 标签名字符集：LLVM 的裸标识符允许字母数字与 [-$._]
     _LABEL_CHARS = r'[\w.$-]+'
@@ -473,76 +514,26 @@ class OptimizationPipeline:
 
     @staticmethod
     def _inline_small_functions_pass(ir: str) -> str:
-        """内联小函数 Pass
+        """小函数清理 Pass
 
-        将函数体很小（<=5条指令）且被调用的函数内联展开。
+        名字沿用历史（`inline_small_functions`），实际行为是**删掉体积很小
+        （<= 5 条指令）且全模块无调用点的函数定义** —— 它从来没有真的内联过
+        任何东西，真正的内联是 clang `-O2/-O3` 的活儿。函数体定位见
+        `_function_spans`：按行扫到单独一行的 `}`，不用会被行内结构体类型
+        截断的 `\\{[^}]*\\}`。
         """
-        # 提取所有函数定义
-        func_pattern = re.compile(
-            r'(define\s+.*?@(\w+)\s*\(.*?\))\s*\{([^}]*)\}',
-            re.DOTALL
-        )
+        return OptimizationPipeline._drop_unreferenced_functions(ir, max_instrs=5)
 
-        # 收集小函数（指令数 <= 5）
-        small_funcs = {}
-        for m in func_pattern.finditer(ir):
-            func_name = m.group(2)
-            func_body = m.group(3).strip()
-            instr_count = 0
-            for line in func_body.split('\n'):
-                line = line.strip()
-                if line and not line.endswith(':') and not line.startswith(';'):
-                    instr_count += 1
-            if instr_count <= 5 and func_name != 'main' and not func_name.startswith('__'):
-                small_funcs[func_name] = func_body
 
-        # 对于小函数，如果仅被调用一次，标记为内联候选
-        # 这里简化实现：只移除仅被调用一次的小函数定义
-        # 并替换调用点为内联展开的简化版本
-        for func_name in small_funcs:
-            call_count = len(re.findall(rf'@\b{re.escape(func_name)}\b', ir))
-            if call_count <= 1:
-                # 仅被调用一次，安全移除函数定义（调用点保留）
-                ir = re.sub(
-                    rf'define\s+.*?@{re.escape(func_name)}\s*\(.*?\)\s*\{{[^}}]*\}}',
-                    '',
-                    ir,
-                    count=1,
-                    flags=re.DOTALL
-                )
-
-        return ir
 
     @staticmethod
     def _inline_single_call_functions_pass(ir: str) -> str:
-        """内联单次调用函数 Pass（体积优化用）
+        """无调用点函数清理 Pass（体积优化用）
 
-        移除仅被调用一次的函数定义，减少代码体积。
+        与 `_inline_small_functions_pass` 同源，只是不限函数体大小。
         """
-        # 提取所有函数定义
-        func_pattern = re.compile(
-            r'define\s+.*?@(\w+)\s*\(.*?\)\s*\{[^}]*\}',
-            re.DOTALL
-        )
+        return OptimizationPipeline._drop_unreferenced_functions(ir)
 
-        func_names = []
-        for m in func_pattern.finditer(ir):
-            func_name = m.group(1)
-            if func_name != 'main' and not func_name.startswith('__'):
-                func_names.append(func_name)
-
-        for func_name in func_names:
-            call_count = len(re.findall(rf'@\b{re.escape(func_name)}\b', ir))
-            if call_count <= 1:
-                ir = re.sub(
-                    rf'define\s+.*?@{re.escape(func_name)}\s*\(.*?\)\s*\{{[^}}]*\}}',
-                    '',
-                    ir,
-                    count=1,
-                    flags=re.DOTALL
-                )
-
-        return ir
 
     @staticmethod
     def _loop_invariant_code_motion_pass(ir: str) -> str:
