@@ -230,6 +230,27 @@ jobs:
           . .venv/bin/activate
           python tools/ci/bootstrap_rate.py --root .
 
+      # E7（第七轮 M20）：两道新度量门禁。都是**纯静态扫描**——不 import、不编译任何
+      # .light，本机实测各 1s 级，放在门禁段末尾、不与测试并发（第五轮教训：门禁与
+      # 测试并发会把测试中途生成的产物扫成「新增违规」）。硬判绿点，不加 || true。
+      #
+      # 1) Python 直调计数：补住「引 Python 逃逸 0」那句话的漏洞——真实逃逸走
+      #    `导入 os` 再直调 `os.path.isabs`，六轮来不被任何门禁计数。基线按文件维度
+      #    棘轮（只降不升），刻意不要求降到 0：那会逼出「换写法绕正则」的假降。
+      - name: Python 直调计数门禁（口径见脚本 docstring·只降不升）
+        run: |
+          . .venv/bin/activate
+          python tools/ci/python_direct_calls.py --root .
+
+      # 2) 功能对标清单：把「离能开发 deepseek-harness 还差多少」变成机读判据。
+      #    done 条数只升不降、已 done 的条目不许退回、条目不许消失、
+      #    done/partial 必须有存在的证据文件（行号不校验，行号会漂移）。
+      - name: 功能对标清单门禁（完成度只升不降）
+        run: |
+          . .venv/bin/activate
+          python tools/ci/spec_coverage.py --root .
+
+
       # 时间预算硬闸门（2026-08-22 用户裁决）：PR ≤ 600s，push main ≤ 1200s。
       # always() 是故意的：前面哪一步红了，也要把耗时账单打出来——不然一红就看不到时间数据，
       # 下次还是只能靠猜。

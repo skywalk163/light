@@ -18,3 +18,15 @@
 #   python3 tools/ci/check_regression.py --junit .ci/root_other.xml \
 #       --write-baseline tests/ci_baseline_failures_crossplat.txt \
 #       --soft-classname 'tests.test_*' --soft-classname 'tests._test_*'
+#
+# ── 第七轮 E7 复核（2026-08-24）：口径原样确认，一条不加 ──────────────────────
+# **谁都不许往这份文件里塞条目，包括门禁自己的负责人。** 往里加一条的含义不是
+# 「记账了一个已知问题」，而是「把『这一整批测试在这个平台上没跑起来』冻结成常态」，
+# 从此这道闸门在那个平台上永久失效——它拦的本来就只有「没跑起来」这一种情况。
+# 真被拦住时的正解只有两个：把整批跑起来，或者把它从那个平台的清单里明确摘掉并记账。
+#
+# 顺带一条与本文件有关的事实（免得有人误判它的覆盖面）：跨平台闸门只写在
+# `.github/workflows/ci.yml` 里，而本项目当前没有 GitHub 远端、那棵树一次没执行过。
+# 也就是说这份基线至今没有被任何真实运行读取过。它是为「启用 GitHub 远端那天」备好的，
+# 不是「Windows/macOS 已有覆盖」的证据。
+

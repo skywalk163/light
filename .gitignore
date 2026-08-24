@@ -205,6 +205,14 @@ src/test_*.py
 # 文档代码块闸门的分类基线：被第 46 行的全局 *.json 误伤。
 # 不入库的话 test_doc_examples_gate.py 在干净克隆里会 FileNotFoundError，闸门整条失效。
 !tests/unit/doc_examples_baseline.json
+# 第七轮 E7 新增的两份门禁数据，同样被全局 *.json 吃掉：
+# - 功能对标清单：M18/M20 的判据锚点，tools/ci/spec_coverage.py 读它；不入库门禁直接 rc=2。
+#   （放 任务书/ 而不是 docs/ 是既有裁决：docs/ 下会被文档示例门禁扫。）
+# - 关键路径模块清单：自举率子指标的分母，可增不可删；不入库自举率门禁 rc=2。
+# 三份新基线（python_direct / spec_coverage / 以及既有两份）由上面第 52 行的
+# `!tools/ci/*_baseline.json` 覆盖，已用 git check-ignore 复核，无需重复豁免。
+!任务书/功能对标清单_harness.json
+!tools/ci/critical_path_modules.json
 
 # AI Copilot 训练产物
 tools/ai_copilot/output/

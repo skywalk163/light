@@ -50,6 +50,8 @@
   # 原来只扫 tests/，同形态违规在 tests/ 之外还有 50 条，门禁覆盖面窄于
   # 它自己声明的形态覆盖面。全仓实测 1.7s，仍在 <5s 承诺内。
   python3 tools/ci/assert_quality.py --root .
+  # 第七轮 E7：`--root` 的默认值已从 `tests` 改成 `.`，与 CI 一致——
+  # 忘了传参不再造出「几百条新增」的幻影（实测无参时是 424 条 + rc=1）。
   # 生成/刷新基线（修好一批后手工执行并提交）
   python3 tools/ci/assert_quality.py --root . --write-baseline tools/ci/assert_quality_baseline.json
 
@@ -281,8 +283,13 @@ def violation_key(v):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--root", default="tests",
-                    help="要扫描的根目录，默认 tests（相对仓库根或绝对路径）")
+    # 默认值必须与 CI 传的一致。原默认是 `tests`，而两侧 CI 都显式传 `--root .`
+    # （`.gitea/workflows/ci.yml` 断言质量门禁步、`.github/workflows/ci.yml` 同名步）。
+    # 基线键是**相对扫描根**的，所以谁忘了传参，扫出来的键全对不上基线，
+    # 424 条存量会被逐条报成「新增违规」并 rc=1——一次实测就是这个数
+    # （第七轮 E7 §3.3 实地复现）。默认值与 CI 对齐后，无参调用与 `--root .` 等价。
+    ap.add_argument("--root", default=".",
+                    help="要扫描的根目录，默认 `.`（与 CI 一致；相对仓库根或绝对路径）")
     ap.add_argument("--baseline", default=_DEFAULT_BASELINE,
                     help="基线快照路径（对比模式）")
     ap.add_argument("--write-baseline", metavar="PATH",
