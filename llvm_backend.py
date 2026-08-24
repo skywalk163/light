@@ -1,11 +1,32 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-LLVM 后端模块
+"""C 编译器包装脚本（**不是 LLVM 后端**，名字是历史遗留）
 
-将光明编译器生成的代码通过 LLVM 工具链编译为原生可执行文件。
+⚠️ 第七轮 A7 的表态（任务书 §2.6-2）：
 
-编译流程：
+**这个文件不生成 LLVM IR。** 它做的事是「找一个能用的 C 编译器
+（clang / gcc / cl），把 `.c` 编成 exe」，即 `查找C编译器()`（:47）与
+`编译C到原生()`（:73）。与 `c_backend.编译C到原生` 功能重复。
+
+**谁在用**：全仓无任何模块 import 它（本轮 grep `llvm_backend` 的命中只有
+自己的 `__main__` 用法串、任务书、以及 `docs/llvm_backend_design.md`
+—— 后者是同名文档，不是本文件）。它只能被当独立脚本手动跑。
+本轮**没有删**它：`docs/known_issues.md` 13.1 节还在描述它，而那份文档
+不在 A7 的授权文件里，删了会留一条改不了的文档腐烂。第八轮若要删，
+连同那一节一起处理。
+
+**原生编译推荐走哪条**：
+
+    light compile 源文件.light --backend llvm-typed [-o 输出] [--optimize O0..O3]
+    light run     源文件.light --backend llvm-typed        # 编译到临时目录再执行
+
+实现在 `src/llvm/compiler.py`（`compile_light_typed`）：
+`.light → LLVM IR → clang → exe`，IR 由 `src/llvm/codegen_typed.py` 生成，
+运行时是 `src/llvm/runtime_typed.c`（含 socket / poller / 事件循环 / TLS）。
+另有一条更老的 `antlrparser/llvm_codegen.py`（由 `antlrparser/light_llvm.py`
+驱动，依赖 antlr4 运行时），只在旧路径冒烟里出现，新代码别再往上加东西。
+
+编译流程（本文件自己那条）：
   光明 (.light) → C 代码 (.c) → Clang/LLVM → 原生可执行文件 (.exe)
 
 支持的编译器 (按顺序尝试)：
@@ -18,6 +39,7 @@ LLVM 后端模块
   - 推荐: https://github.com/llvm/llvm-project/releases (LLVM/Clang)
   - 推荐: https://www.mingw-w64.org/ (MinGW-w64 GCC)
 """
+
 
 import os
 import sys

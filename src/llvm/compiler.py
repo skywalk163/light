@@ -145,8 +145,23 @@ def get_optimization_flags(optimize_level: int, optimize_size: bool = False,
                            lto: bool = False) -> list:
     """根据优化级别返回 clang 编译参数
 
-    将 -O0/-O1/-O2/-O3 映射到对应的 clang 编译参数，
-    并添加 -mllvm 传递的 LLVM Pass 控制参数。
+    只发 clang 自己认的档位标志（`-O0`/`-O1`/`-O2`/`-O3`、`-Os`、`-flto`），
+    **不再用 `-mllvm` 传 legacy pass 名**。
+
+    为什么去掉 `-mllvm -inline -mem2reg -loop-unroll -loop-rotate -gvn
+    -loop-vectorize -slp-vectorize -licm -simplifycfg`（第七轮 A7 裁决 (a)）：
+
+    1. 这些名字属于 LLVM 的 legacy PassManager。clang 从新 PassManager 起不再
+       注册它们，clang 22 上每一个都报 `Unknown command line argument '-inline'`
+       并让整条 clang 调用退非零 —— 于是 O1/O2/O3 全部编译失败，而
+       `compile --backend llvm-typed` 的默认档就是 O2（`cli/light.py`），
+       也就是「默认档不可用」。
+    2. `-O2` 本身就是一整套新 PM 管线（含 inline/mem2reg/gvn/licm/simplifycfg/
+       向量化），手动再塞同名 pass 是在重复它、而且顺序更差。
+    3. 按 clang 版本探测分支（方案 b）会把版本矩阵引进来：本机 clang 22、
+       CI 是 FreeBSD 另一套，两边行为分叉的成本高于收益。
+
+    代价：失去「精细控制 pass 顺序」这一从未被任何用例验证过的能力。
 
     Args:
         optimize_level: 优化级别（0-3）
@@ -165,26 +180,10 @@ def get_optimization_flags(optimize_level: int, optimize_size: bool = False,
     else:
         flags = [f'-O{optimize_level}']
 
-    # 根据优化级别添加 LLVM Pass 控制参数
-    if not optimize_size and optimize_level >= 1:
-        # -O1 及以上：启用内联、mem2reg（SSA 构建）
-        flags.extend(['-mllvm', '-inline'])
-        flags.extend(['-mllvm', '-mem2reg'])
-
-    if not optimize_size and optimize_level >= 2:
-        # -O2 及以上：启用循环展开、合并、GVN
-        flags.extend(['-mllvm', '-loop-unroll'])
-        flags.extend(['-mllvm', '-loop-rotate'])
-        flags.extend(['-mllvm', '-gvn'])
-
-    if not optimize_size and optimize_level >= 3:
-        # -O3：启用向量化、SLP、更多循环优化
-        flags.extend(['-mllvm', '-loop-vectorize'])
-        flags.extend(['-mllvm', '-slp-vectorize'])
-        flags.extend(['-mllvm', '-licm'])
-        flags.extend(['-mllvm', '-simplifycfg'])
-
     # LTO (Link Time Optimization)
+
+
+
     if lto:
         flags.append('-flto')
         if sys.platform == 'win32':
