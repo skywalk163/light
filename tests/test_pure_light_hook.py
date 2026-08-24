@@ -153,7 +153,8 @@ def test_大写JSON仍走纯光明门面():
 def test_任何light都不许应答仅大小写不同的标准库名():
     """通用判据：把 5 条 e2e 的具体症状升级成对全部 .light 的结构约束。"""
     finder = _light_import_hook._current_finder()
-    assert finder is not None, "钩子未安装，本判据无意义"
+    assert isinstance(finder, _light_import_hook.LightFinder) and _STDLIB in finder.search_paths, \
+        "钩子未挂在 stdlib 上，本判据不成立：%r" % (finder and finder.search_paths,)
     劫持 = []
     for full in glob.glob(os.path.join(_STDLIB, "*.light")):
         name = os.path.splitext(os.path.basename(full))[0]
