@@ -66,6 +66,30 @@ def get_link_libs() -> list:
     return ['-lm']
 
 
+def get_lto_link_flags() -> list:
+    """LTO 需要的参数（**编译侧与链接侧共用的唯一来源**）
+
+    与 `get_link_libs()` 同一个道理：平台差异只许有一份。
+
+    第七轮 A7 之前的形态是「编译侧 `get_optimization_flags()` 里判平台、
+    三个链接点各自只 `append('-flto')`」，于是 Windows 上 `lto=True` 100% 链不上：
+    默认链接器不支持 LTO，clang 直接 `error: LTO requires -fuse-ld=lld`。
+    编译侧带了 `-fuse-ld=lld` 也没用 —— 那是链接器选择参数，必须出现在链接命令里。
+
+    这条是外部 POSIX 验证那一轮实测出来的（`compile_light_typed(..., lto=True)`
+    → `RuntimeError: 链接失败`），在此之前「LTO 未真跑」被记成未验证项。
+
+    - win32：`-flto` + `-fuse-ld=lld`（默认链接器不认 LTO 字节码）
+    - darwin：`-flto=full`（ld64 走全量 LTO；不再叠一个裸 `-flto`）
+    - 其余（Linux/BSD）：`-flto=auto`（让 clang 按核数选并行 ThinLTO）
+    """
+    if sys.platform == 'win32':
+        return ['-flto', '-fuse-ld=lld']
+    if sys.platform == 'darwin':
+        return ['-flto=full']
+    return ['-flto=auto']
+
+
 def _strip_exe_ext(path: str) -> str:
     """移除路径中的可执行文件后缀（跨平台）"""
     ext = get_exe_extension()
@@ -180,18 +204,10 @@ def get_optimization_flags(optimize_level: int, optimize_size: bool = False,
     else:
         flags = [f'-O{optimize_level}']
 
-    # LTO (Link Time Optimization)
-
-
-
+    # LTO (Link Time Optimization)：参数表在 get_lto_link_flags() 里单点维护，
+    # 链接侧三个点调的是同一个函数——平台差异不许有第二份。
     if lto:
-        flags.append('-flto')
-        if sys.platform == 'win32':
-            flags.append('-fuse-ld=lld')
-        elif sys.platform == 'darwin':
-            flags.append('-flto=full')
-        else:
-            flags.append('-flto=auto')
+        flags.extend(get_lto_link_flags())
 
     return flags
 
@@ -508,7 +524,8 @@ def compile_light(source_path: str, output_path: str = None, verbose: bool = Fal
     link_args.extend(get_link_libs())
     # LTO 链接参数
     if lto:
-        link_args.append('-flto')
+        link_args.extend(get_lto_link_flags())
+
 
     result = subprocess.run(
         link_args,
@@ -652,7 +669,7 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
         link_args.append('-g')
     link_args.extend(get_link_libs())
     if lto:
-        link_args.append('-flto')
+        link_args.extend(get_lto_link_flags())
 
     result = subprocess.run(
         link_args,
@@ -808,6 +825,22 @@ def find_clang(target_arch: str = None):
         clang 可执行文件路径
     """
     import sys as _sys
+
+    # 显式覆盖，优先级最高：指到一个不存在的路径就等价于「本机没有 clang」。
+    # 为什么需要这条：候选表里 `C:\Program Files\LLVM\bin\clang.exe`、
+    # `/usr/bin/clang` 是硬编码绝对路径且排在 PATH 探测之前，所以「把 clang 从
+    # PATH 里摘掉」根本模拟不出缺 clang（外部 POSIX 验证那轮实测：摘 PATH 后
+    # 原生用例照跑 31 passed，不是 skip）。没有这条，「缺 clang 必须 skip 而不是
+    # error」这条判据只能靠 monkeypatch `os.path.exists`，等于没有环境级判据。
+    覆盖 = os.environ.get('LIGHT_CLANG')
+    if 覆盖:
+        if os.path.exists(覆盖):
+            return 覆盖
+        raise RuntimeError(
+            f"LIGHT_CLANG 指向的路径不存在: {覆盖}\n"
+            "（这个环境变量是显式覆盖，设了就不再回落候选表；"
+            "指到不存在的路径即用于模拟「本机没有 clang」）")
+
 
     # 如果指定了 ARM64 目标，先尝试查找交叉编译器
     if target_arch == 'aarch64':
@@ -1179,7 +1212,7 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
         link_args.append('-g')
     link_args.extend(get_link_libs())
     if lto:
-        link_args.append('-flto')
+        link_args.extend(get_lto_link_flags())
 
     result = subprocess.run(
         link_args,

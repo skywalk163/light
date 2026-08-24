@@ -25,8 +25,12 @@ clang 探测口径
 - 默认复用生产链路的 `src/llvm/compiler.py: find_clang()`（Windows 走
   `C:\\Program Files\\LLVM\\bin` 等固定位置 + PATH；POSIX 走 PATH 与
   `/usr/bin`、`/usr/local/bin`），**不再另写一份候选表** —— 两份表迟早分叉。
-- 环境变量 `LIGHT_CLANG` 可覆盖：指到一个不存在的路径就等价于「本机没有
-  clang」，用来验证「缺 clang 时是 skip 而不是 error」。
+- 环境变量 `LIGHT_CLANG` 可覆盖，但**判定逻辑也在 `find_clang()` 里**，本文件
+  不重复实现：指到一个不存在的路径时 `find_clang()` 抛 RuntimeError，等价于
+  「本机没有 clang」，用来验证「缺 clang 时是 skip 而不是 error」。
+  为什么不能用「把 clang 从 PATH 里摘掉」来模拟：候选表里那些绝对路径排在
+  PATH 探测之前，摘 PATH 之后照样找得到（外部 POSIX 验证那轮实测：31 passed
+  而不是 skip）。
 - 缺 clang 一律 **skip**，不许 error：`find_clang()` 在缺失时直接 raise，
   谁在模块顶层调它，整个文件就是 collect error（跨平台闸门专拦这种「整批
   没跑起来」）。
@@ -43,9 +47,6 @@ if os.path.join(仓库根, 'src') not in sys.path:
 
 def 探测clang():
     """返回 clang 路径，找不到返回 None（**不抛异常**）"""
-    覆盖 = os.environ.get('LIGHT_CLANG')
-    if 覆盖 is not None:
-        return 覆盖 if os.path.exists(覆盖) else None
     try:
         from llvm.compiler import find_clang  # type: ignore[import]
     except ImportError:

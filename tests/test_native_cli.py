@@ -60,7 +60,7 @@ sys.path.insert(0, os.path.join(仓库根, 'src'))
 }
 
 
-def 走生产路径编译并运行(源码文本, 优化级别, 名字):
+def 走生产路径编译并运行(源码文本, 优化级别, 名字, lto=False):
     """`compile_light_typed` → 跑 exe，返回 (退出码, 非空输出行列表)"""
     from llvm.compiler import compile_light_typed  # type: ignore[import]
 
@@ -69,9 +69,14 @@ def 走生产路径编译并运行(源码文本, 优化级别, 名字):
         with open(源文件, 'w', encoding='utf-8') as fh:
             fh.write(源码文本)
         产物基名 = os.path.join(临时目录, f'{名字}_O{优化级别}')
-        exe = compile_light_typed(源文件, 产物基名, optimize_level=优化级别)
+        exe = compile_light_typed(源文件, 产物基名, optimize_level=优化级别, lto=lto)
         结果 = subprocess.run([exe], timeout=60, **子进程口径)
         return 结果.returncode, [行.strip() for 行 in 结果.stdout.splitlines() if 行.strip()]
+
+
+def 不存在的clang路径():
+    """一个保证不存在的路径，用来模拟「本机没有 clang」"""
+    return os.path.join(tempfile.gettempdir(), '_taskA7_没有这个clang', 'clang.exe')
 
 
 def 跑CLI(*参数):
@@ -97,6 +102,63 @@ class Test优化档矩阵:
         退出码, 输出行 = 走生产路径编译并运行(源码表[名字], 优化级别, 名字)
         assert 退出码 == 0, f'{名字} O{优化级别} 退出码异常: {退出码}'
         assert 输出行 == 期望输出[名字], f'{名字} O{优化级别} 输出不符: {输出行}'
+
+    def test_LTO真链接真跑(self):
+        """`lto=True` 必须真链接出能跑的产物
+
+        这条是外部 POSIX 验证那轮抓出来的真红：链接侧只 `append('-flto')`，
+        `-fuse-ld=lld` 只出现在编译参数里，于是 Windows 上 LTO 100% 挂在
+        `clang: error: LTO requires -fuse-ld=lld`。判据必须是「真链接 + 真跑」，
+        看编译参数里有没有那个 flag 是零信号 —— 编译侧本来就有。
+        """
+        退出码, 输出行 = 走生产路径编译并运行(源码表['hello'], 2, 'hello', lto=True)
+        assert 退出码 == 0, f'LTO 产物退出码异常: {退出码}'
+        assert 输出行 == 期望输出['hello'], f'LTO 产物输出不符: {输出行}'
+
+
+class TestClang探测显式覆盖:
+    """`LIGHT_CLANG` 是「本机有没有 clang」的唯一可控开关
+
+    不需要 clang 也能跑，所以不挂 `skip_without_clang`。
+    """
+
+    @staticmethod
+    def _find_clang():
+        from llvm.compiler import find_clang  # type: ignore[import]
+        return find_clang
+
+    def test_指到不存在的路径就等于没有clang(self, monkeypatch):
+        """判据：抛 RuntimeError，而不是回落候选表找到一个真 clang
+
+        「把 clang 从 PATH 里摘掉」模拟不出缺 clang —— 候选表里
+        `C:\\Program Files\\LLVM\\bin\\clang.exe`、`/usr/bin/clang` 是硬编码
+        绝对路径且排在 PATH 探测之前。外部 POSIX 验证那轮摘了 PATH，原生用例
+        照跑 31 passed 而不是 skip，就是这个原因。
+        """
+        monkeypatch.setenv('LIGHT_CLANG', 不存在的clang路径())
+        with pytest.raises(RuntimeError) as 错误:
+            self._find_clang()()
+        assert 'LIGHT_CLANG' in str(错误.value)
+
+    def test_缺clang时探测clang返回None而不是抛异常(self, monkeypatch):
+        """`_native_helpers.探测clang()` 必须吞掉异常
+
+        它要是把 RuntimeError 放出来，模块顶层的 `CLANG_PATH = 探测clang()`
+        就会让整个测试文件变成 collect error —— 那是「一批用例静默不跑」，
+        比单条红危险。
+        """
+        import importlib
+
+        monkeypatch.setenv('LIGHT_CLANG', 不存在的clang路径())
+        助手 = importlib.import_module('_native_helpers')
+        assert 助手.探测clang() is None
+
+    def test_指到真clang时原样返回(self, monkeypatch):
+        """覆盖优先级最高：设了就不再回落候选表"""
+        伪装 = os.path.abspath(__file__)  # 存在即可，find_clang 只查存在性
+        monkeypatch.setenv('LIGHT_CLANG', 伪装)
+        assert self._find_clang()() == 伪装
+
 
 
 
