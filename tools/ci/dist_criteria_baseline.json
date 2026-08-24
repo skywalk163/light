@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "note": "分布式判据清单基线（第九轮 G9 建）。口径见 tools/ci/dist_criteria.py docstring。done 只升不降、已 done 不许退回、能力可增不可删；done 必须同时有可定位的判据与含动作词的反跑。**只在合并点重建**（总纲 §5 红线 5）。",
+  "built_from_commit": "5478ebfed56d",
+  "list_path": "任务书/分布式判据清单.json",
+  "total": 9,
+  "done_count": 0,
+  "done_能力": [],
+  "能力": [
+    "分发",
+    "取消传播",
+    "幂等",
+    "心跳",
+    "故障隔离",
+    "结果汇聚",
+    "背压",
+    "重派",
+    "限流"
+  ],
+  "distribution": {
+    "done": 0,
+    "partial": 0,
+    "none": 9
+  }
+}
