@@ -1,13 +1,13 @@
 {
   "version": 3,
   "note": "自举率基线快照：文件维度自举率只许升不许降；影子数只许降不许升；关键路径自举率（第七轮 E7 新增子指标）只许升不许降，且关键路径清单可增不可删（清单数据在 tools/ci/critical_path_modules.json）。行维度虚高，不许引用。口径见 tools/ci/bootstrap_rate.py docstring。built_from_commit 是**生成基线时的 HEAD**，也就是携带本基线那个提交的父提交；若它在当前分支上不可达（git cat-file -e 失败或非 HEAD 祖先），说明基线是从被改写/丢弃的提交上生成的，必须重新生成。",
-  "file_dim_rate": 0.2972972972972973,
-  "stdlib_light_total": 74,
-  "stdlib_light_has_impl": 22,
+  "file_dim_rate": 0.3157894736842105,
+  "stdlib_light_total": 76,
+  "stdlib_light_has_impl": 24,
   "shadow_count": 53,
   "critical_path_total": 18,
-  "critical_path_has_impl": 14,
-  "critical_path_rate": 0.7777777777777778,
+  "critical_path_has_impl": 16,
+  "critical_path_rate": 0.8888888888888888,
   "critical_path_modules": [
     "JSON核心",
     "文件流",
@@ -28,5 +28,5 @@
     "路径护栏",
     "进程树"
   ],
-  "built_from_commit": "4250f1fce011"
+  "built_from_commit": "e99c63fd4cc8"
 }
