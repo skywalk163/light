@@ -368,6 +368,170 @@ class Test口径与已知缺口:
         assert 备份.read_bytes() == "内部数据".encode("utf-8")
 
 
+class Test对抗用例_D9:
+    """D9-S1 改写护栏（32 行 os 直调 → 16 行系统边界段）之后新增的三条对抗用例。
+
+    改写红线是「不许降低安全性」，所以这三条按攻击面分：**词法穿越**、
+    **链接穿透**、**Windows 路径别名**。每条都带反跑；其中链接穿透那条的反跑是
+    **可执行的变异探针**（把 realpath 换成词法 abspath，同一条穿越立刻通过），
+    不是注释里的一句话。
+    """
+
+    def test_多级点穿越与混合分隔符全被拒(self, tmp_path):
+        """`..` 穿越的四种形态：单级、多级、混合分隔符、先进子目录再退两级。
+
+        同时钉住**不许误伤**：`根/子/../文件` 折回根内，必须放行——把 `..`
+        一律当越界是最省事也最错的实现。
+
+        反跑：把 `规范路径` 里的 `己.真实路径(路径)` 换成内置 `绝对路径(路径)`
+        （abspath 是纯词法的，会把 `根/../外面` 折成 `根/外面`）→ 前四格立红。
+        """
+        根 = tmp_path / "_taskD9_沙箱"
+        根.mkdir()
+        (根 / "子").mkdir()
+        护栏 = 路径护栏(str(根), {})
+        外文件 = tmp_path / "_taskD9_外面.txt"
+        外文件.write_bytes("根外的数据".encode("utf-8"))
+
+        穿越形态 = [
+            os.path.join(str(根), "..", "_taskD9_外面.txt"),
+            os.path.join(str(根), "子", "..", "..", "_taskD9_外面.txt"),
+            str(根).replace(os.sep, "/") + "/../_taskD9_外面.txt",
+            os.path.join(str(根), "子", "..", "..", "..",
+                         os.path.basename(str(tmp_path)), "_taskD9_外面.txt"),
+        ]
+        for 形态 in 穿越形态:
+            assert 护栏.检查(形态) is False, "穿越形态没被拦：" + 形态
+            with pytest.raises(路径护栏错误):
+                护栏.核准(形态)
+            with pytest.raises(路径护栏错误):
+                护栏.读取(形态)
+
+        # 误伤面：折回根内的 `..` 必须放行，且真的能写进去
+        回内 = os.path.join(str(根), "子", "..", "_taskD9_回内.txt")
+        assert 护栏.检查(回内) is True
+        assert 护栏.写入(回内, b"in") is True
+        assert (根 / "_taskD9_回内.txt").read_bytes() == b"in"
+
+    def test_链接指向沙箱外时经过链接的子路径也被拒_附变异反跑(self, tmp_path):
+        """既有用例只断「链接本身被拒」。攻击者不会去读链接本身，而是读
+        `根/链接/秘密.txt` —— 这条把**穿过链接的子路径**钉住。
+
+        末尾是反跑（变异探针）：把实例的 `真实路径` 换成词法 abspath，
+        同一条子路径立刻被判「在护栏内」。这证明本条判据靠的是 realpath 那一步，
+        不是碰巧通过。
+        """
+        根 = tmp_path / "_taskD9_链根"
+        根.mkdir()
+        外目录 = tmp_path / "_taskD9_链外目录"
+        外目录.mkdir()
+        (外目录 / "_taskD9_秘密.txt").write_bytes("外部机密".encode("utf-8"))
+        链接 = 根 / "_taskD9_逃逸"
+        模式 = None
+        try:
+            os.symlink(str(外目录), str(链接), target_is_directory=True)
+            if os.path.islink(str(链接)):
+                模式 = "symlink"
+        except (OSError, NotImplementedError):
+            pass
+        if 模式 is None and sys.platform == "win32":
+            r = subprocess.run(["cmd", "/c", "mklink", "/J", str(链接), str(外目录)],
+                               capture_output=True, text=True, timeout=10)
+            if r.returncode == 0 and os.path.exists(str(链接)):
+                模式 = "junction"
+        if 模式 is None:
+            pytest.xfail("symlink 与 junction 都建不起来（掩盖：链接穿透从未真机验证）")
+
+        子路径 = os.path.join(str(链接), "_taskD9_秘密.txt")
+        护栏 = 路径护栏(str(根), {})
+        assert 护栏.检查(子路径) is False, "穿过链接的子路径必须被拒（%s）" % 模式
+        with pytest.raises(路径护栏错误):
+            护栏.读取(子路径)
+
+        # —— 反跑：把 realpath 这一步替换成词法 abspath，穿越必须变成「通过」——
+        护栏.真实路径 = lambda 路径: os.path.abspath(路径)
+        assert 护栏.检查(子路径) is True, \
+            "变异探针失效：去掉 realpath 之后本用例仍然判拒，说明它不是靠 realpath 拦住的"
+
+    @pytest.mark.skipif(
+        sys.platform != "win32",
+        reason="8.3 短名 / `\\\\?\\` 扩展形态 / 大小写不敏感都是 Windows 专属。"
+               "POSIX 上跳过掩盖了：这三种别名形态在 POSIX 上不存在（短名无、"
+               "扩展前缀无、大小写敏感），对应结论未在 POSIX 实测。",
+    )
+    def test_Windows短名与UNC与大小写变体(self, tmp_path):
+        r"""Windows 上同一个文件有多种写法。护栏的口径是「realpath 展开 +
+        normcase 归一之后再比」，所以：
+
+          - 8.3 短名（`很长的~1`）指向沙箱内 → 放行（realpath 会展开）；
+          - 全大写形态 → 放行（normcase 归一大小写）；
+          - 沙箱外的大写形态 → 仍然拒（归一化不等于放松）；
+          - `\\?\` 扩展长度形态 → **一律拒**（本机 Python 3.14 的 realpath 把
+            `\\?\C:\x` 变成 `\\C:x` 这种非法 UNC 形状，归一后分量对不上根）。
+            这是**可用性限制而非安全漏洞**（方向是 fail-closed），本轮记录在案。
+
+        反跑：把 `规范路径` 里的 `归一大小写(实, 己.平台代号)` 改成直接 `返回 实`，
+        「全大写形态放行」那格立红。
+        """
+        import ctypes
+        根 = tmp_path / "_taskD9_很长的沙箱目录名字LongSandboxName"
+        根.mkdir()
+        文件 = 根 / "_taskD9_目标.txt"
+        文件.write_bytes(b"inside")
+        护栏 = 路径护栏(str(根), {})
+
+        缓冲 = ctypes.create_unicode_buffer(1024)
+        长度 = ctypes.windll.kernel32.GetShortPathNameW(str(文件), 缓冲, 1024)
+        if 长度 and 缓冲.value != str(文件):
+            assert 护栏.检查(缓冲.value) is True, "短名指向沙箱内却被拒：" + 缓冲.value
+            assert 护栏.读取(缓冲.value) == b"inside"
+        else:
+            pytest.xfail("本卷未启用 8.3 短名（掩盖：短名展开本次未实测）")
+
+        assert 护栏.检查(str(文件).upper()) is True
+        assert 护栏.读取(str(文件).upper()) == b"inside"
+
+        外文件 = tmp_path / "_taskD9_外面大写.TXT"
+        外文件.write_bytes(b"outside")
+        assert 护栏.检查(str(外文件).upper()) is False
+
+        扩展形态 = "\\\\?\\" + str(文件)
+        assert 护栏.检查(扩展形态) is False, \
+            "扩展长度形态的实测结论变了（原为 fail-closed 一律拒），口径要重新记录"
+
+
+class Test原子写入_D9:
+    """D9-S1 新增 `原子写入`：临时文件 + 原子替换。原来这段在
+    `stdlib/代理工具集.light` 里有**两份**拷贝（write_file / edit_file 各一套，
+    共 20 行 Python 直调），搬进护栏后去重，并且临时文件路径也过 `核准`。
+    """
+
+    def test_覆盖写成功且不留临时文件(self, tmp_path):
+        """反跑：把 `原子写入` 里的 `己.落位替换(临时路径, 实)` 删掉，
+        「目标内容被更新」立红；把 `己.清除(临时路径)` 之外的成功路径改成
+        不替换（只写临时文件），「不留临时文件」也会立红。"""
+        护栏 = _新建(tmp_path)
+        目标 = str(tmp_path / "_taskD9_原子.txt")
+        assert 护栏.原子写入(目标, b"first") is True
+        assert 护栏.读取(目标) == b"first"
+        assert 护栏.原子写入(目标, b"second-longer") is True
+        assert 护栏.读取(目标) == b"second-longer"
+        残留 = [n for n in os.listdir(str(tmp_path)) if n.endswith(".tmp")]
+        assert 残留 == []
+
+    def test_越界目标抛错且沙箱外无落盘(self, tmp_path):
+        """反跑：把 `原子写入` 首行 `己.核准(路径)` 换成 `己.规范路径(路径)`
+        （只归一化、不判越界）→ 本条立红且沙箱外真会落盘。"""
+        根 = tmp_path / "_taskD9_原子根"
+        根.mkdir()
+        护栏 = 路径护栏(str(根), {})
+        坏 = str(tmp_path / "_taskD9_原子越界.txt")
+        with pytest.raises(路径护栏错误):
+            护栏.原子写入(坏, b"x")
+        assert os.path.exists(坏) is False
+        assert [n for n in os.listdir(str(tmp_path)) if n.endswith(".tmp")] == []
+
+
 class Test读写不吞错:
     def test_二进制字节不被文本模式改写或截断(self, tmp_path):
         """Windows 上 os.open 默认文本模式，两处静默损坏：
