@@ -353,26 +353,26 @@ def cmd_harness(args):
 
 
 def _native_backend_compile(file_path: str, backend: str, out_base: str,
-                            opt_level: int, verbose: bool):
+                            opt_level: int, verbose: bool, optimize_size: bool = False):
     """走生产路径把 .light 编成可执行文件，返回 exe 路径
 
-    与 `cmd_compile` 用的是同一批入口（`compile_light` / `compile_light_typed`），
-    刻意不另开一条链路：`run --backend llvm-typed` 必须和
-    `compile --backend llvm-typed` 编出来的是同一个东西。
+    与 `cmd_compile` 用的是同一批入口（`compile_light_typed`），
+    刻意不另开一条链路：`run --backend native` 必须和
+    `compile --backend native` 编出来的是同一个东西（B9 S1 2.2）。
+
+    `native` 与 `llvm-typed` 等价，都走 `compile_light_typed`；
+    `--backend llvm`（string 腿，引用不存在的 runtime.c）已在 B9 删除，不接受该值。
     """
     try:
-        from src.llvm.compiler import compile_light, compile_light_typed
+        from src.llvm.compiler import compile_light_typed
     except ImportError:
         try:
-            from llvm.compiler import compile_light, compile_light_typed
+            from llvm.compiler import compile_light_typed
         except ImportError:
-            from ..llvm.compiler import compile_light, compile_light_typed
+            from ..llvm.compiler import compile_light_typed
 
-    if backend == 'llvm':
-        return compile_light(file_path, out_base, verbose=verbose,
-                            optimize_level=opt_level)
     return compile_light_typed(file_path, out_base, verbose=verbose,
-                              optimize_level=opt_level)
+                              optimize_level=opt_level, optimize_size=optimize_size)
 
 
 def _run_native(args):
@@ -389,8 +389,11 @@ def _run_native(args):
     import tempfile
 
     opt_level = 2
+    optimize_size = False
     优化 = getattr(args, 'optimize', None)
-    if 优化 and 优化.startswith('O'):
+    if 优化 in ('Os', 'Oz'):
+        optimize_size = True
+    elif 优化 and 优化.startswith('O'):
         try:
             opt_level = int(优化[1:])
         except ValueError:
@@ -407,7 +410,8 @@ def _run_native(args):
 
         try:
             exe = _native_backend_compile(源文件, args.backend, 产物基名,
-                                          opt_level, args.verbose)
+                                          opt_level, args.verbose,
+                                          optimize_size)
         except Exception as e:
             print(f"原生编译失败（--backend {args.backend}）: {e}", file=sys.stderr)
             if args.verbose:
@@ -433,10 +437,10 @@ def cmd_run(args):
     """解释执行光明源代码"""
     from enhanced_errors import format_error
 
-    if args.backend in ('llvm', 'llvm-typed'):
+    if args.backend in ('native', 'llvm-typed'):
         # 原生后端不是解释执行：编译到临时目录再跑产物
         if args.watch:
-            print("错误: --watch 不支持原生后端（llvm/llvm-typed）", file=sys.stderr)
+            print("错误: --watch 不支持原生后端（native/llvm-typed）", file=sys.stderr)
             sys.exit(1)
         _run_native(args)
         return
@@ -474,57 +478,36 @@ def cmd_compile(args):
     """编译光明源代码为 Python 文件或可执行文件"""
     source = _read_source(args.file)
 
-    # 解析优化级别（'O0' -> 0, 'O1' -> 1, etc.）
+    # 解析优化级别（'O0' -> 0, 'O1' -> 1, etc.；'Os'/'Oz' -> 体积优化）
     opt_level = 2
-    if args.optimize and args.optimize.startswith('O'):
+    optimize_size = False
+    if args.optimize in ('Os', 'Oz'):
+        optimize_size = True
+    elif args.optimize and args.optimize.startswith('O'):
         try:
             opt_level = int(args.optimize[1:])
         except ValueError:
             opt_level = 2
 
-    # LLVM 后端（模式1：字符串模式）
-    if args.backend == 'llvm':
+    # 原生后端（native / llvm-typed，同一生产路径：compile_light_typed）。
+    # --backend llvm（string 死腿，引用不存在的 runtime.c）已在 B9 S1 2.1 删除。
+    if args.backend in ('native', 'llvm-typed'):
         try:
-            from src.llvm.compiler import compile_light
-            output = args.output or (Path(args.file).stem + '.exe')
-            compile_light(args.file, output, verbose=args.verbose,
-                         optimize_level=opt_level, debug=args.debug)
-            return
+            from src.llvm.compiler import compile_light_typed, get_exe_extension
         except ImportError:
             try:
-                from llvm.compiler import compile_light
+                from llvm.compiler import compile_light_typed, get_exe_extension
             except ImportError:
-                from ..llvm.compiler import compile_light
-            output = args.output or (Path(args.file).stem + '.exe')
-            compile_light(args.file, output, verbose=args.verbose,
-                         optimize_level=opt_level, debug=args.debug)
-            return
-        except Exception as e:
-            print(f"LLVM (string) 编译错误: {e}", file=sys.stderr)
-            if args.verbose:
-                import traceback
-                traceback.print_exc()
-            sys.exit(1)
-
-    # LLVM 后端（模式2：typed 模式，使用 LightValue 结构体）
-    if args.backend == 'llvm-typed':
+                from ..llvm.compiler import compile_light_typed, get_exe_extension
+        # 默认输出名用平台扩展名（Windows .exe / 其他无后缀），不再硬编码 .exe（B9 S1 2.2）
+        output = args.output or (Path(args.file).stem + get_exe_extension())
         try:
-            from src.llvm.compiler import compile_light_typed
-            output = args.output or (Path(args.file).stem + '.exe')
             compile_light_typed(args.file, output, verbose=args.verbose,
-                               optimize_level=opt_level, debug=args.debug)
-            return
-        except ImportError:
-            try:
-                from llvm.compiler import compile_light_typed
-            except ImportError:
-                from ..llvm.compiler import compile_light_typed
-            output = args.output or (Path(args.file).stem + '.exe')
-            compile_light_typed(args.file, output, verbose=args.verbose,
-                               optimize_level=opt_level, debug=args.debug)
+                               optimize_level=opt_level,
+                               optimize_size=optimize_size, debug=args.debug)
             return
         except Exception as e:
-            print(f"LLVM (typed) 编译错误: {e}", file=sys.stderr)
+            print(f"原生（{args.backend}）编译错误: {e}", file=sys.stderr)
             if args.verbose:
                 import traceback
                 traceback.print_exc()
@@ -1429,11 +1412,14 @@ def main():
     # ── run ──
     run_p = subparsers.add_parser('run', help='解释执行光明源代码')
     run_p.add_argument('file', help='源文件路径')
-    run_p.add_argument('--backend', choices=['antlr', 'src', 'llvm', 'llvm-typed'], default='src',
+    run_p.add_argument('--backend', choices=['antlr', 'src', 'native', 'llvm-typed'], default='src',
                        help='使用的后端（默认: src，无需额外依赖；antlr 需安装 antlr4-python3-runtime；'
-                            'llvm/llvm-typed 走原生腿：编译到临时目录再执行产物，需安装 LLVM）')
-    run_p.add_argument('--optimize', choices=['O0', 'O1', 'O2', 'O3'], default='O2',
-                       help='原生后端（llvm/llvm-typed）的优化级别（默认: O2；解释后端忽略此项）')
+                            'native/llvm-typed 走原生腿：编译到临时目录再执行产物，需安装 clang）。'
+                            'native 是 llvm-typed 的一等别名（B9 S1 2.2）；--backend llvm（string 死腿，'
+                            '引用不存在的 runtime.c）已在 B9 移除。')
+    run_p.add_argument('--optimize', choices=['O0', 'O1', 'O2', 'O3', 'Os', 'Oz'], default='O2',
+                       help='原生后端（native/llvm-typed）的优化级别（默认: O2；Os/Oz 为体积优化；'
+                            '解释后端忽略此项）')
 
     run_p.add_argument('--watch', '-w', action='store_true',
                        help='监视文件变化，自动重新运行')
@@ -1470,10 +1456,12 @@ def main():
     comp_p = subparsers.add_parser('compile', help='编译为 Python 文件')
     comp_p.add_argument('file', help='源文件路径')
     comp_p.add_argument('-o', '--output', help='输出文件路径（默认: 同名 .py）')
-    comp_p.add_argument('--backend', choices=['antlr', 'src', 'llvm', 'llvm-typed'], default='src',
-                        help='使用的后端（默认: src；antlr 需安装 antlr4-python3-runtime；llvm 需安装 LLVM）')
-    comp_p.add_argument('--optimize', choices=['O0', 'O1', 'O2', 'O3'], default='O2',
-                        help='LLVM 优化级别（默认: O2）')
+    comp_p.add_argument('--backend', choices=['antlr', 'src', 'native', 'llvm-typed'], default='src',
+                        help='使用的后端（默认: src；antlr 需安装 antlr4-python3-runtime；'
+                             'native/llvm-typed 走原生腿，需安装 clang）。native 是 llvm-typed 的一等别名'
+                             '（B9 S1 2.2）；--backend llvm（string 死腿，引用不存在的 runtime.c）已在 B9 移除。')
+    comp_p.add_argument('--optimize', choices=['O0', 'O1', 'O2', 'O3', 'Os', 'Oz'], default='O2',
+                        help='原生后端（native/llvm-typed）优化级别（默认: O2；Os/Oz 为体积优化）')
     comp_p.add_argument('--debug', action='store_true',
                         help='生成 DWARF 调试信息')
 

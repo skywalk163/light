@@ -39,6 +39,29 @@ except ImportError:
     import ast_nodes as ast
 
 
+class NativeImportError(RuntimeError):
+    """原生腿导入不可用：模块要么是纯 Python（无 .light 实现），
+    要么 .light 是 decl 0 空壳、实现在同名 .py 里。原生腿不加载 Python，
+    这类模块必须显式报错，决不静默降级成「跑起来就崩」的产物。"""
+
+
+def _is_decl0_shell(light_path) -> bool:
+    """判定一个 .light 文件是否是 decl 0 空壳（无段落、无类的纯导出清单）。
+    与同名 .py 配对出现时空壳 = 实现在 .py 的 shadow。"""
+    try:
+        with open(light_path, 'r', encoding='utf-8') as f:
+            source = f.read()
+        v3_module = LightParser().parse(source)
+        if v3_module is None:
+            return True
+        module = AstAdapter().convert_module(v3_module)
+        has_seg = len(getattr(module, 'segments', None) or []) > 0
+        has_cls = len(getattr(module, 'classes', None) or []) > 0
+        return not (has_seg or has_cls)
+    except Exception:
+        return False
+
+
 def get_exe_extension(target_arch: str = None) -> str:
     """根据当前平台返回可执行文件后缀
 
@@ -433,143 +456,14 @@ def compile_source_to_ir(source: str, output_ll: str = None, verbose: bool = Fal
     return output_ll
 
 
-def compile_light(source_path: str, output_path: str = None, verbose: bool = False,
-                  target: str = None, optimize_level: int = 2, debug: bool = False,
-                  optimize_size: bool = False, lto: bool = False, strip: bool = False):
-    """
-    编译 .light 文件为原生可执行文件
-
-    Args:
-        source_path: .light 源文件路径
-        output_path: 输出 .exe 路径（默认与源文件同名）
-        verbose: 是否输出详细信息
-        target: 目标架构（'x86_64'/'aarch64'/'arm64'），默认本地架构
-        optimize_level: 优化级别（0-3），默认 2
-        debug: 是否生成 DWARF 调试信息
-        optimize_size: 是否启用 -Os 尺寸优化（替代 -O2）
-        lto: 是否启用 LTO (Link Time Optimization)
-        strip: 是否剥离调试符号
-    """
-    # 读取源码
-    with open(source_path, 'r', encoding='utf-8') as f:
-        source = f.read()
-
-    if verbose:
-        print(f"[1/5] 读取源码: {len(source)} 字符")
-
-    # 检测目标架构
-    target_arch = detect_target_arch(target)
-
-    # 生成 LLVM IR（传递优化级别）
-    opt_level_str = f'O{optimize_level}'
-    ir = compile_source(source, verbose=verbose, opt_level=opt_level_str)
-
-    # 写入 .ll 文件
-    base_path = output_path or source_path.replace('.light', '')
-    if base_path.endswith('.exe'):
-        base_path = base_path[:-4]
-    ll_path = base_path + '.ll'
-
-    with open(ll_path, 'w', encoding='utf-8') as f:
-        f.write(ir)
-
-    if verbose:
-        print(f"  IR 已写入: {ll_path} ({len(ir)} 字符)")
-
-    # 查找 clang
-    clang = find_clang(target_arch=target_arch)
-    if verbose:
-        print(f"  使用编译器: {clang}")
-
-    # 编译运行时库
-    runtime_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)))
-    runtime_c = os.path.join(runtime_dir, 'runtime.c')
-    runtime_o = base_path + '_runtime.o'
-
-    opt_flags = get_optimization_flags(optimize_level, optimize_size=optimize_size, lto=lto)
-    arch_flags = get_arch_specific_cflags(target_arch)
-    debug_flags = ['-g'] if debug else []
-
-    if verbose:
-        print("[3/6] 编译运行时库...")
-
-    result = subprocess.run(
-        [clang, '-c', *opt_flags, *arch_flags, *debug_flags, runtime_c, '-o', runtime_o],
-        capture_output=True, text=True, encoding='utf-8', errors='replace'
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"运行时库编译失败:\n{result.stderr}")
-
-    # 编译 .ll 为 .o
-    if verbose:
-        print("[3/5] 编译 LLVM IR...")
-
-    ir_o = base_path + '.o'
-    result = subprocess.run(
-        [clang, '-c', *opt_flags, *arch_flags, *debug_flags, ll_path, '-o', ir_o],
-        capture_output=True, text=True, encoding='utf-8', errors='replace'
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"IR 编译失败:\n{result.stderr}")
-
-    # 链接为 .exe
-    exe_ext = get_exe_extension()
-    exe_path = base_path + exe_ext
-    if verbose:
-        print(f"[5/6] 链接为 .exe...")
-
-    link_args = [clang, *arch_flags, ir_o, runtime_o, '-o', exe_path]
-    if debug:
-        link_args.append('-g')
-    link_args.extend(get_link_libs())
-    # LTO 链接参数
-    if lto:
-        link_args.extend(get_lto_link_flags())
-
-
-    result = subprocess.run(
-        link_args,
-        capture_output=True, text=True, encoding='utf-8', errors='replace'
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"链接失败:\n{result.stderr}")
-
-    # 剥离调试符号
-    original_size = os.path.getsize(exe_path) if os.path.exists(exe_path) else 0
-    if strip and not debug:
-        try:
-            if sys.platform == 'win32':
-                strip_tools = ['llvm-strip', 'strip']
-                for tool in strip_tools:
-                    try:
-                        subprocess.run([tool, exe_path], capture_output=True, timeout=30)
-                        break
-                    except (subprocess.SubprocessError, FileNotFoundError):
-                        continue
-            else:
-                subprocess.run(['strip', exe_path], check=True, timeout=30)
-        except (subprocess.SubprocessError, OSError):
-            if verbose:
-                print("  [警告] 无法剥离调试符号")
-
-    # 清理临时文件
-    if verbose:
-        print(f"[5/5] 清理临时文件...")
-
-    for f in [ir_o, runtime_o]:
-        try:
-            if os.path.exists(f):
-                os.remove(f)
-        except Exception:
-            pass
-
-    if verbose:
-        final_size = os.path.getsize(exe_path)
-        print(f"编译成功: {source_path} -> {exe_path} ({final_size} 字节)")
-        if original_size > 0 and strip:
-            print(get_size_reduction_summary(original_size, final_size))
-
-    return exe_path
+def _module_has_imports(source: str) -> bool:
+    """检测光明源码是否含**模块级**导入，决定原生腿是否走多模块编译。"""
+    try:
+        v3_module = LightParser().parse(source)
+        module = AstAdapter().convert_module(v3_module)
+        return bool(getattr(module, 'imports', None) or [])
+    except Exception:
+        return False
 
 
 def compile_light_typed(source_path: str, output_path: str = None, verbose: bool = False,
@@ -580,6 +474,11 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
     编译 .light 文件为原生可执行文件（typed 模式）
 
     使用 LightValue 结构体，算术运算直接操作原生类型。
+
+    单文件无导入时走本函数的快速路径（单模块 IR）；一旦源文件含模块级导入，
+    就委托 `compile_light_project` 递归解析依赖、合并多模块 IR 后统一编译，
+    从而让 `导入`/`从 X 导入 Y` 在原生腿真解析（B9 S1 2.3）。
+    同名 `.py` 影子模块在该路径会被显式拒绝（`NativeImportError`）。
 
     Args:
         source_path: .light 源文件路径
@@ -599,11 +498,23 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
     if verbose:
         print(f"[1/5] 读取源码: {len(source)} 字符")
 
+    # B9 S1 2.3：有模块级导入 → 递归解析依赖，合并多模块后统一编译
+    if _module_has_imports(source):
+        return compile_light_project(
+            source_path, output_path=output_path, verbose=verbose,
+            target_platform=target_platform, target=target,
+            optimize_level=optimize_level, debug=debug,
+            optimize_size=optimize_size, lto=lto, strip=strip,
+        )
+
     # 检测目标架构
     target_arch = detect_target_arch(target)
     if verbose:
         print(f"  目标架构: {target_arch}")
 
+    # IR 侧始终走 O 档优化：体积优化交给 clang 的 -Os（get_optimization_flags），
+    # 不在 IR 层跑 SizeOptimizer —— 它生成引用未定义值（%2..%70）的乱 IR（B9 实测：
+    # `use of undefined value '%2'`）。`optimize_size` 只影响 clang 档位，是真正的体积优化点。
     opt_level_str = f'O{optimize_level}'
     ir = compile_source_typed(source, verbose=verbose, target_platform=target_platform,
                               target_arch=target_arch, debug=debug, opt_level=opt_level_str)
@@ -1133,10 +1044,24 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
             dep_name = imp.module if hasattr(imp, 'module') else None
             if dep_name and dep_name not in visited:
                 dep_path = resolver.find_module(dep_name)
-                if dep_path and os.path.exists(dep_path):
-                    with open(dep_path, 'r', encoding='utf-8') as f:
-                        dep_src = f.read()
-                    collect_modules(dep_src, dep_name)
+                if not dep_path or not os.path.exists(dep_path):
+                    raise NativeImportError(
+                        f"模块 '{dep_name}' 未找到：原生腿编译需要其 .light 源文件。")
+                # B9 S1 2.3：同名 .py 影子必须显式报错，绝不静默降级
+                if dep_path.suffix == '.py':
+                    raise NativeImportError(
+                        f"模块 '{dep_name}' 在原生腿不可用：解析到的是 Python 文件 "
+                        f"'{dep_path}'。原生腿不加载 .py；请在纯光明 (.light) 中实现 "
+                        f"'{dep_name}' 后再导入。")
+                py_twin = dep_path.with_suffix('.py')
+                if py_twin.exists() and _is_decl0_shell(dep_path):
+                    raise NativeImportError(
+                        f"模块 '{dep_name}' 的 '{dep_path}' 是 decl 0 空壳"
+                        f"（实现在同名 '{py_twin}'）。原生腿不加载 Python 实现，"
+                        f"请在 .light 里提供真实实现后再导入。")
+                with open(dep_path, 'r', encoding='utf-8') as f:
+                    dep_src = f.read()
+                collect_modules(dep_src, dep_name)
 
     main_name = os.path.splitext(os.path.basename(source_path))[0]
     collect_modules(source, main_name)
@@ -1145,7 +1070,7 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
         print(f"[1/4] 收集到 {len(sources)} 个模块: {', '.join(sources.keys())}")
 
     # 编译所有模块（传递优化级别）
-    opt_level_str = f'O{optimize_level}'
+    opt_level_str = 'Os' if optimize_size else f'O{optimize_level}'
     ir = compile_modules_typed(sources, main_module=main_name, verbose=verbose,
                                target_platform=target_platform, debug=debug,
                                opt_level=opt_level_str)
@@ -1359,7 +1284,8 @@ class LLVMCompiler:
         """编译 .light 文件为原生可执行文件
 
         自动检测目标平台，选择合适的编译参数。
-        支持 typed 模式（默认）和 string 模式。
+        仅走 typed 生产路径（`compile_light_typed`）；string 死腿（`compile_light`，
+        引用不存在的 runtime.c）已在 B9 删除，不再回退。
 
         Args:
             source_path: .light 源文件路径
@@ -1398,21 +1324,9 @@ class LLVMCompiler:
             )
             return exe_path
         except Exception:
-            # 回退到 string 模式
             if self.verbose:
-                print("[LLVMCompiler] 回退到 string 模式...")
-            exe_path = compile_light(
-                source_path=source_path,
-                output_path=output_path,
-                verbose=self.verbose,
-                target=self.detect_arch(),
-                optimize_level=self.optimize_level,
-                debug=self.debug,
-                optimize_size=self.optimize_size,
-                lto=self.lto,
-                strip=self.strip,
-            )
-            return exe_path
+                print("[LLVMCompiler] 原生编译失败，无 string 回退（string 死腿已在 B9 删除）")
+            raise
 
     def compile_to_macos(self, source_path: str, output_path: str = None) -> str:
         """编译为 macOS 可执行文件

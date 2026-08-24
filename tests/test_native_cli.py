@@ -218,6 +218,57 @@ class Test原生run子命令:
         assert 残留 == [], f'源码目录留下了中间产物: {残留}'
 
 
+@skip_without_clang
+class Test原生run一等取值:
+    """`--backend native` 是一等取值；`--backend llvm` 死腿被剥掉（B9 S1 2.1/2.2）"""
+
+    def test_native别名与llvm_typed同语义(self):
+        """`run --backend native` 必须可用（之前 argparse 直接拒绝），
+        产物行为与 `llvm-typed` 一致。
+        """
+        with tempfile.TemporaryDirectory(prefix='_taskB9_') as 临时目录:
+            源文件 = os.path.join(临时目录, 'hello.light')
+            with open(源文件, 'w', encoding='utf-8') as fh:
+                fh.write(源码表['hello'])
+            结果 = 跑CLI('run', 源文件, '--backend', 'native')
+        assert 结果.returncode == 0, f'rc={结果.returncode} stderr={结果.stderr}'
+        assert [行.strip() for 行 in 结果.stdout.splitlines() if 行.strip()] == ['hello world']
+
+    def test_非零退出码透传native(self):
+        with tempfile.TemporaryDirectory(prefix='_taskB9_') as 临时目录:
+            源文件 = os.path.join(临时目录, 'rc3.light')
+            with open(源文件, 'w', encoding='utf-8') as fh:
+                fh.write('退出(3)\n')
+            结果 = 跑CLI('run', 源文件, '--backend', 'native')
+        assert 结果.returncode == 3, f'rc={结果.returncode}'
+
+    def test_死腿llvm被argparse拒绝(self):
+        """`--backend llvm`（引用不存在的 runtime.c）必须直接报
+        invalid choice（rc=2），不许进到编译再报「no such file」（B9 S1 2.1）。"""
+        with tempfile.TemporaryDirectory(prefix='_taskB9_') as 临时目录:
+            源文件 = os.path.join(临时目录, 'hello.light')
+            with open(源文件, 'w', encoding='utf-8') as fh:
+                fh.write(源码表['hello'])
+            结果 = 跑CLI('compile', 源文件, '--backend', 'llvm')
+        assert 结果.returncode == 2, f'argparse 拒绝应 rc=2，实到 {结果.returncode}'
+        assert 'invalid choice' in 结果.stderr, f'应给 invalid choice: {结果.stderr!r}'
+
+    @pytest.mark.parametrize('档位', ['Os', 'Oz'])
+    def test_OsOz两档真产物(self, 档位):
+        """`--optimize Os/Oz` 是合法取值，产物必须真跑出正确输出（B9 S1 2.2）
+
+        之前 choices 只有 O0-O3，Os/Oz 会被 argparse 拒绝；现在两档都走
+        `optimize_size=True` → `-Os`，判据是产物能真跑。
+        """
+        with tempfile.TemporaryDirectory(prefix='_taskB9_') as 临时目录:
+            源文件 = os.path.join(临时目录, 'hello.light')
+            with open(源文件, 'w', encoding='utf-8') as fh:
+                fh.write(源码表['hello'])
+            结果 = 跑CLI('run', 源文件, '--backend', 'native', '--optimize', 档位)
+        assert 结果.returncode == 0, f'{档位} rc={结果.returncode} stderr={结果.stderr}'
+        assert [行.strip() for 行 in 结果.stdout.splitlines() if 行.strip()] == ['hello world']
+
+
 class TestHarness参数转发:
     """§4.2 冻结的 CLI 契约：A7 只负责「参数 → 环境变量」这一段
 
