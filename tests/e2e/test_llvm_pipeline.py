@@ -1,9 +1,25 @@
 # -*- coding: utf-8 -*-
-"""
-光明 LLVM IR 生成和编译端到端测试
+"""光明 LLVM 旧路径（`antlrparser/`）的**存在性冒烟** —— 本文件不承重
 
-测试 LLVM IR 生成和 clang 编译流程
+第七轮 A7 就本文件的处置做了明确表态，选的是「降级为冒烟并写清它不承重」
+（任务书 §2.5 的 (b)）：
+
+- 本文件里 5 条用例断的是「文件在不在」（`llvm_codegen.py`、`llvm_core.py`、
+  `light_llvm.py`、`light_runtime.c`）与「源码里有没有 `pending_allocas`
+  这个词」。它们**对编译器行为零信号**：文件在、词在，编译器照样可以全废。
+- 唯一真跑的是 `test_simple_ir_generation`：子进程调 `antlrparser/light_llvm.py`
+  生成 `.ll`。它走的是**旧 LLVM 路径**，与 `src/llvm/`（`compile --backend
+  llvm-typed` 用的那条）是两套代码。缺 antlr4 运行时时 skip。
+- **原生腿的真覆盖在 `tests/test_native_cli.py`**：那里走生产路径
+  `compile_light_typed` 与 `python -m cli.light run --backend llvm-typed`，
+  四档优化真编译真运行、退出码真透传、临时目录真清理。
+- 为什么不把本文件改成真编译真运行：CI 全量步是
+  `pytest tests --ignore=tests/e2e`（`.gitea/workflows/ci.yml`），
+  本目录根本不进 CI，往这里堆重编译等于把成本花在没人看的地方。
+
+结论：本文件保留为旧路径的目录结构冒烟，**不许把它当原生腿的验收依据**。
 """
+
 
 import sys
 import os
