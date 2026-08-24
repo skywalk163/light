@@ -1,0 +1,295 @@
+{
+  "$schema": "http://json-schema.org/draft/2020-12/schema",
+  "$id": "duan://分布式/线协议/1.0",
+  "title": "分布式线协议（Wire Protocol）",
+  "版本": { "major": 1, "minor": 0, "字符串": "1.0" },
+  "说明": [
+    "第九轮 F9 S1 冻结稿。JSON-RPC 2.0 风格，over HTTP/1.1（客户端 stdlib/流式.light 已有，",
+    "服务端 stdlib/分布式/HTTP服务端.light 由 F9 S1 落地）。",
+    "用途：master（调度器）与 worker 之间的全部消息契约，S2 按此实现最小闭环。",
+    "冻结后改动必须通知主线（任务书 F9 §3.1）。",
+    "协议可演进：版本字段 兼容性规则见 §版本兼容。",
+    "校验口径：每个 消息.<类>.<请求|响应> 是**自包含** schema（类型定义已内联，不用 $ref），",
+    "可直接取出来喂 stdlib/模式校验.light 的 模式校验器.校验(数据, schema)。",
+    "顶层 $defs 保留为类型字典参考（模式校验.light 的 解析引用 只认 schema 自带的 $defs，",
+    "所以消息 schema 一律内联，不依赖顶层引用）。"
+  ],
+  "版本兼容": {
+    "major 相同": "字段只增不减，旧客户端可继续用；新增字段必须可缺省",
+    "major 不同": "不兼容，服务端必须回 100 协议版本不兼容",
+    "minor": "只升不降，服务端必须支持 客户端.minor <= 服务端.minor"
+  },
+  "传输": {
+    "协议": "HTTP/1.1",
+    "方法": "POST",
+    "路径": "/rpc",
+    "Content-Type": "application/json; charset=utf-8",
+    "请求体": "单个 JSON 对象（RPC 请求）",
+    "响应体": "单个 JSON 对象（RPC 响应）",
+    "认证": "HTTP 头 X-Auth-Token: <预共享令牌>（常量时间比较；S1 服务端尚未实施，S2 起强制）",
+    "连接": "keep-alive 复用；客户端可随时重连",
+    "端口约定": "各节点 bind((\"127.0.0.1\", 0)) + getsockname()[1] 取回，端口由内核分配"
+  },
+  "$defs": {
+    "RPC请求": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": { "type": "string", "const": "2.0" },
+        "方法": { "type": "string", "enum": ["注册", "注销", "领任务", "交结果", "心跳", "取消"] },
+        "参数": { "type": "object" },
+        "id": { "type": "integer" }
+      },
+      "required": ["jsonrpc", "方法", "参数", "id"]
+    },
+    "RPC响应": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": { "type": "string", "const": "2.0" },
+        "结果": { "type": "object" },
+        "错误": { "type": ["object", "null"] },
+        "id": { "type": "integer" }
+      },
+      "required": ["jsonrpc", "结果", "错误", "id"]
+    },
+    "任务ID": {
+      "type": "string",
+      "pattern": "^T[0-9]{8}-[0-9A-F]{12}$",
+      "description": "master 生成，全局唯一；格式 时间戳(YYMMDDHH) + 随机十六进制"
+    },
+    "节点ID": {
+      "type": "string",
+      "pattern": "^N[0-9A-F]{8}$",
+      "description": "worker 启动时自生成，注册时上报；master 侧持久登记"
+    },
+    "幂等键": {
+      "type": "string",
+      "pattern": "^I[0-9A-F]{16}$",
+      "description": "幂等键 = 每次派发的身份：master 领任务时生成并随任务下发，交结果时必须原样带回"
+    },
+    "任务": {
+      "type": "object",
+      "properties": {
+        "任务ID": { "type": "string", "pattern": "^T[0-9]{8}-[0-9A-F]{12}$" },
+        "幂等键": { "type": "string", "pattern": "^I[0-9A-F]{16}$" },
+        "输入": { "type": "object", "description": "任务负载：序号 + prompt + 期望答案 + 打分器（harness 评测条目）" },
+        "重派计数": { "type": "integer", "minimum": 0 },
+        "创建时间": { "type": "number", "description": "Unix 秒（float），由 time.time() 取" },
+        "截止时间": { "type": "number", "description": "master 判死的超时点，worker 应在此前交结果" }
+      },
+      "required": ["任务ID", "幂等键", "输入", "重派计数", "创建时间", "截止时间"]
+    },
+    "结果": {
+      "type": "object",
+      "properties": {
+        "输出": { "type": "string", "description": "LLM 输出文本（harness 单条结果）" },
+        "得分": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "耗时": { "type": "number", "minimum": 0 },
+        "尝试次数": { "type": "integer", "minimum": 0 },
+        "错误分类": { "type": "string", "enum": ["", "超时", "HTTP状态", "连接", "解析", "工具", "未分类"] },
+        "错误": { "type": "string" },
+        "输入词元": { "type": ["integer", "null"], "minimum": 0 },
+        "输出词元": { "type": ["integer", "null"], "minimum": 0 }
+      },
+      "required": ["输出", "得分", "耗时", "尝试次数", "错误分类", "错误"]
+    }
+  },
+  "消息": {
+    "注册": {
+      "请求": {
+        "type": "object",
+        "properties": {
+          "节点ID": { "type": "string", "pattern": "^N[0-9A-F]{8}$" },
+          "并发度": { "type": "integer", "minimum": 1 },
+          "协议版本": { "type": "string", "const": "1.0" }
+        },
+        "required": ["节点ID", "并发度", "协议版本"]
+      },
+      "响应": {
+        "type": "object",
+        "properties": {
+          "节点ID": { "type": "string", "pattern": "^N[0-9A-F]{8}$" },
+          "注册时间": { "type": "number" },
+          "会话令牌": { "type": "string", "description": "S2 起 master 签发的短期令牌，后续请求必须携带" }
+        },
+        "required": ["节点ID", "注册时间"]
+      },
+      "语义": "worker 启动时调用；master 登记节点并建立心跳表；重复注册视为刷新注册时间"
+    },
+    "注销": {
+      "请求": {
+        "type": "object",
+        "properties": {
+          "节点ID": { "type": "string", "pattern": "^N[0-9A-F]{8}$" }
+        },
+        "required": ["节点ID"]
+      },
+      "响应": {
+        "type": "object",
+        "properties": {
+          "节点ID": { "type": "string", "pattern": "^N[0-9A-F]{8}$" }
+        },
+        "required": ["节点ID"]
+      },
+      "语义": "worker 优雅退出时调用；master 把该节点在跑任务标记为可重派"
+    },
+    "领任务": {
+      "请求": {
+        "type": "object",
+        "properties": {
+          "节点ID": { "type": "string", "pattern": "^N[0-9A-F]{8}$" },
+          "在跑任务": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^T[0-9]{8}-[0-9A-F]{12}$" },
+            "uniqueItems": true
+          }
+        },
+        "required": ["节点ID"]
+      },
+      "响应": {
+        "type": "object",
+        "properties": {
+          "任务": {
+            "type": ["object", "null"],
+            "description": "null = 当前无任务可派（错误码 201）",
+            "properties": {
+              "任务ID": { "type": "string", "pattern": "^T[0-9]{8}-[0-9A-F]{12}$" },
+              "幂等键": { "type": "string", "pattern": "^I[0-9A-F]{16}$" },
+              "输入": { "type": "object" },
+              "重派计数": { "type": "integer", "minimum": 0 },
+              "创建时间": { "type": "number" },
+              "截止时间": { "type": "number" }
+            },
+            "required": ["任务ID", "幂等键", "输入", "重派计数", "创建时间", "截止时间"]
+          }
+        },
+        "required": ["任务"]
+      },
+      "语义": "worker 每完成一条就领下一条；在跑任务 供 master 判死与重派决策"
+    },
+    "交结果": {
+      "请求": {
+        "type": "object",
+        "properties": {
+          "节点ID": { "type": "string", "pattern": "^N[0-9A-F]{8}$" },
+          "任务ID": { "type": "string", "pattern": "^T[0-9]{8}-[0-9A-F]{12}$" },
+          "幂等键": { "type": "string", "pattern": "^I[0-9A-F]{16}$" },
+          "结果": {
+            "type": "object",
+            "properties": {
+              "输出": { "type": "string" },
+              "得分": { "type": "integer", "minimum": 0, "maximum": 1 },
+              "耗时": { "type": "number", "minimum": 0 },
+              "尝试次数": { "type": "integer", "minimum": 0 },
+              "错误分类": { "type": "string", "enum": ["", "超时", "HTTP状态", "连接", "解析", "工具", "未分类"] },
+              "错误": { "type": "string" },
+              "输入词元": { "type": ["integer", "null"], "minimum": 0 },
+              "输出词元": { "type": ["integer", "null"], "minimum": 0 }
+            },
+            "required": ["输出", "得分", "耗时", "尝试次数", "错误分类", "错误"]
+          }
+        },
+        "required": ["节点ID", "任务ID", "幂等键", "结果"]
+      },
+      "响应": {
+        "type": "object",
+        "properties": {
+          "已接受": { "type": "boolean", "description": "true=首次结算；false=重复上报（202，去重记账）" },
+          "去重数": { "type": "integer", "minimum": 0 }
+        },
+        "required": ["已接受"]
+      },
+      "语义": "幂等键 与 任务ID 必须匹配；master 结果表按 任务ID 去重（窗口见 §幂等）"
+    },
+    "心跳": {
+      "请求": {
+        "type": "object",
+        "properties": {
+          "节点ID": { "type": "string", "pattern": "^N[0-9A-F]{8}$" },
+          "在跑任务": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^T[0-9]{8}-[0-9A-F]{12}$" },
+            "uniqueItems": true
+          },
+          "完成数": { "type": "integer", "minimum": 0 }
+        },
+        "required": ["节点ID"]
+      },
+      "响应": {
+        "type": "object",
+        "properties": {
+          "取消": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^T[0-9]{8}-[0-9A-F]{12}$" },
+            "uniqueItems": true
+          },
+          "确认": { "type": "boolean", "const": true }
+        },
+        "required": ["取消", "确认"]
+      },
+      "语义": "worker 周期上报；master 维护心跳表，超时判死（任务书 F9 §4）；取消 返回 master 要求中断的任务"
+    },
+    "取消": {
+      "请求": {
+        "type": "object",
+        "properties": {
+          "任务ID": { "type": "string", "pattern": "^T[0-9]{8}-[0-9A-F]{12}$" },
+          "原因": { "type": "string", "enum": ["master 取消", "超时重派", "节点注销"] }
+        },
+        "required": ["任务ID", "原因"]
+      },
+      "响应": {
+        "type": "object",
+        "properties": {
+          "已停止": { "type": "boolean" }
+        },
+        "required": ["已停止"]
+      },
+      "语义": "master → worker 单向通知；worker 停止执行并返回 取消 结果（S3 取消传播）"
+    }
+  },
+  "幂等": {
+    "生成规则": [
+      "任务ID：master 生成，T + 8 位时间戳(YYMMDDHH) + 12 位随机十六进制（uuid4 截断即可）",
+      "幂等键：master 在每次**派发**时生成 I + 16 位随机十六进制，随任务下发",
+      "交结果 必须带回与 任务ID 配对的幂等键；master 校验二者匹配，不匹配按 102 拒绝",
+      "重派：同一任务重派时**换新幂等键**（重派计数 +1），但任务ID 不变——",
+      "去重按 任务ID 结算，重派换键只影响「结果与哪次派发对应」"
+    ],
+    "去重窗口": {
+      "单位": "秒",
+      "默认": 1800,
+      "规则": [
+        "master 结果表按 任务ID 登记首次结算结果；窗口 = 2 × 任务最大执行时间（默认 1800s）",
+        "窗口内同 任务ID 重复上报 → 响应 已接受=false，去重计数 +1，丢弃且**记账**（报告可见）",
+        "窗口外同 任务ID → 视为新任务（任务已过期），正常结算",
+        "幂等键 只配对一个 任务ID，禁止跨任务复用（防串号）"
+      ],
+      "与M24的关系": "「无重复计分」的唯一保障：3 节点杀 worker 后重派产生的重复结果靠这张表丢弃并记账"
+    }
+  },
+  "错误码": {
+    "0":   { "名": "成功", "可重试": false, "说明": "RPC 正常完成（错误对象为 null）" },
+    "100": { "名": "协议版本不兼容", "可重试": false, "说明": "客户端 major 与服务端不同；客户端须升级" },
+    "101": { "名": "消息格式错误", "可重试": false, "说明": "JSON 解析失败或不是对象；不改消息重发无效" },
+    "102": { "名": "schema 校验失败", "可重试": false, "说明": "字段缺失/类型错/枚举外值；数据 里带错误明细" },
+    "103": { "名": "未认证", "可重试": false, "说明": "X-Auth-Token 缺失或无效（常量时间比较）" },
+    "104": { "名": "未知方法", "可重试": false, "说明": "方法 字段不在枚举内" },
+    "200": { "名": "任务不存在", "可重试": true, "说明": "任务ID 未知或已过期；重试需重新领任务" },
+    "201": { "名": "无可用任务", "可重试": true, "说明": "队列空；worker 退避后重试领任务" },
+    "202": { "名": "任务已被结算", "可重试": true, "说明": "交结果 撞上已结算任务；该结果已被去重记账" },
+    "300": { "名": "任务执行失败", "可重试": false, "说明": "结果 本身携带 错误分类/错误；重试无意义" },
+    "500": { "名": "服务端内部错误", "可重试": true, "说明": "master 侧异常；worker 退避后重试" }
+  },
+  "可重试口径": {
+    "说明": "复用 examples/harness/错误分类.light:36-64 的六类，不另造一套",
+    "映射": [
+      ["超时", "可重试", "内置 TimeoutError"],
+      ["连接", "可重试", "连接错误/读取错误/OSError/ConnectionError"],
+      ["HTTP状态", "429 与 5xx 可重试；4xx 不可重试", "HTTP错误 带状态码"],
+      ["解析", "不可重试", "JSON/解码/Parse 家族"],
+      ["工具", "不可重试", "工具注册/执行错误"],
+      ["未分类", "不可重试（保守）", "兜底，保留原始类型名与消息"]
+    ],
+    "协议层错误码与六类的关系": "100-104 属「协议/客户端错误」不落入六类；200-202/500 属「服务端暂态」可按 可重试 标志处理"
+  }
+}
