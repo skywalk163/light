@@ -50,6 +50,9 @@ def _跑评测(报告目录, 额外环境=None, 超时=180):
         # 单价同样钉空：残留的 HARNESS_PRICE_IN/OUT 会让「未配置单价」那条断言本机红。
         "HARNESS_PRICE_IN": "",
         "HARNESS_PRICE_OUT": "",
+        # 超时同理钉空（第八轮新增）：shell 里残留一个 HARNESS_TIMEOUT_SEC=0.05
+        # 会把这一整套用例跑成「六条全超时」。
+        "HARNESS_TIMEOUT_SEC": "",
         "PYTHONUTF8": "1",
         "PYTHONIOENCODING": "utf-8",
     }
@@ -251,4 +254,45 @@ class Test用量与成本进报告:
         )
         assert rc == 0, _文本(输出)
         assert _读报告(报告路径)["汇总"]["成本"]["成本说明"] == "未配置单价"
+
+
+class Test单条超时:
+    """第八轮：HARNESS_TIMEOUT_SEC 接 stdlib/并发.超时运行（#16 由 none 升回 partial 的判据）。
+
+    判据形态是「等值 + 全场跑完」：超时秒 咬死于 mock 延迟之下时，六条**全部**落
+    「超时」类、报告照样落盘、rc=0（协程内自保，异常不冒泡到任务池）。
+    """
+
+    def test_限时小于延迟时六条全记超时且整场跑完(self, tmp_path):
+        rc, 报告路径, 输出 = _跑评测(
+            tmp_path, {"HARNESS_DELAY_SEC": "0.3", "HARNESS_TIMEOUT_SEC": "0.05"}
+        )
+        assert rc == 0, _文本(输出)
+        报告 = _读报告(报告路径)
+        assert 报告["汇总"]["失败分类计数"]["超时"] == 6
+        assert 报告["汇总"]["通过数"] == 0
+        assert [e["错误分类"] for e in 报告["条目"]] == ["超时"] * 6
+        # 没跑完的条目不许报词元数（空 = 没采到，不是 0）
+        assert [e["输入词元"] for e in 报告["条目"]] == [None] * 6
+        assert 报告["汇总"]["用量"] == {}
+
+    def test_限时大于延迟时与不限时逐项等价(self, tmp_path):
+        rc, 报告路径, 输出 = _跑评测(
+            tmp_path, {"HARNESS_DELAY_SEC": "0.01", "HARNESS_TIMEOUT_SEC": "30"}
+        )
+        assert rc == 0, _文本(输出)
+        报告 = _读报告(报告路径)
+        assert [e["得分"] for e in 报告["条目"]] == [1, 0, 1, 0, 1, 0]
+        assert 报告["汇总"]["失败分类计数"]["超时"] == 0
+
+    def test_超时秒给0当没配(self, tmp_path):
+        """0 秒当「不限时」而不是「立刻超时」：wait_for(…, 0) 会把每条都判死。"""
+        rc, 报告路径, 输出 = _跑评测(
+            tmp_path, {"HARNESS_DELAY_SEC": "0.01", "HARNESS_TIMEOUT_SEC": "0"}
+        )
+        assert rc == 0, _文本(输出)
+        assert _读报告(报告路径)["汇总"]["通过数"] == 3
+
+
+
 

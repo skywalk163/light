@@ -28,7 +28,7 @@ _PROJECT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _评测驱动 = os.path.join(_PROJECT, "examples", "harness", "评测驱动.light")
 
 
-def _跑评测(报告目录, 并发=2, 延迟="0.05", 速率="100", 报告名="评测报告", 超时=240):
+def _跑评测(报告目录, 并发=2, 延迟="0.05", 速率="100", 报告名="评测报告", 超时=240, 限时秒=""):
     环境 = {
         **os.environ,
         "HARNESS_MODE": "agent",
@@ -38,6 +38,9 @@ def _跑评测(报告目录, 并发=2, 延迟="0.05", 速率="100", 报告名="�
         "HARNESS_CONCURRENCY": str(并发),
         "HARNESS_DELAY_SEC": 延迟,
         "HARNESS_RATE": 速率,
+        # 第八轮：单条挂钟超时（HARNESS_TIMEOUT_SEC）。默认钉空 —— shell 里残留一个值
+        # 会把这一整套用例跑成「全条超时」，断言全错却指不到根因。
+        "HARNESS_TIMEOUT_SEC": 限时秒,
         "PYTHONUTF8": "1",
         "PYTHONIOENCODING": "utf-8",
     }
@@ -158,6 +161,30 @@ class TestM18韧性:
 
         # 元信息锚点也到位（agent 模式控制台断言在 e2e 里已覆盖，这里只查报告字段）
         assert 报告["元信息"]["模式"] == "agent"
+
+
+class TestM18超时:
+    """第八轮：agent 链的单条挂钟超时（#16 由 none 升回 partial 的判据）。
+
+    超时秒 咬死于 mock 延迟之下 → 六条全部落「超时」类、整场跑完、报告落盘。
+    注意这里只证「等待被取消、评测不卡死」；worker 线程本身掐不掉（见
+    评测驱动.light 的 限时等待 注记），所以不断言线程已停。
+    """
+
+    def test_限时小于延迟时全条超时且整场跑完(self, tmp_path):
+        rc, 报告路径, 输出, 错误 = _跑评测(tmp_path, 延迟="0.3", 限时秒="0.05")
+        assert rc == 0, "%s\n%s" % (_文本(输出), _文本(错误))
+        报告 = _读报告(报告路径)
+        assert 报告["汇总"]["失败分类计数"]["超时"] == 6
+        assert 报告["汇总"]["通过数"] == 0
+        assert [e["输入词元"] for e in 报告["条目"]] == [None] * 6
+
+    def test_限时宽松时与不限时同结论(self, tmp_path):
+        rc, 报告路径, 输出, 错误 = _跑评测(tmp_path, 限时秒="60")
+        assert rc == 0, "%s\n%s" % (_文本(输出), _文本(错误))
+        报告 = _读报告(报告路径)
+        assert 报告["汇总"]["通过数"] == 2
+        assert 报告["汇总"]["失败分类计数"]["超时"] == 1  # 只有 注入超时 那条
 
 
 class TestM18时序:
