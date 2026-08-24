@@ -219,6 +219,9 @@ src/test_*.py
 # `!tools/ci/*_baseline.json` 覆盖，已用 git check-ignore 复核，无需重复豁免。
 !任务书/功能对标清单_harness.json
 !tools/ci/critical_path_modules.json
+# 第九轮四张清单之二：自举地板清单（C9 S1 建，G9 守门禁，bootstrap_rate 地基指标的分母口径）。
+# 与功能对标清单同坑：不入库，干净克隆里地板自举率无基线可查。
+!任务书/自举地板清单.json
 
 # AI Copilot 训练产物
 tools/ai_copilot/output/

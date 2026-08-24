@@ -1,145 +1,170 @@
-# 导入json
-# 导入csv
-# 导入io
-#
-#     返回json.loads(字符串)
-#
-#     返回json.dumps(数据,ensure_ascii=False,indent=缩进)
-#
-#     返回json.dumps(数据,ensure_ascii=False,indent=2)
-#
-#         json.loads(字符串)
-#         返回True
-#         返回False
-#
-#     if文件路径:
-#         with打开(文件路径,'w',newline='',encoding='utf-8')as f:
-#             writer=csv.DictWriter(f,fieldnames=数据[0].keys())
-#             writer.writeheader()
-#             writer.writerows(数据)
-#         output=io.StringIO()
-#         writer=csv.DictWriter(output,fieldnames=数据[0].keys())
-#         writer.writeheader()
-#         writer.writerows(数据)
-#
-#     with打开(文件路径,'r',encoding='utf-8')as f:
-#         reader=csv.DictReader(f)
-#         返回列表(reader)
-#
-#         缩进字符串=' '*缩进级别*缩进
-#         if isinstance(数据,dict):
-#             结果=''
-#             for键,值in数据.items():
-#                 结果+=f'{缩进字符串}<{键}>\n'
-#                 结果+=_转XML(值,缩进级别+1)
-#                 结果+=f'{缩进字符串}</{键}>\n'
-#             返回结果
-#             结果=''
-#             for项in数据:
-#                 结果+=_转XML(项,缩进级别)
-#             返回结果
-#
-#     类型=schema.get('type')
-#     if类型=='object':
-#         if not isinstance(数据,dict):
-#             返回False
-#         属性=schema.get('properties',{})
-#         for键,属性Schema in属性.items():
-#             if键in数据and not _验证Schema(数据[键],属性Schema):
-#                 返回False
-#         必填=schema.get('required',[])
-#         for键in必填:
-#             if键not in数据:
-#                 返回False
-#         返回True
-#     elif类型=='array':
-#         if not isinstance(数据,list):
-#             返回False
-#         项Schema=schema.get('items')
-#         if项Schema:
-#             for项in数据:
-#                 if not _验证Schema(项,项Schema):
-#                     返回False
-#         最小长度=schema.get('minItems')
-#         if最小长度and len(数据)<最小长度:
-#             返回False
-#         最大长度=schema.get('maxItems')
-#         if最大长度and len(数据)>最大长度:
-#             返回False
-#         返回True
-#     elif类型=='string':
-#         if not isinstance(数据,str):
-#             返回False
-#         最小长度=schema.get('minLength')
-#         if最小长度and len(数据)<最小长度:
-#             返回False
-#         最大长度=schema.get('maxLength')
-#         if最大长度and len(数据)>最大长度:
-#             返回False
-#         模式=schema.get('pattern')
-#         if模式:
-#             if not re.match(模式,数据):
-#                 返回False
-#         返回True
-#     elif类型=='number':
-#     elif类型=='integer':
-#     elif类型=='boolean':
-#     elif类型=='null':
-#         return数据is None
-#
-#         返回_验证Schema(数据,schema)
-#         返回False
-#
-#     if not isinstance(基础,dict)or not isinstance(其他,dict):
-#         返回其他
-#     结果=基础.copy()
-#     结果.update(其他)
-#     返回结果
-#
-#     if not isinstance(基础,dict)or not isinstance(其他,dict):
-#         返回其他
-#     结果=基础.copy()
-#     for键,值in其他.items():
-#         if键in结果and isinstance(结果[键],dict)and isinstance(值,dict):
-#             结果[键]=_深合并(结果[键],值)
-#             结果[键]=值
-#     返回结果
-#
-#     返回_深合并(基础,其他)
-#
-#     当前=数据
-#     部分=路径.split('.')
-#     for部分in部分:
-#         if isinstance(当前,dict):
-#             当前=当前.get(部分)
-#             索引=整数(部分)
-#             if索引<len(当前):
-#                 当前=当前[索引]
-#                 当前=None
-#             当前=None
-#         if当前is None:
-#             返回默认值
-#     返回当前
-#
-#     if isinstance(数据,dict)and键in数据:
-#         del数据[键]
-#     返回数据
-#
-#     if isinstance(数据,dict):
-#         返回列表(数据.keys())
-#     返回[]
-#
-#     if isinstance(数据,dict):
-#         返回列表(数据.values())
-#     返回[]
+# 纯光明实现 —— stdlib/JSON.py 的光明门面：真段落转发 JSON核心 纯光明实现，取代同名 .py。
+# 门面承诺：examples/tests/benchmarks 实际使用的导出名（解析JSON/序列化JSON/写入JSON文件/生成JSON 等）一个不少；
+# 语义对齐 JSON.py：ensure_ascii=False 保中文原样；写入JSON文件(美化=真) → 2 空格缩进，假 → 紧凑。
+# 全部核心逻辑委托 JSON核心.light（纯光明递归下降解析/序列化），本文件只做 API 对齐层。
 
-导出 解析JSON 序列化JSON 美化JSON 读取JSON文件 写入JSON文件 JSON转Python。
-导出 Python转JSON JSON转字典 JSON转列表 验证JSON 验证JSON文件 JSON合并。
-导出 JSON深合并 JSON提取值 JSON查找 JSON过滤 JSON映射 JSON聚合。
-导出 JSON分组 JSON排序 JSON去重 JSON扁平化 JSON展开 JSON转CSV。
-导出 CSV转JSON JSON键列表 JSON值列表 JSON长度 JSON类型 JSON转字符串。
-导出 字符串转JSON JSON文件转字典 字典转JSON文件 JSON格式化 JSON压缩 JSON比较。
-导出 JSON差异 JSONSchema验证 JSON转XML 生成JSON 字典转JSON 列表转JSON。
-导出 JSON验证 JSON深拷贝 JSON设置值 JSON删除键 JSON遍历 JSON计数。
-导出 JSON转换XML JSON转Python对象 Python对象转JSON JSON格式化美化 JSON获取大小。
-导出 JSON版本 JSON编码器 JSON解码器。
+导出 解析JSON 序列化JSON 美化JSON 读取JSON文件 写入JSON文件。
+导出 生成JSON JSON转Python Python转JSON 验证JSON。
+导出 JSON合并 JSON深合并 JSON提取值 JSONSchema验证。
+
+从 JSON核心 导入 解析, 序列化
+
+# 解析 JSON 字符串为光明值（等价 JSON.py:13 解析JSON；解析失败抛异常）
+段落 解析JSON 接收 文本:
+  返回 解析(文本)
+
+# 序列化（等价 JSON.py:32 序列化JSON(值, 缩进=空)；空=紧凑，否则按空格数缩进）
+段落 序列化JSON 接收 值, 缩进 = 空:
+  如果 缩进 == 空:
+    返回 序列化(值)
+  返回 序列化(值, 缩进)
+
+# 美化（等价 JSON.py:55 美化JSON = 序列化JSON(缩进=2)）
+段落 美化JSON 接收 值:
+  返回 序列化(值, 2)
+
+# 读取并解析 JSON 文件（等价 JSON.py:68 读取JSON文件；文件不存在时抛异常）
+段落 读取JSON文件 接收 路径:
+  设 内容 为 读取文件(路径)
+  返回 解析(内容)
+
+# 写入 JSON 文件（等价 JSON.py:87 写入JSON文件(路径, 值, 美化=假)；美化=真 → 2 空格缩进）
+段落 写入JSON文件 接收 路径, 值, 美化 = 假:
+  如果 美化 == 真:
+    设 文本 为 序列化(值, 2)
+  否则:
+    设 文本 为 序列化(值, 0)
+  设 f 为 打开文件(路径, "w", encoding="utf-8")
+  f.write(文本)
+  f.close()
+
+# 生成JSON（benchmarks/bench.py:308 用；等价 JSON.py:882 生成JSON(对象, 缩进=空)）
+段落 生成JSON 接收 对象, 缩进 = 空:
+  如果 缩进 == 空:
+    返回 序列化(对象)
+  返回 序列化(对象, 缩进)
+
+# 别名：JSON 字符串 → 光明值（等价 JSON.py:103 JSON转Python）
+段落 JSON转Python 接收 文本:
+  返回 解析(文本)
+
+# 别名：光明值 → JSON 字符串（等价 JSON.py:116 Python转JSON(值, 缩进=空)）
+段落 Python转JSON 接收 值, 缩进 = 空:
+  如果 缩进 == 空:
+    返回 序列化(值)
+  返回 序列化(值, 缩进)
+
+# 验证 JSON 字符串合法性（等价 JSON.py:162 验证JSON；能解析=真，解析失败=假）
+段落 验证JSON 接收 文本:
+  尝试:
+    设 值 为 解析(文本)
+    返回 真
+  捕获 异常 e:
+    返回 假
+
+# ---- 以下四个为 test_stdlib_complete.py（任务书 §6 点名）真实使用的 JSON.py 高级能力 ----
+
+# 字典是否含键（光明无 `键 in 字典` 语法，遍历比对）
+段落 含键 接收 字典, 键:
+  遍历 k 之 字典:
+    如果 k == 键:
+      返回 真
+  返回 假
+
+# 浅合并两个字典（等价 JSON.py:230 族 JSON合并；任一非字典参数直接返回 其他）
+段落 JSON合并 接收 基础, 其他:
+  如果 type(基础) == dict 且 type(其他) == dict:
+    设 结果 为 {}
+    遍历 k 之 基础:
+      结果[k] 为 基础[k]
+    遍历 k 之 其他:
+      结果[k] 为 其他[k]
+    返回 结果
+  返回 其他
+
+# 深合并（等价 JSON.py:240 族 JSON深合并；嵌套字典逐层递归，非字典叶子以 其他 为准）
+段落 JSON深合并 接收 基础, 其他:
+  如果 type(基础) == dict 且 type(其他) == dict:
+    设 结果 为 {}
+    遍历 k 之 基础:
+      结果[k] 为 基础[k]
+    遍历 k 之 其他:
+      如果 含键(结果, k) 且 type(结果[k]) == dict 且 type(其他[k]) == dict:
+        结果[k] 为 JSON深合并(结果[k], 其他[k])
+      否则:
+        结果[k] 为 其他[k]
+    返回 结果
+  返回 其他
+
+# 按点路径提取值（等价 JSON.py:260 族 JSON提取值(数据, "a.b.0", 默认值)；
+# 段支持字典键与数组下标；任一环节缺失/错型返回 默认值）
+段落 JSON提取值 接收 数据, 路径, 默认值 = 空:
+  设 当前 为 数据
+  设 段表 为 路径.split(".")
+  遍历 段 之 段表:
+    如果 type(当前) == dict:
+      如果 含键(当前, 段):
+        设 当前 为 当前[段]
+      否则:
+        返回 默认值
+    否则 如果 type(当前) == list:
+      设 索引 为 转整数(段)
+      如果 索引 < 长(当前):
+        设 当前 为 当前[索引]
+      否则:
+        返回 默认值
+    否则:
+      返回 默认值
+  返回 当前
+
+# JSON Schema 校验（等价 JSON.py:162 族 JSONSchema验证，实现 _验证Schema 子集：
+# type/properties/required/items/minItems/maxItems/minLength/maxLength；pattern 因光明无 re 暂未实现）
+段落 JSONSchema验证 接收 数据, schema:
+  设 类型 为 ""
+  如果 含键(schema, "type"):
+    设 类型 为 schema["type"]
+  如果 类型 == "object":
+    如果 type(数据) != dict:
+      返回 假
+    如果 含键(schema, "properties"):
+      设 属性表 为 schema["properties"]
+      遍历 键 之 属性表:
+        如果 含键(数据, 键):
+          如果 JSONSchema验证(数据[键], 属性表[键]) == 假:
+            返回 假
+    如果 含键(schema, "required"):
+      设 必填表 为 schema["required"]
+      遍历 键 之 必填表:
+        如果 含键(数据, 键) == 假:
+          返回 假
+    返回 真
+  如果 类型 == "array":
+    如果 type(数据) != list:
+      返回 假
+    如果 含键(schema, "items"):
+      设 项模式 为 schema["items"]
+      遍历 项 之 数据:
+        如果 JSONSchema验证(项, 项模式) == 假:
+          返回 假
+    如果 含键(schema, "minItems") 且 长(数据) < schema["minItems"]:
+      返回 假
+    如果 含键(schema, "maxItems") 且 长(数据) > schema["maxItems"]:
+      返回 假
+    返回 真
+  如果 类型 == "string":
+    如果 type(数据) != str:
+      返回 假
+    如果 含键(schema, "minLength") 且 长(数据) < schema["minLength"]:
+      返回 假
+    如果 含键(schema, "maxLength") 且 长(数据) > schema["maxLength"]:
+      返回 假
+    返回 真
+  如果 类型 == "number":
+    返回 type(数据) == int 或 type(数据) == float
+  如果 类型 == "integer":
+    返回 type(数据) == int
+  如果 类型 == "boolean":
+    返回 type(数据) == bool
+  如果 类型 == "null":
+    返回 数据 == 空
+  返回 真

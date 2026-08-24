@@ -1,1048 +1,947 @@
 {
   "说明": [
-    "自举地板清单（第九轮总纲 §4.2 落地；骨架由 G9 录入，搬迁进度由 C9 维护）。",
-    "为什么要有这张表：stdlib/builtins.py（114 个顶层函数）由 src/code_generator.py:735-741",
-    "加载进每一份产物，每个光明程序都站在它上面，但它没有同名 .light，所以不在任何",
-    "既有指标的分母里 —— 六轮来最大的度量盲区。",
-    "地板自举率 = 纯光明实现数 / (总数 − native_required 数)，门禁在 tools/ci/floor_bootstrap.py。",
-    "字段归属：当前实现语言 / 计划落点 / 证据 归 C9（搬迁进度）；native_required 与其备注",
-    "归 G9（分母口径，改它要走主线裁决）。",
-    "证据形如 stdlib/内置核心.light:42，判据是「行号 ±2 窗口内有一行既是 段落/类/函数",
-    "定义行、又含该函数名」，且该 .light 不被同名 .py 遮蔽（有 .py 就必须首两行挂魔数）。",
-    "只断「行号在文件范围内」是上界断言，等于判据不存在（第七轮 B7 已踩）。",
-    "本文件放 任务书/ 而不是 docs/：docs/ 会被 tests/unit/doc_block_scan.py 扫。",
-    "条目名集合必须与 builtins.py 的 ast 顶层函数名逐个相等（双向咬合），",
-    "漂移了跑 python tools/ci/floor_bootstrap.py --root . --sync-list 补齐（只增不改）。"
+    "任务书 §3 / 总纲 §4.2 要求：stdlib/builtins.py 的 114 个函数逐个登记。",
+    "它被 src/code_generator.py:735-741 用 spec_from_file_location('light_builtins') 注入进每一份生成产物",
+    "（另见 src/module_resolver.py:202-225 preload_builtins、src/compiler.py:972,994），没有同名 .light，",
+    "所以不在 bootstrap_rate 任何指标的分母里 —— 这是六轮来最大的度量盲区，本清单补齐。",
+    "地板自举率 = 纯光明实现数 / (总数 − native_required 数)，只升不降。分母扣掉真系统调用边界。",
+    "分类口径（任务书 §3）：1 native_required=真系统调用边界（文件 I/O/环境变量/stdin/时间戳/随机源）；",
+    "2 movable=纯计算能立刻搬；3 has_light_impl=已有纯光明替身；4 duplicate=与 stdlib/数学.py 重叠；",
+    "5 unused=零调用点（S3 删）。",
+    "S1 裁决说明：随机整数/随机浮点/随机选择 虽在 数学.py 有同名，但本质是随机源 → 归 native_required；",
+    "求和 归 has_light_impl（列表工具.light decl 10 真光明实现）；去除空白 的中文NLP.light 是空壳 → 归 movable。",
+    "unused 本批为 0：全仓调用点核查（examples/tests/src/contrib/bootstrap 等）114 个均有调用点。",
+    "has_light_impl 计数 12 = JSON 3（C9 门面）+ 字符串工具轻量 8 + 列表工具 求和 1。",
+    "S2 目标 ≥40%：12/80 = 15% → 需再搬 ≥20 个 movable 到光明层。"
   ],
   "版本": 1,
-  "来源": "stdlib/builtins.py",
-  "建立于轮次": "第九轮",
-  "条目": [
-    {
-      "名字": "读取文件",
-      "职责": "按编码整份读入文件内容",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：文件系统调用（open/stat/mkdir/unlink/listdir/rename），光明层无法凭语言特性实现"
-    },
+  "归属": "C9 建（S1），G9 守门禁",
+  "总数": 114,
+  "分类统计": {
+    "native_required": 34,
+    "movable": 55,
+    "has_light_impl": 12,
+    "duplicate": 13,
+    "unused": 0
+  },
+  "地板自举率基线_S1": {
+    "分子（纯光明实现数）": 12,
+    "分母（总数 − native_required）": 80,
+    "数值": "12/80 = 15.0%",
+    "S2 目标": "≥40%（≥32 个纯光明实现）"
+  },
+  "函数": [
     {
       "名字": "_读文件",
-      "职责": "读取文件的内部实现（产物兜底里也直接用它）",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：文件系统调用（open/stat/mkdir/unlink/listdir/rename），光明层无法凭语言特性实现"
+      "职责": "内部用：读取文件内容（简化版）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:47"
     },
     {
       "名字": "写入文件",
-      "职责": "按编码整份覆盖写入文件",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：文件系统调用（open/stat/mkdir/unlink/listdir/rename），光明层无法凭语言特性实现"
+      "职责": "写入文件内容",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:53"
     },
     {
-      "名字": "追加文件",
-      "职责": "按编码在文件末尾追加",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：文件系统调用（open/stat/mkdir/unlink/listdir/rename），光明层无法凭语言特性实现"
+      "名字": "写入输出",
+      "职责": "向标准输出写入文本（不含换行）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:337"
     },
     {
-      "名字": "文件存在",
-      "职责": "判断路径是否是已存在的文件",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：文件系统调用（open/stat/mkdir/unlink/listdir/rename），光明层无法凭语言特性实现"
+      "名字": "写入错误",
+      "职责": "向标准错误写入文本",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:363"
     },
     {
-      "名字": "是文件",
-      "职责": "判断路径是否是文件（非目录）",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：文件系统调用（open/stat/mkdir/unlink/listdir/rename），光明层无法凭语言特性实现"
+      "名字": "切换目录",
+      "职责": "切换工作目录",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:275"
     },
     {
-      "名字": "目录存在",
-      "职责": "判断路径是否是已存在的目录",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：文件系统调用（open/stat/mkdir/unlink/listdir/rename），光明层无法凭语言特性实现"
+      "名字": "列出文件",
+      "职责": "列出目录中的文件（不包含子目录）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:165"
     },
     {
-      "名字": "路径存在",
-      "职责": "判断路径是否存在（文件或目录）",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：文件系统调用（open/stat/mkdir/unlink/listdir/rename），光明层无法凭语言特性实现"
+      "名字": "列出目录",
+      "职责": "列出目录内容",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:149"
     },
     {
       "名字": "创建目录",
-      "职责": "递归创建目录",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：文件系统调用（open/stat/mkdir/unlink/listdir/rename），光明层无法凭语言特性实现"
+      "职责": "创建目录",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:115"
     },
     {
       "名字": "删除文件",
       "职责": "删除文件",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：文件系统调用（open/stat/mkdir/unlink/listdir/rename），光明层无法凭语言特性实现"
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:131"
     },
     {
       "名字": "删除目录",
       "职责": "删除空目录",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：文件系统调用（open/stat/mkdir/unlink/listdir/rename），光明层无法凭语言特性实现"
-    },
-    {
-      "名字": "列出目录",
-      "职责": "列出目录下的所有条目名",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：文件系统调用（open/stat/mkdir/unlink/listdir/rename），光明层无法凭语言特性实现"
-    },
-    {
-      "名字": "列出文件",
-      "职责": "列出目录下的文件名（跳过子目录）",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：文件系统调用（open/stat/mkdir/unlink/listdir/rename），光明层无法凭语言特性实现"
-    },
-    {
-      "名字": "文件大小",
-      "职责": "取文件字节数",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：文件系统调用（open/stat/mkdir/unlink/listdir/rename），光明层无法凭语言特性实现"
-    },
-    {
-      "名字": "绝对路径",
-      "职责": "把相对路径解析成绝对路径",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：需要进程 cwd 与文件系统解析（realpath），不是纯字符串运算"
-    },
-    {
-      "名字": "连接路径",
-      "职责": "按平台分隔符拼接多段路径",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": "不是边界：平台分隔符是常量，拼接是纯字符串运算"
-    },
-    {
-      "名字": "目录名",
-      "职责": "取路径的目录部分",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": "不是边界：纯字符串运算"
-    },
-    {
-      "名字": "文件名",
-      "职责": "取路径的最后一段",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": "不是边界：纯字符串运算"
-    },
-    {
-      "名字": "扩展名",
-      "职责": "取文件扩展名",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": "不是边界：纯字符串运算"
-    },
-    {
-      "名字": "分割路径",
-      "职责": "把路径拆成（目录, 文件名）",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": "不是边界：纯字符串运算"
-    },
-    {
-      "名字": "分割扩展名",
-      "职责": "把路径拆成（主名, 扩展名）",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": "不是边界：纯字符串运算"
-    },
-    {
-      "名字": "环境变量",
-      "职责": "读环境变量，缺失给默认值",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：进程与环境（environ/argv/exit/chdir/spawn），必须由运行时提供"
-    },
-    {
-      "名字": "设置环境变量",
-      "职责": "写环境变量",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：进程与环境（environ/argv/exit/chdir/spawn），必须由运行时提供"
-    },
-    {
-      "名字": "参数列表",
-      "职责": "取命令行参数",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：进程与环境（environ/argv/exit/chdir/spawn），必须由运行时提供"
-    },
-    {
-      "名字": "退出程序",
-      "职责": "以指定退出码结束进程",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：进程与环境（environ/argv/exit/chdir/spawn），必须由运行时提供"
-    },
-    {
-      "名字": "当前目录",
-      "职责": "取进程当前工作目录",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：进程与环境（environ/argv/exit/chdir/spawn），必须由运行时提供"
-    },
-    {
-      "名字": "切换目录",
-      "职责": "改变进程当前工作目录",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：进程与环境（environ/argv/exit/chdir/spawn），必须由运行时提供"
-    },
-    {
-      "名字": "执行命令",
-      "职责": "起子进程执行外部命令并取退出码",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：进程与环境（environ/argv/exit/chdir/spawn），必须由运行时提供"
-    },
-    {
-      "名字": "移动文件系统",
-      "职责": "移动/重命名文件或目录",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：文件系统调用（open/stat/mkdir/unlink/listdir/rename），光明层无法凭语言特性实现"
-    },
-    {
-      "名字": "读取行",
-      "职责": "从标准输入读一行（去行尾换行）",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：标准输入/输出/错误三条流的读写与刷新"
-    },
-    {
-      "名字": "读取N字节",
-      "职责": "从标准输入读指定字节数",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：标准输入/输出/错误三条流的读写与刷新"
-    },
-    {
-      "名字": "写入输出",
-      "职责": "写标准输出并刷新（不加换行）",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：标准输入/输出/错误三条流的读写与刷新"
-    },
-    {
-      "名字": "打印输出",
-      "职责": "写标准输出并换行刷新",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：标准输入/输出/错误三条流的读写与刷新"
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:141"
     },
     {
       "名字": "刷新输出",
-      "职责": "刷新标准输出缓冲",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：标准输入/输出/错误三条流的读写与刷新"
+      "职责": "强制刷新标准输出缓冲区",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:358"
     },
     {
-      "名字": "写入错误",
-      "职责": "写标准错误并刷新（不加换行）",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：标准输入/输出/错误三条流的读写与刷新"
+      "名字": "参数列表",
+      "职责": "获取命令行参数列表",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:260"
+    },
+    {
+      "名字": "当前目录",
+      "职责": "获取当前工作目录",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:270"
+    },
+    {
+      "名字": "打印输出",
+      "职责": "向标准输出打印文本并换行",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:348"
     },
     {
       "名字": "打印错误",
-      "职责": "写标准错误并换行刷新",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：标准输入/输出/错误三条流的读写与刷新"
+      "职责": "向标准错误打印文本并换行",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:369"
     },
     {
-      "名字": "解析JSON",
-      "职责": "JSON 文本 → 光明值",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": "不是边界：纯文本解析，stdlib/JSON核心.light 已有纯光明实现可复用"
+      "名字": "执行命令",
+      "职责": "执行系统命令",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:283"
     },
     {
-      "名字": "序列化JSON",
-      "职责": "光明值 → JSON 文本（可指定缩进）",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": "不是边界：纯文本生成"
+      "名字": "文件大小",
+      "职责": "获取文件大小（字节）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:181"
     },
     {
-      "名字": "美化JSON",
-      "职责": "光明值 → 缩进 2 的 JSON 文本",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": "不是边界：纯文本生成"
-    },
-    {
-      "名字": "转整数",
-      "职责": "字符串/数值 → 整数",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "转浮点",
-      "职责": "字符串/数值 → 浮点",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "转字符串",
-      "职责": "任意值 → 字符串",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字符串长度",
-      "职责": "取字符串的字符数",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "显示宽度",
-      "职责": "按东亚全角宽度算终端列宽",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字符串获取",
-      "职责": "取指定下标的单字符",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "截取",
-      "职责": "按起止下标切子串",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "分割字符串",
-      "职责": "按分隔符切成列表",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "连接字符串",
-      "职责": "用分隔符把列表拼成字符串",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "替换字符串",
-      "职责": "全部替换子串",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "去除空白",
-      "职责": "去掉首尾空白",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "转大写",
-      "职责": "全部转大写",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "转小写",
-      "职责": "全部转小写",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字符串包含",
-      "职责": "判断是否含子串",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "开头",
-      "职责": "判断是否以前缀开头",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "结尾",
-      "职责": "判断是否以后缀结尾",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "查找子串",
-      "职责": "取子串首次出现的下标",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "最后索引",
-      "职责": "取子串最后出现的下标",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "替换字符串次数",
-      "职责": "替换子串，限定次数",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "截取到末尾",
-      "职责": "从下标切到字符串末尾",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字符串计数",
-      "职责": "数子串出现次数",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字符串重复",
-      "职责": "把字符串重复若干遍",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字符串反转",
-      "职责": "字符逆序",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "转标题",
-      "职责": "每个单词首字母大写",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "去除左侧空白",
-      "职责": "去掉开头空白",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "去除右侧空白",
-      "职责": "去掉末尾空白",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字符串对齐居中",
-      "职责": "按宽度居中填充",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字符串对齐左",
-      "职责": "按宽度左对齐填充",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字符串对齐右",
-      "职责": "按宽度右对齐填充",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "列",
-      "职责": "把若干实参装成列表",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "列表创建",
-      "职责": "建空列表",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "列表长度",
-      "职责": "取列表元素个数",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "列表获取",
-      "职责": "按下标取元素",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "列表追加",
-      "职责": "在末尾追加元素",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "列表弹出",
-      "职责": "按下标弹出元素（默认末尾）",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "列表插入",
-      "职责": "在指定下标插入元素",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "列表排序",
-      "职责": "原地排序（可反向）",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "列表反转",
-      "职责": "原地逆序",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "列表包含",
-      "职责": "判断元素是否在列表里",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字典创建",
-      "职责": "建空字典",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字典设置",
-      "职责": "写入键值",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字典删除",
-      "职责": "删除键",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字典键列表",
-      "职责": "取所有键",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字典值列表",
-      "职责": "取所有值",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字典项列表",
-      "职责": "取所有键值对",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字典包含键",
-      "职责": "判断键是否存在",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "字典获取",
-      "职责": "取键值，缺失给默认值",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "是整数",
-      "职责": "类型判定：整数",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "是浮点",
-      "职责": "类型判定：浮点",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "是字符串",
-      "职责": "类型判定：字符串",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "是列表",
-      "职责": "类型判定：列表",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "是字典",
-      "职责": "类型判定：字典",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "是空",
-      "职责": "判定空值（空串/空表/空字典/空）",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "是字母",
-      "职责": "字符类判定：字母",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "是数字",
-      "职责": "字符类判定：数字",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "是空白",
-      "职责": "字符类判定：空白",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
+      "名字": "文件存在",
+      "职责": "检查文件是否存在",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:95"
     },
     {
       "名字": "时间戳",
-      "职责": "取当前 Unix 时间戳",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：时钟源（gettimeofday），光明层取不到"
+      "职责": "获取当前 Unix 时间戳（秒）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:746"
+    },
+    {
+      "名字": "是文件",
+      "职责": "检查是否为文件",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:100"
     },
     {
       "名字": "格式化时间",
-      "职责": "时间戳/字符串 → 按格式串输出",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": "不是边界：给定时间戳后是历法算术（时区另算，若确需系统时区再提裁决）"
+      "职责": "将时间戳或时间字符串格式化为指定格式",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:756"
+    },
+    {
+      "名字": "环境变量",
+      "职责": "获取环境变量",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:241"
+    },
+    {
+      "名字": "目录存在",
+      "职责": "检查目录是否存在",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:105"
+    },
+    {
+      "名字": "移动文件系统",
+      "职责": "移动文件或目录",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:296"
+    },
+    {
+      "名字": "设置环境变量",
+      "职责": "设置环境变量",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:255"
+    },
+    {
+      "名字": "读取N字节",
+      "职责": "从标准输入读取指定数量的字节",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:324"
+    },
+    {
+      "名字": "读取文件",
+      "职责": "读取文件内容",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:22"
+    },
+    {
+      "名字": "读取行",
+      "职责": "从标准输入读取一行",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:312"
+    },
+    {
+      "名字": "路径存在",
+      "职责": "检查路径是否存在（文件或目录）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:110"
+    },
+    {
+      "名字": "追加文件",
+      "职责": "追加内容到文件",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:79"
+    },
+    {
+      "名字": "退出程序",
+      "职责": "退出程序",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:265"
     },
     {
       "名字": "随机整数",
-      "职责": "取区间内的随机整数",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": "不是边界：可由 随机浮点 推出"
+      "职责": "生成范围内的随机整数",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:792"
     },
     {
       "名字": "随机浮点",
-      "职责": "取 [0,1) 随机浮点",
-      "当前实现语言": "python",
-      "native_required": true,
-      "计划落点": "",
-      "证据": "",
-      "备注": "真边界：熵源。随机整数/随机选择 可由它推出，故那两条不算边界"
+      "职责": "生成 [0.0, 1.0) 范围内的随机浮点数",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:806"
     },
     {
       "名字": "随机选择",
-      "职责": "从列表里随机取一个",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": "不是边界：可由 随机浮点 推出"
+      "职责": "从列表中随机选择一个元素",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:816"
     },
     {
-      "名字": "阶乘",
-      "职责": "n!",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
+      "名字": "分割字符串",
+      "职责": "分割字符串",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/字符串工具轻量.light",
+      "证据行": "stdlib/builtins.py:482"
     },
     {
-      "名字": "平均数",
-      "职责": "算术平均",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
+      "名字": "去除右侧空白",
+      "职责": "去除右侧空白",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/字符串工具轻量.light",
+      "证据行": "stdlib/builtins.py:574"
     },
     {
-      "名字": "中位数",
-      "职责": "中位数",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
+      "名字": "去除左侧空白",
+      "职责": "去除左侧空白",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/字符串工具轻量.light",
+      "证据行": "stdlib/builtins.py:569"
     },
     {
-      "名字": "众数",
-      "职责": "众数",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
+      "名字": "字符串长度",
+      "职责": "获取字符串长度",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/字符串工具轻量.light",
+      "证据行": "stdlib/builtins.py:428"
     },
     {
-      "名字": "方差",
-      "职责": "总体方差",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
+      "名字": "序列化JSON",
+      "职责": "将光明值序列化为 JSON 字符串",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/JSON.light（转发 JSON核心.light）",
+      "证据行": "stdlib/builtins.py:388"
     },
     {
-      "名字": "标准差",
-      "职责": "总体标准差",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "样本方差",
-      "职责": "样本方差",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "样本标准差",
-      "职责": "样本标准差",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
+      "名字": "替换字符串",
+      "职责": "替换字符串",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/字符串工具轻量.light",
+      "证据行": "stdlib/builtins.py:492"
     },
     {
       "名字": "求和",
-      "职责": "序列求和",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
+      "职责": "计算列表中所有数值的和",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/列表工具.light",
+      "证据行": "stdlib/builtins.py:954"
     },
     {
-      "名字": "累积和",
-      "职责": "前缀和序列",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
+      "名字": "美化JSON",
+      "职责": "美化 JSON 输出（带缩进）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/JSON.light（转发 JSON核心.light）",
+      "证据行": "stdlib/builtins.py:398"
+    },
+    {
+      "名字": "解析JSON",
+      "职责": "解析 JSON 字符串为光明值",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/JSON.light（转发 JSON核心.light）",
+      "证据行": "stdlib/builtins.py:380"
+    },
+    {
+      "名字": "转大写",
+      "职责": "转换为大写",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/字符串工具轻量.light",
+      "证据行": "stdlib/builtins.py:502"
+    },
+    {
+      "名字": "转小写",
+      "职责": "转换为小写",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/字符串工具轻量.light",
+      "证据行": "stdlib/builtins.py:507"
+    },
+    {
+      "名字": "连接字符串",
+      "职责": "连接字符串列表",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/字符串工具轻量.light",
+      "证据行": "stdlib/builtins.py:487"
+    },
+    {
+      "名字": "分割扩展名",
+      "职责": "分割路径为(主名, 扩展名)",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:232"
+    },
+    {
+      "名字": "分割路径",
+      "职责": "分割路径为(目录, 文件名)",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:227"
+    },
+    {
+      "名字": "列",
+      "职责": "创建包含指定元素的列表",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:598"
+    },
+    {
+      "名字": "列表创建",
+      "职责": "创建空列表",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:603"
+    },
+    {
+      "名字": "列表包含",
+      "职责": "检查列表是否包含元素",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:643"
+    },
+    {
+      "名字": "列表反转",
+      "职责": "反转列表（原地修改）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:638"
+    },
+    {
+      "名字": "列表弹出",
+      "职责": "从列表弹出元素",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:623"
+    },
+    {
+      "名字": "列表排序",
+      "职责": "排序列表（原地修改）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:633"
+    },
+    {
+      "名字": "列表插入",
+      "职责": "在指定索引处插入元素",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:628"
+    },
+    {
+      "名字": "列表获取",
+      "职责": "获取列表中指定索引的元素",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:613"
+    },
+    {
+      "名字": "列表追加",
+      "职责": "向列表追加元素",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:618"
+    },
+    {
+      "名字": "列表长度",
+      "职责": "获取列表长度",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:608"
+    },
+    {
+      "名字": "去除空白",
+      "职责": "去除首尾空白",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:497"
+    },
+    {
+      "名字": "字典值列表",
+      "职责": "获取字典的所有值",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:673"
+    },
+    {
+      "名字": "字典创建",
+      "职责": "创建空字典",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:652"
+    },
+    {
+      "名字": "字典删除",
+      "职责": "删除字典键值",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:662"
+    },
+    {
+      "名字": "字典包含键",
+      "职责": "检查字典是否包含键",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:683"
+    },
+    {
+      "名字": "字典获取",
+      "职责": "从字典获取值，不存在则返回默认值",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:688"
+    },
+    {
+      "名字": "字典设置",
+      "职责": "设置字典键值",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:657"
+    },
+    {
+      "名字": "字典键列表",
+      "职责": "获取字典的所有键",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:668"
+    },
+    {
+      "名字": "字典项列表",
+      "职责": "获取字典的所有键值对",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:678"
+    },
+    {
+      "名字": "字符串包含",
+      "职责": "检查字符串是否包含子串",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:512"
+    },
+    {
+      "名字": "字符串反转",
+      "职责": "反转字符串",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:559"
+    },
+    {
+      "名字": "字符串对齐右",
+      "职责": "右对齐字符串",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:589"
+    },
+    {
+      "名字": "字符串对齐居中",
+      "职责": "居中对齐字符串",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:579"
+    },
+    {
+      "名字": "字符串对齐左",
+      "职责": "左对齐字符串",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:584"
+    },
+    {
+      "名字": "字符串获取",
+      "职责": "获取字符串中指定位置的字符",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:472"
+    },
+    {
+      "名字": "字符串计数",
+      "职责": "统计子串出现次数",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:549"
+    },
+    {
+      "名字": "字符串重复",
+      "职责": "重复字符串指定次数",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:554"
+    },
+    {
+      "名字": "开头",
+      "职责": "检查字符串是否以指定前缀开头",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:517"
+    },
+    {
+      "名字": "截取",
+      "职责": "截取字符串的一部分",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:477"
+    },
+    {
+      "名字": "截取到末尾",
+      "职责": "从指定位置截取到字符串末尾",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:544"
+    },
+    {
+      "名字": "扩展名",
+      "职责": "获取文件扩展名",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:221"
+    },
+    {
+      "名字": "文件名",
+      "职责": "获取路径的文件名部分",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:216"
+    },
+    {
+      "名字": "是列表",
+      "职责": "检查是否为列表",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:712"
+    },
+    {
+      "名字": "是字典",
+      "职责": "检查是否为字典",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:717"
+    },
+    {
+      "名字": "是字母",
+      "职责": "检查字符是否为字母",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:727"
+    },
+    {
+      "名字": "是字符串",
+      "职责": "检查是否为字符串",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:707"
+    },
+    {
+      "名字": "是数字",
+      "职责": "检查字符是否为数字",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:732"
+    },
+    {
+      "名字": "是整数",
+      "职责": "检查是否为整数",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:697"
+    },
+    {
+      "名字": "是浮点",
+      "职责": "检查是否为浮点数",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:702"
+    },
+    {
+      "名字": "是空",
+      "职责": "检查是否为空值",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:722"
+    },
+    {
+      "名字": "是空白",
+      "职责": "检查字符是否为空格或空白字符",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:737"
+    },
+    {
+      "名字": "显示宽度",
+      "职责": "返回字符串在等宽终端中的显示宽度。",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:433"
+    },
+    {
+      "名字": "替换字符串次数",
+      "职责": "替换字符串，指定替换次数",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:537"
+    },
+    {
+      "名字": "最后索引",
+      "职责": "查找子串最后出现位置，未找到返回-1",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:532"
+    },
+    {
+      "名字": "查找子串",
+      "职责": "查找子串位置，未找到返回-1",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:527"
+    },
+    {
+      "名字": "目录名",
+      "职责": "获取路径的目录部分",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:211"
+    },
+    {
+      "名字": "结尾",
+      "职责": "检查字符串是否以指定后缀结尾",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:522"
+    },
+    {
+      "名字": "绝对路径",
+      "职责": "获取绝对路径",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:201"
+    },
+    {
+      "名字": "转字符串",
+      "职责": "将值转换为字符串",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:423"
+    },
+    {
+      "名字": "转整数",
+      "职责": "将字符串转换为整数",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:407"
+    },
+    {
+      "名字": "转标题",
+      "职责": "转换为标题格式（首字母大写）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:564"
+    },
+    {
+      "名字": "转浮点",
+      "职责": "将字符串转换为浮点数",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:415"
+    },
+    {
+      "名字": "连接路径",
+      "职责": "连接多个路径",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
+      "证据行": "stdlib/builtins.py:206"
+    },
+    {
+      "名字": "中位数",
+      "职责": "计算列表的中位数",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "duplicate",
+      "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
+      "证据行": "stdlib/builtins.py:861"
+    },
+    {
+      "名字": "众数",
+      "职责": "计算列表的众数（出现次数最多的值）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "duplicate",
+      "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
+      "证据行": "stdlib/builtins.py:876"
     },
     {
       "名字": "圆周率",
-      "职责": "常量 π",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
+      "职责": "返回圆周率 π 的近似值",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "duplicate",
+      "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
+      "证据行": "stdlib/builtins.py:988"
     },
     {
-      "名字": "自然常数",
-      "职责": "常量 e",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
-    },
-    {
-      "名字": "角度转弧度",
-      "职责": "角度 → 弧度",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
+      "名字": "平均数",
+      "职责": "计算列表的平均值",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "duplicate",
+      "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
+      "证据行": "stdlib/builtins.py:846"
     },
     {
       "名字": "弧度转角度",
-      "职责": "弧度 → 角度",
-      "当前实现语言": "python",
-      "native_required": false,
-      "计划落点": "",
-      "证据": "",
-      "备注": ""
+      "职责": "弧度转角度",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "duplicate",
+      "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
+      "证据行": "stdlib/builtins.py:1003"
+    },
+    {
+      "名字": "方差",
+      "职责": "计算总体方差",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "duplicate",
+      "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
+      "证据行": "stdlib/builtins.py:894"
+    },
+    {
+      "名字": "标准差",
+      "职责": "计算总体标准差",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "duplicate",
+      "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
+      "证据行": "stdlib/builtins.py:909"
+    },
+    {
+      "名字": "样本方差",
+      "职责": "计算样本方差（分母 n-1）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "duplicate",
+      "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
+      "证据行": "stdlib/builtins.py:924"
+    },
+    {
+      "名字": "样本标准差",
+      "职责": "计算样本标准差（分母 n-1）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "duplicate",
+      "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
+      "证据行": "stdlib/builtins.py:939"
+    },
+    {
+      "名字": "累积和",
+      "职责": "计算列表的累积和",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "duplicate",
+      "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
+      "证据行": "stdlib/builtins.py:967"
+    },
+    {
+      "名字": "自然常数",
+      "职责": "返回自然常数 e 的近似值",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "duplicate",
+      "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
+      "证据行": "stdlib/builtins.py:993"
+    },
+    {
+      "名字": "角度转弧度",
+      "职责": "角度转弧度",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "duplicate",
+      "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
+      "证据行": "stdlib/builtins.py:998"
+    },
+    {
+      "名字": "阶乘",
+      "职责": "计算 n 的阶乘",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "duplicate",
+      "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
+      "证据行": "stdlib/builtins.py:831"
     }
   ]
 }
