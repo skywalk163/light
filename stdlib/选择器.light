@@ -14,6 +14,7 @@
 #   - 探测就绪(fd或socket, "读"/"写") → 一次非阻塞探测（A5：事件循环里唯一可用的问法）
 #   - 关闭选择器()
 #   - 是否愿等读(e) / 是否愿等写(e) → errno/TLS want 判定（跨平台，供调用方回选择器）
+#   - 是否可恢复接受错误(e) → accept() 的错误分类（可恢复 vs 致命），供服务端 accept 腿用
 #
 # 注意：
 #   - `导入 selectors` / `导入 errno` 属于「导入」，不增加 stdlib 的「引 Python」计数。
@@ -127,17 +128,55 @@
 # 读取错误 —— 那是第四轮总纲 §4.2 冻结的契约。
 # 2026-08-23 合并期实测：是否愿等读(ValueError('boom')) 抛
 # AttributeError: 'ValueError' object has no attribute 'errno'。
-段落 是否愿等读 接收 e:
-  如果 type(e) == ssl.SSLWantReadError:
-    返回 真
+#
+# EAGAIN/EWOULDBLOCK 这张表只写一处（是否EAGAIN）：读侧与写侧各写一份，迟早分叉。
+段落 是否EAGAIN 接收 e:
   设 错误号 为 getattr(e, "errno", 空)
   如果 错误号 == errno.EAGAIN 或 错误号 == errno.EWOULDBLOCK:
     返回 真
   返回 假
 
+段落 是否愿等读 接收 e:
+  如果 type(e) == ssl.SSLWantReadError:
+    返回 真
+  返回 是否EAGAIN(e)
+
+# 2026-08-25（F9 S2 / H4）：补上裸 socket 的 EAGAIN/EWOULDBLOCK 分支。原实现只认
+# ssl.SSLWantWriteError，于是发送缓冲被塞满时（send 抛 EAGAIN）调用方会掉进
+# 「否则」臂，把一次正常的「缓冲满、稍后再发」当成致命错误 —— HTTP服务端.light 的
+# 发送字节 就此把它记成 连接中断。
+# SSLWantReadError 在写路径上必须显式判假：那是「握手要求先读」，回去等写就绪是白等
+# （读侧的 是否愿等读 会接住它）。
+# 注意配套要求：调用方补了这个分支就必须同时有截止时间，否则「愿等写」恒真的地方
+# 会立刻变成无上界自旋（HTTP服务端.light 的 发送字节 已同步补 monotonic 截止）。
+# 对 流式.light 的两处调用点（:273-279、:377-380）语义不变：它们先问 是否愿等读，
+# EAGAIN 在那里已经被判成「等读」，走不到写臂。
+# SSLWantReadError 落到 是否EAGAIN 上会得到 假（它的 errno 是 SSL_ERROR_WANT_READ=2，
+# 不是 EAGAIN），所以写侧不会把「握手要先读」误判成「等可写」；这一条由
+# tests/test_stream_light.py:88 看守，不在这里再写一臂 ——
+# 多写一行 `ssl.` 会让 Python 直调门禁的计数无谓地涨一笔。
 段落 是否愿等写 接收 e:
   如果 type(e) == ssl.SSLWantWriteError:
     返回 真
+  返回 是否EAGAIN(e)
+
+# accept() 的错误分三类，调用方必须分开处置（F9 S2 / H2）：
+#   1) 愿等   —— EAGAIN/EWOULDBLOCK：此刻没有连接可收，回选择器等读就绪（是否愿等读）；
+#   2) 可恢复 —— 这一次 accept 废了，但监听套接字还是好的：
+#        ECONNABORTED：客户端在三次握手完成后、accept 之前就 RST 掉（FreeBSD 常见）；
+#        EMFILE/ENFILE：进程/系统 fd 用尽，别的连接收尾后自然缓解；
+#        EINTR：被信号打断；ENOBUFS/ENOMEM：内核缓冲一时紧张；
+#   3) 致命   —— EBADF/EINVAL（套接字已关或从未 listen）以及一切认不出来的错误。
+# 本段落只回答「是不是第 2 类」。刻意用白名单而不是「列出致命的、其余算可恢复」：
+# 把认不出来的错误当可恢复，等于给「对着一个永远失败的 accept 无限重试」开门。
+段落 是否可恢复接受错误 接收 e:
+  设 错误号 为 getattr(e, "errno", 空)
+  如果 错误号 == 空:
+    返回 假
+  设 可恢复表 为 [errno.ECONNABORTED, errno.EMFILE, errno.ENFILE, errno.EINTR, errno.ENOBUFS, errno.ENOMEM]
+  遍历 号 之 可恢复表:
+    如果 错误号 == 号:
+      返回 真
   返回 假
 
 导出 新建选择器
@@ -149,3 +188,4 @@
 导出 关闭选择器
 导出 是否愿等读
 导出 是否愿等写
+导出 是否可恢复接受错误
