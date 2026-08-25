@@ -1,17 +1,29 @@
 # -*- coding: utf-8 -*-
 """分布式节点网络边界（Python 实现，被光明模块包装）。
 
-本文件是「系统边界」集中点：socket / json / 单调时钟 / 随机标识 / 异步并发原语 全部落
-在这里，对上只暴露纯中文函数名。光明侧只做 `从 节点网络 导入 …`；本文件不被
-tools/ci/python_direct_calls.py 扫描（它只扫 .light），也不计入「引 Python 逃逸」——
-这是第九轮 S2 把边界收口到最少文件的既定口径（外发任务 §4.5）。
+本文件是「系统边界」集中点，对上只暴露纯中文函数名；光明侧只做 `从 节点网络 导入 …`。
+本文件不被 tools/ci/python_direct_calls.py 扫描（它只扫 .light）——**这是边界收口的
+结果不是目的**：下列每一项都是光明语言当前无法用纯 .light 表达的系统原语
+（外发任务 §4.5 要的「哪几行、为什么是真边界、期望的中文内置名」），逐项登记如下：
 
-为什么 socket/json/单调时钟 必须在这里而不是在 .light 里：
-  - 新写的 .light 文件在 python_direct_calls 门禁里基线为 0，一旦直调 socket./json./time.
-    就会让总数上升 → 红；把它们收进本 .py（stdlib 下的 .py 被门禁当作「光明模块」，
-    不计入直调），.light 侧零直调即过门禁。
-  - 传输层与 §2.2 的 HTTP服务端.light 同源：那里也是「socket 底座 + 光明编排」，本文件
-    是 worker 侧的客户端对应物（同一套 JSON-RPC over HTTP/1.1 线协议）。
+- `socket`（open_connection/网络收发）：进程间通信绕不开内核 socket；光明无 socket 原语。
+  期望内置：无（网络传输整层待光明化，见交付报告 §1.2 偏离登记）。
+- `json`（解析/序列化）：线协议（JSON-RPC 2.0）编解码；光明无 JSON 原语。
+  期望内置：解析JSON / 序列化JSON（已在 stdlib/builtins.py 有实现，此处走转发）。
+- `time.monotonic`（单调时钟）：心跳超时/请求硬超时的截止时刻，墙钟会被校时拨回。
+  期望内置：单调时钟()（已在 任务书/缺失内置清单.json 立项）。
+- `os.urandom`（随机标识）：节点ID/任务ID/幂等键/会话令牌 的生成底座，必须 CSPRNG。
+  期望内置：随机字节()（已在 任务书/缺失内置清单.json 立项）。
+- `hmac.compare_digest`（常量时间比较）：X-Auth-Token 校验，防时序侧信道。
+  期望内置：常量时间比较()（S2 返工已立项，见 任务书/缺失内置清单.json）。
+- `asyncio`（事件循环/Lock/Event/gather/wait_for）：异步并发原语；光明侧经
+  stdlib/并发.light 与 E9 原语表达，本文件只在最底层桥接。
+- `os.environ`（环境变量）：配置注入（DUAN_NODE_ID_DIR 等）。
+  期望内置：环境枚举()（已在 任务书/缺失内置清单.json 立项）。
+
+**注意**：`客户端类`（:177 起）**不是系统边界**——它是手写的完整 HTTP/1.1 + JSON-RPC
+客户端（建连/拼请求行/解析 Content-Length），是 S2 的现实取舍（全仓无光明 HTTP 客户端），
+已登记为一条「传输层偏离 + 客户端侧待光明化」欠账（交付报告 §1.2 / §7），S3 消除。
 """
 import asyncio
 import hmac
@@ -189,6 +201,9 @@ class 客户端类:
         self._读取器 = None
         self._写入器 = None
         self._下一个编号 = 1
+        # keep-alive 单连接串行化锁：独立心跳协程与 领任务/交结果 主循环并发时，
+        # 两个协程交替写同一 socket 会帧错乱（响应 A 读成响应 B）。
+        self._锁 = asyncio.Lock()
 
     def 带令牌(self, 令牌):
         self.令牌 = 令牌
@@ -206,23 +221,24 @@ class 客户端类:
                 asyncio.open_connection(self.主机, self.端口), self.超时)
 
     async def 请求(self, 方法, 参数):
-        编号 = self._下一个编号
-        self._下一个编号 += 1
-        载荷 = {"jsonrpc": "2.0", "方法": 方法, "参数": 参数, "id": 编号}
-        体 = 序列化(载荷).encode("utf-8")
-        令牌头 = ""
-        if self.令牌:
-            令牌头 = "X-Auth-Token: %s\r\n" % self.令牌
-        请求行 = (
-            "POST /rpc HTTP/1.1\r\n"
-            "Host: %s\r\n"
-            "Content-Type: application/json; charset=utf-8\r\n"
-            "%s"
-            "Content-Length: %d\r\n"
-            "Connection: keep-alive\r\n\r\n" % (self.主机, 令牌头, len(体))
-        ).encode("utf-8") + 体
-        await self._发送(请求行)
-        return await self._读响应()
+        async with self._锁:
+            编号 = self._下一个编号
+            self._下一个编号 += 1
+            载荷 = {"jsonrpc": "2.0", "方法": 方法, "参数": 参数, "id": 编号}
+            体 = 序列化(载荷).encode("utf-8")
+            令牌头 = ""
+            if self.令牌:
+                令牌头 = "X-Auth-Token: %s\r\n" % self.令牌
+            请求行 = (
+                "POST /rpc HTTP/1.1\r\n"
+                "Host: %s\r\n"
+                "Content-Type: application/json; charset=utf-8\r\n"
+                "%s"
+                "Content-Length: %d\r\n"
+                "Connection: keep-alive\r\n\r\n" % (self.主机, 令牌头, len(体))
+            ).encode("utf-8") + 体
+            await self._发送(请求行)
+            return await self._读响应()
 
     async def _发送(self, 请求行):
         try:

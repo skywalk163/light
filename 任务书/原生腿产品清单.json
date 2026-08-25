@@ -354,19 +354,19 @@
       "阻断": "依赖Python标准库：模块解析器找不到 socket（搜 stdlib/分布式/socket.light|.py 后 ModuleNotFoundError），time 同理。F9 S1 新增，主线在合并点真编译实测 compile_light_typed",
       "首个未定义节点": "socket"
     },
-    "master": {
-      "状态": "未实测",
-      "阻断": ""
-    },
-    "worker": {
-      "状态": "未实测",
-      "阻断": ""
-    },
     "主控": {
       "状态": "未实测",
       "阻断": ""
     },
     "节点": {
+      "状态": "未实测",
+      "阻断": ""
+    },
+    "调度核心": {
+      "状态": "未实测",
+      "阻断": ""
+    },
+    "节点核心": {
       "状态": "未实测",
       "阻断": ""
     }
@@ -480,8 +480,9 @@
     "「同名.py影子」shadow 说法与任务书 §2.3 的 52 个一致：.light 是 decl 0 空壳、实现在同名 .py。",
     "「依赖Python标准库」指模块 import 了原生腿没有的 Python 内建模块（os/re/sys/…），收集器拒绝。",
     "「代码生成不支持」指纯 .light 里命中了 codegen_typed 分派链未覆盖的节点（NotImplementedError），属 A9/后续轮次。",
-    "M23「≥60% stdlib 可原生编译」分母=79（D9 S1 新增 路径运算、操作系统；F9 S1 新增 分布式/HTTP服务端），本轮仅列表工具 1 个可编译（1.27%），主要被同名.py影子（52）压住，需 stdlib 真 .light 化。",
+    "M23「≥60% stdlib 可原生编译」分母=79（D9 S1 新增 路径运算、操作系统；F9 S1 新增 HTTP服务端（S2 上移至 stdlib/ 根目录）），本轮仅列表工具 1 个可编译（1.27%），主要被同名.py影子（52）压住，需 stdlib 真 .light 化。",
     "D9 S1 记账：新增两模块均已真编译实测（compile_light_typed），结论 不可编译 —— 原生腿缺 替换字符串 / 连接路径 两个内置注册点；因分母从 76 升到 78，可编译比例 1.32%→1.28% 会打红「只升不降」，属结构性红，须由主线在 S1 合并点重建 tools/ci/native_product_baseline.json（D9 不许碰基线文件）。",
     "B9 S2 记账：`run/compile --backend llvm` 这条从 CLI路径状态表 挪进 已摘除CLI路径（源码 choices 里已无该取值，实测 rc=2 invalid choice）。指标变化：cli_broken 1→0（只降不升，门禁不红）、cli_total 10→9（基线不对 cli_total 设判据）。基线 tools/ci/native_product_baseline.json 仍写 cli_broken=1 / cli_total=10，B9 S2 不碰基线文件，须由主线在 S2 合并点重建。"
   ]
 }
+
