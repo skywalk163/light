@@ -52,6 +52,8 @@ from 并发 import (
     吞异常等待,
     带限流,
     带限流收集异常,
+    有界队列类,
+    滑动窗口类,
 )
 from 重试 import 重试
 
@@ -539,6 +541,96 @@ class TestTaskPool:
         )
         # 辅助：t1 真的跑了 ~0.30s（说明没被机器抖动压缩得太离谱）
         assert t1_持续 >= 0.25, f"t1 睡眠 0.30s 实际只持续 {t1_持续:.4f}s，机器抖得太厉害：" + 诊断
+
+
+# ---------------------------------------------------------------------------
+# C5-7 有界队列 + 滑动窗口（E9-S2 §3.2 提升：从 分布式/队列.py 进 并发.light，纯光明）
+# 承诺见 任务书/E9→F9_并发语义承诺.md §10。判据与 F9 侧（test_distributed_eval_light.py
+# 的 背压/限流 两条）同一语义、双保险，这里附 E9 侧反跑锚点。
+# ---------------------------------------------------------------------------
+class TestBoundedQueue:
+    def test_backpressure_blocks_producer_when_full(self):
+        """容量 2 灌满后第三个 入队 真挂起；取走一条立即补进（背压 = 等，不抛不丢）。
+
+        反跑改坏点：删掉 并发.light 有界队列类.入队 里的 `等待 信号量获取(己.槽信号量)`
+        → 满队时 入队 立即完成 → 本断言 `not 挡住.done()` 红（背压变直进）。
+        """
+        async def 主体():
+            q = 有界队列类(2)
+            await q.入队("a")
+            await q.入队("b")
+            挡住 = asyncio.create_task(q.入队("c"))
+            await asyncio.sleep(0.1)
+            assert not 挡住.done(), "背压：满队后生产者应被挡住（入队未完成）"
+            assert q.大小() == 2, "背压：满队不应偷偷多进一条"
+            assert await q.出队() == "a", "取出的应是第一条"
+            await 挡住  # 消费者取走一个后，被挡的生产者才补进
+            assert q.大小() == 2, "背压：消费者取走后生产者才补进"
+        asyncio.run(主体())
+
+    def test_empty_wait_consumer_unblocks_after_enqueue(self):
+        """空队时 出队 被挡住（0.01s 轮询等待），入队后放行。
+
+        反跑改坏点：删掉 并发.light 有界队列类.出队 里的 当 循环 →
+        空队直接 pop → IndexError → 本断言拿不到值 → 红。
+        """
+        async def 主体():
+            q = 有界队列类(2)
+            取出 = []
+            async def 消费者():
+                取出.append(await q.出队())
+            任务 = asyncio.create_task(消费者())
+            await asyncio.sleep(0.1)
+            assert 取出 == [], "空队时消费者应被挡住"
+            await q.入队("x")
+            await 任务
+            assert 取出 == ["x"], f"入队后消费者应放行取到 x，实际 {取出}"
+        asyncio.run(主体())
+
+    def test_fifo_order_and_size_queries(self):
+        """FIFO + 大小/是否空/是否满 与 队列.py 逐条一致。
+
+        反跑改坏点：把 出队 里的 `pop(0)` 改成 `pop()`（取尾部）→ 顺序反 → 红。
+        """
+        async def 主体():
+            q = 有界队列类(2)
+            assert q.是否空() and q.大小() == 0
+            await q.入队("a")
+            await q.入队("b")
+            assert q.是否满() and not q.是否空() and q.大小() == 2
+            assert await q.出队() == "a"
+            assert await q.出队() == "b"
+            assert q.是否空()
+        asyncio.run(主体())
+
+    def test_try_enqueue_full_raises_queu_full(self):
+        """试着入队（反跑对照壳）：未满返回 真，满抛 值错误("QueueFull")。
+
+        反跑改坏点：把 试着入队 的 `小于` 改成 `小于等于`（多放一条）→ QueueFull
+        不再抛 → pytest.raises 红。
+        """
+        async def 主体():
+            q = 有界队列类(1)
+            assert q.试着入队("a") is True, "未满时 试着入队 应返回 真"
+            with pytest.raises(ValueError) as 抓到:
+                q.试着入队("b")
+            assert "QueueFull" in str(抓到.value), f"消息不对：{抓到.value}"
+        asyncio.run(主体())
+
+    def test_sliding_window_expires_old_events(self):
+        """滑动窗口：t=0 记 3 条满窗；t=1.1 滑过（窗口 1.0）旧事件过期 → 放行。
+
+        反跑改坏点：删掉 并发.light 滑动窗口类._剔除过期 里的 当 循环 →
+        数量永不衰减 → `窗.数量(1.1) == 0` 红（退化成累加计数）。
+        """
+        窗 = 滑动窗口类(3, 1.0)
+        窗.记录(0.0)
+        窗.记录(0.0)
+        窗.记录(0.0)
+        assert 窗.数量(0.0) == 3, "窗口内 3 条应计满"
+        assert not 窗.是否放行(0.0), "满窗不应放行"
+        assert 窗.数量(1.1) == 0, "窗口滑过后旧事件应过期剔除"
+        assert 窗.是否放行(1.1), "过期剔除后应放行（与固定分批不同）"
 
 
 # ---------------------------------------------------------------------------
