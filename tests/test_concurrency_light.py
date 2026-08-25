@@ -11,17 +11,31 @@ test_concurrency_light.py —— 并发编排原语行为判据（C5）
 
 反跑改坏点分别贴在对应用例 docstring；全部用真实行为（共享计数器峰值 / 时序 /
 返回值 / 是否抛出超时异常）判定，不断字符串、不上界断。
+
+E9-S2 新增（承诺.md 与实现不符的两处，主线裁决「改实现」）：
+- §2① `异步信号量` 换成 `asyncio.BoundedSemaphore`：多余 release 立抛 ValueError，
+  且**上限不会被悄悄放宽**（TestSemaphoreLimit 后两条，其中一条断并发峰值而非异常类型）
+- §2② `速率限制(每秒次数 <= 0)` 立抛 值错误 + 中文消息，失败点在构造处
+  （TestRateLimiter 后四条，含「守卫不许过宽」的反向判据）
+- §2③ harness 适配层 `编排.等令牌` 的第二次以后调用原先绕过守卫
+  （TestHarness等令牌守卫 三条，含「守卫每次过但节流状态不许重置」）
 """
 import asyncio
 import os
 import sys
 import time
+import types
 
 import pytest
 
 _STDLIB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "stdlib")
+_根目录 = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_HARNESS = os.path.join(_根目录, "examples", "harness")
+_SRC = os.path.join(_根目录, "src")
 if _STDLIB not in sys.path:
     sys.path.insert(0, _STDLIB)
+if _SRC not in sys.path:
+    sys.path.insert(0, _SRC)
 import _light_import_hook
 _light_import_hook.install([_STDLIB])
 
@@ -102,6 +116,69 @@ class TestSemaphoreLimit:
         # 时钟任务在等待区还锁着时已自行完成 —— 事件循环未被信号量等待卡住
         assert done == [0.05]
 
+    # ------------------------------------------------------------------
+    # E9-S2 §2①：有界语义 —— 多余 release 立抛，上限不会被悄悄放宽
+    # 承诺.md §2 写的是「与 BoundedSemaphore(N) 一致」，实现原先是 Semaphore。
+    # 主线裁决「改实现」→ 并发.light:25 换成 asyncio.BoundedSemaphore。
+    # ------------------------------------------------------------------
+    def test_over_release_raises_valueerror(self):
+        """release 次数 > acquire 次数 → 立抛 ValueError（有界语义）。
+
+        反跑改坏点：把 并发.light:25 的 `asyncio.BoundedSemaphore(初值)`
+        改回 `asyncio.Semaphore(初值)` → 多余 release 静默通过 →
+        本条「结果以 ValueError: 开头」断言红（实际拿到 "未抛出"）。
+        """
+        async def 主管():
+            s = 异步信号量(1)
+            await 信号量获取(s)
+            信号量释放(s)          # 正常归还：计数回到初值 1
+            try:
+                信号量释放(s)      # 多余的这一次必须炸
+                return "未抛出"
+            except ValueError as e:
+                return "ValueError:" + str(e)
+
+        结果 = asyncio.run(主管())
+        assert 结果.startswith("ValueError:"), f"多余 release 应抛 ValueError，实际 {结果}"
+
+    def test_over_release_cannot_raise_the_ceiling(self):
+        """真防护判据：不断异常类型，断「上限确实没被放宽」。
+
+        信号量(1) 上先做一次没配对的 release（把它抛的错吞掉），再放 4 路
+        带 sleep 的并发进去 —— 峰值必须仍恰为 1。
+
+        反跑改坏点：并发.light:25 换回 `asyncio.Semaphore` → 那次多余 release
+        把内部计数抬到 2 → 峰值变 2 → 本条红。
+        """
+        计数器 = {"当前": 0, "峰值": 0}
+
+        async def 受控(s):
+            await 信号量获取(s)
+            try:
+                计数器["当前"] += 1
+                if 计数器["当前"] > 计数器["峰值"]:
+                    计数器["峰值"] = 计数器["当前"]
+                await asyncio.sleep(0.03)
+                计数器["当前"] -= 1
+            finally:
+                信号量释放(s)
+
+        async def 主管():
+            s = 异步信号量(1)
+            吞到的 = None
+            try:
+                信号量释放(s)      # 没 acquire 就 release
+            except ValueError as e:
+                吞到的 = type(e).__name__
+            await asyncio.gather(*(受控(s) for _ in range(4)))
+            return 吞到的
+
+        吞到的 = asyncio.run(主管())
+        assert 计数器["峰值"] == 1, (
+            f"多余 release 之后信号量上限被放宽了：4 路并发峰值 {计数器['峰值']}，应为 1"
+        )
+        assert 吞到的 == "ValueError", f"裸 release 应被有界语义拦住，实际吞到 {吞到的}"
+
 
 # ---------------------------------------------------------------------------
 # C5-2 速率限制：时序可证
@@ -128,6 +205,134 @@ class TestRateLimiter:
         t0 = time.monotonic()
         asyncio.run(等待令牌(限制器))
         assert time.monotonic() - t0 < 0.05
+
+    # ------------------------------------------------------------------
+    # E9-S2 §2②：每秒次数 ≤ 0 —— 承诺.md §6 原写「行为未定义」，
+    # 主线裁决改成「立抛 值错误 + 中文消息」（并发.light:44-45）。
+    # ------------------------------------------------------------------
+    def test_zero_rate_raises_valueerror_with_chinese_message(self):
+        """速率限制(0) → ValueError，消息里必须点出参数名和实际值。
+
+        反跑改坏点：删掉 并发.light:44-45 那两行守卫 → 变成 `1.0 / 0` 的
+        ZeroDivisionError（ZeroDivisionError 不是 ValueError 的子类）→
+        pytest.raises(ValueError) 直接红。
+        """
+        with pytest.raises(ValueError) as 抓到:
+            速率限制(0)
+        消息 = str(抓到.value)
+        assert "每秒次数" in 消息, f"消息里没点出参数名：{消息!r}"
+        assert "必须 > 0" in 消息, f"消息里没说清约束：{消息!r}"
+        assert "0" in 消息, f"消息里没带上实际值：{消息!r}"
+
+    def test_negative_rate_raises_valueerror(self):
+        """负速率同样立抛，且实际值原样出现在消息里。
+
+        反跑改坏点：把守卫从 `小于等于 0` 改成 `等于 0` → 负数漏过去，
+        构造出一个间隔为负的限制器（等待令牌 会永远立即放行）→ 本条红。
+        """
+        for 坏值 in (-1, -0.5, -1000):
+            with pytest.raises(ValueError) as 抓到:
+                速率限制(坏值)
+            消息 = str(抓到.value)
+            assert "每秒次数" in 消息, f"速率={坏值!r} 的消息不含参数名：{消息!r}"
+            assert str(坏值) in 消息, f"速率={坏值!r} 的实际值没进消息：{消息!r}"
+
+    def test_rate_guard_fails_fast_at_construction(self):
+        """失败点在**构造处**，不是拖到首次 等待令牌 才炸。
+
+        反跑改坏点：把守卫从 速率限制 挪进 等待令牌 → 构造这一步不抛 →
+        本条断言拿到 "没炸" → 红。
+        """
+        炸在哪 = None
+        try:
+            速率限制(0)
+            炸在哪 = "没炸"
+        except ZeroDivisionError:
+            炸在哪 = "构造处-ZeroDivisionError"
+        except ValueError:
+            炸在哪 = "构造处-ValueError"
+        assert 炸在哪 == "构造处-ValueError", f"速率限制(0) 的失败形态不对：{炸在哪}"
+
+    def test_fractional_rate_still_allowed(self):
+        """守卫只拦 ≤0：0.5/s（间隔 2s）是合法速率，不许被误拦。
+
+        反跑改坏点：把守卫写成 `小于 1`（想「至少 1 次/秒」）→ 这里立红，
+        证明守卫没有过宽地吃掉合法输入。
+        """
+        限制器 = 速率限制(0.5)
+        assert 限制器["速率"] == 0.5, f"合法的分数速率被改写了：{限制器}"
+
+
+# ---------------------------------------------------------------------------
+# E9-S2 §2③ harness 侧：编排.等令牌 的守卫覆盖
+# 守卫写在 并发.light 的 速率限制 里，但 编排.等令牌 只有**首次**调用会经过它，
+# 第二次以后走 否则 分支直接改 速率 —— 那条路原先绕过了守卫。
+# ---------------------------------------------------------------------------
+def _载入编排():
+    """就地把 examples/harness/编排.light 编译到一个独立模块命名空间。
+
+    不用 _light_import_hook.install([_HARNESS])：那会把 harness 目录挂到
+    进程级的导入钩子上，同一次 pytest 会话里别的测试也会看见 harness 模块。
+    这里只要一份隔离副本，顺带保证每个用例拿到的 编排限流器 都是干净的 空。
+    """
+    from light_parser_v3 import LightParser
+    from code_generator import PythonCodeGenerator
+
+    路径 = os.path.join(_HARNESS, "编排.light")
+    with open(路径, "r", encoding="utf-8") as fh:
+        源码 = fh.read()
+    生成 = PythonCodeGenerator().generate(LightParser().parse(源码))
+    模块 = types.ModuleType("编排_E9S2隔离副本")
+    模块.__file__ = 路径
+    exec(compile(生成, 路径, "exec"), 模块.__dict__)
+    return 模块
+
+
+class TestHarness等令牌守卫:
+    def test_首次调用就拦住零速率(self):
+        编排 = _载入编排()
+        with pytest.raises(ValueError) as 抓到:
+            asyncio.run(编排.等令牌(0))
+        assert "每秒次数" in str(抓到.value), f"消息不对：{抓到.value}"
+
+    def test_第二次调用换成零速率同样拦住(self):
+        """这才是真漏点：先用合法速率把 编排限流器 建起来，再传 0。
+
+        反跑改坏点：把 编排.light:33 的 `设 已验限制器 为 速率限制(每秒次数)`
+        挪回 如果 分支里（即恢复「只有首次经过守卫」）→ 第二次调用不再抛
+        ValueError，而是在 并发.light:51 的 `1.0 / 限制器["速率"]` 处炸成
+        ZeroDivisionError → 本条断言拿到 "ZeroDivisionError" → 红。
+        """
+        编排 = _载入编排()
+        asyncio.run(编排.等令牌(10))          # 合法：把限流器建起来
+        炸成什么 = None
+        try:
+            asyncio.run(编排.等令牌(0))
+            炸成什么 = "没炸"
+        except ZeroDivisionError:
+            炸成什么 = "ZeroDivisionError"
+        except ValueError:
+            炸成什么 = "ValueError"
+        assert 炸成什么 == "ValueError", (
+            f"第二次调用传 0 时的失败形态不对：{炸成什么}（守卫被 否则 分支绕过了）"
+        )
+
+    def test_合法速率下限流器状态跨调用保留(self):
+        """守卫每次都过，但**不许**顺手把节流状态重置掉。
+
+        判据：第二次调用后 编排限流器 仍是第一次那个对象（上次放行 是跨调用状态）。
+        反跑改坏点：把 否则 分支改成 `设 编排限流器 为 已验限制器`（整体替换）
+        → 对象身份变了 → 本条红，同时节流会每次归零、速率限制形同虚设。
+        """
+        编排 = _载入编排()
+        asyncio.run(编排.等令牌(50))
+        第一个 = 编排.编排限流器
+        第一次放行 = 第一个["上次放行"]
+        asyncio.run(编排.等令牌(50))
+        assert 编排.编排限流器 is 第一个, "限流器对象被整体替换了，节流状态会归零"
+        assert 编排.编排限流器["上次放行"] > 第一次放行, (
+            "上次放行 没往前推进，说明节流没真的在计时"
+        )
 
 
 # ---------------------------------------------------------------------------
