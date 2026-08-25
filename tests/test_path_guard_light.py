@@ -585,3 +585,31 @@ class Test读写不吞错:
         with pytest.raises(路径护栏错误):
             护栏.续写(坏, b"x")
         assert not os.path.exists(坏)
+
+
+def test_移交清单的条目数与注释里的数字一致():
+    """`stdlib/路径护栏.light` 的「系统边界段」注释写着移交给 C9/B9 的条目数。
+
+    这个数字曾经写着 14 而真身已经长到 16 —— 注释腐烂了整整两轮都没人发现，
+    因为没有任何东西咬住它。这条断言把注释和源码钉在一起：以后往系统边界段里
+    加/删段落，忘了同步注释就红。
+
+    数的是「本段起至文件末尾」的类内段落声明，判据与注释的措辞一致。
+    """
+    import re
+
+    源 = os.path.join(_PROJECT, 'stdlib', '路径护栏.light')
+    with open(源, encoding='utf-8') as 句柄:
+        行表 = 句柄.read().splitlines()
+
+    起点 = [序 for 序, 行 in enumerate(行表) if re.match(r'^  # 系统边界段', 行)]
+    assert len(起点) == 1, f"「系统边界段」段头不唯一（{len(起点)} 处），判据失效"
+
+    命中 = re.search(r'当前 (\d+) 个', '\n'.join(行表[起点[0]:起点[0] + 20]))
+    assert 命中, "注释里找不到「当前 N 个」，说明措辞被改了却没同步这条判据"
+
+    声明 = [行 for 行 in 行表[起点[0]:] if re.match(r'^  段落 ', 行)]
+    assert int(命中.group(1)) == len(声明), (
+        f"注释说 {命中.group(1)} 个，系统边界段里实际有 {len(声明)} 个："
+        f"{[行.strip() for 行 in 声明]}")
+
