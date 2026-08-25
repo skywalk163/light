@@ -3,13 +3,13 @@
   "依据": "B9 探测器 _taskB9_probe_stdlib.py 逐个真编译判\"可编译/不可编译\"（source 快照），非静态读码。判据：compile_light_typed 真出 exe。",
   "摘要": {
     "可编译": 1,
-    "不可编译": 77,
-    "总数": 78
+    "不可编译": 83,
+    "总数": 84
   },
   "按阻断原因分类": {
     "同名.py影子": 52,
     "导入影子依赖": 2,
-    "代码生成不支持": 7,
+    "代码生成不支持": 12,
     "依赖Python标准库": 16,
     "可编译": 1
   },
@@ -37,6 +37,11 @@
     "HTTP": {
       "状态": "不可编译",
       "阻断": "同名 .py 影子：.light 是 decl 0 空壳，实现在同名 .py"
+    },
+    "HTTP服务端": {
+      "状态": "不可编译",
+      "阻断": "依赖Python标准库：模块解析器找不到 socket（搜 stdlib/分布式/socket.light|.py 后 ModuleNotFoundError），time 同理。F9 S1 新增，主线在合并点真编译实测 compile_light_typed",
+      "首个未定义节点": "socket"
     },
     "JSON": {
       "状态": "不可编译",
@@ -99,6 +104,26 @@
     "信号": {
       "状态": "不可编译",
       "阻断": "同名 .py 影子：.light 是 decl 0 空壳，实现在同名 .py"
+    },
+    "内置核心列表": {
+      "状态": "不可编译",
+      "阻断": "代码生成不支持：原生后端缺内置 `长`（len）注册点 —— 真编译实测 compile_light_typed 抛 NotImplementedError「未定义的段落：长」"
+    },
+    "内置核心判型": {
+      "状态": "不可编译",
+      "阻断": "代码生成不支持：原生后端缺内置 `类型`（type）注册点 —— 真编译实测 compile_light_typed 抛 NotImplementedError「未定义的段落：类型」"
+    },
+    "内置核心字典": {
+      "状态": "不可编译",
+      "阻断": "代码生成不支持：原生后端把形参上的方法调用（`映射.包含/pop/获取`）当未定义段落 —— 真编译实测抛 NotImplementedError「未定义的段落：映射」"
+    },
+    "内置核心字符串": {
+      "状态": "不可编译",
+      "阻断": "代码生成不支持：原生后端缺内置 `长`（len）注册点 —— 真编译实测 compile_light_typed 抛 NotImplementedError「未定义的段落：长」"
+    },
+    "内置核心转换": {
+      "状态": "不可编译",
+      "阻断": "代码生成不支持：原生后端缺 Python 内置透传（`str`/`int`/`float`）—— 真编译实测抛 NotImplementedError「未定义的段落：str」"
     },
     "分词": {
       "状态": "不可编译",
@@ -184,6 +209,11 @@
       "状态": "不可编译",
       "阻断": "导入 Python 标准库模块（原生腿不加载 Python）",
       "引入的Python模块": "sys"
+    },
+    "操作系统": {
+      "状态": "不可编译",
+      "阻断": "原生腿代码生成不支持源语言节点（NotImplementedError）：内置 连接路径 在原生腿没有注册点。D9 真编译实测 compile_light_typed",
+      "首个未定义节点": "连接路径"
     },
     "数学": {
       "状态": "不可编译",
@@ -296,6 +326,11 @@
       "阻断": "导入 Python 标准库模块（原生腿不加载 Python）",
       "引入的Python模块": "os"
     },
+    "路径运算": {
+      "状态": "不可编译",
+      "阻断": "原生腿代码生成不支持源语言节点（NotImplementedError）：内置 替换字符串 在原生腿没有注册点。D9 真编译实测 compile_light_typed",
+      "首个未定义节点": "替换字符串"
+    },
     "进程": {
       "状态": "不可编译",
       "阻断": "同名 .py 影子：.light 是 decl 0 空壳，实现在同名 .py"
@@ -338,21 +373,6 @@
     "颜色": {
       "状态": "不可编译",
       "阻断": "同名 .py 影子：.light 是 decl 0 空壳，实现在同名 .py"
-    },
-    "操作系统": {
-      "状态": "不可编译",
-      "阻断": "原生腿代码生成不支持源语言节点（NotImplementedError）：内置 连接路径 在原生腿没有注册点。D9 真编译实测 compile_light_typed",
-      "首个未定义节点": "连接路径"
-    },
-    "路径运算": {
-      "状态": "不可编译",
-      "阻断": "原生腿代码生成不支持源语言节点（NotImplementedError）：内置 替换字符串 在原生腿没有注册点。D9 真编译实测 compile_light_typed",
-      "首个未定义节点": "替换字符串"
-    },
-    "HTTP服务端": {
-      "状态": "不可编译",
-      "阻断": "依赖Python标准库：模块解析器找不到 socket（搜 stdlib/分布式/socket.light|.py 后 ModuleNotFoundError），time 同理。F9 S1 新增，主线在合并点真编译实测 compile_light_typed",
-      "首个未定义节点": "socket"
     }
   },
   "CLI路径状态表": [
@@ -466,7 +486,7 @@
     "「代码生成不支持」指纯 .light 里命中了 codegen_typed 分派链未覆盖的节点（NotImplementedError），属 A9/后续轮次。",
     "M23「≥60% stdlib 可原生编译」分母=79（D9 S1 新增 路径运算、操作系统；F9 S1 新增 分布式/HTTP服务端），本轮仅列表工具 1 个可编译（1.27%），主要被同名.py影子（52）压住，需 stdlib 真 .light 化。",
     "D9 S1 记账：新增两模块均已真编译实测（compile_light_typed），结论 不可编译 —— 原生腿缺 替换字符串 / 连接路径 两个内置注册点；因分母从 76 升到 78，可编译比例 1.32%→1.28% 会打红「只升不降」，属结构性红，须由主线在 S1 合并点重建 tools/ci/native_product_baseline.json（D9 不许碰基线文件）。",
-    "B9 S2 记账：`run/compile --backend llvm` 这条从 CLI路径状态表 挪进 已摘除CLI路径（源码 choices 里已无该取值，实测 rc=2 invalid choice）。指标变化：cli_broken 1→0（只降不升，门禁不红）、cli_total 10→9（基线不对 cli_total 设判据）。基线 tools/ci/native_product_baseline.json 仍写 cli_broken=1 / cli_total=10，B9 S2 不碰基线文件，须由主线在 S2 合并点重建。"
+    "B9 S2 记账：`run/compile --backend llvm` 这条从 CLI路径状态表 挪进 已摘除CLI路径（源码 choices 里已无该取值，实测 rc=2 invalid choice）。指标变化：cli_broken 1→0（只降不升，门禁不红）、cli_total 10→9（基线不对 cli_total 设判据）。基线 tools/ci/native_product_baseline.json 仍写 cli_broken=1 / cli_total=10，B9 S2 不碰基线文件，须由主线在 S2 合并点重建。",
+    "C9 S2 记账：地板搬迁新增 5 个纯光明模块（内置核心字符串/判型/列表/字典/转换），已逐个真编译实测（compile_light_typed），结论全部「不可编译」——原生腿缺 长/类型/str 三个内置注册点，且不认形参上的方法调用。登记是 native_product.py 的模块表双向咬合硬要求（不登记即红）。指标变化：分母 79→84，可编译比例 1.27%→1.19% 会打红「只升不降」，属结构性红，须由主线在 S2 合并点重建 tools/ci/native_product_baseline.json（C9 不许碰基线文件）。"
   ]
 }
-

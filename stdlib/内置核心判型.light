@@ -1,0 +1,56 @@
+# 纯光明实现 —— 内置核心判型：stdlib/builtins.py 判型类地板函数的光明真身
+# 模块名独立（无同名 .py，不遮蔽任何模块），零 Python 模块导入。
+#
+# 与 stdlib/builtins.py:746-788 的 9 个 Python 版逐字等价。每个段落上方注明对齐行号。
+# 差分测试见 tests/unit/test_地板搬迁_判型_S2.py（光明版 vs Python 原版逐条对跑）。
+#
+# 三条写法约束（已实测，勿"优化"）：
+#   1. 是整数 必须两段式（先短路 bool，再 isinstance）。原因有两条：
+#      a) `isinstance(值, int) 并且 not isinstance(值, bool)` 在光明里是代码生成错误；
+#      b) 不许改写成 `类型(值) == 类型(1)` —— 那会把 int 的子类实例判假，
+#         而 Python 版用的是 isinstance（子类为真）。差分测试有专条抓这个错译。
+#   2. 是空 必须写 `类型(值) == 类型(空)`。`值 is None` 生成非法 Python；
+#      而 `值 == 空` 会被自定义 __eq__ 恒真的对象骗过，那是放宽口径。
+#   3. 是字母/是数字/是空白 必须用 `str.isalpha(字符)` 这种类方法形态。
+#      写成 `字符.isalpha()` 时，入参不是 str 就抛 AttributeError，
+#      而 Python 版抛的是 TypeError —— 那是改写错误口径。
+
+导出 是整数 是浮点 是字符串 是列表 是字典 是空 是字母 是数字 是空白。
+
+# 对齐 stdlib/builtins.py:746 —— isinstance(值, int) and not isinstance(值, bool)
+段落 是整数 接收 值:
+  如果 isinstance(值, bool):
+    返回 假
+  返回 isinstance(值, int)
+
+# 对齐 stdlib/builtins.py:751 —— isinstance(值, float)
+段落 是浮点 接收 值:
+  返回 isinstance(值, float)
+
+# 对齐 stdlib/builtins.py:756 —— isinstance(值, str)
+段落 是字符串 接收 值:
+  返回 isinstance(值, str)
+
+# 对齐 stdlib/builtins.py:761 —— isinstance(值, list)
+段落 是列表 接收 值:
+  返回 isinstance(值, list)
+
+# 对齐 stdlib/builtins.py:766 —— isinstance(值, dict)
+段落 是字典 接收 值:
+  返回 isinstance(值, dict)
+
+# 对齐 stdlib/builtins.py:771 —— 值 is None（光明侧用类型相等表达，不走 __eq__）
+段落 是空 接收 值:
+  返回 类型(值) == 类型(空)
+
+# 对齐 stdlib/builtins.py:776 —— str.isalpha(char)
+段落 是字母 接收 字符:
+  返回 str.isalpha(字符)
+
+# 对齐 stdlib/builtins.py:781 —— str.isdigit(char)
+段落 是数字 接收 字符:
+  返回 str.isdigit(字符)
+
+# 对齐 stdlib/builtins.py:786 —— str.isspace(char)
+段落 是空白 接收 字符:
+  返回 str.isspace(字符)
