@@ -272,7 +272,7 @@ class Test内置映射与实现咬合:
     ## 为什么判据是「模块里真有这个属性」而不是「名字在 `__all__` 里」
 
     产物是用 `spec_from_file_location` + `exec_module` 把 `stdlib/builtins.py`
-    整个装进来的（`src/code_generator.py:737-741`），取属性根本不看 `__all__`。
+    整个装进来的（`src/code_generator.py:759-763`），取属性根本不看 `__all__`。
     而 `stdlib/builtins.py:1012` 的 `__all__` 实际上是个**过期的子集**：实测有
     15 个正常在用的内置不在里面（`是文件` / `列出文件` / `移动文件系统` /
     `显示宽度` / `转大写` / `转小写` / `截取` / `子串` / `字符串截取` /
@@ -322,7 +322,7 @@ class Test内置映射与实现咬合:
         `包含` 的实参顺序取「容器在前」：真调用者
         `积木库/blocks_v4/集合/集合包含.light:5` 写的是 `包含(输入, 元素)`，
         成员形式 `容器.包含(元素)` 也发射 `(元素 in 容器)`
-        （`src/code_generator.py:2933`）。三条用例把这个顺序钉住 ——
+        （`src/code_generator.py:2956`）。三条用例把这个顺序钉住 ——
         若哪天被改成「子在前」，`包含([1,2,3], 9)` 会从 False 变成抛错。
         """
         py = PythonCodeGenerator().generate(LightParser().parse(源码))
