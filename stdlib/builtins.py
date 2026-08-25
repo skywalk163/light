@@ -438,24 +438,21 @@ def 美化JSON(value: object) -> str:
 # =============================================================================
 
 def 转整数(text: str) -> int:
-    """将字符串转换为整数"""
-    try:
-        return int(text)
-    except ValueError:
-        raise RuntimeError(f"无法将 '{text}' 转换为整数")
+    """将字符串转换为整数（地板已搬迁：真身 stdlib/内置核心转换.light:15）"""
+    import 内置核心转换
+    return 内置核心转换.转整数(text)
 
 
 def 转浮点(text: str) -> float:
-    """将字符串转换为浮点数"""
-    try:
-        return float(text)
-    except ValueError:
-        raise RuntimeError(f"无法将 '{text}' 转换为浮点数")
+    """将字符串转换为浮点数（地板已搬迁：真身 stdlib/内置核心转换.light:22）"""
+    import 内置核心转换
+    return 内置核心转换.转浮点(text)
 
 
 def 转字符串(value) -> str:
-    """将值转换为字符串"""
-    return str(value)
+    """将值转换为字符串（地板已搬迁：真身 stdlib/内置核心转换.light:29）"""
+    import 内置核心转换
+    return 内置核心转换.转字符串(value)
 
 
 def 字符串长度(text: str) -> int:
@@ -504,13 +501,15 @@ def 显示宽度(text) -> int:
 
 
 def 字符串获取(text: str, index: int) -> str:
-    """获取字符串中指定位置的字符"""
-    return text[index]
+    """获取字符串中指定位置的字符（地板已搬迁：真身 stdlib/内置核心字符串.light:10）"""
+    import 内置核心字符串
+    return 内置核心字符串.字符串获取(text, index)
 
 
 def 截取(text: str, start: int, end: int) -> str:
-    """截取字符串的一部分"""
-    return text[start:end]
+    """截取字符串的一部分（地板已搬迁：真身 stdlib/内置核心字符串.light:14）"""
+    import 内置核心字符串
+    return 内置核心字符串.截取(text, start, end)
 
 
 def 分割字符串(text: str, separator: str = None) -> List[str]:
@@ -540,8 +539,9 @@ def 替换字符串(text: str, old: str, new: str) -> str:
 
 
 def 去除空白(text: str) -> str:
-    """去除首尾空白"""
-    return text.strip()
+    """去除首尾空白（地板已搬迁：真身 stdlib/内置核心字符串.light:18）"""
+    import 内置核心字符串
+    return 内置核心字符串.去除空白(text)
 
 
 def 转大写(text: str) -> str:
@@ -557,60 +557,73 @@ def 转小写(text: str) -> str:
 
 
 def 字符串包含(text: str, substring: str) -> bool:
-    """检查字符串是否包含子串"""
-    return substring in text
+    """检查字符串是否包含子串（地板已搬迁：真身 stdlib/内置核心字符串.light:22）"""
+    import 内置核心字符串
+    return 内置核心字符串.字符串包含(text, substring)
 
 
 def 开头(text: str, prefix: str) -> bool:
-    """检查字符串是否以指定前缀开头"""
-    return text.startswith(prefix)
+    """检查字符串是否以指定前缀开头（地板已搬迁：真身 stdlib/内置核心字符串.light:26）"""
+    import 内置核心字符串
+    return 内置核心字符串.开头(text, prefix)
 
 
 def 结尾(text: str, suffix: str) -> bool:
-    """检查字符串是否以指定后缀结尾"""
-    return text.endswith(suffix)
+    """检查字符串是否以指定后缀结尾（地板已搬迁：真身 stdlib/内置核心字符串.light:30）"""
+    import 内置核心字符串
+    return 内置核心字符串.结尾(text, suffix)
 
 
 def 查找子串(text: str, substring: str) -> int:
-    """查找子串位置，未找到返回-1"""
-    return text.find(substring)
+    """查找子串位置，未找到返回-1（地板已搬迁：真身 stdlib/内置核心字符串.light:34）"""
+    import 内置核心字符串
+    return 内置核心字符串.查找子串(text, substring)
 
 
 def 最后索引(text: str, substring: str) -> int:
-    """查找子串最后出现位置，未找到返回-1"""
-    return text.rfind(substring)
+    """查找子串最后出现位置，未找到返回-1（地板已搬迁：真身 stdlib/内置核心字符串.light:38）"""
+    import 内置核心字符串
+    return 内置核心字符串.最后索引(text, substring)
 
 
 def 替换字符串次数(text: str, old: str, new: str, count: int = -1) -> str:
-    """替换字符串，指定替换次数"""
-    if count < 0:
-        return text.replace(old, new)
-    return text.replace(old, new, count)
+    """替换字符串，指定替换次数（地板已搬迁：真身 stdlib/内置核心字符串.light:43）
+
+    `count=-1` 这个默认值只能留在本签名里：光明侧写不了负数默认参数
+    （`接收 x, y=-1:` 解析失败），所以光明段落收满 4 个参，由这里显式传下去。
+    """
+    import 内置核心字符串
+    return 内置核心字符串.替换字符串次数(text, old, new, count)
 
 
 def 截取到末尾(text: str, start: int) -> str:
-    """从指定位置截取到字符串末尾"""
-    return text[start:]
+    """从指定位置截取到字符串末尾（地板已搬迁：真身 stdlib/内置核心字符串.light:49）"""
+    import 内置核心字符串
+    return 内置核心字符串.截取到末尾(text, start)
 
 
 def 字符串计数(text: str, substring: str) -> int:
-    """统计子串出现次数"""
-    return text.count(substring)
+    """统计子串出现次数（地板已搬迁：真身 stdlib/内置核心字符串.light:53）"""
+    import 内置核心字符串
+    return 内置核心字符串.字符串计数(text, substring)
 
 
 def 字符串重复(text: str, times: int) -> str:
-    """重复字符串指定次数"""
-    return text * times
+    """重复字符串指定次数（地板已搬迁：真身 stdlib/内置核心字符串.light:57）"""
+    import 内置核心字符串
+    return 内置核心字符串.字符串重复(text, times)
 
 
 def 字符串反转(text: str) -> str:
-    """反转字符串"""
-    return text[::-1]
+    """反转字符串（地板已搬迁：真身 stdlib/内置核心字符串.light:62）"""
+    import 内置核心字符串
+    return 内置核心字符串.字符串反转(text)
 
 
 def 转标题(text: str) -> str:
-    """转换为标题格式（首字母大写）"""
-    return text.title()
+    """转换为标题格式（首字母大写）（地板已搬迁：真身 stdlib/内置核心字符串.light:71）"""
+    import 内置核心字符串
+    return 内置核心字符串.转标题(text)
 
 
 def 去除左侧空白(text: str) -> str:
@@ -626,18 +639,21 @@ def 去除右侧空白(text: str) -> str:
 
 
 def 字符串对齐居中(text: str, width: int, fillchar: str = ' ') -> str:
-    """居中对齐字符串"""
-    return text.center(width, fillchar)
+    """居中对齐字符串（地板已搬迁：真身 stdlib/内置核心字符串.light:75）"""
+    import 内置核心字符串
+    return 内置核心字符串.字符串对齐居中(text, width, fillchar)
 
 
 def 字符串对齐左(text: str, width: int, fillchar: str = ' ') -> str:
-    """左对齐字符串"""
-    return text.ljust(width, fillchar)
+    """左对齐字符串（地板已搬迁：真身 stdlib/内置核心字符串.light:79）"""
+    import 内置核心字符串
+    return 内置核心字符串.字符串对齐左(text, width, fillchar)
 
 
 def 字符串对齐右(text: str, width: int, fillchar: str = ' ') -> str:
-    """右对齐字符串"""
-    return text.rjust(width, fillchar)
+    """右对齐字符串（地板已搬迁：真身 stdlib/内置核心字符串.light:83）"""
+    import 内置核心字符串
+    return 内置核心字符串.字符串对齐右(text, width, fillchar)
 
 
 # =============================================================================
@@ -645,53 +661,66 @@ def 字符串对齐右(text: str, width: int, fillchar: str = ' ') -> str:
 # =============================================================================
 
 def 列(*args) -> list:
-    """创建包含指定元素的列表"""
-    return list(args)
+    """创建包含指定元素的列表（地板已搬迁：真身 stdlib/内置核心列表.light:17）"""
+    import 内置核心列表
+    return 内置核心列表.列(*args)
 
 
 def 列表创建() -> list:
-    """创建空列表"""
-    return []
+    """创建空列表（地板已搬迁：真身 stdlib/内置核心列表.light:21）"""
+    import 内置核心列表
+    return 内置核心列表.列表创建()
 
 
 def 列表长度(列表) -> int:
-    """获取列表长度"""
-    return len(列表)
+    """获取列表长度（地板已搬迁：真身 stdlib/内置核心列表.light:26）"""
+    import 内置核心列表
+    return 内置核心列表.列表长度(列表)
 
 
 def 列表获取(列表, 索引):
-    """获取列表中指定索引的元素"""
-    return 列表[索引]
+    """获取列表中指定索引的元素（地板已搬迁：真身 stdlib/内置核心列表.light:30）"""
+    import 内置核心列表
+    return 内置核心列表.列表获取(列表, 索引)
 
 
 def 列表追加(列表, 元素) -> None:
-    """向列表追加元素"""
-    列表.append(元素)
+    """向列表追加元素（地板已搬迁：真身 stdlib/内置核心列表.light:34）"""
+    import 内置核心列表
+    return 内置核心列表.列表追加(列表, 元素)
 
 
 def 列表弹出(列表, 索引: int = -1):
-    """从列表弹出元素"""
-    return 列表.pop(索引)
+    """从列表弹出元素（地板已搬迁：真身 stdlib/内置核心列表.light:38）
+
+    `索引=-1` 只能留在本签名里：光明侧写不了负数默认参数，光明段落收满 2 个参。
+    """
+    import 内置核心列表
+    return 内置核心列表.列表弹出(列表, 索引)
 
 
 def 列表插入(列表, 索引, 元素) -> None:
-    """在指定索引处插入元素"""
-    列表.insert(索引, 元素)
+    """在指定索引处插入元素（地板已搬迁：真身 stdlib/内置核心列表.light:42）"""
+    import 内置核心列表
+    return 内置核心列表.列表插入(列表, 索引, 元素)
 
 
 def 列表排序(列表, 反向: bool = False) -> None:
-    """排序列表（原地修改）"""
-    列表.sort(reverse=反向)
+    """排序列表（原地修改）（地板已搬迁：真身 stdlib/内置核心列表.light:46）"""
+    import 内置核心列表
+    return 内置核心列表.列表排序(列表, 反向)
 
 
 def 列表反转(列表) -> None:
-    """反转列表（原地修改）"""
-    列表.reverse()
+    """反转列表（原地修改）（地板已搬迁：真身 stdlib/内置核心列表.light:50）"""
+    import 内置核心列表
+    return 内置核心列表.列表反转(列表)
 
 
 def 列表包含(列表, 元素) -> bool:
-    """检查列表是否包含元素"""
-    return 元素 in 列表
+    """检查列表是否包含元素（地板已搬迁：真身 stdlib/内置核心列表.light:54）"""
+    import 内置核心列表
+    return 内置核心列表.列表包含(列表, 元素)
 
 
 # =============================================================================
@@ -699,44 +728,54 @@ def 列表包含(列表, 元素) -> bool:
 # =============================================================================
 
 def 字典创建() -> dict:
-    """创建空字典"""
-    return {}
+    """创建空字典（地板已搬迁：真身 stdlib/内置核心字典.light:13）"""
+    import 内置核心字典
+    return 内置核心字典.字典创建()
 
 
 def 字典设置(字典, 键, 值) -> None:
-    """设置字典键值"""
-    字典[键] = 值
+    """设置字典键值（地板已搬迁：真身 stdlib/内置核心字典.light:19）"""
+    import 内置核心字典
+    return 内置核心字典.字典设置(字典, 键, 值)
 
 
 def 字典删除(字典, 键) -> None:
-    """删除字典键值"""
-    if 键 in 字典:
-        del 字典[键]
+    """删除字典键值（地板已搬迁：真身 stdlib/内置核心字典.light:23）"""
+    import 内置核心字典
+    return 内置核心字典.字典删除(字典, 键)
 
 
 def 字典键列表(字典) -> list:
-    """获取字典的所有键"""
-    return list(字典.keys())
+    """获取字典的所有键（地板已搬迁：真身 stdlib/内置核心字典.light:28）"""
+    import 内置核心字典
+    return 内置核心字典.字典键列表(字典)
 
 
 def 字典值列表(字典) -> list:
-    """获取字典的所有值"""
-    return list(字典.values())
+    """获取字典的所有值（地板已搬迁：真身 stdlib/内置核心字典.light:32）"""
+    import 内置核心字典
+    return 内置核心字典.字典值列表(字典)
 
 
 def 字典项列表(字典) -> list:
-    """获取字典的所有键值对"""
-    return list(字典.items())
+    """获取字典的所有键值对（地板已搬迁：真身 stdlib/内置核心字典.light:36）"""
+    import 内置核心字典
+    return 内置核心字典.字典项列表(字典)
 
 
 def 字典包含键(字典, 键) -> bool:
-    """检查字典是否包含键"""
-    return 键 in 字典
+    """检查字典是否包含键（地板已搬迁：真身 stdlib/内置核心字典.light:40）"""
+    import 内置核心字典
+    return 内置核心字典.字典包含键(字典, 键)
 
 
 def 字典获取(字典, 键, 默认值=None):
-    """从字典获取值，不存在则返回默认值"""
-    return 字典.get(键, 默认值)
+    """从字典获取值，不存在则返回默认值（地板已搬迁：真身 stdlib/内置核心字典.light:44）
+
+    `默认值=None` 留在本签名里，光明段落收满 3 个参并由这里显式传下去。
+    """
+    import 内置核心字典
+    return 内置核心字典.字典获取(字典, 键, 默认值)
 
 
 # =============================================================================
@@ -744,48 +783,61 @@ def 字典获取(字典, 键, 默认值=None):
 # =============================================================================
 
 def 是整数(值) -> bool:
-    """检查是否为整数"""
-    return isinstance(值, int) and not isinstance(值, bool)
+    """检查是否为整数（地板已搬迁：真身 stdlib/内置核心判型.light:21）"""
+    import 内置核心判型
+    return 内置核心判型.是整数(值)
 
 
 def 是浮点(值) -> bool:
-    """检查是否为浮点数"""
-    return isinstance(值, float)
+    """检查是否为浮点数（地板已搬迁：真身 stdlib/内置核心判型.light:27）"""
+    import 内置核心判型
+    return 内置核心判型.是浮点(值)
 
 
 def 是字符串(值) -> bool:
-    """检查是否为字符串"""
-    return isinstance(值, str)
+    """检查是否为字符串（地板已搬迁：真身 stdlib/内置核心判型.light:31）"""
+    import 内置核心判型
+    return 内置核心判型.是字符串(值)
 
 
 def 是列表(值) -> bool:
-    """检查是否为列表"""
-    return isinstance(值, list)
+    """检查是否为列表（地板已搬迁：真身 stdlib/内置核心判型.light:35）"""
+    import 内置核心判型
+    return 内置核心判型.是列表(值)
 
 
 def 是字典(值) -> bool:
-    """检查是否为字典"""
-    return isinstance(值, dict)
+    """检查是否为字典（地板已搬迁：真身 stdlib/内置核心判型.light:39）"""
+    import 内置核心判型
+    return 内置核心判型.是字典(值)
 
 
 def 是空(值) -> bool:
-    """检查是否为空值"""
-    return 值 is None
+    """检查是否为空值（地板已搬迁：真身 stdlib/内置核心判型.light:43）
+
+    光明侧用 `类型(值) == 类型(空)` 表达 `值 is None`：`is None` 在光明里生成
+    非法 Python，而 `值 == 空` 会被自定义 `__eq__` 恒真的对象骗过（放宽口径）。
+    """
+    import 内置核心判型
+    return 内置核心判型.是空(值)
 
 
 def 是字母(char: str) -> bool:
-    """检查字符是否为字母"""
-    return str.isalpha(char)
+    """检查字符是否为字母（地板已搬迁：真身 stdlib/内置核心判型.light:47）"""
+    import 内置核心判型
+    return 内置核心判型.是字母(char)
 
 
 def 是数字(char: str) -> bool:
-    """检查字符是否为数字"""
-    return str.isdigit(char)
+    """检查字符是否为数字（地板已搬迁：真身 stdlib/内置核心判型.light:51）"""
+    import 内置核心判型
+    return 内置核心判型.是数字(char)
 
 
 def 是空白(char: str) -> bool:
-    """检查字符是否为空格或空白字符"""
-    return str.isspace(char)
+    """检查字符是否为空格或空白字符（地板已搬迁：真身 stdlib/内置核心判型.light:55）"""
+    import 内置核心判型
+    return 内置核心判型.是空白(char)
 
 
 # =============================================================================

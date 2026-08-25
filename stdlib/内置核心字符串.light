@@ -1,0 +1,84 @@
+# 纯光明实现 —— 内置核心字符串：builtins.py 字符串类地板的真身
+# 模块名独立（无同名 .py），零 Python 模块导入；默认值留在 builtins.py 的签名里。
+
+导出 字符串获取 截取 去除空白 字符串包含 开头 结尾。
+导出 查找子串 最后索引 替换字符串次数 截取到末尾 字符串计数。
+导出 字符串重复 字符串反转 转标题。
+导出 字符串对齐居中 字符串对齐左 字符串对齐右。
+
+# 对齐 builtins.py:506 字符串获取 —— return text[index]
+段落 字符串获取 接收 文本, 索引:
+  返回 文本[索引]
+
+# 对齐 builtins.py:511 截取 —— return text[start:end]
+段落 截取 接收 文本, 起始, 结束:
+  返回 文本[起始:结束]
+
+# 对齐 builtins.py:542 去除空白 —— return text.strip()
+段落 去除空白 接收 文本:
+  返回 文本.去除空白()
+
+# 对齐 builtins.py:559 字符串包含 —— return substring in text
+段落 字符串包含 接收 文本, 子串:
+  返回 文本.包含(子串)
+
+# 对齐 builtins.py:564 开头 —— return text.startswith(prefix)
+段落 开头 接收 文本, 前缀:
+  返回 文本.开头(前缀)
+
+# 对齐 builtins.py:569 结尾 —— return text.endswith(suffix)
+段落 结尾 接收 文本, 后缀:
+  返回 文本.结尾(后缀)
+
+# 对齐 builtins.py:574 查找子串 —— return text.find(substring)
+段落 查找子串 接收 文本, 子串:
+  返回 文本.查找(子串)
+
+# 对齐 builtins.py:579 最后索引 —— return text.rfind(substring)
+段落 最后索引 接收 文本, 子串:
+  返回 文本.rfind(子串)
+
+# 对齐 builtins.py:584 替换字符串次数 —— count<0 走无次数版，否则带次数
+# 默认值 count=-1 留在 builtins.py 的 Python 签名里（光明不写负数默认参数）
+段落 替换字符串次数 接收 文本, 旧串, 新串, 次数:
+  如果 次数 < 0:
+    返回 文本.替换(旧串, 新串)
+  返回 文本.替换(旧串, 新串, 次数)
+
+# 对齐 builtins.py:591 截取到末尾 —— return text[start:]
+段落 截取到末尾 接收 文本, 起始:
+  返回 文本[起始:]
+
+# 对齐 builtins.py:596 字符串计数 —— return text.count(substring)
+段落 字符串计数 接收 文本, 子串:
+  返回 文本.计数(子串)
+
+# 对齐 builtins.py:601 字符串重复 —— return text * times
+段落 字符串重复 接收 文本, 次数:
+  返回 文本 * 次数
+
+# 对齐 builtins.py:606 字符串反转 —— return text[::-1]
+# 不许写 文本[::-1]（步长切片被静默错译成首字符），逐字符倒序拼接
+段落 字符串反转 接收 文本:
+  设 结果 为 ""
+  设 i 为 长(文本) 减去 1
+  当 i >= 0:
+    设 结果 为 结果 加上 文本[i]
+    设 i 为 i 减去 1
+  返回 结果
+
+# 对齐 builtins.py:611 转标题 —— return text.title()
+段落 转标题 接收 文本:
+  返回 文本.title()
+
+# 对齐 builtins.py:628 字符串对齐居中 —— return text.center(width, fillchar)
+段落 字符串对齐居中 接收 文本, 宽度, 填充字符:
+  返回 文本.center(宽度, 填充字符)
+
+# 对齐 builtins.py:633 字符串对齐左 —— return text.ljust(width, fillchar)
+段落 字符串对齐左 接收 文本, 宽度, 填充字符:
+  返回 文本.ljust(宽度, 填充字符)
+
+# 对齐 builtins.py:638 字符串对齐右 —— return text.rjust(width, fillchar)
+段落 字符串对齐右 接收 文本, 宽度, 填充字符:
+  返回 文本.rjust(宽度, 填充字符)
