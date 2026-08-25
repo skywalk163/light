@@ -1,6 +1,6 @@
 {
   "说明": [
-    "分布式判据清单（第九轮总纲 §4.4 落地；骨架由 G9 录入，内容由 F9 维护）。",
+    "分布式判据清单（第九轮总纲 §4.4 落地；骨架由 G9 录入，内容由 F9 维护，S2 由 Duan 维护）。",
     "为什么九条全是 none：本轮开工时分布式是**零，不是弱** —— 逐关键词核过，无 gRPC、",
     "无 MQ 客户端（Redis/Kafka/RabbitMQ/NATS 全零）、无 RPC、无服务发现、无心跳、无选主；",
     "contrib/分布式锁.py:49 的「内存分布式锁」是进程内 threading.Lock；",
@@ -15,58 +15,64 @@
     "按清单人工复跑每条反跑，结果写进阶段合并报告。",
     "本文件放 任务书/ 而不是 docs/：docs/ 会被 tests/unit/doc_block_scan.py 扫。",
     "【F9 S2 更新】九条不再全是 none：故障隔离 = partial（连接级已修好并有四条已实跑的反跑，",
-    "节点级与 FreeBSD 实测仍缺，见该条 备注）。其余八条仍是 none，且仍是真实状态。"
+    "节点级与 FreeBSD 实测仍缺，见该条 备注）。",
+    "【Duan S2 更新】本轮把 分发 / 心跳 / 重派 / 幂等 / 结果汇聚 五条从 none 抬到 done：",
+    "master/worker 最小闭环（stdlib/分布式/master.light + worker.light，传输层复用",
+    "stdlib/HTTP服务端.light 的 JSON-RPC over HTTP/1.1）跑通，判据与反跑全部落到",
+    "tests/test_distributed_eval_light.py 与 stdlib/分布式/{master.light,队列.py} 的真实行。",
+    "背压 / 限流 仍是 partial：有界队列（满=等，S2 裁决口径）与滑动窗口（区别于分批）已实现且有反跑，",
+    "但未接入 master 派发速率、阈值/窗口仍是写死常量，故 partial。"
   ],
-  "版本": 1,
+  "版本": 2,
   "建立于轮次": "第九轮",
   "条目": [
     {
       "能力": "分发",
-      "状态": "none",
-      "判据": "",
-      "反跑": "",
+      "状态": "done",
+      "判据": "tests/test_distributed_eval_light.py:237",
+      "反跑": "改 stdlib/分布式/master.light:114：把「设 任务 为 等待 己.队列.出队()」这一句改成「返回 [[\"任务\": 空, \"全部完成\": 假], 空]」（不真从队列取任务分给 worker），tests/test_distributed_eval_light.py:237 的 `assert 和 == 1200` 与 :221 的 `assert 计数 > 0` 立即立红（假分被抓住）。",
       "本阶段目标": "S1 不做实现：只冻结线协议（JSON schema 落盘）；S2 做 master/worker 最小闭环",
-      "备注": "开工时为零。S1 已冻结线协议（任务书/分布式线协议.json，六类消息 + 幂等键规则 + 错误码表）并落地纯光明 HTTP/1.1 服务端（stdlib/分布式/HTTP服务端.light，并发 10 连接判据 tests/test_http_server_light.py:183）。M24 要求 3 节点 × ≥1000 条，条数完整、无重复计分、无静默丢条。判据必须能区分「真分给三个节点」与「一个节点跑完假装分了」——例如断言每个节点的处理条数都 > 0 且三者之和等于总条数。"
+      "备注": "S2 done。tests/test_distributed_eval_light.py::test_分发与结果汇聚 真起 1 master + 3 worker 子进程跑 1200 条，断言三节点都领到任务（每节点 > 0）且三者处理之和 == 1200——把「真分给三个节点」与「一个节点跑完假装分了」区分开。实测平台=Windows（CI 仅 FreeBSD 一个 runner，本机全绿不构成 CI 绿证据，见交付报告）。"
     },
     {
       "能力": "心跳",
-      "状态": "none",
-      "判据": "",
-      "反跑": "",
+      "状态": "done",
+      "判据": "tests/test_distributed_eval_light.py:263",
+      "反跑": "注释 stdlib/分布式/master.light:178：把「如果 现在 - 工[\"最后心跳\"] > 己.心跳超时:」这一句注释掉（不再判死），tests/test_distributed_eval_light.py:263 的 `assert 被杀节点ID in 失联` 立即立红（停心跳后 master 不标失联，身份级断言——被杀的那个节点不在失联列表）。",
       "本阶段目标": "S2：随 master/worker 最小闭环落地",
-      "备注": "开工时为零（全仓无心跳实现）。判据不许只断「发出过心跳」——要断「停止心跳后 master 在超时窗口内把该 worker 标成失联」。"
+      "备注": "S2 done。判据不只断「发出过心跳」——断「停止心跳后 master 在超时窗口内把该 worker 标成失联」。test_重派与心跳_杀节点后重派且无静默丢条 杀掉 worker #1，master 监控循环在 心跳超时(1.5s) 内将其标入 失联节点。注意：光明 捕获 异常 不兜 CancelledError（BaseException），主退出用 己.运行=假 + 服务端.停止() 让循环自然退出，不靠 cancel 注入取消异常。"
     },
     {
       "能力": "重派",
-      "状态": "none",
-      "判据": "",
-      "反跑": "",
+      "状态": "done",
+      "判据": "tests/test_distributed_eval_light.py:257",
+      "反跑": "删 stdlib/分布式/master.light:191：把监控循环里「等待 己.队列.入队(新任务)」这一句删掉（在跑任务随 worker 失联后不再重派回队列），tests/test_distributed_eval_light.py:257 的 `assert len(报告[\"条目\"]) == 1200` 立即立红（静默丢条）。",
       "本阶段目标": "S2：worker 猝死后任务重派",
-      "备注": "开工时为零。M24 的杀 worker 场景直接压在这条上：kill 掉一个 worker，它已领未完成的条目必须被重派且最终只计一次分。"
+      "备注": "S2 done。M24 的杀 worker 场景压在这条上：kill 掉一个 worker，其已领未完成条目由 master 监控循环重派（换新 幂等键、任务ID 不变），最终仍只计一次分。test_重派与心跳 杀节点后报告仍含全部 1200 条、无重复计分。重派与幂等键解耦：重派换键不影响「只计一次分」。"
     },
     {
       "能力": "幂等",
-      "状态": "none",
-      "判据": "",
-      "反跑": "",
+      "状态": "done",
+      "判据": "tests/test_distributed_eval_light.py:323",
+      "反跑": "改 stdlib/分布式/master.light:142：把重复上报分支返回的 `\"已接受\": 假` 改成 `\"已接受\": 真`（不记账去重），tests/test_distributed_eval_light.py:323 的 `assert f2[\"结果\"][\"已接受\"] is False` 立即立红（同任务计两次）。",
       "本阶段目标": "S2：幂等键，重派不重复计分",
-      "备注": "开工时为零。与重派是一对：判据要构造「同一条目被两个 worker 都跑完」的场景，断言报告里只出现一次。"
+      "备注": "S2 done。与重派是一对：test_幂等_同任务重复上报只计一次 进程内真起 master + 真实 JSON-RPC，同任务被两个 worker 重复上报，结果表只留一次、去重数 记账 +1。首报按 任务ID 在跑 校验 幂等键 匹配当前派发；重复报直接去重丢弃。"
     },
     {
       "能力": "背压",
-      "状态": "none",
-      "判据": "",
-      "反跑": "",
+      "状态": "partial",
+      "判据": "tests/test_distributed_eval_light.py:367",
+      "反跑": "改 stdlib/分布式/队列.py:有界队列类.入队：把 `await self._队列.put(项)` 改成 `self._队列.put_nowait(项)`（满即抛），tests/test_distributed_eval_light.py:367 的 `assert not 挡住.done()` 立即立红（生产者不再被挡、变成抛异常丢条）。",
       "本阶段目标": "S2：有界队列，满了按 E9 冻结的语义（抛还是等）处置",
-      "备注": "开工时为零，且卡在 E9 的并发语义承诺上（总纲 §6 第三份契约）。判据不许只断「队列有上限」——要断「灌满之后生产者真被挡住」。"
+      "备注": "S2 partial。有界队列（队列.py 有界队列类，容量=派发上界）实现「满=等」——生产者 入队 在队列满时 await put 被阻塞，不抛不偷偷多进（反跑 349 证明）。这正合 S2 裁决口径「背压 full = wait/block producer」。仍 partial 的残留欠账：① 背压只在 worker 侧 有界队列 生效，master 派发速率是无条件全速出队，未把「队列满」作为反压信号回传 master 限速；② 队列深度/阻塞时长未暴露成监控指标。跨节点全局水位/反压信令属 S3。"
     },
     {
       "能力": "限流",
-      "状态": "none",
-      "判据": "",
-      "反跑": "",
+      "状态": "partial",
+      "判据": "tests/test_distributed_eval_light.py:393",
+      "反跑": "删 stdlib/分布式/队列.py:滑动窗口类._剔除过期：把过期事件剔除循环删掉，tests/test_distributed_eval_light.py:393 的 `assert 窗.数量(1.1) == 0` 立即立红（限流退化成累加计数，与分批无异）。",
       "本阶段目标": "S2：跨节点限流",
-      "备注": "开工时为零。单机侧 stdlib/并发.light:65-73 的 带限流 已有信号量，但那是进程内。判据要能区分滑动窗口与分批（第七轮 #2 卡在这个点上，教训直接继承）。"
+      "备注": "S2 partial。滑动窗口（队列.py 滑动窗口类，上限/窗口秒 滚动过期）区别于固定分批：t=0 记满→窗口滑过后旧事件过期→放行新事件（反跑 375 证明数量衰减为 0）。仍 partial 的残留欠账：① 阈值(3)/窗口(1.0s) 是写死常量，未做成可配置、未接入 master 跨节点聚合配额；② 限流与 分发/重派 尚未在真实多节点集群里联调（本机 3 进程 × 1200 只验证了分发/心跳/重派/幂等/汇聚，限流是单元级反跑）。跨节点全局限流属 S3。"
     },
     {
       "能力": "取消传播",
@@ -78,20 +84,19 @@
     },
     {
       "能力": "结果汇聚",
-      "状态": "none",
-      "判据": "",
-      "反跑": "",
+      "状态": "done",
+      "判据": "tests/test_distributed_eval_light.py:228",
+      "反跑": "注释 stdlib/分布式/master.light:195：把「如果 长(己.结果表) == 己.总数 且 己.队列.是否空() 且 长(己.在跑) == 0: 事件设置(己.完成事件)」这一完成条件注释掉，tests/test_distributed_eval_light.py:228 的 `assert len(条目) == 1200` 立即立红（master 永远等不到完成、报告写不出完整结果）。",
       "本阶段目标": "S2：多节点结果汇总成一份报告",
-      "备注": "开工时为零。判据要断条数完整（M24 的「无静默丢条」），不许只断「报告文件存在」。"
+      "备注": "S2 done。判据断条数完整（M24 的「无静默丢条」），不只断「报告文件存在」：test_分发与结果汇聚 断言报告含全部 1200 条、无重复 任务ID（set(keys)==1200）。报告字段：总数/完成/条目(任务ID→结果)/每节点/失联节点/去重数。"
     },
     {
       "能力": "故障隔离",
       "状态": "partial",
       "判据": "tests/test_http_server_light.py:349",
-      "反跑": "改 stdlib/分布式/HTTP服务端.light:264：把 对端中途关闭时的 抛出 新建 连接中断 改成 静默返回（当合法请求处理），tests/test_http_server_light.py:349 的 错误数 >= 1 断言立即立红；连接级隔离失效则节点级隔离无从谈起。S2 另加三条可复跑反跑（已实跑，见 任务书/交付报告_F9S2.md §3）：① 改 HTTP服务端.light:178 把 否则 如果 是否可恢复接受错误(e) 这一臂删掉 → tests/test_http_server_light.py:421 在 5.05s 内红；② 删 HTTP服务端.light:430-433 连接选择器的收尾 → tests/test_http_server_light.py:516 红（建 7 / 关 4）；③ 删 HTTP服务端.light:186-187 异步接受 的 最终 关闭选择器 → 同一条红（建 7 / 关 3）",
+      "反跑": "改 stdlib/HTTP服务端.light:264：把 对端中途关闭时的 抛出 新建 连接中断 改成 静默返回（当合法请求处理），tests/test_http_server_light.py:349 的 错误数 >= 1 断言立即立红；连接级隔离失效则节点级隔离无从谈起。S2 另加三条可复跑反跑（已实跑，见 任务书/交付报告_F9S2.md §3）：① 改 HTTP服务端.light:178 把 否则 如果 是否可恢复接受错误(e) 这一臂删掉 → tests/test_http_server_light.py:421 在 5.05s 内红；② 删 HTTP服务端.light:430-433 连接选择器的收尾 → tests/test_http_server_light.py:516 红（建 7 / 关 4）；③ 删 HTTP服务端.light:186-187 异步接受 的 最终 关闭选择器 → 同一条红（建 7 / 关 3）",
       "本阶段目标": "S1：连接级故障隔离（客户端中途断开/单连接异常不影响服务端与其他连接）；S3：节点级（一个节点炸不影响其余节点）",
-      "备注": "开工时为零。【S1 合并点 partial→none，S2 修好后 none→partial】退回的取证与经过：gitea run 99（286ac1f7，runner fb5-freebsd，CI 只有这一个平台）pytest 跑到 97% 挂死约 12 分钟被杀、日志无 FAILED 行；相邻提交 7e4524b2（run 98）同一 runner 通过，差异只有 F9 这一路。S1 把根因归到「就绪探测在 kqueue 与 select 上不一致」——**该归因已被 S2 证伪并改写**（三处轮询都是先做 I/O、失败才问 selector，假阴只多睡 0.5ms、假阳只多转一圈，造不出挂死）。真根因两条，均已修：H1 accept 出来的连接套接字从未显式置非阻塞（POSIX 不继承 O_NONBLOCK，Winsock 继承 —— Windows 的绿踩在未定义行为上），阻塞 recv 冻住整个事件循环且 cancel 打不进去 → 进程只能被外部杀；H2 accept 腿把任何非 EAGAIN 错误都当停机信号，一次 ECONNABORTED/EMFILE 就永久退出监听。另修 H3 每连接泄漏一个 selector fd（FreeBSD 的 kqueue 是真 fd）、H4 是否愿等写 缺 EAGAIN 分支 + 发送侧无截止时间。抬回 partial 的依据：连接级隔离有判据、有四条已实跑的反跑，pytestmark 平台跳过已删除（不靠跳过充绿），本机 10 条全绿。为什么还不是 done：① 在 FreeBSD 上一次都没实测过（唯一的 CI runner 就是它，要等这一路进 CI 才有真数据）；② 节点级隔离（一个 worker 炸不影响其余）尚不存在，S3 验收；③ 收字节/发送字节 的截止只保「不永等」，还没有「慢客户端不拖垮整机」的配额判据。单机侧同类欠账已由 E9 的 任务池 失败模式 收掉。"
+      "备注": "开工时为零。【S1 合并点 partial→none，S2 修好后 none→partial】退回的取证与经过：gitea run 99（286ac1f7，runner fb5-freebsd，CI 只有这一个平台）pytest 跑到 97% 挂死约 12 分钟被杀、日志无 FAILED 行；相邻提交 7e4524b2（run 98）同一 runner 通过，差异只有 F9 这一路。S1 把根因归到「就绪探测在 kqueue 与 select 上不一致」——**该归因已被 S2 证伪并改写**（三处轮询都是先做 I/O、失败才问 selector，假阴只多睡 0.5ms、假阳只多转一圈，造不出挂死）。真根因两条，均已修：H1 accept 出来的连接套接字从未显式置非阻塞（POSIX 不继承 O_NONBLOCK，Winsock 继承 —— Windows 的绿踩在未定义行为上），阻塞 recv 冻住整个事件循环且 cancel 打不进去 → 进程只能被外部杀；H2 accept 腿把任何非 EAGAIN 错误都当停机信号，一次 ECONNABORTED/EMFILE 就永久退出监听。另修 H3 每连接泄漏一个 selector fd（FreeBSD 的 kqueue 是真 fd）、H4 是否愿等写 缺 EAGAIN 分支 + 发送侧无截止时间。抬回 partial 的依据：连接级隔离有判据、有四条已实跑的反跑，pytestmark 平台跳过已删除（不靠跳过充绿），本机 10 条全绿（注：HTTP服务端.light 在 S2 由 stdlib/分布式/ 上移到 stdlib/ 根目录，因光明编译器对 `HTTP服务端` 硬编码 `stdlib.lightpub.HTTP服务端`、而 lightpub 那份是旧 http.server 桥接、没有 `HTTP服务端` 类；上移到根目录触发编译器「根目录同名模块优先」走顶层导入，被导入钩子正确解析到纯光明实现）。为什么还不是 done：① 在 FreeBSD 上一次都没实测过（唯一的 CI runner 就是它，要等这一路进 CI 才有真数据）；② 节点级隔离（一个 worker 炸不影响其余）尚不存在，S3 验收；③ 收字节/发送字节 的截止只保「不永等」，还没有「慢客户端不拖垮整机」的配额判据。单机侧同类欠账已由 E9 的 任务池 失败模式 收掉。"
     }
-
   ]
 }

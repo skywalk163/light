@@ -353,6 +353,22 @@
       "状态": "不可编译",
       "阻断": "依赖Python标准库：模块解析器找不到 socket（搜 stdlib/分布式/socket.light|.py 后 ModuleNotFoundError），time 同理。F9 S1 新增，主线在合并点真编译实测 compile_light_typed",
       "首个未定义节点": "socket"
+    },
+    "master": {
+      "状态": "未实测",
+      "阻断": ""
+    },
+    "worker": {
+      "状态": "未实测",
+      "阻断": ""
+    },
+    "主控": {
+      "状态": "未实测",
+      "阻断": ""
+    },
+    "节点": {
+      "状态": "未实测",
+      "阻断": ""
     }
   },
   "CLI路径状态表": [
@@ -469,4 +485,3 @@
     "B9 S2 记账：`run/compile --backend llvm` 这条从 CLI路径状态表 挪进 已摘除CLI路径（源码 choices 里已无该取值，实测 rc=2 invalid choice）。指标变化：cli_broken 1→0（只降不升，门禁不红）、cli_total 10→9（基线不对 cli_total 设判据）。基线 tools/ci/native_product_baseline.json 仍写 cli_broken=1 / cli_total=10，B9 S2 不碰基线文件，须由主线在 S2 合并点重建。"
   ]
 }
-
