@@ -1,7 +1,7 @@
 {
   "version": 2,
   "note": "假测试门禁基线快照：本仓库当前的既有违规。新增即红；修好一批后重新生成并提交本文件。built_from_commit 是**生成基线时的 HEAD**，也就是携带本基线那个提交的父提交；若它在当前分支上不可达，说明基线是从被改写/丢弃的提交上生成的，必须重新生成。",
-  "built_from_commit": "53356b1def2a",
+  "built_from_commit": "61eb1799b94f",
   "scanned_root": ".",
   "categories": {
     "string-assert": "字符串断言式",
@@ -273,7 +273,7 @@
     },
     {
       "file": "src/code_generator.py",
-      "line": 890,
+      "line": 913,
       "cat": "not-none",
       "text": "self._add_line(\"    assert _x is not None, \\\"尝试解包空值\\\"\")"
     },
