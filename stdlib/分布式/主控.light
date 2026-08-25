@@ -1,0 +1,24 @@
+# 纯光明实现 —— 分布式 master 入口（薄包装）
+#
+# 真跑链路在 调度核心.light；这里是可手动执行的入口：
+#   python -m cli.light_unified run stdlib/分布式/主控.light
+# 配置从环境变量读取（与 examples/harness 同款约定）：
+#   主控端口文件 / 状态文件 / 报告文件 / 任务文件 / 容量 / 心跳超时
+# pytest 不走这个入口——它用 tests/test_distributed_eval_light.py 的 multiprocessing
+# 目标直接 import master 模块并 asyncio.run(master.主(...))，配置走参数。
+
+从 调度核心 导入 主
+从 节点网络 导入 取环境, 转整数
+
+异步 段落 主环境 接收:
+  设 端口文件 为 取环境("主控端口文件", "dist_master_port.txt")
+  设 状态文件 为 取环境("状态文件", "dist_master_state.json")
+  设 报告文件 为 取环境("报告文件", "dist_master_report.json")
+  设 任务文件 为 取环境("任务文件", "dist_tasks.json")
+  设 容量 为 转整数(取环境("容量", "200"), 200)
+  设 心跳超时 为 转整数(取环境("心跳超时", "1500"), 1500) / 1000.0
+  等待 主(端口文件, 状态文件, 报告文件, 任务文件, 容量, 心跳超时)
+
+异步 运行 主环境()。
+
+导出 主
