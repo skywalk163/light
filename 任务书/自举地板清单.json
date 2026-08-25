@@ -39,7 +39,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:47"
+      "证据行": "stdlib/builtins.py:80"
     },
     {
       "名字": "写入文件",
@@ -47,7 +47,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:53"
+      "证据行": "stdlib/builtins.py:86"
     },
     {
       "名字": "写入输出",
@@ -55,7 +55,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:337"
+      "证据行": "stdlib/builtins.py:376"
     },
     {
       "名字": "写入错误",
@@ -63,7 +63,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:363"
+      "证据行": "stdlib/builtins.py:402"
     },
     {
       "名字": "切换目录",
@@ -71,7 +71,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:275"
+      "证据行": "stdlib/builtins.py:314"
     },
     {
       "名字": "列出文件",
@@ -79,7 +79,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:165"
+      "证据行": "stdlib/builtins.py:198"
     },
     {
       "名字": "列出目录",
@@ -87,7 +87,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:149"
+      "证据行": "stdlib/builtins.py:182"
     },
     {
       "名字": "创建目录",
@@ -95,7 +95,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:115"
+      "证据行": "stdlib/builtins.py:148"
     },
     {
       "名字": "删除文件",
@@ -103,7 +103,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:131"
+      "证据行": "stdlib/builtins.py:164"
     },
     {
       "名字": "删除目录",
@@ -111,7 +111,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:141"
+      "证据行": "stdlib/builtins.py:174"
     },
     {
       "名字": "刷新输出",
@@ -119,7 +119,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:358"
+      "证据行": "stdlib/builtins.py:397"
     },
     {
       "名字": "参数列表",
@@ -127,7 +127,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:260"
+      "证据行": "stdlib/builtins.py:299"
     },
     {
       "名字": "当前目录",
@@ -135,7 +135,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:270"
+      "证据行": "stdlib/builtins.py:309"
     },
     {
       "名字": "打印输出",
@@ -143,7 +143,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:348"
+      "证据行": "stdlib/builtins.py:387"
     },
     {
       "名字": "打印错误",
@@ -151,7 +151,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:369"
+      "证据行": "stdlib/builtins.py:408"
     },
     {
       "名字": "执行命令",
@@ -159,7 +159,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:283"
+      "证据行": "stdlib/builtins.py:322"
     },
     {
       "名字": "文件大小",
@@ -167,7 +167,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:181"
+      "证据行": "stdlib/builtins.py:214"
     },
     {
       "名字": "文件存在",
@@ -175,7 +175,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:95"
+      "证据行": "stdlib/builtins.py:128"
     },
     {
       "名字": "时间戳",
@@ -183,7 +183,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:746"
+      "证据行": "stdlib/builtins.py:863"
     },
     {
       "名字": "是文件",
@@ -191,7 +191,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:100"
+      "证据行": "stdlib/builtins.py:133"
     },
     {
       "名字": "格式化时间",
@@ -199,7 +199,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "movable",
       "目标落点": "stdlib/日期时间轻量.light（纯计算：不读当前时间，入参已是时间戳/字符串；注意 fromtimestamp 依赖本机时区，搬迁时需显式传时区或接受 UTC）",
-      "证据行": "stdlib/builtins.py:756"
+      "证据行": "stdlib/builtins.py:873"
     },
     {
       "名字": "环境变量",
@@ -207,7 +207,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:241"
+      "证据行": "stdlib/builtins.py:280"
     },
     {
       "名字": "目录存在",
@@ -215,7 +215,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:105"
+      "证据行": "stdlib/builtins.py:138"
     },
     {
       "名字": "移动文件系统",
@@ -223,7 +223,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:296"
+      "证据行": "stdlib/builtins.py:335"
     },
     {
       "名字": "设置环境变量",
@@ -231,7 +231,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:255"
+      "证据行": "stdlib/builtins.py:294"
     },
     {
       "名字": "读取N字节",
@@ -239,7 +239,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:324"
+      "证据行": "stdlib/builtins.py:363"
     },
     {
       "名字": "读取文件",
@@ -247,7 +247,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:22"
+      "证据行": "stdlib/builtins.py:55"
     },
     {
       "名字": "读取行",
@@ -255,7 +255,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:312"
+      "证据行": "stdlib/builtins.py:351"
     },
     {
       "名字": "路径存在",
@@ -263,7 +263,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:110"
+      "证据行": "stdlib/builtins.py:143"
     },
     {
       "名字": "追加文件",
@@ -271,7 +271,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:79"
+      "证据行": "stdlib/builtins.py:112"
     },
     {
       "名字": "退出程序",
@@ -279,7 +279,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:265"
+      "证据行": "stdlib/builtins.py:304"
     },
     {
       "名字": "随机整数",
@@ -287,7 +287,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:792"
+      "证据行": "stdlib/builtins.py:909"
     },
     {
       "名字": "随机浮点",
@@ -295,7 +295,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:806"
+      "证据行": "stdlib/builtins.py:923"
     },
     {
       "名字": "随机选择",
@@ -303,7 +303,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:816"
+      "证据行": "stdlib/builtins.py:933"
     },
     {
       "名字": "分割字符串",
@@ -319,7 +319,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "has_light_impl",
       "目标落点": "stdlib/字符串工具轻量.light",
-      "证据行": "stdlib/字符串工具轻量.light:76"
+      "证据行": "stdlib/字符串工具轻量.light:99"
     },
     {
       "名字": "去除左侧空白",
@@ -327,7 +327,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "has_light_impl",
       "目标落点": "stdlib/字符串工具轻量.light",
-      "证据行": "stdlib/字符串工具轻量.light:73"
+      "证据行": "stdlib/字符串工具轻量.light:96"
     },
     {
       "名字": "字符串长度",
@@ -335,7 +335,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "has_light_impl",
       "目标落点": "stdlib/字符串工具轻量.light",
-      "证据行": "stdlib/字符串工具轻量.light:114"
+      "证据行": "stdlib/字符串工具轻量.light:137"
     },
     {
       "名字": "序列化JSON",
@@ -343,7 +343,7 @@
       "当前实现语言": "光明（stdlib/JSON.light → JSON核心.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/JSON.light（S2 已搬迁并接线；缩进默认值 None 留在 builtins.py 的 Python 签名里——None=紧凑 与 0=换行零缩进 是两种语义，必须区分）",
-      "证据行": "stdlib/JSON.light:17"
+      "证据行": "stdlib/JSON.light:19"
     },
     {
       "名字": "替换字符串",
@@ -351,7 +351,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "has_light_impl",
       "目标落点": "stdlib/字符串工具轻量.light",
-      "证据行": "stdlib/字符串工具轻量.light:67"
+      "证据行": "stdlib/字符串工具轻量.light:90"
     },
     {
       "名字": "求和",
@@ -367,7 +367,7 @@
       "当前实现语言": "光明（stdlib/JSON.light → JSON核心.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/JSON.light（S2 已搬迁并接线）",
-      "证据行": "stdlib/JSON.light:23"
+      "证据行": "stdlib/JSON.light:25"
     },
     {
       "名字": "解析JSON",
@@ -396,26 +396,26 @@
     {
       "名字": "连接字符串",
       "职责": "连接字符串列表",
-      "当前实现语言": "Python（builtins.py）",
+      "当前实现语言": "光明（stdlib/字符串工具轻量.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
-      "目标落点": "stdlib/字符串工具轻量.light",
-      "证据行": "stdlib/字符串工具轻量.light:56"
+      "目标落点": "stdlib/字符串工具轻量.light（S2 已搬迁并接线；主线裁决收严到 str.join 口径——非 str 元素抛 TypeError，消息逐字对齐 `sequence item <下标>: expected str instance, <类型名> found`。搬迁前的光明替身对非字符串元素做 转字符串 兜底，会把 TypeError 变成静默拼接）",
+      "证据行": "stdlib/字符串工具轻量.light:74"
     },
     {
       "名字": "分割扩展名",
       "职责": "分割路径为(主名, 扩展名)",
-      "当前实现语言": "Python（builtins.py）",
+      "当前实现语言": "Python（builtins.py，os.path）；纯光明替身已就位但刻意未转发",
       "分类": "movable",
-      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
-      "证据行": "stdlib/builtins.py:232"
+      "目标落点": "stdlib/内置核心路径.light:82（替身已写完并与 posixpath 逐条等价，差分测试 tests/unit/test_地板搬迁_路径_S2.py 466 条全绿）。**未转发**：stdlib/操作系统.light:26-31 本机平台 拿「连接路径(\u0022甲\u0022,\u0022乙\u0022) 里有没有反斜杠」当平台判定的唯一探针，换成只认 / 的 POSIX 语义会让 Windows 上 本机平台() 返回 posix，路径护栏/代理工具集/路径运算/harness 沙箱连带 46 条测试转红（实测 46→0）。要转发得先给平台判定换一个不依赖本函数的原语——待主线裁决。",
+      "证据行": "stdlib/builtins.py:275"
     },
     {
       "名字": "分割路径",
       "职责": "分割路径为(目录, 文件名)",
-      "当前实现语言": "Python（builtins.py）",
+      "当前实现语言": "Python（builtins.py，os.path）；纯光明替身已就位但刻意未转发",
       "分类": "movable",
-      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
-      "证据行": "stdlib/builtins.py:227"
+      "目标落点": "stdlib/内置核心路径.light:66（替身已写完并与 posixpath 逐条等价，差分测试 tests/unit/test_地板搬迁_路径_S2.py 466 条全绿）。**未转发**：stdlib/操作系统.light:26-31 本机平台 拿「连接路径(\u0022甲\u0022,\u0022乙\u0022) 里有没有反斜杠」当平台判定的唯一探针，换成只认 / 的 POSIX 语义会让 Windows 上 本机平台() 返回 posix，路径护栏/代理工具集/路径运算/harness 沙箱连带 46 条测试转红（实测 46→0）。要转发得先给平台判定换一个不依赖本函数的原语——待主线裁决。",
+      "证据行": "stdlib/builtins.py:270"
     },
     {
       "名字": "列",
@@ -660,18 +660,18 @@
     {
       "名字": "扩展名",
       "职责": "获取文件扩展名",
-      "当前实现语言": "Python（builtins.py）",
+      "当前实现语言": "Python（builtins.py，os.path）；纯光明替身已就位但刻意未转发",
       "分类": "movable",
-      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
-      "证据行": "stdlib/builtins.py:221"
+      "目标落点": "stdlib/内置核心路径.light:95（替身已写完并与 posixpath 逐条等价，差分测试 tests/unit/test_地板搬迁_路径_S2.py 466 条全绿）。**未转发**：stdlib/操作系统.light:26-31 本机平台 拿「连接路径(\u0022甲\u0022,\u0022乙\u0022) 里有没有反斜杠」当平台判定的唯一探针，换成只认 / 的 POSIX 语义会让 Windows 上 本机平台() 返回 posix，路径护栏/代理工具集/路径运算/harness 沙箱连带 46 条测试转红（实测 46→0）。要转发得先给平台判定换一个不依赖本函数的原语——待主线裁决。",
+      "证据行": "stdlib/builtins.py:264"
     },
     {
       "名字": "文件名",
       "职责": "获取路径的文件名部分",
-      "当前实现语言": "Python（builtins.py）",
+      "当前实现语言": "Python（builtins.py，os.path）；纯光明替身已就位但刻意未转发",
       "分类": "movable",
-      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
-      "证据行": "stdlib/builtins.py:216"
+      "目标落点": "stdlib/内置核心路径.light:59（替身已写完并与 posixpath 逐条等价，差分测试 tests/unit/test_地板搬迁_路径_S2.py 466 条全绿）。**未转发**：stdlib/操作系统.light:26-31 本机平台 拿「连接路径(\u0022甲\u0022,\u0022乙\u0022) 里有没有反斜杠」当平台判定的唯一探针，换成只认 / 的 POSIX 语义会让 Windows 上 本机平台() 返回 posix，路径护栏/代理工具集/路径运算/harness 沙箱连带 46 条测试转红（实测 46→0）。要转发得先给平台判定换一个不依赖本函数的原语——待主线裁决。",
+      "证据行": "stdlib/builtins.py:259"
     },
     {
       "名字": "是列表",
@@ -751,7 +751,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "movable",
       "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
-      "证据行": "stdlib/builtins.py:433"
+      "证据行": "stdlib/builtins.py:473"
     },
     {
       "名字": "替换字符串次数",
@@ -780,10 +780,10 @@
     {
       "名字": "目录名",
       "职责": "获取路径的目录部分",
-      "当前实现语言": "Python（builtins.py）",
+      "当前实现语言": "Python（builtins.py，os.path）；纯光明替身已就位但刻意未转发",
       "分类": "movable",
-      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
-      "证据行": "stdlib/builtins.py:211"
+      "目标落点": "stdlib/内置核心路径.light:48（替身已写完并与 posixpath 逐条等价，差分测试 tests/unit/test_地板搬迁_路径_S2.py 466 条全绿）。**未转发**：stdlib/操作系统.light:26-31 本机平台 拿「连接路径(\u0022甲\u0022,\u0022乙\u0022) 里有没有反斜杠」当平台判定的唯一探针，换成只认 / 的 POSIX 语义会让 Windows 上 本机平台() 返回 posix，路径护栏/代理工具集/路径运算/harness 沙箱连带 46 条测试转红（实测 46→0）。要转发得先给平台判定换一个不依赖本函数的原语——待主线裁决。",
+      "证据行": "stdlib/builtins.py:254"
     },
     {
       "名字": "结尾",
@@ -799,7 +799,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "native_required",
       "目标落点": "原生腿 runtime_typed.c（需进程 cwd：__duan_env_getcwd + path join）；S2 前保留 builtins.py",
-      "证据行": "stdlib/builtins.py:201"
+      "证据行": "stdlib/builtins.py:234"
     },
     {
       "名字": "转字符串",
@@ -836,10 +836,10 @@
     {
       "名字": "连接路径",
       "职责": "连接多个路径",
-      "当前实现语言": "Python（builtins.py）",
+      "当前实现语言": "Python（builtins.py，os.path）；纯光明替身已就位但刻意未转发",
       "分类": "movable",
-      "目标落点": "stdlib/内置核心.light（S2 分批搬迁）",
-      "证据行": "stdlib/builtins.py:206"
+      "目标落点": "stdlib/内置核心路径.light:24（替身已写完并与 posixpath 逐条等价，差分测试 tests/unit/test_地板搬迁_路径_S2.py 466 条全绿）。**未转发**：stdlib/操作系统.light:26-31 本机平台 拿「连接路径(\u0022甲\u0022,\u0022乙\u0022) 里有没有反斜杠」当平台判定的唯一探针，换成只认 / 的 POSIX 语义会让 Windows 上 本机平台() 返回 posix，路径护栏/代理工具集/路径运算/harness 沙箱连带 46 条测试转红（实测 46→0）。要转发得先给平台判定换一个不依赖本函数的原语——待主线裁决。",
+      "证据行": "stdlib/builtins.py:239"
     },
     {
       "名字": "中位数",
@@ -847,7 +847,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "duplicate",
       "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
-      "证据行": "stdlib/builtins.py:861"
+      "证据行": "stdlib/builtins.py:978"
     },
     {
       "名字": "众数",
@@ -855,7 +855,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "duplicate",
       "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
-      "证据行": "stdlib/builtins.py:876"
+      "证据行": "stdlib/builtins.py:993"
     },
     {
       "名字": "圆周率",
@@ -863,7 +863,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "duplicate",
       "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
-      "证据行": "stdlib/builtins.py:988"
+      "证据行": "stdlib/builtins.py:1114"
     },
     {
       "名字": "平均数",
@@ -871,7 +871,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "duplicate",
       "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
-      "证据行": "stdlib/builtins.py:846"
+      "证据行": "stdlib/builtins.py:963"
     },
     {
       "名字": "弧度转角度",
@@ -879,7 +879,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "duplicate",
       "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
-      "证据行": "stdlib/builtins.py:1003"
+      "证据行": "stdlib/builtins.py:1129"
     },
     {
       "名字": "方差",
@@ -887,7 +887,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "duplicate",
       "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
-      "证据行": "stdlib/builtins.py:894"
+      "证据行": "stdlib/builtins.py:1011"
     },
     {
       "名字": "标准差",
@@ -895,7 +895,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "duplicate",
       "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
-      "证据行": "stdlib/builtins.py:909"
+      "证据行": "stdlib/builtins.py:1026"
     },
     {
       "名字": "样本方差",
@@ -903,7 +903,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "duplicate",
       "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
-      "证据行": "stdlib/builtins.py:924"
+      "证据行": "stdlib/builtins.py:1041"
     },
     {
       "名字": "样本标准差",
@@ -911,7 +911,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "duplicate",
       "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
-      "证据行": "stdlib/builtins.py:939"
+      "证据行": "stdlib/builtins.py:1056"
     },
     {
       "名字": "累积和",
@@ -919,7 +919,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "duplicate",
       "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
-      "证据行": "stdlib/builtins.py:967"
+      "证据行": "stdlib/builtins.py:1093"
     },
     {
       "名字": "自然常数",
@@ -927,7 +927,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "duplicate",
       "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
-      "证据行": "stdlib/builtins.py:993"
+      "证据行": "stdlib/builtins.py:1119"
     },
     {
       "名字": "角度转弧度",
@@ -935,7 +935,7 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "duplicate",
       "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
-      "证据行": "stdlib/builtins.py:998"
+      "证据行": "stdlib/builtins.py:1124"
     },
     {
       "名字": "阶乘",
@@ -943,18 +943,20 @@
       "当前实现语言": "Python（builtins.py）",
       "分类": "duplicate",
       "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
-      "证据行": "stdlib/builtins.py:831"
+      "证据行": "stdlib/builtins.py:948"
     }
   ],
   "地板自举率_S2进度": {
-    "分子（builtins.py 已转发到光明实现的条数）": 58,
+    "分子（builtins.py 已转发到光明实现的条数）": 59,
     "分母（总数 − native_required）": 80,
-    "数值": "58/80 = 72.5%",
-    "本轮新接": 51,
+    "数值": "59/80 = 73.75%",
+    "本轮新接": 52,
     "S1 存量": "7（转大写/转小写/字符串长度/去除左侧空白/去除右侧空白/替换字符串/分割字符串 → 字符串工具轻量.light）",
-    "落点": "stdlib/内置核心字符串.light 17 条、内置核心判型.light 9 条、内置核心列表.light 10 条、内置核心字典.light 8 条、内置核心转换.light 3 条、JSON.light 3 条、列表工具.light 1 条",
-    "S2 补接的 4 条": "解析JSON/序列化JSON/美化JSON（先修 codegen 的 抛出 新建 <中文异常名> 运行期 NameError，再把 JSON核心.light 的 9 处不等价全部闭合：控制字符 \\u00XX 转义、\\b/\\f、UTF-16 代理对合成、EOF 校验、不可序列化类型改抛 RuntimeError、非字符串键按 json.dumps 口径转换、tuple 当数组、Infinity/NaN 字面量、缩进=0 语义）、求和（光明侧复刻 CPython 3.12+ Neumaier 补偿求和，与 sum() 逐位等价）",
-    "未接并记账": "连接字符串（光明版放宽 TypeError，错误口径需主线裁决）、显示宽度（需 unicodedata，会破 Python 直调门禁）、路径 6 条（os.path 平台相关词法，语义口径需主线裁决）、duplicate 13 条（S3 删码）",
+    "落点": "stdlib/内置核心字符串.light 17 条、内置核心判型.light 9 条、内置核心列表.light 10 条、内置核心字典.light 8 条、内置核心转换.light 3 条、JSON.light 3 条、列表工具.light 1 条（求和）、字符串工具轻量.light 1 条（连接字符串）",
+    "S2 补接的 4 条": "解析JSON/序列化JSON/美化JSON（先修 codegen 的 抛出 新建 <中文异常名> 运行期 NameError，再把 JSON核心.light 的 9 处不等价全部闭合）、求和（光明侧复刻 CPython 3.12+ Neumaier 补偿求和，与 sum() 逐位等价）",
+    "S2 续接补接的 1 条": "连接字符串（主线裁决「收严」：光明侧改到 str.join 口径，非 str 元素抛 TypeError、非 str 连接符抛 AttributeError，逐字复刻 CPython 消息后转发 → 字符串工具轻量.light:74）",
+    "S2 续接未接的 6 条（替身已就位）": "路径 6 条。主线已裁决「只定义光明自己的 POSIX 风格语义」，替身 stdlib/内置核心路径.light 也已写完并与 posixpath 逐条等价（466 条差分全绿），但**转发被实测阻断**：stdlib/操作系统.light:26-31 本机平台 拿「连接路径 的返回里有没有反斜杠」当平台判定的唯一探针，改成只认 / 之后 Windows 上 本机平台() 返回 posix，路径护栏/代理工具集/路径运算/harness 沙箱连带 46 条测试转红（实测 46→0）。要转发得先给平台判定换一个不依赖本函数的原语——待主线二次裁决。",
+    "未接并记账": "路径 6 条（见上）、格式化时间、显示宽度（需 unicodedata，会破 Python 直调门禁）、duplicate 13 条（S3 删码）",
     "口径": "分子只数 builtins.py 函数体真的转发到光明模块的条目（floor_bootstrap.py 校验）；证据行指到 .light 的 段落 定义行"
   }
 }

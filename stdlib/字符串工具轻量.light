@@ -52,15 +52,38 @@
     返回 文本.分割()
   返回 文本.分割(分隔符)
 
-# 用 连接符 连接 列表 的字符串
-段落 连接字符串 接收 列表们, 连接符:
+# 用 连接符 连接 列表 的字符串。
+#
+# 口径与 CPython 的 `连接符.join(列表们)` 对齐（主线裁决：收严光明侧，不许放宽
+# Python 侧）。这里**刻意不做** `转字符串` 兜底——原实现对非字符串元素自动转字符串，
+# 把 Python 的 TypeError 变成静默拼接（连接字符串([1,2], "-") 返回 "1-2"），
+# 那是把类型错误吞掉的放宽，转发给 stdlib/builtins.py:533 之后会改掉调用方的口径。
+#
+# 三条实测对齐点（CPython 3.14.7）：
+#   1. 非 str 元素 → TypeError，消息逐字为
+#      `sequence item <下标>: expected str instance, <类型名> found`；
+#      下标是**第一个**非法元素的下标（多个非法元素只报第一个），类型名取
+#      type(x).__name__（bool 报 bool、None 报 NoneType、bytes 报 bytes）。
+#   2. 判型用 isinstance 而**不是** `类型(元素) == 类型("")`：str 的子类实例
+#      CPython 是收的，用类型相等会把它误判成非法元素（那是收得过头）。
+#   3. 连接符 不是 str → AttributeError `'<类型名>' object has no attribute 'join'`，
+#      且**先于**任何元素检查（`连接符.join(...)` 里属性查找发生在最前面，
+#      所以空列表也照抛）。已知不等价：连接符 是 bytes 时 CPython 走
+#      bytes.join 抛 TypeError，这里仍抛 AttributeError（见 tests/unit/
+#      test_地板搬迁_连接字符串_S2.py 的「已知不等价」一节，那条差异被钉死在断言里）。
+段落 连接字符串 接收 列表们, 连接符 = "":
+  如果 isinstance(连接符, str) == 假:
+    抛出 属性错误("'" 加上 类型(连接符).__name__ 加上 "' object has no attribute 'join'")
   设 结果 为 ""
   设 i 为 0
   设 n 为 长(列表们)
   当 i < n:
+    设 元素 为 列表们[i]
+    如果 isinstance(元素, str) == 假:
+      抛出 类型错误("sequence item " 加上 转字符串(i) 加上 ": expected str instance, " 加上 类型(元素).__name__ 加上 " found")
     如果 i > 0:
       设 结果 为 结果 加上 连接符
-    设 结果 为 结果 加上 转字符串(列表们[i])
+    设 结果 为 结果 加上 元素
     设 i 为 i 加上 1
   返回 结果
 

@@ -237,34 +237,46 @@ def 绝对路径(path: str) -> str:
 
 
 def 连接路径(*paths: str) -> str:
-    """连接多个路径"""
+    """连接多个路径
+
+    **替身已就位但刻意未转发。** 纯光明实现在 `stdlib/内置核心路径.light:24`，
+    与 `posixpath` 逐条等价（差分测试 tests/unit/test_地板搬迁_路径_S2.py，466 条）。
+    不转发的原因是实测出来的硬阻断，不是没写完：
+    `stdlib/操作系统.light:26-31 本机平台` 把「`连接路径("甲","乙")` 里有没有反斜杠」
+    当作**平台判定的唯一探针**。换成只认 `/` 的 POSIX 语义后，Windows 上
+    `本机平台()` 返回 `posix`，`路径护栏` / `代理工具集` / `路径运算` / harness 沙箱
+    连带 46 条测试转红（实测数字，见交付报告 §12.4）。
+    要转发，得先给平台判定换一个不依赖本函数的原语 —— 那是另一条待裁决的口径。
+    """
     return os.path.join(*paths)
 
 
 def 目录名(path: str) -> str:
-    """获取路径的目录部分"""
+    """获取路径的目录部分（替身在 stdlib/内置核心路径.light:48，未转发，理由见 连接路径）"""
     return os.path.dirname(path)
 
 
 def 文件名(path: str) -> str:
-    """获取路径的文件名部分"""
+    """获取路径的文件名部分（替身在 stdlib/内置核心路径.light:59，未转发，理由见 连接路径）"""
     return os.path.basename(path)
 
 
 def 扩展名(path: str) -> str:
-    """获取文件扩展名"""
+    """获取文件扩展名（替身在 stdlib/内置核心路径.light:95，未转发，理由见 连接路径）"""
     _, ext = os.path.splitext(path)
     return ext
 
 
 def 分割路径(path: str) -> tuple:
-    """分割路径为(目录, 文件名)"""
+    """分割路径为(目录, 文件名)（替身在 stdlib/内置核心路径.light:66，未转发，理由见 连接路径）"""
     return os.path.split(path)
 
 
 def 分割扩展名(path: str) -> tuple:
-    """分割路径为(主名, 扩展名)"""
+    """分割路径为(主名, 扩展名)（替身在 stdlib/内置核心路径.light:82，未转发，理由见 连接路径）"""
     return os.path.splitext(path)
+
+
 
 
 # =============================================================================
@@ -420,7 +432,7 @@ def 解析JSON(text: str) -> object:
 
 
 def 序列化JSON(value: object, 缩进: Optional[int] = None) -> str:
-    """将光明值序列化为 JSON 字符串（地板已搬迁：真身 stdlib/JSON.light:17）
+    """将光明值序列化为 JSON 字符串（地板已搬迁：真身 stdlib/JSON.light:19）
 
     `缩进=None` 这个默认值只能留在本签名里：光明侧的 `接收 值, 缩进 = 空` 表达的是
     同一语义，但 None 与 0 必须区分（None=紧凑、0=换行零缩进），交由光明门面判定。
@@ -430,7 +442,7 @@ def 序列化JSON(value: object, 缩进: Optional[int] = None) -> str:
 
 
 def 美化JSON(value: object) -> str:
-    """美化 JSON 输出（带缩进）（地板已搬迁：真身 stdlib/JSON.light:23）"""
+    """美化 JSON 输出（带缩进）（地板已搬迁：真身 stdlib/JSON.light:25）"""
     import JSON
     return JSON.美化JSON(value)
 
@@ -459,7 +471,7 @@ def 转字符串(value) -> str:
 
 
 def 字符串长度(text: str) -> int:
-    """获取字符串长度（地板已搬迁：真身 stdlib/字符串工具轻量.light:114）"""
+    """获取字符串长度（地板已搬迁：真身 stdlib/字符串工具轻量.light:137）"""
     import 字符串工具轻量
     return 字符串工具轻量.字符串长度(text)
 
@@ -531,12 +543,19 @@ def 分割字符串(text: str, separator: str = None) -> List[str]:
 
 
 def 连接字符串(parts: List[str], separator: str = '') -> str:
-    """连接字符串列表"""
-    return separator.join(parts)
+    """连接字符串列表（地板已搬迁：真身 stdlib/字符串工具轻量.light:74）
+
+    光明侧已按主线裁决收严到 str.join 口径：非 str 元素抛 TypeError，
+    消息逐字为 `sequence item <下标>: expected str instance, <类型名> found`。
+    搬迁前的光明替身对非字符串元素做 转字符串 兜底，会把 TypeError 变成静默拼接。
+    """
+    import 字符串工具轻量
+    return 字符串工具轻量.连接字符串(parts, separator)
+
 
 
 def 替换字符串(text: str, old: str, new: str) -> str:
-    """替换字符串（地板已搬迁：真身 stdlib/字符串工具轻量.light:67）"""
+    """替换字符串（地板已搬迁：真身 stdlib/字符串工具轻量.light:90）"""
     import 字符串工具轻量
     return 字符串工具轻量.替换字符串(text, old, new)
 
@@ -630,13 +649,13 @@ def 转标题(text: str) -> str:
 
 
 def 去除左侧空白(text: str) -> str:
-    """去除左侧空白（地板已搬迁：真身 stdlib/字符串工具轻量.light:73）"""
+    """去除左侧空白（地板已搬迁：真身 stdlib/字符串工具轻量.light:96）"""
     import 字符串工具轻量
     return 字符串工具轻量.去除左侧空白(text)
 
 
 def 去除右侧空白(text: str) -> str:
-    """去除右侧空白（地板已搬迁：真身 stdlib/字符串工具轻量.light:76）"""
+    """去除右侧空白（地板已搬迁：真身 stdlib/字符串工具轻量.light:99）"""
     import 字符串工具轻量
     return 字符串工具轻量.去除右侧空白(text)
 
