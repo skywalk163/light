@@ -1792,6 +1792,21 @@ class PythonCodeGenerator:
                 from_part = f" from {from_val}"
             self._add_line(f"raise {py_exc_name}({args_str}){from_part}")
             return
+        # 检查是否 `抛出 新建 异常("消息")` —— 新建 解析成 ClassInstantiation，
+        # 走通用尾巴会发出 `_light_exc = 异常("消息")`，而 异常 这个中文名在产物里
+        # 根本没有绑定，运行到此处必 NameError（且是运行期才炸，编译期全绿）。
+        if isinstance(stmt.value, ClassInstantiation) and stmt.value.class_name in self.exception_name_map:
+            py_exc_name = self.exception_name_map[stmt.value.class_name]
+            args = []
+            for arg in stmt.value.args:
+                args.append(self._generate_expr(arg))
+            args_str = ', '.join(args)
+            from_part = ""
+            if stmt.from_expr:
+                from_val = self._generate_expr(stmt.from_expr)
+                from_part = f" from {from_val}"
+            self._add_line(f"raise {py_exc_name}({args_str}){from_part}")
+            return
         value = self._generate_expr(stmt.value)
         # 确保抛出的是合法异常对象（Python 3 不允许 raise 字符串）
         from_part = ""

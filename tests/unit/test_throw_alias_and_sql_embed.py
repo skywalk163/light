@@ -74,6 +74,71 @@ class TestThrowAlias(unittest.TestCase):
         self.assertEqual(norm(py_zhi), norm(py_pao))
 
 
+def _exec(py):
+    """exec 产物并返回命名空间（判据要落到运行期，不能只看源码）。"""
+    ns = {'__name__': '_light_test_mod'}
+    exec(compile(py, '<light-product>', 'exec'), ns)
+    return ns
+
+
+class TestThrowNewException(unittest.TestCase):
+    """`抛出 新建 异常("消息")` 的运行期 NameError 缺陷守卫。
+
+    `新建 X(...)` 解析成 ClassInstantiation，而 _generate_throw_stmt 原先只认
+    Identifier / ParagraphCall 两种形态，中文异常名走到通用尾巴就被原样发成
+    `_light_exc = 异常("消息")` —— 产物里 异常 这个名字从未绑定，编译期全绿、
+    运行到该行才 NameError。判据必须运行产物，只看源码里有没有 raise 不够。
+    """
+
+    def test_new_exception_raises_at_runtime(self):
+        ns = _exec(_compile('段 f()：\n  抛出 新建 异常("boom")\n'))
+        with self.assertRaises(Exception) as cm:
+            ns['f']()
+        # 缺陷未修时这里是 NameError（NameError 也是 Exception 的子类，
+        # 所以必须把类型钉死成 Exception 本身，且校验消息真的带上了）
+        self.assertIs(type(cm.exception), Exception)
+        self.assertEqual(cm.exception.args, ('boom',))
+
+    def test_new_exception_maps_to_python_type(self):
+        py = _compile('段 f()：\n  抛出 新建 运行时错误("x")\n')
+        lines = [l.strip() for l in py.splitlines()]
+        self.assertIn('raise RuntimeError("x")', lines)
+        # 不得再退化成未绑定名的 _light_exc 赋值
+        self.assertNotIn('_light_exc = 运行时错误("x")', lines)
+        ns = _exec(py)
+        with self.assertRaises(RuntimeError) as cm:
+            ns['f']()
+        self.assertEqual(cm.exception.args, ('x',))
+
+    def test_new_exception_without_args(self):
+        py = _compile('段 f()：\n  抛出 新建 值错误()\n')
+        self.assertIn('raise ValueError()', [l.strip() for l in py.splitlines()])
+        ns = _exec(py)
+        with self.assertRaises(ValueError):
+            ns['f']()
+
+    def test_new_form_matches_direct_form(self):
+        # 新建 形态与直呼形态必须发出同一条 raise
+        # 产物前导本来就有若干 raise（FFI 不可用、断言失败等），必须先剔掉
+        _前导 = ('FFI 不可用', 'raise ImportError()', 'raise AssertionError(_msg)')
+        norm = lambda s: [l.strip() for l in s.splitlines()
+                          if l.strip().startswith('raise ')
+                          and not any(p in l for p in _前导)]
+        py_new = _compile('段 f()：\n  抛出 新建 键错误("k")\n')
+        py_direct = _compile('段 f()：\n  抛出 键错误("k")\n')
+        self.assertEqual(norm(py_new), norm(py_direct))
+        self.assertEqual(norm(py_new), ['raise KeyError("k")'])
+
+    def test_unknown_class_still_uses_generic_tail(self):
+        # 修复只针对 exception_name_map 里的中文异常名；自定义类必须仍走通用尾巴，
+        # 否则会把用户自己的异常类静默换成内置类型。
+        py = _compile('类 我的错误：\n  段 初始化(己)：\n    过\n\n段 f()：\n  抛出 新建 我的错误()\n')
+        lines = [l.strip() for l in py.splitlines()]
+        self.assertTrue(any(l.startswith('_light_exc = ') for l in lines),
+                        '自定义异常类被错误地并进了内置异常映射分支')
+        ast.parse(py)
+
+
 class TestCatchVarBinding(unittest.TestCase):
     def test_named_catch_binds_variable(self):
         code = '试：\n  掷("坏了")\n捕 错误信息：\n  打印(错误信息)\n'
