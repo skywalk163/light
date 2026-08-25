@@ -1,7 +1,7 @@
 {
   "version": 1,
   "note": "Python 直调计数基线（第七轮 E7 建）。口径见 tools/ci/python_direct_calls.py docstring。每文件计数与总数都只许降不许升；降了要重新生成本文件。刻意不要求降到 0——那会逼出「换写法绕正则」的假降。total 必须等于 files 各项之和，不等即红（防手改总数放宽）。键不带行号：行号会随任何编辑漂移，带行号的键只会造幻影红。",
-  "built_from_commit": "61eb1799b94f",
+  "built_from_commit": "90b1d9c70a91",
   "scanned_root": ".",
   "total": 251,
   "files": {
@@ -20,13 +20,13 @@
     "examples/todo_cli/主.light": 1,
     "examples/web_crawler/crawler.light": 1,
     "examples/web_crawler/主.light": 1,
+    "stdlib/HTTP服务端.light": 6,
     "stdlib/JSONL.light": 3,
     "stdlib/SSE.light": 1,
     "stdlib/事件总线.light": 3,
     "stdlib/代理工具集.light": 2,
     "stdlib/代理循环.light": 6,
     "stdlib/伪终端.light": 98,
-    "stdlib/分布式/HTTP服务端.light": 6,
     "stdlib/大模型客户端.light": 7,
     "stdlib/字符串工具轻量.light": 5,
     "stdlib/并发.light": 4,
