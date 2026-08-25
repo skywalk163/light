@@ -197,3 +197,71 @@ def test_积木库导入的名字必须在纯光明门面的导出面内():
             if 模块 in 门面 and 名 not in 门面[模块]:
                 缺口.append((os.path.relpath(full, _ROOT), 模块, 名))
     assert 缺口 == [], "积木库要的名字不在门面导出面里（CI 积木库闸门会红）：%s" % 缺口
+
+
+# ── 第九轮 S2：地板转发 —— 运行期必须真的取光明的返回值 ──────────────────────────
+# tools/ci/floor_bootstrap.py 只能静态看到 builtins.py 的函数体里出现了那个光明模块名。
+# 它抓得到「改回 text.upper() 且删了 import」，抓不到「留一句 import 装样子、实际仍走
+# Python 老路」—— 那正是最容易发生的退化形态。所以这里用替身法给出运行期判据：
+# 把光明模块里的那个段落换成返回哨兵的替身，再调 builtins 的同名函数；拿不到哨兵，
+# 就说明返回值不是从光明来的。
+_已转发 = {
+    "转大写": ("字符串工具轻量", ("abc",), "ABC"),
+    "转小写": ("字符串工具轻量", ("ABC",), "abc"),
+    "字符串长度": ("字符串工具轻量", ("中文Ab",), 4),
+    "去除左侧空白": ("字符串工具轻量", ("  x  ",), "x  "),
+    "去除右侧空白": ("字符串工具轻量", ("  x  ",), "  x"),
+    "替换字符串": ("字符串工具轻量", ("aaa", "a", "b"), "bbb"),
+    "分割字符串": ("字符串工具轻量", ("a,b,c", ","), ["a", "b", "c"]),
+}
+
+_哨兵 = "＿这是替身的返回值＿"
+
+
+def _新装地板():
+    """把 stdlib/builtins.py 当独立模块重新载入一份，避免污染其他测试的模块表。"""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "_地板副本", os.path.join(_STDLIB, "builtins.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@pytest.mark.parametrize("名字", sorted(_已转发))
+def test_地板转发的函数在运行期真的取光明的返回值(名字):
+    import importlib
+    模块名, 入参, 期望 = _已转发[名字]
+    地板 = _新装地板()
+
+    结果 = getattr(地板, 名字)(*入参)
+    assert 结果 == 期望, "%s%r 应得 %r，实得 %r" % (名字, 入参, 期望, 结果)
+
+    光明 = importlib.import_module(模块名)
+    assert getattr(光明, "__light_source__", "").endswith(".light"), (
+        "%s 不是由 .light 加载的（__light_source__=%r）"
+        % (模块名, getattr(光明, "__light_source__", None)))
+
+    原段落 = getattr(光明, 名字)
+    try:
+        setattr(光明, 名字, lambda *a, **k: _哨兵)
+        经替身 = getattr(地板, 名字)(*入参)
+    finally:
+        setattr(光明, 名字, 原段落)
+    assert 经替身 == _哨兵, (
+        "把 %s.%s 换成替身后，builtins.%s 仍返回 %r —— 说明它没真的转发，"
+        "运行期跑的还是 Python（门禁只看静态 import，抓不到这种退化）"
+        % (模块名, 名字, 名字, 经替身))
+
+
+def test_分割字符串的三条口径不许被搬迁顺手改掉():
+    """光明版用 "" 表示「按空白切」，Python 版用 None；且 "" 在 Python 语义里是错误用法。
+
+    搬迁时最容易顺手把 `separator=""` 也当成「按空白切」放过去 —— 那是把
+    `"a".split("")` 的 ValueError 悄悄吞掉，属于放宽错误检查。
+    """
+    地板 = _新装地板()
+    assert 地板.分割字符串("  a  b ") == ["a", "b"]           # None → 按空白
+    assert 地板.分割字符串("a,,b", ",") == ["a", "", "b"]     # 显式分隔符，空段要保留
+    with pytest.raises(ValueError):
+        地板.分割字符串("a", "")                              # 空分隔符仍是错误用法
