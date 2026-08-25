@@ -94,8 +94,12 @@ class TestTLSWantSeparation:
         e = BlockingIOError(errno.EAGAIN, "would block")
         e.errno = errno.EAGAIN
         assert 是否愿等读(e) is True
-        # 裸 socket 写也复用于“读缺数据”判定（recv 路径）；不关心 want-write
-        assert 是否愿等写(e) is False
+        # F9 S2 改判：裸 socket 的 EAGAIN 在**写**路径上同样是「缓冲满，等可写」——
+        # 原断言写的是 False，那正是 HTTP服务端.light 的 发送字节 把一次正常的
+        # 「稍后再发」当成致命 连接中断 的来源。两侧都判真、由调用点自己决定问哪一边
+        # （流式.light:273/377 先问读，EAGAIN 在那里仍然走「等读」，语义未变）。
+        assert 是否愿等写(e) is True
+
 
 
 # ---------------------------------------------------------------------------

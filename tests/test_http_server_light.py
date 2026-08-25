@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 """test_http_server_light.py —— F9 S1：纯光明 HTTP/1.1 服务端六判据（任务书 F9 §3.2）
+   F9 S2 增补：POSIX 挂死修复的两条判据（accept 可恢复错误 / 选择器不泄漏）。
 
 被测产物：stdlib/分布式/HTTP服务端.light（纯光明实现，socket 底座 + E9 并发原语）。
-本文件只从外部观察行为，不读源码、不注入。
+本文件主要从外部观察行为；唯一的例外是判据 8（选择器泄漏）—— fd 泄漏在 HTTP 语义上
+不可观察，只能给工厂段落记账，理由写在那条用例里。
 
-六判据（每条都写清反跑点，缺反跑不算判据 —— 总纲红线 3）：
+十判据（每条都写清反跑点，缺反跑不算判据 —— 总纲红线 3）：
   1. test_单请求往返          —— GET /hello → 200 + 默认处理器回显；完成数记账
   2. test_并发10连接          —— 10 连接 × 慢处理器(0.25s)：总耗时 < 1.2s 且 并发峰值 == 10
   3. test_chunked请求体       —— Transfer-Encoding: chunked 解码后处理器收到完整体
@@ -14,6 +16,13 @@
      「创建任务(处理连接(...))」改成「等待 处理连接(...)」），同样 10 连接
      总耗时 >= 2.0s 且 并发峰值 == 1 —— 若并发语义被改坏，本用例仍绿，
      但判据 2 的「总耗时 < 1.2s」断言立即立红。
+  7. test_accept可恢复错误不终止监听 —— S2/H2：注入 ECONNABORTED 后 accept 腿继续服务，
+     且 接受重试数 记满 2 笔
+  8. test_停机原因区分正常停机与致命错误 —— S2/H2：优雅停机后 终止原因 == "正常停机"，
+     且不多记一笔错误
+  9. test_每条连接的选择器都被关掉 —— S2/H3：新建选择器 的次数必须等于 close 的次数
+ 10. test_发送超时不无界自旋   —— S2/H4：对端恒不收时 发送字节 在截止处抛 连接中断
+
 
 反跑方式（合并点人工复跑，登记进 任务书/分布式判据清单.json）：
   改 stdlib/分布式/HTTP服务端.light 处理循环 的
@@ -21,7 +30,10 @@
   「等待 处理连接(服务端, 连接套接字)」→ 判据 2 立红（总耗时 2.5s+ 超 1.2s）。
 """
 import asyncio
+import errno
+import faulthandler
 import os
+import socket
 import sys
 import time
 
@@ -34,27 +46,52 @@ if _STDLIB not in sys.path:
 import _light_import_hook  # noqa: E402
 _light_import_hook.install([_STDLIB, _分布式])  # noqa: E402
 
-from HTTP服务端 import HTTP服务端, 处理循环  # noqa: E402
+import HTTP服务端 as 服务端模块  # noqa: E402  判据 8 要给 新建选择器 记账
+from HTTP服务端 import HTTP服务端, 处理循环, 发送字节, 连接中断  # noqa: E402
 
 # ---------------------------------------------------------------------------
-# 【第九轮 S1 合并点】FreeBSD 上整组挂死，先跳过并记账，不假装绿
+# 【第九轮 S2】FreeBSD 挂死的真根因，与 S1 合并点写错的归因
 #
-# 事实：gitea run 99（286ac1f7，runner fb5-freebsd）在 pytest 跑到 97% 后卡住约
-# 12 分钟被杀，整个 run 判 failure；上一个提交 7e4524b2（run 98）同一 runner 通过，
-# 两者之间只差 F9 这一路。F9 交付报告 §4 自报「POSIX 未实测」，这条挂死就是那笔账
-# 到期。本机 Windows 六条全绿，所以不是逻辑全错，而是非阻塞 recv/send 的就绪探测
-# 在 kqueue 上的行为与 Windows select 不一致（同类前科：第三轮 EAGAIN 数值不跨平台
-# 让读线程在 FreeBSD 上死等）。
+# 取证链（三条事实，别删）：
+#   1. gitea CI 只有一个 runner，是 FreeBSD（fb5-freebsd），一个 run 一个 job ——
+#      「本机 Windows 全绿」对 CI 零保证力。
+#   2. run 99（286ac1f7）pytest 跑到 97% 卡约 12 分钟被杀，日志里**没有 FAILED 行**。
+#   3. 相邻 run 98（7e4524b2）同一 runner 通过，两者差异只有 F9 这一路。
 #
-# 处置口径：跳过 ≠ 修好。同步把 任务书/分布式判据清单.json 的 故障隔离 从 partial
-# 退回 none —— CI 只有 FreeBSD 一个平台，在唯一的 CI 平台上跑不起来的判据不能算
-# 「部分做到」。POSIX 真修 + 状态回升由 F9 S2 负责。
+# S1 合并点把根因写成「就绪探测在 kqueue 上与 Windows select 行为不一致」——**这条
+# 站不住**，现予纠正：三处轮询都是先做 I/O、失败了才问 selector（收字节 / 发送字节 /
+# 异步接受），selector 假阴只多睡 0.5ms、假阳只多转一圈，都造不出挂死；读路径还有
+# monotonic 硬截止（本文件传 5.0s）。真根因是下面两条：
+#
+#   H1（头号，几乎确定）：accept 出来的连接套接字从未显式置非阻塞。POSIX 规定 accept
+#     返回的套接字**不继承** O_NONBLOCK（Winsock 继承 —— Windows 的绿是踩在未定义
+#     行为上的巧合）。一旦不继承，收字节 的 recv 就在内核里真阻塞 → 整个 asyncio
+#     事件循环冻结 → 同一 loop 里的客户端协程永远拿不到 CPU（双向死锁）；而且卡在
+#     系统调用里的协程 cancel 打不进去，asyncio.run 的收尾也打不进去 → 进程永不退出
+#     → 被外部杀。这唯一能解释「12 分钟零进展」，其他路径都有 5s 读超时兜底。
+#   H2：accept 腿「非 EAGAIN 即永久退出」。FreeBSD 上 accept 可能返回
+#     ECONNABORTED/EMFILE/ENFILE；此时 backlog 里的连接三次握手已由内核完成，
+#     客户端 open_connection 照样成功，然后对着一个再也不 accept 的服务端永远等。
+#
+# 两条都已在 stdlib/分布式/HTTP服务端.light 修掉（H1 段落 置非阻塞、H2 异步接受 的
+# 三类错误分派），S1 的 pytestmark skipif(freebsd) 随之删除 —— 跳过不是修好，
+# 修好了就不许继续跳。判据 故障隔离 同步从 none 抬回 partial。
+#
+# 本文件的第二条硬要求：**每个会等网络的 await 都带硬超时**。这比修 bug 本身更重要 ——
+# 挂死的红不可诊断（run 99 就是一行 FAILED 都没有，只能靠猜）。
 # ---------------------------------------------------------------------------
-pytestmark = pytest.mark.skipif(
-    sys.platform.startswith("freebsd"),
-    reason="F9 S1 的 HTTP 服务端在 FreeBSD/kqueue 上挂死（gitea run 99 卡 12 分钟被杀）；"
-           "POSIX 就绪探测交 F9 S2 修，判据 故障隔离 已同步退回 none，不靠跳过充绿",
-)
+网络超时 = 5.0        # 单次网络等待的上限（服务端读超时同为 5.0）
+用例超时 = 60.0       # 单个用例主体的上限；本机最慢用例 2.9s，留 20 倍余量
+超时异常 = (asyncio.TimeoutError, TimeoutError)
+
+
+async def 限时(可等对象, 说明, 秒=网络超时):
+    """给一次网络等待套硬上限：超时转成断言失败（带说明），不许静静地等下去。"""
+    try:
+        return await asyncio.wait_for(可等对象, 秒)
+    except 超时异常:
+        raise AssertionError(
+            "等「%s」超过 %s 秒仍未完成 —— 挂死必须表现为失败，不是卡死" % (说明, 秒))
 
 
 
@@ -65,7 +102,7 @@ async def 读响应头(读取器):
     """读到 \r\n\r\n，返回整个头区块字节。"""
     缓冲 = b""
     while b"\r\n\r\n" not in 缓冲:
-        块 = await 读取器.read(4096)
+        块 = await 限时(读取器.read(4096), "读响应头")
         if not 块:
             break
         缓冲 += 块
@@ -89,10 +126,11 @@ async def 读响应(读取器):
 
     关键：小响应「头+体」常在同一次 read 里到达，必须先从头区块剥离体，
     不能把体交给 readexactly 再读（流里已空 → IncompleteReadError）。
+    每次 read 都过 限时：服务端不回话时这里要变成失败，不是无限等待。
     """
     缓冲 = b""
     while b"\r\n\r\n" not in 缓冲:
-        块 = await 读取器.read(4096)
+        块 = await 限时(读取器.read(4096), "读响应头区")
         if not 块:
             break
         缓冲 += 块
@@ -102,7 +140,7 @@ async def 读响应(读取器):
     状态, 头字典 = 解析响应(头区块)
     内容长度 = int(头字典.get("content-length", "0"))
     while len(剩余) < 内容长度:
-        块 = await 读取器.read(4096)
+        块 = await 限时(读取器.read(4096), "读响应体")
         if not 块:
             break
         剩余 += 块
@@ -111,7 +149,7 @@ async def 读响应(读取器):
 
 async def 发请求(端口, 方法="GET", 路径="/", 头=None, 体=None, 关闭=True):
     """发一笔请求，返回 [状态码, 响应体字节, 读取器, 写入器]。"""
-    读取器, 写入器 = await asyncio.open_connection("127.0.0.1", 端口)
+    读取器, 写入器 = await 限时(asyncio.open_connection("127.0.0.1", 端口), "建立连接")
     请求 = (方法 + " " + 路径 + " HTTP/1.1\r\nHost: 127.0.0.1\r\n").encode("utf-8")
     for 名, 值 in (头 or {}).items():
         请求 += (名 + ": " + 值 + "\r\n").encode("utf-8")
@@ -119,12 +157,12 @@ async def 发请求(端口, 方法="GET", 路径="/", 头=None, 体=None, 关闭
     if 体:
         请求 += 体
     写入器.write(请求)
-    await 写入器.drain()
+    await 限时(写入器.drain(), "发请求 drain")
     状态, 体字节, _ = await 读响应(读取器)
     if 关闭:
         写入器.close()
         try:
-            await 写入器.wait_closed()
+            await 限时(写入器.wait_closed(), "关连接")
         except Exception:
             pass
     return 状态, 体字节, 读取器, 写入器
@@ -139,9 +177,10 @@ async def 复用发请求(读取器, 写入器, 端口, 方法="GET", 路径="/"
     if 体:
         请求 += 体
     写入器.write(请求)
-    await 写入器.drain()
+    await 限时(写入器.drain(), "复用发请求 drain")
     状态, 体字节, _ = await 读响应(读取器)
     return 状态, 体字节
+
 
 
 # ---------------------------------------------------------------------------
@@ -165,24 +204,40 @@ async def 慢处理器(请求):
 # ---------------------------------------------------------------------------
 # 主管：起服务端 → 跑主体 → 停服务端（端口一律内核分配，bind 0）
 # ---------------------------------------------------------------------------
-def 跑服务端(处理器, 主体, 超时=5.0):
-    """同步入口：内部 asyncio.run。服务器与循环任务都保证清理。"""
+def 跑服务端(处理器, 主体, 超时=5.0, 包装监听=None):
+    """同步入口：内部 asyncio.run。服务器与循环任务都保证清理。
+
+    包装监听：可选，拿到监听套接字返回一个替身（判据 7 用它注入 accept 错误）。
+
+    看门狗（faulthandler）：asyncio.wait_for 只拦得住「协程在等」，拦不住「事件循环
+    本身被一个阻塞的系统调用冻住」—— H1 的挂死正是后者：recv 卡在内核里，loop 里
+    没有任何东西能跑，所有 wait_for 的定时器也就永远不会到点。这种情况只能从外部掐：
+    faulthandler 的计时器落在 C 层，到点打印全部线程栈并让进程非零退出。
+    一条 90 秒、带栈的红，胜过 run 99 那种 12 分钟、零线索的超时被杀。
+    """
     服务器 = HTTP服务端(处理器, 超时)
 
     async def 主管():
         端口 = 服务器.端口()
+        if 包装监听 is not None:
+            服务器.监听套接字 = 包装监听(服务器.监听套接字)
         循环任务 = asyncio.create_task(处理循环(服务器))
         try:
-            await 主体(服务器, 端口)
+            await 限时(主体(服务器, 端口), "用例主体", 用例超时)
         finally:
             服务器.停止()
             循环任务.cancel()
             try:
-                await 循环任务
+                await 限时(循环任务, "处理循环收尾")
             except asyncio.CancelledError:
                 pass
 
-    asyncio.run(主管())
+    faulthandler.dump_traceback_later(用例超时 + 30.0, exit=True)
+    try:
+        asyncio.run(主管())
+    finally:
+        faulthandler.cancel_dump_traceback_later()
+
 
 
 # ===========================================================================
@@ -327,3 +382,221 @@ def test_并发改串行_串行确实慢():
 # ---------------------------------------------------------------------------
 async def 快处理器(请求):
     return {"状态": 200, "头": {}, "体": "ok"}
+
+
+# ===========================================================================
+# 判据 7（S2/H2）：accept 的可恢复错误不许终止监听腿
+# ===========================================================================
+class 先抛可恢复错误的监听套接字:
+    """把监听套接字包一层：头 剩余中断 次 accept 抛 ECONNABORTED，其后透传。
+
+    为什么要注入：ECONNABORTED（客户端在三次握手完成后、accept 之前就 RST）在回环
+    上按需构造不出来 —— 它依赖内核时序，FreeBSD 上偶发、Windows 上几乎不出现。
+    这一层只替换 accept 的返回，套接字本身（fileno/close/getsockname）全部透传，
+    服务端跑的还是真 socket、真 selector、真 recv。
+    """
+
+    def __init__(self, 真身, 中断次数=2):
+        self._真身 = 真身
+        self.剩余中断 = 中断次数
+        self.已注入 = 0
+
+    def accept(self):
+        if self.剩余中断 > 0:
+            self.剩余中断 -= 1
+            self.已注入 += 1
+            raise OSError(errno.ECONNABORTED, "software caused connection abort")
+        return self._真身.accept()
+
+    def fileno(self):
+        return self._真身.fileno()
+
+    def close(self):
+        return self._真身.close()
+
+    def getsockname(self):
+        return self._真身.getsockname()
+
+
+def test_accept可恢复错误不终止监听():
+    """ECONNABORTED 只该记一笔重试、继续 accept；不许把整条监听腿判死。
+
+    S1 版把任何非 EAGAIN 异常都当「服务端该停了」→ 处理循环 跳出 → 此后客户端仍能
+    connect 成功（backlog 里握手已完成）却永远等不到响应，就是 FreeBSD 挂死的第二只脚。
+
+    反跑点：删掉 stdlib/分布式/HTTP服务端.light 异步接受 里
+    「否则 如果 是否可恢复接受错误(e)」这一臂（回到「非 EAGAIN 即 返回 空」），
+    本用例第一笔请求就会在 网络超时 内拿不到响应 → 立红（实测：AssertionError
+    「等「读响应头区」超过 5.0 秒仍未完成」）。
+    """
+    盒子 = {}
+
+    def 包装(真身):
+        盒子["替身"] = 先抛可恢复错误的监听套接字(真身, 2)
+        return 盒子["替身"]
+
+    async def 主体(服务器, 端口):
+        状态, 体字节, _, _ = await 发请求(端口, "GET", "/注入后仍服务")
+        assert 状态 == 200
+        assert 体字节 == b"ok"
+        assert 盒子["替身"].已注入 == 2, "替身应真的注入了 2 次 ECONNABORTED"
+        assert 服务器.接受重试数 == 2, (
+            "两次可恢复错误应各记一笔 接受重试数，实际 %s" % 服务器.接受重试数)
+        assert 服务器.完成数 == 1
+
+    跑服务端(快处理器, 主体, 包装监听=包装)
+
+
+def test_停机原因区分正常停机与致命错误():
+    """处理循环 必须能分开「停止() 收摊」与「accept 腿炸了」。
+
+    这里走的是**优雅停机**：主体 里调 停止()，让 异步接受 自己从 当 服务端.运行中
+    退出（而不是等 跑服务端 的 cancel 掐掉它），这样测到的就是 accept 腿真实的退出路径。
+
+    反跑点：删掉 stdlib/分布式/HTTP服务端.light 异步接受 末尾的
+    「设 服务端.终止原因 为 "正常停机"」，本用例的 终止原因 断言立红（实测变成 ''），
+    并且 处理循环 会把一次正常关服记成一笔错误 → 错误数 == 0 也立红。
+    """
+
+    async def 主体(服务器, 端口):
+        # 连接留着不关（关闭=False）：客户端一关，服务端读到 EOF 会正常记一笔
+        # 连接中断（判据 5 就是靠它），那笔与「停机是否被误记成错误」无关，
+        # 混在一起会让本用例的错误数断言变成时序竞争。
+        状态, _, 读取器, 写入器 = await 发请求(端口, "GET", "/一笔", 关闭=False)
+        assert 状态 == 200
+        错误数快照 = 服务器.错误数
+        服务器.停止()
+        # 让 异步接受 自己跑到 当 运行中 为假 的出口；上限 2s，不许无界等
+        截止 = time.monotonic() + 2.0
+        while 服务器.终止原因 == "" and time.monotonic() < 截止:
+            await asyncio.sleep(0.01)
+        assert 服务器.终止原因 == "正常停机", (
+            "停止() 之后 accept 腿应自报「正常停机」，实际 %r" % 服务器.终止原因)
+        assert 服务器.错误数 == 错误数快照, (
+            "正常停机不许再记一笔错误（那是留给致命 accept 错误的），错误数 %s → %s"
+            % (错误数快照, 服务器.错误数))
+        写入器.close()
+
+    跑服务端(快处理器, 主体)
+
+
+
+
+
+# ===========================================================================
+# 判据 8（S2/H3）：每条连接惰性建的选择器都必须被关掉
+# ===========================================================================
+class 选择器记账:
+    """包住 新建选择器：记「建了几个」与「close 了几个」。
+
+    这是本文件唯一的注入点，理由：fd 泄漏在 HTTP 语义上**不可观察** —— Windows 的
+    SelectSelector 是纯 dict（漏了也不占 fd，测不出来），FreeBSD 的 KqueueSelector
+    才是真 fd。要在任何平台上守住「建了就得关」，只能给工厂记账。
+    """
+
+    def __init__(self, 原工厂):
+        self.原工厂 = 原工厂
+        self.建 = 0
+        self.关 = 0
+
+    def __call__(self):
+        self.建 += 1
+        真选择器 = self.原工厂()
+        原close = 真选择器.close
+        记账 = self
+
+        def 记账close():
+            记账.关 += 1
+            return 原close()
+
+        真选择器.close = 记账close
+        return 真选择器
+
+
+def test_每条连接的选择器都被关掉():
+    """建几个就得关几个：连接的惰性选择器 + 异步接受 的选择器都算。
+
+    S1 版 处理连接 的 最终 只关套接字、不关选择器，异步接受 的那个在 cancel 路径上
+    也漏；FreeBSD 每漏一个就是一个真 kqueue fd，叠上 CI 的 -n auto 与 jail 的 fd
+    上限，最终把 accept 推进 EMFILE。
+
+    反跑点：删掉 stdlib/分布式/HTTP服务端.light 处理连接 的 最终 里那三行
+    （设 收尾选择器 … 关闭选择器(收尾选择器)），本断言立红（实测 建 7 / 关 4）。
+    另一半：把 异步接受 的 最终: 关闭选择器(选择器) 删掉 → 同样立红。
+    """
+    记账 = 选择器记账(服务端模块.新建选择器)
+    服务端模块.新建选择器 = 记账
+    try:
+        async def 主体(服务器, 端口):
+            for i in range(3):
+                状态, _, _, _ = await 发请求(端口, "GET", "/第%d笔" % i)
+                assert 状态 == 200
+            assert 服务器.完成数 == 3
+
+        跑服务端(快处理器, 主体)
+    finally:
+        服务端模块.新建选择器 = 记账.原工厂
+
+    assert 记账.建 != 0, "记账没生效（新建选择器 没被走到），这条用例就没在测东西"
+    assert 记账.关 == 记账.建, (
+        "选择器建了 %d 个、只关了 %d 个 —— 每个未关的在 FreeBSD 上都是一个漏掉的 kqueue fd"
+        % (记账.建, 记账.关))
+
+
+# ===========================================================================
+# 判据 9（S2/H4）：写侧有 EAGAIN 分支就必须有截止时间
+# ===========================================================================
+class 恒说稍后再试的套接字:
+    """send 永远抛 EWOULDBLOCK 的套接字替身；fileno 透传一个真 fd（探测就绪 要用）。
+
+    为什么用替身而不是「灌满真缓冲」：内核愿意替你缓冲多少字节是平台自由 ——
+    Windows 上把 SO_SNDBUF 调到 4KB 再灌 1MB，send 一次都不会抛 EWOULDBLOCK（实测），
+    这条判据就会在 Windows 上恒绿、只在别的平台上有意义。这里被替换的是**操作系统的
+    答复**（「缓冲满了，稍后再试」），不是被测代码：发送字节 的截止逻辑一行没被绕过。
+    """
+
+    def __init__(self, 真fd源):
+        self._真fd源 = 真fd源
+        self.尝试次数 = 0
+
+    def send(self, 数据):
+        self.尝试次数 += 1
+        raise BlockingIOError(errno.EWOULDBLOCK, "would block")
+
+    def fileno(self):
+        return self._真fd源.fileno()
+
+
+def test_发送超时不无界自旋():
+    """对端永远不收时，发送字节 必须在 超时读取 附近抛 连接中断，而不是一直转。
+
+    背景：选择器.light 的 是否愿等写 补了 EAGAIN/EWOULDBLOCK 之后，发送字节 的
+    「愿等写 → 探测 → 让步」这条路第一次真的会被走到。S1 版那里没有任何截止时间，
+    当时不挂死只因为 是否愿等写 恒假 —— 补 errno 分支而不补 deadline，
+    这个循环就从「永不进入」变成「无上界自旋」。两件事必须一起做。
+
+    反跑点：删掉 发送字节 里「如果 time.monotonic() >= 截止: 抛出 新建 连接中断("发送超时")」
+    两行 → 本用例不再抛 连接中断，而是自旋到 限时 的 60s 上限才红（实测确认）。
+    """
+    甲, 乙 = socket.socketpair()
+    替身 = 恒说稍后再试的套接字(甲)
+    连接 = {"套接字": 替身, "选择器": None, "超时读取": 0.5}
+    try:
+        async def 主体():
+            开始 = time.monotonic()
+            with pytest.raises(连接中断):
+                await 限时(发送字节(连接, b"x" * 4096), "发送字节", 用例超时)
+            return time.monotonic() - 开始
+
+        耗时 = asyncio.run(主体())
+        assert 替身.尝试次数 > 1, "应反复重试到截止，实际只试了 %s 次" % 替身.尝试次数
+        assert 耗时 >= 0.4, "截止是 0.5s，不该在 %.3fs 就放弃（那不是超时，是别的错）" % 耗时
+        assert 耗时 < 5.0, "0.5s 的截止不该拖到 %.3fs —— 截止没起作用" % 耗时
+    finally:
+        if 连接["选择器"] is not None:
+            连接["选择器"].close()
+        甲.close()
+        乙.close()
+
+
+
