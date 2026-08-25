@@ -528,7 +528,7 @@ light --help
 |------|---------|------|
 | `light compile file.light` | `file.py` | 编译为 Python 源代码 |
 | `light compile file.light -o file.exe` | `file.exe` | 编译为 Windows 可执行文件（需 PyInstaller） |
-| `light compile file.light --backend llvm` | LLVM IR | 编译为 LLVM 中间表示 |
+| `light compile file.light --backend native` | 原生可执行文件 | 走原生腿（`--backend llvm-typed` 等价），需安装 clang |
 
 ### Python API
 
