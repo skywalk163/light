@@ -606,6 +606,45 @@ class Test真清单在册(unittest.TestCase):
             os.path.join(self._ROOT, "任务书", "分布式判据清单.json"))
         self.assertEqual({c["能力"] for c in 条目}, set(_九条))
 
+    def _真产品清单(self):
+        return NP.读清单(os.path.join(self._ROOT, "任务书", "原生腿产品清单.json"))
+
+    def test_CLI路径表与源码后端取值双向咬合(self):
+        """门禁对「表里有、源码已无」只告警（裁决见
+        `test_源码摘除后端取值只告警不判红`），于是清单腐烂在门禁输出里只是一行字：
+        B9 把 `--backend llvm` 从 `cli/light.py` 的 choices 摘掉之后，清单里那条
+        `坏` 记账在真仓库上留了整整一轮没人清。这条断言把那行告警在**真仓库**上
+        钉成红，同时一个字不改门禁的 warn 语义（临时目录那几条反跑照旧）。
+        """
+        data = self._真产品清单()
+        _问题, 统计 = NP.校验(self._ROOT, data)
+        self.assertEqual(统计["backend_已摘除"], [],
+                         "CLI路径表登记了 cli/light.py 里已无的后端取值："
+                         "要么那条路径其实还活着（去修），要么整条挪进 已摘除CLI路径")
+        表取值 = set()
+        for 条 in data["CLI路径表"]:
+            表取值.update(条["后端取值"])
+        # 连等号一起断：只断一个方向的话，两个集合可以各自漂而门禁只喊其中一边
+        self.assertEqual(表取值, set(NP.源码后端取值(self._ROOT)))
+
+    def test_已摘除归档不许藏活着的后端(self):
+        """`已摘除CLI路径` 是历史账归档区，不是豁免名单。
+
+        把一条**仍在** `choices` 里的坏路径挪进归档，`cli_broken` 会凭空掉一格 ——
+        那是白名单式消警。门禁的正向检查（源码有、表里无 → 红）拦的是「不登记」，
+        这条拦的是「登记到归档里」。
+        `llvm` 必须留在归档里：它的历史账不许被悄悄删掉。哪天真把 llvm 复活成可用
+        后端，改的人得同时动这条断言 —— 那正是应该走一次的显式裁决。
+        """
+        data = self._真产品清单()
+        choices = set(NP.源码后端取值(self._ROOT))
+        归档 = set()
+        for 条 in data.get("已摘除CLI路径") or []:
+            for m in NP._RE_后端取值.finditer(str(条.get("命令", ""))):
+                归档.update(t.strip() for t in m.group(1).split("/") if t.strip())
+        self.assertIn("llvm", 归档)
+        self.assertEqual(归档 & choices, set())
+
 
 class Test缺失内置清单在册(unittest.TestCase):
     """`任务书/缺失内置清单.json`（C9BI）与真源码咬合。

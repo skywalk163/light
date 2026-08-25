@@ -399,13 +399,6 @@
       "说明": "B9 补上两档，走 clang -Os；IR 侧不再自持 SizeOptimizer"
     },
     {
-      "命令": "run/compile --backend llvm",
-      "前端": "cli/light.py",
-      "后端": "(死腿)",
-      "状态": "坏",
-      "说明": "引用不存在的 runtime.c，已在 B9 从 choices 摘除（S1 2.1）"
-    },
-    {
       "命令": "导入 / 从X导入Y（原生腿多模块）",
       "前端": "cli/light.py",
       "后端": "compile_light_project",
@@ -425,6 +418,16 @@
       "后端": "collect_modules",
       "状态": "未打通",
       "说明": "B9 末实测仅 列表工具 可原生编译，其余被 shadow/依赖Python/代码生成阻断"
+    }
+  ],
+  "已摘除CLI路径": [
+    {
+      "命令": "run/compile --backend llvm",
+      "前端": "cli/light.py（choices 里已无此取值）",
+      "后端": "(死腿：曾引用不存在的 src/llvm/runtime.c，见 src/llvm/compiler.py 旧 string 腿)",
+      "摘除轮次": "第九轮 B9 S1 2.1（总纲「修或删，二选一」）",
+      "证据": "python -m cli.light run --backend llvm x.light → rc=2 `invalid choice: 'llvm' (choose from 'antlr', 'src', 'native', 'llvm-typed')`；tests/test_native_cli.py::Test原生run一等取值::test_死腿llvm被argparse拒绝 钉住 rc=2 + invalid choice",
+      "说明": "S2 记账修正：这条路径在源码里已不存在，继续留在 CLI路径状态表 里标 `坏` 是过期登记 —— `坏` 的语义是「路径还在、但不可用」，而它现在连合法取值都不是；后果是 tools/ci/native_product.py 每次都刷一行「表里有、源码已无」告警，且把 cli_broken 钉在 1。历史账不许凭空抹掉，所以整条挪到本归档区（门禁不读这个键）。归档不是豁免名单：tests/unit/test_ci_gates_round9.py::Test真清单在册 断言「归档里的后端取值不许仍在 cli/light.py 的 choices 里」，把一条活着的坏路径挪进来照样红。"
     }
   ],
   "平台矩阵": [
@@ -462,6 +465,8 @@
     "「依赖Python标准库」指模块 import 了原生腿没有的 Python 内建模块（os/re/sys/…），收集器拒绝。",
     "「代码生成不支持」指纯 .light 里命中了 codegen_typed 分派链未覆盖的节点（NotImplementedError），属 A9/后续轮次。",
     "M23「≥60% stdlib 可原生编译」分母=79（D9 S1 新增 路径运算、操作系统；F9 S1 新增 分布式/HTTP服务端），本轮仅列表工具 1 个可编译（1.27%），主要被同名.py影子（52）压住，需 stdlib 真 .light 化。",
-    "D9 S1 记账：新增两模块均已真编译实测（compile_light_typed），结论 不可编译 —— 原生腿缺 替换字符串 / 连接路径 两个内置注册点；因分母从 76 升到 78，可编译比例 1.32%→1.28% 会打红「只升不降」，属结构性红，须由主线在 S1 合并点重建 tools/ci/native_product_baseline.json（D9 不许碰基线文件）。"
+    "D9 S1 记账：新增两模块均已真编译实测（compile_light_typed），结论 不可编译 —— 原生腿缺 替换字符串 / 连接路径 两个内置注册点；因分母从 76 升到 78，可编译比例 1.32%→1.28% 会打红「只升不降」，属结构性红，须由主线在 S1 合并点重建 tools/ci/native_product_baseline.json（D9 不许碰基线文件）。",
+    "B9 S2 记账：`run/compile --backend llvm` 这条从 CLI路径状态表 挪进 已摘除CLI路径（源码 choices 里已无该取值，实测 rc=2 invalid choice）。指标变化：cli_broken 1→0（只降不升，门禁不红）、cli_total 10→9（基线不对 cli_total 设判据）。基线 tools/ci/native_product_baseline.json 仍写 cli_broken=1 / cli_total=10，B9 S2 不碰基线文件，须由主线在 S2 合并点重建。"
   ]
 }
+
