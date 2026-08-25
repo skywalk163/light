@@ -16,9 +16,9 @@
   ],
   "版本": 1,
   "归属": "C9 建（S1），G9 守门禁",
-  "总数": 114,
+  "总数": 134,
   "分类统计": {
-    "native_required": 34,
+    "native_required": 54,
     "movable": 8,
     "has_light_impl": 59,
     "duplicate": 13,
@@ -944,6 +944,166 @@
       "分类": "duplicate",
       "目标落点": "stdlib/数学.py 已有（待 S2 补 数学.light 光明实现后删除 builtins 版）",
       "证据行": "stdlib/builtins.py:831"
+    },
+    {
+      "名字": "真实路径",
+      "职责": "解析符号链接/junction/.. /8.3短名，返回规范化真实路径",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：os.path.realpath 依赖内核路径解析（符号链接/junction/短名），纯光明写不出；原生腿未注册，S2 暂由 builtins.py 转发（见 外发任务_内置与直调S2）",
+      "证据行": "stdlib/builtins.py:1140"
+    },
+    {
+      "名字": "文件状态",
+      "职责": "按路径取文件元数据（st_nlink/st_dev/st_ino），取不到返回空不抛",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：os.stat 需要系统调用取 inode/设备/链接数，纯光明无法表达；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1145"
+    },
+    {
+      "名字": "句柄状态",
+      "职责": "按已打开描述符取元数据（os.fstat），避免再开 TOCTOU 窗口",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：os.fstat 是描述符上的系统调用；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1157"
+    },
+    {
+      "名字": "低级打开",
+      "职责": "按标志位打开文件返回整数描述符（os.open）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：文件描述符由内核分配；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1168"
+    },
+    {
+      "名字": "低级读",
+      "职责": "从描述符读至多N字节（os.read）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：read 是系统调用；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1173"
+    },
+    {
+      "名字": "低级写",
+      "职责": "向描述符写字节串返回实写字节数（os.write）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：write 是系统调用；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1178"
+    },
+    {
+      "名字": "低级关闭",
+      "职责": "关闭描述符（os.close）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：close 是系统调用；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1183"
+    },
+    {
+      "名字": "随机字节",
+      "职责": "返回N个密码学安全随机字节（os.urandom）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：urandom 是真熵源；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1188"
+    },
+    {
+      "名字": "原子替换",
+      "职责": "同卷内原子改名，目标已存在则原子覆盖（os.replace）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：原子改名由文件系统保证；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1193"
+    },
+    {
+      "名字": "环境枚举",
+      "职责": "列出进程全部环境变量，返回 [[名,值],...]（os.environ.items）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：环境是从进程序言拷贝来的，纯光明读不到；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1198"
+    },
+    {
+      "名字": "单调时钟",
+      "职责": "返回只增不减、不受系统时钟调整影响的秒数（time.monotonic）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：单调时钟来自内核 CLOCK_MONOTONIC；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1203"
+    },
+    {
+      "名字": "常量时间比较",
+      "职责": "以与输入无关的时间比较两字符串/字节是否相等（hmac.compare_digest）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：防时序侧信道需恒定时间比较，纯光明无法保证；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1208"
+    },
+    {
+      "名字": "只读",
+      "职责": "打开标志：只读（os.O_RDONLY）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：O_RDONLY 是平台 ABI 常量；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1216"
+    },
+    {
+      "名字": "只写",
+      "职责": "打开标志：只写（os.O_WRONLY）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：O_WRONLY 是平台 ABI 常量；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1221"
+    },
+    {
+      "名字": "新建",
+      "职责": "打开标志：不存在则创建（os.O_CREAT）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：O_CREAT 是平台 ABI 常量；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1226"
+    },
+    {
+      "名字": "截断",
+      "职责": "打开标志：已存在则清空到零长度（os.O_TRUNC）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：O_TRUNC 是平台 ABI 常量；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1231"
+    },
+    {
+      "名字": "追加",
+      "职责": "打开标志：每次写定位到文件末尾（os.O_APPEND）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：O_APPEND 是平台 ABI 常量；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1236"
+    },
+    {
+      "名字": "独占",
+      "职责": "打开标志：与 新建 合用时目标已存在则失败（os.O_EXCL）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：O_EXCL 是平台 ABI 常量；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1241"
+    },
+    {
+      "名字": "二进制",
+      "职责": "打开标志：字节透传不做换行转换（os.O_BINARY，仅 Windows，POSIX 取 0）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：O_BINARY 是平台 ABI 常量；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1246"
+    },
+    {
+      "名字": "不跟随符号链接",
+      "职责": "打开标志：末段是符号链接则直接失败（os.O_NOFOLLOW，仅 POSIX，Windows 取 0）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "真边界：O_NOFOLLOW 是平台 ABI 常量；原生腿未注册，S2 暂由 builtins.py 转发",
+      "证据行": "stdlib/builtins.py:1251"
     }
   ],
   "地板自举率_S2进度": {

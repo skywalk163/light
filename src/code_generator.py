@@ -373,6 +373,35 @@ class PythonCodeGenerator:
             '执行命令': '_light_builtin.执行命令',
             '移动文件系统': '_light_builtin.移动文件系统',
 
+            # 系统原语（第九轮 S2 · 外发任务_内置与直调S2）
+            # 对应 任务书/缺失内置清单.json 的全部 20 条；每一条都在 stdlib/builtins.py
+            # 顶层有同名纯 Python 转发函数（tests/test_codegen.py::Test内置映射与实现咬合
+            # 绑定一条都不能指空）。
+            # 常量（只读..不跟随符号链接）以「零参函数」落地：光明侧裸写 `只写` 会被
+            # 解析器当零参调用发射成 `_light_builtin.只写()`（:2781 注释的裸引用→零参
+            # ParagraphCall 口径），return int 与调用点的 `只写 加上 新建` 位运算兼容。
+            '真实路径': '_light_builtin.真实路径',
+            '文件状态': '_light_builtin.文件状态',
+            '句柄状态': '_light_builtin.句柄状态',
+            '低级打开': '_light_builtin.低级打开',
+            '低级读': '_light_builtin.低级读',
+            '低级写': '_light_builtin.低级写',
+            '低级关闭': '_light_builtin.低级关闭',
+            '随机字节': '_light_builtin.随机字节',
+            '原子替换': '_light_builtin.原子替换',
+            '环境枚举': '_light_builtin.环境枚举',
+            '单调时钟': '_light_builtin.单调时钟',
+            '常量时间比较': '_light_builtin.常量时间比较',
+            # 8 个打开标志常量
+            '只读': '_light_builtin.只读',
+            '只写': '_light_builtin.只写',
+            '新建': '_light_builtin.新建',
+            '截断': '_light_builtin.截断',
+            '追加': '_light_builtin.追加',
+            '独占': '_light_builtin.独占',
+            '二进制': '_light_builtin.二进制',
+            '不跟随符号链接': '_light_builtin.不跟随符号链接',
+
             # 标准输入输出
             '读取行': '_light_builtin.读取行',
             '读取N字节': '_light_builtin.读取N字节',
