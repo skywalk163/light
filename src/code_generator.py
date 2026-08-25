@@ -377,9 +377,9 @@ class PythonCodeGenerator:
             # 对应 任务书/缺失内置清单.json 的全部 20 条；每一条都在 stdlib/builtins.py
             # 顶层有同名纯 Python 转发函数（tests/test_codegen.py::Test内置映射与实现咬合
             # 绑定一条都不能指空）。
-            # 常量（只读..不跟随符号链接）以「零参函数」落地：光明侧裸写 `只写` 会被
-            # 解析器当零参调用发射成 `_light_builtin.只写()`（:2781 注释的裸引用→零参
-            # ParagraphCall 口径），return int 与调用点的 `只写 加上 新建` 位运算兼容。
+            # 常量（只读..不跟随符号链接）以「零参函数」落地，调用点必须显式带括号写
+            # `只写()`：裸写 `只写` 走的是标识符通路，原样发射成 Python 裸名 → NameError
+            # （已实测；见 stdlib/路径护栏.light:414-427），return int 与 `加上` 位运算兼容。
             '真实路径': '_light_builtin.真实路径',
             '文件状态': '_light_builtin.文件状态',
             '句柄状态': '_light_builtin.句柄状态',

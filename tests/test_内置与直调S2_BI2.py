@@ -192,9 +192,11 @@ class Test随机与原子替换:
         """反跑：改成 shutil.move（目标已存在即抛）→ 本断言红。"""
         源 = str(tmp_path / "_bi2_src.txt")
         目标 = str(tmp_path / "_bi2_dst.txt")
-        with open(源, 'w') as f:
+        # 写侧必须显式 encoding='utf-8'：不写就跟随 locale（GBK 机器上「新内容」落成
+        # D0 C2 C4 DA），:201 用 utf-8 读回就 UnicodeDecodeError——绿只在 UTF-8 模式下成立。
+        with open(源, 'w', encoding='utf-8') as f:
             f.write("新内容")
-        with open(目标, 'w') as f:  # 预置已存在目标
+        with open(目标, 'w', encoding='utf-8') as f:  # 预置已存在目标
             f.write("旧内容")
         _b.原子替换(源, 目标)
         assert not os.path.exists(源)
