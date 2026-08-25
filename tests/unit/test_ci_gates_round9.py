@@ -607,5 +607,127 @@ class Test真清单在册(unittest.TestCase):
         self.assertEqual({c["能力"] for c in 条目}, set(_九条))
 
 
+class Test缺失内置清单在册(unittest.TestCase):
+    """`任务书/缺失内置清单.json`（C9BI）与真源码咬合。
+
+    ## 这条断言防的是什么
+
+    清单是「交给 C9 施工」的权威件。它腐烂的方式有两种，都不会自己冒出来：
+
+    1. 调用点所在的文件被改名 / 挪走 —— 清单指向空气，C9 照着找不到东西；
+    2. 段落被改名 —— 清单还指着旧名字，C9 以为已经没人用了。
+
+    ## 为什么**不**断行号
+
+    行号必然漂。清单里保留行号只作为「给人快速定位」的便利，判据一律落在
+    `段落` 名上（清单自己的 `口径说明` 也这么写）。断行号会让任何一次无关
+    改动都把这条变红，最后被人加个宽松上界糊过去 —— 那就成了假绿。
+
+    ## 段落匹配为什么必须认 `异步 段落`
+
+    `stdlib/流式.light` 的 `协程收`、`stdlib/并发.light` 的 `等待令牌`、
+    `stdlib/分布式/HTTP服务端.light` 的 `收字节` 三个都是 `异步 段落 X` 开头。
+    只认 `段落 X` 会把它们判成「段落不存在」，造三条幻影红。C9BI 起草清单时
+    第一版正是踩了这个坑（当时错把 `协程收` 的行号归到了上一个同步段落名下）。
+    """
+
+    _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    _清单路径 = "任务书/缺失内置清单.json"
+    _必备字段 = (
+        "期望中文名", "签名", "语义", "对应Python原语", "调用点",
+        "为什么现有内置不能替代", "风险等级", "提出方", "状态",
+    )
+
+    def _读清单(self):
+        p = os.path.join(self._ROOT, *self._清单路径.split("/"))
+        self.assertTrue(os.path.isfile(p), "清单不见了：%s" % self._清单路径)
+        with io.open(p, encoding="utf-8") as f:
+            return json.load(f)
+
+    @staticmethod
+    def _段落存在(文本, 名):
+        """文件里是否有 `段落 名` 或 `异步 段落 名`（名字后面必须断词）。"""
+        for 行 in 文本.split("\n"):
+            剥 = 行.strip()
+            for 前缀 in ("段落 ", "异步 段落 "):
+                if not 剥.startswith(前缀):
+                    continue
+                尾 = 剥[len(前缀):].lstrip()
+                if not 尾.startswith(名):
+                    continue
+                # 断词：`段落 收` 不许被 `段落 收字节` 顶掉
+                余 = 尾[len(名):]
+                if 余 == "" or 余[0] in " :：（(":
+                    return True
+        return False
+
+    def test_每条都有必备字段(self):
+        for 条 in self._读清单()["条目"]:
+            for 字段 in self._必备字段:
+                self.assertIn(字段, 条,
+                              "条目 %r 缺字段 %s" % (条.get("期望中文名"), 字段))
+            self.assertNotEqual(
+                条["为什么现有内置不能替代"].strip(), "",
+                "条目 %r 的「为什么现有内置不能替代」是空的 —— 这一栏是防止拿"
+                "近似内置（例如用 绝对路径 冒充 真实路径）糊过去的护栏，不许留白"
+                % 条["期望中文名"])
+            self.assertTrue(条["调用点"],
+                            "条目 %r 没有任何调用点，说明它不该在清单里"
+                            % 条["期望中文名"])
+
+    def test_调用点的文件都真在(self):
+        缺 = []
+        for 条 in self._读清单()["条目"]:
+            for 点 in 条["调用点"]:
+                p = os.path.join(self._ROOT, *点["文件"].split("/"))
+                if not os.path.isfile(p):
+                    缺.append("%s -> %s" % (条["期望中文名"], 点["文件"]))
+        self.assertEqual(缺, [], "清单指向不存在的文件：\n  " + "\n  ".join(缺))
+
+    def test_调用点的段落名都能找到(self):
+        缓存 = {}
+        缺 = []
+        for 条 in self._读清单()["条目"]:
+            for 点 in 条["调用点"]:
+                路径 = 点["文件"]
+                if 路径 not in 缓存:
+                    p = os.path.join(self._ROOT, *路径.split("/"))
+                    if not os.path.isfile(p):
+                        continue  # 文件缺失由上一条断言负责报，不在这里重复
+                    with io.open(p, encoding="utf-8") as f:
+                        缓存[路径] = f.read()
+                if not self._段落存在(缓存[路径], 点["段落"]):
+                    缺.append("%s -> %s 段落 %s" % (
+                        条["期望中文名"], 路径, 点["段落"]))
+        self.assertEqual(缺, [], "清单里的段落名在源码里找不到（段落被改名？）：\n  "
+                                + "\n  ".join(缺))
+
+    def test_段落匹配认异步段落且会断词(self):
+        """匹配器自身的分辨力（不然上一条会退化成恒真）。
+
+        取 `stdlib/流式.light` 真源码作被测料：`收` 是同步段落、`协程收` 是
+        `异步 段落`，两个都该命中；`收字` 这个不存在的名字**不该**命中 ——
+        若匹配器写成裸 `in`，`收字` 会被 `段落 收字节`（HTTP服务端）或前缀
+        匹配蒙过去。
+        """
+        p = os.path.join(self._ROOT, "stdlib", "流式.light")
+        with io.open(p, encoding="utf-8") as f:
+            文本 = f.read()
+        self.assertTrue(self._段落存在(文本, "收"))
+        self.assertTrue(self._段落存在(文本, "协程收"))
+        self.assertFalse(self._段落存在(文本, "收字"))
+        self.assertFalse(self._段落存在(文本, "并不存在的段落名"))
+
+    def test_清单不许放docs目录下(self):
+        """与三张旧清单同一条边界：docs/ 会被 doc_block_scan.py 扫。"""
+        for 名 in ("缺失内置清单.json", "缺失内置清单.md"):
+            self.assertTrue(
+                os.path.isfile(os.path.join(self._ROOT, "任务书", 名)),
+                "清单不见了：任务书/%s" % 名)
+            self.assertFalse(
+                os.path.isfile(os.path.join(self._ROOT, "docs", 名)),
+                "清单不许放 docs/：%s" % 名)
+
+
 if __name__ == "__main__":
     unittest.main()

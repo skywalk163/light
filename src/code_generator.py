@@ -430,9 +430,27 @@ class PythonCodeGenerator:
             '显示宽度': '_light_builtin.显示宽度',
             '字符串获取': '_light_builtin.字符串获取',
             '字符串包含': '_light_builtin.字符串包含',
-            '包含': '_light_builtin.包含',
-            '字符串替换': '_light_builtin.字符串替换',
-            '字符串分割': '_light_builtin.字符串分割',
+            # C9BI：这三条曾是**空壳映射** —— `stdlib/builtins.py` 里从来没有
+            # `包含` / `字符串替换` / `字符串分割` 这三个函数，映射只是把
+            # NameError 换成 AttributeError（实测三条都是
+            # `AttributeError: module 'light_builtins' has no attribute '包含'`）。
+            # 处置口径与 :271-279 那次撤销**不同**——那批（异步读写文件）全仓零调用者
+            # 且真实现在明令不许碰的地盘上，所以撤掉；这三个名字的真实现就在
+            # `stdlib/builtins.py` 里现成躺着（字符串包含 :512 / 替换字符串 :492 /
+            # 分割字符串 :482），且 `包含` 有真调用者
+            # （积木库/blocks_v4/集合/集合包含.light:5 的 `包含(输入, 元素)`），
+            # 于是按「别名从缺算缺陷」改成指向真实现，零新机制零新语义。
+            #
+            # ⚠️ `包含` 的实参顺序取「容器在前」：
+            #   · 真调用者 `包含(输入, 元素)` 里 输入 是集合、元素 是被找的东西；
+            #   · 成员形式 `容器.包含(元素)`（:2933）发射 `(元素 in 容器)`，函数式
+            #     等价物正是 包含(容器, 元素)；
+            #   · 同族 `字符串包含(text, sub)`、`列表包含(lst, item)` 也都容器在前。
+            # 早先降级兜底里写的 `包含 = lambda sub, s`（子在前）与以上三条全相反，
+            # 属于孤例错序，已随本次改动一并删掉（那三行现已无人发射）。
+            '包含': '_light_builtin.字符串包含',
+            '字符串替换': '_light_builtin.替换字符串',
+            '字符串分割': '_light_builtin.分割字符串',
             '分割字符串': '_light_builtin.分割字符串',
             '连接字符串': '_light_builtin.连接字符串',
             '替换字符串': '_light_builtin.替换字符串',
@@ -544,9 +562,13 @@ class PythonCodeGenerator:
         为什么必须做：内置函数映射（builtin_map）是无条件替换的，
         `范围(0,3)` 会被直接翻译成 `range(0,3)`。于是
         `从《列表工具》导入《范围》` 之后再调用 `范围`，拿到的仍是
-        Python 的 range —— 用户导入的东西被静默忽略了。更糟的是
-        `包含` 这类映射到 `_light_builtin.包含`（该内置并不存在），
-        运行期直接 AttributeError。
+        Python 的 range —— 用户导入的东西被静默忽略了。
+
+        （C9BI 订正：这段原先举的例子是「`包含` 映射到并不存在的
+        `_light_builtin.包含`，运行期 AttributeError」。那个空壳映射已在
+        C9BI 处置掉，`包含` 现在指向真实存在的 `_light_builtin.字符串包含`，
+        所以该例子不再成立；本函数要解决的仍是「显式导入被内置映射盖住」。）
+
 
         显式导入是用户最强的意图表达，必须压过内置映射。否则
         「用光明写光明标准库」只要撞上内置名就永远调不通。
@@ -777,9 +799,12 @@ class PythonCodeGenerator:
         self._add_line("        _light_builtin.列表弹出 = lambda lst, i=-1: lst.pop(i)")
         self._add_line("        _light_builtin.列表插入 = lambda lst, i, v: lst.insert(i, v)")
         self._add_line("        _light_builtin.列表包含 = lambda lst, item: item in lst")
-        self._add_line("        _light_builtin.包含 = lambda sub, s: sub in s")
+        # C9BI：这里原先还有 包含 / 字符串替换 / 字符串分割 三条兜底 lambda。
+        # 它们已经无人发射（builtin_map 的这三个 key 现在指向
+        # 字符串包含 / 替换字符串 / 分割字符串，都在下面几行），留着是负资产：
+        # 其中 `包含 = lambda sub, s` 的实参顺序与全仓「容器在前」的约定相反，
+        # 谁照它补内置就会把语义写反，所以一并删掉。
         self._add_line("        _light_builtin.字符串包含 = lambda s, sub: sub in s")
-        self._add_line("        _light_builtin.字符串替换 = lambda s, old, new: s.replace(old, new)")
         self._add_line("        _light_builtin.字符串反转 = lambda s: s[::-1]")
         self._add_line("        _light_builtin.字符串长度 = len")
         self._add_line("        _light_builtin.显示宽度 = lambda text: sum(2 if __import__('unicodedata').east_asian_width(ch) in ('W', 'F') else 1 for ch in str(text))")
@@ -793,7 +818,6 @@ class PythonCodeGenerator:
         self._add_line("        _light_builtin.分割字符串 = lambda s, sep=None: s.split(sep)")
         self._add_line("        _light_builtin.连接字符串 = lambda parts, sep='': sep.join(parts)")
         self._add_line("        _light_builtin.替换字符串 = lambda s, old, new: s.replace(old, new)")
-        self._add_line("        _light_builtin.字符串分割 = lambda s, sep=None: s.split(sep)")
         self._add_line("        _light_builtin.字典创建 = dict")
         self._add_line("        _light_builtin.字典设置 = lambda d, k, v: d.update({k: v})")
         self._add_line("        _light_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)")
@@ -830,9 +854,9 @@ class PythonCodeGenerator:
         self._add_line("    _light_builtin.列表弹出 = lambda lst, i=-1: lst.pop(i)")
         self._add_line("    _light_builtin.列表插入 = lambda lst, i, v: lst.insert(i, v)")
         self._add_line("    _light_builtin.列表包含 = lambda lst, item: item in lst")
-        self._add_line("    _light_builtin.包含 = lambda sub, s: sub in s")
+        # C9BI：同上——包含 / 字符串替换 / 字符串分割 三条兜底已无人发射，删掉；
+        # 其中 `包含 = lambda sub, s` 的实参顺序是全仓孤例错序。
         self._add_line("    _light_builtin.字符串包含 = lambda s, sub: sub in s")
-        self._add_line("    _light_builtin.字符串替换 = lambda s, old, new: s.replace(old, new)")
         self._add_line("    _light_builtin.字符串反转 = lambda s: s[::-1]")
         self._add_line("    _light_builtin.字符串长度 = len")
         self._add_line("    _light_builtin.字符串获取 = lambda s, i: s[i]")
@@ -845,7 +869,6 @@ class PythonCodeGenerator:
         self._add_line("    _light_builtin.分割字符串 = lambda s, sep=None: s.split(sep)")
         self._add_line("    _light_builtin.连接字符串 = lambda parts, sep='': sep.join(parts)")
         self._add_line("    _light_builtin.替换字符串 = lambda s, old, new: s.replace(old, new)")
-        self._add_line("    _light_builtin.字符串分割 = lambda s, sep=None: s.split(sep)")
         self._add_line("    _light_builtin.字典创建 = dict")
         self._add_line("    _light_builtin.字典设置 = lambda d, k, v: d.update({k: v})")
         self._add_line("    _light_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)")

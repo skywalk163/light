@@ -255,5 +255,83 @@ class TestCodeExecution:
             print(f"Execution error: {e}")
 
 
+class Test内置映射与实现咬合:
+    """`builtin_map` 里每个 `_light_builtin.X` 目标，`stdlib/builtins.py` 里必须真有 `X`。
+
+    ## 为什么要这条通用护栏，而不是只测三个名字
+
+    映射指向不存在的实现是**编译期零报错、运行期 AttributeError** 的形态。
+    C9BI 动手前实测过三条原文，例如：
+
+        AttributeError: module 'light_builtins' has no attribute '包含'
+
+    C9BI 清掉的 `包含` / `字符串替换` / `字符串分割` 只是当时正好存在的三条。
+    单测那三个名字只能证明「这三条修好了」，堵不住下一个人再加一条空壳。
+    所以判据写成「整张表 × 整个实现模块」的全量比对。
+
+    ## 为什么判据是「模块里真有这个属性」而不是「名字在 `__all__` 里」
+
+    产物是用 `spec_from_file_location` + `exec_module` 把 `stdlib/builtins.py`
+    整个装进来的（`src/code_generator.py:737-741`），取属性根本不看 `__all__`。
+    而 `stdlib/builtins.py:1012` 的 `__all__` 实际上是个**过期的子集**：实测有
+    15 个正常在用的内置不在里面（`是文件` / `列出文件` / `移动文件系统` /
+    `显示宽度` / `转大写` / `转小写` / `截取` / `子串` / `字符串截取` /
+    `最后索引` / `列表获取` / `列表创建` / `时间戳` / `格式化时间` / `_读文件`）。
+    拿 `__all__` 当判据会凭空造 15 条幻影红 —— 那是把护栏调成了噪音。
+    """
+
+    _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    def _载入内置模块(self):
+        """按产物的加载方式装 stdlib/builtins.py（走 spec，不走 import）。"""
+        import importlib.util
+        路径 = os.path.join(self._ROOT, 'stdlib', 'builtins.py')
+        assert os.path.isfile(路径), '实现体不见了：stdlib/builtins.py'
+        spec = importlib.util.spec_from_file_location('light_builtins_probe', 路径)
+        模块 = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(模块)
+        return 模块
+
+    def test_内置映射不许有空壳(self):
+        """`_light_builtin.X` 的 X 必须在实现模块里真的存在。"""
+        模块 = self._载入内置模块()
+        表 = PythonCodeGenerator().builtin_map
+        目标 = {k: v for k, v in 表.items() if v.startswith('_light_builtin.')}
+        assert 目标, 'builtin_map 里一条 _light_builtin.* 都没有，说明表被改坏了'
+        缺失 = sorted(
+            '%s -> %s' % (k, v)
+            for k, v in 目标.items()
+            if not hasattr(模块, v.split('.', 1)[1])
+        )
+        assert 缺失 == [], (
+            '空壳映射（builtin_map 有、stdlib/builtins.py 无，调用即 AttributeError）：\n  '
+            + '\n  '.join(缺失)
+        )
+
+    @pytest.mark.parametrize('源码, 期望', [
+        # 三条曾经的空壳，现在必须真跑出正确结果
+        ('设 结果 为 包含([1, 2, 3], 2)。', True),
+        ('设 结果 为 包含([1, 2, 3], 9)。', False),
+        ('设 结果 为 包含("abc", "b")。', True),
+        ('设 结果 为 字符串替换("abcabc", "b", "X")。', 'aXcaXc'),
+        ('设 结果 为 字符串分割("a,b,c", ",")。', ['a', 'b', 'c']),
+    ])
+    def test_三条旧空壳的语义(self, 源码, 期望):
+        """编译 + 真执行，断结果值。
+
+        `包含` 的实参顺序取「容器在前」：真调用者
+        `积木库/blocks_v4/集合/集合包含.light:5` 写的是 `包含(输入, 元素)`，
+        成员形式 `容器.包含(元素)` 也发射 `(元素 in 容器)`
+        （`src/code_generator.py:2933`）。三条用例把这个顺序钉住 ——
+        若哪天被改成「子在前」，`包含([1,2,3], 9)` 会从 False 变成抛错。
+        """
+        py = PythonCodeGenerator().generate(LightParser().parse(源码))
+        # 产物靠 __file__ 的所在目录去找 stdlib/；exec 出来的代码没有 __file__，
+        # 不喂就会退到 os.getcwd()，测试结果随 pytest 的启动目录漂。
+        环境 = {'__file__': os.path.join(self._ROOT, '_c9bi_内置探针.py')}
+        exec(compile(py, '<内置探针>', 'exec'), 环境)
+        assert 环境['结果'] == 期望
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
