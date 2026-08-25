@@ -340,9 +340,9 @@
     {
       "名字": "序列化JSON",
       "职责": "将光明值序列化为 JSON 字符串",
-      "当前实现语言": "Python（builtins.py）",
+      "当前实现语言": "光明（stdlib/JSON.light → JSON核心.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
-      "目标落点": "stdlib/JSON.light（转发 JSON核心.light）",
+      "目标落点": "stdlib/JSON.light（S2 已搬迁并接线；缩进默认值 None 留在 builtins.py 的 Python 签名里——None=紧凑 与 0=换行零缩进 是两种语义，必须区分）",
       "证据行": "stdlib/JSON.light:17"
     },
     {
@@ -356,25 +356,25 @@
     {
       "名字": "求和",
       "职责": "计算列表中所有数值的和",
-      "当前实现语言": "Python（builtins.py）",
+      "当前实现语言": "光明（stdlib/列表工具.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
-      "目标落点": "stdlib/列表工具.light",
-      "证据行": "stdlib/列表工具.light:15"
+      "目标落点": "stdlib/列表工具.light（S2 已搬迁并接线；光明侧复刻 CPython 3.12+ 的 Neumaier 补偿求和，与 sum() 逐位等价。C long 上界只能由 builtins.py 侧用 struct 算出后显式传入，光明侧问不到 sizeof(long)）",
+      "证据行": "stdlib/列表工具.light:59"
     },
     {
       "名字": "美化JSON",
       "职责": "美化 JSON 输出（带缩进）",
-      "当前实现语言": "Python（builtins.py）",
+      "当前实现语言": "光明（stdlib/JSON.light → JSON核心.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
-      "目标落点": "stdlib/JSON.light（转发 JSON核心.light）",
+      "目标落点": "stdlib/JSON.light（S2 已搬迁并接线）",
       "证据行": "stdlib/JSON.light:23"
     },
     {
       "名字": "解析JSON",
       "职责": "解析 JSON 字符串为光明值",
-      "当前实现语言": "Python（builtins.py）",
+      "当前实现语言": "光明（stdlib/JSON.light → JSON核心.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
-      "目标落点": "stdlib/JSON.light（转发 JSON核心.light）",
+      "目标落点": "stdlib/JSON.light（S2 已搬迁并接线；JSON核心.light 的 14 个解析抛点已统一成 运行时错误(\"JSON 解析失败: …\")，异常类型与消息前缀与搬迁前逐字一致，故转发处不需包 try/except）",
       "证据行": "stdlib/JSON.light:13"
     },
     {
@@ -947,13 +947,14 @@
     }
   ],
   "地板自举率_S2进度": {
-    "分子（builtins.py 已转发到光明实现的条数）": 54,
+    "分子（builtins.py 已转发到光明实现的条数）": 58,
     "分母（总数 − native_required）": 80,
-    "数值": "54/80 = 67.5%",
-    "本轮新接": 47,
+    "数值": "58/80 = 72.5%",
+    "本轮新接": 51,
     "S1 存量": "7（转大写/转小写/字符串长度/去除左侧空白/去除右侧空白/替换字符串/分割字符串 → 字符串工具轻量.light）",
-    "落点": "stdlib/内置核心字符串.light 17 条、内置核心判型.light 9 条、内置核心列表.light 10 条、内置核心字典.light 8 条、内置核心转换.light 3 条",
-    "未接并记账": "解析JSON/序列化JSON/美化JSON（JSON核心.light 的 抛出 新建 异常 运行期 NameError）、求和（Neumaier 补偿求和精度差）、连接字符串（光明版放宽 TypeError）、显示宽度（需 unicodedata，会破 Python 直调门禁）、路径 6 条（os.path 平台相关词法）、duplicate 13 条（S3 删码）",
+    "落点": "stdlib/内置核心字符串.light 17 条、内置核心判型.light 9 条、内置核心列表.light 10 条、内置核心字典.light 8 条、内置核心转换.light 3 条、JSON.light 3 条、列表工具.light 1 条",
+    "S2 补接的 4 条": "解析JSON/序列化JSON/美化JSON（先修 codegen 的 抛出 新建 <中文异常名> 运行期 NameError，再把 JSON核心.light 的 9 处不等价全部闭合：控制字符 \\u00XX 转义、\\b/\\f、UTF-16 代理对合成、EOF 校验、不可序列化类型改抛 RuntimeError、非字符串键按 json.dumps 口径转换、tuple 当数组、Infinity/NaN 字面量、缩进=0 语义）、求和（光明侧复刻 CPython 3.12+ Neumaier 补偿求和，与 sum() 逐位等价）",
+    "未接并记账": "连接字符串（光明版放宽 TypeError，错误口径需主线裁决）、显示宽度（需 unicodedata，会破 Python 直调门禁）、路径 6 条（os.path 平台相关词法，语义口径需主线裁决）、duplicate 13 条（S3 删码）",
     "口径": "分子只数 builtins.py 函数体真的转发到光明模块的条目（floor_bootstrap.py 校验）；证据行指到 .light 的 段落 定义行"
   }
 }

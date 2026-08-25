@@ -408,29 +408,32 @@ def 打印错误(text: str) -> None:
 # JSON 处理
 # =============================================================================
 
-import json as _light_json_module
-
 def 解析JSON(text: str) -> object:
-    """解析 JSON 字符串为光明值"""
-    try:
-        return _light_json_module.loads(text)
-    except _light_json_module.JSONDecodeError as e:
-        raise RuntimeError(f"JSON 解析失败: {e}")
+    """解析 JSON 字符串为光明值（地板已搬迁：真身 stdlib/JSON.light:13 → JSON核心.light 纯光明递归下降）
+
+    不需要在这里包 try/except：JSON核心.light 的 14 个解析抛点已统一成
+    `抛出 运行时错误("JSON 解析失败: …")`，异常类型（RuntimeError）与消息前缀
+    与搬迁前逐字一致。只有消息尾部不同（中文描述 vs CPython 扫描器的英文串 + 行列号）。
+    """
+    import JSON
+    return JSON.解析JSON(text)
 
 
 def 序列化JSON(value: object, 缩进: Optional[int] = None) -> str:
-    """将光明值序列化为 JSON 字符串"""
-    try:
-        if 缩进 is not None:
-            return _light_json_module.dumps(value, ensure_ascii=False, indent=缩进)
-        return _light_json_module.dumps(value, ensure_ascii=False)
-    except Exception as e:
-        raise RuntimeError(f"JSON 序列化失败: {e}")
+    """将光明值序列化为 JSON 字符串（地板已搬迁：真身 stdlib/JSON.light:17）
+
+    `缩进=None` 这个默认值只能留在本签名里：光明侧的 `接收 值, 缩进 = 空` 表达的是
+    同一语义，但 None 与 0 必须区分（None=紧凑、0=换行零缩进），交由光明门面判定。
+    """
+    import JSON
+    return JSON.序列化JSON(value, 缩进)
 
 
 def 美化JSON(value: object) -> str:
-    """美化 JSON 输出（带缩进）"""
-    return 序列化JSON(value, 缩进=2)
+    """美化 JSON 输出（带缩进）（地板已搬迁：真身 stdlib/JSON.light:23）"""
+    import JSON
+    return JSON.美化JSON(value)
+
 
 
 # =============================================================================
@@ -1054,15 +1057,24 @@ def 样本标准差(数据: list) -> float:
 
 def 求和(数据: list) -> float:
     """
-    计算列表中所有数值的和
-    
+    计算列表中所有数值的和（地板已搬迁：真身 stdlib/列表工具.light:59）
+
     参数:
         数据: 数值列表
-    
+
     返回:
         总和
+
+    第二参 `长整上限` 只能由本侧算出来后显式传进去：CPython 的 sum() 整数快路径
+    用 C long 判溢出，宽度是平台相关的（LP64 是 2**63-1，Windows/LLP64 是 2**31-1），
+    而光明侧问不到 sizeof(long)（那需要 struct/ctypes 直调，列表工具.light 里不许有）。
+    不传就会在 Windows 上于「|int 元素| ≥ 2**31 且其后有会抵消的浮点」这个窗口里
+    与本机 sum() 分叉，例如 [2**31, 1e16, 1.0, -1e16]。
     """
-    return sum(数据)
+    import struct
+    import 列表工具
+    return 列表工具.求和(数据, (1 << (8 * struct.calcsize("l") - 1)) - 1)
+
 
 
 def 累积和(数据: list) -> list:
