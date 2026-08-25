@@ -358,8 +358,8 @@
       "职责": "计算列表中所有数值的和",
       "当前实现语言": "光明（stdlib/列表工具.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
-      "目标落点": "stdlib/列表工具.light（S2 已搬迁并接线；光明侧复刻 CPython 3.12+ 的 Neumaier 补偿求和，与 sum() 逐位等价。C long 上界只能由 builtins.py 侧用 struct 算出后显式传入，光明侧问不到 sizeof(long)）",
-      "证据行": "stdlib/列表工具.light:59"
+      "目标落点": "stdlib/列表工具.light（S2 已搬迁并接线；光明侧复刻 CPython 的 sum()：3.12+ 走 Neumaier 补偿、3.11- 走朴素累加，与宿主 sum() 逐位等价。C long 上界与补偿开关都只能由 builtins.py 侧算出后显式传入——光明侧问不到 sizeof(long)，也问不到 sys.version_info）",
+      "证据行": "stdlib/列表工具.light:69"
     },
     {
       "名字": "美化JSON",

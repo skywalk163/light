@@ -1076,7 +1076,7 @@ def 样本标准差(数据: list) -> float:
 
 def 求和(数据: list) -> float:
     """
-    计算列表中所有数值的和（地板已搬迁：真身 stdlib/列表工具.light:59）
+    计算列表中所有数值的和（地板已搬迁：真身 stdlib/列表工具.light:69）
 
     参数:
         数据: 数值列表
@@ -1089,10 +1089,18 @@ def 求和(数据: list) -> float:
     而光明侧问不到 sizeof(long)（那需要 struct/ctypes 直调，列表工具.light 里不许有）。
     不传就会在 Windows 上于「|int 元素| ≥ 2**31 且其后有会抵消的浮点」这个窗口里
     与本机 sum() 分叉，例如 [2**31, 1e16, 1.0, -1e16]。
+
+    第三参 `启用补偿` 同理，只不过它是**版本相关**而不是平台相关：CPython 自 3.12
+    （gh-100425）起 sum() 对浮点走 Neumaier 补偿，3.11 及更早是朴素累加。本侧按
+    `sys.version_info >= (3, 12)` 算出来显式传，所以本函数在 3.11 宿主（CI runner
+    就是 3.11）和 3.14 宿主上都与该宿主的 sum() 逐位等价。
     """
     import struct
+    import sys
     import 列表工具
-    return 列表工具.求和(数据, (1 << (8 * struct.calcsize("l") - 1)) - 1)
+    return 列表工具.求和(数据,
+                       (1 << (8 * struct.calcsize("l") - 1)) - 1,
+                       sys.version_info >= (3, 12))
 
 
 
