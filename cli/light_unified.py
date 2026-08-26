@@ -1113,6 +1113,10 @@ def main():
             if not os.path.exists(args.file):
                 print(f"[错误] 文件不存在: {args.file}", file=sys.stderr)
                 return 1
+            # Path A（单条子进程隔离）：把入口文件绝对路径与解释器路径注入环境，
+            # 供 eval 链把单条评测项丢进子进程时复用同一入口。.py 不被 python_direct_calls 棘轮扫描。
+            os.environ['HARNESS_ENTRY_FILE'] = os.path.abspath(args.file)
+            os.environ['HARNESS_PYTHON'] = sys.executable
             # 将未知参数作为脚本参数传递（--input, --output 等）
             return cli.interpret_run(args.file, script_args=unknown)
         
