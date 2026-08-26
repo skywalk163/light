@@ -11,17 +11,31 @@ test_concurrency_light.py —— 并发编排原语行为判据（C5）
 
 反跑改坏点分别贴在对应用例 docstring；全部用真实行为（共享计数器峰值 / 时序 /
 返回值 / 是否抛出超时异常）判定，不断字符串、不上界断。
+
+E9-S2 新增（承诺.md 与实现不符的两处，主线裁决「改实现」）：
+- §2① `异步信号量` 换成 `asyncio.BoundedSemaphore`：多余 release 立抛 ValueError，
+  且**上限不会被悄悄放宽**（TestSemaphoreLimit 后两条，其中一条断并发峰值而非异常类型）
+- §2② `速率限制(每秒次数 <= 0)` 立抛 值错误 + 中文消息，失败点在构造处
+  （TestRateLimiter 后四条，含「守卫不许过宽」的反向判据）
+- §2③ harness 适配层 `编排.等令牌` 的第二次以后调用原先绕过守卫
+  （TestHarness等令牌守卫 三条，含「守卫每次过但节流状态不许重置」）
 """
 import asyncio
 import os
 import sys
 import time
+import types
 
 import pytest
 
 _STDLIB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "stdlib")
+_根目录 = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_HARNESS = os.path.join(_根目录, "examples", "harness")
+_SRC = os.path.join(_根目录, "src")
 if _STDLIB not in sys.path:
     sys.path.insert(0, _STDLIB)
+if _SRC not in sys.path:
+    sys.path.insert(0, _SRC)
 import _light_import_hook
 _light_import_hook.install([_STDLIB])
 
@@ -38,6 +52,8 @@ from 并发 import (
     吞异常等待,
     带限流,
     带限流收集异常,
+    有界队列类,
+    滑动窗口类,
 )
 from 重试 import 重试
 
@@ -102,6 +118,69 @@ class TestSemaphoreLimit:
         # 时钟任务在等待区还锁着时已自行完成 —— 事件循环未被信号量等待卡住
         assert done == [0.05]
 
+    # ------------------------------------------------------------------
+    # E9-S2 §2①：有界语义 —— 多余 release 立抛，上限不会被悄悄放宽
+    # 承诺.md §2 写的是「与 BoundedSemaphore(N) 一致」，实现原先是 Semaphore。
+    # 主线裁决「改实现」→ 并发.light:25 换成 asyncio.BoundedSemaphore。
+    # ------------------------------------------------------------------
+    def test_over_release_raises_valueerror(self):
+        """release 次数 > acquire 次数 → 立抛 ValueError（有界语义）。
+
+        反跑改坏点：把 并发.light:25 的 `asyncio.BoundedSemaphore(初值)`
+        改回 `asyncio.Semaphore(初值)` → 多余 release 静默通过 →
+        本条「结果以 ValueError: 开头」断言红（实际拿到 "未抛出"）。
+        """
+        async def 主管():
+            s = 异步信号量(1)
+            await 信号量获取(s)
+            信号量释放(s)          # 正常归还：计数回到初值 1
+            try:
+                信号量释放(s)      # 多余的这一次必须炸
+                return "未抛出"
+            except ValueError as e:
+                return "ValueError:" + str(e)
+
+        结果 = asyncio.run(主管())
+        assert 结果.startswith("ValueError:"), f"多余 release 应抛 ValueError，实际 {结果}"
+
+    def test_over_release_cannot_raise_the_ceiling(self):
+        """真防护判据：不断异常类型，断「上限确实没被放宽」。
+
+        信号量(1) 上先做一次没配对的 release（把它抛的错吞掉），再放 4 路
+        带 sleep 的并发进去 —— 峰值必须仍恰为 1。
+
+        反跑改坏点：并发.light:25 换回 `asyncio.Semaphore` → 那次多余 release
+        把内部计数抬到 2 → 峰值变 2 → 本条红。
+        """
+        计数器 = {"当前": 0, "峰值": 0}
+
+        async def 受控(s):
+            await 信号量获取(s)
+            try:
+                计数器["当前"] += 1
+                if 计数器["当前"] > 计数器["峰值"]:
+                    计数器["峰值"] = 计数器["当前"]
+                await asyncio.sleep(0.03)
+                计数器["当前"] -= 1
+            finally:
+                信号量释放(s)
+
+        async def 主管():
+            s = 异步信号量(1)
+            吞到的 = None
+            try:
+                信号量释放(s)      # 没 acquire 就 release
+            except ValueError as e:
+                吞到的 = type(e).__name__
+            await asyncio.gather(*(受控(s) for _ in range(4)))
+            return 吞到的
+
+        吞到的 = asyncio.run(主管())
+        assert 计数器["峰值"] == 1, (
+            f"多余 release 之后信号量上限被放宽了：4 路并发峰值 {计数器['峰值']}，应为 1"
+        )
+        assert 吞到的 == "ValueError", f"裸 release 应被有界语义拦住，实际吞到 {吞到的}"
+
 
 # ---------------------------------------------------------------------------
 # C5-2 速率限制：时序可证
@@ -128,6 +207,183 @@ class TestRateLimiter:
         t0 = time.monotonic()
         asyncio.run(等待令牌(限制器))
         assert time.monotonic() - t0 < 0.05
+
+    # ------------------------------------------------------------------
+    # E9-S2 §2②：每秒次数 ≤ 0 —— 承诺.md §6 原写「行为未定义」，
+    # 主线裁决改成「立抛 值错误 + 中文消息」（并发.light:44-45）。
+    # ------------------------------------------------------------------
+    def test_zero_rate_raises_valueerror_with_chinese_message(self):
+        """速率限制(0) → ValueError，消息里必须点出参数名和实际值。
+
+        反跑改坏点：删掉 并发.light:44-45 那两行守卫 → 变成 `1.0 / 0` 的
+        ZeroDivisionError（ZeroDivisionError 不是 ValueError 的子类）→
+        pytest.raises(ValueError) 直接红。
+        """
+        with pytest.raises(ValueError) as 抓到:
+            速率限制(0)
+        消息 = str(抓到.value)
+        assert "每秒次数" in 消息, f"消息里没点出参数名：{消息!r}"
+        assert "必须 > 0" in 消息, f"消息里没说清约束：{消息!r}"
+        assert "0" in 消息, f"消息里没带上实际值：{消息!r}"
+
+    def test_negative_rate_raises_valueerror(self):
+        """负速率同样立抛，且实际值原样出现在消息里。
+
+        反跑改坏点：把守卫从 `小于等于 0` 改成 `等于 0` → 负数漏过去，
+        构造出一个间隔为负的限制器（等待令牌 会永远立即放行）→ 本条红。
+        """
+        for 坏值 in (-1, -0.5, -1000):
+            with pytest.raises(ValueError) as 抓到:
+                速率限制(坏值)
+            消息 = str(抓到.value)
+            assert "每秒次数" in 消息, f"速率={坏值!r} 的消息不含参数名：{消息!r}"
+            assert str(坏值) in 消息, f"速率={坏值!r} 的实际值没进消息：{消息!r}"
+
+    def test_rate_guard_fails_fast_at_construction(self):
+        """失败点在**构造处**，不是拖到首次 等待令牌 才炸。
+
+        反跑改坏点：把守卫从 速率限制 挪进 等待令牌 → 构造这一步不抛 →
+        本条断言拿到 "没炸" → 红。
+        """
+        炸在哪 = None
+        try:
+            速率限制(0)
+            炸在哪 = "没炸"
+        except ZeroDivisionError:
+            炸在哪 = "构造处-ZeroDivisionError"
+        except ValueError:
+            炸在哪 = "构造处-ValueError"
+        assert 炸在哪 == "构造处-ValueError", f"速率限制(0) 的失败形态不对：{炸在哪}"
+
+    def test_fractional_rate_still_allowed(self):
+        """守卫只拦 ≤0：0.5/s（间隔 2s）是合法速率，不许被误拦。
+
+        反跑改坏点：把守卫写成 `小于 1`（想「至少 1 次/秒」）→ 这里立红，
+        证明守卫没有过宽地吃掉合法输入。
+        """
+        限制器 = 速率限制(0.5)
+        assert 限制器["速率"] == 0.5, f"合法的分数速率被改写了：{限制器}"
+
+
+# ---------------------------------------------------------------------------
+# E9-S2 §2③ harness 侧：编排.等令牌 的守卫覆盖
+# 守卫写在 并发.light 的 速率限制 里，但 编排.等令牌 只有**首次**调用会经过它，
+# 第二次以后走 否则 分支直接改 速率 —— 那条路原先绕过了守卫。
+# ---------------------------------------------------------------------------
+def _载入编排():
+    """就地把 examples/harness/编排.light 编译到一个独立模块命名空间。
+
+    不用 _light_import_hook.install([_HARNESS])：那会把 harness 目录挂到
+    进程级的导入钩子上，同一次 pytest 会话里别的测试也会看见 harness 模块。
+    这里只要一份隔离副本，顺带保证每个用例拿到的 编排限流器 都是干净的 空。
+    """
+    from light_parser_v3 import LightParser
+    from code_generator import PythonCodeGenerator
+
+    路径 = os.path.join(_HARNESS, "编排.light")
+    with open(路径, "r", encoding="utf-8") as fh:
+        源码 = fh.read()
+    生成 = PythonCodeGenerator().generate(LightParser().parse(源码))
+    模块 = types.ModuleType("编排_E9S2隔离副本")
+    模块.__file__ = 路径
+    exec(compile(生成, 路径, "exec"), 模块.__dict__)
+    return 模块
+
+
+class TestHarness等令牌守卫:
+    def test_首次调用就拦住零速率(self):
+        编排 = _载入编排()
+        with pytest.raises(ValueError) as 抓到:
+            asyncio.run(编排.等令牌(0))
+        assert "每秒次数" in str(抓到.value), f"消息不对：{抓到.value}"
+
+    def test_第二次调用换成零速率同样拦住(self):
+        """这才是真漏点：先用合法速率把 编排限流器 建起来，再传 0。
+
+        反跑改坏点：把 编排.light:33 的 `设 已验限制器 为 速率限制(每秒次数)`
+        挪回 如果 分支里（即恢复「只有首次经过守卫」）→ 第二次调用不再抛
+        ValueError，而是在 并发.light:51 的 `1.0 / 限制器["速率"]` 处炸成
+        ZeroDivisionError → 本条断言拿到 "ZeroDivisionError" → 红。
+        """
+        编排 = _载入编排()
+        asyncio.run(编排.等令牌(10))          # 合法：把限流器建起来
+        炸成什么 = None
+        try:
+            asyncio.run(编排.等令牌(0))
+            炸成什么 = "没炸"
+        except ZeroDivisionError:
+            炸成什么 = "ZeroDivisionError"
+        except ValueError:
+            炸成什么 = "ValueError"
+        assert 炸成什么 == "ValueError", (
+            f"第二次调用传 0 时的失败形态不对：{炸成什么}（守卫被 否则 分支绕过了）"
+        )
+
+    def test_合法速率下限流器状态跨调用保留(self):
+        """守卫每次都过，但**不许**顺手把节流状态重置掉。
+
+        判据：第二次调用后 编排限流器 仍是第一次那个对象（上次放行 是跨调用状态）。
+        反跑改坏点：把 否则 分支改成 `设 编排限流器 为 已验限制器`（整体替换）
+        → 对象身份变了 → 本条红，同时节流会每次归零、速率限制形同虚设。
+        """
+        编排 = _载入编排()
+        asyncio.run(编排.等令牌(50))
+        第一个 = 编排.编排限流器
+        第一次放行 = 第一个["上次放行"]
+        asyncio.run(编排.等令牌(50))
+        assert 编排.编排限流器 is 第一个, "限流器对象被整体替换了，节流状态会归零"
+        assert 编排.编排限流器["上次放行"] > 第一次放行, (
+            "上次放行 没往前推进，说明节流没真的在计时"
+        )
+
+
+# ---------------------------------------------------------------------------
+# E9-S2 收口：滑动窗口限流接进 master 派发（等待令牌）
+# 此前 滑动窗口类 在 stdlib 已定义但**零生产调用** → partial；现 等待令牌 在其既有的
+# time.monotonic / asyncio.sleep 行内接入滑动窗口闸门，零新增 Python 直调行（门禁棘轮不破）。
+# ---------------------------------------------------------------------------
+class Test滑动窗口接入派发:
+    def test_超窗口上限的调用会被阻塞(self):
+        # 速率极大（间隔≈0）排除节拍干扰；窗口 上限=2 / 窗口秒=0.1。
+        # 第1次放行，第2次超窗口 → 必须阻塞到「最旧事件过期」之后（≈0.1s）。
+        限制器 = 速率限制(1000)
+        窗 = 滑动窗口类(2, 0.1)
+        t0 = time.monotonic()
+
+        async def 两次():
+            await 等待令牌(限制器, 窗)
+            await 等待令牌(限制器, 窗)
+        asyncio.run(两次())
+        耗时 = time.monotonic() - t0
+        # 反跑改坏点：删掉 等待令牌 里 `如果 窗口 != 空` 整段 → 窗口闸门失效，
+        # 两次调用 ≈ 间隔 0.001s，耗时 < 0.05s → 本条红。
+        assert 耗时 > 0.05, f"滑动窗口闸门未生效，超窗口未阻塞（耗时 {耗时:.3f}s）"
+
+    def test_无窗口时行为完全不变(self):
+        # 默认 窗口=空：等待令牌 不碰滑动窗口，节拍语义与原实现逐字一致。
+        限制器 = 速率限制(1000)
+
+        async def 两次():
+            await 等待令牌(限制器)
+            await 等待令牌(限制器)
+        t0 = time.monotonic()
+        asyncio.run(两次())
+        耗时 = time.monotonic() - t0
+        assert 耗时 < 0.05, f"无窗口时不应阻塞，实际 {耗时:.3f}s"
+
+    def test_编排等令牌确实建了共享滑动窗口(self):
+        # 证明 harness 适配层 等令牌 把 滑动窗口类 接进了派发路径
+        # （此前是零调用 → partial）。用隔离副本，避免污染进程级模块状态。
+        编排 = _载入编排()
+        asyncio.run(编排.等令牌(10))
+        # 上限取 每秒次数+1：滑动窗口类.是否放行 用语义「数量 < 上限」，
+        # +1 才等价于「每秒最多放行 每秒次数 次」
+        assert 编排.编排窗口.上限 == 11, (
+            f"等令牌 应创建 编排窗口 且上限=每秒次数+1=11，实际 {编排.编排窗口.上限}"
+        )
+        assert 编排.编排窗口.窗口 == 1.0, (
+            f"窗口秒应为 1.0（与节拍同口径），实际 {编排.编排窗口.窗口}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -337,6 +593,96 @@ class TestTaskPool:
 
 
 # ---------------------------------------------------------------------------
+# C5-7 有界队列 + 滑动窗口（E9-S2 §3.2 提升：从 分布式/队列.py 进 并发.light，纯光明）
+# 承诺见 任务书/E9→F9_并发语义承诺.md §10。判据与 F9 侧（test_distributed_eval_light.py
+# 的 背压/限流 两条）同一语义、双保险，这里附 E9 侧反跑锚点。
+# ---------------------------------------------------------------------------
+class TestBoundedQueue:
+    def test_backpressure_blocks_producer_when_full(self):
+        """容量 2 灌满后第三个 入队 真挂起；取走一条立即补进（背压 = 等，不抛不丢）。
+
+        反跑改坏点：删掉 并发.light 有界队列类.入队 里的 `等待 信号量获取(己.槽信号量)`
+        → 满队时 入队 立即完成 → 本断言 `not 挡住.done()` 红（背压变直进）。
+        """
+        async def 主体():
+            q = 有界队列类(2)
+            await q.入队("a")
+            await q.入队("b")
+            挡住 = asyncio.create_task(q.入队("c"))
+            await asyncio.sleep(0.1)
+            assert not 挡住.done(), "背压：满队后生产者应被挡住（入队未完成）"
+            assert q.大小() == 2, "背压：满队不应偷偷多进一条"
+            assert await q.出队() == "a", "取出的应是第一条"
+            await 挡住  # 消费者取走一个后，被挡的生产者才补进
+            assert q.大小() == 2, "背压：消费者取走后生产者才补进"
+        asyncio.run(主体())
+
+    def test_empty_wait_consumer_unblocks_after_enqueue(self):
+        """空队时 出队 被挡住（0.01s 轮询等待），入队后放行。
+
+        反跑改坏点：删掉 并发.light 有界队列类.出队 里的 当 循环 →
+        空队直接 pop → IndexError → 本断言拿不到值 → 红。
+        """
+        async def 主体():
+            q = 有界队列类(2)
+            取出 = []
+            async def 消费者():
+                取出.append(await q.出队())
+            任务 = asyncio.create_task(消费者())
+            await asyncio.sleep(0.1)
+            assert 取出 == [], "空队时消费者应被挡住"
+            await q.入队("x")
+            await 任务
+            assert 取出 == ["x"], f"入队后消费者应放行取到 x，实际 {取出}"
+        asyncio.run(主体())
+
+    def test_fifo_order_and_size_queries(self):
+        """FIFO + 大小/是否空/是否满 与 队列.py 逐条一致。
+
+        反跑改坏点：把 出队 里的 `pop(0)` 改成 `pop()`（取尾部）→ 顺序反 → 红。
+        """
+        async def 主体():
+            q = 有界队列类(2)
+            assert q.是否空() and q.大小() == 0
+            await q.入队("a")
+            await q.入队("b")
+            assert q.是否满() and not q.是否空() and q.大小() == 2
+            assert await q.出队() == "a"
+            assert await q.出队() == "b"
+            assert q.是否空()
+        asyncio.run(主体())
+
+    def test_try_enqueue_full_raises_queu_full(self):
+        """试着入队（反跑对照壳）：未满返回 真，满抛 值错误("QueueFull")。
+
+        反跑改坏点：把 试着入队 的 `小于` 改成 `小于等于`（多放一条）→ QueueFull
+        不再抛 → pytest.raises 红。
+        """
+        async def 主体():
+            q = 有界队列类(1)
+            assert q.试着入队("a") is True, "未满时 试着入队 应返回 真"
+            with pytest.raises(ValueError) as 抓到:
+                q.试着入队("b")
+            assert "QueueFull" in str(抓到.value), f"消息不对：{抓到.value}"
+        asyncio.run(主体())
+
+    def test_sliding_window_expires_old_events(self):
+        """滑动窗口：t=0 记 3 条满窗；t=1.1 滑过（窗口 1.0）旧事件过期 → 放行。
+
+        反跑改坏点：删掉 并发.light 滑动窗口类._剔除过期 里的 当 循环 →
+        数量永不衰减 → `窗.数量(1.1) == 0` 红（退化成累加计数）。
+        """
+        窗 = 滑动窗口类(3, 1.0)
+        窗.记录(0.0)
+        窗.记录(0.0)
+        窗.记录(0.0)
+        assert 窗.数量(0.0) == 3, "窗口内 3 条应计满"
+        assert not 窗.是否放行(0.0), "满窗不应放行"
+        assert 窗.数量(1.1) == 0, "窗口滑过后旧事件应过期剔除"
+        assert 窗.是否放行(1.1), "过期剔除后应放行（与固定分批不同）"
+
+
+# ---------------------------------------------------------------------------
 # C5-4 限时 / C5-5 先到先得
 # ---------------------------------------------------------------------------
 class TestBoundedAndRace:
@@ -447,6 +793,292 @@ class TestRetry:
                 return f"耗尽:{计数器['n']}"
 
         assert asyncio.run(主管()) == "耗尽:3", f"重试 3 次应耗尽并抛错，实际 {计数器['n']}"
+
+
+# ---------------------------------------------------------------------------
+# E9-S2 §3.1 结构化任务组：多级嵌套取消 + 高并发钳制
+# （S1 交付报告 §4 自述：「取消链的深度嵌套未测」「并发上限钳制单测只在 ≤2 并发验证」）
+# 收敛判据：内向穿透无孤儿 / 向外传播 / 并发上限 ≥8 / 跨异步段落复用信号量 /
+#          嵌套池外层钳内层。实现层面因 并发等待=asyncio.gather（取消级联子任务），
+#          嵌套取消本就成立，本组用例把「未测」变成「已测 + 反跑可立红」。
+# ---------------------------------------------------------------------------
+class TestStructuredTaskGroup:
+    # ---- 内向：外层取消穿透到内层池的孙子任务，无孤儿 ----
+    def test_nested_cancel_reaches_grandchildren_no_orphans(self):
+        """外层 全或无 [慢1(跑中层池), 立即失败, 慢2]：
+        立即失败触发外层取消 → 取消信号经 asyncio.gather(并发等待) 级联下沉，
+        一路穿透到最内层 3 个慢叶子的孙子任务，且事件循环无孤儿。
+
+        反跑改坏点：把 并发.light 的 `并发等待`(=asyncio.gather) 换回
+        `asyncio.wait`（不级联取消子任务）→ 内层叶子不被取消 →
+        ① 「叶子完成标记」出现未取消的正常完成 ② 主管末 `孤儿数` > 0 → 本条红。
+        """
+        标记 = {"叶子": []}
+
+        def 造叶(名):
+            async def 干():
+                try:
+                    await asyncio.sleep(0.5)
+                    标记["叶子"].append(名 + "-完成")
+                    return 名
+                except asyncio.CancelledError:
+                    标记["叶子"].append(名 + "-被取消")
+                    raise
+            return 干
+
+        def 造(名, 失败=False):
+            async def 干():
+                if 失败:
+                    await asyncio.sleep(0.01)
+                    raise RuntimeError("§3.1-故意失败-" + 名)
+                await asyncio.sleep(0.5)
+                return 名
+            return 干
+
+        async def 叶池():
+            return await 任务池([造叶("叶A"), 造叶("叶B"), 造叶("叶C")], 3, "全或无")
+
+        async def 中层池():
+            return await 任务池([叶池, 造("慢1b")], 2, "全或无")
+
+        孤儿 = {}
+
+        async def 主管():
+            try:
+                await 任务池([中层池, 造("立即失败", True), 造("慢2")], 3, "全或无")
+            except RuntimeError as e:
+                孤儿["异常"] = str(e)
+            await asyncio.sleep(0.05)   # 让取消传播完成
+            当前 = asyncio.current_task()
+            孤儿["孤儿数"] = len([t for t in asyncio.all_tasks() if not t.done() and t is not 当前])
+
+        asyncio.run(主管())
+        assert 孤儿["异常"] == "§3.1-故意失败-立即失败", f"首异常不对：{孤儿}"
+        assert 孤儿["孤儿数"] == 0, f"嵌套取消后有 {孤儿['孤儿数']} 个孤儿 Task 残留"
+        # 关键：最内层 3 个孙子叶子必须全部被取消（取消穿透到了孙子层）
+        for 叶 in ("叶A", "叶B", "叶C"):
+            assert (叶 + "-被取消") in 标记["叶子"], (
+                f"嵌套取消未穿透到孙子 {叶}：叶子标记为 {标记['叶子']}"
+            )
+
+    # ---- 向外：内层失败冒泡到外层，外层取消兄弟 ----
+    def test_inner_failure_propagates_outward_cancels_outer_siblings(self):
+        """外层 全或无 [A(慢), B(跑内层池), C(慢)]：
+        内层池的 B1 失败 → 内层 全或无 抛异常 → 冒泡到外层 → 外层取消 A 和 C。
+        验证：① 外层捕获到的异常是内层 B1 的（业务异常优先于 CancelledError）；
+              ② A/C 被取消；③ 事件循环无孤儿。
+
+        反跑改坏点：把 `全或无等待` 的 `抛出 首异常` 改成 `抛出 CancelledError` →
+        业务异常被覆盖 → ① 断言「异常含 B1」红；或把内层失败模式改成 逐条收集
+        （不冒泡）→ 外层永不取消 A/C → ② 断言 A/C 被取消 红。
+        """
+        A标记, C标记 = {"取消": False}, {"取消": False}
+
+        def 造A():
+            async def 干():
+                try:
+                    await asyncio.sleep(0.5)
+                    return "A"
+                except asyncio.CancelledError:
+                    A标记["取消"] = True
+                    raise
+            return 干
+
+        def 造C():
+            async def 干():
+                try:
+                    await asyncio.sleep(0.5)
+                    return "C"
+                except asyncio.CancelledError:
+                    C标记["取消"] = True
+                    raise
+            return 干
+
+        def 造B(名, 失败=False):
+            async def 干():
+                if 失败:
+                    await asyncio.sleep(0.01)
+                    raise RuntimeError("§3.1-内层失败-" + 名)
+                await asyncio.sleep(0.5)
+                return 名
+            return 干
+
+        async def 内层():
+            return await 任务池([造B("B1", True), 造B("B2"), 造B("B3")], 3, "全或无")
+
+        孤儿 = {}
+
+        async def 主管():
+            try:
+                await 任务池([造A(), 内层, 造C()], 3, "全或无")
+            except RuntimeError as e:
+                孤儿["异常"] = str(e)
+            except Exception as e:
+                孤儿["异常"] = "非RuntimeError:" + type(e).__name__ + ":" + str(e)
+            await asyncio.sleep(0.05)
+            当前 = asyncio.current_task()
+            孤儿["孤儿数"] = len([t for t in asyncio.all_tasks() if not t.done() and t is not 当前])
+
+        asyncio.run(主管())
+        assert 孤儿["异常"] == "§3.1-内层失败-B1", (
+            f"外层应捕获内层 B1 的业务异常，实际 {孤儿['异常']}"
+        )
+        assert 孤儿["孤儿数"] == 0, f"内层失败冒泡后仍有 {孤儿['孤儿数']} 个孤儿"
+        assert A标记["取消"] and C标记["取消"], f"A/C 应被外层取消：A={A标记} C={C标记}"
+
+
+# ---------------------------------------------------------------------------
+# E9-S2 §3.1 并发上限钳制：≥8 并发 / 跨异步段落复用 / 嵌套外层钳内层
+# （S1 报告：钳制只在 ≤2 并发验证过；≥8、跨段落复用、嵌套池外层钳内层 全部未实测）
+# ---------------------------------------------------------------------------
+class TestConcurrencyClamp:
+    def test_semaphore_clamps_at_8_with_12_tasks(self):
+        """信号量(8) 下 12 路并发，峰值必须 ≤8 且恰为 8（证明真钳制，而非碰巧没并发）。
+
+        反跑改坏点：去掉 信号量获取/释放 → 峰值冲到 12 → 本条红。
+        """
+        计数器 = {"当前": 0, "峰值": 0}
+
+        async def 工人(n):
+            计数器["当前"] += 1
+            if 计数器["当前"] > 计数器["峰值"]:
+                计数器["峰值"] = 计数器["当前"]
+            await asyncio.sleep(0.05)
+            计数器["当前"] -= 1
+            return n
+
+        async def 受控(s, i):
+            await 信号量获取(s)
+            try:
+                return await 工人(i)
+            finally:
+                信号量释放(s)
+
+        async def 主管():
+            s = 异步信号量(8)
+            await asyncio.gather(*(受控(s, i) for i in range(12)))
+
+        asyncio.run(主管())
+        assert 计数器["峰值"] <= 8, f"信号量(8) 下 12 路峰值应 ≤8，实际 {计数器['峰值']}"
+        assert 计数器["峰值"] == 8, f"信号量(8) 真实钳制峰值应恰为 8，实际 {计数器['峰值']}"
+
+    def test_shared_semaphore_across_async_paragraphs(self):
+        """同一信号量(2) 被两个**不同**异步段落（段落甲/段落乙）各自 acquire/release，
+        全局峰值仍 ≤2 且恰为 2 —— 证明信号量是「对象级」共享，跨段落复用不丢计数。
+
+        反跑改坏点：每个段落内部各 new 一个信号量（不共享对象）→ 全局峰值冲到 12 → 红。
+        """
+        计数器 = {"当前": 0, "峰值": 0}
+        s = 异步信号量(2)
+
+        async def 段落甲(i):
+            await 信号量获取(s)
+            try:
+                计数器["当前"] += 1
+                if 计数器["当前"] > 计数器["峰值"]:
+                    计数器["峰值"] = 计数器["当前"]
+                await asyncio.sleep(0.05)
+            finally:
+                计数器["当前"] -= 1
+                信号量释放(s)
+
+        async def 段落乙(i):
+            # 与甲是**不同的异步段落定义**，但复用同一个 s 对象
+            await 信号量获取(s)
+            try:
+                计数器["当前"] += 1
+                if 计数器["当前"] > 计数器["峰值"]:
+                    计数器["峰值"] = 计数器["当前"]
+                await asyncio.sleep(0.05)
+            finally:
+                计数器["当前"] -= 1
+                信号量释放(s)
+
+        async def 主管():
+            await asyncio.gather(
+                *(段落甲(i) for i in range(6)),
+                *(段落乙(i) for i in range(6)),
+            )
+
+        asyncio.run(主管())
+        assert 计数器["峰值"] <= 2, f"跨段落共享信号量(2) 峰值应 ≤2，实际 {计数器['峰值']}"
+        assert 计数器["峰值"] == 2, f"跨段落复用应仍真实钳制到 2，实际 {计数器['峰值']}"
+
+    def test_nested_pool_outer_clamps_inner(self):
+        """外层池 cap=2 × 内层池 cap=2，4 个外层任务各带 8 个叶子。
+        理论最大并发叶子 = 2×2 = 4（外层钳住 2 个内层池同时跑，内层各自钳 2 叶）。
+        断言峰值恰为 4 → 证明「外层钳内层」成立（否则会冲到 8）。
+
+        反跑改坏点：把外层 任务池 的 并发上限 改成很大（或不装信号量）→
+        4 个内层池全并发 → 峰值冲到 8 → 本条红。
+        """
+        计数器 = {"当前": 0, "峰值": 0}
+
+        def 造叶(名):
+            async def 干():
+                计数器["当前"] += 1
+                if 计数器["当前"] > 计数器["峰值"]:
+                    计数器["峰值"] = 计数器["当前"]
+                await asyncio.sleep(0.05)
+                计数器["当前"] -= 1
+                return 名
+            return 干
+
+        def 造内层(序号):
+            async def 内层():
+                return await 任务池(
+                    [造叶(f"{序号}-叶{j}") for j in range(8)], 2, "逐条收集"
+                )
+            return 内层
+
+        async def 主管():
+            return await 任务池([造内层(i) for i in range(4)], 2, "逐条收集")
+
+        asyncio.run(主管())
+        assert 计数器["峰值"] <= 4, f"嵌套池叶子峰值应 ≤4（外层2×内层2），实际 {计数器['峰值']}"
+        assert 计数器["峰值"] == 4, f"应证明外层钳住了内层（峰值恰为 2×2=4），实际 {计数器['峰值']}"
+
+
+class Test并发调度滑窗:
+    """E9-S2 §4 #2：并发调度的精确判据（补齐「卡在判据」的 partial）。
+
+    耗时数组 [0.30, 0.01, 0.01, 0.01]、上限 2：
+    滑窗实现下，第 3 个任务（序号 2）在慢任务（序号 0, 0.30s）完成之前就起跑并完成；
+    分批 barrier 实现下，第 3 个任务要等慢任务所在的第 1 批整批跑完才起跑。
+    两条断言断滑窗（不断绝对秒数，CI 负载会让绝对数漂）：
+
+    反跑改坏点：把 `并发.light` 的 `任务池` 从「信号量滑窗」改成「按上限分批 gather
+    barrier」，本条 `完成[2] < 完成[0]` 与 `起跑[2] < 起跑[0] + 0.30` 立即红。
+    """
+    def test_滑动窗口_慢任务未完成时后续起跑并完成(self):
+        import asyncio as _a
+        起跑 = {}
+        完成 = {}
+
+        async def 主管():
+            环 = _a.get_running_loop()
+            起点 = 环.time()
+
+            async def 做(延时, 序号):
+                起跑[序号] = 环.time() - 起点
+                await _a.sleep(延时)
+                完成[序号] = 环.time() - 起点
+                return 序号
+
+            表 = [lambda i=i, d=d: 做(d, i) for i, d in enumerate([0.30, 0.01, 0.01, 0.01])]
+            结果 = await 任务池(表, 2)
+            return 结果
+
+        结果 = _a.run(主管())
+        # 判别点 1：第 3 个任务（序号 2）在慢任务（序号 0）完成前就完成
+        assert 完成[2] < 完成[0], (
+            "任务池是分批 barrier：序号2 完成 %s 不早于慢任务序号0 完成 %s" % (完成[2], 完成[0]))
+        # 判别点 2：第 3 个任务起跑早于慢任务完成时刻
+        assert 起跑[2] < 起跑[0] + 0.30, (
+            "任务池是分批 barrier：序号2 起跑 %s 不早于慢任务完成 %s" % (起跑[2], 起跑[0] + 0.30))
+        # 关系：总耗时逼近最慢那条 0.30（其余任务在空档里跑完），且顺序=提交顺序
+        assert abs(完成[0] - 0.30) < 0.10
+        assert 结果 == [0, 1, 2, 3]
 
 
 if __name__ == "__main__":

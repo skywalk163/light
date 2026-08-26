@@ -44,7 +44,7 @@ _light_import_hook.install([_STDLIB])
 
 import 流式 as 流式模块  # noqa: E402
 import 大模型客户端 as 客户端模块  # noqa: E402
-from 流式 import HTTP客户端, 协程读体, 协程按行读取  # noqa: E402
+from 流式 import HTTP客户端  # noqa: E402
 from 大模型客户端 import 大模型客户端  # noqa: E402
 
 
@@ -246,7 +246,7 @@ async def _读一路(端口):
     c.超时读取 = 5.0
     状态 = c.发送("GET", "/", {}, "")[0]
     数据 = b""
-    async for 块 in 协程读体(c):
+    async for 块 in c.协程读体():
         数据 += 块
     return 状态, 数据
 
@@ -263,10 +263,10 @@ async def _心跳(标记, 计数, 间隔=0.02):
 # ---------------------------------------------------------------------------
 class Test结构判据:
     def test_异步读腿的产物类别(self):
-        assert inspect.iscoroutinefunction(流式模块.协程收) is True
-        assert inspect.isasyncgenfunction(流式模块.协程读体) is True
-        assert inspect.isasyncgenfunction(流式模块.协程读分块) is True
-        assert inspect.isasyncgenfunction(流式模块.协程按行读取) is True
+        assert inspect.iscoroutinefunction(流式模块.HTTP客户端.协程收) is True
+        assert inspect.isasyncgenfunction(流式模块.HTTP客户端.协程读体) is True
+        assert inspect.isasyncgenfunction(流式模块.HTTP客户端.协程读分块) is True
+        assert inspect.isasyncgenfunction(流式模块.HTTP客户端.协程按行读取) is True
 
     def test_流式对话的异步版是async生成器(self):
         assert inspect.isasyncgenfunction(客户端模块.流式对话) is True
@@ -451,7 +451,7 @@ class Test异步按行读取:
             c.超时读取 = 5.0
             状态 = c.发送("GET", "/", {}, "")[0]
             行们 = []
-            async for 行 in 协程按行读取(c):
+            async for 行 in c.协程按行读取():
                 行们.append(行)
             return 状态, 行们
 
@@ -591,7 +591,7 @@ async def _读一路TLS(端口, ca文件):
     c.超时读取 = 5.0
     状态 = c.发送("GET", "/", {}, "")[0]
     数据 = b""
-    async for 块 in 协程读体(c):
+    async for 块 in c.协程读体():
         数据 += 块
     return 状态, 数据
 
@@ -663,7 +663,7 @@ class TestTLS异步读腿:
             c.超时读取 = 0.5
             c.发送("GET", "/", {}, "")
             数据 = b""
-            async for 块 in 协程读体(c):
+            async for 块 in c.协程读体():
                 数据 += 块
             return 数据
 
