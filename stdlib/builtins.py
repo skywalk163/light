@@ -1146,6 +1146,143 @@ def 弧度转角度(弧度: float) -> float:
 
 
 # =============================================================================
+# 系统原语（第九轮 S2 · 外发任务_内置与直调S2）
+# =============================================================================
+# 这 20 条对应 任务书/缺失内置清单.json 的「缺失内置」档，全部 native_required：
+# 本质是系统调用（os / time / hmac），光明写不出来，只能转发。
+#
+# 三条硬规矩沿用地板转发（本文件头部）：
+#   1. 惰性：对「光明模块」的 import 放函数体内；os 已在顶部（:7）导入、time
+#      以别名 _time_module（:12）注入，这里直接复用，不新增顶层 import。
+#   2. 不静默兜底：转发失败就抛。唯一的「返回默认值」是跨平台常量语义本身——
+#      二进制（O_BINARY 仅 Windows）/ 不跟随符号链接（O_NOFOLLOW 仅 POSIX）
+#      在对应平台上本就无此概念，返回 0 是文档语义，不是掩错。
+#   3. 等价性：全部直译 os.* / time.* / hmac.*，与调用点原 os 用法逐字等价。
+#
+# 常量以「零参函数」形态落地（`_light_builtin.只读()`）而不是模块级整型标量：
+#   光明侧裸写 `只读` 会被解析器当零参调用（src/code_generator.py:2781 注释），
+#   发射成 `_light_builtin.只读()`；若是 int 标量运行期就 TypeError。做成函数
+#   与既有发射机制零冲突。跨平台守卫也自然落在函数体内，不污染模块顶层。
+#   语义上仍是「常量」：每次调用返回同一个固定旗标整数。
+
+
+def 真实路径(路径: str) -> str:
+    """解析符号链接 / junction / .. / 8.3 短名，返回规范化真实路径（os.path.realpath）"""
+    return os.path.realpath(路径)
+
+
+def 文件状态(路径):
+    """按路径取文件元数据（os.stat）。取不到（不存在/无权限）返回空，不抛。
+
+    状态对象即 Python 的 os.stat_result，透明暴露 硬链接数(st_nlink) /
+    设备号(st_dev) / 节点号(st_ino) / 大小 / 是目录，供护栏 TOCTOU 身份比对。
+    """
+    try:
+        return os.stat(路径)
+    except Exception:
+        return None
+
+
+def 句柄状态(句柄):
+    """按已打开的文件描述符取元数据（os.fstat）。取不到返回空，不抛。
+
+    与 文件状态 的区别全在于「从已持有的句柄回查」，避免再开一个 TOCTOU 窗口。
+    """
+    try:
+        return os.fstat(句柄)
+    except Exception:
+        return None
+
+
+def 低级打开(路径: str, 标志位: int, 模式: int) -> int:
+    """按标志位打开文件，返回整数文件描述符（os.open）。失败抛错。"""
+    return os.open(路径, 标志位, 模式)
+
+
+def 低级读(句柄: int, 字节数: int) -> bytes:
+    """从描述符读至多 字节数 个字节，返回字节串（os.read）；读到末尾返回空字节串。"""
+    return os.read(句柄, 字节数)
+
+
+def 低级写(句柄: int, 字节) -> int:
+    """向描述符写字节串，返回实际写入字节数（os.write）。"""
+    return os.write(句柄, 字节)
+
+
+def 低级关闭(句柄: int) -> None:
+    """关闭描述符（os.close）。"""
+    os.close(句柄)
+
+
+def 随机字节(个数: int) -> bytes:
+    """返回 个数 个密码学安全的随机字节（os.urandom）。"""
+    return os.urandom(个数)
+
+
+def 原子替换(源: str, 目标: str) -> None:
+    """同卷内原子改名，目标已存在则原子覆盖（os.replace）。"""
+    os.replace(源, 目标)
+
+
+def 环境枚举():
+    """列出当前进程全部环境变量，返回 [[名, 值], ...]（os.environ.items()）。"""
+    return [[名, 值] for 名, 值 in os.environ.items()]
+
+
+def 单调时钟() -> float:
+    """返回只增不减、不受系统时钟调整影响的秒数（time.monotonic）。绝对值无意义，只用于求差。"""
+    return _time_module.monotonic()
+
+
+def 常量时间比较(甲, 乙) -> bool:
+    """以不随输入内容变化的时间比较两个字符串/字节是否相等（hmac.compare_digest），防时序侧信道。"""
+    import hmac
+    return hmac.compare_digest(甲, 乙)
+
+
+# ---- 8 个打开标志常量（跨平台，以零参函数形态落地） ----
+
+def 只读() -> int:
+    """打开标志：只读（os.O_RDONLY）。"""
+    return os.O_RDONLY
+
+
+def 只写() -> int:
+    """打开标志：只写（os.O_WRONLY）。"""
+    return os.O_WRONLY
+
+
+def 新建() -> int:
+    """打开标志：不存在则创建（os.O_CREAT）。"""
+    return os.O_CREAT
+
+
+def 截断() -> int:
+    """打开标志：已存在则清空到零长度（os.O_TRUNC）。"""
+    return os.O_TRUNC
+
+
+def 追加() -> int:
+    """打开标志：每次写都定位到文件末尾（os.O_APPEND）。"""
+    return os.O_APPEND
+
+
+def 独占() -> int:
+    """打开标志：与 新建 合用时目标已存在则失败（os.O_EXCL）。"""
+    return os.O_EXCL
+
+
+def 二进制() -> int:
+    """打开标志：字节透传不做换行转换。仅 Windows 存在（os.O_BINARY），POSIX 上无此概念、返回 0。"""
+    return os.O_BINARY if hasattr(os, "O_BINARY") else 0
+
+
+def 不跟随符号链接() -> int:
+    """打开标志：末段是符号链接则直接失败。仅 POSIX 存在（os.O_NOFOLLOW），Windows 上返回 0。"""
+    return os.O_NOFOLLOW if hasattr(os, "O_NOFOLLOW") else 0
+
+
+# =============================================================================
 # 导出所有函数
 # =============================================================================
 
@@ -1204,4 +1341,12 @@ __all__ = [
     '求和', '累积和',
     '圆周率', '自然常数',
     '角度转弧度', '弧度转角度',
+
+    # 系统原语（第九轮 S2）
+    '真实路径', '文件状态', '句柄状态',
+    '低级打开', '低级读', '低级写', '低级关闭',
+    '随机字节', '原子替换', '环境枚举',
+    '单调时钟', '常量时间比较',
+    '只读', '只写', '新建', '截断', '追加', '独占',
+    '二进制', '不跟随符号链接',
 ]
