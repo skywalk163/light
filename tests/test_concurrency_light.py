@@ -746,5 +746,249 @@ class TestRetry:
         assert asyncio.run(主管()) == "耗尽:3", f"重试 3 次应耗尽并抛错，实际 {计数器['n']}"
 
 
+# ---------------------------------------------------------------------------
+# E9-S2 §3.1 结构化任务组：多级嵌套取消 + 高并发钳制
+# （S1 交付报告 §4 自述：「取消链的深度嵌套未测」「并发上限钳制单测只在 ≤2 并发验证」）
+# 收敛判据：内向穿透无孤儿 / 向外传播 / 并发上限 ≥8 / 跨异步段落复用信号量 /
+#          嵌套池外层钳内层。实现层面因 并发等待=asyncio.gather（取消级联子任务），
+#          嵌套取消本就成立，本组用例把「未测」变成「已测 + 反跑可立红」。
+# ---------------------------------------------------------------------------
+class TestStructuredTaskGroup:
+    # ---- 内向：外层取消穿透到内层池的孙子任务，无孤儿 ----
+    def test_nested_cancel_reaches_grandchildren_no_orphans(self):
+        """外层 全或无 [慢1(跑中层池), 立即失败, 慢2]：
+        立即失败触发外层取消 → 取消信号经 asyncio.gather(并发等待) 级联下沉，
+        一路穿透到最内层 3 个慢叶子的孙子任务，且事件循环无孤儿。
+
+        反跑改坏点：把 并发.light 的 `并发等待`(=asyncio.gather) 换回
+        `asyncio.wait`（不级联取消子任务）→ 内层叶子不被取消 →
+        ① 「叶子完成标记」出现未取消的正常完成 ② 主管末 `孤儿数` > 0 → 本条红。
+        """
+        标记 = {"叶子": []}
+
+        def 造叶(名):
+            async def 干():
+                try:
+                    await asyncio.sleep(0.5)
+                    标记["叶子"].append(名 + "-完成")
+                    return 名
+                except asyncio.CancelledError:
+                    标记["叶子"].append(名 + "-被取消")
+                    raise
+            return 干
+
+        def 造(名, 失败=False):
+            async def 干():
+                if 失败:
+                    await asyncio.sleep(0.01)
+                    raise RuntimeError("§3.1-故意失败-" + 名)
+                await asyncio.sleep(0.5)
+                return 名
+            return 干
+
+        async def 叶池():
+            return await 任务池([造叶("叶A"), 造叶("叶B"), 造叶("叶C")], 3, "全或无")
+
+        async def 中层池():
+            return await 任务池([叶池, 造("慢1b")], 2, "全或无")
+
+        孤儿 = {}
+
+        async def 主管():
+            try:
+                await 任务池([中层池, 造("立即失败", True), 造("慢2")], 3, "全或无")
+            except RuntimeError as e:
+                孤儿["异常"] = str(e)
+            await asyncio.sleep(0.05)   # 让取消传播完成
+            当前 = asyncio.current_task()
+            孤儿["孤儿数"] = len([t for t in asyncio.all_tasks() if not t.done() and t is not 当前])
+
+        asyncio.run(主管())
+        assert 孤儿["异常"] == "§3.1-故意失败-立即失败", f"首异常不对：{孤儿}"
+        assert 孤儿["孤儿数"] == 0, f"嵌套取消后有 {孤儿['孤儿数']} 个孤儿 Task 残留"
+        # 关键：最内层 3 个孙子叶子必须全部被取消（取消穿透到了孙子层）
+        for 叶 in ("叶A", "叶B", "叶C"):
+            assert (叶 + "-被取消") in 标记["叶子"], (
+                f"嵌套取消未穿透到孙子 {叶}：叶子标记为 {标记['叶子']}"
+            )
+
+    # ---- 向外：内层失败冒泡到外层，外层取消兄弟 ----
+    def test_inner_failure_propagates_outward_cancels_outer_siblings(self):
+        """外层 全或无 [A(慢), B(跑内层池), C(慢)]：
+        内层池的 B1 失败 → 内层 全或无 抛异常 → 冒泡到外层 → 外层取消 A 和 C。
+        验证：① 外层捕获到的异常是内层 B1 的（业务异常优先于 CancelledError）；
+              ② A/C 被取消；③ 事件循环无孤儿。
+
+        反跑改坏点：把 `全或无等待` 的 `抛出 首异常` 改成 `抛出 CancelledError` →
+        业务异常被覆盖 → ① 断言「异常含 B1」红；或把内层失败模式改成 逐条收集
+        （不冒泡）→ 外层永不取消 A/C → ② 断言 A/C 被取消 红。
+        """
+        A标记, C标记 = {"取消": False}, {"取消": False}
+
+        def 造A():
+            async def 干():
+                try:
+                    await asyncio.sleep(0.5)
+                    return "A"
+                except asyncio.CancelledError:
+                    A标记["取消"] = True
+                    raise
+            return 干
+
+        def 造C():
+            async def 干():
+                try:
+                    await asyncio.sleep(0.5)
+                    return "C"
+                except asyncio.CancelledError:
+                    C标记["取消"] = True
+                    raise
+            return 干
+
+        def 造B(名, 失败=False):
+            async def 干():
+                if 失败:
+                    await asyncio.sleep(0.01)
+                    raise RuntimeError("§3.1-内层失败-" + 名)
+                await asyncio.sleep(0.5)
+                return 名
+            return 干
+
+        async def 内层():
+            return await 任务池([造B("B1", True), 造B("B2"), 造B("B3")], 3, "全或无")
+
+        孤儿 = {}
+
+        async def 主管():
+            try:
+                await 任务池([造A(), 内层, 造C()], 3, "全或无")
+            except RuntimeError as e:
+                孤儿["异常"] = str(e)
+            except Exception as e:
+                孤儿["异常"] = "非RuntimeError:" + type(e).__name__ + ":" + str(e)
+            await asyncio.sleep(0.05)
+            当前 = asyncio.current_task()
+            孤儿["孤儿数"] = len([t for t in asyncio.all_tasks() if not t.done() and t is not 当前])
+
+        asyncio.run(主管())
+        assert 孤儿["异常"] == "§3.1-内层失败-B1", (
+            f"外层应捕获内层 B1 的业务异常，实际 {孤儿['异常']}"
+        )
+        assert 孤儿["孤儿数"] == 0, f"内层失败冒泡后仍有 {孤儿['孤儿数']} 个孤儿"
+        assert A标记["取消"] and C标记["取消"], f"A/C 应被外层取消：A={A标记} C={C标记}"
+
+
+# ---------------------------------------------------------------------------
+# E9-S2 §3.1 并发上限钳制：≥8 并发 / 跨异步段落复用 / 嵌套外层钳内层
+# （S1 报告：钳制只在 ≤2 并发验证过；≥8、跨段落复用、嵌套池外层钳内层 全部未实测）
+# ---------------------------------------------------------------------------
+class TestConcurrencyClamp:
+    def test_semaphore_clamps_at_8_with_12_tasks(self):
+        """信号量(8) 下 12 路并发，峰值必须 ≤8 且恰为 8（证明真钳制，而非碰巧没并发）。
+
+        反跑改坏点：去掉 信号量获取/释放 → 峰值冲到 12 → 本条红。
+        """
+        计数器 = {"当前": 0, "峰值": 0}
+
+        async def 工人(n):
+            计数器["当前"] += 1
+            if 计数器["当前"] > 计数器["峰值"]:
+                计数器["峰值"] = 计数器["当前"]
+            await asyncio.sleep(0.05)
+            计数器["当前"] -= 1
+            return n
+
+        async def 受控(s, i):
+            await 信号量获取(s)
+            try:
+                return await 工人(i)
+            finally:
+                信号量释放(s)
+
+        async def 主管():
+            s = 异步信号量(8)
+            await asyncio.gather(*(受控(s, i) for i in range(12)))
+
+        asyncio.run(主管())
+        assert 计数器["峰值"] <= 8, f"信号量(8) 下 12 路峰值应 ≤8，实际 {计数器['峰值']}"
+        assert 计数器["峰值"] == 8, f"信号量(8) 真实钳制峰值应恰为 8，实际 {计数器['峰值']}"
+
+    def test_shared_semaphore_across_async_paragraphs(self):
+        """同一信号量(2) 被两个**不同**异步段落（段落甲/段落乙）各自 acquire/release，
+        全局峰值仍 ≤2 且恰为 2 —— 证明信号量是「对象级」共享，跨段落复用不丢计数。
+
+        反跑改坏点：每个段落内部各 new 一个信号量（不共享对象）→ 全局峰值冲到 12 → 红。
+        """
+        计数器 = {"当前": 0, "峰值": 0}
+        s = 异步信号量(2)
+
+        async def 段落甲(i):
+            await 信号量获取(s)
+            try:
+                计数器["当前"] += 1
+                if 计数器["当前"] > 计数器["峰值"]:
+                    计数器["峰值"] = 计数器["当前"]
+                await asyncio.sleep(0.05)
+            finally:
+                计数器["当前"] -= 1
+                信号量释放(s)
+
+        async def 段落乙(i):
+            # 与甲是**不同的异步段落定义**，但复用同一个 s 对象
+            await 信号量获取(s)
+            try:
+                计数器["当前"] += 1
+                if 计数器["当前"] > 计数器["峰值"]:
+                    计数器["峰值"] = 计数器["当前"]
+                await asyncio.sleep(0.05)
+            finally:
+                计数器["当前"] -= 1
+                信号量释放(s)
+
+        async def 主管():
+            await asyncio.gather(
+                *(段落甲(i) for i in range(6)),
+                *(段落乙(i) for i in range(6)),
+            )
+
+        asyncio.run(主管())
+        assert 计数器["峰值"] <= 2, f"跨段落共享信号量(2) 峰值应 ≤2，实际 {计数器['峰值']}"
+        assert 计数器["峰值"] == 2, f"跨段落复用应仍真实钳制到 2，实际 {计数器['峰值']}"
+
+    def test_nested_pool_outer_clamps_inner(self):
+        """外层池 cap=2 × 内层池 cap=2，4 个外层任务各带 8 个叶子。
+        理论最大并发叶子 = 2×2 = 4（外层钳住 2 个内层池同时跑，内层各自钳 2 叶）。
+        断言峰值恰为 4 → 证明「外层钳内层」成立（否则会冲到 8）。
+
+        反跑改坏点：把外层 任务池 的 并发上限 改成很大（或不装信号量）→
+        4 个内层池全并发 → 峰值冲到 8 → 本条红。
+        """
+        计数器 = {"当前": 0, "峰值": 0}
+
+        def 造叶(名):
+            async def 干():
+                计数器["当前"] += 1
+                if 计数器["当前"] > 计数器["峰值"]:
+                    计数器["峰值"] = 计数器["当前"]
+                await asyncio.sleep(0.05)
+                计数器["当前"] -= 1
+                return 名
+            return 干
+
+        def 造内层(序号):
+            async def 内层():
+                return await 任务池(
+                    [造叶(f"{序号}-叶{j}") for j in range(8)], 2, "逐条收集"
+                )
+            return 内层
+
+        async def 主管():
+            return await 任务池([造内层(i) for i in range(4)], 2, "逐条收集")
+
+        asyncio.run(主管())
+        assert 计数器["峰值"] <= 4, f"嵌套池叶子峰值应 ≤4（外层2×内层2），实际 {计数器['峰值']}"
+        assert 计数器["峰值"] == 4, f"应证明外层钳住了内层（峰值恰为 2×2=4），实际 {计数器['峰值']}"
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
