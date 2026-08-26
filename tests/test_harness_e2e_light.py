@@ -280,6 +280,23 @@ class Test单条超时:
         assert [e["输入词元"] for e in 报告["条目"]] == [None] * 6
         assert 报告["汇总"]["用量"] == {}
 
+    def test_真杀挂死子进程标记超时且整场跑完(self, tmp_path):
+        """Path A 真杀判据（#16 在生产 eval 超时路径生效的硬证明）：mock 故意挂死
+        （延迟 3.0s 远大于超时 0.05s），父进程必须在超时窗口内 SIGKILL 整棵子进程树，
+        落「超时」失败条目，且整场 rc=0、报告照样落盘——协作式 wait_for 掐不掉已起跑的
+        同步阻塞，进程隔离能。若未真杀，子进程会跑完 3.0s 延迟产出正常结果而非超时条目。"""
+        rc, 报告路径, 输出 = _跑评测(
+            tmp_path, {"HARNESS_DELAY_SEC": "3.0", "HARNESS_TIMEOUT_SEC": "0.05"}
+        )
+        assert rc == 0, _文本(输出)
+        报告 = _读报告(报告路径)
+        # 六条全被硬杀：错误分类=超时、得分 0（协作式等待给不出这种结果）
+        assert 报告["汇总"]["失败分类计数"]["超时"] == 6
+        assert [e["得分"] for e in 报告["条目"]] == [0] * 6
+        assert [e["错误分类"] for e in 报告["条目"]] == ["超时"] * 6
+        # 被掐掉的条目采不到词元（空，不是 0）
+        assert [e["输入词元"] for e in 报告["条目"]] == [None] * 6
+
     def test_限时大于延迟时与不限时逐项等价(self, tmp_path):
         rc, 报告路径, 输出 = _跑评测(
             tmp_path, {"HARNESS_DELAY_SEC": "0.01", "HARNESS_TIMEOUT_SEC": "30"}
