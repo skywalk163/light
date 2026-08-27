@@ -778,6 +778,19 @@ class ParserExprMixin:
                 if not class_name:
                     return self._error("期望类名")
                 
+                # 泛型类实例化：`新建 栈[整数]` / `新建 栈[整数](7)` 的 `[整数]` 是
+                # 类型参数，不是构造实参。改动前 v3 解析器把它并进 args——无括号时
+                # `[整数]` 被收集成 ListLiteral、`(7)` 被后缀成
+                # FunctionCallExpr(callee=ListLiteral, args=[7])，两种后端拿到后
+                # 要么把类型名当值用（Python: `栈([整数])` → NameError），要么原生腿
+                # 报「暂不支持 FunctionCallExpr」。这里显式吃掉类型参数列表（类型擦除，
+                # 两端都不需要），再正常解析构造参数。
+                if self._current() and self._current().type == TokenType.LBRACKET:
+                    self._consume(TokenType.LBRACKET)
+                    while self._current() and self._current().type != TokenType.RBRACKET:
+                        self._consume()
+                    self._consume(TokenType.RBRACKET)
+                
                 # 收集参数（支持括号式和无括号式）
                 args = []
                 if self._current() and self._current().type == TokenType.LPAREN:
