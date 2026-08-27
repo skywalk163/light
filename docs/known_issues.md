@@ -192,14 +192,19 @@
 `MatchStatement`、`WithStatement`、`DestructuringAssignment`、`SegmentDefinition`
 （嵌套段落）、`InterfaceDefinition`、`MethodDefinition`、`AttributeDeclaration`。
 
-**注意 `ImportStatement` 是 `pass`**：原生后端把导入语句**编成空操作**，既不报错
-也不加载模块。它不在「会报错」清单里，属于另一类问题（静默无效），本轮未动。
+**`ImportStatement` 已从 no-op 变为真导入（B9 S1 2.3 / 2026-08-24）**：`compile_light_typed`
+检测到模块级导入即委托 `compile_light_project` 多模块编译（`compiler.py:459/_module_has_imports`），
+`_process_imports`（`codegen_typed.py:767`）登记符号、`_gen_exported_aliases` 做 `{模块名}_{段落名}`
+名字修饰；同名 `.py` 影子 / 纯 Python 模块显式抛 `NativeImportError`（`compiler.py:42`），
+绝不静默产出一个跑起来就崩的 exe。判据见 `tests/test_native_import.py`，边界见
+`docs/原生腿能力边界.md` §9。`_gen_statement` 里 `ImportStatement` 的 `pass` 是
+「模块级导入已在上游处理」的语义留白，不再是静默无效。
 
 ### 9.3 实测分桶（24 条片段，`compile_source_typed` 直跑）
 
 | 桶 | 条数 | 成员 |
 |----|------|------|
-| 能编 | 16 | 赋值/变量声明、`如果`、`遍历`、`当`、段落、`返回`、`跳出`、`继续`、`尝试`/`捕获`、`抛出`、`打印`、`引`（空操作）、类（非嵌套）、接口、`导出`、`延迟` |
+| 能编 | 16 | 赋值/变量声明、`如果`、`遍历`、`当`、段落、`返回`、`跳出`、`继续`、`尝试`/`捕获`、`抛出`、`打印`、`引`（B9 S1 起真导入，见上方说明）、类（非嵌套）、接口、`导出`、`延迟` |
 | 明确拒绝 | 6 | `全局`(ScopeDeclStmt)、`外层`(先撞 SegmentDefinition)、`生成`(YieldStmt)、`断言`(AssertStmt)、类型别名(TypeAlias)、嵌套类(ClassDefinitionWithNested) |
 | 更早的层拦下 | 2 | `匹配`（v3 解析器语法就没通）、`异步域`（同上） |
 
