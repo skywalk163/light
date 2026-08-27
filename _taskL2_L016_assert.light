@@ -1,0 +1,33 @@
+# 缺陷：L-016 CancelledError（asyncio 取消，BaseException 子类）无法被光明「捕获」捕获，异步取消无法用 try/except 接住
+# 当前：红——取消后 `等待` 被取消任务 → `asyncio.exceptions.CancelledError`（BaseException）冒泡 Traceback，「捕获」段（except Exception）不生效
+# 修复后：绿——「捕获」能接住 CancelledError（或提供 捕获 全部 → except BaseException），接住==真，主流程继续
+异步 段落 长睡:
+  等待 异步睡眠(60)
+
+# 修复后断言段——当前刻意不调用（修复后启用；因含 等待 须为 异步 段落）
+异步 段落 断言修复后:
+  设 任务 为 创建任务(长睡())
+  任务.cancel()
+  设 接住 为 假
+  尝试:
+    等待 任务
+  捕获:
+    设 接住 为 真
+  断言真(接住, "L-016 修复后 CancelledError 应被「捕获」接住")
+
+段落 断言真 接收 条件, 标签:
+  如果 条件 == 假:
+    抛出 "断言失败: " + 标签
+
+异步 段落 主:
+  设 任务 为 创建任务(长睡())
+  任务.cancel()
+  设 接住 为 假
+  尝试:
+    等待 任务
+  捕获:
+    设 接住 为 真
+  打印 "--- 测试L016 结束 ---"
+  等待 断言修复后()
+
+异步 运行 主()

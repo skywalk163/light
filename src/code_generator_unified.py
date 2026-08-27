@@ -644,7 +644,7 @@ class UnifiedCodeGenerator:
             pass  # Python中不需要特殊处理
         
         # 函数调用作为语句
-        elif is_instance(stmt, 'FunctionCall') or is_instance(stmt, 'ParagraphCall'):
+        elif is_instance(stmt, 'FunctionCall') or is_instance(stmt, 'ParagraphCall') or is_instance(stmt, 'FunctionCallExpr'):
             expr_code = self._generate_expr(stmt)
             self._add_line(expr_code)
         
@@ -829,15 +829,31 @@ class UnifiedCodeGenerator:
             self._generate_statement(s)
         self.indent_level -= 1
         
-        if stmt.catch_var or stmt.catch_type:
+        # L-016：`捕获 全部` / 裸 `捕获:` → except BaseException（可接住 asyncio.CancelledError）。
+        # 与 code_generator.py 的 _generate_catch_clause 同口径：
+        #   `捕获:`            —— 裸捕获，catch_type/catch_var 均空；
+        #   `捕获 全部:`        —— parser 把「全部」当变量名放进 catch_var；
+        #   `捕获 全部 为 变量:` —— parser 把「全部」当类型名放进 catch_type，变量单独绑定。
+        # 裸 `捕获:` 也映射 BaseException（Python 裸 except: 语义，也是 test_L016 的验收语义）。
+        catch_type = getattr(stmt, 'catch_type', None)
+        catch_var = getattr(stmt, 'catch_var', None)
+        catch_body = getattr(stmt, 'catch_body', None)
+        is_all = (catch_type == '全部') or (catch_type is None and (catch_var is None or catch_var == '全部'))
+        if is_all or catch_var or catch_type:
             # 构建 except 子句
-            exc_type = stmt.catch_type if stmt.catch_type else "Exception"
-            if stmt.catch_var:
-                self._add_line(f"except {exc_type} as {stmt.catch_var}:")
+            if is_all:
+                if catch_type == '全部' and catch_var:
+                    self._add_line(f"except BaseException as {catch_var}:")
+                else:
+                    self._add_line("except BaseException:")
             else:
-                self._add_line(f"except {exc_type}:")
+                exc_type = catch_type if catch_type else "Exception"
+                if catch_var:
+                    self._add_line(f"except {exc_type} as {catch_var}:")
+                else:
+                    self._add_line(f"except {exc_type}:")
             self.indent_level += 1
-            for s in stmt.catch_body:
+            for s in catch_body:
                 self._generate_statement(s)
             self.indent_level -= 1
         
@@ -847,7 +863,7 @@ class UnifiedCodeGenerator:
             for s in stmt.finally_body:
                 self._generate_statement(s)
             self.indent_level -= 1
-        elif not (stmt.catch_var or stmt.catch_type):
+        elif not (catch_var or catch_type) and not is_all:
             # Python 要求 try 必须有 except 或 finally
             self._add_line("finally:")
             self.indent_level += 1
@@ -1541,6 +1557,14 @@ class UnifiedCodeGenerator:
             args = [self._generate_expr(arg) for arg in (getattr(expr, 'arguments', None) or getattr(expr, 'args', []))]
             args_str = ', '.join(args)
             return f"{func_name}({args_str})"
+
+        # 链式函数调用（v3 后端 AST）：callee(args)，如 表["甲"](1)
+        # L-014：与 code_generator.py 的 FunctionCallExpr 分支同构，语句/表达式两层都要能生成。
+        elif is_instance(expr, 'FunctionCallExpr'):
+            callee = self._generate_expr(expr.callee)
+            args = [self._generate_expr(arg) for arg in getattr(expr, 'args', [])]
+            args_str = ', '.join(args)
+            return f"{callee}({args_str})"
         
         # 属性访问
         elif is_instance(expr, 'PropertyAccess'):

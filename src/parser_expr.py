@@ -2954,8 +2954,14 @@ class ParserExprMixin:
                         # 无括号模式：收集参数直到阻断符
                         while self._current():
                             next_tok = self._current()
-                            # 阻断符：句号、逗号、右括号、右中括号、关键字      
-                            if next_tok.type in (TokenType.DOT, TokenType.PERIOD, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET, TokenType.SEMICOLON):
+                            # 阻断符：句号、逗号、右括号、右中括号、关键字
+                            # L-005：LBRACKET 也是阻断符——`对象.表[键]` 的 [ 下标应走
+                            # 后续索引访问分支（IndexAccess），不得被吞成"唯一实参"（ListLiteral），
+                            # 否则 对象.表[键] 被误编译成 对象.表([键]) 调用（'dict' object is not callable）。
+                            # 这是 L-005 的最小修复面：AST 层 `对象.表[键]` 与真实调用
+                            # `对象.方法([单元素])` 完全同构（MemberAccess.is_method_call=True +
+                            # args=[ListLiteral]），代码生成层无从区分，必须在解析期切开。
+                            if next_tok.type in (TokenType.DOT, TokenType.PERIOD, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET, TokenType.LBRACKET, TokenType.SEMICOLON):
                                 break
                             if next_tok.type == TokenType.KEYWORD and (next_tok.value in ALL_KEYWORDS or next_tok.value in VERB_ARITY) and next_tok.value not in _EXPR_START_KEYWORDS:
                                 break

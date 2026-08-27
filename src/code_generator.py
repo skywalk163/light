@@ -111,6 +111,16 @@ class PythonCodeGenerator:
         # _user_defined_functions 的键一致），不是 sanitize 之后的 Python 名。
         self._local_variables: set = set()
         
+        # L-006：闭包内修改外层函数局部标量的 nonlocal 检测。
+        # _function_locals_stack：栈，每层对应一个外层函数「自己绑定」的局部名
+        #   （不含继承来的名字）；栈顶是当前正在生成的函数。
+        # _pending_nonlocal：当前函数体内检测到「赋值给外层函数局部名」的名字，
+        #   函数体生成完毕后统一发射 nonlocal 声明。
+        # _binding_params：绑定段落/方法参数期间置真，参数遮蔽不触发 nonlocal。
+        self._function_locals_stack: list = []
+        self._pending_nonlocal: set = set()
+        self._binding_params: bool = False
+        
         # 是否在函数/段落内部（控制 return 生成）
         self._in_function: bool = False
         
@@ -420,6 +430,11 @@ class PythonCodeGenerator:
             '打印错误': '_light_builtin.打印错误',
 
             # JSON 处理
+            # L-008：注册别名，使 序列化/反序列化 作为 JSON 内置直接可用，
+            # 不必先 `从 JSON 导入 序列化JSON`（缺陷账 L-008 期望能力：
+            # 避免同名不同函数「序列化 vs 序列化JSON」）。
+            '序列化': '_light_builtin.序列化JSON',
+            '反序列化': '_light_builtin.解析JSON',
             '解析JSON': '_light_builtin.解析JSON',
             '序列化JSON': '_light_builtin.序列化JSON',
             '美化JSON': '_light_builtin.美化JSON',
@@ -693,7 +708,28 @@ class PythonCodeGenerator:
             # `己.当前` 这类是属性而非局部变量，不登记（否则会误遮蔽同名内置）
             if '.' in n:
                 continue
+            self._note_function_binding(n)
             self._local_variables.add(n)
+
+    def _note_function_binding(self, name: str) -> None:
+        """登记一个名字在当前函数作用域的绑定，并做 L-006 nonlocal 检测。
+
+        - 当前不处于任何函数（_function_locals_stack 为空）→ 模块级绑定，跳过。
+        - 处于参数绑定阶段（_binding_params）→ 只记入当前函数帧（供更深层闭包
+          引用），不触发 nonlocal（参数遮蔽是合法的，不是修改外层）。
+        - 否则：该名字若已被「外层函数帧」绑定，说明当前函数在**改写**外层函数
+          的局部标量 → 记入 _pending_nonlocal，函数体生成完毕后发射 `nonlocal 名`。
+        """
+        if not self._function_locals_stack:
+            return
+        if self._binding_params:
+            self._function_locals_stack[-1].add(name)
+            return
+        for frame in self._function_locals_stack[:-1]:
+            if name in frame:
+                self._pending_nonlocal.add(name)
+                break
+        self._function_locals_stack[-1].add(name)
 
     def _push_local_scope(self) -> set:
         """进入段落/方法：继承外层可见的局部名，返回快照供 _pop_local_scope 恢复。
@@ -1305,8 +1341,11 @@ class PythonCodeGenerator:
             # 表达式语句包装（如 "打印 xxx。" 解析为 ExpressionStatement）
             expr_str = self._generate_expr(stmt.expression)
             self._add_line(expr_str)
-        elif isinstance(stmt, (IndexAccess, MemberAccess, ParagraphCall)):
+        elif isinstance(stmt, (IndexAccess, MemberAccess, ParagraphCall, FunctionCallExpr)):
             # 表达式语句（如 obj[key].append(v) 或 obj.method()）
+            # L-014：FunctionCallExpr 作语句——`表["甲"](1)` 是 callee=IndexAccess 的
+            # 链式调用，表达式层（_generate_expr:2959）已能正确生成 `表["甲"](1)`，
+            # 此处只需把该节点纳入语句级表达式语句分支，避免落入「未知语句类型」。
             expr_str = self._generate_expr(stmt)
             self._add_line(expr_str)
         elif isinstance(stmt, EmbedBlock):
@@ -1642,6 +1681,8 @@ class PythonCodeGenerator:
         # 函数定义
         def_prefix = "async def" if '异步' in (stmt.modifiers or []) else "def"
         self._add_line(f"{def_prefix} {name}({params_str}){return_type_annotation}:")
+        # L-006：nonlocal 声明要插在 def 行之后、任何语句之前，先记住插入位。
+        def_line_index = len(self.output_lines) - 1
         
         # 记录用户自定义函数名，避免内置函数映射覆盖
         self._user_defined_functions.add(stmt.name)
@@ -1651,7 +1692,15 @@ class PythonCodeGenerator:
         # （绑定形式②：段落参数）。段落体里 `设 …` 新增的绑定在退出时丢弃，
         # 不会泄漏到模块级、也不会污染兄弟段落。
         saved_locals = self._push_local_scope()
-        self._bind_local(*raw_param_names)
+        # L-006：推入本函数帧；参数绑定阶段不触发 nonlocal（参数遮蔽合法）
+        self._function_locals_stack.append(set())
+        saved_pending = self._pending_nonlocal
+        self._pending_nonlocal = set()
+        self._binding_params = True
+        try:
+            self._bind_local(*raw_param_names)
+        finally:
+            self._binding_params = False
         self._in_function = True
         self.indent_level += 1
 
@@ -1680,6 +1729,15 @@ class PythonCodeGenerator:
             self.indent_level -= 1  # exit finally body
 
         self.indent_level -= 1
+        # L-006：本函数体内改写的外层函数局部名 → 发射 nonlocal 声明
+        if self._pending_nonlocal:
+            nonlocal_line = "nonlocal " + ", ".join(sorted(self._pending_nonlocal))
+            self.output_lines.insert(
+                def_line_index + 1,
+                self._get_indent(self.indent_level + 1) + nonlocal_line,
+            )
+        self._pending_nonlocal = saved_pending
+        self._function_locals_stack.pop()
         self._in_function = old_in_function
         self._pop_local_scope(saved_locals)
         
@@ -1707,10 +1765,25 @@ class PythonCodeGenerator:
     
     def _generate_catch_clause(self, catch_type, catch_var, catch_body):
         """生成单个except块"""
+        # L-016：`捕获 全部` → except BaseException（可接住 asyncio.CancelledError）。
+        # 三种写法等价：
+        #   `捕获:`            —— 裸捕获，catch_type/catch_var 均 None；
+        #   `捕获 全部:`        —— parser 把「全部」当变量名放进 catch_var（全 非大写）；
+        #   `捕获 全部 为 变量:` —— parser 把「全部」当类型名放进 catch_type，变量单独绑定。
+        # 裸 `捕获:` 映射 BaseException——与 Python 裸 `except:` 语义一致，
+        # 也即 test_L016 的验收语义（接住 CancelledError，接住==真）。
+        is_all = (catch_type == '全部') or (catch_type is None and (catch_var is None or catch_var == '全部'))
         # 绑定形式⑥：异常绑定 `捕获 X 为 变量`。变量在 except 体内是局部名，
         # 必须遮蔽同名内置（否则 `捕获 值错误 为 映射` 后引用 映射 会变成 map()）。
-        self._bind_local(catch_var)
-        if catch_type == '外部错误':
+        # `捕获 全部:` 的「全部」是类型标记而非变量名，不登记局部名。
+        if not (is_all and catch_type is None):
+            self._bind_local(catch_var)
+        if is_all:
+            if catch_type == '全部' and catch_var:
+                self._add_line(f"except BaseException as {self._sanitize_name(catch_var)}:")
+            else:
+                self._add_line("except BaseException:")
+        elif catch_type == '外部错误':
             # FFI 外部错误处理
             if catch_var:
                 self._add_line(f"except (ctypes.ArgumentError, OSError, RuntimeError) as {self._sanitize_name(catch_var)}:")
@@ -2591,13 +2664,23 @@ class PythonCodeGenerator:
         is_async = '异步' in (getattr(method, 'modifiers', []) or [])
         def_prefix = "async def" if is_async else "def"
         self._add_line(f"{def_prefix} {method_name}({params_str}){return_type_annotation}:")
+        # L-006：nonlocal 声明要插在 def 行之后、任何语句之前，先记住插入位。
+        def_line_index = len(self.output_lines) - 1
 
         old_in_function = self._in_function
         old_in_class = self._in_class_method
         # 进入类方法作用域（绑定形式②：方法参数）。_current_method_params 收的是
         # 「排除 self. 前缀」用的同一批原名，直接复用，避免两处各扫一遍参数表。
         saved_locals = self._push_local_scope()
-        self._bind_local(*self._current_method_params)
+        # L-006：推入本函数帧；参数绑定阶段不触发 nonlocal（参数遮蔽合法）
+        self._function_locals_stack.append(set())
+        saved_pending = self._pending_nonlocal
+        self._pending_nonlocal = set()
+        self._binding_params = True
+        try:
+            self._bind_local(*self._current_method_params)
+        finally:
+            self._binding_params = False
         self._in_function = True
         self._in_class_method = not is_static
         self.indent_level += 1
@@ -2652,6 +2735,15 @@ class PythonCodeGenerator:
             self._add_line("pass")
         
         self.indent_level -= 1
+        # L-006：本方法体内改写的外层函数局部名 → 发射 nonlocal 声明
+        if self._pending_nonlocal:
+            nonlocal_line = "nonlocal " + ", ".join(sorted(self._pending_nonlocal))
+            self.output_lines.insert(
+                def_line_index + 1,
+                self._get_indent(self.indent_level + 1) + nonlocal_line,
+            )
+        self._pending_nonlocal = saved_pending
+        self._function_locals_stack.pop()
         self._add_line("")
         
         # 重置上下文
