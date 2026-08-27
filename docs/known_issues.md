@@ -323,6 +323,16 @@ Windows 下按 GBK 输出会被当成乱码误判成冒烟不通过；现钉 `PY
 `tests/` 目录里**没有任何**「原生腿 + 类方法」的组合覆盖，所以门禁看不见它。
 现有的类/方法用例走的都是转译腿。
 
+> **已解决（R9 待补 / 2026-08-27，commit `17c08c8b`）**：实测复现后修掉三处环环相扣的 bug——
+> ① 方法体末尾无条件 `ret void` 造成双重终结符 → LLVM IR 验证红（终结符发射移入
+> `if not _ends_with_terminator` 分支）；② 解析器把「己」归一成 `Identifier('self')`
+> 而方法内槽位键是「己」，裸 `self` 落到字符串常量，`dv_class_get_member/set_member`
+> 拿字符串当对象，属性读写 0xC0000005（补 `_gen_typed_identifier` 的 `己` 槽位映射 +
+> `_gen_typed_assignment` 写回）；③ `己.方法名(...)` 被拍平成 `SegmentName('self.方法名')`
+> 未路由 `dv_call_method`（补 `_gen_self_method_call`）。判据 `tests/test_native_cli.py`
+> `Test原生类与方法代码生成` 六条真跑回归（普通/泛型类方法带参、构造+属性、方法内调方法、
+> 方法内只写属性）。
+
 ### 12.2 `cli/lightc.py` 对任何输入必崩
 
 `SemanticAnalyzer()` 少传 `module` 参数 → `TypeError`。凡是文档/示例里写
@@ -336,6 +346,11 @@ Windows 下按 GBK 输出会被当成乱码误判成冒烟不通过；现钉 `PY
 `_gen_typed_method` / `_gen_async_segment` 既不建自己的池、也不重置 `_temp_slot_index`，
 会沿用上一个函数残留的池寄存器——跨函数引用寄存器，IR 本来就不合法。现有链路碰不到
 （类/方法用例全绿），但这是潜伏项。
+
+> **已解决（R9 待补 / 2026-08-27，commit `17c08c8b`）**：`_gen_typed_method`（
+> `codegen_typed.py:4062/4147`）与 `_gen_async_segment`（`:3722/3791`）都补了
+> `_begin_temp_slot_pool()` 开局占位 + `_emit_temp_slot_pool()` 按真实用量回填，
+> 与 `_gen_typed_segment` 同一路径。槽位池别名（`%1` 被别名到 `@.str.26`）随之消失。
 
 ### 12.4 `_inline_small_functions_pass` 过度激进
 
