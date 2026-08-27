@@ -231,6 +231,49 @@ def test_indentation():
     print()
 
 
+def test_l010_keyword_split_regression():
+    """L-010 回归：含关键字的模块名必须整体成词，不得被劈开。
+
+    背景（commit 629efd99 / merge 73b001bd）：预扫描把短名（主/入口/命令）收进
+    user_definitions 后，`从 主程序 导入` 会被劈成 主+程序；`外部命令` 也被词首
+    关键字切成 外部+命令。本测试锁定三个修复点 + 一个禁止回归点：
+      · 主程序 / 主入口 → 单个 IDENTIFIER（Fix A）
+      · 外部命令 → 单个 IDENTIFIER（Fix B，仅「外部」允许词首合并）
+      · `返回` 语句关键字仍单独成 token，绝不词首合并（否则 返回 斐波那契 会
+        被拼成 返回斐波那契 → NameError）
+    """
+    lexer = Lexer()
+
+    def idents(src):
+        return [t.value for t in lexer.tokenize(src)
+                if t.type == TokenType.IDENTIFIER]
+
+    # Fix A：主程序 / 主入口 作为模块名整体为标识符
+    for module, short in [('主程序', '主'), ('主入口', '入口')]:
+        src = f'从 {module} 导入 {short}。'
+        got = idents(src)
+        assert module in got, f'L-010 FixA 失败：{src!r} 未把 {module} 切为整体标识符，得到 {got}'
+        assert short in got, f'L-010 FixA 失败：{src!r} 丢失导入名 {short}，得到 {got}'
+    print("  [OK] L-010 FixA：主程序/主入口 整体成词")
+
+    # Fix B：外部命令 词首合并为整体标识符
+    got = idents('从 外部命令 导入 命令。')
+    assert '外部命令' in got, f'L-010 FixB 失败：外部命令 未合并，得到 {got}'
+    assert '命令' in got, f'L-010 FixB 失败：外部命令 丢失导入名 命令，得到 {got}'
+    print("  [OK] L-010 FixB：外部命令 整体成词")
+
+    # 禁止回归：返回 语句关键字绝不词首合并
+    src = '段落 斐波那契(n)：\n    返回 n。'
+    toks = [t for t in lexer.tokenize(src) if t.type != TokenType.EOF]
+    assert any(t.type == TokenType.KEYWORD and t.value == '返回' for t in toks), \
+        f'L-010 回归失败：返回 应保持独立关键字，得到 {[(t.type.name, t.value) for t in toks]}'
+    assert not any(t.type == TokenType.IDENTIFIER and '返回' in t.value and t.value != '返回'
+                   for t in toks), 'L-010 回归失败：返回 被错误并入标识符'
+    print("  [OK] L-010 回归：返回 保持独立关键字")
+
+    print()
+
+
 def run_all_tests():
     """运行所有测试"""
     print("=" * 60)
@@ -248,6 +291,7 @@ def run_all_tests():
         test_symbols()
         test_complex_expression()
         test_indentation()
+        test_l010_keyword_split_regression()
         
         print("=" * 60)
         print("[OK] 所有测试通过！")
