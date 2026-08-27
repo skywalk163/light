@@ -52,6 +52,12 @@
 #      所以 `|| true` + import 探测，绝不因为缺包让 CI 红）。
 #   3) 日志瘦身：pyproject 的 addopts 去掉了全局 `-v`（约 3800 条用例逐条打印纯属浪费），
 #      改成 `--durations=15`，谁慢每轮自报。
+#
+# ── 2026-08-27 时间预算闸门 58s 超时修复 ─────────────────────────────────────
+# e2e（本轮 132s）与 纯光明 soft（~30s）原本各自串行空等，已改为与「全量除 e2e」
+# 在同一个 run 块里后台并行（& + wait），重叠进最长的「全量除 e2e」段（871s）。
+# 本轮预期 1258s → ~1100s。判绿口径不变：e2e/soft 仍 || true + test -f 防崩溃，
+# 最终由回归闸门按基线对比。详见「全量测试」步骤内注释。
 name: CI
 
 on:
@@ -133,9 +139,22 @@ jobs:
           mkdir -p .ci
           if python -c 'import xdist' >/dev/null 2>&1; then PAR="-n auto"; else PAR=""; fi
           echo "[CI] 并行参数：${PAR:-（串行：未装 pytest-xdist）}"
-          # D3-3：纯光明测试（*_light.py）从这一轮统一 pytest 里摘出来单独跑，
-          # 既给可见性、也单独归账耗时。它们的判绿口径仍是 soft（走下面的回归闸门
-          # --soft-classname 'tests.test_*'），不悄悄升级成判绿点。
+          # D3-3：纯光明测试（*_light.py）摘出来单独归账耗时，判绿口径仍是 soft
+          # （走下面的回归闸门 --soft-classname 'tests.test_*'），不升级成判绿点。
+          #
+          # 2026-08-27（时间预算闸门 58s 超时）：e2e 与 纯光明 soft 与前台主测试
+          # 无依赖、各写各的 junit，不再排队串行——改为后台并行，重叠进最长的
+          # 「全量除 e2e」段（本轮 871s）。串行时它们各付一遍空等（e2e 132s、
+          # soft ~30s），重叠后这段时间几乎全部隐藏。判绿口径不变：仍 || true
+          # 放行存量失败 + test -f 防崩溃，最终都交给回归闸门按基线对比。
+          # 子 shell 内失败（崩溃没产出 junit）会让 wait 返回非 0 → 本步红，信号不丢。
+          (pytest tests/e2e -q $PAR --junitxml=.ci/e2e.xml || true; test -f .ci/e2e.xml) &
+          (pytest tests/test_agent_loop_light.py tests/test_bootstrap_light.py \
+            tests/test_event_bus_light.py tests/test_llm_client_light.py \
+            tests/test_path_guard_light.py tests/test_plugin_light.py \
+            tests/test_process_tree_light.py tests/test_pty_light.py \
+            tests/test_schema_light.py -q $PAR --junitxml=.ci/light_soft.xml || true; \
+            test -f .ci/light_soft.xml) &
           pytest tests --ignore=tests/e2e \
             --ignore=tests/test_agent_loop_light.py \
             --ignore=tests/test_bootstrap_light.py \
@@ -151,33 +170,13 @@ jobs:
             -q $PAR \
             --junitxml=.ci/non-e2e.xml || true
           test -f .ci/non-e2e.xml
+          wait
 
       - name: 计时打点（全量除 e2e）
         run: python3 tools/ci/time_budget.py --mark 全量除e2e
 
-      # e2e 单独一轮：它的成本几乎全是子进程启动（tests/e2e/test_e2e_chain.py 每个
-      # 用例 spawn 一到两次 `python -m cli.light_unified`，117 个示例 ≈ 350 次启动）。
-      # 和上面合在一起跑没有额外收益，分开还能让 --durations 的归属清楚。
-      - name: 端到端测试（产出 junit）
-        run: |
-          . .venv/bin/activate
-          if python -c 'import xdist' >/dev/null 2>&1; then PAR="-n auto"; else PAR=""; fi
-          pytest tests/e2e -q $PAR --junitxml=.ci/e2e.xml || true
-          test -f .ci/e2e.xml
-
-      # D3-3：纯光明测试显式清单（soft 可见性 + 耗时归账）。
-      # 这 9 个文件走 soft 口径（与上面统一 pytest 摘出前的覆盖一致，只是单独成步）。
-      # 判绿不拦：结尾 || true，失败放行但 junit 照产，交给下面回归闸门按基线对比。
-      - name: 纯光明测试（显式清单·soft）
-        run: |
-          . .venv/bin/activate
-          if python -c 'import xdist' >/dev/null 2>&1; then PAR="-n auto"; else PAR=""; fi
-          pytest tests/test_agent_loop_light.py tests/test_bootstrap_light.py \
-            tests/test_event_bus_light.py tests/test_llm_client_light.py \
-            tests/test_path_guard_light.py tests/test_plugin_light.py \
-            tests/test_process_tree_light.py tests/test_pty_light.py \
-            tests/test_schema_light.py -q $PAR --junitxml=.ci/light_soft.xml || true
-          test -f .ci/light_soft.xml
+      # e2e 与 纯光明 soft 已并入上方「全量测试」步骤后台并行（2026-08-27），
+      # 避免串行空等拖爆时间预算；判定仍走下方回归闸门按基线对比。
 
       # D3-3：硬判绿点（不允许 soft）。这两份文件头已明写「纯离线、不许 skip」，
       # 是 M4/M5 的判据，必须真过。无 || true → 失败即红。
