@@ -934,6 +934,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name == 'None':
             return self._call_dv_func('dv_null'), 'dv'
 
+        # 方法内部：裸 self / 己 标识符 = 当前对象。
+        # 解析器会把源码里的「己」转成 Identifier('self')，而方法内 self 槽位键是「己」，
+        # 不做这层映射会一路落到「当作字符串常量」，dv_class_get_member/set_member 拿到
+        # 一个字符串对象，属性读写直接崩。
+        if self._method_result_ptr is not None:
+            self_dv = self.get_var('己')
+            if self_dv is not None and (name == 'self' or name == '己'):
+                return self_dv, 'dv'
+
         # 方法内部：以"self."开头的标识符视为 self 的属性访问
         if self._method_result_ptr is not None and name.startswith('self.') and len(name) > 5:
             attr_name = name[5:]
@@ -1142,6 +1151,20 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             func_name = str(expr.name)
 
         args = [self._gen_expression(arg)[0] for arg in expr.arguments]
+
+        # 方法内部：己.方法名(...) 被 parser 拍平成 SegmentName('self.方法名')。
+        # 不拦下来会一路落到「未定义的段落：self.xxx」。这里对己对象做一次
+        # dv_call_method，与方法调方法（_gen_typed_method_call）同语义。
+        if self._method_result_ptr is not None:
+            self_method_name = None
+            if func_name.startswith('self.') and len(func_name) > 5:
+                self_method_name = func_name[5:]
+            elif func_name.startswith('己') and len(func_name) > 1 and not func_name.startswith('己.'):
+                self_method_name = func_name[1:]
+            if self_method_name:
+                self_dv = self.get_var('己')
+                if self_dv is not None:
+                    return self._gen_self_method_call(self_method_name, args)
 
         # 内置函数
         builtin = self._gen_typed_builtin(func_name, args)
@@ -2270,9 +2293,48 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 如果对象是一个变量，把更新后的对象写回变量
         if isinstance(prop.obj, ast.Identifier):
             obj_name = prop.obj.name
+            # dv_call_method 会重分配对象缓冲，写回时把 self/己 归位到「己」槽位
+            set_name = '己' if (self._method_result_ptr is not None and obj_name in ('self', '己')) else obj_name
             updated_obj = self._load_dv(obj_slot)
-            self.set_var(obj_name, updated_obj)
+            self.set_var(set_name, updated_obj)
         
+        return self._load_dv(result_slot), 'dv'
+
+    def _gen_self_method_call(self, method_name: str, args: List[str]) -> Tuple[str, str]:
+        """方法内部己.方法名(...) —— 对己对象调方法（dv_call_method）。
+
+        与 _gen_typed_method_call 的通用分支共用同一套发射逻辑；调用方保证
+        self._method_result_ptr 非空且 己 槽位存在。args 已经是求值后的 dv 寄存器。
+        """
+        self_dv = self.get_var('己')
+        obj_slot = self._store_dv(self_dv)
+        method_name_reg = self.gen_string_constant(method_name)
+
+        num_args = len(args)
+        result_slot = self._new_dv_slot()
+        num_args_i32 = self.new_register()
+        self.emit(f'{num_args_i32} = add i32 0, {num_args}')
+
+        if num_args == 0:
+            self.emit(f'call void @dv_call_method(ptr {result_slot}, ptr {obj_slot}, ptr {method_name_reg}, ptr null, i32 {num_args_i32})')
+        else:
+            stack_save = self.new_register()
+            self.emit(f'{stack_save} = call ptr @llvm.stacksave()')
+            args_array = self.new_register()
+            self.emit(f'{args_array} = alloca {LIGHTVALUE_STRUCT}, i32 {num_args}')
+
+            for i, arg_dv in enumerate(args):
+                arg_elem_ptr = self.new_register()
+                self.emit(f'{arg_elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {args_array}, i32 {i}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {arg_dv}, ptr {arg_elem_ptr}')
+
+            self.emit(f'call void @dv_call_method(ptr {result_slot}, ptr {obj_slot}, ptr {method_name_reg}, ptr {args_array}, i32 {num_args_i32})')
+            self.emit(f'call void @llvm.stackrestore(ptr {stack_save})')
+
+        # dv_call_method 会重分配对象缓冲，写回己槽位
+        updated_obj = self._load_dv(obj_slot)
+        self.set_var('己', updated_obj)
+
         return self._load_dv(result_slot), 'dv'
 
     def _gen_typed_class_instantiation(self, expr) -> Tuple[str, str]:
@@ -3059,8 +3121,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'call void @dv_class_set_member(ptr {obj_slot}, ptr {member_reg}, ptr {value_slot})')
             if isinstance(stmt.target.obj, ast.Identifier):
                 obj_name = stmt.target.obj.name
+                # dv_class_set_member 会重分配对象缓冲，写回时把 self/己 归位到「己」槽位
+                set_name = '己' if (self._method_result_ptr is not None and obj_name in ('self', '己')) else obj_name
                 updated_dv = self._load_dv(obj_slot)
-                self.set_var(obj_name, updated_dv)
+                self.set_var(set_name, updated_dv)
         elif isinstance(stmt.target, ast.Identifier):
             name = stmt.target.name
             # 方法内部：self.xxx 赋值
@@ -3978,6 +4042,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._local_vars.clear()
         self._pending_allocas = []
         self._reg_counter = 0
+        self._dv_ssa_to_slot.clear()
+        self._temp_slot_index = 0
+        self._temp_slot_pool = None
+        self._temp_slot_pool_line = None
         self._method_result_ptr = '%result'
         self._current_class = class_name
         self._current_method_type = method_type
@@ -3989,6 +4057,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         else:
             self.emit(f'define void @{method_safe_name}(ptr %result, ptr %self, ptr %args, i32 %num_args) {{')
         self.emit('entry:')
+
+        # 分配临时槽位池（必须在 entry 块内、分支出现前，避免动态 alloca 爆栈）
+        self._begin_temp_slot_pool()
 
         # 生成函数调试信息（DISubprogram）
         if self._debug:
@@ -4071,8 +4142,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                     self.emit(f'{self_dv} = load {LIGHTVALUE_STRUCT}, ptr {self_var_slot}')
                     self.emit(f'store {LIGHTVALUE_STRUCT} {self_dv}, ptr %self')
             self.emit(f'call void @dv_null(ptr %result)')
-
-        self.emit('ret void')
+            self.emit('ret void')
+        # 函数体发射完毕，用真实槽位用量回填池大小
+        self._emit_temp_slot_pool()
         self.emit('}')
         self.emit_blank()
         self._method_result_ptr = None
