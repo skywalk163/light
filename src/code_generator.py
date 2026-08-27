@@ -355,6 +355,14 @@ class PythonCodeGenerator:
             '列出目录': '_light_builtin.列出目录',
             '列出文件': '_light_builtin.列出文件',
             '文件大小': '_light_builtin.文件大小',
+            '复制文件': '_light_builtin.复制文件',
+            '重命名': '_light_builtin.重命名',
+            '复制目录': '_light_builtin.复制目录',
+            '删目录树': '_light_builtin.删目录树',
+            '创建临时目录': '_light_builtin.创建临时目录',
+            '查找目录列表': '_light_builtin.查找目录列表',
+            '读二进制文件': '_light_builtin.读二进制文件',
+            '写入二进制文件': '_light_builtin.写入二进制文件',
             
             # 路径操作
             '绝对路径': '_light_builtin.绝对路径',
