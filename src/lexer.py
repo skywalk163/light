@@ -1657,6 +1657,19 @@ class Lexer:
                 tokens.append(_Token(_TokenType.IDENTIFIER, mixed, line, col))
                 return tokens, len(mixed)
 
+        # 成员访问上下文：紧跟 '.' 之后的连续汉字序列作为单一标识符
+        # L-004/L-010/L-011/L-012：'.' 之后按语言规范只可能是属性/方法名，
+        # 不可能是语句关键字，因此不再按关键字边界拆分。
+        # （如 对象.导出事件表 不再拆成 对象.导出+事件表）
+        if _is_han(source[i]) and i > 0 and source[i - 1] == '.':
+            j = i
+            while j < n and _is_han(source[j]):
+                j += 1
+            _member_name = source[i:j]
+            if _member_name:
+                tokens.append(_Token(_TokenType.IDENTIFIER, _member_name, line, col))
+                return tokens, j - i
+
         # 收集连续的汉字（或英文标识符）
         if _is_han(source[i]):
             # 汉字处理：实现三层分词
@@ -2620,7 +2633,7 @@ class Lexer:
 
         # 使用 str.find() 跳跃到关键位置，避免逐字符扫描
         # 搜索目标：'《' (段落/类/方法定义), '设' (变量定义), '定义' (变量定义), '函数', '段落' (函数定义), '导' (导出/导入 列表)
-        search_targets = ('《', '设', '定', '函', '段', '导')
+        search_targets = ('《', '设', '定', '函', '段', '导', '从')
         i = 0
 
         # 安全计数器（防止意外死循环）
@@ -2683,6 +2696,31 @@ class Lexer:
                         elif name not in ALL_KEYWORDS and name not in ALL_VERB_ARITY:
                             definitions.add(name)
                 i = k + 1
+                continue
+
+            # 查找 "从 模块名 导入 ..." —— 收集模块名
+            # L-015：模块名若含关键字根（如 异步样例、终端），会被按关键字边界拆成
+            # 关键字+标识符，导致「从 异步样例 导入」解析失败。
+            # 与导入名一样，模块名是用户显式书写的名字，须整段进白名单。
+            if source[i] == '从':
+                j = i + 1
+                # 跳过名称前的所有空白（含换行、全角空格）
+                while j < n and source[j] in ' \t\n\r\f\v\u3000':
+                    j += 1
+                # 相对导入前缀：从 .模块 / 从 ..模块
+                while j < n and source[j] == '.':
+                    j += 1
+                # 收集模块名（汉字/ASCII/下划线/点号，支持 a.b.c 路径）
+                k = j
+                while k < n and (_is_han(source[k]) or _is_ascii_alnum(source[k])
+                                 or source[k] == '_' or source[k] == '.'):
+                    k += 1
+                if k > j:
+                    name = source[j:k]
+                    if name not in ALL_KEYWORDS:
+                        definitions.add(name)
+                    j = k
+                i = j
                 continue
 
             # 查找 "导出 名称1 名称2 ..." 或 "从 模块 导入 名称1 名称2 ..."

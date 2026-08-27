@@ -765,11 +765,17 @@ class ParserExprMixin:
             if verb_name == '新建':
                 # 新建 类名 参数...
                 # 类名可能由多个token组成（如"空类"中"空"是KEYWORD，"类"是KEYWORD）
+                # L-012：支持模块限定类名（如 新建 终端.终端会话(...)），
+                # '模块.类名' 算一个完整的类名，而非把 '.' 后面当成对实例的成员访问。
                 class_name_parts = []
                 while self._current():
                     ct = self._current()
                     if ct.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
                         class_name_parts.append(ct.value)
+                        self._consume()
+                    elif ct.type == TokenType.DOT:
+                        # 模块.类名 的限定类名
+                        class_name_parts.append('.')
                         self._consume()
                     else:
                         break
@@ -2512,13 +2518,19 @@ class ParserExprMixin:
                     return DictComprehension(first_expr, value_expr, first_gen[0], first_gen[1], first_gen[2], generators=generators)
 
             # 普通字典字面量：键: 值, 键: 值, ...
+            # L-002: 逗号后与收尾 ] 前跳过换行/缩进, 支持跨行书写
+            # （与 _parse_dict_literal 花括号分支行为一致）
             entries = [(first_expr, value_expr)]
             while self._match(TokenType.COMMA):
                 self._consume(TokenType.COMMA)
+                while self._current() and self._current().type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
+                    self._consume()
                 key = self._parse_comparison()
                 self._consume(TokenType.COLON)
                 val = self._parse_comparison()
                 entries.append((key, val))
+            while self._current() and self._current().type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
+                self._consume()
             self._consume(TokenType.RBRACKET)
             return DictLiteral(entries)
 
