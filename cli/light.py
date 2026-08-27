@@ -185,12 +185,18 @@ def _resolve_local_imports(source: str, source_dir: str) -> dict:
         code = gen.generate(mod_module)
         result[mod_name] = code
 
-        # 递归解析子导入：基于被解析模块自身所在目录（L-001）
+        # 递归解析子导入（L-001 修正）：
+        # - 点号模块名（a.b.c）是「从项目根目录出发的绝对包路径」，
+        #   必须基于入口搜索根 source_dir 解析；否则包内子模块再导入点号模块
+        #   （如 pkg/sub/内嵌.light 里的 `从 pkg.sub.深层 导入`）会落到
+        #   pkg/sub/pkg/sub/深层.light 这种错误目录。
+        # - 平铺模块名（相对/兄弟模块）才基于「被解析模块自身所在目录」解析。
         mod_dir = str(mod_path.parent)
         for imp in _collect_imports(mod_module):
             child_mod = imp.module_name
             if child_mod not in visited and getattr(imp, 'language', None) is None:
-                _resolve_one(child_mod, mod_dir)
+                child_base = source_dir if ('.' in child_mod) else mod_dir
+                _resolve_one(child_mod, child_base)
 
     # 解析主文件的所有导入
     for imp in _collect_imports(module):
