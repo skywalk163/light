@@ -107,15 +107,46 @@ def _compile_src(source: str) -> str:
     return generator.generate(module)
 
 
+def _resolve_module_path(mod_name: str, base_dir: str):
+    """把模块名解析为磁盘上的 .light / .py 文件（L-001 修复核心）。
+
+    支持点号分层目录：
+      - 平铺 `数据`              → `<base_dir>/数据.light`（或 .py）
+      - 点号 `a.b.c`             → `<base_dir>/a/b/c.light`（或 .py）
+      - 点号 `_import_test.数据` → `<base_dir>/_import_test/数据.light`
+
+    原实现只认平铺 `<base_dir>/<mod_name>.light`，导致
+    `从 子目录.模块 导入 符号` 永远找不到文件，运行期 `No module named`。
+    """
+    if not mod_name:
+        return None
+    from pathlib import Path
+    parts = mod_name.split('.')
+    base = Path(base_dir)
+    for ext in ('.light', '.py'):
+        cand = base.joinpath(*parts)
+        if cand.suffix != ext:
+            cand = cand.with_suffix(ext)
+        if cand.is_file():
+            return cand
+    return None
+
+
 def _resolve_local_imports(source: str, source_dir: str) -> dict:
-    """解析源代码中的本地模块导入，递归查找所有 .light 依赖
+    """解析源代码中的本地模块导入，递归查找所有 .light 依赖（含点号分层目录）。
 
     Returns:
         {module_name: compiled_python_code, ...}
+        其中 module_name 保留原始点号形式（如 '_import_test.数据' 或 'pkg.sub.深层'），
+        编译产物会被内联进主代码，import 语句随后被注释掉（见 _run_src）。
+
+    L-001 修复点：
+      1. 用 `_resolve_module_path` 解析点号分层模块（a.b.c → a/b/c.light）。
+      2. 子导入基于「被解析模块自身所在目录」继续查找，而非入口目录，
+         使分层包内的相对点号导入也能正确定位。
     """
     from light_parser_v3 import LightParser, ImportStmt
     from code_generator import PythonCodeGenerator
-    from pathlib import Path
 
     parser = LightParser()
     module = parser.parse(source)
@@ -138,9 +169,9 @@ def _resolve_local_imports(source: str, source_dir: str) -> dict:
             return
         visited.add(mod_name)
 
-        # 查找 .light 文件
-        mod_path = Path(base_dir) / f"{mod_name}.light"
-        if not mod_path.exists():
+        # 查找 .light / .py 文件（支持点号分层目录，L-001）
+        mod_path = _resolve_module_path(mod_name, base_dir)
+        if mod_path is None:
             return
 
         mod_src = mod_path.read_text(encoding='utf-8')
@@ -154,11 +185,12 @@ def _resolve_local_imports(source: str, source_dir: str) -> dict:
         code = gen.generate(mod_module)
         result[mod_name] = code
 
-        # 递归解析子导入
+        # 递归解析子导入：基于被解析模块自身所在目录（L-001）
+        mod_dir = str(mod_path.parent)
         for imp in _collect_imports(mod_module):
             child_mod = imp.module_name
             if child_mod not in visited and getattr(imp, 'language', None) is None:
-                _resolve_one(child_mod, base_dir)
+                _resolve_one(child_mod, mod_dir)
 
     # 解析主文件的所有导入
     for imp in _collect_imports(module):
@@ -198,6 +230,26 @@ def _run_src(source: str, file_path: str | None = None) -> str:
     combined_parts.append(main_code)
     py_code = ''.join(combined_parts)
 
+    # ── L-001：识别「点号 + 普通 import」(`导入 a.b.c` → `import a.b.c`) ──
+    # 这类导入 Python 只会把顶层包 `a` 绑进命名空间，末段 `c` 不会绑定，
+    # 导致 `c.符号` 成员访问 NameError。收集它们以便下面构造模块对象并绑定末段名。
+    # （`从 a.b.c 导入 符号` 形式由下方注释替换直接把符号提到顶层，无需模块对象。）
+    _dotted_plain_set = set()
+    _dotted_plain_list = []  # (fullname, bind_name)
+    try:
+        from light_parser_v3 import LightParser as _LP, ImportStmt as _IS
+        _main_ast = _LP().parse(source)
+        for _stmt in getattr(_main_ast, 'statements', None) or []:
+            if (isinstance(_stmt, _IS) and getattr(_stmt, 'language', None) is None
+                    and getattr(_stmt, 'symbols', None) is None
+                    and '.' in _stmt.module_name):
+                _bind = _stmt.alias or _stmt.module_name.split('.')[-1]
+                _dotted_plain_set.add(_stmt.module_name)
+                _dotted_plain_list.append((_stmt.module_name, _bind))
+    except Exception:
+        _dotted_plain_list = []
+        _dotted_plain_set = set()
+
     # 对所有代码，替换本地模块的 import 为注释
     for mod_name in dep_modules:
         py_code = re.sub(
@@ -206,12 +258,14 @@ def _run_src(source: str, file_path: str | None = None) -> str:
             py_code,
             flags=re.MULTILINE
         )
-        py_code = re.sub(
-            rf'^import\s+{re.escape(mod_name)}\s*$',
-            f'# 已注入: import {mod_name} (模块代码已内联)',
-            py_code,
-            flags=re.MULTILINE
-        )
+        # 点号普通 import 不在此处注释——下方会构造模块对象并替换该行
+        if mod_name not in _dotted_plain_set:
+            py_code = re.sub(
+                rf'^import\s+{re.escape(mod_name)}\s*$',
+                f'# 已注入: import {mod_name} (模块代码已内联)',
+                py_code,
+                flags=re.MULTILINE
+            )
 
     # 执行
     output_lines = []
@@ -229,6 +283,53 @@ def _run_src(source: str, file_path: str | None = None) -> str:
     # 添加源文件目录到 Python 路径，确保 `导入 Python:` 能找到本地 .py 模块
     import sys
     sys.path.insert(0, source_dir)
+
+    # ── L-001：为「点号普通 import」构造真正的模块对象并绑定末段名 ──
+    # `导入 a.b.c` 生成 `import a.b.c`，Python 只绑定顶层包 `a`，末段 `c` 不绑定。
+    # 这里把内联的模块代码执行进一个 ModuleType，注册进 sys.modules，并把末段名
+    # （或 as 别名）绑定进执行命名空间，使 `c.符号` / `别名.符号` 成员访问可用。
+    import types as _types
+    for _full, _bind in _dotted_plain_list:
+        _code = dep_modules.get(_full)
+        if _code is None:
+            continue
+        _mod = _types.ModuleType(_full)
+        _path = _resolve_module_path(_full, source_dir)
+        if _path is not None:
+            _mod.__file__ = str(_path)
+        # 执行内联代码进独立模块命名空间（借 __file__ 让 stdlib 引导找到正确 stdlib）
+        try:
+            exec(compile(_code, _full, 'exec'), _mod.__dict__)
+        except Exception:
+            pass
+        _sys.modules[_full] = _mod
+        # 建立父包链，使 `a` / `a.b` 也可被访问
+        _parts = _full.split('.')
+        for _i in range(len(_parts) - 1):
+            _pname = '.'.join(_parts[:_i + 1])
+            _pm = _sys.modules.get(_pname)
+            if _pm is None:
+                _pm = _types.ModuleType(_pname)
+                _sys.modules[_pname] = _pm
+            _child = '.'.join(_parts[:_i + 2])
+            if _child not in _sys.modules:
+                _sys.modules[_child] = _mod
+            setattr(_pm, _parts[_i + 1], _sys.modules[_child])
+        # 末段 / 别名 绑定进执行命名空间，使 `c.符号` / `别名.符号` 可用
+        namespace[_bind] = _mod
+        # 同时把顶层包名（如 `pkg`）绑进命名空间，使 `pkg.sub.深层.符号`
+        # 这类全路径成员访问也可用（Python 的 `import a.b.c` 本就只绑顶层包）。
+        _top = _parts[0]
+        if _top in _sys.modules:
+            namespace[_top] = _sys.modules[_top]
+        # 中性化原 import 行（模块对象已注册，无需 Python 再次发起 import）
+        py_code = re.sub(
+            rf'^import\s+{re.escape(_full)}(\s+as\s+\w+)?\s*$',
+            f'# 已内联: import {_full} (模块对象已注册，"{_bind}" 已绑定)',
+            py_code,
+            flags=re.MULTILINE
+        )
+
     try:
         exec(py_code, namespace)
     finally:
