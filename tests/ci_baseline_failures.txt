@@ -24,6 +24,13 @@
 #     已入 E2E_EXCLUDED 不再收集；命名实参部分已修。
 # E4（沙箱隔离）仍留基线：prescan 已修使其可编译，但示例运行期 import numpy/pandas，
 #   CI（FreeBSD，仅装 pytest）无此二库 → 仍红，属存量三方依赖欠账，不因本机装库而下线。
+# ── 2026-08-27 本机全量回归（Windows 开发机）实证：8 条转绿，全部「本机幻绿」，不下线 ──
+#   E4_L4_沙箱隔离验证（run+product）：本机装 numpy/pandas → 绿；CI FreeBSD 无 pandas → 仍红。
+#   L3_domain/demo3_math（run+product）：本机装 sympy → 绿；CI 无 sympy → 仍红。
+#   L4_python/demo2_pandas_csv（run+product）：本机装 pandas → 绿；CI 无 → 仍红。
+#   L4_python/demo5_sklearn_iris（run+product）：本机装 sklearn → 绿；CI 无 → 仍红。
+#   判据维持：只有 CI run 实证转绿（如 demo1_numpy_mean）才允许下线；本机装库不算。
+#   仍红的 4 条（all_in_one_demo / demo3_matplotlib_plot，run+product）均为缺 matplotlib。
 tests.e2e.test_e2e_chain::test_duan_compile_and_run_product[E\u9636\u6bb5_L3L4\u539f\u751f\u8bed\u6cd5/E4_L4_\u6c99\u7bb1\u9694\u79bb\u9a8c\u8bc1.light]
 tests.e2e.test_e2e_chain::test_duan_compile_and_run_product[L3_domain/demo3_math.light]
 tests.e2e.test_e2e_chain::test_duan_compile_and_run_product[L4_python/all_in_one_demo.light]
