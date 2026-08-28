@@ -51,11 +51,17 @@ _ASYNC_FILE_NAMES = frozenset({'异步读取文件', '异步写入文件', '异�
 class PythonCodeGenerator:
     """光明到Python代码生成器"""
     
-    def __init__(self):
+    def __init__(self, stdlib_dir: Optional[str] = None):
         self.indent_level = 0
         self.indent_str = "    "  # 4空格缩进
         self.output_lines: List[str] = []
         self._indent_cache: Dict[int, str] = {}
+        # 编译期注入的 stdlib 绝对路径（由编译器在安装目录里解析得到）。
+        # 这是修复「编译产物找不到 _light_import_hook / 标准库」的根因：
+        # 产物运行环境通常与 Light 安装目录不相邻，仅靠相对探测会落空，
+        # 于是 import _light_import_hook 被静默吞掉、from 中文模块/标准库 全部
+        # ModuleNotFoundError。注入绝对路径后，产物自带可靠锚点。
+        self._stdlib_dir = stdlib_dir
         
         # 追踪导入的符号
         self._imported_symbols: set = set()
@@ -783,21 +789,26 @@ class PythonCodeGenerator:
         self._add_line("except ImportError:")
         self._add_line("    importlib = None")
         self._add_line("")
-        self._add_line("# 解析 stdlib 路径（依次尝试多种可能）")
-        self._add_line("_light_stdlib = None")
+        self._add_line("# 解析 stdlib 路径（编译期注入优先，缺省回退到相对探测）")
         self._add_line("try:")
         self._add_line("    _light_file_dir = os.path.dirname(os.path.abspath(__file__))")
         self._add_line("except NameError:")
         self._add_line("    _light_file_dir = None")
-        self._add_line("for _try_path in [")
-        self._add_line("    os.path.join(_light_file_dir, 'stdlib') if _light_file_dir else None,")
-        self._add_line("    os.path.join(_light_file_dir, '..', 'stdlib') if _light_file_dir else None,")
-        self._add_line("    os.path.join(os.getcwd(), 'stdlib'),")
-        self._add_line("    os.path.normpath(os.path.join(_light_file_dir, '..', '..', 'stdlib')) if _light_file_dir else None,")
-        self._add_line("]:")
-        self._add_line("    if _try_path and os.path.isdir(_try_path):")
-        self._add_line("        _light_stdlib = _try_path")
-        self._add_line("        break")
+        if self._stdlib_dir:
+            self._add_line(f"_light_stdlib = {self._stdlib_dir!r}")
+        else:
+            self._add_line("_light_stdlib = None")
+        self._add_line("if not _light_stdlib or not os.path.isdir(_light_stdlib):")
+        self._add_line("    _light_stdlib = None")
+        self._add_line("    for _try_path in [")
+        self._add_line("        os.path.join(_light_file_dir, 'stdlib') if _light_file_dir else None,")
+        self._add_line("        os.path.join(_light_file_dir, '..', 'stdlib') if _light_file_dir else None,")
+        self._add_line("        os.path.join(os.getcwd(), 'stdlib'),")
+        self._add_line("        os.path.normpath(os.path.join(_light_file_dir, '..', '..', 'stdlib')) if _light_file_dir else None,")
+        self._add_line("    ]:")
+        self._add_line("        if _try_path and os.path.isdir(_try_path):")
+        self._add_line("            _light_stdlib = _try_path")
+        self._add_line("            break")
         self._add_line("")
         self._add_line("if _light_stdlib and _light_stdlib not in sys.path:")
         self._add_line("    sys.path.insert(0, _light_stdlib)")

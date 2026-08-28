@@ -52,6 +52,36 @@ if not os.path.isdir(_local_src):
         pass
 
 
+def _resolve_compile_time_stdlib() -> Optional[str]:
+    """在编译期解析 Light 标准库目录的绝对路径（修复产物找不到标准库/钩子的根因）。
+
+    产物运行环境通常与 Light 安装目录不相邻，仅靠相对探测（<产物>/stdlib、
+    <cwd>/stdlib 等）会落空，于是 `import _light_import_hook` 被静默吞掉、
+    `from 中文模块/标准库 import ...` 全部 ModuleNotFoundError。
+
+    这里在「编译器自身可导入」的进程里，从编译器包位置反推 stdlib，把绝对
+    路径注入到产物引导段，使产物自带可靠锚点，脱离本仓库也能找到标准库。
+    兼容开发布局（.../src 与 .../stdlib 同父）与 pip 安装布局。
+    """
+    try:
+        import light_parser_v3
+    except Exception:
+        return None
+    try:
+        pkg = os.path.dirname(os.path.abspath(light_parser_v3.__file__))
+    except Exception:
+        return None
+    candidates = [
+        os.path.join(pkg, 'stdlib'),
+        os.path.join(os.path.dirname(pkg), 'stdlib'),
+        os.path.join(os.path.dirname(os.path.dirname(pkg)), 'stdlib'),
+    ]
+    for c in candidates:
+        if c and os.path.isdir(c):
+            return os.path.normpath(c)
+    return None
+
+
 class LightUnifiedCLI:
     """光明统一CLI"""
     
@@ -81,7 +111,8 @@ class LightUnifiedCLI:
         except ImportError:
             return False
     
-    def compile_with_antlr(self, source: str, output_file: Optional[str] = None, run: bool = False) -> int:
+    def compile_with_antlr(self, source: str, output_file: Optional[str] = None,
+                           run: bool = False, source_file: Optional[str] = None) -> int:
         """使用ANTLR后端编译"""
         from light_visitor import LightParser
         from code_generator_unified import UnifiedCodeGenerator
@@ -99,14 +130,29 @@ class LightUnifiedCLI:
             print("[错误] 解析失败", file=sys.stderr)
             return 1
         
-        # 代码生成
-        generator = UnifiedCodeGenerator()
+        # 代码生成（注入编译期解析到的 stdlib 绝对路径，修复产物找不到标准库/钩子）
+        generator = UnifiedCodeGenerator(stdlib_dir=_resolve_compile_time_stdlib())
         python_code = generator.generate(module)
         
         if output_file:
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(python_code)
             print(f"[成功] 已生成: {output_file}")
+
+            # 让产物自包含：把依赖的用户模块一并编译到产物同目录（与 src 后端的
+            # _emit_user_modules 对齐）。否则 `from 学生模块 import …` 在产物换进程
+            # 裸跑、且 .light 源不在产物同目录时必炸 ModuleNotFoundError。
+            if source_file:
+                out_dir = os.path.dirname(os.path.abspath(output_file))
+                src_dir = os.path.dirname(os.path.abspath(source_file))
+                emitted = self._emit_user_modules(source, src_dir, out_dir)
+                if emitted:
+                    print("[成功] 已随产物生成依赖模块: "
+                          + ', '.join(f'{m}.py' for m in emitted))
+                emitted_rt = self._emit_runtime_modules(source, out_dir)
+                if emitted_rt:
+                    print("[成功] 已随产物生成 L3 运行时模块: "
+                          + ', '.join(f'{m}.py' for m in emitted_rt))
         
         if run:
             # 执行代码
@@ -432,7 +478,7 @@ class LightUnifiedCLI:
                 return 1
 
             try:
-                generator = PythonCodeGenerator()
+                generator = PythonCodeGenerator(stdlib_dir=_resolve_compile_time_stdlib())
                 python_code = generator.generate(module)
             except CodeGenError as e:
                 print(f"[代码生成错误] {e}", file=sys.stderr)
@@ -1130,7 +1176,7 @@ def main():
             output_file = args.output or args.file.replace('.light', '.py')
             
             if args.backend == 'antlr':
-                return cli.compile_with_antlr(source, output_file=output_file, run=False)
+                return cli.compile_with_antlr(source, output_file=output_file, run=False, source_file=args.file)
             else:
                 return cli.compile_with_src(source, output_file=output_file, run=False, target=args.target, source_file=args.file)
         

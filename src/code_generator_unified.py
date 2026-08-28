@@ -39,11 +39,14 @@ def get_attr(node, attr_name, default=None):
 class UnifiedCodeGenerator:
     """光明到Python代码生成器（支持统一AST）"""
     
-    def __init__(self):
+    def __init__(self, stdlib_dir: Optional[str] = None):
         self.indent_level = 0
         self.indent_str = "    "  # 4空格缩进
         self.output_lines: List[str] = []
         self._indent_cache: Dict[int, str] = {}
+        # 编译期注入的 stdlib 绝对路径（修复产物找不到标准库/钩子的根因，见
+        # src/code_generator.py 同名字段注释）。
+        self._stdlib_dir = stdlib_dir
         self.type_inferencer = TypeInferencer()
         self.type_cache: Dict[int, 'Type'] = {}  # 存储推断的类型
         self.user_functions = set()  # 用户定义的函数名
@@ -246,8 +249,14 @@ class UnifiedCodeGenerator:
         self._add_line("    importlib = None")
         self._add_line("")
         self._add_line("try:")
-        self._add_line("    _light_stdlib = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stdlib')")
+        self._add_line("    _light_file_dir = os.path.dirname(os.path.abspath(__file__))")
         self._add_line("except NameError:")
+        self._add_line("    _light_file_dir = None")
+        if self._stdlib_dir:
+            self._add_line(f"    _light_stdlib = {self._stdlib_dir!r}")
+        else:
+            self._add_line("    _light_stdlib = os.path.join(_light_file_dir, 'stdlib') if _light_file_dir else None")
+        self._add_line("if not _light_stdlib or not os.path.isdir(_light_stdlib):")
         self._add_line("    _light_stdlib = os.path.join(os.getcwd(), 'stdlib')")
         self._add_line("    if not os.path.isdir(_light_stdlib):")
         self._add_line("        parent_stdlib = os.path.normpath(os.path.join(os.getcwd(), '..', 'stdlib'))")
