@@ -2,10 +2,10 @@
 
 ## 安装扩展
 
-1. 下载 `vscode-light` 扩展：
+1. 下载 `vscode-extension` 扩展（仓库内权威扩展，含 `package.json`，经 `.github/workflows/vsce-publish.yml` 发布）：
    ```bash
    git clone https://github.com/light-lang/light.git
-   cd light/vscode-light
+   cd light/vscode-extension
    code --install-extension light-lang.vsix
    ```
 
