@@ -36,6 +36,13 @@ import sys
 
 __all__ = ['install', 'uninstall', 'LightFinder', 'LightLoader']
 
+# 本模块（_light_import_hook.py）物理上就住在 <安装根>/stdlib 里，
+# 因此它的所在目录就是**权威的 stdlib 目录**，与 install() 传入的搜索路径顺序
+# 无关。L-018 把 install 顺序改成「用户目录优先」后，search_paths[0] 不再保证
+# 指向 stdlib（产物写进临时目录时它就是那个临时目录），任何按位置推断 stdlib
+# 的代码都会指错地方——详见 _ensure_compiler_importable 的注释。
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # 编译结果缓存：绝对路径 -> 生成的 Python 源码
 _CODE_CACHE: dict[str, str] = {}
 
@@ -46,8 +53,21 @@ _COMPILING: set[str] = set()
 def _ensure_compiler_importable(stdlib_dir: str) -> None:
     """确保光明编译器（src/）在 sys.path 上。
 
-    在 `light run` 场景下 cli 已经加过了；独立运行生成的 .py 时没有，
-    这里按 stdlib 的同级目录去找。
+    在 `light run` 场景下 cli 已经加过了；独立运行生成的 .py 时没有，需要这里补。
+
+    为什么不能只信 `stdlib_dir`：
+    它来自 LightFinder.search_paths[0]，而 install() 的搜索路径顺序被 L-018
+    改成「用户目录优先」——`[_light_file_dir, _light_stdlib, os.getcwd()]`。
+    `_light_file_dir` 是**产物所在目录**，e2e 把产物写进临时目录，于是
+    search_paths[0] 变成那个临时目录；再取它的父目录去找 `src/`，父目录是
+    系统 Temp，根本没有 src/，`light_parser_v3` 因此导入失败。
+    表现是：任何用到「纯光明 stdlib 模块」（如 内置核心转换）的产物，运行期
+    一 import 就崩（run 116 的 28 条新增打红）。
+
+    修法：以**本模块自身位置**为权威锚点再兜一层。_light_import_hook.py 就住在
+    `<安装根>/stdlib/` 里，它的父目录必然是安装根，`src/` 一定在那儿。这样
+    stdlib 的定位彻底与 install() 的搜索顺序解耦，L-018 的用户目录优先得以保留，
+    同时纯光明 stdlib 模块照旧能在运行期被编译加载。
     """
     try:
         from light_parser_v3 import LightParser  # noqa: F401
@@ -55,11 +75,20 @@ def _ensure_compiler_importable(stdlib_dir: str) -> None:
     except ImportError:
         pass
 
-    project_dir = os.path.dirname(os.path.abspath(stdlib_dir))
-    for sub in ('src', 'antlrparser'):
-        cand = os.path.join(project_dir, sub)
-        if os.path.isdir(cand) and cand not in sys.path:
-            sys.path.insert(0, cand)
+    roots: list[str] = []
+    if stdlib_dir:
+        roots.append(os.path.dirname(os.path.abspath(stdlib_dir)))
+    # 权威兜底：本文件 = <安装根>/stdlib/_light_import_hook.py
+    roots.append(os.path.dirname(_THIS_DIR))  # <安装根>
+    roots.append(_THIS_DIR)                   # 极端布局：src/ 与 stdlib 同级
+
+    for project_dir in roots:
+        if not project_dir or not os.path.isdir(project_dir):
+            continue
+        for sub in ('src', 'antlrparser'):
+            cand = os.path.join(project_dir, sub)
+            if os.path.isdir(cand) and cand not in sys.path:
+                sys.path.insert(0, cand)
 
 
 def _compile_light(light_path: str, stdlib_dir: str) -> str:
