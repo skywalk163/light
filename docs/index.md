@@ -75,8 +75,7 @@
 | [编译器内部设计](编译器内部设计.md) | 编译器管线与实现原理 |
 | [LLVM 后端设计](llvm_backend_design.md) | 原生编译实现细节 |
 | [包管理器使用指南](包管理器使用指南.md) | lightpub 包管理完整指南 |
-| [性能基准 vs Python](性能基准_vs_Python.md) | 10+ 基准测试对比报告（v1） |
-| [性能基准 vs Python v2](性能基准_vs_Python_v2.md) | 更新版性能基准测试对比报告 |
+| [性能基准 vs Python v2](性能基准_vs_Python_v2.md) | 更新版性能基准测试对比报告（含 LLVM 后端） |
 
 ### 🔌 开发与配置
 
