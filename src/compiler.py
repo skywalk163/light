@@ -59,21 +59,6 @@ L3_MODULES = {
     },
 }
 
-# FFI 模块注册表
-# 通过 `引 Python:` 语法在 .light 文件中导入使用
-FFI_MODULES = {
-    'ffi_go': {
-        'module': 'ffi_go',
-        'class': 'GoFFI',
-        'description': 'Go FFI 绑定（引用Go库/绑定函数/类型转换）',
-    },
-    'ffi_rust': {
-        'module': 'ffi_rust',
-        'class': 'RustFFI',
-        'description': 'Rust FFI 绑定（引用Rust库/绑定函数/字符串处理）',
-    },
-}
-
 
 # =============================================================================
 # 编译器缓存系统（v5.2.0）
