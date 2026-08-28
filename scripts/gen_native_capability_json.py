@@ -258,7 +258,7 @@ expr_desc = {
     'UnaryOp': '一元运算',
     'FunctionCall': '函数调用',
     'ParagraphCall': '段落调用',
-    'IndexAccess': 'X[k] 索引访问',
+    'IndexAccess': 'X[k] 索引访问（A9-S2 起含切片 X[a:b]，拦截 FunctionCall(\'slice\')）',
     'ListLiteral': '[1, 2] 列表字面量',
     'DictLiteral': '{键: 值} 字典字面量 (C3-2 新增)',
     'StringInterpolation': 'f"..." 字符串插值 (C3-2 新增)',
@@ -268,6 +268,7 @@ expr_desc = {
     'NewExpression': 'new 表达式',
     'AwaitExpression': '等待 ...',
     'ExpressionStatement': '表达式语句（适配层揭穿）',
+    'ListComprehension': '[表达式 遍历 变量 之 列表 若 条件] 列表推导 (A9-S2 新增)',
 }
 result["tables"]["expression_nodes"] = {
     "description": "原生腿 _gen_expression 分派链支持的表达式节点",

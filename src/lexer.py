@@ -1657,13 +1657,18 @@ class Lexer:
                 tokens.append(_Token(_TokenType.IDENTIFIER, mixed, line, col))
                 return tokens, len(mixed)
 
-        # 成员访问上下文：紧跟 '.' 之后的连续汉字序列作为单一标识符
+        # 成员访问上下文：紧跟 '.' 之后的连续标识符作为单一标识符
         # L-004/L-010/L-011/L-012：'.' 之后按语言规范只可能是属性/方法名，
         # 不可能是语句关键字，因此不再按关键字边界拆分。
         # （如 对象.导出事件表 不再拆成 对象.导出+事件表）
+        # 注意：不能只收「连续汉字」——汉字+ASCII 混合的成员名（如 导出JSON、
+        # 导出HTML、段言到Python）会被切成 导出+JSON 两个标识符，编译产物变成
+        # l3_chart.导出(JSON()) 语义错误。须按标识符字符集（汉字/ASCII 字母数字/
+        # 下划线/Unicode 字母，与 :1824 混排规则一致）整段收集。
         if _is_han(source[i]) and i > 0 and source[i - 1] == '.':
             j = i
-            while j < n and _is_han(source[j]):
+            while j < n and (_is_han(source[j]) or _is_ascii_alnum_f(source[j])
+                             or source[j] == '_' or _is_extra_letter(source[j])):
                 j += 1
             _member_name = source[i:j]
             if _member_name:
