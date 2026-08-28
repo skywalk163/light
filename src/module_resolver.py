@@ -150,9 +150,23 @@ class ModuleResolver:
         self._stdlib_modules: Dict[str, ModuleInfo] = {}
         self._builtins_loaded = False
         self.auto_load_stdlib = auto_load_stdlib
-        if auto_load_stdlib:
-            self._discover_stdlib_modules()
+        # 惰性发现：构造时不再全量解析 stdlib。
+        # 实测：stdlib 全量 parse 约 7.85s/次，全套件 20 处构造 ≈ 157s，占 CI 主段 ~16%。
+        # 推迟到首次真正访问 stdlib 模块时再发现（见 _ensure_stdlib_discovered）。
+        self._stdlib_discovered = False
     
+    def _ensure_stdlib_discovered(self):
+        """首次真正访问 stdlib 模块时才做发现（惰性）。
+
+        `self._stdlib_modules` 只被下面三个读方法使用，find_module / parse_module /
+        build_dependency_graph / resolve 均不读取它，因此推迟到首次访问再发现，
+        对外部可观测行为等价。auto_load_stdlib=False 仍表示永不发现（与旧行为一致）。
+        """
+        if not self.auto_load_stdlib or self._stdlib_discovered:
+            return
+        self._stdlib_discovered = True
+        self._discover_stdlib_modules()
+
     def _discover_stdlib_modules(self):
         """发现并缓存标准库中的所有模块"""
         stdlib_dir = Path(self.stdlib_path)
@@ -173,10 +187,12 @@ class ModuleResolver:
     
     def get_stdlib_module(self, module_name: str) -> Optional[ModuleInfo]:
         """获取标准库模块信息"""
+        self._ensure_stdlib_discovered()
         return self._stdlib_modules.get(module_name)
     
     def get_stdlib_module_names(self) -> List[str]:
         """获取所有可用的标准库模块名"""
+        self._ensure_stdlib_discovered()
         return sorted(self._stdlib_modules.keys())
     
     def load_stdlib_module(self, module_name: str) -> Optional[ModuleInfo]:
@@ -189,6 +205,7 @@ class ModuleResolver:
         Returns:
             模块信息，如果未找到则返回 None
         """
+        self._ensure_stdlib_discovered()
         if module_name in self.module_cache:
             return self.module_cache[module_name]
         
