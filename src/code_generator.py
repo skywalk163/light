@@ -809,7 +809,7 @@ class PythonCodeGenerator:
         self._add_line("# 让 import 机制认识纯光明模块（只有 .light、没有 .py 的那种）")
         self._add_line("try:")
         self._add_line("    import _light_import_hook as _light_hook")
-        self._add_line("    _light_hook.install([_light_stdlib, _light_file_dir, os.getcwd()])")
+        self._add_line("    _light_hook.install([_light_file_dir, _light_stdlib, os.getcwd()])")
         self._add_line("except Exception:")
         self._add_line("    pass")
         self._add_line("")
