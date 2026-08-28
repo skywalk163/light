@@ -94,9 +94,7 @@ jobs:
           # 信号不会丢，反而能指到根因。
           python -m pip install cryptography || true
           # xdist 是加速项而非依赖：本地 devpi 镜像不保证有，装不上就串行跑。
-          # 加重试：devpi 偶发抖动会导致本轮回退串行、前台主测试 871s→991s 级核争抢，
-          # 重试可避免这种无谓回退（仍 || true 保底，绝不因缺包让 CI 红）。
-          for i in 1 2 3; do python -m pip install pytest-xdist && break; echo "[CI] xdist 安装重试 $i"; done || true
+          python -m pip install pytest-xdist || true
 
       - name: 计时打点（装依赖）
         run: python3 tools/ci/time_budget.py --mark 装依赖
@@ -141,11 +139,22 @@ jobs:
           mkdir -p .ci
           if python -c 'import xdist' >/dev/null 2>&1; then PAR="-n auto"; else PAR=""; fi
           echo "[CI] 并行参数：${PAR:-（串行：未装 pytest-xdist）}"
-          # D3-3：纯光明测试（*_light.py）与 e2e 改到下方「门禁段」后台并行，
-          # 重叠进更长的门禁窗口（~193s > e2e132s+soft30s），不再与前台主测试抢核——
-          # 08-27 那次重叠进前台段，导致前台 871s→991s 的核争抢回退。前台段现在
-          # 独占全部核，回到 ~871s 基线。判绿口径不变：仍 || true + test -f，
-          # 最终由「门禁段」末尾回归闸门按基线对比。
+          # D3-3：纯光明测试（*_light.py）摘出来单独归账耗时，判绿口径仍是 soft
+          # （走下面的回归闸门 --soft-classname 'tests.test_*'），不升级成判绿点。
+          #
+          # 2026-08-27（时间预算闸门 58s 超时）：e2e 与 纯光明 soft 与前台主测试
+          # 无依赖、各写各的 junit，不再排队串行——改为后台并行，重叠进最长的
+          # 「全量除 e2e」段（本轮 871s）。串行时它们各付一遍空等（e2e 132s、
+          # soft ~30s），重叠后这段时间几乎全部隐藏。判绿口径不变：仍 || true
+          # 放行存量失败 + test -f 防崩溃，最终都交给回归闸门按基线对比。
+          # 子 shell 内失败（崩溃没产出 junit）会让 wait 返回非 0 → 本步红，信号不丢。
+          (pytest tests/e2e -q $PAR --junitxml=.ci/e2e.xml || true; test -f .ci/e2e.xml) &
+          (pytest tests/test_agent_loop_light.py tests/test_bootstrap_light.py \
+            tests/test_event_bus_light.py tests/test_llm_client_light.py \
+            tests/test_path_guard_light.py tests/test_plugin_light.py \
+            tests/test_process_tree_light.py tests/test_pty_light.py \
+            tests/test_schema_light.py -q $PAR --junitxml=.ci/light_soft.xml || true; \
+            test -f .ci/light_soft.xml) &
           pytest tests --ignore=tests/e2e \
             --ignore=tests/test_agent_loop_light.py \
             --ignore=tests/test_bootstrap_light.py \
@@ -161,13 +170,13 @@ jobs:
             -q $PAR \
             --junitxml=.ci/non-e2e.xml || true
           test -f .ci/non-e2e.xml
+          wait
 
       - name: 计时打点（全量除 e2e）
         run: python3 tools/ci/time_budget.py --mark 全量除e2e
 
-      # e2e 与 纯光明 soft 已改到下方「门禁段」后台并行（2026-08-28 修正）：
-      # 重叠进更长的门禁窗口，不再与前台主测试抢核（08-27 那次重叠进前台段导致
-      # 前台 871s→991s 的核争抢回退）。判定仍走「门禁段」末尾的回归闸门按基线对比。
+      # e2e 与 纯光明 soft 已并入上方「全量测试」步骤后台并行（2026-08-27），
+      # 避免串行空等拖爆时间预算；判定仍走下方回归闸门按基线对比。
 
       # D3-3：硬判绿点（不允许 soft）。这两份文件头已明写「纯离线、不许 skip」，
       # 是 M4/M5 的判据，必须真过。无 || true → 失败即红。
@@ -190,54 +199,111 @@ jobs:
       # --soft-classname 两条覆盖根目录 tests/test_*.py 与 tests/_test_*.py：
       # 它们在旧配置里是 `|| true` 跑的非阻塞步，并入统一 pytest 后保持同一口径。
       # tests/unit/**、tests/integration/**、tests/e2e/** 不在豁免内，照常硬判。
-      # 门禁段：e2e 与 纯光明 soft 在后台与前台门禁并行，重叠进更长的门禁窗口
-      # （~193s > e2e132s+soft30s），把这段 CPU 空等吃掉；前台主测试段已独占全部核
-      # （见上方「全量测试」步骤），回到 ~871s 基线。失败信号不丢：e2e/soft 仍
-      # || true + test -f，由末尾回归闸门按基线对比；其余门禁为硬判绿点，失败即红。
-      # 用 status 累计，保证任一硬门禁失败都让本步红（不丢信号），且回归闸门最后跑。
-      - name: 门禁段（e2e/soft 后台并行 + 回归闸门 + 各静态门禁）
+      - name: 回归闸门（基线对比）
         run: |
           . .venv/bin/activate
-          if python -c 'import xdist' >/dev/null 2>&1; then PAR="-n auto"; else PAR=""; fi
-          # e2e 与 纯光明 soft 后台并行（产出 junit，交末尾回归闸门判绿）
-          (pytest tests/e2e -q $PAR --junitxml=.ci/e2e.xml || true; test -f .ci/e2e.xml) &
-          (pytest tests/test_agent_loop_light.py tests/test_bootstrap_light.py \
-            tests/test_event_bus_light.py tests/test_llm_client_light.py \
-            tests/test_path_guard_light.py tests/test_plugin_light.py \
-            tests/test_process_tree_light.py tests/test_pty_light.py \
-            tests/test_schema_light.py -q $PAR --junitxml=.ci/light_soft.xml || true; \
-            test -f .ci/light_soft.xml) &
-          status=0
-          # lightpub 文档可导入性闸门（故意重跑，文档说谎不该有「进基线」选项）
-          pytest tests/unit/test_lightpub_doc_importability.py -q || status=$?
-          # 积木库门禁：五把尺子 + 硬门槛 + 兜底闸门
-          python -m pip install pypinyin lunardate opencc-python-reimplemented || true
-          python 积木库/评估/ci_eval.py --并发 8 || status=$?
-          # 断言质量门禁（假绿形态·基线对比）
-          python tools/ci/assert_quality.py --root . || status=$?
-          # 自举率门禁（文件维度·不许回退）
-          python tools/ci/bootstrap_rate.py --root . || status=$?
-          # Python 直调计数门禁（只降不升）
-          python tools/ci/python_direct_calls.py --root . || status=$?
-          # 功能对标清单门禁（完成度只升不降）
-          python tools/ci/spec_coverage.py --root . || status=$?
-          # 地板自举率门禁（builtins 搬迁·只升不降）
-          python tools/ci/floor_bootstrap.py --root . || status=$?
-          # 原生腿产品门禁（模块/CLI/平台三表）
-          python tools/ci/native_product.py --root . || status=$?
-          # 分布式判据门禁（没有反跑就不算判据）
-          python tools/ci/dist_criteria.py --root . || status=$?
-          # 等后台 e2e/soft 产出 junit（通常已被上面门禁窗口吞掉）
-          wait || true
-          # 回归闸门（基线对比）：必须最后跑，三份 junit 齐了才判
           python tools/ci/check_regression.py \
             --junit .ci/non-e2e.xml \
             --junit .ci/e2e.xml \
             --junit .ci/light_soft.xml \
             --baseline tests/ci_baseline_failures.txt \
             --soft-classname 'tests.test_*' \
-            --soft-classname 'tests._test_*' || status=$?
-          exit $status
+            --soft-classname 'tests._test_*'
+
+      # lightpub 文档可导入性闸门。
+      # 这条本来就在 tests/unit/ 里、上面那轮已经跑过；这里**故意重跑一遍**（几秒），
+      # 因为回归闸门是「与基线对比」——刷一次基线就能把它压下去。文档说谎不该有
+      # 「进基线」这个选项，所以再挂一道不看基线的硬判绿点。
+      #
+      # 它补的是已有文档示例扫描面（tests/unit/doc_block_scan.py）的盲区：
+      # 那道扫描只验证「能否编译」，而 `导入 GUI框架` 编译完全正常、
+      # 生成 `import stdlib.lightpub.GUI框架`，运行时才 ModuleNotFoundError。
+      # 编译期正确、运行期骗人的块，只有真去 import 一遍才抓得到。
+      - name: lightpub 文档可导入性闸门
+        run: |
+          . .venv/bin/activate
+          pytest tests/unit/test_lightpub_doc_importability.py -q
+
+      # 积木库门禁：五把尺子 + 硬门槛 + 兜底闸门。此前积木库（选块器 / 概念词典 / 契约索引 /
+      # 兜底）在 gitea CI 上零覆盖，回归全靠人手跑尺子；段言本体 tests 过了也拦不住积木库回退。
+      # 这里等价于 .github/workflows/eval.yml，但跑在本地 FreeBSD runner（无 Docker、系统
+      # python3、本地 devpi 镜像），把「合入 main」变成有闸门拦截：主基准掉链路 / 留出段掉点 /
+      # 块跑不起来 / 兜底闸门不过，CI 直接红。
+      - name: 积木库门禁（五把尺子 + 兜底闸门）
+        run: |
+          . .venv/bin/activate
+          # 少数块依赖第三方包；装不上不致命（冒烟会标成「缺依赖」单列，不计入分母）
+          python -m pip install pypinyin lunardate opencc-python-reimplemented || true
+          python 积木库/评估/ci_eval.py --并发 8
+
+      # D3-1/D3-2：两道质量度量门禁。都是「基线对比、只拦新增」，不是一刀切阈值——
+      # 存量违规按白名单 + 计数上限锁住，删一条不能换新增一条（白名单按 file:line:cat
+      # 精确匹配）。刷新基线要显式改命令：
+      #   python tools/ci/assert_quality.py --write-baseline tests/ci_baseline_assert_quality.txt
+      #   python tools/ci/bootstrap_rate.py --write-baseline tests/ci_baseline_bootstrap.txt
+      - name: 断言质量门禁（假绿形态·基线对比）
+        run: |
+          . .venv/bin/activate
+          # 扫描根 = 全仓（2026-08-23 用户裁决）。原来只扫 tests/，同形态违规在
+          # tests/ 之外还有 50 条（antlrparser/、tools/、examples/ 的自测脚本），
+          # 门禁的覆盖面窄于它自己声明的形态覆盖面。全仓实测 1.7s，仍在 <5s 承诺内。
+          python tools/ci/assert_quality.py --root .
+
+      # 自举率门禁：口径见 任务书/第三轮总纲 §2.3 —— **只认文件维度**
+      # （stdlib 下每个 .light 文件有无 decl ≥ 1 的真实现），行维度只打印不判绿。
+      # 门禁守两条：已破零的文件不许退回 0；文件维度自举率不许下降。
+      - name: 自举率门禁（文件维度·不许回退）
+        run: |
+          . .venv/bin/activate
+          python tools/ci/bootstrap_rate.py --root .
+
+      # E7（第七轮 M20）：两道新度量门禁。都是**纯静态扫描**——不 import、不编译任何
+      # .light，本机实测各 1s 级，放在门禁段末尾、不与测试并发（第五轮教训：门禁与
+      # 测试并发会把测试中途生成的产物扫成「新增违规」）。硬判绿点，不加 || true。
+      #
+      # 1) Python 直调计数：补住「引 Python 逃逸 0」那句话的漏洞——真实逃逸走
+      #    `导入 os` 再直调 `os.path.isabs`，六轮来不被任何门禁计数。基线按文件维度
+      #    棘轮（只降不升），刻意不要求降到 0：那会逼出「换写法绕正则」的假降。
+      - name: Python 直调计数门禁（口径见脚本 docstring·只降不升）
+        run: |
+          . .venv/bin/activate
+          python tools/ci/python_direct_calls.py --root .
+
+      # 2) 功能对标清单：把「离能开发 deepseek-harness 还差多少」变成机读判据。
+      #    done 条数只升不降、已 done 的条目不许退回、条目不许消失、
+      #    done/partial 必须有存在的证据文件（行号不校验，行号会漂移）。
+      - name: 功能对标清单门禁（完成度只升不降）
+        run: |
+          . .venv/bin/activate
+          python tools/ci/spec_coverage.py --root .
+
+      # G9（第九轮 M22/M23/M24）：三道新度量门禁，同样是纯静态扫描（各 1s 级），
+      # 挨着既有门禁段放，不与测试并发（第五轮教训：门禁与测试并发会把测试中途
+      # 生成的产物扫成「新增违规」）。硬判绿点，不加 || true。
+      #
+      # 3) 地板自举率：stdlib/builtins.py 的 114 个内置函数被注入进每一份产物，
+      #    却没有同名 .light，六轮来不在任何指标的分母里 —— 最大的度量盲区。
+      #    分母扣掉真边界（文件 I/O / 环境 / stdio / 时间源 / 随机源），
+      #    比例只升不降，且 native_required 名单新增即红（防「挪进豁免缩分母」）。
+      - name: 地板自举率门禁（builtins 搬迁·只升不降）
+        run: |
+          . .venv/bin/activate
+          python tools/ci/floor_bootstrap.py --root .
+
+      # 4) 原生腿产品清单：模块级 / CLI 路径级 / 平台级三张表。
+      #    原生可编译比例只升不降；坏路径数只降不升；平台矩阵未实测格数只降不升
+      #    （这条专治「只在 Windows 测过就声称跨平台」）。
+      - name: 原生腿产品门禁（模块/CLI/平台三表）
+        run: |
+          . .venv/bin/activate
+          python tools/ci/native_product.py --root .
+
+      # 5) 分布式判据清单：done 必须同时有可定位的判据与含动作词的反跑。
+      #    **没有反跑就不算判据**（总纲 §5 红线 3，继承第七轮「上界断言是假绿主形态」）。
+      - name: 分布式判据门禁（没有反跑就不算判据）
+        run: |
+          . .venv/bin/activate
+          python tools/ci/dist_criteria.py --root .
 
 
 
