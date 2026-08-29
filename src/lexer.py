@@ -2778,24 +2778,49 @@ class Lexer:
                 # 收集段名（遇到段落语法关键字或冒号停止）
                 # 支持汉字和ASCII字母数字的标识符
                 k = j
+                # 计算本定义头部结束位置（遇到冒号/换行即止），用于判定「最后一个」接收/返回 即参数分隔符
+                _header_end = k
+                while _header_end < n and source[_header_end] not in '：:\n':
+                    _header_end += 1
+                # 预定位分隔符：头部内「最后一个」接收/返回。
+                # - 若它后接空白/冒号/标点（清晰分隔符），直接采用；
+                # - 否则（老式无空格写法，如 加法接收甲 的 接收 后接 甲）取头部内最后一个 接收/返回。
+                # 这样：名字内部的 接收（接收参数、测直接收集、消息接收器、接收消息）后面还有
+                # 更靠后的分隔符 接收，不会在此截断，段名完整（如 接收参数）；
+                # 真正的分隔符 接收（加法接收甲 中唯一/最后的那个）才会截断段名 → 段名=加法。
+                # 修复 L-020 伴生回归：旧逻辑遇「接收后接汉字」不截断，把 加法 吞进 加法接收甲，
+                # 使 加法 未注册、接收 分隔符被合并，basic.light 等示例编译报「期望冒号但得到逗号」。
+                _sep_pos = -1
+                _s = j
+                while _s < _header_end:
+                    _kw, _kl = self._match_keyword(source, _s)
+                    if _kw and _kl > 0 and _kw in ('接收', '返回'):
+                        _a = _s + _kl
+                        if _a >= _header_end or source[_a] in ' \t\n\r\f\v　：:。、，,；;':
+                            _sep_pos = _s
+                            break
+                    _s += 1
+                if _sep_pos == -1:
+                    _s = j
+                    while _s < _header_end:
+                        _kw, _kl = self._match_keyword(source, _s)
+                        if _kw and _kl > 0 and _kw in ('接收', '返回'):
+                            _sep_pos = _s
+                        _s += 1
+                # 段名收集循环：遇到非名字字符或定位到的分隔符即停
                 while k < n and (_is_han(source[k]) or _is_ascii_alnum(source[k])
                                  or source[k] == '_'):
-                    # 检查当前位置是否匹配段落语法关键字（接收、返回）
-                    kw, kw_len = self._match_keyword(source, k)
-                    if kw and kw_len > 0 and kw in ('接收', '返回'):
-                        # 仅当它后面紧跟「空白/冒号/句号/标点」（即它是参数关键字分隔符）才停；
-                        # 若后面紧跟汉字，说明「接收/返回」是名字的一部分（如 接收参数 的 接+参），继续收集。
-                        # 这样 `段落 接收参数 接收 数据:` 的段名能完整收集为「接收参数」进白名单，
-                        # 主 tokenize 时整体成词；`段落 名 接收 参数:` 中独立的参数关键字仍作 KEYWORD。
-                        _after = k + kw_len
-                        if _after >= n or source[_after] in ' \t\n\r\f\v　：:。、，,；;':
-                            break
+                    if _sep_pos != -1 and k >= _sep_pos:
+                        break
                     k += 1
                 if k > j:
                     segment_name = source[j:k]
                     # 收集段落名（允许覆盖动词名称）
                     if segment_name not in ALL_KEYWORDS:
                         definitions.add(segment_name)
+                # 让后续「接收/参数 参数名」收集逻辑从分隔符位置继续
+                if _sep_pos != -1:
+                    k = _sep_pos
 
                 # 检查是否有 "接收" 或 "参数" 关键字（旧式 接收 / 新式 参数）
                 # 旧式「段落 名 接收 参数：」的参数名必须整体注册进白名单，
