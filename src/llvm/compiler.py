@@ -986,6 +986,70 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
     return ir
 
 
+def _native_search_paths(source_dir: str) -> list:
+    """原生腿的模块搜索路径。
+
+    此前原生腿只传 ``[source_dir]``，项目自带的 stdlib（如 lightharness/stdlib 下的
+    SSE.light）根本解析不到，报「模块未找到: 'SSE'」——同一个项目用 src 后端却是好的，
+    因为 ``ModuleResolver()`` 不传参时默认含 ``['.', 光明stdlib, contrib]``。
+
+    这里按「自入口目录逐级向上找 stdlib」补齐，两种项目布局都能覆盖：
+      - 入口在 src/ 下（lightharness/src/总入口.light）→ 祖先的 lightharness/stdlib
+      - 入口就在项目根（proj/总入口.light）          → 自身的 proj/stdlib
+    另外并入光明自带 stdlib/contrib，与 src 后端口径一致。
+    """
+    paths = []
+    seen = set()
+
+    def _add(p):
+        p = os.path.abspath(p)
+        if p not in seen:
+            seen.add(p)
+            paths.append(p)
+
+    _add(source_dir)
+
+    # 自入口目录向上找含 stdlib/ 的祖先（最多 6 层，避免一路走到磁盘根）
+    cur = os.path.abspath(source_dir)
+    for _ in range(6):
+        parent = os.path.dirname(cur)
+        if not parent or parent == cur:
+            break
+        cur = parent
+        stdlib_candidate = os.path.join(cur, 'stdlib')
+        if os.path.isdir(stdlib_candidate):
+            _add(stdlib_candidate)
+        _add(cur)
+
+    # 光明自带 stdlib / contrib（与 ModuleResolver() 默认一致）
+    _llvm_dir = os.path.dirname(os.path.abspath(__file__))       # .../src/llvm
+    _light_root = os.path.dirname(os.path.dirname(_llvm_dir))    # 仓库根
+    for cand in (os.path.join(_light_root, 'stdlib'),
+                 os.path.join(_light_root, 'contrib')):
+        if os.path.isdir(cand):
+            _add(cand)
+
+    _add(os.getcwd())
+    return paths
+
+
+def _is_python_module(name: str) -> bool:
+    """该名字能否作为 Python 模块导入（即属 Python 标准库 / 第三方生态，而非光明模块）。
+
+    仅用于给「找不到 .light 实现」的导入做**定性**，好让报错直指真因。
+    查找顺序始终是「先 .light 后 Python」——调用方先 find_module，失败了才问这里，
+    所以同名的 .light 模块永远优先，不会被误判成 Python 模块。
+    """
+    if not name or name.startswith('.'):
+        return False
+    try:
+        import importlib.util
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError, AttributeError, TypeError, OSError):
+        # 点号名字的父包未导入等情形会抛异常，一律按「不是 Python 模块」处理
+        return False
+
+
 def compile_light_project(source_path: str, output_path: str = None, verbose: bool = False,
                           target_platform: str = None, target: str = None,
                           optimize_level: int = 2, debug: bool = False,
@@ -1013,15 +1077,17 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
         print(f"  目标架构: {target_arch}")
 
     try:
-        from ..module_resolver import ModuleResolver
+        from ..module_resolver import ModuleResolver, ModuleNotFoundError
     except ImportError:
-        from module_resolver import ModuleResolver
+        from module_resolver import ModuleResolver, ModuleNotFoundError
 
     with open(source_path, 'r', encoding='utf-8') as f:
         source = f.read()
 
     source_dir = os.path.dirname(os.path.abspath(source_path))
-    resolver = ModuleResolver(search_paths=[source_dir])
+    # 此前只搜 source_dir，项目自带 stdlib（lightharness/stdlib）里的模块解析不到。
+    # 改为「入口目录 + 逐级向上找到的 stdlib + 光明自带 stdlib/contrib」。
+    resolver = ModuleResolver(search_paths=_native_search_paths(source_dir))
 
     # 递归收集所有依赖的模块
     sources = {}
@@ -1043,10 +1109,25 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
         for imp in (getattr(module, 'imports', None) or []):
             dep_name = imp.module if hasattr(imp, 'module') else None
             if dep_name and dep_name not in visited:
-                dep_path = resolver.find_module(dep_name)
-                if not dep_path or not os.path.exists(dep_path):
+                try:
+                    dep_path = resolver.find_module(dep_name)
+                except ModuleNotFoundError:
+                    # 找不到 .light 实现：先定性——是不是在找 Python 生态的东西。
+                    # 原生运行时是纯 C（runtime_typed.c，不嵌 CPython），没有 Python
+                    # 互操作，这类导入原生腿根本做不到。必须直说，否则会报成
+                    # 「需要其 .light 源文件」，让人去翻一个并不存在的 .light 文件。
+                    if _is_python_module(dep_name):
+                        raise NativeImportError(
+                            f"'{mod_name}' 导入了 Python 生态/标准库模块 '{dep_name}'，"
+                            f"原生腿无法编译：原生运行时是纯 C"
+                            f"（src/llvm/runtime_typed.c，不嵌 CPython），"
+                            f"没有 Python 互操作，也没有可链接的 Python 符号。\n"
+                            f"  可选路径：\n"
+                            f"    1) 改用 --backend src（解释后端，支持导入 Python 模块）；\n"
+                            f"    2) 为 '{dep_name}' 提供纯光明 (.light) 实现后再导入。")
                     raise NativeImportError(
-                        f"模块 '{dep_name}' 未找到：原生腿编译需要其 .light 源文件。")
+                        f"模块 '{dep_name}' 未找到：原生腿编译需要其 .light 源文件"
+                        f"（由 '{mod_name}' 导入）。")
                 # B9 S1 2.3：同名 .py 影子必须显式报错，绝不静默降级
                 if dep_path.suffix == '.py':
                     raise NativeImportError(
