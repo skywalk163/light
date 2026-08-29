@@ -65,6 +65,16 @@ class PythonCodeGenerator:
         
         # 追踪导入的符号
         self._imported_symbols: set = set()
+        # L-019：`新建 X(...)` 的合法操作数集合（本模块定义的类 + 显式导入的符号）。
+        # 只用于判定「新建 的操作数是不是类名」，从而在被同名局部变量遮蔽时改走全局
+        # 查找；**不做任何无条件改写**，以免误伤 `设 工厂 为 甲` + `新建 工厂()`
+        # 这种「用持有类的变量实例化」的合法写法。
+        self._instantiable_names: set = set()
+        # L-019：正在生成的赋值语句的目标名。右侧表达式是在「目标尚未绑定」的语义下
+        # 生成的（_bind_local 在其后才调用），但发射出的 Python 里目标名一旦在函数体
+        # 中被赋值，Python 就视其为整个函数的局部变量、不看书写先后。故需在生成右侧
+        # 期间临时登记目标名，才能判定 `设 X 为 新建 X()` 是否会被 Python 遮蔽。
+        self._pending_assign_targets: set = set()
         
         # 是否需要导入 ABC/abstractmethod
         self._needs_abc = False
@@ -658,9 +668,19 @@ class PythonCodeGenerator:
                 for sym in (getattr(node, 'symbols', None) or ()):
                     if isinstance(sym, str) and sym:
                         self._user_defined_functions.add(sym)
+                        # L-019：导入名同样是「新建」的合法操作数
+                        # （如 `从 子智能体 导入 子智能体` 后 `新建 子智能体(...)`）
+                        self._instantiable_names.add(self._sanitize_name(sym))
                 alias = getattr(node, 'alias', None)
                 if isinstance(alias, str) and alias:
                     self._user_defined_functions.add(alias)
+                    self._instantiable_names.add(self._sanitize_name(alias))
+
+            # L-019：本模块定义的类名，同样是「新建」的合法操作数
+            if isinstance(node, ClassDefinition):
+                cname = getattr(node, 'name', None)
+                if isinstance(cname, str) and cname:
+                    self._instantiable_names.add(self._sanitize_name(cname))
 
             # v7 单 20：L4 引 C/Go 块导出的函数名与显式 import 同级 —— 都是
             # 「用户显式声明了这个名字」，必须压过 builtin_map。否则 J2 的
@@ -766,6 +786,8 @@ class PythonCodeGenerator:
         self.indent_level = 0  # 重置缩进级别，防止跨条目状态污染
         self._user_defined_functions = set()  # 重置用户自定义函数追踪
         self._local_variables = set()  # 重置局部变量追踪
+        self._instantiable_names = set()  # 重置可实例化名集合（L-019）
+        self._pending_assign_targets = set()  # 重置赋值目标名集合（L-019）
         self._ffi_user_types = {}  # 重置 FFI 用户自定义类型注册表
         
         # 预扫描：显式 import 进来的名字优先级高于内置函数映射
@@ -1206,7 +1228,27 @@ class PythonCodeGenerator:
         elif isinstance(stmt, Assignment):
             # 普通赋值语句：甲 = 值
             target = self._generate_expr(stmt.target)
-            value = self._generate_expr(stmt.value)
+            # L-019：右侧表达式是在「目标尚未绑定」的语义下生成的（_bind_local 在下面
+            # 才调用），这个设计本身是对的——`设 甲 为 甲 + 1` 的右侧本就该解析到外层的
+            # 甲。但发射出的 Python 里，目标名一旦在函数体中被赋值，Python 就把它当作
+            # 整个函数的局部变量、不看书写先后。于是 `设 甲 为 新建 甲()` 生成 `甲 = 甲()`，
+            # 右侧被解析成那个还没赋值的局部变量 → UnboundLocalError。
+            # 故在生成右侧期间，把目标名临时登记为「即将绑定的局部名」，
+            # 供 ClassInstantiation 判定是否要绕开。模块层（_in_function=False）
+            # 本来就不会有这个遮蔽问题，不登记，行为不变。
+            _pending = None
+            if self._in_function:
+                _pending = getattr(stmt.target, 'name', None)
+                if isinstance(_pending, str) and _pending and '.' not in _pending:
+                    _pending = self._sanitize_name(_pending)
+                    self._pending_assign_targets.add(_pending)
+                else:
+                    _pending = None
+            try:
+                value = self._generate_expr(stmt.value)
+            finally:
+                if _pending:
+                    self._pending_assign_targets.discard(_pending)
             # 绑定形式⑤：普通赋值。target 为简单名字时才算局部绑定；
             # `甲[丁] = …`、`己.X = …` 由各自的分支处理，_bind_local 会跳过带点的名字。
             self._bind_local(stmt.target)
@@ -1375,8 +1417,7 @@ class PythonCodeGenerator:
     def _generate_var_decl(self, stmt: VarDecl):
         """生成变量声明"""
         name = self._sanitize_name(stmt.name)
-        value = self._generate_expr(stmt.value)
-        
+
         # 写入侧的「这是类属性吗」判据必须与读取侧（_resolve_identifier_name:3483）
         # **逐条一致**：那边写了 `raw_name not in self._current_method_params`，
         # 这边原先没写，于是同一个名字读是局部、写是 self. —— 方法参数与类属性同名时
@@ -1393,7 +1434,24 @@ class PythonCodeGenerator:
                      and stmt.name in self._class_attr_names
                      and stmt.name not in self._current_method_params)
 
-
+        # L-019：`设 X 为 新建 X()` 的右侧遮蔽。
+        # 「value 先生成、后登记」这个顺序是刻意的（见下方绑定形式①）：右侧应按
+        # 「目标尚未绑定」的语义解析，生成器这一侧确实做到了。
+        # 但发射出的 Python 不看书写先后——目标名一旦在函数体里被赋值，它就是
+        # 这个函数的局部变量，于是 `甲 = 甲()` 的右侧被解析成还没赋值的自己 →
+        # UnboundLocalError；而同样的写法写在模块层却是好的（模块层没有局部变量概念）。
+        # 故在生成 value 期间把目标名标为「即将绑定的局部名」，ClassInstantiation
+        # 据此改用全局查找，把生成器的语义如实落到产物里。
+        # 类属性（self.X）与方法参数不是局部绑定，不登记，避免误伤。
+        _pending = None
+        if self._in_function and not 是类属性:
+            _pending = name
+            self._pending_assign_targets.add(_pending)
+        try:
+            value = self._generate_expr(stmt.value)
+        finally:
+            if _pending:
+                self._pending_assign_targets.discard(_pending)
 
         # 绑定形式①：`设 X 为 …`。必须在 value 生成之后登记，否则
         # `设 映射 为 映射(f, 列)`（用内置结果初始化同名变量）的右侧会被自己遮蔽。
@@ -3033,6 +3091,25 @@ class PythonCodeGenerator:
             class_name = self._sanitize_name(expr.class_name)
             args = [self._generate_expr(arg) for arg in expr.args]
             args_str = ', '.join(args)
+
+            # L-019：`设 X 为 新建 X()` 写在段落（函数体）里会生成 `X = X()`，
+            # Python 因 X 在本作用域被赋值而判其为局部变量，右侧遂成「先引用后赋值」
+            # → UnboundLocalError。同样的写法写在模块层却完全正常（模块层没有局部
+            # 变量概念，X 查全局拿到类再重绑定）——同一段源码仅因嵌套深度不同行为
+            # 相反，这是语言自洽性缺陷，不是「忠实 Python」能解释的。
+            #
+            # `新建` 的操作数按语义是类名，不是变量。故在下面两个条件**同时**成立时
+            # 显式走全局查找，保住用户直觉：
+            #   ① 该名字确实是类/导入名（_instantiable_names）
+            #   ② 它恰好又被当前作用域的 `设` 绑成了局部变量（_local_variables）
+            #
+            # 缺一不可：`新建 工厂()`（先 `设 工厂 为 甲`，用持有类的变量实例化）
+            # 的「工厂」不在 _instantiable_names 里，必须原样发射，否则会去
+            # globals() 里找一个不存在的名字而当场炸掉该合法用法。
+            if (class_name in self._instantiable_names
+                    and (class_name in self._local_variables
+                         or class_name in self._pending_assign_targets)):
+                return f"globals()[{class_name!r}]({args_str})"
             return f"{class_name}({args_str})"
         
         elif isinstance(expr, MemberAccess):
