@@ -2482,6 +2482,14 @@ class Lexer:
                                 if scan_pos > 0:
                                     scan_pos += sub_len
                                     continue
+                                # 词首（scan_pos == 0）：默认作关键字输出（如 那么返回一 的 返回）。
+                                # 但若整词（含本关键字后续成分）在 user_definitions / COMMON_COMPOUND_WORDS，
+                                # 说明它是用户定义的复合名（如 接收参数 / 返回结果 作函数名词首），
+                                # 应整体并入标识符，而非把其中「接收/返回」切出。
+                                # 独立参数关键字（段落 名 接收 参数）中的「接收」不在白名单，仍作 KEYWORD。
+                                if full_identifier in user_definitions or full_identifier in _common_compounds:
+                                    scan_pos += sub_len
+                                    continue
                             elif sub_len > 1:
                                 # 其他多字关键字（如接收、段落等），直接输出
                                 pass  # 不跳过，继续输出为关键字
@@ -2775,7 +2783,13 @@ class Lexer:
                     # 检查当前位置是否匹配段落语法关键字（接收、返回）
                     kw, kw_len = self._match_keyword(source, k)
                     if kw and kw_len > 0 and kw in ('接收', '返回'):
-                        break
+                        # 仅当它后面紧跟「空白/冒号/句号/标点」（即它是参数关键字分隔符）才停；
+                        # 若后面紧跟汉字，说明「接收/返回」是名字的一部分（如 接收参数 的 接+参），继续收集。
+                        # 这样 `段落 接收参数 接收 数据:` 的段名能完整收集为「接收参数」进白名单，
+                        # 主 tokenize 时整体成词；`段落 名 接收 参数:` 中独立的参数关键字仍作 KEYWORD。
+                        _after = k + kw_len
+                        if _after >= n or source[_after] in ' \t\n\r\f\v　：:。、，,；;':
+                            break
                     k += 1
                 if k > j:
                     segment_name = source[j:k]
