@@ -29,6 +29,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install mkdocs mkdocs-material
+          # mkdocs.yml 的 plugins 里声明了 git-revision-date-localized，
+          # 不装它 mkdocs build 直接 Aborted with a configuration error。
+          python -m pip install mkdocs-git-revision-date-localized-plugin
 
       - name: 构建文档站
         run: python -m mkdocs build --clean

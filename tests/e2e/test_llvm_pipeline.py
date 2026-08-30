@@ -69,6 +69,17 @@ class TestLLVMGeneration(unittest.TestCase):
                 "src/llvm/ 新路径的 IR 生成由 tests/test_llvm_net.py 覆盖"
             )
 
+        # light_llvm.py 还依赖 ANTLR 生成的词法器/解析器（LightLangLexer.py 等，
+        # 由 .g4 用 antlr4 -Dlanguage=Python3 生成，gitignore 不随仓库提交）。
+        # CI 只装了 antlr4 运行时、没跑生成步骤时缺失，与缺运行时一样 skip
+        # 而非 error——旧路径不承重（见文件头，真覆盖在 test_native_cli.py）。
+        if not os.path.exists(os.path.join(self.antlr_dir, 'LightLangLexer.py')):
+            self.skipTest(
+                "未生成 ANTLR 词法器 LightLangLexer.py（antlrparser/ 旧路径未跑"
+                "生成步骤）: 旧路径 IR 生成未验证, src/llvm/ 新路径由 "
+                "tests/test_native_cli.py 覆盖"
+            )
+
         # 创建临时测试文件
         test_code = '段落 主程序：\n    打印 "hello"'
         with tempfile.NamedTemporaryFile(mode='w', suffix='.light',
