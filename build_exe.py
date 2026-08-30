@@ -17,6 +17,34 @@ import sys
 import platform
 import shutil
 import subprocess
+import io
+
+# ── 终端编码兜底（Windows CI / 本地 cmd 默认 cp1252 会崩在中文输出上）──
+# build_exe 会打印中文（当前平台 / ✅ / ❌）。若 stdout/stderr 默认是
+# cp1252 等非 UTF-8 编码，print 中文会直接 UnicodeEncodeError，崩在
+# pyinstaller 执行之前（GitHub Windows runner 实测复现）。这里在一切输出前
+# 把两个流强制切成 UTF-8：UTF-8 能编码任意字符，故不会再有编码崩溃。
+def _force_utf8(stream_name):
+    stream = getattr(sys, stream_name, None)
+    if stream is None:
+        return
+    cur = getattr(stream, 'encoding', None)
+    if cur and cur.lower().replace('-', '') == 'utf8':
+        return
+    try:
+        stream.reconfigure(encoding='utf-8')
+    except (AttributeError, ValueError, OSError):
+        try:
+            buf = stream.buffer
+            setattr(sys, stream_name,
+                    io.TextIOWrapper(buf, encoding='utf-8', errors='replace'))
+        except Exception:
+            pass
+
+
+_force_utf8('stdout')
+_force_utf8('stderr')
+
 
 # ── 项目路径 ──────────────────────────────────────────────────
 _PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
