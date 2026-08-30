@@ -78,6 +78,12 @@ def 判定(path, budget):
 
 
 def main():
+    # Windows runner 的默认 stdout 编码是 cp1252（ANSI），本脚本打印的中文
+    # （如 `[CI 计时] 打点 起点`）编码不了就抛 UnicodeEncodeError，把 Windows
+    # 矩阵的「计时起点 / 时间预算闸门」两步整个堵死。强制 UTF-8 输出即可。
+    # reconfigure 自 3.7 起可用，CI 全矩阵（3.10–3.14）都支持。
+    if sys.stdout is not None and hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
     ap = argparse.ArgumentParser()
     ap.add_argument('--file', default=DEFAULT_FILE, help='打点文件，默认 .ci/timings.tsv')
     ap.add_argument('--mark', help='记一个打点，值是段名（写在这个打点之前那段的名字）')
