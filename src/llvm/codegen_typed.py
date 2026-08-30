@@ -276,6 +276,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_list_new(ptr)',
             f'declare i64 @dv_list_len(ptr)',
             f'declare i64 @dv_len(ptr)',
+            f'declare void @dv_ord(ptr, ptr)',
+            f'declare void @dv_chr(ptr, ptr)',
+            f'declare void @dv_hex(ptr, ptr)',
             f'declare void @dv_list_get(ptr, ptr, i64)',
             f'declare void @dv_list_append(ptr, ptr, ptr)',
             f'declare void @dv_list_insert(ptr, ptr, i64, ptr)',
@@ -387,6 +390,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare i32 @dv_register_static_method(ptr, ptr, ptr)',
             f'declare void @dv_call_class_method(ptr, ptr, ptr, ptr, i32)',
             f'declare void @dv_call_static_method(ptr, ptr, ptr, ptr, i32)',
+            f'declare void @dv_obj_release_slot(ptr)',
+            f'declare void @dv_obj_deepcopy_self(ptr)',
+            f'declare void @dv_value_disown(ptr)',
             # 接口 vtable 分发
             f'declare i32 @dv_call_interface_method(ptr, ptr, ptr, ptr, ptr, i32)',
             # 异常栈追踪
@@ -566,6 +572,26 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         reg = self.new_register()
         self.emit(f'{reg} = load {LIGHTVALUE_STRUCT}, ptr {slot}')
         return reg
+
+    def _self_lvalue_slot(self) -> str:
+        """返回 己/self 的 LightValue 槽位指针（lvalue），绝不复制。
+
+        字段写回（己.X 为 … / self.X 为 …）必须就地修改「接收者」自身的
+        LightValue，而不是一份副本：原生对象的可变状态（obj->str 序列化缓冲）
+        以指针形式内嵌在 LightValue 中，dv_class_set_member 会 free+realloc 该
+        缓冲。若先 _store_dv(get_var('己')) 复制出一份共享同缓冲的 LightValue，
+        对副本的 set_member 会释放掉原 self 参数仍指向的缓冲，造成
+        use-after-free（P0-2 SSE 原生崩溃根因）。故此helper直接返回 己/self
+        的真实槽位指针（参数槽或局部 alloca 槽），确保修改落在接收者本体上。
+        """
+        p = self._current_func_params.get('己') or self._current_func_params.get('self')
+        if p is not None:
+            return p
+        slot = self._local_vars.get('己')
+        if slot is not None:
+            return slot
+        # 兜底：尝试普通变量查找（参数情形 get_var 已返回槽位指针）
+        return self.get_var('己')
 
     def _store_dv(self, dv_reg: str) -> str:
         """将 LightValue SSA 寄存器存入槽位，返回槽位指针"""
@@ -948,7 +974,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             attr_name = name[5:]
             self_dv = self.get_var('己')
             if self_dv is not None:
-                obj_slot = self._store_dv(self_dv)
+                obj_slot = self._self_lvalue_slot()
                 member_reg = self.gen_string_constant(attr_name)
                 result_slot = self._new_dv_slot()
                 self.emit(f'call void @dv_class_get_member(ptr {result_slot}, ptr {obj_slot}, ptr {member_reg})')
@@ -959,7 +985,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             attr_name = name[1:]
             self_dv = self.get_var('己')
             if self_dv is not None:
-                obj_slot = self._store_dv(self_dv)
+                obj_slot = self._self_lvalue_slot()
                 member_reg = self.gen_string_constant(attr_name)
                 result_slot = self._new_dv_slot()
                 self.emit(f'call void @dv_class_get_member(ptr {result_slot}, ptr {obj_slot}, ptr {member_reg})')
@@ -1155,6 +1181,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 方法内部：己.方法名(...) 被 parser 拍平成 SegmentName('self.方法名')。
         # 不拦下来会一路落到「未定义的段落：self.xxx」。这里对己对象做一次
         # dv_call_method，与方法调方法（_gen_typed_method_call）同语义。
+        # 注：嵌套的 己.字段.方法 不会被拍平——它走 PropertyAccess →
+        # _gen_typed_method_call，再由 _persist_to_receiver 写回字段。
         if self._method_result_ptr is not None:
             self_method_name = None
             if func_name.startswith('self.') and len(func_name) > 5:
@@ -1387,13 +1415,31 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._call_dv_func('dv_float', 'double 0.0'), 'dv'
             return self._call_dv_func('dv_to_float', args[0]), 'dv'
 
-        if name == '长度' or name == 'len' or name == '列表长度' or name == '字符串长度':
+        if name in ('长度', '长', 'len', '列表长度', '字符串长度'):
             if not args:
                 return self._create_int_dv('0'), 'dv'
             slot = self._store_dv(args[0])
             i64_val = self.new_register()
             self.emit(f'{i64_val} = call i64 @dv_len(ptr {slot})')
             return self._create_int_dv(i64_val), 'dv'
+
+        if name in ('码位', 'ord'):
+            # 取字符串首字符的码点（等价 Python ord）
+            if not args:
+                return self._create_int_dv('0'), 'dv'
+            return self._call_dv_func('dv_ord', args[0]), 'dv'
+
+        if name in ('字符自码位', 'chr'):
+            # 码点 -> UTF-8 字符串（等价 Python chr）
+            if not args:
+                return self._create_str_dv(self.gen_string_constant("")), 'dv'
+            return self._call_dv_func('dv_chr', args[0]), 'dv'
+
+        if name in ('十六进制', 'hex'):
+            # 码点 -> 大写十六进制字符串，无 0x 前缀（等价 format(n,'X')）
+            if not args:
+                return self._create_str_dv(self.gen_string_constant("")), 'dv'
+            return self._call_dv_func('dv_hex', args[0]), 'dv'
 
         if name in ('新建', '新建列表', 'new_list', '列表创建'):
             return self._call_dv_func('dv_list_new'), 'dv'
@@ -2152,6 +2198,84 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'call void @dv_class_get_member(ptr {result_slot}, ptr {obj_slot}, ptr {member_reg})')
         return self._load_dv(result_slot), 'dv'
 
+    def _recv_is_field(self, prop) -> bool:
+        """接收者是否是需要写回的实例字段。
+
+        light parser 把属性链拍平：
+        - `己.数据` 作为接收者 → Identifier('己.数据')（带点）
+        - `己.数据` 作为单级 PropertyAccess → PropertyAccess(obj=Identifier('己'), '数据')
+        两者都表示「实例字段」，需要把 realloc 后的对象写回字段。
+        """
+        recv = prop.obj
+        if isinstance(recv, ast.Identifier):
+            return '.' in recv.name
+        if isinstance(recv, ast.PropertyAccess) and isinstance(recv.obj, ast.Identifier):
+            return True
+        return False
+
+    def _persist_to_receiver(self, prop, value_reg: str) -> None:
+        """方法调用后，把被重分配（realloc）的接收者写回到它的来源槽位。
+
+        light 的 parser 把属性链拍平：
+        - 单级变量（如 `局`）→ Identifier（无点）
+        - 单级字段（如 `己.数据`）→ Identifier（带点，形如 `己.数据`）
+        - 方法调用接收者 `己.方法()` → PropertyAccess(obj=Identifier('己'), property_name='方法')
+        - 字段方法 `己.数据.追加()` → PropertyAccess(obj=Identifier('己.数据'), property_name='追加')
+
+        本方法覆盖：
+        - 单级变量：写回变量（set_var）。
+        - 单级字段（带点 Identifier / 单级 PropertyAccess）：dv_class_set_member 写回
+          字段并刷新属主（己/局），否则跨调用累积丢失（SSE 空行边界 0 事件根因）。
+        其它形式（嵌套字段、表达式结果等）无法写回，跳过。
+
+        prop 为 FunctionCall 的 name（PropertyAccess）；value_reg 为更新后的
+        接收者 dv 寄存器（可能已被 realloc）。
+        """
+        recv = prop.obj
+
+        # 情况一：单级变量（无点 Identifier），如 `局`
+        if isinstance(recv, ast.Identifier) and '.' not in recv.name:
+            obj_name = recv.name
+            set_name = '己' if (self._method_result_ptr is not None and obj_name in ('self', '己')) else obj_name
+            self.set_var(set_name, value_reg)
+            return
+
+        # 情况二：单级字段（parser 拍平为带点 Identifier，如 `己.数据`）
+        if isinstance(recv, ast.Identifier) and '.' in recv.name:
+            owner_name, field_name = recv.name.split('.', 1)
+            if '.' in field_name:
+                return  # 暂不支持更深嵌套（己.数据.子字段）
+            set_owner_name = '己' if (self._method_result_ptr is not None and owner_name in ('self', '己')) else owner_name
+            owner_dv = self.get_var(set_owner_name)
+            if owner_dv is None:
+                owner_dv, _ = self._gen_expression(ast.Identifier(name=owner_name))
+            owner_slot = self._store_dv(owner_dv)
+            member_reg = self.gen_string_constant(field_name)
+            value_slot = self._store_dv(value_reg)
+            self.emit(f'call void @dv_class_set_member(ptr {owner_slot}, ptr {member_reg}, ptr {value_slot})')
+            updated_owner = self._load_dv(owner_slot)
+            self.set_var(set_owner_name, updated_owner)
+            return
+
+        # 情况三：单级字段以 PropertyAccess 形式（如 `己.数据`）—— 备用分支
+        if isinstance(recv, ast.PropertyAccess) and isinstance(recv.obj, ast.Identifier):
+            owner_name = recv.obj.name
+            field_name = recv.property_name
+            set_owner_name = '己' if (self._method_result_ptr is not None and owner_name in ('self', '己')) else owner_name
+            owner_dv = self.get_var(set_owner_name)
+            if owner_dv is None:
+                owner_dv, _ = self._gen_expression(recv.obj)
+            owner_slot = self._store_dv(owner_dv)
+            member_reg = self.gen_string_constant(field_name)
+            value_slot = self._store_dv(value_reg)
+            self.emit(f'call void @dv_class_set_member(ptr {owner_slot}, ptr {member_reg}, ptr {value_slot})')
+            updated_owner = self._load_dv(owner_slot)
+            self.set_var(set_owner_name, updated_owner)
+            return
+
+        # 其它来源（嵌套属性、函数调用结果等）无法写回，跳过
+        return
+
     def _gen_typed_method_call(self, expr: ast.FunctionCall) -> Tuple[str, str]:
         """处理 obj.方法(args) - FunctionCall with PropertyAccess name"""
         prop = expr.name  # PropertyAccess
@@ -2170,7 +2294,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if self_dv is None:
                 return self._create_int_dv('0'), 'dv'
             
-            obj_slot = self._store_dv(self_dv)
+            obj_slot = self._self_lvalue_slot()
             method_name_reg = self.gen_string_constant(method_name)
             class_name_reg = self.gen_string_constant(self._current_class)
             
@@ -2262,10 +2386,22 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 尝试使用内置函数处理
         builtin_result = self._gen_typed_builtin(method_name, args_dv)
         if builtin_result is not None:
-            return builtin_result
+            result_reg, _ = builtin_result
+            # 内置 mutating 方法（追加/插入/删除/设置…）会把接收者 realloc 成新对象
+            # 并以返回值给出。若接收者是实例字段（己.数据），必须把新对象写回字段，
+            # 否则跨调用累积丢失（SSE 空行边界产出 0 事件的根因）。
+            mutating_methods = {'追加', 'append', '清空', 'clear', '设置', 'set', '插入', 'insert', '删除', 'remove', '弹出', 'pop'}
+            if method_name in mutating_methods and self._recv_is_field(prop):
+                self._persist_to_receiver(prop, result_reg)
+            return result_reg, 'dv'
 
         # 否则使用 dv_call_method 调用类方法
-        obj_slot = self._store_dv(obj_dv)
+        # 己/self 方法调用：直接取接收者 lvalue 槽位，避免复制出共享缓冲的副本
+        # 导致被调方法内 dv_class_set_member 释放后原 self 悬空（use-after-free）。
+        if isinstance(prop.obj, ast.Identifier) and prop.obj.name in ('己', 'self'):
+            obj_slot = self._self_lvalue_slot()
+        else:
+            obj_slot = self._store_dv(obj_dv)
         method_name_reg = self.gen_string_constant(method_name)
         
         num_args = len(expr.arguments)
@@ -2290,14 +2426,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'call void @dv_call_method(ptr {result_slot}, ptr {obj_slot}, ptr {method_name_reg}, ptr {args_array}, i32 {num_args_i32})')
             self.emit(f'call void @llvm.stackrestore(ptr {stack_save})')
         
-        # 如果对象是一个变量，把更新后的对象写回变量
-        if isinstance(prop.obj, ast.Identifier):
-            obj_name = prop.obj.name
-            # dv_call_method 会重分配对象缓冲，写回时把 self/己 归位到「己」槽位
-            set_name = '己' if (self._method_result_ptr is not None and obj_name in ('self', '己')) else obj_name
-            updated_obj = self._load_dv(obj_slot)
-            self.set_var(set_name, updated_obj)
-        
+        # dv_call_method 会就地重分配接收者缓冲，obj_slot 即更新后的接收者。
+        # 把其写回到来源（局部变量 或 实例字段）；非 lvalue 来源则跳过。
+        self._persist_to_receiver(prop, self._load_dv(obj_slot))
+
         return self._load_dv(result_slot), 'dv'
 
     def _gen_self_method_call(self, method_name: str, args: List[str]) -> Tuple[str, str]:
@@ -2307,7 +2439,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._method_result_ptr 非空且 己 槽位存在。args 已经是求值后的 dv 寄存器。
         """
         self_dv = self.get_var('己')
-        obj_slot = self._store_dv(self_dv)
+        obj_slot = self._self_lvalue_slot()
         method_name_reg = self.gen_string_constant(method_name)
 
         num_args = len(args)
@@ -3069,10 +3201,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if isinstance(expr, ast.FunctionCall) and isinstance(expr.name, ast.PropertyAccess):
                 method_name = expr.name.property_name
                 obj = expr.name.obj
-                if isinstance(obj, ast.Identifier):
-                    obj_name = obj.name
-                    mutating_methods = {'追加', 'append', '清空', 'clear', '设置', 'set', '插入', 'insert', '删除', 'remove', '弹出', 'pop'}
-                    if method_name in mutating_methods:
+                mutating_methods = {'追加', 'append', '清空', 'clear', '设置', 'set', '插入', 'insert', '删除', 'remove', '弹出', 'pop'}
+                if method_name in mutating_methods:
+                    # 情形一：裸局部变量 x.追加(...) —— 调用后把返回值写回 x 绑定
+                    if isinstance(obj, ast.Identifier):
+                        obj_name = obj.name
                         result_dv, _ = self._gen_expression(expr)
                         self.set_var(obj_name, result_dv)
                         return
@@ -3086,6 +3219,27 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self._reject_unsupported_stmt(type(stmt).__name__, stmt)
 
     def _gen_typed_var_decl(self, stmt: ast.VariableDeclaration):
+        name = stmt.name
+        # 字段赋值形式：设 己.X 为 Y / 设 self.X 为 Y（在方法/构造内）。
+        # 解析器会把「设 己.X」拍平成名为「己.X」的 VariableDeclaration，
+        # 原生腿需在此显式降级为 dv_class_set_member（与 src 后端一致），
+        # 否则会错误地建一个字面名为「己.X」的局部变量，导致字段写丢失（P0-2 双后端一致）。
+        if (self._method_result_ptr is not None
+                and (name.startswith('己.') or name.startswith('self.'))):
+            attr_name = name.split('.', 1)[1] if '.' in name else name
+            self_dv = self.get_var('己')
+            if self_dv is not None:
+                if stmt.value:
+                    value_dv, _ = self._gen_expression(stmt.value)
+                else:
+                    value_dv = self._create_int_dv('0')
+                obj_slot = self._self_lvalue_slot()
+                member_reg = self.gen_string_constant(attr_name)
+                value_slot = self._store_dv(value_dv)
+                self.emit(f'call void @dv_class_set_member(ptr {obj_slot}, ptr {member_reg}, ptr {value_slot})')
+                updated_dv = self._load_dv(obj_slot)
+                self.set_var('己', updated_dv)
+                return
         self.alloca_local(stmt.name)
         if stmt.value:
             dv_val, _ = self._gen_expression(stmt.value)
@@ -3112,10 +3266,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
     def _gen_typed_assignment(self, stmt: ast.Assignment):
         if isinstance(stmt.target, ast.PropertyAccess):
-            obj_dv, _ = self._gen_expression(stmt.target.obj)
             member = stmt.target.property_name
             value_dv, _ = self._gen_expression(stmt.value)
-            obj_slot = self._store_dv(obj_dv)
+            # 己/self 字段写回：直接取接收者 lvalue 槽位，避免复制出共享缓冲的副本
+            # 导致 dv_class_set_member 释放后原 self 悬空（use-after-free，P0-2 SSE 原生崩溃）。
+            if isinstance(stmt.target.obj, ast.Identifier) and stmt.target.obj.name in ('己', 'self'):
+                obj_slot = self._self_lvalue_slot()
+            else:
+                obj_dv, _ = self._gen_expression(stmt.target.obj)
+                obj_slot = self._store_dv(obj_dv)
             member_reg = self.gen_string_constant(member)
             value_slot = self._store_dv(value_dv)
             self.emit(f'call void @dv_class_set_member(ptr {obj_slot}, ptr {member_reg}, ptr {value_slot})')
@@ -3133,7 +3292,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self_dv = self.get_var('己')
                 if self_dv is not None:
                     value_dv, _ = self._gen_expression(stmt.value)
-                    obj_slot = self._store_dv(self_dv)
+                    obj_slot = self._self_lvalue_slot()
                     member_reg = self.gen_string_constant(attr_name)
                     value_slot = self._store_dv(value_dv)
                     self.emit(f'call void @dv_class_set_member(ptr {obj_slot}, ptr {member_reg}, ptr {value_slot})')
@@ -3146,7 +3305,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self_dv = self.get_var('己')
                 if self_dv is not None:
                     value_dv, _ = self._gen_expression(stmt.value)
-                    obj_slot = self._store_dv(self_dv)
+                    obj_slot = self._self_lvalue_slot()
                     member_reg = self.gen_string_constant(attr_name)
                     value_slot = self._store_dv(value_dv)
                     self.emit(f'call void @dv_class_set_member(ptr {obj_slot}, ptr {member_reg}, ptr {value_slot})')
@@ -3183,7 +3342,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return
         attr_name = stmt.attr_name if hasattr(stmt, 'attr_name') else ''
         value_dv, _ = self._gen_expression(stmt.value)
-        obj_slot = self._store_dv(self_dv)
+        obj_slot = self._self_lvalue_slot()
         member_reg = self.gen_string_constant(attr_name)
         value_slot = self._store_dv(value_dv)
         self.emit(f'call void @dv_class_set_member(ptr {obj_slot}, ptr {member_reg}, ptr {value_slot})')
@@ -3326,6 +3485,29 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._loop_break_labels.pop()
         self._loop_continue_labels.pop()
 
+    def _emit_self_writeback(self) -> None:
+        """非静态方法的出口前，把局部 己 槽位（其对象缓冲可能已被 dv_class_set_member
+        free+realloc）写回 %self，使调用方的对象槽位看到最新缓冲，避免悬空指针 / UAF。
+
+        light 的方法 prologue 会把 %self 按值拷进局部 己 槽位；方法内对 己.字段 的写
+        入会改掉 己.str 指向的堆缓冲（free 旧 + malloc 新）。只有把 己 整体写回 %self，
+        调用方持有的对象引用才跟着指向新缓冲，否则调用方下次读 obj->str 即 use-after-free
+        （SSE 原生崩溃根因）。本函数对实例/类方法且存在 己 槽位时生效；静态方法或普通
+        函数为无操作。写回必须在 ret 之前发射，绝不能落在终止指令之后。
+        """
+        if self._current_method_type == 'static':
+            return
+        self_var_slot = self._local_vars.get('己')
+        if self_var_slot is None:
+            return
+        self.emit(f'call void @dv_obj_release_slot(ptr %self)')
+        self_dv = self.new_register()
+        self.emit(f'{self_dv} = load {LIGHTVALUE_STRUCT}, ptr {self_var_slot}')
+        self.emit(f'store {LIGHTVALUE_STRUCT} {self_dv}, ptr %self')
+        # writeback 移动：%self 取得 己 的缓冲后，清空 己 的持有，使 己 槽位后续
+        # 释放（方法出口/被覆盖）为无操作，避免与 %self 双重释放。
+        self.emit(f'call void @dv_value_disown(ptr {self_var_slot})')
+
     def _gen_typed_return(self, stmt: ast.ReturnStatement):
         if self._in_coroutine:
             # 协程函数中的返回：存储结果到 coro->result，设置完成状态
@@ -3342,36 +3524,40 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'store i32 3, ptr {state_ptr}')
             self.emit(f'ret void')
         elif self._method_result_ptr is not None:
-            if self._current_method_type != 'static':
-                self_var_slot = self._local_vars.get('己')
-                if self_var_slot is not None:
-                    self_dv = self.new_register()
-                    self.emit(f'{self_dv} = load {LIGHTVALUE_STRUCT}, ptr {self_var_slot}')
-                    self.emit(f'store {LIGHTVALUE_STRUCT} {self_dv}, ptr %self')
-            if stmt.value:
-                dv_val, _ = self._gen_expression(stmt.value)
-                self.emit(f'store {LIGHTVALUE_STRUCT} {dv_val}, ptr {self._method_result_ptr}')
-            else:
-                self.emit(f'call void @dv_null(ptr {self._method_result_ptr})')
-            self.emit('call void @dv_stack_pop()')
-            self.emit('ret void')
+            self._emit_return_with_self_writeback(self._method_result_ptr, stmt.value)
         elif self._seg_result_ptr is not None:
-            if stmt.value:
-                dv_val, _ = self._gen_expression(stmt.value)
-                self.emit(f'store {LIGHTVALUE_STRUCT} {dv_val}, ptr {self._seg_result_ptr}')
-            else:
-                self.emit(f'call void @dv_null(ptr {self._seg_result_ptr})')
-            self.emit('call void @dv_stack_pop()')
-            self.emit('ret void')
+            self._emit_return_with_self_writeback(self._seg_result_ptr, stmt.value)
         else:
             if stmt.value:
+                # 关键顺序：先求值返回表达式（可能是 己.方法() 尾调用，会改写局部 己 槽位），
+                # 再发射 self 写回，确保调用方对象槽位看到返回表达式产生的 己 最新状态。
                 dv_val, _ = self._gen_expression(stmt.value)
+                self._emit_self_writeback()
                 self.emit('call void @dv_stack_pop()')
                 self.emit(f'ret {LIGHTVALUE_STRUCT} {dv_val}')
             else:
+                self._emit_self_writeback()
                 null_dv = self._call_dv_func('dv_null')
                 self.emit('call void @dv_stack_pop()')
                 self.emit(f'ret {LIGHTVALUE_STRUCT} {null_dv}')
+
+    def _emit_return_with_self_writeback(self, result_ptr: str, value) -> None:
+        """方法/段落返回的通用出口：先求值返回表达式（其可能经 己.方法() 尾调用改写
+        局部 己 槽位），再发射 self 写回，使 %self（调用方对象槽位）捕获返回表达式产生的
+        己 最新状态。此顺序修复了「返回 己.方法()」类尾调用中 self 写回落在嵌套调用之前、
+        导致嵌套方法对 己 的改写（如 当前字段 重置）被丢弃的 bug（SSE 原生 0 事件根因）。"""
+        if value is not None:
+            dv_val, _ = self._gen_expression(value)
+            self._emit_self_writeback()
+            self.emit(f'call void @dv_obj_release_slot(ptr {result_ptr})')
+            self.emit(f'store {LIGHTVALUE_STRUCT} {dv_val}, ptr {result_ptr}')
+            self.emit(f'call void @dv_obj_deepcopy_self(ptr {result_ptr})')
+        else:
+            self._emit_self_writeback()
+            self.emit(f'call void @dv_obj_release_slot(ptr {result_ptr})')
+            self.emit(f'call void @dv_null(ptr {result_ptr})')
+        self.emit('call void @dv_stack_pop()')
+        self.emit('ret void')
 
     def _gen_typed_print(self, stmt: ast.PrintStatement):
         if stmt.value:
@@ -4099,6 +4285,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self_dv = self.new_register()
                 self.emit(f'{self_dv} = load {LIGHTVALUE_STRUCT}, ptr %self')
                 self.emit(f'store {LIGHTVALUE_STRUCT} {self_dv}, ptr {self_var_slot}')
+                # prologue 深拷贝：己 拥有独立对象缓冲，使 dv_class_set_member 的
+                # free+realloc 不再波及调用方 %self（修复 UAF），详见 runtime_typed.c。
+                self.emit(f'call void @dv_obj_deepcopy_self(ptr {self_var_slot})')
 
         if params:
             num_args_sext = self.new_register()
@@ -4133,8 +4322,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         for stmt in (getattr(method_def, 'body', []) or []):
             self._gen_statement(stmt)
 
+        # 出口兜底：方法体不以 返回/跳出 收尾时，把 己 写回 %self 并补一条空结果返回。
+        # 显式 返回 已在 _gen_typed_return 的各分支各自写回 己→%self，此处仅在“体末尾
+        # 没有终止指令”的兜底路径写回，绝不会产生「终止指令之后的多余指令」非法 IR。
         if not self._ends_with_terminator(getattr(method_def, 'body', []) or []):
-            # 把己变量写回 self（仅实例方法和类方法有）
             if method_type != 'static':
                 self_var_slot = self._local_vars.get('己')
                 if self_var_slot is not None:
@@ -4182,7 +4373,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit('call void @dv_init_args(i32 %argc, ptr %argv)')
         self.emit('call void @__light_init()')
 
-        main_names = {'主程序', '主入口', 'main'}
+        # P0-2：补齐原生腿入口约定，与 src 后端对齐——src 以 `段落 主:` 作为程序入口，
+        # 原生腿此前只认 主程序/主入口/main，导致 src 写法的测试文件在原生腿无法直接运行。
+        main_names = {'主程序', '主入口', 'main', '主'}
         main_called = False
 
         # 检查顶层是否已经调用了主程序

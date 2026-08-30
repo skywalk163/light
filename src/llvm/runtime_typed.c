@@ -114,6 +114,127 @@ static char* dv_strdup(const char* s) {
 }
 
 /* ================================================================
+ * UTF-8 辅助（码位 / 字符自码位 / 字符感知索引 共用）
+ * 原生腿没有一等 bytes 类型，字节级 UTF-8 解码必须在 C 侧完成。
+ * ================================================================ */
+
+/* 以 p 开头的 UTF-8 字符占用字节数（1..4）；非法首字节按 1 处理。 */
+static size_t dv_utf8_seq_len(const unsigned char* p) {
+    unsigned char c = p[0];
+    if (c < 0x80) return 1;
+    if ((c & 0xE0) == 0xC0) return 2;
+    if ((c & 0xF0) == 0xE0) return 3;
+    if ((c & 0xF8) == 0xF0) return 4;
+    return 1;
+}
+
+/* 从 s（len 字节）解码第 1 个码点；*consumed 回写占用字节数。
+   空串 -> -1（consumed=0）；非法/截断序列 -> U+FFFD（consumed=1）。 */
+static int64_t dv_utf8_decode_cp(const unsigned char* s, size_t len, size_t* consumed) {
+    if (len == 0) { *consumed = 0; return -1; }
+    unsigned char c = s[0];
+    int64_t cp;
+    size_t need;
+    if (c < 0x80) { *consumed = 1; return c; }
+    else if ((c & 0xE0) == 0xC0) { cp = c & 0x1F; need = 2; }
+    else if ((c & 0xF0) == 0xE0) { cp = c & 0x0F; need = 3; }
+    else if ((c & 0xF8) == 0xF0) { cp = c & 0x07; need = 4; }
+    else { *consumed = 1; return 0xFFFD; }
+    if (len < need) { *consumed = 1; return 0xFFFD; }
+    for (size_t i = 1; i < need; i++) {
+        if ((s[i] & 0xC0) != 0x80) { *consumed = 1; return 0xFFFD; }
+        cp = (cp << 6) | (s[i] & 0x3F);
+    }
+    *consumed = need;
+    return cp;
+}
+
+/* 字符串的 Unicode 字符数（非字节数）。 */
+static size_t dv_utf8_char_count(const char* s) {
+    if (!s) return 0;
+    const unsigned char* p = (const unsigned char*)s;
+    size_t len = strlen(s);
+    size_t n = 0, off = 0;
+    while (off < len) {
+        off += dv_utf8_seq_len(p + off);
+        n++;
+    }
+    return n;
+}
+
+/* 字符串中第 idx 个字符（按 Unicode，idx>=0）的字节偏移。 */
+static size_t dv_utf8_char_offset(const char* s, size_t idx) {
+    const unsigned char* p = (const unsigned char*)s;
+    size_t len = strlen(s);
+    size_t off = 0;
+    for (size_t i = 0; i < idx && off < len; i++) {
+        off += dv_utf8_seq_len(p + off);
+    }
+    return off;
+}
+
+/* 码位(字符)：取字符串首字符的码点（等价 Python ord）。空/非串 -> 0。 */
+void dv_ord(LightValue* result, LightValue* str_val) {
+    result->type = 1; result->i64 = 0; result->f64 = 0.0; result->str = NULL; result->boolean = 0;
+    if (!str_val || str_val->type != 3 || !str_val->str) return;
+    const unsigned char* s = (const unsigned char*)str_val->str;
+    size_t len = strlen((const char*)s);
+    size_t consumed;
+    int64_t cp = dv_utf8_decode_cp(s, len, &consumed);
+    if (cp < 0) return;
+    result->i64 = cp;
+}
+
+/* 字符自码位(n)：把码点编码成 UTF-8 字符串（等价 Python chr）。 */
+void dv_chr(LightValue* result, LightValue* int_val) {
+    result->type = 3; result->i64 = 0; result->f64 = 0.0; result->str = NULL; result->boolean = 0;
+    int64_t cp = 0;
+    if (int_val) {
+        if (int_val->type == 1) cp = int_val->i64;
+        else if (int_val->type == 3) cp = strtoll(int_val->str ? int_val->str : "0", NULL, 10);
+    }
+    if (cp < 0) cp = 0;
+    unsigned char buf[5];
+    size_t n;
+    if (cp < 0x80) { buf[0] = (unsigned char)cp; n = 1; }
+    else if (cp < 0x800) { buf[0] = 0xC0 | (cp >> 6); buf[1] = 0x80 | (cp & 0x3F); n = 2; }
+    else if (cp < 0x10000) { buf[0] = 0xE0 | (cp >> 12); buf[1] = 0x80 | ((cp >> 6) & 0x3F); buf[2] = 0x80 | (cp & 0x3F); n = 3; }
+    else { buf[0] = 0xF0 | (cp >> 18); buf[1] = 0x80 | ((cp >> 12) & 0x3F); buf[2] = 0x80 | ((cp >> 6) & 0x3F); buf[3] = 0x80 | (cp & 0x3F); n = 4; }
+    buf[n] = '\0';
+    result->str = dv_strdup((const char*)buf);
+}
+
+/* 十六进制(n)：码点 -> 大写十六进制字符串，无 0x 前缀（等价 format(n,'X')）。 */
+void dv_hex(LightValue* result, LightValue* int_val) {
+    result->type = 3; result->i64 = 0; result->f64 = 0.0; result->str = NULL; result->boolean = 0;
+    int64_t v = 0;
+    if (int_val) {
+        if (int_val->type == 1) v = int_val->i64;
+        else if (int_val->type == 3) v = strtoll(int_val->str ? int_val->str : "0", NULL, 10);
+    }
+    unsigned long long u = (unsigned long long)v;
+    static const char HEXD[] = "0123456789ABCDEF";
+    char buf[32];
+    if (u == 0) {
+        buf[0] = '0'; buf[1] = '\0';
+    } else {
+        int p = 31;
+        /* buf 为 char[32]（下标 0..31），越界写 buf[32] 是 UB；
+         * 真正的终止由下方 buf[digits]='\0' 完成，此处无需预置终止符。 */
+        while (u > 0 && p >= 0) {
+            buf[p] = HEXD[u & 0xF];
+            u >>= 4;
+            p--;
+        }
+        size_t start = (size_t)(p + 1);
+        size_t digits = 32 - start;
+        for (size_t i = 0; i < digits; i++) buf[i] = buf[start + i];
+        buf[digits] = '\0';
+    }
+    result->str = dv_strdup(buf);
+}
+
+/* ================================================================
  * 值构造器 - 写结果到 result 指针，避免返回 struct 值
  * ================================================================ */
 
@@ -801,14 +922,30 @@ void dv_lcm(LightValue* result, LightValue* a, LightValue* b) {
  * ================================================================ */
 
 int dv_eq(LightValue* a, LightValue* b) {
+    /* 类型感知的相等判定：
+     *  - 任一为 空(null, type 0)：仅当两者皆 空 时相等，否则不等
+     *    （修复：原实现对非字符串/非浮点对一律走 dv_to_i64 比较，
+     *     导致 字典/对象 与 空 都转为 i64=0 而误判相等，
+     *     使得 `事件 != 空` 类判断恒为假，SSE 原生 0 事件根因之一）
+     *  - 同为字符串(type 3)：按内容比较
+     *  - 数值类型(int=1 / float=2，含跨数值类型如 1 == 1.0)：按数值比较
+     *  - 同为非数值类型：按 i64 标识比较（bool/obj 等）
+     *  - 类型不同：不等
+     */
+    if (a->type == 0 || b->type == 0) {
+        return (a->type == 0 && b->type == 0) ? 1 : 0;
+    }
     if (a->type == 3 && b->type == 3) {
         return (a->str && b->str && strcmp(a->str, b->str) == 0) ||
                (!a->str && !b->str);
     }
-    if (a->type == 2 || b->type == 2) {
+    if ((a->type == 1 || a->type == 2) && (b->type == 1 || b->type == 2)) {
         return dv_to_f64(a) == dv_to_f64(b);
     }
-    return dv_to_i64(a) == dv_to_i64(b);
+    if (a->type == b->type) {
+        return dv_to_i64(a) == dv_to_i64(b);
+    }
+    return 0;
 }
 
 int dv_cmp(LightValue* a, LightValue* b) {
@@ -909,24 +1046,29 @@ int64_t dv_str_len(LightValue* v) {
 }
 
 void dv_substr(LightValue* result, LightValue* str, int64_t start, int64_t len) {
-    if (str->type != 3 || !str->str) {
+    if (!str || str->type != 3 || !str->str) {
         dv_str(result, "");
         return;
     }
     const char* s = str->str;
-    int64_t slen = (int64_t)strlen(s);
-    if (start < 0) start = slen + start;
-    if (start < 0) start = 0;
-    if (start >= slen) {
-        dv_str(result, "");
-        return;
-    }
-    if (len < 0) len = slen - start;
-    if (start + len > slen) len = slen - start;
-    char* out = (char*)malloc(len + 1);
+    int64_t n = (int64_t)dv_utf8_char_count(s);
+    int64_t st = start;
+    if (st < 0) st = n + st;
+    if (st < 0) st = 0;
+    if (st >= n) { dv_str(result, ""); return; }
+    int64_t en;
+    if (len < 0) en = n;
+    else en = st + len;
+    if (en > n) en = n;
+    if (en <= st) { dv_str(result, ""); return; }
+    /* 字符偏移 -> 字节偏移 */
+    size_t byte_st = dv_utf8_char_offset(s, (size_t)st);
+    size_t byte_en = dv_utf8_char_offset(s, (size_t)en);
+    size_t blen = byte_en - byte_st;
+    char* out = (char*)malloc(blen + 1);
     if (out) {
-        memcpy(out, s + start, len);
-        out[len] = '\0';
+        memcpy(out, s + byte_st, blen);
+        out[blen] = '\0';
     }
     result->type = 3;
     result->i64 = 0;
@@ -1305,7 +1447,8 @@ int64_t dv_len(LightValue* v) {
         if (strncmp(s, "dict:", 5) == 0) {
             return atoll(s + 5);
         }
-        return (int64_t)strlen(s);
+        /* 按 Unicode 字符计数，与 src 后端（Python len）语义一致 */
+        return (int64_t)dv_utf8_char_count(s);
     }
     if (v->type == 4) {
         return v->list_size;
@@ -1336,19 +1479,27 @@ void dv_list_get(LightValue* result, LightValue* list, int64_t index) {
 }
 
 void dv_str_get(LightValue* result, LightValue* str_val, int64_t index) {
-    if (str_val->type != 3) {
+    if (!str_val || str_val->type != 3) {
         dv_null(result);
         return;
     }
     const char* s = str_val->str ? str_val->str : "";
-    int64_t len = (int64_t)strlen(s);
-    if (index < 0 || index >= len) {
+    size_t nchars = dv_utf8_char_count(s);
+    int64_t idx = index;
+    if (idx < 0) idx += (int64_t)nchars;
+    if (idx < 0 || idx >= (int64_t)nchars) {
         dv_null(result);
         return;
     }
-    char buf[2];
-    buf[0] = s[index];
-    buf[1] = '\0';
+    /* 第 idx 个字符按 Unicode 取字节，与 src 后端（Python 下标）语义一致 */
+    size_t off = dv_utf8_char_offset(s, (size_t)idx);
+    const unsigned char* p = (const unsigned char*)(s + off);
+    size_t cl = dv_utf8_seq_len(p);
+    size_t slen = strlen(s);
+    char buf[5];
+    size_t k = 0;
+    while (k < cl && off + k < slen) { buf[k] = s[off + k]; k++; }
+    buf[k] = '\0';
     dv_str(result, buf);
 }
 
@@ -3130,6 +3281,41 @@ void dv_value_to_string(LightValue* result, LightValue* v) {
 /* 对象内部表示: "obj:field1\x1evalue1\x1efield2\x1evalue2..." */
 #define OBJ_PREFIX "obj:"
 
+/* ----------------------------------------------------------------
+ * 对象缓冲唯一所有权辅助（P0-2 验收④：消除 dv_class_set_member 的 UAF 止血泄漏）
+ *
+ * 原生腿中对象以 type==3 字符串（"obj:" 前缀）表示，str 指向一块堆缓冲。
+ * 该缓冲会被 dv_class_set_member 反复 free+realloc，且方法 prologue 会把 %self
+ * 按值拷进局部 己（共享同一缓冲指针）——若直接 free 会造成 UAF。故采用「唯一所有权
+ * + 深拷贝」模型（不需要全局引用计数）：
+ *   - dv_obj_deepcopy_self：prologue / 赋值时把持有者的对象缓冲深拷贝到独立堆块，
+ *     使每个持有者各有独立缓冲，set_member 的 free+realloc 不再波及他人（修复 UAF）。
+ *   - dv_obj_release_slot：覆盖写前释放槽位旧有的对象缓冲（writeback 把 己 归位到
+ *     %self 前，调用方旧缓冲已无其它持有者，可安全释放 → 消除 per-set_member 增长）。
+ *   - dv_value_disown：writeback 移动后清空槽位 str，使后续释放对该槽位为无操作，
+ *     避免与调用方/方法出口的重复释放造成双重释放。
+ * 对象缓冲是普通 malloc 字符串，由 dv_free 的 type-3 分支统一 free（程序退出时
+ * 由 OS 回收；本仓代码生成器不在局部槽位出口 emit dv_free，属既有模型）。
+ * ---------------------------------------------------------------- */
+int dv_is_obj_buffer(const char* s) {
+    return s && strncmp(s, OBJ_PREFIX, strlen(OBJ_PREFIX)) == 0;
+}
+void dv_obj_release_slot(LightValue* v) {
+    if (v && v->type == 3 && dv_is_obj_buffer(v->str)) {
+        free(v->str);
+        v->str = NULL;
+    }
+}
+void dv_obj_deepcopy_self(LightValue* v) {
+    if (v && v->type == 3 && dv_is_obj_buffer(v->str)) {
+        char* d = dv_strdup(v->str);
+        if (d) v->str = d;
+    }
+}
+void dv_value_disown(LightValue* v) {
+    if (v) v->str = NULL;
+}
+
 void dv_class_new(LightValue* result, int num_fields) {
     char prefix[32];
     snprintf(prefix, sizeof(prefix), "%s%d:", OBJ_PREFIX, num_fields);
@@ -3140,11 +3326,185 @@ void dv_class_new(LightValue* result, int num_fields) {
     result->boolean = 0;
 }
 
+/* ================================================================
+ * 字段值的有类型序列化（让列表/字典等类型能在对象字段的字符串存储中无损往返）
+ *
+ * 原生腿的对象字段原本只能用 int/float/字符串三种类型：列表/字典经 dv_to_string
+ * 变成字符串、读回时又被当成字符串，导致 己.字段.追加 每次都从空列表重新开始
+ * （SSE 等依赖「列表型实例字段」的模块在原生后端产出 0 事件的根因）。
+ *
+ * 这里把字段值序列化为「带类型标记的自描述字符串」，格式（均不含 \x1F 字段分隔符）：
+ *   N              空
+ *   B0 / B1        布尔
+ *   I<十进制>      整数
+ *   F<十进制>      浮点
+ *   S<len>:<raw>   字符串，len 为字符数，后跟 ':' 与原始内容
+ *   L<count>:<e1><e2>...  列表，count 为元素数，各元素为完整自描述编码
+ *   D<count>:<k1><v1>...  字典，count 为键值对数
+ * ================================================================ */
+static char* dv_serialize_typed(LightValue* v) {
+    v = dv_deref(v);
+    if (!v) return dv_strdup("N");
+    switch (v->type) {
+        case 0: return dv_strdup("N");
+        case 5: return dv_strdup(v->boolean ? "B1" : "B0");
+        case 1: { char b[64]; snprintf(b, sizeof(b), "I%lld", (long long)v->i64); return dv_strdup(b); }
+        case 2: { char b[64]; snprintf(b, sizeof(b), "F%g", v->f64); return dv_strdup(b); }
+        case 3: {
+            size_t len = v->str ? strlen(v->str) : 0;
+            char* out = (char*)malloc(len + 24);
+            if (!out) return dv_strdup("S0:");
+            int n = snprintf(out, len + 24, "S%zu:", len);
+            if (len && v->str) memcpy(out + n, v->str, len);
+            out[n + len] = '\0';
+            return out;
+        }
+        case 4: {
+            size_t cap = 32;
+            for (int i = 0; i < v->list_size; i++) {
+                char* e = dv_serialize_typed(v->list_data[i]);
+                cap += strlen(e) + 1;
+                free(e);
+            }
+            char* out = (char*)malloc(cap);
+            if (!out) return dv_strdup("L0:");
+            int n = snprintf(out, cap, "L%d:", v->list_size);
+            size_t pos = (size_t)n;
+            for (int i = 0; i < v->list_size; i++) {
+                char* e = dv_serialize_typed(v->list_data[i]);
+                size_t el = strlen(e);
+                memcpy(out + pos, e, el);
+                pos += el;
+                free(e);
+            }
+            out[pos] = '\0';
+            return out;
+        }
+        case 7: {
+            int pairs = v->list_size;
+            size_t cap = 32;
+            for (int i = 0; i < pairs * 2; i++) {
+                char* e = dv_serialize_typed(v->list_data[i]);
+                cap += strlen(e) + 1;
+                free(e);
+            }
+            char* out = (char*)malloc(cap);
+            if (!out) return dv_strdup("D0:");
+            int n = snprintf(out, cap, "D%d:", pairs);
+            size_t pos = (size_t)n;
+            for (int i = 0; i < pairs * 2; i++) {
+                char* e = dv_serialize_typed(v->list_data[i]);
+                size_t el = strlen(e);
+                memcpy(out + pos, e, el);
+                pos += el;
+                free(e);
+            }
+            out[pos] = '\0';
+            return out;
+        }
+        default: return dv_strdup("N");
+    }
+}
+
+/* 跳过十进制整数/浮点数的尾部 */
+static const char* dv_skip_number(const char* s) {
+    if (*s == '+' || *s == '-') s++;
+    while (*s >= '0' && *s <= '9') s++;
+    if (*s == '.') { s++; while (*s >= '0' && *s <= '9') s++; }
+    if (*s == 'e' || *s == 'E') {
+        s++;
+        if (*s == '+' || *s == '-') s++;
+        while (*s >= '0' && *s <= '9') s++;
+    }
+    return s;
+}
+
+/* 解析一个自描述编码的值，*pp 前进到该值之后；结果写入 result */
+static void dv_parse_typed(const char** pp, LightValue* result) {
+    const char* s = *pp;
+    if (!s || !*s) { dv_null(result); *pp = s; return; }
+    char tag = s[0];
+    if (tag == 'N') { dv_null(result); *pp = s + 1; return; }
+    if (tag == 'B') {
+        result->type = 5; result->i64 = 0; result->f64 = 0.0; result->str = NULL;
+        result->boolean = (s[1] == '1'); result->list_data = NULL; result->list_size = 0; result->list_capacity = 0;
+        *pp = s + 2; return;
+    }
+    if (tag == 'I') {
+        result->type = 1; result->i64 = atoll(s + 1); result->f64 = 0.0; result->str = NULL;
+        result->boolean = 0; result->list_data = NULL; result->list_size = 0; result->list_capacity = 0;
+        *pp = dv_skip_number(s + 1); return;
+    }
+    if (tag == 'F') {
+        result->type = 2; result->f64 = atof(s + 1); result->i64 = 0; result->str = NULL;
+        result->boolean = 0; result->list_data = NULL; result->list_size = 0; result->list_capacity = 0;
+        *pp = dv_skip_number(s + 1); return;
+    }
+    if (tag == 'S') {
+        const char* p = s + 1;
+        size_t len = 0;
+        while (*p >= '0' && *p <= '9') { len = len * 10 + (size_t)(*p - '0'); p++; }
+        if (*p == ':') p++;
+        char* buf = (char*)malloc(len + 1);
+        if (!buf) { dv_str(result, ""); *pp = p; return; }
+        memcpy(buf, p, len);
+        buf[len] = '\0';
+        result->type = 3; result->i64 = 0; result->f64 = 0.0; result->str = buf;
+        result->boolean = 0; result->list_data = NULL; result->list_size = 0; result->list_capacity = 0;
+        *pp = p + len; return;
+    }
+    if (tag == 'L') {
+        const char* p = s + 1;
+        int count = 0;
+        while (*p >= '0' && *p <= '9') { count = count * 10 + (*p - '0'); p++; }
+        if (*p == ':') p++;
+        dv_list_new(result);
+        for (int i = 0; i < count; i++) {
+            LightValue elem;
+            memset(&elem, 0, sizeof(elem));
+            dv_parse_typed(&p, &elem);
+            dv_list_append(result, result, &elem);
+            dv_free(&elem);
+        }
+        *pp = p; return;
+    }
+    if (tag == 'D') {
+        const char* p = s + 1;
+        int count = 0;
+        while (*p >= '0' && *p <= '9') { count = count * 10 + (*p - '0'); p++; }
+        if (*p == ':') p++;
+        dv_dict_new(result);
+        for (int i = 0; i < count; i++) {
+            LightValue k, val;
+            memset(&k, 0, sizeof(k));
+            memset(&val, 0, sizeof(val));
+            dv_parse_typed(&p, &k);
+            dv_parse_typed(&p, &val);
+            dv_dict_set(result, result, &k, &val);
+            dv_free(&k);
+            dv_free(&val);
+        }
+        *pp = p; return;
+    }
+    /* 兜底：无标记值按字符串（到 \x1F 或行尾） */
+    {
+        const char* p = s;
+        while (*p && *p != '\x1F') p++;
+        size_t len = (size_t)(p - s);
+        char* buf = (char*)malloc(len + 1);
+        if (!buf) { dv_str(result, ""); *pp = p; return; }
+        memcpy(buf, s, len);
+        buf[len] = '\0';
+        result->type = 3; result->i64 = 0; result->f64 = 0.0; result->str = buf;
+        result->boolean = 0; result->list_data = NULL; result->list_size = 0; result->list_capacity = 0;
+        *pp = p; return;
+    }
+}
+
 void dv_class_set_member(LightValue* obj, const char* field_name, LightValue* value) {
     if (!obj || obj->type != 3 || !obj->str) return;
     if (strncmp(obj->str, OBJ_PREFIX, strlen(OBJ_PREFIX)) != 0) return;
-    
-    char* field_str = dv_to_string(value);
+    char* field_str = dv_serialize_typed(value);
     size_t field_name_len = strlen(field_name);
     size_t field_str_len = strlen(field_str);
     
@@ -3160,7 +3520,8 @@ void dv_class_set_member(LightValue* obj, const char* field_name, LightValue* va
     }
     memcpy(search, field_name, field_name_len);
     search[field_name_len] = '\x1F';
-    
+    search[field_name_len + 1] = '\0';
+
     const char* found = strstr(p, search);
     int field_exists = (found != NULL);
     
@@ -3169,11 +3530,11 @@ void dv_class_set_member(LightValue* obj, const char* field_name, LightValue* va
         const char* val_start = found + search_len;
         const char* val_end = strchr(val_start, '\x1F');
         if (!val_end) val_end = val_start + strlen(val_start);
-        
+
         size_t old_val_len = val_end - val_start;
         size_t before_len = val_start - obj->str;
         size_t after_len = strlen(val_end);
-        
+
         size_t new_len = before_len + field_str_len + after_len + 1;
         char* new_str = (char*)malloc(new_len);
         if (new_str) {
@@ -3220,7 +3581,7 @@ void dv_class_get_member(LightValue* result, LightValue* obj, const char* field_
     const char* p = obj->str + strlen(OBJ_PREFIX);
     char search[256];
     snprintf(search, sizeof(search), "%s%c", field_name, '\x1F');
-    
+
     const char* found = strstr(p, search);
     if (!found) {
         dv_str(result, "");
@@ -3236,7 +3597,17 @@ void dv_class_get_member(LightValue* result, LightValue* obj, const char* field_
     if (val) {
         memcpy(val, found, len);
         val[len] = '\0';
-        
+
+        /* 有类型标记的值（列表/字典/整数/浮点/布尔/空）按自描述编码还原类型 */
+        char tag = val[0];
+        if (tag == 'N' || tag == 'B' || tag == 'I' || tag == 'F' || tag == 'S' || tag == 'L' || tag == 'D') {
+            const char* p = val;
+            dv_parse_typed(&p, result);
+            free(val);
+            return;
+        }
+
+        /* 兜底：无标记值（类默认空值 / __class__）按原启发式判定类型 */
         /* 检测类型并返回 */
         int is_int = 1, is_float = 0, dot = 0;
         int neg = (len > 0 && val[0] == '-') ? 1 : 0;

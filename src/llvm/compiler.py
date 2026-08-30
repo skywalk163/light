@@ -912,6 +912,13 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
                 continue
             if isinstance(stmt, ast.ExportStatement):
                 continue
+            # P0-2：顶层 段落 定义已通过 mod.segments 单独收集（见下方循环），
+            # 这里必须跳过，否则会被塞进 _module_statements，在 _gen_global_init
+            # 里走到 _gen_global_statement → _reject_unsupported_stmt(SegmentDefinition)。
+            # 单模块 generate() 路径不存在此问题（段落只进 module.segments），
+            # 多模块（含导入）路径才会触发，导致 `段落 主:` 入口在原生腿被拒。
+            if isinstance(stmt, ast.SegmentDefinition):
+                continue
             codegen._collect_statement(stmt)
         if hasattr(mod, 'classes'):
             for cls_def in mod.classes:
