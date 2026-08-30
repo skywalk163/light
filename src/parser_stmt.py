@@ -2715,14 +2715,19 @@ class ParserStmtMixin:
         # 冒号
         self._consume(TokenType.COLON)
         
+        # L-013 修复：冒号后无 NEWLINE 即单行体，_parse_body 以
+        # allow_single_line=True 在行尾 NEWLINE 处立即闭合（与 if 语句
+        # 2332-2333 行的写法一致），防止级联吞掉后续语句。
         # 消耗所有连续的 NEWLINE 和 INDENT（处理空行和注释行）
+        has_newline = False
         while self._current() and self._current().type == TokenType.NEWLINE:
+            has_newline = True
             self._consume(TokenType.NEWLINE)
         if self._current() and self._current().type == TokenType.INDENT:
             self._consume(TokenType.INDENT)
         
         # 循环体
-        body = self._parse_body()
+        body = self._parse_body(allow_single_line=not has_newline)
         
         # 消耗 DEDENT（循环体结束）
         if self._current() and self._current().type == TokenType.DEDENT:
@@ -2755,8 +2760,13 @@ class ParserStmtMixin:
         # 冒号
         self._consume(TokenType.COLON)
         
+        # L-013 修复：冒号后无 NEWLINE 即单行体，_parse_body 以
+        # allow_single_line=True 在行尾 NEWLINE 处立即闭合（与 if 语句
+        # 2332-2333 行的写法一致），防止级联吞掉后续语句。
         # 消耗所有连续的 NEWLINE、DEDENT 和 INDENT（处理多行条件中的缩进变化）
+        has_newline = False
         while self._current() and self._current().type == TokenType.NEWLINE:
+            has_newline = True
             self._consume(TokenType.NEWLINE)
         # 多行条件可能导致额外的 DEDENT/INDENT，需要先消耗 DEDENT
         while self._current() and self._current().type == TokenType.DEDENT:
@@ -2765,7 +2775,7 @@ class ParserStmtMixin:
             self._consume(TokenType.INDENT)
         
         # 循环体 - 使用_parse_body
-        body = self._parse_body()
+        body = self._parse_body(allow_single_line=not has_newline)
         
         # 消耗 DEDENT（循环体结束）
         # _parse_body 遇到 DEDENT 时会 break，不消耗 DEDENT，留给调用者处理
