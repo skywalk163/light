@@ -92,6 +92,11 @@ def write_baseline(path, failed, stats):
 
 
 def main():
+    # Windows runner 的默认 stdout 编码是 cp1252（ANSI），本脚本 print 的中文
+    # （如 `[CI] 读入 N 份 junit`）编码不了就抛 UnicodeEncodeError，把 Windows
+    # 矩阵的「回归闸门」整步堵死。强制 UTF-8 输出即可。reconfigure 自 3.7 起可用。
+    if sys.stdout is not None and hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
     ap = argparse.ArgumentParser()
     ap.add_argument('--junit', required=True, action='append',
                     help='pytest --junitxml 报告路径，可多次传入或用通配符')

@@ -184,7 +184,6 @@ def test_连接路径_零参与posixpath同为TypeError():
 # 只列**两者确实不同**的对；下面 test_取证集合与实测逐条相符 会重算一遍并要求集合完全一致。
 _取证 = {
     # 目录名 / dirname
-    ("目录名", "//a"): ("//a", "//"),
     ("目录名", "a\\b"): ("a", ""),
     ("目录名", "C:\\x\\y"): ("C:\\x", ""),
     ("目录名", "C:\\x\\y.txt"): ("C:\\x", ""),
@@ -203,7 +202,6 @@ _取证 = {
     ("文件名", "\\\\主机\\共享\\f.txt"): ("f.txt", "\\\\主机\\共享\\f.txt"),
     ("文件名", "C:"): ("", "C:"),
     # 分割路径 / split
-    ("分割路径", "//a"): (("//a", ""), ("//", "a")),
     ("分割路径", "a\\b"): (("a", "b"), ("", "a\\b")),
     ("分割路径", "C:\\x\\y"): (("C:\\x", "y"), ("", "C:\\x\\y")),
     ("分割路径", "C:\\x\\y.txt"): (("C:\\x", "y.txt"), ("", "C:\\x\\y.txt")),
@@ -218,6 +216,26 @@ _取证 = {
     # 扩展名 = splitext 尾项
     ("扩展名", "a.b\\c"): ("", ".b\\c"),
 }
+
+# 双斜杠 "//a" 的取证是**版本相关**的，而且不是「3.11- / 3.12+」两段分界：
+#   实测（CI ubuntu/macos/windows 3.10 + 本机 3.11/3.12/3.13/3.14，各平台一致）：
+#     3.10   ntpath.dirname/basename/split("//a") == posixpath（='//'/'a'/('//','a')）
+#            → **无分歧**
+#     3.11+  ntpath 给 '//a'/''/('//a','')，posixpath 给 '//'/'a'/('//','a') → 分歧
+# 所以只有 3.11 起的宿主才把这 3 条计入取证（见 _本机取证）。
+_取证_双斜杠 = {
+    ("目录名", "//a"): ("//a", "//"),
+    ("文件名", "//a"): ("", "a"),
+    ("分割路径", "//a"): (("//a", ""), ("//", "a")),
+}
+
+
+def _本机取证():
+    """宿主实际的分歧表 = 静态 `_取证` + 版本相关的双斜杠条目。"""
+    表 = dict(_取证)
+    if sys.version_info >= (3, 11):
+        表.update(_取证_双斜杠)
+    return 表
 
 # 段落名 -> (光明实现, ntpath 版, posixpath 版)
 _三方 = {
@@ -240,10 +258,10 @@ def test_取证前提_os_path在本机就是ntpath():
         assert os.path is posixpath
 
 
-@pytest.mark.parametrize("键", sorted(_取证, key=lambda k: (k[0], k[1])))
+@pytest.mark.parametrize("键", sorted(_本机取证(), key=lambda k: (k[0], k[1])))
 def test_取证_两侧确实不同且光明钉在posixpath一侧(键):
     段落名, p = 键
-    nt期望, posix期望 = _取证[键]
+    nt期望, posix期望 = _本机取证()[键]
     光明版, nt版, posix版 = _三方[段落名]
     # ① ntpath 与 posixpath 在这条样本上确实分歧（不然这条取证是空话）
     assert nt版(p) != posix版(p)
@@ -264,8 +282,9 @@ def test_取证集合与实测逐条相符():
         for p in 路径样本:
             if nt版(p) != posix版(p):
                 实测[(段落名, p)] = (nt版(p), posix版(p))
-    assert 实测 == _取证
-    assert len(实测) == 28              # 48 条样本 × 5 段落 = 240 组里 28 组分歧
+    assert 实测 == _本机取证()
+    # 25 = 静态 _取证（28 条去掉 3 条双斜杠，双斜杠只在 3.11+ 分歧）
+    assert len(实测) == (25 if sys.version_info < (3, 11) else 28)
 
 
 # join 的不兼容面更大：POSIX 版一律用 `/` 拼，ntpath 用 `\`。
@@ -288,23 +307,24 @@ _取证_连接 = {
     ("/a", "b", "c"): ("/a\\b\\c", "/a/b/c"),
 }
 
-# 一条**版本相关**的分歧：("//", "a")。
-# `ntpath.splitroot` 是 3.12 才有的（3.11 的 ntpath.join 走 splitdrive），两代对
-# 「`//` 是不是一个驱动器」判得不一样，于是：
-#   3.12+   ntpath.join("//","a") == "//a"    → 与 posixpath 相同，**不算分歧**
-#   3.11-   ntpath.join("//","a") == "//\\a"  → 与 posixpath 不同，**算一条分歧**
-# posixpath 两代都给 "//a"。实测：Windows/3.14.7 给 "//a"、Windows/3.11.15 给 "//\\a"、
-# FreeBSD/3.11.14（CI runner）给 "//\\a" —— 所以这是版本差异，不是平台差异。
-# 本文件第一版把这条按开发机（3.12+）的结论写死在 _取证_连接 之外，于是 CI（3.11）红了一条。
+# 一条**版本相关**的分歧：("//", "a")。它是 **3.11 的孤例**，不是「3.11- vs 3.12+」：
+#   `ntpath.splitroot` 是 3.12 才有的，3.11 的 ntpath.join 走 splitdrive，对「`//` 是不是
+#   一个驱动器」判得不一样；但 3.10 又和 3.12+ 一样（都不把 "//" 当 UNC 根）：
+#     3.10    ntpath.join("//","a") == "//a"     → 与 posixpath 相同，**不算分歧**
+#     3.11    ntpath.join("//","a") == "//\\a"   → 与 posixpath 不同，**算一条分歧**
+#     3.12+   ntpath.join("//","a") == "//a"     → 与 posixpath 相同，**不算分歧**
+# posixpath 三代都给 "//a"。实测：CI ubuntu/macos/windows 3.10 给 "//a"、
+# Windows/3.11.15 与 CI FreeBSD/3.11.14 给 "//\\a"、3.12.13/3.13.14/3.14.7 给 "//a"。
+# 本文件前两版把这条按「<3.12 就分歧」的假设写死，CI（3.10）红了一条。
 _取证_连接_仅3点11 = {
     ("//", "a"): ("//\\a", "//a"),
 }
 
 
 def _本机取证_连接():
-    """按宿主版本给出该宿主上应有的分歧表。"""
+    """按宿主版本给出该宿主上应有的分歧表（join 双斜杠仅在 3.11 分歧）。"""
     表 = dict(_取证_连接)
-    if sys.version_info < (3, 12):
+    if sys.version_info[:2] == (3, 11):
         表.update(_取证_连接_仅3点11)
     return 表
 
@@ -321,17 +341,19 @@ def test_取证_连接路径两侧确实不同且光明钉在posixpath一侧(arg
 
 
 def test_取证_双斜杠开头的分歧是版本相关的():
-    """("//", "a") 单独拎出来钉：ntpath 侧随版本变，posixpath 侧和光明侧都不变。"""
+    """("//", "a") 单独拎出来钉：ntpath 侧随版本变，posixpath 侧和光明侧都不变。
+    join 的双斜杠分歧是 **3.11 的孤例**（3.10 与 3.12+ 都不分歧，见 _本机取证_连接）。
+    """
     args = ("//", "a")
     nt期望, posix期望 = _取证_连接_仅3点11[args]
     assert posixpath.join(*args) == posix期望 == "//a"
     assert 光明.连接路径(*args) == posix期望
     assert hasattr(ntpath, "splitroot") is (sys.version_info >= (3, 12)), (
         "ntpath.splitroot 的有无不再与 3.12 对应了，这条取证的归因要重做")
-    if sys.version_info >= (3, 12):
-        assert ntpath.join(*args) == posix期望, "3.12+ 上这条本该不分歧"
+    if sys.version_info[:2] == (3, 11):
+        assert ntpath.join(*args) == nt期望, "3.11 上这条本该给 %r" % (nt期望,)
     else:
-        assert ntpath.join(*args) == nt期望, "3.11- 上这条本该给 %r" % (nt期望,)
+        assert ntpath.join(*args) == posix期望, "3.10/3.12+ 上这条本该不分歧"
 
 
 def test_取证_连接路径集合与实测逐条相符():
@@ -341,7 +363,7 @@ def test_取证_连接路径集合与实测逐条相符():
             实测[args] = (ntpath.join(*args), posixpath.join(*args))
     期望 = _本机取证_连接()
     assert 实测 == 期望
-    assert len(实测) == (16 if sys.version_info >= (3, 12) else 17)
+    assert len(实测) == (17 if sys.version_info[:2] == (3, 11) else 16)
     # 实测记录：超长样本 ("很长/"*40, "尾.ext") **不**分歧 —— 首参已以 `/` 结尾，
     # ntpath 也认 `/` 是分隔符（它的 altsep），于是两侧都不再补分隔符，结果逐字符相同。
     长条 = ("很长/" * 40, "尾.ext")
