@@ -1094,13 +1094,19 @@ def 求和(数据: list) -> float:
     （gh-100425）起 sum() 对浮点走 Neumaier 补偿，3.11 及更早是朴素累加。本侧按
     `sys.version_info >= (3, 12)` 算出来显式传，所以本函数在 3.11 宿主（CI runner
     就是 3.11）和 3.14 宿主上都与该宿主的 sum() 逐位等价。
+
+    第四参 `整数进补偿` 是 3.12 与 3.14 之间的第二层差异：3.12/3.13 的补偿路径里
+    int/bool 走朴素 `f_result += (double)value`，3.14 起才进 `cs_add`。本侧按
+    `sys.version_info >= (3, 14)` 算出来显式传，否则 3.12/3.13 宿主上会分叉
+    （实测 [1e16, True, 1.0, -1e16]：3.12/3.13 给 1.0，3.14 给 2.0）。
     """
     import struct
     import sys
     import 列表工具
     return 列表工具.求和(数据,
                        (1 << (8 * struct.calcsize("l") - 1)) - 1,
-                       sys.version_info >= (3, 12))
+                       sys.version_info >= (3, 12),
+                       sys.version_info >= (3, 14))
 
 
 
