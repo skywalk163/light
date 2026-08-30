@@ -2813,7 +2813,7 @@ class ParserStmtMixin:
                         is_stmt_keyword = (tok.value in ('设', '定义', '当', '如果', '若', '遍历', '遍',
                                                           '打印', '导入', '导', '导出', '出', '跳出', '跳', '跳过', '过', '继续',
                                                           '断', '跃',
-                                                          '尝试', '试', '抛出', '抛', '掷', '匹配', '配', '返回', '返', '属性',
+                                                          '尝试', '试', '抛出', '抛', '掷', '匹配', '配', '返回', '返',
                                                           '构造', '类', '接口', '接', '推迟'))
                 if not is_stmt_keyword:
                     # 先解析第一个表达式（不含逗号/管道）
@@ -4373,7 +4373,10 @@ class ParserStmtMixin:
                     tok = self._current()
 
                 # 属性声明（支持公有、私有、保护和静态）
-                if tok.type == TokenType.KEYWORD and tok.value == '属性':
+                # L-021 修复（范式 A）：`属性` 从 KEYWORDS_CLASS 移除后词法层
+                # 不再切 KEYWORD，这里同时接受 IDENTIFIER。仿 `性` 分支（4398 行）。
+                if ((tok.type == TokenType.KEYWORD and tok.value == '属性') or
+                    (tok.type == TokenType.IDENTIFIER and tok.value == '属性')):
                     attr = self._parse_attribute_declaration()
                     attr.access_modifier = access_modifier
                     attr.is_static = is_static
@@ -4551,11 +4554,12 @@ class ParserStmtMixin:
           类体循环报错；而 AttributeDeclaration 早就有 type_annotation 槽位，
           类级字段（`设 名: 类型 为 值`）也一直在用它。
         """
-        # 属性
-        # 单字 `性` 在词法层是 IDENTIFIER（有意不升为保留字，见类体分发处注释），
-        # 所以不能直接 _consume(KEYWORD, '属性')。
-        if (self._current() and self._current().type == TokenType.IDENTIFIER
-                and self._current().value == '性'):
+        # 属性关键字消费
+        # `性`/`属性` 在词法层都是 IDENTIFIER（有意不升为保留字，
+        # 见类体分发处 4386-4397 行注释）。L-021 后 `属性` 从 KEYWORDS_CLASS
+        # 移除，也走 IDENTIFIER 路径。保留 KEYWORD fallback 以防旧缓存。
+        cur = self._current()
+        if cur and cur.type == TokenType.IDENTIFIER and cur.value in ('性', '属性'):
             self._consume()
         else:
             self._consume(TokenType.KEYWORD, '属性')
@@ -4975,7 +4979,9 @@ class ParserStmtMixin:
                     methods.append(sig)
 
                 # 属性声明：属性 名称（可选类型）
-                elif tok.type == TokenType.KEYWORD and tok.value == '属性':
+                # L-021 修复：`属性` 从 KEYWORDS_CLASS 移除后走 IDENTIFIER 路径
+                elif ((tok.type == TokenType.KEYWORD and tok.value == '属性') or
+                      (tok.type == TokenType.IDENTIFIER and tok.value == '属性')):
                     attr = self._parse_attribute_declaration()
                     properties.append(attr)
 
