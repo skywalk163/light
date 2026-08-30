@@ -1,0 +1,6438 @@
+
+<!doctype html>
+<html lang="zh" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="光明编程语言 - 中文编程语言的全新可能">
+      
+      
+        <meta name="author" content="LightLang Team">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>数学运算 API - 光明 (LightLang) v7.0</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans+SC:300,300i,400,400i,700,700i%7CNoto+Sans+SC:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Noto Sans SC";--md-code-font:"Noto Sans SC"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#api" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="页眉">
+    <a href="../.." title="光明 (LightLang) v7.0" class="md-header__button md-logo" aria-label="光明 (LightLang) v7.0" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            光明 (LightLang) v7.0
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              数学运算 API
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="green"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/skywalk163/light" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    skywalk163/light
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="标签" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  首页
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  快速开始
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../user_guide/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  用户手册
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../release_notes_v6.0/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  发布说明
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../known_issues/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  已知问题
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guide/getting-started/" class="md-tabs__link">
+          
+  
+  
+  快速入门
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guide/%E5%88%86%E5%B1%82%E8%AF%AD%E6%B3%95%E5%85%A5%E9%97%A8/" class="md-tabs__link">
+          
+  
+  
+  用户指南
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../language/levels/" class="md-tabs__link">
+          
+  
+  
+  语言参考
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../stdlib/" class="md-tabs__link">
+          
+  
+  
+  标准库
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../30%E5%88%86%E9%92%9F%E5%85%A5%E9%97%A8%E5%85%89%E6%98%8E/" class="md-tabs__link">
+          
+  
+  
+  教程
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tools/cli/" class="md-tabs__link">
+          
+  
+  
+  工具
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../architecture/" class="md-tabs__link">
+          
+  
+  
+  项目
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../ecosystem/%E6%95%99%E5%AD%A6%E8%B5%84%E6%BA%90/" class="md-tabs__link">
+          
+  
+  
+  生态
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../migration/v3-to-v4/" class="md-tabs__link">
+          
+  
+  
+  迁移指南
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  API 参考
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E7%B4%A2%E5%BC%95/" class="md-tabs__link">
+          
+  
+  
+  知识库
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="https://github.com/skywalk163/light/blob/main/CHANGELOG.md" class="md-tabs__link">
+          
+  
+  
+  变更记录
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  贡献指南
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="光明 (LightLang) v7.0" class="md-nav__button md-logo" aria-label="光明 (LightLang) v7.0" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    光明 (LightLang) v7.0
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/skywalk163/light" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    skywalk163/light
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    首页
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user_guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    用户手册
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release_notes_v6.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    发布说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../known_issues/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    已知问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速入门
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    快速入门
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安装说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/vscode-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VS Code 配置
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    用户指南
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    用户指南
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/%E5%88%86%E5%B1%82%E8%AF%AD%E6%B3%95%E5%85%A5%E9%97%A8/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    分层语法入门
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/%E8%BF%81%E7%A7%BB%E6%8C%87%E5%8D%97/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    迁移指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    语言参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/levels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    五层架构详解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/l0-core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L0 核心字集
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/l1-l2-style/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L1/L2 文体
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/l3-domain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L3 领域嵌入
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/l4-foreign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L4 外语引用
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/keywords/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    关键字参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/operators/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    运算符参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/%E5%AE%8C%E6%95%B4%E8%AF%AD%E6%B3%95%E5%8F%82%E8%80%83/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    完整语法参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../syntax/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语法规范
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E5%85%89%E6%98%8E-%E5%AE%8C%E6%95%B4%E8%A7%84%E8%8C%83%E6%96%87%E6%A1%A3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    完整规范文档
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../class_system_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类系统设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trait/协议系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模式匹配
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-07-01-level6-type-annotation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    泛型与类型注解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E6%A8%A1%E5%9D%97%E7%B3%BB%E7%BB%9F%E4%B8%8E%E5%8C%85%E7%AE%A1%E7%90%86/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模块系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ffi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FFI 外部函数接口
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../HM%E5%85%A8%E5%B1%80%E7%B1%BB%E5%9E%8B%E6%8E%A8%E6%96%AD%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型推断系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E5%8F%AF%E7%A9%BA%E7%B1%BB%E5%9E%8Bunwrap%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    可空类型系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    标准库
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    数学模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/string/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    字符串处理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON 模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文件系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/datetime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    日期时间
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/regex/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    正则表达式
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../API_REFERENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考总表
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../builtins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    内置函数
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../lightpub_integration_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lightpub 生态
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_9_13" id="__nav_9_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lightpub 包文档
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    lightpub 包文档
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../lightpub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    索引与分类
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    教程
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    教程
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../30%E5%88%86%E9%92%9F%E5%85%A5%E9%97%A8%E5%85%89%E6%98%8E/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    30 分钟入门
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/%E5%85%A5%E9%97%A8%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    入门教程
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/%E8%BF%9B%E9%98%B6%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进阶教程
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%AB%AF%E5%88%B0%E7%AB%AF%E5%AE%9E%E6%88%98%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    端到端实战
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    示例代码
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工具
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    工具
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI 使用指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/playground/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Playground 使用
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/lsp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LSP 集成
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/debugger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    调试器
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工具链总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E6%90%9C%E7%B4%A2%E9%85%8D%E7%BD%AE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    搜索配置
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    项目
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    架构设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEVELOPMENT_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    开发指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84%E8%AF%B4%E6%98%8E/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目结构
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../REPL_DESIGN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REPL 设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../BOOTSTRAP_STRATEGY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    引导策略
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llvm_backend_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLVM 后端
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PERFORMANCE_OPTIMIZATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    性能优化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../OPTIMIZATION_ANALYSIS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    优化分析
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E4%B8%89%E4%B8%AA%E6%9C%88%E5%B7%A5%E4%BD%9C%E8%AE%A1%E5%88%92_2026Q3Q4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目计划
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PROGRESS_REPORT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进度报告
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    生态
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    生态
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ecosystem/%E6%95%99%E5%AD%A6%E8%B5%84%E6%BA%90/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    教学资源
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_14" >
+        
+          
+          <label class="md-nav__link" for="__nav_14" id="__nav_14_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    迁移指南
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    迁移指南
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/v3-to-v4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.3 → v4.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/v4-to-v5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v4.0 → v5.x
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_15" >
+        
+          
+          <label class="md-nav__link" for="__nav_15" id="__nav_15_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API 参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compiler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    编译器 API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_16" >
+        
+          
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    知识库
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    知识库
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E7%B4%A2%E5%BC%95/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    知识库索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E8%AF%AD%E8%A8%80%E8%A7%84%E8%8C%83/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言规范
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E5%BC%80%E5%8F%91%E6%8C%87%E5%8D%97/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    开发指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最佳实践
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17" >
+        
+          
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    变更记录
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    变更记录
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/skywalk163/light/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    版本日志
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../LANGUAGE_EXTENSIONS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言扩展历史
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_17_3" id="__nav_17_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语法变更
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_17_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    语法变更
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%BB%9F%E4%B8%80%E8%AF%AD%E6%B3%95%E8%A7%84%E8%8C%83_v3.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%BB%9F%E4%B8%80%E8%AF%AD%E6%B3%95%E8%A7%84%E8%8C%83_v3.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E8%AF%AD%E6%B3%95%E5%8F%98%E6%9B%B4_v3.4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E8%AF%AD%E6%B3%95%E5%8F%98%E6%9B%B4_v3.5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.5
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../FINAL_SUMMARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最终总结
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    贡献指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="api">数学运算 API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>模块路径：<code>stdlib/数学.py</code>
+导入方式：<code>从 数学 导入 函数名</code> 或 <code>导入 数学</code></p>
+</blockquote>
+<hr />
+<h2 id="_1">函数列表<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>函数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>绝对值(x)</code></td>
+<td>绝对值</td>
+</tr>
+<tr>
+<td><code>最大值(甲, 乙)</code></td>
+<td>最大值</td>
+</tr>
+<tr>
+<td><code>最小值(甲, 乙)</code></td>
+<td>最小值</td>
+</tr>
+<tr>
+<td><code>幂(底数, 指数)</code></td>
+<td>幂运算：底数 ^ 指数</td>
+</tr>
+<tr>
+<td><code>平方根(x)</code></td>
+<td>平方根</td>
+</tr>
+<tr>
+<td><code>正弦(x)</code></td>
+<td>正弦（弧度）</td>
+</tr>
+<tr>
+<td><code>余弦(x)</code></td>
+<td>余弦（弧度）</td>
+</tr>
+<tr>
+<td><code>正切(x)</code></td>
+<td>正切（弧度）</td>
+</tr>
+<tr>
+<td><code>弧度转角度(弧度)</code></td>
+<td>弧度转角度</td>
+</tr>
+<tr>
+<td><code>角度转弧度(角度)</code></td>
+<td>角度转弧度</td>
+</tr>
+<tr>
+<td><code>向上取整(x)</code></td>
+<td>向上取整</td>
+</tr>
+<tr>
+<td><code>向下取整(x)</code></td>
+<td>向下取整</td>
+</tr>
+<tr>
+<td><code>四舍五入(x, 小数位数)</code></td>
+<td>四舍五入</td>
+</tr>
+<tr>
+<td><code>随机整数(最小值, 最大值)</code></td>
+<td>随机整数 [最小值, 最大值]</td>
+</tr>
+<tr>
+<td><code>随机浮点()</code></td>
+<td>随机浮点数 [0.0, 1.0)</td>
+</tr>
+<tr>
+<td><code>随机选择(列表)</code></td>
+<td>从列表中随机选择一个元素</td>
+</tr>
+<tr>
+<td><code>圆周率()</code></td>
+<td>圆周率 π</td>
+</tr>
+<tr>
+<td><code>自然常数()</code></td>
+<td>自然常数 e</td>
+</tr>
+<tr>
+<td><code>阶乘(n)</code></td>
+<td>阶乘 n!</td>
+</tr>
+<tr>
+<td><code>对数(x, 底数)</code></td>
+<td>对数：log_底数(x)</td>
+</tr>
+<tr>
+<td><code>自然对数(x)</code></td>
+<td>自然对数 ln(x)</td>
+</tr>
+<tr>
+<td><code>常用对数(x)</code></td>
+<td>常用对数 log10(x)</td>
+</tr>
+<tr>
+<td><code>对数2(x)</code></td>
+<td>以2为底的对数 log2(x)</td>
+</tr>
+<tr>
+<td><code>立方根(x)</code></td>
+<td>立方根</td>
+</tr>
+<tr>
+<td><code>指数(x)</code></td>
+<td>指数函数 e^x</td>
+</tr>
+<tr>
+<td><code>双曲正弦(x)</code></td>
+<td>双曲正弦 sinh(x)</td>
+</tr>
+<tr>
+<td><code>双曲余弦(x)</code></td>
+<td>双曲余弦 cosh(x)</td>
+</tr>
+<tr>
+<td><code>双曲正切(x)</code></td>
+<td>双曲正切 tanh(x)</td>
+</tr>
+<tr>
+<td><code>反双曲正弦(x)</code></td>
+<td>反双曲正弦 asinh(x)</td>
+</tr>
+<tr>
+<td><code>反双曲余弦(x)</code></td>
+<td>反双曲余弦 acosh(x)</td>
+</tr>
+<tr>
+<td><code>反双曲正切(x)</code></td>
+<td>反双曲正切 atanh(x)</td>
+</tr>
+<tr>
+<td><code>反正弦(x)</code></td>
+<td>反正弦 arcsin(x)（弧度）</td>
+</tr>
+<tr>
+<td><code>反余弦(x)</code></td>
+<td>反余弦 arccos(x)（弧度）</td>
+</tr>
+<tr>
+<td><code>反正切(x)</code></td>
+<td>反正切 arctan(x)（弧度）</td>
+</tr>
+<tr>
+<td><code>反正切2(y, x)</code></td>
+<td>反正切2 atan2(y, x)（弧度）</td>
+</tr>
+<tr>
+<td><code>余切(x)</code></td>
+<td>余切 cot(x)</td>
+</tr>
+<tr>
+<td><code>正割(x)</code></td>
+<td>正割 sec(x)</td>
+</tr>
+<tr>
+<td><code>余割(x)</code></td>
+<td>余割 csc(x)</td>
+</tr>
+<tr>
+<td><code>双曲余切(x)</code></td>
+<td>双曲余切 coth(x)</td>
+</tr>
+<tr>
+<td><code>双曲正割(x)</code></td>
+<td>双曲正割 sech(x)</td>
+</tr>
+<tr>
+<td><code>双曲余割(x)</code></td>
+<td>双曲余割 csch(x)</td>
+</tr>
+<tr>
+<td><code>弧度(x)</code></td>
+<td>角度转弧度（别名）</td>
+</tr>
+<tr>
+<td><code>角度(x)</code></td>
+<td>弧度转角度（别名）</td>
+</tr>
+<tr>
+<td><code>双阶乘(n)</code></td>
+<td>双阶乘 n!!</td>
+</tr>
+<tr>
+<td><code>排列(n, k)</code></td>
+<td>排列数 P(n, k)</td>
+</tr>
+<tr>
+<td><code>组合(n, k)</code></td>
+<td>组合数 C(n, k)</td>
+</tr>
+<tr>
+<td><code>二项式系数(n, k)</code></td>
+<td>二项式系数（组合数别名）</td>
+</tr>
+<tr>
+<td><code>欧拉常数()</code></td>
+<td>欧拉常数 γ ≈ 0.5772</td>
+</tr>
+<tr>
+<td><code>黄金比例()</code></td>
+<td>黄金比例 φ ≈ 1.618</td>
+</tr>
+<tr>
+<td><code>弧度π()</code></td>
+<td>π 弧度（180度）</td>
+</tr>
+<tr>
+<td><code>弧度π2()</code></td>
+<td>π/2 弧度（90度）</td>
+</tr>
+<tr>
+<td><code>弧度π4()</code></td>
+<td>π/4 弧度（45度）</td>
+</tr>
+<tr>
+<td><code>弧度2π()</code></td>
+<td>2π 弧度（360度）</td>
+</tr>
+<tr>
+<td><code>度分秒转弧度(度, 分, 秒)</code></td>
+<td>度分秒转弧度</td>
+</tr>
+<tr>
+<td><code>弧度转度分秒(弧度)</code></td>
+<td>弧度转度分秒</td>
+</tr>
+<tr>
+<td><code>复数实部(z)</code></td>
+<td>复数实部</td>
+</tr>
+<tr>
+<td><code>复数虚部(z)</code></td>
+<td>复数虚部</td>
+</tr>
+<tr>
+<td><code>复数模(z)</code></td>
+<td>复数模（绝对值）</td>
+</tr>
+<tr>
+<td><code>复数辐角(z)</code></td>
+<td>复数辐角（弧度）</td>
+</tr>
+<tr>
+<td><code>复数共轭(z)</code></td>
+<td>复数共轭</td>
+</tr>
+<tr>
+<td><code>复数极坐标转直角(模, 辐角)</code></td>
+<td>极坐标转直角坐标</td>
+</tr>
+<tr>
+<td><code>复数直角转极坐标(z)</code></td>
+<td>直角坐标转极坐标 (模, 辐角)</td>
+</tr>
+<tr>
+<td><code>复数指数(z)</code></td>
+<td>复数指数函数 e^z</td>
+</tr>
+<tr>
+<td><code>复数对数(z)</code></td>
+<td>复数对数</td>
+</tr>
+<tr>
+<td><code>复数平方根(z)</code></td>
+<td>复数平方根</td>
+</tr>
+<tr>
+<td><code>复数正弦(z)</code></td>
+<td>复数正弦</td>
+</tr>
+<tr>
+<td><code>复数余弦(z)</code></td>
+<td>复数余弦</td>
+</tr>
+<tr>
+<td><code>复数正切(z)</code></td>
+<td>复数正切</td>
+</tr>
+<tr>
+<td><code>双曲正弦h(x)</code></td>
+<td>双曲正弦（简写）</td>
+</tr>
+<tr>
+<td><code>双曲余弦h(x)</code></td>
+<td>双曲余弦（简写）</td>
+</tr>
+<tr>
+<td><code>双曲正切h(x)</code></td>
+<td>双曲正切（简写）</td>
+</tr>
+<tr>
+<td><code>随机范围(最小值, 最大值)</code></td>
+<td>生成指定范围内的随机浮点数</td>
+</tr>
+<tr>
+<td><code>随机打乱(列表)</code></td>
+<td>随机打乱列表（原地修改）</td>
+</tr>
+<tr>
+<td><code>随机样本(列表, k)</code></td>
+<td>从列表中随机抽取k个不重复元素</td>
+</tr>
+<tr>
+<td><code>设置随机种子(种子)</code></td>
+<td>设置随机数种子</td>
+</tr>
+<tr>
+<td><code>正态随机(均值, 标准差)</code></td>
+<td>生成正态分布随机数</td>
+</tr>
+<tr>
+<td><code>泊松随机(均值)</code></td>
+<td>生成泊松分布随机数</td>
+</tr>
+<tr>
+<td><code>指数随机(均值)</code></td>
+<td>生成指数分布随机数</td>
+</tr>
+<tr>
+<td><code>平均数(数据)</code></td>
+<td>算术平均数</td>
+</tr>
+<tr>
+<td><code>中位数(数据)</code></td>
+<td>中位数</td>
+</tr>
+<tr>
+<td><code>众数(数据)</code></td>
+<td>众数（出现最多的值）</td>
+</tr>
+<tr>
+<td><code>标准差(数据)</code></td>
+<td>总体标准差</td>
+</tr>
+<tr>
+<td><code>样本标准差(数据)</code></td>
+<td>样本标准差（自由度 n-1）</td>
+</tr>
+<tr>
+<td><code>方差(数据)</code></td>
+<td>总体方差</td>
+</tr>
+<tr>
+<td><code>样本方差(数据)</code></td>
+<td>样本方差（自由度 n-1）</td>
+</tr>
+<tr>
+<td><code>范围(数据)</code></td>
+<td>范围（最大值 - 最小值）</td>
+</tr>
+<tr>
+<td><code>求和(数据)</code></td>
+<td>求和</td>
+</tr>
+<tr>
+<td><code>累积和(数据)</code></td>
+<td>累积和</td>
+</tr>
+<tr>
+<td><code>线性回归(x数据, y数据)</code></td>
+<td>线性回归（斜率、截距、相关系数）</td>
+</tr>
+<tr>
+<td><code>平方(x)</code></td>
+<td>计算平方</td>
+</tr>
+<tr>
+<td><code>是奇数(n)</code></td>
+<td>判断是否为奇数</td>
+</tr>
+<tr>
+<td><code>是偶数(n)</code></td>
+<td>判断是否为偶数</td>
+</tr>
+<tr>
+<td><code>是素数(n)</code></td>
+<td>判断是否为素数</td>
+</tr>
+<tr>
+<td><code>最大公约数(甲, 乙)</code></td>
+<td>计算最大公约数</td>
+</tr>
+<tr>
+<td><code>最小公倍数(甲, 乙)</code></td>
+<td>计算最小公倍数</td>
+</tr>
+<tr>
+<td><code>累加(n)</code></td>
+<td>计算1到n的累加和</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="_2">函数详情<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
+<h3 id="x-number-number"><code>绝对值(x: Number) -&gt; Number</code><a class="headerlink" href="#x-number-number" title="Permanent link">&para;</a></h3>
+<p>绝对值</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>Number</code></p>
+<hr />
+<h3 id="number-number-number"><code>最大值(甲: Number, 乙: Number) -&gt; Number</code><a class="headerlink" href="#number-number-number" title="Permanent link">&para;</a></h3>
+<p>最大值</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>甲</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>乙</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>Number</code></p>
+<hr />
+<h3 id="number-number-number_1"><code>最小值(甲: Number, 乙: Number) -&gt; Number</code><a class="headerlink" href="#number-number-number_1" title="Permanent link">&para;</a></h3>
+<p>最小值</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>甲</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>乙</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>Number</code></p>
+<hr />
+<h3 id="number-number-float"><code>幂(底数: Number, 指数: Number) -&gt; float</code><a class="headerlink" href="#number-number-float" title="Permanent link">&para;</a></h3>
+<p>幂运算：底数 ^ 指数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>底数</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>指数</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float"><code>平方根(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float" title="Permanent link">&para;</a></h3>
+<p>平方根</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_1"><code>正弦(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_1" title="Permanent link">&para;</a></h3>
+<p>正弦（弧度）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_2"><code>余弦(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_2" title="Permanent link">&para;</a></h3>
+<p>余弦（弧度）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_3"><code>正切(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_3" title="Permanent link">&para;</a></h3>
+<p>正切（弧度）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="number-float"><code>弧度转角度(弧度: Number) -&gt; float</code><a class="headerlink" href="#number-float" title="Permanent link">&para;</a></h3>
+<p>弧度转角度</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>弧度</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="number-float_1"><code>角度转弧度(角度: Number) -&gt; float</code><a class="headerlink" href="#number-float_1" title="Permanent link">&para;</a></h3>
+<p>角度转弧度</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>角度</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-int"><code>向上取整(x: Number) -&gt; int</code><a class="headerlink" href="#x-number-int" title="Permanent link">&para;</a></h3>
+<p>向上取整</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>int</code></p>
+<hr />
+<h3 id="x-number-int_1"><code>向下取整(x: Number) -&gt; int</code><a class="headerlink" href="#x-number-int_1" title="Permanent link">&para;</a></h3>
+<p>向下取整</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>int</code></p>
+<hr />
+<h3 id="x-number-int-0-float"><code>四舍五入(x: Number, 小数位数: int = 0) -&gt; float</code><a class="headerlink" href="#x-number-int-0-float" title="Permanent link">&para;</a></h3>
+<p>四舍五入</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>小数位数</code></td>
+<td><code>int</code></td>
+<td>（默认：0）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="int-int-int"><code>随机整数(最小值: int, 最大值: int) -&gt; int</code><a class="headerlink" href="#int-int-int" title="Permanent link">&para;</a></h3>
+<p>随机整数 [最小值, 最大值]</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>最小值</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>最大值</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>int</code></p>
+<hr />
+<h3 id="-float"><code>随机浮点() -&gt; float</code><a class="headerlink" href="#-float" title="Permanent link">&para;</a></h3>
+<p>随机浮点数 [0.0, 1.0)</p>
+<p><strong>参数：</strong></p>
+<p>无参数。</p>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="list-object"><code>随机选择(列表: List) -&gt; object</code><a class="headerlink" href="#list-object" title="Permanent link">&para;</a></h3>
+<p>从列表中随机选择一个元素</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>列表</code></td>
+<td><code>List</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>object</code></p>
+<hr />
+<h3 id="-float_1"><code>圆周率() -&gt; float</code><a class="headerlink" href="#-float_1" title="Permanent link">&para;</a></h3>
+<p>圆周率 π</p>
+<p><strong>参数：</strong></p>
+<p>无参数。</p>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="-float_2"><code>自然常数() -&gt; float</code><a class="headerlink" href="#-float_2" title="Permanent link">&para;</a></h3>
+<p>自然常数 e</p>
+<p><strong>参数：</strong></p>
+<p>无参数。</p>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="n-int-int"><code>阶乘(n: int) -&gt; int</code><a class="headerlink" href="#n-int-int" title="Permanent link">&para;</a></h3>
+<p>阶乘 n!</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>int</code></p>
+<hr />
+<h3 id="x-number-number-mathe-float"><code>对数(x: Number, 底数: Number = math.e) -&gt; float</code><a class="headerlink" href="#x-number-number-mathe-float" title="Permanent link">&para;</a></h3>
+<p>对数：log_底数(x)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>底数</code></td>
+<td><code>Number</code></td>
+<td>（默认：math.e）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_4"><code>自然对数(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_4" title="Permanent link">&para;</a></h3>
+<p>自然对数 ln(x)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_5"><code>常用对数(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_5" title="Permanent link">&para;</a></h3>
+<p>常用对数 log10(x)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="2x-number-float"><code>对数2(x: Number) -&gt; float</code><a class="headerlink" href="#2x-number-float" title="Permanent link">&para;</a></h3>
+<p>以2为底的对数 log2(x)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_6"><code>立方根(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_6" title="Permanent link">&para;</a></h3>
+<p>立方根</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_7"><code>指数(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_7" title="Permanent link">&para;</a></h3>
+<p>指数函数 e^x</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_8"><code>双曲正弦(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_8" title="Permanent link">&para;</a></h3>
+<p>双曲正弦 sinh(x)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_9"><code>双曲余弦(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_9" title="Permanent link">&para;</a></h3>
+<p>双曲余弦 cosh(x)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_10"><code>双曲正切(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_10" title="Permanent link">&para;</a></h3>
+<p>双曲正切 tanh(x)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_11"><code>反双曲正弦(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_11" title="Permanent link">&para;</a></h3>
+<p>反双曲正弦 asinh(x)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_12"><code>反双曲余弦(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_12" title="Permanent link">&para;</a></h3>
+<p>反双曲余弦 acosh(x)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_13"><code>反双曲正切(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_13" title="Permanent link">&para;</a></h3>
+<p>反双曲正切 atanh(x)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_14"><code>反正弦(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_14" title="Permanent link">&para;</a></h3>
+<p>反正弦 arcsin(x)（弧度）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_15"><code>反余弦(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_15" title="Permanent link">&para;</a></h3>
+<p>反余弦 arccos(x)（弧度）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_16"><code>反正切(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_16" title="Permanent link">&para;</a></h3>
+<p>反正切 arctan(x)（弧度）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="2y-number-x-number-float"><code>反正切2(y: Number, x: Number) -&gt; float</code><a class="headerlink" href="#2y-number-x-number-float" title="Permanent link">&para;</a></h3>
+<p>反正切2 atan2(y, x)（弧度）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>y</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_17"><code>余切(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_17" title="Permanent link">&para;</a></h3>
+<p>余切 cot(x)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_18"><code>正割(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_18" title="Permanent link">&para;</a></h3>
+<p>正割 sec(x)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_19"><code>余割(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_19" title="Permanent link">&para;</a></h3>
+<p>余割 csc(x)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_20"><code>双曲余切(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_20" title="Permanent link">&para;</a></h3>
+<p>双曲余切 coth(x)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_21"><code>双曲正割(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_21" title="Permanent link">&para;</a></h3>
+<p>双曲正割 sech(x)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_22"><code>双曲余割(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_22" title="Permanent link">&para;</a></h3>
+<p>双曲余割 csch(x)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_23"><code>弧度(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_23" title="Permanent link">&para;</a></h3>
+<p>角度转弧度（别名）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="x-number-float_24"><code>角度(x: Number) -&gt; float</code><a class="headerlink" href="#x-number-float_24" title="Permanent link">&para;</a></h3>
+<p>弧度转角度（别名）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="n-int-int_1"><code>双阶乘(n: int) -&gt; int</code><a class="headerlink" href="#n-int-int_1" title="Permanent link">&para;</a></h3>
+<p>双阶乘 n!!</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>int</code></p>
+<hr />
+<h3 id="n-int-k-int-int"><code>排列(n: int, k: int) -&gt; int</code><a class="headerlink" href="#n-int-k-int-int" title="Permanent link">&para;</a></h3>
+<p>排列数 P(n, k)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>k</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>int</code></p>
+<hr />
+<h3 id="n-int-k-int-int_1"><code>组合(n: int, k: int) -&gt; int</code><a class="headerlink" href="#n-int-k-int-int_1" title="Permanent link">&para;</a></h3>
+<p>组合数 C(n, k)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>k</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>int</code></p>
+<hr />
+<h3 id="n-int-k-int-int_2"><code>二项式系数(n: int, k: int) -&gt; int</code><a class="headerlink" href="#n-int-k-int-int_2" title="Permanent link">&para;</a></h3>
+<p>二项式系数（组合数别名）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>k</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>int</code></p>
+<hr />
+<h3 id="-float_3"><code>欧拉常数() -&gt; float</code><a class="headerlink" href="#-float_3" title="Permanent link">&para;</a></h3>
+<p>欧拉常数 γ ≈ 0.5772</p>
+<p><strong>参数：</strong></p>
+<p>无参数。</p>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="-float_4"><code>黄金比例() -&gt; float</code><a class="headerlink" href="#-float_4" title="Permanent link">&para;</a></h3>
+<p>黄金比例 φ ≈ 1.618</p>
+<p><strong>参数：</strong></p>
+<p>无参数。</p>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="-float_5"><code>弧度π() -&gt; float</code><a class="headerlink" href="#-float_5" title="Permanent link">&para;</a></h3>
+<p>π 弧度（180度）</p>
+<p><strong>参数：</strong></p>
+<p>无参数。</p>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="2-float"><code>弧度π2() -&gt; float</code><a class="headerlink" href="#2-float" title="Permanent link">&para;</a></h3>
+<p>π/2 弧度（90度）</p>
+<p><strong>参数：</strong></p>
+<p>无参数。</p>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="4-float"><code>弧度π4() -&gt; float</code><a class="headerlink" href="#4-float" title="Permanent link">&para;</a></h3>
+<p>π/4 弧度（45度）</p>
+<p><strong>参数：</strong></p>
+<p>无参数。</p>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="2-float_1"><code>弧度2π() -&gt; float</code><a class="headerlink" href="#2-float_1" title="Permanent link">&para;</a></h3>
+<p>2π 弧度（360度）</p>
+<p><strong>参数：</strong></p>
+<p>无参数。</p>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="int-int-0-float-0-float"><code>度分秒转弧度(度: int, 分: int = 0, 秒: float = 0) -&gt; float</code><a class="headerlink" href="#int-int-0-float-0-float" title="Permanent link">&para;</a></h3>
+<p>度分秒转弧度</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>度</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>分</code></td>
+<td><code>int</code></td>
+<td>（默认：0）</td>
+</tr>
+<tr>
+<td><code>秒</code></td>
+<td><code>float</code></td>
+<td>（默认：0）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="float-tuple"><code>弧度转度分秒(弧度: float) -&gt; tuple</code><a class="headerlink" href="#float-tuple" title="Permanent link">&para;</a></h3>
+<p>弧度转度分秒</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>弧度</code></td>
+<td><code>float</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>tuple</code></p>
+<hr />
+<h3 id="z-complex-float"><code>复数实部(z: complex) -&gt; float</code><a class="headerlink" href="#z-complex-float" title="Permanent link">&para;</a></h3>
+<p>复数实部</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>z</code></td>
+<td><code>complex</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="z-complex-float_1"><code>复数虚部(z: complex) -&gt; float</code><a class="headerlink" href="#z-complex-float_1" title="Permanent link">&para;</a></h3>
+<p>复数虚部</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>z</code></td>
+<td><code>complex</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="z-complex-float_2"><code>复数模(z: complex) -&gt; float</code><a class="headerlink" href="#z-complex-float_2" title="Permanent link">&para;</a></h3>
+<p>复数模（绝对值）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>z</code></td>
+<td><code>complex</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="z-complex-float_3"><code>复数辐角(z: complex) -&gt; float</code><a class="headerlink" href="#z-complex-float_3" title="Permanent link">&para;</a></h3>
+<p>复数辐角（弧度）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>z</code></td>
+<td><code>complex</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="z-complex-complex"><code>复数共轭(z: complex) -&gt; complex</code><a class="headerlink" href="#z-complex-complex" title="Permanent link">&para;</a></h3>
+<p>复数共轭</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>z</code></td>
+<td><code>complex</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>complex</code></p>
+<hr />
+<h3 id="float-float-complex"><code>复数极坐标转直角(模: float, 辐角: float) -&gt; complex</code><a class="headerlink" href="#float-float-complex" title="Permanent link">&para;</a></h3>
+<p>极坐标转直角坐标</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>模</code></td>
+<td><code>float</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>辐角</code></td>
+<td><code>float</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>complex</code></p>
+<hr />
+<h3 id="z-complex-tuple"><code>复数直角转极坐标(z: complex) -&gt; tuple</code><a class="headerlink" href="#z-complex-tuple" title="Permanent link">&para;</a></h3>
+<p>直角坐标转极坐标 (模, 辐角)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>z</code></td>
+<td><code>complex</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>tuple</code></p>
+<hr />
+<h3 id="z-complex-complex_1"><code>复数指数(z: complex) -&gt; complex</code><a class="headerlink" href="#z-complex-complex_1" title="Permanent link">&para;</a></h3>
+<p>复数指数函数 e^z</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>z</code></td>
+<td><code>complex</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>complex</code></p>
+<hr />
+<h3 id="z-complex-complex_2"><code>复数对数(z: complex) -&gt; complex</code><a class="headerlink" href="#z-complex-complex_2" title="Permanent link">&para;</a></h3>
+<p>复数对数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>z</code></td>
+<td><code>complex</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>complex</code></p>
+<hr />
+<h3 id="z-complex-complex_3"><code>复数平方根(z: complex) -&gt; complex</code><a class="headerlink" href="#z-complex-complex_3" title="Permanent link">&para;</a></h3>
+<p>复数平方根</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>z</code></td>
+<td><code>complex</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>complex</code></p>
+<hr />
+<h3 id="z-complex-complex_4"><code>复数正弦(z: complex) -&gt; complex</code><a class="headerlink" href="#z-complex-complex_4" title="Permanent link">&para;</a></h3>
+<p>复数正弦</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>z</code></td>
+<td><code>complex</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>complex</code></p>
+<hr />
+<h3 id="z-complex-complex_5"><code>复数余弦(z: complex) -&gt; complex</code><a class="headerlink" href="#z-complex-complex_5" title="Permanent link">&para;</a></h3>
+<p>复数余弦</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>z</code></td>
+<td><code>complex</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>complex</code></p>
+<hr />
+<h3 id="z-complex-complex_6"><code>复数正切(z: complex) -&gt; complex</code><a class="headerlink" href="#z-complex-complex_6" title="Permanent link">&para;</a></h3>
+<p>复数正切</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>z</code></td>
+<td><code>complex</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>complex</code></p>
+<hr />
+<h3 id="hx-number-float"><code>双曲正弦h(x: Number) -&gt; float</code><a class="headerlink" href="#hx-number-float" title="Permanent link">&para;</a></h3>
+<p>双曲正弦（简写）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="hx-number-float_1"><code>双曲余弦h(x: Number) -&gt; float</code><a class="headerlink" href="#hx-number-float_1" title="Permanent link">&para;</a></h3>
+<p>双曲余弦（简写）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="hx-number-float_2"><code>双曲正切h(x: Number) -&gt; float</code><a class="headerlink" href="#hx-number-float_2" title="Permanent link">&para;</a></h3>
+<p>双曲正切（简写）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="float-float-float"><code>随机范围(最小值: float, 最大值: float) -&gt; float</code><a class="headerlink" href="#float-float-float" title="Permanent link">&para;</a></h3>
+<p>生成指定范围内的随机浮点数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>最小值</code></td>
+<td><code>float</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>最大值</code></td>
+<td><code>float</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="list-none"><code>随机打乱(列表: List) -&gt; None</code><a class="headerlink" href="#list-none" title="Permanent link">&para;</a></h3>
+<p>随机打乱列表（原地修改）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>列表</code></td>
+<td><code>List</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>None</code></p>
+<hr />
+<h3 id="list-k-int-list"><code>随机样本(列表: List, k: int) -&gt; List</code><a class="headerlink" href="#list-k-int-list" title="Permanent link">&para;</a></h3>
+<p>从列表中随机抽取k个不重复元素</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>列表</code></td>
+<td><code>List</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>k</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>List</code></p>
+<hr />
+<h3 id="int-none-none"><code>设置随机种子(种子: int = None) -&gt; None</code><a class="headerlink" href="#int-none-none" title="Permanent link">&para;</a></h3>
+<p>设置随机数种子</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>种子</code></td>
+<td><code>int</code></td>
+<td>（默认：None）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>None</code></p>
+<hr />
+<h3 id="float-00-float-10-float"><code>正态随机(均值: float = 0.0, 标准差: float = 1.0) -&gt; float</code><a class="headerlink" href="#float-00-float-10-float" title="Permanent link">&para;</a></h3>
+<p>生成正态分布随机数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>均值</code></td>
+<td><code>float</code></td>
+<td>（默认：0.0）</td>
+</tr>
+<tr>
+<td><code>标准差</code></td>
+<td><code>float</code></td>
+<td>（默认：1.0）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="float-int"><code>泊松随机(均值: float) -&gt; int</code><a class="headerlink" href="#float-int" title="Permanent link">&para;</a></h3>
+<p>生成泊松分布随机数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>均值</code></td>
+<td><code>float</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>int</code></p>
+<hr />
+<h3 id="float-float"><code>指数随机(均值: float) -&gt; float</code><a class="headerlink" href="#float-float" title="Permanent link">&para;</a></h3>
+<p>生成指数分布随机数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>均值</code></td>
+<td><code>float</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="listnumber-float"><code>平均数(数据: List[Number]) -&gt; float</code><a class="headerlink" href="#listnumber-float" title="Permanent link">&para;</a></h3>
+<p>算术平均数</p>
+<p>参数:
+    数据: 数字列表</p>
+<p>返回:
+    平均数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>List[Number]</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="listnumber-float_1"><code>中位数(数据: List[Number]) -&gt; float</code><a class="headerlink" href="#listnumber-float_1" title="Permanent link">&para;</a></h3>
+<p>中位数</p>
+<p>参数:
+    数据: 数字列表</p>
+<p>返回:
+    中位数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>List[Number]</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="listnumber-number"><code>众数(数据: List[Number]) -&gt; Number</code><a class="headerlink" href="#listnumber-number" title="Permanent link">&para;</a></h3>
+<p>众数（出现最多的值）</p>
+<p>参数:
+    数据: 数字列表</p>
+<p>返回:
+    众数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>List[Number]</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>Number</code></p>
+<hr />
+<h3 id="listnumber-float_2"><code>标准差(数据: List[Number]) -&gt; float</code><a class="headerlink" href="#listnumber-float_2" title="Permanent link">&para;</a></h3>
+<p>总体标准差</p>
+<p>参数:
+    数据: 数字列表</p>
+<p>返回:
+    标准差</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>List[Number]</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="listnumber-float_3"><code>样本标准差(数据: List[Number]) -&gt; float</code><a class="headerlink" href="#listnumber-float_3" title="Permanent link">&para;</a></h3>
+<p>样本标准差（自由度 n-1）</p>
+<p>参数:
+    数据: 样本数据列表</p>
+<p>返回:
+    样本标准差</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>List[Number]</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="listnumber-float_4"><code>方差(数据: List[Number]) -&gt; float</code><a class="headerlink" href="#listnumber-float_4" title="Permanent link">&para;</a></h3>
+<p>总体方差</p>
+<p>参数:
+    数据: 数字列表</p>
+<p>返回:
+    方差</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>List[Number]</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="listnumber-float_5"><code>样本方差(数据: List[Number]) -&gt; float</code><a class="headerlink" href="#listnumber-float_5" title="Permanent link">&para;</a></h3>
+<p>样本方差（自由度 n-1）</p>
+<p>参数:
+    数据: 样本数据列表</p>
+<p>返回:
+    样本方差</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>List[Number]</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="listnumber-float_6"><code>范围(数据: List[Number]) -&gt; float</code><a class="headerlink" href="#listnumber-float_6" title="Permanent link">&para;</a></h3>
+<p>范围（最大值 - 最小值）</p>
+<p>参数:
+    数据: 数字列表</p>
+<p>返回:
+    范围值</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>List[Number]</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>float</code></p>
+<hr />
+<h3 id="listnumber-number_1"><code>求和(数据: List[Number]) -&gt; Number</code><a class="headerlink" href="#listnumber-number_1" title="Permanent link">&para;</a></h3>
+<p>求和</p>
+<p>参数:
+    数据: 数字列表</p>
+<p>返回:
+    总和</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>List[Number]</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>Number</code></p>
+<hr />
+<h3 id="listnumber-listnumber"><code>累积和(数据: List[Number]) -&gt; List[Number]</code><a class="headerlink" href="#listnumber-listnumber" title="Permanent link">&para;</a></h3>
+<p>累积和</p>
+<p>参数:
+    数据: 数字列表</p>
+<p>返回:
+    累积和列表（每个元素为到该位置为止的和）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>List[Number]</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>List[Number]</code></p>
+<hr />
+<h3 id="x-listnumber-y-listnumber-dict"><code>线性回归(x数据: List[Number], y数据: List[Number]) -&gt; dict</code><a class="headerlink" href="#x-listnumber-y-listnumber-dict" title="Permanent link">&para;</a></h3>
+<p>线性回归（斜率、截距、相关系数）</p>
+<p>参数:
+    x数据: X 轴数据列表
+    y数据: Y 轴数据列表</p>
+<p _截距_:="'截距':" _斜率_:="'斜率':" _相关系数_:="'相关系数':" intercept_="intercept," r="r" slope_="slope,">返回:</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x数据</code></td>
+<td><code>List[Number]</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>y数据</code></td>
+<td><code>List[Number]</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>dict</code></p>
+<hr />
+<h3 id="x-number-number_1"><code>平方(x: Number) -&gt; Number</code><a class="headerlink" href="#x-number-number_1" title="Permanent link">&para;</a></h3>
+<p>计算平方</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>Number</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>Number</code></p>
+<hr />
+<h3 id="n-int-bool"><code>是奇数(n: int) -&gt; bool</code><a class="headerlink" href="#n-int-bool" title="Permanent link">&para;</a></h3>
+<p>判断是否为奇数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>bool</code></p>
+<hr />
+<h3 id="n-int-bool_1"><code>是偶数(n: int) -&gt; bool</code><a class="headerlink" href="#n-int-bool_1" title="Permanent link">&para;</a></h3>
+<p>判断是否为偶数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>bool</code></p>
+<hr />
+<h3 id="n-int-bool_2"><code>是素数(n: int) -&gt; bool</code><a class="headerlink" href="#n-int-bool_2" title="Permanent link">&para;</a></h3>
+<p>判断是否为素数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>bool</code></p>
+<hr />
+<h3 id="int-int-int_1"><code>最大公约数(甲: int, 乙: int) -&gt; int</code><a class="headerlink" href="#int-int-int_1" title="Permanent link">&para;</a></h3>
+<p>计算最大公约数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>甲</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>乙</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>int</code></p>
+<hr />
+<h3 id="int-int-int_2"><code>最小公倍数(甲: int, 乙: int) -&gt; int</code><a class="headerlink" href="#int-int-int_2" title="Permanent link">&para;</a></h3>
+<p>计算最小公倍数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>甲</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>乙</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>int</code></p>
+<hr />
+<h3 id="n-int-int_2"><code>累加(n: int) -&gt; int</code><a class="headerlink" href="#n-int-int_2" title="Permanent link">&para;</a></h3>
+<p>计算1到n的累加和</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n</code></td>
+<td><code>int</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回：</strong> <code>int</code></p>
+<hr />
+<h2 id="_3">常量<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>常量名</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Number</code></td>
+<td><code>Union[int, float]</code></td>
+</tr>
+<tr>
+<td><code>result</code></td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>i</code></td>
+<td><code>n</code></td>
+</tr>
+<tr>
+<td><code>result</code></td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>result</code></td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>度</code></td>
+<td><code>math.degrees(弧度)</code></td>
+</tr>
+<tr>
+<td><code>整数度</code></td>
+<td><code>int(度)</code></td>
+</tr>
+<tr>
+<td><code>分</code></td>
+<td><code>(度 - 整数度) * 60</code></td>
+</tr>
+<tr>
+<td><code>整数分</code></td>
+<td><code>int(分)</code></td>
+</tr>
+<tr>
+<td><code>秒</code></td>
+<td><code>(分 - 整数分) * 60</code></td>
+</tr>
+<tr>
+<td><code>result</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>total</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(x数据)</code></td>
+</tr>
+<tr>
+<td><code>i</code></td>
+<td><code>3</code></td>
+</tr>
+<tr>
+<td><code>k</code></td>
+<td><code>n - k</code></td>
+</tr>
+<tr>
+<td><code>result</code></td>
+<td><code>result * (n - i) // (i + 1)</code></td>
+</tr>
+<tr>
+<td><code>r</code></td>
+<td><code>1.0</code></td>
+</tr>
+<tr>
+<td><code>r</code></td>
+<td><code>sum(((x数据[i] - mx) * (y数据[i] - my) for i in range(n))) / (n * sx * sy)</code></td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+  
+    
+  
+  
+    
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="最后更新">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年8月30日 18:19:48 UTC">2026年8月30日</span>
+  </span>
+
+    
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="创建日期">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年8月30日 18:19:48 UTC">2026年8月30日</span>
+  </span>
+
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/skywalk163/light" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

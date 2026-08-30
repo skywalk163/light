@@ -1,0 +1,8173 @@
+
+<!doctype html>
+<html lang="zh" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="光明编程语言 - 中文编程语言的全新可能">
+      
+      
+        <meta name="author" content="LightLang Team">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>统计分析 API - 光明 (LightLang) v7.0</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans+SC:300,300i,400,400i,700,700i%7CNoto+Sans+SC:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Noto Sans SC";--md-code-font:"Noto Sans SC"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#api" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="页眉">
+    <a href="../.." title="光明 (LightLang) v7.0" class="md-header__button md-logo" aria-label="光明 (LightLang) v7.0" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            光明 (LightLang) v7.0
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              统计分析 API
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="green"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/skywalk163/light" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    skywalk163/light
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="标签" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  首页
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  快速开始
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../user_guide/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  用户手册
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../release_notes_v6.0/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  发布说明
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../known_issues/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  已知问题
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guide/getting-started/" class="md-tabs__link">
+          
+  
+  
+  快速入门
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guide/%E5%88%86%E5%B1%82%E8%AF%AD%E6%B3%95%E5%85%A5%E9%97%A8/" class="md-tabs__link">
+          
+  
+  
+  用户指南
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../language/levels/" class="md-tabs__link">
+          
+  
+  
+  语言参考
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../stdlib/" class="md-tabs__link">
+          
+  
+  
+  标准库
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../30%E5%88%86%E9%92%9F%E5%85%A5%E9%97%A8%E5%85%89%E6%98%8E/" class="md-tabs__link">
+          
+  
+  
+  教程
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tools/cli/" class="md-tabs__link">
+          
+  
+  
+  工具
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../architecture/" class="md-tabs__link">
+          
+  
+  
+  项目
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../ecosystem/%E6%95%99%E5%AD%A6%E8%B5%84%E6%BA%90/" class="md-tabs__link">
+          
+  
+  
+  生态
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../migration/v3-to-v4/" class="md-tabs__link">
+          
+  
+  
+  迁移指南
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  API 参考
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E7%B4%A2%E5%BC%95/" class="md-tabs__link">
+          
+  
+  
+  知识库
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="https://github.com/skywalk163/light/blob/main/CHANGELOG.md" class="md-tabs__link">
+          
+  
+  
+  变更记录
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  贡献指南
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="光明 (LightLang) v7.0" class="md-nav__button md-logo" aria-label="光明 (LightLang) v7.0" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    光明 (LightLang) v7.0
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/skywalk163/light" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    skywalk163/light
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    首页
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user_guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    用户手册
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release_notes_v6.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    发布说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../known_issues/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    已知问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速入门
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    快速入门
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安装说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/vscode-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VS Code 配置
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    用户指南
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    用户指南
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/%E5%88%86%E5%B1%82%E8%AF%AD%E6%B3%95%E5%85%A5%E9%97%A8/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    分层语法入门
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/%E8%BF%81%E7%A7%BB%E6%8C%87%E5%8D%97/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    迁移指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    语言参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/levels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    五层架构详解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/l0-core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L0 核心字集
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/l1-l2-style/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L1/L2 文体
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/l3-domain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L3 领域嵌入
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/l4-foreign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L4 外语引用
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/keywords/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    关键字参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/operators/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    运算符参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/%E5%AE%8C%E6%95%B4%E8%AF%AD%E6%B3%95%E5%8F%82%E8%80%83/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    完整语法参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../syntax/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语法规范
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E5%85%89%E6%98%8E-%E5%AE%8C%E6%95%B4%E8%A7%84%E8%8C%83%E6%96%87%E6%A1%A3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    完整规范文档
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../class_system_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类系统设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trait/协议系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模式匹配
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-07-01-level6-type-annotation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    泛型与类型注解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E6%A8%A1%E5%9D%97%E7%B3%BB%E7%BB%9F%E4%B8%8E%E5%8C%85%E7%AE%A1%E7%90%86/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模块系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ffi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FFI 外部函数接口
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../HM%E5%85%A8%E5%B1%80%E7%B1%BB%E5%9E%8B%E6%8E%A8%E6%96%AD%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型推断系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E5%8F%AF%E7%A9%BA%E7%B1%BB%E5%9E%8Bunwrap%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    可空类型系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    标准库
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    数学模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/string/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    字符串处理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON 模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文件系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/datetime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    日期时间
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/regex/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    正则表达式
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../API_REFERENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考总表
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../builtins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    内置函数
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../lightpub_integration_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lightpub 生态
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_9_13" id="__nav_9_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lightpub 包文档
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    lightpub 包文档
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../lightpub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    索引与分类
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    教程
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    教程
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../30%E5%88%86%E9%92%9F%E5%85%A5%E9%97%A8%E5%85%89%E6%98%8E/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    30 分钟入门
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/%E5%85%A5%E9%97%A8%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    入门教程
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/%E8%BF%9B%E9%98%B6%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进阶教程
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%AB%AF%E5%88%B0%E7%AB%AF%E5%AE%9E%E6%88%98%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    端到端实战
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    示例代码
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工具
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    工具
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI 使用指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/playground/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Playground 使用
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/lsp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LSP 集成
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/debugger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    调试器
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工具链总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E6%90%9C%E7%B4%A2%E9%85%8D%E7%BD%AE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    搜索配置
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    项目
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    架构设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEVELOPMENT_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    开发指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84%E8%AF%B4%E6%98%8E/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目结构
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../REPL_DESIGN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REPL 设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../BOOTSTRAP_STRATEGY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    引导策略
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llvm_backend_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLVM 后端
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PERFORMANCE_OPTIMIZATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    性能优化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../OPTIMIZATION_ANALYSIS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    优化分析
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E4%B8%89%E4%B8%AA%E6%9C%88%E5%B7%A5%E4%BD%9C%E8%AE%A1%E5%88%92_2026Q3Q4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目计划
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PROGRESS_REPORT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进度报告
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    生态
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    生态
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ecosystem/%E6%95%99%E5%AD%A6%E8%B5%84%E6%BA%90/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    教学资源
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_14" >
+        
+          
+          <label class="md-nav__link" for="__nav_14" id="__nav_14_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    迁移指南
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    迁移指南
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/v3-to-v4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.3 → v4.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/v4-to-v5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v4.0 → v5.x
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_15" >
+        
+          
+          <label class="md-nav__link" for="__nav_15" id="__nav_15_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API 参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compiler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    编译器 API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_16" >
+        
+          
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    知识库
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    知识库
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E7%B4%A2%E5%BC%95/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    知识库索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E8%AF%AD%E8%A8%80%E8%A7%84%E8%8C%83/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言规范
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E5%BC%80%E5%8F%91%E6%8C%87%E5%8D%97/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    开发指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最佳实践
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17" >
+        
+          
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    变更记录
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    变更记录
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/skywalk163/light/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    版本日志
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../LANGUAGE_EXTENSIONS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言扩展历史
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_17_3" id="__nav_17_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语法变更
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_17_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    语法变更
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%BB%9F%E4%B8%80%E8%AF%AD%E6%B3%95%E8%A7%84%E8%8C%83_v3.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%BB%9F%E4%B8%80%E8%AF%AD%E6%B3%95%E8%A7%84%E8%8C%83_v3.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E8%AF%AD%E6%B3%95%E5%8F%98%E6%9B%B4_v3.4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E8%AF%AD%E6%B3%95%E5%8F%98%E6%9B%B4_v3.5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.5
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../FINAL_SUMMARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最终总结
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    贡献指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="api">统计分析 API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>模块路径：<code>stdlib/统计分析.py</code>
+导入方式：<code>从 统计分析 导入 函数名</code> 或 <code>导入 统计分析</code></p>
+</blockquote>
+<hr />
+<h2 id="_1">函数列表<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>函数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>求平均值(数据)</code></td>
+<td>求算术平均值</td>
+</tr>
+<tr>
+<td><code>求中位数(数据)</code></td>
+<td>求中位数</td>
+</tr>
+<tr>
+<td><code>求众数(数据)</code></td>
+<td>求众数（返回出现次数最多的值）</td>
+</tr>
+<tr>
+<td><code>求标准差(数据, 样本)</code></td>
+<td>求标准差（样本=True 使用样本标准差，否则总体标准差）</td>
+</tr>
+<tr>
+<td><code>求方差(数据, 样本)</code></td>
+<td>求方差（样本=True 使用样本方差，否则总体方差）</td>
+</tr>
+<tr>
+<td><code>求偏度(数据)</code></td>
+<td>计算偏度（衡量分布不对称性）</td>
+</tr>
+<tr>
+<td><code>求峰度(数据)</code></td>
+<td>计算峰度（衡量分布尾部厚度，正态分布峰度为0）</td>
+</tr>
+<tr>
+<td><code>求分位数(数据, 分位)</code></td>
+<td>求分位数（0~1 之间的分位值）</td>
+</tr>
+<tr>
+<td><code>求比例分位数(数据, 比例)</code></td>
+<td>求比例分位数（同分位数）</td>
+</tr>
+<tr>
+<td><code>求极差(数据)</code></td>
+<td>求极差（最大值减最小值）</td>
+</tr>
+<tr>
+<td><code>求四分位距(数据)</code></td>
+<td>求四分位距（Q3 - Q1）</td>
+</tr>
+<tr>
+<td><code>求协方差(数据1, 数据2)</code></td>
+<td>计算样本协方差</td>
+</tr>
+<tr>
+<td><code>求相关系数(数据1, 数据2)</code></td>
+<td>计算皮尔逊相关系数</td>
+</tr>
+<tr>
+<td><code>阶乘(n)</code></td>
+<td>阶乘（n!）</td>
+</tr>
+<tr>
+<td><code>伽马函数(x)</code></td>
+<td>伽马函数</td>
+</tr>
+<tr>
+<td><code>贝塔函数(a, b)</code></td>
+<td>贝塔函数 B(a, b)</td>
+</tr>
+<tr>
+<td><code>误差函数(x)</code></td>
+<td>误差函数</td>
+</tr>
+<tr>
+<td><code>标准正态CDF(x)</code></td>
+<td>标准正态分布累积分布函数</td>
+</tr>
+<tr>
+<td><code>标准正态分位数(p)</code></td>
+<td>标准正态分布分位数（逆CDF）</td>
+</tr>
+<tr>
+<td><code>_norm_ppf_inner(p)</code></td>
+<td>标准正态分位数内部计算</td>
+</tr>
+<tr>
+<td><code>指数(x)</code></td>
+<td>指数函数 e^x</td>
+</tr>
+<tr>
+<td><code>tDistCDF(t, df)</code></td>
+<td>t分布累积分布函数</td>
+</tr>
+<tr>
+<td><code>_math_beta_inc(x, a, b)</code></td>
+<td>不完全贝塔函数（简化实现）</td>
+</tr>
+<tr>
+<td><code>_betainc(x, a, b)</code></td>
+<td>不完全贝塔函数连分式实现</td>
+</tr>
+<tr>
+<td><code>_betacf(x, a, b)</code></td>
+<td>不完全贝塔函数的连分式求值</td>
+</tr>
+<tr>
+<td><code>卡方CDF(x, df)</code></td>
+<td>卡方分布累积分布函数</td>
+</tr>
+<tr>
+<td><code>矩阵转置(矩阵)</code></td>
+<td>矩阵转置</td>
+</tr>
+<tr>
+<td><code>矩阵乘法(矩阵A, 矩阵B)</code></td>
+<td>矩阵乘法</td>
+</tr>
+<tr>
+<td><code>矩阵求逆(矩阵)</code></td>
+<td>矩阵求逆（高斯消元法）</td>
+</tr>
+<tr>
+<td><code>求解线性方程组(A, b)</code></td>
+<td>求解线性方程组 Ax = b</td>
+</tr>
+<tr>
+<td><code>列表排序(数据, 降序)</code></td>
+<td>列表排序</td>
+</tr>
+<tr>
+<td><code>列表和(数据)</code></td>
+<td>列表求和</td>
+</tr>
+<tr>
+<td><code>列表平方和(数据)</code></td>
+<td>列表平方和</td>
+</tr>
+<tr>
+<td><code>平方根(x)</code></td>
+<td>平方根</td>
+</tr>
+<tr>
+<td><code>描述统计(数据)</code></td>
+<td>计算描述统计量，返回包含各项统计值的字典</td>
+</tr>
+<tr>
+<td><code>列表去重计数(数据)</code></td>
+<td 值:="值:" 次数="次数">列表去重计数，返回字典</td>
+</tr>
+<tr>
+<td><code>描述统计多列(数据列表, 列名列表)</code></td>
+<td>对多列数据分别计算描述统计</td>
+</tr>
+<tr>
+<td><code>频率分布(数据, 组数)</code></td>
+<td>计算频率分布</td>
+</tr>
+<tr>
+<td><code>交叉表(行数据, 列数据)</code></td>
+<td>计算交叉表（列联表）</td>
+</tr>
+<tr>
+<td><code>计算协方差(数据1, 数据2)</code></td>
+<td>计算协方差（同求协方差）</td>
+</tr>
+<tr>
+<td><code>计算相关系数(数据1, 数据2)</code></td>
+<td>计算相关系数（同求相关系数）</td>
+</tr>
+<tr>
+<td><code>计算斯皮尔曼相关系数(数据1, 数据2)</code></td>
+<td>计算斯皮尔曼等级相关系数</td>
+</tr>
+<tr>
+<td><code>计算肯德尔相关系数(数据1, 数据2)</code></td>
+<td>计算肯德尔秩相关系数</td>
+</tr>
+<tr>
+<td><code>相关矩阵(数据矩阵)</code></td>
+<td>计算相关矩阵</td>
+</tr>
+<tr>
+<td><code>协方差矩阵(数据矩阵)</code></td>
+<td>计算协方差矩阵</td>
+</tr>
+<tr>
+<td><code>正态PDF(x, 均值, 标准差)</code></td>
+<td>正态分布概率密度函数</td>
+</tr>
+<tr>
+<td><code>正态CDF(x, 均值, 标准差)</code></td>
+<td>正态分布累积分布函数</td>
+</tr>
+<tr>
+<td><code>正态PPF(p, 均值, 标准差)</code></td>
+<td>正态分布分位数函数</td>
+</tr>
+<tr>
+<td><code>正态分布(均值, 标准差, 大小)</code></td>
+<td>生成正态分布随机数</td>
+</tr>
+<tr>
+<td><code>标准正态分布(大小)</code></td>
+<td>生成标准正态分布随机数</td>
+</tr>
+<tr>
+<td><code>均匀分布(下限, 上限, 大小)</code></td>
+<td>生成均匀分布随机数</td>
+</tr>
+<tr>
+<td><code>均匀分布PDF(x, 下限, 上限)</code></td>
+<td>均匀分布概率密度函数</td>
+</tr>
+<tr>
+<td><code>均匀分布CDF(x, 下限, 上限)</code></td>
+<td>均匀分布累积分布函数</td>
+</tr>
+<tr>
+<td><code>指数分布(速率, 大小)</code></td>
+<td>生成指数分布随机数</td>
+</tr>
+<tr>
+<td><code>指数分布PDF(x, 速率)</code></td>
+<td>指数分布概率密度函数</td>
+</tr>
+<tr>
+<td><code>指数分布CDF(x, 速率)</code></td>
+<td>指数分布累积分布函数</td>
+</tr>
+<tr>
+<td><code>二项分布(n, p, 大小)</code></td>
+<td>生成二项分布随机数</td>
+</tr>
+<tr>
+<td><code>对数(x)</code></td>
+<td>自然对数</td>
+</tr>
+<tr>
+<td><code>泊松分布(lam, 大小)</code></td>
+<td>生成泊松分布随机数</td>
+</tr>
+<tr>
+<td><code>tDist(df, 大小)</code></td>
+<td>生成t分布随机数</td>
+</tr>
+<tr>
+<td><code>fDist(df1, df2, 大小)</code></td>
+<td>生成F分布随机数</td>
+</tr>
+<tr>
+<td><code>卡方分布(df, 大小)</code></td>
+<td>生成卡方分布随机数</td>
+</tr>
+<tr>
+<td><code>概率分布PDF(分布类型, x)</code></td>
+<td>通用概率分布概率密度函数</td>
+</tr>
+<tr>
+<td><code>概率分布CDF(分布类型, x)</code></td>
+<td>通用概率分布累积分布函数</td>
+</tr>
+<tr>
+<td><code>概率分布分位数(分布类型, p)</code></td>
+<td>通用概率分布分位数函数</td>
+</tr>
+<tr>
+<td><code>概率分布随机抽样(分布类型, 大小)</code></td>
+<td>通用概率分布随机抽样</td>
+</tr>
+<tr>
+<td><code>计算效应量(均值1, 均值2, 标准差1, 标准差2, n1, n2)</code></td>
+<td>计算 Cohen's d 效应量</td>
+</tr>
+<tr>
+<td><code>tTestOneSample(数据, mu)</code></td>
+<td>单样本t检验</td>
+</tr>
+<tr>
+<td><code>_t_cdf(t, df)</code></td>
+<td>t分布累积分布函数（简化实现）</td>
+</tr>
+<tr>
+<td><code>tTestTwoSample(数据1, 数据2)</code></td>
+<td>独立双样本t检验</td>
+</tr>
+<tr>
+<td><code>tTestPaired(数据1, 数据2)</code></td>
+<td>配对t检验</td>
+</tr>
+<tr>
+<td><code>卡方检验(观测频数, 期望频数)</code></td>
+<td>卡方检验</td>
+</tr>
+<tr>
+<td><code>卡方独立性检验(列联表)</code></td>
+<td>卡方独立性检验</td>
+</tr>
+<tr>
+<td><code>fTest(数据1, 数据2)</code></td>
+<td>F检验（方差齐性检验）</td>
+</tr>
+<tr>
+<td><code>曼惠特尼U检验(数据1, 数据2)</code></td>
+<td>曼惠特尼U检验（非参数检验）</td>
+</tr>
+<tr>
+<td><code>威尔科克森检验(数据1, 数据2)</code></td>
+<td>威尔科克森符号秩检验</td>
+</tr>
+<tr>
+<td><code>柯尔莫哥洛夫检验(数据, 分布)</code></td>
+<td>柯尔莫哥洛夫-斯米尔诺夫检验</td>
+</tr>
+<tr>
+<td><code>正态性检验(数据)</code></td>
+<td>正态性检验（Shapiro-Wilk 简化版）</td>
+</tr>
+<tr>
+<td><code>二项检验(成功数, 试验数, p)</code></td>
+<td>二项检验</td>
+</tr>
+<tr>
+<td><code>线性回归(x, y)</code></td>
+<td>一元线性回归</td>
+</tr>
+<tr>
+<td><code>多元线性回归(X, y)</code></td>
+<td>多元线性回归</td>
+</tr>
+<tr>
+<td><code>多项式回归(x, y, 阶数)</code></td>
+<td>多项式回归</td>
+</tr>
+<tr>
+<td><code>逻辑回归(X, y)</code></td>
+<td>逻辑回归（简化实现）</td>
+</tr>
+<tr>
+<td><code>回归结果预测(回归结果, 新数据)</code></td>
+<td>使用回归结果对新数据进行预测</td>
+</tr>
+<tr>
+<td><code>回归结果预测区间(回归结果, 新数据, 置信水平)</code></td>
+<td>回归结果预测区间</td>
+</tr>
+<tr>
+<td><code>回归结果残差(回归结果)</code></td>
+<td>获取回归结果残差</td>
+</tr>
+<tr>
+<td><code>回归结果残差图数据(回归结果)</code></td>
+<td>获取回归结果残差图数据</td>
+</tr>
+<tr>
+<td><code>回归结果摘要(回归结果)</code></td>
+<td>生成回归结果摘要字符串</td>
+</tr>
+<tr>
+<td><code>单因素方差分析(组数据)</code></td>
+<td>单因素方差分析</td>
+</tr>
+<tr>
+<td><code>双因素方差分析(数据, 行因子, 列因子)</code></td>
+<td>双因素方差分析</td>
+</tr>
+<tr>
+<td><code>重复测量方差分析(数据)</code></td>
+<td>重复测量方差分析（单因素重复测量）</td>
+</tr>
+<tr>
+<td><code>方差分析事后检验(组数据)</code></td>
+<td>方差分析事后检验（Tukey HSD）</td>
+</tr>
+<tr>
+<td><code>计算置信区间(数据, 置信水平)</code></td>
+<td>计算均值的置信区间</td>
+</tr>
+<tr>
+<td><code>计算统计检验力(均值差, 标准差, 样本量, 显著性水平)</code></td>
+<td>计算统计检验力（双样本t检验）</td>
+</tr>
+<tr>
+<td><code>计算样本量(效应量, 统计检验力, 显著性水平)</code></td>
+<td>计算所需样本量（双样本t检验）</td>
+</tr>
+<tr>
+<td><code>标准化数据(数据, 方法)</code></td>
+<td>标准化数据（zscore 或 minmax）</td>
+</tr>
+<tr>
+<td><code>最小最大标准化(数据)</code></td>
+<td>最小最大标准化（归一到0~1）</td>
+</tr>
+<tr>
+<td><code>排名(seq)</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>理论CDF(x)</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>理论CDF(x)</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="_2">函数详情<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
+<h3 id="_3"><code>求平均值(数据)</code><a class="headerlink" href="#_3" title="Permanent link">&para;</a></h3>
+<p>求算术平均值</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_4"><code>求中位数(数据)</code><a class="headerlink" href="#_4" title="Permanent link">&para;</a></h3>
+<p>求中位数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_5"><code>求众数(数据)</code><a class="headerlink" href="#_5" title="Permanent link">&para;</a></h3>
+<p>求众数（返回出现次数最多的值）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="true"><code>求标准差(数据, 样本 = True)</code><a class="headerlink" href="#true" title="Permanent link">&para;</a></h3>
+<p>求标准差（样本=True 使用样本标准差，否则总体标准差）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>样本</code></td>
+<td><code>None</code></td>
+<td>（默认：True）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="true_1"><code>求方差(数据, 样本 = True)</code><a class="headerlink" href="#true_1" title="Permanent link">&para;</a></h3>
+<p>求方差（样本=True 使用样本方差，否则总体方差）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>样本</code></td>
+<td><code>None</code></td>
+<td>（默认：True）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_6"><code>求偏度(数据)</code><a class="headerlink" href="#_6" title="Permanent link">&para;</a></h3>
+<p>计算偏度（衡量分布不对称性）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_7"><code>求峰度(数据)</code><a class="headerlink" href="#_7" title="Permanent link">&para;</a></h3>
+<p>计算峰度（衡量分布尾部厚度，正态分布峰度为0）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_8"><code>求分位数(数据, 分位)</code><a class="headerlink" href="#_8" title="Permanent link">&para;</a></h3>
+<p>求分位数（0~1 之间的分位值）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>分位</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_9"><code>求比例分位数(数据, 比例)</code><a class="headerlink" href="#_9" title="Permanent link">&para;</a></h3>
+<p>求比例分位数（同分位数）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>比例</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_10"><code>求极差(数据)</code><a class="headerlink" href="#_10" title="Permanent link">&para;</a></h3>
+<p>求极差（最大值减最小值）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_11"><code>求四分位距(数据)</code><a class="headerlink" href="#_11" title="Permanent link">&para;</a></h3>
+<p>求四分位距（Q3 - Q1）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="1-2"><code>求协方差(数据1, 数据2)</code><a class="headerlink" href="#1-2" title="Permanent link">&para;</a></h3>
+<p>计算样本协方差</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据1</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>数据2</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="1-2_1"><code>求相关系数(数据1, 数据2)</code><a class="headerlink" href="#1-2_1" title="Permanent link">&para;</a></h3>
+<p>计算皮尔逊相关系数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据1</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>数据2</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="n"><code>阶乘(n)</code><a class="headerlink" href="#n" title="Permanent link">&para;</a></h3>
+<p>阶乘（n!）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="x"><code>伽马函数(x)</code><a class="headerlink" href="#x" title="Permanent link">&para;</a></h3>
+<p>伽马函数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="a-b"><code>贝塔函数(a, b)</code><a class="headerlink" href="#a-b" title="Permanent link">&para;</a></h3>
+<p>贝塔函数 B(a, b)</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>a</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>b</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="x_1"><code>误差函数(x)</code><a class="headerlink" href="#x_1" title="Permanent link">&para;</a></h3>
+<p>误差函数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cdfx"><code>标准正态CDF(x)</code><a class="headerlink" href="#cdfx" title="Permanent link">&para;</a></h3>
+<p>标准正态分布累积分布函数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="p"><code>标准正态分位数(p)</code><a class="headerlink" href="#p" title="Permanent link">&para;</a></h3>
+<p>标准正态分布分位数（逆CDF）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>p</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_norm_ppf_innerp"><code>_norm_ppf_inner(p)</code><a class="headerlink" href="#_norm_ppf_innerp" title="Permanent link">&para;</a></h3>
+<p>标准正态分位数内部计算</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>p</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="x_2"><code>指数(x)</code><a class="headerlink" href="#x_2" title="Permanent link">&para;</a></h3>
+<p>指数函数 e^x</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="tdistcdft-df"><code>tDistCDF(t, df)</code><a class="headerlink" href="#tdistcdft-df" title="Permanent link">&para;</a></h3>
+<p>t分布累积分布函数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>t</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>df</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_math_beta_incx-a-b"><code>_math_beta_inc(x, a, b)</code><a class="headerlink" href="#_math_beta_incx-a-b" title="Permanent link">&para;</a></h3>
+<p>不完全贝塔函数（简化实现）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>a</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>b</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_betaincx-a-b"><code>_betainc(x, a, b)</code><a class="headerlink" href="#_betaincx-a-b" title="Permanent link">&para;</a></h3>
+<p>不完全贝塔函数连分式实现</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>a</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>b</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_betacfx-a-b"><code>_betacf(x, a, b)</code><a class="headerlink" href="#_betacfx-a-b" title="Permanent link">&para;</a></h3>
+<p>不完全贝塔函数的连分式求值</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>a</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>b</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cdfx-df"><code>卡方CDF(x, df)</code><a class="headerlink" href="#cdfx-df" title="Permanent link">&para;</a></h3>
+<p>卡方分布累积分布函数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>df</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_12"><code>矩阵转置(矩阵)</code><a class="headerlink" href="#_12" title="Permanent link">&para;</a></h3>
+<p>矩阵转置</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>矩阵</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="a-b_1"><code>矩阵乘法(矩阵A, 矩阵B)</code><a class="headerlink" href="#a-b_1" title="Permanent link">&para;</a></h3>
+<p>矩阵乘法</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>矩阵A</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>矩阵B</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_13"><code>矩阵求逆(矩阵)</code><a class="headerlink" href="#_13" title="Permanent link">&para;</a></h3>
+<p>矩阵求逆（高斯消元法）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>矩阵</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="a-b_2"><code>求解线性方程组(A, b)</code><a class="headerlink" href="#a-b_2" title="Permanent link">&para;</a></h3>
+<p>求解线性方程组 Ax = b</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>A</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>b</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="false"><code>列表排序(数据, 降序 = False)</code><a class="headerlink" href="#false" title="Permanent link">&para;</a></h3>
+<p>列表排序</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>降序</code></td>
+<td><code>None</code></td>
+<td>（默认：False）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_14"><code>列表和(数据)</code><a class="headerlink" href="#_14" title="Permanent link">&para;</a></h3>
+<p>列表求和</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_15"><code>列表平方和(数据)</code><a class="headerlink" href="#_15" title="Permanent link">&para;</a></h3>
+<p>列表平方和</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="x_3"><code>平方根(x)</code><a class="headerlink" href="#x_3" title="Permanent link">&para;</a></h3>
+<p>平方根</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_16"><code>描述统计(数据)</code><a class="headerlink" href="#_16" title="Permanent link">&para;</a></h3>
+<p>计算描述统计量，返回包含各项统计值的字典</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_17"><code>列表去重计数(数据)</code><a class="headerlink" href="#_17" title="Permanent link">&para;</a></h3>
+<p>列表去重计数，返回字典 {值: 次数}</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="none"><code>描述统计多列(数据列表, 列名列表 = None)</code><a class="headerlink" href="#none" title="Permanent link">&para;</a></h3>
+<p>对多列数据分别计算描述统计</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据列表</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>列名列表</code></td>
+<td><code>None</code></td>
+<td>（默认：None）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="none_1"><code>频率分布(数据, 组数 = None)</code><a class="headerlink" href="#none_1" title="Permanent link">&para;</a></h3>
+<p>计算频率分布</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>组数</code></td>
+<td><code>None</code></td>
+<td>（默认：None）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_18"><code>交叉表(行数据, 列数据)</code><a class="headerlink" href="#_18" title="Permanent link">&para;</a></h3>
+<p>计算交叉表（列联表）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>行数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>列数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="1-2_2"><code>计算协方差(数据1, 数据2)</code><a class="headerlink" href="#1-2_2" title="Permanent link">&para;</a></h3>
+<p>计算协方差（同求协方差）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据1</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>数据2</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="1-2_3"><code>计算相关系数(数据1, 数据2)</code><a class="headerlink" href="#1-2_3" title="Permanent link">&para;</a></h3>
+<p>计算相关系数（同求相关系数）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据1</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>数据2</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="1-2_4"><code>计算斯皮尔曼相关系数(数据1, 数据2)</code><a class="headerlink" href="#1-2_4" title="Permanent link">&para;</a></h3>
+<p>计算斯皮尔曼等级相关系数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据1</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>数据2</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="1-2_5"><code>计算肯德尔相关系数(数据1, 数据2)</code><a class="headerlink" href="#1-2_5" title="Permanent link">&para;</a></h3>
+<p>计算肯德尔秩相关系数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据1</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>数据2</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_19"><code>相关矩阵(数据矩阵)</code><a class="headerlink" href="#_19" title="Permanent link">&para;</a></h3>
+<p>计算相关矩阵</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据矩阵</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_20"><code>协方差矩阵(数据矩阵)</code><a class="headerlink" href="#_20" title="Permanent link">&para;</a></h3>
+<p>计算协方差矩阵</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据矩阵</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="pdfx-0-1"><code>正态PDF(x, 均值 = 0, 标准差 = 1)</code><a class="headerlink" href="#pdfx-0-1" title="Permanent link">&para;</a></h3>
+<p>正态分布概率密度函数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>均值</code></td>
+<td><code>None</code></td>
+<td>（默认：0）</td>
+</tr>
+<tr>
+<td><code>标准差</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cdfx-0-1"><code>正态CDF(x, 均值 = 0, 标准差 = 1)</code><a class="headerlink" href="#cdfx-0-1" title="Permanent link">&para;</a></h3>
+<p>正态分布累积分布函数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>均值</code></td>
+<td><code>None</code></td>
+<td>（默认：0）</td>
+</tr>
+<tr>
+<td><code>标准差</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="ppfp-0-1"><code>正态PPF(p, 均值 = 0, 标准差 = 1)</code><a class="headerlink" href="#ppfp-0-1" title="Permanent link">&para;</a></h3>
+<p>正态分布分位数函数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>p</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>均值</code></td>
+<td><code>None</code></td>
+<td>（默认：0）</td>
+</tr>
+<tr>
+<td><code>标准差</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="0-1-1"><code>正态分布(均值 = 0, 标准差 = 1, 大小 = 1)</code><a class="headerlink" href="#0-1-1" title="Permanent link">&para;</a></h3>
+<p>生成正态分布随机数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>均值</code></td>
+<td><code>None</code></td>
+<td>（默认：0）</td>
+</tr>
+<tr>
+<td><code>标准差</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+<tr>
+<td><code>大小</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="1"><code>标准正态分布(大小 = 1)</code><a class="headerlink" href="#1" title="Permanent link">&para;</a></h3>
+<p>生成标准正态分布随机数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>大小</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="0-1-1_1"><code>均匀分布(下限 = 0, 上限 = 1, 大小 = 1)</code><a class="headerlink" href="#0-1-1_1" title="Permanent link">&para;</a></h3>
+<p>生成均匀分布随机数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>下限</code></td>
+<td><code>None</code></td>
+<td>（默认：0）</td>
+</tr>
+<tr>
+<td><code>上限</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+<tr>
+<td><code>大小</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="pdfx-0-1_1"><code>均匀分布PDF(x, 下限 = 0, 上限 = 1)</code><a class="headerlink" href="#pdfx-0-1_1" title="Permanent link">&para;</a></h3>
+<p>均匀分布概率密度函数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>下限</code></td>
+<td><code>None</code></td>
+<td>（默认：0）</td>
+</tr>
+<tr>
+<td><code>上限</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cdfx-0-1_1"><code>均匀分布CDF(x, 下限 = 0, 上限 = 1)</code><a class="headerlink" href="#cdfx-0-1_1" title="Permanent link">&para;</a></h3>
+<p>均匀分布累积分布函数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>下限</code></td>
+<td><code>None</code></td>
+<td>（默认：0）</td>
+</tr>
+<tr>
+<td><code>上限</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="1-1"><code>指数分布(速率 = 1, 大小 = 1)</code><a class="headerlink" href="#1-1" title="Permanent link">&para;</a></h3>
+<p>生成指数分布随机数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>速率</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+<tr>
+<td><code>大小</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="pdfx-1"><code>指数分布PDF(x, 速率 = 1)</code><a class="headerlink" href="#pdfx-1" title="Permanent link">&para;</a></h3>
+<p>指数分布概率密度函数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>速率</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cdfx-1"><code>指数分布CDF(x, 速率 = 1)</code><a class="headerlink" href="#cdfx-1" title="Permanent link">&para;</a></h3>
+<p>指数分布累积分布函数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>速率</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="n-p-1"><code>二项分布(n, p, 大小 = 1)</code><a class="headerlink" href="#n-p-1" title="Permanent link">&para;</a></h3>
+<p>生成二项分布随机数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>大小</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="x_4"><code>对数(x)</code><a class="headerlink" href="#x_4" title="Permanent link">&para;</a></h3>
+<p>自然对数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="lam-1"><code>泊松分布(lam, 大小 = 1)</code><a class="headerlink" href="#lam-1" title="Permanent link">&para;</a></h3>
+<p>生成泊松分布随机数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lam</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>大小</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="tdistdf-1"><code>tDist(df, 大小 = 1)</code><a class="headerlink" href="#tdistdf-1" title="Permanent link">&para;</a></h3>
+<p>生成t分布随机数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>df</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>大小</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="fdistdf1-df2-1"><code>fDist(df1, df2, 大小 = 1)</code><a class="headerlink" href="#fdistdf1-df2-1" title="Permanent link">&para;</a></h3>
+<p>生成F分布随机数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>df1</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>df2</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>大小</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="df-1"><code>卡方分布(df, 大小 = 1)</code><a class="headerlink" href="#df-1" title="Permanent link">&para;</a></h3>
+<p>生成卡方分布随机数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>df</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>大小</code></td>
+<td><code>None</code></td>
+<td>（默认：1）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="pdf-x"><code>概率分布PDF(分布类型, x)</code><a class="headerlink" href="#pdf-x" title="Permanent link">&para;</a></h3>
+<p>通用概率分布概率密度函数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>分布类型</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cdf-x"><code>概率分布CDF(分布类型, x)</code><a class="headerlink" href="#cdf-x" title="Permanent link">&para;</a></h3>
+<p>通用概率分布累积分布函数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>分布类型</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="p_1"><code>概率分布分位数(分布类型, p)</code><a class="headerlink" href="#p_1" title="Permanent link">&para;</a></h3>
+<p>通用概率分布分位数函数</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>分布类型</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_21"><code>概率分布随机抽样(分布类型, 大小)</code><a class="headerlink" href="#_21" title="Permanent link">&para;</a></h3>
+<p>通用概率分布随机抽样</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>分布类型</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>大小</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="1-2-1-2-n1-n2"><code>计算效应量(均值1, 均值2, 标准差1, 标准差2, n1, n2)</code><a class="headerlink" href="#1-2-1-2-n1-n2" title="Permanent link">&para;</a></h3>
+<p>计算 Cohen's d 效应量</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>均值1</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>均值2</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>标准差1</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>标准差2</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>n1</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>n2</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="ttestonesample-mu-0"><code>tTestOneSample(数据, mu = 0)</code><a class="headerlink" href="#ttestonesample-mu-0" title="Permanent link">&para;</a></h3>
+<p>单样本t检验</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>mu</code></td>
+<td><code>None</code></td>
+<td>（默认：0）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_t_cdft-df"><code>_t_cdf(t, df)</code><a class="headerlink" href="#_t_cdft-df" title="Permanent link">&para;</a></h3>
+<p>t分布累积分布函数（简化实现）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>t</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>df</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="ttesttwosample1-2"><code>tTestTwoSample(数据1, 数据2)</code><a class="headerlink" href="#ttesttwosample1-2" title="Permanent link">&para;</a></h3>
+<p>独立双样本t检验</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据1</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>数据2</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="ttestpaired1-2"><code>tTestPaired(数据1, 数据2)</code><a class="headerlink" href="#ttestpaired1-2" title="Permanent link">&para;</a></h3>
+<p>配对t检验</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据1</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>数据2</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="none_2"><code>卡方检验(观测频数, 期望频数 = None)</code><a class="headerlink" href="#none_2" title="Permanent link">&para;</a></h3>
+<p>卡方检验</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>观测频数</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>期望频数</code></td>
+<td><code>None</code></td>
+<td>（默认：None）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_22"><code>卡方独立性检验(列联表)</code><a class="headerlink" href="#_22" title="Permanent link">&para;</a></h3>
+<p>卡方独立性检验</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>列联表</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="ftest1-2"><code>fTest(数据1, 数据2)</code><a class="headerlink" href="#ftest1-2" title="Permanent link">&para;</a></h3>
+<p>F检验（方差齐性检验）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据1</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>数据2</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="u1-2"><code>曼惠特尼U检验(数据1, 数据2)</code><a class="headerlink" href="#u1-2" title="Permanent link">&para;</a></h3>
+<p>曼惠特尼U检验（非参数检验）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据1</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>数据2</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="1-2-none"><code>威尔科克森检验(数据1, 数据2 = None)</code><a class="headerlink" href="#1-2-none" title="Permanent link">&para;</a></h3>
+<p>威尔科克森符号秩检验</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据1</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>数据2</code></td>
+<td><code>None</code></td>
+<td>（默认：None）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_23"><code>柯尔莫哥洛夫检验(数据, 分布 = '正态')</code><a class="headerlink" href="#_23" title="Permanent link">&para;</a></h3>
+<p>柯尔莫哥洛夫-斯米尔诺夫检验</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>分布</code></td>
+<td><code>None</code></td>
+<td>（默认：'正态'）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_24"><code>正态性检验(数据)</code><a class="headerlink" href="#_24" title="Permanent link">&para;</a></h3>
+<p>正态性检验（Shapiro-Wilk 简化版）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="p-05"><code>二项检验(成功数, 试验数, p = 0.5)</code><a class="headerlink" href="#p-05" title="Permanent link">&para;</a></h3>
+<p>二项检验</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>成功数</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>试验数</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>None</code></td>
+<td>（默认：0.5）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="x-y"><code>线性回归(x, y)</code><a class="headerlink" href="#x-y" title="Permanent link">&para;</a></h3>
+<p>一元线性回归</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>y</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="x-y_1"><code>多元线性回归(X, y)</code><a class="headerlink" href="#x-y_1" title="Permanent link">&para;</a></h3>
+<p>多元线性回归</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>X</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>y</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="x-y-2"><code>多项式回归(x, y, 阶数 = 2)</code><a class="headerlink" href="#x-y-2" title="Permanent link">&para;</a></h3>
+<p>多项式回归</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>y</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>阶数</code></td>
+<td><code>None</code></td>
+<td>（默认：2）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="x-y_2"><code>逻辑回归(X, y)</code><a class="headerlink" href="#x-y_2" title="Permanent link">&para;</a></h3>
+<p>逻辑回归（简化实现）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>X</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>y</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_25"><code>回归结果预测(回归结果, 新数据)</code><a class="headerlink" href="#_25" title="Permanent link">&para;</a></h3>
+<p>使用回归结果对新数据进行预测</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>回归结果</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>新数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="095"><code>回归结果预测区间(回归结果, 新数据, 置信水平 = 0.95)</code><a class="headerlink" href="#095" title="Permanent link">&para;</a></h3>
+<p>回归结果预测区间</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>回归结果</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>新数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>置信水平</code></td>
+<td><code>None</code></td>
+<td>（默认：0.95）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_26"><code>回归结果残差(回归结果)</code><a class="headerlink" href="#_26" title="Permanent link">&para;</a></h3>
+<p>获取回归结果残差</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>回归结果</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_27"><code>回归结果残差图数据(回归结果)</code><a class="headerlink" href="#_27" title="Permanent link">&para;</a></h3>
+<p>获取回归结果残差图数据</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>回归结果</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_28"><code>回归结果摘要(回归结果)</code><a class="headerlink" href="#_28" title="Permanent link">&para;</a></h3>
+<p>生成回归结果摘要字符串</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>回归结果</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_29"><code>单因素方差分析(组数据)</code><a class="headerlink" href="#_29" title="Permanent link">&para;</a></h3>
+<p>单因素方差分析</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>组数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_30"><code>双因素方差分析(数据, 行因子, 列因子)</code><a class="headerlink" href="#_30" title="Permanent link">&para;</a></h3>
+<p>双因素方差分析</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>行因子</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>列因子</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_31"><code>重复测量方差分析(数据)</code><a class="headerlink" href="#_31" title="Permanent link">&para;</a></h3>
+<p>重复测量方差分析（单因素重复测量）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_32"><code>方差分析事后检验(组数据)</code><a class="headerlink" href="#_32" title="Permanent link">&para;</a></h3>
+<p>方差分析事后检验（Tukey HSD）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>组数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="095_1"><code>计算置信区间(数据, 置信水平 = 0.95)</code><a class="headerlink" href="#095_1" title="Permanent link">&para;</a></h3>
+<p>计算均值的置信区间</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>置信水平</code></td>
+<td><code>None</code></td>
+<td>（默认：0.95）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="005"><code>计算统计检验力(均值差, 标准差, 样本量, 显著性水平 = 0.05)</code><a class="headerlink" href="#005" title="Permanent link">&para;</a></h3>
+<p>计算统计检验力（双样本t检验）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>均值差</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>标准差</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>样本量</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>显著性水平</code></td>
+<td><code>None</code></td>
+<td>（默认：0.05）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="08-005"><code>计算样本量(效应量, 统计检验力 = 0.8, 显著性水平 = 0.05)</code><a class="headerlink" href="#08-005" title="Permanent link">&para;</a></h3>
+<p>计算所需样本量（双样本t检验）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>效应量</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>统计检验力</code></td>
+<td><code>None</code></td>
+<td>（默认：0.8）</td>
+</tr>
+<tr>
+<td><code>显著性水平</code></td>
+<td><code>None</code></td>
+<td>（默认：0.05）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="zscore"><code>标准化数据(数据, 方法 = 'zscore')</code><a class="headerlink" href="#zscore" title="Permanent link">&para;</a></h3>
+<p>标准化数据（zscore 或 minmax）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>方法</code></td>
+<td><code>None</code></td>
+<td>（默认：'zscore'）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="_33"><code>最小最大标准化(数据)</code><a class="headerlink" href="#_33" title="Permanent link">&para;</a></h3>
+<p>最小最大标准化（归一到0~1）</p>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>数据</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="seq"><code>排名(seq)</code><a class="headerlink" href="#seq" title="Permanent link">&para;</a></h3>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>seq</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cdfx_1"><code>理论CDF(x)</code><a class="headerlink" href="#cdfx_1" title="Permanent link">&para;</a></h3>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cdfx_2"><code>理论CDF(x)</code><a class="headerlink" href="#cdfx_2" title="Permanent link">&para;</a></h3>
+<p><strong>参数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="_34">常量<a class="headerlink" href="#_34" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>常量名</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n</code></td>
+<td><code>len(数据)</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(数据)</code></td>
+</tr>
+<tr>
+<td><code>a1</code></td>
+<td><code>-39.69683028665376</code></td>
+</tr>
+<tr>
+<td><code>a2</code></td>
+<td><code>220.9460984245205</code></td>
+</tr>
+<tr>
+<td><code>a3</code></td>
+<td><code>-275.9285104469687</code></td>
+</tr>
+<tr>
+<td><code>a4</code></td>
+<td><code>138.357751867269</code></td>
+</tr>
+<tr>
+<td><code>a5</code></td>
+<td><code>-30.66479806614716</code></td>
+</tr>
+<tr>
+<td><code>a6</code></td>
+<td><code>2.506628277459239</code></td>
+</tr>
+<tr>
+<td><code>b1</code></td>
+<td><code>-54.47609879822406</code></td>
+</tr>
+<tr>
+<td><code>b2</code></td>
+<td><code>161.5858368580409</code></td>
+</tr>
+<tr>
+<td><code>b3</code></td>
+<td><code>-155.6989798598866</code></td>
+</tr>
+<tr>
+<td><code>b4</code></td>
+<td><code>66.80131188771972</code></td>
+</tr>
+<tr>
+<td><code>b5</code></td>
+<td><code>-13.28068155288572</code></td>
+</tr>
+<tr>
+<td><code>c1</code></td>
+<td><code>-0.007784894002430293</code></td>
+</tr>
+<tr>
+<td><code>c2</code></td>
+<td><code>-0.3223964580411365</code></td>
+</tr>
+<tr>
+<td><code>c3</code></td>
+<td><code>-2.400758277161838</code></td>
+</tr>
+<tr>
+<td><code>c4</code></td>
+<td><code>-2.549732539343734</code></td>
+</tr>
+<tr>
+<td><code>c5</code></td>
+<td><code>4.374664141464968</code></td>
+</tr>
+<tr>
+<td><code>c6</code></td>
+<td><code>2.938163982698783</code></td>
+</tr>
+<tr>
+<td><code>d1</code></td>
+<td><code>0.007784695709041462</code></td>
+</tr>
+<tr>
+<td><code>d2</code></td>
+<td><code>0.3224671290700398</code></td>
+</tr>
+<tr>
+<td><code>d3</code></td>
+<td><code>2.445134137142996</code></td>
+</tr>
+<tr>
+<td><code>d4</code></td>
+<td><code>3.754408661907416</code></td>
+</tr>
+<tr>
+<td><code>p_low</code></td>
+<td><code>0.02425</code></td>
+</tr>
+<tr>
+<td><code>p_high</code></td>
+<td><code>1.0 - p_low</code></td>
+</tr>
+<tr>
+<td><code>x</code></td>
+<td><code>df / (t * t + df)</code></td>
+</tr>
+<tr>
+<td><code>lbeta</code></td>
+<td><code>_math.lgamma(a) + _math.lgamma(b) - _math.lgamma(a + b)</code></td>
+</tr>
+<tr>
+<td><code>front</code></td>
+<td><code>_math.exp(_math.log(x) * a + _math.log(1.0 - x) * b - lbeta)</code></td>
+</tr>
+<tr>
+<td><code>MAX_ITER</code></td>
+<td><code>200</code></td>
+</tr>
+<tr>
+<td><code>EPS</code></td>
+<td><code>3e-12</code></td>
+</tr>
+<tr>
+<td><code>qab</code></td>
+<td><code>a + b</code></td>
+</tr>
+<tr>
+<td><code>qap</code></td>
+<td><code>a + 1.0</code></td>
+</tr>
+<tr>
+<td><code>qam</code></td>
+<td><code>a - 1.0</code></td>
+</tr>
+<tr>
+<td><code>c</code></td>
+<td><code>1.0</code></td>
+</tr>
+<tr>
+<td><code>d</code></td>
+<td><code>1.0 - qab * x / qap</code></td>
+</tr>
+<tr>
+<td><code>d</code></td>
+<td><code>1.0 / d</code></td>
+</tr>
+<tr>
+<td><code>h</code></td>
+<td><code>d</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(矩阵)</code></td>
+</tr>
+<tr>
+<td><code>x</code></td>
+<td><code>df / (t * t + df)</code></td>
+</tr>
+<tr>
+<td><code>lines</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>均值</code></td>
+<td><code>_stats.mean(数据)</code></td>
+</tr>
+<tr>
+<td><code>标准差</code></td>
+<td><code>_stats.pstdev(数据)</code></td>
+</tr>
+<tr>
+<td><code>偏度</code></td>
+<td><code>sum(((x - 均值) ** 3 for x in 数据)) / (n * 标准差 ** 3)</code></td>
+</tr>
+<tr>
+<td><code>均值</code></td>
+<td><code>_stats.mean(数据)</code></td>
+</tr>
+<tr>
+<td><code>标准差</code></td>
+<td><code>_stats.pstdev(数据)</code></td>
+</tr>
+<tr>
+<td><code>峰度</code></td>
+<td><code>sum(((x - 均值) ** 4 for x in 数据)) / (n * 标准差 ** 4) - 3</code></td>
+</tr>
+<tr>
+<td><code>排序数据</code></td>
+<td><code>sorted(数据)</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(排序数据)</code></td>
+</tr>
+<tr>
+<td><code>idx</code></td>
+<td><code>分位 * (n - 1)</code></td>
+</tr>
+<tr>
+<td><code>lo</code></td>
+<td><code>int(_math.floor(idx))</code></td>
+</tr>
+<tr>
+<td><code>hi</code></td>
+<td><code>int(_math.ceil(idx))</code></td>
+</tr>
+<tr>
+<td><code>q1</code></td>
+<td><code>求分位数(数据, 0.25)</code></td>
+</tr>
+<tr>
+<td><code>q3</code></td>
+<td><code>求分位数(数据, 0.75)</code></td>
+</tr>
+<tr>
+<td><code>q</code></td>
+<td><code>_math.sqrt(-2.0 * _math.log(p))</code></td>
+</tr>
+<tr>
+<td><code>d</code></td>
+<td><code>1e-30</code></td>
+</tr>
+<tr>
+<td><code>m2</code></td>
+<td><code>2 * m</code></td>
+</tr>
+<tr>
+<td><code>aa</code></td>
+<td><code>m * (b - m) * x / ((qam + m2) * (a + m2))</code></td>
+</tr>
+<tr>
+<td><code>d</code></td>
+<td><code>1.0 + aa * d</code></td>
+</tr>
+<tr>
+<td><code>c</code></td>
+<td><code>1.0 + aa / c</code></td>
+</tr>
+<tr>
+<td><code>d</code></td>
+<td><code>1.0 / d</code></td>
+</tr>
+<tr>
+<td><code>aa</code></td>
+<td><code>-(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))</code></td>
+</tr>
+<tr>
+<td><code>d</code></td>
+<td><code>1.0 + aa * d</code></td>
+</tr>
+<tr>
+<td><code>c</code></td>
+<td><code>1.0 + aa / c</code></td>
+</tr>
+<tr>
+<td><code>d</code></td>
+<td><code>1.0 / d</code></td>
+</tr>
+<tr>
+<td><code>delta</code></td>
+<td><code>d * c</code></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>len(矩阵B[0])</code></td>
+</tr>
+<tr>
+<td><code>结果</code></td>
+<td><code>[[0.0] * p for _ in range(m)]</code></td>
+</tr>
+<tr>
+<td><code>aug</code></td>
+<td><code>[row[:] + [1.0 if i == j else 0.0 for j in range(n)] for (i, row) in enumerate(矩阵)]</code></td>
+</tr>
+<tr>
+<td><code>invA</code></td>
+<td><code>矩阵求逆(A)</code></td>
+</tr>
+<tr>
+<td><code>b_col</code></td>
+<td><code>[[val] for val in b]</code></td>
+</tr>
+<tr>
+<td><code>result</code></td>
+<td><code>矩阵乘法(invA, b_col)</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(数据)</code></td>
+</tr>
+<tr>
+<td><code>均值</code></td>
+<td><code>_stats.mean(数据)</code></td>
+</tr>
+<tr>
+<td><code>方差</code></td>
+<td><code>_stats.pvariance(数据) if n &gt; 0 else 0.0</code></td>
+</tr>
+<tr>
+<td><code>标准差</code></td>
+<td><code>_math.sqrt(方差) if 方差 &gt;= 0 else 0.0</code></td>
+</tr>
+<tr>
+<td><code>结果</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(数据)</code></td>
+</tr>
+<tr>
+<td><code>min_val</code></td>
+<td><code>min(数据)</code></td>
+</tr>
+<tr>
+<td><code>max_val</code></td>
+<td><code>max(数据)</code></td>
+</tr>
+<tr>
+<td><code>组数</code></td>
+<td><code>组数 or min(int(_math.ceil(_math.sqrt(n))), 50)</code></td>
+</tr>
+<tr>
+<td><code>组距</code></td>
+<td><code>(max_val - min_val) / 组数 if 组数 &gt; 1 and max_val &gt; min_val else 1.0</code></td>
+</tr>
+<tr>
+<td><code>bins</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>行标签</code></td>
+<td><code>sorted(set(行数据))</code></td>
+</tr>
+<tr>
+<td><code>列标签</code></td>
+<td><code>sorted(set(列数据))</code></td>
+</tr>
+<tr>
+<td><code>table</code></td>
+<td><code>{r: {c: 0 for c in 列标签} for r in 行标签}</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(数据1)</code></td>
+</tr>
+<tr>
+<td><code>r1</code></td>
+<td><code>排名(数据1)</code></td>
+</tr>
+<tr>
+<td><code>r2</code></td>
+<td><code>排名(数据2)</code></td>
+</tr>
+<tr>
+<td><code>d_sum</code></td>
+<td><code>sum(((r1[i] - r2[i]) ** 2 for i in range(n)))</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(数据1)</code></td>
+</tr>
+<tr>
+<td><code>一致</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>不一致</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>total</code></td>
+<td><code>一致 + 不一致</code></td>
+</tr>
+<tr>
+<td><code>n_cols</code></td>
+<td><code>len(数据矩阵[0])</code></td>
+</tr>
+<tr>
+<td><code>cols</code></td>
+<td><code>[[row[i] for row in 数据矩阵] for i in range(n_cols)]</code></td>
+</tr>
+<tr>
+<td><code>corr</code></td>
+<td><code>[[0.0] * n_cols for _ in range(n_cols)]</code></td>
+</tr>
+<tr>
+<td><code>n_cols</code></td>
+<td><code>len(数据矩阵[0])</code></td>
+</tr>
+<tr>
+<td><code>cols</code></td>
+<td><code>[[row[i] for row in 数据矩阵] for i in range(n_cols)]</code></td>
+</tr>
+<tr>
+<td><code>cov</code></td>
+<td><code>[[0.0] * n_cols for _ in range(n_cols)]</code></td>
+</tr>
+<tr>
+<td><code>result</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>result</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>result</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>pooled_std</code></td>
+<td><code>_math.sqrt(((n1 - 1) * 标准差1 ** 2 + (n2 - 1) * 标准差2 ** 2) / (n1 + n2 - 2))</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(数据)</code></td>
+</tr>
+<tr>
+<td><code>均值</code></td>
+<td><code>_stats.mean(数据)</code></td>
+</tr>
+<tr>
+<td><code>标准差</code></td>
+<td><code>_stats.stdev(数据)</code></td>
+</tr>
+<tr>
+<td><code>se</code></td>
+<td><code>标准差 / _math.sqrt(n)</code></td>
+</tr>
+<tr>
+<td><code>t</code></td>
+<td><code>(均值 - mu) / se if se != 0 else 0.0</code></td>
+</tr>
+<tr>
+<td><code>df</code></td>
+<td><code>n - 1</code></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>2.0 * (1.0 - _t_cdf(abs(t), df))</code></td>
+</tr>
+<tr>
+<td><code>sp</code></td>
+<td><code>_math.sqrt(((n1 - 1) * 方差1 + (n2 - 1) * 方差2) / (n1 + n2 - 2))</code></td>
+</tr>
+<tr>
+<td><code>se</code></td>
+<td><code>sp * _math.sqrt(1.0 / n1 + 1.0 / n2)</code></td>
+</tr>
+<tr>
+<td><code>t</code></td>
+<td><code>(均值1 - 均值2) / se if se != 0 else 0.0</code></td>
+</tr>
+<tr>
+<td><code>df</code></td>
+<td><code>n1 + n2 - 2</code></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>2.0 * (1.0 - _t_cdf(abs(t), df))</code></td>
+</tr>
+<tr>
+<td><code>差值</code></td>
+<td><code>[数据1[i] - 数据2[i] for i in range(len(数据1))]</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(观测频数)</code></td>
+</tr>
+<tr>
+<td><code>期望</code></td>
+<td><code>期望频数 or [sum(观测频数) / n] * n</code></td>
+</tr>
+<tr>
+<td><code>chi2</code></td>
+<td><code>sum(((o - e) ** 2 / e for (o, e) in zip(观测频数, 期望) if e &gt; 0))</code></td>
+</tr>
+<tr>
+<td><code>df</code></td>
+<td><code>n - 1</code></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>1.0 - _betainc(chi2 / 2.0, df / 2.0, 1.0) if chi2 &gt; 0 else 1.0</code></td>
+</tr>
+<tr>
+<td><code>total</code></td>
+<td><code>sum((sum(row) for row in 列联表))</code></td>
+</tr>
+<tr>
+<td><code>行和</code></td>
+<td><code>[sum(row) for row in 列联表]</code></td>
+</tr>
+<tr>
+<td><code>列和</code></td>
+<td><code>[sum((列联表[i][j] for i in range(rows))) for j in range(cols)]</code></td>
+</tr>
+<tr>
+<td><code>期望表</code></td>
+<td><code>[[行和[i] * 列和[j] / total for j in range(cols)] for i in range(rows)]</code></td>
+</tr>
+<tr>
+<td><code>chi2</code></td>
+<td><code>0.0</code></td>
+</tr>
+<tr>
+<td><code>df</code></td>
+<td><code>(rows - 1) * (cols - 1)</code></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>1.0 - _betainc(chi2 / 2.0, df / 2.0, 1.0) if chi2 &gt; 0 else 1.0</code></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>2.0 * (1.0 - _betainc(df1 * f / (df1 * f + df2), df1 / 2.0, df2 / 2.0))</code></td>
+</tr>
+<tr>
+<td><code>合并</code></td>
+<td><code>sorted([(val, 0) for val in 数据1] + [(val, 1) for val in 数据2])</code></td>
+</tr>
+<tr>
+<td><code>r1</code></td>
+<td><code>sum((i + 1 for (i, (_, g)) in enumerate(合并) if g == 0))</code></td>
+</tr>
+<tr>
+<td><code>u1</code></td>
+<td><code>r1 - n1 * (n1 + 1) / 2</code></td>
+</tr>
+<tr>
+<td><code>u2</code></td>
+<td><code>n1 * n2 - u1</code></td>
+</tr>
+<tr>
+<td><code>u</code></td>
+<td><code>min(u1, u2)</code></td>
+</tr>
+<tr>
+<td><code>mu</code></td>
+<td><code>n1 * n2 / 2.0</code></td>
+</tr>
+<tr>
+<td><code>sigma</code></td>
+<td><code>_math.sqrt(n1 * n2 * (n1 + n2 + 1) / 12.0)</code></td>
+</tr>
+<tr>
+<td><code>z</code></td>
+<td><code>(u - mu) / sigma if sigma &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>2.0 * (1.0 - 标准正态CDF(abs(z)))</code></td>
+</tr>
+<tr>
+<td><code>差值</code></td>
+<td><code>[数据1[i] - 数据2[i] for i in range(len(数据1))]</code></td>
+</tr>
+<tr>
+<td><code>差值</code></td>
+<td><code>数据1</code></td>
+</tr>
+<tr>
+<td><code>nonzero</code></td>
+<td><code>[d for d in 差值 if d != 0]</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(nonzero)</code></td>
+</tr>
+<tr>
+<td><code>绝对值排名</code></td>
+<td><code>sorted([(abs(d), d) for d in nonzero], key=lambda x: x[0])</code></td>
+</tr>
+<tr>
+<td><code>ranks</code></td>
+<td><code>{}</code></td>
+</tr>
+<tr>
+<td><code>i</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>w_plus</code></td>
+<td><code>sum((rank for (d, rank) in ranks.items() if d &gt; 0))</code></td>
+</tr>
+<tr>
+<td><code>w</code></td>
+<td><code>min(w_plus, n * (n + 1) / 2 - w_plus)</code></td>
+</tr>
+<tr>
+<td><code>mu</code></td>
+<td><code>n * (n + 1) / 4.0</code></td>
+</tr>
+<tr>
+<td><code>sigma</code></td>
+<td><code>_math.sqrt(n * (n + 1) * (2 * n + 1) / 24.0)</code></td>
+</tr>
+<tr>
+<td><code>z</code></td>
+<td><code>(w - mu) / sigma if sigma &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>2.0 * (1.0 - 标准正态CDF(abs(z)))</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(数据)</code></td>
+</tr>
+<tr>
+<td><code>排序数据</code></td>
+<td><code>sorted(数据)</code></td>
+</tr>
+<tr>
+<td><code>d</code></td>
+<td><code>0.0</code></td>
+</tr>
+<tr>
+<td><code>se</code></td>
+<td><code>_math.sqrt(n) + 0.12 + 0.11 / _math.sqrt(n)</code></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>2.0 * _math.exp(-se * d * d)</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(数据)</code></td>
+</tr>
+<tr>
+<td><code>偏度</code></td>
+<td><code>求偏度(数据)</code></td>
+</tr>
+<tr>
+<td><code>峰度</code></td>
+<td><code>求峰度(数据)</code></td>
+</tr>
+<tr>
+<td><code>z_skew</code></td>
+<td><code>偏度 / _math.sqrt(6.0 / n)</code></td>
+</tr>
+<tr>
+<td><code>z_kurt</code></td>
+<td><code>峰度 / _math.sqrt(24.0 / n)</code></td>
+</tr>
+<tr>
+<td><code>chi2</code></td>
+<td><code>z_skew ** 2 + z_kurt ** 2</code></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>1.0 - _betainc(chi2 / 2.0, 1.0, 1.0) if chi2 &gt; 0 else 1.0</code></td>
+</tr>
+<tr>
+<td><code>p_obs</code></td>
+<td><code>成功数 / 试验数</code></td>
+</tr>
+<tr>
+<td><code>se</code></td>
+<td><code>_math.sqrt(p * (1 - p) / 试验数)</code></td>
+</tr>
+<tr>
+<td><code>z</code></td>
+<td><code>(p_obs - p) / se if se &gt; 0 else 0.0</code></td>
+</tr>
+<tr>
+<td><code>p_val</code></td>
+<td><code>2.0 * (1.0 - 标准正态CDF(abs(z)))</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(x)</code></td>
+</tr>
+<tr>
+<td><code>x_mean</code></td>
+<td><code>_stats.mean(x)</code></td>
+</tr>
+<tr>
+<td><code>y_mean</code></td>
+<td><code>_stats.mean(y)</code></td>
+</tr>
+<tr>
+<td><code>xy_cov</code></td>
+<td><code>sum(((x[i] - x_mean) * (y[i] - y_mean) for i in range(n)))</code></td>
+</tr>
+<tr>
+<td><code>x_var</code></td>
+<td><code>sum(((xi - x_mean) ** 2 for xi in x))</code></td>
+</tr>
+<tr>
+<td><code>斜率</code></td>
+<td><code>xy_cov / x_var</code></td>
+</tr>
+<tr>
+<td><code>截距</code></td>
+<td><code>y_mean - 斜率 * x_mean</code></td>
+</tr>
+<tr>
+<td><code>y_pred</code></td>
+<td><code>[斜率 * xi + 截距 for xi in x]</code></td>
+</tr>
+<tr>
+<td><code>残差</code></td>
+<td><code>[y[i] - y_pred[i] for i in range(n)]</code></td>
+</tr>
+<tr>
+<td><code>rss</code></td>
+<td><code>sum((r ** 2 for r in 残差))</code></td>
+</tr>
+<tr>
+<td><code>mse</code></td>
+<td><code>rss / (n - 2)</code></td>
+</tr>
+<tr>
+<td><code>斜率se</code></td>
+<td><code>_math.sqrt(mse / x_var) if x_var &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>截距se</code></td>
+<td><code>_math.sqrt(mse * (1.0 / n + x_mean ** 2 / x_var))</code></td>
+</tr>
+<tr>
+<td><code>t_slope</code></td>
+<td><code>斜率 / 斜率se if 斜率se &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>t_intercept</code></td>
+<td><code>截距 / 截距se if 截距se &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>r2</code></td>
+<td><code>1 - rss / sum(((y[i] - y_mean) ** 2 for i in range(n)))</code></td>
+</tr>
+<tr>
+<td><code>adj_r2</code></td>
+<td><code>1 - (1 - r2) * (n - 1) / (n - 2)</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(X)</code></td>
+</tr>
+<tr>
+<td><code>k</code></td>
+<td><code>len(X[0]) if X else 0</code></td>
+</tr>
+<tr>
+<td><code>X_design</code></td>
+<td><code>[[1.0] + row for row in X]</code></td>
+</tr>
+<tr>
+<td><code>Xt</code></td>
+<td><code>矩阵转置(X_design)</code></td>
+</tr>
+<tr>
+<td><code>XtX</code></td>
+<td><code>矩阵乘法(Xt, X_design)</code></td>
+</tr>
+<tr>
+<td><code>Xty</code></td>
+<td><code>矩阵乘法(Xt, [[yi] for yi in y])</code></td>
+</tr>
+<tr>
+<td><code>beta</code></td>
+<td><code>矩阵乘法(矩阵求逆(XtX), Xty)</code></td>
+</tr>
+<tr>
+<td><code>系数</code></td>
+<td><code>[row[0] for row in beta]</code></td>
+</tr>
+<tr>
+<td><code>y_pred</code></td>
+<td><code>[sum((系数[j] * X_design[i][j] for j in range(k + 1))) for i in range(n)]</code></td>
+</tr>
+<tr>
+<td><code>残差</code></td>
+<td><code>[y[i] - y_pred[i] for i in range(n)]</code></td>
+</tr>
+<tr>
+<td><code>rss</code></td>
+<td><code>sum((r ** 2 for r in 残差))</code></td>
+</tr>
+<tr>
+<td><code>mse</code></td>
+<td><code>rss / (n - k - 1) if n &gt; k + 1 else 0</code></td>
+</tr>
+<tr>
+<td><code>y_mean</code></td>
+<td><code>_stats.mean(y)</code></td>
+</tr>
+<tr>
+<td><code>tss</code></td>
+<td><code>sum(((y[i] - y_mean) ** 2 for i in range(n)))</code></td>
+</tr>
+<tr>
+<td><code>r2</code></td>
+<td><code>1 - rss / tss if tss &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>adj_r2</code></td>
+<td><code>1 - (1 - r2) * (n - 1) / (n - k - 1) if n &gt; k + 1 else r2</code></td>
+</tr>
+<tr>
+<td><code>X</code></td>
+<td><code>[[xi ** (d + 1) for d in range(阶数)] for xi in x]</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(X)</code></td>
+</tr>
+<tr>
+<td><code>k</code></td>
+<td><code>len(X[0]) if X else 0</code></td>
+</tr>
+<tr>
+<td><code>X_design</code></td>
+<td><code>[[1.0] + row for row in X]</code></td>
+</tr>
+<tr>
+<td><code>系数</code></td>
+<td><code>[0.0] * (k + 1)</code></td>
+</tr>
+<tr>
+<td><code>系数</code></td>
+<td><code>回归结果['系数']</code></td>
+</tr>
+<tr>
+<td><code>y_pred</code></td>
+<td><code>回归结果预测(回归结果, 新数据)</code></td>
+</tr>
+<tr>
+<td><code>mse</code></td>
+<td><code>回归结果['均方误差']</code></td>
+</tr>
+<tr>
+<td><code>z</code></td>
+<td><code>标准正态分位数((1 + 置信水平) / 2)</code></td>
+</tr>
+<tr>
+<td><code>margin</code></td>
+<td><code>z * _math.sqrt(mse)</code></td>
+</tr>
+<tr>
+<td><code>k</code></td>
+<td><code>len(组数据)</code></td>
+</tr>
+<tr>
+<td><code>n_total</code></td>
+<td><code>sum((len(g) for g in 组数据))</code></td>
+</tr>
+<tr>
+<td><code>all_data</code></td>
+<td><code>[val for g in 组数据 for val in g]</code></td>
+</tr>
+<tr>
+<td><code>grand_mean</code></td>
+<td><code>_stats.mean(all_data)</code></td>
+</tr>
+<tr>
+<td><code>ss_between</code></td>
+<td><code>sum((len(g) * (_stats.mean(g) - grand_mean) ** 2 for g in 组数据))</code></td>
+</tr>
+<tr>
+<td><code>ss_within</code></td>
+<td><code>sum((sum(((val - _stats.mean(g)) ** 2 for val in g)) for g in 组数据))</code></td>
+</tr>
+<tr>
+<td><code>df_between</code></td>
+<td><code>k - 1</code></td>
+</tr>
+<tr>
+<td><code>df_within</code></td>
+<td><code>n_total - k</code></td>
+</tr>
+<tr>
+<td><code>ms_between</code></td>
+<td><code>ss_between / df_between if df_between &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>ms_within</code></td>
+<td><code>ss_within / df_within if df_within &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>f</code></td>
+<td><code>ms_between / ms_within if ms_within &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>1.0 - _betainc(df_within * f / (df_within * f + df_between), df_within / 2.0, df_between / 2.0) if f &gt; 0 else 1.0</code></td>
+</tr>
+<tr>
+<td><code>grand_mean</code></td>
+<td><code>_stats.mean(数据)</code></td>
+</tr>
+<tr>
+<td><code>行标签</code></td>
+<td><code>sorted(set(行因子))</code></td>
+</tr>
+<tr>
+<td><code>列标签</code></td>
+<td><code>sorted(set(列因子))</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(数据)</code></td>
+</tr>
+<tr>
+<td><code>ss_total</code></td>
+<td><code>sum(((数据[i] - grand_mean) ** 2 for i in range(n)))</code></td>
+</tr>
+<tr>
+<td><code>ss_row</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>ss_col</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>ss_within</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>df_row</code></td>
+<td><code>len(行标签) - 1</code></td>
+</tr>
+<tr>
+<td><code>df_col</code></td>
+<td><code>len(列标签) - 1</code></td>
+</tr>
+<tr>
+<td><code>df_within</code></td>
+<td><code>n - len(行标签) * len(列标签)</code></td>
+</tr>
+<tr>
+<td><code>ms_row</code></td>
+<td><code>ss_row / df_row if df_row &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>ms_col</code></td>
+<td><code>ss_col / df_col if df_col &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>ms_within</code></td>
+<td><code>ss_within / df_within if df_within &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>f_row</code></td>
+<td><code>ms_row / ms_within if ms_within &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>f_col</code></td>
+<td><code>ms_col / ms_within if ms_within &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>p_row</code></td>
+<td><code>1.0 - _betainc(df_within * f_row / (df_within * f_row + df_row), df_within / 2.0, df_row / 2.0) if f_row &gt; 0 else 1.0</code></td>
+</tr>
+<tr>
+<td><code>p_col</code></td>
+<td><code>1.0 - _betainc(df_within * f_col / (df_within * f_col + df_col), df_within / 2.0, df_col / 2.0) if f_col &gt; 0 else 1.0</code></td>
+</tr>
+<tr>
+<td><code>k</code></td>
+<td><code>len(数据)</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(数据[0])</code></td>
+</tr>
+<tr>
+<td><code>grand_mean</code></td>
+<td><code>_stats.mean([val for g in 数据 for val in g])</code></td>
+</tr>
+<tr>
+<td><code>subject_means</code></td>
+<td><code>[_stats.mean([数据[g][i] for g in range(k)]) for i in range(n)]</code></td>
+</tr>
+<tr>
+<td><code>ss_total</code></td>
+<td><code>sum(((数据[g][i] - grand_mean) ** 2 for g in range(k) for i in range(n)))</code></td>
+</tr>
+<tr>
+<td><code>ss_treatment</code></td>
+<td><code>sum((n * (_stats.mean(g) - grand_mean) ** 2 for g in 数据))</code></td>
+</tr>
+<tr>
+<td><code>ss_subject</code></td>
+<td><code>sum((k * (subject_means[i] - grand_mean) ** 2 for i in range(n)))</code></td>
+</tr>
+<tr>
+<td><code>ss_error</code></td>
+<td><code>ss_total - ss_treatment - ss_subject</code></td>
+</tr>
+<tr>
+<td><code>df_treatment</code></td>
+<td><code>k - 1</code></td>
+</tr>
+<tr>
+<td><code>df_error</code></td>
+<td><code>(k - 1) * (n - 1)</code></td>
+</tr>
+<tr>
+<td><code>ms_treatment</code></td>
+<td><code>ss_treatment / df_treatment if df_treatment &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>ms_error</code></td>
+<td><code>ss_error / df_error if df_error &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>f</code></td>
+<td><code>ms_treatment / ms_error if ms_error &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>1.0 - _betainc(df_error * f / (df_error * f + df_treatment), df_error / 2.0, df_treatment / 2.0) if f &gt; 0 else 1.0</code></td>
+</tr>
+<tr>
+<td><code>k</code></td>
+<td><code>len(组数据)</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>sum((len(g) for g in 组数据))</code></td>
+</tr>
+<tr>
+<td><code>mse</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>results</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(数据)</code></td>
+</tr>
+<tr>
+<td><code>均值</code></td>
+<td><code>_stats.mean(数据)</code></td>
+</tr>
+<tr>
+<td><code>se</code></td>
+<td><code>_stats.stdev(数据) / _math.sqrt(n)</code></td>
+</tr>
+<tr>
+<td><code>z</code></td>
+<td><code>标准正态分位数((1 + 置信水平) / 2)</code></td>
+</tr>
+<tr>
+<td><code>margin</code></td>
+<td><code>z * se</code></td>
+</tr>
+<tr>
+<td><code>se</code></td>
+<td><code>标准差 * _math.sqrt(2.0 / 样本量)</code></td>
+</tr>
+<tr>
+<td><code>t_crit</code></td>
+<td><code>标准正态分位数(1 - 显著性水平 / 2)</code></td>
+</tr>
+<tr>
+<td><code>delta</code></td>
+<td><code>均值差 / se</code></td>
+</tr>
+<tr>
+<td><code>power</code></td>
+<td><code>1.0 - 标准正态CDF(t_crit - abs(delta))</code></td>
+</tr>
+<tr>
+<td><code>z_alpha</code></td>
+<td><code>标准正态分位数(1 - 显著性水平 / 2)</code></td>
+</tr>
+<tr>
+<td><code>z_beta</code></td>
+<td><code>标准正态分位数(统计检验力)</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>int(_math.ceil(2 * ((z_alpha + z_beta) / 效应量) ** 2))</code></td>
+</tr>
+<tr>
+<td><code>counter</code></td>
+<td><code>_Counter(数据)</code></td>
+</tr>
+<tr>
+<td><code>max_count</code></td>
+<td><code>max(counter.values())</code></td>
+</tr>
+<tr>
+<td><code>均值1</code></td>
+<td><code>_stats.mean(数据1)</code></td>
+</tr>
+<tr>
+<td><code>均值2</code></td>
+<td><code>_stats.mean(数据2)</code></td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td><code>len(数据1)</code></td>
+</tr>
+<tr>
+<td><code>协方差</code></td>
+<td><code>求协方差(数据1, 数据2)</code></td>
+</tr>
+<tr>
+<td><code>标准差1</code></td>
+<td><code>求标准差(数据1, 样本=True)</code></td>
+</tr>
+<tr>
+<td><code>标准差2</code></td>
+<td><code>求标准差(数据2, 样本=True)</code></td>
+</tr>
+<tr>
+<td><code>q</code></td>
+<td><code>p - 0.5</code></td>
+</tr>
+<tr>
+<td><code>r</code></td>
+<td><code>q * q</code></td>
+</tr>
+<tr>
+<td><code>q</code></td>
+<td><code>_math.sqrt(-2.0 * _math.log(1.0 - p))</code></td>
+</tr>
+<tr>
+<td><code>d</code></td>
+<td><code>1e-30</code></td>
+</tr>
+<tr>
+<td><code>c</code></td>
+<td><code>1e-30</code></td>
+</tr>
+<tr>
+<td><code>d</code></td>
+<td><code>1e-30</code></td>
+</tr>
+<tr>
+<td><code>c</code></td>
+<td><code>1e-30</code></td>
+</tr>
+<tr>
+<td><code>pivot</code></td>
+<td><code>i</code></td>
+</tr>
+<tr>
+<td><code>pivot_val</code></td>
+<td><code>aug[i][i]</code></td>
+</tr>
+<tr>
+<td><code>列名</code></td>
+<td><code>列名列表[i] if 列名列表 and i &lt; len(列名列表) else f'列{i}'</code></td>
+</tr>
+<tr>
+<td><code>统计</code></td>
+<td><code>描述统计(列)</code></td>
+</tr>
+<tr>
+<td><code>组数</code></td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>lo</code></td>
+<td><code>min_val + i * 组距</code></td>
+</tr>
+<tr>
+<td><code>hi</code></td>
+<td><code>lo + 组距</code></td>
+</tr>
+<tr>
+<td><code>计数</code></td>
+<td><code>sum((1 for x in 数据 if lo &lt;= x &lt; hi or (i == 组数 - 1 and x == max_val)))</code></td>
+</tr>
+<tr>
+<td><code>sorted_pairs</code></td>
+<td><code>sorted(enumerate(seq), key=lambda x: x[1])</code></td>
+</tr>
+<tr>
+<td><code>rank</code></td>
+<td><code>[0] * n</code></td>
+</tr>
+<tr>
+<td><code>i</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>L</code></td>
+<td><code>_math.exp(-lam)</code></td>
+</tr>
+<tr>
+<td><code>k</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>1.0</code></td>
+</tr>
+<tr>
+<td><code>z</code></td>
+<td><code>_random.gauss(0, 1)</code></td>
+</tr>
+<tr>
+<td><code>chi2</code></td>
+<td><code>sum((_random.gauss(0, 1) ** 2 for _ in range(int(df))))</code></td>
+</tr>
+<tr>
+<td><code>chi2_1</code></td>
+<td><code>sum((_random.gauss(0, 1) ** 2 for _ in range(int(df1))))</code></td>
+</tr>
+<tr>
+<td><code>chi2_2</code></td>
+<td><code>sum((_random.gauss(0, 1) ** 2 for _ in range(int(df2))))</code></td>
+</tr>
+<tr>
+<td><code>f</code></td>
+<td><code>方差1 / 方差2</code></td>
+</tr>
+<tr>
+<td><code>f</code></td>
+<td><code>方差2 / 方差1</code></td>
+</tr>
+<tr>
+<td><code>j</code></td>
+<td><code>i</code></td>
+</tr>
+<tr>
+<td><code>avg_rank</code></td>
+<td><code>(i + 1 + j) / 2.0</code></td>
+</tr>
+<tr>
+<td><code>i</code></td>
+<td><code>j</code></td>
+</tr>
+<tr>
+<td><code>均值</code></td>
+<td><code>参数[0] if len(参数) &gt; 0 else _stats.mean(数据)</code></td>
+</tr>
+<tr>
+<td><code>标准差</code></td>
+<td><code>参数[1] if len(参数) &gt; 1 else _stats.stdev(数据) if n &gt; 1 else 1.0</code></td>
+</tr>
+<tr>
+<td><code>ecdf</code></td>
+<td><code>(i + 1) / n</code></td>
+</tr>
+<tr>
+<td><code>cdf_val</code></td>
+<td><code>理论CDF(x)</code></td>
+</tr>
+<tr>
+<td><code>d</code></td>
+<td><code>max(d, abs(ecdf - cdf_val), abs(i / n - cdf_val))</code></td>
+</tr>
+<tr>
+<td><code>z</code></td>
+<td><code>[sum((系数[j] * X_design[i][j] for j in range(k + 1))) for i in range(n)]</code></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>[1.0 / (1.0 + _math.exp(-max(min(z[i], 100), -100))) for i in range(n)]</code></td>
+</tr>
+<tr>
+<td><code>grad</code></td>
+<td><code>[sum((X_design[i][j] * (y[i] - p[i]) for i in range(n))) for j in range(k + 1)]</code></td>
+</tr>
+<tr>
+<td><code>W</code></td>
+<td><code>[[p[i] * (1 - p[i]) if i == j else 0.0 for j in range(n)] for i in range(n)]</code></td>
+</tr>
+<tr>
+<td><code>XtW</code></td>
+<td><code>矩阵乘法(矩阵转置(X_design), W)</code></td>
+</tr>
+<tr>
+<td><code>H</code></td>
+<td><code>矩阵乘法(XtW, X_design)</code></td>
+</tr>
+<tr>
+<td><code>delta</code></td>
+<td><code>矩阵乘法(H_inv, [[g] for g in grad])</code></td>
+</tr>
+<tr>
+<td><code>delta_flat</code></td>
+<td><code>[row[0] for row in delta]</code></td>
+</tr>
+<tr>
+<td><code>系数</code></td>
+<td><code>[系数[j] + delta_flat[j] for j in range(k + 1)]</code></td>
+</tr>
+<tr>
+<td><code>idx</code></td>
+<td><code>[i for i in range(n) if 行因子[i] == r]</code></td>
+</tr>
+<tr>
+<td><code>idx</code></td>
+<td><code>[i for i in range(n) if 列因子[i] == c]</code></td>
+</tr>
+<tr>
+<td><code>均值差</code></td>
+<td><code>_stats.mean(g1) - _stats.mean(g2)</code></td>
+</tr>
+<tr>
+<td><code>se</code></td>
+<td><code>_math.sqrt(mse * (1.0 / len(g1) + 1.0 / len(g2)))</code></td>
+</tr>
+<tr>
+<td><code>q</code></td>
+<td><code>均值差 / se if se &gt; 0 else 0</code></td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td><code>2.0 * (1.0 - _t_cdf(abs(q), n - k))</code></td>
+</tr>
+<tr>
+<td><code>均值</code></td>
+<td><code>_stats.mean(数据)</code></td>
+</tr>
+<tr>
+<td><code>标准差</code></td>
+<td><code>_stats.stdev(数据) if len(数据) &gt; 1 else 1.0</code></td>
+</tr>
+<tr>
+<td><code>aik</code></td>
+<td><code>矩阵A[i][k]</code></td>
+</tr>
+<tr>
+<td><code>j</code></td>
+<td><code>i</code></td>
+</tr>
+<tr>
+<td><code>i</code></td>
+<td><code>j</code></td>
+</tr>
+<tr>
+<td><code>dx</code></td>
+<td><code>数据1[i] - 数据1[j]</code></td>
+</tr>
+<tr>
+<td><code>dy</code></td>
+<td><code>数据2[i] - 数据2[j]</code></td>
+</tr>
+<tr>
+<td><code>r</code></td>
+<td><code>求相关系数(cols[i], cols[j])</code></td>
+</tr>
+<tr>
+<td><code>c</code></td>
+<td><code>求协方差(cols[i], cols[j])</code></td>
+</tr>
+<tr>
+<td><code>下限</code></td>
+<td><code>参数[0] if len(参数) &gt; 0 else min(数据)</code></td>
+</tr>
+<tr>
+<td><code>上限</code></td>
+<td><code>参数[1] if len(参数) &gt; 1 else max(数据)</code></td>
+</tr>
+<tr>
+<td><code>H_inv</code></td>
+<td><code>矩阵求逆(H)</code></td>
+</tr>
+<tr>
+<td><code>idx</code></td>
+<td><code>[i for i in range(n) if 行因子[i] == r and 列因子[i] == c]</code></td>
+</tr>
+<tr>
+<td><code>min_val</code></td>
+<td><code>min(数据)</code></td>
+</tr>
+<tr>
+<td><code>max_val</code></td>
+<td><code>max(数据)</code></td>
+</tr>
+<tr>
+<td><code>pivot</code></td>
+<td><code>k</code></td>
+</tr>
+<tr>
+<td><code>factor</code></td>
+<td><code>aug[k][i]</code></td>
+</tr>
+<tr>
+<td><code>avg_rank</code></td>
+<td><code>sum(range(i + 1, j + 1)) / (j - i)</code></td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+  
+    
+  
+  
+    
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="最后更新">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年8月30日 18:19:48 UTC">2026年8月30日</span>
+  </span>
+
+    
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="创建日期">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年8月30日 18:19:48 UTC">2026年8月30日</span>
+  </span>
+
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/skywalk163/light" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

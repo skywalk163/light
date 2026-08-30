@@ -1,0 +1,4965 @@
+
+<!doctype html>
+<html lang="zh" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="光明编程语言 - 中文编程语言的全新可能">
+      
+      
+        <meta name="author" content="LightLang Team">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>光明类型推断器性能演进规划 - 光明 (LightLang) v7.0</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans+SC:300,300i,400,400i,700,700i%7CNoto+Sans+SC:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Noto Sans SC";--md-code-font:"Noto Sans SC"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#_1" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="页眉">
+    <a href=".." title="光明 (LightLang) v7.0" class="md-header__button md-logo" aria-label="光明 (LightLang) v7.0" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            光明 (LightLang) v7.0
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              光明类型推断器性能演进规划
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="green"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/skywalk163/light" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    skywalk163/light
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="标签" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  首页
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  快速开始
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../user_guide/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  用户手册
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../release_notes_v6.0/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  发布说明
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../known_issues/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  已知问题
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guide/getting-started/" class="md-tabs__link">
+          
+  
+  
+  快速入门
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guide/%E5%88%86%E5%B1%82%E8%AF%AD%E6%B3%95%E5%85%A5%E9%97%A8/" class="md-tabs__link">
+          
+  
+  
+  用户指南
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../language/levels/" class="md-tabs__link">
+          
+  
+  
+  语言参考
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../stdlib/" class="md-tabs__link">
+          
+  
+  
+  标准库
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../30%E5%88%86%E9%92%9F%E5%85%A5%E9%97%A8%E5%85%89%E6%98%8E/" class="md-tabs__link">
+          
+  
+  
+  教程
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tools/cli/" class="md-tabs__link">
+          
+  
+  
+  工具
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../architecture/" class="md-tabs__link">
+          
+  
+  
+  项目
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../ecosystem/%E6%95%99%E5%AD%A6%E8%B5%84%E6%BA%90/" class="md-tabs__link">
+          
+  
+  
+  生态
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../migration/v3-to-v4/" class="md-tabs__link">
+          
+  
+  
+  迁移指南
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/" class="md-tabs__link">
+          
+  
+  
+  API 参考
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E7%B4%A2%E5%BC%95/" class="md-tabs__link">
+          
+  
+  
+  知识库
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="https://github.com/skywalk163/light/blob/main/CHANGELOG.md" class="md-tabs__link">
+          
+  
+  
+  变更记录
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  贡献指南
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="光明 (LightLang) v7.0" class="md-nav__button md-logo" aria-label="光明 (LightLang) v7.0" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    光明 (LightLang) v7.0
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/skywalk163/light" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    skywalk163/light
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    首页
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user_guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    用户手册
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release_notes_v6.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    发布说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../known_issues/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    已知问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速入门
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    快速入门
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安装说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/vscode-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VS Code 配置
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    用户指南
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    用户指南
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/%E5%88%86%E5%B1%82%E8%AF%AD%E6%B3%95%E5%85%A5%E9%97%A8/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    分层语法入门
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/%E8%BF%81%E7%A7%BB%E6%8C%87%E5%8D%97/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    迁移指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    语言参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/levels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    五层架构详解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/l0-core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L0 核心字集
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/l1-l2-style/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L1/L2 文体
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/l3-domain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L3 领域嵌入
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/l4-foreign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L4 外语引用
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/keywords/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    关键字参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/operators/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    运算符参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/%E5%AE%8C%E6%95%B4%E8%AF%AD%E6%B3%95%E5%8F%82%E8%80%83/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    完整语法参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语法规范
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E5%85%89%E6%98%8E-%E5%AE%8C%E6%95%B4%E8%A7%84%E8%8C%83%E6%96%87%E6%A1%A3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    完整规范文档
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class_system_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类系统设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interface-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trait/协议系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interface-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模式匹配
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-07-01-level6-type-annotation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    泛型与类型注解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E6%A8%A1%E5%9D%97%E7%B3%BB%E7%BB%9F%E4%B8%8E%E5%8C%85%E7%AE%A1%E7%90%86/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模块系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ffi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FFI 外部函数接口
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../HM%E5%85%A8%E5%B1%80%E7%B1%BB%E5%9E%8B%E6%8E%A8%E6%96%AD%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型推断系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E5%8F%AF%E7%A9%BA%E7%B1%BB%E5%9E%8Bunwrap%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    可空类型系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    标准库
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    数学模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/string/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    字符串处理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON 模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文件系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/datetime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    日期时间
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/regex/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    正则表达式
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../API_REFERENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考总表
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/builtins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    内置函数
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lightpub_integration_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lightpub 生态
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_9_13" id="__nav_9_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lightpub 包文档
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    lightpub 包文档
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lightpub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    索引与分类
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    教程
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    教程
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../30%E5%88%86%E9%92%9F%E5%85%A5%E9%97%A8%E5%85%89%E6%98%8E/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    30 分钟入门
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/%E5%85%A5%E9%97%A8%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    入门教程
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/%E8%BF%9B%E9%98%B6%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进阶教程
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%AB%AF%E5%88%B0%E7%AB%AF%E5%AE%9E%E6%88%98%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    端到端实战
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    示例代码
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工具
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    工具
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI 使用指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/playground/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Playground 使用
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/lsp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LSP 集成
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/debugger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    调试器
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工具链总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E6%90%9C%E7%B4%A2%E9%85%8D%E7%BD%AE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    搜索配置
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    项目
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    架构设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEVELOPMENT_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    开发指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84%E8%AF%B4%E6%98%8E/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目结构
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../REPL_DESIGN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REPL 设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../BOOTSTRAP_STRATEGY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    引导策略
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../llvm_backend_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLVM 后端
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PERFORMANCE_OPTIMIZATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    性能优化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../OPTIMIZATION_ANALYSIS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    优化分析
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E4%B8%89%E4%B8%AA%E6%9C%88%E5%B7%A5%E4%BD%9C%E8%AE%A1%E5%88%92_2026Q3Q4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目计划
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PROGRESS_REPORT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进度报告
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    生态
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    生态
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ecosystem/%E6%95%99%E5%AD%A6%E8%B5%84%E6%BA%90/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    教学资源
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_14" >
+        
+          
+          <label class="md-nav__link" for="__nav_14" id="__nav_14_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    迁移指南
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    迁移指南
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration/v3-to-v4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.3 → v4.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration/v4-to-v5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v4.0 → v5.x
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_15" >
+        
+          
+          <label class="md-nav__link" for="__nav_15" id="__nav_15_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API 参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/compiler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    编译器 API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_16" >
+        
+          
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    知识库
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    知识库
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E7%B4%A2%E5%BC%95/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    知识库索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E8%AF%AD%E8%A8%80%E8%A7%84%E8%8C%83/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言规范
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E5%BC%80%E5%8F%91%E6%8C%87%E5%8D%97/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    开发指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最佳实践
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17" >
+        
+          
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    变更记录
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    变更记录
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/skywalk163/light/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    版本日志
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../LANGUAGE_EXTENSIONS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言扩展历史
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_17_3" id="__nav_17_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语法变更
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_17_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    语法变更
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%BB%9F%E4%B8%80%E8%AF%AD%E6%B3%95%E8%A7%84%E8%8C%83_v3.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%BB%9F%E4%B8%80%E8%AF%AD%E6%B3%95%E8%A7%84%E8%8C%83_v3.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E8%AF%AD%E6%B3%95%E5%8F%98%E6%9B%B4_v3.4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E8%AF%AD%E6%B3%95%E5%8F%98%E6%9B%B4_v3.5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.5
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../FINAL_SUMMARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最终总结
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    贡献指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="_1">光明类型推断器性能演进规划<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>版本: v1.0 | 日期: 2026-08-04 | 基于 v4.2.0 基准数据</p>
+</blockquote>
+<hr />
+<h2 id="0">0. 汇报摘要：阶段目标对比总表<a class="headerlink" href="#0" title="Permanent link">&para;</a></h2>
+<h3 id="a">表 A：阶段概览<a class="headerlink" href="#a" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>对应版本</th>
+<th>目标规模</th>
+<th>推断时间目标</th>
+<th>触发条件</th>
+<th>优化项数</th>
+<th>累计风险</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0（当前）</td>
+<td>v4.2.0</td>
+<td>&lt;200 段</td>
+<td>&lt;20 ms</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>1</td>
+<td>v4.3.0</td>
+<td>200–500 段</td>
+<td>&lt;50 ms</td>
+<td>实测 &gt;30ms 或 规模达 200 段</td>
+<td>3</td>
+<td>低</td>
+</tr>
+<tr>
+<td>2</td>
+<td>v4.4.0</td>
+<td>500–2000 段</td>
+<td>&lt;100 ms</td>
+<td>实测 &gt;100ms 或 IDE 延迟感知</td>
+<td>3</td>
+<td>中</td>
+</tr>
+<tr>
+<td>3</td>
+<td>v5.0.0</td>
+<td>2000+ 段</td>
+<td>&lt;200 ms</td>
+<td>实测 &gt;200ms 或 规模达 2000 段</td>
+<td>3</td>
+<td>高</td>
+</tr>
+</tbody>
+</table>
+<h3 id="bv420">表 B：当前基准数据（v4.2.0）<a class="headerlink" href="#bv420" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>数据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>100 段推断时间</td>
+<td>~8.8 ms</td>
+</tr>
+<tr>
+<td>时间增长曲线</td>
+<td>接近线性 O(n)</td>
+</tr>
+<tr>
+<td>内存占用（100 段）</td>
+<td>~166 KB</td>
+</tr>
+<tr>
+<td>最热路径</td>
+<td><code>is_instance</code>（4,095 次）、<code>unify</code>（436 次）、<code>apply_substitution</code>（1,395 次）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="c">表 C：各阶段优化项明细<a class="headerlink" href="#c" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>优化项</th>
+<th>针对热点</th>
+<th>预期总提升</th>
+<th>风险</th>
+<th>改动文件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>is_instance</code> → 整数分派</td>
+<td>语句分发（4,095 次）</td>
+<td>15–25%</td>
+<td>低</td>
+<td><code>ast_nodes.py</code>、<code>type_inferencer.py</code></td>
+</tr>
+<tr>
+<td>1</td>
+<td><code>TypeSubstitution</code> CoW</td>
+<td>对象创建（617 次）</td>
+<td>5–10%</td>
+<td>低</td>
+<td><code>type_system.py</code></td>
+</tr>
+<tr>
+<td>1</td>
+<td><code>apply_substitution</code> 单例短路</td>
+<td>替换调用（1,395 次）</td>
+<td>3–5%</td>
+<td>极低</td>
+<td><code>type_system.py</code></td>
+</tr>
+<tr>
+<td><strong>1 合计</strong></td>
+<td></td>
+<td></td>
+<td><strong>25–40%</strong></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>2</td>
+<td>调用图拓扑迭代</td>
+<td>HM 两轮冗余</td>
+<td>30–40%</td>
+<td>中</td>
+<td><code>type_inferencer.py</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td>增量推断缓存</td>
+<td>全量重推断</td>
+<td>50–80%（IDE 场景）</td>
+<td>中</td>
+<td><code>type_inferencer.py</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>unify</code> 快速路径</td>
+<td>跨类型合一</td>
+<td>15–20%</td>
+<td>低</td>
+<td><code>type_system.py</code></td>
+</tr>
+<tr>
+<td><strong>2 合计</strong></td>
+<td></td>
+<td></td>
+<td><strong>60–85%</strong>（IDE 场景）</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>3</td>
+<td>并行段推断</td>
+<td>串行推断</td>
+<td>40–60%</td>
+<td>高</td>
+<td><code>type_inferencer.py</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td>符号表全局索引</td>
+<td>深层作用域查找</td>
+<td>50–70%</td>
+<td>低</td>
+<td><code>type_system.py</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td>类型解析 LRU 缓存</td>
+<td>重复解析注解</td>
+<td>90%</td>
+<td>极低</td>
+<td><code>type_system.py</code></td>
+</tr>
+<tr>
+<td><strong>3 合计</strong></td>
+<td></td>
+<td></td>
+<td><strong>70–90%</strong></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="d">表 D：推断时间随规模增长预估<a class="headerlink" href="#d" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>模块规模</th>
+<th>阶段 0（当前）</th>
+<th>阶段 1 后（预估）</th>
+<th>阶段 2 后（预估）</th>
+<th>阶段 3 后（预估）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10 段</td>
+<td>~1.8 ms</td>
+<td>~1.2 ms</td>
+<td>&lt;1 ms</td>
+<td>&lt;1 ms</td>
+</tr>
+<tr>
+<td>50 段</td>
+<td>~5.8 ms</td>
+<td>~4.0 ms</td>
+<td>~2.5 ms</td>
+<td>~1.5 ms</td>
+</tr>
+<tr>
+<td>100 段</td>
+<td>~8.8 ms</td>
+<td>~6.0 ms</td>
+<td>~3.5 ms</td>
+<td>~2.0 ms</td>
+</tr>
+<tr>
+<td>500 段</td>
+<td>~45 ms（估）</td>
+<td>~30 ms</td>
+<td>~15 ms</td>
+<td>~8 ms</td>
+</tr>
+<tr>
+<td>2000 段</td>
+<td>~180 ms（估）</td>
+<td>~120 ms</td>
+<td>~60 ms</td>
+<td>~30 ms</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-v420">1. 当前基准（v4.2.0）<a class="headerlink" href="#1-v420" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>数据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>100 段模块推断时间</td>
+<td>~8.8 ms</td>
+</tr>
+<tr>
+<td>50 个类型变量推断时间</td>
+<td>~5.1 ms</td>
+</tr>
+<tr>
+<td>30 层嵌套调用推断时间</td>
+<td>~6.4 ms</td>
+</tr>
+<tr>
+<td>100 段内存占用</td>
+<td>~166 KB</td>
+</tr>
+<tr>
+<td>时间增长曲线</td>
+<td>接近线性（O(n)）</td>
+</tr>
+<tr>
+<td>最热路径</td>
+<td><code>is_instance</code>（4,095 次/100段）、<code>unify</code>（436 次）、<code>apply_substitution</code>（1,395 次）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>结论</strong>：当前规模（&lt;200 段）性能充裕，无需优化。</p>
+<hr />
+<h2 id="2">2. 目标定义<a class="headerlink" href="#2" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>目标规模</th>
+<th>推断时间目标</th>
+<th>触发条件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>阶段 0（当前）</td>
+<td>&lt;200 段</td>
+<td>&lt;20 ms</td>
+<td>—</td>
+</tr>
+<tr>
+<td>阶段 1</td>
+<td>200–500 段</td>
+<td>&lt;50 ms</td>
+<td>实测 &gt;30ms 时启动</td>
+</tr>
+<tr>
+<td>阶段 2</td>
+<td>500–2000 段</td>
+<td>&lt;100 ms</td>
+<td>阶段 1 完成后评估</td>
+</tr>
+<tr>
+<td>阶段 3</td>
+<td>2000+ 段</td>
+<td>&lt;200 ms</td>
+<td>阶段 2 完成后评估</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-1200500">3. 阶段 1：低风险优化（200–500 段）<a class="headerlink" href="#3-1200500" title="Permanent link">&para;</a></h2>
+<h3 id="31-is_instance-type_id">3.1 <code>is_instance</code> 改为 <code>type_id</code> 整数分派<a class="headerlink" href="#31-is_instance-type_id" title="Permanent link">&para;</a></h3>
+<p><strong>现状</strong>：<a href="file:///d:/traework/light/src/type_inferencer.py#L53-L57">type_inferencer.py</a> 每次 <code>type(node).__name__</code> 做字符串比较，占函数调用总次数的 <strong>25%</strong>。</p>
+<p><strong>方案</strong>：为所有 AST 节点添加 <code>_ast_type_id</code> 整数常量，用 <code>node._ast_type_id == AST_ID_RETURN_STMT</code> 替代 <code>is_instance(node, 'ReturnStatement')</code>。</p>
+<p><strong>改动范围</strong>：
+- <code>ast_nodes.py</code>：为每个节点类添加 <code>_ast_type_id</code> 类属性
+- <code>type_inferencer.py</code>：<code>_infer_statement</code> 和 <code>_infer_expr</code> 中的 <code>is_instance</code> 调用替换为 <code>_ast_type_id</code> 整数比较</p>
+<p><strong>预期收益</strong>：<code>_infer_statement</code> / <code>_infer_expr</code> 分发开销降低 <strong>60–70%</strong>，总推断时间降低 <strong>15–25%</strong>。</p>
+<p><strong>风险</strong>：低。<code>_ast_type_id</code> 在类定义时静态赋值，不依赖运行时状态。</p>
+<h3 id="32-typesubstitutionclone-copy-on-write">3.2 <code>TypeSubstitution.clone()</code> 改为 Copy-on-Write<a class="headerlink" href="#32-typesubstitutionclone-copy-on-write" title="Permanent link">&para;</a></h3>
+<p><strong>现状</strong>：<a href="file:///d:/traework/light/src/type_system.py#L947-L949">type_system.py</a> 每次 <code>_unify_type_var</code> 调用 <code>subs.clone()</code> 创建新字典，<code>TypeSubstitution.__init__</code> 被调用 <strong>617 次/100段</strong>。</p>
+<p><strong>方案</strong>：<code>TypeSubstitution</code> 内部维护一个 <code>_frozen</code> 标记和版本号。<code>clone()</code> 返回一个"浅代理"对象，只在真正写入时才复制底层字典。</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">TypeSubstitution</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">_parent</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span> <span class="k">if</span> <span class="n">mapping</span> <span class="k">else</span> <span class="p">{}</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_parent</span> <span class="o">=</span> <span class="n">_parent</span>  <span class="c1"># CoW 父对象</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_dirty</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>     <span class="c1"># 本层修改的 key</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="k">return</span> <span class="n">TypeSubstitution</span><span class="p">(</span><span class="n">_parent</span><span class="o">=</span><span class="bp">self</span><span class="p">)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_dirty</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dirty</span><span class="p">:</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>            <span class="k">return</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent</span><span class="p">:</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>            <span class="k">return</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>        <span class="k">return</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span>
+</span></code></pre></div>
+<p><strong>预期收益</strong>：<code>TypeSubstitution</code> 创建开销降低 <strong>80%</strong>，总推断时间降低 <strong>5–10%</strong>。</p>
+<p><strong>风险</strong>：低。接口不变，仅内部实现优化。</p>
+<h3 id="33-apply_substitution">3.3 <code>apply_substitution</code> 单例短路<a class="headerlink" href="#33-apply_substitution" title="Permanent link">&para;</a></h3>
+<p><strong>现状</strong>：<code>TYPE_NUMBER</code>、<code>TYPE_STRING</code> 等单例类型在 <code>apply_substitution</code> 中仍走完整调用链，但实际永远返回自身。</p>
+<p><strong>方案</strong>：在 <code>Type.apply_substitution</code> 基类中增加快速路径：</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">Type</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">apply_substitution</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subs</span><span class="p">):</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">subs</span><span class="p">:</span>  <span class="c1"># 空替换直接返回</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>            <span class="k">return</span> <span class="bp">self</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        <span class="k">return</span> <span class="bp">self</span>  <span class="c1"># 基类默认：单例类型无需替换</span>
+</span></code></pre></div>
+<p><code>_SingletonType</code> 子类直接继承此行为，无需额外代码。</p>
+<p><strong>预期收益</strong>：<code>apply_substitution</code> 调用开销降低 <strong>10–15%</strong>，总推断时间降低 <strong>3–5%</strong>。</p>
+<p><strong>风险</strong>：极低。单例类型确实不需要替换。</p>
+<hr />
+<h2 id="4-25002000">4. 阶段 2：结构性优化（500–2000 段）<a class="headerlink" href="#4-25002000" title="Permanent link">&para;</a></h2>
+<h3 id="41-hm">4.1 基于调用图的 HM 迭代优化<a class="headerlink" href="#41-hm" title="Permanent link">&para;</a></h3>
+<p><strong>现状</strong>：<a href="file:///d:/traework/light/src/type_inferencer.py#L408">type_inferencer.py</a> 固定两轮迭代所有段。对于无相互调用的段，第二轮是浪费。</p>
+<p><strong>方案</strong>：在 <code>_pre_scan_definitions</code> 阶段构建调用图（段名 → 被调用段名集合），用拓扑排序确定迭代次数：</p>
+<ul>
+<li>无环子图：1 轮</li>
+<li>有环子图（相互递归）：2 轮</li>
+<li>深度嵌套链：按拓扑层级分组，逐层推断</li>
+</ul>
+<p><strong>预期收益</strong>：对于无相互调用的大模块，推断时间降低 <strong>30–40%</strong>（省掉一轮迭代）。</p>
+<p><strong>风险</strong>：中。需要正确处理间接调用（高阶函数）、动态分发等场景。</p>
+<h3 id="42">4.2 增量推断缓存<a class="headerlink" href="#42" title="Permanent link">&para;</a></h3>
+<p><strong>现状</strong>：每次 <code>infer()</code> 调用都重新推断整个模块，即使只有少数段发生变化。</p>
+<p><strong>方案</strong>：为每个段维护 <code>(源码哈希, 依赖段签名哈希) → 推断结果</code> 缓存。仅重新推断发生变化的段及其依赖链。</p>
+<p><strong>改动范围</strong>：
+- <code>TypeInferencer</code> 增加 <code>_segment_cache: Dict[str, CacheEntry]</code>
+- <code>infer()</code> 新增 <code>incremental=True</code> 参数</p>
+<p><strong>预期收益</strong>：IDE 场景下（单文件编辑后重新推断），时间降低 <strong>50–80%</strong>。</p>
+<p><strong>风险</strong>：中。需要正确处理跨段类型变量传播和缓存失效。</p>
+<h3 id="43-unify">4.3 <code>unify</code> 快速路径扩展<a class="headerlink" href="#43-unify" title="Permanent link">&para;</a></h3>
+<p><strong>现状</strong>：<a href="file:///d:/traework/light/src/type_system.py#L771-L912">type_system.py</a> 已用 <code>_type_id</code> 整数分派，但 <code>GenericTypeInstance ↔ ListType/DictType</code> 的跨类型合一仍需逐字段检查。</p>
+<p><strong>方案</strong>：为常见合一模式（如 <code>列表[T] ~ 列表[数]</code>、<code>T ~ 数</code>）添加内联快速路径，跳过 <code>apply_substitution</code> + <code>collect_type_vars</code> 的完整调用。</p>
+<p><strong>预期收益</strong>：<code>unify</code> 调用开销降低 <strong>15–20%</strong>。</p>
+<p><strong>风险</strong>：低。增加分支但不改变逻辑。</p>
+<hr />
+<h2 id="5-32000">5. 阶段 3：架构级优化（2000+ 段）<a class="headerlink" href="#5-32000" title="Permanent link">&para;</a></h2>
+<h3 id="51">5.1 并行段推断<a class="headerlink" href="#51" title="Permanent link">&para;</a></h3>
+<p><strong>现状</strong>：<code>_hm_infer_module</code> 中所有段按顺序推断。</p>
+<p><strong>方案</strong>：对于调用图中无依赖关系的段，使用 <code>concurrent.futures</code> 并行推断。每个段在独立的作用域副本中推断，最后合并符号表。</p>
+<p><strong>预期收益</strong>：多核环境下推断时间降低 <strong>40–60%</strong>（取决于并行度）。</p>
+<p><strong>风险</strong>：高。需要确保 <code>TypeSymbolTable</code> 和 <code>TypeSubstitution</code> 的线程安全，以及 <code>type_cache</code> 的隔离。</p>
+<h3 id="52">5.2 符号表索引优化<a class="headerlink" href="#52" title="Permanent link">&para;</a></h3>
+<p><strong>现状</strong>：<a href="file:///d:/traework/light/src/type_system.py#L1027-L1032">type_system.py</a> <code>TypeSymbolTable.lookup</code> 逐层遍历作用域栈，O(d) 复杂度（d = 嵌套深度）。</p>
+<p><strong>方案</strong>：为全局符号（类名、段名、枚举名）维护一个扁平化的 <code>_global_index: Dict[str, TypedSymbol]</code>，避免深层作用域穿透。</p>
+<p><strong>预期收益</strong>：深层嵌套模块中符号查找开销降低 <strong>50–70%</strong>。</p>
+<p><strong>风险</strong>：低。全局符号与局部作用域隔离，不会冲突。</p>
+<h3 id="53">5.3 类型表达式解析缓存<a class="headerlink" href="#53" title="Permanent link">&para;</a></h3>
+<p><strong>现状</strong>：<code>TypeParser.parse()</code> 每次重新解析类型注解字符串（如 <code>列表[字典[串: 数]]</code>）。</p>
+<p><strong>方案</strong>：为 <code>TypeParser</code> 添加 LRU 缓存（<code>@lru_cache(maxsize=512)</code>），相同类型字符串直接返回缓存结果。</p>
+<p><strong>预期收益</strong>：类型注解解析开销降低 <strong>90%</strong>（类型注解在模块内高度重复）。</p>
+<p><strong>风险</strong>：极低。<code>TypeParser.parse()</code> 是纯函数。</p>
+<hr />
+<h2 id="6">6. 实施路线图<a class="headerlink" href="#6" title="Permanent link">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>v4.2.0（当前）         v4.3.0                v4.4.0                v5.0.0
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    │                    │                     │                     │
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    ├─ 阶段 0            ├─ 阶段 1             ├─ 阶段 2             ├─ 阶段 3
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    │  &lt;200 段           │  200–500 段         │  500–2000 段        │  2000+ 段
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    │  无需优化           │                     │                     │
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    │                    │  3.1 is_instance    │  4.1 调用图优化      │  5.1 并行推断
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    │                    │  3.2 CoW 替换       │  4.2 增量缓存        │  5.2 符号表索引
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    │                    │  3.3 单例短路       │  4.3 unify 快速路径  │  5.3 类型缓存
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    │                    │                     │                     │
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    └────────────────────┴─────────────────────┴─────────────────────┴──────────→
+</span></code></pre></div>
+<h3 id="_2">触发条件<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>阶段 1</strong>：实测 100 段推断 &gt;30ms，或项目规模达到 200 段</li>
+<li><strong>阶段 2</strong>：实测 500 段推断 &gt;100ms，或 IDE 场景下推断延迟感知明显</li>
+<li><strong>阶段 3</strong>：实测 2000 段推断 &gt;200ms，或项目规模达到 2000 段</li>
+</ul>
+<h3 id="_3">每个阶段完成后必须执行的验证<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h3>
+<ol>
+<li>运行全量回归测试（当前 449 项）</li>
+<li>运行 <code>bench_type_infer.py</code> 更新基准数据</li>
+<li>对比 <code>profile_type_infer.out</code> 确认热点变化</li>
+<li>更新本文档的基准数据</li>
+</ol>
+<hr />
+<h2 id="7">7. 风险与注意事项<a class="headerlink" href="#7" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>风险</th>
+<th>影响</th>
+<th>缓解措施</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>优化引入类型推断精度下降</td>
+<td>阶段 2、3</td>
+<td>保持全量回归测试，任何精度变化视为失败</td>
+</tr>
+<tr>
+<td>并行推断的符号表竞争</td>
+<td>阶段 3</td>
+<td>使用不可变符号表快照 + 写时合并</td>
+</tr>
+<tr>
+<td>增量缓存失效逻辑错误</td>
+<td>阶段 2</td>
+<td>为增量模式增加 <code>--no-incremental</code> 全量回退开关</td>
+</tr>
+<tr>
+<td>过早优化浪费开发时间</td>
+<td>所有阶段</td>
+<td>严格按触发条件执行，不提前优化</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9">9. 任务分解表：代码修改清单<a class="headerlink" href="#9" title="Permanent link">&para;</a></h2>
+<h3 id="91-1v430">9.1 阶段 1（v4.3.0）：低风险优化<a class="headerlink" href="#91-1v430" title="Permanent link">&para;</a></h3>
+<h4 id="11is_instance-_ast_type_id">任务 1.1：<code>is_instance</code> → <code>_ast_type_id</code> 整数分派<a class="headerlink" href="#11is_instance-_ast_type_id" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>文件</th>
+<th>位置</th>
+<th>修改内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.1a</td>
+<td><code>src/ast_nodes.py</code></td>
+<td>第 14 行后</td>
+<td>新增 <code>AST_TYPE_ID</code> 常量枚举（约 100 个常量）</td>
+</tr>
+<tr>
+<td>1.1b</td>
+<td><code>src/ast_nodes.py</code></td>
+<td>每个 AST 节点类（约 100 处）</td>
+<td>为每个类添加 <code>_ast_type_id = AST_TYPE_ID_XXX</code> 类属性</td>
+</tr>
+<tr>
+<td>1.1c</td>
+<td><code>src/type_inferencer.py</code></td>
+<td>第 53–57 行</td>
+<td>删除 <code>is_instance()</code> 辅助函数</td>
+</tr>
+<tr>
+<td>1.1d</td>
+<td><code>src/type_inferencer.py</code></td>
+<td>第 758–803 行</td>
+<td><code>_infer_statement</code> 中 14 处 <code>is_instance(node, 'X')</code> → <code>node._ast_type_id == AST_ID_X</code></td>
+</tr>
+<tr>
+<td>1.1e</td>
+<td><code>src/type_inferencer.py</code></td>
+<td>第 889–913 行</td>
+<td><code>_infer_assignment</code> 中 2 处替换</td>
+</tr>
+<tr>
+<td>1.1f</td>
+<td><code>src/type_inferencer.py</code></td>
+<td>第 1095–1480 行</td>
+<td><code>_infer_expr</code> 中 22 处替换</td>
+</tr>
+<tr>
+<td>1.1g</td>
+<td><code>src/type_inferencer.py</code></td>
+<td>第 1533 行</td>
+<td><code>_infer_function_call</code> 中 1 处替换</td>
+</tr>
+<tr>
+<td>1.1h</td>
+<td><code>src/type_checker.py</code></td>
+<td>全文</td>
+<td>同步替换 <code>type_checker.py</code> 中的 <code>is_instance</code> 调用（如有）</td>
+</tr>
+<tr>
+<td>1.1i</td>
+<td><code>tests/</code></td>
+<td>全量回归</td>
+<td>运行 <code>python -m pytest tests/ -x -q</code> 确认 449 项通过</td>
+</tr>
+</tbody>
+</table>
+<p><strong>预估工作量</strong>：2–3 小时 | <strong>验证方式</strong>：回归测试全绿 + <code>bench_type_infer.py</code> 耗时下降 ≥15%</p>
+<h4 id="12typesubstitution-copy-on-write">任务 1.2：<code>TypeSubstitution</code> Copy-on-Write<a class="headerlink" href="#12typesubstitution-copy-on-write" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>文件</th>
+<th>位置</th>
+<th>修改内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.2a</td>
+<td><code>src/type_system.py</code></td>
+<td>第 710–756 行</td>
+<td>重写 <code>TypeSubstitution</code> 类</td>
+</tr>
+<tr>
+<td>1.2b</td>
+<td>—</td>
+<td><code>__init__</code></td>
+<td>新增 <code>_parent: Optional[TypeSubstitution]</code> 参数，<code>_local: Dict[str, Type]</code> 本地修改</td>
+</tr>
+<tr>
+<td>1.2c</td>
+<td>—</td>
+<td><code>clone()</code></td>
+<td>改为 <code>return TypeSubstitution(_parent=self)</code>，不再复制字典</td>
+</tr>
+<tr>
+<td>1.2d</td>
+<td>—</td>
+<td><code>__contains__</code></td>
+<td>改为链表查找：先查 <code>_local</code>，再递归查 <code>_parent</code></td>
+</tr>
+<tr>
+<td>1.2e</td>
+<td>—</td>
+<td><code>__getitem__</code></td>
+<td>同上，链表查找</td>
+</tr>
+<tr>
+<td>1.2f</td>
+<td>—</td>
+<td><code>__setitem__</code></td>
+<td>写入 <code>_local</code>（CoW 触发点）</td>
+</tr>
+<tr>
+<td>1.2g</td>
+<td>—</td>
+<td><code>bind()</code></td>
+<td>适配新结构</td>
+</tr>
+<tr>
+<td>1.2h</td>
+<td>—</td>
+<td><code>items()</code></td>
+<td>合并 <code>_parent</code> 和 <code>_local</code> 的键值对</td>
+</tr>
+<tr>
+<td>1.2i</td>
+<td>—</td>
+<td><code>compose()</code></td>
+<td>适配新结构</td>
+</tr>
+<tr>
+<td>1.2j</td>
+<td>—</td>
+<td><code>__bool__</code></td>
+<td>检查 <code>_local</code> 或 <code>_parent</code> 是否有内容</td>
+</tr>
+<tr>
+<td>1.2k</td>
+<td>—</td>
+<td><code>__repr__</code></td>
+<td>适配新结构</td>
+</tr>
+<tr>
+<td>1.2l</td>
+<td><code>src/type_system.py</code></td>
+<td>第 915–949 行</td>
+<td><code>_unify_type_var</code> 中的 <code>subs.clone()</code> → <code>subs.clone()</code>（接口不变，内部已优化）</td>
+</tr>
+<tr>
+<td>1.2m</td>
+<td><code>tests/</code></td>
+<td>全量回归</td>
+<td>运行 <code>python -m pytest tests/ -x -q</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>预估工作量</strong>：2–3 小时 | <strong>验证方式</strong>：回归测试全绿 + <code>bench_type_infer.py</code> 耗时下降 ≥5%</p>
+<h4 id="13apply_substitution">任务 1.3：<code>apply_substitution</code> 单例短路<a class="headerlink" href="#13apply_substitution" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>文件</th>
+<th>位置</th>
+<th>修改内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.3a</td>
+<td><code>src/type_system.py</code></td>
+<td>第 67–69 行</td>
+<td><code>Type.apply_substitution()</code> 基类增加 <code>if not subs: return self</code> 快速路径</td>
+</tr>
+<tr>
+<td>1.3b</td>
+<td><code>src/type_system.py</code></td>
+<td>第 94–99 行</td>
+<td>确认 <code>_SingletonType</code> 子类（<code>NumberType</code>、<code>StringType</code>、<code>BooleanType</code>、<code>NullType</code>、<code>AnyType</code>、<code>UnknownType</code>）继承正确</td>
+</tr>
+<tr>
+<td>1.3c</td>
+<td><code>tests/</code></td>
+<td>全量回归</td>
+<td>运行 <code>python -m pytest tests/ -x -q</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>预估工作量</strong>：0.5 小时 | <strong>验证方式</strong>：回归测试全绿，<code>profile_type_infer.py</code> 中 <code>apply_substitution</code> 调用次数不变但单次耗时下降</p>
+<hr />
+<h3 id="92-2v440">9.2 阶段 2（v4.4.0）：结构性优化<a class="headerlink" href="#92-2v440" title="Permanent link">&para;</a></h3>
+<h4 id="21-hm">任务 2.1：基于调用图的 HM 迭代优化<a class="headerlink" href="#21-hm" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>文件</th>
+<th>位置</th>
+<th>修改内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2.1a</td>
+<td><code>src/type_inferencer.py</code></td>
+<td><code>TypeInferencer.__init__</code></td>
+<td>新增 <code>_call_graph: Dict[str, Set[str]]</code> 调用图字段</td>
+</tr>
+<tr>
+<td>2.1b</td>
+<td><code>src/type_inferencer.py</code></td>
+<td><code>_pre_scan_definitions</code></td>
+<td>在第一轮扫描时，对每个段体做轻量 AST 遍历，收集段名 → 被调用段名集合</td>
+</tr>
+<tr>
+<td>2.1c</td>
+<td><code>src/type_inferencer.py</code></td>
+<td>新增方法 <code>_topo_sort_segments</code></td>
+<td>实现拓扑排序：入度为 0 的段入队，BFS 逐层输出</td>
+</tr>
+<tr>
+<td>2.1d</td>
+<td><code>src/type_inferencer.py</code></td>
+<td>新增方法 <code>_find_scc</code></td>
+<td>检测强连通分量（相互递归的段），标记为需要第 2 轮迭代</td>
+</tr>
+<tr>
+<td>2.1e</td>
+<td><code>src/type_inferencer.py</code></td>
+<td><code>_hm_infer_module</code> 第 408 行</td>
+<td>将 <code>for _ in range(2)</code> 改为：先按拓扑序推断无环段（1 轮），再对 SCC 内的段做第 2 轮</td>
+</tr>
+<tr>
+<td>2.1f</td>
+<td><code>src/type_inferencer.py</code></td>
+<td><code>_infer_function_call</code></td>
+<td>函数调用时同步更新 <code>_call_graph</code></td>
+</tr>
+<tr>
+<td>2.1g</td>
+<td><code>tests/</code></td>
+<td>新增 <code>test_call_graph.py</code></td>
+<td>测试用例：无环模块验证 1 轮推断、有环模块验证 2 轮、混合模块验证正确性</td>
+</tr>
+</tbody>
+</table>
+<p><strong>预估工作量</strong>：4–6 小时 | <strong>验证方式</strong>：新增测试全绿 + <code>bench_type_infer.py</code> 中无相互调用的大模块耗时下降 ≥30%</p>
+<h4 id="22">任务 2.2：增量推断缓存<a class="headerlink" href="#22" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>文件</th>
+<th>位置</th>
+<th>修改内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2.2a</td>
+<td><code>src/type_inferencer.py</code></td>
+<td>新增 <code>@dataclass SegmentCacheEntry</code></td>
+<td>字段：<code>func_type: FunctionType</code>、<code>source_hash: str</code>、<code>dep_hashes: Dict[str, str]</code></td>
+</tr>
+<tr>
+<td>2.2b</td>
+<td><code>src/type_inferencer.py</code></td>
+<td><code>TypeInferencer.__init__</code></td>
+<td>新增 <code>_segment_cache: Dict[str, SegmentCacheEntry]</code></td>
+</tr>
+<tr>
+<td>2.2c</td>
+<td><code>src/type_inferencer.py</code></td>
+<td><code>infer()</code> 签名</td>
+<td>新增 <code>incremental: bool = False</code> 参数</td>
+</tr>
+<tr>
+<td>2.2d</td>
+<td><code>src/type_inferencer.py</code></td>
+<td><code>infer()</code> 方法体</td>
+<td>增量模式下：计算每个段的源码哈希 + 依赖段签名哈希，命中缓存则跳过推断</td>
+</tr>
+<tr>
+<td>2.2e</td>
+<td><code>src/type_inferencer.py</code></td>
+<td>新增方法 <code>_compute_segment_hash</code></td>
+<td>对段定义 AST 做 <code>hash(str(segment))</code> 或 <code>hashlib.sha256</code></td>
+</tr>
+<tr>
+<td>2.2f</td>
+<td><code>src/type_inferencer.py</code></td>
+<td>新增方法 <code>_invalidate_dependents</code></td>
+<td>当段签名变化时，递归标记所有依赖方缓存失效</td>
+</tr>
+<tr>
+<td>2.2g</td>
+<td><code>src/type_inferencer.py</code></td>
+<td><code>_hm_infer_module</code></td>
+<td>推断完成后将结果写入 <code>_segment_cache</code></td>
+</tr>
+<tr>
+<td>2.2h</td>
+<td><code>tests/</code></td>
+<td>新增 <code>test_incremental_infer.py</code></td>
+<td>测试用例：首次推断 → 修改一个段 → 增量推断 → 验证只有被修改段及其依赖被重新推断</td>
+</tr>
+</tbody>
+</table>
+<p><strong>预估工作量</strong>：4–6 小时 | <strong>验证方式</strong>：新增测试全绿 + 增量推断耗时 &lt; 全量推断的 50%</p>
+<h4 id="23unify">任务 2.3：<code>unify</code> 快速路径扩展<a class="headerlink" href="#23unify" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>文件</th>
+<th>位置</th>
+<th>修改内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2.3a</td>
+<td><code>src/type_system.py</code></td>
+<td><code>unify()</code> 第 786 行前</td>
+<td>新增快速路径：<code>t1 is t2</code> 直接返回 <code>subs</code>（同一对象引用）</td>
+</tr>
+<tr>
+<td>2.3b</td>
+<td><code>src/type_system.py</code></td>
+<td><code>unify()</code> 第 800 行后</td>
+<td>同 <code>_type_id</code> 分支内，新增 <code>TypeVar ~ 具体类型</code> 的内联处理（跳过 <code>_unify_type_var</code> 的 <code>collect_type_vars</code> 调用）</td>
+</tr>
+<tr>
+<td>2.3c</td>
+<td><code>src/type_system.py</code></td>
+<td><code>unify()</code> 第 803 行后</td>
+<td>列表/字典/集合合一：若 <code>element_type</code> 都是具体类型（非 TypeVar），直接 <code>is_subtype_of</code> 比较，跳过 <code>unify</code> 递归</td>
+</tr>
+<tr>
+<td>2.3d</td>
+<td><code>src/type_system.py</code></td>
+<td><code>_unify_type_var</code> 第 936–945 行</td>
+<td>发生检查：只在 <code>other</code> 包含 TypeVar 时才调用 <code>collect_type_vars</code>，纯具体类型直接跳过</td>
+</tr>
+<tr>
+<td>2.3e</td>
+<td><code>tests/</code></td>
+<td>全量回归</td>
+<td>运行 <code>python -m pytest tests/ -x -q</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>预估工作量</strong>：2–3 小时 | <strong>验证方式</strong>：回归测试全绿 + <code>profile_type_infer.py</code> 中 <code>unify</code> 累积耗时下降 ≥15%</p>
+<hr />
+<h3 id="93-3v500">9.3 阶段 3（v5.0.0）：架构级优化<a class="headerlink" href="#93-3v500" title="Permanent link">&para;</a></h3>
+<h4 id="31">任务 3.1：并行段推断<a class="headerlink" href="#31" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>文件</th>
+<th>位置</th>
+<th>修改内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3.1a</td>
+<td><code>src/type_inferencer.py</code></td>
+<td>顶部导入</td>
+<td>新增 <code>from concurrent.futures import ThreadPoolExecutor, as_completed</code></td>
+</tr>
+<tr>
+<td>3.1b</td>
+<td><code>src/type_inferencer.py</code></td>
+<td><code>TypeInferencer</code></td>
+<td>新增 <code>_parallel: bool = False</code> 配置项和 <code>_max_workers: int = 4</code></td>
+</tr>
+<tr>
+<td>3.1c</td>
+<td><code>src/type_inferencer.py</code></td>
+<td>新增方法 <code>_infer_segment_isolated</code></td>
+<td>在独立的作用域副本中推断单个段，返回 <code>(段名, func_type, errors)</code></td>
+</tr>
+<tr>
+<td>3.1d</td>
+<td><code>src/type_inferencer.py</code></td>
+<td><code>_hm_infer_module</code></td>
+<td>将拓扑排序后的段按层级分组，同层无依赖段提交到 <code>ThreadPoolExecutor</code> 并行推断</td>
+</tr>
+<tr>
+<td>3.1e</td>
+<td><code>src/type_inferencer.py</code></td>
+<td>符号表合并</td>
+<td>并行推断完成后，按拓扑序逐层合并符号表（避免竞争）</td>
+</tr>
+<tr>
+<td>3.1f</td>
+<td><code>src/type_system.py</code></td>
+<td><code>TypeSymbolTable</code></td>
+<td>新增 <code>snapshot()</code> 方法返回不可变快照，<code>merge(snapshot)</code> 合并外部快照</td>
+</tr>
+<tr>
+<td>3.1g</td>
+<td><code>tests/</code></td>
+<td>新增 <code>test_parallel_infer.py</code></td>
+<td>测试用例：并行推断结果与串行一致、线程安全、异常处理</td>
+</tr>
+</tbody>
+</table>
+<p><strong>预估工作量</strong>：6–8 小时 | <strong>验证方式</strong>：新增测试全绿 + 多核环境下 <code>bench_type_infer.py</code> 耗时下降 ≥40%</p>
+<h4 id="32">任务 3.2：符号表全局索引<a class="headerlink" href="#32" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>文件</th>
+<th>位置</th>
+<th>修改内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3.2a</td>
+<td><code>src/type_system.py</code></td>
+<td><code>TypeSymbolTable.__init__</code></td>
+<td>新增 <code>_global_index: Dict[str, TypedSymbol]</code> 扁平索引</td>
+</tr>
+<tr>
+<td>3.2b</td>
+<td><code>src/type_system.py</code></td>
+<td><code>TypeSymbolTable.define</code></td>
+<td>当 <code>symbol_type</code> 为 <code>'function'</code>/<code>'class'</code>/<code>'enum'</code>/<code>'trait'</code> 时，同步写入 <code>_global_index</code></td>
+</tr>
+<tr>
+<td>3.2c</td>
+<td><code>src/type_system.py</code></td>
+<td><code>TypeSymbolTable.lookup</code></td>
+<td>优先查 <code>_global_index</code>（O(1)），未命中再回退到作用域栈遍历</td>
+</tr>
+<tr>
+<td>3.2d</td>
+<td><code>src/type_system.py</code></td>
+<td><code>TypeSymbolTable.exit_scope</code></td>
+<td>退出作用域时清理该作用域在 <code>_global_index</code> 中注册的符号</td>
+</tr>
+<tr>
+<td>3.2e</td>
+<td><code>tests/</code></td>
+<td>全量回归</td>
+<td>运行 <code>python -m pytest tests/ -x -q</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>预估工作量</strong>：2–3 小时 | <strong>验证方式</strong>：回归测试全绿 + <code>profile_type_infer.py</code> 中 <code>TypeSymbolTable.lookup</code> 累积耗时下降 ≥50%</p>
+<h4 id="33-lru">任务 3.3：类型表达式解析 LRU 缓存<a class="headerlink" href="#33-lru" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>文件</th>
+<th>位置</th>
+<th>修改内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3.3a</td>
+<td><code>src/type_system.py</code></td>
+<td>顶部导入</td>
+<td>新增 <code>from functools import lru_cache</code></td>
+</tr>
+<tr>
+<td>3.3b</td>
+<td><code>src/type_system.py</code></td>
+<td><code>TypeParser.parse</code> 第 1130 行</td>
+<td>将核心解析逻辑提取为 <code>_parse_impl(expr: str) -&gt; Type</code> 静态方法</td>
+</tr>
+<tr>
+<td>3.3c</td>
+<td><code>src/type_system.py</code></td>
+<td><code>TypeParser</code></td>
+<td>新增 <code>@lru_cache(maxsize=512)</code> 的 <code>_parse_cached</code> 包装方法</td>
+</tr>
+<tr>
+<td>3.3d</td>
+<td><code>src/type_system.py</code></td>
+<td><code>TypeParser.parse</code></td>
+<td>改为调用 <code>self._parse_cached(expr)</code></td>
+</tr>
+<tr>
+<td>3.3e</td>
+<td><code>src/type_inferencer.py</code></td>
+<td><code>TypeInferencer.__init__</code></td>
+<td>确认 <code>TypeParser</code> 实例复用（目前已复用，无需改动）</td>
+</tr>
+<tr>
+<td>3.3f</td>
+<td><code>tests/</code></td>
+<td>全量回归</td>
+<td>运行 <code>python -m pytest tests/ -x -q</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>预估工作量</strong>：1–2 小时 | <strong>验证方式</strong>：回归测试全绿 + <code>profile_type_infer.py</code> 中 <code>TypeParser.parse</code> 调用次数大幅下降</p>
+<hr />
+<h3 id="94">9.4 任务总览<a class="headerlink" href="#94" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>任务数</th>
+<th>改动文件</th>
+<th>预估工时</th>
+<th>新增测试</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>阶段 1</td>
+<td>3 项 / 25 子步骤</td>
+<td><code>ast_nodes.py</code>、<code>type_system.py</code>、<code>type_inferencer.py</code>、<code>type_checker.py</code></td>
+<td>4.5–6.5 小时</td>
+<td>0</td>
+</tr>
+<tr>
+<td>阶段 2</td>
+<td>3 项 / 20 子步骤</td>
+<td><code>type_inferencer.py</code>、<code>type_system.py</code></td>
+<td>10–15 小时</td>
+<td>3 个测试文件</td>
+</tr>
+<tr>
+<td>阶段 3</td>
+<td>3 项 / 18 子步骤</td>
+<td><code>type_inferencer.py</code>、<code>type_system.py</code></td>
+<td>9–13 小时</td>
+<td>1 个测试文件</td>
+</tr>
+<tr>
+<td><strong>合计</strong></td>
+<td><strong>9 项 / 63 子步骤</strong></td>
+<td><strong>4 个文件</strong></td>
+<td><strong>23.5–34.5 小时</strong></td>
+<td><strong>4 个测试文件</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8">8. 附录：基准测试工具<a class="headerlink" href="#8" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>d:\traework\light\profile_type_infer.py</code> — cProfile 性能分析脚本</li>
+<li><code>d:\traework\light\bench_type_infer.py</code> — 多维度基准测试脚本</li>
+<li><code>d:\traework\light\profile_type_infer.out</code> — 当前基准原始数据</li>
+</ul>
+<p>运行方式：
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">d</span><span class="p">:\</span><span class="n">miniconda3</span><span class="p">\</span><span class="n">python</span> <span class="n">d</span><span class="p">:\</span><span class="n">traework</span><span class="p">\</span><span class="n">light</span><span class="p">\</span><span class="n">profile_type_infer</span><span class="p">.</span><span class="n">py</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">d</span><span class="p">:\</span><span class="n">miniconda3</span><span class="p">\</span><span class="n">python</span> <span class="n">d</span><span class="p">:\</span><span class="n">traework</span><span class="p">\</span><span class="n">light</span><span class="p">\</span><span class="n">bench_type_infer</span><span class="p">.</span><span class="n">py</span>
+</span></code></pre></div></p>
+
+
+
+
+
+
+
+  
+    
+  
+  
+    
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="最后更新">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年8月30日 18:19:48 UTC">2026年8月30日</span>
+  </span>
+
+    
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="创建日期">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年8月30日 18:19:48 UTC">2026年8月30日</span>
+  </span>
+
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/skywalk163/light" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

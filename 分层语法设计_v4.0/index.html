@@ -1,0 +1,5590 @@
+
+<!doctype html>
+<html lang="zh" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="光明编程语言 - 中文编程语言的全新可能">
+      
+      
+        <meta name="author" content="LightLang Team">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>光明分层语法设计 v4.0 - 光明 (LightLang) v7.0</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans+SC:300,300i,400,400i,700,700i%7CNoto+Sans+SC:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Noto Sans SC";--md-code-font:"Noto Sans SC"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#v40" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="页眉">
+    <a href=".." title="光明 (LightLang) v7.0" class="md-header__button md-logo" aria-label="光明 (LightLang) v7.0" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            光明 (LightLang) v7.0
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              光明分层语法设计 v4.0
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="green"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/skywalk163/light" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    skywalk163/light
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="标签" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  首页
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  快速开始
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../user_guide/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  用户手册
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../release_notes_v6.0/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  发布说明
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../known_issues/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  已知问题
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guide/getting-started/" class="md-tabs__link">
+          
+  
+  
+  快速入门
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guide/%E5%88%86%E5%B1%82%E8%AF%AD%E6%B3%95%E5%85%A5%E9%97%A8/" class="md-tabs__link">
+          
+  
+  
+  用户指南
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../language/levels/" class="md-tabs__link">
+          
+  
+  
+  语言参考
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../stdlib/" class="md-tabs__link">
+          
+  
+  
+  标准库
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../30%E5%88%86%E9%92%9F%E5%85%A5%E9%97%A8%E5%85%89%E6%98%8E/" class="md-tabs__link">
+          
+  
+  
+  教程
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tools/cli/" class="md-tabs__link">
+          
+  
+  
+  工具
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../architecture/" class="md-tabs__link">
+          
+  
+  
+  项目
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../ecosystem/%E6%95%99%E5%AD%A6%E8%B5%84%E6%BA%90/" class="md-tabs__link">
+          
+  
+  
+  生态
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../migration/v3-to-v4/" class="md-tabs__link">
+          
+  
+  
+  迁移指南
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/" class="md-tabs__link">
+          
+  
+  
+  API 参考
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E7%B4%A2%E5%BC%95/" class="md-tabs__link">
+          
+  
+  
+  知识库
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="https://github.com/skywalk163/light/blob/main/CHANGELOG.md" class="md-tabs__link">
+          
+  
+  
+  变更记录
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  贡献指南
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="光明 (LightLang) v7.0" class="md-nav__button md-logo" aria-label="光明 (LightLang) v7.0" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    光明 (LightLang) v7.0
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/skywalk163/light" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    skywalk163/light
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    首页
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user_guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    用户手册
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release_notes_v6.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    发布说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../known_issues/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    已知问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速入门
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    快速入门
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安装说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/vscode-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VS Code 配置
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    用户指南
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    用户指南
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/%E5%88%86%E5%B1%82%E8%AF%AD%E6%B3%95%E5%85%A5%E9%97%A8/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    分层语法入门
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/%E8%BF%81%E7%A7%BB%E6%8C%87%E5%8D%97/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    迁移指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    语言参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/levels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    五层架构详解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/l0-core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L0 核心字集
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/l1-l2-style/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L1/L2 文体
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/l3-domain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L3 领域嵌入
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/l4-foreign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L4 外语引用
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/keywords/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    关键字参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/operators/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    运算符参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/%E5%AE%8C%E6%95%B4%E8%AF%AD%E6%B3%95%E5%8F%82%E8%80%83/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    完整语法参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语法规范
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E5%85%89%E6%98%8E-%E5%AE%8C%E6%95%B4%E8%A7%84%E8%8C%83%E6%96%87%E6%A1%A3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    完整规范文档
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class_system_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类系统设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interface-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trait/协议系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interface-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模式匹配
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-07-01-level6-type-annotation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    泛型与类型注解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E6%A8%A1%E5%9D%97%E7%B3%BB%E7%BB%9F%E4%B8%8E%E5%8C%85%E7%AE%A1%E7%90%86/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模块系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ffi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FFI 外部函数接口
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../HM%E5%85%A8%E5%B1%80%E7%B1%BB%E5%9E%8B%E6%8E%A8%E6%96%AD%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型推断系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E5%8F%AF%E7%A9%BA%E7%B1%BB%E5%9E%8Bunwrap%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    可空类型系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    标准库
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    数学模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/string/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    字符串处理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON 模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文件系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/datetime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    日期时间
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/regex/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    正则表达式
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../API_REFERENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考总表
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/builtins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    内置函数
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lightpub_integration_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lightpub 生态
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_9_13" id="__nav_9_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lightpub 包文档
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    lightpub 包文档
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lightpub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    索引与分类
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    教程
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    教程
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../30%E5%88%86%E9%92%9F%E5%85%A5%E9%97%A8%E5%85%89%E6%98%8E/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    30 分钟入门
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/%E5%85%A5%E9%97%A8%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    入门教程
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/%E8%BF%9B%E9%98%B6%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进阶教程
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%AB%AF%E5%88%B0%E7%AB%AF%E5%AE%9E%E6%88%98%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    端到端实战
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    示例代码
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工具
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    工具
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI 使用指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/playground/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Playground 使用
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/lsp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LSP 集成
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/debugger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    调试器
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工具链总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E6%90%9C%E7%B4%A2%E9%85%8D%E7%BD%AE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    搜索配置
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    项目
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    架构设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEVELOPMENT_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    开发指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84%E8%AF%B4%E6%98%8E/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目结构
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../REPL_DESIGN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REPL 设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../BOOTSTRAP_STRATEGY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    引导策略
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../llvm_backend_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLVM 后端
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PERFORMANCE_OPTIMIZATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    性能优化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../OPTIMIZATION_ANALYSIS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    优化分析
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E4%B8%89%E4%B8%AA%E6%9C%88%E5%B7%A5%E4%BD%9C%E8%AE%A1%E5%88%92_2026Q3Q4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目计划
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PROGRESS_REPORT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进度报告
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    生态
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    生态
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ecosystem/%E6%95%99%E5%AD%A6%E8%B5%84%E6%BA%90/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    教学资源
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_14" >
+        
+          
+          <label class="md-nav__link" for="__nav_14" id="__nav_14_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    迁移指南
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    迁移指南
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration/v3-to-v4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.3 → v4.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration/v4-to-v5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v4.0 → v5.x
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_15" >
+        
+          
+          <label class="md-nav__link" for="__nav_15" id="__nav_15_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API 参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/compiler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    编译器 API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_16" >
+        
+          
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    知识库
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    知识库
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E7%B4%A2%E5%BC%95/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    知识库索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E8%AF%AD%E8%A8%80%E8%A7%84%E8%8C%83/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言规范
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E5%BC%80%E5%8F%91%E6%8C%87%E5%8D%97/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    开发指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最佳实践
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17" >
+        
+          
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    变更记录
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    变更记录
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/skywalk163/light/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    版本日志
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../LANGUAGE_EXTENSIONS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言扩展历史
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_17_3" id="__nav_17_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语法变更
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_17_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    语法变更
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%BB%9F%E4%B8%80%E8%AF%AD%E6%B3%95%E8%A7%84%E8%8C%83_v3.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%BB%9F%E4%B8%80%E8%AF%AD%E6%B3%95%E8%A7%84%E8%8C%83_v3.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E8%AF%AD%E6%B3%95%E5%8F%98%E6%9B%B4_v3.4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E8%AF%AD%E6%B3%95%E5%8F%98%E6%9B%B4_v3.5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.5
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../FINAL_SUMMARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最终总结
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    贡献指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="v40">光明分层语法设计 v4.0<a class="headerlink" href="#v40" title="Permanent link">&para;</a></h1>
+<p><strong>版本</strong>：v5.0.0
+<strong>日期</strong>：2026-08-04
+<strong>状态</strong>：已发布（v5.0.0，类型推断性能演进：整数分派 + CoW + 调用图拓扑 + 增量缓存 + 并行推断 + 全局索引 + LRU 缓存）
+<strong>基于</strong>：v3.2 统一语法规范 + v3.3 语法变更
+<strong>作者</strong>：光明项目组</p>
+<hr />
+<h2 id="_1">概述<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
+<p>本设计文档提出光明语法的<strong>分层架构</strong>,作为突破当前语法瓶颈的根本方案。</p>
+<p>核心立意:<strong>借鉴中文"一套字 + 多种文体 + 自然吸收专业符号"的智慧</strong>,让光明既能让青少年快速上手,又能让高手用它做商用大型项目。</p>
+<hr />
+<h2 id="_2">第一部分:问题诊断<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
+<h3 id="11">1.1 当前瓶颈的根本原因<a class="headerlink" href="#11" title="Permanent link">&para;</a></h3>
+<p>光明当前陷入瓶颈,表面看是"语法让人迷糊",根因是<strong>"统一语法"的执念错了</strong>。</p>
+<p>试图用<strong>一套语法</strong>同时满足"青少年易学"和"商用大型项目",结果两边都不讨好:
+- 青少年面对 <code>段落/函数/段</code>、<code>为/等于</code>、<code>加上/+</code> 等多种等价形式,无所适从
+- 工程师面对无类型注解、无模块可见性、无性能优化空间,不敢用于商用项目</p>
+<h3 id="12">1.2 双模式泛滥<a class="headerlink" href="#12" title="Permanent link">&para;</a></h3>
+<p>当前光明积累了过多双模式,每多一个双模式,学习成本×2,解析器复杂度×2,文档篇幅×2:</p>
+<table>
+<thead>
+<tr>
+<th>双模式类型</th>
+<th>现状</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>中英文符号</td>
+<td><code>。</code>/<code>.</code>、<code>：</code>/<code>:</code>、<code>，</code>/<code>,</code> 全等价</td>
+</tr>
+<tr>
+<td>有空格/无空格</td>
+<td><code>设 甲 为 10</code> = <code>设甲为10</code></td>
+</tr>
+<tr>
+<td>显式结束/缩进</td>
+<td><code>结束。</code> 可选</td>
+</tr>
+<tr>
+<td>有括号/无括号</td>
+<td><code>《排序》(列表)</code> = <code>《排序》列表</code></td>
+</tr>
+<tr>
+<td>段落/函数</td>
+<td><code>段落</code>/<code>函数</code>/<code>段</code> 三个关键字并存</td>
+</tr>
+<tr>
+<td>中文运算符/符号</td>
+<td><code>加上</code>/<code>+</code>、<code>乘以</code>/<code>*</code> 并存</td>
+</tr>
+<tr>
+<td>主谓/谓宾</td>
+<td><code>列表排序</code> vs <code>排序列表</code></td>
+</tr>
+<tr>
+<td>显式模式/简洁模式</td>
+<td>元数驱动的双调用语法</td>
+</tr>
+</tbody>
+</table>
+<h3 id="13-v33">1.3 v3.3 嵌入块的"投降"<a class="headerlink" href="#13-v33" title="Permanent link">&para;</a></h3>
+<p>v3.3 引入 <code>嵌入 Python:</code>/<code>嵌入 C:</code> 块,本质是<strong>投降</strong>——承认光明语法不够用,得借外文。这违背了"中文编程"的初衷,且给学习者传递了"光明做不到的事就嵌入外文"的负面信号。</p>
+<h3 id="14">1.4 关键字反复变更<a class="headerlink" href="#14" title="Permanent link">&para;</a></h3>
+<p>从 v1.4 到 v3.3,关键字反复变更:
+- <code>段</code> → <code>段落</code> → <code>函数</code>
+- <code>设</code> → <code>定义</code> → <code>设</code>
+- <code>若</code> → <code>如果</code> → <code>若</code>
+- <code>为</code> → <code>等于</code> → <code>为</code></p>
+<p>每次变更都导致迁移成本和文档维护成本,<strong>字不稳定,语言就无法积累生态</strong>。</p>
+<hr />
+<h2 id="_3">第二部分:中文的真正启示<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
+<h3 id="21">2.1 类比的正确解读<a class="headerlink" href="#21" title="Permanent link">&para;</a></h3>
+<p>3000常用字处理所有学科,这一现象的<strong>正确启示</strong>不是"字少",而是"分层+共享":</p>
+<table>
+<thead>
+<tr>
+<th>中文现象</th>
+<th>启示</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3000字稳定不变,组合出百万词</td>
+<td><strong>字是稳定的,组合是灵活的</strong></td>
+</tr>
+<tr>
+<td>数学用 <code>3+5=8</code>,化学用 <code>H₂O</code>,音乐用 <code>1 2 3</code></td>
+<td><strong>不翻译专业符号,直接吸收</strong></td>
+</tr>
+<tr>
+<td>白话文、文言文、公文、诗歌共存</td>
+<td><strong>不同文体适应不同场景,共享同一套字</strong></td>
+</tr>
+<tr>
+<td>同一篇文章可混合白话+文言+公式</td>
+<td><strong>文体可混用,靠语境消歧</strong></td>
+</tr>
+<tr>
+<td>"打"字有20+含义,但读者从不困惑</td>
+<td><strong>语境消歧,而非语法消歧</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="22">2.2 光明当前违背的原则<a class="headerlink" href="#22" title="Permanent link">&para;</a></h3>
+<ul>
+<li>试图用<strong>一套语法</strong>包打天下(没有文体之分)</li>
+<li>试图<strong>翻译一切</strong>(<code>加上</code>代替<code>+</code>、<code>嵌入 Python:</code>代替直接写)</li>
+<li>双模式制造歧义,而非用语境消歧</li>
+<li>关键字反复变更,字不稳定</li>
+</ul>
+<hr />
+<h2 id="_4">第三部分:分层架构总览<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
+<h3 id="31">3.1 五层架构<a class="headerlink" href="#31" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─────────────────────────────────────────┐
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│  L4 外语引用层  (Python/C/Go/MoonBit)   │  ← 引语言:块,数据级互操作
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├─────────────────────────────────────────┤
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│  L3 领域嵌入层  (SQL/正则/数学/JSON)    │  ← 融入表达式,无需引块
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├─────────────────────────────────────────┤
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│  L2 文言体      (商用/工程/大型项目)    │  ← 类型+模块+类
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>├─────────────────────────────────────────┤
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│  L1 白话体      (青少年/教学/脚本)      │  ← 无类型,简洁
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>├─────────────────────────────────────────┤
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│  L0 核心字表    (约25个单字,永不变化)   │  ← 光明的"汉字"
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>└─────────────────────────────────────────┘
+</span></code></pre></div>
+<h3 id="32">3.2 设计原则<a class="headerlink" href="#32" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>字稳定(L0)</strong>:核心字表永不变化,这是光明的"汉字",所有文体共享</li>
+<li><strong>体分层(L1/L2)</strong>:不同场景用不同文体,各自优化,不强求统一</li>
+<li><strong>域吸收(L3)</strong>:领域 DSL(SQL/正则/数学)直接融入表达式,无需标记</li>
+<li><strong>语引用(L4)</strong>:完整编程语言(Python/C/Go)用 <code>引 语言:</code> 块,数据级互操作</li>
+<li><strong>可混用</strong>:同一项目可混合L1/L2/L3/L4,靠文体声明和语境消歧</li>
+<li><strong>冻结关键字</strong>:停止反复变更,L0核心字确定后不再修改</li>
+</ol>
+<h3 id="33-l3-l4">3.3 L3 与 L4 的本质区别<a class="headerlink" href="#33-l3-l4" title="Permanent link">&para;</a></h3>
+<p>虽然 L3 和 L4 都涉及"非光明原生"的语法,但二者本质不同,必须分层:</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>L3 领域嵌入(吸收型)</th>
+<th>L4 外语引用(引用型)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>性质</td>
+<td>表达特定领域问题的符号系统</td>
+<td>表达任意计算的通用语言</td>
+</tr>
+<tr>
+<td>中文对应</td>
+<td>数学公式、化学方程式、五线谱</td>
+<td>英语、日语、法语(外语)</td>
+</tr>
+<tr>
+<td>与光明关系</td>
+<td><strong>补充</strong>(光明不擅长的领域)</td>
+<td><strong>平级</strong>(另一种通用语言)</td>
+</tr>
+<tr>
+<td>嵌入目的</td>
+<td>表达领域逻辑</td>
+<td>复用生态/性能/平台</td>
+</tr>
+<tr>
+<td>作用域</td>
+<td>表达式级别,返回值</td>
+<td>完整程序单元,可定义函数/类/模块</td>
+</tr>
+<tr>
+<td>边界</td>
+<td>无缝融入,无需标记</td>
+<td>需要明确引用边界(<code>引 语言:</code>)</td>
+</tr>
+<tr>
+<td>互操作</td>
+<td>数据进出,表达式求值</td>
+<td>数据级:参数传入/返回值传出</td>
+</tr>
+<tr>
+<td>实现机制</td>
+<td>词法扩展/解析器识别</td>
+<td>FFI/解释器嵌入/编译加载</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分层准则</strong>:本质不同就分层。内部双模式是妥协,分层是原则。</p>
+<hr />
+<h2 id="l0">第四部分:L0 核心字表<a class="headerlink" href="#l0" title="Permanent link">&para;</a></h2>
+<h3 id="41-30">4.1 核心字表(30字)<a class="headerlink" href="#41-30" title="Permanent link">&para;</a></h3>
+<p>这是光明的"偏旁部首",<strong>永不变化</strong>。</p>
+<p><strong>重要原则</strong>:L0 是<strong>全集合</strong>(L1∪L2),L1 白话体只使用其中子集,L2 文言体使用全集。<code>类/承/接/配</code> 等字在 L0 中,但 L1 不使用——这不矛盾,L0 定义的是"光明所有可用字",而非"每个文体必须用的字"。</p>
+<h4 id="7">控制流(7字)<a class="headerlink" href="#7" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>字</th>
+<th>用途</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>若</code></td>
+<td>if</td>
+<td><code>若甲&gt;5:打印甲</code></td>
+</tr>
+<tr>
+<td><code>否</code></td>
+<td>else</td>
+<td><code>否:打印"小"</code>;<code>否若</code>组合=elif</td>
+</tr>
+<tr>
+<td><code>当</code></td>
+<td>while/for</td>
+<td><code>当甲&lt;10:甲+=1</code></td>
+</tr>
+<tr>
+<td><code>遍</code></td>
+<td>foreach</td>
+<td><code>遍列表之为i:打印i</code></td>
+</tr>
+<tr>
+<td><code>跳</code></td>
+<td>break</td>
+<td><code>跳</code></td>
+</tr>
+<tr>
+<td><code>过</code></td>
+<td>continue</td>
+<td><code>过</code></td>
+</tr>
+<tr>
+<td><code>返</code></td>
+<td>return</td>
+<td><code>返甲+乙</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="6">定义与类型(6字)<a class="headerlink" href="#6" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>字</th>
+<th>用途</th>
+<th>示例</th>
+<th>L1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>设</code></td>
+<td>let/var</td>
+<td><code>设甲=10</code></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>段</code></td>
+<td>fn/def</td>
+<td><code>段加法(甲,乙)</code></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>类</code></td>
+<td>class/type</td>
+<td><code>类学生:</code></td>
+<td>✗</td>
+</tr>
+<tr>
+<td><code>承</code></td>
+<td>extends</td>
+<td><code>类大学生承学生:</code></td>
+<td>✗</td>
+</tr>
+<tr>
+<td><code>接</code></td>
+<td>interface/trait</td>
+<td><code>接可打印:</code></td>
+<td>✗</td>
+</tr>
+<tr>
+<td><code>配</code></td>
+<td>match</td>
+<td><code>配甲之于:1:...否:...</code></td>
+<td>✗</td>
+</tr>
+</tbody>
+</table>
+<h4 id="4">异常(4字)<a class="headerlink" href="#4" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>字</th>
+<th>用途</th>
+<th>示例</th>
+<th>L1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>试</code></td>
+<td>try</td>
+<td><code>试:...</code></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>捕</code></td>
+<td>catch</td>
+<td><code>捕错误:...</code></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>抛</code></td>
+<td>throw</td>
+<td><code>抛"无效输入"</code></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>终</code></td>
+<td>finally</td>
+<td><code>终:清理()</code></td>
+<td>✓</td>
+</tr>
+</tbody>
+</table>
+<h4 id="5">自指与连接(5字)<a class="headerlink" href="#5" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>字</th>
+<th>用途</th>
+<th>示例</th>
+<th>L1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>自</code></td>
+<td>self/this</td>
+<td><code>自.姓名</code></td>
+<td>✗(L1无类)</td>
+</tr>
+<tr>
+<td><code>之</code></td>
+<td>属性访问/所属</td>
+<td><code>列表之首</code></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>并</code></td>
+<td>管道/并列</td>
+<td><code>数据并过滤并排序</code></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>从</code></td>
+<td>来源/导入</td>
+<td><code>从数学导入sqrt</code></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>是</code></td>
+<td>相等/类型判断</td>
+<td><code>甲是10</code>;<code>甲是学生</code></td>
+<td>✓</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>口径更正（v4.0.3 冻结后）</strong>：本表 <code>自</code>=self/this 的写法已过时。
+冻结后的 L0 核心字表（见 <code>docs/language/l0-core.md</code>、<code>docs/language/keywords.md</code>）
+把 self/this 收敛到 <strong><code>己</code></strong>，<code>自</code> 改作模块层的<strong>来源连接词</strong>：
+- <code>导 X 自 Y</code> ≡ <code>import Y as X</code>（模块绑定；名同源时不加 <code>as</code>）
+- 与 <code>从 Y 导入 X</code>（<code>from Y import X</code>，符号导入）语义并列、互不重叠
+编译器实现以冻结表为准。</p>
+</blockquote>
+<h4 id="6_1">逻辑与值(6字)<a class="headerlink" href="#6_1" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>字</th>
+<th>用途</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>且</code></td>
+<td>and</td>
+<td><code>甲&gt;0且乙&gt;0</code></td>
+</tr>
+<tr>
+<td><code>或</code></td>
+<td>or</td>
+<td><code>甲&gt;10或乙&gt;10</code></td>
+</tr>
+<tr>
+<td><code>非</code></td>
+<td>not</td>
+<td><code>非甲</code></td>
+</tr>
+<tr>
+<td><code>真</code></td>
+<td>true</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>假</code></td>
+<td>false</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>空</code></td>
+<td>null/none</td>
+<td>-</td>
+</tr>
+</tbody>
+</table>
+<h4 id="2">组织(2字)<a class="headerlink" href="#2" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>字</th>
+<th>用途</th>
+<th>示例</th>
+<th>L1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>导</code></td>
+<td>import</td>
+<td><code>导数学</code></td>
+<td>✓(仅内置模块)</td>
+</tr>
+<tr>
+<td><code>出</code></td>
+<td>export</td>
+<td><code>出加法</code></td>
+<td>✗</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42">4.2 字表设计依据<a class="headerlink" href="#42" title="Permanent link">&para;</a></h3>
+<p><strong>对比主流语言</strong>(详见 <a href="#">关键字对比研究报告</a>):</p>
+<table>
+<thead>
+<tr>
+<th>语言</th>
+<th>关键字数</th>
+<th>光明 L0 定位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lua</td>
+<td>22</td>
+<td>光明多 8(有异常关键字族,Lua 用函数)</td>
+</tr>
+<tr>
+<td>Go</td>
+<td>25</td>
+<td>光明多 5(有 try/catch/finally,Go 用 defer)</td>
+</tr>
+<tr>
+<td>Python</td>
+<td>35</td>
+<td>光明少 5(单字紧凑,无类型关键字)</td>
+</tr>
+<tr>
+<td>Rust</td>
+<td>58</td>
+<td>光明少 28(无所有权/生命周期/unsafe)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>30 字的合理性</strong>:光明 L0 是 L1+L2 的并集,要同时覆盖"青少年教学"和"商用工程",注定比 Go 的 25 多(异常关键字),比 Python 少(单字紧凑)。这是分层架构的必然结果。</p>
+<h3 id="43">4.3 与旧版字表的变更说明<a class="headerlink" href="#43" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>字</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>删除</td>
+<td><code>则</code></td>
+<td>用冒号/换行替代,非独立必需</td>
+</tr>
+<tr>
+<td>删除</td>
+<td><code>为</code></td>
+<td>与 <code>设</code> 重叠(<code>设甲为10</code>→<code>设甲=10</code>)</td>
+</tr>
+<tr>
+<td>删除</td>
+<td><code>有</code></td>
+<td>与 <code>是</code>/<code>之</code> 组合可表达</td>
+</tr>
+<tr>
+<td>删除</td>
+<td><code>的</code></td>
+<td>与 <code>之</code> 语义重叠</td>
+</tr>
+<tr>
+<td>删除</td>
+<td><code>入</code></td>
+<td><code>导</code> 已含导入义,<code>入</code>是凑数辅助字</td>
+</tr>
+<tr>
+<td>新增</td>
+<td><code>终</code></td>
+<td>finally,异常三件套补全</td>
+</tr>
+<tr>
+<td>新增</td>
+<td><code>自</code></td>
+<td>self/this,类方法必需(旧示例已用未列入)</td>
+</tr>
+<tr>
+<td>新增</td>
+<td><code>承</code></td>
+<td>继承,OOP 必需(旧示例已用未列入)</td>
+</tr>
+<tr>
+<td>新增</td>
+<td><code>接</code></td>
+<td>接口/协议,L2 工程必需</td>
+</tr>
+<tr>
+<td>新增</td>
+<td><code>配</code></td>
+<td>模式匹配,现代语言标配</td>
+</tr>
+</tbody>
+</table>
+<p>净变化:-5+5=0,仍为 30 字。<strong>修复了旧字表"示例用字未列入"和"类与L1矛盾"两个 bug</strong>。</p>
+<h3 id="44">4.4 双字别名(可选,不强制)<a class="headerlink" href="#44" title="Permanent link">&para;</a></h3>
+<p>双字形式作为<strong>可选别名</strong>存在,供习惯者使用,但<strong>不是主形式</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>主形式(单字)</th>
+<th>别名(双字)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>若</code></td>
+<td><code>如果</code></td>
+</tr>
+<tr>
+<td><code>设</code></td>
+<td><code>定义</code></td>
+</tr>
+<tr>
+<td><code>返</code></td>
+<td><code>返回</code></td>
+</tr>
+<tr>
+<td><code>段</code></td>
+<td><code>函数</code>/<code>段落</code></td>
+</tr>
+<tr>
+<td><code>试</code></td>
+<td><code>尝试</code></td>
+</tr>
+<tr>
+<td><code>捕</code></td>
+<td><code>捕获</code></td>
+</tr>
+<tr>
+<td><code>抛</code></td>
+<td><code>抛出</code></td>
+</tr>
+<tr>
+<td><code>终</code></td>
+<td><code>最终</code></td>
+</tr>
+<tr>
+<td><code>自</code></td>
+<td><code>自己</code></td>
+</tr>
+<tr>
+<td><code>承</code></td>
+<td><code>继承</code></td>
+</tr>
+<tr>
+<td><code>接</code></td>
+<td><code>接口</code></td>
+</tr>
+<tr>
+<td><code>配</code></td>
+<td><code>匹配</code></td>
+</tr>
+<tr>
+<td><code>导</code></td>
+<td><code>导入</code></td>
+</tr>
+<tr>
+<td><code>出</code></td>
+<td><code>导出</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="45">4.5 冻结承诺<a class="headerlink" href="#45" title="Permanent link">&para;</a></h3>
+<p><strong>L0 核心字表自 v4.0 起冻结,永不变化</strong>。</p>
+<ul>
+<li>不再进行 <code>段落→函数</code> 这类变更</li>
+<li>新增概念时,优先用核心字的组合,而非新增字</li>
+<li>如确需新增核心字,需经过社区讨论和版本升级</li>
+</ul>
+<p>这是中文3000字稳定不变的对应物。<strong>字稳定,语言才能积累生态</strong>。</p>
+<hr />
+<h2 id="l1">第五部分:L1 白话体<a class="headerlink" href="#l1" title="Permanent link">&para;</a></h2>
+<h3 id="51">5.1 定位<a class="headerlink" href="#51" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>适用场景</strong>:青少年教学、个人脚本、快速原型、少儿编程</li>
+<li><strong>特点</strong>:无类型、无模块、无类、无空格、中文标点、单行优先</li>
+<li><strong>对应中文文体</strong>:白话文</li>
+</ul>
+<h3 id="52">5.2 语法特征<a class="headerlink" href="#52" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>特征</th>
+<th>L1 白话体</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>标点</td>
+<td>中文标点(<code>。：，；</code>)</td>
+</tr>
+<tr>
+<td>空格</td>
+<td>可选,鼓励无空格</td>
+</tr>
+<tr>
+<td>句号</td>
+<td>可选</td>
+</tr>
+<tr>
+<td>类型注解</td>
+<td>不支持</td>
+</tr>
+<tr>
+<td>模块系统</td>
+<td>不支持</td>
+</tr>
+<tr>
+<td>类定义</td>
+<td>不支持</td>
+</tr>
+<tr>
+<td>算术运算符</td>
+<td>中文(<code>加减乘除</code>)+ 符号(<code>+ - * /</code>)均可</td>
+</tr>
+<tr>
+<td>函数定义</td>
+<td><code>段名(参数):</code></td>
+</tr>
+<tr>
+<td>块结构</td>
+<td>缩进 OR 单行</td>
+</tr>
+<tr>
+<td>文件头</td>
+<td><code># 文体: 白话</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="53">5.3 示例<a class="headerlink" href="#53" title="Permanent link">&para;</a></h3>
+<p><strong>示例1:Hello World</strong>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a># 文体: 白话
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>打印"你好,世界!"
+</span></code></pre></div></p>
+<p><strong>示例2:条件判断</strong>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>设甲=10
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>若 甲 大于 5:打印"大" 否:打印"小"
+</span></code></pre></div></p>
+<p><strong>示例3:遍历求和</strong>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>设成绩=[85,92,78,63,95]
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>设总分=0
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>遍 成绩 之为 s:
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    若 s 大于 60:总分 加上 s
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>打印 "总分:" + 文本(总分)
+</span></code></pre></div></p>
+<p><strong>示例4:函数定义</strong>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>段 阶乘(n):
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    若 n&lt;=1:返 1
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    返 n*阶乘(n-1)
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>打印阶乘(5)
+</span></code></pre></div></p>
+<p><strong>示例5:因果链语法(白话体特色)</strong>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>温度大于30,开风扇
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>温度大于30且湿度大于60,开风扇、开空调
+</span></code></pre></div></p>
+<h3 id="54-l1">5.4 L1 设计哲学<a class="headerlink" href="#54-l1" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>单行优先</strong>:能用一行表达就一行</li>
+<li><strong>因果链</strong>:<code>条件,动作</code> 的自然表达</li>
+<li><strong>主谓宾语序</strong>:<code>列表,排序,打印</code> 管道式</li>
+<li><strong>无类型负担</strong>:不要求类型注解,运行时动态</li>
+<li><strong>容错性强</strong>:句号、空格、冒号都可选</li>
+</ul>
+<hr />
+<h2 id="l2">第六部分:L2 文言体<a class="headerlink" href="#l2" title="Permanent link">&para;</a></h2>
+<h3 id="61">6.1 定位<a class="headerlink" href="#61" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>适用场景</strong>:商用项目、库开发、团队协作、性能关键代码、大型工程</li>
+<li><strong>特点</strong>:类型注解、模块系统、类、缩进、英文符号(可选中文)</li>
+<li><strong>对应中文文体</strong>:文言文/公文</li>
+</ul>
+<h3 id="62">6.2 语法特征<a class="headerlink" href="#62" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>特征</th>
+<th>L2 文言体</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>标点</td>
+<td>英文标点(<code>. : , ;</code>),可选中文</td>
+</tr>
+<tr>
+<td>空格</td>
+<td>必须有空格(关键字与标识符之间)</td>
+</tr>
+<tr>
+<td>句号</td>
+<td>可选</td>
+</tr>
+<tr>
+<td>类型注解</td>
+<td>强烈推荐,可选强制</td>
+</tr>
+<tr>
+<td>模块系统</td>
+<td>完整支持</td>
+</tr>
+<tr>
+<td>类定义</td>
+<td>完整支持</td>
+</tr>
+<tr>
+<td>算术运算符</td>
+<td>符号(<code>+ - * / %</code>)为主</td>
+</tr>
+<tr>
+<td>函数定义</td>
+<td><code>段 名(参数: 类型) -&gt; 类型:</code></td>
+</tr>
+<tr>
+<td>块结构</td>
+<td>缩进(强制)</td>
+</tr>
+<tr>
+<td>文件头</td>
+<td><code># 文体: 文言</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="63">6.3 示例<a class="headerlink" href="#63" title="Permanent link">&para;</a></h3>
+<p><strong>示例1:类型化函数</strong>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a># 文体: 文言
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>段 加法(甲: 数, 乙: 数) -&gt; 数:
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    返 甲 + 乙
+</span></code></pre></div></p>
+<p><strong>示例2:类与继承</strong>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a># 文体: 文言
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>类 学生:
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    设 姓名: 串
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    设 年龄: 数
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    设 成绩: 列
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    段 平均分(自) -&gt; 数:
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>        若 长度(自.成绩) == 0:
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>            返 0
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>        返 和(自.成绩) / 长度(自.成绩)
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>类 大学生 承 学生:
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>    设 专业: 串
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>    段 简介(自) -&gt; 串:
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>        返 自.姓名 + "," + 串(自.年龄) + "岁," + 自.专业
+</span></code></pre></div></p>
+<p><strong>示例3:模块导出</strong>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a># 文体: 文言
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a># 文件: 数学工具.light
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>出 加法, 乘法
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>段 加法(甲: 数, 乙: 数) -&gt; 数:
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    返 甲 + 乙
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>段 乘法(甲: 数, 乙: 数) -&gt; 数:
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    返 甲 * 乙
+</span></code></pre></div></p>
+<p><strong>示例4:模块导入</strong>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a># 文体: 文言
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>从 数学工具 导 加法, 乘法
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>设 结果 = 加法(3, 5) + 乘法(2, 4)
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>打印 结果
+</span></code></pre></div></p>
+<p><strong>示例5:异常处理(含终)</strong>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a># 文体: 文言
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>段 除法(甲: 数, 乙: 数) -&gt; 数:
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    若 乙 == 0:
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>        抛 ValueError("除数不能为零")
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    返 甲 / 乙
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>试:
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    设 结果 = 除法(10, 0)
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>捕 ValueError 为 e:
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    打印 "错误:", e
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>终:
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>    打印 "计算结束"
+</span></code></pre></div></p>
+<p><strong>示例6:模式匹配(配)</strong>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a># 文体: 文言
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>段 评级(分数: 数) -&gt; 串:
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    配 真:
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>        情况 分数 &gt;= 90: 返 "优"
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>        情况 分数 &gt;= 60: 返 "及格"
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>        其他: 返 "不及格"
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>设 等级 = 评级(85)
+</span></code></pre></div></p>
+<blockquote>
+<p>口径（v7 单 J 裁定）:分支词只有 <code>情况</code>,默认分支写 <code>其他</code>（<code>否</code>/<code>否则</code> 同义）,
+<code>配</code> 后面不跟 <code>之</code>。<code>若</code> 只能作守卫（<code>情况 模式 若 条件:</code>）,不能当分支词。
+早期文档的 <code>配 X 之: / 若 分支</code> 写法从未被 parser 支持,照那样写会 ParseError。</p>
+</blockquote>
+<h3 id="64-l2">6.4 L2 设计哲学<a class="headerlink" href="#64-l2" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>显式优于隐式</strong>:类型、参数、返回值都明确</li>
+<li><strong>符号优于文字</strong>:算术用 <code>+ - * /</code>,这是国际通用,中文文章里也这样写</li>
+<li><strong>缩进强制</strong>:块结构清晰,适合大文件</li>
+<li><strong>静态检查</strong>:支持类型检查器,IDE 友好</li>
+<li><strong>工程化</strong>:模块、可见性、错误处理完善</li>
+</ul>
+<hr />
+<h2 id="l3">第七部分:L3 领域嵌入层<a class="headerlink" href="#l3" title="Permanent link">&para;</a></h2>
+<h3 id="71">7.1 核心理念:吸收,而非翻译<a class="headerlink" href="#71" title="Permanent link">&para;</a></h3>
+<p>L3 层的领域 DSL(领域特定语言)<strong>直接融入光明表达式</strong>,像中文文章里写"3+5=8"一样自然,无需任何嵌入标记。</p>
+<p>中文文章里出现 <code>H₂O</code>、<code>3+5=8</code>、<code>SELECT * FROM users</code> 都不需要特殊标记,光明也应该如此。</p>
+<h3 id="72-dsl">7.2 支持的领域 DSL<a class="headerlink" href="#72-dsl" title="Permanent link">&para;</a></h3>
+<h4 id="721">7.2.1 数学公式<a class="headerlink" href="#721" title="Permanent link">&para;</a></h4>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a># 数学符号直接写,作为光明表达式
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>设 甲 = 3 + 5 × √2
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>设 面积 = π × r²
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>设 解 = (-b ± √(b² - 4ac)) / (2a)
+</span></code></pre></div>
+<h4 id="722">7.2.2 正则表达式<a class="headerlink" href="#722" title="Permanent link">&para;</a></h4>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>设 模式 = /\d{4}-\d{2}-\d{2}/
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>若 日期 匹配 模式:
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>    打印 "合法日期"
+</span></code></pre></div>
+<h4 id="723-sql">7.2.3 SQL(中文结构化,直接作为表达式)<a class="headerlink" href="#723-sql" title="Permanent link">&para;</a></h4>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a># 中文结构 SQL,无需引块
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>设 结果 = 从 users 选择 * 当 age &gt; 18 排序 by name
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>设 计数 = 从 users 计数(*) 当 status == "active"
+</span></code></pre></div>
+<h4 id="724-json">7.2.4 JSON/字典字面量<a class="headerlink" href="#724-json" title="Permanent link">&para;</a></h4>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>设 配置 = {
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    "host": "localhost",
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    "port": 8080,
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    "debug": 真
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>}
+</span></code></pre></div>
+<h3 id="73-l3">7.3 L3 的实现机制<a class="headerlink" href="#73-l3" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>词法层</strong>:识别特定模式的 token(如 <code>/.../</code> 为正则,<code>{...}</code> 为 JSON)</li>
+<li><strong>语法层</strong>:扩展表达式语法,支持领域 DSL 作为子表达式</li>
+<li><strong>求值层</strong>:调用对应的领域引擎(SQL 引擎、正则引擎、数学库)</li>
+</ul>
+<h3 id="74-l3">7.4 L3 的边界<a class="headerlink" href="#74-l3" title="Permanent link">&para;</a></h3>
+<p>L3 <strong>只处理表达式级别的领域 DSL</strong>。如果需要嵌入完整的编程语言(定义函数、类、模块),那属于 L4 外语引用层的范畴。</p>
+<hr />
+<h2 id="l4">第八部分:L4 外语引用层<a class="headerlink" href="#l4" title="Permanent link">&para;</a></h2>
+<h3 id="81">8.1 核心理念:引用,而非投降<a class="headerlink" href="#81" title="Permanent link">&para;</a></h3>
+<p>L4 层用于引用 Python/C/Go/MoonBit 等<strong>完整编程语言</strong>。语义是"像引用古文/外语一样引用外部代码"。</p>
+<p><strong>光明引用外语,不是因为光明做不到,而是因为复用现有生态更高效</strong>——就像中文文章引用英文文献不是因为中文表达不了,而是直接引用更准确。</p>
+<h3 id="82-vs">8.2 <code>引</code> vs <code>嵌入</code> 的语义差异<a class="headerlink" href="#82-vs" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>关键字</th>
+<th>语义</th>
+<th>心理暗示</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>嵌入</code></td>
+<td>光明做不到,塞进去</td>
+<td>投降</td>
+</tr>
+<tr>
+<td><code>引</code></td>
+<td>像引用古文/外语一样引用</td>
+<td>自然</td>
+</tr>
+</tbody>
+</table>
+<p><code>引</code> 是中文本来就有的概念(引经据典、引用),语义更准确,不会给学习者传递"光明不够用"的负面信号。</p>
+<h3 id="83">8.3 支持范围(分阶段)<a class="headerlink" href="#83" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>语言</th>
+<th>互操作方式</th>
+<th>典型场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>v4.0 优先</strong></td>
+<td>Python</td>
+<td>解释器嵌入</td>
+<td>生态复用(numpy/pandas等)</td>
+</tr>
+<tr>
+<td><strong>v4.0 优先</strong></td>
+<td>C</td>
+<td>FFI 编译加载</td>
+<td>性能关键、系统调用</td>
+</tr>
+<tr>
+<td>后续</td>
+<td>Go</td>
+<td>cgo / RPC</td>
+<td>并发、云原生生态</td>
+</tr>
+<tr>
+<td>后续</td>
+<td>MoonBit</td>
+<td>编译到 WASM/原生</td>
+<td>性能、类型安全、WASM</td>
+</tr>
+<tr>
+<td>后续</td>
+<td>Rust</td>
+<td>FFI</td>
+<td>性能、内存安全</td>
+</tr>
+</tbody>
+</table>
+<h3 id="84">8.4 语法:<code>引 语言:</code> 块<a class="headerlink" href="#84" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>引 语言名:
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    &lt;该语言的原始代码&gt;
+</span></code></pre></div>
+<h3 id="85">8.5 数据级互操作机制<a class="headerlink" href="#85" title="Permanent link">&para;</a></h3>
+<p><strong>核心原则</strong>:不共享作用域,通过"定义 + 调用"实现数据级互操作。</p>
+<p><strong>两步模式</strong>:
+1. <code>引 语言:</code> 块<strong>定义</strong>该语言的函数/代码
+2. 光明通过 <code>语言名.函数名(参数)</code> <strong>调用</strong>,参数传入,返回值传出</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a># 步骤1:定义 Python 函数
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>引 Python:
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>    import numpy as np
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    def 求均值(数据):
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>        arr = np.array(数据)
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>        return float(arr.mean())
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a># 步骤2:光明调用,数据级互操作
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>设 数据 = [1, 2, 3, 4, 5]
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>设 结果 = Python.求均值(数据)
+</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>打印 结果   # 输出: 3.0
+</span></code></pre></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a># 步骤1:定义 C 函数
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>引 C:
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>    int 快速求和(int* arr, int n) {
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>        int s = 0;
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>        for (int i = 0; i &lt; n; i++) s += arr[i];
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>        return s;
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>    }
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a># 步骤2:光明调用
+</span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>设 数组 = [1, 2, 3, 4, 5]
+</span><span id="__span-18-11"><a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>设 总和 = C.快速求和(数组, 长度(数组))
+</span><span id="__span-18-12"><a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>打印 总和   # 输出: 15
+</span></code></pre></div>
+<h3 id="86">8.6 单步模式(表达式级引用)<a class="headerlink" href="#86" title="Permanent link">&para;</a></h3>
+<p>对于简单的"一次性"引用,支持 <code>引 语言:</code> 作为表达式,块内最后一行作为返回值:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a># Python 单步引用
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>设 结果 = 引 Python:
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    import numpy as np
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    arr = np.array([1, 2, 3, 4, 5])
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    arr.mean()   # 最后一行作为返回值
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>打印 结果   # 3.0
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a># C 单步引用(需绑定入口)
+</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>设 总和 = 引 C:
+</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>    int sum(int* arr, int n) {
+</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>        int s = 0;
+</span><span id="__span-19-12"><a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>        for (int i = 0; i &lt; n; i++) s += arr[i];
+</span><span id="__span-19-13"><a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a>        return s;
+</span><span id="__span-19-14"><a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a>    }
+</span><span id="__span-19-15"><a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a>    sum({1,2,3,4,5}, 5)   # 最后一行作为返回值
+</span><span id="__span-19-16"><a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a>打印 总和   # 15
+</span></code></pre></div>
+<h3 id="87">8.7 互操作的数据类型映射<a class="headerlink" href="#87" title="Permanent link">&para;</a></h3>
+<p>光明与引用语言之间的数据转换自动处理:</p>
+<table>
+<thead>
+<tr>
+<th>光明类型</th>
+<th>Python</th>
+<th>C</th>
+<th>Go</th>
+<th>MoonBit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数</td>
+<td>int/float</td>
+<td>int/double</td>
+<td>int64/float64</td>
+<td>Int/Double</td>
+</tr>
+<tr>
+<td>串</td>
+<td>str</td>
+<td>char*</td>
+<td>string</td>
+<td>String</td>
+</tr>
+<tr>
+<td>列</td>
+<td>list</td>
+<td>数组指针</td>
+<td>[]T</td>
+<td>Array[T]</td>
+</tr>
+<tr>
+<td>典</td>
+<td>dict</td>
+<td>struct*</td>
+<td>map[K]V</td>
+<td>Map[K,V]</td>
+</tr>
+<tr>
+<td>真/假</td>
+<td>True/False</td>
+<td>int(1/0)</td>
+<td>bool</td>
+<td>Bool</td>
+</tr>
+</tbody>
+</table>
+<p>复杂类型(自定义类、闭包)不自动转换,需在引用块内序列化或用 FFI 手动绑定。</p>
+<h3 id="88">8.8 引用块的作用域与生命周期<a class="headerlink" href="#88" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>引 语言:</code> 定义的全局函数在整个文件可见</li>
+<li>定义在 <code>段</code> 内的引用函数,生命周期与段一致</li>
+<li><strong>不共享光明作用域</strong>:引用块内不能直接读写光明变量,只能通过参数传入/返回值传出</li>
+<li>避免了"作用域共享"带来的调试困难和语义歧义</li>
+</ul>
+<h3 id="89-l4">8.9 L4 的战略定位<a class="headerlink" href="#89-l4" title="Permanent link">&para;</a></h3>
+<p>L4 让光明成为<strong>中文编程生态的枢纽</strong>:</p>
+<ul>
+<li>青少年学 L1 → 入门</li>
+<li>工程师用 L2 → 商用</li>
+<li>需要性能 → <code>引 C:</code> 或 <code>引 MoonBit:</code></li>
+<li>需要生态 → <code>引 Python:</code></li>
+<li>需要并发 → <code>引 Go:</code>(后续)</li>
+</ul>
+<p><strong>光明不必在性能/生态上重复造轮子</strong>,专注做好"中文表达 + 分层架构 + 外语枢纽"。这是光明区别于其它中文编程语言的<strong>杀手锏</strong>。</p>
+<hr />
+<h2 id="_5">第九部分:文体声明与混用<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
+<h3 id="91">9.1 文体声明<a class="headerlink" href="#91" title="Permanent link">&para;</a></h3>
+<p>文件头部用注释声明文体:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a># 文体: 白话
+</span></code></pre></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a># 文体: 文言
+</span></code></pre></div>
+<h3 id="92">9.2 默认文体<a class="headerlink" href="#92" title="Permanent link">&para;</a></h3>
+<ul>
+<li>无声明时,默认为 <strong>L1 白话体</strong>(向后兼容)</li>
+<li>鼓励项目通过 <code>package.toml</code> 声明默认文体:</li>
+</ul>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="k">[light]</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="n">default_style</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"文言"</span>
+</span></code></pre></div>
+<h3 id="93">9.3 文体混用<a class="headerlink" href="#93" title="Permanent link">&para;</a></h3>
+<p>同一项目可以混用不同文体的文件:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>my_project/
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>├── 主.light              # 文言体(入口)
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>├── 工具/
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>│   ├── 数学.light        # 文言体(库)
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>│   └── 测试.light        # 白话体(测试脚本)
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>└── 配置/
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>    └── 初始化.light      # 白话体(配置)
+</span></code></pre></div>
+<h3 id="94">9.4 同文件内切换(高级)<a class="headerlink" href="#94" title="Permanent link">&para;</a></h3>
+<p>同一文件内可通过 <code>文体:</code> 注释切换:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a># 文体: 文言
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>段 计算总分(学生列表: 列) -&gt; 数:
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>    设 总分: 数 = 0
+</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>    遍 学生列表 之为 s:
+</span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>        总分 加上 s.成绩
+</span><span id="__span-24-6"><a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>    返 总分
+</span><span id="__span-24-7"><a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>
+</span><span id="__span-24-8"><a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a># 文体: 白话
+</span><span id="__span-24-9"><a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a># 以下是测试代码
+</span><span id="__span-24-10"><a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a>设学生为[学生("张三",85),学生("李四",92)]
+</span><span id="__span-24-11"><a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a>打印计算总分(学生)
+</span></code></pre></div>
+<p>不鼓励频繁切换,但允许。</p>
+<hr />
+<h2 id="_6">第十部分:与现有版本的差异<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
+<h3 id="101">10.1 关键字变更<a class="headerlink" href="#101" title="Permanent link">&para;</a></h3>
+<h4 id="1011-l0-30">10.1.1 L0 核心字表确立(30字)<a class="headerlink" href="#1011-l0-30" title="Permanent link">&para;</a></h4>
+<p><strong>删除5字</strong>(冗余/凑数):
+| 删除 | 原因 |
+|------|------|
+| <code>则</code> | 用冒号/换行替代 |
+| <code>为</code> | 与 <code>设</code> 重叠,用 <code>=</code> 替代 |
+| <code>有</code> | 与 <code>是</code>/<code>之</code> 组合可表达 |
+| <code>的</code> | 与 <code>之</code> 语义重叠 |
+| <code>入</code> | <code>导</code> 已含导入义,<code>入</code>是凑数 |</p>
+<p><strong>新增5字</strong>(补全必需语义):
+| 新增 | 用途 | 对应其它语言 |
+|------|------|-------------|
+| <code>终</code> | finally | Python <code>finally</code> |
+| <code>自</code> | self/this | Python <code>self</code>/Java <code>this</code> |
+| <code>承</code> | extends | Java <code>extends</code> |
+| <code>接</code> | interface/trait | Go <code>interface</code>/Rust <code>trait</code> |
+| <code>配</code> | match | Rust <code>match</code>/Python <code>match</code> |</p>
+<p><strong>单字为主形式</strong>(双字保留为别名):
+| 主形式(单字) | 别名(双字) |
+|-------------|-----------|
+| <code>若</code> | <code>如果</code> |
+| <code>设</code> | <code>定义</code> |
+| <code>返</code> | <code>返回</code> |
+| <code>段</code> | <code>函数</code>/<code>段落</code> |
+| <code>试</code> | <code>尝试</code> |
+| <code>捕</code> | <code>捕获</code> |
+| <code>抛</code> | <code>抛出</code> |
+| <code>终</code> | <code>最终</code> |
+| <code>自</code> | <code>自己</code> |
+| <code>承</code> | <code>继承</code> |
+| <code>接</code> | <code>接口</code> |
+| <code>配</code> | <code>匹配</code> |
+| <code>导</code> | <code>导入</code> |
+| <code>出</code> | <code>导出</code> |</p>
+<h4 id="1012">10.1.2 冻结承诺<a class="headerlink" href="#1012" title="Permanent link">&para;</a></h4>
+<p><strong>v4.0 后核心字表冻结,不再变更</strong>。停止 <code>段落→函数</code> 这类反复变更。</p>
+<h3 id="102">10.2 算术运算符<a class="headerlink" href="#102" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>当前(v3.3)</th>
+<th>v4.0</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>加上</code>(主)</td>
+<td><code>+</code>(主)</td>
+<td>国际通用</td>
+</tr>
+<tr>
+<td><code>减去</code>(主)</td>
+<td><code>-</code>(主)</td>
+<td>国际通用</td>
+</tr>
+<tr>
+<td><code>乘以</code>(主)</td>
+<td><code>*</code>(主)</td>
+<td>国际通用</td>
+</tr>
+<tr>
+<td><code>除以</code>(主)</td>
+<td><code>/</code>(主)</td>
+<td>国际通用</td>
+</tr>
+<tr>
+<td><code>取余</code>(主)</td>
+<td><code>%</code>(主)</td>
+<td>国际通用</td>
+</tr>
+<tr>
+<td><code>幂</code>(主)</td>
+<td><code>**</code>(主)</td>
+<td>国际通用</td>
+</tr>
+<tr>
+<td><code>整除</code>(主)</td>
+<td><code>//</code>(主)</td>
+<td>国际通用</td>
+</tr>
+</tbody>
+</table>
+<p>中文运算符(<code>加上/减去/乘以/除以</code>)在 L1 白话体中保留,L2 文言体推荐用符号。</p>
+<h3 id="103">10.3 嵌入块<a class="headerlink" href="#103" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>当前(v3.3)</th>
+<th>v4.0</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>嵌入 Python:</code></td>
+<td><code>引 Python:</code></td>
+<td>语义转变</td>
+</tr>
+<tr>
+<td><code>嵌入 C:</code></td>
+<td><code>引 C:</code></td>
+<td>语义转变</td>
+</tr>
+<tr>
+<td><code>结束嵌入</code></td>
+<td><code>引 结束</code> 或缩进回归</td>
+<td>简化</td>
+</tr>
+</tbody>
+</table>
+<h3 id="104">10.4 双模式取消<a class="headerlink" href="#104" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>当前(v3.3)</th>
+<th>v4.0</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>中英文符号双模式</td>
+<td>按文体区分</td>
+<td>L1用中文,L2用英文</td>
+</tr>
+<tr>
+<td>有空格/无空格双模式</td>
+<td>按文体区分</td>
+<td>L1无空格,L2有空格</td>
+</tr>
+<tr>
+<td>显式结束/缩进双模式</td>
+<td>按文体区分</td>
+<td>L1可选,L2强制缩进</td>
+</tr>
+</tbody>
+</table>
+<p>不是"都行",而是"按文体选择"。</p>
+<hr />
+<h2 id="_7">第十一部分:迁移路径<a class="headerlink" href="#_7" title="Permanent link">&para;</a></h2>
+<h3 id="111">11.1 短期(不破坏现有代码)<a class="headerlink" href="#111" title="Permanent link">&para;</a></h3>
+<h4 id="1111">11.1.1 冻结关键字表<a class="headerlink" href="#1111" title="Permanent link">&para;</a></h4>
+<ul>
+<li>停止 <code>段落→函数</code> 这类变更</li>
+<li><code>段</code>/<code>函数</code>/<code>段落</code> 三个别名永远共存</li>
+<li>v4.0 文档明确声明:L0 核心字冻结</li>
+</ul>
+<h4 id="1112">11.1.2 单字关键字回归<a class="headerlink" href="#1112" title="Permanent link">&para;</a></h4>
+<ul>
+<li>将 <code>若</code>、<code>设</code>、<code>返</code>、<code>段</code>、<code>试</code>、<code>捕</code>、<code>抛</code> 设为主形式</li>
+<li>双字形式保留为别名,不报错</li>
+<li>更新文档和示例,推荐用单字</li>
+</ul>
+<h4 id="1113">11.1.3 算术符号化<a class="headerlink" href="#1113" title="Permanent link">&para;</a></h4>
+<ul>
+<li>将 <code>+ - * / % ** //</code> 设为主形式</li>
+<li><code>加上/减去/乘以/除以</code> 降级为可选别名</li>
+<li>现有代码不报错,继续工作</li>
+</ul>
+<p><strong>以上改动不破坏任何现有 .light 文件</strong>。</p>
+<h3 id="112">11.2 中期(架构调整)<a class="headerlink" href="#112" title="Permanent link">&para;</a></h3>
+<h4 id="1121">11.2.1 引入文体声明<a class="headerlink" href="#1121" title="Permanent link">&para;</a></h4>
+<ul>
+<li>解析器识别 <code># 文体: 白话</code> / <code># 文体: 文言</code></li>
+<li>按文体采用不同默认规则(标点、空格、句号)</li>
+<li>无声明时默认白话体</li>
+</ul>
+<h4 id="1122-l4">11.2.2 嵌入→引用(L4)<a class="headerlink" href="#1122-l4" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>嵌入 Python:</code> 改为 <code>引 Python:</code>(两步模式:定义 + <code>Python.函数()</code> 调用)</li>
+<li><code>嵌入 C:</code> 改为 <code>引 C:</code>(FFI 编译加载 + <code>C.函数()</code> 调用)</li>
+<li>互操作改为<strong>数据级</strong>(参数传入/返回值传出,不共享作用域)</li>
+<li>旧语法保留为别名,触发 deprecation warning</li>
+<li>Go/MoonBit/Rust 作为后续扩展,初期不实现</li>
+<li>文档更新</li>
+</ul>
+<h4 id="1123-dsll3">11.2.3 领域DSL一等公民(L3 吸收型)<a class="headerlink" href="#1123-dsll3" title="Permanent link">&para;</a></h4>
+<ul>
+<li>SQL、正则、数学公式作为内置 DSL</li>
+<li>不需要 <code>引</code> 块,直接写</li>
+<li>解析器识别特定模式</li>
+</ul>
+<h3 id="113">11.3 长期(生态建设)<a class="headerlink" href="#113" title="Permanent link">&para;</a></h3>
+<h4 id="1131-l1">11.3.1 L1教学版编译器<a class="headerlink" href="#1131-l1" title="Permanent link">&para;</a></h4>
+<ul>
+<li>独立的极简解析器,只支持L1白话体</li>
+<li>错误信息更友好(面向青少年)</li>
+<li>内置教学示例和练习</li>
+</ul>
+<h4 id="1132-l2">11.3.2 L2工程版编译器<a class="headerlink" href="#1132-l2" title="Permanent link">&para;</a></h4>
+<ul>
+<li>完整版,支持所有特性</li>
+<li>类型检查器</li>
+<li>性能优化(LLVM后端)</li>
+</ul>
+<h4 id="1133-l0">11.3.3 两版共享L0<a class="headerlink" href="#1133-l0" title="Permanent link">&para;</a></h4>
+<ul>
+<li>两个版本共享 L0 核心字表</li>
+<li>像简体中文和繁体中文共享汉字</li>
+<li>L1 代码可被 L2 项目导入,L2 库可被 L1 脚本调用</li>
+</ul>
+<hr />
+<h2 id="_8">第十二部分:示例对比<a class="headerlink" href="#_8" title="Permanent link">&para;</a></h2>
+<h3 id="121">12.1 同一问题的不同文体表达<a class="headerlink" href="#121" title="Permanent link">&para;</a></h3>
+<p><strong>问题</strong>:计算列表中大于平均值的元素之和</p>
+<h4 id="l1_1">L1 白话体<a class="headerlink" href="#l1_1" title="Permanent link">&para;</a></h4>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a># 文体: 白话
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>设数据=[3,1,4,1,5,9,2,6]
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>设平均=数据和/数据长
+</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a>设结果=0
+</span><span id="__span-25-5"><a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>遍 数据 之为 x:
+</span><span id="__span-25-6"><a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a>    若 x 大于 平均:结果 加上 x
+</span><span id="__span-25-7"><a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a>打印结果
+</span></code></pre></div>
+<h4 id="l2_1">L2 文言体<a class="headerlink" href="#l2_1" title="Permanent link">&para;</a></h4>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a># 文体: 文言
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>段 大于平均之和(数据: 列) -&gt; 数:
+</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>    设 均值: 数 = 和(数据) / 长度(数据)
+</span><span id="__span-26-4"><a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>    设 结果: 数 = 0
+</span><span id="__span-26-5"><a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>    遍 数据 之为 x:
+</span><span id="__span-26-6"><a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a>        若 x &gt; 均值:
+</span><span id="__span-26-7"><a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a>            结果 加上 x
+</span><span id="__span-26-8"><a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a>    返 结果
+</span><span id="__span-26-9"><a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a>
+</span><span id="__span-26-10"><a id="__codelineno-26-10" name="__codelineno-26-10" href="#__codelineno-26-10"></a>设 数据 = [3, 1, 4, 1, 5, 9, 2, 6]
+</span><span id="__span-26-11"><a id="__codelineno-26-11" name="__codelineno-26-11" href="#__codelineno-26-11"></a>打印 大于平均之和(数据)
+</span></code></pre></div>
+<h4 id="l4-python">L4 引用型(Python 生态复用)<a class="headerlink" href="#l4-python" title="Permanent link">&para;</a></h4>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a># 文体: 文言
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>引 Python:
+</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>    import numpy as np
+</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>    def 大于平均之和(数据):
+</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>        arr = np.array(数据)
+</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>        均值 = arr.mean()
+</span><span id="__span-27-7"><a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a>        return int(arr[arr &gt; 均值].sum())
+</span><span id="__span-27-8"><a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a>
+</span><span id="__span-27-9"><a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a>设 数据 = [3, 1, 4, 1, 5, 9, 2, 6]
+</span><span id="__span-27-10"><a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a>设 结果 = Python.大于平均之和(数据)
+</span><span id="__span-27-11"><a id="__codelineno-27-11" name="__codelineno-27-11" href="#__codelineno-27-11"></a>打印 结果
+</span></code></pre></div>
+<h3 id="122">12.2 商用项目示例<a class="headerlink" href="#122" title="Permanent link">&para;</a></h3>
+<p><strong>学生成绩管理系统(L2)</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a># 文体: 文言
+</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a># 文件: 学生管理.light
+</span><span id="__span-28-3"><a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>出 学生, 成绩统计, 等级评定
+</span><span id="__span-28-4"><a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>
+</span><span id="__span-28-5"><a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>类 学生:
+</span><span id="__span-28-6"><a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a>    设 姓名: 串
+</span><span id="__span-28-7"><a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a>    设 年龄: 数
+</span><span id="__span-28-8"><a id="__codelineno-28-8" name="__codelineno-28-8" href="#__codelineno-28-8"></a>    设 成绩: 列
+</span><span id="__span-28-9"><a id="__codelineno-28-9" name="__codelineno-28-9" href="#__codelineno-28-9"></a>
+</span><span id="__span-28-10"><a id="__codelineno-28-10" name="__codelineno-28-10" href="#__codelineno-28-10"></a>    段 __init__(自, 姓名: 串, 年龄: 数):
+</span><span id="__span-28-11"><a id="__codelineno-28-11" name="__codelineno-28-11" href="#__codelineno-28-11"></a>        自.姓名 = 姓名
+</span><span id="__span-28-12"><a id="__codelineno-28-12" name="__codelineno-28-12" href="#__codelineno-28-12"></a>        自.年龄 = 年龄
+</span><span id="__span-28-13"><a id="__codelineno-28-13" name="__codelineno-28-13" href="#__codelineno-28-13"></a>        自.成绩 = []
+</span><span id="__span-28-14"><a id="__codelineno-28-14" name="__codelineno-28-14" href="#__codelineno-28-14"></a>
+</span><span id="__span-28-15"><a id="__codelineno-28-15" name="__codelineno-28-15" href="#__codelineno-28-15"></a>    段 添加成绩(自, 分数: 数):
+</span><span id="__span-28-16"><a id="__codelineno-28-16" name="__codelineno-28-16" href="#__codelineno-28-16"></a>        若 分数 &lt; 0 或 分数 &gt; 100:
+</span><span id="__span-28-17"><a id="__codelineno-28-17" name="__codelineno-28-17" href="#__codelineno-28-17"></a>            抛 ValueError("分数必须在0-100之间")
+</span><span id="__span-28-18"><a id="__codelineno-28-18" name="__codelineno-28-18" href="#__codelineno-28-18"></a>        自.成绩.追加(分数)
+</span><span id="__span-28-19"><a id="__codelineno-28-19" name="__codelineno-28-19" href="#__codelineno-28-19"></a>
+</span><span id="__span-28-20"><a id="__codelineno-28-20" name="__codelineno-28-20" href="#__codelineno-28-20"></a>    段 平均分(自) -&gt; 数:
+</span><span id="__span-28-21"><a id="__codelineno-28-21" name="__codelineno-28-21" href="#__codelineno-28-21"></a>        若 长度(自.成绩) == 0:
+</span><span id="__span-28-22"><a id="__codelineno-28-22" name="__codelineno-28-22" href="#__codelineno-28-22"></a>            返 0
+</span><span id="__span-28-23"><a id="__codelineno-28-23" name="__codelineno-28-23" href="#__codelineno-28-23"></a>        返 和(自.成绩) / 长度(自.成绩)
+</span><span id="__span-28-24"><a id="__codelineno-28-24" name="__codelineno-28-24" href="#__codelineno-28-24"></a>
+</span><span id="__span-28-25"><a id="__codelineno-28-25" name="__codelineno-28-25" href="#__codelineno-28-25"></a>段 成绩统计(学生列表: 列) -&gt; 典:
+</span><span id="__span-28-26"><a id="__codelineno-28-26" name="__codelineno-28-26" href="#__codelineno-28-26"></a>    设 统计 = {"优": 0, "良": 0, "中": 0, "差": 0}
+</span><span id="__span-28-27"><a id="__codelineno-28-27" name="__codelineno-28-27" href="#__codelineno-28-27"></a>    遍 学生列表 之为 s:
+</span><span id="__span-28-28"><a id="__codelineno-28-28" name="__codelineno-28-28" href="#__codelineno-28-28"></a>        设 等级 = 等级评定(s.平均分())
+</span><span id="__span-28-29"><a id="__codelineno-28-29" name="__codelineno-28-29" href="#__codelineno-28-29"></a>        统计[等级] 加上 1
+</span><span id="__span-28-30"><a id="__codelineno-28-30" name="__codelineno-28-30" href="#__codelineno-28-30"></a>    返 统计
+</span><span id="__span-28-31"><a id="__codelineno-28-31" name="__codelineno-28-31" href="#__codelineno-28-31"></a>
+</span><span id="__span-28-32"><a id="__codelineno-28-32" name="__codelineno-28-32" href="#__codelineno-28-32"></a>段 等级评定(分数: 数) -&gt; 串:
+</span><span id="__span-28-33"><a id="__codelineno-28-33" name="__codelineno-28-33" href="#__codelineno-28-33"></a>    若 分数 &gt;= 90: 返 "优"
+</span><span id="__span-28-34"><a id="__codelineno-28-34" name="__codelineno-28-34" href="#__codelineno-28-34"></a>    若 分数 &gt;= 80: 返 "良"
+</span><span id="__span-28-35"><a id="__codelineno-28-35" name="__codelineno-28-35" href="#__codelineno-28-35"></a>    若 分数 &gt;= 60: 返 "中"
+</span><span id="__span-28-36"><a id="__codelineno-28-36" name="__codelineno-28-36" href="#__codelineno-28-36"></a>    返 "差"
+</span></code></pre></div>
+<h3 id="123">12.3 青少年教学示例<a class="headerlink" href="#123" title="Permanent link">&para;</a></h3>
+<p><strong>猜数字游戏(L1)</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a># 文体: 白话
+</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>设答案=随机数(1,100)
+</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>设次数=0
+</span><span id="__span-29-4"><a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>打印"我想了一个1到100的数,猜猜是多少?"
+</span><span id="__span-29-5"><a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>当 真:
+</span><span id="__span-29-6"><a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a>    设猜测=输入数()
+</span><span id="__span-29-7"><a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a>    次数 加上 1
+</span><span id="__span-29-8"><a id="__codelineno-29-8" name="__codelineno-29-8" href="#__codelineno-29-8"></a>    若 猜测==答案:
+</span><span id="__span-29-9"><a id="__codelineno-29-9" name="__codelineno-29-9" href="#__codelineno-29-9"></a>        打印 "猜对了!你用了" + 文本(次数) + "次"
+</span><span id="__span-29-10"><a id="__codelineno-29-10" name="__codelineno-29-10" href="#__codelineno-29-10"></a>        跳
+</span><span id="__span-29-11"><a id="__codelineno-29-11" name="__codelineno-29-11" href="#__codelineno-29-11"></a>    否则如果 猜测&lt;答案:
+</span><span id="__span-29-12"><a id="__codelineno-29-12" name="__codelineno-29-12" href="#__codelineno-29-12"></a>        打印"小了,再大一点"
+</span><span id="__span-29-13"><a id="__codelineno-29-13" name="__codelineno-29-13" href="#__codelineno-29-13"></a>    否:
+</span><span id="__span-29-14"><a id="__codelineno-29-14" name="__codelineno-29-14" href="#__codelineno-29-14"></a>        打印"大了,再小一点"
+</span></code></pre></div>
+<hr />
+<h2 id="_9">第十三部分:设计原则总结<a class="headerlink" href="#_9" title="Permanent link">&para;</a></h2>
+<h3 id="131">13.1 六大原则<a class="headerlink" href="#131" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>字稳定原则</strong>:L0 核心字表永不变化,这是中文3000字的对应物</li>
+<li><strong>体分层原则</strong>:不同场景用不同文体,各自优化,不强求统一</li>
+<li><strong>域吸收原则</strong>:L3 专业符号直接吸收,不翻译,不嵌入</li>
+<li><strong>语引用原则</strong>:L4 完整编程语言用 <code>引</code> 块引用,数据级互操作</li>
+<li><strong>语境消歧原则</strong>:同一字在不同文体有不同表现,靠文体声明消歧</li>
+<li><strong>渐进迁移原则</strong>:不破坏现有代码,新旧并存,逐步引导</li>
+</ol>
+<h3 id="132">13.2 与中文的对应<a class="headerlink" href="#132" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>中文</th>
+<th>光明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3000常用字</td>
+<td>L0 核心字表(约25字)</td>
+</tr>
+<tr>
+<td>白话文</td>
+<td>L1 白话体</td>
+</tr>
+<tr>
+<td>文言文/公文</td>
+<td>L2 文言体</td>
+</tr>
+<tr>
+<td>数学公式/化学方程式</td>
+<td>L3 领域嵌入</td>
+</tr>
+<tr>
+<td>英语/日语(外语)</td>
+<td>L4 外语引用</td>
+</tr>
+<tr>
+<td>字稳定不变</td>
+<td>核心字冻结承诺</td>
+</tr>
+<tr>
+<td>字组合成词</td>
+<td>核心字组合成关键字</td>
+</tr>
+<tr>
+<td>不同文体共享字</td>
+<td>L1/L2 共享 L0</td>
+</tr>
+<tr>
+<td>文章可混用文体</td>
+<td>项目可混用文体</td>
+</tr>
+<tr>
+<td>引经据典</td>
+<td><code>引 语言:</code> 引用块</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="_10">第十四部分:开放问题<a class="headerlink" href="#_10" title="Permanent link">&para;</a></h2>
+<h3 id="141">14.1 待讨论<a class="headerlink" href="#141" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>L1 是否支持类?</strong> 当前设计不支持,但教学场景可能需要简化版</li>
+<li><strong>L2 的类型系统强度?</strong> 推荐还是强制?是否支持泛型?</li>
+<li><strong>L3 吸收型的 DSL 范围?</strong> SQL/正则/数学之外,是否支持 HTML/CSS 等?</li>
+<li><strong>L4 引用型的语言范围?</strong> Python+C 优先,Go/MoonBit/Rust 何时跟进?</li>
+<li><strong>文体声明位置?</strong> 文件头注释 vs package.toml vs 文件扩展名(<code>.light</code> vs <code>.light-lite</code>)?</li>
+<li><strong>L1 和 L2 的互操作?</strong> L1 脚本调用 L2 库时,类型如何处理?</li>
+<li><strong>L4 引用型的错误处理?</strong> 引用块内的 Python/C 异常如何传播到光明?</li>
+<li><strong>L4 引用型的并发安全?</strong> 多个 <code>引 Python:</code> 块并发调用时,解释器状态如何隔离?</li>
+</ol>
+<h3 id="142-v40">14.2 已决策(v4.0 确认)<a class="headerlink" href="#142-v40" title="Permanent link">&para;</a></h3>
+<ul>
+<li>✅ 五层架构:L0/L1/L2/L3/L4 彻底分层</li>
+<li>✅ L3(吸收型)与 L4(引用型)分开,不混层</li>
+<li>✅ L4 引用型优先支持 Python + C,Go/MoonBit/Rust 后续</li>
+<li>✅ L4 引用型采用数据级互操作(参数传入/返回值传出,不共享作用域)</li>
+<li>✅ <code>引</code> 取代 <code>嵌入</code> 作为 L4 关键字</li>
+</ul>
+<h3 id="143">14.3 后续工作<a class="headerlink" href="#143" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> L0 核心字表冻结（30字，A 阶段完成）</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> L1 白话体语法详细规范（D 阶段完成，10 课教程）</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> L2 文言体语法详细规范（D 阶段完成，学生成绩管理系统）</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> L3 领域 DSL 的具体实现方案（C 阶段：嵌入块 + E 阶段：原生语法）</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> L4 引用型(Python)的互操作实现方案（B 阶段：示例 + E 阶段：沙箱隔离）</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> 迁移工具(从 v3.3 到 v4.0)（A 阶段：v3.3_to_v4.0迁移指南.md）</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> 标准库增强（F 阶段：日期时间/统计/正则 三模块 + 42 单元测试）</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> CI/CD 自动化（G 阶段：CI 工作流 + Playground Web API）</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> L4 引用型(C/Go/MoonBit)的互操作实现方案（J 阶段）</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> 教学版编译器原型</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> 工程版编译器类型检查器</li>
+</ul>
+<hr />
+<h2 id="_11">第十五部分:版本历史<a class="headerlink" href="#_11" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>日期</th>
+<th>主要变更</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>v4.0</td>
+<td>2026-08-03</td>
+<td>分层架构设计:L0/L1/L2/L3 四层,核心字冻结,文体分层,领域吸收</td>
+</tr>
+<tr>
+<td>v4.0.1</td>
+<td>2026-08-03</td>
+<td>L3 细化为双模式:吸收型 + 引用型</td>
+</tr>
+<tr>
+<td>v4.0.2</td>
+<td>2026-08-03</td>
+<td>L3/L4 彻底分层:吸收型(SQL/正则/数学)归 L3,引用型(Python/C/Go)独立为 L4,数据级互操作</td>
+</tr>
+<tr>
+<td>v4.0.3</td>
+<td>2026-08-03</td>
+<td>L0 核心字表重构:确立30字(删 则/为/有/的/入,新增 终/自/承/接/配),修复示例用字未列入与类/L1矛盾两个bug</td>
+</tr>
+<tr>
+<td>v4.0.4</td>
+<td>2026-08-04</td>
+<td><strong>A 阶段</strong>：L0 冻结,单字主式,运算符符号化,引块重命名,v3.3→v4.0迁移指南</td>
+</tr>
+<tr>
+<td>v4.0.5</td>
+<td>2026-08-04</td>
+<td><strong>B 阶段</strong>：L4 Python 引用层 5 示例(numpy/pandas/matplotlib/requests/sklearn)</td>
+</tr>
+<tr>
+<td>v4.0.6</td>
+<td>2026-08-04</td>
+<td><strong>C 阶段</strong>：L3 领域嵌入(SQL/正则/数学)3 示例(all_in_one/demo1-3)</td>
+</tr>
+<tr>
+<td>v4.0.7</td>
+<td>2026-08-04</td>
+<td><strong>D 阶段</strong>：L1 白话体 10 课 + L2 文言体学生管理系统 + 双轨对照 README</td>
+</tr>
+<tr>
+<td>v4.0.8</td>
+<td>2026-08-04</td>
+<td><strong>E 阶段</strong>：L3 原生语法(sqlite3 参数化/正则命名捕获组/sympy 封装) + L4 沙箱隔离(namespace exec)</td>
+</tr>
+<tr>
+<td>v4.0.9</td>
+<td>2026-08-04</td>
+<td><strong>F 阶段</strong>：标准库增强三模块(日期时间/统计/正则) + 42 单元测试</td>
+</tr>
+<tr>
+<td>v4.0.10</td>
+<td>2026-08-04</td>
+<td><strong>G 阶段</strong>：CI 工作流增强(4.0dev 触发/L3L4 依赖/全量 pytest/8 smoke demo) + Playground Web API(20+demo 列表/运行/详情) + README 首页 v4.0 五层架构图</td>
+</tr>
+<tr>
+<td>v4.0.11</td>
+<td>2026-08-04</td>
+<td><strong>H 阶段</strong>：语法规范终稿,打 v4.0dev tag,开放后续计划</td>
+</tr>
+<tr>
+<td>v4.0.12</td>
+<td>2026-08-04</td>
+<td><strong>I 阶段</strong>：contrib 模块直接导入（module_resolver 搜索路径扩展至 contrib/）</td>
+</tr>
+<tr>
+<td>v4.0.13</td>
+<td>2026-08-04</td>
+<td><strong>J 阶段</strong>：L4 C/Go/MoonBit 真实编译封装（ctypes 动态加载 + 平台适配 + 工具链缺失优雅降级）</td>
+</tr>
+<tr>
+<td>v4.0.0</td>
+<td>2026-08-04</td>
+<td><strong>K 阶段</strong>：正式发布 light 包（版本号 4.0.0），打 v4.0.0 标签</td>
+</tr>
+<tr>
+<td>v4.0.14</td>
+<td>2026-08-04</td>
+<td><strong>L 阶段</strong>：端到端测试 66 用例（L3 领域/L4 编译/Playground API/解析器模糊测试）</td>
+</tr>
+<tr>
+<td>v4.0.15</td>
+<td>2026-08-04</td>
+<td><strong>M 阶段</strong>：Web Playground 前端（Monaco 编辑器/L1L2 风格切换/多文件项目管理/语法标准库弹窗）</td>
+</tr>
+<tr>
+<td>v4.0.16</td>
+<td>2026-08-04</td>
+<td><strong>N 阶段</strong>：VS Code 插件（语法高亮/代码片段/运行解析命令/快捷键）</td>
+</tr>
+<tr>
+<td>v4.0.17</td>
+<td>2026-08-04</td>
+<td><strong>O 阶段</strong>：文档站点（五层架构/30 字核心集/L1L2 对比/v3.3→v4.0 迁移/标准库）</td>
+</tr>
+<tr>
+<td>v4.0.18</td>
+<td>2026-08-04</td>
+<td><strong>P 阶段</strong>：包管理器（init/install/publish/search/list/info/remove）+ <strong>Q 阶段</strong>：性能基准测试</td>
+</tr>
+<tr>
+<td>v4.1.0</td>
+<td>2026-08-04</td>
+<td><strong>R 阶段</strong>：L0 解析器补全 + <strong>S 阶段</strong>：LSP 增强 + <strong>T 阶段</strong>：格式化器/linter + <strong>U 阶段</strong>：在线包注册表 + <strong>V 阶段</strong>：AST 编译优化 + <strong>W 阶段</strong>：交互式教程 + <strong>X 阶段</strong>：WebAssembly 编译目标 + <strong>Y 阶段</strong>：集成测试发布</td>
+</tr>
+<tr>
+<td>v4.2.0</td>
+<td>2026-08-04</td>
+<td><strong>Z 阶段</strong>：可选类型系统（GradedTypeChecker + DuanTypeBridge + CFGAnalyzer + HM 风格类型推断 + 8 示例 + 53 测试）+ 词法分析器修复（加减乘除关键字补全 + 用户定义前缀误拆分修复）</td>
+</tr>
+<tr>
+<td>v5.0.0</td>
+<td>2026-08-04</td>
+<td><strong>阶段一至三</strong>：类型推断性能演进（is_instance 整数分派 + CoW 替换 + 单例短路 + 调用图拓扑迭代 + 增量缓存 + unify 快速路径 + 并行段推断 + 符号表全局索引 + 类型解析 LRU 缓存）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="_12">结语<a class="headerlink" href="#_12" title="Permanent link">&para;</a></h2>
+<p>光明的破局之道,不在于"一套语法更简单"或"一套语法更强大",而在于<strong>像中文一样</strong>:</p>
+<ul>
+<li><strong>字</strong>(L0核心字)极少且稳定</li>
+<li><strong>文体</strong>(L1白话/L2文言)分层但不分裂,共享字</li>
+<li><strong>领域</strong>(L3数学/SQL/正则)直接吸收,不翻译,不嵌入</li>
+<li><strong>外语</strong>(L4 Python/C/Go)用 <code>引</code> 块引用,数据级互操作</li>
+</ul>
+<p>这是中文3000字处理所有学科的真正智慧。光明 v4.0 将这一智慧落地为可工程化的语言设计。</p>
+<p><strong>下一步</strong>：K 阶段(v4.0.0 正式发布) → L 阶段(端到端测试 + 质量保障) → M 阶段(Web Playground 前端) → N 阶段(VS Code 插件) → O 阶段(文档站点) → P 阶段(包管理器) → Q 阶段(性能基准) → R 阶段(生态建设)。</p>
+<hr />
+<p><strong>文档版本</strong>:v4.1.0
+<strong>最后更新</strong>:2026-08-04</p>
+
+
+
+
+
+
+
+  
+    
+  
+  
+    
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="最后更新">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年8月30日 18:19:48 UTC">2026年8月30日</span>
+  </span>
+
+    
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="创建日期">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年8月30日 18:19:48 UTC">2026年8月30日</span>
+  </span>
+
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/skywalk163/light" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

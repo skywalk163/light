@@ -1,0 +1,5527 @@
+
+<!doctype html>
+<html lang="zh" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="光明编程语言 - 中文编程语言的全新可能">
+      
+      
+        <meta name="author" content="LightLang Team">
+      
+      
+      
+        <link rel="prev" href="../release_notes_v6.0/">
+      
+      
+        <link rel="next" href="../guide/getting-started/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>已知问题 - 光明 (LightLang) v7.0</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans+SC:300,300i,400,400i,700,700i%7CNoto+Sans+SC:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Noto Sans SC";--md-code-font:"Noto Sans SC"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#_1" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="页眉">
+    <a href=".." title="光明 (LightLang) v7.0" class="md-header__button md-logo" aria-label="光明 (LightLang) v7.0" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            光明 (LightLang) v7.0
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              已知问题
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="green"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/skywalk163/light" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    skywalk163/light
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="标签" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  首页
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  快速开始
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../user_guide/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  用户手册
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../release_notes_v6.0/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  发布说明
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  已知问题
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guide/getting-started/" class="md-tabs__link">
+          
+  
+  
+  快速入门
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guide/%E5%88%86%E5%B1%82%E8%AF%AD%E6%B3%95%E5%85%A5%E9%97%A8/" class="md-tabs__link">
+          
+  
+  
+  用户指南
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../language/levels/" class="md-tabs__link">
+          
+  
+  
+  语言参考
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../stdlib/" class="md-tabs__link">
+          
+  
+  
+  标准库
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../30%E5%88%86%E9%92%9F%E5%85%A5%E9%97%A8%E5%85%89%E6%98%8E/" class="md-tabs__link">
+          
+  
+  
+  教程
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tools/cli/" class="md-tabs__link">
+          
+  
+  
+  工具
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../architecture/" class="md-tabs__link">
+          
+  
+  
+  项目
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../ecosystem/%E6%95%99%E5%AD%A6%E8%B5%84%E6%BA%90/" class="md-tabs__link">
+          
+  
+  
+  生态
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../migration/v3-to-v4/" class="md-tabs__link">
+          
+  
+  
+  迁移指南
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/" class="md-tabs__link">
+          
+  
+  
+  API 参考
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E7%B4%A2%E5%BC%95/" class="md-tabs__link">
+          
+  
+  
+  知识库
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="https://github.com/skywalk163/light/blob/main/CHANGELOG.md" class="md-tabs__link">
+          
+  
+  
+  变更记录
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  贡献指南
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="光明 (LightLang) v7.0" class="md-nav__button md-logo" aria-label="光明 (LightLang) v7.0" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    光明 (LightLang) v7.0
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/skywalk163/light" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    skywalk163/light
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    首页
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user_guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    用户手册
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release_notes_v6.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    发布说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    已知问题
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    已知问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        一、严重问题
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="一、严重问题">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#p0" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        P0 — 影响核心功能
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        二、高优先级问题
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="二、高优先级问题">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#p1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        P1 — 影响使用体验
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        三、中等优先级问题
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="三、中等优先级问题">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#p2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        P2 — 影响健壮性
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        四、低优先级问题
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="四、低优先级问题">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#p3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        P3 — 增强功能
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        五、技术债务
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="五、技术债务">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        代码质量
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        架构
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        文档
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        测试
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        六、已关闭的问题
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        七、反馈渠道
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        八、更新日志
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#llvm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        九、原生（LLVM）后端未支持的语句类型清单
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="九、原生（LLVM）后端未支持的语句类型清单">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 两个漏点的位置
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 静态清单
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#93-24-compile_source_typed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3 实测分桶（24 条片段，compile_source_typed 直跑）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#94" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.4 已知缺口
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        十、语言层本轮口径变更（任务 A2 第二轮）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2026-08-22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        十一、第二轮合并期修掉的缺陷（2026-08-22）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="十一、第二轮合并期修掉的缺陷（2026-08-22）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#111-pytest-strict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.1 pytest 捕获流被收紧成 strict，全量跑连锁报错
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#112-windows-c" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.2 Windows 上「引 C」整条链是死的
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#113-ir-br-ir" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.3 文本级 IR 优化删 br 留标签，产出非法 IR
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#114-96kb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.4 每帧约 96KB 的临时槽位池
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#115-light-py" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.5 纯光明 .light 完全遮蔽同名 .py，能力倒退
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#116" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.6 测试里的跨机绝对路径与子进程编码
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        十二、发现但未修的旧缺陷（移交，勿重复排查）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="十二、发现但未修的旧缺陷（移交，勿重复排查）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#121-llvm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.1 原生（LLVM）后端的类方法整条是坏的
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#122-clilightcpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.2 cli/lightc.py 对任何输入必崩
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#123-codegen_typed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.3 codegen_typed 的包装段不建自己的槽位池
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#124-_inline_small_functions_pass" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.4 _inline_small_functions_pass 过度激进
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#125-stdliblightpub__init__py45" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.5 stdlib/lightpub/__init__.py:45 路由到仓库外的绝对路径
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#126-50-stdlib" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.6 50 个整文件注释的伪代码 stdlib 模块
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#d3-2026-08-23" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        十三、仓库债务登记（D3 本轮明文标注，2026-08-23）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="十三、仓库债务登记（D3 本轮明文标注，2026-08-23）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#131-llvm_backendpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13.1 llvm_backend.py 名不副实（根目录）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#132-llvm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13.2 两条 LLVM 代码生成路径并存
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#133-target-wasm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13.3 --target wasm 的实际去向（需核实）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#134-stdliblightpub__init__py45" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13.4 stdlib/lightpub/__init__.py:45 路由到仓库外绝对路径
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#d4-2026-08-23" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        十四、第四轮移交与债务（D4 本轮，2026-08-23）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="十四、第四轮移交与债务（D4 本轮，2026-08-23）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#141-15-sysstdoutstderrreconfigure-errorsreplaced4-5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.1 15 处 sys.stdout/stderr.reconfigure 缺 errors='replace'（D4-5 普查，移交）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#142-stdliblight-1-d4-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.2 stdlib/列表工具.light 第 1 行注释与事实不符（D4-2 核验发现）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#143-tests_test_py-legacy-pytest-d4-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.3 tests/_test_*.py 的 legacy 脚本直跑与 pytest 收集双轨（D4-3 核实）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#144" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.4 假测试基线在第四轮的三次变动（合并期已核，无需动作）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#145" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.5 假测试门禁的覆盖缺口（四条已全部裁决/处置）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#146-github-2026-08-23" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.6 .github/ 整棵树当前不执行（2026-08-23 实测）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#b7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        十五、双后端分叉两条（第七轮 B7 双后端对照跑出来的，均未修）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="十五、双后端分叉两条（第七轮 B7 双后端对照跑出来的，均未修）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#151" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15.1 除以 的算术语义
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#152-stdout-windows-ascii" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15.2 stdout 的字节编码（Windows 上非 ASCII 输出不同字节）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2026-08-24" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        十六、第七轮五路全合点的账（2026-08-24，合并期核验产出）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="十六、第七轮五路全合点的账（2026-08-24，合并期核验产出）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#161" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16.1 三份基线在全合点统一重建，重建理由逐条列明
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#162-done-8-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16.2 对标清单状态逐条核验（done 8 → 12）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速入门
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    快速入门
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安装说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/vscode-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VS Code 配置
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    用户指南
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    用户指南
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/%E5%88%86%E5%B1%82%E8%AF%AD%E6%B3%95%E5%85%A5%E9%97%A8/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    分层语法入门
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/%E8%BF%81%E7%A7%BB%E6%8C%87%E5%8D%97/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    迁移指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    语言参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/levels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    五层架构详解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/l0-core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L0 核心字集
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/l1-l2-style/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L1/L2 文体
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/l3-domain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L3 领域嵌入
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/l4-foreign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L4 外语引用
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/keywords/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    关键字参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/operators/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    运算符参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/%E5%AE%8C%E6%95%B4%E8%AF%AD%E6%B3%95%E5%8F%82%E8%80%83/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    完整语法参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语法规范
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E5%85%89%E6%98%8E-%E5%AE%8C%E6%95%B4%E8%A7%84%E8%8C%83%E6%96%87%E6%A1%A3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    完整规范文档
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class_system_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类系统设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interface-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trait/协议系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interface-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模式匹配
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-07-01-level6-type-annotation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    泛型与类型注解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E6%A8%A1%E5%9D%97%E7%B3%BB%E7%BB%9F%E4%B8%8E%E5%8C%85%E7%AE%A1%E7%90%86/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模块系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ffi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FFI 外部函数接口
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../HM%E5%85%A8%E5%B1%80%E7%B1%BB%E5%9E%8B%E6%8E%A8%E6%96%AD%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型推断系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E5%8F%AF%E7%A9%BA%E7%B1%BB%E5%9E%8Bunwrap%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    可空类型系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    标准库
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    数学模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/string/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    字符串处理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON 模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文件系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/datetime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    日期时间
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/regex/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    正则表达式
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../API_REFERENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考总表
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/builtins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    内置函数
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lightpub_integration_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lightpub 生态
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_9_13" id="__nav_9_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lightpub 包文档
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    lightpub 包文档
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lightpub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    索引与分类
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    教程
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    教程
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../30%E5%88%86%E9%92%9F%E5%85%A5%E9%97%A8%E5%85%89%E6%98%8E/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    30 分钟入门
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/%E5%85%A5%E9%97%A8%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    入门教程
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/%E8%BF%9B%E9%98%B6%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进阶教程
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%AB%AF%E5%88%B0%E7%AB%AF%E5%AE%9E%E6%88%98%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    端到端实战
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    示例代码
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工具
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    工具
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI 使用指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/playground/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Playground 使用
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/lsp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LSP 集成
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/debugger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    调试器
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工具链总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E6%90%9C%E7%B4%A2%E9%85%8D%E7%BD%AE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    搜索配置
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    项目
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    架构设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEVELOPMENT_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    开发指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84%E8%AF%B4%E6%98%8E/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目结构
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../REPL_DESIGN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REPL 设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../BOOTSTRAP_STRATEGY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    引导策略
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../llvm_backend_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLVM 后端
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PERFORMANCE_OPTIMIZATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    性能优化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../OPTIMIZATION_ANALYSIS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    优化分析
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E4%B8%89%E4%B8%AA%E6%9C%88%E5%B7%A5%E4%BD%9C%E8%AE%A1%E5%88%92_2026Q3Q4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目计划
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PROGRESS_REPORT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进度报告
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    生态
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    生态
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ecosystem/%E6%95%99%E5%AD%A6%E8%B5%84%E6%BA%90/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    教学资源
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_14" >
+        
+          
+          <label class="md-nav__link" for="__nav_14" id="__nav_14_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    迁移指南
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    迁移指南
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration/v3-to-v4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.3 → v4.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration/v4-to-v5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v4.0 → v5.x
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_15" >
+        
+          
+          <label class="md-nav__link" for="__nav_15" id="__nav_15_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API 参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/compiler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    编译器 API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_16" >
+        
+          
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    知识库
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    知识库
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E7%B4%A2%E5%BC%95/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    知识库索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E8%AF%AD%E8%A8%80%E8%A7%84%E8%8C%83/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言规范
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E5%BC%80%E5%8F%91%E6%8C%87%E5%8D%97/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    开发指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最佳实践
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17" >
+        
+          
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    变更记录
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    变更记录
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/skywalk163/light/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    版本日志
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../LANGUAGE_EXTENSIONS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言扩展历史
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_17_3" id="__nav_17_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语法变更
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_17_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    语法变更
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%BB%9F%E4%B8%80%E8%AF%AD%E6%B3%95%E8%A7%84%E8%8C%83_v3.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%BB%9F%E4%B8%80%E8%AF%AD%E6%B3%95%E8%A7%84%E8%8C%83_v3.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E8%AF%AD%E6%B3%95%E5%8F%98%E6%9B%B4_v3.4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E8%AF%AD%E6%B3%95%E5%8F%98%E6%9B%B4_v3.5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.5
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../FINAL_SUMMARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最终总结
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    贡献指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="_1">已知问题与技术债务清单<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h1>
+<p><strong>版本</strong>: v6.0.0<br />
+<strong>更新日期</strong>: 2026-10-29<br />
+<strong>说明</strong>: 本文档记录了光明 v6.0 中已知的问题、限制和技术债务，供开发者和用户参考。</p>
+<hr />
+<h2 id="_2">一、严重问题<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
+<h3 id="p0">P0 — 影响核心功能<a class="headerlink" href="#p0" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>[P0] 自举编译器覆盖范围</strong>：当前自举编译器覆盖了大部分语法，但极边缘特性（如复杂嵌套泛型）尚未完全自举。</li>
+<li><strong>影响</strong>：少数边缘场景需要通过手动实现的编译器处理</li>
+<li>
+<p><strong>计划</strong>：v6.1 中完成全覆盖</p>
+</li>
+<li class="task-list-item">
+<p><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>[P0] LLVM 后端标准库覆盖</strong>：部分标准库函数在 LLVM 后端尚未完全实现，会回退到 Python 解释执行。</p>
+</li>
+<li><strong>影响</strong>：使用 <code>--native</code> 编译时，部分标准库调用性能未达最优</li>
+<li><strong>计划</strong>：v6.1 中逐步补全</li>
+</ul>
+<hr />
+<h2 id="_3">二、高优先级问题<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
+<h3 id="p1">P1 — 影响使用体验<a class="headerlink" href="#p1" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <strong>[P1] 异常捕获语法增强</strong>：<code>捕获 类型 as 变量</code> 语法<strong>已支持</strong>（D3 复核确认）。</li>
+<li><strong>证据</strong>：<code>bootstrap/test_level6_full.py:304</code> 实跑 <code>捕获 值错误 as e</code>；语言规格文档亦写明该形式。</li>
+<li><strong>原文档（「尚未支持」）属过期条目，D3-2026-08-23 更正</strong>。</li>
+<li>
+<p><strong>影响</strong>：无（能力已具备，无需 v6.1 计划项）</p>
+</li>
+<li class="task-list-item">
+<p><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>[P1] 减法运算符歧义处理</strong>：在 <code>a-1</code> 这样的表达式中，<code>-</code> 可能被识别为负号前缀而非减法运算符。</p>
+</li>
+<li><strong>影响</strong>：需要用户在 <code>-</code> 前后加空格以避免歧义</li>
+<li>
+<p><strong>计划</strong>：v6.1 中修复</p>
+</li>
+<li class="task-list-item">
+<p><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>[P1] 大项目编译性能</strong>：万行级大项目的首次编译时间仍然较长（无缓存时）。</p>
+</li>
+<li><strong>影响</strong>：影响大型项目的开发体验</li>
+<li>
+<p><strong>计划</strong>：v6.2 中进一步优化</p>
+</li>
+<li class="task-list-item">
+<p><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>[P1] Windows 路径兼容性</strong>：部分标准库函数在 Windows 平台上的路径处理存在已知的边缘问题。</p>
+</li>
+<li><strong>影响</strong>：Windows 用户在使用文件路径时需注意转义</li>
+<li><strong>计划</strong>：v6.1 中修复</li>
+</ul>
+<hr />
+<h2 id="_4">三、中等优先级问题<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
+<h3 id="p2">P2 — 影响健壮性<a class="headerlink" href="#p2" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>[P2] 缩进规范增强</strong>：纯缩进语法要求严格的缩进对齐，混合制表符和空格可能导致解析错误。</li>
+<li><strong>影响</strong>：编辑器设置不一致时可能引发解析错误</li>
+<li>
+<p><strong>计划</strong>：v6.2 中增加检测和自动修复</p>
+</li>
+<li class="task-list-item">
+<p><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>[P2] 编译错误信息增强</strong>：部分错误信息仍不够友好，缺少详细的修复建议。</p>
+</li>
+<li><strong>影响</strong>：新手用户可能难以定位问题</li>
+<li>
+<p><strong>计划</strong>：持续改进</p>
+</li>
+<li class="task-list-item">
+<p><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>[P2] 包注册表高可用性</strong>：当前包注册表服务器为单节点部署，无高可用保障。</p>
+</li>
+<li><strong>影响</strong>：注册表不可用时包安装会失败</li>
+<li>
+<p><strong>计划</strong>：v6.2 中增加镜像和缓存机制</p>
+</li>
+<li class="task-list-item">
+<p><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>[P2] 文档站点多语言支持</strong>：当前文档仅提供中文版本。</p>
+</li>
+<li><strong>影响</strong>：非中文用户使用门槛较高</li>
+<li><strong>计划</strong>：v6.2 中增加英文文档</li>
+</ul>
+<hr />
+<h2 id="_5">四、低优先级问题<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
+<h3 id="p3">P3 — 增强功能<a class="headerlink" href="#p3" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>[P3] 在线 Playground 移动端适配</strong>：Playground 在移动设备上的布局和交互体验有待优化。</li>
+<li><strong>影响</strong>：移动设备用户使用不便</li>
+<li>
+<p><strong>计划</strong>：v6.2 中优化</p>
+</li>
+<li class="task-list-item">
+<p><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>[P3] 调试器远程调试</strong>：当前调试器仅支持本地调试，不支持远程调试。</p>
+</li>
+<li><strong>影响</strong>：无法调试远程服务器上的光明程序</li>
+<li>
+<p><strong>计划</strong>：v6.3 中实现</p>
+</li>
+<li class="task-list-item">
+<p><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>[P3] 代码覆盖率工具</strong>：缺少内置的代码覆盖率分析工具。</p>
+</li>
+<li><strong>影响</strong>：开发者需要借助外部工具进行覆盖率分析</li>
+<li>
+<p><strong>计划</strong>：v6.3 中增加</p>
+</li>
+<li class="task-list-item">
+<p><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>[P3] VS Code 扩展主题适配</strong>：部分语法高亮在深色/浅色主题切换时颜色显示不准确。</p>
+</li>
+<li><strong>影响</strong>：视觉效果一致性不足</li>
+<li><strong>计划</strong>：v6.2 中修复</li>
+</ul>
+<hr />
+<h2 id="_6">五、技术债务<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
+<h3 id="_7">代码质量<a class="headerlink" href="#_7" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>描述</th>
+<th>优先级</th>
+<th>计划版本</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>自举代码可读性</td>
+<td>自举生成的代码缺少注释，可读性较差</td>
+<td>P2</td>
+<td>v6.2</td>
+</tr>
+<tr>
+<td>测试覆盖率</td>
+<td>部分模块测试覆盖率不足 80%</td>
+<td>P2</td>
+<td>持续改进</td>
+</tr>
+<tr>
+<td>类型注解覆盖</td>
+<td>部分内部模块缺少类型注解</td>
+<td>P3</td>
+<td>v6.2</td>
+</tr>
+<tr>
+<td>代码重复</td>
+<td>词法分析器和解析器中存在少量代码重复</td>
+<td>P3</td>
+<td>v6.2</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_8">架构<a class="headerlink" href="#_8" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>描述</th>
+<th>优先级</th>
+<th>计划版本</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>编译器前端/后端分离</td>
+<td>当前编译器前端和后端耦合较紧，不利于独立演进</td>
+<td>P2</td>
+<td>v7.0</td>
+</tr>
+<tr>
+<td>插件系统</td>
+<td>缺少官方插件系统，扩展功能需要通过修改核心代码</td>
+<td>P3</td>
+<td>v7.0</td>
+</tr>
+<tr>
+<td>统一错误处理框架</td>
+<td>错误处理分散在多个模块中，缺少统一框架</td>
+<td>P2</td>
+<td>v6.2</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_9">文档<a class="headerlink" href="#_9" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>描述</th>
+<th>优先级</th>
+<th>计划版本</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>API 参考文档自动化</td>
+<td>API 文档部分内容需要手动维护</td>
+<td>P2</td>
+<td>v6.2</td>
+</tr>
+<tr>
+<td>教程覆盖面</td>
+<td>交互式教程仅覆盖基础语法，缺少高级主题</td>
+<td>P2</td>
+<td>v6.2</td>
+</tr>
+<tr>
+<td>最佳实践指南</td>
+<td>缺少光明最佳实践和设计模式文档</td>
+<td>P3</td>
+<td>v6.3</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_10">测试<a class="headerlink" href="#_10" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>描述</th>
+<th>优先级</th>
+<th>计划版本</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>模糊测试</td>
+<td>缺少对词法分析器和解析器的模糊测试</td>
+<td>P2</td>
+<td>v6.2</td>
+</tr>
+<tr>
+<td>基准测试自动化</td>
+<td>性能基准测试需要手动执行，未集成到 CI</td>
+<td>P2</td>
+<td>v6.2</td>
+</tr>
+<tr>
+<td>跨平台测试覆盖</td>
+<td>部分边缘场景缺少跨平台测试覆盖</td>
+<td>P2</td>
+<td>v6.2</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="_11">六、已关闭的问题<a class="headerlink" href="#_11" title="Permanent link">&para;</a></h2>
+<p>以下问题已在 v6.0 中解决：</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>状态</th>
+<th>解决版本</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>自举编辑器缺少类型注解支持</td>
+<td>✅ 已解决</td>
+<td>v6.0.0</td>
+</tr>
+<tr>
+<td>自举编辑器缺少 P3 特性支持</td>
+<td>✅ 已解决</td>
+<td>v6.0.0</td>
+</tr>
+<tr>
+<td>LLVM 后端仅支持部分标准库函数</td>
+<td>✅ 部分解决</td>
+<td>v6.0.0</td>
+</tr>
+<tr>
+<td>VSCode 扩展功能不完整</td>
+<td>✅ 已解决</td>
+<td>v6.0.0</td>
+</tr>
+<tr>
+<td>文档站点内容陈旧</td>
+<td>✅ 已解决</td>
+<td>v6.0.0</td>
+</tr>
+<tr>
+<td>部分模块缺少光明侧接口</td>
+<td>✅ 已解决</td>
+<td>v6.0.0</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="_12">七、反馈渠道<a class="headerlink" href="#_12" title="Permanent link">&para;</a></h2>
+<p>如果你发现了本文档未列出的问题，请通过以下方式反馈：</p>
+<ul>
+<li><a href="https://github.com/light-lang/light/issues">GitHub Issues</a></li>
+<li>文档站点反馈页面</li>
+</ul>
+<hr />
+<h2 id="_13">八、更新日志<a class="headerlink" href="#_13" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>日期</th>
+<th>版本</th>
+<th>变更</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2026-10-29</td>
+<td>v6.0.0</td>
+<td>初始版本，基于 v6.0 发布时的已知问题</td>
+</tr>
+<tr>
+<td>2026-08-22</td>
+<td>任务 A2 第二轮</td>
+<td>新增第九节（原生后端未支持语句清单）、第十节（语言层本轮口径变更）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="llvm">九、原生（LLVM）后端未支持的语句类型清单<a class="headerlink" href="#llvm" title="Permanent link">&para;</a></h2>
+<p><strong>口径</strong>：这里说的「未支持」= 用 <code>python -m cli.light_unified compile</code>（原生/LLVM
+后端）会<strong>明确报错</strong>。同一份源码走转译后端（<code>python -m cli.light_unified run</code>）
+大多是正常的——两个后端的能力面不一样，不要互相推断。</p>
+<p>改动前这份清单不存在，因为<strong>根本报不出来</strong>：<code>TypedLLVMCodeGen._gen_statement</code> 的
+<code>isinstance</code> 链没有 <code>else</code>，不认识的语句被静默丢弃，编译成功、IR 生成、程序少干
+一件事而无任何提示。本轮补了链尾兜底，并拆掉了上游 <code>AstAdapter</code> 的一层伪装
+（无转换器的 v3 节点被包成 <code>ExpressionStatement(Identifier("&lt;unknown:XXX&gt;"))</code>，
+在后端看起来是一条合法表达式语句）。</p>
+<h3 id="91">9.1 两个漏点的位置<a class="headerlink" href="#91" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>层</th>
+<th>位置</th>
+<th>原行为</th>
+<th>现行为</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>上游</td>
+<td><code>src/compiler.py::AstAdapter.convert</code></td>
+<td>无转换器 → 包成 <code>&lt;unknown:XXX&gt;</code></td>
+<td>后端识破并报出原 v3 类型名</td>
+</tr>
+<tr>
+<td>下游</td>
+<td><code>src/llvm/codegen_typed.py::_gen_statement</code></td>
+<td>链尾无 <code>else</code>，静默丢弃</td>
+<td><code>NotImplementedError</code>，文案含类型名 + 指向转译后端</td>
+</tr>
+</tbody>
+</table>
+<h3 id="92">9.2 静态清单<a class="headerlink" href="#92" title="Permanent link">&para;</a></h3>
+<p>上游（v3 语句类节点共 27 个，其中 <strong>10 个</strong>没有适配层转换器）：
+<code>AssertStmt</code>、<code>DecoratorDefinition</code>、<code>EmbedBlock</code>、<code>FFIFunctionDecl</code>、
+<code>FFIVarArgsDecl</code>、<code>PassStmt</code>、<code>RunAsyncStmt</code>、<code>ScopeDeclStmt</code>、
+<code>TypeCheckToggleStmt</code>、<code>YieldStmt</code>。</p>
+<p>下游（<code>_gen_statement</code> 只有 <strong>16</strong> 条分支：<code>VariableDeclaration</code>、<code>Assignment</code>、
+<code>SelfAssignment</code>、<code>CompoundAssignment</code>、<code>IfStatement</code>、<code>ForeachStatement</code>、
+<code>WhileStatement</code>、<code>ReturnStatement</code>、<code>BreakStatement</code>、<code>ContinueStatement</code>、
+<code>PrintStatement</code>、<code>TryStatement</code>、<code>ThrowStatement</code>、<code>ExpressionStatement</code>、
+<code>ImportStatement</code>、<code>AsyncScope</code>）。适配层能产出、但这 16 条都不覆盖的 legacy
+节点有 <strong>28 种</strong>，落链尾兜底，其中作为语句出现的主要是
+<code>MatchStatement</code>、<code>WithStatement</code>、<code>DestructuringAssignment</code>、<code>SegmentDefinition</code>
+（嵌套段落）、<code>InterfaceDefinition</code>、<code>MethodDefinition</code>、<code>AttributeDeclaration</code>。</p>
+<p><strong><code>ImportStatement</code> 已从 no-op 变为真导入（B9 S1 2.3 / 2026-08-24）</strong>：<code>compile_light_typed</code>
+检测到模块级导入即委托 <code>compile_light_project</code> 多模块编译（<code>compiler.py:459/_module_has_imports</code>），
+<code>_process_imports</code>（<code>codegen_typed.py:767</code>）登记符号、<code>_gen_exported_aliases</code> 做 <code>{模块名}_{段落名}</code>
+名字修饰；同名 <code>.py</code> 影子 / 纯 Python 模块显式抛 <code>NativeImportError</code>（<code>compiler.py:42</code>），
+绝不静默产出一个跑起来就崩的 exe。判据见 <code>tests/test_native_import.py</code>，边界见
+<code>docs/原生腿能力边界.md</code> §9。<code>_gen_statement</code> 里 <code>ImportStatement</code> 的 <code>pass</code> 是
+「模块级导入已在上游处理」的语义留白，不再是静默无效。</p>
+<h3 id="93-24-compile_source_typed">9.3 实测分桶（24 条片段，<code>compile_source_typed</code> 直跑）<a class="headerlink" href="#93-24-compile_source_typed" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>桶</th>
+<th>条数</th>
+<th>成员</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>能编</td>
+<td>16</td>
+<td>赋值/变量声明、<code>如果</code>、<code>遍历</code>、<code>当</code>、段落、<code>返回</code>、<code>跳出</code>、<code>继续</code>、<code>尝试</code>/<code>捕获</code>、<code>抛出</code>、<code>打印</code>、<code>引</code>（B9 S1 起真导入，见上方说明）、类（非嵌套）、接口、<code>导出</code>、<code>延迟</code></td>
+</tr>
+<tr>
+<td>明确拒绝</td>
+<td>6</td>
+<td><code>全局</code>(ScopeDeclStmt)、<code>外层</code>(先撞 SegmentDefinition)、<code>生成</code>(YieldStmt)、<code>断言</code>(AssertStmt)、类型别名(TypeAlias)、嵌套类(ClassDefinitionWithNested)</td>
+</tr>
+<tr>
+<td>更早的层拦下</td>
+<td>2</td>
+<td><code>匹配</code>（v3 解析器语法就没通）、<code>异步域</code>（同上）</td>
+</tr>
+</tbody>
+</table>
+<p><code>外层</code> 报的是 <code>SegmentDefinition</code> 而不是 <code>ScopeDeclStmt</code>：<code>外层</code> 只能写在嵌套
+段落里，而<strong>嵌套段落本身原生就不支持</strong>，所以先被它拦下。报真正拦下它的那一层，
+不编造。</p>
+<p>守卫在 <code>tests/unit/test_llvm_stmt_coverage.py</code>（正跑 6 条 + 反跑 5 条 + 2 条静态
+断言，共 13 个用例）。</p>
+<h3 id="94">9.4 已知缺口<a class="headerlink" href="#94" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>拒绝文案里没有源码行号</strong>。<code>AstAdapter</code> 转换时不带 <code>lineno</code>，后端拿不到行号，
+  文案里如实写成「源码行 未知（适配层未保留行号）」。要真给行号得改
+  <code>src/compiler.py</code>（本轮范围之外）。</li>
+</ul>
+<hr />
+<h2 id="a2">十、语言层本轮口径变更（任务 A2 第二轮）<a class="headerlink" href="#a2" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>口径</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>外层</code> / <code>全局</code></td>
+<td>词法器可能把它们与后面的名字切成多个 token，作用域声明的识别改为按 token 跨度判定，不再依赖「整体成一个词」</td>
+</tr>
+<tr>
+<td>异步原语</td>
+<td><code>异步睡眠</code>/<code>限时</code>/<code>创建任务</code>/<code>并发等待</code>/<code>首个完成</code> 映射到 <code>asyncio</code> 对应函数，按需插 <code>import asyncio</code></td>
+</tr>
+<tr>
+<td><code>异步读取文件</code>/<code>异步写入文件</code>/<code>异步追加文件</code></td>
+<td><strong>只有词法保护、没有实现</strong>：整体仍成一个词，调用时报 <code>NameError</code> 指向完整名字。实现需要动 <code>stdlib/</code>，不在本轮范围</td>
+</tr>
+<tr>
+<td>泛型</td>
+<td>类 / 段落 / 类型别名的 <code>generic_params</code> 现在会产出 <code>TypeVar</code> + <code>Generic[T]</code>；段落只登记 <code>TypeVar</code>（<code>def f[T]</code> 要 3.12+）</td>
+</tr>
+<tr>
+<td>嵌套类</td>
+<td>类体内允许 <code>类</code>，转译后端可用；原生后端明确拒绝（见 9.3）</td>
+</tr>
+<tr>
+<td>段落体内的延迟导入</td>
+<td>缩进行的导入<strong>不计入模块级依赖</strong>，可用来打破环；顶格写的导入照旧算模块级依赖、照旧拒绝成环，没有绕过开关</td>
+</tr>
+<tr>
+<td><code>?</code> 可空后缀</td>
+<td><strong>永不支持</strong>。写 <code>设 甲: 整数? 为 无。</code> 报错并指向 <code>可空 整数</code></td>
+</tr>
+<tr>
+<td><code>异步</code> 在表达式位置</td>
+<td>一律<strong>编译期拒绝</strong>。凡是以 <code>异步</code> 开头又不在词法复合词表里的名字（<code>异步读取二进制</code>、用户自造的 <code>异步取数</code> 等）会被切成 <code>异步</code> + 余下部分，改动前静默编成 <code>await 异步</code> 加一条结果被丢弃的调用；现在报「<code>异步</code> 是修饰符」。<code>异步 段落</code>/<code>异步 遍历</code>/<code>异步 运行</code> 走语句层，不受影响</td>
+</tr>
+<tr>
+<td><code>等待 &lt;名字&gt;</code></td>
+<td>判据是<strong>源码是否相邻</strong>：<code>等待价值</code>（两 token 首尾相接）仍当一个名字，<code>等待 任务甲</code>（中间有空白）编成 <code>await 任务甲</code>。改动前后者被静默拼成不存在的名字 <code>等待任务甲</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2026-08-22">十一、第二轮合并期修掉的缺陷（2026-08-22）<a class="headerlink" href="#2026-08-22" title="Permanent link">&para;</a></h2>
+<p>这一节记的是合并主线时发现并<strong>已修</strong>的缺陷，都带真跑判据，勿再当新问题重复排查。</p>
+<h3 id="111-pytest-strict">11.1 pytest 捕获流被收紧成 strict，全量跑连锁报错<a class="headerlink" href="#111-pytest-strict" title="Permanent link">&para;</a></h3>
+<p><code>tests/test_summary.py</code>、<code>test_class_definition.py</code>、<code>test_comprehensive.py</code> 在模块顶层
+调 <code>sys.stdout.reconfigure(encoding='utf-8')</code>——只给 <code>encoding</code> 会把 <code>errors</code> 一并重置回
+<code>strict</code>，而 pytest 的 fd 捕获流本来是 <code>errors='replace'</code>。收紧后只要后面有用例往捕获流写进
+非法字节，每次 setup/teardown 的 snap() 都抛 <code>UnicodeDecodeError</code>：实测
+<code>pytest tests --ignore=tests/e2e</code> 出约 3565 个 ERROR、约 1780 条用例根本没真跑，而单独跑
+那几个文件全绿——典型的顺序相关、单跑看不见的门禁污染。<code>PYTHONUTF8=1</code> 挡不住，
+因为 <code>reconfigure</code> 的 strict errors 覆盖它。</p>
+<p>修法：补回 <code>errors='replace'</code>，并加 AST 级护栏
+<code>tests/unit/test_capture_encoding_guard.py</code>（谁再写出不带 <code>errors=</code> 的 <code>reconfigure</code> 立刻红；
+用 AST 而非正则，因为正则会把注释与文档字符串里的示例也算成调用）。</p>
+<h3 id="112-windows-c">11.2 Windows 上「引 C」整条链是死的<a class="headerlink" href="#112-windows-c" title="Permanent link">&para;</a></h3>
+<p>L4「引 C」发射器只发一条 GNU 风格命令 <code>-shared -fPIC -O2 ... -lm</code>。Windows 上 clang 的默认
+target 是 msvc，<code>-fPIC</code> 是硬错误（<code>unsupported option '-fPIC' for target
+'x86_64-pc-windows-msvc'</code>），去掉后 <code>-lm</code> 又让 lld-link 去找不存在的 <code>m.lib</code>。</p>
+<p>修法：签名提取上移到编译之前并派生导出符号表，编译改成两条命令按<strong>返回码</strong>逐条回退，
+第二条是 <code>-shared -O2 -o LIB -Wl,/EXPORT:&lt;每个符号&gt; SRC</code>（不写 .def）。两条都失败才报错，
+报错带两次完整命令行与 stderr。判据 <code>test_c_真编译真调用_取值正确</code>：真编译真经 ctypes 调用，
+<code>fact(5)==120</code>、<code>tri(2.5)≈7.5</code>。</p>
+<h3 id="113-ir-br-ir">11.3 文本级 IR 优化删 <code>br</code> 留标签，产出非法 IR<a class="headerlink" href="#113-ir-br-ir" title="Permanent link">&para;</a></h3>
+<p><code>optimizer_pipeline.py</code> 的 <code>_peephole_pass</code> 有一条
+<code>re.sub(r'br label %(\w+)\s*\n\s*\1:', r'\1:')</code>，把无条件跳转删掉只留目标标签，前驱块因此
+没有终结指令；<code>_merge_blocks_pass</code> 也不看目标标签有几个前驱。clang 的报错形态是在标签行上
+<code>expected instruction opcode</code>，落点全是 <code>endif_2:</code> / <code>while_cond_1:</code> / <code>param_end_3:</code> 这类行。
+代价是 <code>tests/test_p3_comprehensive.py</code> 15 条红。</p>
+<p>修法：删掉那条不安全规则；<code>_merge_blocks_pass</code> 改为先算本函数内的标签引用计数
+（覆盖 <code>br label</code>、条件 <code>br</code> 两个分支、switch 的 default 与每个 case 的单行/多行两种发射形态、
+phi 的来源块），只有单前驱才合并，且此时 <code>br</code> 与标签行一起删。判据 8 条含两条反跑。</p>
+<h3 id="114-96kb">11.4 每帧约 96KB 的临时槽位池<a class="headerlink" href="#114-96kb" title="Permanent link">&para;</a></h3>
+<p><code>codegen_typed.py</code> 的 <code>_temp_slot_pool_size = 2048</code> 在 emit 时就写死进 alloca，
+<code>LIGHTVALUE_STRUCT</code> 对齐后 48 字节 × 2048 ≈ 96KB/帧，递归深一点直接爆栈。</p>
+<p>修法：延迟填数（<code>_begin_temp_slot_pool()</code> 发占位行 → <code>_emit_temp_slot_pool()</code> 按真实
+<code>_temp_slot_index</code> 回填），4 处 alloca 走同一条路径；2048 保留为上限，溢出仍硬报错。
+反跑取证：同一份 IR 把元素数改回 2048 → <code>rc=0xC00000FD STATUS_STACK_OVERFLOW</code>、stdout 空；
+按真实用量 → stdout <code>20100</code>。</p>
+<h3 id="115-light-py">11.5 纯光明 <code>.light</code> 完全遮蔽同名 <code>.py</code>，能力倒退<a class="headerlink" href="#115-light-py" title="Permanent link">&para;</a></h3>
+<p><code>stdlib/_light_import_hook.py:141,155</code> 的规则是：同名 <code>.py</code> 存在时，只要 <code>.light</code> 首行带
+「纯光明实现」魔数就用 <code>.light</code> <strong>完全取代</strong> <code>.py</code>——不是兜底。断言工具 / 数据结构 /
+字符串工具 / 日期时间 四份 <code>.light</code> 都带了魔数，把 77 / 29 / 81 / 100+ 个导出的 <code>.py</code>
+换成 9 / 14 / 28 / 11 个导出的 <code>.light</code>，且命名不兼容。代价：<code>test_stdlib_phase2.py</code>
+三条红、<code>test_stdlib_phase9.py</code> 一整批取不到符号、<code>test_datetime.py</code> 曾变成 collection error。</p>
+<p>修法：加「轻量」后缀独立成名（同 JSON → JSON编解码 的既有处置），原模块名仍由 <code>.py</code> 提供。
+<code>stdlib/列表工具.light</code> 保留原名——它与 <code>.py</code> 导出名完全一致（各 10 个），遮蔽不丢能力。</p>
+<h3 id="116">11.6 测试里的跨机绝对路径与子进程编码<a class="headerlink" href="#116" title="Permanent link">&para;</a></h3>
+<p><code>tests/test_stdlib_phase9~13.py</code> 各自 <code>sys.path.insert</code> 了 <code>'c:/traework/light/stdlib'</code> /
+<code>'c:/dumatework/light/{stdlib,contrib}'</code>——两种前缀混杂，都是别的机器上的路径，本机不存在，
+整文件 ImportError。路径统一收到 <code>tests/conftest.py</code> 按 <code>__file__</code> 推导。
+<code>积木库/评估/冒烟.py</code> 的 subprocess 只在父侧写了 <code>encoding='utf-8'</code>（解码端），子进程无 env，
+Windows 下按 GBK 输出会被当成乱码误判成冒烟不通过；现钉 <code>PYTHONIOENCODING=utf-8</code>。</p>
+<hr />
+<h2 id="_14">十二、发现但<strong>未修</strong>的旧缺陷（移交，勿重复排查）<a class="headerlink" href="#_14" title="Permanent link">&para;</a></h2>
+<h3 id="121-llvm">12.1 原生（LLVM）后端的类方法整条是坏的<a class="headerlink" href="#121-llvm" title="Permanent link">&para;</a></h3>
+<p>两个缺陷，均已取证为 <code>pre-merge-abcd</code> 就存在、不是第二轮引入：</p>
+<ul>
+<li>双 <code>ret void</code>：类方法产出两条终结指令</li>
+<li>槽位池别名：<code>%1</code> 被别名到 <code>@.str.26</code></li>
+</ul>
+<p><code>tests/</code> 目录里<strong>没有任何</strong>「原生腿 + 类方法」的组合覆盖，所以门禁看不见它。
+现有的类/方法用例走的都是转译腿。</p>
+<blockquote>
+<p><strong>已解决（R9 待补 / 2026-08-27，commit <code>17c08c8b</code>）</strong>：实测复现后修掉三处环环相扣的 bug——
+① 方法体末尾无条件 <code>ret void</code> 造成双重终结符 → LLVM IR 验证红（终结符发射移入
+<code>if not _ends_with_terminator</code> 分支）；② 解析器把「己」归一成 <code>Identifier('self')</code>
+而方法内槽位键是「己」，裸 <code>self</code> 落到字符串常量，<code>dv_class_get_member/set_member</code>
+拿字符串当对象，属性读写 0xC0000005（补 <code>_gen_typed_identifier</code> 的 <code>己</code> 槽位映射 +
+<code>_gen_typed_assignment</code> 写回）；③ <code>己.方法名(...)</code> 被拍平成 <code>SegmentName('self.方法名')</code>
+未路由 <code>dv_call_method</code>（补 <code>_gen_self_method_call</code>）。判据 <code>tests/test_native_cli.py</code>
+<code>Test原生类与方法代码生成</code> 六条真跑回归（普通/泛型类方法带参、构造+属性、方法内调方法、
+方法内只写属性）。</p>
+</blockquote>
+<h3 id="122-clilightcpy">12.2 <code>cli/lightc.py</code> 对任何输入必崩<a class="headerlink" href="#122-clilightcpy" title="Permanent link">&para;</a></h3>
+<p><code>SemanticAnalyzer()</code> 少传 <code>module</code> 参数 → <code>TypeError</code>。凡是文档/示例里写
+<code>python cli/lightc.py &lt;文件&gt;</code> 的都会撞上（<code>examples/harness/M2_流式对话.light</code> 的使用说明
+原先就是这么写的，已改为 <code>python cli/light.py run &lt;文件&gt;</code>）。
+<code>tests/conftest.py</code> 的 <code>analyzer</code> fixture 是同一处签名不匹配，当前没有用例消费它，
+所以门禁同样看不见。</p>
+<h3 id="123-codegen_typed">12.3 codegen_typed 的包装段不建自己的槽位池<a class="headerlink" href="#123-codegen_typed" title="Permanent link">&para;</a></h3>
+<p><code>_gen_typed_method</code> / <code>_gen_async_segment</code> 既不建自己的池、也不重置 <code>_temp_slot_index</code>，
+会沿用上一个函数残留的池寄存器——跨函数引用寄存器，IR 本来就不合法。现有链路碰不到
+（类/方法用例全绿），但这是潜伏项。</p>
+<blockquote>
+<p><strong>已解决（R9 待补 / 2026-08-27，commit <code>17c08c8b</code>）</strong>：<code>_gen_typed_method</code>（
+<code>codegen_typed.py:4062/4147</code>）与 <code>_gen_async_segment</code>（<code>:3722/3791</code>）都补了
+<code>_begin_temp_slot_pool()</code> 开局占位 + <code>_emit_temp_slot_pool()</code> 按真实用量回填，
+与 <code>_gen_typed_segment</code> 同一路径。槽位池别名（<code>%1</code> 被别名到 <code>@.str.26</code>）随之消失。</p>
+</blockquote>
+<h3 id="124-_inline_small_functions_pass">12.4 <code>_inline_small_functions_pass</code> 过度激进<a class="headerlink" href="#124-_inline_small_functions_pass" title="Permanent link">&para;</a></h3>
+<p>会把「指令数 ≤5 且被调用 ≤1 次」的非 main 函数整段删掉，不看是否还有其它引用形式。</p>
+<h3 id="125-stdliblightpub__init__py45">12.5 <code>stdlib/lightpub/__init__.py:45</code> 路由到仓库外的绝对路径<a class="headerlink" href="#125-stdliblightpub__init__py45" title="Permanent link">&para;</a></h3>
+<p>指向 <code>C:\dumatework\lightpub</code>，跨机器就断。</p>
+<h3 id="126-50-stdlib">12.6 50 个整文件注释的伪代码 stdlib 模块<a class="headerlink" href="#126-50-stdlib" title="Permanent link">&para;</a></h3>
+<p>整个文件被注释掉、只剩形状，<code>stdlib/日期时间.light</code> 是其中之一（正因为没有魔数所以无害）。
+待定方案是缩成「导出清单 + 显式 NotImplemented」，会影响自举率口径，未决。</p>
+<hr />
+<h2 id="d3-2026-08-23">十三、仓库债务登记（D3 本轮明文标注，2026-08-23）<a class="headerlink" href="#d3-2026-08-23" title="Permanent link">&para;</a></h2>
+<p>第三轮 D3 复核盘点出的结构性债务。<strong>只标注、不代修</strong>（多数属 A2/A3 基础设施范围）。
+代修需走对应任务，勿在 D3 里为求门禁通过而放宽判据或顺手改。</p>
+<h3 id="131-llvm_backendpy">13.1 <code>llvm_backend.py</code> 名不副实（根目录）<a class="headerlink" href="#131-llvm_backendpy" title="Permanent link">&para;</a></h3>
+<p>根目录 <code>llvm_backend.py</code>（6302 字节）并不生成 IR，只是 <code>clang</code> 的命令行包装
+（把光明源码喂给 clang 做原生编译）。名字暗示"后端"，实际是"编译器驱动壳"。
+<strong>影响</strong>：后来者按名索骥会误判它产出 LLVM IR。<strong>处置</strong>：重命名为
+<code>llvm_driver.py</code> 或在文件头补一行职责说明（代修走 A2/A3）。</p>
+<h3 id="132-llvm">13.2 两条 LLVM 代码生成路径并存<a class="headerlink" href="#132-llvm" title="Permanent link">&para;</a></h3>
+<ul>
+<li>新：<code>src/llvm/</code>（codegen_typed.py 等），由 <code>cli/light.py:342/366</code> 经
+  <code>from src.llvm.compiler import compile_light[_typed]</code> 调用。</li>
+<li>旧：<code>antlrparser/llvm_codegen.py</code>（<code>LLVMCodeGen</code>），由 <code>src/compiler.py:1523</code>
+  <code>from llvm_codegen import LLVMCodeGen</code> 调用。
+两条路径被不同 CLI 分别拉起，行为面与维护状态不一致，是回归的高危分叉点。
+<strong>处置</strong>：统一到 <code>src/llvm/</code>，废弃 <code>antlrparser/llvm_codegen.py</code>（代修走 A2/A3）。</li>
+</ul>
+<h3 id="133-target-wasm">13.3 <code>--target wasm</code> 的实际去向（需核实）<a class="headerlink" href="#133-target-wasm" title="Permanent link">&para;</a></h3>
+<p><code>cli/light_unified.py:1056</code> 的 <code>--target</code> 含 <code>wasm</code> 选项，且仓库存在
+<code>src/wasm_target.py</code>（<code>compile_to_wasm</code>，支持 <code>pyodide</code> / <code>standalone</code> 两种模式）。
+D3-7 任务书原称"--target wasm 静默生成 .py"——<strong>当前代码看并非如此</strong>（已有独立
+wasm 实现）。该声称可能已过期，标记<strong>待核实</strong>：确认 <code>--target wasm</code> 是否仍有一条
+静默回退 <code>.py</code> 的支路，若有则修，若无则更新任务书措辞。</p>
+<h3 id="134-stdliblightpub__init__py45">13.4 <code>stdlib/lightpub/__init__.py:45</code> 路由到仓库外绝对路径<a class="headerlink" href="#134-stdliblightpub__init__py45" title="Permanent link">&para;</a></h3>
+<p>见 §12.5（已记录）。指向 <code>C:\dumatework\lightpub</code>，跨机器即断；其 <code>__index__.py</code>
+还声明了本仓库不存在的模块。本轮 JSON 已用换名 <code>JSON编解码</code> 规避，不依赖 lightpub，
+但该项属长期一致性债务，记入此处汇总。</p>
+<h2 id="d4-2026-08-23">十四、第四轮移交与债务（D4 本轮，2026-08-23）<a class="headerlink" href="#d4-2026-08-23" title="Permanent link">&para;</a></h2>
+<h3 id="141-15-sysstdoutstderrreconfigure-errorsreplaced4-5">14.1 15 处 <code>sys.stdout/stderr.reconfigure</code> 缺 <code>errors='replace'</code>（D4-5 普查，移交）<a class="headerlink" href="#141-15-sysstdoutstderrreconfigure-errorsreplaced4-5" title="Permanent link">&para;</a></h3>
+<p>全仓 AST 普查：<code>reconfigure</code> 缺 <code>errors=</code> 的调用共 <strong>15 处</strong>，全在 D4 独占清单之外
+（护栏 <code>tests/unit/test_capture_encoding_guard.py</code> 只扫 pytest 收集面 test_<em>/<em>test</em></em>/conftest，
+这些文件不在收集面内，护栏管不到）。风险分级：</p>
+<ul>
+<li><strong>高（模块顶层，CI 直接调）</strong>：</li>
+<li><code>积木库/评估/ci_eval.py:53</code> —— gitea 积木库门禁直接 <code>python 积木库/评估/ci_eval.py --并发 8</code>，顶层 try/except 包裹</li>
+<li><code>积木库/评估/跑分.py:36</code> —— 跑分脚本顶层 try/except 包裹</li>
+<li><strong>中（函数体内，CLI 路径）</strong>：<code>cli/light.py:1080</code>（<code>_ensure_utf8()</code>，AI Copilot 子命令）</li>
+<li><strong>低（工具链脚本函数体内）</strong>：<code>tools/ai_copilot/</code> 下 12 处（build_sft_dataset.py:2203、
+  build_sft_dataset_v10.py:1591、cli.py:119、diagnose_loss.py:169、download_model.py:144、
+  local_infer.py:573、merge_and_convert.py:349、pipeline.py:444、prompt_generator.py:180、
+  snippets.py:231、train_cpu_lora.py:546、train_gpu_lora.py:1038）</li>
+</ul>
+<p>修复动作统一为 <code>sys.stdout.reconfigure(encoding='utf-8', errors='replace')</code>。
+<strong>先修 1、2 号</strong>（模块顶层 + CI 判绿路径）。修完复查：<code>git grep "reconfigure(encoding"</code>。</p>
+<h3 id="142-stdliblight-1-d4-2">14.2 <code>stdlib/列表工具.light</code> 第 1 行注释与事实不符（D4-2 核验发现）<a class="headerlink" href="#142-stdliblight-1-d4-2" title="Permanent link">&para;</a></h3>
+<p><code>stdlib/列表工具.light:1</code> 注释声称「无同名 .py 兜底，优先加载 .light」，但实测存在
+<code>stdlib/列表工具.py</code>（1813 字节）。该 .light 是真实现（decl=10，有设/当/返回算法体），
+不是转手调用，<strong>不构成造假</strong>，但注释撒谎。应改为如实说明「有同名 .py，但本文件是
+自举实现，加载优先级见 module_resolver」。属轻量文档债务，交主线顺手修。</p>
+<h3 id="143-tests_test_py-legacy-pytest-d4-3">14.3 <code>tests/_test_*.py</code> 的 legacy 脚本直跑与 pytest 收集双轨（D4-3 核实）<a class="headerlink" href="#143-tests_test_py-legacy-pytest-d4-3" title="Permanent link">&para;</a></h3>
+<p><code>pyproject.toml:88</code> <code>python_files = ["test_*.py", "_test_*.py"]</code> 会让 <code>_test_*.py</code>
+同时被 pytest 收集；github ci.yml 的 Legacy Feature Tests 步用 <code>python xxx.py</code> 直跑
+同一批文件（本机实测 4 脚本全绿 rc=0）。两条轨覆盖相同文件、判据一致（新增失败即红），
+但存在「改了 pytest 收集行为却没同步直跑脚本」的维护风险，登记备忘。</p>
+<h3 id="144">14.4 假测试基线在第四轮的三次变动（合并期已核，无需动作）<a class="headerlink" href="#144" title="Permanent link">&para;</a></h3>
+<p><strong>(a) 存量清理：394 → 358。</strong> C4 重写 <code>tests/test_async.py</code>（802 行变更）清掉了 37 条
+存量违规（string-assert 36 + 其他 1）；B4 修掉 <code>test_agent_tools_light.py</code> 1 条。
+与任务书 §D4-1 预估的 390-400 有偏差，偏差来源 = C4 实际清存量，<strong>不是</strong>门禁口径问题。</p>
+<p><strong>(b) 合并期回补下界形态漏拼法：358 → 424。</strong> D4-1 的下界形态只写了 <code>&gt;=</code>，
+<code>assert len(x) &gt; 0</code>（与 <code>&gt;= 1</code> 完全等价）整类溜过：全仓实测拦住 26 条、放过 67 条，
+<strong>放过的是拦住的 2.6 倍</strong>——「换个符号就绕过门禁」正是门禁最该堵的洞。
+放宽正则后基线重建为 <strong>424 条</strong>（string-assert 65 + assertin-string 113 +
+upper-bound 2 + lower-bound 92 + not-none 152）。这 66 条增量全部是存量、
+不是新写的假绿；口径仍是「存量冻结、新增即红」。
+随后扫描根扩到全仓（见 14.5 第 3 条），基线终值 <strong>474 条</strong>。</p>
+<p><strong>(c) <code>built_from_commit</code> 曾指向一个不可达提交。</strong> D4-6 报告称基线已指向合并点
+<code>b498142c</code>，实测两份基线里写的都是 <code>8c7d6292b066</code>——一个不在任何分支上的孤儿提交
+（生成基线后又改写了提交，戳就悬空了）。这让「基线是否过期」这个自检字段失去意义。
+合并期已重新生成两份基线，戳指向可达提交，并在基线 <code>note</code> 里写明该字段的语义
+（= 生成基线时的 HEAD，即携带本基线那个提交的父提交）与「不可达即须重建」的判据。</p>
+<h3 id="145">14.5 假测试门禁的覆盖缺口（四条已全部裁决/处置）<a class="headerlink" href="#145" title="Permanent link">&para;</a></h3>
+<p>以下四条都不是「写错了」，是<strong>覆盖范围</strong>问题，动了会显著改变基线量级，
+所以当初只登记不擅自扩；第 1、2 条经用户裁决维持不扩，第 3、4 条已处置：</p>
+<ol>
+<li><strong><code>assertIsNotNone</code> 未覆盖</strong>：形态 6 只认 <code>assert x is not None</code>，
+   unittest 写法 <code>self.assertIsNotNone(x)</code> 实测 249 处全部在门禁外，
+   而被拦的 <code>assert</code> 写法只有 152 处——与形态 4 当初的漏法同源。</li>
+<li><strong><code>assertGreaterEqual</code> / <code>assertLessEqual</code> 未覆盖</strong>：实测 34 处，
+   与形态 2/5 同源。</li>
+<li>~~<strong>扫描根窄于形态的覆盖面</strong>~~ <strong>已处置（2026-08-23 用户裁决：扩到全仓）</strong>：
+   CI 原来只扫 <code>tests/</code>，同形态违规在 <code>tests/</code> 之外还有 50 条
+   （<code>antlrparser/</code>、<code>tools/</code>、<code>examples/</code> 的自测脚本）。两个 workflow 的
+   调用已改成 <code>--root .</code>，基线整份重生成为 <strong>474 条</strong>（424 在 <code>tests/</code> 内</li>
+<li>50 在外）。换根会让基线里所有 key 一起变（key 相对 <code>--root</code>），
+   那次「全量新增」是换根造成的、不是回归。全仓实测 1.7s，仍在 &lt;5s 承诺内。</li>
+<li>~~<strong>防造假形态零命中</strong>~~ <strong>已处置（2026-08-23，非阻塞项-3）</strong>：
+   <code>assert_quality.py</code> 的两个预防性形态（<code>trivial-ge0</code> / <code>returncode-in</code>）
+   与 <code>bootstrap_rate.py</code> 的自导入检查目前仍是 0 命中——这一点没变，也不该变
+   （有命中才说明有人新写了假绿）。变的是<strong>它们从此有证据</strong>：
+   <code>tests/unit/test_ci_gates.py</code>（12 条）钉住三处判据，每条都配了「几乎一样
+   但不该命中」的反例（<code>&gt;= 0</code> 拦 / <code>&gt;= 1</code> 不拦；<code>in [...]</code> 拦 / <code>== 0</code> 不拦；
+   <code>X.light</code> 里 <code>导入 X</code> 判假 / <code>导入 乙</code> 与 <code>导入 Python: X</code> 不判）。
+   四发变异反跑（改 <code>&gt;= 0</code> 成 <code>&gt;= 987</code>、<code>in [</code> 成 <code>in (</code>、摘掉自导入判据、
+   把 OSError 吞回去）各自 rc=1 判红，复位后 12 passed。
+   遗留认知不变：真正在拦存量的仍是 <code>decl &gt;= 1</code>，这三处只防新增。
+   <strong>副作用一并记下</strong>：新文件的类 docstring 起初写成单行、里面带着
+   <code>assert len(x) &gt;= 0</code> 这个反面样例，直接被门禁点名（<code>_prose_lines()</code> 只豁免
+   多行字符串）——反面教材必须放进多行块，这条已写进该文件的模块 docstring。</li>
+</ol>
+<p><strong>第 1、2 条的裁决（2026-08-23，用户）：维持保守口径，不扩。</strong> 理由是
+「取保守口径、基线控制在 390 上下」这条既有裁决优先；两类全扩会把基线
+从 474 再推到约 720，收益（多冻结一批存量）远小于口径反复的代价。
+登记在此备查：将来若要扩，必须连同基线量级一起重新裁决，不许顺手扩。</p>
+<h3 id="146-github-2026-08-23">14.6 <code>.github/</code> 整棵树当前不执行（2026-08-23 实测）<a class="headerlink" href="#146-github-2026-08-23" title="Permanent link">&para;</a></h3>
+<p><code>git remote -v</code> 只有两个远端：gitea（内网 <code>192.168.1.5:3000</code>）与 gitcode
+（<code>origin</code>）。<strong>没有 GitHub 远端</strong>，所以 <code>.github/workflows/</code> 下的 <code>ci.yml</code>
+与 <code>quality-gate.yml</code> 一次都没跑过。这不是猜测，是查远端得到的事实。</p>
+<p>由此重新定性两件事：</p>
+<ul>
+<li><strong><code>quality-gate.yml</code> 不是「第三条判据路径」，是一份不判事的镜像。</strong> 它与
+  <code>ci.yml</code> 有三处口径差异（flake8 在它这里硬判红、多扫一个 <code>contrib</code>、
+  用全量+覆盖率而不是基线差分），过去被当成潜在的口径分裂风险，实际风险为零
+  ——因为它不执行。已在文件头把「不执行」与三处差异一并写明，免得将来有人
+  接上 GitHub 远端后突然多出一条口径不同的红线还不知道来路。
+  同时修掉它里面两处真问题：<code>覆盖率不低于 80%</code> 与实际 25% 的自相矛盾说明，
+  以及覆盖率解析 <code>except Exception → sys.exit(0)</code>（报告读不出来就当通过，
+  典型假绿）改为硬判红。</li>
+<li><strong><code>ci.yml</code> 里的 flake8 缺陷（<code>bash -e</code> 下 <code>rc=$?</code> 不可达）之所以能长期活着，
+  根因就是这条</strong>：gitea 的 workflow 里根本没有 flake8 步骤，所以两边都不会红。
+  修已在 <code>d9f445c7</code>，登记在此是为了记住「改 <code>.github/</code> 等于改文档，
+  真正会执行的是 <code>.gitea/workflows/ci.yml</code>」。</li>
+</ul>
+<p>顺带补齐的一个真缺口（非阻塞项-1）：<code>.ci/root_other.xml</code> 由非 Linux 那条
+根目录测试步骤产出，但回归闸门是 <code>if: runner.os == 'Linux'</code>，<strong>跨平台那一路
+产了 junit 却没有任何东西看它</strong>。现已补一条跨平台闸门，配专用的空基线
+<code>tests/ci_baseline_failures_crossplat.txt</code>（该批全是 <code>tests.test_*</code>，按
+<code>--soft-classname</code> 全部软化，所以基线本就该是空的；复用 Linux 那份 12 条基线
+会打出 12 行「已不再打红、记得更新基线」的错误提示）。它只新增一种拦截：
+<strong>整批没跑起来</strong>——collect error 的 junit 里 <code>classname</code> 是空串，<code>fnmatch('',
+'tests.test_*')</code> 为假，软化豁免不了它，于是判红。已两向验证：坏 junit rc=1、
+好 junit rc=0。该基线文件同样要在 <code>.gitignore</code> 里豁免 <code>*.txt</code>，否则 CI 上
+<code>--baseline</code> 指向不存在的文件、闸门整条抬错。</p>
+<h2 id="b7">十五、双后端分叉两条（第七轮 B7 双后端对照跑出来的，均未修）<a class="headerlink" href="#b7" title="Permanent link">&para;</a></h2>
+<h3 id="151">15.1 <code>除以</code> 的算术语义<a class="headerlink" href="#151" title="Permanent link">&para;</a></h3>
+<p><strong>同一份 <code>.light</code>，两条后端算出不同答案</strong>：</p>
+<ul>
+<li><code>打印 4 除以 3。</code></li>
+<li>转译后端（光明 → Python）：<code>1.3333333333333333</code>（Python <code>/</code> 是真除法）</li>
+<li>原生腿（LLVM/C）：<code>1</code>（原生腿一切数字是 <code>i64</code>，<code>除以</code> 落到 C 的 <code>/</code>，整数截断）</li>
+</ul>
+<p><strong>为什么现在不修</strong>：修法有两条且都动语义面，需要裁决而不是顺手改——
+(a) 原生腿补浮点类型，让 <code>除以</code> 在两条腿上都是浮点除法；
+(b) 把 <code>除以</code> 明确定成「整数相除得整数」，靠 <code>整除</code> / 显式浮点字面量区分。
+<code>docs/光明-完整规范文档.md</code> 现在把 <code>除以</code> 写作 <code>/</code>、<code>整除</code> 写作 <code>//</code>，按文档口径应当走 (a)。</p>
+<p><strong>当前的止损</strong>：<code>tests/test_llvm_c3_expr.py</code> 的双后端一致性 6 例全部用 <code>整除</code>
+绕开这一处，并在用例里写明缘由——<strong>不是躲过去了，是把它圈出来了</strong>。谁修完这条，
+把那 6 例里的 <code>整除</code> 换回 <code>除以</code>，那组用例即刻变成这条修复的判据。</p>
+<h3 id="152-stdout-windows-ascii">15.2 stdout 的字节编码（Windows 上非 ASCII 输出不同字节）<a class="headerlink" href="#152-stdout-windows-ascii" title="Permanent link">&para;</a></h3>
+<p>同一句 <code>打印 "光明"。</code>，输出重定向进管道/文件时：</p>
+<ul>
+<li>原生腿的 exe：吐 UTF-8 字节 <code>e5 85 89 e6 98 8e</code></li>
+<li>转译后端（<code>light run</code>，本质是个 Python 进程）：吐<strong>平台 ANSI 代码页</strong>字节，
+  中文 Windows 上是 cp936 的 <code>b9 e2 c3 f7</code></li>
+</ul>
+<p>即「同一个程序，两条腿产出的文件编码不同」。ANSI 那边还会在无法映射的字符上
+直接抛 <code>UnicodeEncodeError</code>。</p>
+<p><strong>根因</strong>：转译后端没有钉死自己的 <code>sys.stdout</code> 编码，跟随 <code>locale.getpreferredencoding()</code>；
+原生腿写的是裸字节，源码是 UTF-8 就是 UTF-8。</p>
+<p><strong>未修的原因</strong>：改法（在 CLI 入口 <code>reconfigure(encoding='utf-8')</code>）动的是所有
+转译后端用户的既有输出行为，且第四轮已经踩过「reconfigure 顺手把 errors 改成
+strict、整场级联炸」的坑（见十四节），要单独一轮带反跑地做。</p>
+<p><strong>当前的止损</strong>：<code>tests/test_llvm_c3_expr.py::_run_transpiled</code> 给子进程钉
+<code>PYTHONIOENCODING=utf-8</code>，把两边拉到同一编码再比字符。B7 原稿没钉，所以那 6 例
+在外部已设 <code>PYTHONUTF8</code> 的机器上绿、在没设的机器上红（合并期实测 2 红），
+是「本机绿 CI 红」的又一例。</p>
+<h2 id="2026-08-24">十六、第七轮五路全合点的账（2026-08-24，合并期核验产出）<a class="headerlink" href="#2026-08-24" title="Permanent link">&para;</a></h2>
+<h3 id="161">16.1 三份基线在全合点统一重建，重建理由逐条列明<a class="headerlink" href="#161" title="Permanent link">&para;</a></h3>
+<p>在 <code>e99c63fd</code>（五路全合）之后一次性重建，<strong>不是为了消红而重建</strong>，每份都写明动因：</p>
+<ul>
+<li><strong>自举率</strong>（<code>tools/ci/bootstrap_rate_baseline.json</code>）：29.73% → 31.58%（文件维度 24/76），
+  关键路径子指标 77.78% → 88.89%（16/18）。都是<strong>升</strong>，重建只是把棘轮往上抬。
+  影子数 53 持平，<code>stdlib/</code> 引 Python 逃逸仍是 0。</li>
+<li><strong>功能对标清单</strong>（<code>tools/ci/spec_coverage_baseline.json</code>）：done 8 → 12。见 16.2。</li>
+<li><strong>Python 直调</strong>（<code>tools/ci/python_direct_baseline.json</code>）：总数 308，per-file 有升有降。
+  <strong>升的两个文件必须记账</strong>（这是唯一一份「有上升还重建」的基线）：</li>
+<li><code>examples/harness/LLM通道.light</code> 0 → 1：只剩 <code>:164 time.sleep(延迟秒)</code>。
+    mock 通道的延迟注入点，在工作线程里同步睡。stdlib 无纯光明的睡眠原语，无可替代。
+    （合并期已把同文件的 <code>json.dumps</code> 换成 <code>JSON核心.序列化</code>，那一条是真收口，不是豁免。）</li>
+<li><code>examples/harness/评测驱动.light</code> 12 → 16：<code>:141/:148 os.environ.get</code>（这两行<strong>就是</strong>
+    <code>取环境/设环境</code> 光明包装器的实现体，os 是系统边界）、<code>:177/:181 time.time()</code>（计时，
+    stdlib 无单调时钟原语）、<code>:180 asyncio.to_thread</code>（同步 agent 循环跨界到事件循环的
+    唯一手段，见对标清单第 8 条）。</li>
+<li>同时两个文件是<strong>降</strong>的，抵掉了上面的升：<code>主程序.light</code> 21 → 15（切到
+    <code>代理工具集.注册全部</code>）、<code>编排.light</code> 2 → 0（切到 <code>stdlib/并发</code>）。</li>
+<li>要真消掉那 5 行，得先在 stdlib 补「睡眠 / 单调时钟」两个纯光明原语，属后续轮次。</li>
+</ul>
+<h3 id="162-done-8-12">16.2 对标清单状态逐条核验（done 8 → 12）<a class="headerlink" href="#162-done-8-12" title="Permanent link">&para;</a></h3>
+<p>先说一条<strong>记账口径事故</strong>：<code>第七轮C7_交付报告.md:177-188</code> 那张「功能对标清单推进」表的行号
+（2/5/6/7/8/10/16/17）<strong>不对应 <code>任务书/功能对标清单_harness.json</code> 的 <code>编号</code></strong>。
+例：报告第 2 行写「JSONL 行流」，而清单 #2 是「并发调度」；报告第 16 行写「mock 造 tool_calls」，
+而清单 #16 是「取消 / 超时」。两套编号撞车，谁照着报告的数字去改清单状态就会改错条目。
+以后动状态只认清单 <code>编号</code> + <code>功能</code> 两个字段一起对上。</p>
+<p>合并期按清单 <code>编号</code> 逐条核验（结构 + 实跑，不认注释与报告的自我声明）的结果：</p>
+<ul>
+<li><strong>升 done</strong>：#8 多轮 agent loop —— <code>test_harness_agent_light.py:88</code> 断言 <code>完成轮数 &gt;= 2</code>，
+  轮数是 <code>代理循环.light:500</code> 在循环体内真加出来的，是真判据。
+  （#13/#14/#15 的 done 是 D7 合入时兑现的 usage / 成本 / 分位，不在本节。）</li>
+<li><strong>升 partial（none → partial，但不到 done）</strong>：</li>
+<li>
+<h1 id="5-agent">5 错误分类与单条兜底：六类分类真的有，agent 路径有真判据；但分类器只有<a class="headerlink" href="#5-agent" title="Permanent link">&para;</a></h1>
+<p><code>评测驱动.light:193</code> 一个调用点，single 模式仍走 <code>编排.light:59</code> 只认两类异常。</p>
+</li>
+<li>
+<h1 id="7-mock-tool_calls-tools">7 工具调用：mock 造 tool_calls、参数校验、工具真执行都成立；但「评测链请求体带 tools」<a class="headerlink" href="#7-mock-tool_calls-tools" title="Permanent link">&para;</a></h1>
+<p>只在 agent+real 这条<strong>无测试</strong>的路径成立，默认被测的 agent+mock 路径没有请求体这回事。</p>
+</li>
+<li><strong>维持原状</strong>：</li>
+<li>
+<h1 id="2-partial-stdlib">2 并发调度（partial）：实现真切到 <code>stdlib/并发</code> 信号量任务池、单实现无双写，<a class="headerlink" href="#2-partial-stdlib" title="Permanent link">&para;</a></h1>
+<p>但缺长尾判据 —— 分批 gather 同样能过现有全部测试。</p>
+</li>
+<li>
+<h1 id="6-partial">6 流式增量消费（partial）：消费方仍是 <code>设 累积 为 块["累积内容"]</code> 逐轮覆盖，<a class="headerlink" href="#6-partial" title="Permanent link">&para;</a></h1>
+<p><code>内容增量</code> 在 <code>examples/harness/</code> 消费侧零引用。本轮未推进。</p>
+</li>
+<li>
+<h1 id="17-partial">17 事件流可观测（partial）：「每实例一条总线」做到了；「汇聚到主协程再发」在代码里<a class="headerlink" href="#17-partial" title="Permanent link">&para;</a></h1>
+<p>不存在（无队列 / 无 <code>call_soon_threadsafe</code>），实际是靠「工作线程干脆不发事件」达成。</p>
+</li>
+<li><strong>降级 partial → none</strong>：#16 取消 / 超时。评测链一行都没有；agent 侧取消令牌是死码 ——
+  <code>代理循环.light:324</code> 构造里置空、全仓无赋值点，<code>是否已取消</code> 恒返回假。
+  <code>stdlib/并发.light:76-78</code> 的 <code>超时运行</code> 现成没吃。<blockquote>
+<p><strong>第八轮订正（覆盖上面两行）</strong>：#16 已升回 <strong>partial</strong>，且上面那句「全仓无赋值点」是错账。
+- 错账：<code>tests/test_agent_loop_light.py:412-429</code> 有真赋值点，并断言 <code>轮次 == [0]</code>
+  （令牌先置位则一轮都不跑）。准确说法是 <strong>生产代码里没有赋值入口，只有测试在用</strong>；
+  <code>代理循环.light:324</code> 构造置空是「默认不可取消」，不是死码。
+- 已补：第八轮把 <code>stdlib/并发.超时运行</code> 接进评测链 —— <code>评测驱动.light</code> 的
+  <code>限时等待</code> + <code>HARNESS_TIMEOUT_SEC</code>，单模链与 agent 链各一处；超时落「超时」类失败、
+  整场跑完、报告照样落盘。判据 <code>tests/test_harness_e2e_light.py::Test单条超时</code>、
+  <code>tests/test_harness_agent_light.py::TestM18超时</code>（含反跑变异：把限时条件取反后
+  两条「全条超时」用例立红，其余三条不动）。
+- 仍然只是 partial：agent 模式被限时的对象是 <code>asyncio.to_thread(...)</code>，取消掉的是
+  <strong>等待</strong>，掐不断已经起跑的 worker 线程；生产代码也依然没有给 取消令牌 赋值的入口。</p>
+</blockquote>
+</li>
+</ul>
+<h3 id="163-c7">16.3 合并期顺手修掉的三处（都不是 C7 报告里提的）<a class="headerlink" href="#163-c7" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>examples/harness/评测驱动.light</code>：C7 自带的 <code>求分位数</code> 用「取整下标」，与项目口径
+  （<code>stdlib/统计.py</code> 的线性插值）不一致 —— 删掉本地版，改吃 <code>stdlib/度量.分位</code>。
+  实测报告里的 p50/p95 与手算线性插值逐位相等。</li>
+<li><code>examples/harness/行流.light</code>：<code>有键</code> 的 <code>返回 假</code> 误缩进在 <code>遍历</code> 体内，<strong>只看第一个键</strong>。
+  当前调用点恰好总把 <code>坏</code> 排在首位（<code>stdlib/JSONL.light:43</code>），所以是潜伏而非现行故障。
+  已把 <code>返回 假</code> 提到循环外；同文件删掉已成死码的 <code>导入 os/sys/json</code>。</li>
+<li><code>examples/harness/评测驱动.light</code> 两处过期/失真注释：<code>TODO(移交:D7)</code> 说 p50/p95 用本地兜底
+  （已不是）；<code>HARNESS_TOOLS</code> 文档说「agent 模式使用工具」，实际它<strong>不 gate 任何工具注册</strong>，
+  <code>off</code> 也照样注册两个工具、照样发 tool_calls。后者是行为与文档不符，本轮先如实写清。</li>
+</ul>
+<h3 id="164">16.4 未修、明账移交<a class="headerlink" href="#164" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>用量</code>/<code>成本</code> 恒空字典</strong>：不是在等 D7 —— <code>stdlib/度量.light:95-136</code> 的 <code>批量汇总</code> 已能算
+  <code>总输入词元/总输出词元/成本估算/成本说明</code>。断点在 <strong><code>stdlib/代理循环.light:436</code></strong>：
+  <code>单轮请求</code> 只从块里取 <code>完成原因/内容增量/工具调用增量</code>，块上的 <code>"用量"</code> 在那一行被丢掉，
+  <code>代理循环</code> 也没有累积它的字段；第二道断点是 <code>评测驱动.light:145</code> 的返回字典不带用量。
+  （留空是刻意的，<strong>不许填 0</strong> —— 「没配」和「真是 0」必须可区分。）</li>
+<li><strong>主流程无 try</strong>：<code>评测驱动.light:344-418</code> 的 <code>主</code> 里 <code>写入JSON文件</code>/<code>写入文件</code> 前后无 <code>尝试</code>。
+  「报告必须落盘」目前只对 agent 单条异常成立，对写盘/汇总/single 冒泡都不成立。</li>
+<li><strong><code>错误分类.light:77-90 应重试</code> 与 <code>:101-107 状态码为整数</code> 全仓零调用点</strong>：文件头声称接了
+  重试决策，实际重试仍走 <code>编排.light:59</code> 那个只认两类异常的 <code>捕获</code>。</li>
+<li><strong><code>主程序.light:43-61</code> 四个监听器仍往 stdout 写中文</strong>：库侧已把发事件收敛到主线程，
+  harness 侧这半个问题没处置。</li>
+<li><strong>判据缺口三条</strong>：并发无长尾判据；<code>用量/成本/p50/p95</code> 在报告层无断言；事件总线无
+  「两实例并发各自只收到自己的事件」用例。</li>
+</ul>
+<hr />
+<h2 id="posixlinux-2026-08-24a7-linux">十七、POSIX/Linux 实测账（2026-08-24，A7 交付的 Linux 实机验证）<a class="headerlink" href="#posixlinux-2026-08-24a7-linux" title="Permanent link">&para;</a></h2>
+<p>来源：<code>docs/POSIX验证报告_Linux.md</code>（Ubuntu 22.04.5 + clang-18 + Python 3.12.13 实机跑，
+非读代码推断）。同目录还有 <code>docs/POSIX验证报告.md</code>（Windows/沙箱版，早一轮）。
+两份报告是<strong>外部交付物存档</strong>，不是本仓库的历史文档，引用时按 §号 定位。</p>
+<p>已在本轮直接处置的：<strong>#L3</strong>（缺 cryptography 导致整轮 pytest collect abort）——
+<code>tests/test_tls_light.py</code> 改成响亮降级（缺依赖时一条红代表全文件，只有显式
+<code>LIGHT_ALLOW_SKIP_TLS_TEST=1</code> 才整文件 skip），并在 <code>.gitea/workflows/ci.yml</code>
+装依赖那步补 <code>pip install cryptography || true</code>。<strong>没有</strong>按报告建议用
+<code>pytest.importorskip</code> —— 那会让「纯离线、不许 skip」的文件在缺依赖时静默全绿。
+<strong>#L4</strong> 无需动作（Windows 专属，Linux 侧 LTO 直接可用）。</p>
+<h3 id="171-l1-clang-18ci">17.1 #L1 [高·环境门槛] 原生腿要求 clang ≥ 18（已写进文档/CI）<a class="headerlink" href="#171-l1-clang-18ci" title="Permanent link">&para;</a></h3>
+<ul>
+<li>现象：同一批 IR 在 clang-14 四档全红（<code>ptr type is only supported in -opaque-pointers
+  mode … error: expected type</code>）、clang-15 也全红（O2/O3 另报
+  <code>instruction expected to be numbered '%0'</code>）、clang-18 四档全绿（12 格矩阵 12/12）。</li>
+<li>性质：<strong>不是项目缺陷</strong>，是工具链版本门槛（IR 走 opaque pointer 现代风格）。
+  Ubuntu 22.04 自带的 clang-14 完全不可用。clang-16/17 未逐版实测。</li>
+<li>处置：<code>docs/从光明到LLVM.md §1.0</code> 新增「工具链底线」小节 + §8.1 两条 Q；
+  <code>.gitea/workflows/ci.yml</code> 新增「工具链盘点（clang 版本·只报告）」一步
+  （<strong>只报告不判绿</strong>：缺 clang 时原生测试按设计 skip，不该因宿主 clang 旧就整轮红）。</li>
+<li>未验证：~~FreeBSD runner 自带 clang 的版本~~ —— <strong>gitea run 94（2026-08-24）已实测</strong>：
+  <code>FreeBSD clang version 19.1.7</code>，<strong>≥18，满足底线</strong>，新加那步没打警告。
+  同一份日志还坐实了 #L3 的隐性依赖：<code>Requirement already satisfied: cryptography in
+  /usr/local/lib/python3.11/site-packages (44.0.3)</code> —— 这台 runner 上新加的 pip 装依赖
+  是空转，蹭的就是系统 site-packages 那份；换台干净 runner 才会真装。</li>
+</ul>
+<h3 id="172-l2-posix-tls-stub">17.2 #L2 [中] POSIX 侧原生 TLS 是 stub（有壳无实现）<a class="headerlink" href="#172-l2-posix-tls-stub" title="Permanent link">&para;</a></h3>
+<ul>
+<li>证据：<code>runtime_typed.c:5747-5778</code>，POSIX 分支 <code>backend=none</code>、<code>dv_tls_wrap</code> → NULL，
+  任何握手调用立即失败。Windows 侧的 Schannel 后端是真的。</li>
+<li>口径纠正：<code>docs/POSIX验证报告_Linux.md</code> 已把「<code>dv_tls_last_error()</code> POSIX 未导出」
+  的怀疑证伪——它定义在 <code>runtime_typed.c:5107</code>、在 <code>#ifdef _WIN32</code> 之前无条件存在，
+  POSIX 上返回可读错误 <code>本平台未实现原生 TLS：当前只有 Windows Schannel 后端（POSIX 待补 mbedTLS）</code>。
+  所以缺的是<strong>实现</strong>，不是错误可见性。</li>
+<li>排期：第九轮 M23（原生腿）候选。补 mbedTLS/OpenSSL 后端属新增能力，不在本轮范围。</li>
+<li>记账口径：凡文档/清单写「原生 TLS 可用」的地方，必须标 <strong>Windows-only</strong>。</li>
+</ul>
+<h3 id="173-l5-windows">17.3 #L5 [中] 溢出文件的<strong>绝对路径</strong>被拼进标准输出（跨平台真缺陷，Windows 是假绿）<a class="headerlink" href="#173-l5-windows" title="Permanent link">&para;</a></h3>
+<p>报告把它记成「Linux 特有」，<strong>本轮核查后改判：两个平台都漏，Windows 只是断言瞎了</strong>。</p>
+<ul>
+<li>真正的泄漏点：<code>stdlib/进程树.light:248</code> ——
+  <code>设 标记 为 "...[已省略 N 字节，完整输出见 " + 己.溢出路径 + "]..."</code>，
+  <code>己.溢出路径</code> 是 <code>os.path.join(己.目录, 名)</code> 的<strong>绝对路径</strong>，被 prepend 到
+  <code>结果.标准输出</code> 的<strong>开头</strong>。合并期修 P0-1 时只把
+  <code>stdlib/代理工具集.light:658</code> 那条尾部提示改成了 <code>os.path.basename</code>，
+  上游这条省略标记漏了。</li>
+<li>为什么 Windows 绿：<code>stdlib/路径护栏.light:105-112 规范路径</code> 在 Windows 上做
+  <code>os.path.normcase</code>（全小写），沙箱根目录因此是小写，拼出来的路径也是小写；而
+  <code>tests/test_agent_tools_light.py:666</code> 的 <code>str(tmp_path) not in 结果</code> 是<strong>大小写敏感</strong>的，
+  于是漏检。本机实测（<code>_probeL5_</code> 探针）：输出头部确实带
+  <code>c:\users\...\appdata\local\temp\_probel5_xxxx\_taskD2_spill_1_....bin</code>，
+  同一断言判定 <code>NOLEAK</code>。Linux 上 normcase 是空操作，路径逐字相等 → 红。</li>
+<li>为什么 <code>:665</code> 那条 <code>os.sep not in 尾段</code> 也没拦住：<code>尾段</code> 从 <code>"输出超限"</code> 起算，
+  泄漏在它<strong>前面</strong>的正文里。</li>
+<li>影响：给模型的输出里带宿主机目录结构（用户名、盘符、临时目录布局），
+  而模型只能用沙箱内相对名（<code>read_file</code> 受 核准 管），绝对路径对它毫无用处。</li>
+<li>修法（未做，排期第九轮）：<code>进程树.light:248</code> 改成回显 <code>os.path.basename(己.溢出路径)</code>
+  —— 但 <code>进程树</code> 是通用库、调用方不一定有沙箱，得先定「相对谁」的口径；
+  同时把 <code>:666</code> 的断言改成大小写不敏感（否则 Windows 上继续假绿，改完也测不出）。</li>
+</ul>
+
+
+
+
+
+
+
+  
+    
+  
+  
+    
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="最后更新">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年8月30日 18:19:48 UTC">2026年8月30日</span>
+  </span>
+
+    
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="创建日期">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年8月30日 18:19:48 UTC">2026年8月30日</span>
+  </span>
+
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/skywalk163/light" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

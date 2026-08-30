@@ -1,0 +1,5159 @@
+
+<!doctype html>
+<html lang="zh" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="光明编程语言 - 中文编程语言的全新可能">
+      
+      
+        <meta name="author" content="LightLang Team">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>光明教育者指南 —— 面向 K12 编程教育的完整教学方案 - 光明 (LightLang) v7.0</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans+SC:300,300i,400,400i,700,700i%7CNoto+Sans+SC:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Noto Sans SC";--md-code-font:"Noto Sans SC"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#k12" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="页眉">
+    <a href=".." title="光明 (LightLang) v7.0" class="md-header__button md-logo" aria-label="光明 (LightLang) v7.0" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            光明 (LightLang) v7.0
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              光明教育者指南 —— 面向 K12 编程教育的完整教学方案
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="green"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/skywalk163/light" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    skywalk163/light
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="标签" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  首页
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  快速开始
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../user_guide/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  用户手册
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../release_notes_v6.0/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  发布说明
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../known_issues/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  已知问题
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guide/getting-started/" class="md-tabs__link">
+          
+  
+  
+  快速入门
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guide/%E5%88%86%E5%B1%82%E8%AF%AD%E6%B3%95%E5%85%A5%E9%97%A8/" class="md-tabs__link">
+          
+  
+  
+  用户指南
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../language/levels/" class="md-tabs__link">
+          
+  
+  
+  语言参考
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../stdlib/" class="md-tabs__link">
+          
+  
+  
+  标准库
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../30%E5%88%86%E9%92%9F%E5%85%A5%E9%97%A8%E5%85%89%E6%98%8E/" class="md-tabs__link">
+          
+  
+  
+  教程
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tools/cli/" class="md-tabs__link">
+          
+  
+  
+  工具
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../architecture/" class="md-tabs__link">
+          
+  
+  
+  项目
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../ecosystem/%E6%95%99%E5%AD%A6%E8%B5%84%E6%BA%90/" class="md-tabs__link">
+          
+  
+  
+  生态
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../migration/v3-to-v4/" class="md-tabs__link">
+          
+  
+  
+  迁移指南
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/" class="md-tabs__link">
+          
+  
+  
+  API 参考
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E7%B4%A2%E5%BC%95/" class="md-tabs__link">
+          
+  
+  
+  知识库
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="https://github.com/skywalk163/light/blob/main/CHANGELOG.md" class="md-tabs__link">
+          
+  
+  
+  变更记录
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  贡献指南
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="光明 (LightLang) v7.0" class="md-nav__button md-logo" aria-label="光明 (LightLang) v7.0" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    光明 (LightLang) v7.0
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/skywalk163/light" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    skywalk163/light
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    首页
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user_guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    用户手册
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release_notes_v6.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    发布说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../known_issues/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    已知问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速入门
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    快速入门
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安装说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/vscode-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VS Code 配置
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    用户指南
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    用户指南
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/%E5%88%86%E5%B1%82%E8%AF%AD%E6%B3%95%E5%85%A5%E9%97%A8/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    分层语法入门
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/%E8%BF%81%E7%A7%BB%E6%8C%87%E5%8D%97/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    迁移指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    语言参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/levels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    五层架构详解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/l0-core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L0 核心字集
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/l1-l2-style/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L1/L2 文体
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/l3-domain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L3 领域嵌入
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/l4-foreign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L4 外语引用
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/keywords/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    关键字参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/operators/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    运算符参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/%E5%AE%8C%E6%95%B4%E8%AF%AD%E6%B3%95%E5%8F%82%E8%80%83/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    完整语法参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语法规范
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E5%85%89%E6%98%8E-%E5%AE%8C%E6%95%B4%E8%A7%84%E8%8C%83%E6%96%87%E6%A1%A3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    完整规范文档
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class_system_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类系统设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interface-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trait/协议系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interface-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模式匹配
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-07-01-level6-type-annotation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    泛型与类型注解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E6%A8%A1%E5%9D%97%E7%B3%BB%E7%BB%9F%E4%B8%8E%E5%8C%85%E7%AE%A1%E7%90%86/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模块系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ffi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FFI 外部函数接口
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../HM%E5%85%A8%E5%B1%80%E7%B1%BB%E5%9E%8B%E6%8E%A8%E6%96%AD%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型推断系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E5%8F%AF%E7%A9%BA%E7%B1%BB%E5%9E%8Bunwrap%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    可空类型系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    标准库
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    数学模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/string/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    字符串处理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON 模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文件系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/datetime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    日期时间
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib/regex/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    正则表达式
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../API_REFERENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考总表
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/builtins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    内置函数
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lightpub_integration_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lightpub 生态
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_9_13" id="__nav_9_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lightpub 包文档
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    lightpub 包文档
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lightpub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    索引与分类
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    教程
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    教程
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../30%E5%88%86%E9%92%9F%E5%85%A5%E9%97%A8%E5%85%89%E6%98%8E/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    30 分钟入门
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/%E5%85%A5%E9%97%A8%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    入门教程
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/%E8%BF%9B%E9%98%B6%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进阶教程
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%AB%AF%E5%88%B0%E7%AB%AF%E5%AE%9E%E6%88%98%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    端到端实战
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    示例代码
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工具
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    工具
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI 使用指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/playground/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Playground 使用
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/lsp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LSP 集成
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/debugger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    调试器
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工具链总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E6%90%9C%E7%B4%A2%E9%85%8D%E7%BD%AE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    搜索配置
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    项目
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    架构设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEVELOPMENT_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    开发指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84%E8%AF%B4%E6%98%8E/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目结构
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../REPL_DESIGN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REPL 设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../BOOTSTRAP_STRATEGY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    引导策略
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../llvm_backend_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLVM 后端
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PERFORMANCE_OPTIMIZATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    性能优化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../OPTIMIZATION_ANALYSIS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    优化分析
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E4%B8%89%E4%B8%AA%E6%9C%88%E5%B7%A5%E4%BD%9C%E8%AE%A1%E5%88%92_2026Q3Q4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目计划
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PROGRESS_REPORT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进度报告
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    生态
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    生态
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ecosystem/%E6%95%99%E5%AD%A6%E8%B5%84%E6%BA%90/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    教学资源
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_14" >
+        
+          
+          <label class="md-nav__link" for="__nav_14" id="__nav_14_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    迁移指南
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    迁移指南
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration/v3-to-v4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.3 → v4.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration/v4-to-v5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v4.0 → v5.x
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_15" >
+        
+          
+          <label class="md-nav__link" for="__nav_15" id="__nav_15_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API 参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/compiler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    编译器 API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_16" >
+        
+          
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    知识库
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    知识库
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E7%B4%A2%E5%BC%95/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    知识库索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E8%AF%AD%E8%A8%80%E8%A7%84%E8%8C%83/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言规范
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E5%BC%80%E5%8F%91%E6%8C%87%E5%8D%97/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    开发指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最佳实践
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%9F%A5%E8%AF%86%E5%BA%93/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17" >
+        
+          
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    变更记录
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    变更记录
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/skywalk163/light/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    版本日志
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../LANGUAGE_EXTENSIONS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言扩展历史
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_17_3" id="__nav_17_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语法变更
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_17_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    语法变更
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%BB%9F%E4%B8%80%E8%AF%AD%E6%B3%95%E8%A7%84%E8%8C%83_v3.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E7%BB%9F%E4%B8%80%E8%AF%AD%E6%B3%95%E8%A7%84%E8%8C%83_v3.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E8%AF%AD%E6%B3%95%E5%8F%98%E6%9B%B4_v3.4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E8%AF%AD%E6%B3%95%E5%8F%98%E6%9B%B4_v3.5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.5
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../FINAL_SUMMARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最终总结
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    贡献指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="k12">光明教育者指南 —— 面向 K12 编程教育的完整教学方案<a class="headerlink" href="#k12" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>版本：</strong> v6.2
+<strong>更新日期：</strong> 2026-08-07
+<strong>适用对象：</strong> 中小学信息技术教师、编程教育机构讲师、教育工作者</p>
+</blockquote>
+<hr />
+<h2 id="_1">目录<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
+<ol>
+<li><a href="#1-为什么光明适合-k12-教育">为什么光明适合 K12 教育？</a></li>
+<li><a href="#2-教学体系总览">教学体系总览</a></li>
+<li><a href="#3-分龄教学方案">分龄教学方案</a></li>
+<li><a href="#4-课程大纲">课程大纲</a></li>
+<li><a href="#5-课堂活动设计">课堂活动设计</a></li>
+<li><a href="#6-评估与考核">评估与考核</a></li>
+<li><a href="#7-常见问题">常见问题</a></li>
+</ol>
+<hr />
+<h2 id="1-k12">1. 为什么光明适合 K12 教育？<a class="headerlink" href="#1-k12" title="Permanent link">&para;</a></h2>
+<h3 id="_2">全中文关键字，零英文门槛<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h3>
+<p>光明的所有关键字均为中文（如 <code>如果</code>、<code>循环</code>、<code>函数</code>、<code>输出</code>），学生无需任何英语基础即可开始学习编程。这消除了语言障碍，让低龄学生和英语薄弱的学生也能专注于编程逻辑本身。</p>
+<h3 id="_3">自然语言式语法，降低认知负担<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h3>
+<p>光明的语法贴近自然语言表达，例如：</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>循环 5 次：
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    输出 "你好，世界！"
+</span></code></pre></div>
+<p>相比传统编程语言中的 <code>for i in range(5): print("Hello, World!")</code>，光明的语法更直观，学生可以"所见即所得"地理解代码含义。</p>
+<h3 id="repl">内置 REPL 和调试器，交互式学习<a class="headerlink" href="#repl" title="Permanent link">&para;</a></h3>
+<p>光明内置了交互式 REPL 环境，学生可以逐行输入代码并立即看到结果。调试器支持断点、单步执行和变量查看，帮助学生理解程序运行过程。</p>
+<h3 id="_4">丰富的趣味示例<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h3>
+<p>光明提供了针对不同年龄段设计的趣味示例，包括：
+- <strong>图形绘制</strong> — 用 ASCII 艺术画各种图形，学习循环和条件判断
+- <strong>猜数字游戏</strong> — 带分数的交互式游戏，学习变量和用户输入
+- <strong>故事生成器</strong> — 多模板故事生成器，学习字符串处理和函数</p>
+<p>这些示例让编程学习变得有趣且贴近生活。</p>
+<h3 id="python">从光明到 Python 的自然过渡<a class="headerlink" href="#python" title="Permanent link">&para;</a></h3>
+<p>光明与 Python 在编程范式上高度一致，语法结构有清晰的映射关系。学会光明后，学生可以通过<a href="/docs/光明与Python对比案例.md">光明与 Python 对比案例</a>快速过渡到 Python，继续进阶学习。</p>
+<hr />
+<h2 id="2">2. 教学体系总览<a class="headerlink" href="#2" title="Permanent link">&para;</a></h2>
+<h3 id="_5">教学理念<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h3>
+<p>光明 K12 编程教育遵循"四阶递进"教学理念：</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>启蒙 → 基础 → 进阶 → 应用
+</span></code></pre></div>
+<ul>
+<li><strong>启蒙阶段</strong>：激发兴趣，建立编程思维</li>
+<li><strong>基础阶段</strong>：掌握核心语法，理解编程概念</li>
+<li><strong>进阶阶段</strong>：学习数据结构与算法，培养计算思维</li>
+<li><strong>应用阶段</strong>：项目实战，实现从光明到其他语言的迁移</li>
+</ul>
+<h3 id="_6">教学闭环<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h3>
+<p>每节课遵循"五步教学法"：</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>导入（5 分钟）→ 讲解（15 分钟）→ 实践（20 分钟）→ 展示（10 分钟）→ 总结（10 分钟）
+</span></code></pre></div>
+<ol>
+<li><strong>导入</strong> — 通过生活场景或趣味问题引入课题</li>
+<li><strong>讲解</strong> — 核心知识点讲解与演示</li>
+<li><strong>实践</strong> — 学生动手编程，教师巡回指导</li>
+<li><strong>展示</strong> — 学生展示作品，互相交流</li>
+<li><strong>总结</strong> — 回顾知识点，布置课后练习</li>
+</ol>
+<h3 id="_7">资源配套<a class="headerlink" href="#_7" title="Permanent link">&para;</a></h3>
+<p>每个教学阶段配套以下资源：
+- 教学课件（PPT/Keynote 模板）
+- 课堂活动手册
+- 课后练习题库
+- 项目评估标准
+- 家长沟通指南</p>
+<hr />
+<h2 id="3">3. 分龄教学方案<a class="headerlink" href="#3" title="Permanent link">&para;</a></h2>
+<h3 id="_8">方案总览<a class="headerlink" href="#_8" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>年龄段</th>
+<th>课程名称</th>
+<th>课时</th>
+<th>核心内容</th>
+<th>推荐示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>8-10 岁</td>
+<td>编程启蒙</td>
+<td>6 次课 × 1 小时</td>
+<td>图形绘制、简单游戏</td>
+<td>draw_shapes.light</td>
+</tr>
+<tr>
+<td>10-12 岁</td>
+<td>编程基础</td>
+<td>8 次课 × 1.5 小时</td>
+<td>变量、条件、循环、函数</td>
+<td>number_game.light</td>
+</tr>
+<tr>
+<td>12-14 岁</td>
+<td>编程进阶</td>
+<td>10 次课 × 1.5 小时</td>
+<td>数据结构、算法、Web 开发</td>
+<td>story_generator.light</td>
+</tr>
+<tr>
+<td>14-16 岁</td>
+<td>编程应用</td>
+<td>12 次课 × 2 小时</td>
+<td>项目实战、Python 桥接</td>
+<td>综合项目</td>
+</tr>
+</tbody>
+</table>
+<h3 id="8-10">8-10 岁：编程启蒙<a class="headerlink" href="#8-10" title="Permanent link">&para;</a></h3>
+<p><strong>教学目标：</strong>
+- 培养基本逻辑思维和顺序思维
+- 理解"指令"和"程序"的概念
+- 能够使用循环简化重复操作
+- 体验编程的乐趣和创造力</p>
+<p><strong>教学特点：</strong>
+- 以图形化输出为主，视觉反馈强烈
+- 代码量少（每节课 10-20 行），循序渐进
+- 强调"修改-观察-理解"的学习模式
+- 每节课完成一个可展示的作品</p>
+<h3 id="10-12">10-12 岁：编程基础<a class="headerlink" href="#10-12" title="Permanent link">&para;</a></h3>
+<p><strong>教学目标：</strong>
+- 掌握变量、条件判断、循环三大核心概念
+- 理解用户输入和程序交互
+- 学会使用函数组织代码
+- 能编写简单的交互式程序</p>
+<p><strong>教学特点：</strong>
+- 引入交互式程序（输入/输出）
+- 代码量逐步增加（每节课 20-40 行）
+- 强调"变量"作为数据容器的概念
+- 开始培养调试能力</p>
+<h3 id="12-14">12-14 岁：编程进阶<a class="headerlink" href="#12-14" title="Permanent link">&para;</a></h3>
+<p><strong>教学目标：</strong>
+- 掌握列表、字典等基本数据结构
+- 理解模块化设计和函数抽象
+- 学习基本的算法思维（搜索、排序）
+- 能够完成中等复杂度的编程项目</p>
+<p><strong>教学特点：</strong>
+- 引入多种数据结构
+- 代码量 40-80 行，涉及多个函数
+- 强调模块化设计和代码复用
+- 培养项目规划能力</p>
+<h3 id="14-16">14-16 岁：编程应用<a class="headerlink" href="#14-16" title="Permanent link">&para;</a></h3>
+<p><strong>教学目标：</strong>
+- 能够独立完成综合性编程项目
+- 理解光明与 Python 的语法映射
+- 掌握 Python 基础语法
+- 具备自学新编程语言的能力</p>
+<p><strong>教学特点：</strong>
+- 项目驱动，以完整项目为学习单元
+- 引入 Python 对比学习
+- 代码量 80-200 行，涉及多个文件
+- 强调工程实践和代码规范</p>
+<hr />
+<h2 id="4">4. 课程大纲<a class="headerlink" href="#4" title="Permanent link">&para;</a></h2>
+<h3 id="41-8-10-6">4.1 编程启蒙（8-10 岁，6 次课）<a class="headerlink" href="#41-8-10-6" title="Permanent link">&para;</a></h3>
+<h4 id="1">第 1 课：编程初体验<a class="headerlink" href="#1" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>理解程序的概念，能运行第一个光明程序</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>输出语句、字符串、运行程序</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>运行 <code>draw_shapes.light</code>，观察各种图形输出</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>修改输出内容，用自己的名字替换图形中的文字</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>能独立运行程序，理解"代码→运行→结果"的过程</td>
+</tr>
+</tbody>
+</table>
+<h4 id="2_1">第 2 课：神奇的循环<a class="headerlink" href="#2_1" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>理解循环的概念，能用循环简化重复操作</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>循环语句、缩进、循环次数</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>用循环画不同大小的三角形，观察循环次数对图形的影响</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>用循环画出正方形、长方形等新图形</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>能独立编写包含循环的图形绘制程序</td>
+</tr>
+</tbody>
+</table>
+<h4 id="3_1">第 3 课：条件判断<a class="headerlink" href="#3_1" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>理解条件判断的概念，能根据条件控制程序行为</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>条件语句、比较运算符、奇偶判断</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>修改棋盘程序，尝试不同的颜色组合</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>编写一个"星期几"程序，输入数字输出对应的星期名称</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>能使用条件判断控制程序输出</td>
+</tr>
+</tbody>
+</table>
+<h4 id="4_1">第 4 课：函数小能手<a class="headerlink" href="#4_1" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>理解函数的概念，能定义和调用函数</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>函数定义、函数调用、参数</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>将画不同图形的代码封装成函数，组合成"图形画册"</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>编写一个"画花"函数，用循环和图形组合出花朵图案</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>能定义带参数的函数，实现代码复用</td>
+</tr>
+</tbody>
+</table>
+<h4 id="5">第 5 课：综合创作<a class="headerlink" href="#5" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>综合运用所学知识创作完整程序</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>循环 + 条件 + 函数综合运用</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>设计并实现一个"艺术画板"程序，组合多种图形</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>为画板添加新图形（星形、菱形等）</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>完成一个包含多种图形和颜色的个人作品</td>
+</tr>
+</tbody>
+</table>
+<h4 id="6">第 6 课：作品展示会<a class="headerlink" href="#6" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>展示作品，互相学习，培养表达能力</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>回顾与总结</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>学生展示作品，介绍自己的创意和实现方法</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>无</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>每个学生完成一个可展示的编程作品</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="42-10-12-8">4.2 编程基础（10-12 岁，8 次课）<a class="headerlink" href="#42-10-12-8" title="Permanent link">&para;</a></h3>
+<h4 id="1_1">第 1 课：变量和输入<a class="headerlink" href="#1_1" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>理解变量概念，能获取用户输入</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>变量赋值、输入语句、字符串拼接</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>编写"你好！"程序，输入名字后输出个性化问候</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>编写"自我介绍"程序，输入姓名、年龄、爱好并输出</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>能使用变量存储数据并与用户交互</td>
+</tr>
+</tbody>
+</table>
+<h4 id="2_2">第 2 课：猜数字入门<a class="headerlink" href="#2_2" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>理解随机数概念，能编写简单的猜数字游戏</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>随机数生成、条件判断、循环</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>运行 <code>number_game.light</code>，体验完整的猜数字游戏</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>修改数字范围，观察难度变化</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>理解游戏程序的基本结构</td>
+</tr>
+</tbody>
+</table>
+<h4 id="3_2">第 3 课：列表与统计<a class="headerlink" href="#3_2" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>理解列表的概念，能使用列表存储数据</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>列表、添加元素、遍历列表、统计信息</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>为猜数字游戏添加猜测历史记录功能</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>添加"最多猜测次数"排行榜</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>能使用列表管理多组数据</td>
+</tr>
+</tbody>
+</table>
+<h4 id="4_2">第 4 课：函数与模块化<a class="headerlink" href="#4_2" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>理解函数的封装作用，能合理组织代码</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>函数定义、返回值、参数传递</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>将猜数字游戏的不同功能拆分为多个函数</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>为猜数字游戏添加"提示"函数（偏大/偏小）</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>能使用函数将程序模块化</td>
+</tr>
+</tbody>
+</table>
+<h4 id="5_1">第 5 课：分数系统<a class="headerlink" href="#5_1" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>理解游戏分数的计算方法，能设计计分规则</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>算术运算、计分逻辑、多条件判断</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>为猜数字游戏设计新的计分规则</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>添加"连续猜对"奖励机制</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>能独立设计并实现计分逻辑</td>
+</tr>
+</tbody>
+</table>
+<h4 id="6_1">第 6 课：美化与反馈<a class="headerlink" href="#6_1" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>理解用户体验的概念，能优化程序交互</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>字符串格式化、条件消息、界面优化</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>为猜数字游戏添加丰富的反馈信息和颜色输出</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>添加"游戏说明"功能</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>能编写用户体验良好的交互式程序</td>
+</tr>
+</tbody>
+</table>
+<h4 id="7">第 7 课：综合创作<a class="headerlink" href="#7" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>综合运用所学知识创作完整游戏</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>综合运用</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>设计并实现一个全新的猜数字变体游戏</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>完善游戏功能，添加新特性</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>完成一个功能完整的游戏作品</td>
+</tr>
+</tbody>
+</table>
+<h4 id="8">第 8 课：项目展示<a class="headerlink" href="#8" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>展示项目，学习互评</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>回顾与总结</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>学生展示猜数字变体游戏，互相试玩评价</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>无</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>每个学生完成一个可玩的游戏作品</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="43-12-14-10">4.3 编程进阶（12-14 岁，10 次课）<a class="headerlink" href="#43-12-14-10" title="Permanent link">&para;</a></h3>
+<h4 id="1-2">第 1-2 课：字符串与模板<a class="headerlink" href="#1-2" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>掌握字符串操作，理解模板引擎原理</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>字符串方法、替换、拼接、模板</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>运行 <code>story_generator.light</code>，分析模板引擎的工作原理</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>添加 3 个新的故事模板</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>能理解模板替换的基本原理</td>
+</tr>
+</tbody>
+</table>
+<h4 id="3-4">第 3-4 课：字典与数据结构<a class="headerlink" href="#3-4" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>掌握字典的使用，理解键值对概念</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>字典、键值对、数据组织</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>为故事生成器添加角色属性字典</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>将故事模板参数从列表改为字典</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>能使用字典存储和组织结构化数据</td>
+</tr>
+</tbody>
+</table>
+<h4 id="5-6">第 5-6 课：模块化设计<a class="headerlink" href="#5-6" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>理解模块化设计思想，能合理拆分代码</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>模块划分、文件组织、代码复用</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>将故事生成器拆分为多个模块文件</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>为故事生成器添加"故事模板库"模块</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>能设计模块化的程序结构</td>
+</tr>
+</tbody>
+</table>
+<h4 id="7-8">第 7-8 课：算法思维<a class="headerlink" href="#7-8" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>培养算法思维，理解基本算法</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>搜索、排序、递归思想</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>为故事生成器实现"关键词搜索"功能</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>实现故事按字数排序功能</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>能理解基本算法思想并应用到实际项目中</td>
+</tr>
+</tbody>
+</table>
+<h4 id="9-10">第 9-10 课：综合项目<a class="headerlink" href="#9-10" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>综合运用所学知识完成完整项目</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>综合运用</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>设计并实现"互动故事书"项目</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>添加更多故事类型和交互方式</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>完成一个包含多种数据结构和函数的完整项目</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="44-14-16-12">4.4 编程应用（14-16 岁，12 次课）<a class="headerlink" href="#44-14-16-12" title="Permanent link">&para;</a></h3>
+<h4 id="1-3">第 1-3 课：项目规划与设计<a class="headerlink" href="#1-3" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>掌握项目规划方法，能设计程序架构</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>需求分析、架构设计、流程图</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>规划一个综合性项目（如"班级通讯录管理"系统）</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>完成项目需求文档和设计文档</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>完成项目设计文档</td>
+</tr>
+</tbody>
+</table>
+<h4 id="4-6">第 4-6 课：系统实现<a class="headerlink" href="#4-6" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>能按设计文档实现完整系统</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>文件操作、数据持久化、模块化编程</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>分模块实现班级通讯录管理系统</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>实现数据导出功能</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>完成一个可用的管理系统</td>
+</tr>
+</tbody>
+</table>
+<h4 id="7-9-python">第 7-9 课：光明到 Python 的桥接<a class="headerlink" href="#7-9-python" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>理解光明与 Python 的语法映射关系，能使用 Python 编写简单程序</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>语法映射、Python 基础、代码转换</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>将光明项目逐行转换为 Python 版本</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>独立将一个光明示例转换为 Python</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>能使用 Python 编写简单程序</td>
+</tr>
+</tbody>
+</table>
+<h4 id="10-12_1">第 10-12 课：最终项目与展示<a class="headerlink" href="#10-12_1" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教学目标</strong></td>
+<td>完成最终项目并公开展示</td>
+</tr>
+<tr>
+<td><strong>核心知识点</strong></td>
+<td>综合运用</td>
+</tr>
+<tr>
+<td><strong>课堂活动</strong></td>
+<td>学生自选主题完成项目，准备展示材料</td>
+</tr>
+<tr>
+<td><strong>课后练习</strong></td>
+<td>无</td>
+</tr>
+<tr>
+<td><strong>预期成果</strong></td>
+<td>完成一个综合性编程项目，具备从光明到 Python 的迁移能力</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5_2">5. 课堂活动设计<a class="headerlink" href="#5_2" title="Permanent link">&para;</a></h2>
+<h3 id="1_2">活动 1：代码侦探<a class="headerlink" href="#1_2" title="Permanent link">&para;</a></h3>
+<p><strong>目标：</strong> 培养代码阅读和理解能力</p>
+<p><strong>准备：</strong>
+- 打印 3-5 段包含不同错误或有趣现象的光明代码
+- 每组学生准备纸笔</p>
+<p><strong>步骤：</strong>
+1. 将学生分成 4-5 人小组
+2. 每组分发一段代码，要求在不运行的情况下预测输出
+3. 学生讨论并写下预测结果
+4. 教师运行代码，展示实际输出
+5. 各小组对比预测与实际结果，讨论差异原因
+6. 小组轮流分享发现</p>
+<p><strong>讨论点：</strong>
+- 为什么预测和实际结果不同？
+- 代码中的哪些部分最容易让人误解？
+- 如何通过阅读代码理解程序行为？</p>
+<hr />
+<h3 id="2_3">活动 2：拼图编程<a class="headerlink" href="#2_3" title="Permanent link">&para;</a></h3>
+<p><strong>目标：</strong> 理解程序结构和逻辑顺序</p>
+<p><strong>准备：</strong>
+- 将一个完整光明程序拆分为多行代码卡片
+- 每行代码写在一张卡片上
+- 准备 3-4 套不同程序的卡片</p>
+<p><strong>步骤：</strong>
+1. 将学生分成 3-4 人小组
+2. 每组发放一套打乱的代码卡片
+3. 学生需要讨论并拼出正确的程序顺序
+4. 完成后运行验证
+5. 小组间交换卡片，尝试拼出对方程序
+6. 讨论不同的程序结构</p>
+<p><strong>讨论点：</strong>
+- 哪些代码行有固定的顺序要求？
+- 哪些代码行可以调换顺序而不影响结果？
+- 程序的结构如何影响运行结果？</p>
+<hr />
+<h3 id="3_3">活动 3：创意改造工坊<a class="headerlink" href="#3_3" title="Permanent link">&para;</a></h3>
+<p><strong>目标：</strong> 培养创造性思维和代码修改能力</p>
+<p><strong>准备：</strong>
+- 运行正常的光明示例程序
+- 提出改造目标（如：把猜数字变成猜颜色、把画三角形变成画星星）</p>
+<p><strong>步骤：</strong>
+1. 教师展示一个正常运行的光明程序
+2. 提出一个改造目标，要求学生分组讨论改造方案
+3. 各小组在 15 分钟内完成改造
+4. 运行改造后的程序，展示改造成果
+5. 全班投票选出"最有创意改造奖"
+6. 获奖小组分享改造思路</p>
+<p><strong>讨论点：</strong>
+- 改造过程中遇到了哪些困难？
+- 如何保持改造后程序的正确性？
+- 改造给程序带来了哪些新的可能性？</p>
+<hr />
+<h3 id="4_3">活动 4：结对编程挑战<a class="headerlink" href="#4_3" title="Permanent link">&para;</a></h3>
+<p><strong>目标：</strong> 培养协作编程能力和沟通能力</p>
+<p><strong>准备：</strong>
+- 每台计算机配备两名学生
+- 准备 3 个递进难度的编程任务
+- 计时器</p>
+<p><strong>步骤：</strong>
+1. 学生两人一组，一人为"驾驶员"（负责敲键盘），一人为"导航员"（负责观察和思考）
+2. 教师发布第一个编程任务
+3. 学生开始编程，每 5 分钟交换角色
+4. 完成后进入下一个难度任务
+5. 记录每组的完成时间和正确率
+6. 讨论结对编程的体验</p>
+<p><strong>讨论点：</strong>
+- 作为驾驶员和导航员，感受有什么不同？
+- 如何有效沟通编程思路？
+- 结对编程比独立编程有哪些优势？</p>
+<hr />
+<h3 id="5bug">活动 5：Bug 大作战<a class="headerlink" href="#5bug" title="Permanent link">&para;</a></h3>
+<p><strong>目标：</strong> 培养调试能力和错误分析能力</p>
+<p><strong>准备：</strong>
+- 准备 5 个包含不同类型 Bug 的光明程序
+- Bug 类型包括：语法错误、逻辑错误、运行时错误
+- 为每个 Bug 准备提示卡（可选）</p>
+<p><strong>步骤：</strong>
+1. 将学生分成 3-4 人小组
+2. 每组获得一个包含 Bug 的程序
+3. 学生需要找出并修复所有 Bug
+4. 记录每个 Bug 的类型、位置和修复方法
+5. 完成的小组可以挑战其他组的 Bug
+6. 总结常见 Bug 类型和调试技巧</p>
+<p><strong>讨论点：</strong>
+- 哪些 Bug 最容易发现？哪些最难？
+- 有什么有效的调试策略？
+- 如何避免常见的编程错误？</p>
+<hr />
+<h2 id="6_2">6. 评估与考核<a class="headerlink" href="#6_2" title="Permanent link">&para;</a></h2>
+<h3 id="61">6.1 形成性评估方法<a class="headerlink" href="#61" title="Permanent link">&para;</a></h3>
+<p>形成性评估贯穿整个教学过程，主要采用以下方法：</p>
+<table>
+<thead>
+<tr>
+<th>评估方法</th>
+<th>实施方式</th>
+<th>频次</th>
+<th>评估内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>课堂观察</td>
+<td>教师记录学生课堂参与度和理解程度</td>
+<td>每节课</td>
+<td>学习态度、参与度</td>
+</tr>
+<tr>
+<td>代码走查</td>
+<td>随机检查学生编写的代码</td>
+<td>每节课</td>
+<td>代码规范、逻辑正确性</td>
+</tr>
+<tr>
+<td>快速问答</td>
+<td>课堂口头提问</td>
+<td>每节课 2-3 次</td>
+<td>知识点掌握程度</td>
+</tr>
+<tr>
+<td>同伴互评</td>
+<td>学生互相评价作品</td>
+<td>每单元</td>
+<td>作品质量、创意</td>
+</tr>
+<tr>
+<td>学习日志</td>
+<td>学生记录学习心得和遇到的问题</td>
+<td>每节课</td>
+<td>反思能力、问题记录</td>
+</tr>
+</tbody>
+</table>
+<h3 id="62">6.2 项目制考核标准<a class="headerlink" href="#62" title="Permanent link">&para;</a></h3>
+<p>每个教学阶段结束时，学生需完成一个综合性项目。项目考核采用四维评分标准：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>权重</th>
+<th>优秀（90-100）</th>
+<th>良好（75-89）</th>
+<th>合格（60-74）</th>
+<th>待改进（&lt;60）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>功能完整性</strong></td>
+<td>35%</td>
+<td>功能完整，运行无误</td>
+<td>主要功能完整，有小缺陷</td>
+<td>核心功能可用</td>
+<td>无法正常运行</td>
+</tr>
+<tr>
+<td><strong>代码质量</strong></td>
+<td>25%</td>
+<td>结构清晰，命名规范，有注释</td>
+<td>结构合理，偶有冗余</td>
+<td>能工作但代码混乱</td>
+<td>代码难以理解</td>
+</tr>
+<tr>
+<td><strong>创意与设计</strong></td>
+<td>25%</td>
+<td>设计新颖，有独特创意</td>
+<td>有一定创意</td>
+<td>基本完成功能</td>
+<td>缺乏设计思考</td>
+</tr>
+<tr>
+<td><strong>展示与表达</strong></td>
+<td>15%</td>
+<td>表达清晰，能回答提问</td>
+<td>表达基本清楚</td>
+<td>能展示但说不清</td>
+<td>无法展示</td>
+</tr>
+</tbody>
+</table>
+<h3 id="63">6.3 学习成果评价表<a class="headerlink" href="#63" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>能力维度</th>
+<th>启蒙阶段</th>
+<th>基础阶段</th>
+<th>进阶阶段</th>
+<th>应用阶段</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>逻辑思维</strong></td>
+<td>能理解顺序执行</td>
+<td>能理解条件分支</td>
+<td>能设计简单算法</td>
+<td>能设计复杂算法</td>
+</tr>
+<tr>
+<td><strong>抽象能力</strong></td>
+<td>能理解"指令"概念</td>
+<td>能理解"变量"抽象</td>
+<td>能理解"函数"抽象</td>
+<td>能理解"模块"抽象</td>
+</tr>
+<tr>
+<td><strong>问题分解</strong></td>
+<td>能拆分简单任务</td>
+<td>能拆分中等任务</td>
+<td>能独立拆分任务</td>
+<td>能设计任务分解</td>
+</tr>
+<tr>
+<td><strong>调试能力</strong></td>
+<td>能在指导下排查</td>
+<td>能独立排查简单错误</td>
+<td>能使用调试工具</td>
+<td>能系统化调试</td>
+</tr>
+<tr>
+<td><strong>创造力</strong></td>
+<td>能修改参数</td>
+<td>能修改功能</td>
+<td>能设计新功能</td>
+<td>能设计新项目</td>
+</tr>
+<tr>
+<td><strong>协作能力</strong></td>
+<td>能参与小组活动</td>
+<td>能有效协作</td>
+<td>能领导小组</td>
+<td>能组织项目团队</td>
+</tr>
+</tbody>
+</table>
+<h3 id="64">6.4 学习成果证书<a class="headerlink" href="#64" title="Permanent link">&para;</a></h3>
+<p>完成每个阶段学习后，学生可获得对应级别的证书：</p>
+<ul>
+<li><strong>光明编程启蒙证书</strong>（完成 8-10 岁课程）</li>
+<li><strong>光明编程基础证书</strong>（完成 10-12 岁课程）</li>
+<li><strong>光明编程进阶证书</strong>（完成 12-14 岁课程）</li>
+<li><strong>光明编程应用证书</strong>（完成 14-16 岁课程）</li>
+</ul>
+<p>证书模板包含：学生姓名、完成课程名称、核心能力描述、颁发日期、教师签名。</p>
+<hr />
+<h2 id="7_1">7. 常见问题<a class="headerlink" href="#7_1" title="Permanent link">&para;</a></h2>
+<h3 id="q1">Q1：光明适合多大年龄的孩子？<a class="headerlink" href="#q1" title="Permanent link">&para;</a></h3>
+<p>光明适合 8 岁及以上的学生。8-10 岁建议从图形绘制和简单游戏开始，10-14 岁可以学习完整的编程基础，14 岁以上可以进行项目实战和 Python 桥接。</p>
+<h3 id="q2">Q2：学生需要具备哪些基础？<a class="headerlink" href="#q2" title="Permanent link">&para;</a></h3>
+<p>零基础即可。光明的全中文关键字和自然语言式语法设计，就是为了降低入门门槛。学生只需要具备基本的读写能力和逻辑思维能力。</p>
+<h3 id="q3">Q3：一个班需要多少课时？<a class="headerlink" href="#q3" title="Permanent link">&para;</a></h3>
+<p>光明 K12 课程共 36 次课，分为四个阶段：
+- 启蒙阶段：6 次课 × 1 小时
+- 基础阶段：8 次课 × 1.5 小时
+- 进阶阶段：10 次课 × 1.5 小时
+- 应用阶段：12 次课 × 2 小时</p>
+<p>建议每周 1 次课，学完全部课程约需 9 个月。</p>
+<h3 id="q4">Q4：教学需要什么硬件和软件？<a class="headerlink" href="#q4" title="Permanent link">&para;</a></h3>
+<p><strong>硬件要求：</strong>
+- 每名学生一台计算机（Windows / macOS / Linux 均可）
+- 投影仪或大屏显示器（教师演示用）</p>
+<p><strong>软件要求：</strong>
+- Python 3.10 或更高版本
+- 光明编译器 v6.0 或更高版本
+- 文本编辑器（推荐 VS Code 或任何代码编辑器）</p>
+<h3 id="q5-scratchpython">Q5：光明和其他编程语言（如 Scratch、Python）相比有什么优势？<a class="headerlink" href="#q5-scratchpython" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>光明</th>
+<th>Scratch</th>
+<th>Python</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>语言门槛</td>
+<td>全中文，零门槛</td>
+<td>图形化，零门槛</td>
+<td>英文关键字</td>
+</tr>
+<tr>
+<td>键盘输入</td>
+<td>需要</td>
+<td>拖拽为主</td>
+<td>需要</td>
+</tr>
+<tr>
+<td>语法复杂度</td>
+<td>极低</td>
+<td>无</td>
+<td>中等</td>
+</tr>
+<tr>
+<td>真实编程体验</td>
+<td>✓</td>
+<td>✗（图形化）</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>向专业语言过渡</td>
+<td>自然过渡到 Python</td>
+<td>需重新学习</td>
+<td>本身即是专业语言</td>
+</tr>
+<tr>
+<td>适合年龄</td>
+<td>8 岁+</td>
+<td>6-12 岁</td>
+<td>12 岁+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="q6">Q6：如何评估学生是否适合进入下一阶段？<a class="headerlink" href="#q6" title="Permanent link">&para;</a></h3>
+<p>通过以下方式综合评估：
+1. 完成当前阶段的项目并通过考核（评分 ≥ 60 分）
+2. 掌握当前阶段 80% 以上的核心知识点
+3. 具备独立完成当前阶段难度任务的能力</p>
+<p>具体评估标准参见第 6 节"评估与考核"。</p>
+<h3 id="q7-python">Q7：学生学完光明后，如何过渡到 Python？<a class="headerlink" href="#q7-python" title="Permanent link">&para;</a></h3>
+<p>光明设计时就考虑了与 Python 的桥接：
+1. 光明与 Python 共享相同的编程范式（面向过程/函数式）
+2. 光明的变量、循环、条件、函数等概念与 Python 完全对应
+3. 参考 <code>docs/光明与Python对比案例.md</code> 中的语法对照表
+4. 应用阶段（14-16 岁）的课程专门设计了 Python 桥接内容</p>
+<h3 id="q8">Q8：家长如何配合教学？<a class="headerlink" href="#q8" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>创造编程环境</strong>：为孩子准备一台可用的计算机</li>
+<li><strong>鼓励</strong>：关注孩子的学习进展，及时给予鼓励</li>
+<li><strong>参与</strong>：参加家长开放日，了解孩子的学习成果</li>
+<li><strong>延伸</strong>：鼓励孩子用光明解决生活中的小问题</li>
+</ol>
+<h3 id="q9">Q9：教学过程中遇到技术问题怎么办？<a class="headerlink" href="#q9" title="Permanent link">&para;</a></h3>
+<ul>
+<li>参考 <code>docs/30分钟入门光明.md</code> 中的安装和使用教程</li>
+<li>查看光明编译器的错误信息，通常包含详细的提示</li>
+<li>利用 REPL 环境逐行测试代码，定位问题</li>
+</ul>
+<h3 id="q10">Q10：光明的教学资源是否免费？<a class="headerlink" href="#q10" title="Permanent link">&para;</a></h3>
+<p>光明编译器本身是开源免费的。本指南配套的教学资源（课件模板、活动手册、练习题库等）将陆续在光明社区中开放，欢迎教育工作者贡献和分享自己的教学资源。</p>
+<hr />
+<blockquote>
+<p><strong>开始教学：</strong> 从第一节课开始，让学生运行 <code>light run examples/kids/draw_shapes.light</code>，感受编程的乐趣！</p>
+<p>更多教学资源，请参考 <a href="/examples/kids/README.md">少儿编程趣味示例 README</a>。</p>
+</blockquote>
+
+
+
+
+
+
+
+  
+    
+  
+  
+    
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="最后更新">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年8月30日 18:19:48 UTC">2026年8月30日</span>
+  </span>
+
+    
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="创建日期">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年8月30日 18:19:48 UTC">2026年8月30日</span>
+  </span>
+
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/skywalk163/light" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

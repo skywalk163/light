@@ -1,0 +1,5158 @@
+
+<!doctype html>
+<html lang="zh" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="光明编程语言 - 中文编程语言的全新可能">
+      
+      
+        <meta name="author" content="LightLang Team">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>光明（LightLang）v6.0 三个月整合开发计划 - 光明 (LightLang) v7.0</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans+SC:300,300i,400,400i,700,700i%7CNoto+Sans+SC:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Noto Sans SC";--md-code-font:"Noto Sans SC"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#lightlangv60" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="页眉">
+    <a href="../.." title="光明 (LightLang) v7.0" class="md-header__button md-logo" aria-label="光明 (LightLang) v7.0" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            光明 (LightLang) v7.0
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              光明（LightLang）v6.0 三个月整合开发计划
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="green"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/skywalk163/light" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    skywalk163/light
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="标签" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  首页
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  快速开始
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../user_guide/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  用户手册
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../release_notes_v6.0/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  发布说明
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../known_issues/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  已知问题
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guide/getting-started/" class="md-tabs__link">
+          
+  
+  
+  快速入门
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guide/%E5%88%86%E5%B1%82%E8%AF%AD%E6%B3%95%E5%85%A5%E9%97%A8/" class="md-tabs__link">
+          
+  
+  
+  用户指南
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../language/levels/" class="md-tabs__link">
+          
+  
+  
+  语言参考
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../stdlib/" class="md-tabs__link">
+          
+  
+  
+  标准库
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../30%E5%88%86%E9%92%9F%E5%85%A5%E9%97%A8%E5%85%89%E6%98%8E/" class="md-tabs__link">
+          
+  
+  
+  教程
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tools/cli/" class="md-tabs__link">
+          
+  
+  
+  工具
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../architecture/" class="md-tabs__link">
+          
+  
+  
+  项目
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../ecosystem/%E6%95%99%E5%AD%A6%E8%B5%84%E6%BA%90/" class="md-tabs__link">
+          
+  
+  
+  生态
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../migration/v3-to-v4/" class="md-tabs__link">
+          
+  
+  
+  迁移指南
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+  API 参考
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E7%B4%A2%E5%BC%95/" class="md-tabs__link">
+          
+  
+  
+  知识库
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="https://github.com/skywalk163/light/blob/main/CHANGELOG.md" class="md-tabs__link">
+          
+  
+  
+  变更记录
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  贡献指南
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="光明 (LightLang) v7.0" class="md-nav__button md-logo" aria-label="光明 (LightLang) v7.0" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    光明 (LightLang) v7.0
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/skywalk163/light" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    skywalk163/light
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    首页
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user_guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    用户手册
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release_notes_v6.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    发布说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../known_issues/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    已知问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速入门
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    快速入门
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安装说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/vscode-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VS Code 配置
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    用户指南
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    用户指南
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/%E5%88%86%E5%B1%82%E8%AF%AD%E6%B3%95%E5%85%A5%E9%97%A8/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    分层语法入门
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/%E8%BF%81%E7%A7%BB%E6%8C%87%E5%8D%97/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    迁移指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    语言参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/levels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    五层架构详解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/l0-core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L0 核心字集
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/l1-l2-style/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L1/L2 文体
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/l3-domain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L3 领域嵌入
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/l4-foreign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L4 外语引用
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/keywords/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    关键字参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/operators/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    运算符参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/%E5%AE%8C%E6%95%B4%E8%AF%AD%E6%B3%95%E5%8F%82%E8%80%83/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    完整语法参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../syntax/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语法规范
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E5%85%89%E6%98%8E-%E5%AE%8C%E6%95%B4%E8%A7%84%E8%8C%83%E6%96%87%E6%A1%A3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    完整规范文档
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../class_system_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类系统设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trait/协议系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模式匹配
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-07-01-level6-type-annotation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    泛型与类型注解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E6%A8%A1%E5%9D%97%E7%B3%BB%E7%BB%9F%E4%B8%8E%E5%8C%85%E7%AE%A1%E7%90%86/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模块系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ffi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FFI 外部函数接口
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../HM%E5%85%A8%E5%B1%80%E7%B1%BB%E5%9E%8B%E6%8E%A8%E6%96%AD%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型推断系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E5%8F%AF%E7%A9%BA%E7%B1%BB%E5%9E%8Bunwrap%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    可空类型系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    标准库
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    数学模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/string/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    字符串处理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON 模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文件系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/datetime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    日期时间
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/regex/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    正则表达式
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../API_REFERENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考总表
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/builtins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    内置函数
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../lightpub_integration_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lightpub 生态
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_9_13" id="__nav_9_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lightpub 包文档
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    lightpub 包文档
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../lightpub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    索引与分类
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    教程
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    教程
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../30%E5%88%86%E9%92%9F%E5%85%A5%E9%97%A8%E5%85%89%E6%98%8E/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    30 分钟入门
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/%E5%85%A5%E9%97%A8%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    入门教程
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/%E8%BF%9B%E9%98%B6%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进阶教程
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%AB%AF%E5%88%B0%E7%AB%AF%E5%AE%9E%E6%88%98%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    端到端实战
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    示例代码
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工具
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    工具
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI 使用指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/playground/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Playground 使用
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/lsp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LSP 集成
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/debugger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    调试器
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工具链总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E6%90%9C%E7%B4%A2%E9%85%8D%E7%BD%AE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    搜索配置
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    项目
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    架构设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEVELOPMENT_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    开发指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84%E8%AF%B4%E6%98%8E/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目结构
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../REPL_DESIGN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REPL 设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../BOOTSTRAP_STRATEGY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    引导策略
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llvm_backend_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLVM 后端
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PERFORMANCE_OPTIMIZATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    性能优化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../OPTIMIZATION_ANALYSIS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    优化分析
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E4%B8%89%E4%B8%AA%E6%9C%88%E5%B7%A5%E4%BD%9C%E8%AE%A1%E5%88%92_2026Q3Q4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目计划
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PROGRESS_REPORT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进度报告
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    生态
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    生态
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ecosystem/%E6%95%99%E5%AD%A6%E8%B5%84%E6%BA%90/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    教学资源
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_14" >
+        
+          
+          <label class="md-nav__link" for="__nav_14" id="__nav_14_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    迁移指南
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    迁移指南
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/v3-to-v4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.3 → v4.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/v4-to-v5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v4.0 → v5.x
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_15" >
+        
+          
+          <label class="md-nav__link" for="__nav_15" id="__nav_15_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API 参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/compiler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    编译器 API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_16" >
+        
+          
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    知识库
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    知识库
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E7%B4%A2%E5%BC%95/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    知识库索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E8%AF%AD%E8%A8%80%E8%A7%84%E8%8C%83/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言规范
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E5%BC%80%E5%8F%91%E6%8C%87%E5%8D%97/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    开发指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最佳实践
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17" >
+        
+          
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    变更记录
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    变更记录
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/skywalk163/light/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    版本日志
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../LANGUAGE_EXTENSIONS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言扩展历史
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_17_3" id="__nav_17_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语法变更
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_17_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    语法变更
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%BB%9F%E4%B8%80%E8%AF%AD%E6%B3%95%E8%A7%84%E8%8C%83_v3.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%BB%9F%E4%B8%80%E8%AF%AD%E6%B3%95%E8%A7%84%E8%8C%83_v3.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E8%AF%AD%E6%B3%95%E5%8F%98%E6%9B%B4_v3.4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E8%AF%AD%E6%B3%95%E5%8F%98%E6%9B%B4_v3.5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.5
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../FINAL_SUMMARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最终总结
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    贡献指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="lightlangv60">光明（LightLang）v6.0 三个月整合开发计划<a class="headerlink" href="#lightlangv60" title="Permanent link">&para;</a></h1>
+<p><strong>当前版本</strong>: v5.1.0
+<strong>计划版本</strong>: v6.0
+<strong>计划周期</strong>: 2026-08-11 ~ 2026-11-11
+<strong>状态</strong>: 已定稿</p>
+<hr />
+<h2 id="_1">概述<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
+<p>本计划并行推进三条主线：</p>
+<table>
+<thead>
+<tr>
+<th>主线</th>
+<th>代号</th>
+<th>目标</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A: 编译器开发</strong></td>
+<td>编译器</td>
+<td>Level 8 完全自举 → 类型系统 → 生态 → 性能与发布</td>
+</tr>
+<tr>
+<td><strong>B: 积木库质量</strong></td>
+<td>积木块</td>
+<td>批量扫描修复 10010 块中的语法/逻辑/实现问题</td>
+</tr>
+<tr>
+<td><strong>C: 管线能力</strong></td>
+<td>管线</td>
+<td>管线深化（校验器、语义选块、链式接线、兜底生成、演示脚本）</td>
+</tr>
+</tbody>
+</table>
+<p>三条线各自独立进度，但共享测试框架和发布节奏。</p>
+<hr />
+<h2 id="_2">阶段总览<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>时间</th>
+<th>A: 编译器</th>
+<th>B: 积木块</th>
+<th>C: 管线</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>M1: 基础夯实</strong></td>
+<td>第1-4周</td>
+<td>完全自举 + 类型系统</td>
+<td>批量扫描修复</td>
+<td>基础端到端测试</td>
+</tr>
+<tr>
+<td><strong>M2: 能力提升</strong></td>
+<td>第5-8周</td>
+<td>生态建设 + 工具链</td>
+<td>剩余块修复 + 质量门禁</td>
+<td>语义选块 + 校验器 + 链式接线</td>
+</tr>
+<tr>
+<td><strong>M3: 集成展示</strong></td>
+<td>第9-12周</td>
+<td>性能优化 + v6.0 发布</td>
+<td>标准库补齐</td>
+<td>演示脚本 + 综合测试套件 + 文档</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-m1-2026-08-11-2026-09-07">第1月：基础夯实 (M1: 2026-08-11 ~ 2026-09-07)<a class="headerlink" href="#1-m1-2026-08-11-2026-09-07" title="Permanent link">&para;</a></h2>
+<h3 id="1a-b-c-">第1周：A-自举启动 + B-批量扫描 + C-管线就绪<a class="headerlink" href="#1a-b-c-" title="Permanent link">&para;</a></h3>
+<h4 id="a">A: 编译器<a class="headerlink" href="#a" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A1.1</td>
+<td>分析当前 bootstrap_level5.light 缺失的功能清单</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A1.2</td>
+<td>添加类型注解自举支持（变量/函数/复合类型）</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A1.3</td>
+<td>添加 P3 特性自举支持（单行块/运算符别名/反引号标识符）</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A1.4</td>
+<td>自举收敛验证（4轮编译输出一致）</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A1.5</td>
+<td>生成 level8_generated.py</td>
+<td>P0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- <code>bootstrap/bootstrap_level6.light</code> — 含类型注解的自举编译器
+- <code>bootstrap/level8_generated.py</code> — 自举生成代码
+- 自举验证测试全部通过</p>
+<h4 id="b">B: 积木块批量扫描<a class="headerlink" href="#b" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B1.1</td>
+<td>编写扫描脚本：遍历 10010 块，对每块做 <code>light run</code> 语法检查</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>B1.2</td>
+<td>扫描结果分类：语法错误 / 逻辑错误 / 空实现 / 桩代码</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>B1.3</td>
+<td>按领域分批次修复：第1批 数据/数学/统计/排序/搜索 领域</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>B1.4</td>
+<td>逐块修复：语法错误优先，逻辑错误次之</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>B1.5</td>
+<td>修复后验证：每块独立运行通过</td>
+<td>P0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- <code>_质量扫描.py</code> — 批量扫描脚本
+- <code>_质量报告.md</code> — 扫描结果报告
+- 第1批修复完成的块（约 2000 块）</p>
+<h4 id="c">C: 管线基础<a class="headerlink" href="#c" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C1.1</td>
+<td>编写端到端测试套件（覆盖 5 个典型需求，含选块→粘合→运行）</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>C1.2</td>
+<td>测试 <code>--语义</code> 模式（TF-IDF 语义选块）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C1.3</td>
+<td>测试 <code>--链式</code> 模式（契约级接线）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C1.4</td>
+<td>测试兜底生成器（本地规则覆盖）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C1.5</td>
+<td>测试校验器 <code>validate</code></td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- <code>_test_e2e.py</code> — 端到端测试套件
+- 5 个测试用例全部通过
+- 管线兼容性测试报告</p>
+<hr />
+<h3 id="2a-b-2-c-">第2周：A-类型系统 + B-第2批修复 + C-语义选块<a class="headerlink" href="#2a-b-2-c-" title="Permanent link">&para;</a></h3>
+<h4 id="a_1">A: 编译器<a class="headerlink" href="#a_1" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A2.1</td>
+<td>泛型类型支持（<code>列表[T]</code>, <code>字典[K,V]</code> 运行时泛型）</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A2.2</td>
+<td>联合类型支持（<code>整数|文本|空</code>）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>A2.3</td>
+<td>模式匹配语法（<code>配 值: 若 模式1: ... 若 模式2: ...</code>）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>A2.4</td>
+<td>类型守卫与类型缩小</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>A2.5</td>
+<td>类型别名支持</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- 泛型/联合类型/模式匹配 20+ 测试用例通过</p>
+<h4 id="b_1">B: 积木块修复<a class="headerlink" href="#b_1" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B2.1</td>
+<td>第2批：文本/数组/集合/迭代/随机 领域修复</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>B2.2</td>
+<td>第3批：物理/化学/生物/天文/地理 领域修复</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>B2.3</td>
+<td>修复 <code>最小值</code> 等缺失块（从索引补充）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>B2.4</td>
+<td>循环依赖/自引用块检测与修复</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- 累计修复 ~4000 块
+- 缺失块补充完成</p>
+<h4 id="c_1">C: 语义选块<a class="headerlink" href="#c_1" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C2.1</td>
+<td>解决 fastembed / sentence-transformers 网络下载问题</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C2.2</td>
+<td>实现概念图向量缓存（磁盘持久化）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C2.3</td>
+<td>语义选块与关键词选块的混合策略优化</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C2.4</td>
+<td>选块置信度校准与阈值自动调优</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- <code>embedding选块.py</code> 真向量模式可用
+- 语义选块 Top-3 准确率 ≥ 90%</p>
+<hr />
+<h3 id="3a-b-3-c-">第3周：A-错误信息 + B-第3批修复 + C-校验器<a class="headerlink" href="#3a-b-3-c-" title="Permanent link">&para;</a></h3>
+<h4 id="a_2">A: 编译器<a class="headerlink" href="#a_2" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A3.1</td>
+<td>统一错误格式（中文错误提示 + 源代码标注 + 修复建议）</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A3.2</td>
+<td>编译错误定位增强（行号/列号精准定位）</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A3.3</td>
+<td>调试模式增强（单步执行、变量查看、调用栈）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>A3.4</td>
+<td>REPL 交互式环境完善</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>A3.5</td>
+<td>代码补全与提示增强</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- 错误信息 20+ 测试用例通过
+- REPL 增强版本</p>
+<h4 id="b_2">B: 积木块修复<a class="headerlink" href="#b_2" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B3.1</td>
+<td>第4批：系统/类型/编码/网络/计算机 领域修复</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>B3.2</td>
+<td>第5批：密码/电子/颜色/音乐/工具 领域修复</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>B3.3</td>
+<td>第6批：经济/财务/法律/教育/心理/体育/农业 领域修复</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>B3.4</td>
+<td>修复后全量回归验证</td>
+<td>P0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- 累计修复 ~8000 块
+- 全量回归验证报告</p>
+<h4 id="c_2">C: 校验器<a class="headerlink" href="#c_2" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C3.1</td>
+<td>增强校验器：本地概念交集判定 + 契约匹配度打分</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C3.2</td>
+<td>校验器与兜底生成的联动逻辑优化</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C3.3</td>
+<td>校验器测试套件（覆盖 MISMATCH/MATCH 场景）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C3.4</td>
+<td>LLM 校验器集成（可选，需配置 key）</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- 校验器 10+ 测试用例通过
+- 校验-兜底联动逻辑稳定</p>
+<hr />
+<h3 id="4a-b-c-">第4周：A-模块系统 + B-全量修复 + C-链式接线<a class="headerlink" href="#4a-b-c-" title="Permanent link">&para;</a></h3>
+<h4 id="a_3">A: 编译器<a class="headerlink" href="#a_3" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A4.1</td>
+<td>模块依赖循环检测</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A4.2</td>
+<td>包版本管理（语义化版本）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>A4.3</td>
+<td>包发布/安装流程完善</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>A4.4</td>
+<td>本地包注册表缓存</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>A4.5</td>
+<td>标准库自动加载</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- 模块系统 20+ 测试用例通过
+- 包管理器 CLI 可用</p>
+<h4 id="b_3">B: 积木块修复<a class="headerlink" href="#b_3" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B4.1</td>
+<td>最后一批：中文/函数/几何/单位/工程/医学 领域修复</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>B4.2</td>
+<td>全量 10010 块回归验证</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>B4.3</td>
+<td>修复报告输出（修复率/剩余问题/改进建议）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>B4.4</td>
+<td>积木库质量门禁脚本（CI 集成）</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- 10010 块全部修复验证通过 ✅
+- <code>_质量门禁.py</code> — 质量门禁脚本
+- <code>_质量报告_最终.md</code> — 全量修复报告</p>
+<h4 id="c_3">C: 链式接线<a class="headerlink" href="#c_3" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C4.1</td>
+<td>链式接线多步组合测试（3步+ 管线）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C4.2</td>
+<td>接线失败自动降级策略</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C4.3</td>
+<td>自动层级生成（<code>--自动层级</code>）测试</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>C4.4</td>
+<td>复杂需求组合测试（如"排序后去重再取前3个"）</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- 链式接线 10+ 测试用例通过
+- 自动层级集成测试</p>
+<hr />
+<h2 id="2-m2-2026-09-08-2026-10-05">第2月：能力提升 (M2: 2026-09-08 ~ 2026-10-05)<a class="headerlink" href="#2-m2-2026-09-08-2026-10-05" title="Permanent link">&para;</a></h2>
+<h3 id="5-6a-vscode-b-c-">第5-6周：A-VSCode 扩展 + B-剩余修复 + C-演示脚本<a class="headerlink" href="#5-6a-vscode-b-c-" title="Permanent link">&para;</a></h3>
+<h4 id="a_4">A: 编译器生态<a class="headerlink" href="#a_4" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A5.1</td>
+<td>语法高亮完善（L0-L4 全部语法）</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A5.2</td>
+<td>代码片段（snippets）</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A5.3</td>
+<td>调试适配器集成（断点/单步/变量查看）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>A5.4</td>
+<td>LSP 集成（自动补全/悬停提示/跳转定义）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>A5.5</td>
+<td>编译/运行命令集成</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>A5.6</td>
+<td>扩展发布到 Marketplace</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- <code>vscode-light/</code> 扩展发布包
+- 用户手册</p>
+<h4 id="b_4">B: 积木块质量门禁<a class="headerlink" href="#b_4" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B5.1</td>
+<td>对 M1 修复的块做第二轮复查（逻辑正确性）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>B5.2</td>
+<td>补充缺失的常用块（社区反馈驱动）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>B5.3</td>
+<td>积木块性能基准测试（每块执行时间 &lt; 1ms）</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>B5.4</td>
+<td>积木块文档生成（自动生成 API 参考）</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- 积木块质量门禁通过
+- API 参考文档</p>
+<h4 id="c_4">C: 演示脚本<a class="headerlink" href="#c_4" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C5.1</td>
+<td>编写 5 个典型场景演示脚本</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>C5.2</td>
+<td>数据清洗演示（去重/过滤/格式化/排序）</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>C5.3</td>
+<td>数学计算演示（求和/均值/方差/标准差/回归）</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>C5.4</td>
+<td>文本处理演示（反转/查找/替换/分割/编码转换）</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>C5.5</td>
+<td>金融分析演示（个税计算/复利/折现/增长率）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C5.6</td>
+<td>数据处理演示（CSV 解析/统计摘要/聚合）</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- <code>demo/</code> 目录，含 5 个演示脚本
+- 演示 README</p>
+<hr />
+<h3 id="7-8a-b-c-">第7-8周：A-文档站点 + B-标准库 + C-综合测试<a class="headerlink" href="#7-8a-b-c-" title="Permanent link">&para;</a></h3>
+<h4 id="a_5">A: 编译器生态<a class="headerlink" href="#a_5" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A7.1</td>
+<td>mkdocs 文档站点搭建</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A7.2</td>
+<td>API 参考文档自动生成</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A7.3</td>
+<td>交互式教程系统完善</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>A7.4</td>
+<td>Playground 在线编译/运行</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>A7.5</td>
+<td>包注册表服务器部署</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A7.6</td>
+<td>包搜索功能</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- <code>docs-site/</code> 文档站点部署上线
+- <code>playground/</code> 在线环境
+- 注册表服务器运行</p>
+<h4 id="b_5">B: 积木块标准库补齐<a class="headerlink" href="#b_5" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B7.1</td>
+<td>标准库模块补齐（阶段13-14剩余模块）</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>B7.2</td>
+<td>Windows/Linux/跨平台积木块测试</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>B7.3</td>
+<td>积木块光明侧接口统一</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>B7.4</td>
+<td>积木块性能基准测试报告</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- 跨平台积木块测试通过
+- 标准库 100% 光明侧接口覆盖</p>
+<h4 id="c_5">C: 综合测试套件<a class="headerlink" href="#c_5" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C7.1</td>
+<td>构建综合测试套件（覆盖所有领域/选块模式/接线模式）</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>C7.2</td>
+<td>随机需求生成测试（100 个随机需求，验证管线稳定性）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C7.3</td>
+<td>边界条件测试（空输入/超大输入/特殊字符）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C7.4</td>
+<td>性能基准测试（选块耗时 &lt; 10ms，粘合 &lt; 50ms）</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- <code>tests/</code> 综合测试套件，50+ 测试用例
+- 性能基准测试报告</p>
+<hr />
+<h2 id="3-m3-2026-10-06-2026-11-11">第3月：集成展示 (M3: 2026-10-06 ~ 2026-11-11)<a class="headerlink" href="#3-m3-2026-10-06-2026-11-11" title="Permanent link">&para;</a></h2>
+<h3 id="9-10a-llvm-b-c-">第9-10周：A-LLVM 优化 + B-积木块优化 + C-高级演示<a class="headerlink" href="#9-10a-llvm-b-c-" title="Permanent link">&para;</a></h3>
+<h4 id="a_6">A: 编译器性能<a class="headerlink" href="#a_6" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A9.1</td>
+<td>LLVM 优化 Pass 管线调优</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A9.2</td>
+<td>编译速度优化（增量编译/缓存）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>A9.3</td>
+<td>DWARF 调试信息生成</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>A9.4</td>
+<td>生成代码体积优化</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>A9.5</td>
+<td>编译器本身编译速度基准测试</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A9.6</td>
+<td>运行时性能基准测试（与 Python/C 对比）</td>
+<td>P0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- 编译速度提升 50%+
+- <code>benchmarks/</code> 基准测试报告</p>
+<h4 id="b_6">B: 积木块优化<a class="headerlink" href="#b_6" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B9.1</td>
+<td>积木块执行性能优化（热点块改用更高效算法）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>B9.2</td>
+<td>积木块内存使用优化</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>B9.3</td>
+<td>积木块与 LLVM 后端的兼容性测试</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>B9.4</td>
+<td>积木块 C 代码生成测试</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- 积木块执行性能提升 30%+
+- LLVM 后端兼容性报告</p>
+<h4 id="c_6">C: 高级演示<a class="headerlink" href="#c_6" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C9.1</td>
+<td>构建端到端 Web 演示（Streamlit 界面）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C9.2</td>
+<td>实时选块可视化（展示选块过程/分数/领域分布）</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>C9.3</td>
+<td>积木库浏览器（按领域/层级浏览 10010 块）</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>C9.4</td>
+<td>需求→代码 一键生成演示</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- <code>demo/</code> 交互式演示应用
+- 演示视频/GIF</p>
+<hr />
+<h3 id="11-12a-b-c-">第11-12周：A-发布 + B-最终验证 + C-文档完成<a class="headerlink" href="#11-12a-b-c-" title="Permanent link">&para;</a></h3>
+<h4 id="a-v60">A: v6.0 发布<a class="headerlink" href="#a-v60" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A11.1</td>
+<td>全面回归测试</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A11.2</td>
+<td>用户手册更新</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A11.3</td>
+<td>发布说明（CHANGELOG）</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A11.4</td>
+<td>版本号更新</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A11.5</td>
+<td>全平台 CI/CD 自动化</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A11.6</td>
+<td>自动构建可执行文件</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>A11.7</td>
+<td>自动发布到 GitHub Releases</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>A11.8</td>
+<td>自动发布到 PyPI</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>A11.9</td>
+<td>发布公告</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- v6.0 正式发布
+- 全平台 CI 通过
+- 一键发布流程</p>
+<h4 id="b_7">B: 最终验证<a class="headerlink" href="#b_7" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B11.1</td>
+<td>积木库全量 10010 块最终回归测试</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>B11.2</td>
+<td>积木库与 v6.0 编译器兼容性验证</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>B11.3</td>
+<td>积木库发布包准备</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>B11.4</td>
+<td>积木库用户文档完成</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- 积木库 v6.0 同步发布
+- 兼容性验证报告</p>
+<h4 id="c_7">C: 文档完成<a class="headerlink" href="#c_7" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>说明</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C11.1</td>
+<td>管线使用文档（选块/粘合/组合 API 文档）</td>
+<td>P0</td>
+</tr>
+<tr>
+<td>C11.2</td>
+<td>积木库开发指南（如何贡献新块）</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C11.3</td>
+<td>演示脚本文档</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>C11.4</td>
+<td>已知问题清单</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物</strong>:
+- 完整管线文档
+- 积木库贡献指南</p>
+<hr />
+<h2 id="_3">关键里程碑<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>里程碑</th>
+<th>时间</th>
+<th>验证标准</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M1.1: 完全自举</td>
+<td>第1周末</td>
+<td>4轮自举编译收敛，全部测试通过</td>
+</tr>
+<tr>
+<td>M1.2: 第1批块修复</td>
+<td>第1周末</td>
+<td>数据/数学/统计/排序/搜索 2000 块修复通过</td>
+</tr>
+<tr>
+<td>M1.3: 管线端到端</td>
+<td>第1周末</td>
+<td>5 个端到端测试用例全部通过</td>
+</tr>
+<tr>
+<td>M1.4: 类型系统</td>
+<td>第2周末</td>
+<td>泛型/联合类型/模式匹配 20+ 测试通过</td>
+</tr>
+<tr>
+<td>M1.5: 第2批块修复</td>
+<td>第2周末</td>
+<td>累计 4000 块修复通过</td>
+</tr>
+<tr>
+<td>M1.6: 语义选块</td>
+<td>第2周末</td>
+<td>Top-3 准确率 ≥ 90%</td>
+</tr>
+<tr>
+<td>M1.7: 错误信息</td>
+<td>第3周末</td>
+<td>错误信息测试通过，REPL 可用</td>
+</tr>
+<tr>
+<td>M1.8: 第3批块修复</td>
+<td>第3周末</td>
+<td>累计 8000 块修复通过</td>
+</tr>
+<tr>
+<td>M1.9: 模块系统</td>
+<td>第4周末</td>
+<td>包管理器 CLI 可用</td>
+</tr>
+<tr>
+<td>M1.10: 全量块修复</td>
+<td>第4周末</td>
+<td>10010 块全部修复验证通过 ✅</td>
+</tr>
+<tr>
+<td>M2.1: VSCode 扩展</td>
+<td>第5周末</td>
+<td>扩展发布包可用</td>
+</tr>
+<tr>
+<td>M2.2: 演示脚本</td>
+<td>第6周末</td>
+<td>5 个演示脚本完成</td>
+</tr>
+<tr>
+<td>M2.3: 文档站点</td>
+<td>第7周末</td>
+<td>文档站点部署上线</td>
+</tr>
+<tr>
+<td>M2.4: 综合测试</td>
+<td>第8周末</td>
+<td>50+ 测试用例通过</td>
+</tr>
+<tr>
+<td>M3.1: LLVM 优化</td>
+<td>第9周末</td>
+<td>编译速度提升 50%</td>
+</tr>
+<tr>
+<td>M3.2: 演示应用</td>
+<td>第10周末</td>
+<td>交互式演示可用</td>
+</tr>
+<tr>
+<td>M3.3: v6.0 发布</td>
+<td>第12周末</td>
+<td>正式发布</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="_4">风险与缓解<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>风险</th>
+<th>概率</th>
+<th>影响</th>
+<th>缓解措施</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>自举编译器功能缺失</td>
+<td>中</td>
+<td>高</td>
+<td>优先分析缺失功能，分步添加</td>
+</tr>
+<tr>
+<td>积木块修复量过大</td>
+<td>高</td>
+<td>中</td>
+<td>分批修复，先修复高频使用块；自动修复脚本辅助</td>
+</tr>
+<tr>
+<td>语义选块模型下载失败</td>
+<td>中</td>
+<td>中</td>
+<td>离线 TF-IDF 兜底，模型文件本地缓存</td>
+</tr>
+<tr>
+<td>管线与编译器版本冲突</td>
+<td>中</td>
+<td>中</td>
+<td>统一 CI 测试，版本兼容性检查</td>
+</tr>
+<tr>
+<td>演示脚本复杂度超预期</td>
+<td>低</td>
+<td>低</td>
+<td>先做最小可行演示，逐步迭代</td>
+</tr>
+<tr>
+<td>跨平台标准库差异</td>
+<td>中</td>
+<td>中</td>
+<td>提前进行跨平台测试</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="_5">资源分配建议<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>专注方向</th>
+<th>工作量估计</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>编译器开发</td>
+<td>A 线</td>
+<td>50%</td>
+</tr>
+<tr>
+<td>积木块修复</td>
+<td>B 线</td>
+<td>30%</td>
+</tr>
+<tr>
+<td>管线深化</td>
+<td>C 线</td>
+<td>20%</td>
+</tr>
+</tbody>
+</table>
+<p>三条线可并行推进，互不阻塞。M1 阶段 B 线工作量最大，M2-M3 阶段逐渐减少。</p>
+<hr />
+<h2 id="_6">附录：当前状态基线<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
+<h3 id="_7">已完成<a class="headerlink" href="#_7" title="Permanent link">&para;</a></h3>
+<ul>
+<li>索引 10010 块，45 领域 ✅</li>
+<li>索引路径已更新为 blocks_v5/ ✅</li>
+<li>选块.py 兼容新索引格式 ✅</li>
+<li>_ml_selector.py (D5 + D1) 集成 ✅</li>
+<li>组合.py 集成统一选块 ✅</li>
+<li>粘合.py 支持 blocks_v5 路径解析 ✅</li>
+<li>端到端验证：求和/最大值/平均值/文本反转 全部通过 ✅</li>
+</ul>
+<h3 id="_8">待修复（已知）<a class="headerlink" href="#_8" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>最小值</code> 块在索引中缺失</li>
+<li>部分块可能存在与 <code>最大.light</code> 类似的三元表达式语法问题</li>
+<li>部分块可能存在与 <code>均值.light</code> 类似的逻辑错误（复制粘贴错误）</li>
+<li>部分块可能存在与 <code>文本反转.light</code> 类似的 <code>.反转()</code> 方法不可用问题</li>
+</ul>
+
+
+
+
+
+
+
+  
+    
+  
+  
+    
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="最后更新">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年8月30日 18:19:48 UTC">2026年8月30日</span>
+  </span>
+
+    
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="创建日期">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年8月30日 18:19:48 UTC">2026年8月30日</span>
+  </span>
+
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/skywalk163/light" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
