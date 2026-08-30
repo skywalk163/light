@@ -122,12 +122,22 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return self.target_platform == 'darwin'
 
     def alloca_local(self, name):
-        """为局部变量分配 LightValue 栈空间（重写父类）"""
+        """为局部变量分配 LightValue 栈空间（重写父类）
+
+        注意：typed codegen 不 flush _pending_allocas（该字段仅被 append 后又
+        被重置，从未发射进函数体），故走 pending 的 alloca 永远生成未定义值。
+        局部变量的真正分配由 _gen_normal_segment / _gen_async_segment 在 entry
+        块通过 _collect_vars_from_stmts + 批量 alloca 完成（见 3777-3780 等）。
+        本方法保留父类契约：仅当变量尚未分配时才记录一个 pending 槽位编号，
+        绝大多数情况下变量已被 entry 块预分配，此处守卫会跳过，不会覆盖有效
+        寄存器，也不会在嵌套块内就地发射导致支配关系错误。
+        """
         if name not in self._local_vars or self._local_vars[name] is None:
             reg = self.new_register()
             line = f'{reg} = alloca {LIGHTVALUE_STRUCT}'
             self._pending_allocas.append(line)
             self._local_vars[name] = reg
+        return self._local_vars[name]
 
     # ============================================================
     # 调试信息生成（DWARF）
@@ -337,6 +347,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_to_int(ptr, ptr)',
             f'declare void @dv_to_float(ptr, ptr)',
             f'declare void @dv_to_bool_val(ptr, ptr)',
+            f'declare i32 @dv_to_bool(ptr)',
             f'declare double @dv_timestamp()',
             f'declare ptr @dv_format_time(double, ptr)',
             f'declare i32 @dv_file_exists(ptr)',
@@ -625,6 +636,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     def _call_dv_func(self, func_name: str, *args: str) -> str:
         """调用通过 ptr 输出 LightValue 的运行时函数"""
         result_slot = self._new_dv_slot()
+        # P0-2 内存安全修复：result_slot 来自复用型临时槽位池（_new_dv_slot 不零初始化），
+        # 若直接传给会 dv_deref(result) 的运行时函数（如 dv_list_append），残留垃圾可能
+        # 被误判为 type=8 REF 并跟随到坏指针 → ASan access-violation 0x3。新分配的槽位
+        # 本就不可能是合法 REF，先零初始化为 NULL 才是正确默认值，不影响任何输出语义。
+        self.emit(f'call void @dv_null(ptr {result_slot})')
         call_args = [f'ptr {result_slot}']
         for a in args:
             if ' ' in a:
@@ -1142,13 +1158,16 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'{cmp_reg} = fcmp one double {f64_val}, 0.0')
             return cmp_reg
 
-        zero_dv = self._create_int_dv('0')
+        # 兜底（类型未知 / 字符串 / 列表 / 字典 / 方法调用返回值等）：
+        # 必须用运行时真值函数 dv_to_bool，不能写 dv_eq(cond, 0) != 0。
+        # 原因：布尔(type 5)与整数(type 1)类型不同，dv_eq(bool假, int0) 会
+        # 判为「不等」→ icmp eq 0,0 = true，导致假条件被误判为真；空字符串 /
+        # 空列表同理会被误判为真。dv_to_bool 对所有类型给出正确真值。
         cond_slot = self._store_dv(cond_dv)
-        zero_slot = self._store_dv(zero_dv)
-        eq = self.new_register()
-        self.emit(f'{eq} = call i32 @dv_eq(ptr {cond_slot}, ptr {zero_slot})')
+        truthy = self.new_register()
+        self.emit(f'{truthy} = call i32 @dv_to_bool(ptr {cond_slot})')
         final = self.new_register()
-        self.emit(f'{final} = icmp eq i32 {eq}, 0')
+        self.emit(f'{final} = icmp ne i32 {truthy}, 0')
         return final
 
     def _gen_typed_unary_op(self, expr: ast.UnaryOp) -> Tuple[str, str]:
@@ -2480,18 +2499,34 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         name_reg = self.gen_string_constant(class_name)
         result_slot = self._new_dv_slot()
         self.emit(f'call void @dv_class_new_named(ptr {result_slot}, ptr {name_reg})')
-        
+
+        # 检测构造函数：原生 AST 的 cls_def.constructor 未被解析器填充，
+        # 故回退到「构造函数命名约定」(构造/初始化/构) 扫描方法名——与 src 后端
+        # _CTOR_NAMES 对齐。注意构造函数经方法循环已按其真实名（如「构造」）注册，
+        # 这里必须用真实名发起调用；此前错用类名「盒」导致 dv_find_method 返回
+        # NULL、构造静默不执行，对象字段停留在默认值（轻量 UTF8 解码器原生腿产空
+        # 串的根因）。
+        CTOR_NAMES = ('构造', '初始化', '构')
         has_ctor = False
+        ctor_name = None
         if class_name in self._classes:
             cls_def = self._classes[class_name]
             constructor = getattr(cls_def, 'constructor', None)
             if constructor is not None:
                 has_ctor = True
-        
+                ctor_name = getattr(constructor, 'name', None) or class_name
+            else:
+                for m in (getattr(cls_def, 'methods', []) or []):
+                    mn = getattr(m, 'name', None)
+                    if mn in CTOR_NAMES:
+                        has_ctor = True
+                        ctor_name = mn
+                        break
+
         if has_ctor:
             obj_dv = self._load_dv(result_slot)
             obj_slot = self._store_dv(obj_dv)
-            ctor_name_reg = self.gen_string_constant(class_name)
+            ctor_name_reg = self.gen_string_constant(ctor_name if ctor_name else class_name)
             
             args = getattr(expr, 'arguments', []) or []
             num_args = len(args)
@@ -2694,6 +2729,40 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     def _collect_statement(self, stmt):
         """覆盖父类方法"""
         super()._collect_statement(stmt)
+
+    def _collect_vars_from_stmts(self, stmts):
+        """覆盖父类：补充收集 try/catch 中的捕获变量。
+
+        根因：基类 _collect_vars_from_stmts 只处理 VariableDeclaration /
+        If / Foreach / While，遗漏了 TryStatement 的 catch 捕获变量。原生腿在
+        entry 块按收集到的变量名批量 alloca（见 _gen_normal_segment 3777-3780），
+        catch 变量因未被收集而缺失，运行时落到 _gen_typed_try 的
+        alloca_local(clause.catch_var)（2625）走永不 flush 的 _pending_allocas，
+        产生未定义值 `%N`（`use of undefined value '%N'`），这是原生腿 try/catch
+        编译失败的直接原因。此处补齐 catch 变量收集，使其与其他局部变量一样获得
+        entry 块 alloca。
+        """
+        for stmt in stmts:
+            if stmt is None:
+                continue
+            if isinstance(stmt, ast.TryStatement):
+                # 向后兼容：单 catch 变量
+                if getattr(stmt, 'catch_var', None):
+                    self._local_vars.setdefault(stmt.catch_var, None)
+                for clause in (getattr(stmt, 'catch_clauses', None) or []):
+                    cv = getattr(clause, 'catch_var', None)
+                    if cv:
+                        self._local_vars.setdefault(cv, None)
+                    body = getattr(clause, 'catch_body', None)
+                    if body:
+                        self._collect_vars_from_stmts(body)
+                for sub in (getattr(stmt, 'try_body', None) or []):
+                    self._collect_vars_from_stmts([sub])
+                for sub in (getattr(stmt, 'finally_body', None) or []):
+                    self._collect_vars_from_stmts([sub])
+            else:
+                # 其余类型交给基类递归处理（If/Foreach/While/VariableDeclaration）
+                super()._collect_vars_from_stmts([stmt])
 
     def _collect_class(self, cls_def):
         """收集类定义"""
@@ -3240,6 +3309,33 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 updated_dv = self._load_dv(obj_slot)
                 self.set_var('己', updated_dv)
                 return
+        # 外部字段赋值形式：设 obj.field 为 Y（顶层/方法外，obj 为普通变量）。
+        # 解析器把「设 d.错误」拍平成名为「d.错误」的 VariableDeclaration，
+        # 原生腿需在此降级为 dv_class_set_member（与 src 后端一致）；否则会建一个
+        # 字面名为「d.错误」的局部变量，字段写完全丢失——UTF8 解码器 strict 模式
+        # 不抛错、原生 SSE 等依赖「实例字段外部改写」的模块 0 事件的根因。
+        # 仅处理单级 owner.field；己/self 已由上方方法内分支覆盖。
+        if ('.' in name
+                and not name.startswith('己.')
+                and not name.startswith('self.')):
+            owner_name, attr_name = name.split('.', 1)
+            if '.' not in attr_name:
+                owner_dv = self.get_var(owner_name)
+                if owner_dv is None:
+                    owner_dv, _ = self._gen_expression(ast.Identifier(name=owner_name))
+                if owner_dv is not None:
+                    obj_slot = self._store_dv(owner_dv)
+                    member_reg = self.gen_string_constant(attr_name)
+                    if stmt.value:
+                        value_dv, _ = self._gen_expression(stmt.value)
+                    else:
+                        value_dv = self._create_int_dv('0')
+                    value_slot = self._store_dv(value_dv)
+                    self.emit(f'call void @dv_class_set_member(ptr {obj_slot}, ptr {member_reg}, ptr {value_slot})')
+                    # set_member 会重分配对象缓冲，把 owner 归位到新缓冲（消除悬空/泄漏）
+                    updated_dv = self._load_dv(obj_slot)
+                    self.set_var(owner_name, updated_dv)
+                    return
         self.alloca_local(stmt.name)
         if stmt.value:
             dv_val, _ = self._gen_expression(stmt.value)
@@ -3584,7 +3680,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             ("IO异常", "异常", []),
             ("内存异常", "异常", []),
             ("算术异常", "异常", []),
-            ("Exception", "", ["消息", "类型", "栈追踪", "原因"]),
+            # "Exception"（英文）是 "异常"（中文）的别名基类：让二者在继承树中
+            # 隶属同一根，否则用户代码 `继承 Exception` 抛出的异常无法被 `捕获 异常`
+            # 接住（dv_isinstance 沿 super 链走到并列顶层 "Exception" 即失配重抛）。
+            ("Exception", "异常", ["消息", "类型", "栈追踪", "原因"]),
             ("RuntimeException", "Exception", []),
             ("ValueError", "Exception", []),
             ("IndexError", "Exception", []),

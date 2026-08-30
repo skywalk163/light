@@ -311,6 +311,11 @@ class PythonCodeGenerator:
             '输入': 'input',
             '长': 'len',
             '长度': 'len',
+            # 码点（字符 <-> 码位），原生腿在 src/llvm/runtime_typed.c 用 dv_ord/dv_chr 实现
+            '码位': 'ord',
+            '字符自码位': 'chr',
+            # 大写十六进制（无 0x 前缀），与 dv_hex 一致
+            '十六进制': 'lambda n: format(n, "X")',
             '首': 'lambda x: x[0]',
             '末': 'lambda x: x[-1]',
             # 可空类型解包（等价于 值!）
