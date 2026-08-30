@@ -33,7 +33,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  五把尺子:
+  # GitHub Actions 的 job id 只允许字母/数字/下划线/连字符，中文 id 会在文件
+  # 解析期直接报「Invalid workflow file」——所以这里用 ASCII 名，展示名在
+  # workflow name（积木库五把尺子），各 step 的 name 也保留了中文。
+  five_metrics:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

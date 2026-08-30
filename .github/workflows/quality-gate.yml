@@ -77,6 +77,11 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
+    env:
+      # test_lexer_perf 的默认 2.0s 上限在带 --cov 的慢 runner 上会误红
+      # （实测 2.13s > 2.0）。对齐 .gitea 权威副本 :153 的 20.0 余量口径，
+      # 该 env 是测试作者预留的放宽开关（tests/unit/test_lexer_perf.py:84）。
+      LEXER_PERF_LIMIT: "20.0"
 
     steps:
       - uses: actions/checkout@v7

@@ -80,6 +80,12 @@ jobs:
           # 下面那道 TLS/SSE 硬判绿点没有 || true，缺了它整步 collect 就红——
           # 而且红的是「装不上依赖」，不是「TLS 实现坏了」，属于噪声红。
           python -m pip install cryptography
+          # e2e 的 L3/L4 用例（test_L3_domain_e2e.py / test_L4_python_e2e.py）在函数级
+          # 真 `import numpy/sympy/pandas/matplotlib`。缺依赖时它们整片 collect 红成
+          # ModuleNotFoundError 噪声；装上后这些用例才真跑其语义（对应 gitea 权威副本
+          # 同款依赖 + tests/ci_baseline_failures.txt 里那 12 条欠账会转绿、由回归闸门
+          # 提示更新基线）。
+          python -m pip install numpy sympy pandas matplotlib
 
 
       # 运行单元测试（所有平台）
