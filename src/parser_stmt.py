@@ -265,7 +265,15 @@ class ParserStmtMixin:
         # 仅当循环后跟(时才作为C风格for循环，否则可能是不含(的标识符部分（如"继续循环"）
         if tok.type == TokenType.IDENTIFIER and tok.value == '循环' and self._peek(1) and self._peek(1).type == TokenType.LPAREN:
             return self._parse_c_for_loop()
-        
+
+        # L-024：`循环 对于 X 在 Y:` —— `遍历 X 之 Y:` 的语法别名（对照 while `当 ...:` 风格）。
+        # `循环`/`对` 是 IDENTIFIER（`对于` = `对`+`于` 两个 token，见词法探针），
+        # 只有「循环 + 对于」组合才走这里，普通 `循环` 标识符（变量/表达式）不受影响。
+        # 纯 token 前瞻（_is_duiyu_for_header），失败时原样落入后续分支。
+        if (tok.type == TokenType.IDENTIFIER and tok.value == '循环'
+                and self._is_duiyu_for_header()):
+            return self._parse_duiyu_for_stmt()
+
         # 裸花括号代码块：{ stmts }
         if tok.type == TokenType.LBRACE:
             body = self._parse_brace_body()
@@ -293,7 +301,8 @@ class ParserStmtMixin:
                     "「对于 … 在 …」不是光明支持的遍历写法。"
                     "光明遍历循环的写法是「遍历 X 于 表：」，例如：遍历 项 于 列表：。"
                     "另注意：推导式（列表/字典）的介词是「之/在」，"
-                    "遍历语句的介词是「于」，两者不要混用。",
+                    "遍历语句的介词是「于」，两者不要混用。"
+                    "现已支持「循环 对于 X 在 Y：」写法，与「遍历 X 之 Y：」等价。",
                     tok.line, tok.col, tok.value
                 )
         
@@ -2581,7 +2590,27 @@ class ParserStmtMixin:
             break
         return ', '.join(names) if names else '_'
 
-    def _parse_foreach_stmt(self, is_async: bool = False) -> ForeachStmt:
+    def _is_duiyu_for_header(self) -> bool:
+        """L-024：判断当前是否为 `循环 对于`（=`循环`+`对`+`于`）遍历别名头部。
+        纯 token 前瞻，不改变 self.pos。"""
+        tok1 = self._peek(1)
+        tok2 = self._peek(2)
+        return (tok1 is not None and tok1.type == TokenType.IDENTIFIER and tok1.value == '对'
+                and tok2 is not None and tok2.type == TokenType.KEYWORD and tok2.value == '于')
+
+    def _parse_duiyu_for_stmt(self) -> ForeachStmt:
+        """L-024：解析 `循环 对于 X 在 Y:`（`遍历 X 之 Y:` 的语法别名，对照 while `当 ...:`）。
+        先消费 `循环` + `对于`（=`对`+`于`），再复用 _parse_foreach_stmt 的其余逻辑。
+        `循环`/`对` 是 IDENTIFIER、`于` 是 KEYWORD，见词法探针。"""
+        # 循环
+        self._consume(TokenType.IDENTIFIER, '循环')
+        # 对于 = 对(IDENTIFIER) + 于(KEYWORD)
+        self._consume(TokenType.IDENTIFIER, '对')
+        self._consume(TokenType.KEYWORD, '于')
+        # 复用 _parse_foreach_stmt（关键字已消费，跳过其开头关键字块）
+        return self._parse_foreach_stmt(keyword_consumed=True)
+
+    def _parse_foreach_stmt(self, is_async: bool = False, keyword_consumed: bool = False) -> ForeachStmt:
         """解析遍历循环
 
         语法（语序由连接词决定，见 FOREACH_CONNECTORS_* 映射表）：
@@ -2595,8 +2624,10 @@ class ParserStmtMixin:
         if self._current() and self._current().type == TokenType.NEWLINE:
             self._consume(TokenType.NEWLINE)
         
-        # 遍历 / 对 / 遍
-        if self._match(TokenType.KEYWORD, '对'):
+        # L-024：`循环 对于` 别名路径由调用者已消费关键字，跳过这里。
+        if keyword_consumed:
+            pass
+        elif self._match(TokenType.KEYWORD, '对'):
             self._consume(TokenType.KEYWORD, '对')
         elif self._match(TokenType.KEYWORD, '遍'):
             self._consume(TokenType.KEYWORD, '遍')
@@ -2815,6 +2846,10 @@ class ParserStmtMixin:
                         next_tok = self._peek(1)
                         if next_tok and next_tok.type == TokenType.LPAREN:
                             # 段落段名(参数)形式，作为表达式处理
+                            is_stmt_keyword = False
+                        elif (tok.value == '段落' and next_tok
+                              and next_tok.type == TokenType.KEYWORD and next_tok.value == '接收'):
+                            # L-022：`段落 接收 参数: 体` 匿名闭包字面量，作为表达式处理
                             is_stmt_keyword = False
                         else:
                             # 段落定义，作为语句关键字
