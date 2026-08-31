@@ -100,6 +100,7 @@ class UnifiedCodeGenerator:
             '末': '__import__("operator").itemgetter(-1)',
             '余': '__import__("builtins").slice(1, None)',
             '排序': '_light_builtin.列表排序',
+            '排序列表': '_light_builtin.排序列表',
             '反转': '_light_builtin.列表反转',
             '求和': 'sum',
             '求最大': 'max',
@@ -143,6 +144,7 @@ class UnifiedCodeGenerator:
             '切换目录': '_light_builtin.切换目录',
             '执行命令': '_light_builtin.执行命令',
             # 字符串操作动词
+            '整数': '_light_builtin.整数',
             '转整数': '_light_builtin.转整数',
             '转浮点': '_light_builtin.转浮点',
             '转字符串': '_light_builtin.转字符串',

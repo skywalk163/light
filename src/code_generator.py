@@ -557,6 +557,7 @@ class PythonCodeGenerator:
             '列表弹出': '_light_builtin.列表弹出',
             '列表插入': '_light_builtin.列表插入',
             '列表排序': '_light_builtin.列表排序',
+            '排序列表': '_light_builtin.排序列表',
             '列表反转': '_light_builtin.列表反转',
             '列表包含': '_light_builtin.列表包含',
             '列表创建': '_light_builtin.列表创建',
@@ -992,6 +993,7 @@ class PythonCodeGenerator:
         self._add_line("# stdlib 物理缺失时的兜底：补齐常用 builtin + 注册 文件系统 模块")
         self._add_line("for _light_n, _light_f in [")
         self._add_line("    ('列表排序', lambda lst, 反向=False: lst.sort(reverse=反向)),")
+        self._add_line("    ('排序列表', lambda lst, 反向=False: sorted(lst, reverse=反向)),")
         self._add_line("    ('列表反转', lambda lst: lst.reverse()),")
         self._add_line("    ('列表清空', lambda lst: lst.clear()),")
         self._add_line("    ('列表移除', lambda lst, item: lst.remove(item)),")
