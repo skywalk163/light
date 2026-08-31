@@ -96,6 +96,18 @@ class ParserExprMixin:
             return True
         return False
 
+    def _skip_implicit_continuation(self) -> None:
+        """L-023：行尾二元运算符后的隐式续行（Python 风格）。
+
+        只在刚消费完一个二元运算符、正要解析右操作数之前调用：
+        此时下一个 token 若是换行/缩进，说明表达式跨行续写（`返回 "a" 加上\n"b"。`）。
+        跳过 NEWLINE 与 INDENT，**不**跳 DEDENT —— 运算符行尾后紧跟取消缩进是
+        明显的畸形续行（Python 同样报错），吞 DEDENT 会破坏块结构语义
+        （L-013 防回归：单行体判定依赖 NEWLINE 闭合）。
+        """
+        while self._current() and self._current().type in (TokenType.NEWLINE, TokenType.INDENT):
+            self._consume()
+
     def _try_parse_keyword_arg(self) -> Optional[ASTNode]:
         """尝试把当前位置解析成具名实参 `名 = 值`；失败则原位回退并返回 None。
 
@@ -239,35 +251,43 @@ class ParserExprMixin:
                    self._current().type == TokenType.KEYWORD and self._current().value == '等于':
                     self._consume()  # 消耗"等于"
                     op = '大于等于' if op == '大于' else '小于等于'
+                self._skip_implicit_continuation()
                 right = self._parse_bitor_expr()
                 left = BinaryOp(self.COMPARISON_OP_MAP.get(op, op), left, right)
             elif tok.type == TokenType.LESS:
                 self._consume()
+                self._skip_implicit_continuation()
                 right = self._parse_bitor_expr()
                 left = BinaryOp('<', left, right)
             elif tok.type == TokenType.GREATER:
                 self._consume()
+                self._skip_implicit_continuation()
                 right = self._parse_bitor_expr()
                 left = BinaryOp('>', left, right)
             elif tok.type == TokenType.LESS_EQUAL:
                 self._consume()
+                self._skip_implicit_continuation()
                 right = self._parse_bitor_expr()
                 left = BinaryOp('<=', left, right)
             elif tok.type == TokenType.GREATER_EQUAL:
                 self._consume()
+                self._skip_implicit_continuation()
                 right = self._parse_bitor_expr()
                 left = BinaryOp('>=', left, right)
             elif tok.type == TokenType.EQ_EQ:
                 self._consume()
+                self._skip_implicit_continuation()
                 right = self._parse_bitor_expr()
                 left = BinaryOp('==', left, right)
             elif tok.type == TokenType.NOT_EQ:
                 self._consume()
+                self._skip_implicit_continuation()
                 right = self._parse_bitor_expr()
                 left = BinaryOp('!=', left, right)
             # in / not in 运算符：在 / 于 / 不在 / 不于
             elif tok.type == TokenType.KEYWORD and tok.value in ('在', '于'):
                 self._consume()
+                self._skip_implicit_continuation()
                 right = self._parse_bitor_expr()
                 left = BinaryOp('in', left, right)
             elif tok.type == TokenType.IDENTIFIER and tok.value == '不' and \
@@ -275,6 +295,7 @@ class ParserExprMixin:
                  self._peek(1).value in ('在', '于'):
                 self._consume()  # 不
                 self._consume()  # 在/于
+                self._skip_implicit_continuation()
                 right = self._parse_bitor_expr()
                 left = BinaryOp('not in', left, right)
             else:
@@ -292,6 +313,7 @@ class ParserExprMixin:
             if (tok.type == TokenType.IDENTIFIER or tok.type == TokenType.KEYWORD) \
                and tok.value in self.BITWISE_OR_MAP:
                 self._consume()
+                self._skip_implicit_continuation()
                 right = self._parse_bitxor_expr()
                 left = BinaryOp(self.BITWISE_OR_MAP[tok.value], left, right)
             else:
@@ -306,6 +328,7 @@ class ParserExprMixin:
             if (tok.type == TokenType.IDENTIFIER or tok.type == TokenType.KEYWORD) \
                and tok.value in self.BITWISE_XOR_MAP:
                 self._consume()
+                self._skip_implicit_continuation()
                 right = self._parse_bitand_expr()
                 left = BinaryOp(self.BITWISE_XOR_MAP[tok.value], left, right)
             else:
@@ -320,6 +343,7 @@ class ParserExprMixin:
             if (tok.type == TokenType.IDENTIFIER or tok.type == TokenType.KEYWORD) \
                and tok.value in self.BITWISE_AND_MAP:
                 self._consume()
+                self._skip_implicit_continuation()
                 right = self._parse_shift_expr()
                 left = BinaryOp(self.BITWISE_AND_MAP[tok.value], left, right)
             else:
@@ -334,6 +358,7 @@ class ParserExprMixin:
             if (tok.type == TokenType.IDENTIFIER or tok.type == TokenType.KEYWORD) \
                and tok.value in self.SHIFT_OP_MAP:
                 self._consume()
+                self._skip_implicit_continuation()
                 right = self._parse_add_expr()
                 left = BinaryOp(self.SHIFT_OP_MAP[tok.value], left, right)
             else:
@@ -349,21 +374,25 @@ class ParserExprMixin:
             # 支持：加、减、加上、减去
             if tok.type == TokenType.KEYWORD and tok.value in self.ADD_OP_MAP:
                 op = self._consume().value
+                self._skip_implicit_continuation()
                 right = self._parse_mul_expr()
                 left = BinaryOp(self.ADD_OP_MAP[op], left, right)
             # "减去"被lexer保护为IDENTIFIER，也需识别
             elif tok.type == TokenType.IDENTIFIER and tok.value in self.ADD_OP_MAP:
                 op = self._consume().value
+                self._skip_implicit_continuation()
                 right = self._parse_mul_expr()
                 left = BinaryOp(self.ADD_OP_MAP[op], left, right)
             elif tok.type == TokenType.PLUS:
                 # 处理 + 符号（字符串连接等）
                 self._consume()
+                self._skip_implicit_continuation()
                 right = self._parse_mul_expr()
                 left = BinaryOp('+', left, right)
             elif tok.type == TokenType.MINUS:
                 # 处理 - 符号（减法）
                 self._consume()
+                self._skip_implicit_continuation()
                 right = self._parse_mul_expr()
                 left = BinaryOp('-', left, right)
             else:
@@ -396,6 +425,8 @@ class ParserExprMixin:
             # 支持：乘、除、乘以、除以
             if tok.type == TokenType.KEYWORD and tok.value in self.MUL_OP_MAP:
                 op = self._consume().value
+                # L-023：行尾运算符续行——跳过换行/缩进后再判右操作数有效性
+                self._skip_implicit_continuation()
                 # 检查右操作数是否有效
                 next_tok = self._current()
                 if next_tok and next_tok.type not in (TokenType.RPAREN, TokenType.RBRACKET, TokenType.RBRACE, TokenType.NEWLINE, TokenType.EOF, TokenType.COMMA, TokenType.COLON):
@@ -408,6 +439,7 @@ class ParserExprMixin:
             # "取余"等被lexer保护为IDENTIFIER，也需识别
             elif tok.type == TokenType.IDENTIFIER and tok.value in self.MUL_OP_MAP:
                 op = self._consume().value
+                self._skip_implicit_continuation()
                 right = self._parse_power_expr()
                 left = BinaryOp(self.MUL_OP_MAP[op], left, right)
             elif tok.type == TokenType.STAR:
@@ -415,9 +447,11 @@ class ParserExprMixin:
                 # 检查是否是 ** （幂运算）
                 if self._current() and self._current().type == TokenType.STAR:
                     self._consume()
+                    self._skip_implicit_continuation()
                     right = self._parse_power_expr()
                     left = BinaryOp('**', left, right)
                 else:
+                    self._skip_implicit_continuation()
                     right = self._parse_power_expr()
                     left = BinaryOp('*', left, right)
             elif tok.type == TokenType.SLASH:
@@ -425,13 +459,16 @@ class ParserExprMixin:
                 # 检查是否是 // （整除）
                 if self._current() and self._current().type == TokenType.SLASH:
                     self._consume()
+                    self._skip_implicit_continuation()
                     right = self._parse_power_expr()
                     left = BinaryOp('//', left, right)
                 else:
+                    self._skip_implicit_continuation()
                     right = self._parse_power_expr()
                     left = BinaryOp('/', left, right)
             elif tok.type == TokenType.PERCENT:
                 self._consume()
+                self._skip_implicit_continuation()
                 right = self._parse_power_expr()
                 left = BinaryOp('%', left, right)
             else:
@@ -449,10 +486,12 @@ class ParserExprMixin:
             if tok.type == TokenType.KEYWORD and tok.value in self.POWER_OP_MAP:
                 op = self._consume().value
                 # 幂运算是右结合的，右侧递归调用自身
+                self._skip_implicit_continuation()
                 right = self._parse_power_expr()
                 left = BinaryOp(self.POWER_OP_MAP[op], left, right)
             elif tok.type == TokenType.IDENTIFIER and tok.value in self.POWER_OP_MAP:
                 op = self._consume().value
+                self._skip_implicit_continuation()
                 right = self._parse_power_expr()
                 left = BinaryOp(self.POWER_OP_MAP[op], left, right)
             elif tok.type == TokenType.STAR:
@@ -460,6 +499,7 @@ class ParserExprMixin:
                 self._consume()
                 if self._current() and self._current().type == TokenType.STAR:
                     self._consume()
+                    self._skip_implicit_continuation()
                     right = self._parse_power_expr()
                     left = BinaryOp('**', left, right)
                 else:
@@ -1154,12 +1194,29 @@ class ParserExprMixin:
                 return self._parse_postfix(expr)
 
         # Super引用：父.方法名() → super().方法名()
+        # 仅当 父 后紧跟成员访问点（.）才让出为 super()，
+        # 其余情况「父」按普通标识符（变量名）处理，避免 super() 注入。
         if tok.type == TokenType.KEYWORD and tok.value == '父':
-            self._consume()
-            expr = Identifier("super()")
-            return self._parse_postfix(expr)
+            nxt = self._peek(1)  # 看 父 之后的 token：紧跟成员访问点（.）才让出为 super()
+            if nxt and nxt.type in (TokenType.DOT, TokenType.PERIOD):
+                self._consume()
+                expr = Identifier("super()")
+                return self._parse_postfix(expr)
+            else:
+                self._consume()
+                expr = Identifier("父")
+                return self._parse_postfix(expr)
 
 
+
+        # L-022：表达式位置的 `段落 接收 参数: 体` 匿名闭包（内联回调赋值）。
+        # 在普通段落调用之前尝试，命中则返回闭包；不命中还原 pos 继续走段落调用。
+        if tok.type == TokenType.KEYWORD and tok.value == '段落':
+            _duan_saved = self.pos
+            _closure = self._try_parse_duan_closure()
+            if _closure is not None:
+                return self._parse_postfix(_closure)
+            self.pos = _duan_saved
 
         # 段落调用：函数/段落 段名(参数)
         if tok.type == TokenType.KEYWORD and tok.value in ('函数', '段落'):
@@ -2086,6 +2143,88 @@ class ParserExprMixin:
         if return_expr is None:
             return_expr = Identifier('None')
         return (statements, return_expr)
+
+    def _try_parse_duan_closure(self) -> Optional[LambdaExpression]:
+        """L-022：表达式位置的 `段落 接收 参数: 体` 匿名闭包字面量。
+
+        支持把内联回调赋值给变量：`设 X 为 段落 接收 参数: 体`。
+        体是缩进块（多行）或单行语句；可与「返回闭包」「多层闭包」「捕获外层变量」组合。
+
+        命中返回 LambdaExpression（body_statements 走 code_generator 的匿名函数分支）；
+        不命中（如 `段落 段名(...)` 普通段落调用）返回 None，调用方还原 self.pos。
+        """
+        saved = self.pos
+        # 段落
+        if not (self._current() and self._current().type == TokenType.KEYWORD
+                and self._current().value == '段落'):
+            return None
+        # 接收
+        nxt = self._peek(1)
+        if not (nxt and nxt.type == TokenType.KEYWORD and nxt.value == '接收'):
+            return None
+        self._consume(TokenType.KEYWORD, '段落')
+        self._consume(TokenType.KEYWORD, '接收')
+
+        # 参数名列表（到冒号为止；逗号/空格分隔，兼容 *args / **kwargs）
+        params = []
+        while self._current():
+            tok = self._current()
+            if tok.type == TokenType.STAR:
+                self._consume(TokenType.STAR)
+                if self._current() and self._current().type == TokenType.STAR:
+                    self._consume(TokenType.STAR)
+                    if self._current() and self._current().type == TokenType.IDENTIFIER:
+                        params.append('**' + self._consume(TokenType.IDENTIFIER).value)
+                    elif self._current() and self._current().type == TokenType.KEYWORD:
+                        params.append('**' + self._consume(TokenType.KEYWORD).value)
+                else:
+                    if self._current() and self._current().type == TokenType.IDENTIFIER:
+                        params.append('*' + self._consume(TokenType.IDENTIFIER).value)
+                    elif self._current() and self._current().type == TokenType.KEYWORD:
+                        params.append('*' + self._consume(TokenType.KEYWORD).value)
+            elif tok.type == TokenType.IDENTIFIER:
+                params.append(self._consume(TokenType.IDENTIFIER).value)
+            elif tok.type == TokenType.KEYWORD and tok.value not in (
+                    '返回', '匹配', '情况', '如果', '若', '否则', '遍历', '当', '设',
+                    '定义', '类', '构造', '段落', '函数', '尝试', '捕获', '抛出',
+                    '最终', '导入', '导出', '从'):
+                # 允许非语句关键字作为参数名
+                params.append(self._consume(TokenType.KEYWORD).value)
+            else:
+                break
+            if self._match(TokenType.COMMA):
+                self._consume(TokenType.COMMA)
+            else:
+                break
+
+        # 冒号
+        if not self._match(TokenType.COLON):
+            self.pos = saved
+            return None
+        self._consume(TokenType.COLON)
+
+        # 体：缩进块（多行）或单行
+        has_newline = False
+        while self._current() and self._current().type == TokenType.NEWLINE:
+            has_newline = True
+            self._consume(TokenType.NEWLINE)
+        if self._current() and self._current().type == TokenType.INDENT:
+            self._consume(TokenType.INDENT)
+
+        body_statements = self._parse_body(allow_single_line=not has_newline)
+
+        # 闭包体的收尾 DEDENT（_parse_body 在 depth==0 时留下它）
+        if self._current() and self._current().type == TokenType.DEDENT:
+            self._consume(TokenType.DEDENT)
+
+        # 提取返回表达式（单表达式回退 / 语义分析用）
+        return_expr = None
+        for stmt in body_statements:
+            if type(stmt).__name__ in ('ReturnStmt', 'ReturnStatement'):
+                return_expr = getattr(stmt, 'value', None)
+                break
+
+        return LambdaExpression(params, return_expr, body_statements)
 
     def _parse_lambda(self) -> LambdaExpression:
         """解析匿名函数：接收 参数1 参数2：返回 表达式。 或 接收 参数1 参数2：表达式。"""
