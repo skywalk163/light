@@ -1325,6 +1325,16 @@ class Lexer:
                             continue
                         except ValueError:
                             chars.append(next_ch)
+                    elif next_ch == 'u' and j + 5 < len(source):
+                        # L-033: 识别 \uXXXX 转义并解码为 Unicode 码点
+                        hex_str = source[j+2:j+6]
+                        try:
+                            code_point = int(hex_str, 16)
+                            chars.append(chr(code_point))
+                            j += 6
+                            continue
+                        except ValueError:
+                            chars.append(next_ch)
                     elif next_ch == '0':
                         chars.append('\0')
                     else:
