@@ -2435,22 +2435,30 @@ class ParserStmtMixin:
                     current = current.else_body
                 else:
                     # 否则：直接解析 else_body
-                    self._consume(TokenType.COLON)
-                    
-                    has_newline = False
-                    while self._current() and self._current().type == TokenType.NEWLINE:
-                        has_newline = True
-                        self._consume(TokenType.NEWLINE)
-                    if self._current() and self._current().type == TokenType.INDENT:
-                        self._consume(TokenType.INDENT)
-                    
-                    else_body = self._parse_body(allow_single_line=not has_newline, stop_on_else=True)
-                    
-                    # 消耗 DEDENT（否则体结束）
-                    if self._current() and self._current().type == TokenType.DEDENT:
-                        self._consume(TokenType.DEDENT)
-                    
-                    current.else_body = else_body
+                    # L-043（包⑥）：`如果 cond: A 否则 B` 的 `否则` 后无冒号，
+                    # 属行内 else（同行单语句）。若无冒号则按行内单语句解析，
+                    # 与 if 单行体路径（_parse_if_stmt 上方分支）保持一致；
+                    # 有冒号则维持原有的 `否则:` 块体解析。
+                    if self._current() and self._current().type == TokenType.COLON:
+                        self._consume(TokenType.COLON)
+
+                        has_newline = False
+                        while self._current() and self._current().type == TokenType.NEWLINE:
+                            has_newline = True
+                            self._consume(TokenType.NEWLINE)
+                        if self._current() and self._current().type == TokenType.INDENT:
+                            self._consume(TokenType.INDENT)
+
+                        else_body = self._parse_body(allow_single_line=not has_newline, stop_on_else=True)
+
+                        # 消耗 DEDENT（否则体结束）
+                        if self._current() and self._current().type == TokenType.DEDENT:
+                            self._consume(TokenType.DEDENT)
+
+                        current.else_body = else_body
+                    else:
+                        else_body = [self._parse_statement()]
+                        current.else_body = else_body
                     break
         
         # 消耗结束（如果存在）

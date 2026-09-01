@@ -284,6 +284,17 @@ class ParserExprMixin:
                 self._skip_implicit_continuation()
                 right = self._parse_bitor_expr()
                 left = BinaryOp('!=', left, right)
+            elif tok.type == TokenType.IDENTIFIER and tok.value == '包含':
+                # L-025 + L-031（包⑥，范式 A）：`包含` 已从 KEYWORDS_RESERVED
+                # 降级为上下文关键字（见 keywords.py 注释）。此处词法发 IDENTIFIER，
+                # 在中缀比较位置按 IDENTIFIER `包含` 识别为 in 运算符，产生与
+                # 原有 KEYWORD 路径完全相同的 BinaryOp('@@contains@@', 左, 右)，
+                # codegen 的 `(右 in 左)` 语义不变。标识符位置（右值/实参/参数名）
+                # 由其它分支自然回退为普通标识符。
+                self._consume()
+                self._skip_implicit_continuation()
+                right = self._parse_bitor_expr()
+                left = BinaryOp('@@contains@@', left, right)
             # in / not in 运算符：在 / 于 / 不在 / 不于
             elif tok.type == TokenType.KEYWORD and tok.value in ('在', '于'):
                 self._consume()
