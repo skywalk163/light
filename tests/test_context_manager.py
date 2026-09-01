@@ -728,6 +728,133 @@ class TestGapBMemberAccessStatement:
         assert 'super().__init__(' in code
 
 
+class TestBugAKeywordArg:
+    """单 B·bug A 回归：unified 后端（cli.light_unified 生产路径）此前对调用实参
+    直接 `_generate_expr`，漏了 KeywordArg 分支，导致 `狗(名="阿黄")` 发射成
+    `狗(KeywordArg(名="阿黄"))` 这种非法 Python（运行期 NameError / SyntaxError）。
+
+    src 后端（code_generator.py）各调用分支早已能翻译 KeywordArg，unified 与之分叉。
+    修复：code_generator_unified.py 抽出 `_translate_args` 统一处理关键字实参，并替换
+    FunctionCall / FunctionCallExpr / MemberAccess / NewExpression / MethodCall 五处实参遍历。
+
+    本类锁住修复：关键字实参必须生成成 `名=值` 形态，且产物里不得残留 `KeywordArg(` 字面量。
+    """
+
+    def _gen_unified(self, src: str) -> str:
+        from code_generator_unified import UnifiedCodeGenerator
+        from light_parser_v3 import LightParser
+        return UnifiedCodeGenerator().generate(LightParser().parse(src))
+
+    def _gen_src(self, src: str) -> str:
+        from code_generator import PythonCodeGenerator
+        from light_parser_v3 import LightParser
+        return PythonCodeGenerator().generate(LightParser().parse(src))
+
+    def _run_unified(self, src: str) -> str:
+        import io
+        import contextlib
+        code = self._gen_unified(src)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            exec(code, {})
+        return buf.getvalue().strip()
+
+    def test_function_call_keyword_arg(self):
+        """`问候(名="阿黄")` → `问候(名='阿黄')`，两端口径一致，无 KeywordArg 残留。"""
+        src = (
+            "段 问候(名: 文) -> 文:\n"
+            "    返 \"嗨\" 加 名\n"
+            "\n"
+            "段 主():\n"
+            "    打印(问候(名=\"阿黄\"))\n"
+            "\n"
+            "主()\n"
+        )
+        uni = self._gen_unified(src)
+        src_py = self._gen_src(src)
+        assert '问候(名=\'阿黄\')' in uni, uni
+        assert '问候(名="阿黄")' in src_py or '问候(名=\'阿黄\')' in src_py
+        assert 'KeywordArg(' not in uni and 'KeywordArg(' not in src_py
+        assert self._run_unified(src) == '嗨阿黄'
+
+    def test_member_method_call_keyword_arg(self):
+        """`容器.存入(键="k", 值="1")` → `容器.存入(键='k', 值='1')`（成员方法关键字实参，
+        方法名 存入 不在 method_map，原样保留；关键字实参必须翻成 名=值）。"""
+        src = (
+            "类 盒:\n"
+            "    段 存入(键: 文, 值: 文) -> 文:\n"
+            "        返 键 加 值\n"
+            "\n"
+            "段 主():\n"
+            "    设 容器: 盒 = 盒()\n"
+            "    打印(容器.存入(键=\"k\", 值=\"1\"))\n"
+            "\n"
+            "主()\n"
+        )
+        uni = self._gen_unified(src)
+        assert '容器.存入(键=\'k\', 值=\'1\')' in uni, uni
+        assert 'KeywordArg(' not in uni
+        assert self._run_unified(src) == 'k1'
+
+    def test_method_call_keyword_arg(self):
+        """`工.处理(数据="x")` → `工.处理(数据='x')`（MethodCall 节点关键字实参）。"""
+        src = (
+            "类 工人:\n"
+            "    段 处理(数据: 文) -> 文:\n"
+            "        返 数据\n"
+            "\n"
+            "段 主():\n"
+            "    设 工: 工人 = 工人()\n"
+            "    打印(工.处理(数据=\"x\"))\n"
+            "\n"
+            "主()\n"
+        )
+        uni = self._gen_unified(src)
+        assert '工.处理(数据=\'x\')' in uni, uni
+        assert 'KeywordArg(' not in uni
+        assert self._run_unified(src) == 'x'
+
+    def test_new_expression_keyword_arg(self):
+        """`犬(名="阿黄", 岁=3)` → `犬(名='阿黄', 岁=3)`（类实例化关键字实参）。
+
+        注意：本断言只锁「关键字实参翻译」这一处（bug A 的修复点）。实例化的运行期
+        正确性还依赖 unified 构造函数命名映射（构造→__init__），而 `_generate_method`
+        当前未做该映射——那是**另一处独立的既有缺口**，不在本次 bug A 修复范围内，
+        故此处只做编译期锁，不跑运行期，避免被无关缺口误判红。
+        """
+        src = (
+            "类 犬:\n"
+            "    段 构造(名: 文, 岁: 数):\n"
+            "        己.名 = 名\n"
+            "        己.岁 = 岁\n"
+            "\n"
+            "段 主():\n"
+            "    设 狗: 犬 = 犬(名=\"阿黄\", 岁=3)\n"
+            "    打印(狗)\n"
+            "\n"
+            "主()\n"
+        )
+        uni = self._gen_unified(src)
+        assert '犬(名=\'阿黄\', 岁=3)' in uni, uni
+        assert 'KeywordArg(' not in uni
+
+    def test_positional_and_keyword_mixed(self):
+        """位置参数与关键字实参混排：`狗("1", 名="阿黄", 岁="3")` → `狗('1', 名='阿黄', 岁='3')`。"""
+        src = (
+            "段 狗(标签: 文, 名: 文, 岁: 文) -> 文:\n"
+            "    返 标签 加 名 加 岁\n"
+            "\n"
+            "段 主():\n"
+            "    打印(狗(\"1\", 名=\"阿黄\", 岁=\"3\"))\n"
+            "\n"
+            "主()\n"
+        )
+        uni = self._gen_unified(src)
+        assert '狗(\'1\', 名=\'阿黄\', 岁=\'3\')' in uni, uni
+        assert 'KeywordArg(' not in uni
+        assert self._run_unified(src) == '1阿黄3'
+
+
 # =============================================================================
 # v7 新单 B（第 2 票）：L2 语句层 OOP 修复 —— 按裁决 A~E 分类
 #

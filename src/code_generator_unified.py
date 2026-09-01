@@ -1524,6 +1524,25 @@ class UnifiedCodeGenerator:
             return f"({left} {op} {right})"
         return self._generate_expr(expr)
 
+    def _translate_args(self, args):
+        """把实参列表翻译成 Python 实参片段，支持关键字参数（KeywordArg）。
+
+        对齐 code_generator.py 的各调用分支（FunctionCallExpr / MethodCall /
+        MemberAccess / NewExpression）：`KeywordArg(name, value)` 应发射成
+        `name=_generate_expr(value)`，而不是把 KeywordArg 对象原样 str() 出来。
+
+        单 B·bug A 修复：unified 此前对每个实参直接 `_generate_expr`、漏了 KeywordArg
+        分支，导致 `狗(名="阿黄")` 发射成 `狗(KeywordArg(名="阿黄"))` 这种非法
+        Python（运行期 NameError / SyntaxError）。这里集中处理，避免 5 处实参
+        遍历各自再写一遍。"""
+        parts = []
+        for arg in args:
+            if is_instance(arg, 'KeywordArg'):
+                parts.append(f"{arg.name}={self._generate_expr(arg.value)}")
+            else:
+                parts.append(self._generate_expr(arg))
+        return parts
+
     def _generate_expr(self, expr):
         """生成表达式"""
         if expr is None:
@@ -1672,7 +1691,7 @@ class UnifiedCodeGenerator:
             if func_name not in self.user_functions and func_name in self.builtin_map:
                 func_name = self.builtin_map[func_name]
             
-            args = [self._generate_expr(arg) for arg in (getattr(expr, 'arguments', None) or getattr(expr, 'args', []))]
+            args = self._translate_args(getattr(expr, 'arguments', None) or getattr(expr, 'args', []))
             args_str = ', '.join(args)
             return f"{func_name}({args_str})"
 
@@ -1680,7 +1699,7 @@ class UnifiedCodeGenerator:
         # L-014：与 code_generator.py 的 FunctionCallExpr 分支同构，语句/表达式两层都要能生成。
         elif is_instance(expr, 'FunctionCallExpr'):
             callee = self._generate_expr(expr.callee)
-            args = [self._generate_expr(arg) for arg in getattr(expr, 'args', [])]
+            args = self._translate_args(getattr(expr, 'args', []))
             args_str = ', '.join(args)
             return f"{callee}({args_str})"
         
@@ -1702,7 +1721,7 @@ class UnifiedCodeGenerator:
             }
             mapped_member = method_map.get(expr.member, member)
             if getattr(expr, 'is_method_call', False):
-                args = [self._generate_expr(arg) for arg in (getattr(expr, 'args', None) or [])]
+                args = self._translate_args(getattr(expr, 'args', None) or [])
                 args_str = ', '.join(args)
                 # 父.构造(...) -> super().__init__(...)：与 FunctionCall/PropertyAccess 同口径
                 if obj == 'super()' and expr.member in ('构造', '初始化', '构'):
@@ -1763,7 +1782,7 @@ class UnifiedCodeGenerator:
         # 类实例化
         elif is_instance(expr, 'NewExpression'):
             class_name = self._sanitize_name(expr.class_name)
-            args = [self._generate_expr(arg) for arg in expr.arguments]
+            args = self._translate_args(getattr(expr, 'arguments', []))
             args_str = ', '.join(args)
             return f"{class_name}({args_str})"
         
@@ -1775,7 +1794,7 @@ class UnifiedCodeGenerator:
         # 方法调用
         elif is_instance(expr, 'MethodCall'):
             obj = self._generate_expr(expr.obj)
-            args = [self._generate_expr(arg) for arg in expr.arguments]
+            args = self._translate_args(getattr(expr, 'arguments', []))
             args_str = ', '.join(args)
             return f"{obj}.{expr.method}({args_str})"
         
