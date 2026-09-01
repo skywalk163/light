@@ -251,6 +251,7 @@ class UnifiedCodeGenerator:
         self._add_line("import sys")
         self._add_line("import os")
         self._add_line("import asyncio")  # 用于 async/await 支持
+        self._add_line("from typing import Any, Callable, Optional")  # 类型注解（段->Callable 等）求值所需
         self._add_line("")
         self._add_line("try:")
         self._add_line("    import importlib.util")
@@ -1275,6 +1276,7 @@ class UnifiedCodeGenerator:
         '文本': 'str', '串': 'str', '布尔': 'bool',
         '列表': 'list', '列': 'list', '字典': 'dict', '典': 'dict',
         '集合': 'set', '集': 'set', '任意': 'Any', '空': 'None',
+        '段': 'Callable', '函数型': 'Callable',
     }
 
     def _map_return_type(self, light_type):
