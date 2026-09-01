@@ -57,6 +57,21 @@
 
   注意：换 --root 会让基线里所有 key 一起变（key 是相对 --root 的路径），
   必须整份重生成，不能只补差量；换根造成的「全量新增」不是回归。
+
+关于基线的 key（2026-09-01 改）：
+  原 key 是 `file:line:cat`——**带行号**。行号是这份清单里最易变、却最没有
+  语义的字段：往一个测试文件中间插一段测试，其后所有断言整体下移，门禁就会
+  把「同一条断言换了个行号」判成「1 条新增违规 + 1 条基线失效」，CI 直接红。
+  本仓库已经这样红了三次（e7c5ccd1 / a1ed9163 / 本次），每次都要手工
+  --write-baseline 重建，纯属噪声——它拦下的从来不是坏断言，只是编辑行为。
+
+  现改为按 **(file, cat, 断言原文) 的**多重集**比对：
+    - 去掉行号 → 免疫插入/删除造成的整体位移；
+    - 用多重集而非集合 → 同一文件里 2 条一模一样的坏断言仍算 2 条
+      （实测 468 条存量里有 48 个重复键，用集合会让「再写一条同样的」
+       被第 1 条的额度吃掉，等于给复制粘贴的假绿留后门）。
+  基线文件格式不变（依旧逐条带 file/line/cat/text），行号退化为给人看的
+  位置提示、不参与比对，因此 v2 基线无需迁移即可直接被新逻辑消费。
 """
 from __future__ import annotations
 
@@ -66,6 +81,7 @@ import os
 import re
 import sys
 import tokenize
+from collections import Counter
 
 
 # ── 各形态的静态判定 ──────────────────────────────────────────────────────────
@@ -276,9 +292,11 @@ def load_baseline(path):
 
 
 def violation_key(v):
-    # 存量基线里可能还留着 Windows 分隔符的条目，读的时候一并归一，
-    # 免得非要重写基线才能跨平台对得上。
-    return "%s:%d:%s" % (_posix(v["file"]), v["line"], v["cat"] if "cat" in v else "")
+    # 2026-09-01 改：去掉行号，按 (file, cat, 断言原文) 三重集比对，
+    # 免疫插入/删除造成的行号漂移（详见模块 docstring「关于基线的 key」一节）。
+    # file 仍做 POSIX 归一（存量基线可能带 Windows 分隔符）；line 退化为人看字段，不参与 key。
+    return "%s:%s:%s" % (_posix(v["file"]), v["cat"] if "cat" in v else "",
+                         v.get("text", ""))
 
 
 def main():
@@ -350,9 +368,20 @@ def main():
         print("[假测试门禁] 找不到基线 %s。首次接入请先 --write-baseline 生成并提交。" % args.baseline)
         return 2
 
-    base_keys = {violation_key(v) for v in baseline.get("violations", [])}
-    cur_keys = {violation_key(v) for v in tagged}
-    new_violations = [v for v in tagged if violation_key(v) not in base_keys]
+    # 双重集比对（2026-09-01 改）：base_c / cur_c 是 key→出现次数的计数，
+    # 不再用 set——否则同一文件里两条一模一样的坏断言会被第 1 条额度吃掉，
+    # 给复制粘贴的假绿留后门（实测 468 条存量里有 48 个重复键）。
+    base_c = Counter(violation_key(v) for v in baseline.get("violations", []))
+    cur_c = Counter(violation_key(v) for v in tagged)
+    # 当前条目逐条比对：基线里同 key 还有余额就「核销」，余额耗尽的部分算新增。
+    base_seen = Counter()
+    new_violations = []
+    for v in tagged:
+        k = violation_key(v)
+        base_seen[k] += 1
+        if base_seen[k] <= base_c.get(k, 0):
+            continue
+        new_violations.append(v)
 
     # 逐条打印存量（简略）与新违规（详细）
     if new_violations:
@@ -369,7 +398,12 @@ def main():
     # 而这正是合并点最需要的信息：D4 的基线在前三路合入前生成，C4 改完
     # tests/test_async.py 之后会有一批条目失效，必须被点名提示重建，
     # 否则失效条目会给「同文件同行号的新违规」留一张永久赦免票。
-    stale = sorted(base_keys - cur_keys)
+    # 基线里某项 key 的计数超过当前计数，超出的部分即「已修复/已挪走」的存量。
+    stale = []
+    for k, bc in base_c.items():
+        for _ in range(max(0, bc - cur_c.get(k, 0))):
+            stale.append(k)
+    stale.sort()
     if stale:
         print("[假测试门禁] 相比基线已减少 %d 条。这些基线条目在当前代码里已不存在，"
               "请用 --write-baseline 重建基线（失效条目会给同位置的新违规留赦免票）：" % len(stale))
@@ -381,8 +415,9 @@ def main():
     if new_violations:
         print("[假测试门禁] 红：出现了基线条目之外的新增假绿断言。")
         return 1
-    if total > len(base_keys):
-        print("[假测试门禁] 红：违规总数 %d 超过基线 %d（可能基线被改动绕过）。" % (total, len(base_keys)))
+    base_total = sum(base_c.values())
+    if total > base_total:
+        print("[假测试门禁] 红：违规总数 %d 超过基线 %d（可能基线被改动绕过）。" % (total, base_total))
         return 1
 
     print("[假测试门禁] 通过：存量冻结、无新增。")

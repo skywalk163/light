@@ -508,6 +508,17 @@ class UnifiedCodeGenerator:
     # 相等——改一边忘另一边会当场打红，不会再出现「同一份源码两个后端语义不同」。
     _SELF_NAMES = ('己', '自')
     _CTOR_NAMES = ('构造', '初始化', '构')
+    # 协议魔术方法名（定义侧）：与 code_generator.py::_generate_method(:2722-2730)
+    # 的 if/elif 链同义。src 后端是内联链、无表可比对，故这里**不做**表级 parity
+    # 断言，改由 tests/test_context_manager.py::TestCtorNameMapping 用「双后端各编译
+    # 一遍、产物都必须含 __iter__/__next__/__enter__/__exit__」的行为级 parity 锁住，
+    # 避免为抽表而改动 src 后端（改它会漂 assert_quality 行号基线）。
+    _PROTOCOL_METHOD_MAP = {
+        '__迭代__': '__iter__',
+        '__下一项__': '__next__',
+        '__进入__': '__enter__',
+        '__退出__': '__exit__',
+    }
     _MEMBER_SUFFIX_MAP = (
         ('的长度', 'len({o})'),
         ('的项', '{o}.items()'),
@@ -519,6 +530,19 @@ class UnifiedCodeGenerator:
         """形参名是否是 self 引用（己/自）——方法定义已无条件注入 self，
         源码里显式写出的 自/己 必须吃掉，否则 `def 打印(self, 自)` 重复注入。"""
         return isinstance(param_name, str) and param_name in self._SELF_NAMES
+
+    def _is_ctor_method(self, method) -> bool:
+        """方法是否为构造函数——定义侧唯一判据，与 src 后端
+        code_generator.py::_generate_method(:2716) 的 is_ctor 同口径：
+
+            is_ctor = getattr(method, 'is_constructor', False) or method_name in _CTOR_NAMES
+
+        必须读同一张 _CTOR_NAMES，否则「`构造 接收 …` 译成 __init__、而
+        `段 构造(…)` 仍发 def 构造」会分叉——两种写法都是合法语法，
+        parser 只对前者归一成 __init__（见 parser 输出的
+        MethodDefinition.name='__init__', is_constructor=True）。
+        """
+        return bool(getattr(method, 'is_constructor', False)) or getattr(method, 'name', None) in self._CTOR_NAMES
 
     def _split_member_suffix(self, name):
         """拆 `X的项` 这类复合标识符的成员后缀，命中返回 (对象原名, 输出模板)。
@@ -1368,13 +1392,24 @@ class UnifiedCodeGenerator:
         name = self._sanitize_name(cls.name)
         
         # 处理继承
+        #
+        # 与 src 后端 code_generator.py:2249 同口径：基类 = base_classes + interfaces。
+        # 这里还必须兼容 legacy v2 AST 的 `superclasses`（src/ast_nodes.py）——改动前
+        # 只读后者，而 v3 生产路径的 ClassDefinition（ast_nodes_v3.py 的 __slots__
+        # 里根本没有 superclasses）永远落空，于是 `类 犬 继承 动物：` 被静默发成
+        # `class 犬:`：继承关系整个消失，方法解析、`父.构造(...)`（super().__init__）
+        # 全部退化成 object.__init__ → TypeError。全仓 12 处 `继承` 在踩。
         bases = []
-        if hasattr(cls, 'superclasses') and cls.superclasses:
-            for base in cls.superclasses:
-                if isinstance(base, str):
-                    bases.append(self._sanitize_name(base))
-                elif hasattr(base, 'name'):
-                    bases.append(self._sanitize_name(base.name))
+        raw_bases = list(getattr(cls, 'base_classes', None) or [])
+        raw_bases += list(getattr(cls, 'superclasses', None) or [])
+        raw_bases += list(getattr(cls, 'interfaces', None) or [])
+        for base in raw_bases:
+            if isinstance(base, str):
+                bases.append(self._sanitize_name(base))
+            elif hasattr(base, 'name'):
+                bases.append(self._sanitize_name(base.name))
+        # 去重保序：`继承` 与 interfaces 叠加时可能重复，重复基类 → TypeError
+        bases = list(dict.fromkeys(bases))
         
         bases_str = ', '.join(bases) if bases else ''
         
@@ -1398,13 +1433,26 @@ class UnifiedCodeGenerator:
                         value_code = self._generate_expr(field.default_value)
                         self._add_line(f"self.{field_name} = {value_code}")
         
-        # 生成构造函数
+        # 生成构造函数（dedicated 语法路径，如 parser 产出的 ConstructorDefinition）
+        emitted_init = False
         if hasattr(cls, 'constructor') and cls.constructor:
             self._generate_constructor(cls.constructor)
-        
+            emitted_init = True
+
         # 生成方法
         if hasattr(cls, 'methods') and cls.methods:
             for method in cls.methods:
+                is_ctor = self._is_ctor_method(method)
+                if is_ctor and emitted_init:
+                    # 同一个类里同时出现 `构造 接收 …`（已归一成 __init__）和
+                    # `段 构造(…)`：改名后两者都叫 __init__，后者会在 Python 里
+                    # **静默覆盖**前者。不静默丢——落成注释把冲突摊开。
+                    self._add_line(
+                        f"# 警告：类 {name} 重复定义构造函数，已忽略「段 {getattr(method, 'name', '?')}」"
+                    )
+                    continue
+                if is_ctor:
+                    emitted_init = True
                 self._generate_method(method)
         
         self.indent_level -= 1
@@ -1441,9 +1489,29 @@ class UnifiedCodeGenerator:
         self._in_class_method = old_in_class_method
     
     def _generate_method(self, method):
-        """生成方法定义"""
-        name = self._sanitize_name(method.name)
-        
+        """生成方法定义
+
+        定义侧改名的两条规则，均与 src 后端 code_generator.py::_generate_method
+        (:2715-2730) 同口径：
+          ① 构造名（构造 / 初始化 / 构，或 is_constructor=True）→ __init__
+          ② 协议魔术名（__迭代__ / __下一项__ / __进入__ / __退出__）→ Python dunder
+
+        ① 的缺失是硬崩点：parser 只把 `构造 接收 …` 归一成 __init__，**不**处理
+        `段 构造(…)`（后者 MethodDefinition.name 仍是 '构造'）。于是 unified 下
+        `类 犬: 段 构造(名, 岁)` 发成 `def 构造(self, 名, 岁)`，实例化的 `犬(名=…, 岁=…)`
+        走 object.__init__ → 运行期 `TypeError: 犬() takes no arguments`。
+        `段 构造` 全仓 11 处、`段 初始化` 1 处在用，危害面覆盖所有走 unified 的 OOP 代码。
+        """
+        raw_name = getattr(method, 'name', '')
+        name = self._sanitize_name(raw_name)
+
+        # ① 构造函数名映射（用 raw_name 判定，_CTOR_NAMES 是中文名不受 sanitize 影响）
+        if self._is_ctor_method(method):
+            name = '__init__'
+
+        # ② 协议魔术方法名映射（__init__ 不在表内，原样返回）
+        name = self._PROTOCOL_METHOD_MAP.get(name, name)
+
         # 方法参数（第一个是self）
         params = ['self']
         if hasattr(method, 'parameters'):

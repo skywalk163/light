@@ -855,6 +855,209 @@ class TestBugAKeywordArg:
         assert self._run_unified(src) == '1阿黄3'
 
 
+class TestCtorNameMapping:
+    """单 B·构造函数名映射回归：unified 后端定义侧漏改名。
+
+    根因：parser 只把 `构造 接收 …` 归一成 `__init__`（MethodDefinition.name
+    = '__init__', is_constructor=True），**不**处理 `段 构造(…)` —— 后者的
+    MethodDefinition.name 仍是 '构造'。unified 的 `_generate_method` 此前不做
+    构造名映射，于是：
+
+        类 犬:
+            段 构造(名, 岁):      ->  def 构造(self, 名, 岁)      # 不是 __init__
+                …
+
+    实例化 `犬(名=…, 岁=…)` 落到 object.__init__ → 运行期
+    `TypeError: 犬() takes no arguments`。`段 构造` 全仓 11 处、`段 初始化`
+    1 处在用，且走的是 cli.light_unified 生产路径，危害面覆盖全部 OOP 代码。
+
+    src 后端（code_generator.py::_generate_method:2715-2730）一直有这条映射，
+    两后端分叉。修复：unified 加 `_is_ctor_method` 判据（与 src 同读
+    _CTOR_NAMES）+ 协议魔术名映射表，并补两处相邻缺口：
+      ① `_generate_class` 只读 legacy v2 的 `superclasses`，v3 AST 用
+         `base_classes` → `类 犬 继承 动物：` 的基类被静默丢弃（全仓 12 处）
+      ② 同类重复定义构造（既有 `构造 接收` 又有 `段 构造`）改名后会静默覆盖，
+         改为产出注释提示而非无声吞掉
+    """
+
+    def _gen_unified(self, src: str) -> str:
+        from code_generator_unified import UnifiedCodeGenerator
+        from light_parser_v3 import LightParser
+        return UnifiedCodeGenerator().generate(LightParser().parse(src))
+
+    def _gen_src(self, src: str) -> str:
+        from code_generator import PythonCodeGenerator
+        from light_parser_v3 import LightParser
+        return PythonCodeGenerator().generate(LightParser().parse(src))
+
+    def _run_unified(self, src: str) -> str:
+        import io
+        import contextlib
+        code = self._gen_unified(src)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            exec(code, {})
+        return buf.getvalue().strip()
+
+    # ---- ① 主修复：`段 构造` 必须译成 __init__ --------------------------
+
+    def test_duan_ctor_emits_init(self):
+        """`段 构造(名, 岁)` → `def __init__(self, 名, 岁)`（本 bug 的直接形态）。"""
+        src = (
+            "类 犬:\n"
+            "    段 构造(名, 岁):\n"
+            "        己.名 = 名\n"
+            "        己.岁 = 岁\n"
+        )
+        uni = self._gen_unified(src)
+        assert 'def __init__(self, 名, 岁):' in uni, uni
+        assert 'def 构造(' not in uni, "构造 未改名成 __init__，实例化必然 TypeError"
+
+    def test_duan_ctor_instantiation_runs(self):
+        """端到端：`犬(名=…, 岁=…)` 与 `犬(…, …)` 两种调用都跑得通。
+
+        这是修复前的崩点形态：`犬() takes no arguments`。
+        """
+        src = (
+            "类 犬:\n"
+            "    段 构造(名, 岁):\n"
+            "        己.名 = 名\n"
+            "        己.岁 = 岁\n"
+            "    段 介绍():\n"
+            "        返 己.名\n"
+            "\n"
+            "段 主():\n"
+            "    设 狗 = 犬(名=\"阿黄\", 岁=3)\n"
+            "    打印(狗.介绍())\n"
+            "    打印(犬(\"小黑\", 1).介绍())\n"
+            "\n"
+            "主()\n"
+        )
+        assert self._run_unified(src) == '阿黄\n小黑'
+
+    def test_duan_ctor_parity_with_src_backend(self):
+        """`段 构造` 在两后端产物一致（同一份源码不许两个语义）。"""
+        src = (
+            "类 犬:\n"
+            "    段 构造(名):\n"
+            "        己.名 = 名\n"
+        )
+        assert 'def __init__(self, 名):' in self._gen_unified(src)
+        assert 'def __init__(self, 名):' in self._gen_src(src)
+
+    def test_duan_初始化_emits_init(self):
+        """`段 初始化(名)` 同属 _CTOR_NAMES，一并改名。"""
+        src = (
+            "类 猫:\n"
+            "    段 初始化(名):\n"
+            "        己.名 = 名\n"
+            "\n"
+            "段 主():\n"
+            "    打印(猫(\"咪\").名)\n"
+            "\n"
+            "主()\n"
+        )
+        assert 'def __init__(self, 名):' in self._gen_unified(src)
+        assert self._run_unified(src) == '咪'
+
+    def test_构造接收_form_no_regression(self):
+        """`构造 接收 …`（parser 已归一的形态）不回归，且不触发重复构造警告。"""
+        src = (
+            "类 鸟:\n"
+            "    构造 接收 名:\n"
+            "        己.名 = 名\n"
+            "\n"
+            "段 主():\n"
+            "    打印(鸟(\"雀\").名)\n"
+            "\n"
+            "主()\n"
+        )
+        uni = self._gen_unified(src)
+        assert uni.count('def __init__') == 1, uni
+        assert '重复定义构造函数' not in uni
+        assert self._run_unified(src) == '雀'
+
+    def test_duplicate_ctor_is_not_silent(self):
+        """同类同时有 `构造 接收` 与 `段 构造`：只发一个 __init__ + 显式注释。
+
+        改名后两者同名，Python 里后者会静默覆盖前者——必须摊开，不能无声吞掉。
+        """
+        src = (
+            "类 犬:\n"
+            "    构造 接收 名:\n"
+            "        己.名 = 名\n"
+            "    段 构造(名, 岁):\n"
+            "        己.名 = 名\n"
+            "        己.岁 = 岁\n"
+        )
+        uni = self._gen_unified(src)
+        assert uni.count('def __init__') == 1, uni
+        assert '重复定义构造函数' in uni, "重复构造被静默丢弃"
+
+    # ---- ② 协议魔术名：与 src 后端行为级 parity -------------------------
+
+    def test_protocol_method_names_parity(self):
+        """`段 __迭代__/__下一项__/__进入__/__退出__` 两后端都发成 Python dunder。
+
+        src 后端是 `_generate_method` 里的内联 if/elif 链、无表可比对，故这里用
+        **行为级** parity（各编译一遍断言产物），不去抽表改 src —— 改 src 会漂
+        assert_quality 的行号基线。
+        """
+        src = (
+            "类 计:\n"
+            "    段 __迭代__():\n"
+            "        返 己\n"
+            "    段 __下一项__():\n"
+            "        返 1\n"
+            "    段 __进入__():\n"
+            "        返 己\n"
+            "    段 __退出__():\n"
+            "        返 真\n"
+        )
+        for dunder in ('__iter__', '__next__', '__enter__', '__exit__'):
+            assert f'def {dunder}(self):' in self._gen_unified(src), dunder
+            assert f'def {dunder}(self):' in self._gen_src(src), dunder
+
+    # ---- ③ 继承基类：v3 AST 用 base_classes，不是 superclasses ----------
+
+    def test_inheritance_base_class_emitted(self):
+        """`类 犬 继承 动物：` → `class 犬(动物):`（此前基类被静默丢弃）。"""
+        src = "类 犬 继承 动物:\n    段 构造(名):\n        己.名 = 名\n"
+        assert 'class 犬(动物):' in self._gen_unified(src), self._gen_unified(src)
+
+    def test_inheritance_with_super_ctor_runs(self):
+        """端到端：继承 + `段 构造` + `父.构造(…)` 走通。
+
+        基类被丢时 `super().__init__(名)` 会退化成 object.__init__ → TypeError。
+        """
+        src = (
+            "类 动物:\n"
+            "    段 构造(名):\n"
+            "        己.名 = 名\n"
+            "    段 叫声():\n"
+            "        返 \"?\"\n"
+            "\n"
+            "类 犬 继承 动物:\n"
+            "    段 构造(名, 岁):\n"
+            "        父.构造(名)\n"
+            "        己.岁 = 岁\n"
+            "    段 叫声():\n"
+            "        返 \"汪\"\n"
+            "\n"
+            "段 主():\n"
+            "    设 狗 = 犬(\"阿黄\", 3)\n"
+            "    打印(狗.名)\n"
+            "    打印(狗.岁)\n"
+            "    打印(狗.叫声())\n"
+            "\n"
+            "主()\n"
+        )
+        uni = self._gen_unified(src)
+        assert 'class 犬(动物):' in uni, uni
+        assert 'super().__init__(名)' in uni, uni
+        assert self._run_unified(src) == '阿黄\n3\n汪'
+
+
 # =============================================================================
 # v7 新单 B（第 2 票）：L2 语句层 OOP 修复 —— 按裁决 A~E 分类
 #
