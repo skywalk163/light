@@ -1,10 +1,15 @@
 #!/bin/sh
-# 地板清单咬合守卫（pre-push）
+# CI 基线门禁 pre-push 守卫（地板清单咬合 + 断言质量假绿）
 #
-# 背景：stdlib/builtins.py 的顶层函数是「自举地板」的真相，但 任务书/自举地板清单.json
-# 与 tools/ci/floor_bootstrap_baseline.json 都是人工维护的镜像。任何一次往 builtins.py
-# 增删函数、或改清单分类，都必须同步这两处。靠手同步已两次流到 CI 才被发现
-# （test_地板清单与builtins咬合 / 地板自举率门禁 棘轮红）。本钩子在推送前把关。
+# 背景：light-merge 有多道「基线对比」类 CI 门禁，其基线都是人工维护的镜像，极易因
+# 行号漂移 / 漏同步而误判。本钩子把这些门禁前置到推送前，避免「推上去才在 CI 长红」的往返。
+#
+#   • 地板清单咬合（floor_bootstrap）：stdlib/builtins.py 顶层函数名 集合 必须 ==
+#     任务书/自举地板清单.json 的 名字 集合，否则拦截；咬合后再跑完整门禁，基线棘轮红则警告。
+#     靠手同步已两次流到 CI 才被发现（test_地板清单与builtins咬合 / 地板自举率门禁 棘轮红）。
+#   • 断言质量假绿（assert_quality）：全仓扫描「零信号断言」（is not None / len<=N 等）。
+#     2026-09-01 因 code_generator.py 在 1090→1107 行号漂移，基线失效条目给新违规留了赦免票，
+#     被 CI 判成「新增违规」长红——本段在推送前把这道门禁也跑一遍，基线失效即警告刷新。
 #
 # 行为：
 #   1) 名单双向咬合（builtins.py 顶层函数名 集合 == 清单 名字 集合）不通过 → 拦截推送，
@@ -13,6 +18,10 @@
 #      提示「清单变了但基线没刷新」，建议本地 --write-baseline 后再推。这一步不拦推送，
 #      因为基线棘轮（自举率只升不降 / 豁免只降不升）本就是合并点的人工裁决动作，
 #      不应被钩子自动放过或自动刷新。
+#   3) 断言质量假绿门禁（assert_quality.py --root .）：推送前先跑一遍对比模式。
+#      出现基线条目之外的新增假绿 → 非阻塞警告（CI 会硬拦，建议改断言或 --write-baseline）；
+#      基线存在失效条目（多半是行号漂移）→ 非阻塞警告，提示本地 --write-baseline 后再推，
+#      避免像 2026-09-01 那样在 CI 长红。
 #
 # 安装（任选其一）：
 #   cp tools/ci/hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
@@ -81,5 +90,34 @@ if os.path.isfile(门禁):
         print('  本地刷新基线后再推：', file=sys.stderr)
         print('    python tools/ci/floor_bootstrap.py --root . --write-baseline tools/ci/floor_bootstrap_baseline.json', file=sys.stderr)
         print('  （此警告不拦截推送；CI 的完整门禁会硬拦，请务必先刷新基线）', file=sys.stderr)
+
+# ── 断言质量门禁守卫（举一反三：同一类「人工镜像基线」漂移脆弱性）──
+# src/code_generator.py 等文件只要被插入/删除几行，之前登记在基线里的违规行号就会失效，
+# 失效条目会给「同文件同行号的新违规」留一张永久赦免票，于是 CI 把它判成「新增违规」长红
+# （本次 2026-09-01 的 src/code_generator.py:1107 正是如此：1090→1107 行号漂移）。
+# 本段在推送前把这道门禁也跑一遍：新增违规 → 警告并给修复命令；基线失效（仅行号漂移）→ 警告刷新。
+# 两步都不拦推送：CI 才是硬闸门；钩子只做「提前一轮」的早发现，避免推上去才往返。
+import re as _re
+质量门禁 = os.path.join(root, 'tools', 'ci', 'assert_quality.py')
+if os.path.isfile(质量门禁):
+    g = subprocess.run([sys.executable, 质量门禁, '--root', root],
+                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                       encoding='utf-8', errors='replace')
+    out = g.stdout or ''
+    _m = _re.search(r'新增违规\s+(\d+)\s+条', out)
+    _new = int(_m.group(1)) if _m else 0
+    _s = _re.search(r'已减少\s+(\d+)\s+条', out)
+    _stale = int(_s.group(1)) if _s else 0
+    if _new > 0:
+        print('[pre-push 断言质量守卫] 警告：出现 %d 条基线条目之外的新增假绿断言（CI 会判红拦截）：' % _new, file=sys.stderr)
+        for _l in out.splitlines():
+            if _l.strip().startswith('! '):
+                print('   ' + _l.strip(), file=sys.stderr)
+        print('   建议：把断言改得有信号（不只断 is not None / len<=N 等），或本地 --write-baseline 将其纳入基线后重推：', file=sys.stderr)
+        print('     python tools/ci/assert_quality.py --root . --write-baseline tools/ci/assert_quality_baseline.json', file=sys.stderr)
+    if _stale > 0:
+        print('[pre-push 断言质量守卫] 警告：基线存在 %d 条失效条目（多半是行号漂移），推送前建议先刷新基线：' % _stale, file=sys.stderr)
+        print('   python tools/ci/assert_quality.py --root . --write-baseline tools/ci/assert_quality_baseline.json', file=sys.stderr)
+        print('  （不刷新会像本次一样在 CI 长红）', file=sys.stderr)
 sys.exit(0)
 PYEOF
