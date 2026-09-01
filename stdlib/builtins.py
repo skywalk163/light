@@ -1356,3 +1356,85 @@ __all__ = [
     '只读', '只写', '新建', '截断', '追加', '独占',
     '二进制', '不跟随符号链接',
 ]
+
+
+# =============================================================================
+# A9 空壳补真身（builtin_map → _light_builtin.* 必须有实体，否则调用即 AttributeError）
+# 由 tests/test_codegen.py::test_内置映射不许有空壳 护栏同盯。
+# 惰性 import 遵守地板转发规矩（见文件头）：import 写在函数体内。
+# =============================================================================
+
+def container_get(d, key, default=None):
+    """字典安全取值（惰性辅助，避免与内置 get 语义冲突）。"""
+    try:
+        return d.get(key, default)
+    except Exception:
+        return default
+
+
+def 写入二进制文件(路径: str, 数据) -> None:
+    """写入二进制文件：数据应为 bytes。"""
+    import os
+    d = os.path.dirname(路径)
+    if d and not os.path.exists(d):
+        os.makedirs(d, exist_ok=True)
+    with open(路径, 'wb') as _f:
+        _f.write(数据 if isinstance(数据, (bytes, bytearray)) else str(数据).encode('utf-8'))
+
+
+def 读二进制文件(路径: str) -> bytes:
+    """读取二进制文件，返回 bytes。"""
+    with open(路径, 'rb') as _f:
+        return _f.read()
+
+
+def 创建临时目录() -> str:
+    """创建并返回一个新的临时目录路径。"""
+    import tempfile
+    return tempfile.mkdtemp()
+
+
+def 删目录树(路径: str) -> None:
+    """递归删除目录树（含子目录与文件）。"""
+    import shutil
+    shutil.rmtree(路径, ignore_errors=False)
+
+
+def 复制文件(源: str, 目标: str) -> None:
+    """复制文件（保留元数据）。"""
+    import shutil
+    shutil.copy2(源, 目标)
+
+
+def 复制目录(源: str, 目标: str) -> None:
+    """递归复制目录。"""
+    import shutil
+    shutil.copytree(源, 目标)
+
+
+def 重命名(源: str, 目标: str) -> None:
+    """重命名/移动文件或目录。"""
+    import os
+    os.rename(源, 目标)
+
+
+def 排序列表(序列, 反向: bool = False):
+    """返回排序后的新列表（不原地修改）。"""
+    return sorted(序列, reverse=bool(反向))
+
+
+def 查找目录列表(路径: str = '.') -> list:
+    """列出目录下的条目名（等价 列出目录）。"""
+    import os
+    return os.listdir(路径)
+
+
+def 取可选(容器, 键, 默认=None):
+    """安全取字段：字典用 get，对象用 getattr，异常回落默认（空）。"""
+    try:
+        if isinstance(容器, dict):
+            return container_get(容器, 键, 默认)
+        return getattr(容器, 键, 默认)
+    except Exception:
+        return 默认
+

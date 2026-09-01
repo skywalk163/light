@@ -2514,7 +2514,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             constructor = getattr(cls_def, 'constructor', None)
             if constructor is not None:
                 has_ctor = True
-                ctor_name = getattr(constructor, 'name', None) or class_name
+                # 构造函数经 _gen_global_init 注册时一律以「类名」为方法名
+                # （见下方注册段 3778 行附近的 dv_register_method(cls_name)），
+                # 与 constructor.name（可能被解析器规范化为 __init__）无关。
+                # 此处必须用 class_name 发起调用，否则 dv_call_method 查不到
+                # 该名、构造静默不执行，对象字段停留在默认值（原生腿类构造
+                # 加属性用例产空串的根因）。
+                ctor_name = class_name
             else:
                 for m in (getattr(cls_def, 'methods', []) or []):
                     mn = getattr(m, 'name', None)

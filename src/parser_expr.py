@@ -810,6 +810,13 @@ class ParserExprMixin:
                                          TokenType.COLON, TokenType.DOT, TokenType.PERIOD):
                 self._consume()
                 return self._parse_postfix(Identifier(verb_name))
+            # 下标访问优先：动词名后紧跟 `[` 时，按「变量[下标]」解析，
+            # 避免把 `读取["x"]` / `排序["k"]` 误当成动词调用 读取(...) 把整段 [] 比较吞成实参
+            # （bash渲染 #50：'dict' object is not callable 根因）。
+            # 唯独 `新建 类名[类型]` 的 `[类型]` 是泛型类型参数，须走下方 新建 专属分支，故排除。
+            if _next and _next.type == TokenType.LBRACKET and verb_name != '新建':
+                self._consume()
+                return self._parse_postfix(Identifier(verb_name))
             self._consume()
             
             # 特殊处理：新建（类实例化）
@@ -1204,12 +1211,16 @@ class ParserExprMixin:
                 expr = Identifier("己")
                 return self._parse_postfix(expr)
 
-        # Super引用：父.方法名() → super().方法名()
-        # 仅当 父 后紧跟成员访问点（.）才让出为 super()，
+        # Super引用：父.方法名() / 父 的 方法名() / 父 之 方法名() → super().方法名()
+        # 仅当 父 后紧跟成员访问符（. / 的 / 之）才让出为 super()，
         # 其余情况「父」按普通标识符（变量名）处理，避免 super() 注入。
+        # 注：`.`/PERIOD 之外必须也认 `的`/`之`，否则 `父 的 构(...)` 会解析成
+        # Identifier("父")，codegen 落到 `父.__init__(...)`（与 `超 的 构` 不对称，
+        # 后者在 :1087 已认三种成员访问符）。
         if tok.type == TokenType.KEYWORD and tok.value == '父':
-            nxt = self._peek(1)  # 看 父 之后的 token：紧跟成员访问点（.）才让出为 super()
-            if nxt and nxt.type in (TokenType.DOT, TokenType.PERIOD):
+            nxt = self._peek(1)  # 看 父 之后的 token：紧跟成员访问符才让出为 super()
+            if nxt and (nxt.type in (TokenType.DOT, TokenType.PERIOD)
+                       or (nxt.type == TokenType.KEYWORD and nxt.value in ('的', '之'))):
                 self._consume()
                 expr = Identifier("super()")
                 return self._parse_postfix(expr)
@@ -1600,8 +1611,13 @@ class ParserExprMixin:
             if next_tok and next_tok.type == TokenType.KEYWORD and next_tok.value in self.OPERATOR_VERBS:
                 # 下一个是运算符，不收集参数，直接返回标识符
                 expr = Identifier(name)
-            elif next_tok and next_tok.type == TokenType.IDENTIFIER and                  (next_tok.value in self.ADD_OP_MAP or next_tok.value in self.MUL_OP_MAP or next_tok.value in self.BITWISE_OP_WORDS):
-                # 下一个是IDENTIFIER类型的运算符（如"减去"），不收集参数
+            elif next_tok and next_tok.type == TokenType.IDENTIFIER and                  (next_tok.value in self.ADD_OP_MAP or next_tok.value in self.MUL_OP_MAP or next_tok.value in self.BITWISE_OP_WORDS or next_tok.value == '包含'):
+                # 下一个是IDENTIFIER类型的运算符（如"减去"），不收集参数。
+                # 含 `包含`：它是唯一以 IDENTIFIER 形态存在的比较运算符
+                # （parser_core.COMPARISON_OP_MAP 将其映射为 @@contains@@），
+                # 若在「无括号调用」实参收集处不拦下，会被当成实参吃进
+                # `文件名(包含, 关键词)`，绕过 _parse_comparison 的 BinaryOp 分支，
+                # 导致 codegen 收到 FunctionCall 而非 BinaryOp(@@contains@@)。
                 expr = Identifier(name)
             else:
                 # 检查是否是段落调用（标识符后跟参数）
