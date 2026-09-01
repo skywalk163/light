@@ -112,6 +112,13 @@ jobs:
           python -m pip install cryptography || true
           # xdist 是加速项而非依赖：本地 devpi 镜像不保证有，装不上就串行跑。
           python -m pip install pytest-xdist || true
+          # 测试侧第三方依赖（2026-09-01 增补）：
+          #   - lunardate：农历/节气/节假日换算，test_datetime ×8 依赖，缺则整文件红。
+          #   - aiohttp：异步 HTTP/IO，test_http_client（2 例）+ test_async_io（1 例）依赖。
+          # 本机 devpi 镜像未必有（numpy 也取不到，见上方注释），先试 devpi，失败回退公共
+          # PyPI；仍失败不拦（属环境债，CI 已按 --soft-classname 只报不拦）。这两个包装好后，
+          # 回归闸门会看到「相比基线已转绿 11+ 条」（属改善，不触发拦截面）。
+          python -m pip install lunardate aiohttp || python -m pip install --index-url https://pypi.org/simple lunardate aiohttp || true
 
       - name: 计时打点（装依赖）
         run: python3 tools/ci/time_budget.py --mark 装依赖
