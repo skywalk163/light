@@ -16,10 +16,10 @@
   ],
   "版本": 1,
   "归属": "C9 建（S1），G9 守门禁",
-  "总数": 134,
+  "总数": 145,
   "分类统计": {
-    "native_required": 54,
-    "movable": 8,
+    "native_required": 62,
+    "movable": 11,
     "has_light_impl": 59,
     "duplicate": 13,
     "unused": 0
@@ -1104,6 +1104,94 @@
       "分类": "native_required",
       "目标落点": "真边界：O_NOFOLLOW 是平台 ABI 常量；原生腿未注册，S2 暂由 builtins.py 转发",
       "证据行": "stdlib/builtins.py:1251"
+    },
+    {
+      "名字": "container_get",
+      "职责": "字典/容器安全取值（带默认值，惰性辅助）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心字典.light（纯计算：dict.get / getattr 安全取值；S2 前保留 builtins.py）",
+      "证据行": "stdlib/builtins.py:1367"
+    },
+    {
+      "名字": "写入二进制文件",
+      "职责": "写入二进制文件（数据应为 bytes）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:1375"
+    },
+    {
+      "名字": "读二进制文件",
+      "职责": "读取二进制文件，返回 bytes",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:1385"
+    },
+    {
+      "名字": "创建临时目录",
+      "职责": "创建并返回临时目录路径",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:1391"
+    },
+    {
+      "名字": "删目录树",
+      "职责": "递归删除目录树",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:1397"
+    },
+    {
+      "名字": "复制文件",
+      "职责": "复制文件（保留元数据）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:1403"
+    },
+    {
+      "名字": "复制目录",
+      "职责": "递归复制目录",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:1409"
+    },
+    {
+      "名字": "重命名",
+      "职责": "重命名/移动文件或目录",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:1415"
+    },
+    {
+      "名字": "排序列表",
+      "职责": "返回排序后的新列表（不原地修改）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心列表.light（纯计算：sorted()；S2 前保留 builtins.py）",
+      "证据行": "stdlib/builtins.py:1421"
+    },
+    {
+      "名字": "查找目录列表",
+      "职责": "列出目录下条目名（等价 列出目录）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*；系统：__duan_env_*；stdio：__duan_io_*）；S2 前保留 builtins.py",
+      "证据行": "stdlib/builtins.py:1426"
+    },
+    {
+      "名字": "取可选",
+      "职责": "安全取字段：字典用 get，对象用 getattr，异常回落默认",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心字典.light（纯计算：dict.get / getattr 安全取值；S2 前保留 builtins.py）",
+      "证据行": "stdlib/builtins.py:1432"
     }
   ],
   "地板自举率_S2进度": {
