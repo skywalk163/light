@@ -677,6 +677,14 @@ class UnifiedCodeGenerator:
             expr_code = self._generate_expr(stmt)
             self._add_line(expr_code)
         
+        # 成员访问作为独立语句（如 结果.追加(...)）
+        # 单 B·Gap B 修复：对齐 code_generator.py:1353 的 MemberAccess 语句分支。
+        # 此前 unified 缺此分支，导致「成员方法调用作语句」被静默吞掉、
+        # for 循环体变空 → IndentationError（实测复现：警告「未知语句类型: MemberAccess」）。
+        elif is_instance(stmt, 'MemberAccess'):
+            expr_code = self._generate_expr(stmt)
+            self._add_line(expr_code)
+        
         # 标识符作为语句（调用）
         elif is_instance(stmt, 'Identifier'):
             name = self._sanitize_name(stmt.name)
@@ -1675,6 +1683,32 @@ class UnifiedCodeGenerator:
             args = [self._generate_expr(arg) for arg in getattr(expr, 'args', [])]
             args_str = ', '.join(args)
             return f"{callee}({args_str})"
+        
+        # 成员访问（方法调用 / 属性读取）—— 单 B·Gap B 修复：
+        # `结果.追加(...)` 这种「成员方法调用」在 unified 里被解析为 MemberAccess 节点，
+        # 此前 _generate_expr 缺此分支（默认 return str(expr) 输出垃圾对象地址）。
+        # 对齐 code_generator.py:3219 的 MemberAccess 分支，及本文件 FunctionCall/
+        # PropertyAccess 分支（1633-1651）的方法名映射口径。
+        elif is_instance(expr, 'MemberAccess'):
+            obj = self._generate_expr(expr.obj)
+            member = self._sanitize_name(expr.member)
+            # 与 FunctionCall/PropertyAccess 分支同口径的方法名映射
+            method_map = {
+                '清空': 'clear', '追加': 'append', '弹出': 'pop',
+                '排序': 'sort', '反转': 'reverse', '拷贝': 'copy',
+                '长度': '__len__', '获取': 'get', '设置': 'update',
+                '删除': 'remove', '包含': '__contains__',
+                '构造': '__init__', '初始化': '__init__', '构': '__init__',
+            }
+            mapped_member = method_map.get(expr.member, member)
+            if getattr(expr, 'is_method_call', False):
+                args = [self._generate_expr(arg) for arg in (getattr(expr, 'args', None) or [])]
+                args_str = ', '.join(args)
+                # 父.构造(...) -> super().__init__(...)：与 FunctionCall/PropertyAccess 同口径
+                if obj == 'super()' and expr.member in ('构造', '初始化', '构'):
+                    return f"super().__init__({args_str})"
+                return f"{obj}.{mapped_member}({args_str})"
+            return f"{obj}.{mapped_member}"
         
         # 属性访问
         elif is_instance(expr, 'PropertyAccess'):

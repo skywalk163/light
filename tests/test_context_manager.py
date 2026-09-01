@@ -650,6 +650,84 @@ class TestBackendParity:
         assert g._resolve_name('自.成绩的长度') == 'len(self.成绩)'
 
 
+class TestGapBMemberAccessStatement:
+    """单 B·Gap B 回归：unified 后端（cli.light_unified 生产路径）此前不识别
+    「成员方法调用作独立语句」（如 结果.追加(...)），导致 for 循环体被静默吞掉、
+    生成空块 → IndentationError。
+
+    修复：code_generator_unified.py 的语句分发与 _generate_expr 都补上 MemberAccess
+    分支。本类锁住该修复，防止回退。
+    """
+
+    def _gen_unified(self, src: str) -> str:
+        from code_generator_unified import UnifiedCodeGenerator
+        from light_parser_v3 import LightParser
+        module = LightParser().parse(src)
+        return UnifiedCodeGenerator().generate(module)
+
+    def _run_unified(self, src: str) -> str:
+        import io
+        import contextlib
+        code = self._gen_unified(src)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            exec(code, {})
+        return buf.getvalue().strip()
+
+    def test_member_call_in_loop_body_not_silently_dropped(self):
+        """for 循环体里的 结果.追加(函数(项)) 必须生成出来，不得有未知语句类型警告。"""
+        src = (
+            "段 映射(列表: 列, 函数: 段) -> 列:\n"
+            "    设 结果: 列 = []\n"
+            "    遍 列表 之为 项:\n"
+            "        结果.追加(函数(项))\n"
+            "    返 结果\n"
+            "\n"
+            "段 平方(甲) -> 数:\n"
+            "    返 甲 乘 甲\n"
+            "\n"
+            "打印(映射([1, 2, 3], 平方))\n"
+        )
+        code = self._gen_unified(src)
+        assert '未知语句类型' not in code, "成员方法调用语句被静默丢弃"
+        # 循环体必须生成出 append 调用（不是空块）
+        assert '结果.append(' in code or '.append(' in code
+        # 运行期行为正确
+        assert self._run_unified(src) == '[1, 4, 9]'
+
+    def test_member_call_statement_runs(self):
+        """简单成员方法调用作语句（表.排序() / 表.长度()）应正确运行。"""
+        src = (
+            "段 主():\n"
+            "    设 表: 列 = [3, 1, 2]\n"
+            "    表.排序()\n"
+            "    打印(表)\n"
+            "    打印(表.长度())\n"
+            "\n"
+            "主()\n"
+        )
+        assert self._run_unified(src) == '[1, 2, 3]\n3'
+
+    def test_ctor_call_via_member_access_statement(self):
+        """父.构造(名) 这类成员方法调用语句 → super().__init__(名)，且不得有未知语句类型警告。
+
+        只编译「含父.构造(名)的类定义」即可，不依赖实例化实参路径（后者是另处既有 bug，
+        与 MemberAccess 语句分支无关）。
+        """
+        src = (
+            "类 动物:\n"
+            "    段 构造(名: 文):\n"
+            "        己.名 = 名\n"
+            "\n"
+            "类 狗 继承 动物:\n"
+            "    段 构造(名: 文):\n"
+            "        父.构造(名)\n"
+        )
+        code = self._gen_unified(src)
+        assert '未知语句类型' not in code, "父.构造 成员调用语句被静默丢弃"
+        assert 'super().__init__(' in code
+
+
 # =============================================================================
 # v7 新单 B（第 2 票）：L2 语句层 OOP 修复 —— 按裁决 A~E 分类
 #
