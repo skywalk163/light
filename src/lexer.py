@@ -514,8 +514,15 @@ _COMPOUND_SAFE_SINGLE_KEYWORDS = frozenset({
             #   REGRESS=0、SPLIT=4，4 例全是 `异常` 被切开，均在
             #   bootstrap/release/stdlib 的已损坏生成产物里（`除异常`/`def异常*`），
             #   不在任何测试断言路径上。
-            #   **同 31-G 的告诫：不要把 `异常` 加进关键字表**——那不是给 `常` 加保护，
-            #   而是让 `异常` 自成切割点、把 SPLIT 放大。
+    #   **同 31-G 的告诫：不要把 `异常` 加进关键字表**——那不是给 `常` 加保护，
+    #   而是让 `异常` 自成切割点、把 SPLIT 放大。
+
+    # 包⑤ L-038 补全 —— `到` 是 KEYWORDS_RESERVED 的范围表达式结束符（1到10），
+    # 但常见于复合标识符：截取到末尾/添加到队列/追加到列表/插入到头部。
+    # 不保护则 `截取到末尾` 被切为 截取+到+末尾，运行报 name '末尾' is not defined。
+    # 范围表达式 `1到10` 不受影响：到 处于 NUMBER→KEYWORD→NUMBER 的类型边界，
+    # 不在汉字序列内部，不走 _tokenize_chinese_sequence 路径。
+    '到',
 })
 
 
@@ -944,6 +951,15 @@ class Lexer:
             tokens.append(Token(TokenType.DEDENT, indent_stack[-1], line, col))
         
         tokens.append(Token(TokenType.EOF, None, line, col))
+        
+        # 包⑤ L-039：别名重映射 —— `退出循环` → `跳出`
+        # parser 硬编码 ('跳出','跳','断')，无法在 parser 层加别名（硬边界禁改 parser）。
+        # 在 lexer 返回前把 KEYWORD(退出循环) 的 value 替换为 '跳出'，使 parser 透明接收。
+        _BREAK_ALIAS = {'退出循环': '跳出'}
+        for _tok in tokens:
+            if _tok.type == TokenType.KEYWORD and _tok.value in _BREAK_ALIAS:
+                _tok.value = _BREAK_ALIAS[_tok.value]
+        
         return tokens
     
     def _is_han(self, ch: str) -> bool:
