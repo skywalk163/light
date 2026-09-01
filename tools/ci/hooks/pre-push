@@ -1,0 +1,85 @@
+#!/bin/sh
+# 地板清单咬合守卫（pre-push）
+#
+# 背景：stdlib/builtins.py 的顶层函数是「自举地板」的真相，但 任务书/自举地板清单.json
+# 与 tools/ci/floor_bootstrap_baseline.json 都是人工维护的镜像。任何一次往 builtins.py
+# 增删函数、或改清单分类，都必须同步这两处。靠手同步已两次流到 CI 才被发现
+# （test_地板清单与builtins咬合 / 地板自举率门禁 棘轮红）。本钩子在推送前把关。
+#
+# 行为：
+#   1) 名单双向咬合（builtins.py 顶层函数名 集合 == 清单 名字 集合）不通过 → 拦截推送，
+#      并打印具体「代码有清单无 / 清单有代码无」差异，给出修复命令。
+#   2) 咬合通过后，再跑完整地板门禁（floor_bootstrap.py --root .）；若仍红 → 非阻塞警告，
+#      提示「清单变了但基线没刷新」，建议本地 --write-baseline 后再推。这一步不拦推送，
+#      因为基线棘轮（自举率只升不降 / 豁免只降不升）本就是合并点的人工裁决动作，
+#      不应被钩子自动放过或自动刷新。
+#
+# 安装（任选其一）：
+#   cp tools/ci/hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+#   # 或团队统一：git config core.hooksPath tools/ci/hooks
+#
+# 跳过本次推送：git push --no-verify
+
+# 选 python 解释器：优先本机托管 python，退回 python3 / python
+PY="${WORKBUDDY_PYTHON:-C:/Users/skywalk/.workbuddy/binaries/python/versions/3.13.12/python.exe}"
+if [ ! -x "$PY" ]; then
+  if command -v python3 >/dev/null 2>&1; then PY=python3
+  elif command -v python >/dev/null 2>&1; then PY=python
+  else
+    echo "[pre-push 地板守卫] 找不到 python，跳过守卫（未拦截）。" >&2
+    exit 0
+  fi
+fi
+
+"$PY" - <<'PYEOF'
+import io, ast, json, os, subprocess, sys
+
+root = '.'
+清单路径 = os.path.join(root, '任务书', '自举地板清单.json')
+源路径 = os.path.join(root, 'stdlib', 'builtins.py')
+
+def 读函数名():
+    with io.open(源路径, encoding='utf-8') as f:
+        tree = ast.parse(f.read())
+    return {n.name for n in tree.body
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
+
+def 读清单名():
+    with io.open(清单路径, encoding='utf-8') as f:
+        data = json.load(f)
+    条目 = data.get('函数') or []
+    return {c.get('名字') for c in 条目 if isinstance(c, dict)}
+
+try:
+    真 = 读函数名()
+    清单 = 读清单名()
+except (OSError, SyntaxError, ValueError) as e:
+    print('[pre-push 地板守卫] 读不动地板源/清单（%s），跳过守卫。' % e, file=sys.stderr)
+    sys.exit(0)
+
+漏 = sorted(真 - 清单)
+吹 = sorted(清单 - 真)
+if 漏 or 吹:
+    print('[pre-push 地板守卫] 拦截推送：stdlib/builtins.py 与 任务书/自举地板清单.json 脱节', file=sys.stderr)
+    if 漏:
+        print('  代码有、清单缺（防腐烂）：' + '、'.join(漏), file=sys.stderr)
+    if 吹:
+        print('  清单有、代码无（防吹牛）：' + '、'.join(吹), file=sys.stderr)
+    print('  修复：python tools/ci/floor_bootstrap.py --root . --sync-list  （补完分类/职责/证据行后提交）', file=sys.stderr)
+    sys.exit(1)
+
+print('[pre-push 地板守卫] 名单双向咬合 ✓')
+
+# 咬合通过：再跑完整门禁。若仍红，多半是「清单改了但基线未刷新」→ 非阻塞警告。
+门禁 = os.path.join(root, 'tools', 'ci', 'floor_bootstrap.py')
+if os.path.isfile(门禁):
+    g = subprocess.run([sys.executable, 门禁, '--root', root],
+                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                       encoding='utf-8', errors='replace')
+    if g.returncode != 0:
+        print('[pre-push 地板守卫] 警告：完整地板门禁仍红（名单已咬合，多半是清单改了但基线未刷新）。', file=sys.stderr)
+        print('  本地刷新基线后再推：', file=sys.stderr)
+        print('    python tools/ci/floor_bootstrap.py --root . --write-baseline tools/ci/floor_bootstrap_baseline.json', file=sys.stderr)
+        print('  （此警告不拦截推送；CI 的完整门禁会硬拦，请务必先刷新基线）', file=sys.stderr)
+sys.exit(0)
+PYEOF
