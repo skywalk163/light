@@ -92,6 +92,9 @@ class UnifiedCodeGenerator:
             '印': 'print',
             '打印': 'print',
             '显示': 'print',
+            # L-045：`写` 与 src 后端同口径（不换行写输出），并为输出拼接合并
+            # 提供内置目标（_try_merge_output_concat 依赖此映射识别写族调用）。
+            '写': '_light_builtin.写入输出',
             '读取': 'input',
             '输入': 'input',
             # 列表操作动词
@@ -148,6 +151,10 @@ class UnifiedCodeGenerator:
             '转整数': '_light_builtin.转整数',
             '转浮点': '_light_builtin.转浮点',
             '转字符串': '_light_builtin.转字符串',
+            # L-044：类型转内置以变量/索引为实参时曾漏出裸名（name '文本' is not
+            # defined）；与 src 后端同表，统一生成 str() 内置调用。
+            '文本': 'str',
+            '字符串': 'str',
             '字符串长度': '_light_builtin.字符串长度',
             '显示宽度': '_light_builtin.显示宽度',
             '分割字符串': '_light_builtin.分割字符串',
@@ -583,9 +590,19 @@ class UnifiedCodeGenerator:
         elif is_instance(stmt, 'PrintStatement') or is_instance(stmt, 'PrintStmt'):
             self._generate_print_stmt(stmt)
         
+        # 断言语句（L-037：与 src 后端同口径，支持括号两参写法）
+        elif is_instance(stmt, 'AssertStmt') or is_instance(stmt, 'AssertStatement'):
+            self._generate_assert_stmt(stmt)
+        
         # 表达式语句
         elif is_instance(stmt, 'ExpressionStatement') or is_instance(stmt, 'ExprStmt'):
             expr_code = self._generate_expr(stmt.expression)
+            self._add_line(expr_code)
+        
+        # 二元运算作为独立语句（L-045：`写 "a" + 标签` 被 parser 拆成 BinaryOp
+        # 语句；与 src 后端同口径——路由到 _generate_expr，其内已挂输出拼接合并）
+        elif is_instance(stmt, 'BinaryOp'):
+            expr_code = self._generate_expr(stmt)
             self._add_line(expr_code)
         
         # 赋值语句
@@ -830,6 +847,26 @@ class UnifiedCodeGenerator:
         """生成打印语句"""
         value_code = self._generate_expr(stmt.value)
         self._add_line(f"print({value_code})")
+    
+    def _generate_assert_stmt(self, stmt):
+        """生成断言语句（L-037：括号两参 `断言(条件, 标签)` 拆回 assert 条件, 标签）。
+
+        parser 把括号两参解析成 AssertStmt(condition=TupleLiteral(条件, 标签), message=None)，
+        直接发射会得到 `assert (条件, 标签)`（非空元组恒真，断言静默 no-op）。
+        与 code_generator.py 的 _generate_assert_stmt 同口径处理。
+        """
+        cond = getattr(stmt, 'condition', None)
+        msg = getattr(stmt, 'message', None)
+        if (msg is None and cond is not None and is_instance(cond, 'TupleLiteral')):
+            elems = getattr(cond, 'elements', None)
+            if elems and len(elems) == 2:
+                msg = elems[1]
+                cond = elems[0]
+        cond_code = self._generate_expr(cond)
+        if msg is not None:
+            self._add_line(f"assert {cond_code}, {self._generate_expr(msg)}")
+        else:
+            self._add_line(f"assert {cond_code}")
     
     def _generate_try_stmt(self, stmt):
         """生成异常处理"""
@@ -1422,6 +1459,61 @@ class UnifiedCodeGenerator:
         self._in_function = old_in_function
         self._in_class_method = old_in_class_method
     
+    # L-045：输出类内置目标（写 族），与 code_generator.py 的 _OUTPUT_TARGETS 同口径。
+    _OUTPUT_TARGETS = frozenset({
+        '_light_builtin.写入输出',
+        '_light_builtin.写入错误',
+        '_light_builtin.打印错误',
+        'print',
+    })
+
+    def _try_merge_output_concat(self, expr):
+        """L-045：检测「输出类内置调用 + 二元拼接尾巴」形态并合并为整体写出。
+
+        parser 把 `写 "x=" + 标签` 拆成 BinaryOp(写("x=") + 标签)，直接生成是
+        `写入输出("x=") + 标签`（写返回 None → TypeError）。这里把二叉链最左叶的
+        输出调用视为写语句头，合并成 `输出目标(整条拼接表达式)`。
+        非该形态返回 None。
+        """
+        node = expr
+        while is_instance(node, 'BinaryOp'):
+            node = node.left
+        if not (is_instance(node, 'ParagraphCall') or is_instance(node, 'FunctionCall')):
+            return None
+        raw = node.name
+        if isinstance(raw, str):
+            func_name = self._resolve_name(raw)
+        elif is_instance(raw, 'Identifier') or hasattr(raw, 'name'):
+            func_name = self._resolve_name(getattr(raw, 'name', ''))
+        else:
+            return None
+        args = getattr(node, 'arguments', None) or getattr(node, 'args', None) or []
+        if not args:
+            return None
+        if func_name in self.user_functions:
+            return None
+        target = self.builtin_map.get(func_name)
+        if target not in self._OUTPUT_TARGETS:
+            return None
+        if node is expr:
+            return None
+        merged = self._gen_write_merged(expr, node)
+        return f"{target}({merged})"
+
+    def _gen_write_merged(self, expr, write_call):
+        """把 expr 中的 write_call（二叉链最左叶）替换为其首个实参后生成表达式。"""
+        if expr is write_call:
+            args = getattr(write_call, 'arguments', None) or getattr(write_call, 'args', None) or []
+            return self._generate_expr(args[0])
+        if is_instance(expr, 'BinaryOp'):
+            left = self._gen_write_merged(expr.left, write_call)
+            right = self._gen_write_merged(expr.right, write_call)
+            if expr.operator == '@@contains@@':
+                return f"({right} in {left})"
+            op = self.operator_map.get(expr.operator, expr.operator)
+            return f"({left} {op} {right})"
+        return self._generate_expr(expr)
+
     def _generate_expr(self, expr):
         """生成表达式"""
         if expr is None:
@@ -1458,6 +1550,11 @@ class UnifiedCodeGenerator:
         
         # 二元运算
         elif is_instance(expr, 'BinaryOp'):
+            # L-045：写/印/显示 的输出实参拼接被 parser 拆成 输出(首参) op 尾巴，
+            # 合并为 输出(整条表达式)，与 src 后端同口径。
+            _merged = self._try_merge_output_concat(expr)
+            if _merged is not None:
+                return _merged
             left = self._generate_expr(expr.left)
             right = self._generate_expr(expr.right)
             op = self.operator_map.get(expr.operator, expr.operator)

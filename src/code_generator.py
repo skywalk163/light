@@ -337,6 +337,11 @@ class PythonCodeGenerator:
             '整数': 'int',
             '浮点数': 'float',
             '字符串': 'str',
+            # L-044：`文本(变量/索引)` 以变量/索引为实参时曾漏出裸 `文本`
+            # （运行期 name '文本' is not defined），字面量实参与变量实参走了
+            # 不同表现。这里与 `字符串`/`整数` 同表，统一生成 str() 内置调用。
+            # `文本` 若被 `设 文本 为 …` 绑定为局部变量，_shadows_builtin 会压过此映射。
+            '文本': 'str',
             '列表': 'list',
             '字典': 'dict',
             '集合': 'set',
@@ -572,6 +577,9 @@ class PythonCodeGenerator:
             '字典项列表': '_light_builtin.字典项列表',
             '字典包含键': '_light_builtin.字典包含键',
             '字典获取': '_light_builtin.字典获取',
+            # L-036：安全访问可选字段的一等助手（缺省默认 空）。纯数据登记，不改编译逻辑；
+            # 真身在 stdlib/builtins.py(取可选) → stdlib/内置核心字典.light:47。
+            '取可选': '_light_builtin.取可选',
             
             # 类型检查
             '是整数': '_light_builtin.是整数',
@@ -785,6 +793,62 @@ class PythonCodeGenerator:
         return (isinstance(name, str)
                 and name in self._local_variables
                 and name not in self._user_defined_functions)
+
+    # L-045：输出类内置目标（写 族）。parser 对 写/印/显示 的实参解析只吃首个
+    # 操作数，`写 "a" + 标签` 会被拆成 BinaryOp(写("a") + 标签)；`打印` 已被 parser
+    # 特判（实参吃整条拼接表达式），不在本表里也不会误合并。
+    _OUTPUT_TARGETS = frozenset({
+        '_light_builtin.写入输出',
+        '_light_builtin.写入错误',
+        '_light_builtin.打印错误',
+        'print',
+    })
+
+    def _try_merge_output_concat(self, expr):
+        """L-045：检测「输出类内置调用 + 二元拼接尾巴」形态并合并为整体写出。
+
+        parser 把 `写 "x=" + 标签` 拆成 BinaryOp(ParagraphCall(写, ["x="]), +, 标签)，
+        直接生成是 `写入输出("x=") + 标签`（写返回 None → TypeError: NoneType + str）。
+        这里把二叉链最左叶的输出调用视为「写语句头」，合并成
+        `输出目标(<首实参 op 尾巴…>)`，即整条拼接表达式求值后一次写出。
+
+        返回合并后的代码文本；不是该形态（或输出名被局部变量遮蔽/与用户函数重名）
+        返回 None，调用方走常规生成。
+        """
+        node = expr
+        while isinstance(node, BinaryOp):
+            node = node.left
+        if not isinstance(node, ParagraphCall):
+            return None
+        name = node.name
+        if not isinstance(name, str) or not node.args:
+            return None
+        if self._shadows_builtin(name) or name in self._user_defined_functions:
+            return None
+        target = self.builtin_map.get(name)
+        if target not in self._OUTPUT_TARGETS:
+            return None
+        if node is expr:
+            return None
+        merged = self._gen_write_merged(expr, node)
+        return f"{target}({merged})"
+
+    def _gen_write_merged(self, expr, write_call):
+        """把 expr 中的 write_call（二叉链最左叶）替换为其首个实参后生成表达式。
+
+        只识别 BinaryOp 结构（write_call 必为最左叶），其余节点交给 _generate_expr；
+        运算符与 `包含` 占位符的发射与 _generate_expr 的 BinaryOp 分支同口径。
+        """
+        if expr is write_call:
+            return self._generate_expr(write_call.args[0])
+        if isinstance(expr, BinaryOp):
+            left = self._gen_write_merged(expr.left, write_call)
+            right = self._gen_write_merged(expr.right, write_call)
+            if expr.operator == '@@contains@@':
+                return f"({right} in {left})"
+            op = self.operator_map.get(expr.operator, expr.operator)
+            return f"({left} {op} {right})"
+        return self._generate_expr(expr)
 
     def generate(self, module: Module) -> str:
         """生成Python代码"""
@@ -2032,13 +2096,23 @@ class PythonCodeGenerator:
         
         语法：断言 <条件>，<可选消息>。
         生成：assert <条件>, <消息>
+        L-037：`断言(条件, 标签)` 括号写法被 parser 解析成
+        AssertStmt(condition=TupleLiteral(条件, 标签), message=None)——若直接发射
+        会得到 `assert (条件, 标签)`（非空元组恒真，断言静默 no-op，测试判据全废）。
+        这里把「两元素元组条件」拆回 条件 + 消息，逗号置于括号外（标准 assert 语法）。
         """
-        cond = self._generate_expr(stmt.condition)
-        if stmt.message:
-            msg = self._generate_expr(stmt.message)
-            self._add_line(f"assert {cond}, {msg}")
+        cond = stmt.condition
+        msg = stmt.message
+        if (msg is None and isinstance(cond, TupleLiteral)
+                and cond.elements and len(cond.elements) == 2):
+            msg = cond.elements[1]
+            cond = cond.elements[0]
+        cond_code = self._generate_expr(cond)
+        if msg is not None:
+            msg_code = self._generate_expr(msg)
+            self._add_line(f"assert {cond_code}, {msg_code}")
         else:
-            self._add_line(f"assert {cond}")
+            self._add_line(f"assert {cond_code}")
     
     def _generate_self_assignment(self, stmt):
         """生成self赋值语句"""
@@ -2926,6 +3000,11 @@ class PythonCodeGenerator:
             return self._sanitize_name(str(name_val))
         
         elif isinstance(expr, BinaryOp):
+            # L-045：`写 "a" + 标签` 被 parser 拆成 BinaryOp(写("a") + 标签)，
+            # 左叶为输出类内置调用时合并为 输出(整条表达式)。
+            _merged = self._try_merge_output_concat(expr)
+            if _merged is not None:
+                return _merged
             left = self._generate_expr(expr.left)
             right = self._generate_expr(expr.right)
             # v7 单 08：`包含` 的内部占位符（产生点 src/parser_core.py:270）。
