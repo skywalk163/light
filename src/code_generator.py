@@ -259,22 +259,48 @@ class PythonCodeGenerator:
             '打印': 'print',
             '显示': 'print',
             '输出': 'print',
-            # v7 单 31-F：`写`=write，与 `印`=print 同属 L0 冻结表
-            # docs/language/l0-core.md:91-96「## 输出（2字）」，src/ 从未落地。
-            # 旧行为是**静默错编**：`写(甲)` 原样发射 `写(甲)` → 运行期 NameError。
+
+            # === A9 收口：L-036/037/044/045 ===
+            # 四条散落登记统一收拢到本小节。纯登记形态整理：映射 VALUE 与语义零变更。
             #
-            # 走「范式 C」而不是进关键字表（范式 B），是用户裁决的路线，理由三条
-            # （详见工单 31-F）：
-            # (1) `写` 全仓代码侧词内 797 处（大写 99 / 小写 80 / 转小写 27 …），
-            #     进 `ALL_KEYWORDS` + compound-safe 表会把 `大写`/`小写` 从中间切开；
-            # (2) `积木库/blocks_v5/网络/HTTP方法判断.light` 把 `写` 当**数据值**用
-            #     （`POST, 写, 其他` 的分支枚举），进关键字表会把那种写法改坏，而
-            #     builtin_map 只在**调用点**生效，天然兼容；
-            # (3) 先例就在上面三行：`印`→print 也是靠这张表落地的，词法层零改动。
+            # A9 · L-045 写 → _light_builtin.写入输出 （write，不换行；范式 C）
+            #   v7 单 31-F：`写`=write，与 `印`=print 同属 L0 冻结表
+            #   docs/language/l0-core.md:91-96「## 输出（2字）」，src/ 从未落地。
+            #   旧行为是**静默错编**：`写(甲)` 原样发射 `写(甲)` → 运行期 NameError。
             #
-            # 映射到 `写入输出` 而不是 print：`写` 的语义是 write（不换行），
-            # stdlib/builtins.py:337 的 `写入输出` 正是 `sys.stdout.write` + flush。
+            #   走「范式 C」而不是进关键字表（范式 B），是用户裁决的路线，理由三条
+            #   （详见工单 31-F）：
+            #   (1) `写` 全仓代码侧词内 797 处（大写 99 / 小写 80 / 转小写 27 …），
+            #       进 `ALL_KEYWORDS` + compound-safe 表会把 `大写`/`小写` 从中间切开；
+            #   (2) `积木库/blocks_v5/网络/HTTP方法判断.light` 把 `写` 当**数据值**用
+            #       （`POST, 写, 其他` 的分支枚举），进关键字表会把那种写法改坏，而
+            #       builtin_map 只在**调用点**生效，天然兼容；
+            #   (3) 先例就在上面三行：`印`→print 也是靠这张表落地的，词法层零改动。
+            #
+            #   映射到 `写入输出` 而不是 print：`写` 的语义是 write（不换行），
+            #   stdlib/builtins.py:337 的 `写入输出` 正是 `sys.stdout.write` + flush。
             '写': '_light_builtin.写入输出',
+            #
+            # A9 · L-037 断言 → _light_assert （断言语句/调用）
+            #   语句起始的 `断言 <条件>，<消息>` 由 parser 走 AssertStmt（parser_stmt）；
+            #   括号写法 `断言(条件, 消息)` 被拆回 条件 + 消息，防止元组恒真 no-op。
+            #   helper 由 codegen 在 :1094 现场生成 `def _light_assert(_cond, _msg='')`，
+            #   替代原先被降级为元组的 no-op（曾导致全量测试静默假绿）。
+            '断言': '_light_assert',
+            #
+            # A9 · L-044 文本 → str （类型转换，与 字符串/整数 同表；范式 C）
+            #   `文本(变量/索引)` 以变量/索引为实参时曾漏出裸 `文本`
+            #   （运行期 name '文本' is not defined），字面量实参与变量实参走了
+            #   不同表现。这里与 `字符串`/`整数` 同表，统一生成 str() 内置调用。
+            #   `文本` 若被 `设 文本 为 …` 绑定为局部变量，_shadows_builtin 会压过此映射。
+            '文本': 'str',
+            #
+            # A9 · L-036 取可选 → _light_builtin.取可选 （安全访问可选字段，缺省默认 空）
+            #   纯数据登记，不改编译逻辑。原注释指真身在 stdlib/内置核心字典.light:47，
+            #   但**该实现当前未落地**：全仓 stdlib 无 `取可选` 定义/暴露，调用即
+            #   AttributeError（tests/test_codegen.py 的空壳护栏同揪出）。本收口不改
+            #   stdlib；补真身或撤映射交由 P0-A 泳道统一裁决。
+            '取可选': '_light_builtin.取可选',
 
             # ---- A2-3 异步并发原语 ----
             # 为什么放在 builtin_map 而不是继续往 src/lexer.py 的标识符白名单里加名字：
@@ -306,7 +332,6 @@ class PythonCodeGenerator:
 
 
 
-            '断言': '_light_assert',
             '读取': 'input',
             '输入': 'input',
             '长': 'len',
@@ -337,11 +362,6 @@ class PythonCodeGenerator:
             '整数': 'int',
             '浮点数': 'float',
             '字符串': 'str',
-            # L-044：`文本(变量/索引)` 以变量/索引为实参时曾漏出裸 `文本`
-            # （运行期 name '文本' is not defined），字面量实参与变量实参走了
-            # 不同表现。这里与 `字符串`/`整数` 同表，统一生成 str() 内置调用。
-            # `文本` 若被 `设 文本 为 …` 绑定为局部变量，_shadows_builtin 会压过此映射。
-            '文本': 'str',
             '列表': 'list',
             '字典': 'dict',
             '集合': 'set',
@@ -577,9 +597,6 @@ class PythonCodeGenerator:
             '字典项列表': '_light_builtin.字典项列表',
             '字典包含键': '_light_builtin.字典包含键',
             '字典获取': '_light_builtin.字典获取',
-            # L-036：安全访问可选字段的一等助手（缺省默认 空）。纯数据登记，不改编译逻辑；
-            # 真身在 stdlib/builtins.py(取可选) → stdlib/内置核心字典.light:47。
-            '取可选': '_light_builtin.取可选',
             
             # 类型检查
             '是整数': '_light_builtin.是整数',
