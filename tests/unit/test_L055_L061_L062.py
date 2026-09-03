@@ -108,7 +108,9 @@ class TestL061TopExceptionAttribution:
     def test_message_matches_throw_site(self):
         """message 与抛出点对应：输出包含抛出语句文本，而非首行陈旧内容"""
         e, py_code = _run_exc(self._code)
-        assert e is not None
+        # 复合断言（guard + 有信号）：既防 format_error 收到 None，又验证异常消息
+        # 来自抛出点文本（避免「确实抛了但抛错位置」被 guard 放行）。
+        assert e is not None and 'boom' in str(e)
         out = format_error(self._code, e, py_code=py_code)
         assert 'boom' in out
         # 抛出点（光明第 7 行）必须出现在归因上下文里
@@ -119,7 +121,9 @@ class TestL061TopExceptionAttribution:
     def test_line_number_points_to_throw_statement(self):
         """行号指向抛出语句（第 7 行）而不是后续语句"""
         e, py_code = _run_exc(self._code)
-        assert e is not None
+        # 复合断言（guard + 有信号）：同 test_message_matches_throw_site，
+        # 先证明确实抛出了且消息来自抛出点，再验证行号归因。
+        assert e is not None and 'boom' in str(e)
         out = format_error(self._code, e, py_code=py_code)
         # 抛出语句行文本在代码片段中
         assert '抛出 新建 错误("boom")' in out
