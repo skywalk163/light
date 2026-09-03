@@ -3616,7 +3616,16 @@ class PythonCodeGenerator:
                     # **展开
                     items.append(f"**{self._generate_expr(v)}")
                 else:
-                    items.append(f"{self._generate_expr(k)}: {self._generate_expr(v)}")
+                    # L-063：裸标识符键一律转字符串键（JS 风格）。光明规范字典键带
+                    # 引号；裸键此前被当变量表达式生成 → 中文裸键 NameError 或
+                    # 同名变量键 unhashable TypeError（如 `{失败规则: 失败规则}`）。
+                    # 一律转成字符串字面量修复这两种情况。需要「变量作键」时用
+                    # 括号 `{(变量): 值}` / 计算表达式 / 字典推导式 / ** 展开——
+                    # 那些键节点不是裸 Identifier，不受影响。
+                    if type(k).__name__ == 'Identifier':
+                        items.append(f"'{k.name}': {self._generate_expr(v)}")
+                    else:
+                        items.append(f"{self._generate_expr(k)}: {self._generate_expr(v)}")
             return f"{{{', '.join(items)}}}"
 
         elif isinstance(expr, ConditionalExpression):
@@ -3930,6 +3939,13 @@ class PythonCodeGenerator:
         （否则 `己.x` 会被当成类属性名再套一层 self.）。
         """
         if not isinstance(name, str):
+            return name
+        # L-053：己/自 仅在类方法内是 self 引用；类外（模块级/普通函数）是普通标识符。
+        # 写入侧 VarDecl（_generate_var_decl:1630）曾无条件映射，导致 `设 己 为 42`
+        # 被编成 `self = 42`，而读取侧（_resolve_identifier_name）保留 `己` → 运行期
+        # NameError。加 _in_class_method 门禁后两端口径一致；3162/3949 调用点本就带
+        # 门禁，不受影响。
+        if not self._in_class_method:
             return name
         for sref in self._SELF_NAMES:
             if name == sref:

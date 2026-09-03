@@ -1247,12 +1247,12 @@ class ParserExprMixin:
             while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
                 name_parts.append(self._consume().value)
             if not name_parts:
-                # 关键字后直接跟 `(`：这里的「函数/段落」是被当普通变量名用
-                # （如形参 `函数: 段` 在 `结果.追加(函数(项))` 里的调用），
-                # 而不是段落调用 `函数 段名(...)`。退回标识符走通用调用后缀。
-                if self._current() and self._current().type == TokenType.LPAREN:
-                    return self._parse_postfix(Identifier(tok.value))
-                return self._error("函数/段落调用后应跟段名", tok.line, tok.col)
+                # L-060：关键字后没有段名时，这里的「函数/段落」是被当普通标识符用
+                # （如 `写 转字符串(函数)` 里的变量 `函数`、形参 `函数` 的读取），
+                # 而不是段落调用 `函数 段名(...)`。一律退回标识符走通用后缀——
+                # 后续若有 `(`（`函数(x)` 把变量当函数调用）也由 postfix 处理；
+                # 若无 `(`（纯变量读）则作为 Identifier 落成变量名。
+                return self._parse_postfix(Identifier(tok.value))
             name = ''.join(name_parts)
             if self._current() and self._current().type == TokenType.LPAREN:
                 self._consume(TokenType.LPAREN)
@@ -1930,6 +1930,16 @@ class ParserExprMixin:
         last_end = 0
         has_invalid = False
         for m in re.finditer(r'\{([^}]+)\}', value):
+            # L-052：{...} 前紧邻 '$'（或 '\'）视为字面量，不做插值。
+            # 例如 shell 环境变量写法 "${VAR}"、转义 "\{name}" 应原样保留，
+            # 不被当作光明插值（否则会误求值未定义的 VAR / name 而报 NameError）。
+            if m.start() > 0 and value[m.start() - 1] in ('$', '\\'):
+                # 将 ${...}（含前导 '$' / '\'）作为字面量文本并入。
+                if m.start() > last_end:
+                    parts.append(value[last_end:m.start()])
+                parts.append(value[m.start():m.end()])
+                last_end = m.end()
+                continue
             expr_text = m.group(1).strip()
             # 检查是否是有效的插值表达式
             # 有效标识符：中文、字母、数字、下划线、点号(属性)、方括号(索引)

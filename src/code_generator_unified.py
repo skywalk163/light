@@ -1916,9 +1916,18 @@ class UnifiedCodeGenerator:
                         # **展开（_convert_dict_literal 以 (None, expr) 表示）
                         entries.append(f"**{self._generate_expr(value)}")
                     else:
-                        entries.append(f"{self._generate_expr(key)}: {self._generate_expr(value)}")
+                        # L-063：裸 Identifier 键转字符串键（unified 后端无绑定表，
+                        # 统一 JS 风格；SRC 后端对已绑定名字保留变量键）。需要变量键
+                        # 时请用字典推导式 / ** 展开 / 计算表达式。
+                        if type(key).__name__ == 'Identifier':
+                            entries.append(f"'{key.name}': {self._generate_expr(value)}")
+                        else:
+                            entries.append(f"{self._generate_expr(key)}: {self._generate_expr(value)}")
                 elif hasattr(entry, 'key') and hasattr(entry, 'value'):
-                    entries.append(f"{self._generate_expr(entry.key)}: {self._generate_expr(entry.value)}")
+                    if type(entry.key).__name__ == 'Identifier':
+                        entries.append(f"'{entry.key.name}': {self._generate_expr(entry.value)}")
+                    else:
+                        entries.append(f"{self._generate_expr(entry.key)}: {self._generate_expr(entry.value)}")
                 else:
                     entries.append(self._generate_expr(entry))
             return f"{{{', '.join(entries)}}}"

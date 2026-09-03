@@ -589,6 +589,60 @@ def extract_embed_export_names(language: str, code: str) -> Set[str]:
     return set()
 
 
+# ── L-051：多行字典/列表字面量 —— 括号类型判定 ──────────────────
+#
+# `{` 在光明里是双义符号：既可以是字典/集合字面量（`设 映射 为 {`），
+# 也可以是 C 风格语句块（`循环(...){...}` / `如果(...){...}` / `否则{...}` /
+# 裸块 `{ stmts }`）。语句块的 body 由 `_parse_brace_body` 依赖花括号内部的
+# NEWLINE/INDENT/DEDENT 定界，因此换行抑制**只能作用于字面量括号**，
+# 绝不能作用于语句块花括号，否则 C 风格控制流全部解析失败。
+#
+# 判定：看 `{` 之前最近的实义 token——若它处于「必须接表达式」的位置
+# （赋值 `为`、返回、`(`/`[`/`{` 之内、逗号、冒号、等号、运算符），
+# 则 `{` 是字面量；否则（语句开头、`)` 之后、标识符/字面量之后）视为语句块。
+
+# 「必须接表达式」的前置关键字（其后 `{` 判为字面量）
+_LITERAL_BRACE_PREV_KEYWORDS = frozenset({
+    '为', '返回', '等于', '之', '加', '减', '乘', '除',
+    '加上', '减去', '乘以', '除以',
+})
+
+# 「必须接表达式」的前置标点 token（其后 `{` 判为字面量）
+_LITERAL_BRACE_PREV_TYPES = frozenset({
+    TokenType.LPAREN, TokenType.LBRACKET, TokenType.LBRACE,
+    TokenType.COMMA, TokenType.COLON, TokenType.EQUALS,
+})
+
+# 值本身即字面量/名字、不可能引出字面量 `{` 的 token 类型
+_LITERAL_BRACE_STOP_TYPES = frozenset({
+    TokenType.IDENTIFIER, TokenType.NUMBER, TokenType.STRING,
+})
+
+_BRACE_SKIP_TYPES = frozenset({
+    TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT,
+})
+
+
+def _is_literal_lbrace(tokens) -> bool:
+    """L-051：判断当前 `{` 是「字典/集合字面量」还是「C 风格语句块」。
+
+    返回 True 表示字面量（其内换行应被抑制），False 表示语句块（保持原行为）。
+    """
+    prev = None
+    for tok in reversed(tokens):
+        if tok.type in _BRACE_SKIP_TYPES:
+            continue
+        prev = tok
+        break
+    if prev is None:
+        return False
+    if prev.type == TokenType.KEYWORD:
+        return prev.value in _LITERAL_BRACE_PREV_KEYWORDS
+    if prev.type in _LITERAL_BRACE_STOP_TYPES:
+        return False
+    return prev.type in _LITERAL_BRACE_PREV_TYPES
+
+
 class LexerError(Exception):
     """词法分析错误"""
     def __init__(self, message: str, line: int, col: int, source_context: str = None):
@@ -670,6 +724,14 @@ class Lexer:
 
         # 处理缩进
         indent_stack = [0]
+        # L-051：括号深度计数。{ [ ( 及其闭包内的换行属于表达式内部空白，
+        # 不应发射 NEWLINE/INDENT/DEDENT，否则多行字典/列表字面量会破坏后续块缩进。
+        # 注意：仅「字面量括号」抑制换行；C 风格语句块花括号（`循环(...){...}` 等）
+        # 的 body 由 NEWLINE/INDENT/DEDENT 定界，必须保持原样发射。
+        # 每个未闭合括号一个元素：True = 语句块花括号（不抑制换行），False = 字面量括号（抑制）。
+        # 判据取「最内层」——块花括号内嵌的字面量（`循环(...){ 设 x 为 [\n…\n] }`）
+        # 仍应抑制，只有最内层是语句块花括号时才放行 NEWLINE/INDENT/DEDENT。
+        bracket_stack = []
 
         # 安全计数器（防止意外死循环）
         _main_loop_safety = 0
@@ -690,6 +752,14 @@ class Lexer:
             
             # 处理换行
             if source[i] == '\n':
+                # L-051：括号内换行属于表达式内部空白，不发射 NEWLINE/INDENT/DEDENT，
+                # 否则多行字典/列表字面量会向 token 流注入 phantom 缩进，破坏后续块缩进。
+                # 语句块花括号（block_brace_depth > 0）内不抑制——body 需要这些 token 定界。
+                if bracket_stack and not bracket_stack[-1]:
+                    line += 1
+                    col = 1
+                    i += 1
+                    continue
                 tokens.append(Token(TokenType.NEWLINE, '\n', line, col))
                 line += 1
                 col = 1
@@ -802,9 +872,20 @@ class Lexer:
                     i += 1
                     continue
                 else:
+                    # L-051：跟踪括号栈（True = 语句块花括号，False = 字面量括号）。
+                    # 注意：`{` 的双义判定必须在把 `{` 自身追加进 tokens **之前**做——
+                    # 否则辅助函数会把 `{` 自己当成「前一个实义 token」，而 LBRACE 属于
+                    # 字面量前置集合，会导致所有 `{` 恒被判为字面量，C 风格语句块全崩。
+                    is_block_brace = (token.type == TokenType.LBRACE
+                                      and not _is_literal_lbrace(tokens))
                     tokens.append(token)
                     col += consumed
                     i += consumed
+                    if token.type in (TokenType.LPAREN, TokenType.LBRACKET, TokenType.LBRACE):
+                        bracket_stack.append(is_block_brace)
+                    elif token.type in (TokenType.RPAREN, TokenType.RBRACKET, TokenType.RBRACE):
+                        if bracket_stack:
+                            bracket_stack.pop()
                     continue
             
             # 处理数字
@@ -1941,6 +2022,28 @@ class Lexer:
             j -= 1
         return None
 
+    def _await_in_name(self, full_identifier: str, source: str, abs_pos: int) -> bool:
+        """L-056：判断 full_identifier 是否因内嵌 await 关键字（等待 / 等）而必须整体成标识符。
+
+        光明语言的 await 规范写法恒带空格（等待 目标() / 等 目标()）。若 等待 / 等
+        出现在汉字序列内部、且其「后一个字符」是标识符续接字符（汉字 / ASCII 字母数字
+        / 下划线，即无空格紧邻），说明它是某个标识符的一部分（等待器 / 团队错等待中止 /
+        等他 …），不能当关键字切出，整串应作为单个标识符。
+        反例：带空格的 await（等待 目标）会被空格切成独立汉字段，full_identifier 仅为
+        「等待」、其后为空格 → 不触发本规则，仍是 KEYWORD（await）。
+        """
+        n = len(source)
+        j = 0
+        while j < len(full_identifier):
+            kw, klen = self._match_keyword(source, abs_pos + j)
+            if kw in ('等待', '等'):
+                after_idx = abs_pos + j + klen
+                after = source[after_idx] if after_idx < n else ''
+                if after and (_is_han_fast(after) or after == '_' or _is_ascii_alnum(after)):
+                    return True
+            j += 1
+        return False
+
     def _tokenize_chinese_sequence(self, source: str, i: int, line: int, col: int, tokens: List[Token], user_definitions: Set[str] = None) -> int:
         """
         处理连续的汉字序列（实现三层分词）
@@ -2056,6 +2159,18 @@ class Lexer:
                 j += 1
             
             full_identifier = source[pos:j]
+
+            # L-056：等待 / 等 是 await 关键字，但规范用法恒带空格（等待 目标()）。
+            # 若它出现在汉字序列内部、且其后紧跟标识符续接字符（无空格），说明它是某个
+            # 标识符的一部分（等待器 / 团队错等待中止 / 等他），不能当关键字切出。
+            # 整串作为单个标识符整体输出，避免把标识符中间的关键字错误拆出。
+            # 带空格的 await 会被空格切成独立汉字段（full_identifier 仅为「等待」、其后为
+            # 空格），不会触发本规则，仍是 KEYWORD。
+            if self._await_in_name(full_identifier, source, pos):
+                _tokens_append(_Token(_TokenType.IDENTIFIER, full_identifier, line, current_col))
+                consumed += len(full_identifier)
+                current_col += len(full_identifier)
+                continue
 
             # P0-A 确定性合并（有界「精确整串」集合 _P0A_MERGE_WHOLE，非逐词白名单
             # COMMON_COMPOUND_WORDS / IDENTIFIER_SAFE_KEYWORDS）：整串恰好等于 §8.4 点名的

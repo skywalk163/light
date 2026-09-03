@@ -50,6 +50,12 @@ else:
 if os.path.isdir(_BOOTSTRAP_DIR):
     sys.path.insert(0, _BOOTSTRAP_DIR)
 
+# ── 权威 SRC 后端路径（与 tests/test_e2e.py / cli/light.py 一致）──
+# 优先使用 src/ 下的 LightParser + PythonCodeGenerator（含本项目的词法/解析修复），
+# 仅在 src 不可用时回退到遗留的 bootstrap/level7_generated.py 打包编译器。
+sys.path.insert(0, _SCRIPT_DIR)
+sys.path.insert(0, os.path.join(_SCRIPT_DIR, 'src'))
+
 # ── 运行时命名空间 ────────────────────────────────────────────
 def _创建运行时命名空间():
     """创建光明代码运行所需的命名空间"""
@@ -76,7 +82,7 @@ def _创建运行时命名空间():
 
 
 def _加载编译器():
-    """加载 level7_generated.py 编译器"""
+    """加载 level7_generated.py 编译器（遗留回退路径）"""
     compiler_path = os.path.join(_BOOTSTRAP_DIR, 'level7_generated.py')
     if not os.path.exists(compiler_path):
         # 尝试从当前目录加载
@@ -92,8 +98,44 @@ def _加载编译器():
     return ns['编译'], ns
 
 
+def _src_compile(源代码):
+    """用权威 src 后端把光明代码编译为 Python 代码；不可用返回 None。"""
+    try:
+        from light_parser_v3 import LightParser
+        from code_generator import PythonCodeGenerator
+    except ImportError:
+        return None
+    parser = LightParser()
+    module = parser.parse(源代码)
+    if module is None:
+        return None
+    return PythonCodeGenerator().generate(module)
+
+
+def _src_run(源代码, file_path=None):
+    """用权威 src 后端编译并运行光明代码；失败返回 False。"""
+    py_code = _src_compile(源代码)
+    if py_code is None:
+        return False
+    namespace = {}
+    if file_path:
+        namespace['__file__'] = os.path.abspath(file_path)
+    try:
+        exec(py_code, namespace)
+        return True
+    except Exception as e:
+        print(f"[运行错误] {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def 编译代码(源代码, 调试模式=False):
-    """编译光明代码为 Python 代码"""
+    """编译光明代码为 Python 代码（优先 src 后端，回退遗留编译器）"""
+    py_code = _src_compile(源代码)
+    if py_code is not None:
+        return py_code
+    # 回退到遗留 level7_generated.py 编译器
     编译, ns = _加载编译器()
     if 调试模式:
         ns['调试模式'] = True
@@ -137,8 +179,19 @@ def 运行代码(源代码, 调试模式=False, 调试文件=None):
         return False
 
 
-def 编译并运行(源代码, 输出文件=None, 调试模式=False, 调试文件=None):
-    """编译并运行光明代码，可选择输出到文件"""
+def 编译并运行(源代码, 输出文件=None, 调试模式=False, 调试文件=None, 源文件路径=None):
+    """编译并运行光明代码，可选择输出到文件（优先 src 后端）"""
+    # 优先使用权威 src 后端（与 tests/test_e2e.py / cli/light.py 一致）。
+    # 仅当 src 不可用、或需要遗留调试特性（调试模式/调试文件）时回退到 level7_generated.py。
+    if not 调试模式 and 调试文件 is None:
+        py_code = _src_compile(源代码)
+        if py_code is not None:
+            if 输出文件:
+                with open(输出文件, 'w', encoding='utf-8') as f:
+                    f.write(py_code)
+                print(f"[成功] 已生成: {输出文件}")
+            return _src_run(源代码, 源文件路径)
+    # 回退到遗留 level7_generated.py 编译器
     编译, ns = _加载编译器()
     if 调试模式:
         ns['调试模式'] = True
@@ -388,7 +441,7 @@ def 主函数():
             return
         
         if output_file:
-            编译并运行(源代码, 输出文件=output_file, 调试模式=debug_mode, 调试文件=debug_file)
+            编译并运行(源代码, 输出文件=output_file, 调试模式=debug_mode, 调试文件=debug_file, 源文件路径=source_file)
         else:
             py_code = 编译代码(源代码, 调试模式=debug_mode)
             if py_code:
@@ -405,7 +458,7 @@ def 主函数():
             sys.exit(1)
         with open(source_file, 'r', encoding='utf-8') as f:
             源代码 = f.read()
-        成功 = 编译并运行(源代码, 输出文件=output_file, 调试模式=debug_mode, 调试文件=debug_file)
+        成功 = 编译并运行(源代码, 输出文件=output_file, 调试模式=debug_mode, 调试文件=debug_file, 源文件路径=source_file)
         if not 成功:
             sys.exit(1)
         return
@@ -417,7 +470,7 @@ def 主函数():
             sys.exit(1)
         with open(source_file, 'r', encoding='utf-8') as f:
             源代码 = f.read()
-        成功 = 编译并运行(源代码, 输出文件=output_file, 调试模式=debug_mode, 调试文件=debug_file)
+        成功 = 编译并运行(源代码, 输出文件=output_file, 调试模式=debug_mode, 调试文件=debug_file, 源文件路径=source_file)
         if not 成功:
             sys.exit(1)
     else:
