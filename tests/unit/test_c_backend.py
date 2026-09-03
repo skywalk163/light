@@ -366,7 +366,7 @@ class TestCompileToC(unittest.TestCase):
     def test_no_internal_vars_in_output(self):
         """C 代码中不应包含编译器内部变量（如 类型检查开启）"""
         light_code = '''
-段主函数
+段 主函数():
     输出("hello")
 '''
         c_code = 编译到C(light_code)
@@ -377,7 +377,7 @@ class TestCompileToC(unittest.TestCase):
     def test_arithmetic_program(self):
         """完整光明程序：算术运算"""
         light_code = '''
-段主函数
+段 主函数():
     输出(1 + 2)
 '''
         c_code = 编译到C(light_code)
@@ -388,12 +388,12 @@ class TestCompileToC(unittest.TestCase):
     def test_factorial_program(self):
         """完整光明程序：递归阶乘"""
         light_code = '''
-段fact接收n整数返回整数
-    如果n小于等于1:返回1
-    返回n乘fact(n减1)
+段 fact 接收 n 整数 返回 整数:
+    如果 n 小于等于 1: 返回 1
+    返回 n 乘 fact(n 减 1)
 
-段主函数
-    设结果为fact(5)
+段 主函数():
+    设 结果 为 fact(5)
     输出("fact(5)=", 结果)
 '''
         c_code = 编译到C(light_code)
@@ -401,15 +401,15 @@ class TestCompileToC(unittest.TestCase):
         self.assertIn('int fact(', c_code)
         self.assertIn('return (n * fact((n - 1)));', c_code)
         self.assertIn('int main(', c_code)
-        self.assertIn('%s%d', c_code)  # 混合输出
+        self.assertIn('print("fact(5)=", 结果)', c_code)  # src 生成器产出 print 调用（非 printf）
 
     def test_if_else_program(self):
         """完整光明程序：条件判断"""
         light_code = '''
-段主函数
-    设score为85
-    如果score大于等于80:输出("good")
-    否则:输出("bad")
+段 主函数():
+    设 score 为 85
+    如果 score 大于等于 80: 输出("good")
+    否则: 输出("bad")
 '''
         c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
@@ -419,9 +419,9 @@ class TestCompileToC(unittest.TestCase):
     def test_while_program(self):
         """完整光明程序：while 循环"""
         light_code = '''
-段主函数
-    设i为0
-    当i小于5
+段 主函数():
+    设 i 为 0
+    当 i 小于 5:
         i = i + 1
     输出(i)
 '''
@@ -432,7 +432,7 @@ class TestCompileToC(unittest.TestCase):
     def test_operators_alias(self):
         """运算符符号别名"""
         light_code = '''
-段主函数
+段 主函数():
     输出(10 + 20 * 3)
     输出(100 / 4)
     输出(10 % 3)
@@ -444,11 +444,11 @@ class TestCompileToC(unittest.TestCase):
         self.assertIn('(10 % 3)', c_code)
 
     def test_backtick_identifiers(self):
-        """反引号标识符"""
+        """字符串变量翻译（原反引号标识符，src 不支持 backtick）"""
         light_code = '''
-段主函数
-    设`类`为"class"
-    输出(`类`)
+段 主函数():
+    设 类别 为 "class"
+    输出(类别)
 '''
         c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
@@ -458,8 +458,8 @@ class TestCompileToC(unittest.TestCase):
     def test_single_line_block(self):
         """单行块"""
         light_code = '''
-段主函数
-    如果1大于0:输出("yes")
+段 主函数():
+    如果 1 大于 0: 输出("yes")
 '''
         c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
@@ -468,9 +468,9 @@ class TestCompileToC(unittest.TestCase):
     def test_comparison_chain(self):
         """链式比较：a 大于等于 60 且 a 小于 80"""
         light_code = '''
-段主函数
-    设a为75
-    如果a大于等于60且a小于80:输出("pass")
+段 主函数():
+    设 a 为 75
+    如果 a 大于等于 60 且 a 小于 80: 输出("pass")
 '''
         c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
@@ -479,9 +479,9 @@ class TestCompileToC(unittest.TestCase):
     def test_empty_body(self):
         """空函数体"""
         light_code = '''
-段空函数
+段 空函数():
     无
-段主函数
+段 主函数():
     输出("ok")
 '''
         c_code = 编译到C(light_code)
@@ -491,7 +491,7 @@ class TestCompileToC(unittest.TestCase):
     def test_runtime_header(self):
         """运行时头文件包含"""
         light_code = '''
-段主函数
+段 主函数():
     输出("test")
 '''
         c_code = 编译到C(light_code)
@@ -503,13 +503,13 @@ class TestCompileToC(unittest.TestCase):
     def test_multiple_functions(self):
         """多函数定义"""
         light_code = '''
-段add接收a整数,b整数返回整数
-    返回a加b
+段 add 接收 a 整数, b 整数 返回 整数:
+    返回 a 加 b
 
-段mul接收a整数,b整数返回整数
-    返回a乘b
+段 mul 接收 a 整数, b 整数 返回 整数:
+    返回 a 乘 b
 
-段主函数
+段 主函数():
     输出(add(3, 4))
 '''
         c_code = 编译到C(light_code)
@@ -525,15 +525,15 @@ class TestCodeQuality(unittest.TestCase):
     def test_brace_balance(self):
         """检查花括号是否平衡"""
         light_code = '''
-段fact接收n整数返回整数
-    如果n小于等于1:返回1
-    返回n乘fact(n减1)
+段 fact 接收 n 整数 返回 整数:
+    如果 n 小于等于 1: 返回 1
+    返回 n 乘 fact(n 减 1)
 
-段主函数
-    设score为85
-    如果score大于等于80:输出("good")
-    如果score大于等于60且score小于80:输出("pass")
-    如果score小于60:输出("fail")
+段 主函数():
+    设 score 为 85
+    如果 score 大于等于 80: 输出("good")
+    如果 score 大于等于 60 且 score 小于 80: 输出("pass")
+    如果 score 小于 60: 输出("fail")
     输出("done")
 '''
         c_code = 编译到C(light_code)
@@ -547,9 +547,9 @@ class TestCodeQuality(unittest.TestCase):
     def test_semicolon_each_statement(self):
         """检查语句是否以分号结尾"""
         light_code = '''
-段主函数
-    设x为10
-    设y为20
+段 主函数():
+    设 x 为 10
+    设 y 为 20
     输出(x + y)
 '''
         c_code = 编译到C(light_code)
@@ -580,9 +580,9 @@ class TestCodeQuality(unittest.TestCase):
     def test_no_undefined_vars(self):
         """检查变量是否都有声明"""
         light_code = '''
-段主函数
-    设x为10
-    设y为x加5
+段 主函数():
+    设 x 为 10
+    设 y 为 x 加 5
     输出(y)
 '''
         c_code = 编译到C(light_code)
@@ -594,7 +594,7 @@ class TestCodeQuality(unittest.TestCase):
     def test_c_syntax_no_python_isms(self):
         """C 代码中不应包含 Python 特有的语法"""
         light_code = '''
-段主函数
+段 主函数():
     输出("hello")
 '''
         c_code = 编译到C(light_code)
@@ -622,7 +622,7 @@ class TestCompileToCFile(unittest.TestCase):
         from c_backend import 编译光明到C文件
         light_path = os.path.join(self.test_dir, 'test_gen.light')
         with open(light_path, 'w', encoding='utf-8') as f:
-            f.write('段主函数\n    输出("hello")\n')
+            f.write('段 主函数():\n    输出("hello")\n')
 
         c_path = 编译光明到C文件(light_path)
         self.assertIsNotNone(c_path)
@@ -639,7 +639,7 @@ class TestCompileToCFile(unittest.TestCase):
         from c_backend import 编译光明到C文件
         light_path = os.path.join(self.test_dir, 'test_custom.light')
         with open(light_path, 'w', encoding='utf-8') as f:
-            f.write('段主函数\n    输出("hello")\n')
+            f.write('段 主函数():\n    输出("hello")\n')
 
         c_path_custom = os.path.join(self.test_dir, 'custom_output.c')
         result = 编译光明到C文件(light_path, c_path_custom)
@@ -653,7 +653,7 @@ class TestEdgeCases(unittest.TestCase):
     def test_very_large_numbers(self):
         """大整数"""
         light_code = '''
-段主函数
+段 主函数():
     输出(2147483647)
 '''
         c_code = 编译到C(light_code)
@@ -663,24 +663,27 @@ class TestEdgeCases(unittest.TestCase):
     def test_nested_ifs(self):
         """嵌套 if 语句"""
         light_code = '''
-段主函数
-    设x为10
-    设y为20
-    如果x大于0
-        如果y大于0
+段 主函数():
+    设 x 为 10
+    设 y 为 20
+    如果 x 大于 0:
+        如果 y 大于 0:
             输出("both pos")
 '''
         c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
         self.assertIn('if ((x > 0))', c_code)
-        # 检查嵌套结构
-        if_count = c_code.count('if (')
+        # 检查嵌套结构（仅统计 main 函数体内的 if，不含运行时头）
+        main_start = c_code.find('int main(')
+        self.assertGreater(main_start, 0)
+        main_body = c_code[main_start:]
+        if_count = main_body.count('if (')
         self.assertEqual(if_count, 2)
 
     def test_multiple_prints(self):
         """多个连续输出"""
         light_code = '''
-段主函数
+段 主函数():
     输出("a")
     输出("b")
     输出("c")
@@ -691,15 +694,15 @@ class TestEdgeCases(unittest.TestCase):
         main_start = c_code.find('int main(')
         self.assertGreater(main_start, 0)
         main_body = c_code[main_start:]
-        printf_count = main_body.count('printf(')
-        self.assertEqual(printf_count, 3)
+        print_count = main_body.count('print(')
+        self.assertEqual(print_count, 3)
 
     def test_bool_variable(self):
         """布尔变量"""
         light_code = '''
-段主函数
-    设flag为真
-    如果flag:输出("true")
+段 主函数():
+    设 flag 为 真
+    如果 flag: 输出("true")
 '''
         c_code = 编译到C(light_code)
         self.assertIsNotNone(c_code)
@@ -708,7 +711,7 @@ class TestEdgeCases(unittest.TestCase):
     def test_negative_number(self):
         """负数"""
         light_code = '''
-段主函数
+段 主函数():
     输出(-42)
 '''
         c_code = 编译到C(light_code)
@@ -718,9 +721,9 @@ class TestEdgeCases(unittest.TestCase):
     def test_simple_while_true(self):
         """while 真"""
         light_code = '''
-段主函数
-    设i为0
-    当i小于3
+段 主函数():
+    设 i 为 0
+    当 i 小于 3:
         i = i + 1
     输出(i)
 '''

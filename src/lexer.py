@@ -2037,6 +2037,14 @@ class Lexer:
         while j < len(full_identifier):
             kw, klen = self._match_keyword(source, abs_pos + j)
             if kw in ('等待', '等'):
+                # 若 await 关键字（等/等待）之前存在「成员访问/关系分隔符」_P0A_SEP
+                # （之/在/于/为/与），说明这是 对象.方法 之类的成员访问链（如 之取等级、
+                # 之等级），`之` 必须先被切分为 KEYWORD，不得因后续含 等(等级/成绩…) 而把
+                # 整串粘连成单个标识符。仅当 await 前没有任何此类分隔符时（真正的
+                # 等待器/团队错等待中止/等他 形态）才允许整体粘连，以免 等/等待 被切出成
+                # 独立的 await 关键字触发 SyntaxError。
+                if any(c in self._P0A_SEP for c in full_identifier[:j]):
+                    return False
                 after_idx = abs_pos + j + klen
                 after = source[after_idx] if after_idx < n else ''
                 if after and (_is_han_fast(after) or after == '_' or _is_ascii_alnum(after)):
@@ -2814,6 +2822,11 @@ class Lexer:
         (OPERATOR_VERBS - {'模', '步', '至', '到'})
         | {'之', '在', '于', '为', '与'}
     )
+    # 纯成员访问/关系分隔符（_P0A_OP 中的非运算符子集）：之/在/于/为/与。
+    # 用于 _await_in_name：await 关键字(等/等待) 之前若存在这些分隔符，说明是
+    # 对象.方法 成员访问链（如 之取等级 / 之等级），`之` 必须先切分为 KEYWORD，
+    # 不得因后续含 等(等级/成绩…) 而把整串粘连成单个标识符。
+    _P0A_SEP = frozenset({'之', '在', '于', '为', '与'})
     #   _P0A_MERGE_WHOLE —— 有界「精确整串」合并集合（升级计划 §8.4 点名的 6 个历史雷区之
     #                       完整词形 + FFI/排序/输出 同构词形 + 返回码）。仅当整个汉字段 恰好 等于
     #                       集合中的某一整串时才并入标识符；其余关键字一律走 OLD 的「词首切分」口径，

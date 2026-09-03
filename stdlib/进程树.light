@@ -7,6 +7,7 @@
 导入 tempfile。
 导入 locale。
 导入 codecs。
+导入 ctypes。
 
 # ============================================================
 # 进程树（纯光明实现）
@@ -263,6 +264,7 @@
     己.开动故障 为 空。
     己.结果 为 空。
     己.已杀 为 假。
+    己.任务句柄 为 0。
     己.界限 为 己.配置.get("限尾字节", 65536)。
     己.目录 为 己.配置.get("溢出目录", tempfile.gettempdir())。
     己.编码 为 己.平台编码()。
@@ -300,8 +302,12 @@
     己.err采集 为 err。
     尝试:
       如果 sys.platform 等于 "win32":
-        # CREATE_NEW_PROCESS_GROUP = 0x200 = 512
-        己.进程对象 为 subprocess.Popen(己.命令, -1, 空, 空, subprocess.PIPE, subprocess.PIPE, 空, True, 假, 工作目录, 环境表, 假, 空, 512)。
+        # CREATE_NEW_PROCESS_GROUP(0x200) | CREATE_SUSPENDED(0x4) = 516：先挂起创建，
+        # 绑定 Windows Job Object（KILL_ON_JOB_CLOSE）后再恢复，保证整棵树（含未来
+        # 子进程）在杀树时随 job 关闭一并终止，无 taskkill /T 快照竞态；绑定失败自动
+        # 降级（任务句柄=0 → 恢复挂起进程并按 taskkill /F /T + 补杀路径）。
+        己.进程对象 为 subprocess.Popen(己.命令, -1, 空, 空, subprocess.PIPE, subprocess.PIPE, 空, True, 假, 工作目录, 环境表, 假, 空, 516)。
+        己.绑定任务对象()。
       否则:
         # POSIX：preexec_fn=os.setsid 建立新会话（含独立进程组，组长即 pid）
         己.进程对象 为 subprocess.Popen(己.命令, -1, 空, 空, subprocess.PIPE, subprocess.PIPE, os.setsid, True, 假, 工作目录, 环境表)。
@@ -318,6 +324,98 @@
     t1.start()。
     t2.start()。
     返回 真。
+
+  # 把根进程挂到 Windows Job Object（JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE）：
+  # 杀树 = 关 job 句柄，整棵树（含迟建/未来子进程）由内核一并终止，无 taskkill /T
+  # 「执行时刻快照」漏掉孙进程的竞态。任一步失败则恢复挂起进程并把 任务句柄 置 0
+  # 降级（杀树时走 taskkill /F /T + 按 PID 补杀）。
+  段落 绑定任务对象:
+    如果 sys.platform 不等于 "win32":
+      返回。
+    结束。
+    如果 己.进程对象 等于 空:
+      返回。
+    结束。
+    设 k 为 ctypes.windll.kernel32。
+    设 n 为 ctypes.windll.ntdll。
+    # 显式 restype，避免 64 位 HANDLE 被 ctypes 默认 c_int 截断
+    k.CreateJobObjectW.restype 为 ctypes.c_void_p。
+    k.OpenProcess.restype 为 ctypes.c_void_p。
+    k.CloseHandle.restype 为 ctypes.c_int。
+    k.SetInformationJobObject.restype 为 ctypes.c_int。
+    k.AssignProcessToJobObject.restype 为 ctypes.c_int。
+    n.NtResumeProcess.restype 为 ctypes.c_int。
+    # JOBOBJECT_EXTENDED_LIMIT_INFORMATION（x64 布局 144 字节；LimitFlags 在
+    # BasicLimitInformation 内偏移 16）。光明无 ctypes 结构体继承语法，用 type()
+    # 动态构造（tuple([...]) 作为 bases，dict 字面量给 _fields_）。
+    设 基础 为 type("JOBOBJECT_BASIC_LIMIT_INFORMATION", tuple([ctypes.Structure]), {
+      "_fields_": [
+        ["PerProcessUserTimeLimit", ctypes.c_longlong],
+        ["PerJobUserTimeLimit", ctypes.c_longlong],
+        ["LimitFlags", ctypes.c_uint32],
+        ["MinimumWorkingSetSize", ctypes.c_size_t],
+        ["MaximumWorkingSetSize", ctypes.c_size_t],
+        ["ActiveProcessLimit", ctypes.c_uint32],
+        ["Affinity", ctypes.c_size_t],
+        ["PriorityClass", ctypes.c_uint32],
+        ["SchedulingClass", ctypes.c_uint32],
+      ],
+    })。
+    设 扩展 为 type("JOBOBJECT_EXTENDED_LIMIT_INFORMATION", tuple([ctypes.Structure]), {
+      "_fields_": [
+        ["BasicLimitInformation", 基础],
+        ["IoInfo", ctypes.c_void_p * 6],
+        ["ProcessMemoryLimit", ctypes.c_size_t],
+        ["JobMemoryLimit", ctypes.c_size_t],
+        ["PeakProcessMemoryUsed", ctypes.c_size_t],
+        ["PeakJobMemoryUsed", ctypes.c_size_t],
+      ],
+    })。
+    设 job 为 k.CreateJobObjectW(空, 空)。
+    如果 job 等于 0:
+      己.恢复挂起进程(k, n)。
+      己.任务句柄 为 0。
+      返回。
+    结束。
+    设 信息 为 扩展()。
+    信息.BasicLimitInformation.LimitFlags 为 8192。
+    设 设成 为 k.SetInformationJobObject(job, 9, ctypes.byref(信息), ctypes.sizeof(信息))。
+    如果 设成 等于 0:
+      k.CloseHandle(job)。
+      己.恢复挂起进程(k, n)。
+      己.任务句柄 为 0。
+      返回。
+    结束。
+    # 3329 = 0x901 = SET_QUOTA|TERMINATE|QUERY_INFORMATION|SUSPEND_RESUME
+    设 进程句柄 为 k.OpenProcess(3329, 假, 己.进程对象.pid)。
+    如果 进程句柄 等于 0:
+      k.CloseHandle(job)。
+      己.恢复挂起进程(k, n)。
+      己.任务句柄 为 0。
+      返回。
+    结束。
+    设 分配 为 k.AssignProcessToJobObject(job, 进程句柄)。
+    # 无论分配成败都恢复挂起进程（否则根进程卡死）；分配成功才保留 job 句柄
+    n.NtResumeProcess(进程句柄)。
+    k.CloseHandle(进程句柄)。
+    如果 分配 等于 0:
+      k.CloseHandle(job)。
+      己.任务句柄 为 0。
+      返回。
+    结束。
+    己.任务句柄 为 job。
+  # 恢复 CREATE_SUSPENDED 挂起的根进程主线程（绑定失败降级时也必须恢复，否则进程卡死）
+  段落 恢复挂起进程 接收 k, n:
+    如果 己.进程对象 等于 空:
+      返回。
+    结束。
+    # 2048 = 0x800 = PROCESS_SUSPEND_RESUME
+    设 进程句柄 为 k.OpenProcess(2048, 假, 己.进程对象.pid)。
+    如果 进程句柄 不等于 0:
+      n.NtResumeProcess(进程句柄)。
+      k.CloseHandle(进程句柄)。
+    结束。
+
 
   # 读取线程体：把流喂给采集器，并更新"最后活动"
   段落 读流 接收 流, 采集器:
@@ -425,8 +523,32 @@
       # 枚举不到那些后代，是否存活() 也变成假，升级那一步根本不会跑，孙子进程
       # 被孤立着继续跑到底。2026-08-22 本机实测：孙子进程写出了存活标记文件，
       # 而工具还在返回「进程树已被杀死（含子进程）」——报文与事实相反。
-      # /F /T 在一次快照里走完整棵树，没有这个中途丢后代的窗口。
-      subprocess.call(["taskkill", "/F", "/T", "/PID", str(pid)], -1, 空, 空, subprocess.DEVNULL, subprocess.DEVNULL)。
+      # 首选 Job Object（KILL_ON_JOB_CLOSE）：关 job 句柄即杀整树（含迟建/未来
+      # 子进程），无「执行时刻快照」漏掉孙进程的竞态；job 绑定失败（任务句柄=0）
+      # 才降级到 taskkill /F /T。
+      # 但 Job Object 只保底根进程与未逃逸后代：Python 的 subprocess.Popen 检测到
+      # 父进程在 job 内会自动加 CREATE_BREAKAWAY_FROM_JOB，孙进程会逃逸出 job
+      # （2026-09-03 实测：job 内仅根进程、关 job 后孙进程仍存活）。故不能只靠
+      # job，必须按启动时记录的 PID 逐个强杀。
+      # 杀前先枚举并记录后代 PID（枚举在杀根之前做）：根进程一死，孙进程会被
+      # Windows 重新挂靠到系统进程下，事后按 root 再枚举会漏掉它；进程被强杀后
+      # 进程对象/PID 也可能短暂残留，仍可被 OpenProcess 打开。
+      设 记录 为 己.枚举后代(pid)。
+      # 先按记录的 PID 逐个 /F /PID 强杀所有后代（只按 PID，不依赖父子树快照）。
+      遍历 子 于 记录:
+        subprocess.call(["taskkill", "/F", "/PID", str(子)], -1, 空, 空, subprocess.DEVNULL, subprocess.DEVNULL)。
+      结束。
+      如果 己.任务句柄 不等于 0:
+        设 k 为 ctypes.windll.kernel32。
+        k.CloseHandle(己.任务句柄)。
+        己.任务句柄 为 0。
+      否则:
+        subprocess.call(["taskkill", "/F", "/T", "/PID", str(pid)], -1, 空, 空, subprocess.DEVNULL, subprocess.DEVNULL)。
+      结束。
+      # 只"杀掉"不够：Windows 进程被强杀后其进程对象/PID 可能短暂残留，调用方
+      # 拿 OpenProcess 判存活会误判（曾见残留 ~1.4s）；轮询确认杀前记录的后代都
+      # gone 后再返回，保证杀树返回即"整树不可再被打开"。
+      己.等待树清(记录, 宽限期毫秒)。
       己.等待到死(宽限期毫秒)。
     否则:
       尝试:
@@ -451,6 +573,106 @@
       结束。
     结束。
 
+  # 轮询确认整棵树（含孙进程）已从系统消失：Windows 进程被强杀后其进程对象/PID
+  # 可能短暂残留（OpenProcess 仍能打开），调用方拿 PID 判断存活会误判。这里对杀前
+  # 记录的**原始后代 PID** 反复轮询 OpenProcess，直到全部 gone 或超时（有界 4s）；
+  # 期间对仍能打开的后代补 taskkill /F /PID（兜底，只按自身 spawn 的 PID，绝不按
+  # 进程名）。注意不能按 root 事后重新枚举：根已死，孙进程会被重新挂靠到系统进程，
+  # 再枚举会漏掉它。
+  段落 等待树清 接收 记录, 毫秒:
+    设 截止 为 时间戳() * 1000 加上 4000。
+    当 真:
+      设 有活 为 假。
+      遍历 子 于 记录:
+        如果 己.能打开(子):
+          有活 为 真。
+          subprocess.call(["taskkill", "/F", "/PID", str(子)], -1, 空, 空, subprocess.DEVNULL, subprocess.DEVNULL)。
+        结束。
+      结束。
+      如果 有活 等于 假:
+        返回。
+      结束。
+      如果 时间戳() * 1000 大于 截止:
+        返回。
+      结束。
+      time.sleep(0.05)。
+    结束。
+
+  # 用 OpenProcess 判断 PID 是否仍可被打开（进程对象未完全清理也算"能打开"——与
+  # 调用方/测试的 _进程活 同口径，保证它们不会再看到残留 PID）。
+  段落 能打开 接收 pid:
+    设 k 为 ctypes.windll.kernel32。
+    设 h 为 k.OpenProcess(4096, 假, pid)。
+    如果 h 等于 0:
+      返回 假。
+    结束。
+    k.CloseHandle(h)。
+    返回 真。
+
+  # 降级补杀已并入 杀树/等待树清：杀前按记录的原始后代 PID 逐个 /F /PID，不依赖
+  # 进程树快照或事后重枚举（根死后孙进程被重新挂靠，按 root 重枚举会漏掉）。
+
+  段落 枚举后代 接收 根:
+    设 表 为 己.进程关系表()。
+    设 子表 为 {}。
+    遍历 项 于 表:
+      设 父 为 项[1]。
+      设 子 为 项[0]。
+      设 键 为 str(父)。
+      如果 键 在 子表:
+        子表[键].append(子)。
+      否则:
+        子表[键] 为 [子]。
+      结束。
+    结束。
+    设 结果 为 []。
+    设 队列 为 [根]。
+    当 长度(队列) 大于 0:
+      设 当前 为 队列[0]。
+      队列 为 队列[1:]。
+      设 键 为 str(当前)。
+      如果 键 在 子表:
+        遍历 子 于 子表[键]:
+          结果.append(子)。
+          队列.append(子)。
+        结束。
+      结束。
+    结束。
+    返回 结果。
+
+  # 用 PowerShell Get-CimInstance 取全系统 (PID, PPID) 表（只读父子关系；补杀仍只
+  # taskkill 自身 spawn 的树）。wmic 在新版 Windows 可能被移除，故用 PowerShell。
+  段落 进程关系表:
+    设 输出 为 空。
+    尝试:
+      输出 为 subprocess.check_output(["powershell", "-NoProfile", "-Command", "[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId | ConvertTo-Csv -NoTypeInformation"])。
+    捕获 错误:
+      返回 []。
+    结束。
+    设 文本 为 输出.decode("utf-8", "replace")。
+    设 行列表 为 文本.splitlines()。
+    设 表 为 []。
+    遍历 行 于 行列表:
+      设 修 为 行.strip()。
+      如果 长度(修) 等于 0:
+        继续。
+      结束。
+      如果 修.startswith('"ProcessId"'):
+        继续。
+      结束。
+      # CSV 行形如 "123","456"：去首尾引号后按 "," 拆成两列
+      设 内 为 修[1:长度(修) 减去 1]。
+      设 列 为 内.split('","')。
+      如果 长度(列) 大于等于 2:
+        尝试:
+          设 子数 为 int(列[0])。
+          设 父数 为 int(列[1])。
+          表.append([子数, 父数])。
+        捕获 错误:
+        结束。
+      结束。
+    结束。
+    返回 表。
   # 轮询直到进程死亡或宽限期耗尽；返回是否确认已死
   段落 等待到死 接收 毫秒:
     设 截止 为 时间戳() * 1000 加上 毫秒。

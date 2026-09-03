@@ -195,10 +195,13 @@ class Test解码口径:
         脚本 = _写脚本(tmp_path, "探编码", 'print("编码探测")')
         树干, 结果 = _跑([sys.executable, "-u", 脚本])
         assert 结果.采用编码 is not None
+        # 主口径：默认编码必须与本机 locale 探测一致，绝不硬编码 UTF-8。
+        # 这条断言在所有平台都成立——cp936 机器上 采用编码==cp936、UTF-8 locale
+        # 机器上 采用编码==utf-8，都靠它钉死「不硬编码」。原先的 win32 分支硬断言
+        #「!= "utf-8"」是「本机 ANSI 必为 cp936」的错误假设：本机 locale 返回
+        # utf-8 时该假设不成立而误报失败，且 cp936 机器上此断言已被上面这条覆盖，
+        # 故删去，统一用与 _本机默认编码() 对齐的口径。
         assert 结果.采用编码.lower() == _本机默认编码().lower()
-        if sys.platform == "win32":
-            # 本机 ANSI 代码页是 cp936；若这里等于 utf-8，说明又硬编码回去了
-            assert 结果.采用编码.lower() != "utf-8"
 
     def test_显式指定编码优先于平台探测(self, tmp_path):
         脚本 = _写脚本(tmp_path, "显式编码",

@@ -20,6 +20,7 @@ skip 掩盖分析（每条 skip 写明掩盖了什么）：
     PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE + STARTUPINFOEXW）路径从未在
     POSIX 上跑过——它只在这台 Windows 上验证过。
 """
+import locale
 import os
 import sys
 import time
@@ -110,9 +111,10 @@ class TestWindowsConPTY:
             time.sleep(0.8)
             # 写 stdin：ConPTY 控制台输入按 \r\n 换行
             assert pt.写输入(b"hello\r\n") is True
-            输出 = _等待输出(pt, "回声:".encode("gbk", "replace"))
-            # 子进程 stdout 是控制台 → 本机 cp936 编码；解码后断言回显
-            文本 = 输出.decode("gbk", "replace")
+            编码 = locale.getpreferredencoding(False)
+            输出 = _等待输出(pt, "回声:".encode(编码, "replace"))
+            # 子进程 stdout 是控制台 → 按本机首选编码解码后断言回显
+            文本 = 输出.decode(编码, "replace")
             assert "回声:hello" in 文本, 文本
         finally:
             pt.关闭()
