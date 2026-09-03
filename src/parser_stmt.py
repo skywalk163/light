@@ -3796,7 +3796,12 @@ class ParserStmtMixin:
         statements = []
         depth = 0
 
-        max_statements = 100
+        # L-064：原 100 条硬上限会把超长段落（>100 条语句）的后续语句错误顶到
+        # 模块顶层（缩进归零、语义错乱）。语句解析每次都会消费 token（天然有进展），
+        # 该上限仅为防死循环安全阀——提到 100000（远超任何合理段落），同时以
+        # 「位置推进检测」兜底无进展死循环：每条语句解析后 self.pos 必须前进，否则 break。
+        max_statements = 100000
+        last_pos = self.pos
         count = 0
 
         while self._current() and count < max_statements:
@@ -3890,6 +3895,10 @@ class ParserStmtMixin:
             if stmt:
                 statements.append(stmt)
                 count += 1
+                # L-064 兜底：语句解析后必须推进 token，否则视为无进展（防死循环）
+                if self.pos == last_pos:
+                    break
+                last_pos = self.pos
                 
                 # 在 allow_single_line 模式下，解析完一个语句后，如果下一个 token 是语句关键字，
                 # 且不是 NEWLINE，则停止解析（表示这个语句是单行语句）
