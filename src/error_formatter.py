@@ -81,7 +81,7 @@ class LightErrorFormatter:
         """
         mapping = {}
         for line in python_code.split('\n'):
-            m = re.match(r'#\s*LIGHT_SRC:(\d+):(.*)', line)
+            m = re.match(r'^\s*#\s*LIGHT_SRC:(\d+)(?::(.*))?$', line)
             if m:
                 light_line = int(m.group(1))
                 snippet = m.group(2)
@@ -99,7 +99,7 @@ class LightErrorFormatter:
         anchors = []  # (py_line, light_line)
 
         for i, line in enumerate(lines):
-            m = re.match(r'#\s*LIGHT_SRC:(\d+):', line)
+            m = re.match(r'^\s*#\s*LIGHT_SRC:(\d+)(?::.*)?$', line)
             if m:
                 anchors.append((i, int(m.group(1))))
 

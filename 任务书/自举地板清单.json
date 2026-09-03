@@ -16,11 +16,11 @@
   ],
   "版本": 1,
   "归属": "C9 建（S1），G9 守门禁",
-  "总数": 145,
+  "总数": 146,
   "分类统计": {
     "native_required": 62,
     "movable": 11,
-    "has_light_impl": 59,
+    "has_light_impl": 60,
     "duplicate": 13,
     "unused": 0
   },
@@ -440,6 +440,14 @@
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心列表.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
       "证据行": "stdlib/内置核心列表.light:54"
+    },
+    {
+      "名字": "副本",
+      "职责": "浅拷贝助手：字典浅拷贝键值对、列表浅拷贝元素、其他类型原样返回",
+      "当前实现语言": "光明（stdlib/内置核心列表.light），builtins.py 仅一行转发",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/内置核心列表.light（L-062 新增，支持列表浅拷贝）",
+      "证据行": "stdlib/内置核心列表.light:59"
     },
     {
       "名字": "列表反转",

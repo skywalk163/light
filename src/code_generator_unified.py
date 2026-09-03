@@ -171,6 +171,7 @@ class UnifiedCodeGenerator:
             '列表反转': '_light_builtin.列表反转',
             '列表包含': '_light_builtin.列表包含',
             '列表创建': '_light_builtin.列表创建',
+            '副本': '_light_builtin.副本',
             '字典创建': '_light_builtin.字典创建',
             '字典设置': '_light_builtin.字典设置',
             '字典删除': '_light_builtin.字典删除',
@@ -213,6 +214,7 @@ class UnifiedCodeGenerator:
             # 列表扩展
             '列表弹出': '_light_builtin.列表弹出',
             '列': '_light_builtin.列',
+            '副本': '_light_builtin.副本',
             # 字典扩展
             '字典键列表': '_light_builtin.字典键列表',
             '字典值列表': '_light_builtin.字典值列表',
@@ -588,6 +590,13 @@ class UnifiedCodeGenerator:
         """生成语句（支持统一AST）"""
         if stmt is None:
             return
+
+        # L-061：为每个光明语句嵌入源行号映射注释（# LIGHT_SRC:<行号>），
+        # 供 enhanced_errors/error_formatter 把运行时 traceback 的 .py 行号
+        # 还原为光明源码行号，避免行号错位。
+        _src_line = getattr(stmt, 'line', None)
+        if isinstance(_src_line, int) and _src_line > 0:
+            self._add_line(f"# LIGHT_SRC:{_src_line}")
         
         node_type = type(stmt).__name__
         
@@ -1545,39 +1554,109 @@ class UnifiedCodeGenerator:
         'print',
     })
 
-    def _try_merge_output_concat(self, expr):
-        """L-045：检测「输出类内置调用 + 二元拼接尾巴」形态并合并为整体写出。
+    # L-055：write 族要求值必须是 str（写入输出/写入错误），print 族接受任意类型。
+    _WRITE_NEEDS_STR = frozenset({
+        '_light_builtin.写入输出',
+        '_light_builtin.写入错误',
+    })
 
-        parser 把 `写 "x=" + 标签` 拆成 BinaryOp(写("x=") + 标签)，直接生成是
-        `写入输出("x=") + 标签`（写返回 None → TypeError）。这里把二叉链最左叶的
-        输出调用视为写语句头，合并成 `输出目标(整条拼接表达式)`。
-        非该形态返回 None。
+    def _try_merge_output_concat(self, expr):
+        """L-045/L-055：检测「输出类内置调用」形态并合并为整体写出。
+
+        L-045 形态①（BinaryOp 拼接尾巴）：`写 "x=" + 标签` 被 parser 拆成
+        BinaryOp(写("x=") + 标签)，直接生成是 `写入输出("x=") + 标签`（写返回
+        None → TypeError）。这里合并成 `输出目标(str(整条拼接表达式))`。
+
+        L-055 形态②（裸函数调用实参）：`写 f(x)` 被解析成
+        FunctionCallExpr(callee=写(f), args=[x])，直接生成是 `写入输出(f)(x)`
+        （f 当值传给 write、x 被丢成对 write 结果的调用）。合并成
+        `输出目标(str(f(x)))`——正确传递函数调用结果并自动 str()。
+
+        L-055 形态③（写族裸调用 + 非字符串实参）：`写 n`（n 为 int）直接生成
+        `写入输出(n)` → write() argument must be str, not int。非字符串字面量实参
+        自动包 str()；字符串字面量保持原样。
+
+        非该形态（或输出名与用户函数重名）返回 None，调用方走常规生成。
         """
+        def _resolve_call_name(node):
+            raw = node.name
+            if isinstance(raw, str):
+                return self._resolve_name(raw)
+            if is_instance(raw, 'Identifier') or hasattr(raw, 'name'):
+                return self._resolve_name(getattr(raw, 'name', ''))
+            return None
+
+        def _call_args(node):
+            return getattr(node, 'arguments', None) or getattr(node, 'args', None) or []
+
+        # 形态③：写族 ParagraphCall/FunctionCall 裸调用（`写 n` / `写 表达式`）。
+        if is_instance(expr, 'ParagraphCall') or is_instance(expr, 'FunctionCall'):
+            func_name = _resolve_call_name(expr)
+            if func_name is None or func_name in self.user_functions:
+                return None
+            target = self.builtin_map.get(func_name)
+            if target not in self._OUTPUT_TARGETS:
+                return None
+            args = _call_args(expr)
+            if len(args) != 1:
+                return None
+            arg = args[0]
+            arg_str = self._generate_expr(arg)
+            if is_instance(arg, 'StringLiteral') or target not in self._WRITE_NEEDS_STR:
+                return f"{target}({arg_str})"
+            return f"{target}(str({arg_str}))"
+
+        # 形态②：FunctionCallExpr(callee=写族ParagraphCall)（`写 f(x)`）。
+        if is_instance(expr, 'FunctionCallExpr'):
+            callee = expr.callee
+            if not (is_instance(callee, 'ParagraphCall') or is_instance(callee, 'FunctionCall')):
+                return None
+            func_name = _resolve_call_name(callee)
+            if func_name is None or func_name in self.user_functions:
+                return None
+            target = self.builtin_map.get(func_name)
+            if target not in self._OUTPUT_TARGETS:
+                return None
+            cargs = _call_args(callee)
+            if not cargs:
+                return None
+            inner = self._generate_expr(cargs[0])
+            # L-055 补：`写 转字符串(3)` 的 f 是裸 Identifier（_resolve_name 不查
+            # builtin_map，返回原名），内置名裸引用会运行期 NameError；
+            # 对内置名补 _light_builtin. 前缀，用户函数/局部变量保持原样。
+            _fnode = cargs[0]
+            _fname = getattr(_fnode, 'name', None)
+            if (is_instance(_fnode, 'Identifier') and isinstance(_fname, str)
+                    and _fname in self.builtin_map
+                    and _fname not in self.user_functions):
+                inner = self.builtin_map[_fname]
+            tail = self._translate_args(getattr(expr, 'args', []))
+            _call_txt = f"{inner}({', '.join(tail)})"
+            if target in self._WRITE_NEEDS_STR:
+                _call_txt = f"str({_call_txt})"
+            return f"{target}({_call_txt})"
+
+        # 形态①：BinaryOp 拼接尾巴（既有 L-045）。
         node = expr
         while is_instance(node, 'BinaryOp'):
             node = node.left
         if not (is_instance(node, 'ParagraphCall') or is_instance(node, 'FunctionCall')):
             return None
-        raw = node.name
-        if isinstance(raw, str):
-            func_name = self._resolve_name(raw)
-        elif is_instance(raw, 'Identifier') or hasattr(raw, 'name'):
-            func_name = self._resolve_name(getattr(raw, 'name', ''))
-        else:
-            return None
-        args = getattr(node, 'arguments', None) or getattr(node, 'args', None) or []
-        if not args:
-            return None
-        if func_name in self.user_functions:
+        func_name = _resolve_call_name(node)
+        if func_name is None or func_name in self.user_functions:
             return None
         target = self.builtin_map.get(func_name)
         if target not in self._OUTPUT_TARGETS:
             return None
+        args = _call_args(node)
+        if not args:
+            return None
         if node is expr:
             return None
         merged = self._gen_write_merged(expr, node)
+        if target in self._WRITE_NEEDS_STR:
+            return f"{target}(str({merged}))"
         return f"{target}({merged})"
-
     def _gen_write_merged(self, expr, write_call):
         """把 expr 中的 write_call（二叉链最左叶）替换为其首个实参后生成表达式。"""
         if expr is write_call:
@@ -1723,6 +1802,10 @@ class UnifiedCodeGenerator:
         
         # 函数调用
         elif is_instance(expr, 'FunctionCall') or is_instance(expr, 'ParagraphCall'):
+            # L-055：写族裸调用 写 n / 写 表达式 —— 非字符串实参自动 str()（形态③）。
+            _merged = self._try_merge_output_concat(expr)
+            if _merged is not None:
+                return _merged
             # 正确处理函数名（可能是 PropertyAccess、Identifier 等）
             func_expr = expr.name
             if is_instance(func_expr, 'PropertyAccess'):
@@ -1766,6 +1849,10 @@ class UnifiedCodeGenerator:
         # 链式函数调用（v3 后端 AST）：callee(args)，如 表["甲"](1)
         # L-014：与 code_generator.py 的 FunctionCallExpr 分支同构，语句/表达式两层都要能生成。
         elif is_instance(expr, 'FunctionCallExpr'):
+            # L-055：写 f(x) 裸函数调用实参 —— 合并为 输出(str(f(x)))（形态②）。
+            _merged = self._try_merge_output_concat(expr)
+            if _merged is not None:
+                return _merged
             callee = self._generate_expr(expr.callee)
             args = self._translate_args(getattr(expr, 'args', []))
             args_str = ', '.join(args)

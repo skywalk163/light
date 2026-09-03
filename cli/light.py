@@ -338,6 +338,16 @@ def _run_src(source: str, file_path: str | None = None) -> str:
 
     try:
         exec(py_code, namespace)
+    except Exception:
+        # L-061：把生成代码挂到异常对象上，供 format_error 解析 LIGHT_SRC 行号映射，
+        # 将 traceback 的 .py 行号还原为光明源码行号（非 SRC 后端无此属性）。
+        _exc = sys.exc_info()[1]
+        if _exc is not None:
+            try:
+                _exc._light_py_code = py_code
+            except Exception:
+                pass
+        raise
     finally:
         # 执行后移除临时路径，避免影响后续调用
         if sys.path[0] == source_dir:
@@ -574,7 +584,10 @@ def cmd_run(args):
     except Exception as e:
         # 运行期错误（越界/除零/NameError…）必须「浮出水面」：打 stderr 且返回非零 rc，
         # 否则护栏（组合.py `_成功` / 冒烟.py）依赖的「rc==0 且 非空 stdout」会把它误判为成功。
-        print(format_error(source, e), file=sys.stderr)
+        # L-061：把 _run_src 挂到异常上的生成代码传给 format_error，用于 LIGHT_SRC
+        # 行号映射归因（非 SRC 后端/无生成代码时 py_code=None，退回原逻辑）。
+        _py = getattr(e, '_light_py_code', None)
+        print(format_error(source, e, py_code=_py), file=sys.stderr)
         if args.verbose:
             import traceback
             traceback.print_exc()

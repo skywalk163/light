@@ -12,6 +12,7 @@
 
 import os
 import sys
+import traceback
 
 
 # =============================================================================
@@ -175,7 +176,7 @@ class ErrorFormatter:
     def __init__(self):
         self.use_colors = sys.stdout.isatty()
 
-    def format_error(self, source: str, error: Exception, line_num: int = None, col: int = None) -> str:
+    def format_error(self, source: str, error: Exception, line_num: int = None, col: int = None, py_code: str = None) -> str:
         """格式化错误信息
 
         Args:
@@ -199,9 +200,15 @@ class ErrorFormatter:
 
         # 从 traceback 中提取行号
         if line_num is None:
-            for frame in traceback.extract_tb(error.__traceback__):
-                line_num = frame.lineno
-                break
+            # L-061：优先用生成代码的 LIGHT_SRC 行号映射，把 .py 行号还原为光明
+            # 源码行号，避免「.py 行号直接索引 .light 源码」导致的行号错位。
+            light_line = self._map_py_to_light(error, py_code)
+            if light_line is not None:
+                line_num = light_line
+            else:
+                for frame in traceback.extract_tb(error.__traceback__):
+                    line_num = frame.lineno
+                    break
 
         # 构建错误信息
         parts = []
@@ -255,6 +262,46 @@ class ErrorFormatter:
         if color in colors:
             return colors[color] + text + colors['reset']
         return text
+
+    def _map_py_to_light(self, error: Exception, py_code: str = None):
+        """L-061：用生成代码的 LIGHT_SRC 行号映射，把 traceback 的 .py 行号还原为光明源码行号。
+
+        编译器在生成 Python 时给每个光明语句嵌入 # LIGHT_SRC:<光明行号> 注释；
+        error_formatter.LightErrorFormatter.build_full_mapping 据此建立
+        {py行号: 光明行号} 映射。从 traceback 最内层帧（最先抛出的抛出点）开始
+        逐帧反查，返回第一个能映射成功的 .light 行号；无法映射时返回 None，
+        调用方退回 .py 行号。
+        """
+        if not py_code or error is None or error.__traceback__ is None:
+            return None
+        try:
+            from error_formatter import LightErrorFormatter
+            mapping = LightErrorFormatter().build_full_mapping(py_code)
+        except Exception:
+            return None
+        if not mapping:
+            return None
+        try:
+            frames = traceback.extract_tb(error.__traceback__)
+        except Exception:
+            return None
+        sorted_keys = sorted(mapping)
+        for frame in reversed(frames):  # 从最内层（最先抛出）到外层
+            # traceback.lineno 是 1-based，build_full_mapping 的 key 是
+            # 0-based 行索引，直接索引会整体差 1（指向下一条语句/注释行）。
+            lineno = frame.lineno - 1
+            if lineno in mapping:
+                return mapping[lineno]
+            # 近似：取不大于 lineno 的最大映射行
+            best = None
+            for p in sorted_keys:
+                if p <= lineno:
+                    best = mapping[p]
+                else:
+                    break
+            if best is not None:
+                return best
+        return None
 
     def _extract_line_num(self, error: Exception) -> int:
         """从异常中提取行号"""
@@ -371,10 +418,10 @@ class ErrorFormatter:
         return None
 
 
-def format_error(source: str, error: Exception, line_num: int = None, col: int = None) -> str:
+def format_error(source: str, error: Exception, line_num: int = None, col: int = None, py_code: str = None) -> str:
     """格式化错误信息（便捷函数）"""
     formatter = ErrorFormatter()
-    return formatter.format_error(source, error, line_num, col)
+    return formatter.format_error(source, error, line_num, col, py_code)
 
 
 def install_error_handler():

@@ -52,6 +52,7 @@ _light_import_hook.install([_STDLIB])
 _十个段落 = [
     "列", "列表创建", "列表长度", "列表获取", "列表追加",
     "列表弹出", "列表插入", "列表排序", "列表反转", "列表包含",
+    "副本",
 ]
 
 
@@ -82,8 +83,8 @@ def test_十个段落全部导出且两版都可调用():
     # 单行 导出 才能让 __all__ 覆盖全部 10 个：多行 导出 会生成多条 `__all__ = [...]`，
     # 后一条覆盖前一条（实测），于是 `import *` 只拿到最后一行那几个名字。
     assert sorted(光明.__all__) == sorted(_十个段落)
-    assert [callable(getattr(光明, 名)) for 名 in _十个段落] == [True] * 10
-    assert [callable(getattr(原版, 名)) for 名 in _十个段落] == [True] * 10
+    assert [callable(getattr(光明, 名)) for 名 in _十个段落] == [True] * 11
+    assert [callable(getattr(原版, 名)) for 名 in _十个段落] == [True] * 11
 
 
 # ── 1. 纯函数：oracle 表逐条对跑 ────────────────────────────────────────────────

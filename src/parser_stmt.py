@@ -201,6 +201,20 @@ class ParserStmtMixin:
         return Module(statements)
 
     def _parse_statement(self) -> Optional[ASTNode]:
+        """解析语句（L-061 包装：返回前用起始 token 行号填充光明源码行号，
+        供 code_generator 生成 LIGHT_SRC 映射注释，实现异常行号归因）。"""
+        tok = self._current()
+        stmt = self._parse_statement_inner()
+        if stmt is not None and tok is not None:
+            _ln = getattr(tok, 'line', None)
+            if isinstance(_ln, int) and _ln > 0:
+                try:
+                    stmt.line = _ln
+                except Exception:
+                    pass
+        return stmt
+
+    def _parse_statement_inner(self) -> Optional[ASTNode]:
         """解析语句"""
         tok = self._current()
         
@@ -500,7 +514,13 @@ class ParserStmtMixin:
             return self._parse_expr_stmt()
         
         # stdlib 函数调用作为独立语句（不再是 KEYWORD，走 IDENTIFIER 路径）
+        # L-058: 如果 STDLIB_VERB_ARITY 标识符后紧跟赋值运算符（为/等于/=），
+        # 走赋值路径而非函数调用——否则 `是字母 为 真` 会被编译成比较表达式
         if tok.type == TokenType.IDENTIFIER and tok.value in STDLIB_VERB_ARITY:
+            next_tok = self._peek(1)
+            if next_tok and (next_tok.type == TokenType.EQUALS or
+                             (next_tok.type == TokenType.KEYWORD and next_tok.value in ('为', '等于'))):
+                return self._parse_assignment_stmt()
             return self._parse_expr_stmt()
         
         # self赋值语句：己/自 属性名 为 值
@@ -3010,9 +3030,9 @@ class ParserStmtMixin:
                     else:
                         catch_var = first
                 elif next_tok and next_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
-                    # 跳过 '为' 关键字
-                    if next_tok.value == '为':
-                        self._consume()  # 消费 '为'
+                    # 跳过 '为' 关键字或 'as' 绑定关键字（L-049）
+                    if next_tok.value == '为' or (next_tok.type == TokenType.IDENTIFIER and next_tok.value == 'as'):
+                        self._consume()  # 消费 '为' 或 'as'
                         catch_type = first
                         var_tok = self._current()
                         if var_tok and var_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
