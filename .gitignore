@@ -103,6 +103,9 @@ benchmarks/reports/
 # 光明介绍演示文稿
 光明介绍.pptx
 
+# 演示视频（大文件，不入库）
+demo_video/
+
 # Python 虚拟环境
 .venv/
 
@@ -360,6 +363,8 @@ lsp/lsp_protocol.py
 积木库/组合结果.light
 # 真·句向量编码缓存（自动重建，不入库）
 积木库/.embed_cache/
+# ML 选块缓存（pkl/npz，可本地重建，不入库）
+积木库/.ml_cache/
 
 积木库/_冒烟工位.light
 积木库/_冒烟工位_*.light
