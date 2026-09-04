@@ -777,9 +777,11 @@ except (AttributeError, ValueError):
     **2 passed**（不破坏原生腿）；
   - POSIX mbedTLS 分支：对 Ubuntu 24 同款 **mbedTLS 2.28.8** 头与 3.5.2 头
     `-fsyntax-only` 全绿、2.28.8 完整 `-c` 编译通过（`_taskT7_posix_syntax.c` 独立 TU）。
-  - **未在 POSIX 实测**：目标机 192.168.0.86（SSH 22）不可达（Connection timed out），
-    真实 Ubuntu 上的握手正/负例需上机补跑（.86 可用后按
-    `python -m pytest tests/test_llvm_tls.py -q` 定向执行）。
+  - **POSIX 真机实测通过**：目标机 192.168.0.86（Ubuntu 24.04 / clang 18.1.3 /
+    libmbedtls-dev 2.28.8）上 `python3 -m pytest tests/test_llvm_tls.py -q` **2 passed**；
+    C 二进制定向用例正例 `dv_tls_backend()=mbedTLS` + 握手/回显全 PASS、负例
+    `X509 - Certificate verification failed (-0x2700)` 正确拒绝不受信证书。
+    （首次交付时 .86 不可达曾标注「未在 POSIX 实测」，用户确认连通后补跑完成。）
 - 定向测试：`tests/test_llvm_tls.py` 正/负例在双平台都跑真后端（已去掉 `仅Windows`
   跳过、删除 `仅POSIX` 桩反向钉住用例）；POSIX 编译由测试侧显式加
   `-DLIGHT_TLS_MBEDTLS -lmbedtls -lmbedx509 -lmbedcrypto`（生产 `get_link_libs()`

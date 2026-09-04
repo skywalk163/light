@@ -6149,6 +6149,8 @@ const char* dv_tls_backend(void) { return "Schannel"; }
 #include <mbedtls/ssl.h>
 #include <mbedtls/x509_crt.h>
 #include <mbedtls/error.h>
+#include <mbedtls/ctr_drbg.h>
+#include <mbedtls/entropy.h>
 
 typedef struct LightTLS {
     int fd;
@@ -6161,6 +6163,8 @@ typedef struct LightTLS {
 
     mbedtls_ssl_context ssl;
     mbedtls_ssl_config conf;
+    mbedtls_ctr_drbg_context ctr_drbg;   /* 握手随机源（mbedTLS 必须配置 RNG） */
+    mbedtls_entropy_context entropy;
 
     char* out_pending;          /* 尚未写完的密文（非阻塞 socket，与 Windows 同构） */
     int out_len;
@@ -6336,6 +6340,16 @@ int dv_tls_handshake(LightTLS* t) {
     if (!t->hs_started) {
         mbedtls_ssl_init(&t->ssl);
         mbedtls_ssl_config_init(&t->conf);
+        mbedtls_entropy_init(&t->entropy);
+        mbedtls_ctr_drbg_init(&t->ctr_drbg);
+        /* mbedTLS 硬性要求：不配 RNG 握手直接 -0x7400（No RNG provided） */
+        int rs = mbedtls_ctr_drbg_seed(&t->ctr_drbg, mbedtls_entropy_func,
+                                       &t->entropy, (const unsigned char*)"light-tls", 9);
+        if (rs != 0) {
+            char ebuf[128]; mbedtls_strerror(rs, ebuf, sizeof(ebuf));
+            snprintf(g_tls_error, sizeof(g_tls_error), "mbedtls_ctr_drbg_seed 失败: %s", ebuf);
+            return DV_TLS_ERROR;
+        }
         int r0 = mbedtls_ssl_config_defaults(&t->conf, MBEDTLS_SSL_IS_CLIENT,
                                              MBEDTLS_SSL_TRANSPORT_STREAM,
                                              MBEDTLS_SSL_PRESET_DEFAULT);
@@ -6344,6 +6358,7 @@ int dv_tls_handshake(LightTLS* t) {
             snprintf(g_tls_error, sizeof(g_tls_error), "mbedtls_ssl_config_defaults 失败: %s", ebuf);
             return DV_TLS_ERROR;
         }
+        mbedtls_ssl_conf_rng(&t->conf, mbedtls_ctr_drbg_random, &t->ctr_drbg);
         /* 校验默认开：verify=1 → REQUIRED（链 + 主机名）；verify=0 → NONE（全关，含主机名） */
         mbedtls_ssl_conf_authmode(&t->conf,
                                   t->verify ? MBEDTLS_SSL_VERIFY_REQUIRED : MBEDTLS_SSL_VERIFY_NONE);
@@ -6512,6 +6527,8 @@ void dv_tls_free(LightTLS* t) {
     if (t->hs_started) {
         mbedtls_ssl_free(&t->ssl);
         mbedtls_ssl_config_free(&t->conf);
+        mbedtls_ctr_drbg_free(&t->ctr_drbg);
+        mbedtls_entropy_free(&t->entropy);
     }
     free(t->out_pending);
     free(t);
