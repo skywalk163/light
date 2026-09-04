@@ -663,7 +663,11 @@ class TestRunCommand:
         assert 沙箱内[0] in 结果, f"回显里应给出沙箱内相对名：\n{结果[-300:]}"
         尾段 = 结果[结果.index("输出超限"):]
         assert os.sep not in 尾段, f"不许回显含路径分隔符的绝对路径：\n{尾段}"
-        assert str(tmp_path) not in 结果, f"不许回显沙箱绝对路径：\n{尾段}"
+        if hasattr(os, 'altsep') and os.altsep:
+            assert os.altsep not in 尾段, f"不许回显含 altsep 的绝对路径：\n{尾段}"
+        # 大小写不敏感比较：Windows 上 normcase 把路径全小写，
+        # 大小写敏感的 `not in` 会形成假绿（L5/§17.3）
+        assert str(tmp_path).lower() not in 结果.lower(), f"不许回显沙箱绝对路径（大小写不敏感）：\n{尾段}"
         # 完整输出确实在那个文件里，不是个空壳
         以字节 = (tmp_path / 沙箱内[0]).read_bytes()
         assert len(以字节) > 1024 and b"BBBB" in 以字节, f"溢出文件内容不对：{len(以字节)} 字节"

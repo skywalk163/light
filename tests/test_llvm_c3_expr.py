@@ -276,16 +276,13 @@ def test_pass_stmt_在段落体内():
 def _run_transpiled(source: str, timeout: int = 20):
     """转译后端：.light -> Python -> 运行，返回 (returncode, stdout)。
 
-    **必须给子进程钉 `PYTHONIOENCODING=utf-8`**：转译后端最终是一个 Python
-    进程，输出重定向进管道时 Python 用的是平台 ANSI 代码页（Windows 中文机
-    上是 cp936），而原生腿的 exe 直接吐 UTF-8 字节。不钉编码就会拿 GBK 字节
-    按 utf-8 解，`光明` 变成 `\\ufffd\\ufffd\\ufffd\\ufffd`，于是这组用例在
-    「外面已经设了 PYTHONUTF8」的机器上绿、在没设的机器上红 —— 本机绿 CI 红
-    的老坑。这里只钉这一个子进程，不动全场环境变量。
-
-    两条腿的 stdout 编码本身确实不一致（登记在
-    `docs/known_issues.md` 十五节），那是另一件事：本函数比的是**字符**，
-    不是字节，所以先把两边统一解成 str 再比。
+    **回归守卫：`PYTHONIOENCODING=utf-8`**：转译后端生成的 Python 代码头部
+    已注入 `sys.stdout.reconfigure(encoding='utf-8', errors='replace')`
+    （code_generator.py 生成头，known_issues §15.2 已修复），理论上子进程
+    stdout 已自行钉死 UTF-8。此处保留 `PYTHONIOENCODING=utf-8` 作为回归守卫：
+    若生成头 reconfigure 被移除或破坏，此环境变量仍能拉平编码，使双后端
+    字符级比对不因编码差异假红——但字节断言用例（test_stdout_utf8_bytes）
+    会独立捕获 reconfigure 失效，因为那个用例不设此环境变量。
     """
     with tempfile.NamedTemporaryFile(
             mode='w', suffix='.light', prefix='_dual_backend_',
@@ -375,3 +372,47 @@ def test_双后端一致_列表操作():
         '打印 甲[0]。\n'
         '打印 甲[2]。\n',
         ['1', '3'])
+
+
+def test_stdout_utf8_bytes():
+    """L-049/T4：转译后端 stdout 编码守卫——生成头 reconfigure 必须生效。
+
+    不设 PYTHONIOENCODING（从 env 中显式移除），重定向 stdout 进文件，
+    读原始字节断言是 UTF-8 而非平台 ANSI 代码页（Windows cp936）。
+
+    反跑判据：「光明」UTF-8 = e5 85 89 e6 98 8e；
+    cp936 = b9 e2 c3 f7（修复前）。
+    """
+    source = '打印 "光明"。\n'
+    with tempfile.NamedTemporaryFile(
+            mode='w', suffix='.light', prefix='_taskT4_',
+            delete=False, encoding='utf-8') as f:
+        f.write(source)
+        src_path = f.name
+    out_path = src_path + '.out'
+    try:
+        # 显式移除 PYTHONIOENCODING，让生成头 reconfigure 自行扛编码
+        env = dict(os.environ)
+        env.pop('PYTHONIOENCODING', None)
+        env.pop('PYTHONUTF8', None)
+        with open(out_path, 'wb') as out_f:
+            subprocess.run(
+                [sys.executable, '-m', 'cli.light_unified', 'run', src_path],
+                stdout=out_f, stderr=subprocess.PIPE,
+                env=env, timeout=20)
+        with open(out_path, 'rb') as rb:
+            raw = rb.read()
+        # 「光明」UTF-8 字节（可能尾随 \r\n 或 \n）
+        expected = b'\xe5\x85\x89\xe6\x98\x8e'
+        assert expected in raw, (
+            f'stdout 非 UTF-8：期望含 {expected.hex(" ")}, '
+            f'实际 {raw.hex(" ")}')
+        # cp936 反断言：不应出现 b9 e2 c3 f7
+        cp936_bytes = b'\xb9\xe2\xc3\xf7'
+        assert cp936_bytes not in raw, (
+            f'stdout 仍为 cp936：含 {cp936_bytes.hex(" ")}, '
+            f'实际 {raw.hex(" ")}')
+    finally:
+        for p in (src_path, out_path):
+            if os.path.exists(p):
+                os.unlink(p)

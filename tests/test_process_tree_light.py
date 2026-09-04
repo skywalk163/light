@@ -115,6 +115,14 @@ class Test有界输出与spill:
         assert 结果.溢出文件 is not None
         assert os.path.isfile(结果.溢出文件)
         assert "已省略" in 结果.标准输出
+        # 省略标记里只许回显文件名，不许泄绝对路径（L5/§17.3）
+        # 大小写不敏感比较：Windows 上 normcase 会把路径全小写，
+        # 大小写敏感的 `not in` 会形成假绿
+        assert os.path.basename(结果.溢出文件) in 结果.标准输出
+        尾段标记 = 结果.标准输出.split("]...", 1)[0] if "]..." in 结果.标准输出 else ""
+        assert os.sep not in 尾段标记, f"省略标记含路径分隔符：{尾段标记}"
+        if hasattr(os, 'altsep') and os.altsep:
+            assert os.altsep not in 尾段标记, f"省略标记含 altsep：{尾段标记}"
         # 尾部应保留最后内容，中文不被截断成半个
         assert 结果.标准输出.endswith("中国结束")
         assert "\ufffd" not in 结果.标准输出

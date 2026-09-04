@@ -964,6 +964,14 @@ class PythonCodeGenerator:
         self._add_line("from typing import Any, Callable, Optional")
         self._add_line("import math")
         self._add_line("import random")
+        # 钉死 stdout/stderr 编码为 UTF-8（errors='replace' 防止 strict 收紧级联，
+        # 见 known_issues §14.1）。Windows 下转译后端默认按 ANSI 代码页(cp936)
+        # 吐字节，与非 ASCII 输出冲突——reconfigure 后与原生腿一致吐 UTF-8。
+        self._add_line("try:")
+        self._add_line("    sys.stdout.reconfigure(encoding='utf-8', errors='replace')")
+        self._add_line("    sys.stderr.reconfigure(encoding='utf-8', errors='replace')")
+        self._add_line("except (AttributeError, ValueError):")
+        self._add_line("    pass")
         self._add_line("")
         self._add_line("try:")
         self._add_line("    import importlib.util")

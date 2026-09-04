@@ -555,28 +555,48 @@ upper-bound 2 + lower-bound 92 + not-none 152）。这 66 条增量全部是存�
 绕开这一处，并在用例里写明缘由——**不是躲过去了，是把它圈出来了**。谁修完这条，
 把那 6 例里的 `整除` 换回 `除以`，那组用例即刻变成这条修复的判据。
 
-### 15.2 stdout 的字节编码（Windows 上非 ASCII 输出不同字节）
+### 15.2 stdout 的字节编码（Windows 上非 ASCII 输出不同字节）——已修复
 
 同一句 `打印 "光明"。`，输出重定向进管道/文件时：
 
 - 原生腿的 exe：吐 UTF-8 字节 `e5 85 89 e6 98 8e`
-- 转译后端（`light run`，本质是个 Python 进程）：吐**平台 ANSI 代码页**字节，
-  中文 Windows 上是 cp936 的 `b9 e2 c3 f7`
-
-即「同一个程序，两条腿产出的文件编码不同」。ANSI 那边还会在无法映射的字符上
-直接抛 `UnicodeEncodeError`。
+- 转译后端（`light run`，本质是个 Python 进程）：**修复前**吐平台 ANSI 代码页
+  字节（中文 Windows 上是 cp936 的 `b9 e2 c3 f7`），**修复后**吐 UTF-8 字节
+  `e5 85 89 e6 98 8e`，与原生腿一致。
 
 **根因**：转译后端没有钉死自己的 `sys.stdout` 编码，跟随 `locale.getpreferredencoding()`；
 原生腿写的是裸字节，源码是 UTF-8 就是 UTF-8。
 
-**未修的原因**：改法（在 CLI 入口 `reconfigure(encoding='utf-8')`）动的是所有
-转译后端用户的既有输出行为，且第四轮已经踩过「reconfigure 顺手把 errors 改成
-strict、整场级联炸」的坑（见十四节），要单独一轮带反跑地做。
+**修复方案**：在 `src/code_generator.py` 生成头区块（`import sys` 之后、stdlib
+路径探测之前）注入：
 
-**当前的止损**：`tests/test_llvm_c3_expr.py::_run_transpiled` 给子进程钉
-`PYTHONIOENCODING=utf-8`，把两边拉到同一编码再比字符。B7 原稿没钉，所以那 6 例
-在外部已设 `PYTHONUTF8` 的机器上绿、在没设的机器上红（合并期实测 2 红），
-是「本机绿 CI 红」的又一例。
+```python
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except (AttributeError, ValueError):
+    pass
+```
+
+`errors='replace'` 是硬性要求——第四轮已踩过「reconfigure 默认收紧成 strict、
+整场级联炸」的坑（见 §14.1），不加 `errors='replace'` 会把原本能输出的字符
+变成 `UnicodeEncodeError`，比 cp936 丢字节更严重。
+
+**反跑判据验证**：Windows 下 `打印 "光明"` 重定向进文件，修复前字节为 cp936
+（`b9 e2 c3 f7`），修复后字节为 UTF-8（`e5 85 89 e6 98 8e`），实测通过。
+
+**测试覆盖**：
+- `tests/test_llvm_c3_expr.py::test_stdout_utf8_bytes`——新增字节断言用例，
+  显式移除 `PYTHONIOENCODING` 和 `PYTHONUTF8`，重定向 stdout 进文件，断言
+  UTF-8 字节存在且 cp936 字节不存在。该用例不依赖 `_run_transpiled` 的环境变量
+  守卫，独立捕获 reconfigure 失效。
+- `tests/test_llvm_c3_expr.py::_run_transpiled` 中原有的
+  `PYTHONIOENCODING=utf-8` 保留为**回归守卫**——若生成头 reconfigure 被移除或
+  破坏，此环境变量仍能拉平编码，使双后端字符级比对不因编码差异假红；但字节断言
+  用例会独立捕获 reconfigure 失效。
+
+**文件隔离**：本次只动 `code_generator.py` 生成头区块（~L962-968），未触碰
+除以 op map（~L228）与复合赋值（~L2228）——归 T1。
 
 ## 十六、第七轮五路全合点的账（2026-08-24，合并期核验产出）
 
@@ -713,11 +733,11 @@ strict、整场级联炸」的坑（见十四节），要单独一轮带反跑�
 - 排期：第九轮 M23（原生腿）候选。补 mbedTLS/OpenSSL 后端属新增能力，不在本轮范围。
 - 记账口径：凡文档/清单写「原生 TLS 可用」的地方，必须标 **Windows-only**。
 
-### 17.3 #L5 [中] 溢出文件的**绝对路径**被拼进标准输出（跨平台真缺陷，Windows 是假绿）
+### 17.3 #L5 [中] 溢出文件的**绝对路径**被拼进标准输出（跨平台真缺陷，Windows 是假绿）——已修复
 
 报告把它记成「Linux 特有」，**本轮核查后改判：两个平台都漏，Windows 只是断言瞎了**。
 
-- 真正的泄漏点：`stdlib/进程树.light:248` ——
+- 真正的泄漏点：`stdlib/进程树.light:249` ——
   `设 标记 为 "...[已省略 N 字节，完整输出见 " + 己.溢出路径 + "]..."`，
   `己.溢出路径` 是 `os.path.join(己.目录, 名)` 的**绝对路径**，被 prepend 到
   `结果.标准输出` 的**开头**。合并期修 P0-1 时只把
@@ -733,8 +753,17 @@ strict、整场级联炸」的坑（见十四节），要单独一轮带反跑�
   泄漏在它**前面**的正文里。
 - 影响：给模型的输出里带宿主机目录结构（用户名、盘符、临时目录布局），
   而模型只能用沙箱内相对名（`read_file` 受 核准 管），绝对路径对它毫无用处。
-- 修法（未做，排期第九轮）：`进程树.light:248` 改成回显 `os.path.basename(己.溢出路径)`
-  —— 但 `进程树` 是通用库、调用方不一定有沙箱，得先定「相对谁」的口径；
-  同时把 `:666` 的断言改成大小写不敏感（否则 Windows 上继续假绿，改完也测不出）。
+
+**修复方案**：
+1. `stdlib/进程树.light:249` 溢出标记改为回显 `os.path.basename(己.溢出路径)`，
+   不再拼绝对路径。
+2. `tests/test_process_tree_light.py:118-125` 新增路径泄露守卫：断言省略标记含
+   `os.path.basename(结果.溢出文件)`、标记段不含 `os.sep` 和 `os.altsep`。
+3. `tests/test_agent_tools_light.py:666-670` 原大小写敏感的
+   `str(tmp_path) not in 结果` 改为 `str(tmp_path).lower() not in 结果.lower()`，
+   并增加 `os.altsep` 断言。
+
+**反跑判据验证**：修复前输出标记含完整绝对路径（盘符/用户目录）；
+修复后只含文件名。若将 L249 改回拼接 `己.溢出路径`，上述新增断言立即立红。
 
 
