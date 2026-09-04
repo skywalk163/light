@@ -790,16 +790,39 @@ except (AttributeError, ValueError):
   /usr/local/lib/python3.11/site-packages (44.0.3)` —— 这台 runner 上新加的 pip 装依赖
   是空转，蹭的就是系统 site-packages 那份；换台干净 runner 才会真装。
 
-### 17.2 #L2 [中] POSIX 侧原生 TLS 是 stub（有壳无实现）
+### 17.2 #L2 [中] POSIX 侧原生 TLS 是 stub（有壳无实现）——已修复（Task T7：mbedTLS 后端）
 
-- 证据：`runtime_typed.c:5747-5778`，POSIX 分支 `backend=none`、`dv_tls_wrap` → NULL，
-  任何握手调用立即失败。Windows 侧的 Schannel 后端是真的。
-- 口径纠正：`docs/POSIX验证报告_Linux.md` 已把「`dv_tls_last_error()` POSIX 未导出」
-  的怀疑证伪——它定义在 `runtime_typed.c:5107`、在 `#ifdef _WIN32` 之前无条件存在，
-  POSIX 上返回可读错误 `本平台未实现原生 TLS：当前只有 Windows Schannel 后端（POSIX 待补 mbedTLS）`。
-  所以缺的是**实现**，不是错误可见性。
-- 排期：第九轮 M23（原生腿）候选。补 mbedTLS/OpenSSL 后端属新增能力，不在本轮范围。
-- 记账口径：凡文档/清单写「原生 TLS 可用」的地方，必须标 **Windows-only**。
+- 原状：`runtime_typed.c` 旧 POSIX 分支 `backend=none`、`dv_tls_wrap` → NULL，
+  任何握手调用立即失败；Windows 侧的 Schannel 后端是真的。缺的是**实现**，
+  不是错误可见性（`dv_tls_last_error` 在 `#ifdef _WIN32` 之前无条件存在）。
+- 修复（Task T7）：POSIX 分支补 **mbedTLS 客户端后端**（`runtime_typed.c:6147` 起，
+  `#if defined(LIGHT_TLS_MBEDTLS)`），API 签名与行为对齐 Windows Schannel 分支：
+  - 证书校验默认开启（`g_tls_verify_default=1`）；
+  - `dv_tls_add_trusted_cert_file` 追加「独占根」信任锚（对应 Windows hExclusiveRoot、
+    curl --cacert 语义：一旦设置只认显式给的这批根，比系统根更严）；
+  - 握手可重入非阻塞（WANT_READ/WANT_WRITE 透传，喂 `dv_coro_await_io` 不阻塞事件循环）；
+  - 发送走 out_pending 队列（半包写不完不阻塞）、`dv_tls_recv_status` 返回
+    OK/WANT_READ/CLOSED/ERROR 与 Windows 一致；
+  - `dv_tls_backend()` 返回 `"mbedTLS"`。
+- 开/关：定义 `LIGHT_TLS_MBEDTLS` 启用真后端；未定义时保留原 stub（保证未装
+  mbedTLS 的 POSIX 构建不破——「勿破坏原生腿其它部分」）。依赖 libmbedtls-dev
+  （Ubuntu: `apt install libmbedtls-dev`），链接 `-lmbedtls -lmbedx509 -lmbedcrypto`。
+- 验证（本机 Windows，POSIX 只做代码层对齐 + 编译检查）：
+  - Windows Schannel 冒烟：`python -m pytest tests/test_llvm_tls.py -q` 正/负例
+    **2 passed**（不破坏原生腿）；
+  - POSIX mbedTLS 分支：对 Ubuntu 24 同款 **mbedTLS 2.28.8** 头与 3.5.2 头
+    `-fsyntax-only` 全绿、2.28.8 完整 `-c` 编译通过（`_taskT7_posix_syntax.c` 独立 TU）。
+  - **POSIX 真机实测通过**：目标机 192.168.0.86（Ubuntu 24.04 / clang 18.1.3 /
+    libmbedtls-dev 2.28.8）上 `python3 -m pytest tests/test_llvm_tls.py -q` **2 passed**；
+    C 二进制定向用例正例 `dv_tls_backend()=mbedTLS` + 握手/回显全 PASS、负例
+    `X509 - Certificate verification failed (-0x2700)` 正确拒绝不受信证书。
+    （首次交付时 .86 不可达曾标注「未在 POSIX 实测」，用户确认连通后补跑完成。）
+- 定向测试：`tests/test_llvm_tls.py` 正/负例在双平台都跑真后端（已去掉 `仅Windows`
+  跳过、删除 `仅POSIX` 桩反向钉住用例）；POSIX 编译由测试侧显式加
+  `-DLIGHT_TLS_MBEDTLS -lmbedtls -lmbedx509 -lmbedcrypto`（生产 `get_link_libs()`
+  的 POSIX 分支保持 `-lm` 不动，属 T9 范围）。
+- 记账口径：启用 `LIGHT_TLS_MBEDTLS` 的 POSIX 构建上，「原生 TLS 可用」不再限
+  Windows；未启用宏的构建仍为 stub。
 
 ### 17.3 #L5 [中] 溢出文件的**绝对路径**被拼进标准输出（跨平台真缺陷，Windows 是假绿）——已修复
 
