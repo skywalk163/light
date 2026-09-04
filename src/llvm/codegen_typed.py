@@ -7,6 +7,7 @@ LLVM 代码生成器 - 类型版 (v3)
 from typing import Optional, Tuple, List
 import sys
 import platform as _platform
+import types
 import ast_nodes as ast
 try:
     from .codegen import LLVMCodeGen
@@ -293,6 +294,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_list_append(ptr, ptr, ptr)',
             f'declare void @dv_list_insert(ptr, ptr, i64, ptr)',
             f'declare void @dv_list_remove(ptr, ptr, i64)',
+            f'declare void @dv_list_pop(ptr, ptr, i64)',
             f'declare void @dv_list_set(ptr, ptr, i64, ptr)',
             f'declare i64 @dv_list_index_of(ptr, ptr)',
             f'declare i64 @dv_list_contains(ptr, ptr)',
@@ -1217,6 +1219,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 内置函数
         builtin = self._gen_typed_builtin(func_name, args)
         if builtin is not None:
+            # 函数式变异调用写回：`列表弹出(己.数据)` / `列表插入(己.数据, 0, x)` 这类
+            # 独立语句调用 mutating builtin（返回新列表），须把新列表写回
+            # 第一参数（实例字段或局部变量），否则跨调用累积丢失。
+            if func_name in ('追加', 'append', '列表追加', '清空', 'clear', '设置', 'set',
+                             '插入', 'insert', '列表插入', 'list_insert',
+                             '删除', 'remove', 'list_remove',
+                             '列表弹出', 'list_pop') and expr.arguments:
+                self._persist_to_receiver(
+                    types.SimpleNamespace(obj=expr.arguments[0]), builtin[0])
+            return builtin
+        if builtin is not None:
             return builtin
 
         # 当前模块的段函数
@@ -1520,11 +1533,22 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._create_bool_dv(cmp), 'dv'
             return self._create_bool_dv('false'), 'dv'
 
-        if name in ('插入', 'insert', 'list_insert'):
+        if name in ('插入', 'insert', 'list_insert', '列表插入'):
             if len(args) >= 3:
                 idx_i64 = self.new_register()
                 self.emit(f'{idx_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
                 return self._call_dv_func('dv_list_insert', args[0], f'i64 {idx_i64}', args[2]), 'dv'
+            return self._call_dv_func('dv_list_new'), 'dv'
+
+        if name in ('列表弹出', 'list_pop'):
+            # 返回移除元素后的新列表（数据结构轻量用法：先取值、后弹、弃返回值）；
+            # 调用点对接收者（字段/局部变量）做写回。无下标参数时弹末尾（i64 -1）。
+            if len(args) >= 1:
+                if len(args) >= 2:
+                    idx_i64 = self.new_register()
+                    self.emit(f'{idx_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
+                    return self._call_dv_func('dv_list_pop', args[0], f'i64 {idx_i64}'), 'dv'
+                return self._call_dv_func('dv_list_pop', args[0], 'i64 -1'), 'dv'
             return self._call_dv_func('dv_list_new'), 'dv'
 
         if name in ('删除', 'remove', 'list_remove'):
@@ -2295,7 +2319,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         """
         recv = prop.obj
         if isinstance(recv, ast.Identifier):
-            return '.' in recv.name
+            # 带点（己.数据）= 实例字段；无点（栈）= 局部变量参数。
+            # 两者都是可写回接收者：_persist_to_receiver 的情况一/二分别处理，
+            # 不写回则跨调用累积丢失（数据结构轻量 入栈/出栈 的 栈 参数根因）。
+            return True
         if isinstance(recv, ast.PropertyAccess) and isinstance(recv.obj, ast.Identifier):
             return True
         return False

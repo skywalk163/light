@@ -1689,6 +1689,20 @@ void dv_list_remove(LightValue* result, LightValue* list, int64_t index) {
     free(new_list);
 }
 
+/* 列表弹出：返回移除指定下标元素后的新列表（index<0 表示末尾，默认弹尾）。
+ * 数据结构轻量.light 的 `列表弹出(己.数据)` 用法是「先取值、后弹出、弃返回值」，
+ * 返回值即新列表，由调用方写回接收者（与 dv_list_remove 同语义）。
+ */
+void dv_list_pop(LightValue* result, LightValue* list, int64_t index) {
+    if (list->type != 4 || list->list_size == 0) {
+        dv_clone(result, list);
+        return;
+    }
+    int64_t idx = index;
+    if (idx < 0) idx = list->list_size - 1;
+    dv_list_remove(result, list, idx);
+}
+
 int64_t dv_list_index_of(LightValue* list, LightValue* elem) {
     if (list->type != 4 || !elem) return -1;
     
