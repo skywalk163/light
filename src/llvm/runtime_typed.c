@@ -1253,6 +1253,35 @@ int dv_str_starts_with(LightValue* str, LightValue* prefix) {
     return strncmp(str->str, prefix->str, plen) == 0;
 }
 
+/* POSIX 风格路径连接（对齐 stdlib/内置核心路径.light 的 连接路径 口径）：
+ *   b 以 '/' 开头 -> 返回 b（绝对路径丢弃前面全部）；
+ *   a 为空 -> 返回 b；b 为空 -> 返回 a；
+ *   否则 a 去尾斜杠 + '/' + b（a 已有尾斜杠不再补）。
+ */
+void dv_path_join(LightValue* result, LightValue* a, LightValue* b) {
+    if (a->type != 3 || !a->str) { dv_clone(result, b); return; }
+    if (b->type != 3 || !b->str) { dv_clone(result, a); return; }
+    const char* sa = a->str;
+    const char* sb = b->str;
+    if (sb[0] == '/') { dv_clone(result, b); return; }
+    size_t la = strlen(sa);
+    size_t lb = strlen(sb);
+    if (la == 0) { dv_clone(result, b); return; }
+    if (lb == 0) { dv_clone(result, a); return; }
+    int need_sep = (sa[la-1] != '/');
+    char* out = (char*)malloc(la + (need_sep ? 1 : 0) + lb + 1);
+    if (!out) { dv_str(result, ""); return; }
+    memcpy(out, sa, la);
+    size_t p = la;
+    if (need_sep) out[p++] = '/';
+    memcpy(out + p, sb, lb);
+    out[p + lb] = '\0';
+    result->type = 3;
+    result->i64 = 0; result->f64 = 0.0; result->boolean = 0;
+    result->list_size = 0; result->list_capacity = 0; result->list_data = NULL;
+    result->str = out;
+}
+
 int dv_str_ends_with(LightValue* str, LightValue* suffix) {
     if (str->type != 3 || suffix->type != 3 || !str->str || !suffix->str) {
         return 0;

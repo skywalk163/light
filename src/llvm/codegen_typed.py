@@ -344,6 +344,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_str_center(ptr, ptr, ptr, ptr)',
             f'declare void @dv_str_reverse(ptr, ptr)',
             f'declare void @dv_str_split(ptr, ptr, ptr)',
+            f'declare void @dv_path_join(ptr, ptr, ptr)',
             f'declare void @dv_to_int(ptr, ptr)',
             f'declare void @dv_to_float(ptr, ptr)',
             f'declare void @dv_to_bool_val(ptr, ptr)',
@@ -1238,6 +1239,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # C3-1：拼错名字的函数/段落调用（AstAdapter 把 v3 ParagraphCall 转成
         # FunctionCall，所以「未知段落」真正落在这里）。以前静默编成整数 0，
         # 现在报错并列出本模块已定义候选。
+        # 解析器歧义兜底：局部变量名与内置判型名重名时（如 stdlib 的
+        # `设 是浮点 为 假` 后 `如果 是浮点 == 真`），v3 解析器把变量引用
+        # 解析成无参 ParagraphCall，适配层转成 FunctionCall。此处若名字已是
+        # 已收集局部变量且调用无参，降级为变量引用，与转译腿语义一致。
+        if not args and func_name in self._local_vars:
+            var_ref = self.get_var(func_name)
+            if var_ref is not None:
+                return var_ref, 'dv'
+
         self._reject_unknown_call(func_name, expr)
 
     def _gen_imported_segment_call(self, name: str, args: List[str]) -> Tuple[str, str]:
@@ -1265,6 +1275,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return result, 'dv'
 
     def _gen_typed_builtin(self, name: str, args: List[str]) -> Optional[Tuple[str, str]]:
+        # 异常类名直呼构造：stdlib 写 `抛出 运行时错误("...")`（裸类名调用，
+        # 非 `新建`），与 `新建 异常(提示)` 走同一类实例化语义。中文名覆盖
+        # stdlib 直呼的 Python 风格名，英文名对齐已注册的内置异常类。
+        if name in ('异常', '运行时异常', '值异常', '索引异常', '类型异常', 'IO异常',
+                    '内存异常', '算术异常', '运行时错误', '类型错误', '值错误', '索引错误',
+                    '读取错误', '请求错误', 'Exception', 'RuntimeException', 'ValueError',
+                    'TypeError', 'IndexError', 'IOException', 'MemoryError', 'ArithmeticError'):
+            name_reg = self.gen_string_constant(name)
+            exc_slot = self._new_dv_slot()
+            self.emit(f'call void @dv_class_new_named(ptr {exc_slot}, ptr {name_reg})')
+            return self._load_dv(exc_slot), 'dv'
         if name in ('输出', '打印'):
             if args:
                 slot = self._store_dv(args[0])
@@ -1302,6 +1323,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
                 file_reg = self.new_register()
                 self.emit(f'{file_reg} = call i32 @dv_file_exists(ptr {path_ptr})')
+                cmp = self.new_register()
+                self.emit(f'{cmp} = icmp ne i32 {file_reg}, 0')
+                return self._create_bool_dv(cmp), 'dv'
+            return self._create_bool_dv('false'), 'dv'
+
+        if name in ('目录存在', 'dir_exists', 'is_dir'):
+            if args:
+                path_ptr = self.new_register()
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                file_reg = self.new_register()
+                self.emit(f'{file_reg} = call i32 @dv_is_dir(ptr {path_ptr})')
                 cmp = self.new_register()
                 self.emit(f'{cmp} = icmp ne i32 {file_reg}, 0')
                 return self._create_bool_dv(cmp), 'dv'
@@ -1538,7 +1570,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._call_dv_func('dv_list_reverse', args[0]), 'dv'
             return self._call_dv_func('dv_list_new'), 'dv'
 
-        if name in ('排序', 'sort', 'list_sort'):
+        if name in ('排序', 'sort', 'list_sort', '列表排序'):
             if args:
                 return self._call_dv_func('dv_list_sort', args[0]), 'dv'
             return self._call_dv_func('dv_list_new'), 'dv'
@@ -1582,7 +1614,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return result, 'dv'
             return self._create_int_dv('0'), 'dv'
 
-        if name in ('转文本', 'to_string', '转字符串', '转串'):
+        if name in ('转文本', 'to_string', '转字符串', '转串', 'str'):
             if args:
                 return self._call_dv_func('dv_value_to_string', args[0]), 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
@@ -1654,12 +1686,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._create_int_dv(i64_val), 'dv'
             return self._create_int_dv('-1'), 'dv'
 
-        if name in ('大写', 'upper', 'to_upper'):
+        if name in ('大写', 'upper', 'to_upper', '转大写'):
             if args:
                 return self._call_dv_func('dv_upper', args[0]), 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
 
-        if name in ('小写', 'lower', 'to_lower'):
+        if name in ('小写', 'lower', 'to_lower', '转小写'):
             if args:
                 return self._call_dv_func('dv_lower', args[0]), 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
@@ -1669,12 +1701,48 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._call_dv_func('dv_trim', args[0]), 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
 
-        if name in ('替换', 'replace', 'str_replace'):
+        if name in ('字符串重复', '重复', 'str_repeat', 'repeat'):
+            if len(args) >= 2:
+                return self._call_dv_func('dv_str_repeat', args[0], args[1]), 'dv'
+            return self._create_str_dv(self.gen_string_constant('')), 'dv'
+
+        if name in ('连接路径', 'join_path', 'path_join'):
+            if len(args) >= 2:
+                return self._call_dv_func('dv_path_join', args[0], args[1]), 'dv'
+            return self._create_str_dv(self.gen_string_constant('')), 'dv'
+
+        if name in ('字符串包含', 'str_contains', '包含字符串'):
+            if len(args) >= 2:
+                s0 = self.new_register()
+                self.emit(f'{s0} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                s1 = self.new_register()
+                self.emit(f'{s1} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                r = self.new_register()
+                self.emit(f'{r} = call i32 @dv_str_contains(ptr {s0}, ptr {s1})')
+                cmp = self.new_register()
+                self.emit(f'{cmp} = icmp ne i32 {r}, 0')
+                return self._create_bool_dv(cmp), 'dv'
+            return self._create_bool_dv('false'), 'dv'
+
+        if name in ('开头', '以开头', 'startswith', 'starts_with', '前缀是'):
+            if len(args) >= 2:
+                s0 = self.new_register()
+                self.emit(f'{s0} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                s1 = self.new_register()
+                self.emit(f'{s1} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                r = self.new_register()
+                self.emit(f'{r} = call i32 @dv_str_starts_with(ptr {s0}, ptr {s1})')
+                cmp = self.new_register()
+                self.emit(f'{cmp} = icmp ne i32 {r}, 0')
+                return self._create_bool_dv(cmp), 'dv'
+            return self._create_bool_dv('false'), 'dv'
+
+        if name in ('替换', 'replace', 'str_replace', '替换字符串'):
             if len(args) >= 3:
                 return self._call_dv_func('dv_str_replace', args[0], args[1], args[2]), 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
 
-        if name in ('分割', 'split', 'str_split'):
+        if name in ('分割', 'split', 'str_split', '分割字符串'):
             if len(args) >= 2:
                 return self._call_dv_func('dv_str_split', args[0], args[1]), 'dv'
             return self._call_dv_func('dv_list_new'), 'dv'
@@ -1707,7 +1775,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._create_bool_dv(cmp), 'dv'
             return self._create_bool_dv('false'), 'dv'
 
-        if name in ('取类型', 'type', '获取类型', 'typeof', '类型名', 'type_name'):
+        if name in ('取类型', 'type', '获取类型', 'typeof', '类型名', 'type_name', '类型'):
             if args:
                 obj_slot = self._store_dv(args[0])
                 buf_size = 256
@@ -3686,6 +3754,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             ("IO异常", "异常", []),
             ("内存异常", "异常", []),
             ("算术异常", "异常", []),
+            # 中文 Python 风格异常名别名（stdlib 直呼 运行时错误/类型错误/值错误 等，
+            # 与内置中文名 运行时异常/类型异常/值异常 对齐，继承关系同 Python）
+            ("运行时错误", "运行时异常", []),
+            ("类型错误", "类型异常", []),
+            ("值错误", "值异常", []),
+            ("索引错误", "索引异常", []),
+            ("读取错误", "IO异常", []),
+            ("请求错误", "IO异常", []),
             # "Exception"（英文）是 "异常"（中文）的别名基类：让二者在继承树中
             # 隶属同一根，否则用户代码 `继承 Exception` 抛出的异常无法被 `捕获 异常`
             # 接住（dv_isinstance 沿 super 链走到并列顶层 "Exception" 即失配重抛）。
