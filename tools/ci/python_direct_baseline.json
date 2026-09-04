@@ -1,9 +1,9 @@
 {
   "version": 1,
   "note": "Python 直调计数基线（第七轮 E7 建）。口径见 tools/ci/python_direct_calls.py docstring。每文件计数与总数都只许降不许升；降了要重新生成本文件。刻意不要求降到 0——那会逼出「换写法绕正则」的假降。total 必须等于 files 各项之和，不等即红（防手改总数放宽）。键不带行号：行号会随任何编辑漂移，带行号的键只会造幻影红。",
-  "built_from_commit": "61652092e27e",
+  "built_from_commit": "9f8c7ef0a231",
   "scanned_root": ".",
-  "total": 249,
+  "total": 250,
   "files": {
     "examples/calculator_app/主.light": 1,
     "examples/cli_tool/file_organizer.light": 1,
@@ -34,7 +34,7 @@
     "stdlib/日期时间轻量.light": 2,
     "stdlib/模式校验.light": 1,
     "stdlib/流式.light": 6,
-    "stdlib/进程树.light": 54,
+    "stdlib/进程树.light": 55,
     "stdlib/选择器.light": 8,
     "stdlib/重试.light": 1
   }
