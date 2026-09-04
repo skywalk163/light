@@ -143,10 +143,10 @@ class TestSymbolOperators:
         assert '4 * 5' in py
 
     def test_divide(self):
-        """除法符号"""
+        """除法符号：按 known_issues §15.1 裁决选 B，「除以」/「/」整数相除向零截断，走 _light_trunc_div"""
         code = '令 a = 10 / 2'
         py = parse_and_generate(code)
-        assert '10 / 2' in py
+        assert '_light_trunc_div(10, 2)' in py
 
     def test_modulo(self):
         """取余符号"""
@@ -161,10 +161,10 @@ class TestSymbolOperators:
         assert '2 ** 3' in py or '2 ** 3' in py.replace(' ', '')
 
     def test_floor_div(self):
-        """整除符号"""
+        """整除符号：「整除」/「//」同样整数向零截断（与原生腿 i64 sdiv 一致），走 _light_trunc_div"""
         code = '令 a = 10 // 3'
         py = parse_and_generate(code)
-        assert '10 // 3' in py
+        assert '_light_trunc_div(10, 3)' in py
 
     def test_eq(self):
         """等于比较"""
