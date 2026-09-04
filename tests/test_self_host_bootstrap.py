@@ -167,8 +167,8 @@ class TestLevel1BasicExpr:
         """测试除法运算"""
         source = '设 r 为 10 除 3'
         ns, _ = _compile_and_run(source)
-        # 段言当前使用浮点除法
-        assert abs(ns['r'] - 3.3333333333333335) < 0.001
+        # 裁决 B（§15.1）：「除」整数相除向零截断 → 10 / 3 = 3（整型，对齐原生腿 i64 sdiv）
+        assert ns['r'] == 3
 
     def test_binary_mod(self) -> None:
         """测试取模运算"""

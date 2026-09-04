@@ -627,6 +627,21 @@ upper-bound 2 + lower-bound 92 + not-none 152）。这 66 条增量全部是存�
 - `c_backend.py`：光明 `/` 在 Python 腿包 `_light_trunc_div`；C 的 `/` 对整数天然向零截断、
   浮点真除，即裁决 B 语义，`_translate_call` 把 `_light_trunc_div(a, b)` 调用映射回原生 C `/`。
 
+**24 条 soft 打红全清（2026-09-04，回归闸门续）**：裁决 B 落地后，存量测试/示例对旧「除→浮点」语义的欠账逐条对齐。根因分组经 .86（Ubuntu 3.12）/ FreeBSD CI 主机（3.11，与 Gitea CI 同版本）四路实证，全部反跑判据（改回原语义立即立红）成立：
+- `stdlib/度量.light`（纯光明实现，`转浮点` 为内置别名，不触发 python_direct_calls 棘轮）：
+  - `分位` 的 `设 比例 为 ((n - 1) * 百分位) / 100` → `/ 100.0` → 清 metrics 分位 10 条（含反跑_线性插值非取整）。
+  - `批量汇总` 的 `通过率 通过数 / 总数`、`平均耗时 总耗时 / 总数` → `转浮点(除数)`；`成本估算 (总词元 / 1000) * 单价` → `/ 1000.0` → 清 metrics 批量汇总 2 条 + harness 通过率/成本 3 条。
+- `examples/harness/打分.light`：子集 `通过率 通过数 / 总条数` → `转浮点(总条数)` → 清 harness 整进程跑通里「子集精确通过率」断言（1/2 此前被打成 0）。
+- 旧「除→浮点」期望对齐裁决 B（整型截断，反向判据：改回浮点期望立即立红）：
+  - `test_edge_cases.py` 3 处（divide_assign/complex_arithmetic/multiple_params）：期望 5.0→5、17.0→17。注释已注明：v4.0 T01 审计锁定的「乘除优先级高于加减、左结合」结论不变，仅结果类型由浮点变整型，裁决 B 取代旧浮点除法假设。
+  - `test_ternary.py` case_13：期望 `"1.0"`→`"1"`。
+  - `test_self_host_bootstrap.py::test_binary_div`：`10 除 3` 期望 3.333…→`3`（对齐原生腿 i64 sdiv）。
+- `test_exception.py` 2 处：`1//0` 的宿主消息 3.11/3.12 是 `integer division or modulo by zero`（不含 `division by zero`），3.14 才简化。断言 `'division by zero'` → `'by zero'`（版本容忍，CI 是 3.11）。
+- `test_pure_light_hook.py` [求和]：`builtins.求和` 按 `sys.version_info` 传「启用补偿」（3.12+ 才走 Neumaier 补偿 → 1.0；3.11 朴素累加 → 0.0），期望改 `1.0 if sys.version_info >= (3, 12) else 0.0`（CI 3.11 取 0.0）。
+- `test_async_io_light.py` TLS 异步读腿：并发门限 0.8→1.0，并补「并发 < 串行」关系断言。依据：FreeBSD 空闲实测并发 0.79~0.81s 正卡原 0.8 边缘、全核饱和 0.92s、CI 4 路 xdist 并行 1.78s；串行恒 ≥ 1.0s（2×延迟）仍在门限外，真正串行化（≈1.3s）依旧会被拦。判据本意断关系不断绝对值，绝对门限只做兜底。
+
+**验证**：本机 3.14 + .86 3.12 + FreeBSD 3.11（与 CI 同版本）三路全绿；受影响文件整文件重跑通过（metrics/edge_cases/ternary/exception/harness 14/pure_light_hook/TLS）。e2e 基线 12 条为宿主机缺 numpy/pandas/matplotlib/sklearn 的环境欠账，代码层不可清，不在本次全清口径内。
+
 **判据已就位**：原「止损」里的 6 例双后端一致性测试，其中 `test_双后端一致_基本算术`
 已把 `整除` 换回 `除以` 作判据；并新增 `test_双后端一致_除法向零截断` 负数用例。
 另注：双后端测试的转译腿走 `cli.light_unified run`（src 后端 `PythonCodeGenerator`，
