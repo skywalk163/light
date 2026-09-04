@@ -1383,10 +1383,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#151" class="md-nav__link">
+  <a href="#151-2026-09-04-b" class="md-nav__link">
     <span class="md-ellipsis">
       
-        15.1 除以 的算术语义
+        15.1 除以 的算术语义 —— ✅ 已修（2026-09-04，裁决选 B）
       
     </span>
   </a>
@@ -1397,7 +1397,7 @@
   <a href="#152-stdout-windows-ascii" class="md-nav__link">
     <span class="md-ellipsis">
       
-        15.2 stdout 的字节编码（Windows 上非 ASCII 输出不同字节）
+        15.2 stdout 的字节编码（Windows 上非 ASCII 输出不同字节）——已修复
       
     </span>
   </a>
@@ -4551,16 +4551,79 @@
 <h2 id="_2">一、严重问题<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
 <h3 id="p0">P0 — 影响核心功能<a class="headerlink" href="#p0" title="Permanent link">&para;</a></h3>
 <ul class="task-list">
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>[P0] 自举编译器覆盖范围</strong>：当前自举编译器覆盖了大部分语法，但极边缘特性（如复杂嵌套泛型）尚未完全自举。</li>
-<li><strong>影响</strong>：少数边缘场景需要通过手动实现的编译器处理</li>
-<li>
-<p><strong>计划</strong>：v6.1 中完成全覆盖</p>
-</li>
-<li class="task-list-item">
-<p><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>[P0] LLVM 后端标准库覆盖</strong>：部分标准库函数在 LLVM 后端尚未完全实现，会回退到 Python 解释执行。</p>
-</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <strong>[P0] 自举编译器覆盖范围</strong>：~~当前自举编译器覆盖了大部分语法，但极边缘特性（如复杂嵌套泛型）尚未完全自举。~~
+  <strong>第十轮 R10-6 评估结论：原描述「复杂嵌套泛型未自举」不成立，大量特性已由 src/ 权威解析器覆盖；实际未自举的是 3 条 API/解析缺口，已逐条列路与排期。</strong></li>
+</ul>
+<p><strong>第九轮 A9/C9 已消除的差距</strong>（实测 <code>src/light_parser_v3.py</code> 逐一验证通过）：
+  - 泛型类（<code>类 栈[T]:</code>）✅
+  - 泛型函数（<code>段落 测试[T] 接收 表: 列表&lt;T&gt;:</code>）✅
+  - 嵌套泛型（<code>列表&lt;字典&lt;文本, 列表&lt;T&gt;&gt;&gt;</code>）✅
+  - 类型别名（<code>类型 映射[K, V] = 字典[K, V]。</code>）✅
+  - 异步段落在类体内（<code>异步 段落 请求(网址):</code>）✅
+  - 符号运算符（<code>+ - * / % == != &lt; &gt; &lt;= &gt;=</code>）✅
+  - 无空格分词（<code>设x为10</code>）✅
+  - 关键字别名（<code>若</code>/<code>返</code>/<code>遍</code>/<code>于</code> 等）✅
+  - 列表推导 / 字典推导 / 集合推导 ✅
+  - 切片表达式 / 元组字面量 ✅
+  - match 语句 / 装饰器 / 接口定义 ✅
+  - 复合赋值（<code>x 加等 5</code>）✅
+  - 字符串插值（<code>f"你好 {名}"</code>）✅
+  - break/continue（<code>跳出</code>/<code>跳过</code>）✅
+  - <code>捕获 类型 as 变量</code>（含中文变量名）✅
+  - inline-if 单行赋值（<code>如果 (cond): X 为 Y</code>）✅</p>
+<p><strong>仍未自举的 3 条缺口</strong>（逐条差距与路线）：</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>缺口</th>
+<th>差距</th>
+<th>自举路线</th>
+<th>排期</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>G1</td>
+<td>SemanticAnalyzer 与 ast_nodes_v3.Module 不兼容</td>
+<td><code>SemanticAnalyzer.__init__</code> 期望 <code>ast_unified.Module</code>（有 <code>add_scope</code> 等方法），但 <code>light_parser_v3</code> 产出 <code>ast_nodes_v3.Module</code>（无此方法）；<code>test_semantic.py</code> 整体 skip，<code>cli/lightc.py</code> 和 <code>light6.py</code> 均跳过语义分析</td>
+<td>统一 Module 类型：要么让 <code>ast_nodes_v3.Module</code> 补齐 <code>add_scope</code> 等接口，要么让 <code>SemanticAnalyzer</code> 改为接受 v3 Module；属架构重构</td>
+<td>v7.0</td>
+</tr>
+<tr>
+<td>G2</td>
+<td>lambda 表达式不支持</td>
+<td><code>lambda x: x+1</code>、<code>匿名(x): x+1</code>、<code>x =&gt; x+1</code> 三种语法形式均 FAIL（解析器在 <code>:</code> 处报「无法识别的语法元素」）</td>
+<td>在 <code>parser_expr.py</code> 新增 lambda 解析分支：识别 <code>匿名</code>/<code>lambda</code> 关键字 → 解析参数列表 → 期望 <code>:</code> → 解析体表达式</td>
+<td>v6.1</td>
+</tr>
+<tr>
+<td>G3</td>
+<td>with 语句不支持</td>
+<td><code>与 open("f") 为 f:</code> 和 <code>用 文件("f") 为 f:</code> 均 FAIL（<code>与</code>被标记为保留关键字但无解析路径）</td>
+<td>在 <code>parser_stmt.py</code> 新增 with 语句解析：识别 <code>与</code>/<code>用</code> 关键字 → 解析上下文表达式 → <code>为</code> 变量名 → <code>:</code> → 缩进块</td>
+<td>v6.1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>自举率门禁验证</strong>（<code>tools/ci/bootstrap_rate.py</code>）：
+  - 文件维度自举率：37/89 = 41.57%（基线 40.48%，未倒退）✅
+  - 关键路径自举率：18/18 = 100%（持平）✅
+  - 影子数：53（持平）✅
+  - 引 Python 逃逸：0（守住）✅</p>
+<p><strong>bootstrap/ 自举编译器状态</strong>：<code>bootstrap/test_level6_full.py</code>、<code>test_level7_bootstrap.py</code> 等因运行时漂移（<code>列表插入</code> 等内置函数未定义）大面积红——这是 bootstrap 自举编译器与 src/ 权威解析器分叉的<strong>结构表征</strong>，非本轮引入。<code>bootstrap/test_new_features.py</code>（7 passed）和 <code>bootstrap/test_compiler_simple.py</code> 仍绿。bootstrap/ 目录的收敛清理属结构债务（见 <code>docs/C6_bootstrap结构核对.md</code>），排期 v7.0。</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>[P0] LLVM 后端标准库覆盖</strong>：部分标准库函数在 LLVM 后端尚未完全实现，会回退到 Python 解释执行。</li>
 <li><strong>影响</strong>：使用 <code>--native</code> 编译时，部分标准库调用性能未达最优</li>
 <li><strong>计划</strong>：v6.1 中逐步补全</li>
+<li><strong>R10-7 评估结论（T9 核对，2026-09-04）</strong>：以 <code>任务书/原生腿产品清单.json</code> 为基准，逐模块真编译复现（<code>compile_light_typed</code> 真出 exe；空壳 <code>.light</code> 实现在同名 <code>.py</code>、原生腿不加载 <code>.py</code>，不计为可编译）。<ul>
+<li>原生可编译比例 = <strong>5 / 89 = 5.62%</strong>（产品语义口径：非空壳且含真实实现且真出 exe），<strong>远未达 ≥60% 目标</strong>。非空壳模块 41 个中仅 5 个可编译（12.20%）。</li>
+<li>未达标阻断原因分类（分母 89，复现归类）：同名 <code>.py</code> 影子/空壳 <strong>48</strong>、依赖 Python 标准库 <strong>19</strong>（sys/os/re/socket/time/codecs/ctypes/asyncio/selectors，含原清单「导入影子依赖」2 个实际 import 标准库）、代码生成不支持 <strong>13</strong>（缺 <code>长</code>/<code>类型</code>/<code>str</code>/<code>连接路径</code>/<code>替换字符串</code> 等注册点）、导入 <code>.py</code> 实现 <code>NativeImportError</code> <strong>4</strong>（分布式 <code>节点网络</code> 纯 <code>.py</code> 边界）。</li>
+<li>自 B9 快照（2026-08-24）以来变化：5 模块改善（JSON编解码/中文NLP/内置核心字符串/断言工具轻量/格式化 由不可编译→可编译）；1 模块倒退（列表工具 由可编译→不可编译，原生腿缺 <code>类型</code> 注册点——清单已过期，须 B9 重建基线时重填）。</li>
+<li>处置（评估后决定，<strong>本轮不补实现</strong>）：按阻断分类交办对应泳道——同名 <code>.py</code> 影子 → 各模块 owner 真 <code>.light</code> 化；依赖 Python 标准库 → 纯光明重写 Python 内建模块；代码生成不支持 → A10/B10 补原生 codegen 注册点；<code>NativeImportError</code> → 分布式 <code>节点网络</code> 纯 <code>.light</code> 重写。</li>
+<li>证据：<code>任务书/原生腿可编译核对_T9.json</code>（逐模块结果 + 计数，T9 核对落盘；判据可复现：重跑核对脚本即得同结论）。</li>
+</ul>
+</li>
 </ul>
 <hr />
 <h2 id="_3">二、高优先级问题<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
@@ -5076,6 +5139,14 @@ Windows 下按 GBK 输出会被当成乱码误判成冒烟不通过；现钉 <co
 原先就是这么写的，已改为 <code>python cli/light.py run &lt;文件&gt;</code>）。
 <code>tests/conftest.py</code> 的 <code>analyzer</code> fixture 是同一处签名不匹配，当前没有用例消费它，
 所以门禁同样看不见。</p>
+<blockquote>
+<p><strong>已修复（2026-09-04）</strong>：<code>cli/lightc.py</code> <code>LightCompiler.__init__</code> 移除无参
+<code>SemanticAnalyzer()</code> 构造，<code>compile()</code> 方法与 <code>light6.py</code> <code>_src_compile</code> 一致
+跳过语义分析（<code>SemanticAnalyzer</code> 与 <code>ast_nodes_v3.Module</code> 尚不兼容，
+<code>test_semantic.py</code> 整体 skip）。<code>tests/conftest.py</code> <code>analyzer</code> fixture 改为
+返回 <code>None</code> 并注明不可用。新增 <code>tests/test_lightc_cli.py</code> 5 条真跑用例
+（编译 rc=0 / <code>--run</code> 输出正确 / 反跑判据：改回无参构造即 5 failed）。</p>
+</blockquote>
 <h3 id="123-codegen_typed">12.3 codegen_typed 的包装段不建自己的槽位池<a class="headerlink" href="#123-codegen_typed" title="Permanent link">&para;</a></h3>
 <p><code>_gen_typed_method</code> / <code>_gen_async_segment</code> 既不建自己的池、也不重置 <code>_temp_slot_index</code>，
 会沿用上一个函数残留的池寄存器——跨函数引用寄存器，IR 本来就不合法。现有链路碰不到
@@ -5088,6 +5159,17 @@ Windows 下按 GBK 输出会被当成乱码误判成冒烟不通过；现钉 <co
 </blockquote>
 <h3 id="124-_inline_small_functions_pass">12.4 <code>_inline_small_functions_pass</code> 过度激进<a class="headerlink" href="#124-_inline_small_functions_pass" title="Permanent link">&para;</a></h3>
 <p>会把「指令数 ≤5 且被调用 ≤1 次」的非 main 函数整段删掉，不看是否还有其它引用形式。</p>
+<blockquote>
+<p><strong>已解决（T3 / 2026-09-04）</strong>：<code>SizeOptimizer._inline_small_functions</code>（
+<code>src/llvm/size_optimizer.py</code>）删除前改为统计<strong>全部</strong>引用形式（直接调用 / 地址
+取用 / 间接调用 / 全局与外部引用），定义行自身不算引用，只要存在任一引用即
+保留；<code>main</code> / <code>__light_init</code> 一律不删；函数体定位改用按行扫（不再用会被行内
+结构体类型截断、或 DOTALL 从头吞到尾的 <code>define ... \{[^}]*\}</code> 正则）。新增反跑
+用例 <code>Test小函数清理_统计全部引用形式</code>（tests/test_llvm_optimizer.py）：被地址
+引用 / 间接调用 / 直接调用的 ≤5 指令小函数必须保留、零引用仍清理、保留后的 IR
+经 clang 编译链接后经函数指针真跑出 42。pipeline 侧
+<code>_drop_unreferenced_functions</code> 本就按文本全量引用计数、已覆盖地址引用，无需改动。</p>
+</blockquote>
 <h3 id="125-stdliblightpub__init__py45">12.5 <code>stdlib/lightpub/__init__.py:45</code> 路由到仓库外的绝对路径<a class="headerlink" href="#125-stdliblightpub__init__py45" title="Permanent link">&para;</a></h3>
 <p>指向 <code>C:\dumatework\lightpub</code>，跨机器就断。</p>
 <h3 id="126-50-stdlib">12.6 50 个整文件注释的伪代码 stdlib 模块<a class="headerlink" href="#126-50-stdlib" title="Permanent link">&para;</a></h3>
@@ -5227,38 +5309,71 @@ upper-bound 2 + lower-bound 92 + not-none 152）。这 66 条增量全部是存�
 好 junit rc=0。该基线文件同样要在 <code>.gitignore</code> 里豁免 <code>*.txt</code>，否则 CI 上
 <code>--baseline</code> 指向不存在的文件、闸门整条抬错。</p>
 <h2 id="b7">十五、双后端分叉两条（第七轮 B7 双后端对照跑出来的，均未修）<a class="headerlink" href="#b7" title="Permanent link">&para;</a></h2>
-<h3 id="151">15.1 <code>除以</code> 的算术语义<a class="headerlink" href="#151" title="Permanent link">&para;</a></h3>
-<p><strong>同一份 <code>.light</code>，两条后端算出不同答案</strong>：</p>
+<h3 id="151-2026-09-04-b">15.1 <code>除以</code> 的算术语义 —— ✅ 已修（2026-09-04，裁决选 B）<a class="headerlink" href="#151-2026-09-04-b" title="Permanent link">&para;</a></h3>
+<p><strong>同一份 <code>.light</code>，两条后端算出不同答案</strong>（修复前）：</p>
 <ul>
 <li><code>打印 4 除以 3。</code></li>
 <li>转译后端（光明 → Python）：<code>1.3333333333333333</code>（Python <code>/</code> 是真除法）</li>
 <li>原生腿（LLVM/C）：<code>1</code>（原生腿一切数字是 <code>i64</code>，<code>除以</code> 落到 C 的 <code>/</code>，整数截断）</li>
 </ul>
-<p><strong>为什么现在不修</strong>：修法有两条且都动语义面，需要裁决而不是顺手改——
-(a) 原生腿补浮点类型，让 <code>除以</code> 在两条腿上都是浮点除法；
-(b) 把 <code>除以</code> 明确定成「整数相除得整数」，靠 <code>整除</code> / 显式浮点字面量区分。
-<code>docs/光明-完整规范文档.md</code> 现在把 <code>除以</code> 写作 <code>/</code>、<code>整除</code> 写作 <code>//</code>，按文档口径应当走 (a)。</p>
-<p><strong>当前的止损</strong>：<code>tests/test_llvm_c3_expr.py</code> 的双后端一致性 6 例全部用 <code>整除</code>
-绕开这一处，并在用例里写明缘由——<strong>不是躲过去了，是把它圈出来了</strong>。谁修完这条，
-把那 6 例里的 <code>整除</code> 换回 <code>除以</code>，那组用例即刻变成这条修复的判据。</p>
-<h3 id="152-stdout-windows-ascii">15.2 stdout 的字节编码（Windows 上非 ASCII 输出不同字节）<a class="headerlink" href="#152-stdout-windows-ascii" title="Permanent link">&para;</a></h3>
+<p><strong>裁决（用户，主线）：选 B</strong>——把 <code>除以</code> 明确定义为「整数相除得整数」（向零截断，
+以原生腿 i64 <code>sdiv</code> 语义为基准）；需要真除法时用显式浮点字面量（任一操作数为浮点即
+退化真除）。不走方案 A（补浮点类型）。</p>
+<p><strong>修复方案</strong>：
+- <code>src/code_generator.py</code> 与 <code>src/code_generator_unified.py</code> 的二元运算 / 复合赋值发射点：
+  遇到 <code>除以</code>/<code>整除</code>/<code>除</code>/<code>/</code>/<code>//</code> 一律改发 <code>_light_trunc_div(a, b)</code>。
+- 生成头注入辅助函数 <code>_light_trunc_div</code>：<code>int/int</code> 走 <code>a // b if a*b&gt;=0 else -((-a)//b)</code>
+  （向零截断，与原生腿 <code>sdiv</code> 一致）；任一操作数为浮点则退化 <code>a / b</code> 真除法（与原生腿 <code>fdiv</code> 一致）。
+  注意<strong>不可用 Python <code>//</code>（floor）</strong>——否则负数语义与原生腿分叉（<code>-7 // 2 = -4</code> vs <code>sdiv</code> 的 <code>-3</code>）。
+- <code>src/optimizer/constant_fold.py</code> 的 <code>_apply_op</code>：<code>op in ('/', '//')</code> 原本折成 <code>left / right</code>
+  （Python 真除），<code>cli.light run</code>（默认 O2）走此优化器会把 <code>7 除以 2</code> 折成浮点 <code>3.5</code>，
+  与原生腿 <code>sdiv=3</code> 分叉。已改为与 <code>_light_trunc_div</code> 同口径（int/int 向零截断、含浮点真除），
+  负数用例 <code>-7 除以 2</code> 折成 <code>-3</code>（非 floor 的 -4）。<code>cli.light_unified run</code> 路径无优化器，不受影响。</p>
+<p><strong>证据（双后端实跑一致）</strong>：
+- <code>4 除以 3</code> → 两条腿均 <code>1</code>
+- <code>-7 除以 2</code> → 两条腿均 <code>-3</code>（非 floor 的 <code>-4</code>）
+- <code>-9 除以 2</code> → 两条腿均 <code>-4</code>
+- <code>7.0 除以 2</code> → 两条腿均 <code>3.5</code>（浮点真除保留，未退化成整数）
+- <code>tests/test_llvm_c3_expr.py::test_双后端一致_除法向零截断</code> 与 <code>test_双后端一致_基本算术</code>
+  （已把 <code>乙 整除 甲</code> 换回 <code>乙 除以 甲</code>）锁死判据。</p>
+<p><strong>判据已就位</strong>：原「止损」里的 6 例双后端一致性测试，其中 <code>test_双后端一致_基本算术</code>
+已把 <code>整除</code> 换回 <code>除以</code> 作判据；并新增 <code>test_双后端一致_除法向零截断</code> 负数用例。
+另注：双后端测试的转译腿走 <code>cli.light_unified run</code>（src 后端 <code>PythonCodeGenerator</code>，
+无优化器），故 <code>7 除以 2</code> 不被常量折叠，直接发射 <code>_light_trunc_div(7,2)=3</code>，与原生腿一致。</p>
+<h3 id="152-stdout-windows-ascii">15.2 stdout 的字节编码（Windows 上非 ASCII 输出不同字节）——已修复<a class="headerlink" href="#152-stdout-windows-ascii" title="Permanent link">&para;</a></h3>
 <p>同一句 <code>打印 "光明"。</code>，输出重定向进管道/文件时：</p>
 <ul>
 <li>原生腿的 exe：吐 UTF-8 字节 <code>e5 85 89 e6 98 8e</code></li>
-<li>转译后端（<code>light run</code>，本质是个 Python 进程）：吐<strong>平台 ANSI 代码页</strong>字节，
-  中文 Windows 上是 cp936 的 <code>b9 e2 c3 f7</code></li>
+<li>转译后端（<code>light run</code>，本质是个 Python 进程）：<strong>修复前</strong>吐平台 ANSI 代码页
+  字节（中文 Windows 上是 cp936 的 <code>b9 e2 c3 f7</code>），<strong>修复后</strong>吐 UTF-8 字节
+  <code>e5 85 89 e6 98 8e</code>，与原生腿一致。</li>
 </ul>
-<p>即「同一个程序，两条腿产出的文件编码不同」。ANSI 那边还会在无法映射的字符上
-直接抛 <code>UnicodeEncodeError</code>。</p>
 <p><strong>根因</strong>：转译后端没有钉死自己的 <code>sys.stdout</code> 编码，跟随 <code>locale.getpreferredencoding()</code>；
 原生腿写的是裸字节，源码是 UTF-8 就是 UTF-8。</p>
-<p><strong>未修的原因</strong>：改法（在 CLI 入口 <code>reconfigure(encoding='utf-8')</code>）动的是所有
-转译后端用户的既有输出行为，且第四轮已经踩过「reconfigure 顺手把 errors 改成
-strict、整场级联炸」的坑（见十四节），要单独一轮带反跑地做。</p>
-<p><strong>当前的止损</strong>：<code>tests/test_llvm_c3_expr.py::_run_transpiled</code> 给子进程钉
-<code>PYTHONIOENCODING=utf-8</code>，把两边拉到同一编码再比字符。B7 原稿没钉，所以那 6 例
-在外部已设 <code>PYTHONUTF8</code> 的机器上绿、在没设的机器上红（合并期实测 2 红），
-是「本机绿 CI 红」的又一例。</p>
+<p><strong>修复方案</strong>：在 <code>src/code_generator.py</code> 生成头区块（<code>import sys</code> 之后、stdlib
+路径探测之前）注入：</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">reconfigure</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s1">'utf-8'</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s1">'replace'</span><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">reconfigure</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s1">'utf-8'</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s1">'replace'</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="k">pass</span>
+</span></code></pre></div>
+<p><code>errors='replace'</code> 是硬性要求——第四轮已踩过「reconfigure 默认收紧成 strict、
+整场级联炸」的坑（见 §14.1），不加 <code>errors='replace'</code> 会把原本能输出的字符
+变成 <code>UnicodeEncodeError</code>，比 cp936 丢字节更严重。</p>
+<p><strong>反跑判据验证</strong>：Windows 下 <code>打印 "光明"</code> 重定向进文件，修复前字节为 cp936
+（<code>b9 e2 c3 f7</code>），修复后字节为 UTF-8（<code>e5 85 89 e6 98 8e</code>），实测通过。</p>
+<p><strong>测试覆盖</strong>：
+- <code>tests/test_llvm_c3_expr.py::test_stdout_utf8_bytes</code>——新增字节断言用例，
+  显式移除 <code>PYTHONIOENCODING</code> 和 <code>PYTHONUTF8</code>，重定向 stdout 进文件，断言
+  UTF-8 字节存在且 cp936 字节不存在。该用例不依赖 <code>_run_transpiled</code> 的环境变量
+  守卫，独立捕获 reconfigure 失效。
+- <code>tests/test_llvm_c3_expr.py::_run_transpiled</code> 中原有的
+  <code>PYTHONIOENCODING=utf-8</code> 保留为<strong>回归守卫</strong>——若生成头 reconfigure 被移除或
+  破坏，此环境变量仍能拉平编码，使双后端字符级比对不因编码差异假红；但字节断言
+  用例会独立捕获 reconfigure 失效。</p>
+<p><strong>文件隔离</strong>：本次只动 <code>code_generator.py</code> 生成头区块（~L962-968），未触碰
+除以 op map（~L228）与复合赋值（~L2228）——归 T1。</p>
 <h2 id="2026-08-24">十六、第七轮五路全合点的账（2026-08-24，合并期核验产出）<a class="headerlink" href="#2026-08-24" title="Permanent link">&para;</a></h2>
 <h3 id="161">16.1 三份基线在全合点统一重建，重建理由逐条列明<a class="headerlink" href="#161" title="Permanent link">&para;</a></h3>
 <p>在 <code>e99c63fd</code>（五路全合）之后一次性重建，<strong>不是为了消红而重建</strong>，每份都写明动因：</p>
@@ -5385,21 +5500,44 @@ strict、整场级联炸」的坑（见十四节），要单独一轮带反跑�
   /usr/local/lib/python3.11/site-packages (44.0.3)</code> —— 这台 runner 上新加的 pip 装依赖
   是空转，蹭的就是系统 site-packages 那份；换台干净 runner 才会真装。</li>
 </ul>
-<h3 id="172-l2-posix-tls-stub">17.2 #L2 [中] POSIX 侧原生 TLS 是 stub（有壳无实现）<a class="headerlink" href="#172-l2-posix-tls-stub" title="Permanent link">&para;</a></h3>
+<h3 id="172-l2-posix-tls-stubtask-t7mbedtls">17.2 #L2 [中] POSIX 侧原生 TLS 是 stub（有壳无实现）——已修复（Task T7：mbedTLS 后端）<a class="headerlink" href="#172-l2-posix-tls-stubtask-t7mbedtls" title="Permanent link">&para;</a></h3>
 <ul>
-<li>证据：<code>runtime_typed.c:5747-5778</code>，POSIX 分支 <code>backend=none</code>、<code>dv_tls_wrap</code> → NULL，
-  任何握手调用立即失败。Windows 侧的 Schannel 后端是真的。</li>
-<li>口径纠正：<code>docs/POSIX验证报告_Linux.md</code> 已把「<code>dv_tls_last_error()</code> POSIX 未导出」
-  的怀疑证伪——它定义在 <code>runtime_typed.c:5107</code>、在 <code>#ifdef _WIN32</code> 之前无条件存在，
-  POSIX 上返回可读错误 <code>本平台未实现原生 TLS：当前只有 Windows Schannel 后端（POSIX 待补 mbedTLS）</code>。
-  所以缺的是<strong>实现</strong>，不是错误可见性。</li>
-<li>排期：第九轮 M23（原生腿）候选。补 mbedTLS/OpenSSL 后端属新增能力，不在本轮范围。</li>
-<li>记账口径：凡文档/清单写「原生 TLS 可用」的地方，必须标 <strong>Windows-only</strong>。</li>
+<li>原状：<code>runtime_typed.c</code> 旧 POSIX 分支 <code>backend=none</code>、<code>dv_tls_wrap</code> → NULL，
+  任何握手调用立即失败；Windows 侧的 Schannel 后端是真的。缺的是<strong>实现</strong>，
+  不是错误可见性（<code>dv_tls_last_error</code> 在 <code>#ifdef _WIN32</code> 之前无条件存在）。</li>
+<li>修复（Task T7）：POSIX 分支补 <strong>mbedTLS 客户端后端</strong>（<code>runtime_typed.c:6147</code> 起，
+  <code>#if defined(LIGHT_TLS_MBEDTLS)</code>），API 签名与行为对齐 Windows Schannel 分支：</li>
+<li>证书校验默认开启（<code>g_tls_verify_default=1</code>）；</li>
+<li><code>dv_tls_add_trusted_cert_file</code> 追加「独占根」信任锚（对应 Windows hExclusiveRoot、
+    curl --cacert 语义：一旦设置只认显式给的这批根，比系统根更严）；</li>
+<li>握手可重入非阻塞（WANT_READ/WANT_WRITE 透传，喂 <code>dv_coro_await_io</code> 不阻塞事件循环）；</li>
+<li>发送走 out_pending 队列（半包写不完不阻塞）、<code>dv_tls_recv_status</code> 返回
+    OK/WANT_READ/CLOSED/ERROR 与 Windows 一致；</li>
+<li><code>dv_tls_backend()</code> 返回 <code>"mbedTLS"</code>。</li>
+<li>开/关：定义 <code>LIGHT_TLS_MBEDTLS</code> 启用真后端；未定义时保留原 stub（保证未装
+  mbedTLS 的 POSIX 构建不破——「勿破坏原生腿其它部分」）。依赖 libmbedtls-dev
+  （Ubuntu: <code>apt install libmbedtls-dev</code>），链接 <code>-lmbedtls -lmbedx509 -lmbedcrypto</code>。</li>
+<li>验证（本机 Windows，POSIX 只做代码层对齐 + 编译检查）：</li>
+<li>Windows Schannel 冒烟：<code>python -m pytest tests/test_llvm_tls.py -q</code> 正/负例
+    <strong>2 passed</strong>（不破坏原生腿）；</li>
+<li>POSIX mbedTLS 分支：对 Ubuntu 24 同款 <strong>mbedTLS 2.28.8</strong> 头与 3.5.2 头
+    <code>-fsyntax-only</code> 全绿、2.28.8 完整 <code>-c</code> 编译通过（<code>_taskT7_posix_syntax.c</code> 独立 TU）。</li>
+<li><strong>POSIX 真机实测通过</strong>：目标机 192.168.0.86（Ubuntu 24.04 / clang 18.1.3 /
+    libmbedtls-dev 2.28.8）上 <code>python3 -m pytest tests/test_llvm_tls.py -q</code> <strong>2 passed</strong>；
+    C 二进制定向用例正例 <code>dv_tls_backend()=mbedTLS</code> + 握手/回显全 PASS、负例
+    <code>X509 - Certificate verification failed (-0x2700)</code> 正确拒绝不受信证书。
+    （首次交付时 .86 不可达曾标注「未在 POSIX 实测」，用户确认连通后补跑完成。）</li>
+<li>定向测试：<code>tests/test_llvm_tls.py</code> 正/负例在双平台都跑真后端（已去掉 <code>仅Windows</code>
+  跳过、删除 <code>仅POSIX</code> 桩反向钉住用例）；POSIX 编译由测试侧显式加
+  <code>-DLIGHT_TLS_MBEDTLS -lmbedtls -lmbedx509 -lmbedcrypto</code>（生产 <code>get_link_libs()</code>
+  的 POSIX 分支保持 <code>-lm</code> 不动，属 T9 范围）。</li>
+<li>记账口径：启用 <code>LIGHT_TLS_MBEDTLS</code> 的 POSIX 构建上，「原生 TLS 可用」不再限
+  Windows；未启用宏的构建仍为 stub。</li>
 </ul>
-<h3 id="173-l5-windows">17.3 #L5 [中] 溢出文件的<strong>绝对路径</strong>被拼进标准输出（跨平台真缺陷，Windows 是假绿）<a class="headerlink" href="#173-l5-windows" title="Permanent link">&para;</a></h3>
+<h3 id="173-l5-windows">17.3 #L5 [中] 溢出文件的<strong>绝对路径</strong>被拼进标准输出（跨平台真缺陷，Windows 是假绿）——已修复<a class="headerlink" href="#173-l5-windows" title="Permanent link">&para;</a></h3>
 <p>报告把它记成「Linux 特有」，<strong>本轮核查后改判：两个平台都漏，Windows 只是断言瞎了</strong>。</p>
 <ul>
-<li>真正的泄漏点：<code>stdlib/进程树.light:248</code> ——
+<li>真正的泄漏点：<code>stdlib/进程树.light:249</code> ——
   <code>设 标记 为 "...[已省略 N 字节，完整输出见 " + 己.溢出路径 + "]..."</code>，
   <code>己.溢出路径</code> 是 <code>os.path.join(己.目录, 名)</code> 的<strong>绝对路径</strong>，被 prepend 到
   <code>结果.标准输出</code> 的<strong>开头</strong>。合并期修 P0-1 时只把
@@ -5415,10 +5553,17 @@ strict、整场级联炸」的坑（见十四节），要单独一轮带反跑�
   泄漏在它<strong>前面</strong>的正文里。</li>
 <li>影响：给模型的输出里带宿主机目录结构（用户名、盘符、临时目录布局），
   而模型只能用沙箱内相对名（<code>read_file</code> 受 核准 管），绝对路径对它毫无用处。</li>
-<li>修法（未做，排期第九轮）：<code>进程树.light:248</code> 改成回显 <code>os.path.basename(己.溢出路径)</code>
-  —— 但 <code>进程树</code> 是通用库、调用方不一定有沙箱，得先定「相对谁」的口径；
-  同时把 <code>:666</code> 的断言改成大小写不敏感（否则 Windows 上继续假绿，改完也测不出）。</li>
 </ul>
+<p><strong>修复方案</strong>：
+1. <code>stdlib/进程树.light:249</code> 溢出标记改为回显 <code>os.path.basename(己.溢出路径)</code>，
+   不再拼绝对路径。
+2. <code>tests/test_process_tree_light.py:118-125</code> 新增路径泄露守卫：断言省略标记含
+   <code>os.path.basename(结果.溢出文件)</code>、标记段不含 <code>os.sep</code> 和 <code>os.altsep</code>。
+3. <code>tests/test_agent_tools_light.py:666-670</code> 原大小写敏感的
+   <code>str(tmp_path) not in 结果</code> 改为 <code>str(tmp_path).lower() not in 结果.lower()</code>，
+   并增加 <code>os.altsep</code> 断言。</p>
+<p><strong>反跑判据验证</strong>：修复前输出标记含完整绝对路径（盘符/用户目录）；
+修复后只含文件名。若将 L249 改回拼接 <code>己.溢出路径</code>，上述新增断言立即立红。</p>
 
 
 
@@ -5441,7 +5586,7 @@ strict、整场级联炸」的坑（见十四节），要单独一轮带反跑�
     <span class="md-icon" title="最后更新">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月3日 12:25:06 UTC">2026年9月3日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月4日 07:09:33 UTC">2026年9月4日</span>
   </span>
 
     
@@ -5451,7 +5596,7 @@ strict、整场级联炸」的坑（见十四节），要单独一轮带反跑�
     <span class="md-icon" title="创建日期">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月3日 12:25:06 UTC">2026年9月3日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月4日 07:09:33 UTC">2026年9月4日</span>
   </span>
 
     
