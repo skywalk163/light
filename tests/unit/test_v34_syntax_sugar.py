@@ -161,10 +161,19 @@ class TestSymbolOperators:
         assert '2 ** 3' in py or '2 ** 3' in py.replace(' ', '')
 
     def test_floor_div(self):
-        """整除符号：「整除」/「//」同样整数向零截断（与原生腿 i64 sdiv 一致），走 _light_trunc_div"""
+        """整除符号：「整除」/「//」保留 Python floor 语义（负数为向下取整），生成 //；
+        与「除以/」向零截断语义区分（known_issues §15.1）。"""
         code = '令 a = 10 // 3'
         py = parse_and_generate(code)
-        assert '_light_trunc_div(10, 3)' in py
+        assert '(10 // 3)' in py
+        assert '_light_trunc_div(10, 3)' not in py
+
+    def test_floor_div_negative(self):
+        """整除负数：floor 语义，向下取整（-7//2 == -4），非向零截断（-3）。"""
+        code = '令 a = -7 // 2'
+        py = parse_and_generate(code)
+        assert '// 2' in py
+        assert '_light_trunc_div(-7, 2)' not in py
 
     def test_eq(self):
         """等于比较"""

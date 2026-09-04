@@ -935,7 +935,8 @@ class PythonCodeGenerator:
             right = self._gen_write_merged(expr.right, write_call)
             if expr.operator == '@@contains@@':
                 return f"({right} in {left})"
-            if expr.operator in ('/', '//', '除以', '整除', '除'):
+            # 「除以」/「除」整数向零截断、浮点真除（选 B）；「整除//」保留 Python floor 语义。
+            if expr.operator in ('/', '除以', '除'):
                 return f"_light_trunc_div({left}, {right})"
             op = self.operator_map.get(expr.operator, expr.operator)
             return f"({left} {op} {right})"
@@ -958,9 +959,12 @@ class PythonCodeGenerator:
         self._add_line("# 由光明编译器生成")
         self._add_line("# 源文件: 光明代码")
         self._add_line("")
-        # 「除以」/「整除」整数相除向零截断，与原生腿 i64 sdiv 一致；
-        # 任一操作数为浮点时退化为真除法，与原生腿 fdiv 一致（见 known_issues §15.1）。
+        # 「除以」/「除」整数相除向零截断，与原生腿 i64 sdiv 一致（known_issues §15.1 选 B）；
+        # 任一操作数为浮点时退化为真除法，与原生腿 fdiv 一致。
+        # 不做 Python `/`（真除），否则整数语义与原生腿分叉（1/2=0.5 vs sdiv 0）；
         # 不做 Python `//`（floor），否则负数语义与原生腿分叉（-7//2=-4 vs sdiv -3）。
+        # 注意：只处理「除以/除」（以及符号 / 的别名）。「整除//」保留 Python floor 语义，
+        # 不经过本函数——它不经此映射而是直接生成 `//`（见二元表达式分支）。
         self._add_line("def _light_trunc_div(a, b):")
         self._add_line("    if type(a) is int and type(b) is int:")
         self._add_line("        return a // b if a * b >= 0 else -((-a) // b)")
@@ -2250,8 +2254,8 @@ class PythonCodeGenerator:
         }
         # 「除/除以/整除」复合赋值：整数相除向零截断（与原生腿 sdiv 一致）；
         # 浮点操作数退化为真除法（与原生腿 fdiv 一致）。不能用 Python /=（真除）
-        # 或 //=（floor），否则与原生腿语义分叉。
-        if stmt.operator in ('除', '除以', '/=', '//=', '整除'):
+        # 或 //=（floor），否则与原生腿语义分叉。注意：「整除//=」保留 Python floor 语义不走这里。
+        if stmt.operator in ('除', '除以', '/', '/='):
             value = self._generate_expr(stmt.value)
             self._add_line(f"{target} = _light_trunc_div({target}, {value})")
             return
@@ -2273,8 +2277,8 @@ class PythonCodeGenerator:
             '模': '%=',
             '幂': '**=',
         }
-        # 同 _generate_compound_assignment：除法复合赋值走截断语义。
-        if stmt.operator in ('除', '除以', '/=', '//=', '整除'):
+        # 同 _generate_compound_assignment：除法复合赋值走截断语义。注意：「整除//=」保留 Python floor 不走这里。
+        if stmt.operator in ('除', '除以', '/', '/='):
             value = self._generate_expr(stmt.value)
             self._add_line(f"{target}[{index}] = _light_trunc_div({target}[{index}], {value})")
             return
@@ -3153,7 +3157,8 @@ class PythonCodeGenerator:
             # 与成员形式 :2378-2381 踩过的是同一个坑。
             if expr.operator == '@@contains@@':
                 return f"({right} in {left})"
-            if expr.operator in ('/', '//', '除以', '整除', '除'):
+            # 「除以」/「除」整数向零截断、浮点真除（选 B）；「整除//」保留 Python floor 语义。
+            if expr.operator in ('/', '除以', '除'):
                 return f"_light_trunc_div({left}, {right})"
             op = self.operator_map.get(expr.operator, expr.operator)
             return f"({left} {op} {right})"

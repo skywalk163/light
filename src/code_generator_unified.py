@@ -247,8 +247,9 @@ class UnifiedCodeGenerator:
         self._add_line("# 由光明编译器生成")
         self._add_line("# 源文件: 光明代码")
         self._add_line("")
-        # 「除以」/「整除」整数相除向零截断，与原生腿 i64 sdiv 一致；
+        # 「除以」/「除」整数相除向零截断，与原生腿 i64 sdiv 一致（选 B）；
         # 任一操作数为浮点时退化为真除法，与原生腿 fdiv 一致（见 known_issues §15.1）。
+        # 「整除//」保留 Python floor 语义，不经过本函数。
         self._add_line("def _light_trunc_div(a, b):")
         self._add_line("    if type(a) is int and type(b) is int:")
         self._add_line("        return a // b if a * b >= 0 else -((-a) // b)")
@@ -660,8 +661,8 @@ class UnifiedCodeGenerator:
                 '加上': '+=', '减去': '-=', '乘以': '*=', '除以': '//=',
             }
             target_code = self._sanitize_name(stmt.target) if isinstance(stmt.target, str) else self._generate_expr(stmt.target)
-            # 「除/除以/整除」复合赋值：整数截断（与原生腿 sdiv 一致），浮点退化真除。
-            if stmt.operator in ('除', '除以', '整除', '//='):
+            # 「除/除以」复合赋值：整数截断（与原生腿 sdiv 一致），浮点退化真除。注意：「整除//=」保留 floor 不走这里。
+            if stmt.operator in ('除', '除以', '/='):
                 value_code = self._generate_expr(stmt.value)
                 self._add_line(f"{target_code} = _light_trunc_div({target_code}, {value_code})")
             else:
@@ -1679,7 +1680,8 @@ class UnifiedCodeGenerator:
             right = self._gen_write_merged(expr.right, write_call)
             if expr.operator == '@@contains@@':
                 return f"({right} in {left})"
-            if expr.operator in ('/', '//', '除以', '整除', '除'):
+            # 「除以」/「除」整数向零截断、浮点真除（选 B）；「整除//」保留 Python floor 语义。
+            if expr.operator in ('/', '除以', '除'):
                 return f"_light_trunc_div({left}, {right})"
             op = self.operator_map.get(expr.operator, expr.operator)
             return f"({left} {op} {right})"
@@ -1747,9 +1749,10 @@ class UnifiedCodeGenerator:
                 return _merged
             left = self._generate_expr(expr.left)
             right = self._generate_expr(expr.right)
-            # 「除以」/「整除」整数相除向零截断（与原生腿 sdiv 一致）；浮点退化真除。
+            # 「除以」/「除」整数相除向零截断（与原生腿 sdiv 一致）；浮点退化真除。
             # 必须抢在常量折叠之前：否则 `7 除以 2` 会被折成 3.5（真除浮点），与原生腿 sdiv=3 分叉。
-            if expr.operator in ('/', '//', '除以', '整除', '除'):
+            # 注意：「整除//」保留 Python floor 语义，不经过 _light_trunc_div。
+            if expr.operator in ('/', '除以', '除'):
                 return f"_light_trunc_div({left}, {right})"
             op = self.operator_map.get(expr.operator, expr.operator)
             

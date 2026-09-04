@@ -91,13 +91,16 @@ class ConstantFoldingOptimizer(Optimizer):
             return left - right
         if op == '*':
             return left * right
-        if op in ('/', '//'):
-            # 「除以」/「整除」整数相除向零截断（与原生腿 i64 sdiv 一致，见 known_issues §15.1 选 B）；
+        if op == '/':
+            # 「除以」/「除」整数相除向零截断（与原生腿 i64 sdiv 一致，见 known_issues §15.1 选 B）；
             # 浮点操作数退化为真除法（与原生腿 fdiv 一致）。不可用 Python //（floor），
             # 否则负数语义与原生腿分叉（-7//2=-4 vs sdiv -3）。
             if type(left) is int and type(right) is int:
                 return left // right if left * right >= 0 else -((-left) // right)
             return left / right
+        if op == '//':
+            # 「整除」保留 Python floor 语义，负数为向下取整。
+            return left // right
         if op == '%':
             return left % right
         if op == '**':
