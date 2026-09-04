@@ -618,6 +618,15 @@ upper-bound 2 + lower-bound 92 + not-none 152）。这 66 条增量全部是存�
 - `tests/test_llvm_c3_expr.py::test_双后端一致_除法向零截断` 与 `test_双后端一致_基本算术`
   （已把 `乙 整除 甲` 换回 `乙 除以 甲`）锁死判据。
 
+**裁决 B 落地后的 CI 对齐（2026-09-04，回归闸门修复）**：
+- `examples/student_management.light` / `examples/module_demo.light` 平均值、
+  `examples/bootstrap_eval.light` 求值器除法：整型 `除` 会向零截断，均值/计算器语境需真除，
+  改为显式浮点操作数 `除 转浮点(长度/除数)`（§15.1「任一操作数为浮点即退化真除」的落法）。
+- `stdlib/列表工具.light` 的 `平均值`：`总和 / 转浮点(长度值)` 保持与 CPython `sum()/len()` 逐位等价。
+- `tests/unit/test_light_examples_run.py::test_division`：`100 除 4` 期望 `25`（整数截断，双后端一致）。
+- `c_backend.py`：光明 `/` 在 Python 腿包 `_light_trunc_div`；C 的 `/` 对整数天然向零截断、
+  浮点真除，即裁决 B 语义，`_translate_call` 把 `_light_trunc_div(a, b)` 调用映射回原生 C `/`。
+
 **判据已就位**：原「止损」里的 6 例双后端一致性测试，其中 `test_双后端一致_基本算术`
 已把 `整除` 换回 `除以` 作判据；并新增 `test_双后端一致_除法向零截断` 负数用例。
 另注：双后端测试的转译腿走 `cli.light_unified run`（src 后端 `PythonCodeGenerator`，

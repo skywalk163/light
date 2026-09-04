@@ -86,7 +86,7 @@ class TestVariableAndArithmetic(unittest.TestCase):
     def test_division(self):
         # 使用 "除" 而非 "除以"
         code = '设 甲 为 100\n设 乙 为 4\n打印(甲 除 乙)'
-        self.assertEqual(_run_light(code).strip(), '25.0')
+        self.assertEqual(_run_light(code).strip(), '25')
 
     def test_modulo(self):
         # 使用 "模" 而非 "取余"

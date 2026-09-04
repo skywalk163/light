@@ -328,7 +328,13 @@ class PythonToC:
         if func_name in FN_MAP:
             c_func = FN_MAP[func_name]
             return f'{c_func}({", ".join(args)})'
-        
+
+        # 光明「除以/除」在 Python 腿经 _light_trunc_div 包裹（整数向零截断、浮点真除）；
+        # C 的 `/` 对整数天然向零截断、浮点真除，正是裁决 B 语义，直接映射回原生 C `/`，
+        # 避免把 Python 体的 trunc_div helper 原样发射成坏 C。
+        if func_name == '_light_trunc_div' and len(args) == 2:
+            return f'({args[0]} / {args[1]})'
+
         return f'{func_name}({", ".join(args)})'
     
     def _get_func_name(self, node):
