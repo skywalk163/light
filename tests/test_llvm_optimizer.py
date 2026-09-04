@@ -1098,6 +1098,189 @@ class Test优化标志不带legacyPass名(unittest.TestCase):
                 结果.returncode, 0,
                 f"O{档位} 的标志 {flags} 被 clang 拒了:\n{结果.stderr[:800]}")
 
+class Test小函数清理_统计全部引用形式(unittest.TestCase):
+    """`_inline_small_functions` 删除前必须统计**全部**引用形式
+
+    背景（T3，2026-09-04）：旧实现对每个候选小函数只数全 IR 里 `@名字` 的
+    **文本出现次数**，而且把**定义行本身**也当成了“调用”——于是无调用点的
+    `main` 被判「调用 0 次」命中 `<= 1` 被整段删掉；删除用的又是
+    `define\\s+.*?@main` 这种 DOTALL 懒惰匹配，从第一个 define 一路吞到
+    `main` 的收尾 `}`，把夹在中间、被 `@fp` 地址引用的 `@helper` 定义连带
+    删掉，留下 `@fp = global i32 (i32)* @helper` 这种悬空引用。
+
+    修复后：删除前统计全部引用形式（直接调用 / 地址取用 / 间接调用 /
+    全局引用），**只要存在任一引用就不内联**；定义行自身不算引用；
+    `main` / `__light_init` 一律不删。
+    """
+
+    def setUp(self):
+        from llvm.size_optimizer import SizeOptimizer
+
+        self.optimizer = SizeOptimizer()
+
+    # ------------------------------------------------------------------
+    # 反跑主用例：被地址引用的小函数，只看调用次数就会误删
+    # ------------------------------------------------------------------
+
+    def test_被地址引用的小函数必须保留(self):
+        """反跑用例：`@helper` 指令数 <= 5、零直接调用，但被 `@fp` 地址引用。
+
+        旧判断（只看调用次数）会把 `@helper` 当孤儿删掉，`@fp` 变成悬空引用；
+        修复后必须保留定义、且与地址引用并存（引用可解析）。
+        """
+        ir = '''@fp = global i32 (i32)* @helper
+define i32 @helper(i32 %x) {
+entry:
+  %r = add i32 %x, 1
+  ret i32 %r
+}
+define i32 @main() {
+entry:
+  %f = load i32 (i32)*, i32 (i32)** @fp
+  ret i32 0
+}
+'''
+        结果 = self.optimizer._inline_small_functions(ir, max_size=10)
+        self.assertIn('define i32 @helper', 结果,
+                      f"被地址引用的函数被删了（@fp 悬空）:\n{结果}")
+        self.assertIn('@fp = global i32 (i32)* @helper', 结果,
+                      f"地址引用本身也没了:\n{结果}")
+        self.assertIn('define i32 @main', 结果, f"main 被误删:\n{结果}")
+
+    def test_地址取用ptrtoint的小函数必须保留(self):
+        """`ptrtoint ... @helper to i64` 也是地址取用，不能按“零调用”删。"""
+        ir = '''define i32 @helper(i32 %x) {
+entry:
+  %r = add i32 %x, 1
+  ret i32 %r
+}
+define i32 @main() {
+entry:
+  %a = ptrtoint i32 (i32)* @helper to i64
+  ret i32 0
+}
+'''
+        结果 = self.optimizer._inline_small_functions(ir, max_size=10)
+        self.assertIn('define i32 @helper', 结果,
+                      f"被 ptrtoint 取址的函数被删了:\n{结果}")
+        self.assertIn('define i32 @main', 结果, f"main 被误删:\n{结果}")
+
+    def test_经函数指针间接调用的小函数必须保留(self):
+        """地址取用喂给 `call %f(...)` 的间接调用，同样不能被当成孤儿删。"""
+        ir = '''@fp = global i32 (i32)* @helper
+define i32 @helper(i32 %x) {
+entry:
+  %r = add i32 %x, 1
+  ret i32 %r
+}
+define i32 @main() {
+entry:
+  %f = load i32 (i32)*, i32 (i32)** @fp
+  %v = call i32 %f(i32 41)
+  ret i32 %v
+}
+'''
+        结果 = self.optimizer._inline_small_functions(ir, max_size=10)
+        self.assertIn('define i32 @helper', 结果,
+                      f"间接调用指向的函数被删了:\n{结果}")
+        self.assertIn('define i32 @main', 结果, f"main 被误删:\n{结果}")
+
+    def test_有直接调用的小函数必须保留(self):
+        """直接调用一次：被调用过就必须保留（旧代码会因 main 误删而连带删掉）。"""
+        ir = '''define i32 @helper(i32 %x) {
+entry:
+  %r = add i32 %x, 1
+  ret i32 %r
+}
+define i32 @main() {
+entry:
+  %v = call i32 @helper(i32 5)
+  ret i32 %v
+}
+'''
+        结果 = self.optimizer._inline_small_functions(ir, max_size=10)
+        self.assertIn('define i32 @helper', 结果,
+                      f"被直接调用的函数被删了:\n{结果}")
+        self.assertIn('define i32 @main', 结果, f"main 被误删:\n{结果}")
+
+    # ------------------------------------------------------------------
+    # 反跑护栏：真的零引用时该删还是要删（别把优化整个关掉）
+    # ------------------------------------------------------------------
+
+    def test_零引用的小函数仍会被清掉(self):
+        """零引用（定义行外全模块无任何 `@名字` 出现）的小函数仍应被删。"""
+        ir = '''define i32 @孤儿() {
+entry:
+  ret i32 0
+}
+define i32 @main() {
+entry:
+  ret i32 0
+}
+'''
+        结果 = self.optimizer._inline_small_functions(ir, max_size=10)
+        self.assertNotIn('@孤儿', 结果, f"零引用的函数没被清掉:\n{结果}")
+        self.assertIn('define i32 @main', 结果, f"main 被误删:\n{结果}")
+
+    # ------------------------------------------------------------------
+    # 行为正确性：保留后的 IR 真能编能跑（缺 clang 判 skip 而非 error）
+    # ------------------------------------------------------------------
+
+    def test_间接调用真跑出42(self):
+        """修复后 `@helper` 活着 → 编译链接后经函数指针真跑出 42。
+
+        若 `@helper` 被删，链接期就是 undefined symbol（或返回垃圾值），
+        这条必挂——它是「行为正确」的最终证据，不是 grep IR 文本。
+        """
+        import shutil
+        import subprocess
+
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from _native_helpers import CLANG_PATH  # type: ignore[import]
+
+        if CLANG_PATH is None:
+            self.skipTest("缺 clang：无法验证保留后的 IR 真能编能跑")
+        clang = CLANG_PATH
+
+        ir = '''@fp = global i32 (i32)* @helper
+define i32 @helper(i32 %x) {
+entry:
+  %r = add i32 %x, 1
+  ret i32 %r
+}
+define i32 @main() {
+entry:
+  %f = load i32 (i32)*, i32 (i32)** @fp
+  %v = call i32 %f(i32 41)
+  ret i32 %v
+}
+'''
+        结果 = self.optimizer._inline_small_functions(ir, max_size=10)
+        self.assertIn('define i32 @helper', 结果, f"函数被删，无法继续:\n{结果}")
+
+        临时目录 = tempfile.mkdtemp(prefix='_taskT3_')
+        try:
+            ir路径 = os.path.join(临时目录, 'prog.ll')
+            exe路径 = os.path.join(临时目录, 'prog.exe')
+            with open(ir路径, 'w', encoding='utf-8') as f:
+                f.write(结果)
+            编译 = subprocess.run(
+                [clang, '-O2', '-o', exe路径, ir路径],
+                capture_output=True, text=True, encoding='utf-8', errors='replace',
+                timeout=120,
+            )
+            self.assertEqual(编译.returncode, 0,
+                             f"clang 编译失败:\n{编译.stderr[:2000]}")
+            运行 = subprocess.run(
+                [exe路径],
+                capture_output=True, text=True, encoding='utf-8', errors='replace',
+                timeout=60,
+            )
+            self.assertEqual(运行.returncode, 42,
+                             f"经函数指针调用结果不对（应为 42）: "
+                             f"{运行.returncode} / {运行.stderr[:500]}")
+        finally:
+            shutil.rmtree(临时目录, ignore_errors=True)
 
 if __name__ == '__main__':
     unittest.main()
