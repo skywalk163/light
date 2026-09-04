@@ -424,10 +424,42 @@ class SizeOptimizer:
 
         return result
 
-    def _inline_small_functions(self, ir: str, max_size: int = 10) -> str:
-        """内联小函数
+    # 函数名字符集：LLVM 裸标识符允许字母数字与 [-$._]
+    _LABEL_CHARS = r'[\w.$-]+'
 
-        将函数体较小的函数内联到调用点。
+    def _function_spans(self, lines: List[str]) -> List[Tuple[int, int, str]]:
+        """返回 [(define 行号, 收尾 `}` 行号, 函数名)]，找不到名字的跳过。
+
+        按行扫到单独一行的 `}`，不用会被行内结构体类型截断的 `\\{[^}]*\\}`；
+        与 optimizer_pipeline._function_spans 同源。
+        """
+        spans: List[Tuple[int, int, str]] = []
+        n = len(lines)
+        i = 0
+        while i < n:
+            if re.match(r'\s*define\b', lines[i]):
+                name_match = re.search(rf'@({self._LABEL_CHARS})\s*\(', lines[i])
+                j = i
+                while j < n and not re.match(r'\s*\}\s*$', lines[j]):
+                    j += 1
+                end = min(j, n - 1)
+                if name_match:
+                    spans.append((i, end, name_match.group(1)))
+                i = end + 1
+            else:
+                i += 1
+        return spans
+
+    def _inline_small_functions(self, ir: str, max_size: int = 10) -> str:
+        """内联小函数（实际是清理零引用的小函数定义）
+
+        删除前统计**全部**引用形式，只要存在任一引用就不删：
+          - 直接调用：`call i32 @name(...)`
+          - 地址取用：`@name` 出现在全局初始值 / ptrtoint / bitcast / 函数指针
+            槽位等**值**位置
+          - 间接调用：经函数指针的调用，其地址取用同样以 `@name` 文本出现
+          - 其它引用：定义行以外任何 `@name` 出现都算引用（含跨函数/外部可见）
+        定义行自身不算引用；`main` / `__light_init` 一律不删。
 
         Args:
             ir: LLVM IR 字符串
@@ -436,44 +468,39 @@ class SizeOptimizer:
         Returns:
             优化后的 IR 字符串
         """
-        # 提取所有函数定义
-        func_pattern = re.compile(
-            r'(define\s+.*?@(\w+)\s*\(.*?\))\s*\{'
-            r'([^}]*)\}',
-            re.DOTALL
-        )
+        lines = ir.split('\n')
+        spans = self._function_spans(lines)
 
-        # 收集小函数
-        small_funcs: Dict[str, str] = {}
-        for m in func_pattern.finditer(ir):
-            func_name = m.group(2)
-            func_body = m.group(3).strip()
-            # 统计指令数（非空行、非标签）
-            instr_count = 0
-            for line in func_body.split('\n'):
-                line = line.strip()
-                if line and not line.endswith(':') and not line.startswith(';'):
-                    instr_count += 1
-            if instr_count <= max_size:
-                small_funcs[func_name] = func_body
+        # 候选小函数：指令数 <= max_size 且非 main / __light_init
+        candidates: List[Tuple[int, int, str]] = []
+        for start, end, name in spans:
+            if name in ('main', '__light_init'):
+                continue
+            body = lines[start + 1:end]
+            instrs = [l.strip() for l in body
+                      if l.strip() and not l.strip().endswith(':')
+                      and not l.strip().startswith(';')]
+            if len(instrs) <= max_size:
+                candidates.append((start, end, name))
 
-        # 对于小函数，尝试内联
-        for func_name in small_funcs:
-            # 检查调用次数
-            call_count = len(re.findall(rf'@\b{re.escape(func_name)}\b', ir))
-            if call_count <= 1:
-                # 仅被调用一次的函数可以安全内联
+        # 引用检查：定义行之外任何 `@name` 出现即视为被引用，保留定义
+        drop: Set[int] = set()
+        for start, end, name in candidates:
+            token = f'@{name}'
+            referenced = False
+            for idx, line in enumerate(lines):
+                if idx == start:
+                    continue  # 定义行自身不算引用
+                if re.search(rf'{re.escape(token)}\b', line):
+                    referenced = True
+                    break
+            if not referenced:
+                drop.update(range(start, end + 1))
                 self.stats['inlined_functions'] += 1
-                # 移除函数定义
-                ir = re.sub(
-                    rf'define\s+.*?@{re.escape(func_name)}\s*\(.*?\)\s*\{{[^}}]*\}}',
-                    '',
-                    ir,
-                    count=1,
-                    flags=re.DOTALL
-                )
 
-        return ir
+        if not drop:
+            return ir
+        return '\n'.join(l for i, l in enumerate(lines) if i not in drop)
 
     def _remove_unused_globals(self, ir: str) -> str:
         """移除未使用的全局变量

@@ -356,6 +356,16 @@ Windows 下按 GBK 输出会被当成乱码误判成冒烟不通过；现钉 `PY
 
 会把「指令数 ≤5 且被调用 ≤1 次」的非 main 函数整段删掉，不看是否还有其它引用形式。
 
+> **已解决（T3 / 2026-09-04）**：`SizeOptimizer._inline_small_functions`（
+> `src/llvm/size_optimizer.py`）删除前改为统计**全部**引用形式（直接调用 / 地址
+> 取用 / 间接调用 / 全局与外部引用），定义行自身不算引用，只要存在任一引用即
+> 保留；`main` / `__light_init` 一律不删；函数体定位改用按行扫（不再用会被行内
+> 结构体类型截断、或 DOTALL 从头吞到尾的 `define ... \{[^}]*\}` 正则）。新增反跑
+> 用例 `Test小函数清理_统计全部引用形式`（tests/test_llvm_optimizer.py）：被地址
+> 引用 / 间接调用 / 直接调用的 ≤5 指令小函数必须保留、零引用仍清理、保留后的 IR
+> 经 clang 编译链接后经函数指针真跑出 42。pipeline 侧
+> `_drop_unreferenced_functions` 本就按文本全量引用计数、已覆盖地址引用，无需改动。
+
 ### 12.5 `stdlib/lightpub/__init__.py:45` 路由到仓库外的绝对路径
 
 指向 `C:\dumatework\lightpub`，跨机器就断。
