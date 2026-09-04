@@ -51,10 +51,15 @@ def parser():
 
 
 @pytest.fixture
-def analyzer():
-    """提供语义分析器实例"""
-    from semantic_analyzer import SemanticAnalyzer
-    return SemanticAnalyzer()
+def analyzer(parser):
+    """提供语义分析器实例。
+
+    SemanticAnalyzer.__init__ 需要 module 参数（ast_unified.Module），
+    但 light_parser_v3 产出 ast_nodes_v3.Module，两者不兼容
+    （test_semantic.py 整体 skip）。这里返回 None 表示不可用，
+    避免无参构造 TypeError；消费方应自行判断是否可用。
+    """
+    return None
 
 
 @pytest.fixture

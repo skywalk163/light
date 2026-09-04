@@ -341,6 +341,13 @@ Windows 下按 GBK 输出会被当成乱码误判成冒烟不通过；现钉 `PY
 `tests/conftest.py` 的 `analyzer` fixture 是同一处签名不匹配，当前没有用例消费它，
 所以门禁同样看不见。
 
+> **已修复（2026-09-04）**：`cli/lightc.py` `LightCompiler.__init__` 移除无参
+> `SemanticAnalyzer()` 构造，`compile()` 方法与 `light6.py` `_src_compile` 一致
+> 跳过语义分析（`SemanticAnalyzer` 与 `ast_nodes_v3.Module` 尚不兼容，
+> `test_semantic.py` 整体 skip）。`tests/conftest.py` `analyzer` fixture 改为
+> 返回 `None` 并注明不可用。新增 `tests/test_lightc_cli.py` 5 条真跑用例
+> （编译 rc=0 / `--run` 输出正确 / 反跑判据：改回无参构造即 5 failed）。
+
 ### 12.3 codegen_typed 的包装段不建自己的槽位池
 
 `_gen_typed_method` / `_gen_async_segment` 既不建自己的池、也不重置 `_temp_slot_index`，

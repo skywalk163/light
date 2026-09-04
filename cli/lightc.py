@@ -51,7 +51,6 @@ class LightCompiler:
     def __init__(self, verbose: bool = False):
         self.lexer = Lexer()
         self.parser = LightParser()
-        self.analyzer = SemanticAnalyzer()
         self.generator = PythonCodeGenerator()
         self.verbose = verbose
     
@@ -67,15 +66,13 @@ class LightCompiler:
         
         # 2. 语法解析
         module = self.parser.parse(source)
+        if module is None:
+            raise SemanticError("语法解析失败")
         if self.verbose:
             print(f"[语法] 解析 {len(module.statements)} 条语句")
         
-        # 3. 语义分析
-        success = self.analyzer.analyze(module)
-        if not success:
-            raise SemanticError("语义分析失败")
-        if self.verbose:
-            print(f"[语义] 分析通过")
+        # 3. 语义分析——SemanticAnalyzer 与 ast_nodes_v3.Module 尚不兼容
+        #    （test_semantic.py 整体 skip），与 light6.py _src_compile 一致跳过
         
         # 4. 代码生成
         code = self.generator.generate(module)
