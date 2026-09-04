@@ -43,24 +43,12 @@ ECHO_MSG = "hello_tls_c_unit"
 
 IS_WINDOWS = sys.platform == "win32"
 
-# C 层 TLS 只有 Windows Schannel 后端：runtime_typed.c:5747 起的 #else 分支是
-# dv_tls_unsupported 桩（dv_tls_wrap 返回 NULL、handshake/send/recv 返回
-# DV_TLS_ERROR、dv_tls_backend() 返回 "none"），POSIX 待补 mbedTLS。这是 B2 当时
-# 明确的取舍（系统自带、不引第三方依赖），不是本轮新发现的缺陷。
-#
-# 本文件原先没有任何平台判据，于是在 FreeBSD runner 上这两条不是 skip 而是红。
-# 自测报告_任务B2.md 的 skip 口径表里其实早就写好了这一条（「非 Windows / 无
-# Schannel → dv_tls_* 一行没跑」），只是从未落到代码里。
-_POSIX_跳过原因 = (
-    "C 层 TLS 目前只有 Windows Schannel 后端（runtime_typed.c:5747 起的 #else 是 "
-    "dv_tls_unsupported 桩，POSIX 待补 mbedTLS）。此处跳过掩盖了：dv_tls_* 一行没跑"
-    "——握手让权、收发往返、证书校验负例在本平台全部未验证。"
-)
-仅Windows = pytest.mark.skipif(not IS_WINDOWS, reason=_POSIX_跳过原因)
-仅POSIX = pytest.mark.skipif(
-    IS_WINDOWS,
-    reason="这条是把 POSIX 桩的行为反向钉住，Windows 上有真后端，不适用",
-)
+# C 层 TLS 后端（Task T7 之后）：
+#   - Windows：Schannel（runtime_typed.c #ifdef _WIN32 分支）
+#   - POSIX：mbedTLS（runtime_typed.c #if defined(LIGHT_TLS_MBEDTLS) 分支，需定义
+#     LIGHT_TLS_MBEDTLS 并链接 -lmbedtls -lmbedx509 -lmbedcrypto；未定义时保持 stub，
+#     见 _compile_tls_test 的 POSIX 分支说明）
+# 正例/负例在双平台都跑真后端，不再按平台 skip。
 
 
 # ── 自签证书生成 ──────────────────────────────────────
@@ -222,9 +210,19 @@ def _compile_tls_test():
         "-o", EXE_PATH,
         *取链接库参数(),
     ]
+    # Task T7：POSIX 侧补 mbedTLS 后端。生产 get_link_libs() 的 POSIX 分支默认
+    # 只带 -lm（保持无 mbedTLS 的 POSIX 构建不破，runtime_typed.c 未定义
+    # LIGHT_TLS_MBEDTLS 时是 stub），因此 TLS 定向用例在此显式启用真后端：
+    #   -DLIGHT_TLS_MBEDTLS 打开 runtime_typed.c 的 mbedTLS 分支，
+    #   -lmbedtls -lmbedx509 -lmbedcrypto 链接。
+    # 缺 mbedtls（头/库）时编译失败 → 优雅 skip（与证书生成同口径），而不是 ERROR。
+    if not IS_WINDOWS:
+        cmd += ["-DLIGHT_TLS_MBEDTLS"]
+        cmd += ["-lmbedtls", "-lmbedx509", "-lmbedcrypto"]
+
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        pytest.skip(f"编译 TLS C 测试失败:\n{result.stderr}")
+        pytest.skip(f"编译 TLS C 测试失败（POSIX 需 libmbedtls-dev）:\n{result.stderr}")
     if not os.path.exists(EXE_PATH):
         pytest.skip("编译后 exe 不存在")
 
@@ -248,7 +246,6 @@ class TestTLSCLayer:
         # 清理临时目录
         shutil.rmtree(CERT_DIR, ignore_errors=True)
 
-    @仅Windows
     def test_tls_positive_handshake_echo(self):
         """正例：添加信任锚 → 握手成功 → 收发回显"""
         result = subprocess.run(
@@ -267,7 +264,6 @@ class TestTLSCLayer:
         assert "hello_tls_c_unit" in result.stdout, \
             f"回显内容不匹配:\n{result.stdout}"
 
-    @仅Windows
     def test_tls_negative_untrusted_cert(self):
         """负例：不加信任锚 → 握手必须失败"""
         result = subprocess.run(
@@ -283,29 +279,6 @@ class TestTLSCLayer:
         assert "rejected untrusted" in result.stdout, \
             f"缺少拒绝信息:\n{result.stdout}"
 
-    @仅POSIX
-    def test_posix上是明确报错的桩而不是静默假成功(self):
-        """反向钉住 POSIX 桩：必须明确失败并说清原因，不许静默当成握手成功。
-
-        这条的作用有两个：
-        1. 上面两条在 POSIX 上被 skip 掉了，如果这里什么都不留，POSIX 分支就是
-           零覆盖——桩哪天被改成「返回成功」也没人知道。
-        2. 哪天真补了 mbedTLS，这条会立刻红，逼着改 skip 判据；否则 skip 会一直
-           挂着，新后端永远跑不进闸门。
-        """
-        result = subprocess.run(
-            [EXE_PATH, "negative", str(TLS_PORT)],
-            capture_output=True, text=True,
-            encoding="utf-8", errors="replace",
-            timeout=30
-        )
-        assert result.returncode != 0, (
-            "POSIX 上 dv_tls_* 是桩，必须失败退出。返回 0 说明要么真补了后端"
-            "（那就该把 仅Windows/仅POSIX 判据一起改掉），要么桩变成了静默假成功"
-            f"（安全红线）。stdout:\n{result.stdout}"
-        )
-        assert "本平台未实现原生 TLS" in result.stdout, (
-            "失败了但没说清原因。这句话来自 runtime_typed.c 的 dv_tls_unsupported，"
-            f"错误文本丢了说明 g_tls_error 链路断了。stdout:\n{result.stdout}"
-        )
+    # （原 @仅POSIX 桩反向钉住用例已于 Task T7 删除：POSIX 现已有 mbedTLS 真后端，
+    #  正例/负例在 POSIX 上直接跑真后端验证，桩钉住逻辑随之退役。）
 

@@ -6115,13 +6115,418 @@ void dv_tls_free(LightTLS* t) {
 
 const char* dv_tls_backend(void) { return "Schannel"; }
 
-#else  /* 非 Windows */
+#else  /* 非 Windows —— POSIX 原生 TLS */
+
+/* ================================================================
+ * B2-4（POSIX 补充，Task T7）：原生 TLS —— mbedTLS 客户端
+ *
+ * 为什么选 mbedTLS 而不是 OpenSSL：
+ *   1) 原 stub 的错误文本就点名「POSIX 待补 mbedTLS」，方向既定；
+ *   2) 与 Schannel 注释里「不装库 / 不改分发形态」的口径最接近：mbedTLS 体积小、
+ *      可静态捆绑、无运行时依赖；OpenSSL 在 Linux 上虽普遍但 ABI 版本漂移大
+ *      （1.1 vs 3.0），许可约束也比 Apache-2.0 的 mbedTLS 紧；
+ *   3) mbedTLS 的 MBEDTLS_ERR_SSL_WANT_READ/WANT_WRITE 非阻塞语义与
+ *      dv_tls_handshake 的可重入状态机天然对齐。
+ *
+ * 依赖：编译需 libmbedtls-dev（Ubuntu: apt install libmbedtls-dev），
+ *       链接 -lmbedtls -lmbedx509 -lmbedcrypto。
+ * 开/关：定义 LIGHT_TLS_MBEDTLS 启用真实现；未定义则保留下方 stub（保证
+ *       未装 mbedTLS 的 POSIX 构建不破——「勿破坏原生腿其它部分」）。
+ *
+ * 行为对齐 Windows Schannel 分支（reverse-run 判据）：
+ *   - 证书校验默认开启（g_tls_verify_default=1）；
+ *   - dv_tls_add_trusted_cert_file 追加「独占根」信任锚（curl --cacert 语义）：
+ *     一旦设置只认显式给的这批根，比系统根更严（对应 Windows hExclusiveRoot）；
+ *   - 未设显式信任锚时默认信任锚 = 系统 CA 包（/etc/ssl/certs/ca-certificates.crt
+ *     等，对应 Windows 系统根存储）；
+ *   - 发送侧用「队列式 BIO」：mbedTLS 加密产物先进 out_pending 队列，由
+ *     dv_tls_flush / dv_tls_want_event 负责非阻塞冲刷——与 Windows out_pending
+ *     同构，半包写不完不阻塞事件循环。
+ * ================================================================ */
+
+#if defined(LIGHT_TLS_MBEDTLS)
+
+#include <mbedtls/ssl.h>
+#include <mbedtls/x509_crt.h>
+#include <mbedtls/error.h>
+
+typedef struct LightTLS {
+    int fd;
+    char host[256];
+    int verify;                 /* 1=校验证书 */
+    int handshake_done;
+    int hs_started;             /* ssl/conf 已初始化 */
+    int peer_closed;
+    int recv_status;            /* 最近一次 dv_tls_recv 的状态 */
+
+    mbedtls_ssl_context ssl;
+    mbedtls_ssl_config conf;
+
+    char* out_pending;          /* 尚未写完的密文（非阻塞 socket，与 Windows 同构） */
+    int out_len;
+    int out_off;
+    int out_cap;
+} LightTLS;
+
+/* ── 全局信任锚状态 ─────────────────────────────────────────── */
+static mbedtls_x509_crt g_tls_ca_explicit;   /* 显式信任锚（独占根） */
+static int g_tls_ca_explicit_ready = 0;
+static int g_tls_roots_explicit = 0;         /* 已 add_trusted_cert_file */
+static mbedtls_x509_crt g_tls_ca_default;    /* 系统默认 CA 包（懒加载） */
+static int g_tls_ca_default_ready = 0;
+static int g_tls_ca_default_loaded = 0;
+
+static int dv_tls_posix_buf_reserve(char** buf, int* cap, int need) {
+    if (*cap >= need) return 0;
+    int c = *cap ? *cap : 4096;
+    while (c < need) c *= 2;
+    char* nb = (char*)realloc(*buf, (size_t)c);
+    if (!nb) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "TLS 缓冲扩容失败（目标 %d 字节）", c);
+        return -1;
+    }
+    *buf = nb;
+    *cap = c;
+    return 0;
+}
+
+/* 取当前连接应使用的 CA 链：显式信任锚（独占根）优先，否则系统默认 CA 包。 */
+static mbedtls_x509_crt* dv_tls_get_ca_chain(void) {
+    if (g_tls_roots_explicit) return &g_tls_ca_explicit;
+    if (g_tls_ca_default_loaded) return &g_tls_ca_default;
+    g_tls_ca_default_loaded = 1;
+    if (!g_tls_ca_default_ready) {
+        mbedtls_x509_crt_init(&g_tls_ca_default);
+        g_tls_ca_default_ready = 1;
+    }
+    const char* envp = getenv("SSL_CERT_FILE");
+    const char* std_paths[] = {
+        "/etc/ssl/certs/ca-certificates.crt",        /* Debian / Ubuntu */
+        "/etc/pki/tls/certs/ca-bundle.crt",          /* RHEL / Fedora */
+        "/etc/ssl/ca-bundle.pem",                    /* SUSE */
+        "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
+        "/usr/local/share/certs/ca-root-nss.crt",    /* FreeBSD */
+        "/etc/ssl/cert.pem",                         /* macOS / 部分 BSD */
+        NULL
+    };
+    const char* cands[8];
+    int np = 0;
+    if (envp && envp[0]) cands[np++] = envp;
+    for (int i = 0; std_paths[i] && np < 8; i++) cands[np++] = std_paths[i];
+    for (int i = 0; i < np; i++) {
+        if (mbedtls_x509_crt_parse_file(&g_tls_ca_default, cands[i]) == 0)
+            return &g_tls_ca_default;
+        mbedtls_x509_crt_free(&g_tls_ca_default);
+        mbedtls_x509_crt_init(&g_tls_ca_default);
+    }
+    snprintf(g_tls_error, sizeof(g_tls_error),
+             "未找到可用的系统 CA 包（已试 %d 个候选，安装 ca-certificates 或设 SSL_CERT_FILE）", np);
+    return &g_tls_ca_default;   /* 空链：verify=1 时握手必然失败（fail closed） */
+}
+
+/* 发送 BIO：把 mbedTLS 加密产物追加进 out_pending 队列（不直接写 socket）。
+   返回 len=全部接收；队列积压超限返回 WANT_WRITE 施加背压。 */
+static int dv_tls_bio_send(void* ctx, const unsigned char* buf, size_t len) {
+    LightTLS* t = (LightTLS*)ctx;
+    if (t->out_len - t->out_off > 8 * 1024 * 1024)
+        return MBEDTLS_ERR_SSL_WANT_WRITE;   /* 背压：先冲刷再续 */
+    if (t->out_off > 0 && t->out_off == t->out_len) { t->out_off = 0; t->out_len = 0; }
+    if (dv_tls_posix_buf_reserve(&t->out_pending, &t->out_cap, t->out_len + (int)len) != 0)
+        return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
+    memcpy(t->out_pending + t->out_len, buf, len);
+    t->out_len += (int)len;
+    return (int)len;
+}
+
+static int dv_tls_bio_recv(void* ctx, unsigned char* buf, size_t len) {
+    LightTLS* t = (LightTLS*)ctx;
+    ssize_t n = recv(t->fd, buf, len, 0);
+    if (n > 0) return (int)n;
+    if (n == 0) return 0;
+    if (errno == EAGAIN || errno == EWOULDBLOCK) return MBEDTLS_ERR_SSL_WANT_READ;
+    snprintf(g_tls_error, sizeof(g_tls_error), "TLS 读 socket 失败: errno %d", errno);
+    return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
+}
+
+/* 把 out_pending 里剩下的字节写出去。0=写完 / DV_TLS_WANT_WRITE / DV_TLS_ERROR */
+static int dv_tls_flush(LightTLS* t) {
+    while (t->out_off < t->out_len) {
+        ssize_t n = send(t->fd, t->out_pending + t->out_off,
+                         (size_t)(t->out_len - t->out_off), 0);
+        if (n > 0) { t->out_off += (int)n; continue; }
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return DV_TLS_WANT_WRITE;
+        snprintf(g_tls_error, sizeof(g_tls_error), "TLS 写 socket 失败: errno %d", errno);
+        return DV_TLS_ERROR;
+    }
+    t->out_off = 0;
+    t->out_len = 0;
+    return DV_TLS_OK;
+}
+
+LightTLS* dv_tls_wrap(int fd, const char* host) {
+    if (fd < 0) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_wrap: 非法 fd %d", fd);
+        return NULL;
+    }
+    LightTLS* t = (LightTLS*)calloc(1, sizeof(LightTLS));
+    if (!t) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_wrap: 内存不足");
+        return NULL;
+    }
+    t->fd = fd;
+    t->verify = g_tls_verify_default;
+    if (host && host[0]) {
+        strncpy(t->host, host, sizeof(t->host) - 1);
+    } else {
+        snprintf(g_tls_error, sizeof(g_tls_error),
+                 "dv_tls_wrap: 必须给主机名（SNI + 主机名校验都要它），拒绝无名包装");
+        free(t);
+        return NULL;
+    }
+    return t;
+}
+
+int dv_tls_set_verify(LightTLS* t, int enable) {
+    if (!t) return -1;
+    t->verify = enable ? 1 : 0;
+    if (!enable) {
+        fprintf(stderr,
+                "\n***** 【安全告警】TLS 证书校验已被显式关闭（host=%s）*****\n"
+                "***** 该连接可被中间人劫持，仅允许在受控测试中使用    *****\n\n",
+                t->host);
+        fflush(stderr);
+    }
+    return 0;
+}
+
+int dv_tls_add_trusted_cert_file(const char* path) {
+    if (!path || !path[0]) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_add_trusted_cert_file: 路径为空");
+        return -1;
+    }
+    if (!g_tls_ca_explicit_ready) {
+        mbedtls_x509_crt_init(&g_tls_ca_explicit);
+        g_tls_ca_explicit_ready = 1;
+    }
+    /* PEM / DER 自动识别（对应 Windows CryptStringToBinary 语义） */
+    int r = mbedtls_x509_crt_parse_file(&g_tls_ca_explicit, path);
+    if (r != 0) {
+        char ebuf[128];
+        mbedtls_strerror(r, ebuf, sizeof(ebuf));
+        snprintf(g_tls_error, sizeof(g_tls_error), "加入信任锚失败: %s（%s, -0x%04X）",
+                 path, ebuf, (unsigned)(-r));
+        return -1;
+    }
+    /* 一旦设置显式信任锚，即切换「独占根」：只认这一批根，比系统根更严 */
+    g_tls_roots_explicit = 1;
+    return 0;
+}
+
+int dv_tls_handshake(LightTLS* t) {
+    if (!t) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_handshake: 句柄为空");
+        return DV_TLS_ERROR;
+    }
+    if (t->handshake_done) return DV_TLS_OK;
+
+    /* 上一轮没写完的先写完 */
+    int fr = dv_tls_flush(t);
+    if (fr != DV_TLS_OK) return fr;
+
+    if (!t->hs_started) {
+        mbedtls_ssl_init(&t->ssl);
+        mbedtls_ssl_config_init(&t->conf);
+        int r0 = mbedtls_ssl_config_defaults(&t->conf, MBEDTLS_SSL_IS_CLIENT,
+                                             MBEDTLS_SSL_TRANSPORT_STREAM,
+                                             MBEDTLS_SSL_PRESET_DEFAULT);
+        if (r0 != 0) {
+            char ebuf[128]; mbedtls_strerror(r0, ebuf, sizeof(ebuf));
+            snprintf(g_tls_error, sizeof(g_tls_error), "mbedtls_ssl_config_defaults 失败: %s", ebuf);
+            return DV_TLS_ERROR;
+        }
+        /* 校验默认开：verify=1 → REQUIRED（链 + 主机名）；verify=0 → NONE（全关，含主机名） */
+        mbedtls_ssl_conf_authmode(&t->conf,
+                                  t->verify ? MBEDTLS_SSL_VERIFY_REQUIRED : MBEDTLS_SSL_VERIFY_NONE);
+        mbedtls_x509_crt* ca = dv_tls_get_ca_chain();
+        if (ca) mbedtls_ssl_conf_ca_chain(&t->conf, ca, NULL);
+
+        int r1 = mbedtls_ssl_setup(&t->ssl, &t->conf);
+        if (r1 != 0) {
+            char ebuf[128]; mbedtls_strerror(r1, ebuf, sizeof(ebuf));
+            snprintf(g_tls_error, sizeof(g_tls_error), "mbedtls_ssl_setup 失败: %s", ebuf);
+            return DV_TLS_ERROR;
+        }
+        /* 主机名：SNI + 主机名校验（verify=NONE 时该校验一并关闭） */
+        int r2 = mbedtls_ssl_set_hostname(&t->ssl, t->host);
+        if (r2 != 0) {
+            char ebuf[128]; mbedtls_strerror(r2, ebuf, sizeof(ebuf));
+            snprintf(g_tls_error, sizeof(g_tls_error), "mbedtls_ssl_set_hostname 失败: %s", ebuf);
+            return DV_TLS_ERROR;
+        }
+        /* 队列式 BIO：发送走 out_pending（不阻塞事件循环），接收直读 socket */
+        mbedtls_ssl_set_bio(&t->ssl, t, dv_tls_bio_send, dv_tls_bio_recv, NULL);
+        t->hs_started = 1;
+    }
+
+    int r = mbedtls_ssl_handshake(&t->ssl);
+    if (r == 0) {
+        /* VERIFY_REQUIRED 下校验失败会让 handshake 返回负码；此处双保险确认 */
+        if (t->verify) {
+            uint32_t vr = mbedtls_ssl_get_verify_result(&t->ssl);
+            if (vr != 0) {
+                snprintf(g_tls_error, sizeof(g_tls_error),
+                         "证书校验不通过: flags 0x%08X", (unsigned)vr);
+                return DV_TLS_ERROR;
+            }
+        }
+        t->handshake_done = 1;
+        return DV_TLS_OK;
+    }
+    if (r == MBEDTLS_ERR_SSL_WANT_READ) return DV_TLS_WANT_READ;
+    if (r == MBEDTLS_ERR_SSL_WANT_WRITE) return DV_TLS_WANT_WRITE;
+    {
+        char ebuf[128];
+        mbedtls_strerror(r, ebuf, sizeof(ebuf));
+        snprintf(g_tls_error, sizeof(g_tls_error), "TLS 握手失败: %s (-0x%04X)", ebuf, (unsigned)(-r));
+    }
+    return DV_TLS_ERROR;
+}
+
+int dv_tls_want_event(LightTLS* t) {
+    if (!t) return DV_POLL_READ;
+    if (t->out_off < t->out_len) return DV_POLL_WRITE;
+    return DV_POLL_READ;
+}
+
+int dv_tls_is_ready(LightTLS* t) {
+    return (t && t->handshake_done) ? 1 : 0;
+}
+
+/* 带长度的发送：返回已交给 mbedTLS 的明文字节数（全部或部分）；错误返回 -1。
+ * 与 Windows 同口径：密文进 out_pending 队列，调用方等可写后调 dv_tls_flush_public。 */
+int dv_tls_send_n(LightTLS* t, const char* data, int len) {
+    if (!t || !t->handshake_done) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_send: 握手未完成");
+        return DV_TLS_ERROR;
+    }
+    int fr = dv_tls_flush(t);
+    if (fr != DV_TLS_OK) return fr;
+    if (!data || len <= 0) return 0;
+    int sent = 0;
+    while (sent < len) {
+        int n = mbedtls_ssl_write(&t->ssl, (const unsigned char*)(data + sent),
+                                  (size_t)(len - sent));
+        if (n > 0) { sent += n; continue; }
+        if (n == MBEDTLS_ERR_SSL_WANT_WRITE || n == MBEDTLS_ERR_SSL_WANT_READ) {
+            /* 背压 / 需要读输入（重协商）：已接受部分先返回，剩余靠 flush_public 续写 */
+            (void)dv_tls_flush(t);
+            return sent;
+        }
+        {
+            char ebuf[128];
+            mbedtls_strerror(n, ebuf, sizeof(ebuf));
+            snprintf(g_tls_error, sizeof(g_tls_error), "TLS 发送失败: %s (-0x%04X)", ebuf, (unsigned)(-n));
+        }
+        return DV_TLS_ERROR;
+    }
+    (void)dv_tls_flush(t);
+    return sent;
+}
+
+/* 旧 ABI：用 strlen 限制，不能发含 NUL 的二进制数据。等价于 dv_tls_send_n(t, data, strlen(data))。 */
+int dv_tls_send(LightTLS* t, const char* data) {
+    return dv_tls_send_n(t, data, data ? (int)strlen(data) : 0);
+}
+
+int dv_tls_flush_public(LightTLS* t) {
+    if (!t) return DV_TLS_ERROR;
+    return dv_tls_flush(t);
+}
+
+void dv_tls_recv(LightValue* result, LightTLS* t, int max_bytes) {
+    if (!result) return;
+    if (!t || !t->handshake_done) {
+        snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_recv: 握手未完成");
+        if (t) t->recv_status = DV_TLS_ERROR;
+        dv_str(result, "");
+        return;
+    }
+    if (max_bytes <= 0) max_bytes = 4096;
+    if (max_bytes > 64 * 1024) max_bytes = 64 * 1024;
+    unsigned char* tmp = (unsigned char*)malloc((size_t)max_bytes + 1);
+    if (!tmp) {
+        t->recv_status = DV_TLS_ERROR;
+        snprintf(g_tls_error, sizeof(g_tls_error), "dv_tls_recv: 临时缓冲分配失败");
+        dv_str(result, "");
+        return;
+    }
+    int n = mbedtls_ssl_read(&t->ssl, tmp, (size_t)max_bytes);
+    if (n > 0) {
+        tmp[n] = '\0';
+        t->recv_status = DV_TLS_OK;
+        dv_str(result, (const char*)tmp);
+        free(tmp);
+        return;
+    }
+    if (n == 0 || n == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY
+#ifdef MBEDTLS_ERR_SSL_CONN_EOF
+        || n == MBEDTLS_ERR_SSL_CONN_EOF
+#endif
+       ) {
+        t->peer_closed = 1;
+        t->recv_status = DV_TLS_CLOSED;
+        dv_str(result, "");
+        free(tmp);
+        return;
+    }
+    if (n == MBEDTLS_ERR_SSL_WANT_READ) {
+        t->recv_status = DV_TLS_WANT_READ;
+        dv_str(result, "");
+        free(tmp);
+        return;
+    }
+    if (n == MBEDTLS_ERR_SSL_WANT_WRITE) {
+        /* 重协商需要发数据：尽力刷出队列 */
+        (void)dv_tls_flush(t);
+        t->recv_status = DV_TLS_WANT_READ;
+        dv_str(result, "");
+        free(tmp);
+        return;
+    }
+    {
+        char ebuf[128];
+        mbedtls_strerror(n, ebuf, sizeof(ebuf));
+        snprintf(g_tls_error, sizeof(g_tls_error), "TLS 读取失败: %s (-0x%04X)", ebuf, (unsigned)(-n));
+    }
+    t->recv_status = DV_TLS_ERROR;
+    dv_str(result, "");
+    free(tmp);
+}
+
+int dv_tls_recv_status(LightTLS* t) {
+    return t ? t->recv_status : DV_TLS_ERROR;
+}
+
+void dv_tls_free(LightTLS* t) {
+    if (!t) return;
+    if (t->hs_started) {
+        mbedtls_ssl_free(&t->ssl);
+        mbedtls_ssl_config_free(&t->conf);
+    }
+    free(t->out_pending);
+    free(t);
+}
+
+const char* dv_tls_backend(void) { return "mbedTLS"; }
+
+#else  /* 未定义 LIGHT_TLS_MBEDTLS：保留 stub，保证无 mbedTLS 的 POSIX 构建不破 */
 
 typedef struct LightTLS { int fd; } LightTLS;
 
 static void dv_tls_unsupported(void) {
     snprintf(g_tls_error, sizeof(g_tls_error),
-             "本平台未实现原生 TLS：当前只有 Windows Schannel 后端（POSIX 待补 mbedTLS）");
+             "本平台未启用原生 TLS：需定义 LIGHT_TLS_MBEDTLS 并链接 mbedTLS"
+             "（Ubuntu: apt install libmbedtls-dev）");
 }
 
 LightTLS* dv_tls_wrap(int fd, const char* host) {
@@ -6145,5 +6550,7 @@ int dv_tls_want_event(LightTLS* t) { (void)t; return DV_POLL_READ; }
 int dv_tls_is_ready(LightTLS* t) { (void)t; return 0; }
 int dv_tls_flush_public(LightTLS* t) { (void)t; return DV_TLS_ERROR; }
 const char* dv_tls_backend(void) { return "none"; }
+
+#endif /* LIGHT_TLS_MBEDTLS */
 
 #endif /* _WIN32 */
