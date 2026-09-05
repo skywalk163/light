@@ -339,6 +339,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_atan2(ptr, ptr, ptr)',
             f'declare void @dv_log(ptr, ptr)',
             f'declare void @dv_log2(ptr, ptr)',
+            f'declare double @dv_random()',
+            f'declare void @dv_random_seed(i64)',
+            f'declare i64 @dv_random_bits(i64)',
             f'declare void @dv_log10(ptr, ptr)',
             f'declare void @dv_exp(ptr, ptr)',
             f'declare void @dv_round(ptr, ptr)',
@@ -744,9 +747,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             right_type = self._infer_expr_type(expr.right)
             op = expr.operator
             if op in ('+', '-', '*', '/', '%', '**', '加', '减', '乘', '除', '模', '幂'):
-                if left_type == 'FLOAT' or right_type == 'FLOAT':
-                    return 'FLOAT'
-                if left_type == 'INT' and right_type == 'INT':
+                # T5C 修复：任一侧静态类型未知（builtin 返回值、函数参数）时
+                # 不得推断 FLOAT，否则快路径会误取浮点 DV 的 i64 字段（恒 0）。
+                if (left_type in ('FLOAT', 'INT') and right_type in ('FLOAT', 'INT')):
+                    if left_type == 'FLOAT' or right_type == 'FLOAT':
+                        return 'FLOAT'
                     if op in ('/', '除'):
                         return 'FLOAT'
                     return 'INT'
@@ -1096,7 +1101,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 result = self.new_register()
                 self.emit(f'{result} = {int_op} i64 {left_i64}, {right_i64}')
                 return self._create_int_dv_fast(result), 'dv'
-            if self._enable_type_opt and (left_type == 'FLOAT' or right_type == 'FLOAT'):
+            if (self._enable_type_opt and
+                    (left_type == 'FLOAT' or right_type == 'FLOAT') and
+                    left_type in ('FLOAT', 'INT') and right_type in ('FLOAT', 'INT')):
+                # T5C 修复：快路径仅当两侧静态类型已知（FLOAT/INT）才可直取字段；
+                # 任一侧为未知类型（builtin 返回、函数参数等）时走下方通用 dv 路径，
+                # 由运行时标签决定取 i64 还是 double——否则未知侧的 i64 字段被当
+                # 数值（浮点 DV 的 i64 字段恒为 0），`时间戳() 乘 1.0` 得 0。
                 left_f64 = self._extract_f64(left_dv) if left_type == 'FLOAT' else self._i64_to_f64(self._extract_i64(left_dv))
                 right_f64 = self._extract_f64(right_dv) if right_type == 'FLOAT' else self._i64_to_f64(self._extract_i64(right_dv))
                 _, float_op = arith_ops[op]
@@ -1127,7 +1138,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 cmp_reg = self.new_register()
                 self.emit(f'{cmp_reg} = icmp {int_pred} i64 {left_i64}, {right_i64}')
                 return self._create_bool_dv(cmp_reg), 'dv'
-            if self._enable_type_opt and (left_type == 'FLOAT' or right_type == 'FLOAT'):
+            if (self._enable_type_opt and
+                    (left_type == 'FLOAT' or right_type == 'FLOAT') and
+                    left_type in ('FLOAT', 'INT') and right_type in ('FLOAT', 'INT')):
+                # T5C 修复：与算术路径同口径——未知静态类型侧回退通用 dv 比较
                 left_f64 = self._extract_f64(left_dv) if left_type == 'FLOAT' else self._i64_to_f64(self._extract_i64(left_dv))
                 right_f64 = self._extract_f64(right_dv) if right_type == 'FLOAT' else self._i64_to_f64(self._extract_i64(right_dv))
                 _, float_pred = cmp_ops[op]
@@ -1414,6 +1428,28 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             dbl = self.new_register()
             self.emit(f'{dbl} = call double @dv_timestamp()')
             return self._call_dv_func('dv_float', f'double {dbl}'), 'dv'
+
+        # T5C：确定性随机数（MT19937，对齐 CPython random）
+        if name in ('随机数', 'random', 'dv_random'):
+            dbl = self.new_register()
+            self.emit(f'{dbl} = call double @dv_random()')
+            return self._call_dv_func('dv_float', f'double {dbl}'), 'dv'
+
+        if name in ('播种随机种子', '设置随机种子', 'random_seed', 'dv_random_seed'):
+            if args:
+                seed_i64 = self.new_register()
+                self.emit(f'{seed_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                self.emit(f'call void @dv_random_seed(i64 {seed_i64})')
+            return self._create_int_dv('0'), 'dv'
+
+        if name in ('随机位', 'random_bits', 'getrandbits', 'dv_random_bits'):
+            if args:
+                k_i64 = self.new_register()
+                self.emit(f'{k_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                ret = self.new_register()
+                self.emit(f'{ret} = call i64 @dv_random_bits(i64 {k_i64})')
+                return self._create_int_dv(ret), 'dv'
+            return self._create_int_dv('0'), 'dv'
 
         if name == '格式化时间':
             if not args:
@@ -1780,6 +1816,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('正弦', 'sin'):
             if args:
                 return self._call_dv_func('dv_sin', args[0]), 'dv'
+
+        if name in ('对数', 'log', '自然对数'):
+            if args:
+                return self._call_dv_func('dv_log', args[0]), 'dv'
             return self._call_dv_func('dv_float', 'double 0.0'), 'dv'
 
         if name in ('余弦', 'cos'):
