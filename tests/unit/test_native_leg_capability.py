@@ -46,7 +46,8 @@ _DOC_STMT_TYPES = frozenset({
     'VariableDeclaration', 'Assignment', 'SelfAssignment', 'CompoundAssignment',
     'IfStatement', 'ForeachStatement', 'WhileStatement', 'ReturnStatement',
     'BreakStatement', 'ContinueStatement', 'PrintStatement', 'TryStatement',
-    'ThrowStatement', 'ExpressionStatement', 'ImportStatement', 'AsyncScope',
+    'ThrowStatement',     'ExpressionStatement', 'ImportStatement', 'AsyncScope',
+    'YieldStatement',  # R10-11b 第四批B 新增：生成器
 })
 
 _DOC_EXPR_TYPES = frozenset({

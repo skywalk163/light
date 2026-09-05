@@ -61,20 +61,30 @@ for line in expr_body_lines:
 builtin_start, builtin_end = get_method_range(cg_src, '_gen_typed_builtin')
 builtin_lines = cg_lines[builtin_start-1:builtin_end-1] if builtin_start else []
 builtins = {}
-for i, line in enumerate(builtin_lines):
-    abs_line = builtin_start + i
-    m = re.search(r"if name in \(([^)]+)\)", line)
-    if m:
+
+# `if name in (...)` 名单可能跨多行（如异常类名单），逐行正则整行都配不上整条，
+# 会静默漏掉那一整批内置名（R10-11b 实测：重生成把 22 个异常内置名弄丢）。
+# 改成整段扫描；证据行号记**名字真正所在的那一行**——能力测试要求那一行文本里
+# 含该名字，记 `if name in (` 的起始行会让同批后续行的名字行号校验失败。
+if builtin_start:
+    方法基址 = sum(len(l) for l in cg_lines[:builtin_start - 1])
+    方法文本 = ''.join(builtin_lines)
+    for m in re.finditer(r"if name in \(([^)]*)\)", 方法文本):
         names = re.findall(r"'([^']+)'", m.group(1))
         for n in names:
-            if n not in builtins:
-                builtins[n] = abs_line
+            if n in builtins:
+                continue
+            i = m.group(1).find(f"'{n}'")
+            abs_off = 方法基址 + m.start(1) + i
+            builtins[n] = cg_src.count('\n', 0, abs_off) + 1
+
+for i, line in enumerate(builtin_lines):
     m2 = re.search(r"\('([^']+)',\s*'([^']+)'\):\s*'([^']+)'", line)
     if m2:
         cn, en, cfunc = m2.groups()
         for n in [cn, en]:
             if n not in builtins:
-                builtins[n] = abs_line
+                builtins[n] = builtin_start + i
 
 # 4. Runtime symbols
 runtime_symbols = {}
@@ -230,6 +240,7 @@ stmt_desc = {
     'ExpressionStatement': '表达式语句',
     'ImportStatement': '当 no-op 处理',
     'AsyncScope': '异步 作用域',
+    'YieldStatement': '生成 X（生成器段状态机，R10-11b 新增）',
 }
 result["tables"]["statement_nodes"] = {
     "description": "原生腿 _gen_statement 分派链支持的语句节点",

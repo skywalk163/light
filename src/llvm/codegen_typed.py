@@ -82,6 +82,22 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._in_coroutine = False  # 当前是否在生成协程函数
         self._coro_handle_ptr = None  # 协程句柄指针（LightCoroutine*）
         self._coro_resume_point = 0  # 下一个 await 点的编号
+        # ---- 生成器状态机（R10-11b 第四批B）----
+        # `_gen_entry_insert_idx` 非 None 即表示「正在生成生成器状态机函数」。
+        # 它同时是「往 entry 块插指令」的下标：生成器每次恢复都是重新调用，
+        # 跨 `生成` 存活的一切（变量槽、临时槽、循环计数器 alloca）都必须落在
+        # entry 块，否则恢复块拿不到定义 → LLVM "does not dominate all uses"。
+        self._gen_entry_insert_idx = None
+        self._gen_slot_index = 0        # 已用生成器槽位数
+        self._gen_slot_budget = 1024    # 单生成器槽位上限（超出即报错，不静默截断）
+        self._gen_yield_index = 0       # 本函数已发射的 `生成` 点数
+        self._gen_resume_labels = []    # 第 k 个生成点的恢复标签
+        # entry 回插指令的符号名序号：回插行与正文行在生成时刻交错，数字
+        # 寄存器会「后造的编号小、先造的编号大」，文本序 ≠ 编号序，LLVM
+        # 文本解析直接报 "expected to be numbered '%N' or greater"。所以
+        # 凡是要回插 entry 的指令一律用符号名（%gslot.N / %galloc.N），
+        # 不参与自动编号，正文的数字寄存器仍然单调递增。
+        self._gen_entry_name_seq = 0
         # 目标平台：win32 / linux / darwin，默认根据当前系统判断
         self.target_platform = target_platform or sys.platform
         # 目标架构：x86_64 / aarch64，默认根据参数或本地架构检测
@@ -453,6 +469,19 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_coro_set_result(ptr, ptr)',
             f'declare ptr @dv_coro_get_local(ptr, i32)',
             f'declare ptr @dv_coro_get_arg(ptr, i32)',
+            # ---- 生成器 (R10-11b 第四批B) ----
+            # 与协程分属两套状态机：协程是推送式（调度器跑到完），
+            # 生成器是拉取式（挂起在 `生成` 处把值交回消费者）。
+            f'declare ptr @dv_gen_create(ptr, i32)',
+            f'declare void @dv_gen_free(ptr)',
+            f'declare ptr @dv_gen_slot(ptr, i32)',
+            f'declare i32 @dv_gen_state(ptr)',
+            f'declare void @dv_gen_yield(ptr, ptr, i32)',
+            f'declare void @dv_gen_finish(ptr)',
+            f'declare void @dv_gen_make(ptr, ptr)',
+            f'declare i32 @dv_is_generator(ptr)',
+            f'declare i32 @dv_gen_resume(ptr)',
+            f'declare void @dv_gen_value(ptr, ptr)',
             # 网络/Socket (Task B1)
             f'declare i32 @dv_socket_create(i32, i32)',
             f'declare i32 @dv_socket_connect(i32, ptr, i32)',
@@ -546,6 +575,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._lines[idx] = f'{self._temp_slot_pool} = alloca {LIGHTVALUE_STRUCT}, i32 {真实用量}'
 
     def _new_dv_slot(self) -> str:
+        # R10-11b：生成器内改走堆槽数组（跨 `生成` 存活），槽指针落在 entry 块。
+        if self._gen_entry_insert_idx is not None:
+            return self._gen_new_slot()
 
         """从临时槽位池中分配一个新的 LightValue 槽位（避免动态 alloca 导致栈溢出）"""
         if self._temp_slot_pool is None:
@@ -2327,8 +2359,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         list_slot = self._new_dv_slot()
         self.emit(f'store {LIGHTVALUE_STRUCT} {list_dv}, ptr {list_slot}')
 
-        idx_slot = self.new_register()
-        self.emit(f'{idx_slot} = alloca i64')
+        idx_slot = self._gen_alloca('i64')
         self.emit(f'store i64 {start_i64}, ptr {idx_slot}')
 
         range_cond = self.new_label('range_cond')
@@ -3122,8 +3153,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             stop_val = stop_i64
 
         # i = start
-        i_slot = self.new_register()
-        self.emit(f'{i_slot} = alloca i64')
+        i_slot = self._gen_alloca('i64')
         self.emit(f'store i64 {start_i64}, ptr {i_slot}')
 
         cond_lab = self.new_label('slice_cond')
@@ -3193,8 +3223,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._local_vars[var_name] = var_slot
 
         # i = 0
-        i_slot = self.new_register()
-        self.emit(f'{i_slot} = alloca i64')
+        i_slot = self._gen_alloca('i64')
         self.emit(f'store i64 0, ptr {i_slot}')
 
         cond_lab = self.new_label('lc_cond')
@@ -3248,6 +3277,134 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         final = self.new_register()
         self.emit(f'{final} = load {LIGHTVALUE_STRUCT}, ptr {result_slot}')
         return final, 'dv'
+
+    # ============================================================
+    # 生成器状态机底层支撑（R10-11b 第四批B）
+    # ============================================================
+
+    def _gen_entry_symbolic(self, prefix: str) -> str:
+        """分配一个符号名寄存器（不参与 %N 自动编号），供回插 entry 的指令用。
+
+        生成器正文里凡是**稍后文本上要插到 entry 块**的指令，必须用符号名：
+        它们在生成时刻排在正文寄存器之后，数字寄存器名会破坏 LLVM 文本的
+        单调编号约束；符号名没有这个约束，可被任意块引用。
+        """
+        self._gen_entry_name_seq += 1
+        return f'%g{prefix}{self._gen_entry_name_seq}'
+
+    def _gen_emit_entry_alloca(self, line: str):
+        """生成器中发射 alloca：强制落进 entry 块。
+
+        普通段里 `alloca` 就地发射没问题（每个块只进一次）；生成器的 `ret void`
+        之后会从 entry 的 switch 直接跳进恢复块，就地 alloca 的块**不支配**恢复块，
+        循环计数器（`遍历`/`范围`）就会变成 "instruction does not dominate all uses"。
+        故生成器内所有 alloca 统一提到 entry。
+        """
+        if self._gen_entry_insert_idx is None:
+            self.emit(line)
+            return
+        self._lines.insert(self._gen_entry_insert_idx, line)
+        self._gen_entry_insert_idx += 1
+
+    def _gen_alloca(self, ir_type: str) -> str:
+        """发射一条 alloca，返回寄存器名（生成器内自动提到 entry 块）。"""
+        if self._gen_entry_insert_idx is not None:
+            reg = self._gen_entry_symbolic('a')
+            self._lines.insert(
+                self._gen_entry_insert_idx, f'{reg} = alloca {ir_type}')
+            self._gen_entry_insert_idx += 1
+            return reg
+        reg = self.new_register()
+        self.emit(f'{reg} = alloca {ir_type}')
+        return reg
+
+    def _gen_new_slot(self) -> str:
+        """在生成器堆槽数组里取一个 LightValue 槽位。
+
+        与普通段的 `_new_dv_slot`（栈上临时池）对应：生成器的槽必须活过
+        `ret void`，所以放堆上；取槽指令一律插在 entry 块，保证支配所有恢复块。
+        """
+        if self._gen_slot_index >= self._gen_slot_budget:
+            raise RuntimeError(
+                f"生成器槽位溢出：段落「{self._current_func}」用掉 "
+                f"{self._gen_slot_index} / {self._gen_slot_budget} 个槽位")
+        idx = self._gen_slot_index
+        self._gen_slot_index += 1
+        reg = self._gen_entry_symbolic('s')
+        self._lines.insert(
+            self._gen_entry_insert_idx,
+            f'{reg} = call ptr @dv_gen_slot(ptr %gen, i32 {idx})')
+        self._gen_entry_insert_idx += 1
+        return reg
+
+    @staticmethod
+    def _iter_ast_children(node):
+        """遍历 AST 节点的子节点（dataclass 字段里的节点 / 节点列表）。
+
+        slots dataclass 上 `vars()` 不可用，只能走 `dataclasses.fields`。
+        `line`/`column` 等 int 字段天然被跳过（不是 dataclass）。
+        """
+        try:
+            from dataclasses import fields, is_dataclass
+        except ImportError:  # pragma: no cover
+            return
+        if not is_dataclass(node):
+            return
+        for f in fields(node):
+            try:
+                v = getattr(node, f.name)
+            except Exception:
+                continue
+            if isinstance(v, list):
+                for x in v:
+                    if is_dataclass(x):
+                        yield x
+            elif is_dataclass(v):
+                yield v
+
+    def _段内生成点(self, body, 计数: bool) -> int:
+        """统计段落体里的 `生成` 点数（不深入嵌套段落/类定义——它们各自成函数）。
+
+        这是**发射前**的预扫：状态机 entry 块的 switch 需要先把全部恢复标签
+        造出来，标签数取决于生成点数。
+        """
+        计数结果 = 0
+        栈 = [s for s in (body or []) if s is not None]
+        while 栈:
+            node = 栈.pop()
+            if isinstance(node, ast.YieldStatement):
+                if not 计数:
+                    return 1
+                计数结果 += 1
+                continue
+            if isinstance(node, (ast.SegmentDefinition, ast.ClassDefinition)):
+                continue
+            for child in self._iter_ast_children(node):
+                栈.append(child)
+        return 计数结果
+
+    def _段是生成器(self, body) -> bool:
+        return self._段内生成点(body, 计数=False) > 0
+
+    def _当前块已终止(self) -> bool:
+        """最近一条实际发射的指令是不是终止指令（ret/br/switch/…）。
+
+        生成器收尾要追加「finish + ret」，但正文可能已经以 `ret void`（生成点或
+        `返回`）结尾——此时必须先起新块，否则同一块里出现两个终止指令。
+        """
+        for line in reversed(self._lines):
+            s = line.strip()
+            if not s or s.startswith(';'):
+                continue
+            if s.endswith(':'):
+                # 最后一条是标签 —— 当前块是刚开的空块，还没写终止指令。
+                # 这正是「正文以 `生成`/`返回` 收尾」和「循环正常结束」两种
+                # 情形的共同形态，都必须补一条 br 到收尾块。
+                return False
+            return (s.startswith('ret ') or s.startswith('br ')
+                    or s.startswith('switch ') or s.startswith('unreachable')
+                    or s.startswith('indirectbr ') or s.startswith('resume '))
+        return False
 
     def _gen_typed_list_from_args(self, args: List[str]) -> str:
         """C3-1：从一组已生成的 LightValue 构造列表（`列(1, 2, 3)`）。"""
@@ -3472,6 +3629,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             pass
         elif hasattr(ast, 'AsyncScope') and isinstance(stmt, ast.AsyncScope):
             self._gen_async_scope(stmt)
+        elif isinstance(stmt, ast.YieldStatement):
+            self._gen_typed_yield(stmt)
         else:
             # A2-1：链尾兜底。以前这里什么都没有，未知语句被静默吃掉。
             self._reject_unsupported_stmt(type(stmt).__name__, stmt)
@@ -3723,39 +3882,95 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.alloca_local(var_name)
         list_dv, _ = self._gen_expression(stmt.iterable)
 
-        idx_slot = self.new_register()
-        self.emit(f'{idx_slot} = alloca i64')
-        self.emit(f'store i64 0, ptr {idx_slot}')
-
+        # R10-11b：迭代对象可能是生成器（type=24）。两条消费路径——
+        #   生成器：dv_gen_resume 拉一次 → dv_gen_value 取值
+        #   列表/字符串/字典：既有 dv_len + dv_foreach_get 索引
+        # ——各自的取值块把值写进**同一个**循环变量槽（entry 块预分配，支配
+        # 整个循环），再 br 到同一份 body。因此 `跳出`/`跳过` 落点唯一，
+        # 循环体只发射一遍，既有列表路径的取值方式一字未改。
         slot = self._store_dv(list_dv)
+        is_gen = self.new_register()
+        self.emit(f'{is_gen} = call i32 @dv_is_generator(ptr {slot})')
+        is_gen_i1 = self.new_register()
+        self.emit(f'{is_gen_i1} = icmp ne i32 {is_gen}, 0')
+
+        idx_slot = self._gen_alloca('i64')
+        # len_val 不能用 SSA 值跨块传：list_loop 有一条回边来自 foreach_cont
+        # （生成器路径也能绕到 cont，静态上 list_init 不支配 list_loop）。
+        # 改走内存：entry 预分配两个 i64 槽，list_init 里 store，list_loop 里
+        # load——load/store 不是 SSA 值，不适用支配规则。
+        len_slot = self._gen_alloca('i64')
+
+        gen_init_lab = self.new_label('foreach_gen_init')
+        gen_loop_lab = self.new_label('foreach_gen_loop')
+        gen_take_lab = self.new_label('foreach_gen_take')
+        list_init_lab = self.new_label('foreach_list_init')
+        list_loop_lab = self.new_label('foreach_loop')
+        list_take_lab = self.new_label('foreach_list_take')
+        body_lab = self.new_label('foreach_body')
+        cont_lab = self.new_label('foreach_cont')
+        end_lab = self.new_label('foreach_end')
+        self._loop_break_labels.append(end_lab)
+        self._loop_continue_labels.append(cont_lab)
+
+        self.emit(f'br i1 {is_gen_i1}, label %{gen_init_lab}, label %{list_init_lab}')
+
+        # ── 生成器路径 ──
+        self.emit(f'{gen_init_lab}:')
+        self.emit(f'br label %{gen_loop_lab}')
+        self.emit(f'{gen_loop_lab}:')
+        produced = self.new_register()
+        self.emit(f'{produced} = call i32 @dv_gen_resume(ptr {slot})')
+        produced_i1 = self.new_register()
+        self.emit(f'{produced_i1} = icmp ne i32 {produced}, 0')
+        self.emit(f'br i1 {produced_i1}, label %{gen_take_lab}, label %{end_lab}')
+        self.emit(f'{gen_take_lab}:')
+        elem_slot = self._new_dv_slot()
+        self.emit(f'call void @dv_gen_value(ptr {elem_slot}, ptr {slot})')
+        elem_dv = self.new_register()
+        self.emit(f'{elem_dv} = load {LIGHTVALUE_STRUCT}, ptr {elem_slot}')
+        self.set_var(var_name, elem_dv)
+        self.emit(f'br label %{body_lab}')
+
+        # ── 列表 / 字符串 / 字典路径 ──
+        self.emit(f'{list_init_lab}:')
+        self.emit(f'store i64 0, ptr {idx_slot}')
         len_val = self.new_register()
         # 用 dv_len（dict/list/str 统一取长）+ dv_foreach_get（list 取元素 / dict 取键）
         self.emit(f'{len_val} = call i64 @dv_len(ptr {slot})')
+        self.emit(f'store i64 {len_val}, ptr {len_slot}')
+        self.emit(f'br label %{list_loop_lab}')
 
-        loop_lab = self.new_label('foreach_loop')
-        body_lab = self.new_label('foreach_body')
-        end_lab = self.new_label('foreach_end')
-        self._loop_break_labels.append(end_lab)
-        self._loop_continue_labels.append(loop_lab)
-        self.emit(f'br label %{loop_lab}')
-
-        self.emit(f'{loop_lab}:')
+        self.emit(f'{list_loop_lab}:')
         i = self.new_register()
         self.emit(f'{i} = load i64, ptr {idx_slot}')
+        len_v = self.new_register()
+        self.emit(f'{len_v} = load i64, ptr {len_slot}')
         cmp = self.new_register()
-        self.emit(f'{cmp} = icmp slt i64 {i}, {len_val}')
-        self.emit(f'br i1 {cmp}, label %{body_lab}, label %{end_lab}')
+        self.emit(f'{cmp} = icmp slt i64 {i}, {len_v}')
+        self.emit(f'br i1 {cmp}, label %{list_take_lab}, label %{end_lab}')
 
-        self.emit(f'{body_lab}:')
+        self.emit(f'{list_take_lab}:')
         elem = self._call_dv_func('dv_foreach_get', list_dv, f'i64 {i}')
         self.set_var(var_name, elem)
+        self.emit(f'br label %{body_lab}')
+
+        # ── 共用循环体 ──
+        self.emit(f'{body_lab}:')
         for s in stmt.body:
             self._gen_statement(s)
         if not self._ends_with_terminator(stmt.body):
-            next_i = self.new_register()
-            self.emit(f'{next_i} = add i64 {i}, 1')
-            self.emit(f'store i64 {next_i}, ptr {idx_slot}')
-            self.emit(f'br label %{loop_lab}')
+            self.emit(f'br label %{cont_lab}')
+
+        # ── 步进：列表路推进索引，生成器路的游标长在生成器自己身上 ──
+        # 注意必须重新 load：%i 定义在 list_loop_lab，它不支配 cont_lab。
+        self.emit(f'{cont_lab}:')
+        cur_i = self.new_register()
+        self.emit(f'{cur_i} = load i64, ptr {idx_slot}')
+        next_i = self.new_register()
+        self.emit(f'{next_i} = add i64 {cur_i}, 1')
+        self.emit(f'store i64 {next_i}, ptr {idx_slot}')
+        self.emit(f'br i1 {is_gen_i1}, label %{gen_loop_lab}, label %{list_loop_lab}')
 
         self.emit(f'{end_lab}:')
         self._loop_break_labels.pop()
@@ -3808,6 +4023,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'call void @dv_value_disown(ptr {self_var_slot})')
 
     def _gen_typed_return(self, stmt: ast.ReturnStatement):
+        if self._gen_entry_insert_idx is not None:
+            # R10-11b：生成器里的 `返回` 语义是「结束生成」（等价 StopIteration），
+            # 不是往 %result 写值——生成器段没有 %result 这个形参，写到那儿
+            # 就是 IR 未定义值。返回值本批丢弃（与 `生成` 序列不冲突）。
+            self.emit('call void @dv_gen_finish(ptr %gen)')
+            self.emit('ret void')
+            return
         if self._in_coroutine:
             # 协程函数中的返回：存储结果到 coro->result，设置完成状态
             if stmt.value:
@@ -4030,6 +4252,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         
         if is_async:
             self._gen_async_segment(name, params, body)
+        elif self._段是生成器(body):
+            # R10-11b：段落体里出现了 `生成` → 编成生成器（状态机 + 包装段）
+            self._gen_generator_segment(name, params, body)
         else:
             self._gen_normal_segment(name, params, body)
     
@@ -4116,6 +4341,186 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._seg_result_ptr = None
         # 结束函数调试作用域
         self._end_debug_function()
+
+    # ============================================================
+    # 生成器段（R10-11b 第四批B）
+    # ============================================================
+    # 形态：一个生成器段编出一对函数
+    #   1. @_genf_<名>(ptr %gen)                     状态机（可重复进入）
+    #   2. @_seg_<名>(ptr %result, ptr %args, i32)    包装段（建生成器 + 抄实参）
+    # 与既有协程（@_coro_*）不共用：协程是推送式（调度器一路跑到完，挂起点
+    # 由 sleep/io 驱动），生成器是拉取式（挂起在 `生成` 处把值交回消费者，
+    # 下次 resume 从挂起点继续）。两套编号语义正交，混用会把 await 点与
+    # yield 点搅在一起，故独立实现。
+    def _gen_generator_segment(self, name, params, body):
+        safe = self._safe_func_name(name)
+        gen_func_name = f'_genf_{safe}'
+        生成点数 = self._段内生成点(body, 计数=True)
+
+        # ── 1. 状态机函数 ──────────────────────────────────────────
+        self._current_func = name
+        self._current_func_params = {}
+        self._local_vars.clear()
+        self._pending_allocas = []
+        self._reg_counter = 0
+        self._dv_ssa_to_slot.clear()
+        self._temp_slot_index = 0
+        # 生成器不用栈上临时池：跨 `生成` 存活的状态必须在 gen->slots（堆）上
+        self._temp_slot_pool = None
+        self._temp_slot_pool_line = None
+        self._seg_result_ptr = None
+        self._gen_yield_index = 0
+        self._gen_slot_index = 0
+        self._gen_entry_name_seq = 0
+
+        self.emit(f'define void @{gen_func_name}(ptr %gen) {{')
+        self.emit('entry:')
+        state = self.new_register()
+        self.emit(f'{state} = call i32 @dv_gen_state(ptr %gen)')
+        # 恢复标签按预扫到的生成点数一次造齐——entry 的 switch 必须先知道全部落点
+        self._gen_resume_labels = [self.new_label(f'gen_resume_{i + 1}')
+                                   for i in range(生成点数)]
+        init_lab = self.new_label('gen_init')
+        # 插入点必须在 switch **之前**：之后所有槽位指针 / alloca 都插到这里，
+        # 每插一条就把 switch 往下推一行，于是它们始终留在 entry 块内、
+        # 终止指令之前，且支配 init 块与全部恢复块。
+        self._gen_entry_insert_idx = len(self._lines)
+        if 生成点数:
+            cases = ' '.join(f'i32 {i + 1}, label %{lab}'
+                             for i, lab in enumerate(self._gen_resume_labels))
+            self.emit(f'switch i32 {state}, label %{init_lab} [ {cases} ]')
+        else:
+            self.emit(f'br label %{init_lab}')
+
+        self._collect_vars_from_stmts(body)
+        param_names = [p[0] for p in params]
+        for pname in param_names:
+            self._local_vars[pname] = None
+        # 参数先发槽：包装段按 0..n-1 抄实参，顺序必须对得上
+        for pname in param_names:
+            self._local_vars[pname] = self._gen_new_slot()
+        for vname in list(self._local_vars.keys()):
+            if self._local_vars[vname] is None:
+                self._local_vars[vname] = self._gen_new_slot()
+
+        self.emit(f'{init_lab}:')
+        for stmt in body:
+            self._gen_statement(stmt)
+
+        # 收尾：正文可能已经以 `ret void` 结束（最后一个 `生成`，或 `返回`），
+        # 那就先起新块再发 finish，避免同一块里两条终止指令。
+        done_lab = self.new_label('gen_done')
+        if not self._当前块已终止():
+            self.emit(f'br label %{done_lab}')
+        self.emit(f'{done_lab}:')
+        self.emit('call void @dv_gen_finish(ptr %gen)')
+        self.emit('ret void')
+        self.emit('}')
+        self.emit_blank()
+
+        槽位数 = max(self._gen_slot_index, 1)
+        self._gen_entry_insert_idx = None
+        self._gen_resume_labels = []
+        self._gen_yield_index = 0
+
+        # ── 2. 包装段函数 ──────────────────────────────────────────
+        self._current_func = name
+        self._current_func_params = {}
+        self._local_vars.clear()
+        self._pending_allocas = []
+        self._reg_counter = 0
+        self._dv_ssa_to_slot.clear()
+        self._temp_slot_index = 0
+        self._seg_result_ptr = '%result'
+
+        self.emit(f'define void @_seg_{safe}(ptr %result, ptr %args, i32 %num_args) {{')
+        self.emit('entry:')
+        self._begin_temp_slot_pool()
+
+        gen_ptr = self.new_register()
+        self.emit(f'{gen_ptr} = call ptr @dv_gen_create(ptr @{gen_func_name}, i32 {槽位数})')
+
+        if params:
+            num_args_sext = self.new_register()
+            self.emit(f'{num_args_sext} = sext i32 %num_args to i64')
+
+        for i, (pname, default_val) in enumerate(params):
+            in_bounds = self.new_register()
+            self.emit(f'{in_bounds} = icmp slt i64 {i}, {num_args_sext}')
+            then_lab = self.new_label('gen_arg_ok')
+            else_lab = self.new_label('gen_arg_default')
+            end_lab = self.new_label('gen_arg_end')
+            self.emit(f'br i1 {in_bounds}, label %{then_lab}, label %{else_lab}')
+
+            self.emit(f'{then_lab}:')
+            src = self.new_register()
+            self.emit(f'{src} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr %args, i64 {i}')
+            val = self.new_register()
+            self.emit(f'{val} = load {LIGHTVALUE_STRUCT}, ptr {src}')
+            dst = self.new_register()
+            self.emit(f'{dst} = call ptr @dv_gen_slot(ptr {gen_ptr}, i32 {i})')
+            self.emit(f'store {LIGHTVALUE_STRUCT} {val}, ptr {dst}')
+            self.emit(f'br label %{end_lab}')
+
+            self.emit(f'{else_lab}:')
+            dst2 = self.new_register()
+            self.emit(f'{dst2} = call ptr @dv_gen_slot(ptr {gen_ptr}, i32 {i})')
+            if default_val is not None:
+                default_dv, _ = self._gen_expression(default_val)
+                self.emit(f'store {LIGHTVALUE_STRUCT} {default_dv}, ptr {dst2}')
+            else:
+                self.emit(f'call void @dv_null(ptr {dst2})')
+            self.emit(f'br label %{end_lab}')
+
+            self.emit(f'{end_lab}:')
+
+        # 包成 LightValue（type=24，str 存 LightGenerator*）返回
+        self.emit(f'call void @dv_gen_make(ptr %result, ptr {gen_ptr})')
+        self.emit('ret void')
+        self._emit_temp_slot_pool()
+        self.emit('}')
+        self.emit_blank()
+        self._seg_result_ptr = None
+
+    def _gen_typed_yield(self, stmt: ast.YieldStatement):
+        """`生成 表达式。` —— 生成器的挂起点。
+
+        三件事：把值克隆进 ``gen->yielded``、写入「下一个恢复点」编号、然后
+        ``ret void`` 把控制权交还消费者；恢复标签紧跟其后，下次 resume 时
+        entry 的 switch 直接落到这里继续。
+
+        编号靠 ``_gen_yield_index`` 按**发射顺序**递增，标签由预扫按**个数**
+        造好，两者一一对应：漏行 / 乱序 / 复用同一恢复点都会让 IR 自相矛盾
+        （switch 落点缺失或重复），编译期就炸，不会静默跑出漏行。
+        """
+        if self._gen_entry_insert_idx is None:
+            raise NotImplementedError(
+                f"原生后端暂不支持语句类型「YieldStmt」（源码行 "
+                f"{self._stmt_source_line(stmt)}）：`生成` 只能用在段落体内，"
+                f"该段落会被编译为生成器；此处没有消费者。"
+                f"{self._FALLBACK_HINT}")
+        if getattr(stmt, 'is_from', False):
+            raise NotImplementedError(
+                f"原生后端暂不支持语句类型「YieldFromStmt」（源码行 "
+                f"{self._stmt_source_line(stmt)}）：`生成 全部 X`（生成器委托）"
+                f"未实现，请改写为 `遍历 项 之 X：` + `生成 项。`。"
+                f"{self._FALLBACK_HINT}")
+        self._gen_yield_index += 1
+        k = self._gen_yield_index
+        if k > len(self._gen_resume_labels):
+            raise RuntimeError(
+                f"生成器「{self._current_func}」第 {k} 个 `生成` 超出预扫到的 "
+                f"{len(self._gen_resume_labels)} 个恢复点——预扫与发射走了不同的"
+                f"分支遍历，状态机编号已不可信")
+        if stmt.value is not None:
+            dv_val, _ = self._gen_expression(stmt.value)
+            val_slot = self._store_dv(dv_val)
+        else:
+            val_slot = self._new_dv_slot()
+            self.emit(f'call void @dv_null(ptr {val_slot})')
+        self.emit(f'call void @dv_gen_yield(ptr %gen, ptr {val_slot}, i32 {k})')
+        self.emit('ret void')
+        self.emit(f'{self._gen_resume_labels[k - 1]}:')
 
     def _gen_async_segment(self, name, params, body):
         """生成异步段落：包括协程函数和包装段函数

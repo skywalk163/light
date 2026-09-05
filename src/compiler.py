@@ -276,6 +276,10 @@ class AstAdapter:
             'AsyncScope': self._convert_async_scope,
             'PassStmt': self._convert_pass_stmt,
             'KeywordArg': self._convert_keyword_arg,
+            # R10-11b（第四批B）：`生成 表达式。` → 一等语句节点。
+            # 此前 YieldStmt 无转换器 → 降级成 `<unknown:YieldStmt>` 标识符，
+            # 原生腿只能报「暂不支持语句类型 YieldStmt」。
+            'YieldStmt': self._convert_yield_stmt,
         }
 
     # ------------------------------------------------------------------
@@ -330,6 +334,10 @@ class AstAdapter:
                 ast.WithStatement, ast.MatchStatement, ast.DestructuringAssignment,
                 ast.ImportStatement, ast.ExportStatement, ast.CompoundAssignment,
                 ast.AsyncScope,
+                # R10-11b：`生成` 是语句不是表达式，必须原样留在语句流里。
+                # 漏了这条它会被包成 ExpressionStatement，原生腿的生成器
+                # 分派就永远匹配不到。
+                ast.YieldStatement,
             )):
                 converted = ast.ExpressionStatement(expression=converted)
             result.append(converted)
@@ -554,6 +562,17 @@ class AstAdapter:
 
     def _convert_continue_stmt(self, node) -> ast.ContinueStatement:
         return ast.ContinueStatement()
+
+    def _convert_yield_stmt(self, node) -> ast.YieldStatement:
+        """R10-11b：`生成 表达式。` / `生成 全部 表达式。`
+
+        只做节点转型，不做语义展开——生成器状态机在 codegen 侧（原生腿）
+        与转译腿各自实现。`is_from` 原样透传，由后端决定是否支持。
+        """
+        return ast.YieldStatement(
+            value=self.convert(getattr(node, 'value', None)),
+            is_from=bool(getattr(node, 'is_from', False)),
+        )
 
     def _convert_pass_stmt(self, node):
         """C3-4：`pass`（空语句）语义上就是 no-op，编成空操作而不是报错。

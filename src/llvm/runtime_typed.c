@@ -5586,6 +5586,128 @@ void dv_scheduler_run_event_loop(void) {
 }
 
 /* ================================================================
+ * R10-11b（第四批B）：生成器（type=24；23 号保留给元组 LV_TYPE_TUPLE）
+ *
+ * 为什么不用既有协程 `dv_coro_*`：那套是**推送式**调度器模型——协程被丢进
+ * run_queue 由 `dv_coro_run_to_completion` 一路跑到完，挂起点靠 sleep/io 事件
+ * 驱动，消费者拿不到中间值。生成器要的是**拉取式**：挂起在 `生成` 处、把值
+ * 交回消费者、下次迭代再从挂起点继续。两套状态机语义正交，混用会把「await
+ * 点编号」与「yield 点编号」搅在一起，故独立实现一套轻量状态机。
+ *
+ * 状态机形态（Duff's device）：生成器段被编成 `void f(LightGenerator* g)`，
+ * 入口按 `g->state` switch 跳到对应恢复点；`生成` 处把值存进 `g->yielded`、
+ * 把下一个恢复点写进 `g->state` 然后 `ret void`。因为函数每次恢复都是**重新
+ * 调用**，任何跨 `生成` 存活的状态都不能留在 C 栈上——全部变量槽（参数 + 局部
+ * + 表达式临时槽）都在 `g->slots` 堆数组里，槽指针由 codegen 在 entry 块一次
+ * 取好（`dv_gen_slot`），从而支配所有恢复块，不会踩 LLVM 的
+ * "instruction does not dominate all uses"。
+ *
+ * 生命周期：本批**不回收**生成器（无 GC、无引用计数）。单个生成器结构体很小
+ * （几十字节 + 槽数组），stdlib 用法是一次性消费完；登记为已知债务。
+ * ================================================================ */
+#define LV_TYPE_GENERATOR 24
+
+typedef struct LightGenerator LightGenerator;
+typedef void (*LightGenFunc)(LightGenerator* g);
+
+struct LightGenerator {
+    LightGenFunc func;   /* 状态机函数指针 */
+    int state;           /* 0=未启动, >0=下一个恢复点, -1=已完成 */
+    int num_slots;       /* 槽位数（参数 + 局部 + 临时） */
+    LightValue* slots;   /* 堆上槽位数组，跨 yield 存活 */
+    LightValue yielded;  /* 本轮产出值 */
+};
+
+LightGenerator* dv_gen_create(void* func, int num_slots) {
+    if (!func || num_slots < 1) return NULL;
+    LightGenerator* g = (LightGenerator*)malloc(sizeof(LightGenerator));
+    if (!g) return NULL;
+    g->func = (LightGenFunc)func;
+    g->state = 0;
+    g->num_slots = num_slots;
+    g->slots = (LightValue*)malloc(sizeof(LightValue) * (size_t)num_slots);
+    if (!g->slots) { free(g); return NULL; }
+    for (int i = 0; i < num_slots; i++) dv_null(&g->slots[i]);
+    dv_null(&g->yielded);
+    return g;
+}
+
+void dv_gen_free(LightGenerator* g) {
+    if (!g) return;
+    if (g->slots) {
+        for (int i = 0; i < g->num_slots; i++) dv_free(&g->slots[i]);
+        free(g->slots);
+        g->slots = NULL;
+    }
+    free(g);
+}
+
+/* 取第 idx 个槽位；越界返回槽位 0 而不是 NULL——宁可污染一个槽，也不给
+   codegen 一个空指针去 store（空指针 store 是段错误，越界是可诊断的 bug）。 */
+LightValue* dv_gen_slot(LightGenerator* g, int idx) {
+    if (!g || !g->slots || g->num_slots < 1) return NULL;
+    if (idx < 0) idx = 0;
+    if (idx >= g->num_slots) idx = g->num_slots - 1;
+    return &g->slots[idx];
+}
+
+int dv_gen_state(LightGenerator* g) {
+    return g ? g->state : -1;
+}
+
+/* `生成 值。`：把值拷进 yielded（dv_clone 深拷贝，防调用方槽位被复用后
+   产出值跟着变），写入下一个恢复点。真正的 `ret void` 由 codegen 发。 */
+void dv_gen_yield(LightGenerator* g, LightValue* val, int next_state) {
+    if (!g) return;
+    dv_free(&g->yielded);
+    if (val) dv_clone(&g->yielded, val);
+    else dv_null(&g->yielded);
+    g->state = next_state;
+}
+
+void dv_gen_finish(LightGenerator* g) {
+    if (!g) return;
+    g->state = -1;
+}
+
+/* 把生成器包成 LightValue（type=24，str 字段存 LightGenerator*）。
+   注意：不接管所有权——dv_clone 对 type=24 是浅拷贝（共享指针），
+   dv_free 对 type=24 是 no-op，故本批不做释放。 */
+void dv_gen_make(LightValue* result, LightGenerator* g) {
+    if (!result) return;
+    dv_null(result);
+    if (!g) return;
+    result->type = LV_TYPE_GENERATOR;
+    result->str = (char*)g;
+    result->i64 = 0;
+    result->f64 = 0.0;
+    result->boolean = 0;
+    result->list_size = 0; result->list_capacity = 0; result->list_data = NULL;
+}
+
+int dv_is_generator(LightValue* v) {
+    return (v && v->type == LV_TYPE_GENERATOR && v->str) ? 1 : 0;
+}
+
+/* 推进一步：调用状态机一次。返回 1 = 产出了一个值（可从 dv_gen_value 取），
+   0 = 生成器结束。已结束时重复调用恒返回 0（幂等，防消费者多取一次）。 */
+int dv_gen_resume(LightValue* genval) {
+    if (!dv_is_generator(genval)) return 0;
+    LightGenerator* g = (LightGenerator*)genval->str;
+    if (g->state < 0) return 0;
+    g->func(g);
+    return (g->state < 0) ? 0 : 1;
+}
+
+void dv_gen_value(LightValue* result, LightValue* genval) {
+    if (!result) return;
+    dv_null(result);
+    if (!dv_is_generator(genval)) return;
+    LightGenerator* g = (LightGenerator*)genval->str;
+    dv_clone(result, &g->yielded);
+}
+
+/* ================================================================
  * B2-4: 原生 TLS —— Windows Schannel 客户端
  *
  * 设计口径（与 dv_socket_* 对齐 + 能和 dv_coro_await_io 协作）：
