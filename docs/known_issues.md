@@ -110,6 +110,16 @@
     - 验证：能力清单同步（builtin 310 / runtime 228，全量 evidence 行号重算）；定向回归 `test_地板搬迁_路径_S2.py` + `test_native_leg_capability.py` 共 478 全绿。
 
 
+  - **R10-11b 攻坚进展（原生腿覆盖，2026-09-05，第四批B）**：完成原生腿**生成器（`YieldStmt`）**——文件流 模块最后一块编译阻断解除。
+    - 落地修复：
+      - `ast_nodes.py` 新增一等节点 `YieldStatement`（`AST_TYPE_ID_YIELD_STATEMENT=103`，字段 `value`/`is_from`）；`compiler.py::AstAdapter` 增加 `_convert_yield_stmt`（`生成 全部 X` 保留 `is_from=True` 供 codegen 显式拒绝，不静默降级成 `生成 X`）。
+      - `codegen_typed.py`：含 `生成` 的段落整段生成**生成器状态机函数** `_genf_<名>(ptr %gen)`——entry 块按预扫到的生成点数一次造齐 `switch` 恢复落点，局部变量全部落在堆上槽数组（`dv_gen_slot`，跨 `ret void` 存活），`生成 表达式` 发射 `dv_gen_yield` + `ret void` + 恢复标签；`_seg_<名>` 包装段 `dv_gen_create` + 实参/默认值抄槽 + `dv_gen_make` 包成 LightValue（type=24）返回。`遍历` 消费路径对迭代对象做 `dv_is_generator` 分派：生成器走 `dv_gen_resume/dv_gen_value` 逐条拉取，列表/字符串/字典走既有 `dv_len+dv_foreach_get`，两条取值路径写同一个循环变量槽、共用一个循环体。
+      - **两处 IR 正确性修复（本批调试成果）**：① entry 回插指令必须用**符号名寄存器**（`%gs.N`/`%ga.N`）——正文生成与 entry 回插在时刻上交错，数字寄存器「文本序 ≠ 编号序」，LLVM 文本解析报 `expected to be numbered '%N' or greater`；② `遍历` 的 list 路径 `len` 改走**内存槽 store/load**——`list_loop` 有回边来自共用的循环步进块（生成器路径静态可达），SSA 值过不去支配校验，store/load 不适用支配规则。
+      - `runtime_typed.c` 新增生成器运行时（10 符号，TLS 段之前）：`dv_gen_create/free/slot/state/yield/finish/make/resume/value` + `dv_is_generator`。
+    - **运行语义验证（真跑 exe，zig cc 工具链）**：状态机用例全对（while 内 yield 逐条产出、if-else 分支挂起恢复、`跳过` 后恢复、`返回` 提前结束生成）；`逐行` 同构程序真跑**逐字节 MATCH** Python `readlines`（含行尾换行保留、末行无换行不补、空文件），遍历次数与行数一致（4/3/0）。`stdlib/文件流.light` 原生腿编译通过（IR 46884 字符）。
+    - 能力清单同步：`statement_nodes` 16→17（+`YieldStatement`），`runtime_symbols` 222→232（+10 生成器符号）；重生成脚本顺带修复**跨行 `if name in (...)` 名单漏抓**（异常类内置名 22 个曾因逐行正则被静默丢掉，现整段扫描 + 按名字定位行号）。
+    - 验证：定向回归 31 全绿（file_stream 7 + stmt_coverage 13 + capability 11）；§9 未支持语句清单同步（上游 10→9、下游 16→17、实测分桶 17/5/2）。
+
 
 
 ---
@@ -272,17 +282,18 @@
 
 ### 9.2 静态清单
 
-上游（v3 语句类节点共 27 个，其中 **10 个**没有适配层转换器）：
+上游（v3 语句类节点共 27 个，其中 **9 个**没有适配层转换器）：
 `AssertStmt`、`DecoratorDefinition`、`EmbedBlock`、`FFIFunctionDecl`、
 `FFIVarArgsDecl`、`PassStmt`、`RunAsyncStmt`、`ScopeDeclStmt`、
-`TypeCheckToggleStmt`、`YieldStmt`。
+`TypeCheckToggleStmt`。（`YieldStmt` 自 R10-11b 起有转换器——见下方 17 条分支。）
 
-下游（`_gen_statement` 只有 **16** 条分支：`VariableDeclaration`、`Assignment`、
+下游（`_gen_statement` 现有 **17** 条分支：`VariableDeclaration`、`Assignment`、
 `SelfAssignment`、`CompoundAssignment`、`IfStatement`、`ForeachStatement`、
 `WhileStatement`、`ReturnStatement`、`BreakStatement`、`ContinueStatement`、
 `PrintStatement`、`TryStatement`、`ThrowStatement`、`ExpressionStatement`、
-`ImportStatement`、`AsyncScope`）。适配层能产出、但这 16 条都不覆盖的 legacy
-节点有 **28 种**，落链尾兜底，其中作为语句出现的主要是
+`ImportStatement`、`AsyncScope`、`YieldStatement`（生成器，R10-11b 新增））。
+适配层能产出、但这 17 条都不覆盖的 legacy
+节点有 **27 种**，落链尾兜底，其中作为语句出现的主要是
 `MatchStatement`、`WithStatement`、`DestructuringAssignment`、`SegmentDefinition`
 （嵌套段落）、`InterfaceDefinition`、`MethodDefinition`、`AttributeDeclaration`。
 
@@ -298,16 +309,16 @@
 
 | 桶 | 条数 | 成员 |
 |----|------|------|
-| 能编 | 16 | 赋值/变量声明、`如果`、`遍历`、`当`、段落、`返回`、`跳出`、`继续`、`尝试`/`捕获`、`抛出`、`打印`、`引`（B9 S1 起真导入，见上方说明）、类（非嵌套）、接口、`导出`、`延迟` |
-| 明确拒绝 | 6 | `全局`(ScopeDeclStmt)、`外层`(先撞 SegmentDefinition)、`生成`(YieldStmt)、`断言`(AssertStmt)、类型别名(TypeAlias)、嵌套类(ClassDefinitionWithNested) |
+| 能编 | 17 | 赋值/变量声明、`如果`、`遍历`、`当`、段落、`返回`、`跳出`、`继续`、`尝试`/`捕获`、`抛出`、`打印`、`引`（B9 S1 起真导入，见上方说明）、类（非嵌套）、接口、`导出`、`延迟`、`生成`（生成器，R10-11b 新增） |
+| 明确拒绝 | 5 | `全局`(ScopeDeclStmt)、`外层`(先撞 SegmentDefinition)、`断言`(AssertStmt)、类型别名(TypeAlias)、嵌套类(ClassDefinitionWithNested) |
 | 更早的层拦下 | 2 | `匹配`（v3 解析器语法就没通）、`异步域`（同上） |
 
 `外层` 报的是 `SegmentDefinition` 而不是 `ScopeDeclStmt`：`外层` 只能写在嵌套
 段落里，而**嵌套段落本身原生就不支持**，所以先被它拦下。报真正拦下它的那一层，
 不编造。
 
-守卫在 `tests/unit/test_llvm_stmt_coverage.py`（正跑 6 条 + 反跑 5 条 + 2 条静态
-断言，共 13 个用例）。
+守卫在 `tests/unit/test_llvm_stmt_coverage.py`（正跑 5 条 + 反跑 6 条 + 2 条静态
+断言，共 13 个用例；`生成` 自 R10-11b 起从正跑挪入反跑）。
 
 ### 9.4 已知缺口
 

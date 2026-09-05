@@ -122,6 +122,11 @@ AST_TYPE_ID_FFI_PREPROCESSOR_DEF = 100
 AST_TYPE_ID_MODULE = 101
 AST_TYPE_ID_KEYWORD_ARG = 102
 AST_TYPE_ID_TUPLE_LITERAL = 103
+# R10-11b（第四批B）：生成器。v3 的 `生成 表达式。` / `生成 全部 表达式。`
+# 此前在 AstAdapter 里没有转换器，被降级成 `<unknown:YieldStmt>` 标识符，
+# 原生腿只能拒绝。此处补一等节点，供适配层转型 + codegen 分派。
+# 节点 ID 用 104（103 已分配给 R10-11a 的 TupleLiteral）。
+AST_TYPE_ID_YIELD_STATEMENT = 104
 
 
 @dataclass(slots=True)
@@ -508,6 +513,19 @@ class KeywordArg(ASTNode):
     """关键字参数：f(名=值)。原生腿按目标函数参数名映射到位置。"""
     name: str = ""
     value: ASTNode = None
+
+
+@dataclass(slots=True)
+class YieldStatement(ASTNode):
+    _ast_type_id: int = field(default=AST_TYPE_ID_YIELD_STATEMENT, init=False, repr=False)
+    """生成语句（生成器产出）。
+
+    `生成 表达式。` → value=表达式, is_from=False
+    `生成 全部 表达式。` → yield from（生成器委托），原生腿暂不支持，
+    由 codegen 显式拒绝（不许静默降级成 `生成 表达式`）。
+    """
+    value: Optional[ASTNode] = None
+    is_from: bool = False
 
 
 @dataclass(slots=True)
