@@ -6797,3 +6797,73 @@ int64_t dv_tuple_len(LightValue* v) {
     if (v->type != LV_TYPE_TUPLE) return 0;
     return v->list_size;
 }
+
+/* ── R10-11a 追加：字符串 rfind / rstrip ─────────────────── */
+
+int64_t dv_str_rfind(LightValue* str, LightValue* sub) {
+    str = dv_deref(str);
+    sub = dv_deref(sub);
+    if (str->type != 3 || sub->type != 3 || !str->str || !sub->str) return -1;
+    const char* s = str->str;
+    const char* sub_s = sub->str;
+    size_t slen = strlen(s);
+    size_t sublen = strlen(sub_s);
+    if (sublen == 0) return (int64_t)dv_utf8_char_count(s);
+    if (sublen > slen) return -1;
+    /* 从右往左找最后一个匹配（字节级，UTF-8 自同步保证安全） */
+    size_t found_byte = (size_t)-1;
+    for (size_t i = slen - sublen + 1; i > 0; i--) {
+        if (strncmp(s + i - 1, sub_s, sublen) == 0) {
+            found_byte = i - 1;
+            break;
+        }
+    }
+    if (found_byte == (size_t)-1) return -1;
+    /* 字节偏移 -> 字符偏移（对齐 dv_substr 的字符语义） */
+    const unsigned char* p = (const unsigned char*)s;
+    size_t off = 0;
+    int64_t char_off = 0;
+    while (off < found_byte) {
+        off += dv_utf8_seq_len(p + off);
+        char_off++;
+    }
+    return char_off;
+}
+
+void dv_str_rstrip(LightValue* result, LightValue* str, LightValue* chars) {
+    str = dv_deref(str);
+    if (str->type != 3 || !str->str) {
+        dv_str(result, "");
+        return;
+    }
+    const char* s = str->str;
+    int len = (int)strlen(s);
+    /* chars 为空或非字符串时，剥空白（对齐 Python str.rstrip()） */
+    const char* strip_chars = NULL;
+    if (chars && chars->type == 3 && chars->str) {
+        strip_chars = chars->str;
+    }
+    int end = len;
+    while (end > 0) {
+        char c = s[end - 1];
+        if (strip_chars) {
+            /* 剥指定字符集 */
+            if (strchr(strip_chars, c) == NULL) break;
+        } else {
+            /* 剥空白 */
+            if (!isspace((unsigned char)c)) break;
+        }
+        end--;
+    }
+    int new_len = end;
+    char* out = (char*)malloc(new_len + 1);
+    if (out) {
+        memcpy(out, s, new_len);
+        out[new_len] = '\0';
+    }
+    result->type = 3;
+    result->i64 = 0;
+    result->f64 = 0.0;
+    result->str = out;
+    result->boolean = 0;
+}

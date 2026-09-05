@@ -93,9 +93,21 @@
       - **compiler.py**：`_node_converters` 注册 `'TupleLiteral': self._convert_tuple_literal`；`_convert_tuple_literal` 镜像 `_convert_list_literal`（递归转换 elements）。
       - **codegen_typed.py**：4 条 declare（`dv_tuple_new`/`dv_tuple_append`/`dv_tuple_get`/`dv_tuple_len`）；`_gen_expression` 新增 `isinstance(expr, ast.TupleLiteral)` 分派 → `_gen_typed_tuple_literal`（逐元素 append）；`_gen_typed_index_access` 新增 `is_tuple = icmp eq i32 {type_reg}, 23` 分支 → `dv_tuple_get`。
       - **runtime_typed.c**：`#define LV_TYPE_TUPLE 23`（文件头部）；`dv_len` 新增 `type==23` 分支（调 `dv_tuple_len`）；文件末尾追加 `dv_tuple_new`/`dv_tuple_append`/`dv_tuple_get`/`dv_tuple_len`（含 REF deref、容量扩容、元素克隆，对齐 R10-10 的 dict/字符串 REF 教训）。
-    - **运行语义验证（真跑对拍）**：`分割路径`/`分割扩展名` 与 `posixpath.split`/`posixpath.splitext` 逐字符等价（覆盖空串、纯斜杠、前导点、`.a/b.c/d` 等对拍样本，见 `tests/unit/test_地板搬迁_路径_S2.py`）。
+    - **运行语义验证（真跑对拍）**：`分割路径`/`分割扩展名` 与 `posixpath.split`/`posixpath.splitext` 逐字符等价（覆盖空串、纯斜杠、前导点、`.a/b.c/d`、中文路径等 32 样本，diff EXIT=0，见 `tests/unit/test_地板搬迁_路径_S2.py`）。
     - **反跑验证**：破坏 `_gen_expression` 的 TupleLiteral 分派（`if False and isinstance(...)`）→ 编译立即报 `暂不支持表达式「TupleLiteral」`；恢复后编译通过。
-    - 验证：能力清单同步（expression_nodes 21 / runtime_symbols 226，全量 evidence 行号重算）；定向回归 `test_地板搬迁_路径_S2.py` + `test_native_leg_capability.py` 共 478 全绿。
+    - **R10-11a 增量修复（rfind/rstrip/ends_with/str_repeat，主控 agent 评审追加）**：
+      - **阻断根因**：`分割路径` 用 `路径.rfind("/")`、`头.rstrip("/")`、`头 == "/" * 长(头)`；`分割扩展名` 用 `路径.rfind(".")`、`结果.结尾("/")`——codegen `_gen_typed_builtin` 无 `rfind`/`rstrip`/`结尾` 分支（走 `dv_call_method` 静默返回 null），`*` 运算符对 STRING×INT 走 `dv_mul`（数值乘法）而非 `dv_str_repeat`（字符串重复）。
+      - **codegen_typed.py 修复**：
+        - 新增 `declare i64 @dv_str_rfind(ptr, ptr)` 和 `declare void @dv_str_rstrip(ptr, ptr, ptr)`；
+        - `rfind`/`右查找`/`str_rfind` 分支 → `call i64 @dv_str_rfind`；
+        - `rstrip`/`右去除`/`str_rstrip` 分支 → `call void @dv_str_rstrip`（无 chars 参数时传 null 默认剥空白）；
+        - `结尾`/`endswith`/`ends_with`/`后缀是`/`以结尾` 分支（复用已有 `dv_str_ends_with` runtime）；
+        - `_gen_typed_binary_op` 的 `*`/`乘` 分支新增 STRING×INT / INT×STRING 分派 → `dv_str_repeat`（在 arith_ops 数值路径之后、cmp_ops 之前）。
+      - **runtime_typed.c 修复**：
+        - `dv_str_rfind`：**补 REF deref**（`str = dv_deref(str); sub = dv_deref(sub);`——对齐 R10-10 的 dict/字符串 REF 教训，缺则 REF 传入时 `type != 3` 直接返回 -1）；**字节偏移→字符偏移转换**（`dv_substr` 按字符位置切片，rfind 返回字节偏移会导致中文路径索引错位——用 `dv_utf8_seq_len` 逐字符累计转换为字符偏移）；空子串返回 `dv_utf8_char_count(s)`（对齐 Python `"".rfind("") == 0` 的字符语义）。
+        - `dv_str_rstrip`：从右往左剥指定字符集或空白（`strchr` 匹配字符集，`isspace` 匹配空白）。
+      - **对拍验证**：32 样本（含 `中文/目录/文件.txt`、`目录/中文名.文本` 等中文路径）与 `posixpath.split`/`posixpath.splitext` 逐字符等价，`diff EXIT=0`。
+    - 验证：能力清单同步（builtin 310 / runtime 228，全量 evidence 行号重算）；定向回归 `test_地板搬迁_路径_S2.py` + `test_native_leg_capability.py` 共 478 全绿。
 
 
 

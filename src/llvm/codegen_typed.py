@@ -337,6 +337,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_lcm(ptr, ptr, ptr)',
             f'declare void @dv_substr(ptr, ptr, i64, i64)',
             f'declare i64 @dv_str_find(ptr, ptr)',
+            f'declare i64 @dv_str_rfind(ptr, ptr)',
+            f'declare void @dv_str_rstrip(ptr, ptr, ptr)',
             f'declare void @dv_upper(ptr, ptr)',
             f'declare void @dv_lower(ptr, ptr)',
             f'declare void @dv_trim(ptr, ptr)',
@@ -1065,6 +1067,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{result} = {float_op} double {left_f64}, {right_f64}')
                 return self._create_float_dv_fast(result), 'dv'
 
+            # String repetition: "str" * n  or  n * "str"
+            if op in ('*', '乘') and left_type == 'STRING':
+                return self._call_dv_func('dv_str_repeat', left_dv, right_dv), 'dv'
+            if op in ('*', '乘') and right_type == 'STRING':
+                return self._call_dv_func('dv_str_repeat', right_dv, left_dv), 'dv'
+
         cmp_ops = {
             '==': ('eq', 'oeq'), '等于': ('eq', 'oeq'),
             '!=': ('ne', 'une'), '不等于': ('ne', 'une'),
@@ -1785,6 +1793,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._create_int_dv(i64_val), 'dv'
             return self._create_int_dv('-1'), 'dv'
 
+        if name in ('rfind', '右查找', 'str_rfind'):
+            if len(args) >= 2:
+                slot0 = self._store_dv(args[0])
+                slot1 = self._store_dv(args[1])
+                i64_val = self.new_register()
+                self.emit(f'{i64_val} = call i64 @dv_str_rfind(ptr {slot0}, ptr {slot1})')
+                return self._create_int_dv(i64_val), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
         if name in ('大写', 'upper', 'to_upper', '转大写'):
             if args:
                 return self._call_dv_func('dv_upper', args[0]), 'dv'
@@ -1798,6 +1815,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('去除空格', 'trim', 'strip'):
             if args:
                 return self._call_dv_func('dv_trim', args[0]), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
+        if name in ('rstrip', '右去除', 'str_rstrip'):
+            if len(args) >= 2:
+                return self._call_dv_func('dv_str_rstrip', args[0], args[1]), 'dv'
+            if args:
+                return self._call_dv_func('dv_str_rstrip', args[0],
+                                          self._create_str_dv(self.gen_string_constant(" \t\n\r\v\f"))), 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
 
         if name in ('字符串重复', '重复', 'str_repeat', 'repeat'):
@@ -1831,6 +1856,19 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{s1} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
                 r = self.new_register()
                 self.emit(f'{r} = call i32 @dv_str_starts_with(ptr {s0}, ptr {s1})')
+                cmp = self.new_register()
+                self.emit(f'{cmp} = icmp ne i32 {r}, 0')
+                return self._create_bool_dv(cmp), 'dv'
+            return self._create_bool_dv('false'), 'dv'
+
+        if name in ('结尾', '以结尾', 'endswith', 'ends_with', '后缀是'):
+            if len(args) >= 2:
+                s0 = self.new_register()
+                self.emit(f'{s0} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                s1 = self.new_register()
+                self.emit(f'{s1} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                r = self.new_register()
+                self.emit(f'{r} = call i32 @dv_str_ends_with(ptr {s0}, ptr {s1})')
                 cmp = self.new_register()
                 self.emit(f'{cmp} = icmp ne i32 {r}, 0')
                 return self._create_bool_dv(cmp), 'dv'
