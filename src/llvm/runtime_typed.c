@@ -2167,13 +2167,32 @@ void dv_append_file(const char* path, const char* content) {
  * ================================================================ */
 #define LV_TYPE_FILE 22
 
+/* 前向声明（异常机制定义于本文件后部；dv_open_file 打开失败时需抛 IO异常，
+ * 对齐转译腿 Python open 的 FileNotFoundError 语义，供 文件系统.文件存在 的
+ * 尝试/捕获 接住）。 */
+void dv_create_exception_with_cause(LightValue* result, const char* class_name,
+                                    const char* message, LightValue* cause);
+void dv_throw_exception(LightValue* exception_obj);
+
 void dv_open_file(LightValue* result, const char* path, const char* mode, const char* encoding) {
     (void)encoding; /* POSIX 无编码参数，字节直写 */
     if (!result) return;
     dv_null(result);
     if (!path || !mode) return;
     FILE* fp = fopen(path, mode);
-    if (!fp) return;
+    if (!fp) {
+        /* 对齐转译腿 Python open：文件不存在/打开失败抛 IO异常
+         * （FileNotFoundError 语义）。文件系统.light 的 文件存在 依赖
+         * 「打开文件 失败抛异常」被 尝试/捕获 接住后返回 假。 */
+        char msg[512];
+        snprintf(msg, sizeof(msg), "无法打开文件: %s", path ? path : "");
+        LightValue exc;
+        dv_null(&exc);
+        dv_create_exception_with_cause(&exc, "IOException", msg, NULL);
+        dv_throw_exception(&exc);
+        dv_free(&exc);
+        return;
+    }
     result->type = LV_TYPE_FILE;
     result->str = (char*)fp;
     result->i64 = 0;
@@ -2201,6 +2220,31 @@ void dv_file_close(LightValue* result, LightValue* handle) {
     handle->str = NULL; /* 防重复 close / 防误用已关闭句柄 */
     result->type = 5;
     result->boolean = (rc == 0);
+}
+
+/* f.read(): from current file position to EOF (aligned with Python file.read()).
+ * str field holds malloc'd content (LightValue* output, same as dv_file_write);
+ * failure (no handle / not file / closed) -> result null; freed by dv_free type=3. */
+void dv_file_read(LightValue* result, LightValue* handle) {
+    if (!result) return;
+    dv_null(result);
+    if (!handle || handle->type != LV_TYPE_FILE || !handle->str) return;
+    FILE* fp = (FILE*)handle->str;
+    long pos = ftell(fp);
+    fseek(fp, 0, SEEK_END);
+    long end = ftell(fp);
+    fseek(fp, pos, SEEK_SET);
+    long n = (end > pos) ? (end - pos) : 0;
+    char* buf = (char*)malloc((size_t)n + 1);
+    if (!buf) return;
+    size_t got = (n > 0) ? fread(buf, 1, (size_t)n, fp) : 0;
+    buf[got] = '\0';
+    result->type = 3;
+    result->i64 = 0;
+    result->f64 = 0.0;
+    result->boolean = 0;
+    result->list_size = 0; result->list_capacity = 0; result->list_data = NULL;
+    result->str = buf;
 }
 
 int64_t dv_file_size(const char* path) {
@@ -5583,6 +5627,181 @@ void dv_scheduler_run_event_loop(void) {
             dv_process_timers();
         }
     }
+}
+
+/* ================================================================
+ * T4c: 文件系统句柄链配套 —— 路径 dirname/basename/abspath + 递归建目录
+ *
+ * 语义对齐 stdlib/builtins.py 对应函数（转译腿 _light_builtin.XXX 的 Python os 层）：
+ *   dv_path_dirname  = os.path.dirname （posixpath.split 的 head）
+ *   dv_path_basename = os.path.basename（posixpath.split 的 tail）
+ *   dv_abspath       = os.path.abspath （相对路径基于 cwd 拼接 + normpath 规范化）
+ *   dv_makedirs      = os.makedirs(path, exist_ok=True)（逐级建父目录，已存在不算错）
+ * 本段位于非 TLS 区域末尾；TLS 段（T7 所属）在其下方，勿动。
+ * ================================================================ */
+
+static int dv_mkdir_one(const char* path) {
+    if (!path || !*path) return -1;
+#ifdef _WIN32
+    return _mkdir(path);
+#else
+    return mkdir(path, 0755);
+#endif
+}
+
+void dv_path_dirname(LightValue* result, LightValue* path) {
+    if (!result) return;
+    dv_null(result);
+    if (!path || path->type != 3 || !path->str) { dv_str(result, ""); return; }
+    const char* s = path->str;
+    const char* last = NULL;
+    for (const char* p = s; *p; p++) {
+        if (*p == '/') last = p;
+    }
+    size_t head_len = (last == NULL) ? 0 : (size_t)(last - s) + 1;
+    int all_slash = 1;
+    for (size_t i = 0; i < head_len; i++) {
+        if (s[i] != '/') { all_slash = 0; break; }
+    }
+    if (head_len > 0 && !all_slash) {
+        while (head_len > 0 && s[head_len - 1] == '/') head_len--;
+    }
+    char* out = (char*)malloc(head_len + 1);
+    if (!out) { dv_str(result, ""); return; }
+    memcpy(out, s, head_len);
+    out[head_len] = '\0';
+    result->type = 3;
+    result->i64 = 0; result->f64 = 0.0; result->boolean = 0;
+    result->list_size = 0; result->list_capacity = 0; result->list_data = NULL;
+    result->str = out;
+}
+
+void dv_path_basename(LightValue* result, LightValue* path) {
+    if (!result) return;
+    dv_null(result);
+    if (!path || path->type != 3 || !path->str) { dv_str(result, ""); return; }
+    const char* s = path->str;
+    const char* last = NULL;
+    for (const char* p = s; *p; p++) {
+        if (*p == '/') last = p;
+    }
+    dv_str(result, (last == NULL) ? s : (last + 1));
+}
+
+/* 路径规范化：折叠 '.'、'..' 与重复分隔符（os.path.normpath 主要语义）。
+ * 输入分隔符 '/' 与 '\\' 均接受（Windows）；输出统一用 '/'。 */
+static void dv_normpath(char* out, size_t outsz, const char* s) {
+    if (!out || outsz == 0) return;
+    char tmp[16384];
+    size_t tl = 0;
+    for (const char* p = s; *p && tl + 1 < sizeof(tmp); p++) {
+        char c = (*p == '\\') ? '/' : *p;
+        tmp[tl++] = c;
+    }
+    tmp[tl] = '\0';
+    char drive[4] = {0};
+    const char* body = tmp;
+    if (tl >= 2 && tmp[1] == ':' &&
+        ((tmp[0] >= 'A' && tmp[0] <= 'Z') || (tmp[0] >= 'a' && tmp[0] <= 'z'))) {
+        drive[0] = tmp[0]; drive[1] = ':'; drive[2] = '\0';
+        body = tmp + 2;
+    }
+    /* 是否绝对路径：以盘符前缀之后的 body 是否以 '/' 开头为准（修复
+     * Windows 盘符绝对路径 'G:/x' 被误判为相对、盘符后分隔符丢失的问题）。 */
+    int is_abs = (body[0] == '/');
+    char* segs[8192];
+    int n = 0;
+    char* tok = strtok(body, "/");
+    while (tok && n < 8192) {
+        if (strcmp(tok, ".") == 0) { tok = strtok(NULL, "/"); continue; }
+        if (strcmp(tok, "..") == 0) {
+            if (n > 0 && strcmp(segs[n - 1], "..") != 0) { n--; }
+            else if (!is_abs && !(drive[0])) { segs[n++] = tok; }
+            tok = strtok(NULL, "/");
+            continue;
+        }
+        segs[n++] = tok;
+        tok = strtok(NULL, "/");
+    }
+    size_t o = 0;
+    if (drive[0] && o + 2 < outsz) { out[o++] = drive[0]; out[o++] = ':'; }
+    if (is_abs && o + 1 < outsz) out[o++] = '/';
+    for (int i = 0; i < n && o < outsz; i++) {
+        size_t l = strlen(segs[i]);
+        if (o + l + 1 >= outsz) break;
+        if (i > 0 && !(o > 0 && out[o - 1] == '/')) out[o++] = '/';
+        memcpy(out + o, segs[i], l);
+        o += l;
+    }
+    if (o == 0 && !drive[0]) { out[0] = '.'; o = 1; }
+    out[o] = '\0';
+}
+
+void dv_abspath(LightValue* result, LightValue* path) {
+    if (!result) return;
+    dv_null(result);
+    if (!path || path->type != 3 || !path->str) { dv_str(result, ""); return; }
+    const char* s = path->str;
+    int is_abs = 0;
+#ifdef _WIN32
+    if (s[0] == '/' || s[0] == '\\' ||
+        (((s[0] >= 'A' && s[0] <= 'Z') || (s[0] >= 'a' && s[0] <= 'z')) && s[1] == ':')) {
+        is_abs = 1;
+    }
+#else
+    if (s[0] == '/') is_abs = 1;
+#endif
+    char joined[16384];
+    const char* src = s;
+    if (!is_abs) {
+#ifdef _WIN32
+        char cwd[MAX_PATH];
+        if (_getcwd(cwd, sizeof(cwd)) == NULL) { dv_str(result, s); return; }
+        size_t cl = strlen(cwd);
+        if (cl > 0 && cwd[cl - 1] != '/' && cwd[cl - 1] != '\\') {
+            snprintf(joined, sizeof(joined), "%s\\%s", cwd, s);
+        } else {
+            snprintf(joined, sizeof(joined), "%s%s", cwd, s);
+        }
+#else
+        char cwd[4096];
+        if (getcwd(cwd, sizeof(cwd)) == NULL) { dv_str(result, s); return; }
+        size_t cl = strlen(cwd);
+        if (cl > 0 && cwd[cl - 1] != '/') {
+            snprintf(joined, sizeof(joined), "%s/%s", cwd, s);
+        } else {
+            snprintf(joined, sizeof(joined), "%s%s", cwd, s);
+        }
+#endif
+        src = joined;
+    }
+    char norm[16384];
+    dv_normpath(norm, sizeof(norm), src);
+    dv_str(result, norm);
+}
+
+int dv_makedirs(const char* path) {
+    if (!path || !*path) return -1;
+    char* copy = dv_strdup(path);
+    if (!copy) return -1;
+    int rc = 0;
+    size_t start = 1;
+    if (copy[0] && copy[1] == ':') start = 2; /* Windows 盘符 "X:" 不参与逐级 */
+    for (char* p = copy + start; *p; p++) {
+        if (*p == '/' || *p == '\\') {
+            char saved = *p;
+            *p = '\0';
+            if (*copy != '\0' && dv_mkdir_one(copy) != 0 && dv_is_dir(copy) != 1) {
+                rc = -1; *p = saved; break;
+            }
+            *p = saved;
+        }
+    }
+    if (rc == 0 && *copy != '\0') {
+        if (dv_mkdir_one(copy) != 0 && dv_is_dir(copy) != 1) rc = -1;
+    }
+    free(copy);
+    return rc;
 }
 
 /* ================================================================
