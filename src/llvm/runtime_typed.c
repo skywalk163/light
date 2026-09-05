@@ -7207,3 +7207,157 @@ void dv_str_rstrip(LightValue* result, LightValue* str, LightValue* chars) {
     result->str = out;
     result->boolean = 0;
 }
+
+/* ════════════════════════════════════════════════════════════════════
+ * T5C 追加：确定性随机数运行时（MT19937，对齐 CPython random 模块）
+ * 独立函数区 —— 位于 TLS 段（B2-4，T7 所属）之后、文件末尾，
+ * 与上方 dv_str_rfind / dv_str_rstrip 追加方式一致，未触碰 TLS 段。
+ *
+ * 设计说明（为什么是 MT19937 而非 LCG）：
+ *   任务书写「确定性 LCG 伪随机」；但反跑判据要求「固定种子随机输出与
+ *   Python random.seed(同种子) 对拍一致」。Python random 的确定性核心是
+ *   MT19937（CPython Modules/_randommodule.c），LCG 无法与之逐位对齐。
+ *   为实现可位级对拍，这里实现 MT19937（确定性、可复现），并在报告标注
+ *   算法偏离（LCG → MT19937）。
+ *
+ * 对齐口径（与 CPython 3.14 逐位一致，本机实测）：
+ *   dv_random_seed(s)  —— 取 |s|，按小端字节切 32 位字数组，
+ *                          一律 init_by_array（本机 CPython 3.14.7 对
+ *                          所有整数种子都走 init_by_array，实测确认；
+ *                          老版本 CPython 对小种子走 init_genrand，
+ *                          对拍以本机 3.14 为准，见 known_issues）。
+ *   dv_random()        —— genrand_res53（random.random() 的逐位实现）。
+ *   dv_random_bits(k)  —— getrandbits(k)，0<=k<=63 逐位对齐；k<=0 返回 0；
+ *                          k>63 按 63 截断（原生腿 i64 上限，见 known_issues）。
+ *   未初始化（未调用过 播种随机种子）时按当前时间自动播种，
+ *   对齐 CPython Random() 构造时的系统熵自动播种（非确定）。
+ * ════════════════════════════════════════════════════════════════════ */
+
+#define LIGHT_RAND_N 624
+#define LIGHT_RAND_M 397
+#define LIGHT_RAND_MATRIX_A 0x9908b0dfU
+#define LIGHT_RAND_UPPER_MASK 0x80000000U
+#define LIGHT_RAND_LOWER_MASK 0x7fffffffU
+
+static uint32_t dv_rand_mt[LIGHT_RAND_N];
+static int dv_rand_mti = LIGHT_RAND_N + 1; /* N+1 = 未初始化标记 */
+
+/* 前向声明（dv_rand_genrand 未初始化分支中调用） */
+void dv_random_seed(int64_t seed);
+
+/* init_genrand —— MT19937 经典单值播种（init_by_array 内部使用） */
+static void dv_rand_init_genrand(uint32_t s) {
+    int mti;
+    dv_rand_mt[0] = s;
+    for (mti = 1; mti < LIGHT_RAND_N; mti++) {
+        dv_rand_mt[mti] =
+            (1812433253U * (dv_rand_mt[mti - 1] ^ (dv_rand_mt[mti - 1] >> 30)) + (uint32_t)mti);
+    }
+    dv_rand_mti = mti;
+}
+
+/* init_by_array —— 对齐 CPython（小端 32 位字数组） */
+static void dv_rand_init_by_array(uint32_t init_key[], int key_length) {
+    int i, j, k;
+    dv_rand_init_genrand(19650218U);
+    i = 1;
+    j = 0;
+    k = (LIGHT_RAND_N > key_length) ? LIGHT_RAND_N : key_length;
+    for (; k; k--) {
+        dv_rand_mt[i] = (dv_rand_mt[i] ^
+            ((dv_rand_mt[i - 1] ^ (dv_rand_mt[i - 1] >> 30)) * 1664525U))
+            + init_key[j] + (uint32_t)j;
+        i++;
+        j++;
+        if (i >= LIGHT_RAND_N) {
+            dv_rand_mt[0] = dv_rand_mt[LIGHT_RAND_N - 1];
+            i = 1;
+        }
+        if (j >= key_length) j = 0;
+    }
+    for (k = LIGHT_RAND_N - 1; k; k--) {
+        dv_rand_mt[i] = (dv_rand_mt[i] ^
+            ((dv_rand_mt[i - 1] ^ (dv_rand_mt[i - 1] >> 30)) * 1566083941U))
+            - (uint32_t)i;
+        i++;
+        if (i >= LIGHT_RAND_N) {
+            dv_rand_mt[0] = dv_rand_mt[LIGHT_RAND_N - 1];
+            i = 1;
+        }
+    }
+    dv_rand_mt[0] = 0x80000000U;
+}
+
+/* genrand_uint32 —— 对齐 CPython genrand_uint32（标准 MT19937 扭结） */
+static uint32_t dv_rand_genrand(void) {
+    uint32_t y;
+    static const uint32_t mag01[2] = {0x0U, LIGHT_RAND_MATRIX_A};
+    uint32_t *mt = dv_rand_mt;
+
+    if (dv_rand_mti >= LIGHT_RAND_N) {
+        int kk;
+        if (dv_rand_mti == LIGHT_RAND_N + 1) {
+            /* 未初始化：按当前时间自动播种（对齐 CPython 构造时自动播种） */
+            dv_random_seed((int64_t)(dv_timestamp() * 1000.0));
+        }
+        for (kk = 0; kk < LIGHT_RAND_N - LIGHT_RAND_M; kk++) {
+            y = (mt[kk] & LIGHT_RAND_UPPER_MASK) | (mt[kk + 1] & LIGHT_RAND_LOWER_MASK);
+            mt[kk] = mt[kk + LIGHT_RAND_M] ^ (y >> 1) ^ mag01[y & 0x1U];
+        }
+        for (; kk < LIGHT_RAND_N - 1; kk++) {
+            y = (mt[kk] & LIGHT_RAND_UPPER_MASK) | (mt[kk + 1] & LIGHT_RAND_LOWER_MASK);
+            mt[kk] = mt[kk + (LIGHT_RAND_M - LIGHT_RAND_N)] ^ (y >> 1) ^ mag01[y & 0x1U];
+        }
+        y = (mt[LIGHT_RAND_N - 1] & LIGHT_RAND_UPPER_MASK) | (mt[0] & LIGHT_RAND_LOWER_MASK);
+        mt[LIGHT_RAND_N - 1] = mt[LIGHT_RAND_M - 1] ^ (y >> 1) ^ mag01[y & 0x1U];
+        dv_rand_mti = 0;
+    }
+
+    y = mt[dv_rand_mti++];
+    y ^= (y >> 11);
+    y ^= (y << 7) & 0x9d2c5680U;
+    y ^= (y << 15) & 0xefc60000U;
+    y ^= (y >> 18);
+    return y;
+}
+
+/* 播种 —— 对齐 CPython 3.14 random.seed(整数)：
+ *   负种子取绝对值；一律按小端 32 位字切分后 init_by_array
+ *   （本机 CPython 3.14.7 实测：所有整数种子均走 init_by_array）。 */
+void dv_random_seed(int64_t seed) {
+    uint64_t u = (seed < 0) ? (uint64_t)(-(seed + 1)) + 1 : (uint64_t)seed;
+    uint32_t words[4];
+    int n = 0;
+    while (u > 0 && n < 4) {
+        words[n++] = (uint32_t)(u & 0xFFFFFFFFULL);
+        u >>= 32;
+    }
+    if (n == 0) {
+        words[n++] = 0; /* seed 0 → 键 [0]（CPython 一致） */
+    }
+    dv_rand_init_by_array(words, n);
+}
+
+/* 随机0到1 —— genrand_res53，与 Python random.random() 逐位一致 */
+double dv_random(void) {
+    uint32_t a = dv_rand_genrand() >> 5;
+    uint32_t b = dv_rand_genrand() >> 6;
+    return (a * 67108864.0 + b) / 9007199254740992.0;
+}
+
+/* 随机位 —— getrandbits(k)，k<=63 逐位对齐 CPython；k<=0 返回 0；k>63 按 63 截断 */
+int64_t dv_random_bits(int64_t k) {
+    int64_t kk = k;
+    if (kk <= 0) return 0;
+    if (kk > 63) kk = 63;
+    int words = (int)((kk - 1) / 32 + 1);
+    uint32_t w0 = dv_rand_genrand();
+    uint32_t w1 = (words > 1) ? dv_rand_genrand() : 0;
+    if (words == 1) {
+        /* 单个字：右移保留高 kk 位（CPython: wordarray[words-1] >>= (32 - k%32)%32） */
+        w0 >>= (32 - (int)(kk % 32)) % 32;
+    } else {
+        w1 >>= (32 - (int)(kk % 32)) % 32;
+    }
+    return (int64_t)w0 | ((int64_t)w1 << 32);
+}
