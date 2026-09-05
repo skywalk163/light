@@ -1812,6 +1812,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._call_dv_func('dv_ceil', args[0]), 'dv'
             return self._create_int_dv('0'), 'dv'
 
+        if name in ('四舍五入', 'round'):
+            if args:
+                return self._call_dv_func('dv_round', args[0]), 'dv'
+            return self._create_int_dv('0'), 'dv'
+
         if name in ('取模', 'mod'):
             if len(args) >= 2:
                 return self._call_dv_func('dv_mod', args[0], args[1]), 'dv'
