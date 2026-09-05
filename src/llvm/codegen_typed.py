@@ -293,6 +293,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_hex(ptr, ptr)',
             f'declare void @dv_list_get(ptr, ptr, i64)',
             f'declare void @dv_list_append(ptr, ptr, ptr)',
+            # 元组操作（R10-11a）
+            f'declare void @dv_tuple_new(ptr)',
+            f'declare void @dv_tuple_append(ptr, ptr, ptr)',
+            f'declare void @dv_tuple_get(ptr, ptr, i64)',
+            f'declare i64 @dv_tuple_len(ptr)',
             f'declare void @dv_list_insert(ptr, ptr, i64, ptr)',
             f'declare void @dv_list_remove(ptr, ptr, i64)',
             f'declare void @dv_list_pop(ptr, ptr, i64)',
@@ -332,6 +337,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_lcm(ptr, ptr, ptr)',
             f'declare void @dv_substr(ptr, ptr, i64, i64)',
             f'declare i64 @dv_str_find(ptr, ptr)',
+            f'declare i64 @dv_str_rfind(ptr, ptr)',
+            f'declare void @dv_str_rstrip(ptr, ptr, ptr)',
             f'declare void @dv_upper(ptr, ptr)',
             f'declare void @dv_lower(ptr, ptr)',
             f'declare void @dv_trim(ptr, ptr)',
@@ -939,6 +946,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if isinstance(expr, ast.ListLiteral):
             return self._gen_typed_list_literal(expr)
 
+        if isinstance(expr, ast.TupleLiteral):
+            return self._gen_typed_tuple_literal(expr)
+
         if isinstance(expr, ast.DictLiteral):
             return self._gen_typed_dict_literal(expr)
 
@@ -1056,6 +1066,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 result = self.new_register()
                 self.emit(f'{result} = {float_op} double {left_f64}, {right_f64}')
                 return self._create_float_dv_fast(result), 'dv'
+
+            # String repetition: "str" * n  or  n * "str"
+            if op in ('*', '乘') and left_type == 'STRING':
+                return self._call_dv_func('dv_str_repeat', left_dv, right_dv), 'dv'
+            if op in ('*', '乘') and right_type == 'STRING':
+                return self._call_dv_func('dv_str_repeat', right_dv, left_dv), 'dv'
 
         cmp_ops = {
             '==': ('eq', 'oeq'), '等于': ('eq', 'oeq'),
@@ -1777,6 +1793,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._create_int_dv(i64_val), 'dv'
             return self._create_int_dv('-1'), 'dv'
 
+        if name in ('rfind', '右查找', 'str_rfind'):
+            if len(args) >= 2:
+                slot0 = self._store_dv(args[0])
+                slot1 = self._store_dv(args[1])
+                i64_val = self.new_register()
+                self.emit(f'{i64_val} = call i64 @dv_str_rfind(ptr {slot0}, ptr {slot1})')
+                return self._create_int_dv(i64_val), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
         if name in ('大写', 'upper', 'to_upper', '转大写'):
             if args:
                 return self._call_dv_func('dv_upper', args[0]), 'dv'
@@ -1790,6 +1815,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('去除空格', 'trim', 'strip'):
             if args:
                 return self._call_dv_func('dv_trim', args[0]), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
+        if name in ('rstrip', '右去除', 'str_rstrip'):
+            if len(args) >= 2:
+                return self._call_dv_func('dv_str_rstrip', args[0], args[1]), 'dv'
+            if args:
+                return self._call_dv_func('dv_str_rstrip', args[0],
+                                          self._create_str_dv(self.gen_string_constant(" \t\n\r\v\f"))), 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
 
         if name in ('字符串重复', '重复', 'str_repeat', 'repeat'):
@@ -1823,6 +1856,19 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{s1} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
                 r = self.new_register()
                 self.emit(f'{r} = call i32 @dv_str_starts_with(ptr {s0}, ptr {s1})')
+                cmp = self.new_register()
+                self.emit(f'{cmp} = icmp ne i32 {r}, 0')
+                return self._create_bool_dv(cmp), 'dv'
+            return self._create_bool_dv('false'), 'dv'
+
+        if name in ('结尾', '以结尾', 'endswith', 'ends_with', '后缀是'):
+            if len(args) >= 2:
+                s0 = self.new_register()
+                self.emit(f'{s0} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                s1 = self.new_register()
+                self.emit(f'{s1} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                r = self.new_register()
+                self.emit(f'{r} = call i32 @dv_str_ends_with(ptr {s0}, ptr {s1})')
                 cmp = self.new_register()
                 self.emit(f'{cmp} = icmp ne i32 {r}, 0')
                 return self._create_bool_dv(cmp), 'dv'
@@ -3017,20 +3063,29 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'{is_str} = icmp eq i32 {type_reg}, 3')
         is_dict = self.new_register()
         self.emit(f'{is_dict} = icmp eq i32 {type_reg}, 7')
+        is_tuple = self.new_register()
+        self.emit(f'{is_tuple} = icmp eq i32 {type_reg}, 23')
         str_lab = self.new_label('idx_str')
         dict_lab = self.new_label('idx_dict')
+        tuple_lab = self.new_label('idx_tuple')
         list_lab = self.new_label('idx_list')
         end_lab = self.new_label('idx_end')
         result_slot = self._new_dv_slot()
         not_str_lab = self.new_label('idx_not_str')
         self.emit(f'br i1 {is_str}, label %{str_lab}, label %{not_str_lab}')
         self.emit(f'{not_str_lab}:')
-        self.emit(f'br i1 {is_dict}, label %{dict_lab}, label %{list_lab}')
+        not_dict_lab = self.new_label('idx_not_dict')
+        self.emit(f'br i1 {is_dict}, label %{dict_lab}, label %{not_dict_lab}')
+        self.emit(f'{not_dict_lab}:')
+        self.emit(f'br i1 {is_tuple}, label %{tuple_lab}, label %{list_lab}')
         self.emit(f'{str_lab}:')
         self.emit(f'call void @dv_str_get(ptr {result_slot}, ptr {obj_slot}, i64 {i64_reg})')
         self.emit(f'br label %{end_lab}')
         self.emit(f'{dict_lab}:')
         self.emit(f'call void @dv_dict_get(ptr {result_slot}, ptr {obj_slot}, ptr {key_slot})')
+        self.emit(f'br label %{end_lab}')
+        self.emit(f'{tuple_lab}:')
+        self.emit(f'call void @dv_tuple_get(ptr {result_slot}, ptr {obj_slot}, i64 {i64_reg})')
         self.emit(f'br label %{end_lab}')
         self.emit(f'{list_lab}:')
         self.emit(f'call void @dv_list_get(ptr {result_slot}, ptr {obj_slot}, i64 {i64_reg})')
@@ -3312,6 +3367,21 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'store {LIGHTVALUE_STRUCT} {new_list}, ptr {list_slot}')
         final = self.new_register()
         self.emit(f'{final} = load {LIGHTVALUE_STRUCT}, ptr {list_slot}')
+        return final, 'dv'
+
+    def _gen_typed_tuple_literal(self, expr) -> Tuple[str, str]:
+        """R10-11a：元组字面量 (a, b) → dv_tuple_new + dv_tuple_append 逐元素构造"""
+        tuple_dv = self._call_dv_func('dv_tuple_new')
+        tuple_slot = self._new_dv_slot()
+        self.emit(f'store {LIGHTVALUE_STRUCT} {tuple_dv}, ptr {tuple_slot}')
+        for elem in expr.elements:
+            elem_dv, _ = self._gen_expression(elem)
+            cur = self.new_register()
+            self.emit(f'{cur} = load {LIGHTVALUE_STRUCT}, ptr {tuple_slot}')
+            new_tuple = self._call_dv_func('dv_tuple_append', cur, elem_dv)
+            self.emit(f'store {LIGHTVALUE_STRUCT} {new_tuple}, ptr {tuple_slot}')
+        final = self.new_register()
+        self.emit(f'{final} = load {LIGHTVALUE_STRUCT}, ptr {tuple_slot}')
         return final, 'dv'
 
     def _gen_typed_conditional(self, expr) -> Tuple[str, str]:

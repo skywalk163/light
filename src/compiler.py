@@ -244,6 +244,7 @@ class AstAdapter:
             'MethodDefinition': self._convert_method_definition,
             'AttributeDeclaration': self._convert_attribute_declaration,
             'ListLiteral': self._convert_list_literal,
+            'TupleLiteral': self._convert_tuple_literal,
             'MemberAccess': self._convert_member_access,
             'IndexAccess': self._convert_index_access,
             'CompoundAssignment': self._convert_compound_assignment,
@@ -638,6 +639,9 @@ class AstAdapter:
 
     def _convert_list_literal(self, node) -> ast.ListLiteral:
         return ast.ListLiteral(elements=self._convert_list(node.elements))
+
+    def _convert_tuple_literal(self, node) -> ast.TupleLiteral:
+        return ast.TupleLiteral(elements=self._convert_list(node.elements))
 
     def _convert_member_access(self, node):
         if getattr(node, 'is_method_call', False) and getattr(node, 'args', None) is not None:

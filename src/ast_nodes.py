@@ -121,6 +121,7 @@ AST_TYPE_ID_FFI_DEBUG_CONFIG = 99
 AST_TYPE_ID_FFI_PREPROCESSOR_DEF = 100
 AST_TYPE_ID_MODULE = 101
 AST_TYPE_ID_KEYWORD_ARG = 102
+AST_TYPE_ID_TUPLE_LITERAL = 103
 
 
 @dataclass(slots=True)
@@ -252,6 +253,13 @@ class IndexAccess(ASTNode):
 class ListLiteral(ASTNode):
     _ast_type_id: int = field(default=AST_TYPE_ID_LIST_LITERAL, init=False, repr=False)
     """列表字面量"""
+    elements: List[ASTNode] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class TupleLiteral(ASTNode):
+    _ast_type_id: int = field(default=AST_TYPE_ID_TUPLE_LITERAL, init=False, repr=False)
+    """元组字面量"""
     elements: List[ASTNode] = field(default_factory=list)
 
 

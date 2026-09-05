@@ -56,6 +56,7 @@ _DOC_EXPR_TYPES = frozenset({
     'ConditionalExpression', 'PropertyAccess', 'ClassInstantiation',
     'NewExpression', 'AwaitExpression', 'ExpressionStatement',
     'ListComprehension',  # A9-S2 新增
+    'TupleLiteral',       # R10-11a 新增
 })
 
 

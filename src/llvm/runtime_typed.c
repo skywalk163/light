@@ -76,6 +76,9 @@ struct LightValue {
 /* type=8 REF: 引用类型，str 字段存储被引用的 LightValue* 指针
    用于 dv_dict_get 返回对字典内部值的引用，使原地修改（如列表追加）能传播回字典 */
 
+/* 元组类型标记（type=23）：不可变序列，复用 list_data/list_size/list_capacity */
+#define LV_TYPE_TUPLE 23
+
 /* ================================================================
  * 前向声明（避免隐式函数声明）
  * ================================================================ */
@@ -1502,6 +1505,9 @@ int64_t dv_len(LightValue* v) {
         /* DICT: list_size 是键值对数量 */
         return v->list_size;
     }
+    if (v->type == LV_TYPE_TUPLE) {
+        return v->list_size;
+    }
     return 0;
 }
 
@@ -2166,6 +2172,8 @@ void dv_append_file(const char* path, const char* content) {
  * type=22 仅浅拷贝不释放，生命周期由 dv_file_close 关闭后置空。
  * ================================================================ */
 #define LV_TYPE_FILE 22
+
+/* LV_TYPE_TUPLE (23) 已在文件头部定义 */
 
 void dv_open_file(LightValue* result, const char* path, const char* mode, const char* encoding) {
     (void)encoding; /* POSIX 无编码参数，字节直写 */
@@ -6712,3 +6720,150 @@ const char* dv_tls_backend(void) { return "none"; }
 #endif /* LIGHT_TLS_MBEDTLS */
 
 #endif /* _WIN32 */
+
+/* ================================================================
+ * 元组运行时函数（type=23, LV_TYPE_TUPLE）
+ * 复用 list_data/list_size/list_capacity 字段，与 LIST 结构一致。
+ * 创建模式：dv_tuple_new 建空元组 → dv_tuple_append 逐元素追加（仅构造期）。
+ * 读取：dv_tuple_get 按 i64 索引取元素克隆（含 REF deref）。
+ * 长度：dv_tuple_len 返回 list_size（dv_len 也已适配 type=23）。
+ * ================================================================ */
+
+void dv_tuple_new(LightValue* result) {
+    result->type = LV_TYPE_TUPLE;
+    result->i64 = 0;
+    result->f64 = 0.0;
+    result->str = NULL;
+    result->boolean = 0;
+    result->list_size = 0;
+    result->list_capacity = 4;
+    result->list_data = (struct LightValue**)calloc(result->list_capacity, sizeof(LightValue*));
+}
+
+void dv_tuple_append(LightValue* result, LightValue* tuple, LightValue* elem) {
+    LightValue* target = (result == tuple) ? result : tuple;
+
+    if (target->type != LV_TYPE_TUPLE) {
+        dv_tuple_new(result);
+        target = result;
+    }
+
+    /* 跟随 REF，避免将 REF 存入元组（对齐 dv_dict_set 的教训） */
+    elem = dv_deref(elem);
+
+    /* 容量不足时扩容 */
+    if (target->list_size >= target->list_capacity) {
+        int new_cap = target->list_capacity * 2;
+        struct LightValue** new_data = (struct LightValue**)calloc(new_cap, sizeof(LightValue*));
+        if (target->list_data) {
+            memcpy(new_data, target->list_data, target->list_size * sizeof(LightValue*));
+            free(target->list_data);
+        }
+        target->list_data = new_data;
+        target->list_capacity = new_cap;
+    }
+
+    /* 克隆元素并存入 */
+    LightValue* stored = (LightValue*)malloc(sizeof(LightValue));
+    dv_clone(stored, elem);
+    target->list_data[target->list_size] = stored;
+    target->list_size++;
+
+    if (result != tuple) {
+        dv_clone(result, target);
+    }
+}
+
+void dv_tuple_get(LightValue* result, LightValue* tuple, int64_t index) {
+    tuple = dv_deref(tuple);
+    if (tuple->type != LV_TYPE_TUPLE || !tuple->list_data) {
+        dv_null(result);
+        return;
+    }
+    if (index < 0 || index >= tuple->list_size) {
+        dv_null(result);
+        return;
+    }
+    LightValue* elem = tuple->list_data[index];
+    if (!elem) {
+        dv_null(result);
+        return;
+    }
+    dv_clone(result, elem);
+}
+
+int64_t dv_tuple_len(LightValue* v) {
+    v = dv_deref(v);
+    if (v->type != LV_TYPE_TUPLE) return 0;
+    return v->list_size;
+}
+
+/* ── R10-11a 追加：字符串 rfind / rstrip ─────────────────── */
+
+int64_t dv_str_rfind(LightValue* str, LightValue* sub) {
+    str = dv_deref(str);
+    sub = dv_deref(sub);
+    if (str->type != 3 || sub->type != 3 || !str->str || !sub->str) return -1;
+    const char* s = str->str;
+    const char* sub_s = sub->str;
+    size_t slen = strlen(s);
+    size_t sublen = strlen(sub_s);
+    if (sublen == 0) return (int64_t)dv_utf8_char_count(s);
+    if (sublen > slen) return -1;
+    /* 从右往左找最后一个匹配（字节级，UTF-8 自同步保证安全） */
+    size_t found_byte = (size_t)-1;
+    for (size_t i = slen - sublen + 1; i > 0; i--) {
+        if (strncmp(s + i - 1, sub_s, sublen) == 0) {
+            found_byte = i - 1;
+            break;
+        }
+    }
+    if (found_byte == (size_t)-1) return -1;
+    /* 字节偏移 -> 字符偏移（对齐 dv_substr 的字符语义） */
+    const unsigned char* p = (const unsigned char*)s;
+    size_t off = 0;
+    int64_t char_off = 0;
+    while (off < found_byte) {
+        off += dv_utf8_seq_len(p + off);
+        char_off++;
+    }
+    return char_off;
+}
+
+void dv_str_rstrip(LightValue* result, LightValue* str, LightValue* chars) {
+    str = dv_deref(str);
+    if (str->type != 3 || !str->str) {
+        dv_str(result, "");
+        return;
+    }
+    const char* s = str->str;
+    int len = (int)strlen(s);
+    /* chars 为空或非字符串时，剥空白（对齐 Python str.rstrip()） */
+    const char* strip_chars = NULL;
+    if (chars && chars->type == 3 && chars->str) {
+        strip_chars = chars->str;
+    }
+    int end = len;
+    while (end > 0) {
+        char c = s[end - 1];
+        if (strip_chars) {
+            /* 剥指定字符集 */
+            if (strchr(strip_chars, c) == NULL) break;
+        } else {
+            /* 剥空白 */
+            if (!isspace((unsigned char)c)) break;
+        }
+        end--;
+    }
+    int new_len = end;
+    char* out = (char*)malloc(new_len + 1);
+    if (out) {
+        memcpy(out, s, new_len);
+        out[new_len] = '\0';
+    }
+    result->type = 3;
+    result->i64 = 0;
+    result->f64 = 0.0;
+    result->str = out;
+    result->boolean = 0;
+}
