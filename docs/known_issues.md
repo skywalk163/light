@@ -84,7 +84,19 @@
     - **运行语义验证（真跑 exe）**：JSON round-trip **12/12 全过**（顶层数组/对象、对象内数组、嵌套、深层嵌套、空对象/数组、字符串转义、中文、浮点、多数组、布尔/null）；文件句柄 打开/写入/关闭 冒烟通过；13 模块编译核对 OK 10（本批新增 JSON / JSON核心 / 内置核心列表）。
     - **修复的本批回归**：内置核心字典（`_convert_indexed_assignment` 的 IndexAccess target 处理）——R10-8 解锁模块因本批新增 dict 索引赋值分支暴露的适配层 bug，已修并回归通过。
     - 验证：能力清单全量重建（builtin 299 / runtime 222，evidence 行号重算）；定向回归 `test_native_import.py` 5 + `test_native_leg_capability` 11 + `test_native_cli.py` 35 全绿；JSON round-trip 12/12。
-    - 剩余 FAIL 3（下一批）：内置核心路径（TupleLiteral 元组字面量）、文件流（YieldStmt 生成器）、文件系统（目录名未定义段落）。
+    - 剩余 FAIL 2（下一批）：文件流（YieldStmt 生成器）、文件系统（目录名未定义段落）。
+
+  - **R10-11a 攻坚第四批A进展（原生腿覆盖，2026-09-05）**：完成「元组字面量 + 元组索引」，**16/89 → 17/89（19.10%）**，解锁 内置核心路径（编译 + 分割路径/分割扩展名 真跑对拍 posixpath）。
+    - **阻断根因**：`stdlib/内置核心路径.light` 的 `分割路径`/`分割扩展名` 用 `返回 (头, 尾)` 返回元组字面量（TupleLiteral），`扩展名` 用 `二元[1]` 元组索引——原生腿 AstAdapter 无 TupleLiteral 转换器（被包成 `<unknown:TupleLiteral>`），codegen 无元组表达式分支。
+    - 落地修复（codegen/compiler/runtime/ast 四侧）：
+      - **ast_nodes.py**：新增 `AST_TYPE_ID_TUPLE_LITERAL = 103`；新增 `TupleLiteral` dataclass（`elements: list`，镜像 `ListLiteral`）。
+      - **compiler.py**：`_node_converters` 注册 `'TupleLiteral': self._convert_tuple_literal`；`_convert_tuple_literal` 镜像 `_convert_list_literal`（递归转换 elements）。
+      - **codegen_typed.py**：4 条 declare（`dv_tuple_new`/`dv_tuple_append`/`dv_tuple_get`/`dv_tuple_len`）；`_gen_expression` 新增 `isinstance(expr, ast.TupleLiteral)` 分派 → `_gen_typed_tuple_literal`（逐元素 append）；`_gen_typed_index_access` 新增 `is_tuple = icmp eq i32 {type_reg}, 23` 分支 → `dv_tuple_get`。
+      - **runtime_typed.c**：`#define LV_TYPE_TUPLE 23`（文件头部）；`dv_len` 新增 `type==23` 分支（调 `dv_tuple_len`）；文件末尾追加 `dv_tuple_new`/`dv_tuple_append`/`dv_tuple_get`/`dv_tuple_len`（含 REF deref、容量扩容、元素克隆，对齐 R10-10 的 dict/字符串 REF 教训）。
+    - **运行语义验证（真跑对拍）**：`分割路径`/`分割扩展名` 与 `posixpath.split`/`posixpath.splitext` 逐字符等价（覆盖空串、纯斜杠、前导点、`.a/b.c/d` 等对拍样本，见 `tests/unit/test_地板搬迁_路径_S2.py`）。
+    - **反跑验证**：破坏 `_gen_expression` 的 TupleLiteral 分派（`if False and isinstance(...)`）→ 编译立即报 `暂不支持表达式「TupleLiteral」`；恢复后编译通过。
+    - 验证：能力清单同步（expression_nodes 21 / runtime_symbols 226，全量 evidence 行号重算）；定向回归 `test_地板搬迁_路径_S2.py` + `test_native_leg_capability.py` 共 478 全绿。
+
 
 
 

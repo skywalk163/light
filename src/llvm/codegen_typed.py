@@ -293,6 +293,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_hex(ptr, ptr)',
             f'declare void @dv_list_get(ptr, ptr, i64)',
             f'declare void @dv_list_append(ptr, ptr, ptr)',
+            # 元组操作（R10-11a）
+            f'declare void @dv_tuple_new(ptr)',
+            f'declare void @dv_tuple_append(ptr, ptr, ptr)',
+            f'declare void @dv_tuple_get(ptr, ptr, i64)',
+            f'declare i64 @dv_tuple_len(ptr)',
             f'declare void @dv_list_insert(ptr, ptr, i64, ptr)',
             f'declare void @dv_list_remove(ptr, ptr, i64)',
             f'declare void @dv_list_pop(ptr, ptr, i64)',
@@ -938,6 +943,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if isinstance(expr, ast.ListLiteral):
             return self._gen_typed_list_literal(expr)
+
+        if isinstance(expr, ast.TupleLiteral):
+            return self._gen_typed_tuple_literal(expr)
 
         if isinstance(expr, ast.DictLiteral):
             return self._gen_typed_dict_literal(expr)
@@ -3017,20 +3025,29 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'{is_str} = icmp eq i32 {type_reg}, 3')
         is_dict = self.new_register()
         self.emit(f'{is_dict} = icmp eq i32 {type_reg}, 7')
+        is_tuple = self.new_register()
+        self.emit(f'{is_tuple} = icmp eq i32 {type_reg}, 23')
         str_lab = self.new_label('idx_str')
         dict_lab = self.new_label('idx_dict')
+        tuple_lab = self.new_label('idx_tuple')
         list_lab = self.new_label('idx_list')
         end_lab = self.new_label('idx_end')
         result_slot = self._new_dv_slot()
         not_str_lab = self.new_label('idx_not_str')
         self.emit(f'br i1 {is_str}, label %{str_lab}, label %{not_str_lab}')
         self.emit(f'{not_str_lab}:')
-        self.emit(f'br i1 {is_dict}, label %{dict_lab}, label %{list_lab}')
+        not_dict_lab = self.new_label('idx_not_dict')
+        self.emit(f'br i1 {is_dict}, label %{dict_lab}, label %{not_dict_lab}')
+        self.emit(f'{not_dict_lab}:')
+        self.emit(f'br i1 {is_tuple}, label %{tuple_lab}, label %{list_lab}')
         self.emit(f'{str_lab}:')
         self.emit(f'call void @dv_str_get(ptr {result_slot}, ptr {obj_slot}, i64 {i64_reg})')
         self.emit(f'br label %{end_lab}')
         self.emit(f'{dict_lab}:')
         self.emit(f'call void @dv_dict_get(ptr {result_slot}, ptr {obj_slot}, ptr {key_slot})')
+        self.emit(f'br label %{end_lab}')
+        self.emit(f'{tuple_lab}:')
+        self.emit(f'call void @dv_tuple_get(ptr {result_slot}, ptr {obj_slot}, i64 {i64_reg})')
         self.emit(f'br label %{end_lab}')
         self.emit(f'{list_lab}:')
         self.emit(f'call void @dv_list_get(ptr {result_slot}, ptr {obj_slot}, i64 {i64_reg})')
@@ -3312,6 +3329,21 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'store {LIGHTVALUE_STRUCT} {new_list}, ptr {list_slot}')
         final = self.new_register()
         self.emit(f'{final} = load {LIGHTVALUE_STRUCT}, ptr {list_slot}')
+        return final, 'dv'
+
+    def _gen_typed_tuple_literal(self, expr) -> Tuple[str, str]:
+        """R10-11a：元组字面量 (a, b) → dv_tuple_new + dv_tuple_append 逐元素构造"""
+        tuple_dv = self._call_dv_func('dv_tuple_new')
+        tuple_slot = self._new_dv_slot()
+        self.emit(f'store {LIGHTVALUE_STRUCT} {tuple_dv}, ptr {tuple_slot}')
+        for elem in expr.elements:
+            elem_dv, _ = self._gen_expression(elem)
+            cur = self.new_register()
+            self.emit(f'{cur} = load {LIGHTVALUE_STRUCT}, ptr {tuple_slot}')
+            new_tuple = self._call_dv_func('dv_tuple_append', cur, elem_dv)
+            self.emit(f'store {LIGHTVALUE_STRUCT} {new_tuple}, ptr {tuple_slot}')
+        final = self.new_register()
+        self.emit(f'{final} = load {LIGHTVALUE_STRUCT}, ptr {tuple_slot}')
         return final, 'dv'
 
     def _gen_typed_conditional(self, expr) -> Tuple[str, str]:
