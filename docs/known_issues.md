@@ -84,6 +84,7 @@
     - **运行语义验证（真跑 exe）**：JSON round-trip **12/12 全过**（顶层数组/对象、对象内数组、嵌套、深层嵌套、空对象/数组、字符串转义、中文、浮点、多数组、布尔/null）；文件句柄 打开/写入/关闭 冒烟通过；13 模块编译核对 OK 10（本批新增 JSON / JSON核心 / 内置核心列表）。
     - **修复的本批回归**：内置核心字典（`_convert_indexed_assignment` 的 IndexAccess target 处理）——R10-8 解锁模块因本批新增 dict 索引赋值分支暴露的适配层 bug，已修并回归通过。
     - 验证：能力清单全量重建（builtin 299 / runtime 222，evidence 行号重算）；定向回归 `test_native_import.py` 5 + `test_native_leg_capability` 11 + `test_native_cli.py` 35 全绿；JSON round-trip 12/12。
+
     - 剩余 FAIL 2（下一批）：文件流（YieldStmt 生成器）、文件系统（目录名未定义段落）。
 
   - **R10-11a 攻坚第四批A进展（原生腿覆盖，2026-09-05）**：完成「元组字面量 + 元组索引」，**16/89 → 17/89（19.10%）**，解锁 内置核心路径（编译 + 分割路径/分割扩展名 真跑对拍 posixpath）。
@@ -119,6 +120,22 @@
     - **运行语义验证（真跑 exe，zig cc 工具链）**：状态机用例全对（while 内 yield 逐条产出、if-else 分支挂起恢复、`跳过` 后恢复、`返回` 提前结束生成）；`逐行` 同构程序真跑**逐字节 MATCH** Python `readlines`（含行尾换行保留、末行无换行不补、空文件），遍历次数与行数一致（4/3/0）。`stdlib/文件流.light` 原生腿编译通过（IR 46884 字符）。
     - 能力清单同步：`statement_nodes` 16→17（+`YieldStatement`），`runtime_symbols` 222→232（+10 生成器符号）；重生成脚本顺带修复**跨行 `if name in (...)` 名单漏抓**（异常类内置名 22 个曾因逐行正则被静默丢掉，现整段扫描 + 按名字定位行号）。
     - 验证：定向回归 31 全绿（file_stream 7 + stmt_coverage 13 + capability 11）；§9 未支持语句清单同步（上游 10→9、下游 16→17、实测分桶 17/5/2）。
+
+
+    - 剩余 FAIL 3（下一批）：内置核心路径（TupleLiteral 元组字面量）、文件流（YieldStmt 生成器）、文件系统（目录名未定义段落）。
+  - **R10-11c 攻坚第四批C进展（原生腿覆盖，2026-09-05）**：完成「文件系统句柄链 + `_light_builtin` 模块点访问转发」，**16/89 → 18/89（20.22%）**，解锁 文件系统（编译 + 运行全链）与 文件流（编译放行）。
+    - 落地修复（`src/llvm/codegen_typed.py` + `src/llvm/runtime_typed.c`）：
+      - **目录名（dirname）**：选 runtime 内置方案（非 段落）——runtime 新增 `dv_path_dirname`（POSIX dirname 语义，对齐 转译腿 `_light_builtin.目录名` = `os.path.dirname`），codegen builtin 注册 `目录名`/`dirname`/`path_dirname`。**理由**：转译腿本就映射到 `os.path.dirname`；`内置核心路径` 的 `段落 目录名` 逐字实现依赖 `.rfind`/字符串切片/字符串乘法/`.rstrip` 等原生腿尚未支持的方法，逐字同构会级联新阻断点；且与 R10-8 `连接路径`→`dv_path_join` 的既有路径函数模式一致。
+      - **f.read() 文件句柄读取**：runtime 新增 `dv_file_read`（对齐 `dv_file_write` 的 LightValue* 输出模式：从当前文件位置读到 EOF，str 字段持 malloc 内容，失败置 null；handle 生命周期由 `dv_file_close` 置 NULL 防双关），codegen 文件句柄方法 `read`/`读取` 接线（与已支持的 write/close 同链）。
+      - **`_light_builtin.XXX` 点访问转发**：`_gen_typed_method_call` 对 `_light_builtin` 模块点访问按名转发内置（不把模块名当接收者传参——此前会把第一个参数取成字符串 "_light_builtin"，删除文件等调用全部错位），对齐转译腿 `_light_builtin.删除文件`→`删除文件` 语义；覆盖 删除文件/文件大小/创建目录/目录存在/删除目录/列出目录/绝对路径/时间戳 等。
+      - **路径/目录系统调用边界内置补齐**：runtime 新增 `dv_path_basename`（`文件名`/`basename`/`path_basename`）、`dv_abspath`（`绝对路径`/`abspath`/`abs_path`，相对路径基于 cwd 拼接 + normpath 规范化，含 Windows 盘符前缀处理）、`dv_makedirs`（`创建目录`/`mkdir`/`make_dir`/`makedirs`，`os.makedirs(path, exist_ok=True)` 逐级建父目录）；`删除目录`/`rmdir` 接线既有 `dv_rmdir`。
+      - **YieldStmt 编译放行（必要使能，非生成器实现）**：文件系统 依赖 文件流（`从 文件流 导入 行列表`），多模块编译会连同 文件流 的 `逐行`（`生成`/YieldStmt）编译；原生腿尚无生成器实现（归 T4a/T4b），codegen 对 `<unknown:YieldStmt>/<unknown:YieldFromStmt>` 按 no-op 跳过，使 文件系统 全链可编译可运行。**注意**：文件流 的 `逐行` 生成器语义仍为占位（返回空），真实生成器实现归 T4a/T4b。
+      - **打开文件 失败抛异常（对齐转译腿 Python open）**：`dv_open_file` fopen 失败不再静默返回 null，而是创建并抛出 `IOException`（FileNotFoundError 语义，经 `dv_create_exception_with_cause` + `dv_throw_exception`，前向声明置于文件句柄段；调用点位于 文件句柄 段、新增函数追加在文件末尾非 TLS 区域，未动 TLS/元组/生成器区域）。效果：`文件系统.文件存在` 的 `尝试/捕获 异常` 能接住打开失败并返回 假（此前对不存在文件返回 真）；`读取文件` 等无 try 的调用打开不存在文件时按未捕获异常打印并退出（对齐 Python 未捕获 FileNotFoundError）；`写入文件`/`追加文件`/`JSON` dump 等所有 `打开文件` 消费方语义对齐转译腿。
+    - **运行语义验证（真跑 exe）**：文件系统 写入→读取→追加→删除 全链真跑正确（写入文件自动建父目录、`encoding="utf-8"` 关键字参数、`f.read()`、`_light_builtin` 转发）；`文件存在` 在删除文件后返回 **假**（打开失败抛异常 → 尝试/捕获 接住，本次修复核心）；目录操作冒烟通过（创建目录/目录存在/删除目录/文件列表/文件大小/绝对路径/获取文件名）；`目录名`/`获取文件名` 边界语义与 `os.path.dirname/basename` 一致（`"a/b/c"`→`a/b`、`"/"`→`/`、`"a"`→空、`"a/b/"`→`a/b`）。
+    - **反跑判据验证**：移除 `目录名` 接线 → 文件系统 编译立即立红（未定义的段落：目录名）；移除 `read`/`读取` 接线 → 文件系统 编译通过但运行链路破坏（`f.read()` 走 `dv_call_method` 兜底，读取结果为空，`READ1=空`），编译/运行二选一立红均满足。
+    - **已解决（原记录限制）**：此前记录「`文件系统.文件存在` 对不存在文件仍返回 真」已通过「打开文件 失败抛异常」修复（见上）——`文件存在` 现对已删除文件返回 **假**，删除验证可用 `文件存在`=假 或 `文件大小`=0 双指标确认。
+    - 验证：能力清单同步（builtin 317 / runtime 227，evidence 行号重算）；定向回归 `test_native_import.py` 5 + `test_native_leg_capability` 11 全绿。
+    - 剩余 FAIL 2（下一批）：内置核心路径（TupleLiteral 元组字面量）、文件流 的 `逐行` 生成器语义（T4a/T4b 实现真实生成器后补齐）。
 
 
 

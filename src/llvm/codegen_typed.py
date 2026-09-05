@@ -371,6 +371,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_str_reverse(ptr, ptr)',
             f'declare void @dv_str_split(ptr, ptr, ptr)',
             f'declare void @dv_path_join(ptr, ptr, ptr)',
+            f'declare void @dv_path_dirname(ptr, ptr)',
+            f'declare void @dv_path_basename(ptr, ptr)',
+            f'declare void @dv_abspath(ptr, ptr)',
             f'declare void @dv_to_int(ptr, ptr)',
             f'declare void @dv_to_float(ptr, ptr)',
             f'declare void @dv_to_bool_val(ptr, ptr)',
@@ -384,6 +387,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_open_file(ptr, ptr, ptr, ptr)',
             f'declare void @dv_file_write(ptr, ptr, ptr)',
             f'declare void @dv_file_close(ptr, ptr)',
+            f'declare void @dv_file_read(ptr, ptr)',
             f'declare i64 @dv_file_size(ptr)',
             f'declare i32 @dv_delete_file(ptr)',
             f'declare void @dv_list_dir(ptr, ptr)',
@@ -452,6 +456,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             # 文件系统扩展
             f'declare i32 @dv_mkdir(ptr)',
             f'declare i32 @dv_rmdir(ptr)',
+            f'declare i32 @dv_makedirs(ptr)',
             f'declare i32 @dv_rename_file(ptr, ptr)',
             f'declare i32 @dv_copy_file(ptr, ptr)',
             f'declare i32 @dv_is_file(ptr)',
@@ -1494,6 +1499,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._call_dv_func('dv_file_close', args[0]), 'dv'
             return self._create_bool_dv('true'), 'dv'
 
+        if name in ('read', '读取'):
+            # 文件句柄方法：f.read()（从当前文件位置读到 EOF，返回字符串）
+            if args:
+                return self._call_dv_func('dv_file_read', args[0]), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
         if name in ('文件大小', 'file_size'):
             if args:
                 path_ptr = self.new_register()
@@ -1866,6 +1877,48 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if len(args) >= 2:
                 return self._call_dv_func('dv_path_join', args[0], args[1]), 'dv'
             return self._create_str_dv(self.gen_string_constant('')), 'dv'
+
+        if name in ('目录名', 'dirname', 'path_dirname'):
+            # POSIX dirname（对齐 转译腿 _light_builtin.目录名 = os.path.dirname）
+            if args:
+                return self._call_dv_func('dv_path_dirname', args[0]), 'dv'
+            return self._create_str_dv(self.gen_string_constant('')), 'dv'
+
+        if name in ('文件名', 'basename', 'path_basename'):
+            # POSIX basename（对齐 转译腿 _light_builtin.文件名 = os.path.basename）
+            if args:
+                return self._call_dv_func('dv_path_basename', args[0]), 'dv'
+            return self._create_str_dv(self.gen_string_constant('')), 'dv'
+
+        if name in ('绝对路径', 'abspath', 'abs_path'):
+            # os.path.abspath（相对路径基于 cwd 拼接 + 规范化）
+            if args:
+                return self._call_dv_func('dv_abspath', args[0]), 'dv'
+            return self._create_str_dv(self.gen_string_constant('')), 'dv'
+
+        if name in ('创建目录', 'mkdir', 'make_dir', 'makedirs'):
+            # os.makedirs(path, exist_ok=True)（逐级建父目录，已存在不算错）
+            if args:
+                path_ptr = self.new_register()
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_makedirs(ptr {path_ptr})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('0'), 'dv'
+
+        if name in ('删除目录', 'rmdir', 'remove_dir'):
+            # os.rmdir（删除空目录）
+            if args:
+                path_ptr = self.new_register()
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_rmdir(ptr {path_ptr})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('0'), 'dv'
 
         if name in ('字符串包含', 'str_contains', '包含字符串'):
             if len(args) >= 2:
@@ -2584,6 +2637,25 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             
             return self._load_dv(result_slot), 'dv'
         
+        # _light_builtin 模块点访问：`_light_builtin.删除文件(路径)` 按名转发内置
+        # （对齐转译腿 `_light_builtin.删除文件` -> `删除文件` 语义）。不把
+        # `_light_builtin` 当接收者传参——它在原生腿只是模块名，求值成字符串会让
+        # 内置分支把第一个参数取错（试图删除名为 "_light_builtin" 的文件）。
+        if isinstance(prop.obj, ast.Identifier) and prop.obj.name == '_light_builtin':
+            args_dv = []
+            kw_values = {}
+            for arg in expr.arguments:
+                if isinstance(arg, ast.KeywordArg):
+                    kw_values[arg.name] = self._gen_expression(arg.value)[0]
+                else:
+                    args_dv.append(self._gen_expression(arg)[0])
+            if kw_values:
+                args_dv = self._merge_kwargs(method_name, args_dv, kw_values)
+            builtin_result = self._gen_typed_builtin(method_name, args_dv)
+            if builtin_result is not None:
+                return builtin_result
+            self._reject_unknown_call(method_name, expr, kind='模块点访问')
+
         obj_dv, _ = self._gen_expression(prop.obj)
 
         # 检查是否是 类名.方法名() 形式的调用（通过类名调用类方法/静态方法）
@@ -3682,6 +3754,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if isinstance(expr, ast.Identifier) and isinstance(expr.name, str) \
                     and expr.name.startswith(self._ADAPTER_UNKNOWN_PREFIX):
                 inner = expr.name[len(self._ADAPTER_UNKNOWN_PREFIX):].rstrip('>')
+                # R10-11b 后：`生成` 由适配层转成一等 YieldStatement 节点并走
+                # _gen_typed_yield 状态机（本文件生成器段）。若这里仍出现
+                # <unknown:YieldStmt> 伪装标识符，说明适配层漏转，必须报错而
+                # 不许静默跳过（防静默降级）。
                 self._reject_unsupported_stmt(inner, stmt)
             if isinstance(expr, ast.FunctionCall) and isinstance(expr.name, ast.PropertyAccess):
                 method_name = expr.name.property_name
