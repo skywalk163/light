@@ -1360,6 +1360,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         module_name, orig_name = self._imports[name]
         safe = self._safe_func_name(f'{module_name}_{orig_name}')
         result_slot = self._new_dv_slot()
+        # R10-11a 打回 A2：同 _gen_typed_segment_call，段函数返回时
+        # dv_obj_release_slot(result_ptr) 会读取未初始化槽位 → O0 段错误。
+        self.emit(f'call void @dv_null(ptr {result_slot})')
         num_args = len(args)
         if num_args == 0:
             args_arr_ptr = 'null'
@@ -2706,6 +2709,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 
                 return self._load_dv(result_slot), 'dv'
 
+        # 模块名.段落名(...) —— 模块级导入后通过模块名调用段函数。
+        # 多模块编译时所有段都在同一个 codegen 中，直接分派到 _seg_f*，
+        # 不走 dv_call_method（运行时无法解析段函数名，返回 null）。
+        # (R10-11a 打回修复 f598a7b2，此处分派未合入 main，一并补回)
+        if isinstance(prop.obj, ast.Identifier):
+            obj_name = prop.obj.name
+            if obj_name in self._imported_modules and method_name in self._segments:
+                return self._gen_typed_segment_call(method_name, [
+                    self._gen_expression(a)[0] for a in expr.arguments
+                ])
+
         # 先检查是否是内置方法（列表、字符串等）
         # 内置方法调用：把对象作为第一个参数传给内置函数
         args_dv = [obj_dv]
@@ -3116,6 +3130,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     def _gen_typed_segment_call(self, name: str, args: List[str]) -> Tuple[str, str]:
         safe = self._safe_func_name(name)
         result_slot = self._new_dv_slot()
+        # R10-11a 打回 A2：段函数返回路径会 dv_obj_release_slot(result_ptr) 释放旧值。
+        # _new_dv_slot 来自复用型临时槽位池（不零初始化），O0 下残留垃圾可能被
+        # 误判为 REF 指针 → memcpy 非法地址 → 段错误(rc=3221225477)。
+        # O1+ 优化消除未初始化读取故不崩。与 _call_dv_func(L690) 同模式补 dv_null。
+        self.emit(f'call void @dv_null(ptr {result_slot})')
         num_args = len(args)
         if num_args == 0:
             self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr null, i32 0)')

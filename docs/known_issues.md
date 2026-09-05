@@ -115,6 +115,10 @@
       - **精确触发条件（O0 特有，主控二分定位）**：单段/任意 2 段/全量 6 段导入全过；**含「扩展名 + 目录名 + 任意第三段」的 3/4 段选择导入崩**（`分割路径+扩展名+目录名`、`分割扩展名+扩展名+目录名`、`分割路径+分割扩展名+扩展名+目录名` 均复现）；2 段 `扩展名+目录名`、3 段无扩展名（`分割路径+分割扩展名+目录名`）或无目录名（`分割路径+分割扩展名+扩展名`）均过。
       - **根因方向**：选择导入（跳过 stdlib 部分段）时编译产物存在**未初始化读取**（O0 保留错误指针传给 memcpy → 段错误；O1+ 优化消除未初始化读取 → 通过）。O0 与 O1+ 的合并 IR 段调用编号均正确（主段 `_seg_f5` → `_seg_f9/f10/f11/f7`），崩溃在段函数内部执行路径。
       - **A2 修复要求**：O0 下任意导入组合（含上述 3/4 段）不崩且输出正确；**反跑用例必须显式传 `optimize_level=0`**（否则被 O2 掩盖）；保留已生效的模块级导入分派修复；单/2 段/全量 6 段 O0 与模块级导入不回归。
+    - **R10-11a 打回 A2 修复（2026-09-05，分支 `task-T4aR2`）**：O0 多段组合段错误已修复，定向测试 482 全绿（原 480 + 新增 4 O0 反跑）。
+      - **根因**：`_gen_typed_segment_call`（L3118）和 `_gen_imported_segment_call`（L1362）分配 `result_slot = self._new_dv_slot()` 后**未 `dv_null` 初始化**。`_new_dv_slot` 来自复用型临时槽位池（不零初始化，L594 注释明确），段函数返回路径 `_emit_return_with_self_writeback` 调 `dv_obj_release_slot(result_ptr)` 释放旧值——O0 下残留垃圾被误判为 REF 指针 → `memcpy` 非法地址 → 段错误（rc=3221225477）。O1+ 优化消除未初始化读取故不崩。与 `_call_dv_func`（L690-695）已有的同模式修复一致。
+      - **修复**（`src/llvm/codegen_typed.py`，+19 行）：① `_gen_typed_segment_call` 的 `result_slot` 后补 `call void @dv_null(ptr {result_slot})`；② `_gen_imported_segment_call` 同理补 `dv_null`；③ `_gen_typed_method_call` 补回模块级导入分派（`obj_name in self._imported_modules and method_name in self._segments` → `_gen_typed_segment_call`，来自 f598a7b2 未合入 main 的修复，一并补回防止模块级导入回归）。
+      - **验证**：O0 下 4 段选择导入（`分割路径+分割扩展名+扩展名+目录名`）rc=0 输出 `a|b.c`/`x.tar|.gz`/`.gz`/`/a//b`；3 段 A（`分割路径+扩展名+目录名`）、3 段 B（`分割扩展名+扩展名+目录名`）均 rc=0；单段/2 段/6 段全量/模块级导入 O0 均不回归；O2 对照正常。能力清单 JSON 328 条 evidence 行号全量重算。
 
 
   - **R10-11b 攻坚进展（原生腿覆盖，2026-09-05，第四批B）**：完成原生腿**生成器（`YieldStmt`）**——文件流 模块最后一块编译阻断解除。

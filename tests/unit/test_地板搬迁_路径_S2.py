@@ -445,3 +445,89 @@ def test_真值_分割扩展名前导点与多点(p, 期望):
 def test_真值_连接路径边角(args, 期望):
     assert posixpath.join(*args) == 期望
     assert 光明.连接路径(*args) == 期望
+
+
+# ── 7. 原生腿 O0 多段组合反跑（R10-11a 打回 A2）──────────────────────────────
+# 背景：selective import（从 内置核心路径 导入 X Y Z）在 O0(optimize_level=0)下，
+# 段函数返回路径 dv_obj_release_slot(result_ptr) 读取未初始化的 _new_dv_slot 槽位，
+# O0 保留垃圾指针 → memcpy 非法地址 → 段错误(rc=3221225477)。
+# O1+ 优化消除未初始化读取故不崩，所以反跑用例必须显式传 optimize_level=0。
+import subprocess as _subproc
+import tempfile as _tempfile
+
+def _编译并运行(code: str, optimize_level: int = 0) -> tuple:
+    """用原生腿 compile_light_typed 编译并运行，返回 (rc, stdout)。"""
+    from llvm.compiler import compile_light_typed
+    with _tempfile.TemporaryDirectory(prefix='_native_O0_') as d:
+        src = os.path.join(d, '主.light')
+        with open(src, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(code)
+        exe = compile_light_typed(src, os.path.join(d, '产物'),
+                                  optimize_level=optimize_level)
+        r = _subproc.run([exe], capture_output=True, timeout=60)
+        out = r.stdout.decode('utf-8', errors='replace').strip()
+        return r.returncode, out
+
+
+# 4 段选择导入全调用 —— 修复前 rc=3221225477 立红
+def test_O0_四段选择导入不崩且输出正确():
+    code = (
+        '从 内置核心路径 导入 分割路径 分割扩展名 扩展名 目录名\n'
+        '段落 主:\n'
+        '  设 t 为 分割路径("a/b.c")\n'
+        '  输出(t[0] 加上 "|" 加上 t[1])\n'
+        '  设 e 为 分割扩展名("x.tar.gz")\n'
+        '  输出(e[0] 加上 "|" 加上 e[1])\n'
+        '  输出(扩展名("x.tar.gz"))\n'
+        '  输出(目录名("/a//b//"))\n'
+    )
+    rc, out = _编译并运行(code, optimize_level=0)
+    assert rc == 0, f"O0 4段选择导入段错误 rc={rc} (0x{rc & 0xFFFFFFFF:08X})"
+    期望行 = ['a|b.c', 'x.tar|.gz', '.gz', '/a//b']
+    assert out.replace('\r', '').split('\n') == 期望行, f"输出不匹配: {out!r}"
+
+
+# 3 段组合 A: 分割路径 + 扩展名 + 目录名
+def test_O0_三段A_分割路径_扩展名_目录名不崩():
+    code = (
+        '从 内置核心路径 导入 分割路径 扩展名 目录名\n'
+        '段落 主:\n'
+        '  设 t 为 分割路径("a/b.c")\n'
+        '  输出(t[0] 加上 "|" 加上 t[1])\n'
+        '  输出(扩展名("x.tar.gz"))\n'
+        '  输出(目录名("/a//b//"))\n'
+    )
+    rc, out = _编译并运行(code, optimize_level=0)
+    assert rc == 0, f"O0 3段A段错误 rc={rc} (0x{rc & 0xFFFFFFFF:08X})"
+
+
+# 3 段组合 B: 分割扩展名 + 扩展名 + 目录名
+def test_O0_三段B_分割扩展名_扩展名_目录名不崩():
+    code = (
+        '从 内置核心路径 导入 分割扩展名 扩展名 目录名\n'
+        '段落 主:\n'
+        '  设 e 为 分割扩展名("x.tar.gz")\n'
+        '  输出(e[0] 加上 "|" 加上 e[1])\n'
+        '  输出(扩展名("x.tar.gz"))\n'
+        '  输出(目录名("/a//b//"))\n'
+    )
+    rc, out = _编译并运行(code, optimize_level=0)
+    assert rc == 0, f"O0 3段B段错误 rc={rc} (0x{rc & 0xFFFFFFFF:08X})"
+
+
+# 模块级导入（导入 内置核心路径 → 内置核心路径.段名）O0 不回归
+def test_O0_模块级导入不回归():
+    code = (
+        '导入 内置核心路径\n'
+        '段落 主:\n'
+        '  设 t 为 内置核心路径.分割路径("/a/b.c")\n'
+        '  输出(t[0] 加上 "|" 加上 t[1])\n'
+        '  设 e 为 内置核心路径.分割扩展名("x.tar.gz")\n'
+        '  输出(e[0] 加上 "|" 加上 e[1])\n'
+        '  输出(内置核心路径.扩展名("x.tar.gz"))\n'
+        '  输出(内置核心路径.目录名("/a//b//"))\n'
+    )
+    rc, out = _编译并运行(code, optimize_level=0)
+    assert rc == 0, f"O0 模块级导入段错误 rc={rc} (0x{rc & 0xFFFFFFFF:08X})"
+    期望行 = ['/a|b.c', 'x.tar|.gz', '.gz', '/a//b']
+    assert out.replace('\r', '').split('\n') == 期望行, f"输出不匹配: {out!r}"
