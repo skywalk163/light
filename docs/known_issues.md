@@ -1074,3 +1074,97 @@ T5A 将 `stdlib/数学.light`、`stdlib/统计.light`、`stdlib/排序.light` �
 
 
 
+## 十八、T5B 编码与哈希模块真 .light 化（2026-09-05）
+
+本轮把 `Base64` / `编码` / `哈希` / `字符串常量` 四个「decl 0 空壳」模块改成
+**纯光明真实现**（首行带「纯光明实现」魔数，旁路同名 `.py`），并在原生腿
+（llvm typed，**optimize_level=0**）下与 Python `base64` / `hashlib` / `string`
+逐项对拍通过。
+
+### 18.1 本轮修掉的原生腿 builtin 接线缺陷（codegen_typed.py）
+
+以下都是**既有代码的参数类型错误**，不是新增功能；`runtime_typed.c` 一行未改。
+
+| 位置 | 症状 | 根因 | 修法 |
+|---|---|---|---|
+| `Base64编码/解码`、`MD5`、`SHA1`、`SHA256`（T5B 新增注册） | 返回空串 | `dv_str_len` 入参是 `LightValue*`，却先 `extractvalue …,3` 取了 `char*` | 先 `_store_dv(args[0])` 取槽指针再传 |
+| `字符串包含`（`dv_str_contains`） | 恒假 | 同上，传了 `char*` | `_store_dv` 后再调 |
+| `以开头`（`dv_str_starts_with`） | 恒假 | 同上 | 同上 |
+| `以结尾`（`dv_str_ends_with`） | 恒假 | 同上 | 同上 |
+| `反向查找`（`dv_str_rfind`） | 等价于 `查找` | 同上 | 同上 |
+| `计数`（`dv_str_count`） | 恒 0 | 同上 | 同上 |
+| `四舍五入`（`dv_round`） | IR 校验失败 `%N defined with type struct but expected ptr` | 第二参传了 struct 值 | `_store_dv(args[0])` 取指针 |
+
+判定依据：`runtime_typed.c` 里 `dv_str_contains/starts_with/ends_with/count/rfind`
+的签名均为 `(LightValue*, LightValue*)`，而 `dv_str_find` / `dv_base64_encode` /
+`dv_md5` 等是 `(char*, …)` —— 两类混用是历史接线遗留。
+
+### 18.2 本轮新增注册的 builtin（仅注册既有 runtime，未新增 C 函数）
+
+- `Base64编码 / base64_encode / b64encode / _b64_encode` → `dv_base64_encode`
+- `Base64解码 / base64_decode / b64decode / _b64_decode` → `dv_base64_decode`
+- `MD5 / md5 / _md5` → `dv_md5`；`SHA1 / sha1 / _sha1` → `dv_sha1`；
+  `SHA256 / sha256 / _sha256` → `dv_sha256`（三者均返回小写十六进制，与 `hexdigest()` 一致）
+- `四舍五入 / round / _round` → `dv_round`
+- `整除 / div` → `dv_div`（补齐：`取模/mod` 原本已有，两者成对）
+
+> 命名约定：`.light` 模块暴露 runtime 时用 `_b64_encode` 这类**与公开中文名不同**
+> 的内部别名。原因见下条。
+
+### 18.3 #L-T5B-1 [中] 跨模块同名段落 → LLVM IR 重定义（未修，规避）
+
+- 现象：`从 编码 导入 …`，而 `编码.light` 又 `从 Base64 导入 …` 时编译失败：
+  `error: invalid redefinition of function '_seg_f15'`。
+- 根因：`core.py:_safe_func_name()` 只按**段名**映射（`f{counter}`），不带模块前缀；
+  多模块编译进同一个 codegen 时，`编码.Base64编码` 与 `Base64.Base64编码`
+  被映射到同一个 LLVM 符号，于是 `define` 两次。
+- 规避：**每个模块一个独立编译单元**。`编码.light` 因此自带一套
+  UTF-8↔hex 实现，不从《Base64》导入；T5B 测试也对四个模块分别编译。
+- 未修原因：改成模块前缀会牵动 `_gen_typed_segment_call` /
+  `_gen_exported_aliases` 的调用侧命名约定，属独立改造项。
+
+### 18.4 #L-T5B-2 [中] 高阶函数不支持（未修，语义变更 + 文档化）
+
+- 现象：`段落 应用 接收 f, c: 返回 f(c)` → `未定义的段落：f`。
+  原生后端只会把 `名字(...)` 解析成**段落调用**，没有函数值。
+- 影响：`字符串常量.py` 的 `字符列表全部是(文本, 检测函数)` /
+  `字符列表有一个是(文本, 检测函数)` 无法 1:1 复刻。
+- 处理：`.light` 版第二参改为**分类名字符串**
+  （`"字母"/"数字"/"字母数字"/"小写"/"大写"/"空白"/"可打印"/"标点"/"十六进制"/"八进制"`），
+  未知分类名返回 `假`。**与 .py 签名不兼容**，已在模块头与本节登记。
+
+### 18.5 #L-T5B-3 [中] SHA512 / HMAC_SHA256 能力边界（未实现，返回空串）
+
+- `SHA512`（`编码.SHA512哈希`、`哈希.SHA512`）：原生腿无 `dv_sha512` runtime；
+  且光明**缺位移与按位运算符**，无法在 `i64` 上可靠模拟 64 位无符号逻辑右移
+  （`整除` 是向零取整，`2^63` 又超出 `i64` 上界）。故返回空串占位。
+- `HMAC_SHA256`：`.py` 语义是 `pbkdf2_hmac('sha256', text, key, 1)`，其消息尾部含
+  `b'\x00\x00\x00\x01'`，而 `dv_sha256` 以 `strlen` 取长度（**非二进制安全**），
+  无法对拍。故返回空串占位。
+- 解锁路径：runtime 增 `dv_sha512` / 二进制安全的 `dv_sha256_n(ptr, len)`，
+  或语言层补位运算符 + 无符号 64 位移位。
+
+### 18.6 #L-T5B-4 [低] `连接字符串` 对列表返空（未修，已在 .light 内规避）
+
+`连接字符串` 用 `extractvalue …,3` 取列表指针，而列表指针不在 LightValue 的
+索引 3 字段，故对列表恒返空。`字符串常量.light` 的 `连接` 改为纯光明索引循环实现。
+
+### 18.7 字节口径结论（重要，后续模块照此办）
+
+原生后端字符串索引按**字符**，而 Python `base64`/`hashlib` 按 **UTF-8 字节**。
+纯光明实现统一以「十六进制串」作字节中间表示（`_编码UTF8` / `_解UTF8`），
+已验证中文（`"Hello, 世界!"`）与 Python 逐字节一致。
+
+### 18.8 反跑判据
+
+- 测试：`tests/unit/test_T5B_编码哈希.py`（4 个用例，全部 `optimize_level=0`，
+  各模块独立编译单元）。
+- 真实现 → 4 项全绿；将四个 `.light` 改回「只有 `导出` 清单」的空壳 →
+  4 项全部立红（`NativeImportError: … decl 0 空壳`）。
+- 回归：`tests/test_native_import.py`、`tests/test_native_cli.py`、
+  `tests/unit/test_地板搬迁_路径_S2.py`、`tests/e2e/test_llvm_pipeline.py`
+  连同 T5B 共 **520 passed, 1 skipped, 0 failed**。
+
+> 注：本机 clang 需要 `INCLUDE` / `LIB` 指向 MSVC + Windows SDK，否则
+> `runtime_typed.c` 报 `'stdio.h' file not found`。T5B 测试会自动探测并补齐，
+> 其它原生腿测试需自行在环境里准备。

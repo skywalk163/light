@@ -1822,6 +1822,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._call_dv_func('dv_mod', args[0], args[1]), 'dv'
             return self._create_int_dv('0'), 'dv'
 
+        if name in ('整除', 'div'):
+            if len(args) >= 2:
+                return self._call_dv_func('dv_div', args[0], args[1]), 'dv'
+            return self._create_int_dv('0'), 'dv'
+
         if name in ('截取', 'substr', 'substring'):
             if len(args) >= 3:
                 start_i64 = self.new_register()
@@ -1862,6 +1867,92 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if args:
                 return self._call_dv_func('dv_lower', args[0]), 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
+        # ── T5B：编码 / 哈希 runtime 内置注册（仅接线既有 runtime，不新增 C 函数）──
+        # 公开中文名 + 内部 ASCII 别名双注册；模块段落内调别名（如 _b64_encode）
+        # 以避免「段落名 == builtin 名」的同名遮蔽（段 > builtin 派发顺序）。
+        if name in ('Base64编码', 'base64_encode', 'b64encode', '_b64_encode'):
+            if args:
+                obj_slot = self._store_dv(args[0])
+                data_ptr = self.new_register()
+                self.emit(f'{data_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                len_i64 = self.new_register()
+                # dv_str_len 入参是 LightValue*（需先 _store_dv 取指针）；编码函数仍用 data_ptr(char*)
+                self.emit(f'{len_i64} = call i64 @dv_str_len(ptr {obj_slot})')
+                len_i32 = self.new_register()
+                self.emit(f'{len_i32} = trunc i64 {len_i64} to i32')
+                out = self.new_register()
+                self.emit(f'{out} = call ptr @dv_base64_encode(ptr {data_ptr}, i32 {len_i32})')
+                return self._create_str_dv(out), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
+        if name in ('Base64解码', 'base64_decode', 'b64decode', '_b64_decode'):
+            if args:
+                str_ptr = self.new_register()
+                self.emit(f'{str_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                outlen_ptr = self.new_register()
+                self.emit(f'{outlen_ptr} = alloca i32')
+                out = self.new_register()
+                self.emit(f'{out} = call ptr @dv_base64_decode(ptr {str_ptr}, ptr {outlen_ptr})')
+                return self._create_str_dv(out), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
+        if name in ('MD5', 'md5', '_md5'):
+            if args:
+                obj_slot = self._store_dv(args[0])
+                data_ptr = self.new_register()
+                self.emit(f'{data_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                len_i64 = self.new_register()
+                # dv_str_len 入参是 LightValue*（需先 _store_dv 取指针）；编码函数仍用 data_ptr(char*)
+                self.emit(f'{len_i64} = call i64 @dv_str_len(ptr {obj_slot})')
+                len_i32 = self.new_register()
+                self.emit(f'{len_i32} = trunc i64 {len_i64} to i32')
+                out = self.new_register()
+                self.emit(f'{out} = call ptr @dv_md5(ptr {data_ptr}, i32 {len_i32})')
+                return self._create_str_dv(out), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
+        if name in ('SHA1', 'sha1', '_sha1'):
+            if args:
+                obj_slot = self._store_dv(args[0])
+                data_ptr = self.new_register()
+                self.emit(f'{data_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                len_i64 = self.new_register()
+                # dv_str_len 入参是 LightValue*（需先 _store_dv 取指针）；编码函数仍用 data_ptr(char*)
+                self.emit(f'{len_i64} = call i64 @dv_str_len(ptr {obj_slot})')
+                len_i32 = self.new_register()
+                self.emit(f'{len_i32} = trunc i64 {len_i64} to i32')
+                out = self.new_register()
+                self.emit(f'{out} = call ptr @dv_sha1(ptr {data_ptr}, i32 {len_i32})')
+                return self._create_str_dv(out), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
+        if name in ('SHA256', 'sha256', '_sha256'):
+            if args:
+                obj_slot = self._store_dv(args[0])
+                data_ptr = self.new_register()
+                self.emit(f'{data_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                len_i64 = self.new_register()
+                # dv_str_len 入参是 LightValue*（需先 _store_dv 取指针）；编码函数仍用 data_ptr(char*)
+                self.emit(f'{len_i64} = call i64 @dv_str_len(ptr {obj_slot})')
+                len_i32 = self.new_register()
+                self.emit(f'{len_i32} = trunc i64 {len_i64} to i32')
+                out = self.new_register()
+                self.emit(f'{out} = call ptr @dv_sha256(ptr {data_ptr}, i32 {len_i32})')
+                return self._create_str_dv(out), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
+        if name in ('四舍五入', 'round', '_round'):
+            # dv_round(result, a)：a 已是整数则原样克隆，否则 f64 四舍五入取整。
+            if args:
+                res_slot = self._new_dv_slot()
+                self.emit(f'call void @dv_null(ptr {res_slot})')
+                # dv_round 两参均为 LightValue*；args[0] 是 struct 值，需先落槽取指针
+                in_slot = self._store_dv(args[0])
+                self.emit(f'call void @dv_round(ptr {res_slot}, ptr {in_slot})')
+                res = self._load_dv(res_slot)
+                return res, 'dv'
+            return self._create_int_dv('0'), 'dv'
 
         if name in ('去除空格', 'trim', 'strip'):
             if args:
@@ -1930,10 +2021,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('字符串包含', 'str_contains', '包含字符串'):
             if len(args) >= 2:
-                s0 = self.new_register()
-                self.emit(f'{s0} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
-                s1 = self.new_register()
-                self.emit(f'{s1} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                s0 = self._store_dv(args[0])
+                s1 = self._store_dv(args[1])
                 r = self.new_register()
                 self.emit(f'{r} = call i32 @dv_str_contains(ptr {s0}, ptr {s1})')
                 cmp = self.new_register()
@@ -1943,10 +2032,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('开头', '以开头', 'startswith', 'starts_with', '前缀是'):
             if len(args) >= 2:
-                s0 = self.new_register()
-                self.emit(f'{s0} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
-                s1 = self.new_register()
-                self.emit(f'{s1} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                s0 = self._store_dv(args[0])
+                s1 = self._store_dv(args[1])
                 r = self.new_register()
                 self.emit(f'{r} = call i32 @dv_str_starts_with(ptr {s0}, ptr {s1})')
                 cmp = self.new_register()
@@ -1956,16 +2043,32 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('结尾', '以结尾', 'endswith', 'ends_with', '后缀是'):
             if len(args) >= 2:
-                s0 = self.new_register()
-                self.emit(f'{s0} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
-                s1 = self.new_register()
-                self.emit(f'{s1} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                s0 = self._store_dv(args[0])
+                s1 = self._store_dv(args[1])
                 r = self.new_register()
                 self.emit(f'{r} = call i32 @dv_str_ends_with(ptr {s0}, ptr {s1})')
                 cmp = self.new_register()
                 self.emit(f'{cmp} = icmp ne i32 {r}, 0')
                 return self._create_bool_dv(cmp), 'dv'
             return self._create_bool_dv('false'), 'dv'
+
+        if name in ('反向查找', 'rfind', 'str_rfind'):
+            if len(args) >= 2:
+                s0 = self._store_dv(args[0])
+                s1 = self._store_dv(args[1])
+                r = self.new_register()
+                self.emit(f'{r} = call i64 @dv_str_rfind(ptr {s0}, ptr {s1})')
+                return self._create_int_dv(r), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        if name in ('计数', 'count', 'str_count'):
+            if len(args) >= 2:
+                s0 = self._store_dv(args[0])
+                s1 = self._store_dv(args[1])
+                r = self.new_register()
+                self.emit(f'{r} = call i64 @dv_str_count(ptr {s0}, ptr {s1})')
+                return self._create_int_dv(r), 'dv'
+            return self._create_int_dv('0'), 'dv'
 
         if name in ('替换', 'replace', 'str_replace', '替换字符串'):
             if len(args) >= 3:
