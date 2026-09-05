@@ -66,6 +66,26 @@
     - **架构缺口（重要，需单独排期）**：原生腿**段参数传值**，列表作为参数跨段变异传递不生效（转译腿=Python 引用，原生腿=值拷贝+共享底层数组，realloc 后调用方悬垂）。数据结构轻量的辅助函数版本（`创建栈/入栈/出栈/栈大小` 以列表为参数）编译通过但运行语义受此限制；**类版本**（`己.数据` 字段 + self 对象共享）不受影响，故 4 个类全部正确。跨段引用语义是原生腿架构级缺口，影响所有「列表参数跨段变异」代码，需专项评估。
     - 验证：能力清单同步（builtin 293 / runtime 217）；codegen 定向回归 143 全绿（stmt_coverage 13 + capability 24 + c3_expr 56 + stdlib_phase2/13）。
 
+  - **R10-10 攻坚第三批进展（原生腿覆盖，2026-09-05）**：完成「KeywordArg 展开 + 文件句柄链」，**13/89 → 16/89（17.98%）**，解锁 JSON / JSON核心 / 内置核心列表（编译 + 运行语义）。
+    - 落地修复（codegen/compiler/runtime 三侧）：
+      - **KeywordArg 展开**：`ast_nodes` 新增 `KeywordArg`（ID=102）；`compiler._convert_keyword_arg`；`codegen` 函数/方法调用参数展开时分离位置参数与关键字参数，`_merge_kwargs` 按 `_BUILTIN_KWARGS` 签名表（打开文件/排序 的 encoding/reverse）或光明段 `parameters` 参数名映射回位置（stdlib `打开文件(路径, "w", encoding=...)`、`表.sort(reverse=...)` 用）。
+      - **文件句柄链**：runtime 新增 `LV_TYPE_FILE`（type=22）：`dv_open_file`/`dv_file_write`/`dv_file_close`（fclose 后置 NULL 防双关）；codegen builtin `打开文件`/`write`/`close` 分支接线。
+      - **try/catch IR 非法修复**：`catch` 体与 `finally` 体若已以 terminator 结束不再多发 `br`（此前重复发 br 生成非法 IR）。
+      - **dict 遍历 0 次根因**：`遍历 项 之 对象` 改用 `dv_len`（dict/list/str 统一取长）+ 新 runtime `dv_foreach_get`（开头 `v = dv_deref(v)` 处理 dict 内数组 REF）。
+      - **段优先于 builtin**：`_gen_typed_function_call` 分派顺序调整为「本地段 > builtin > 导入段」，对齐转译腿 Python 语义（用户定义段覆盖同名内置，修复 JSON核心 `段落 连接` 被 `连接`(dv_concat) 劫持）。
+      - **type 名对齐**：`dv_get_type_name` 返回英文名（NoneType/int/float/str/list/bool/dict），REF（type=8）解引用一层返回底层类型名。
+      - **段默认参数丢失**：`compiler._convert_paragraph/_convert_parameter` 补 `default_value`（新增 `_convert_default_value` helper）；codegen 缺参分支应用默认值（stdlib `缩进 = 0`/`美化 = 假` 等），无默认值才用 null。
+      - **dict 索引赋值**：`_gen_typed_assignment` 新增 IndexAccess 分支（`dv_dict_set` 原地设置 + 写回目标变量防 realloc 悬垂）；**并修复 `_convert_indexed_assignment`**——v3 的 `设 映射[键] 为 值` 在段落内 target 是已解析的 IndexAccess 节点，原实现 `Identifier(name=node.target)` 把节点塞进 name 导致 `'IndexAccess' object has no attribute 'encode'`（内置核心字典回归根因），现对非字符串 target 直接 `self.convert`。
+      - **方法内调方法崩溃**：runtime 所有 `dv_call_method`/`dv_call_class_method`/`dv_call_static_method`/接口调用在 `method(result,...)` 前加 `dv_null(result)` 初始化结果槽。
+      - **JSON 数组内 null 三处 REF 根因（本批关键调试成果）**：
+        ① `dv_foreach_get` 不 deref REF——dict 内数组经 `dv_dict_get` 取值是 REF，`遍历 项 之 对象` 元素全 null（`{"b":[1,2,3]}` → `[null,null,null]`）；
+        ② 索引 REF 字符串 type 判断——dict 内字符串经索引取值是 REF，codegen load type 后 `icmp eq 3`(str) 失败误走 list 分支取到垃圾 `\u0000`（`{"c":"x"}` → `\u0000`）；runtime 新增 `dv_deref_value`（解引用并复制实际值），codegen 索引访问 obj_slot 后先 deref；
+        ③ `dv_eq` 不 deref REF——dict 内 bool/null 与 `空` 比较失败（`序列化({"t":真,...})` 崩），`dv_eq` 开头加 `dv_deref` 解引用。
+    - **运行语义验证（真跑 exe）**：JSON round-trip **12/12 全过**（顶层数组/对象、对象内数组、嵌套、深层嵌套、空对象/数组、字符串转义、中文、浮点、多数组、布尔/null）；文件句柄 打开/写入/关闭 冒烟通过；13 模块编译核对 OK 10（本批新增 JSON / JSON核心 / 内置核心列表）。
+    - **修复的本批回归**：内置核心字典（`_convert_indexed_assignment` 的 IndexAccess target 处理）——R10-8 解锁模块因本批新增 dict 索引赋值分支暴露的适配层 bug，已修并回归通过。
+    - 验证：能力清单全量重建（builtin 299 / runtime 222，evidence 行号重算）；定向回归 `test_native_import.py` 5 + `test_native_leg_capability` 11 + `test_native_cli.py` 35 全绿；JSON round-trip 12/12。
+    - 剩余 FAIL 3（下一批）：内置核心路径（TupleLiteral 元组字面量）、文件流（YieldStmt 生成器）、文件系统（目录名未定义段落）。
+
 
 
 ---

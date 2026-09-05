@@ -275,6 +275,7 @@ class AstAdapter:
             'AwaitExpr': self._convert_await_expr,
             'AsyncScope': self._convert_async_scope,
             'PassStmt': self._convert_pass_stmt,
+            'KeywordArg': self._convert_keyword_arg,
         }
 
     # ------------------------------------------------------------------
@@ -396,11 +397,13 @@ class AstAdapter:
                 params.append(ast.Parameter(
                     name=p.get('name', 'x'),
                     type_annotation=p.get('type'),
+                    default_value=self._convert_default_value(p.get('default')),
                 ))
             elif isinstance(p, v3_ast.Parameter):
                 params.append(ast.Parameter(
                     name=p.name,
                     type_annotation=getattr(p, 'type_annotation', None),
+                    default_value=self._convert_default_value(getattr(p, 'default', None)),
                 ))
             else:
                 params.append(ast.Parameter(name=str(p)))
@@ -413,6 +416,11 @@ class AstAdapter:
             modifiers=list(getattr(node, 'modifiers', []) or []),
             generic_params=list(getattr(node, 'generic_params', []) or []),
         )
+
+    def _convert_keyword_arg(self, node) -> ast.KeywordArg:
+        """关键字参数 f(名=值)：v3 KeywordArg -> ast.KeywordArg(name, value)。
+        原生腿在函数调用参数展开时按目标函数参数名映射到位置。"""
+        return ast.KeywordArg(name=str(node.name), value=self.convert(node.value))
 
     def _convert_paragraph_call(self, node) -> ast.FunctionCall:
         args = self._convert_list(node.args)
@@ -673,16 +681,50 @@ class AstAdapter:
 
     def _convert_indexed_assignment(self, node) -> ast.Assignment:
         # 没有专用 IndexedAssignment → 使用 Assignment(IndexAccess 目标, 值)
+        # v3 的 target 有两种形态：字符串文本（顶层 '映射[键]'，index 未拆分）
+        # 或已解析的 IndexAccess 节点（段落内 映射[键]，obj/index 齐全）。
+        # 后者绝不能包成 Identifier(name=IndexAccess)，否则 codegen 把 IndexAccess
+        # 当字符串用崩溃（内置核心字典 字典设置 回归根因）。
+        if isinstance(node.target, str):
+            target = ast.IndexAccess(obj=ast.Identifier(name=node.target),
+                                     index=self.convert(node.index))
+        else:
+            target = self.convert(node.target)
         return ast.Assignment(
-            target=ast.IndexAccess(obj=ast.Identifier(name=node.target),
-                                    index=self.convert(node.index)),
+            target=target,
             value=self.convert(node.value),
         )
 
+    def _convert_default_value(self, raw):
+        """把 v3 参数默认值（int/bool/str/None 或表达式节点）转成 AST 节点。"""
+        if raw is None:
+            return None
+        if isinstance(raw, bool):
+            return ast.BooleanLiteral(value=raw)
+        if isinstance(raw, (int, float)):
+            return ast.NumberLiteral(value=raw)
+        if isinstance(raw, str):
+            return ast.StringLiteral(value=raw)
+        # 复杂默认表达式：v3 存表达式节点，递归转换
+        return self.convert(raw)
+
     def _convert_parameter(self, node) -> ast.Parameter:
+        default_raw = getattr(node, 'default', None)
+        default_ast = None
+        if default_raw is not None:
+            if isinstance(default_raw, bool):
+                default_ast = ast.BooleanLiteral(value=default_raw)
+            elif isinstance(default_raw, (int, float)):
+                default_ast = ast.NumberLiteral(value=default_raw)
+            elif isinstance(default_raw, str):
+                default_ast = ast.StringLiteral(value=default_raw)
+            else:
+                # 复杂默认表达式：v3 存表达式节点，递归转换
+                default_ast = self.convert(default_raw)
         return ast.Parameter(
             name=node.name,
             type_annotation=getattr(node, 'type_annotation', None),
+            default_value=default_ast,
         )
 
     def _convert_import_stmt(self, node) -> ast.ImportStatement:

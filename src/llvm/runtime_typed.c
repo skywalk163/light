@@ -932,6 +932,8 @@ int dv_eq(LightValue* a, LightValue* b) {
      *  - 同为非数值类型：按 i64 标识比较（bool/obj 等）
      *  - 类型不同：不等
      */
+    a = dv_deref(a);
+    b = dv_deref(b);
     if (a->type == 0 || b->type == 0) {
         return (a->type == 0 && b->type == 0) ? 1 : 0;
     }
@@ -1464,6 +1466,20 @@ void dv_list_new(LightValue* result) {
     dv_list_init_internal(result, 4);
 }
 
+/* 遍历取值：list(type=4) 按索引取元素；dict(type=7) 取第 i 个键（list_data[2*i]）。
+   供 _gen_typed_foreach 使用——旧实现只走 dv_list_len/dv_list_get，dict 遍历恒为 0 次。 */
+void dv_foreach_get(LightValue* result, LightValue* v, int64_t i) {
+    if (!result) return;
+    dv_null(result);
+    if (!v) return;
+    v = dv_deref(v);  /* 跟随 REF（dict 索引取值返回 REF），否则 dict 内数组/列表遍历取到 null */
+    if (v->type == 4 && v->list_data) {
+        if (i >= 0 && i < v->list_size && v->list_data[i]) dv_clone(result, v->list_data[i]);
+    } else if (v->type == 7 && v->list_data) {
+        if (i >= 0 && i < v->list_size && v->list_data[2 * i]) dv_clone(result, v->list_data[2 * i]);
+    }
+}
+
 int64_t dv_list_len(LightValue* v) {
     if (v->type != 4) return 0;
     return v->list_size;
@@ -1504,6 +1520,23 @@ void dv_list_get(LightValue* result, LightValue* list, int64_t index) {
         dv_clone(result, elem);
     } else {
         dv_null(result);
+    }
+}
+
+/* 解引用 REF 并把实际值复制到 result（供 codegen 索引前统一 deref，避免
+   REF 字符串/列表因 type=8 被索引逻辑误判走错分支——dict 索引取值返回 REF，
+   再对其做字符串/列表索引时 type 判断需先解引用） */
+void dv_deref_value(LightValue* result, LightValue* v) {
+    if (!result) return;
+    if (!v) { dv_null(result); return; }
+    LightValue* real = dv_deref(v);
+    if (real != v) {
+        dv_clone(result, real);
+    } else {
+        *result = *v;
+        if (v->type == 3 && v->str) {
+            result->str = dv_strdup(v->str);
+        }
     }
 }
 
@@ -2124,6 +2157,50 @@ void dv_append_file(const char* path, const char* content) {
         fwrite(content, 1, strlen(content), f);
         fclose(f);
     }
+}
+
+/* ================================================================
+ * 文件句柄（type=22）：打开文件 -> 句柄对象，f.write/f.close 方法调用
+ * POSIX fopen 无编码概念：encoding 参数忽略，字节直写（UTF-8 兼容）。
+ * 句柄 str 字段存 FILE*（不参与 strdup/free），dv_free/dv_clone 对
+ * type=22 仅浅拷贝不释放，生命周期由 dv_file_close 关闭后置空。
+ * ================================================================ */
+#define LV_TYPE_FILE 22
+
+void dv_open_file(LightValue* result, const char* path, const char* mode, const char* encoding) {
+    (void)encoding; /* POSIX 无编码参数，字节直写 */
+    if (!result) return;
+    dv_null(result);
+    if (!path || !mode) return;
+    FILE* fp = fopen(path, mode);
+    if (!fp) return;
+    result->type = LV_TYPE_FILE;
+    result->str = (char*)fp;
+    result->i64 = 0;
+    result->f64 = 0.0;
+    result->boolean = 0;
+    result->list_size = 0; result->list_capacity = 0; result->list_data = NULL;
+}
+
+void dv_file_write(LightValue* result, LightValue* handle, LightValue* text) {
+    if (!result) return;
+    dv_null(result);
+    if (!handle || handle->type != LV_TYPE_FILE || !handle->str) return;
+    if (!text || text->type != 3 || !text->str) return;
+    FILE* fp = (FILE*)handle->str;
+    size_t n = fwrite(text->str, 1, strlen(text->str), fp);
+    result->type = 1;
+    result->i64 = (int64_t)n;
+}
+
+void dv_file_close(LightValue* result, LightValue* handle) {
+    if (!result) return;
+    dv_null(result);
+    if (!handle || handle->type != LV_TYPE_FILE || !handle->str) return;
+    int rc = fclose((FILE*)handle->str);
+    handle->str = NULL; /* 防重复 close / 防误用已关闭句柄 */
+    result->type = 5;
+    result->boolean = (rc == 0);
 }
 
 int64_t dv_file_size(const char* path) {
@@ -4013,6 +4090,7 @@ int dv_call_interface_method(DuanValue* result, DuanValue* obj,
 
     /* 调用方法 */
     DuanMethodFunc method = (DuanMethodFunc)func_ptr;
+    dv_null(result);
     method(result, obj, args, num_args);
     return 0;
 }
@@ -4172,6 +4250,7 @@ void dv_call_method(LightValue* result, LightValue* obj, const char* method_name
     }
     
     LightMethodFunc method = (LightMethodFunc)func_ptr;
+    dv_null(result);
     method(result, obj, args, num_args);
 }
 
@@ -4195,6 +4274,7 @@ void dv_call_super_method(LightValue* result, LightValue* obj, const char* class
     }
     
     LightMethodFunc method = (LightMethodFunc)func_ptr;
+    dv_null(result);
     method(result, obj, args, num_args);
 }
 
@@ -4254,10 +4334,12 @@ void dv_call_class_method(LightValue* result, const char* class_name, const char
     if (method_flag == 1) {
         /* 类方法：签名 void func(result, cls_val, args, num_args) */
         LightClassMethodFunc method = (LightClassMethodFunc)func_ptr;
+        dv_null(result);
         method(result, &cls_val, args, num_args);
     } else if (method_flag == 2) {
         /* 静态方法：签名 void func(result, args, num_args) */
         LightStaticMethodFunc method = (LightStaticMethodFunc)func_ptr;
+        dv_null(result);
         method(result, args, num_args);
     } else {
         /* 实例方法不能通过类名直接调用，返回空 */
@@ -4284,12 +4366,14 @@ void dv_call_static_method(LightValue* result, const char* class_name, const cha
     if (method_flag == 2) {
         /* 静态方法：签名 void func(result, args, num_args) */
         LightStaticMethodFunc method = (LightStaticMethodFunc)func_ptr;
+        dv_null(result);
         method(result, args, num_args);
     } else if (method_flag == 1) {
         /* 类方法也可以通过静态方式调用，传入类名 */
         LightValue cls_val;
         dv_str(&cls_val, class_name);
         LightClassMethodFunc method = (LightClassMethodFunc)func_ptr;
+        dv_null(result);
         method(result, &cls_val, args, num_args);
         dv_free(&cls_val);
     } else {
@@ -4402,36 +4486,50 @@ void dv_get_type_name(LightValue* obj, char* buf, int buf_size) {
     
     switch (obj->type) {
         case 0:
-            strncpy(buf, "空", buf_size - 1);
+            strncpy(buf, "NoneType", buf_size - 1);
             buf[buf_size - 1] = '\0';
             break;
         case 1:
-            strncpy(buf, "整数", buf_size - 1);
+            strncpy(buf, "int", buf_size - 1);
             buf[buf_size - 1] = '\0';
             break;
         case 2:
-            strncpy(buf, "浮点数", buf_size - 1);
+            strncpy(buf, "float", buf_size - 1);
             buf[buf_size - 1] = '\0';
             break;
         case 3:
             if (obj->str && strncmp(obj->str, OBJ_PREFIX, strlen(OBJ_PREFIX)) == 0) {
                 dv_get_class_name(obj, buf, buf_size);
             } else if (obj->str && strncmp(obj->str, "list:", 5) == 0) {
-                strncpy(buf, "列表", buf_size - 1);
+                strncpy(buf, "list", buf_size - 1);
                 buf[buf_size - 1] = '\0';
             } else {
-                strncpy(buf, "文本", buf_size - 1);
+                strncpy(buf, "str", buf_size - 1);
                 buf[buf_size - 1] = '\0';
             }
             break;
         case 4:
-            strncpy(buf, "列表", buf_size - 1);
+            strncpy(buf, "list", buf_size - 1);
             buf[buf_size - 1] = '\0';
             break;
         case 5:
-            strncpy(buf, "布尔", buf_size - 1);
+            strncpy(buf, "bool", buf_size - 1);
             buf[buf_size - 1] = '\0';
             break;
+        case 6:
+            dv_get_class_name(obj, buf, buf_size);
+            break;
+        case 7:
+            strncpy(buf, "dict", buf_size - 1);
+            buf[buf_size - 1] = '\0';
+            break;
+        case 8: {
+            /* REF：解引用一层返回底层类型名 */
+            LightValue* inner = (LightValue*)obj->str;
+            if (inner) dv_get_type_name(inner, buf, buf_size);
+            else { strncpy(buf, "NoneType", buf_size - 1); buf[buf_size - 1] = '\0'; }
+            break;
+        }
         default:
             strncpy(buf, "未知", buf_size - 1);
             buf[buf_size - 1] = '\0';

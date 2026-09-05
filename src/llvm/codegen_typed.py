@@ -284,6 +284,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_concat(ptr, ptr, ptr)',
             f'declare i64 @dv_str_len(ptr)',
             f'declare void @dv_str_get(ptr, ptr, i64)',
+            f'declare void @dv_deref_value(ptr, ptr)',
             f'declare void @dv_list_new(ptr)',
             f'declare i64 @dv_list_len(ptr)',
             f'declare i64 @dv_len(ptr)',
@@ -357,9 +358,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare ptr @dv_read_file(ptr)',
             f'declare void @dv_write_file(ptr, ptr)',
             f'declare void @dv_append_file(ptr, ptr)',
+            f'declare void @dv_open_file(ptr, ptr, ptr, ptr)',
+            f'declare void @dv_file_write(ptr, ptr, ptr)',
+            f'declare void @dv_file_close(ptr, ptr)',
             f'declare i64 @dv_file_size(ptr)',
             f'declare i32 @dv_delete_file(ptr)',
             f'declare void @dv_list_dir(ptr, ptr)',
+            f'declare void @dv_foreach_get(ptr, ptr, i64)',
             f'declare ptr @dv_str_join(ptr, ptr)',
             f'declare ptr @dv_getenv(ptr)',
             f'declare i32 @dv_setenv(ptr, ptr)',
@@ -1186,7 +1191,31 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return self._create_bool_dv(final), 'dv'
         return reg, 'dv'
 
-    def _gen_typed_function_call(self, expr: ast.FunctionCall) -> Tuple[str, str]:
+    def _merge_kwargs(self, func_name, args, kw_values):
+        """把关键字参数按目标函数参数名映射进位置参数列表。
+
+        目标签名来源：内置函数用 _BUILTIN_KWARGS 表（名字 -> 位置）；光明段落
+        用 _segments[name].parameters 的参数名顺序。位置参数占位在前，
+        关键字参数按名填入对应槽位。"""
+        sig = self._BUILTIN_KWARGS.get(func_name)
+        if sig is None and func_name in self._segments:
+            params = getattr(self._segments[func_name], 'parameters', None) or []
+            sig = {getattr(p, 'name', None): i for i, p in enumerate(params)}
+        if not sig:
+            # 无签名信息：关键字参数顺序追加到末尾（保守，避免丢值）
+            return args + [kw_values[n] for n in kw_values]
+        out = list(args)
+        for kw_name, kw_dv in kw_values.items():
+            pos = sig.get(kw_name)
+            if pos is None:
+                out.append(kw_dv)
+            else:
+                while len(out) <= pos:
+                    out.append(self._call_dv_func('dv_null'))
+                out[pos] = kw_dv
+        return out
+
+    def _gen_typed_function_call(self, expr):
         if isinstance(expr.name, ast.Identifier):
             func_name = expr.name.name
         elif isinstance(expr.name, ast.SegmentName):
@@ -1198,7 +1227,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         else:
             func_name = str(expr.name)
 
-        args = [self._gen_expression(arg)[0] for arg in expr.arguments]
+        # 关键字参数支持：f(名=值)。位置参数照常；KeywordArg 按目标函数
+        # 参数名映射到位置（stdlib 里 打开文件(..., encoding=)、sort(reverse=) 用）。
+        args = []
+        kw_values = {}
+        for arg in expr.arguments:
+            if isinstance(arg, ast.KeywordArg):
+                kw_values[arg.name] = self._gen_expression(arg.value)[0]
+            else:
+                args.append(self._gen_expression(arg)[0])
+        if kw_values:
+            args = self._merge_kwargs(func_name, args, kw_values)
 
         # 方法内部：己.方法名(...) 被 parser 拍平成 SegmentName('self.方法名')。
         # 不拦下来会一路落到「未定义的段落：self.xxx」。这里对己对象做一次
@@ -1216,6 +1255,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 if self_dv is not None:
                     return self._gen_self_method_call(self_method_name, args)
 
+        # 当前模块的段函数：优先于同名 builtin（转译腿 Python 语义：用户定义段
+        # 覆盖内置。stdlib JSON核心 定义 `段落 连接`，若先查 builtin 会被
+        # builtin `连接`(dv_concat 字符串拼接) 劫持，`连接(部分, ", ")` 错乱）。
+        if func_name in self._segments:
+            return self._gen_typed_segment_call(func_name, args)
+
         # 内置函数
         builtin = self._gen_typed_builtin(func_name, args)
         if builtin is not None:
@@ -1229,12 +1274,6 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self._persist_to_receiver(
                     types.SimpleNamespace(obj=expr.arguments[0]), builtin[0])
             return builtin
-        if builtin is not None:
-            return builtin
-
-        # 当前模块的段函数
-        if func_name in self._segments:
-            return self._gen_typed_segment_call(func_name, args)
 
         # Level 9: 导入的外部段函数
         if func_name in self._imports:
@@ -1378,6 +1417,34 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{str_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
                 self.emit(f'call void @dv_append_file(ptr {path_ptr}, ptr {str_ptr})')
             return self._create_int_dv('0'), 'dv'
+
+        if name in ('打开文件', 'open_file'):
+            # 打开文件(路径, 模式[, encoding]) -> 文件句柄对象。
+            # runtime 签名 dv_open_file(result, char* path, char* mode, char* encoding)；
+            # encoding 参数 POSIX 下忽略（字节直写 UTF-8）。
+            if len(args) >= 2:
+                path_ptr = self.new_register()
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                mode_ptr = self.new_register()
+                self.emit(f'{mode_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                if len(args) >= 3:
+                    enc_ptr = self.new_register()
+                    self.emit(f'{enc_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[2]}, 3')
+                    return self._call_dv_func('dv_open_file', f'ptr {path_ptr}', f'ptr {mode_ptr}', f'ptr {enc_ptr}'), 'dv'
+                return self._call_dv_func('dv_open_file', f'ptr {path_ptr}', f'ptr {mode_ptr}', 'ptr null'), 'dv'
+            return self._call_dv_func('dv_open_file', 'ptr null', 'ptr null', 'ptr null'), 'dv'
+
+        if name in ('write', '写'):
+            # 文件句柄方法：f.write(文本)
+            if len(args) >= 2:
+                return self._call_dv_func('dv_file_write', args[0], args[1]), 'dv'
+            return self._create_int_dv('0'), 'dv'
+
+        if name in ('close', '关闭'):
+            # 文件句柄方法：f.close()
+            if args:
+                return self._call_dv_func('dv_file_close', args[0]), 'dv'
+            return self._create_bool_dv('true'), 'dv'
 
         if name in ('文件大小', 'file_size'):
             if args:
@@ -2493,9 +2560,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 先检查是否是内置方法（列表、字符串等）
         # 内置方法调用：把对象作为第一个参数传给内置函数
         args_dv = [obj_dv]
+        kw_values = {}
         for arg in expr.arguments:
-            arg_dv, _ = self._gen_expression(arg)
-            args_dv.append(arg_dv)
+            if isinstance(arg, ast.KeywordArg):
+                kw_values[arg.name] = self._gen_expression(arg.value)[0]
+            else:
+                args_dv.append(self._gen_expression(arg)[0])
+        if kw_values:
+            args_dv = self._merge_kwargs(method_name, args_dv, kw_values)
 
         # 尝试使用内置函数处理
         builtin_result = self._gen_typed_builtin(method_name, args_dv)
@@ -2763,10 +2835,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                     self.set_var(clause.catch_var, exc_val)
                 for s in clause.catch_body:
                     self._gen_statement(s)
-                if has_finally:
-                    self.emit(f'br label %{finally_lab}')
-                else:
-                    self.emit(f'br label %{end_lab}')
+                if not self._ends_with_terminator(clause.catch_body):
+                    if has_finally:
+                        self.emit(f'br label %{finally_lab}')
+                    else:
+                        self.emit(f'br label %{end_lab}')
                 
                 # 下一个 catch 块的入口（如果不是最后一个）
                 if i < len(catch_clauses) - 1:
@@ -2796,15 +2869,16 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             for s in stmt.finally_body:
                 self._gen_statement(s)
 
-            if has_catch:
-                # 有 catch 时，finally 后直接结束
-                self.emit(f'br label %{end_lab}')
-            else:
-                # 无 catch 时，finally 执行完重新抛出异常（向外层传播）
-                exc_slot = self._new_dv_slot()
-                self.emit(f'call void @dv_get_current_exception(ptr {exc_slot})')
-                self.emit(f'call void @dv_throw_exception(ptr {exc_slot})')
-                self.emit(f'br label %{end_lab}')
+            if not self._ends_with_terminator(stmt.finally_body):
+                if has_catch:
+                    # 有 catch 时，finally 后直接结束
+                    self.emit(f'br label %{end_lab}')
+                else:
+                    # 无 catch 时，finally 执行完重新抛出异常（向外层传播）
+                    exc_slot = self._new_dv_slot()
+                    self.emit(f'call void @dv_get_current_exception(ptr {exc_slot})')
+                    self.emit(f'call void @dv_throw_exception(ptr {exc_slot})')
+                    self.emit(f'br label %{end_lab}')
 
         self.emit(f'{end_lab}:')
 
@@ -2932,6 +3006,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'{i64_reg} = extractvalue {LIGHTVALUE_STRUCT} {idx_dv}, 1')
             key_slot = self._store_dv(idx_dv)
         obj_slot = self._store_dv(obj_dv)
+        # 解引用 REF（dict 索引取值返回 REF，type=8）：否则字符串/列表索引的
+        # type 判断误走 list 分支，dict 内字符串取字符读到垃圾（\u0000 等）。
+        deref_slot = self._new_dv_slot()
+        self.emit(f'call void @dv_deref_value(ptr {deref_slot}, ptr {obj_slot})')
+        obj_slot = deref_slot
         type_reg = self.new_register()
         self.emit(f'{type_reg} = load i32, ptr {obj_slot}')
         is_str = self.new_register()
@@ -3275,6 +3354,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     # `全局 计数。`/`生成 X。` 编成一次标识符取值，既不实现也不提示——产物行为错误
     # 却编译成功。下面这个前缀就是那道伪装的唯一识别特征。
     _ADAPTER_UNKNOWN_PREFIX = '<unknown:'
+    # 内置函数关键字参数签名：函数名 -> {关键字名: 位置索引}。
+    # 打开文件(路径, 模式, encoding)；sort/排序(列表, reverse)。
+    _BUILTIN_KWARGS = {
+        '打开文件': {'encoding': 2},
+        'sort': {'reverse': 1},
+        'list_sort': {'reverse': 1},
+        '排序': {'reverse': 1},
+        '列表排序': {'reverse': 1},
+    }
 
     # 转译后端的正确调用方式，所有拒绝文案共用一份，避免文案漂移
     _FALLBACK_HINT = '原生后端暂不支持，请用转译后端（python -m cli.light_unified run）'
@@ -3520,6 +3608,19 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                         self._set_var_type(name, new_type)
                     else:
                         self._set_var_type(name, None)
+        elif isinstance(stmt.target, ast.IndexAccess):
+            # 结果[键] 为 值：dict 键值设置（stdlib JSON 解析写回用）。
+            # 原地 dv_dict_set 后把更新后的 dict 写回目标变量（realloc 可能换缓冲）。
+            obj_dv, _ = self._gen_expression(stmt.target.obj)
+            idx_dv, _ = self._gen_expression(stmt.target.index)
+            val_dv, _ = self._gen_expression(stmt.value)
+            slot0 = self._store_dv(obj_dv)
+            slot1 = self._store_dv(idx_dv)
+            slot2 = self._store_dv(val_dv)
+            self.emit(f'call void @dv_dict_set(ptr {slot0}, ptr {slot0}, ptr {slot1}, ptr {slot2})')
+            result = self._load_dv(slot0)
+            if isinstance(stmt.target.obj, ast.Identifier):
+                self.set_var(stmt.target.obj.name, result)
         else:
             name = self._get_var_name(stmt.target)
             dv_val, _ = self._gen_expression(stmt.value)
@@ -3628,7 +3729,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         slot = self._store_dv(list_dv)
         len_val = self.new_register()
-        self.emit(f'{len_val} = call i64 @dv_list_len(ptr {slot})')
+        # 用 dv_len（dict/list/str 统一取长）+ dv_foreach_get（list 取元素 / dict 取键）
+        self.emit(f'{len_val} = call i64 @dv_len(ptr {slot})')
 
         loop_lab = self.new_label('foreach_loop')
         body_lab = self.new_label('foreach_body')
@@ -3645,7 +3747,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'br i1 {cmp}, label %{body_lab}, label %{end_lab}')
 
         self.emit(f'{body_lab}:')
-        elem = self._call_dv_func('dv_list_get', list_dv, f'i64 {i}')
+        elem = self._call_dv_func('dv_foreach_get', list_dv, f'i64 {i}')
         self.set_var(var_name, elem)
         for s in stmt.body:
             self._gen_statement(s)
@@ -3970,7 +4072,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             num_args_sext = self.new_register()
             self.emit(f'{num_args_sext} = sext i32 %num_args to i64')
 
-        for i, (pname, _) in enumerate(params):
+        for i, (pname, default_val) in enumerate(params):
             param_slot = self._local_vars.get(pname)
             if param_slot is not None:
                 in_bounds = self.new_register()
@@ -3987,11 +4089,16 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'store {LIGHTVALUE_STRUCT} {param_val}, ptr {param_slot}')
                 self.emit(f'br label %{end_lab}')
                 self.emit(f'{else_lab}:')
-                null_slot = self._new_dv_slot()
-                self.emit(f'call void @dv_null(ptr {null_slot})')
-                null_val = self.new_register()
-                self.emit(f'{null_val} = load {LIGHTVALUE_STRUCT}, ptr {null_slot}')
-                self.emit(f'store {LIGHTVALUE_STRUCT} {null_val}, ptr {param_slot}')
+                # 缺参：应用默认值（stdlib 的 缩进 = 0 / 美化 = 假 等），无默认值才用 null
+                if default_val is not None:
+                    default_dv, _ = self._gen_expression(default_val)
+                    self.emit(f'store {LIGHTVALUE_STRUCT} {default_dv}, ptr {param_slot}')
+                else:
+                    null_slot = self._new_dv_slot()
+                    self.emit(f'call void @dv_null(ptr {null_slot})')
+                    null_val = self.new_register()
+                    self.emit(f'{null_val} = load {LIGHTVALUE_STRUCT}, ptr {null_slot}')
+                    self.emit(f'store {LIGHTVALUE_STRUCT} {null_val}, ptr {param_slot}')
                 self.emit(f'br label %{end_lab}')
                 self.emit(f'{end_lab}:')
 

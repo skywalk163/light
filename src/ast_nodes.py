@@ -120,6 +120,7 @@ AST_TYPE_ID_FFI_FUNC_PTR_DEF = 98
 AST_TYPE_ID_FFI_DEBUG_CONFIG = 99
 AST_TYPE_ID_FFI_PREPROCESSOR_DEF = 100
 AST_TYPE_ID_MODULE = 101
+AST_TYPE_ID_KEYWORD_ARG = 102
 
 
 @dataclass(slots=True)
@@ -490,6 +491,14 @@ class ThrowStatement(ASTNode):
 class PrintStatement(ASTNode):
     _ast_type_id: int = field(default=AST_TYPE_ID_PRINT_STATEMENT, init=False, repr=False)
     """打印/输出语句"""
+    value: ASTNode = None
+
+
+@dataclass(slots=True)
+class KeywordArg(ASTNode):
+    _ast_type_id: int = field(default=AST_TYPE_ID_KEYWORD_ARG, init=False, repr=False)
+    """关键字参数：f(名=值)。原生腿按目标函数参数名映射到位置。"""
+    name: str = ""
     value: ASTNode = None
 
 
