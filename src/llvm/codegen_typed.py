@@ -69,6 +69,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._interfaces = {}  # 接口定义收集：interface_name -> InterfaceDefinition
         self._method_result_ptr = None  # 当前方法的 result 指针（None 表示不在方法中）
         self._seg_result_ptr = None  # 当前段落函数的 result 指针（None 表示不在段落函数中）
+        # T7B / T5C-02·04：段落参数写回表 [(arg_index, param_slot)]，仅普通段落设置
+        self._seg_param_writeback = []
         self._current_class = None  # 当前方法所属的类名（None 表示不在方法中）
         self._current_method_type = None  # 当前方法类型：'instance' / 'class' / 'static'
         self._var_types = {}  # 变量类型追踪：var_name -> type_str (INT/FLOAT/BOOL/STRING/LIST/None)
@@ -454,9 +456,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             # 字典操作
             f'declare void @dv_dict_new(ptr)',
             f'declare void @dv_dict_set(ptr, ptr, ptr, ptr)',
+            # T7B / T5C-05 变参收集
+            f'declare void @dv_collect_varargs(ptr, ptr, i64, i64)',
+            f'declare void @dv_collect_kwargs(ptr, ptr, i64, i64)',
+            # T7B / T5C-03 索引赋值（按运行时类型分派 list/dict）
+            f'declare void @dv_index_set(ptr, ptr, ptr, ptr)',
             f'declare void @dv_dict_get(ptr, ptr, ptr)',
             f'declare void @dv_dict_has(ptr, ptr, ptr)',
             f'declare void @dv_dict_keys(ptr, ptr)',
+            f'declare void @dv_dict_remove(ptr, ptr, ptr)',
             f'declare void @dv_dict_values(ptr, ptr)',
             # 文件系统扩展
             f'declare i32 @dv_mkdir(ptr)',
@@ -1258,6 +1266,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             final = self.new_register()
             self.emit(f'{final} = icmp ne i32 {eq}, 0')
             return self._create_bool_dv(final), 'dv'
+        # T6A-01（T7B）：一元负号此前被整段忽略——只处理了「非」，其余一元
+        # 操作符直接返回操作数本身，于是负数字面量 `-1` 求值成 `1`
+        # （模板.light 的 _找子 用 -1 当哨兵 → 判断永假 → 渲染死循环）。
+        # 补 0 - operand（走既有 dv_sub，与二元减法同口径）。
+        if expr.operator == '-':
+            zero_dv = self._create_int_dv('0')
+            zero_slot = self._store_dv(zero_dv)
+            reg_slot = self._store_dv(reg)
+            out_slot = self._new_dv_slot()
+            self.emit(f'call void @dv_sub(ptr {out_slot}, ptr {zero_slot}, ptr {reg_slot})')
+            return self._load_dv(out_slot), 'dv'
         return reg, 'dv'
 
     def _merge_kwargs(self, func_name, args, kw_values):
@@ -1300,13 +1319,18 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 参数名映射到位置（stdlib 里 打开文件(..., encoding=)、sort(reverse=) 用）。
         args = []
         kw_values = {}
+        plain_arg_asts = []
         for arg in expr.arguments:
             if isinstance(arg, ast.KeywordArg):
                 kw_values[arg.name] = self._gen_expression(arg.value)[0]
             else:
                 args.append(self._gen_expression(arg)[0])
+                plain_arg_asts.append(arg)
+        arg_asts = plain_arg_asts
         if kw_values:
             args = self._merge_kwargs(func_name, args, kw_values)
+            # 位置参数已被重排，无法与实参 AST 一一对齐 → 放弃写回（保守）
+            arg_asts = None
 
         # 方法内部：己.方法名(...) 被 parser 拍平成 SegmentName('self.方法名')。
         # 不拦下来会一路落到「未定义的段落：self.xxx」。这里对己对象做一次
@@ -1328,7 +1352,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 覆盖内置。stdlib JSON核心 定义 `段落 连接`，若先查 builtin 会被
         # builtin `连接`(dv_concat 字符串拼接) 劫持，`连接(部分, ", ")` 错乱）。
         if func_name in self._segments:
-            return self._gen_typed_segment_call(func_name, args)
+            return self._gen_typed_segment_call(func_name, args, arg_asts)
 
         # 内置函数
         builtin = self._gen_typed_builtin(func_name, args)
@@ -1346,7 +1370,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         # Level 9: 导入的外部段函数
         if func_name in self._imports:
-            return self._gen_imported_segment_call(func_name, args)
+            return self._gen_imported_segment_call(func_name, args, arg_asts)
 
         # A9-S2：AstAdapter 把 v3 SliceExpr（`表[1:2]`）转成对 `slice` 的调用。
         # 切片作为索引操作已在 _gen_typed_index_access 中拦截实现。
@@ -1371,7 +1395,33 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         self._reject_unknown_call(func_name, expr)
 
-    def _gen_imported_segment_call(self, name: str, args: List[str]) -> Tuple[str, str]:
+    def _emit_args_writeback(self, args_arr: str, arg_asts, num_args: int) -> None:
+        """T7B / T5C-02·04 调用侧：段调用返回后，把 %args[i] 的值写回实参变量槽。
+
+        被调方在出口把形参壳写回了 %args[i]（见 _emit_param_writeback）；这里再
+        把它搬回调用方变量，写回链才闭合。必须在 llvm.stackrestore 之前执行——
+        args_arr 是栈上 alloca，restore 之后就失效了。
+
+        只对「实参是局部变量标识符」的位置写回：其余（字面量、索引、属性、
+        临时槽）本就没有可写回的归属，Python 里也不可能观察到变化。
+        """
+        if not arg_asts:
+            return
+        for i, a in enumerate(arg_asts):
+            if i >= num_args:
+                break
+            if not isinstance(a, ast.Identifier):
+                continue
+            slot = self._local_vars.get(a.name)
+            if slot is None:
+                continue
+            elem_ptr = self.new_register()
+            self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {args_arr}, i64 {i}')
+            val = self.new_register()
+            self.emit(f'{val} = load {LIGHTVALUE_STRUCT}, ptr {elem_ptr}')
+            self.emit(f'store {LIGHTVALUE_STRUCT} {val}, ptr {slot}')
+
+    def _gen_imported_segment_call(self, name: str, args: List[str], arg_asts=None) -> Tuple[str, str]:
         """调用从其他模块导入的段函数"""
         module_name, orig_name = self._imports[name]
         safe = self._safe_func_name(f'{module_name}_{orig_name}')
@@ -1393,6 +1443,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {args_arr}, i64 {i}')
                 self.emit(f'store {LIGHTVALUE_STRUCT} {arg_dv}, ptr {elem_ptr}')
             self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr}, i32 {num_args})')
+            # T7B / T5C-02·04：写回（跨模块调用同样适用，必须在 stackrestore 前）
+            self._emit_args_writeback(args_arr, arg_asts, num_args)
             self.emit(f'call void @llvm.stackrestore(ptr {stack_save})')
         result = self.new_register()
         self.emit(f'{result} = load {LIGHTVALUE_STRUCT}, ptr {result_slot}')
@@ -2222,6 +2274,16 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if len(args) >= 2:
                 return self._call_dv_func('dv_dict_has', args[0], args[1]), 'dv'
             return self._create_bool_dv('false'), 'dv'
+
+        # T7B：注册 字典删除（runtime dv_dict_remove 早已存在但未注册；供缓存家族
+        # 字典化时删除键用，行为对齐 Python dict.pop(key) 的静默缺失语义）。
+        if name in ('字典删除', '字典移除'):
+            if len(args) >= 2:
+                slot0 = self._store_dv(args[0])
+                slot1 = self._store_dv(args[1])
+                self.emit(f'call void @dv_dict_remove(ptr {slot0}, ptr {slot0}, ptr {slot1})')
+                return self._load_dv(slot0), 'dv'
+            return self._create_int_dv('0'), 'dv'
 
         if name in ('字典键列表', '字典键'):
             if args:
@@ -3324,7 +3386,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return 'static'
         return 'instance'
 
-    def _gen_typed_segment_call(self, name: str, args: List[str]) -> Tuple[str, str]:
+    def _gen_typed_segment_call(self, name: str, args: List[str], arg_asts=None) -> Tuple[str, str]:
         safe = self._safe_func_name(name)
         result_slot = self._new_dv_slot()
         # R10-11a 打回 A2：段函数返回路径会 dv_obj_release_slot(result_ptr) 释放旧值。
@@ -3345,6 +3407,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {args_arr}, i64 {i}')
                 self.emit(f'store {LIGHTVALUE_STRUCT} {arg_dv}, ptr {elem_ptr}')
             self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr}, i32 {num_args})')
+            # T7B / T5C-02·04：写回（必须在 stackrestore 前）
+            self._emit_args_writeback(args_arr, arg_asts, num_args)
             self.emit(f'call void @llvm.stackrestore(ptr {stack_save})')
         result = self.new_register()
         self.emit(f'{result} = load {LIGHTVALUE_STRUCT}, ptr {result_slot}')
@@ -4130,15 +4194,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                     else:
                         self._set_var_type(name, None)
         elif isinstance(stmt.target, ast.IndexAccess):
-            # 结果[键] 为 值：dict 键值设置（stdlib JSON 解析写回用）。
-            # 原地 dv_dict_set 后把更新后的 dict 写回目标变量（realloc 可能换缓冲）。
+            # 容器[键/下标] 为 值：按运行时类型分派（T7B / T5C-03）。
+            # 原来无条件 dv_dict_set —— 对列表会把它整体改写成 dict（元素全丢）。
+            # 改用 dv_index_set 运行时分派（list → dv_list_set / dict → dv_dict_set）；
+            # 原地写后把更新后的容器写回目标变量（realloc 可能换缓冲）。
             obj_dv, _ = self._gen_expression(stmt.target.obj)
             idx_dv, _ = self._gen_expression(stmt.target.index)
             val_dv, _ = self._gen_expression(stmt.value)
             slot0 = self._store_dv(obj_dv)
             slot1 = self._store_dv(idx_dv)
             slot2 = self._store_dv(val_dv)
-            self.emit(f'call void @dv_dict_set(ptr {slot0}, ptr {slot0}, ptr {slot1}, ptr {slot2})')
+            self.emit(f'call void @dv_index_set(ptr {slot0}, ptr {slot0}, ptr {slot1}, ptr {slot2})')
             result = self._load_dv(slot0)
             if isinstance(stmt.target.obj, ast.Identifier):
                 self.set_var(stmt.target.obj.name, result)
@@ -4361,6 +4427,111 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._loop_break_labels.pop()
         self._loop_continue_labels.pop()
 
+    # ============================================================
+    # T7B / T5C-02·T5C-04：段落参数写回（REF 调用约定）
+    # ============================================================
+    # 背景：段落实参经 `%args` 数组按值浅拷贝进形参槽（`load %struct, store`），
+    # 于是在被调方对列表/字典形参的原地修改（追加导致 realloc、字典新增键导致
+    # realloc）只改到形参壳，调用方原变量仍持有旧的 list_data 指针 —— 这正是
+    # 「追加 对函数参数无效」「字典新增键经参数写回丢失」的根因。
+    #
+    # 修复：调用约定补上「写回」这一半 ——
+    #   被调侧：段落出口把形参槽的值写回 %args[i]；
+    #   调用侧：调用返回后把 %args[i] 的值写回实参变量槽。
+    # 与 Python 保持一致的一点：形参若在体内被**重新绑定**（`设 形参 为 ...`、
+    # 复合赋值、作为遍历变量），则不写回——Python 里重新绑定不影响实参。
+
+    def _collect_rebound_names(self, stmts):
+        """收集函数体内被重新绑定的名字集合（用于排除参数写回）。
+
+        T7B 实测修复：此前只查 target/variable 两个字段，漏了主力赋值形态
+        VariableDeclaration（`设 x 为 ...` 的重绑目标在 str 字段 name，不是
+        Identifier）——导致 rebind 恒为空集、全部形参被登记出口写回，深度递归
+        （re.light 回溯 VM 的 跑）的中途回溯态被写回污染调用方。现补齐：
+          - VariableDeclaration.name（str）与 destructure_names（列表[str]）
+          - Assignment/CompoundAssignment.target（Identifier）
+          - ForeachStatement/WithStatement.variable（Identifier）
+        """
+        names = set()
+
+        def visit(node):
+            if node is None:
+                return
+            if isinstance(node, (list, tuple)):
+                for n in node:
+                    visit(n)
+                return
+            if isinstance(node, (ast.SegmentDefinition, ast.ClassDefinition)):
+                return  # 嵌套段落/类各自成函数，其内重绑与当前函数形参无关
+            if isinstance(node, ast.VariableDeclaration):
+                if isinstance(node.name, str):
+                    names.add(node.name)
+                for dn in (node.destructure_names or []):
+                    if isinstance(dn, str):
+                        names.add(dn)
+                for child in self._iter_ast_children(node):
+                    visit(child)
+                return
+            tgt = getattr(node, 'target', None)
+            if isinstance(tgt, ast.Identifier):
+                names.add(tgt.name)
+            var = getattr(node, 'variable', None)
+            if isinstance(var, ast.Identifier):
+                names.add(var.name)
+            # 捕获变量（尝试/捕获 的 捕获变量）
+            exc = getattr(node, 'exception_var', None)
+            if isinstance(exc, ast.Identifier):
+                names.add(exc.name)
+            for child in self._iter_ast_children(node):
+                visit(child)
+
+        visit(stmts)
+        return names
+
+    @staticmethod
+    def _split_param_name(pname):
+        """拆分 parser 留在参数名里的 `*名字` / `**名字` 变参标记。
+
+        parser（src/parser_stmt.py）把 `接收 *列表们` 产成
+        Parameter(name='*列表们')，星号是名字的一部分。codegen 若照单全收，
+        局部变量键就成了 '*列表们'，函数体里引用 `列表们` 时 get_var 落空 →
+        一路掉进「未知标识符当字符串常量」兜底，于是变参被绑成字符串 "列表们"
+        （T5C-05）。返回 (去星号名, 是否 *args, 是否 **kwargs)。
+        """
+        if isinstance(pname, str) and pname.startswith('**'):
+            return pname[2:], False, True
+        if isinstance(pname, str) and pname.startswith('*'):
+            return pname[1:], True, False
+        return pname, False, False
+
+    def _emit_param_writeback(self) -> None:
+        """段落返回出口：把「未被重新绑定」的形参槽写回 %args[i]。
+
+        缺参保护是必需的：stdlib 大量用默认参调用（如 `X(a)` 调 `X(a, b=0)`），
+        此时 args_arr 只有 num_args 个元素，对 i >= num_args 的形参位置做
+        getelementptr + store 就是越界写 —— 实测直接 0xC0000005 段错误。
+        """
+        wb = getattr(self, '_seg_param_writeback', None)
+        if not wb:
+            return
+        na = getattr(self, '_seg_num_args_reg', None)
+        if na is None:
+            return
+        for i, slot in wb:
+            cond = self.new_register()
+            self.emit(f'{cond} = icmp slt i64 {i}, {na}')
+            t_lab = self.new_label(f'wb_then{i}')
+            e_lab = self.new_label(f'wb_end{i}')
+            self.emit(f'br i1 {cond}, label %{t_lab}, label %{e_lab}')
+            self.emit(f'{t_lab}:')
+            elem_ptr = self.new_register()
+            self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr %args, i64 {i}')
+            val = self.new_register()
+            self.emit(f'{val} = load {LIGHTVALUE_STRUCT}, ptr {slot}')
+            self.emit(f'store {LIGHTVALUE_STRUCT} {val}, ptr {elem_ptr}')
+            self.emit(f'br label %{e_lab}')
+            self.emit(f'{e_lab}:')
+
     def _emit_self_writeback(self) -> None:
         """非静态方法的出口前，把局部 己 槽位（其对象缓冲可能已被 dv_class_set_member
         free+realloc）写回 %self，使调用方的对象槽位看到最新缓冲，避免悬空指针 / UAF。
@@ -4439,6 +4610,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self._emit_self_writeback()
             self.emit(f'call void @dv_obj_release_slot(ptr {result_ptr})')
             self.emit(f'call void @dv_null(ptr {result_ptr})')
+        # T7B / T5C-02·04：显式返回出口也要把形参写回 %args
+        self._emit_param_writeback()
         self.emit('call void @dv_stack_pop()')
         self.emit('ret void')
 
@@ -4647,8 +4820,18 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'call void @dv_stack_push(ptr {func_name_ptr}, ptr {file_name_ptr}, i32 0)')
 
         self._collect_vars_from_stmts(body)
-        for param_name, _ in params:
-            self._local_vars[param_name] = None
+        # T7B / T5C-05：剥掉变参的 `*`/`**` 前缀后再登记局部变量
+        cleaned_params = []
+        vararg_kind = {}  # 形参下标 -> 'args' | 'kwargs'
+        for idx, (pname, default_val) in enumerate(params):
+            clean, is_va, is_kw = self._split_param_name(pname)
+            cleaned_params.append((clean, default_val))
+            if is_kw:
+                vararg_kind[idx] = 'kwargs'
+            elif is_va:
+                vararg_kind[idx] = 'args'
+        for clean, _ in cleaned_params:
+            self._local_vars[clean] = None
 
         for vname in self._local_vars.keys():
             reg = self.new_register()
@@ -4658,10 +4841,18 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if params:
             num_args_sext = self.new_register()
             self.emit(f'{num_args_sext} = sext i32 %num_args to i64')
+            # T7B：供 _emit_param_writeback 做越界判断
+            self._seg_num_args_reg = num_args_sext
 
-        for i, (pname, default_val) in enumerate(params):
+        for i, (pname, default_val) in enumerate(cleaned_params):
             param_slot = self._local_vars.get(pname)
             if param_slot is not None:
+                # T7B / T5C-05：变参——把第 i 个起的全部剩余实参打包成列表/字典
+                if i in vararg_kind:
+                    fn = ('dv_collect_kwargs' if vararg_kind[i] == 'kwargs'
+                          else 'dv_collect_varargs')
+                    self.emit(f'call void @{fn}(ptr {param_slot}, ptr %args, i64 {num_args_sext}, i64 {i})')
+                    continue
                 in_bounds = self.new_register()
                 self.emit(f'{in_bounds} = icmp slt i64 {i}, {num_args_sext}')
                 then_lab = self.new_label('param_valid')
@@ -4689,10 +4880,23 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'br label %{end_lab}')
                 self.emit(f'{end_lab}:')
 
+        # T7B / T5C-02·04：登记出口写回的形参。
+        # 排除：①变参（是新建容器，与实参无共享关系）；②体内被重新绑定的形参
+        # （Python 语义：重新绑定不影响实参，写回反而会污染调用方变量）。
+        rebound = self._collect_rebound_names(body)
+        self._seg_param_writeback = []
+        for i, (pname, _) in enumerate(cleaned_params):
+            if i in vararg_kind or pname in rebound:
+                continue
+            slot = self._local_vars.get(pname)
+            if slot is not None:
+                self._seg_param_writeback.append((i, slot))
+
         for stmt in body:
             self._gen_statement(stmt)
 
         if not self._ends_with_terminator(body):
+            self._emit_param_writeback()
             self.emit(f'call void @dv_null(ptr %result)')
             self.emit('call void @dv_stack_pop()')
             self.emit('ret void')
@@ -4700,6 +4904,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._emit_temp_slot_pool()
         self.emit('}')
         self.emit_blank()
+        self._seg_param_writeback = []
+        self._seg_num_args_reg = None
         self._seg_result_ptr = None
         # 结束函数调试作用域
         self._end_debug_function()
