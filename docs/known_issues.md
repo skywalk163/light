@@ -2211,3 +2211,56 @@ R11 批 4 个缺陷（R11A-01、R11A-07、R11B-1、R11B-2）的 codegen 根因�
   `test_原生腿_R11C_数据高级.py` 43 例全绿（workaround 移除后零回归）。
 - 能力清单：`test_native_leg_capability.py` 11 passed（清单重建后）。
 - 全部编译/运行/测试于 POSIX 实机 192.168.0.86（clang 18.1.3）完成。
+
+## R13A：runtime 残余缺陷修复（2026-09-07）
+
+### 概述
+
+R12 批标注归 T7 的 3 个 runtime 残余缺陷根因修复。修复前 5 个最小复现全红
+→ 修复后 5/5 绿 → R12A/R12C 定向回归 + 能力清单 32 passed 全绿。
+工作分支基于 R12C 并合入 R12A（合并冲突仅文档，codegen_typed.py 自动合并）。
+
+### 修复内容（src/llvm/runtime_typed.c，TLS 段未触碰）
+
+1. **嵌套容器序列化（R12C-L2243）**：`dv_to_string` 重构为
+   `dv_to_string_depth`（深度上限 16 防自引用）——type 4（列表）/
+   type 7（字典）走 `dv_container_to_string` 递归序列化：`[e1, e2]` /
+   `{'k': v}` 形态（键值冒号分隔、字符串元素加单引号对齐 Python
+   str/repr）。R12C 的 codegen 顶层 join 路径因此自动获得正确嵌套形态
+   （`转文本(列表(列表(1,2), 列表(3,4)))` → `[[1, 2], [3, 4]]`）。
+2. **`反转` 字符串多态（R12C-L2239 复盘）**：链式调用异常的**真因复勘**
+   ——并非对象缓冲 UAF，而是 builtin `反转` 只接 `dv_list_reverse`，
+   字符串接收者返回空列表（当时亦叠加了 WS 串转义损坏的误导观测）。
+   修复：`dv_list_reverse` 对 type 3 输入多态转发 `dv_str_reverse`。
+   C 探针证明 reverse/rstrip 本体无缓冲缺陷；「反转+右去除」四重链式
+   实测通过。
+3. **`dv_to_int` bool→int（R12A-L2001）**：新增 type 5 分支——真值取
+   `boolean` 字段映射 1/0（i64 字段对 bool dv 恒 0，不可读取），对齐
+   Python int(True)=1。类型未知操作数路径（`整数(是数字字符("7"))`）
+   实测 1/0。
+
+### 反跑判据验证
+
+- 修复前 `test_runtime_residual_O0.py` **5/5 红**（嵌套→`[[], []]`、
+  字典→`dict`、bool→0、链式→`[]`）→ 修复后 **5/5 绿**。
+- 反向验证：C 层探针（probe_runtime.c 直链 runtime）在修复前重现全部
+  三个缺陷（toIntT i64=0、ser="[]"），修复后正确——缺陷确在 runtime 层。
+
+### 测试结果（双平台）
+
+| 测试 | 用例数 | 结果 |
+|------|--------|------|
+| test_runtime_residual_O0.py（R13A 定向） | 5 | ✅ 5 passed |
+| test_codegen_method_syntax_O0.py（R12C 回归） | 8 | ✅ 8 passed |
+| test_codegen_unary_bool_O0.py（R12A 回归） | 8 | ✅ 8 passed |
+| test_native_leg_capability.py（清单重建后） | 11 | ✅ 11 passed |
+| **合计（POSIX ub86，clang 18.1.3）** | **32** | **32 passed** |
+| Windows 本机 clang -fsyntax-only runtime_typed.c | — | ✅ rc=0 |
+
+### 仍存在的缺口
+
+- 容器内字符串元素引号不做转义（`["a'b"]` 序列化与 Python repr 的
+  细节差异）；自引用容器超深度打印 `[...]` 截断形态。
+- 对象缓冲机制（dv_stack_push/dv_obj_release_slot）在链式调用下的
+  生命周期审计未做（本轮复勘证明 reverse 链无此问题，其它 builtin
+  组合未逐一验证）。

@@ -436,20 +436,88 @@ int dv_to_bool(LightValue* v) {
     }
 }
 
-char* dv_to_string(LightValue* v) {
+/* R13A（R12C-L2243）：容器序列化深度上限——防自引用列表无限递归 */
+#define DV_TO_STR_MAX_DEPTH 16
+
+/* 容器元素的可读形式：字符串元素加单引号（对齐 Python str(list) 的 repr
+ * 风格，内部引号不转义——能力边界），其余递归 dv_to_string_depth。 */
+char* dv_to_string_depth(LightValue* v, int depth);
+
+static char* dv_elem_to_string(LightValue* e, int depth) {
+    e = dv_deref(e);
+    if (e && e->type == 3) {
+        size_t n = e->str ? strlen(e->str) : 0;
+        char* out = (char*)malloc(n + 3);
+        if (!out) return dv_strdup("''");
+        out[0] = '\'';
+        if (n) memcpy(out + 1, e->str, n);
+        out[n + 1] = '\'';
+        out[n + 2] = ' ';
+        return out;
+    }
+    return dv_to_string_depth(e, depth + 1);
+}
+
+/* 拼接 "[" / "{" + 逗号分隔 + "]" / "}"；list_data 为元素序列（dict 为
+ * k1,v1,k2,v2 交错），brace 决定括号形态。 */
+static char* dv_container_to_string(LightValue* v, char open, char close, int depth) {
+    if (depth > DV_TO_STR_MAX_DEPTH) {
+        char* out = (char*)malloc(5);
+        if (out) { out[0] = open; out[1] = '.'; out[2] = '.'; out[3] = '.'; out[4] = close; out[5] = ' '; }
+        return out ? out : dv_strdup("");
+    }
+    int count = (v->type == 7) ? v->list_size * 2 : v->list_size;
+    if (count <= 0 || !v->list_data) {
+        char* out = (char*)malloc(3);
+        if (out) { out[0] = open; out[1] = close; out[2] = ' '; }
+        return out ? out : dv_strdup("");
+    }
+    char** parts = (char**)malloc(sizeof(char*) * count);
+    if (!parts) return dv_strdup("");
+    size_t total = 0;
+    for (int i = 0; i < count; i++) {
+        parts[i] = dv_elem_to_string(v->list_data[i], depth);
+        if (!parts[i]) parts[i] = dv_strdup("");
+        total += strlen(parts[i]) + 2;  /* 元素 + 分隔符余量 */
+    }
+    char* out = (char*)malloc(total + 4);
+    if (!out) { for (int i = 0; i < count; i++) free(parts[i]); free(parts); return dv_strdup(""); }
+    size_t pos = 0;
+    out[pos++] = open;
+    for (int i = 0; i < count; i++) {
+        size_t el = strlen(parts[i]);
+        memcpy(out + pos, parts[i], el);
+        pos += el;
+        if (i < count - 1) {
+            if (v->type == 7 && (i % 2) == 0) { out[pos++] = ':'; out[pos++] = ' '; }
+            else { out[pos++] = ','; out[pos++] = ' '; }
+        }
+    }
+    out[pos++] = close;
+    out[pos] = ' ';
+    for (int i = 0; i < count; i++) free(parts[i]);
+    free(parts);
+    return out;
+}
+
+char* dv_to_string_depth(LightValue* v, int depth) {
     v = dv_deref(v);
     /* 转换为可读字符串形式 */
     char buf[128];
     switch (v->type) {
         case 0: return dv_strdup("空");
         case 1: snprintf(buf, sizeof(buf), "%lld", (long long)v->i64); return dv_strdup(buf);
-        case 2: snprintf(buf, sizeof(buf), "%g", v->f64); return dv_strdup(buf);
+        case 2: snprintf(buf, sizeof(buf), "%g", (double)v->f64); return dv_strdup(buf);
         case 3: return dv_strdup(v->str ? v->str : "");
         case 5: return dv_strdup(v->boolean ? "真" : "假");
-        case 4: return dv_strdup(v->str ? v->str : "[]");
-        case 7: return dv_strdup("dict");  /* DICT 简化表示 */
+        case 4: return dv_container_to_string(v, '[', ']', depth);   /* R13A：递归序列化 */
+        case 7: return dv_container_to_string(v, '{', '}', depth);   /* R13A：对齐 Python str(dict) */
         default: return dv_strdup("");
     }
+}
+
+char* dv_to_string(LightValue* v) {
+    return dv_to_string_depth(v, 0);
 }
 
 /* ================================================================
@@ -1759,6 +1827,14 @@ int64_t dv_list_contains(LightValue* list, LightValue* elem) {
 }
 
 void dv_list_reverse(LightValue* result, LightValue* list) {
+    list = dv_deref(list);
+    /* R13A（R12C-L2239）：字符串接收者多态兜底——builtin 反转 此前只接
+     * dv_list_reverse，字符串链式调用（".反转().右去除()"）返回空列表
+     * （被误判为「对象缓冲异常」，实为分派缺失）。字符串 → dv_str_reverse。 */
+    if (list->type == 3) {
+        dv_str_reverse(result, list);
+        return;
+    }
     if (list->type != 4) {
         dv_list_new(result);
         return;
@@ -3651,6 +3727,16 @@ void dv_clear_exception_obj(void) {
 void dv_to_int(LightValue* result, LightValue* v) {
     if (v->type == 1) {
         dv_clone(result, v);
+        return;
+    }
+    if (v->type == 5) {
+        /* R13A（R12A-L2001）：bool→int 运行时映射，对齐 Python int(True)=1。
+         * bool dv 的真值在 boolean 字段（i64 字段恒 0，不可读取）。 */
+        result->type = 1;
+        result->i64 = v->boolean ? 1 : 0;
+        result->f64 = 0.0;
+        result->str = NULL;
+        result->boolean = 0;
         return;
     }
     if (v->type == 2) {
