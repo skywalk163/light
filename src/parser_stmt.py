@@ -3312,6 +3312,15 @@ class ParserStmtMixin:
         界定边界，放宽成完整表达式会把后面的 `返回 类型` 或体冒号一起吃掉。
         """
         tok = self._current()
+        # R12C（R11A-06）：支持负数字面量默认值（`接收 甲 = -1`）。原实现只收
+        # 单 token，'-' 符号不在允许列表 → 默认值不挂、'-1' 残留参数流报
+        # 「意外的标记」。仅在 '-' 后紧跟数字时消耗负号，避免误吞其它语法。
+        neg = False
+        if (tok and tok.type == TokenType.MINUS and self._peek(1)
+                and self._peek(1).type in (TokenType.NUMBER, TokenType.CHINESE_NUM)):
+            self._consume()
+            neg = True
+            tok = self._current()
         if not tok or tok.type not in (TokenType.NUMBER, TokenType.CHINESE_NUM,
                                        TokenType.STRING, TokenType.IDENTIFIER,
                                        TokenType.KEYWORD):
@@ -3319,10 +3328,11 @@ class ParserStmtMixin:
         val = self._consume().value
         if tok.type == TokenType.NUMBER:
             val_str = str(val)
-            default_value = NumberLiteral(float(val_str) if '.' in val_str else int(val_str))
+            num = float(val_str) if '.' in val_str else int(val_str)
+            default_value = NumberLiteral(-num if neg else num)
         elif tok.type == TokenType.CHINESE_NUM:
             # 词法层已把中文数字转成 int（lexer.py:1584/1947）
-            default_value = NumberLiteral(val)
+            default_value = NumberLiteral(-val if neg else val)
         elif tok.type == TokenType.STRING:
             default_value = StringLiteral(val)
         elif val == '真':

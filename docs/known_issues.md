@@ -2212,3 +2212,59 @@ append 不互通）属 runtime 字典值所有权/引用计数架构，归 T7 �
 4. R11C-2 runtime 字典值所有权重构 → T7 长期缺口
 5. `dv_list_set_inplace` 容器类旧元素（4/6/7/8/23）不释放（浅拷贝/写时复制混合
    模型下释放会打掉别名数组 UAF），保守泄漏——已注释声明，归所有权重构一并解决
+
+## R12C：方法分派/语法解析/控制流族根因修复（2026-09-07）
+
+### 概述
+
+R11 批 7 个缺陷（R11A-05/06/08/09、R11B-3、R11C-1/3）的 codegen 根因修复，
+并移除对应 stdlib workaround。修复前 8 个最小复现中 7 红（R11C-3 实测已好）
+→ 修复后 8/8 绿 → R11A/B/C 回归 43 例 + 能力清单 11 例全绿（62 passed）。
+
+### 修复内容
+
+1. **跨模块导入即再导出（R11A-05）**：`_process_imports` 按模块记录导入映射
+   （`_module_imports[模块][名] = (源模块, 源名)`）；新增
+   `_resolve_import_chain` 沿「导入→再导出」链解析最终定义模块；
+   两处导入调用点检查放宽；`_gen_imported_segment_call` 跟随链后直接调
+   定义端 safe name（无需转发 alias）。
+2. **默认参数负数字面量（R11A-06）**：parser_stmt `_attach_param_default`
+   在 '-' 后紧跟 NUMBER/CHINESE_NUM 时消耗负号并构造负 NumberLiteral。
+3. **字符串内置方法（R11A-08）**：
+   - `去除空白` 注册为 dv_trim 别名；
+   - `lstrip`/`每个单词首字母大写`/无参 `分割` → 按需一次性发射 IR 辅助
+     函数 `_r12c_lstrip`/`_r12c_title`/`_r12c_split_ws`（单遍状态机 +
+     alloca 计数器，libc isspace/isalpha/toupper/tolower/strlen/malloc/free，
+     llvm.memcpy 拷贝子串）。title 语义对齐 Python str.title()。
+   - 注：reverse+rstrip 组合链在对象缓冲机制下结果异常（归 T7），
+     故 lstrip 走 IR 辅助而非函数组合。
+4. **转文本(列表)（R11A-09）**：`转文本` builtin 运行时按 DV 类型分派——
+   type 4（列表）走 `dv_list_join` 后加 `[`/`]`；其余走 dv_value_to_string。
+   嵌套容器内层元素仍走旧路径（归 T7）。
+5. **字典 `.获取`（R11B-3）**：builtin `获取`/`get` 按接收者运行时类型分派
+   （type 7 字典 → dv_dict_get / dv_dict_get_def 含默认值；否则回落
+   字符串/列表索引路径）。
+6. **槽位池 2048 上限（R11C-1）**：`_new_dv_slot` 动态抬高水位
+   （alloca 行由 `_emit_temp_slot_pool` 按真实用量回填），3000 元素
+   字面量实测通过。
+7. **try/catch 内 continue（R11C-3）**：实测核对在当前 main 已通过
+   （R11 登记后被其它批次修复）；高级文件 恢复循环内 try/catch 自然写法。
+
+### 移除的 workaround 清单
+
+- `stdlib/高级文件.light`：`安全文件大小` 辅助段删除，目录大小递归恢复
+  循环内 try/catch（R11C-3）。
+- `stdlib/字符串工具.light` / `stdlib/中国行政区划.light`：注释更新
+  （R11A-05 / R11C-1 已修复标注；字符串工具的验证函数为完整本地实现、
+  区划分段为数据组织方式，均保留并说明理由）。
+- 「整数(真)」类 if/else 打印、`.获取` 顶层函数改写：R11 测试侧无
+  stdlib 依赖残留。
+
+### 验证证据
+
+- 反跑：`test_codegen_method_syntax_O0.py` 修复前 **7/8 红** →
+  修复后 **8/8 绿**（再导出 42、默认参 -1、去除空白族、title+分割、
+  转文本 [1, 2, 3]、字典.获取 默认值、3000 元素字面量、try 内跳过）。
+- 回归：R11A/B/C 43 例 + 能力清单 11 例 → **62 passed**。
+- 能力清单：builtin 405 / runtime 260（行号重算 + libc 豁免名单扩充）。
+- 全部编译/运行/测试于 POSIX 实机 192.168.0.86（clang 18.1.3）。

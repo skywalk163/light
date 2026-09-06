@@ -96,7 +96,7 @@ for i, line in enumerate(cg_lines):
             runtime_symbols[sym] = {'cg_line': i + 1}
 
 for sym in list(runtime_symbols.keys()):
-    if sym in ('setjmp', '_setjmp'):
+    if sym in ('setjmp', '_setjmp', 'isspace', 'isalpha', 'isspace', 'toupper', 'tolower', 'strlen', 'malloc', 'free', 'memcpy'):
         runtime_symbols[sym]['rt_line'] = 'C-library'
         continue
     pattern = re.compile(rf'^(?:[\w\s\*]+)\s+{re.escape(sym)}\s*\(')
