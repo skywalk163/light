@@ -2106,6 +2106,66 @@ void dv_dict_remove(LightValue* result, LightValue* dict, LightValue* key) {
 }
 
 /* ================================================================
+ * 索引赋值统一入口（T7B / T5C-03）
+ * ================================================================ */
+/* `设 容器[下标] 为 值` 的运行时分派：按 obj 的真实类型走列表写或字典写。
+   此前 codegen 无条件调 dv_dict_set，对列表做索引赋值会把列表壳整体
+   改写成 dict（dv_dict_new 覆盖 list_data —— 原数组泄漏、元素全丢或读出
+   空值），实测 `设 池[0] 为 池[2]` 后 池[0] 仍是原值 1。 */
+void dv_index_set(LightValue* result, LightValue* obj, LightValue* index, LightValue* value) {
+    LightValue* real = dv_deref(obj);
+    if (real->type == 7) {
+        dv_dict_set(result, real, index, value);
+        return;
+    }
+    if (real->type == 4) {
+        int64_t idx = dv_to_i64(index);
+        dv_list_set(result, real, idx, value);
+        return;
+    }
+    /* 字符串/其它：不可变，Python 抛 TypeError；此处语义保持为「原值不动」 */
+    dv_clone(result, real);
+}
+
+/* ================================================================
+ * 变参收集（T7B / T5C-05）
+ * ================================================================ */
+/* 把 args[start .. num_args-1] 收集成一个列表，绑定到 `*名字` 变参。
+   parser 把 `*列表们` 产成 Parameter(name='*列表们')，codegen 剥掉星号后
+   用本函数把「从第 start 个起的全部剩余实参」打包成列表，与 Python 的
+   *args 语义一致（此前未实现，变参名带星号导致函数体内引用落到
+   「未知标识符当字符串常量」兜底，绑成字符串 "列表们"）。 */
+void dv_collect_varargs(LightValue* result, LightValue* args, int64_t num_args, int64_t start) {
+    dv_list_new(result);
+    if (!args || start < 0) return;
+    for (int64_t i = start; i < num_args; i++) {
+        LightValue* copy = (LightValue*)malloc(sizeof(LightValue));
+        if (!copy) break;
+        dv_clone(copy, &args[i]);
+        dv_list_add_internal(result, copy);
+    }
+}
+
+/* 把 args[start .. num_args-1] 收集成字典，绑定到 `**名字`（kwargs）。
+   约定：剩余实参按「键, 值」成对出现；奇数个时最后一个值补 null。 */
+void dv_collect_kwargs(LightValue* result, LightValue* args, int64_t num_args, int64_t start) {
+    dv_dict_new(result);
+    if (!args || start < 0) return;
+    for (int64_t i = start; i < num_args; i += 2) {
+        LightValue key_copy, val_copy;
+        dv_clone(&key_copy, &args[i]);
+        if (i + 1 < num_args) {
+            dv_clone(&val_copy, &args[i + 1]);
+        } else {
+            dv_null(&val_copy);
+        }
+        dv_dict_set(result, result, &key_copy, &val_copy);
+        dv_free(&key_copy);
+        dv_free(&val_copy);
+    }
+}
+
+/* ================================================================
  * 时间函数
  * ================================================================ */
 
