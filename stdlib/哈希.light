@@ -1,16 +1,14 @@
 # 纯光明实现 —— 哈希与编码（取代同名 .py 壳）。
 #
-# MD5 / SHA1 / SHA256 走已注册 runtime builtin（_md5 / _sha1 / _sha256），
-# 输出 32/40/64 位小写十六进制，与 Python hashlib.hexdigest() 一致。
+# MD5 / SHA1 / SHA256 / SHA512 走已注册 runtime builtin（_md5 / _sha1 / _sha256 /
+# _sha512），输出 32/40/64/128 位小写十六进制，与 Python hashlib.hexdigest() 一致。
 # Base64 走 runtime；Base64URL 变体按本模块 .py 语义：编码去掉尾部 '=' 填充，
 # 解码时补全填充（与《Base64》模块保留填充的语义不同）。
 #
-# 能力边界（见 docs/known_issues.md T5B 章节）：
-#   SHA512       —— 原生腿无 dv_sha512 runtime；光明缺位移/按位运算符，
-#                  无法在 i64 上可靠模拟 64 位无符号逻辑右移，故本批返回空串。
-#   HMAC_SHA256  —— .py 语义为 pbkdf2_hmac('sha256', text, key, 1)，其消息尾部含
-#                  NUL 字节（b'\x00\x00\x00\x01'），而 runtime dv_sha256 以
-#                  strlen 取长度（非二进制安全），无法对拍；故本批返回空串。
+# HMAC_SHA256（密钥, 文本）自 T7D 起走 runtime _hmac_sha256 —— 对齐 .py 语义
+# hashlib.pbkdf2_hmac('sha256', text, key, 1)：其消息尾部含 NUL 字节
+# （b'\x00\x00\x00\x01'），runtime 以显式长度二进制安全构造 HMAC，strlen 版
+# sha256 无法对拍，故不在语言层实现。SHA512 同理（C 层 64 位字实现）。
 
 导出 MD5 SHA1 SHA256 SHA512。
 导出 HMAC_SHA256。
@@ -27,13 +25,11 @@
 段落 SHA256 接收 文本:
   返回 _sha256(文本)
 
-# 能力边界：见文件头说明，返回空串占位（非空实现）。
 段落 SHA512 接收 文本:
-  返回 ""
+  返回 _sha512(文本)
 
-# 能力边界：见文件头说明，返回空串占位（非空实现）。
 段落 HMAC_SHA256 接收 密钥, 文本:
-  返回 ""
+  返回 _hmac_sha256(密钥, 文本)
 
 # ── Base64 ──
 段落 Base64编码 接收 文本:

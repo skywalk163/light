@@ -1,16 +1,16 @@
 # 纯光明实现 —— 编码与哈希（取代同名 .py 壳）。
 #
-# Base64 / MD5 / SHA1 / SHA256 走已注册 runtime builtin（_b64_encode / _b64_decode /
-# _md5 / _sha1 / _sha256），字节口径与 Python base64 / hashlib 一致。
+# Base64 / MD5 / SHA1 / SHA256 / SHA512 走已注册 runtime builtin
+# （_b64_encode / _b64_decode / _md5 / _sha1 / _sha256 / _sha512），字节口径与
+# Python base64 / hashlib 一致。
 #
 # 注意：本模块自带一套 UTF-8 <-> 十六进制实现，而非从《Base64》导入。
 # 原因：原生后端 _safe_func_name 仅按「段名」映射 LLVM 符号，跨模块同名段落
 #       （如本模块的 Base64编码 与《Base64》模块的 Base64编码）会触发
 #       「invalid redefinition of function」IR 错误。见 docs/known_issues.md。
 #
-# 能力边界（见 docs/known_issues.md T5B 章节）：
-#   SHA512哈希 —— 原生腿无 dv_sha512 runtime，且光明缺位移/按位运算符，
-#                 无法在 i64 上可靠模拟 64 位无符号逻辑右移，故本批返回空串。
+# SHA512 自 T7D 起由 runtime dv_sha512 提供（C 层 64 位字实现，光明缺位移/
+# 按位运算符无法在 i64 上可靠模拟 64 位无符号逻辑右移，故不在语言层实现）。
 
 导出 Base64编码 Base64解码。
 导出 Hex编码 Hex解码。
@@ -118,9 +118,8 @@
 段落 SHA256哈希 接收 数据:
   返回 _sha256(数据)
 
-# 能力边界：见文件头说明，返回空串占位（非空实现）。
 段落 SHA512哈希 接收 数据:
-  返回 ""
+  返回 _sha512(数据)
 
 # ── 字节与字符串转换 ──
 # 光明无 bytes 类型，此处以「十六进制串」作为字节序列的表示：

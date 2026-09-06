@@ -418,7 +418,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare i32 @dv_delete_file(ptr)',
             f'declare void @dv_list_dir(ptr, ptr)',
             f'declare void @dv_foreach_get(ptr, ptr, i64)',
-            f'declare ptr @dv_str_join(ptr, ptr)',
+            # T7D：原生 LightValue 列表 join（取代 legacy dv_str_join：其按旧解释器
+            # "list:..." 序列化串解析，codegen 传原生列表指针恒返空，见 T6A-04）
+            f'declare void @dv_list_join(ptr, ptr, ptr)',
             f'declare ptr @dv_getenv(ptr)',
             f'declare i32 @dv_setenv(ptr, ptr)',
             f'declare ptr @dv_getcwd()',
@@ -481,6 +483,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             # T7B / T5C-03 索引赋值（按运行时类型分派 list/dict）
             f'declare void @dv_index_set(ptr, ptr, ptr, ptr)',
             f'declare void @dv_dict_get(ptr, ptr, ptr)',
+            # T7D：3 参 字典获取（带默认值，键缺失返回默认）
+            f'declare void @dv_dict_get_def(ptr, ptr, ptr, ptr)',
             f'declare void @dv_dict_has(ptr, ptr, ptr)',
             f'declare void @dv_dict_keys(ptr, ptr)',
             f'declare void @dv_dict_remove(ptr, ptr, ptr)',
@@ -497,6 +501,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare ptr @dv_md5(ptr, i32)',
             f'declare ptr @dv_sha1(ptr, i32)',
             f'declare ptr @dv_sha256(ptr, i32)',
+            # T7D：SHA512（C 层 64 位字实现，光明缺位移/按位运算符无法可靠模拟）
+            f'declare ptr @dv_sha512(ptr, i32)',
+            # T7D：HMAC_SHA256（对齐 哈希.py 的 pbkdf2_hmac('sha256', text, key, 1)）
+            f'declare ptr @dv_pbkdf2_hmac_sha256_1(ptr, ptr)',
             f'declare ptr @dv_base64_encode(ptr, i32)',
             f'declare ptr @dv_base64_decode(ptr, ptr)',
             # 协程/异步
@@ -2141,6 +2149,37 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._create_str_dv(out), 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
 
+        # T7D：SHA512 —— runtime C 层实现（光明缺位移/按位运算符无法在 i64 上
+        # 可靠模拟 64 位逻辑右移）。输出 128 位小写十六进制，对拍 hashlib.sha512。
+        if name in ('SHA512', 'sha512', '_sha512'):
+            if args:
+                obj_slot = self._store_dv(args[0])
+                data_ptr = self.new_register()
+                self.emit(f'{data_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                len_i64 = self.new_register()
+                self.emit(f'{len_i64} = call i64 @dv_str_len(ptr {obj_slot})')
+                len_i32 = self.new_register()
+                self.emit(f'{len_i32} = trunc i64 {len_i64} to i32')
+                out = self.new_register()
+                self.emit(f'{out} = call ptr @dv_sha512(ptr {data_ptr}, i32 {len_i32})')
+                return self._create_str_dv(out), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
+        # T7D：HMAC_SHA256（密钥, 文本）—— 对齐 哈希.py 语义
+        # pbkdf2_hmac('sha256', password=文本, salt=密钥, iterations=1)。
+        # runtime dv_pbkdf2_hmac_sha256_1(pw=文本, salt=密钥) 以显式长度
+        # 二进制安全构造 HMAC（消息尾含 NUL，strlen 版 sha256 无法对拍）。
+        if name in ('HMAC_SHA256', '_hmac_sha256'):
+            if len(args) >= 2:
+                pw_ptr = self.new_register()
+                self.emit(f'{pw_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                salt_ptr = self.new_register()
+                self.emit(f'{salt_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                out = self.new_register()
+                self.emit(f'{out} = call ptr @dv_pbkdf2_hmac_sha256_1(ptr {pw_ptr}, ptr {salt_ptr})')
+                return self._create_str_dv(out), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
         if name in ('四舍五入', 'round', '_round'):
             # dv_round(result, a)：a 已是整数则原样克隆，否则 f64 四舍五入取整。
             if args:
@@ -2280,14 +2319,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return self._call_dv_func('dv_list_new'), 'dv'
 
         if name in ('连接字符串', 'join', 'str_join', 'implode'):
-            if len(args) >= 2:
-                list_ptr = self.new_register()
-                self.emit(f'{list_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
-                sep_ptr = self.new_register()
-                self.emit(f'{sep_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
-                out = self.new_register()
-                self.emit(f'{out} = call ptr @dv_str_join(ptr {list_ptr}, ptr {sep_ptr})')
-                return self._create_str_dv(out), 'dv'
+            # T7D：走 dv_list_join(原生 LightValue 列表, 分隔)。旧实现 extractvalue
+            # …,3 取 str 字段（列表为 NULL）→ dv_str_join(legacy "list:" 解析器)
+            # 恒返空串（T6A-04 根因）。1 参时分隔默认 ""。
+            if args:
+                if len(args) >= 2:
+                    return self._call_dv_func('dv_list_join', args[0], args[1]), 'dv'
+                empty_sep = self._create_str_dv(self.gen_string_constant(""))
+                return self._call_dv_func('dv_list_join', args[0], empty_sep), 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
 
         if name in ('转布尔', 'to_bool', 'bool'):
@@ -2341,6 +2380,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return self._create_int_dv('0'), 'dv'
 
         if name in ('字典获取',):
+            if len(args) >= 3:
+                # T7D：3 参（带默认值）→ dv_dict_get_def；此前签名收窄只传 2 参、
+                # 默认值被静默丢弃（T6A-05 根因）。
+                return self._call_dv_func('dv_dict_get_def', args[0], args[1], args[2]), 'dv'
             if len(args) >= 2:
                 return self._call_dv_func('dv_dict_get', args[0], args[1]), 'dv'
             return self._call_dv_func('dv_null'), 'dv'
