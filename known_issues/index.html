@@ -6751,6 +6751,367 @@ T5C-07、T6A-01。</p>
   引用。</li>
 <li>能力边界沿用（函数值/回调不可用等），无新增。</li>
 </ul>
+<h2 id="r10-12g-r11a-7-light-o0-codegen-2026-09-06">R10-12g R11A：通用工具族 7 模块真 .light 化 — O0 codegen 缺陷与能力边界（2026-09-06）<a class="headerlink" href="#r10-12g-r11a-7-light-o0-codegen-2026-09-06" title="Permanent link">&para;</a></h2>
+<p><strong>任务编号</strong>：native-utils-R11A ｜ <strong>分支</strong>：<code>task-R11A</code>
+<strong>范围</strong>：字符串工具 / 数据结构 / 断言工具 / 缓存 / uuid工具 / 进度条 / 数据验证
+7 个 <code>stdlib/*.py</code> → 同 <code>.light</code> 真实现（非 decl-0 空壳），O0 真编译真跑，
+与 Python 转译腿逐函数对拍。</p>
+<h3 id="codegen-light-workaround">一、本轮新增 codegen 缺陷（未修，均已在 .light 侧 workaround）<a class="headerlink" href="#codegen-light-workaround" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>编号</th>
+<th>缺陷</th>
+<th>最小复现</th>
+<th>规避</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R11A-01</td>
+<td><strong><code>非</code> 作用于函数调用失效</strong>：<code>非 是数字字符("a")</code> 返回假（应为真）；对字面量/括号表达式正常</td>
+<td><code>输出(非 是数字字符("a"))</code></td>
+<td>改 <code>是数字字符(x) == 假</code></td>
+</tr>
+<tr>
+<td>R11A-02</td>
+<td><strong>内建函数名作局部变量 → 算术静默返 <code>[]</code></strong>：<code>删除</code>/<code>替换</code>/<code>插入</code>/<code>最小</code> 等（见 <code>src/keywords.py</code> 注册表）用作变量名后 <code>变量 加上 1</code> 得 <code>[]</code>，整条计算链报废</td>
+<td><code>设 删除 为 1</code> → <code>删除 加上 1</code></td>
+<td>变量名避开内建表，用 <code>删代价</code>/<code>替代价</code> 等复合名</td>
+</tr>
+<tr>
+<td>R11A-03</td>
+<td><strong>读列表下标 0 赋变量返 <code>[]</code></strong>：<code>设 x 为 dp[0]</code> → <code>[]</code>（dp[1]/dp[8] 正常）</td>
+<td><code>设 d 为 [1,2]</code> → <code>设 x 为 d[0]</code></td>
+<td>多维/DP 用 1-based 偏移 <code>(r+1)*宽+(c+1)</code></td>
+</tr>
+<tr>
+<td>R11A-04</td>
+<td><strong><code>除以</code> 对 dict/list 读取值返 <code>空</code></strong>：真除路径对容器取出的值失效，<code>整除</code> 正常</td>
+<td><code>设 v 为 字典获取(d,"k")</code> → <code>v 除以 2</code></td>
+<td>改用 <code>整除</code></td>
+</tr>
+<tr>
+<td>R11A-05</td>
+<td><strong>跨模块「导入即再导出」codegen 失败</strong>：<code>从 正则 导入 验证邮箱</code> 的调用点报「未定义的段落」；同模块内再导出可用</td>
+<td>跨模块原样再导出</td>
+<td>薄包装 + 限定调用 <code>段落 验证邮箱 接收 文本: 返回 正则表达式.验证邮箱(文本)</code></td>
+</tr>
+<tr>
+<td>R11A-06</td>
+<td><strong>默认参数禁负数字面量</strong>：<code>接收 甲 = -1</code> 报「意外的标记」（表达式内负值可用）</td>
+<td><code>段落 f 接收 甲 = -1:</code></td>
+<td>用 <code>空</code> 哨兵（<code>0 == 空</code> 为假，安全）</td>
+</tr>
+<tr>
+<td>R11A-07</td>
+<td><strong><code>且</code>/<code>或</code> 内联条件解析失败且不短路</strong></td>
+<td><code>如果 a 且 b:</code> 复杂内联</td>
+<td>拆嵌套 <code>如果</code></td>
+</tr>
+<tr>
+<td>R11A-08</td>
+<td><strong>字符串内置方法返空</strong>：<code>.去除空白()</code>/<code>.lstrip()</code>/<code>.rstrip()</code>/<code>.每个单词首字母大写()</code> 返 <code>[]</code>；<code>.分割()</code> 无参不做空白切分</td>
+<td>—</td>
+<td>手写循环</td>
+</tr>
+<tr>
+<td>R11A-09</td>
+<td><strong><code>转文本(列表)</code> 在 O0 打印为 <code>[]</code> 假象</strong>：元素实际存在（列表句柄序列化缺陷）</td>
+<td><code>输出(转文本(列表))</code></td>
+<td>对拍用 <code>长(列表)</code> + 下标逐元素打印</td>
+</tr>
+<tr>
+<td>R11A-10</td>
+<td><strong>嵌套容器不持久化</strong>：list-in-list / dict-in-dict 的元素写入不落盘</td>
+<td><code>设 d 为 字典获取(外,"k")</code> → 写 <code>d</code></td>
+<td>扁平化 + 显式返回新容器</td>
+</tr>
+<tr>
+<td>R11A-11</td>
+<td><strong>dict 跨函数写回不可靠</strong>（T5C-07 函数内维度的同类）：函数内改 dict 不回传</td>
+<td>—</td>
+<td>显式 <code>返回</code> 新 dict，调用方 <code>设 c 为 缓存设置(c,k,v)</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>R11A-02/03 是<strong>静默错值</strong>类（不报错、结果错），危害最高：字符串工具的
+Levenshtein DP 曾因 R11A-02 全部作废（相似度恒 1）、因 R11A-03 首行全丢。</p>
+</blockquote>
+<h3 id="_41">二、能力边界（降级实现，已在模块头部注释标注）<a class="headerlink" href="#_41" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>降级项</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>uuid工具</td>
+<td><strong>生成UUID3 / 生成UUID5</strong> 降级为「确定性布局 + 正确版本位」（不逐字符匹配 CPython）</td>
+<td>无按位算子；SHA1 按 UTF-8 文本哈希而非原始字节，无法复刻 <code>uuid.uuid3</code> 字节级语义</td>
+</tr>
+<tr>
+<td>uuid工具</td>
+<td><strong>生成UUID1</strong> 降级为「v1 格式的随机 UUID」</td>
+<td>无 MAC 地址 / 60bit 时间戳源</td>
+</tr>
+<tr>
+<td>断言工具</td>
+<td><strong>断言抛出异常 / 断言满足条件 / 断言所有满足条件 / 断言任一满足条件 / 断言可调用 / 链式断言</strong> 等 Callable 类 API 降级为抛出明确异常的 stub</td>
+<td>原生腿函数值不可调用</td>
+</tr>
+<tr>
+<td>缓存</td>
+<td><strong>定时缓存</strong>（刷新回调）、<strong>缓存装饰器</strong> 降级 stub</td>
+<td>函数值不可调用</td>
+</tr>
+<tr>
+<td>进度条</td>
+<td><strong>实时原地刷新</strong>（<code>\r</code> 覆盖）、<strong>显示旋转指示器</strong>（time.sleep + 停止回调）、<strong>迭代进度条</strong>（yield）降级</td>
+<td>原生 <code>打印</code> 追加换行不做原地覆盖；无 sleep 控制；无生成器</td>
+</tr>
+<tr>
+<td>数据结构</td>
+<td>优先队列 / BST 等「弹出」语义统一为<strong>返回新容器</strong>（元素用 <code>顶部</code>/<code>队首</code>/<code>查看左端</code>/<code>查看右端</code> 取）</td>
+<td>容器为值语义 + 显式返回（见 R11A-11）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_42">三、反跑判据<a class="headerlink" href="#_42" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>判据</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>7 模块真实现对拍 Python oracle</td>
+<td>✅ <code>tests/unit/test_原生腿_R11A_通用工具.py</code> <strong>7/7 绿</strong></td>
+</tr>
+<tr>
+<td>改回 decl-0 空壳（保留签名、函数体 <code>返回 空</code>）立即立红</td>
+<td>✅ <strong>7/7 红</strong>（随后已从备份还原，复跑 7/7 绿）</td>
+</tr>
+<tr>
+<td>O0 真编译真跑（非 O2）</td>
+<td>✅ 全部走 <code>compile_light_typed(..., optimize_level=0)</code> + 真 exe 子进程</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_43">四、遗留缺口<a class="headerlink" href="#_43" title="Permanent link">&para;</a></h3>
+<ol>
+<li>R11A-01~11 均为 <strong>workaround 未根因修复</strong>（任务书红线：本轮不动
+   <code>src/llvm/*.py</code> / <code>runtime_typed.c</code>），应移交 codegen 根因批次。</li>
+<li>uuid v3/v5、断言 Callable 族、进度条实时刷新的真语义需语言层先补
+   <strong>按位算子 / 函数值可调用 / yield / 终端控制</strong>。</li>
+<li>对拍覆盖为每模块 3-5 个代表性用例，非穷举全函数；字符串工具 90 段、
+   数据结构 76 段中长尾函数未逐一单测。</li>
+</ol>
+<h2 id="r11b-light-2026-09-06">R11B：中文工具族真 .light 化 —— 新发现缺陷登记（2026-09-06）<a class="headerlink" href="#r11b-light-2026-09-06" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>批次：R11 S2 原生腿中文工具族（7 模块 .light 真实现 + 对拍测试）。
+与既有缺陷不同，以下 3 项为本批 O0 真跑实测<strong>新发现</strong>，均以
+<code>_taskR11B_probe*.py</code> 探针在原生腿 O0 下复现；均为 workaround 可绕的
+codegen/runtime 行为缺陷，按红线不触碰 codegen 核心，归后续批次修复。</p>
+</blockquote>
+<h3 id="r11b-1-codegen">缺陷 R11B-1：<code>非</code> 对布尔假值判错（codegen）<a class="headerlink" href="#r11b-1-codegen" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>现象</strong>：<code>非 假</code> 应为 <code>真</code>，实际得 <code>假</code>；<code>非 假 == 真</code> 亦判假。
+  <code>非 真</code>（→假）、<code>非 0</code>（整数 0 →真）、<code>非 5</code>（→假）正确。</li>
+<li><strong>探针证据</strong>（O0 真跑）：<code>非 假</code>→<code>A=0</code>（错），<code>非 假 == 真</code>→<code>E=0</code>（错）。</li>
+<li><strong>根因</strong>：<code>codegen_typed._gen_typed_unary_op</code> 的 <code>非</code> 实现为
+  <code>dv_eq(operand, 整数 0)</code>，布尔假值 dv（bool 类型，值 0）与整数 0 dv
+  跨类型比较，<code>dv_eq</code> 返回不等（0），<code>icmp ne 0,0</code> → false，判成「非假为假」。</li>
+<li><strong>影响</strong>：所有对布尔变量取 <code>非</code> 的逻辑在原生腿 O0 下静默反向。</li>
+<li><strong>workaround</strong>（本批已用）：一律用 <code>== 假</code> / 正逻辑替代 <code>非</code>（中文编码.light
+  等模块已规避）。</li>
+</ul>
+<h3 id="r11b-2-0boolint">缺陷 R11B-2：<code>整数(真)</code> 返回 0（bool→int 真 转换错误）<a class="headerlink" href="#r11b-2-0boolint" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>现象</strong>：<code>整数(真)</code> 应返回 1，实际返回 0；<code>整数(假)</code> 返回 0（正确）。</li>
+<li><strong>探针证据</strong>（O0 真跑）：<code>A=0</code>。</li>
+<li><strong>根因</strong>：bool→int 转换对真值未映射为 1（与 Python <code>int(True)=1</code> 不一致）。</li>
+<li><strong>影响</strong>：用 <code>整数(布尔)</code> 打印/累加布尔计数会静默得 0。</li>
+<li><strong>workaround</strong>（本批已用）：需要 1/0 输出时用 <code>如果 … == 真: 输出(1) 否则: 输出(0)</code>。</li>
+</ul>
+<h3 id="r11b-3">缺陷 R11B-3：字典 <code>.获取</code> 方法不支持默认参数（返回 空）<a class="headerlink" href="#r11b-3" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>现象</strong>：<code>表.获取("k", "缺省")</code> 键存在亦返回 <code>空</code>；
+  <code>表.获取("absent", "缺省")</code> 返回 <code>空</code> 而非缺省值。</li>
+<li><strong>探针证据</strong>（O0 真跑）：<code>C=空</code>、<code>D=空</code>；顶层函数
+  <code>字典获取(表, "absent", "缺省")</code>→<code>E=缺省</code>（workaround 有效）。</li>
+<li><strong>根因</strong>：字典 <code>.获取</code> 方法调用的默认参数路径未生效（方法分派/参数传递）。</li>
+<li><strong>影响</strong>：stdlib 中带默认值取字典值的 <code>.get</code> 形式在原生腿下静默返回 空。</li>
+<li><strong>workaround</strong>（本批已用）：统一改用顶层 3 参 <code>字典获取(表, 键, 缺省)</code>
+  （T7D 已注册 builtin）。</li>
+</ul>
+<h2 id="r11c-light-6-2026-09-06">R11C：数据驱动 + 高级系统交互族真 .light 化（6 模块，2026-09-06）<a class="headerlink" href="#r11c-light-6-2026-09-06" title="Permanent link">&para;</a></h2>
+<h3 id="_44">概述<a class="headerlink" href="#_44" title="Permanent link">&para;</a></h3>
+<p>原生腿覆盖第 11 批 C：将 6 个数据驱动或高级系统交互模块从 .py 转写为纯光明
+.light 实现，O0 下真编译真跑。数据驱动模块（农历/中国传统节日/中国行政区划）
+嵌入数据表纯算法实现；高级系统交互模块（高级文件/图像处理基础/网络请求）基于
+runtime 已有符号实现子集，无法实现的标注能力边界并提供降级实现。</p>
+<h3 id="_45">模块清单与实现策略<a class="headerlink" href="#_45" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>模块</th>
+<th>类型</th>
+<th>实现策略</th>
+<th>对拍状态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>农历.light</td>
+<td>数据驱动</td>
+<td>嵌入 2024-2030 农历数据表（月长/闰月/春节）+ 儒略日换算 + 干支生肖表 + 16 节日表</td>
+<td>8 日期全对拍通过</td>
+</tr>
+<tr>
+<td>2</td>
+<td>中国传统节日.light</td>
+<td>数据驱动</td>
+<td><code>从 农历 导入 农历转公历</code>，用精确农历数据计算节日公历日期；嵌入春节表+8农历节日+4公历节日</td>
+<td>春节/公历节日与 .py 一致；农历节日用精确数据（.py 用简化估算，差 1-2 天，已标注）</td>
+</tr>
+<tr>
+<td>3</td>
+<td>中国行政区划.light</td>
+<td>数据驱动</td>
+<td>34 省数据（名称+2位代码+3-7主要城市）+ 9 省部分区县 + 42 城市代码；<strong>数据通过分段函数返回</strong>（6 组省级+3 组区县+3 组代码），规避 O0 临时槽位池溢出</td>
+<td>省份/城市/区县/代码对拍通过</td>
+</tr>
+<tr>
+<td>4</td>
+<td>高级文件.light</td>
+<td>高级系统交互</td>
+<td>复制文件（读+写）；目录大小（递归遍历+深度限制10层+跳过.和..）；文件树（递归文本生成）；磁盘使用/命令存在标注能力边界返回空/假</td>
+<td>复制文件/磁盘使用/命令存在/目录大小（受控目录）通过</td>
+</tr>
+<tr>
+<td>5</td>
+<td>图像处理基础.light</td>
+<td>高级系统交互</td>
+<td>纯数组像素表示（扁平列表 [r,g,b,...]），图像对象为字典；实现新建/读写像素/灰度化(0.299r+0.587g+0.114b)/反转/缩放(最近邻)/获取信息；打开/保存/滤镜/旋转标注能力边界抛明确错误</td>
+<td>全部基础操作通过；能力边界返回明确错误</td>
+</tr>
+<tr>
+<td>6</td>
+<td>网络请求.light</td>
+<td>高级系统交互</td>
+<td>基于 runtime socket 符号（B1）实现极简 HTTP/1.0 GET；URL 解析/编码/解码；响应解析；POST/HTTPS/重定向/chunked/超时标注能力边界返回 status=0</td>
+<td>URL 解析/编码/解码通过；POST/HTTPS 返回明确错误</td>
+</tr>
+</tbody>
+</table>
+<h3 id="codegenruntime">新发现的 codegen/runtime 限制（本批踩坑登记）<a class="headerlink" href="#codegenruntime" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>O0 临时槽位池上限 2048</strong>：大型嵌套列表字面量（如完整行政区划表 ~400 城市）
+   在模块初始化函数中会溢出。<strong>workaround</strong>：数据通过分段函数返回（每函数 ≤6 省），
+   每函数独立槽位作用域。此为纯光明 workaround，未触碰 codegen 核心。</p>
+</li>
+<li>
+<p><strong>字典访问返回列表拷贝</strong>：<code>设 lst 为 d["key"]</code> 后修改 <code>lst[i]</code> 不影响
+   <code>d["key"]</code>（值拷贝语义）；<code>设 d["key"][i] 为 val</code> 嵌套索引赋值也不生效。
+   <strong>workaround</strong>：取出列表→修改→<code>设 d["key"] 为 lst</code> 写回字典。图像处理基础
+   的 设置像素 已采用此模式。此为 runtime 字典值所有权架构限制（与 T5C-07 同源），
+   归 T7 后续重构。</p>
+</li>
+<li>
+<p><strong>try/catch 块内不能用 <code>跳过</code>(continue)</strong>：会导致 LLVM IR 验证失败
+   （基本块缺少终止指令）。<strong>workaround</strong>：用辅助函数 + 返回值替代循环内 continue。
+   高级文件的 安全文件大小 已采用此模式。</p>
+</li>
+<li>
+<p><strong><code>_light_builtin.列出目录</code> 可能返回 "." 和 ".."</strong>：递归目录遍历时必须跳过，
+   否则无限递归导致段错误。高级文件的 目录大小/文件树 已加跳过逻辑。</p>
+</li>
+<li>
+<p><strong><code>输出("")</code> 不产生输出行</strong>：空字符串输出被静默丢弃（无换行），对拍测试中
+   需用 <code>长(字符串)</code> 等间接方式验证空返回值。</p>
+</li>
+<li>
+<p><strong>目录递归在超大目录可能段错误</strong>：即使跳过 "."/".."，项目根目录等超大目录树
+   仍可能因内存/栈问题段错误。<strong>workaround</strong>：目录大小递归加深度限制 10 层；
+   测试用受控小目录。此为能力边界，已在模块注释中声明。</p>
+</li>
+</ol>
+<h3 id="_46">能力边界清单（本批新增/确认）<a class="headerlink" href="#_46" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>能力边界</th>
+<th>降级行为</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>农历</td>
+<td>数据范围 2024-2030（.py 为 1900-2100）；超出范围返回空/0</td>
+<td>函数内判断年份范围，超出返回默认值</td>
+</tr>
+<tr>
+<td>中国传统节日</td>
+<td>农历节日用精确农历数据（.py 用简化估算，可能差 1-2 天）；节日倒计时无系统日期原语返回 -1</td>
+<td>已在模块注释中注明差异</td>
+</tr>
+<tr>
+<td>中国行政区划</td>
+<td>每省仅保留 3-7 主要城市（非完整列表）；区县仅覆盖 9 省部分城市；区县级代码未嵌入</td>
+<td>查询不存在的城市/区县返回空列表/空字符串</td>
+</tr>
+<tr>
+<td>高级文件</td>
+<td>磁盘使用情况/命令存在无 runtime 符号；目录大小在超大目录可能段错误；批量重命名/权限未实现</td>
+<td>磁盘使用返回带"能力边界"标记的字典；命令存在返回假；目录大小深度限制 10 层</td>
+</tr>
+<tr>
+<td>图像处理基础</td>
+<td>无图像格式编解码（JPEG/PNG 等）；无高级滤镜/旋转/翻转/亮度/对比度/文本绘制/合并；仅支持 RGB/L 模式</td>
+<td>打开/保存/滤镜等抛 运行时错误 明确声明；缩放用最近邻</td>
+</tr>
+<tr>
+<td>网络请求</td>
+<td>仅支持 HTTP GET；不支持 HTTPS/TLS、POST、重定向、chunked 编码、超时控制、非 ASCII URL 编码（用 %3F 占位）</td>
+<td>POST/HTTPS 返回 status=0 的响应字典；非 ASCII 字符用 %3F 占位</td>
+</tr>
+</tbody>
+</table>
+<h3 id="o0-windows">验证（O0 真编译真跑，Windows）<a class="headerlink" href="#o0-windows" title="Permanent link">&para;</a></h3>
+<ul>
+<li>新增 <code>tests/unit/test_原生腿_R11C_数据高级.py</code> 29 用例（6 模块，每模块 2-5 用例，
+  能力边界模块验证降级路径）。</li>
+<li><strong>Windows</strong>（clang 22.1.8 + MSVC 14.29 + SDK 10.0.19041）：<strong>29 passed / 0 failed</strong>
+  （耗时 ~111 秒，O0 optimize_level=0）。</li>
+<li>农历对拍 8 日期与 .py 完全一致（含 2025 闰六月、2024 元旦属上一农历年等边界）。</li>
+<li>行政区划 34 省/主要城市/区县/代码与 .py 对拍通过。</li>
+<li>图像处理 6 项基础操作（新建/读写像素/灰度化/反转/缩放/信息）+ 能力边界错误验证通过。</li>
+<li>网络请求 URL 解析/编码/解码 + POST/HTTPS 能力边界验证通过。</li>
+<li>高级文件 复制文件/磁盘使用/命令存在/目录大小（受控目录）通过。</li>
+</ul>
+<h3 id="_47">仍存在的缺口<a class="headerlink" href="#_47" title="Permanent link">&para;</a></h3>
+<ul>
+<li>农历数据范围 2024-2030（.py 为 1900-2100），如需扩展需嵌入更多年份数据表
+  （受 O0 槽位限制，可能需进一步分段或换编码方案）。</li>
+<li>行政区划城市列表不完整（每省 3-7 主要城市），完整 ~400 城市列表受 O0 槽位限制
+  无法嵌入。</li>
+<li>字典值拷贝语义（T5C-07 同源）影响所有「字典内列表跨段变异」代码，需 runtime
+  字典值所有权/引用计数重构（归 T7 后续）。</li>
+<li>网络请求仅 HTTP GET，HTTPS/POST 等需 runtime TLS 支持（归后续批次）。</li>
+<li>图像处理无文件 I/O，需 runtime 图像编解码支持（归后续批次）。</li>
+<li>能力边界沿用（函数值/回调不可用等），无新增。</li>
+</ul>
 
 
 
@@ -6773,7 +7134,7 @@ T5C-07、T6A-01。</p>
     <span class="md-icon" title="最后更新">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月6日 09:57:46 UTC">2026年9月6日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月6日 15:09:16 UTC">2026年9月6日</span>
   </span>
 
     
@@ -6783,7 +7144,7 @@ T5C-07、T6A-01。</p>
     <span class="md-icon" title="创建日期">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月6日 09:57:46 UTC">2026年9月6日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月6日 15:09:16 UTC">2026年9月6日</span>
   </span>
 
     
