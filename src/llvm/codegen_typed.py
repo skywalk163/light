@@ -1005,7 +1005,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if self._local_seg_key(expr.name) in self._segments:
                 # 名字已定义，却走不到正常返回——说明是类型推断问题，不是名字问题。
                 try:
-                    return self._gen_typed_segment_call(expr.name, args)
+                    return self._gen_typed_segment_call(expr.name, args, expr.args)
                 except NotImplementedError:
                     raise
                 except Exception as e:
@@ -1014,6 +1014,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                         f"（源码行 {self._stmt_source_line(expr)}）：{e}。"
                         f"名字已定义，问题在类型上。{self._FALLBACK_HINT}"
                     ) from e
+            # T9A 防御性补全：导入段查找（与 FunctionCall 路径对齐：本地段→导入段→builtin）
+            if expr.name in self._imports:
+                _imp_mod, _imp_orig = self._imports[expr.name]
+                if self._seg_reg_key(_imp_orig, _imp_mod) in self._segments:
+                    return self._gen_imported_segment_call(expr.name, args, expr.args)
             # C3-1：拼错名字的段落调用，报错并列出已定义候选。
             self._reject_unknown_call(expr.name, expr)
 
