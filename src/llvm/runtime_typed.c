@@ -2032,6 +2032,20 @@ void dv_dict_get(LightValue* result, LightValue* dict, LightValue* key) {
     result->list_data = NULL;
 }
 
+/* 3 参 字典获取（T7D 新增）：键缺失时返回默认值（dv_dict_get 仅 2 参、缺失给空）。
+   Python dict.get(key, default) 语义；默认值经 dv_clone 拷贝避免与调用侧槽位共享。 */
+void dv_dict_get_def(LightValue* result, LightValue* dict, LightValue* key, LightValue* def) {
+    if (dict->type != 7 || dv_dict_find(dict, key) < 0) {
+        if (def && def->type != 0) {
+            dv_clone(result, def);
+        } else {
+            dv_null(result);
+        }
+        return;
+    }
+    dv_dict_get(result, dict, key);
+}
+
 void dv_dict_has(LightValue* result, LightValue* dict, LightValue* key) {
     if (dict->type != 7) {
         result->type = 5;
@@ -2848,10 +2862,15 @@ static void sha256_update(sha256_ctx_t* ctx, const unsigned char* data, uint32_t
 
 static void sha256_final(unsigned char digest[32], sha256_ctx_t* ctx) {
     uint32_t i;
+    /* T7D 修复：长度编码。count[1] 是「已完成 512 位块数」、count[0] 是当前块
+       残余位数（0..511），总位数 = count[1]*512 + count[0]。原实现把两半当
+       32 位大端直接拼（总位数以 2^32 为进位），仅 <64B（count[1]=0）时正确；
+       ≥64B（多块）长度字段错误 → 摘要全错。此缺陷潜藏至 HMAC 触发
+       （T7D 定界时 104B sha256 对拍失败暴露，T5B 只哈希过短串未暴露）。 */
+    uint64_t total_bits = ((uint64_t)ctx->count[1] << 9) | ctx->count[0];
     unsigned char bits[8];
-    for (i = 0; i < 4; i++) {
-        bits[i] = (unsigned char)((ctx->count[1] >> (24 - i * 8)) & 0xFF);
-        bits[i + 4] = (unsigned char)((ctx->count[0] >> (24 - i * 8)) & 0xFF);
+    for (i = 0; i < 8; i++) {
+        bits[i] = (unsigned char)((total_bits >> (56 - i * 8)) & 0xFF);
     }
     unsigned char pad = 0x80;
     sha256_update(ctx, &pad, 1);
@@ -2872,6 +2891,198 @@ char* dv_sha256(const char* data, int len) {
     sha256_update(&ctx, (const unsigned char*)data, (uint32_t)len);
     sha256_final(digest, &ctx);
     return hex_encode(digest, 32);
+}
+
+/* ================================================================
+ * SHA-512 算法（T7D 新增）
+ * 光明语言缺位移/按位运算符，无法在 i64 上可靠模拟 64 位无符号逻辑右移
+ * （整除 向零取整、2^63 超 i64 上界），故 SHA-512 在 C 层实现。
+ * 输出 128 位小写十六进制，与 Python hashlib.sha512().hexdigest() 一致。
+ * ================================================================ */
+
+typedef struct {
+    uint64_t state[8];
+    uint64_t bitlen;              /* 已处理字节数（按位计数） */
+    unsigned char buffer[128];
+    size_t buflen;
+} sha512_ctx_t;
+
+static const uint64_t sha512_k[80] = {
+    0x428a2f98d728ae22ULL,0x7137449123ef65cdULL,0xb5c0fbcfec4d3b2fULL,0xe9b5dba58189dbbcULL,
+    0x3956c25bf348b538ULL,0x59f111f1b605d019ULL,0x923f82a4af194f9bULL,0xab1c5ed5da6d8118ULL,
+    0xd807aa98a3030242ULL,0x12835b0145706fbeULL,0x243185be4ee4b28cULL,0x550c7dc3d5ffb4e2ULL,
+    0x72be5d74f27b896fULL,0x80deb1fe3b1696b1ULL,0x9bdc06a725c71235ULL,0xc19bf174cf692694ULL,
+    0xe49b69c19ef14ad2ULL,0xefbe4786384f25e3ULL,0x0fc19dc68b8cd5b5ULL,0x240ca1cc77ac9c65ULL,
+    0x2de92c6f592b0275ULL,0x4a7484aa6ea6e483ULL,0x5cb0a9dcbd41fbd4ULL,0x76f988da831153b5ULL,
+    0x983e5152ee66dfabULL,0xa831c66d2db43210ULL,0xb00327c898fb213fULL,0xbf597fc7beef0ee4ULL,
+    0xc6e00bf33da88fc2ULL,0xd5a79147930aa725ULL,0x06ca6351e003826fULL,0x142929670a0e6e70ULL,
+    0x27b70a8546d22ffcULL,0x2e1b21385c26c926ULL,0x4d2c6dfc5ac42aedULL,0x53380d139d95b3dfULL,
+    0x650a73548baf63deULL,0x766a0abb3c77b2a8ULL,0x81c2c92e47edaee6ULL,0x92722c851482353bULL,
+    0xa2bfe8a14cf10364ULL,0xa81a664bbc423001ULL,0xc24b8b70d0f89791ULL,0xc76c51a30654be30ULL,
+    0xd192e819d6ef5218ULL,0xd69906245565a910ULL,0xf40e35855771202aULL,0x106aa07032bbd1b8ULL,
+    0x19a4c116b8d2d0c8ULL,0x1e376c085141ab53ULL,0x2748774cdf8eeb99ULL,0x34b0bcb5e19b48a8ULL,
+    0x391c0cb3c5c95a63ULL,0x4ed8aa4ae3418acbULL,0x5b9cca4f7763e373ULL,0x682e6ff3d6b2b8a3ULL,
+    0x748f82ee5defb2fcULL,0x78a5636f43172f60ULL,0x84c87814a1f0ab72ULL,0x8cc702081a6439ecULL,
+    0x90befffa23631e28ULL,0xa4506cebde82bde9ULL,0xbef9a3f7b2c67915ULL,0xc67178f2e372532bULL,
+    0xca273eceea26619cULL,0xd186b8c721c0c207ULL,0xeada7dd6cde0eb1eULL,0xf57d4f7fee6ed178ULL,
+    0x06f067aa72176fbaULL,0x0a637dc5a2c898a6ULL,0x113f9804bef90daeULL,0x1b710b35131c471bULL,
+    0x28db77f523047d84ULL,0x32caab7b40c72493ULL,0x3c9ebe0a15c9bebcULL,0x431d67c49c100d4cULL,
+    0x4cc5d4becb3e42b6ULL,0x597f299cfc657e2aULL,0x5fcb6fab3ad6faecULL,0x6c44198c4a475817ULL
+};
+
+static const uint64_t sha512_h0[8] = {
+    0x6a09e667f3bcc908ULL,0xbb67ae8584caa73bULL,0x3c6ef372fe94f82bULL,0xa54ff53a5f1d36f1ULL,
+    0x510e527fade682d1ULL,0x9b05688c2b3e6c1fULL,0x1f83d9abfb41bd6bULL,0x5be0cd19137e2179ULL
+};
+
+static uint64_t sha512_rotr(uint64_t x, int n) {
+    return (x >> n) | (x << (64 - n));
+}
+
+static void sha512_init(sha512_ctx_t* ctx) {
+    ctx->bitlen = 0;
+    ctx->buflen = 0;
+    memcpy(ctx->state, sha512_h0, sizeof(sha512_h0));
+}
+
+static void sha512_transform(sha512_ctx_t* ctx, const unsigned char block[128]) {
+    uint64_t w[80];
+    int i;
+    for (i = 0; i < 16; i++) {
+        w[i] = ((uint64_t)block[i * 8] << 56) | ((uint64_t)block[i * 8 + 1] << 48) |
+               ((uint64_t)block[i * 8 + 2] << 40) | ((uint64_t)block[i * 8 + 3] << 32) |
+               ((uint64_t)block[i * 8 + 4] << 24) | ((uint64_t)block[i * 8 + 5] << 16) |
+               ((uint64_t)block[i * 8 + 6] << 8) | ((uint64_t)block[i * 8 + 7]);
+    }
+    for (i = 16; i < 80; i++) {
+        uint64_t s0 = sha512_rotr(w[i - 15], 1) ^ sha512_rotr(w[i - 15], 8) ^ (w[i - 15] >> 7);
+        uint64_t s1 = sha512_rotr(w[i - 2], 19) ^ sha512_rotr(w[i - 2], 61) ^ (w[i - 2] >> 6);
+        w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+    }
+    uint64_t a = ctx->state[0], b = ctx->state[1], c = ctx->state[2], d = ctx->state[3];
+    uint64_t e = ctx->state[4], f = ctx->state[5], g = ctx->state[6], h = ctx->state[7];
+    for (i = 0; i < 80; i++) {
+        uint64_t S1 = sha512_rotr(e, 14) ^ sha512_rotr(e, 18) ^ sha512_rotr(e, 41);
+        uint64_t ch = (e & f) ^ (~e & g);
+        uint64_t t1 = h + S1 + ch + sha512_k[i] + w[i];
+        uint64_t S0 = sha512_rotr(a, 28) ^ sha512_rotr(a, 34) ^ sha512_rotr(a, 39);
+        uint64_t maj = (a & b) ^ (a & c) ^ (b & c);
+        uint64_t t2 = S0 + maj;
+        h = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2;
+    }
+    ctx->state[0] += a; ctx->state[1] += b; ctx->state[2] += c; ctx->state[3] += d;
+    ctx->state[4] += e; ctx->state[5] += f; ctx->state[6] += g; ctx->state[7] += h;
+}
+
+static void sha512_update(sha512_ctx_t* ctx, const unsigned char* data, uint64_t len) {
+    ctx->bitlen += len * 8;
+    if (ctx->buflen > 0) {
+        size_t fill = 128 - ctx->buflen;
+        if (len < fill) {
+            memcpy(ctx->buffer + ctx->buflen, data, (size_t)len);
+            ctx->buflen += (size_t)len;
+            return;
+        }
+        memcpy(ctx->buffer + ctx->buflen, data, fill);
+        sha512_transform(ctx, ctx->buffer);
+        data += fill;
+        len -= fill;
+        ctx->buflen = 0;
+    }
+    while (len >= 128) {
+        sha512_transform(ctx, data);
+        data += 128;
+        len -= 128;
+    }
+    if (len > 0) {
+        memcpy(ctx->buffer, data, (size_t)len);
+        ctx->buflen = (size_t)len;
+    }
+}
+
+static void sha512_final(unsigned char digest[64], sha512_ctx_t* ctx) {
+    uint64_t bitlen = ctx->bitlen;
+    unsigned char pad = 0x80;
+    unsigned char zero = 0;
+    sha512_update(ctx, &pad, 1);
+    while (ctx->buflen != 112) {
+        sha512_update(ctx, &zero, 1);
+    }
+    unsigned char bits[16];
+    memset(bits, 0, sizeof(bits));
+    for (int i = 0; i < 8; i++) {
+        bits[8 + i] = (unsigned char)((bitlen >> (56 - i * 8)) & 0xff);
+    }
+    sha512_update(ctx, bits, 16);
+    for (int i = 0; i < 8; i++) {
+        for (int b = 0; b < 8; b++) {
+            digest[i * 8 + b] = (unsigned char)((ctx->state[i] >> (56 - b * 8)) & 0xff);
+        }
+    }
+    memset(ctx, 0, sizeof(*ctx));
+}
+
+char* dv_sha512(const char* data, int len) {
+    /* SHA-512("") */
+    if (!data || len <= 0) {
+        return dv_strdup("cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e");
+    }
+    sha512_ctx_t ctx;
+    unsigned char digest[64];
+    sha512_init(&ctx);
+    sha512_update(&ctx, (const unsigned char*)data, (uint64_t)len);
+    sha512_final(digest, &ctx);
+    return hex_encode(digest, 64);
+}
+
+/* HMAC/PBKDF2-SHA256 单轮（T7D 新增）
+ * 对齐 stdlib/哈希.py 的 HMAC_SHA256(key, text) 语义：
+ *   hashlib.pbkdf2_hmac('sha256', password=text, salt=key, iterations=1)
+ * 即 U1 = HMAC-SHA256(Key=text, Msg=key || INT32_BE(1))。消息尾部含 NUL 字节
+ * （b'\x00\x00\x00\x01'），而 dv_sha256 以 strlen 取长度（非二进制安全），
+ * 故在 C 层用 sha256_ctx（显式长度、二进制安全）构造完整 HMAC。 */
+char* dv_pbkdf2_hmac_sha256_1(const char* pw, const char* salt) {
+    if (!pw) pw = "";
+    if (!salt) salt = "";
+    size_t klen = strlen(pw);
+    size_t slen = strlen(salt);
+    unsigned char key[64];
+    if (klen > 64) {
+        sha256_ctx_t c;
+        sha256_init(&c);
+        sha256_update(&c, (const unsigned char*)pw, (uint32_t)klen);
+        unsigned char d[32];
+        sha256_final(d, &c);
+        memcpy(key, d, 32);
+        memset(key + 32, 0, 32);
+    } else {
+        memset(key, 0, 64);
+        memcpy(key, pw, klen);
+    }
+    uint64_t mlen = 64 + (uint64_t)slen + 4;
+    unsigned char* msg = (unsigned char*)malloc((size_t)mlen);
+    if (!msg) return dv_strdup("");
+    for (int i = 0; i < 64; i++) msg[i] = key[i] ^ 0x36;
+    memcpy(msg + 64, salt, slen);
+    msg[64 + slen] = 0;
+    msg[64 + slen + 1] = 0;
+    msg[64 + slen + 2] = 0;
+    msg[64 + slen + 3] = 1;
+    unsigned char inner[32];
+    sha256_ctx_t c1;
+    sha256_init(&c1);
+    sha256_update(&c1, msg, (uint32_t)mlen);
+    sha256_final(inner, &c1);
+    free(msg);
+    unsigned char outer[96];
+    for (int i = 0; i < 64; i++) outer[i] = key[i] ^ 0x5c;
+    memcpy(outer + 64, inner, 32);
+    unsigned char dk[32];
+    sha256_ctx_t c2;
+    sha256_init(&c2);
+    sha256_update(&c2, outer, 96);
+    sha256_final(dk, &c2);
+    return hex_encode(dk, 32);
 }
 
 /* ================================================================
@@ -2998,6 +3209,63 @@ char* dv_str_join(const char* list, const char* sep) {
     
     *wp = '\0';
     return result;
+}
+
+/* 原生列表版 join（T7D 新增，取代 legacy dv_str_join）。
+   定界证据：dv_str_join 按旧解释器 "list:<len>:<elem>\x1f..." 序列化串解析，
+   而 codegen 把原生 LightValue 列表壳（type=4 的 list_data）当 char* 传入 →
+   协议不匹配恒返空串（T6A-04）。本函数吃原生 LightValue 列表：元素为字符串直用，
+   否则按 转文本（dv_to_string）拼接 —— 与 workaround 前 stdlib 手写 _格_连接
+   行为一致，分隔符取 sep 的 str 字段。 */
+void dv_list_join(LightValue* result, LightValue* list, LightValue* sep) {
+    dv_str(result, "");
+    if (!list || list->type != 4 || !list->list_data || list->list_size <= 0) return;
+    const char* sep_str = (sep && sep->type == 3 && sep->str) ? sep->str : "";
+    size_t sep_len = strlen(sep_str);
+    size_t total = 0;
+    for (int i = 0; i < list->list_size; i++) {
+        LightValue* e = list->list_data[i];
+        if (!e) continue;
+        e = dv_deref(e);
+        size_t elen = 0;
+        if (e->type == 3 && e->str) {
+            elen = strlen(e->str);
+        } else {
+            char* s = dv_to_string(e);
+            if (s) { elen = strlen(s); free(s); }
+        }
+        total += elen;
+        if (i < list->list_size - 1) total += sep_len;
+    }
+    char* out = (char*)malloc(total + 1);
+    if (!out) return;
+    char* wp = out;
+    for (int i = 0; i < list->list_size; i++) {
+        LightValue* e = list->list_data[i];
+        if (!e) continue;
+        e = dv_deref(e);
+        char* s = NULL;
+        int owned = 0;
+        if (e->type == 3 && e->str) {
+            s = e->str;
+        } else {
+            s = dv_to_string(e);
+            owned = 1;
+        }
+        size_t elen = s ? strlen(s) : 0;
+        if (elen) { memcpy(wp, s, elen); wp += elen; }
+        if (owned) free(s);
+        if (i < list->list_size - 1 && sep_len > 0) {
+            memcpy(wp, sep_str, sep_len);
+            wp += sep_len;
+        }
+    }
+    *wp = '\0';
+    result->type = 3;
+    result->i64 = 0;
+    result->f64 = 0.0;
+    result->str = out;
+    result->boolean = 0;
 }
 
 int dv_setenv(const char* name, const char* value) {

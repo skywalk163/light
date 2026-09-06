@@ -1160,6 +1160,14 @@ T5A 将 `stdlib/数学.light`、`stdlib/统计.light`、`stdlib/排序.light` �
 
 ### 18.5 #L-T5B-3 [中] SHA512 / HMAC_SHA256 能力边界（未实现，返回空串）
 
+> **已修复（T7D / 2026-09-06）**：runtime 新增 `dv_sha512`（64 位字 SHA-512，
+> C 层面直接运算，不依赖光明位移运算符）与 `dv_pbkdf2_hmac_sha256_1`（PBKDF2
+> 语义 `pbkdf2_hmac('sha256', text, key, 1)`，内部消息按**显式长度**拼接，
+> 含尾部 `\x00\x00\x00\x01`）；codegen 注册 `SHA512哈希`/`SHA512`/`_sha512`
+> 与 `HMAC_SHA256`/`_hmac_sha256` builtin；`编码.light`/`哈希.light` 改调
+> runtime。`sha256_final` 的长度编码缺陷（>55B 输入错）随同修复（见下注）。
+> `test_runtime_builtin_O0.py` 与 Python `hashlib.sha512`/`pbkdf2_hmac` 对拍全绿。
+
 - `SHA512`（`编码.SHA512哈希`、`哈希.SHA512`）：原生腿无 `dv_sha512` runtime；
   且光明**缺位移与按位运算符**，无法在 `i64` 上可靠模拟 64 位无符号逻辑右移
   （`整除` 是向零取整，`2^63` 又超出 `i64` 上界）。故返回空串占位。
@@ -1167,12 +1175,19 @@ T5A 将 `stdlib/数学.light`、`stdlib/统计.light`、`stdlib/排序.light` �
   `b'\x00\x00\x00\x01'`，而 `dv_sha256` 以 `strlen` 取长度（**非二进制安全**），
   无法对拍。故返回空串占位。
 - 解锁路径：runtime 增 `dv_sha512` / 二进制安全的 `dv_sha256_n(ptr, len)`，
-  或语言层补位运算符 + 无符号 64 位移位。
+  或语言层补位运算符 + 无符号 64 位移位。**已按前一路径实现（T7D / 2026-09-06）**。
 
 ### 18.6 #L-T5B-4 [低] `连接字符串` 对列表返空（未修，已在 .light 内规避）
 
 `连接字符串` 用 `extractvalue …,3` 取列表指针，而列表指针不在 LightValue 的
 索引 3 字段，故对列表恒返空。`字符串常量.light` 的 `连接` 改为纯光明索引循环实现。
+
+> **已修复（T7D / 2026-09-06）**：根因双叠——① codegen `extractvalue …,3`
+> 取错字段（列表指针在索引 7）；② runtime `dv_str_join` 竟是 legacy
+> `"list:...\x1f"` 序列化解析器（死代码 shim），与原生 LightValue 列表协议
+> 不匹配。修复：runtime 新增 `dv_list_join`（直读 `list_data[i].str`，
+> 转文本语义），codegen `连接字符串` 改走它并支持 1/2 参。格式化/模板/
+> 正则表达式 的 `_格_连接`/`_模_连接`/`_正_连接` 已回退。
 
 ### 18.7 字节口径结论（重要，后续模块照此办）
 
@@ -1415,29 +1430,45 @@ POSIX 实机 `192.168.0.86`（clang 18.1.3）完成，T6A 是第一个全程 Lin
 
 #### T6A-04：builtin `连接字符串(列表, 分隔)` 恒返回空串
 
+> **已修复（T7D / 2026-09-06）**：见 #L-T5B-4 修复注——codegen 取错字段
+> （extractvalue ,3 应为 ,7）+ runtime `dv_str_join` 为 legacy 序列化解析器。
+> 新增 `dv_list_join` + codegen 改走，1/2 参形式均支持。三模块 `_格_连接`/
+> `_模_连接`/`_正_连接` workaround 已移除。
+
 - **现象**：`连接字符串(["a","b"], "-")` → `""`（mini9 实测；1 参形式
   按 codegen fallback 也返回 ""）。格式化/模板/正则表达式共 8 处中招
   （表格/缩进/填充段落/提取中文字符等输出全空）。
 - **Workaround**：三个模块各内置 `_格_连接`/`_模_连接`/`_正_连接`
   （手写循环拼接），全量替换。
-- **归属**：runtime `dv_str_join` 或 codegen 传参，归 T7。
+- **归属**：runtime `dv_str_join` 或 codegen 传参，归 T7。**已修复（T7D / 2026-09-06）**
 
 #### T6A-05：builtin `字典获取` 第 3 参（默认值）被丢弃
+
+> **已修复（T7D / 2026-09-06）**：codegen 只注册 2 参形式。runtime 新增
+> `dv_dict_get_def`（键存在返回值、不存在返回第 3 参），codegen 注册 3 参
+> 形式并传递默认值。`模板.light` 的 `_模_槽值` workaround 已移除，改回
+> `字典获取(数据, 名字, 默认)`。
 
 - **现象**：`字典获取(d, "缺", "默认")` 键不存在时返回 `空`（转文本后
   「空」）而非默认值（mini9 实测）。codegen_typed.py:2184 只传 2 参。
 - **影响**：模板 `{{v|默认}}` 渲染成「空End」。`模板.light` 改用
   `字典包含键` + 2 参 `字典获取` 组合（`_模_槽值`）。
-- **归属**：codegen builtin 签名收窄，归 T7。
+- **归属**：codegen builtin 签名收窄，归 T7。**已修复（T7D / 2026-09-06）**
 
 #### T6A-06：builtin `替换` 在特定调用形态下返回「旧串」参数
+
+> **已修复（T7D / 2026-09-06）**：C 层定界探针直调 `dv_str_replace` 证明
+> runtime 实现无错（`REPLACE_ABC=hello 光明`、连续替换链正确）；缺陷属
+> codegen/旧调用形态问题，且在 T7B 的 REF 写回链修复后当前 main 已不再复现
+> （替换链 R1/R2/R3 全对）。`模板.light` 的 `_模_文本替换` workaround 已移除，
+> 改回 `替换`。
 
 - **现象**：mini9 的 `替换("hello world","world","光明")` 正常（参数
   对称掩盖），但 `模板变量替换` 的连续替换链输出 `${b}`（对 `.py` 的
   `''.replace` 语义，等价于每次返回 args[1]）。手写 `_模_文本替换`
   绕开后模板变量替换与 .py 对拍一致。
 - **归属**：runtime `dv_str_replace` / codegen 传参序，归 T7（需先在
-  runtime 层复现定界）。
+  runtime 层复现定界）。**已修复（T7D / 2026-09-06）**
 
 #### T6A-07：re.light `{n}` 重复体含多选分支时回溯恢复不完整
 
@@ -1763,3 +1794,74 @@ T5C-07、T6A-01。
   句柄悬空 —— 需 runtime 字典值所有权/引用计数重构（归 T7 后续），T7B 保留
   .light 层防御（任务许可）。对外行为双平台一致。
 - 能力边界沿用（函数值/回调、装饰器返回 空 等），无新增。
+
+---
+
+## R10-12f T7D：builtin 签名/实现根因修复 + SHA512/HMAC + sha256 长度缺陷（2026-09-06）
+
+### 概述
+
+T6A 登记的 3 个 builtin 缺陷（T6A-04/05/06）与 T5B 登记的 SHA512/HMAC 能力
+边界（T5B-3/18.5），T7D 一并根因修复。改动集中在 `src/llvm/runtime_typed.c`
+（新增 `dv_list_join`/`dv_dict_get_def`/`dv_sha512`/`dv_pbkdf2_hmac_sha256_1`，
+独立函数区，未碰 TLS 段；另修复 sha256 机制的长度编码缺陷）与
+`src/llvm/codegen_typed.py`（builtin 注册/签名段）。
+
+### 定界结论（C 层直调探针）
+
+按任务书要求先做 runtime 层定界（`_taskT7D_cprobe.c` 直连 runtime 编译产物）：
+
+- **T6A-04 连接字符串**：`dv_str_join`（legacy 解析器）对原生列表指针返空；
+  codegen `extractvalue …,3` 又取错字段（列表指针在 LightValue 索引 7）。
+  **两层皆错**。
+- **T6A-06 替换**：`dv_str_replace` 直调输出正确（`hello 光明`/连续链正确）
+  ——runtime 无错，属 codegen/旧形态缺陷，且 T7B REF 写回链修复后当前 main
+  已不复发。**无需 runtime 改动**。
+- **sha256 latent bug**：HMAC 对拍失败牵出 `sha256_final` 长度编码缺陷——把
+  总位数编成 `count[1]`(块数)+`count[0]`(残余位) 两个独立 32 位大端，仅
+  <55B 时碰巧正确；长度扫描实证 L≥56 全错（HMAC inner/outer 77/96B 全中招）。
+  修复为 64 位总位数编码。
+
+### 变更清单
+
+1. **runtime**：`dv_list_join(list, sep)` 直读 `list_data[i].str`（分隔缺省
+   空串，1 参形式）取代 legacy `dv_str_join`；`dv_dict_get_def(result, dict,
+   key, def)`（键不存在返回第 3 参）；`dv_sha512(data, len)`（64 位字
+   SHA-512 + hex 小写，镜像 dv_sha256 风格）；`dv_pbkdf2_hmac_sha256_1(pw,
+   salt)`（= Python `pbkdf2_hmac('sha256', text, key, 1)`，内部按显式长度拼
+   接消息）；`sha256_final` 长度编码修复。
+2. **codegen**：`连接字符串` 改走 `dv_list_join`（支持 1/2 参）；`字典获取`
+   注册 3 参形式 → `dv_dict_get_def`；新增 `SHA512哈希`/`SHA512`/`_sha512`、
+   `HMAC_SHA256`/`_hmac_sha256` builtin 映射（走二进制安全显式长度路径）。
+3. **stdlib 回退**：格式化/模板/正则表达式 的 `_格_连接`/`_模_连接`/`_正_连接`
+   删除改回 `连接字符串`；`_模_槽值` 删除改回 3 参 `字典获取`；`_模_文本替换`
+   删除改回 `替换`；编码.light/哈希.light 的 SHA512/HMAC 占位改调 runtime
+   builtin。
+
+### 验证（O0 真编译真跑，双平台）
+
+- 新增 `tests/unit/test_runtime_builtin_O0.py` 6 用例（join 1/2 参、字典 3 参、
+  替换链、SHA512 "abc"/空串、HMAC 对拍）。
+- **Windows**（clang 22.1.8 + MSVC 14.29 + SDK 10.0.19041）：T6A 17 + T5B 4
+  + 新增 6 = **27 passed / 0 failed**。
+- **POSIX** `192.168.0.86`（Ubuntu 24.04.4 / clang 18.1.3）：同组合
+  **27 passed / 0 failed**。
+- C 层长度扫描 L=1..130 全对齐 Python `hashlib.sha256`。
+
+### 移除的 workaround 清单
+
+| 模块 | workaround | 回退为 |
+|---|---|---|
+| 格式化.light | `_格_连接` 手写拼接 helper | `连接字符串` builtin |
+| 模板.light | `_模_连接`/`_模_槽值`/`_模_文本替换` | `连接字符串`/3 参 `字典获取`/`替换` |
+| 正则表达式.light | `_正_连接` 手写拼接 helper | `连接字符串` builtin |
+| 编码.light | `SHA512哈希` 返回空串占位 | `_sha512` runtime builtin |
+| 哈希.light | `SHA512`/`HMAC_SHA256` 返回空串占位 | `_sha512`/`_hmac_sha256` runtime builtin |
+
+### 仍存在的缺口
+
+- HMAC 仅支持「PBKDF2 单轮」语义（对齐 .py 的 `pbkdf2_hmac(…, 1)`），未实现
+  通用 HMAC/多轮 PBKDF2；SHA-384 未实现（可复用 SHA-512 核心扩展）。
+- `dv_str_join` legacy 解析器保留未删（防其它调用点引用断裂），已无 codegen
+  引用。
+- 能力边界沿用（函数值/回调不可用等），无新增。
