@@ -230,7 +230,46 @@ class ParserExprMixin:
         return left
     
     def _parse_comparison(self) -> ASTNode:
-        """解析比较表达式"""
+        """解析逻辑/比较表达式（R12A 接线入口）。
+
+        R12A（R11A-07 根因修正）：_parse_logical_expr 此前从未被表达式链
+        调用——函数参数、如果条件等处的 且/或 根本不会形成 BinaryOp 节点，
+        右操作数被 parser 静默丢弃（`b1(真 且 假)` 只收到 左操作数）。
+        现把逻辑层接入：或 < 且 < 比较（Python 同优先级），见
+        _parse_logical_or_expr / _parse_logical_and_expr。
+        """
+        return self._parse_logical_or_expr()
+
+    def _parse_logical_or_expr(self) -> ASTNode:
+        """或 层：a 或 b（最低逻辑优先级，先于 且 结合）"""
+        left = self._parse_logical_and_expr()
+        while self._current() and not self._is_expr_terminator():
+            tok = self._current()
+            if tok.type == TokenType.KEYWORD and tok.value == '或':
+                self._consume()
+                self._skip_implicit_continuation()
+                right = self._parse_logical_and_expr()
+                left = BinaryOp(self.LOGICAL_OP_MAP['或'], left, right)
+            else:
+                break
+        return left
+
+    def _parse_logical_and_expr(self) -> ASTNode:
+        """且/与 层：a 且 b（高于 或，低于比较）"""
+        left = self._parse_comparison_chain()
+        while self._current() and not self._is_expr_terminator():
+            tok = self._current()
+            if tok.type == TokenType.KEYWORD and tok.value in ('且', '与'):
+                self._consume()
+                self._skip_implicit_continuation()
+                right = self._parse_comparison_chain()
+                left = BinaryOp(self.LOGICAL_OP_MAP[tok.value], left, right)
+            else:
+                break
+        return left
+
+    def _parse_comparison_chain(self) -> ASTNode:
+        """解析比较表达式（原 _parse_comparison 主体）"""
         left = self._parse_bitor_expr()
         
         while self._current() and not self._is_expr_terminator():

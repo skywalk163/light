@@ -1119,10 +1119,50 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         str_reg = self.gen_string_constant(name)
         return self._create_str_dv(str_reg), 'dv'
 
+    def _gen_short_circuit_logic(self, expr: ast.BinaryOp, op: str) -> Tuple[str, str]:
+        """R12A（R11A-07）：且/或 短路求值。
+
+        结果用 i8 槽：默认存左值，右臂块内覆盖为右值。and → 左真才进右臂
+        （结果=右真值，左假时结果=0=左）；or → 左假才进右臂（左真时结果=1=左）。
+        右臂嵌套 且/或 时各自再建块，天然支持复合内联条件。
+        """
+        left_dv, _ = self._gen_expression(expr.left)
+        left_i1 = self._gen_condition_i1(expr.left, left_dv)
+        rhs_lab = self.new_label('sc_rhs')
+        end_lab = self.new_label('sc_end')
+        res_slot = self.new_register()
+        self.emit(f'{res_slot} = alloca i8')
+        lv = self.new_register()
+        self.emit(f'{lv} = zext i1 {left_i1} to i8')
+        self.emit(f'store i8 {lv}, ptr {res_slot}')
+        if op in ('and', '且', '与'):
+            self.emit(f'br i1 {left_i1}, label %{rhs_lab}, label %{end_lab}')
+        else:
+            self.emit(f'br i1 {left_i1}, label %{end_lab}, label %{rhs_lab}')
+        self.emit(f'{rhs_lab}:')
+        right_dv, _ = self._gen_expression(expr.right)
+        right_i1 = self._gen_condition_i1(expr.right, right_dv)
+        rv = self.new_register()
+        self.emit(f'{rv} = zext i1 {right_i1} to i8')
+        self.emit(f'store i8 {rv}, ptr {res_slot}')
+        self.emit(f'br label %{end_lab}')
+        self.emit(f'{end_lab}:')
+        b8 = self.new_register()
+        self.emit(f'{b8} = load i8, ptr {res_slot}')
+        res_i1 = self.new_register()
+        self.emit(f'{res_i1} = trunc i8 {b8} to i1')
+        return self._create_bool_dv(res_i1), 'dv'
+
     def _gen_typed_binary_op(self, expr: ast.BinaryOp) -> Tuple[str, str]:
+        op = expr.operator
+        # R12A（R11A-07）：且/或 短路求值。必须在此提前分派——若先走下方
+        # 双侧统一求值（left_dv/right_dv），右侧会在进入逻辑前被执行，
+        # 「假 且 报错()」会求值报错()。短路专用路径：and 左假直接假、
+        # or 左真直接真，右侧仅在 rhs 块内求值（Python and/or 同语义）。
+        if op in ('and', 'or', '且', '与', '或'):
+            return self._gen_short_circuit_logic(expr, op)
         left_dv, _ = self._gen_expression(expr.left)
         right_dv, _ = self._gen_expression(expr.right)
-        op = expr.operator
 
         left_type = self._infer_expr_type(expr.left)
         right_type = self._infer_expr_type(expr.right)
@@ -1315,13 +1355,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     def _gen_typed_unary_op(self, expr: ast.UnaryOp) -> Tuple[str, str]:
         reg, _ = self._gen_expression(expr.operand)
         if expr.operator == '非':
-            zero_dv = self._create_int_dv('0')
+            # R12A（R11A-01 / R11B-1）：原实现 dv_eq(operand, 整数0) 对布尔假
+            # 判错——bool(type 5) 与 int(type 1) 类型不同，dv_eq 返回「不等」，
+            # 「非 假」得假。同时函数调用返回值的取反也依赖类型无关真值。
+            # 统一改为 dv_to_bool 取真值后取反：非 x ≡ (truthy(x) == 0)，
+            # 对布尔/整数/字符串/列表/函数返回值全类型正确（与 _gen_condition_i1
+            # 兜底同口径）。
             reg_slot = self._store_dv(reg)
-            zero_slot = self._store_dv(zero_dv)
-            eq = self.new_register()
-            self.emit(f'{eq} = call i32 @dv_eq(ptr {reg_slot}, ptr {zero_slot})')
+            truthy = self.new_register()
+            self.emit(f'{truthy} = call i32 @dv_to_bool(ptr {reg_slot})')
             final = self.new_register()
-            self.emit(f'{final} = icmp ne i32 {eq}, 0')
+            self.emit(f'{final} = icmp eq i32 {truthy}, 0')
             return self._create_bool_dv(final), 'dv'
         # T6A-01（T7B）：一元负号此前被整段忽略——只处理了「非」，其余一元
         # 操作符直接返回操作数本身，于是负数字面量 `-1` 求值成 `1`
@@ -1420,8 +1464,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if self._seg_reg_key(_imp_orig, _imp_mod) in self._segments:
                 return self._gen_imported_segment_call(func_name, args, arg_asts)
 
-        # 内置函数
-        builtin = self._gen_typed_builtin(func_name, args)
+        # 内置函数（arg_asts：与 args 对齐的参数 AST，供类型推断快路径用；
+        # kwargs 重排后为 None）
+        builtin = self._gen_typed_builtin(func_name, args, arg_asts)
         if builtin is not None:
             # 函数式变异调用写回：`列表弹出(己.数据)` / `列表插入(己.数据, 0, x)` 这类
             # 独立语句调用 mutating builtin（返回新列表），须把新列表写回
@@ -1517,7 +1562,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'{result} = load {LIGHTVALUE_STRUCT}, ptr {result_slot}')
         return result, 'dv'
 
-    def _gen_typed_builtin(self, name: str, args: List[str]) -> Optional[Tuple[str, str]]:
+    def _gen_typed_builtin(self, name: str, args: List[str], arg_asts=None) -> Optional[Tuple[str, str]]:
         # 异常类名直呼构造：stdlib 写 `抛出 运行时错误("...")`（裸类名调用，
         # 非 `新建`），与 `新建 异常(提示)` 走同一类实例化语义。中文名覆盖
         # stdlib 直呼的 Python 风格名，英文名对齐已注册的内置异常类。
@@ -1788,6 +1833,18 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('整数', 'int', '转整数', 'to_int'):
             if not args:
                 return self._create_int_dv('0'), 'dv'
+            # R12A（R11B-2）：runtime dv_to_int 对 bool（type 5）落默认分支
+            # 返回 0，「整数(真)」得 0，与 Python int(True)=1 不符。参数 AST
+            # 静态类型为 BOOL（真/假 字面量、比较、非 表达式等）时直接从
+            # 布尔字段（field 4）零扩展成 i64。类型未知的操作数仍走
+            # dv_to_int（bool→int 的运行时映射归 T7）。
+            if (arg_asts and self._enable_type_opt
+                    and self._infer_expr_type(arg_asts[0]) == 'BOOL'):
+                b32 = self.new_register()
+                self.emit(f'{b32} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 4')
+                wide = self.new_register()
+                self.emit(f'{wide} = zext i32 {b32} to i64')
+                return self._create_int_dv_fast(wide), 'dv'
             return self._call_dv_func('dv_to_int', args[0]), 'dv'
 
         if name in ('浮点数', 'float', '转浮点', 'to_float'):
