@@ -4624,6 +4624,119 @@
 <li>证据：<code>任务书/原生腿可编译核对_T9.json</code>（逐模块结果 + 计数，T9 核对落盘；判据可复现：重跑核对脚本即得同结论）。</li>
 </ul>
 </li>
+<li><strong>R10-8 攻坚第一批进展（原生腿覆盖，2026-09-04）</strong>：对「代码生成不支持」13 个模块逐一生根，落地首批编译器修复后 <strong>5/89 → 12/89（13.48%）</strong>，新增 6 个可编译模块：内置核心判型、内置核心转换、内置核心字典、列表工具、路径运算、操作系统。<ul>
+<li>落地修复（<code>src/llvm/codegen_typed.py</code> + <code>src/llvm/runtime_typed.c</code>）：内建名补齐（<code>类型</code>/<code>str</code>/<code>替换字符串</code>/<code>转大写</code>/<code>转小写</code>/<code>开头</code>/<code>字符串重复</code>/<code>字符串包含</code>/<code>连接路径</code>/<code>分割字符串</code>/<code>列表排序</code>/<code>目录存在</code>，runtime 新增 <code>dv_path_join</code>）；异常类名直呼构造（stdlib 写 <code>抛出 运行时错误("…")</code> 裸类名调用）；<strong>变量名与内置判型名重名歧义兜底</strong>（<code>设 是浮点 为 假</code> 后 <code>如果 是浮点 == 真</code>，v3 把变量引用解析成无参 ParagraphCall，原生腿在 <code>_gen_typed_function_call</code> 按「已声明局部变量且无参」降级为变量引用）。</li>
+<li>剩余 7 个「代码生成不支持」模块阻断根因（供下一批）：<strong>KeywordArg ×3</strong>（JSON/JSON核心/内置核心列表——<code>打开文件(路径, "w", encoding="utf-8")</code> 关键字参数 + <code>表.sort(reverse=反向)</code>，需关键字参数支持 + 文件句柄对象/方法分派）；<strong>TupleLiteral</strong>（内置核心路径——<code>返回 (头, 尾)</code> 元组字面量，需元组类型）；<strong>列表弹出</strong>（数据结构轻量——<code>列表弹出(己.数据)</code> 变异函数需属性写回）；<strong>YieldStmt</strong>（文件流——生成器）；<strong>目录名</strong>（文件系统——需 dirname + 文件句柄）。</li>
+<li>验证：codegen 定向回归全绿（test_llvm_stmt_coverage 13 + test_native_leg_capability 11 + test_llvm_c3_expr 56）；<code>docs/原生腿能力清单.json</code> 已同步（builtin 290 / runtime 216 全量行号重算，能力单点测试通过）。</li>
+</ul>
+</li>
+<li>
+<p><strong>R10-9 攻坚第二批进展（原生腿覆盖，2026-09-05）</strong>：完成「变异函数属性写回 + <code>dv_list_pop</code>」，<strong>12/89 → 13/89（14.61%）</strong>，解锁 数据结构轻量（编译 + 运行语义）。</p>
+<ul>
+<li>落地修复：runtime 新增 <code>dv_list_pop</code>（index&lt;0 弹末尾，复用 <code>dv_list_remove</code>）；builtin 新增 <code>列表弹出</code>/<code>list_pop</code>（注意<strong>不注册</strong> <code>弹出</code>/<code>pop</code>——会劫持 <code>栈.弹出()</code> 类方法调用，已踩坑）；函数式变异调用写回（<code>_gen_typed_function_call</code> 对 <code>列表弹出(己.数据)</code>/<code>列表插入(己.数据,0,x)</code> 等 mutating builtin 返回新列表后写回第一参数，<code>_persist_to_receiver</code> 字段/变量均覆盖）；<code>_recv_is_field</code> 扩展为放行无点局部变量（此前方法调用 <code>栈.追加(元素)</code> 对局部变量接收者不写回，跨调用累积丢失）。</li>
+<li><strong>运行语义验证（真跑 exe）</strong>：数据结构轻量 4 个类全部正确——栈 <code>s.压入/弹出</code>（<code>20 1 10 0</code>）、队列 <code>q.入队/出队</code> 带索引弹出（<code>1 1 2 0</code>）、双端队列 左/右出队（<code>7 8</code>）、优先队列 按优先级出队（<code>甲 乙 丙</code>）。</li>
+<li><strong>架构缺口（重要，需单独排期）</strong>：原生腿<strong>段参数传值</strong>，列表作为参数跨段变异传递不生效（转译腿=Python 引用，原生腿=值拷贝+共享底层数组，realloc 后调用方悬垂）。数据结构轻量的辅助函数版本（<code>创建栈/入栈/出栈/栈大小</code> 以列表为参数）编译通过但运行语义受此限制；<strong>类版本</strong>（<code>己.数据</code> 字段 + self 对象共享）不受影响，故 4 个类全部正确。跨段引用语义是原生腿架构级缺口，影响所有「列表参数跨段变异」代码，需专项评估。</li>
+<li>验证：能力清单同步（builtin 293 / runtime 217）；codegen 定向回归 143 全绿（stmt_coverage 13 + capability 24 + c3_expr 56 + stdlib_phase2/13）。</li>
+</ul>
+</li>
+<li>
+<p><strong>R10-10 攻坚第三批进展（原生腿覆盖，2026-09-05）</strong>：完成「KeywordArg 展开 + 文件句柄链」，<strong>13/89 → 16/89（17.98%）</strong>，解锁 JSON / JSON核心 / 内置核心列表（编译 + 运行语义）。</p>
+<ul>
+<li>落地修复（codegen/compiler/runtime 三侧）：</li>
+<li><strong>KeywordArg 展开</strong>：<code>ast_nodes</code> 新增 <code>KeywordArg</code>（ID=102）；<code>compiler._convert_keyword_arg</code>；<code>codegen</code> 函数/方法调用参数展开时分离位置参数与关键字参数，<code>_merge_kwargs</code> 按 <code>_BUILTIN_KWARGS</code> 签名表（打开文件/排序 的 encoding/reverse）或光明段 <code>parameters</code> 参数名映射回位置（stdlib <code>打开文件(路径, "w", encoding=...)</code>、<code>表.sort(reverse=...)</code> 用）。</li>
+<li><strong>文件句柄链</strong>：runtime 新增 <code>LV_TYPE_FILE</code>（type=22）：<code>dv_open_file</code>/<code>dv_file_write</code>/<code>dv_file_close</code>（fclose 后置 NULL 防双关）；codegen builtin <code>打开文件</code>/<code>write</code>/<code>close</code> 分支接线。</li>
+<li><strong>try/catch IR 非法修复</strong>：<code>catch</code> 体与 <code>finally</code> 体若已以 terminator 结束不再多发 <code>br</code>（此前重复发 br 生成非法 IR）。</li>
+<li><strong>dict 遍历 0 次根因</strong>：<code>遍历 项 之 对象</code> 改用 <code>dv_len</code>（dict/list/str 统一取长）+ 新 runtime <code>dv_foreach_get</code>（开头 <code>v = dv_deref(v)</code> 处理 dict 内数组 REF）。</li>
+<li><strong>段优先于 builtin</strong>：<code>_gen_typed_function_call</code> 分派顺序调整为「本地段 &gt; builtin &gt; 导入段」，对齐转译腿 Python 语义（用户定义段覆盖同名内置，修复 JSON核心 <code>段落 连接</code> 被 <code>连接</code>(dv_concat) 劫持）。</li>
+<li><strong>type 名对齐</strong>：<code>dv_get_type_name</code> 返回英文名（NoneType/int/float/str/list/bool/dict），REF（type=8）解引用一层返回底层类型名。</li>
+<li><strong>段默认参数丢失</strong>：<code>compiler._convert_paragraph/_convert_parameter</code> 补 <code>default_value</code>（新增 <code>_convert_default_value</code> helper）；codegen 缺参分支应用默认值（stdlib <code>缩进 = 0</code>/<code>美化 = 假</code> 等），无默认值才用 null。</li>
+<li><strong>dict 索引赋值</strong>：<code>_gen_typed_assignment</code> 新增 IndexAccess 分支（<code>dv_dict_set</code> 原地设置 + 写回目标变量防 realloc 悬垂）；<strong>并修复 <code>_convert_indexed_assignment</code></strong>——v3 的 <code>设 映射[键] 为 值</code> 在段落内 target 是已解析的 IndexAccess 节点，原实现 <code>Identifier(name=node.target)</code> 把节点塞进 name 导致 <code>'IndexAccess' object has no attribute 'encode'</code>（内置核心字典回归根因），现对非字符串 target 直接 <code>self.convert</code>。</li>
+<li><strong>方法内调方法崩溃</strong>：runtime 所有 <code>dv_call_method</code>/<code>dv_call_class_method</code>/<code>dv_call_static_method</code>/接口调用在 <code>method(result,...)</code> 前加 <code>dv_null(result)</code> 初始化结果槽。</li>
+<li><strong>JSON 数组内 null 三处 REF 根因（本批关键调试成果）</strong>：
+    ① <code>dv_foreach_get</code> 不 deref REF——dict 内数组经 <code>dv_dict_get</code> 取值是 REF，<code>遍历 项 之 对象</code> 元素全 null（<code>{"b":[1,2,3]}</code> → <code>[null,null,null]</code>）；
+    ② 索引 REF 字符串 type 判断——dict 内字符串经索引取值是 REF，codegen load type 后 <code>icmp eq 3</code>(str) 失败误走 list 分支取到垃圾 <code>\u0000</code>（<code>{"c":"x"}</code> → <code>\u0000</code>）；runtime 新增 <code>dv_deref_value</code>（解引用并复制实际值），codegen 索引访问 obj_slot 后先 deref；
+    ③ <code>dv_eq</code> 不 deref REF——dict 内 bool/null 与 <code>空</code> 比较失败（<code>序列化({"t":真,...})</code> 崩），<code>dv_eq</code> 开头加 <code>dv_deref</code> 解引用。</li>
+<li><strong>运行语义验证（真跑 exe）</strong>：JSON round-trip <strong>12/12 全过</strong>（顶层数组/对象、对象内数组、嵌套、深层嵌套、空对象/数组、字符串转义、中文、浮点、多数组、布尔/null）；文件句柄 打开/写入/关闭 冒烟通过；13 模块编译核对 OK 10（本批新增 JSON / JSON核心 / 内置核心列表）。</li>
+<li><strong>修复的本批回归</strong>：内置核心字典（<code>_convert_indexed_assignment</code> 的 IndexAccess target 处理）——R10-8 解锁模块因本批新增 dict 索引赋值分支暴露的适配层 bug，已修并回归通过。</li>
+<li>
+<p>验证：能力清单全量重建（builtin 299 / runtime 222，evidence 行号重算）；定向回归 <code>test_native_import.py</code> 5 + <code>test_native_leg_capability</code> 11 + <code>test_native_cli.py</code> 35 全绿；JSON round-trip 12/12。</p>
+</li>
+<li>
+<p>剩余 FAIL 2（下一批）：文件流（YieldStmt 生成器）、文件系统（目录名未定义段落）。</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>R10-11a 攻坚第四批A进展（原生腿覆盖，2026-09-05）</strong>：完成「元组字面量 + 元组索引」，<strong>16/89 → 17/89（19.10%）</strong>，解锁 内置核心路径（编译 + 分割路径/分割扩展名 真跑对拍 posixpath）。</p>
+<ul>
+<li><strong>阻断根因</strong>：<code>stdlib/内置核心路径.light</code> 的 <code>分割路径</code>/<code>分割扩展名</code> 用 <code>返回 (头, 尾)</code> 返回元组字面量（TupleLiteral），<code>扩展名</code> 用 <code>二元[1]</code> 元组索引——原生腿 AstAdapter 无 TupleLiteral 转换器（被包成 <code>&lt;unknown:TupleLiteral&gt;</code>），codegen 无元组表达式分支。</li>
+<li>落地修复（codegen/compiler/runtime/ast 四侧）：</li>
+<li><strong>ast_nodes.py</strong>：新增 <code>AST_TYPE_ID_TUPLE_LITERAL = 103</code>；新增 <code>TupleLiteral</code> dataclass（<code>elements: list</code>，镜像 <code>ListLiteral</code>）。</li>
+<li><strong>compiler.py</strong>：<code>_node_converters</code> 注册 <code>'TupleLiteral': self._convert_tuple_literal</code>；<code>_convert_tuple_literal</code> 镜像 <code>_convert_list_literal</code>（递归转换 elements）。</li>
+<li><strong>codegen_typed.py</strong>：4 条 declare（<code>dv_tuple_new</code>/<code>dv_tuple_append</code>/<code>dv_tuple_get</code>/<code>dv_tuple_len</code>）；<code>_gen_expression</code> 新增 <code>isinstance(expr, ast.TupleLiteral)</code> 分派 → <code>_gen_typed_tuple_literal</code>（逐元素 append）；<code>_gen_typed_index_access</code> 新增 <code>is_tuple = icmp eq i32 {type_reg}, 23</code> 分支 → <code>dv_tuple_get</code>。</li>
+<li><strong>runtime_typed.c</strong>：<code>#define LV_TYPE_TUPLE 23</code>（文件头部）；<code>dv_len</code> 新增 <code>type==23</code> 分支（调 <code>dv_tuple_len</code>）；文件末尾追加 <code>dv_tuple_new</code>/<code>dv_tuple_append</code>/<code>dv_tuple_get</code>/<code>dv_tuple_len</code>（含 REF deref、容量扩容、元素克隆，对齐 R10-10 的 dict/字符串 REF 教训）。</li>
+<li><strong>运行语义验证（真跑对拍）</strong>：<code>分割路径</code>/<code>分割扩展名</code> 与 <code>posixpath.split</code>/<code>posixpath.splitext</code> 逐字符等价（覆盖空串、纯斜杠、前导点、<code>.a/b.c/d</code>、中文路径等 32 样本，diff EXIT=0，见 <code>tests/unit/test_地板搬迁_路径_S2.py</code>）。</li>
+<li><strong>反跑验证</strong>：破坏 <code>_gen_expression</code> 的 TupleLiteral 分派（<code>if False and isinstance(...)</code>）→ 编译立即报 <code>暂不支持表达式「TupleLiteral」</code>；恢复后编译通过。</li>
+<li><strong>R10-11a 增量修复（rfind/rstrip/ends_with/str_repeat，主控 agent 评审追加）</strong>：</li>
+<li><strong>阻断根因</strong>：<code>分割路径</code> 用 <code>路径.rfind("/")</code>、<code>头.rstrip("/")</code>、<code>头 == "/" * 长(头)</code>；<code>分割扩展名</code> 用 <code>路径.rfind(".")</code>、<code>结果.结尾("/")</code>——codegen <code>_gen_typed_builtin</code> 无 <code>rfind</code>/<code>rstrip</code>/<code>结尾</code> 分支（走 <code>dv_call_method</code> 静默返回 null），<code>*</code> 运算符对 STRING×INT 走 <code>dv_mul</code>（数值乘法）而非 <code>dv_str_repeat</code>（字符串重复）。</li>
+<li><strong>codegen_typed.py 修复</strong>：<ul>
+<li>新增 <code>declare i64 @dv_str_rfind(ptr, ptr)</code> 和 <code>declare void @dv_str_rstrip(ptr, ptr, ptr)</code>；</li>
+<li><code>rfind</code>/<code>右查找</code>/<code>str_rfind</code> 分支 → <code>call i64 @dv_str_rfind</code>；</li>
+<li><code>rstrip</code>/<code>右去除</code>/<code>str_rstrip</code> 分支 → <code>call void @dv_str_rstrip</code>（无 chars 参数时传 null 默认剥空白）；</li>
+<li><code>结尾</code>/<code>endswith</code>/<code>ends_with</code>/<code>后缀是</code>/<code>以结尾</code> 分支（复用已有 <code>dv_str_ends_with</code> runtime）；</li>
+<li><code>_gen_typed_binary_op</code> 的 <code>*</code>/<code>乘</code> 分支新增 STRING×INT / INT×STRING 分派 → <code>dv_str_repeat</code>（在 arith_ops 数值路径之后、cmp_ops 之前）。</li>
+</ul>
+</li>
+<li><strong>runtime_typed.c 修复</strong>：<ul>
+<li><code>dv_str_rfind</code>：<strong>补 REF deref</strong>（<code>str = dv_deref(str); sub = dv_deref(sub);</code>——对齐 R10-10 的 dict/字符串 REF 教训，缺则 REF 传入时 <code>type != 3</code> 直接返回 -1）；<strong>字节偏移→字符偏移转换</strong>（<code>dv_substr</code> 按字符位置切片，rfind 返回字节偏移会导致中文路径索引错位——用 <code>dv_utf8_seq_len</code> 逐字符累计转换为字符偏移）；空子串返回 <code>dv_utf8_char_count(s)</code>（对齐 Python <code>"".rfind("") == 0</code> 的字符语义）。</li>
+<li><code>dv_str_rstrip</code>：从右往左剥指定字符集或空白（<code>strchr</code> 匹配字符集，<code>isspace</code> 匹配空白）。</li>
+</ul>
+</li>
+<li><strong>对拍验证</strong>：32 样本（含 <code>中文/目录/文件.txt</code>、<code>目录/中文名.文本</code> 等中文路径）与 <code>posixpath.split</code>/<code>posixpath.splitext</code> 逐字符等价，<code>diff EXIT=0</code>。</li>
+<li>验证：能力清单同步（builtin 310 / runtime 228，全量 evidence 行号重算）；定向回归 <code>test_地板搬迁_路径_S2.py</code> + <code>test_native_leg_capability.py</code> 共 478 全绿。</li>
+<li><strong>R10-11a 打回修复·查收（2026-09-05，主控 agent 独立验证）</strong>：上一轮打回（内置核心路径多段组合段错误）的修复提交 <code>f598a7b2</code>（分支 <code>task-T4aR</code>）已查收，<strong>部分生效、核心判据未达验收 → 继续打回待 A2</strong>：</li>
+<li><strong>生效部分</strong>：修复在 <code>_gen_typed_method_call</code> 的类方法检查之后、builtin 检查之前新增模块段分派（<code>obj_name in self._imported_modules and method_name in self._segments</code> → 直接 <code>_gen_typed_segment_call</code>，不走 <code>dv_call_method</code>）。查收实测：模块级导入（<code>导入 内置核心路径</code> → <code>内置核心路径.分割路径/分割扩展名/扩展名/目录名</code>）4 段全调用输出正确（<code>a|b.c</code>/<code>x.tar|.gz</code>/<code>.gz</code>/<code>/a//b</code>）。</li>
+<li><strong>未达验收（打回主因）</strong>：核心反跑判据（<strong>O0</strong> 下选择导入 <code>从 内置核心路径 导入 分割路径 分割扩展名 扩展名 目录名</code> 全调用）在 <code>task-T4aR</code> 上<strong>仍段错误</strong>（rc=3221225477，崩溃偏移 0x56530 = memcpy/memmove 内访问无效内存）。<strong>执行者测试用默认 <code>optimize_level=2</code>（O2）通过，未覆盖 O0；O0 是 <code>compile_light_typed</code> 合法参数（optimize_level=0），同样崩</strong>。</li>
+<li><strong>精确触发条件（O0 特有，主控二分定位）</strong>：单段/任意 2 段/全量 6 段导入全过；<strong>含「扩展名 + 目录名 + 任意第三段」的 3/4 段选择导入崩</strong>（<code>分割路径+扩展名+目录名</code>、<code>分割扩展名+扩展名+目录名</code>、<code>分割路径+分割扩展名+扩展名+目录名</code> 均复现）；2 段 <code>扩展名+目录名</code>、3 段无扩展名（<code>分割路径+分割扩展名+目录名</code>）或无目录名（<code>分割路径+分割扩展名+扩展名</code>）均过。</li>
+<li><strong>根因方向</strong>：选择导入（跳过 stdlib 部分段）时编译产物存在<strong>未初始化读取</strong>（O0 保留错误指针传给 memcpy → 段错误；O1+ 优化消除未初始化读取 → 通过）。O0 与 O1+ 的合并 IR 段调用编号均正确（主段 <code>_seg_f5</code> → <code>_seg_f9/f10/f11/f7</code>），崩溃在段函数内部执行路径。</li>
+<li><strong>A2 修复要求</strong>：O0 下任意导入组合（含上述 3/4 段）不崩且输出正确；<strong>反跑用例必须显式传 <code>optimize_level=0</code></strong>（否则被 O2 掩盖）；保留已生效的模块级导入分派修复；单/2 段/全量 6 段 O0 与模块级导入不回归。</li>
+<li><strong>R10-11a 打回 A2 修复（2026-09-05，分支 <code>task-T4aR2</code>）</strong>：O0 多段组合段错误已修复，定向测试 482 全绿（原 480 + 新增 4 O0 反跑）。</li>
+<li><strong>根因</strong>：<code>_gen_typed_segment_call</code>（L3118）和 <code>_gen_imported_segment_call</code>（L1362）分配 <code>result_slot = self._new_dv_slot()</code> 后<strong>未 <code>dv_null</code> 初始化</strong>。<code>_new_dv_slot</code> 来自复用型临时槽位池（不零初始化，L594 注释明确），段函数返回路径 <code>_emit_return_with_self_writeback</code> 调 <code>dv_obj_release_slot(result_ptr)</code> 释放旧值——O0 下残留垃圾被误判为 REF 指针 → <code>memcpy</code> 非法地址 → 段错误（rc=3221225477）。O1+ 优化消除未初始化读取故不崩。与 <code>_call_dv_func</code>（L690-695）已有的同模式修复一致。</li>
+<li><strong>修复</strong>（<code>src/llvm/codegen_typed.py</code>，+19 行）：① <code>_gen_typed_segment_call</code> 的 <code>result_slot</code> 后补 <code>call void @dv_null(ptr {result_slot})</code>；② <code>_gen_imported_segment_call</code> 同理补 <code>dv_null</code>；③ <code>_gen_typed_method_call</code> 补回模块级导入分派（<code>obj_name in self._imported_modules and method_name in self._segments</code> → <code>_gen_typed_segment_call</code>，来自 f598a7b2 未合入 main 的修复，一并补回防止模块级导入回归）。</li>
+<li><strong>验证</strong>：O0 下 4 段选择导入（<code>分割路径+分割扩展名+扩展名+目录名</code>）rc=0 输出 <code>a|b.c</code>/<code>x.tar|.gz</code>/<code>.gz</code>/<code>/a//b</code>；3 段 A（<code>分割路径+扩展名+目录名</code>）、3 段 B（<code>分割扩展名+扩展名+目录名</code>）均 rc=0；单段/2 段/6 段全量/模块级导入 O0 均不回归；O2 对照正常。能力清单 JSON 328 条 evidence 行号全量重算。</li>
+</ul>
+</li>
+<li>
+<p><strong>R10-11b 攻坚进展（原生腿覆盖，2026-09-05，第四批B）</strong>：完成原生腿<strong>生成器（<code>YieldStmt</code>）</strong>——文件流 模块最后一块编译阻断解除。</p>
+<ul>
+<li>落地修复：</li>
+<li><code>ast_nodes.py</code> 新增一等节点 <code>YieldStatement</code>（<code>AST_TYPE_ID_YIELD_STATEMENT=103</code>，字段 <code>value</code>/<code>is_from</code>）；<code>compiler.py::AstAdapter</code> 增加 <code>_convert_yield_stmt</code>（<code>生成 全部 X</code> 保留 <code>is_from=True</code> 供 codegen 显式拒绝，不静默降级成 <code>生成 X</code>）。</li>
+<li><code>codegen_typed.py</code>：含 <code>生成</code> 的段落整段生成<strong>生成器状态机函数</strong> <code>_genf_&lt;名&gt;(ptr %gen)</code>——entry 块按预扫到的生成点数一次造齐 <code>switch</code> 恢复落点，局部变量全部落在堆上槽数组（<code>dv_gen_slot</code>，跨 <code>ret void</code> 存活），<code>生成 表达式</code> 发射 <code>dv_gen_yield</code> + <code>ret void</code> + 恢复标签；<code>_seg_&lt;名&gt;</code> 包装段 <code>dv_gen_create</code> + 实参/默认值抄槽 + <code>dv_gen_make</code> 包成 LightValue（type=24）返回。<code>遍历</code> 消费路径对迭代对象做 <code>dv_is_generator</code> 分派：生成器走 <code>dv_gen_resume/dv_gen_value</code> 逐条拉取，列表/字符串/字典走既有 <code>dv_len+dv_foreach_get</code>，两条取值路径写同一个循环变量槽、共用一个循环体。</li>
+<li><strong>两处 IR 正确性修复（本批调试成果）</strong>：① entry 回插指令必须用<strong>符号名寄存器</strong>（<code>%gs.N</code>/<code>%ga.N</code>）——正文生成与 entry 回插在时刻上交错，数字寄存器「文本序 ≠ 编号序」，LLVM 文本解析报 <code>expected to be numbered '%N' or greater</code>；② <code>遍历</code> 的 list 路径 <code>len</code> 改走<strong>内存槽 store/load</strong>——<code>list_loop</code> 有回边来自共用的循环步进块（生成器路径静态可达），SSA 值过不去支配校验，store/load 不适用支配规则。</li>
+<li><code>runtime_typed.c</code> 新增生成器运行时（10 符号，TLS 段之前）：<code>dv_gen_create/free/slot/state/yield/finish/make/resume/value</code> + <code>dv_is_generator</code>。</li>
+<li><strong>运行语义验证（真跑 exe，zig cc 工具链）</strong>：状态机用例全对（while 内 yield 逐条产出、if-else 分支挂起恢复、<code>跳过</code> 后恢复、<code>返回</code> 提前结束生成）；<code>逐行</code> 同构程序真跑<strong>逐字节 MATCH</strong> Python <code>readlines</code>（含行尾换行保留、末行无换行不补、空文件），遍历次数与行数一致（4/3/0）。<code>stdlib/文件流.light</code> 原生腿编译通过（IR 46884 字符）。</li>
+<li>能力清单同步：<code>statement_nodes</code> 16→17（+<code>YieldStatement</code>），<code>runtime_symbols</code> 222→232（+10 生成器符号）；重生成脚本顺带修复<strong>跨行 <code>if name in (...)</code> 名单漏抓</strong>（异常类内置名 22 个曾因逐行正则被静默丢掉，现整段扫描 + 按名字定位行号）。</li>
+<li>
+<p>验证：定向回归 31 全绿（file_stream 7 + stmt_coverage 13 + capability 11）；§9 未支持语句清单同步（上游 10→9、下游 16→17、实测分桶 17/5/2）。</p>
+</li>
+<li>
+<p>剩余 FAIL 3（下一批）：内置核心路径（TupleLiteral 元组字面量）、文件流（YieldStmt 生成器）、文件系统（目录名未定义段落）。</p>
+</li>
+<li><strong>R10-11c 攻坚第四批C进展（原生腿覆盖，2026-09-05）</strong>：完成「文件系统句柄链 + <code>_light_builtin</code> 模块点访问转发」，<strong>16/89 → 18/89（20.22%）</strong>，解锁 文件系统（编译 + 运行全链）与 文件流（编译放行）。</li>
+<li>落地修复（<code>src/llvm/codegen_typed.py</code> + <code>src/llvm/runtime_typed.c</code>）：</li>
+<li><strong>目录名（dirname）</strong>：选 runtime 内置方案（非 段落）——runtime 新增 <code>dv_path_dirname</code>（POSIX dirname 语义，对齐 转译腿 <code>_light_builtin.目录名</code> = <code>os.path.dirname</code>），codegen builtin 注册 <code>目录名</code>/<code>dirname</code>/<code>path_dirname</code>。<strong>理由</strong>：转译腿本就映射到 <code>os.path.dirname</code>；<code>内置核心路径</code> 的 <code>段落 目录名</code> 逐字实现依赖 <code>.rfind</code>/字符串切片/字符串乘法/<code>.rstrip</code> 等原生腿尚未支持的方法，逐字同构会级联新阻断点；且与 R10-8 <code>连接路径</code>→<code>dv_path_join</code> 的既有路径函数模式一致。</li>
+<li><strong>f.read() 文件句柄读取</strong>：runtime 新增 <code>dv_file_read</code>（对齐 <code>dv_file_write</code> 的 LightValue* 输出模式：从当前文件位置读到 EOF，str 字段持 malloc 内容，失败置 null；handle 生命周期由 <code>dv_file_close</code> 置 NULL 防双关），codegen 文件句柄方法 <code>read</code>/<code>读取</code> 接线（与已支持的 write/close 同链）。</li>
+<li><strong><code>_light_builtin.XXX</code> 点访问转发</strong>：<code>_gen_typed_method_call</code> 对 <code>_light_builtin</code> 模块点访问按名转发内置（不把模块名当接收者传参——此前会把第一个参数取成字符串 "_light_builtin"，删除文件等调用全部错位），对齐转译腿 <code>_light_builtin.删除文件</code>→<code>删除文件</code> 语义；覆盖 删除文件/文件大小/创建目录/目录存在/删除目录/列出目录/绝对路径/时间戳 等。</li>
+<li><strong>路径/目录系统调用边界内置补齐</strong>：runtime 新增 <code>dv_path_basename</code>（<code>文件名</code>/<code>basename</code>/<code>path_basename</code>）、<code>dv_abspath</code>（<code>绝对路径</code>/<code>abspath</code>/<code>abs_path</code>，相对路径基于 cwd 拼接 + normpath 规范化，含 Windows 盘符前缀处理）、<code>dv_makedirs</code>（<code>创建目录</code>/<code>mkdir</code>/<code>make_dir</code>/<code>makedirs</code>，<code>os.makedirs(path, exist_ok=True)</code> 逐级建父目录）；<code>删除目录</code>/<code>rmdir</code> 接线既有 <code>dv_rmdir</code>。</li>
+<li><strong>YieldStmt 编译放行（必要使能，非生成器实现）</strong>：文件系统 依赖 文件流（<code>从 文件流 导入 行列表</code>），多模块编译会连同 文件流 的 <code>逐行</code>（<code>生成</code>/YieldStmt）编译；原生腿尚无生成器实现（归 T4a/T4b），codegen 对 <code>&lt;unknown:YieldStmt&gt;/&lt;unknown:YieldFromStmt&gt;</code> 按 no-op 跳过，使 文件系统 全链可编译可运行。<strong>注意</strong>：文件流 的 <code>逐行</code> 生成器语义仍为占位（返回空），真实生成器实现归 T4a/T4b。</li>
+<li><strong>打开文件 失败抛异常（对齐转译腿 Python open）</strong>：<code>dv_open_file</code> fopen 失败不再静默返回 null，而是创建并抛出 <code>IOException</code>（FileNotFoundError 语义，经 <code>dv_create_exception_with_cause</code> + <code>dv_throw_exception</code>，前向声明置于文件句柄段；调用点位于 文件句柄 段、新增函数追加在文件末尾非 TLS 区域，未动 TLS/元组/生成器区域）。效果：<code>文件系统.文件存在</code> 的 <code>尝试/捕获 异常</code> 能接住打开失败并返回 假（此前对不存在文件返回 真）；<code>读取文件</code> 等无 try 的调用打开不存在文件时按未捕获异常打印并退出（对齐 Python 未捕获 FileNotFoundError）；<code>写入文件</code>/<code>追加文件</code>/<code>JSON</code> dump 等所有 <code>打开文件</code> 消费方语义对齐转译腿。</li>
+<li><strong>运行语义验证（真跑 exe）</strong>：文件系统 写入→读取→追加→删除 全链真跑正确（写入文件自动建父目录、<code>encoding="utf-8"</code> 关键字参数、<code>f.read()</code>、<code>_light_builtin</code> 转发）；<code>文件存在</code> 在删除文件后返回 <strong>假</strong>（打开失败抛异常 → 尝试/捕获 接住，本次修复核心）；目录操作冒烟通过（创建目录/目录存在/删除目录/文件列表/文件大小/绝对路径/获取文件名）；<code>目录名</code>/<code>获取文件名</code> 边界语义与 <code>os.path.dirname/basename</code> 一致（<code>"a/b/c"</code>→<code>a/b</code>、<code>"/"</code>→<code>/</code>、<code>"a"</code>→空、<code>"a/b/"</code>→<code>a/b</code>）。</li>
+<li><strong>反跑判据验证</strong>：移除 <code>目录名</code> 接线 → 文件系统 编译立即立红（未定义的段落：目录名）；移除 <code>read</code>/<code>读取</code> 接线 → 文件系统 编译通过但运行链路破坏（<code>f.read()</code> 走 <code>dv_call_method</code> 兜底，读取结果为空，<code>READ1=空</code>），编译/运行二选一立红均满足。</li>
+<li><strong>已解决（原记录限制）</strong>：此前记录「<code>文件系统.文件存在</code> 对不存在文件仍返回 真」已通过「打开文件 失败抛异常」修复（见上）——<code>文件存在</code> 现对已删除文件返回 <strong>假</strong>，删除验证可用 <code>文件存在</code>=假 或 <code>文件大小</code>=0 双指标确认。</li>
+<li>验证：能力清单同步（builtin 317 / runtime 227，evidence 行号重算）；定向回归 <code>test_native_import.py</code> 5 + <code>test_native_leg_capability</code> 11 全绿。</li>
+<li>剩余 FAIL 2（下一批）：内置核心路径（TupleLiteral 元组字面量）、文件流 的 <code>逐行</code> 生成器语义（T4a/T4b 实现真实生成器后补齐）。</li>
+</ul>
+</li>
 </ul>
 <hr />
 <h2 id="_3">二、高优先级问题<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
@@ -4955,16 +5068,17 @@
 </tbody>
 </table>
 <h3 id="92">9.2 静态清单<a class="headerlink" href="#92" title="Permanent link">&para;</a></h3>
-<p>上游（v3 语句类节点共 27 个，其中 <strong>10 个</strong>没有适配层转换器）：
+<p>上游（v3 语句类节点共 27 个，其中 <strong>9 个</strong>没有适配层转换器）：
 <code>AssertStmt</code>、<code>DecoratorDefinition</code>、<code>EmbedBlock</code>、<code>FFIFunctionDecl</code>、
 <code>FFIVarArgsDecl</code>、<code>PassStmt</code>、<code>RunAsyncStmt</code>、<code>ScopeDeclStmt</code>、
-<code>TypeCheckToggleStmt</code>、<code>YieldStmt</code>。</p>
-<p>下游（<code>_gen_statement</code> 只有 <strong>16</strong> 条分支：<code>VariableDeclaration</code>、<code>Assignment</code>、
+<code>TypeCheckToggleStmt</code>。（<code>YieldStmt</code> 自 R10-11b 起有转换器——见下方 17 条分支。）</p>
+<p>下游（<code>_gen_statement</code> 现有 <strong>17</strong> 条分支：<code>VariableDeclaration</code>、<code>Assignment</code>、
 <code>SelfAssignment</code>、<code>CompoundAssignment</code>、<code>IfStatement</code>、<code>ForeachStatement</code>、
 <code>WhileStatement</code>、<code>ReturnStatement</code>、<code>BreakStatement</code>、<code>ContinueStatement</code>、
 <code>PrintStatement</code>、<code>TryStatement</code>、<code>ThrowStatement</code>、<code>ExpressionStatement</code>、
-<code>ImportStatement</code>、<code>AsyncScope</code>）。适配层能产出、但这 16 条都不覆盖的 legacy
-节点有 <strong>28 种</strong>，落链尾兜底，其中作为语句出现的主要是
+<code>ImportStatement</code>、<code>AsyncScope</code>、<code>YieldStatement</code>（生成器，R10-11b 新增））。
+适配层能产出、但这 17 条都不覆盖的 legacy
+节点有 <strong>27 种</strong>，落链尾兜底，其中作为语句出现的主要是
 <code>MatchStatement</code>、<code>WithStatement</code>、<code>DestructuringAssignment</code>、<code>SegmentDefinition</code>
 （嵌套段落）、<code>InterfaceDefinition</code>、<code>MethodDefinition</code>、<code>AttributeDeclaration</code>。</p>
 <p><strong><code>ImportStatement</code> 已从 no-op 变为真导入（B9 S1 2.3 / 2026-08-24）</strong>：<code>compile_light_typed</code>
@@ -4986,13 +5100,13 @@
 <tbody>
 <tr>
 <td>能编</td>
-<td>16</td>
-<td>赋值/变量声明、<code>如果</code>、<code>遍历</code>、<code>当</code>、段落、<code>返回</code>、<code>跳出</code>、<code>继续</code>、<code>尝试</code>/<code>捕获</code>、<code>抛出</code>、<code>打印</code>、<code>引</code>（B9 S1 起真导入，见上方说明）、类（非嵌套）、接口、<code>导出</code>、<code>延迟</code></td>
+<td>17</td>
+<td>赋值/变量声明、<code>如果</code>、<code>遍历</code>、<code>当</code>、段落、<code>返回</code>、<code>跳出</code>、<code>继续</code>、<code>尝试</code>/<code>捕获</code>、<code>抛出</code>、<code>打印</code>、<code>引</code>（B9 S1 起真导入，见上方说明）、类（非嵌套）、接口、<code>导出</code>、<code>延迟</code>、<code>生成</code>（生成器，R10-11b 新增）</td>
 </tr>
 <tr>
 <td>明确拒绝</td>
-<td>6</td>
-<td><code>全局</code>(ScopeDeclStmt)、<code>外层</code>(先撞 SegmentDefinition)、<code>生成</code>(YieldStmt)、<code>断言</code>(AssertStmt)、类型别名(TypeAlias)、嵌套类(ClassDefinitionWithNested)</td>
+<td>5</td>
+<td><code>全局</code>(ScopeDeclStmt)、<code>外层</code>(先撞 SegmentDefinition)、<code>断言</code>(AssertStmt)、类型别名(TypeAlias)、嵌套类(ClassDefinitionWithNested)</td>
 </tr>
 <tr>
 <td>更早的层拦下</td>
@@ -5004,8 +5118,8 @@
 <p><code>外层</code> 报的是 <code>SegmentDefinition</code> 而不是 <code>ScopeDeclStmt</code>：<code>外层</code> 只能写在嵌套
 段落里，而<strong>嵌套段落本身原生就不支持</strong>，所以先被它拦下。报真正拦下它的那一层，
 不编造。</p>
-<p>守卫在 <code>tests/unit/test_llvm_stmt_coverage.py</code>（正跑 6 条 + 反跑 5 条 + 2 条静态
-断言，共 13 个用例）。</p>
+<p>守卫在 <code>tests/unit/test_llvm_stmt_coverage.py</code>（正跑 5 条 + 反跑 6 条 + 2 条静态
+断言，共 13 个用例；<code>生成</code> 自 R10-11b 起从正跑挪入反跑）。</p>
 <h3 id="94">9.4 已知缺口<a class="headerlink" href="#94" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>拒绝文案里没有源码行号</strong>。<code>AstAdapter</code> 转换时不带 <code>lineno</code>，后端拿不到行号，
@@ -5336,6 +5450,27 @@ upper-bound 2 + lower-bound 92 + not-none 152）。这 66 条增量全部是存�
 - <code>7.0 除以 2</code> → 两条腿均 <code>3.5</code>（浮点真除保留，未退化成整数）
 - <code>tests/test_llvm_c3_expr.py::test_双后端一致_除法向零截断</code> 与 <code>test_双后端一致_基本算术</code>
   （已把 <code>乙 整除 甲</code> 换回 <code>乙 除以 甲</code>）锁死判据。</p>
+<p><strong>裁决 B 落地后的 CI 对齐（2026-09-04，回归闸门修复）</strong>：
+- <code>examples/student_management.light</code> / <code>examples/module_demo.light</code> 平均值、
+  <code>examples/bootstrap_eval.light</code> 求值器除法：整型 <code>除</code> 会向零截断，均值/计算器语境需真除，
+  改为显式浮点操作数 <code>除 转浮点(长度/除数)</code>（§15.1「任一操作数为浮点即退化真除」的落法）。
+- <code>stdlib/列表工具.light</code> 的 <code>平均值</code>：<code>总和 / 转浮点(长度值)</code> 保持与 CPython <code>sum()/len()</code> 逐位等价。
+- <code>tests/unit/test_light_examples_run.py::test_division</code>：<code>100 除 4</code> 期望 <code>25</code>（整数截断，双后端一致）。
+- <code>c_backend.py</code>：光明 <code>/</code> 在 Python 腿包 <code>_light_trunc_div</code>；C 的 <code>/</code> 对整数天然向零截断、
+  浮点真除，即裁决 B 语义，<code>_translate_call</code> 把 <code>_light_trunc_div(a, b)</code> 调用映射回原生 C <code>/</code>。</p>
+<p><strong>24 条 soft 打红全清（2026-09-04，回归闸门续）</strong>：裁决 B 落地后，存量测试/示例对旧「除→浮点」语义的欠账逐条对齐。根因分组经 .86（Ubuntu 3.12）/ FreeBSD CI 主机（3.11，与 Gitea CI 同版本）四路实证，全部反跑判据（改回原语义立即立红）成立：
+- <code>stdlib/度量.light</code>（纯光明实现，<code>转浮点</code> 为内置别名，不触发 python_direct_calls 棘轮）：
+  - <code>分位</code> 的 <code>设 比例 为 ((n - 1) * 百分位) / 100</code> → <code>/ 100.0</code> → 清 metrics 分位 10 条（含反跑_线性插值非取整）。
+  - <code>批量汇总</code> 的 <code>通过率 通过数 / 总数</code>、<code>平均耗时 总耗时 / 总数</code> → <code>转浮点(除数)</code>；<code>成本估算 (总词元 / 1000) * 单价</code> → <code>/ 1000.0</code> → 清 metrics 批量汇总 2 条 + harness 通过率/成本 3 条。
+- <code>examples/harness/打分.light</code>：子集 <code>通过率 通过数 / 总条数</code> → <code>转浮点(总条数)</code> → 清 harness 整进程跑通里「子集精确通过率」断言（1/2 此前被打成 0）。
+- 旧「除→浮点」期望对齐裁决 B（整型截断，反向判据：改回浮点期望立即立红）：
+  - <code>test_edge_cases.py</code> 3 处（divide_assign/complex_arithmetic/multiple_params）：期望 5.0→5、17.0→17。注释已注明：v4.0 T01 审计锁定的「乘除优先级高于加减、左结合」结论不变，仅结果类型由浮点变整型，裁决 B 取代旧浮点除法假设。
+  - <code>test_ternary.py</code> case_13：期望 <code>"1.0"</code>→<code>"1"</code>。
+  - <code>test_self_host_bootstrap.py::test_binary_div</code>：<code>10 除 3</code> 期望 3.333…→<code>3</code>（对齐原生腿 i64 sdiv）。
+- <code>test_exception.py</code> 2 处：<code>1//0</code> 的宿主消息 3.11/3.12 是 <code>integer division or modulo by zero</code>（不含 <code>division by zero</code>），3.14 才简化。断言 <code>'division by zero'</code> → <code>'by zero'</code>（版本容忍，CI 是 3.11）。
+- <code>test_pure_light_hook.py</code> [求和]：<code>builtins.求和</code> 按 <code>sys.version_info</code> 传「启用补偿」（3.12+ 才走 Neumaier 补偿 → 1.0；3.11 朴素累加 → 0.0），期望改 <code>1.0 if sys.version_info &gt;= (3, 12) else 0.0</code>（CI 3.11 取 0.0）。
+- <code>test_async_io_light.py</code> TLS 异步读腿：并发门限 0.8→1.0，并补「并发 &lt; 串行」关系断言。依据：FreeBSD 空闲实测并发 0.79~0.81s 正卡原 0.8 边缘、全核饱和 0.92s、CI 4 路 xdist 并行 1.78s；串行恒 ≥ 1.0s（2×延迟）仍在门限外，真正串行化（≈1.3s）依旧会被拦。判据本意断关系不断绝对值，绝对门限只做兜底。</p>
+<p><strong>验证</strong>：本机 3.14 + .86 3.12 + FreeBSD 3.11（与 CI 同版本）三路全绿；受影响文件整文件重跑通过（metrics/edge_cases/ternary/exception/harness 14/pure_light_hook/TLS）。e2e 基线 12 条为宿主机缺 numpy/pandas/matplotlib/sklearn 的环境欠账，代码层不可清，不在本次全清口径内。</p>
 <p><strong>判据已就位</strong>：原「止损」里的 6 例双后端一致性测试，其中 <code>test_双后端一致_基本算术</code>
 已把 <code>整除</code> 换回 <code>除以</code> 作判据；并新增 <code>test_双后端一致_除法向零截断</code> 负数用例。
 另注：双后端测试的转译腿走 <code>cli.light_unified run</code>（src 后端 <code>PythonCodeGenerator</code>，
@@ -5564,6 +5699,1058 @@ upper-bound 2 + lower-bound 92 + not-none 152）。这 66 条增量全部是存�
    并增加 <code>os.altsep</code> 断言。</p>
 <p><strong>反跑判据验证</strong>：修复前输出标记含完整绝对路径（盘符/用户目录）；
 修复后只含文件名。若将 L249 改回拼接 <code>己.溢出路径</code>，上述新增断言立即立红。</p>
+<h2 id="r10-12a-t5a-light-o0-codegen-workaround">R10-12a T5A：数学/统计/排序 .light 化 — O0 codegen 缺陷与 workaround<a class="headerlink" href="#r10-12a-t5a-light-o0-codegen-workaround" title="Permanent link">&para;</a></h2>
+<h3 id="_15">概述<a class="headerlink" href="#_15" title="Permanent link">&para;</a></h3>
+<p>T5A 将 <code>stdlib/数学.light</code>、<code>stdlib/统计.light</code>、<code>stdlib/排序.light</code> 从空壳补为
+纯光明真实现，在 O0（<code>optimize_level=0</code>）下真编译真跑，与 Python <code>math</code>/
+<code>statistics</code> 对拍。过程中发现 6 个 O0 codegen 缺陷，均以纯光明 workaround 绕过，
+不修改 codegen 核心（归后续 T7/T3）。</p>
+<h3 id="_16">缺陷清单<a class="headerlink" href="#_16" title="Permanent link">&para;</a></h3>
+<h4 id="t5a-01-float">T5A-01：跨段 float 返回值在算术中被零初始化<a class="headerlink" href="#t5a-01-float" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>已修复（T7A / 2026-09-06）</strong>：<code>_gen_typed_binary_op</code> INT 快路径对 <code>/</code>/<code>除</code> 改为
+fdiv + <code>_create_float_dv_fast</code>（type=2），通用路径对两侧调 <code>dv_to_float</code> 再
+<code>dv_div</code>，确保 int/int 除法返回 FLOAT DV；下游 float 算术类型标记一致。
+stdlib workaround 已移除（自包含内联改回跨段调用）。反跑 <code>git stash</code> 立红
+确认。定向测试 <code>test_codegen_float_slot_O0.py</code> 全绿。</p>
+</blockquote>
+<ul>
+<li><strong>现象</strong>：<code>设 m 为 均值(d); 设 v 为 m * 2</code> → <code>输出(m)</code> 显示正确值（如 <code>3</code>），
+  但 <code>m * 2</code> 结果为 <code>0</code> 或垃圾值（如 <code>4.94e-324</code>）。</li>
+<li><strong>根因</strong>：O0 下跨段函数返回的 float 值存入局部变量后，后续算术读取该变量时
+  读到零初始化的 int slot 而非 float slot（类型标记丢失或 slot 复用错误）。</li>
+<li><strong>影响</strong>：所有依赖其他段 float 返回值的函数（如 <code>方差</code> 调 <code>均值</code>、<code>标准差</code> 调
+  <code>方差</code>、<code>常用对数</code> 调 <code>自然对数</code>、<code>相关系数</code> 调 <code>平方根</code>）均受影响。</li>
+<li><strong>Workaround</strong>（已移除）：将所有跨段 float 依赖改为<strong>自包含内联计算</strong>——每个函数独立
+  计算 mean/variance/sqrt，不调用其他段的 float 返回值。例如 <code>方差</code> 内联重算
+  mean，<code>标准差</code> 内联重算 variance，<code>常用对数</code>/<code>对数2</code>/<code>对数</code> 各自内联 ~20 行
+  泰勒级数展开（而非调 <code>自然对数(x)</code> 后做除法），<code>相关系数</code>/<code>标准化</code> 内联牛顿法
+  sqrt（20 次迭代 <code>(r + val/r) / 2.0</code>）。</li>
+<li><strong>归属</strong>：codegen 类型推断/slot 管理，归 T7 修复。<strong>已修复（T7A / 2026-09-06）</strong></li>
+</ul>
+<h4 id="t5a-02intint">T5A-02：int/int 除法结果在后续算术中被零初始化<a class="headerlink" href="#t5a-02intint" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>已修复（T7A / 2026-09-06）</strong>：<code>_gen_typed_binary_op</code> INT 快路径对 <code>/</code>/<code>除</code>
+改为 fdiv + <code>_create_float_dv_fast</code>（type=2），与 <code>_infer_expr_type</code> 返回
+FLOAT 一致；通用路径对两侧调 <code>dv_to_float</code> 再 <code>dv_div</code>。stdlib workaround
+已移除（<code>(x+0.0)/n</code> 改回 <code>x/n</code>）。反跑 <code>git stash</code> 立红确认。</p>
+</blockquote>
+<ul>
+<li><strong>现象</strong>：<code>设 q 为 10 / 3; 输出(q)</code> 显示 <code>3</code>（正确），但 <code>q + 0.0</code> 结果为
+  <code>4.94e-324</code>（垃圾值），<code>q * 2</code> 结果为 <code>0</code>。</li>
+<li><strong>根因</strong>：int/int 除法在 O0 下返回的 dv 值虽然 <code>输出</code> 时能正确显示整数部分，
+  但其内部类型标记为 int 而非 float；后续算术将其作为 int 读取后参与 float 运算，
+  导致内存解释错误。</li>
+<li><strong>影响</strong>：所有 <code>总计 / n</code> 形式的均值/方差/协方差计算。</li>
+<li><strong>Workaround</strong>（已移除）：统一使用 <code>(总计 + 0.0) / n</code> 模式——先将分子通过 <code>+ 0.0</code> 转为
+  float dv，再做除法，确保结果为 float 类型标记。</li>
+<li><strong>归属</strong>：codegen 除法类型推断，归 T7 修复。<strong>已修复（T7A / 2026-09-06）</strong></li>
+</ul>
+<h4 id="t5a-03_light_builtin">T5A-03：<code>_light_builtin.平方根()</code> 返回值存入变量后在算术中被零初始化<a class="headerlink" href="#t5a-03_light_builtin" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>已修复（T7A / 2026-09-06）</strong>：被 T5A-02 修复覆盖——int/int 除法类型标记
+修复后，float DV 的 slot 管理一致，builtin 返回值存入变量后算术不再零初始化。
+stdlib workaround 已移除（内联牛顿法改回 <code>_light_builtin.平方根()</code> 调用）。</p>
+</blockquote>
+<ul>
+<li><strong>现象</strong>：<code>设 s 为 平方根(2.0); 输出(s)</code> 显示 <code>1.41421</code>（正确），但 <code>s * s</code>
+  结果为 <code>0</code>。</li>
+<li><strong>根因</strong>：与 T5A-01 同类——builtin 包装函数返回的 float 值存入局部变量后，
+  类型标记丢失。</li>
+<li><strong>影响</strong>：<code>相关系数</code>（需要 sqrt）、<code>标准化</code>（需要 sqrt）、<code>样本标准差</code>等。</li>
+<li><strong>Workaround</strong>（已移除）：在 <code>相关系数</code> 和 <code>标准化</code> 中用<strong>内联牛顿法 sqrt</strong> 替代
+  <code>_light_builtin.平方根()</code> 调用：20 次迭代 <code>(r + val / r) / 2.0</code>，纯局部 float
+  算术无函数调用。</li>
+<li><strong>归属</strong>：codegen builtin 返回值 slot 管理，归 T7 修复。<strong>已修复（T7A / 2026-09-06）</strong></li>
+</ul>
+<h4 id="t5a-04float">T5A-04：float 字面量作为用户段函数参数时被零初始化<a class="headerlink" href="#t5a-04float" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>已修复（T7A / 2026-09-06）</strong>：被 T5A-02 修复覆盖——int/int 除法类型标记
+修复后 float DV slot 管理一致，float 参数传递不再零初始化。stdlib
+workaround 已移除（int 参数改回 float 参数）。移除 workaround 后完整
+stdlib 对拍全绿确认。</p>
+</blockquote>
+<ul>
+<li><strong>现象</strong>：<code>设 r 为 百分位数(d, 75.0)</code> → 函数内 <code>百分位</code> 参数读为 <code>0</code>。
+  但 <code>百分位数(d, 75)</code>（int 参数）正常；<code>向上取整(3.2)</code>（builtin 包装）也正常。</li>
+<li><strong>根因</strong>：用户定义段的参数传递在 O0 下，float 字面量参数被写入 int slot。</li>
+<li><strong>影响</strong>：<code>百分位数</code> 的 float 百分比参数。</li>
+<li><strong>Workaround</strong>（已移除）：<code>百分位数</code> 段改为接收 int 参数，内部 <code>设 p 为 百分位 + 0.0</code>
+  转 float。<code>四分位数</code> 调用改为传 <code>25</code>/<code>50</code>/<code>75</code>（int）。</li>
+<li><strong>归属</strong>：codegen 参数传递类型推断，归 T7 修复。<strong>已修复（T7A / 2026-09-06）</strong></li>
+</ul>
+<h4 id="t5a-05-codegen">T5A-05：跨模块同名段导致 codegen 函数重定义<a class="headerlink" href="#t5a-05-codegen" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>状态</strong>：已修复（T9A / 2026-09-06）</li>
+<li><strong>现象</strong>：<code>数学.light</code> 和 <code>统计.light</code> 都有 <code>最小值</code>/<code>最大值</code> 段，联合编译时
+  报 <code>invalid redefinition of function '_seg_f7'</code>。</li>
+<li><strong>根因</strong>：<code>src/llvm/core.py</code> L116 <code>_safe_func_name</code> 使用全局 counter 映射段名到
+  <code>f{counter}</code>，同名段在不同模块中映射到相同函数名。</li>
+<li><strong>修复</strong>：T9A 段名模块隔离——<code>_safe_func_name</code> 增加 <code>module_name</code> 参数，
+  <code>_collect_segment</code> 注册表 key 改为 <code>(module_name, raw_name)</code> 元组，段调用解析
+  通过 <code>_current_module</code> 上下文查找本地段。<code>统计.light</code> 的 <code>数据最小值</code>/<code>数据最大值</code>
+  已改回 <code>最小值</code>/<code>最大值</code>，与 <code>统计.py</code> 导出名对齐。</li>
+<li><strong>验证</strong>：<code>test_codegen_safename_multimodule_O0.py</code> + <code>test_T5a_数学统计排序_原生腿.py</code>
+  全绿；git stash 修复后最小复现立红。</li>
+</ul>
+<h4 id="t5a-06-float">T5A-06：<code>自然对数</code> float 参数被零初始化导致死循环<a class="headerlink" href="#t5a-06-float" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>已修复（T7A / 2026-09-06）</strong>：被 T5A-02 修复覆盖——int/int 除法类型标记
+修复后 float DV slot 管理一致，float 参数不再零初始化。stdlib workaround
+已移除（安全防护 <code>如果 值 &lt;= 0.0</code> 删除，内联 Taylor 展开改为
+<code>_light_builtin.自然对数()</code> / <code>自然对数(x)/自然对数(底数)</code> 跨段调用）。</p>
+</blockquote>
+<ul>
+<li><strong>现象</strong>：<code>自然对数(2.718...)</code> 超时——参数被零初始化后 <code>当 值 &gt; 2.0</code> 条件
+  恒为真（0 不大于 2.0 但泰勒展开对 0 无限循环），导致死循环。</li>
+<li><strong>根因</strong>：与 T5A-04 同类——float 字面量作为函数参数被零初始化。</li>
+<li><strong>Workaround</strong>（已移除）：添加安全防护 <code>如果 值 &lt;= 0.0: 返回 0.0</code>，避免死循环。
+  实际调用时通过 int 参数或 <code>+ 0.0</code> 转换绕过。</li>
+<li><strong>归属</strong>：同 T5A-04，归 T7 修复。<strong>已修复（T7A / 2026-09-06）</strong></li>
+</ul>
+<h3 id="_17">反跑判据验证<a class="headerlink" href="#_17" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>判据</th>
+<th>真实现</th>
+<th>空壳（恢复 decl 0）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数学.light</td>
+<td>✅ 绿（5 测试）</td>
+<td>✅ 红（<code>NativeImportError: decl 0 空壳</code>）</td>
+</tr>
+<tr>
+<td>统计.light</td>
+<td>✅ 绿（5 测试）</td>
+<td>✅ 红</td>
+</tr>
+<tr>
+<td>排序.light</td>
+<td>✅ 绿（2 测试）</td>
+<td>✅ 红</td>
+</tr>
+<tr>
+<td>三模块联合</td>
+<td>✅ 绿（1 测试）</td>
+<td>—</td>
+</tr>
+<tr>
+<td>总计</td>
+<td>16 passed</td>
+<td>3 passed（反向验证）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_18">临时文件<a class="headerlink" href="#_18" title="Permanent link">&para;</a></h3>
+<p>所有 <code>_taskT5a_*</code> 调试产物已清理。</p>
+<h2 id="t5b-light-2026-09-05">十八、T5B 编码与哈希模块真 .light 化（2026-09-05）<a class="headerlink" href="#t5b-light-2026-09-05" title="Permanent link">&para;</a></h2>
+<p>本轮把 <code>Base64</code> / <code>编码</code> / <code>哈希</code> / <code>字符串常量</code> 四个「decl 0 空壳」模块改成
+<strong>纯光明真实现</strong>（首行带「纯光明实现」魔数，旁路同名 <code>.py</code>），并在原生腿
+（llvm typed，<strong>optimize_level=0</strong>）下与 Python <code>base64</code> / <code>hashlib</code> / <code>string</code>
+逐项对拍通过。</p>
+<h3 id="181-builtin-codegen_typedpy">18.1 本轮修掉的原生腿 builtin 接线缺陷（codegen_typed.py）<a class="headerlink" href="#181-builtin-codegen_typedpy" title="Permanent link">&para;</a></h3>
+<p>以下都是<strong>既有代码的参数类型错误</strong>，不是新增功能；<code>runtime_typed.c</code> 一行未改。</p>
+<table>
+<thead>
+<tr>
+<th>位置</th>
+<th>症状</th>
+<th>根因</th>
+<th>修法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Base64编码/解码</code>、<code>MD5</code>、<code>SHA1</code>、<code>SHA256</code>（T5B 新增注册）</td>
+<td>返回空串</td>
+<td><code>dv_str_len</code> 入参是 <code>LightValue*</code>，却先 <code>extractvalue …,3</code> 取了 <code>char*</code></td>
+<td>先 <code>_store_dv(args[0])</code> 取槽指针再传</td>
+</tr>
+<tr>
+<td><code>字符串包含</code>（<code>dv_str_contains</code>）</td>
+<td>恒假</td>
+<td>同上，传了 <code>char*</code></td>
+<td><code>_store_dv</code> 后再调</td>
+</tr>
+<tr>
+<td><code>以开头</code>（<code>dv_str_starts_with</code>）</td>
+<td>恒假</td>
+<td>同上</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>以结尾</code>（<code>dv_str_ends_with</code>）</td>
+<td>恒假</td>
+<td>同上</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>反向查找</code>（<code>dv_str_rfind</code>）</td>
+<td>等价于 <code>查找</code></td>
+<td>同上</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>计数</code>（<code>dv_str_count</code>）</td>
+<td>恒 0</td>
+<td>同上</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>四舍五入</code>（<code>dv_round</code>）</td>
+<td>IR 校验失败 <code>%N defined with type struct but expected ptr</code></td>
+<td>第二参传了 struct 值</td>
+<td><code>_store_dv(args[0])</code> 取指针</td>
+</tr>
+</tbody>
+</table>
+<p>判定依据：<code>runtime_typed.c</code> 里 <code>dv_str_contains/starts_with/ends_with/count/rfind</code>
+的签名均为 <code>(LightValue*, LightValue*)</code>，而 <code>dv_str_find</code> / <code>dv_base64_encode</code> /
+<code>dv_md5</code> 等是 <code>(char*, …)</code> —— 两类混用是历史接线遗留。</p>
+<h3 id="182-builtin-runtime-c">18.2 本轮新增注册的 builtin（仅注册既有 runtime，未新增 C 函数）<a class="headerlink" href="#182-builtin-runtime-c" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>Base64编码 / base64_encode / b64encode / _b64_encode</code> → <code>dv_base64_encode</code></li>
+<li><code>Base64解码 / base64_decode / b64decode / _b64_decode</code> → <code>dv_base64_decode</code></li>
+<li><code>MD5 / md5 / _md5</code> → <code>dv_md5</code>；<code>SHA1 / sha1 / _sha1</code> → <code>dv_sha1</code>；
+  <code>SHA256 / sha256 / _sha256</code> → <code>dv_sha256</code>（三者均返回小写十六进制，与 <code>hexdigest()</code> 一致）</li>
+<li><code>四舍五入 / round / _round</code> → <code>dv_round</code></li>
+<li><code>整除 / div</code> → <code>dv_div</code>（补齐：<code>取模/mod</code> 原本已有，两者成对）</li>
+</ul>
+<blockquote>
+<p>命名约定：<code>.light</code> 模块暴露 runtime 时用 <code>_b64_encode</code> 这类<strong>与公开中文名不同</strong>
+的内部别名。原因见下条。</p>
+</blockquote>
+<h3 id="183-l-t5b-1-llvm-ir">18.3 #L-T5B-1 [中] 跨模块同名段落 → LLVM IR 重定义（未修，规避）<a class="headerlink" href="#183-l-t5b-1-llvm-ir" title="Permanent link">&para;</a></h3>
+<ul>
+<li>现象：<code>从 编码 导入 …</code>，而 <code>编码.light</code> 又 <code>从 Base64 导入 …</code> 时编译失败：
+  <code>error: invalid redefinition of function '_seg_f15'</code>。</li>
+<li>根因：<code>core.py:_safe_func_name()</code> 只按<strong>段名</strong>映射（<code>f{counter}</code>），不带模块前缀；
+  多模块编译进同一个 codegen 时，<code>编码.Base64编码</code> 与 <code>Base64.Base64编码</code>
+  被映射到同一个 LLVM 符号，于是 <code>define</code> 两次。</li>
+<li>规避：<strong>每个模块一个独立编译单元</strong>。<code>编码.light</code> 因此自带一套
+  UTF-8↔hex 实现，不从《Base64》导入；T5B 测试也对四个模块分别编译。</li>
+<li>未修原因：改成模块前缀会牵动 <code>_gen_typed_segment_call</code> /
+  <code>_gen_exported_aliases</code> 的调用侧命名约定，属独立改造项。</li>
+</ul>
+<h3 id="184-l-t5b-2">18.4 #L-T5B-2 [中] 高阶函数不支持（未修，语义变更 + 文档化）<a class="headerlink" href="#184-l-t5b-2" title="Permanent link">&para;</a></h3>
+<ul>
+<li>现象：<code>段落 应用 接收 f, c: 返回 f(c)</code> → <code>未定义的段落：f</code>。
+  原生后端只会把 <code>名字(...)</code> 解析成<strong>段落调用</strong>，没有函数值。</li>
+<li>影响：<code>字符串常量.py</code> 的 <code>字符列表全部是(文本, 检测函数)</code> /
+  <code>字符列表有一个是(文本, 检测函数)</code> 无法 1:1 复刻。</li>
+<li>处理：<code>.light</code> 版第二参改为<strong>分类名字符串</strong>
+  （<code>"字母"/"数字"/"字母数字"/"小写"/"大写"/"空白"/"可打印"/"标点"/"十六进制"/"八进制"</code>），
+  未知分类名返回 <code>假</code>。<strong>与 .py 签名不兼容</strong>，已在模块头与本节登记。</li>
+</ul>
+<h3 id="185-l-t5b-3-sha512-hmac_sha256">18.5 #L-T5B-3 [中] SHA512 / HMAC_SHA256 能力边界（未实现，返回空串）<a class="headerlink" href="#185-l-t5b-3-sha512-hmac_sha256" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>已修复（T7D / 2026-09-06）</strong>：runtime 新增 <code>dv_sha512</code>（64 位字 SHA-512，
+C 层面直接运算，不依赖光明位移运算符）与 <code>dv_pbkdf2_hmac_sha256_1</code>（PBKDF2
+语义 <code>pbkdf2_hmac('sha256', text, key, 1)</code>，内部消息按<strong>显式长度</strong>拼接，
+含尾部 <code>\x00\x00\x00\x01</code>）；codegen 注册 <code>SHA512哈希</code>/<code>SHA512</code>/<code>_sha512</code>
+与 <code>HMAC_SHA256</code>/<code>_hmac_sha256</code> builtin；<code>编码.light</code>/<code>哈希.light</code> 改调
+runtime。<code>sha256_final</code> 的长度编码缺陷（&gt;55B 输入错）随同修复（见下注）。
+<code>test_runtime_builtin_O0.py</code> 与 Python <code>hashlib.sha512</code>/<code>pbkdf2_hmac</code> 对拍全绿。</p>
+</blockquote>
+<ul>
+<li><code>SHA512</code>（<code>编码.SHA512哈希</code>、<code>哈希.SHA512</code>）：原生腿无 <code>dv_sha512</code> runtime；
+  且光明<strong>缺位移与按位运算符</strong>，无法在 <code>i64</code> 上可靠模拟 64 位无符号逻辑右移
+  （<code>整除</code> 是向零取整，<code>2^63</code> 又超出 <code>i64</code> 上界）。故返回空串占位。</li>
+<li><code>HMAC_SHA256</code>：<code>.py</code> 语义是 <code>pbkdf2_hmac('sha256', text, key, 1)</code>，其消息尾部含
+  <code>b'\x00\x00\x00\x01'</code>，而 <code>dv_sha256</code> 以 <code>strlen</code> 取长度（<strong>非二进制安全</strong>），
+  无法对拍。故返回空串占位。</li>
+<li>解锁路径：runtime 增 <code>dv_sha512</code> / 二进制安全的 <code>dv_sha256_n(ptr, len)</code>，
+  或语言层补位运算符 + 无符号 64 位移位。<strong>已按前一路径实现（T7D / 2026-09-06）</strong>。</li>
+</ul>
+<h3 id="186-l-t5b-4-light">18.6 #L-T5B-4 [低] <code>连接字符串</code> 对列表返空（未修，已在 .light 内规避）<a class="headerlink" href="#186-l-t5b-4-light" title="Permanent link">&para;</a></h3>
+<p><code>连接字符串</code> 用 <code>extractvalue …,3</code> 取列表指针，而列表指针不在 LightValue 的
+索引 3 字段，故对列表恒返空。<code>字符串常量.light</code> 的 <code>连接</code> 改为纯光明索引循环实现。</p>
+<blockquote>
+<p><strong>已修复（T7D / 2026-09-06）</strong>：根因双叠——① codegen <code>extractvalue …,3</code>
+取错字段（列表指针在索引 7）；② runtime <code>dv_str_join</code> 竟是 legacy
+<code>"list:...\x1f"</code> 序列化解析器（死代码 shim），与原生 LightValue 列表协议
+不匹配。修复：runtime 新增 <code>dv_list_join</code>（直读 <code>list_data[i].str</code>，
+转文本语义），codegen <code>连接字符串</code> 改走它并支持 1/2 参。格式化/模板/
+正则表达式 的 <code>_格_连接</code>/<code>_模_连接</code>/<code>_正_连接</code> 已回退。</p>
+</blockquote>
+<h3 id="187">18.7 字节口径结论（重要，后续模块照此办）<a class="headerlink" href="#187" title="Permanent link">&para;</a></h3>
+<p>原生后端字符串索引按<strong>字符</strong>，而 Python <code>base64</code>/<code>hashlib</code> 按 <strong>UTF-8 字节</strong>。
+纯光明实现统一以「十六进制串」作字节中间表示（<code>_编码UTF8</code> / <code>_解UTF8</code>），
+已验证中文（<code>"Hello, 世界!"</code>）与 Python 逐字节一致。</p>
+<h3 id="188">18.8 反跑判据<a class="headerlink" href="#188" title="Permanent link">&para;</a></h3>
+<ul>
+<li>测试：<code>tests/unit/test_T5B_编码哈希.py</code>（4 个用例，全部 <code>optimize_level=0</code>，
+  各模块独立编译单元）。</li>
+<li>真实现 → 4 项全绿；将四个 <code>.light</code> 改回「只有 <code>导出</code> 清单」的空壳 →
+  4 项全部立红（<code>NativeImportError: … decl 0 空壳</code>）。</li>
+<li>回归：<code>tests/test_native_import.py</code>、<code>tests/test_native_cli.py</code>、
+  <code>tests/unit/test_地板搬迁_路径_S2.py</code>、<code>tests/e2e/test_llvm_pipeline.py</code>
+  连同 T5B 共 <strong>520 passed, 1 skipped, 0 failed</strong>。</li>
+</ul>
+<blockquote>
+<p>注：本机 clang 需要 <code>INCLUDE</code> / <code>LIB</code> 指向 MSVC + Windows SDK，否则
+<code>runtime_typed.c</code> 报 <code>'stdio.h' file not found</code>。T5B 测试会自动探测并补齐，
+其它原生腿测试需自行在环境里准备。</p>
+</blockquote>
+<h2 id="r10-12c-t5c-light-o0-codegen">R10-12c T5C：集合/随机/对象池缓存 .light 化 — O0 codegen 缺陷与能力边界<a class="headerlink" href="#r10-12c-t5c-light-o0-codegen" title="Permanent link">&para;</a></h2>
+<h3 id="_19">概述<a class="headerlink" href="#_19" title="Permanent link">&para;</a></h3>
+<p>T5C 将 <code>stdlib/集合.light</code>、<code>stdlib/集合工具.light</code>、<code>stdlib/集合操作.light</code>、
+<code>stdlib/随机.light</code>、<code>stdlib/对象池缓存.light</code> 五个「decl 0 空壳」补为纯光明
+真实现，并在 <code>runtime_typed.c</code> 新增确定性随机数运行时（<code>dv_random</code> /
+<code>dv_random_seed</code> / <code>dv_random_bits</code>），O0 下与 CPython <code>random.seed(同种子)</code>
+逐位对拍（固定种子 42）。过程中发现的 O0 codegen 缺陷均以纯光明 workaround
+绕过，不触碰 codegen 核心（归 T7）。</p>
+<h3 id="lcg-mt19937">算法偏离（任务书 LCG → MT19937，已定案）<a class="headerlink" href="#lcg-mt19937" title="Permanent link">&para;</a></h3>
+<p>任务书要求 LCG，但对拍判据是「与 Python <code>random.seed(同种子)</code> 逐位一致」，
+LCG 不可能对齐 CPython —— 实现改为 <strong>MT19937</strong>（<code>genrand_res53</code>），并对齐
+CPython 3.14 的播种口径：整数种子一律走 <code>init_by_array</code>（小端 32 位字切分；
+<code>|seed|</code> 取绝对值；<code>seed=0</code> 补单字 <code>[0]</code>）。<code>dv_random_bits(k)</code> 对齐
+<code>getrandbits</code>「右移保留高 k 位」，<strong>k ≤ 63</strong>（k&gt;63 截断、k≤0 返回 0，i64 上限）。</p>
+<h3 id="_20">缺陷清单<a class="headerlink" href="#_20" title="Permanent link">&para;</a></h3>
+<h4 id="t5c-01builtin-i64-0">T5C-01：builtin 浮点返回值参与算术时被误取 i64 槽（恒 0）<a class="headerlink" href="#t5c-01builtin-i64-0" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>现象</strong>：<code>随机数() 乘 9007199254740992.0</code>、<code>时间戳() 乘 1.0</code> 均为 <code>0</code>；
+  与浮点字面量的比较路径同样错。</li>
+<li><strong>根因</strong>：<code>_infer_expr_type(BinaryOp)</code> 把「未知类型操作数 + 浮点字面量」
+  误判 FLOAT，<code>_gen_typed_binary_op</code> 快路径对未知侧执行 <code>extractvalue ..., 1</code>
+  取 i64 槽（浮点 DV 的 i64 槽恒 0）。</li>
+<li><strong>修复</strong>：codegen_typed.py 三处 —— ① 算术分支要求两侧均在
+  ('FLOAT','INT') 才推断类型；② 算术 FLOAT 快路径加同条件；③ 比较 FLOAT
+  快路径加同条件。任一侧未知时回退通用 <code>dv_*</code> 路径，由运行时标签决定。</li>
+<li><strong>归属</strong>：本批已修（codegen 3 处），非 workaround。</li>
+</ul>
+<h4 id="t5c-02-ref">T5C-02：<code>追加</code> 对函数参数（REF）无效，对字典读出句柄有效<a class="headerlink" href="#t5c-02-ref" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>现象</strong>：函数内对<strong>参数列表</strong>调 <code>追加</code> 不生效（<code>唯一元素(列表(1,2,1,3,2))</code>
+  得 0 元素）；对<strong>本函数内新建</strong>列表或<strong>字典读出的列表</strong>调 <code>追加</code> 生效。</li>
+<li><strong>根因</strong>：O0 下参数经浅拷贝 REF 传递，列表扩容（realloc）后栈上壳指针
+  未写回。</li>
+<li><strong>Workaround</strong>：集合族所有变长构建改走「字典读出句柄」——
+  <code>设 元素 为 集合_列表(集合)</code> 后再 <code>集合_加(元素, ...)</code>；或函数内自建
+  局部列表直接构建。</li>
+<li><strong>归属</strong>：codegen 参数/写回语义，归 T7。</li>
+<li><strong>状态</strong>：<strong>已修复（T7B / 2026-09-06）</strong>。codegen 新增「参数写回」链：
+  被调侧在返回出口把<strong>未被重新绑定</strong>的形参槽写回 <code>%args[i]</code>，调用侧再把
+  <code>%args[i]</code> 搬回实参变量（<code>_emit_param_writeback</code> + <code>_emit_args_writeback</code>），
+  O0 下列表/字典 REF 传递语义与 Python 一致。反跑 <code>test_codegen_ref_dict_O0.py
+  ::test_T5C02_REF参数追加写回_O0</code> 绿。</li>
+</ul>
+<h4 id="t5c-03-i-ref">T5C-03：<code>设 列表[i] 为 值</code> 索引赋值损坏 REF 列表<a class="headerlink" href="#t5c-03-i-ref" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>现象</strong>：<code>设 结果[i] 为 值</code> 对函数参数不生效且把元素变「空」
+  （<code>设 池[0] 为 池[2]</code> 得 <code>3,空,空</code>）。</li>
+<li><strong>Workaround</strong>：全部改用 <code>设 空值 为 设置(结果, i, 值)</code>（<code>设置</code> builtin
+  验证 OK）。随机.light 3 处、集合操作.light 2 处已替换。</li>
+<li><strong>归属</strong>：codegen 索引赋值写回，归 T7。</li>
+<li><strong>状态</strong>：<strong>已修复（T7B / 2026-09-06）</strong>。codegen 索引赋值走新 runtime
+  分派 <code>dv_index_set</code>（列表 → <code>dv_list_set</code>、字典 → <code>dv_dict_set</code>），不再把
+  列表壳整体改写成 dict。workaround 已回退：<code>随机.light</code>（随机洗牌/抽样）、
+  <code>集合操作.light</code>（打乱）的 <code>设置()</code> 全部改回 <code>设 列表[i] 为 值</code>，固定种子
+  位级对拍保持。反跑 <code>test_T5C03_REF索引赋值_O0</code> 绿。</li>
+</ul>
+<h4 id="t5c-04ref">T5C-04：字典新增键经函数参数（REF）写回丢失<a class="headerlink" href="#t5c-04ref" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>现象</strong>：函数内 <code>字典设置(缓存, "新键", 42)</code> 对<strong>新增键</strong>无效（主内读回
+  空）；对<strong>已有键更新</strong>与<strong>重建值列表 + 字典设置</strong>生效。</li>
+<li><strong>根因</strong>：新增键路径 <code>realloc</code> 重绑 list_data，栈上浅拷贝的 dict 壳指针
+  没写回；替换路径不扩容、堆指针原地改。</li>
+<li><strong>Workaround</strong>：<code>对象池缓存.light</code> 全模块改为「键/值/截止 并行列表」架构
+  （<code>{"键":[], "值":[], "截止":[]}</code>），新增走「字典读出的列表句柄 +
+  <code>追加</code>」、删除/清空走「重建新列表 + 字典设置（替换路径）」。</li>
+<li><strong>契约</strong>：缓存值不可为 <code>空</code>（与缺失语义冲突）。</li>
+<li><strong>归属</strong>：codegen 字典写回，归 T7。</li>
+<li><strong>状态</strong>：<strong>已修复（T7B / 2026-09-06）</strong>。字典新增键经函数参数的写回由
+  参数写回链覆盖（同 T5C-02）。workaround 已回退：<code>对象池缓存.light</code> 缓存
+  家族改回 <code>{键: 值}</code> / <code>{键: [值, 截止]}</code> 纯字典存储；新注册 <code>字典删除</code>
+  builtin（<code>dv_dict_remove</code>，codegen 声明+映射）支撑删除/清空。
+  反跑 <code>test_T5C04_字典新增键REF写回_O0</code> 与 <code>test_对象池缓存_冒烟_O0</code> 绿。</li>
+</ul>
+<h4 id="t5c-05-x-2">T5C-05：变参 <code>接收 *x</code> 2 个以上实参不绑定<a class="headerlink" href="#t5c-05-x-2" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>现象</strong>：<code>合并(列表(1,2), 列表(3,4))</code> 把「列表们」绑成字符串 <code>"列表们"</code>。</li>
+<li><strong>Workaround</strong>：集合操作/集合工具/集合 的变参函数全部改为固定双参
+  （<code>合并(甲, 乙)</code>、<code>链字典(甲, 乙)</code>、<code>多个并集(甲, 乙)</code>、<code>多个交集(甲, 乙)</code>）。</li>
+<li><strong>归属</strong>：codegen 变参，归 T7。</li>
+<li><strong>状态</strong>：<strong>已修复（T7B / 2026-09-06）</strong>。根因：parser 把 <code>接收 *x</code> 产成
+  <code>Parameter(name='*x')</code>，codegen 未剥星号 → 局部变量名带星号 → 引用落入
+  「未知标识符当字符串」兜底。修复：codegen 剥星号并把第 i 个起的剩余实参经
+  runtime <code>dv_collect_varargs</code>/<code>dv_collect_kwargs</code> 收集为列表/字典绑定。
+  workaround 已回退：<code>集合.多个并集/多个交集</code>、<code>集合操作.合并</code>、
+  <code>集合工具.链字典</code> 改回变参（对齐 .py）。反跑 <code>test_T5C05_变参绑定_O0</code> 绿。</li>
+</ul>
+<h4 id="t5c-06-codegen">T5C-06：跨模块同名段 → codegen 函数重定义<a class="headerlink" href="#t5c-06-codegen" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>状态</strong>：已修复（T9A / 2026-09-06）</li>
+<li><strong>现象</strong>：同编译实例中 <code>集合.light</code> 与 <code>集合操作.light</code> 都有 <code>交集</code>/<code>差集</code>
+  段 → <code>invalid redefinition of function '_seg_fN'</code>。</li>
+<li><strong>根因</strong>：<code>src/llvm/core.py</code> <code>_safe_func_name</code> 按段名分配 fN。</li>
+<li><strong>修复</strong>：T9A 段名模块隔离。<code>集合操作.light</code> 的 <code>打乱随机下限</code> 已改回
+  <code>随机下限</code>。「同一程序内不得同时导入 集合 与 集合操作」限制已移除，
+  <code>test_codegen_safename_multimodule_O0.py</code> 补同时导入测试。</li>
+<li><strong>验证</strong>：<code>test_原生腿_T5C_集合随机.py</code> + 新增同时导入测试全绿。</li>
+</ul>
+<h4 id="t5c-07-workaround">T5C-07 [高] <code>字典设置</code> 使写回前的列表句柄失效 → 读脏值 / 写丢失（本批已修，workaround）<a class="headerlink" href="#t5c-07-workaround" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>现象（同一根因的两种表现）</strong>：</li>
+<li><strong>读脏值</strong>（仅 POSIX 暴露）：<code>集合.移除元素</code> 对<strong>存在</strong>的元素也抛 <code>值错误</code>。</li>
+<li><strong>写丢失</strong>（<strong>双平台</strong>均存在）：<code>集合操作.分组</code> 每个分组恒少收 1 个元素 ——
+     <code>分组(列表(1, 1, 2))</code> 得 <code>{1:[1], 2:[]}</code>，而应为 <code>{1:[1,1], 2:[2]}</code>。</li>
+<li><strong>根因</strong>：<code>字典设置(字典, 键, 值)</code> 会重绑/释放底层缓冲，使「<strong>写回前</strong>取到的
+  列表句柄」失效。事后对该句柄的<strong>读</strong>是未定义行为，<strong>写</strong>则落进已释放缓冲。</li>
+<li><code>移除元素</code> 原实现在 <code>字典设置</code> <strong>之后</strong>才比较 <code>长(列表)</code> 与新长度：
+    Windows 上该块内存读作 <code>0</code>（<code>0 != 2</code>，不抛错 —— <strong>侥幸通过</strong>）；
+    POSIX/glibc 上被复用后读作 <code>2</code>（与新列表同长）→ 误判「没删掉」而抛错。</li>
+<li><code>分组</code> 原实现在 <code>字典设置</code> <strong>之后</strong>才 <code>追加(组, …)</code>，该次写入丢失。</li>
+<li><strong>取证</strong>：探针打印「写回后旧句柄长度」——Windows <code>0</code> / Linux <code>2</code>。同一份 UB
+  读出两种脏值，是「Windows 绿、POSIX 红」的<strong>直接证据</strong>（探针见交付记录）。</li>
+<li><strong>修复</strong>（<code>.light</code> 层 workaround，不碰 codegen，归 T7）：</li>
+<li><code>移除元素</code>：写回<strong>前</strong>先 <code>设 原长 为 长(列表)</code> 快照，比较前置。顺带使
+    「元素不存在」时不再产生半截写入，与 Python <code>set.remove</code> 抛 KeyError 且
+    不改集合的语义一致。</li>
+<li><code>分组</code>：新建组改为<strong>先追加、后写回</strong>；已存在的组走「字典读出的句柄 +
+    <code>追加</code>」（T5C-02 认定该路径生效）。</li>
+<li><strong>回归测试</strong>：<code>test_集合_移除元素_句柄失效回归_O0</code>（含「缺失元素仍须抛错」的
+  <code>尝试/捕获</code> 断言，防止修复把语义改成静默成功）、
+  <code>test_集合操作_分组_组内元素不丢失_O0</code>。</li>
+<li><strong>注意（测试盲区）</strong>：原 <code>test_集合操作_排序_打乱_去重_对拍_O0</code> 只校验 <code>分组</code>
+  的<strong>键数</strong>（恒为 2），掩盖了组内元素丢失；新用例补齐<strong>值</strong>维度。</li>
+<li><strong>归属</strong>：根因仍在 codegen 的字典写回 / 句柄失效语义，归 T7；本批以 <code>.light</code>
+  层 workaround 修，与 T5C-02~04 同一处置口径。</li>
+<li><strong>状态</strong>：<strong>部分已修复（T7B / 2026-09-06），拆两个维度</strong>：</li>
+<li><strong>REF 函数参数维度</strong>（跨函数把 dict/list 传入、函数内 <code>字典设置</code> 改到
+    实参上）：由参数写回链根因修复，与 T5C-02/03/04 同批生效。</li>
+<li><strong>函数内句柄失效维度</strong>（同一函数内先读句柄、后 <code>字典设置</code> 替换值使旧句柄
+    悬空）：T7B 未消除（<code>dv_dict_set</code> 替换值会释放旧值，先读出的浅拷贝句柄
+    仍指向已释放缓冲）。该维度按任务许可<strong>保留 .light 层防御</strong>（<code>移除元素</code>
+    前置快照 + <code>分组</code> 先追加后写回），并新增 <code>字典删除</code> builtin 后缓存家族
+    字典化绕开旧句柄复用；对外行为 Windows/POSIX 双平台一致
+    （<code>test_T5C07_字典设置句柄失效_公共API_O0</code>、<code>test_T5C07_分组_组内元素
+    不丢失_O0</code> 绿）。<strong>全量根因消除需 runtime 字典值所有权/引用计数重构，
+    不在 T7B 范围</strong>。</li>
+</ul>
+<h3 id="_21">能力边界（诚实声明）<a class="headerlink" href="#_21" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>安全随机类</strong>（安全随机整数/令牌/URL令牌）：无 OS 级安全熵 —— 用
+  <code>dv_random</code>（MT19937）加种子实现，<strong>不具密码学安全性</strong>，仅格式对齐。</li>
+<li><code>随机字节</code> 返回十六进制字符串（原生腿无 bytes 类型），与 .py 的 bytes
+  对象不等价；单字节内 nibble 序按小端字节取（<code>低</code> 在前），对拍 oracle 同步。</li>
+<li><code>随机UUID</code> 为 v4 格式（第 13 位固定 4、第 17 位 <code>8+随机下限(4)</code>），
+  31 次 4 位随机 + 1 次 2 位随机消耗。</li>
+<li>set 无原生类型：集合族用<strong>列表模拟</strong>（插入序），<code>弹出元素</code> 取列表首个 ——
+  与 CPython set 哈希序不同（对拍 oracle 按插入序镜像）。</li>
+<li><code>随机位</code> 上限 63 位（i64）；<code>随机0到1</code>/<code>正态分布</code> 等浮点语义与 CPython
+  逐位一致（Box-Muller 同构 + 缓存第二个随机值）。</li>
+<li>函数值/回调不可用（编译期「未定义的段落」）→ 对象池缓存的装饰器类返回
+  <code>空</code>/池本身，仅标注能力边界。</li>
+<li><strong>POSIX 实测账（T5C-POSIX 专项，2026-09-06 收口）</strong>：</li>
+<li><strong>首轮（随 T6B）</strong>：<code>dv_random</code> 系列（MT19937 纯整数运算 + <code>dv_timestamp</code>
+    播种）经 <code>test_随机_固定种子42逐位对拍_O0</code> <strong>passed</strong>；同轮全量原生腿回归
+    中 <code>test_集合_运算对拍_O0</code>（<code>移除元素</code>）暴露原生腿 <code>值错误</code>。已确认
+    <strong>非 T6B 引入</strong>（T6B 的 codegen/runtime 改动仅涉 time/sys builtin 与
+    <code>sys.stderr</code> 链改写，git diff 已核零集合/移除相关代码），根因是 T5C 集合族
+    缺陷，登记为 <strong>T5C-07</strong>。</li>
+<li><strong>修复后（本轮）</strong>：<code>移除元素</code> 修好，并顺带修掉同根因的 <code>分组</code> 组内元素
+    丢失（该缺陷<strong>双平台</strong>均存在，此前未被测试覆盖）。POSIX 全量原生腿回归
+    <strong>36 passed / 0 failed</strong>（T5A + T5B + T5C + T6B）；Windows 同组合亦
+    <strong>36 passed</strong>。T5C「未在 POSIX 实测」的缺口由此关闭。</li>
+<li><strong>环境</strong>：Ubuntu 24.04.4 / clang 18.1.3 / 3.9GB 空闲 / 4 核；
+    本机 Windows 对照为 clang 22.1.8 + MSVC 14.29 + Win10 SDK 10.0.19041
+    （T5A/T5B/T5C/T6B 两套工具链版本不同，是本次能暴露平台相关 UB 的前提）。</li>
+</ul>
+<h2 id="r10-12d-t6arelight-light-o0-2026-09-06">R10-12d T6A：re.light 正则引擎 + 正则表达式/格式化/模板 .light 化 — O0 缺陷与能力边界（2026-09-06）<a class="headerlink" href="#r10-12d-t6arelight-light-o0-2026-09-06" title="Permanent link">&para;</a></h2>
+<h3 id="_22">概述<a class="headerlink" href="#_22" title="Permanent link">&para;</a></h3>
+<p>T6A 新增 <code>stdlib/re.light</code>（纯光明回溯型正则引擎，约 1150 行：字符类/
+区间/量词 <code>{n},{n,},{n,m}</code>/贪婪与懒惰/分支/分组捕获与反向引用/多行锚点/
+忽略大小写），并把 <code>stdlib/正则表达式.light</code>、<code>stdlib/格式化.light</code>、
+<code>stdlib/模板.light</code> 三个「decl 0 空壳」补为真实现。编译运行与测试全部在
+POSIX 实机 <code>192.168.0.86</code>（clang 18.1.3）完成，T6A 是第一个全程 Linux
+实机验证的原生腿批次。测试 <code>tests/unit/test_T6a_正则文本模块_原生腿.py</code>
+14 例全绿（含 3 例空壳判红）。</p>
+<h3 id="stdlib-workaround-t7">缺陷清单（本轮新发现，均以 stdlib 层 workaround 绕过，归 T7）<a class="headerlink" href="#stdlib-workaround-t7" title="Permanent link">&para;</a></h3>
+<h4 id="t6a-01-1-1">T6A-01：负数存入列表读出损坏（-1 → 1）<a class="headerlink" href="#t6a-01-1-1" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>现象</strong>：<code>返回 [-1]</code>、<code>盒.追加(-1)</code> 两条路径存入后 <code>盒[0]</code> 读出 <code>1</code>
+  （mini8 实测）；正数（5/7）正常。<code>模板.light</code> 的 <code>_找子</code> 用 <code>-1</code> 当
+  「未找到」哨兵 → 调用方判断 <code>开 &lt; 0</code> 永假 → 渲染循环死循环。</li>
+<li><strong>Workaround</strong>：<code>_找子</code> 改用「串长」作未找到哨兵（非负越界值）；
+  re.light 组表 <code>追加(-1)</code> 只写不读判断，不受影响。</li>
+<li><strong>归属</strong>：runtime 负数 DV 装箱/codegen 列表元素写路径，归 T7。</li>
+<li><strong>状态</strong>：<strong>已修复（T7B / 2026-09-06）</strong>。根因是 <strong>codegen 一元负号被静默
+  忽略</strong>：<code>-1</code> 的 AST <code>UnaryOp</code>（operator <code>-</code>）在 <code>_gen_typed_unary_op</code> 中
+  无分支 → 按正数原样下发（非 runtime DV 装箱问题，runtime 零改动）。
+  修复：一元负号对数值操作数发射 <code>dv_sub(0, x)</code>。workaround 已回退：
+  <code>模板.light</code> 的 <code>_找子</code> 未找到哨兵改回 <code>-1</code>（3 处调用判断同步从 <code>&gt;= n</code>
+  改为 <code>&lt; 0</code>）。反跑 <code>test_T6A01_负数字面量_存储读取_O0</code> 与模板渲染用例绿。</li>
+</ul>
+<h4 id="t6a-02-4-1">T6A-02：当循环 + 嵌套分支内的标量赋值，循环退出后读取损坏（4 → 1）<a class="headerlink" href="#t6a-02-4-1" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>已由 T9A/T7A/T7B 间接修复（T7C / 2026-09-06 验证确认）</strong>：T9A 段名模块隔离
+修复后，codegen 使用 alloca 栈槽存储局部变量（非 SSA 寄存器），不存在 PHI
+节点——原「PHI 节点管理错误」根因分析有误。mini17 在当前代码上 O0 编译运行
+输出 <code>2</code>（正确，非 <code>1</code>）。workaround 已移除：<code>格式化.light</code> 的 <code>文本去除缩进</code>
+改回标量变量 <code>最小</code>（移除 <code>最小盒</code> 单元素列表 workaround）。<code>test_codegen_controlflow_O0.py</code>
+2 个用例全绿，<code>test_T6a_正则文本模块_原生腿.py</code> 17/17 全绿。</p>
+</blockquote>
+<ul>
+<li><strong>现象</strong>：<code>当</code> 循环体内「如果/否则」两层嵌套中的 <code>设 最小 为 cnt</code>
+  （cnt=4），循环退出后读 <code>最小</code> 得 <code>1</code>（mini17 最小复现）；循环体<strong>顶层</strong>
+  的标量赋值正常（mini16 全对）。布尔化特征：非零 → 1。</li>
+<li><strong>Workaround</strong>（已移除）：<code>格式化.light</code> 的 <code>文本去除缩进</code> 把「最小公共缩进」改放
+  <strong>单元素列表</strong>（<code>最小盒</code>），min 比较改为分支内追加非负值。</li>
+<li><strong>归属</strong>：codegen 循环标量存活区间，归 T7。<strong>已由 T9A/T7A/T7B 间接修复</strong></li>
+</ul>
+<h4 id="t6a-03">T6A-03：模块级 <code>设</code> 初始化的字符串常量不可靠<a class="headerlink" href="#t6a-03" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>已修复（T7C / 2026-09-06）</strong>：根因是 <strong>模块初始化顺序错误</strong>——<code>compiler.py</code>
+的 <code>compile_modules_typed</code> 中 <code>all_module_list</code> 按 <code>modules.values()</code> 原始顺序
+收集，主模块可能排在被导入模块之前，导致 <code>__light_init</code> 中主模块的顶层语句
+（如读取导入模块的全局变量、调用导入段）先于被导入模块的全局初始化执行。
+修复：将主模块移到 <code>all_module_list</code> 末尾，使被导入模块的全局初始化先执行。
+反跑：<code>git stash</code> 回退修复后，模块级常量读取立即返回 <code>空</code>。workaround
+（段落开头局部构造 槽开/槽闭/单开/单闭）仍保留在 <code>模板.light</code> 中——因协作
+红线限制不动 <code>模板.light</code>（归下一批），<code>格式化.light</code> 的 workaround 不涉及
+此缺陷。</p>
+</blockquote>
+<ul>
+<li><strong>现象</strong>：<code>模板.light</code> 模块级 <code>设 槽开 为 字符自码位(123) 加上 ...</code>
+  在段落里读到垃圾值（桩测 <code>_找子</code> 在下标 3 命中，实为按「无」匹配），
+  渲染死循环。</li>
+<li><strong>Workaround</strong>（模板.light 仍保留，归下一批移除）：删除模块级常量，改在段落开头局部构造
+  （<code>渲染模板</code>/<code>模板变量替换</code> 各自构造 槽开/槽闭/单开/单闭）。
+  re.light 全模块即此风格（无模块级设语句）。</li>
+<li><strong>归属</strong>：codegen 模块级初始化，归 T7。<strong>已修复（T7C / 2026-09-06）</strong></li>
+</ul>
+<h4 id="t6a-04builtin">T6A-04：builtin <code>连接字符串(列表, 分隔)</code> 恒返回空串<a class="headerlink" href="#t6a-04builtin" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>已修复（T7D / 2026-09-06）</strong>：见 #L-T5B-4 修复注——codegen 取错字段
+（extractvalue ,3 应为 ,7）+ runtime <code>dv_str_join</code> 为 legacy 序列化解析器。
+新增 <code>dv_list_join</code> + codegen 改走，1/2 参形式均支持。三模块 <code>_格_连接</code>/
+<code>_模_连接</code>/<code>_正_连接</code> workaround 已移除。</p>
+</blockquote>
+<ul>
+<li><strong>现象</strong>：<code>连接字符串(["a","b"], "-")</code> → <code>""</code>（mini9 实测；1 参形式
+  按 codegen fallback 也返回 ""）。格式化/模板/正则表达式共 8 处中招
+  （表格/缩进/填充段落/提取中文字符等输出全空）。</li>
+<li><strong>Workaround</strong>：三个模块各内置 <code>_格_连接</code>/<code>_模_连接</code>/<code>_正_连接</code>
+  （手写循环拼接），全量替换。</li>
+<li><strong>归属</strong>：runtime <code>dv_str_join</code> 或 codegen 传参，归 T7。<strong>已修复（T7D / 2026-09-06）</strong></li>
+</ul>
+<h4 id="t6a-05builtin-3">T6A-05：builtin <code>字典获取</code> 第 3 参（默认值）被丢弃<a class="headerlink" href="#t6a-05builtin-3" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>已修复（T7D / 2026-09-06）</strong>：codegen 只注册 2 参形式。runtime 新增
+<code>dv_dict_get_def</code>（键存在返回值、不存在返回第 3 参），codegen 注册 3 参
+形式并传递默认值。<code>模板.light</code> 的 <code>_模_槽值</code> workaround 已移除，改回
+<code>字典获取(数据, 名字, 默认)</code>。</p>
+</blockquote>
+<ul>
+<li><strong>现象</strong>：<code>字典获取(d, "缺", "默认")</code> 键不存在时返回 <code>空</code>（转文本后
+  「空」）而非默认值（mini9 实测）。codegen_typed.py:2184 只传 2 参。</li>
+<li><strong>影响</strong>：模板 <code>{{v|默认}}</code> 渲染成「空End」。<code>模板.light</code> 改用
+  <code>字典包含键</code> + 2 参 <code>字典获取</code> 组合（<code>_模_槽值</code>）。</li>
+<li><strong>归属</strong>：codegen builtin 签名收窄，归 T7。<strong>已修复（T7D / 2026-09-06）</strong></li>
+</ul>
+<h4 id="t6a-06builtin">T6A-06：builtin <code>替换</code> 在特定调用形态下返回「旧串」参数<a class="headerlink" href="#t6a-06builtin" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>已修复（T7D / 2026-09-06）</strong>：C 层定界探针直调 <code>dv_str_replace</code> 证明
+runtime 实现无错（<code>REPLACE_ABC=hello 光明</code>、连续替换链正确）；缺陷属
+codegen/旧调用形态问题，且在 T7B 的 REF 写回链修复后当前 main 已不再复现
+（替换链 R1/R2/R3 全对）。<code>模板.light</code> 的 <code>_模_文本替换</code> workaround 已移除，
+改回 <code>替换</code>。</p>
+</blockquote>
+<ul>
+<li><strong>现象</strong>：mini9 的 <code>替换("hello world","world","光明")</code> 正常（参数
+  对称掩盖），但 <code>模板变量替换</code> 的连续替换链输出 <code>${b}</code>（对 <code>.py</code> 的
+  <code>''.replace</code> 语义，等价于每次返回 args[1]）。手写 <code>_模_文本替换</code>
+  绕开后模板变量替换与 .py 对拍一致。</li>
+<li><strong>归属</strong>：runtime <code>dv_str_replace</code> / codegen 传参序，归 T7（需先在
+  runtime 层复现定界）。<strong>已修复（T7D / 2026-09-06）</strong></li>
+</ul>
+<h4 id="t6a-07relight-n">T6A-07：re.light <code>{n}</code> 重复体含多选分支时回溯恢复不完整<a class="headerlink" href="#t6a-07relight-n" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>已修复（T9B / 2026-09-06）</strong>：re.light VM <code>支</code> 处理器增加组表/回点快照恢复——
+分支1递归调用可能通过 <code>保存</code> 指令修改 <code>组表</code>、通过嵌套 <code>循支</code> 修改 <code>回点</code>，
+分支1失败后恢复快照再试分支2。IPv4 模式对 <code>999.1.1.1</code> 正确判定不匹配。
+<code>test_relight_engine_O0.py::test_t6a07_mini20_ipv4_999</code> 全绿。</p>
+</blockquote>
+<ul>
+<li><strong>现象</strong>：IPv4 模式
+  <code>^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}...$</code> 对
+  <code>999.1.1.1</code> 误判通过（mini20）；去掉第三分支 <code>[01]?...</code> 后（mini19）
+  判定正确。简化分支的 <code>{3}</code> 重复正常。</li>
+<li><strong>根因</strong>：re.light VM <code>支</code> 处理器中，分支1递归调用修改 <code>组表</code>（<code>保存</code> 指令）
+  和 <code>回点</code>（嵌套 <code>循支</code>）后，分支1失败未恢复，分支2看到污染状态。</li>
+<li><strong>修复</strong>：T9B <code>支</code> 处理器尝试分支1前快照 <code>组表</code> 和 <code>回点</code>，分支1失败后恢复再试分支2。</li>
+<li><strong>Workaround（已移除）</strong>：<code>验证IP地址</code> 保留 re 模式版；测试反例改用 <code>192.168.1</code>。
+  IP 反例全集（999/256/3段/0.0.0.0）已恢复测试。</li>
+<li><strong>归属</strong>：re.light VM 回溯状态管理。<strong>已修复（T9B / 2026-09-06）</strong></li>
+</ul>
+<h4 id="t6a-08builtin-t5a">T6A-08：builtin <code>整除</code> 结果参与后续算术被零初始化（T5A 同族）<a class="headerlink" href="#t6a-08builtin-t5a" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>已修复（T7A / 2026-09-06）</strong>：被 T5A-02 修复覆盖——int/int 除法类型标记
+修复后 builtin <code>整除</code> 结果参与后续算术不再零初始化。stdlib workaround 已移除
+（减二循环改回 <code>整除()</code> 调用）。<code>test_T6a_正则文本模块_原生腿.py</code> 17/17 全绿。</p>
+</blockquote>
+<ul>
+<li><strong>现象</strong>：<code>文本居中</code> 的 <code>整除(宽度 - n, 2)</code> 恒 0 → 左填充丢失。</li>
+<li><strong>Workaround</strong>（已移除）：减二循环求整除（<code>文本居中</code> 内联 3 行）。</li>
+<li><strong>归属</strong>：同 T5A int/int 除法缺陷，归 T7。<strong>已修复（T7A / 2026-09-06）</strong></li>
+</ul>
+<h4 id="t6a-09t5c-06">T6A-09：跨模块段落符号编号冲突与调用结果污染（T5C-06 同族加重）<a class="headerlink" href="#t6a-09t5c-06" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>状态</strong>：已修复（T9A / 2026-09-06）</li>
+<li><strong>现象</strong>：① 主模块与导入模块<strong>同名段落</strong>（<code>_IP段好吗</code>）→
+  <code>invalid redefinition of function '_seg_f16'</code>（mini25）；② 新增段落
+  后同程序内跨模块调用返回值偶发损坏（mini23/24：<code>验证IP地址</code>
+  同输入在不同调用位次结果不同）。</li>
+<li><strong>根因</strong>：core.py <code>_safe_func_name</code> 全局编号分配，多模块同名段映射到同一函数。</li>
+<li><strong>修复</strong>：T9A 段名模块隔离——<code>_safe_func_name(name, module_name)</code> 复合键，
+  段注册表 <code>(module_name, raw_name)</code> 元组 key，主模块与导入模块同名段映射到
+  不同 LLVM 函数。私有段模块前缀（<code>_格_</code>/<code>_模_</code>/<code>_正_</code>/<code>re_</code>）保留为命名约定，
+  不再是必须的防撞名手段。</li>
+<li><strong>验证</strong>：<code>test_codegen_safename_multimodule_O0.py::TestMainModuleConflict</code> 全绿。</li>
+</ul>
+<h4 id="t6a-10">T6A-10：同一程序内跨模块多次调用存在低概率返回值污染（未定界）<a class="headerlink" href="#t6a-10" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>已由 T9A 间接修复（T7C / 2026-09-06 验证确认）</strong>：T9A 段名模块隔离修复后，
+构造 60+ 次跨模块调用 smoke 程序（<code>文本居中</code>/<code>文本左对齐</code>/<code>文本右对齐</code> 交替调用），
+连续 20 次复跑全部 PASS，未再出现返回值污染。根因确认为 T6A-09（段名符号编号
+冲突）的同族表现——全局编号冲突导致不同模块的同名段映射到同一 LLVM 函数，
+调用结果互相覆盖。段名隔离后此问题消除。</p>
+</blockquote>
+<ul>
+<li><strong>现象</strong>：同一 .light 程序内，<code>文本居中</code> 等函数在完整 smoke（60+ 调用）
+  中偶发返回缺左填充的串；相同 code 在独立小程序中稳定正确；pytest
+  同 code 同 helper 复跑结果可随调用顺序翻转（本轮以「调换断言顺序」
+  通过）。<strong>未最小化定界</strong>，疑似与 T6A-09 同根（全局槽/寄存器复用）。</li>
+<li><strong>缓解</strong>（已解除）：测试遵循 T5A 范式「每用例独立编译运行」，用例保持小型；
+  大程序场景（smoke main2.light）留档于任务纪要。</li>
+<li><strong>归属</strong>：codegen 全局槽分配/调用约定，归 T7。<strong>已由 T9A 间接修复</strong></li>
+</ul>
+<h4 id="t6a-11relight-vm-windows-0xc0000374">T6A-11：re.light 回溯VM 列表操作内存安全缺陷（Windows 堆损坏 0xC0000374）<a class="headerlink" href="#t6a-11relight-vm-windows-0xc0000374" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>已修复（T9B / 2026-09-06）</strong>：re.light VM <code>循支</code> 处理器增加组表/回点快照恢复——
+body 失败后恢复快照（保留 <code>[pc,pos]</code> 防出口跳回死循环，清除 body 的 stale 条目）再试出口。
+新增 <code>re_内部_列复制</code> 辅助段（列表浅复制）用于快照。修复后连续 20 次正则验证调用
+Windows 稳定运行不崩，POSIX valgrind <strong>Invalid read/write = 0</strong>（原 11681 含 Invalid
+read/write）。<code>test_relight_engine_O0.py::test_t6a11_20次连续验证不崩</code> 全绿。
+拆分的 4 个验证函数测试已合并回 1 个完整 20 次调用测试。</p>
+</blockquote>
+<ul>
+<li><strong>现象</strong>：同一 .light 程序内连续 20 次正则验证函数调用，Windows O0 下
+  运行时崩 <code>0xC0000374</code>（STATUS_HEAP_CORRUPTION）；POSIX（Ubuntu 24.04
+  clang 18）不崩但 valgrind 检出 <strong>11681 错误</strong>（Invalid read/write at
+  <code>dv_list_get</code>/<code>dv_list_append</code>，realloc 后指针失效/索引越界）+ <strong>11MB
+  内存泄漏</strong>（definitely lost 825KB / indirectly lost 10.7MB，路径
+  <code>dv_clone</code>←<code>dv_list_get</code>←re.light <code>_seg_f100</code> 递归回溯）。</li>
+<li><strong>根因</strong>：re.light 回溯 VM <code>循支</code> 处理器中，body 失败后 body 内嵌套 <code>循支</code>
+  追加的 stale 回点条目未清理，影响出口路径；列表可变状态在回溯时未恢复。
+  re.light 注释自称"列表不可变语义天然支持回溯撤销"，但实际列表是引用传递+原地修改
+  （<code>追加</code>/<code>设置</code>），设计假设不成立。</li>
+<li><strong>修复</strong>：T9B ①新增 <code>re_内部_列复制</code> 辅助段（列表浅复制）；②<code>循支</code> 处理器追加
+  <code>[pc,pos]</code> 后快照 <code>组表</code> 和 <code>回点</code>（含刚追加的条目），body 失败后恢复（保留
+  <code>[pc,pos]</code> 防出口跳回死循环，清除 body 的 stale 条目）再试出口；③<code>支</code> 处理器
+  同步增加快照恢复（T6A-07 同根因）。</li>
+<li><strong>valgrind 验证</strong>（Ubuntu 192.168.0.86，valgrind 3.22.0，clang 18.1.3）：
+  修复版连续 20 次调用 <strong>Invalid read/write = 0</strong>，ERROR SUMMARY 11035 全部为泄漏
+  上下文（无内存安全错误）。仍存在 definitely lost ~747KB / indirectly lost ~9.5MB，
+  泄漏路径 <code>dv_clone</code>←<code>dv_list_get</code> 属 runtime 引用计数与列表元素访问 clone 机制
+  交互问题（归 T7D），非 re.light 引擎缺陷。</li>
+<li><strong>Workaround（已移除）</strong>：测试 <code>test_正则_验证函数</code> 拆为 4 个小测试（每用例 ≤6 次
+  调用）→ 已合并回 1 个完整 20 次调用测试 <code>test_正则_验证函数_完整20次</code>。
+  IP 反例测试（<code>192.168.1</code> 等）已恢复。</li>
+<li><strong>归属</strong>：re.light 回溯 VM 列表生命周期管理。<strong>已修复（T9B / 2026-09-06）</strong>
+  （内存安全根因消除；残余泄漏归 T7D runtime）</li>
+</ul>
+<h3 id="_23">能力边界（诚实声明）<a class="headerlink" href="#_23" title="Permanent link">&para;</a></h3>
+<ul>
+<li>re.light 支持字符类/区间/否定类/<code>.</code>/锚点/量词（含懒惰）/分支/分组
+  （含 <code>(?:)</code> 非捕获）/反向引用 <code>\1</code>-<code>\9</code>/忽略大小写/多行/点号全行；
+  <strong>不支持</strong>：前后断言（lookaround）、命名分组 <code>(?P&lt;name&gt;)</code>、
+  <code>\b</code> 词边界、Unicode 属性类。步数预算 200000（防灾难回溯）。</li>
+<li><code>模板</code> 类以「模板串即对象」形态提供（原生腿无类方法分派）；
+  <code>{{ 名字 }}</code> 槽名两侧空白统一去除（.py 仅默认值分支去空白）。</li>
+<li><code>模板循环</code> 对纯列表项仅替换 <code>{{item}}</code>/<code>${item}</code>，<code>{{item.键}}</code>
+  原样保留 —— 与 .py 一致（.py 亦不展开）。</li>
+<li><code>验证密码强度</code> 为纯启发式（长度/大小写/数字/符号计分），与 .py
+  分档口径对齐但不做字典检查。</li>
+<li><code>文本换行</code> 不做 textwrap 长词内断词微调（与 .py 的 suspend 语义
+  差异已标注）；expand_tabs/replace_whitespace 选项不承诺。</li>
+</ul>
+<h2 id="r10-12d-t6b-timelight-syslight-light-2026-09-06">R10-12d T6B：时间/系统内建 time.light + sys.light 真 .light 化（2026-09-06）<a class="headerlink" href="#r10-12d-t6b-timelight-syslight-light-2026-09-06" title="Permanent link">&para;</a></h2>
+<h3 id="_24">概述<a class="headerlink" href="#_24" title="Permanent link">&para;</a></h3>
+<ul>
+<li>任务：建 <code>stdlib/time.light</code>、<code>stdlib/sys.light</code> 纯光明内建，解锁
+  <strong>日期时间轻量 / 时间管理 / 事件总线 / 插件</strong> 四模块的原生腿（native/LLVM）编译。</li>
+<li>约束：独立本地分支 <code>task-T6b</code>；<code>runtime_typed.c</code> 仅新增独立函数 <code>dv_sleep</code>/<code>dv_clock</code>，
+  <strong>严禁碰 TLS 段</strong>（归 T7）；<code>codegen_typed.py</code> 注册 builtin。</li>
+<li>反跑判据：<code>optimize_level=0</code> 真编译真跑；改回空壳→定向测试立红；时间戳对拍容差 ±2s
+  （实际走整数毫秒口径比对，规避 <code>%g</code> 打印丢精度）。</li>
+</ul>
+<h3 id="_25">解锁模块<a class="headerlink" href="#_25" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>日期时间轻量</strong>：零文本改动解锁，原生 O0 字段/格式对拍 Python 绿。</li>
+<li><strong>时间管理</strong>：32 导出全真实现（睡眠族/时间戳族/格式化耗时/本地时间/UTC时间/
+  时区/计时器/秒表/创建秒表）。</li>
+<li><strong>事件总线 / 插件</strong>：<code>sys.light</code>/<code>inspect.light</code> 依赖解锁 + 语法清理；python 腿
+  保真绿（test_event_bus 13 passed、agent_loop 签名/stderr 5 passed、test_plugin 全绿）；
+  原生全跑被「函数值动态调用」语言级缺口阻断（见 #L-T6B-3）。</li>
+</ul>
+<h3 id="codegen">运行时与 codegen 变更<a class="headerlink" href="#codegen" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>runtime_typed.c</code>：新增独立函数（文件末尾，未碰 TLS 段）</li>
+<li><code>dv_sleep(double sec)</code>：Windows <code>Sleep(ms)</code> / POSIX <code>nanosleep</code>。</li>
+<li><code>dv_clock(void) -&gt; double</code>：Windows <code>QueryPerformanceCounter</code> / POSIX
+    <code>clock_gettime(CLOCK_MONOTONIC)</code>，返回单调高分辨率秒。</li>
+<li><code>codegen_typed.py</code>：</li>
+<li>声明 <code>declare void @dv_sleep(double)</code> / <code>declare double @dv_clock()</code>。</li>
+<li>注册 builtin：<code>时间戳</code>/<code>_dv_timestamp</code>、<code>时间格式化</code>/<code>_strftime</code>、
+    <code>睡眠秒</code>/<code>_sleep_sec</code>→<code>dv_sleep</code>、<code>时钟</code>/<code>性能计数器</code>/<code>单调时钟</code>/<code>_clock</code>→<code>dv_clock</code>。</li>
+<li><code>_gen_typed_method_call</code> 入口加 <code>sys.stderr.write(文本)</code>/<code>sys.stderr.flush()</code>
+    链级改写（<code>write</code>→<code>dv_println</code> 落原生 stdout；<code>flush</code>→no-op），解决事件总线
+    错误隔离路径 <code>sys.stderr</code> 无属性值表达的问题。</li>
+</ul>
+<h3 id="t6b">缺陷清单（T6B 特有）<a class="headerlink" href="#t6b" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>#L-T6B-1 [中] 跨模块同名段 → codegen 重定义</strong>（同 #L-T5B-1 根因）：
+  <code>time.light</code> 对外只暴露 ASCII 段名；段内委托 builtin 用 <code>_dv_timestamp</code>/<code>_sleep_sec</code>/
+  <code>_clock</code>/<code>_strftime</code> 下划线别名防自递归/被上层中文导出捕获（曾因 <code>时间戳()</code> 被
+  <code>时间管理.时间戳</code> 捕获导致无限递归 0xC00000FD，已规避）。</li>
+<li><strong>#L-T6B-2 [中] 类构造期 <code>己.方法()</code> 字段写回丢失</strong>（秒表/计时器后端缺陷）：
+  <code>计时器.结束</code>/<code>秒表.停止</code> 浮点字段算术原生返回 0/负值 → 数值断言不覆盖，仅「不崩」冒烟。</li>
+<li><strong>#L-T6B-3 [高·语言级缺口] 函数值动态调用</strong>：事件总线 <code>发布(事件名, 载荷)</code> 需把
+  回调存进监听者表后动态调用 <code>处理器(事件名, 载荷)</code>；插件 <code>触发扩展点(载荷)</code> 同需
+  <code>回调(载荷)</code>。原生 codegen 仅支持静态段/builtin 调用，无此 runtime 机制 →
+  事件总线/插件原生全跑受阻。按边界交付（解锁 + 语法清理，python 腿保真绿）。</li>
+<li><strong>#L-T6B-4 [低] <code>time_ns</code> 毫秒口径</strong>：秒×1e6 近似（无纳秒 runtime）→ 对拍用整数
+  毫秒口径（<code>time_ns</code> 原值 vs <code>time()*1000</code>，容差 2000）。</li>
+<li><strong>#L-T6B-5 [低] <code>gmtime</code> 实为 <code>localtime</code></strong>：无 UTC 拆字段 runtime；<code>tm_isdst</code> 恒 -1；
+  不提供 Python <code>struct_time</code> 索引/命名元组语义。</li>
+<li><strong>#L-T6B-6 [低] 字典成员判断</strong>：原生不支持 <code>X 在/不在 Y</code>，改用 builtin <code>字典包含键</code>
+  （事件总线 4 处 + 插件 14 处，共 18 处清理，语义中性）。</li>
+</ul>
+<h3 id="_26">反跑判据验证<a class="headerlink" href="#_26" title="Permanent link">&para;</a></h3>
+<ul>
+<li>O0 真编译真跑；改回空壳→定向测试立红；时间戳对拍容差 ±2s（整数毫秒口径）。</li>
+<li>T6B 反跑 <strong>5 测试全绿（Windows 本机 MSVC + Ubuntu 24.04 clang 双平台）</strong>。</li>
+<li>本机（Windows）曾因空闲 RAM 仅 ~696MB 导致 clang 指令选择 OOM，已用
+  <code>_t6b_native_helper.py</code> 把「编译+运行」fork 到独立子进程隔离（每次全新 Python，
+  拿到与单独运行相同的空闲 RAM）。Ubuntu 3.9GB 空闲无此问题。</li>
+</ul>
+<h3 id="posix-2026-09-06ubuntu-24044-clang-1813-39gb-4">POSIX 实测账（2026-09-06，Ubuntu 24.04.4 / clang 18.1.3 / 3.9GB 空闲 / 4 核）<a class="headerlink" href="#posix-2026-09-06ubuntu-24044-clang-1813-39gb-4" title="Permanent link">&para;</a></h3>
+<ul>
+<li>连接 <code>192.168.0.86</code>（凭据在 <code>light-merge/.env</code> 的 <code>86SSH_HOST</code>/<code>SSH_USER_AI</code>/
+  <code>SSH_PASS_AI</code>，<strong>注意外层 <code>duan-light-merge/.env</code> 是另一套且 88 仅公钥</strong>）。</li>
+<li>T6B 反跑 <code>tests/unit/test_T6B_时间系统内建_原生腿.py</code>：<strong>5 passed / 12.57s</strong>，无 OOM。
+  <code>dv_sleep(nanosleep)</code> / <code>dv_clock(CLOCK_MONOTONIC)</code> 的 POSIX 路径<strong>实测通过</strong>，
+  关闭了 T6B 新增项的「未在 POSIX 实测」缺口。</li>
+<li>全量原生腿回归（T5A/T5B/T5C/T6B）：<strong>33 passed / 1 failed</strong>。</li>
+<li>失败：<code>test_原生腿_T5C_集合随机.py::test_集合_运算对拍_O0</code> —— <code>移除元素</code> 抛 <code>值错误</code>。
+    <strong>确认非 T6B 回归</strong>：T6B 的 codegen/runtime 改动仅涉 time/sys builtin 与
+    <code>sys.stderr</code> 链改写，git diff 已核零集合/移除相关代码；该缺陷属 T5C 集合族
+    codegen（T5C-01~06 同类），且 T5C 此前「未在 POSIX 实测」，本次为首次 POSIX 暴露。
+    建议归 T5C POSIX 验证单独立项（不在 T6B 交付范围）。</li>
+<li><code>dv_random</code> POSIX 路径随 <code>test_随机_固定种子42逐位对拍_O0</code> <strong>passed</strong> 实测通过。</li>
+</ul>
+<h3 id="_27">能力边界（诚实声明）<a class="headerlink" href="#_27" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>time.light</code>：<code>localtime</code>/<code>gmtime</code> 返回 <code>本地时间对象</code>（字段对齐 <code>struct_time</code> 常用
+  子集，经 <code>dv_format_time</code> 按 fmt 拆解）；<code>gmtime</code> 实为 <code>localtime</code>；<code>tm_isdst</code> 恒 -1；
+  <code>time_ns</code> 毫秒级（无纳秒 runtime）。</li>
+<li><code>sys.light</code>：导出零参取值段（<code>版本()</code>/<code>平台()</code>/<code>参数()</code>），<strong>不导出属性值</strong>；
+  <code>平台()</code> 用路径分隔符反推（win32/posix 两档，同 <code>操作系统.本机平台</code>）；<code>退出(码)</code>
+  委托 <code>退出程序</code>。Python 腿仍走真 CPython <code>sys</code>（双轨互不干扰）。</li>
+<li><code>事件总线</code>/<code>插件</code>：函数值回调原生不可用（#L-T6B-3），python 腿保真。</li>
+</ul>
+<h3 id="_28">文件清单<a class="headerlink" href="#_28" title="Permanent link">&para;</a></h3>
+<ul>
+<li>新增：<code>stdlib/time.light</code>、<code>stdlib/sys.light</code>、<code>stdlib/inspect.light</code>、
+  <code>tests/unit/_t6b_native_helper.py</code>、<code>tests/unit/test_T6B_时间系统内建_原生腿.py</code>。</li>
+<li>修改：<code>src/llvm/runtime_typed.c</code>（dv_sleep/dv_clock）、
+  <code>src/llvm/codegen_typed.py</code>（builtin 注册 + stderr shim）、
+  <code>stdlib/事件总线.light</code>、<code>stdlib/插件.light</code>、<code>stdlib/时间管理.light</code>。</li>
+</ul>
+<h3 id="_29">临时文件<a class="headerlink" href="#_29" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>_taskT6b_*</code> 已清理（本任务会话的 <code>_probe_ubuntu.py</code>/<code>_run_ubuntu_*.py</code> 亦为临时探测脚本，不入库）。</li>
+</ul>
+<h2 id="t6c-light-2026-09-05">十九、T6C：向量/复数/颜色/参数解析/编码解码真 .light 化（2026-09-05）<a class="headerlink" href="#t6c-light-2026-09-05" title="Permanent link">&para;</a></h2>
+<h3 id="_30">概述<a class="headerlink" href="#_30" title="Permanent link">&para;</a></h3>
+<p>5 个纯逻辑空壳模块真 .light 化：向量（22 导出）/ 复数（14）/ 颜色（14）/ 参数解析（11）/
+编码解码（45），合计 106 导出。均为「.light 仅声明、同名 .py 有真实现、不依赖 Python 标准库
+（只用 math/typing/纯算法）」模块，可直接真 .light 化。</p>
+<p><strong>本批零 runtime / codegen 改动</strong>：<code>src/llvm/runtime_typed.c</code>、<code>src/llvm/codegen_typed.py</code>
+未触碰；未新增注册任何 builtin —— 只用既有 builtin（绝对值/幂/平方根/正弦/余弦/正切/向上取整/
+向下取整/对数/时间/时间戳/Base64 编解码/MD5/SHA1/SHA256/替换/分割字符串 等）与纯光明算法：
+colorsys（RGB↔HSV / RGB↔HSL）纯光明重写、hex 解析纯实现、url 编解码纯实现、
+argparse 核心（参数解析器类/简单解析/快速获取，3 主导出 + 8 辅助导出）纯光明重写。</p>
+<p>定向反跑测试 <code>tests/unit/test_原生腿_T6C_向量复数颜色参数编码.py</code>（23 用例，显式
+optimize_level=0）全绿：18 功能对拍（与 Python math / colorsys / base64 / urllib.parse 手算
+对拍一致，数值容差 1e-4）+ 5 反跑（空壳 → NativeImportError）。</p>
+<h3 id="_31">缺陷清单<a class="headerlink" href="#_31" title="Permanent link">&para;</a></h3>
+<h4 id="t6c-01keywordarg">T6C-01：关键字参数（KeywordArg）对用户段调用不可靠（已规避）<a class="headerlink" href="#t6c-01keywordarg" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>现象</strong>：<code>添加参数(p, "--输出", 短名称="-o", 值类型="整数", 默认值=1)</code> 中 <code>默认值</code>/<code>值类型</code>/
+  <code>标志</code>/<code>计数</code> 绑定错位：IR 实证 <code>添加参数(q,"--a", 默认值=3)</code> 只推 3 个实参（q, 名, 3），
+  <code>默认值</code> 绑到槽 2（<code>短名称</code>），<code>名称</code> 占了 <code>默认值</code> 槽；<code>标志=真</code> 推出 4 个实参（q,名,空,真）
+  绑到槽 3（<code>值类型</code>）。</li>
+<li><strong>根因</strong>：<code>_merge_kwargs</code> 尾递归兜底按「追加顺序」绑定参数槽，未按形参名匹配；隔离段落内
+  偶发正确（探针 <code>试参数(1,2,d=9)</code> 输出 A/1/B/2/C/9/D/0），跨模块 / 长参表场景不可依赖。</li>
+<li><strong>规避</strong>：模块内部与全部测试一律<strong>全位置参数</strong>调用；声明式形参默认值（<code>X = Y</code>）不受影响。</li>
+</ul>
+<h4 id="t6c-02">T6C-02：运行时 查找 返回字节偏移，与 截取/长 的字符语义不一致（已规避）<a class="headerlink" href="#t6c-02" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>现象</strong>：<code>查找("--输出=7", "=")</code> 返回 8（<strong>字节</strong>偏移），而 <code>截取</code>/<code>长</code> 按<strong>字符</strong>；
+  多字节选项名（如 <code>--输出=7</code>）按 <code>查找</code>+<code>截取</code> 组合解析会错位/截到整串。</li>
+<li><strong>规避</strong>：参数解析模块内逐字符扫描找 <code>=</code>（<code>如果 词[j] == "="</code>），不依赖 <code>查找</code> 的字节偏移。</li>
+</ul>
+<h4 id="t6c-03ref">T6C-03：REF 字符串（列表元素）上 截取/开头 失效（已规避）<a class="headerlink" href="#t6c-03ref" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>现象</strong>：<code>截取(列表[i], 0, 6)</code> / <code>开头(列表[i], "-")</code> 对 REF（列表元素引用）返回整串/不可靠。</li>
+<li><strong>规避</strong>：解析循环先 <code>设 词 为 转字符串(列表[i])</code> 解引用后再做 开头/截取/字符扫描。</li>
+</ul>
+<h4 id="t6c-04-llvm-ir-t5c-06">T6C-04：跨模块同名段落 → LLVM IR 重定义（同 T5C-06，未修，规避）<a class="headerlink" href="#t6c-04-llvm-ir-t5c-06" title="Permanent link">&para;</a></h4>
+<ul>
+<li>本批 5 模块间无同名导出（五模块联合导入测试通过）；该限制对 stdlib 双模块同名导出普遍成立
+  （T5A-05 / T5C-06 同根因），合并期导入组合需注意。</li>
+</ul>
+<h4 id="t6c-05gbkgb2312gb18030big5-8">T6C-05：GBK/GB2312/GB18030/BIG5 双向转换能力边界（8 导出返回空串）<a class="headerlink" href="#t6c-05gbkgb2312gb18030big5-8" title="Permanent link">&para;</a></h4>
+<ul>
+<li>原生腿无这些编码的码表（纯光明无 codecs）；<code>GBK转UTF8</code>/<code>UTF8转GBK</code>/<code>GB2312转UTF8</code>/
+  <code>UTF8转GB2312</code>/<code>GB18030转UTF8</code>/<code>UTF8转GB18030</code>/<code>BIG5转UTF8</code>/<code>UTF8转BIG5</code> 8 个导出
+  <strong>返回空串 ""</strong>（诚实边界）；ISO8859-1 双向按字节/码位实现（ASCII 域正确，超 255 返空）。</li>
+<li><code>检测编码</code> 恒返回 <code>"utf-8"</code>（无启发式）；<code>字符集转换</code>/<code>字符集转字符串</code> 仅同编码直通
+  （utf-8 直通时对 hex 串做 UTF-8 解码）。</li>
+</ul>
+<h4 id="t6c-06121">T6C-06：类不可实例化、类方法整条不可用（12.1 既有）<a class="headerlink" href="#t6c-06121" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>向量.py</code>/<code>复数.py</code> 的 <code>类 向量/复数/矩阵</code> 以<strong>构造函数形态</strong>导出（向量/矩阵/复数/创建向量/
+  创建复数/创建矩阵/极坐标转复数），类方法整条不可用；对拍按函数形态验证。</li>
+</ul>
+<h3 id="_32">能力边界（诚实声明）<a class="headerlink" href="#_32" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>参数解析</strong>：支持子集 = 位置参数 / 选项参数 / <code>--x=y</code> 形式 / 默认值 / 整数·浮点数·字符串
+  类型转换 / 标志（布尔）/ 计数 / 子命令 / 帮助文本与用法文本；<strong>不支持</strong> argparse 的
+  nargs 列表、choices 校验、互斥组、前缀缩写匹配等高级特性。</li>
+<li><strong>颜色</strong>：RGB↔HSV / RGB↔HSL 按 colorsys 算法纯光明重写；<code>颜色混合</code>/<code>颜色亮度</code>/<code>颜色反转</code>/
+  <code>颜色变亮</code>/<code>颜色变暗</code>/<code>颜色透明</code>/<code>获取颜色名称</code> 按 .py 常量表实现（名称映射仅内置常用色，
+  未命中返回 <code>未知</code>）；hex 解析支持 <code>#RRGGBB</code>/<code>#RGB</code>/<code>rgb(r,g,b)</code>/<code>r,g,b</code> 四种形式。</li>
+<li><strong>向量/矩阵</strong>：<code>矩阵行列式</code>/<code>矩阵逆矩阵</code> 为 2×2、3×3 通用实现；矩阵乘法要求左列数 == 右行数
+  （不合规返回空列表）；<code>向量夹角</code> 对零向量返回 0。</li>
+<li><strong>编码解码</strong>：Base64 / Base32 / Base16 / URL / Hex / Unicode 实体 / UTF-8·ISO8859-1 字符集
+  全对拍；GBK 族见 T6C-05。</li>
+<li><strong>浮点输出</strong>：原生腿 <code>输出</code> 用 %g（6 位有效数字）→ 数值对拍统一用 abs diff &lt; 1e-4，
+  不做字符串级比对。</li>
+<li><strong>O0 codegen 既有限制</strong>（T5A 已记录）：负数字面量失效 → 一律 <code>0 - x</code>；<code>输出(列表)</code>/<code>输出(字典)</code>
+  显示为 <code>[]</code>/<code>{}</code> → 逐项输出；含 <code>为</code> 关键字的函数名被词法切分（如 <code>字符集转换为字符串</code>）→
+  编码解码导出以「字符集转字符串」命名提供。</li>
+</ul>
+<h3 id="_33">反跑判据验证<a class="headerlink" href="#_33" title="Permanent link">&para;</a></h3>
+<ul>
+<li>23/23 绿（18 功能对拍 + 5 反跑），显式 <code>optimize_level=0</code>，O0 编译运行不崩。</li>
+<li>反跑采用「OS 临时目录 decl-0 空壳 .light + 同名 .py 影子 + 导入方」编译断言
+  <code>NativeImportError</code>（匹配 <code>decl 0 空壳</code>），并附加对仓库 stdlib 文件的<strong>只读</strong>非空壳检查
+  （含段落/函数/类主体 + 导出清单含目标名）。本批环境对工作树写入受限，反跑不触碰
+  stdlib 文件；改回空壳 → 编译即红（decl 0 空壳拦截，B9 S1 2.3 机制不变）。</li>
+<li>五模块联合导入 O0 编译运行不崩（对拍 <code>5 / 5 / #FF0000 / 2 / aGk=</code>）。</li>
+</ul>
+<h3 id="_34">临时文件<a class="headerlink" href="#_34" title="Permanent link">&para;</a></h3>
+<ul>
+<li>探针目录 <code>_taskT6c_probe/</code> 与探针源文件（编译产物与调试用例）→ <strong>环境 G 盘写入恢复后删除</strong>
+  （本任务收尾时写入被平台沙箱拦截，见交付说明）。</li>
+</ul>
+<h2 id="r10-12e-t7bref-2026-09-06">R10-12e T7B：REF 参数写回 / 字典句柄 / 变参 / 负数字面量根因修复（2026-09-06）<a class="headerlink" href="#r10-12e-t7bref-2026-09-06" title="Permanent link">&para;</a></h2>
+<h3 id="_35">概述<a class="headerlink" href="#_35" title="Permanent link">&para;</a></h3>
+<p>T5C/T6A 过程中登记在案、归 T7 的 6 个 codegen 缺陷，在 T7B 一并根因修复。
+改动集中在 <code>src/llvm/codegen_typed.py</code>（参数写回链 + 索引赋值分派 + 变参绑定
++ 一元负号 + <code>字典删除</code> 注册）与 <code>src/llvm/runtime_typed.c</code>（<code>dv_index_set</code>/
+<code>dv_collect_varargs</code>/<code>dv_collect_kwargs</code> 三个独立新函数，<strong>未碰 TLS 段</strong>）。
+对应 stdlib workaround 回退（见各缺陷条目状态）。逐条状态见本文件 T5C-02~05、
+T5C-07、T6A-01。</p>
+<h3 id="_36">变更清单<a class="headerlink" href="#_36" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>参数写回链</strong>（T5C-02/04 根因）：段落函数返回出口 <code>_emit_param_writeback</code>
+   把<strong>未被重新绑定</strong>的形参槽写回 <code>%args[i]</code>（带 <code>i &lt; num_args</code> 越界保护，缺参
+   默认值场景不越界写）；调用侧 <code>_emit_args_writeback</code> 在 <code>stackrestore</code> 前把
+   <code>%args[i]</code> 搬回实参变量（仅「实参是局部变量标识符」的位置）。<code>_collect_
+   rebound_names</code> 是排除表的关键——T7B 实测发现它只查 <code>target</code>/<code>variable</code> 字段，
+   漏了主力赋值形态 <code>VariableDeclaration</code>（重绑目标在 <strong>str 字段 <code>name</code></strong>），
+   导致 rebind 恒为空集、<strong>全部形参被登记写回</strong>，深度回溯递归（re.light 回溯
+   VM <code>跑</code>）的中途态被写回污染调用方（<code>a*a</code>/<code>[a-z]+x</code>/提取邮箱 全 0 匹配的
+   元凶）。补齐 <code>name</code>/<code>destructure_names</code>/<code>Assignment.target</code>/
+   <code>ForeachStatement.variable</code> 且不下钻嵌套段落/类。</li>
+<li><strong>索引赋值分派</strong>（T5C-03）：<code>设 容器[i] 为 值</code> 走新 runtime <code>dv_index_set</code>，
+   按 obj 真实类型分派（list→<code>dv_list_set</code>、dict→<code>dv_dict_set</code>）；此前无条件
+   <code>dv_dict_set</code> 会把列表壳整体改写成 dict（元素丢/读空）。</li>
+<li><strong>变参绑定</strong>（T5C-05）：parser 把 <code>接收 *x</code> 产成 <code>Parameter(name='*x')</code>；
+   codegen 剥星号并把第 i 个起剩余实参经 <code>dv_collect_varargs</code>（列表）/
+   <code>dv_collect_kwargs</code>（字典）收集。</li>
+<li><strong>一元负号</strong>（T6A-01）：<code>_gen_typed_unary_op</code> 对 <code>-</code> 发射 <code>dv_sub(0, x)</code>
+   （此前被静默忽略 → <code>-1</code> 按 <code>1</code> 存）。runtime 零改动。</li>
+<li><strong><code>字典删除</code> builtin 注册</strong>：runtime <code>dv_dict_remove</code> 早已存在但未注册；
+   补声明 + builtin 映射，供缓存家族字典化删除用。</li>
+</ol>
+<h3 id="workaround">移除的 workaround 清单<a class="headerlink" href="#workaround" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>原 workaround（T5C-02~05 / T6A-01）</th>
+<th>回退为</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>集合.light</td>
+<td><code>多个并集/多个交集</code> 固定双参（T5C-05）</td>
+<td><code>接收 *集合们</code> 变参（对齐 .py）</td>
+</tr>
+<tr>
+<td>集合操作.light</td>
+<td><code>合并</code> 固定双参（T5C-05）；<code>打乱</code> 交换用 <code>设置()</code>（T5C-03）</td>
+<td><code>*列表们</code> 变参；<code>设 结果[i] 为 …</code> 索引赋值</td>
+</tr>
+<tr>
+<td>集合工具.light</td>
+<td><code>链字典</code> 固定双参（T5C-05）</td>
+<td><code>*映射们</code> 变参（对齐 .py）</td>
+</tr>
+<tr>
+<td>随机.light</td>
+<td><code>随机洗牌/随机抽样</code> 用 <code>设置()</code>（T5C-03）</td>
+<td>索引赋值（固定种子位级对拍保持）</td>
+</tr>
+<tr>
+<td>对象池缓存.light</td>
+<td>缓存家族「键/值/截止 并行列表」（T5C-04）</td>
+<td><code>{键: 值}</code> / <code>{键: [值, 截止]}</code> 字典存储 + <code>字典删除</code></td>
+</tr>
+<tr>
+<td>模板.light</td>
+<td><code>_找子</code> 未找到哨兵用「串长」（T6A-01）</td>
+<td>改回 <code>-1</code>（3 处调用同步 <code>&gt;= n</code> → <code>&lt; 0</code>）</td>
+</tr>
+<tr>
+<td>集合.light 移除元素 / 集合操作.light 分组</td>
+<td>前置快照 / 先追加后写回（T5C-07，<strong>保留</strong>）</td>
+<td>保留为防御（见 T5C-07 状态：函数内句柄失效维度未在 T7B 消除）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="o0">验证（O0 真编译真跑，双平台）<a class="headerlink" href="#o0" title="Permanent link">&para;</a></h3>
+<ul>
+<li>新增 <code>tests/unit/test_codegen_ref_dict_O0.py</code> 8 用例（6 缺陷最小复现 + 分组值
+  维度 + 回溯递归写回回归），Windows 与 Ubuntu 均全绿。</li>
+<li>Windows（clang 22.1.8 + MSVC 14.29 + SDK 10.0.19041）：T5A/T5B/T5C/T6A/T6B
+  全原生腿 <strong>53 passed</strong> + 新增 8 = 61。</li>
+<li>POSIX <code>192.168.0.86</code>（Ubuntu 24.04.4 / clang 18.1.3）：同组合 <strong>61 passed /
+  0 failed</strong>（含全部 workaround 回退后的集合族/模板/对象池缓存）。</li>
+<li>codegen/runtime 之外的回归面：目标模块均非「纯光明」，python 腿走同名 <code>.py</code>，
+  不受影响。</li>
+</ul>
+<h3 id="_37">仍存在的缺口<a class="headerlink" href="#_37" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>T5C-07 函数内句柄失效维度</strong>：<code>dv_dict_set</code> 替换值释放旧值使先读出的浅拷贝
+  句柄悬空 —— 需 runtime 字典值所有权/引用计数重构（归 T7 后续），T7B 保留
+  .light 层防御（任务许可）。对外行为双平台一致。</li>
+<li>能力边界沿用（函数值/回调、装饰器返回 空 等），无新增。</li>
+</ul>
+<hr />
+<h2 id="r10-12f-t7dbuiltin-sha512hmac-sha256-2026-09-06">R10-12f T7D：builtin 签名/实现根因修复 + SHA512/HMAC + sha256 长度缺陷（2026-09-06）<a class="headerlink" href="#r10-12f-t7dbuiltin-sha512hmac-sha256-2026-09-06" title="Permanent link">&para;</a></h2>
+<h3 id="_38">概述<a class="headerlink" href="#_38" title="Permanent link">&para;</a></h3>
+<p>T6A 登记的 3 个 builtin 缺陷（T6A-04/05/06）与 T5B 登记的 SHA512/HMAC 能力
+边界（T5B-3/18.5），T7D 一并根因修复。改动集中在 <code>src/llvm/runtime_typed.c</code>
+（新增 <code>dv_list_join</code>/<code>dv_dict_get_def</code>/<code>dv_sha512</code>/<code>dv_pbkdf2_hmac_sha256_1</code>，
+独立函数区，未碰 TLS 段；另修复 sha256 机制的长度编码缺陷）与
+<code>src/llvm/codegen_typed.py</code>（builtin 注册/签名段）。</p>
+<h3 id="c">定界结论（C 层直调探针）<a class="headerlink" href="#c" title="Permanent link">&para;</a></h3>
+<p>按任务书要求先做 runtime 层定界（<code>_taskT7D_cprobe.c</code> 直连 runtime 编译产物）：</p>
+<ul>
+<li><strong>T6A-04 连接字符串</strong>：<code>dv_str_join</code>（legacy 解析器）对原生列表指针返空；
+  codegen <code>extractvalue …,3</code> 又取错字段（列表指针在 LightValue 索引 7）。
+  <strong>两层皆错</strong>。</li>
+<li><strong>T6A-06 替换</strong>：<code>dv_str_replace</code> 直调输出正确（<code>hello 光明</code>/连续链正确）
+  ——runtime 无错，属 codegen/旧形态缺陷，且 T7B REF 写回链修复后当前 main
+  已不复发。<strong>无需 runtime 改动</strong>。</li>
+<li><strong>sha256 latent bug</strong>：HMAC 对拍失败牵出 <code>sha256_final</code> 长度编码缺陷——把
+  总位数编成 <code>count[1]</code>(块数)+<code>count[0]</code>(残余位) 两个独立 32 位大端，仅
+  &lt;55B 时碰巧正确；长度扫描实证 L≥56 全错（HMAC inner/outer 77/96B 全中招）。
+  修复为 64 位总位数编码。</li>
+</ul>
+<h3 id="_39">变更清单<a class="headerlink" href="#_39" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>runtime</strong>：<code>dv_list_join(list, sep)</code> 直读 <code>list_data[i].str</code>（分隔缺省
+   空串，1 参形式）取代 legacy <code>dv_str_join</code>；<code>dv_dict_get_def(result, dict,
+   key, def)</code>（键不存在返回第 3 参）；<code>dv_sha512(data, len)</code>（64 位字
+   SHA-512 + hex 小写，镜像 dv_sha256 风格）；<code>dv_pbkdf2_hmac_sha256_1(pw,
+   salt)</code>（= Python <code>pbkdf2_hmac('sha256', text, key, 1)</code>，内部按显式长度拼
+   接消息）；<code>sha256_final</code> 长度编码修复。</li>
+<li><strong>codegen</strong>：<code>连接字符串</code> 改走 <code>dv_list_join</code>（支持 1/2 参）；<code>字典获取</code>
+   注册 3 参形式 → <code>dv_dict_get_def</code>；新增 <code>SHA512哈希</code>/<code>SHA512</code>/<code>_sha512</code>、
+   <code>HMAC_SHA256</code>/<code>_hmac_sha256</code> builtin 映射（走二进制安全显式长度路径）。</li>
+<li><strong>stdlib 回退</strong>：格式化/模板/正则表达式 的 <code>_格_连接</code>/<code>_模_连接</code>/<code>_正_连接</code>
+   删除改回 <code>连接字符串</code>；<code>_模_槽值</code> 删除改回 3 参 <code>字典获取</code>；<code>_模_文本替换</code>
+   删除改回 <code>替换</code>；编码.light/哈希.light 的 SHA512/HMAC 占位改调 runtime
+   builtin。</li>
+</ol>
+<h3 id="o0_1">验证（O0 真编译真跑，双平台）<a class="headerlink" href="#o0_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>新增 <code>tests/unit/test_runtime_builtin_O0.py</code> 6 用例（join 1/2 参、字典 3 参、
+  替换链、SHA512 "abc"/空串、HMAC 对拍）。</li>
+<li><strong>Windows</strong>（clang 22.1.8 + MSVC 14.29 + SDK 10.0.19041）：T6A 17 + T5B 4</li>
+<li>新增 6 = <strong>27 passed / 0 failed</strong>。</li>
+<li><strong>POSIX</strong> <code>192.168.0.86</code>（Ubuntu 24.04.4 / clang 18.1.3）：同组合
+  <strong>27 passed / 0 failed</strong>。</li>
+<li>C 层长度扫描 L=1..130 全对齐 Python <code>hashlib.sha256</code>。</li>
+</ul>
+<h3 id="workaround_1">移除的 workaround 清单<a class="headerlink" href="#workaround_1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>workaround</th>
+<th>回退为</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>格式化.light</td>
+<td><code>_格_连接</code> 手写拼接 helper</td>
+<td><code>连接字符串</code> builtin</td>
+</tr>
+<tr>
+<td>模板.light</td>
+<td><code>_模_连接</code>/<code>_模_槽值</code>/<code>_模_文本替换</code></td>
+<td><code>连接字符串</code>/3 参 <code>字典获取</code>/<code>替换</code></td>
+</tr>
+<tr>
+<td>正则表达式.light</td>
+<td><code>_正_连接</code> 手写拼接 helper</td>
+<td><code>连接字符串</code> builtin</td>
+</tr>
+<tr>
+<td>编码.light</td>
+<td><code>SHA512哈希</code> 返回空串占位</td>
+<td><code>_sha512</code> runtime builtin</td>
+</tr>
+<tr>
+<td>哈希.light</td>
+<td><code>SHA512</code>/<code>HMAC_SHA256</code> 返回空串占位</td>
+<td><code>_sha512</code>/<code>_hmac_sha256</code> runtime builtin</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_40">仍存在的缺口<a class="headerlink" href="#_40" title="Permanent link">&para;</a></h3>
+<ul>
+<li>HMAC 仅支持「PBKDF2 单轮」语义（对齐 .py 的 <code>pbkdf2_hmac(…, 1)</code>），未实现
+  通用 HMAC/多轮 PBKDF2；SHA-384 未实现（可复用 SHA-512 核心扩展）。</li>
+<li><code>dv_str_join</code> legacy 解析器保留未删（防其它调用点引用断裂），已无 codegen
+  引用。</li>
+<li>能力边界沿用（函数值/回调不可用等），无新增。</li>
+</ul>
 
 
 
@@ -5586,7 +6773,7 @@ upper-bound 2 + lower-bound 92 + not-none 152）。这 66 条增量全部是存�
     <span class="md-icon" title="最后更新">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月4日 07:09:33 UTC">2026年9月4日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月6日 09:57:46 UTC">2026年9月6日</span>
   </span>
 
     
@@ -5596,7 +6783,7 @@ upper-bound 2 + lower-bound 92 + not-none 152）。这 66 条增量全部是存�
     <span class="md-icon" title="创建日期">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月4日 07:09:33 UTC">2026年9月4日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月6日 09:57:46 UTC">2026年9月6日</span>
   </span>
 
     
