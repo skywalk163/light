@@ -1037,17 +1037,17 @@ T5A 将 `stdlib/数学.light`、`stdlib/统计.light`、`stdlib/排序.light` �
 
 #### T5A-05：跨模块同名段导致 codegen 函数重定义
 
+- **状态**：已修复（T9A / 2026-09-06）
 - **现象**：`数学.light` 和 `统计.light` 都有 `最小值`/`最大值` 段，联合编译时
   报 `invalid redefinition of function '_seg_f7'`。
 - **根因**：`src/llvm/core.py` L116 `_safe_func_name` 使用全局 counter 映射段名到
   `f{counter}`，同名段在不同模块中映射到相同函数名。
-- **影响**：任何跨模块同名段联合编译。
-- **Workaround**：将 `统计.light` 的 `最小值`/`最大值` 重命名为
-  `数据最小值`/`数据最大值`（导出和段定义同步修改）。
-- **注意**：`统计.py` 仍导出 `最小值`/`最大值`；原生腿用 `.light`（导出
-  `数据最小值`/`数据最大值`），解释腿用 `.py`（导出 `最小值`/`最大值`），
-  两者导出名不同。混用场景暂不处理（T5A 仅验证原生腿）。
-- **归属**：`_safe_func_name` 应按模块隔离 counter 或使用模块前缀，归 T3 修复。
+- **修复**：T9A 段名模块隔离——`_safe_func_name` 增加 `module_name` 参数，
+  `_collect_segment` 注册表 key 改为 `(module_name, raw_name)` 元组，段调用解析
+  通过 `_current_module` 上下文查找本地段。`统计.light` 的 `数据最小值`/`数据最大值`
+  已改回 `最小值`/`最大值`，与 `统计.py` 导出名对齐。
+- **验证**：`test_codegen_safename_multimodule_O0.py` + `test_T5a_数学统计排序_原生腿.py`
+  全绿；git stash 修复后最小复现立红。
 
 #### T5A-06：`自然对数` float 参数被零初始化导致死循环
 
@@ -1241,13 +1241,14 @@ CPython 3.14 的播种口径：整数种子一律走 `init_by_array`（小端 32
 
 #### T5C-06：跨模块同名段 → codegen 函数重定义
 
+- **状态**：已修复（T9A / 2026-09-06）
 - **现象**：同编译实例中 `集合.light` 与 `集合操作.light` 都有 `交集`/`差集`
   段 → `invalid redefinition of function '_seg_fN'`。
 - **根因**：`src/llvm/core.py` `_safe_func_name` 按段名分配 fN。
-- **Workaround**：`集合操作.light` 的 `随机下限` 改名 `打乱随机下限`；
-  `交集`/`差集` 双模块共存不可改 → **同一程序内不得同时导入 集合 与 集合操作**
-  （测试按程序分开导入）。
-- **注意**：此限制对**所有** stdlib 双模块同名导出成立（T5A-05 同根因）。
+- **修复**：T9A 段名模块隔离。`集合操作.light` 的 `打乱随机下限` 已改回
+  `随机下限`。「同一程序内不得同时导入 集合 与 集合操作」限制已移除，
+  `test_codegen_safename_multimodule_O0.py` 补同时导入测试。
+- **验证**：`test_原生腿_T5C_集合随机.py` + 新增同时导入测试全绿。
 
 #### T5C-07 [高] `字典设置` 使写回前的列表句柄失效 → 读脏值 / 写丢失（本批已修，workaround）
 
@@ -1394,14 +1395,17 @@ POSIX 实机 `192.168.0.86`（clang 18.1.3）完成，T6A 是第一个全程 Lin
 
 #### T6A-09：跨模块段落符号编号冲突与调用结果污染（T5C-06 同族加重）
 
+- **状态**：已修复（T9A / 2026-09-06）
 - **现象**：① 主模块与导入模块**同名段落**（`_IP段好吗`）→
   `invalid redefinition of function '_seg_f16'`（mini25）；② 新增段落
   后同程序内跨模块调用返回值偶发损坏（mini23/24：`验证IP地址`
   同输入在不同调用位次结果不同）。
-- **Workaround**：还原 `验证IP地址` 为 re 模式版（不再新增段落）。
-  **注意**：stdlib 各模块私有段落一律加模块前缀（`_格_`/`_模_`/
-  `_正_`/`re_`）防撞名——此约定已在 T6A 三个模块执行。
-- **归属**：core.py `_safe_func_name` 全局编号分配，归 T7。
+- **根因**：core.py `_safe_func_name` 全局编号分配，多模块同名段映射到同一函数。
+- **修复**：T9A 段名模块隔离——`_safe_func_name(name, module_name)` 复合键，
+  段注册表 `(module_name, raw_name)` 元组 key，主模块与导入模块同名段映射到
+  不同 LLVM 函数。私有段模块前缀（`_格_`/`_模_`/`_正_`/`re_`）保留为命名约定，
+  不再是必须的防撞名手段。
+- **验证**：`test_codegen_safename_multimodule_O0.py::TestMainModuleConflict` 全绿。
 
 #### T6A-10：同一程序内跨模块多次调用存在低概率返回值污染（未定界）
 
