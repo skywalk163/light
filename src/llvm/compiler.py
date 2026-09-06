@@ -928,7 +928,8 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
             for iface_def in mod.interfaces:
                 codegen._collect_interface(iface_def)
         for seg in mod.segments:
-            codegen._collect_segment(seg)
+            # T9A：传入模块名，使段注册表 key 和 fN 编号按模块隔离
+            codegen._collect_segment(seg, module_name=mod.name)
 
     # 生成导入的外部段函数声明（仅声明那些不在本地定义的符号）
     # 由于所有模块都在同一个 codegen 中，大部分导入符号都有本地定义
@@ -936,8 +937,11 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
     # 注意：_module_decls 中的名称是 "模块名_符号名" 经过 safe_func_name 转换的
     # 我们需要跳过那些已经在本地有定义的符号
     local_seg_safe_names = set()
-    for seg_name in codegen._segments:
-        safe = codegen._safe_func_name(seg_name)
+    for reg_key in codegen._segments:
+        # T9A：reg_key 可能是 (module_name, raw_name) 元组
+        raw = reg_key[1] if isinstance(reg_key, tuple) else reg_key
+        mod = reg_key[0] if isinstance(reg_key, tuple) else None
+        safe = codegen._safe_func_name(raw, mod)
         local_seg_safe_names.add(safe)
         # 同时把模块前缀的也加入（因为导出别名会生成这些名字）
         # 但别名和 define 不会冲突，只有 declare 和 define/alias 会冲突
@@ -950,24 +954,33 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
     # 但为了未来支持真正的外部模块（如动态链接库），我们保留机制，只是当前清空
 
     # 生成全局初始化
+    # T9A：设置当前模块为主模块，使全局初始化中的段调用解析到主模块上下文
+    codegen._current_module = getattr(main_mod, 'name', None)
     codegen._gen_global_init()
+    codegen._current_module = None
 
     # 生成类方法
     for cls_name, cls_def in codegen._classes.items():
         codegen._gen_typed_class_methods(cls_name, cls_def)
 
     # 生成所有段落函数
-    for seg_name in codegen._segment_order:
-        params = codegen._segments[seg_name]
-        body = codegen._segment_bodies.get(seg_name, [])
-        codegen._gen_typed_segment(seg_name, params, body)
+    for reg_key in codegen._segment_order:
+        # T9A：reg_key 为 (module_name, raw_name)，解包后传入模块上下文
+        seg_name = reg_key[1] if isinstance(reg_key, tuple) else reg_key
+        mod_name = reg_key[0] if isinstance(reg_key, tuple) else None
+        params = codegen._segments[reg_key]
+        body = codegen._segment_bodies.get(reg_key, [])
+        codegen._gen_typed_segment(seg_name, params, body, module_name=mod_name)
 
     # 为所有模块生成导出名别名
     for mod in all_module_list:
         codegen._gen_exported_aliases(mod)
 
     # 生成 main 函数（主模块的顶层语句）
+    # T9A：设置当前模块为主模块，使 main 内的段调用解析到主模块的定义
+    codegen._current_module = getattr(main_mod, 'name', None)
     codegen._gen_typed_main()
+    codegen._current_module = None
 
     ir = codegen.finalize()
 

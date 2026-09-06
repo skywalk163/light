@@ -80,6 +80,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._imported_modules = set()  # 已导入的模块名集合
         self._module_decls = []  # 待生成的外部段函数声明
         self._segment_modifiers = {}  # 段的修饰符（异步等）
+        self._current_module = None  # T9A: 当前生成代码所属模块名（None=单模块/主模块上下文）
         # 协程支持（Level 10）
         self._in_coroutine = False  # 当前是否在生成协程函数
         self._coro_handle_ptr = None  # 协程句柄指针（LightCoroutine*）
@@ -127,6 +128,24 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._temp_slot_pool_size = 2048
         # 占位 alloca 在 self._lines 里的下标；函数体发射完毕后回填真实槽位数
         self._temp_slot_pool_line = None
+
+    # ── T9A: 段名模块隔离辅助方法 ──────────────────────────────
+    def _seg_reg_key(self, raw_name, module_name=None):
+        """段在注册表中的 key：多模块时为 (module_name, raw_name) 元组，
+        单模块（module_name=None）时为 raw_name 字符串，保持向后兼容。"""
+        return (module_name, raw_name) if module_name is not None else raw_name
+
+    def _seg_raw_name(self, reg_key):
+        """从注册表 key 提取裸段名。"""
+        return reg_key[1] if isinstance(reg_key, tuple) else reg_key
+
+    def _seg_module_name(self, reg_key):
+        """从注册表 key 提取模块名（单模块时返回 None）。"""
+        return reg_key[0] if isinstance(reg_key, tuple) else None
+
+    def _local_seg_key(self, raw_name):
+        """在当前模块上下文中解析段的注册表 key。"""
+        return self._seg_reg_key(raw_name, self._current_module)
 
     @property
     def is_windows(self) -> bool:
@@ -852,11 +871,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._gen_global_init()
         for cls_name, cls_def in self._classes.items():
             self._gen_typed_class_methods(cls_name, cls_def)
-        for seg_name in self._segment_order:
-            params = self._segments[seg_name]
-            body = self._segment_bodies.get(seg_name, [])
-            modifiers = self._segment_modifiers.get(seg_name, [])
-            self._gen_typed_segment(seg_name, params, body, modifiers)
+        for reg_key in self._segment_order:
+            seg_name = self._seg_raw_name(reg_key)
+            mod_name = self._seg_module_name(reg_key)
+            params = self._segments[reg_key]
+            body = self._segment_bodies.get(reg_key, [])
+            modifiers = self._segment_modifiers.get(reg_key, [])
+            self._gen_typed_segment(seg_name, params, body, modifiers, mod_name)
 
         # Level 9: 为导出的段函数生成模块前缀别名
         self._gen_exported_aliases(module)
@@ -909,11 +930,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                     exported_names.add(exp.name)
         # 如果没有显式导出，导出所有段函数
         if not exported_names:
-            for seg_name in self._segment_order:
-                exported_names.add(seg_name)
+            for reg_key in self._segment_order:
+                # T9A：只导出本模块的段（reg_key 的模块名匹配当前模块）
+                if self._seg_module_name(reg_key) == module_name:
+                    exported_names.add(self._seg_raw_name(reg_key))
         for seg_name in exported_names:
-            if seg_name in self._segments:
-                safe = self._safe_func_name(seg_name)
+            reg_key = self._seg_reg_key(seg_name, module_name)
+            if reg_key in self._segments:
+                # T9A：定义端 safe name 按模块隔离
+                safe = self._safe_func_name(seg_name, module_name)
                 alias_name = self._safe_func_name(f'{module_name}_{seg_name}')
                 if alias_name != safe:
                     self.emit(f'@_seg_{alias_name} = alias void (ptr, ptr, i32), void (ptr, ptr, i32)* @_seg_{safe}')
@@ -977,7 +1002,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             builtin = self._gen_typed_builtin(expr.name, args)
             if builtin is not None:
                 return builtin
-            if expr.name in self._segments:
+            if self._local_seg_key(expr.name) in self._segments:
                 # 名字已定义，却走不到正常返回——说明是类型推断问题，不是名字问题。
                 try:
                     return self._gen_typed_segment_call(expr.name, args)
@@ -1305,8 +1330,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         用 _segments[name].parameters 的参数名顺序。位置参数占位在前，
         关键字参数按名填入对应槽位。"""
         sig = self._BUILTIN_KWARGS.get(func_name)
-        if sig is None and func_name in self._segments:
-            params = getattr(self._segments[func_name], 'parameters', None) or []
+        if sig is None and self._local_seg_key(func_name) in self._segments:
+            params = getattr(self._segments[self._local_seg_key(func_name)], 'parameters', None) or []
             sig = {getattr(p, 'name', None): i for i, p in enumerate(params)}
         if not sig:
             # 无签名信息：关键字参数顺序追加到末尾（保守，避免丢值）
@@ -1370,8 +1395,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 当前模块的段函数：优先于同名 builtin（转译腿 Python 语义：用户定义段
         # 覆盖内置。stdlib JSON核心 定义 `段落 连接`，若先查 builtin 会被
         # builtin `连接`(dv_concat 字符串拼接) 劫持，`连接(部分, ", ")` 错乱）。
-        if func_name in self._segments:
+        if self._local_seg_key(func_name) in self._segments:
             return self._gen_typed_segment_call(func_name, args, arg_asts)
+
+        # T9A：导入的外部段函数也优先于同名 builtin（模块隔离后导入段不再
+        # 被本地检查命中，需在此处补位，否则 数学.对数 会被 builtin dv_log 劫持）。
+        # 但仅当目标模块确实定义了该段时才走导入路径；若导入名实为 builtin
+        # （如 随机位 被测试导入但无段定义），回退到 builtin 检查。
+        if func_name in self._imports:
+            _imp_mod, _imp_orig = self._imports[func_name]
+            if self._seg_reg_key(_imp_orig, _imp_mod) in self._segments:
+                return self._gen_imported_segment_call(func_name, args, arg_asts)
 
         # 内置函数
         builtin = self._gen_typed_builtin(func_name, args)
@@ -1386,10 +1420,6 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self._persist_to_receiver(
                     types.SimpleNamespace(obj=expr.arguments[0]), builtin[0])
             return builtin
-
-        # Level 9: 导入的外部段函数
-        if func_name in self._imports:
-            return self._gen_imported_segment_call(func_name, args, arg_asts)
 
         # A9-S2：AstAdapter 把 v3 SliceExpr（`表[1:2]`）转成对 `slice` 的调用。
         # 切片作为索引操作已在 _gen_typed_index_access 中拦截实现。
@@ -1441,9 +1471,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'store {LIGHTVALUE_STRUCT} {val}, ptr {slot}')
 
     def _gen_imported_segment_call(self, name: str, args: List[str], arg_asts=None) -> Tuple[str, str]:
-        """调用从其他模块导入的段函数"""
+        """调用从其他模块导入的段函数。
+
+        T9A 修复：直接使用目标模块的定义 safe name（模块隔离），而非 alias 名。
+        原因：未导出的段（如 随机.随机位）没有生成 alias，原 alias 路径会引用
+        未定义函数。多模块联合编译时所有段定义都在同一 IR 中，可直接调用定义。
+        """
         module_name, orig_name = self._imports[name]
-        safe = self._safe_func_name(f'{module_name}_{orig_name}')
+        safe = self._safe_func_name(orig_name, module_name)
         result_slot = self._new_dv_slot()
         # R10-11a 打回 A2：同 _gen_typed_segment_call，段函数返回时
         # dv_obj_release_slot(result_ptr) 会读取未初始化槽位 → O0 段错误。
@@ -3009,10 +3044,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # (R10-11a 打回修复 f598a7b2，此处分派未合入 main，一并补回)
         if isinstance(prop.obj, ast.Identifier):
             obj_name = prop.obj.name
-            if obj_name in self._imported_modules and method_name in self._segments:
-                return self._gen_typed_segment_call(method_name, [
-                    self._gen_expression(a)[0] for a in expr.arguments
-                ])
+            # T9A：模块名.段落名 调用时，按 obj_name 作为模块名查找段定义
+            if obj_name in self._imported_modules and self._seg_reg_key(method_name, obj_name) in self._segments:
+                # 临时切换当前模块以解析到目标模块的段
+                _prev = self._current_module
+                self._current_module = obj_name
+                try:
+                    return self._gen_typed_segment_call(method_name, [
+                        self._gen_expression(a)[0] for a in expr.arguments
+                    ])
+                finally:
+                    self._current_module = _prev
 
         # 先检查是否是内置方法（列表、字符串等）
         # 内置方法调用：把对象作为第一个参数传给内置函数
@@ -3345,18 +3387,24 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         slot = self._store_dv(dv_val)
         self.emit(f'call void @dv_throw_exception(ptr {slot})')
 
-    def _collect_segment(self, seg):
-        """覆盖父类方法：在收集阶段预先注册所有段名"""
+    def _collect_segment(self, seg, module_name=None):
+        """覆盖父类方法：在收集阶段预先注册所有段名。
+
+        T9A 修复：module_name 不为 None 时使用 (module_name, raw_name) 作为
+        注册表 key，使跨模块同名段不互相覆盖；_safe_func_name 同步传入 module_name
+        以获得模块隔离的 fN 编号。
+        """
         raw_name = seg.name.name if hasattr(seg.name, 'name') else str(seg.name)
+        reg_key = self._seg_reg_key(raw_name, module_name)
         params = [(p.name, p.default_value) for p in seg.parameters]
-        self._segments[raw_name] = params
-        self._segment_order.append(raw_name)
-        self._segment_bodies[raw_name] = seg.body
+        self._segments[reg_key] = params
+        self._segment_order.append(reg_key)
+        self._segment_bodies[reg_key] = seg.body
         # 保存 modifiers（用于异步段落识别）
         modifiers = getattr(seg, 'modifiers', None) or []
-        self._segment_modifiers[raw_name] = list(modifiers)
-        # 预先注册到 _func_name_map，确保 f# 编号稳定
-        self._safe_func_name(raw_name)
+        self._segment_modifiers[reg_key] = list(modifiers)
+        # 预先注册到 _func_name_map，确保 f# 编号稳定（模块隔离）
+        self._safe_func_name(raw_name, module_name)
 
     def _collect_statement(self, stmt):
         """覆盖父类方法"""
@@ -3422,7 +3470,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return 'instance'
 
     def _gen_typed_segment_call(self, name: str, args: List[str], arg_asts=None) -> Tuple[str, str]:
-        safe = self._safe_func_name(name)
+        # T9A：段调用使用当前模块上下文，确保跨模块同名段调用到正确的定义
+        safe = self._safe_func_name(name, self._current_module)
         result_slot = self._new_dv_slot()
         # R10-11a 打回 A2：段函数返回路径会 dv_obj_release_slot(result_ptr) 释放旧值。
         # _new_dv_slot 来自复用型临时槽位池（不零初始化），O0 下残留垃圾可能被
@@ -4016,7 +4065,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         旧行为编成 `结果 = 0` 且编译成功。现在报错并给出候选，省掉猜名字的时间。
         候选多于 10 个时截断到前 10 个 + 总数。
         """
-        candidates = sorted(k for k in self._segments.keys())
+        # T9A：从模块限定 key 中提取裸段名作为候选（去重）
+        candidates = sorted(set(self._seg_raw_name(k) for k in self._segments.keys()))
         if len(candidates) > 10:
             cand_text = ', '.join(candidates[:10]) + f' 等共 {len(candidates)} 个'
         elif candidates:
@@ -4816,20 +4866,26 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     # 段落函数生成
     # ============================================================
 
-    def _gen_typed_segment(self, name, params, body, modifiers=None):
+    def _gen_typed_segment(self, name, params, body, modifiers=None, module_name=None):
         modifiers = modifiers or []
         is_async = '异步' in modifiers or 'async' in [m.lower() for m in modifiers]
         
         if is_async:
-            self._gen_async_segment(name, params, body)
+            self._gen_async_segment(name, params, body, module_name)
         elif self._段是生成器(body):
             # R10-11b：段落体里出现了 `生成` → 编成生成器（状态机 + 包装段）
-            self._gen_generator_segment(name, params, body)
+            self._gen_generator_segment(name, params, body, module_name)
         else:
-            self._gen_normal_segment(name, params, body)
+            self._gen_normal_segment(name, params, body, module_name)
     
-    def _gen_normal_segment(self, name, params, body):
-        """生成普通（非异步）段落函数"""
+    def _gen_normal_segment(self, name, params, body, module_name=None):
+        """生成普通（非异步）段落函数。
+
+        T9A：module_name 用于 _safe_func_name 模块隔离 + 设置 _current_module
+        使段内调用解析到本模块的同名段。
+        """
+        prev_module = self._current_module
+        self._current_module = module_name
         self._current_func = name
         self._current_func_params = {}
         self._local_vars.clear()
@@ -4838,7 +4894,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._dv_ssa_to_slot.clear()
         self._temp_slot_index = 0
         self._seg_result_ptr = '%result'
-        safe = self._safe_func_name(name)
+        safe = self._safe_func_name(name, module_name)
 
         self.emit(f'define void @_seg_{safe}(ptr %result, ptr %args, i32 %num_args) {{')
         self.emit('entry:')
@@ -4942,6 +4998,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._seg_param_writeback = []
         self._seg_num_args_reg = None
         self._seg_result_ptr = None
+        self._current_module = prev_module
         # 结束函数调试作用域
         self._end_debug_function()
 
@@ -4955,8 +5012,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     # 由 sleep/io 驱动），生成器是拉取式（挂起在 `生成` 处把值交回消费者，
     # 下次 resume 从挂起点继续）。两套编号语义正交，混用会把 await 点与
     # yield 点搅在一起，故独立实现。
-    def _gen_generator_segment(self, name, params, body):
-        safe = self._safe_func_name(name)
+    def _gen_generator_segment(self, name, params, body, module_name=None):
+        prev_module = self._current_module
+        self._current_module = module_name
+        safe = self._safe_func_name(name, module_name)
         gen_func_name = f'_genf_{safe}'
         生成点数 = self._段内生成点(body, 计数=True)
 
@@ -4972,6 +5031,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._temp_slot_pool = None
         self._temp_slot_pool_line = None
         self._seg_result_ptr = None
+        self._current_module = prev_module
         self._gen_yield_index = 0
         self._gen_slot_index = 0
         self._gen_entry_name_seq = 0
@@ -5125,14 +5185,16 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit('ret void')
         self.emit(f'{self._gen_resume_labels[k - 1]}:')
 
-    def _gen_async_segment(self, name, params, body):
+    def _gen_async_segment(self, name, params, body, module_name=None):
         """生成异步段落：包括协程函数和包装段函数
         
         生成两个函数：
         1. _coro_xxx(ptr %coro) - 协程状态机函数（Duff's device 模式）
         2. _seg_xxx(ptr %result, ptr %args, i32 %num_args) - 包装函数，创建协程
         """
-        safe = self._safe_func_name(name)
+        prev_module = self._current_module
+        self._current_module = module_name
+        safe = self._safe_func_name(name, module_name)
         coro_func_name = f'_coro_{safe}'
         
         # 第一步：生成协程状态机函数
@@ -5302,6 +5364,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit_blank()
         
         self._in_coroutine = False
+        self._current_module = prev_module
         self._coro_handle_ptr = None
         self._coro_resume_point = 0
         self._coro_resume_labels = None
@@ -5719,9 +5782,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 如果顶层没有调用主程序，但定义了主程序段落，则调用它
         if not main_called:
             for name in main_names:
-                if name in self._segments:
-                    params = self._segments[name]
-                    safe = self._safe_func_name(name)
+                # T9A：主程序段在当前模块上下文中查找
+                if self._local_seg_key(name) in self._segments:
+                    params = self._segments[self._local_seg_key(name)]
+                    safe = self._safe_func_name(name, self._current_module)
                     num_params = len(params)
                     result_slot = self._new_dv_slot()
                     if num_params == 0:

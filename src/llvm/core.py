@@ -113,12 +113,18 @@ class LLVMCodeGenCore:
             self._var_names[name] = f'v{self._var_counter}'
         return self._var_names[name]
 
-    def _safe_func_name(self, name):
-        """将中文段落名转换为安全的 ASCII LLVM 标识符"""
-        if name not in self._func_name_map:
+    def _safe_func_name(self, name, module_name=None):
+        """将中文段落名转换为安全的 ASCII LLVM 标识符。
+
+        T9A 修复：module_name 不为 None 时使用 (module_name, name) 复合键，
+        使跨模块同名段映射到不同的 fN，避免 invalid redefinition。
+        module_name 为 None 时退化为裸名键（单模块/向后兼容）。
+        """
+        key = (module_name, name) if module_name is not None else name
+        if key not in self._func_name_map:
             self._func_counter += 1
-            self._func_name_map[name] = f'f{self._func_counter}'
-        return self._func_name_map[name]
+            self._func_name_map[key] = f'f{self._func_counter}'
+        return self._func_name_map[key]
 
     def get_var(self, name):
         """获取变量值 (i8*)"""
