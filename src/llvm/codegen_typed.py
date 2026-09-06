@@ -1097,6 +1097,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if op in arith_ops:
             if self._enable_type_opt and left_type == 'INT' and right_type == 'INT':
+                # T7A 修复：`/`（除）在 _infer_expr_type 中推断为 FLOAT，
+                # 此处必须生成 FLOAT DV（fdiv + _create_float_dv_fast），
+                # 否则 DV 类型标记为 INT 而推断为 FLOAT，后续算术走 FLOAT
+                # 快路径从 INT DV 的 f64 字段读到垃圾值（恒 0 或未初始化）。
+                # `//`（整除）在 _infer_expr_type 中不返回 FLOAT，仍走 sdiv + INT DV。
+                if op in ('/', '除'):
+                    left_f64 = self._i64_to_f64(self._extract_i64(left_dv))
+                    right_f64 = self._i64_to_f64(self._extract_i64(right_dv))
+                    result = self.new_register()
+                    self.emit(f'{result} = fdiv double {left_f64}, {right_f64}')
+                    return self._create_float_dv_fast(result), 'dv'
                 left_i64 = self._extract_i64(left_dv)
                 right_i64 = self._extract_i64(right_dv)
                 int_op, _ = arith_ops[op]
@@ -1160,6 +1171,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         }
         if op in type_map:
             dv_func = type_map[op]
+            # T7A 修复：`/`（除）是 true division，结果必须为 FLOAT。
+            # 通用路径中两侧类型未知（函数参数等），dv_div 对双整数走整数除法
+            # 返回 INT。先 dv_to_float 两侧，使 dv_div 必走 float 分支返回 FLOAT。
+            # `//`（整除）仍直接调 dv_div（双整数即整除，行为正确）。
+            if op in ('/', '除'):
+                left_f = self._call_dv_func('dv_to_float', left_dv)
+                right_f = self._call_dv_func('dv_to_float', right_dv)
+                return self._call_dv_func(dv_func, left_f, right_f), 'dv'
             return self._call_dv_func(dv_func, left_dv, right_dv), 'dv'
 
         cmp_map = {
@@ -1853,6 +1872,22 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if args:
                 return self._call_dv_func('dv_log', args[0]), 'dv'
             return self._call_dv_func('dv_float', 'double 0.0'), 'dv'
+
+        # T7A：解除内联 Taylor workaround，补齐常用对数/对数2/指数的 builtin 路由
+        if name in ('常用对数', 'log10'):
+            if args:
+                return self._call_dv_func('dv_log10', args[0]), 'dv'
+            return self._call_dv_func('dv_float', 'double 0.0'), 'dv'
+
+        if name in ('对数2', 'log2'):
+            if args:
+                return self._call_dv_func('dv_log2', args[0]), 'dv'
+            return self._call_dv_func('dv_float', 'double 0.0'), 'dv'
+
+        if name in ('指数', 'exp'):
+            if args:
+                return self._call_dv_func('dv_exp', args[0]), 'dv'
+            return self._call_dv_func('dv_float', 'double 1.0'), 'dv'
 
         if name in ('余弦', 'cos'):
             if args:
