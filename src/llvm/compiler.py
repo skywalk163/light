@@ -898,8 +898,12 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
         codegen._gen_debug_types()
 
     # 收集所有模块的导入和段落
-    all_module_list = list(modules.values())
-    main_mod = modules.get(main_module, all_module_list[0])
+    # T7C：将主模块放到最后，使 __light_init 中先执行被导入模块的全局初始化，
+    # 再执行主模块的顶层语句（后者可能调用导入段并读取导入模块的全局变量）。
+    main_mod = modules.get(main_module)
+    if main_mod is None:
+        main_mod = list(modules.values())[0]
+    all_module_list = [m for m in modules.values() if m is not main_mod] + [main_mod]
 
     # 先处理所有模块的导入语句（记录导入映射）
     for mod in all_module_list:
