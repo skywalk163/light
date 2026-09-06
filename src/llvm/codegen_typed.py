@@ -76,7 +76,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._var_types = {}  # 变量类型追踪：var_name -> type_str (INT/FLOAT/BOOL/STRING/LIST/None)
         self._enable_type_opt = True  # 启用类型优化
         # 模块系统支持（Level 9）
-        self._imports = {}  # 导入符号表：符号名 -> (模块名, 原始符号名)
+        self._imports = {}
+        self._module_imports = {}   # R12C（R11A-05）：模块名 -> {导入名: (源模块, 源名)}
+        self._r12c_need_lstrip = False   # R12C（R11A-08）：用到 .lstrip() 时发射 IR 辅助函数
+        self._r12c_need_title = False    # R12C（R11A-08）：用到 .每个单词首字母大写() 时发射 IR 辅助函数
+        self._r12c_need_split_ws = False # R12C（R11A-08）：.分割() 无参空白切分辅助  # 导入符号表：符号名 -> (模块名, 原始符号名)
         self._imported_modules = set()  # 已导入的模块名集合
         self._module_decls = []  # 待生成的外部段函数声明
         self._segment_modifiers = {}  # 段的修饰符（异步等）
@@ -283,9 +287,228 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         """将调试元数据行收集到单独列表，在 finalize 时追加到 IR 末尾"""
         self._debug_metadata_lines.append(line)
 
+    def _emit_r12c_string_helpers(self):
+        """R12C（R11A-08）：一次性发射 .lstrip() / .每个单词首字母大写() 的
+        IR 辅助函数。单遍状态机 + alloca 计数器（无 phi），libc isspace/
+        isalpha/toupper/tolower/strlen/malloc（runtime 已链接 libc）。"""
+        lv = LIGHTVALUE_STRUCT
+        if self._r12c_need_lstrip:
+            already = {l for l in self._lines if l.startswith('declare')}
+            if 'declare i64 @strlen(ptr)' not in already:
+                self.emit('declare i64 @strlen(ptr)')
+            self.emit('declare i32 @isspace(i32)')
+            self.emit('define internal void @_r12c_lstrip(ptr %result, ptr %str_ptr) {')
+            self.emit('entry:')
+            self.emit(f'  %sv = load {lv}, ptr %str_ptr')
+            self.emit(f'  %s = extractvalue {lv} %sv, 3')
+            self.emit('  %isnull = icmp eq ptr %s, null')
+            self.emit('  %len0 = call i64 @strlen(ptr %s)')
+            self.emit('  %len = select i1 %isnull, i64 0, i64 %len0')
+            self.emit('  %out = call ptr @malloc(i64 %len)')
+            self.emit('  %i_ptr = alloca i64')
+            self._lines.append('  %w_ptr = alloca i64')
+            self._lines.append('  store i64 0, ptr %i_ptr')
+            self._lines.append('  store i64 0, ptr %w_ptr')
+            self._lines.append('  br label %loop')
+            self._lines.append('loop:')
+            self._lines.append('  %i = load i64, ptr %i_ptr')
+            self._lines.append('  %cont = icmp slt i64 %i, %len')
+            self._lines.append('  br i1 %cont, label %body, label %done')
+            self._lines.append('body:')
+            self._lines.append('  %cp = getelementptr inbounds i8, ptr %s, i64 %i')
+            self._lines.append('  %c = load i8, ptr %cp')
+            self._lines.append('  %c32 = zext i8 %c to i32')
+            self._lines.append('  %ws = call i32 @isspace(i32 %c32)')
+            self._lines.append('  %is_ws = icmp ne i32 %ws, 0')
+            self._lines.append('  br i1 %is_ws, label %skip, label %keep')
+            self._lines.append('skip:')
+            self._lines.append('  %ni = add i64 %i, 1')
+            self._lines.append('  store i64 %ni, ptr %i_ptr')
+            self._lines.append('  br label %loop')
+            self._lines.append('keep:')
+            self._lines.append('  %w = load i64, ptr %w_ptr')
+            self._lines.append('  %op = getelementptr inbounds i8, ptr %out, i64 %w')
+            self._lines.append('  store i8 %c, ptr %op')
+            self._lines.append('  %nw = add i64 %w, 1')
+            self._lines.append('  store i64 %nw, ptr %w_ptr')
+            self._lines.append('  %ni2 = add i64 %i, 1')
+            self._lines.append('  store i64 %ni2, ptr %i_ptr')
+            self._lines.append('  br label %loop')
+            self._lines.append('done:')
+            self._lines.append('  %wf = load i64, ptr %w_ptr')
+            self._lines.append('  %zp = getelementptr inbounds i8, ptr %out, i64 %wf')
+            self._lines.append('  store i8 0, ptr %zp')
+            self._lines.append(f'  %t_p = getelementptr inbounds {lv}, ptr %result, i32 0, i32 0')
+            self._lines.append('  store i32 3, ptr %t_p')
+            self._lines.append(f'  %i_p = getelementptr inbounds {lv}, ptr %result, i32 0, i32 1')
+            self._lines.append('  store i64 0, ptr %i_p')
+            self._lines.append(f'  %f_p = getelementptr inbounds {lv}, ptr %result, i32 0, i32 2')
+            self._lines.append('  store double 0.0, ptr %f_p')
+            self._lines.append(f'  %s_p = getelementptr inbounds {lv}, ptr %result, i32 0, i32 3')
+            self._lines.append('  store ptr %out, ptr %s_p')
+            self._lines.append(f'  %b_p = getelementptr inbounds {lv}, ptr %result, i32 0, i32 4')
+            self._lines.append('  store i32 0, ptr %b_p')
+            self._lines.append('  ret void')
+            self._lines.append('}')
+        if self._r12c_need_title:
+            already = {l for l in self._lines if l.startswith('declare')}
+            if 'declare i64 @strlen(ptr)' not in already:
+                self.emit('declare i64 @strlen(ptr)')
+            self.emit('declare i32 @isalpha(i32)')
+            self.emit('declare i32 @toupper(i32)')
+            self.emit('declare i32 @tolower(i32)')
+            self.emit('define internal void @_r12c_title(ptr %result, ptr %str_ptr) {')
+            self.emit('entry:')
+            self.emit(f'  %sv = load {lv}, ptr %str_ptr')
+            self.emit(f'  %s = extractvalue {lv} %sv, 3')
+            self.emit('  %isnull = icmp eq ptr %s, null')
+            self.emit('  %len0 = call i64 @strlen(ptr %s)')
+            self.emit('  %len = select i1 %isnull, i64 0, i64 %len0')
+            self.emit('  %out = call ptr @malloc(i64 %len)')
+            self.emit('  %i_ptr = alloca i64')
+            self._lines.append('  %w_ptr = alloca i64')
+            self._lines.append('  %pa_ptr = alloca i8')
+            self._lines.append('  store i64 0, ptr %i_ptr')
+            self._lines.append('  store i64 0, ptr %w_ptr')
+            self._lines.append('  store i8 0, ptr %pa_ptr')
+            self._lines.append('  br label %loop')
+            self._lines.append('loop:')
+            self._lines.append('  %i = load i64, ptr %i_ptr')
+            self._lines.append('  %cont = icmp slt i64 %i, %len')
+            self._lines.append('  br i1 %cont, label %body, label %done')
+            self._lines.append('body:')
+            self._lines.append('  %cp = getelementptr inbounds i8, ptr %s, i64 %i')
+            self._lines.append('  %c = load i8, ptr %cp')
+            self._lines.append('  %c32 = zext i8 %c to i32')
+            self._lines.append('  %a = call i32 @isalpha(i32 %c32)')
+            self._lines.append('  %is_a = icmp ne i32 %a, 0')
+            self._lines.append('  br i1 %is_a, label %alpha, label %other')
+            self._lines.append('alpha:')
+            self._lines.append('  %w1 = load i64, ptr %w_ptr')
+            self._lines.append('  %op1 = getelementptr inbounds i8, ptr %out, i64 %w1')
+            self._lines.append('  %pa = load i8, ptr %pa_ptr')
+            self._lines.append('  %first = icmp eq i8 %pa, 0')
+            self._lines.append('  %up = call i32 @toupper(i32 %c32)')
+            self._lines.append('  %lo = call i32 @tolower(i32 %c32)')
+            self._lines.append('  %sel = select i1 %first, i32 %up, i32 %lo')
+            self._lines.append('  %ob = trunc i32 %sel to i8')
+            self._lines.append('  store i8 %ob, ptr %op1')
+            self._lines.append('  %nw1 = add i64 %w1, 1')
+            self._lines.append('  store i64 %nw1, ptr %w_ptr')
+            self._lines.append('  store i8 1, ptr %pa_ptr')
+            self._lines.append('  br label %next')
+            self._lines.append('other:')
+            self._lines.append('  %w2 = load i64, ptr %w_ptr')
+            self._lines.append('  %op2 = getelementptr inbounds i8, ptr %out, i64 %w2')
+            self._lines.append('  store i8 %c, ptr %op2')
+            self._lines.append('  %nw2 = add i64 %w2, 1')
+            self._lines.append('  store i64 %nw2, ptr %w_ptr')
+            self._lines.append('  store i8 0, ptr %pa_ptr')
+            self._lines.append('  br label %next')
+            self._lines.append('next:')
+            self._lines.append('  %ni = add i64 %i, 1')
+            self._lines.append('  store i64 %ni, ptr %i_ptr')
+            self._lines.append('  br label %loop')
+            self._lines.append('done:')
+            self._lines.append('  %wf = load i64, ptr %w_ptr')
+            self._lines.append('  %zp = getelementptr inbounds i8, ptr %out, i64 %wf')
+            self._lines.append('  store i8 0, ptr %zp')
+            self._lines.append(f'  %t_p = getelementptr inbounds {lv}, ptr %result, i32 0, i32 0')
+            self._lines.append('  store i32 3, ptr %t_p')
+            self._lines.append(f'  %i_p = getelementptr inbounds {lv}, ptr %result, i32 0, i32 1')
+            self._lines.append('  store i64 0, ptr %i_p')
+            self._lines.append(f'  %f_p = getelementptr inbounds {lv}, ptr %result, i32 0, i32 2')
+            self._lines.append('  store double 0.0, ptr %f_p')
+            self._lines.append(f'  %s_p = getelementptr inbounds {lv}, ptr %result, i32 0, i32 3')
+            self._lines.append('  store ptr %out, ptr %s_p')
+            self._lines.append(f'  %b_p = getelementptr inbounds {lv}, ptr %result, i32 0, i32 4')
+            self._lines.append('  store i32 0, ptr %b_p')
+            self._lines.append('  ret void')
+            self._lines.append('}')
+        if self._r12c_need_split_ws:
+            already = {l for l in self._lines if l.startswith('declare')}
+            if 'declare i64 @strlen(ptr)' not in already:
+                self.emit('declare i64 @strlen(ptr)')
+            if 'declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1, i1)' not in already:
+                self.emit('declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1, i1)')
+            self.emit('declare i32 @isspace(i32)')
+            self.emit('define internal void @_r12c_split_ws(ptr %result, ptr %str_ptr) {')
+            self.emit('entry:')
+            self.emit(f'  %sv = load {lv}, ptr %str_ptr')
+            self.emit(f'  %s = extractvalue {lv} %sv, 3')
+            self.emit('  %isnull = icmp eq ptr %s, null')
+            self.emit('  %len0 = call i64 @strlen(ptr %s)')
+            self.emit('  %len = select i1 %isnull, i64 0, i64 %len0')
+            self.emit('  %list_slot = alloca ' + lv)
+            self.emit('  %elem = alloca ' + lv)
+            self.emit('  %res2 = alloca ' + lv)
+            self.emit('  %i_ptr = alloca i64')
+            self.emit('  %start_ptr = alloca i64')
+            self.emit('  store i64 0, ptr %i_ptr')
+            self.emit('  store i64 0, ptr %start_ptr')
+            self.emit('  call void @dv_list_new(ptr %list_slot)')
+            self.emit('  br label %loop')
+            self.emit('loop:')
+            self.emit('  %i = load i64, ptr %i_ptr')
+            self.emit('  %cont = icmp slt i64 %i, %len')
+            self.emit('  br i1 %cont, label %body, label %tail')
+            self.emit('body:')
+            self.emit('  %cp = getelementptr inbounds i8, ptr %s, i64 %i')
+            self._lines.append('  %c = load i8, ptr %cp')
+            self._lines.append('  %c32 = zext i8 %c to i32')
+            self._lines.append('  %ws = call i32 @isspace(i32 %c32)')
+            self._lines.append('  %is_ws = icmp ne i32 %ws, 0')
+            self._lines.append('  br i1 %is_ws, label %flush_a, label %keep')
+            self._lines.append('flush_a:')
+            self._lines.append('  %start1 = load i64, ptr %start_ptr')
+            self._lines.append('  %plen1 = sub i64 %i, %start1')
+            self._lines.append('  %cap1 = add i64 %plen1, 1')
+            self._lines.append('  %buf1 = call ptr @malloc(i64 %cap1)')
+            self._lines.append('  %sp1 = getelementptr inbounds i8, ptr %s, i64 %start1')
+            self._lines.append('  call void @llvm.memcpy.p0.p0.i64(ptr %buf1, ptr %sp1, i64 %plen1, i1 false, i1 false)')
+            self._lines.append('  %zp1 = getelementptr inbounds i8, ptr %buf1, i64 %plen1')
+            self._lines.append('  store i8 0, ptr %zp1')
+            self._lines.append('  call void @dv_str(ptr %elem, ptr %buf1)')
+            self._lines.append('  call void @free(ptr %buf1)')
+            self._lines.append('  %cur1 = load ' + lv + ', ptr %list_slot')
+            self._lines.append('  call void @dv_list_append(ptr %res2, ptr %list_slot, ptr %elem)')
+            self._lines.append('  %res1 = load ' + lv + ', ptr %res2')
+            self._lines.append('  store ' + lv + ' %res1, ptr %list_slot')
+            self._lines.append('  %ni1 = add i64 %i, 1')
+            self._lines.append('  store i64 %ni1, ptr %i_ptr')
+            self._lines.append('  store i64 %ni1, ptr %start_ptr')
+            self._lines.append('  br label %loop')
+            self._lines.append('keep:')
+            self._lines.append('  %ni2 = add i64 %i, 1')
+            self._lines.append('  store i64 %ni2, ptr %i_ptr')
+            self._lines.append('  br label %loop')
+            self._lines.append('tail:')
+            self._lines.append('  %start2 = load i64, ptr %start_ptr')
+            self._lines.append('  %plen2 = sub i64 %len, %start2')
+            self._lines.append('  %cap2 = add i64 %plen2, 1')
+            self._lines.append('  %buf2 = call ptr @malloc(i64 %cap2)')
+            self._lines.append('  %sp2 = getelementptr inbounds i8, ptr %s, i64 %start2')
+            self._lines.append('  call void @llvm.memcpy.p0.p0.i64(ptr %buf2, ptr %sp2, i64 %plen2, i1 false, i1 false)')
+            self._lines.append('  %zp2 = getelementptr inbounds i8, ptr %buf2, i64 %plen2')
+            self._lines.append('  store i8 0, ptr %zp2')
+            self._lines.append('  call void @dv_str(ptr %elem, ptr %buf2)')
+            self._lines.append('  call void @free(ptr %buf2)')
+            self._lines.append('  %cur2 = load ' + lv + ', ptr %list_slot')
+            self._lines.append('  call void @dv_list_append(ptr %res2, ptr %list_slot, ptr %elem)')
+            self._lines.append('  %res2v = load ' + lv + ', ptr %res2')
+            self._lines.append('  store ' + lv + ' %res2v, ptr %list_slot')
+            self._lines.append('  %final = load ' + lv + ', ptr %list_slot')
+            self._lines.append('  store ' + lv + ' %final, ptr %result')
+            self._lines.append('  ret void')
+            self._lines.append('}')
+
+
     def finalize(self) -> str:
         """覆写父类方法：在生成 IR 时追加调试元数据"""
+        # R12C（R11A-08）：先发射本批按需的字符串辅助函数
+        self._emit_r12c_string_helpers()
         # 先把调试元数据追加到 _lines 末尾
+
         if self._debug and self._debug_metadata_lines:
             self._lines.append('')
             self._lines.extend(self._debug_metadata_lines)
@@ -638,7 +861,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return reg
         
         if self._temp_slot_index >= self._temp_slot_pool_size:
-            raise RuntimeError(f"临时槽位池溢出！已使用 {self._temp_slot_index} / {self._temp_slot_pool_size}")
+            # R12C（R11C-1）：不再硬性拒绝。alloca 行由 _emit_temp_slot_pool
+            # 按 _temp_slot_index 真实用量回填（占位行只是容器），大型列表
+            # 字面量（如行政区划 3000+ 元素）初始化需要海量临时槽位，
+            # 这里动态抬高水位即可。
+            self._temp_slot_pool_size = self._temp_slot_index + 1024
         
         idx = self._temp_slot_index
         self._temp_slot_index += 1
@@ -902,9 +1129,30 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             error_msg = '\n'.join(f"  - {e}" for e in errors)
             raise RuntimeError(f"LLVM IR 验证失败，发现 {len(errors)} 个问题:\n{error_msg}")
 
+    def _resolve_import_chain(self, module_name, orig_name, _seen=None):
+        """R12C（R11A-05）：沿「导入→再导出」链解析段的最终定义模块。
+
+        「导入即再导出」（B: 从 A 导入 f + 导出 f）的段定义注册在 A 名下，
+        调用方按 B 的名义查找会落空。此函数跟随 B 的导入映射直到找到
+        真正定义；找不到返回 None。_seen 防循环。
+        """
+        seen = _seen if _seen is not None else set()
+        key = (module_name, orig_name)
+        if key in seen:
+            return None
+        seen.add(key)
+        if self._seg_reg_key(orig_name, module_name) in self._segments:
+            return module_name, orig_name
+        mod_imp = self._module_imports.get(module_name) or {}
+        if orig_name in mod_imp:
+            nxt_mod, nxt_name = mod_imp[orig_name]
+            return self._resolve_import_chain(nxt_mod, nxt_name, seen)
+        return None
+
     def _process_imports(self, module: ast.Module):
         """处理模块导入语句，记录导入的符号"""
         imports = getattr(module, 'imports', None) or []
+        mod_name = getattr(module, 'name', None)
         for imp in imports:
             if isinstance(imp, ast.ImportStatement):
                 module_name = imp.module
@@ -912,6 +1160,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 if imp.names:
                     for name in imp.names:
                         self._imports[name] = (module_name, name)
+                        # R12C（R11A-05）：按模块记录导入映射，供再导出链解析
+                        if mod_name:
+                            self._module_imports.setdefault(mod_name, {})[name] = (
+                                module_name, name)
                         # 生成外部段函数声明
                         safe_name = self._safe_func_name(f'{module_name}_{name}')
                         if safe_name not in self._module_decls:
@@ -1025,7 +1277,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             # T9A 防御性补全：导入段查找（与 FunctionCall 路径对齐：本地段→导入段→builtin）
             if expr.name in self._imports:
                 _imp_mod, _imp_orig = self._imports[expr.name]
-                if self._seg_reg_key(_imp_orig, _imp_mod) in self._segments:
+                if (self._seg_reg_key(_imp_orig, _imp_mod) in self._segments
+                        or self._resolve_import_chain(_imp_mod, _imp_orig)):
                     return self._gen_imported_segment_call(expr.name, args, expr.args)
             # C3-1：拼错名字的段落调用，报错并列出已定义候选。
             self._reject_unknown_call(expr.name, expr)
@@ -1417,7 +1670,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # （如 随机位 被测试导入但无段定义），回退到 builtin 检查。
         if func_name in self._imports:
             _imp_mod, _imp_orig = self._imports[func_name]
-            if self._seg_reg_key(_imp_orig, _imp_mod) in self._segments:
+            if (self._seg_reg_key(_imp_orig, _imp_mod) in self._segments
+                    or self._resolve_import_chain(_imp_mod, _imp_orig)):
                 return self._gen_imported_segment_call(func_name, args, arg_asts)
 
         # 内置函数
@@ -1491,6 +1745,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         未定义函数。多模块联合编译时所有段定义都在同一 IR 中，可直接调用定义。
         """
         module_name, orig_name = self._imports[name]
+        # R12C（R11A-05）：再导出链——B 从 A 导入 f 再导出，调用方按 B 名义
+        # 查找；这里跟随链到真正定义模块，直接调用定义端 safe name。
+        resolved = self._resolve_import_chain(module_name, orig_name)
+        if resolved:
+            module_name, orig_name = resolved
         safe = self._safe_func_name(orig_name, module_name)
         result_slot = self._new_dv_slot()
         # R10-11a 打回 A2：同 _gen_typed_segment_call，段函数返回时
@@ -1929,6 +2188,43 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._call_dv_func('dv_str_get', args[0], f'i64 {idx_i64}'), 'dv'
             return self._create_int_dv('0'), 'dv'
 
+        if name in ('获取', 'get'):
+            # R12C（R11B-3）：方法形式 `表.获取(键, 默认)` 的接收者是字典
+            # （type 7）时走字典路径（含默认值），否则回落字符串/列表索引
+            # 路径。运行时类型分派，静态类型未知也不受影响。
+            if args:
+                obj_slot = self._store_dv(args[0])
+                type_reg = self.new_register()
+                self.emit(f'{type_reg} = load i32, ptr {obj_slot}')
+                is_dict = self.new_register()
+                self.emit(f'{is_dict} = icmp eq i32 {type_reg}, 7')
+                dict_lab = self.new_label('get_dict')
+                idx_lab = self.new_label('get_idx')
+                end_lab = self.new_label('get_end')
+                res_slot = self._new_dv_slot()
+                self.emit(f'br i1 {is_dict}, label %{dict_lab}, label %{idx_lab}')
+                self.emit(f'{dict_lab}:')
+                if len(args) >= 3:
+                    k_slot = self._store_dv(args[1])
+                    d_slot = self._store_dv(args[2])
+                    self.emit(f'call void @dv_dict_get_def(ptr {res_slot}, ptr {obj_slot}, ptr {k_slot}, ptr {d_slot})')
+                elif len(args) == 2:
+                    k_slot = self._store_dv(args[1])
+                    self.emit(f'call void @dv_dict_get(ptr {res_slot}, ptr {obj_slot}, ptr {k_slot})')
+                else:
+                    self.emit(f'call void @dv_null(ptr {res_slot})')
+                self.emit(f'br label %{end_lab}')
+                self.emit(f'{idx_lab}:')
+                if len(args) >= 2:
+                    idx_i64 = self.new_register()
+                    self.emit(f'{idx_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
+                    self.emit(f'call void @dv_str_get(ptr {res_slot}, ptr {obj_slot}, i64 {idx_i64})')
+                else:
+                    self.emit(f'call void @dv_null(ptr {res_slot})')
+                self.emit(f'br label %{end_lab}')
+                self.emit(f'{end_lab}:')
+                result = self._load_dv(res_slot)
+                return result, 'dv'
         if name in ('获取', 'get', '索引'):
             if len(args) >= 2:
                 idx_i64 = self.new_register()
@@ -1956,7 +2252,37 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('转文本', 'to_string', '转字符串', '转串', 'str'):
             if args:
-                return self._call_dv_func('dv_value_to_string', args[0]), 'dv'
+                # R12C（R11A-09）：runtime dv_to_string 对列表（type 4）读 str
+                # 字段恒得 "[]"。运行时按 DV 类型分派：列表 → dv_list_join
+                # （逐元素 dv_to_string）后加方括号；其余走原 dv_value_to_string。
+                # 嵌套容器的内层元素仍走 dv_to_string（嵌套序列化归 T7）。
+                obj_slot = self._store_dv(args[0])
+                type_reg = self.new_register()
+                self.emit(f'{type_reg} = load i32, ptr {obj_slot}')
+                is_list = self.new_register()
+                self.emit(f'{is_list} = icmp eq i32 {type_reg}, 4')
+                list_lab = self.new_label('tostr_list')
+                def_lab = self.new_label('tostr_def')
+                end_lab = self.new_label('tostr_end')
+                res_slot = self._new_dv_slot()
+                self.emit(f'br i1 {is_list}, label %{list_lab}, label %{def_lab}')
+                self.emit(f'{list_lab}:')
+                joined = self._call_dv_func(
+                    'dv_list_join', args[0],
+                    self._create_str_dv(self.gen_string_constant(", ")))
+                open_br = self._create_str_dv(self.gen_string_constant("["))
+                with_open = self._call_dv_func('dv_concat', open_br, joined)
+                wo_slot = self._store_dv(with_open)
+                close_br = self._create_str_dv(self.gen_string_constant("]"))
+                cb_slot = self._store_dv(close_br)
+                self.emit(f'call void @dv_concat(ptr {res_slot}, ptr {wo_slot}, ptr {cb_slot})')
+                self.emit(f'br label %{end_lab}')
+                self.emit(f'{def_lab}:')
+                self.emit(f'call void @dv_value_to_string(ptr {res_slot}, ptr {obj_slot})')
+                self.emit(f'br label %{end_lab}')
+                self.emit(f'{end_lab}:')
+                result = self._load_dv(res_slot)
+                return result, 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
 
         if name == '连接':
@@ -2192,9 +2518,33 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return res, 'dv'
             return self._create_int_dv('0'), 'dv'
 
-        if name in ('去除空格', 'trim', 'strip'):
+        if name in ('去除空格', 'trim', 'strip', '去除空白', 'str_strip'):
             if args:
                 return self._call_dv_func('dv_trim', args[0]), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
+        if name in ('lstrip', '左去除', 'str_lstrip'):
+            # R12C（R11A-08）：runtime 无 dv_str_lstrip，reverse 组合链在对象
+            # 缓冲机制下结果异常（归 T7）。改为一次性发射 IR 辅助函数
+            # _r12c_lstrip（单遍状态机，libc isspace）。
+            self._r12c_need_lstrip = True
+            if args:
+                obj_slot = self._store_dv(args[0])
+                res_slot = self._new_dv_slot()
+                self.emit(f'call void @_r12c_lstrip(ptr {res_slot}, ptr {obj_slot})')
+                return self._load_dv(res_slot), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
+        if name in ('每个单词首字母大写', 'title', '词首大写'):
+            # R12C（R11A-08）：runtime 无 title/capitalize，发射 IR 辅助函数
+            # _r12c_title（单遍状态机，libc isalpha/toupper/tolower），
+            # 语义对齐 Python str.title()（非字母重置、字母序列首大余小）。
+            self._r12c_need_title = True
+            if args:
+                obj_slot = self._store_dv(args[0])
+                res_slot = self._new_dv_slot()
+                self.emit(f'call void @_r12c_title(ptr {res_slot}, ptr {obj_slot})')
+                return self._load_dv(res_slot), 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
 
         if name in ('rstrip', '右去除', 'str_rstrip'):
@@ -2316,6 +2666,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('分割', 'split', 'str_split', '分割字符串'):
             if len(args) >= 2:
                 return self._call_dv_func('dv_str_split', args[0], args[1]), 'dv'
+            if args:
+                # R12C（R11A-08）：方法形式 `s.分割()` 无参 → 按空白切分
+                # （能力边界：连续空白会产生空段，与 Python str.split() 的
+                # 折叠语义不同——运行时折叠归 T7）
+                self._r12c_need_split_ws = True
+                obj_slot = self._store_dv(args[0])
+                res_slot = self._new_dv_slot()
+                self.emit(f'call void @_r12c_split_ws(ptr {res_slot}, ptr {obj_slot})')
+                return self._load_dv(res_slot), 'dv'
             return self._call_dv_func('dv_list_new'), 'dv'
 
         if name in ('连接字符串', 'join', 'str_join', 'implode'):
@@ -5920,6 +6279,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
     def finalize(self) -> str:
         """生成最终 IR（覆写父类）"""
+        # R12C（R11A-08）：发射本批按需的字符串辅助函数（此 finalize 为
+        # 类内后定义者，实际生效；422 行的同名方法被本方法覆盖）
+        self._emit_r12c_string_helpers()
         lines = []
         for s in self._string_decls:
             lines.append(s)
