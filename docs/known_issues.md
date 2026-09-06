@@ -2140,3 +2140,75 @@ R11 批 4 个缺陷（R11A-01、R11A-07、R11B-1、R11B-2）的 codegen 根因�
   `test_原生腿_R11C_数据高级.py` 43 例全绿（workaround 移除后零回归）。
 - 能力清单：`test_native_leg_capability.py` 11 passed（清单重建后）。
 - 全部编译/运行/测试于 POSIX 实机 192.168.0.86（clang 18.1.3）完成。
+
+## R12B：变量/容器/索引写回根因修复（codegen-container-writeback-R12B，2026-09-07）
+
+**任务编号**：codegen-container-writeback-R12B ｜ **分支**：`codegen-container-writeback-R12B`
+**范围**：R11 批实测缺陷中 6 个「变量赋值/容器索引/写回语义族」的根因修复。
+动了 `src/llvm/codegen_typed.py`（变量查找/索引赋值/链写回）+ `src/llvm/runtime_typed.c`
+（独立函数区，未碰 TLS 段）。**修复前实测基线**：6 项中 4 项需修，
+R11A-03 / R11A-11 已由中间批次（main / T7B）顺带修复，保留 guard 验证。
+
+### 一、修复内容
+
+| 缺陷 | 实测基线 | 根因 | 修复 |
+| --- | --- | --- | --- |
+| R11A-02 内建名作局部变量 | 算术返 `[]`（仍存） | 内建名作**调用实参**（如 `转文本(删除)`）被 parser 解析为无参内建调用 `删除()`，永不读变量 | codegen `_gen_typed_function_call` 开头：调用名若命中 `_local_vars`/形参表则**当变量引用返回**（局部变量遮蔽内建，Python 语义）；真调用 `删除(表,2)` 不受影响（该名未声明为变量） |
+| R11A-03 读下标 0 | `1`/`2` 正确 | —（main 已修） | 未改代码，guard 用例 `test_R11A03_读下标0` |
+| R11A-04 `除以` 对容器取出值 | 返 `0`（仍存） | runtime `dv_to_float` 是唯一**未**以 `dv_deref` 开头的标量转换器；`dv_dict_get` 返回 type=8 REF，真除预转换把 REF 当非数值 → 0.0 | `dv_to_float` 开头补 `v = dv_deref(v)` |
+| R11A-10 嵌套容器不持久化 | 写不落盘（仍存） | 旧实现仅支持 obj 为 Identifier 的单层索引赋值；嵌套链路的中间新容器（list 复制 / dict realloc 结果）被丢弃 | codegen 新增 `_gen_typed_index_assign`：对 `外[k][0]=v` **递归沿 lvalue 链逐层写回**，直到根变量/成员整体重绑定；新 helper `_emit_index_set`/`_writeback_lvalue_root` |
+| R11A-11 dict 跨函数写回 | `2` 正确 | —（T7B 已覆盖） | 未改代码，guard 用例 `test_R11A11_dict参数函数内修改写回` |
+| R11C-2 字典访问两段式修改 | 不穿透（仍存） | `dv_dict_get` 返回 REF；`dv_index_set` 对 REF 走 copy-on-write 产出新容器，**丢弃后写不进真实存储** | runtime `dv_index_set`：obj 为 REF 时 list→`dv_list_set_inplace` 就地替换元素 / dict→`dv_dict_set` 原地更新，并 `dv_set_ref` 保持 result 为指向 real 的 REF；`dv_dict_set` 加**同存储 no-op** 守卫防外层回写 UAF；`dv_dict_get` 开头补 `dv_deref`（dict 内嵌 dict 读取） |
+
+### 二、R11C-2 runtime 重构决策
+
+按任务书二选一：**runtime 字典值所有权重构（大工程）本轮不做**——采用
+「codegen 多层链写回 + REF 写透」方案，使两种写入路径全部生效：
+
+- 单语句嵌套索引赋值 `设 外["k"][0] 为 v` ✅（codegen 递归写回）
+- 两段式 `设 d 为 字典获取(外,"k")` → `设 d[0] 为 v` ✅（REF 写透真实存储）
+
+**仍为长期缺口**：非写路径的值语义共享（把 `d["key"]` 赋给另一变量后各自
+append 不互通）属 runtime 字典值所有权/引用计数架构，归 T7 后续重构
+（任务书已授权标注长期缺口）。
+
+### 三、反跑判据验证（O0 真编译真跑）
+
+| 判据 | 结果 |
+| --- | --- |
+| 修复前 6 缺陷最小复现行为错误 | ✅ 复现探针实测：02 返 `[]`、04 返 0、10 不写回、R11C-2 不穿透（03/11 已正确） |
+| 改回原 codegen → 定向测试立红 | ✅ **10 failed / 4 passed**（4 绿恰为 guard：下标0、dict跨函数、单层索引回归、list值/整除对照） |
+| 恢复修复 → 定向测试全绿 | ✅ **14 passed**（~40s） |
+| 移除 workaround 后的 R11 模块对拍无回归 | ✅ `test_原生腿_R11A_通用工具.py` **7 passed**；合计 **21 passed** |
+
+### 四、定向测试
+
+新增 `tests/unit/test_codegen_container_writeback_O0.py`（1 类 14 用例）：
+
+| 分组 | 用例 |
+| --- | --- |
+| R11A-02 | 内建名作变量算术（删除/替换/插入/最小）、内建名作变量传参位置（`转文本(删除)` 解析坑） |
+| R11A-03 | 读下标 0（guard） |
+| R11A-04 | dict 值真除（10/2→5、5/2→2.5）、list 值真除与整除对照（guard） |
+| R11A-10 | 单层索引赋值回归、嵌套 list 写回、dict 内 list 两段式（taskbook 判据原样）、dict 内 list 单语句链、dict 内 dict、三层链 |
+| R11A-11 | dict 参数函数内修改写回（guard） |
+| R11C-2 | dict 内 dict 两段式改键、dict 取 REF 再获取嵌套 dict（dv_dict_get deref） |
+
+### 五、移除的 workaround 清单
+
+| 文件 | 移除内容 |
+| --- | --- |
+| `stdlib/字符串工具.light` | Levenshtein 相似度 DP 由 **1-based 偏移布局还原 0-based 自然布局**（原规避 R11A-03）；代价变量名还原语义（保留 `删代价`/`插代价`/`替代价`/`最优` 复合名——R11A-02 已根修，改名不再必须，但保留不引入行为差异） |
+| `stdlib/数据结构.light` | 仅更新 `创建二叉搜索树` 注释：1-based 哑元布局**保留**（非缺陷规避，纯减少遍历边界改动），标注 R11A-03 已修 |
+
+> 其余模块（缓存/断言工具/uuid工具/进度条/数据验证）的规避模式多为能力边界
+> 或 R11A-05/06/07/08/09 未修缺陷，**不在本批范围**（任务书文件隔离），未动。
+
+### 六、仍存在的缺口
+
+1. R11A-01（`非` 函数调用）/ R11A-07（且或短路）→ R12A 一元/布尔批次
+2. R11A-05（跨模块再导出）/ R11A-08（字符串内置方法空）→ R12C 方法分派/语法批次
+3. R11A-06（默认参数负字面量）/ R11A-09（转文本(列表) O0 打印 []）→ 待定批次
+4. R11C-2 runtime 字典值所有权重构 → T7 长期缺口
+5. `dv_list_set_inplace` 容器类旧元素（4/6/7/8/23）不释放（浅拷贝/写时复制混合
+   模型下释放会打掉别名数组 UAF），保守泄漏——已注释声明，归所有权重构一并解决

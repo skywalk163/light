@@ -1957,6 +1957,14 @@ void dv_dict_set(LightValue* result, LightValue* dict, LightValue* key, LightVal
     if (idx >= 0) {
         /* 键存在，替换值 */
         LightValue* old_val = target->list_data[2 * idx + 1];
+        /* R12B：REF 写透后回写同一存储 → no-op。
+           dv_index_set 对 REF 句柄就地改写 real 后仍把 result 保持为指向
+           real 的 REF，外层链回写会再对本键赋同一个 real —— 若按常规路径
+           free(old_val) 再 clone(value) 会先释放 real 再读它（UAF）。 */
+        if (old_val && dv_deref(value) == old_val) {
+            if (result != target) dv_clone(result, target);
+            return;
+        }
         if (old_val) {
             dv_free(old_val);
             free(old_val);
@@ -2006,6 +2014,10 @@ void dv_dict_set(LightValue* result, LightValue* dict, LightValue* key, LightVal
 }
 
 void dv_dict_get(LightValue* result, LightValue* dict, LightValue* key) {
+    /* R12B：REF 解引用——dv_list_get 已 deref 而此处缺失；dict 内嵌 dict
+       时 `字典获取(字典获取(外,"k"), "x")` 的内层结果是 REF（type=8），
+       不解引用会被误判为非字典返回空。 */
+    dict = dv_deref(dict);
     if (dict->type != 7) {
         dv_null(result);
         return;
@@ -2120,20 +2132,69 @@ void dv_dict_remove(LightValue* result, LightValue* dict, LightValue* key) {
 }
 
 /* ================================================================
- * 索引赋值统一入口（T7B / T5C-03）
+ * 索引赋值统一入口（T7B / T5C-03 / R12B）
  * ================================================================ */
+/* R12B：就地替换列表第 index 个元素（不重排数组、不复制整表、不改容量）。
+   供 dv_index_set 的 REF 写透路径使用：`设 d 为 字典获取(外,"k")` 后
+   `设 d[i] 为 v` —— d 是指向字典内部存储列表的 REF，只有就地改写存储
+   才能让调用方看到修改（R11A-10 / R11C-2 两段式反跑判据）。非 REF 的
+   普通列表句柄仍走 dv_list_set 复制语义（既有值语义不回归）。
+   容器类旧元素（4/6/7/8/23）不释放：本运行时为浅拷贝/写时复制混合模型，
+   dict 克隆共享存储，释放会打掉别名仍指向的数组（UAF），保守让其泄漏。 */
+void dv_list_set_inplace(LightValue* list, int64_t index, LightValue* elem) {
+    if (list->type != 4 || index < 0 || index >= list->list_size) return;
+    LightValue* old = list->list_data[index];
+    if (old && old->type != 4 && old->type != 7 && old->type != 8
+        && old->type != 6 && old->type != 23) {
+        dv_free(old);
+        free(old);
+    }
+    LightValue* new_elem = (LightValue*)malloc(sizeof(LightValue));
+    if (new_elem) {
+        dv_clone(new_elem, elem);
+        list->list_data[index] = new_elem;
+    }
+}
+
+/* R12B：把 result 构造成指向 real 的 REF（type=8，str=指针）。 */
+static void dv_set_ref(LightValue* result, LightValue* real) {
+    result->type = 8;
+    result->i64 = 0;
+    result->f64 = 0.0;
+    result->str = (char*)real;
+    result->boolean = 0;
+    result->list_size = 0;
+    result->list_capacity = 0;
+    result->list_data = NULL;
+}
+
 /* `设 容器[下标] 为 值` 的运行时分派：按 obj 的真实类型走列表写或字典写。
    此前 codegen 无条件调 dv_dict_set，对列表做索引赋值会把列表壳整体
    改写成 dict（dv_dict_new 覆盖 list_data —— 原数组泄漏、元素全丢或读出
-   空值），实测 `设 池[0] 为 池[2]` 后 池[0] 仍是原值 1。 */
+   空值），实测 `设 池[0] 为 池[2]` 后 池[0] 仍是原值 1。
+   R12B：obj 为 REF（dict 索引取值返回的句柄）时——列表就地替换元素、
+   dict 原地更新，两者都**保持 result 为指向 real 的 REF**（写已穿透到
+   真实存储，无需再逐层复制回写）；配合 dv_dict_set 的同存储 no-op，
+   避免外层回写把刚被别名引用的旧容器 free 掉（UAF）。 */
 void dv_index_set(LightValue* result, LightValue* obj, LightValue* index, LightValue* value) {
     LightValue* real = dv_deref(obj);
     if (real->type == 7) {
+        if (obj->type == 8) {
+            LightValue tmp;
+            dv_dict_set(&tmp, real, index, value);
+            dv_set_ref(result, real);
+            return;
+        }
         dv_dict_set(result, real, index, value);
         return;
     }
     if (real->type == 4) {
         int64_t idx = dv_to_i64(index);
+        if (obj->type == 8) {
+            dv_list_set_inplace(real, idx, value);
+            dv_set_ref(result, real);
+            return;
+        }
         dv_list_set(result, real, idx, value);
         return;
     }
@@ -3699,6 +3760,11 @@ void dv_to_int(LightValue* result, LightValue* v) {
 }
 
 void dv_to_float(LightValue* result, LightValue* v) {
+    /* R12B：REF 解引用——dv_dict_get 返回 type=8 REF（指向字典内部存储值）。
+       其它标量转换器（dv_to_i64/f64/bool/string）均以 dv_deref 开头，唯独此处
+       遗漏：dict 取出的数值经真除（dv_to_float 预转换）路径被当成 0.0。
+       （R11A-04：`v 除以 2` 返 0，整除不受影响——dv_div 内部 dv_to_f64 会 deref。） */
+    v = dv_deref(v);
     if (v->type == 2) {
         dv_clone(result, v);
         return;
