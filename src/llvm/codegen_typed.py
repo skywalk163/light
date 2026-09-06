@@ -1361,6 +1361,26 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return out
 
     def _gen_typed_function_call(self, expr):
+        # R11A-02 修复：局部变量遮蔽内建（Python 语义）。
+        # 当调用名已被声明为局部变量时，即使源码写法像函数调用（如 `转文本(删除)`
+        # 中括号内的内建名被解析为无参 FunctionCall 节点），也把它当变量引用返回——
+        # light 没有「函数值可调用」语义，用户用内建名作变量即表示要遮蔽内建。
+        # 仅当该名从未作为变量声明时才走内建调用（如真正的 `删除(表, 2)` list.remove）。
+        _nm = expr.name
+        if isinstance(_nm, ast.Identifier):
+            _key = _nm.name
+        elif isinstance(_nm, ast.SegmentName):
+            _key = _nm.name
+        elif isinstance(_nm, ast.PropertyAccess):
+            _key = None
+        elif isinstance(_nm, str):
+            _key = _nm
+        else:
+            _key = str(_nm)
+        if _key is not None and (_key in self._local_vars or _key in self._current_func_params):
+            _v = self.get_var(_key)
+            if _v is not None:
+                return _v, 'dv'
         if isinstance(expr.name, ast.Identifier):
             func_name = expr.name.name
         elif isinstance(expr.name, ast.SegmentName):
@@ -4267,6 +4287,60 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         }
         return type_map.get(type_name)
 
+    def _emit_index_set(self, obj_dv: str, idx_dv: str, value_dv: str) -> str:
+        """对容器 dv 做一次索引写入，返回**写入后的新容器** dv。
+        dv_index_set 按 obj 真实类型分派（list → dv_list_set 复制出新列表 /
+        dict → dv_dict_set 原地更新共享散列表），新容器经 slot0 就地写回。"""
+        slot0 = self._store_dv(obj_dv)
+        slot1 = self._store_dv(idx_dv)
+        slot2 = self._store_dv(value_dv)
+        self.emit(f'call void @dv_index_set(ptr {slot0}, ptr {slot0}, ptr {slot1}, ptr {slot2})')
+        return self._load_dv(slot0)
+
+    def _writeback_lvalue_root(self, root_ast, container_dv: str):
+        """把更新后的最外层容器写回 lvalue 根（变量或 己/对象成员）。"""
+        if isinstance(root_ast, ast.Identifier):
+            self.set_var(root_ast.name, container_dv)
+            return
+        if isinstance(root_ast, ast.PropertyAccess):
+            member = root_ast.property_name
+            if isinstance(root_ast.obj, ast.Identifier) and root_ast.obj.name in ('己', 'self'):
+                obj_slot = self._self_lvalue_slot()
+            else:
+                obj_dv, _ = self._gen_expression(root_ast.obj)
+                obj_slot = self._store_dv(obj_dv)
+            member_reg = self.gen_string_constant(member)
+            value_slot = self._store_dv(container_dv)
+            self.emit(f'call void @dv_class_set_member(ptr {obj_slot}, ptr {member_reg}, ptr {value_slot})')
+            if isinstance(root_ast.obj, ast.Identifier):
+                obj_name = root_ast.obj.name
+                set_name = '己' if (self._method_result_ptr is not None and obj_name in ('self', '己')) else obj_name
+                self.set_var(set_name, self._load_dv(obj_slot))
+
+    def _gen_typed_index_assign(self, target: ast.IndexAccess, value_dv: str):
+        """嵌套容器索引赋值的多层写回（R11A-10 / R11C-2 codegen 侧）。
+
+        dv_index_set 的 list 分支是复制出新容器、dict 分支是原地更新（realloc
+        可能换缓冲）——都要求**把新容器写回宿主位置**。对 `设 外[k][0] 为 v`：
+          1) 取 外[k] 得到内层容器，写入 v → 新内层容器；
+          2) 把新内层容器经 外[k] 写回外容器 → 新外容器；
+          3) 递归到根变量 外，整体重绑定。
+        旧实现只支持 obj 为 Identifier 的单层（写回根变量即可），嵌套链路的
+        中间新容器被丢弃 → 写不进（读回仍是旧值）。本递归把每一层都写回去。"""
+        obj_ast = target.obj
+        if isinstance(obj_ast, ast.IndexAccess):
+            # 更深一层：先写本层，得到新容器，再继续向 obj_ast 所在位置写回
+            idx_dv, _ = self._gen_expression(target.index)
+            obj_dv, _ = self._gen_expression(obj_ast)
+            new_container = self._emit_index_set(obj_dv, idx_dv, value_dv)
+            self._gen_typed_index_assign(obj_ast, new_container)
+            return
+        # 本层 obj 是根（变量 / 成员）
+        idx_dv, _ = self._gen_expression(target.index)
+        obj_dv, _ = self._gen_expression(obj_ast)
+        new_container = self._emit_index_set(obj_dv, idx_dv, value_dv)
+        self._writeback_lvalue_root(obj_ast, new_container)
+
     def _gen_typed_assignment(self, stmt: ast.Assignment):
         if isinstance(stmt.target, ast.PropertyAccess):
             member = stmt.target.property_name
@@ -4329,18 +4403,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         elif isinstance(stmt.target, ast.IndexAccess):
             # 容器[键/下标] 为 值：按运行时类型分派（T7B / T5C-03）。
             # 原来无条件 dv_dict_set —— 对列表会把它整体改写成 dict（元素全丢）。
-            # 改用 dv_index_set 运行时分派（list → dv_list_set / dict → dv_dict_set）；
-            # 原地写后把更新后的容器写回目标变量（realloc 可能换缓冲）。
-            obj_dv, _ = self._gen_expression(stmt.target.obj)
-            idx_dv, _ = self._gen_expression(stmt.target.index)
-            val_dv, _ = self._gen_expression(stmt.value)
-            slot0 = self._store_dv(obj_dv)
-            slot1 = self._store_dv(idx_dv)
-            slot2 = self._store_dv(val_dv)
-            self.emit(f'call void @dv_index_set(ptr {slot0}, ptr {slot0}, ptr {slot1}, ptr {slot2})')
-            result = self._load_dv(slot0)
-            if isinstance(stmt.target.obj, ast.Identifier):
-                self.set_var(stmt.target.obj.name, result)
+            # T7B 改用 dv_index_set 运行时分派（list → dv_list_set / dict → dv_dict_set）；
+            # R12B 进一步支持**嵌套**索引赋值（`外[k][0] 为 v` / `外[0][1] 为 v`）：
+            # dv_list_set/dv_dict_set 是「产出新容器」语义，中间层新容器若丢弃则
+            # 写不进去——必须沿 lvalue 链逐层把新容器写回其宿主，直到根变量/成员
+            # 整体重绑定（R11A-10 / R11C-2 codegen 侧修复）。
+            value_dv, _ = self._gen_expression(stmt.value)
+            self._gen_typed_index_assign(stmt.target, value_dv)
         else:
             name = self._get_var_name(stmt.target)
             dv_val, _ = self._gen_expression(stmt.value)
