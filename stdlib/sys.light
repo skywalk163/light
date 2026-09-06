@@ -1,0 +1,55 @@
+# 纯光明实现 —— sys.light：光明内建 sys 模块（原生腿）
+#
+# 背景（T6B）：stdlib/事件总线.light、stdlib/插件.light 等 `导入 sys` 在
+# 原生腿会 NativeImportError。本模块为原生腿提供同名解析目标。
+#
+# 腿差异（诚实声明）：
+#   - Python 腿（转译后端）导入的是**真 Python sys**（CPython import 命中
+#     真模块，本 .light 文件不可见），因此 Python 腿代码写 `sys.版本`（属性）
+#     完全不受影响。
+#   - 原生腿的「模块」只能导出**段落（可调用）**，不能导出属性值；故本模块
+#     把 sys 的常用数据项做成**零参取值段**（版本()/平台()/参数()），与
+#     Python 的 sys.version 属性写法不同。任何要跨腿移植的代码不得直接写
+#     sys.stderr/sys.version 属性形态 —— 事件总线对 sys.stderr.write 的
+#     特殊形态由原生 codegen 做了链级改写（见 codegen_typed T6B 注）。
+#
+# 能力边界：
+#   - 平台() 用路径分隔符反推（win32/posix 两档），同 stdlib/操作系统.light
+#     的 本机平台 口径；这里不复用导入，避免原生腿跨模块展开面变大。
+#   - 退出(码) 委托内置 退出程序；退出 是常驻行为，无返回值。
+#   - 版本/版本信息 是光明内建 sys 的自述值，不是 Python 解释器版本。
+
+导出 version version_info platform argv exit hexversion maxsize
+导出 stderr stdout。
+
+段落 version 接收:
+  返回 "3.13.7 (光明内建 sys)"
+
+段落 version_info 接收:
+  返回 [3, 13, 7, "final", 0]
+
+段落 hexversion 接收:
+  返回 50920704
+
+段落 maxsize 接收:
+  返回 9223372036854775807
+
+段落 platform 接收:
+  设 样本 为 连接路径("甲", "乙")
+  如果 字符串包含(样本, "\\"):
+    返回 "win32"
+  结束。
+  返回 "posix"
+
+段落 argv 接收:
+  返回 参数列表()
+
+段落 exit 接收 码:
+  退出程序(码)
+  返回 0
+
+段落 stderr 接收:
+  返回 空
+
+段落 stdout 接收:
+  返回 空

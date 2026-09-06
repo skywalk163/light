@@ -7361,3 +7361,44 @@ int64_t dv_random_bits(int64_t k) {
     }
     return (int64_t)w0 | ((int64_t)w1 << 32);
 }
+
+/* ════════════════════════════════════════════════════════════════════
+ * T6B 追加：时间/系统内建 runtime（dv_sleep / dv_clock）
+ * 独立函数区 —— 位于文件末尾，未触碰上方 TLS 段（B2-4，T7 所属）。
+ *
+ * 设计说明：
+ *   dv_sleep(sec)  —— 秒级睡眠（double），对齐 Python time.sleep()。
+ *                      已有 dv_platform_sleep(int ms) 是事件循环内部毫秒级，
+ *                      在 B2-4 区；本函数独立实现、供 time.light 暴露秒级睡眠。
+ *   dv_clock()     —— 单调高分辨率时钟秒（double），对齐 Python
+ *                      time.perf_counter() / time.monotonic() 的语义
+ *                      （单调、不受系统时间调整影响）。
+ * ════════════════════════════════════════════════════════════════════ */
+
+void dv_sleep(double sec) {
+    if (sec <= 0) return;
+#ifdef _WIN32
+    Sleep((DWORD)(sec * 1000.0 + 0.5));
+#else
+    struct timespec ts;
+    ts.tv_sec = (time_t)sec;
+    ts.tv_nsec = (long)((sec - (double)ts.tv_sec) * 1000000000.0);
+    if (ts.tv_nsec < 0) ts.tv_nsec = 0;
+    if (ts.tv_nsec >= 1000000000L) { ts.tv_sec += 1; ts.tv_nsec -= 1000000000L; }
+    nanosleep(&ts, NULL);
+#endif
+}
+
+double dv_clock(void) {
+#ifdef _WIN32
+    static LARGE_INTEGER freq = {0};
+    if (freq.QuadPart == 0) QueryPerformanceFrequency(&freq);
+    LARGE_INTEGER now;
+    QueryPerformanceCounter(&now);
+    return (double)now.QuadPart / (double)freq.QuadPart;
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (double)ts.tv_sec + (double)ts.tv_nsec / 1000000000.0;
+#endif
+}

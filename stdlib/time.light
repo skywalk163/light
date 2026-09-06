@@ -1,0 +1,87 @@
+# 纯光明实现 —— time.light：光明内建 time 模块（对齐 Python time 子集）
+#
+# 命名纪律（known_issues #L-T5B-1 + 本模块自踩）：
+#   1) 多模块合并进同一个 codegen 时，同名光明段落 → LLVM 符号重定义。
+#      Python time 的 API 是 ASCII（time()/localtime()/sleep()/perf_counter()），
+#      本模块**对外只暴露 ASCII 段名**；上层 stdlib（日期时间轻量/时间管理）
+#      的中文导出不在本模块出现 → 永不撞名。
+#   2) 段内委托 builtin 时用**别名**（时间戳/睡眠秒/时间格式化），因为光明
+#      派发是「本模块段 > builtin」：若段内写与自身段同名的调用会自递归。
+#      time() 段内委托 builtin 写 时间戳()（builtin 注册名含 时间戳/时间）。
+#   3) 类实例化一律 `新建 类名(...)`：原生后端对「裸类名()」只拦截异常类
+#      （codegen_typed._gen_typed_builtin），普通类裸调用会被当作未定义段落。
+#
+# 能力边界（诚实声明）：
+#   - localtime/gmtime 返回 本地时间对象（字段对齐 Python struct_time 常用
+#     子集），字段值经 dv_format_time(strftime) 按 fmt 拆解；tm_isdst 无
+#     runtime 支撑恒 -1；gmtime 实为 localtime（无 UTC 拆字段 runtime）。
+#   - time_ns 由秒×1000 近似（毫秒级，无纳秒 runtime）。
+#   - 不提供 Python 的 struct_time 索引/命名元组语义。
+
+导出 time time_ns localtime gmtime sleep sleep_ms perf_counter
+导出 monotonic clock strftime。
+
+# time() -> 当前 Unix 时间戳（秒，float dv）
+段落 time 接收:
+  返回 _dv_timestamp()
+
+# time_ns() -> 纳秒近似（毫秒级 × 1000）
+段落 time_ns 接收:
+  设 秒 为 _dv_timestamp()
+  设 毫 为 转浮点(秒) 乘以 1000.0
+  返回 转整数(毫) 乘以 1000
+
+# sleep(秒数) -> 秒级睡眠（dv_sleep，double）
+段落 sleep 接收 秒数:
+  设 浮 为 转浮点(秒数)
+  _sleep_sec(浮)
+  返回 0
+
+# sleep_ms(毫秒数) -> 毫秒级睡眠
+段落 sleep_ms 接收 毫秒数:
+  设 浮 为 转浮点(毫秒数) 乘以 0.001
+  _sleep_sec(浮)
+  返回 0
+
+# perf_counter()/monotonic()/clock() -> 单调高分辨率时钟（dv_clock）
+段落 perf_counter 接收:
+  返回 _clock()
+
+段落 monotonic 接收:
+  返回 _clock()
+
+段落 clock 接收:
+  返回 _clock()
+
+# strftime(时刻, 格式) -> dv_format_time 任意 fmt
+段落 strftime 接收 时刻, 格式:
+  设 浮 为 转浮点(时刻)
+  返回 _strftime(浮, 格式)
+
+# localtime(时刻) -> 本地时间对象（字段对齐 struct_time 常用子集）
+段落 localtime 接收 时刻:
+  设 浮 为 转浮点(时刻)
+  返回 新建 本地时间对象(
+    _数字字段(浮, "%Y"), _数字字段(浮, "%m"), _数字字段(浮, "%d"),
+    _数字字段(浮, "%H"), _数字字段(浮, "%M"), _数字字段(浮, "%S"),
+    _数字字段(浮, "%w"), _数字字段(浮, "%j"), -1)
+
+# gmtime(时刻) -> 能力边界：无 UTC runtime，退化为 localtime（见模块头）
+段落 gmtime 接收 时刻:
+  返回 localtime(时刻)
+
+段落 _数字字段 接收 时刻, 格式:
+  设 串 为 _strftime(时刻, 格式)
+  返回 转整数(串)
+
+类 本地时间对象:
+  段落 初始化 接收 年, 月, 日, 时, 分, 秒, 周, 年内日, 夏令时:
+    己.tm_year 为 年。
+    己.tm_mon 为 月。
+    己.tm_mday 为 日。
+    己.tm_hour 为 时。
+    己.tm_min 为 分。
+    己.tm_sec 为 秒。
+    己.tm_wday 为 周。
+    己.tm_yday 为 年内日。
+    己.tm_isdst 为 夏令时。

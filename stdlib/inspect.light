@@ -1,0 +1,28 @@
+# 纯光明实现 —— inspect.light：inspect 模块的原生腿最小面
+#
+# 背景（T6B）：stdlib/事件总线.light 导入 inspect 做订阅时处理器签名校验
+# （A3-7）。原生腿没有 Python inspect；本模块为原生腿提供同名解析目标，
+# 让「导入 inspect」不再 NativeImportError。
+#
+# 能力边界（诚实声明）：
+#   - Python 腿（转译后端）导入的是**真 Python inspect**：订阅时能拿到
+#     处理器真实签名，签名不匹配立刻抛 处理器签名错误（A3-7 行为完整）。
+#     本 .light 文件对 Python 腿不可见（CPython import 先命中真 inspect）。
+#   - 原生腿：signature(处理器) 恒返回 空 —— 表示「取不到签名」。事件总线
+#     对「取不到签名」的既定处理是放行（宁可漏判也不误伤，见事件总线
+#     校验处理器签名），因此原生腿订阅不再做签名预检，发布期错误仍会被
+#     错误隔离捕获并上报。这是能力退化，不是行为错误——登记见交付报告。
+
+导出 signature getmembers isfunction isclass。
+
+段落 signature 接收 对象:
+  返回 空
+
+段落 getmembers 接收 对象:
+  返回 []
+
+段落 isfunction 接收 对象:
+  返回 假
+
+段落 isclass 接收 对象:
+  返回 假

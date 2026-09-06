@@ -1263,7 +1263,101 @@ CPython 3.14 的播种口径：整数种子一律走 `init_by_array`（小端 32
   逐位一致（Box-Muller 同构 + 缓存第二个随机值）。
 - 函数值/回调不可用（编译期「未定义的段落」）→ 对象池缓存的装饰器类返回
   `空`/池本身，仅标注能力边界。
-- **未在 POSIX 实测**：`dv_random` 系列（MT19937 纯整数运算 + `dv_timestamp`
-  播种）在 Windows 本机（CPython 3.14.7 对拍）验证；POSIX 服务器
-  `192.168.0.86` 未连（凭据在 `.env`），跨平台未实测。
+- **POSIX 实测（2026-09-06，Ubuntu 24.04.4 / clang 18.1.3 / 3.9GB 空闲 / 4 核）**：
+  `dv_random` 系列（MT19937 纯整数运算 + `dv_timestamp` 播种）经
+  `test_随机_固定种子42逐位对拍_O0` **passed** 实测通过；但同轮全量原生腿回归中
+  `test_集合_运算对拍_O0`（`移除元素`）暴露原生腿 `值错误` —— 属 T5C 集合族
+  codegen 缺陷（T5C-01~06 同类），**非 T6B 引入**（T6B 的 codegen/runtime 改动
+  仅涉 time/sys builtin 与 sys.stderr 链改写，git diff 已核零集合/移除相关代码）；
+  T5C 此前「未在 POSIX 实测」，本次为首次 POSIX 暴露，建议归 T5C POSIX 验证单独立项。
+  详见 R10-12d T6B POSIX 账。
+
+## R10-12d T6B：时间/系统内建 time.light + sys.light 真 .light 化（2026-09-06）
+
+### 概述
+- 任务：建 `stdlib/time.light`、`stdlib/sys.light` 纯光明内建，解锁
+  **日期时间轻量 / 时间管理 / 事件总线 / 插件** 四模块的原生腿（native/LLVM）编译。
+- 约束：独立本地分支 `task-T6b`；`runtime_typed.c` 仅新增独立函数 `dv_sleep`/`dv_clock`，
+  **严禁碰 TLS 段**（归 T7）；`codegen_typed.py` 注册 builtin。
+- 反跑判据：`optimize_level=0` 真编译真跑；改回空壳→定向测试立红；时间戳对拍容差 ±2s
+  （实际走整数毫秒口径比对，规避 `%g` 打印丢精度）。
+
+### 解锁模块
+- **日期时间轻量**：零文本改动解锁，原生 O0 字段/格式对拍 Python 绿。
+- **时间管理**：32 导出全真实现（睡眠族/时间戳族/格式化耗时/本地时间/UTC时间/
+  时区/计时器/秒表/创建秒表）。
+- **事件总线 / 插件**：`sys.light`/`inspect.light` 依赖解锁 + 语法清理；python 腿
+  保真绿（test_event_bus 13 passed、agent_loop 签名/stderr 5 passed、test_plugin 全绿）；
+  原生全跑被「函数值动态调用」语言级缺口阻断（见 #L-T6B-3）。
+
+### 运行时与 codegen 变更
+- `runtime_typed.c`：新增独立函数（文件末尾，未碰 TLS 段）
+  - `dv_sleep(double sec)`：Windows `Sleep(ms)` / POSIX `nanosleep`。
+  - `dv_clock(void) -> double`：Windows `QueryPerformanceCounter` / POSIX
+    `clock_gettime(CLOCK_MONOTONIC)`，返回单调高分辨率秒。
+- `codegen_typed.py`：
+  - 声明 `declare void @dv_sleep(double)` / `declare double @dv_clock()`。
+  - 注册 builtin：`时间戳`/`_dv_timestamp`、`时间格式化`/`_strftime`、
+    `睡眠秒`/`_sleep_sec`→`dv_sleep`、`时钟`/`性能计数器`/`单调时钟`/`_clock`→`dv_clock`。
+  - `_gen_typed_method_call` 入口加 `sys.stderr.write(文本)`/`sys.stderr.flush()`
+    链级改写（`write`→`dv_println` 落原生 stdout；`flush`→no-op），解决事件总线
+    错误隔离路径 `sys.stderr` 无属性值表达的问题。
+
+### 缺陷清单（T6B 特有）
+- **#L-T6B-1 [中] 跨模块同名段 → codegen 重定义**（同 #L-T5B-1 根因）：
+  `time.light` 对外只暴露 ASCII 段名；段内委托 builtin 用 `_dv_timestamp`/`_sleep_sec`/
+  `_clock`/`_strftime` 下划线别名防自递归/被上层中文导出捕获（曾因 `时间戳()` 被
+  `时间管理.时间戳` 捕获导致无限递归 0xC00000FD，已规避）。
+- **#L-T6B-2 [中] 类构造期 `己.方法()` 字段写回丢失**（秒表/计时器后端缺陷）：
+  `计时器.结束`/`秒表.停止` 浮点字段算术原生返回 0/负值 → 数值断言不覆盖，仅「不崩」冒烟。
+- **#L-T6B-3 [高·语言级缺口] 函数值动态调用**：事件总线 `发布(事件名, 载荷)` 需把
+  回调存进监听者表后动态调用 `处理器(事件名, 载荷)`；插件 `触发扩展点(载荷)` 同需
+  `回调(载荷)`。原生 codegen 仅支持静态段/builtin 调用，无此 runtime 机制 →
+  事件总线/插件原生全跑受阻。按边界交付（解锁 + 语法清理，python 腿保真绿）。
+- **#L-T6B-4 [低] `time_ns` 毫秒口径**：秒×1e6 近似（无纳秒 runtime）→ 对拍用整数
+  毫秒口径（`time_ns` 原值 vs `time()*1000`，容差 2000）。
+- **#L-T6B-5 [低] `gmtime` 实为 `localtime`**：无 UTC 拆字段 runtime；`tm_isdst` 恒 -1；
+  不提供 Python `struct_time` 索引/命名元组语义。
+- **#L-T6B-6 [低] 字典成员判断**：原生不支持 `X 在/不在 Y`，改用 builtin `字典包含键`
+  （事件总线 4 处 + 插件 14 处，共 18 处清理，语义中性）。
+
+### 反跑判据验证
+- O0 真编译真跑；改回空壳→定向测试立红；时间戳对拍容差 ±2s（整数毫秒口径）。
+- T6B 反跑 **5 测试全绿（Windows 本机 MSVC + Ubuntu 24.04 clang 双平台）**。
+- 本机（Windows）曾因空闲 RAM 仅 ~696MB 导致 clang 指令选择 OOM，已用
+  `_t6b_native_helper.py` 把「编译+运行」fork 到独立子进程隔离（每次全新 Python，
+  拿到与单独运行相同的空闲 RAM）。Ubuntu 3.9GB 空闲无此问题。
+
+### POSIX 实测账（2026-09-06，Ubuntu 24.04.4 / clang 18.1.3 / 3.9GB 空闲 / 4 核）
+- 连接 `192.168.0.86`（凭据在 `light-merge/.env` 的 `86SSH_HOST`/`SSH_USER_AI`/
+  `SSH_PASS_AI`，**注意外层 `duan-light-merge/.env` 是另一套且 88 仅公钥**）。
+- T6B 反跑 `tests/unit/test_T6B_时间系统内建_原生腿.py`：**5 passed / 12.57s**，无 OOM。
+  `dv_sleep(nanosleep)` / `dv_clock(CLOCK_MONOTONIC)` 的 POSIX 路径**实测通过**，
+  关闭了 T6B 新增项的「未在 POSIX 实测」缺口。
+- 全量原生腿回归（T5A/T5B/T5C/T6B）：**33 passed / 1 failed**。
+  - 失败：`test_原生腿_T5C_集合随机.py::test_集合_运算对拍_O0` —— `移除元素` 抛 `值错误`。
+    **确认非 T6B 回归**：T6B 的 codegen/runtime 改动仅涉 time/sys builtin 与
+    `sys.stderr` 链改写，git diff 已核零集合/移除相关代码；该缺陷属 T5C 集合族
+    codegen（T5C-01~06 同类），且 T5C 此前「未在 POSIX 实测」，本次为首次 POSIX 暴露。
+    建议归 T5C POSIX 验证单独立项（不在 T6B 交付范围）。
+  - `dv_random` POSIX 路径随 `test_随机_固定种子42逐位对拍_O0` **passed** 实测通过。
+
+### 能力边界（诚实声明）
+- `time.light`：`localtime`/`gmtime` 返回 `本地时间对象`（字段对齐 `struct_time` 常用
+  子集，经 `dv_format_time` 按 fmt 拆解）；`gmtime` 实为 `localtime`；`tm_isdst` 恒 -1；
+  `time_ns` 毫秒级（无纳秒 runtime）。
+- `sys.light`：导出零参取值段（`版本()`/`平台()`/`参数()`），**不导出属性值**；
+  `平台()` 用路径分隔符反推（win32/posix 两档，同 `操作系统.本机平台`）；`退出(码)`
+  委托 `退出程序`。Python 腿仍走真 CPython `sys`（双轨互不干扰）。
+- `事件总线`/`插件`：函数值回调原生不可用（#L-T6B-3），python 腿保真。
+
+### 文件清单
+- 新增：`stdlib/time.light`、`stdlib/sys.light`、`stdlib/inspect.light`、
+  `tests/unit/_t6b_native_helper.py`、`tests/unit/test_T6B_时间系统内建_原生腿.py`。
+- 修改：`src/llvm/runtime_typed.c`（dv_sleep/dv_clock）、
+  `src/llvm/codegen_typed.py`（builtin 注册 + stderr shim）、
+  `stdlib/事件总线.light`、`stdlib/插件.light`、`stdlib/时间管理.light`。
+
+### 临时文件
+- `_taskT6b_*` 已清理（本任务会话的 `_probe_ubuntu.py`/`_run_ubuntu_*.py` 亦为临时探测脚本，不入库）。
 

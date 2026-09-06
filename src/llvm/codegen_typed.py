@@ -383,6 +383,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare i32 @dv_to_bool(ptr)',
             f'declare double @dv_timestamp()',
             f'declare ptr @dv_format_time(double, ptr)',
+            f'declare void @dv_sleep(double)',
+            f'declare double @dv_clock()',
             f'declare i32 @dv_file_exists(ptr)',
             f'declare ptr @dv_read_file(ptr)',
             f'declare void @dv_write_file(ptr, ptr)',
@@ -1424,7 +1426,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             reg = self._load_dv(slot)
             return reg, 'dv'
 
-        if name in ('时间戳', '时间'):
+        if name in ('时间戳', '时间', '_dv_timestamp'):
             dbl = self.new_register()
             self.emit(f'{dbl} = call double @dv_timestamp()')
             return self._call_dv_func('dv_float', f'double {dbl}'), 'dv'
@@ -1460,6 +1462,36 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             out = self.new_register()
             self.emit(f'{out} = call ptr @dv_format_time(double {dbl}, ptr {fmt_reg})')
             return self._create_str_dv(out), 'dv'
+
+        # T6B：带格式的 strftime（dv_format_time 支持任意 strftime fmt）
+        if name in ('时间格式化', 'strftime', 'format_time', '_strftime'):
+            if not args:
+                return self._create_str_dv(self.gen_string_constant("")), 'dv'
+            dbl = self.new_register()
+            self.emit(f'{dbl} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 2')
+            if len(args) >= 2:
+                fmt_ptr = self.new_register()
+                self.emit(f'{fmt_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+            else:
+                fmt_ptr = self.gen_string_constant("%Y-%m-%d %H:%M:%S")
+            out = self.new_register()
+            self.emit(f'{out} = call ptr @dv_format_time(double {dbl}, ptr {fmt_ptr})')
+            return self._create_str_dv(out), 'dv'
+
+        # T6B：秒级睡眠 dv_sleep(double)；毫秒级用既有 睡眠（事件循环区）
+        if name in ('睡眠秒', 'sleep_seconds', 'dv_sleep', '_sleep_sec'):
+            if args:
+                dbl = self.new_register()
+                self.emit(f'{dbl} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 2')
+                self.emit(f'call void @dv_sleep(double {dbl})')
+            return self._create_int_dv('0'), 'dv'
+
+        # T6B：单调高分辨率时钟 dv_clock() -> float 秒（perf_counter/monotonic 语义）
+        if name in ('时钟', '性能计数器', '单调时钟', 'clock', 'perf_counter', 'monotonic', '_clock'):
+            dbl = self.new_register()
+            self.emit(f'{dbl} = call double @dv_clock()')
+            return self._call_dv_func('dv_float', f'double {dbl}'), 'dv'
+
 
         if name in ('文件存在', 'file_exists', 'path_exists'):
             if args:
@@ -2742,7 +2774,24 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         """处理 obj.方法(args) - FunctionCall with PropertyAccess name"""
         prop = expr.name  # PropertyAccess
         method_name = prop.property_name
-        
+
+        # T6B：sys.stderr.write(文本) / sys.stderr.flush() 链级改写。
+        # 事件总线（A3-7）在错误隔离路径写 `sys.stderr.write(...)。sys.stderr.flush()。`
+        # —— Python 腿绑定真 sys（对象属性链天然成立）；原生腿的模块只有「段落」
+        # 没有属性值，`sys.stderr` 无法表达。这里在**求值接收者之前**拦截这条链：
+        #   write(文本) -> dv_println（原生无 stderr 通道，回落 stdout，边界见交付报告）
+        #   flush()     -> no-op（dv_println 无缓冲）
+        if (isinstance(prop.obj, ast.PropertyAccess)
+                and isinstance(prop.obj.obj, ast.Identifier)
+                and prop.obj.obj.name == 'sys'
+                and prop.obj.property_name == 'stderr'
+                and method_name in ('write', 'flush')):
+            if method_name == 'write' and expr.arguments:
+                arg_dv, _ = self._gen_expression(expr.arguments[0])
+                slot = self._store_dv(arg_dv)
+                self.emit(f'call void @dv_println(ptr {slot})')
+            return self._create_int_dv('0'), 'dv'
+
         # 检测是否是 super 调用（父.方法() 或 super.方法()）
         is_super_call = False
         if isinstance(prop.obj, ast.Identifier):
