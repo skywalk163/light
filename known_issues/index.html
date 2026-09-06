@@ -6771,7 +6771,7 @@ T5C-07、T6A-01。</p>
 <td>R11A-01</td>
 <td><strong><code>非</code> 作用于函数调用失效</strong>：<code>非 是数字字符("a")</code> 返回假（应为真）；对字面量/括号表达式正常</td>
 <td><code>输出(非 是数字字符("a"))</code></td>
-<td>改 <code>是数字字符(x) == 假</code></td>
+<td>改 <code>是数字字符(x) == 假</code>。<strong>✅ 已修复（R12A / 2026-09-06）</strong>：<code>非</code> 走 dv_to_bool 真值取反，workaround 已移除</td>
 </tr>
 <tr>
 <td>R11A-02</td>
@@ -6807,7 +6807,7 @@ T5C-07、T6A-01。</p>
 <td>R11A-07</td>
 <td><strong><code>且</code>/<code>或</code> 内联条件解析失败且不短路</strong></td>
 <td><code>如果 a 且 b:</code> 复杂内联</td>
-<td>拆嵌套 <code>如果</code></td>
+<td>拆嵌套 <code>如果</code>。<strong>✅ 已修复（R12A / 2026-09-06）</strong>：根因实为 parser <code>_parse_logical_expr</code> 从未接入表达式链（且/或 BinaryOp 节点缺失，右侧被静默丢弃）——已接线（或 &lt; 且 &lt; 比较 三层优先级），并在 codegen 生成短路分支（假 且 报错() 不再求值右侧）</td>
 </tr>
 <tr>
 <td>R11A-08</td>
@@ -6929,8 +6929,12 @@ codegen/runtime 行为缺陷，按红线不触碰 codegen 核心，归后续批�
   <code>dv_eq(operand, 整数 0)</code>，布尔假值 dv（bool 类型，值 0）与整数 0 dv
   跨类型比较，<code>dv_eq</code> 返回不等（0），<code>icmp ne 0,0</code> → false，判成「非假为假」。</li>
 <li><strong>影响</strong>：所有对布尔变量取 <code>非</code> 的逻辑在原生腿 O0 下静默反向。</li>
-<li><strong>workaround</strong>（本批已用）：一律用 <code>== 假</code> / 正逻辑替代 <code>非</code>（中文编码.light
+<li><strong>workaround</strong>（R11B 已用）：一律用 <code>== 假</code> / 正逻辑替代 <code>非</code>（中文编码.light
   等模块已规避）。</li>
+<li><strong>✅ 已修复（R12A / 2026-09-06）</strong>：<code>_gen_typed_unary_op</code> 的 <code>非</code> 改为
+  <code>dv_to_bool</code> 取真值后 <code>icmp eq 0</code>（类型无关真值取反），布尔假值/函数返回值
+  全部正确；中文编码/字符串工具/JSON核心 的 <code>== 假</code> workaround 已移除并回归
+  全绿。定向测试 <code>test_codegen_unary_bool_O0.py::test_非_布尔字面量</code> 等。</li>
 </ul>
 <h3 id="r11b-2-0boolint">缺陷 R11B-2：<code>整数(真)</code> 返回 0（bool→int 真 转换错误）<a class="headerlink" href="#r11b-2-0boolint" title="Permanent link">&para;</a></h3>
 <ul>
@@ -6938,7 +6942,12 @@ codegen/runtime 行为缺陷，按红线不触碰 codegen 核心，归后续批�
 <li><strong>探针证据</strong>（O0 真跑）：<code>A=0</code>。</li>
 <li><strong>根因</strong>：bool→int 转换对真值未映射为 1（与 Python <code>int(True)=1</code> 不一致）。</li>
 <li><strong>影响</strong>：用 <code>整数(布尔)</code> 打印/累加布尔计数会静默得 0。</li>
-<li><strong>workaround</strong>（本批已用）：需要 1/0 输出时用 <code>如果 … == 真: 输出(1) 否则: 输出(0)</code>。</li>
+<li><strong>workaround</strong>（R11B 已用）：需要 1/0 输出时用 <code>如果 … == 真: 输出(1) 否则: 输出(0)</code>。</li>
+<li><strong>✅ 已修复（R12A / 2026-09-06）</strong>：<code>_gen_typed_builtin</code> 透传参数 AST
+  （<code>arg_asts</code>），<code>整数</code> builtin 对静态类型 BOOL 的操作数直接从布尔字段
+  （field 4）零扩展为 i64——<code>整数(真)</code>=1、<code>整数(假)</code>=0；类型未知操作数仍走
+  <code>dv_to_int</code>（bool→int 的运行时映射归 T7）。定向测试
+  <code>test_整数_布尔转换</code>（含布尔累加计数=2 对拍）。</li>
 </ul>
 <h3 id="r11b-3">缺陷 R11B-3：字典 <code>.获取</code> 方法不支持默认参数（返回 空）<a class="headerlink" href="#r11b-3" title="Permanent link">&para;</a></h3>
 <ul>
@@ -7112,6 +7121,264 @@ runtime 已有符号实现子集，无法实现的标注能力边界并提供降
 <li>图像处理无文件 I/O，需 runtime 图像编解码支持（归后续批次）。</li>
 <li>能力边界沿用（函数值/回调不可用等），无新增。</li>
 </ul>
+<h2 id="r12a2026-09-06">R12A：一元运算符/布尔逻辑/类型转换族根因修复（2026-09-06）<a class="headerlink" href="#r12a2026-09-06" title="Permanent link">&para;</a></h2>
+<h3 id="_48">概述<a class="headerlink" href="#_48" title="Permanent link">&para;</a></h3>
+<p>R11 批 4 个缺陷（R11A-01、R11A-07、R11B-1、R11B-2）的 codegen 根因修复，
+并移除 R11 批对应 stdlib workaround。修复前 8 个最小复现全红 → 修复后全绿
+→ R11A/B/C 回归 43 例全绿 → 能力清单重建后 11 passed。</p>
+<h3 id="_49">修复内容<a class="headerlink" href="#_49" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong><code>非</code>（R11A-01 / R11B-1）</strong>：<code>_gen_typed_unary_op</code> 由
+   <code>dv_eq(operand, 整数0)</code> 改为 <code>dv_to_bool</code> 真值 + <code>icmp eq 0</code>——类型无关
+   真值取反，布尔假值、整数、字符串、函数返回值全正确。</li>
+<li><strong><code>整数(布尔)</code>（R11B-2）</strong>：<code>_gen_typed_builtin</code> 加 <code>arg_asts</code> 参数
+   （与 args 对齐的参数 AST，kwargs 重排时为 None），<code>整数</code> 对静态类型
+   BOOL 的操作数从布尔字段（field 4）zext 为 i64。类型未知操作数仍走
+   <code>dv_to_int</code>（运行时映射归 T7）。</li>
+<li><strong><code>且</code>/<code>或</code> 短路（R11A-07）</strong>：两层修复——</li>
+<li><strong>parser（根因）</strong>：<code>_parse_logical_expr</code> 此前从未被表达式链调用，
+     且/或 BinaryOp 节点根本不生成、右侧操作数被静默丢弃。现接入：
+     <code>_parse_comparison</code> → <code>_parse_logical_or_expr</code>（或）→
+     <code>_parse_logical_and_expr</code>（且/与）→ <code>_parse_comparison_chain</code>
+     （原比较主体），优先级 或 &lt; 且 &lt; 比较（与 Python 一致）。</li>
+<li><strong>codegen</strong>：<code>_gen_typed_binary_op</code> 入口提前分派 且/或 至
+     <code>_gen_short_circuit_logic</code>——左值 i8 槽默认存左真值，右臂块内覆盖，
+     <code>br</code> 分支实现短路（and 左假/or 左真 跳过右臂），嵌套复合条件天然支持。</li>
+<li><strong>能力清单</strong>：codegen_typed.py 行号漂移 → <code>scripts/gen_native_capability_json.py</code>
+   重建（builtin 397 / runtime 255，仅证据行号变化，无新增符号）。</li>
+</ol>
+<h3 id="workaround_2">移除的 workaround 清单<a class="headerlink" href="#workaround_2" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>stdlib/中文编码.light</code>：8 处 <code>如果 _zhbmX(...) == 假:</code> → <code>如果 非 _zhbmX(...):</code></li>
+<li>头部「不用非」注释改为修复标注。</li>
+<li><code>stdlib/字符串工具.light</code>：4 处 <code>== 假</code> → <code>非</code>（含
+  <code>非 是数字字符(字符) 且 非 是字母字符(字符)</code> 复合写法——且+非 组合验证）。</li>
+<li><code>stdlib/JSON核心.light</code>：2 处 <code>己.是数字字符(...) == 假</code> → <code>非 己.是数字字符(...)</code>。</li>
+<li>「整数(真) 的 if/else 打印」「拆嵌套如果」类 workaround 在 R11 stdlib 中
+  无使用残留（grep 证实），仅存在于探针脚本（已随 <em>taskR11B</em> 清理）。</li>
+</ul>
+<h3 id="_50">验证证据<a class="headerlink" href="#_50" title="Permanent link">&para;</a></h3>
+<ul>
+<li>反跑：修复前 <code>test_codegen_unary_bool_O0.py</code> <strong>8/8 红</strong>
+  （非恒假、且/或=左操作数、整数(布尔)恒0、短路右侧被求值）→ 修复后 <strong>8/8 绿</strong>。</li>
+<li>回归：<code>test_原生腿_R11A_通用工具.py</code> + <code>test_原生腿_R11B_中文工具.py</code> +
+  <code>test_原生腿_R11C_数据高级.py</code> 43 例全绿（workaround 移除后零回归）。</li>
+<li>能力清单：<code>test_native_leg_capability.py</code> 11 passed（清单重建后）。</li>
+<li>全部编译/运行/测试于 POSIX 实机 192.168.0.86（clang 18.1.3）完成。</li>
+</ul>
+<h2 id="r12bcodegen-container-writeback-r12b2026-09-07">R12B：变量/容器/索引写回根因修复（codegen-container-writeback-R12B，2026-09-07）<a class="headerlink" href="#r12bcodegen-container-writeback-r12b2026-09-07" title="Permanent link">&para;</a></h2>
+<p><strong>任务编号</strong>：codegen-container-writeback-R12B ｜ <strong>分支</strong>：<code>codegen-container-writeback-R12B</code>
+<strong>范围</strong>：R11 批实测缺陷中 6 个「变量赋值/容器索引/写回语义族」的根因修复。
+动了 <code>src/llvm/codegen_typed.py</code>（变量查找/索引赋值/链写回）+ <code>src/llvm/runtime_typed.c</code>
+（独立函数区，未碰 TLS 段）。<strong>修复前实测基线</strong>：6 项中 4 项需修，
+R11A-03 / R11A-11 已由中间批次（main / T7B）顺带修复，保留 guard 验证。</p>
+<h3 id="_51">一、修复内容<a class="headerlink" href="#_51" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>缺陷</th>
+<th>实测基线</th>
+<th>根因</th>
+<th>修复</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R11A-02 内建名作局部变量</td>
+<td>算术返 <code>[]</code>（仍存）</td>
+<td>内建名作<strong>调用实参</strong>（如 <code>转文本(删除)</code>）被 parser 解析为无参内建调用 <code>删除()</code>，永不读变量</td>
+<td>codegen <code>_gen_typed_function_call</code> 开头：调用名若命中 <code>_local_vars</code>/形参表则<strong>当变量引用返回</strong>（局部变量遮蔽内建，Python 语义）；真调用 <code>删除(表,2)</code> 不受影响（该名未声明为变量）</td>
+</tr>
+<tr>
+<td>R11A-03 读下标 0</td>
+<td><code>1</code>/<code>2</code> 正确</td>
+<td>—（main 已修）</td>
+<td>未改代码，guard 用例 <code>test_R11A03_读下标0</code></td>
+</tr>
+<tr>
+<td>R11A-04 <code>除以</code> 对容器取出值</td>
+<td>返 <code>0</code>（仍存）</td>
+<td>runtime <code>dv_to_float</code> 是唯一<strong>未</strong>以 <code>dv_deref</code> 开头的标量转换器；<code>dv_dict_get</code> 返回 type=8 REF，真除预转换把 REF 当非数值 → 0.0</td>
+<td><code>dv_to_float</code> 开头补 <code>v = dv_deref(v)</code></td>
+</tr>
+<tr>
+<td>R11A-10 嵌套容器不持久化</td>
+<td>写不落盘（仍存）</td>
+<td>旧实现仅支持 obj 为 Identifier 的单层索引赋值；嵌套链路的中间新容器（list 复制 / dict realloc 结果）被丢弃</td>
+<td>codegen 新增 <code>_gen_typed_index_assign</code>：对 <code>外[k][0]=v</code> <strong>递归沿 lvalue 链逐层写回</strong>，直到根变量/成员整体重绑定；新 helper <code>_emit_index_set</code>/<code>_writeback_lvalue_root</code></td>
+</tr>
+<tr>
+<td>R11A-11 dict 跨函数写回</td>
+<td><code>2</code> 正确</td>
+<td>—（T7B 已覆盖）</td>
+<td>未改代码，guard 用例 <code>test_R11A11_dict参数函数内修改写回</code></td>
+</tr>
+<tr>
+<td>R11C-2 字典访问两段式修改</td>
+<td>不穿透（仍存）</td>
+<td><code>dv_dict_get</code> 返回 REF；<code>dv_index_set</code> 对 REF 走 copy-on-write 产出新容器，<strong>丢弃后写不进真实存储</strong></td>
+<td>runtime <code>dv_index_set</code>：obj 为 REF 时 list→<code>dv_list_set_inplace</code> 就地替换元素 / dict→<code>dv_dict_set</code> 原地更新，并 <code>dv_set_ref</code> 保持 result 为指向 real 的 REF；<code>dv_dict_set</code> 加<strong>同存储 no-op</strong> 守卫防外层回写 UAF；<code>dv_dict_get</code> 开头补 <code>dv_deref</code>（dict 内嵌 dict 读取）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="r11c-2-runtime">二、R11C-2 runtime 重构决策<a class="headerlink" href="#r11c-2-runtime" title="Permanent link">&para;</a></h3>
+<p>按任务书二选一：<strong>runtime 字典值所有权重构（大工程）本轮不做</strong>——采用
+「codegen 多层链写回 + REF 写透」方案，使两种写入路径全部生效：</p>
+<ul>
+<li>单语句嵌套索引赋值 <code>设 外["k"][0] 为 v</code> ✅（codegen 递归写回）</li>
+<li>两段式 <code>设 d 为 字典获取(外,"k")</code> → <code>设 d[0] 为 v</code> ✅（REF 写透真实存储）</li>
+</ul>
+<p><strong>仍为长期缺口</strong>：非写路径的值语义共享（把 <code>d["key"]</code> 赋给另一变量后各自
+append 不互通）属 runtime 字典值所有权/引用计数架构，归 T7 后续重构
+（任务书已授权标注长期缺口）。</p>
+<h3 id="o0_2">三、反跑判据验证（O0 真编译真跑）<a class="headerlink" href="#o0_2" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>判据</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>修复前 6 缺陷最小复现行为错误</td>
+<td>✅ 复现探针实测：02 返 <code>[]</code>、04 返 0、10 不写回、R11C-2 不穿透（03/11 已正确）</td>
+</tr>
+<tr>
+<td>改回原 codegen → 定向测试立红</td>
+<td>✅ <strong>10 failed / 4 passed</strong>（4 绿恰为 guard：下标0、dict跨函数、单层索引回归、list值/整除对照）</td>
+</tr>
+<tr>
+<td>恢复修复 → 定向测试全绿</td>
+<td>✅ <strong>14 passed</strong>（~40s）</td>
+</tr>
+<tr>
+<td>移除 workaround 后的 R11 模块对拍无回归</td>
+<td>✅ <code>test_原生腿_R11A_通用工具.py</code> <strong>7 passed</strong>；合计 <strong>21 passed</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="_52">四、定向测试<a class="headerlink" href="#_52" title="Permanent link">&para;</a></h3>
+<p>新增 <code>tests/unit/test_codegen_container_writeback_O0.py</code>（1 类 14 用例）：</p>
+<table>
+<thead>
+<tr>
+<th>分组</th>
+<th>用例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R11A-02</td>
+<td>内建名作变量算术（删除/替换/插入/最小）、内建名作变量传参位置（<code>转文本(删除)</code> 解析坑）</td>
+</tr>
+<tr>
+<td>R11A-03</td>
+<td>读下标 0（guard）</td>
+</tr>
+<tr>
+<td>R11A-04</td>
+<td>dict 值真除（10/2→5、5/2→2.5）、list 值真除与整除对照（guard）</td>
+</tr>
+<tr>
+<td>R11A-10</td>
+<td>单层索引赋值回归、嵌套 list 写回、dict 内 list 两段式（taskbook 判据原样）、dict 内 list 单语句链、dict 内 dict、三层链</td>
+</tr>
+<tr>
+<td>R11A-11</td>
+<td>dict 参数函数内修改写回（guard）</td>
+</tr>
+<tr>
+<td>R11C-2</td>
+<td>dict 内 dict 两段式改键、dict 取 REF 再获取嵌套 dict（dv_dict_get deref）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="workaround_3">五、移除的 workaround 清单<a class="headerlink" href="#workaround_3" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>移除内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>stdlib/字符串工具.light</code></td>
+<td>Levenshtein 相似度 DP 由 <strong>1-based 偏移布局还原 0-based 自然布局</strong>（原规避 R11A-03）；代价变量名还原语义（保留 <code>删代价</code>/<code>插代价</code>/<code>替代价</code>/<code>最优</code> 复合名——R11A-02 已根修，改名不再必须，但保留不引入行为差异）</td>
+</tr>
+<tr>
+<td><code>stdlib/数据结构.light</code></td>
+<td>仅更新 <code>创建二叉搜索树</code> 注释：1-based 哑元布局<strong>保留</strong>（非缺陷规避，纯减少遍历边界改动），标注 R11A-03 已修</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>其余模块（缓存/断言工具/uuid工具/进度条/数据验证）的规避模式多为能力边界
+或 R11A-05/06/07/08/09 未修缺陷，<strong>不在本批范围</strong>（任务书文件隔离），未动。</p>
+</blockquote>
+<h3 id="_53">六、仍存在的缺口<a class="headerlink" href="#_53" title="Permanent link">&para;</a></h3>
+<ol>
+<li>R11A-01（<code>非</code> 函数调用）/ R11A-07（且或短路）→ R12A 一元/布尔批次</li>
+<li>R11A-05（跨模块再导出）/ R11A-08（字符串内置方法空）→ R12C 方法分派/语法批次</li>
+<li>R11A-06（默认参数负字面量）/ R11A-09（转文本(列表) O0 打印 []）→ 待定批次</li>
+<li>R11C-2 runtime 字典值所有权重构 → T7 长期缺口</li>
+<li><code>dv_list_set_inplace</code> 容器类旧元素（4/6/7/8/23）不释放（浅拷贝/写时复制混合
+   模型下释放会打掉别名数组 UAF），保守泄漏——已注释声明，归所有权重构一并解决</li>
+</ol>
+<h2 id="r12c2026-09-07">R12C：方法分派/语法解析/控制流族根因修复（2026-09-07）<a class="headerlink" href="#r12c2026-09-07" title="Permanent link">&para;</a></h2>
+<h3 id="_54">概述<a class="headerlink" href="#_54" title="Permanent link">&para;</a></h3>
+<p>R11 批 7 个缺陷（R11A-05/06/08/09、R11B-3、R11C-1/3）的 codegen 根因修复，
+并移除对应 stdlib workaround。修复前 8 个最小复现中 7 红（R11C-3 实测已好）
+→ 修复后 8/8 绿 → R11A/B/C 回归 43 例 + 能力清单 11 例全绿（62 passed）。</p>
+<h3 id="_55">修复内容<a class="headerlink" href="#_55" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>跨模块导入即再导出（R11A-05）</strong>：<code>_process_imports</code> 按模块记录导入映射
+   （<code>_module_imports[模块][名] = (源模块, 源名)</code>）；新增
+   <code>_resolve_import_chain</code> 沿「导入→再导出」链解析最终定义模块；
+   两处导入调用点检查放宽；<code>_gen_imported_segment_call</code> 跟随链后直接调
+   定义端 safe name（无需转发 alias）。</li>
+<li><strong>默认参数负数字面量（R11A-06）</strong>：parser_stmt <code>_attach_param_default</code>
+   在 '-' 后紧跟 NUMBER/CHINESE_NUM 时消耗负号并构造负 NumberLiteral。</li>
+<li><strong>字符串内置方法（R11A-08）</strong>：</li>
+<li><code>去除空白</code> 注册为 dv_trim 别名；</li>
+<li><code>lstrip</code>/<code>每个单词首字母大写</code>/无参 <code>分割</code> → 按需一次性发射 IR 辅助
+     函数 <code>_r12c_lstrip</code>/<code>_r12c_title</code>/<code>_r12c_split_ws</code>（单遍状态机 +
+     alloca 计数器，libc isspace/isalpha/toupper/tolower/strlen/malloc/free，
+     llvm.memcpy 拷贝子串）。title 语义对齐 Python str.title()。</li>
+<li>注：reverse+rstrip 组合链在对象缓冲机制下结果异常（归 T7），
+     故 lstrip 走 IR 辅助而非函数组合。</li>
+<li><strong>转文本(列表)（R11A-09）</strong>：<code>转文本</code> builtin 运行时按 DV 类型分派——
+   type 4（列表）走 <code>dv_list_join</code> 后加 <code>[</code>/<code>]</code>；其余走 dv_value_to_string。
+   嵌套容器内层元素仍走旧路径（归 T7）。</li>
+<li><strong>字典 <code>.获取</code>（R11B-3）</strong>：builtin <code>获取</code>/<code>get</code> 按接收者运行时类型分派
+   （type 7 字典 → dv_dict_get / dv_dict_get_def 含默认值；否则回落
+   字符串/列表索引路径）。</li>
+<li><strong>槽位池 2048 上限（R11C-1）</strong>：<code>_new_dv_slot</code> 动态抬高水位
+   （alloca 行由 <code>_emit_temp_slot_pool</code> 按真实用量回填），3000 元素
+   字面量实测通过。</li>
+<li><strong>try/catch 内 continue（R11C-3）</strong>：实测核对在当前 main 已通过
+   （R11 登记后被其它批次修复）；高级文件 恢复循环内 try/catch 自然写法。</li>
+</ol>
+<h3 id="workaround_4">移除的 workaround 清单<a class="headerlink" href="#workaround_4" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>stdlib/高级文件.light</code>：<code>安全文件大小</code> 辅助段删除，目录大小递归恢复
+  循环内 try/catch（R11C-3）。</li>
+<li><code>stdlib/字符串工具.light</code> / <code>stdlib/中国行政区划.light</code>：注释更新
+  （R11A-05 / R11C-1 已修复标注；字符串工具的验证函数为完整本地实现、
+  区划分段为数据组织方式，均保留并说明理由）。</li>
+<li>「整数(真)」类 if/else 打印、<code>.获取</code> 顶层函数改写：R11 测试侧无
+  stdlib 依赖残留。</li>
+</ul>
+<h3 id="_56">验证证据<a class="headerlink" href="#_56" title="Permanent link">&para;</a></h3>
+<ul>
+<li>反跑：<code>test_codegen_method_syntax_O0.py</code> 修复前 <strong>7/8 红</strong> →
+  修复后 <strong>8/8 绿</strong>（再导出 42、默认参 -1、去除空白族、title+分割、
+  转文本 [1, 2, 3]、字典.获取 默认值、3000 元素字面量、try 内跳过）。</li>
+<li>回归：R11A/B/C 43 例 + 能力清单 11 例 → <strong>62 passed</strong>。</li>
+<li>能力清单：builtin 405 / runtime 260（行号重算 + libc 豁免名单扩充）。</li>
+<li>全部编译/运行/测试于 POSIX 实机 192.168.0.86（clang 18.1.3）。</li>
+</ul>
 
 
 
@@ -7134,7 +7401,7 @@ runtime 已有符号实现子集，无法实现的标注能力边界并提供降
     <span class="md-icon" title="最后更新">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月6日 15:09:16 UTC">2026年9月6日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月6日 23:10:01 UTC">2026年9月6日</span>
   </span>
 
     
@@ -7144,7 +7411,7 @@ runtime 已有符号实现子集，无法实现的标注能力边界并提供降
     <span class="md-icon" title="创建日期">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月6日 15:09:16 UTC">2026年9月6日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月6日 23:10:01 UTC">2026年9月6日</span>
   </span>
 
     
