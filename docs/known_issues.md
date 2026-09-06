@@ -1379,6 +1379,25 @@ POSIX 实机 `192.168.0.86`（clang 18.1.3）完成，T6A 是第一个全程 Lin
   大程序场景（smoke main2.light）留档于任务纪要。
 - **归属**：codegen 全局槽分配/调用约定，归 T7（优先级高）。
 
+#### T6A-11：re.light 回溯VM 列表操作内存安全缺陷（Windows 堆损坏 0xC0000374）
+
+- **现象**：同一 .light 程序内连续 20 次正则验证函数调用，Windows O0 下
+  运行时崩 `0xC0000374`（STATUS_HEAP_CORRUPTION）；POSIX（Ubuntu 24.04
+  clang 18）不崩但 valgrind 检出 **11681 错误**（Invalid read/write at
+  `dv_list_get`/`dv_list_append`，realloc 后指针失效/索引越界）+ **11MB
+  内存泄漏**（definitely lost 825KB / indirectly lost 10.7MB，路径
+  `dv_clone`←`dv_list_get`←re.light `_seg_f100` 递归回溯）。
+- **根因**：re.light 回溯 VM 在递归匹配过程中对同一列表反复
+  `追加`（触发 realloc 扩容）与 `获取`，realloc 后旧引用失效/索引越界；
+  属 re.light 引擎实现缺陷，非 codegen/runtime。
+- **补充**：IP 正则匹配失败路径（反例如 `192.168.1`）单独复现约 40% 崩溃率
+  （未定义行为），反例测试已移除；IP 正例匹配路径稳定 OK，保留覆盖。
+- **缓解**：测试 `test_正则_验证函数` 拆为 4 个小测试（每用例 ≤6 次调用，
+  独立编译运行），规避单次 20 次调用累积触发；≤6 次调用 Windows 连续
+  复跑稳定 OK，输出正确。
+- **归属**：re.light 回溯 VM 列表生命周期管理，归 T9（优先级中）；
+  大规模正则匹配场景（>10 次/程序）当前不可靠，建议拆分或减少调用。
+
 ### 能力边界（诚实声明）
 
 - re.light 支持字符类/区间/否定类/`.`/锚点/量词（含懒惰）/分支/分组
