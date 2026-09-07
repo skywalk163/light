@@ -4128,9 +4128,10 @@ class PythonCodeGenerator:
         #    lightpub 桥接路径（stdlib.lightpub.X）不走别名，保持既有路由。
         if mapped_module and not mapped_module.startswith('stdlib.lightpub.') \
                 and module_name in _PYTHON_LEG_PURE_LIGHT_ALIAS \
-                and self._stdlib_light_is_pure(module_name):
+                and self._stdlib_light_is_pure(module_name) \
+                and stmt.symbols:
             mapped_module = '_light_' + module_name
-        
+
         if stmt.symbols:
             # 从...导入：from 数学 import 平方根, 幂
             symbols_str = ', '.join(stmt.symbols)
@@ -4171,12 +4172,10 @@ class PythonCodeGenerator:
         if hasattr(stmt, 'extra_modules') and stmt.extra_modules:
             for extra_mod, extra_alias in stmt.extra_modules:
                 mapped_extra = self.module_name_map.get(extra_mod, extra_mod)
-                # 与主模块同一套纯光明别名策略（白名单 _PYTHON_LEG_PURE_LIGHT_ALIAS，
-                # 规避 CPython 同名标准库模块的 sys.modules 缓存抢名——见上注释）。
-                if mapped_extra and not mapped_extra.startswith('stdlib.lightpub.') \
-                        and extra_mod in _PYTHON_LEG_PURE_LIGHT_ALIAS \
-                        and self._stdlib_light_is_pure(extra_mod):
-                    mapped_extra = '_light_' + extra_mod
+                # 额外模块只有 import 形式（导入 X, Y 中的 Y），不走纯光明别名：
+                # `导入 re` 必须命中 CPython re（代码用 re.compile），别名化会生成
+                # `import _light_re` 导致 re 未定义。纯光明别名仅对 `从 re 导入 X`
+                # （from import，有 symbols）生效，见上方主模块逻辑。
                 if extra_alias:
                     self._add_line(f"import {mapped_extra} as {extra_alias}")
                     self._imported_symbols.add(extra_alias)
