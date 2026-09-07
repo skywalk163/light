@@ -1,5 +1,5 @@
 """
-段言协议（trait）系统测试
+光明协议（trait）系统测试
 
 测试协议定义、实现、继承、多态等核心功能。
 """
@@ -13,7 +13,7 @@ from code_generator import PythonCodeGenerator
 
 
 def _compile(duan_code: str) -> str:
-    """编译段言代码，返回Python源码"""
+    """编译光明代码，返回Python源码"""
     parser = LightParser()
     module = parser.parse(duan_code)
     generator = PythonCodeGenerator()

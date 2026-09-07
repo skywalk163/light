@@ -1,7 +1,7 @@
 # 纯光明实现 —— 本模块由光明写成，模块名用《JSON编解码》避免影响现存 stdlib/JSON.py 调用方
 # JSON编解码.light —— 纯光明自写的 JSON 编码/解码器
 #
-# 全部由光明段言写成（递归下降解析），不调 Python json，作为自举写库的证明。
+# 全部由光明写成（递归下降解析），不调 Python json，作为自举写库的证明。
 # 能力：
 #   编码(值) -> JSON 文本；解码(文本) -> 光明值（dict/list/str/int/float/bool/空）
 # 覆盖：对象/数组/字符串（含转义与 \uXXXX）/数字/true/false/null/空白。

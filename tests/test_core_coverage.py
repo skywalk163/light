@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言核心模块覆盖率补充测试
+光明核心模块覆盖率补充测试
 
 覆盖 parser_stmt / parser_expr / type_inferencer / code_generator 中
 未被现有测试触达的语法分支，用于提升核心语言链路模块覆盖率（3.4.1）。
@@ -19,7 +19,7 @@ from code_generator_unified import UnifiedCodeGenerator
 
 
 def _compile_ok(source: str) -> str:
-    """编译段言源码，返回生成的 Python 代码；流程异常则抛出"""
+    """编译光明源码，返回生成的 Python 代码；流程异常则抛出"""
     compiler = LightCompiler()
     result = compiler.compile(source)
     assert result.get('ast') is not None, f"AST 生成失败: {source}\n{result.get('errors')}"

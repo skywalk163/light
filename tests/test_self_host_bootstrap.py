@@ -33,10 +33,10 @@ sys.path.insert(0, _bootstrap_dir)
 # =============================================================================
 
 def _compile_and_run(source_code: str) -> Tuple[Dict[str, Any], str]:
-    """用 Python 编译器编译段言代码并执行，返回命名空间
+    """用 Python 编译器编译光明代码并执行，返回命名空间
 
     Args:
-        source_code: 段言源代码
+        source_code: 光明源代码
 
     Returns:
         (命名空间, 生成的Python代码) 元组
@@ -524,7 +524,7 @@ class TestLevel5Advanced:
 
     def test_raise_exception(self) -> None:
         """测试抛出异常（使用内置 raise 绕过）"""
-        # 段言中 raise 会中断流程，这里只测试语法可以通过编译
+        # 光明中 raise 会中断流程，这里只测试语法可以通过编译
         source = '''段落 检查正数 接收 x：
   如果 x 小于 0：
     抛出 "值错误"
@@ -809,7 +809,7 @@ class TestBootstrapSelfCompile:
             content = f.read()
 
         assert len(content) > 500, f"内容过短: {len(content)} 字符"
-        assert '编译' in content or '段落' in content, "内容缺少段言代码特征"
+        assert '编译' in content or '段落' in content, "内容缺少光明代码特征"
 
     def test_bootstrap_source_files_exist(self) -> None:
         """测试所有自举编译器源码文件存在"""

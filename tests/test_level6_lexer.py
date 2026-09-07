@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）Level 6 词法分析器测试 - 无空格分词
+光明（Duan）Level 6 词法分析器测试 - 无空格分词
 
 验证 Level 6 核心特性：最长前缀匹配（longest-prefix matching），
 使语句内关键字与标识符紧密相连时仍能正确拆分。

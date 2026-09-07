@@ -415,8 +415,8 @@ def 构建URL(基础URL: str, 参数: Optional[Dict[str, str]] = None) -> str:
         完整的 URL 字符串
 
     示例:
-        >>> 构建URL("https://api.example.com/search", {"q": "段言", "page": "1"})
-        'https://api.example.com/search?q=%E6%AE%B5%E8%A8%80&page=1'
+        >>> 构建URL("https://api.example.com/search", {"q": "光明", "page": "1"})
+        'https://api.example.com/search?q=%E5%85%89%E6%98%8E&page=1'
     """
     if not 参数:
         return 基础URL

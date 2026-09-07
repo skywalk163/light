@@ -170,7 +170,7 @@ class TestSelfHostCompile:
         """验证生成的代码包含光明相关标识符"""
         py_code, _ = _compile_bootstrap()
 
-        # 检查是否包含 "light" 或 "光明" 相关标识（品牌统一为光明 / light，原 duan/段言 期望已废止）
+        # 检查是否包含 "light" 或 "光明" 相关标识（品牌统一为光明 / light，原 duan/段言 期望已废止）  # 保留：旧品牌名向后兼容
         has_light = 'Light' in py_code or '光明' in py_code or 'light' in py_code.lower()
         has_bootstrap = 'bootstrap' in py_code.lower()
         has_light_compiler = '光明' in py_code or 'light' in py_code.lower()

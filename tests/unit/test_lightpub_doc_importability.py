@@ -54,7 +54,7 @@ if _TOOLS not in sys.path:
 from lightpub_importability import 判定  # noqa: E402
 
 # 与 doc_block_scan.LANG_TAGS 保持一致：四个标签都算「声称是光明代码」
-_光明标签 = frozenset(('light', '光明', 'duan', '段言'))
+_光明标签 = frozenset(('light', '光明', 'duan', '段言'))  # 保留：旧品牌名向后兼容
 _围栏 = re.compile(r'^([ \t]*)(?:`{3,}|~{3,})[ \t]*(\w*)[ \t\r]*$')
 _导入行 = re.compile(r'^导入\s+\S+$')
 

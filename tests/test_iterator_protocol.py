@@ -1,5 +1,5 @@
 """
-段言迭代器协议测试
+光明迭代器协议测试
 
 测试内容：
 1. 自定义迭代器：__迭代__ / __下一项__ 魔术方法
@@ -18,7 +18,7 @@ from code_generator import PythonCodeGenerator
 
 
 def run_light(code: str) -> str:
-    """使用 src 后端解析并执行段言代码，返回输出"""
+    """使用 src 后端解析并执行光明代码，返回输出"""
     parser = LightParser()
     module = parser.parse(code)
     generator = PythonCodeGenerator()
@@ -37,7 +37,7 @@ def run_light(code: str) -> str:
 
 
 def _compile(duan_code: str) -> str:
-    """编译段言代码，返回Python源码"""
+    """编译光明代码，返回Python源码"""
     parser = LightParser()
     module = parser.parse(duan_code)
     generator = PythonCodeGenerator()
