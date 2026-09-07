@@ -4,6 +4,89 @@
 > 按版本号从新到旧排列。同一版本号在两侧都存在且内容不同时，条目内容取并集。
 > 自 v7.0.0 起统一为 **光明（Light）** 品牌，包名 `light`，CLI 入口 `light` / `lightc`。
 
+## [Unreleased] — 2026-08-15 ~ 2026-09-07 — 原生腿覆盖 · codegen 缺陷根因修复 · stdlib 能力扩展 · CI 红灯全清
+
+> 本阶段以「原生腿覆盖 + codegen 缺陷根因修复」为主线，分 R10/R11/R12/R13 四批 + CI 修复批推进。
+> 原生腿能力从 builtin~350/runtime~200 扩展到 **builtin 411 / runtime 262 / Total 711**；
+> stdlib .light 模块从 60+ 扩展到 **109 个**；CI 两段红灯（ci_eval 冒烟 6 块 + pytest 16 failed）全部修复。
+
+### 新增
+
+#### 原生腿（LLVM/C runtime）能力扩展
+- **TLS POSIX mbedTLS 后端**：`runtime_typed.c` 新增 mbedTLS 实现（`LIGHT_TLS_MBEDTLS` 宏），API 与 Windows Schannel 对齐（证书校验/握手/读写/错误码）；修复 bio_send/bio_recv 握手自锁（bio_recv 先 flush 再 recv），POSIX 下 HTTPS 从永远阻塞到可用
+- **SHA512 / HMAC / PBKDF2**：runtime C 层 `dv_sha512` / `dv_pbkdf2_hmac_sha256_1` 完整实现
+- **uuid v3/v5 真语义**：runtime C 层 `dv_uuid5` / `dv_uuid3`（复用 dv_sha1/dv_md5），codegen 注册 UUID5/UUID3 builtin，与 CPython `uuid.uuid5()`/`uuid.uuid3()` 逐字符一致
+- **编码/哈希运行期内建**：非 LLVM 路径注册 `_b64_encode` / `_md5` / `_sha1` / `_sha256` / `_sha512` / `_hmac_sha256`（Python `base64`/`hashlib`/`hmac` 包装），与 LLVM `dv_*` 字节级对拍
+- **嵌套容器序列化**：`dv_to_string_depth` 深度上限 16 防自引用
+- **能力清单自动重建**：`scripts/gen_native_capability_json.py` + `tests/unit/test_native_leg_capability.py`（11 用例校验）
+
+#### stdlib 模块扩展（109 个 .light）
+- **网络请求**（473 行）：HTTPS（Schannel/mbedTLS）/ POST/PUT/DELETE / 301-308 重定向（默认最大 5 次）/ chunked 解码 / 超时
+- **农历**（599 行）：1900-2098 精确数据表（199 年，逐日推导），公历转农历/农历转公历/闰月判断/干支纪年/生肖
+- **中国行政区划**（722 行）：34 省级 + 445 地级市完整列表（GB/T 2260 代码），分段函数返回（每函数 ≤6 省，O0 编译安全）
+- **中国传统节日**：随农历范围扩展，春节/元宵/清明/端午/中秋等公历+农历节日
+- **正则表达式**（纯光明引擎 re.light）：`re_编译`/`re_匹配`/`re_搜索`/`re_替换`，不依赖 CPython re
+- **对象池缓存**：槽位池动态分配，放入/获取/复用
+- **中文处理族**：中文分词 / 拼音转换 / 中文数字转换 / 中文文本处理 / 中文NLP / 中文编码
+- **数据结构族**：数据结构 / 数据结构轻量 / 数据验证 / 集合操作 / 向量
+- **工具族**：断言工具 / 断言工具轻量 / 缓存 / 进度条 / 度量 / 事件总线 / 重试 / 装饰器 / 模式校验 / 配置 / 模板 / 排版 / 颜色
+- **系统族**：进程 / 进程树 / 线程 / 信号 / 选择器 / 伪终端 / 外部命令 / 系统接口 / 操作系统 / 环境 / 临时文件 / 路径护栏 / 路径运算 / 文件匹配 / 文件流 / 高级文件
+- **网络族**：网络 / HTTP / HTTP服务端 / SSE / DNS / 大模型客户端 / 代理循环 / 代理工具集
+- **数学族**：数学 / 统计 / 随机 / 复数 / 排序
+- **字符串族**：字符串处理 / 字符串工具 / 字符串工具轻量 / 字符串常量 / 格式化
+- **编解码族**：Base64 / 哈希 / 加密 / 编码 / 编码解码 / JSON / JSON编解码 / JSON核心 / JSONL / XML / CSV / CSV读写器
+- **日期族**：日期时间 / 日期时间轻量 / 时间管理 / 历法
+- **FFI 族**：FFI / FFI增强
+- **其他**：并发 / 插件 / 参数解析 / 测试 / 性能 / 日志 / 日志系统增强 / 图像处理基础 / 身份证校验 / 手机号校验 / 内置核心系列（列表/路径/判型/转换/字典/字符串）/ inspect / sys / time / uuid工具 / re
+
+#### 工具链与生态
+- **lightharness Web 服务器**：`src/web服务器.light` + `examples/运行Web服务器.light` + `stdlib/lightpub/Web框架.py`
+- **lightpub 文档站**：`docs/lightpub/*.md` 自动生成（`tools/gen_lightpub_docs.py`），可导入性闸门（`tools/lightpub_importability.py` + `tests/unit/test_lightpub_doc_importability.py`）
+
+### 修复
+
+#### codegen 缺陷根因修复（R12 批 17 个）
+- **R12A（4 个）**：一元运算符 / 布尔运算 / 类型转换 / dv_to_int bool 运行时映射
+- **R12B（6 个）**：变量声明 / 容器写回 / 索引写回 —— 核心实现 runtime REF 写透链（`dv_list_set_inplace` / `dv_set_ref` / `dv_index_set` REF 路径 / `dv_dict_set` 同存储 no-op / `dv_dict_get` deref / `dv_to_float` deref）
+- **R12C（7 个）**：方法分派 / 语法 / 控制流 —— 槽位池动态分配（解决大列表 O0 编译栈溢出）
+
+#### runtime 残余缺陷修复（R13A 3 个）
+- 嵌套容器序列化走旧路径 → `dv_to_string_depth`
+- 反转字符串多态（builtin 反转只接列表、字符串接收者返回空列表）
+- `dv_to_int` bool 分支（整数(真) 返回 0）
+
+#### CI 红灯修复（6 项）
+- **ci_eval 冒烟 6 块**：Base64编码/MD5/SHA1/SHA256/SHA512/提取邮箱 —— 非 LLVM 路径运行期内建注册 + re 模块解析劫持修复
+- **re 模块解析劫持**：`从 re 导入 re_编译` 解析到 CPython re → 纯光明别名 `_light_re`（白名单只含 re，排除 sys/time/inspect）；`导入 re` 保持 CPython（`re.compile` 等完整 API）
+- **模块表缺 24 模块**：`原生腿产品清单.json` 补齐 R11C/R12 新增模块
+- **纯光明 .light 契约对齐**：数学.light 补 `pi` 常量 + 10 英文别名（pow/sqrt/sin/cos/tan/floor/ceil/round/random）+ `四舍五入(x, 小数位数=0)` 双参；三数据模块补 `ChinaRegion`/`LunarCalendar`/`ChineseFestival` 类契约
+- **对象池写回回归**：R12B REF 写回或 R12C 槽位池改变池内部列表/字典写回语义 → codegen 修复 + 最小复现回归测试
+- **R13B 笔误（11 处）**：`新建列表()` → `列表创建()`（6 处，内建函数名是 `列表创建`）；`追加(结果, x)` → `结果.追加(x)`（5 处，函数调用形式被误映射到文件模式常量）
+
+#### 其他修复
+- mbedTLS bio_send/bio_recv 握手自锁（bio_recv 先 flush 再 recv）
+- 导入钩子 `_light_` 前缀剥离（纯光明别名支持）
+- compiler.py T9A 类名→所属模块映射（类方法生成时恢复 _current_module）
+- 能力清单证据行号重建（CI-C 修改 codegen_typed.py 导致行号偏移）
+
+### 变更
+- 原生腿能力清单：builtin ~350→**411**、runtime ~200→**262**、Total ~550→**711**
+- stdlib .light 模块：60+→**109**
+- 分层语法 L0-L7 稳定，L0 核心字 30 字永久冻结
+- 三后端架构：`src`（自研解析器，默认）· `antlr`（兼容旧语法）· `native`/`llvm-typed`（LLVM 原生编译）
+- CI 闸门：ci_eval 五把尺子（主基准/接线/体检/冒烟/兜底）+ pytest 回归闸门（基线对比）
+
+### 已知限制（归后续批次）
+- runtime 字典值所有权/引用计数重构（大工程，非写路径的值语义共享）
+- 导入钩子全局 install() 仍无进程级卸载（靠 .light 版本自身正确避免污染）
+- 网络请求能力边界：multipart/HTTP2/Cookie/非 ASCII URL 编码
+- 农历范围 1900-2098，范围外走近似降级
+- 行政区划区县仅覆盖 9 省部分城市
+- 断言 Callable 族/进度条实时刷新（需语言层函数值可调用/yield 支持）
+- 全量 pytest 仍有 ~160 基线已知失败（非阻塞，归后续批次逐一清理）
+
+---
+
 ## [7.0.0] - 2026-08-14 — 双线合并 · 统一为光明（Light）品牌
 
 光明（Light）与光明（Light）两条开发主线正式合并，统一为 **光明（Light）** 品牌。
