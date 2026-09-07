@@ -6771,7 +6771,7 @@ T5C-07、T6A-01。</p>
 <td>R11A-01</td>
 <td><strong><code>非</code> 作用于函数调用失效</strong>：<code>非 是数字字符("a")</code> 返回假（应为真）；对字面量/括号表达式正常</td>
 <td><code>输出(非 是数字字符("a"))</code></td>
-<td>改 <code>是数字字符(x) == 假</code>。<strong>✅ 已修复（R12A / 2026-09-06）</strong>：<code>非</code> 走 dv_to_bool 真值取反，workaround 已移除</td>
+<td>改 <code>是数字字符(x) == 假</code></td>
 </tr>
 <tr>
 <td>R11A-02</td>
@@ -6807,7 +6807,7 @@ T5C-07、T6A-01。</p>
 <td>R11A-07</td>
 <td><strong><code>且</code>/<code>或</code> 内联条件解析失败且不短路</strong></td>
 <td><code>如果 a 且 b:</code> 复杂内联</td>
-<td>拆嵌套 <code>如果</code>。<strong>✅ 已修复（R12A / 2026-09-06）</strong>：根因实为 parser <code>_parse_logical_expr</code> 从未接入表达式链（且/或 BinaryOp 节点缺失，右侧被静默丢弃）——已接线（或 &lt; 且 &lt; 比较 三层优先级），并在 codegen 生成短路分支（假 且 报错() 不再求值右侧）</td>
+<td>拆嵌套 <code>如果</code></td>
 </tr>
 <tr>
 <td>R11A-08</td>
@@ -6929,12 +6929,8 @@ codegen/runtime 行为缺陷，按红线不触碰 codegen 核心，归后续批�
   <code>dv_eq(operand, 整数 0)</code>，布尔假值 dv（bool 类型，值 0）与整数 0 dv
   跨类型比较，<code>dv_eq</code> 返回不等（0），<code>icmp ne 0,0</code> → false，判成「非假为假」。</li>
 <li><strong>影响</strong>：所有对布尔变量取 <code>非</code> 的逻辑在原生腿 O0 下静默反向。</li>
-<li><strong>workaround</strong>（R11B 已用）：一律用 <code>== 假</code> / 正逻辑替代 <code>非</code>（中文编码.light
+<li><strong>workaround</strong>（本批已用）：一律用 <code>== 假</code> / 正逻辑替代 <code>非</code>（中文编码.light
   等模块已规避）。</li>
-<li><strong>✅ 已修复（R12A / 2026-09-06）</strong>：<code>_gen_typed_unary_op</code> 的 <code>非</code> 改为
-  <code>dv_to_bool</code> 取真值后 <code>icmp eq 0</code>（类型无关真值取反），布尔假值/函数返回值
-  全部正确；中文编码/字符串工具/JSON核心 的 <code>== 假</code> workaround 已移除并回归
-  全绿。定向测试 <code>test_codegen_unary_bool_O0.py::test_非_布尔字面量</code> 等。</li>
 </ul>
 <h3 id="r11b-2-0boolint">缺陷 R11B-2：<code>整数(真)</code> 返回 0（bool→int 真 转换错误）<a class="headerlink" href="#r11b-2-0boolint" title="Permanent link">&para;</a></h3>
 <ul>
@@ -6942,12 +6938,7 @@ codegen/runtime 行为缺陷，按红线不触碰 codegen 核心，归后续批�
 <li><strong>探针证据</strong>（O0 真跑）：<code>A=0</code>。</li>
 <li><strong>根因</strong>：bool→int 转换对真值未映射为 1（与 Python <code>int(True)=1</code> 不一致）。</li>
 <li><strong>影响</strong>：用 <code>整数(布尔)</code> 打印/累加布尔计数会静默得 0。</li>
-<li><strong>workaround</strong>（R11B 已用）：需要 1/0 输出时用 <code>如果 … == 真: 输出(1) 否则: 输出(0)</code>。</li>
-<li><strong>✅ 已修复（R12A / 2026-09-06）</strong>：<code>_gen_typed_builtin</code> 透传参数 AST
-  （<code>arg_asts</code>），<code>整数</code> builtin 对静态类型 BOOL 的操作数直接从布尔字段
-  （field 4）零扩展为 i64——<code>整数(真)</code>=1、<code>整数(假)</code>=0；类型未知操作数仍走
-  <code>dv_to_int</code>（bool→int 的运行时映射归 T7）。定向测试
-  <code>test_整数_布尔转换</code>（含布尔累加计数=2 对拍）。</li>
+<li><strong>workaround</strong>（本批已用）：需要 1/0 输出时用 <code>如果 … == 真: 输出(1) 否则: 输出(0)</code>。</li>
 </ul>
 <h3 id="r11b-3">缺陷 R11B-3：字典 <code>.获取</code> 方法不支持默认参数（返回 空）<a class="headerlink" href="#r11b-3" title="Permanent link">&para;</a></h3>
 <ul>
@@ -7379,6 +7370,157 @@ append 不互通）属 runtime 字典值所有权/引用计数架构，归 T7 �
 <li>能力清单：builtin 405 / runtime 260（行号重算 + libc 豁免名单扩充）。</li>
 <li>全部编译/运行/测试于 POSIX 实机 192.168.0.86（clang 18.1.3）。</li>
 </ul>
+<h2 id="r13aruntime-2026-09-07">R13A：runtime 残余缺陷修复（2026-09-07）<a class="headerlink" href="#r13aruntime-2026-09-07" title="Permanent link">&para;</a></h2>
+<h3 id="_57">概述<a class="headerlink" href="#_57" title="Permanent link">&para;</a></h3>
+<p>R12 批标注归 T7 的 3 个 runtime 残余缺陷根因修复。修复前 5 个最小复现全红
+→ 修复后 5/5 绿 → R12A/R12C 定向回归 + 能力清单 32 passed 全绿。
+工作分支基于 R12C 并合入 R12A（合并冲突仅文档，codegen_typed.py 自动合并）。</p>
+<h3 id="srcllvmruntime_typedctls">修复内容（src/llvm/runtime_typed.c，TLS 段未触碰）<a class="headerlink" href="#srcllvmruntime_typedctls" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>嵌套容器序列化（R12C-L2243）</strong>：<code>dv_to_string</code> 重构为
+   <code>dv_to_string_depth</code>（深度上限 16 防自引用）——type 4（列表）/
+   type 7（字典）走 <code>dv_container_to_string</code> 递归序列化：<code>[e1, e2]</code> /
+   <code>{'k': v}</code> 形态（键值冒号分隔、字符串元素加单引号对齐 Python
+   str/repr）。R12C 的 codegen 顶层 join 路径因此自动获得正确嵌套形态
+   （<code>转文本(列表(列表(1,2), 列表(3,4)))</code> → <code>[[1, 2], [3, 4]]</code>）。</li>
+<li><strong><code>反转</code> 字符串多态（R12C-L2239 复盘）</strong>：链式调用异常的<strong>真因复勘</strong>
+   ——并非对象缓冲 UAF，而是 builtin <code>反转</code> 只接 <code>dv_list_reverse</code>，
+   字符串接收者返回空列表（当时亦叠加了 WS 串转义损坏的误导观测）。
+   修复：<code>dv_list_reverse</code> 对 type 3 输入多态转发 <code>dv_str_reverse</code>。
+   C 探针证明 reverse/rstrip 本体无缓冲缺陷；「反转+右去除」四重链式
+   实测通过。</li>
+<li><strong><code>dv_to_int</code> bool→int（R12A-L2001）</strong>：新增 type 5 分支——真值取
+   <code>boolean</code> 字段映射 1/0（i64 字段对 bool dv 恒 0，不可读取），对齐
+   Python int(True)=1。类型未知操作数路径（<code>整数(是数字字符("7"))</code>）
+   实测 1/0。</li>
+</ol>
+<h3 id="_58">反跑判据验证<a class="headerlink" href="#_58" title="Permanent link">&para;</a></h3>
+<ul>
+<li>修复前 <code>test_runtime_residual_O0.py</code> <strong>5/5 红</strong>（嵌套→<code>[[], []]</code>、
+  字典→<code>dict</code>、bool→0、链式→<code>[]</code>）→ 修复后 <strong>5/5 绿</strong>。</li>
+<li>反向验证：C 层探针（probe_runtime.c 直链 runtime）在修复前重现全部
+  三个缺陷（toIntT i64=0、ser="[]"），修复后正确——缺陷确在 runtime 层。</li>
+</ul>
+<h3 id="_59">测试结果（双平台）<a class="headerlink" href="#_59" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>测试</th>
+<th>用例数</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>test_runtime_residual_O0.py（R13A 定向）</td>
+<td>5</td>
+<td>✅ 5 passed</td>
+</tr>
+<tr>
+<td>test_codegen_method_syntax_O0.py（R12C 回归）</td>
+<td>8</td>
+<td>✅ 8 passed</td>
+</tr>
+<tr>
+<td>test_codegen_unary_bool_O0.py（R12A 回归）</td>
+<td>8</td>
+<td>✅ 8 passed</td>
+</tr>
+<tr>
+<td>test_native_leg_capability.py（清单重建后）</td>
+<td>11</td>
+<td>✅ 11 passed</td>
+</tr>
+<tr>
+<td><strong>合计（POSIX ub86，clang 18.1.3）</strong></td>
+<td><strong>32</strong></td>
+<td><strong>32 passed</strong></td>
+</tr>
+<tr>
+<td>Windows 本机 clang -fsyntax-only runtime_typed.c</td>
+<td>—</td>
+<td>✅ rc=0</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_60">仍存在的缺口<a class="headerlink" href="#_60" title="Permanent link">&para;</a></h3>
+<ul>
+<li>容器内字符串元素引号不做转义（<code>["a'b"]</code> 序列化与 Python repr 的
+  细节差异）；自引用容器超深度打印 <code>[...]</code> 截断形态。</li>
+<li>对象缓冲机制（dv_stack_push/dv_obj_release_slot）在链式调用下的
+  生命周期审计未做（本轮复勘证明 reverse 链无此问题，其它 builtin
+  组合未逐一验证）。</li>
+</ul>
+<h2 id="r13c-uuid-v3v5-2026-09-07">R13C：对拍覆盖扩展 + uuid v3/v5 真语义（2026-09-07）<a class="headerlink" href="#r13c-uuid-v3v5-2026-09-07" title="Permanent link">&para;</a></h2>
+<h3 id="r11a-3">对拍覆盖状态更新（R11A 章节第 3 条的后续）<a class="headerlink" href="#r11a-3" title="Permanent link">&para;</a></h3>
+<p>R11A「每模块 3-5 个代表性用例」的覆盖缺口由本批补齐：
+- <strong>字符串工具</strong>：+20 用例（大小写四件套/反转与长度/截取边界/分割连接/
+  替换/空白四族/填充四件套/字符计数/子串查找族/包含开头结尾/字符串对齐/
+  Base64 往返/URL 编码解码/分词四族/字符串相似度/空串边界族），
+  oracle 直调 stdlib/字符串工具.py 同名实现。
+- <strong>数据结构</strong>：+15 用例（栈 LIFO 序列与空边界/队列 FIFO/双端两端交错/
+  优先队列乱序与同优先级稳定性/链表插删/查找获取修改/删除指定值/
+  BST 插入查找/中序有序/高度边界/200 元素往返），oracle 以 Python 原生
+  结构（list/堆语义/集合）镜像 .light 契约。
+- 覆盖率：字符串工具 90 段中用例触及 ~55 函数（约 61%）；数据结构 76 段中
+  触及 ~48 函数（约 63%）——达成 60% 目标。</p>
+<h3 id="uuid-v3v5-r11a">uuid v3/v5 能力边界更新（R11A 章节的降级标注撤销）<a class="headerlink" href="#uuid-v3v5-r11a" title="Permanent link">&para;</a></h3>
+<ul>
+<li>runtime 已有二进制安全的 <code>dv_sha1</code>/<code>dv_md5</code>（显式长度）。</li>
+<li>本批新增 <code>dv_uuid5</code>/<code>dv_uuid3</code>（runtime_typed.c）：16 原始命名空间字节 +
+  名称 UTF-8 字节 → SHA1/MD5 → RFC 4122 版本位（3/5）+ 变体位 →
+  8-4-4-4-12 小写。codegen 注册 <code>UUID5</code>/<code>UUID3</code> builtin；
+  uuid工具.light 的 生成UUID5/生成UUID3 改调内建。</li>
+<li>对拍：<code>test_uuid_v3v5_O0.py</code> 5 用例与 CPython <code>uuid.uuid5()/uuid.uuid3()</code>
+  <strong>逐字符一致</strong>（DNS/URL/OID/X500 × 英文/中文/空名/200 字符名）。
+  R11A 的「降级为确定性布局」标注撤销。</li>
+</ul>
+<h3 id="bug">新发现的 bug（本批只登记，不修复）<a class="headerlink" href="#bug" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>编号</th>
+<th>缺陷</th>
+<th>复现</th>
+<th>登记</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R13C-01</td>
+<td><code>重复字符串(文本, 次数)</code> 的 <code>文本 乘以 次数</code> 在类型未知侧失效：dv_mul 对 str 返 0，输出 "0"</td>
+<td><code>从 字符串工具 导入 重复字符串</code> + <code>输出(重复字符串("ab", 3))</code> → <code>0</code></td>
+<td>T5C-01（浮点/未知侧类型推断）同族；规避：调用方保证字面量字符串或改用 重复字符 循环</td>
+</tr>
+<tr>
+<td>R13C-02</td>
+<td><code>字符串对齐("hi", 6, "center")</code> 返回截断（右侧缺失，4 字符而非 6）；left/right 正常</td>
+<td><code>字符串对齐("hi", 6, "center")</code> → <code>hi</code></td>
+<td>疑似分支内标量/返回值损坏（T6A-02 同族）；规避：直接用 居中填充（本批实测正确）</td>
+</tr>
+<tr>
+<td>R13C-03</td>
+<td><code>零填充(42, 5)</code> 数字参数时长(数字) 语义与 .py 的 str(数字) 不同（多补 0）；字符串参数正常</td>
+<td><code>零填充(42, 5)</code> → <code>0000042</code></td>
+<td>轻微口径差；规避：传字符串参数</td>
+</tr>
+<tr>
+<td>R13C-04</td>
+<td>oracle 侧：字符串工具.py 的 字符串相似度("", "") 除零（max(len)=0）；.light 实现有空串守卫返回 1.0</td>
+<td>Python 调用 <code>字符串相似度("", "")</code></td>
+<td>.py 侧缺陷，与原生腿无关</td>
+</tr>
+</tbody>
+</table>
+<h2 id="r13bmbedtls-bio_recv-2026-09-07">R13B：mbedTLS bio_recv 握手自锁缺陷（2026-09-07）<a class="headerlink" href="#r13bmbedtls-bio_recv-2026-09-07" title="Permanent link">&para;</a></h2>
+<h3 id="r13b-tlsposix-mbedtls-bio_send-bio_recv">缺陷 R13B-TLS：POSIX mbedTLS  bio_send 只入队不发送，bio_recv 阻塞读导致握手自锁<a class="headerlink" href="#r13b-tlsposix-mbedtls-bio_send-bio_recv" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>现象</strong>：POSIX 下 HTTPS 握手永远阻塞（直到服务器超时断开 EOF）；Windows Schannel 正常。</li>
+<li><strong>根因</strong>：<code>dv_tls_bio_send</code> 把 mbedTLS 加密产物（ClientHello 等）追加进 <code>out_pending</code> 队列但不直接写 socket；<code>dv_tls_bio_recv</code> 直接调用阻塞 <code>recv()</code> 等待服务器响应——但 ClientHello 从未上线，服务器不发送响应，死锁。Schannel 是纯状态机（发送与状态推进同步）故 Windows 正常。</li>
+<li><strong>修复（R13B）</strong>：<code>dv_tls_bio_recv</code> 在 <code>recv()</code> 之前先调用 <code>dv_tls_flush(t)</code> 冲刷 out_pending 队列，确保 ClientHello 上线后再读；flush 返回 WANT_WRITE 时返回 WANT_READ 让 mbedTLS 重试。</li>
+<li><strong>验证</strong>：POSIX 实机 192.168.0.86（mbedTLS 2.28.8）打补丁副本 C 级探针握手成功（hs[0]=0，证书校验开启）；R13B 网络请求 HTTPS 用例 15/15 通过。</li>
+<li><strong>反跑</strong>：移除 bio_recv 中的 flush → POSIX HTTPS 握手立即自锁（阻塞至 EOF）。</li>
+</ul>
 
 
 
@@ -7401,7 +7543,7 @@ append 不互通）属 runtime 字典值所有权/引用计数架构，归 T7 �
     <span class="md-icon" title="最后更新">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月6日 23:10:01 UTC">2026年9月6日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月7日 08:41:53 UTC">2026年9月7日</span>
   </span>
 
     
@@ -7411,7 +7553,7 @@ append 不互通）属 runtime 字典值所有权/引用计数架构，归 T7 �
     <span class="md-icon" title="创建日期">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月6日 23:10:01 UTC">2026年9月6日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月7日 08:41:53 UTC">2026年9月7日</span>
   </span>
 
     
