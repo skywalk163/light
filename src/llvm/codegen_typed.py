@@ -5837,6 +5837,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 初始化临时槽位池（否则会使用上一个函数残留的池指针）
         self._temp_slot_index = 0
         self._dv_ssa_to_slot = {}
+        # T9A 回归修复（4897ec90 引入）：下方函数尾 `self._current_module = prev_module`
+        # 需要本函数开始时先把当前模块名存下来，否则协程段会抛 NameError: prev_module。
+        # 此时 self._current_module 已由调用方 _gen_async_segment 切到本模块。
+        prev_module = self._current_module
         
         # 协程函数定义处。B7 曾在此挂 TODO(移交:A7)，说「O2 会打坏协程 yield
         # 基本块（Duff's device），也许得在这儿发 optnone/noinline」——

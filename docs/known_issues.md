@@ -514,6 +514,19 @@ Windows 下按 GBK 输出会被当成乱码误判成冒烟不通过；现钉 `PY
 整个文件被注释掉、只剩形状，`stdlib/日期时间.light` 是其中之一（正因为没有魔数所以无害）。
 待定方案是缩成「导出清单 + 显式 NotImplemented」，会影响自举率口径，未决。
 
+### 12.7 [2026-09-07·CIA-timeout 调查抓出] `_gen_coroutine_function` 缺 `prev_module` 保存 → 协程段 NameError（**已修**）
+
+- **现象**：原生腿协程测试（`tests/test_native_cli.py` 的 `协程` 四档用例、`tests/test_llvm_net.py::TestB3EventLoop::test_coro_sleep_basic`）编译期抛 `NameError: name 'prev_module' is not defined`（`src/llvm/codegen_typed.py:5927`）。
+- **根因**：commit `4897ec90`（T9A `_safe_func_name` 跨模块同名段根因修复）在函数尾新增 `self._current_module = prev_module` 的「恢复」，但函数开头没有对应的 `prev_module = self._current_module` 保存。`_gen_async_segment` 同款路径在 5561 行正确保存，协程函数路径漏了。
+- **影响窗口**：该回归在 **run 161 之后**引入。run 161（≈ 841f1d45）时协程段还能正常编译，正是那时 `睡眠(50)`×4 + `睡眠(100)` 真的跑出 ~300s 纯 idle sleep，把主测试（xdist 装不上时串行）拖爆超时。修复 `prev_module` 后协程测试恢复可编译可跑。
+- **处置**：已在 `src/llvm/codegen_typed.py` `_gen_coroutine_function` 开头补 `prev_module = self._current_module`（commit 见 CIA-timeout 交付）。本次 timeout 的真正根因是测试里 **`睡眠(50)`/`睡眠(100)` 过长**，已同步降到 `睡眠(2)`（见下条 §超时根因）。
+
+### 12.8 [2026-09-07·CIA-timeout 根因] 原生协程测试 `睡眠(50)`/`睡眠(100)` 过长 → 主测试超时（**已修**）
+
+- **根因**：`tests/test_native_cli.py::Test优化档矩阵::test_四档产物真跑` 的 `协程` 用例源码含 `睡眠(50)`，按 `优化级别=[0,1,2,3]` 参数化 = 4 次 × 50s；`tests/test_llvm_net.py::TestB3EventLoop::test_coro_sleep_basic` 含 `睡眠(100)`。二者都在「全量除 e2e」主测试集内（未被 CI 排除）。
+- **为什么炸**：CI 主测试 `pytest ... -n auto`；当 devpi 镜像装不上 `pytest-xdist` 时退回串行（见 ci.yml 注释），4×50s + 100s = 300s 纯挂起，落在 97%→98% 这一格，把主测试从 run 114 基线 ~880s 推到 1061s+ 被 act_runner 整体超时（29min）杀掉、无 junit。
+- **判据本质**：这两条测试只断言协程 yield/恢复的**输出顺序**，不需要任何真实时长；`睡眠(2)` 足以证明事件循环挂起后恢复。已改为 `睡眠(2)`（4×2s + 2s ≈ 10s 代替 300s）。
+
 ---
 
 ## 十三、仓库债务登记（D3 本轮明文标注，2026-08-23）
