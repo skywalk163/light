@@ -1,5 +1,5 @@
 /**
- * 光明 (Light) WebAssembly 浏览器运行时 v4.1
+ * 光明 (Light) WebAssembly 浏览器运行时 v7.0
  * 在 Playground 中提供客户端 WASM 执行模式
  */
 
