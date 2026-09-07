@@ -2924,6 +2924,77 @@ char* dv_sha1(const char* data, int len) {
     return hex_encode(digest, 20);
 }
 
+static int r13c_uuid_parse_ns16(const char* ns, unsigned char out[16]) {
+    int hi = 1, n = 0;
+    unsigned char byte = 0;
+    if (!ns) return 0;
+    for (const char* p = ns; *p && n < 16; p++) {
+        if (*p == '-') continue;
+        int v;
+        if (*p >= '0' && *p <= '9') v = *p - '0';
+        else if (*p >= 'a' && *p <= 'f') v = *p - 'a' + 10;
+        else if (*p >= 'A' && *p <= 'F') v = *p - 'A' + 10;
+        else return 0;
+        if (hi) { byte = (unsigned char)(v << 4); hi = 0; }
+        else { byte |= (unsigned char)v; out[n++] = byte; hi = 1; }
+    }
+    return n == 16;
+}
+
+static void r13c_uuid_format(const unsigned char u[16], char* out /* >=37 */) {
+    snprintf(out, 37,
+        "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+        u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7],
+        u[8], u[9], u[10], u[11], u[12], u[13], u[14], u[15]);
+}
+
+static void r13c_uuid_named(LightValue* result, LightValue* ns_dv,
+                            LightValue* name_dv, int use_md5) {
+    unsigned char ns[16], u[16];
+    ns_dv = dv_deref(ns_dv);
+    name_dv = dv_deref(name_dv);
+    if (!ns_dv || ns_dv->type != 3 || !ns_dv->str ||
+        !r13c_uuid_parse_ns16(ns_dv->str, ns)) {
+        dv_str(result, "");
+        return;
+    }
+    const char* name = (name_dv && name_dv->type == 3 && name_dv->str)
+                       ? name_dv->str : "";
+    size_t name_len = strlen(name);
+    size_t total = 16 + name_len;
+    char* data = (char*)malloc(total);
+    char* out = (char*)malloc(37);
+    if (!data || !out) {
+        free(data); free(out);
+        dv_str(result, "");
+        return;
+    }
+    memcpy(data, ns, 16);
+    if (name_len) memcpy(data + 16, name, name_len);
+    char* hex = use_md5 ? dv_md5(data, (int)total) : dv_sha1(data, (int)total);
+    free(data);
+    if (!hex) { free(out); dv_str(result, ""); return; }
+    for (int i = 0; i < 16; i++) {
+        unsigned b = 0;
+        sscanf(hex + 2 * i, "%2x", &b);
+        u[i] = (unsigned char)b;
+    }
+    free(hex);
+    u[6] = (unsigned char)((u[6] & 0x0F) | (use_md5 ? 0x30 : 0x50));
+    u[8] = (unsigned char)((u[8] & 0x3F) | 0x80);
+    r13c_uuid_format(u, out);
+    dv_str(result, out);
+    free(out);
+}
+
+void dv_uuid5(LightValue* result, LightValue* ns, LightValue* name) {
+    r13c_uuid_named(result, ns, name, 0);
+}
+
+void dv_uuid3(LightValue* result, LightValue* ns, LightValue* name) {
+    r13c_uuid_named(result, ns, name, 1);
+}
+
 /* ================================================================
  * SHA-256 算法
  * ================================================================ */
