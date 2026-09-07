@@ -723,6 +723,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             # 哈希/编码
             f'declare ptr @dv_md5(ptr, i32)',
             f'declare ptr @dv_sha1(ptr, i32)',
+            f'declare void @dv_uuid5(ptr, ptr, ptr)',
+            f'declare void @dv_uuid3(ptr, ptr, ptr)',
             f'declare ptr @dv_sha256(ptr, i32)',
             # T7D：SHA512（C 层 64 位字实现，光明缺位移/按位运算符无法可靠模拟）
             f'declare ptr @dv_sha512(ptr, i32)',
@@ -2562,6 +2564,27 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{out} = call ptr @dv_pbkdf2_hmac_sha256_1(ptr {pw_ptr}, ptr {salt_ptr})')
                 return self._create_str_dv(out), 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
+        # R13C：UUID v3/v5 真语义——runtime C 层（16 字节命名空间 + 名称 UTF-8
+        # 字节 → SHA1/MD5 → RFC 4122 版本位/变体位 → 8-4-4-4-12），与 CPython
+        # uuid.uuid3/uuid5 字节级一致。
+        if name in ('UUID5', 'uuid5', '生成UUID5内建'):
+            if len(args) >= 2:
+                ns_slot = self._store_dv(args[0])
+                name_slot = self._store_dv(args[1])
+                out_slot = self._new_dv_slot()
+                self.emit(f'call void @dv_uuid5(ptr {out_slot}, ptr {ns_slot}, ptr {name_slot})')
+                return self._load_dv(out_slot), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
+        if name in ('UUID3', 'uuid3', '生成UUID3内建'):
+            if len(args) >= 2:
+                ns_slot = self._store_dv(args[0])
+                name_slot = self._store_dv(args[1])
+                out_slot = self._new_dv_slot()
+                self.emit(f'call void @dv_uuid3(ptr {out_slot}, ptr {ns_slot}, ptr {name_slot})')
+                return self._load_dv(out_slot), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
 
         if name in ('四舍五入', 'round', '_round'):
             # dv_round(result, a)：a 已是整数则原样克隆，否则 f64 四舍五入取整。
