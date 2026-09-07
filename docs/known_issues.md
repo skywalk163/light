@@ -2371,3 +2371,47 @@ R11A「每模块 3-5 个代表性用例」的覆盖缺口由本批补齐：
 - **修复（R13B）**：`dv_tls_bio_recv` 在 `recv()` 之前先调用 `dv_tls_flush(t)` 冲刷 out_pending 队列，确保 ClientHello 上线后再读；flush 返回 WANT_WRITE 时返回 WANT_READ 让 mbedTLS 重试。
 - **验证**：POSIX 实机 192.168.0.86（mbedTLS 2.28.8）打补丁副本 C 级探针握手成功（hs[0]=0，证书校验开启）；R13B 网络请求 HTTPS 用例 15/15 通过。
 - **反跑**：移除 bio_recv 中的 flush → POSIX HTTPS 握手立即自锁（阻塞至 EOF）。
+
+
+## R13D：_light_import_hook 拦截标准库模块导致循环导入（2026-09-07）
+
+### 缺陷 R13D-CIRC：import hook 接管 Python 标准库同名 .light 影子，编译期触发循环导入
+
+- **现象**：gitea CI run 161 e2e 的 `my_first.light` 运行期报
+  `ImportError: cannot import name 'LightParser' from partially initialized module 'light_parser_v3'`
+  （most likely due to a circular import）。本地强模拟 CI 条件（钩子置于 `sys.meta_path` 首位 +
+  从 `sys.modules` 驱逐 `inspect`）可复现等价症状
+  `AttributeError: partially initialized module 'inspect' has no attribute 'get_annotations'`。
+- **根因**：`stdlib/_light_import_hook.py` 的 `LightFinder.find_spec` 对任何 `<名>.light` 存在即拦截，
+  未排除与 Python 标准库同名的模块。编译 `.light` 时 `_compile_light` 导入
+  `light_parser_v3 → parser_core → lexer → dataclasses → inspect`，
+  而 `import inspect` 被钩子拦截去编译 `stdlib/inspect.light`；`inspect.light` 又 `import light_parser_v3`
+  （或经由同链），此时编译器处于部分初始化 → 循环导入。同理 `sys.light`/`time.light`/`re.light`
+  等无 `.py` 兄弟的纯影子在标准库名被 import 时也会被错误接管。
+- **为什么本地不报错**：本机 venv 的 `sys.meta_path` 中 `DistutilsMetaFinder`（pkg_resources）位于钩子之前，
+  恰好先把 `inspect` 等标准库解析到真 CPython 模块，掩盖了缺陷；CI runner 上钩子更靠前才会触发。
+  属「环境依赖型隐藏 bug」，本地无法逐条复现，靠强模拟 CI 条件验证。
+- **修复（R13D，仅动 `stdlib/_light_import_hook.py`，不动 `code_generator.py` 别名逻辑）**：
+  1. 模块级新增 `_STDLIB_MODULES = frozenset(getattr(sys,'stdlib_module_names',()))`
+     （3.10+ 权威标准库名集合）与编译深度计数 `_COMPILE_DEPTH`。
+  2. `find_spec` 对「非 `_light_` 别名」且「`realname in _STDLIB_MODULES`」的直接 import 增加早退：
+     - 编译期（`_COMPILE_DEPTH>0`）：任何标准库名一律 `return None`，让编译器用真 CPython 标准库
+       （连 `json.light`/`base64.light` 这种有 `.py` 兄弟的「纯光明实现」也只在运行期加载，编译期绝不编译同名影子）；
+     - 运行期：仅当该名字在搜索路径里没有 `.py` 兄弟（inspect/sys/time/re 这类纯影子）时 `return None`
+       放行给标准库；有 `.py` 兄弟的（json/base64，且其真实文件为 `JSON.light`/`JSON.py` 大写，
+       本就被 `_exists_exact` 大小写守卫排除）仍由钩子加载纯光明实现，运行期语义不变。
+  3. `_compile_light` 进入/退出时 `_COMPILE_DEPTH += 1` / `-= 1`（用计数而非布尔以正确处理编译嵌套）。
+  4. **不破坏 re 别名**：`从 re 导入 X` 经 `code_generator` 生成 `from _light_re import X`
+     （`_PYTHON_LEG_PURE_LIGHT_ALIAS` 唯一含 `re`），此时 `fullname='_light_re' != realname='re'`，
+     早退不触发，`_light_re` 仍正常加载 `re.light`；而 `import re`（非别名）按运行期规则放行给 CPython re——
+     与 `code_generator.py:47-51` 的设计注释完全一致（「sys/time/inspect/Base64 的 .light 只是原生腿最小面，
+     Python 腿必须命中真模块」）。
+- **验证**：
+  - CI 条件模拟（钩子首位 + 驱逐 inspect）：修复前 `import inspect` 循环导入；修复后 `import inspect → .../Lib/inspect.py`（NO CIRCULAR）。
+  - `find_spec('inspect'/'sys')` → None；`find_spec('_light_re')`/`find_spec('数学')` → 仍返回 spec（别名与中文模块不受影响）。
+  - `import re` → CPython re；`import_module('_light_re')` → `stdlib/re.light`。
+  - `python -m cli.light run examples/my_first.light` → 正常输出，RUN_EXIT=0。
+  - 新增回归测试 `tests/unit/test_light_import_hook_stdlib.py`（5 passed）。
+  - `tests/unit/test_lightpub_doc_importability.py`：-q 结果与原代码一致（1 failed 为**预存缺陷**：
+    HTTP客户端 文档围栏过时标成 text 但实际可导入，归任务 B 的 gen_lightpub_docs.py，与本修复无关）。
+- **提交**：分支 `task-CIC-import-hook`（本地分支隔离，未用 worktree——本仓 39k 文件 worktree 检出超时且有 prune 事故风险）。
