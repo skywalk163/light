@@ -119,6 +119,14 @@ jobs:
           # PyPI；仍失败不拦（属环境债，CI 已按 --soft-classname 只报不拦）。这两个包装好后，
           # 回归闸门会看到「相比基线已转绿 11+ 条」（属改善，不触发拦截面）。
           python -m pip install lunardate aiohttp || python -m pip install --index-url https://pypi.org/simple lunardate aiohttp || true
+          # 科学计算库（e2e 示例依赖）：
+          #   - pandas：数据处理，demo2_pandas_csv 依赖
+          #   - matplotlib：绘图，demo3_matplotlib_plot 依赖
+          #   - scikit-learn：机器学习，demo5_sklearn_iris 依赖
+          #   - sympy：符号计算，demo3_math 依赖
+          # 本机 devpi 镜像缺失这些包，先试 devpi，失败回退公共 PyPI；仍失败不拦（属环境债）。
+          python -m pip install pandas matplotlib scikit-learn sympy || \
+          python -m pip install --index-url https://pypi.org/simple pandas matplotlib scikit-learn sympy || true
 
       - name: 计时打点（装依赖）
         run: python3 tools/ci/time_budget.py --mark 装依赖
