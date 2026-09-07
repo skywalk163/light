@@ -1,6 +1,6 @@
 # CI 修复任务计划（R13-CI）
 
-> 生成：2026-09-07。状态：**待执行**（两项任务并行中，暂不动代码）。
+> 生成：2026-09-07。状态：**任务 1、任务 3 已修复（CI-A，2026-09-07）**；任务 2 / 4 / 5 由并行分支（CI-B / CI-C）处理。
 > 依据：GitHub Actions 两段红灯 —— `ci_eval` 闸门（冒烟 6 块失败）+ pytest（16 failed / 4012 passed）。
 > 调查结论：已在本地复现并定位根因，失败分两类：**A 类 = 本地也红的真回归**；**B 类 = 本地单跑绿、CI 整进程红的顺序耦合**。
 
@@ -20,6 +20,16 @@
 ---
 
 ## 任务 1：运行期内建缺失 —— 冒烟 4 块（Base64编码 / MD5哈希 / SHA1 / SHA256 / SHA512）
+
+**状态：已修复（CI-A，2026-09-07）** —— commit `fix(runtime): 非LLVM路径注册编码/哈希运行期内建`。
+落地：`src/code_generator.py` builtin_map 增 7 条别名映射
+（`_b64_encode/_b64_decode/_md5/_sha1/_sha256/_sha512/_hmac_sha256 → _light_builtin.*`）；
+新增 `stdlib/_t5b_runtime.py` 提供 Python 实现（base64/hashlib/pbkdf2_hmac，口径与 C
+`dv_*` 字节级对拍），`stdlib/builtins.py` 以 `from _t5b_runtime import …` 接线（不改
+地板函数计数，floor_bootstrap 绿）。验证：冒烟 `--块 Base64编码 MD5哈希 SHA1哈希
+SHA256哈希 SHA512哈希` 5/5 通过；新增
+`tests/unit/test_非LLVM路径_T5B编码哈希.py`（CLI run 真跑 Base64.light/哈希.light 与
+Python 对拍）绿；`Test内置映射与实现咬合` 绿。
 
 **根因（已确认）**：`_b64_encode` / `_md5` / `_sha1` / `_sha256` / `_sha512` / `_hmac_sha256` 这批"runtime 内建"**只在 LLVM codegen 路径有实现**（`src/llvm/codegen_typed.py:2482` 起的 T5B 段落）。而 `Base64.light`、`哈希.light`、`编码.light`、`编码解码.light` 直接按函数名调用它们。冒烟走 `cli/light.py run` 的非 LLVM 执行路径时这些名字不存在 → `名称错误 name '_b64_encode' is not defined`。
 
@@ -51,6 +61,14 @@
 ---
 
 ## 任务 3：能力清单咬合 —— 模块表缺 24 个模块
+
+**状态：已修复（CI-A，2026-09-07）** —— commit `chore(capability): 模块表补齐 R11C/R12 新增 24 模块`。
+落地：`任务书/原生腿产品清单.json` 的 `stdlib原生可编译矩阵` 由 89 → 113 条，新增 24
+条（re/sys/time/inspect/uuid工具/…/高级文件）全标 `可编译`（判据：`_taskCIA_编译探针.py`
+在 Windows 用 `compile_light_typed` O0 逐个真出 exe，24/24 通过；对照项 列表工具 同环境
+复编译通过）；摘要/按阻断原因分类/生成时间同步刷新。验证：`native_product.py --root .`
+对比模式通过（可编译比例 1.12% → 22.12%，未实测 0）；`tests/unit/test_ci_gates_round9.py`
+39 条全绿（含 Test真清单在册::test_模块表与stdlib咬合）。
 
 **根因（已确认，本地复现）**：`任务书/原生腿产品清单.json` 的模块表只有 89 条，而 `stdlib/` 实际枚举出 113 个 .light（`tools/ci/native_product.py:202 实际模块名`）。缺的 24 个：`re、sys、time、inspect、uuid工具、中国传统节日、中国行政区划、中文分词、中文数字转换、中文文本处理、中文编码、农历、图像处理基础、字符串工具、手机号校验、拼音转换、数据结构、数据验证、断言工具、缓存、网络请求、身份证校验、进度条、高级文件` —— 即 R11C/R12 两轮 .light 化（含改名，如 `拼音转换`）后清单没补齐，commit 250c04c8 重建时用了旧口径。
 
