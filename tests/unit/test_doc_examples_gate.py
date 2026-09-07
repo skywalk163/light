@@ -40,7 +40,7 @@
 首轮扫描抓到 4 条，已修掉 3 条、剩 1 条：
 
 **已修（2026-08-20）**：3 × `AttributeError: TokenType has no attribute 'ASSIGN'`
-（`docs/ffi.md`、`docs/api/stdlib.md`、`docs/blog/段言自举编译器架构解析.md`）。
+（`docs/ffi.md`、`docs/api/stdlib.md`、`docs/blog/段言自举编译器架构解析.md`（文件名保留旧品牌名，为实际存在的文件路径））。
 根因在 `src/parser_stmt.py::_parse_type_alias`：词法器发的是 `EQUALS`，parser
 却查了不存在的 `ASSIGN`。修完立刻暴露同一函数里第二处笔误——`result.line,
 result.col = …`，而 `ASTNode` 的字段叫 `column`，且 `TypeAlias` 是

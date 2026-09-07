@@ -22,7 +22,7 @@ from code_generator import PythonCodeGenerator
 
 
 def parse_and_generate(code: str) -> str:
-    """辅助：解析段言代码并生成 Python 代码"""
+    """辅助：解析光明代码并生成 Python 代码"""
     parser = LightParser()
     ast = parser.parse(code)
     gen = PythonCodeGenerator()

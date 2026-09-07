@@ -205,7 +205,7 @@ class Test查自导入(unittest.TestCase):
     def test_引外语库不算造假(self):
         import tempfile
         with tempfile.TemporaryDirectory() as d:
-            # `导入 Python: 甲` 是引外语库，不是段言模块自导入
+            # `导入 Python: 甲` 是引外语库，不是光明模块自导入
             p = self._建(d, "甲.light", "导入 Python: 甲\n段落 主：\n")
             self.assertEqual(BR.查自导入(p, "甲"), [])
 

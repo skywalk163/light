@@ -1,5 +1,5 @@
 """
-段言模式匹配增强测试
+光明模式匹配增强测试
 
 测试内容：
 1. 守卫条件：情况 模式 若 条件
@@ -22,7 +22,7 @@ from code_generator import PythonCodeGenerator
 
 
 def run_light(code: str) -> str:
-    """使用 src 后端解析并执行段言代码，返回输出"""
+    """使用 src 后端解析并执行光明代码，返回输出"""
     parser = LightParser()
     module = parser.parse(code)
     generator = PythonCodeGenerator()
@@ -41,7 +41,7 @@ def run_light(code: str) -> str:
 
 
 def _compile(duan_code: str) -> str:
-    """编译段言代码，返回Python源码"""
+    """编译光明代码，返回Python源码"""
     parser = LightParser()
     module = parser.parse(duan_code)
     generator = PythonCodeGenerator()

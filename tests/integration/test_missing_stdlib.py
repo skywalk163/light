@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言「stdlib 缺失」场景的回归测试
+光明「stdlib 缺失」场景的回归测试
 
 背景
 ----
@@ -10,7 +10,7 @@
     —— 运行时解析不到 stdlib/builtins.py，退回到代码生成器的内联 lambda fallback，
        fallback 漏掉了 列表排序/列表反转/追加文件 等 builtin。
   - files 失败：ModuleNotFoundError: No module named '文件系统'
-    —— 段言程序首行 `导入 文件系统。`，但 stdlib 不在 sys.path 上，import 找不到模块。
+    —— 光明程序首行 `导入 文件系统。`，但 stdlib 不在 sys.path 上，import 找不到模块。
 
 修复（src/code_generator.py、src/code_generator_unified.py 的 _light_builtin 定义之后）
 在 stdlib 物理缺失时才补齐常用 builtin，并注册一个合成的 `文件系统` 模块，使上述代码
@@ -51,7 +51,7 @@ def _require_compiler():
 
 
 def _run_unified(code):
-    """用 unified 后端编译并执行段言代码，返回标准输出（去尾随空白）。"""
+    """用 unified 后端编译并执行光明代码，返回标准输出（去尾随空白）。"""
     Compiler, UnifiedCodeGenerator = _require_compiler()
     res = Compiler().compile(code)
     module = res.get('ast') if isinstance(res, dict) else res

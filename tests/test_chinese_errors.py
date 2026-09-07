@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言 - 中文错误系统测试
+光明 - 中文错误系统测试
 
 测试 D05（全量中文错误名称映射）和 D06（中文错误附带修改指引）。
 """
@@ -108,7 +108,7 @@ class TestChineseErrorHints:
         assert hint == ''
 
     def test_duan_error_hints(self):
-        """测试段言特有错误修改指引"""
+        """测试光明特有错误修改指引"""
         # 测试关键字匹配
         assert '设' in CHINESE_DUAN_ERROR_HINTS
         assert '接收' in CHINESE_DUAN_ERROR_HINTS
@@ -132,7 +132,7 @@ class TestLightErrorWithHints:
     """测试 LightError 自动集成修改指引"""
 
     def test_duan_error_with_hint_keyword(self):
-        """测试 LightError 自动匹配段言错误提示"""
+        """测试 LightError 自动匹配光明错误提示"""
         # 包含"设"的消息应自动匹配到"设"的指引
         error = LightError('第 3 行的"设"关键字后缺少要定义的变量名', line=3)
         assert '💡' in str(error) or '提示' in str(error)
@@ -232,7 +232,7 @@ class TestChineseErrorHintQuality:
             assert has_action_word, f"{exc_type} 的指引缺乏行动指示词: {hint[:20]}..."
 
     def test_duan_hints_include_examples(self):
-        """验证段言特有指引包含示例或具体说明"""
+        """验证光明特有指引包含示例或具体说明"""
         for keyword, hint in CHINESE_DUAN_ERROR_HINTS.items():
             has_example_or_detail = any(word in hint for word in ['例如', '必须', '格式', '使用'])
             assert has_example_or_detail, f"{keyword} 的指引缺少示例或具体说明: {hint[:30]}..."
@@ -244,7 +244,7 @@ class TestChineseErrorHintQuality:
                 f"{exc_type} 的指引长度 {len(hint)} 不合理: {hint[:30]}..."
 
     def test_duan_hint_length_reasonable(self):
-        """验证段言指引长度合理"""
+        """验证光明指引长度合理"""
         for keyword, hint in CHINESE_DUAN_ERROR_HINTS.items():
             assert 10 <= len(hint) <= 80, \
                 f"{keyword} 的指引长度 {len(hint)} 不合理: {hint[:30]}..."

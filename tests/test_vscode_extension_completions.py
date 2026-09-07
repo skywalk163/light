@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）编程语言 - VS Code 扩展补全提供器单元测试
+光明（Duan）编程语言 - VS Code 扩展补全提供器单元测试
 
 针对 vscode-extension/extension.js 中 DuanCompletionProvider 的关键字补全
 进行静态结构验证（Node 环境不可用时以源码分析保证回归质量）：

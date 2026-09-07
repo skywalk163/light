@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）Level 6 词法分析器测试 - 纯缩进语法
+光明（Duan）Level 6 词法分析器测试 - 纯缩进语法
 
 验证 Level 6 核心特性：通过缩进层级生成 INDENT/DEDENT token，
 块结构不再依赖「结束」关键字。

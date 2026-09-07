@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）Level 6 类型注解系统测试
+光明（Duan）Level 6 类型注解系统测试
 
 覆盖：
   1. TypeAnnotation AST 节点（创建、to_dict、_fields、__repr__、__slots__）
@@ -168,7 +168,7 @@ class TestTypeAnnotationNode:
 # =============================================================================
 
 class TestBasicTypeMapping:
-    """段言基本类型名 → Python 类型名"""
+    """光明基本类型名 → Python 类型名"""
 
     @pytest.mark.parametrize('duan,py', [
         ('整数', 'int'),
@@ -1281,7 +1281,7 @@ class TestNullableUnwrap:
 # =============================================================================
 
 class _TypeScenarioBase:
-    """类型场景集成测试基类：真实段言源码 → LightCompiler 编译 → 推断/执行断言"""
+    """类型场景集成测试基类：真实光明源码 → LightCompiler 编译 → 推断/执行断言"""
 
     @staticmethod
     def _compile(src):

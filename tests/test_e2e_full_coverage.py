@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言全链路端到端测试覆盖
+光明全链路端到端测试覆盖
 
 覆盖自举编译器、LLVM 后端、包管理器全场景的端到端测试用例。
 确保 v6.3.0 版本迭代的稳定性。
@@ -20,7 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _run_cli(args: List[str], cwd: Path = None) -> Tuple[int, str, str]:
-    """运行段言 CLI 命令
+    """运行光明 CLI 命令
 
     Args:
         args: 命令行参数列表
@@ -213,7 +213,7 @@ class TestCompilerFullChain:
     def test_full_pipeline_run(self) -> None:
         """完整编译运行管道测试"""
         test_programs = [
-            ("Hello World", "打印(\"Hello, 段言!\")。", "Hello, 段言!"),
+            ("Hello World", "打印(\"Hello, 光明!\")。", "Hello, 光明!"),
             ("简单运算", "打印(1 + 2 * 3)。", "7"),
             ("字符串拼接", "打印(\"A\" + \"B\")。", "AB"),
         ]

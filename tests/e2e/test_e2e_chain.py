@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言 E2E 测试链：duan run → duan build → 运行产物 全链路自动化
+光明 E2E 测试链：duan run → duan build → 运行产物 全链路自动化
 
 对每个示例程序依次执行：
   1. `duan run <文件>`        —— 解释执行（CLI 入口）

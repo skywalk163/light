@@ -41,7 +41,7 @@ for _p in (os.path.join(ROOT, 'src'), ROOT):
         sys.path.insert(0, _p)
 
 DOCS = os.path.join(ROOT, 'docs')
-LANG_TAGS = {'light', '光明', 'duan', '段言'}
+LANG_TAGS = {'light', '光明', 'duan', '段言'}  # 保留：旧品牌名向后兼容
 _FENCE = re.compile(r'^([ \t]*)(`{3,}|~{3,})[ \t]*([^\s`~]*)[ \t]*$')
 _DIAGRAM_CHARS = set('←→↓↑↔⇒⇐×√≈≤≥─│┌└├┐┘┬┴┼╱╲○●◆▲▼')
 _LIGHT_KW = ('定义', '设 ', '段落', '段 ', '类 ', '如果', '若 ', '打印', '返回',
