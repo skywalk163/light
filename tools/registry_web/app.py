@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-段言（Duan）包注册中心 Web 界面
+光明（Light）包注册中心 Web 界面
 
-提供友好的 Web 界面用于浏览、搜索和查看段言包信息。
+提供友好的 Web 界面用于浏览、搜索和查看光明包信息。
 
 用法：
     python tools/registry_web/app.py              # 默认端口 5000
@@ -84,7 +84,7 @@ BUILTIN_PACKAGES = {
         "name": "标准数学扩展",
         "version": "1.0.0",
         "description": "扩展数学函数库：矩阵运算、复数、统计函数",
-        "author": "段言团队",
+        "author": "光明团队",
         "keywords": ["数学", "矩阵", "统计"],
         "dependencies": [],
         "repository": "https://gitcode.com/duan-lang/duan-math-ext.git",
@@ -93,7 +93,7 @@ BUILTIN_PACKAGES = {
         "name": "网络请求",
         "version": "1.0.0",
         "description": "HTTP 客户端库：GET/POST 请求、JSON 解析",
-        "author": "段言团队",
+        "author": "光明团队",
         "keywords": ["网络", "HTTP", "API"],
         "dependencies": [],
         "repository": "https://gitcode.com/duan-lang/duan-http.git",
@@ -102,7 +102,7 @@ BUILTIN_PACKAGES = {
         "name": "命令行工具",
         "version": "1.0.0",
         "description": "CLI 开发工具：参数解析、进度条、颜色输出",
-        "author": "段言团队",
+        "author": "光明团队",
         "keywords": ["CLI", "命令行", "终端"],
         "dependencies": [],
         "repository": "https://gitcode.com/duan-lang/duan-cli-utils.git",
@@ -111,7 +111,7 @@ BUILTIN_PACKAGES = {
         "name": "测试框架",
         "version": "1.0.0",
         "description": "单元测试框架：断言、测试套件、覆盖率",
-        "author": "段言团队",
+        "author": "光明团队",
         "keywords": ["测试", "单元测试", "断言"],
         "dependencies": [],
         "repository": "https://gitcode.com/duan-lang/duan-test.git",
@@ -120,7 +120,7 @@ BUILTIN_PACKAGES = {
         "name": "数据库",
         "version": "1.0.0",
         "description": "数据库操作库：SQL 查询、连接池、ORM",
-        "author": "段言团队",
+        "author": "光明团队",
         "keywords": ["数据库", "SQL", "ORM"],
         "dependencies": [],
         "repository": "https://gitcode.com/duan-lang/duan-db.git",
@@ -129,7 +129,7 @@ BUILTIN_PACKAGES = {
         "name": "模板引擎",
         "version": "1.0.0",
         "description": "文本模板引擎：变量替换、循环、条件渲染",
-        "author": "段言团队",
+        "author": "光明团队",
         "keywords": ["模板", "渲染", "HTML"],
         "dependencies": [],
         "repository": "https://gitcode.com/duan-lang/duan-template.git",
@@ -138,7 +138,7 @@ BUILTIN_PACKAGES = {
         "name": "日志",
         "version": "1.0.0",
         "description": "日志记录库：分级日志、文件输出、格式化",
-        "author": "段言团队",
+        "author": "光明团队",
         "keywords": ["日志", "调试", "记录"],
         "dependencies": [],
         "repository": "https://gitcode.com/duan-lang/duan-log.git",
@@ -147,7 +147,7 @@ BUILTIN_PACKAGES = {
         "name": "配置管理",
         "version": "1.0.0",
         "description": "配置文件管理：TOML/JSON/YAML 读写",
-        "author": "段言团队",
+        "author": "光明团队",
         "keywords": ["配置", "TOML", "JSON"],
         "dependencies": [],
         "repository": "https://gitcode.com/duan-lang/duan-config.git",
@@ -156,7 +156,7 @@ BUILTIN_PACKAGES = {
         "name": "加密",
         "version": "1.0.0",
         "description": "加密工具库：哈希、对称加密、Base64",
-        "author": "段言团队",
+        "author": "光明团队",
         "keywords": ["加密", "哈希", "安全"],
         "dependencies": [],
         "repository": "https://gitcode.com/duan-lang/duan-crypto.git",
@@ -165,7 +165,7 @@ BUILTIN_PACKAGES = {
         "name": "图像处理",
         "version": "1.0.0",
         "description": "图像处理库：缩放、裁剪、滤镜",
-        "author": "段言团队",
+        "author": "光明团队",
         "keywords": ["图像", "图片", "处理"],
         "dependencies": [],
         "repository": "https://gitcode.com/duan-lang/duan-image.git",
@@ -402,7 +402,7 @@ class RegistryWebHandler(BaseHTTPRequestHandler):
 # =============================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description='段言包注册中心 Web 界面')
+    parser = argparse.ArgumentParser(description='光明包注册中心 Web 界面')
     parser.add_argument('--port', '-p', type=int, default=5000, help='监听端口（默认: 5000）')
     parser.add_argument('--host', default='127.0.0.1', help='监听地址（默认: 127.0.0.1）')
     parser.add_argument('--registry-url', default='http://localhost:8000',
@@ -424,7 +424,7 @@ def main():
     server = HTTPServer((args.host, args.port), RegistryWebHandler)
     url = f"http://{args.host}:{args.port}"
 
-    print(f"\n📦 段言包注册中心 Web 界面")
+    print(f"\n📦 光明包注册中心 Web 界面")
     print(f"=" * 40)
     print(f"   地址: {url}")
     print(f"   API:  {args.registry_url}")

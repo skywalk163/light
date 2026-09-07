@@ -1325,7 +1325,7 @@ class EmbedBlock(ASTNode):
 class TypeAnnotation(ASTNode):
     """类型注解节点
 
-    表示段言的类型注解，支持以下形式：
+    表示光明的类型注解，支持以下形式：
     - 基本类型: 整数, 文本, 布尔, 小数, 空
     - 列表类型: [整数]（整数列表）
     - 字典类型: {文本: 整数}（文本键、整数值的字典）
@@ -1337,7 +1337,7 @@ class TypeAnnotation(ASTNode):
     __slots__ = ('base_type', 'is_optional', 'is_list', 'is_dict',
                  'key_type', 'value_type', 'params', 'return_type')
 
-    # 段言基本类型名 → Python 类型名（与 code_generator._map_type 保持一致）
+    # 光明基本类型名 → Python 类型名（与 code_generator._map_type 保持一致）
     _DUAN_TO_PYTHON = {
         '整数': 'int',
         '小数': 'float',
@@ -1393,7 +1393,7 @@ class TypeAnnotation(ASTNode):
 
     @classmethod
     def _map_basic(cls, duan_type: str) -> str:
-        """将段言基本类型名映射为 Python 类型名"""
+        """将光明基本类型名映射为 Python 类型名"""
         return cls._DUAN_TO_PYTHON.get(duan_type, duan_type)
 
     def to_python_type(self) -> str:

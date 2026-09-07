@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言多语言代码转换器
+光明多语言代码转换器
 
-将 Java/C 代码转换为段言（DuanLang）代码。
+将 Java/C 代码转换为光明（LightLang）代码。
 
 支持特性：
   - Java：类、方法、循环、条件、变量、数组、异常处理
@@ -28,9 +28,9 @@ from typing import Optional, List, Dict, Tuple
 # ═══════════════════════════════════════════════════════════════════
 
 class Java2DuanConverter:
-    """Java 代码 → 段言 转换器"""
+    """Java 代码 → 光明 转换器"""
 
-    # Java 基本类型 → 段言类型映射
+    # Java 基本类型 → 光明类型映射
     TYPE_MAP = {
         'int': '整数',
         'long': '整数',
@@ -93,7 +93,7 @@ class Java2DuanConverter:
         self.output_lines.append(f"{indent}{line}")
 
     def convert(self, java_code: str) -> str:
-        """将 Java 代码转换为段言"""
+        """将 Java 代码转换为光明"""
         self.output_lines = []
         self.indent_level = 0
 
@@ -566,7 +566,7 @@ class Java2DuanConverter:
 # ═══════════════════════════════════════════════════════════════════
 
 class C2DuanConverter:
-    """C 代码 → 段言 转换器"""
+    """C 代码 → 光明 转换器"""
 
     TYPE_MAP = {
         'int': '整数',
@@ -626,7 +626,7 @@ class C2DuanConverter:
         self.output_lines.append(f"{indent}{line}")
 
     def convert(self, c_code: str) -> str:
-        """将 C 代码转换为段言"""
+        """将 C 代码转换为光明"""
         self.output_lines = []
         self.indent_level = 0
         self._includes.clear()
@@ -1055,7 +1055,7 @@ def convert_file(file_path: str, source_lang: str) -> str:
         source_lang: 源语言 ('java' 或 'c')
 
     Returns:
-        转换后的段言代码
+        转换后的光明代码
     """
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"文件不存在: {file_path}")
@@ -1087,7 +1087,7 @@ def convert_code(code: str, source_lang: str) -> str:
 def main():
     parser = argparse.ArgumentParser(
         prog='duan ai convert',
-        description='将 Java/C 代码转换为段言（DuanLang）',
+        description='将 Java/C 代码转换为光明（LightLang）',
     )
 
     source_group = parser.add_mutually_exclusive_group(required=True)

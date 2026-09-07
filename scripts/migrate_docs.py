@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-段言文档迁移扫描脚本
+光明文档迁移扫描脚本
 
 扫描 .md 文档中的过时语法模式并生成报告（只读，不修改文件）。
 
@@ -27,7 +27,7 @@ from pathlib import Path
 # 过时模式定义
 # =============================================================================
 
-# 仅在段言代码块内检测的语法模式
+# 仅在光明代码块内检测的语法模式
 # 每项: (模式名, 编译后的正则, 简短说明)
 SYNTAX_PATTERNS = [
     (
@@ -67,9 +67,9 @@ FILE_PATTERNS = [
 # =============================================================================
 
 def iter_code_blocks(lines):
-    """遍历行，标记每行是否处于段言代码块内。
+    """遍历行，标记每行是否处于光明代码块内。
 
-    返回: 生成 (行号, 行内容, 是否在段言块内) 三元组
+    返回: 生成 (行号, 行内容, 是否在光明块内) 三元组
     """
     in_fence = False
     fence_lang = ''
@@ -87,6 +87,8 @@ def iter_code_blocks(lines):
             # 围栏行本身不算代码内容
             yield idx, line, False
             continue
+        # 注意：这里的 '段言' 是历史文档里代码块围栏的语言标签（```段言），属于功能性
+        # 匹配串而非品牌文案；本脚本专门扫描改名前的旧文档，改掉会漏扫，故保留。
         is_duan = in_fence and ('段言' in fence_lang or 'duan' in fence_lang)
         yield idx, line, is_duan
 
@@ -119,7 +121,7 @@ def scan_file(filepath: str) -> list:
 
     # 逐行扫描
     for lineno, line, in_duan_block in iter_code_blocks(lines):
-        # 段言代码块内检测语法模式
+        # 光明代码块内检测语法模式
         if in_duan_block:
             for name, pattern, hint in SYNTAX_PATTERNS:
                 if pattern.search(line):
@@ -154,7 +156,7 @@ def print_file_report(filepath: str, hits: list):
 def print_summary(all_results: dict):
     """打印汇总摘要"""
     print('\n' + '=' * 60)
-    print('  段言文档过时语法扫描报告')
+    print('  光明文档过时语法扫描报告')
     print('=' * 60)
 
     total_files = 0

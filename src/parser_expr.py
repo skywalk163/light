@@ -2047,7 +2047,7 @@ class ParserExprMixin:
             node = sub_parser._parse_expr()
             # 必须消费完所有 token（容错末尾 EOF token），避免接受残句如 {甲 乘}
             if node is not None and sub_parser.pos >= len(sub_tokens) - 1:
-                # Bug 根因（合并回归）：本方法（表达式插值兜底）来自段言侧，比
+                # Bug 根因（合并回归）：本方法（表达式插值兜底）来自段言（现名光明）侧，比
                 # light 原先"仅允许简单标识符"的严格判定宽松得多。JSON 字面量
                 # 形如 '{"name": "光明", "version": 4}' 会被 {…} 正则整体命中，
                 # 再按第一个冒号切成 expr_part='"name"' + format_spec='"光明"…'，

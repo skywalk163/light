@@ -1,6 +1,6 @@
 ---
 name: Bug 报告
-about: 提交 Bug 报告帮助改进段言
+about: 提交 Bug 报告帮助改进光明
 title: '[Bug] '
 labels: bug
 assignees: ''
@@ -14,7 +14,7 @@ assignees: ''
 
 1. 创建文件 `xxx.duan`，内容为：
    ```光明
-   # 你的段言代码
+   # 你的光明代码
    ```
 2. 运行命令：`duan run xxx.duan`
 3. 看到错误：
@@ -35,7 +35,7 @@ assignees: ''
 
 - 操作系统： [例如 Windows 11 / macOS 14 / Ubuntu 22.04]
 - Python 版本： [例如 Python 3.12.0]
-- 段言版本： [运行 `duan --version` 输出]
+- 光明版本： [运行 `duan --version` 输出]
 - 安装方式： [pip install / 源码安装]
 
 ## 附加上下文

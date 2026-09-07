@@ -1,8 +1,8 @@
 """
-段言（Duan）编程语言 - 口语化中文语法兼容层（弹性语法适配）
+光明（Light）编程语言 - 口语化中文语法兼容层（弹性语法适配）
 
 实现自然语言弹性语法适配，允许用户用更贴近日常中文表达的写法编写代码，
-编译器自动完成语义适配，将口语化表达映射为标准段言关键字。
+编译器自动完成语义适配，将口语化表达映射为标准光明关键字。
 
 设计原则：
 - 非侵入式：仅做文本级替换，不影响后续词法/语法分析流程
@@ -20,7 +20,7 @@ from typing import Dict, List, Tuple, Optional
 # 弹性语法映射表
 # =============================================================================
 
-# 口语化表达 → 标准段言关键字映射
+# 口语化表达 → 标准光明关键字映射
 # 映射规则：
 # 1. 多字词优先匹配（如"如果...的话"优先于"如果"）
 # 2. 替换后保持语义等价
@@ -95,7 +95,7 @@ IF_SUFFIX_PATTERN = re.compile(r'的话\s*$')
 class ElasticSyntaxPreprocessor:
     """口语化中文语法预处理器
 
-    将段言源代码中的口语化表达自动替换为标准段言关键字，
+    将光明源代码中的口语化表达自动替换为标准光明关键字，
     使编译器能够理解更贴近自然中文的代码写法。
 
     使用示例：
@@ -113,13 +113,13 @@ class ElasticSyntaxPreprocessor:
     )
 
     def preprocess(self, source: str) -> str:
-        """预处理源代码，将口语化表达替换为标准段言语法
+        """预处理源代码，将口语化表达替换为标准光明语法
 
         Args:
-            source: 原始段言源代码字符串
+            source: 原始光明源代码字符串
 
         Returns:
-            经过弹性语法替换后的标准段言代码
+            经过弹性语法替换后的标准光明代码
         """
         if not source:
             return ""
@@ -156,7 +156,7 @@ class ElasticSyntaxPreprocessor:
     def _handle_if_suffix(self, text: str) -> str:
         """处理句末的"的话"后缀
 
-        将"如果...的话"模式中的"的话"去掉，因为段言中"如果"已包含条件语义。
+        将"如果...的话"模式中的"的话"去掉，因为光明中"如果"已包含条件语义。
 
         Args:
             text: 待处理的文本
@@ -195,7 +195,7 @@ class ElasticSyntaxPreprocessor:
     def _apply_elastic_map(self, text: str) -> str:
         """应用弹性语法映射表
 
-        将文本中的口语化表达按映射表替换为标准段言关键字。
+        将文本中的口语化表达按映射表替换为标准光明关键字。
         使用词边界匹配，避免部分匹配（如"定义函数"不会匹配"定义函数指针"中的"函数"）。
 
         Args:
@@ -235,7 +235,7 @@ class ElasticSyntaxPreprocessor:
 
         Args:
             spoken: 口语化表达
-            standard: 对应的标准段言关键字
+            standard: 对应的标准光明关键字
         """
         # 重新排序映射表
         self._sorted_map.append((spoken, standard))
@@ -294,10 +294,10 @@ def preprocess(source: str) -> str:
     使用全局默认预处理器对源代码进行弹性语法转换。
 
     Args:
-        source: 原始段言源代码字符串
+        source: 原始光明源代码字符串
 
     Returns:
-        经过弹性语法替换后的标准段言代码
+        经过弹性语法替换后的标准光明代码
 
     示例：
         >>> preprocess("要是 分数 大于等于 90 的话")

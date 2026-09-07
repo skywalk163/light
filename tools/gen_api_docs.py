@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-段言 (Duan) API 文档自动生成工具
+光明 (Light) API 文档自动生成工具
 
 从 stdlib/ 目录的 Python 源码提取函数签名和文档字符串，
 为每个模块生成标准格式的 Markdown API 参考页。
@@ -354,7 +354,7 @@ def generate_all(output_dir: str, target_modules: list[str] = None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="段言 API 文档自动生成工具")
+    parser = argparse.ArgumentParser(description="光明 API 文档自动生成工具")
     parser.add_argument("--module", "-m", nargs="+", help="指定要生成的模块名（多个用空格分隔）")
     parser.add_argument("--output-dir", "-o", default=str(OUTPUT_DIR), help="输出目录（默认: docs/api）")
     parser.add_argument("--list-modules", "-l", action="store_true", help="列出所有可用的标准库模块")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言（DuanLang）交互式教程引擎
+光明（LightLang）交互式教程引擎
 
 提供逐步引导的编程练习，每个步骤包含：
 - 知识点讲解
@@ -141,9 +141,9 @@ def create_all_tutorials() -> Dict[str, TutorialDefinition]:
             title="Hello World",
             category="basic",
             explanation=(
-                "段言（DuanLang）是一门用中文自然语言编程的语言。\n"
+                "光明（LightLang）是一门用中文自然语言编程的语言。\n"
                 "让我们从经典的 Hello World 开始！\n\n"
-                "在段言中，使用「打印」来输出内容到屏幕，\n"
+                "在光明中，使用「打印」来输出内容到屏幕，\n"
                 "字符串用双引号包裹。"
             ),
             task='请输出 "你好，世界！"',
@@ -156,7 +156,7 @@ def create_all_tutorials() -> Dict[str, TutorialDefinition]:
             title="变量与赋值",
             category="basic",
             explanation=(
-                "在段言中，使用「设」关键字来声明变量。\n\n"
+                "在光明中，使用「设」关键字来声明变量。\n\n"
                 "语法：设 变量名 为 值\n\n"
                 "变量名可以用中文，赋值后即可使用。\n"
                 "让我们创建一个变量并打印它。"
@@ -171,7 +171,7 @@ def create_all_tutorials() -> Dict[str, TutorialDefinition]:
             title="定义函数（段落）",
             category="basic",
             explanation=(
-                "在段言中，函数叫做「段落」。\n\n"
+                "在光明中，函数叫做「段落」。\n\n"
                 "语法：段落 函数名 接收 参数1, 参数2：\n"
                 "    返回 表达式\n\n"
                 "用「段落」关键字定义，用「接收」列出参数，\n"
@@ -188,7 +188,7 @@ def create_all_tutorials() -> Dict[str, TutorialDefinition]:
             title="循环遍历",
             category="basic",
             explanation=(
-                "段言使用「遍历」关键字进行循环。\n\n"
+                "光明使用「遍历」关键字进行循环。\n\n"
                 "语法：遍历 变量 在 范围(结束值)：\n"
                 "    循环体\n\n"
                 "「范围(n)」生成从 0 到 n-1 的数字序列。\n"
@@ -205,16 +205,16 @@ def create_all_tutorials() -> Dict[str, TutorialDefinition]:
             category="basic",
             explanation=(
                 "恭喜你完成了基础练习！🎉\n\n"
-                "段言提供了丰富的命令行帮助：\n"
+                "光明提供了丰富的命令行帮助：\n"
                 "  • duan --help      — 查看所有命令\n"
                 "  • duan repl        — 进入交互式编程环境\n"
                 "  • duan tutorial    — 完整教程\n\n"
                 "在 REPL 中，输入 :help 或 :帮助 查看内置命令。\n\n"
                 "这个练习很简单——只需输入任意代码（或直接回车跳过）。"
             ),
-            task='（可选）输入任意段言代码，或直接回车完成教程',
-            hint='打印 "段言，你好！"',
-            demo_code='打印 "段言，你好！"',
+            task='（可选）输入任意光明代码，或直接回车完成教程',
+            hint='打印 "光明，你好！"',
+            demo_code='打印 "光明，你好！"',
             expected_output=None,  # 任何输出都通过
         ),
     ]
@@ -226,7 +226,7 @@ def create_all_tutorials() -> Dict[str, TutorialDefinition]:
             title="条件判断",
             category="intermediate",
             explanation=(
-                "段言使用「如果/否则如果/否则」进行条件判断。\n\n"
+                "光明使用「如果/否则如果/否则」进行条件判断。\n\n"
                 "语法：\n"
                 "  如果 条件：\n"
                 "      代码块\n"
@@ -246,7 +246,7 @@ def create_all_tutorials() -> Dict[str, TutorialDefinition]:
             title="列表操作",
             category="intermediate",
             explanation=(
-                "列表是段言中存储多个数据的基本结构。\n\n"
+                "列表是光明中存储多个数据的基本结构。\n\n"
                 "创建列表：设 列表 为 [元素1, 元素2, ...]\n"
                 "访问元素：列表[索引]（索引从 0 开始）\n"
                 "追加元素：列表.追加(新元素)\n"
@@ -279,17 +279,17 @@ def create_all_tutorials() -> Dict[str, TutorialDefinition]:
             title="字符串操作",
             category="intermediate",
             explanation=(
-                "段言支持丰富的字符串操作。\n\n"
+                "光明支持丰富的字符串操作。\n\n"
                 "拼接：字符串1 + 字符串2\n"
                 "长度：长度(字符串)\n"
                 "格式化：f\"{变量}\"（f-string）\n"
                 "替换：字符串.替换(旧, 新)\n\n"
                 "尝试使用 f-string 格式化输出。"
             ),
-            task='设变量 名字 为"段言"，版本 为 6，使用 f-string 输出"语言：段言，版本：6"',
-            hint='设 名字 为 "段言"\n设 版本 为 6\n打印(f"语言：{名字}，版本：{版本}")',
-            demo_code='设 名字 为 "段言"\n设 版本 为 6\n打印(f"语言：{名字}，版本：{版本}")',
-            expected_output="语言：段言，版本：6",
+            task='设变量 名字 为"光明"，版本 为 6，使用 f-string 输出"语言：光明，版本：6"',
+            hint='设 名字 为 "光明"\n设 版本 为 6\n打印(f"语言：{名字}，版本：{版本}")',
+            demo_code='设 名字 为 "光明"\n设 版本 为 6\n打印(f"语言：{名字}，版本：{版本}")',
+            expected_output="语言：光明，版本：6",
         ),
         TutorialStep(
             step_id=4,
@@ -315,7 +315,7 @@ def create_all_tutorials() -> Dict[str, TutorialDefinition]:
             title="类和对象",
             category="advanced",
             explanation=(
-                "段言支持面向对象编程。\n\n"
+                "光明支持面向对象编程。\n\n"
                 "定义类：\n"
                 "  类 类名：\n"
                 "      属性 属性1, 属性2\n"
@@ -370,11 +370,11 @@ def create_all_tutorials() -> Dict[str, TutorialDefinition]:
             title="模块导入",
             category="advanced",
             explanation=(
-                "段言支持模块化编程。\n\n"
+                "光明支持模块化编程。\n\n"
                 "导入语法：\n"
                 "  导入 模块名\n"
                 "  从 模块名 导入 函数1, 函数2\n\n"
-                "段言内置了数学、JSON、文件系统等标准库模块。\n"
+                "光明内置了数学、JSON、文件系统等标准库模块。\n"
                 "导入数学模块并使用平方根函数。"
             ),
             task='从「数学」模块导入「平方根」函数，计算 16 的平方根并打印',
@@ -405,7 +405,7 @@ def create_all_tutorials() -> Dict[str, TutorialDefinition]:
         "beginner": TutorialDefinition(
             tutorial_id="beginner",
             name="基础入门",
-            description="从零开始学习段言基础语法，适合编程初学者。",
+            description="从零开始学习光明基础语法，适合编程初学者。",
             category="beginner",
             steps=beginner_steps,
             prerequisites="无",
@@ -544,7 +544,7 @@ class TutorialEngine:
     # ------------------------------------------------------------------
 
     def _compile_duan(self, source: str) -> str:
-        """编译段言代码为 Python"""
+        """编译光明代码为 Python"""
         try:
             from light_parser_v3 import LightParser
             from code_generator import PythonCodeGenerator
@@ -555,10 +555,10 @@ class TutorialEngine:
             generator = PythonCodeGenerator()
             return generator.generate(module)
         except ImportError:
-            raise RuntimeError("无法导入段言编译器模块")
+            raise RuntimeError("无法导入光明编译器模块")
 
     def _run_duan(self, source: str) -> str:
-        """执行段言代码，返回输出"""
+        """执行光明代码，返回输出"""
         py_code = self._compile_duan(source)
         output_lines = []
 
@@ -607,10 +607,10 @@ class TutorialEngine:
     def _get_user_input(self) -> str:
         """获取用户输入的多行代码"""
         lines = []
-        print(f"  {C['prompt']}请输入段言代码（空行执行，输入 'skip' 跳过）：{C['reset']}")
+        print(f"  {C['prompt']}请输入光明代码（空行执行，输入 'skip' 跳过）：{C['reset']}")
         while True:
             try:
-                line = input(f"  {C['prompt']}段言> {C['reset']}")
+                line = input(f"  {C['prompt']}光明> {C['reset']}")
             except (EOFError, KeyboardInterrupt):
                 print()
                 return ""
@@ -641,7 +641,7 @@ class TutorialEngine:
         if 'invalid syntax' in msg.lower():
             return "语法错误——请检查关键字拼写、冒号、缩进是否正确"
         if 'unexpected indent' in msg.lower():
-            return "缩进错误——段言用 4 个空格缩进，请检查代码块缩进是否一致"
+            return "缩进错误——光明用 4 个空格缩进，请检查代码块缩进是否一致"
         if 'unexpected EOF' in msg.lower() or 'EOF while' in msg.lower():
             return "代码不完整——可能是缺少冒号或缩进块不完整"
         if isinstance(e, TypeError):
@@ -742,7 +742,7 @@ class TutorialEngine:
     def _show_progress_overview(self):
         """显示进度概览"""
         print(f"\n{C['title']}╔══════════════════════════════════════════════════════════╗")
-        print(f"║         🀄  段言交互式教程  🀄                              ║")
+        print(f"║         🀄  光明交互式教程  🀄                              ║")
         print(f"║         {self.tutorial.name}                                  ║")
         print(f"╚══════════════════════════════════════════════════════════╝{C['reset']}")
         print()
@@ -771,7 +771,7 @@ class TutorialEngine:
         print()
 
         print(f"  {C['dim']}怎么玩？{C['reset']}")
-        print(f"  {C['dim']}  • 直接输入段言代码，按 Enter 执行{C['reset']}")
+        print(f"  {C['dim']}  • 直接输入光明代码，按 Enter 执行{C['reset']}")
         print(f"  {C['dim']}  • 输入 demo 查看参考答案{C['reset']}")
         print(f"  {C['dim']}  • 输入 skip 跳过当前步骤{C['reset']}")
         print(f"  {C['dim']}  • 输入 progress 查看进度{C['reset']}")
@@ -834,7 +834,7 @@ def list_tutorials():
     all_tutorials = create_all_tutorials()
 
     print(f"\n{C['title']}╔══════════════════════════════════════════════════════════╗")
-    print(f"║         📚 段言交互式教程列表  📚                         ║")
+    print(f"║         📚 光明交互式教程列表  📚                         ║")
     print(f"╚══════════════════════════════════════════════════════════╝{C['reset']}")
     print()
 
@@ -942,7 +942,7 @@ def run_first_run_tutorial() -> bool:
 def main():
     """主入口函数"""
     parser = argparse.ArgumentParser(
-        description="段言交互式教程 - 边学边练！",
+        description="光明交互式教程 - 边学边练！",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例：

@@ -32,11 +32,11 @@ COMPILER_BACKENDS = ["python", "llvm", "c", "wasm"]
 
 # 版本描述
 VERSION_DESCRIPTION = """
-光明 v7.0 是段言（Duan）与光明（Light）双线合并后的首个统一版本。
+光明 v7.0 是原「段言」（Duan）与「光明」（Light）双线合并后的首个统一版本（合并后统一称「光明」）。
 
 核心亮点：
 - 品牌统一：全面统一为「光明 / Light」，源文件后缀 .light，CLI 为 light / lightc
-- 双线合并：段言 v6.3 与光明 v6.0 的编译器内核逐块融合，保留双方超集能力
+- 双线合并：原段言 v6.3 与光明 v6.0 的编译器内核逐块融合，保留双方超集能力
 - 类型系统：泛型、联合类型（整数|浮点）、可空类型、模式匹配
 - 三套并行实现：手写 src/、ANTLR4 antlrparser/、自举 bootstrap/（Level 3–7）
 - 积木库：约 10010 个积木，零 token 离线代码生成
