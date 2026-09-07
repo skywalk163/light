@@ -49,6 +49,20 @@ _CODE_CACHE: dict[str, str] = {}
 # 正在编译中的路径，防止循环导入导致无限递归
 _COMPILING: set[str] = set()
 
+# 编译嵌套深度：_compile_light 运行期间 > 0。编译期编译器 import 的任何标准库模块
+# 都必须走真 CPython，不能让钩子去编译同名 .light 影子——否则
+# light_parser_v3 → parser_core → lexer → dataclasses → inspect 这条编译链会触发
+# 编译 inspect.light，而 inspect.light 又 import 编译器，形成循环导入
+# （gitea run 161 e2e 的 my_first.light 报 `partially initialized module` 循环导入）。
+# 用计数而非布尔：编译 A 时运行期又编译 B 会形成嵌套，计数能正确还原外层深度。
+_COMPILE_DEPTH: int = 0
+
+# 权威 Python 标准库模块名集合（3.10+ 提供）。钩子不得拦截这些名字的「直接 import」，
+# 否则编译期 import 标准库会触发编译同名 .light 影子（如 inspect.light）。
+# 别名形式（_light_re 等）不受此限——那是代码生成器刻意生成的纯光明别名，
+# 必须继续加载对应的 .light 实现。
+_STDLIB_MODULES = frozenset(getattr(sys, 'stdlib_module_names', ()))
+
 
 def _ensure_compiler_importable(stdlib_dir: str) -> None:
     """确保光明编译器（src/）在 sys.path 上。
@@ -93,22 +107,27 @@ def _ensure_compiler_importable(stdlib_dir: str) -> None:
 
 def _compile_light(light_path: str, stdlib_dir: str) -> str:
     """把 .light 文件编译成 Python 源码（带缓存）。"""
+    global _COMPILE_DEPTH
     key = os.path.abspath(light_path)
     cached = _CODE_CACHE.get(key)
     if cached is not None:
         return cached
 
-    _ensure_compiler_importable(stdlib_dir)
-    from light_parser_v3 import LightParser
-    from code_generator import PythonCodeGenerator
+    _COMPILE_DEPTH += 1
+    try:
+        _ensure_compiler_importable(stdlib_dir)
+        from light_parser_v3 import LightParser
+        from code_generator import PythonCodeGenerator
 
-    with open(light_path, 'r', encoding='utf-8') as fh:
-        source = fh.read()
+        with open(light_path, 'r', encoding='utf-8') as fh:
+            source = fh.read()
 
-    module_ast = LightParser().parse(source)
-    generated = PythonCodeGenerator().generate(module_ast)
-    _CODE_CACHE[key] = generated
-    return generated
+        module_ast = LightParser().parse(source)
+        generated = PythonCodeGenerator().generate(module_ast)
+        _CODE_CACHE[key] = generated
+        return generated
+    finally:
+        _COMPILE_DEPTH -= 1
 
 
 def _is_pure_light(light_file: str) -> bool:
@@ -201,6 +220,25 @@ class LightFinder(importlib.abc.MetaPathFinder):
         if fullname.startswith('_light_'):
             realname = fullname[len('_light_'):]
             if not realname or '.' in realname:
+                return None
+        # ---- 标准库保护（修复 gitea run 161 e2e 循环导入）----
+        # 直接 import 一个与 Python 标准库同名的模块时，绝不让钩子去编译同名 .light
+        # 影子。否则编译期 import 标准库（light_parser_v3 → parser_core → lexer →
+        # dataclasses → inspect）会触发编译 inspect.light，而 inspect.light 又
+        # import 编译器 → 循环导入。
+        #   - 编译期（_COMPILE_DEPTH>0）：任何标准库名一律放行给真 CPython，连
+        #     json.light/base64.light 这种有 .py 兄弟的「纯光明实现」也只在运行期
+        #     加载，编译期绝不编译同名影子。
+        #   - 运行期：仅当该名字在搜索路径里没有 .py 兄弟（inspect/sys/time/re 这类
+        #     纯影子）时放行给标准库；有 .py 兄弟的（json/base64）仍由钩子加载纯光明
+        #     实现，运行期语义保持不变。
+        # 别名形式（_light_re 等）不受此限：此时 fullname != realname，下面照常加载
+        # 对应的 .light 实现（re 的纯光明实现只经由别名可达，符合 code_generator 的
+        # _PYTHON_LEG_PURE_LIGHT_ALIAS 设计）。
+        if fullname == realname and realname in _STDLIB_MODULES:
+            if _COMPILE_DEPTH > 0:
+                return None
+            if not any(_exists_exact(b, realname + '.py') for b in self.search_paths):
                 return None
         try:
             for base in self.search_paths:
