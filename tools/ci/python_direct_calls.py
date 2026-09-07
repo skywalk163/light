@@ -90,7 +90,7 @@ _spec.loader.exec_module(_BR)
 iter_light_files = _BR.iter_light_files
 
 # `导入 Python: os, sys` / `导 Python：json`：`取模块名位置` 刻意返回 []
-# （它判的是「段言模块自导入」），但对本门禁来说这批模块正是 Python 模块。
+# （它判的是「光明模块自导入」），但对本门禁来说这批模块正是 Python 模块。
 _RE_导入PY = re.compile(r"^\s*导入?\s*Python\s*[：:]\s*(.+)$")
 # `引 Python：` 内联块起始行。块体归另一条门禁管，这里整块跳过。
 _RE_引PY = re.compile(r"引\s*Python\s*[：:]")

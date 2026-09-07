@@ -310,7 +310,7 @@ def generate_bridge_content(pkg_name, pkg_info, stdlib_info):
     lines.append(f'{pkg_name} — lightpub 桥接模块')
     lines.append(f'')
     if is_stdlib:
-        lines.append(f'基于 Python {module_name} 库封装，函数名对齐上游 duanpub（段言时期）packages/{pkg_name}/源.duan。')
+        lines.append(f'基于 Python {module_name} 库封装，函数名对齐上游 duanpub（原段言时期）packages/{pkg_name}/源.duan。')
         lines.append(f'')
         lines.append(f'上游 duanpub 原始包通过 C FFI 实现 {pkg_desc}，')
         lines.append(f'本桥接模块用 Python {module_name} 模块替代，提供等价的 {pkg_desc} 功能。')

@@ -1,5 +1,5 @@
 """
-段言端侧离线模型打包工具
+光明端侧离线模型打包工具
 
 将 Ollama 上的 duan-translator 模型打包进安装包，
 实现完全离线的 AI 代码生成能力。
@@ -125,7 +125,7 @@ class OfflineModelPackager:
             "model_name": self.model_name,
             "version": "1.0.0",
             "files": [f.name for f in gguf_files],
-            "description": "段言翻译器端侧模型，用于离线 AI 代码生成",
+            "description": "光明翻译器端侧模型，用于离线 AI 代码生成",
             "requirements": {
                 "ram_min_mb": 1024,
                 "disk_mb": sum(f.stat().st_size for f in gguf_files) // (1024 * 1024),
@@ -140,7 +140,7 @@ class OfflineModelPackager:
         """打印模型状态报告"""
         status = self.check_model_status()
         print("=" * 50)
-        print("  段言端侧离线模型状态")
+        print("  光明端侧离线模型状态")
         print("=" * 50)
         print(f"  Ollama 可用:    {'是' if status['ollama_available'] else '否'}")
         if status['ollama_available']:
@@ -153,7 +153,7 @@ class OfflineModelPackager:
 
 def main():
     """命令行入口"""
-    parser = argparse.ArgumentParser(description="段言端侧离线模型打包工具")
+    parser = argparse.ArgumentParser(description="光明端侧离线模型打包工具")
     parser.add_argument("--check", action="store_true", help="检查模型状态")
     parser.add_argument("--export", action="store_true", help="从 ollama 导出模型")
     parser.add_argument("--package", action="store_true", help="打包到安装包目录")

@@ -1,7 +1,7 @@
 """
-段言（Duan）编程语言 - 中文单位语义内置解析
+光明（Light）编程语言 - 中文单位语义内置解析
 
-实现中文计量单位的原生解析支持，使段言源代码中的"数字+单位"表达式
+实现中文计量单位的原生解析支持，使光明源代码中的"数字+单位"表达式
 能够被编译器自动识别并换算为标准单位值。
 
 设计原则：
@@ -153,7 +153,7 @@ for unit_name, unit_info in UNIT_MAP.items():
 class ChineseUnitParser:
     """中文单位解析器
 
-    从段言源代码中解析出所有"数字+单位"表达式，并提供单位换算功能。
+    从光明源代码中解析出所有"数字+单位"表达式，并提供单位换算功能。
 
     使用示例：
         >>> parser = ChineseUnitParser()
@@ -216,7 +216,7 @@ class ChineseUnitParser:
         扫描源代码，找出所有"数字+单位"模式，并返回解析后的单位表达式列表。
 
         Args:
-            source: 段言源代码字符串
+            source: 光明源代码字符串
 
         Returns:
             解析出的单位表达式列表，按在源代码中出现的顺序排列
@@ -423,7 +423,7 @@ def parse_units(source: str) -> List[UnitExpression]:
     使用全局默认解析器进行单位解析。
 
     Args:
-        source: 段言源代码字符串
+        source: 光明源代码字符串
 
     Returns:
         单位表达式列表

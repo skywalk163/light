@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-段言全量回归测试运行器
+光明全量回归测试运行器
 
 功能：
   - 运行 tests/ 目录下的所有测试
@@ -27,7 +27,7 @@ def run_tests(test_dir: str = None) -> dict:
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     print("=" * 70)
-    print("  段言（Duan）全量回归测试")
+    print("  光明（Light）全量回归测试")
     print("=" * 70)
     print(f"  测试目录: {test_dir}")
     print(f"  时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")

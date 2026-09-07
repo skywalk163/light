@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-段言（Duan）性能基准测试
+光明（Light）性能基准测试
 
 测量关键操作的时间开销：
 1. 词法分析（Lexer）
@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 # =============================================================================
 
 SAMPLE_CODE = '''
-# 段言基准测试示例
+# 光明基准测试示例
 段落 斐波那契 接收 n：
     如果 n 小于等于 1：
         返回 n
@@ -249,7 +249,7 @@ def _run_pipeline(source):
 
 def bench_compare_python(bm: Benchmark):
     """与 CPython 对比"""
-    # 编译并执行段言代码
+    # 编译并执行光明代码
     from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
 
@@ -266,7 +266,7 @@ def bench_compare_python(bm: Benchmark):
         ns = {'print': lambda *a: None}
         exec(PYTHON_EQUIVALENT, ns)
 
-    bm.measure("段言 编译+执行", run_duan, 50)
+    bm.measure("光明 编译+执行", run_duan, 50)
     bm.measure("CPython 直接执行", run_python, 50)
 
 
@@ -275,13 +275,13 @@ def bench_compare_python(bm: Benchmark):
 # =============================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description='段言性能基准测试')
+    parser = argparse.ArgumentParser(description='光明性能基准测试')
     parser.add_argument('--quick', action='store_true', help='快速模式（少量迭代）')
     parser.add_argument('--compare-python', action='store_true', help='包含 CPython 对比')
     args = parser.parse_args()
 
     print("=" * 70)
-    print("段言（Duan）性能基准测试")
+    print("光明（Light）性能基准测试")
     print("=" * 70)
     print(f"Python: {sys.version}")
     print(f"平台: {sys.platform}")

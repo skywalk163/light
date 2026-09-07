@@ -429,7 +429,7 @@ description = ""
             docs_content.append(f"{self.config.description}\n")
 
         docs_content.append(f"## 概述\n")
-        docs_content.append(f"这是段言语言包 **{pkg_name}** 的自动生成文档。\n")
+        docs_content.append(f"这是光明语言包 **{pkg_name}** 的自动生成文档。\n")
 
         if self.config:
             docs_content.append(f"## 基本信息\n")
@@ -479,7 +479,7 @@ description = ""
 
         docs_content.append("")
         docs_content.append("---")
-        docs_content.append(f"> 此文档由段言包管理器自动生成 — {__import__('time').strftime('%Y-%m-%d %H:%M:%S')}")
+        docs_content.append(f"> 此文档由光明包管理器自动生成 — {__import__('time').strftime('%Y-%m-%d %H:%M:%S')}")
 
         docs_text = '\n'.join(docs_content)
 

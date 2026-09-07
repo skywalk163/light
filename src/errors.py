@@ -60,10 +60,10 @@ CHINESE_ERROR_NAMES = {
 # =============================================================================
 CHINESE_ERROR_HINTS = {
     'SyntaxError': '请检查代码语法是否正确，确保所有括号、引号、冒号等符号已正确配对。',
-    'TypeError': '请检查操作数类型是否匹配，段言中文本和数字不能直接进行运算。',
+    'TypeError': '请检查操作数类型是否匹配，光明中文本和数字不能直接进行运算。',
     'ValueError': '请检查传入的值是否在有效范围内，可能需要先进行类型转换。',
     'NameError': '请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。',
-    'IndexError': '请检查索引是否在有效范围内，段言列表索引从 0 开始。',
+    'IndexError': '请检查索引是否在有效范围内，光明列表索引从 0 开始。',
     'KeyError': '请检查字典键是否存在，可以使用「字典包含键」方法先判断。',
     'AttributeError': '请检查对象是否拥有该属性或方法，需确认类定义中已声明。',
     'ImportError': '请检查模块名是否拼写正确，确认模块已安装或在标准库路径中。',
@@ -81,13 +81,13 @@ CHINESE_ERROR_HINTS = {
     'LookupError': '查找操作失败，请检查索引或键是否存在。',
 }
 
-# 段言特有错误修改指引
+# 光明特有错误修改指引
 CHINESE_DUAN_ERROR_HINTS = {
     '设': '缺少「设」关键字后的变量名，例如：设 甲 为 10',
     '接收': '段落定义缺少「接收」关键字，例如：段落 计算 接收 参数：',
     '如果': '条件表达式缺少冒号结尾，例如：如果 甲 大于 0：',
     '冒号': '块语句后必须使用中文冒号「：」结尾，例如：如果 条件：',
-    '缩进': '请检查缩进是否一致，段言使用 4 空格缩进，例如：段落 测试：',
+    '缩进': '请检查缩进是否一致，光明使用 4 空格缩进，例如：段落 测试：',
     '引号': '字符串引号未闭合，请检查引号是否成对出现，例如：打印("hello")',
     '括号': '括号不匹配，请检查所有括号是否成对，例如：打印(长度(列表))',
     '返回': '段落缺少「返回」语句或返回值类型不匹配，例如：返回 值',
@@ -110,7 +110,7 @@ def get_chinese_error_hint(exc_name: str) -> str:
 
 
 def get_duan_error_hint(error_msg: str) -> str:
-    """根据错误消息内容，返回段言特有的中文修改指引"""
+    """根据错误消息内容，返回光明特有的中文修改指引"""
     for keyword, hint in CHINESE_DUAN_ERROR_HINTS.items():
         if keyword in error_msg:
             return f"💡 修改建议：{hint}"
@@ -293,7 +293,7 @@ class LightError(Exception):
         self.fix_suggestions = fix_suggestions or []
         self.source_lines = source_lines or []
         
-        # D06: 自动从段言错误提示中匹配关键字补充指引
+        # D06: 自动从光明错误提示中匹配关键字补充指引
         duan_hint = get_duan_error_hint(message)
         if hint is None and duan_hint:
             hint = duan_hint

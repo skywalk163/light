@@ -302,7 +302,7 @@ def _is_extra_letter(ch: str) -> bool:
 
     数学库里 `弧度π`、`角度θ` 这类命名很自然，但这些字符既不是 ASCII 字母
     也不在 CJK 区间，早期实现会直接抛「未知字符」，导致 stdlib/数学 里
-    含 π 的导出名在段言侧完全不可用。这里放行 Unicode 字母类字符；
+    含 π 的导出名在段言（现名光明）侧完全不可用。这里放行 Unicode 字母类字符；
     标点、符号、emoji 仍然会被拒绝。
     """
     cp = ord(ch)
@@ -1777,7 +1777,7 @@ class Lexer:
         # 不可能是语句关键字，因此不再按关键字边界拆分。
         # （如 对象.导出事件表 不再拆成 对象.导出+事件表）
         # 注意：不能只收「连续汉字」——汉字+ASCII 混合的成员名（如 导出JSON、
-        # 导出HTML、段言到Python）会被切成 导出+JSON 两个标识符，编译产物变成
+        # 导出HTML、光明到Python）会被切成 导出+JSON 两个标识符，编译产物变成
         # l3_chart.导出(JSON()) 语义错误。须按标识符字符集（汉字/ASCII 字母数字/
         # 下划线/Unicode 字母，与 :1824 混排规则一致）整段收集。
         if _is_han(source[i]) and i > 0 and source[i - 1] == '.':
@@ -1842,7 +1842,7 @@ class Lexer:
                             # 1) 成员名上下文：紧邻的前一个源字符是 `.`。`.` 之后按定义是属性/方法名，
                             #    不可能是语句关键字。若不放行会打穿
                             #    examples/L3_domain/demo4_echarts.light:64 `l3_chart.导出JSON()`、
-                            #    :69 `l3_chart.导出HTML(...)`、examples/chat_bot/主.light:42 `.段言到Python(...)`
+                            #    :69 `l3_chart.导出HTML(...)`、examples/chat_bot/主.light:42 `.光明到Python(...)`
                             #    注意这里必须看源码字符而不是 tokens[-2]——本方法的 `tokens`
                             #    是 :1262 新建的局部列表，看不到外层已发射的 DOT。
                             # 2) 合并结果（含紧随的汉字后缀）是内置复合动词名：如 读取N字节
