@@ -7209,6 +7209,12 @@ static int dv_tls_bio_send(void* ctx, const unsigned char* buf, size_t len) {
 
 static int dv_tls_bio_recv(void* ctx, unsigned char* buf, size_t len) {
     LightTLS* t = (LightTLS*)ctx;
+    /* 关键修复（R13B）：bio_send 只把数据放入 out_pending 队列不直接发送。
+       在阻塞读之前必须先冲刷，否则 ClientHello 永远不上线，服务器不响应
+       → recv 永远阻塞（握手自锁）。Schannel 是纯状态机故 Windows 正常。 */
+    int fr = dv_tls_flush(t);
+    if (fr == DV_TLS_WANT_WRITE) return MBEDTLS_ERR_SSL_WANT_READ;
+    if (fr != DV_TLS_OK) return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
     ssize_t n = recv(t->fd, buf, len, 0);
     if (n > 0) return (int)n;
     if (n == 0) return 0;
