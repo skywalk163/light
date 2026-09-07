@@ -515,7 +515,6 @@ char* dv_to_string(LightValue* v) {
     return dv_to_string_depth(v, 0);
 }
 
-}
 
 /* ================================================================
  * 算术运算（类型提升：int + float → float）
