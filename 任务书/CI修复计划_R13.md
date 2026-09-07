@@ -1,6 +1,6 @@
 # CI 修复任务计划（R13-CI）
 
-> 生成：2026-09-07。状态：**任务 1 / 2 / 3 / 4 已修复**（CI-A：任务1/3；CI-B：任务2/4，整进程定向 49 passed / 0 failed）；任务 5 由 CI-C 处理。
+> 生成：2026-09-07。状态：**任务 1-5 全部修复，任务 6 收尾验证完成**（CI-A：任务1/3；CI-B：任务2/4；CI-C：任务5。ci_eval 全闸门 ✓，CI 原始 4 新增打红全绿，全量 7665 passed / 162 failed（基线已知为主））。
 > 依据：GitHub Actions 两段红灯 —— `ci_eval` 闸门（冒烟 6 块失败）+ pytest（16 failed / 4012 passed）。
 > 调查结论：已在本地复现并定位根因，失败分两类：**A 类 = 本地也红的真回归**；**B 类 = 本地单跑绿、CI 整进程红的顺序耦合**。
 
@@ -166,3 +166,47 @@ Python 对拍）绿；`Test内置映射与实现咬合` 绿。
 
 - 导入钩子全局 install() 仍无进程级卸载（code_generator.py L1034），当前靠 .light 版本自身正确来避免整进程污染；若未来 .light 模块有 bug，仍可能影响同进程后续测试。完整隔离需 atexit/uninstall 或测试夹具级 sys.meta_path 快照恢复，归后续批次。
 - `集合操作.light L188` 有一处 `插入(结果, 位置, 当前)` 函数调用形式（同类笔误），不在 R11C 测试范围，未修复。
+
+---
+
+## 任务 6：收尾验证与提交（已完成，2026-09-07）
+
+### 合并顺序
+CI-A（runtime 内建 + 模块表）→ CI-B（re 解析 + 契约对齐）→ CI-C（对象池写回）。CI-B 合并时 任务书/CI修复计划_R13.md 头部状态行冲突，已手动合并。
+
+### 合并后发现并修复的回归
+**re 别名过度应用**：CI-B 的 _PYTHON_LEG_PURE_LIGHT_ALIAS 把 导入 re（import 语句）也别名化为 import _light_re，但代码中用 e.compile（需要 e 名字），导致代理循环.light 等 6 个 lightharness 测试收集阶段 NameError: name 're' is not defined。
+- **修复**：src/code_generator.py 主模块别名条件加 nd stmt.symbols（只对 从 re 导入 X from import 生效）；额外模块（导入 re, sys 中的 Y，只有 import 形式）移除别名逻辑。
+- **验证**：导入 re → import re（CPython）；从 re 导入 re_编译 → rom _light_re import re_编译（纯光明别名保留）。6 个 lightharness 测试收集阶段通过。
+
+### 定向测试验证（合并后整进程）
+- CI-A：	est_非LLVM路径_T5B编码哈希.py + 	est_native_leg_capability.py（11 passed）
+- CI-B：	est_match_elif_import_aliases.py + 	est_lightpub_doc_importability.py（3 passed）+ 	est_原生腿_R11C_数据高级.py（29 passed）
+- CI-C：	est_对象池缓存_冒烟_O0.py
+- **合计：62 passed / 0 failed**（能力清单重建后 63 passed）
+
+### CI 原始 4 个新增打红（回归闸门）验证
+- 	est_operators_alias ✓
+- 	est_all_examples_output ✓
+- 	est_division ✓
+- 	est_平均值仍是求和除长度 ✓
+- **4 passed / 0 failed**（1.6s）
+
+### ci_eval 闸门验证
+python 积木库/评估/ci_eval.py --并发 8：**全部通过 ✓**（19.9s）
+- 冒烟可运行率 1.0（之前 6 块失败：Base64/MD5/SHA1/SHA256/SHA512/提取邮箱）
+- 主基准 Hit@1 1.0、链路正确率 1.0、失败条目数 0
+- 接线总正确率 1.0、体检错误数 0、兜底触发率 1.0
+
+### 全量 pytest
+python -m pytest -q：**7665 passed / 162 failed / 87 skipped / 3 xfailed / 6 errors**（32 分钟）
+- 162 failed 大部分为基线已知失败（CI 原始报告：基线 12 条 + 非阻塞 24 条只报不拦；全量测试集远大于 CI 统计的 3 份 junit）。
+- 6 errors 均为 	ests/test_lightpub_bridge.py::TestHTTP客户端Bridge 的 ModuleNotFoundError: No module named 'requests'（环境依赖，非代码回归）。
+
+### 能力清单重建
+CI-C 修改 codegen_typed.py 导致内置函数证据行号偏移，重建后 	est_native_leg_capability.py 11 passed。数字不变：builtin 411 / runtime 262 / Total 711。
+
+### 仍存在的缺口
+1. equests 库未安装 → 	est_lightpub_bridge.py 6 个 error（环境依赖，安装 requests 即可）。
+2. 全量 162 failed 中的基线已知失败未逐一清理（归后续批次）。
+3. 导入钩子全局 install() 仍无进程级卸载（靠 .light 版本自身正确避免污染，完整隔离归后续批次）。
