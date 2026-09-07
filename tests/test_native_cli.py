@@ -42,7 +42,7 @@ sys.path.insert(0, os.path.join(仓库根, 'src'))
     '协程': (
         '异步 段落 测试睡眠：\n'
         '    输出("sleep前")\n'
-        '    睡眠(50)\n'
+        '    睡眠(2)\n'
         '    输出("sleep后")\n'
         '结束\n'
         '\n'
