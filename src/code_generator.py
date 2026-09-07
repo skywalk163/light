@@ -43,6 +43,14 @@ class CodeGenError(Exception):
 # 方案 B：在 codegen 提前到**编译期**报错并指路。
 _ASYNC_FILE_NAMES = frozenset({'异步读取文件', '异步写入文件', '异步追加文件'})
 
+# 需要在 Python 腿用 `_light_<名>` 别名导入的纯光明 stdlib 模块：这些 .light
+# 是 Python 腿的**真实现**，必须优先于 CPython 同名标准库（sys.modules 缓存
+# 会先命中 CPython re，钩子根本轮不到）。**不要**把 sys/time/inspect/Base64 等
+# 加进来：它们的 .light 只是原生腿最小面（文件头自注「Python 腿导入真模块」），
+# 别名会迫使 Python 腿加载原生腿存根——例如 `import _light_sys` 会让
+# sys.stderr.write 这类真模块能力整段消失（事件总线.light 依赖它）。
+_PYTHON_LEG_PURE_LIGHT_ALIAS = frozenset({'re'})
+
 
 # =============================================================================
 # Python代码生成器
@@ -4112,6 +4120,16 @@ class PythonCodeGenerator:
         # 2. 如果 lightpub 没有命中，回退到内置模块名映射
         if mapped_module is None:
             mapped_module = self.module_name_map.get(module_name, module_name)
+        # 3. 纯光明 stdlib 模块：Python 侧用 _light_<名> 别名导入，规避与 CPython
+        #    同名标准库模块（re/sys/time/inspect…）的 sys.modules 缓存冲突
+        #    （`from re import re_编译` 在 CPython re 已缓存时直接 ImportError）。
+        #    只对「Python 腿真实现」的纯光明模块生效（_PYTHON_LEG_PURE_LIGHT_ALIAS）：
+        #    sys/time/inspect 等原生腿最小面不在其列，Python 腿必须命中真模块。
+        #    lightpub 桥接路径（stdlib.lightpub.X）不走别名，保持既有路由。
+        if mapped_module and not mapped_module.startswith('stdlib.lightpub.') \
+                and module_name in _PYTHON_LEG_PURE_LIGHT_ALIAS \
+                and self._stdlib_light_is_pure(module_name):
+            mapped_module = '_light_' + module_name
         
         if stmt.symbols:
             # 从...导入：from 数学 import 平方根, 幂
@@ -4153,6 +4171,12 @@ class PythonCodeGenerator:
         if hasattr(stmt, 'extra_modules') and stmt.extra_modules:
             for extra_mod, extra_alias in stmt.extra_modules:
                 mapped_extra = self.module_name_map.get(extra_mod, extra_mod)
+                # 与主模块同一套纯光明别名策略（白名单 _PYTHON_LEG_PURE_LIGHT_ALIAS，
+                # 规避 CPython 同名标准库模块的 sys.modules 缓存抢名——见上注释）。
+                if mapped_extra and not mapped_extra.startswith('stdlib.lightpub.') \
+                        and extra_mod in _PYTHON_LEG_PURE_LIGHT_ALIAS \
+                        and self._stdlib_light_is_pure(extra_mod):
+                    mapped_extra = '_light_' + extra_mod
                 if extra_alias:
                     self._add_line(f"import {mapped_extra} as {extra_alias}")
                     self._imported_symbols.add(extra_alias)
@@ -4181,6 +4205,35 @@ class PythonCodeGenerator:
             self._add_line(f"import {mapped_module}")
             self._imported_symbols.add(module_name)
     
+    def _stdlib_light_is_pure(self, module_name: str) -> bool:
+        """判断光明模块名对应的 stdlib/<名>.light 是否为「纯光明实现」。
+
+        纯光明模块在 Python 侧用 `_light_<名>` 别名导入，避免与 CPython
+        同名标准库模块（re/sys/time/inspect…）在 sys.modules 里的缓存抢名：
+        `from re import re_编译` 在 CPython re 已缓存时直接命中缓存而
+        ImportError，sys.meta_path 上的导入钩子根本轮不到。
+        """
+        try:
+            bases = []
+            if self._stdlib_dir:
+                bases.append(self._stdlib_dir)
+            bases.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'stdlib'))
+            for base in bases:
+                if not base or not os.path.isdir(base):
+                    continue
+                light_file = os.path.join(base, module_name + '.light')
+                if not os.path.isfile(light_file):
+                    continue
+                try:
+                    with open(light_file, 'r', encoding='utf-8') as fh:
+                        head = fh.readline() + fh.readline()
+                    return '纯光明实现' in head
+                except OSError:
+                    return False
+        except Exception:
+            pass
+        return False
+
     def _resolve_lightpub_import(self, module_name: str):
         """
         通过 lightpub 加载器解析导入名，返回 Python 模块名。

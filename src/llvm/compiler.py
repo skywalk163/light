@@ -910,6 +910,8 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
         codegen._process_imports(mod)
 
     # 收集所有模块的语句、类和段落（先收集，再生成）
+    # T9A：记录 类名 → 所属模块，供下方类方法生成时恢复模块上下文
+    class_module_map = {}
     for mod in all_module_list:
         for stmt in mod.statements:
             if isinstance(stmt, ast.ImportStatement):
@@ -927,6 +929,9 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
         if hasattr(mod, 'classes'):
             for cls_def in mod.classes:
                 codegen._collect_class(cls_def)
+                # T9A：记录 类名 → 所属模块。codegen._classes 只按类名存 cls_def，
+                # 不存所属模块；下方类方法生成时要靠它恢复 _current_module。
+                class_module_map[cls_def.name] = mod.name
         # 收集接口定义（Level 7）
         if hasattr(mod, 'interfaces'):
             for iface_def in mod.interfaces:
@@ -964,8 +969,13 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
     codegen._current_module = None
 
     # 生成类方法
+    # T9A：恢复类所属模块上下文（class_module_map 在收集阶段记录），
+    # 使类方法体中的段调用解析到所属模块的 _local_seg_key（元组 key）。
     for cls_name, cls_def in codegen._classes.items():
+        prev_module = codegen._current_module
+        codegen._current_module = class_module_map.get(cls_name)
         codegen._gen_typed_class_methods(cls_name, cls_def)
+        codegen._current_module = prev_module
 
     # 生成所有段落函数
     for reg_key in codegen._segment_order:

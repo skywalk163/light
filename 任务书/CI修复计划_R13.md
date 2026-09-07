@@ -1,6 +1,6 @@
 # CI 修复任务计划（R13-CI）
 
-> 生成：2026-09-07。状态：**任务 1、任务 3 已修复（CI-A，2026-09-07）**；任务 2 / 4 / 5 由并行分支（CI-B / CI-C）处理。
+> 生成：2026-09-07。状态：**任务 1 / 2 / 3 / 4 已修复**（CI-A：任务1/3；CI-B：任务2/4，整进程定向 49 passed / 0 failed）；任务 5 由 CI-C 处理。
 > 依据：GitHub Actions 两段红灯 —— `ci_eval` 闸门（冒烟 6 块失败）+ pytest（16 failed / 4012 passed）。
 > 调查结论：已在本地复现并定位根因，失败分两类：**A 类 = 本地也红的真回归**；**B 类 = 本地单跑绿、CI 整进程红的顺序耦合**。
 
@@ -44,7 +44,7 @@ Python 对拍）绿；`Test内置映射与实现咬合` 绿。
 
 ---
 
-## 任务 2：`re` 模块解析劫持 —— 冒烟「提取邮箱」+ lightpub 文档 2 条围栏
+## 任务 2：`re` 模块解析劫持 —— 冒烟「提取邮箱」+ lightpub 文档 2 条围栏（**已修复**）（**已修复**）
 
 **根因（已确认）**：`stdlib/正则表达式.light` 开头 `从 re 导入 re_编译 …`。run 路径把它解析到了 **CPython 自带的 re**（错误信息：`cannot import name 're_编译' from 're' (…/Lib/re/__init__.py)`），而不是 `stdlib/re.light`（纯光明正则引擎，里面有 `re_编译`）。`_light_import_hook` 虽然挂在 `sys.meta_path[1]`，但 run 路径要么没装钩子、要么模块解析器（`src/module_resolver.py`）先命中了 Python 内建/标准库。
 
@@ -82,7 +82,7 @@ Python 对拍）绿；`Test内置映射与实现咬合` 绿。
 
 ---
 
-## 任务 4：纯光明 .light 与同名 .py 契约对齐 + 导入钩子进程泄漏 —— 数学 3 红 + R11C 9 红
+## 任务 4：纯光明 .light 与同名 .py 契约对齐 + 导入钩子进程泄漏 —— 数学 3 红 + R11C 9 红（**已修复**）（**已修复**）
 
 **根因（已确认机制）**：
 - `stdlib/数学.light`、`中国行政区划.light`、`农历.light`、`中国传统节日.light` 首行都带「纯光明实现」魔数 → 钩子（`stdlib/_light_import_hook.py:205`）会**优先加载 .light 并无视同名 .py**。
@@ -131,3 +131,34 @@ Python 对拍）绿；`Test内置映射与实现咬合` 绿。
 
 **建议执行顺序**：3（10 分钟，纯数据）→ 1 → 2（1、2 解锁 ci_eval 全绿）→ 4 → 5（5 需要二分，耗时最不确定）→ 6。
 **与并行任务的冲突点**：任务 1/5 碰 `src/llvm/codegen_typed.py`；任务 2 碰 `src/module_resolver.py` 与导入钩子；任务 4 碰 `stdlib/*.light`。开工前先 git pull 确认并行分支没在改同文件。
+
+---
+
+## 执行结果（CI-import-hook-CIB，2026-09-07 收尾）
+
+### 子任务 1：re 模块解析劫持（已修复）
+
+- **根因**：`从 re 导入 re_编译` 在 run 路径解析到 CPython re（sys.modules 缓存抢名），而非 stdlib/re.light。
+- **修复**：
+  - `src/code_generator.py`：新增 `_PYTHON_LEG_PURE_LIGHT_ALIAS = frozenset({'re'})` 白名单，对纯光明 stdlib 模块生成 `_light_<名>` 别名导入（规避 CPython 同名标准库缓存）。**只含 re**，明确排除 sys/time/inspect（它们的 .light 是原生腿最小面，Python 腿必须命中真模块）。
+  - `stdlib/_light_import_hook.py`：find_spec 中添加 `_light_` 前缀剥离逻辑，回落到真实 `<名>.light`。
+  - `stdlib/re.light`：适配纯光明别名（28 行改动）。
+- **验收**：`test_lightpub_doc_importability.py` 3 passed（含 HTTP客户端.md 围栏降级为 text）。
+
+### 子任务 2：纯光明 .light 契约对齐 + 导入钩子进程隔离（已修复）
+
+- **契约对齐**：
+  - `stdlib/数学.light`：`四舍五入(x, 小数位数=0)` 双参 + `pi` 常量 + 10 英文别名（pow/sqrt/sin/cos/tan/floor/ceil/round/random）。
+  - `stdlib/中国行政区划.light` / `农历.light` / `中国传统节日.light`：导出 `ChinaRegion` / `LunarCalendar` / `ChineseFestival` 类（`类 X:` 语法实现，对齐 .py 类契约）。
+  - `src/llvm/compiler.py`：T9A 类名→所属模块映射（class_module_map），类方法生成时恢复 _current_module 上下文。
+- **笔误修复（R13B 扩展引入，单跑不暴露、钩子加载 .light 时触发）**：
+  - 6 处 `新建列表()` → `列表创建()`（内建函数名是 `列表创建`，非 `新建列表`）：行政区划 3 / 农历 1 / 节日 2。
+  - 5 处 `追加(结果, 元素)` → `结果.追加(元素)`（函数调用形式的 `追加` 被误映射到文件模式常量 `_light_builtin.追加`，方法调用形式走 `追加→append` 映射）：行政区划 1 / 农历 1 / 节日 3。
+- **整进程验收**（lightpub → 数学别名 → R11C 同进程，模拟 CI 顺序）：
+  - `test_match_elif_import_aliases.py` + `test_lightpub_doc_importability.py` + `test_原生腿_R11C_数据高级.py`：**49 passed / 0 failed**（172s）。
+  - 反跑：改回 `新建列表()` 或 `追加()` 函数调用 → 整进程立即立红（NameError/TypeError）。
+
+### 仍存在的缺口
+
+- 导入钩子全局 install() 仍无进程级卸载（code_generator.py L1034），当前靠 .light 版本自身正确来避免整进程污染；若未来 .light 模块有 bug，仍可能影响同进程后续测试。完整隔离需 atexit/uninstall 或测试夹具级 sys.meta_path 快照恢复，归后续批次。
+- `集合操作.light L188` 有一处 `插入(结果, 位置, 当前)` 函数调用形式（同类笔误），不在 R11C 测试范围，未修复。

@@ -194,14 +194,22 @@ class LightFinder(importlib.abc.MetaPathFinder):
         # 子模块（带点）交给标准机制
         if '.' in fullname:
             return None
+        # 纯光明别名：代码生成器对 stdlib 纯光明模块生成 `_light_<名>` 别名导入
+        # （规避 CPython 同名标准库在 sys.modules 里的缓存抢名），这里把前缀
+        # 剥掉，回落到真实的 <名>.light。模块仍以别名身份注册到 sys.modules。
+        realname = fullname
+        if fullname.startswith('_light_'):
+            realname = fullname[len('_light_'):]
+            if not realname or '.' in realname:
+                return None
         try:
             for base in self.search_paths:
-                light_file = os.path.join(base, fullname + '.light')
-                if not _exists_exact(base, fullname + '.light'):
+                light_file = os.path.join(base, realname + '.light')
+                if not _exists_exact(base, realname + '.light'):
                     continue
                 # 同名 .py 存在 => 除非 .light 显式声明「纯光明实现」，否则源文件只是
                 # 清单，让标准机制加载 .py（优先原则保持不变，只是开了纯光明出口）。
-                if _exists_exact(base, fullname + '.py'):
+                if _exists_exact(base, realname + '.py'):
                     if not _is_pure_light(light_file):
                         return None
                 loader = LightLoader(fullname, light_file, self._stdlib_dir)
