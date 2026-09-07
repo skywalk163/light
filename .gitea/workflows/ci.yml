@@ -79,7 +79,7 @@ name: CI
 
 on:
   push:
-    branches: [main, merge-v7]
+    branches: [main, merge-v7, task-PGB-brand]
   pull_request:
     branches: [main, merge-v7]
   workflow_dispatch:
