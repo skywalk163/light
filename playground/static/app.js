@@ -1,5 +1,5 @@
 /**
- * 光明 (Light) Web Playground - 前端逻辑 v4.0
+ * 光明 (Light) Web Playground - 前端逻辑 v7.0
  */
 
 let editor = null;
@@ -47,7 +47,7 @@ require(['vs/editor/editor.main'], function () {
         tokenPostfix: '.light',
 
         keywords: [
-            // v4.0 L0 核心关键字（单字主形式）
+            // v7.0 L0 核心关键字（单字主形式）
             '设', '为', '等于',
             '若', '则', '否', '或若',
             '遍', '于', '当', '断', '跃',
@@ -84,7 +84,7 @@ require(['vs/editor/editor.main'], function () {
         ],
 
         operators: [
-            // v4.0 符号运算符（主形式）
+            // v7.0 符号运算符（主形式）
             '+', '-', '*', '/', '%', '**', '//',
             '>', '<', '>=', '<=', '==', '!=',
             '+=', '-=', '*=', '/=',
@@ -207,12 +207,12 @@ setTimeout(function() {
 }, 5000);
 
 function getDefaultCode() {
-    return `# 欢迎使用光明 v4.0 Playground！
+    return `# 欢迎使用光明 v7.0 Playground！
 # 试试运行这段代码 👇
 # 快捷键：Ctrl+Enter 运行
 # 文体切换：点击工具栏「文」按钮切换 L1白话 / L2文言
 
-印("你好，光明 v4.0！")
+印("你好，光明 v7.0！")
 
 设 甲 为 10
 设 乙 为 20
@@ -227,14 +227,14 @@ function getDefaultCode() {
 否则：
   印("乙更大")
 
-# v4.0 函数定义（单字关键字）
+# v7.0 函数定义（单字关键字）
 段 平方(x)：
   返回 x * x
 
 印("5 的平方 = ")
 印(平方(5))
 
-# v4.0 循环
+# v7.0 循环
 设 总和 为 0
 遍 i 于 列(1, 2, 3, 4, 5)：
   设 总和 为 总和 + i
@@ -666,7 +666,7 @@ function loadStdlib() {
 function renderGrammar(categories) {
     const panel = document.getElementById('grammarModalBody');
 
-    let html = '<div class="grammar-intro"><p>快速入门光明 v4.0 分层语法。L0 核心字（30个）稳定不变，L1 白话子集（19字）适合教学，L2 文言全集（30字）适合商业项目。点击「示例」可加载对应代码体验。</p></div>';
+    let html = '<div class="grammar-intro"><p>快速入门光明 v7.0 分层语法。L0 核心字（30个）稳定不变，L1 白话子集（19字）适合教学，L2 文言全集（30字）适合商业项目。点击「示例」可加载对应代码体验。</p></div>';
 
     categories.forEach(function(cat) {
         html += '<div class="grammar-category">';

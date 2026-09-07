@@ -1,5 +1,5 @@
 /**
- * 光明 (Light) 交互式教程系统 v4.1
+ * 光明 (Light) 交互式教程系统 v7.0
  */
 
 const TUTORIAL_STORAGE_KEY = 'light_tutorial_progress';
@@ -155,7 +155,7 @@ const TUTORIAL_LESSONS = [
         task: '混用 L1 和 L2 关键字：用「设」定义变量，用「如果」判断，用「打印」输出。',
         template: '设 分数 为 85\n如果 分数 >= 60 那么：\n  打印("及格")\n否则：\n  打印("不及格")\n结束\n',
         expected: '及格',
-        hint: '光明 v4.0 同时支持 L0 单字和 L1 双字关键字，可以自由混用。',
+        hint: '光明 v7.0 同时支持 L0 单字和 L1 双字关键字，可以自由混用。',
         keywords: ['设', '如果', '那么', '否则', '打印', '结束'],
         difficulty: 'intermediate',
         layer: 'L1'

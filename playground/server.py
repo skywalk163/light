@@ -1,6 +1,6 @@
 """
 光明（Light）Web Playground - 后端 API 服务
-基于 v3.2 语法的 SRC 后端，提供代码执行、解析、词法分析等功能。
+基于 v7.0 语法的 SRC 后端，提供代码执行、解析、词法分析等功能。
 """
 
 import os
@@ -257,7 +257,7 @@ BUILTIN_EXAMPLES = [
                 'id': 'hello',
                 'title': '你好，光明',
                 'description': '最基础的光明程序，了解打印语句',
-                'code': '# 欢迎使用光明 v3.2\n\n打印("你好，光明！")\n打印("欢迎来到中文编程的世界")'
+                'code': '# 欢迎使用光明 v7.0\n\n打印("你好，光明！")\n打印("欢迎来到中文编程的世界")'
             },
             {
                 'id': 'variables',
@@ -499,47 +499,43 @@ GRAMMAR_REFERENCE = [
         ]
     },
     {
-        'category': '变量定义',
+        'category': '变量与类型',
         'items': [
-            {'syntax': '设 变量名 为 值', 'description': '定义变量并初始化'},
-            {'syntax': '设 甲 为 10', 'description': '示例：定义整数变量'},
-            {'syntax': '变量名 为 新值', 'description': '修改变量值（省略设）'}
-        ]
-    },
-    {
-        'category': '数据类型',
-        'items': [
-            {'syntax': '42 / 3.14', 'description': '整数和浮点数'},
-            {'syntax': '"文本内容"', 'description': '字符串，用双引号包围'},
-            {'syntax': '真 / 假', 'description': '布尔值'},
-            {'syntax': '空', 'description': '空值'},
-            {'syntax': '[1, 2, 3]', 'description': '列表'},
-            {'syntax': '{"键": 值, "键2": 值2}', 'description': '字典'}
+            {'syntax': '设 整数 为 42', 'description': '整数'},
+            {'syntax': '设 浮点 为 3.14', 'description': '浮点数'},
+            {'syntax': '设 文本 为 "你好"', 'description': '字符串，用双引号包围'},
+            {'syntax': '设 旗标 为 真', 'description': '布尔值：真 / 假（不是 True/False）'},
+            {'syntax': '设 空值 为 空', 'description': '空值（不是 None）'},
+            {'syntax': '设 列表 为 [1, 2, 3]', 'description': '列表'},
+            {'syntax': '设 字典 为 {"a": 1, "b": 2}', 'description': '字典'},
+            {'syntax': '设 集合 为 {1, 2, 3}', 'description': '集合（部分版本支持）'},
+            {'syntax': '设 计数 为 计数 加 1', 'description': '复合赋值（也可用 计数 加上 1）'}
         ]
     },
     {
         'category': '运算符',
         'items': [
-            {'syntax': '加 / 减 / 乘 / 除 / 模 / 幂', 'description': '算术运算符'},
-            {'syntax': '大于 / 小于 / 等于 / 不等于', 'description': '比较运算符'},
-            {'syntax': '且 / 或 / 非', 'description': '逻辑运算符'}
+            {'syntax': '设 结果 为 10 加 3 乘 2\n打印(结果)', 'description': '算术（符号 + - * / % ** // 等价）'},
+            {'syntax': '设 成立 为 5 大于 3\n打印(成立)', 'description': '比较（符号 > < == != 等价）'},
+            {'syntax': '设 成立 为 真 且 假\n打印(成立)', 'description': '逻辑（没有 && / || / !，用中文）'}
         ]
     },
     {
         'category': '条件判断',
         'items': [
             {'syntax': '如果 条件：\n  代码', 'description': '基本条件判断'},
-            {'syntax': '如果 条件：\n  代码\n否则：\n  代码', 'description': '条件判断带否则分支'},
-            {'syntax': '如果 条件：\n  代码\n否则如果 条件：\n  代码\n否则：\n  代码', 'description': '多条件判断链'}
+            {'syntax': '如果 分数 >= 90：\n  打印("优秀")\n否则如果 分数 >= 60：\n  打印("及格")\n否则：\n  打印("不及格")', 'description': '多分支（中文或符号比较皆可）'}
         ]
     },
     {
         'category': '循环',
         'items': [
-            {'syntax': '当 条件：\n  代码', 'description': '当循环，条件为真时重复执行'},
-            {'syntax': '遍历 项 于 列表：\n  代码', 'description': '遍历列表每个元素'},
-            {'syntax': '跳出', 'description': '跳出当前循环'},
-            {'syntax': '跳过', 'description': '跳过当前迭代'}
+            {'syntax': '当 计数 大于 0：\n  打印(计数)\n  设 计数 为 计数 减 1', 'description': '当循环，条件为真时重复'},
+            {'syntax': '遍历 项 于 列表：\n  打印(项)', 'description': '遍历列表每个元素'},
+            {'syntax': '遍历 i 在 1 到 10：\n  打印(i)', 'description': '区间遍历（含两端，相当于 range(1,11)）'},
+            {'syntax': '遍历 i 在 1 到 10 步 2：\n  打印(i)', 'description': '带步长的区间遍历（1,3,5,7,9）'},
+            {'syntax': '跳出', 'description': '跳出当前循环（break）'},
+            {'syntax': '跳过', 'description': '跳过本次迭代（continue）'}
         ]
     },
     {
@@ -547,23 +543,41 @@ GRAMMAR_REFERENCE = [
         'items': [
             {'syntax': '段落 名称 接收 参数：\n  代码', 'description': '定义段落（函数）'},
             {'syntax': '名称(参数)', 'description': '调用段落'},
-            {'syntax': '返回 值', 'description': '从段落返回值'}
+            {'syntax': '返回 值', 'description': '从段落返回值'},
+            {'syntax': '段落 问候 接收 名字 = "世界"：\n  返回 "你好，" + 名字', 'description': '默认参数'},
+            {'syntax': '段落 计算 接收 甲, 乙：\n  返回 甲 加 乙, 甲 减 乙', 'description': '多返回值（返回多个值）'},
+            {'syntax': '设 和, 差 为 计算(10, 3)', 'description': '解构接收多返回值'}
         ]
     },
     {
         'category': '类与对象',
         'items': [
-            {'syntax': '类 类名：\n  属性 属性名\n  构造 接收 参数：\n    代码\n  段落 方法名：\n    代码', 'description': '类定义'},
-            {'syntax': '新建 类名(参数)', 'description': '创建对象实例'},
-            {'syntax': '己.属性名 / 己方法名()', 'description': '访问自身属性和方法'},
+            {'syntax': '类 类名：\n  属性 属性名\n  段落 初始化 接收 参数：\n    设 己.属性 为 参数\n  段落 方法名：\n    代码', 'description': '类定义（构造可用 初始化 或 构造）'},
+            {'syntax': '设 对象 为 新建 类名(参数)', 'description': '创建对象实例'},
+            {'syntax': '己.属性 / 己方法名()', 'description': '访问自身属性与方法'},
             {'syntax': '类 子类 继承 父类：', 'description': '类继承'}
+        ]
+    },
+    {
+        'category': '模块导入',
+        'items': [
+            {'syntax': '从 数学 导入 平方根, 幂', 'description': '从标准库导入指定函数'},
+            {'syntax': '从 文件系统 导入 读取, 写入', 'description': '导入文件读写等能力'}
+        ]
+    },
+    {
+        'category': '异常处理',
+        'items': [
+            {'syntax': '试：\n  代码\n捕 错误 为 e：\n  打印(转字符串(e))\n最终：\n  代码', 'description': '捕获异常（try / except / finally）'},
+            {'syntax': '抛 新建 运行时错误("消息")', 'description': '抛出异常'}
         ]
     },
     {
         'category': '内置函数',
         'items': [
             {'syntax': '打印(值)', 'description': '输出值到控制台'},
-            {'syntax': '列表之长度', 'description': '获取列表/字符串长度'},
+            {'syntax': 'len(列表)', 'description': '获取列表/字符串长度'},
+            {'syntax': '排序(列表)', 'description': '排序，返回新列表'},
             {'syntax': '转整数(值)', 'description': '转换为整数'},
             {'syntax': '转字符串(值)', 'description': '转换为字符串'}
         ]
