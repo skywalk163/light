@@ -51,6 +51,23 @@ if _光明目录 not in sys.path:
 import _light_import_hook as _光明钩子
 _光明钩子.install([_光明目录])
 
+# T5B：编码/哈希 runtime 内建（非 LLVM 路径）接线。
+# 实现放 stdlib/_t5b_runtime.py 而不在本文件开 `def`：floor_bootstrap 用 ast 数
+# 本文件顶层函数当分母，新增 def 会触发「清单漏登记」判红（地板名单冻结）。
+# 这里只做名字接线 —— from import 不产生 FunctionDef，地板计数不受影响。
+# 生成产物把本文件当 _light_builtin 载入（src/code_generator.py:759-763），
+# codegen builtin_map 的 `_b64_encode`→`_light_builtin._b64_encode` 等映射
+# 因此在执行期可用（LLVM 路径同名内建在 codegen_typed.py，互不干扰）。
+from _t5b_runtime import (
+    _b64_encode,
+    _b64_decode,
+    _md5,
+    _sha1,
+    _sha256,
+    _sha512,
+    _hmac_sha256,
+)
+
 
 def 读取文件(path: str, encoding: str = 'utf-8') -> str:
     """

@@ -485,6 +485,20 @@ class PythonCodeGenerator:
             '序列化JSON': '_light_builtin.序列化JSON',
             '美化JSON': '_light_builtin.美化JSON',
 
+            # T5B：编码 / 哈希 runtime 内建（非 LLVM 路径）。
+            # stdlib 的 Base64.light / 哈希.light 按函数名调用 `_b64_encode` 等别名；
+            # LLVM 原生腿同名映射在 src/llvm/codegen_typed.py:2482+（C 层 dv_*），
+            # 本后端把它们接到 stdlib/builtins.py（经 _t5b_runtime 的 Python 实现），
+            # 字节口径与 dv_* 一致。缺这些映射时解释器执行产物报
+            # `name '_md5' is not defined`（冒烟 Base64/哈希 块红，CI-A）。
+            '_b64_encode': '_light_builtin._b64_encode',
+            '_b64_decode': '_light_builtin._b64_decode',
+            '_md5': '_light_builtin._md5',
+            '_sha1': '_light_builtin._sha1',
+            '_sha256': '_light_builtin._sha256',
+            '_sha512': '_light_builtin._sha512',
+            '_hmac_sha256': '_light_builtin._hmac_sha256',
+
             # 函数式编程
             '筛选': 'filter',
             '映射': 'map',
