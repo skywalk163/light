@@ -1661,10 +1661,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
     def _gen_typed_function_call(self, expr):
         # R11A-02 修复：局部变量遮蔽内建（Python 语义）。
-        # 当调用名已被声明为局部变量时，即使源码写法像函数调用（如 `转文本(删除)`
+        # 当调用名已被声明为局部变量且调用无参时，即使源码写法像函数调用（如 `转文本(删除)`
         # 中括号内的内建名被解析为无参 FunctionCall 节点），也把它当变量引用返回——
-        # light 没有「函数值可调用」语义，用户用内建名作变量即表示要遮蔽内建。
-        # 仅当该名从未作为变量声明时才走内建调用（如真正的 `删除(表, 2)` list.remove）。
+        # light 没有「函数值可调用」语义，无参调用名歧义时按变量引用处理（遮蔽内建）。
+        # 带实参的调用（如 `列表(对象, 时间戳)` 构造列表条目、`删除(表, 2)` list.remove）
+        # 不是歧义引用，必须继续走正常派发（段函数 → builtin）；否则对象池缓存.light 里
+        # `追加(列表, 列表(对象, 整数(时间戳())))` 的内层列表构造会被劫持成局部变量引用，
+        # 条目永远建不出来（R12B 回归，见 _taskCIC 二分结论）。
         _nm = expr.name
         if isinstance(_nm, ast.Identifier):
             _key = _nm.name
@@ -1676,7 +1679,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             _key = _nm
         else:
             _key = str(_nm)
-        if _key is not None and (_key in self._local_vars or _key in self._current_func_params):
+        if (_key is not None and not expr.arguments
+                and (_key in self._local_vars or _key in self._current_func_params)):
             _v = self.get_var(_key)
             if _v is not None:
                 return _v, 'dv'
