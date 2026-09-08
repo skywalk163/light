@@ -1,0 +1,5117 @@
+
+<!doctype html>
+<html lang="zh" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="光明编程语言 - 中文编程语言的全新可能">
+      
+      
+        <meta name="author" content="LightLang Team">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Learn LightLang in 30 Minutes - 光明 (LightLang) v7.0</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans+SC:300,300i,400,400i,700,700i%7CNoto+Sans+SC:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Noto Sans SC";--md-code-font:"Noto Sans SC"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#learn-lightlang-in-30-minutes" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="页眉">
+    <a href="../.." title="光明 (LightLang) v7.0" class="md-header__button md-logo" aria-label="光明 (LightLang) v7.0" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            光明 (LightLang) v7.0
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Learn LightLang in 30 Minutes
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="green"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/skywalk163/light" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    skywalk163/light
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="标签" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  首页
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  快速开始
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../user_guide/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  用户手册
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../release_notes_v6.0.md" class="md-tabs__link">
+        
+  
+  
+    
+  
+  发布说明
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../known_issues/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  已知问题
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guide/getting-started/" class="md-tabs__link">
+          
+  
+  
+  快速入门
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guide/%E5%88%86%E5%B1%82%E8%AF%AD%E6%B3%95%E5%85%A5%E9%97%A8/" class="md-tabs__link">
+          
+  
+  
+  用户指南
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../language/levels/" class="md-tabs__link">
+          
+  
+  
+  语言参考
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../stdlib/" class="md-tabs__link">
+          
+  
+  
+  标准库
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../30%E5%88%86%E9%92%9F%E5%85%A5%E9%97%A8%E5%85%89%E6%98%8E/" class="md-tabs__link">
+          
+  
+  
+  教程
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tools/cli/" class="md-tabs__link">
+          
+  
+  
+  工具
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../architecture/" class="md-tabs__link">
+          
+  
+  
+  项目
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../ecosystem/%E6%95%99%E5%AD%A6%E8%B5%84%E6%BA%90/" class="md-tabs__link">
+          
+  
+  
+  生态
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../migration/v3-to-v4/" class="md-tabs__link">
+          
+  
+  
+  迁移指南
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+  API 参考
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E7%B4%A2%E5%BC%95/" class="md-tabs__link">
+          
+  
+  
+  知识库
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="https://github.com/skywalk163/light/blob/main/CHANGELOG.md" class="md-tabs__link">
+          
+  
+  
+  变更记录
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  贡献指南
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="光明 (LightLang) v7.0" class="md-nav__button md-logo" aria-label="光明 (LightLang) v7.0" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    光明 (LightLang) v7.0
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/skywalk163/light" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    skywalk163/light
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    首页
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user_guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    用户手册
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release_notes_v6.0.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    发布说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../known_issues/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    已知问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速入门
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    快速入门
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安装说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/vscode-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VS Code 配置
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    用户指南
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    用户指南
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/%E5%88%86%E5%B1%82%E8%AF%AD%E6%B3%95%E5%85%A5%E9%97%A8/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    分层语法入门
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/%E8%BF%81%E7%A7%BB%E6%8C%87%E5%8D%97/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    迁移指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    语言参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/levels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    五层架构详解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/l0-core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L0 核心字集
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/l1-l2-style/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L1/L2 文体
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/l3-domain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L3 领域嵌入
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/l4-foreign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    L4 外语引用
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/keywords/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    关键字参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/operators/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    运算符参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/%E5%AE%8C%E6%95%B4%E8%AF%AD%E6%B3%95%E5%8F%82%E8%80%83/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    完整语法参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../syntax/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语法规范
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E5%85%89%E6%98%8E-%E5%AE%8C%E6%95%B4%E8%A7%84%E8%8C%83%E6%96%87%E6%A1%A3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    完整规范文档
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../class_system_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类系统设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trait/协议系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模式匹配
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-07-01-level6-type-annotation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    泛型与类型注解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E6%A8%A1%E5%9D%97%E7%B3%BB%E7%BB%9F%E4%B8%8E%E5%8C%85%E7%AE%A1%E7%90%86/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模块系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ffi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FFI 外部函数接口
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../HM%E5%85%A8%E5%B1%80%E7%B1%BB%E5%9E%8B%E6%8E%A8%E6%96%AD%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型推断系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E5%8F%AF%E7%A9%BA%E7%B1%BB%E5%9E%8Bunwrap%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    可空类型系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    标准库
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准库总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    数学模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/string/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    字符串处理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON 模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文件系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/datetime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    日期时间
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stdlib/regex/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    正则表达式
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../API_REFERENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考总表
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/builtins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    内置函数
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../lightpub_integration_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lightpub 生态
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_9_13" id="__nav_9_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lightpub 包文档
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    lightpub 包文档
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../lightpub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    索引与分类
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    教程
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    教程
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../30%E5%88%86%E9%92%9F%E5%85%A5%E9%97%A8%E5%85%89%E6%98%8E/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    30 分钟入门
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/%E5%85%A5%E9%97%A8%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    入门教程
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/%E8%BF%9B%E9%98%B6%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进阶教程
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%AB%AF%E5%88%B0%E7%AB%AF%E5%AE%9E%E6%88%98%E6%95%99%E7%A8%8B/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    端到端实战
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    示例代码
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工具
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    工具
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI 使用指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/playground/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Playground 使用
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/lsp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LSP 集成
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/debugger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    调试器
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工具链总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E6%90%9C%E7%B4%A2%E9%85%8D%E7%BD%AE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    搜索配置
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    项目
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    架构设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEVELOPMENT_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    开发指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84%E8%AF%B4%E6%98%8E/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目结构
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../REPL_DESIGN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REPL 设计
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../BOOTSTRAP_STRATEGY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    引导策略
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llvm_backend_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLVM 后端
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PERFORMANCE_OPTIMIZATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    性能优化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../OPTIMIZATION_ANALYSIS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    优化分析
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../三个月工作计划_2026Q3Q4.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    项目计划
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PROGRESS_REPORT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进度报告
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    生态
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    生态
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ecosystem/%E6%95%99%E5%AD%A6%E8%B5%84%E6%BA%90/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    教学资源
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_14" >
+        
+          
+          <label class="md-nav__link" for="__nav_14" id="__nav_14_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    迁移指南
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    迁移指南
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/v3-to-v4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.3 → v4.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/v4-to-v5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v4.0 → v5.x
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_15" >
+        
+          
+          <label class="md-nav__link" for="__nav_15" id="__nav_15_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API 参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    标准模块
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/compiler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    编译器 API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_16" >
+        
+          
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    知识库
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    知识库
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E7%B4%A2%E5%BC%95/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    知识库索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E8%AF%AD%E8%A8%80%E8%A7%84%E8%8C%83/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言规范
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E5%BC%80%E5%8F%91%E6%8C%87%E5%8D%97/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    开发指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最佳实践
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E7%9F%A5%E8%AF%86%E5%BA%93/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17" >
+        
+          
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    变更记录
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    变更记录
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/skywalk163/light/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    版本日志
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../LANGUAGE_EXTENSIONS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语言扩展历史
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_17_3" id="__nav_17_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    语法变更
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_17_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    语法变更
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../统一语法规范_v3.1.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../统一语法规范_v3.2.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../语法变更_v3.4.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../语法变更_v3.5.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v3.5
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../FINAL_SUMMARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最终总结
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    贡献指南
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="learn-lightlang-in-30-minutes">Learn LightLang in 30 Minutes<a class="headerlink" href="#learn-lightlang-in-30-minutes" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Version:</strong> v7.0
+LightLang is a Chinese programming language — keywords are written in Chinese, and it supports both Chinese and symbolic operators, so even complete beginners can pick up programming quickly.</p>
+<p>This tutorial is designed for <strong>Chinese-speaking users who have never written code before</strong>. Follow it to the end and you'll be able to write simple programs on your own.</p>
+</blockquote>
+<hr />
+<h2 id="tutorial-map">📋 Tutorial Map<a class="headerlink" href="#tutorial-map" title="Permanent link">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>① Setup env  ──→  ② First program  ──→  ③ Practice in REPL  ──→  ④ Basics
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                                                          │
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>                                                          ↓
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>⑧ Ship program  ←──  ⑦ Debug  ←──  ⑥ Exceptions  ←──  ⑤ Advanced
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                                                          │
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>                                                          ↓
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                                              ⑨ Learn from errors
+</span></code></pre></div>
+<p><strong>Estimated time:</strong> 30 minutes
+<strong>For:</strong> complete beginners (Chinese speakers)
+<strong>After this you'll be able to:</strong> write, debug, and compile LightLang programs on your own</p>
+<hr />
+<h2 id="part-1-environment-setup-5-min">🔰 Part 1: Environment Setup (5 min)<a class="headerlink" href="#part-1-environment-setup-5-min" title="Permanent link">&para;</a></h2>
+<h3 id="11-install-python-why-does-lightlang-need-it">1.1 Install Python — why does LightLang need it?<a class="headerlink" href="#11-install-python-why-does-lightlang-need-it" title="Permanent link">&para;</a></h3>
+<p>LightLang itself is written in Python, so it needs a Python environment to run. Think of Python as the "soil" of the language — the LightLang "tree" grows on Python soil.</p>
+<p><strong>Why not write the compiler in C++ or Rust?</strong> Python's ecosystem is mature and cross-platform friendly, and LightLang's target users are Chinese beginners, so lowering the install barrier matters more than chasing peak performance.</p>
+<p><strong>Steps:</strong></p>
+<ol>
+<li>Visit <a href="https://www.python.org/downloads/">python.org</a> and download the latest Python (3.10 or higher)</li>
+<li>Run the installer, and <strong>make sure to tick</strong> "Add Python to PATH"<blockquote>
+<p>Why tick this? It tells the system where the <code>python</code> command lives; otherwise typing <code>python</code> gives "command not found"</p>
+</blockquote>
+</li>
+<li>Click "Next" all the way to finish</li>
+</ol>
+<p><strong>Verify:</strong> open a terminal (Windows: press <code>Win+R</code>, type <code>cmd</code>, Enter) and enter:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>--version
+</span></code></pre></div>
+<p>Seeing something like <code>Python 3.12.x</code> means success.</p>
+<hr />
+<h3 id="12-install-lightlang">1.2 Install LightLang<a class="headerlink" href="#12-install-lightlang" title="Permanent link">&para;</a></h3>
+<p>In the terminal:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span>light
+</span></code></pre></div>
+<p><strong>Why <code>pip</code>?</strong> pip is Python's package manager — like an app store on your phone. You type <code>pip install package-name</code> and it downloads and installs the software from PyPI (the Python Package Index) automatically.</p>
+<p><strong>Verify:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>light<span class="w"> </span>--version
+</span></code></pre></div>
+<p>Seeing <code>光明编译器 v6.x.x</code> means install succeeded.</p>
+<hr />
+<h3 id="13-your-first-lightlang-program">1.3 Your first LightLang program<a class="headerlink" href="#13-your-first-lightlang-program" title="Permanent link">&para;</a></h3>
+<p>Create a file <code>hello.light</code> with:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>打印 "你好，光明！"
+</span></code></pre></div>
+<p><strong>Why the <code>.light</code> extension?</strong> The extension tells the computer "this is a LightLang source file", just like <code>.docx</code> means a Word document.</p>
+<p>Run it:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>light<span class="w"> </span>run<span class="w"> </span>hello.light
+</span></code></pre></div>
+<p>Seeing <code>你好，光明！</code> printed — congratulations, you've run your first LightLang program!</p>
+<blockquote>
+<p><strong>Why doesn't <code>打印</code> need parentheses?</strong> In LightLang, <code>打印</code> is a built-in command; adding parentheses also works (<code>打印("你好")</code>) — the two forms are equivalent. This lets beginners memorize one fewer rule.</p>
+</blockquote>
+<hr />
+<h3 id="part-1-progress-check">✅ Part 1 progress check<a class="headerlink" href="#part-1-progress-check" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>What you learned</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Install Python and understand why it's needed</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Install LightLang with pip</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Create and run your first LightLang program</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Understand what <code>light run</code> does</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="part-2-your-first-complete-program-5-min">🚀 Part 2: Your First Complete Program (5 min)<a class="headerlink" href="#part-2-your-first-complete-program-5-min" title="Permanent link">&para;</a></h2>
+<h3 id="21-variables-why-do-we-need-boxes">2.1 Variables — why do we need "boxes"?<a class="headerlink" href="#21-variables-why-do-we-need-boxes" title="Permanent link">&para;</a></h3>
+<p>Variables are like storage boxes in a kitchen — you put different things in different boxes and open them when needed. Computers use variables to "remember" data.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>设 名字 为 "张三"
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>设 年龄 为 25
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>设 身高 为 1.75
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>打印 名字
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>打印 年龄
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>打印 身高
+</span></code></pre></div>
+<p><strong>Syntax breakdown:</strong>
+- <code>设</code> → tells LightLang "I want to create a variable"
+- <code>名字</code> → label the box (variable name)
+- <code>为</code> → put the value on the right into it
+- <code>"张三"</code> → text in quotes is a string; numbers without quotes are numbers</p>
+<p><strong>Why <code>设</code> instead of <code>var</code> or <code>let</code>?</strong> LightLang aims to let native Chinese speakers think in their mother tongue. "设" means "set a variable" in Chinese — no need to translate to English first.</p>
+<hr />
+<h3 id="22-string-interpolation-embed-variables-in-text">2.2 String interpolation — embed variables in text<a class="headerlink" href="#22-string-interpolation-embed-variables-in-text" title="Permanent link">&para;</a></h3>
+<p>To embed a variable into a piece of text, use an <code>f</code>-prefixed string (f-string):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>设 名字 为 "光明"
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>设 版本 为 1.11
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>打印(f"语言：{名字}，版本：{版本}")
+</span></code></pre></div>
+<p><strong>Why "f-string"?</strong> The <code>f</code> stands for "format". <code>{名字}</code> acts like a placeholder, replaced at runtime by the variable's actual value. Output:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>语言：光明，版本：1.11
+</span></code></pre></div>
+<hr />
+<h3 id="23-comments-notes-to-your-future-self">2.3 Comments — notes to your future self<a class="headerlink" href="#23-comments-notes-to-your-future-self" title="Permanent link">&para;</a></h3>
+<p>Lines starting with <code>#</code> are comments — the program skips them and never executes them. Comments are for <strong>humans</strong>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a># compute age
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>设 当前年份 为 2026
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>设 出生年份 为 2000
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>设 年龄 为 当前年份 - 出生年份  # result: 26
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>打印 年龄
+</span></code></pre></div>
+<p><strong>Why comments?</strong> When you write code you're clear-headed, but a month later you may not remember why you wrote it that way. Comments are notes left for your "future self".</p>
+<hr />
+<h3 id="24-interactive-input-let-the-program-talk-to-you">2.4 Interactive input — let the program talk to you<a class="headerlink" href="#24-interactive-input-let-the-program-talk-to-you" title="Permanent link">&para;</a></h3>
+<p>Use the <code>输入</code> function to make the program wait for user input:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>设 名字 为 输入("请输入你的名字：")
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>打印(f"你好，{名字}！欢迎学习光明！")
+</span></code></pre></div>
+<p><strong>Why <code>输入</code>?</strong> Without it, the program can only output fixed content. With it, the program can respond differently based on user input — that's real "interaction".</p>
+<hr />
+<h3 id="25-the-period-is-optional">2.5 The period is optional<a class="headerlink" href="#25-the-period-is-optional" title="Permanent link">&para;</a></h3>
+<p>The period "。" at the end of a LightLang statement is <strong>optional</strong> — adding it doesn't affect execution, and omitting it is perfectly fine. This tutorial's examples omit periods to stay concise.</p>
+<p><strong>Why make it optional?</strong> The original intent of Chinese programming is to lower the barrier. Forcing a period would add one more "forgot the period" error, which goes against LightLang's design philosophy.</p>
+<hr />
+<h3 id="part-2-progress-check">✅ Part 2 progress check<a class="headerlink" href="#part-2-progress-check" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>What you learned</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Create variables with <code>设</code> and understand its meaning</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Use f-strings for interpolation</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Write comments with <code>#</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Get user input with <code>输入</code></td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="part-3-repl-learn-by-typing-5-min">💻 Part 3: REPL — learn by typing (5 min)<a class="headerlink" href="#part-3-repl-learn-by-typing-5-min" title="Permanent link">&para;</a></h2>
+<h3 id="31-what-is-a-repl">3.1 What is a REPL?<a class="headerlink" href="#31-what-is-a-repl" title="Permanent link">&para;</a></h3>
+<p>REPL stands for <strong>Read-Eval-Print Loop</strong>. Simply put, it's an interactive environment where you "type a line, run a line".</p>
+<p><strong>Why a REPL?</strong> Want to test whether some syntax is correct? No need to create a file, save it, or run <code>light run</code> — just type it in and see the result. This is the fastest way to learn a new language.</p>
+<p>Start the REPL:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>light<span class="w"> </span>repl
+</span></code></pre></div>
+<p>You'll see a prompt like:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>光明 REPL v7.0
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>&gt;&gt;&gt; 
+</span></code></pre></div>
+<h3 id="32-basic-repl-operations">3.2 Basic REPL operations<a class="headerlink" href="#32-basic-repl-operations" title="Permanent link">&para;</a></h3>
+<p>Try typing these after <code>&gt;&gt;&gt;</code>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>&gt;&gt;&gt; 打印 "你好，REPL！"
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>你好，REPL！
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>&gt;&gt;&gt; 设 甲 为 10
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>&gt;&gt;&gt; 设 乙 为 20
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>&gt;&gt;&gt; 甲 + 乙
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>30
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>&gt;&gt;&gt; 10 * 3 + 5
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>35
+</span></code></pre></div>
+<p><strong>Why does the last one print without <code>打印</code>?</strong> In the REPL, when you enter an expression it automatically evaluates and shows the result. This lets you verify ideas quickly.</p>
+<h3 id="33-multi-line-code-in-the-repl">3.3 Multi-line code in the REPL<a class="headerlink" href="#33-multi-line-code-in-the-repl" title="Permanent link">&para;</a></h3>
+<p>When a complex statement needs multiple lines, the REPL recognizes it automatically:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>&gt;&gt;&gt; 如果 10 &gt; 5：
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>...     打印 "10 大于 5"
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>... 否则：
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>...     打印 "这个不会被执行"
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>...
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>10 大于 5
+</span></code></pre></div>
+<p>The <code>...</code> prompt means the REPL is waiting for you to continue.</p>
+<h3 id="34-repl-tips">3.4 REPL tips<a class="headerlink" href="#34-repl-tips" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>&gt;&gt;&gt; # quick calculation
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>&gt;&gt;&gt; 1024 * 768
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>786432
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>&gt;&gt;&gt; # string operations
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>&gt;&gt;&gt; "光明" + "真棒"
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>光明真棒
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>&gt;&gt;&gt; # view help
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>&gt;&gt;&gt; 帮助(打印)
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>打印(value) → 输出内容到屏幕
+</span></code></pre></div>
+<p>Exit the REPL with <code>Ctrl+Z</code> then Enter (Windows) or <code>Ctrl+D</code> (Mac/Linux), or type <code>退出()</code>.</p>
+<hr />
+<h3 id="part-3-progress-check">✅ Part 3 progress check<a class="headerlink" href="#part-3-progress-check" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>What you learned</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Start and exit the REPL</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Evaluate expressions directly in the REPL</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Write multi-line code in the REPL</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Understand the difference between REPL and normal run</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="part-4-basic-operations-conditionals-5-min">🔢 Part 4: Basic Operations &amp; Conditionals (5 min)<a class="headerlink" href="#part-4-basic-operations-conditionals-5-min" title="Permanent link">&para;</a></h2>
+<h3 id="41-arithmetic-why-two-ways-to-write-it">4.1 Arithmetic — why two ways to write it?<a class="headerlink" href="#41-arithmetic-why-two-ways-to-write-it" title="Permanent link">&para;</a></h3>
+<p>LightLang supports <strong>symbolic operators</strong> and <strong>Chinese operators</strong>, fully equivalent:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>设 甲 为 10
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>设 乙 为 3
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>打印(甲 + 乙)       # add → 13     same as: 甲 加 乙
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>打印(甲 - 乙)       # subtract → 7      same as: 甲 减 乙
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>打印(甲 * 乙)       # multiply → 30     same as: 甲 乘 乙
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>打印(甲 / 乙)       # divide → 3.333   same as: 甲 除 乙
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>打印(甲 // 乙)      # floor divide → 3      same as: 甲 整除 乙
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>打印(甲 % 乙)       # modulo → 1      same as: 甲 取余 乙
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>打印(甲 ** 乙)      # power → 1000     same as: 甲 幂 乙
+</span></code></pre></div>
+<p><strong>Why two ways?</strong> Beginners may not remember that <code>//</code> means floor divide and <code>%</code> means modulo — but "整除" (floor divide) and "取余" (modulo) are self-explanatory. The symbolic form is kept so experienced programmers can get started fast. <strong>Symbolic form is recommended</strong> — more concise and universal.</p>
+<blockquote>
+<p>💡 <strong>Tip:</strong> <code>%</code> modulo is very common in real programming — checking parity (<code>数 % 2 == 0</code>), cycling through values, etc.</p>
+</blockquote>
+<hr />
+<h3 id="42-comparison">4.2 Comparison<a class="headerlink" href="#42-comparison" title="Permanent link">&para;</a></h3>
+<p>Comparison results are <code>真</code> (true) or <code>假</code> (false):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>设 甲 为 10
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>设 乙 为 5
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>打印(甲 &gt; 乙)        # true     same as: 甲 大于 乙
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>打印(甲 &lt; 乙)        # false     same as: 甲 小于 乙
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>打印(甲 == 乙)       # false     same as: 甲 等于 乙
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>打印(甲 != 乙)       # true     same as: 甲 不等于 乙
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>打印(甲 &gt;= 乙)       # true     same as: 甲 大于等于 乙
+</span></code></pre></div>
+<p><strong>Note:</strong> <code>==</code> means "check equality", <code>=</code> means "assign". This is one of the most common beginner mistakes — covered in detail in "Learn from errors" later.</p>
+<hr />
+<h3 id="43-logical-operations-combine-conditions">4.3 Logical operations — combine conditions<a class="headerlink" href="#43-logical-operations-combine-conditions" title="Permanent link">&para;</a></h3>
+<p>Use <code>且</code> (both must hold), <code>或</code> (either one holds), <code>非</code> (negate) to connect conditions:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>设 年龄 为 20
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>设 有身份证 为 真
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>如果 年龄 &gt;= 18 且 有身份证：
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    打印 "可以上网"
+</span></code></pre></div>
+<hr />
+<h3 id="44-conditionals-let-the-program-make-decisions">4.4 Conditionals — let the program make decisions<a class="headerlink" href="#44-conditionals-let-the-program-make-decisions" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>设 分数 为 85
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>如果 分数 &gt;= 90：
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    打印 "优秀"
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>否则如果 分数 &gt;= 60：
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>    打印 "及格"
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>否则：
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>    打印 "不及格"
+</span></code></pre></div>
+<p><strong>Why colons and indentation?</strong> The colon (<code>:</code>) tells LightLang "the code to run when the condition holds comes next", and indentation (2 or 4 spaces) marks which lines belong to this condition. This is the shared style of Python and LightLang — <strong>forced indentation makes structure obvious at a glance</strong>.</p>
+<hr />
+<h3 id="45-ternary-expression-one-line-for-eitheror">4.5 Ternary expression — one line for either/or<a class="headerlink" href="#45-ternary-expression-one-line-for-eitheror" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>设 数 为 10
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>设 结果 为 "偶数" 如果 数 % 2 == 0 否则 "奇数"
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>打印 结果    # output: 偶数
+</span></code></pre></div>
+<p><strong>Why "ternary"?</strong> Because it has three parts: the condition (<code>数 % 2 == 0</code>), the value when true (<code>"偶数"</code>), and the value when false (<code>"奇数"</code>).</p>
+<hr />
+<h3 id="46-loops-let-the-computer-do-repetition">4.6 Loops — let the computer do repetition<a class="headerlink" href="#46-loops-let-the-computer-do-repetition" title="Permanent link">&para;</a></h3>
+<p>The computer's greatest strength is doing tedious repetition without complaint.</p>
+<p><strong>While loop — "keep doing as long as the condition holds":</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>设 计数 为 1
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>当 计数 &lt;= 5：
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>    打印(f"第{计数}次")
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>    计数 = 计数 + 1
+</span></code></pre></div>
+<p><strong>Why "当"?</strong> Reading it aloud is "when the count is ≤ 5, run the code in the braces" — exactly like everyday speech.</p>
+<p><strong>For loop — "do once for each element":</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>遍历 项 在 1 到 5：
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>    打印 项
+</span></code></pre></div>
+<p><strong>Iterate over a list:</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>设 水果 为 ["苹果", "香蕉", "橘子"]
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>遍历 水果 为 果：
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>    打印 果
+</span></code></pre></div>
+<p><strong>Loop control:</strong></p>
+<ul>
+<li><code>跳出</code>: end the whole loop immediately (like break)</li>
+<li><code>跳过</code>: skip this round, go to the next (like continue)</li>
+</ul>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>遍历 项 在 1 到 10：
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>    如果 项 % 2 == 0：
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>        跳过           # skip even
+</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>    如果 项 &gt; 7：
+</span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>        跳出           # stop past 7
+</span><span id="__span-24-6"><a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>    打印 项            # output: 1, 3, 5, 7
+</span></code></pre></div>
+<hr />
+<h3 id="part-4-progress-check">✅ Part 4 progress check<a class="headerlink" href="#part-4-progress-check" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>What you learned</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Arithmetic (symbolic and Chinese forms)</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Comparison and logical operations</td>
+<td>☐</td>
+</tr>
+<tr>
+<td><code>如果/否则如果/否则</code> conditionals</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Ternary expression</td>
+<td>☐</td>
+</tr>
+<tr>
+<td><code>当</code> and <code>遍历</code> loops</td>
+<td>☐</td>
+</tr>
+<tr>
+<td><code>跳出</code> and <code>跳过</code> loop control</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="part-5-functions-package-your-code-3-min">⚡ Part 5: 段落 (Functions) — package your code (3 min)<a class="headerlink" href="#part-5-functions-package-your-code-3-min" title="Permanent link">&para;</a></h2>
+<h3 id="51-define-and-call-why">5.1 Define and call — why "段落"?<a class="headerlink" href="#51-define-and-call-why" title="Permanent link">&para;</a></h3>
+<p>Imagine writing this every day:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>打印 "你好，张三！"
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a># ... 50 lines ...
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>打印 "你好，张三！"
+</span></code></pre></div>
+<p>Too repetitive! A function "packages" this code under a name; call the name when needed:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>段落 问好 接收 名字：
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>    打印(f"你好，{名字}！")
+</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>
+</span><span id="__span-26-4"><a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>问好("张三")   # output: 你好，张三！
+</span><span id="__span-26-5"><a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>问好("李四")   # output: 你好，李四！
+</span></code></pre></div>
+<p><strong>Why "段落"?</strong> An article is made of paragraphs; a program is made of "paragraphs" too. Each paragraph does one thing; combined they form a complete program.</p>
+<p><strong>Syntax breakdown:</strong>
+- <code>段落</code> → keyword, tells LightLang "I'm defining a function"
+- <code>问好</code> → function name, you choose it
+- <code>接收 名字</code> → parameter list, data passed in by the caller
+- <code>：</code> → indented code after it is this "paragraph"'s body
+- <code>返回</code> → "throw" the result back to the caller</p>
+<h3 id="52-return-value">5.2 Return value<a class="headerlink" href="#52-return-value" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>段落 加法 接收 a, b：
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>    返回 a + b
+</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>
+</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>设 结果 为 加法(3, 5)
+</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>打印 结果    # output: 8
+</span></code></pre></div>
+<p><strong>Why <code>返回</code>?</strong> Without <code>返回</code>, the function computes <code>a + b</code> but the result is only "digested" inside; the outside can't get it. <code>返回</code> passes the result out.</p>
+<h3 id="53-default-parameters-a-fallback-value">5.3 Default parameters — a "fallback value"<a class="headerlink" href="#53-default-parameters-a-fallback-value" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>段落 问候 接收 名字 = "世界"：
+</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>    打印(f"你好，{名字}！")
+</span><span id="__span-28-3"><a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>
+</span><span id="__span-28-4"><a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>问候("张三")    # 你好，张三！
+</span><span id="__span-28-5"><a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>问候()          # 你好，世界！
+</span></code></pre></div>
+<p><strong>Why default parameters?</strong> Some parameters use the same value most of the time, changed only in rare cases. Defaults let you write less code.</p>
+<h3 id="54-recursion-a-function-calling-itself">5.4 Recursion — a function calling itself<a class="headerlink" href="#54-recursion-a-function-calling-itself" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>段落 阶乘 接收 n：
+</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>    如果 n &lt;= 1：
+</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>        返回 1
+</span><span id="__span-29-4"><a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>    返回 n * 阶乘(n - 1)
+</span><span id="__span-29-5"><a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>
+</span><span id="__span-29-6"><a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a>打印 阶乘(5)    # output: 120
+</span></code></pre></div>
+<p><strong>How recursion works:</strong> <code>阶乘(5)</code> calls <code>阶乘(4)</code>, which calls <code>阶乘(3)</code>… until <code>阶乘(1)</code> returns 1 directly, then the result is passed back layer by layer:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>阶乘(5) = 5 * 阶乘(4)
+</span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>        = 5 * 4 * 阶乘(3)
+</span><span id="__span-30-3"><a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>        = 5 * 4 * 3 * 阶乘(2)
+</span><span id="__span-30-4"><a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>        = 5 * 4 * 3 * 2 * 阶乘(1)
+</span><span id="__span-30-5"><a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>        = 5 * 4 * 3 * 2 * 1
+</span><span id="__span-30-6"><a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a>        = 120
+</span></code></pre></div>
+<p><strong>⚠️ Recursion must have an "exit"</strong>: the <code>n &lt;= 1</code> branch returns directly, otherwise it loops forever.</p>
+<hr />
+<h3 id="part-5-progress-check">✅ Part 5 progress check<a class="headerlink" href="#part-5-progress-check" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>What you learned</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Define a function with <code>段落</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Return a result with <code>返回</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Use default parameters</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Understand the basics of recursion</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="part-6-lists-strings-dictionaries-3-min">📦 Part 6: Lists, Strings &amp; Dictionaries (3 min)<a class="headerlink" href="#part-6-lists-strings-dictionaries-3-min" title="Permanent link">&para;</a></h2>
+<h3 id="61-lists-put-several-things-together">6.1 Lists — put several things together<a class="headerlink" href="#61-lists-put-several-things-together" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>设 水果 为 ["苹果", "香蕉", "橘子"]
+</span><span id="__span-31-2"><a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>打印 水果[0]    # output: 苹果 (why start at 0? explained below)
+</span><span id="__span-31-3"><a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>水果.追加("葡萄")
+</span><span id="__span-31-4"><a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a>打印 长度(水果)  # output: 4
+</span></code></pre></div>
+<p><strong>Why index from 0?</strong> Internally, a list is a contiguous block of memory addresses. <code>[0]</code> means "the position of the first element", offset 0 units. <code>[1]</code> means offset 1 unit. Although beginners feel starting at 1 is more natural, almost all programming languages start at 0 — it's the universal convention.</p>
+<h3 id="62-list-comprehension-generate-a-list-in-one-line">6.2 List comprehension — generate a list in one line<a class="headerlink" href="#62-list-comprehension-generate-a-list-in-one-line" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>设 平方数 为 [x * x 遍历 x 之 范围(1, 6)]
+</span><span id="__span-32-2"><a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>打印 平方数    # output: [1, 4, 9, 16, 25]
+</span></code></pre></div>
+<p><strong>Read it as:</strong> "x times x, for x in the range 1 to 5" — exactly the Chinese word order.</p>
+<p>With a filter:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>设 偶数 为 [x 遍历 x 之 范围(1, 11) 若 x % 2 == 0]
+</span><span id="__span-33-2"><a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>打印 偶数  # [2, 4, 6, 8, 10]
+</span></code></pre></div>
+<h3 id="63-string-operations">6.3 String operations<a class="headerlink" href="#63-string-operations" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>设 名字 为 "光明"
+</span><span id="__span-34-2"><a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>打印 长度(名字)  # output: 2
+</span><span id="__span-34-3"><a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a>打印 名字[0]    # output: 段
+</span><span id="__span-34-4"><a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a>打印 名字 + "真棒"  # output: 光明真棒
+</span></code></pre></div>
+<h3 id="64-dictionaries-key-value-mapping">6.4 Dictionaries — key-value mapping<a class="headerlink" href="#64-dictionaries-key-value-mapping" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-35-1"><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>设 学生 为 {"名字": "张三", "年龄": 25, "成绩": 95}
+</span><span id="__span-35-2"><a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a>打印 学生["名字"]    # output: 张三
+</span><span id="__span-35-3"><a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a>打印(f"{学生['名字']}的年龄是{学生['年龄']}")
+</span></code></pre></div>
+<p><strong>Why dictionaries?</strong> Lists use numeric indices (0, 1, 2…), but numbers aren't intuitive. Dictionaries let you look up by text like "名字" — just like looking up a word in a dictionary.</p>
+<hr />
+<h3 id="part-6-progress-check">✅ Part 6 progress check<a class="headerlink" href="#part-6-progress-check" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>What you learned</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Create and manipulate lists</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>List comprehensions</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Basic string operations</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Create and access dictionaries</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="part-7-classes-objects-3-min">🏗️ Part 7: Classes &amp; Objects (3 min)<a class="headerlink" href="#part-7-classes-objects-3-min" title="Permanent link">&para;</a></h2>
+<h3 id="71-object-oriented-why-classes-and-objects">7.1 Object-oriented — why classes and objects?<a class="headerlink" href="#71-object-oriented-why-classes-and-objects" title="Permanent link">&para;</a></h3>
+<p>When writing programs we often need to represent "real-world things" — e.g. a student has a name, age, and grades, and can compute an average. You could do it with the variables you've learned, but it gets messy:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-36-1"><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>设 张三的名字 为 "张三"
+</span><span id="__span-36-2"><a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a>设 张三的年龄 为 20
+</span><span id="__span-36-3"><a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a>设 张三的成绩 为 [85, 92, 78]
+</span><span id="__span-36-4"><a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a># ... with 10 students that's 30 variables, too messy!
+</span></code></pre></div>
+<p>A <strong>class</strong> is the "blueprint"; an <strong>object</strong> is the "real thing" built from the blueprint:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-37-1"><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>类 学生：
+</span><span id="__span-37-2"><a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a>    属性 名字
+</span><span id="__span-37-3"><a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a>    属性 年龄
+</span><span id="__span-37-4"><a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a>    属性 成绩
+</span><span id="__span-37-5"><a id="__codelineno-37-5" name="__codelineno-37-5" href="#__codelineno-37-5"></a>
+</span><span id="__span-37-6"><a id="__codelineno-37-6" name="__codelineno-37-6" href="#__codelineno-37-6"></a>    构造 接收 名字, 年龄：
+</span><span id="__span-37-7"><a id="__codelineno-37-7" name="__codelineno-37-7" href="#__codelineno-37-7"></a>        己.名字 为 名字
+</span><span id="__span-37-8"><a id="__codelineno-37-8" name="__codelineno-37-8" href="#__codelineno-37-8"></a>        己.年龄 为 年龄
+</span><span id="__span-37-9"><a id="__codelineno-37-9" name="__codelineno-37-9" href="#__codelineno-37-9"></a>        己.成绩 为 []
+</span><span id="__span-37-10"><a id="__codelineno-37-10" name="__codelineno-37-10" href="#__codelineno-37-10"></a>
+</span><span id="__span-37-11"><a id="__codelineno-37-11" name="__codelineno-37-11" href="#__codelineno-37-11"></a>    段落 添加成绩 接收 分数：
+</span><span id="__span-37-12"><a id="__codelineno-37-12" name="__codelineno-37-12" href="#__codelineno-37-12"></a>        己.成绩.追加(分数)
+</span><span id="__span-37-13"><a id="__codelineno-37-13" name="__codelineno-37-13" href="#__codelineno-37-13"></a>
+</span><span id="__span-37-14"><a id="__codelineno-37-14" name="__codelineno-37-14" href="#__codelineno-37-14"></a>    段落 平均分 接收：
+</span><span id="__span-37-15"><a id="__codelineno-37-15" name="__codelineno-37-15" href="#__codelineno-37-15"></a>        如果 长度(己.成绩) == 0：
+</span><span id="__span-37-16"><a id="__codelineno-37-16" name="__codelineno-37-16" href="#__codelineno-37-16"></a>            返回 0
+</span><span id="__span-37-17"><a id="__codelineno-37-17" name="__codelineno-37-17" href="#__codelineno-37-17"></a>        设 总和 为 0
+</span><span id="__span-37-18"><a id="__codelineno-37-18" name="__codelineno-37-18" href="#__codelineno-37-18"></a>        遍历 己.成绩 为 分：
+</span><span id="__span-37-19"><a id="__codelineno-37-19" name="__codelineno-37-19" href="#__codelineno-37-19"></a>            设 总和 为 总和 + 分
+</span><span id="__span-37-20"><a id="__codelineno-37-20" name="__codelineno-37-20" href="#__codelineno-37-20"></a>        返回 总和 / 长度(己.成绩)
+</span><span id="__span-37-21"><a id="__codelineno-37-21" name="__codelineno-37-21" href="#__codelineno-37-21"></a>
+</span><span id="__span-37-22"><a id="__codelineno-37-22" name="__codelineno-37-22" href="#__codelineno-37-22"></a># create an object — build the "real thing" from the "blueprint"
+</span><span id="__span-37-23"><a id="__codelineno-37-23" name="__codelineno-37-23" href="#__codelineno-37-23"></a>设 张三 为 学生("张三", 20)
+</span><span id="__span-37-24"><a id="__codelineno-37-24" name="__codelineno-37-24" href="#__codelineno-37-24"></a>张三.添加成绩(85)
+</span><span id="__span-37-25"><a id="__codelineno-37-25" name="__codelineno-37-25" href="#__codelineno-37-25"></a>张三.添加成绩(92)
+</span><span id="__span-37-26"><a id="__codelineno-37-26" name="__codelineno-37-26" href="#__codelineno-37-26"></a>打印(f"{张三.名字}的平均分是{张三.平均分()}")
+</span></code></pre></div>
+<p><strong>Why <code>己</code>?</strong> <code>己</code> is like <code>this</code> / <code>self</code> in other languages, meaning "the current object itself". <code>己.名字</code> means "this student's own name".</p>
+<h3 id="72-inheritance-reduce-duplicated-code">7.2 Inheritance — reduce duplicated code<a class="headerlink" href="#72-inheritance-reduce-duplicated-code" title="Permanent link">&para;</a></h3>
+<p>When two classes share a lot, let one "inherit" the other's capabilities:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-38-1"><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>类 动物：
+</span><span id="__span-38-2"><a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a>    属性 名字
+</span><span id="__span-38-3"><a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a>
+</span><span id="__span-38-4"><a id="__codelineno-38-4" name="__codelineno-38-4" href="#__codelineno-38-4"></a>    构造 接收 名字：
+</span><span id="__span-38-5"><a id="__codelineno-38-5" name="__codelineno-38-5" href="#__codelineno-38-5"></a>        己.名字 为 名字
+</span><span id="__span-38-6"><a id="__codelineno-38-6" name="__codelineno-38-6" href="#__codelineno-38-6"></a>
+</span><span id="__span-38-7"><a id="__codelineno-38-7" name="__codelineno-38-7" href="#__codelineno-38-7"></a>    段落 介绍 接收：
+</span><span id="__span-38-8"><a id="__codelineno-38-8" name="__codelineno-38-8" href="#__codelineno-38-8"></a>        打印(f"我叫{己.名字}")
+</span><span id="__span-38-9"><a id="__codelineno-38-9" name="__codelineno-38-9" href="#__codelineno-38-9"></a>
+</span><span id="__span-38-10"><a id="__codelineno-38-10" name="__codelineno-38-10" href="#__codelineno-38-10"></a>类 狗 继承 动物：
+</span><span id="__span-38-11"><a id="__codelineno-38-11" name="__codelineno-38-11" href="#__codelineno-38-11"></a>    段落 叫 接收：
+</span><span id="__span-38-12"><a id="__codelineno-38-12" name="__codelineno-38-12" href="#__codelineno-38-12"></a>        打印 "汪汪！"
+</span><span id="__span-38-13"><a id="__codelineno-38-13" name="__codelineno-38-13" href="#__codelineno-38-13"></a>
+</span><span id="__span-38-14"><a id="__codelineno-38-14" name="__codelineno-38-14" href="#__codelineno-38-14"></a>设 小狗 为 狗("旺财")
+</span><span id="__span-38-15"><a id="__codelineno-38-15" name="__codelineno-38-15" href="#__codelineno-38-15"></a>小狗.介绍()    # 我叫旺财 (inherited from 动物)
+</span><span id="__span-38-16"><a id="__codelineno-38-16" name="__codelineno-38-16" href="#__codelineno-38-16"></a>小狗.叫()      # 汪汪！ (its own method)
+</span></code></pre></div>
+<p><strong>Why "inherit"?</strong> Like a child inheriting parents' genes — <code>狗</code> automatically has all of <code>动物</code>'s attributes and methods, no need to rewrite them.</p>
+<h3 id="73-static-methods-callable-without-an-object">7.3 Static methods — callable without an object<a class="headerlink" href="#73-static-methods-callable-without-an-object" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-39-1"><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>类 数学工具：
+</span><span id="__span-39-2"><a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a>    静态 段落 平方 接收 x：
+</span><span id="__span-39-3"><a id="__codelineno-39-3" name="__codelineno-39-3" href="#__codelineno-39-3"></a>        返回 x * x
+</span><span id="__span-39-4"><a id="__codelineno-39-4" name="__codelineno-39-4" href="#__codelineno-39-4"></a>
+</span><span id="__span-39-5"><a id="__codelineno-39-5" name="__codelineno-39-5" href="#__codelineno-39-5"></a>打印 数学工具.平方(5)    # output: 25
+</span></code></pre></div>
+<p><strong>Why static methods?</strong> Some utility functions work without creating an object — <code>数学工具.平方(5)</code> calls directly, no need to first <code>设 工具 为 数学工具()</code>.</p>
+<hr />
+<h3 id="part-7-progress-check">✅ Part 7 progress check<a class="headerlink" href="#part-7-progress-check" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>What you learned</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Define a blueprint with <code>类</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Initialize an object with <code>构造</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Access current object attributes with <code>己</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Reuse code with <code>继承</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Use static methods</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="part-8-exception-handling-file-operations-3-min">🛡️ Part 8: Exception Handling &amp; File Operations (3 min)<a class="headerlink" href="#part-8-exception-handling-file-operations-3-min" title="Permanent link">&para;</a></h2>
+<h3 id="81-exception-handling-what-if-the-program-errors">8.1 Exception handling — what if the program errors?<a class="headerlink" href="#81-exception-handling-what-if-the-program-errors" title="Permanent link">&para;</a></h3>
+<p>There are always surprises at runtime — e.g. the user enters invalid data, or a file to read doesn't exist. <code>尝试/捕获</code> puts a "bulletproof vest" on the program:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-40-1"><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>尝试：
+</span><span id="__span-40-2"><a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>    设 结果 为 10 / 0
+</span><span id="__span-40-3"><a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a>    打印 结果
+</span><span id="__span-40-4"><a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a>捕获 错误：
+</span><span id="__span-40-5"><a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a>    打印("出错了：" + 转字符串(错误))
+</span><span id="__span-40-6"><a id="__codelineno-40-6" name="__codelineno-40-6" href="#__codelineno-40-6"></a>最终：
+</span><span id="__span-40-7"><a id="__codelineno-40-7" name="__codelineno-40-7" href="#__codelineno-40-7"></a>    打印("无论是否异常都会执行")
+</span></code></pre></div>
+<p><strong>Why <code>最终</code>?</strong> Some operations must run whether success or failure — e.g. closing a file, releasing resources. <code>最终</code> guarantees this.</p>
+<h3 id="82-raise-exceptions-actively">8.2 Raise exceptions actively<a class="headerlink" href="#82-raise-exceptions-actively" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-41-1"><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a>段落 检查年龄 接收 年龄：
+</span><span id="__span-41-2"><a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a>    如果 年龄 &lt; 0：
+</span><span id="__span-41-3"><a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a>        抛出 "年龄不能为负数"
+</span><span id="__span-41-4"><a id="__codelineno-41-4" name="__codelineno-41-4" href="#__codelineno-41-4"></a>    打印(f"年龄是{年龄}")
+</span><span id="__span-41-5"><a id="__codelineno-41-5" name="__codelineno-41-5" href="#__codelineno-41-5"></a>
+</span><span id="__span-41-6"><a id="__codelineno-41-6" name="__codelineno-41-6" href="#__codelineno-41-6"></a>尝试：
+</span><span id="__span-41-7"><a id="__codelineno-41-7" name="__codelineno-41-7" href="#__codelineno-41-7"></a>    检查年龄(-5)
+</span><span id="__span-41-8"><a id="__codelineno-41-8" name="__codelineno-41-8" href="#__codelineno-41-8"></a>捕获 e：
+</span><span id="__span-41-9"><a id="__codelineno-41-9" name="__codelineno-41-9" href="#__codelineno-41-9"></a>    打印("捕获到异常：" + 转字符串(e))
+</span></code></pre></div>
+<h3 id="83-file-operations">8.3 File operations<a class="headerlink" href="#83-file-operations" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-42-1"><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a># write a file
+</span><span id="__span-42-2"><a id="__codelineno-42-2" name="__codelineno-42-2" href="#__codelineno-42-2"></a>写入文件("note.txt", "你好，光明！")
+</span><span id="__span-42-3"><a id="__codelineno-42-3" name="__codelineno-42-3" href="#__codelineno-42-3"></a>打印("文件已写入")
+</span><span id="__span-42-4"><a id="__codelineno-42-4" name="__codelineno-42-4" href="#__codelineno-42-4"></a>
+</span><span id="__span-42-5"><a id="__codelineno-42-5" name="__codelineno-42-5" href="#__codelineno-42-5"></a># read a file
+</span><span id="__span-42-6"><a id="__codelineno-42-6" name="__codelineno-42-6" href="#__codelineno-42-6"></a>设 内容 为 读取文件("note.txt")
+</span><span id="__span-42-7"><a id="__codelineno-42-7" name="__codelineno-42-7" href="#__codelineno-42-7"></a>打印(内容)
+</span><span id="__span-42-8"><a id="__codelineno-42-8" name="__codelineno-42-8" href="#__codelineno-42-8"></a>
+</span><span id="__span-42-9"><a id="__codelineno-42-9" name="__codelineno-42-9" href="#__codelineno-42-9"></a># check if a file exists
+</span><span id="__span-42-10"><a id="__codelineno-42-10" name="__codelineno-42-10" href="#__codelineno-42-10"></a>如果 文件存在("note.txt")：
+</span><span id="__span-42-11"><a id="__codelineno-42-11" name="__codelineno-42-11" href="#__codelineno-42-11"></a>    打印("文件存在")
+</span><span id="__span-42-12"><a id="__codelineno-42-12" name="__codelineno-42-12" href="#__codelineno-42-12"></a>否则：
+</span><span id="__span-42-13"><a id="__codelineno-42-13" name="__codelineno-42-13" href="#__codelineno-42-13"></a>    打印("文件不存在")
+</span></code></pre></div>
+<p><strong>Why <code>写入文件/读取文件</code> instead of <code>open/write/close</code>?</strong> LightLang wraps common file operations into intuitive Chinese functions — beginners don't need to understand low-level concepts like "file handles" or "buffers".</p>
+<hr />
+<h3 id="part-8-progress-check">✅ Part 8 progress check<a class="headerlink" href="#part-8-progress-check" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>What you learned</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Handle exceptions with <code>尝试/捕获</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Trigger exceptions actively with <code>抛出</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Ensure cleanup with <code>最终</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Read and write files</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="part-9-module-system-2-min">📚 Part 9: Module System (2 min)<a class="headerlink" href="#part-9-module-system-2-min" title="Permanent link">&para;</a></h2>
+<h3 id="91-import-the-standard-library-stand-on-giants-shoulders">9.1 Import the standard library — stand on giants' shoulders<a class="headerlink" href="#91-import-the-standard-library-stand-on-giants-shoulders" title="Permanent link">&para;</a></h3>
+<p>LightLang has many built-in standard libraries so you don't write everything from scratch:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-43-1"><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a>导入 数学
+</span><span id="__span-43-2"><a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a>
+</span><span id="__span-43-3"><a id="__codelineno-43-3" name="__codelineno-43-3" href="#__codelineno-43-3"></a>设 半径 为 5
+</span><span id="__span-43-4"><a id="__codelineno-43-4" name="__codelineno-43-4" href="#__codelineno-43-4"></a>设 面积 为 数学.圆周率 * 半径 * 半径
+</span><span id="__span-43-5"><a id="__codelineno-43-5" name="__codelineno-43-5" href="#__codelineno-43-5"></a>打印(f"圆的面积：{面积}")
+</span><span id="__span-43-6"><a id="__codelineno-43-6" name="__codelineno-43-6" href="#__codelineno-43-6"></a>
+</span><span id="__span-43-7"><a id="__codelineno-43-7" name="__codelineno-43-7" href="#__codelineno-43-7"></a>设 随机数 为 数学.随机整数(1, 100)
+</span><span id="__span-43-8"><a id="__codelineno-43-8" name="__codelineno-43-8" href="#__codelineno-43-8"></a>打印(f"随机数：{随机数}")
+</span></code></pre></div>
+<h3 id="92-import-specific-functions-from-a-module">9.2 Import specific functions from a module<a class="headerlink" href="#92-import-specific-functions-from-a-module" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-44-1"><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a>从 数学 导入 平方根, 绝对值
+</span><span id="__span-44-2"><a id="__codelineno-44-2" name="__codelineno-44-2" href="#__codelineno-44-2"></a>
+</span><span id="__span-44-3"><a id="__codelineno-44-3" name="__codelineno-44-3" href="#__codelineno-44-3"></a>打印(f"根号16 = {平方根(16)}")
+</span><span id="__span-44-4"><a id="__codelineno-44-4" name="__codelineno-44-4" href="#__codelineno-44-4"></a>打印(f"|-5| = {绝对值(-5)}")
+</span></code></pre></div>
+<h3 id="93-create-your-own-module">9.3 Create your own module<a class="headerlink" href="#93-create-your-own-module" title="Permanent link">&para;</a></h3>
+<p>Create <code>工具.light</code>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-45-1"><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a>段落 双倍 接收 数：
+</span><span id="__span-45-2"><a id="__codelineno-45-2" name="__codelineno-45-2" href="#__codelineno-45-2"></a>    返回 数 * 2
+</span><span id="__span-45-3"><a id="__codelineno-45-3" name="__codelineno-45-3" href="#__codelineno-45-3"></a>
+</span><span id="__span-45-4"><a id="__codelineno-45-4" name="__codelineno-45-4" href="#__codelineno-45-4"></a>段落 问候 接收 名：
+</span><span id="__span-45-5"><a id="__codelineno-45-5" name="__codelineno-45-5" href="#__codelineno-45-5"></a>    返回 "你好，" + 名 + "！"
+</span><span id="__span-45-6"><a id="__codelineno-45-6" name="__codelineno-45-6" href="#__codelineno-45-6"></a>
+</span><span id="__span-45-7"><a id="__codelineno-45-7" name="__codelineno-45-7" href="#__codelineno-45-7"></a>导出 双倍, 问候
+</span></code></pre></div>
+<p>Use it in another file:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-46-1"><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a>导入 工具
+</span><span id="__span-46-2"><a id="__codelineno-46-2" name="__codelineno-46-2" href="#__codelineno-46-2"></a>
+</span><span id="__span-46-3"><a id="__codelineno-46-3" name="__codelineno-46-3" href="#__codelineno-46-3"></a>打印 工具.双倍(21)
+</span><span id="__span-46-4"><a id="__codelineno-46-4" name="__codelineno-46-4" href="#__codelineno-46-4"></a>打印 工具.问候("小明")
+</span></code></pre></div>
+<hr />
+<h2 id="part-10-debugging-find-the-bug-extra-3-min">🔍 Part 10: Debugging — find the bug (extra 3 min)<a class="headerlink" href="#part-10-debugging-find-the-bug-extra-3-min" title="Permanent link">&para;</a></h2>
+<h3 id="101-why-a-debugger">10.1 Why a debugger?<a class="headerlink" href="#101-why-a-debugger" title="Permanent link">&para;</a></h3>
+<p>Rarely does code run perfectly the first time. A debugger lets you <strong>execute line by line</strong>, watching how variables change after each line, to find the problem.</p>
+<h3 id="102-use-light-debug">10.2 Use <code>light debug</code><a class="headerlink" href="#102-use-light-debug" title="Permanent link">&para;</a></h3>
+<p>LightLang has a built-in debugger, just use the <code>light debug</code> command:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-47-1"><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a>light<span class="w"> </span>debug<span class="w"> </span>hello.light
+</span></code></pre></div>
+<p><strong>Common debugger commands:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Action</th>
+<th>Why this one?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>b 5</code></td>
+<td>set a breakpoint at line 5</td>
+<td>pause the program at a given line to observe</td>
+</tr>
+<tr>
+<td><code>d 5</code></td>
+<td>delete the breakpoint at line 5</td>
+<td>clear when no longer needed</td>
+</tr>
+<tr>
+<td><code>c</code></td>
+<td>continue to the next breakpoint</td>
+<td>skip code you don't need to inspect</td>
+</tr>
+<tr>
+<td><code>n</code></td>
+<td>step over (don't enter functions)</td>
+<td>if a function is trusted, skip it</td>
+</tr>
+<tr>
+<td><code>s</code></td>
+<td>step into (enter functions)</td>
+<td>see what happens inside a function</td>
+</tr>
+<tr>
+<td><code>p var</code></td>
+<td>print a variable's current value</td>
+<td>check if a variable is as expected</td>
+</tr>
+<tr>
+<td><code>w</code></td>
+<td>show the call stack</td>
+<td>see which function called which</td>
+</tr>
+<tr>
+<td><code>l</code></td>
+<td>show current source</td>
+<td>confirm which line is executing</td>
+</tr>
+<tr>
+<td><code>vars</code></td>
+<td>show all variables</td>
+<td>overview all variable states</td>
+</tr>
+<tr>
+<td><code>q</code></td>
+<td>quit the debugger</td>
+<td>end debugging</td>
+</tr>
+</tbody>
+</table>
+<h3 id="103-real-debugging-example">10.3 Real debugging example<a class="headerlink" href="#103-real-debugging-example" title="Permanent link">&para;</a></h3>
+<p>Suppose a program <code>bug.light</code>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-48-1"><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a>段落 阶乘 接收 n：
+</span><span id="__span-48-2"><a id="__codelineno-48-2" name="__codelineno-48-2" href="#__codelineno-48-2"></a>    如果 n &lt;= 1：
+</span><span id="__span-48-3"><a id="__codelineno-48-3" name="__codelineno-48-3" href="#__codelineno-48-3"></a>        返回 1
+</span><span id="__span-48-4"><a id="__codelineno-48-4" name="__codelineno-48-4" href="#__codelineno-48-4"></a>    返回 n * 阶乘(n - 1)
+</span><span id="__span-48-5"><a id="__codelineno-48-5" name="__codelineno-48-5" href="#__codelineno-48-5"></a>
+</span><span id="__span-48-6"><a id="__codelineno-48-6" name="__codelineno-48-6" href="#__codelineno-48-6"></a>设 结果 为 阶乘(5)
+</span><span id="__span-48-7"><a id="__codelineno-48-7" name="__codelineno-48-7" href="#__codelineno-48-7"></a>打印(f"5! = {结果}")
+</span></code></pre></div>
+<p>Run the debugger:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-49-1"><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a>light<span class="w"> </span>debug<span class="w"> </span>bug.light
+</span></code></pre></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-50-1"><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a>[光明调试器] 已加载 bug.light
+</span><span id="__span-50-2"><a id="__codelineno-50-2" name="__codelineno-50-2" href="#__codelineno-50-2"></a>&gt; b 5                    # set breakpoint at line 5 (return statement)
+</span><span id="__span-50-3"><a id="__codelineno-50-3" name="__codelineno-50-3" href="#__codelineno-50-3"></a>[断点已设置] 第5行
+</span><span id="__span-50-4"><a id="__codelineno-50-4" name="__codelineno-50-4" href="#__codelineno-50-4"></a>
+</span><span id="__span-50-5"><a id="__codelineno-50-5" name="__codelineno-50-5" href="#__codelineno-50-5"></a>&gt; c                      # start executing
+</span><span id="__span-50-6"><a id="__codelineno-50-6" name="__codelineno-50-6" href="#__codelineno-50-6"></a>[断点触发] 第5行: 返回 n * 阶乘(n - 1)
+</span><span id="__span-50-7"><a id="__codelineno-50-7" name="__codelineno-50-7" href="#__codelineno-50-7"></a>
+</span><span id="__span-50-8"><a id="__codelineno-50-8" name="__codelineno-50-8" href="#__codelineno-50-8"></a>&gt; p n                    # view n
+</span><span id="__span-50-9"><a id="__codelineno-50-9" name="__codelineno-50-9" href="#__codelineno-50-9"></a>n = 5
+</span><span id="__span-50-10"><a id="__codelineno-50-10" name="__codelineno-50-10" href="#__codelineno-50-10"></a>
+</span><span id="__span-50-11"><a id="__codelineno-50-11" name="__codelineno-50-11" href="#__codelineno-50-11"></a>&gt; c                      # continue, breakpoint triggers repeatedly
+</span><span id="__span-50-12"><a id="__codelineno-50-12" name="__codelineno-50-12" href="#__codelineno-50-12"></a>[断点触发] 第5行: 返回 n * 阶乘(n - 1)
+</span><span id="__span-50-13"><a id="__codelineno-50-13" name="__codelineno-50-13" href="#__codelineno-50-13"></a>&gt; p n
+</span><span id="__span-50-14"><a id="__codelineno-50-14" name="__codelineno-50-14" href="#__codelineno-50-14"></a>n = 4
+</span><span id="__span-50-15"><a id="__codelineno-50-15" name="__codelineno-50-15" href="#__codelineno-50-15"></a>
+</span><span id="__span-50-16"><a id="__codelineno-50-16" name="__codelineno-50-16" href="#__codelineno-50-16"></a>&gt; c
+</span><span id="__span-50-17"><a id="__codelineno-50-17" name="__codelineno-50-17" href="#__codelineno-50-17"></a>[断点触发] 第5行: 返回 n * 阶乘(n - 1)
+</span><span id="__span-50-18"><a id="__codelineno-50-18" name="__codelineno-50-18" href="#__codelineno-50-18"></a>&gt; p n
+</span><span id="__span-50-19"><a id="__codelineno-50-19" name="__codelineno-50-19" href="#__codelineno-50-19"></a>n = 3
+</span><span id="__span-50-20"><a id="__codelineno-50-20" name="__codelineno-50-20" href="#__codelineno-50-20"></a>
+</span><span id="__span-50-21"><a id="__codelineno-50-21" name="__codelineno-50-21" href="#__codelineno-50-21"></a>&gt; c
+</span><span id="__span-50-22"><a id="__codelineno-50-22" name="__codelineno-50-22" href="#__codelineno-50-22"></a>[断点触发] 第5行: 返回 n * 阶乘(n - 1)
+</span><span id="__span-50-23"><a id="__codelineno-50-23" name="__codelineno-50-23" href="#__codelineno-50-23"></a>&gt; p n
+</span><span id="__span-50-24"><a id="__codelineno-50-24" name="__codelineno-50-24" href="#__codelineno-50-24"></a>n = 2
+</span><span id="__span-50-25"><a id="__codelineno-50-25" name="__codelineno-50-25" href="#__codelineno-50-25"></a>
+</span><span id="__span-50-26"><a id="__codelineno-50-26" name="__codelineno-50-26" href="#__codelineno-50-26"></a>&gt; c
+</span><span id="__span-50-27"><a id="__codelineno-50-27" name="__codelineno-50-27" href="#__codelineno-50-27"></a>[断点触发] 第5行: 返回 n * 阶乘(n - 1)
+</span><span id="__span-50-28"><a id="__codelineno-50-28" name="__codelineno-50-28" href="#__codelineno-50-28"></a>&gt; p n
+</span><span id="__span-50-29"><a id="__codelineno-50-29" name="__codelineno-50-29" href="#__codelineno-50-29"></a>n = 1
+</span><span id="__span-50-30"><a id="__codelineno-50-30" name="__codelineno-50-30" href="#__codelineno-50-30"></a>
+</span><span id="__span-50-31"><a id="__codelineno-50-31" name="__codelineno-50-31" href="#__codelineno-50-31"></a>&gt; c                      # continue, program ends
+</span><span id="__span-50-32"><a id="__codelineno-50-32" name="__codelineno-50-32" href="#__codelineno-50-32"></a>5! = 120
+</span></code></pre></div>
+<p>You can also start the debug REPL without specifying a file:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-51-1"><a id="__codelineno-51-1" name="__codelineno-51-1" href="#__codelineno-51-1"></a>light<span class="w"> </span>debug
+</span></code></pre></div>
+<p>Then load a file inside the debugger to debug it.</p>
+<hr />
+<h2 id="part-11-compile-ship-turn-your-program-into-an-exe-extra-3-min">🚢 Part 11: Compile &amp; Ship — turn your program into an EXE (extra 3 min)<a class="headerlink" href="#part-11-compile-ship-turn-your-program-into-an-exe-extra-3-min" title="Permanent link">&para;</a></h2>
+<h3 id="111-why-compile">11.1 Why compile?<a class="headerlink" href="#111-why-compile" title="Permanent link">&para;</a></h3>
+<p>Your <code>.light</code> file needs the LightLang environment to run — others must install LightLang first. After compiling to <code>.exe</code>, any Windows user (even without Python and LightLang installed) can run it directly.</p>
+<h3 id="112-compile-to-python-code">11.2 Compile to Python code<a class="headerlink" href="#112-compile-to-python-code" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-52-1"><a id="__codelineno-52-1" name="__codelineno-52-1" href="#__codelineno-52-1"></a>light<span class="w"> </span>compile<span class="w"> </span>hello.light<span class="w"> </span>-o<span class="w"> </span>hello.py
+</span></code></pre></div>
+<p><strong>Why compile to Python first?</strong> The LightLang interpreter itself is written in Python; compiling to Python lets you further package it into an EXE using the Python ecosystem.</p>
+<h3 id="113-compile-to-a-standalone-exe">11.3 Compile to a standalone EXE<a class="headerlink" href="#113-compile-to-a-standalone-exe" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-53-1"><a id="__codelineno-53-1" name="__codelineno-53-1" href="#__codelineno-53-1"></a><span class="c1"># install PyInstaller first (once)</span>
+</span><span id="__span-53-2"><a id="__codelineno-53-2" name="__codelineno-53-2" href="#__codelineno-53-2"></a>pip<span class="w"> </span>install<span class="w"> </span>pyinstaller
+</span><span id="__span-53-3"><a id="__codelineno-53-3" name="__codelineno-53-3" href="#__codelineno-53-3"></a>
+</span><span id="__span-53-4"><a id="__codelineno-53-4" name="__codelineno-53-4" href="#__codelineno-53-4"></a><span class="c1"># compile to exe</span>
+</span><span id="__span-53-5"><a id="__codelineno-53-5" name="__codelineno-53-5" href="#__codelineno-53-5"></a>light<span class="w"> </span>compile<span class="w"> </span>hello.light<span class="w"> </span>-o<span class="w"> </span>hello.exe
+</span></code></pre></div>
+<p><strong>How it works:</strong> <code>light compile</code> first translates LightLang into Python, then PyInstaller packages the Python into a standalone <code>.exe</code>. This file contains everything needed to run, <strong>with no environment required</strong>.</p>
+<h3 id="114-llvm-native-compilation-faster-smaller">11.4 LLVM native compilation — faster, smaller<a class="headerlink" href="#114-llvm-native-compilation-faster-smaller" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-54-1"><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a>light<span class="w"> </span>build<span class="w"> </span>hello.light<span class="w"> </span>-o<span class="w"> </span>hello.exe
+</span></code></pre></div>
+<p><strong>Why <code>light build</code> instead of <code>light compile</code>?</strong> <code>light build</code> uses the LLVM backend — it compiles LightLang directly into machine code, producing a native executable that <strong>starts faster and is smaller</strong>, with no Python runtime needed.</p>
+<p><strong><code>light build</code> vs <code>light compile</code>:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Backend</th>
+<th>Output</th>
+<th>Needs Python?</th>
+<th>Startup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>light compile</code></td>
+<td>SRC/ANTLR</td>
+<td>.py or .exe</td>
+<td>not after packaging</td>
+<td>medium</td>
+</tr>
+<tr>
+<td><code>light build</code></td>
+<td>LLVM</td>
+<td>native .exe</td>
+<td>no</td>
+<td>fastest</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Note:</strong> if your code uses advanced features like classes (<code>class</code>), you need the LLVM backend to compile correctly. Use <code>light ai check</code> to detect code/backend compatibility.</p>
+</blockquote>
+<hr />
+<h3 id="part-10-11-progress-check">✅ Part 10 + 11 progress check<a class="headerlink" href="#part-10-11-progress-check" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>What you learned</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Set breakpoints with <code>light debug</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Inspect variable values with <code>p</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Control execution with <code>c</code>, <code>n</code>, <code>s</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Compile to Python with <code>light compile</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Compile to native EXE with <code>light build</code></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Understand the difference between backends</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="part-12-learn-from-errors-common-beginner-mistakes">🧠 Part 12: Learn from Errors — common beginner mistakes<a class="headerlink" href="#part-12-learn-from-errors-common-beginner-mistakes" title="Permanent link">&para;</a></h2>
+<p>Errors are the best teacher in programming. Below are the most common LightLang beginner mistakes; check against them when you hit a problem.</p>
+<h3 id="mistake-1-forgot">Mistake 1: forgot <code>为</code><a class="headerlink" href="#mistake-1-forgot" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-55-1"><a id="__codelineno-55-1" name="__codelineno-55-1" href="#__codelineno-55-1"></a># ❌ wrong
+</span><span id="__span-55-2"><a id="__codelineno-55-2" name="__codelineno-55-2" href="#__codelineno-55-2"></a>设 名字 "张三"
+</span></code></pre></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-56-1"><a id="__codelineno-56-1" name="__codelineno-56-1" href="#__codelineno-56-1"></a># ✅ correct
+</span><span id="__span-56-2"><a id="__codelineno-56-2" name="__codelineno-56-2" href="#__codelineno-56-2"></a>设 名字 为 "张三"
+</span></code></pre></div>
+<p><strong>Why?</strong> <code>设 X 为 Y</code> is a fixed structure; <code>为</code> is a required keyword, omitting it raises a syntax error.</p>
+<h3 id="mistake-2-confusing-and">Mistake 2: confusing <code>=</code> and <code>==</code><a class="headerlink" href="#mistake-2-confusing-and" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-57-1"><a id="__codelineno-57-1" name="__codelineno-57-1" href="#__codelineno-57-1"></a># ❌ wrong: this is assignment, not comparison
+</span><span id="__span-57-2"><a id="__codelineno-57-2" name="__codelineno-57-2" href="#__codelineno-57-2"></a>如果 分数 = 100：
+</span><span id="__span-57-3"><a id="__codelineno-57-3" name="__codelineno-57-3" href="#__codelineno-57-3"></a>    打印 "满分"
+</span></code></pre></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-58-1"><a id="__codelineno-58-1" name="__codelineno-58-1" href="#__codelineno-58-1"></a># ✅ correct: == is comparison
+</span><span id="__span-58-2"><a id="__codelineno-58-2" name="__codelineno-58-2" href="#__codelineno-58-2"></a>如果 分数 == 100：
+</span><span id="__span-58-3"><a id="__codelineno-58-3" name="__codelineno-58-3" href="#__codelineno-58-3"></a>    打印 "满分"
+</span></code></pre></div>
+<p><strong>Why?</strong> <code>=</code> means "put the right value into the left", <code>==</code> means "check if left and right are equal". Almost every beginner makes this mistake — <strong>even experienced programmers slip up occasionally</strong>.</p>
+<h3 id="mistake-3-forgot-the-colon">Mistake 3: forgot the colon <code>：</code><a class="headerlink" href="#mistake-3-forgot-the-colon" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-59-1"><a id="__codelineno-59-1" name="__codelineno-59-1" href="#__codelineno-59-1"></a># ❌ wrong
+</span><span id="__span-59-2"><a id="__codelineno-59-2" name="__codelineno-59-2" href="#__codelineno-59-2"></a>如果 年龄 &gt;= 18
+</span><span id="__span-59-3"><a id="__codelineno-59-3" name="__codelineno-59-3" href="#__codelineno-59-3"></a>    打印 "成年"
+</span></code></pre></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-60-1"><a id="__codelineno-60-1" name="__codelineno-60-1" href="#__codelineno-60-1"></a># ✅ correct
+</span><span id="__span-60-2"><a id="__codelineno-60-2" name="__codelineno-60-2" href="#__codelineno-60-2"></a>如果 年龄 &gt;= 18：
+</span><span id="__span-60-3"><a id="__codelineno-60-3" name="__codelineno-60-3" href="#__codelineno-60-3"></a>    打印 "成年"
+</span></code></pre></div>
+<p><strong>Why?</strong> The colon tells LightLang "the condition is done, the code block to execute follows". In LightLang, <code>如果</code>, <code>否则</code>, <code>遍历</code>, <code>当</code>, <code>段落</code>, <code>类</code> all need a colon after them.</p>
+<h3 id="mistake-4-inconsistent-indentation">Mistake 4: inconsistent indentation<a class="headerlink" href="#mistake-4-inconsistent-indentation" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-61-1"><a id="__codelineno-61-1" name="__codelineno-61-1" href="#__codelineno-61-1"></a># ❌ wrong: messy indentation
+</span><span id="__span-61-2"><a id="__codelineno-61-2" name="__codelineno-61-2" href="#__codelineno-61-2"></a>如果 真：
+</span><span id="__span-61-3"><a id="__codelineno-61-3" name="__codelineno-61-3" href="#__codelineno-61-3"></a>    打印 "第一行"
+</span><span id="__span-61-4"><a id="__codelineno-61-4" name="__codelineno-61-4" href="#__codelineno-61-4"></a>  打印 "第二行"  # wrong indent
+</span><span id="__span-61-5"><a id="__codelineno-61-5" name="__codelineno-61-5" href="#__codelineno-61-5"></a>
+</span><span id="__span-61-6"><a id="__codelineno-61-6" name="__codelineno-61-6" href="#__codelineno-61-6"></a># ✅ correct: uniform indentation
+</span><span id="__span-61-7"><a id="__codelineno-61-7" name="__codelineno-61-7" href="#__codelineno-61-7"></a>如果 真：
+</span><span id="__span-61-8"><a id="__codelineno-61-8" name="__codelineno-61-8" href="#__codelineno-61-8"></a>    打印 "第一行"
+</span><span id="__span-61-9"><a id="__codelineno-61-9" name="__codelineno-61-9" href="#__codelineno-61-9"></a>    打印 "第二行"
+</span></code></pre></div>
+<p><strong>Why?</strong> LightLang uses indentation (spaces or Tab) to mark which block a line belongs to. Inconsistent indentation makes it impossible for LightLang to tell — <strong>use 4 spaces uniformly</strong>.</p>
+<h3 id="mistake-5-variable-name-collision">Mistake 5: variable-name collision<a class="headerlink" href="#mistake-5-variable-name-collision" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-62-1"><a id="__codelineno-62-1" name="__codelineno-62-1" href="#__codelineno-62-1"></a># ❌ wrong: using a built-in function name as a variable name
+</span><span id="__span-62-2"><a id="__codelineno-62-2" name="__codelineno-62-2" href="#__codelineno-62-2"></a>设 打印 为 123
+</span><span id="__span-62-3"><a id="__codelineno-62-3" name="__codelineno-62-3" href="#__codelineno-62-3"></a>打印(打印)  # error: 打印 is no longer a function
+</span><span id="__span-62-4"><a id="__codelineno-62-4" name="__codelineno-62-4" href="#__codelineno-62-4"></a>
+</span><span id="__span-62-5"><a id="__codelineno-62-5" name="__codelineno-62-5" href="#__codelineno-62-5"></a># ✅ correct: avoid keywords
+</span><span id="__span-62-6"><a id="__codelineno-62-6" name="__codelineno-62-6" href="#__codelineno-62-6"></a>设 打印值 为 123
+</span><span id="__span-62-7"><a id="__codelineno-62-7" name="__codelineno-62-7" href="#__codelineno-62-7"></a>打印(打印值)
+</span></code></pre></div>
+<p><strong>Why?</strong> <code>打印</code>, <code>输入</code>, <code>长度</code>, <code>转字符串</code> etc. are LightLang built-ins; using them as variable names overrides the built-ins.</p>
+<h3 id="mistake-6-index-out-of-range">Mistake 6: index out of range<a class="headerlink" href="#mistake-6-index-out-of-range" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-63-1"><a id="__codelineno-63-1" name="__codelineno-63-1" href="#__codelineno-63-1"></a># ❌ wrong
+</span><span id="__span-63-2"><a id="__codelineno-63-2" name="__codelineno-63-2" href="#__codelineno-63-2"></a>设 列表 为 [1, 2, 3]
+</span><span id="__span-63-3"><a id="__codelineno-63-3" name="__codelineno-63-3" href="#__codelineno-63-3"></a>打印 列表[5]  # list has only 3 elements, index 5 doesn't exist
+</span><span id="__span-63-4"><a id="__codelineno-63-4" name="__codelineno-63-4" href="#__codelineno-63-4"></a>
+</span><span id="__span-63-5"><a id="__codelineno-63-5" name="__codelineno-63-5" href="#__codelineno-63-5"></a># ✅ correct: check length first
+</span><span id="__span-63-6"><a id="__codelineno-63-6" name="__codelineno-63-6" href="#__codelineno-63-6"></a>设 列表 为 [1, 2, 3]
+</span><span id="__span-63-7"><a id="__codelineno-63-7" name="__codelineno-63-7" href="#__codelineno-63-7"></a>如果 长度(列表) &gt; 5：
+</span><span id="__span-63-8"><a id="__codelineno-63-8" name="__codelineno-63-8" href="#__codelineno-63-8"></a>    打印 列表[5]
+</span><span id="__span-63-9"><a id="__codelineno-63-9" name="__codelineno-63-9" href="#__codelineno-63-9"></a>否则：
+</span><span id="__span-63-10"><a id="__codelineno-63-10" name="__codelineno-63-10" href="#__codelineno-63-10"></a>    打印(f"列表只有{长度(列表)}个元素，索引5不存在")
+</span></code></pre></div>
+<p><strong>Why?</strong> List indices start at 0; a list of length 3 has valid indices 0, 1, 2.</p>
+<h3 id="mistake-7-mismatched-string-quotes">Mistake 7: mismatched string quotes<a class="headerlink" href="#mistake-7-mismatched-string-quotes" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-64-1"><a id="__codelineno-64-1" name="__codelineno-64-1" href="#__codelineno-64-1"></a># ❌ wrong
+</span><span id="__span-64-2"><a id="__codelineno-64-2" name="__codelineno-64-2" href="#__codelineno-64-2"></a>设 消息 为 "你好'
+</span></code></pre></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-65-1"><a id="__codelineno-65-1" name="__codelineno-65-1" href="#__codelineno-65-1"></a># ✅ correct: quotes come in pairs
+</span><span id="__span-65-2"><a id="__codelineno-65-2" name="__codelineno-65-2" href="#__codelineno-65-2"></a>设 消息 为 "你好"
+</span><span id="__span-65-3"><a id="__codelineno-65-3" name="__codelineno-65-3" href="#__codelineno-65-3"></a>设 消息2 为 '你好'
+</span></code></pre></div>
+<p><strong>Why?</strong> Strings must be wrapped in matching quotes. <code>"</code> starts and must end with <code>"</code>; <code>'</code> starts and must end with <code>'</code>.</p>
+<h3 id="mistake-8-using-to-modify-a-list">Mistake 8: using <code>设</code> to modify a list<a class="headerlink" href="#mistake-8-using-to-modify-a-list" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-66-1"><a id="__codelineno-66-1" name="__codelineno-66-1" href="#__codelineno-66-1"></a># ❌ wrong: use 「设」 to create a variable, use 「=」 to modify a list element
+</span><span id="__span-66-2"><a id="__codelineno-66-2" name="__codelineno-66-2" href="#__codelineno-66-2"></a>设 列表 为 [1, 2, 3]
+</span><span id="__span-66-3"><a id="__codelineno-66-3" name="__codelineno-66-3" href="#__codelineno-66-3"></a>设 列表[0] 为 10  # not supported on SRC backend
+</span><span id="__span-66-4"><a id="__codelineno-66-4" name="__codelineno-66-4" href="#__codelineno-66-4"></a>
+</span><span id="__span-66-5"><a id="__codelineno-66-5" name="__codelineno-66-5" href="#__codelineno-66-5"></a># ✅ correct: assign directly
+</span><span id="__span-66-6"><a id="__codelineno-66-6" name="__codelineno-66-6" href="#__codelineno-66-6"></a>设 列表 为 [1, 2, 3]
+</span><span id="__span-66-7"><a id="__codelineno-66-7" name="__codelineno-66-7" href="#__codelineno-66-7"></a>列表[0] = 10
+</span></code></pre></div>
+<hr />
+<h2 id="part-13-capstone-number-guessing-game">🎯 Part 13: Capstone — Number Guessing Game<a class="headerlink" href="#part-13-capstone-number-guessing-game" title="Permanent link">&para;</a></h2>
+<p>String everything together into a complete number-guessing game:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-67-1"><a id="__codelineno-67-1" name="__codelineno-67-1" href="#__codelineno-67-1"></a>导入 数学
+</span><span id="__span-67-2"><a id="__codelineno-67-2" name="__codelineno-67-2" href="#__codelineno-67-2"></a>
+</span><span id="__span-67-3"><a id="__codelineno-67-3" name="__codelineno-67-3" href="#__codelineno-67-3"></a># generate a random number from 1 to 100
+</span><span id="__span-67-4"><a id="__codelineno-67-4" name="__codelineno-67-4" href="#__codelineno-67-4"></a>设 目标 为 数学.随机整数(1, 100)
+</span><span id="__span-67-5"><a id="__codelineno-67-5" name="__codelineno-67-5" href="#__codelineno-67-5"></a>设 尝试次数 为 0
+</span><span id="__span-67-6"><a id="__codelineno-67-6" name="__codelineno-67-6" href="#__codelineno-67-6"></a>设 猜中 为 假
+</span><span id="__span-67-7"><a id="__codelineno-67-7" name="__codelineno-67-7" href="#__codelineno-67-7"></a>
+</span><span id="__span-67-8"><a id="__codelineno-67-8" name="__codelineno-67-8" href="#__codelineno-67-8"></a>打印 "=== 猜数字游戏 ==="
+</span><span id="__span-67-9"><a id="__codelineno-67-9" name="__codelineno-67-9" href="#__codelineno-67-9"></a>打印 "我已经想好了一个 1 到 100 之间的数字"
+</span><span id="__span-67-10"><a id="__codelineno-67-10" name="__codelineno-67-10" href="#__codelineno-67-10"></a>打印 "你能猜出来吗？"
+</span><span id="__span-67-11"><a id="__codelineno-67-11" name="__codelineno-67-11" href="#__codelineno-67-11"></a>
+</span><span id="__span-67-12"><a id="__codelineno-67-12" name="__codelineno-67-12" href="#__codelineno-67-12"></a>当 非 猜中：
+</span><span id="__span-67-13"><a id="__codelineno-67-13" name="__codelineno-67-13" href="#__codelineno-67-13"></a>    设 猜测 为 转整数(输入("请猜一个数字："))
+</span><span id="__span-67-14"><a id="__codelineno-67-14" name="__codelineno-67-14" href="#__codelineno-67-14"></a>    尝试次数 = 尝试次数 + 1
+</span><span id="__span-67-15"><a id="__codelineno-67-15" name="__codelineno-67-15" href="#__codelineno-67-15"></a>
+</span><span id="__span-67-16"><a id="__codelineno-67-16" name="__codelineno-67-16" href="#__codelineno-67-16"></a>    如果 猜测 == 目标：
+</span><span id="__span-67-17"><a id="__codelineno-67-17" name="__codelineno-67-17" href="#__codelineno-67-17"></a>        打印(f"🎉 恭喜！你猜中了！用了{尝试次数}次")
+</span><span id="__span-67-18"><a id="__codelineno-67-18" name="__codelineno-67-18" href="#__codelineno-67-18"></a>        猜中 = 真
+</span><span id="__span-67-19"><a id="__codelineno-67-19" name="__codelineno-67-19" href="#__codelineno-67-19"></a>    否则如果 猜测 &lt; 目标：
+</span><span id="__span-67-20"><a id="__codelineno-67-20" name="__codelineno-67-20" href="#__codelineno-67-20"></a>        打印("太小了，再试试")
+</span><span id="__span-67-21"><a id="__codelineno-67-21" name="__codelineno-67-21" href="#__codelineno-67-21"></a>    否则：
+</span><span id="__span-67-22"><a id="__codelineno-67-22" name="__codelineno-67-22" href="#__codelineno-67-22"></a>        打印("太大了，再试试")
+</span><span id="__span-67-23"><a id="__codelineno-67-23" name="__codelineno-67-23" href="#__codelineno-67-23"></a>
+</span><span id="__span-67-24"><a id="__codelineno-67-24" name="__codelineno-67-24" href="#__codelineno-67-24"></a>打印 "游戏结束！"
+</span></code></pre></div>
+<p><strong>Run:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-68-1"><a id="__codelineno-68-1" name="__codelineno-68-1" href="#__codelineno-68-1"></a>light<span class="w"> </span>run<span class="w"> </span>guess.light
+</span></code></pre></div>
+<p><strong>What this program uses:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>Corresponding code</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Module import</td>
+<td><code>导入 数学</code></td>
+</tr>
+<tr>
+<td>Variable</td>
+<td><code>设 目标 为 ...</code></td>
+</tr>
+<tr>
+<td>Loop</td>
+<td><code>当 非 猜中：</code></td>
+</tr>
+<tr>
+<td>Conditional</td>
+<td><code>如果/否则如果/否则</code></td>
+</tr>
+<tr>
+<td>Boolean</td>
+<td><code>真/假</code></td>
+</tr>
+<tr>
+<td>User input</td>
+<td><code>输入(...)</code></td>
+</tr>
+<tr>
+<td>Type conversion</td>
+<td><code>转整数(...)</code></td>
+</tr>
+<tr>
+<td>String interpolation</td>
+<td><code>f"用了{尝试次数}次"</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="part-14-where-to-go-next">🧭 Part 14: Where to go next?<a class="headerlink" href="#part-14-where-to-go-next" title="Permanent link">&para;</a></h2>
+<h3 id="141-more-learning-resources">14.1 More learning resources<a class="headerlink" href="#141-more-learning-resources" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docs/syntax.md</code></td>
+<td>full syntax manual (all v7.0 features)</td>
+</tr>
+<tr>
+<td><code>docs/tutorials/入门教程.md</code></td>
+<td>introductory tutorial (more exercises)</td>
+</tr>
+<tr>
+<td><code>docs/tutorials/进阶教程.md</code></td>
+<td>advanced tutorial (FFI, Web, concurrency)</td>
+</tr>
+<tr>
+<td><code>docs/stdlib.md</code></td>
+<td>standard library docs</td>
+</tr>
+<tr>
+<td><code>examples/</code> directory</td>
+<td>runnable example files</td>
+</tr>
+</tbody>
+</table>
+<h3 id="142-more-cli-commands">14.2 More CLI commands<a class="headerlink" href="#142-more-cli-commands" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-69-1"><a id="__codelineno-69-1" name="__codelineno-69-1" href="#__codelineno-69-1"></a>light<span class="w"> </span>tutorial<span class="w">              </span><span class="c1"># interactive tutorial (learn by doing)</span>
+</span><span id="__span-69-2"><a id="__codelineno-69-2" name="__codelineno-69-2" href="#__codelineno-69-2"></a>light<span class="w"> </span>ast<span class="w"> </span>hello.light<span class="w">        </span><span class="c1"># view the syntax tree (understand how code is parsed)</span>
+</span><span id="__span-69-3"><a id="__codelineno-69-3" name="__codelineno-69-3" href="#__codelineno-69-3"></a>light<span class="w"> </span>tokens<span class="w"> </span>hello.light<span class="w">     </span><span class="c1"># view the token stream (see how code is tokenized)</span>
+</span><span id="__span-69-4"><a id="__codelineno-69-4" name="__codelineno-69-4" href="#__codelineno-69-4"></a>light<span class="w"> </span>check<span class="w"> </span>hello.light<span class="w">      </span><span class="c1"># syntax check (locate syntax errors fast)</span>
+</span><span id="__span-69-5"><a id="__codelineno-69-5" name="__codelineno-69-5" href="#__codelineno-69-5"></a>light<span class="w"> </span>ai<span class="w"> </span>card<span class="w">               </span><span class="c1"># view the syntax cheat-sheet</span>
+</span><span id="__span-69-6"><a id="__codelineno-69-6" name="__codelineno-69-6" href="#__codelineno-69-6"></a>light<span class="w"> </span>ai<span class="w"> </span>generate<span class="w"> </span><span class="s2">"需求"</span><span class="w">    </span><span class="c1"># AI-assisted LightLang code generation</span>
+</span></code></pre></div>
+<h3 id="143-more-syntax-features-advanced">14.3 More syntax features (advanced)<a class="headerlink" href="#143-more-syntax-features-advanced" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Notes</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pattern matching</td>
+<td>like switch-case</td>
+<td><code>匹配 值：情况 1：</code></td>
+</tr>
+<tr>
+<td>Lambda</td>
+<td>quick anonymous function</td>
+<td><code>参数 x =&gt; x * x</code></td>
+</tr>
+<tr>
+<td>Async</td>
+<td>concurrent execution</td>
+<td><code>异步 段落 / 等待</code></td>
+</tr>
+<tr>
+<td>Context manager</td>
+<td>resource management</td>
+<td><code>使用 打开文件("f") 为 文件：</code></td>
+</tr>
+<tr>
+<td>Pipe operator</td>
+<td>data-stream processing</td>
+<td><code>数据 \|&gt; 函数1 \|&gt; 函数2</code></td>
+</tr>
+<tr>
+<td>List comprehension</td>
+<td>quick list generation</td>
+<td><code>[x*x 遍历 x 之 范围(1,6)]</code></td>
+</tr>
+<tr>
+<td>Generics</td>
+<td>type parameterization</td>
+<td><code>段落 恒等[T] 接收 x：</code></td>
+</tr>
+<tr>
+<td>Interface &amp; protocol</td>
+<td>abstract behavior definition</td>
+<td><code>协议 可打印：</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="144-recommended-learning-path">14.4 Recommended learning path<a class="headerlink" href="#144-recommended-learning-path" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-70-1"><a id="__codelineno-70-1" name="__codelineno-70-1" href="#__codelineno-70-1"></a>Intro tutorial (this doc) → Advanced tutorial → Read examples/ → Write your own small project
+</span></code></pre></div>
+<p><strong>Suggested next small projects:</strong>
+- 🧮 Command-line calculator
+- 📝 To-do manager
+- 🌡️ Temperature converter
+- 🔢 Fibonacci generator
+- 📊 Student grade management system</p>
+<hr />
+<blockquote>
+<p>Programming is the art of practice. Open your terminal, create your first <code>.light</code> file, and run it with <code>light run</code> — that's the fastest way to learn. Don't fear errors; flip to "Learn from errors" to check, or use <code>light debug</code> to watch how the code runs step by step.</p>
+<p><strong>Remember:</strong> every programmer starts by writing "Hello World". You're already on the way — keep going!</p>
+</blockquote>
+
+
+
+
+
+
+
+  
+    
+  
+  
+    
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="最后更新">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月8日 10:17:14 UTC">2026年9月8日</span>
+  </span>
+
+    
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="创建日期">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月8日 10:17:14 UTC">2026年9月8日</span>
+  </span>
+
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/skywalk163/light" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

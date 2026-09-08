@@ -1221,6 +1221,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#127-2026-09-07cia-timeout-_gen_coroutine_function-prev_module-nameerror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.7 [2026-09-07·CIA-timeout 调查抓出] _gen_coroutine_function 缺 prev_module 保存 → 协程段 NameError（已修）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#128-2026-09-07cia-timeout-50100" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.8 [2026-09-07·CIA-timeout 根因] 原生协程测试 睡眠(50)/睡眠(100) 过长 → 主测试超时（已修）
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3569,7 +3591,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../%E4%B8%89%E4%B8%AA%E6%9C%88%E5%B7%A5%E4%BD%9C%E8%AE%A1%E5%88%92_2026Q3Q4/" class="md-nav__link">
+      <a href="../三个月工作计划_2026Q3Q4.md" class="md-nav__link">
         
   
   
@@ -4544,8 +4566,8 @@
 
 
 <h1 id="_1">已知问题与技术债务清单<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h1>
-<p><strong>版本</strong>: v6.0.0<br />
-<strong>更新日期</strong>: 2026-10-29<br />
+<p><strong>版本</strong>: v7.0<br />
+<strong>更新日期</strong>: 2026-09-08 10:06<br />
 <strong>说明</strong>: 本文档记录了光明 v6.0 中已知的问题、限制和技术债务，供开发者和用户参考。</p>
 <hr />
 <h2 id="_2">一、严重问题<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
@@ -5021,7 +5043,7 @@
 </thead>
 <tbody>
 <tr>
-<td>2026-10-29</td>
+<td>2026-09-08 10:06</td>
 <td>v6.0.0</td>
 <td>初始版本，基于 v6.0 发布时的已知问题</td>
 </tr>
@@ -5289,6 +5311,19 @@ Windows 下按 GBK 输出会被当成乱码误判成冒烟不通过；现钉 <co
 <h3 id="126-50-stdlib">12.6 50 个整文件注释的伪代码 stdlib 模块<a class="headerlink" href="#126-50-stdlib" title="Permanent link">&para;</a></h3>
 <p>整个文件被注释掉、只剩形状，<code>stdlib/日期时间.light</code> 是其中之一（正因为没有魔数所以无害）。
 待定方案是缩成「导出清单 + 显式 NotImplemented」，会影响自举率口径，未决。</p>
+<h3 id="127-2026-09-07cia-timeout-_gen_coroutine_function-prev_module-nameerror">12.7 [2026-09-07·CIA-timeout 调查抓出] <code>_gen_coroutine_function</code> 缺 <code>prev_module</code> 保存 → 协程段 NameError（<strong>已修</strong>）<a class="headerlink" href="#127-2026-09-07cia-timeout-_gen_coroutine_function-prev_module-nameerror" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>现象</strong>：原生腿协程测试（<code>tests/test_native_cli.py</code> 的 <code>协程</code> 四档用例、<code>tests/test_llvm_net.py::TestB3EventLoop::test_coro_sleep_basic</code>）编译期抛 <code>NameError: name 'prev_module' is not defined</code>（<code>src/llvm/codegen_typed.py:5927</code>）。</li>
+<li><strong>根因</strong>：commit <code>4897ec90</code>（T9A <code>_safe_func_name</code> 跨模块同名段根因修复）在函数尾新增 <code>self._current_module = prev_module</code> 的「恢复」，但函数开头没有对应的 <code>prev_module = self._current_module</code> 保存。<code>_gen_async_segment</code> 同款路径在 5561 行正确保存，协程函数路径漏了。</li>
+<li><strong>影响窗口</strong>：该回归在 <strong>run 161 之后</strong>引入。run 161（≈ 841f1d45）时协程段还能正常编译，正是那时 <code>睡眠(50)</code>×4 + <code>睡眠(100)</code> 真的跑出 ~300s 纯 idle sleep，把主测试（xdist 装不上时串行）拖爆超时。修复 <code>prev_module</code> 后协程测试恢复可编译可跑。</li>
+<li><strong>处置</strong>：已在 <code>src/llvm/codegen_typed.py</code> <code>_gen_coroutine_function</code> 开头补 <code>prev_module = self._current_module</code>（commit 见 CIA-timeout 交付）。本次 timeout 的真正根因是测试里 <strong><code>睡眠(50)</code>/<code>睡眠(100)</code> 过长</strong>，已同步降到 <code>睡眠(2)</code>（见下条 §超时根因）。</li>
+</ul>
+<h3 id="128-2026-09-07cia-timeout-50100">12.8 [2026-09-07·CIA-timeout 根因] 原生协程测试 <code>睡眠(50)</code>/<code>睡眠(100)</code> 过长 → 主测试超时（<strong>已修</strong>）<a class="headerlink" href="#128-2026-09-07cia-timeout-50100" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>根因</strong>：<code>tests/test_native_cli.py::Test优化档矩阵::test_四档产物真跑</code> 的 <code>协程</code> 用例源码含 <code>睡眠(50)</code>，按 <code>优化级别=[0,1,2,3]</code> 参数化 = 4 次 × 50s；<code>tests/test_llvm_net.py::TestB3EventLoop::test_coro_sleep_basic</code> 含 <code>睡眠(100)</code>。二者都在「全量除 e2e」主测试集内（未被 CI 排除）。</li>
+<li><strong>为什么炸</strong>：CI 主测试 <code>pytest ... -n auto</code>；当 devpi 镜像装不上 <code>pytest-xdist</code> 时退回串行（见 ci.yml 注释），4×50s + 100s = 300s 纯挂起，落在 97%→98% 这一格，把主测试从 run 114 基线 ~880s 推到 1061s+ 被 act_runner 整体超时（29min）杀掉、无 junit。</li>
+<li><strong>判据本质</strong>：这两条测试只断言协程 yield/恢复的<strong>输出顺序</strong>，不需要任何真实时长；<code>睡眠(2)</code> 足以证明事件循环挂起后恢复。已改为 <code>睡眠(2)</code>（4×2s + 2s ≈ 10s 代替 300s）。</li>
+</ul>
 <hr />
 <h2 id="d3-2026-08-23">十三、仓库债务登记（D3 本轮明文标注，2026-08-23）<a class="headerlink" href="#d3-2026-08-23" title="Permanent link">&para;</a></h2>
 <p>第三轮 D3 复核盘点出的结构性债务。<strong>只标注、不代修</strong>（多数属 A2/A3 基础设施范围）。
@@ -7521,6 +7556,133 @@ append 不互通）属 runtime 字典值所有权/引用计数架构，归 T7 �
 <li><strong>验证</strong>：POSIX 实机 192.168.0.86（mbedTLS 2.28.8）打补丁副本 C 级探针握手成功（hs[0]=0，证书校验开启）；R13B 网络请求 HTTPS 用例 15/15 通过。</li>
 <li><strong>反跑</strong>：移除 bio_recv 中的 flush → POSIX HTTPS 握手立即自锁（阻塞至 EOF）。</li>
 </ul>
+<h2 id="r13d_light_import_hook-2026-09-07">R13D：_light_import_hook 拦截标准库模块导致循环导入（2026-09-07）<a class="headerlink" href="#r13d_light_import_hook-2026-09-07" title="Permanent link">&para;</a></h2>
+<h3 id="r13d-circimport-hook-python-light">缺陷 R13D-CIRC：import hook 接管 Python 标准库同名 .light 影子，编译期触发循环导入<a class="headerlink" href="#r13d-circimport-hook-python-light" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>现象</strong>：gitea CI run 161 e2e 的 <code>my_first.light</code> 运行期报
+  <code>ImportError: cannot import name 'LightParser' from partially initialized module 'light_parser_v3'</code>
+  （most likely due to a circular import）。本地强模拟 CI 条件（钩子置于 <code>sys.meta_path</code> 首位 +
+  从 <code>sys.modules</code> 驱逐 <code>inspect</code>）可复现等价症状
+  <code>AttributeError: partially initialized module 'inspect' has no attribute 'get_annotations'</code>。</li>
+<li><strong>根因</strong>：<code>stdlib/_light_import_hook.py</code> 的 <code>LightFinder.find_spec</code> 对任何 <code>&lt;名&gt;.light</code> 存在即拦截，
+  未排除与 Python 标准库同名的模块。编译 <code>.light</code> 时 <code>_compile_light</code> 导入
+  <code>light_parser_v3 → parser_core → lexer → dataclasses → inspect</code>，
+  而 <code>import inspect</code> 被钩子拦截去编译 <code>stdlib/inspect.light</code>；<code>inspect.light</code> 又 <code>import light_parser_v3</code>
+  （或经由同链），此时编译器处于部分初始化 → 循环导入。同理 <code>sys.light</code>/<code>time.light</code>/<code>re.light</code>
+  等无 <code>.py</code> 兄弟的纯影子在标准库名被 import 时也会被错误接管。</li>
+<li><strong>为什么本地不报错</strong>：本机 venv 的 <code>sys.meta_path</code> 中 <code>DistutilsMetaFinder</code>（pkg_resources）位于钩子之前，
+  恰好先把 <code>inspect</code> 等标准库解析到真 CPython 模块，掩盖了缺陷；CI runner 上钩子更靠前才会触发。
+  属「环境依赖型隐藏 bug」，本地无法逐条复现，靠强模拟 CI 条件验证。</li>
+<li><strong>修复（R13D，仅动 <code>stdlib/_light_import_hook.py</code>，不动 <code>code_generator.py</code> 别名逻辑）</strong>：</li>
+<li>模块级新增 <code>_STDLIB_MODULES = frozenset(getattr(sys,'stdlib_module_names',()))</code>
+     （3.10+ 权威标准库名集合）与编译深度计数 <code>_COMPILE_DEPTH</code>。</li>
+<li><code>find_spec</code> 对「非 <code>_light_</code> 别名」且「<code>realname in _STDLIB_MODULES</code>」的直接 import 增加早退：<ul>
+<li>编译期（<code>_COMPILE_DEPTH&gt;0</code>）：任何标准库名一律 <code>return None</code>，让编译器用真 CPython 标准库
+   （连 <code>json.light</code>/<code>base64.light</code> 这种有 <code>.py</code> 兄弟的「纯光明实现」也只在运行期加载，编译期绝不编译同名影子）；</li>
+<li>运行期：仅当该名字在搜索路径里没有 <code>.py</code> 兄弟（inspect/sys/time/re 这类纯影子）时 <code>return None</code>
+   放行给标准库；有 <code>.py</code> 兄弟的（json/base64，且其真实文件为 <code>JSON.light</code>/<code>JSON.py</code> 大写，
+   本就被 <code>_exists_exact</code> 大小写守卫排除）仍由钩子加载纯光明实现，运行期语义不变。</li>
+</ul>
+</li>
+<li><code>_compile_light</code> 进入/退出时 <code>_COMPILE_DEPTH += 1</code> / <code>-= 1</code>（用计数而非布尔以正确处理编译嵌套）。</li>
+<li><strong>不破坏 re 别名</strong>：<code>从 re 导入 X</code> 经 <code>code_generator</code> 生成 <code>from _light_re import X</code>
+     （<code>_PYTHON_LEG_PURE_LIGHT_ALIAS</code> 唯一含 <code>re</code>），此时 <code>fullname='_light_re' != realname='re'</code>，
+     早退不触发，<code>_light_re</code> 仍正常加载 <code>re.light</code>；而 <code>import re</code>（非别名）按运行期规则放行给 CPython re——
+     与 <code>code_generator.py:47-51</code> 的设计注释完全一致（「sys/time/inspect/Base64 的 .light 只是原生腿最小面，
+     Python 腿必须命中真模块」）。</li>
+<li><strong>验证</strong>：</li>
+<li>CI 条件模拟（钩子首位 + 驱逐 inspect）：修复前 <code>import inspect</code> 循环导入；修复后 <code>import inspect → .../Lib/inspect.py</code>（NO CIRCULAR）。</li>
+<li><code>find_spec('inspect'/'sys')</code> → None；<code>find_spec('_light_re')</code>/<code>find_spec('数学')</code> → 仍返回 spec（别名与中文模块不受影响）。</li>
+<li><code>import re</code> → CPython re；<code>import_module('_light_re')</code> → <code>stdlib/re.light</code>。</li>
+<li><code>python -m cli.light run examples/my_first.light</code> → 正常输出，RUN_EXIT=0。</li>
+<li>新增回归测试 <code>tests/unit/test_light_import_hook_stdlib.py</code>（5 passed）。</li>
+<li><code>tests/unit/test_lightpub_doc_importability.py</code>：-q 结果与原代码一致（1 failed 为<strong>预存缺陷</strong>：
+    HTTP客户端 文档围栏过时标成 text 但实际可导入，归任务 B 的 gen_lightpub_docs.py，与本修复无关）。</li>
+<li><strong>提交</strong>：分支 <code>task-CIC-import-hook</code>（本地分支隔离，未用 worktree——本仓 39k 文件 worktree 检出超时且有 prune 事故风险）。</li>
+</ul>
+<h2 id="l-070-2026-09-08">L-070：入口函数未自动调用（<code>函数 主()</code> 程序零输出，2026-09-08）<a class="headerlink" href="#l-070-2026-09-08" title="Permanent link">&para;</a></h2>
+<h3 id="l-070-entrysrc-def">缺陷 L-070-ENTRY：src 后端只发 <code>def 主():</code> 定义、不发调用<a class="headerlink" href="#l-070-entrysrc-def" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>现象</strong>：以 <code>主</code> 为入口的程序 <code>light run</code> 零输出、exit 0。
+  <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>函数 主()：
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    打印("hello")
+</span></code></pre></div>
+  手动补一行 <code>主()</code> 后正常输出。</li>
+<li><strong>根因</strong>：<code>src/code_generator.py</code> 的 <code>PythonCodeGenerator.generate()</code> 把
+  <code>函数 主()</code> / <code>段落 主：</code> 编成 <code>def 主():</code> 后即结束，末尾<strong>没有入口调用逻辑</strong>；
+  命名空间里 <code>主</code> 只是个从未被调用的函数对象。原生腿早有入口约定
+  （<code>src/llvm/codegen_typed.py:6328</code>，<code>main_names = {'主程序','主入口','main','主'}</code>），
+  src 后端缺失这一段 → 两条腿行为分叉。</li>
+<li><strong>修复（L-070，只动 <code>src/code_generator.py</code> + <code>cli/light.py</code>）</strong>：</li>
+<li><code>generate(module, is_main: bool = False)</code> 新增 <code>is_main</code> 参数，默认 False——
+     既有调用点（tests / bootstrap / benchmarks / 依赖模块）行为逐字不变。</li>
+<li>新增判定辅助：<code>_find_entry_paragraph</code>（顶层第一个命中
+     <code>ENTRY_FUNCTION_NAMES = ('主程序','主入口','main','主')</code> 的 Paragraph，与原生腿
+     main_names 对齐；只认顶层，类体内同名方法不算入口）、
+     <code>_paragraph_arity</code>（段落头参数 + 段体内 <code>接收</code>/参数声明；有参入口无法确定实参 → 跳过）、
+     <code>_node_calls_name</code>（递归识别 ParagraphCall / Identifier；<code>RunAsyncStmt.call</code>
+     在遍历范围内，故 <code>异步 运行 主()</code> 天然算「已启动入口」）、
+     <code>_module_invokes_entry</code>（只扫顶层语句，不进段落体/类体——函数体里的 <code>主()</code> 是递归调用）。</li>
+<li>主文件（is_main=True）且「入口存在 + 零参 + 模块级未显式启动」时，产物末尾追加
+     <code>if __name__ == '__main__': 主()</code>；异步入口（<code>异步 段落 主</code>）改发 <code>asyncio.run(主())</code>
+     并置位 <code>_needs_asyncio</code>——判定必须放在 asyncio import 插入块<strong>之前</strong>，否则产物里
+     asyncio 未导入 → 运行期 NameError。</li>
+<li><code>cli/light.py::_compile_src()</code> 传 <code>is_main=True</code>（<code>light run</code> 与
+     <code>light compile --backend src</code> 均走它）；<code>_resolve_local_imports()</code> 内联的依赖模块
+     保持默认 False——依赖模块代码与主代码共享同一 <code>__main__</code> 命名空间，一旦追加就会
+     import 即执行副作用（dep 里的 <code>主()</code> 被误跑）。</li>
+<li><strong>验证</strong>：</li>
+<li><code>python -m pytest tests/test_entry_function.py -q</code> → 10 passed（新增，覆盖 函数主/段落主/
+    主程序·主入口·main/ 显式调用不重复 / 异步运行不冲突 / 有参不调用 / 入口守卫 /
+    依赖模块主不被调用 / 主文件带依赖仍自动调用 / 汉诺塔完整程序）。</li>
+<li><code>python -m pytest tests/test_self_host_bootstrap.py -q</code> → 62 passed, 2 skipped（不回归）。</li>
+<li><code>python -m pytest tests/unit/test_examples_run.py -q</code> → 22 subtests passed（不回归）。</li>
+<li>真 CLI：<code>python -m cli.light run</code> 一段 <code>函数 主(): 打印("hello-from-cli")</code> → 输出
+    <code>hello-from-cli</code>，exit 0（修复前无输出、exit 0）。</li>
+<li><strong>反跑</strong>：把 <code>code_generator.py</code> 中 <code>if self._entry_call:</code> 改成 <code>if False and self._entry_call:</code>
+  → <code>tests/test_entry_function.py</code> 立即 6 red（函数主 / 段落主 / 主程序·主入口·main /
+  入口守卫 / 主文件带依赖 / 汉诺塔），恢复即 10 passed；余下 4 条（显式调用不重复、
+  异步运行不冲突、有参不调用、依赖模块主不被调用）本就不依赖自动调用，保持绿——正好
+  反向钉住「只在真正需要时追加」。</li>
+<li><strong>提交</strong>：分支 <code>task-L070-entry</code>（本地分支隔离——本仓 39k 文件 worktree 检出实测 40 分钟
+  仅完成 78MB/273MB，与 R13D 记录同源，故沿用本地分支惯例，未用 worktree）。</li>
+</ul>
+<hr />
+<h2 id="ci-task-ciperf-2026-09-08">CI 全量测试耗时优化（task-CIperf · 2026-09-08）<a class="headerlink" href="#ci-task-ciperf-2026-09-08" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>背景</strong>：全量测试 8263 个（7985 非 e2e + 278 e2e），CI 实测 37min（2220s），超 push main
+  预算 1400s 约 58%。根因 = <code>pytest-xdist</code> 用 <code>|| true</code> 安装，本地 devpi 镜像（127.0.0.1:3141）
+  无此包 → 静默降级串行跑 8000+ 测试。</li>
+<li><strong>修复（5 项，均只改 CI 配置 / conftest / marker，不动测试逻辑）</strong>：</li>
+<li><strong>强制 xdist 并行</strong>：<code>.gitea/workflows/ci.yml</code> 安装步改为
+     <code>pip install pytest-xdist || pip install --index-url https://pypi.org/simple pytest-xdist</code>
+     （去掉 <code>|| true</code> 静默降级，装不上就让该步红，逼出「runner 预热 xdist」基建问题）；
+     并行参数 <code>PAR</code> 由 <code>-n auto</code> 改为 <strong><code>-n 4</code></strong>（runner 仅 4 核，避免核争抢净亏）。</li>
+<li><strong>slow 标记隔离</strong>：<code>pyproject.toml</code> 的 <code>[tool.pytest.ini_options]</code> 注册 <code>slow</code> marker；
+     <code>tests/e2e/*.py</code> 共 10 个文件全部加模块级 <code>pytestmark = pytest.mark.slow</code>（已有
+     <code>skipif</code> 的 2 个文件合并成 <code>[slow, skipif(...)]</code>）。CI 在 PR 触发时传 <code>-m "not slow"</code>，
+     main 推送跑全量。</li>
+<li><strong>pip 缓存</strong>：本地 gitea 镜像<strong>未提供 <code>actions/cache</code>（探测 404）</strong>，故不走 actions/cache；
+     改用 host 模式 runner 跨跑保留的 <code>~/.cache/pip</code>（显式建目录 + 报告体积），零外部 action 依赖。</li>
+<li><strong>conftest 预热</strong>：<code>tests/conftest.py</code> 在加载期 try/except 兜底预热 <code>light_parser_v3</code> /
+     <code>code_generator</code>（避免首个测试文件 import 时的一次性构造散落；解析器若失败仅告警、不连累整轮收集）。</li>
+<li><strong>e2e 精简</strong>：10 个 e2e 文件按领域（L3/L4/llvm/bootstrap/registry/parser_fuzz…）隔离，
+     非冗余重复，故<strong>未做合并</strong>（合并会丢领域覆盖）；其耗时已由 PR 跳过 slow 吸收。</li>
+<li><strong>验证（本地 Windows + 受管 venv，pytest 9.1.1 / xdist 3.8.0）</strong>：</li>
+<li><code>pytest tests/unit/test_parser.py -n 4 -q</code> → 12 passed，xdist 起 4 节点，并行生效、无回归。</li>
+<li><code>pytest tests/e2e --collect-only -q</code> → <strong>278 collected</strong>；<code>-m "not slow"</code> → <strong>278 deselected / 0 collected</strong>，
+    无 <code>unknown mark</code> 警告（marker 注册正确）。</li>
+<li><code>ci.yml</code> 经 <code>yaml.safe_load</code> 校验合法；<code>xdist</code> 安装行已无 <code>|| true</code>。</li>
+<li><strong>未达预期 / 诚实披露</strong>：</li>
+<li><strong>collect 时间 37s→20s 未达成</strong>：本地实测 collect 仅 64.1s→56.6s（约 12% 边际收益），远未到 20s。
+    根因 = Python <code>import</code> 本就按 <code>sys.modules</code> 去重，conftest 预热不减少「总 import 次数」；
+    collect 主导成本是 <strong>7986 个模块的执行 + 冷字节码（.pyc）</strong>，非 import 重复。故 collect 时间
+    不在 37min→15min 的关键路径上——<strong>该目标由 xdist 并行 + PR 跳过 slow（运行时间）命中</strong>，而非 collect。</li>
+<li>collect 时间的进一步收敛依赖 runner 侧保留 <code>__pycache__</code> 跨跑（host 模式 workdir 已具备），不在本仓文件可控范围。</li>
+<li><strong>提交</strong>：分支 <code>task-CIperf</code>（本地分支隔离，同 <code>task-L070-entry</code> 惯例未用 worktree）；改动文件 =
+  <code>.gitea/workflows/ci.yml</code>、<code>pyproject.toml</code>、<code>tests/conftest.py</code>、<code>tests/e2e/*.py</code>(10)。
+  按工程铁律<strong>未擅自 commit/merge main</strong>，由主 agent 统一合流。</li>
+</ul>
 
 
 
@@ -7543,7 +7705,7 @@ append 不互通）属 runtime 字典值所有权/引用计数架构，归 T7 �
     <span class="md-icon" title="最后更新">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月7日 11:09:35 UTC">2026年9月7日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月8日 10:17:14 UTC">2026年9月8日</span>
   </span>
 
     
@@ -7553,7 +7715,7 @@ append 不互通）属 runtime 字典值所有权/引用计数架构，归 T7 �
     <span class="md-icon" title="创建日期">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月7日 11:09:35 UTC">2026年9月7日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月8日 10:17:14 UTC">2026年9月8日</span>
   </span>
 
     
