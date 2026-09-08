@@ -208,6 +208,11 @@ class UnifiedCodeGenerator:
             '自然常数': '_light_builtin.自然常数',
             '角度转弧度': '_light_builtin.角度转弧度',
             '弧度转角度': '_light_builtin.弧度转角度',
+            # 数学运算符的函数式别名：对齐 LLVM 路径 dv_div / dv_mod（floor 整除 / 取模）。
+            # 解释器原先仅把「整除」作 // 中缀、且完全无「取模」中缀/函数式，
+            # 导致 stdlib 以 整除(a,b) / 取模(a,b) 函数式调用时 NameError（原生腿复刻实证）。
+            '整除': 'lambda a, b: a // b',
+            '取模': 'lambda a, b: a % b',
             # 字符串扩展
             '截取': '_light_builtin.截取',
             '字符串获取': '_light_builtin.字符串获取',

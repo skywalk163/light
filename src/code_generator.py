@@ -399,6 +399,28 @@ class PythonCodeGenerator:
             '幂': 'pow',
             '平方': "lambda x: x*x",
             '立方': "lambda x: x*x*x",
+            # 数学运算符的函数式别名：对齐 LLVM 路径 dv_div / dv_mod（floor 整除 / 取模）。
+            # 解释器原先仅把「整除」作 // 中缀、且完全无「取模」中缀/函数式，
+            # 导致 stdlib 以 整除(a,b) / 取模(a,b) 函数式调用时 NameError（原生腿复刻实证）。
+            '整除': 'lambda a, b: a // b',
+            '取模': 'lambda a, b: a % b',
+            # 字符串 运算符/方法 的函数式别名：对齐 LLVM 路径 大写/小写/重复/转文本 派发。
+            # 解释器原先只对「转大写/转小写」作函数式、缺「大写/小写」，且完全无
+            # 函数式「重复/转文本」，导致 stdlib 以 大写(x)/重复(x,n)/转文本(x) 调用时
+            # NameError（非 LLVM 路径复刻实证，同源 R13C）。
+            '大写': '_light_builtin.转大写',
+            '小写': '_light_builtin.转小写',
+            '重复': 'lambda s, n: s * n',
+            '转文本': 'str',
+            # 随机数：对齐 LLVM 路径 random() 派发。解释器原先只注册 随机/随机整数/
+            # 随机浮点/随机选择，缺 0 参的 随机数()（stdlib 以 随机数() 取 [0,1) 双精度），
+            # 导致 生成随机字符串 等以 随机数() 调用时 NameError（非 LLVM 路径复刻实证）。
+            '随机数': 'random.random',
+            # 字符串方法名当函数调用的别名：对齐 LLVM 路径 分割/查找 派发。
+            # 解释器原先只把 分割/查找 放字符串方法表（.分割()/.查找()），
+            # stdlib 以 分割(x,sep)/查找(x,sub) 函数式调用时 NameError（非 LLVM 路径复刻实证）。
+            '分割': 'lambda s, sep: s.split(sep)',
+            '查找': 'lambda s, sub: s.find(sub)',
             # 随机函数
             '随机': 'lambda *a: __import__("random").random()',
             '随机整数': 'random.randint',

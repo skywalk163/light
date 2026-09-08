@@ -430,7 +430,7 @@ Highlights by stage:
 
 LightLang supports three-level type checking (signature / variable / expression):
 
-```light
+```text
 段落 加法 接收 甲:数, 乙:数 -> 数：
     返回 甲 加 乙
 
