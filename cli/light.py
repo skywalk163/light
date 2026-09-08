@@ -96,7 +96,13 @@ def _ast_antlr(source: str):
 # ═══════════════════════════════════════════════════════════════════
 
 def _compile_src(source: str) -> str:
-    """用 src 后端编译为 Python 代码"""
+    """用 src 后端编译为 Python 代码
+
+    L-070：这里是「主文件」编译入口（`light run` 与 `light compile --backend src`
+    都走它），故 is_main=True —— 产物末尾会按光明入口约定追加
+    `if __name__ == '__main__': 主()`。
+    依赖模块走 `_resolve_local_imports`（is_main=False），其 `主` 不被调用。
+    """
     from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
 
@@ -104,7 +110,7 @@ def _compile_src(source: str) -> str:
     module = parser.parse(source)
 
     generator = PythonCodeGenerator()
-    return generator.generate(module)
+    return generator.generate(module, is_main=True)
 
 
 def _resolve_module_path(mod_name: str, base_dir: str):

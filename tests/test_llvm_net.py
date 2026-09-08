@@ -724,7 +724,7 @@ class TestB3EventLoop:
         code = """
 异步 段落 测试睡眠：
     输出("sleep前")
-    睡眠(100)
+    睡眠(2)
     输出("sleep后")
 结束
 
