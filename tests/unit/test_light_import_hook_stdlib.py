@@ -40,8 +40,15 @@ def test_find_spec_does_not_intercept_stdlib_pure_shadow(hook):
 def test_find_spec_preserves_re_alias(hook):
     """_light_re 别名仍返回 spec，继续加载 re.light。"""
     spec = hook.find_spec('_light_re')
-    assert spec is not None
-    assert spec.loader is not None
+    if spec is None:
+        raise AssertionError("_light_re 未被钩子接管（find_spec 返回 None）")
+    # 不断 `is not None`：要断「确实回落到 re.light 且 loader 是光明加载器」，
+    # 否则钩子只回一个空壳 spec 也会绿。
+    # 注：spec_from_loader 不会填 origin（实测为 None），有信号的是 loader 本身。
+    assert type(spec.loader).__name__ == 'LightLoader', (
+        f"loader 应为 LightLoader，实际={type(spec.loader).__name__}")
+    assert spec.loader.light_path.endswith('re.light'), (
+        f"_light_re 的 loader 应指向 re.light，实际={spec.loader.light_path}")
 
 
 def test_find_spec_preserves_chinese_modules(hook):

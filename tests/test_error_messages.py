@@ -679,7 +679,9 @@ class Test拼写相似建议:
         available = ["打印", "打字", "打包"]
         # "打X" 与 "打印" 距离 1，与 "打包" 距离 1，与 "打字" 距离 1
         result = suggest_similar_names("打X", available, max_distance=2)
-        assert len(result) > 0
+        # 不断 `len(result) > 0`（下界式，非空即恒真）：要断「候选集正好是这三个」，
+        # 否则多推荐/漏推荐/推荐了不在 available 里的都照样绿。
+        assert set(result) == {"打印", "打字", "打包"}, f"候选项与预期不符: {result}"
         # 所有返回的候选都应在可用列表中
         for name in result:
             assert name in available
@@ -819,7 +821,9 @@ class TestWindows控制台编码:
         formatter = ErrorFormatter()
         result = formatter.format_error(source, err, line_num=2)
         assert isinstance(result, str)
-        assert len(result) > 0
+        # 不断 `len(result) > 0`：本用例的语义是「输出应含中文」，就断中文字符，
+        # 否则输出一串英文/空白也照样绿。
+        assert any('一' <= ch <= '鿿' for ch in result), f"错误输出不含中文：{result!r}"
 
 
 if __name__ == '__main__':

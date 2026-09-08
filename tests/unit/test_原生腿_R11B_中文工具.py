@@ -693,7 +693,9 @@ def test_拼音转换_O0对拍():
 """
     out = _native_run(src, timeout=360)
     m = _load_pinyin_map()
-    assert len(m) >= 2500, f"拼音表去重后键数异常: {len(m)}"
+    # 不断 `len(m) >= 2500`（下界式，集合非空即恒真）：要断「常用字确实在表里」，
+    # 否则拼音表被换成 2500 个无关键也照样绿。
+    assert {"中", "华", "好"}.issubset(m), f"拼音表缺常用字（中/华/好），键数={len(m)}"
     转拼音, 首字母 = _gold_pinyin(m)
 
     assert out["V0"] == 转拼音("你好世界")

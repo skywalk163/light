@@ -43,7 +43,13 @@ def _compile(source: str, is_main: bool = True) -> str:
     """编译光明源码为 Python 代码（默认按主文件编译）"""
     parser = LightParser()
     module = parser.parse(source)
-    assert module is not None, "解析失败：" + '\n'.join(getattr(parser, 'errors', []) or [])
+    if module is None:
+        raise AssertionError("解析失败：" + '\n'.join(getattr(parser, 'errors', []) or []))
+    # 不断 `is not None`（零信号）：要断「确实解析出了语句」，否则后续对生成码的
+    # 断言会建立在一个空模块上，红绿都失去意义。
+    assert getattr(module, 'statements', None), (
+        f"解析结果不含任何语句：type={type(module).__name__}"
+    )
     return PythonCodeGenerator().generate(module, is_main=is_main)
 
 
