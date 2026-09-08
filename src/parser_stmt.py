@@ -781,7 +781,7 @@ class ParserStmtMixin:
         prev = tok
         idx = self.pos + 1
         used = 1
-        while idx < len(self.tokens) and used < self._SCOPE_DECL_MAX_TOKENS:
+        while idx < self._n_tokens and used < self._SCOPE_DECL_MAX_TOKENS:
             t = self.tokens[idx]
             if t.type != TokenType.IDENTIFIER or not isinstance(t.value, str):
                 return None
@@ -821,7 +821,7 @@ class ParserStmtMixin:
 
         expect_name = True
         seen_name = False
-        while idx < len(self.tokens):
+        while idx < self._n_tokens:
             t = self.tokens[idx]
             if expect_name:
                 if t.type != TokenType.IDENTIFIER:
@@ -2582,7 +2582,7 @@ class ParserStmtMixin:
         depth = 0
         i = self.pos
         prev = None  # 上一个深度 0 的实义 token
-        while i < len(self.tokens):
+        while i < self._n_tokens:
             tok = self.tokens[i]
             if tok.type in self._FOREACH_HEADER_OPEN:
                 depth += 1
@@ -3382,11 +3382,11 @@ class ParserStmtMixin:
         # 跳过段名
         idx += 1
         # 现在 idx 应该指向 (
-        if idx >= len(self.tokens):
+        if idx >= self._n_tokens:
             return False
         # 向前扫描，找匹配的 )
         paren_depth = 0
-        while idx < len(self.tokens):
+        while idx < self._n_tokens:
             t = self.tokens[idx]
             if t.type == TokenType.LPAREN:
                 paren_depth += 1
@@ -3395,7 +3395,7 @@ class ParserStmtMixin:
                 if paren_depth == 0:
                     # 找到匹配的 )，检查下一个token是否是 : 或 返回/-> 类型 :
                     next_idx = idx + 1
-                    if next_idx < len(self.tokens):
+                    if next_idx < self._n_tokens:
                         next_t = self.tokens[next_idx]
                         if next_t.type == TokenType.COLON:
                             return True
@@ -3405,7 +3405,7 @@ class ParserStmtMixin:
                             # 扫描到下一个 : 确认是段落定义
                             scan_idx = next_idx + 1
                             paren_depth2 = 0
-                            while scan_idx < len(self.tokens):
+                            while scan_idx < self._n_tokens:
                                 st = self.tokens[scan_idx]
                                 if st.type == TokenType.LESS:
                                     paren_depth2 += 1
@@ -4961,11 +4961,11 @@ class ParserStmtMixin:
         """
         idx = self.pos + 1  # 跳过 `约` 自身
         # 名字至少要有一个 token，且不能立刻就是冒号（`约：` 不是接口声明）
-        if idx >= len(self.tokens):
+        if idx >= self._n_tokens:
             return False
         if self.tokens[idx].type not in (TokenType.IDENTIFIER, TokenType.KEYWORD):
             return False
-        while idx < len(self.tokens):
+        while idx < self._n_tokens:
             t = self.tokens[idx]
             if t.type == TokenType.COLON:
                 return True

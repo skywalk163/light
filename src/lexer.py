@@ -1253,7 +1253,41 @@ class Lexer:
             (匹配到的关键字, 匹配长度) 或 (None, 0)
             匹配长度恒等于 len(匹配到的关键字)，且关键字恒等于 text[pos:pos+长度]。
         """
-        return self._skip_compound_safe_and_match(text, pos)
+        # 直接内联 _skip_compound_safe_and_match 的快速路径，消除一次函数调用
+        # （64K+ 次调用热路径）。完整逻辑见 _skip_compound_safe_and_match。
+        _start_chars = _KEYWORD_START_CHARS
+        text_len = len(text)
+
+        # 快速路径：如果当前字符不能起始任何关键字，直接返回
+        if pos >= text_len or text[pos] not in _start_chars:
+            return None, 0
+
+        remaining = text_len - pos
+
+        # 展开循环：从最长(4)到最短(1)尝试匹配
+        if remaining >= 4:
+            candidate = text[pos:pos+4]
+            if candidate in _KW_BY_LEN_4:
+                return candidate, 4
+        if remaining >= 3:
+            candidate = text[pos:pos+3]
+            if candidate in _KW_BY_LEN_3:
+                return candidate, 3
+        if remaining >= 2:
+            candidate = text[pos:pos+2]
+            if candidate in _KW_BY_LEN_2:
+                return candidate, 2
+        candidate = text[pos]
+        if candidate in _KW_BY_LEN_1:
+            if candidate in _COMPOUND_SAFE_SINGLE_KEYWORDS and pos + 1 < text_len:
+                kw, l = self._skip_compound_safe_and_match(text, pos + 1, text_len)
+                if kw:
+                    if kw == '之':
+                        return candidate, 1
+                    return None, 0
+            return candidate, 1
+
+        return None, 0
     
     def _skip_compound_safe_and_match(self, text: str, pos: int, text_len: int = None) -> Tuple[Optional[str], int]:
         """从 pos 起做关键字匹配；遇到 compound-safe 单字关键字时尝试递归看后续。
@@ -1291,8 +1325,9 @@ class Lexer:
         判据即：`自之X` 修好；`去除空格`、`对于`、`是否`、`10的幂` 一个都不动。
         """
 
-        # 局部变量缓存
-        _compound_safe = self.compound_safe_single_keywords
+        # 局部变量缓存（compound_safe_single_keywords 是类属性 = _COMPOUND_SAFE_SINGLE_KEYWORDS，
+        # 直接引用模块级常量消除 self 属性查找——69K+ 次调用热路径）
+        _compound_safe = _COMPOUND_SAFE_SINGLE_KEYWORDS
         _start_chars = _KEYWORD_START_CHARS
 
         # 缓存 text_len 避免重复计算
@@ -2977,9 +3012,10 @@ class Lexer:
             _probe = _hit + 1
 
 
-        # 使用 str.find() 跳跃到关键位置，避免逐字符扫描
+        # 使用预编译正则一次性跳跃到最近的目标字符，避免逐字符扫描
         # 搜索目标：'《' (段落/类/方法定义), '设' (变量定义), '定义' (变量定义), '函数', '段落' (函数定义), '导' (导出/导入 列表)
-        search_targets = ('《', '设', '定', '函', '段', '导', '从')
+        # 性能优化：原实现每次迭代调用 7 次 str.find（154K+ 次），改为 1 次 re.search
+        _scan_target_re = re.compile('[《设定函段导从]')
         i = 0
 
         # 安全计数器（防止意外死循环）
@@ -2991,11 +3027,10 @@ class Lexer:
                 raise RuntimeError(f"_scan_user_definitions 超出安全上限 ({_scan_safety}次迭代), i={i}, n={n}")
 
             # 找到下一个目标字符的最近位置
-            next_pos = n
-            for target in search_targets:
-                p = source.find(target, i)
-                if p != -1 and p < next_pos:
-                    next_pos = p
+            _m = _scan_target_re.search(source, i)
+            if _m is None:
+                break
+            next_pos = _m.start()
             if next_pos >= n:
                 break
             i = next_pos
