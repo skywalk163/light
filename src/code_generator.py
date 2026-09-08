@@ -58,7 +58,12 @@ _PYTHON_LEG_PURE_LIGHT_ALIAS = frozenset({'re'})
 
 class PythonCodeGenerator:
     """光明到Python代码生成器"""
-    
+
+    # L-070：光明程序入口名集合，与原生腿对齐（src/llvm/codegen_typed.py:6328
+    # 的 main_names）。`函数 主()` / `段落 主：` 此前只发 `def 主():` 定义、
+    # 不发调用，主文件产物末尾需补 `if __name__ == '__main__': 主()`。
+    ENTRY_FUNCTION_NAMES = ('主程序', '主入口', 'main', '主')
+
     def __init__(self, stdlib_dir: Optional[str] = None):
         self.indent_level = 0
         self.indent_str = "    "  # 4空格缩进
@@ -964,8 +969,17 @@ class PythonCodeGenerator:
             return f"({left} {op} {right})"
         return self._generate_expr(expr)
 
-    def generate(self, module: Module) -> str:
-        """生成Python代码"""
+    def generate(self, module: Module, is_main: bool = False) -> str:
+        """生成Python代码
+
+        is_main：本模块是否为「主文件」（`light run` / `light compile` 的入口文件）。
+
+        L-070：只有主文件才在产物末尾追加 `if __name__ == '__main__': 主()`。
+        依赖模块（被 `_resolve_local_imports` 内联进主代码、或作为库被 import）
+        绝不追加——它们与主代码共享同一个 `__main__` 命名空间，一旦追加就会
+        import 即执行副作用。默认 False 保证既有调用点（测试 / bootstrap / 基准）
+        行为逐字不变。
+        """
         self.output_lines = []
         self.indent_level = 0  # 重置缩进级别，防止跨条目状态污染
         self._user_defined_functions = set()  # 重置用户自定义函数追踪
@@ -973,6 +987,7 @@ class PythonCodeGenerator:
         self._instantiable_names = set()  # 重置可实例化名集合（L-019）
         self._pending_assign_targets = set()  # 重置赋值目标名集合（L-019）
         self._ffi_user_types = {}  # 重置 FFI 用户自定义类型注册表
+        self._entry_call = None  # L-070：重置入口调用（防止跨 generate 调用污染）
         
         # 预扫描：显式 import 进来的名字优先级高于内置函数映射
         self._register_imported_names(module)
@@ -1242,7 +1257,21 @@ class PythonCodeGenerator:
         # 生成语句
         for stmt in module.statements:
             self._generate_statement(stmt)
-        
+
+        # ── L-070：入口函数自动调用（判定） ──
+        # 必须放在下面 _needs_asyncio 的 import 插入块**之前**：异步入口要发
+        # `asyncio.run(主())`，需先置位 _needs_asyncio，否则产物里 asyncio 未导入
+        # → 运行期 NameError。
+        if is_main:
+            entry = self._find_entry_paragraph(module)
+            if (entry is not None
+                    and self._paragraph_arity(entry) == 0
+                    and not self._module_invokes_entry(module, entry)):
+                self._entry_call = (self._sanitize_name(entry.name),
+                                    '异步' in (entry.modifiers or []))
+                if self._entry_call[1]:
+                    self._needs_asyncio = True
+
         # 如果第一行没有 from abc import ABC, abstractmethod，在前面插入
         # 查找第一个非空且非注释行的位置，在后面插入
         if self._needs_abc:
@@ -1309,8 +1338,102 @@ class PythonCodeGenerator:
             for line in reversed(block):
                 self.output_lines.insert(insert_pos, line)
 
+        # ── L-070：入口函数自动调用（发射） ──
+        # 光明约定 `函数 主()` / `段落 主：` 为程序入口，等价 Python 的
+        # `if __name__ == '__main__': main()`。门控在 __main__ 上，依赖模块
+        # （is_main=False，_entry_call 保持 None）不会走到这里。
+        if self._entry_call:
+            entry_name, entry_async = self._entry_call
+            self._add_line("")
+            self._add_line("# L-070：光明入口约定——主文件自动调用入口函数")
+            self._add_line("if __name__ == '__main__':")
+            self.indent_level += 1
+            if entry_async:
+                self._add_line(f"asyncio.run({entry_name}())")
+            else:
+                self._add_line(f"{entry_name}()")
+            self.indent_level -= 1
+
         return self._build_output()
-    
+
+    # ── L-070：入口函数判定辅助 ──────────────────────────────────────────
+    def _find_entry_paragraph(self, module) -> Optional[Paragraph]:
+        """找出模块顶层定义的入口段落（`函数 主()` / `段落 主：`）。
+
+        取**第一个**定义的（多入口时与原生腿一致，不挑不选）。只认顶层段落：
+        类体内的方法哪怕叫 `主` 也不是程序入口。
+        """
+        for stmt in getattr(module, 'statements', None) or []:
+            if isinstance(stmt, Paragraph) and stmt.name in self.ENTRY_FUNCTION_NAMES:
+                return stmt
+        return None
+
+    def _paragraph_arity(self, stmt: Paragraph) -> int:
+        """入口段落的形参个数：段落头参数 + 段体内的 `接收` / 参数声明。
+
+        有参入口无法确定实参，L-070 不自动调用（返回 >0 即跳过）。
+        """
+        count = len(stmt.params or [])
+        for s in (stmt.body or []):
+            if isinstance(s, Parameter):
+                count += 1
+            elif isinstance(s, ParameterList):
+                count += len(getattr(s, 'params', None) or [])
+        return count
+
+    @staticmethod
+    def _iter_child_nodes(node):
+        """遍历 AST 节点的子字段值（跨 MRO 收集 __slots__；无 __slots__ 退 __dict__）"""
+        seen = {'line', 'col', '_ast_type_id'}
+        for cls in type(node).__mro__:
+            for slot in getattr(cls, '__slots__', ()) or ():
+                if slot in seen:
+                    continue
+                seen.add(slot)
+                try:
+                    yield getattr(node, slot)
+                except AttributeError:
+                    continue
+        d = getattr(node, '__dict__', None)
+        if d:
+            for v in list(d.values()):
+                yield v
+
+    def _node_calls_name(self, node, name: str, depth: int = 0) -> bool:
+        """递归判断节点树里是否存在对 name 的调用/引用（ParagraphCall / Identifier）。
+
+        RunAsyncStmt 的 call 字段也在遍历范围内，故 `异步 运行 主()` 天然被识别为
+        「已显式启动入口」，无需单独分支。
+        """
+        if node is None or depth > 12:
+            return False
+        if isinstance(node, (str, int, float, bool, bytes)):
+            return False
+        if isinstance(node, (ParagraphCall, Identifier)) and getattr(node, 'name', None) == name:
+            return True
+        if isinstance(node, (list, tuple)):
+            return any(self._node_calls_name(x, name, depth + 1) for x in node)
+        if not (hasattr(node, '__slots__') or hasattr(node, '__dict__')):
+            return False
+        for child in self._iter_child_nodes(node):
+            if self._node_calls_name(child, name, depth + 1):
+                return True
+        return False
+
+    def _module_invokes_entry(self, module, entry: Paragraph) -> bool:
+        """模块级代码是否已显式启动入口。
+
+        只看**顶层语句**，且不进入段落体 / 类体——函数体里的 `主()` 是递归调用，
+        不代表模块启动时执行过入口。
+        """
+        name = entry.name
+        for stmt in getattr(module, 'statements', None) or []:
+            if stmt is entry or isinstance(stmt, (Paragraph, ClassDefinition)):
+                continue
+            if self._node_calls_name(stmt, name):
+                return True
+        return False
+
     def _build_output(self) -> str:
         """构建最终输出字符串"""
         return '\n'.join(self.output_lines)

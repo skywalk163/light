@@ -2415,3 +2415,53 @@ R11A「每模块 3-5 个代表性用例」的覆盖缺口由本批补齐：
   - `tests/unit/test_lightpub_doc_importability.py`：-q 结果与原代码一致（1 failed 为**预存缺陷**：
     HTTP客户端 文档围栏过时标成 text 但实际可导入，归任务 B 的 gen_lightpub_docs.py，与本修复无关）。
 - **提交**：分支 `task-CIC-import-hook`（本地分支隔离，未用 worktree——本仓 39k 文件 worktree 检出超时且有 prune 事故风险）。
+
+
+## L-070：入口函数未自动调用（`函数 主()` 程序零输出，2026-09-08）
+
+### 缺陷 L-070-ENTRY：src 后端只发 `def 主():` 定义、不发调用
+
+- **现象**：以 `主` 为入口的程序 `light run` 零输出、exit 0。
+  ```light
+  函数 主()：
+      打印("hello")
+  ```
+  手动补一行 `主()` 后正常输出。
+- **根因**：`src/code_generator.py` 的 `PythonCodeGenerator.generate()` 把
+  `函数 主()` / `段落 主：` 编成 `def 主():` 后即结束，末尾**没有入口调用逻辑**；
+  命名空间里 `主` 只是个从未被调用的函数对象。原生腿早有入口约定
+  （`src/llvm/codegen_typed.py:6328`，`main_names = {'主程序','主入口','main','主'}`），
+  src 后端缺失这一段 → 两条腿行为分叉。
+- **修复（L-070，只动 `src/code_generator.py` + `cli/light.py`）**：
+  1. `generate(module, is_main: bool = False)` 新增 `is_main` 参数，默认 False——
+     既有调用点（tests / bootstrap / benchmarks / 依赖模块）行为逐字不变。
+  2. 新增判定辅助：`_find_entry_paragraph`（顶层第一个命中
+     `ENTRY_FUNCTION_NAMES = ('主程序','主入口','main','主')` 的 Paragraph，与原生腿
+     main_names 对齐；只认顶层，类体内同名方法不算入口）、
+     `_paragraph_arity`（段落头参数 + 段体内 `接收`/参数声明；有参入口无法确定实参 → 跳过）、
+     `_node_calls_name`（递归识别 ParagraphCall / Identifier；`RunAsyncStmt.call`
+     在遍历范围内，故 `异步 运行 主()` 天然算「已启动入口」）、
+     `_module_invokes_entry`（只扫顶层语句，不进段落体/类体——函数体里的 `主()` 是递归调用）。
+  3. 主文件（is_main=True）且「入口存在 + 零参 + 模块级未显式启动」时，产物末尾追加
+     `if __name__ == '__main__': 主()`；异步入口（`异步 段落 主`）改发 `asyncio.run(主())`
+     并置位 `_needs_asyncio`——判定必须放在 asyncio import 插入块**之前**，否则产物里
+     asyncio 未导入 → 运行期 NameError。
+  4. `cli/light.py::_compile_src()` 传 `is_main=True`（`light run` 与
+     `light compile --backend src` 均走它）；`_resolve_local_imports()` 内联的依赖模块
+     保持默认 False——依赖模块代码与主代码共享同一 `__main__` 命名空间，一旦追加就会
+     import 即执行副作用（dep 里的 `主()` 被误跑）。
+- **验证**：
+  - `python -m pytest tests/test_entry_function.py -q` → 10 passed（新增，覆盖 函数主/段落主/
+    主程序·主入口·main/ 显式调用不重复 / 异步运行不冲突 / 有参不调用 / 入口守卫 /
+    依赖模块主不被调用 / 主文件带依赖仍自动调用 / 汉诺塔完整程序）。
+  - `python -m pytest tests/test_self_host_bootstrap.py -q` → 62 passed, 2 skipped（不回归）。
+  - `python -m pytest tests/unit/test_examples_run.py -q` → 22 subtests passed（不回归）。
+  - 真 CLI：`python -m cli.light run` 一段 `函数 主(): 打印("hello-from-cli")` → 输出
+    `hello-from-cli`，exit 0（修复前无输出、exit 0）。
+- **反跑**：把 `code_generator.py` 中 `if self._entry_call:` 改成 `if False and self._entry_call:`
+  → `tests/test_entry_function.py` 立即 6 red（函数主 / 段落主 / 主程序·主入口·main /
+  入口守卫 / 主文件带依赖 / 汉诺塔），恢复即 10 passed；余下 4 条（显式调用不重复、
+  异步运行不冲突、有参不调用、依赖模块主不被调用）本就不依赖自动调用，保持绿——正好
+  反向钉住「只在真正需要时追加」。
+- **提交**：分支 `task-L070-entry`（本地分支隔离——本仓 39k 文件 worktree 检出实测 40 分钟
+  仅完成 78MB/273MB，与 R13D 记录同源，故沿用本地分支惯例，未用 worktree）。
