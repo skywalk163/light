@@ -36,7 +36,8 @@
 # runner 部署（jail + act_runner 自编译 + 标签/镜像）见 docs/CI_gitea_freebsd部署.md。
 #
 # ── 2026-08-22 CI 时间治理（用户裁决）─────────────────────────────────────────
-# 预算：pull_request ≤ 600s，push main ≤ 1400s，**超了按红**（不是文档里的建议）。
+# 预算：pull_request ≤ 1800s，push main ≤ 3000s（50 分钟），**超了按红**（不是文档里的建议）。
+# 2026-09-08 放宽：FreeBSD host runner 全量（含 e2e）实测 30min+，原 1400s 必红，故按用户裁决放宽到 50min。
 # 判定见最后一步；打点用 tools/ci/time_budget.py，各段耗时会打在同一处，
 # 不用翻整份 raw log 猜时间花哪了。
 #
@@ -75,6 +76,8 @@
 # （~7.85s/次 × 全套件 20 处构造 ≈ 157s）。已改为惰性发现（b09f9778）。
 # run 114 实测：job 1126s，扣除稳定 overhead ~20s → CI 计时 ≈ 1106s（原 ~1256s）。
 # 故预算 1500 → 1400（余量 ≈27%，仍能拦住测试套件翻倍级回退）。
+# 2026-09-08 放宽：FreeBSD host runner 上全量（含 e2e）实测稳定 30min+，1400s 已容纳不下，
+# 按用户裁决放宽 push main 至 3000s（50min）、PR 至 1800s，避免「只因超时而红」。
 name: CI
 
 on:
@@ -361,7 +364,7 @@ jobs:
 
 
 
-      # 时间预算硬闸门（2026-08-22 用户裁决）：PR ≤ 600s，push main ≤ 1400s。
+      # 时间预算硬闸门（2026-08-22 用户裁决；2026-09-08 放宽）：PR ≤ 1800s，push main ≤ 3000s（50 分钟）。
       # always() 是故意的：前面哪一步红了，也要把耗时账单打出来——不然一红就看不到时间数据，
       # 下次还是只能靠猜。
       - name: 时间预算闸门
@@ -369,6 +372,6 @@ jobs:
         run: |
           . .venv/bin/activate
           python tools/ci/time_budget.py --mark 闸门与积木库
-          BUDGET=1400
-          if [ "${{ github.event_name }}" = "pull_request" ]; then BUDGET=600; fi
+          BUDGET=3000
+          if [ "${{ github.event_name }}" = "pull_request" ]; then BUDGET=1800; fi
           python tools/ci/time_budget.py --check --budget $BUDGET
