@@ -18,6 +18,7 @@ import urllib.request
 import urllib.error
 import webbrowser
 from pathlib import Path
+from datetime import datetime
 from typing import Dict, List, Optional, Any
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs, unquote, quote
@@ -48,31 +49,111 @@ class RegistryAPIClient:
 
     def list_packages(self) -> List[Dict]:
         """列出所有包"""
-        data = self._request('/api/v1/packages')
+        data = self._request('/api/packages')
         if data and 'packages' in data:
             return data['packages']
         return []
 
     def get_package(self, name: str) -> Optional[Dict]:
         """获取包详情"""
-        return self._request(f'/api/v1/packages/{quote(name)}')
+        return self._request(f'/api/packages/{quote(name)}')
 
     def search(self, query: str) -> List[Dict]:
         """搜索包"""
-        data = self._request(f'/api/v1/search?q={quote(query)}')
+        data = self._request(f'/api/search?q={quote(query)}')
         if data and 'results' in data:
             return data['results']
         return []
 
     def get_stats(self) -> Dict[str, Any]:
         """获取注册中心统计"""
-        data = self._request('/api/v1/stats')
+        data = self._request('/api/stats')
         return data or {'total_packages': 0, 'total_downloads': 0}
 
     def is_connected(self) -> bool:
         """检查是否连接到注册中心"""
-        data = self._request('/api/v1/stats')
+        data = self._request('/api/stats')
         return data is not None
+
+
+# =============================================================================
+# 配置加载（高可用：主节点 + 只读副本）
+# =============================================================================
+
+APP_VERSION = "7.0.0"
+
+DEFAULT_CONFIG = {
+    "version": "1.0.0",
+    "primary": "http://localhost:8000",
+    "replicas": [],
+    "backup_dir": "backups",
+    "backup_retention_days": 7,
+    "health_check_timeout": 3,
+}
+
+
+def load_config(path: Optional[str] = None) -> Dict:
+    """加载部署配置文件（单节点 → 主从）。
+
+    配置示例：
+        {
+          "primary": "http://registry-1:8000",
+          "replicas": ["http://registry-2:8000", "http://registry-3:8000"],
+          "backup_dir": "backups",
+          "backup_retention_days": 7
+        }
+    """
+    cfg = dict(DEFAULT_CONFIG)
+    if path and Path(path).exists():
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                cfg.update(json.load(f))
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"⚠️  配置文件 {path} 读取失败，使用默认值: {e}")
+    return cfg
+
+
+class RegistryProbe:
+    """注册中心健康检查与只读副本探测。
+
+    只读副本（replicas）仅用于读取故障转移：主节点不可达时，
+    依次探测各副本，命中第一个可达节点。复制同步本身由部署侧负责（见 DEPLOY.md）。
+    """
+
+    def __init__(self, primary: str = "http://localhost:8000",
+                 replicas: Optional[List[str]] = None, timeout: float = 3.0):
+        self.primary = (primary or "http://localhost:8000").rstrip('/')
+        self.replicas = [(r or '').rstrip('/') for r in (replicas or []) if r]
+        self.timeout = timeout
+
+    def _check(self, node: str):
+        try:
+            req = urllib.request.Request(
+                node + '/api/health',
+                headers={'User-Agent': 'duan-registry-web/1.0',
+                         'Accept': 'application/json'})
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                return True, resp.status
+        except Exception:
+            return False, None
+
+    def detail(self) -> Dict:
+        """返回主节点 / 副本可达性详情。"""
+        primary_ok, primary_code = self._check(self.primary)
+        replicas = []
+        for r in self.replicas:
+            ok, code = self._check(r)
+            replicas.append({"url": r, "reachable": ok, "http_code": code})
+        active = self.primary if primary_ok else \
+            next((r["url"] for r in replicas if r["reachable"]), None)
+        return {
+            "primary": self.primary,
+            "primary_reachable": primary_ok,
+            "primary_http_code": primary_code,
+            "active_node": active,
+            "replicas": replicas,
+            "replica_count": len(replicas),
+        }
 
 
 # =============================================================================
@@ -187,6 +268,8 @@ class RegistryWebHandler(BaseHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         # 注册中心客户端（在 main 中设置）
         self.client = getattr(self.__class__, 'api_client', RegistryAPIClient())
+        # 健康检查探针（在 main 中设置）
+        self.probe = getattr(self.__class__, 'probe', None)
         super().__init__(*args, **kwargs)
 
     def _read_template(self, name: str) -> str:
@@ -209,6 +292,14 @@ class RegistryWebHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.end_headers()
         self.wfile.write(html.encode('utf-8'))
+
+    def _send_json(self, obj: Dict, status=200):
+        """发送 JSON 响应"""
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Cache-Control', 'no-store')
+        self.end_headers()
+        self.wfile.write(json.dumps(obj, ensure_ascii=False, indent=2).encode('utf-8'))
 
     def _send_static(self, content: bytes, content_type: str):
         """发送静态文件响应"""
@@ -263,6 +354,29 @@ class RegistryWebHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip('/')
         query = parse_qs(parsed.query)
+
+        # 健康检查（单节点 / 主从均适用）
+        if path == '/health' or path == '/api/health':
+            if self.probe is not None:
+                reg = self.probe.detail()
+                registry_up = reg['primary_reachable'] or any(
+                    r['reachable'] for r in reg['replicas'])
+            else:
+                reg = {"primary": self.client.registry_url,
+                       "primary_reachable": self.client.is_connected(),
+                       "active_node": None, "replicas": [], "replica_count": 0}
+                registry_up = reg['primary_reachable']
+            payload = {
+                "status": "ok",
+                "service": "light-registry-web",
+                "version": APP_VERSION,
+                "timestamp": datetime.now().isoformat(timespec='seconds'),
+                "registry": reg,
+                "packages_source": "registry" if registry_up else "builtin",
+                "builtin_package_count": len(BUILTIN_PACKAGES),
+            }
+            self._send_json(payload)
+            return
 
         # 静态文件
         if path.startswith('/static/'):
@@ -405,21 +519,33 @@ def main():
     parser = argparse.ArgumentParser(description='光明包注册中心 Web 界面')
     parser.add_argument('--port', '-p', type=int, default=5000, help='监听端口（默认: 5000）')
     parser.add_argument('--host', default='127.0.0.1', help='监听地址（默认: 127.0.0.1）')
-    parser.add_argument('--registry-url', default='http://localhost:8000',
-                        help='注册中心 API 地址（默认: http://localhost:8000）')
+    parser.add_argument('--registry-url', default=None,
+                        help='注册中心主节点 API 地址（覆盖配置文件中的 primary）')
+    parser.add_argument('--config', default=str(Path(__file__).resolve().parent / 'config.json'),
+                        help='部署配置文件路径（默认: 同目录下 config.json）')
     parser.add_argument('--open-browser', action='store_true', help='自动打开浏览器')
     args = parser.parse_args()
 
+    # 加载配置（高可用：主节点 + 只读副本）
+    cfg = load_config(args.config)
+    primary = args.registry_url or cfg.get('primary', 'http://localhost:8000')
+    replicas = cfg.get('replicas', []) or []
+    timeout = float(cfg.get('health_check_timeout', 3))
+
     # 设置 API 客户端
-    RegistryWebHandler.api_client = RegistryAPIClient(args.registry_url)
+    RegistryWebHandler.api_client = RegistryAPIClient(primary)
+    # 设置健康检查探针（含只读副本）
+    RegistryWebHandler.probe = RegistryProbe(primary, replicas, timeout)
 
     # 检查注册中心连接
     if RegistryWebHandler.api_client.is_connected():
-        print(f"✅ 已连接到注册中心: {args.registry_url}")
+        print(f"✅ 已连接到注册中心: {primary}")
     else:
-        print(f"⚠️  无法连接到注册中心 {args.registry_url}")
+        print(f"⚠️  无法连接到注册中心 {primary}")
         print(f"   使用内置包数据（仅显示预置包）")
         print(f"   提示: 先运行注册中心服务器: python src/registry_server.py")
+    if replicas:
+        print(f"🔁 已配置 {len(replicas)} 个只读副本（主节点不可达时自动故障转移）")
 
     server = HTTPServer((args.host, args.port), RegistryWebHandler)
     url = f"http://{args.host}:{args.port}"
@@ -427,7 +553,11 @@ def main():
     print(f"\n📦 光明包注册中心 Web 界面")
     print(f"=" * 40)
     print(f"   地址: {url}")
-    print(f"   API:  {args.registry_url}")
+    print(f"   主节点: {primary}")
+    if replicas:
+        print(f"   只读副本: {', '.join(replicas)}")
+    print(f"   配置: {args.config}")
+    print(f"   健康检查: {url}/health")
     print(f"   端口: {args.port}")
     print(f"=" * 40)
     print(f"\n按 Ctrl+C 停止服务器\n")
