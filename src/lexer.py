@@ -285,12 +285,14 @@ COMMON_COMPOUND_WORDS = frozenset({
 # CJK 汉字范围
 _HAN_START = 0x4E00
 _HAN_END = 0x9FFF
+# 单字符比较用边界（避免 ord() 调用开销）
+_HAN_START_CH = '\u4e00'
+_HAN_END_CH = '\u9fff'
 
 
 def _is_han_fast(ch: str) -> bool:
-    """判断是否为汉字（直接比较 codepoint，CJK 范围是连续的，无需缓存）"""
-    cp = ord(ch)
-    return _HAN_START <= cp <= _HAN_END
+    """判断是否为汉字（用字符串比较替代 ord()，对单字符等价且更快）"""
+    return _HAN_START_CH <= ch <= _HAN_END_CH
 
 
 # 非 ASCII、非汉字的「字母类」字符缓存（希腊字母 π/α/θ、西里尔字母、假名等）
@@ -305,8 +307,7 @@ def _is_extra_letter(ch: str) -> bool:
     含 π 的导出名在段言（现名光明）侧完全不可用。这里放行 Unicode 字母类字符；
     标点、符号、emoji 仍然会被拒绝。
     """
-    cp = ord(ch)
-    if cp < 128 or _HAN_START <= cp <= _HAN_END:
+    if ch < '\x80' or _HAN_START_CH <= ch <= _HAN_END_CH:
         return False
     cached = _EXTRA_LETTER_CACHE.get(ch)
     if cached is None:
@@ -340,33 +341,28 @@ for _i in range(128):
 
 
 def _is_ascii_digit(ch: str) -> bool:
-    """判断 ASCII 字符是否为数字（查表法）"""
-    cp = ord(ch)
-    return cp < 128 and (_ASCII_CLASS[cp] & _CLASS_DIGIT) != 0
+    """判断 ASCII 字符是否为数字（直接字符比较，避免 ord() 开销）"""
+    return '0' <= ch <= '9'
 
 
 def _is_ascii_alpha(ch: str) -> bool:
-    """判断 ASCII 字符是否为字母（查表法）"""
-    cp = ord(ch)
-    return cp < 128 and (_ASCII_CLASS[cp] & _CLASS_ALPHA) != 0
+    """判断 ASCII 字符是否为字母（直接字符比较，避免 ord() 开销）"""
+    return 'a' <= ch <= 'z' or 'A' <= ch <= 'Z'
 
 
 def _is_ascii_alnum(ch: str) -> bool:
-    """判断 ASCII 字符是否为字母或数字（查表法）"""
-    cp = ord(ch)
-    return cp < 128 and (_ASCII_CLASS[cp] & _CLASS_ALNUM) != 0
+    """判断 ASCII 字符是否为字母或数字（直接字符比较，避免 ord() 开销）"""
+    return 'a' <= ch <= 'z' or 'A' <= ch <= 'Z' or '0' <= ch <= '9'
 
 
 def _is_ascii_space_tab(ch: str) -> bool:
-    """判断 ASCII 字符是否为空格或制表符（查表法）"""
-    cp = ord(ch)
-    return cp < 128 and (_ASCII_CLASS[cp] & _CLASS_SPACE) != 0
+    """判断 ASCII 字符是否为空格或制表符"""
+    return ch == ' ' or ch == '\t'
 
 
 def _is_ascii_whitespace(ch: str) -> bool:
-    """判断 ASCII 字符是否为空白字符（空格、制表符、回车）（查表法）"""
-    cp = ord(ch)
-    return cp < 128 and (_ASCII_CLASS[cp] & _CLASS_WHITESPACE) != 0
+    """判断 ASCII 字符是否为空白字符（空格、制表符、回车）"""
+    return ch == ' ' or ch == '\t' or ch == '\r'
 
 
 # 模块级关键字预计算（只计算一次）
@@ -399,6 +395,12 @@ for kw in _ALL_KEYWORDS_WITH_VERBS:
 
 # 构建关键字起始字符集合（用于快速跳过不匹配的位置）
 _KEYWORD_START_CHARS = frozenset({kw[0] for kw in _ALL_KEYWORDS_WITH_VERBS if kw})
+
+# 按长度预缓存关键字集合（消除热路径中 dict.get 调用）
+_KW_BY_LEN_4 = _ALL_KEYWORDS_BY_LENGTH.get(4, frozenset())
+_KW_BY_LEN_3 = _ALL_KEYWORDS_BY_LENGTH.get(3, frozenset())
+_KW_BY_LEN_2 = _ALL_KEYWORDS_BY_LENGTH.get(2, frozenset())
+_KW_BY_LEN_1 = _ALL_KEYWORDS_BY_LENGTH.get(1, frozenset())
 
 # 中文数字集合（模块级）
 _SIMPLE_CHINESE_NUMBERS = frozenset({
@@ -688,7 +690,9 @@ class Lexer:
         self.all_keywords_by_length = _ALL_KEYWORDS_BY_LENGTH
         self.all_max_keyword_len = _ALL_MAX_KEYWORD_LEN
         self._symbol_token_map = _SYMBOL_TOKEN_MAP
-    
+        # P2：缩进规范告警通道（每次 tokenize 调用时重置）
+        self.warnings = []
+
     def tokenize(self, source: str = None, extra_definitions: set = None) -> List[Token]:
         """将源码转为 Token 流
         
@@ -710,6 +714,9 @@ class Lexer:
         line = 1
         col = 1
         n = len(source)
+
+        # P2：每次 tokenize 调用时重置缩进规范告警列表
+        self.warnings = []
 
         # 预扫描：收集用户定义的标识符（段落名 / 方法名 / 变量名等）
         user_definitions = self._scan_user_definitions(source)
@@ -768,13 +775,28 @@ class Lexer:
                 # 计算下一行的缩进
                 indent = 0
                 _is_space_tab = _is_ascii_space_tab
+                indent_start_col = col
+                saw_space = False
+                saw_tab = False
                 while i < n and _is_space_tab(source[i]):
                     if source[i] == '\t':
                         indent += 4
+                        saw_tab = True
                     else:
                         indent += 1
+                        saw_space = True
                     col += 1
                     i += 1
+
+                # P2：行首缩进同时使用 Tab 和空格 → 明确报错（附行列与上下文）
+                if saw_space and saw_tab:
+                    snippet = source[i:min(n, i + 20)].strip()
+                    raise LexerError(
+                        "缩进混合了 Tab 和空格，请统一使用空格",
+                        line,
+                        indent_start_col,
+                        snippet or "（行尾）",
+                    )
                 
                 # 跳过空行和注释行（缩进后立即是换行、EOF、# 或 //）
                 if i >= n or source[i] == '\n':
@@ -792,6 +814,13 @@ class Lexer:
                 
                 # 处理缩进变化
                 if indent > indent_stack[-1]:
+                    # P2：缩进层级跳跃检测——单次缩进增量超过一个层级（>4 空格）
+                    # 视为"跨多层"写法（例如 4→12），仅记录告警，不阻断解析
+                    if indent - indent_stack[-1] > 4:
+                        self.warnings.append(
+                            f"告警 (行{line}): 缩进从 {indent_stack[-1]} 直接跳变到 {indent}，"
+                            f"增幅 {indent - indent_stack[-1]}，疑似漏写中间层级，建议按层递进缩进"
+                        )
                     tokens.append(Token(TokenType.INDENT, indent, line, 1))
                     indent_stack.append(indent)
                 elif indent < indent_stack[-1]:
@@ -804,6 +833,37 @@ class Lexer:
             if _is_ascii_whitespace(source[i]):
                 col += 1
                 i += 1
+                continue
+
+            # 快速路径：CJK 文字字符（U+4E00–U+9FFF）跳过注释/符号/数字/字符串前缀检查
+            # CJK 标点（《》。；：（）等）不在此区间，仍走下方完整路径
+            ch_i = source[i]
+            if _HAN_START_CH <= ch_i <= _HAN_END_CH:
+                # 嵌入块检查（引/嵌入）
+                embed_prefix_len = 0
+                if source[i:i+2] == '嵌入':
+                    embed_prefix_len = 2
+                elif ch_i == '引':
+                    if i + 1 < n and source[i+1] in ' \t:\n':
+                        embed_prefix_len = 1
+                if embed_prefix_len > 0:
+                    token, consumed = self._tokenize_embed_block(source, i, line, col, embed_prefix_len)
+                    if token:
+                        tokens.append(token)
+                        swallowed = source[i:i + consumed]
+                        newline_count = swallowed.count('\n')
+                        if newline_count:
+                            line += newline_count
+                            col = consumed - swallowed.rfind('\n')
+                        else:
+                            col += consumed
+                        i += consumed
+                        continue
+                # 标识符/关键字（CJK 文字字符恒为标识符起始字符）
+                new_tokens, consumed = self._tokenize_identifier_or_keyword(source, i, line, col, user_definitions)
+                tokens.extend(new_tokens)
+                col += consumed
+                i += consumed
                 continue
             
             # 处理注释（# 开头）
@@ -1232,78 +1292,46 @@ class Lexer:
         """
 
         # 局部变量缓存
-        _kw_by_len = _ALL_KEYWORDS_BY_LENGTH
-        _max_len = _ALL_MAX_KEYWORD_LEN
         _compound_safe = self.compound_safe_single_keywords
         _start_chars = _KEYWORD_START_CHARS
-        
+
         # 缓存 text_len 避免重复计算
         if text_len is None:
             text_len = len(text)
-        
+
         # 快速路径：如果当前字符不能起始任何关键字，直接返回
-        if pos < text_len and text[pos] not in _start_chars:
+        if pos >= text_len or text[pos] not in _start_chars:
             return None, 0
-        
-        max_possible = min(_max_len, text_len - pos)
-        
-        # 从最长到最短尝试匹配
-        for length in range(max_possible, 0, -1):
-            candidates = _kw_by_len.get(length)
-            if candidates:
-                candidate = text[pos:pos+length]
-                if candidate in candidates:
-                    # 检查是否是 compound_safe_single 中的单字关键字
-                    if (length == 1 and candidate in _compound_safe
-                            and pos + length < text_len):
-                        # 单字 compound_safe 关键字（如"自"、"除"），后面还有内容，
-                        # 递归看紧跟的位置能否成词。
-                        kw, l = self._skip_compound_safe_and_match(text, pos + 1, text_len)
-                        if kw:
-                            if kw == '之':
-                                # 后续是成员访问符 `之`（唯一被移出 compound-safe 的
-                                # 分隔符，见 :388「之 始终拆分」）：pos 处这颗
-                                # compound-safe 单字才是最长匹配，返回与 pos 对齐的
-                                # (candidate, length)。`自之X` 由此修成 KEYWORD(自)…。
-                                #
-                                # 只认 `之`、不认「任意非 compound-safe 关键字」：后者会
-                                # 把 `对于`(对+于)、`10的幂`(…幂+幂) 之类 compound-safe
-                                # 单字紧跟普通关键字的既有切法一并改掉——实测 A/B 多出
-                                # 100+ 处 `对于/幂/是否` 漂移。历史上这些串靠「回报内层
-                                # 关键字」被下游 skip/整体保留，必须原样保留。
-                                return candidate, length
-                            # v7 单 31-D：其余情况**不再回报内层结果**。
-                            #
-                            # 旧行为 `return kw, l` 是返回值失配的本体：kw 取自
-                            # text[pos+k : pos+k+l]，l 也以 pos+k 为基准，而调用方
-                            # （:2040/:2244/:2365 等六处）按 **pos** 消费 l 个字符、
-                            # 同时把 kw 的字面 emit 出去——于是 pos 处那个字被丢掉、
-                            # 内层关键字被吐两次（下列均为全仓 A/B 实测的真实形态）：
-                            #     等于空那么 → 等于那么么   （`空`丢、`么`凭空出现）
-                            #     种类等于   → 种等于于     （`类`丢、`于`吐两次）
-                            #     10的幂     → 幂幂         （`的`丢、`幂`吐两次）
-                            #     除类型错误 → 类型型错误   （`除`丢、`型`吐两次）
-                            # 实测现行 src 上这类契约违约有 6874 处 / 2192 文件（**函数
-                            # 契约层**违约数，多数被调用方的 compound-safe 跳过救回，
-                            # 真正写坏 token 流的是其中 31 文件，见单 31-D 工单）。
-                            #
-                            # 单 B 曾试过 `return candidate, length`（即断言 pos 处
-                            # 这颗 compound-safe 单字就是词），那会让 `除`/`幂`/`于`
-                            # 作为运算符浮现，把 `去除空格`/`对于`/`10的幂` 切碎——
-                            # 全仓 A/B 实测 100+ 处漂移、42 文件，故当年收窄到只认 `之`。
-                            #
-                            # 本单取第三种语义：**pos 处不做关键字承诺**。
-                            # 语义上这正是 compound-safe 这套启发式本来要表达的
-                            # 「这颗单字后面还接着关键字料，别让它在这里成词」；
-                            # 契约（:1023「关键字恒等于 text[pos:pos+长度]」）由
-                            # kw is None 平凡满足。下游行为不变的原因是：调用方拿到
-                            # None 后把 pos 处的字当标识符料继续扫，扫到内层那个位置
-                            # 时会**在正确的 pos 上**重新问一次，得到诚实的结果，再由
-                            # 既有的 compound-safe 跳过逻辑决定整词保留还是切开。
-                            return None, 0
-                        # 后续无法形成关键字，继续使用当前关键字
-                    return candidate, length
-        
+
+        remaining = text_len - pos
+
+        # 展开循环：从最长(4)到最短(1)尝试匹配，消除 range/min/loop 开销
+        # length=4
+        if remaining >= 4:
+            candidate = text[pos:pos+4]
+            if candidate in _KW_BY_LEN_4:
+                return candidate, 4
+        # length=3
+        if remaining >= 3:
+            candidate = text[pos:pos+3]
+            if candidate in _KW_BY_LEN_3:
+                return candidate, 3
+        # length=2
+        if remaining >= 2:
+            candidate = text[pos:pos+2]
+            if candidate in _KW_BY_LEN_2:
+                return candidate, 2
+        # length=1（含 compound-safe 递归检查）
+        candidate = text[pos]
+        if candidate in _KW_BY_LEN_1:
+            if candidate in _compound_safe and pos + 1 < text_len:
+                kw, l = self._skip_compound_safe_and_match(text, pos + 1, text_len)
+                if kw:
+                    if kw == '之':
+                        return candidate, 1
+                    return None, 0
+            return candidate, 1
+
         return None, 0
 
     
@@ -1780,18 +1808,22 @@ class Lexer:
         # 导出HTML、光明到Python）会被切成 导出+JSON 两个标识符，编译产物变成
         # l3_chart.导出(JSON()) 语义错误。须按标识符字符集（汉字/ASCII 字母数字/
         # 下划线/Unicode 字母，与 :1824 混排规则一致）整段收集。
-        if _is_han(source[i]) and i > 0 and source[i - 1] == '.':
+        if _HAN_START_CH <= source[i] <= _HAN_END_CH and i > 0 and source[i - 1] == '.':
             j = i
-            while j < n and (_is_han(source[j]) or _is_ascii_alnum_f(source[j])
-                             or source[j] == '_' or _is_extra_letter(source[j])):
-                j += 1
+            while j < n:
+                ch = source[j]
+                if (_HAN_START_CH <= ch <= _HAN_END_CH or 'a' <= ch <= 'z' or 'A' <= ch <= 'Z' or '0' <= ch <= '9'
+                        or ch == '_' or _is_extra_letter(ch)):
+                    j += 1
+                else:
+                    break
             _member_name = source[i:j]
             if _member_name:
                 tokens.append(_Token(_TokenType.IDENTIFIER, _member_name, line, col))
                 return tokens, j - i
 
         # 收集连续的汉字（或英文标识符）
-        if _is_han(source[i]):
+        if _HAN_START_CH <= source[i] <= _HAN_END_CH:
             # 汉字处理：实现三层分词
             if self._deterministic:
                 consumed = self._tokenize_chinese_sequence_det(source, i, line, col, tokens, user_definitions)
@@ -1802,15 +1834,11 @@ class Lexer:
             next_pos = i + consumed
             if next_pos < n:
                 next_ch = source[next_pos]
-                cp_next = ord(next_ch)
-                if (cp_next < 128 and (_is_ascii_alnum_f(next_ch) or next_ch == '_')) \
-                        or _is_extra_letter(next_ch):
+                if 'a' <= next_ch <= 'z' or 'A' <= next_ch <= 'Z' or '0' <= next_ch <= '9' or next_ch == '_' or _is_extra_letter(next_ch):
                     j = next_pos
                     while j < n:
                         ch = source[j]
-                        cp = ord(ch)
-                        if (cp < 128 and (_is_ascii_alnum_f(ch) or ch == '_')) \
-                                or _is_extra_letter(ch):
+                        if 'a' <= ch <= 'z' or 'A' <= ch <= 'Z' or '0' <= ch <= '9' or ch == '_' or _is_extra_letter(ch):
                             j += 1
                         else:
                             break
@@ -1856,7 +1884,7 @@ class Lexer:
                             # 是单个 IDENTIFIER（`循环` 不是关键字，走的就是 IDENTIFIER 分支）。
                             if suffix[0].isalpha() or suffix[0] == '_':
                                 _han_end = j
-                                while _han_end < n and _is_han(source[_han_end]):
+                                while _han_end < n and _HAN_START_CH <= source[_han_end] <= _HAN_END_CH:
                                     _han_end += 1
                                 _cand_ascii = last.value + suffix
                                 _cand_full = _cand_ascii + source[j:_han_end]
@@ -1870,10 +1898,10 @@ class Lexer:
                         # 继续收集ASCII后缀后的汉字（如"阶段1标题" → 完整标识符）
                         # 注意：只有当后继汉字不是关键字时才合并，避免误合并"循环i从1"
                         after_ascii = i + consumed
-                        while after_ascii < n and _is_han(source[after_ascii]):
+                        while after_ascii < n and _HAN_START_CH <= source[after_ascii] <= _HAN_END_CH:
                             # 先收集完整的汉字后缀
                             k = after_ascii
-                            while k < n and _is_han(source[k]):
+                            while k < n and _HAN_START_CH <= source[k] <= _HAN_END_CH:
                                 k += 1
                             han_suffix = source[after_ascii:k]
                             
@@ -1900,7 +1928,7 @@ class Lexer:
                         # 但"读取N字节"整体在 ALL_VERB_ARITY 中，应作为单个关键字输出。
                         # 又如"读取LSP消息"是用户定义的函数名，应作为单个标识符输出。
                         after_ascii = j
-                        while after_ascii < n and _is_han(source[after_ascii]):
+                        while after_ascii < n and _HAN_START_CH <= source[after_ascii] <= _HAN_END_CH:
                             after_ascii += 1
                         han_suffix = source[j:after_ascii]
                         combined = tokens[-1].value + suffix + han_suffix
@@ -1915,7 +1943,7 @@ class Lexer:
         else:
             # 英文标识符：收集连续的字母、数字、下划线（含 π/α 等 Unicode 字母）
             j = i + 1
-            while j < n and (_is_ascii_alnum_f(source[j]) or source[j] == '_'
+            while j < n and ('a' <= source[j] <= 'z' or 'A' <= source[j] <= 'Z' or '0' <= source[j] <= '9' or source[j] == '_'
                              or _is_extra_letter(source[j])):
                 j += 1
 
@@ -1944,8 +1972,8 @@ class Lexer:
             # 编译期报「例 是保留关键字，不能直接作为语句开头」。
             # 因此此处整段吞掉「汉字/字母/数字/下划线」混排，直到真正的分隔符。
             # `n减1`、`left至right` 的汉字前面不是 `_`，走原路，一字不改。
-            if j < n and _is_han(source[j]) and source[j - 1] == '_':
-                while j < n and (_is_han(source[j]) or _is_ascii_alnum_f(source[j])
+            if j < n and _HAN_START_CH <= source[j] <= _HAN_END_CH and source[j - 1] == '_':
+                while j < n and (_HAN_START_CH <= source[j] <= _HAN_END_CH or 'a' <= source[j] <= 'z' or 'A' <= source[j] <= 'Z' or '0' <= source[j] <= '9'
                                  or source[j] == '_' or _is_extra_letter(source[j])):
                     if source[j] in member_access_kw:
                         break
@@ -1953,13 +1981,13 @@ class Lexer:
                 tokens.append(_Token(_TokenType.IDENTIFIER, source[i:j], line, col))
                 return tokens, j - i
 
-            while j < n and _is_han(source[j]):
+            while j < n and _HAN_START_CH <= source[j] <= _HAN_END_CH:
                 # 从 j 处做最长关键字匹配（_match_keyword 覆盖 VERB_ARITY 中的动词）
                 han_kw, _ = self._match_keyword(source, j)
                 if han_kw:
                     break
                 k = j
-                while k < n and _is_han(source[k]):
+                while k < n and _HAN_START_CH <= source[k] <= _HAN_END_CH:
                     if source[k] in member_access_kw:
                         break
                     k += 1
@@ -1992,13 +2020,14 @@ class Lexer:
         """
         n = len(source)
         han_end = i
-        while han_end < n and _is_han_fast(source[han_end]):
+        while han_end < n and _HAN_START_CH <= source[han_end] <= _HAN_END_CH:
             han_end += 1
 
         j = han_end
         while j < n:
             ch = source[j]
-            if _is_ascii_alnum(ch) or ch == '_' or _is_han_fast(ch) or _is_extra_letter(ch):
+            if ('a' <= ch <= 'z' or 'A' <= ch <= 'Z' or '0' <= ch <= '9'
+                    or ch == '_' or _HAN_START_CH <= ch <= _HAN_END_CH or _is_extra_letter(ch)):
                 j += 1
             else:
                 break
@@ -2014,8 +2043,8 @@ class Lexer:
                 # 的前缀，应当继续缩短，否则会把 `ai_api_helper`（白名单里只有被误拆的 `ai`）
                 # 错切成 `ai` + `_api_helper`，运行期报 No module named 'ai'。
                 after = source[j] if j < n else ''
-                if after and (after == '_' or _is_ascii_alnum(after)
-                              or _is_han_fast(after) or _is_extra_letter(after)):
+                if after and (after == '_' or 'a' <= after <= 'z' or 'A' <= after <= 'Z' or '0' <= after <= '9'
+                              or _HAN_START_CH <= after <= _HAN_END_CH or _is_extra_letter(after)):
                     j -= 1
                     continue
                 return candidate
@@ -2160,7 +2189,7 @@ class Lexer:
 
             # 先收集完整的汉字序列
             j = pos
-            while j < n and _is_han(source[j]):
+            while j < n and _HAN_START_CH <= source[j] <= _HAN_END_CH:
                 # 遇到符号停止
                 if source[j] in _symbol_map or source[j] in _punctuation:
                     break
@@ -3170,7 +3199,7 @@ class Lexer:
                     j += 1
                 # 收集函数名
                 k = j
-                while k < n and _is_han(source[k]):
+                while k < n and _HAN_START_CH <= source[k] <= _HAN_END_CH:
                     k += 1
                 if k > j:
                     func_name = source[j:k]
