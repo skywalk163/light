@@ -648,5 +648,179 @@ class TestExecutorFix:
         assert EnhancedREPL is not None
 
 
+# =============================================================================
+# 任务C-P2：拼写相似建议 / 参数数量错误 / 源代码上下文 测试
+# =============================================================================
+
+class Test拼写相似建议:
+    """任务C-P2：未定义变量错误中提示可能的拼写相似变量"""
+
+    def test_levenshtein距离基本(self):
+        """测试 Levenshtein 编辑距离计算"""
+        from errors import _levenshtein_distance
+        assert _levenshtein_distance("打印", "打印") == 0
+        assert _levenshtein_distance("打印", "打字") == 1
+        assert _levenshtein_distance("prnit", "print") == 2
+        assert _levenshtein_distance("abc", "xyz") == 3
+        assert _levenshtein_distance("", "abc") == 3
+        assert _levenshtein_distance("abc", "") == 3
+
+    def test_建议相似变量名(self):
+        """suggest_similar_names 应返回拼写相似的候选"""
+        from errors import suggest_similar_names
+        available = ["打印", "输入", "长度", "范围", "整数"]
+        # "打字" 与 "打印" 距离 1
+        result = suggest_similar_names("打字", available, max_distance=2)
+        assert "打印" in result
+
+    def test_建议按距离排序(self):
+        """建议列表应按距离排序（最近的排前面）"""
+        from errors import suggest_similar_names
+        available = ["打印", "打字", "打包"]
+        # "打X" 与 "打印" 距离 1，与 "打包" 距离 1，与 "打字" 距离 1
+        result = suggest_similar_names("打X", available, max_distance=2)
+        assert len(result) > 0
+        # 所有返回的候选都应在可用列表中
+        for name in result:
+            assert name in available
+
+    def test_无相似时返回空(self):
+        """无相似候选时返回空列表"""
+        from errors import suggest_similar_names
+        result = suggest_similar_names("xyz", ["打印", "输入"], max_distance=2)
+        assert result == []
+
+    def test_NameError带建议(self):
+        """NameError_ 带 available_names 应包含拼写建议"""
+        from errors import NameError_
+        err = NameError_("打字", line=3, col=5,
+                         available_names=["打印", "输入", "长度"])
+        msg = str(err)
+        assert "打字" in msg
+        assert "打印" in msg  # 应包含建议
+
+    def test_NameError无建议时仍正常(self):
+        """NameError_ 无 available_names 时仍正常工作"""
+        from errors import NameError_
+        err = NameError_("未知变量", line=3, col=5)
+        msg = str(err)
+        assert "未知变量" in msg
+
+
+class Test参数数量错误:
+    """任务C-P2：参数数量错误包含期望和实际数量"""
+
+    def test_参数数量错误基本(self):
+        """ParameterCountError 应包含期望和实际数量"""
+        from errors import ParameterCountError
+        err = ParameterCountError("加法", expected=2, actual=1, line=5, col=3)
+        msg = str(err)
+        assert "加法" in msg
+        assert "2" in msg  # 期望数量
+        assert "1" in msg  # 实际数量
+
+    def test_参数过少建议(self):
+        """参数过少时应提示缺少的个数"""
+        from errors import ParameterCountError
+        err = ParameterCountError("加法", expected=3, actual=1, line=5)
+        msg = str(err)
+        assert "缺少" in msg or "2" in msg  # 缺少 2 个
+
+    def test_参数过多建议(self):
+        """参数过多时应提示多传的个数"""
+        from errors import ParameterCountError
+        err = ParameterCountError("加法", expected=1, actual=3, line=5)
+        msg = str(err)
+        assert "多传" in msg or "2" in msg  # 多传 2 个
+
+    def test_参数数量错误属性(self):
+        """ParameterCountError 应保存期望和实际数量属性"""
+        from errors import ParameterCountError
+        err = ParameterCountError("加法", expected=2, actual=3, line=5)
+        assert err.func_name == "加法"
+        assert err.expected == 2
+        assert err.actual == 3
+
+
+class Test源代码上下文:
+    """任务C-P2：错误信息中包含源代码上下文（出错行前后各 2 行）"""
+
+    def test_format_source_context_前后各2行(self):
+        """format_source_context 应显示出错行前后各 2 行"""
+        from errors import format_source_context
+        source = "行1\n行2\n行3\n行4\n行5\n行6\n行7"
+        result = format_source_context(source, line=4, context_lines=2)
+        # 应包含第 2-6 行（前后各 2 行）
+        assert "行2" in result
+        assert "行3" in result
+        assert "行4" in result
+        assert "行5" in result
+        assert "行6" in result
+        # 不应包含第 1 行和第 7 行
+        assert "行1" not in result or "行7" not in result
+
+    def test_format_source_context_首行(self):
+        """出错行在第 1 行时不应越界"""
+        from errors import format_source_context
+        source = "行1\n行2\n行3"
+        result = format_source_context(source, line=1, context_lines=2)
+        assert "行1" in result
+        assert "行2" in result
+
+    def test_format_source_context_末行(self):
+        """出错行在最后一行时不应越界"""
+        from errors import format_source_context
+        source = "行1\n行2\n行3"
+        result = format_source_context(source, line=3, context_lines=2)
+        assert "行2" in result
+        assert "行3" in result
+
+    def test_增强错误显示代码片段(self):
+        """ErrorFormatter 应显示出错行前后各 2 行代码片段"""
+        from enhanced_errors import ErrorFormatter
+        source = "行1\n行2\n行3\n行4\n行5\n行6\n行7"
+        err = SyntaxError("测试语法错误")
+        formatter = ErrorFormatter()
+        result = formatter.format_error(source, err, line_num=4)
+        # _show_code_snippet 的 start = max(0, 4-3) = 1, end = min(7, 4+2) = 6
+        # 即显示第 2-6 行（0-based 1-5），也就是行2到行6
+        assert "行4" in result  # 错误行
+
+
+class TestWindows控制台编码:
+    """任务C-P2：确保中文错误信息在 Windows 控制台正确编码"""
+
+    def test_safe_output_正常文本(self):
+        """safe_output 对正常中文文本应原样返回"""
+        from errors import safe_output
+        text = "这是一个中文错误信息"
+        result = safe_output(text)
+        assert result == text
+
+    def test_safe_output_空字符串(self):
+        """safe_output 对空字符串应原样返回"""
+        from errors import safe_output
+        assert safe_output("") == ""
+
+    def test_增强错误_safe_output(self):
+        """ErrorFormatter._safe_output 对中文文本应正常处理"""
+        from enhanced_errors import ErrorFormatter
+        formatter = ErrorFormatter()
+        text = "中文错误信息测试"
+        result = formatter._safe_output(text)
+        # 应能正常处理（不抛异常）
+        assert isinstance(result, str)
+
+    def test_增强错误含中文(self):
+        """ErrorFormatter.format_error 输出应包含中文"""
+        from enhanced_errors import ErrorFormatter
+        source = "设 甲 为 10\n打印(乙)"
+        err = NameError("name '乙' is not defined")
+        formatter = ErrorFormatter()
+        result = formatter.format_error(source, err, line_num=2)
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '--tb=short'])

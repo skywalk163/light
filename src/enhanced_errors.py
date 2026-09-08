@@ -77,6 +77,8 @@ _CHINESE_NAMES = {
     'ParseError': '解析错误',
     'UnificationError': '类型统一错误',
     'TypeErrorInference': '类型推断错误',
+    # 任务C-P2：参数数量错误
+    'ParameterCountError': '参数数量错误',
 }
 
 _CHINESE_HINTS = {
@@ -126,6 +128,8 @@ _CHINESE_HINTS = {
     'ParseError': '解析错误，请检查代码语法是否正确，确认语句格式符合光明语法的要求。',
     'UnificationError': '类型统一失败，请检查两个类型是否兼容。光明不支持隐式类型转换，需要显式转换。',
     'TypeErrorInference': '类型推断失败，请为变量添加显式类型注解或确保赋值表达式类型明确。',
+    # 任务C-P2：参数数量错误提示
+    'ParameterCountError': '调用段落时传入的参数个数与定义不匹配。请查看段落定义的参数列表，确保传入参数个数正确，参数之间用逗号分隔。',
 }
 
 _EXAMPLE_SNIPPETS = {
@@ -167,6 +171,8 @@ _EXAMPLE_SNIPPETS = {
     'ParseError': '  设 甲 为 10。\n  打印(甲)  # 确保语法正确',
     'UnificationError': '  设 甲 为 整数 = 10\n  设 乙 为 文本 = 文本(甲)  # 显式转换',
     'TypeErrorInference': '  设 甲 为 整数  # 添加类型注解可帮助类型推断',
+    # 任务C-P2：参数数量错误示例
+    'ParameterCountError': '  段落 加法(甲, 乙)：\n      返回 甲 加 乙\n  # 正确调用：加法(1, 2)\n  # 错误调用：加法(1)  # 缺少参数',
 }
 
 
@@ -238,13 +244,21 @@ class ErrorFormatter:
         if suggestion:
             parts.append(f'\n  {self._color("suggestion", "建议:")} {suggestion}')
 
+        # 任务C-P2：未定义变量错误中提示可能的拼写相似变量
+        if err_type == 'NameError' or '未定义' in err_msg:
+            similar_hint = self._suggest_similar_from_msg(err_msg)
+            if similar_hint:
+                parts.append(f'\n  {self._color("suggestion", "拼写建议:")} {similar_hint}')
+
         # 追加示例代码片段
         example = self.get_example_snippet(err_type)
         if example:
             parts.append(f'\n  参考示例：\n{example}')
 
         parts.append('\n')
-        return ''.join(parts)
+        result = ''.join(parts)
+        # 任务C-P2：确保中文错误信息在 Windows 控制台正确编码
+        return self._safe_output(result)
 
     def _color(self, color: str, text: str) -> str:
         """添加颜色"""
@@ -403,6 +417,11 @@ class ErrorFormatter:
             'AttributeError': {
                 '属性': '检查对象是否有该属性',
             },
+            # 任务C-P2：参数数量错误
+            'ParameterCountError': {
+                '参数': '检查传入参数个数是否与段落定义一致',
+                '期望': '查看段落定义的参数个数',
+            },
         }
 
         # 按错误类型查找
@@ -416,6 +435,54 @@ class ErrorFormatter:
             return '检查光明语法是否正确，参考语法文档'
 
         return None
+
+    # 任务C-P2：拼写相似建议
+    def _suggest_similar_from_msg(self, err_msg: str) -> str:
+        """从错误消息中提取未定义变量名，并返回拼写建议。
+        
+        依赖 src/errors.py 中的 suggest_similar_names 函数。
+        由于错误消息中不包含可用变量列表，这里仅做简单的常见拼写检查。
+        """
+        import re
+        # 尝试从消息中提取变量名（如 "未定义的名称: prnit"）
+        match = re.search(r'未定义的名称[:：]\s*(\S+)', err_msg)
+        if not match:
+            return ''
+        name = match.group(1).strip()
+        # 常见光明内置名称列表，用于拼写相似检查
+        common_names = [
+            '打印', '输入', '长度', '范围', '整数', '文本', '浮点数',
+            '列表', '字典', '集合', '元组', '布尔', '空',
+            '追加', '弹出', '插入', '删除', '排序', '反转',
+            '连接路径', '分割路径', '分割扩展名', '目录存在', '文件存在',
+            '读取文件', '写入文件', '打开文件', '关闭文件',
+            '平方根', '正弦', '余弦', '正切', '对数', '指数',
+            '绝对值', '最大值', '最小值', '求和', '排序',
+        ]
+        try:
+            from errors import suggest_similar_names
+            similar = suggest_similar_names(name, common_names, max_distance=2)
+            if similar:
+                return f'你是否想用: {", ".join(similar)}？'
+        except Exception:
+            pass
+        return ''
+
+    # 任务C-P2：Windows 控制台编码安全输出
+    def _safe_output(self, text: str) -> str:
+        """确保中文错误信息在 Windows 控制台正确编码。
+        
+        Windows 控制台默认编码可能是 GBK/cp936，部分 Unicode 字符无法直接输出。
+        本方法尝试用 stderr 编码编码文本，如果失败则用安全替换字符替代。
+        """
+        if not text:
+            return text
+        try:
+            encoding = sys.stderr.encoding or 'utf-8'
+            text.encode(encoding)
+            return text
+        except (UnicodeEncodeError, LookupError):
+            return text.encode('ascii', errors='replace').decode('ascii')
 
 
 def format_error(source: str, error: Exception, line_num: int = None, col: int = None, py_code: str = None) -> str:

@@ -117,6 +117,71 @@ def get_duan_error_hint(error_msg: str) -> str:
     return ""
 
 
+# =============================================================================
+# 任务C-P2：拼写相似建议（Levenshtein 编辑距离）
+# =============================================================================
+
+def _levenshtein_distance(s1: str, s2: str) -> int:
+    """计算两个字符串的 Levenshtein 编辑距离。
+    
+    用于未定义变量错误中提示可能的拼写相似变量（如 prnit → 打印）。
+    """
+    if len(s1) < len(s2):
+        return _levenshtein_distance(s2, s1)
+    if len(s2) == 0:
+        return len(s1)
+    prev_row = list(range(len(s2) + 1))
+    for i, c1 in enumerate(s1):
+        curr_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            insertions = prev_row[j + 1] + 1
+            deletions = curr_row[j] + 1
+            substitutions = prev_row[j] + (c1 != c2)
+            curr_row.append(min(insertions, deletions, substitutions))
+        prev_row = curr_row
+    return prev_row[-1]
+
+
+def suggest_similar_names(name: str, available_names: list,
+                          max_distance: int = 2) -> list:
+    """从可用名称列表中找出与给定名称拼写相似的候选。
+    
+    Args:
+        name: 未定义的变量名
+        available_names: 当前作用域中可用的变量名列表
+        max_distance: 最大编辑距离阈值（默认 2）
+    
+    Returns:
+        按相似度排序的建议列表（距离最近的排在前面），最多返回 5 个。
+    """
+    candidates = []
+    for candidate in available_names:
+        if candidate == name:
+            continue
+        dist = _levenshtein_distance(name, candidate)
+        if dist <= max_distance:
+            candidates.append((dist, candidate))
+    candidates.sort(key=lambda x: x[0])
+    return [c[1] for c in candidates[:5]]
+
+
+def safe_output(text: str) -> str:
+    """确保中文错误信息在 Windows 控制台正确编码。
+    
+    Windows 控制台默认编码可能是 GBK/cp936，部分 Unicode 字符无法直接输出。
+    本函数尝试用 stderr 编码编码文本，如果失败则用安全替换字符替代。
+    """
+    if not text:
+        return text
+    try:
+        encoding = sys.stderr.encoding or 'utf-8'
+        text.encode(encoding)
+        return text
+    except (UnicodeEncodeError, LookupError):
+        # 编码失败时用 ASCII 安全模式：保留可编码部分，其余用 ? 替代
+        return text.encode('ascii', errors='replace').decode('ascii')
+
+
 def format_exception(exc_type, exc_value, exc_tb, source_lines=None):
     """格式化异常为美化的中文输出"""
     if source_lines is None:
@@ -543,8 +608,44 @@ class TypeError_ (LightError):
 
 class NameError_(LightError):
     """名称错误（避开内置 NameError 名称）"""
-    def __init__(self, name: str, line: int = 0, col: int = 0, filename: str = None):
-        super().__init__(f"未定义的名称: {name}", line, col)
+    def __init__(self, name: str, line: int = 0, col: int = 0, filename: str = None,
+                 available_names: list = None):
+        # 任务C-P2：未定义变量错误中提示可能的拼写相似变量
+        fix_suggestions = [
+            '检查变量名拼写是否正确',
+            '在使用变量前先声明: 设 变量名 为 值',
+            '检查变量是否在正确的作用域内',
+        ]
+        hint = None
+        if available_names:
+            similar = suggest_similar_names(name, available_names)
+            if similar:
+                hint = f'你是否想用: {", ".join(similar)}？'
+                fix_suggestions.insert(0, f'可能想用的变量名: {", ".join(similar)}')
+        super().__init__(f"未定义的名称: {name}", line, col, hint=hint,
+                         fix_suggestions=fix_suggestions)
+
+
+class ParameterCountError(LightError):
+    """参数数量错误（任务C-P2：包含期望和实际数量）"""
+    def __init__(self, func_name: str, expected: int, actual: int,
+                 line: int = 0, col: int = 0):
+        self.func_name = func_name
+        self.expected = expected
+        self.actual = actual
+        message = f"参数数量错误: 段落「{func_name}」期望 {expected} 个参数，实际传入 {actual} 个"
+        fix_suggestions = [
+            f'段落「{func_name}」需要 {expected} 个参数，当前传了 {actual} 个',
+            '查看段落定义的参数个数',
+            '确保参数之间用逗号分隔',
+        ]
+        if actual < expected:
+            fix_suggestions.append(f'缺少 {expected - actual} 个参数')
+        elif actual > expected:
+            fix_suggestions.append(f'多传了 {actual - expected} 个参数')
+        hint = f'期望 {expected} 个参数，实际 {actual} 个'
+        super().__init__(message, line, col, hint=hint,
+                         fix_suggestions=fix_suggestions)
 
 
 # 扩展修复建议字典
