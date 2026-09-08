@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import pytest
+pytestmark = pytest.mark.slow
 """
 光明完整程序端到端测试
 

@@ -91,6 +91,12 @@ python_files = ["test_*.py", "_test_*.py"]
 # 免得下次又要专门测一遍才知道时间花在哪（2026-08-22 CI 时间治理）。
 addopts = "--tb=short --durations=15 --ignore=tests/archive"
 norecursedirs = ["archive", "__pycache__"]
+# 2026-09-08 CI 时间治理（task-CIperf）：注册 slow 标记。CI 在 PR 触发时传
+# `-m "not slow"` 跳过 e2e / 编译大项目等長耗时用例（push main 仍跑全量）。
+# 注册后 pytest 不再对 @pytest.mark.slow 报 "unknown mark" 警告。
+markers = [
+    "slow: 慢测试（e2e / 编译大项目 / 长耗时），PR 触发时跳过，main 推送时全量运行",
+]
 
 # 覆盖率：聚焦核心语言链路模块（lexer/parser/compiler/类型系统/codegen），合并双线配置
 [tool.coverage.run]

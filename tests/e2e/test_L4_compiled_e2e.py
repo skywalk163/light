@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import pytest
+pytestmark = pytest.mark.slow
 """
 L4 C/Go/MoonBit 编译封装 E2E 测试
 覆盖：C 编译求和、Go 编译斐波那契、MoonBit 编译排序、工具链缺失优雅降级

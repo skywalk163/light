@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import pytest
+pytestmark = pytest.mark.slow
 """
 光明自举编译器端到端测试
 

@@ -2465,3 +2465,40 @@ R11A「每模块 3-5 个代表性用例」的覆盖缺口由本批补齐：
   反向钉住「只在真正需要时追加」。
 - **提交**：分支 `task-L070-entry`（本地分支隔离——本仓 39k 文件 worktree 检出实测 40 分钟
   仅完成 78MB/273MB，与 R13D 记录同源，故沿用本地分支惯例，未用 worktree）。
+
+---
+
+## CI 全量测试耗时优化（task-CIperf · 2026-09-08）
+
+- **背景**：全量测试 8263 个（7985 非 e2e + 278 e2e），CI 实测 37min（2220s），超 push main
+  预算 1400s 约 58%。根因 = `pytest-xdist` 用 `|| true` 安装，本地 devpi 镜像（127.0.0.1:3141）
+  无此包 → 静默降级串行跑 8000+ 测试。
+- **修复（5 项，均只改 CI 配置 / conftest / marker，不动测试逻辑）**：
+  1. **强制 xdist 并行**：`.gitea/workflows/ci.yml` 安装步改为
+     `pip install pytest-xdist || pip install --index-url https://pypi.org/simple pytest-xdist`
+     （去掉 `|| true` 静默降级，装不上就让该步红，逼出「runner 预热 xdist」基建问题）；
+     并行参数 `PAR` 由 `-n auto` 改为 **`-n 4`**（runner 仅 4 核，避免核争抢净亏）。
+  2. **slow 标记隔离**：`pyproject.toml` 的 `[tool.pytest.ini_options]` 注册 `slow` marker；
+     `tests/e2e/*.py` 共 10 个文件全部加模块级 `pytestmark = pytest.mark.slow`（已有
+     `skipif` 的 2 个文件合并成 `[slow, skipif(...)]`）。CI 在 PR 触发时传 `-m "not slow"`，
+     main 推送跑全量。
+  3. **pip 缓存**：本地 gitea 镜像**未提供 `actions/cache`（探测 404）**，故不走 actions/cache；
+     改用 host 模式 runner 跨跑保留的 `~/.cache/pip`（显式建目录 + 报告体积），零外部 action 依赖。
+  4. **conftest 预热**：`tests/conftest.py` 在加载期 try/except 兜底预热 `light_parser_v3` /
+     `code_generator`（避免首个测试文件 import 时的一次性构造散落；解析器若失败仅告警、不连累整轮收集）。
+  5. **e2e 精简**：10 个 e2e 文件按领域（L3/L4/llvm/bootstrap/registry/parser_fuzz…）隔离，
+     非冗余重复，故**未做合并**（合并会丢领域覆盖）；其耗时已由 PR 跳过 slow 吸收。
+- **验证（本地 Windows + 受管 venv，pytest 9.1.1 / xdist 3.8.0）**：
+  - `pytest tests/unit/test_parser.py -n 4 -q` → 12 passed，xdist 起 4 节点，并行生效、无回归。
+  - `pytest tests/e2e --collect-only -q` → **278 collected**；`-m "not slow"` → **278 deselected / 0 collected**，
+    无 `unknown mark` 警告（marker 注册正确）。
+  - `ci.yml` 经 `yaml.safe_load` 校验合法；`xdist` 安装行已无 `|| true`。
+- **未达预期 / 诚实披露**：
+  - **collect 时间 37s→20s 未达成**：本地实测 collect 仅 64.1s→56.6s（约 12% 边际收益），远未到 20s。
+    根因 = Python `import` 本就按 `sys.modules` 去重，conftest 预热不减少「总 import 次数」；
+    collect 主导成本是 **7986 个模块的执行 + 冷字节码（.pyc）**，非 import 重复。故 collect 时间
+    不在 37min→15min 的关键路径上——**该目标由 xdist 并行 + PR 跳过 slow（运行时间）命中**，而非 collect。
+  - collect 时间的进一步收敛依赖 runner 侧保留 `__pycache__` 跨跑（host 模式 workdir 已具备），不在本仓文件可控范围。
+- **提交**：分支 `task-CIperf`（本地分支隔离，同 `task-L070-entry` 惯例未用 worktree）；改动文件 =
+  `.gitea/workflows/ci.yml`、`pyproject.toml`、`tests/conftest.py`、`tests/e2e/*.py`(10)。
+  按工程铁律**未擅自 commit/merge main**，由主 agent 统一合流。

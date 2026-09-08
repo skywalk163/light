@@ -96,6 +96,16 @@ jobs:
       - name: 计时起点
         run: python3 tools/ci/time_budget.py --mark 起点 --fresh
 
+      # pip 缓存（task-CIperf 2026-09-08）：host 模式 runner 跨跑保留 ~/.cache/pip，
+      # 包仅首次下载、之后命中本地缓存。这里显式建目录并报告体积，避免每次重下
+      # pytest-xdist / 科学计算包（它们现在从公共 PyPI 装，见下方安装步骤）。
+      # 注：本地镜像未提供 actions/cache（探测返回 404），故不走 actions/cache，
+      # 直接复用 host 持久化缓存目录，零外部 action 依赖、不会让 CI 红。
+      - name: pip 缓存（host 持久化 ~/.cache/pip）
+        run: |
+          mkdir -p ~/.cache/pip
+          du -sh ~/.cache/pip 2>/dev/null || true
+
       - name: 安装测试依赖 (venv)
         run: |
           python3 -m venv --system-site-packages .venv
@@ -110,8 +120,13 @@ jobs:
           # 装不上也不在这一步拦：test_tls_light.py 侧有响亮降级（一条红代表全文件），
           # 信号不会丢，反而能指到根因。
           python -m pip install cryptography || true
-          # xdist 是加速项而非依赖：本地 devpi 镜像不保证有，装不上就串行跑。
-          python -m pip install pytest-xdist || true
+          # xdist 是「37min CI」的根因修复项（task-CIperf 2026-09-08）：原
+          # `pip install pytest-xdist || true` 在 devpi 镜像无此包时静默降级成
+          # 串行跑 8000+ 测试。改为先试 devpi、失败强制回退公共 PyPI 装齐；
+          # 仍失败则**让这一步红**（不再 || true 静默慢），逼出「runner 该预热
+          # pytest-xdist」这个真实基建问题。装上都走公共索引确保 -n 生效。
+          python -m pip install pytest-xdist || \
+            python -m pip install --index-url https://pypi.org/simple pytest-xdist
           # 测试侧第三方依赖（2026-09-01 增补）：
           #   - lunardate：农历/节气/节假日换算，test_datetime ×8 依赖，缺则整文件红。
           #   - aiohttp：异步 HTTP/IO，test_http_client（2 例）+ test_async_io（1 例）依赖。
@@ -169,8 +184,15 @@ jobs:
         run: |
           . .venv/bin/activate
           mkdir -p .ci
-          if python -c 'import xdist' >/dev/null 2>&1; then PAR="-n auto"; else PAR=""; fi
+          # xdist 已在上方强制安装（devpi→公共 PyPI）；装不上则退回串行，不报错。
+          # -n 4：runner 仅 4 核，4 路并行已是上限；再高会触发核争抢（见 ci.yml 头部
+          # 2026-08-27/28 时间治理记录），反而净亏。任务建议 -n 2/-n 4，取 4 以最大化提速、
+          # 又给后台 e2e/soft 与后续门禁留出余量。
+          if python -c 'import xdist' >/dev/null 2>&1; then PAR="-n 4"; else PAR=""; fi
           echo "[CI] 并行参数：${PAR:-（串行：未装 pytest-xdist）}"
+          # PR 触发时跳过 slow（e2e / 编译大项目），push main 跑全量。
+          if [ "${{ github.event_name }}" = "pull_request" ]; then MARK='-m "not slow"'; else MARK=''; fi
+          echo "[CI] 标记过滤：${MARK:-（全量：含 slow）}"
           # D3-3：纯光明测试（*_light.py）摘出来单独归账耗时，判绿口径仍是 soft
           # （走下面的回归闸门 --soft-classname 'tests.test_*'），不升级成判绿点。
           #
@@ -180,12 +202,12 @@ jobs:
           # soft ~30s），重叠后这段时间几乎全部隐藏。判绿口径不变：仍 || true
           # 放行存量失败 + test -f 防崩溃，最终都交给回归闸门按基线对比。
           # 子 shell 内失败（崩溃没产出 junit）会让 wait 返回非 0 → 本步红，信号不丢。
-          (pytest tests/e2e -q $PAR --junitxml=.ci/e2e.xml || true; test -f .ci/e2e.xml) &
+          (pytest tests/e2e -q $PAR $MARK --junitxml=.ci/e2e.xml || true; test -f .ci/e2e.xml) &
           (pytest tests/test_agent_loop_light.py tests/test_bootstrap_light.py \
             tests/test_event_bus_light.py tests/test_llm_client_light.py \
             tests/test_path_guard_light.py tests/test_plugin_light.py \
             tests/test_process_tree_light.py tests/test_pty_light.py \
-            tests/test_schema_light.py -q $PAR --junitxml=.ci/light_soft.xml || true; \
+            tests/test_schema_light.py -q $PAR $MARK --junitxml=.ci/light_soft.xml || true; \
             test -f .ci/light_soft.xml) &
           pytest tests --ignore=tests/e2e \
             --ignore=tests/test_agent_loop_light.py \
@@ -199,7 +221,7 @@ jobs:
             --ignore=tests/test_schema_light.py \
             --ignore=tests/test_sse_light.py \
             --ignore=tests/test_tls_light.py \
-            -q $PAR \
+            -q $PAR $MARK \
             --junitxml=.ci/non-e2e.xml || true
           test -f .ci/non-e2e.xml
           wait
