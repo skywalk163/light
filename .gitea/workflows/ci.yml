@@ -109,42 +109,27 @@ jobs:
           mkdir -p ~/.cache/pip
           du -sh ~/.cache/pip 2>/dev/null || true
 
-      - name: 安装测试依赖 (venv)
+      - name: 准备/复用 host 持久 venv
         run: |
-          python3 -m venv --system-site-packages .venv
-          . .venv/bin/activate
+          # 治本：把「每次 checkout 新建 .venv + 全量重装依赖」改成「host 持久 venv 跨跑复用」。
+          # FreeBSD host runner 的 $HOME（含 ~/.cache）跨 job 保留（见上方 pip 缓存步骤注释），
+          # 故 venv 一旦建好，后续跑只需激活 + pip 对已满足的包近乎瞬时跳过，
+          # 装依赖段从分钟级降到秒级，把 50min 预算余量留给测试本身。
+          VENV="$HOME/.cache/light-ci-venv"
+          if [ ! -d "$VENV" ]; then
+            python3 -m venv --system-site-packages "$VENV"
+          fi
+          . "$VENV/bin/activate"
           python -m pip install --upgrade pip
-          python -m pip install pytest
-          # cryptography 是**测试侧**依赖（tests/test_tls_light.py 用它在临时目录生成自签
-          # 证书），不进 .light 实现、不破坏「运行时零第三方依赖」。以前没写在这里也绿，
-          # 靠的是 `--system-site-packages` 从 runner 系统 python 里蹭到了一份 ——
-          # 那是隐性依赖：换台干净 runner，下面「纯光明测试（硬）」那步会直接红。
-          # 2026-08-24 Linux 实测记录见 POSIX验证报告_Linux.md §E.3。
-          # 装不上也不在这一步拦：test_tls_light.py 侧有响亮降级（一条红代表全文件），
-          # 信号不会丢，反而能指到根因。
-          python -m pip install cryptography || true
-          # xdist 是「37min CI」的根因修复项（task-CIperf 2026-09-08）：原
-          # `pip install pytest-xdist || true` 在 devpi 镜像无此包时静默降级成
-          # 串行跑 8000+ 测试。改为先试 devpi、失败强制回退公共 PyPI 装齐；
-          # 仍失败则**让这一步红**（不再 || true 静默慢），逼出「runner 该预热
-          # pytest-xdist」这个真实基建问题。装上都走公共索引确保 -n 生效。
-          python -m pip install pytest-xdist || \
-            python -m pip install --index-url https://pypi.org/simple pytest-xdist
-          # 测试侧第三方依赖（2026-09-01 增补）：
-          #   - lunardate：农历/节气/节假日换算，test_datetime ×8 依赖，缺则整文件红。
-          #   - aiohttp：异步 HTTP/IO，test_http_client（2 例）+ test_async_io（1 例）依赖。
-          # 本机 devpi 镜像未必有（numpy 也取不到，见上方注释），先试 devpi，失败回退公共
-          # PyPI；仍失败不拦（属环境债，CI 已按 --soft-classname 只报不拦）。这两个包装好后，
-          # 回归闸门会看到「相比基线已转绿 11+ 条」（属改善，不触发拦截面）。
-          python -m pip install lunardate aiohttp || python -m pip install --index-url https://pypi.org/simple lunardate aiohttp || true
-          # 科学计算库（e2e 示例依赖）：
-          #   - pandas：数据处理，demo2_pandas_csv 依赖
-          #   - matplotlib：绘图，demo3_matplotlib_plot 依赖
-          #   - scikit-learn：机器学习，demo5_sklearn_iris 依赖
-          #   - sympy：符号计算，demo3_math 依赖
-          # 本机 devpi 镜像缺失这些包，先试 devpi，失败回退公共 PyPI；仍失败不拦（属环境债）。
+          # 必需依赖：pytest 框架 + xdist 并行（37min→15min 根因修复）+ cryptography/
+          # lunardate/aiohttp/pypinyin/opencc 测试侧与积木库门禁硬依赖（缺则整文件/整门禁红，
+          # 信号不能丢，故不 || true）。devpi 镜像未必有，先试 devpi 失败强制回退公共 PyPI。
+          python -m pip install pytest pytest-xdist cryptography lunardate aiohttp pypinyin opencc-python-reimplemented || \
+            python -m pip install --index-url https://pypi.org/simple pytest pytest-xdist cryptography lunardate aiohttp pypinyin opencc-python-reimplemented
+          # 科学计算包（e2e 示例依赖）：CI 不拦（缺则 demo 留基线），预装后零下载。
           python -m pip install pandas matplotlib scikit-learn sympy || \
-          python -m pip install --index-url https://pypi.org/simple pandas matplotlib scikit-learn sympy || true
+            python -m pip install --index-url https://pypi.org/simple pandas matplotlib scikit-learn sympy || true
+          touch "$VENV/.ready"
 
       - name: 计时打点（装依赖）
         run: python3 tools/ci/time_budget.py --mark 装依赖
@@ -185,7 +170,7 @@ jobs:
           # v7 单 25 口径：提到 20.0（实测最坏值约 1.5 倍余量），仍能拦下 O(n^2) 级回退。
           LEXER_PERF_LIMIT: "20.0"
         run: |
-          . .venv/bin/activate
+          . "$HOME/.cache/light-ci-venv/bin/activate"
           mkdir -p .ci
           # xdist 已在上方强制安装（devpi→公共 PyPI）；装不上则退回串行，不报错。
           # -n 4：runner 仅 4 核，4 路并行已是上限；再高会触发核争抢（见 ci.yml 头部
@@ -241,7 +226,7 @@ jobs:
       #   本轮 main 尚不存在，不在此列。）
       - name: 纯光明硬判绿点（TLS/SSE）
         run: |
-          . .venv/bin/activate
+          . "$HOME/.cache/light-ci-venv/bin/activate"
           pytest tests/test_tls_light.py tests/test_sse_light.py -q --junitxml=.ci/light_hard.xml
           test -f .ci/light_hard.xml
 
@@ -258,7 +243,7 @@ jobs:
       # tests/unit/**、tests/integration/**、tests/e2e/** 不在豁免内，照常硬判。
       - name: 回归闸门（基线对比）
         run: |
-          . .venv/bin/activate
+          . "$HOME/.cache/light-ci-venv/bin/activate"
           python tools/ci/check_regression.py \
             --junit .ci/non-e2e.xml \
             --junit .ci/e2e.xml \
@@ -278,7 +263,7 @@ jobs:
       # 编译期正确、运行期骗人的块，只有真去 import 一遍才抓得到。
       - name: lightpub 文档可导入性闸门
         run: |
-          . .venv/bin/activate
+          . "$HOME/.cache/light-ci-venv/bin/activate"
           pytest tests/unit/test_lightpub_doc_importability.py -q
 
       # 积木库门禁：五把尺子 + 硬门槛 + 兜底闸门。此前积木库（选块器 / 概念词典 / 契约索引 /
@@ -288,9 +273,9 @@ jobs:
       # 块跑不起来 / 兜底闸门不过，CI 直接红。
       - name: 积木库门禁（五把尺子 + 兜底闸门）
         run: |
-          . .venv/bin/activate
-          # 少数块依赖第三方包；装不上不致命（冒烟会标成「缺依赖」单列，不计入分母）
-          python -m pip install pypinyin lunardate opencc-python-reimplemented || true
+          . "$HOME/.cache/light-ci-venv/bin/activate"
+          # pypinyin/lunardate/opencc 已在「准备/复用 host 持久 venv」步预装进持久 venv，
+          # 此处不再重复装（每次重装是无谓耗时）。少数块仍依赖它们，缺则冒烟标「缺依赖」单列。
           python 积木库/评估/ci_eval.py --并发 8
 
       # D3-1/D3-2：两道质量度量门禁。都是「基线对比、只拦新增」，不是一刀切阈值——
@@ -300,7 +285,7 @@ jobs:
       #   python tools/ci/bootstrap_rate.py --write-baseline tests/ci_baseline_bootstrap.txt
       - name: 断言质量门禁（假绿形态·基线对比）
         run: |
-          . .venv/bin/activate
+          . "$HOME/.cache/light-ci-venv/bin/activate"
           # 扫描根 = 全仓（2026-08-23 用户裁决）。原来只扫 tests/，同形态违规在
           # tests/ 之外还有 50 条（antlrparser/、tools/、examples/ 的自测脚本），
           # 门禁的覆盖面窄于它自己声明的形态覆盖面。全仓实测 1.7s，仍在 <5s 承诺内。
@@ -311,7 +296,7 @@ jobs:
       # 门禁守两条：已破零的文件不许退回 0；文件维度自举率不许下降。
       - name: 自举率门禁（文件维度·不许回退）
         run: |
-          . .venv/bin/activate
+          . "$HOME/.cache/light-ci-venv/bin/activate"
           python tools/ci/bootstrap_rate.py --root .
 
       # E7（第七轮 M20）：两道新度量门禁。都是**纯静态扫描**——不 import、不编译任何
@@ -323,7 +308,7 @@ jobs:
       #    棘轮（只降不升），刻意不要求降到 0：那会逼出「换写法绕正则」的假降。
       - name: Python 直调计数门禁（口径见脚本 docstring·只降不升）
         run: |
-          . .venv/bin/activate
+          . "$HOME/.cache/light-ci-venv/bin/activate"
           python tools/ci/python_direct_calls.py --root .
 
       # 2) 功能对标清单：把「离能开发 deepseek-harness 还差多少」变成机读判据。
@@ -331,7 +316,7 @@ jobs:
       #    done/partial 必须有存在的证据文件（行号不校验，行号会漂移）。
       - name: 功能对标清单门禁（完成度只升不降）
         run: |
-          . .venv/bin/activate
+          . "$HOME/.cache/light-ci-venv/bin/activate"
           python tools/ci/spec_coverage.py --root .
 
       # G9（第九轮 M22/M23/M24）：三道新度量门禁，同样是纯静态扫描（各 1s 级），
@@ -344,7 +329,7 @@ jobs:
       #    比例只升不降，且 native_required 名单新增即红（防「挪进豁免缩分母」）。
       - name: 地板自举率门禁（builtins 搬迁·只升不降）
         run: |
-          . .venv/bin/activate
+          . "$HOME/.cache/light-ci-venv/bin/activate"
           python tools/ci/floor_bootstrap.py --root .
 
       # 4) 原生腿产品清单：模块级 / CLI 路径级 / 平台级三张表。
@@ -352,14 +337,14 @@ jobs:
       #    （这条专治「只在 Windows 测过就声称跨平台」）。
       - name: 原生腿产品门禁（模块/CLI/平台三表）
         run: |
-          . .venv/bin/activate
+          . "$HOME/.cache/light-ci-venv/bin/activate"
           python tools/ci/native_product.py --root .
 
       # 5) 分布式判据清单：done 必须同时有可定位的判据与含动作词的反跑。
       #    **没有反跑就不算判据**（总纲 §5 红线 3，继承第七轮「上界断言是假绿主形态」）。
       - name: 分布式判据门禁（没有反跑就不算判据）
         run: |
-          . .venv/bin/activate
+          . "$HOME/.cache/light-ci-venv/bin/activate"
           python tools/ci/dist_criteria.py --root .
 
 
@@ -370,7 +355,7 @@ jobs:
       - name: 时间预算闸门
         if: always()
         run: |
-          . .venv/bin/activate
+          . "$HOME/.cache/light-ci-venv/bin/activate"
           python tools/ci/time_budget.py --mark 闸门与积木库
           BUDGET=3000
           if [ "${{ github.event_name }}" = "pull_request" ]; then BUDGET=1800; fi
