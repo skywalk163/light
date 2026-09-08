@@ -26,6 +26,24 @@ sys.path.insert(0, _tools_dir)
 sys.path.insert(0, _stdlib_dir)
 sys.path.insert(0, _contrib_dir)
 
+# ── 2026-09-08 CI 时间治理（task-CIperf）──────────────────────────────────────
+# 预热最重的共享模块：全仓 7986 条用例的 test 文件几乎都 `from light_parser_v3
+# import ...` / `from code_generator import ...`。这里在 conftest 加载期先把它们
+# 构造一次，让后续测试文件的同名 import 直接命中 sys.modules 缓存。
+# 注意：Python 的 import 本就按 sys.modules 去重，所以这一预热对「总 import 次数」
+# 没有减少（首个测试文件触发后同样只构造一次）；实测对 collect 时间只有约 10% 的
+# 边际收益（64s→57s），真正的 37min→15min 由 xdist 并行 + PR 跳过 slow 命中。
+# 用 try/except 兜底：解析器若在某环境 import 失败，绝不能连累整轮收集（否则一个
+# 解析器 bug 会把全仓测试全打成 collection error，掩盖真正的回归点）；失败时仅告警，
+# 由真正依赖它的测试各自报错。
+try:
+    import light_parser_v3  # noqa: E402,F401
+    import code_generator   # noqa: E402,F401
+except Exception as _e:  # pylint: disable=broad-except
+    import warnings
+    warnings.warn("conftest 预热 light_parser_v3/code_generator 失败（%r），"
+                  "回退为各测试文件自行 import。" % (_e,))
+
 
 
 @pytest.fixture(autouse=True)

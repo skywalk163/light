@@ -514,6 +514,19 @@ Windows 下按 GBK 输出会被当成乱码误判成冒烟不通过；现钉 `PY
 整个文件被注释掉、只剩形状，`stdlib/日期时间.light` 是其中之一（正因为没有魔数所以无害）。
 待定方案是缩成「导出清单 + 显式 NotImplemented」，会影响自举率口径，未决。
 
+### 12.7 [2026-09-07·CIA-timeout 调查抓出] `_gen_coroutine_function` 缺 `prev_module` 保存 → 协程段 NameError（**已修**）
+
+- **现象**：原生腿协程测试（`tests/test_native_cli.py` 的 `协程` 四档用例、`tests/test_llvm_net.py::TestB3EventLoop::test_coro_sleep_basic`）编译期抛 `NameError: name 'prev_module' is not defined`（`src/llvm/codegen_typed.py:5927`）。
+- **根因**：commit `4897ec90`（T9A `_safe_func_name` 跨模块同名段根因修复）在函数尾新增 `self._current_module = prev_module` 的「恢复」，但函数开头没有对应的 `prev_module = self._current_module` 保存。`_gen_async_segment` 同款路径在 5561 行正确保存，协程函数路径漏了。
+- **影响窗口**：该回归在 **run 161 之后**引入。run 161（≈ 841f1d45）时协程段还能正常编译，正是那时 `睡眠(50)`×4 + `睡眠(100)` 真的跑出 ~300s 纯 idle sleep，把主测试（xdist 装不上时串行）拖爆超时。修复 `prev_module` 后协程测试恢复可编译可跑。
+- **处置**：已在 `src/llvm/codegen_typed.py` `_gen_coroutine_function` 开头补 `prev_module = self._current_module`（commit 见 CIA-timeout 交付）。本次 timeout 的真正根因是测试里 **`睡眠(50)`/`睡眠(100)` 过长**，已同步降到 `睡眠(2)`（见下条 §超时根因）。
+
+### 12.8 [2026-09-07·CIA-timeout 根因] 原生协程测试 `睡眠(50)`/`睡眠(100)` 过长 → 主测试超时（**已修**）
+
+- **根因**：`tests/test_native_cli.py::Test优化档矩阵::test_四档产物真跑` 的 `协程` 用例源码含 `睡眠(50)`，按 `优化级别=[0,1,2,3]` 参数化 = 4 次 × 50s；`tests/test_llvm_net.py::TestB3EventLoop::test_coro_sleep_basic` 含 `睡眠(100)`。二者都在「全量除 e2e」主测试集内（未被 CI 排除）。
+- **为什么炸**：CI 主测试 `pytest ... -n auto`；当 devpi 镜像装不上 `pytest-xdist` 时退回串行（见 ci.yml 注释），4×50s + 100s = 300s 纯挂起，落在 97%→98% 这一格，把主测试从 run 114 基线 ~880s 推到 1061s+ 被 act_runner 整体超时（29min）杀掉、无 junit。
+- **判据本质**：这两条测试只断言协程 yield/恢复的**输出顺序**，不需要任何真实时长；`睡眠(2)` 足以证明事件循环挂起后恢复。已改为 `睡眠(2)`（4×2s + 2s ≈ 10s 代替 300s）。
+
 ---
 
 ## 十三、仓库债务登记（D3 本轮明文标注，2026-08-23）
@@ -2358,3 +2371,134 @@ R11A「每模块 3-5 个代表性用例」的覆盖缺口由本批补齐：
 - **修复（R13B）**：`dv_tls_bio_recv` 在 `recv()` 之前先调用 `dv_tls_flush(t)` 冲刷 out_pending 队列，确保 ClientHello 上线后再读；flush 返回 WANT_WRITE 时返回 WANT_READ 让 mbedTLS 重试。
 - **验证**：POSIX 实机 192.168.0.86（mbedTLS 2.28.8）打补丁副本 C 级探针握手成功（hs[0]=0，证书校验开启）；R13B 网络请求 HTTPS 用例 15/15 通过。
 - **反跑**：移除 bio_recv 中的 flush → POSIX HTTPS 握手立即自锁（阻塞至 EOF）。
+
+
+## R13D：_light_import_hook 拦截标准库模块导致循环导入（2026-09-07）
+
+### 缺陷 R13D-CIRC：import hook 接管 Python 标准库同名 .light 影子，编译期触发循环导入
+
+- **现象**：gitea CI run 161 e2e 的 `my_first.light` 运行期报
+  `ImportError: cannot import name 'LightParser' from partially initialized module 'light_parser_v3'`
+  （most likely due to a circular import）。本地强模拟 CI 条件（钩子置于 `sys.meta_path` 首位 +
+  从 `sys.modules` 驱逐 `inspect`）可复现等价症状
+  `AttributeError: partially initialized module 'inspect' has no attribute 'get_annotations'`。
+- **根因**：`stdlib/_light_import_hook.py` 的 `LightFinder.find_spec` 对任何 `<名>.light` 存在即拦截，
+  未排除与 Python 标准库同名的模块。编译 `.light` 时 `_compile_light` 导入
+  `light_parser_v3 → parser_core → lexer → dataclasses → inspect`，
+  而 `import inspect` 被钩子拦截去编译 `stdlib/inspect.light`；`inspect.light` 又 `import light_parser_v3`
+  （或经由同链），此时编译器处于部分初始化 → 循环导入。同理 `sys.light`/`time.light`/`re.light`
+  等无 `.py` 兄弟的纯影子在标准库名被 import 时也会被错误接管。
+- **为什么本地不报错**：本机 venv 的 `sys.meta_path` 中 `DistutilsMetaFinder`（pkg_resources）位于钩子之前，
+  恰好先把 `inspect` 等标准库解析到真 CPython 模块，掩盖了缺陷；CI runner 上钩子更靠前才会触发。
+  属「环境依赖型隐藏 bug」，本地无法逐条复现，靠强模拟 CI 条件验证。
+- **修复（R13D，仅动 `stdlib/_light_import_hook.py`，不动 `code_generator.py` 别名逻辑）**：
+  1. 模块级新增 `_STDLIB_MODULES = frozenset(getattr(sys,'stdlib_module_names',()))`
+     （3.10+ 权威标准库名集合）与编译深度计数 `_COMPILE_DEPTH`。
+  2. `find_spec` 对「非 `_light_` 别名」且「`realname in _STDLIB_MODULES`」的直接 import 增加早退：
+     - 编译期（`_COMPILE_DEPTH>0`）：任何标准库名一律 `return None`，让编译器用真 CPython 标准库
+       （连 `json.light`/`base64.light` 这种有 `.py` 兄弟的「纯光明实现」也只在运行期加载，编译期绝不编译同名影子）；
+     - 运行期：仅当该名字在搜索路径里没有 `.py` 兄弟（inspect/sys/time/re 这类纯影子）时 `return None`
+       放行给标准库；有 `.py` 兄弟的（json/base64，且其真实文件为 `JSON.light`/`JSON.py` 大写，
+       本就被 `_exists_exact` 大小写守卫排除）仍由钩子加载纯光明实现，运行期语义不变。
+  3. `_compile_light` 进入/退出时 `_COMPILE_DEPTH += 1` / `-= 1`（用计数而非布尔以正确处理编译嵌套）。
+  4. **不破坏 re 别名**：`从 re 导入 X` 经 `code_generator` 生成 `from _light_re import X`
+     （`_PYTHON_LEG_PURE_LIGHT_ALIAS` 唯一含 `re`），此时 `fullname='_light_re' != realname='re'`，
+     早退不触发，`_light_re` 仍正常加载 `re.light`；而 `import re`（非别名）按运行期规则放行给 CPython re——
+     与 `code_generator.py:47-51` 的设计注释完全一致（「sys/time/inspect/Base64 的 .light 只是原生腿最小面，
+     Python 腿必须命中真模块」）。
+- **验证**：
+  - CI 条件模拟（钩子首位 + 驱逐 inspect）：修复前 `import inspect` 循环导入；修复后 `import inspect → .../Lib/inspect.py`（NO CIRCULAR）。
+  - `find_spec('inspect'/'sys')` → None；`find_spec('_light_re')`/`find_spec('数学')` → 仍返回 spec（别名与中文模块不受影响）。
+  - `import re` → CPython re；`import_module('_light_re')` → `stdlib/re.light`。
+  - `python -m cli.light run examples/my_first.light` → 正常输出，RUN_EXIT=0。
+  - 新增回归测试 `tests/unit/test_light_import_hook_stdlib.py`（5 passed）。
+  - `tests/unit/test_lightpub_doc_importability.py`：-q 结果与原代码一致（1 failed 为**预存缺陷**：
+    HTTP客户端 文档围栏过时标成 text 但实际可导入，归任务 B 的 gen_lightpub_docs.py，与本修复无关）。
+- **提交**：分支 `task-CIC-import-hook`（本地分支隔离，未用 worktree——本仓 39k 文件 worktree 检出超时且有 prune 事故风险）。
+
+
+## L-070：入口函数未自动调用（`函数 主()` 程序零输出，2026-09-08）
+
+### 缺陷 L-070-ENTRY：src 后端只发 `def 主():` 定义、不发调用
+
+- **现象**：以 `主` 为入口的程序 `light run` 零输出、exit 0。
+  ```light
+  函数 主()：
+      打印("hello")
+  ```
+  手动补一行 `主()` 后正常输出。
+- **根因**：`src/code_generator.py` 的 `PythonCodeGenerator.generate()` 把
+  `函数 主()` / `段落 主：` 编成 `def 主():` 后即结束，末尾**没有入口调用逻辑**；
+  命名空间里 `主` 只是个从未被调用的函数对象。原生腿早有入口约定
+  （`src/llvm/codegen_typed.py:6328`，`main_names = {'主程序','主入口','main','主'}`），
+  src 后端缺失这一段 → 两条腿行为分叉。
+- **修复（L-070，只动 `src/code_generator.py` + `cli/light.py`）**：
+  1. `generate(module, is_main: bool = False)` 新增 `is_main` 参数，默认 False——
+     既有调用点（tests / bootstrap / benchmarks / 依赖模块）行为逐字不变。
+  2. 新增判定辅助：`_find_entry_paragraph`（顶层第一个命中
+     `ENTRY_FUNCTION_NAMES = ('主程序','主入口','main','主')` 的 Paragraph，与原生腿
+     main_names 对齐；只认顶层，类体内同名方法不算入口）、
+     `_paragraph_arity`（段落头参数 + 段体内 `接收`/参数声明；有参入口无法确定实参 → 跳过）、
+     `_node_calls_name`（递归识别 ParagraphCall / Identifier；`RunAsyncStmt.call`
+     在遍历范围内，故 `异步 运行 主()` 天然算「已启动入口」）、
+     `_module_invokes_entry`（只扫顶层语句，不进段落体/类体——函数体里的 `主()` 是递归调用）。
+  3. 主文件（is_main=True）且「入口存在 + 零参 + 模块级未显式启动」时，产物末尾追加
+     `if __name__ == '__main__': 主()`；异步入口（`异步 段落 主`）改发 `asyncio.run(主())`
+     并置位 `_needs_asyncio`——判定必须放在 asyncio import 插入块**之前**，否则产物里
+     asyncio 未导入 → 运行期 NameError。
+  4. `cli/light.py::_compile_src()` 传 `is_main=True`（`light run` 与
+     `light compile --backend src` 均走它）；`_resolve_local_imports()` 内联的依赖模块
+     保持默认 False——依赖模块代码与主代码共享同一 `__main__` 命名空间，一旦追加就会
+     import 即执行副作用（dep 里的 `主()` 被误跑）。
+- **验证**：
+  - `python -m pytest tests/test_entry_function.py -q` → 10 passed（新增，覆盖 函数主/段落主/
+    主程序·主入口·main/ 显式调用不重复 / 异步运行不冲突 / 有参不调用 / 入口守卫 /
+    依赖模块主不被调用 / 主文件带依赖仍自动调用 / 汉诺塔完整程序）。
+  - `python -m pytest tests/test_self_host_bootstrap.py -q` → 62 passed, 2 skipped（不回归）。
+  - `python -m pytest tests/unit/test_examples_run.py -q` → 22 subtests passed（不回归）。
+  - 真 CLI：`python -m cli.light run` 一段 `函数 主(): 打印("hello-from-cli")` → 输出
+    `hello-from-cli`，exit 0（修复前无输出、exit 0）。
+- **反跑**：把 `code_generator.py` 中 `if self._entry_call:` 改成 `if False and self._entry_call:`
+  → `tests/test_entry_function.py` 立即 6 red（函数主 / 段落主 / 主程序·主入口·main /
+  入口守卫 / 主文件带依赖 / 汉诺塔），恢复即 10 passed；余下 4 条（显式调用不重复、
+  异步运行不冲突、有参不调用、依赖模块主不被调用）本就不依赖自动调用，保持绿——正好
+  反向钉住「只在真正需要时追加」。
+- **提交**：分支 `task-L070-entry`（本地分支隔离——本仓 39k 文件 worktree 检出实测 40 分钟
+  仅完成 78MB/273MB，与 R13D 记录同源，故沿用本地分支惯例，未用 worktree）。
+
+---
+
+## CI 全量测试耗时优化（task-CIperf · 2026-09-08）
+
+- **背景**：全量测试 8263 个（7985 非 e2e + 278 e2e），CI 实测 37min（2220s），超 push main
+  预算 1400s 约 58%。根因 = `pytest-xdist` 用 `|| true` 安装，本地 devpi 镜像（127.0.0.1:3141）
+  无此包 → 静默降级串行跑 8000+ 测试。
+- **修复（5 项，均只改 CI 配置 / conftest / marker，不动测试逻辑）**：
+  1. **强制 xdist 并行**：`.gitea/workflows/ci.yml` 安装步改为
+     `pip install pytest-xdist || pip install --index-url https://pypi.org/simple pytest-xdist`
+     （去掉 `|| true` 静默降级，装不上就让该步红，逼出「runner 预热 xdist」基建问题）；
+     并行参数 `PAR` 由 `-n auto` 改为 **`-n 4`**（runner 仅 4 核，避免核争抢净亏）。
+  2. **slow 标记隔离**：`pyproject.toml` 的 `[tool.pytest.ini_options]` 注册 `slow` marker；
+     `tests/e2e/*.py` 共 10 个文件全部加模块级 `pytestmark = pytest.mark.slow`（已有
+     `skipif` 的 2 个文件合并成 `[slow, skipif(...)]`）。CI 在 PR 触发时传 `-m "not slow"`，
+     main 推送跑全量。
+  3. **pip 缓存**：本地 gitea 镜像**未提供 `actions/cache`（探测 404）**，故不走 actions/cache；
+     改用 host 模式 runner 跨跑保留的 `~/.cache/pip`（显式建目录 + 报告体积），零外部 action 依赖。
+  4. **conftest 预热**：`tests/conftest.py` 在加载期 try/except 兜底预热 `light_parser_v3` /
+     `code_generator`（避免首个测试文件 import 时的一次性构造散落；解析器若失败仅告警、不连累整轮收集）。
+  5. **e2e 精简**：10 个 e2e 文件按领域（L3/L4/llvm/bootstrap/registry/parser_fuzz…）隔离，
+     非冗余重复，故**未做合并**（合并会丢领域覆盖）；其耗时已由 PR 跳过 slow 吸收。
+- **验证（本地 Windows + 受管 venv，pytest 9.1.1 / xdist 3.8.0）**：
+  - `pytest tests/unit/test_parser.py -n 4 -q` → 12 passed，xdist 起 4 节点，并行生效、无回归。
+  - `pytest tests/e2e --collect-only -q` → **278 collected**；`-m "not slow"` → **278 deselected / 0 collected**，
+    无 `unknown mark` 警告（marker 注册正确）。
+  - `ci.yml` 经 `yaml.safe_load` 校验合法；`xdist` 安装行已无 `|| true`。
+- **未达预期 / 诚实披露**：
+  - **collect 时间 37s→20s 未达成**：本地实测 collect 仅 64.1s→56.6s（约 12% 边际收益），远未到 20s。
+    根因 = Python `import` 本就按 `sys.modules` 去重，conftest 预热不减少「总 import 次数」；
+    collect 主导成本是 **7986 个模块的执行 + 冷字节码（.pyc）**，非 import 重复。故 collect 时间
+    不在 37min→15min 的关键路径上——**该目标由 xdist 并行 + PR 跳过 slow（运行时间）命中**，而非 collect。
+  - collect 时间的进一步收敛依赖 runner 侧保留 `__pycache__` 跨跑（host 模式 workdir 已具备），不在本仓文件可控范围。
+- **提交**：分支 `task-CIperf`（本地分支隔离，同 `task-L070-entry` 惯例未用 worktree）；改动文件 =
+  `.gitea/workflows/ci.yml`、`pyproject.toml`、`tests/conftest.py`、`tests/e2e/*.py`(10)。
+  按工程铁律**未擅自 commit/merge main**，由主 agent 统一合流。

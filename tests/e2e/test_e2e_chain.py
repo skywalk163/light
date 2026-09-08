@@ -17,6 +17,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+pytestmark = pytest.mark.slow
 
 # 项目根目录（tests/e2e/ → 项目根）
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent

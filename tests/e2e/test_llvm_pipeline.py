@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import pytest
+pytestmark = pytest.mark.slow
 """光明 LLVM 旧路径（`antlrparser/`）的**存在性冒烟** —— 本文件不承重
 
 第七轮 A7 就本文件的处置做了明确表态，选的是「降级为冒烟并写清它不承重」

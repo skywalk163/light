@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import pytest
+pytestmark = pytest.mark.slow
 """
 光明包注册表端到端测试
 

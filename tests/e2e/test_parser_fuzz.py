@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import pytest
+pytestmark = pytest.mark.slow
 """
 解析器模糊测试（Fuzz Testing）
 覆盖：边界输入、异常输入、深层嵌套、特殊字符，确保解析器不崩溃
