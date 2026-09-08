@@ -295,6 +295,7 @@ class LightParserCore:
     def __init__(self):
         self.lexer = Lexer()
         self.tokens: List[Token] = []
+        self._n_tokens = 0  # 缓存 len(tokens)，消除热路径中重复 len() 调用
         self.pos = 0
         self._in_foreach_context = False  # 在遍历循环中禁用"之"的成员访问解析
 
@@ -317,6 +318,7 @@ class LightParserCore:
         
         # 过滤掉 EOF，保留 NEWLINE、INDENT/DEDENT 用于块结构解析
         self.tokens = [t for t in tokens if t.type != TokenType.EOF]
+        self._n_tokens = len(self.tokens)  # 缓存长度，供 _current/_peek 等热路径使用
         self.pos = 0
         
         # 保存源代码行用于错误上下文显示
@@ -486,23 +488,33 @@ class LightParserCore:
             skipped += 1
     
     def _current(self) -> Optional[Token]:
-        """获取当前 Token"""
-        if self.pos < len(self.tokens):
+        """获取当前 Token
+
+        性能优化：try/except IndexError 比 if pos < n 比较更快（CPython 中
+        try 块在无异常时近乎零开销），self.pos 在正常流程中单调递增、回退
+        仅在已消耗 token 后 -=1（保证 >= 0），不会产生负索引副作用。
+        """
+        try:
             return self.tokens[self.pos]
-        return None
+        except IndexError:
+            return None
     
     def _peek(self, offset: int = 0) -> Optional[Token]:
         """查看指定位置的 Token"""
         idx = self.pos + offset
-        if 0 <= idx < len(self.tokens):
+        if 0 <= idx < self._n_tokens:
             return self.tokens[idx]
         return None
     
     def _consume(self, expected_type=None, expected_value=None) -> Token:
         """消耗并返回当前 Token"""
-        tok = self._current()
+        # 内联 _current() 消除函数调用开销（38K+ 次调用）
+        try:
+            tok = self.tokens[self.pos]
+        except IndexError:
+            tok = None
         if tok is None:
-            last_tok = self.tokens[-1] if self.tokens else None
+            last_tok = self.tokens[-1] if self._n_tokens else None
             line = last_tok.line if last_tok else 0
             col = last_tok.col if last_tok else 0
             hint = ""
@@ -524,8 +536,10 @@ class LightParserCore:
     
     def _match(self, token_type, value=None) -> bool:
         """检查当前 Token 是否匹配"""
-        tok = self._current()
-        if tok is None:
+        # 内联 _current() 消除函数调用开销（34K+ 次调用）
+        try:
+            tok = self.tokens[self.pos]
+        except IndexError:
             return False
         if tok.type != token_type:
             return False

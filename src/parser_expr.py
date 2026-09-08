@@ -62,6 +62,15 @@ _KWARG_NAME_STOP_KEYWORDS = frozenset({
     '匹配', '情况', '的', '之', '对', '步', '至', '到',
 })
 
+# 表达式终止符 token 类型集合（模块级常量，避免热路径中重复创建元组）
+_EXPR_TERMINATOR_TYPES = frozenset({
+    TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT,
+    TokenType.DOT, TokenType.PERIOD,
+})
+
+# NEWLINE / INDENT 集合（_skip_implicit_continuation 用）
+_NEWLINE_INDENT_TYPES = frozenset({TokenType.NEWLINE, TokenType.INDENT})
+
 
 class ParserExprMixin:
     """表达式解析混入类"""
@@ -92,9 +101,7 @@ class ParserExprMixin:
         tok = self._current()
         if tok is None:
             return True
-        if tok.type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT, TokenType.DOT, TokenType.PERIOD):
-            return True
-        return False
+        return tok.type in _EXPR_TERMINATOR_TYPES
 
     def _skip_implicit_continuation(self) -> None:
         """L-023：行尾二元运算符后的隐式续行（Python 风格）。
@@ -105,8 +112,10 @@ class ParserExprMixin:
         明显的畸形续行（Python 同样报错），吞 DEDENT 会破坏块结构语义
         （L-013 防回归：单行体判定依赖 NEWLINE 闭合）。
         """
-        while self._current() and self._current().type in (TokenType.NEWLINE, TokenType.INDENT):
+        tok = self._current()
+        while tok is not None and tok.type in _NEWLINE_INDENT_TYPES:
             self._consume()
+            tok = self._current()
 
     def _try_parse_keyword_arg(self) -> Optional[ASTNode]:
         """尝试把当前位置解析成具名实参 `名 = 值`；失败则原位回退并返回 None。
@@ -215,8 +224,10 @@ class ParserExprMixin:
         
         left = self._parse_comparison()
         
-        while self._current() and not self._is_expr_terminator():
+        while True:
             tok = self._current()
+            if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
+                break
             if tok.type == TokenType.KEYWORD and tok.value in self.LOGICAL_OP_MAP:
                 op = self._consume().value
                 # 跳过 NEWLINE/INDENT/DEDENT（支持多行表达式）
@@ -243,8 +254,10 @@ class ParserExprMixin:
     def _parse_logical_or_expr(self) -> ASTNode:
         """或 层：a 或 b（最低逻辑优先级，先于 且 结合）"""
         left = self._parse_logical_and_expr()
-        while self._current() and not self._is_expr_terminator():
+        while True:
             tok = self._current()
+            if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
+                break
             if tok.type == TokenType.KEYWORD and tok.value == '或':
                 self._consume()
                 self._skip_implicit_continuation()
@@ -257,8 +270,10 @@ class ParserExprMixin:
     def _parse_logical_and_expr(self) -> ASTNode:
         """且/与 层：a 且 b（高于 或，低于比较）"""
         left = self._parse_comparison_chain()
-        while self._current() and not self._is_expr_terminator():
+        while True:
             tok = self._current()
+            if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
+                break
             if tok.type == TokenType.KEYWORD and tok.value in ('且', '与'):
                 self._consume()
                 self._skip_implicit_continuation()
@@ -272,8 +287,10 @@ class ParserExprMixin:
         """解析比较表达式（原 _parse_comparison 主体）"""
         left = self._parse_bitor_expr()
         
-        while self._current() and not self._is_expr_terminator():
+        while True:
             tok = self._current()
+            if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
+                break
             # 明确标注不支持的特性（P1-3）：海象运算符 :=
             if tok.type == TokenType.WALRUS:
                 self._error(
@@ -358,8 +375,10 @@ class ParserExprMixin:
     def _parse_bitor_expr(self) -> ASTNode:
         """解析按位或表达式（位或）"""
         left = self._parse_bitxor_expr()
-        while self._current() and not self._is_expr_terminator():
+        while True:
             tok = self._current()
+            if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
+                break
             if (tok.type == TokenType.IDENTIFIER or tok.type == TokenType.KEYWORD) \
                and tok.value in self.BITWISE_OR_MAP:
                 self._consume()
@@ -373,8 +392,10 @@ class ParserExprMixin:
     def _parse_bitxor_expr(self) -> ASTNode:
         """解析按位异或表达式（位异或）"""
         left = self._parse_bitand_expr()
-        while self._current() and not self._is_expr_terminator():
+        while True:
             tok = self._current()
+            if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
+                break
             if (tok.type == TokenType.IDENTIFIER or tok.type == TokenType.KEYWORD) \
                and tok.value in self.BITWISE_XOR_MAP:
                 self._consume()
@@ -388,8 +409,10 @@ class ParserExprMixin:
     def _parse_bitand_expr(self) -> ASTNode:
         """解析按位与表达式（位与）"""
         left = self._parse_shift_expr()
-        while self._current() and not self._is_expr_terminator():
+        while True:
             tok = self._current()
+            if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
+                break
             if (tok.type == TokenType.IDENTIFIER or tok.type == TokenType.KEYWORD) \
                and tok.value in self.BITWISE_AND_MAP:
                 self._consume()
@@ -403,8 +426,10 @@ class ParserExprMixin:
     def _parse_shift_expr(self) -> ASTNode:
         """解析位移表达式（左移 / 右移）"""
         left = self._parse_add_expr()
-        while self._current() and not self._is_expr_terminator():
+        while True:
             tok = self._current()
+            if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
+                break
             if (tok.type == TokenType.IDENTIFIER or tok.type == TokenType.KEYWORD) \
                and tok.value in self.SHIFT_OP_MAP:
                 self._consume()
@@ -419,8 +444,10 @@ class ParserExprMixin:
         """解析加减表达式"""
         left = self._parse_mul_expr()
         
-        while self._current() and not self._is_expr_terminator():
+        while True:
             tok = self._current()
+            if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
+                break
             # 支持：加、减、加上、减去
             if tok.type == TokenType.KEYWORD and tok.value in self.ADD_OP_MAP:
                 op = self._consume().value
@@ -470,8 +497,10 @@ class ParserExprMixin:
         """解析乘除表达式"""
         left = self._parse_power_expr()
         
-        while self._current() and not self._is_expr_terminator():
+        while True:
             tok = self._current()
+            if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
+                break
             # 支持：乘、除、乘以、除以
             if tok.type == TokenType.KEYWORD and tok.value in self.MUL_OP_MAP:
                 op = self._consume().value
@@ -531,8 +560,10 @@ class ParserExprMixin:
         """解析幂表达式（优先级高于乘除，右结合）"""
         left = self._parse_primary()
         
-        while self._current() and not self._is_expr_terminator():
+        while True:
             tok = self._current()
+            if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
+                break
             if tok.type == TokenType.KEYWORD and tok.value in self.POWER_OP_MAP:
                 op = self._consume().value
                 # 幂运算是右结合的，右侧递归调用自身
@@ -865,8 +896,10 @@ class ParserExprMixin:
                 # L-012：支持模块限定类名（如 新建 终端.终端会话(...)），
                 # '模块.类名' 算一个完整的类名，而非把 '.' 后面当成对实例的成员访问。
                 class_name_parts = []
-                while self._current():
+                while True:
                     ct = self._current()
+                    if ct is None:
+                        break
                     if ct.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
                         class_name_parts.append(ct.value)
                         self._consume()
@@ -890,7 +923,10 @@ class ParserExprMixin:
                 # 两端都不需要），再正常解析构造参数。
                 if self._current() and self._current().type == TokenType.LBRACKET:
                     self._consume(TokenType.LBRACKET)
-                    while self._current() and self._current().type != TokenType.RBRACKET:
+                    while True:
+                        _bt = self._current()
+                        if _bt is None or _bt.type == TokenType.RBRACKET:
+                            break
                         self._consume()
                     self._consume(TokenType.RBRACKET)
                 
@@ -908,8 +944,10 @@ class ParserExprMixin:
                     self._consume(TokenType.RPAREN)
                 else:
                     # 无括号参数
-                    while self._current():
+                    while True:
                         next_tok = self._current()
+                        if next_tok is None:
+                            break
                         if next_tok.type in (TokenType.DOT, TokenType.PERIOD, TokenType.COMMA, TokenType.RPAREN, TokenType.RBRACKET, TokenType.SEMICOLON):
                             break
                         if next_tok.type == TokenType.KEYWORD and next_tok.value in ALL_KEYWORDS and next_tok.value not in _EXPR_START_KEYWORDS:
@@ -1547,12 +1585,14 @@ class ParserExprMixin:
             self._consume()
             
             # f-string 检测：f 后跟 STRING => f"..."
-            if name == 'f' and self._current() and self._current().type == TokenType.STRING:
-                str_val = self._consume().value
-                parts = self._parse_fstring_parts(str_val)
-                from ast_nodes_v3 import StringInterpolation
-                expr = StringInterpolation(parts)
-                return self._parse_postfix(expr)
+            if name == 'f':
+                _fnext = self._current()
+                if _fnext and _fnext.type == TokenType.STRING:
+                    str_val = self._consume().value
+                    parts = self._parse_fstring_parts(str_val)
+                    from ast_nodes_v3 import StringInterpolation
+                    expr = StringInterpolation(parts)
+                    return self._parse_postfix(expr)
             
             # 合并连续的 IDENTIFIER 令牌（tokenizer 可能把 "字典创建" 拆成两个 IDENTIFIER）。
             # 不合并运算符动词（如"减去"、"取余"等）。
@@ -1564,11 +1604,14 @@ class ParserExprMixin:
             # 前一个令牌的结束列（col + len(value)）时才合并；带空格的 "转字符串 x"
             # 保持为两个独立标识符（转字符串 为函数调用，x 为参数）。
             _prev_col = tok.col + len(tok.value)
-            while self._current() and self._current().type == TokenType.IDENTIFIER \
-                    and self._current().value not in self.ADD_OP_MAP \
-                    and self._current().value not in self.MUL_OP_MAP \
-                    and self._current().value != '不':
+            # 性能优化：原实现每轮调用 5 次 _current()，改为 1 次缓存
+            while True:
                 _cur = self._current()
+                if _cur is None or _cur.type != TokenType.IDENTIFIER \
+                        or _cur.value in self.ADD_OP_MAP \
+                        or _cur.value in self.MUL_OP_MAP \
+                        or _cur.value == '不':
+                    break
                 if _cur.col != _prev_col:
                     break
                 name += self._consume().value
@@ -1577,7 +1620,8 @@ class ParserExprMixin:
             # 函数名含动词关键字合并（如"添加模板"被拆分为 添+加+模+板，其中加/模是 OPERATOR_VERBS）
             # 仅当 token 在源码中相邻（无空格）且合并后紧跟 ( 时才合并
             # 通过相邻性检查区分 "添加模板" 和 "甲 加 乙"
-            if self._current() and self._current().type == TokenType.KEYWORD:
+            _kw_tok = self._current()
+            if _kw_tok and _kw_tok.type == TokenType.KEYWORD:
                 _fn_saved_pos = self.pos
                 _fn_prev = tok
                 _fn_parts = [name]
@@ -1589,8 +1633,10 @@ class ParserExprMixin:
                     '匹配','情况','的','之','对','步','至','到','在','于','中的',
                     '包含',  # 动词停止符
                 })
-                while self._current():
+                while True:
                     _ct = self._current()
+                    if _ct is None:
+                        break
                     if _ct.type == TokenType.KEYWORD and _ct.value not in _fn_stop:
                         if _fn_prev.col + len(_fn_prev.value) != _ct.col:
                             break
