@@ -1,6 +1,6 @@
 # Getting Started with Light
 
-> **Version:** v6.0
+> **Version:** v7.0
 > **Last updated:** 2026-08-07
 
 ---

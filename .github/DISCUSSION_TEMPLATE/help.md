@@ -14,7 +14,7 @@ assignees: ''
 
 - 操作系统： [例如 Windows 11 / macOS 14 / Ubuntu 22.04]
 - Python 版本： [例如 Python 3.12.0]
-- 光明版本： [运行 `light --version` 输出，若使用 v6.0]
+- 光明版本： [运行 `light --version` 输出，若使用 v7.0]
 - 安装方式： [pip install / 源码安装]
 
 ## 复现步骤

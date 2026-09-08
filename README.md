@@ -1,7 +1,7 @@
 # 光明（LightLang）编程语言
 
 [![CI 4.0dev](https://github.com/skywalk163/light/actions/workflows/ci.yml/badge.svg?branch=4.0dev)](https://github.com/skywalk163/light/actions/workflows/ci.yml?query=branch%3A4.0dev)
-[![版本](https://img.shields.io/badge/v7.0.0-五层语法架构-blue)](#v40-五层语法架构)
+[![版本](https://img.shields.io/badge/v7.0-五层语法架构-blue)](#v40-五层语法架构)
 [![L1 课程](https://img.shields.io/badge/L1-白话体·青少年入门-green)](#v40-课程体系)
 [![L2 工程](https://img.shields.io/badge/L2-文言体·商用工程-orange)](#v40-课程体系)
 [![L3 领域](https://img.shields.io/badge/L3-SQL·正则·数学-8A2BE2)](#e阶段l3-原生语法--l4-沙箱隔离已完成)

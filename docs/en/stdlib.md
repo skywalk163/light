@@ -1,6 +1,6 @@
 # Standard Library
 
-> **Version:** v6.0
+> **Version:** v7.0
 > **Last updated:** 2026-08-07
 
 Light provides a rich standard library with **60+ modules** organized in **13 phases**, located in the `stdlib/` directory. Each module has both Python (`.py`) and Light (`.light`) implementations.

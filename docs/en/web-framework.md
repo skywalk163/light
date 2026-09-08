@@ -1,6 +1,6 @@
 # Web Framework
 
-> **Version:** v6.0
+> **Version:** v7.0
 > **Last updated:** 2026-08-07
 
 Light provides a powerful web development framework through the `HTTP服务端` (HTTP Server) standard library and the `Web框架` duanpub package. You can build web applications using Chinese keywords and natural syntax.

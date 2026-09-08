@@ -1,6 +1,6 @@
 # Light (光明) Programming Language
 
-> **Version:** v6.0
+> **Version:** v7.0
 > **Last updated:** 2026-08-07
 
 **Light** is a modern programming language with Chinese keywords, designed to make programming more intuitive and accessible for Chinese speakers.
@@ -168,7 +168,7 @@ light ai generate "排序算法"    # AI-assisted code generation
 
 ## Project Status
 
-Current version: **v6.0**
+Current version: **v7.0**
 
 Light v6.0 introduces type annotations, nullable types, interfaces/protocols, enhanced pattern matching, async/await support, and comprehensive package management. The language is under active development with a focus on self-hosting compiler and native compilation via LLVM.
 
