@@ -8,6 +8,8 @@
 import sys
 import os
 import json
+import socket
+import argparse
 import threading
 import traceback
 from typing import Dict, List, Any, Optional
@@ -23,10 +25,208 @@ sys.path.insert(0, _project_dir)
 from light_debug import LightDebugger, DebuggerContext, StackFrame
 
 
+# =============================================================================
+# DAP 传输层（Transport）
+#
+# DAP（Debug Adapter Protocol）消息为「头部 + 体」结构：
+#   Content-Length: <字节数>\r\n\r\n<JSON 体>
+# 原实现只支持 stdio（VS Code 进程内通信）。下面抽象出 Transport，
+# 新增 TcpTransport 支持 DAP over TCP，使调试器可被远程机器上的
+# IDE 通过 host/port 连接，实现「远程调试」。
+# =============================================================================
+
+class StdioTransport:
+    """标准输入/输出传输（默认，VS Code 本地调试使用）。"""
+
+    def read_message(self) -> Optional[Dict]:
+        return _read_stdin_message()
+
+    def write_message(self, message: Dict):
+        _write_stdout_message(message)
+
+    def close(self):
+        pass
+
+
+class TcpTransport:
+    """TCP 传输：适配器作为服务端监听 host:port，远程 DAP 客户端连接。
+
+    典型远程调试场景：在目标机器上运行
+        python light_debug_adapter.py --host 0.0.0.0 --port 5678
+    本地 VS Code / DAP 客户端连接该地址即可调试远端光明程序。
+    """
+
+    def __init__(self, host: str, port: int):
+        self.host = host
+        self.port = port
+        self._server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._server.bind((host, port))
+        self._server.listen(1)
+        self._conn: Optional[socket.socket] = None
+        self._buf = b''
+
+    def _ensure_connected(self):
+        if self._conn is None:
+            sys.stderr.write(f'[光明调试] 监听 DAP TCP {self.host}:{self.port} ...\n')
+            sys.stderr.flush()
+            conn, addr = self._server.accept()
+            self._conn = conn
+            sys.stderr.write(f'[光明调试] DAP 客户端已连接: {addr}\n')
+            sys.stderr.flush()
+
+    def read_message(self) -> Optional[Dict]:
+        self._ensure_connected()
+        headers = {}
+        while True:
+            line = self._read_line()
+            if line is None:
+                return None
+            line = line.strip()
+            if not line:
+                break
+            if ':' in line:
+                key, value = line.split(':', 1)
+                headers[key.strip().lower()] = value.strip()
+        content_length = int(headers.get('content-length', '0'))
+        if content_length <= 0:
+            return None
+        body = self._read_exact(content_length)
+        if body is None:
+            return None
+        return json.loads(body.decode('utf-8'))
+
+    def _read_line(self) -> Optional[str]:
+        while b'\n' not in self._buf:
+            chunk = self._conn.recv(4096)
+            if not chunk:
+                return None
+            self._buf += chunk
+        idx = self._buf.index(b'\n')
+        line = self._buf[:idx]
+        self._buf = self._buf[idx + 1:]
+        if line.endswith(b'\r'):
+            line = line[:-1]
+        return line.decode('utf-8', errors='replace')
+
+    def _read_exact(self, n: int) -> Optional[bytes]:
+        while len(self._buf) < n:
+            chunk = self._conn.recv(4096)
+            if not chunk:
+                return None
+            self._buf += chunk
+        data = self._buf[:n]
+        self._buf = self._buf[n:]
+        return data
+
+    def write_message(self, message: Dict):
+        content = json.dumps(message, ensure_ascii=False).encode('utf-8')
+        self._conn.sendall(f'Content-Length: {len(content)}\r\n\r\n'.encode('utf-8'))
+        self._conn.sendall(content)
+
+    def close(self):
+        if self._conn is not None:
+            try:
+                self._conn.close()
+            except Exception:
+                pass
+        try:
+            self._server.close()
+        except Exception:
+            pass
+
+
+_stdin_buf = b''
+
+
+def _read_stdin_message() -> Optional[Dict]:
+    """从 stdin（二进制缓冲）按 DAP 帧读取一条消息。
+
+    注意：必须全程从 sys.stdin.buffer 读取，不能混用文本模式
+    sys.stdin.readline()，否则 TextIOWrapper 的预读会导致
+    buffer.read() 读到空、JSON 解析失败。
+    """
+    global _stdin_buf
+    while b'\r\n\r\n' not in _stdin_buf:
+        # read1 返回「当前可用」字节，不会为凑满 4096 而阻塞；
+        # 普通 read(4096) 在管道上会一直等到 4096 字节或 EOF，导致卡死。
+        chunk = sys.stdin.buffer.read1(4096)
+        if not chunk:
+            return None
+        _stdin_buf += chunk
+    sep = _stdin_buf.index(b'\r\n\r\n')
+    header_block = _stdin_buf[:sep]
+    _stdin_buf = _stdin_buf[sep + 4:]
+
+    headers = {}
+    for line in header_block.split(b'\r\n'):
+        if b':' in line:
+            key, value = line.split(b':', 1)
+            headers[key.strip().lower()] = value.strip()
+    content_length = int(headers.get(b'content-length', b'0'))
+    if content_length <= 0:
+        return None
+
+    while len(_stdin_buf) < content_length:
+        chunk = sys.stdin.buffer.read1(4096)
+        if not chunk:
+            return None
+        _stdin_buf += chunk
+    body = _stdin_buf[:content_length]
+    _stdin_buf = _stdin_buf[content_length:]
+    return json.loads(body.decode('utf-8'))
+
+
+# DAP 输出目标。必须在程序运行前捕获真实 stdout，因为 _run_program
+# 会把 sys.stdout 替换为 LightOutputCapture 来捕获程序输出；若 DAP
+# 消息仍写 sys.stdout，会被误当成程序输出造成递归/损坏。
+_DAP_OUT = None
+
+
+def _set_dap_out(stream):
+    global _DAP_OUT
+    _DAP_OUT = stream
+
+
+def _write_stdout_message(message: Dict):
+    content = json.dumps(message, ensure_ascii=False).encode('utf-8')
+    # 整帧以字节写出，绕过 TextIOWrapper 的换行翻译（Windows 下 \n→\r\n
+    # 会把 \r\n\r\n 变成 \r\r\n\r\r\n，破坏 DAP 帧边界）。
+    frame = b'Content-Length: ' + str(len(content)).encode('utf-8') + b'\r\n\r\n' + content
+    out = _DAP_OUT if _DAP_OUT is not None else sys.stdout
+    buf = getattr(out, 'buffer', out)
+    buf.write(frame)
+    buf.flush()
+
+
+def create_transport() -> 'StdioTransport | TcpTransport':
+    """根据命令行参数 / 环境变量构建传输层。
+
+    配置优先级：显式 --mode/--port/--host > 环境变量 LIGHT_DEBUG_* > 默认值。
+    - 未指定端口（默认 0）且 mode=auto → stdio
+    - 指定 --port N（N>0）或 --mode tcp → TCP 服务端（监听 host:port）
+    """
+    parser = argparse.ArgumentParser(description='光明调试适配器 (DAP)')
+    parser.add_argument('--host', default=os.environ.get('LIGHT_DEBUG_HOST', '127.0.0.1'),
+                        help='TCP 监听地址（默认 127.0.0.1；远程调试用 0.0.0.0）')
+    parser.add_argument('--port', type=int, default=int(os.environ.get('LIGHT_DEBUG_PORT', '0')),
+                        help='TCP 监听端口（>0 时启用 TCP 模式；默认 0=stdio）')
+    parser.add_argument('--mode', default='auto', choices=['stdio', 'tcp', 'auto'],
+                        help='传输模式：stdio / tcp / auto（默认 auto，按端口自动判定）')
+    args, _ = parser.parse_known_args()
+
+    if args.mode == 'stdio':
+        return StdioTransport()
+    if args.mode == 'tcp' or (args.mode == 'auto' and args.port > 0):
+        return TcpTransport(args.host, args.port)
+    return StdioTransport()
+
+
 class DebugAdapter:
     """调试适配器"""
 
-    def __init__(self):
+    def __init__(self, transport=None):
+        self.transport = transport if transport is not None else StdioTransport()
         self.seq = 0
         self.running = False
         self.breakpoints: Dict[str, List[int]] = {}
@@ -64,11 +264,8 @@ class DebugAdapter:
         self._send_message(event_msg)
 
     def _send_message(self, message: Dict):
-        content = json.dumps(message, ensure_ascii=False)
-        content_bytes = content.encode('utf-8')
-        sys.stdout.write(f'Content-Length: {len(content_bytes)}\r\n\r\n')
-        sys.stdout.buffer.write(content_bytes)
-        sys.stdout.flush()
+        # 委托给传输层：stdio → sys.stdout；tcp → socket
+        self.transport.write_message(message)
 
     def handle_message(self, message: Dict):
         if message.get('type') == 'request':
@@ -469,34 +666,24 @@ class LightOutputCapture:
 
 
 def run_debug_adapter():
-    """运行调试适配器"""
-    adapter = DebugAdapter()
+    """运行调试适配器。传输方式由 --host/--port/--mode 或环境变量决定。"""
+    # 捕获真实 stdout 作为 DAP 输出通道（必须在 _run_program 替换 sys.stdout 之前）。
+    _set_dap_out(sys.stdout)
 
-    def read_message() -> Optional[Dict]:
-        headers = {}
-        while True:
-            line = sys.stdin.readline()
-            if not line:
-                return None
-            line = line.strip()
-            if not line:
-                break
-            if ':' in line:
-                key, value = line.split(':', 1)
-                headers[key.strip().lower()] = value.strip()
+    transport = create_transport()
+    mode = 'tcp' if isinstance(transport, TcpTransport) else 'stdio'
+    sys.stderr.write(f'[光明调试] 启动 DAP 适配器（传输模式: {mode}）\n')
+    sys.stderr.flush()
 
-        content_length = int(headers.get('content-length', '0'))
-        if content_length <= 0:
-            return None
-
-        content = sys.stdin.buffer.read(content_length).decode('utf-8')
-        return json.loads(content)
+    adapter = DebugAdapter(transport=transport)
 
     while True:
-        message = read_message()
+        message = transport.read_message()
         if message is None:
             break
         adapter.handle_message(message)
+
+    transport.close()
 
 
 if __name__ == '__main__':

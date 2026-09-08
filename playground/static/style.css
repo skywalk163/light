@@ -1194,6 +1194,78 @@ body {
     .nav-right .btn-stdlib {
         display: none;
     }
+
+    .nav-left, .nav-center, .nav-right {
+        gap: 4px;
+    }
+
+    /* 触屏按钮最小 44px 点击区域 */
+    .navbar .btn {
+        min-height: 44px;
+        min-width: 44px;
+        justify-content: center;
+    }
+
+    /* 工具栏允许横向滚动，避免小屏下按钮被挤出视口 */
+    .nav-center, .nav-right {
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .nav-center::-webkit-scrollbar,
+    .nav-right::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/* =============================================================================
+   响应式：小屏手机（≤480px，覆盖 375px 竖屏）
+   ============================================================================= */
+
+@media (max-width: 480px) {
+    .navbar {
+        padding: 0 8px;
+        gap: 4px;
+    }
+
+    .logo {
+        font-size: 18px;
+    }
+
+    /* 编辑器在上、输出在下：保持竖向排列（桌面即为 column，此处强化） */
+    .content-area {
+        flex-direction: column;
+    }
+
+    .editor-section {
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    .output-section {
+        height: 180px;
+        flex: 0 0 auto;
+    }
+
+    .section-header {
+        padding: 6px 10px;
+    }
+
+    .output-tabs .tab {
+        padding: 6px 10px;
+        min-height: 40px;
+    }
+
+    /* 动态视口高度，规避移动端地址栏导致的溢出 */
+    .main-container {
+        height: calc(100dvh - var(--navbar-height));
+    }
+
+    .sidebar {
+        width: 82vw;
+        max-width: 320px;
+    }
 }
 
 /* =============================================================================
