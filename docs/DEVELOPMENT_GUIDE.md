@@ -1,7 +1,7 @@
 # 光明（Light）开发指南
 
 > **最后更新：** 2026-08-07
-> **适用版本：** v6.1.0
+> **适用版本：** v7.0
 
 欢迎阅读光明开发指南！本文档面向所有希望参与光明开发的贡献者，从环境搭建到代码提交流程，从编码规范到测试要求，提供全面的指导。
 
@@ -106,7 +106,7 @@ export LLVM_CONFIG=/usr/local/opt/llvm/bin/llvm-config
 
 ```bash
 python -m cli.light --version
-# 应输出：光明 v6.2.0
+# 应输出：光明 v7.0.0
 
 python -m cli.light run examples/hello.light
 # 应输出：你好，光明！

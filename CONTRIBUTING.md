@@ -597,7 +597,7 @@ git push origin feature/你的功能名称
 ## 环境信息
 - 操作系统：Windows 10 / macOS 14 / Ubuntu 22.04
 - Python 版本：3.12
-- 光明版本：v6.2.0
+- 光明版本：v7.0
 
 ## 补充信息
 其他你觉得有用的信息。
