@@ -49,6 +49,18 @@
                 "path": "./snippets/light.json"
             }
         ],
+        "themes": [
+            {
+                "label": "LightLang Dark",
+                "uiTheme": "vs-dark",
+                "path": "./themes/light-dark-color-theme.json"
+            },
+            {
+                "label": "LightLang Light",
+                "uiTheme": "vs",
+                "path": "./themes/light-light-color-theme.json"
+            }
+        ],
         "commands": [
             {
                 "command": "light.welcome",
@@ -212,6 +224,53 @@
         "breakpoints": [
             {
                 "language": "light"
+            }
+        ],
+        "debuggers": [
+            {
+                "type": "light",
+                "label": "光明 (Light) 调试器",
+                "languages": ["light"],
+                "program": "./debug-adapter/light_debug_adapter.py",
+                "runtime": "python",
+                "configurationAttributes": {
+                    "launch": {
+                        "properties": {
+                            "program": {
+                                "type": "string",
+                                "description": "要调试的光明 (.light) 文件路径"
+                            },
+                            "tcpHost": {
+                                "type": "string",
+                                "description": "远程调试监听地址（留空=本地 stdio；远程调试请在目标机上手动以 --host/--port 启动适配器）"
+                            },
+                            "tcpPort": {
+                                "type": "number",
+                                "description": "远程调试监听端口（>0 启用 TCP 模式；须配合手动启动的适配器使用）"
+                            }
+                        }
+                    },
+                    "attach": {
+                        "properties": {
+                            "tcpHost": {
+                                "type": "string",
+                                "description": "远程调试适配器所在地址"
+                            },
+                            "tcpPort": {
+                                "type": "number",
+                                "description": "远程调试适配器监听端口"
+                            }
+                        }
+                    }
+                },
+                "initialConfigurations": [
+                    {
+                        "type": "light",
+                        "request": "launch",
+                        "name": "光明: 启动调试",
+                        "program": "${file}"
+                    }
+                ]
             }
         ],
         "taskDefinitions": [
