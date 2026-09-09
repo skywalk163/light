@@ -1321,7 +1321,12 @@ class LightCompiler:
     def parse_raw(self, source: str):
         """语法解析（返回 v3 AST）"""
         try:
-            return self._parser.parse(source)
+            raw = self._parser.parse(source)
+            # L-068：并入解析期编译器警告（类结束标记 / 模块级函数同名预警）
+            _pw = getattr(self._parser, 'warnings', None)
+            if _pw:
+                self.warnings.extend(_pw)
+            return raw
         except ParseError as e:
             # 提取行号/列号信息
             line = getattr(e, 'line', 0)

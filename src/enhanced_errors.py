@@ -182,7 +182,7 @@ class ErrorFormatter:
     def __init__(self):
         self.use_colors = sys.stdout.isatty()
 
-    def format_error(self, source: str, error: Exception, line_num: int = None, col: int = None, py_code: str = None) -> str:
+    def format_error(self, source: str, error: Exception, line_num: int = None, col: int = None, py_code: str = None, file_path: str = None) -> str:
         """格式化错误信息
 
         Args:
@@ -190,6 +190,7 @@ class ErrorFormatter:
             error: 异常对象
             line_num: 错误行号（可选）
             col: 错误列号（可选）
+            file_path: 光明源文件路径（可选，用于「文件:行号」定位）
 
         Returns:
             格式化后的错误信息
@@ -224,7 +225,15 @@ class ErrorFormatter:
         parts.append(self._color('error', '错误'))
         parts.append(f': {chinese_name}')
         parts.append(self._color('reset', ''))
-        parts.append(f'\n  {err_msg}')
+
+        # L-073：把运行期 Python 原生异常翻译为光明层可读提示（只改展示层，
+        # 不动异常类型，依赖异常类型的代码不受影响）。复用 L-061 的 py→light
+        # 行号映射得到的 line_num，附「文件:行号」定位。
+        translated = self._translate_runtime_message(err_type, err_msg, line_num, file_path)
+        parts.append(f'\n  {translated}')
+        # 保留 Python 原始错误，便于排查（不影响异常类型）
+        if translated != err_msg:
+            parts.append(f'\n  （Python 原始错误：{err_msg}）')
 
         # 如果有源代码，显示代码片段
         if source and lines:
@@ -259,6 +268,85 @@ class ErrorFormatter:
         result = ''.join(parts)
         # 任务C-P2：确保中文错误信息在 Windows 控制台正确编码
         return self._safe_output(result)
+
+    # ------------------------------------------------------------------
+    # L-073：运行期 Python 原生异常 → 光明层可读提示
+    # ------------------------------------------------------------------
+    _TYPE_CN = {
+        'NoneType': '空值', 'str': '字符串', 'int': '整数', 'float': '浮点数',
+        'bool': '布尔', 'list': '列表', 'dict': '字典', 'set': '集合',
+        'tuple': '元组', 'bytes': '字节串', 'bytearray': '字节数组',
+        'complex': '复数', 'type': '类型', 'object': '对象',
+        'function': '函数', 'method': '方法',
+    }
+
+    _OP_CN = {
+        '+': '加', '-': '减', '*': '乘', '/': '除', '//': '整除', '%': '取模',
+        '**': '乘方', '&': '按位与', '|': '按位或', '^': '按位异或',
+        '<<': '左移', '>>': '右移', '==': '等于', '!=': '不等于',
+        '<': '小于', '>': '大于', '<=': '小于等于', '>=': '大于等于',
+    }
+
+    def _translate_runtime_message(self, err_type: str, err_msg: str, line_num=None, file_path=None) -> str:
+        """把运行期 Python 原生异常消息翻译为光明层可读提示。
+
+        仅处理 L-073 指定的四类（AttributeError / KeyError / IndexError / TypeError），
+        其余类型原样返回（不改变任何既有行为）。翻译结果附「文件:行号」定位，
+        行号来自 L-061 的 py→light 映射（line_num）。
+        """
+        loc = ''
+        if file_path:
+            loc = f'{file_path}'
+            if line_num:
+                loc += f':{line_num}'
+        elif line_num:
+            loc = f'第{line_num}行'
+        if loc:
+            loc = f'（{loc}）'
+
+        import re
+
+        if err_type == 'AttributeError':
+            # 'X' object has no attribute 'Y'
+            m = re.search(r"'([^']+)' object has no attribute '([^']+)'", err_msg)
+            if m:
+                cls, attr = m.group(1), m.group(2)
+                return f"类 {cls} 缺少方法/属性 {attr}{loc}"
+            return f"属性错误：对象缺少该属性或方法{loc}"
+
+        if err_type == 'KeyError':
+            # 'Y' 或 KeyError('Y')
+            m = re.search(r"'([^']+)'", err_msg)
+            if m:
+                return f"字典缺少键 '{m.group(1)}'{loc}"
+            return f"键错误：访问了不存在的字典键{loc}"
+
+        if err_type == 'IndexError':
+            # list/tuple index out of range
+            if re.search(r'index out of range', err_msg):
+                return f"列表索引越界{loc}"
+            return f"索引错误：{err_msg}{loc}"
+
+        if err_type == 'TypeError':
+            # unsupported operand type(s) for OP: 'T1' and 'T2'
+            m = re.search(r"unsupported operand type\(?s?\)? for ([^\s:]+):\s*'([^']+)'\s+and\s+'([^']+)'", err_msg)
+            if m:
+                op, t1, t2 = m.group(1), m.group(2), m.group(3)
+                t1_cn = self._TYPE_CN.get(t1, t1)
+                t2_cn = self._TYPE_CN.get(t2, t2)
+                op_cn = self._OP_CN.get(op, op)
+                return f"类型错误：不能对 {t1_cn} 与 {t2_cn} 做 {op_cn} 运算{loc}"
+            # can only concatenate str (not "X") to str
+            m2 = re.search(r"can only concatenate (\w+) \(not ([^)]+)\) to (\w+)", err_msg)
+            if m2:
+                t1_cn = self._TYPE_CN.get(m2.group(1), m2.group(1))
+                t2_cn = self._TYPE_CN.get(m2.group(3), m2.group(3))
+                extra = m2.group(2).strip('"\'')
+                extra_cn = self._TYPE_CN.get(extra, extra)
+                return f"类型错误：只能将 {t1_cn} 与 {t1_cn} 拼接，不能拼接 {t2_cn} 与 {extra_cn}{loc}"
+            return f"类型错误：{err_msg}{loc}"
+
+        return err_msg
 
     def _color(self, color: str, text: str) -> str:
         """添加颜色"""
@@ -485,10 +573,10 @@ class ErrorFormatter:
             return text.encode('ascii', errors='replace').decode('ascii')
 
 
-def format_error(source: str, error: Exception, line_num: int = None, col: int = None, py_code: str = None) -> str:
+def format_error(source: str, error: Exception, line_num: int = None, col: int = None, py_code: str = None, file_path: str = None) -> str:
     """格式化错误信息（便捷函数）"""
     formatter = ErrorFormatter()
-    return formatter.format_error(source, error, line_num, col, py_code)
+    return formatter.format_error(source, error, line_num, col, py_code, file_path)
 
 
 def install_error_handler():

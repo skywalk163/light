@@ -154,8 +154,39 @@ class ParserStmtMixin:
         """解析模块"""
         statements = []
 
+        # L-068：每次解析模块前重置编译器警告收集（同实例复用 parse 时避免累积）
+        if not hasattr(self, 'warnings') or not isinstance(self.warnings, list):
+            self.warnings = []
+        else:
+            self.warnings = []
+        if not hasattr(self, '_class_member_index'):
+            self._class_member_index = {}
+
         while self._current():
             tok = self._current()
+
+            # L-068：类结束标记（类结束 / 结束类）—— 显式标注类定义区域结束。
+            # 词法器会把「类结束」「结束类」贪心合并成单个标识符 token，故优先按
+            # 单 token 识别；同时兼容「类 结束」「结束 类」（带空格）的双 token 写法。
+            # 必须放在「跳过孤立结束关键字」(下方) 与「类定义分发」之前，否则
+            # `结束类` 会被当成孤立 `结束` 吞掉、`类结束` 会被当成名字引用报错。
+            if ((tok.type in (TokenType.KEYWORD, TokenType.IDENTIFIER)
+                    and tok.value in ('类结束', '结束类'))):
+                self._consume()
+                continue
+            if (tok.type == TokenType.KEYWORD and tok.value == '类'
+                    and self._peek(1) and self._peek(1).type == TokenType.KEYWORD
+                    and self._peek(1).value == '结束'
+                    and self._peek(2) and self._peek(2).type not in (TokenType.COLON, TokenType.PERIOD)):
+                self._consume(TokenType.KEYWORD, '类')
+                self._consume(TokenType.KEYWORD, '结束')
+                continue
+            if (tok.type == TokenType.KEYWORD and tok.value == '结束'
+                    and self._peek(1) and self._peek(1).type == TokenType.KEYWORD
+                    and self._peek(1).value == '类'):
+                self._consume(TokenType.KEYWORD, '结束')
+                self._consume(TokenType.KEYWORD, '类')
+                continue
 
             # 跳过外层的DEDENT（level=0）
             if tok.type == TokenType.DEDENT:
@@ -189,6 +220,19 @@ class ParserStmtMixin:
                 continue
             if tok.type == TokenType.IDENTIFIER and tok.value == '结束':
                 self._consume(TokenType.IDENTIFIER, '结束')
+                continue
+
+            # L-068：模块级函数定义（段落/函数/段）与某类成员同名 → 编译警告。
+            # 仅针对「名字与某类方法/属性相同」这一高危场景（漏写缩进的典型信号），
+            # 绝不误报正常模块级函数（模块级函数本就与类同级），对既有代码零新增噪声。
+            if (tok.type == TokenType.KEYWORD and tok.value in ('段落', '函数', '段')
+                    and self._peek(1)
+                    and self._peek(1).type in (TokenType.IDENTIFIER, TokenType.KEYWORD)):
+                fname = self._peek(1).value
+                stmt = self._parse_statement()
+                if stmt is not None:
+                    statements.append(stmt)
+                self._warn_module_func_vs_class(fname)
                 continue
 
             stmt = self._parse_statement()
@@ -3313,7 +3357,7 @@ class ParserStmtMixin:
         """
         tok = self._current()
         # R12C（R11A-06）：支持负数字面量默认值（`接收 甲 = -1`）。原实现只收
-        # 单 token，'-' 符号不在允许列表 → 默认值不挂、'-1' 残留参数流报
+        # 单 token，'-' 符号不在允许列表 → 默认值不挂、'-1' 拋留参数流报
         # 「意外的标记」。仅在 '-' 后紧跟数字时消耗负号，避免误吞其它语法。
         neg = False
         if (tok and tok.type == TokenType.MINUS and self._peek(1)
@@ -3321,6 +3365,14 @@ class ParserStmtMixin:
             self._consume()
             neg = True
             tok = self._current()
+        # L-070：支持 {} / [] 字典/列表字面量作为默认参数。
+        # 这些字面量是自界定的（{} 以 } 结束、[] 以 ] 结束），
+        # _parse_expr() 会正确解析并在 } 或 ] 之后停止，不会吞掉后续冒号或类型声明。
+        if tok and tok.type in (TokenType.LBRACE, TokenType.LBRACKET):
+            default_value = self._parse_expr()
+            if params:
+                params[-1]['default'] = default_value
+            return
         if not tok or tok.type not in (TokenType.NUMBER, TokenType.CHINESE_NUM,
                                        TokenType.STRING, TokenType.IDENTIFIER,
                                        TokenType.KEYWORD):
@@ -4621,6 +4673,24 @@ class ParserStmtMixin:
         kwargs = {}
         if nested_classes:
             kwargs['nested_classes'] = nested_classes
+
+        # L-068：记录类成员名，供「模块级函数与类成员同名」编译预警使用；
+        # 并标记该类尚未用『类结束』显式闭合（遇到模块级函数定义时据此预警）。
+        try:
+            _members = set()
+            for _m in methods:
+                _n = getattr(_m, 'name', None)
+                if _n:
+                    _members.add(_n)
+            for _a in attributes:
+                _n = getattr(_a, 'name', None)
+                if _n:
+                    _members.add(_n)
+            if _members:
+                self._class_member_index[class_name] = _members
+        except Exception:
+            pass
+
         return node_cls(
             name=class_name,
             attributes=attributes,
@@ -4629,6 +4699,25 @@ class ParserStmtMixin:
             generic_params=generic_params,
             interfaces=interfaces,
             **kwargs,
+        )
+
+    def _warn_module_func_vs_class(self, fname: str) -> None:
+        """L-068：模块顶层函数与某类成员同名 → 编译警告（很可能漏写缩进）。
+
+        只针对「名字与某类方法/属性相同」这一高危场景，绝不误报正常模块级函数
+        （模块级函数本就与类同级），故对既有代码零新增噪声。
+        """
+        index = getattr(self, '_class_member_index', None)
+        if not index:
+            return
+        colliding = [c for c, members in index.items() if fname in members]
+        if not colliding:
+            return
+        cls_names = '、'.join(colliding)
+        self.warnings.append(
+            f"⚠ 编译警告（L-068）：模块顶层定义了『{fname}』，但名字与类『{cls_names}』"
+            f"的成员『{fname}』相同。若它本应是类『{cls_names}』的方法，"
+            f"请把它缩进进类体内；若确为模块级函数则可忽略此警告。"
         )
 
     def _parse_attribute_declaration(self) -> AttributeDeclaration:
@@ -4822,7 +4911,10 @@ class ParserStmtMixin:
                         if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '等于':
                             self._consume(TokenType.KEYWORD, '等于')
                             default_tok = self._current()
-                            if default_tok and default_tok.type in (TokenType.NUMBER, TokenType.STRING, TokenType.IDENTIFIER, TokenType.KEYWORD):
+                            # L-070：支持 {} / [] 字典/列表字面量作为默认参数
+                            if default_tok and default_tok.type in (TokenType.LBRACE, TokenType.LBRACKET):
+                                default_value = self._parse_expr()
+                            elif default_tok and default_tok.type in (TokenType.NUMBER, TokenType.STRING, TokenType.IDENTIFIER, TokenType.KEYWORD):
                                 val = self._consume().value
                                 if default_tok.type == TokenType.NUMBER:
                                     val_str = str(val)
@@ -4842,7 +4934,10 @@ class ParserStmtMixin:
                         elif self._current() and self._current().type == TokenType.EQUALS:
                             self._consume(TokenType.EQUALS)
                             default_tok = self._current()
-                            if default_tok and default_tok.type in (TokenType.NUMBER, TokenType.STRING, TokenType.IDENTIFIER, TokenType.KEYWORD):
+                            # L-070：支持 {} / [] 字典/列表字面量作为默认参数
+                            if default_tok and default_tok.type in (TokenType.LBRACE, TokenType.LBRACKET):
+                                default_value = self._parse_expr()
+                            elif default_tok and default_tok.type in (TokenType.NUMBER, TokenType.STRING, TokenType.IDENTIFIER, TokenType.KEYWORD):
                                 val = self._consume().value
                                 if default_tok.type == TokenType.NUMBER:
                                     val_str = str(val)

@@ -109,6 +109,10 @@ def _compile_src(source: str) -> str:
     parser = LightParser()
     module = parser.parse(source)
 
+    # L-068：透出编译器警告（类结束标记 / 模块级函数与类成员同名预警等）
+    for _w in getattr(parser, 'warnings', []) or []:
+        print(_w, file=sys.stderr)
+
     generator = PythonCodeGenerator()
     return generator.generate(module, is_main=True)
 
@@ -593,7 +597,7 @@ def cmd_run(args):
         # L-061：把 _run_src 挂到异常上的生成代码传给 format_error，用于 LIGHT_SRC
         # 行号映射归因（非 SRC 后端/无生成代码时 py_code=None，退回原逻辑）。
         _py = getattr(e, '_light_py_code', None)
-        print(format_error(source, e, py_code=_py), file=sys.stderr)
+        print(format_error(source, e, py_code=_py, file_path=args.file), file=sys.stderr)
         if args.verbose:
             import traceback
             traceback.print_exc()
@@ -782,6 +786,9 @@ def cmd_check(args):
             from light_parser_v3 import LightParser
             parser = LightParser()
             module = parser.parse(source)
+            # L-068：透出编译器警告（类结束标记 / 模块级函数与类成员同名预警等）
+            for _w in getattr(parser, 'warnings', []) or []:
+                warnings.append(_w)
             if module is None:
                 first_unparsed = None
                 for i in range(parser.pos, len(parser.tokens)):
@@ -863,12 +870,18 @@ def cmd_check(args):
     else:
         print(f"\n✅ 语法检查通过，未发现错误。")
 
+    # L-068：编译器警告（非致命，仅提示）
+    if warnings:
+        print(f"\n⚠ 警告 ({len(warnings)} 个):")
+        for w in warnings:
+            print(f"  {w}")
+
     # 默认启用类型检查（除非显式指定 --no-type-check）
     if not getattr(args, 'no_type_check', False):
-        _run_type_check(source, getattr(args, 'type_check', '表达式'), args.file)
+        _run_type_check(source, getattr(args, 'type_check', '表达式'), args.file, suppress=set(warnings))
 
 
-def _run_type_check(source: str, level_str: str, file_path: str):
+def _run_type_check(source: str, level_str: str, file_path: str, suppress: set = None):
     """运行类型检查并输出结果"""
     from compiler import LightCompiler
     from core.config import TypeCheckLevel
@@ -894,9 +907,12 @@ def _run_type_check(source: str, level_str: str, file_path: str):
 
     print(f"\n━━━ 类型检查（级别: {level_str}）━━━")
 
-    if compiler.warnings:
-        print(f"\n⚠ 警告 ({len(compiler.warnings)} 个):")
-        for w in compiler.warnings:
+    # L-068 去重：语法检查阶段已打印的编译器警告（如类结束/模块级同名函数预警）
+    # 在类型检查阶段会经 compiler.parse_raw 再次汇总，这里剔除已展示项，避免重复。
+    shown = [w for w in compiler.warnings if w not in (suppress or set())]
+    if shown:
+        print(f"\n⚠ 警告 ({len(shown)} 个):")
+        for w in shown:
             print(f"  {w}")
 
     type_errors = [e for e in compiler.errors if '类型错误' in e]

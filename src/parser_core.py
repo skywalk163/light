@@ -298,6 +298,10 @@ class LightParserCore:
         self._n_tokens = 0  # 缓存 len(tokens)，消除热路径中重复 len() 调用
         self.pos = 0
         self._in_foreach_context = False  # 在遍历循环中禁用"之"的成员访问解析
+        # L-068：编译器警告收集（类结束标记 / 模块级函数与类成员同名预警）
+        self.warnings: List[str] = []
+        # 类名 -> 成员名集合（方法名 + 属性名），供模块级同名函数预警使用
+        self._class_member_index: dict = {}
 
     def _error(self, message: str, line: int = 0, col: int = 0, token_value: str = None):
         """报告解析错误（抛出 ParseError）"""
@@ -335,10 +339,42 @@ class LightParserCore:
         """
         errors = []
         statements = []
-        
+
+        # L-068：每次解析模块前重置编译器警告收集（同实例复用 parse 时避免累积）。
+        # 与 parser_stmt._parse_module 严格版同口径（见该处注释）。
+        if not hasattr(self, 'warnings') or not isinstance(self.warnings, list):
+            self.warnings = []
+        else:
+            self.warnings = []
+        if not hasattr(self, '_class_member_index'):
+            self._class_member_index = {}
+
         while self._current():
             tok = self._current()
-            
+
+            # L-068：类结束标记（类结束 / 结束类）—— 显式标注类定义区域结束。
+            # 词法器会把「类结束」「结束类」贪心合并成单个标识符 token，故优先按
+            # 单 token 识别；同时兼容「类 结束」「结束 类」（带空格）的双 token 写法。
+            # 必须放在「跳过孤立结束关键字」(下方) 与「语句解析」之前，否则
+            # `结束类` 会被当成孤立 `结束` 吞掉、`类结束` 会被当成名字引用报错。
+            if ((tok.type in (TokenType.KEYWORD, TokenType.IDENTIFIER)
+                    and tok.value in ('类结束', '结束类'))):
+                self._consume()
+                continue
+            if (tok.type == TokenType.KEYWORD and tok.value == '类'
+                    and self._peek(1) and self._peek(1).type == TokenType.KEYWORD
+                    and self._peek(1).value == '结束'
+                    and self._peek(2) and self._peek(2).type not in (TokenType.COLON, TokenType.PERIOD)):
+                self._consume(TokenType.KEYWORD, '类')
+                self._consume(TokenType.KEYWORD, '结束')
+                continue
+            if (tok.type == TokenType.KEYWORD and tok.value == '结束'
+                    and self._peek(1) and self._peek(1).type == TokenType.KEYWORD
+                    and self._peek(1).value == '类'):
+                self._consume(TokenType.KEYWORD, '结束')
+                self._consume(TokenType.KEYWORD, '类')
+                continue
+
             # 跳过外层 DEDENT
             if tok.type == TokenType.DEDENT:
                 dedent_level = getattr(tok, 'value', None)
@@ -378,12 +414,24 @@ class LightParserCore:
             
             # 尝试解析一个语句
             try:
+                # L-068：模块级函数定义（段落/函数/段）与某类成员同名 → 编译警告。
+                # 仅针对「名字与某类方法/属性相同」这一高危场景（漏写缩进的典型信号），
+                # 绝不误报正常模块级函数（模块级函数本就与类同级），对既有代码零新增噪声。
+                # 类成员索引由 _parse_class_definition 在解析类时填充，故模块级同名函数
+                # 出现时索引已就绪，可安全比对。
+                _warn_fname = None
+                if (tok.type == TokenType.KEYWORD and tok.value in ('段落', '函数', '段')
+                        and self._peek(1)
+                        and self._peek(1).type in (TokenType.IDENTIFIER, TokenType.KEYWORD)):
+                    _warn_fname = self._peek(1).value
                 stmt = self._parse_statement()
                 if stmt:
                     statements.append(stmt)
                 else:
                     # 无法解析，前进一个 token 避免死循环
                     self.pos += 1
+                if _warn_fname is not None:
+                    self._warn_module_func_vs_class(_warn_fname)
             except ParseError as e:
                 # 补充源代码上下文
                 if not e.source_lines and hasattr(self, '_source_lines'):

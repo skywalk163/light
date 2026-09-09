@@ -531,6 +531,7 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
 
     # 根据目标架构查找编译器
     clang = find_clang(target_arch=target_arch)
+    msvc_cflags, msvc_ldflags = _windows_msvc_flags()
     if verbose:
         print(f"  使用编译器: {clang}")
 
@@ -551,7 +552,7 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
         print("[3/6] 编译 typed 运行时库...")
 
     result = subprocess.run(
-        [clang, '-c', *opt_flags, *arch_flags, *debug_flags, runtime_c, '-o', runtime_o],
+        [clang, '-c', *opt_flags, *arch_flags, *debug_flags, *msvc_cflags, runtime_c, '-o', runtime_o],
         capture_output=True, text=True, encoding='utf-8', errors='replace'
     )
     if result.returncode != 0:
@@ -563,7 +564,7 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
 
     ir_o = base_path + '.o'
     result = subprocess.run(
-        [clang, '-c', *opt_flags, *arch_flags, *debug_flags, ll_path, '-o', ir_o],
+        [clang, '-c', *opt_flags, *arch_flags, *debug_flags, *msvc_cflags, ll_path, '-o', ir_o],
         capture_output=True, text=True, encoding='utf-8', errors='replace'
     )
     if result.returncode != 0:
@@ -575,7 +576,7 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
     if verbose:
         print(f"[5/6] 链接为可执行文件...")
 
-    link_args = [clang, *arch_flags, ir_o, runtime_o, '-o', exe_path]
+    link_args = [clang, *arch_flags, *msvc_ldflags, ir_o, runtime_o, '-o', exe_path]
     if debug:
         link_args.append('-g')
     link_args.extend(get_link_libs())
@@ -783,6 +784,83 @@ def find_clang(target_arch: str = None):
         if os.path.exists(mingw_clang):
             return mingw_clang
     raise RuntimeError("未找到 clang 编译器。请安装 LLVM:\n  Windows: https://github.com/llvm/llvm-project/releases\n  macOS: brew install llvm\n  Linux: sudo apt install clang")
+
+
+def _windows_msvc_flags():
+    """Windows 上 clang 默认找不到 MSVC / Windows SDK 的头文件与库，导致原生腿
+    编译 runtime_typed.c 报 'stdio.h' file not found、链接报找不到 ws2_32 等。
+
+    本函数探测本机已安装的 Windows SDK + VS BuildTools/Community 路径，返回额外的
+    ``(cflags, ldflags)``，让 O0/O2 原生腿能正确编链。
+
+    - 仅 Windows 且对应目录存在时才返回非空；非 Windows 或未安装 SDK 时返回
+      ``([], [])``，不影响 CI（Linux/BSD）与已自行配好环境的机器。
+    - 路径全部运行时探测（SDK 版本号、MSVC 版本号都不硬编码），随本机安装自适应。
+    """
+    if sys.platform != 'win32':
+        return [], []
+
+    cflags, ldflags = [], []
+
+    # Windows SDK：ucrt 头文件、um 导入库（ws2_32/secur32/crypt32 等）、ucrt 库
+    sdk_root = r'C:\Program Files (x86)\Windows Kits\10'
+    sdk_inc = os.path.join(sdk_root, 'Include')
+    if os.path.isdir(sdk_inc):
+        sdk_vers = sorted(
+            (d for d in os.listdir(sdk_inc) if d.startswith('10.')),
+            reverse=True,
+        )
+        if sdk_vers:
+            v = sdk_vers[0]
+            ucrt_inc = os.path.join(sdk_inc, v, 'ucrt')
+            um_inc = os.path.join(sdk_inc, v, 'um')
+            shared_inc = os.path.join(sdk_inc, v, 'shared')
+            ucrt_lib = os.path.join(sdk_root, 'Lib', v, 'ucrt', 'x64')
+            um_lib = os.path.join(sdk_root, 'Lib', v, 'um', 'x64')
+            if os.path.isdir(ucrt_inc):
+                cflags.append(f'-isystem{ucrt_inc}')
+            if os.path.isdir(um_inc):
+                cflags.append(f'-isystem{um_inc}')
+            if os.path.isdir(shared_inc):
+                cflags.append(f'-isystem{shared_inc}')
+            if os.path.isdir(ucrt_lib):
+                ldflags.append(f'-L{ucrt_lib}')
+            if os.path.isdir(um_lib):
+                ldflags.append(f'-L{um_lib}')
+
+    # Visual Studio / BuildTools 的 MSVC：vcruntime 等头文件与库
+    # 目录结构为 {root}\{年份}\{版本(BuildTools/Community/...)}\VC\Tools\MSVC\{ver}
+    vs_found = False
+    for root in (r'C:\Program Files (x86)\Microsoft Visual Studio',
+                 r'C:\Program Files\Microsoft Visual Studio'):
+        if not os.path.isdir(root):
+            continue
+        for year_dir in os.listdir(root):
+            year_path = os.path.join(root, year_dir)
+            if not os.path.isdir(year_path):
+                continue
+            for edition_dir in os.listdir(year_path):
+                msvc = os.path.join(year_path, edition_dir, 'VC', 'Tools', 'MSVC')
+                if not os.path.isdir(msvc):
+                    continue
+                msvc_vers = sorted(os.listdir(msvc), reverse=True)
+                if not msvc_vers:
+                    continue
+                mv = msvc_vers[0]
+                inc = os.path.join(msvc, mv, 'include')
+                lib = os.path.join(msvc, mv, 'lib', 'x64')
+                if os.path.isdir(inc):
+                    cflags.append(f'-isystem{inc}')
+                if os.path.isdir(lib):
+                    ldflags.append(f'-L{lib}')
+                vs_found = True
+                break
+            if vs_found:
+                break
+        if vs_found:
+            break
+
+    return cflags, ldflags
 
 
 def get_arm64_cross_compiler_candidates() -> list:
@@ -1203,6 +1281,7 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
 
     # 根据目标架构查找编译器
     clang = find_clang(target_arch=target_arch)
+    msvc_cflags, msvc_ldflags = _windows_msvc_flags()
     if verbose:
         print(f"  使用编译器: {clang}")
 
@@ -1223,7 +1302,7 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
         print("[3/5] 编译 typed 运行时库...")
 
     result = subprocess.run(
-        [clang, '-c', *opt_flags, *arch_flags, *debug_flags, runtime_c, '-o', runtime_o],
+        [clang, '-c', *opt_flags, *arch_flags, *debug_flags, *msvc_cflags, runtime_c, '-o', runtime_o],
         capture_output=True, text=True, encoding='utf-8', errors='replace'
     )
     if result.returncode != 0:
@@ -1235,7 +1314,7 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
 
     ir_o = base_path + '.o'
     result = subprocess.run(
-        [clang, '-c', *opt_flags, *arch_flags, *debug_flags, ll_path, '-o', ir_o],
+        [clang, '-c', *opt_flags, *arch_flags, *debug_flags, *msvc_cflags, ll_path, '-o', ir_o],
         capture_output=True, text=True, encoding='utf-8', errors='replace'
     )
     if result.returncode != 0:
@@ -1247,7 +1326,7 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
     if verbose:
         print(f"[5/5] 链接为可执行文件...")
 
-    link_args = [clang, *arch_flags, ir_o, runtime_o, '-o', exe_path]
+    link_args = [clang, *arch_flags, *msvc_ldflags, ir_o, runtime_o, '-o', exe_path]
     if debug:
         link_args.append('-g')
     link_args.extend(get_link_libs())
