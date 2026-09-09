@@ -15,7 +15,7 @@
 #      写成 `字符.isalpha()` 时，入参不是 str 就抛 AttributeError，
 #      而 Python 版抛的是 TypeError —— 那是改写错误口径。
 
-导出 是整数 是浮点 是字符串 是列表 是字典 是空 是字母 是数字 是空白。
+导出 是整数 是浮点 是字符串 是列表 是字典 是空 是字母 是数字 是空白 是布尔 是函数 是数值。
 
 # 对齐 stdlib/builtins.py:746 —— isinstance(值, int) and not isinstance(值, bool)
 段落 是整数 接收 值:
@@ -54,3 +54,18 @@
 # 对齐 stdlib/builtins.py:786 —— str.isspace(char)
 段落 是空白 接收 字符:
   返回 str.isspace(字符)
+
+# 对齐 stdlib/builtins.py:是布尔 —— isinstance(值, bool)
+段落 是布尔 接收 值:
+  返回 isinstance(值, bool)
+
+# 对齐 stdlib/builtins.py:是函数 —— callable(值)
+段落 是函数 接收 值:
+  返回 callable(值)
+
+# 对齐 stdlib/builtins.py:是数值 —— isinstance(值, (int, float)) and not isinstance(值, bool)
+# 是数值 检查 int/float 类型（排除 bool）；与 是数字（字符级 str.isdigit）不同。
+段落 是数值 接收 值:
+  如果 isinstance(值, bool):
+    返回 假
+  返回 isinstance(值, int) 或 isinstance(值, float)

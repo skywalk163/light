@@ -655,6 +655,9 @@ class PythonCodeGenerator:
             '是列表': '_light_builtin.是列表',
             '是字典': '_light_builtin.是字典',
             '是空': '_light_builtin.是空',
+            '是布尔': '_light_builtin.是布尔',
+            '是函数': '_light_builtin.是函数',
+            '是数字': '_light_builtin.是数值',
             
             # 日期时间
             '时间戳': '_light_builtin.时间戳',
@@ -1240,6 +1243,16 @@ class PythonCodeGenerator:
         self._add_line("    ('删除目录', lambda path: __import__('shutil').rmtree(path)),")
         self._add_line("    ('路径连接', lambda *parts: __import__('os').path.join(*parts)),")
         self._add_line("    ('当前工作目录', lambda: __import__('os').getcwd()),")
+        self._add_line("    # 类型检查 fallback（stdlib 缺失时兜底）")
+        self._add_line("    ('是整数', lambda v: isinstance(v, int) and not isinstance(v, bool)),")
+        self._add_line("    ('是浮点', lambda v: isinstance(v, float)),")
+        self._add_line("    ('是字符串', lambda v: isinstance(v, str)),")
+        self._add_line("    ('是列表', lambda v: isinstance(v, list)),")
+        self._add_line("    ('是字典', lambda v: isinstance(v, dict)),")
+        self._add_line("    ('是空', lambda v: v is None),")
+        self._add_line("    ('是布尔', lambda v: isinstance(v, bool)),")
+        self._add_line("    ('是函数', lambda v: callable(v)),")
+        self._add_line("    ('是数值', lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)),")
         self._add_line("]:")
         self._add_line("    if not hasattr(_light_builtin, _light_n):")
         self._add_line("        setattr(_light_builtin, _light_n, _light_f)")
@@ -1274,6 +1287,18 @@ class PythonCodeGenerator:
         self._add_line("    if isinstance(_o, str):")
         self._add_line("        return _o.join(_s)")
         self._add_line("    return _s.join([_x if isinstance(_x, str) else str(_x) for _x in _o])")
+        self._add_line("")
+        # L-071：安全获取辅助函数。字典.获取(k, d) 走 dict.get；
+        # 列表.获取(i, d) 走索引 + IndexError 回落。统一不抛异常。
+        self._add_line("# 安全获取辅助函数（字典.获取(键, 默认) 与 列表.获取(索引, 默认) 均不抛异常）")
+        self._add_line("def _light_get(_o, _k, _d=None):")
+        self._add_line("    try:")
+        self._add_line("        return _o.get(_k, _d)")
+        self._add_line("    except (AttributeError, TypeError):")
+        self._add_line("        try:")
+        self._add_line("            return _o[_k]")
+        self._add_line("        except (IndexError, KeyError, TypeError):")
+        self._add_line("            return _d")
         self._add_line("")
 
         # 生成语句
@@ -2080,6 +2105,10 @@ class PythonCodeGenerator:
                                'default': param.get('default')})
         
         # 生成带类型注解的参数列表（A4：`接收 端口 等于 443` → `端口=443`）
+        # L-070：DictLiteral/ListLiteral 默认值用方案B（每次调用重新求值），
+        # 避免 Python 可变默认参数共享陷阱。签名写 None，
+        # 函数体首行插入 `if name is None: name = {}` 重建字面量。
+        mutable_defaults = []  # [(param_name, default_expr_str), ...]
         params_parts = []
         for p in params:
             if p['type']:
@@ -2091,7 +2120,12 @@ class PythonCodeGenerator:
             if default is not None:
                 # 带注解时 PEP 8 要求 `名: 类型 = 值`，无注解时是 `名=值`
                 sep = ' = ' if p['type'] else '='
-                part = f"{part}{sep}{self._generate_expr(default)}"
+                if isinstance(default, (DictLiteral, ListLiteral)):
+                    # 方案B：签名用 None，函数体首行重建
+                    part = f"{part}{sep}None"
+                    mutable_defaults.append((p['name'], self._generate_expr(default)))
+                else:
+                    part = f"{part}{sep}{self._generate_expr(default)}"
             params_parts.append(part)
 
         
@@ -2128,6 +2162,13 @@ class PythonCodeGenerator:
             self._binding_params = False
         self._in_function = True
         self.indent_level += 1
+
+        # L-070 方案B：可变默认参数在函数体首行重建（每次调用新建，不共享）
+        for _dname, _dexpr in mutable_defaults:
+            self._add_line(f"if {_dname} is None:")
+            self.indent_level += 1
+            self._add_line(f"{_dname} = {_dexpr}")
+            self.indent_level -= 1
 
         # B5：推迟语句（defer）—— 如果段落体含 DeferStatement，
         # 包一层 try/finally，finally 里反序执行所有注册的 defer 函数。
@@ -3038,6 +3079,8 @@ class PythonCodeGenerator:
         method_params = getattr(method, 'parameters', None)
         if method_params is None:
             method_params = getattr(method, 'params', None)
+        # L-070 方案B：可变默认参数在方法体首行重建（与 _generate_paragraph 同口径）
+        mutable_defaults = []  # [(param_name, default_expr_str), ...]
         if method_params:
             for param in method_params:
                 # Paragraph 的 params 是 List[Dict[str,str]]，MethodDefinition 的是 List[Parameter]
@@ -3061,8 +3104,16 @@ class PythonCodeGenerator:
                     param_type = param.get('type')
                     if param_type:
                         param_name = f"{param_name}: {self._map_type(param_type)}"
-                    if param.get('default'):
-                        params.append(f"{param_name}={param['default']}")
+                    default = param.get('default')
+                    if default is not None:
+                        sep = ' = ' if param_type else '='
+                        if isinstance(default, (DictLiteral, ListLiteral)):
+                            params.append(f"{param_name}{sep}None")
+                            mutable_defaults.append((self._sanitize_name(raw_param), self._generate_expr(default)))
+                        elif isinstance(default, ASTNode):
+                            params.append(f"{param_name}{sep}{self._generate_expr(default)}")
+                        else:
+                            params.append(f"{param_name}{sep}{default}")
                     else:
                         params.append(param_name)
                 else:
@@ -3077,10 +3128,13 @@ class PythonCodeGenerator:
                     else:
                         ann_name = param_name
                     if getattr(param, 'default_value', None):
-                        default = self._generate_expr(param.default_value)
-                        # 带注解时 PEP 8 要求 `名: 类型 = 值`，无注解时是 `名=值`
+                        default_expr = self._generate_expr(param.default_value)
                         sep = ' = ' if param_type else '='
-                        params.append(f"{ann_name}{sep}{default}")
+                        if isinstance(param.default_value, (DictLiteral, ListLiteral)):
+                            params.append(f"{ann_name}{sep}None")
+                            mutable_defaults.append((param_name, default_expr))
+                        else:
+                            params.append(f"{ann_name}{sep}{default_expr}")
                     else:
                         params.append(ann_name)
 
@@ -3131,6 +3185,13 @@ class PythonCodeGenerator:
         self._in_function = True
         self._in_class_method = not is_static
         self.indent_level += 1
+
+        # L-070 方案B：可变默认参数在方法体首行重建（与 _generate_paragraph 同口径）
+        for _dname, _dexpr in mutable_defaults:
+            self._add_line(f"if {_dname} is None:")
+            self.indent_level += 1
+            self._add_line(f"{_dname} = {_dexpr}")
+            self.indent_level -= 1
 
         # 如果是构造函数且有类属性，为未在构造函数体中初始化的属性生成默认值
         attr_init_lines = []
@@ -3587,6 +3648,12 @@ class PythonCodeGenerator:
                 # 的调用，`连接对象.连接()` 这类用户自定义无参方法保持原样透传。
                 elif expr.member == '连接' and len(expr.args) == 1:
                     return f"_light_join({obj}, {args_str})"
+
+                # L-071：安全获取 -> 运行期分派（见 _light_get）。
+                # 字典.获取(k, d) 走 dict.get；列表.获取(i, d) 走索引 + IndexError 回落。
+                # 只接管「带 1-2 个实参」的调用，避免吞掉用户自定义无参方法。
+                elif expr.member == '获取' and 1 <= len(expr.args) <= 2:
+                    return f"_light_get({obj}, {args_str})"
 
                 # 特殊处理：cb_前缀的回调函数调用
                 # obj.cb_xxx(args) → cb_xxx(args)

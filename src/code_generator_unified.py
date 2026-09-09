@@ -186,6 +186,9 @@ class UnifiedCodeGenerator:
             '是列表': '_light_builtin.是列表',
             '是字典': '_light_builtin.是字典',
             '是空': '_light_builtin.是空',
+            '是布尔': '_light_builtin.是布尔',
+            '是函数': '_light_builtin.是函数',
+            '是数字': '_light_builtin.是数值',
             '是字母': '_light_builtin.是字母',
             '是数字符': '_light_builtin.是数字',
             '是空白': '_light_builtin.是空白',
@@ -259,6 +262,16 @@ class UnifiedCodeGenerator:
         self._add_line("    if type(a) is int and type(b) is int:")
         self._add_line("        return a // b if a * b >= 0 else -((-a) // b)")
         self._add_line("    return a / b")
+        self._add_line("")
+        # L-071：安全获取辅助函数（字典.获取(键, 默认) 与 列表.获取(索引, 默认) 均不抛异常）
+        self._add_line("def _light_get(_o, _k, _d=None):")
+        self._add_line("    try:")
+        self._add_line("        return _o.get(_k, _d)")
+        self._add_line("    except (AttributeError, TypeError):")
+        self._add_line("        try:")
+        self._add_line("            return _o[_k]")
+        self._add_line("        except (IndexError, KeyError, TypeError):")
+        self._add_line("            return _d")
         self._add_line("")
         
         # 添加标准库导入
@@ -1907,6 +1920,9 @@ class UnifiedCodeGenerator:
                 # 父.构造(...) -> super().__init__(...)：与 FunctionCall/PropertyAccess 同口径
                 if obj == 'super()' and expr.member in ('构造', '初始化', '构'):
                     return f"super().__init__({args_str})"
+                # L-071：安全获取 -> 运行期分派（见 _light_get）
+                if expr.member == '获取' and 1 <= len(args) <= 2:
+                    return f"_light_get({obj}, {args_str})"
                 return f"{obj}.{mapped_member}({args_str})"
             return f"{obj}.{mapped_member}"
         
