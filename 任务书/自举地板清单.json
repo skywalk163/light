@@ -815,7 +815,7 @@
       "当前实现语言": "光明（stdlib/内置核心转换.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心转换.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心转换.light:29"
+      "证据行": "stdlib/内置核心转换.light:40"
     },
     {
       "名字": "转整数",
