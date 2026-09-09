@@ -788,16 +788,6 @@ class Lexer:
                     col += 1
                     i += 1
 
-                # P2：行首缩进同时使用 Tab 和空格 → 明确报错（附行列与上下文）
-                if saw_space and saw_tab:
-                    snippet = source[i:min(n, i + 20)].strip()
-                    raise LexerError(
-                        "缩进混合了 Tab 和空格，请统一使用空格",
-                        line,
-                        indent_start_col,
-                        snippet or "（行尾）",
-                    )
-                
                 # 跳过空行和注释行（缩进后立即是换行、EOF、# 或 //）
                 if i >= n or source[i] == '\n':
                     continue
@@ -811,6 +801,18 @@ class Lexer:
                     while i < n and source[i] != '\n':
                         i += 1
                     continue
+
+                # P2：仅当该行含实际代码时，才检查行首缩进是否同时混用 Tab 和空格。
+                # 纯空白行 / 注释行的前导空白不参与缩进风格判定，否则全空白输入
+                # （如 fuzz 的 '   \n\n\t  \n  '）会被误报「缩进混合」。
+                if saw_space and saw_tab:
+                    snippet = source[i:min(n, i + 20)].strip()
+                    raise LexerError(
+                        "缩进混合了 Tab 和空格，请统一使用空格",
+                        line,
+                        indent_start_col,
+                        snippet or "（行尾）",
+                    )
                 
                 # 处理缩进变化
                 if indent > indent_stack[-1]:
