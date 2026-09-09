@@ -1,0 +1,35 @@
+# test_L069.light — 序列化JSON 支持光明布尔值 真/假
+# 缺陷 L-069：序列化JSON 不支持光明布尔值 真/假 → JSON true/false
+# 期望：{"enabled": true, "mock": false, "count": 3}
+
+从 JSON 导入 序列化JSON, 解析JSON
+
+# --- 1. 最小复现 ---
+设 配置 为 {"enabled": 真, "mock": 假, "count": 3}
+设 文本 为 序列化JSON(配置)
+打印 文本
+# 期望：{"enabled": true, "mock": false, "count": 3}
+
+# --- 2. 嵌套结构（字典→列表→字典）---
+设 嵌套 为 {"外层": [真, {"内层": 假, "标记": 真}], "状态": 假}
+打印 序列化JSON(嵌套)
+# 期望：{"外层": [true, {"内层": false, "标记": true}], "状态": false}
+
+# --- 3. 解析JSON 逆向：true→真, false→假, null→空 ---
+设 回 为 解析JSON('{"x": true, "y": false, "z": null}')
+打印 回["x"]
+打印 回["y"]
+打印 回["z"]
+# 期望：True / False / None（光明 真/假/空 在 src 后端的 Python 表示）
+
+# --- 4. 向后兼容：数字 1/0 代替布尔的绕法继续可用 ---
+打印 序列化JSON({"v": 1, "w": 0})
+# 期望：{"v": 1, "w": 0}
+
+# --- 5. 中文不转义（ensure_ascii=False）---
+打印 序列化JSON({"名字": "张三", "启用": 真})
+# 期望：{"名字": "张三", "启用": true}
+
+# --- 6. 布尔作为字典键 ---
+打印 序列化JSON({真: "是", 假: "否"})
+# 期望：{"true": "是", "false": "否"}

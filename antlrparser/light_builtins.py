@@ -161,9 +161,30 @@ class BuiltinsMixin:
             result[key.value] = args[i + 1]
         return LightValue(result, '典')
     
+    @staticmethod
+    def _json_plain(val):
+        """递归剥离 LightValue 包装，返回纯 Python 值供 json.dumps 使用"""
+        if isinstance(val, LightValue):
+            return BuiltinsMixin._json_plain(val.value)
+        if isinstance(val, dict):
+            return {BuiltinsMixin._json_plain(k): BuiltinsMixin._json_plain(v) for k, v in val.items()}
+        if isinstance(val, list):
+            return [BuiltinsMixin._json_plain(v) for v in val]
+        return val
+
     def _builtin_to_string(self, args: List[LightValue]) -> LightValue:
-        """转换为字符串"""
-        return LightValue(str(args[0]), '串')
+        """转换为字符串（方案A：布尔→真/假/空，字典/列表→JSON，其余→str）"""
+        val = args[0].value
+        if val is True:
+            return LightValue('真', '串')
+        if val is False:
+            return LightValue('假', '串')
+        if val is None:
+            return LightValue('空', '串')
+        if isinstance(val, (dict, list)):
+            import json
+            return LightValue(json.dumps(self._json_plain(val), ensure_ascii=False), '串')
+        return LightValue(str(val), '串')
     
     def _builtin_to_number(self, args: List[LightValue]) -> LightValue:
         """转换为数字"""
@@ -738,7 +759,7 @@ class BuiltinsMixin:
         if len(args) >= 2 and args[1].value is not None:
             indent = int(args[1].value)
         try:
-            result = json.dumps(val, ensure_ascii=False, indent=indent)
+            result = json.dumps(self._json_plain(val), ensure_ascii=False, indent=indent)
             return LightValue(result, '串')
         except (TypeError, ValueError) as e:
             raise RuntimeError(f"JSON序列化失败: {e}")

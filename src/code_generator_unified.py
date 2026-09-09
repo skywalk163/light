@@ -267,10 +267,10 @@ class UnifiedCodeGenerator:
         self._add_line("def _light_get(_o, _k, _d=None):")
         self._add_line("    try:")
         self._add_line("        return _o.get(_k, _d)")
-        self._add_line("    except (AttributeError, TypeError):")
+        self._add_line("    except AttributeError:")
         self._add_line("        try:")
         self._add_line("            return _o[_k]")
-        self._add_line("        except (IndexError, KeyError, TypeError):")
+        self._add_line("        except (IndexError, KeyError):")
         self._add_line("            return _d")
         self._add_line("")
         

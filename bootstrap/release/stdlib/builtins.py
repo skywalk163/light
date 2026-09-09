@@ -388,7 +388,29 @@ def 转浮点(text: str) -> float:
 
 
 def 转字符串(value) -> str:
-    """将值转换为字符串"""
+    """将值转换为字符串（L-072 方案A：光明相输出，容器发 JSON）
+
+    口径与 stdlib/内置核心转换.light:29 的规范真身逐字一致：
+      * True / False / None → "真" / "假" / "空"（不是 Python 的 True/False/None）
+      * str → 原样返回，不加引号（日志与错误消息拼接依赖）
+      * dict / list → JSON 文本（双引号、ensure_ascii=False 保中文、紧凑无缩进）
+      * 其余 → str() 兜底
+    bool 必须在 int 之前判——Python 里 bool 是 int 的子类。
+    序列化失败退回 str()：转字符串 常在错误路径上，不许自己再抛错盖掉原故障。
+    """
+    if value is None:
+        return "空"
+    if value is True:
+        return "真"
+    if value is False:
+        return "假"
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (dict, list)):
+        try:
+            return _duan_json_module.dumps(value, ensure_ascii=False)
+        except Exception:
+            return str(value)
     return str(value)
 
 
