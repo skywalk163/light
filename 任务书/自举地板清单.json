@@ -16,11 +16,11 @@
   ],
   "版本": 1,
   "归属": "C9 建（S1），G9 守门禁",
-  "总数": 146,
+  "总数": 149,
   "分类统计": {
     "native_required": 62,
     "movable": 11,
-    "has_light_impl": 60,
+    "has_light_impl": 63,
     "duplicate": 13,
     "unused": 0
   },
@@ -1200,6 +1200,30 @@
       "分类": "movable",
       "目标落点": "stdlib/内置核心字典.light（纯计算：dict.get / getattr 安全取值；S2 前保留 builtins.py）",
       "证据行": "stdlib/builtins.py:1432"
+    },
+    {
+      "名字": "是布尔",
+      "职责": "检查是否为布尔值",
+      "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
+      "证据行": "stdlib/内置核心判型.light:59"
+    },
+    {
+      "名字": "是函数",
+      "职责": "检查是否为可调用对象（函数/方法/lambda）",
+      "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
+      "证据行": "stdlib/内置核心判型.light:63"
+    },
+    {
+      "名字": "是数值",
+      "职责": "检查是否为数值类型（int/float，排除 bool）",
+      "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
+      "证据行": "stdlib/内置核心判型.light:68"
     }
   ],
   "地板自举率_S2进度": {
