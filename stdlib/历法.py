@@ -28,7 +28,7 @@ def 公历转农历(年, 月, 日):
     if not _HAS_LUNAR:
         raise RuntimeError("农历转换需要 lunardate 库，请执行: pip install lunardate")
     
-    lunar = _LunarDate.from_solar_date(年, 月, 日)
+    lunar = _LunarDate.fromSolarDate(年, 月, 日)
     return {
         '年': lunar.year,
         '月': lunar.month,
@@ -50,7 +50,7 @@ def 农历转公历(年, 月, 日, 闰月=False):
         raise RuntimeError("农历转换需要 lunardate 库，请执行: pip install lunardate")
     
     lunar = _LunarDate(年, 月, 日, is_leap_month=闰月)
-    solar = lunar.to_solar_date()
+    solar = lunar.toSolarDate()
     return {
         '年': solar.year,
         '月': solar.month,
