@@ -3586,8 +3586,13 @@ class PythonCodeGenerator:
             # dv_list_remove 的 index<0 clone 原表一致），不抛 ValueError。
             if (expr.is_method_call and expr.member == '移除'
                     and len(expr.args) == 1):
-                return (f"_light_builtin.列表移除宽容({obj}, "
-                        f"{self._generate_expr(expr.args[0])})")
+                _rm_val = self._generate_expr(expr.args[0])
+                # 宽容口径（与原生腿 dv_list_remove 一致）：值不存在时保持原列表，
+                # 不抛 ValueError。内联 lambda 保证 obj/val 各求值一次，且不依赖
+                # _light_builtin 兜底 helper（它只存在于 codegen 缺 stdlib 的分支，
+                # 真实 stdlib/builtins.py 并未提供该属性 → 否则运行期 AttributeError）。
+                return (f"(lambda _l, _v: _l.remove(_v) if _v in _l else None)"
+                        f"({obj}, {_rm_val})")
             
             # 检查导入的模块成员访问映射
             # 如 JSON.序列化 → _light_builtin.序列化JSON, JSON.解析 → _light_builtin.解析JSON
