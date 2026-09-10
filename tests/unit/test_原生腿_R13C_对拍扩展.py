@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """R13C 定向测试：R11A 对拍覆盖扩展（字符串工具中长尾 +20、数据结构中长尾 +15）。
 
 对拍口径：oracle 以 stdlib/字符串工具.py / 数据结构.py 的同名实现（或其文档化
@@ -538,9 +538,9 @@ def test_链表_查找获取修改():
     )
     rc, out, err = _编译并运行(code)
     assert rc == 0, err
-    # oracle：list（查找→是否含成员（布尔）、获取=[i]、修改=[i]=v）
+    # oracle：list（查找→索引、获取=[i]、修改=[i]=v）
     l = [7, 8]
-    期望 = ['真' if 8 in l else '假', l[0]]
+    期望 = [str(l.index(8)), l[0]]
     l[0] = 9
     期望.append(l[0])
     _对拍(out, 期望)

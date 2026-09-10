@@ -290,94 +290,94 @@ class TestDataStructures(unittest.TestCase):
     """测试数据结构模块"""
 
     def test_stack(self):
-        """测试栈"""
-        from 数据结构 import 栈
+        """测试栈（函数式 API）"""
+        from 数据结构 import 创建栈, 压入, 弹出元素, 顶部, 栈大小
         
-        s = 栈()
-        s.压入(1)
-        s.压入(2)
-        s.压入(3)
+        s = 创建栈()
+        压入(s, 1)
+        压入(s, 2)
+        压入(s, 3)
         
-        self.assertEqual(s.大小(), 3)
-        self.assertEqual(s.弹出(), 3)
-        self.assertEqual(s.顶部(), 2)
-        self.assertEqual(s.大小(), 2)
+        self.assertEqual(栈大小(s), 3)
+        self.assertEqual(弹出元素(s), 3)
+        self.assertEqual(顶部(s), 2)
+        self.assertEqual(栈大小(s), 2)
 
     def test_queue(self):
-        """测试队列"""
-        from 数据结构 import 队列
+        """测试队列（函数式 API）"""
+        from 数据结构 import 创建队列, 入队, 出队元素, 队首, 队列大小
         
-        q = 队列()
-        q.入队(1)
-        q.入队(2)
-        q.入队(3)
+        q = 创建队列()
+        入队(q, 1)
+        入队(q, 2)
+        入队(q, 3)
         
-        self.assertEqual(q.大小(), 3)
-        self.assertEqual(q.出队(), 1)
-        self.assertEqual(q.队首(), 2)
-        self.assertEqual(q.大小(), 2)
+        self.assertEqual(队列大小(q), 3)
+        self.assertEqual(出队元素(q), 1)
+        self.assertEqual(队首(q), 2)
+        self.assertEqual(队列大小(q), 2)
 
     def test_deque(self):
-        """测试双端队列"""
-        from 数据结构 import 双端队列
+        """测试双端队列（函数式 API）"""
+        from 数据结构 import 创建双端队列, 左入队, 右入队, 左出队元素, 右出队元素, 双端队列大小
         
-        dq = 双端队列()
-        dq.左入队(1)
-        dq.右入队(2)
+        dq = 创建双端队列()
+        dq = 左入队(dq, 1)
+        dq = 右入队(dq, 2)
         
-        self.assertEqual(dq.大小(), 2)
-        self.assertEqual(dq.左出队(), 1)
-        self.assertEqual(dq.右出队(), 2)
+        self.assertEqual(双端队列大小(dq), 2)
+        self.assertEqual(左出队元素(dq), 1)
+        self.assertEqual(右出队元素(dq), 2)
 
     def test_priority_queue(self):
-        """测试优先队列"""
-        from 数据结构 import 优先队列
+        """测试优先队列（函数式 API）"""
+        from 数据结构 import 创建优先队列, 优先入队, 优先出队元素, 优先队列大小
         
-        pq = 优先队列()
-        pq.入队(3, 'low')
-        pq.入队(1, 'high')
-        pq.入队(2, 'medium')
+        pq = 创建优先队列()
+        优先入队(pq, 'low', 3)
+        优先入队(pq, 'high', 1)
+        优先入队(pq, 'medium', 2)
         
-        self.assertEqual(pq.大小(), 3)
-        self.assertEqual(pq.出队(), 'high')
-        self.assertEqual(pq.出队(), 'medium')
+        self.assertEqual(优先队列大小(pq), 3)
+        self.assertEqual(优先出队元素(pq), 'high')
+        self.assertEqual(优先出队元素(pq), 'medium')
 
     def test_linked_list(self):
-        """测试单链表"""
-        from 数据结构 import 单链表
+        """测试单链表（函数式 API）"""
+        from 数据结构 import 创建链表, 尾部插入, 头部插入, 链表大小, 链表获取, 链表查找, 删除指定值
         
-        ll = 单链表()
-        ll.尾部插入(1)
-        ll.尾部插入(2)
-        ll.头部插入(0)
+        ll = 创建链表()
+        ll = 尾部插入(ll, 1)
+        ll = 尾部插入(ll, 2)
+        ll = 头部插入(ll, 0)
         
-        self.assertEqual(ll.大小(), 3)
-        self.assertEqual(ll.获取(0), 0)
-        self.assertEqual(ll.查找(2), 2)
+        self.assertEqual(链表大小(ll), 3)
+        self.assertEqual(链表获取(ll, 0), 0)
+        self.assertEqual(链表查找(ll, 2), 2)
         
-        ll.删除指定值(1)
-        self.assertEqual(ll.大小(), 2)
+        ll = 删除指定值(ll, 1)
+        self.assertEqual(链表大小(ll), 2)
 
     def test_binary_search_tree(self):
-        """测试二叉搜索树"""
-        from 数据结构 import 二叉搜索树
+        """测试二叉搜索树（函数式 API）"""
+        from 数据结构 import 创建二叉搜索树, 二叉插入, 二叉查找, 二叉中序遍历, 二叉删除
         
-        bst = 二叉搜索树()
-        bst.插入(5)
-        bst.插入(3)
-        bst.插入(7)
-        bst.插入(2)
-        bst.插入(4)
+        bst = 创建二叉搜索树()
+        二叉插入(bst, 5)
+        二叉插入(bst, 3)
+        二叉插入(bst, 7)
+        二叉插入(bst, 2)
+        二叉插入(bst, 4)
         
-        self.assertTrue(bst.查找(5))
-        self.assertTrue(bst.查找(3))
-        self.assertFalse(bst.查找(10))
+        self.assertTrue(二叉查找(bst, 5))
+        self.assertTrue(二叉查找(bst, 3))
+        self.assertFalse(二叉查找(bst, 10))
         
-        inorder = bst.中序遍历()
+        inorder = 二叉中序遍历(bst)
         self.assertEqual(inorder, [2, 3, 4, 5, 7])
         
-        bst.删除(3)
-        self.assertFalse(bst.查找(3))
+        二叉删除(bst, 3)
+        self.assertFalse(二叉查找(bst, 3))
 
 
 if __name__ == '__main__':
