@@ -28,8 +28,17 @@
 
 # ---------- 加载同名 .py 真实现（绕开循环导入）----------
 引 Python:
-import importlib.util as _ilu, os as _os
-_时间管理_py路径 = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "时间管理.py")
+import importlib.util as _ilu, os as _os, sys as _sys
+# 不依赖 __file__（0.88 全量并行下 L4 嵌入块执行时 __file__ 可能未定义）；
+# 改为在 sys.path 中搜索同名 .py（stdlib 必在 sys.path）。
+_时间管理_py路径 = None
+for _d in _sys.path:
+    _候选 = _os.path.join(_d, "时间管理.py")
+    if _os.path.isfile(_候选):
+        _时间管理_py路径 = _候选
+        break
+if _时间管理_py路径 is None:
+    raise RuntimeError("找不到 时间管理.py（sys.path 中无 stdlib）")
 _时间管理_规格 = _ilu.spec_from_file_location("_时间管理_py真实现", _时间管理_py路径)
 _时间管理_real = _ilu.module_from_spec(_时间管理_规格)
 _时间管理_规格.loader.exec_module(_时间管理_real)

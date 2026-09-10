@@ -14,8 +14,17 @@
 
 # ── Python 腿真实现桥（按文件路径加载，绕开同名循环导入）────────────────────
 引 Python:
-import importlib.util as _ilu, os as _os
-_断言工具_py路径 = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "断言工具.py")
+import importlib.util as _ilu, os as _os, sys as _sys
+# 不依赖 __file__（0.88 全量并行下 L4 嵌入块执行时 __file__ 可能未定义）；
+# 改为在 sys.path 中搜索同名 .py（stdlib 必在 sys.path）。
+_断言工具_py路径 = None
+for _d in _sys.path:
+    _候选 = _os.path.join(_d, "断言工具.py")
+    if _os.path.isfile(_候选):
+        _断言工具_py路径 = _候选
+        break
+if _断言工具_py路径 is None:
+    raise RuntimeError("找不到 断言工具.py（sys.path 中无 stdlib）")
 _断言工具_规格 = _ilu.spec_from_file_location("_断言工具_py真实现", _断言工具_py路径)
 _断言工具_real = _ilu.module_from_spec(_断言工具_规格)
 _断言工具_规格.loader.exec_module(_断言工具_real)
