@@ -683,6 +683,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_call_super_method(ptr, ptr, ptr, ptr, ptr, i32)',
             f'declare i32 @dv_isinstance(ptr, ptr)',
             f'declare void @dv_get_type_name(ptr, ptr, i32)',
+            f'declare i32 @strcmp(ptr, ptr)',
             f'declare i32 @dv_register_class_method(ptr, ptr, ptr)',
             f'declare i32 @dv_register_static_method(ptr, ptr, ptr)',
             f'declare void @dv_call_class_method(ptr, ptr, ptr, ptr, i32)',
@@ -2841,6 +2842,19 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._create_str_dv(buf_cast), 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
 
+        # 判型家族（任务5b：数学.light 复数分派依赖 是列表；native 原缺）。
+        # 复用 dv_get_type_name 的字符串判定，与 Python 腿 isinstance 语义对齐。
+        if name in ('是列表', '是数组', 'is_list'):
+            return self._gen_type_predicate(args, ('list',))
+        if name in ('是字典', 'is_dict', 'is_map'):
+            return self._gen_type_predicate(args, ('dict',))
+        if name in ('是字符串', 'is_str', 'is_string'):
+            return self._gen_type_predicate(args, ('str',))
+        if name in ('是数值', '是数字', 'is_number'):
+            return self._gen_type_predicate(args, ('int', 'float'))
+        if name in ('是布尔', 'is_bool'):
+            return self._gen_type_predicate(args, ('bool',))
+
         if name == '范围':
             return self._gen_typed_range(args)
 
@@ -3287,6 +3301,40 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         result = self.new_register()
         self.emit(f'{result} = load {LIGHTVALUE_STRUCT}, ptr {list_slot}')
         return result, 'dv'
+
+    def _gen_type_predicate(self, args: List[str], type_names: tuple) -> Tuple[str, str]:
+        """判型 builtin 共用生成（是列表/是字典/是字符串/是数值/是布尔）。
+
+        经 dv_get_type_name 取运行时类型名，与任一目标名相等即真。
+        runtime 的 type 名：NoneType/int/float/str/list/dict/bool（含 tuple 等）。
+        """
+        if not args:
+            return self._create_bool_dv('false'), 'dv'
+        obj_slot = self._store_dv(args[0])
+        buf_size = 64
+        buf_ptr = self.new_register()
+        self.emit(f'{buf_ptr} = alloca [{buf_size} x i8]')
+        buf_cast = self.new_register()
+        self.emit(f'{buf_cast} = getelementptr inbounds [{buf_size} x i8], ptr {buf_ptr}, i32 0, i32 0')
+        self.emit(f'call void @dv_get_type_name(ptr {obj_slot}, ptr {buf_cast}, i32 {buf_size})')
+        # 逐名 strcmp，命中任一即真
+        cmp_regs = []
+        for tn in type_names:
+            tn_reg = self.gen_string_constant(tn)
+            r = self.new_register()
+            self.emit(f'{r} = call i32 @strcmp(ptr {buf_cast}, ptr {tn_reg})')
+            z = self.new_register()
+            self.emit(f'{z} = icmp eq i32 {r}, 0')
+            cmp_regs.append(z)
+        if len(cmp_regs) == 1:
+            final = cmp_regs[0]
+        else:
+            final = cmp_regs[0]
+            for z in cmp_regs[1:]:
+                or_reg = self.new_register()
+                self.emit(f'{or_reg} = or i1 {final}, {z}')
+                final = or_reg
+        return self._create_bool_dv(final), 'dv'
 
     def _gen_typed_range(self, args: List[str]) -> Tuple[str, str]:
         """生成范围列表"""
