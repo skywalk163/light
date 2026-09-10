@@ -2852,6 +2852,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return self._gen_type_predicate(args, ('str',))
         if name in ('是数值', '是数字', 'is_number'):
             return self._gen_type_predicate(args, ('int', 'float'))
+        # 任务 P6(e)：数据验证.light 用 是整数/是浮点 区分类型检查分支
+        if name in ('是整数', 'is_int', 'is_integer'):
+            return self._gen_type_predicate(args, ('int',))
+        if name in ('是浮点', '是浮点数', 'is_float'):
+            return self._gen_type_predicate(args, ('float',))
         if name in ('是布尔', 'is_bool'):
             return self._gen_type_predicate(args, ('bool',))
 
