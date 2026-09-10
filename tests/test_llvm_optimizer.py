@@ -863,17 +863,25 @@ class Test槽位池按真实用量分配(unittest.TestCase):
             self.assertEqual(大小, max(实际, 1),
                              f"{函数名} 池大小 {大小} 与真实用量 {实际} 不一致")
 
-    def test_溢出仍然硬报错不悄悄放大(self):
-        """codegen_typed.py 的溢出保护行为保持一致：超过上限仍抛 RuntimeError。"""
+    def test_溢出动态抬水位不硬报错(self):
+        """R12C：槽位池溢出不再硬报错，而是动态抬高水位。
+
+        _new_dv_slot 超水位时把 pool_size 抬到 _temp_slot_index+1024，
+        索引正常分配（真正的防爆栈保障在 _emit_temp_slot_pool 按真实用量
+        回填 alloca，见 test_池大小等于真实用量而不是2048）。
+        大型列表字面量（如行政区划 3000+ 元素）需要海量临时槽位，硬报错会误杀。
+        """
         from llvm.codegen_typed import TypedLLVMCodeGen
 
         cg = TypedLLVMCodeGen()
         cg._temp_slot_pool = '%pool'
         cg._temp_slot_index = cg._temp_slot_pool_size
-        with self.assertRaises(RuntimeError):
-            cg._new_dv_slot()
-        # 上限没被悄悄放大
-        self.assertEqual(cg._temp_slot_pool_size, 2048)
+        idx = cg._new_dv_slot()
+        # 水位被动态抬升，不是 2048 死上限
+        self.assertGreater(cg._temp_slot_pool_size, 2048)
+        # 索引正常分配（不抛 RuntimeError，返回的是池内新槽位）
+        self.assertEqual(cg._temp_slot_index, 2049)
+        self.assertTrue(idx.startswith('%'))
 
     def test_递归200层真跑不爆栈(self):
         """真跑：编到可执行文件并运行，stdout 必须是 20100（1..200 求和）。

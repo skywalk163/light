@@ -2012,6 +2012,14 @@ class ParserStmtMixin:
         if name_tok and name_tok.type == TokenType.IDENTIFIER:
             name = self._consume(TokenType.IDENTIFIER).value
         elif name_tok and name_tok.type == TokenType.KEYWORD:
+            # L-076：`空` 是 None 字面量（保留字），不可作变量名——曾静默解析成
+            # 「声明一个值为 None 的变量 空」，语义陷阱且报错不明确。此处给
+            # 明确报错并给出替代名建议。其余关键字维持原「关键字作名」兼容。
+            if name_tok.value == '空':
+                self._error(
+                    "「空」是关键字（表示空值/None），不能作变量名——"
+                    "请改用 空内容/空值/占位 等名字；若要声明空值可写：设 x 为 空",
+                    name_tok.line, name_tok.col)
             name = self._consume(TokenType.KEYWORD).value
         else:
             self._error(f"期望标识符，但得到 {name_tok.type if name_tok else '输入结束'}",
