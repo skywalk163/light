@@ -384,6 +384,13 @@ class PythonCodeGenerator:
             # 数学函数补充（LLVM后端已有，Python后端补齐）
             '平方根': 'math.sqrt',
             '对数': 'math.log',
+            # T7A 对齐 LLVM 路由（src/llvm/codegen_typed.py:2380-2394）：stdlib 数学.light
+            # 以 `_light_builtin.自然对数/常用对数/对数2(x)` 调用（数学.light:105/110/115），
+            # 之前 map 里只有「对数」，这三个名字查不到就原样发射属性访问，运行期
+            # AttributeError: module 'light_builtins' has no attribute '自然对数'。
+            '自然对数': 'math.log',
+            '常用对数': 'math.log10',
+            '对数2': 'math.log2',
             '指数': 'math.exp',
             '正弦': 'math.sin',
             '余弦': 'math.cos',
