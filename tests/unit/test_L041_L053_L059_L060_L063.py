@@ -6,7 +6,8 @@ L-041 / L-053 / L-059 / L-060 / L-063 标识符/关键字/命名缺陷回归测�
   与关键字降级间接修复，现可正常使用（字典包含键(字典, 键) 等）。
 - L-053：`己` 作普通变量名——_map_self_prefix 加 _in_class_method 门禁，
   类外 `设 己 为 …` 正常；类方法内 `己.attr` self 语义保持。
-- L-059：`空` = None 是文档化设计决策，非缺陷（测试确认语义稳定）。
+- L-059：`空` = None 是文档化设计决策，非缺陷（`空` 为值类型保留字，与 真/假 同类；
+  禁作变量名，但可作值使用，打印输出自身字面文本「空」，与 Python None 同源）。
 - L-060：`函数`/`终` 作变量/参数名——parser_expr 无段名时回退普通标识符；
   函数定义 / 闭包 / 尝试…最终 语义不变。
 - L-063：字典字面量裸键自动转字符串键（JS 风格）；引号键 / 推导式 /
@@ -19,6 +20,7 @@ import io
 import os
 import sys
 import json
+import pytest
 
 _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _src_dir = os.path.join(_project_root, 'src')
@@ -63,7 +65,8 @@ class TestL041DictMappingAsParam:
                 '  写 转字符串(字典包含键(字典, 键))\n'
                 '主({}, "a")\n')
         out = _run(code)
-        assert out.strip() == 'True'
+        # 字典包含键 返回 真（值类型保留字打印自身字面文本，而非 Python 的 True）
+        assert out.strip() == '真'
 
     def test_mapping_param_index(self):
         """`映射` 作参数名 + 下标访问正常"""
@@ -125,25 +128,43 @@ class TestL053JiAsNormalVar:
 
 
 # ===========================================================================
-# L-059：空 = None（文档化设计决策，非缺陷）
+# L-059：空 = None（值类型保留字，非缺陷）
+#   语义：空与真/假同为「值类型保留字」——禁止用作变量名，但可作值使用；
+#   打印输出自身字面文本「空」（等价于 Python None 的中文呈现）。
 # ===========================================================================
 class TestL059KongIsNone:
     def test_kong_equals_none(self):
-        """`空 == 空` 为真（None 语义）"""
+        """`空 == 空` 为真（空值语义，打印为 真）"""
         code = ('设 a 为 空\n设 b 为 空\n写 转字符串(a 等于 b)\n')
         out = _run(code)
-        assert out.strip() == 'True'
+        # 真/假/空 均为值类型保留字，打印输出自身字面文本（与 Python None/True 同源但中文呈现）
+        assert out.strip() == '真'
 
     def test_kong_not_equal_empty_string(self):
         """`空 == ""` 为假——空串判空须显式 == ""（文档化语义）"""
         code = ('设 a 为 空\n写 转字符串(a 等于 "")\n')
         out = _run(code)
-        assert out.strip() == 'False'
+        assert out.strip() == '假'
 
     def test_kong_str_is_none(self):
-        """`转字符串(空)` → 'None'（Python None 语义）"""
+        """`转字符串(空)` → '空'（值类型保留字打印自身字面文本，非空串"空"）"""
         out = _run('写 转字符串(空)\n')
-        assert out.strip() == 'None'
+        assert out.strip() == '空'
+
+    def test_kong_value_is_none_equivalence(self):
+        """`空` 作值类型保留字：a=空 后 a 等于 空 为真，转字符串(a) 输出 '空'"""
+        code = ('设 a 为 空\n'
+                '写 转字符串(a 等于 空)\n'
+                '写 转字符串(a)\n')
+        out = _run(code)
+        # 两个维度同时锁住：相等性 = 真；呈现 = 空（两次写相邻无分隔，拼接为「真空」）
+        assert out.strip() == '真空'
+
+    def test_kong_reserved_as_varname_raises(self):
+        """`空` 是保留字，不可作变量名——`设 空 为 123` 须编译报错"""
+        from parser_core import ParseError
+        with pytest.raises(ParseError):
+            LightParser().parse('设 空 为 123')
 
 
 # ===========================================================================
