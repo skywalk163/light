@@ -221,13 +221,13 @@ log。
         # 审计核实：光明规范（docs/light_lite_spec.md、docs/level4_spec.md）明确定义
         # 「乘除优先级高于加减、左结合」，且解析器自 v4.0 之前即按此实现——
         # 17 才是规范要求的真实期望值，旧值 27 断言的是旧 ANTLR 实现的非标准优先级。
-        # 09-04 裁决 B（known_issues §15.1）落地后：「除」整数相除向零截断、任一操作数为
-        # 浮点才真除，`10 除 2` 得整型 5 → 3*4+5 = 17（整型）。审计锁定的优先级结论不变，
-        # 仅结果类型由浮点 17.0 变为整型 17（对齐原生腿 i64 sdiv）。
+        # 路4真除裁决（取代 09-04 裁决 B §15.1）：「除」改为 Python 真除（对齐原生腿
+        # T7A），`10 除 2` 得浮点 5.0 → 3*4+5.0 = 17.0。审计锁定的优先级结论不变，
+        # 仅结果类型由整型 17 变回浮点 17.0。
         # 此处用精确断言锁定真实行为，防止再被"改期望值"蒙混过关。
-        # 标准数学优先级: 3 * 4 + 10 / 2 = 12 + 5 = 17（裁决 B 下为整型）
-        self.assertIn("17", output)
-        self.assertEqual(output.strip(), "17")
+        # 标准数学优先级: 3 * 4 + 10 / 2 = 12 + 5.0 = 17.0（路4真除下为浮点）
+        self.assertIn("17.0", output)
+        self.assertEqual(output.strip(), "17.0")
 
 
 class TestEdgeCasesControlFlow(unittest.TestCase):
@@ -490,11 +490,12 @@ class TestEdgeCasesExpressions(unittest.TestCase):
         output = compile_and_run(code)
         # v4.0 审计 T01（同 test_multiple_params_with_arithmetic）：期望值 3.0→5.0 的改动
         # 经核实符合规范定义的标准优先级（乘除 > 加减、左结合），5 是真实期望值。
-        # 09-04 裁决 B（§15.1）落地后：「除」整数相除向零截断，`4 除 2` 得整型 2 →
-        # 1 + 6 - 2 = 5（整型）。审计锁定的优先级结论不变，仅结果类型由 5.0 变 5。
-        # 精确断言锁定真实行为。标准数学优先级: 1 + 6 - 2 = 5（裁决 B 下为整型）
-        self.assertIn("5", output)
-        self.assertEqual(output.strip(), "5")
+        # 路4真除裁决（取代 09-04 裁决 B §15.1）：「除」改为 Python 真除（对齐原生腿
+        # T7A），`4 除 2` 得浮点 2.0 → 1 + 6 - 2.0 = 5.0。审计锁定的优先级结论不变，
+        # 仅结果类型由整型 5 变回浮点 5.0。
+        # 精确断言锁定真实行为。标准数学优先级: 1 + 6 - 2.0 = 5.0（路4真除下为浮点）
+        self.assertIn("5.0", output)
+        self.assertEqual(output.strip(), "5.0")
     
     def test_comparison_chain(self):
         """比较链"""

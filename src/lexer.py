@@ -952,6 +952,20 @@ class Lexer:
             
             # 处理数字
             if _is_ascii_digit(source[i]):
+                # L-075：0x 前缀十六进制整数字面量（值等同十进制）。
+                # 如 0x4E00 → 19968；大小写 x/前缀字母均接受。
+                if (source[i] == '0' and i + 1 < n and source[i + 1] in 'xX'
+                        and i + 2 < n and source[i + 2] in '0123456789abcdefABCDEF'):
+                    j = i + 2
+                    while j < n and source[j] in '0123456789abcdefABCDEF':
+                        j += 1
+                    hex_str = source[i + 2:j]
+                    tokens.append(Token(TokenType.NUMBER,
+                                        int(hex_str, 16), line, col))
+                    consumed = j - i
+                    col += consumed
+                    i += consumed
+                    continue
                 token, consumed = self._tokenize_number(source, i, line, col)
                 tokens.append(token)
                 col += consumed

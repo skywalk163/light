@@ -75,12 +75,11 @@ def test_dict_literal_构建与索引真跑():
 
 
 def test_dict_literal_空字典():
-    # 运行时 dv_to_string 对字典只给简化表示「dict」，所以断言它确实是字典
-    # （类型 7 DICT），而不是空串/0——空字典字面量编得出、跑得动。
+    # 空字典字面量编得出、跑得动，dv_to_string 给 JSON 表示「{}」（不是类型名 dict）。
     _assert_stdout(
         '设 字典 为 {}。\n'
         '打印 字典。\n',
-        ['dict'])
+        ['{}'])
 
 
 def test_dict_literal_混合键值类型():
@@ -129,7 +128,6 @@ def test_range_expr_真跑():
 
 _拒绝用例 = [
     ('集合字面量表达式位', '设 甲 为 {1, 2}。\n', 'SetLiteral'),
-    ('元组字面量', '设 甲 为 (1, 2)。\n', 'TupleLiteral'),
     ('Lambda', '设 平方 为 接收 甲：返回 甲 乘 甲。\n', 'LambdaExpression'),
     # C3-4：以下四条是适配层缺转换器的**语句**位节点，同样要能报出原 v3 真名。
     # （一个未支持类型一条，C3-4 口径：每个走 <unknown:XXX> 的节点都能自报家门）
@@ -313,8 +311,28 @@ def _run_transpiled(source: str, timeout: int = 20):
         os.unlink(src_path)
 
 
+def _行数值或逐字节(期望行, 实际行):
+    """单行比较：可解析为数的行按数值近似比（容差相对 1e-9），否则逐字节。
+
+    除法已统一 Python 真除语义（路4 裁决）：原生腿浮点打印 5 位小数
+    （1.33333），转译后端 Python 打印全精度（1.3333333333333333），
+    逐字节必然不一致 → 数值行放宽为近似比较（容差 ~1e-5，即原生腿
+    打印精度量级，仍能拦住真实数值分歧如 1 vs 1.33）；
+    字符串/结构化输出行（列表、字典、字符串等）仍逐字节，不允许格式漂移。
+    """
+    try:
+        期望值 = float(期望行)
+    except ValueError:
+        return 期望行 == 实际行
+    try:
+        实际值 = float(实际行)
+    except ValueError:
+        return 期望行 == 实际行
+    return abs(期望值 - 实际值) <= 1e-5 * max(1.0, abs(期望值), abs(实际值))
+
+
 def _assert_dual_backend(source: str, expected_lines=None):
-    """同一份 .light 走原生腿和转译后端，断 stdout 逐字节一致。
+    """同一份 .light 走原生腿和转译后端，断 stdout 数值级一致。
 
     若 expected_lines 给定，同时断言两边都匹配期望输出。
     """
@@ -322,18 +340,24 @@ def _assert_dual_backend(source: str, expected_lines=None):
     assert native_rc == 0, f'原生腿退出码 {native_rc}，stdout: {native_out!r}'
     trans_rc, trans_out = _run_transpiled(source)
     assert trans_rc == 0, f'转译后端退出码 {trans_rc}，stdout: {trans_out!r}'
-    assert native_out == trans_out, \
-        f'双后端 stdout 不一致:\n  原生腿: {native_out!r}\n  转译后端: {trans_out!r}'
+    原生行 = native_out.splitlines()
+    转译行 = trans_out.splitlines()
+    assert len(原生行) == len(转译行), \
+        f'双后端行数不一致:\n  原生腿: {native_out!r}\n  转译后端: {trans_out!r}'
+    for i, (a, b) in enumerate(zip(原生行, 转译行)):
+        assert _行数值或逐字节(b, a), \
+            f'双后端第 {i+1} 行不一致:\n  原生腿: {a!r}\n  转译后端: {b!r}'
     if expected_lines is not None:
-        expected = '\n'.join(s.strip() for s in expected_lines)
-        assert native_out == expected, \
-            f'stdout 与期望不符:\n  期望: {expected!r}\n  实际: {native_out!r}'
+        assert len(原生行) == len(expected_lines), \
+            f'stdout 行数 {len(原生行)} != 期望 {len(expected_lines)}:\n  实际: {native_out!r}'
+        for i, (期望行, 实际行) in enumerate(zip(expected_lines, 原生行)):
+            assert _行数值或逐字节(期望行.strip(), 实际行), \
+                f'stdout 第 {i+1} 行与期望不符:\n  期望: {期望行!r}\n  实际: {实际行!r}'
 
 
 def test_双后端一致_基本算术():
-    # 除法用「除以」作判据：已知语义差异已裁决（known_issues §15.1 选 B）——
-    # 「除以」明确定义为整数相除向零截断，与原生腿 i64 sdiv 一致；
-    # 转译后端用 _light_trunc_div 实现，两条腿对正/负/常量/浮点操作数输出一致。
+    # 除法用「除以」作判据：已知裁决已定为 Python 真除语义（路4 除法精度对齐，
+    # 取代 §15.1 选 B 的整数截断）——两条腿对正/负/常量/浮点操作数输出一致。
     _assert_dual_backend(
         '设 甲 为 3。\n'
         '设 乙 为 4。\n'
@@ -341,13 +365,13 @@ def test_双后端一致_基本算术():
         '打印 甲 乘 乙。\n'
         '打印 乙 减 甲。\n'
         '打印 乙 除以 甲。\n',
-        ['7', '12', '1', '1'])
+        ['7', '12', '1', '1.33333'])
 
 
-def test_双后端一致_除法向零截断():
-    # 裁决（known_issues §15.1 选 B）：「除以」整数相除向零截断，与原生腿 i64 sdiv 一致。
-    # 负数用例：-7 除以 2 = -3（非 floor 的 -4）。两条腿必须一致；
-    # 若转译后端退回 Python floor 除(//) 或真除(/)，此例立红。
+def test_双后端一致_除法真除():
+    # 裁决：除法统一 Python 真除语义（原 §15.1 选 B 截断已被 T7A+路4 取代）。
+    # 负数用例：-7 除以 2 = -3.5（非截断的 -3，也非 floor 的 -4）。
+    # 两条腿必须一致；若转译后端退回截断除，此例立红。
     _assert_dual_backend(
         '设 甲 为 0 减去 7。\n'
         '打印 甲 除以 2。\n'
@@ -356,7 +380,7 @@ def test_双后端一致_除法向零截断():
         '打印 乙。\n'
         '打印 4 除以 3。\n'
         '打印 7.0 除以 2。\n',
-        ['-3', '-4', '1', '3.5'])
+        ['-3.5', '-4.5', '1.33333', '3.5'])
 
 
 def test_双后端一致_字符串拼接():

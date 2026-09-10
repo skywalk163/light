@@ -2198,22 +2198,42 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._call_dv_func('dv_list_insert', args[0], f'i64 {idx_i64}', args[2]), 'dv'
             return self._call_dv_func('dv_list_new'), 'dv'
 
-        if name in ('列表弹出', 'list_pop'):
-            # 返回移除元素后的新列表（数据结构轻量用法：先取值、后弹、弃返回值）；
-            # 调用点对接收者（字段/局部变量）做写回。无下标参数时弹末尾（i64 -1）。
+        if name in ('列表弹出', 'list_pop', '弹栈'):
+            # L-077：`.弹栈()` = 栈语义弹出，**返回被弹的值**（与解释器
+            # list.pop 对齐）；调用点对接收者做写回。实现：先取末尾/下标元素
+            # 作为返回值，再 dv_list_remove 出移除后的新列表并写回接收者。
             if len(args) >= 1:
+                slot0 = self._new_dv_slot()
+                self.emit(f'store {LIGHTVALUE_STRUCT} {args[0]}, ptr {slot0}')
+                size = self.new_register()
+                self.emit(f'{size} = call i64 @dv_len(ptr {slot0})')
+                last = self.new_register()
+                self.emit(f'{last} = sub i64 {size}, 1')
                 if len(args) >= 2:
                     idx_i64 = self.new_register()
                     self.emit(f'{idx_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
-                    return self._call_dv_func('dv_list_pop', args[0], f'i64 {idx_i64}'), 'dv'
-                return self._call_dv_func('dv_list_pop', args[0], 'i64 -1'), 'dv'
-            return self._call_dv_func('dv_list_new'), 'dv'
+                    val_slot = self._new_dv_slot()
+                    self.emit(f'call void @dv_list_get(ptr {val_slot}, ptr {slot0}, i64 {idx_i64})')
+                    self._call_dv_func('dv_list_remove', args[0], f'i64 {idx_i64}')
+                    return self._load_dv(val_slot), 'dv'
+                val_slot = self._new_dv_slot()
+                self.emit(f'call void @dv_list_get(ptr {val_slot}, ptr {slot0}, i64 {last})')
+                self._call_dv_func('dv_list_remove', args[0], f'i64 {last}')
+                return self._load_dv(val_slot), 'dv'
+            return self._create_int_dv('0'), 'dv'
 
-        if name in ('删除', 'remove', 'list_remove'):
+        if name in ('删除', 'remove', 'list_remove', '移除'):
+            # L-077：`.移除(值)` 按值删（删第一个匹配）——与解释器 list.remove 对齐：
+            # 先 dv_list_index_of 找下标；未找到（-1）时 dv_list_remove 内部
+            # `index < 0` 分支会 dv_clone 原列表原样返回，语义安全。
             if len(args) >= 2:
-                idx_i64 = self.new_register()
-                self.emit(f'{idx_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
-                return self._call_dv_func('dv_list_remove', args[0], f'i64 {idx_i64}'), 'dv'
+                slot0 = self._new_dv_slot()
+                self.emit(f'store {LIGHTVALUE_STRUCT} {args[0]}, ptr {slot0}')
+                slot1 = self._new_dv_slot()
+                self.emit(f'store {LIGHTVALUE_STRUCT} {args[1]}, ptr {slot1}')
+                idx = self.new_register()
+                self.emit(f'{idx} = call i64 @dv_list_index_of(ptr {slot0}, ptr {slot1})')
+                return self._call_dv_func('dv_list_remove', args[0], f'i64 {idx}'), 'dv'
             return self._call_dv_func('dv_list_new'), 'dv'
 
         if name in ('设置', 'set', 'list_set'):
@@ -3580,13 +3600,31 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             args_dv = self._merge_kwargs(method_name, args_dv, kw_values)
 
         # 尝试使用内置函数处理
+        # L-077：`.弹栈()` 的返回值是被弹的元素，不是新列表——写回接收者的
+        # 新列表由 builtin 内部无法完成（那里拿不到接收者槽位），因此在这里
+        # 单独分派：先求被弹值，再单独生成移除后的新列表并写回。
+        if method_name in ('弹栈', 'pop') and not expr.arguments:
+            slot0 = self._store_dv(obj_dv)
+            size = self.new_register()
+            self.emit(f'{size} = call i64 @dv_len(ptr {slot0})')
+            last = self.new_register()
+            self.emit(f'{last} = sub i64 {size}, 1')
+            val_slot = self._new_dv_slot()
+            self.emit(f'call void @dv_list_get(ptr {val_slot}, ptr {slot0}, i64 {last})')
+            newlist = self._call_dv_func('dv_list_remove', obj_dv, f'i64 {last}')
+            if self._recv_is_field(prop):
+                self._persist_to_receiver(prop, newlist)
+            elif isinstance(prop.obj, ast.Identifier):
+                self.set_var(prop.obj.name, newlist)
+            return self._load_dv(val_slot), 'dv'
+
         builtin_result = self._gen_typed_builtin(method_name, args_dv)
         if builtin_result is not None:
             result_reg, _ = builtin_result
             # 内置 mutating 方法（追加/插入/删除/设置…）会把接收者 realloc 成新对象
             # 并以返回值给出。若接收者是实例字段（己.数据），必须把新对象写回字段，
             # 否则跨调用累积丢失（SSE 空行边界产出 0 事件的根因）。
-            mutating_methods = {'追加', 'append', '清空', 'clear', '设置', 'set', '插入', 'insert', '删除', 'remove', '弹出', 'pop'}
+            mutating_methods = {'追加', 'append', '清空', 'clear', '设置', 'set', '插入', 'insert', '删除', 'remove', '弹出', 'pop', '移除', '弹栈'}
             if method_name in mutating_methods and self._recv_is_field(prop):
                 self._persist_to_receiver(prop, result_reg)
             return result_reg, 'dv'
@@ -4638,7 +4676,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if isinstance(expr, ast.FunctionCall) and isinstance(expr.name, ast.PropertyAccess):
                 method_name = expr.name.property_name
                 obj = expr.name.obj
-                mutating_methods = {'追加', 'append', '清空', 'clear', '设置', 'set', '插入', 'insert', '删除', 'remove', '弹出', 'pop'}
+                mutating_methods = {'追加', 'append', '清空', 'clear', '设置', 'set', '插入', 'insert', '删除', 'remove', '弹出', 'pop', '移除', '弹栈'}
                 if method_name in mutating_methods:
                     # 情形一：裸局部变量 x.追加(...) —— 调用后把返回值写回 x 绑定
                     if isinstance(obj, ast.Identifier):

@@ -163,6 +163,9 @@ class PythonCodeGenerator:
             '插入': 'insert',
             '删除': 'remove',
             '弹出': 'pop',
+            # L-077：列表补 .移除(值)（按值删）与 .弹栈()（栈语义，弹末尾）
+            '移除': 'remove',
+            '弹栈': 'pop',
             '清空': 'clear',
             '反转': 'reverse',
             '包含': '__contains__',
@@ -1021,15 +1024,10 @@ class PythonCodeGenerator:
         self._add_line("# 由光明编译器生成")
         self._add_line("# 源文件: 光明代码")
         self._add_line("")
-        # 「除以」/「除」整数相除向零截断，与原生腿 i64 sdiv 一致（known_issues §15.1 选 B）；
-        # 任一操作数为浮点时退化为真除法，与原生腿 fdiv 一致。
-        # 不做 Python `/`（真除），否则整数语义与原生腿分叉（1/2=0.5 vs sdiv 0）；
-        # 不做 Python `//`（floor），否则负数语义与原生腿分叉（-7//2=-4 vs sdiv -3）。
-        # 注意：只处理「除以/除」（以及符号 / 的别名）。「整除//」保留 Python floor 语义，
-        # 不经过本函数——它不经此映射而是直接生成 `//`（见二元表达式分支）。
+        # 「除以」/「除」统一 Python 真除语义（已知裁决：§15.1 选 B 截断已被 T7A+路4
+        # 「除法精度对齐 Python 语义」取代）：int/int 也走真除，与原生腿 fdiv 一致。
+        # 「整除//」保留 Python floor 语义，不经过本函数——它不经此映射而是直接生成 `//`。
         self._add_line("def _light_trunc_div(a, b):")
-        self._add_line("    if type(a) is int and type(b) is int:")
-        self._add_line("        return a // b if a * b >= 0 else -((-a) // b)")
         self._add_line("    return a / b")
         self._add_line("")
         
@@ -1146,6 +1144,7 @@ class PythonCodeGenerator:
         self._add_line("        _light_builtin.列表追加 = lambda lst, item: lst.append(item)")
         self._add_line("        _light_builtin.列表获取 = lambda lst, i: lst[i]")
         self._add_line("        _light_builtin.列表弹出 = lambda lst, i=-1: lst.pop(i)")
+        self._add_line("        _light_builtin.列表移除宽容 = lambda lst, v: (lst.remove(v) if v in lst else None, lst)[1]")
         self._add_line("        _light_builtin.列表插入 = lambda lst, i, v: lst.insert(i, v)")
         self._add_line("        _light_builtin.列表包含 = lambda lst, item: item in lst")
         # C9BI：这里原先还有 包含 / 字符串替换 / 字符串分割 三条兜底 lambda。
@@ -1201,6 +1200,7 @@ class PythonCodeGenerator:
         self._add_line("    _light_builtin.列表追加 = lambda lst, item: lst.append(item)")
         self._add_line("    _light_builtin.列表获取 = lambda lst, i: lst[i]")
         self._add_line("    _light_builtin.列表弹出 = lambda lst, i=-1: lst.pop(i)")
+        self._add_line("    _light_builtin.列表移除宽容 = lambda lst, v: (lst.remove(v) if v in lst else None, lst)[1]")
         self._add_line("    _light_builtin.列表插入 = lambda lst, i, v: lst.insert(i, v)")
         self._add_line("    _light_builtin.列表包含 = lambda lst, item: item in lst")
         # C9BI：同上——包含 / 字符串替换 / 字符串分割 三条兜底已无人发射，删掉；
@@ -2460,9 +2460,8 @@ class PythonCodeGenerator:
             '模': '%=',
             '幂': '**=',
         }
-        # 「除/除以/整除」复合赋值：整数相除向零截断（与原生腿 sdiv 一致）；
-        # 浮点操作数退化为真除法（与原生腿 fdiv 一致）。不能用 Python /=（真除）
-        # 或 //=（floor），否则与原生腿语义分叉。注意：「整除//=」保留 Python floor 语义不走这里。
+        # 「除/除以」复合赋值：统一 Python 真除语义（与原生腿 fdiv 一致）。
+        # 注意：「整除//=」保留 Python floor 语义不走这里。
         if stmt.operator in ('除', '除以', '/', '/='):
             value = self._generate_expr(stmt.value)
             self._add_line(f"{target} = _light_trunc_div({target}, {value})")
@@ -2485,7 +2484,7 @@ class PythonCodeGenerator:
             '模': '%=',
             '幂': '**=',
         }
-        # 同 _generate_compound_assignment：除法复合赋值走截断语义。注意：「整除//=」保留 Python floor 不走这里。
+        # 同 _generate_compound_assignment：除法复合赋值走 Python 真除语义。注意：「整除//=」保留 Python floor 不走这里。
         if stmt.operator in ('除', '除以', '/', '/='):
             value = self._generate_expr(stmt.value)
             self._add_line(f"{target}[{index}] = _light_trunc_div({target}[{index}], {value})")
@@ -3385,7 +3384,7 @@ class PythonCodeGenerator:
             # 与成员形式 :2378-2381 踩过的是同一个坑。
             if expr.operator == '@@contains@@':
                 return f"({right} in {left})"
-            # 「除以」/「除」整数向零截断、浮点真除（选 B）；「整除//」保留 Python floor 语义。
+            # 「除以」/「除」统一 Python 真除语义；「整除//」保留 Python floor 语义。
             if expr.operator in ('/', '除以', '除'):
                 return f"_light_trunc_div({left}, {right})"
             op = self.operator_map.get(expr.operator, expr.operator)
@@ -3576,6 +3575,12 @@ class PythonCodeGenerator:
             
             # 检查方法名是否需要映射转换
             mapped_member = self.method_name_map.get(expr.member, member)
+            # L-077：`.移除(值)` 宽容口径——值不存在时保持原列表（与原生腿
+            # dv_list_remove 的 index<0 clone 原表一致），不抛 ValueError。
+            if (expr.is_method_call and expr.member == '移除'
+                    and len(expr.args) == 1):
+                return (f"_light_builtin.列表移除宽容({obj}, "
+                        f"{self._generate_expr(expr.args[0])})")
             
             # 检查导入的模块成员访问映射
             # 如 JSON.序列化 → _light_builtin.序列化JSON, JSON.解析 → _light_builtin.解析JSON
