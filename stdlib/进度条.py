@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 光明标准库 - 进度条模块
 
@@ -77,6 +77,13 @@ class 进度条:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.设置当前(self._总数)
 
+    def __getitem__(self, 键):
+        """dict 风格字段访问（对齐 .light 的字典状态）"""
+        字段映射 = {'总数': self._总数, '描述': self._描述, '宽度': self._宽度,
+                   '填充': self._填充字符, '空白': self._空白字符,
+                   '前缀': self._前缀, '后缀': self._后缀, '当前': self._当前}
+        return 字段映射[键]
+
 
 def 创建进度条(总数: int = 100, 描述: str = '') -> 进度条:
     """创建进度条"""
@@ -135,6 +142,13 @@ class 多阶段进度条:
         总时间 = time.time() - self._开始时间
         print(f"\n{self._描述} 完成，耗时 {总时间:.1f}s")
 
+    def __getitem__(self, 键):
+        """dict 风格字段访问（对齐 .light 的字典状态）"""
+        字段映射 = {'阶段列表': self._阶段列表, '描述': self._描述,
+                   '当前阶段': self._当前阶段, '总进度': self._总进度,
+                   '总步数': self._总步数}
+        return 字段映射[键]
+
 
 def 显示旋转指示器(描述: str = '处理中', 停止条件: Optional[callable] = None,
                    间隔: float = 0.1, 超时: float = 10):
@@ -161,3 +175,37 @@ def 显示旋转指示器(描述: str = '处理中', 停止条件: Optional[call
         time.sleep(间隔)
     sys.stderr.write(f"\r{描述} 完成\n")
     sys.stderr.flush()
+
+def 更新(状态, 增量: int = 1):
+    """更新进度（函数式 API，对齐 .light）"""
+    状态.更新(增量)
+    return 状态
+
+
+def 设置当前(状态, 值: int):
+    """直接设置当前进度值（函数式 API，对齐 .light）"""
+    状态.设置当前(值)
+    return 状态
+
+
+def 创建多阶段进度条(阶段列表: list, 描述: str = '') -> 多阶段进度条:
+    """创建多阶段进度条（函数式 API，对齐 .light）"""
+    return 多阶段进度条(阶段列表, 描述)
+
+
+def 多阶段更新(状态, 增量: int = 1):
+    """更新当前阶段进度（函数式 API，对齐 .light）"""
+    状态.更新(增量)
+    return 状态
+
+
+def 多阶段进入下一阶段(状态):
+    """进入下一阶段（函数式 API，对齐 .light）"""
+    状态.进入下一阶段()
+    return 状态
+
+
+def 多阶段完成(状态):
+    """完成进度（函数式 API，对齐 .light）"""
+    状态.完成()
+    return 状态

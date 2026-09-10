@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 光明标准库 - 缓存模块
 
@@ -28,7 +28,7 @@ from typing import Any, Callable, Optional
 class 缓存管理器:
     """统一的缓存管理器"""
 
-    def __init__(self, 类型: str = 'lru', **参数):
+    def __init__(self, 类型: str = 'lru', 容量=None, **参数):
         """
         初始化缓存管理器
 
@@ -36,6 +36,8 @@ class 缓存管理器:
             类型: 缓存类型 ('lru', 'simple', 'memory', 'timed')
             **参数: 传递给具体缓存构造函数的参数
         """
+        if 容量 is not None:
+            参数['最大容量'] = 容量
         if 类型 == 'lru':
             self._缓存 = LRU缓存(**参数)
         elif 类型 == 'simple':
@@ -70,3 +72,35 @@ class 缓存管理器:
     def 大小(self) -> int:
         """获取缓存大小"""
         return self._缓存.大小()
+
+def 管理器设置(缓存, 键, 值):
+    """设置缓存项（函数式 API，对齐 .light）"""
+    缓存.设置(键, 值)
+    return 缓存
+
+
+def 管理器获取(缓存, 键, 默认值=None):
+    """获取缓存值（函数式 API，对齐 .light）"""
+    return 缓存.获取(键, 默认值)
+
+
+def 管理器删除(缓存, 键):
+    """删除缓存项（函数式 API，对齐 .light）"""
+    缓存.删除(键)
+    return 缓存
+
+
+def 管理器包含(缓存, 键):
+    """检查是否包含键（函数式 API，对齐 .light）"""
+    return 缓存.包含(键)
+
+
+def 管理器清空(缓存):
+    """清空缓存（函数式 API，对齐 .light）"""
+    缓存.清空()
+    return 缓存
+
+
+def 管理器大小(缓存):
+    """获取缓存大小（函数式 API，对齐 .light）"""
+    return 缓存.大小()

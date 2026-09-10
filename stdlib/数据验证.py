@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 光明标准库 - 数据验证模块
 
@@ -13,6 +13,20 @@ from typing import Any, Dict, List, Optional, Callable, Tuple
 class 验证错误(Exception):
     """验证错误"""
     pass
+
+
+_类型映射 = {
+    'str': str, 'int': int, 'float': float, 'bool': bool,
+    'list': list, 'dict': dict, 'tuple': tuple, 'set': set,
+    'bytes': bytes, 'None': type(None),
+}
+
+
+def _解析期望类型(期望类型):
+    """期望类型兼容 type 对象与字符串名（对齐 .light 的类型() 返回值）"""
+    if isinstance(期望类型, str):
+        return _类型映射.get(期望类型, str)
+    return 期望类型
 
 
 class 验证结果:
@@ -56,8 +70,9 @@ def 验证必填(值: Any, 字段名: str = '') -> 验证结果:
     return 结果
 
 
-def 验证类型(值: Any, 期望类型: type, 字段名: str = '') -> 验证结果:
-    """验证类型"""
+def 验证类型(值: Any, 期望类型, 字段名: str = '') -> 验证结果:
+    """验证类型（期望类型支持 type 对象或字符串名，字符串对齐 .light 的 类型() 返回值）"""
+    期望类型 = _解析期望类型(期望类型)
     结果 = 验证结果()
     if not isinstance(值, 期望类型):
         结果.添加错误(f"{字段名 or '字段'} 期望类型 {期望类型.__name__}，但得到 {type(值).__name__}")
@@ -238,7 +253,7 @@ class 数据模式:
             if 值 is None:
                 continue
 
-            期望类型 = 定义.get('类型')
+            期望类型 = _解析期望类型(定义.get('类型'))
             if 期望类型 and not isinstance(值, 期望类型):
                 结果.添加错误(f"{字段名} 期望类型 {期望类型.__name__}，但得到 {type(值).__name__}")
                 continue
@@ -273,3 +288,44 @@ class 数据模式:
 def 创建数据模式(字段定义: Dict[str, Dict[str, Any]]) -> 数据模式:
     """创建数据模式"""
     return 数据模式(字段定义)
+
+def 创建验证结果() -> 验证结果:
+    """创建验证结果（函数式 API，对齐 .light）"""
+    return 验证结果()
+
+
+def 是否有效(结果: 验证结果) -> bool:
+    """是否验证通过（函数式 API，对齐 .light）"""
+    return 结果.是否有效()
+
+
+def 添加错误(结果: 验证结果, 消息: str) -> 验证结果:
+    """添加错误（函数式 API，对齐 .light）"""
+    结果.添加错误(消息)
+    return 结果
+
+
+def 添加警告(结果: 验证结果, 消息: str) -> 验证结果:
+    """添加警告（函数式 API，对齐 .light）"""
+    结果.添加警告(消息)
+    return 结果
+
+
+def 获取错误(结果: 验证结果) -> list:
+    """获取所有错误（函数式 API，对齐 .light）"""
+    return 结果.获取错误()
+
+
+def 获取警告(结果: 验证结果) -> list:
+    """获取所有警告（函数式 API，对齐 .light）"""
+    return 结果.获取警告()
+
+
+def 抛出异常(结果: 验证结果):
+    """如果验证失败则抛出异常（函数式 API，对齐 .light）"""
+    return 结果.抛出异常()
+
+
+def 模式验证(模式: 数据模式, 数据: dict) -> 验证结果:
+    """验证数据（函数式 API，对齐 .light）"""
+    return 模式.验证(数据)

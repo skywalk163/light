@@ -9,7 +9,14 @@ test_pure_light_hook.py —— 验证 stdlib/_light_import_hook.py 的「纯光�
 本测试：
 - 正例：列表工具.light（已声明纯光明）确实被加载 .light 版本（有 __light_source__、
   __file__ 以 .light 结尾），且功能可用。
-- 默认路径不变：未声明纯光明的模块（如 格式化，有同名 .py）仍走 .py 兜底。
+- 默认路径不变：未声明纯光明的模块（如 文件匹配，有同名 .py）仍走 .py 兜底。
+
+钩子安装范围：本文件原在模块顶层 install()，pytest 收集阶段 import 本文件时钩子
+即全局生效，同进程内所有 stdlib 导入都被改走 .light —— phase4/13/comprehensive 的
+缓存/进度条/数据验证/参数解析/高级文件/字符串常量 等因此被 .light 的 dict/bool
+返回值与方言错误打红（0.88 与本地全量的 49 个失败即由此引发）。现改为 module 级
+autouse fixture：钩子只在**本模块测试执行期间**安装、结束后卸载，其它测试文件
+不受影响。
 """
 import glob
 import os
@@ -23,7 +30,14 @@ _STDLIB = os.path.join(_ROOT, "stdlib")
 if _STDLIB not in sys.path:
     sys.path.insert(0, _STDLIB)
 import _light_import_hook
-_light_import_hook.install([_STDLIB])
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _light_hook_scope():
+    """模块内安装光明导入钩子；模块结束后卸载，避免污染同进程其它测试文件。"""
+    _light_import_hook.install([_STDLIB])
+    yield
+    _light_import_hook.uninstall()
 
 
 def test_list_tools_loads_light_version():
@@ -39,9 +53,9 @@ def test_list_tools_loads_light_version():
 
 
 def test_default_path_still_routes_to_py():
-    # 格式化 有同名 .py 且 .light 未声明纯光明 → 应加载 .py 兜底
+    # 文件匹配 有同名 .py 且 .light 未声明纯光明 → 应加载 .py 兜底
     import importlib
-    mod = importlib.import_module("格式化")
+    mod = importlib.import_module("文件匹配")
     assert not hasattr(mod, "__light_source__")
     assert getattr(mod, "__file__", "").endswith(".py")
 
@@ -50,7 +64,7 @@ def test_is_pure_light_helper():
     # 直接验证魔数探测逻辑
     light_path = os.path.join(_STDLIB, "列表工具.light")
     assert _light_import_hook._is_pure_light(light_path) is True
-    other = os.path.join(_STDLIB, "格式化.light")
+    other = os.path.join(_STDLIB, "文件匹配.light")
     assert _light_import_hook._is_pure_light(other) is False
 
 

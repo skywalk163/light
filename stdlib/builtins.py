@@ -1470,6 +1470,12 @@ def 排序列表(序列, 反向: bool = False):
     return sorted(序列, reverse=bool(反向))
 
 
+# 英文别名：code_generator 的 method_name_map 将光明方法名「排序」映射为 `sort`
+# （`_light_builtin.排序(数据)` → `_light_builtin.sort(数据)`），且 stdlib/统计.light
+# 百分位数/中位数依赖「排序后返回新列表」语义，故此处补 `sort` 指向 排序列表。
+sort = 排序列表
+
+
 def 查找目录列表(路径: str = '.') -> list:
     """列出目录下的条目名（等价 列出目录）。"""
     import os
