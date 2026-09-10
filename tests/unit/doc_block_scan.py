@@ -145,6 +145,16 @@ def _compile_once(code):
         sys.stdout, sys.stderr = _o, _e
 
 
+# 门禁扫描范围白名单（相对 docs/ 的排除文件，2026-09 路1 登记）：
+# dataset_deepseek_r1_100_examples.md 是 DeepSeek R1 微调训练语料（100 条
+# 任务-代码对照样本，未入库 git），其中代码块是训练样本而非教学示例，
+# 含大量刻意保留的旧/多样写法，逐条改写会破坏语料；属明确白名单豁免，
+# 不参与「不许新增 ROT」门禁。若改为教学文档，删除本条目即可恢复门禁。
+_SCAN_EXEMPT = {
+    'dataset_deepseek_r1_100_examples.md',
+}
+
+
 def scan_all():
     """扫描 docs/ 下所有 light 代码块，返回结果列表。"""
     results = []
@@ -160,6 +170,8 @@ def scan_all():
             except (OSError, UnicodeDecodeError):
                 continue
             rel = os.path.relpath(p, ROOT).replace('\\', '/')
+            if os.path.basename(rel) in _SCAN_EXEMPT:
+                continue
             for lang, ln, code in iter_blocks(text):
                 if not code.strip():
                     continue
