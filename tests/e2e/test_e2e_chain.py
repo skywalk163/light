@@ -131,11 +131,19 @@ E2E_EXCLUDED = {
 }
 
 
+# 预期失败示例：设计上就是复现「未捕获运行期异常 + 中文译文」的最小复现，
+# 正确行为是 rc=1 且 stderr 带光明译文。走 test_duan_run_expected_failure 验证，
+# 不进 rc==0 的常规全链路（与 E2E_EXCLUDED 的「排除」不同，这里仍被真实执行）。
+EXPECTED_FAILURE_EXAMPLES = {
+    'test_L073.light',
+}
+
 EXAMPLES_DIR = REPO_ROOT / 'examples'
 EXAMPLE_CANDIDATES = sorted(
     p.relative_to(EXAMPLES_DIR).as_posix()
     for p in EXAMPLES_DIR.rglob('*.light')
     if p.relative_to(EXAMPLES_DIR).as_posix() not in E2E_EXCLUDED
+    and p.relative_to(EXAMPLES_DIR).as_posix() not in EXPECTED_FAILURE_EXAMPLES
     and 'weather_app' not in p.relative_to(EXAMPLES_DIR).as_posix()
 )
 
@@ -194,6 +202,23 @@ def test_duan_run(rel_path):
             '环境欠账：示例依赖第三方库 %r，FreeBSD runner 未装（devpi 镜像缺包），非代码回归'
             % lib)
     assert rc == 0, f"duan run 失败 ({rel_path}):\n{err}\n{out}"
+
+
+@pytest.mark.parametrize('rel_path', sorted(EXPECTED_FAILURE_EXAMPLES))
+def test_duan_run_expected_failure(rel_path):
+    """预期失败示例：必须 rc=1 且 stderr 带光明层译文（L-073 口径）。
+
+    test_L073.light 的设计意图是复现未捕获 AttributeError 并验证运行期错误
+    中文化（文件头注释写明「运行到第一处未捕获异常即停止」），rc=1 是它的
+    正确行为——但 stderr 必须带译文，否则才是真回归。
+    """
+    file_path = EXAMPLES_DIR / rel_path
+    rc, out, err = _run_cli(['run', str(file_path)])
+    assert rc != 0, (
+        f'{rel_path} 是预期失败示例，应当运行报错（rc!=0），实际 rc=0——'
+        '若异常语义变了，请同步更新本示例与 EXPECTED_FAILURE_EXAMPLES')
+    assert ('缺少方法' in err or '缺少属性' in err or '不存在的方法' in err), (
+        f'{rel_path} 运行期错误应带光明层译文（L-073），实际 stderr:\n{err}')
 
 
 @pytest.mark.parametrize('rel_path', EXAMPLE_CANDIDATES)
