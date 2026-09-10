@@ -20,20 +20,12 @@
 
 ## 导入方式
 
-> ⚠️ 这种写法在本仓库跑不通：实现存在但导入即报错：ModuleNotFoundError: No module named 'requests'
->
-> 代码块因此标为 `text` 而非光明围栏，不参与文档示例编译扫描——免得它冒充一个能用的示例。
-
-```text
+```light
 导入 HTTP客户端
 ```
 
 或
 
-> ⚠️ 这种写法在本仓库跑不通：实现存在但导入即报错：ModuleNotFoundError: No module named 'requests'
->
-> 代码块因此标为 `text` 而非光明围栏，不参与文档示例编译扫描——免得它冒充一个能用的示例。
-
-```text
+```light
 导入 标准HTTP客户端
 ```

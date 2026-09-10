@@ -114,7 +114,8 @@ class Test_lightpub文档可导入性(unittest.TestCase):
             if 标签 not in _光明标签:
                 continue
             结论 = 判定(语句)
-            if not 结论.可用:
+            if not 结论.可用 and 结论.原因 != 'ENV_DEPENDENCY':
+                # 缺第三方依赖是环境差异，不参与双向咬合（见 lightpub_importability.判定）
                 谎话.append(f'  {rel}:{行号} ```{标签} {语句!r} → {结论.原因}：{结论.说明}')
         self.assertEqual(
             [], 谎话,
@@ -130,6 +131,9 @@ class Test_lightpub文档可导入性(unittest.TestCase):
             结论 = 判定(语句)
             if 结论.可用:
                 过期的悲观.append(f'  {rel}:{行号} ```{标签} {语句!r} → 其实已经能用了')
+            elif 结论.原因 == 'ENV_DEPENDENCY':
+                # 缺第三方依赖是环境差异，不参与双向咬合（见 lightpub_importability.判定）
+                continue
         self.assertEqual(
             [], 过期的悲观,
             '这些导入块被标成非光明围栏（读者会以为不可用），实际已经跑得通：\n' +

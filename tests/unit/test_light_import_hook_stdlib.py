@@ -82,7 +82,10 @@ def test_import_re_resolves_to_cpython_but_alias_loads_light(hook):
     saved_alias = sys.modules.pop('_light_re', None)
     try:
         import re  # noqa: F401
-        assert 'Lib' in re.__file__ and 're' in re.__file__, \
+        re_file = (re.__file__ or '').replace('\\', '/')
+        # FreeBSD/Linux 上标准库路径形如 /usr/local/lib/python3.12/re/__init__.py，
+        # 不含 'Lib'——只断「命中 CPython 的 re，而非光明 stdlib 的影子」。
+        assert 'stdlib' not in re_file and not re_file.endswith('re.light'), \
             f'import re 应命中 CPython re，实际: {re.__file__}'
         mod = importlib.import_module('_light_re')
         assert mod.__file__.replace('\\', '/').endswith('stdlib/re.light'), \

@@ -450,11 +450,11 @@ class Test网络请求扩展:
 
     def test_O0_HTTPS_需网络环境(self):
         """HTTPS 真实请求（Windows Schannel / POSIX mbedTLS，证书校验开启）。
-        需外网；无网络环境自动跳过（POSIX 实机验证见 R13B 交付报告）。"""
-        try:
-            socket.create_connection(("example.com", 443), timeout=3).close()
-        except OSError:
-            pytest.skip("无外网环境，HTTPS 用例跳过（已在实机验证）")
+        需外网；默认跳过——0.88 这类内网机上 TCP 443 可能被代理放行但 TLS 出不去，
+        仅用 socket 探测不可靠（曾假真导致用例红）。设 LIGHT_TEST_EXTERN=1 显式启用。
+        POSIX 实机验证见 R13B 交付报告。"""
+        if not os.environ.get('LIGHT_TEST_EXTERN'):
+            pytest.skip("需外网且默认关闭；设 LIGHT_TEST_EXTERN=1 显式启用（实机已验证）")
         code = (
             '从 网络请求 导入 获取 响应状态码 响应成功 响应文本\n'
             '段落 主:\n'
