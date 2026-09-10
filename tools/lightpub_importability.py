@@ -148,6 +148,12 @@ def 判定(语句, 真导入=True):
 
     try:
         importlib.import_module(模块名)
+    except ModuleNotFoundError as e:
+        # 缺第三方依赖（如 requests）属**环境差异**，不是文档说谎也不是实现烂：
+        # 同一文档在装了依赖的机器与没装的机器上会判出相反结果，双向咬合因此
+        # 在不同环境假红（0.88 实测 HTTP客户端）。归为独立原因，调用方按需豁免。
+        return 判定结果(语句, False, 'ENV_DEPENDENCY', 模块名,
+                        '缺第三方依赖，环境相关：%s: %s' % (type(e).__name__, e))
     except BaseException as e:
         return 判定结果(语句, False, 'IMPORT_ERR', 模块名,
                         '实现存在但导入即报错：%s: %s' % (type(e).__name__, e))

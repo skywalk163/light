@@ -32,14 +32,15 @@ import re
 
 import pytest
 
-_CODE = os.path.join(
-    os.path.dirname(__file__), '..', '..', 'src', 'llvm', 'codegen_typed.py')
-_DOC = os.path.join(
-    os.path.dirname(__file__), '..', '..', 'docs', '原生腿能力边界.md')
-_JSON = os.path.join(
-    os.path.dirname(__file__), '..', '..', 'docs', '原生腿能力清单.json')
-_RT = os.path.join(
-    os.path.dirname(__file__), '..', '..', 'src', 'llvm', 'runtime_typed.c')
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_CODE = os.path.abspath(os.path.join(
+    _HERE, '..', '..', 'src', 'llvm', 'codegen_typed.py'))
+_DOC = os.path.abspath(os.path.join(
+    _HERE, '..', '..', 'docs', '原生腿能力边界.md'))
+_JSON = os.path.abspath(os.path.join(
+    _HERE, '..', '..', 'docs', '原生腿能力清单.json'))
+_RT = os.path.abspath(os.path.join(
+    _HERE, '..', '..', 'src', 'llvm', 'runtime_typed.c'))
 
 # 文档承诺的已支持清单（与 docs/原生腿能力边界.md §1.1 / §2.1 一一对应）
 _DOC_STMT_TYPES = frozenset({
