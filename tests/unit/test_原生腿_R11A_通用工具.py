@@ -348,7 +348,7 @@ class R11A通用工具反跑(unittest.TestCase):
         self.assertEqual(got, exp)
 
     # ───────────────── 断言工具（try/capture 路径） ─────────────────
-    @unittest.skip("L-075: native codegen _create_bool_dv 的 zext i1/i32 IR 类型 bug，断言工具模块反跑编译失败；待修 codegen_typed 后解锁")
+    # L-075 已修复：is_null 路径 i32→i1 类型一致，解锁原生反跑
     def test_断言工具_对拍Python(self):
         src = """从 断言工具 导入 断言相等 断言包含 断言大于 断言类型 断言为真
 段落 主:

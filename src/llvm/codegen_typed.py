@@ -2916,7 +2916,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 slot = self._store_dv(args[0])
                 result = self.new_register()
                 self.emit(f'{result} = call i32 @dv_is_null(ptr {slot})')
-                return self._create_bool_dv(result), 'dv'
+                # L-075 修复：dv_is_null 返回 i32（bool tag），必须先 icmp 成 i1
+                # 再交给 _create_bool_dv（其内部 zext i1 -> i32）；直接传 i32 会导致
+                # clang -x ir 报 defined with type 'i32' but expected 'i1'。
+                cmp = self.new_register()
+                self.emit(f'{cmp} = icmp ne i32 {result}, 0')
+                return self._create_bool_dv(cmp), 'dv'
             return self._create_bool_dv('true'), 'dv'
 
         if name in ('空合并', 'null_coalesce', '??'):
