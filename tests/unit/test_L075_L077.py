@@ -82,8 +82,8 @@ def test_L076_kong_literal_still_works():
 
 def test_L076_other_keywords_as_varname_unchanged():
     """其余关键字的「关键字作名」历史兼容行为保持不变（不越界收紧）。"""
-    ast = LightParser().parse('设 数据 为 [1]\n打印(数据)')
-    assert ast is not None
+    # 用解释器实际执行，验证「普通标识符（含关键字形态）作名」可用，避免零信号断言。
+    assert _run('设 数据 为 [1]\n打印(数据)') == '[1]'
 
 
 # ── L-077 列表 .移除() / .弹栈() ─────────────────────────────
