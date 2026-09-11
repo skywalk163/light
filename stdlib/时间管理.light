@@ -1,4 +1,4 @@
-# 时间管理 —— 纯光明实现（原生腿安全子集）
+# 时间管理 —— 原生腿安全子集（仅供原生腿直接编译，非纯光明门面）
 #
 # 设计：本文件只含「原生腿能真编译真跑」的纯函数（睡眠 / 时间戳 / 性能计数器 /
 # 格式化耗时 / 本地时间 / UTC / 格式化时间），统一走 stdlib/time.light 内建
@@ -8,8 +8,16 @@
 # 「回调 / 函数值族」（定时器 / 周期定时器 / 倒计时 / 计时 / 计时函数 / 多次计时 /
 # 测量执行时间 / 秒表）与「需 Python 独占 runtime」的族（进程时间 / 线程时间 /
 # 时间元组转时间戳 / 解析时间 / 时区偏移 / 时区名称 / 夏令时）原生腿无法完成，
-# 不放在本 .light 里——Python 后端的导入钩子会回退加载同名 stdlib/时间管理.py
-# （完整 Python 实现）提供这些能力；phase3 等 Python 后端测试拿到的是完整 API。
+# 不放在本 .light 里。
+#
+# L-076：首两行**不得**声明纯光明门面。本文件的导出（12 个）是同名
+# stdlib/时间管理.py（27+ 导出）的真子集——一旦声明纯光明门面，导入钩子
+# （stdlib/_light_import_hook.py 的 _is_pure_light 判据）会用本文件遮蔽
+# 完备 .py：pytest-xdist 同 worker 里先跑过任何模块级 install() 导入钩子的
+# 测试文件后，phase3 Test时间管理 的 `from 时间管理 import 计时函数` 等
+# 12 例全部 ImportError。本文件也不需要门面声明：native 腿
+# （llvm.compiler.compile_light_typed → ModuleResolver）按文件名直接读取
+# 本文件编译，从不经由 Python import 机制。
 
 导入 time
 
