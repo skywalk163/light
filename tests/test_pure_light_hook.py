@@ -87,6 +87,39 @@ def test_datetime_still_resolves_to_py():
     assert 轻量.两个数字(5) == "05"
 
 
+def test_时间管理_still_resolves_to_py():
+    """回归护栏（L-076）：《时间管理》必须仍解析到能力更全的 stdlib/时间管理.py。
+
+    L-076：时间管理.light 曾在首两行声明纯光明实现，其 12 导出是同名
+    时间管理.py（27+ 导出）的真子集。pytest-xdist 同 worker 里任何先模块级
+    install() 导入钩子的测试文件都会让钩子驻留 sys.meta_path，随后
+    test_stdlib_phase3.py::Test时间管理 的 `from 时间管理 import 计时函数` 等
+    12 例全部 ImportError（单跑全绿、全量必红的典型 worker 污染）。
+    修复：撤掉首两行魔数声明（native 腿按文件名直接读 .light，不经 import
+    机制，不受影响）；本护栏防止魔数被重新加回。
+    """
+    import importlib
+    mod = importlib.import_module("时间管理")
+    # 钩子不得用 .light 遮蔽 .py
+    assert not hasattr(mod, "__light_source__"), (
+        "时间管理 被 .light 遮蔽（L-076 复发）：首两行不得声明纯光明实现"
+    )
+    assert getattr(mod, "__file__", "").endswith(".py")
+    # .py 独有的能力面（Python-only 函数），.light 那 12 个导出里没有
+    for 缺了就红 in ("计时函数", "计时器", "定时器", "倒计时", "多次计时"):
+        assert hasattr(mod, 缺了就红), "时间管理.py 缺 Python-only 函数 %r" % 缺了就红
+
+    # .light 不得再声明魔数（尤其首两行），且仍须保留 native 腿真实现段
+    with open(os.path.join(_STDLIB, "时间管理.light"), encoding="utf-8") as fh:
+        light_text = fh.read()
+    assert _MAGIC not in "".join(light_text.splitlines(keepends=True)[:2]), (
+        "时间管理.light 首两行重新声明了纯光明实现（L-076 复发）"
+    )
+    assert re.search(r"^段落\s+睡眠", light_text, re.M), (
+        "时间管理.light 丢了 native 腿实现段（睡眠族）"
+    )
+
+
 # ── D3-5 首两行魔数守卫 ──────────────────────────────────────────────────────
 # `_light_import_hook._is_pure_light()` 只读首两行（见 stdlib/_light_import_hook.py）。
 # 凡 .light 内**任何位置**含「纯光明实现」但首两行没有的，一旦有人建了同名 .py，
