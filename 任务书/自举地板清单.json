@@ -1235,35 +1235,35 @@
     },
     {
       "名字": "切片下标检查",
-      "职责": "",
+      "职责": "切片下标运行时检查：非整数下标给出明确中文错误（L-080 修复，原透传Python英文异常+无关建议）",
       "当前实现语言": "Python（builtins.py）",
-      "分类": "",
-      "目标落点": "",
-      "证据行": ""
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心列表.light（纯计算：isinstance+类型提示；S2前保留builtins.py）",
+      "证据行": "stdlib/builtins.py:476"
     },
     {
       "名字": "浅拷贝",
-      "职责": "",
+      "职责": "浅拷贝对象：字典浅拷贝键值对、列表浅拷贝元素、其他类型原样返回",
       "当前实现语言": "Python（builtins.py）",
-      "分类": "",
-      "目标落点": "",
-      "证据行": ""
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心列表.light（纯计算：dict()/list()；S2前保留builtins.py）",
+      "证据行": "stdlib/builtins.py:793"
     },
     {
       "名字": "深拷贝",
-      "职责": "",
+      "职责": "深拷贝对象：递归拷贝嵌套字典/列表结构，不共享子对象引用",
       "当前实现语言": "Python（builtins.py）",
-      "分类": "",
-      "目标落点": "",
-      "证据行": ""
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心列表.light（依赖copy.deepcopy；S2前保留builtins.py）",
+      "证据行": "stdlib/builtins.py:799"
     },
     {
       "名字": "冻结",
-      "职责": "",
+      "职责": "冻结对象：返回不可变副本（当前用deepcopy模拟，真正冻结需递归转tuple/frozenset）",
       "当前实现语言": "Python（builtins.py）",
-      "分类": "",
-      "目标落点": "",
-      "证据行": ""
+      "分类": "movable",
+      "目标落点": "stdlib/内置核心列表.light（依赖copy.deepcopy；S2前保留builtins.py）",
+      "证据行": "stdlib/builtins.py:805"
     }
   ],
   "地板自举率_S2进度": {
