@@ -3928,17 +3928,27 @@
 <td><strong>L-075</strong></td>
 <td>原生腿 <code>_create_bool_dv</code> 的 <code>zext i1/i32</code> IR 类型 bug</td>
 <td>含 bool 比较结果的模块（如 <code>断言工具</code>）以 native 后端反跑编译时，clang 报 <code>%n: error: '%x' defined with type 'i32' but expected 'i1'</code>（<code>zext i1 %x to i32</code> 中 %x 实为 i32）</td>
-<td><code>src/llvm/codegen_typed.py</code> 的 <code>_create_bool_dv</code> 用 <code>zext i1 {i1_val} to i32</code> 构造布尔 LightValue，但传入的 bool 比较结果在部分代码路径已被存为 <code>i32</code>，IR 类型不匹配</td>
-<td>待修复</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
+<td><code>src/llvm/codegen_typed.py</code> 中 <code>是空</code>/<code>is_null</code> builtin 路径直接将 <code>dv_is_null()</code> 的 <code>i32</code> 返回值传给 <code>_create_bool_dv</code>（其内部 <code>zext i1 → i32</code>），与文件内其他 30+ 处先 <code>icmp</code> 得 i1 再传入的口径不一致</td>
+<td>已修复</td>
+<td>task-l075 <code>6437df83</code></td>
+<td>2026-09-11</td>
+<td><code>src/llvm/codegen_typed.py</code>（is_null 路径加 <code>icmp ne i32 → i1</code>）、<code>tests/unit/test_原生腿_R11A_通用工具.py</code>（解锁 test_断言工具_对拍Python）</td>
 </tr>
 <tr>
 <td><strong>L-076</strong></td>
 <td>双后端同模块名 + pytest-xdist worker 污染（<code>sys.modules</code> 遮蔽）</td>
 <td>全量并行（<code>-n 8</code>）下 <code>phase3 Test时间管理</code> 等 Python 后端测试拿到残缺 native 版（ImportError/AttributeError），针对性单跑却全绿</td>
-<td>import hook 把 native 编译产物注册进 <code>sys.modules</code>；<code>.light</code> 子集（无定时器/倒计时/计时等 Python-only 函数）与完整 <code>.py</code> 同名，xdist 多 worker 共享/污染使 Python 完备版被残缺 native 版遮蔽</td>
+<td><strong>非</strong> native 编译产物写 <code>sys.modules</code>，而是 <code>时间管理.light</code>（12 导出）首两行声明「纯光明实现」，<code>_is_pure_light</code> 判据令导入钩子用其<strong>完全遮蔽</strong>同名 <code>stdlib/时间管理.py</code>（27+ 导出，缺 定时器/倒计时/计时函数 等 Python-only 函数）；xdist 同 worker 内任何先模块级 <code>install()</code> 导入钩子的测试文件让钩子驻留 <code>sys.meta_path</code>，后续 <code>from 时间管理 import 计时函数</code> 全部拿到残缺版</td>
+<td><strong>已修复</strong></td>
+<td>task-l076 <code>d72dbcb4</code></td>
+<td>2026-09-11</td>
+<td><code>stdlib/时间管理.light</code>（撤首两行魔数声明，改注释说明 L-076；native 腿按文件名直接读 .light 编译不受影响）、<code>tests/test_pure_light_hook.py</code>（回归护栏 <code>test_时间管理_still_resolves_to_py</code>：模块必须解析到 .py、Python-only 函数在位、首两行不得重新声明魔数、native 实现段在位）</td>
+</tr>
+<tr>
+<td><strong>L-079</strong></td>
+<td><code>R13B 行政区划 O0 对拍</code> 在 0.88 全量门禁下偶发失败（flaky）</td>
+<td><code>test_原生腿_R13B_能力扩展.py::Test行政区划扩展::test_O0_行政区划代码_对拍与扩展</code> 在 0.88 <code>-n 8</code> 全量中间歇失败（改动前 l076 基线即复现）；定向复跑 5 次中 1 次 0.12s 秒挂失败、4 次正常（~5.5s）通过，3 连跑全过。同轮另观测 <code>test_http_client::test_concurrent_requests</code>（assert 9 == 10）、<code>test_distributed_eval_light</code>（杀节点重派）轮换偶发，与本条分属不同子系统</td>
+<td>待查：秒挂形态疑似 native 编译缓存/并发资源竞争下的快速失败路径；正常时长失败则疑似对拍输出受负载影响。编号跳过 L-077/L-078（已被路5语法债在 <code>test_L075_L077.py</code> 语境使用）</td>
 <td>待修复</td>
 <td>—</td>
 <td>—</td>
@@ -4040,7 +4050,7 @@
     <span class="md-icon" title="最后更新">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月11日 01:59:02 UTC">2026年9月11日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月12日 05:11:23 UTC">2026年9月12日</span>
   </span>
 
     
@@ -4050,7 +4060,7 @@
     <span class="md-icon" title="创建日期">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月11日 01:59:02 UTC">2026年9月11日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月12日 05:11:23 UTC">2026年9月12日</span>
   </span>
 
     
