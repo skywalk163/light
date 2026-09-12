@@ -646,6 +646,9 @@ class PythonCodeGenerator:
             '列表包含': '_light_builtin.列表包含',
             '列表创建': '_light_builtin.列表创建',
             '副本': '_light_builtin.副本',
+            '浅拷贝': '_light_builtin.浅拷贝',
+            '深拷贝': '_light_builtin.深拷贝',
+            '冻结': '_light_builtin.冻结',
             
             # 字典工具
             '字典': '_light_builtin.字典创建',
@@ -661,6 +664,7 @@ class PythonCodeGenerator:
             # 类型检查
             '是整数': '_light_builtin.是整数',
             '是浮点': '_light_builtin.是浮点',
+            '是负零': '_light_builtin.是负零',
             '是字符串': '_light_builtin.是字符串',
             '是列表': '_light_builtin.是列表',
             '是字典': '_light_builtin.是字典',
@@ -805,17 +809,21 @@ class PythonCodeGenerator:
     # 是作用域敏感的——`段落 甲` 里的 `设 映射 为 …` 不能让 `段落 乙` 里真正想调
     # 内置 `映射(f, 列)` 的地方跟着失效。所以另开一个可保存/恢复的集合。
     # ------------------------------------------------------------------
-    def _bind_local(self, *names) -> None:
+    def _bind_local(self, *names, declare: bool = False) -> None:
         """把名字登记为「当前作用域的局部变量」。
 
         接受 str / Parameter 节点 / 可迭代（列表、元组），非法值静默跳过——
         代码生成器不应因为一个绑定形式没见过就整体崩掉。
+
+        declare=True 表示「声明式绑定」（`设` 声明，含解构）：在嵌套函数里建立
+        局部遮蔽（L-078）而非改写外层，即不触发 L-006 自动 nonlocal。裸赋值
+        （default False）保留写穿语义。
         """
         for n in names:
             if n is None:
                 continue
             if isinstance(n, (list, tuple, set)):
-                self._bind_local(*n)
+                self._bind_local(*n, declare=declare)
                 continue
             if not isinstance(n, str):
                 # Parameter / Identifier 之类节点：取 .name
@@ -828,21 +836,23 @@ class PythonCodeGenerator:
             # `己.当前` 这类是属性而非局部变量，不登记（否则会误遮蔽同名内置）
             if '.' in n:
                 continue
-            self._note_function_binding(n)
+            self._note_function_binding(n, declare=declare)
             self._local_variables.add(n)
 
-    def _note_function_binding(self, name: str) -> None:
+    def _note_function_binding(self, name: str, declare: bool = False) -> None:
         """登记一个名字在当前函数作用域的绑定，并做 L-006 nonlocal 检测。
 
         - 当前不处于任何函数（_function_locals_stack 为空）→ 模块级绑定，跳过。
-        - 处于参数绑定阶段（_binding_params）→ 只记入当前函数帧（供更深层闭包
-          引用），不触发 nonlocal（参数遮蔽是合法的，不是修改外层）。
-        - 否则：该名字若已被「外层函数帧」绑定，说明当前函数在**改写**外层函数
-          的局部标量 → 记入 _pending_nonlocal，函数体生成完毕后发射 `nonlocal 名`。
+        - 处于参数绑定阶段（_binding_params）或声明式绑定（declare=True，`设` 声明
+          含解构）→ 只记入当前函数帧（供更深层闭包引用），不触发 nonlocal
+          （参数遮蔽是合法的；`设` 是建立局部遮蔽（L-078），不是改写外层）。
+        - 否则（裸赋值/复合赋值）：该名字若已被「外层函数帧」绑定，说明当前函数
+          在**改写**外层函数的局部标量 → 记入 _pending_nonlocal，函数体生成完毕后
+          发射 `nonlocal 名`。
         """
         if not self._function_locals_stack:
             return
-        if self._binding_params:
+        if self._binding_params or declare:
             self._function_locals_stack[-1].add(name)
             return
         for frame in self._function_locals_stack[:-1]:
@@ -1141,6 +1151,8 @@ class PythonCodeGenerator:
         self._add_line("        _light_builtin.转字符串 = lambda v: ('真' if v is True else '假' if v is False else '空' if v is None else (__import__('json').dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else str(v)))")
         self._add_line("        _light_builtin.转整数 = int")
         self._add_line("        _light_builtin.转浮点 = float")
+        self._add_line("        _light_builtin.切片下标检查 = lambda v: v")
+        self._add_line("        _light_builtin.切片下标检查 = lambda v: v")
         self._add_line("        _light_builtin.chr = chr")
         self._add_line("        _light_builtin.bin = bin")
         self._add_line("        _light_builtin.hex = hex")
@@ -1197,6 +1209,7 @@ class PythonCodeGenerator:
         self._add_line("    _light_builtin.转字符串 = lambda v: ('真' if v is True else '假' if v is False else '空' if v is None else (__import__('json').dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else str(v)))")
         self._add_line("    _light_builtin.转整数 = int")
         self._add_line("    _light_builtin.转浮点 = float")
+        self._add_line("    _light_builtin.切片下标检查 = lambda v: v")
         self._add_line("    _light_builtin.chr = chr")
         self._add_line("    _light_builtin.bin = bin")
         self._add_line("    _light_builtin.hex = hex")
@@ -1230,6 +1243,10 @@ class PythonCodeGenerator:
         self._add_line("    _light_builtin.字典获取 = lambda d, k, default=None: d.get(k, default)")
         self._add_line("    _light_builtin.字典键列表 = lambda d: list(d.keys())")
         self._add_line("    _light_builtin.字典包含键 = lambda d, k: k in d")
+        self._add_line("    _light_builtin.副本 = lambda o: (dict(o) if isinstance(o, dict) else list(o) if isinstance(o, list) else o)")
+        self._add_line("    _light_builtin.浅拷贝 = lambda o: (dict(o) if isinstance(o, dict) else list(o) if isinstance(o, list) else o)")
+        self._add_line("    _light_builtin.深拷贝 = lambda o: __import__('copy').deepcopy(o)")
+        self._add_line("    _light_builtin.冻结 = lambda o: __import__('copy').deepcopy(o)")
         self._add_line("    _light_builtin.时间戳 = lambda: __import__('time').time()")
         self._add_line("    _light_builtin.格式化时间 = lambda t, f='%Y-%m-%d %H:%M:%S': __import__('datetime').datetime.fromtimestamp(t).strftime(f) if isinstance(t, (int, float)) else __import__('datetime').datetime.strptime(t, '%Y-%m-%d %H:%M:%S').strftime(f)")
         self._add_line("")
@@ -1260,6 +1277,7 @@ class PythonCodeGenerator:
         self._add_line("    ('是布尔', lambda v: isinstance(v, bool)),")
         self._add_line("    ('是函数', lambda v: callable(v)),")
         self._add_line("    ('是数值', lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)),")
+        self._add_line("    ('是负零', lambda v: isinstance(v, float) and v == 0.0 and __import__('math').copysign(1.0, v) < 0.0),")
         self._add_line("]:")
         self._add_line("    if not hasattr(_light_builtin, _light_n):")
         self._add_line("        setattr(_light_builtin, _light_n, _light_f)")
@@ -1659,7 +1677,9 @@ class PythonCodeGenerator:
         elif isinstance(stmt, DestructuringAssignment):
             # 解构赋值：a, b = value
             # 绑定形式⑤：解包目标全部登记为局部变量。
-            self._bind_local(*stmt.variables)
+            # L-078：解构只来自 `设` 声明（parser_stmt.py 三处构造全在声明路径），
+            # 是声明式绑定（declare=True）→ 局部遮蔽，不触发 L-006 自动 nonlocal。
+            self._bind_local(*stmt.variables, declare=True)
             vars_str = ', '.join(self._sanitize_name(v) for v in stmt.variables)
             value = self._generate_expr(stmt.value)
             # 多目标共享注解（新单 G）：Python 不允许 `a, b: T = f()`，
@@ -1843,8 +1863,10 @@ class PythonCodeGenerator:
         # 绑定形式①：`设 X 为 …`。必须在 value 生成之后登记，否则
         # `设 映射 为 映射(f, 列)`（用内置结果初始化同名变量）的右侧会被自己遮蔽。
         # 类属性赋值（己.X / 类属性名）不是局部变量，不登记。
+        # L-078：`设` 是声明（declare=True）→ 在嵌套函数里建立局部遮蔽，
+        # 不触发 L-006 自动 nonlocal（裸赋值才写穿外层）。
         if not 是类属性:
-            self._bind_local(stmt.name)
+            self._bind_local(stmt.name, declare=True)
         
         # 处理 己.xxx / 自.xxx 形式的属性赋值（两个 self 引用名一视同仁，
         # 见 _SELF_NAMES；只补 己 会让 `自.x 为 …` 发射出裸 `自.x` → NameError）
@@ -3541,6 +3563,13 @@ class PythonCodeGenerator:
                 start = self._generate_expr(expr.index.start) if expr.index.start else ''
                 stop = self._generate_expr(expr.index.stop) if expr.index.stop else ''
                 step = self._generate_expr(expr.index.step) if expr.index.step else ''
+                # L-080：切片下标必须是整数；float 等先经运行时检查给出明确中文错误
+                if start:
+                    start = '_light_builtin.切片下标检查(%s)' % start
+                if stop:
+                    stop = '_light_builtin.切片下标检查(%s)' % stop
+                if step:
+                    step = '_light_builtin.切片下标检查(%s)' % step
                 if step:
                     return f"{obj}[{start}:{stop}:{step}]"
                 else:

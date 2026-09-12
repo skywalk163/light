@@ -182,6 +182,7 @@ class UnifiedCodeGenerator:
             '字典获取': '_light_builtin.字典获取',
             '是整数': '_light_builtin.是整数',
             '是浮点': '_light_builtin.是浮点',
+            '是负零': '_light_builtin.是负零',
             '是字符串': '_light_builtin.是字符串',
             '是列表': '_light_builtin.是列表',
             '是字典': '_light_builtin.是字典',

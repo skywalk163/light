@@ -16,11 +16,11 @@
   ],
   "版本": 1,
   "归属": "C9 建（S1），G9 守门禁",
-  "总数": 149,
+  "总数": 150,
   "分类统计": {
     "native_required": 62,
     "movable": 11,
-    "has_light_impl": 63,
+    "has_light_impl": 64,
     "duplicate": 13,
     "unused": 0
   },
@@ -687,7 +687,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:35"
+      "证据行": "stdlib/内置核心判型.light:38"
     },
     {
       "名字": "是字典",
@@ -695,7 +695,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:39"
+      "证据行": "stdlib/内置核心判型.light:42"
     },
     {
       "名字": "是字母",
@@ -703,7 +703,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:47"
+      "证据行": "stdlib/内置核心判型.light:50"
     },
     {
       "名字": "是字符串",
@@ -711,7 +711,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:31"
+      "证据行": "stdlib/内置核心判型.light:34"
     },
     {
       "名字": "是数字",
@@ -719,7 +719,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:51"
+      "证据行": "stdlib/内置核心判型.light:54"
     },
     {
       "名字": "是整数",
@@ -727,7 +727,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:21"
+      "证据行": "stdlib/内置核心判型.light:24"
     },
     {
       "名字": "是浮点",
@@ -735,7 +735,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:27"
+      "证据行": "stdlib/内置核心判型.light:30"
     },
     {
       "名字": "是空",
@@ -743,7 +743,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:43"
+      "证据行": "stdlib/内置核心判型.light:46"
     },
     {
       "名字": "是空白",
@@ -751,7 +751,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:55"
+      "证据行": "stdlib/内置核心判型.light:58"
     },
     {
       "名字": "显示宽度",
@@ -1207,7 +1207,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:59"
+      "证据行": "stdlib/内置核心判型.light:62"
     },
     {
       "名字": "是函数",
@@ -1215,7 +1215,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:63"
+      "证据行": "stdlib/内置核心判型.light:66"
     },
     {
       "名字": "是数值",
@@ -1223,7 +1223,15 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:68"
+      "证据行": "stdlib/内置核心判型.light:71"
+    },
+    {
+      "名字": "是负零",
+      "职责": "检查是否为 IEEE 754 负零（-0.0），仅浮点负零为真",
+      "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/内置核心判型.light（任务5 T2-D4 新增：负零判定原语，纯光明实现）",
+      "证据行": "stdlib/内置核心判型.light:79"
     }
   ],
   "地板自举率_S2进度": {

@@ -473,6 +473,23 @@ def 转整数(text: str) -> int:
     """将字符串转换为整数（地板已搬迁：真身 stdlib/内置核心转换.light:15）"""
     import 内置核心转换
     return 内置核心转换.转整数(text)
+def 切片下标检查(v):
+    """L-080：切片下标必须是整数；非 int 给出明确中文错误（替代 Python 原生 slice indices 报错误导）"""
+    if isinstance(v, bool) or isinstance(v, int):
+        return v
+    if isinstance(v, float):
+        名 = '浮点数'
+    elif v is None:
+        名 = '空值'
+    elif isinstance(v, str):
+        名 = '文本'
+    elif isinstance(v, list):
+        名 = '列表'
+    elif isinstance(v, dict):
+        名 = '字典'
+    else:
+        名 = type(v).__name__
+    raise TypeError('切片下标必须是整数，实际为' + 名 + ' ' + str(v) + '，请用 整数() 转换')
 
 
 def 转浮点(text: str) -> float:
@@ -772,6 +789,24 @@ def 副本(原):
     import 内置核心列表
     return 内置核心列表.副本(原)
 
+
+def 浅拷贝(原):
+    """浅拷贝（同 副本 语义，真身 stdlib/内置核心列表.light）"""
+    import 内置核心列表
+    return 内置核心列表.浅拷贝(原)
+
+
+def 深拷贝(原):
+    """深拷贝：递归复制所有嵌套字典/列表，结果与原对象完全脱钩（不共享子对象引用）。"""
+    import copy as _拷贝模块
+    return _拷贝模块.deepcopy(原)
+
+
+def 冻结(原):
+    """冻结（脱钩）：返回深拷贝，使调用方后续改动不影响已构造对象（深 freeze 语义）。"""
+    import copy as _拷贝模块
+    return _拷贝模块.deepcopy(原)
+
 def 字典创建() -> dict:
     """创建空字典（地板已搬迁：真身 stdlib/内置核心字典.light:13）"""
     import 内置核心字典
@@ -906,6 +941,16 @@ def 是数值(值) -> bool:
     """
     import 内置核心判型
     return 内置核心判型.是数值(值)
+
+
+def 是负零(值) -> bool:
+    """检查是否为 IEEE 754 负零（-0.0）（真身 stdlib/内置核心判型.light:79，任务5 T2-D4）
+
+    仅对浮点 -0.0 返回 True；正零 0.0 / 整数 0 / 任何非零数均返回 False。
+    用于恢复边界等场景显式拒绝负零序号（对齐上游 Object.is(value, -0) 语义）。
+    """
+    import 内置核心判型
+    return 内置核心判型.是负零(值)
 
 
 # =============================================================================
@@ -1374,7 +1419,7 @@ __all__ = [
     
     # 列表工具
     '列', '列表长度', '列表追加', '列表弹出', '列表插入',
-    '列表排序', '列表反转', '列表包含', '副本',
+    '列表排序', '列表反转', '列表包含', '副本', '浅拷贝', '深拷贝', '冻结',
     
     # 字典工具
     '字典创建', '字典设置', '字典删除',

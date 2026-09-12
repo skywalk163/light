@@ -4,6 +4,9 @@
 # 与 stdlib/builtins.py:746-788 的 9 个 Python 版逐字等价。每个段落上方注明对齐行号。
 # 差分测试见 tests/unit/test_地板搬迁_判型_S2.py（光明版 vs Python 原版逐条对跑）。
 #
+# 是负零（任务5 T2-D4）也遵守「零 Python 模块导入」：不引 math.copysign，
+# 用 str.startswith 形态（-0.0 的文本是 "-0.0"，唯一以 '-' 开头的零值）。
+#
 # 三条写法约束（已实测，勿"优化"）：
 #   1. 是整数 必须两段式（先短路 bool，再 isinstance）。原因有两条：
 #      a) `isinstance(值, int) 并且 not isinstance(值, bool)` 在光明里是代码生成错误；
@@ -15,7 +18,7 @@
 #      写成 `字符.isalpha()` 时，入参不是 str 就抛 AttributeError，
 #      而 Python 版抛的是 TypeError —— 那是改写错误口径。
 
-导出 是整数 是浮点 是字符串 是列表 是字典 是空 是字母 是数字 是空白 是布尔 是函数 是数值。
+导出 是整数 是浮点 是字符串 是列表 是字典 是空 是字母 是数字 是空白 是布尔 是函数 是数值 是负零。
 
 # 对齐 stdlib/builtins.py:746 —— isinstance(值, int) and not isinstance(值, bool)
 段落 是整数 接收 值:
@@ -69,3 +72,13 @@
   如果 isinstance(值, bool):
     返回 假
   返回 isinstance(值, int) 或 isinstance(值, float)
+
+# 对齐 stdlib/builtins.py:是负零 —— IEEE 754 负零（-0.0）判定（任务5 T2-D4 方案A）
+# 仅对浮点 -0.0 返回 真；正零 0.0 / 整数 0 / 任何非零数均返回 假。
+# 纯光明实现（零 Python 导入）：-0.0 是唯一满足「值 == 0.0 且 文本以 '-' 开头」的浮点。
+段落 是负零 接收 值:
+  如果 isinstance(值, float) == 假:
+    返回 假
+  如果 (值 != 0.0):
+    返回 假
+  返回 str.startswith(转字符串(值), "-")

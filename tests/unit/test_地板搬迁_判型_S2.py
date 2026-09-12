@@ -296,3 +296,60 @@ def test_Python原版字符判型与本文件的oracle表一致(名字, 标签, 
     地板 = _新装地板()
     assert getattr(地板, 名字)(值) == 字符段落[名字](值), (
         "stdlib/builtins.py 的 %s 与本文件 oracle 在 %r 上已分叉" % (名字, 值))
+
+
+# ── 是负零（任务5 T2-D4 方案A）：IEEE 754 负零判定 ────────────────────────────
+# 单独成组而不是塞进 判型段落/输入矩阵：通用矩阵里没有 -0.0（-0.0 == 0.0 为真，
+# 混进等值矩阵会把「负零」这个关键输入藏起来）。负零矩阵显式带上它。
+负零矩阵 = [
+    ("float_neg_zero", -0.0),
+    ("float_pos_zero", 0.0),
+    ("int_zero", 0),
+    ("int_neg0", -0),
+    ("int_neg1", -1),
+    ("float_neg1_5", -1.5),
+    ("float_pos1_5", 1.5),
+    ("float_nan", float("nan")),
+    ("float_inf", float("inf")),
+    ("float_neg_inf", float("-inf")),
+    ("bool_False", False),
+    ("str_neg_zero", "-0.0"),
+    ("none", None),
+]
+
+
+def _oracle_是负零(值):
+    """任务5 方案A 指定公式 `math.copysign(1, x) < 0`，但必须补零值守卫：
+    copysign 对任意负数都返回负号，不加 `值 == 0.0` 会把 -1.5 也判成负零。
+    光明真身走 `str.startswith(str(值), "-")`（零 Python 导入），口径与本 oracle 等价。
+    """
+    return isinstance(值, float) and 值 == 0.0 and math.copysign(1.0, 值) < 0.0
+
+
+@pytest.mark.parametrize("标签,值", 负零矩阵, ids=[t for t, _ in 负零矩阵])
+def test_是负零口径与Python原版逐条一致(标签, 值):
+    期望 = _oracle_是负零(值)
+    实得 = 光明.是负零(值)
+    assert 实得 == 期望, (
+        "是负零(%r) 口径不一致：Python 原版 %r，光明版 %r" % (值, 期望, 实得))
+    assert isinstance(实得, bool), "是负零(%r) 返回 %r，判型段落必须返回 bool" % (值, 实得)
+
+
+def test_是负零真身与oracle一致():
+    """防 oracle 腐烂：builtins.py 的 是负零 与本文件 oracle 不得分叉。"""
+    地板 = _新装地板()
+    for 标签, 值 in 负零矩阵:
+        assert 地板.是负零(值) == _oracle_是负零(值), (
+            "stdlib/builtins.py 的 是负零 与 oracle 在 %s 上已分叉" % 标签)
+
+
+def test_是负零只认浮点负零():
+    assert 光明.是负零(-0.0) is True
+    assert 光明.是负零(0.0) is False
+    assert 光明.是负零(0) is False
+    assert 光明.是负零(-0) is False            # 整数 -0 即 0，Python 无符号位
+    assert 光明.是负零(-1.5) is False
+    assert 光明.是负零(1.5) is False
+    assert 光明.是负零(1.0 / float("-inf")) is True   # 算术构造 -0.0
+    assert 光明.是负零(float("nan")) is False
+    assert 光明.是负零("-0.0") is False         # 字符串不是数值

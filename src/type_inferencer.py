@@ -2319,6 +2319,7 @@ class TypeInferencer:
             '转为字符串': TYPE_STRING,
             '是整数': TYPE_BOOLEAN,
             '是浮点': TYPE_BOOLEAN,
+            '是负零': TYPE_BOOLEAN,
             '是字符串': TYPE_BOOLEAN,
             '是列表': TYPE_BOOLEAN,
             '是字典': TYPE_BOOLEAN,

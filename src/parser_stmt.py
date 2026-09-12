@@ -2306,8 +2306,72 @@ class ParserStmtMixin:
             tok.line if tok else 0, tok.col if tok else 0, tok.value if tok else None
         )
     
+    def _修复错位否则体(self) -> List[ASTNode]:
+        """L-079 错位 else 修复体回收：把 `否则:` 之后被 DEDENT 顶出的浅缩进行
+        重新收进 else 体。
+
+        前置条件（由修复点②保证）：else_body 为空且当前 token 是「否则: 行回退后的
+        DEDENT」（层级 = 否则: 行的缩进）。
+
+        回收规则（对齐任务书「块深度状态在语句边界正确维持」的期望，同时保守）：
+        - 只回收当前 DEDENT **未回到 0** 的情形（即仍处某层块体内）；
+        - 逐行预读：后续行缩进 > 该 DEDENT 层级 → 属于写浅一列的 else 体，收进；
+        - 后续行缩进 == 该 DEDENT 层级 → 与 否则: 同级，属于外层块体，停止回收；
+        - 期间按正常语句流解析（嵌套结构自行配平 INDENT/DEDENT）。
+        修复完成后清除待修复标记。
+        """
+        statements: List[ASTNode] = []
+        # 未初始化（非 if 解析路径触达，理论不可达）时按旧行为返回空
+        flag = getattr(self, '_修复错位否则', False)
+        tok = self._current()
+        if (not flag) or not tok or tok.type != TokenType.DEDENT:
+            self._修复错位否则 = False
+            return statements
+        dedent_level = getattr(tok, 'value', None)
+        # 顶层 DEDENT（回到 0）：无「更浅一列」可言，维持旧行为（空 else）。
+        if dedent_level is None or dedent_level == 0:
+            self._修复错位否则 = False
+            return statements
+        # 消耗该 DEDENT，开始回收浅缩进行
+        self._consume(TokenType.DEDENT)
+        guard = 0
+        while self._current() and guard < 100000:
+            guard += 1
+            tok2 = self._current()
+            if tok2.type == TokenType.NEWLINE:
+                self._consume(TokenType.NEWLINE)
+                continue
+            if tok2.type == TokenType.INDENT:
+                # 浅缩进行内部的嵌套块：正常语句解析会自行消费
+                self._consume(TokenType.INDENT)
+                depth = 1
+                # 收敛到一个「裸语句」位置再统一走 _parse_statement
+                statements.extend(self._parse_body(stop_on_paragraph=False))
+                # _parse_body 消耗到配平 DEDENT 为止；此处 depth 记账仅作文档
+                continue
+            if tok2.type == TokenType.DEDENT:
+                level2 = getattr(tok2, 'value', None)
+                if level2 is None or level2 == 0:
+                    # 回到块基线：外层块结束，停止回收（不消耗，留给调用者）
+                    break
+                # 退到更浅层级：else 体结束
+                self._consume(TokenType.DEDENT)
+                break
+            # 实际语句（缩进 > dedent_level 的行已由词法保证在此位置出现为普通 token）
+            stmt = self._parse_statement()
+            if stmt is not None:
+                statements.append(stmt)
+            else:
+                self.pos += 1
+        self._修复错位否则 = False
+        return statements
+
     def _parse_if_stmt(self) -> IfStmt:
         """解析条件语句（循环实现，支持任意深度嵌套）"""
+        # L-079：错位 else 修复状态（见 _parse_body 修复点① 与 _修复错位否则体）。
+        # 每次 if 解析开始时置位：若本 if 的 else 分支解析出「空 else_body + 紧跟 DEDENT」
+        # 形态，则由 _parse_body 记录待修复层级、else 分支回收浅缩进行。
+        self._修复错位否则 = True
         
         # 解析第一个条件
         if self._match(TokenType.KEYWORD, '若'):
@@ -2522,6 +2586,13 @@ class ParserStmtMixin:
                             self._consume(TokenType.INDENT)
 
                         else_body = self._parse_body(allow_single_line=not has_newline, stop_on_else=True)
+
+                        # L-079 修复点②：否则: 后换行紧跟 DEDENT（else 体缩进比 否则:
+                        # 关键字更浅）时 else_body 为空——把后续浅缩进行（仍比所在块
+                        # 基线深）重新收进 else 体，与「else 分支体写浅一列」的作者意图
+                        # 一致；不再静默丢失（旧缺陷：else 整段消失、返回被纳入外层循环）。
+                        if (not else_body) and has_newline:
+                            else_body = self._修复错位否则体()
 
                         # 消耗 DEDENT（否则体结束）
                         if self._current() and self._current().type == TokenType.DEDENT:
@@ -3905,7 +3976,13 @@ class ParserStmtMixin:
             # DEDENT：嵌套深度减少
             if tok.type == TokenType.DEDENT:
                 if depth == 0:
-                    # 检查是否是空行导致的假 DEDENT（后面跟着 INDENT）
+                    # L-079：错位 else 修复（修复点①，此分支仅在 `_修复错位否则` 置位时激活）。
+                    # 形态：`否则:` + NEWLINE 后紧跟 DEDENT（else 体缩进比 否则: 本身更浅），
+                    # `_parse_if_stmt` 的 else 分支在 `_parse_body` 立即 break 得到空 else_body，
+                    # 并把后续浅缩进行（遍历/返回等）留给外层块 → else 整段丢失、
+                    # return 被错误纳入外层循环体。此前的「启发式修复」位于生成侧且依赖
+                    # 前置上下文，本修复把逻辑收进解析侧：标记待修复态，由
+                    # `_parse_if_stmt` else 分支（修复点②）回查并把浅缩进行重新收进 else 体。
                     next_tok = self._peek(1)
                     if next_tok and next_tok.type == TokenType.INDENT:
                         # 跳过这对 DEDENT+INDENT，继续解析
