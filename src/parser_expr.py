@@ -2786,6 +2786,10 @@ class ParserExprMixin:
                 self._consume(TokenType.COMMA)
                 while self._current() and self._current().type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
                     self._consume()
+                # L-081：尾随逗号（"," 后直接 "]"）与 Python/JS 一致放行；
+                # 与方括号列表、花括号字典/集合的尾随逗号处理对齐。
+                if self._match(TokenType.RBRACKET):
+                    break
                 key = self._parse_comparison()
                 self._consume(TokenType.COLON)
                 val = self._parse_comparison()
