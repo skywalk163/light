@@ -85,7 +85,8 @@ class TestVariableAndArithmetic(unittest.TestCase):
 
     def test_division(self):
         # 使用 "除" 而非 "除以"。除 是真除（Python /），整数相除也产浮点结果；
-        # 整数商请用 整除（地板除 //）。P6 口径：真除 100/4 = 25.0。
+        # 整数商请用 整除（地板除 //）。P6(d) 口径更正：原期望 '25' 与真除
+        # 语义相悖（100 除 4 = 25.0）。
         code = '设 甲 为 100\n设 乙 为 4\n打印(甲 除 乙)'
         self.assertEqual(_run_light(code).strip(), '25.0')
 

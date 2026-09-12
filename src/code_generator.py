@@ -1866,7 +1866,7 @@ class PythonCodeGenerator:
         # L-078：`设` 是声明（declare=True）→ 在嵌套函数里建立局部遮蔽，
         # 不触发 L-006 自动 nonlocal（裸赋值才写穿外层）。
         if not 是类属性:
-            self._bind_local(stmt.name, declare=True)
+            self._bind_local(stmt.name)
         
         # 处理 己.xxx / 自.xxx 形式的属性赋值（两个 self 引用名一视同仁，
         # 见 _SELF_NAMES；只补 己 会让 `自.x 为 …` 发射出裸 `自.x` → NameError）
