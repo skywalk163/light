@@ -6,6 +6,7 @@
 
 import hashlib
 import base64
+import hmac
 from typing import Optional
 
 
@@ -67,18 +68,16 @@ def SHA512(text: str, encoding: str = 'utf-8') -> str:
 
 def HMAC_SHA256(key: str, text: str, encoding: str = 'utf-8') -> str:
     """
-    计算 HMAC-SHA256
-    
-    参数:
-        key: 密钥
-        text: 输入字符串
-        encoding: 编码方式
-    
-    返回:
-        64 位小写十六进制哈希字符串
+    计算 HMAC-SHA256（RFC 2104 标准实现）
+
+    L-095 修复：旧实现为单轮 PBKDF2（hashlib.pbkdf2_hmac(..., 1)），密钥未走
+    ipad/opad 内层处理，与标准 HMAC-SHA256 不一致，无法与外部系统对拍。
+    现改为 Python 标准库 hmac.new(key, msg, hashlib.sha256)，输出与
+    RFC 4231 / openssl dgst -sha256 -hmac 完全一致。
     """
-    h = hashlib.pbkdf2_hmac('sha256', text.encode(encoding), key.encode(encoding), 1)
-    return h.hex()
+    return hmac.new(
+        key.encode(encoding), text.encode(encoding), hashlib.sha256
+    ).hexdigest()
 
 
 def Base64编码(text: str, encoding: str = 'utf-8') -> str:

@@ -146,9 +146,11 @@ def _resolve_local_imports(source: str, source_dir: str) -> dict:
     """解析源代码中的本地模块导入，递归查找所有 .light 依赖（含点号分层目录）。
 
     Returns:
-        {module_name: compiled_python_code, ...}
+        {module_name: {'code': compiled_python_code, 'source': 光明源码文本,
+                       'path': 模块绝对路径}, ...}
         其中 module_name 保留原始点号形式（如 '_import_test.数据' 或 'pkg.sub.深层'），
         编译产物会被内联进主代码，import 语句随后被注释掉（见 _run_src）。
+        附带 'source' 供 L-093 跨模块异常位置块归因（异常需知道每行属于哪个 .light 模块）。
 
     L-001 修复点：
       1. 用 `_resolve_module_path` 解析点号分层模块（a.b.c → a/b/c.light）。
@@ -193,7 +195,9 @@ def _resolve_local_imports(source: str, source_dir: str) -> dict:
         # 编译
         gen = PythonCodeGenerator()
         code = gen.generate(mod_module)
-        result[mod_name] = code
+        # L-093：附带 .light 源码文本与路径，供跨模块异常位置块归因。
+        result[mod_name] = {'code': code, 'source': mod_src,
+                            'path': str(mod_path)}
 
         # 递归解析子导入（L-001 修正）：
         # - 点号模块名（a.b.c）是「从项目根目录出发的绝对包路径」，
@@ -225,6 +229,8 @@ def _run_src(source: str, file_path: str | None = None) -> str:
     # 解析本地模块依赖
     source_dir = os.path.dirname(os.path.abspath(file_path)) if file_path else os.getcwd()
     dep_modules = _resolve_local_imports(source, source_dir)
+    # L-093：入口模块的"模块名"（用于跨模块异常位置块归因）
+    entry_name = os.path.splitext(os.path.basename(file_path))[0] if file_path else '<主>'
 
     # 编译主文件
     main_code = _compile_src(source)
@@ -239,9 +245,9 @@ def _run_src(source: str, file_path: str | None = None) -> str:
 
     # 先收集所有代码（deps + main）到一个字符串
     combined_parts = []
-    for mod_name, dep_code in dep_modules.items():
+    for mod_name, dep_info in dep_modules.items():
         combined_parts.append(f"# === 光明模块: {mod_name} ===\n")
-        combined_parts.append(dep_code)
+        combined_parts.append(dep_info['code'])
         combined_parts.append("\n")
     combined_parts.append(main_code)
     py_code = ''.join(combined_parts)
@@ -306,7 +312,7 @@ def _run_src(source: str, file_path: str | None = None) -> str:
     # （或 as 别名）绑定进执行命名空间，使 `c.符号` / `别名.符号` 成员访问可用。
     import types as _types
     for _full, _bind in _dotted_plain_list:
-        _code = dep_modules.get(_full)
+        _code = dep_modules.get(_full, {}).get('code')
         if _code is None:
             continue
         _mod = _types.ModuleType(_full)
@@ -351,10 +357,18 @@ def _run_src(source: str, file_path: str | None = None) -> str:
     except Exception:
         # L-061：把生成代码挂到异常对象上，供 format_error 解析 LIGHT_SRC 行号映射，
         # 将 traceback 的 .py 行号还原为光明源码行号（非 SRC 后端无此属性）。
+        # L-093：同时挂上「模块名 -> 光明源码」映射，使跨模块异常能定位到真实抛出
+        # 模块（而非入口调用点）。py_code 已含 `# === 光明模块: X ===` 标记，
+        # error_formatter.build_full_mapping_with_module 据此把 py 行号归到具体模块。
         _exc = sys.exc_info()[1]
         if _exc is not None:
             try:
                 _exc._light_py_code = py_code
+                _modules = {entry_name: source}
+                for _n, _i in dep_modules.items():
+                    _modules[_n] = _i.get('source', '')
+                _exc._light_modules = _modules
+                _exc._light_entry_name = entry_name
             except Exception:
                 pass
         raise

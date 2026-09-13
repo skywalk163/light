@@ -120,6 +120,49 @@ class LightErrorFormatter:
 
         return mapping
 
+    def build_full_mapping_with_module(self, python_code: str,
+                                       entry_module_name: str = '<主>') -> dict:
+        """L-093：在 build_full_mapping 基础上，额外把每个 py 行号归属到具体 .light 模块。
+
+        `_run_src` 把入口与各依赖模块**内联**进同一段 Python（依赖在前，入口在后），
+        依赖段前用 `# === 光明模块: X ===` 标记模块名；入口段无标记，归属 entry_module_name。
+        返回的映射 dict[py_line_index -> (module_name, light_line)] 让错误格式化器能
+        把跨模块异常的行号还原到**真实抛出模块**的光明源码行，而不是入口调用点。
+
+        py 行号与 light 行号均为 0-based 索引（与 build_full_mapping 一致）。
+        """
+        lines = python_code.split('\n')
+        # 先收集 LIGHT_SRC 锚点
+        src_anchors = []  # (py_line, light_line)
+        for i, line in enumerate(lines):
+            m = re.match(r'^\s*#\s*LIGHT_SRC:(\d+)(?::.*)?$', line)
+            if m:
+                src_anchors.append((i, int(m.group(1))))
+
+        # 扫描模块归属标记，建立 py 行 -> 当前模块名
+        module_at = {}  # py_line -> module_name
+        current_module = entry_module_name
+        mod_marker = re.compile(r'^\s*#\s*===\s*光明模块:\s*(\S+)\s*===\s*$')
+        for i, line in enumerate(lines):
+            mm = mod_marker.match(line)
+            if mm:
+                current_module = mm.group(1)
+            module_at[i] = current_module
+
+        mapping = {}
+        if not src_anchors:
+            return mapping
+
+        for idx, (py_line, light_line) in enumerate(src_anchors):
+            if idx + 1 < len(src_anchors):
+                py_end = src_anchors[idx + 1][0]
+            else:
+                py_end = len(lines)
+            for p in range(py_line, py_end):
+                if mapping.get(p) is None:
+                    mapping[p] = (module_at.get(py_line, entry_module_name), light_line)
+        return mapping
+
     def format_exception(self, exc_type=None, exc_value=None, exc_tb=None) -> str:
         """格式化异常为光明友好的错误信息
 

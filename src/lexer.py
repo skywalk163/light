@@ -527,6 +527,26 @@ _COMPOUND_SAFE_SINGLE_KEYWORDS = frozenset({
     '到',
 })
 
+# L-120（E批次修复）：单字语句别名在汉字段【词尾】并入标识符的集合。
+# 49 字 L0 单字别名中，既不在 _COMPOUND_SAFE_SINGLE_KEYWORDS（已有词尾输出
+# KEYWORD 的既有分支）、也不是 _P0A_OP 运算符/分隔符、更不是值字面量的
+# 「语句别名」单字。它们只有词首才有语句语义（设 X 为…/捕 X:/抛 X/返 X…），
+# 出现在复合标识符词尾（错误己/预设/投掷/承运/宏图/往返回）时绝不可能是
+# 合法语句，并入标识符才符合「最大匹配优先于关键字序列切分」。
+# 真/假/空（值字面量）与 compound-safe 成员刻意不在本表——前者词尾
+# （`返回真`）是合法且常见的无空格写法，后者已有专门分支管辖。
+_TRAILING_ALIAS_MERGE = frozenset({
+    '遍', '捕', '抛', '终', '返', '己', '设', '承', '宏', '掷',
+})
+
+# 任务1（L-084/L-092/L-137）：嵌入关键字最大匹配集合。
+# `为`/`返回`/`尝试` 是恒带空格使用的关键字（设 X 为 Y / 返回 值 / 尝试...捕获），
+# 一旦黏在更长汉字串中（行为/末位行为/返回表/尝试记录），必是标识符的一部分，
+# 整串作为标识符输出，绝不按关键字边界切碎；仅当整串精确等于关键字时才作关键字。
+# `为` 为 L-084 真缺陷（词尾切碎）；`返回`/`尝试` 已由既有 _COMPOUND_SAFE / 嵌入扫描
+# 兜住，此处一并纳入以保持"最大匹配"口径统一、防止回归。
+_EMBED_MAX_MATCH_KEYWORDS = frozenset({'为', '返回', '尝试'})
+
 
 # 符号到 TokenType 的映射（模块级常量）
 _SYMBOL_TOKEN_MAP = {
@@ -2274,6 +2294,37 @@ class Lexer:
                 current_col += len(full_identifier)
                 continue
 
+            # 任务1（L-084/L-092/L-137）：嵌入关键字最大匹配。
+            # `为`/`返回`/`尝试` 恒带空格使用，黏在更长汉字串中必为标识符的一部分，
+            # 整串作标识符输出（如 行为/末位行为→ID(末位行为)、返回表→ID(返回表)、
+            # 尝试记录→ID(尝试记录)）。仅当整串精确等于关键字时才作关键字（设 X 为 Y /
+            # 返回 值 / 尝试...捕获 中关键字恒独立成 token，不受影响）。
+            if (full_identifier not in _ALL_KEYWORDS_WITH_VERBS
+                    and len(full_identifier) > 1):
+                _emb_hit = False
+                # 任务2 收窄（E批次，CI 回归修复）：关键字命中后紧邻「值字面量」
+                # （空/真/假）时不得合并。否则 `X.Y 为空`（无空格赋值尾巴）里的
+                # `为空`、`设 甲为空` 的 `甲为空`、`返回真` 会被整体并成标识符，
+                # 赋值/返回语句被静默拆坏（test_会话格式/宿主上下文/授权链 等
+                # 5+ 用例回归，AttributeError: '会话' object has no attribute）。
+                # 行为/末位行为（为 在词尾、无后随字）与 返回表/尝试记录（后随
+                # 普通汉字）仍照常合并。
+                _emb_value_heads = frozenset({'空', '真', '假'})
+                for _ek in _EMBED_MAX_MATCH_KEYWORDS:
+                    _ep = full_identifier.find(_ek)
+                    if _ep == -1:
+                        continue
+                    _after = full_identifier[_ep + len(_ek):_ep + len(_ek) + 1]
+                    if _after and _after in _emb_value_heads:
+                        continue
+                    _emb_hit = True
+                    break
+                if _emb_hit:
+                    _tokens_append(_Token(_TokenType.IDENTIFIER, full_identifier, line, current_col))
+                    consumed += len(full_identifier)
+                    current_col += len(full_identifier)
+                    continue
+
             # 检查完整标识符是否是常见复合词（优先级高于中文数字拆分）
             if full_identifier in _common_compounds:
                 # 如果完整标识符同时也是关键字（如"创建回调"在VERB_ARITY中），作为关键字输出
@@ -2422,6 +2473,17 @@ class Lexer:
                 # 例外：后续字符是中文数字（如"加五"），应拆分为 加(动词)+五(数字)
                 # 另外：只有当关键字在词首位置时才跳过，词中出现的运算符应正常识别
                 skip_verb = False
+                # L-119（E批次）：L0 单字别名独立成段（整段就是该字）且后随 '['
+                # 下标访问符时，是变量下标访问（打印 配[0]），不是语句关键字。
+                # 旧行为把 配 发成 KEYWORD，本行被解析成「匹配 [0]:」→ codegen
+                # 产出 match 空体 → 运行期报误导性缩进错误。
+                # 判据收窄（四条同时成立）：单字、整段即该字、该字在 compound-safe
+                #（具备构词能力的别名字）、后随 '['。`设 配 为 [...]`（后随空格）
+                # 与 `配 模式:`（匹配语句）均不受影响。
+                if (length == 1 and len(full_identifier) == 1
+                        and keyword in _compound_safe
+                        and pos + 1 < n and source[pos + 1] == '['):
+                    skip_verb = True
                 if length == 1 and keyword in _compound_safe and len(full_identifier) > 1:
                     # 检查是否在词首位置（相对于 full_identifier）
                     in_word_start = (pos == i + consumed)  # 当前位置是当前处理的起始位置
@@ -2616,6 +2678,12 @@ class Lexer:
                             # 会走进不一致的分支（上面 v7 单 02 已踩过这个坑）。
                             if scan_pos > 0 and scan_pos + sub_len < len(full_identifier):
                                 skip_kw = True
+                            elif (scan_pos > 0
+                                    and scan_pos + sub_len == len(full_identifier)
+                                    and sub_kw in _TRAILING_ALIAS_MERGE):
+                                # L-120（E批次）：单字语句别名在汉字段词尾并入标识符，
+                                # 不标记内嵌（与输出循环判据严格一致）。错误己 整体成词。
+                                skip_kw = True
 
                         if not skip_kw:
                             # 不是需要跳过的关键字，标记为内嵌关键字
@@ -2759,6 +2827,13 @@ class Lexer:
                                 # 由上面分支处理，故 甲加乙/自之姓名/不在/对于/甲属于乙/
                                 # 如果为真 均不受影响。词首（己姓名 的 己）与词尾仍照旧输出关键字。
                                 if scan_pos > 0 and scan_pos + sub_len < len(full_identifier):
+                                    scan_pos += sub_len
+                                    continue
+                                if (scan_pos > 0
+                                        and scan_pos + sub_len == len(full_identifier)
+                                        and sub_kw in _TRAILING_ALIAS_MERGE):
+                                    # L-120（E批次）：单字语句别名在汉字段词尾并入标识符。
+                                    # 错误己/预设/投掷 整体成词，不再切出词尾 KEYWORD。
                                     scan_pos += sub_len
                                     continue
                             elif sub_len > 1:

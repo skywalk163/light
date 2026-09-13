@@ -2026,6 +2026,17 @@ class ParserExprMixin:
                 last_end = m.end()
                 continue
             expr_text = m.group(1).strip()
+            # L-086：{数字,数字}（正则量词 {n,m} / 坐标对等文本形态）视为普通文本，
+            # 不触发插值。旧行为会把 "1,4" 交给表达式插值兜底，子解析把
+            # NUM(1) COMMA NUM(4) 消费成「字面量调用」节点 1(4)，产物变成
+            # f"[0-9a-f]{1(4)}"，运行期 'int' object is not callable，
+            # 正则花括号量词彻底不可用。{n,m} 作为插值没有任何合法语义。
+            if re.match(r'^\d+\s*,\s*\d+$', expr_text):
+                if m.start() > last_end:
+                    parts.append(value[last_end:m.start()])
+                parts.append(value[m.start():m.end()])
+                last_end = m.end()
+                continue
             # 检查是否是有效的插值表达式
             # 有效标识符：中文、字母、数字、下划线、点号(属性)、方括号(索引)
             # 支持格式说明符：{expr:format_spec}
@@ -2105,6 +2116,15 @@ class ParserExprMixin:
                     'StringLiteral', 'NumberLiteral', 'BooleanLiteral', 'NullLiteral',
                 ):
                     return None
+                # L-086 防御：字面量调用形态（如 "1,4" 被子解析消费成 1(4) 的
+                # FunctionCall、callee 为 NumberLiteral）不是合法插值表达式，
+                # 拒绝并让整串按普通文本处理。
+                if type(node).__name__ == 'FunctionCall':
+                    _callee = getattr(node, 'name', None)
+                    if _callee is not None and type(_callee).__name__ in (
+                        'NumberLiteral', 'StringLiteral',
+                    ):
+                        return None
                 return node
         except Exception:
             pass

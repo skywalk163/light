@@ -1325,6 +1325,23 @@ class PythonCodeGenerator:
         self._add_line("        except (IndexError, KeyError):")
         self._add_line("            return _d")
         self._add_line("")
+        # L-096：字典属性访问辅助函数。dict 原生不支持 .键，属性访问统一走本
+        # helper：dict → 键访问（缺键返回 空，与 字典获取 缺省一致）；
+        # 其它对象（类实例/模块）→ 原生 getattr，行为不变。
+        self._add_line("# 属性访问辅助函数（字典.键 等价 字典.获取(键)，类实例走原生属性）")
+        self._add_line("def _light_attr_get(_o, _k):")
+        self._add_line("    if isinstance(_o, dict):")
+        self._add_line("        return _o.get(_k)")
+        self._add_line("    return getattr(_o, _k)")
+        self._add_line("")
+        self._add_line("# 属性赋值辅助函数（字典.键 为 值 等价 字典设置；类实例走原生 setattr）")
+        self._add_line("def _light_attr_set(_o, _k, _v):")
+        self._add_line("    if isinstance(_o, dict):")
+        self._add_line("        _o[_k] = _v")
+        self._add_line("    else:")
+        self._add_line("        setattr(_o, _k, _v)")
+        self._add_line("    return _v")
+        self._add_line("")
 
         # 生成语句
         for stmt in module.statements:
@@ -1632,6 +1649,17 @@ class PythonCodeGenerator:
             self._generate_indexed_compound_assignment(stmt)
         elif isinstance(stmt, Assignment):
             # 普通赋值语句：甲 = 值
+            # L-096（E批次）：属性赋值目标（己.标识 为 值 / 对象.键 为 值）走
+            # _light_attr_set——dict 目标等价 字典设置（键不存在则新增），
+            # 类实例目标走原生 setattr。绝不能把 _light_attr_get(...) 放在
+            # 赋值左侧（Python: cannot assign to function call）。
+            if isinstance(stmt.target, MemberAccess) and not stmt.target.is_method_call:
+                _obj_code = self._generate_expr(stmt.target.obj)
+                _value_code = self._generate_expr(stmt.value)
+                self._add_line(
+                    f"_light_attr_set({_obj_code}, {stmt.target.member!r}, {_value_code})"
+                )
+                return
             target = self._generate_expr(stmt.target)
             # L-019：右侧表达式是在「目标尚未绑定」的语义下生成的（_bind_local 在下面
             # 才调用），这个设计本身是对的——`设 甲 为 甲 + 1` 的右侧本就该解析到外层的
@@ -3751,7 +3779,10 @@ class PythonCodeGenerator:
                 if split is not None:
                     inner_raw, tmpl = split
                     return tmpl.format(o=f"{obj}.{self._sanitize_name(inner_raw)}")
-                return f"{obj}.{mapped_member}"
+                # L-096（E批次）：属性访问统一走字典安全 helper。
+                # dict 对象 `.键` 等价 `.获取(键)`（缺键返回 空）；
+                # 类实例/模块对象回落原生 getattr（旺财.名字 行为不变）。
+                return f"_light_attr_get({obj}, {expr.member!r})"
 
         
         elif isinstance(expr, ListLiteral):

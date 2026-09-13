@@ -197,25 +197,50 @@ class ErrorFormatter:
         """
         import traceback
 
-        lines = source.split('\n')
-        err_type = type(error).__name__
-        err_msg = str(error)
+        # L-093：用 py→light 映射把 .py 行号还原为「(源文件, 模块名, 光明行号)」，
+        # 跨模块异常据此定位到真实抛出模块，而非入口调用点。
+        entry_module_name = getattr(error, '_light_entry_name', None)
+        entry_file = file_path
+        loc_file, loc_module, light_line = self._map_py_to_light(
+            error, py_code, entry_module_name, entry_file)
 
-        # 尝试从异常中提取行号
+        # 尝试从异常消息中提取行号（最高优先）
         if line_num is None:
             line_num = self._extract_line_num(error)
 
-        # 从 traceback 中提取行号
+        # 从 traceback / 映射中提取行号
         if line_num is None:
-            # L-061：优先用生成代码的 LIGHT_SRC 行号映射，把 .py 行号还原为光明
-            # 源码行号，避免「.py 行号直接索引 .light 源码」导致的行号错位。
-            light_line = self._map_py_to_light(error, py_code)
             if light_line is not None:
                 line_num = light_line
-            else:
+            elif error is not None and error.__traceback__ is not None:
                 for frame in traceback.extract_tb(error.__traceback__):
                     line_num = frame.lineno
                     break
+
+        # L-093：决定展示用源码与文件标签——归属到真实抛出模块
+        # 优先：钩子独立加载的真实 .light 路径（loc_file）；
+        # 其次：内联场景的模块源码（error._light_modules[loc_module]）；
+        # 兜底：入口 source。
+        disp_source = None
+        disp_file = None
+        if loc_file and os.path.isfile(loc_file):
+            try:
+                disp_source = open(loc_file, encoding='utf-8').read()
+            except Exception:
+                disp_source = None
+            disp_file = loc_file
+        if disp_source is None and loc_module:
+            modules_map = getattr(error, '_light_modules', None)
+            if modules_map and loc_module in modules_map and modules_map[loc_module]:
+                disp_source = modules_map[loc_module]
+                disp_file = loc_module          # 跨模块/依赖模块：显示模块名（含模块名定位）
+        if disp_source is None:
+            disp_source = source
+            disp_file = file_path
+
+        lines = disp_source.split('\n')
+        err_type = type(error).__name__
+        err_msg = str(error)
 
         # 构建错误信息
         parts = []
@@ -227,16 +252,19 @@ class ErrorFormatter:
         parts.append(self._color('reset', ''))
 
         # L-073：把运行期 Python 原生异常翻译为光明层可读提示（只改展示层，
-        # 不动异常类型，依赖异常类型的代码不受影响）。复用 L-061 的 py→light
-        # 行号映射得到的 line_num，附「文件:行号」定位。
-        translated = self._translate_runtime_message(err_type, err_msg, line_num, file_path)
+        # 不动异常类型，依赖异常类型的代码不受影响）。L-093：文件标签用真实模块名。
+        translated = self._translate_runtime_message(err_type, err_msg, line_num, disp_file)
         parts.append(f'\n  {translated}')
         # 保留 Python 原始错误，便于排查（不影响异常类型）
         if translated != err_msg:
             parts.append(f'\n  （Python 原始错误：{err_msg}）')
+        # L-093：跨模块异常显式标注真实抛出模块（含模块名/路径），
+        # 与"入口调用点"明确区分。
+        if loc_file:
+            parts.append(f'\n  （位置: {loc_file}:{line_num}）')
 
         # 如果有源代码，显示代码片段
-        if source and lines:
+        if disp_source and lines:
             if line_num is not None and line_num > 0 and line_num <= len(lines):
                 parts.append('\n')
                 parts.append(self._show_code_snippet(lines, line_num, col))
@@ -365,45 +393,81 @@ class ErrorFormatter:
             return colors[color] + text + colors['reset']
         return text
 
-    def _map_py_to_light(self, error: Exception, py_code: str = None):
-        """L-061：用生成代码的 LIGHT_SRC 行号映射，把 traceback 的 .py 行号还原为光明源码行号。
+    def _map_py_to_light(self, error: Exception, py_code: str = None, entry_module_name: str = None, entry_file: str = None):
+        """L-061/L-093：把 traceback 的 .py 行号还原为「(源文件, 模块名, 光明行号)」。
 
-        编译器在生成 Python 时给每个光明语句嵌入 # LIGHT_SRC:<光明行号> 注释；
-        error_formatter.LightErrorFormatter.build_full_mapping 据此建立
-        {py行号: 光明行号} 映射。从 traceback 最内层帧（最先抛出的抛出点）开始
-        逐帧反查，返回第一个能映射成功的 .light 行号；无法映射时返回 None，
-        调用方退回 .py 行号。
+        返回 (loc_file, loc_module, light_line)：
+        - loc_file：真实抛出模块的 .light 源文件路径（钩子独立加载时，frame.filename 即此路径）；
+          None 表示回退到入口 source（内联/入口帧）。
+        - loc_module：模块名（内联场景下由 `# === 光明模块: X ===` 标记归属；钩子场景为 None）。
+        - light_line：光明源码行号（1-based，供展示）。
+
+        两种跨模块加载形态都覆盖：
+        1. 钩子独立加载：被调用模块的帧 filename 是其真实 .light 路径，直接就
+           该路径重新编译 .light 模块取生成代码做 py→light 映射（不依赖钩子注册表，
+           因运行时可能加载 harness 自带的钩子副本，注册表字段并不同步）。
+        2. `_run_src` 内联：依赖被拼进同一段 combined py_code（`<string>`），靠
+           `# === 光明模块: X ===` 标记归属到具体模块。
+        从最内层帧（最先抛出的抛出点）开始逐帧反查，返回第一个能映射成功的归属。
         """
-        if not py_code or error is None or error.__traceback__ is None:
-            return None
-        try:
-            from error_formatter import LightErrorFormatter
-            mapping = LightErrorFormatter().build_full_mapping(py_code)
-        except Exception:
-            return None
-        if not mapping:
-            return None
+        if error is None or error.__traceback__ is None:
+            return (None, None, None)
         try:
             frames = traceback.extract_tb(error.__traceback__)
         except Exception:
-            return None
-        sorted_keys = sorted(mapping)
-        for frame in reversed(frames):  # 从最内层（最先抛出）到外层
-            # traceback.lineno 是 1-based，build_full_mapping 的 key 是
-            # 0-based 行索引，直接索引会整体差 1（指向下一条语句/注释行）。
-            lineno = frame.lineno - 1
+            return (None, None, None)
+
+        try:
+            from error_formatter import LightErrorFormatter
+        except Exception:
+            return (None, None, None)
+
+        def _resolve(mapping, lineno):
+            """在 py→light 映射中定位 lineno（精确或近似），返回 (module_name, light_line)。"""
             if lineno in mapping:
                 return mapping[lineno]
-            # 近似：取不大于 lineno 的最大映射行
             best = None
-            for p in sorted_keys:
+            for p in sorted(mapping):
                 if p <= lineno:
                     best = mapping[p]
                 else:
                     break
-            if best is not None:
-                return best
-        return None
+            return best
+
+        for frame in reversed(frames):  # 最内层（最先抛出）优先
+            ffile = frame.filename or ''
+            lineno = frame.lineno - 1  # traceback 1-based -> 映射 0-based
+            # 形态1：钩子独立加载的 .light 模块（frame.filename 为真实 .light 路径）。
+            # 直接就 frame.filename 重新编译该模块，得到其生成代码做 py→light 映射
+            # （不依赖钩子注册表——运行时可能加载的是 harness 自带的钩子副本）。
+            if ffile.endswith('.light') and os.path.isfile(ffile):
+                try:
+                    with open(ffile, encoding='utf-8') as _fh:
+                        _src = _fh.read()
+                    from light_parser_v3 import LightParser
+                    from code_generator import PythonCodeGenerator
+                    _ast = LightParser().parse(_src)
+                    _gen = PythonCodeGenerator().generate(_ast)
+                    mp = LightErrorFormatter().build_full_mapping_with_module(
+                        _gen, os.path.splitext(os.path.basename(ffile))[0])
+                except Exception:
+                    mp = {}
+                hit = _resolve(mp, lineno)
+                if hit is not None:
+                    return (ffile, None, hit[1])
+            # 形态2：入口/内联帧（filename 为 <string>/<light> 或入口路径）。
+            # <light> 是单文件 exec 编译帧（如单测直接 exec 生成代码），同样用
+            # 调用方传入的 py_code 做 py→light 映射，不能用真实文件路径判定。
+            elif py_code and (ffile in ('<string>', '<light>') or (entry_file and ffile == entry_file)):
+                try:
+                    mp = LightErrorFormatter().build_full_mapping_with_module(
+                        py_code, entry_module_name or '<主>')
+                except Exception:
+                    mp = {}
+                hit = _resolve(mp, lineno)
+                if hit is not None:
+                    return (None, hit[0], hit[1])
+        return (None, None, None)
 
     def _extract_line_num(self, error: Exception) -> int:
         """从异常中提取行号"""
