@@ -545,6 +545,15 @@ _TRAILING_ALIAS_MERGE = frozenset({
 # 整串作为标识符输出，绝不按关键字边界切碎；仅当整串精确等于关键字时才作关键字。
 # `为` 为 L-084 真缺陷（词尾切碎）；`返回`/`尝试` 已由既有 _COMPOUND_SAFE / 嵌入扫描
 # 兜住，此处一并纳入以保持"最大匹配"口径统一、防止回归。
+# R20 任务1 说明（订正版，2026-09-14）：
+#   ① 例外①②（test_宿主上下文 / test_宿主事件）的**真根因不是**「关键字前缀标识符被切碎」，
+#      而是 `设 合并为 {}` 的 `X为` 赋值尾巴被并入标识符（`为` 丢失 → 解析报「期望为/等于，
+#      但得到 {」，且 format_error 把位置错锚到入口其它行）。见 §「情形 (b)」。
+#   ② `去重占位` / `作用域匹配` 等关键字前缀标识符在**真实文件口径**下由
+#      `_scan_user_definitions` 预扫描（段落名/设名/导出名）整体还原为 IDENTIFIER，并未被切碎
+#      （`Lexer().tokenize('去重占位(...)')` 单片段探针切碎是假象——缺少定义登记）。
+#   ③ 曾尝试把本集合泛化到「全部非运算符关键字」，实测引发 104 个解析回归
+#      （`接收参数` / `如果条件` 等合法「关键字+名」结构被误并），故**刻意保持 R19 窄集**。
 _EMBED_MAX_MATCH_KEYWORDS = frozenset({'为', '返回', '尝试'})
 
 
@@ -2299,26 +2308,86 @@ class Lexer:
             # 整串作标识符输出（如 行为/末位行为→ID(末位行为)、返回表→ID(返回表)、
             # 尝试记录→ID(尝试记录)）。仅当整串精确等于关键字时才作关键字（设 X 为 Y /
             # 返回 值 / 尝试...捕获 中关键字恒独立成 token，不受影响）。
+            # R20 补充守卫：`full_identifier not in user_definitions` —— 已登记的用户定义名
+            # （段落名/设名/导出名，由 `_scan_user_definitions` 预扫描收集）优先整体成词，
+            # 绝不被下面的「`X为` 赋值尾巴切分」拆开（否则 `段落 断言为真 接收:` 会被切成
+            # `断言` + `为` + `真`，函数定义崩）。下方 :2406 的 user_definitions 分支在
+            # 本块之后才执行，故此处必须显式前置。用户定义的**调用点**另由 `_emb_iscall` 守护。
             if (full_identifier not in _ALL_KEYWORDS_WITH_VERBS
-                    and len(full_identifier) > 1):
+                    and len(full_identifier) > 1
+                    and full_identifier not in user_definitions
+                    and any(_ek in full_identifier for _ek in _EMBED_MAX_MATCH_KEYWORDS)):
                 _emb_hit = False
-                # 任务2 收窄（E批次，CI 回归修复）：关键字命中后紧邻「值字面量」
-                # （空/真/假）时不得合并。否则 `X.Y 为空`（无空格赋值尾巴）里的
-                # `为空`、`设 甲为空` 的 `甲为空`、`返回真` 会被整体并成标识符，
-                # 赋值/返回语句被静默拆坏（test_会话格式/宿主上下文/授权链 等
-                # 5+ 用例回归，AttributeError: '会话' object has no attribute）。
-                # 行为/末位行为（为 在词尾、无后随字）与 返回表/尝试记录（后随
-                # 普通汉字）仍照常合并。
+                _emb_split_done = False
+                # R20 任务1：`为`/`返回`/`尝试` 嵌于更长汉字串时的处理。
+                # 两条路：
+                #   合并（_emb_hit）——整串作标识符（行为/末位行为/返回表/尝试记录/函数调用名）；
+                #   切分（_emb_split_done）——只针对 `设 X为 <值起始>` 形态，把 `为` 交还关键字：
+                #     (a) 词中紧邻值字面量尾巴 空/真/假（`设 甲为空` / `设 甲为真`）→ 切 前缀+为+值；
+                #     (b) 词尾且整串后（跳空白）为值起始 { [ " 或数字（`设 合并为 {}`）→ 同切分；
+                #     (c) 函数调用语境（整串后紧随 '('）→ 绝不切分，整串为函数名。
+                # 例外①② 的真修在 (a)/(b)（`X为` 赋值尾巴），非「关键字前缀被切碎」（见模块级注释）。
+                # R20 回归修复（6 用例：test_代理策略/启动环境/大模型回放/文件深/时间上下文/联调CLI）：
+                # 整串后「紧随」'('（中间无空格）→ 函数调用语境，整串即函数名，绝不切分。
+                # 否则 `断言为真(...)` 会被 (a) 规则切成 `断言为` + `真`（`真` 作语句开头）→ 解析崩。
+                # 只用「紧随」而非「跳过空白后」——`设 X为 (甲 + 乙)` 这类括号值表达式不得误判为调用。
+                _emb_tail0 = pos + len(full_identifier)
+                _emb_iscall = _emb_tail0 < len(source) and source[_emb_tail0] == '('
                 _emb_value_heads = frozenset({'空', '真', '假'})
                 for _ek in _EMBED_MAX_MATCH_KEYWORDS:
                     _ep = full_identifier.find(_ek)
                     if _ep == -1:
                         continue
+                    if _emb_iscall:
+                        # 函数名语境（断言为真/判定为空/合并为/头版本为/结算被终止尝试…）→ 整串合并
+                        _emb_hit = True
+                        break
                     _after = full_identifier[_ep + len(_ek):_ep + len(_ek) + 1]
-                    if _after and _after in _emb_value_heads:
-                        continue
-                    _emb_hit = True
-                    break
+                    if _ek in ('为', '返回', '尝试'):
+                        # 赋值/返回关键字：按上述 (a)/(b)/(c) 精确处理
+                        if _after and _after in _emb_value_heads:
+                            # (a) 紧邻值字面量尾巴 → 必切（前缀+为/返回/尝试+值）
+                            _prefix = full_identifier[:_ep]
+                            if _prefix:
+                                _tokens_append(_Token(_TokenType.IDENTIFIER, _prefix, line, current_col))
+                                consumed += len(_prefix)
+                                current_col += len(_prefix)
+                                _emb_split_done = True
+                                break
+                            # 无前缀（整串即 为空/返回真）→ 不合并，落常规流程（为/返回 作关键字）
+                            _emb_hit = False
+                            break
+                        if _ep + len(_ek) == len(full_identifier):
+                            # 词尾：看整串之后是否值起始（{ [ " 或数字，不含 (）
+                            _tail_pos = pos + len(full_identifier)
+                            _k = _tail_pos
+                            while _k < len(source) and source[_k].isspace():
+                                _k += 1
+                            if _k < len(source):
+                                _tc = source[_k]
+                                if _tc in '{}["' or _tc.isdigit():
+                                    # (b) 值起始 → 必切（前缀+为/返回/尝试+值）
+                                    _prefix = full_identifier[:_ep]
+                                    if _prefix:
+                                        _tokens_append(_Token(_TokenType.IDENTIFIER, _prefix, line, current_col))
+                                        consumed += len(_prefix)
+                                        current_col += len(_prefix)
+                                        _emb_split_done = True
+                                        break
+                                    _emb_hit = False
+                                    break
+                            # (c) 词尾后跟 ( 或其它非值起始 → 合并为函数名
+                        _emb_hit = True
+                        break
+                    else:
+                        # 其它关键字（占位/作用域/字/表/记录…）：紧邻值字面量尾巴时不合并，
+                        # 其余情形整串合并为标识符。
+                        if _after and _after in _emb_value_heads:
+                            continue
+                        _emb_hit = True
+                        break
+                if _emb_split_done:
+                    continue
                 if _emb_hit:
                     _tokens_append(_Token(_TokenType.IDENTIFIER, full_identifier, line, current_col))
                     consumed += len(full_identifier)
@@ -2635,6 +2704,16 @@ class Lexer:
                                 next_char = source[next_pos]
                                 if next_char == '(':
                                     # 后面跟着括号，作为复合词的一部分（如"阶乘"）
+                                    skip_kw = True
+                            # R20 任务1：运算符动词嵌于纯CJK长串、且整串后紧跟 (（函数
+                            # 调用上下文，如 删除属性(子, "共享")）→ 整串作为标识符，不按
+                            # 运算符切碎（甲加乙 后无 ( 仍切分为 甲/加/乙）。限制为纯CJK
+                            # 串，避免 增加count( 这类「复合动词+ASCII后缀」被误并。
+                            if (not skip_kw
+                                    and scan_pos + sub_len < len(full_identifier)
+                                    and full_identifier.isalpha()):
+                                _whole_tail = i + consumed + len(full_identifier)
+                                if _whole_tail < len(source) and source[_whole_tail] == '(':
                                     skip_kw = True
                             # 检查运算符是否在标识符词尾（如"体重增加"中的"加"）
                             # 在词尾时，作为复合词的一部分，不拆分
