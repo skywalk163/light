@@ -324,6 +324,37 @@ _CJK_PUNCTUATION = frozenset('。：；，（）【】')
 #   - 其余 24 条：撤掉后真实源有 token 变化（常=108/类=26/模=20/段=14/列=12/断=11…），是真护栏。
 # 终验（仅留 30 条）词法单测失败集 == 基准 6 失败（0 新增），确认零回归。
 # 证据：lightharness/_sweep_r22_t3_v3.py + _task3_R22_v3_evidence.json + _task3_R22_COMPOUND_SAFE_SINGLE精简_交付报告.md
+# ── R24 任务4：单字递归语义的【类别代数】说明 ─────────────────────────
+# 本表（30字字面量）与下列类别推导【等价】，文件末尾有 import 时自校验断言：
+#   设 F ≜ 单字关键字 − _P0A_OP − _OPERATOR_KEYWORDS − _P0A_NEVER_SPLIT
+#            − _AWAIT_KEYWORDS − _VALUE_LITERAL_KEYWORDS           （43 字）
+#     DUAL ≜ (OPERATOR_VERBS ∩ 单字 − {步,至,幂}) ∪ ({真,空}) ∪ {到}  （8 字）
+#     TAM ≜ F − 本表                                                （21 字，= 类体 _TRAILING_ALIAS_CLASS）
+#   则：本表 = (F − TAM) ∪ DUAL ＝ (F − (F − 本表)) ∪ DUAL，二分不动点自洽。
+#
+# 不可约性说明：F 的 43 字需二分为「构词胶水」(22字) 与「语句别名」(21字)，
+# 该二分是【句法行为】差异（词中浮出 vs 词尾并入），无法从 KEYWORDS_* 类别表
+# 推导（各类别两族混杂，实测见 _task4_R24_递归语义规则化_交付报告.md §二），
+# 故本表字面量即二分锚——与 R23 任务1 对 _TRAILING_ALIAS_CLASS 的锚定方式同构。
+# 与逐词白名单的区别：本表 30 字全部经 R22/R24 两轮逐条隔离验证（每条都有
+# 语料依赖文件清单），且等价断言保证类别代数与字面量不漂移。
+# ─────────────────────────────────────────────────────────────────────
+
+# ── 第24轮 任务3：清表审计结论（30 条保留，不删）────────────────────────
+# 任务2 把 13 条（例 出 则 常 引 接 是 末 试 跳 过 长 首）判为「①冗余可删」
+# （判据：撤掉后全语料 832 文件 token 序列零变化）。R24 任务3 复核时补做
+# **语义中立性**审计，发现该 13 条**语料冗余但语义非冗余**，存在两个真实空洞：
+#   空洞 A（成员访问段首）：`甲之长度` / `甲之首项` —— 撤掉后成员名被切成
+#       长/度、首/项（`之` 之后新段的段首按「词首」处理）。已由本轮新增的
+#       「成员访问段首并入规则」(CR1) **通用覆盖**，不再是撤销障碍。
+#   空洞 B（语句起始裸名）：`长度 为 5` / `长度 = 5`（light 合法的 lvalue-前置
+#       赋值，见 examples/class_complete.light 的 `己名称 为 名称。`）—— 撤掉后
+#       `长` 在**词首**浮出为 KEYWORD，切成 长 + 度，赋值目标丢失。
+#       空洞 B **无法**由位置规则覆盖：按语言契约「语句起始位置关键字优先」
+#       （通用约束 6），词首关键字不得整体并入；若要覆盖须新增「词首并入
+#       规则」，属独立的、影响首层最长匹配的大改动。
+# 结论：13 条在本轮**保留**；任务2 的分类清单应按本审计把①→②（真护栏）修正。
+# 反例矩阵与实证见 lightharness/_task3_R24_P0A复合安全通用化_交付报告.md §三。
 _COMPOUND_SAFE_SINGLE_KEYWORDS = frozenset({
     '列', '段', '空', '真', '的', '则', '对', '长',   # 高频构词字（真实源有变化）
     '过',   # 过滤/过程/通过
@@ -2313,8 +2344,35 @@ class Lexer:
                 _ctx_call = _ctx_tail < n and source[_ctx_tail] == '('
                 if _ctx_call or not self._at_statement_start(source, pos):
                     _lead_kw, _lead_len = _match_kw(source, pos)
+                    # R24 任务1：第 4 道闸门 —— 整串不得含**成员/关系分隔符**
+                    # （_P0A_SEP：之/在/于/为/与，声明为「始终切分」）。
+                    #
+                    # 缺陷（R24 P0，语料实证）：前三道闸门只看**词首**关键字，于是
+                    # `自之姓名`（词首 `自` 合法关键字、整串非关键字）会被整体并成一个
+                    # IDENTIFIER，成员访问符 `之` 被吞 —— 与另两条路径的口径矛盾：
+                    #   * `_match_keyword` 递归守卫（:1290 只认 `之`，命中即返回与 pos 对齐的
+                    #     (自,1)，使 自 单独成词）；
+                    #   * 下面的嵌入扫描（:2721 遇 `_P0A_OP` 即 embedded_found，分段输出）。
+                    # 结果：`自之姓名` 在**语句起始**位置切分正确，在**表达式/实参/调用**
+                    # 位置（`返回 自之姓名`、`打印 对象之方法`、`自之成绩(...)`）却并成
+                    # 一个标识符 → 编译期 `name '自之姓名' is not defined`；
+                    # 真实语料实例：light-merge/examples/L2_wenyan/学生模块.light
+                    # `遍历 自之成绩的项 为 项:`。
+                    #
+                    # 加闸门后三条路径口径统一：自之姓名 → 自 + 之 + 姓名（无论位置）。
+                    # 闸门只取 `_P0A_SEP`（成员/关系分隔符），**不含**算术/幂运算符——
+                    # 后者在词中允许作为构词成分（`自加乙`/`定义幂`），纳入会误伤生成树
+                    # （实测把 bootstrap/release/stdlib/数学.light 的 `定义幂` 切成 定义+幂）。
+                    # 反例保护（一律不受影响，本闸门只在「前三道闸门已全过」时生效）：
+                    #   甲加乙 —— 词首 `甲` 非关键字，闸门2 已挡。
+                    #   自加乙 / 定义幂 —— 串内无成员分隔符，闸门放行（保持既有粘连语义）。
+                    #   10的幂/去除空格/对于/索引/种类/阶乘 —— 串首非关键字或整串已登记
+                    #             于 user_definitions / COMMON_COMPOUND_WORDS，闸门1/2/3 挡。
+                    _op_hints = self._P0A_SEP_CHAR_HINTS
                     if (_lead_kw and 0 < _lead_len < len(full_identifier)
-                            and _lead_kw not in _OPERATOR_KEYWORDS):
+                            and _lead_kw not in _OPERATOR_KEYWORDS
+                            and not (any(_c in _op_hints for _c in full_identifier)
+                                     and self._p0a_contains_sep(source, pos, len(full_identifier)))):
                         _tokens_append(_Token(_TokenType.IDENTIFIER, full_identifier, line, current_col))
                         consumed += len(full_identifier)
                         current_col += len(full_identifier)
@@ -2705,6 +2763,12 @@ class Lexer:
                 if embedded_found:
                     # 有内嵌关键字，分段输出
                     scan_pos = 0
+                    # R24 任务3 CR1（成员访问段首并入规则）游标：刚输出过成员/关系分隔符
+                    # （_P0A_SEP：之/在/于/为/与）时置真 —— 其后新段是【成员名续段】而非
+                    # 语句词首，故段首的单字非运算符关键字应并入标识符（甲之长度/甲之首项），
+                    # 不得浮出为 KEYWORD。这是 R23 任务2 多字后缀位置规则的**段首推广**。
+                    # 每次输出关键字都会重算（见下方 `_seg_after_sep = sub_kw in self._P0A_SEP`）。
+                    _seg_after_sep = False
                     while scan_pos < len(full_identifier):
                         # 当前剩余串整体是 stdlib 函数名（如"阶乘"）时，作为整体标识符输出，
                         # 防止"数乘阶乘"被误拆为 数 乘 阶 乘（D08：嵌入式拆分不破坏已知函数名）
@@ -2836,7 +2900,11 @@ class Lexer:
                                 # 运算符与成员/关系分隔符（_P0A_OP：之/在/于/为/与/加/减…）
                                 # 由上面分支处理，故 甲加乙/自之姓名/不在/对于/甲属于乙/
                                 # 如果为真 均不受影响。词首（己姓名 的 己）与词尾仍照旧输出关键字。
-                                if scan_pos > 0 and scan_pos + sub_len < len(full_identifier):
+                                if ((scan_pos > 0 and scan_pos + sub_len < len(full_identifier))
+                                        or _seg_after_sep):
+                                    # R24 任务3 CR1：`_seg_after_sep` 把「词中并入」推广到
+                                    # 「成员访问分隔符之后的新段段首」——该语境下的段首单字
+                                    # 非运算符关键字是成员名前缀，不是语句关键字。
                                     scan_pos += sub_len
                                     continue
                                 if (scan_pos > 0
@@ -2906,6 +2974,9 @@ class Lexer:
                             current_col += sub_len
                             full_identifier = full_identifier[sub_len:]
                             scan_pos = 0
+                            # R24 任务3 CR1：每次输出关键字都重算游标（非分隔符关键字会
+                            # 把它清零，保证只有紧邻成员分隔符的那一段享受段首并入）。
+                            _seg_after_sep = sub_kw in self._P0A_SEP
                         else:
                             scan_pos += 1
                     # 输出剩余标识符部分
@@ -3013,11 +3084,12 @@ class Lexer:
     # （1至10 / 1到10步2）以「独立汉字段」出现，由「整串即关键字」兜底为 KEYWORD，
     # 故词内切分亦须剔除（异步睡眠/至于 等保持整体）。
     _P0A_NEVER_SPLIT = frozenset({'模', '步', '至', '到'})
-    # 单字复合安全字（沿用 OLD _COMPOUND_SAFE_SINGLE_KEYWORDS + 当）：词首且后随非成员访问符
-    # 之 时并入标识符、不切分（对/列/当/数/自…），覆盖 对象/列表/当前值/自加乙 等。
-    _P0A_COMPOUND_SAFE = _COMPOUND_SAFE_SINGLE_KEYWORDS | {'当'}
+    # 【R24 任务3 · 死代码清理】原 `_P0A_COMPOUND_SAFE = _COMPOUND_SAFE_SINGLE_KEYWORDS | {'当'}`
+    # 在本文件**零引用**（词首并入实际由 _tokenize_chinese_sequence 的 R21 上下文敏感
+    # 分支 + 嵌入扫描的 compound_safe 跳过分支实现）。留着它只会让维护者误以为存在一条
+    # 「词首且后随非 `之` 即并入」的规则，故连同其注释一并删除。
     # 硬语句关键字（多字）：词首必须切分（支撑无空格写法 如果数…/段落阶乘…/否则如果…）。
-    # 单字硬语句（类/设/己）不在此列 —— 它们不在 _P0A_COMPOUND_SAFE 中，走通用词首切分；
+    # 单字硬语句（类/设/己）走通用词首切分；
     # 其中 `设`/`己` 另属 _TRAILING_ALIAS_CLASS，仅在**词尾**并入标识符（见下）。
     _P0A_HARD_STMT = frozenset({'如果', '那么', '否则', '否则如果', '段落', '函数', '类型', '捕获', '等待'})
 
@@ -3034,6 +3106,13 @@ class Lexer:
     # 回调函数）是高频名词性复合名，后缀位置必须并入（第22轮判据③+本表单测契约）。
     _P0A_SUFFIX_SPLIT_KW = frozenset(_P0A_HARD_STMT - {'函数'}) | {'定义'}
     _P0A_OP_SINGLE = frozenset(k for k in _P0A_OP if len(k) == 1)
+    # R24 任务1：第 4 道闸门的**廉价必要前置条件** —— 整串若一个 `_P0A_OP` 候选字都不含，
+    # 就无需逐位跑 `_p0a_contains_op`（该扫描对每个候选成词整串都要 O(len) 次
+    # `_match_keyword`）。这是每次成词判定都走的路径，前置筛可把开销压到 O(len) 的
+    # 普通字符集测试。
+    _P0A_OP_CHAR_HINTS = frozenset(c for _k in _P0A_OP for c in _k)
+    # R24 任务1 第 4 道闸门实际使用的『始终切分』字集合（成员/关系分隔符）。
+    _P0A_SEP_CHAR_HINTS = frozenset(c for _k in _P0A_SEP for c in _k)
     _P0A_CN_SINGLE = _SIMPLE_CHINESE_NUMBERS | frozenset(_CHINESE_DIGITS)
 
     # R23 任务1：单字语句别名在标识符【词尾】并入标识符的**类别**（取代旧的逐词
@@ -3060,6 +3139,24 @@ class Lexer:
         while p < end:
             kw, _ = self._match_keyword(source, p)
             if kw and kw in self._P0A_OP:
+                return True
+            p += 1
+        return False
+
+    def _p0a_contains_sep(self, source: str, start: int, length: int) -> bool:
+        """扫描 [start, start+length) 是否含任一成员/关系分隔符（之/在/于/为/与）。
+
+        R24 任务1：`_P0A_SEP` 是声明为「始终切分」的成员/关系分隔符 —— 它们
+        没有构词胶水语义（数列之长度 / 甲之乙 / 如果为真 / 不在），故任何
+        「整串并入标识符」的候选都必须先排除它们。与 `_p0a_contains_op` 的
+        区别：后者含算术/幂运算符（加/减/乘/除/余/幂），那些在词中允许作为
+        构词成分（自加乙 / 定义幂），纳入会误伤生成树，故不适用本闸门。
+        """
+        end = start + length
+        p = start
+        while p < end:
+            kw, _ = self._match_keyword(source, p)
+            if kw and kw in self._P0A_SEP:
                 return True
             p += 1
         return False
@@ -3490,3 +3587,21 @@ class Lexer:
                 i += 1
 
         return definitions
+
+# ── R24 任务4：复合安全单字【类别代数等价断言】（import 时自校验）────────
+# 推导代数见 _COMPOUND_SAFE_SINGLE_KEYWORDS 定义上方文档。断言保证：
+#   ① 字面量 30 字 == 类别推导 (F − TAM) ∪ DUAL（防两处漂移）；
+#   ② 类体 _TRAILING_ALIAS_CLASS == F − 本表（R23 任务1 的二分锚不漂移）。
+_assert_F = frozenset(
+    _kw for _kw in (_ALL_KEYWORDS_WITH_VERBS - Lexer._P0A_OP - _OPERATOR_KEYWORDS
+                    - Lexer._P0A_NEVER_SPLIT - _AWAIT_KEYWORDS - _VALUE_LITERAL_KEYWORDS)
+    if len(_kw) == 1)
+_assert_DUAL = ((frozenset(OPERATOR_VERBS) & frozenset(
+    _kw for _kw in _ALL_KEYWORDS_WITH_VERBS if len(_kw) == 1))
+    - {'步', '至', '幂'}) | {'真', '空', '到'}
+_assert_TAM = _assert_F - _COMPOUND_SAFE_SINGLE_KEYWORDS
+assert _COMPOUND_SAFE_SINGLE_KEYWORDS == (_assert_F - _assert_TAM) | _assert_DUAL, (
+    'R24 类别代数漂移：字面量 != (F−TAM)∪DUAL')
+assert Lexer._TRAILING_ALIAS_CLASS == _assert_F - _COMPOUND_SAFE_SINGLE_KEYWORDS, (
+    'R23/R24 二分锚漂移：_TRAILING_ALIAS_CLASS != F − _COMPOUND_SAFE_SINGLE_KEYWORDS')
+del _assert_F, _assert_DUAL, _assert_TAM
