@@ -67,11 +67,14 @@ class TestP0A复合词压力(unittest.TestCase):
 
     # ---- 验收条件 2：不依赖逐词白名单 ----
     def test_清空白名单后仍整体成词(self):
-        """把两张逐词白名单清空，压力词仍须整体成词 —— 证明不依赖白名单。"""
+        """把逐词白名单清空，压力词仍须整体成词 —— 证明不依赖白名单。
+
+        R23任务2 起 IDENTIFIER_SAFE_KEYWORDS 已整体删除（后缀位置上下文规则替代），
+        本测试只需清空 COMMON_COMPOUND_WORDS 即可证明「不依赖逐词白名单」。
+        """
         mod = self.lexer_mod
-        orig_ccw, orig_safe = mod.COMMON_COMPOUND_WORDS, mod.IDENTIFIER_SAFE_KEYWORDS
+        orig_ccw = mod.COMMON_COMPOUND_WORDS
         mod.COMMON_COMPOUND_WORDS = frozenset()
-        mod.IDENTIFIER_SAFE_KEYWORDS = frozenset()
         try:
             for word in ['导出事件表', '整理模型消息', '返回码', '退出码',
                          '接收参数', '非空块', '外部命令', '排序依据', '输出块表']:
@@ -79,7 +82,7 @@ class TestP0A复合词压力(unittest.TestCase):
                     self.assertEqual(self._lex(word), [('IDENTIFIER', word)],
                                      f"清空白名单后 {word} 仍应整体成词")
         finally:
-            mod.COMMON_COMPOUND_WORDS, mod.IDENTIFIER_SAFE_KEYWORDS = orig_ccw, orig_safe
+            mod.COMMON_COMPOUND_WORDS = orig_ccw
 
     def test_压力词不在白名单中(self):
         """压力词本身不应登记在 COMMON_COMPOUND_WORDS 内（否则等于打地鼠）。"""
