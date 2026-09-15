@@ -397,10 +397,12 @@ _COMPOUND_SAFE_SINGLE_KEYWORDS = frozenset({
 #        ∧ ∉ _OPERATOR_KEYWORDS（逻辑/比较/关系运算符：或/且/非/与/为/之/在/于…）
 #        ∧ ∉ _P0A_NEVER_SPLIT（模/步/至/到：数字范围与步长运算符，必须始终切分）
 #        ∧ ∉ _AWAIT_KEYWORDS（等/等待：await，动词前缀语义）
-#        ∧ ∉ _COMPOUND_SAFE_SINGLE_KEYWORDS（已有专门分支管辖）
-#        ∧ ∉ 值字面量（真 / 假 / 空，见下）
+#        ∧ ∉ _P0A_SUFFIX_SPLIT_SINGLE（五类语义排除：运算符/分隔符、逻辑与比较、
+#            范围与步长、await 动词、值字面量 —— R25 任务1 的单字排除集）
 #   ⇒ 出现在标识符【词尾】时并入标识符，不切出词尾 KEYWORD。
-#   推导结果 21 字：从 匹 否 宏 导 己 并 异 当 承 抛 捕 掷 父 现 终 若 设 跃 返 遍
+#   推导结果 43 字（= F）。
+#   ⚠️ 旧推导含 `⋯ ∧ ∉ _COMPOUND_SAFE_SINGLE_KEYWORDS`（结果 21 字），已于 R25 任务1
+#      改为正面规则（理由见类体内 `_TRAILING_ALIAS_CLASS` 处注释）。
 #
 # 为什么必须排除「运算符 / 范围 / await」三类（第23轮 边界探针实测，
 # lightharness/_r23_t1_hazard.py）：若不排除，下列**合法写法**会被误并成标识符——
@@ -2751,7 +2753,8 @@ class Lexer:
                                     and sub_kw in _trailing_alias):
                                 # L-120（E批次）/ R23 任务1：单字语句别名在汉字段词尾并入
                                 # 标识符，不标记内嵌（与输出循环判据严格一致）。错误己 整体成词。
-                                # 类别由 `self._TRAILING_ALIAS_CLASS` 通用推导，无逐词白名单。
+                                # 类别由 `self._TRAILING_ALIAS_CLASS` 通用推导
+                                # （R25 任务1 后为 43 字），无逐词白名单。
                                 skip_kw = True
 
                         if not skip_kw:
@@ -2912,8 +2915,9 @@ class Lexer:
                                         and sub_kw in _trailing_alias):
                                     # L-120（E批次）/ R23 任务1：单字语句别名在汉字段词尾并入
                                     # 标识符。错误己/自己/爱己 整体成词，不再切出词尾 KEYWORD。
-                                    # 类别由 `self._TRAILING_ALIAS_CLASS` 通用推导（27 字），
-                                    # 已无逐词白名单 `_TRAILING_ALIAS_MERGE`。
+                                    # 类别由 `self._TRAILING_ALIAS_CLASS` 通用推导
+                                    # （R25 任务1 后为 43 字），已无逐词白名单
+                                    # `_TRAILING_ALIAS_MERGE`。
                                     scan_pos += sub_len
                                     continue
                             elif sub_len > 1:
@@ -3106,6 +3110,32 @@ class Lexer:
     # 回调函数）是高频名词性复合名，后缀位置必须并入（第22轮判据③+本表单测契约）。
     _P0A_SUFFIX_SPLIT_KW = frozenset(_P0A_HARD_STMT - {'函数'}) | {'定义'}
     _P0A_OP_SINGLE = frozenset(k for k in _P0A_OP if len(k) == 1)
+    # ── R25 任务1：多字后缀规则的【单字对称版】——排除集与并入类别 ──────────
+    #
+    # 第23轮任务2 实现了**多字**后缀位置规则（上面 `_P0A_SUFFIX_SPLIT_KW`）：
+    #   scan_pos>0 的多字非运算符关键字 → 并入标识符（处理函数/可打印/学生模块…）。
+    # 其**单字**对称版本原先被写成 `F − CS`（21 字，见下面 `_TRAILING_ALIAS_CLASS` 的旧
+    # 推导）——把 CS 成员**整体**排斥在词尾并入之外。后果是「词尾」场景只能借 CS 独有的
+    # 「全位置跳过」分支兜住（`标准输出` / `有界队列类` / `成绩的长度`），于是 CS 的
+    # 「词首并入」与「词尾并入」两种能力被焊死在同一张字面量表里，**任何一条都不能单删**
+    # （第24轮任务3 审计的出结论）。
+    #
+    # 本轮改为**正面规则**，不再对 CS 取补集：
+    #     单字关键字 ∧ ∉ 排除集 ∧ 位于词中/词尾（scan_pos>0） ⇒ 并入标识符
+    # 排除集同样按**语义类别整体排除**（与多字规则同口径，禁止逐字补表）。五类排除，
+    # 缺一即回归，逐类反例（第23轮 `_r23_t1_hazard.py` 探针实测）：
+    #   _P0A_OP                —— 算术运算符与成员/关系分隔符：甲加乙 / 自之姓名 / 如果为真
+    #   _OPERATOR_KEYWORDS     —— 逻辑与比较运算符：甲或"x" / 甲且乙 / 甲非乙
+    #   _P0A_NEVER_SPLIT       —— 范围/步长/永不切分：从1到10 / 甲步2 / 甲至10 / 模型
+    #   _AWAIT_KEYWORDS        —— await 动词前缀：甲等(乙)
+    #   _VALUE_LITERAL_KEYWORDS—— 值字面量：返回 真 / 设 甲 为 空
+    # 排除后单字词尾并入类别恒等于 F（43 字，见文末 import 时断言）。
+    # 实证：全语料 834 文件 token 序列**零变化**（_task1_R25_单字后缀规则设计.md §三），
+    # 且上述六组边界形态全部保持（同 §四）。
+    _P0A_SUFFIX_SPLIT_SINGLE = frozenset(
+        _k for _k in (_P0A_OP | _OPERATOR_KEYWORDS | _P0A_NEVER_SPLIT
+                      | _AWAIT_KEYWORDS | _VALUE_LITERAL_KEYWORDS)
+        if len(_k) == 1)
     # R24 任务1：第 4 道闸门的**廉价必要前置条件** —— 整串若一个 `_P0A_OP` 候选字都不含，
     # 就无需逐位跑 `_p0a_contains_op`（该扫描对每个候选成词整串都要 O(len) 次
     # `_match_keyword`）。这是每次成词判定都走的路径，前置筛可把开销压到 O(len) 的
@@ -3115,21 +3145,23 @@ class Lexer:
     _P0A_SEP_CHAR_HINTS = frozenset(c for _k in _P0A_SEP for c in _k)
     _P0A_CN_SINGLE = _SIMPLE_CHINESE_NUMBERS | frozenset(_CHINESE_DIGITS)
 
-    # R23 任务1：单字语句别名在标识符【词尾】并入标识符的**类别**（取代旧的逐词
-    # 白名单 `_TRAILING_ALIAS_MERGE`）。类别由关键字表推导，不逐词登记：
-    #     单字关键字 − _P0A_OP − _OPERATOR_KEYWORDS − _P0A_NEVER_SPLIT
-    #                − _AWAIT_KEYWORDS − _COMPOUND_SAFE_SINGLE_KEYWORDS − 值字面量
-    # 得到 21 字（从 匹 否 宏 导 己 并 异 当 承 抛 捕 掷 父 现 终 若 设 跃 返 遍）。
-    # 排除项全部是**语义不止于词首**的单字（中缀/范围/步长运算符、await 动词），
-    # 排除理由与实测反例见模块顶部 `_VALUE_LITERAL_KEYWORDS` 上方注释。
+    # ── R25 任务1：单字语句别名/构词字在标识符【词尾】并入标识符的**类别** ──
+    #
+    # 本类别由关键字表推导，不逐词登记：
+    #     单字关键字 − _P0A_SUFFIX_SPLIT_SINGLE（五类语义排除，见上）
+    # 推导结果 43 字（= F）。
+    #
+    # 【R25 变更要点】旧推导为 `⋯ − _COMPOUND_SAFE_SINGLE_KEYWORDS`（得 21 字），
+    # 即「凡在 CS 表中的字都不得词尾并入」。这个补集写法的代价是：CS 一词同时承载
+    # 「词首并入」与「词尾并入」两种能力，撤词条会一并丢失两者（详见 CS 定义上方
+    # R24 任务3 审计）。改为正面类别后，**词尾并入不再依赖 CS**，CS 退化为纯粹的
+    # 「词首并入锚」，为后续按单一能力做精简扫清障碍。
     #
     # ⚠️ 推导式写法说明：类体内的推导式（genexp）只有**最外层可迭代对象**在类作用域
     #    求值（其余在推导式自己的函数作用域），故 `_P0A_OP` 等类属性只能出现在最外层
     #    可迭代表达式里，不能写进 `if` 条件。
     _TRAILING_ALIAS_CLASS = frozenset(
-        _k for _k in (_ALL_KEYWORDS_WITH_VERBS - _P0A_OP - _OPERATOR_KEYWORDS
-                      - _P0A_NEVER_SPLIT - _AWAIT_KEYWORDS
-                      - _COMPOUND_SAFE_SINGLE_KEYWORDS - _VALUE_LITERAL_KEYWORDS)
+        _k for _k in (_ALL_KEYWORDS_WITH_VERBS - _P0A_SUFFIX_SPLIT_SINGLE)
         if len(_k) == 1)
 
     def _p0a_contains_op(self, source: str, start: int, length: int) -> bool:
@@ -3591,7 +3623,9 @@ class Lexer:
 # ── R24 任务4：复合安全单字【类别代数等价断言】（import 时自校验）────────
 # 推导代数见 _COMPOUND_SAFE_SINGLE_KEYWORDS 定义上方文档。断言保证：
 #   ① 字面量 30 字 == 类别推导 (F − TAM) ∪ DUAL（防两处漂移）；
-#   ② 类体 _TRAILING_ALIAS_CLASS == F − 本表（R23 任务1 的二分锚不漂移）。
+#   ② 类体 `_TRAILING_ALIAS_CLASS` == F（R25 任务1：单字词尾并入改为正面类别后，
+#      排除集 `_P0A_SUFFIX_SPLIT_SINGLE` 不得**超出**五类语义排除的范围；超出的字
+#      会在词尾掉回 KEYWORD，故此处必须断言二者相等）。
 _assert_F = frozenset(
     _kw for _kw in (_ALL_KEYWORDS_WITH_VERBS - Lexer._P0A_OP - _OPERATOR_KEYWORDS
                     - Lexer._P0A_NEVER_SPLIT - _AWAIT_KEYWORDS - _VALUE_LITERAL_KEYWORDS)
@@ -3602,6 +3636,10 @@ _assert_DUAL = ((frozenset(OPERATOR_VERBS) & frozenset(
 _assert_TAM = _assert_F - _COMPOUND_SAFE_SINGLE_KEYWORDS
 assert _COMPOUND_SAFE_SINGLE_KEYWORDS == (_assert_F - _assert_TAM) | _assert_DUAL, (
     'R24 类别代数漂移：字面量 != (F−TAM)∪DUAL')
-assert Lexer._TRAILING_ALIAS_CLASS == _assert_F - _COMPOUND_SAFE_SINGLE_KEYWORDS, (
-    'R23/R24 二分锚漂移：_TRAILING_ALIAS_CLASS != F − _COMPOUND_SAFE_SINGLE_KEYWORDS')
-del _assert_F, _assert_DUAL, _assert_TAM
+#   【R25 任务1 变更】旧断言 `TAM == F − CS` 作废：单字词尾并入已改为**正面类别**
+#   （不再对 CS 取补集），故新断言为 `TAM == F`。语义见上面注释 ②。
+_assert_TAM_new = frozenset(Lexer._TRAILING_ALIAS_CLASS)
+assert _assert_TAM_new == _assert_F, (
+    'R25 单字词尾并入类别漂移：_TRAILING_ALIAS_CLASS != F（差异 %s）'
+    % (sorted(_assert_F ^ _assert_TAM_new),))
+del _assert_F, _assert_DUAL, _assert_TAM, _assert_TAM_new
