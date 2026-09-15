@@ -125,22 +125,23 @@ COMMON_COMPOUND_WORDS = frozenset({
     # 【R29 任务2 精简】B批 删除 9 条（导入错误/类型错误/设指针/设指针值/设系统/
     #   设系统错误码/设置/设置数组/低级关闭）：三重判据全通过
     #   （证据 _task2_R29_B批验证_证据.json），原标注作废。
-    # ===== 保留 A：真护栏 —— 语料命中 ∧ 隔离非中立 =====
-    # 名字内嵌**多字**关键字（关闭/枚举/匹配/错误 等）或词首关键字，既无通用规则
-    # 覆盖，也非预扫描/内建登记可替代 ⇒ 必须保留。括号内 = 撤掉后变化的语料文件数。
-    # 【R29 任务3 精简】C批 删除 4 条（最终答案/开启调试/生成分析/生成问候语）：
-    #   三重判据（G1 全语料 850 文件 token 零变化 ∧ G2 编译门 ∧ G3 边界门）
-    #   全部通过 —— 撤掉后语料与边界形态 token 均零变化（词法通用机制已覆盖，
-    #   见 lightharness/_task3_R29_C批验证_证据.json）。原「真护栏」标注作废。
-    # 【R29 任务4 精简】D批 删除 3 条（常量时间比较/正则匹配/环境枚举）：
-    #   三重判据全通过（证据：lightharness/_task4_R29_D批验证_证据.json），
-    #   原「真护栏」标注作废。保留：记录类型（G3 边界门失败，撤后 记录+类型
-    #   被关键字"类型"劈开）。
-    '位异或',  # 真护栏（语料 0 命中，隔离非中立）
-    '应当',  # 真护栏（语料 0 命中，隔离非中立；R29 G3：撤后 应+当 被关键字"当"劈开）
-    '测试_生成问候语',  # 真护栏（语料 0 命中，隔离非中立）
-    '记录类型',  # 真护栏（语料 0 命中，隔离非中立；R29 G3：撤后 记录+类型 被关键字"类型"劈开）
-    '零除错误',  # 真护栏（语料 0 命中，隔离非中立）
+    # 【R30 任务1/2 精简】删除 6 条（位与/位异或/位或/位非/应当/除非）：
+    #   新增词首前缀类 `_P0A_HEAD_MERGE_PREFIX`（位/应/除）通用规则，
+    #   非语句起始/调用语境整词并入。三重判据全通过
+    #   （证据 lightharness/_task1t2_R30_证据.json）。原标注作废。
+    # 【R30 任务3 精简】删除 3 条（零除错误/幂次/记录类型）：
+    #   · 零除错误 → 新增 `_r30_cn_num_head_merge`（中文数字词首 + 正面类别复合词头
+    #     即词首并入字 ⇒ 整串成 IDENTIFIER）；
+    #   · 幂次     → skip_verb 词首单字运算符动词并入（幂 + 次，`幂次(` 调用语境）；
+    #   · 记录类型 → `_P0A_MERGE_WHOLE` 精确整串并入（类型 是硬语句/后缀切分关键字，
+    #     语料 X类型 形态众多，故走整串口径而非前向并入）。
+    #   三重判据全通过（证据 lightharness/_task3_R30_零除幂次记录类型通用化.md），
+    #   原「真护栏 / 隔离非中立」标注作废。
+# 【R30 任务4 精简】删除最后 1 条（测试_生成问候语）：
+    #   新增 ASCII下划线+Han 粘连通用规则（汉字+下划线前缀后随汉字 → 整词并入，
+    #   见 _tokenize_identifier_or_keyword 汉字后缀循环；前缀未被预扫描截断注册时生效），
+    #   三重判据全通过（语料零命中 / 隔离并入 / 全语料 token 零变化），
+    #   原「真护栏」标注作废。CCW 至此清空（184 条 → 0 条）。
 
     # ===== 保留 B：隔离非中立护栏 —— 语料中立 ∧ 该词自身 token 会变 =====
     # 「语料中立」仅因库内语料恰好未在**语句起始位置**使用它们；撤掉后这些名字
@@ -151,12 +152,7 @@ COMMON_COMPOUND_WORDS = frozenset({
     #   证据：lightharness/_task3_R29_C批验证_证据.json。
     # 【R29 任务4 精简】D批 删除 3 条（函数对象/枚举值/结构体值）：
     #   三重判据全通过（证据：lightharness/_task4_R29_D批验证_证据.json），
-    #   原标注作废。保留：幂次（G3 边界门失败，撤后 幂+次 被关键字"幂"劈开）。
-    '位与',  # 隔离非中立护栏
-    '位或',  # 隔离非中立护栏
-    '位非',  # 隔离非中立护栏
-    '幂次',  # 隔离非中立护栏（R29 G3：撤后 幂+次 被关键字"幂"劈开）
-    '除非',  # 隔离非中立护栏（R29 G3：撤后 除+非 被关键字"非"/DUAL"除"劈开）
+    #   原标注作废。
 })
 
 
@@ -1946,10 +1942,30 @@ class Lexer:
                                 after_ascii = i + consumed
                                 continue
                             
-                            # 检查后继汉字是否是关键字（包括动词运算符和语句关键字）
+# 检查后继汉字是否是关键字（包括动词运算符和语句关键字）
                             han_kw, kw_len = self._match_keyword(source, after_ascii)
                             if han_kw and han_kw in _ALL_KEYWORDS_WITH_VERBS:
-                                break  # 是关键字，不合并，交给后续分词处理
+                                # ── R30 任务4（方案A）：ASCII下划线+Han 粘连通用化 ──
+                                # 「测试_」前缀 + 后随汉字 → 整词并入（语言以「汉字+_+汉字」
+                                # 造名，参考 :2008 英文分支同款哲学：`_` 后紧跟汉字必为名字
+                                # 成分，不可能是运算符/语句关键字）。目标：解除对
+                                # COMMON_COMPOUND_WORDS 白名单的依赖（语料 0 命中的防御性
+                                # 条目照样整词，如孤立调用 `返回 测试_生成问候语(1)`）。
+                                #
+                                # 边界判据：前缀（tokens[-1].value，形如 `测试_`）**不在**
+                                # user_definitions 中才并入。R27 反向测试的 `测试_返回真` /
+                                # `测试_返回语句` / `测试_捕获到`（调用场景）前缀 `测试_`
+                                # 已被预扫描**截断注册**（`段落 测试_返回真:` 注册的是
+                                # `测试_` 而非完整名）→ 保持劈开，与现状零差异；
+                                # 孤立调用 `测试_生成问候语(1)` 前缀未注册 → 整词并入。
+                                # （段落名场景走 user_definitions 完整名匹配，不经本循环。）
+                                _prefix = tokens[-1].value
+                                if _prefix.endswith('_') and _prefix not in user_definitions:
+                                    tokens[-1] = _Token(_TokenType.IDENTIFIER, full_combined, tokens[-1].line, tokens[-1].col)
+                                    consumed += len(han_suffix)
+                                    after_ascii = i + consumed
+                                    continue
+                                break  # 是关键字（且前缀已注册），不合并，交给后续分词处理
                             # 收集连续的汉字作为标识符后缀
                             tokens[-1] = _Token(_TokenType.IDENTIFIER, tokens[-1].value + han_suffix, tokens[-1].line, tokens[-1].col)
                             consumed += len(han_suffix)
@@ -2172,6 +2188,13 @@ class Lexer:
                 _full_seq = source[pos:_j]
                 if _full_seq in _common_compounds or _full_seq in user_definitions:
                     _full_seq_collected = _full_seq
+                # R30 任务3：中文数字词首并入（零除错误 = 零 + 除错误）。整串未被
+                # COMMON_COMPOUND_WORDS / user_definitions 登记时，若词首中文数字字
+                # 之后紧跟一个「词首并入」复合词头（正面类别字 + 汉字），则该数字字
+                # 不构成独立数值，而是同一标识符的前缀 —— 与下方 DUAL 词首并入
+                # （:2622）同口径，推导见 _r30_cn_num_head_merge 上方说明。
+                elif _r30_cn_num_head_merge(_full_seq):
+                    _full_seq_collected = _full_seq
 
             if _full_seq_collected:
                 # 完整标识符在常见复合词或用户定义中，整体输出，不拆分
@@ -2375,6 +2398,14 @@ class Lexer:
                 _ctx_tail = pos + len(full_identifier)
                 _ctx_call = _ctx_tail < n and source[_ctx_tail] == '('
                 if _ctx_call or not self._at_statement_start(source, pos):
+                    # ── R30 任务1/2：词首前缀类（位/应/除）→ 整体并入标识符 ──
+                    # 位/应 非关键字、除 被 DUAL 抑制后成标识符；其后随关键字
+                    # （与/或/非/当）在词中会劈开复合名。命中前缀类即整体并入。
+                    if full_identifier[0] in _P0A_HEAD_MERGE_PREFIX:
+                        _tokens_append(_Token(_TokenType.IDENTIFIER, full_identifier, line, current_col))
+                        consumed += len(full_identifier)
+                        current_col += len(full_identifier)
+                        continue
                     _lead_kw, _lead_len = _match_kw(source, pos)
                     # R24 任务1：第 4 道闸门 —— 整串不得含**成员/关系分隔符**
                     # （_P0A_SEP：之/在/于/为/与，声明为「始终切分」）。
@@ -2614,6 +2645,29 @@ class Lexer:
                 # 例如"输出格式"不应拆为 输出(关键字)+格式，而应作为整体标识符
                 # 注意：只对 VERB_ARITY 中的动词生效，不对"返回"等语句关键字生效
                 if length > 1 and keyword in VERB_ARITY and len(full_identifier) > length:
+                    skip_verb = True
+
+                # R30 任务3：单字运算符动词【词首】并入（幂次的 幂）。
+                # 上面只对「多字」VERB_ARITY 动词生效；单字运算符动词词首一律切分
+                # （甲加乙 / 2 幂 10 靠空格分隔成独立汉字段），于是复合名头 `幂次`
+                # 在**函数调用**语境（整串后紧跟 '('）被劈成 KEYWORD(幂)+IDENTIFIER(次)。
+                # 本规则把 R20 已有的「运算符动词嵌于纯 CJK 长串且整串后紧跟 '(' →
+                # 整串作为标识符」口径（本方法嵌入扫描 :2743-2748）上提到第一层
+                # skip_verb，使 幂 与 乘/减/加/除/模（DUAL，已由 R26 词首并入覆盖）
+                # 在函数名字境下同口径。三条收窄（缺一不可，保证语料零变化）：
+                #   ① `keyword in OPERATOR_VERBS and keyword not in _P0A_HEAD_MERGE_DUAL`
+                #      —— DUAL 八字词首并入已由 R26 分支无条件覆盖，此处只补它们的缺口
+                #      （单字 OPERATOR_VERBS − DUAL 实测恰为 幂 一字）；
+                #   ② `full_identifier.isalpha()` —— 仅限纯汉字串，避免 幂2(...) 之类
+                #      「运算符+数字」表达式被并成标识符；
+                #   ③ 整串后**紧邻** '(' —— 函数调用语境；无括号的语料形态（幂集 /
+                #      幂结果 / 幂值 / 幂运算 / 幂等）保持既有切分，语料零变化。
+                if (length == 1 and keyword in OPERATOR_VERBS
+                        and keyword not in _P0A_HEAD_MERGE_DUAL
+                        and len(full_identifier) > length
+                        and full_identifier.isalpha()
+                        and pos + len(full_identifier) < n
+                        and source[pos + len(full_identifier)] == '('):
                     skip_verb = True
 
                 # L-010（最终收窄版）：仅对 `外部` 这一个「FFI 关键字且永远带空格」的
@@ -3174,6 +3228,13 @@ class Lexer:
     _P0A_MERGE_WHOLE = frozenset({
         '导出事件表', '整理模型消息', '退出码', '接收参数', '非空块',
         '外部命令', '排序依据', '输出块表', '返回码',
+        # R30 任务3：记录类型（记录 + 类型，类型 是 _P0A_HARD_STMT / _P0A_SUFFIX_SPLIT_KW，
+        # 撤 CCW 后整串被关键字「类型」劈成 记录 + 类型）。走「精确整串」口径而非
+        # 「词头+余部」口径，故零副作用：语料里 数类型/内容类型/分类内容类型/注册事件类型
+        # 等 X类型 复合词形态众多且余部各不相同，任何「类型 前向并入」类规则都会波及；
+        # 只有整串**恰好**等于 记录类型 时才并入。证据见
+        # lightharness/_task3_R30_零除幂次记录类型通用化.md。
+        '记录类型',
     })
     # 永不切分：模（仅作 模型/模块/模式/模拟 2900+ 成分）；步/至/到 仅在数字范围
     # （1至10 / 1到10步2）以「独立汉字段」出现，由「整串即关键字」兜底为 KEYWORD，
@@ -3822,6 +3883,47 @@ _P0A_HEAD_MERGE_DUAL = frozenset({
 assert _P0A_HEAD_MERGE_DUAL == frozenset(
     {'乘', '减', '加', '除', '模', '真', '空', '到'}), (
     'R27 DUAL 类别漂移：应恒为 8 字（乘减加除模真空到）')
+
+# ── R30 任务3：中文数字词首并入判据（零除错误 通用化）─────────────────────
+# 【动机】CCW 登记「零除错误」的原因：`零` 是 CHINESE_NUM（0），`除` 是 DUAL
+# 词首并入字。撤 CCW 后 `捕获 零除错误:` 被劈成 CHINESE_NUM(0)+IDENTIFIER(除错误)
+# —— 词首数字被独立成数值，而余部 `除错误` 又被 DUAL 词首并入成标识符，一劈两截。
+# 【推导】当整串汉字段的**词首**是单个中文数字字、且**第二字**属词首并入正面类别
+# （HM∪DUAL）、且**第三字存在**（整串 ≥3 字）时，词首数字不构成独立数值，而是同一
+# 标识符的前缀：第二字是「复合词头」字（除/加/乘/真…），其词首并入会把整串黏成
+# 标识符，词首数字必须随之内包。故判据 = 类别推导，不逐词登记。
+# 【为何限定「整串 ≥3 字」】二字串（零导入/零匹配/零非/零列/零除/三段/三类/一段/
+#   一并/一真/一加/一等/一假…）语料实测恒为 CHINESE_NUM + KEYWORD 语句/表达式形态
+#   （如 `零导入 为 真`），第二字即整串尾部——DUAL 词尾并入要求「前导汉字」，此处
+#   无，故不并入；本判据不触发，语料零变化。
+# 【为何限定「第二字 ∈ HM∪DUAL」】第二字不是正面类别字时（导/匹/使/用/等/是…），
+#   余部不会词首并入成标识符，词首数字仍是独立数值（`三段` 的 三、`一并` 的 一）。
+#   HM∪DUAL 均不含数字字，故「第二字是数字」（零点一/一百零一）不触发，中文数字
+#   解析（_try_parse_chinese_number）完全不受影响。
+_R30_NUM_HEAD_MERGE_CLASS = frozenset(
+    _P0A_HEAD_MERGE_SINGLE | _P0A_HEAD_MERGE_DUAL)
+
+
+def _r30_cn_num_head_merge(full_seq: str) -> bool:
+    """R30 任务3：整串汉字段是否因「词首中文数字 + 正面类别复合词头」整体成标识符。
+
+    返回 True 时整串作 IDENTIFIER 输出（零除错误），词首数字不再独立成 CHINESE_NUM。
+    推导见上方 `_R30_NUM_HEAD_MERGE_CLASS` 说明；语料钉住的 CHINESE_NUM+KEYWORD
+    形态（二字串 / 第二字非正面类别）一律返回 False。
+    """
+    return (len(full_seq) >= 3
+            and full_seq[0] in _SIMPLE_CHINESE_NUMBERS
+            and full_seq[1] in _R30_NUM_HEAD_MERGE_CLASS)
+
+# ── R30 任务1/2：词首【前缀类】——非关键字(位/应)/被DUAL抑制(除)开头的复合名 ──
+# 位与/位异或/位或/位非（首字 位，非关键字）、应当（首字 应，非关键字）、
+# 除非（首字 除，DUAL 抑制后成标识符）在**非语句起始/调用语境**下需整词并入；
+# 其后随关键字（与/或/非/当/异）会把复合名劈开，且无既有通用规则覆盖
+# （HM/DUAL 仅对「词首关键字」生效，位/应 非关键字故不适用）。
+# 本类别以**首字**为键，命中即整体并入（见 _tokenize_chinese_sequence 主循环）。
+_P0A_HEAD_MERGE_PREFIX = frozenset({'位', '应', '除'})
+assert _P0A_HEAD_MERGE_PREFIX == frozenset({'位', '应', '除'}), (
+    'R30 词首前缀类漂移：应恒为 3 字（位应除）')
 
 # ── R27 任务2：B类 F∩CS 8字（列 对 是 段 的 类 自 配）的「全位置吸收」集合 ──
 # 【动机】CS 16字 = A类 DUAL 8字 + B类 F∩CS 8字。A类靠 `_P0A_HEAD_MERGE_DUAL`
