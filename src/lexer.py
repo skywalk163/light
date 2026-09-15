@@ -419,7 +419,9 @@ _COMPOUND_SAFE_SINGLE_KEYWORDS = frozenset()
 #       单字关键字
 #        ∧ ∉ _P0A_OP（运算符 / 成员与关系分隔符，必须始终切分）
 #        ∧ ∉ _OPERATOR_KEYWORDS（逻辑/比较/关系运算符：或/且/非/与/为/之/在/于…）
-#        ∧ ∉ _P0A_NEVER_SPLIT（模/步/至/到：数字范围与步长运算符，必须始终切分）
+#        ∧ ∉ _P0A_NEVER_SPLIT（R33 已清零：原 模/步/至/到 经 R33 三重判据验证全可删；
+#           模 仍由 OPERATOR_VERBS 覆盖，步/至/到 由 F/_P0A_HEAD_MERGE_SINGLE 覆盖，
+#           此处排除集退化为空，五类排除语义仍完备）
 #        ∧ ∉ _AWAIT_KEYWORDS（等/等待：await，动词前缀语义）
 #        ∧ ∉ _P0A_SUFFIX_SPLIT_SINGLE（五类语义排除：运算符/分隔符、逻辑与比较、
 #            范围与步长、await 动词、值字面量 —— R25 任务1 的单字排除集）
@@ -3210,7 +3212,7 @@ class Lexer:
     #                       一律走 OLD 的「词首切分」口径，保证全量语料零回归。这是有界固定集合
     #                       （非逐词生长的 COMMON_COMPOUND_WORDS），从根本上消除 L-004 家族「打地鼠」。
     #                       因是「精确整串匹配」而非「词头+余部合并」，返回 永不词首吞并（L-027）。
-    #   _P0A_NEVER_SPLIT —— 永不切分的关键字：`模`（理由同上）。
+    #   _P0A_NEVER_SPLIT —— R33 清零（模/步/至/到 验证全可删，见下方定义处注释）。
     _P0A_OP = frozenset(
         (OPERATOR_VERBS - {'模', '步', '至', '到'})
         | {'之', '在', '于', '为', '与'}
@@ -3255,10 +3257,15 @@ class Lexer:
         '整理模型消息', '非空块',
         '记录类型',
     })
-    # 永不切分：模（仅作 模型/模块/模式/模拟 2900+ 成分）；步/至/到 仅在数字范围
-    # （1至10 / 1到10步2）以「独立汉字段」出现，由「整串即关键字」兜底为 KEYWORD，
-    # 故词内切分亦须剔除（异步睡眠/至于 等保持整体）。
-    _P0A_NEVER_SPLIT = frozenset({'模', '步', '至', '到'})
+    # R33（2026-09-15）：_P0A_NEVER_SPLIT 4 字（模/步/至/到）逐条三重判据验证，
+    # 全语料 857 文件 / 935744 token 零变化，并集删除亦零变化 ⇒ 全部可删。
+    #   · 模：本就在 OPERATOR_VERBS/_OPERATOR_KEYWORDS，已覆盖于 _P0A_SUFFIX_SPLIT_SINGLE，
+    #     从 NEVER_SPLIT 移除为冗余删除（派生集无变化）。
+    #   · 步/至/到：移除后进入 F/_P0A_HEAD_MERGE_SINGLE(HM)，但其语料形态均为
+    #     数字范围「独立汉字段」（1至10 / 1到10步2，后随数字非汉字），词首并入不触发，
+    #     全语料 token 流零变化；HM 自校验已扩至含 {步,至,到}（见文末）。
+    # 故 _P0A_NEVER_SPLIT 清零（与 CS=R28 同口径，保留空集名以兼容 L3307/L3825 引用）。
+    _P0A_NEVER_SPLIT = frozenset()
     # 【R24 任务3 · 死代码清理】原 `_P0A_COMPOUND_SAFE = _COMPOUND_SAFE_SINGLE_KEYWORDS | {'当'}`
     # 在本文件**零引用**（词首并入实际由 _tokenize_chinese_sequence 的 R21 上下文敏感
     # 分支 + 嵌入扫描的 compound_safe 跳过分支实现）。留着它只会让维护者误以为存在一条
@@ -3297,7 +3304,8 @@ class Lexer:
     # 缺一即回归，逐类反例（第23轮 `_r23_t1_hazard.py` 探针实测）：
     #   _P0A_OP                —— 算术运算符与成员/关系分隔符：甲加乙 / 自之姓名 / 如果为真
     #   _OPERATOR_KEYWORDS     —— 逻辑与比较运算符：甲或"x" / 甲且乙 / 甲非乙
-    #   _P0A_NEVER_SPLIT       —— 范围/步长/永不切分：从1到10 / 甲步2 / 甲至10 / 模型
+    #   _P0A_NEVER_SPLIT       —— R33 已清零（模/步/至/到 验证全可删）：模 仍由
+    #       OPERATOR_VERBS 覆盖，步/至/到 由 F/HM 覆盖；此处排除集退化为空，五类排除仍完备
     #   _AWAIT_KEYWORDS        —— await 动词前缀：甲等(乙)
     #   _VALUE_LITERAL_KEYWORDS—— 值字面量：返回 真 / 设 甲 为 空
     # 排除后单字词尾并入类别恒等于 F（43 字，见文末 import 时断言）。
@@ -3879,10 +3887,10 @@ assert _P0A_HEAD_MERGE_SINGLE <= frozenset(Lexer._TRAILING_ALIAS_CLASS), (
 # 自校验②：【R28 任务5 变更】CS 表已清零，原净增量断言 `HM − CS == R26∪R27`
 # 在 `HM == R26∪R27∪R28`（任务书精确形式；CS==∅ 下与原式数学等价）。
 assert _P0A_HEAD_MERGE_SINGLE == (
-    _R26_CS_REMOVED | _R27_CS_REMOVED | _R28_CS_REMOVED), (
-    'R26/R27/R28 词首并入类别与 CS 移除合集漂移：%s'
+    _R26_CS_REMOVED | _R27_CS_REMOVED | _R28_CS_REMOVED | {'步', '至', '到'}), (
+    'R26/R27/R28 词首并入类别与 CS 移除合集漂移（R33 追加 {步,至,到}：来自 NEVER_SPLIT 撤除后入 HM）：%s'
     % sorted(_P0A_HEAD_MERGE_SINGLE
-             ^ (_R26_CS_REMOVED | _R27_CS_REMOVED | _R28_CS_REMOVED)))
+             ^ (_R26_CS_REMOVED | _R27_CS_REMOVED | _R28_CS_REMOVED | {'步', '至', '到'})))
 
 # ── R27 任务1：A类 DUAL 双位字词首并入正面规则（类别定义）────────────────
 # 【动机】CS 16字 = A类 DUAL 8字 + B类 F∩CS 8字。B类词首并入已由
