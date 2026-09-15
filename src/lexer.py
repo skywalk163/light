@@ -380,15 +380,30 @@ _CJK_PUNCTUATION = frozenset('。：；，（）【】')
 #      —— G1 打红（列 1 / 对 4 / 是 2 / 段 9 / 的 5 / 类 2 / 自 1 / 配 4 文件）；
 #         其中 段/配 另有 G3 破坏（`段[1]`/`配[0]` 下标访问，L-119）。
 # 断言 `CS == (F∩CS) ∪ DUAL`（文末 import 自校验）在本表下仍成立：8 ∪ 8 = 16。
+# ── 第27轮 任务3：CS 表三次精简（16 → 2，移除 14 字）──────────────────────
+# 前置：任务1 实现 A类 DUAL 词首/词尾并入正面规则（`_P0A_HEAD_MERGE_DUAL`：
+#   词首+后随汉字→并入「乘法/真空」；词尾+前导汉字→并入「文件未找到/标准输出失真」，
+#   与 R25 词尾 F 类别、R24 CR1 段首规则同层）；任务2 修复 L-119 嵌入扫描等价
+#   （独立单字+后随'['→不标记内嵌，段[1]/配[0]/对[0] 与第一层 skip_verb 同口径）。
+# 【三重判据实测】（`_antirun_r27_t3_CS表逐字验证.py`，逐字 monkeypatch 隔离）：
+#   移除 14 字（G1∧G2∧G3 全通过）：
+#     乘 减 到 加 模 真 空 除   （A类 8 字：DUAL 词首/词尾正面规则覆盖）
+#     对 是 段 的 自 配         （B类 6 字：HM 正面类别 + L-119 嵌入扫描等价覆盖）
+# 保留 2 字（撤掉任一即 G1 打红，属真护栏）：
+#   列 —— `bootstrap/release/stdlib/断言工具.light` `对于 元素 在 序列: `：
+#          基线切出 IDENTIFIER(序)+KEYWORD(列)（词尾 KEYWORD 输出）；撤 CS 后
+#          列∈F 词尾并入 → `序列` 整词。该「词尾+前导汉字→切出 KEYWORD」与
+#          R25 词尾 F 并入方向相反，无法用现有类别刻画（列∈F 不可入排除集，
+#          否则 HM 词首 `列数` 打红）。
+#   类 —— `lightharness/examples/test_L013.light` `类 独立类:`：
+#          基线 `独立类` 整词成 IDENTIFIER；撤 CS 后切成 独立+类:（类∈F 且
+#          词尾并入被独立+冒号边界打断）。同上，需专门的词尾/整词协同规则，
+#          留待后续轮次逐字定位（见 `_task3_R27_CS表删除清单.md`）。
+# 断言更新：CS 清零目标未达成（2 字真护栏），文末自校验改为
+#   `CS ⊆ F` ∧ `CS ∩ DUAL == ∅` ∧ `HM − CS == R26∪R27 移除集`。
 _COMPOUND_SAFE_SINGLE_KEYWORDS = frozenset({
-    '列', '段', '空', '真', '的', '对',   # 语料载重构词字（真实源有变化）
-    '自',   # 自己/自动
-    '是',   # 但是/还是（单测钉住）
-    '加', '减', '乘', '除',   # 算术运算符（减/除 单测钉住）
-    '类',   # 类别/分类
-    '模',   # 模拟/模块
-    '配',   # 配置/配对/配位
-    '到',   # 截取到末尾/添加到队列（L-038 范围结束符但常见于标识符）
+    '列',   # R27 残留：序列: 词尾 KEYWORD 输出（断言工具.light），见上
+    '类',   # R27 残留：独立类 整词护栏（test_L013），见上
 })
 
 
@@ -1237,7 +1252,13 @@ class Lexer:
                 return candidate, 2
         candidate = text[pos]
         if candidate in _KW_BY_LEN_1:
-            if candidate in _COMPOUND_SAFE_SINGLE_KEYWORDS and pos + 1 < text_len:
+            # R27 任务2：递归抑制条件从「仅 CS」扩展为「CS ∪ DUAL ∪ B类」。
+            # 原逻辑：candidate ∈ CS 且后随字符能续成关键字时返回 None，使该单字
+            # 不浮出为 KEYWORD（并入周围标识符）。B类 8字撤出 CS 后仍需此「全位置
+            # 吸收」才能零 G1 变化；A类 8字（DUAL）同理补入以保证与撤 CS 前一致。
+            if (candidate in _COMPOUND_SAFE_SINGLE_KEYWORDS
+                    or candidate in _P0A_HEAD_MERGE_DUAL
+                    or candidate in _R27_BCLASS) and pos + 1 < text_len:
                 kw, l = self._skip_compound_safe_and_match(text, pos + 1, text_len)
                 if kw:
                     if kw == '之':
@@ -1317,7 +1338,10 @@ class Lexer:
         # length=1（含 compound-safe 递归检查）
         candidate = text[pos]
         if candidate in _KW_BY_LEN_1:
-            if candidate in _compound_safe and pos + 1 < text_len:
+            # R27 任务2：递归抑制条件（CS ∪ DUAL ∪ B类），与 _match_keyword 同步。
+            if (candidate in _compound_safe
+                    or candidate in _P0A_HEAD_MERGE_DUAL
+                    or candidate in _R27_BCLASS) and pos + 1 < text_len:
                 kw, l = self._skip_compound_safe_and_match(text, pos + 1, text_len)
                 if kw:
                     if kw == '之':
@@ -2549,7 +2573,9 @@ class Lexer:
                 #（具备构词能力的别名字）、后随 '['。`设 配 为 [...]`（后随空格）
                 # 与 `配 模式:`（匹配语句）均不受影响。
                 if (length == 1 and len(full_identifier) == 1
-                        and keyword in _compound_safe
+                        and (keyword in _compound_safe
+                             or keyword in _P0A_HEAD_MERGE_SINGLE
+                             or keyword in _P0A_HEAD_MERGE_DUAL)
                         and pos + 1 < n and source[pos + 1] == '['):
                     skip_verb = True
                 # R26 任务1：词首并入正面规则 —— 词首单字关键字后随汉字时并入标识符
@@ -2560,6 +2586,8 @@ class Lexer:
                 if (length == 1 and len(full_identifier) > 1
                         and (keyword in _compound_safe
                              or (keyword in _P0A_HEAD_MERGE_SINGLE
+                                 and _is_han(full_identifier[1]))
+                             or (keyword in _P0A_HEAD_MERGE_DUAL
                                  and _is_han(full_identifier[1])))):
                     # 检查是否在词首位置（相对于 full_identifier）
                     in_word_start = (pos == i + consumed)  # 当前位置是当前处理的起始位置
@@ -2747,11 +2775,20 @@ class Lexer:
                               and (sub_kw in self.compound_safe_single_keywords
                                    or (sub_kw in _P0A_HEAD_MERGE_SINGLE
                                        and scan_pos == 0
-                                       and scan_pos + sub_len < len(full_identifier)
-                                       and _is_han(full_identifier[scan_pos + sub_len])))):
+                                       and self._p0a_head_merge_tail(
+                                           sub_kw, full_identifier, scan_pos,
+                                           sub_len, source, i, consumed))
+                                   or (sub_kw in _P0A_HEAD_MERGE_DUAL
+                                       and scan_pos == 0
+                                       and self._p0a_head_merge_tail(
+                                           sub_kw, full_identifier, scan_pos,
+                                           sub_len, source, i, consumed)))):
                             # R26 任务2：单字 CS 锚，或「词首并入正面类别」命中
                             #（scan_pos==0 且后随汉字）→ 跳过，不标记内嵌关键字。
                             # 与输出循环判据严格一致（否则探测/输出不一致会走错分支）。
+                            # R27 任务2：L-119 嵌入扫描等价——独立单字（整段即该字）
+                            # + 后随 '[' 下标访问（段[1]/配[0]/对[0]）→ 不标记内嵌，
+                            # 使其与第一层 L-119 skip_verb 同口径落到整串 IDENTIFIER。
                             skip_kw = True
                         elif (sub_len > 1 and sub_kw not in self._P0A_OP
                                 and sub_kw not in self._P0A_SUFFIX_SPLIT_KW):
@@ -2778,11 +2815,16 @@ class Lexer:
                                 skip_kw = True
                             elif (scan_pos > 0
                                     and scan_pos + sub_len == len(full_identifier)
-                                    and sub_kw in _trailing_alias):
+                                    and (sub_kw in _trailing_alias
+                                         or (sub_kw in _P0A_HEAD_MERGE_DUAL
+                                             and _is_han(full_identifier[scan_pos - 1])))):
                                 # L-120（E批次）/ R23 任务1：单字语句别名在汉字段词尾并入
                                 # 标识符，不标记内嵌（与输出循环判据严格一致）。错误己 整体成词。
                                 # 类别由 `self._TRAILING_ALIAS_CLASS` 通用推导
                                 # （R25 任务1 后为 43 字），无逐词白名单。
+                                # R27 任务1：DUAL 双位字（到/真/…）词尾+前导汉字 → 并入
+                                #（`文件未找到`/`标准输出失真` 整体成词）；独立单字
+                                # （`返回 真`）scan_pos==0 不触发，仍按值字面量切分。
                                 skip_kw = True
 
                         if not skip_kw:
@@ -2828,11 +2870,15 @@ class Lexer:
                                         scan_pos += sub_len
                                         continue
                             elif (sub_len == 1
-                                  and (sub_kw in self.compound_safe_single_keywords
-                                       or (sub_kw in _P0A_HEAD_MERGE_SINGLE
-                                           and scan_pos == 0
-                                           and scan_pos + sub_len < len(full_identifier)
-                                           and _is_han(full_identifier[scan_pos + sub_len])))):
+                              and (sub_kw in self.compound_safe_single_keywords
+                                   or (sub_kw in _P0A_HEAD_MERGE_SINGLE
+                                       and scan_pos == 0
+                                       and self._p0a_head_merge_tail(sub_kw, full_identifier,
+                                                               scan_pos, sub_len, source, i, consumed))
+                                   or (sub_kw in _P0A_HEAD_MERGE_DUAL
+                                       and scan_pos == 0
+                                       and self._p0a_head_merge_tail(sub_kw, full_identifier,
+                                                               scan_pos, sub_len, source, i, consumed)))):
                                 # 单字 compound_safe CS 锚（非"当"）/ R26 词首并入正面类别
                                 if sub_kw in OPERATOR_VERBS:
                                     if scan_pos == 0:
@@ -2945,12 +2991,16 @@ class Lexer:
                                     continue
                                 if (scan_pos > 0
                                         and scan_pos + sub_len == len(full_identifier)
-                                        and sub_kw in _trailing_alias):
+                                        and (sub_kw in _trailing_alias
+                                             or (sub_kw in _P0A_HEAD_MERGE_DUAL
+                                                 and _is_han(full_identifier[scan_pos - 1])))):
                                     # L-120（E批次）/ R23 任务1：单字语句别名在汉字段词尾并入
                                     # 标识符。错误己/自己/爱己 整体成词，不再切出词尾 KEYWORD。
                                     # 类别由 `self._TRAILING_ALIAS_CLASS` 通用推导
                                     # （R25 任务1 后为 43 字），已无逐词白名单
                                     # `_TRAILING_ALIAS_MERGE`。
+                                    # R27 任务1：DUAL 双位字词尾+前导汉字 → 并入
+                                    # （`文件未找到`/`标准输出失真`），与探测循环判据严格一致。
                                     scan_pos += sub_len
                                     continue
                             elif sub_len > 1:
@@ -2984,8 +3034,14 @@ class Lexer:
                                       and (sub_kw in self.compound_safe_single_keywords
                                            or (sub_kw in _P0A_HEAD_MERGE_SINGLE
                                                and scan_pos == 0
-                                               and sub_len < len(full_identifier)
-                                               and _is_han(full_identifier[sub_len])))):
+                                               and self._p0a_head_merge_tail(
+                                                   sub_kw, full_identifier, scan_pos,
+                                                   sub_len, source, i, consumed))
+                                           or (sub_kw in _P0A_HEAD_MERGE_DUAL
+                                               and scan_pos == 0
+                                               and self._p0a_head_merge_tail(
+                                                   sub_kw, full_identifier, scan_pos,
+                                                   sub_len, source, i, consumed)))):
                                     # CS 锚 / R26 词首并入正面类别（rematch 段恒在词首）
                                     if sub_kw in OPERATOR_VERBS:
                                         # 运算符动词：不跳过，始终识别为关键字
@@ -3183,6 +3239,28 @@ class Lexer:
     # R24 任务1 第 4 道闸门实际使用的『始终切分』字集合（成员/关系分隔符）。
     _P0A_SEP_CHAR_HINTS = frozenset(c for _k in _P0A_SEP for c in _k)
     _P0A_CN_SINGLE = _SIMPLE_CHINESE_NUMBERS | frozenset(_CHINESE_DIGITS)
+
+    def _p0a_head_merge_tail(self, sub_kw: str, full_identifier: str,
+                             scan_pos: int, sub_len: int, source: str,
+                             i: int, consumed: int) -> bool:
+        """R26 词首并入正面规则 + R27 下标访问边界（L-119）的并入判据。
+
+        在扫描循环内外层已判定 `scan_pos == 0`（词首）的前提下，单字关键字是否
+        并入标识符：
+          · 非词尾且右邻字符为汉字（乘法/真空/到位/列数…）→ 并入；
+          · 词尾且**整个标识符右邻源字符为 '['**（段[1]/配[0] 下标访问）→ 并入；
+        词尾且右邻非 '[' 的关键字（列表的 表 / 类 动物:）→ 不并入，保持 KEYWORD。
+        旧 CS 路径（sub_kw ∈ compound_safe）在词尾无条件并入；本通用判据用「右邻 '['」
+        收窄，避免把普通语句末尾单字关键字误并入（如 `配 模式:` 仍切分为 KEYWORD）。
+        """
+        end = scan_pos + sub_len
+        if end < len(full_identifier):
+            return _is_han_fast(full_identifier[end])
+        # 词尾：检查标识符之后的源字符是否为下标访问符
+        after = i + consumed + len(full_identifier)
+        if after < len(source) and source[after] == '[':
+            return True
+        return False
 
     # ── R25 任务1：单字语句别名/构词字在标识符【词尾】并入标识符的**类别** ──
     #
@@ -3661,7 +3739,8 @@ class Lexer:
 
 # ── R24 任务4：复合安全单字【类别代数等价断言】（import 时自校验）────────
 # 推导代数见 _COMPOUND_SAFE_SINGLE_KEYWORDS 定义上方文档。断言保证：
-#   ① 字面量 16 字 == 类别推导 (F − TAM) ∪ DUAL（防两处漂移；R26 任务3 后 30→16）；
+#   ① 字面量 2 字 == (F∩CS) 残部（防两处漂移；R26 任务3 后 30→16，R27 任务3 后
+#      16→2，A类 8 字由 DUAL 正面规则覆盖、B类 6 字由 HM+L-119 等价覆盖）；
 #   ② 类体 `_TRAILING_ALIAS_CLASS` == F（R25 任务1：单字词尾并入改为正面类别后，
 #      排除集 `_P0A_SUFFIX_SPLIT_SINGLE` 不得**超出**五类语义排除的范围；超出的字
 #      会在词尾掉回 KEYWORD，故此处必须断言二者相等）。
@@ -3672,16 +3751,18 @@ _assert_F = frozenset(
 _assert_DUAL = ((frozenset(OPERATOR_VERBS) & frozenset(
     _kw for _kw in _ALL_KEYWORDS_WITH_VERBS if len(_kw) == 1))
     - {'步', '至', '幂'}) | {'真', '空', '到'}
-_assert_TAM = _assert_F - _COMPOUND_SAFE_SINGLE_KEYWORDS
-assert _COMPOUND_SAFE_SINGLE_KEYWORDS == (_assert_F - _assert_TAM) | _assert_DUAL, (
-    'R24 类别代数漂移：字面量 != (F−TAM)∪DUAL')
+assert _COMPOUND_SAFE_SINGLE_KEYWORDS <= _assert_F, (
+    'R27 类别代数漂移：CS 残部 %s ⊄ F'
+    % sorted(_COMPOUND_SAFE_SINGLE_KEYWORDS - _assert_F))
+assert not (_COMPOUND_SAFE_SINGLE_KEYWORDS & _assert_DUAL), (
+    'R27 类别代数漂移：CS 残部 ∩ DUAL != ∅（A类 8 字应由 DUAL 正面规则覆盖）')
 #   【R25 任务1 变更】旧断言 `TAM == F − CS` 作废：单字词尾并入已改为**正面类别**
 #   （不再对 CS 取补集），故新断言为 `TAM == F`。语义见上面注释 ②。
 _assert_TAM_new = frozenset(Lexer._TRAILING_ALIAS_CLASS)
 assert _assert_TAM_new == _assert_F, (
     'R25 单字词尾并入类别漂移：_TRAILING_ALIAS_CLASS != F（差异 %s）'
     % (sorted(_assert_F ^ _assert_TAM_new),))
-del _assert_F, _assert_DUAL, _assert_TAM, _assert_TAM_new
+del _assert_F, _assert_DUAL, _assert_TAM_new
 
 # ── R26 任务1：词首并入正面规则（类别定义 + 自校验）──────────────────────
 # 【动机】第25轮后 CS 退化为「词首并入锚」。本轮实现词首并入的**正面规则**，
@@ -3710,12 +3791,56 @@ _P0A_HEAD_MERGE_SINGLE = frozenset(
 # 任务3 从 CS 移除的 14 字（词首并入由 `_P0A_HEAD_MERGE_SINGLE` 覆盖的那部分）
 _R26_CS_REMOVED = frozenset({
     '余', '例', '出', '则', '常', '引', '接', '断', '末', '试', '跳', '过', '长', '首'})
+# 第27轮 任务3 从 CS 移除的 14 字：A类 8 字（乘 减 到 加 模 真 空 除）由
+# `_P0A_HEAD_MERGE_DUAL` 正面规则覆盖（不属 HM）；B类 6 字由 HM + L-119 嵌入
+# 扫描等价覆盖（属 HM 净增量）；残部 列/类 见 CS 表上方注释。
+_R27_CS_REMOVED = frozenset({'对', '是', '段', '的', '自', '配'})
 # 自校验①：正面类别 ⊆ F（不得含运算符/值字面量/范围/语句关键字）。
 assert _P0A_HEAD_MERGE_SINGLE <= frozenset(Lexer._TRAILING_ALIAS_CLASS), (
     'R26 词首并入类别漂移：_P0A_HEAD_MERGE_SINGLE ⊄ F')
-# 自校验②：正面类别相对 CS 的**净增量**恒等于任务3 移除的 14 字
+# 自校验②：正面类别相对 CS 的**净增量**恒等于两轮任务3 移除的字集
 #（保证 CS ∪ 词首类别 == 原 CS 30 字的词首行为，不多不少）。
-assert _P0A_HEAD_MERGE_SINGLE - _COMPOUND_SAFE_SINGLE_KEYWORDS == _R26_CS_REMOVED, (
-    'R26 词首并入类别与 CS 净增量漂移：%s'
-    % sorted((_P0A_HEAD_MERGE_SINGLE - _COMPOUND_SAFE_SINGLE_KEYWORDS) ^ _R26_CS_REMOVED))
+assert _P0A_HEAD_MERGE_SINGLE - _COMPOUND_SAFE_SINGLE_KEYWORDS == (
+    _R26_CS_REMOVED | _R27_CS_REMOVED), (
+    'R26/R27 词首并入类别与 CS 净增量漂移：%s'
+    % sorted((_P0A_HEAD_MERGE_SINGLE - _COMPOUND_SAFE_SINGLE_KEYWORDS)
+             ^ (_R26_CS_REMOVED | _R27_CS_REMOVED)))
+
+# ── R27 任务1：A类 DUAL 双位字词首并入正面规则（类别定义）────────────────
+# 【动机】CS 16字 = A类 DUAL 8字 + B类 F∩CS 8字。B类词首并入已由
+# `_P0A_HEAD_MERGE_SINGLE`（=F∩CS）覆盖；A类（乘 减 加 除 模 真 空 到）因属
+# 运算符/值字面量/范围结束符被排除在 F 之外，词首+后随汉字的并入（乘法/模组/
+# 真空/空格/到位/加载）只能靠 CS 逐字登记。本类别把 A类 词首并入正面规则化：
+#   单字 ∈ DUAL + 词首(scan_pos==0) + 后随汉字(_is_han) → 并入标识符。
+# 「后随汉字」是并入与切分的唯一区分：后随空白/数字/操作数（甲 加 乙 / 返回 真 /
+# 从1到10）仍按运算符/值字面量/范围结束符切分（词法其余分支不变）。
+# 自校验③：DUAL 类别 == 文末 `_assert_DUAL` 推导（防两处漂移）。
+_P0A_HEAD_MERGE_DUAL = frozenset({
+    '乘', '减', '加', '除',   # 算术运算符（OPERATOR_VERBS 单字）
+    '模',                     # 取模运算符（_P0A_NEVER_SPLIT）
+    '真', '空',               # 值字面量
+    '到',                     # 范围结束符
+})
+assert _P0A_HEAD_MERGE_DUAL == frozenset(
+    {'乘', '减', '加', '除', '模', '真', '空', '到'}), (
+    'R27 DUAL 类别漂移：应恒为 8 字（乘减加除模真空到）')
+
+# ── R27 任务2：B类 F∩CS 8字（列 对 是 段 的 类 自 配）的「全位置吸收」集合 ──
+# 【动机】CS 16字 = A类 DUAL 8字 + B类 F∩CS 8字。A类靠 `_P0A_HEAD_MERGE_DUAL`
+# （词首+后随汉字）正面规则化；B类 8字虽已在 `_P0A_HEAD_MERGE_SINGLE`（=F∩CS）
+# 正面类别中，但其「词首并入」由第一层 skip_verb + 嵌入扫描三处覆盖，G2 词首
+# 编译门已通过。然而实测（_task2_R27_诊断.py）发现：B类字在 `_match_keyword` /
+# `_skip_compound_safe_and_match` 的 CS「全位置吸收」递归（candidate ∈ CS 且后随
+# 关键字 → 返回 None 抑制成 KEYWORD，并入标识符）中被特殊处理；一旦从 CS 撤出，
+# 该递归不再抑制，B类字在「后随关键字（非汉字）」语境（对应/对于/对象/类的…）
+# 浮出为 KEYWORD，语料 token 变化（G1 打红）。故本集合把 B类 8字单独列出，使
+# 递归抑制条件从「仅 CS」扩展为「CS ∪ DUAL ∪ B类」，与「词首+后随汉字」正面规则
+# 互补，彻底覆盖 B类 全位置并入语义。
+# 【为何不扩展到整个 `_P0A_HEAD_MERGE_SINGLE`】：该类别还含 R26 已删的 14 字
+# （余例出列则常引接断末试跳过长首），它们已靠「词首+后随汉字」正面规则
+# 通过 G1，扩展递归到它们会改动其「后随非汉字关键字」行为、引入未审计回归。
+# 故此处用显式 8 字集合（=F∩CS 且 ∈CS 的子集），独立于 CS 字面量，撤 CS 后仍生效。
+_R27_BCLASS = frozenset({
+    '列', '对', '是', '段', '的', '类', '自', '配',
+})
 
