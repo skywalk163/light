@@ -176,6 +176,59 @@ _EXAMPLE_SNIPPETS = {
 }
 
 
+# =============================================================================
+# R40 任务3.2：NameError「词法整串合并」嫌疑提示
+# =============================================================================
+#
+# 背景（互举闭环实测暴露）：`examples/advanced.light` 第 10 行报
+#     错误: 名称错误
+#       name '如果数小于等于二那么返回一' is not defined
+# —— 用户拿到这句话完全无法定位问题：既不像拼写错误，也看不到「关键字连写缺空格」。
+# 真实根因是词法层的**嵌入关键字最大匹配合并**把整串汉字吞成一个 IDENTIFIER
+# （触发块 `lexer._EMBED_MAX_MATCH_KEYWORDS` = {为, 返回, 尝试}；R19 引入，见 L-154/L-155）。
+# 运行时只能看到「一个很长的名字未定义」这一现象。
+#
+# 本段**只生成提示文本**，绝不参与切词/解析/求值，也不改变异常类型与消息本体
+# （任务3.2 铁律：只改报错生成路径）。
+#
+# 判据（全部满足才给提示，目的是压误报）：
+#   ① 异常类型为 NameError；
+#   ② 从 `name 'X' is not defined` 提取到 X，且 X 长度 ≥ 5 个字符、至少含 1 个汉字；
+#   ③ 命中「语句从句关键字」**≥2 个不同项**（见 _MERGE_HINT_STMT_HEADS）
+#      **或**（命中 `为` 且命中「运算符关键字」，见 _MERGE_HINT_OPERATORS）。
+#
+# 为什么规则长这样（用全语料真实声明名做过误报测算，三轮收紧）：
+#   · 第 1 版「只要含 ≥2 个关键字就提示」误报 705/14613（4.8%）——`作用域过滤组装`、
+#     `保存索引替换函数`、`从列表删除`、`优先队列是否为空` 这类**正常的复合名词**全被误报
+#     （它们确实含 作用域 / 函数 / 从 / 为 等关键字）。
+#   · 第 2 版收紧为「命中从句关键字 或 `为`+运算符」→ 仍有形如 `返回JSON` / `统计段落数` /
+#     `解析段落定义` / `跳过字符串字面量` / `非空数组断言` 的**单关键字误报**。
+#   · 第 3 版（当前）把形态一提到「**≥2 个不同**从句关键字」→ 上述单关键字误报全部消除，
+#     而真实被合并的串（`如果数小于等于二那么返回一` 含 如果/那么/返回 三个）依然命中。
+#     因此 `_MERGE_HINT_STMT_HEADS` **刻意不收** 作用域/类型/函数/模块/接收/打印/生成/
+#     定义/实现 这些「可作名词前缀」的关键字，否则误报率立刻回升。
+_MERGE_HINT_MARKERS = None      # 懒加载，见 ErrorFormatter._merge_hint_markers()
+
+# 从句关键字：几乎不会自然出现在名词性标识符里。
+# 刻意不收单字 设/当/若（`设置`/`当前`/`若干` 之类正常名词太多），
+# 也不收 遍历/等待/结束 之外的动名词（见下方 suffix 规则说明）。
+_MERGE_HINT_STMT_HEADS = (
+    '如果', '那么', '否则', '否则若', '或若', '返回', '尝试', '段落',
+    '跳出', '跳过', '继续', '退出循环', '断言', '抛出', '捕获', '遇到',
+)
+
+# 运算符/关系关键字（用于「含 `为` + 含运算符」形态）
+_MERGE_HINT_OPERATORS = (
+    '加', '减', '乘', '除', '模', '幂', '取余',
+    '加上', '减去', '乘以', '除以',
+    '大于', '小于', '等于', '不等于', '大于等于', '小于等于',
+    '与', '或', '且', '非', '在', '之', '于', '到', '包含',
+)
+
+# `lexer._EMBED_MAX_MATCH_KEYWORDS` 的成员（形态二的触发核心）
+_MERGE_HINT_EMBED = ('为', '返回', '尝试')
+
+
 class ErrorFormatter:
     """错误格式化器"""
 
@@ -286,6 +339,13 @@ class ErrorFormatter:
             similar_hint = self._suggest_similar_from_msg(err_msg)
             if similar_hint:
                 parts.append(f'\n  {self._color("suggestion", "拼写建议:")} {similar_hint}')
+
+        # R40 任务3.2：NameError 词法整串合并嫌疑提示
+        # （互举闭环实测教训——`name '如果数小于等于二那么返回一' is not defined`
+        #   实际根因是关键字连写缺空格导致的整串合并，见模块顶部注释）
+        merge_hint = self._lexical_merge_hint(err_type, err_msg)
+        if merge_hint:
+            parts.append(f'\n  {self._color("suggestion", "提示:")} {merge_hint}')
 
         # 追加示例代码片段
         example = self.get_example_snippet(err_type)
@@ -619,6 +679,82 @@ class ErrorFormatter:
         except Exception:
             pass
         return ''
+
+    # ------------------------------------------------------------------
+    # R40 任务3.2：NameError「词法整串合并」嫌疑提示（只生成本提示文本）
+    # ------------------------------------------------------------------
+    @classmethod
+    def _merge_hint_markers(cls):
+        """返回 (从句关键字, 运算符关键字, 全部标记) 三元组，按长度降序缓存。
+
+        全部标记 = 从句关键字 ∪ 运算符关键字 ∪ _EMBED 集，供「最长匹配贪心切分」使用。
+        与切词逻辑零耦合：只读本模块的常量元组，不导入也不修改任何词法表。
+        """
+        if _MERGE_HINT_MARKERS is None:
+            heads = tuple(sorted(set(_MERGE_HINT_STMT_HEADS), key=len, reverse=True))
+            ops = tuple(sorted(set(_MERGE_HINT_OPERATORS), key=len, reverse=True))
+            allm = tuple(sorted(set(heads) | set(ops) | set(_MERGE_HINT_EMBED),
+                                key=len, reverse=True))
+            globals()['_MERGE_HINT_MARKERS'] = (heads, ops, allm)
+        return _MERGE_HINT_MARKERS
+
+    @staticmethod
+    def _greedy_marker_hits(name: str, markers) -> list:
+        """对 name 按 markers 做「最长匹配贪心切分」，返回命中的关键字列表。
+
+        用贪心最长匹配而非朴素子串计数：`静态方法名` 朴素计数会同时命中
+        `静态方法` 与 `静态`（记 2 个），贪心切分只记 1 个，避免误报。
+        """
+        hits = []
+        i, n = 0, len(name)
+        while i < n:
+            for m in markers:
+                if name.startswith(m, i):
+                    hits.append(m)
+                    i += len(m)
+                    break
+            else:
+                i += 1
+        return hits
+
+    def _lexical_merge_hint(self, err_type: str, err_msg: str) -> str:
+        """NameError 且名称疑似被词法整串合并时，返回提示文本（否则返回 ''）。
+
+        判据见模块顶部注释（长度 ≥5、含汉字、命中从句关键字 或 「为+运算符」）。
+        **纯文本生成**：不触碰切词/解析/求值，也不改变异常类型或原始消息。
+        """
+        if err_type != 'NameError':
+            return ''
+        import re
+        m = re.search(r"name\s+'([^']+)'", err_msg or '')
+        if not m:
+            return ''
+        name = m.group(1)
+        if len(name) < 5:
+            return ''
+        if not any('\u4e00' <= ch <= '\u9fff' for ch in name):
+            return ''
+
+        heads, ops, allm = self._merge_hint_markers()
+        hits = self._greedy_marker_hits(name, allm)
+        hit_set = set(hits)
+        # 形态一（从句型）：需 **≥2 个不同**从句关键字。
+        #   为什么是 2 而不是 1：单个从句关键字出现在正常复合名里非常常见——
+        #   实测全语料 `返回JSON` / `统计段落数` / `解析段落定义` / `跳过字符串字面量` /
+        #   `非空数组断言` / `返回值类型检查` 等都会被单关键字判据误报；
+        #   而真实被合并的串（如 `如果数小于等于二那么返回一`）必然带 **多个** 从句关键字。
+        shape_clause = len(hit_set & set(heads)) >= 2
+        # 形态二（赋值/运算型）：含 `为`（合并的触发核心）且含运算符关键字。
+        shape_assign = ('为' in hit_set) and bool(hit_set & set(ops))
+        if not (shape_clause or shape_assign):
+            return ''
+
+        shown = [h for h in hits
+                 if h in heads or h in ops or h in _MERGE_HINT_EMBED][:4]
+        return (f"该名称长度异常（{len(name)} 字符）且含多个关键字"
+                f"（{'/'.join(shown)}），可能被词法整串合并"
+                f"（关键字连写缺空格）。请检查这些关键字两侧是否缺少空格，"
+                f"例如写成「如果 甲 大于 乙 那么 返回 一。」")
 
     # 任务C-P2：Windows 控制台编码安全输出
     def _safe_output(self, text: str) -> str:
