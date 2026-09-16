@@ -2436,8 +2436,17 @@ class Lexer:
                     #   10的幂/去除空格/对于/索引/种类/阶乘 —— 串首非关键字或整串已登记
                     #             于 user_definitions / COMMON_COMPOUND_WORDS，闸门1/2/3 挡。
                     _op_hints = self._P0A_SEP_CHAR_HINTS
+                    # R35 任务2：闸门3 对「一元前缀运算符」（_P0A_UNARY_PREFIX_KW）开例外。
+                    # 二元中缀运算符（加/减/等于/包含…）在表达式中必须两侧切出操作数，
+                    # 故仍禁止；`非` 无空格时恒为复合名（非空块/非法/非零…），允许并入。
+                    # 收窄（`非` 专属）：余部若是**已声明名字**则它仍是操作数
+                    # （`非甲` = not 甲），不得并入复合名 —— 反例保护由
+                    # `full_identifier[_lead_len:] not in user_definitions` 承担。
                     if (_lead_kw and 0 < _lead_len < len(full_identifier)
-                            and _lead_kw not in _OPERATOR_KEYWORDS
+                            and _lead_kw not in (_OPERATOR_KEYWORDS
+                                                 - self._P0A_UNARY_PREFIX_KW)
+                            and (_lead_kw not in self._P0A_UNARY_PREFIX_KW
+                                 or full_identifier[_lead_len:] not in user_definitions)
                             and not (any(_c in _op_hints for _c in full_identifier)
                                      and self._p0a_contains_sep(source, pos, len(full_identifier)))):
                         _tokens_append(_Token(_TokenType.IDENTIFIER, full_identifier, line, current_col))
@@ -3244,17 +3253,29 @@ class Lexer:
         #   证据：lightharness/_antirun_r32_t34_MERGE_WHOLE逐条验证.py /
         #         lightharness/_r32_t34_g3_边界门.py /
         #         lightharness/_task3_R32_MERGE_WHOLE第一批精简.md。
-        # 保留 3 条 = 真护栏（撤后边界形态被关键字劈开，G1/G3 打红，逐条留证）：
-        #   整理模型消息 —— 传参位被 模（嵌入扫描关键字）劈成 整理 + 模 + 型消息；
-        #   非空块     —— 函数名/传参位被 非（逻辑运算符）劈成 非 + 空块；
-        #   记录类型   —— G1 打红 2 文件；函数名位被 类型 硬语句关键字劈成 记录 + 类型。
+        # 【R35 精简】3 → 2：非空块 由通用规则接住，已移除 ——
+        #   通用规则（一元前缀运算符类别 _P0A_UNARY_PREFIX_KW + R21 闸门3 例外 +
+        #   「余部是已声明名字则仍是操作数」收窄）：无空格 `非X` 在语料中恒为复合名
+        #   （非空 259/非法 206/非零 164/非值 125 处…），仅当余部是已声明名字时
+        #   才是 `not X` 表达式。三重判据全通过：G1 全语料 864 文件零变化、
+        #   G2 边界 .light rc=0、G3 五种边界形态 token 流一致，反向形态零变化。
+        #   证据：lightharness/_r35_g1_engine.py / _r35_g3_边界门.py /
+        #         _r35_probe_反向形态.py / _task2_R35_非空块通用化.md。
+        # 保留 2 条 = 真护栏（通用化尝试均失败，逐条留证）：
+        #   整理模型消息 —— 传参位被 模 劈成 整理 + 模 + 型消息；模 是**真取模运算符**
+        #     （test_R24_运算符单字守卫.light 的 `甲模乙` 实证），通用规则 GR-1 打红
+        #     6 文件、GR-1c（两侧均≥2字收窄）仍打红 1 文件，故不可通用化；
+        #   记录类型   —— 撤后 G1 打红 2 文件；函数名位被 类型 硬语句关键字劈成
+        #     记录 + 类型。与 期望类型/参数类型 **结构不可分**（同为「非关键字前缀 +
+        #     类型」），GR-3 打红 4 个 stdlib 文件；GR-3c（仅调用语境）G1=0 但
+        #     G3-F5 传参位仍 FAIL，按铁律保留。
         # R30 任务3：记录类型（记录 + 类型，类型 是 _P0A_HARD_STMT / _P0A_SUFFIX_SPLIT_KW，
         # 撤 CCW 后整串被关键字「类型」劈成 记录 + 类型）。走「精确整串」口径而非
         # 「词头+余部」口径，故零副作用：语料里 数类型/内容类型/分类内容类型/注册事件类型
         # 等 X类型 复合词形态众多且余部各不相同，任何「类型 前向并入」类规则都会波及；
         # 只有整串**恰好**等于 记录类型 时才并入。证据见
         # lightharness/_task3_R30_零除幂次记录类型通用化.md。
-        '整理模型消息', '非空块',
+        '整理模型消息',
         '记录类型',
     })
     # R33（2026-09-15）：_P0A_NEVER_SPLIT 4 字（模/步/至/到）逐条三重判据验证，
@@ -3274,6 +3295,13 @@ class Lexer:
     # 单字硬语句（类/设/己）走通用词首切分；
     # 其中 `设`/`己` 另属 _TRAILING_ALIAS_CLASS，仅在**词尾**并入标识符（见下）。
     _P0A_HARD_STMT = frozenset({'如果', '那么', '否则', '否则如果', '段落', '函数', '类型', '捕获', '等待'})
+    # R35 任务2：一元前缀运算符（目前仅 `非`）。与二元中缀运算符（加/减/乘/除/等于/
+    # 大于/小于/包含/与/或/且）语义不同——后者在表达式中必须两侧切出操作数，而 `非`
+    # 是前缀，无空格 `非X` 在语料中恒为**复合名**（非空 259 / 非法 206 / 非零 164 /
+    # 非值 125 / 非负整数 67 处…），而非 `not X` 表达式。R21 词首闸门据此对它开例外。
+    # 收窄：余部若是**已声明名字**（user_definitions）则仍是操作数（`非甲` = not 甲），
+    # 见 _tokenize_chinese_sequence R21 分支，保证反向形态零变化。
+    _P0A_UNARY_PREFIX_KW = frozenset({'非'})
 
     # 词首必须切分的语句动词（R23任务2）：`打印` 的无空格 print 语句（打印甲/打印结果）
     # 是一等写法（本文件顶部 docstring「元数驱动参数收集」），词首遇更长汉字序列时
