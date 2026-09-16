@@ -1071,6 +1071,8 @@ class LightCompiler:
         # 重置错误状态（compile 可被重复调用，避免跨会话累积）
         self.errors = []
         self._typed_errors = []
+        # L-166：告警同样按次重置，否则重复编译同一编译器实例会累积重复告警
+        self.warnings = []
 
         # 计算源内容哈希（用于缓存检索）
         source_hash = _compiler_cache.content_hash(source) if use_cache else None
@@ -1109,6 +1111,9 @@ class LightCompiler:
             'ast': our_ast,
             'inferencer': self._inferencer,
             'errors': list(self.errors),
+            # L-166：把编译告警一并返回（此前 warnings 只进不出，L-068 的告警
+            # 也一直无人可见）。纯新增键，不影响既有调用方。
+            'warnings': list(self.warnings),
         }
 
     # ------------------------------------------------------------------
@@ -1326,6 +1331,16 @@ class LightCompiler:
             _pw = getattr(self._parser, 'warnings', None)
             if _pw:
                 self.warnings.extend(_pw)
+            # L-166：影子变量告警——函数内给模块级同名变量赋值却没声明『全局』。
+            # 这是 L-165 那类「静默写不回模块级变量」缺陷的唯一静态可检信号。
+            # 默认开启（环境变量 LIGHT_WARN_GLOBAL_SHADOW=0 可关）；
+            # 检查本身是纯函数且容错，任何异常都不能影响正常编译。
+            if os.environ.get('LIGHT_WARN_GLOBAL_SHADOW', '1') != '0':
+                try:
+                    from scope_shadow_check import check_global_shadow
+                    self.warnings.extend(check_global_shadow(raw))
+                except Exception:  # noqa: BLE001 —— 告警失败绝不能阻断编译
+                    pass
             return raw
         except ParseError as e:
             # 提取行号/列号信息
