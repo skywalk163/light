@@ -2299,10 +2299,48 @@ class Lexer:
             # 绝不被下面的「`X为` 赋值尾巴切分」拆开（否则 `段落 断言为真 接收:` 会被切成
             # `断言` + `为` + `真`，函数定义崩）。下方 :2406 的 user_definitions 分支在
             # 本块之后才执行，故此处必须显式前置。用户定义的**调用点**另由 `_emb_iscall` 守护。
+            # 修复（语句起始豁免 + 结构分隔符豁免，修复 R19 连写误吞，见诊断报告）：
+            # 触发豁免、交还常规切分的前提——整串是「语句关键字 + 后续结构」的短语，而非
+            # 「标识符黏着触发字(为/返回/尝试)」的复合名。判定：
+            #   ① 语句起始 且 整串含 ≥2 个关键字 token（多关键字短语，如 如果…那么返回…、
+            #      返回甲加乙=返回+加）——`返回X`（返回+单纯名，仅 1 关键字）仍按复合名合并，
+            #      与编译器对 `返回<名>` 的预期一致，不被误切；
+            #   ② 整串含「始终切分」的结构分隔符（之/在/于/与），如 遍 X 之为 Y。
+            # 函数调用名（断言为真(…)/合并为(…)，整串后紧接 '('）即使命中也不豁免，保持整串合并。
+            _emb_tail0 = pos + len(full_identifier)
+            _emb_iscall = _emb_tail0 < len(source) and source[_emb_tail0] == '('
+            _emb_at_stmt = self._at_statement_start(source, pos)
+            _emb_has_sep = any(_c in full_identifier for _c in ('之', '在', '于', '与'))
+            # 关键字计数：统计整串中由 _match_keyword 切出的关键字 token 数
+            _kw_count = 0
+            _scan_i = pos
+            _scan_end = pos + len(full_identifier)
+            while _scan_i < _scan_end:
+                _kw, _kl = self._match_keyword(source, _scan_i)
+                if _kw and _kl > 0:
+                    _kw_count += 1
+                    _scan_i += _kl
+                else:
+                    _scan_i += 1
+            _emb_skip = ((_emb_at_stmt and _kw_count >= 2) or _emb_has_sep) and not _emb_iscall
+            # 词首命中触发字（返回/设/尝试/为）→ 整串是「语句关键字 + 后续表达式」
+            # （如 返回斐波那契(...) = 返回 / 斐波那契 / (...)），绝非「标识符黏着触发字」的
+            # 复合名，交还常规切分。真正的函数名（断言为真/合并为/判定为空）触发字在词中，不受影响。
+            _emb_head_kw, _emb_head_len = self._match_keyword(source, pos)
+            _emb_head_trigger = _emb_head_kw in _EMBED_MAX_MATCH_KEYWORDS
+            # R36 修复（词中/词首「返回」豁免，对齐父版 500743bc）：
+            # `返回` 恒为「返回 表达式」关键字，含 `返回` 的标识符（返回表/返回文本/返回包装器/
+            # 那么返回甲加乙/返回斐波那契(…)）一律不在此处合并，交还常规切分（返回 与后续表达式
+            # 各自成 token），否则整串被吞成标识符 → 编译期 `name 'X返回Y' is not defined`。
+            # 注意：仅排除 `返回`，`为`/`尝试` 仍按既有规则处理（断言为真/合并为/尝试记录 等）。
+            _emb_has_return = '返回' in full_identifier
             if (full_identifier not in _ALL_KEYWORDS_WITH_VERBS
                     and len(full_identifier) > 1
                     and full_identifier not in user_definitions
-                    and any(_ek in full_identifier for _ek in _EMBED_MAX_MATCH_KEYWORDS)):
+                    and any(_ek in full_identifier for _ek in _EMBED_MAX_MATCH_KEYWORDS)
+                    and not _emb_skip
+                    and not _emb_head_trigger
+                    and not _emb_has_return):
                 _emb_hit = False
                 _emb_split_done = False
                 # R20 任务1：`为`/`返回`/`尝试` 嵌于更长汉字串时的处理。
@@ -2317,8 +2355,6 @@ class Lexer:
                 # 整串后「紧随」'('（中间无空格）→ 函数调用语境，整串即函数名，绝不切分。
                 # 否则 `断言为真(...)` 会被 (a) 规则切成 `断言为` + `真`（`真` 作语句开头）→ 解析崩。
                 # 只用「紧随」而非「跳过空白后」——`设 X为 (甲 + 乙)` 这类括号值表达式不得误判为调用。
-                _emb_tail0 = pos + len(full_identifier)
-                _emb_iscall = _emb_tail0 < len(source) and source[_emb_tail0] == '('
                 _emb_value_heads = frozenset({'空', '真', '假'})
                 for _ek in _EMBED_MAX_MATCH_KEYWORDS:
                     _ep = full_identifier.find(_ek)
@@ -2417,6 +2453,14 @@ class Lexer:
                         current_col += len(full_identifier)
                         continue
                     _lead_kw, _lead_len = _match_kw(source, pos)
+                    # R36 修复（词首「返回」豁免，配合语句起始豁免修复 R19 连写误吞）：
+                    # `返回` 是「返回 表达式」关键字，其后恒为表达式（函数调用 / 标识符），
+                    # 不得与后续标识符粘连成复合名，否则编译期 `name '返回X' is not defined`。
+                    # 实证：examples/advanced.light 第11行「返回斐波那契(数减一)...」被 R21
+                    # 在 `_ctx_call`（词后紧随 '('）分支并成 IDENTIFIER → NameError。
+                    # 仅排除 `返回`、不 blanket 排除 _EMBED_MAX_MATCH_KEYWORDS，
+                    # 以免误切 `尝试记录` 等同集合法复合名（其词首 `尝试` 必须保留粘连）。
+                    _lead_kw_is_return_head = (_lead_kw == '返回')
                     # R24 任务1：第 4 道闸门 —— 整串不得含**成员/关系分隔符**
                     # （_P0A_SEP：之/在/于/为/与，声明为「始终切分」）。
                     #
@@ -2452,6 +2496,8 @@ class Lexer:
                             and _lead_kw not in _OPERATOR_KEYWORDS_NO_UNARY_PREFIX
                             and (_lead_kw not in self._P0A_UNARY_PREFIX_KW
                                  or full_identifier[_lead_len:] not in user_definitions)
+                            and not _lead_kw_is_return_head
+                            and '返回' not in full_identifier
                             and not (any(_c in _op_hints for _c in full_identifier)
                                      and self._p0a_contains_sep(source, pos, len(full_identifier)))):
                         _tokens_append(_Token(_TokenType.IDENTIFIER, full_identifier, line, current_col))
