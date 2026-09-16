@@ -40,6 +40,12 @@ _OPERATOR_KEYWORDS = frozenset(OPERATOR_VERBS) | frozenset({
     '等于', '不等于', '大于', '小于', '大于等于', '小于等于', '不大于', '不小于', '包含',
 })
 
+# R36 任务3：预计算「运算符关键字 − 一元前缀关键字」差集为模块常量，消除 R21 词首
+# 闸门3 在**每次成词判定**时重复执行的集合差运算（`_OPERATOR_KEYWORDS - 非`）。
+# 语义必须随 `_P0A_UNARY_PREFIX_KW` 同步维护；此处用字面量写法，文末 import 自校验
+# 断言④兜底（见 L39xx），若未来 `_P0A_UNARY_PREFIX_KW` 增删成员必须同步更新本行。
+_OPERATOR_KEYWORDS_NO_UNARY_PREFIX = _OPERATOR_KEYWORDS - frozenset({'非'})
+
 # 标识符安全关键字：这些关键字常作为复合标识符的后缀（如"处理函数"、"输出格式"），
 # 在分词时不应触发拆分。即：当这些关键字出现在标识符中间或末尾时，应作为标识符的一部分。
 # 【R23任务2 已删除】IDENTIFIER_SAFE_KEYWORDS 逐词白名单（原 函数/输出/模块/打印/标准库 5条）
@@ -2443,8 +2449,7 @@ class Lexer:
                     # （`非甲` = not 甲），不得并入复合名 —— 反例保护由
                     # `full_identifier[_lead_len:] not in user_definitions` 承担。
                     if (_lead_kw and 0 < _lead_len < len(full_identifier)
-                            and _lead_kw not in (_OPERATOR_KEYWORDS
-                                                 - self._P0A_UNARY_PREFIX_KW)
+                            and _lead_kw not in _OPERATOR_KEYWORDS_NO_UNARY_PREFIX
                             and (_lead_kw not in self._P0A_UNARY_PREFIX_KW
                                  or full_identifier[_lead_len:] not in user_definitions)
                             and not (any(_c in _op_hints for _c in full_identifier)
@@ -3919,6 +3924,12 @@ assert _P0A_HEAD_MERGE_SINGLE == (
     'R26/R27/R28 词首并入类别与 CS 移除合集漂移（R33 追加 {步,至,到}：来自 NEVER_SPLIT 撤除后入 HM）：%s'
     % sorted(_P0A_HEAD_MERGE_SINGLE
              ^ (_R26_CS_REMOVED | _R27_CS_REMOVED | _R28_CS_REMOVED | {'步', '至', '到'})))
+# 自校验④（R36 任务3）：预计算差集常量必须随 `_P0A_UNARY_PREFIX_KW` 同步。
+assert _OPERATOR_KEYWORDS_NO_UNARY_PREFIX == (
+    _OPERATOR_KEYWORDS - Lexer._P0A_UNARY_PREFIX_KW), (
+    'R36 预计算差集漂移：_OPERATOR_KEYWORDS_NO_UNARY_PREFIX 未随 '
+    '_P0A_UNARY_PREFIX_KW 同步更新；当前差集=%s'
+    % sorted(_OPERATOR_KEYWORDS - Lexer._P0A_UNARY_PREFIX_KW))
 
 # ── R27 任务1：A类 DUAL 双位字词首并入正面规则（类别定义）────────────────
 # 【动机】CS 16字 = A类 DUAL 8字 + B类 F∩CS 8字。B类词首并入已由

@@ -18,24 +18,51 @@ from tokens import Token, TokenType
 
 
 def test_basic_keywords():
-    """测试基本关键字识别"""
+    """测试基本关键字识别
+
+    R36 任务2 重写（方案B）：原用例用无空格粘连写法 `设甲为三。` 并断言
+    tokens[0]==KEYWORD('设')、tokens[1]==IDENTIFIER('甲')，那是旧版确定性切词的
+    行为。现词法中 `为` 属于 `_EMBED_MAX_MATCH_KEYWORDS`（为/返回/尝试，见
+    lexer.py 的「任务1（L-084/L-092/L-137）：嵌入关键字最大匹配」分支），黏在更长
+    汉字游程里必为标识符的一部分，故 `设甲为三` 整体成一个 IDENTIFIER。
+
+    根因是测试假设过时，不是实现回归——按任务铁律不为此修改 lexer.py。
+    原始意图（关键字 设/为 被识别、操作数 甲 是标识符）在规范写法
+    （关键字与操作数之间带空格）下仍然成立，故用规范写法重写，并额外钉住
+    无空格粘连形态的当前行为，防止静默漂移。
+    """
     lexer = Lexer()
-    
-    # 测试赋值关键字"设"（旧"定义"已迁移为"设"）
-    tokens = lexer.tokenize("设甲为三。")
-    print("测试1: 设甲为三。")
+
+    # 规范写法：设 甲 为 三。 → 设(KEYWORD) 甲(IDENTIFIER) 为(KEYWORD) 三(CHINESE_NUM) 。
+    tokens = lexer.tokenize("设 甲 为 三。")
+    print("测试1: 设 甲 为 三。")
     for tok in tokens:
         if tok.type != TokenType.EOF:
             print(f"  {tok}")
-    
+
     assert tokens[0].type == TokenType.KEYWORD
     assert tokens[0].value == "设"
     print("  [OK] '设' 被正确识别为关键字")
-    
+
     assert tokens[1].type == TokenType.IDENTIFIER
     assert tokens[1].value == "甲"
     print("  [OK] '甲' 被正确识别为标识符")
-    
+
+    # 赋值关键字 为 是「设 X 为 Y」的第三个 token（原用例漏断言，补齐）
+    assert tokens[2].type == TokenType.KEYWORD
+    assert tokens[2].value == "为"
+    print("  [OK] '为' 被正确识别为赋值关键字")
+
+    assert tokens[3].type == TokenType.CHINESE_NUM
+    assert tokens[3].value == 3
+    print("  [OK] '三' 被识别为中文数字")
+
+    # R36 钉现状：无空格粘连形态整体成词（`为` 被嵌入关键字最大匹配并入标识符）
+    glued = [t.value for t in lexer.tokenize("设甲为三。") if t.type != TokenType.EOF]
+    assert glued == ["设甲为三", "。"], \
+        f"R36 钉现状失败：无空格 设甲为三 应整体成一个标识符，得到 {glued}"
+    print("  [OK] 无空格粘连形态整体成词（现状已钉住）")
+
     print()
 
 
@@ -115,25 +142,51 @@ def test_if_statement():
 
 
 def test_multiple_keywords():
-    """测试多个连续关键字"""
+    """测试多个连续关键字
+
+    R36 任务2 重写（方案B）：原用例写 `遍历列表映射筛选`（四个词粘连），断言
+    keywords 含 遍历/映射/筛选。现词法只在**独立汉字游程的词首**切关键字：
+    `列表` 不是关键字（不在 _ALL_KEYWORDS_WITH_VERBS 中），于是从 列表 起的那整段
+    游程整体成一个 IDENTIFIER，把 映射/筛选 吞在里面——实测输出为
+    [KEYWORD 遍历, IDENTIFIER 列表映射筛选]。
+
+    根因是原用例把非关键字 `列表` 混进了「连续关键字」序列，假设过时，
+    不是实现回归（同文件 test_keyword_priority/test_if_statement 在规范写法下
+    已覆盖关键字优先匹配）。故改为真正的连续关键字序列，并单独钉住
+    「非关键字保持标识符」这一原用例注释里点明的意图。
+    """
     lexer = Lexer()
-    
-    # 遍历列表映射筛选
-    tokens = lexer.tokenize("遍历列表映射筛选")
-    print("测试5: 遍历列表映射筛选")
+
+    # 真正的连续关键字：遍历映射 → 遍历(KEYWORD) 映射(KEYWORD)
+    tokens = lexer.tokenize("遍历映射。")
+    print("测试5a: 遍历映射。")
     for tok in tokens:
         if tok.type != TokenType.EOF and tok.type not in (TokenType.NEWLINE,):
             print(f"  {tok}")
-    
+
     keywords = [t.value for t in tokens if t.type == TokenType.KEYWORD]
     print(f"  识别到的关键字: {keywords}")
-    
-    # 注意："列表"不是关键字，应该作为标识符
+
     assert "遍历" in keywords
     assert "映射" in keywords
-    assert "筛选" in keywords
-    print("  [OK] 多个关键字被正确识别")
-    
+    print("  [OK] 连续关键字 遍历/映射 都被正确识别")
+
+    # 另一组连续关键字：映射 筛选
+    keywords2 = [t.value for t in lexer.tokenize("映射 筛选。")
+                 if t.type == TokenType.KEYWORD]
+    assert "映射" in keywords2 and "筛选" in keywords2, \
+        f"映射/筛选 应都被识别为关键字，得到 {keywords2}"
+    print("  [OK] 连续关键字 映射/筛选 都被正确识别")
+
+    # 原用例注释点明的意图：列表 不是关键字，应保持标识符
+    toks = lexer.tokenize("遍历 列表。")
+    ids = [t.value for t in toks if t.type == TokenType.IDENTIFIER]
+    kws = [t.value for t in toks if t.type == TokenType.KEYWORD]
+    assert "列表" in ids, f"'列表' 应作为标识符，得到 ids={ids}"
+    assert "列表" not in kws, f"'列表' 不应被当作关键字，得到 kws={kws}"
+    assert "遍历" in kws
+    print("  [OK] 非关键字 '列表' 保持标识符，'遍历' 仍是关键字")
+
     print()
 
 
@@ -186,24 +239,50 @@ def test_symbols():
 
 
 def test_complex_expression():
-    """测试复杂表达式"""
+    """测试复杂表达式
+
+    R36 任务2 重写（方案B）：原用例写 `设甲为三加五。`（无空格粘连），断言
+    keywords 含 设/为/加。实测输出是单个 IDENTIFIER('设甲为三加五')——`为` 属于
+    `_EMBED_MAX_MATCH_KEYWORDS`，黏在更长汉字游程里整体并入标识符（L-084/L-092/
+    L-137 修复）。根因是测试假设过时，不是实现回归，按铁律不改 lexer.py。
+
+    原始意图（一条赋值语句里同时出现 设/为/加 三个关键字）在规范写法
+    `设 甲 为 三 加 五。` 下完全成立，故用规范写法重写；并额外钉住两个易误判的
+    现状：`三加五` 粘连时整体成词（中缀运算符不切开中文数字游程）、
+    `三 加 五` 带空格时才切成 三/加/五。
+    """
     lexer = Lexer()
-    
-    # 设甲为三加五。
-    tokens = lexer.tokenize("设甲为三加五。")
-    print("测试8: 设甲为三加五。")
+
+    # 规范写法：设 甲 为 三 加 五。
+    tokens = lexer.tokenize("设 甲 为 三 加 五。")
+    print("测试8: 设 甲 为 三 加 五。")
     for tok in tokens:
         if tok.type != TokenType.EOF and tok.type not in (TokenType.NEWLINE,):
             print(f"  {tok}")
-    
+
     keywords = [t.value for t in tokens if t.type == TokenType.KEYWORD]
     print(f"  识别到的关键字: {keywords}")
-    
+
     assert "设" in keywords
     assert "为" in keywords
     assert "加" in keywords
-    print("  [OK] 复杂表达式被正确解析")
-    
+    print("  [OK] 复杂表达式里的 设/为/加 三个关键字都被正确识别")
+
+    # 值部分：三(CHINESE_NUM) 加(KEYWORD) 五(CHINESE_NUM)
+    values = [t.value for t in tokens if t.type == TokenType.CHINESE_NUM]
+    assert values == [3, 5], f"中文数字应为 [3, 5]，得到 {values}"
+    print("  [OK] 中文数字 三/五 被正确识别为值")
+
+    # R36 钉现状：数字与运算符粘连时整体成词（不加空格不会切成 三+加+五）
+    glued = [t.value for t in lexer.tokenize("设 甲 为 三加五。")
+             if t.type != TokenType.EOF]
+    assert "三加五" in glued, \
+        f"R36 钉现状失败：三加五 粘连应整体成词，得到 {glued}"
+    assert "加" not in [t.value for t in lexer.tokenize("设 甲 为 三加五。")
+                        if t.type == TokenType.KEYWORD], \
+        "R36 钉现状失败：三加五 粘连时 加 不应被切出为关键字"
+    print("  [OK] 数字+运算符粘连时整体成词（现状已钉住）")
+
     print()
 
 
