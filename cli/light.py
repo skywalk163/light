@@ -95,7 +95,7 @@ def _ast_antlr(source: str):
 # SRC 后端（旧版）
 # ═══════════════════════════════════════════════════════════════════
 
-def _warn_shadow_scope(module, file_label: str = '') -> None:
+def _warn_shadow_scope(module, file_label: str = '', source=None) -> None:
     """L-166：透出「影子变量」编译告警（函数内写模块级同名变量但未声明 全局）。
 
     L-165 那类缺陷（模块级变量被函数内的同名赋值静默遮蔽，写不回去）在编译期
@@ -103,13 +103,17 @@ def _warn_shadow_scope(module, file_label: str = '') -> None:
 
     输出到 **stderr**（stdout 是程序输出，不能被污染）；
     环境变量 `LIGHT_WARN_GLOBAL_SHADOW=0` 可关闭（CI 需要绝对干净输出时用）。
+
+    :param source: 源码文本。**必须传**——抑制标记是注释，AST 不保留注释，没有源码
+        就无法判断某行是否带 `# 抑制L166`，抑制功能会静默失效（表现为「明明写了
+        抑制却还在告警」）。
     """
     import os as _os
     if _os.environ.get('LIGHT_WARN_GLOBAL_SHADOW', '1') == '0':
         return
     try:
         from scope_shadow_check import check_global_shadow
-        for _w in check_global_shadow(module, file_label):
+        for _w in check_global_shadow(module, file_label, source=source):
             print(_w, file=sys.stderr)
     except Exception:  # noqa: BLE001 —— 告警绝不能阻断编译
         pass
@@ -133,7 +137,7 @@ def _compile_src(source: str) -> str:
     for _w in getattr(parser, 'warnings', []) or []:
         print(_w, file=sys.stderr)
     # L-166：影子变量告警（见 _warn_shadow_scope 的说明）
-    _warn_shadow_scope(module)
+    _warn_shadow_scope(module, source=source)
 
     generator = PythonCodeGenerator()
     return generator.generate(module, is_main=True)
@@ -216,7 +220,7 @@ def _resolve_local_imports(source: str, source_dir: str) -> dict:
 
         # L-166：依赖模块同样做影子变量检查（L-165 就发生在被导入的
         # mock大模型服务器.light 里，只查主文件会漏掉它）
-        _warn_shadow_scope(mod_module, mod_path.name)
+        _warn_shadow_scope(mod_module, mod_path.name, source=mod_src)
 
         # 编译
         gen = PythonCodeGenerator()

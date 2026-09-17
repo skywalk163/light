@@ -1338,7 +1338,7 @@ class LightCompiler:
             if os.environ.get('LIGHT_WARN_GLOBAL_SHADOW', '1') != '0':
                 try:
                     from scope_shadow_check import check_global_shadow
-                    self.warnings.extend(check_global_shadow(raw))
+                    self.warnings.extend(check_global_shadow(raw, source=source))
                 except Exception:  # noqa: BLE001 —— 告警失败绝不能阻断编译
                     pass
             return raw

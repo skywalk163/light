@@ -29,8 +29,19 @@
 * 若「函数体内赋值名 ∈ 模块级名」且「不在 `全局` 声明里」且「不是形参」，给出告警。
 
 这是**建议性**告警而非错误：函数内刻意用同名局部变量遮蔽模块级变量是完全合法的
-写法，所以本检查默认由环境变量 `LIGHT_WARN_GLOBAL_SHADOW` 控制（见 compiler.py
+写法，所以本检查默认由环境变量 `LIGHT_WARN_GLOBAL_SHADOW` 控制（见 cli/light.py
 的接入点），便于在 CI 里按需开启，不污染既有构建输出。
+
+抑制（第46轮新增）
+------------------
+合法的「本意就是局部变量」会造成永久噪声，因此支持注释抑制：
+
+    # 抑制L166                      ← 放在段落定义行的上一行：抑制整个段落
+    段落 造宿主:
+      设 文件表 为 []              # 抑制L166   ← 行尾：只抑制这一行
+
+段落级与行级都识别，标记统一为 `# 抑制L166`（大小写敏感，行内任意位置出现即生效）。
+抑制**只在调用方传入源码 `source` 时**才生效——AST 不保留注释，没有源码就无法判断。
 
 刻意不做的事
 ------------
@@ -181,14 +192,44 @@ def _param_names(func: Paragraph) -> Set[str]:
     return names
 
 
-def check_global_shadow(module: Module, filename: str = '') -> List[str]:
+#: 抑制标记。出现在这条赋值行（或其上一行）= 行级抑制；
+#: 出现在段落定义行（或其上一行）= 整个段落抑制。
+抑制标记 = '# 抑制L166'
+
+
+def _suppress_lines(source: Any) -> Dict[int, str]:
+    """把源码切成 {行号(1-based): 行文本}；无源码时返回空字典（抑制功能关闭）。"""
+    if not source:
+        return {}
+    if isinstance(source, (list, tuple)):
+        lines = list(source)
+    else:
+        lines = str(source).splitlines()
+    return {i + 1: ln for i, ln in enumerate(lines)}
+
+
+def _suppressed(sup: Dict[int, str], line: int) -> bool:
+    """行 line 或其上一行带抑制标记 → True。"""
+    if not sup or not line:
+        return False
+    for n in (line, line - 1):
+        if 抑制标记 in sup.get(n, ''):
+            return True
+    return False
+
+
+def check_global_shadow(module: Module, filename: str = '', source: Any = None) -> List[str]:
     """检查「函数内写模块级同名变量但未声明 全局」的影子变量。
 
-    返回告警字符串列表（可能为空）。纯函数，不改动 AST、不抛异常。
+    :param source: 源码文本（或行列表）。**传入才启用注释抑制**——AST 不保留注释，
+        没有源码就无法判断某行是否带 `# 抑制L166`。
+    :return: 告警字符串列表（可能为空）。纯函数，不改动 AST、不抛异常。
     """
     warnings: List[str] = []
     if not isinstance(module, Module):
         return warnings
+
+    sup = _suppress_lines(source)
 
     top = list(getattr(module, 'statements', None) or [])
     module_writes = _assigned_names(top)
@@ -197,6 +238,9 @@ def check_global_shadow(module: Module, filename: str = '') -> List[str]:
 
     for st in top:
         if not isinstance(st, Paragraph):
+            continue
+        # 段落级抑制：段落定义行或其上一行带标记 → 整个段落跳过
+        if _suppressed(sup, getattr(st, 'line', 0)):
             continue
         declared = _declared_global_names(st.body)
         params = _param_names(st)
@@ -207,6 +251,9 @@ def check_global_shadow(module: Module, filename: str = '') -> List[str]:
         )
         for name in shadowed:
             line = assigned[name] or getattr(st, 'line', 0)
+            # 行级抑制：赋值行或其上一行带标记 → 跳过这一条
+            if _suppressed(sup, line):
+                continue
             where = f'{filename}:{line}' if filename else f'第{line}行'
             warnings.append(
                 f"⚠ 编译警告（L-166 影子变量）：{where} 段落『{st.name}』内给『{name}』赋值，"
