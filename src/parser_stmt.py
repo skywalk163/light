@@ -554,7 +554,25 @@ class ParserStmtMixin:
             return self._parse_type_alias()
 
         # 动词调用作为独立语句
-        if tok.type == TokenType.KEYWORD and tok.value in VERB_ARITY:
+        # L-170：核心动词（VERB_ARITY）被当作变量名用于「下标/成员赋值目标」时，
+        # 必须改走赋值路径——否则 `映射[k] 为 X` / `映射之项 为 1` / `映射.项 为 1`
+        # 会被静默编译成比较表达式 `(映射[k] == X)`，赋值静默丢失、运行期无报错。
+        # 仅当其后构成「动词名 [下标]… 为/等于/=」或「动词名 之/的/dot 成员… 为/等于/=」
+        # 或「动词名 为/等于/=」时才改道；正常的动词调用（如 `映射(迭代, 函数)`，
+        # 下一个 token 是 LPAREN）不在此集合内，照常走表达式语句。
+        # ⚠️ 关键：deterministic lexer 会把「已被声明过的动词名」（如 `设 映射 为 {}`
+        # 之后的 映射）重分类为 **IDENTIFIER**，故 KEYWORD 与 IDENTIFIER 两种 token
+        # 类型都必须覆盖，否则真实用法里仍会静默变比较。
+        if (tok.type in (TokenType.KEYWORD, TokenType.IDENTIFIER)
+                and tok.value in VERB_ARITY):
+            _nxt = self._peek(1)
+            if _nxt is not None and (
+                    _nxt.type == TokenType.LBRACKET
+                    or _nxt.type == TokenType.DOT
+                    or (_nxt.type == TokenType.KEYWORD
+                         and _nxt.value in ('之', '的', '为', '等于'))
+                    or _nxt.type == TokenType.EQUALS):
+                return self._parse_assignment_stmt()
             return self._parse_expr_stmt()
         
         # stdlib 函数调用作为独立语句（不再是 KEYWORD，走 IDENTIFIER 路径）
@@ -1158,10 +1176,22 @@ class ParserStmtMixin:
         # 保存初始位置用于完整回退
         saved_pos = self.pos
         
-        # 标识符
-        name_tok = self._consume(TokenType.IDENTIFIER)
+        # 标识符 / 核心动词作变量名（L-170：VERB_ARITY 成员可作变量名，
+        # 例如 `映射`、`筛选`；`设 映射 为 {}` 一向合法，裸 `映射[k] 为 X` 也应合法）。
+        # 动词调用语句分支（_parse_statement）已把「动词名 + 下标/成员/赋值符」的形态
+        # 路由到这里，所以这里要能吃掉 KEYWORD 类型的动词名。
+        _tok0 = self._current()
+        if _tok0.type == TokenType.IDENTIFIER:
+            name_tok = self._consume(TokenType.IDENTIFIER)
+        elif _tok0.type == TokenType.KEYWORD and _tok0.value in VERB_ARITY:
+            name_tok = self._consume(TokenType.KEYWORD)
+        else:
+            self._error(
+                f"赋值目标必须是标识符或可作变量名的动词名，但得到「{_tok0.value}」。",
+                _tok0.line, _tok0.col, _tok0.value
+            )
         name = name_tok.value
-        
+
         # 检查属性赋值：obj.attr / obj之attr / obj的attr 等于/为/= 值（v3.4 新增）
         # 支持链式：obj.a.b.c = value
         #
