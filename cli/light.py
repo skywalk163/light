@@ -140,7 +140,13 @@ def _compile_src(source: str) -> str:
     _warn_shadow_scope(module, source=source)
 
     generator = PythonCodeGenerator()
-    return generator.generate(module, is_main=True)
+    code = generator.generate(module, is_main=True)
+    # L-172：透出 codegen 侧编译告警（入口静默阻断等）。
+    # 输出到 stderr（stdout 只放程序输出）；`LIGHT_WARN_ENTRY=0` 可关闭。
+    if os.environ.get('LIGHT_WARN_ENTRY', '1') != '0':
+        for _w in getattr(generator, 'compile_warnings', None) or []:
+            print(_w, file=sys.stderr)
+    return code
 
 
 def _resolve_module_path(mod_name: str, base_dir: str):

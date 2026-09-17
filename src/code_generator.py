@@ -1033,6 +1033,7 @@ class PythonCodeGenerator:
         self._pending_assign_targets = set()  # 重置赋值目标名集合（L-019）
         self._ffi_user_types = {}  # 重置 FFI 用户自定义类型注册表
         self._entry_call = None  # L-070：重置入口调用（防止跨 generate 调用污染）
+        self.compile_warnings = []  # L-172：重置编译期告警（入口静默阻断告警等）
         
         # 预扫描：显式 import 进来的名字优先级高于内置函数映射
         self._register_imported_names(module)
@@ -1353,13 +1354,27 @@ class PythonCodeGenerator:
         # → 运行期 NameError。
         if is_main:
             entry = self._find_entry_paragraph(module)
-            if (entry is not None
-                    and self._paragraph_arity(entry) == 0
-                    and not self._module_invokes_entry(module, entry)):
-                self._entry_call = (self._sanitize_name(entry.name),
-                                    '异步' in (entry.modifiers or []))
-                if self._entry_call[1]:
-                    self._needs_asyncio = True
+            if entry is not None:
+                arity = self._paragraph_arity(entry)
+                if arity > 0:
+                    # ── L-172（静默阻断，最危险的一类）──
+                    # 入口段落带形参 → 无法确定实参，L-070 不自动调用。此前的实现
+                    # 是**静默跳过**：产物照常生成、模块级代码照常执行、进程 rc=0、
+                    # 不报错、入口内容一个字都不打印。使用者只看到「程序没输出」，
+                    # 得不到任何线索。这里改为编译期告警（写 stderr，不改变产物），
+                    # 让「入口没被调用」这件事在编译期就可见。
+                    self.compile_warnings.append(
+                        f'警告[L-172]：入口段落「{entry.name}」声明了 {arity} 个形参，'
+                        f'本后端（src）不自动调用带形参的入口——请显式写 `{entry.name}(...)` 调用，'
+                        f'否则本程序将静默不执行入口（rc=0、无报错、无输出）。'
+                        f'注：原生腿（llvm）对带形参入口会按 argc/argv 传参自动调用，'
+                        f'两腿在此存在语义分叉（详见 _task1_R53_L172诊断.md §4）。'
+                    )
+                elif not self._module_invokes_entry(module, entry):
+                    self._entry_call = (self._sanitize_name(entry.name),
+                                        '异步' in (entry.modifiers or []))
+                    if self._entry_call[1]:
+                        self._needs_asyncio = True
 
         # 如果第一行没有 from abc import ABC, abstractmethod，在前面插入
         # 查找第一个非空且非注释行的位置，在后面插入
@@ -1488,8 +1503,14 @@ class PythonCodeGenerator:
             for v in list(d.values()):
                 yield v
 
-    def _node_calls_name(self, node, name: str, depth: int = 0) -> bool:
-        """递归判断节点树里是否存在对 name 的调用/引用（ParagraphCall / Identifier）。
+    def _node_calls_name(self, node, name: str, depth: int = 0,
+                         calls_only: bool = True) -> bool:
+        """递归判断节点树里是否存在对 name 的**调用**（ParagraphCall）。
+
+        calls_only=True（默认，L-172 起）：只认**调用**，不认裸引用。
+        理由见 `_module_invokes_entry`。
+        calls_only=False：调用或裸引用（Identifier）都算——保留旧口径，
+        供需要「提及即算」的场景使用。
 
         RunAsyncStmt 的 call 字段也在遍历范围内，故 `异步 运行 主()` 天然被识别为
         「已显式启动入口」，无需单独分支。
@@ -1498,28 +1519,38 @@ class PythonCodeGenerator:
             return False
         if isinstance(node, (str, int, float, bool, bytes)):
             return False
-        if isinstance(node, (ParagraphCall, Identifier)) and getattr(node, 'name', None) == name:
+        if isinstance(node, ParagraphCall) and getattr(node, 'name', None) == name:
             return True
+        if not calls_only:
+            if isinstance(node, Identifier) and getattr(node, 'name', None) == name:
+                return True
         if isinstance(node, (list, tuple)):
-            return any(self._node_calls_name(x, name, depth + 1) for x in node)
+            return any(self._node_calls_name(x, name, depth + 1, calls_only) for x in node)
         if not (hasattr(node, '__slots__') or hasattr(node, '__dict__')):
             return False
         for child in self._iter_child_nodes(node):
-            if self._node_calls_name(child, name, depth + 1):
+            if self._node_calls_name(child, name, depth + 1, calls_only):
                 return True
         return False
 
     def _module_invokes_entry(self, module, entry: Paragraph) -> bool:
-        """模块级代码是否已显式启动入口。
+        """模块级代码是否已**调用**入口（决定是否还需自动补 `if __name__: 主()`）。
 
         只看**顶层语句**，且不进入段落体 / 类体——函数体里的 `主()` 是递归调用，
         不代表模块启动时执行过入口。
+
+        ── L-172（静默阻断，已修）──
+        本函数此前把「对入口名的**裸引用**」也算作「已启动入口」：只要模块级出现
+        `设 回调 为 主`（把入口当值取引用、登记回调、塞进字典……），入口自动调用
+        就被整块抑制，产物变成「模块级照跑、`主()` 永不执行、rc=0、无输出、无报错」。
+        语义上，取引用 ≠ 启动入口，故这里只认真正的**调用**（ParagraphCall，
+        含 `异步 运行 主()` 的 call 字段）——与「已显式启动」的字面含义一致。
         """
         name = entry.name
         for stmt in getattr(module, 'statements', None) or []:
             if stmt is entry or isinstance(stmt, (Paragraph, ClassDefinition)):
                 continue
-            if self._node_calls_name(stmt, name):
+            if self._node_calls_name(stmt, name, calls_only=True):
                 return True
         return False
 
