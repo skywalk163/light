@@ -178,8 +178,11 @@ class TestWorkaroundRemoved:
         assert "数据最大值" not in content, "统计.light 仍包含 数据最大值（workaround 未移除）"
         assert "导出 最小值。" in content, "统计.light 未导出 最小值"
         assert "导出 最大值。" in content, "统计.light 未导出 最大值"
-        assert "段落 最小值 接收 数据:" in content, "统计.light 未定义 最小值 段"
-        assert "段落 最大值 接收 数据:" in content, "统计.light 未定义 最大值 段"
+        # R65：`段落 名 接收 参数:` 已现代化为 `段落 名(参数):`（stdlib 首批 41 模块）。
+        # 这里断言的是「定义了该段」，不是「用什么参数语法」——改成语法无关写法，
+        # 免得下轮再动语法时又被这条断言打红。
+        assert "段落 最小值" in content, "统计.light 未定义 最小值 段"
+        assert "段落 最大值" in content, "统计.light 未定义 最大值 段"
 
     def test_统计py与统计light导出名对齐(self):
         """原生腿(.light)与解释腿(.py)的 最小值/最大值 导出名一致。"""

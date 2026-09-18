@@ -21,54 +21,54 @@
 导出 是整数 是浮点 是字符串 是列表 是字典 是空 是字母 是数字 是空白 是布尔 是函数 是数值 是负零。
 
 # 对齐 stdlib/builtins.py:746 —— isinstance(值, int) and not isinstance(值, bool)
-段落 是整数 接收 值:
+段落 是整数(值):
   如果 isinstance(值, bool):
     返回 假
   返回 isinstance(值, int)
 
 # 对齐 stdlib/builtins.py:751 —— isinstance(值, float)
-段落 是浮点 接收 值:
+段落 是浮点(值):
   返回 isinstance(值, float)
 
 # 对齐 stdlib/builtins.py:756 —— isinstance(值, str)
-段落 是字符串 接收 值:
+段落 是字符串(值):
   返回 isinstance(值, str)
 
 # 对齐 stdlib/builtins.py:761 —— isinstance(值, list)
-段落 是列表 接收 值:
+段落 是列表(值):
   返回 isinstance(值, list)
 
 # 对齐 stdlib/builtins.py:766 —— isinstance(值, dict)
-段落 是字典 接收 值:
+段落 是字典(值):
   返回 isinstance(值, dict)
 
 # 对齐 stdlib/builtins.py:771 —— 值 is None（光明侧用类型相等表达，不走 __eq__）
-段落 是空 接收 值:
+段落 是空(值):
   返回 类型(值) == 类型(空)
 
 # 对齐 stdlib/builtins.py:776 —— str.isalpha(char)
-段落 是字母 接收 字符:
+段落 是字母(字符):
   返回 str.isalpha(字符)
 
 # 对齐 stdlib/builtins.py:781 —— str.isdigit(char)
-段落 是数字 接收 字符:
+段落 是数字(字符):
   返回 str.isdigit(字符)
 
 # 对齐 stdlib/builtins.py:786 —— str.isspace(char)
-段落 是空白 接收 字符:
+段落 是空白(字符):
   返回 str.isspace(字符)
 
 # 对齐 stdlib/builtins.py:是布尔 —— isinstance(值, bool)
-段落 是布尔 接收 值:
+段落 是布尔(值):
   返回 isinstance(值, bool)
 
 # 对齐 stdlib/builtins.py:是函数 —— callable(值)
-段落 是函数 接收 值:
+段落 是函数(值):
   返回 callable(值)
 
 # 对齐 stdlib/builtins.py:是数值 —— isinstance(值, (int, float)) and not isinstance(值, bool)
 # 是数值 检查 int/float 类型（排除 bool）；与 是数字（字符级 str.isdigit）不同。
-段落 是数值 接收 值:
+段落 是数值(值):
   如果 isinstance(值, bool):
     返回 假
   返回 isinstance(值, int) 或 isinstance(值, float)
@@ -76,7 +76,7 @@
 # 对齐 stdlib/builtins.py:是负零 —— IEEE 754 负零（-0.0）判定（任务5 T2-D4 方案A）
 # 仅对浮点 -0.0 返回 真；正零 0.0 / 整数 0 / 任何非零数均返回 假。
 # 纯光明实现（零 Python 导入）：-0.0 是唯一满足「值 == 0.0 且 文本以 '-' 开头」的浮点。
-段落 是负零 接收 值:
+段落 是负零(值):
   如果 isinstance(值, float) == 假:
     返回 假
   如果 (值 != 0.0):

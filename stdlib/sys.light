@@ -22,34 +22,34 @@
 导出 version version_info platform argv exit hexversion maxsize
 导出 stderr stdout。
 
-段落 version 接收:
+段落 version():
   返回 "3.13.7 (光明内建 sys)"
 
-段落 version_info 接收:
+段落 version_info():
   返回 [3, 13, 7, "final", 0]
 
-段落 hexversion 接收:
+段落 hexversion():
   返回 50920704
 
-段落 maxsize 接收:
+段落 maxsize():
   返回 9223372036854775807
 
-段落 platform 接收:
+段落 platform():
   设 样本 为 连接路径("甲", "乙")
   如果 字符串包含(样本, "\\"):
     返回 "win32"
   结束。
   返回 "posix"
 
-段落 argv 接收:
+段落 argv():
   返回 参数列表()
 
-段落 exit 接收 码:
+段落 exit(码):
   退出程序(码)
   返回 0
 
-段落 stderr 接收:
+段落 stderr():
   返回 空
 
-段落 stdout 接收:
+段落 stdout():
   返回 空

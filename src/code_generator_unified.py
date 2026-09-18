@@ -286,6 +286,131 @@ class UnifiedCodeGenerator:
             '解析JSON': '_light_builtin.解析JSON',
             '序列化JSON': '_light_builtin.序列化JSON',
             '美化JSON': '_light_builtin.美化JSON',
+
+            # ── R65 任务2：两腿 builtin_map 差集清零（剩余 114 键）─────────────
+            # 值直接取 hook 腿同名键，逐键经 stdlib/builtins.py 的 hasattr 核查：
+            # 114 键全部确有实现（0 条缺实现）。
+            # 刻意不补：FFI 全族 35 键（_light_ffi.*）——unified 产物头部未导入
+            #   stdlib.FFI，补了会 NameError；需同步加 hook 腿同款 guarded import
+            #   （code_generator.py:1119-1130），改动面超出本轮，登记为 R66。
+            # 配套：产物头部补 import math/random/functools/json（见 generate()）。
+            '输出': 'print',
+            '断言': '_light_assert',
+            '取可选': '_light_builtin.取可选',
+            '异步睡眠': 'asyncio.sleep',
+            '限时': 'asyncio.wait_for',
+            '创建任务': 'asyncio.create_task',
+            '并发等待': 'asyncio.gather',
+            '首个完成': 'asyncio.wait',
+            '长度': 'len',
+            '码位': 'ord',
+            '字符自码位': 'chr',
+            '十六进制': 'lambda n: format(n, "X")',
+            'unwrap': '_light_unwrap',
+            '解包': '_light_unwrap',
+            '最大值': 'max',
+            '最小值': 'min',
+            '绝对值': 'abs',
+            '四舍五入': 'round',
+            '次方': 'pow',
+            '范围': 'range',
+            '全部': 'all',
+            '任意': 'any',
+            '浮点数': 'float',
+            '列表': 'list',
+            '字典': '_light_builtin.字典创建',
+            '集合': 'set',
+            '布尔': 'bool',
+            '类型': 'type',
+            '平方根': 'math.sqrt',
+            '对数': 'math.log',
+            '自然对数': 'math.log',
+            '常用对数': 'math.log10',
+            '对数2': 'math.log2',
+            '指数': 'math.exp',
+            '正弦': 'math.sin',
+            '余弦': 'math.cos',
+            '正切': 'math.tan',
+            '反正弦': 'math.asin',
+            '反余弦': 'math.acos',
+            '反正切': 'math.atan',
+            '反正切2': 'math.atan2',
+            '向上取整': 'math.ceil',
+            '向下取整': 'math.floor',
+            '最大公约数': 'math.gcd',
+            '幂': 'pow',
+            '平方': 'lambda x: x*x',
+            '立方': 'lambda x: x*x*x',
+            '大写': '_light_builtin.转大写',
+            '小写': '_light_builtin.转小写',
+            '重复': 'lambda s, n: s * n',
+            '转文本': 'str',
+            '随机数': 'random.random',
+            '分割': 'lambda s, sep: s.split(sep)',
+            '查找': 'lambda s, sub: s.find(sub)',
+            '随机': 'lambda *a: __import__("random").random()',
+            '洗牌': 'lambda seq: __import__("random").sample(list(seq), len(list(seq))) if hasattr(seq, "__len__") else seq',
+            # ⚠️ 值内含 `''`（空串字面量），必须用**双引号**包裹：
+            # 用单引号会被 Python 隐式字符串拼接吞掉 `''`，产物变成 `else ).join(...)`
+            # ——R65 首轮插入时踩过（ast.parse 照样通过，只有语义坏了，极隐蔽）。
+            "拼接": "lambda *a: (a[-1] if len(a) > 1 else '').join(str(x) for x in a[0])",
+            '切分': 'lambda x, sep=None: list(x) if sep is None else x.split(sep)',
+            '_读文件': '_light_builtin._读文件',
+            '复制文件': '_light_builtin.复制文件',
+            '重命名': '_light_builtin.重命名',
+            '复制目录': '_light_builtin.复制目录',
+            '删目录树': '_light_builtin.删目录树',
+            '创建临时目录': '_light_builtin.创建临时目录',
+            '查找目录列表': '_light_builtin.查找目录列表',
+            '读二进制文件': '_light_builtin.读二进制文件',
+            '写入二进制文件': '_light_builtin.写入二进制文件',
+            '移动文件系统': '_light_builtin.移动文件系统',
+            '真实路径': '_light_builtin.真实路径',
+            '文件状态': '_light_builtin.文件状态',
+            '句柄状态': '_light_builtin.句柄状态',
+            '低级打开': '_light_builtin.低级打开',
+            '低级读': '_light_builtin.低级读',
+            '低级写': '_light_builtin.低级写',
+            '低级关闭': '_light_builtin.低级关闭',
+            '随机字节': '_light_builtin.随机字节',
+            '原子替换': '_light_builtin.原子替换',
+            '环境枚举': '_light_builtin.环境枚举',
+            '单调时钟': '_light_builtin.单调时钟',
+            '常量时间比较': '_light_builtin.常量时间比较',
+            '只读': '_light_builtin.只读',
+            '只写': '_light_builtin.只写',
+            '新建': '_light_builtin.新建',
+            '截断': '_light_builtin.截断',
+            '追加': '_light_builtin.追加',
+            '独占': '_light_builtin.独占',
+            '二进制': '_light_builtin.二进制',
+            '不跟随符号链接': '_light_builtin.不跟随符号链接',
+            '读取N字节': '_light_builtin.读取N字节',
+            '打印输出': '_light_builtin.打印输出',
+            '序列化': '_light_builtin.序列化JSON',
+            '反序列化': '_light_builtin.解析JSON',
+            '_b64_encode': '_light_builtin._b64_encode',
+            '_b64_decode': '_light_builtin._b64_decode',
+            '_md5': '_light_builtin._md5',
+            '_sha1': '_light_builtin._sha1',
+            '_sha256': '_light_builtin._sha256',
+            '_sha512': '_light_builtin._sha512',
+            '_hmac_sha256': '_light_builtin._hmac_sha256',
+            '归约': 'functools.reduce',
+            '折叠': 'functools.reduce',
+            '枚举': 'enumerate',
+            '打包': 'zip',
+            '打开文件': 'open',
+            '转串': '_light_builtin.转字符串',
+            '串': '_light_builtin.转字符串',
+            '整': '_light_builtin.转整数',
+            '到字符串': '_light_builtin.转字符串',
+            '转换字符串': '_light_builtin.转字符串',
+            '转成字符串': '_light_builtin.转字符串',
+            '到数字': '_light_builtin.转浮点',
+            '转数字': '_light_builtin.转浮点',
+            '包含': '_light_builtin.字符串包含',
+            '冻结': '_light_builtin.冻结',
         }
     
     def generate(self, module) -> str:
@@ -321,6 +446,13 @@ class UnifiedCodeGenerator:
         self._add_line("import sys")
         self._add_line("import os")
         self._add_line("import asyncio")  # 用于 async/await 支持
+        # R65：差集补齐后 builtin_map 会引用 math.* / random.* / functools.reduce /
+        # json.loads，产物头部必须提供这些导入，否则运行期 NameError
+        # （json.loads 甚至在补齐前就已被 JSON.解析 引用，属既有隐患一并修掉）。
+        self._add_line("import math")
+        self._add_line("import random")
+        self._add_line("import functools")
+        self._add_line("import json")
         self._add_line("from typing import Any, Callable, Optional")  # 类型注解（段->Callable 等）求值所需
         self._add_line("")
         self._add_line("try:")

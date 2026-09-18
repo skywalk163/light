@@ -15,14 +15,14 @@
 
 导出 signature getmembers isfunction isclass。
 
-段落 signature 接收 对象:
+段落 signature(对象):
   返回 空
 
-段落 getmembers 接收 对象:
+段落 getmembers(对象):
   返回 []
 
-段落 isfunction 接收 对象:
+段落 isfunction(对象):
   返回 假
 
-段落 isclass 接收 对象:
+段落 isclass(对象):
   返回 假

@@ -13,7 +13,7 @@
 
 # 读整个 JSONL 文件为记录列表。空行跳过；坏行不打掉、改为带 坏 标记的记录，
 # 保证「不静默丢数据」，调用方可按标记统计坏行数。
-段落 读JSONL文件 接收 路径:
+段落 读JSONL文件(路径):
   设 结果 为 []
   设 句柄 为 open(路径, "r", encoding="utf-8")
   设 行 为 句柄.readline()
@@ -31,7 +31,7 @@
 
 # 逐行流式读取：懒惰生成器，拉一条给一条（评测集并发读时不占用整片内存）。
 # 坏行同样以带 坏 标记的记录给出，策略与 读JSONL文件 一致。
-段落 逐行读JSONL 接收 路径:
+段落 逐行读JSONL(路径):
   设 句柄 为 open(路径, "r", encoding="utf-8")
   设 行 为 句柄.readline()
   当 行 != "":
@@ -45,7 +45,7 @@
   句柄.close()
 
 # 把记录列表逐条写成 JSON 行（ensure_ascii=False 保中文可读，每行一个 JSON 对象）。
-段落 写JSONL文件 接收 路径, 数据列表:
+段落 写JSONL文件(路径, 数据列表):
   设 句柄 为 open(路径, "w", encoding="utf-8")
   遍历 记录 之 数据列表:
     句柄.write(json.dumps(记录, ensure_ascii=False) + "\n")

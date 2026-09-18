@@ -41,7 +41,7 @@
 
 # ---- 异常 ----
 类 伪控制台错误 继承 Exception:
-  段落 构造 接收 消息:
+  段落 构造(消息):
     父.构造(消息)
 
 # ---- ConPTY 常量（仅 Windows 分支使用）----
@@ -106,7 +106,7 @@
   属性 宽度 等于 120
   属性 高度 等于 30
 
-  段落 初始化 接收 命令数组, 配置:
+  段落 初始化(命令数组, 配置):
     己.平台 为 sys.platform。
     己.输出块表 为 []。
     己.缓冲锁 为 threading.Lock()。
@@ -152,7 +152,7 @@
     k32.GetLastError.argtypes 为 []
     k32.GetLastError.restype 为 ctypes.c_ulong
 
-  段落 启动Windows 接收 命令数组, 配置:
+  段落 启动Windows(命令数组, 配置):
     己.配置WinAPI()。
     设 k32 为 ctypes.windll.kernel32。
     # 平台版本检查：无 CreatePseudoConsole 即 < Win10 1809 → 明确报错，绝不降级
@@ -260,7 +260,7 @@
 
   # ==================== POSIX：openpty/forkpty ====================
 
-  段落 启动POSIX 接收 命令数组, 配置:
+  段落 启动POSIX(命令数组, 配置):
     设 pty 为 空。
     尝试:
       pty 为 importlib.import_module("pty")。
@@ -367,13 +367,13 @@
     己.缓冲锁.release()。
     返回 总数。
 
-  段落 加输出 接收 块:
+  段落 加输出(块):
     己.缓冲锁.acquire()。
     己.输出块表.追加(块)。
     己.缓冲锁.release()。
 
   # 向子进程 stdin 写字节；返回是否成功写入
-  段落 写输入 接收 块:
+  段落 写输入(块):
     如果 己.平台 等于 "win32":
       如果 己.输入写端 等于 空:
         返回 假。
@@ -403,7 +403,7 @@
     返回 己.主fd。
 
   # 终端窗口大小（列 x 行）
-  段落 设窗口大小 接收 宽度, 高度:
+  段落 设窗口大小(宽度, 高度):
     己.宽度 为 宽度。
     己.高度 为 高度。
     如果 己.平台 等于 "win32":
@@ -412,14 +412,14 @@
       己.设窗口大小POSIX(宽度, 高度)。
     结束。
 
-  段落 设窗口大小Windows 接收 宽度, 高度:
+  段落 设窗口大小Windows(宽度, 高度):
     设 尺寸 为 结构体表["COORD"](宽度, 高度)。
     设 hr 为 ctypes.windll.kernel32.ResizePseudoConsole(己.主句柄, 尺寸)。
     如果 hr 不等于 0:
       抛 伪控制台错误("ResizePseudoConsole 失败 HRESULT " + str(hr))
     结束。
 
-  段落 设窗口大小POSIX 接收 宽度, 高度:
+  段落 设窗口大小POSIX(宽度, 高度):
     设 fcntl 为 空。
     设 termios 为 空。
     尝试:
@@ -543,7 +543,7 @@
     结束。
 
   # 轮询 waitpid 直到子进程被回收或超时；返回是否确认已死
-  段落 等待子进程POSIX 接收 毫秒:
+  段落 等待子进程POSIX(毫秒):
     设 截止 为 时间戳() * 1000 加上 毫秒。
     当 真:
       尝试:
