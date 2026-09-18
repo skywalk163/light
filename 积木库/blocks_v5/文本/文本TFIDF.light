@@ -1,5 +1,0 @@
-# 积木：文本TF-IDF（文本领域，自动生成）
-# 契约：输入 [文本] → 输出 列表（TF-IDF特征向量）
-导出 文本cb_TFIDF
-段落 文本cb_TFIDF 接收 cb_TFIDF:
-    返回 cb_TFIDF(文本)

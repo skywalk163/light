@@ -192,7 +192,21 @@ class TestBitwisePrecedence:
 
 
 class TestBitwiseInBlocks:
-    """积木库存量文件可编译验证"""
+    """积木库存量文件可编译验证
+
+    R60 拆分后积木库独立为 lighting 仓：优先读环境变量 LIGHT_BLOCKS_DIR（指向
+    lighting 仓库根）；未设置时回退旧路径 `积木库`（兼容拆分前工作树），
+    路径不存在则用例自动跳过（不阻塞编译器全量门）。
+    """
+    BLOCKS_DIR = None  # 惰性解析
+
+    @classmethod
+    def _blocks_dir(cls):
+        if cls.BLOCKS_DIR is None:
+            import os
+            from pathlib import Path
+            cls.BLOCKS_DIR = Path(os.environ.get('LIGHT_BLOCKS_DIR', '积木库'))
+        return cls.BLOCKS_DIR
 
     def test_blocks_v5_all_compile_and_run(self):
         """6 个 blocks_v5/计算机 位运算积木文件可编译且行为正确"""
@@ -207,7 +221,7 @@ class TestBitwiseInBlocks:
             ('右移.light', '16', None, '8'),    # 右移 1 位 → 16>>1=8
         ]
         for fname, arg1, arg2, expected in cases:
-            fpath = Path('积木库/blocks_v5/计算机') / fname
+            fpath = self._blocks_dir() / 'blocks_v5/计算机' / fname
             if not fpath.exists():
                 continue
             # 构造调用脚本
@@ -237,7 +251,7 @@ class TestBitwiseInBlocks:
         import tempfile
         from pathlib import Path
 
-        fpath = Path('积木库/blocks_v5/计算机/位取反.light')
+        fpath = self._blocks_dir() / 'blocks_v5/计算机/位取反.light'
         if not fpath.exists():
             return
         with tempfile.TemporaryDirectory() as 产物目录:
