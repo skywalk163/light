@@ -19,7 +19,7 @@
 #   - 装依赖去掉 pytest-cov：从来没有一步用过 --cov，纯白装。
 #   - 去掉「统一测试运行器」步（tests/run_tests.py --quick 只是 4 条 os.path.exists
 #     断言，零信号却要付一次解释器启动）。
-# 权威门禁在 .gitea/workflows/ci.yml（带基线闸门 + 积木库门禁）；这边是镜像验证。
+# 权威门禁在 .gitea/workflows/ci.yml（带基线闸门）；这边是镜像验证。
 #
 # ── 2026-08-23 D4-3：判绿语义与 gitea 对齐 ─────────────────────────────────
 # 之前这边是「裸硬判 + 无兜底 || true」：unit/integration/e2e 失败直接红（e2e 有
@@ -31,7 +31,10 @@
 #     交给末尾的回归闸门（check_regression.py，基线对比、只拦新增打红）；
 #   - unit / integration：保持硬判（当前零存量失败，硬判不产生噪音）；
 #   - 补 lightpub 文档可导入性闸门（gitea 有、这边漏了）。
-# 积木库门禁在独立 eval.yml（路径过滤 + cron），与 gitea 内联版功能等价，不重复挂。
+# 【R61 拆分清障】原独立流水线 eval.yml（积木库五把尺子）已移除：R60 把 `积木库/`
+# 拆分为独立 lighting 仓，本仓已无该目录，流水线必然红。**已迁到 lighting 仓**（R61 落地）：
+#   lighting/.github/workflows/eval.yml ｜ lighting/.gitcode/workflows/eval.yml
+#   lighting/.gitea/workflows/ci.yml
 name: CI
 
 on:

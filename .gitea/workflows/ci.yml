@@ -122,7 +122,7 @@ jobs:
           . "$VENV/bin/activate"
           python -m pip install --upgrade pip
           # 必需依赖：pytest 框架 + xdist 并行（37min→15min 根因修复）+ cryptography/
-          # lunardate/aiohttp/pypinyin/opencc 测试侧与积木库门禁硬依赖（缺则整文件/整门禁红，
+          # lunardate/aiohttp/pypinyin/opencc 为测试侧硬依赖（缺则整文件红，
           # 信号不能丢，故不 || true）。devpi 镜像未必有，先试 devpi 失败强制回退公共 PyPI。
           python -m pip install pytest pytest-xdist cryptography lunardate aiohttp pypinyin opencc-python-reimplemented || \
             python -m pip install --index-url https://pypi.org/simple pytest pytest-xdist cryptography lunardate aiohttp pypinyin opencc-python-reimplemented
@@ -266,17 +266,20 @@ jobs:
           . "$HOME/.cache/light-ci-venv/bin/activate"
           pytest tests/unit/test_lightpub_doc_importability.py -q
 
-      # 积木库门禁：五把尺子 + 硬门槛 + 兜底闸门。此前积木库（选块器 / 概念词典 / 契约索引 /
-      # 兜底）在 gitea CI 上零覆盖，回归全靠人手跑尺子；段言本体 tests 过了也拦不住积木库回退。
-      # 这里等价于 .github/workflows/eval.yml，但跑在本地 FreeBSD runner（无 Docker、系统
-      # python3、本地 devpi 镜像），把「合入 main」变成有闸门拦截：主基准掉链路 / 留出段掉点 /
-      # 块跑不起来 / 兜底闸门不过，CI 直接红。
-      - name: 积木库门禁（五把尺子 + 兜底闸门）
-        run: |
-          . "$HOME/.cache/light-ci-venv/bin/activate"
-          # pypinyin/lunardate/opencc 已在「准备/复用 host 持久 venv」步预装进持久 venv，
-          # 此处不再重复装（每次重装是无谓耗时）。少数块仍依赖它们，缺则冒烟标「缺依赖」单列。
-          python 积木库/评估/ci_eval.py --并发 8
+      # 【R61 拆分清障】积木库门禁已从本仓移除。
+      # R60 把 `积木库/`（37041 文件）整体拆分为独立 lighting 仓，本仓不再有这个目录，
+      # 因此原先的 `python 积木库/评估/ci_eval.py --并发 8` 不是「内容红」而是
+      # **路径不存在**——每次跑必红，且掩盖真实回归信号。
+      # 五把尺子 + 硬门槛 + 兜底闸门**已迁到 lighting 仓的三平台流水线**（R61 落地）：
+      #   lighting/.gitea/workflows/ci.yml    ← 本条原段的等价物（freebsd runner）
+      #   lighting/.github/workflows/eval.yml
+      #   lighting/.gitcode/workflows/eval.yml
+      # 迁移时在 lighting 侧补了两处硬依赖（否则门禁恒红/空转）：
+      #   ① 编译器不在 lighting 仓 → 检出 light-merge 并设 LIGHT_MERGE
+      #      （评估/冒烟.py::_定位编译根、组合.py::_定位运行时 都认这个变量）
+      #   ② 评估/体检.py 的 E8 判据 `git ls-files -- 积木库/` 在拆后仓里是空集 → 全量误报，
+      #      改成 `-- .`。
+      # **切勿在本仓恢复裸路径 `积木库/...`**（L-177 同类：拆分后裸路径 = 必然红/静默空转）。
 
       # D3-1/D3-2：两道质量度量门禁。都是「基线对比、只拦新增」，不是一刀切阈值——
       # 存量违规按白名单 + 计数上限锁住，删一条不能换新增一条（白名单按 file:line:cat

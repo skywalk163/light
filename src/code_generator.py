@@ -615,6 +615,14 @@ class PythonCodeGenerator:
             '连接字符串': '_light_builtin.连接字符串',
             '替换字符串': '_light_builtin.替换字符串',
             '去除空白': '_light_builtin.去除空白',
+            # R61 任务3：`去除空格` 是 stdlib/字符串处理.py 的公开函数（实现即
+            # s.strip()，与 去除空白 同语义）。原生腿 codegen_typed 早把它与
+            # 去除空白/trim/strip 收在同一族（src/llvm/codegen_typed.py:2655），
+            # 但 Python 腿 builtin_map 只登记了 去除空白，于是「零导入」纯光明
+            # 模块里的裸调用 去除空格 在产物中仍是裸名 → 运行期 NameError
+            # （中文数字转换/颜色/格式化/参数解析 共 4 个 .light 中招）。
+            # 补同族映射对齐两腿，零新机制零新语义。
+            '去除空格': '_light_builtin.去除空白',
             '转大写': '_light_builtin.转大写',
             '转小写': '_light_builtin.转小写',
             '截取': '_light_builtin.截取',

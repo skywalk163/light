@@ -221,11 +221,22 @@ def test_任何light都不许应答仅大小写不同的标准库名():
 # 0.9945 < 1.0、问题块数 1），而本机七道门禁与全部 pytest 全绿，红只在 CI 才出现。
 # 本判据把「积木库消费的名字」纳入本机可跑范围：凡 stdlib 有纯光明门面的模块，
 # 积木库里 `从《模块》导入《名》` 的名字必须真在门面的 导出 行里。
-_BLOCKS = os.path.join(_ROOT, "积木库")
+#
+# R61 拆分后积木库独立为 lighting 仓（`G:\dswork\duan-light-merge\lighting`）：
+# 这里改走环境变量 LIGHT_BLOCKS_DIR（指向 lighting 仓库根），未设置时回退旧路径
+# `积木库`（兼容拆分前工作树）。**两处都不存在时必须 skip，不能空转通过** ——
+# 早先直接对不存在的目录 glob 会得到空集、`缺口 == []` 恒成立，判据变成假绿
+# （覆盖静默丢失，与 CI 积木库闸门同类的「本机绿、真缺口漏掉」陷阱）。
+_BLOCKS = os.environ.get("LIGHT_BLOCKS_DIR") or os.path.join(_ROOT, "积木库")
 _IMPORT_RE = re.compile(r"从《([^》]+)》导入《([^》]+)》")
 
 
 def test_积木库导入的名字必须在纯光明门面的导出面内():
+    if not os.path.isdir(_BLOCKS):
+        pytest.skip(
+            "积木库不在本仓（R60 已拆分为独立 lighting 仓）："
+            "设 LIGHT_BLOCKS_DIR 指向它才跑本判据；不设则跳过，"
+            "以免对空目录 glob 得到空集、判据空转假绿（%s）" % _BLOCKS)
     门面 = {}
     for full in glob.glob(os.path.join(_STDLIB, "*.light")):
         text = open(full, encoding="utf-8").read()

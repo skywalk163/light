@@ -235,10 +235,12 @@ class TestBackwardsCompatibility(unittest.TestCase):
         self.assertEqual(len([e for e in c.errors if '可空' in e]), 0)
 
     def test_paragraph_call(self):
+        # 现代语法：段落 相加 接收 甲，乙：（旧式「段落相加(甲, 乙)：」已废弃，
+        # 旧式语法会 ParseError，与 null-safety 无关）
         src = (
-            '段落相加(甲, 乙)：\n'
-            '    返回甲加乙。\n'
-            '打印相加(1, 2)。\n'
+            '段落 相加 接收 甲，乙：\n'
+            '    返回 甲 加 乙。\n'
+            '打印 相加(1, 2)。\n'
         )
         c = compile_source(src)
         # 允许有语法/类型错误，但不能有「可空」之外的崩溃

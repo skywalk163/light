@@ -69,19 +69,17 @@ light = "cli.light:main"
 lightc = "cli.lightc:main"
 
 [tool.setuptools.packages.find]
-include = ["src*", "cli*", "stdlib*", "antlrparser*", "积木库*"]
+include = ["src*", "cli*", "stdlib*", "antlrparser*"]
 exclude = [
     "tests*", "benchmarks*", "examples*", "project*", "bootstrap*",
     "docs*", "tools*", "lsp*", "debug-adapter*", "vscode-extension*", "scripts*",
     "**/test*", "**/*_test*", "**/self_hosted*", "**/light_parser*", "**/light_parser2*", "**/light_parser_new*",
     "**/web_playground*", "**/*_debug*", "**/ir.py", "**/codegen_x64.py", "**/linker.py",
-    "积木库/生成*", "积木库/评估/运行日志*", "积木库/评估/*_v*", "积木库/评估/待审*", "积木库/__pycache__*"
 ]
 
 [tool.setuptools.package-data]
 "*" = ["*.light", "*.toml"]
 "stdlib" = ["*.light", "*.py"]
-"积木库" = ["*.light", "*.json", "*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

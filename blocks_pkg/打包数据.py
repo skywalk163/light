@@ -1,13 +1,37 @@
 # -*- coding: utf-8 -*-
-"""构建 wheel 数据：把 积木库 复制进 light_blocks/_data/积木库，随 light-blocks 分发。
+"""构建 wheel 数据：把积木库复制进 light_blocks/_data/积木库，随 light-blocks 分发。
 
 用法：python blocks_pkg/打包数据.py   （先跑它，再 pip wheel / pip install）
+
+【R61 拆分】R60 起 `积木库/` 已拆分为独立 lighting 仓，本仓不再有此目录。
+源目录解析顺序：
+  1) 环境变量 LIGHT_BLOCKS_DIR（指向 lighting 仓库根）
+  2) 同级 ../lighting（本仓与 lighting 同处一个工作区时的默认位置）
+  3) 旧路径 ./积木库（兼容拆分前的工作树）
+**不得**只写裸路径 `积木库`——拆分后它必然 SystemExit（同类缺陷见 L-177）。
 """
 import os
 import shutil
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_SRC = os.path.join(_ROOT, '积木库')
+
+
+def _源目录():
+    cands = []
+    env = os.environ.get('LIGHT_BLOCKS_DIR')
+    if env:
+        cands.append(env)
+    cands.append(os.path.join(os.path.dirname(_ROOT), 'lighting'))
+    cands.append(os.path.join(_ROOT, '积木库'))
+    for c in cands:
+        if c and os.path.isdir(c):
+            return os.path.abspath(c)
+    raise SystemExit(
+        '找不到积木库（LIGHT_BLOCKS_DIR / ../lighting / ./积木库 均不存在）：\n  '
+        + '\n  '.join(cands))
+
+
+_SRC = _源目录()
 _DST = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                     'light_blocks', '_data', '积木库')
 
