@@ -2568,6 +2568,11 @@ class Lexer:
                             and _lead_kw not in _OPERATOR_KEYWORDS_NO_UNARY_PREFIX
                             and (_lead_kw not in self._P0A_UNARY_PREFIX_KW
                                  or full_identifier[_lead_len:] not in user_definitions)
+                            and not (_lead_kw in ('接收', '己', '自')
+                                     and full_identifier[_lead_len:] in user_definitions
+                                     and (_lead_kw != '接收'
+                                          or (pos + len(full_identifier) < n
+                                              and source[pos + len(full_identifier)] in '，,：:')))
                             and not _lead_kw_is_return_head
                             and '返回' not in full_identifier
                             and not (any(_c in _op_hints for _c in full_identifier)
@@ -2947,7 +2952,30 @@ class Lexer:
                                     and full_identifier.isalpha()):
                                 _whole_tail = i + consumed + len(full_identifier)
                                 if _whole_tail < len(source) and source[_whole_tail] == '(':
-                                    skip_kw = True
+                                    # R60 任务1（compact 无空格二元运算符 · v7-单02 同族例外）：
+                                    # 运算符之后的余部恰为**已知名字**（stdlib 动词表 / 用户定义）
+                                    # 且整串后紧跟 '(' 时，'(' 属于余部名字的调用语境
+                                    # （`n乘阶乘(n减1)` 的汉字段 `乘阶乘(` 实为 `乘` + `阶乘(`；
+                                    #   `返回斐波那契(数减一)加斐波那契(数减二)` 的 `加斐波那契(`
+                                    #   实为 `加` + `斐波那契(`），运算符是真二元运算符，
+                                    # 不得按「整串=函数名」并入。与输出循环 :3097-3102 的
+                                    # v7-单02 例外同口径（探测/输出判据必须严格一致）。
+                                    # 反例保护：余部非已知名字（`乘法计算(` 的 `法计算`）时
+                                    # 维持既有「整串作为函数名」并入，语料零变化。
+                                    _rest_after_op = full_identifier[scan_pos + sub_len:]
+                                    _op_at_run_start = (scan_pos == 0 and pos > 0
+                                                        and not _is_han(source[pos - 1]))
+                                    _op_left_declared = (scan_pos > 0
+                                                         and full_identifier[:scan_pos] in user_definitions)
+                                    if not (_rest_after_op in STDLIB_VERB_ARITY
+                                            or _rest_after_op in ALL_VERB_ARITY
+                                            or _rest_after_op in user_definitions):
+                                        skip_kw = True
+                                    elif not (_op_at_run_start or _op_left_declared):
+                                        # 左部既不在段外（非汉字紧邻）也不是已声明名字：
+                                        # `删除环境变量(` 的 `除`（左部 `删` 未声明）——整串
+                                        # 更可能是复合函数名，维持既有并入，防误伤。
+                                        skip_kw = True
                             # 检查运算符是否在标识符词尾（如"体重增加"中的"加"）
                             # 在词尾时，作为复合词的一部分，不拆分
                             # 例外（v7 单 02）：汉字序列后紧跟 ASCII 数字时不算词尾，
@@ -2999,6 +3027,12 @@ class Lexer:
                             #     输出结果/输出格式/输出块表——`输出` 的语句用法恒带空格）；
                             #   * 非动词关键字（模块/标准库/函数…）词首由第一层最长匹配
                             #     直接输出 KEYWORD，不落入本探测分支。
+                            # R60 任务1（compact 无空格 · 接收+形参 连写例外）：词首多字
+                            # 动词的**余部恰为已声明名字**时不得按复合名头并入——
+                            # `段落加法接收甲，乙：` 的汉字段 `接收甲` 实为 `接收` + 形参
+                            # `甲`（甲 由 _scan_user_definitions 登记），并入后 `接收`
+                            # 关键字丢失 → 解析期「期望冒号得到逗号」。余部非已知名
+                            # （`接收器`/`输出格式`）维持既有并入，语料零变化。
                             if (scan_pos > 0
                                     or (sub_kw in VERB_ARITY
                                         and sub_kw not in self._P0A_STMT_SPLIT_VERBS)):

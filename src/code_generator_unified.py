@@ -537,7 +537,7 @@ class UnifiedCodeGenerator:
     # `from light_parser_v3 import *`，为三个常量拖进整条解析链不值当），而是
     # 抄一份并由 tests/test_context_manager.py::TestBackendParity 断言两边逐项
     # 相等——改一边忘另一边会当场打红，不会再出现「同一份源码两个后端语义不同」。
-    _SELF_NAMES = ('己', '自')
+    _SELF_NAMES = ('己', '自', 'self')
     _CTOR_NAMES = ('构造', '初始化', '构')
     # 协议魔术方法名（定义侧）：与 code_generator.py::_generate_method(:2722-2730)
     # 的 if/elif 链同义。src 后端是内联链、无表可比对，故这里**不做**表级 parity

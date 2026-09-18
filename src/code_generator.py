@@ -125,6 +125,9 @@ class PythonCodeGenerator:
         
         # 类属性追踪（用于方法内自动添加 self. 前缀）
         self._class_attr_names: set = set()
+        # R60 任务1：类名 → 属性名集合 注册表（按生成顺序登记），供子类沿
+        # 继承链并入基类属性名（`己X` 读取位展开需要基类声明的属性）。
+        self._class_attr_registry: dict = {}
         # 类方法名追踪（用于方法内自动添加 self. 前缀调用其他方法）
         self._class_method_names: set = set()
         self._in_class_method: bool = False
@@ -2710,6 +2713,21 @@ class PythonCodeGenerator:
             self._class_attr_names.add(self._sanitize_name(attr.name))
         for attr in static_attrs:
             self._class_attr_names.add(self._sanitize_name(attr.name))
+        # R60 任务1：沿继承链并入基类属性名。`己X` 读取位展开（_resolve_identifier_name）
+        # 判据是「剩余部分 ∈ _class_attr_names」——子类方法里引用**基类声明**的属性
+        # （examples/class_complete.light：狗/猫 的方法读 `己名称`，名称 声明在 动物）
+        # 此前不展开 → 运行期 NameError。基类按生成顺序登记于 _class_attr_registry，
+        # 前向引用的基类（尚未生成）自然查不到，与修复前行为一致（不更差）。
+        for _base in (list(getattr(stmt, 'base_classes', None) or [])
+                      + list(getattr(stmt, 'superclasses', None) or [])):
+            _base_name = _base if isinstance(_base, str) else getattr(_base, 'name', None)
+            if not _base_name or _base_name == getattr(stmt, 'name', None):
+                continue
+            self._class_attr_names.update(
+                self._class_attr_registry.get(self._sanitize_name(_base_name), set()))
+        # 登记（含继承链并入后的全集，供再派生类使用）
+        if getattr(stmt, 'name', None):
+            self._class_attr_registry[self._sanitize_name(stmt.name)] = set(self._class_attr_names)
 
         # 收集类方法名
         self._class_method_names = set()
@@ -4081,14 +4099,20 @@ class PythonCodeGenerator:
     # `己` 与 `自` 在 src/parser_expr.py:27 已同为 self 引用登记，codegen 必须
     # 一视同仁：表达式位置、方法形参位置、实参位置三处都要归一成 self，
     # 否则同一个方法里会出现「形参叫 自、方法体里叫 self」两套名字 → NameError。
-    _SELF_NAMES = ('己', '自')
+    _SELF_NAMES = ('己', '自', 'self')
 
     def _is_self_param(self, param_name) -> bool:
-        """形参名是否是 self 引用（己/自）。
+        """形参名是否是 self 引用（己/自/self）。
 
         方法定义已经无条件注入了 self（见 _generate_method 的 params=['self']），
-        所以源码里**显式写出**的 自/己 形参必须被吃掉，否则会发射
+        所以源码里**显式写出**的 自/己/self 形参必须被吃掉，否则会发射
         `def __init__(self, self, ...)` —— SyntaxError（duplicate argument）。
+
+        R60 任务2 附加项：补 `self`。类体里按 Python 习惯写 `函数 get(self):`
+        时，源码 `self` 与自动注入的 `self` 重复 → `def get(self, self)` 静默
+        SyntaxError（test_period_in_class_body 只查子串没抓到）。`self` 仅在本
+        分支（swallow_self 为真，即方法上下文）生效——模块级 `函数` 不会注入
+        self，swallow_self 恒假，不会误吞。
         """
         return isinstance(param_name, str) and param_name in self._SELF_NAMES
 

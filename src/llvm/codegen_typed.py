@@ -2466,11 +2466,20 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('截取', 'substr', 'substring'):
             if len(args) >= 3:
+                # .light 官方语义：截取(文本, 起始, 结束) = 文本[起始:结束]（end 语义）；
+                # dv_substr 签名是 (str, start, len) → 传 end - start，负值 clamp 为 0
+                # （与字符串切片 4223-4235 的处理一致；Python s[start:end] 在 start>end 时为空串）。
                 start_i64 = self.new_register()
                 self.emit(f'{start_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
-                len_i64 = self.new_register()
-                self.emit(f'{len_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[2]}, 1')
-                return self._call_dv_func('dv_substr', args[0], f'i64 {start_i64}', f'i64 {len_i64}'), 'dv'
+                end_i64 = self.new_register()
+                self.emit(f'{end_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[2]}, 1')
+                slice_len = self.new_register()
+                self.emit(f'{slice_len} = sub i64 {end_i64}, {start_i64}')
+                is_neg = self.new_register()
+                self.emit(f'{is_neg} = icmp slt i64 {slice_len}, 0')
+                safe_len = self.new_register()
+                self.emit(f'{safe_len} = select i1 {is_neg}, i64 0, i64 {slice_len}')
+                return self._call_dv_func('dv_substr', args[0], f'i64 {start_i64}', f'i64 {safe_len}'), 'dv'
             if len(args) >= 2:
                 start_i64 = self.new_register()
                 self.emit(f'{start_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')

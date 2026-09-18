@@ -610,6 +610,16 @@ class ParserExprMixin:
     # tests/test_frontend_blockers_run.py::test_p0_异步修饰符不许当值用）。
     _MODIFIER_ONLY_KEYWORDS = {'异步'}
 
+    # 已知「异步」开头的**合法值**名字（词法上整串保留为单个 IDENTIFIER），
+    # 放行，不要当成「修饰符被当值用」拦截：
+    #   · `异步睡眠` → asyncio.sleep（src/code_generator.py 的异步原语映射）；
+    #   · `异步读取文件`/`异步写入文件`/`异步追加文件` → 由 _ASYNC_FILE_NAMES
+    #     单独给「暂无实现」编译期报错（C3-7 测试依赖该文案）。
+    # 除此之外所有「`异步` + CJK」整串 IDENTIFIER 都是误用（见下方 _parse_primary
+    # 的拦截分支），因为 `异步` 在表达式位置永远没有合法含义（合法写法全在语句层）。
+    _ALLOWED_ASYNC_PREFIXED_NAMES = frozenset(
+        {'异步睡眠', '异步读取文件', '异步写入文件', '异步追加文件'})
+
     def _parse_primary(self) -> ASTNode:
         """解析基本表达式"""
         tok = self._current()
@@ -625,6 +635,29 @@ class ParserExprMixin:
                 f"于是被切成 `{tok.value}` + 余下部分。"
                 f"请改用有真映射的名字（异步睡眠/并发等待/限时/创建任务/首个完成），"
                 f"或把自定义异步段落改成不以 `{tok.value}` 开头的名字。",
+
+                tok.line, tok.col)
+
+        # P0 续（A2-3，R60 任务2）：词法器对「`异步` + 后续 CJK」整串保留为单个
+        # IDENTIFIER（不会像 `异步HTTP获取` 那样在 ASCII 边界切出 KEYWORD `异步`）。
+        # 上一段 KEYWORD 判据抓不到这种形态，于是 `等待 异步读取二进制(x)` 一路 PARSE-OK，
+        # 运行期才 NameError。这里补 IDENTIFIER 形态的通则拦截。
+        # 护栏：放行 _ALLOWED_ASYNC_PREFIXED_NAMES（见上方说明）——它们是真有映射的
+        # 异步原语（`异步睡眠`）或已有专属报错的异步文件原语，不该被这条误伤。
+        # R60 路M 收窄：同时放行 lexer 预扫描出的**已定义名**（`异步作用域`/`异步接受`/
+        # `异步信号量` 等用户/库自定义名字在表达式位置是合法值；互举反跑 677 曾因误伤
+        # 这 3 处新增解析失败）。未定义且 `异步` 开头 → 仍按修饰符误用拦截。
+        _user_defs = getattr(self.lexer, 'user_definitions', None) or set()
+        if (tok.type == TokenType.IDENTIFIER
+                and tok.value.startswith('异步')
+                and tok.value not in self._ALLOWED_ASYNC_PREFIXED_NAMES
+                and tok.value not in _user_defs):
+            return self._error(
+                f"`{tok.value}` 以修饰符「异步」开头，不能作为值（变量/函数名）使用。"
+                f"常见原因：自定义异步名字（如 `异步读取二进制`、`异步任务取消`）"
+                f"不在编译器已知映射里，被当普通值引用，运行期才报 NameError。"
+                f"请改用有真映射的名字（异步睡眠/并发等待/限时/创建任务/首个完成），"
+                f"或把自定义异步段落改名成不以「异步」开头的名字。",
 
                 tok.line, tok.col)
         
