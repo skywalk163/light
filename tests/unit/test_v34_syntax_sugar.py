@@ -289,28 +289,28 @@ class TestAttributeAssignment:
     """属性赋值测试：obj.attr = value"""
 
     def test_self_attr_eq(self):
-        """self.属性 = 值"""
+        """self.属性 = 值（L-096 helper 形态，R59 更新）"""
         code = '类 A:\n    函数 f(self):\n        self.x = 1'
         py = parse_and_generate(code)
-        assert 'self.x = 1' in py
+        assert "_light_attr_set(self, 'x', 1)" in py
 
     def test_self_attr_等于(self):
-        """self.属性 等于 值"""
+        """self.属性 等于 值（L-096 helper 形态，R59 更新；「等于」在语句位是赋值，删除 'self.x == 1' 备选）"""
         code = '类 A:\n    函数 f(self):\n        self.x 等于 1'
         py = parse_and_generate(code)
-        assert 'self.x == 1' in py or 'self.x = 1' in py
+        assert "_light_attr_set(self, 'x', 1)" in py
 
     def test_obj_attr_eq(self):
-        """obj.attr = 值"""
+        """obj.attr = 值（L-096 helper 形态，R59 更新）"""
         code = '令 p = 点(3, 4)\np.x = 10'
         py = parse_and_generate(code)
-        assert 'p.x = 10' in py
+        assert "_light_attr_set(p, 'x', 10)" in py
 
     def test_dot_access_still_works(self):
-        """属性访问仍然正常"""
+        """属性访问仍然正常（L-096 helper 形态，R59 更新）"""
         code = '令 p = 点(3, 4)\n令 x = p.x'
         py = parse_and_generate(code)
-        assert 'p.x' in py
+        assert "_light_attr_get(p, 'x')" in py
 
     def test_method_call_still_works(self):
         """方法调用仍然正常"""

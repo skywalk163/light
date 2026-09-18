@@ -126,29 +126,29 @@ class TestChainedAttributeAssignment:
     """链式属性赋值测试：obj.a.b = value"""
 
     def test_two_level_attr_assign(self):
-        """两级属性赋值 b.a.x = 42"""
+        """两级属性赋值 b.a.x = 42（L-096 helper 形态，R59 更新：产物 _light_attr_set(_light_attr_get(...)) 与旧直发 b.a.x = 42 语义等价）"""
         code = '类 A:\n    令 x = 0\n类 B:\n    令 a = None\n令 b = B()\nb.a = A()\nb.a.x = 42'
         py = parse_and_generate(code)
-        assert 'b.a.x = 42' in py or '.x = 42' in py
+        assert "_light_attr_set(_light_attr_get(b, 'a'), 'x', 42)" in py
 
     def test_self_chain_assign(self):
-        """self 链式属性赋值"""
+        """self 链式属性赋值（L-096 helper 形态，R59 更新）"""
         code = '类 A:\n    令 inner = None\n    函数 set_val(self, v):\n        self.inner.val = v'
         py = parse_and_generate(code)
-        assert 'self.inner.val' in py or '.inner.val' in py
+        assert "_light_attr_set(_light_attr_get(self, 'inner'), 'val', v)" in py
 
     def test_three_level_attr_assign(self):
-        """三级属性赋值"""
+        """三级属性赋值（L-096 helper 形态，R59 更新）"""
         code = '类 C:\n    令 val = 0\n类 B:\n    令 c = None\n类 A:\n    令 b = None\n令 a = A()\na.b = B()\na.b.c = C()\na.b.c.val = 99'
         py = parse_and_generate(code)
-        assert 'a.b.c.val = 99' in py or '.val = 99' in py
+        assert "_light_attr_set(_light_attr_get(_light_attr_get(a, 'b'), 'c'), 'val', 99)" in py
 
     def test_attr_assign_with_expr(self):
-        """属性赋值为表达式"""
+        """属性赋值为表达式（L-096 helper 形态，R59 更新；表达式原样发射）"""
         code = '类 A:\n    令 x = 0\n令 a = A()\na.x = 10 + 20'
         py = parse_and_generate(code)
-        assert 'a.x = ' in py
-        assert '10 + 20' in py or '30' in py
+        assert "_light_attr_set(a, 'x', (10 + 20))" in py
+        assert '10 + 20' in py
 
 
 class TestDotPeriodSplit:
@@ -162,10 +162,10 @@ class TestDotPeriodSplit:
         assert 'print' in py
 
     def test_dot_member_access(self):
-        """英文点号「.」用于成员访问"""
+        """英文点号「.」用于成员访问（L-096 helper 形态，R59 更新）"""
         code = '类 P:\n    令 x = 0\n令 p = P()\n令 v = p.x'
         py = parse_and_generate(code)
-        assert 'p.x' in py
+        assert "_light_attr_get(p, 'x')" in py
 
     def test_period_at_end_of_statement(self):
         """句号「。」作为语句结束符"""
@@ -175,17 +175,17 @@ class TestDotPeriodSplit:
         assert 'print' in py or '_duan_print' in py
 
     def test_mixed_period_and_dot(self):
-        """混合使用句号和点号"""
+        """混合使用句号和点号（L-096 helper 形态，R59 更新）"""
         code = '类 P:\n    令 x = 0。\n令 p = P()。\n令 v = p.x\n打印 v。'
         py = parse_and_generate(code)
-        assert 'p.x' in py
+        assert "_light_attr_get(p, 'x')" in py
 
     def test_no_period_no_dot_ambiguity(self):
-        """无句号代码中点号仅用于成员访问"""
+        """无句号代码中点号仅用于成员访问（L-096 helper 形态，R59 更新）"""
         code = '类 P:\n    令 x = 0\n    令 y = 0\n令 p = P()\np.x = 3\np.y = p.x + 1\n打印 p.y'
         py = parse_and_generate(code)
-        assert 'p.x = 3' in py
-        assert 'p.y' in py
+        assert "_light_attr_set(p, 'x', 3)" in py  # L-096 helper 形态（R59 更新）
+        assert "_light_attr_set(p, 'y', (_light_attr_get(p, 'x') + 1))" in py
 
     def test_dot_in_method_call(self):
         """方法调用中的点号"""
@@ -213,17 +213,18 @@ class TestDotPeriodSplit:
         assert '.upper()' in py
 
     def test_period_in_class_body(self):
-        """类体中使用句号"""
+        """类体中使用句号（L-096 helper 形态，R59 更新）"""
         code = '类 A:\n    令 x = 10。\n    函数 get(self):\n        返回 self.x。'
         py = parse_and_generate(code)
         assert 'class' in py
-        assert 'self.x' in py
+        assert "_light_attr_get(self, 'x')" in py  # L-096 helper 形态（R59 更新）
 
     def test_dot_access_after_new_keyword(self):
         """新关键字令后的点号访问"""
         code = '类 A:\n    令 x = 0\n令 a = A()\n令 v = a.x'
         py = parse_and_generate(code)
-        assert 'a.x' in py
+        assert "_light_attr_get(a, 'x')" in py  # L-096 helper 形态（R59 更新）
+
 
 
 class TestEdgeCases:

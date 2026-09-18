@@ -52,6 +52,10 @@ class UnifiedCodeGenerator:
         self.user_functions = set()  # 用户定义的函数名
         self._in_function = False  # 是否在函数/段落内部（控制 return 生成）
         self._in_class_method = False  # 是否在类方法/构造函数内部（控制 己→self 映射）
+        # R59 任务1：当前类的属性名集合（控制粘连 self 前缀 `己X`/`自X` 读取位展开）。
+        # 与 src 后端 code_generator.py 的 `_class_attr_names` 同口径；在 _generate_class
+        # 里按类作用域收集/隔离（嵌套类不互相污染）。
+        self._class_attr_names: set = set()
         self._needs_asyncio = False  # B5：是否需要 import asyncio
         self._needs_async_iter = False  # B5：是否需要 _light_async_iter 辅助
         
@@ -608,7 +612,83 @@ class UnifiedCodeGenerator:
                     return 'self'
                 if name.startswith(sref + '.'):
                     return 'self.' + name[len(sref) + 1:]
+            # R59 任务1：粘连 self 前缀 `己X`/`自X` 的**读取位**展开（对齐 src 后端
+            # code_generator.py::_resolve_identifier_name）。词法层把 `己姓名` 整词成
+            # 单个 IDENTIFIER（`己`/`自` 是构词字，不升保留字），写入位 `己姓名 为 …`
+            # 已由编译器/SelfAssignment 通路落成 `self.姓名 = …`；读取位（实参/返回/
+            # 表达式）此前无任何一层展开 → 运行期 `name '己姓名' is not defined`。
+            # 仅当「去掉前缀后的剩余部分 ∈ 本类属性名集合」才展开（防误伤无关标识符）。
+            for sref in self._SELF_NAMES:
+                if name.startswith(sref) and len(name) > len(sref):
+                    rest = name[len(sref):]
+                    if rest in self._class_attr_names:
+                        return f"self.{rest}"
         return self._sanitize_name(name)
+
+    def _collect_class_attr_names(self, cls) -> set:
+        """R59 任务1：收集一个类的属性名集合。
+
+        两个来源（与 src 后端 code_generator.py::_generate_class_definition 的
+        `_class_attr_names` 同口径，并额外兼容写入位已展开的 `self.X`）：
+          ① 声明式属性 `属性 X` / `性 X`（v2 的 `fields` / v3 的 `attributes`）；
+          ② 构造/方法体内 `己X 为 …`（编译器可能已落成 `Assignment(Identifier('self.X'))`）
+             或尚未展开的 `SelfAssignment(attr_name=X)`。
+        """
+        names = set()
+
+        def _add(nm):
+            if isinstance(nm, str) and nm:
+                names.add(self._sanitize_name(nm))
+
+        # ① 声明式属性
+        for attr_key in ('fields', 'attributes'):
+            for f in (getattr(cls, attr_key, None) or []):
+                if isinstance(f, str):
+                    _add(f)
+                else:
+                    _add(getattr(f, 'name', None))
+
+        # ② 构造 + 方法体内的自属性赋值
+        _seen = set()
+
+        def _walk(node, depth=0):
+            if node is None or depth > 40:
+                return
+            if isinstance(node, (list, tuple)):
+                for x in node:
+                    _walk(x, depth + 1)
+                return
+            if id(node) in _seen:
+                return
+            _seen.add(id(node))
+            tn = type(node).__name__
+            if tn == 'SelfAssignment' or is_instance(node, 'SelfAssignment'):
+                _add(getattr(node, 'attr_name', None))
+            elif tn == 'Assignment':
+                tgt = getattr(node, 'target', None)
+                tname = getattr(tgt, 'name', None)
+                if isinstance(tname, str) and tname.startswith('self.'):
+                    _add(tname[len('self.'):])
+            # 遍历该节点所有子字段（沿 MRO 收集 __slots__：v3 基类 ASTNode 的 slots
+            # 与子类各写各的，只读 type(node).__slots__ 会漏掉继承来的字段）。
+            _slot_names = set()
+            for _k in type(node).__mro__:
+                _slot_names.update(getattr(_k, '__slots__', ()) or ())
+            for a in _slot_names:
+                try:
+                    v = getattr(node, a, None)
+                except Exception:
+                    continue
+                if isinstance(v, (list, tuple)) or (
+                        v is not None and not isinstance(v, (str, int, float, bool))):
+                    _walk(v, depth + 1)
+
+        ctor = getattr(cls, 'constructor', None)
+        if ctor is not None:
+            _walk(getattr(ctor, 'body', None) or [])
+        for m in (getattr(cls, 'methods', None) or []):
+            _walk(getattr(m, 'body', None) or [])
+        return names
 
 
     def _generate_statement(self, stmt):
@@ -1453,6 +1533,12 @@ class UnifiedCodeGenerator:
         
         bases_str = ', '.join(bases) if bases else ''
         
+        # R59 任务1：收集本类属性名（声明式 `属性 X` / `性 X` 的 X，以及构造/方法体内
+        # `己X 为 …` 的 X），供方法体内粘连 self 前缀 `己X`/`自X` 的读取位展开。
+        # 存档/还原保证嵌套类不互相污染（内层类生成完不能把外层属性集吃掉）。
+        _saved_class_attr_names = self._class_attr_names
+        self._class_attr_names = self._collect_class_attr_names(cls)
+
         # 类定义
         if bases_str:
             self._add_line(f"class {name}({bases_str}):")
@@ -1497,7 +1583,9 @@ class UnifiedCodeGenerator:
         
         self.indent_level -= 1
         self._add_line("")
-    
+        # R59 任务1：还原外层类属性作用域（见本函数开头存档处）
+        self._class_attr_names = _saved_class_attr_names
+
     def _generate_constructor(self, constructor):
         """生成构造函数"""
         params = ['self']

@@ -108,8 +108,9 @@ class TestAsyncClassMethod:
         返回 己.值
 '''
         code = _gen(src)
-        # 验证 self.属性 读写
-        assert "self.值 = (self.值 + 1)" in code or "self.值 = self.值 + 1" in code
+        # 验证 self.属性 读写（L-096 helper 形态，R59 更新：写入发射
+        # _light_attr_set(self, '值', (self.值 + 1))，类实例走 setattr，与旧直发等价）
+        assert "_light_attr_set(self, '值', (self.值 + 1))" in code
         assert "return self.值" in code
 
         global_ns = {}

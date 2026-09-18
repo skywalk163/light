@@ -288,9 +288,9 @@ class TestAwaitMemberAccess:
         assert 'await f.抓取()' in result
 
     def test_await_chained_member(self):
-        """等待 + 链式成员访问"""
+        """等待 + 链式成员访问（L-096 helper 形态，R59 更新：属性读取走 _light_attr_get，方法调用 .丙() 仍直发，语义等价）"""
         result = _compile_ok('异步 函数 主():\n  等待 甲.乙.丙()\n')
-        assert 'await 甲.乙.丙()' in result
+        assert "await _light_attr_get(甲, '乙').丙()" in result
 
     def test_await_plain_call_unchanged(self):
         """等待 + 普通调用：原有行为不变"""
@@ -566,7 +566,9 @@ class TestL2OOPCodegen:
     def test_自_param_and_body_both_self(self):
         code = self._gen()
         # 构造形参不重复注入 self；构造体内 自之姓名 归一成 self.姓名
-        assert 'self.姓名 = 姓名' in code
+        # L-096 helper 形态（R59 更新）：赋值发射 _light_attr_set(self, '姓名', 姓名)，
+        # 类实例走 setattr，与旧直发 self.姓名 = 姓名 语义等价
+        assert "_light_attr_set(self, '姓名', 姓名)" in code
         assert 'def __init__(self, self' not in code
         g = self._exec()
         s = g['学生']('张三', 22, '2026001')
@@ -1315,7 +1317,10 @@ class TestJueyiE遍历为连接词:
   输出(i)
 """)
         assert 'for i in range(1, 10):' in result
-        assert '==' not in result
+        # R59 更新：原 `assert '==' not in result` 断言面过宽——产物头部运行时
+        # 预置（内置 lambda 表）合法地含有 ==（如『是负零』的 v == 0.0）。
+        # 本条的语义防线是「为 不得被吞成 ==」：收窄到循环行断言。
+        assert 'in range(1, 10) ==' not in result
 
     def test_为搭配裸名(self):
         """主程序.light:33 同形：`遍 学生列表 为 s:`"""
@@ -1363,7 +1368,8 @@ class TestJueyiOOP成员赋值目标:
   段 构造(姓名):
     自之姓名 = 姓名
 """)
-        assert 'self.姓名 = 姓名' in result
+        # L-096 helper 形态（R59 更新）：赋值发射 _light_attr_set(self, '姓名', 姓名)
+        assert "_light_attr_set(self, '姓名', 姓名)" in result
         # 改前旧路径把 `之` 粘进属性名：self.之姓名（静默错译）
         assert 'self.之姓名' not in result
 
@@ -1374,21 +1380,25 @@ class TestJueyiOOP成员赋值目标:
   段 录入(科目, 分数):
     自之成绩[科目] = 分数
 """)
-        assert 'self.成绩[科目] = 分数' in result
+        # L-096 helper 形态（R59 更新）：读取走 _light_attr_get + 原生下标赋值
+        assert "_light_attr_get(self, '成绩')[科目] = 分数" in result
 
     def test_普通标识符之成员赋值(self):
         result = _compile_ok("""
 段 甲(obj):
   obj之字段 = 1
 """)
-        assert 'obj.字段 = 1' in result
+        # L-096 helper 形态（R59 更新）
+        assert "_light_attr_set(obj, '字段', 1)" in result
 
     def test_点号成员赋值未被破坏(self):
         result = _compile_ok("""
 段 甲(obj):
   obj.字段 = 1
 """)
-        assert 'obj.字段 = 1' in result
+        # L-096 helper 形态（R59 更新）：点号与「之」形态发射同一条 helper 路径，
+        # 「未被破坏」由类实例走 setattr 保证
+        assert "_light_attr_set(obj, '字段', 1)" in result
 
 
 # =============================================================================

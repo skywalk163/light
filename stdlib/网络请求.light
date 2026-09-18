@@ -1,4 +1,5 @@
-# 纯光明实现 —— stdlib/网络请求.py 的原生腿实现
+# 原生腿实现 —— stdlib/网络请求.py 的原生腿实现（R59：Python 后端优先加载同名 .py；
+# 本 .light 不带纯光明魔数，见 _light_import_hook._is_pure_light 与 L-176 先例）
 #
 # 基于 runtime B1 Socket + B2-4 TLS 符号实现 HTTP/1.1 客户端。
 # 不依赖 requests/urllib，纯光明 socket/tls 调用。

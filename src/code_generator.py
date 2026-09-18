@@ -4351,6 +4351,18 @@ class PythonCodeGenerator:
             mapped = self._map_self_prefix(name)
             if mapped != name:
                 return mapped
+            # R59 任务1：粘连 self 前缀 `己X`/`自X` 的**读取位**展开。
+            # 词法层把 `己姓名` 整词成单个 IDENTIFIER（`己`/`自` 是高频构词字，不升
+            # 保留字），写入位 `己姓名 为 …` 由 SelfAssignment 通路正确落成
+            # `self.姓名 = …`；读取位（实参/返回/表达式）此前无任何一层展开 →
+            # 运行期 `name '己姓名' is not defined`。
+            # 仅当「去掉前缀后的剩余部分 ∈ 本类属性名集合」才展开，避免把无关标识符
+            # （恰好以 己/自 起头）误改成成员访问。
+            for _sref in self._SELF_NAMES:
+                if name.startswith(_sref) and len(name) > len(_sref):
+                    _rest = name[len(_sref):]
+                    if _rest in self._class_attr_names:
+                        return f"self.{_rest}"
 
         # 类方法中，如果引用的是类属性且不是参数名，添加 self. 前缀
         if (self._in_class_method and raw_name in self._class_attr_names

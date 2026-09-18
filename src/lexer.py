@@ -1788,12 +1788,18 @@ class Lexer:
     def _at_statement_start(source: str, pos: int) -> bool:
         """R21 任务2：判断 pos 是否处于「语句起始位置」。
 
-        语句起始位置 = 从 pos 向左跳过**行内空白**后，落在文件开头、换行或冒号上。
-        即 pos 是该行（或 `:` 之后块体）的第一个非空白 token。
+        语句起始位置 = 从 pos 向左跳过**行内空白**后，落在文件开头、换行、冒号或
+        句末句号（`。`）上。即 pos 是该行（或 `:`/`。` 之后块体/语句）的第一个非空白 token。
 
         ⚠️ 刻意**不含** `{` / `[` / `(` / `,` —— 这些是字面量/调用等**表达式语境**
         （`{去重占位:1}` 的字典键、`[筛选器]` 的列表元素），按上下文敏感切词应允许
         关键字前缀标识符整体成词。
+
+        R59 任务1（L-174 变体）：**新增 `。`**。`。` 是光明语句终止符，同行多语句
+        （`设值为空。设值2为值!。`）里第二条语句本就该按语句起始切分。此前不含 `。`
+        导致第二条 `设值2…` 被 R21 并成 IDENTIFIER(设值2)/被嵌入块吞并，变量名凭空
+        多一个 `设` 前缀。含 `。` 后与换行/冒号口径一致，且**不影响**带空格的
+        `设 设备名 为 1`（其名字前的非空白字符是 `设`，仍非语句起始）。
 
         用途：上下文敏感切词只在**非**语句起始位置放宽为「最大匹配整体成标识符」；
         语句起始位置保持既有「关键字优先切分」逻辑不变（`接收 参数`/`如果 条件` 等
@@ -1804,7 +1810,7 @@ class Lexer:
             k -= 1
         if k < 0:
             return True
-        return source[k] in '\n\r:：'
+        return source[k] in '\n\r:：。'
 
     def _emb_keyword_spanning(self, source: str, base: int, offset: int) -> bool:
         """R58 任务1（L-174 配套守卫）：判断 source[base+offset] 是否落在
@@ -2349,7 +2355,13 @@ class Lexer:
             # （如 返回斐波那契(...) = 返回 / 斐波那契 / (...)），绝非「标识符黏着触发字」的
             # 复合名，交还常规切分。真正的函数名（断言为真/合并为/判定为空）触发字在词中，不受影响。
             _emb_head_kw, _emb_head_len = self._match_keyword(source, pos)
-            _emb_head_trigger = _emb_head_kw in _EMBED_MAX_MATCH_KEYWORDS
+            # R59 任务1（L-174 变体 · Part1）：`设` 是变量声明语句关键字，词首命中即
+            # **不得**被嵌入块整串合并。否则 `设结果为段落计算(甲，乙)`（整串后紧随 `(`）
+            # 会被 `_emb_iscall` 分支并成 IDENTIFIER(设结果为段落计算)——`设` 与 `为`
+            # 一起丢失。既有行为本就无条件切开 `设备`→`设`+`备` / `设计模式`→`设`+`计模式`，
+            # 故把 `设` 提升为「头触发」只让 iscall 路径与既有切法口径统一。
+            _emb_head_trigger = (_emb_head_kw in _EMBED_MAX_MATCH_KEYWORDS
+                                 or _emb_head_kw == '设')
             # R36 修复（词中/词首「返回」豁免，对齐父版 500743bc）：
             # `返回` 恒为「返回 表达式」关键字，含 `返回` 的标识符（返回表/返回文本/返回包装器/
             # 那么返回甲加乙/返回斐波那契(…)）一律不在此处合并，交还常规切分（返回 与后续表达式
@@ -2382,10 +2394,8 @@ class Lexer:
                     _ep = full_identifier.find(_ek)
                     if _ep == -1:
                         continue
-                    if _emb_iscall:
-                        # 函数名语境（断言为真/判定为空/合并为/头版本为/结算被终止尝试…）→ 整串合并
-                        _emb_hit = True
-                        break
+                    # R59 任务1（L-174 变体 · Part2）：先算 `为` 后的内容与粘连态，
+                    # 再决定是否放行嵌入块的「函数名语境」整串合并。
                     _after = full_identifier[_ep + len(_ek):_ep + len(_ek) + 1]
                     # R58 任务1（L-174）：判定「本汉字段是否与**前一字**粘连」。
                     # 连写形态（`设甲为三`：`设` 先切出后，此段 `甲为三` 紧贴 `设`，
@@ -2394,13 +2404,31 @@ class Lexer:
                     # 不得因内含 `为零` 被拆 —— 语料实测见
                     # lightharness/examples/test_R24_运算符单字守卫.light。
                     _glued_to_prev = pos > 0 and _is_han(source[pos - 1])
+                    # R59 任务1（L-174 变体）：`X为<表达式>` 连写赋值尾（R58 只覆盖了
+                    # `为`+值字面量/中文数字，变体是 `为`+**表达式**：`为甲加乙` / `为值` /
+                    # `为段落计算(...)`）。判据（四者同时成立）：
+                    #   ① `为` 正后随**汉字**（中文数字字含在内，也走此路；空/真/假
+                    #      值字面量仍由既有 (a) 规则处理，不在本条）；
+                    #   ② 本汉字段与前一字**粘连**（`设X为…`：`设` 切出后 `X为…` 紧贴）；
+                    #   ③ `为` 未被更长关键字跨越（见 _emb_keyword_spanning）；
+                    #   ④ 其后不是值字面量（空/真/假 —— 保持 `断言为真(…)` 口径不变）。
+                    # 命中即把 `为` 交还关键字：前缀 `X` 独立成词、其后按常规切分
+                    # （`结果为甲加乙` → `结果` + `为` + `甲` + `加` + `乙`）。
+                    _assign_tail = (_ek == '为' and _glued_to_prev
+                                    and bool(_after) and _is_han(_after)
+                                    and _after not in _emb_value_heads
+                                    and not self._emb_keyword_spanning(source, pos, _ep))
+                    if _emb_iscall and not _assign_tail:
+                        # 函数名语境（断言为真/判定为空/合并为/头版本为/结算被终止尝试…）→ 整串合并
+                        _emb_hit = True
+                        break
                     if _ek in ('为', '返回', '尝试'):
                         # 赋值/返回关键字：按上述 (a)/(b)/(c) 精确处理
                         #
                         # 【R58 任务1 · L-174 修复】中文数字字也是**值起始**：
                         #   无空格 `设甲为三` 原被整串并入标识符 `甲为三` → `为`
                         #   关键字丢失 ⇒ 赋值语义错（静默错译），与 `设 甲为1`
-                        #   （数字尾巴，走下方 :2390 词尾分支）口径矛盾。
+                        #   （数字尾巴，走下方词尾分支）口径矛盾。
                         #   三重收窄（缺一不可），保证只命中真正连写的赋值尾：
                         #     ① `为` 正后随中文数字字（空/真/假 走原有判据，不变）；
                         #     ② 本汉字段与前一字**粘连**（见 _glued_to_prev）；
@@ -2408,6 +2436,7 @@ class Lexer:
                         _after_is_cn_num = bool(_after) and (
                             _after in _simple_nums or _after in _cn_digits)
                         if (_after and (_after in _emb_value_heads
+                                        or _assign_tail
                                         or (_after_is_cn_num and _glued_to_prev
                                             and not self._emb_keyword_spanning(
                                                 source, pos, _ep)))):
