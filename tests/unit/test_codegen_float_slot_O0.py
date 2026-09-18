@@ -68,7 +68,7 @@ def test_T5A_02_int_div_arithmetic():
 def test_T5A_01_cross_seg_float_return():
     """设 m 为 均值(d); m*2 结果应为 5.0 而非 0 或垃圾值。"""
     code = (
-        '段落 均值 接收 d:\n'
+        '段落 均值(d):\n'
         '  设 n 为 长(d)\n'
         '  如果 n == 0:\n'
         '    返回 0.0\n'
@@ -99,7 +99,7 @@ def test_T5A_01_cross_seg_float_return():
 def test_T5A_01b_cross_seg_param_div():
     """段内 int 参数做 / 除法，返回值在主段算术正确。"""
     code = (
-        '段落 div_in_seg 接收 a, b:\n'
+        '段落 div_in_seg(a, b):\n'
         '  返回 a / b\n'
         '\n'
         '段落 主:\n'
@@ -140,7 +140,7 @@ def test_T5A_03_builtin_sqrt_arithmetic():
 def test_T5A_04_float_param():
     """float 参数传入用户段函数后参与算术正确。"""
     code = (
-        '段落 compute 接收 x:\n'
+        '段落 compute(x):\n'
         '  输出(x)\n'
         '  输出(x * 2.0)\n'
         '  输出(x / 2.0)\n'

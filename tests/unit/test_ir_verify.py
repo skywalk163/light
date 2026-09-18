@@ -241,7 +241,7 @@ class TestIRValidationInCodegen(unittest.TestCase):
 
     def test_paragraph_ir_generation_passes_validation(self):
         """段落定义和调用的 IR 生成应通过验证"""
-        source = '''段落 加法 接收 a, b：
+        source = '''段落 加法(a, b)：
   返回 a 加 b
 
 设 结果 为 加法(3, 5)

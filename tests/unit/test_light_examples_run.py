@@ -197,27 +197,27 @@ class TestFunctions(unittest.TestCase):
     """函数定义与调用"""
 
     def test_simple_function(self):
-        code = '段落 加一 接收 数：\n  返回 数 加 1\n打印(加一(5))'
+        code = '段落 加一(数)：\n  返回 数 加 1\n打印(加一(5))'
         self.assertEqual(_run_light(code).strip(), '6')
 
     def test_two_param_function(self):
-        code = '段落 求和 接收 甲, 乙：\n  返回 甲 加 乙\n打印(求和(3, 4))'
+        code = '段落 求和(甲, 乙)：\n  返回 甲 加 乙\n打印(求和(3, 4))'
         self.assertEqual(_run_light(code).strip(), '7')
 
     def test_no_param_function(self):
-        code = '段落 问好 接收：\n  返回 "你好"\n打印(问好())'
+        code = '段落 问好()：\n  返回 "你好"\n打印(问好())'
         self.assertEqual(_run_light(code).strip(), '你好')
 
     def test_function_call_in_expression(self):
-        code = '段落 双倍 接收 数：\n  返回 数 乘 2\n设 结果 为 双倍(5) 加 双倍(3)\n打印(结果)'
+        code = '段落 双倍(数)：\n  返回 数 乘 2\n设 结果 为 双倍(5) 加 双倍(3)\n打印(结果)'
         self.assertEqual(_run_light(code).strip(), '16')
 
     def test_recursive_factorial(self):
-        code = '段落 阶乘 接收 数：\n  如果 数 小于等于 1：\n    返回 1\n  返回 数 乘 阶乘(数 减 1)\n打印(阶乘(5))'
+        code = '段落 阶乘(数)：\n  如果 数 小于等于 1：\n    返回 1\n  返回 数 乘 阶乘(数 减 1)\n打印(阶乘(5))'
         self.assertEqual(_run_light(code).strip(), '120')
 
     def test_recursive_fibonacci(self):
-        code = '段落 斐波那契 接收 数：\n  如果 数 等于 0：\n    返回 0\n  如果 数 等于 1：\n    返回 1\n  返回 斐波那契(数 减 1) 加 斐波那契(数 减 2)\n打印(斐波那契(10))'
+        code = '段落 斐波那契(数)：\n  如果 数 等于 0：\n    返回 0\n  如果 数 等于 1：\n    返回 1\n  返回 斐波那契(数 减 1) 加 斐波那契(数 减 2)\n打印(斐波那契(10))'
         self.assertEqual(_run_light(code).strip(), '55')
 
 
@@ -334,7 +334,7 @@ class TestComplexPrograms(unittest.TestCase):
         self.assertEqual(_run_light(code).strip(), '5050')
 
     def test_prime_check(self):
-        code = '''段落 是素数 接收 数：
+        code = '''段落 是素数(数)：
   如果 数 小于 2：
     返回 假
   设 除数 为 2
@@ -349,7 +349,7 @@ class TestComplexPrograms(unittest.TestCase):
         self.assertEqual(_run_light(code).strip(), 'True\nFalse')
 
     def test_fibonacci_sequence(self):
-        code = '''段落 斐波那契 接收 数：
+        code = '''段落 斐波那契(数)：
   如果 数 等于 0：
     返回 0
   如果 数 等于 1：
@@ -389,7 +389,7 @@ class TestEdgeCases(unittest.TestCase):
         self.assertEqual(_run_light(code).strip(), '1\n2\n3')
 
     def test_nested_function_calls(self):
-        code = '段落 双倍 接收 数：\n  返回 数 乘 2\n段落 加十 接收 数：\n  返回 数 加 10\n打印(加十(双倍(5)))'
+        code = '段落 双倍(数)：\n  返回 数 乘 2\n段落 加十(数)：\n  返回 数 加 10\n打印(加十(双倍(5)))'
         self.assertEqual(_run_light(code).strip(), '20')
 
     def test_zero_division_not_crashing_parser(self):

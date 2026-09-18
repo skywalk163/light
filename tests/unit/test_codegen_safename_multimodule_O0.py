@@ -208,7 +208,7 @@ class TestMainModuleConflict:
         code = (
             "从 数学 导入 绝对值\n"
             "\n"
-            "段落 最小值 接收 数据:\n"
+            "段落 最小值(数据):\n"
             "  设 n 为 长(数据)\n"
             "  设 结果 为 数据[0]\n"
             "  设 i 为 1\n"

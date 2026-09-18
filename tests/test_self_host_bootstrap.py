@@ -320,7 +320,7 @@ class TestLevel3FunctionLoop:
 
     def test_function_with_params(self) -> None:
         """测试带参数函数"""
-        source = '''段落 加法 接收 x, y：
+        source = '''段落 加法(x, y)：
   返回 x 加 y
 设 r 为 加法(3, 4)
 '''
@@ -329,7 +329,7 @@ class TestLevel3FunctionLoop:
 
     def test_function_return_value(self) -> None:
         """测试函数返回值"""
-        source = '''段落 平方 接收 x：
+        source = '''段落 平方(x)：
   返回 x 乘 x
 设 r 为 平方(5)
 '''
@@ -357,7 +357,7 @@ class TestLevel3FunctionLoop:
 
     def test_function_with_multiple_params(self) -> None:
         """测试多参数函数"""
-        source = '''段落 乘加 接收 a, b, c：
+        source = '''段落 乘加(a, b, c)：
   返回 a 乘 b 加 c
 设 r 为 乘加(2, 3, 1)
 '''
@@ -366,9 +366,9 @@ class TestLevel3FunctionLoop:
 
     def test_function_call_chain(self) -> None:
         """测试函数调用链"""
-        source = '''段落 加倍 接收 x：
+        source = '''段落 加倍(x)：
   返回 x 加 x
-段落 平方 接收 x：
+段落 平方(x)：
   返回 x 乘 x
 设 r 为 平方(加倍(3))
 '''
@@ -500,11 +500,11 @@ class TestLevel5Advanced:
     def test_class_definition(self) -> None:
         """测试类定义"""
         source = '''类 计数器：
-  段落 初始化 接收 己, 初始值：
+  段落 初始化(己, 初始值)：
     属性 己.值 为 初始值
-  段落 增加 接收 己：
+  段落 增加(己)：
     设 己.值 为 己.值 加 1
-  段落 获取 接收 己：
+  段落 获取(己)：
     返回 己.值
 设 c 为 计数器(0)
 '''
@@ -525,7 +525,7 @@ class TestLevel5Advanced:
     def test_raise_exception(self) -> None:
         """测试抛出异常（使用内置 raise 绕过）"""
         # 光明中 raise 会中断流程，这里只测试语法可以通过编译
-        source = '''段落 检查正数 接收 x：
+        source = '''段落 检查正数(x)：
   如果 x 小于 0：
     抛出 "值错误"
   返回 真

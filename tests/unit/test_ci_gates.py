@@ -290,7 +290,7 @@ class TestPython直调计数(unittest.TestCase):
             self._树(d, 甲=_LIGHT样例["光明模块不算"])
             with open(os.path.join(d, "stdlib", "JSON.light"), "w",
                       encoding="utf-8") as fh:
-                fh.write("段落 解析JSON 接收 文本：\n  返回 []\n")
+                fh.write("段落 解析JSON(文本)：\n  返回 []\n")
             per_file, _详, 排除, _模块 = PD.scan_tree(d)
         self.assertEqual(per_file, {})
         self.assertEqual([名 for 名, _因 in 排除["甲.light"]], ["JSON"])

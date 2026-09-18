@@ -109,7 +109,7 @@ class TestEndToEndFunctions:
 
     def test_simple_function(self, compile_pipeline):
         """测试简单函数"""
-        light_code = '段 计算 接收：返回 甲 加 乙。结束。'
+        light_code = '段 计算()：返回 甲 加 乙。结束。'
         python_code = compile_pipeline(light_code)
         assert python_code is not None
         assert 'def' in python_code

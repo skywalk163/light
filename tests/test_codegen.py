@@ -142,7 +142,7 @@ class TestFunctionGeneration:
 
     def test_simple_function(self, parser, generator):
         """测试简单函数生成"""
-        module = parser.parse('段 计算 接收：返回 甲 加 乙。结束。')
+        module = parser.parse('段 计算()：返回 甲 加 乙。结束。')
         python_code = generator.generate(module)
         assert 'def' in python_code
 

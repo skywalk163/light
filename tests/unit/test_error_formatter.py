@@ -282,7 +282,7 @@ class TestEnhancedErrorMessages:
 
     def test_syntax_error_details(self):
         """测试语法错误包含详细信息"""
-        source = '段落 测试 接收：\n  打印("hello"'
+        source = '段落 测试()：\n  打印("hello"'
         try:
             compile("def f():\n    print('hello'", '<test>', 'exec')
         except SyntaxError as e:

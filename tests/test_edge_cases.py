@@ -180,7 +180,7 @@ log。
     def test_nested_function_calls_deep(self):
         """多层嵌套函数调用"""
         code = """
-段落 三倍 接收 数值：
+段落 三倍(数值)：
   返回 数值 乘 3。
 结束。
 
@@ -194,7 +194,7 @@ log。
     def test_deep_recursion(self):
         """深层递归（递归深度10）"""
         code = """
-段落 累计 接收 数值：
+段落 累计(数值)：
   如果 数值 小于等于 0：
     返回 0。
   结束。
@@ -209,7 +209,7 @@ log。
     def test_multiple_params_with_arithmetic(self):
         """多参数加复杂运算"""
         code = """
-段落 复杂运算 接收 甲, 乙, 丙：
+段落 复杂运算(甲, 乙, 丙)：
   返回 甲 乘 乙 加 丙 除 2。
 结束。
 
@@ -404,7 +404,7 @@ class TestEdgeCasesClasses(unittest.TestCase):
 类 人：
   属性 名称。
   
-  构造 接收 名称：
+  构造(名称)：
     己名称 为 名称。
   结束。
 结束。
@@ -448,19 +448,19 @@ class TestEdgeCasesClasses(unittest.TestCase):
 类 计算器：
   属性 初始值。
   
-  构造 接收 初始值：
+  构造(初始值)：
     己初始值 为 初始值。
   结束。
   
-  段落 加 接收 数值：
+  段落 加(数值)：
     返回 己初始值 加 数值。
   结束。
   
-  段落 减 接收 数值：
+  段落 减(数值)：
     返回 己初始值 减 数值。
   结束。
   
-  段落 乘 接收 数值：
+  段落 乘(数值)：
     返回 己初始值 乘 数值。
   结束。
 结束。

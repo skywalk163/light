@@ -60,7 +60,7 @@ class TestL041DictMappingAsParam:
     def test_dict_param_with_builtin_call(self):
         """`字典` 作参数名 + 字典包含键(字典, 键) 内建调用正常"""
         code = ('从 内置核心字典 导入 字典创建 字典设置 字典包含键\n'
-                '段落 主 接收 字典, 键:\n'
+                '段落 主(字典, 键):\n'
                 '  字典设置(字典, 键, 1)\n'
                 '  写 转字符串(字典包含键(字典, 键))\n'
                 '主({}, "a")\n')
@@ -70,7 +70,7 @@ class TestL041DictMappingAsParam:
 
     def test_mapping_param_index(self):
         """`映射` 作参数名 + 下标访问正常"""
-        code = ('段落 主 接收 映射, 键:\n'
+        code = ('段落 主(映射, 键):\n'
                 '  写 转字符串(映射[键])\n'
                 '主({"a": 1}, "a")\n')
         out = _run(code)
@@ -78,7 +78,7 @@ class TestL041DictMappingAsParam:
 
     def test_dict_param_getitem(self):
         """`字典` 作参数名 + 下标访问正常"""
-        code = ('段落 主 接收 字典, 键:\n'
+        code = ('段落 主(字典, 键):\n'
                 '  写 转字符串(字典[键])\n'
                 '主({"a": 1}, "a")\n')
         out = _run(code)
@@ -105,7 +105,7 @@ class TestL053JiAsNormalVar:
 
     def test_ji_as_param(self):
         """`己` 作参数名正常"""
-        code = ('段落 主 接收 己:\n'
+        code = ('段落 主(己):\n'
                 '  写 转字符串(己)\n'
                 '主(99)\n')
         out = _run(code)
@@ -115,7 +115,7 @@ class TestL053JiAsNormalVar:
         """类方法内 `己.attr` 仍映射 self（L-053 不回退）"""
         code = ('类 人：\n'
                 '  属性 名字。\n'
-                '  构造 接收 名字：\n'
+                '  构造(名字)：\n'
                 '    己.名字 为 名字。\n'
                 '  段落 取名字：\n'
                 '    返回 己.名字。\n'
@@ -200,7 +200,7 @@ class TestL060ZhongFunctionAsVar:
 
     def test_function_as_param(self):
         """`函数` 作参数名正常"""
-        code = ('段落 取和 接收 函数, 值:\n'
+        code = ('段落 取和(函数, 值):\n'
                 '  返回 值\n'
                 '段落 主:\n'
                 '  写 转字符串(取和(10, 20))\n'
@@ -210,7 +210,7 @@ class TestL060ZhongFunctionAsVar:
 
     def test_function_def_unchanged(self):
         """`函数 名(参数):` 函数定义语义不变"""
-        code = ('函数 加 接收 a, b:\n'
+        code = ('函数 加(a, b):\n'
                 '  返回 a + b\n'
                 '段落 主:\n'
                 '  写 转字符串(加(1, 2))\n'

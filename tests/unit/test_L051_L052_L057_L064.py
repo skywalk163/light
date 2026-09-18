@@ -94,11 +94,11 @@ class TestL052DollarBraceLiteral:
 # L-057：类方法体内 己.能力["X"](实参) 函数值调用
 # ===========================================================================
 class TestL057MemberSubscriptCall:
-    _CLS = ('段落 翻倍 接收 x：\n'
+    _CLS = ('段落 翻倍(x)：\n'
             '  返回 x * 2。\n'
             '类 引擎：\n'
             '  属性 能力。\n'
-            '  构造 接收 能力：\n'
+            '  构造(能力)：\n'
             '    己.能力 为 能力。\n')
 
     def test_return_form(self):
@@ -113,11 +113,11 @@ class TestL057MemberSubscriptCall:
 
     def test_stmt_form(self):
         """语句级形态：己.能力["标记"]("跑起来了") 丢弃返回值"""
-        code = ('段落 标记 接收 x：\n'
+        code = ('段落 标记(x)：\n'
                 '  写 转字符串(x)。\n'
                 '类 引擎：\n'
                 '  属性 能力。\n'
-                '  构造 接收 能力：\n'
+                '  构造(能力)：\n'
                 '    己.能力 为 能力。\n'
                 '  段落 跑：\n'
                 '    己.能力["标记"]("跑起来了")。\n'
@@ -129,7 +129,7 @@ class TestL057MemberSubscriptCall:
     def test_assign_form(self):
         """赋值形态：设 结果 为 己.能力[键](10)"""
         code = (self._CLS +
-                '  段落 执行 接收 键：\n'
+                '  段落 执行(键)：\n'
                 '    设 结果 为 己.能力[键](10)。\n'
                 '    返回 结果。\n'
                 '引擎 等于 新建 引擎({"翻倍": 翻倍})。\n'

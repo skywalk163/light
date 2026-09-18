@@ -413,7 +413,7 @@ class TestContainsOperator:
     比原来的 SyntaxError 更坏。
     """
 
-    _SRC = ('段落 查找 接收 文件名, 关键词:\n'
+    _SRC = ('段落 查找(文件名, 关键词):\n'
             '  如果 文件名 包含 关键词:\n'
             '    打印("命中")。\n')
 
@@ -428,7 +428,7 @@ class TestContainsOperator:
 
     def test_compound_or_expression(self):
         """工单原形：或复合条件里也不泄漏、方向不变"""
-        result = _compile_ok('段落 查找 接收 文件名, 关键词:\n'
+        result = _compile_ok('段落 查找(文件名, 关键词):\n'
                              '  如果 关键词 等于 "" 或 文件名 包含 关键词:\n'
                              '    打印("命中")。\n')
         assert '@@' not in result
@@ -439,7 +439,7 @@ class TestContainsOperator:
 
         `x in y == False` 会被 Python 解释成 `(x in y) and (y == False)`，恒假。
         """
-        result = _compile_ok('段落 查找 接收 文件名, 关键词:\n'
+        result = _compile_ok('段落 查找(文件名, 关键词):\n'
                              '  如果 (文件名 包含 关键词) 等于 假:\n'
                              '    打印("未命中")。\n')
         assert '(关键词 in 文件名)' in result
@@ -966,7 +966,7 @@ class TestCtorNameMapping:
         """`构造 接收 …`（parser 已归一的形态）不回归，且不触发重复构造警告。"""
         src = (
             "类 鸟:\n"
-            "    构造 接收 名:\n"
+            "    构造(名):\n"
             "        己.名 = 名\n"
             "\n"
             "段 主():\n"
@@ -986,7 +986,7 @@ class TestCtorNameMapping:
         """
         src = (
             "类 犬:\n"
-            "    构造 接收 名:\n"
+            "    构造(名):\n"
             "        己.名 = 名\n"
             "    段 构造(名, 岁):\n"
             "        己.名 = 名\n"
@@ -1675,7 +1675,7 @@ class TestL0SingleCharClassKeywords:
         "  性 名称\n"
         "  性 年龄\n"
         "\n"
-        "  构 接收 名称, 年龄：\n"
+        "  构(名称, 年龄)：\n"
         "    己名称 为 名称\n"
         "    己年龄 为 年龄\n"
         "\n"
@@ -1685,7 +1685,7 @@ class TestL0SingleCharClassKeywords:
         "类 狗 承 动物：\n"
         "  性 品种\n"
         "\n"
-        "  构 接收 名称, 年龄, 品种：\n"
+        "  构(名称, 年龄, 品种)：\n"
         "    父.构(名称, 年龄)\n"
         "    己品种 为 品种\n"
         "\n"
@@ -1849,7 +1849,7 @@ class TestChaoSuper:
         "类 动物：\n"
         "  性 名称\n"
         "\n"
-        "  构 接收 名称：\n"
+        "  构(名称)：\n"
         "    己名称 为 名称\n"
         "\n"
         "  段 描述：\n"
@@ -1858,7 +1858,7 @@ class TestChaoSuper:
         "类 狗 承 动物：\n"
         "  性 品种\n"
         "\n"
-        "  构 接收 名称, 品种：\n"
+        "  构(名称, 品种)：\n"
         "    %s\n"
         "    己品种 为 品种\n"
         "\n"

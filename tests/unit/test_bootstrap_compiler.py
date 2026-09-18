@@ -90,7 +90,7 @@ class TestSimplePrograms:
 
     def test_function_call(self):
         """测试函数调用"""
-        source = '''段落 加法 接收 x, y：
+        source = '''段落 加法(x, y)：
   返回 x 加 y
 设 r 为 加法(2, 3)
 '''
@@ -179,7 +179,7 @@ class TestBootstrapLexer:
 
     def test_lexer_token_structure(self):
         """测试令牌结构"""
-        source = '''段落 创建令牌 接收 种别, 值：
+        source = '''段落 创建令牌(种别, 值)：
   设 tok 为 字典创建()
   字典设置(tok, "种别", 种别)
   字典设置(tok, "值", 值)
@@ -210,7 +210,7 @@ class TestBootstrapCodegen:
   字典设置(state, "indent_str", "    ")
   返回 state
 
-段落 add_line 接收 state, line：
+段落 add_line(state, line)：
   设 lines 为 字典获取(state, "lines")
   设 indent 为 字典获取(state, "indent")
   设 indent_str 为 字典获取(state, "indent_str")
@@ -222,7 +222,7 @@ class TestBootstrapCodegen:
     设 i 为 i 加 1
   列表追加(lines, prefix 加 line_str)
 
-段落 get_output 接收 state：
+段落 get_output(state)：
   设 lines 为 字典获取(state, "lines")
   设 result 为 ""
   设 i 为 0
@@ -253,16 +253,16 @@ add_line(s, "y = 2")
   字典设置(state, "indent_str", "    ")
   返回 state
 
-段落 indent_push 接收 state：
+段落 indent_push(state)：
   设 indent 为 字典获取(state, "indent")
   字典设置(state, "indent", indent 加 1)
 
-段落 indent_pop 接收 state：
+段落 indent_pop(state)：
   设 indent 为 字典获取(state, "indent")
   如果 indent 大于 0：
     字典设置(state, "indent", indent 减 1)
 
-段落 add_line 接收 state, line：
+段落 add_line(state, line)：
   设 lines 为 字典获取(state, "lines")
   设 indent 为 字典获取(state, "indent")
   设 indent_str 为 字典获取(state, "indent_str")
@@ -287,7 +287,7 @@ indent_pop(s)
 
     def test_builtin_mapping(self):
         """测试内置函数映射"""
-        source = '''段落 map_builtin 接收 name：
+        source = '''段落 map_builtin(name)：
   如果 name 等于 "打印"：
     返回 "_light_builtin.打印"
   如果 name 等于 "列表创建"：
@@ -327,13 +327,13 @@ class TestBootstrapParser:
 段落 tok_str：
   返回 "字符串"
 
-段落 token_type 接收 tok：
+段落 token_type(tok)：
   返回 字典获取(tok, "种别")
 
-段落 token_value 接收 tok：
+段落 token_value(tok)：
   返回 字典获取(tok, "值")
 
-段落 is_kw 接收 tok, expected：
+段落 is_kw(tok, expected)：
   如果 字典获取(tok, "种别") 等于 "关键字" 且 字典获取(tok, "值") 等于 expected：
     返回 真
   返回 假
@@ -362,7 +362,7 @@ class TestBootstrapIntegration:
 
     def test_simple_compile_pipeline(self):
         """测试简单编译流程模拟"""
-        source = '''段落 简单编译 接收 src：
+        source = '''段落 简单编译(src)：
   设 lines 为 列表创建()
   列表追加(lines, "# Generated code")
   列表追加(lines, src)
@@ -383,7 +383,7 @@ class TestBootstrapIntegration:
 
     def test_ast_node_creation(self):
         """测试 AST 节点创建"""
-        source = '''段落 make_var_decl 接收 name, value：
+        source = '''段落 make_var_decl(name, value)：
   设 node 为 字典创建()
   字典设置(node, "类型", "变量声明")
   字典设置(node, "名称", name)

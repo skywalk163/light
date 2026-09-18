@@ -213,7 +213,7 @@ def test_列表推导带条件真跑():
 def test_生成器_while内挂起恢复真跑():
     """YieldStatement R10-11b：生成器段 while 内逐条 `生成`，`遍历` 惰性消费真跑。"""
     _assert_stdout(
-        '段落 数到 接收 n：\n'
+        '段落 数到(n)：\n'
         '  设 i 为 0\n'
         '  当 i < n：\n'
         '    生成 i\n'

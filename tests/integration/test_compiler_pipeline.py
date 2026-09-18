@@ -50,7 +50,7 @@ class TestCompilerPipeline(unittest.TestCase):
     def test_function_compile(self):
         """测试函数定义编译"""
         compiler = self.Compiler()
-        code = '段落 加一 接收 n：\n    返回 n 加 1'
+        code = '段落 加一(n)：\n    返回 n 加 1'
         try:
             result = compiler.compile(code)
             self.assertIsNotNone(result)

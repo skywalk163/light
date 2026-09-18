@@ -95,8 +95,8 @@ class Test全角标点等价契约:
         assert _types(a) == _types(b)
 
     def test_形参列表全角逗号等价(self):
-        fw = '段落 加法 接收 甲，乙：\n    返回 甲 加 乙。\n'
-        hw = '段落 加法 接收 甲,乙：\n    返回 甲 加 乙。\n'
+        fw = '段落 加法(甲, 乙)：\n    返回 甲 加 乙。\n'
+        hw = '段落 加法(甲, 乙)：\n    返回 甲 加 乙。\n'
         assert _types(fw) == _types(hw)
         assert 'COMMA' in _types(fw)
 

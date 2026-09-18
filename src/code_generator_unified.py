@@ -165,6 +165,45 @@ class UnifiedCodeGenerator:
             '连接字符串': '_light_builtin.连接字符串',
             '替换字符串': '_light_builtin.替换字符串',
             '去除空白': '_light_builtin.去除空白',
+            # ── R62 任务2：补 unified（ANTLR）腿「字符串处理同族」缺口 ──────────
+            # R61 任务3 只修了 hook 腿 src/code_generator.py:625，本文件（unified 腿）
+            # 同款缺口未修 → `去除空格` 在 unified 产物里仍是**裸名**，运行期
+            # NameError: name '去除空格' is not defined。实测证据（改前）：
+            #   UnifiedCodeGenerator().generate(<调用 去除空格 的 Module>)
+            #   → "    去除空格(' x ')"，而 去除空白 已正确映射为
+            #     "_light_builtin.去除空白(' x ')"。
+            # 中招面：stdlib/中文数字转换.light:54,167、参数解析.light:35,37、
+            #         格式化.light:207、颜色.light:198,225,228。
+            # 范围：只补「字符串处理同族」（与 去除空格 同族且 stdlib/builtins.py
+            # 确有实现的 25 键）。两腿 builtin_map 差集共 174 键（hook 276 /
+            # unified 124），全量对齐属独立大改，登记为 R63 主线，本轮不动。
+            # 刻意不补：`包含`（词过于通用，作用户段落名概率高；hook 腿虽已映射，
+            # 本轮保守不引入），差异已登记在 _task2_R62 报告。
+            '去除空格': '_light_builtin.去除空白',
+            '字符串包含': '_light_builtin.字符串包含',
+            '字符串替换': '_light_builtin.替换字符串',
+            '字符串分割': '_light_builtin.分割字符串',
+            '转大写': '_light_builtin.转大写',
+            '转小写': '_light_builtin.转小写',
+            '转标题': '_light_builtin.转标题',
+            '子串': '_light_builtin.截取',
+            '字符串截取': '_light_builtin.截取',
+            '开头': '_light_builtin.开头',
+            '结尾': '_light_builtin.结尾',
+            '查找子串': '_light_builtin.查找子串',
+            '最后索引': '_light_builtin.最后索引',
+            '替换字符串次数': '_light_builtin.替换字符串次数',
+            '截取到末尾': '_light_builtin.截取到末尾',
+            '字符串计数': '_light_builtin.字符串计数',
+            '字符串重复': '_light_builtin.字符串重复',
+            '字符串反转': '_light_builtin.字符串反转',
+            '去除左侧空白': '_light_builtin.去除左侧空白',
+            '去除右侧空白': '_light_builtin.去除右侧空白',
+            '字符串对齐居中': '_light_builtin.字符串对齐居中',
+            '字符串对齐左': '_light_builtin.字符串对齐左',
+            '字符串对齐右': '_light_builtin.字符串对齐右',
+            '浅拷贝': '_light_builtin.浅拷贝',
+            '深拷贝': '_light_builtin.深拷贝',
             # 列表操作（备用）
             '列表长度': '_light_builtin.列表长度',
             '列表获取': '_light_builtin.列表获取',

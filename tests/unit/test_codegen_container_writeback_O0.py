@@ -181,7 +181,7 @@ class CodegenContainerWritebackR12B(unittest.TestCase):
     # ---- R11A-11：dict 跨函数写回（T7B 已修复，guard）----
 
     def test_R11A11_dict参数函数内修改写回(self):
-        src = '''段落 改值 接收 缓存, 键:
+        src = '''段落 改值(缓存, 键):
   字典设置(缓存, 键, 2)
 段落 主:
   设 c 为 字典()

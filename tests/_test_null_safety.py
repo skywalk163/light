@@ -238,7 +238,7 @@ class TestBackwardsCompatibility(unittest.TestCase):
         # 现代语法：段落 相加 接收 甲，乙：（旧式「段落相加(甲, 乙)：」已废弃，
         # 旧式语法会 ParseError，与 null-safety 无关）
         src = (
-            '段落 相加 接收 甲，乙：\n'
+            '段落 相加(甲, 乙)：\n'
             '    返回 甲 加 乙。\n'
             '打印 相加(1, 2)。\n'
         )

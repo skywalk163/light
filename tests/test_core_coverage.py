@@ -109,7 +109,7 @@ class TestStmtCoverage:
     """match / with / 装饰器 / 异步 / 嵌入 / 异常 语句编译覆盖"""
 
     def test_match_stmt(self):
-        _compile_ok('''段落 评级 接收 分数：
+        _compile_ok('''段落 评级(分数)：
   匹配 分数：
     情况 100：
       返回 "满分"
@@ -118,7 +118,7 @@ class TestStmtCoverage:
 ''' + '设 结果 为 评级(85)\n')
 
     def test_match_string_pattern(self):
-        _compile_ok('''段落 判断 接收 颜色：
+        _compile_ok('''段落 判断(颜色)：
   匹配 颜色：
     情况 "红"：
       返回 1
@@ -200,7 +200,7 @@ class TestStmtCoverage:
     def test_member_assign(self):
         _compile_ok('''类 盒子：
   属性 值。
-  构造 接收 初值：
+  构造(初值)：
     己值 为 初值
 设 盒子1 为 新建 盒子(1)
 盒子1.值 为 5
@@ -242,7 +242,7 @@ class TestExprCoverage:
         _compile_ok('设 序列 为 范围(1, 10)。')
 
     def test_pipeline(self):
-        _compile_ok('''段落 处理 接收 数据：
+        _compile_ok('''段落 处理(数据)：
   返回 数据 加 1
 设 结果 为 数据 -> 处理。
 ''')
@@ -286,21 +286,21 @@ class TestTypeCheckerCoverage:
 
     def test_signature_level_check(self):
         """签名级别：段落参数与返回类型检查"""
-        src = ('段落 加法 接收 a: 整数, b: 整数 返回 整数：\n'
+        src = ('段落 加法(a: 整数, b: 整数) 返回 整数：\n'
                '  返回 a 加 b\n')
         results = self._check(src, '签名')
         assert results is not None
 
     def test_expression_level_check(self):
         """表达式级别检查"""
-        src = ('段落 双倍 接收 n: 整数：\n'
+        src = ('段落 双倍(n: 整数)：\n'
                '  返回 n 乘 2\n')
         results = self._check(src, '表达式')
         assert results is not None
 
     def test_strict_segment(self):
         """严格 修饰段落：强制表达式级检查"""
-        src = ('严格 段落 处理 接收 数据: 整数：\n'
+        src = ('严格 段落 处理(数据: 整数)：\n'
                '  返回 数据 加 1\n')
         results = self._check(src, '签名')
         assert results is not None
@@ -309,7 +309,7 @@ class TestTypeCheckerCoverage:
         """文件级指令：类型检查级别 签名 / 类型模式 严格"""
         src = ('# 类型检查级别: 签名\n'
                '# 类型模式: 严格\n'
-               '段落 处理 接收 数据: 整数 返回 整数：\n'
+               '段落 处理(数据: 整数) 返回 整数：\n'
                '  返回 数据 加 1\n')
         from type_checker import TypeCheckerConfig, GradedTypeChecker
         c = LightCompiler()
@@ -348,7 +348,7 @@ class TestDenseCoverage:
         _compile_ok('''类 动物：
   静态 属性 种类 等于 "动物"
   属性 名称。
-  构造 接收 名字：
+  构造(名字)：
     己名称 为 名字
   段落 叫声：
     返回 "..."
@@ -393,7 +393,7 @@ class TestDenseCoverage:
     def test_index_and_member(self):
         _compile_ok('''类 计数器：
   属性 当前。
-  构造 接收 初值：
+  构造(初值)：
     己当前 为 初值
   段落 增加：
     己当前 为 己当前 加 1

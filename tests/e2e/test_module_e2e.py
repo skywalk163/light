@@ -49,7 +49,7 @@ class TestModuleResolver:
         """测试简单模块依赖解析"""
         with tempfile.TemporaryDirectory() as tmpdir:
             # 创建 math_utils 模块
-            math_utils_code = '''段落 加法 接收 a, b：
+            math_utils_code = '''段落 加法(a, b)：
   返回 a 加 b
 
 导出 加法
@@ -80,7 +80,7 @@ class TestModuleResolver:
         """测试多模块依赖"""
         with tempfile.TemporaryDirectory() as tmpdir:
             # utils 模块
-            utils_code = '''段落 问候 接收 名字：
+            utils_code = '''段落 问候(名字)：
   返回 "你好，" 加 名字
 
 导出 问候
@@ -89,7 +89,7 @@ class TestModuleResolver:
                 f.write(utils_code)
 
             # math_utils 模块
-            math_utils_code = '''段落 平方 接收 x：
+            math_utils_code = '''段落 平方(x)：
   返回 x 乘 x
 
 导出 平方
@@ -157,10 +157,10 @@ class TestModuleE2E:
     def test_import_and_run_multi_module(self):
         """测试多模块代码拼接执行"""
         # 模块 1: 数学工具
-        math_utils_code = '''段落 相加 接收 a, b：
+        math_utils_code = '''段落 相加(a, b)：
   返回 a 加 b
 
-段落 相乘 接收 a, b：
+段落 相乘(a, b)：
   返回 a 乘 b
 '''
         # 模块 2: 主程序（手动导入函数
@@ -184,7 +184,7 @@ class TestModuleE2E:
   属性 宽
   属性 高
 
-  构造 接收 宽, 高：
+  构造(宽, 高)：
     己宽 为 宽
     己高 为 高
 

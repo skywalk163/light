@@ -71,7 +71,7 @@ def _run_cli(source: str, file_path: str) -> str:
     return (out or '').strip().replace('\r\n', '\n')
 
 
-HANOI_SOURCE = '''段落 汉诺塔 接收 层数, 源柱, 目标柱, 辅助柱:
+HANOI_SOURCE = '''段落 汉诺塔(层数, 源柱, 目标柱, 辅助柱):
   如果 层数 等于 1 那么:
     打印("移动盘子 1 从 " 加上 源柱 加上 " 到 " 加上 目标柱)。
   否则:

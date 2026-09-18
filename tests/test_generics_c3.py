@@ -41,9 +41,9 @@ def test_generic_class_method_param_annotation_emitted():
     src = '''\
 类 栈[T]：
   属性 项。
-  构造 接收 项: T：
+  构造(项: T)：
     己项 为 项。
-  段落 压入 接收 值: T：
+  段落 压入(值: T)：
     返回 值。
 '''
     py = _transpile(src)
@@ -57,9 +57,9 @@ def test_generic_class_exec_runs_and_get_type_hints_resolves_T():
     src = '''\
 类 栈[T]：
   属性 项。
-  构造 接收 项: T：
+  构造(项: T)：
     己项 为 项。
-  段落 压入 接收 值: T：
+  段落 压入(值: T)：
     返回 值。
 '''
     py = _transpile(src)
@@ -82,7 +82,7 @@ def test_generic_class_exec_runs_and_get_type_hints_resolves_T():
 
 def test_generic_paragraph_return_annotation_emitted():
     src = '''\
-段落 首个[T] 接收 表 返回 T：
+段落 首个[T](表) 返回 T：
   返回 表[0]。
 '''
     py = _transpile(src)
@@ -91,7 +91,7 @@ def test_generic_paragraph_return_annotation_emitted():
 
 def test_generic_paragraph_exec_runs_and_get_type_hints_resolves_T():
     src = '''\
-段落 首个[T] 接收 表 返回 T：
+段落 首个[T](表) 返回 T：
   返回 表[0]。
 '''
     py = _transpile(src)
@@ -113,7 +113,7 @@ def test_generic_paragraph_exec_runs_and_get_type_hints_resolves_T():
 def test_plain_method_param_annotation_still_emitted():
     src = '''\
 类 计算器：
-  段落 双倍 接收 数: 整数：
+  段落 双倍(数: 整数)：
     返回 数 乘 2。
 '''
     py = _transpile(src)

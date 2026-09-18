@@ -932,10 +932,10 @@ class TestGenericTypeCodegen:
     """泛型注解的完整管线：解析 → 类型推断 → 代码生成 → 执行"""
 
     SRC = '''
-段落 处理列表 接收 数据: 列表<整数>:
+段落 处理列表(数据: 列表<整数>):
     返回 列表长度(数据)
 
-段落 主 接收:
+段落 主():
     设 数据: 列表<整数> 为 [1, 2, 3]
     设 映射 为 字典<字符串, 小数> = {}
     设 可选值 为 可选<整数> = 空
@@ -974,7 +974,7 @@ class TestGenericTypeCodegen:
     def test_optional_null_assignment_no_error(self):
         """可选<整数> 赋值为空：空安全检查不报错"""
         src = '''
-段落 主 接收:
+段落 主():
     设 可选值 为 可选<整数> = 空
     打印(可选值)
 主()
@@ -1002,10 +1002,10 @@ class TestGenericTypeInference:
     def test_paragraph_signature(self):
         """段落参数 列表<整数> → 函数类型 (列表[数]) -> 数"""
         src = '''
-段落 处理列表 接收 数据: 列表<整数>:
+段落 处理列表(数据: 列表<整数>):
     返回 列表长度(数据)
 
-段落 主 接收:
+段落 主():
     设 数据: 列表<整数> 为 [1, 2, 3]
     处理列表(数据)
 主()
@@ -1025,7 +1025,7 @@ class TestGenericTypeInference:
     def test_optional_type_inferred(self):
         """可选<整数> 推断为 OptionalTypeWrapper（经段落返回类型传播）"""
         src = '''
-段落 主 接收:
+段落 主():
     设 可选值 为 可选<整数> = 空
     返回 可选值
 主()
@@ -1043,7 +1043,7 @@ class TestGenericTypeInference:
     def test_non_nullable_null_rejected(self):
         """整数 赋值为空 → 空安全错误"""
         src = '''
-段落 主 接收:
+段落 主():
     设 值 为 整数 = 空
     打印(值)
 主()
@@ -1054,13 +1054,13 @@ class TestGenericTypeInference:
     def test_generic_flow_through_call(self):
         """泛型注解在调用链中传递：列表<整数> 传入后返回长度"""
         src = '''
-段落 处理列表 接收 数据: 列表<整数>:
+段落 处理列表(数据: 列表<整数>):
     返回 列表长度(数据)
 
-段落 包装 接收 数据: 列表<整数>:
+段落 包装(数据: 列表<整数>):
     返回 处理列表(数据)
 
-段落 主 接收:
+段落 主():
     设 数据: 列表<整数> 为 [1, 2, 3]
     打印(包装(数据))
 主()
@@ -1096,7 +1096,7 @@ class TestNullableUnwrap:
     def test_unwrap_bang(self):
         """值! 解包后参与运算"""
         self._run('''
-段落 主 接收:
+段落 主():
     设 x 为 可选<整数> = 5
     设 y 为 x! 加 1
     打印(y)
@@ -1106,7 +1106,7 @@ class TestNullableUnwrap:
     def test_unwrap_function_form(self):
         """unwrap(值) 函数形式解包"""
         self._run('''
-段落 主 接收:
+段落 主():
     设 x 为 可选<整数> = 7
     设 y 为 unwrap(x) 加 1
     打印(y)
@@ -1116,7 +1116,7 @@ class TestNullableUnwrap:
     def test_unwrap_null_raises_assert(self):
         """空值! 解包 → 运行时断言失败"""
         src = '''
-段落 主 接收:
+段落 主():
     设 x 为 可选<整数> = 空
     设 y 为 x! 加 1
     打印(y)
@@ -1138,11 +1138,11 @@ class TestNullableUnwrap:
     def test_null_compare_等于(self):
         """可选值 == 空 判空合法"""
         self._run('''
-段落 取非空 接收 v: 可选<整数>:
+段落 取非空(v: 可选<整数>):
     如果 v 等于 空：
         返回 0
     返回 v!
-段落 主 接收:
+段落 主():
     打印(取非空(空))
     打印(取非空(9))
 主()
@@ -1151,7 +1151,7 @@ class TestNullableUnwrap:
     def test_null_compare_不等于(self):
         """可选值 != 空 判空合法"""
         self._run('''
-段落 主 接收:
+段落 主():
     设 x 为 可选<整数> = 3
     如果 x 不等于 空：
         打印(x!)
@@ -1163,12 +1163,12 @@ class TestNullableUnwrap:
     def test_null_compare_value(self):
         """判空+解包模式：空→0，非空→原值"""
         self._run('''
-段落 取非空 接收 v: 可选<整数>:
+段落 取非空(v: 可选<整数>):
     设 结果 为 0
     如果 v 不等于 空：
         设 结果 为 v!
     返回 结果
-段落 主 接收:
+段落 主():
     打印(取非空(空))
     打印(取非空(9))
 主()
@@ -1177,9 +1177,9 @@ class TestNullableUnwrap:
     def test_optional_param_accepts_null(self):
         """可空形参可接收 空 与普通值"""
         self._run('''
-段落 打印可选 接收 v: 可选<整数>:
+段落 打印可选(v: 可选<整数>):
     打印(v)
-段落 主 接收:
+段落 主():
     打印可选(空)
     打印可选(3)
 主()
@@ -1188,7 +1188,7 @@ class TestNullableUnwrap:
     def test_optional_flows_between_vars(self):
         """空值传播：可选值赋给另一可选变量"""
         self._run('''
-段落 主 接收:
+段落 主():
     设 x 为 可选<整数> = 空
     设 y 为 可选<整数> = x
     打印(y)
@@ -1198,7 +1198,7 @@ class TestNullableUnwrap:
     def test_unwrapped_operation_rejected(self):
         """未解包参与运算 → 类型错误"""
         self._run('''
-段落 主 接收:
+段落 主():
     设 x 为 可选<整数> = 5
     设 y 为 x 加 1
     打印(y)
@@ -1208,9 +1208,9 @@ class TestNullableUnwrap:
     def test_unwrapped_argument_rejected(self):
         """未解包传给非可空参数 → 类型错误"""
         self._run('''
-段落 双倍 接收 n: 整数:
+段落 双倍(n: 整数):
     返回 n 乘 2
-段落 主 接收:
+段落 主():
     设 x 为 可选<整数> = 4
     打印(双倍(x))
 主()
@@ -1219,7 +1219,7 @@ class TestNullableUnwrap:
     def test_optional_in_condition_rejected(self):
         """可选值直接作条件 → 类型错误（须显式判空）"""
         self._run('''
-段落 主 接收:
+段落 主():
     设 x 为 可选<整数> = 空
     如果 x：
         打印('真')
@@ -1231,7 +1231,7 @@ class TestNullableUnwrap:
     def test_optional_assign_non_null(self):
         """可选<整数> = 5 合法（unify 可选与内部类型兼容）"""
         self._run('''
-段落 主 接收:
+段落 主():
     设 x 为 可选<整数> = 5
     打印(x!)
 主()
@@ -1240,7 +1240,7 @@ class TestNullableUnwrap:
     def test_nested_optional_list(self):
         """列表<可选<整数>> 嵌套泛型"""
         self._run('''
-段落 主 接收:
+段落 主():
     设 数据 为 列表<可选<整数>> = [1, 空, 3]
     打印(列表长度(数据))
     设 首值 为 数据[0]!
@@ -1260,14 +1260,14 @@ class TestNullableUnwrap:
         from compiler import LightCompiler
         c = LightCompiler()
         bad = '''
-段落 主 接收:
+段落 主():
     设 x 为 可选<整数> = 5
     设 y 为 x 加 1
     打印(y)
 主()
 '''
         good = '''
-段落 主 接收:
+段落 主():
     打印('OK')
 主()
 '''
@@ -1322,9 +1322,9 @@ class TestTypeScenarioBasic(_TypeScenarioBase):
 
     def test_integer_literal_type(self):
         ft = self._sig('''
-段落 取数 接收:
+段落 取数():
     返回 42
-段落 主 接收:
+段落 主():
     打印(取数())
 主()
 ''', '取数')
@@ -1332,9 +1332,9 @@ class TestTypeScenarioBasic(_TypeScenarioBase):
 
     def test_float_literal_type(self):
         ft = self._sig('''
-段落 取数 接收:
+段落 取数():
     返回 3.14
-段落 主 接收:
+段落 主():
     打印(取数())
 主()
 ''', '取数')
@@ -1342,9 +1342,9 @@ class TestTypeScenarioBasic(_TypeScenarioBase):
 
     def test_string_literal_type(self):
         ft = self._sig('''
-段落 取串 接收:
+段落 取串():
     返回 '你好'
-段落 主 接收:
+段落 主():
     打印(取串())
 主()
 ''', '取串')
@@ -1352,9 +1352,9 @@ class TestTypeScenarioBasic(_TypeScenarioBase):
 
     def test_boolean_literal_type(self):
         ft = self._sig('''
-段落 取布尔 接收:
+段落 取布尔():
     返回 真
-段落 主 接收:
+段落 主():
     打印(取布尔())
 主()
 ''', '取布尔')
@@ -1362,9 +1362,9 @@ class TestTypeScenarioBasic(_TypeScenarioBase):
 
     def test_null_literal_type(self):
         ft = self._sig('''
-段落 取空 接收:
+段落 取空():
     返回 空
-段落 主 接收:
+段落 主():
     打印(取空())
 主()
 ''', '取空')
@@ -1372,9 +1372,9 @@ class TestTypeScenarioBasic(_TypeScenarioBase):
 
     def test_arithmetic_result_type(self):
         ft = self._sig('''
-段落 计算 接收:
+段落 计算():
     返回 1 加 2 乘 3
-段落 主 接收:
+段落 主():
     打印(计算())
 主()
 ''', '计算')
@@ -1382,9 +1382,9 @@ class TestTypeScenarioBasic(_TypeScenarioBase):
 
     def test_string_concat_type(self):
         ft = self._sig('''
-段落 拼接 接收:
+段落 拼接():
     返回 'a' 加 'b'
-段落 主 接收:
+段落 主():
     打印(拼接())
 主()
 ''', '拼接')
@@ -1392,9 +1392,9 @@ class TestTypeScenarioBasic(_TypeScenarioBase):
 
     def test_compare_result_boolean(self):
         ft = self._sig('''
-段落 比较 接收:
+段落 比较():
     返回 5 大于 3
-段落 主 接收:
+段落 主():
     打印(比较())
 主()
 ''', '比较')
@@ -1402,7 +1402,7 @@ class TestTypeScenarioBasic(_TypeScenarioBase):
 
     def test_annotation_mismatch_rejected(self):
         self._err('''
-段落 主 接收:
+段落 主():
     设 x 为 整数 = '字符串'
     打印(x)
 主()
@@ -1410,7 +1410,7 @@ class TestTypeScenarioBasic(_TypeScenarioBase):
 
     def test_variable_annotation_ok(self):
         self._ok('''
-段落 主 接收:
+段落 主():
     设 x 为 整数 = 10
     打印(x)
 主()
@@ -1422,10 +1422,10 @@ class TestTypeScenarioComposite(_TypeScenarioBase):
 
     def test_list_literal_type(self):
         ft = self._sig('''
-段落 构建 接收:
+段落 构建():
     设 数据 为 [1, 2, 3]
     返回 数据
-段落 主 接收:
+段落 主():
     打印(构建())
 主()
 ''', '构建')
@@ -1434,10 +1434,10 @@ class TestTypeScenarioComposite(_TypeScenarioBase):
 
     def test_list_string_type(self):
         ft = self._sig('''
-段落 构建 接收:
+段落 构建():
     设 数据 为 ['a', 'b']
     返回 数据
-段落 主 接收:
+段落 主():
     打印(构建())
 主()
 ''', '构建')
@@ -1446,10 +1446,10 @@ class TestTypeScenarioComposite(_TypeScenarioBase):
 
     def test_empty_list_type(self):
         ft = self._sig('''
-段落 构建 接收:
+段落 构建():
     设 数据 为 []
     返回 数据
-段落 主 接收:
+段落 主():
     打印(构建())
 主()
 ''', '构建')
@@ -1457,10 +1457,10 @@ class TestTypeScenarioComposite(_TypeScenarioBase):
 
     def test_list_index_type(self):
         ft = self._sig('''
-段落 取元素 接收:
+段落 取元素():
     设 数据 为 [10, 20, 30]
     返回 数据[1]
-段落 主 接收:
+段落 主():
     打印(取元素())
 主()
 ''', '取元素')
@@ -1468,7 +1468,7 @@ class TestTypeScenarioComposite(_TypeScenarioBase):
 
     def test_list_append_ok(self):
         self._ok('''
-段落 主 接收:
+段落 主():
     设 数据 为 [1, 2]
     设 数据 为 数据 加 [3]
     打印(列表长度(数据))
@@ -1477,10 +1477,10 @@ class TestTypeScenarioComposite(_TypeScenarioBase):
 
     def test_list_length_number(self):
         ft = self._sig('''
-段落 取长 接收:
+段落 取长():
     设 数据 为 [1, 2, 3]
     返回 列表长度(数据)
-段落 主 接收:
+段落 主():
     打印(取长())
 主()
 ''', '取长')
@@ -1488,7 +1488,7 @@ class TestTypeScenarioComposite(_TypeScenarioBase):
 
     def test_dict_literal_ok(self):
         self._ok('''
-段落 主 接收:
+段落 主():
     设 映射 为 {'a': 1, 'b': 2}
     打印(映射['a'])
 主()
@@ -1496,10 +1496,10 @@ class TestTypeScenarioComposite(_TypeScenarioBase):
 
     def test_dict_generic_annotation(self):
         ft = self._sig('''
-段落 建映射 接收:
+段落 建映射():
     设 映射: 字典<字符串, 整数> 为 {}
     返回 映射
-段落 主 接收:
+段落 主():
     打印(建映射())
 主()
 ''', '建映射')
@@ -1507,10 +1507,10 @@ class TestTypeScenarioComposite(_TypeScenarioBase):
 
     def test_list_generic_annotation(self):
         ft = self._sig('''
-段落 建列表 接收:
+段落 建列表():
     设 数据: 列表<串> 为 ['x']
     返回 数据
-段落 主 接收:
+段落 主():
     打印(建列表())
 主()
 ''', '建列表')
@@ -1519,7 +1519,7 @@ class TestTypeScenarioComposite(_TypeScenarioBase):
 
     def test_list_mismatch_rejected(self):
         self._err('''
-段落 主 接收:
+段落 主():
     设 x: 列表<整数> 为 ['str']
     打印(x)
 主()
@@ -1531,9 +1531,9 @@ class TestTypeScenarioSegment(_TypeScenarioBase):
 
     def test_param_annotation_signature(self):
         ft = self._sig('''
-段落 双倍 接收 n: 整数:
+段落 双倍(n: 整数):
     返回 n 乘 2
-段落 主 接收:
+段落 主():
     打印(双倍(4))
 主()
 ''', '双倍')
@@ -1544,9 +1544,9 @@ class TestTypeScenarioSegment(_TypeScenarioBase):
 
     def test_return_annotation(self):
         ft = self._sig('''
-段落 取串 接收 -> 串:
+段落 取串() -> 串:
     返回 'abc'
-段落 主 接收:
+段落 主():
     打印(取串())
 主()
 ''', '取串')
@@ -1554,9 +1554,9 @@ class TestTypeScenarioSegment(_TypeScenarioBase):
 
     def test_inferred_return_no_annotation(self):
         ft = self._sig('''
-段落 取数 接收:
+段落 取数():
     返回 7
-段落 主 接收:
+段落 主():
     打印(取数())
 主()
 ''', '取数')
@@ -1564,11 +1564,11 @@ class TestTypeScenarioSegment(_TypeScenarioBase):
 
     def test_multi_return_unified(self):
         ft = self._sig('''
-段落 选择 接收 标记: 布尔:
+段落 选择(标记: 布尔):
     如果 标记：
         返回 1
     返回 2
-段落 主 接收:
+段落 主():
     打印(选择(真))
 主()
 ''', '选择')
@@ -1576,11 +1576,11 @@ class TestTypeScenarioSegment(_TypeScenarioBase):
 
     def test_recursion(self):
         ft = self._sig('''
-段落 阶乘 接收 n: 整数:
+段落 阶乘(n: 整数):
     如果 n 小于等于 1：
         返回 1
     返回 n 乘 阶乘(n 减 1)
-段落 主 接收:
+段落 主():
     打印(阶乘(5))
 主()
 ''', '阶乘')
@@ -1588,36 +1588,36 @@ class TestTypeScenarioSegment(_TypeScenarioBase):
 
     def test_wrong_arity_rejected(self):
         self._err('''
-段落 双参 接收 a, b:
+段落 双参(a, b):
     返回 a 加 b
-段落 主 接收:
+段落 主():
     打印(双参(1))
 主()
 ''', '参数')
 
     def test_wrong_param_type_rejected(self):
         self._err('''
-段落 双倍 接收 n: 整数:
+段落 双倍(n: 整数):
     返回 n 乘 2
-段落 主 接收:
+段落 主():
     打印(双倍('abc'))
 主()
 ''', '类型不匹配')
 
     def test_wrong_return_type_rejected(self):
         self._err('''
-段落 坏 接收 -> 整数:
+段落 坏() -> 整数:
     返回 'str'
-段落 主 接收:
+段落 主():
     打印(坏())
 主()
 ''', '返回类型不匹配')
 
     def test_no_return_is_null(self):
         ft = self._sig('''
-段落 执行任务 接收:
+段落 执行任务():
     打印('hi')
-段落 主 接收:
+段落 主():
     执行任务()
 主()
 ''', '执行任务')
@@ -1625,20 +1625,20 @@ class TestTypeScenarioSegment(_TypeScenarioBase):
 
     def test_nested_call_flow(self):
         self._ok('''
-段落 内层 接收 n: 整数:
+段落 内层(n: 整数):
     返回 n 加 1
-段落 外层 接收 n: 整数:
+段落 外层(n: 整数):
     返回 内层(n) 乘 2
-段落 主 接收:
+段落 主():
     打印(外层(3))
 主()
 ''')
 
     def test_void_segment_callable(self):
         self._ok('''
-段落 问候 接收:
+段落 问候():
     打印('你好')
-段落 主 接收:
+段落 主():
     问候()
     问候()
 主()
@@ -1650,7 +1650,7 @@ class TestTypeScenarioControlFlow(_TypeScenarioBase):
 
     def test_if_compare_condition(self):
         self._ok('''
-段落 主 接收:
+段落 主():
     如果 5 大于 3：
         打印('大')
     否则：
@@ -1660,7 +1660,7 @@ class TestTypeScenarioControlFlow(_TypeScenarioBase):
 
     def test_if_boolean_var_condition(self):
         self._ok('''
-段落 主 接收:
+段落 主():
     设 标记 为 真
     如果 标记：
         打印('真')
@@ -1669,14 +1669,14 @@ class TestTypeScenarioControlFlow(_TypeScenarioBase):
 
     def test_elseif_chain(self):
         ft = self._sig('''
-段落 分级 接收 n: 整数:
+段落 分级(n: 整数):
     如果 n 大于 90：
         返回 'A'
     否则若 n 大于 80：
         返回 'B'
     否则：
         返回 'C'
-段落 主 接收:
+段落 主():
     打印(分级(85))
 主()
 ''', '分级')
@@ -1684,40 +1684,40 @@ class TestTypeScenarioControlFlow(_TypeScenarioBase):
 
     def test_while_loop(self):
         self._ok('''
-段落 求和 接收 n: 整数:
+段落 求和(n: 整数):
     设 结果 为 0
     设 i 为 1
     当 i 小于等于 n：
         设 结果 为 结果 加 i
         设 i 为 i 加 1
     返回 结果
-段落 主 接收:
+段落 主():
     打印(求和(10))
 主()
 ''')
 
     def test_foreach_loop(self):
         self._ok('''
-段落 求和 接收 数据: 列表<整数>:
+段落 求和(数据: 列表<整数>):
     设 结果 为 0
     遍历 元素 于 数据：
         设 结果 为 结果 加 元素
     返回 结果
-段落 主 接收:
+段落 主():
     打印(求和([1, 2, 3]))
 主()
 ''')
 
     def test_loop_return_type(self):
         ft = self._sig('''
-段落 求和 接收 n: 整数:
+段落 求和(n: 整数):
     设 结果 为 0
     设 i 为 1
     当 i 小于等于 n：
         设 结果 为 结果 加 i
         设 i 为 i 加 1
     返回 结果
-段落 主 接收:
+段落 主():
     打印(求和(10))
 主()
 ''', '求和')
@@ -1730,13 +1730,13 @@ class TestTypeScenarioClass(_TypeScenarioBase):
     SRC_COUNTER = '''
 类 计数器：
     属性 当前。
-    构造 接收 初值：
+    构造(初值)：
         己当前 为 初值
     段落 增加：
         己当前 为 己当前 加 1
     段落 读取：
         返回 己当前
-段落 主 接收:
+段落 主():
     设 计数 为 新建 计数器(5)
     计数.增加()
     计数.增加()
@@ -1756,9 +1756,9 @@ class TestTypeScenarioClass(_TypeScenarioBase):
     def test_method_call_result(self):
         self._ok('''
 类 计算器：
-    段落 双倍 接收 n: 整数：
+    段落 双倍(n: 整数)：
         返回 n 乘 2
-段落 主 接收:
+段落 主():
     设 工具 为 新建 计算器()
     打印(工具.双倍(21))
 主()
@@ -1768,14 +1768,14 @@ class TestTypeScenarioClass(_TypeScenarioBase):
         self._ok('''
 类 动物：
     属性 名称。
-    构造 接收 名字：
+    构造(名字)：
         己名称 为 名字
     段落 叫声：
         返回 '...'
 类 狗 继承 动物：
     段落 叫声：
         返回 '汪汪'
-段落 主 接收:
+段落 主():
     设 狗子 为 新建 狗('旺财')
     打印(狗子.叫声())
 主()
@@ -1785,7 +1785,7 @@ class TestTypeScenarioClass(_TypeScenarioBase):
         self._ok('''
 类 工具：
     静态 属性 版本 等于 '1.0'
-段落 主 接收:
+段落 主():
     打印(工具.版本)
 主()
 ''')
@@ -1794,9 +1794,9 @@ class TestTypeScenarioClass(_TypeScenarioBase):
         self._ok('''
 类 人：
     属性 姓名。
-    构造 接收 名字: 串：
+    构造(名字: 串)：
         己姓名 为 名字
-段落 主 接收:
+段落 主():
     设 某人 为 新建 人('张三')
     打印(某人.姓名)
 主()

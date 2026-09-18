@@ -172,7 +172,7 @@ class TestFunctionDefinition:
     
     def test_function_with_body(self, parser):
         """测试带函数体的函数定义"""
-        code = '''段落 计算 接收 甲, 乙：
+        code = '''段落 计算(甲, 乙)：
   设结果为甲加乙。
   返回结果。'''
         
@@ -237,7 +237,7 @@ class TestComplexPrograms:
     
     def test_factorial(self, parser):
         """测试阶乘程序"""
-        code = '''段落 阶乘 接收 数：
+        code = '''段落 阶乘(数)：
   如果数小于等于1：返回1。
   返回数乘段落阶乘(数减1)。
 
@@ -250,7 +250,7 @@ class TestComplexPrograms:
     
     def test_fibonacci(self, parser):
         """测试斐波那契程序"""
-        code = '''段落 斐波那契 接收 数：
+        code = '''段落 斐波那契(数)：
   如果数小于等于2：返回1。
   返回段落斐波那契(数减1)加段落斐波那契(数减2)。
 

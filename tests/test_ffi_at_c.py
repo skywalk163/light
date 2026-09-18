@@ -252,7 +252,7 @@ def test_at_c_does_not_break_decorator():
     parser = LightParser()
     code = (
         '类 测试类：\n'
-        '    @抽象 标注 段落 计算 接收 甲：整数 返回 整数：\n'
+        '    @抽象 标注 段落 计算(甲：整数) 返回 整数：\n'
         '        返回 甲。\n'
     )
     module = parser.parse(code)

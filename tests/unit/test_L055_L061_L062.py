@@ -83,7 +83,7 @@ class TestL055WriteFunctionCall:
 
     def test_write_user_function(self):
         """形态②：写 f(x)（用户函数）→ 输出 str(f(x))"""
-        code = ('段落 加倍 接收 n:\n'
+        code = ('段落 加倍(n):\n'
                 '  返回 n * 2\n\n'
                 '写 加倍(21)\n')
         out = _run(code)
@@ -94,7 +94,7 @@ class TestL055WriteFunctionCall:
 # L-061：顶层异常 message 与抛出点行号归因
 # ===========================================================================
 class TestL061TopExceptionAttribution:
-    _code = ('段落 函数A 接收 x:\n'
+    _code = ('段落 函数A(x):\n'
              '  设 y 为 x + 1\n'
              '  返回 y\n'
              '\n'

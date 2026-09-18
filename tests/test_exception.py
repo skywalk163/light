@@ -139,7 +139,7 @@ def test_throw_exception():
 def test_throw_inside_function():
     """在函数内抛出异常"""
     code = """
-段落 除 接收 甲, 乙：
+段落 除(甲, 乙)：
   如果 乙 等于 0：
     抛出 "除数不能为零"。
   结束。
