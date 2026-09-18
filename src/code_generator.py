@@ -2668,8 +2668,14 @@ class PythonCodeGenerator:
             all_bases.append(f"Generic[{', '.join(generic_bases)}]")
         if all_bases:
             # Generic[...] 已经是完整表达式，不能再过 _sanitize_name（它只处理裸名）
-            bases = ', '.join(b if b.startswith('Generic[') else self._sanitize_name(b)
-                              for b in all_bases)
+            # R57 任务1b：类继承基类名走 _resolve_exception_type，把光明异常名
+            # （如 错误→Exception）映射成 Python 异常。此前只 _sanitize_name，
+            # `类 X 继承 错误:` 编译成 `class X(错误):`，纯光明 stdlib 经
+            # _light_import_hook 编译加载时运行期 NameError（phase9 16 条）。
+            bases = ', '.join(
+                b if b.startswith('Generic[')
+                else self._resolve_exception_type(self._sanitize_name(b))
+                for b in all_bases)
             self._add_line(f"class {class_name}({bases}):")
         else:
             self._add_line(f"class {class_name}:")

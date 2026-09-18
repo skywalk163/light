@@ -3725,10 +3725,21 @@ class Lexer:
                             break
                     _s += 1
                 if _sep_pos == -1:
+                    # R57 任务1（1a）修复：无空格回退路径**只认 `接收`**，不再把 `返回`
+                    # 当作参数分隔符。`段落 名 接收 参数:` 是唯一的分隔语法，`返回` 从来
+                    # 不是段落头分隔符（带空格的 `返回` 由上面的清晰分隔符循环处理即可）。
+                    # 原实现把内嵌于段名的 `返回` 当分隔符，于是段名被腰斩：
+                    #   `段落 测试返回语句:`   → 段名注册成 `测试`（应 `测试返回语句`）
+                    #   `段落 测试真的与返回:` → 段名注册成 `测试真的与`（应含 `返回`）
+                    #   `段落 测试_返回真:`    → 段名注册成 `测试_`（应 `测试_返回真`）
+                    # 段名注册不全 → 该名字在全量分词时被 `返回` 关键字切开，编译期
+                    # `name '语句'/'真' is not defined`。删去 `返回` 后段名整段注册，
+                    # 名字整体成 IDENTIFIER（L-152 的「段名以 返回 结尾」类已由清晰分隔符
+                    # 循环的 `_preceded_ok` 守卫覆盖，本回退路径的实际用途只有无空格 `接收`）。
                     _s = j
                     while _s < _header_end:
                         _kw, _kl = self._match_keyword(source, _s)
-                        if _kw and _kl > 0 and _kw in ('接收', '返回'):
+                        if _kw and _kl > 0 and _kw == '接收':
                             _sep_pos = _s
                         _s += 1
                 # 段名收集循环：遇到非名字字符或定位到的分隔符即停
@@ -3876,7 +3887,13 @@ class Lexer:
                     lookahead = k
                     while lookahead < n and _is_space_tab(source[lookahead]):
                         lookahead += 1
-                    if lookahead < n and source[lookahead] == '为':
+                    # R57 任务1（1a）修复：`为` 被视为赋值分隔符的前提是**名字已收集到字符**；
+                    # 若 `为` 出现在名字的**第一个**字符位置（collected_something 仍为假），
+                    # 它是名字的成分而非分隔符。典型 `设 为了 为 "为了值"`：原实现在首字符
+                    # `为` 处直接 break，名字收集为空 → `为了` 未登记 → 分词时退化成
+                    # `为`(KEYWORD)+`了`(IDENTIFIER)，报「期望'为'或'等于'，但得到「了」」。
+                    # 加此守卫后首个 `为` 并入名字，遇真正的赋值 `为`（名字已非空）才 break。
+                    if collected_something and lookahead < n and source[lookahead] == '为':
                         break
                     # 检查"等于"关键字
                     next_kw_lookahead, _ = self._match_keyword(source, k)
