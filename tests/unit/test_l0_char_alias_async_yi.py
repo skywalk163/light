@@ -71,7 +71,7 @@ for _p in (os.path.join(_ROOT, 'src'), _ROOT):
 
 from light_parser_v3 import LightParser                      # noqa: E402
 from code_generator import PythonCodeGenerator               # noqa: E402
-from lexer import Lexer, _COMPOUND_SAFE_SINGLE_KEYWORDS      # noqa: E402
+from lexer import Lexer, _P0A_SINGLE_CHAR_PROTECTED           # noqa: E402
 from keywords import ALL_KEYWORDS, KEYWORDS_ASYNC            # noqa: E402
 
 
@@ -183,8 +183,21 @@ class TestAsyncCharAliasTables(unittest.TestCase):
 
     def test_异_进复合词保护表(self):
         """范式 B 的硬要求：单字进关键字表就必须同时进 compound-safe，
-        否则全仓 595 处词内 `异` 会被从中间切开（先例：31-B `现`、31-C `等`）。"""
-        self.assertIn('异', _COMPOUND_SAFE_SINGLE_KEYWORDS)
+        否则全仓 595 处词内 `异` 会被从中间切开（先例：31-B `现`、31-C `等`）。
+
+        【R58 任务1 更新】承载表已迁：R22→R28 把逐词表
+        `_COMPOUND_SAFE_SINGLE_KEYWORDS` 一路精简到空集（52→30→16→2→0），并在
+        src/lexer.py 文末加了 `assert CS == frozenset()` 锁死（加条目会让 lexer
+        导入失败）。单字保护改由**正面类别**承担（异 ∈ `Lexer._TRAILING_ALIAS_CLASS`，
+        词尾并入；词首/表达式位由 R21 上下文敏感切词兜住）。**要求本身没变**
+        ——「进关键字表的单字必须有词内保护」——只是断言目标换成等价类别并集
+        `_P0A_SINGLE_CHAR_PROTECTED`，并补行为抽样。
+        """
+        self.assertIn('异', _P0A_SINGLE_CHAR_PROTECTED)
+        for name in ('异常信息', '异或', '位异或', '变异系数', '差异对比'):
+            with self.subTest(name=name):
+                self.assertIn(name, [t.value for t in Lexer('设 %s 为 1。' % name).tokenize()],
+                              '%s 被最长匹配切开了' % name)
 
     def test_异常_不得进关键字表(self):
         """31-E 推演 → 31-G 实测证伪的那一条，钉成断言。
@@ -193,7 +206,7 @@ class TestAsyncCharAliasTables(unittest.TestCase):
         全仓 A/B 的 SPLIT 从 2 涨到 7。谁想「顺手补保护」先看工单 31-G。
         """
         self.assertNotIn('异常', ALL_KEYWORDS)
-        self.assertNotIn('异常', _COMPOUND_SAFE_SINGLE_KEYWORDS)
+        self.assertNotIn('异常', _P0A_SINGLE_CHAR_PROTECTED)
 
 
 class TestAsyncCharAliasNoRegression(unittest.TestCase):

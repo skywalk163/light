@@ -1806,6 +1806,28 @@ class Lexer:
             return True
         return source[k] in '\n\r:：'
 
+    def _emb_keyword_spanning(self, source: str, base: int, offset: int) -> bool:
+        """R58 任务1（L-174 配套守卫）：判断 source[base+offset] 是否落在
+        「更早起始、更长的关键字」内部。
+
+        典型反例：`因为百分数` 的 `为` 是关键字 `因为` 的尾字，不是独立的赋值
+        关键字。若把它按「值起始」切出，`因为` 会被劈成 `因` + `为`。
+
+        offset == 0（嵌入字就在汉字段词首）时不构成跨越，返回 False。
+        判据：从 base 起逐起点匹配关键字，任一命中且右端越过 base+offset 即视为被覆盖。
+        """
+        end = base + offset
+        j = base
+        while j < end:
+            kw, klen = self._match_keyword(source, j)
+            if kw and klen > 0:
+                if j + klen > end:
+                    return True
+                j += klen
+            else:
+                j += 1
+        return False
+
     def _tokenize_identifier_or_keyword(self, source: str, i: int, line: int, col: int, user_definitions: Set[str] = None) -> Tuple[List[Token], int]:
         """
         处理标识符和关键字（核心：三层分词机制）
@@ -2365,9 +2387,30 @@ class Lexer:
                         _emb_hit = True
                         break
                     _after = full_identifier[_ep + len(_ek):_ep + len(_ek) + 1]
+                    # R58 任务1（L-174）：判定「本汉字段是否与**前一字**粘连」。
+                    # 连写形态（`设甲为三`：`设` 先切出后，此段 `甲为三` 紧贴 `设`，
+                    # 前一字仍是汉字）才是「语句头关键字 + 名字 + 为 + 值」的赋值尾；
+                    # 空分独立的复合名（`设 是否为零 为 假` 的 `是否为零`，其前是空白）
+                    # 不得因内含 `为零` 被拆 —— 语料实测见
+                    # lightharness/examples/test_R24_运算符单字守卫.light。
+                    _glued_to_prev = pos > 0 and _is_han(source[pos - 1])
                     if _ek in ('为', '返回', '尝试'):
                         # 赋值/返回关键字：按上述 (a)/(b)/(c) 精确处理
-                        if _after and _after in _emb_value_heads:
+                        #
+                        # 【R58 任务1 · L-174 修复】中文数字字也是**值起始**：
+                        #   无空格 `设甲为三` 原被整串并入标识符 `甲为三` → `为`
+                        #   关键字丢失 ⇒ 赋值语义错（静默错译），与 `设 甲为1`
+                        #   （数字尾巴，走下方 :2390 词尾分支）口径矛盾。
+                        #   三重收窄（缺一不可），保证只命中真正连写的赋值尾：
+                        #     ① `为` 正后随中文数字字（空/真/假 走原有判据，不变）；
+                        #     ② 本汉字段与前一字**粘连**（见 _glued_to_prev）；
+                        #     ③ `为` 未被更长关键字跨越（见 _emb_keyword_spanning）。
+                        _after_is_cn_num = bool(_after) and (
+                            _after in _simple_nums or _after in _cn_digits)
+                        if (_after and (_after in _emb_value_heads
+                                        or (_after_is_cn_num and _glued_to_prev
+                                            and not self._emb_keyword_spanning(
+                                                source, pos, _ep)))):
                             # (a) 紧邻值字面量尾巴 → 必切（前缀+为/返回/尝试+值）
                             _prefix = full_identifier[:_ep]
                             if _prefix:
@@ -2573,6 +2616,18 @@ class Lexer:
                         _tokens_append(_Token(_TokenType.CHINESE_NUM, num_value, line, current_col))
                         consumed += num_len
                         current_col += num_len
+                        # R58 任务1（`90那么大` 同族）：数字前缀切分后，紧随的关键字必须
+                        # **在此处定界**。旧实现只吐数字再 continue，于是余部落在「非语句
+                        # 起始」位置，被 R21 上下文敏感切词的「关键字前缀标识符整体成词」
+                        # 接住（`那么大` → IDENTIFIER(那么大)），与同一串出现在语句起始处
+                        # 的切法（`那么` KEYWORD + `大` IDENTIFIER）矛盾 —— 属 R24 闸门4
+                        # 「同一串两条路径口径矛盾」的同族缺陷。本分支既已用 `_match_kw`
+                        # 判定「余部以关键字开头」，就直接把该关键字作为 KEYWORD 落盘。
+                        # 用户定义名仍按 :2651「用户定义名遮蔽关键字」口径让路（不落盘）。
+                        if rest_kw not in user_definitions:
+                            _tokens_append(_Token(_TokenType.KEYWORD, rest_kw, line, current_col))
+                            consumed += _rest_len
+                            current_col += _rest_len
                         continue
                     # 余部不是关键字：不在此处切分，落空交给下面的常规标识符流程
             
@@ -3326,8 +3381,31 @@ class Lexer:
         # 等 X类型 复合词形态众多且余部各不相同，任何「类型 前向并入」类规则都会波及；
         # 只有整串**恰好**等于 记录类型 时才并入。证据见
         # lightharness/_task3_R30_零除幂次记录类型通用化.md。
+        # 【R58 任务1 恢复】2 → 7：把 R32/R35 精简掉的 5 条「§8.4 点名的历史雷区
+        #   完整词形」加回（导出事件表/返回码/接收参数/非空块/外部命令）。
+        #   理由（实测口径）：R32/R35 撤条时已验证「撤单条后全语料 token 零变化」，
+        #   即这 5 条**对语料是可逆的**（真实语境已由设名预扫描/函数调用语境/成员访问
+        #   规则覆盖）；但 §8.4 验收套件 `tests/unit/test_lexer_p0a_deterministic.py`
+        #   要求的是**裸串**（语句起始位置）也整体成词 ——
+        #     `导出事件表` 裸串 → 导出 + 事件表（KEYWORD 优先，通用约束6）
+        #     `接收参数`  裸串 → 接收 + 参数
+        #     `外部命令`  裸串 → 外部 + 命令
+        #     `返回码`    裸串 → 返回 + 码
+        #     `非空块`    裸串 → 非 + 空块（R35 撤条后词首 `非` 走一元前缀规则，
+        #                          但该规则要求「余部非已声明名 + 非语句起始」，
+        #                          裸串恰是语句起始 ⇒ 仍被劈开）
+        #   而 `退出码`/`排序依据`/`输出块表` 三条裸串已由既有通用规则接住（无需登记）。
+        #   该集合是「有界固定集合 + 精确整串匹配」（非逐词生长的 COMMON_COMPOUND_WORDS），
+        #   R32 证据已证其可逆 ⇒ 恢复不引入语料回归（R58 全语料 38084 文件 token A/B 复核）。
+        #   证据：lightharness/_task3_R32_MERGE_WHOLE第一批精简.md（移除侧）+
+        #         R58 恢复侧 A/B（_r58_tok_base.tsv vs _r58_tok_*.tsv）。
         '整理模型消息',
         '记录类型',
+        '导出事件表',
+        '返回码',
+        '接收参数',
+        '非空块',
+        '外部命令',
     })
     # R33（2026-09-15）：_P0A_NEVER_SPLIT 4 字（模/步/至/到）逐条三重判据验证，
     # 全语料 857 文件 / 935744 token 零变化，并集删除亦零变化 ⇒ 全部可删。
@@ -4039,10 +4117,29 @@ def _r30_cn_num_head_merge(full_seq: str) -> bool:
     返回 True 时整串作 IDENTIFIER 输出（零除错误），词首数字不再独立成 CHINESE_NUM。
     推导见上方 `_R30_NUM_HEAD_MERGE_CLASS` 说明；语料钉住的 CHINESE_NUM+KEYWORD
     形态（二字串 / 第二字非正面类别）一律返回 False。
+
+    ── R58 任务1 收窄（测试 `test_chinese_number` / `三加五`）────────────────
+    原判据只看前两字，于是把**二元算术表达式**也并成了标识符：
+        `三加五` → IDENTIFIER(三加五)（应为 CHINESE_NUM(3)+KEYWORD(加)+CHINESE_NUM(5)）
+        `三减二` / `二加一` / `一乘二` / `三乘二` 同理（语料实测 8 处，全在算术用例里）
+    第三字也是中文数字 ⇒ 整串是「数字 运算符 数字」形状，词首数字是独立数值。
+    收窄判据：第三字是中文数字 **且** 该数字是整串末字（`len == 3`）或其后不是汉字
+    —— 即「数字+运算符+数字」是一个闭合的算术三元式。
+    反例保护（一律不受影响）：
+        `零除错误`  —— 第三字 `错` 非数字，判据不触发，仍整体并入；
+        `一模一样`  —— 4 字且第三字后仍接汉字（`样`），判据不触发，仍是复合名；
+        `一步一步` / `一步四态` —— 同上；
+        `一加一等于几` —— 第三字后接汉字，判据不触发（且它出现在字符串字面量里）。
+    证据：lightharness/_r58_probe3.py（全语料扫描，命中全部 8 处算术 + 3 处复合名）。
     """
-    return (len(full_seq) >= 3
+    if not (len(full_seq) >= 3
             and full_seq[0] in _SIMPLE_CHINESE_NUMBERS
-            and full_seq[1] in _R30_NUM_HEAD_MERGE_CLASS)
+            and full_seq[1] in _R30_NUM_HEAD_MERGE_CLASS):
+        return False
+    if full_seq[2] in _SIMPLE_CHINESE_NUMBERS or full_seq[2] in _CHINESE_DIGITS:
+        if len(full_seq) == 3 or not _is_han_fast(full_seq[3]):
+            return False
+    return True
 
 # ── R30 任务1/2：词首【前缀类】——非关键字(位/应)/被DUAL抑制(除)开头的复合名 ──
 # 位与/位异或/位或/位非（首字 位，非关键字）、应当（首字 应，非关键字）、
@@ -4093,5 +4190,40 @@ _R27_BCLASS = frozenset({
 _P0A_TAIL_CUT_SINGLE = frozenset({'列'})
 assert _P0A_TAIL_CUT_SINGLE == frozenset({'列'}), (
     'R28 词尾切出类别漂移：应恒为 1 字（列）')
+
+# ── R58 任务1：R28 后「单字保护」的等价类别并集（只读审计视图）──────────────
+# 【为什么需要它】R22→R28 把逐词保护表 `_COMPOUND_SAFE_SINGLE_KEYWORDS` 一路精简到
+#   空集（52→30→16→2→0），并在文末加了 `assert CS == frozenset()` 锁死；单字保护
+#   改由**正面类别**承担，但没有任何一处把「等价类别并集」表述出来，于是
+#   `tests/unit/test_*_aliases.py` / `test_l0_char_*.py` 里「单字 X 必须进
+#   compound-safe」的断言全部变成永假（R57 存量红画像中标为「词法层-单字保护/安全表」
+#   的 7 条）。本常量把该并集显式化，作为**只读视图**：不参与任何词法判定，
+#   仅供测试/审计引用（语义 = 「该单字在词内出现时有保护」）。
+#
+# 【成员语义】
+#   _P0A_HEAD_MERGE_SINGLE   词首并入正面类别（R26）
+#   _P0A_HEAD_MERGE_DUAL     A 类双位字（运算符/值字面量/范围）词首并入（R27）
+#   _P0A_HEAD_MERGE_PREFIX   非关键字首字（位/应）与被 DUAL 抑制字（除）（R30）
+#   _R27_BCLASS              B 类 F∩CS 8 字的「后随非汉字关键字」抑制（R27）
+#   _P0A_TAIL_CUT_SINGLE     列 的嵌入输出循环词尾切出（R28）
+#   _AWAIT_KEYWORDS          等/等待：`_await_in_name` 整串并入（L-056/L-120）
+#   Lexer._TRAILING_ALIAS_CLASS  单字语句别名【词尾】并入（R23/R25）
+_P0A_SINGLE_CHAR_PROTECTED = frozenset(
+    _P0A_HEAD_MERGE_SINGLE | _P0A_HEAD_MERGE_DUAL | _P0A_HEAD_MERGE_PREFIX
+    | _R27_BCLASS | _P0A_TAIL_CUT_SINGLE | _AWAIT_KEYWORDS
+    | Lexer._TRAILING_ALIAS_CLASS)
+# 自校验（R58 任务1）：并集必须覆盖 R28 精简前的 CS 语义域 —— 即
+# 「单字关键字 ∩ 非始终切分字」应尽数在内；否则说明有单字掉回 KEYWORD 无人管。
+assert frozenset(
+    _kw for _kw in _ALL_KEYWORDS_WITH_VERBS
+    if len(_kw) == 1 and _kw not in Lexer._P0A_OP
+    and _kw not in _VALUE_LITERAL_KEYWORDS
+) <= (_P0A_SINGLE_CHAR_PROTECTED | _P0A_HEAD_SPLIT_SINGLE), (
+    'R58 单字保护并集漂移：下列单字关键字既无词内保护、也不在词首切分集内 —— %s'
+    % sorted(frozenset(
+        _kw for _kw in _ALL_KEYWORDS_WITH_VERBS
+        if len(_kw) == 1 and _kw not in Lexer._P0A_OP
+        and _kw not in _VALUE_LITERAL_KEYWORDS)
+        - (_P0A_SINGLE_CHAR_PROTECTED | _P0A_HEAD_SPLIT_SINGLE)))
 
 

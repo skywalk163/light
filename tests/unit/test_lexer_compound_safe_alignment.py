@@ -88,7 +88,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from lexer import Lexer  # noqa: E402
+from lexer import Lexer, _P0A_SINGLE_CHAR_PROTECTED           # noqa: E402
 
 
 def _named(src):
@@ -201,13 +201,29 @@ class TestDropSignaturesFixed(unittest.TestCase):
         self.assertNotIn(('IDENTIFIER', '索'), named)
 
     def test_除类型错误(self):
-        """断言工具.light 的真实形态：改前 `捕 类型 型错误`（`除` 丢、`型` 凭空）。"""
+        """断言工具.light 的真实形态：改前 `捕 类型 型错误`（`除` 丢、`型` 凭空）。
+
+        【R58 任务1 更新 · 根因】R30 任务1/2 给 `除` 新增了「词首前缀类」通用规则
+        （`_P0A_HEAD_MERGE_PREFIX` = {位, 应, 除}，见 src/lexer.py），在**非语句起始**
+        语境（`捕 X：` / `捕获 X：`）里把 `除…` 整串并入标识符 —— 这正是**异常名**
+        想要的形态（`除` 不是被丢掉，而是成为名字的一部分；本类 docstring 自己也写明
+        「`除类型错误` 在 `断言工具.light` 里本就是已损坏的生成产物里的名字，怎么切都
+        编不过，本文件只要求它不丢字」）。
+        故本用例按新口径断言，判据强度不降反升：
+          ① 非语句起始：`除类型错误` 整体成 IDENTIFIER（异常名），旧缺陷签名 `型错误` 不得出现；
+          ② 语句起始：仍是 `除` + `类型` + `错误` 三 token（R21 只在非语句起始放宽）；
+          ③ `除` 确有词内保护（∈ R28 后等价类别并集）。
+        不丢字的总判据另由 `TestNoFabricatedCharacters` 全程覆盖（该用例恒绿）。
+        """
         named = _named('捕 除类型错误：\n    印 1。\n')
-        self.assertIn(('IDENTIFIER', '除'), named)
-        self.assertIn(('KEYWORD', '类型'), named)
-        self.assertIn(('IDENTIFIER', '错误'), named)
+        self.assertIn(('IDENTIFIER', '除类型错误'), named)
         # 旧行为的签名：`除` 整字消失、`类型` 后粘出一个凭空的 `型错误`
         self.assertNotIn(('IDENTIFIER', '型错误'), named)
+        # 语句起始位置保持既有切分（关键字优先）
+        self.assertEqual(_named('除类型错误。'),
+                         [('IDENTIFIER', '除'), ('KEYWORD', '类型'), ('IDENTIFIER', '错误')])
+        # `除` 受保护：R30 词首前缀类 ∪ R27 DUAL 词首并入
+        self.assertIn('除', _P0A_SINGLE_CHAR_PROTECTED)
 
     def test_对于(self):
         """CSV读写器.light 的真实形态：改前 `于 于 项`（`对` 丢、`于` 吐两次）。

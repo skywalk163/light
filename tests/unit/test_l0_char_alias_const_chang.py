@@ -80,7 +80,7 @@ for _p in (os.path.join(_ROOT, 'src'), _ROOT):
 
 from light_parser_v3 import LightParser                      # noqa: E402
 from code_generator import PythonCodeGenerator               # noqa: E402
-from lexer import Lexer, _COMPOUND_SAFE_SINGLE_KEYWORDS      # noqa: E402
+from lexer import Lexer, _P0A_SINGLE_CHAR_PROTECTED           # noqa: E402
 from keywords import ALL_KEYWORDS, KEYWORDS_DEFINE           # noqa: E402
 
 
@@ -162,8 +162,18 @@ class TestConstModifierTables(unittest.TestCase):
 
     def test_常_进复合词保护表(self):
         """范式 B 的硬要求：单字进关键字表就必须同时进 compound-safe，
-        否则全仓 444 处词内 `常` 会被从中间切开（先例：31-B `现`、31-G `异`）。"""
-        self.assertIn('常', _COMPOUND_SAFE_SINGLE_KEYWORDS)
+        否则全仓 444 处词内 `常` 会被从中间切开（先例：31-B `现`、31-G `异`）。
+
+        【R58 任务1 更新】承载表已迁：R28 把逐词表清空并加了
+        `assert CS == frozenset()` 锁死。单字保护改由**正面类别**承担
+        （常 ∈ `_P0A_HEAD_MERGE_SINGLE` 词首并入 ∧ `Lexer._TRAILING_ALIAS_CLASS`
+        词尾并入）。**要求本身没变**，断言目标换成等价类别并集并补行为抽样。
+        """
+        self.assertIn('常', _P0A_SINGLE_CHAR_PROTECTED)
+        for name in ('常数', '常量表', '自然常数', '正常值', '常见问题', '日常任务'):
+            with self.subTest(name=name):
+                self.assertIn(name, [t.value for t in Lexer('设 %s 为 1。' % name).tokenize()],
+                              '%s 被最长匹配切开了' % name)
 
     def test_异常_仍不得进关键字表(self):
         """31-G 实测证伪的那条推演，在本单继续钉住。
@@ -172,7 +182,7 @@ class TestConstModifierTables(unittest.TestCase):
         变成新切割点（31-G：SPLIT 从 2 涨到 7）。谁想「顺手补保护」先看工单 31-G/33。
         """
         self.assertNotIn('异常', ALL_KEYWORDS)
-        self.assertNotIn('异常', _COMPOUND_SAFE_SINGLE_KEYWORDS)
+        self.assertNotIn('异常', _P0A_SINGLE_CHAR_PROTECTED)
 
 
 class TestConstModifierNoRegression(unittest.TestCase):

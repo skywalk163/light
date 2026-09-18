@@ -60,7 +60,7 @@ for _p in (os.path.join(_ROOT, 'src'), _ROOT):
 
 from light_parser_v3 import LightParser                      # noqa: E402
 from code_generator import PythonCodeGenerator               # noqa: E402
-from lexer import Lexer, _COMPOUND_SAFE_SINGLE_KEYWORDS      # noqa: E402
+from lexer import Lexer, _P0A_SINGLE_CHAR_PROTECTED           # noqa: E402
 from keywords import ALL_KEYWORDS, KEYWORDS_ASYNC            # noqa: E402
 
 
@@ -90,7 +90,15 @@ class TestAliasTableMembership(unittest.TestCase):
         self.assertIn('等', ALL_KEYWORDS)
 
     def test_等_已进复合词安全表(self):
-        self.assertIn('等', _COMPOUND_SAFE_SINGLE_KEYWORDS)
+        # 【R58 任务1 更新】R28 已把逐词表 `_COMPOUND_SAFE_SINGLE_KEYWORDS` 清空并加了
+        # `assert CS == frozenset()` 锁死。`等` 的保护自始就**不在** CS（它属
+        # `_AWAIT_KEYWORDS`，由 `_await_in_name`（L-056/L-120）把含 `等` 的整串并入
+        # 标识符），本轮把该保护一并纳入等价类别并集 `_P0A_SINGLE_CHAR_PROTECTED`。
+        self.assertIn('等', _P0A_SINGLE_CHAR_PROTECTED)
+        for name in ('等待器', '等值比较', '等级排序'):
+            with self.subTest(name=name):
+                self.assertIn(name, [t.value for t in Lexer('设 %s 为 1。' % name).tokenize()],
+                              '%s 被最长匹配切开了' % name)
 
     def test_私护静_仍不是关键字(self):
         """范式 A 的反向守卫：这三个字靠 parser 的 IDENTIFIER 分支识别，
@@ -98,7 +106,7 @@ class TestAliasTableMembership(unittest.TestCase):
         for ch in ('私', '护', '静'):
             with self.subTest(ch=ch):
                 self.assertNotIn(ch, ALL_KEYWORDS)
-                self.assertNotIn(ch, _COMPOUND_SAFE_SINGLE_KEYWORDS)
+                self.assertNotIn(ch, _P0A_SINGLE_CHAR_PROTECTED)
 
 
 class TestMemberModifierAliases(unittest.TestCase):

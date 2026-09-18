@@ -40,7 +40,7 @@ for _p in (os.path.join(_ROOT, 'src'), _ROOT):
 
 from light_parser_v3 import LightParser                      # noqa: E402
 from code_generator import PythonCodeGenerator               # noqa: E402
-from lexer import Lexer, _COMPOUND_SAFE_SINGLE_KEYWORDS      # noqa: E402
+from lexer import Lexer, _P0A_SINGLE_CHAR_PROTECTED           # noqa: E402
 from keywords import (                                       # noqa: E402
     ALL_KEYWORDS, KEYWORDS_MATCH, KEYWORDS_CONDITION, BUILTIN_TYPES,
 )
@@ -69,10 +69,19 @@ class TestMatchSingleCharAliases(unittest.TestCase):
 
     def test_pi_is_compound_safe(self):
         # 缺陷守卫：`匹` 不设复合安全，词库里 匹配度/匹敌 之类标识符会被切开
-        self.assertIn('匹', _COMPOUND_SAFE_SINGLE_KEYWORDS)
+        # 【R58 任务1 更新】R28 已把逐词表 `_COMPOUND_SAFE_SINGLE_KEYWORDS` 清空并
+        # 在 src/lexer.py 文末加了 `assert CS == frozenset()` 锁死 —— 向该表加条目会
+        # 直接让 lexer 导入失败。单字保护改由**正面类别**承担（`匹` ∈
+        # `Lexer._TRAILING_ALIAS_CLASS`：单字语句别名词尾并入；词首/表达式位另由
+        # R21 上下文敏感切词兜住）。故断言目标迁到等价类别并集
+        # `_P0A_SINGLE_CHAR_PROTECTED`（见 src/lexer.py 该常量处说明），
+        # 语义 ——「该单字在词内出现时有保护」—— 不变。
+        self.assertIn('匹', _P0A_SINGLE_CHAR_PROTECTED)
         toks = Lexer().tokenize('设 匹配度 为 1')
         names = [t.value for t in toks]
         self.assertIn('匹配度', names, '匹配度 被最长匹配切开了')
+        self.assertIn('匹敌', [t.value for t in Lexer().tokenize('设 匹敌 为 1')],
+                      '匹敌 被最长匹配切开了')
 
     def test_pi_lexes_as_keyword_when_standalone(self):
         toks = Lexer().tokenize('匹 值：\n  例：\n    印(1)\n')

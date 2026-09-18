@@ -52,7 +52,7 @@ for _p in (os.path.join(_ROOT, 'src'), _ROOT):
 
 from light_parser_v3 import LightParser                      # noqa: E402
 from code_generator import PythonCodeGenerator               # noqa: E402
-from lexer import Lexer, _COMPOUND_SAFE_SINGLE_KEYWORDS      # noqa: E402
+from lexer import Lexer, _P0A_SINGLE_CHAR_PROTECTED           # noqa: E402
 from keywords import ALL_KEYWORDS, KEYWORDS_CLASS            # noqa: E402
 
 
@@ -94,7 +94,14 @@ class TestImplementsAliasTables(unittest.TestCase):
 
     def test_现_已进复合词安全表(self):
         # 不在此表则 现在时间/现象记录 等标识符会被最长匹配切碎
-        self.assertIn('现', _COMPOUND_SAFE_SINGLE_KEYWORDS)
+        # 【R58 任务1 更新】R28 已把逐词表 `_COMPOUND_SAFE_SINGLE_KEYWORDS` 清空并加了
+        # `assert CS == frozenset()` 锁死。单字保护改由**正面类别**承担
+        # （现 ∈ `Lexer._TRAILING_ALIAS_CLASS`）；断言目标迁到等价类别并集。
+        self.assertIn('现', _P0A_SINGLE_CHAR_PROTECTED)
+        for name in ('现在时间', '现象记录'):
+            with self.subTest(name=name):
+                self.assertIn(name, [t.value for t in Lexer('设 %s 为 1。' % name).tokenize()],
+                              '%s 被最长匹配切开了' % name)
 
 
 class TestImplementsAlias(unittest.TestCase):
@@ -178,7 +185,9 @@ class TestInterfaceCharDeferred(unittest.TestCase):
 
     def test_约_仍不是关键字(self):
         self.assertNotIn('约', ALL_KEYWORDS)
-        self.assertNotIn('约', _COMPOUND_SAFE_SINGLE_KEYWORDS)
+        # 【R58 任务1 更新】R28 后 `_COMPOUND_SAFE_SINGLE_KEYWORDS` 恒为空集（沿用旧名
+        # 会让本断言永真、失去判别力）；改断言等价类别并集 `_P0A_SINGLE_CHAR_PROTECTED`。
+        self.assertNotIn('约', _P0A_SINGLE_CHAR_PROTECTED)
 
 
     def test_含约标识符不丢字(self):

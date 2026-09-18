@@ -38,7 +38,7 @@ for _p in (os.path.join(_ROOT, 'src'), _ROOT):
 
 from light_parser_v3 import LightParser                      # noqa: E402
 from code_generator import PythonCodeGenerator               # noqa: E402
-from lexer import Lexer, _COMPOUND_SAFE_SINGLE_KEYWORDS      # noqa: E402
+from lexer import Lexer, _P0A_SINGLE_CHAR_PROTECTED           # noqa: E402
 from keywords import ALL_KEYWORDS, KEYWORDS_LOOP             # noqa: E402
 
 
@@ -79,8 +79,16 @@ class TestBreakContinueAliasTables(unittest.TestCase):
 
     def test_断_跃_已进复合词安全表(self):
         # 不在此表则 断言失败/跃迁能量 等标识符会被最长匹配切碎
-        self.assertIn('断', _COMPOUND_SAFE_SINGLE_KEYWORDS)
-        self.assertIn('跃', _COMPOUND_SAFE_SINGLE_KEYWORDS)
+        # 【R58 任务1 更新】R28 已把逐词表 `_COMPOUND_SAFE_SINGLE_KEYWORDS` 清空并加了
+        # `assert CS == frozenset()` 锁死（加条目会让 lexer 导入失败）。单字保护改由
+        # **正面类别**承担：断 ∈ `_P0A_HEAD_MERGE_SINGLE`（词首并入），跃 ∈
+        # `Lexer._TRAILING_ALIAS_CLASS`（词尾并入）。断言目标迁到等价类别并集。
+        self.assertIn('断', _P0A_SINGLE_CHAR_PROTECTED)
+        self.assertIn('跃', _P0A_SINGLE_CHAR_PROTECTED)
+        for name in ('断言失败', '跃迁能量', '断点续传', '跃动'):
+            with self.subTest(name=name):
+                self.assertIn(name, [t.value for t in Lexer('设 %s 为 1。' % name).tokenize()],
+                              '%s 被最长匹配切开了' % name)
 
 
 class TestBreakAlias(unittest.TestCase):

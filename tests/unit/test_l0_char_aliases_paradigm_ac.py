@@ -77,7 +77,7 @@ for _p in (os.path.join(_ROOT, 'src'), _ROOT):
 
 from light_parser_v3 import LightParser                      # noqa: E402
 from code_generator import PythonCodeGenerator               # noqa: E402
-from lexer import Lexer, _COMPOUND_SAFE_SINGLE_KEYWORDS      # noqa: E402
+from lexer import Lexer, _P0A_SINGLE_CHAR_PROTECTED           # noqa: E402
 from keywords import ALL_KEYWORDS                            # noqa: E402
 
 
@@ -115,13 +115,24 @@ class TestParadigmACTablesUntouched(unittest.TestCase):
         for ch in ('约', '公', '写'):
             with self.subTest(ch=ch):
                 self.assertNotIn(ch, ALL_KEYWORDS)
-                self.assertNotIn(ch, _COMPOUND_SAFE_SINGLE_KEYWORDS)
+                # 【R58 任务1 更新】R28 后 `_COMPOUND_SAFE_SINGLE_KEYWORDS` 恒为空集，
+                # 沿用旧名会让本断言**永真**（失去判别力）。改断言等价类别并集
+                # `_P0A_SINGLE_CHAR_PROTECTED`，恢复「这三字在词内无保护」的否命题。
+                self.assertNotIn(ch, _P0A_SINGLE_CHAR_PROTECTED)
 
     def test_引_本来就是关键字(self):
         """`引` 是唯一例外——它在本单之前就是 KEYWORDS_EMBED 成员，
-        本单只加 parser 分支，所以这里是**正向**断言。"""
+        本单只加 parser 分支，所以这里是**正向**断言。
+
+        【R58 任务1 更新】断言目标由逐词表 `_COMPOUND_SAFE_SINGLE_KEYWORDS`
+        （R28 起恒为空集）迁到等价类别并集（引 ∈ `_P0A_HEAD_MERGE_SINGLE`，词首并入）。
+        """
         self.assertIn('引', ALL_KEYWORDS)
-        self.assertIn('引', _COMPOUND_SAFE_SINGLE_KEYWORDS)
+        self.assertIn('引', _P0A_SINGLE_CHAR_PROTECTED)
+        for name in ('引线', '引用计数', '索引表'):
+            with self.subTest(name=name):
+                self.assertIn(name, [t.value for t in Lexer('设 %s 为 1。' % name).tokenize()],
+                              '%s 被最长匹配切开了' % name)
 
 
 class TestInterfaceCharAlias(unittest.TestCase):

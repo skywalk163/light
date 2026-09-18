@@ -57,11 +57,16 @@ def test_basic_keywords():
     assert tokens[3].value == 3
     print("  [OK] '三' 被识别为中文数字")
 
-    # R36 钉现状：无空格粘连形态整体成词（`为` 被嵌入关键字最大匹配并入标识符）
+    # R58 任务1（L-174 已修）：无空格 `设甲为三` 恢复**语义正确**的切分。
+    #   改前（R36 钉的是缺陷现状）：["设甲为三", "。"]
+    #   R57（L-173 修复）后：["设", "甲为三", "。"] —— `为` 仍被并入 `甲为三`（赋值语义错）
+    #   本轮改后：["设", "甲", "为", "三", "。"] —— `为` 关键字不再丢失。
+    # 改法与取舍见 lightharness/_task1_R58_词法收尾.md；判据补测见
+    #   tests/unit/test_lexer_perf.py::test_lexer_correctness_smoke（同源）。
     glued = [t.value for t in lexer.tokenize("设甲为三。") if t.type != TokenType.EOF]
-    assert glued == ["设甲为三", "。"], \
-        f"R36 钉现状失败：无空格 设甲为三 应整体成一个标识符，得到 {glued}"
-    print("  [OK] 无空格粘连形态整体成词（现状已钉住）")
+    assert glued == ["设", "甲", "为", 3, "。"], \
+        f"R58 L-174：无空格 设甲为三 应切为 设/甲/为/中文数字三，得到 {glued}"
+    print("  [OK] 无空格粘连形态切分正确（设/甲/为/三）")
 
     print()
 
@@ -247,9 +252,9 @@ def test_complex_expression():
     L-137 修复）。根因是测试假设过时，不是实现回归，按铁律不改 lexer.py。
 
     原始意图（一条赋值语句里同时出现 设/为/加 三个关键字）在规范写法
-    `设 甲 为 三 加 五。` 下完全成立，故用规范写法重写；并额外钉住两个易误判的
-    现状：`三加五` 粘连时整体成词（中缀运算符不切开中文数字游程）、
-    `三 加 五` 带空格时才切成 三/加/五。
+    `设 甲 为 三 加 五。` 下完全成立，故用规范写法重写；并额外钉住两个易误判的现状：
+    `三加五` 粘连时**也**切成 三/加/五（R58 收窄 R30 过宽判据后；改前 R36 误钉为
+    整体成词，与 `test_chinese_number` 自相矛盾）、`三 加 五` 带空格时切成 三/加/五。
     """
     lexer = Lexer()
 
@@ -273,15 +278,20 @@ def test_complex_expression():
     assert values == [3, 5], f"中文数字应为 [3, 5]，得到 {values}"
     print("  [OK] 中文数字 三/五 被正确识别为值")
 
-    # R36 钉现状：数字与运算符粘连时整体成词（不加空格不会切成 三+加+五）
+    # R58 任务1（R30 规则收窄）：数字与运算符粘连**也**按中缀运算符切分 ——
+    # 与 `甲加乙`（tests/unit/test_lexer_p0a_deterministic.TestP0A无空格表达式仍切分）同口径。
+    # 改前（R36 钉现状）断言 `三加五` 整体成词、`加` 不作关键字 —— 那是 R30
+    # `_r30_cn_num_head_merge` 判据过宽（只看「词首数字 + 正面类别第二字」，
+    # 第三字是中文数字时也并入）所致，且与 `tests/unit/test_lexer.py::test_chinese_number`
+    # （**同一输入** `三加五` 期望 2 个 CHINESE_NUM）自相矛盾 ⇒ 该钉现状是缺陷现状。
     glued = [t.value for t in lexer.tokenize("设 甲 为 三加五。")
              if t.type != TokenType.EOF]
-    assert "三加五" in glued, \
-        f"R36 钉现状失败：三加五 粘连应整体成词，得到 {glued}"
-    assert "加" not in [t.value for t in lexer.tokenize("设 甲 为 三加五。")
-                        if t.type == TokenType.KEYWORD], \
-        "R36 钉现状失败：三加五 粘连时 加 不应被切出为关键字"
-    print("  [OK] 数字+运算符粘连时整体成词（现状已钉住）")
+    assert "三加五" not in glued, \
+        f"R58：三加五 粘连应切成 三/加/五，不应整体成词，得到 {glued}"
+    assert ("KEYWORD", "加") in [(t.type.name, t.value)
+                                 for t in lexer.tokenize("设 甲 为 三加五。")], \
+        "R58：三加五 粘连时 `加` 应被切出为关键字（与 甲加乙 同口径）"
+    print("  [OK] 数字+运算符粘连按中缀运算符切分（三/加/五）")
 
     print()
 
