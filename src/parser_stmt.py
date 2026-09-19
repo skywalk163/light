@@ -3812,6 +3812,73 @@ class ParserStmtMixin:
         if params:
             params[-1]['default'] = default_value
 
+    def _parse_paren_param_name(self, stmt_keywords_paren) -> tuple:
+        """括号式形参：把「最长整串标识符」合并成一个参数名（L-179 / R74 路1 缺陷1）。
+
+        词法层通常把 `消息列表`/`列表` 这类整词成 IDENTIFIER，但 `返回列表`
+        （`返回` 是关键字且恰好是前缀）会被切成 `返回`(KEYWORD)+`列表`(IDENTIFIER)；
+        ANTLR 词法器更激进——`列表`/`字典`/`文本` 等关键字根都可能把 `消息列表`
+        切成 `消息`+`列表`。若逐 token 当成独立形参，产物签名变成 `def f(消息, 列表)`，
+        调用期才 TypeError（静默错编，编译期零警告）。
+
+        此处做「最长整串标识符匹配」：从首个 IDENTIFIER / 非语句关键字 KEYWORD 起，
+        把列位置**紧邻**（中间无空白）的后续 IDENTIFIER / KEYWORD 合并为一个名字。
+        有空白间隔的两个 token 仍视为两个独立形参（与旧式行为一致），避免误并。
+
+        返回 (param_name, param_type)。若当前 token 无法作为形参名起点
+        （含裸语句关键字且无后继拼接），返回 (None, None)，调用方据此 break（保留原报错）。
+        """
+        cur = self._current()
+        if cur is None:
+            return (None, None)
+
+        # ── 起点判定 ──
+        is_stmt_kw = (cur.type == TokenType.KEYWORD and cur.value in stmt_keywords_paren)
+        can_start = False
+        if cur.type == TokenType.IDENTIFIER:
+            can_start = True
+        elif cur.type == TokenType.KEYWORD and cur.value not in stmt_keywords_paren:
+            # `等于`/`接收` 在形参上下文有别的语义，不当名字起点
+            if cur.value not in ('等于', '接收'):
+                can_start = True
+        elif is_stmt_kw:
+            # 裸语句关键字（返回/打印/…）本不当形参名；但若紧跟一个**列位置紧邻**的
+            # IDENTIFIER/KEYWORD（如 返回列表），说明它是复合名字的前缀，放行拼接。
+            nxt = self._peek(1)
+            if (nxt and nxt.type in (TokenType.IDENTIFIER, TokenType.KEYWORD)
+                    and nxt.col == cur.col + len(cur.value)
+                    and not (nxt.type == TokenType.KEYWORD and nxt.value in ('等于', '接收'))):
+                can_start = True
+        if not can_start:
+            return (None, None)
+
+        # ── 消费起点，开始拼名字 ──
+        start = self._consume()
+        name_parts = [start.value]
+        expect_col = start.col + len(start.value)
+
+        # ── 合并列位置紧邻的后续 IDENTIFIER/KEYWORD（缺陷1 核心）──
+        while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+            nt = self._current()
+            if nt.type == TokenType.KEYWORD and nt.value in ('等于', '接收'):
+                break
+            if nt.col != expect_col:
+                break
+            name_parts.append(self._consume().value)
+            expect_col += len(name_parts[-1])
+
+        param_name = ''.join(name_parts)
+
+        # ── 类型注解：参数名 : 类型（L-178 已允许类型首 token 为 LPAREN）──
+        param_type = None
+        if (self._current() and self._current().type == TokenType.COLON
+                and self._peek(1)
+                and self._peek(1).type in (TokenType.IDENTIFIER, TokenType.KEYWORD, TokenType.LPAREN)):
+            self._consume(TokenType.COLON)
+            param_type = self._parse_type_annotation()
+
+        return (param_name, param_type)
+
     def _parse_run_async_stmt(self):
         """解析异步启动语句：`异步 运行 主()。` → `asyncio.run(主())`
 
@@ -3951,45 +4018,43 @@ class ParserStmtMixin:
                 if tok.type == TokenType.COMMA:
                     self._consume(TokenType.COMMA)
                     continue
-                if tok.type == TokenType.IDENTIFIER:
-                    param_name = self._consume(TokenType.IDENTIFIER).value
-                    param_type = None
-                    # 检查类型注解：参数名: 类型
-                    # L-178：类型首 token 允许 LPAREN（括号包裹类型 `(整数|浮点)`）。
-                    # 原判据只放行 IDENTIFIER/KEYWORD，`(` 被挡下 → 冒号不消费 →
-                    # 外层报「期望 右括号「)」，但得到 冒号」。
-                    if self._current() and self._current().type == TokenType.COLON:
-                        next_tok = self._peek(1)
-                        if next_tok and next_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD, TokenType.LPAREN):
-                            self._consume(TokenType.COLON)
-                            param_type = self._parse_type_annotation()
-                    # L-178：括号式形参支持默认值 `参数名: 类型 等于 值` / `= 值`。
-                    # 接收式与括号式方法形参两条通路早已支持，仅括号式段落形参
-                    # 这条漏了——语法过得去、默认值被丢弃，调用时缺参才炸。
-                    # 注意顺序：必须先 append 再 attach —— `_attach_param_default`
-                    # 是往 `params[-1]` 挂，形参不在表里时默认值会被静默丢掉。
-                    params.append({'name': param_name, 'type': param_type})
-                    if self._current() and (
-                            (self._current().type == TokenType.KEYWORD and self._current().value == '等于')
-                            or self._current().type == TokenType.EQUALS):
-                        self._consume()
-                        self._attach_param_default(params)
-                elif tok.type == TokenType.KEYWORD and tok.value not in _stmt_keywords_paren:
-                    param_name = self._consume(TokenType.KEYWORD).value
-                    param_type = None
-                    if self._current() and self._current().type == TokenType.COLON:
-                        next_tok = self._peek(1)
-                        if next_tok and next_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD, TokenType.LPAREN):
-                            self._consume(TokenType.COLON)
-                            param_type = self._parse_type_annotation()
-                    params.append({'name': param_name, 'type': param_type})
-                    if self._current() and (
-                            (self._current().type == TokenType.KEYWORD and self._current().value == '等于')
-                            or self._current().type == TokenType.EQUALS):
-                        self._consume()
-                        self._attach_param_default(params)
-                else:
+                if tok.type == TokenType.STAR:
+                    # 缺陷2 修复（L-179 / R74 路1）：括号式支持
+                    #   *余    —— var-positional（等价 *args）
+                    #   **选项  —— var-keyword（等价 **kwargs）
+                    # 与旧式「接收 *余, **选项」保持同一份产物约定：name 形如
+                    # '*余' / '**选项'，下游 codegen 原样发射为 Python 的 *余 / **选项。
+                    self._consume(TokenType.STAR)
+                    is_kwarg = False
+                    if self._current() and self._current().type == TokenType.STAR:
+                        self._consume(TokenType.STAR)
+                        is_kwarg = True
+                    name_parts = []
+                    while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                        nt = self._current()
+                        if nt.type == TokenType.KEYWORD and nt.value in ('等于', '接收'):
+                            break
+                        name_parts.append(self._consume().value)
+                    if name_parts:
+                        params.append({'name': ('**' if is_kwarg else '*') + ''.join(name_parts), 'type': None})
+                    continue
+                # 缺陷1 修复（L-179 / R74 路1）：最长整串标识符匹配。
+                # 参数名可能含关键字子串（消息列表→消息+列表、返回列表→返回+列表），
+                # 被词法切成多 token；此处合并列位置紧邻的 IDENTIFIER/KEYWORD 为一个名字。
+                param_name, param_type = self._parse_paren_param_name(_stmt_keywords_paren)
+                if param_name is None:
                     break
+                # L-178：括号式形参支持默认值 `参数名: 类型 等于 值` / `= 值`。
+                # 接收式与括号式方法形参两条通路早已支持，仅括号式段落形参
+                # 这条漏了——语法过得去、默认值被丢弃，调用时缺参才炸。
+                # 注意顺序：必须先 append 再 attach —— `_attach_param_default`
+                # 是往 `params[-1]` 挂，形参不在表里时默认值会被静默丢掉。
+                params.append({'name': param_name, 'type': param_type})
+                if self._current() and (
+                        (self._current().type == TokenType.KEYWORD and self._current().value == '等于')
+                        or self._current().type == TokenType.EQUALS):
+                    self._consume()
+                    self._attach_param_default(params)
             self._consume(TokenType.RPAREN)
             # 支持括号外的参数类型标注：(a):整数, b:整数
             param_idx = 0

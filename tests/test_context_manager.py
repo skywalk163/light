@@ -131,9 +131,16 @@ class TestAsyncWith:
         assert 'async with ' in result
 
     def test_async_with_return(self):
-        """异步上下文管理器 + 返回值"""
+        """异步上下文管理器 + 返回值
+
+        R70 任务B 收紧 _require_async_context 后，「等待」必须写在异步段落体内，
+        同步 函数 内用 等待 会明确报中文编译错误。本例原写 函数 处理数据()（同步），
+        与收紧后的约束冲突 → HEAD 上即红（既有红，非本轮引入）。
+        修法：包进 异步 函数（与同文件 test_async_with_basic/await 同款做法），
+        语义不变——仍验证「异步上下文管理器 + 返回值」能编译出 async with + return await。
+        """
         code = """
-函数 处理数据():
+异步 函数 处理数据():
   使用 异步 打开文件("data.txt") 为 f:
     返回 等待 f.读取()
 """
