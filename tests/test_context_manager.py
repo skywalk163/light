@@ -651,6 +651,61 @@ class TestBackendParity:
         assert g._resolve_name('成绩的项') == '成绩.items()'
         assert g._resolve_name('自.成绩的长度') == 'len(self.成绩)'
 
+    def test_destructuring_target_render_parity(self):
+        """R72 任务B（G-05）：两后端对解构目标表的渲染必须逐字一致。
+
+        `_render_destructure_targets` / `_render_destructure_target` 在 src 与
+        unified 各存一份（unified 刻意不 import src 后端——那会把整条解析链拖进来），
+        靠本用例把两边锁在一起：只改一边会在本用例当场打红，防止「同一份源码两个
+        后端生成不同解包语句」。
+
+        关键口径：
+          - `targets is None` → 旧路径（叶名 ', ' 连接），既有产物逐字节不变；
+          - `'*余'` → 星号 rest；单个 rest 目标必须补尾逗号（Python 里
+            `*余 = x` 是 SyntaxError，`*余, = x` 才合法），分组内同理；
+          - `('('|'[', [子目标…])` → 嵌套分组，递归渲染。
+        """
+        from ast_nodes_v3 import DestructuringAssignment, ListLiteral
+        from code_generator import PythonCodeGenerator
+        from code_generator_unified import UnifiedCodeGenerator
+
+        cases = [
+            # (variables 叶名表, targets 结构化目标表)
+            (['甲', '乙'], None),
+            (['甲', '乙', '丙'], None),
+            (['甲', '乙'], ['甲', '乙']),
+            (['首', '余'], ['首', '*余']),
+            (['余'], ['*余']),
+            (['m', 'n1', 'n2'], ['m', ('(', ['n1', 'n2'])]),
+            (['外', '内一', '内二'], ['外', ('[', ['内一', '内二'])]),
+            (['甲', '乙', '丙'], ['甲', ('[', ['乙', ('(', ['丙'])])]),
+            (['首', '余'], [('(', ['首', '*余'])]),
+            (['余'], [('(', ['*余'])]),
+        ]
+        for variables, targets in cases:
+            node = DestructuringAssignment(variables, ListLiteral([]), targets=targets)
+            src_out = PythonCodeGenerator()._render_destructure_targets(node)
+            uni_out = UnifiedCodeGenerator()._render_destructure_targets(node)
+            assert src_out == uni_out, (
+                f'解构目标渲染双后端不一致: variables={variables} targets={targets} '
+                f'src={src_out!r} unified={uni_out!r}')
+
+        # 旧路径产物必须与「叶名直接连接」逐字相同（不回归的硬口径）
+        legacy = DestructuringAssignment(['甲', '乙', '丙'], ListLiteral([]))
+        assert PythonCodeGenerator()._render_destructure_targets(legacy) == '甲, 乙, 丙'
+
+        # 单个 rest 目标补尾逗号
+        single_rest = DestructuringAssignment(['余'], ListLiteral([]), targets=['*余'])
+        assert PythonCodeGenerator()._render_destructure_targets(single_rest) == '*余,'
+        grouped_rest = DestructuringAssignment(['余'], ListLiteral([]),
+                                               targets=[('(', ['*余'])])
+        assert PythonCodeGenerator()._render_destructure_targets(grouped_rest) == '(*余,)'
+
+        # 星号/嵌套目标里出现 `*名` 时不得把 `*` 交给 _sanitize_name
+        nested_legacy = DestructuringAssignment(
+            ['首', '余'], ListLiteral([]), targets=['首', '*余'])
+        assert '*余' in PythonCodeGenerator()._render_destructure_targets(nested_legacy)
+
 
 class TestGapBMemberAccessStatement:
     """单 B·Gap B 回归：unified 后端（cli.light_unified 生产路径）此前不识别

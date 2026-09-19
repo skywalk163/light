@@ -169,7 +169,54 @@ class ParserExprMixin:
         from ast_nodes_v3 import KeywordArg
         return KeywordArg(''.join(name_parts), value)
 
-    
+    def _try_parse_unpack_arg(self) -> Optional[ASTNode]:
+        """尝试把当前位置解析成星号解包实参 `*表达式` / `**表达式`；失败原位回退返回 None。
+
+        —— R72 任务D（G-07 星号解包）——
+
+        改前：括号实参区一遇 `*` 就走 `_parse_comparison`，`求和(*参数)` 一律抛
+        「意外的标记: 「*」」（实测见 examples/test_R72_D_星号解包.light）。
+        历史上 `_parse_postfix` 的括号路径曾有一条 `*` 分支，但它只在
+        「callee 不是 Identifier」（链式调用）时可达——普通调用走
+        `_collect_single_arg`，从未真正生效，属长期死代码。
+
+        产出约定：`KeywordArg('*', value)` / `KeywordArg('**', value)`，复用
+        KeywordArg 的 name/value 结构承载解包（name 只是 '*' 或 '**' 的标记），
+        避免新增 AST 节点。两条 Python 后端统一用 `_gen_call_arg` 生成实参，
+        识别 name 为 '*' / '**' 时按解包口径发 `*<value>` / `**<value>`。
+        既有具名实参（name 为裸标识符，永不含 '*'）不受影响。
+
+        与既有 `KeywordArg` / 位置实参的三条边界（单向放宽，不含 `*` 的旧输入
+        产物逐字节不变）：
+          · `f(a == 1)`：`=` 是 EQUALS，比较用 `==` 是 EQ_EQ，本分支只认 STAR，
+            不与之竞争；
+          · `f(*x, k=v)`：本分支只在 kwarg 分支回退后才触发，两者可共存；
+          · `f(**d, *xs)`：Python 要求 `**kwargs` 之后不能再有位置参数，故本
+            方法**只**负责吃下 `*`/`**` 与紧随的值，参数顺序合法性留给 Python
+            运行期报 TypeError（与既有 kwarg 分支同口径）。
+
+        值解析用 `_parse_comparison`（与同级既有 `*` 死代码同口径）：逗号是
+        因果链/流水线连接符，由 `_parse_expr` 层处理，实参区必须停在逗号处。
+        """
+        if not (self._current() and self._current().type == TokenType.STAR):
+            return None
+        saved_pos = self.pos
+        self._consume(TokenType.STAR)
+        prefix = '*'
+        if self._current() and self._current().type == TokenType.STAR:
+            self._consume(TokenType.STAR)
+            prefix = '**'
+        value = self._parse_comparison()
+        if value is None:
+            # 取不到值就整体回退：宁可维持原来的「意外的标记: 「*」」报错
+            self.pos = saved_pos
+            return None
+        from ast_nodes_v3 import KeywordArg
+        # 复用 KeywordArg（name=value 结构）承载解包：name 里带 '*' 前缀，
+        # code_generator 的 _gen_call_arg 识别前缀后按解包口径生成 `*<value>`。
+        # 两条后端都已用 _gen_call_arg 生成实参，无需新增 AST 节点。
+        return KeywordArg(prefix, value)
+
     def _parse_expr(self) -> ASTNode:
         """解析表达式（支持管道操作符、逻辑运算符和后置三元）"""
         # 明确标注不支持的特性（P1-3）：海象运算符 :=
@@ -183,14 +230,11 @@ class ParserExprMixin:
         left = self._parse_logical_expr()
         
         # 后置三元表达式：值 如果 条件 否则 值
-        if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '如果':
-            self._consume(TokenType.KEYWORD, '如果')
-            condition = self._parse_logical_expr()
-            else_expr = None
-            if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '否则':
-                self._consume(TokenType.KEYWORD, '否则')
-                else_expr = self._parse_expr()
-            return ConditionalExpression(condition, left, else_expr)
+        # R71-A（G-01）：延续逻辑抽为 _parse_postfix_ternary_cont，供三元分支
+        # 操作数复用；分支操作数改走 _parse_ternary_operand（不吞逗号）。
+        ternary = self._parse_postfix_ternary_cont(left)
+        if ternary is not None:
+            return ternary
         
         # 管道操作符 / 因果链
         stages = [left]
@@ -211,6 +255,30 @@ class ParserExprMixin:
             return Pipeline(stages, connector=connector or 'comma')
         
         return left
+    
+    def _parse_postfix_ternary_cont(self, left: ASTNode) -> Optional[ASTNode]:
+        """后置三元延续：left 如果 条件 否则 表达式 → ConditionalExpression。
+
+        R71-A（G-01）：从 _parse_expr 抽出为可复用延续。三元分支操作数
+        不能用 _parse_expr——其中 COMMA 会被当因果链吞掉，导致
+        列表字面量 / 调用参数列表中的逗号被三元吞掉（与 _parse_lambda
+        内联三元处同一处理口径，见该处注释）。
+        """
+        if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '如果':
+            self._consume(TokenType.KEYWORD, '如果')
+            condition = self._parse_logical_expr()
+            else_expr = None
+            if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '否则':
+                self._consume(TokenType.KEYWORD, '否则')
+                else_expr = self._parse_ternary_operand()
+            return ConditionalExpression(condition, left, else_expr)
+        return None
+    
+    def _parse_ternary_operand(self) -> ASTNode:
+        """三元分支操作数：逻辑表达式 + 可选后置三元延续（不吞逗号/箭头）。"""
+        left = self._parse_logical_expr()
+        ternary = self._parse_postfix_ternary_cont(left)
+        return ternary if ternary is not None else left
     
     def _parse_logical_expr(self) -> ASTNode:
         """解析逻辑表达式（且/与, 或）"""
@@ -730,16 +798,18 @@ class ParserExprMixin:
         
         # 三元条件表达式：如果 条件 那么 值1 否则 值2
         # 也支持：如果 条件 则 值1 否则 值2
+        # R71-A（G-01）：分支操作数改走 _parse_ternary_operand（不吞逗号），
+        # 修复「[三元, 后续元素] / f(三元, 后续参数) 逗号被吞」。
         if tok.type == TokenType.KEYWORD and tok.value == '如果':
             self._consume(TokenType.KEYWORD, '如果')
-            condition = self._parse_expr()
+            condition = self._parse_ternary_operand()
             if self._current() and self._current().type == TokenType.KEYWORD and self._current().value in ('那么', '则'):
                 self._consume(TokenType.KEYWORD, self._current().value)
-            then_expr = self._parse_expr()
+            then_expr = self._parse_ternary_operand()
             else_expr = None
             if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '否则':
                 self._consume(TokenType.KEYWORD, '否则')
-                else_expr = self._parse_expr()
+                else_expr = self._parse_ternary_operand()
             return ConditionalExpression(condition, then_expr, else_expr)
         
         # 括号表达式
@@ -1033,18 +1103,12 @@ class ParserExprMixin:
                         if self._current() and self._current().type == TokenType.COMMA:
                             self._consume(TokenType.COMMA)
                             continue
-                        # 支持 *args / **kwargs 展开
-                        if self._current() and self._current().type == TokenType.STAR:
-                            self._consume(TokenType.STAR)
-                            if self._current() and self._current().type == TokenType.STAR:
-                                self._consume(TokenType.STAR)
-                                arg = self._parse_logical_expr()
-                                if arg and isinstance(arg, Identifier):
-                                    args.append(Identifier(f'**{arg.name}'))
-                            else:
-                                arg = self._parse_logical_expr()
-                                if arg and isinstance(arg, Identifier):
-                                    args.append(Identifier(f'*{arg.name}'))
+                        # R72 任务D（G-07）：`f(*表)` / `f(**字典)` 调用解包。
+                        # 原先这段 STAR 死代码只吃 Identifier，列表/字典实参一律
+                        # 静默丢参，见 _try_parse_unpack_arg 的详述。
+                        unpack = self._try_parse_unpack_arg()
+                        if unpack is not None:
+                            args.append(unpack)
                             if self._match(TokenType.COMMA):
                                 self._consume(TokenType.COMMA)
                             continue
@@ -1127,6 +1191,14 @@ class ParserExprMixin:
 
                         if self._current() and self._current().type == TokenType.COMMA:
                             self._consume(TokenType.COMMA)
+                            continue
+                        # R72 任务D（G-07）：`f(*表)` / `f(**字典)` 调用解包。
+                        unpack = self._try_parse_unpack_arg()
+                        if unpack is not None:
+                            args.append(unpack)
+                            collected += 1
+                            if self._match(TokenType.COMMA):
+                                self._consume(TokenType.COMMA)
                             continue
                         # v7 新单 B（第 3 票）：具名实参 `名 = 值`。
                         # `排序(学生列表, 依据 = f)` 里 `依据` 是参数名而非表达式；
@@ -1761,6 +1833,11 @@ class ParserExprMixin:
                         if self._current().type == TokenType.COMMA:
                             self._consume(TokenType.COMMA)
                             continue
+                        # R72 任务D（G-07）：`f(*表)` / `f(**字典)` 调用解包。
+                        unpack = self._try_parse_unpack_arg()
+                        if unpack is not None:
+                            args.append(unpack)
+                            continue
                         # 具名实参 `名 = 值`。_try_parse_keyword_arg 已接进另外两条
                         # 收参路径（:763 的 arity 路径、:2545 的后缀链式括号路径），
                         # 唯独这条「无 arity 记录的标识符括号调用」漏接，导致
@@ -2092,6 +2169,18 @@ class ParserExprMixin:
                 format_spec = expr_text[colon_idx+1:].strip()
             else:
                 expr_part = expr_text
+            # R71-D（G-04）：格式说明符分支——仅当冒号后的内容确实是合法的
+            # Python 格式说明（mini-language）时才启用「字面量可插值」。
+            # 背景：{3.14159:.2f} 这类「纯字面量 + 格式说明」是有意义的（等价于
+            # 对该字面量做格式化），但 _try_parse_interp_expr 出于 L-086/JSON
+            # 误判防御一律拒绝纯字面量。若不加区分地放开，JSON 串
+            # '{"name": "光明"}' 会因把 '"name"' 当字面量插值而重蹈覆辙。
+            # 故以「冒号后是否为合法格式说明」为闸门：合法 → 允许字面量；
+            # 非法（含引号/花括号等结构字符，如 JSON 的 '"光明", "version": 4'）
+            # → 维持拒绝、整串按普通文本处理（L-086 不回归）。
+            _spec_is_valid = bool(format_spec) and bool(
+                re.match(r'^[<>=^]?[+\- ]?#?0?\d*(?:,\d*)?(?:\.\d+)?[bcdeEfFgGnosxX%]?$',
+                         format_spec))
             if re.match(r'^[\u4e00-\u9fa5a-zA-Z_][\u4e00-\u9fa5a-zA-Z0-9_.\[\]"\'\u3010\u3011]*$', expr_part):
                 # 简单标识符：{甲}、{对象.属性}、{列表[0]}
                 if m.start() > last_end:
@@ -2103,7 +2192,7 @@ class ParserExprMixin:
                 last_end = m.end()
                 continue
             # 表达式插值：{甲 乘 甲}、{平方(甲)} — 子解析验证并生成表达式节点
-            expr_node = self._try_parse_interp_expr(expr_part)
+            expr_node = self._try_parse_interp_expr(expr_part, allow_literal=_spec_is_valid)
             if expr_node is None:
                 has_invalid = True
                 break
@@ -2130,8 +2219,13 @@ class ParserExprMixin:
 
         return StringInterpolation(parts)
 
-    def _try_parse_interp_expr(self, expr_text: str):
-        """尝试将插值内容作为光明表达式解析；成功返回 ASTNode，失败返回 None"""
+    def _try_parse_interp_expr(self, expr_text: str, allow_literal: bool = False):
+        """尝试将插值内容作为光明表达式解析；成功返回 ASTNode，失败返回 None
+
+        allow_literal=True 时允许「纯字面量」表达式（R71-D/G-04：{3.14159:.2f}
+        这类「字面量 + 格式说明符」是有意义的，须放行 NumberLiteral 等字面量节点）；
+        默认 False 维持 L-086/JSON 误判防御（纯字面量插值等价于直接写字面量，拒绝）。
+        """
         import re
         # 快速拒绝模板字符/特殊符号（如 {%原始%}、反引号、反斜杠），不视为插值
         if re.search(r'[%\`\\]', expr_text):
@@ -2155,9 +2249,16 @@ class ParserExprMixin:
                 # 普通 JSON 串被误判为插值、生成出 f'{"name":…}' 直接炸掉。
                 # 纯字面量（字符串/数字/布尔/空）插值本身没有任何意义（等价于
                 # 直接写该字面量），light 原实现也不接受，故一律拒绝。
-                if type(node).__name__ in (
-                    'StringLiteral', 'NumberLiteral', 'BooleanLiteral', 'NullLiteral',
-                ):
+                # 纯字面量插值本身无意义（等价于直接写该字面量），一律拒绝。
+                # 唯一例外：**数字字面量 + 合法格式说明符**（allow_literal=True，
+                # R71-D/G-04：{3.14159:.2f} 有明确格式化语义）。字符串/布尔/空
+                # 字面量即使带格式说明也一律拒绝——它们是 JSON/正则等结构串的
+                # 高频形态（如 '{"x": 1}' 的键 "x" 被切成 expr='\"x\"' +
+                # spec='1'，而 '1' 恰是合法的宽度说明符），放行会重蹈 L-086 覆辙。
+                _node_kind = type(node).__name__
+                if _node_kind in ('StringLiteral', 'BooleanLiteral', 'NullLiteral'):
+                    return None
+                if _node_kind == 'NumberLiteral' and not allow_literal:
                     return None
                 # L-086 防御：字面量调用形态（如 "1,4" 被子解析消费成 1(4) 的
                 # FunctionCall、callee 为 NumberLiteral）不是合法插值表达式，
@@ -2981,7 +3082,10 @@ class ParserExprMixin:
             self._consume()
 
         # 解析第一个元素/表达式
-        first_expr = self._parse_comparison()
+        # R72 任务D（G-07）：`[*表, 4]` 以 STAR 开头——此处必须走解包产生式，
+        # 否则 `*` 会被下面的 `_parse_comparison` 当成乘号运算符吃掉并报错。
+        # 与 Python 3.5+ 同口径：列表字面量任意位置可放 `*` 展开项（可多个）。
+        first_expr = self._try_parse_unpack_arg() or self._parse_comparison()
 
         # 检查是否是字典推导：键: 值 遍历 变量 之 ...
         if self._current() and self._current().type == TokenType.COLON:
@@ -3132,6 +3236,12 @@ class ParserExprMixin:
                 self._consume()
             if self._match(TokenType.RBRACKET):
                 break
+            # R72 任务D（G-07）：`[*表, 4]` 列表字面量星号展开，与 Python 同口径
+            # （Python 3.5+ 允许在任意位置出现多个 `*` 展开项）。
+            unpack = self._try_parse_unpack_arg()
+            if unpack is not None:
+                elements.append(unpack)
+                continue
             elem = self._parse_comparison()
             elements.append(elem)
         self._consume(TokenType.RBRACKET)
@@ -3241,19 +3351,15 @@ class ParserExprMixin:
                             self._consume()
                             continue
                         if self._current() and self._current().type == TokenType.STAR:
-                            self._consume(TokenType.STAR)
-                            if self._current() and self._current().type == TokenType.STAR:
-                                self._consume(TokenType.STAR)
-                                arg = self._parse_comparison()
-                                if arg is not None and isinstance(arg, Identifier):
-                                    args.append(Identifier(f'**{arg.name}'))
-                            else:
-                                arg = self._parse_comparison()
-                                if arg is not None and isinstance(arg, Identifier):
-                                    args.append(Identifier(f'*{arg.name}'))
-                            if self._match(TokenType.COMMA):
-                                self._consume(TokenType.COMMA)
-                            continue
+                            # R72 任务D（G-07）：`f(*表)` / `f(**字典)` 调用解包，
+                            # 统一走 _try_parse_unpack_arg（原先此分支只吃 Identifier，
+                            # 列表/字典实参静默丢参）。
+                            unpack = self._try_parse_unpack_arg()
+                            if unpack is not None:
+                                args.append(unpack)
+                                if self._match(TokenType.COMMA):
+                                    self._consume(TokenType.COMMA)
+                                continue
                         arg = self._parse_comparison()
                         if arg is not None:
                             args.append(arg)
@@ -3307,19 +3413,10 @@ class ParserExprMixin:
                     else:
                         # 不是关键字参数，回退
                         self.pos = _kwarg_saved_pos
-                    # 支持 *args 和 **kwargs 展开
-                    if self._current() and self._current().type == TokenType.STAR:
-                        self._consume(TokenType.STAR)
-                        # 检查是否是 **kwargs（双星号）
-                        if self._current() and self._current().type == TokenType.STAR:
-                            self._consume(TokenType.STAR)
-                            arg = self._parse_comparison()
-                            if arg is not None and isinstance(arg, Identifier):
-                                args.append(Identifier(f'**{arg.name}'))
-                        else:
-                            arg = self._parse_comparison()
-                            if arg is not None and isinstance(arg, Identifier):
-                                args.append(Identifier(f'*{arg.name}'))
+                    # R72 任务D（G-07）：`f(*表)` / `f(**字典)` 调用解包。
+                    unpack = self._try_parse_unpack_arg()
+                    if unpack is not None:
+                        args.append(unpack)
                         if self._match(TokenType.COMMA):
                             self._consume(TokenType.COMMA)
                         while self._current() and self._current().type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
@@ -3430,18 +3527,10 @@ class ParserExprMixin:
                             if self._current() and self._current().type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
                                 self._consume()
                                 continue
-                            # 支持 *args 和 **kwargs 展开
-                            if self._current() and self._current().type == TokenType.STAR:
-                                self._consume(TokenType.STAR)
-                                if self._current() and self._current().type == TokenType.STAR:
-                                    self._consume(TokenType.STAR)
-                                    arg = self._parse_comparison()
-                                    if arg is not None and isinstance(arg, Identifier):
-                                        args.append(Identifier(f'**{arg.name}'))
-                                else:
-                                    arg = self._parse_comparison()
-                                    if arg is not None and isinstance(arg, Identifier):
-                                        args.append(Identifier(f'*{arg.name}'))
+                            # R72 任务D（G-07）：`对象.方法(*表)` / `(**字典)` 调用解包。
+                            unpack = self._try_parse_unpack_arg()
+                            if unpack is not None:
+                                args.append(unpack)
                                 if self._match(TokenType.COMMA):
                                     self._consume(TokenType.COMMA)
                                 continue

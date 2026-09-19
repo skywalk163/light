@@ -16,11 +16,11 @@
   ],
   "版本": 1,
   "归属": "C9 建（S1），G9 守门禁",
-  "总数": 150,
+  "总数": 157,
   "分类统计": {
     "native_required": 62,
     "movable": 11,
-    "has_light_impl": 64,
+    "has_light_impl": 66,
     "duplicate": 13,
     "unused": 0
   },
@@ -423,7 +423,7 @@
       "当前实现语言": "光明（stdlib/内置核心列表.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心列表.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心列表.light:17"
+      "证据行": "stdlib/内置核心列表.light:20"
     },
     {
       "名字": "列表创建",
@@ -431,7 +431,7 @@
       "当前实现语言": "光明（stdlib/内置核心列表.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心列表.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心列表.light:21"
+      "证据行": "stdlib/内置核心列表.light:24"
     },
     {
       "名字": "列表包含",
@@ -439,7 +439,7 @@
       "当前实现语言": "光明（stdlib/内置核心列表.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心列表.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心列表.light:54"
+      "证据行": "stdlib/内置核心列表.light:57"
     },
     {
       "名字": "副本",
@@ -447,7 +447,7 @@
       "当前实现语言": "光明（stdlib/内置核心列表.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心列表.light（L-062 新增，支持列表浅拷贝）",
-      "证据行": "stdlib/内置核心列表.light:59"
+      "证据行": "stdlib/内置核心列表.light:62"
     },
     {
       "名字": "列表反转",
@@ -455,7 +455,7 @@
       "当前实现语言": "光明（stdlib/内置核心列表.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心列表.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心列表.light:50"
+      "证据行": "stdlib/内置核心列表.light:53"
     },
     {
       "名字": "列表弹出",
@@ -463,7 +463,7 @@
       "当前实现语言": "光明（stdlib/内置核心列表.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心列表.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心列表.light:38"
+      "证据行": "stdlib/内置核心列表.light:41"
     },
     {
       "名字": "列表排序",
@@ -471,7 +471,7 @@
       "当前实现语言": "光明（stdlib/内置核心列表.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心列表.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心列表.light:46"
+      "证据行": "stdlib/内置核心列表.light:49"
     },
     {
       "名字": "列表插入",
@@ -479,7 +479,7 @@
       "当前实现语言": "光明（stdlib/内置核心列表.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心列表.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心列表.light:42"
+      "证据行": "stdlib/内置核心列表.light:45"
     },
     {
       "名字": "列表获取",
@@ -487,7 +487,7 @@
       "当前实现语言": "光明（stdlib/内置核心列表.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心列表.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心列表.light:30"
+      "证据行": "stdlib/内置核心列表.light:33"
     },
     {
       "名字": "列表追加",
@@ -495,7 +495,7 @@
       "当前实现语言": "光明（stdlib/内置核心列表.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心列表.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心列表.light:34"
+      "证据行": "stdlib/内置核心列表.light:37"
     },
     {
       "名字": "列表长度",
@@ -503,7 +503,7 @@
       "当前实现语言": "光明（stdlib/内置核心列表.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心列表.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心列表.light:26"
+      "证据行": "stdlib/内置核心列表.light:29"
     },
     {
       "名字": "去除空白",
@@ -698,12 +698,20 @@
       "证据行": "stdlib/内置核心判型.light:42"
     },
     {
+      "名字": "是字节",
+      "职责": "检查是否为字节串（bytes）",
+      "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/内置核心判型.light（R72-E 搬迁并接线；与 是字符串（str）严格对称）",
+      "证据行": "stdlib/内置核心判型.light:47"
+    },
+    {
       "名字": "是字母",
       "职责": "检查字符是否为字母",
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:50"
+      "证据行": "stdlib/内置核心判型.light:55"
     },
     {
       "名字": "是字符串",
@@ -719,7 +727,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:54"
+      "证据行": "stdlib/内置核心判型.light:59"
     },
     {
       "名字": "是整数",
@@ -743,7 +751,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:46"
+      "证据行": "stdlib/内置核心判型.light:51"
     },
     {
       "名字": "是空白",
@@ -751,7 +759,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:58"
+      "证据行": "stdlib/内置核心判型.light:63"
     },
     {
       "名字": "显示宽度",
@@ -1207,7 +1215,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:62"
+      "证据行": "stdlib/内置核心判型.light:67"
     },
     {
       "名字": "是函数",
@@ -1215,7 +1223,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:66"
+      "证据行": "stdlib/内置核心判型.light:71"
     },
     {
       "名字": "是数值",
@@ -1223,7 +1231,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:71"
+      "证据行": "stdlib/内置核心判型.light:76"
     },
     {
       "名字": "是负零",
@@ -1231,7 +1239,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（任务5 T2-D4 新增：负零判定原语，纯光明实现）",
-      "证据行": "stdlib/内置核心判型.light:79"
+      "证据行": "stdlib/内置核心判型.light:84"
     },
     {
       "名字": "切片下标检查",
@@ -1264,6 +1272,22 @@
       "分类": "movable",
       "目标落点": "stdlib/内置核心列表.light（依赖copy.deepcopy；S2前保留builtins.py）",
       "证据行": "stdlib/builtins.py:805"
+    },
+    {
+      "名字": "主目录",
+      "职责": "获取当前用户主目录（USERPROFILE/HOME 跨平台，对齐 os.path.expanduser('~')）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/内置核心系统.light（R71-E/L-160：环境变量地板内置组合，跨平台取 USERPROFILE→HOME；builtins.py 已惰性转发）",
+      "证据行": "stdlib/内置核心系统.light:10"
+    },
+    {
+      "名字": "随机UUID",
+      "职责": "生成随机UUID v4（对齐 uuid.uuid4()：os.urandom 熵源 + 版本4/变体位 + 8-4-4-4-12 连字）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/内置核心系统.light（R71-E/L-174：随机字节地板内置熵源，光明层置版本/变体位；builtins.py 已惰性转发）",
+      "证据行": "stdlib/内置核心系统.light:21"
     }
   ],
   "地板自举率_S2进度": {

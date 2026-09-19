@@ -912,20 +912,43 @@ class Lexer:
             
             # 处理数字
             if _is_ascii_digit(source[i]):
-                # L-075：0x 前缀十六进制整数字面量（值等同十进制）。
-                # 如 0x4E00 → 19968；大小写 x/前缀字母均接受。
-                if (source[i] == '0' and i + 1 < n and source[i + 1] in 'xX'
-                        and i + 2 < n and source[i + 2] in '0123456789abcdefABCDEF'):
-                    j = i + 2
-                    while j < n and source[j] in '0123456789abcdefABCDEF':
-                        j += 1
-                    hex_str = source[i + 2:j]
-                    tokens.append(Token(TokenType.NUMBER,
-                                        int(hex_str, 16), line, col))
-                    consumed = j - i
-                    col += consumed
-                    i += consumed
-                    continue
+                # L-075 / R71-C：前缀整数字面量（十六进制 0x / 二进制 0b / 八进制 0o）
+                # 如 0xFF → 255, 0b1010 → 10, 0o644 → 420
+                # 大小写前缀均接受（0x/0X, 0b/0B, 0o/0O）
+                if source[i] == '0' and i + 1 < n and source[i + 1] in 'xXbBoO':
+                    prefix_char = source[i + 1]
+                    if prefix_char in 'xX':
+                        _prefix_digits = '0123456789abcdefABCDEF'
+                        _prefix_base = 16
+                        _prefix_name = '十六进制'
+                    elif prefix_char in 'bB':
+                        _prefix_digits = '01'
+                        _prefix_base = 2
+                        _prefix_name = '二进制'
+                    else:  # 'oO'
+                        _prefix_digits = '01234567'
+                        _prefix_base = 8
+                        _prefix_name = '八进制'
+
+                    # 前缀后必须至少有一个有效数字
+                    if i + 2 < n and source[i + 2] in _prefix_digits:
+                        j = i + 2
+                        while j < n and source[j] in _prefix_digits:
+                            j += 1
+                        num_str = source[i + 2:j]
+                        tokens.append(Token(TokenType.NUMBER,
+                                            int(num_str, _prefix_base), line, col))
+                        consumed = j - i
+                        col += consumed
+                        i += consumed
+                        continue
+                    else:
+                        # 前缀后无有效数字，报明确词法错误
+                        if i + 2 >= n:
+                            raise LexerError(f"无效{_prefix_name}字面量：前缀 0{prefix_char} 后缺少数字", line, col)
+                        else:
+                            raise LexerError(f"无效{_prefix_name}字面量：'0{prefix_char}{source[i+2]}' 不是有效的{_prefix_name}数字", line, col)
+
                 token, consumed = self._tokenize_number(source, i, line, col)
                 tokens.append(token)
                 col += consumed
@@ -1064,9 +1087,10 @@ class Lexer:
             # 让人看着 `未知字符: '?' (0x003F)` 猜自己哪里写错了。
             if source[i] == '?':
                 raise LexerError(
-                    "光明不支持 `?` 可空后缀（`?` 不是词法原子）。"
-                    "可空类型请写成中文前缀式：`设 甲: 可空 整数 为 无。`"
-                    "（同义前缀 `可选`；这是既定口径，`?` 永不支持）",
+                    "光明不支持 `?`（`?` 不是词法原子；既定口径 `?` 永不支持，"
+                    "可空类型请写成中文前缀式：`设 甲: 可空 整数 为 无。`，"
+                    "同义前缀 `可选`）。"
+                    "若要写三元表达式，请用「如果 条件 则 值1 否则 值2」。",
                     line, col)
             raise LexerError(f"未知字符: '{source[i]}' (0x{ord(source[i]):04X})", line, col)
         

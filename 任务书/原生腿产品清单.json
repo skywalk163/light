@@ -495,6 +495,15 @@
     "高级文件": {
       "状态": "可编译",
       "阻断": "可编译"
+    },
+    "内置核心系统": {
+      "状态": "可编译",
+      "阻断": "",
+      "证据": "light run examples/test_R71_E_stdlib原语.light rc=0（R71-E 真编译实测：从 内置核心系统 导入 主目录/随机UUID，主目录取 USERPROFILE，UUID v4 36 位格式+唯一性断言）"
+    },
+    "字节缓冲": {
+      "状态": "不可编译",
+      "阻断": "代码生成不支持：原生后端缺运行期 helper `_light_bytes_split`（R72-E 为绕开「bytes 字面量后跟 .方法」的 parser 限制，在 src/code_generator.py 注入的运行期 helper）—— 真编译实测 `python -m cli.light compile stdlib/字节缓冲.light --backend llvm-typed` 抛「未定义的段落：_light_bytes_split」"
     }
   },
   "CLI路径状态表": [

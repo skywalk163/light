@@ -887,9 +887,16 @@ def 是列表(值) -> bool:
 
 
 def 是字典(值) -> bool:
-    """检查是否为字典（地板已搬迁：真身 stdlib/内置核心判型.light:39）"""
+    """检查是否为字典（地板已搬迁：真身 stdlib/内置核心判型.light:42）"""
     import 内置核心判型
     return 内置核心判型.是字典(值)
+
+
+def 是字节(值) -> bool:
+    """检查是否为字节串（bytes）。R72-E · L-159。
+    真身 stdlib/内置核心判型.light:92，与 是字符串（str）严格对称。"""
+    import 内置核心判型
+    return 内置核心判型.是字节(值)
 
 
 def 是空(值) -> bool:
@@ -1536,3 +1543,15 @@ def 取可选(容器, 键, 默认=None):
     except Exception:
         return 默认
 
+
+
+def 主目录() -> str:
+    """获取当前用户主目录（地板已搬迁：真身 stdlib/内置核心系统.light:10；L-160，R71-E）。"""
+    import 内置核心系统
+    return 内置核心系统.主目录()
+
+
+def 随机UUID() -> str:
+    """生成随机UUID v4（地板已搬迁：真身 stdlib/内置核心系统.light:21；L-174，R71-E）。"""
+    import 内置核心系统
+    return 内置核心系统.随机UUID()

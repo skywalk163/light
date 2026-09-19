@@ -58,6 +58,13 @@ class UnifiedCodeGenerator:
         self._class_attr_names: set = set()
         self._needs_asyncio = False  # B5：是否需要 import asyncio
         self._needs_async_iter = False  # B5：是否需要 _light_async_iter 辅助
+        # R72-A（L-172）：块级作用域状态（对齐 src 后端 code_generator.py）。
+        # unified 无 local 变量追踪/L-006 nonlocal 机制，故只需 mangling 与
+        # 解析，不需要函数边界携带（匿名闭包为单表达式 lambda，生成时块栈仍
+        # 活跃，读取位经 _resolve_name 自然命中）。
+        self._block_scope_stack: list = []
+        self._outer_block_scopes: list = []
+        self._block_var_counter: int = 0
         
         # 运算符映射
         self.operator_map = {
@@ -145,6 +152,10 @@ class UnifiedCodeGenerator:
             # 系统操作动词
             '环境变量': '_light_builtin.环境变量',
             '设置环境变量': '_light_builtin.设置环境变量',
+            # R71-E（L-160/L-174）：主目录/随机UUID 零导入内置，
+            # 真身 stdlib/内置核心系统.light（纯光明，builtins.py 已转发）。
+            '主目录': '_light_builtin.主目录',
+            '随机UUID': '_light_builtin.随机UUID',
             '参数列表': '_light_builtin.参数列表',
             '退出程序': '_light_builtin.退出程序',
             '当前目录': '_light_builtin.当前目录',
@@ -229,6 +240,8 @@ class UnifiedCodeGenerator:
             '是字符串': '_light_builtin.是字符串',
             '是列表': '_light_builtin.是列表',
             '是字典': '_light_builtin.是字典',
+            # R72-E · L-159：字节串判型，与 src/code_generator.py builtin_map 同口径。
+            '是字节': '_light_builtin.是字节',
             '是空': '_light_builtin.是空',
             '是布尔': '_light_builtin.是布尔',
             '是函数': '_light_builtin.是函数',
@@ -758,6 +771,51 @@ class UnifiedCodeGenerator:
                     return obj, tmpl
         return None
 
+    # ------------------------------------------------------------------
+    # R72-A（L-172）块级作用域：`令 X 为 V`（对齐 src 后端同名助手）
+    # ------------------------------------------------------------------
+    def _push_block_scope(self) -> None:
+        """进入 如果/遍历/当/尝试 块体：新开一层块作用域。"""
+        self._block_scope_stack.append({})
+
+    def _pop_block_scope(self) -> None:
+        """离开块体：丢弃本层块作用域（块内 `令` 声明的映射随之失效）。"""
+        if self._block_scope_stack:
+            self._block_scope_stack.pop()
+
+    def _resolve_block_scope_name(self, raw_name):
+        """按块级作用域查找原名 → mangled 名；未命中返回 None。
+
+        查找顺序：当前函数的块栈（内层→外层）→ 外层携带映射（内层→外层）。
+        raw_name 先过 _sanitize_name（与读写两侧口径一致）。
+        """
+        if not isinstance(raw_name, str) or '.' in raw_name:
+            return None
+        if not self._block_scope_stack and not self._outer_block_scopes:
+            return None
+        name = self._sanitize_name(raw_name)
+        for scope in reversed(self._block_scope_stack):
+            if name in scope:
+                return scope[name]
+        for scope in reversed(self._outer_block_scopes):
+            if name in scope:
+                return scope[name]
+        return None
+
+    def _declare_block_var(self, raw_name):
+        """`令 X 为 V`：在当前块层登记 X 的 mangled 名并返回之。
+
+        当前无活跃块（函数顶层/模块层写 `令`）→ 返回 None，调用方回退到
+        既有的函数级/模块级声明路径（`令` 与 `设` 同义，向后兼容）。
+        """
+        if not isinstance(raw_name, str) or not self._block_scope_stack:
+            return None
+        name = self._sanitize_name(raw_name)
+        self._block_var_counter += 1
+        mangled = f"_令{self._block_var_counter}_{name}"
+        self._block_scope_stack[-1][name] = mangled
+        return mangled
+
     def _resolve_name(self, name: str) -> str:
         """解析标识符名：先做 己/自 → self 映射与 `的X` 后缀改写，再做关键字清理。
 
@@ -770,6 +828,12 @@ class UnifiedCodeGenerator:
         """
         if not isinstance(name, str):
             return self._sanitize_name(name)
+
+        # R72-A（L-172）：块级作用域解析最先做——命中（同函数块内或外层携带
+        # 映射）即发射 mangled 名，先于 self 归一/成员后缀改写。
+        block_mangled = self._resolve_block_scope_name(name)
+        if block_mangled is not None:
+            return block_mangled
 
         split = self._split_member_suffix(name)
         if split is not None:
@@ -927,8 +991,18 @@ class UnifiedCodeGenerator:
                 '加': '+=', '减': '-=', '乘': '*=', '除': '//=',
                 '模': '%=', '幂': '**=',
                 '加上': '+=', '减去': '-=', '乘以': '*=', '除以': '//=',
+                # G-08 位运算复合赋值（R73-A）：位与/位或/位异或/左移/右移
+                '位与': '&=', '位或': '|=', '位异或': '^=',
+                '左移': '<<=', '右移': '>>=',
             }
-            target_code = self._sanitize_name(stmt.target) if isinstance(stmt.target, str) else self._generate_expr(stmt.target)
+            # R72-A（L-172）：写入位先查块级作用域，命中重定向 mangled 名
+            target_code = None
+            if isinstance(stmt.target, str):
+                target_code = self._resolve_block_scope_name(stmt.target)
+                if target_code is None:
+                    target_code = self._sanitize_name(stmt.target)
+            else:
+                target_code = self._generate_expr(stmt.target)
             # 「除/除以」复合赋值：统一 Python 真除语义（与原生腿 fdiv 一致）。
             # 注意：「整除//=」保留 Python floor 语义不走这里。
             if stmt.operator in ('除', '除以', '/='):
@@ -1036,7 +1110,16 @@ class UnifiedCodeGenerator:
     
     def _generate_var_decl(self, stmt):
         """生成变量声明"""
-        name = self._sanitize_name(stmt.name)
+        # R72-A（L-172）块级作用域（对齐 src 后端 _generate_var_decl）：
+        # ① `令 X 为 V`（block_scoped=True）且当前有活跃块 → mangle 后在块层声明；
+        # ② `设 X 为 V`（或无活跃块的 `令`）写已可见块级变量 → 目标重定向 mangled 名。
+        # 两条支线都不命中 → 走既有路径，行为零变化。
+        mangled = None
+        if getattr(stmt, 'block_scoped', False):
+            mangled = self._declare_block_var(stmt.name)
+        if mangled is None:
+            mangled = self._resolve_block_scope_name(stmt.name)
+        name = mangled if mangled is not None else self._sanitize_name(stmt.name)
         value = self._generate_expr(stmt.value)
         self._add_line(f"{name} = {value}")
     
@@ -1056,8 +1139,10 @@ class UnifiedCodeGenerator:
             # 条件恒为真，只生成 then 分支
             self._add_line("# 常量条件优化 (恒真)")
             then_body = getattr(stmt, 'then_body', []) or []
+            self._push_block_scope()
             for s in then_body:
                 self._generate_statement(s)
+            self._pop_block_scope()
             return
         elif condition_val is False:
             # 条件恒为假，跳过 then 分支，只生成 else 分支（如果有）
@@ -1065,8 +1150,10 @@ class UnifiedCodeGenerator:
             # 处理 else 分支
             if hasattr(stmt, 'else_body') and stmt.else_body:
                 if isinstance(stmt.else_body, list):
+                    self._push_block_scope()
                     for s in stmt.else_body:
                         self._generate_statement(s)
+                    self._pop_block_scope()
                 elif is_instance(stmt.else_body, 'IfStmt'):
                     # 嵌套的 if (elif/else)
                     self._generate_if_stmt(stmt.else_body)
@@ -1075,13 +1162,15 @@ class UnifiedCodeGenerator:
         
         condition = self._generate_expr(stmt.condition)
         self._add_line(f"if {condition}:")
-        
+
         self.indent_level += 1
         then_body = getattr(stmt, 'then_body', []) or []
+        self._push_block_scope()
         for s in then_body:
             self._generate_statement(s)
+        self._pop_block_scope()
         self.indent_level -= 1
-        
+
         # 处理elif：检查 elseif_conditions/elseif_bodies 格式
         if hasattr(stmt, 'elseif_conditions') and stmt.elseif_conditions:
             for i, elif_cond in enumerate(stmt.elseif_conditions):
@@ -1089,8 +1178,10 @@ class UnifiedCodeGenerator:
                 cond_code = self._generate_expr(elif_cond)
                 self._add_line(f"elif {cond_code}:")
                 self.indent_level += 1
+                self._push_block_scope()
                 for s in elif_body:
                     self._generate_statement(s)
+                self._pop_block_scope()
                 self.indent_level -= 1
         # 处理elif：检查 else_body 是否是嵌套的 IfStmt（elif 链）
         elif hasattr(stmt, 'else_body') and stmt.else_body and isinstance(stmt.else_body, type(stmt)):
@@ -1101,29 +1192,35 @@ class UnifiedCodeGenerator:
                 self._add_line(f"elif {cond_code}:")
                 self.indent_level += 1
                 current_then = getattr(current, 'then_body', []) or []
+                self._push_block_scope()
                 for s in current_then:
                     self._generate_statement(s)
+                self._pop_block_scope()
                 self.indent_level -= 1
                 current = getattr(current, 'else_body', None)
                 if current and not isinstance(current, type(stmt)):
                     # 最后一个 else
                     self._add_line("else:")
                     self.indent_level += 1
+                    self._push_block_scope()
                     if isinstance(current, list):
                         for s in current:
                             self._generate_statement(s)
                     else:
                         self._generate_statement(current)
+                    self._pop_block_scope()
                     self.indent_level -= 1
                     current = None
             return
-        
+
         # 处理else
         if hasattr(stmt, 'else_body') and stmt.else_body and isinstance(stmt.else_body, list):
             self._add_line("else:")
             self.indent_level += 1
+            self._push_block_scope()
             for s in stmt.else_body:
                 self._generate_statement(s)
+            self._pop_block_scope()
             self.indent_level -= 1
     
     def _generate_foreach_stmt(self, stmt):
@@ -1140,18 +1237,22 @@ class UnifiedCodeGenerator:
             self._add_line(f"for {var_name} in {iterable}:")
         
         self.indent_level += 1
+        self._push_block_scope()
         for s in stmt.body:
             self._generate_statement(s)
+        self._pop_block_scope()
         self.indent_level -= 1
-    
+
     def _generate_while_stmt(self, stmt):
         """生成当循环"""
         condition = self._generate_expr(stmt.condition)
         self._add_line(f"while {condition}:")
-        
+
         self.indent_level += 1
+        self._push_block_scope()
         for s in stmt.body:
             self._generate_statement(s)
+        self._pop_block_scope()
         self.indent_level -= 1
     
     def _generate_return_stmt(self, stmt):
@@ -1195,10 +1296,12 @@ class UnifiedCodeGenerator:
     def _generate_try_stmt(self, stmt):
         """生成异常处理"""
         self._add_line("try:")
-        
+
         self.indent_level += 1
+        self._push_block_scope()
         for s in stmt.try_body:
             self._generate_statement(s)
+        self._pop_block_scope()
         self.indent_level -= 1
         
         # L-016：`捕获 全部` / 裸 `捕获:` → except BaseException（可接住 asyncio.CancelledError）。
@@ -1225,15 +1328,19 @@ class UnifiedCodeGenerator:
                 else:
                     self._add_line(f"except {exc_type}:")
             self.indent_level += 1
+            self._push_block_scope()
             for s in catch_body:
                 self._generate_statement(s)
+            self._pop_block_scope()
             self.indent_level -= 1
-        
+
         if hasattr(stmt, 'finally_body') and stmt.finally_body:
             self._add_line("finally:")
             self.indent_level += 1
+            self._push_block_scope()
             for s in stmt.finally_body:
                 self._generate_statement(s)
+            self._pop_block_scope()
             self.indent_level -= 1
         elif not (catch_var or catch_type) and not is_all:
             # Python 要求 try 必须有 except 或 finally
@@ -1288,6 +1395,29 @@ class UnifiedCodeGenerator:
                 for e in pattern.elements:
                     elements.append(self._generate_match_pattern(e))
             return f"[{', '.join(elements)}]"
+        elif kind == 'tuple':
+            elements = []
+            if hasattr(pattern, 'elements') and pattern.elements:
+                for e in pattern.elements:
+                    elements.append(self._generate_match_pattern(e))
+            if not elements:
+                return "()"
+            if len(elements) == 1:
+                suffix = "," if getattr(pattern, 'trailing_comma', False) else ""
+                return f"({elements[0]}{suffix})"
+            return f"({', '.join(elements)})"
+        elif kind == 'dict':
+            keys = getattr(pattern, 'keys', None) or []
+            elements = getattr(pattern, 'elements', None) or []
+            items = []
+            for i, k in enumerate(keys):
+                v = elements[i] if i < len(elements) else None
+                items.append(f"{k}: {self._generate_match_pattern(v)}")
+            return "{" + ", ".join(items) + "}"
+        elif kind == 'rest':
+            elements = getattr(pattern, 'elements', None) or []
+            inner = self._generate_match_pattern(elements[0]) if elements else '_'
+            return f"*{inner}"
         elif kind == 'type_check':
             type_name = pattern.type_name if hasattr(pattern, 'type_name') else ''
             binding = pattern.binding if hasattr(pattern, 'binding') else ''
@@ -1332,9 +1462,39 @@ class UnifiedCodeGenerator:
             self._add_line("pass")
         self.indent_level -= 1
     
+    def _render_destructure_targets(self, stmt):
+        """渲染解构赋值的目标串（R72 任务B，G-05）。
+
+        与 src 后端 code_generator.py::_render_destructure_targets 同口径：
+        targets 为 None 时走旧路径（叶名 ', ' 连接，产物不变）；否则还原
+        `*余` / `(a, b)` 字面形态；单元素 rest 目标补尾逗号。
+        """
+        targets = getattr(stmt, 'targets', None)
+        if not targets:
+            return ', '.join(self._sanitize_name(v) for v in stmt.variables)
+        rendered = ', '.join(self._render_destructure_target(t) for t in targets)
+        if len(targets) == 1 and rendered.startswith('*'):
+            rendered += ','
+        return rendered
+
+    def _render_destructure_target(self, target):
+        """递归渲染单个解构目标（str 名 / '*名' / ('('|'[', [子目标…])）。"""
+        if isinstance(target, tuple) and len(target) == 2:
+            open_ch, sub = target
+            close_ch = ')' if open_ch == '(' else ']'
+            inner = ', '.join(self._render_destructure_target(s) for s in sub)
+            if len(sub) == 1 and isinstance(sub[0], str) and sub[0].startswith('*'):
+                inner += ','
+            return f"{open_ch}{inner}{close_ch}"
+        if isinstance(target, str):
+            if target.startswith('*'):
+                return '*' + self._sanitize_name(target[1:])
+            return self._sanitize_name(target)
+        return str(target)
+
     def _generate_destructuring(self, stmt):
         """生成解构赋值：设 (甲, 乙) 为 元组"""
-        variables = ', '.join(self._sanitize_name(v) for v in stmt.variables)
+        variables = self._render_destructure_targets(stmt)
         value = self._generate_expr(stmt.value)
         # 多目标共享注解（新单 G）：与 src 后端同口径——Python 不允许
         # `甲, 乙: T = f()`，所以先给每个目标发一条纯注解行再发解包语句。
@@ -1461,26 +1621,42 @@ class UnifiedCodeGenerator:
         # 记录用户定义的函数名
         self.user_functions.add(name)
         
-        # 提取参数
+        # 提取参数（G-09 类型注解：参数注解随 AST 携带时一并发射，与 src 后端对齐）
         params = []
         if hasattr(segment, 'parameters'):
             for param in segment.parameters:
-                params.append(self._sanitize_name(param.name))
+                pname = self._sanitize_name(param.name)
+                ptype = getattr(param, 'type', None) or getattr(param, 'type_annotation', None)
+                params.append((pname, ptype))
         elif hasattr(segment, 'params'):
             for param in segment.params:
                 if isinstance(param, dict) and 'name' in param:
-                    params.append(self._sanitize_name(param['name']))
+                    pname = self._sanitize_name(param['name'])
+                    ptype = param.get('type') or param.get('type_annotation')
+                    params.append((pname, ptype))
                 else:
-                    params.append(self._sanitize_name(str(param)))
-        
-        params_str = ', '.join(params) if params else ''
-        
+                    params.append((self._sanitize_name(str(param)), None))
+
+        params_parts = []
+        for pname, ptype in params:
+            if ptype:
+                params_parts.append(f"{pname}: {self._map_type(ptype)}")
+            else:
+                params_parts.append(pname)
+        params_str = ', '.join(params_parts) if params_parts else ''
+
         # 检查是否为异步函数
         is_async = '异步' in getattr(segment, 'modifiers', [])
         def_keyword = 'async def' if is_async else 'def'
-        
+
+        # 返回类型注解（G-09：随 AST 携带时发射）
+        return_type_annotation = ''
+        ret = getattr(segment, 'return_type', None)
+        if ret:
+            return_type_annotation = f" -> {self._map_type(ret)}"
+
         # 函数定义
-        self._add_line(f"{def_keyword} {name}({params_str}):")
+        self._add_line(f"{def_keyword} {name}({params_str}){return_type_annotation}:")
         old_in_function = self._in_function
         self._in_function = True
         
@@ -1595,24 +1771,89 @@ class UnifiedCodeGenerator:
     # 语义必须一致：接口 -> class X(ABC)；无方法体 -> @abstractmethod + pass；
     # 有方法体 -> 普通方法（默认实现）。
     _LIGHT_TYPE_MAP = {
-        '整数': 'int', '小数': 'float', '浮数': 'float', '数': 'float',
-        '文本': 'str', '串': 'str', '布尔': 'bool',
-        '列表': 'list', '列': 'list', '字典': 'dict', '典': 'dict',
-        '集合': 'set', '集': 'set', '任意': 'Any', '空': 'None',
+        '整数': 'int', '整数型': 'int', '整型': 'int',
+        '小数': 'float', '浮数': 'float', '浮点': 'float', '浮点数': 'float', '数': 'float',
+        '文本': 'str', '串': 'str', '字符串': 'str',
+        '布尔': 'bool', '布尔值': 'bool',
         '段': 'Callable', '函数型': 'Callable',
+        '列表': 'list', '列': 'list', '数组': 'list',
+        '字典': 'dict', '典': 'dict', '词典': 'dict', '映射': 'dict',
+        '集合': 'set', '集': 'set',
+        '任意': 'Any', '任意类型': 'Any',
+        '空': 'None', '空值': 'None',
     }
+
+    @staticmethod
+    def _split_top_level(s: str, sep: str):
+        """按 sep 切分，但只在方括号/尖括号深度为 0 处切——避免把
+        `字典<字符串, 整数|字符串>` 里的逗号/竖线误切开。与 src 后端一致。"""
+        parts, buf, depth = [], '', 0
+        for ch in s:
+            if ch in '<[':
+                depth += 1
+            elif ch in '>]':
+                depth = max(0, depth - 1)
+            if ch == sep and depth == 0:
+                parts.append(buf)
+                buf = ''
+            else:
+                buf += ch
+        parts.append(buf)
+        return [p.strip() for p in parts]
+
+    def _map_type(self, light_type: str) -> str:
+        """将光明类型名映射为Python类型名（支持泛型、联合类型、可空前缀）。
+
+        与 src 后端 code_generator.py::_map_type 保持口径一致：
+        联合 `整数|字符串` -> `int | str`；泛型 `列表<整数>` -> `list[int]`；
+        可空 `可空 字符串` / `可选<整数>` -> `Optional[...]`。未识别名字原样透传
+        （用户自定义类名本就该原样出现，否则 Python<3.14 上求值即 NameError）。
+        """
+        stripped = (light_type or '').strip()
+        if not stripped:
+            return stripped
+        # 联合类型：整数|字符串 -> int | str（只切顶层 | ）
+        if '|' in stripped:
+            parts = self._split_top_level(stripped, '|')
+            if len(parts) > 1:
+                return ' | '.join(self._map_type(p) for p in parts)
+        # 裸可空/可选前缀（无括号）：可空字符串 -> Optional[str]
+        for pre in ('可空', '可选'):
+            if stripped.startswith(pre) and len(stripped) > len(pre) \
+                    and stripped[len(pre)] not in '<[':
+                return f"Optional[{self._map_type(stripped[len(pre):])}]"
+        # 泛型形式：列表<整数> / 字典<字符串, 小数> / 可选<整数> / 列表[整数]
+        if stripped.endswith('>') or stripped.endswith(']'):
+            open_char = '<' if stripped.endswith('>') else '['
+            bracket = stripped.find(open_char)
+            if bracket > 0:
+                base = stripped[:bracket].strip()
+                args_str = stripped[bracket + 1:-1].strip()
+                args = self._split_top_level(args_str, ',') if args_str else []
+                if base in ('列表', '列', '数组', 'List'):
+                    return f"list[{self._map_type(args[0])}]" if args else 'list'
+                if base in ('字典', '典', '词典', '映射', 'Map', 'Dict'):
+                    return 'dict'
+                if base in ('集合', '集', 'Set'):
+                    return 'set'
+                if base in ('元组', 'Tuple'):
+                    return 'tuple'
+                if base in ('可选', '可空', 'Optional'):
+                    inner = self._map_type(args[0]) if args else 'Any'
+                    return f"Optional[{inner}]"
+                return self._LIGHT_TYPE_MAP.get(base, base)
+        return self._LIGHT_TYPE_MAP.get(stripped, stripped)
 
     def _map_return_type(self, light_type):
         """光明类型名 -> Python 类型名。
 
         必须做映射：直接把 `串` 写进 `-> 串` 注解会在运行期 NameError
-        （注解在 def 执行时求值）。表与 src 的 _map_type 保持一致；
-        表外的名字原样透传（用户自定义类名本就该原样出现）。
+        （注解在 def 执行时求值）。空输入返回 None；非空委托给 _map_type
+        （支持泛型/联合/可空，与 src 后端一致）。
         """
         if not light_type:
             return None
-        t = str(light_type).strip()
-        return self._LIGHT_TYPE_MAP.get(t, self._sanitize_name(t))
+        return self._map_type(light_type)
 
     def _generate_interface_definition(self, stmt):
         """生成接口定义（`接 X:` -> class X(ABC)）"""
@@ -1978,7 +2219,13 @@ class UnifiedCodeGenerator:
         parts = []
         for arg in args:
             if is_instance(arg, 'KeywordArg'):
-                parts.append(f"{arg.name}={self._generate_expr(arg.value)}")
+                # R72 任务D（G-07）：parser 用 KeywordArg('*', expr) / ('**', expr)
+                # 承载星号解包实参，这里识别标记后发成 Python 的 *expr / **expr。
+                # 具名实参的 name 由标识符 token 拼接，永不含 '*'，故二者边界清晰。
+                if arg.name in ('*', '**'):
+                    parts.append(f"{arg.name}{self._generate_expr(arg.value)}")
+                else:
+                    parts.append(f"{arg.name}={self._generate_expr(arg.value)}")
             else:
                 parts.append(self._generate_expr(arg))
         return parts
@@ -2060,9 +2307,13 @@ class UnifiedCodeGenerator:
                 pass  # 运行时错误，保持原样
             
             # 字符串字面量拼接常量折叠
+            # R72-E · L-159：bytes 字面量拼接不折叠——折叠会把 b'a' + b'b' 发成
+            # str 'ab'（bytes/str 类型错，喂给只吃 bytes 的接口运行期才炸）。
             if (op == '+' and expr.operator in ['+', '加'] and
                 hasattr(expr.left, 'value') and isinstance(expr.left.value, str) and
-                hasattr(expr.right, 'value') and isinstance(expr.right.value, str)):
+                hasattr(expr.right, 'value') and isinstance(expr.right.value, str) and
+                not getattr(expr.left, 'is_bytes', False) and
+                not getattr(expr.right, 'is_bytes', False)):
                 return repr(expr.left.value + expr.right.value)
             # ========== 常量折叠优化结束 ==========
 
@@ -2121,6 +2372,8 @@ class UnifiedCodeGenerator:
                     # 运行期 AttributeError —— 与 src 侧分叉。
                     # `构` 是 L0 v4.0 单字构造写法（examples/L0_core/06_...），同口径。
                     '构造': '__init__', '初始化': '__init__', '构': '__init__',
+                    # R72-E · L-159/L-175：str.encode / bytes.decode 中文别名。
+                    '编码': 'encode', '解码': 'decode',
                 }
                 mapped_method = method_map.get(method_name, method_name)
                 func_name = f"{obj}.{mapped_method}"
@@ -2170,6 +2423,9 @@ class UnifiedCodeGenerator:
                 '长度': '__len__', '获取': 'get', '设置': 'update',
                 '删除': 'remove', '包含': '__contains__',
                 '构造': '__init__', '初始化': '__init__', '构': '__init__',
+                # R72-E · L-159/L-175：str.encode / bytes.decode 中文别名，
+                # 与 code_generator.py 的 method_name_map 同口径。
+                '编码': 'encode', '解码': 'decode',
             }
             mapped_member = method_map.get(expr.member, member)
             if getattr(expr, 'is_method_call', False):
@@ -2202,7 +2458,8 @@ class UnifiedCodeGenerator:
         
         # 列表字面量
         elif is_instance(expr, 'ListLiteral'):
-            elements = [self._generate_expr(e) for e in expr.elements]
+            # 列表字面量（R72 任务D：元素可为 KeywordArg('*', …) 星号展开）
+            elements = self._translate_args(expr.elements)
             return f"[{', '.join(elements)}]"
         
         # 字典字面量

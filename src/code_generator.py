@@ -88,9 +88,23 @@ class PythonCodeGenerator:
         # 中被赋值，Python 就视其为整个函数的局部变量、不看书写先后。故需在生成右侧
         # 期间临时登记目标名，才能判定 `设 X 为 新建 X()` 是否会被 Python 遮蔽。
         self._pending_assign_targets: set = set()
+
+        # R72-A（L-172）块级作用域：`令 X 为 V` 在 如果/遍历/当/尝试 块内声明
+        # 块级变量，离开块即不可见。Python 无原生块级作用域，用「变量名 mangling」
+        # 模拟（R70 任务C 方案决策文档 §4.1）：
+        #   - _block_scope_stack：当前函数内的块栈，每层 {原名: mangled 名}；
+        #     进入块体 push、离开 pop（见各 _generate_*_stmt 的块体生成处）。
+        #   - _outer_block_scopes：闭包（嵌套段落）生成时携带进来的外层函数块映射
+        #     （只读），让嵌套段落能读到/写穿（L-006 nonlocal）外层块级变量。
+        #   - _block_var_counter：mangled 名唯一编号（全文件递增，跨函数不复用），
+        #     mangled 形如 `_令3_块内`。
+        self._block_scope_stack: list = []
+        self._outer_block_scopes: list = []
+        self._block_var_counter: int = 0
         
         # 是否需要导入 ABC/abstractmethod
         self._needs_abc = False
+        self._needs_dataclass = False  # R73-C 数据类/记录类型
         
         # 是否需要导入 asyncio
         self._needs_asyncio = False
@@ -190,6 +204,15 @@ class PythonCodeGenerator:
             '连接': 'join',
             '查找': 'find',
             '计数': 'count',
+            # R72-E · L-159/L-175：str.encode / bytes.decode 中文别名。
+            # Python 侧本就是内建方法（str.encode('utf-8')、bytes.decode('utf-8')），
+            # 但光明用户按中英文混排写「原文.编码("utf-8")」/「字节.解码("utf-8")」
+            # 时，映射缺失会发出 `原文.编码("utf-8")`，运行期
+            # AttributeError: 'str' object has no attribute '编码'。
+            # 中文方法名与 Python 内建方法名严格不冲突（str/bytes 均无「编码」「解码」属性），
+            # 故直接进 method_name_map 即可，无需运行期 helper。
+            '编码': 'encode',
+            '解码': 'decode',
         }
 
         # 方法定义名映射：与方法调用映射(method_name_map)保持一致，使
@@ -481,6 +504,10 @@ class PythonCodeGenerator:
             
             # 系统函数
             '环境变量': '_light_builtin.环境变量',
+            # R71-E（L-160/L-174）：主目录/随机UUID 零导入内置，
+            # 真身 stdlib/内置核心系统.light（纯光明，builtins.py 已转发）。
+            '主目录': '_light_builtin.主目录',
+            '随机UUID': '_light_builtin.随机UUID',
             '设置环境变量': '_light_builtin.设置环境变量',
             '参数列表': '_light_builtin.参数列表',
             '退出程序': '_light_builtin.退出程序',
@@ -591,6 +618,7 @@ class PythonCodeGenerator:
             '到数字': '_light_builtin.转浮点',
             '转数字': '_light_builtin.转浮点',
             '字符串长度': '_light_builtin.字符串长度',
+            '是字节': '_light_builtin.是字节',
             '显示宽度': '_light_builtin.显示宽度',
             '字符串获取': '_light_builtin.字符串获取',
             '字符串包含': '_light_builtin.字符串包含',
@@ -890,6 +918,70 @@ class PythonCodeGenerator:
         """离开段落/方法：丢弃本作用域新增的绑定，恢复外层视图。"""
         self._local_variables = saved
 
+    # ------------------------------------------------------------------
+    # R72-A（L-172）块级作用域：`令 X 为 V`
+    #
+    # 解析（读/写）一律从内层块向外层块、再到闭包携带的外层函数块映射查找，
+    # 命中即发射 mangled 名；未命中走原名（既有语义零变化——`令` 的全语料
+    # 实际使用量为 0，见 R70 任务C 方案决策文档 §2 方案B 现状调查）。
+    # ------------------------------------------------------------------
+    def _push_block_scope(self) -> None:
+        """进入 如果/遍历/当/尝试 块体：新开一层块作用域。"""
+        self._block_scope_stack.append({})
+
+    def _pop_block_scope(self) -> None:
+        """离开块体：丢弃本层块作用域（块内 `令` 声明的映射随之失效）。"""
+        if self._block_scope_stack:
+            self._block_scope_stack.pop()
+
+    def _resolve_block_scope_name(self, raw_name):
+        """按块级作用域查找原名 → mangled 名；未命中返回 None。
+
+        查找顺序：当前函数的块栈（内层→外层）→ 闭包携带的外层函数块映射
+        （内层→外层）。raw_name 先过 _sanitize_name（与读写两侧口径一致）。
+        """
+        if not isinstance(raw_name, str) or '.' in raw_name:
+            return None
+        if not self._block_scope_stack and not self._outer_block_scopes:
+            return None
+        name = self._sanitize_name(raw_name)
+        for scope in reversed(self._block_scope_stack):
+            if name in scope:
+                return scope[name]
+        for scope in reversed(self._outer_block_scopes):
+            if name in scope:
+                return scope[name]
+        return None
+
+    def _declare_block_var(self, raw_name):
+        """`令 X 为 V`：在当前块层登记 X 的 mangled 名并返回之。
+
+        当前无活跃块（函数顶层/模块层写 `令`）→ 返回 None，调用方回退到
+        既有的函数级/模块级声明路径（`令` 与 `设` 同义，向后兼容）。
+        """
+        if not isinstance(raw_name, str) or not self._block_scope_stack:
+            return None
+        name = self._sanitize_name(raw_name)
+        self._block_var_counter += 1
+        mangled = f"_令{self._block_var_counter}_{name}"
+        self._block_scope_stack[-1][name] = mangled
+        # mangled 名按声明式绑定登记进函数帧：既让它参与内置名遮蔽判定，
+        # 也让更深层嵌套段落的 L-006 nonlocal 检测能在外层函数帧里找到它。
+        self._bind_local(mangled, declare=True)
+        return mangled
+
+    def _enter_function_block_boundary(self):
+        """进入嵌套段落/方法/匿名函数体：切断块栈，并把外层活跃块映射携带为
+        只读外层作用域（闭包捕获块级变量的通道）。返回快照供退出时恢复。"""
+        saved = (self._block_scope_stack, self._outer_block_scopes)
+        self._outer_block_scopes = self._outer_block_scopes + list(self._block_scope_stack)
+        self._block_scope_stack = []
+        return saved
+
+    def _exit_function_block_boundary(self, saved) -> None:
+        """离开嵌套段落/方法/匿名函数体：恢复块栈与外层映射。"""
+        self._block_scope_stack, self._outer_block_scopes = saved
+
     def _shadows_builtin(self, name) -> bool:
         """该名字是否已被局部变量绑定、从而遮蔽了内置函数映射。
 
@@ -980,10 +1072,7 @@ class PythonCodeGenerator:
                 inner = self.builtin_map[_fnode.name]
             tail = []
             for a in expr.args:
-                if isinstance(a, KeywordArg):
-                    tail.append(f"{a.name}={self._generate_expr(a.value)}")
-                else:
-                    tail.append(self._generate_expr(a))
+                tail.append(self._gen_call_arg(a))
             _call_txt = f"{inner}({', '.join(tail)})"
             if target in self._WRITE_NEEDS_STR:
                 _call_txt = f"str({_call_txt})"
@@ -1358,6 +1447,16 @@ class PythonCodeGenerator:
         self._add_line("        setattr(_o, _k, _v)")
         self._add_line("    return _v")
         self._add_line("")
+        # R72-E · L-175：bytes 分帧 helper。光明 parser 拒绝 `bytes_obj.split(...)`
+        # 成员调用（bytes 字面量后的 `.方法` 会被 parser 误判为句号/结束符），
+        # 纯光明 stdlib/字节缓冲.light 的 `按字节切` 段落无法直接调 bytes.split。
+        # helper 内嵌 Python 运行期 `bytes.split`，零依赖。
+        self._add_line("# R72-E · L-175：bytes 分帧辅助函数（供 stdlib/字节缓冲.light 使用）")
+        self._add_line("def _light_bytes_split(_b, _sep):")
+        self._add_line("    if not isinstance(_b, bytes) or not isinstance(_sep, bytes) or not _sep:")
+        self._add_line("        return [_b]")
+        self._add_line("    return _b.split(_sep)")
+        self._add_line("")
 
         # 生成语句
         for stmt in module.statements:
@@ -1405,7 +1504,18 @@ class PythonCodeGenerator:
                     break
             self.output_lines.insert(insert_pos, "")
             self.output_lines.insert(insert_pos, abc_import)
-        
+
+        if self._needs_dataclass:
+            dc_imports = ["import dataclasses", "import typing"]
+            insert_pos = 0
+            for j, line in enumerate(self.output_lines):
+                if line.startswith("#") or line == "":
+                    insert_pos = j + 1
+                else:
+                    break
+            self.output_lines.insert(insert_pos, "")
+            for imp in reversed(dc_imports):
+                self.output_lines.insert(insert_pos, imp)
         if self._needs_asyncio:
             asyncio_import = "import asyncio"
             # 插入在文件头之后，第一个语句之前
@@ -1665,7 +1775,8 @@ class PythonCodeGenerator:
             self._add_line(expr_code)
         elif isinstance(stmt, Identifier):
             # 标识符作为独立语句：生成为段落调用（带括号）
-            name = self._sanitize_name(stmt.name)
+            # R72-A：块级作用域名先解析（块内 `令 回调 为 …` 单独成语句 → 回调()）
+            name = self._resolve_block_scope_name(stmt.name) or self._sanitize_name(stmt.name)
             self._add_line(f"{name}()")
         elif isinstance(stmt, BinaryOp):
             # 二元运算作为独立语句
@@ -1730,7 +1841,19 @@ class PythonCodeGenerator:
                     self._pending_assign_targets.discard(_pending)
             # 绑定形式⑤：普通赋值。target 为简单名字时才算局部绑定；
             # `甲[丁] = …`、`己.X = …` 由各自的分支处理，_bind_local 会跳过带点的名字。
-            self._bind_local(stmt.target)
+            # R72-A（L-172）：目标命中块级作用域时按 mangled 名登记——
+            # 嵌套段落里裸赋值写外层块级变量（`块内 为 5`）依赖 L-006 在
+            # 外层函数帧里找到 mangled 名才发 nonlocal；登记原名会静默漏写。
+            _bare_target = getattr(stmt.target, 'name', None)
+            _bare_mangled = (
+                self._resolve_block_scope_name(_bare_target)
+                if isinstance(_bare_target, str) and '.' not in _bare_target
+                else None
+            )
+            if _bare_mangled is not None:
+                self._bind_local(_bare_mangled)
+            else:
+                self._bind_local(stmt.target)
             self._add_line(f"{target} = {value}")
         elif isinstance(stmt, IndexedAssignment):
             # 索引赋值语句：甲[丁] = 值
@@ -1751,10 +1874,13 @@ class PythonCodeGenerator:
         elif isinstance(stmt, DestructuringAssignment):
             # 解构赋值：a, b = value
             # 绑定形式⑤：解包目标全部登记为局部变量。
-            # L-078：解构只来自 `设` 声明（parser_stmt.py 三处构造全在声明路径），
-            # 是声明式绑定（declare=True）→ 局部遮蔽，不触发 L-006 自动 nonlocal。
-            self._bind_local(*stmt.variables, declare=True)
-            vars_str = ', '.join(self._sanitize_name(v) for v in stmt.variables)
+            # L-078：`设` 声明的解构（declare=True）在嵌套函数里建立局部遮蔽，
+            # 不触发 L-006 自动 nonlocal。
+            # R72 任务B（G-05）：新增裸解构赋值 `甲, 乙 为 …`（declare=False），
+            # 与裸单目标赋值 `甲 为 值`（VarDecl）同口径 —— 保留写穿语义。
+            declare = getattr(stmt, 'declare', True)
+            self._bind_local(*stmt.variables, declare=declare)
+            vars_str = self._render_destructure_targets(stmt)
             value = self._generate_expr(stmt.value)
             # 多目标共享注解（新单 G）：Python 不允许 `a, b: T = f()`，
             # 所以先给每个目标发一条纯注解行（`a: T` / `b: T`），再发解包语句。
@@ -1849,7 +1975,14 @@ class PythonCodeGenerator:
                     f"「{word}」只能写在段落（函数）体内："
                     f"模块级的变量本来就在最外层作用域，无需声明。",
                     'ScopeDeclStmt')
-            self._add_line(f"{stmt.kind} {', '.join(stmt.names)}")
+            # R72-A（L-172）：`外层 X` 指向的若是外层函数的块级变量，
+            # nonlocal 必须发 mangled 名（嵌套段落生成时块映射已携带为
+            # _outer_block_scopes，在此命中即还原）。
+            decl_names = [
+                self._resolve_block_scope_name(n) or self._sanitize_name(n)
+                for n in stmt.names
+            ]
+            self._add_line(f"{stmt.kind} {', '.join(decl_names)}")
 
 
         elif isinstance(stmt, YieldStmt):
@@ -1869,8 +2002,10 @@ class PythonCodeGenerator:
             self._generate_c_for_stmt(stmt)
         elif type(stmt).__name__ == 'Block':
             # 花括号代码块
+            self._push_block_scope()
             for s in stmt.statements:
                 self._generate_statement(s)
+            self._pop_block_scope()
         elif isinstance(stmt, ExpressionStatement):
             # 表达式语句包装（如 "打印 xxx。" 解析为 ExpressionStatement）
             expr_str = self._generate_expr(stmt.expression)
@@ -1897,6 +2032,22 @@ class PythonCodeGenerator:
     
     def _generate_var_decl(self, stmt: VarDecl):
         """生成变量声明"""
+        # R72-A（L-172）块级作用域两条支线：
+        # ① `令 X 为 V`（block_scoped=True）且当前有活跃块 → 在当前块层声明
+        #    mangled 变量，块外不可见；
+        # ② `设 X 为 V`（或无活跃块的 `令`）写入一个**已可见**的块级变量
+        #    （同函数块内，或闭包携带的外层块）→ 目标重定向为 mangled 名，
+        #    嵌套段落里则由 L-006 依既有路径自动 nonlocal（写穿，与探针语义一致）。
+        # 两条支线都不命中 → 走下方既有路径，行为零变化。
+        _block_mangled = None
+        if getattr(stmt, 'block_scoped', False):
+            _block_mangled = self._declare_block_var(stmt.name)
+        else:
+            _block_mangled = self._resolve_block_scope_name(stmt.name)
+        if _block_mangled is not None:
+            self._generate_block_scoped_assignment(stmt, _block_mangled)
+            return
+
         name = self._sanitize_name(stmt.name)
 
         # 写入侧的「这是类属性吗」判据必须与读取侧（_resolve_identifier_name:3483）
@@ -1966,7 +2117,42 @@ class PythonCodeGenerator:
             else:
                 self._add_line(f"_light_check_type({name}, '{light_type}', '{stmt.name}')")
 
-    
+    def _generate_block_scoped_assignment(self, stmt: VarDecl, mangled: str):
+        """R72-A：把 `令/设 X 为 V` 发射为对块级 mangled 变量的赋值。
+
+        与既有路径的关键差异：
+        - mangled 名不会撞类属性（块级变量内层优先），无需 是类属性 判定；
+        - L-019 pending 目标登记 mangled 名（`令 对象 为 新建 对象()` 的右侧
+          遮蔽判定按发射名走）；
+        - 绑定沿用既有 `_bind_local` 语义：新声明（令）已在 _declare_block_var
+          登记；此处对「写入已可见块变量」再登记一次，保持 L-006 写穿口径与
+          既有 `设`/裸赋值完全一致（探针实证：嵌套段落写外层名 → 自动 nonlocal）。
+        """
+        _pending = None
+        if self._in_function:
+            _pending = mangled
+            self._pending_assign_targets.add(_pending)
+        try:
+            value = self._generate_expr(stmt.value)
+        finally:
+            if _pending:
+                self._pending_assign_targets.discard(_pending)
+
+        if not getattr(stmt, 'block_scoped', False):
+            # 写入已可见块变量（设/裸赋值路径）：与既有 VarDecl 同口径登记，
+            # 让嵌套段落的写穿（nonlocal）检测正常工作。
+            self._bind_local(mangled)
+
+        type_annotation = ''
+        if stmt.type_annotation:
+            python_type = self._map_type(stmt.type_annotation)
+            type_annotation = f': {python_type}'
+        self._add_line(f"{mangled}{type_annotation} = {value}")
+
+        if self._runtime_type_check and stmt.type_annotation:
+            self._add_line(f"_light_check_type({mangled}, '{stmt.type_annotation}', '{stmt.name}')")
+
+
     # 光明类型名 -> Python 注解类型名。注意：这与 :1853 的 _TYPE_NAME_MAP（服务
     # match 模式的 isinstance 检查，'任意'->object）**故意不同**——注解走 typing 语义，
     # '任意'->Any。这里是「注解映射」的唯一权威表，不要再在方法内起局部小表（单 24：
@@ -2049,11 +2235,13 @@ class PythonCodeGenerator:
         self._add_line(f"if {condition}:")
         
         self.indent_level += 1
+        self._push_block_scope()
         if stmt.then_body:
             for s in stmt.then_body:
                 self._generate_statement(s)
         else:
             self._add_line("pass")
+        self._pop_block_scope()
         self.indent_level -= 1
         
         if stmt.else_body:
@@ -2063,8 +2251,10 @@ class PythonCodeGenerator:
             elif isinstance(stmt.else_body, list):
                 self._add_line("else:")
                 self.indent_level += 1
+                self._push_block_scope()
                 for s in stmt.else_body:
                     self._generate_statement(s)
+                self._pop_block_scope()
                 self.indent_level -= 1
     
     def _generate_elif(self, stmt: IfStmt):
@@ -2073,11 +2263,13 @@ class PythonCodeGenerator:
         self._add_line(f"elif {condition}:")
         
         self.indent_level += 1
+        self._push_block_scope()
         if stmt.then_body:
             for s in stmt.then_body:
                 self._generate_statement(s)
         else:
             self._add_line("pass")
+        self._pop_block_scope()
         self.indent_level -= 1
         
         if stmt.else_body:
@@ -2087,8 +2279,10 @@ class PythonCodeGenerator:
             elif isinstance(stmt.else_body, list):
                 self._add_line("else:")
                 self.indent_level += 1
+                self._push_block_scope()
                 for s in stmt.else_body:
                     self._generate_statement(s)
+                self._pop_block_scope()
                 self.indent_level -= 1
     
     def _generate_foreach_stmt(self, stmt: ForeachStmt):
@@ -2117,11 +2311,13 @@ class PythonCodeGenerator:
         old_in_loop = self._in_loop
         self._in_loop = True
         self.indent_level += 1
+        self._push_block_scope()
         if stmt.body:
             for s in stmt.body:
                 self._generate_statement(s)
         else:
             self._add_line("pass")
+        self._pop_block_scope()
         self.indent_level -= 1
         self._in_loop = old_in_loop
     
@@ -2134,11 +2330,13 @@ class PythonCodeGenerator:
         old_in_loop = self._in_loop
         self._in_loop = True
         self.indent_level += 1
+        self._push_block_scope()
         if stmt.body:
             for s in stmt.body:
                 self._generate_statement(s)
         else:
             self._add_line("pass")
+        self._pop_block_scope()
         self.indent_level -= 1
         self._in_loop = old_in_loop
     
@@ -2153,6 +2351,7 @@ class PythonCodeGenerator:
         old_in_loop = self._in_loop
         self._in_loop = True
         self.indent_level += 1
+        self._push_block_scope()
         if stmt.body:
             for s in stmt.body:
                 self._generate_statement(s)
@@ -2161,6 +2360,7 @@ class PythonCodeGenerator:
         # 生成增量语句
         if stmt.increment:
             self._generate_statement(stmt.increment)
+        self._pop_block_scope()
         self.indent_level -= 1
         self._in_loop = old_in_loop
         self._add_line("")
@@ -2257,6 +2457,8 @@ class PythonCodeGenerator:
         saved_locals = self._push_local_scope()
         # L-006：推入本函数帧；参数绑定阶段不触发 nonlocal（参数遮蔽合法）
         self._function_locals_stack.append(set())
+        # R72-A：函数边界——切断块栈，外层活跃块映射携带为只读外层作用域
+        saved_block_scopes = self._enter_function_block_boundary()
         saved_pending = self._pending_nonlocal
         self._pending_nonlocal = set()
         self._binding_params = True
@@ -2309,6 +2511,7 @@ class PythonCodeGenerator:
             )
         self._pending_nonlocal = saved_pending
         self._function_locals_stack.pop()
+        self._exit_function_block_boundary(saved_block_scopes)
         self._in_function = old_in_function
         self._in_async_function = old_in_async_function
         self._pop_local_scope(saved_locals)
@@ -2382,11 +2585,13 @@ class PythonCodeGenerator:
             self._add_line("except Exception:")
         
         self.indent_level += 1
+        self._push_block_scope()
         if catch_body:
             for s in catch_body:
                 self._generate_statement(s)
         else:
             self._add_line("pass")
+        self._pop_block_scope()
         self.indent_level -= 1
 
     def _resolve_exception_type(self, type_name: str) -> str:
@@ -2405,11 +2610,13 @@ class PythonCodeGenerator:
         # try块
         self._add_line("try:")
         self.indent_level += 1
+        self._push_block_scope()
         if stmt.try_body:
             for s in stmt.try_body:
                 self._generate_statement(s)
         else:
             self._add_line("pass")
+        self._pop_block_scope()
         self.indent_level -= 1
         
         # 优先使用 catch_clauses 列表（支持多捕获块）
@@ -2434,16 +2641,20 @@ class PythonCodeGenerator:
         if stmt.finally_body:
             self._add_line("finally:")
             self.indent_level += 1
+            self._push_block_scope()
             for s in stmt.finally_body:
                 self._generate_statement(s)
+            self._pop_block_scope()
             self.indent_level -= 1
         
         # else块（try块没有异常时执行）
         if stmt.else_body:
             self._add_line("else:")
             self.indent_level += 1
+            self._push_block_scope()
             for s in stmt.else_body:
                 self._generate_statement(s)
+            self._pop_block_scope()
             self.indent_level -= 1
     
     def _generate_throw_stmt(self, stmt: ThrowStmt):
@@ -2554,7 +2765,9 @@ class PythonCodeGenerator:
     
     def _generate_compound_assignment(self, stmt):
         """生成复合赋值语句：甲 加上 1 → 甲 += 1"""
-        target = self._sanitize_name(stmt.target)
+        # R72-A（L-172）：目标命中块级作用域 → 写 mangled 名
+        #（`令 计数 为 0` 后 `计数 加为 1` 必须落在块级变量上）。
+        target = self._resolve_block_scope_name(stmt.target) or self._sanitize_name(stmt.target)
         # 运算符映射
         py_ops = {
             '加': '+=',
@@ -2565,6 +2778,12 @@ class PythonCodeGenerator:
             '整除': '//=',  # 整数除法复合赋值
             '模': '%=',
             '幂': '**=',
+            # G-08 位运算复合赋值（R73-A）：位与/位或/位异或/左移/右移
+            '位与': '&=',
+            '位或': '|=',
+            '位异或': '^=',
+            '左移': '<<=',
+            '右移': '>>=',
         }
         # 「除/除以」复合赋值：统一 Python 真除语义（与原生腿 fdiv 一致）。
         # 注意：「整除//=」保留 Python floor 语义不走这里。
@@ -2578,7 +2797,8 @@ class PythonCodeGenerator:
 
     def _generate_indexed_compound_assignment(self, stmt):
         """生成索引复合赋值语句：甲[丁] 加上 1 → 甲[丁] += 1"""
-        target = self._sanitize_name(stmt.target)
+        # R72-A（L-172）：下标容器名命中块级作用域 → 写 mangled 名
+        target = self._resolve_block_scope_name(stmt.target) or self._sanitize_name(stmt.target)
         index = self._generate_expr(stmt.index)
         py_ops = {
             '加': '+=',
@@ -2589,6 +2809,12 @@ class PythonCodeGenerator:
             '整除': '//=',  # 整数除法复合赋值
             '模': '%=',
             '幂': '**=',
+            # G-08 位运算复合赋值（R73-A）：位与/位或/位异或/左移/右移
+            '位与': '&=',
+            '位或': '|=',
+            '位异或': '^=',
+            '左移': '<<=',
+            '右移': '>>=',
         }
         # 同 _generate_compound_assignment：除法复合赋值走 Python 真除语义。注意：「整除//=」保留 Python floor 不走这里。
         if stmt.operator in ('除', '除以', '/', '/='):
@@ -2604,7 +2830,8 @@ class PythonCodeGenerator:
         if isinstance(stmt.target, ASTNode):
             target = self._generate_expr(stmt.target)
         else:
-            target = self._sanitize_name(stmt.target)
+            # R72-A（L-172）：下标容器名命中块级作用域 → 写 mangled 名
+            target = self._resolve_block_scope_name(stmt.target) or self._sanitize_name(stmt.target)
         value = self._generate_expr(stmt.value)
         # 多重索引时 index=None，target 已经是 IndexAccess 节点
         if stmt.index is not None:
@@ -2660,6 +2887,10 @@ class PythonCodeGenerator:
 
     def _generate_class_definition(self, stmt):
         """生成类定义"""
+        from ast_nodes_v3 import RecordDefinition
+        is_record = isinstance(stmt, RecordDefinition)
+        if is_record:
+            self._needs_dataclass = True
         class_name = self._sanitize_name(stmt.name)
 
         # 检查是否有抽象方法
@@ -2684,6 +2915,8 @@ class PythonCodeGenerator:
         generic_bases = self._register_generic_params(getattr(stmt, 'generic_params', None))
         if generic_bases:
             all_bases.append(f"Generic[{', '.join(generic_bases)}]")
+        if is_record:
+            self._add_line("@dataclasses.dataclass(unsafe_hash=True)")
         if all_bases:
             # Generic[...] 已经是完整表达式，不能再过 _sanitize_name（它只处理裸名）
             # R57 任务1b：类继承基类名走 _resolve_exception_type，把光明异常名
@@ -2798,6 +3031,26 @@ class PythonCodeGenerator:
                 self._add_line(f"{attr_name}{annotation}")
             else:
                 self._add_line(f"{attr_name} = None")
+
+        # R73-C 记录类型字段生成：发射为带 typing.Any 注解的类属性
+        if is_record and hasattr(stmt, 'fields') and stmt.fields:
+            from ast_nodes_v3 import Identifier as _RecIdent
+            for field_name, default_value in stmt.fields:
+                fn = self._sanitize_name(field_name)
+                if default_value is not None:
+                    if isinstance(default_value, _RecIdent) and default_value.name in ('空', '无'):
+                        dv = 'None'
+                    elif isinstance(default_value, _RecIdent) and default_value.name == '真':
+                        dv = 'True'
+                    elif isinstance(default_value, _RecIdent) and default_value.name == '假':
+                        dv = 'False'
+                    else:
+                        dv = self._generate_expr(default_value)
+                    self._add_line(f"{fn}: typing.Any = {dv}")
+                else:
+                    self._add_line(f"{fn}: typing.Any = None")
+            # 记录类型由 dataclass 自动生成 __init__，跳过手动生成
+            has_constructor = True
 
         # 如果没有用户构造函数但有实例属性，自动生成 __init__
         if instance_attrs and not has_constructor:
@@ -2993,6 +3246,22 @@ class PythonCodeGenerator:
         elif pattern.kind == 'list':
             elements = [self._generate_match_pattern(e) for e in pattern.elements]
             return f"[{', '.join(elements)}]"
+        elif pattern.kind == 'tuple':
+            inner = [self._generate_match_pattern(e) for e in pattern.elements]
+            if not inner:
+                return "()"
+            if len(inner) == 1:
+                # 单元素：带尾逗号 `(甲,)` 匹配单元素元组；否则 `(甲)` 等价分组捕获
+                suffix = "," if getattr(pattern, 'trailing_comma', False) else ""
+                return f"({inner[0]}{suffix})"
+            return f"({', '.join(inner)})"
+        elif pattern.kind == 'dict':
+            items = [f"{k}: {self._generate_match_pattern(v)}"
+                     for k, v in zip(pattern.keys, pattern.elements)]
+            return "{" + ", ".join(items) + "}"
+        elif pattern.kind == 'rest':
+            # `*余`：余项模式（case [首, *余]）
+            return f"*{self._generate_match_pattern(pattern.elements[0])}"
         elif pattern.kind == 'type_check':
             union = self._MATCH_UNION_TYPE_MAP.get(pattern.type_name)
             if union:
@@ -3311,6 +3580,8 @@ class PythonCodeGenerator:
         saved_locals = self._push_local_scope()
         # L-006：推入本函数帧；参数绑定阶段不触发 nonlocal（参数遮蔽合法）
         self._function_locals_stack.append(set())
+        # R72-A：函数边界——切断块栈，外层活跃块映射携带为只读外层作用域
+        saved_block_scopes = self._enter_function_block_boundary()
         saved_pending = self._pending_nonlocal
         self._pending_nonlocal = set()
         self._binding_params = True
@@ -3389,6 +3660,7 @@ class PythonCodeGenerator:
             )
         self._pending_nonlocal = saved_pending
         self._function_locals_stack.pop()
+        self._exit_function_block_boundary(saved_block_scopes)
         self._add_line("")
         
         # 重置上下文
@@ -3558,6 +3830,21 @@ class PythonCodeGenerator:
                 return _merged
             name = self._sanitize_name(expr.name)
 
+            # R72-A（L-172）：调用目标命中块级作用域 → 发射 mangled 名。
+            # 块内变量可能是函数值（`令 回调 为 段落: …` 再 `回调()`），也可能是
+            # 遮蔽内置名的普通值。命中后视同「已被局部变量遮蔽」：跳过内置映射
+            # 与数据在前实参换序，裸引用（零参且源码无括号）发射变量名本身。
+            _block_call_mangled = self._resolve_block_scope_name(expr.name)
+            if _block_call_mangled is not None:
+                name = _block_call_mangled
+                args = [self._generate_expr(a) for a in expr.args]
+                args_str = ', '.join(args)
+                if not expr.args and not expr.带括号:
+                    return name
+                if name.startswith('lambda '):
+                    return f"({name})({args_str})"
+                return f"{name}({args_str})"
+
             # C3-7：异步文件原语编译期报错。名字在 lexer 复合词表里（防被 `异步`
             # 关键字切两截），但 codegen 无映射——旧行为编译成功、运行期 NameError。
             # 提前到编译期，文案指到同步替代，避免用户跑起来才炸。
@@ -3607,11 +3894,7 @@ class PythonCodeGenerator:
             call_args = self._reorder_data_first_args(expr.name, py_name, shadowed, expr.args)
             args = []
             for arg in call_args:
-                if isinstance(arg, KeywordArg):
-                    kw = self._kwarg_name(py_name, arg.name)
-                    args.append(f"{kw}={self._generate_expr(arg.value)}")
-                else:
-                    args.append(self._generate_expr(arg))
+                args.append(self._gen_call_arg(arg))
             # A2-3：`并发等待(任务表)` 的 Python 对应是 gather(*任务表)——语义是
             # 「把这一串协程一起等」，而不是「等一个列表」。不摊平就会把 list 当成
             # 单个 awaitable 传进去，运行期报 TypeError，属静默错编的近亲。
@@ -3654,10 +3937,7 @@ class PythonCodeGenerator:
             callee = self._generate_expr(expr.callee)
             args = []
             for arg in expr.args:
-                if isinstance(arg, KeywordArg):
-                    args.append(f"{arg.name}={self._generate_expr(arg.value)}")
-                else:
-                    args.append(self._generate_expr(arg))
+                args.append(self._gen_call_arg(arg))
             args_str = ', '.join(args)
             return f"{callee}({args_str})"
         
@@ -3757,10 +4037,7 @@ class PythonCodeGenerator:
                 if expr.is_method_call:
                     args = []
                     for arg in expr.args:
-                        if isinstance(arg, KeywordArg):
-                            args.append(f"{arg.name}={self._generate_expr(arg.value)}")
-                        else:
-                            args.append(self._generate_expr(arg))
+                        args.append(self._gen_call_arg(arg))
                     args_str = ', '.join(args)
                     return f"{mapped}({args_str})"
                 else:
@@ -3778,10 +4055,7 @@ class PythonCodeGenerator:
                 # 方法调用（支持关键字参数）
                 args = []
                 for arg in expr.args:
-                    if isinstance(arg, KeywordArg):
-                        args.append(f"{arg.name}={self._generate_expr(arg.value)}")
-                    else:
-                        args.append(self._generate_expr(arg))
+                    args.append(self._gen_call_arg(arg))
                 args_str = ', '.join(args)
 
                 # 特殊处理：父.构造(...) -> super().__init__(...)
@@ -3879,8 +4153,8 @@ class PythonCodeGenerator:
 
         
         elif isinstance(expr, ListLiteral):
-            # 列表字面量
-            elements = [self._generate_expr(e) for e in expr.elements]
+            # 列表字面量（R72 任务D：元素可为 KeywordArg('*', …) 星号展开）
+            elements = [self._gen_call_arg(e) for e in expr.elements]
             return f"[{', '.join(elements)}]"
         
         elif isinstance(expr, TupleLiteral):
@@ -4011,6 +4285,8 @@ class PythonCodeGenerator:
                 saved_locals = self._push_local_scope()
                 # L-006：推入本匿名函数帧；参数绑定阶段不触发 nonlocal（参数遮蔽合法）
                 self._function_locals_stack.append(set())
+                # R72-A：函数边界——切断块栈，外层活跃块映射携带为只读外层作用域
+                saved_block_scopes = self._enter_function_block_boundary()
                 saved_pending = self._pending_nonlocal
                 self._pending_nonlocal = set()
                 self._binding_params = True
@@ -4041,6 +4317,7 @@ class PythonCodeGenerator:
                     )
                 self._pending_nonlocal = saved_pending
                 self._function_locals_stack.pop()
+                self._exit_function_block_boundary(saved_block_scopes)
                 self._in_function = _saved_in_func
                 self._pop_local_scope(saved_locals)
                 return func_name
@@ -4433,6 +4710,12 @@ class PythonCodeGenerator:
         与 Identifier 分支共用：后缀改写拆出的「对象部分」也必须走这里，
         否则 `己之成绩的项` 会漏出裸 `己`（NameError）。
         """
+        # R72-A（L-172）：块级作用域读取位——`令` 声明的块内变量在内层优先，
+        # 命中块栈（或闭包携带的外层块映射）即发射 mangled 名。放在 self 归一/
+        # 类属性判定之前：块级变量是当前作用域最内层绑定，必须赢过它们。
+        _block_mangled = self._resolve_block_scope_name(raw_name)
+        if _block_mangled is not None:
+            return _block_mangled
         name = self._sanitize_name(raw_name)
         # 己/自 → self（仅在类方法中），己.attr / 自.attr → self.attr
         if self._in_class_method:
@@ -4458,6 +4741,29 @@ class PythonCodeGenerator:
             return f"self.{name}"
         return name
 
+    def _gen_call_arg(self, arg) -> str:
+        """生成单个调用实参片段（位置实参 / 具名实参 / 星号解包）。
+
+        —— R72 任务D（G-07 星号解包）——
+
+        parser 的 `_try_parse_unpack_arg` 用 `KeywordArg('*', expr)` /
+        `KeywordArg('**', expr)` 承载解包实参（复用 KeywordArg 的 name/value 结构，
+        name 只是 '*' 或 '**' 的标记）。这里识别该标记后发成 Python 的
+        `*expr` / `**expr`。
+
+        与既有具名实参的边界是**结构性**的：`名 = 值` 的 name 由 IDENTIFIER/KEYWORD
+        token 拼接而来，永不含 `*`；而本方法只在 name ∈ {'*', '**'} 时按解包处理。
+        故不含 `*` 的旧输入产物逐字节不变。
+
+        集中在一处生成，避免五条实参遍历各自再写一遍（同 `_translate_args` 的
+        单点化思路，见 code_generator_unified.py）。
+        """
+        if isinstance(arg, KeywordArg) and arg.name in ('*', '**'):
+            return f"{arg.name}{self._generate_expr(arg.value)}"
+        if isinstance(arg, KeywordArg):
+            return f"{self._kwarg_name('', arg.name)}={self._generate_expr(arg.value)}"
+        return self._generate_expr(arg)
+
     def _sanitize_name(self, name: str) -> str:
         """清理名称（转换为合法Python标识符）"""
         # 中文变量名在Python3中是合法的
@@ -4470,6 +4776,39 @@ class PythonCodeGenerator:
         # 简单方案：保留中文
         return name
     
+    def _render_destructure_targets(self, stmt) -> str:
+        """渲染解构赋值的目标串（R72 任务B，G-05）。
+
+        - `stmt.targets` 为 None（或空）→ 旧路径：叶名以 ', ' 连接。
+          既有 `设 甲, 乙 为 …` / `设 (甲, 乙) 为 …` 的产物逐字节不变。
+        - 否则按结构化目标表还原字面形态：`*余`（星号 rest）、`(a, b)` / `[a, b]`
+          （嵌套分组），每个**叶子名**单独过 _sanitize_name。
+        - 单元素 rest 目标补尾逗号：Python 里 `*余 = x` 是 SyntaxError，
+          `*余, = x` 才合法（`(*余) = x` 同样非法，故分组内也照此处理）。
+        """
+        targets = getattr(stmt, 'targets', None)
+        if not targets:
+            return ', '.join(self._sanitize_name(v) for v in stmt.variables)
+        rendered = ', '.join(self._render_destructure_target(t) for t in targets)
+        if len(targets) == 1 and rendered.startswith('*'):
+            rendered += ','
+        return rendered
+
+    def _render_destructure_target(self, target) -> str:
+        """递归渲染单个解构目标（str 名 / '*名' / ('('|'[', [子目标…])）。"""
+        if isinstance(target, tuple) and len(target) == 2:
+            open_ch, sub = target
+            close_ch = ')' if open_ch == '(' else ']'
+            inner = ', '.join(self._render_destructure_target(s) for s in sub)
+            if len(sub) == 1 and isinstance(sub[0], str) and sub[0].startswith('*'):
+                inner += ','
+            return f"{open_ch}{inner}{close_ch}"
+        if isinstance(target, str):
+            if target.startswith('*'):
+                return '*' + self._sanitize_name(target[1:])
+            return self._sanitize_name(target)
+        return str(target)
+
     def _generate_import_stmt(self, stmt: ImportStmt):
         """生成导入语句
         

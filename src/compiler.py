@@ -446,7 +446,12 @@ class AstAdapter:
                                  else int(node.value))
 
     def _convert_string_literal(self, node) -> ast.StringLiteral:
-        return ast.StringLiteral(value=str(node.value))
+        # R72-E · L-159：v3 AST 的 StringLiteral.is_bytes 必须透传。
+        # 字节串字面量 b'...' 在 v3（light_parser_v3）上带 is_bytes=True，
+        # 此前适配成统一 AST 时被丢弃 → unified 后端把 b'hello' 发成 'hello'（str），
+        # 与 src 后端分叉（bytes/str 类型错）。
+        return ast.StringLiteral(value=str(node.value),
+                                 is_bytes=getattr(node, 'is_bytes', False))
 
     def _convert_boolean_literal(self, node) -> ast.BooleanLiteral:
         if isinstance(node.value, bool):
@@ -472,14 +477,22 @@ class AstAdapter:
         )
 
     def _convert_slice_expr(self, node) -> ast.FunctionCall:
-        """将 v3 SliceExpr 转换为 FunctionCall(slice, start, stop, step)"""
-        args = []
-        if node.start is not None:
-            args.append(self.convert(node.start))
-        if node.stop is not None:
-            args.append(self.convert(node.stop))
-        if node.step is not None:
-            args.append(self.convert(node.step))
+        """将 v3 SliceExpr 转换为 FunctionCall(slice, start, stop, step)
+
+        R72-D · G-07 对齐修复：单边切片必须保留 None 端。
+        此前 `[1:]` 只 append start=1，生成 slice(1) —— Python 语义是 [0:1]，
+        把「取后缀」错译成「取第一个」，星号解包用例 `三参(1, *参数[1:])`
+        因此实参不足。现显式补 None 占位：[1:] → slice(1, None)、[:2] →
+        slice(None, 2)、[::2] → slice(None, None, 2)。
+        """
+        # 恒定三参：slice(start, stop, step)，缺省一律 NullLiteral(None)。
+        # Python `slice` 三参全给即可表达任意组合（slice(None,None,None) == [:]），
+        # 不再需要按存在性分支补位——那正是此前 `[1:]` 漏补 stop 的根因。
+        args = [
+            self.convert(node.start) if node.start is not None else ast.NullLiteral(),
+            self.convert(node.stop) if node.stop is not None else ast.NullLiteral(),
+            self.convert(node.step) if node.step is not None else ast.NullLiteral(),
+        ]
         return ast.FunctionCall(
             name=ast.Identifier(name='slice'),
             arguments=args,

@@ -151,8 +151,15 @@ class NumberLiteral(ASTNode):
 @dataclass(slots=True)
 class StringLiteral(ASTNode):
     _ast_type_id: int = field(default=AST_TYPE_ID_STRING_LITERAL, init=False, repr=False)
-    """字符串字面量"""
+    """字符串字面量
+
+    R72-E · L-159：is_bytes 标记字节串字面量 b'...' / B'...'（v7 单 H 在
+    ast_nodes_v3.StringLiteral 上引入）。dataclass(slots=True) 不能动态
+    挂属性，AstAdapter（compiler.py:_convert_string_literal）透传时需要
+    真实字段，故在此声明，默认 False 不影响任何既有消费者。
+    """
     value: str = ""
+    is_bytes: bool = False
 
 
 @dataclass(slots=True)

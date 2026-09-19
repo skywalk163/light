@@ -43,13 +43,19 @@ class ParameterList(ASTNode):
 
 
 class VarDecl(ASTNode):
-    __slots__ = ('name', 'value', 'type_annotation')
-    """变量声明"""
-    def __init__(self, name: str, value: ASTNode, type_annotation: Optional[str] = None, line: int = 0, col: int = 0):
+    __slots__ = ('name', 'value', 'type_annotation', 'block_scoped')
+    """变量声明
+
+    block_scoped（R72-A / L-172）：True 表示块级声明（`令 X 为 V`）——
+    代码生成器在 如果/遍历/当/尝试 块内将其 mangle 成唯一名，块外不可见；
+    False（默认）为既有函数级声明（`设 X 为 V`），行为不变。
+    """
+    def __init__(self, name: str, value: ASTNode, type_annotation: Optional[str] = None, line: int = 0, col: int = 0, block_scoped: bool = False):
         super().__init__(line, col)
         self.name = name
         self.value = value
         self.type_annotation = type_annotation
+        self.block_scoped = block_scoped
     
     def __repr__(self):
         if self.type_annotation:
@@ -528,6 +534,20 @@ class ClassDefinition(ASTNode):
         return f"ClassDefinition({self.name})"
 
 
+class RecordDefinition(ClassDefinition):
+    """R73-C 数据类/记录类型"""
+    __slots__ = ('fields',)
+
+    def __init__(self, name, fields, attributes=None, methods=None,
+                 base_classes=None, generic_params=None, interfaces=None):
+        super().__init__(name, attributes or [], methods or [],
+                         base_classes, generic_params, interfaces)
+        self.fields = fields
+
+    def __repr__(self):
+        return f"RecordDefinition({self.name}, fields={[f[0] for f in self.fields]})"
+
+
 class ClassInstantiation(ASTNode):
     __slots__ = ('class_name', 'args')
     """类实例化"""
@@ -672,14 +692,35 @@ class MatchCase(ASTNode):
 
 
 class MatchPattern(ASTNode):
-    __slots__ = ('kind', 'value', 'elements', 'type_name', 'binding')
-    """匹配模式"""
-    def __init__(self, kind: str, value=None, elements: List = None, type_name: str = '', binding: str = ''):
+    __slots__ = ('kind', 'value', 'elements', 'type_name', 'binding', 'keys', 'trailing_comma')
+    """匹配模式
+
+    kinds:
+      wildcard  _ (通配)
+      number    数字字面量
+      string    字符串字面量
+      bool      真/假
+      null      空
+      variable  裸标识符捕获（如 `情况 甲:`）
+      type_check 类型检查（`情况 整数 甲:` / `情况 整数:`）
+      list      序列模式 `情况 [p1, p2]:`（elements 递归）
+      tuple     元组/分组模式 `情况 (p1, p2):`（elements 递归；
+                单元素无尾逗号时生成 `(p)`，等价 Python 分组捕获）
+      dict      映射模式 `情况 {"键": p}:`（keys 存 Python 字面量文本，
+                elements[i] 与 keys[i] 配对）
+      rest      `*余` 余项模式（仅在 list/tuple 内部合法，elements=[内层模式]）
+    """
+    def __init__(self, kind: str, value=None, elements: List = None, type_name: str = '',
+                 binding: str = '', keys: List = None, trailing_comma: bool = False):
         self.kind = kind
         self.value = value
         self.elements = elements or []
         self.type_name = type_name
         self.binding = binding
+        # dict 模式键（已规范化为 Python 字面量文本：'"甲"' / '3' / 'True' / 'None'）
+        self.keys = keys or []
+        # tuple 模式单元素带尾逗号 `(甲,)` → 生成 `(甲,)`，否则生成 `(甲)`
+        self.trailing_comma = trailing_comma
     
     def __repr__(self):
         if self.kind == 'wildcard':
@@ -690,6 +731,10 @@ class MatchPattern(ASTNode):
             return str(self.value)
         if self.kind == 'string':
             return f'"{self.value}"'
+        if self.kind == 'tuple':
+            return f"({', '.join(repr(e) for e in self.elements)})"
+        if self.kind == 'dict':
+            return "{" + ', '.join(f"{k}: {repr(v)}" for k, v in zip(self.keys, self.elements)) + "}"
         return f"MatchPattern({self.kind})"
 
 
@@ -785,7 +830,7 @@ class InterfaceDefinition(ASTNode):
 
 
 class DestructuringAssignment(ASTNode):
-    __slots__ = ('variables', 'value', 'style', 'type_annotation')
+    __slots__ = ('variables', 'value', 'style', 'type_annotation', 'targets', 'declare')
     """解构赋值
     
     style: 'tuple' 或 'list'，区分元组解构和列表解构
@@ -793,19 +838,35 @@ class DestructuringAssignment(ASTNode):
         Python 不允许给解包目标加注解（`甲, 乙: float = f()` 是 SyntaxError），
         所以 codegen 把它**广播**成每个目标一条纯注解行，再发解包语句。
         口径见 docs/v7_失败用例根因聚类工单.md 新单 G。
+    targets（R72 任务B 新增，G-05）：形如
+        ['首', '*余'] / ['m', ('(', ['n1', 'n2'])]
+        的结构化目标表，元素为
+          - str：普通名（'甲'）或带星号的 rest 目标（'*余'）
+          - tuple：('(' | '[', [子目标…]) 嵌套分组
+        仅当目标含 **星号 rest 或嵌套分组** 时才非 None；
+        为 None 时 codegen 走旧路径（把 variables 用 ', ' 连起来），
+        保证既有 `设 甲, 乙 为 …` 的产物逐字节不变。
+    variables：**扁平叶子名表**，始终是所有目标里的普通变量名（不含 '*'、不含括号），
+        供 codegen 的 _bind_local / 注解广播与 scope_shadow_check 使用。
+    declare（R72 任务B）：True=声明式（来自 `设`）；False=裸解构赋值
+        （`甲, 乙 为 …`，无 `设`）——两者当前 codegen 一致，字段只作语义标注。
     """
     def __init__(self, variables: List[str], value: ASTNode, style: str = 'tuple',
-                 type_annotation: str = None):
+                 type_annotation: str = None, targets: list = None,
+                 declare: bool = True):
         self.variables = variables
         self.value = value
         self.style = style  # 'tuple' 或 'list'
         self.type_annotation = type_annotation
+        self.targets = targets
+        self.declare = declare
 
     
     def __repr__(self):
         bracket = '(' if self.style == 'tuple' else '['
         end_bracket = ')' if self.style == 'tuple' else ']'
-        return f"DestructuringAssignment({bracket}{', '.join(self.variables)}{end_bracket} = {self.value})"
+        head = self.targets if self.targets else self.variables
+        return f"DestructuringAssignment({bracket}{head}{end_bracket} = {self.value})"
 
 
 class WithStmt(ASTNode):

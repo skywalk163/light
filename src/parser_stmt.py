@@ -503,6 +503,13 @@ class ParserStmtMixin:
         if tok.type == TokenType.KEYWORD and tok.value == '类':
             return self._parse_class_definition()
 
+        # R73-C 数据类/记录类型：记录 名: 字段1, 字段2
+        # 走范式A（仿「约」接口定义）：判 IDENTIFIER 而非 KEYWORD，词法层零改动；
+        # 前视守卫确认是「记录 名:」形态，避免与现有代码中「记录」变量名/方法名冲突。
+        if (tok.type == TokenType.IDENTIFIER and tok.value == '记录'
+                and self._is_record_header()):
+            return self._parse_record_definition()
+
         # 接口定义：接口 / 接 / 协议 接口名
         if tok.type == TokenType.KEYWORD and tok.value in ('接口', '接', '协议'):
             return self._parse_interface_definition()
@@ -1040,7 +1047,13 @@ class ParserStmtMixin:
                 '加上': '+=', '减去': '-=', '乘以': '*=', '除以': '/=',
                 '整除': '//=', '模以': '%=', '幂以': '**=',
             }
-            if self._match(TokenType.KEYWORD, '为'):
+            # G-02 增量赋值二元组（加为/减为/乘为/除为/取模为/幂为）优先识别，
+            # 映射到与 compound_ops 相同的 py 风格 op，复用下方复合赋值出口。
+            _inc_op = self._try_consume_increment_assign()
+            if _inc_op is not None:
+                assign_op = {'加': '+=', '减': '-=', '乘': '*=',
+                             '除': '/=', '模': '%=', '幂': '**='}[_inc_op]
+            elif self._match(TokenType.KEYWORD, '为'):
                 self._consume(TokenType.KEYWORD, '为')
                 assign_op = '为'
             elif self._match(TokenType.KEYWORD, '等于'):
@@ -1087,6 +1100,16 @@ class ParserStmtMixin:
                 self.pos = saved_pos_before_ji
                 target_expr = self._parse_expr()
                 
+                # G-02 增量赋值：己.计数 加为 1（动词+为 二元组）。语义与普通
+                # 成员赋值一致：右侧 _light_attr_get、左侧 _light_attr_set。
+                inc_op = self._try_consume_increment_assign()
+                if inc_op is not None:
+                    from ast_nodes_v3 import BinaryOp
+                    value = self._parse_expr()
+                    if self._current() and self._current().type == TokenType.PERIOD:
+                        self._consume(TokenType.PERIOD)
+                    return Assignment(target_expr, BinaryOp(inc_op, target_expr, value))
+
                 # 为
                 if self._match(TokenType.KEYWORD, '为'):
                     self._consume(TokenType.KEYWORD, '为')
@@ -1154,6 +1177,59 @@ class ParserStmtMixin:
         # 创建赋值节点（self.attr_name = value）
         return SelfAssignment(attr_name, value)
     
+    # G-02 增量赋值动词 → 标准二元运算符（模/幂 与 BinaryOp 既有拼写对齐）
+    _INCREMENT_ASSIGN_VERBS = {
+        '加': '加', '减': '减', '乘': '乘', '除': '除',
+        '取模': '模', '模': '模', '幂': '幂',
+        # G-08 位运算复合赋值动词（R73-A）：位与/位或/位异或/左移/右移
+        # 与既有 BinaryOp 拼写（位与/位或/位异或/左移/右移）对齐，codegen
+        # 在 _generate_compound_assignment 统一映射到 &= / |= / ^= / <<= / >>=。
+        '位与': '位与', '位或': '位或', '位异或': '位异或',
+        '左移': '左移', '右移': '右移',
+    }
+
+    # 整词形态：deterministic lexer 上下文相关切词——「加为」后跟数字时切成
+    # IDENTIFIER(加)+KEYWORD(为)（走上方动词二元组），后跟中文（如 `己.计数 加为 己.步长`）
+    # 时整词成 IDENTIFIER(加为)。两种形态都必须覆盖（实测 examples/test_R71_B 行11）。
+    _INCREMENT_ASSIGN_WORDS = {
+        '加为': '加', '减为': '减', '乘为': '乘', '除为': '除',
+        '取模为': '模', '模为': '模', '幂为': '幂',
+        # G-08 位运算复合赋值整词形态（R73-A）：位与为/位或为/位异或为/左移为/右移为。
+        # 与上方 VERBS 同义——lexer 把「动词+为」切两态（整词/二元组），
+        # 两种形态都登记才能保证不同落点都命中复合赋值。
+        '位与为': '位与', '位或为': '位或', '位异或为': '位异或',
+        '左移为': '左移', '右移为': '右移',
+    }
+
+    def _try_consume_increment_assign(self) -> Optional[str]:
+        """G-02：识别增量赋值（加为/减为/乘为/除为/取模为/幂为）。
+
+        词法零改动（范式 A，同 L-021 `属性` / L-025 `包含` 先例）。
+        deterministic lexer 把「动词+为」切成两种形态（见 _INCREMENT_ASSIGN_WORDS 注）：
+        形态1 整词 IDENTIFIER(加为)；形态2 IDENTIFIER(加)+KEYWORD(为) 二元组。
+        而 `设 x 为 a 加 b` 里的 `加` 是 KEYWORD 但其后是操作数而非 `为`，不误伤。
+        在赋值目标收完后调用：命中则消耗相应 token 并返回标准运算符
+        （'加'/'减'/'乘'/'除'/'模'/'幂'），否则零消耗返回 None（无回退成本）。
+        语义与既有 compound_ops（加上/减去/…）完全一致：甲 加为 1 → 甲 += 1。
+        """
+        tok = self._current()
+        if tok is None or tok.type not in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+            return None
+        # 形态1：整词（加为/减为/乘为/除为/取模为/模为/幂为）
+        if tok.value in self._INCREMENT_ASSIGN_WORDS:
+            self._consume()
+            return self._INCREMENT_ASSIGN_WORDS[tok.value]
+        # 形态2：动词 + 为 二元组（加 为 / 减 为 / …）
+        if tok.value in self._INCREMENT_ASSIGN_VERBS:
+            nxt = self._peek(1)
+            if (nxt is not None and nxt.type == TokenType.KEYWORD
+                    and nxt.value == '为'):
+                op = self._INCREMENT_ASSIGN_VERBS[tok.value]
+                self._consume()                      # 动词（加/减/…）
+                self._consume(TokenType.KEYWORD, '为')
+                return op
+        return None
+
     def _parse_assignment_stmt(self) -> ASTNode:
         """解析赋值语句：标识符 等于 值。或 标识符 加上/减去/乘以/除以 值。
         
@@ -1191,6 +1267,35 @@ class ParserStmtMixin:
                 _tok0.line, _tok0.col, _tok0.value
             )
         name = name_tok.value
+
+        # R72 任务B（G-05）：裸解构赋值 `甲, 乙 为 expr`（不带 `设`）。
+        #
+        # 改前：这里的逗号识别不到赋值目标 → 完整回退 → `甲, 乙 为 expr` 被
+        # 当作**逗号流水线**表达式语句（Pipeline）吞掉：编译期零提示、运行期
+        # 什么都不发生（静默空操作，属最危险的一类失败；全仓 38133 个 .light
+        # 扫描零命中，确认无存量代码依赖该形态）。
+        # 改后：试探性解析目标表，成功且紧跟 为/等于/= 才生成
+        # DestructuringAssignment(declare=False)（与裸单目标 `甲 为 值` → VarDecl
+        # 的写穿语义对齐）；任何一步不匹配都回退到 saved_pos，原表达式语句
+        # 路径逐字不变。
+        if self._current() and self._current().type == TokenType.COMMA:
+            self._consume(TokenType.COMMA)
+            parsed = self._parse_destructure_target_list(None, strict=False)
+            if parsed is not None:
+                items, leaves, special = parsed
+                if (self._match(TokenType.KEYWORD, '为')
+                        or self._match(TokenType.KEYWORD, '等于')
+                        or self._match(TokenType.EQUALS)):
+                    self._consume()
+                    # 值（含 `甲, 乙 为 乙, 甲` 的逗号多值 → 元组字面量，
+                    # 不能用 _parse_expr()，否则逗号会变成流水线组合符 `乙(甲)`）
+                    value = self._parse_multi_value_rhs()
+                    return DestructuringAssignment(
+                        [name] + leaves, value, style='tuple',
+                        targets=([name] + items) if special else None,
+                        declare=False)
+            # 不是解构赋值：完整回退（与改前一致，落到下方原有分支）
+            self.pos = saved_pos
 
         # 检查属性赋值：obj.attr / obj之attr / obj的attr 等于/为/= 值（v3.4 新增）
         # 支持链式：obj.a.b.c = value
@@ -1231,6 +1336,16 @@ class ParserStmtMixin:
                 idx_expr = self._parse_expr()
                 self._consume(TokenType.RBRACKET)
                 target = IndexAccess(target, idx_expr)
+
+            # G-02 增量赋值：己.计数 加为 1。复用 Assignment(成员链, BinaryOp(成员链,…))
+            # 语义：右侧走 _light_attr_get、左侧走 _light_attr_set，与普通成员赋值
+            # （L-096）对 dict/类实例的语义完全一致。
+            inc_op = self._try_consume_increment_assign()
+            if inc_op is not None:
+                value = self._parse_expr()
+                if self._current() and self._current().type == TokenType.PERIOD:
+                    self._consume(TokenType.PERIOD)
+                return Assignment(target, BinaryOp(inc_op, target, value))
 
             # 检查等于/为/=
             if self._match(TokenType.KEYWORD, '等于') or self._match(TokenType.KEYWORD, '为') or self._match(TokenType.EQUALS):
@@ -1275,6 +1390,15 @@ class ParserStmtMixin:
                 if self._current() and self._current().type == TokenType.PERIOD:
                     self._consume(TokenType.PERIOD)
                 return Assignment(target, BinaryOp(operator, target, value))
+
+            # G-02 增量赋值：甲[丁] 加为 1 / 字典["键"] 加为 1 → 下标 += 值。
+            # 与上一分支同构（Assignment + BinaryOp(目标,…)），codegen 发原生 +=。
+            inc_op = self._try_consume_increment_assign()
+            if inc_op is not None:
+                value = self._parse_expr()
+                if self._current() and self._current().type == TokenType.PERIOD:
+                    self._consume(TokenType.PERIOD)
+                return Assignment(target, BinaryOp(inc_op, target, value))
             
             # 检查等于/为/=
             if not self._match(TokenType.KEYWORD, '等于') and not self._match(TokenType.KEYWORD, '为') and not self._match(TokenType.EQUALS):
@@ -1306,6 +1430,16 @@ class ParserStmtMixin:
                 self._consume(TokenType.PERIOD)
             
             return CompoundAssignment(name, operator, value)
+
+        # G-02 增量赋值：甲 加为 1 → CompoundAssignment(甲, '加', 1)（甲 += 1）。
+        # 语义与上方 compound_ops（加上/减去/…）完全一致，codegen 复用
+        # _generate_compound_assignment 的运算符映射（含 除→_light_trunc_div）。
+        inc_op = self._try_consume_increment_assign()
+        if inc_op is not None:
+            value = self._parse_expr()
+            if self._current() and self._current().type == TokenType.PERIOD:
+                self._consume(TokenType.PERIOD)
+            return CompoundAssignment(name, inc_op, value)
         
         # 等于或为或=
         if not self._match(TokenType.KEYWORD, '等于') and not self._match(TokenType.KEYWORD, '为') and not self._match(TokenType.EQUALS):
@@ -1419,9 +1553,13 @@ class ParserStmtMixin:
         return Paragraph(name, params, None, body)
 
     def _parse_c_var_decl(self) -> ASTNode:
-        """解析C风格变量声明：令 name = expr
+        """解析变量声明：令 name = expr / 令 name 等于 expr / 令 name 为 expr
 
-        生成与 设 name 为 expr 相同的 VarDecl AST 节点。
+        R72-A（L-172）：`令` 从「C 风格声明、与 设 同义」升级为**块级声明**——
+        在 如果/遍历/当/尝试 块内声明的变量仅在本块内可见（代码生成器负责
+        mangling，见 code_generator.py 的块级作用域栈）。块外/函数顶层写 `令`
+        时没有活跃块栈，行为与 `设` 一致（函数级/模块级声明）。
+        生成 VarDecl（block_scoped=True）。
         """
         # 令
         self._consume(TokenType.IDENTIFIER, '令')
@@ -1464,14 +1602,16 @@ class ParserStmtMixin:
             self._consume(TokenType.COLON)
             type_annotation = self._parse_type_annotation()
 
-        # = 或 等于
+        # = / 等于 / 为（R72-A：`令 X 为 V` 白话体分隔符，与 `设 X 为 V` 对齐）
         if self._match(TokenType.EQUALS):
             self._consume(TokenType.EQUALS)
         elif self._match(TokenType.KEYWORD, '等于'):
             self._consume(TokenType.KEYWORD, '等于')
+        elif self._match(TokenType.KEYWORD, '为'):
+            self._consume(TokenType.KEYWORD, '为')
         else:
             tok = self._current()
-            self._error(f"期望'='，但得到 {tok.type if tok else '输入结束'} = '{tok.value if tok else ''}'",
+            self._error(f"期望'='或'为'，但得到 {tok.type if tok else '输入结束'} = '{tok.value if tok else ''}'",
                         tok.line if tok else 0, tok.col if tok else 0)
 
         # 值
@@ -1481,7 +1621,7 @@ class ParserStmtMixin:
         if self._current() and self._current().type == TokenType.PERIOD:
             self._consume(TokenType.PERIOD)
 
-        return VarDecl(name, value, type_annotation=type_annotation)
+        return VarDecl(name, value, type_annotation=type_annotation, block_scoped=True)
 
     def _parse_c_for_loop(self) -> ASTNode:
         """解析C风格for循环：循环(init;cond;incr){body}
@@ -1978,65 +2118,209 @@ class ParserStmtMixin:
                 getattr(nxt, 'value', None))
         return self._parse_set_stmt()
 
+    # =========================================================================
+    # R72 任务B（G-05）：解构目标文法
+    #
+    #   目标表 := 目标 (',' 目标)*
+    #   目标   := '*' 名 | '(' 目标表 ')' | '[' 目标表 ']' | 名
+    #
+    # 返回值统一为三元组 (items, leaves, special)：
+    #   items   —— 结构化目标表，元素是 str（'甲' / '*余'）或
+    #              ('(' | '[', [子项…])。供 codegen 还原字面形态。
+    #   leaves  —— 扁平叶子名表（不含 '*'、不含括号），供 _bind_local 与
+    #              注解广播使用（既有消费者只认这个）。
+    #   special —— 目标里是否含 '*' rest 或嵌套分组。False 时 codegen 走
+    #              旧发射路径，产物与 R71 前逐字节一致。
+    # =========================================================================
+
+    # 目标位置上的「终止符」：出现即表示目标表已结束（后面该跟 为/等于/=）。
+    _DESTRUCTURE_TERMINATORS = ('为', '等于')
+
+    def _parse_destructure_target_list(self, close_t=None, strict: bool = True):
+        """解析解构目标表 `目标 (',' 目标)*`，返回 (items, leaves, special)。
+
+        close_t: 遇该 token 类型即停（`)` / `]`）；None 表示「顶层无括号」，
+                 只在没有后继逗号时停。
+        strict : False 时任何不匹配都返回 None 而不报错，供「裸解构赋值」的
+                 试探性解析使用（失败即回退成旧的表达式语句路径）。
+        """
+        items, leaves = [], []
+        special = False
+        star_seen = False
+        while True:
+            tok = self._current()
+            if tok is None or (close_t is not None and tok.type == close_t):
+                break
+            parsed = self._parse_destructure_target(strict=strict)
+            if parsed is None:
+                return None
+            item, lv, sp = parsed
+            if isinstance(item, str) and item.startswith('*'):
+                if star_seen:
+                    if not strict:
+                        return None
+                    line = getattr(tok, 'line', 0) or 0
+                    col = getattr(tok, 'col', 0) or 0
+                    self._error(
+                        "一个解构目标表里最多只能出现一个「*」星号解构"
+                        "（Python 同样只允许 `首, *余 = …` 这种单星形态）。",
+                        line, col, getattr(tok, 'value', None))
+                star_seen = True
+            items.append(item)
+            leaves.extend(lv)
+            special = special or sp
+            if self._match(TokenType.COMMA):
+                self._consume(TokenType.COMMA)
+                continue
+            break
+        if not items:
+            if not strict:
+                return None
+            tok = self._current()
+            line = getattr(tok, 'line', 0) or 0
+            col = getattr(tok, 'col', 0) or 0
+            self._error(
+                "解构赋值的目标表不能为空，至少要有一个变量名，"
+                "例如：设 (甲, 乙) 为 [1, 2]。",
+                line, col)
+        return items, leaves, special
+
+    def _parse_destructure_target(self, strict: bool = True):
+        """解析单个解构目标，返回 (item, leaves, special) 或 None。"""
+        tok = self._current()
+        _bad_name = (tok is None
+                     or tok.type not in (TokenType.IDENTIFIER, TokenType.KEYWORD)
+                     or tok.value in self._DESTRUCTURE_TERMINATORS)
+
+        # *余 —— Python 风格的 rest 目标（星号后只能是裸名字）
+        if tok is not None and tok.type == TokenType.STAR:
+            self._consume(TokenType.STAR)
+            nxt = self._current()
+            if (nxt is None
+                    or nxt.type not in (TokenType.IDENTIFIER, TokenType.KEYWORD)
+                    or nxt.value in self._DESTRUCTURE_TERMINATORS):
+                if not strict:
+                    return None
+                line = getattr(nxt, 'line', getattr(tok, 'line', 0)) or 0
+                col = getattr(nxt, 'col', getattr(tok, 'col', 0)) or 0
+                self._error(
+                    "「*」星号解构后面必须跟一个变量名，"
+                    "例如：设 首, *余 为 [1, 2, 3, 4]。",
+                    line, col, getattr(nxt, 'value', None))
+            name = self._consume().value
+            return ('*' + name), [name], True
+
+        # (…) / […] —— 嵌套分组目标
+        if tok is not None and tok.type in (TokenType.LPAREN, TokenType.LBRACKET):
+            open_tok = tok.type
+            close_t = (TokenType.RPAREN if open_tok == TokenType.LPAREN
+                       else TokenType.RBRACKET)
+            self._consume(open_tok)
+            sub = self._parse_destructure_target_list(close_t, strict=strict)
+            if sub is None:
+                return None
+            self._consume(close_t)
+            sub_items, sub_leaves, _ = sub
+            return (('(' if open_tok == TokenType.LPAREN else '['), sub_items), sub_leaves, True
+
+        # 裸名字
+        if not _bad_name:
+            name = self._consume().value
+            return name, [name], False
+
+        if not strict:
+            return None
+        line = getattr(tok, 'line', 0) or 0
+        col = getattr(tok, 'col', 0) or 0
+        self._error(
+            "解构目标只能是变量名、*变量名 或 (…) 分组，但得到"
+            f"「{getattr(tok, 'value', tok.type) if tok else '输入结束'}」。",
+            line, col, getattr(tok, 'value', None))
+
+    def _parse_multi_value_rhs(self):
+        """解析解构赋值右侧的值，并支持逗号分隔的多值字面量。
+
+        必须用 `_parse_comparison()` 起手、再手工吃逗号续值：整体交给
+        `_parse_expr()` 的话，逗号会被当成**流水线组合符**，于是
+        `设 甲, 乙 为 乙, 甲` 编成 `乙(甲)`、`设 (甲, 乙) 为 1, 2` 编成 `1(2)`
+        ——两者都是「编译期无警告、运行期 TypeError」的静默错编。
+        本助手把 `甲, 乙 为 v1, v2, …` 编成元组字面量，与 Python 的
+        `甲, 乙 = (v1, v2, …)` 等价。
+
+        与分支 C（`设 甲, 乙 为 …`）原有逻辑逐字同构，故一并由它承担，
+        四个解构分支（`(…)` / `[…]` / `*名` 打头 / 裸名打头）共用同一口径。
+        """
+        value = self._parse_comparison()
+        if self._match(TokenType.COMMA):
+            values = [value]
+            while self._match(TokenType.COMMA):
+                self._consume(TokenType.COMMA)
+                values.append(self._parse_comparison())
+            # 构建元组字面量作为值（局部 import，见 _parse_assignment_stmt 的注释：
+            # 顶层 import 会把这个名字变成所在函数的局部名，反而制造 UnboundLocalError）
+            from ast_nodes_v3 import TupleLiteral
+            value = TupleLiteral(values)
+        if self._current() and self._current().type == TokenType.PERIOD:
+            self._consume(TokenType.PERIOD)
+        return value
+
     def _parse_set_stmt(self) -> ASTNode:
-        """解析变量声明：设 变量名 为 值。或 设 变量 为 类型 = 值。或 解构赋值：设（甲，乙）为 元组。"""
+        """解析变量声明：设 变量名 为 值。或 设 变量 为 类型 = 值。或 解构赋值：设（甲，乙）为 元组。
+
+        R72 任务B（G-05）：解构目标统一改为递归文法，支持
+          - 无括号多目标：设 甲, 乙 为 取坐标()
+          - 星号 rest：设 首, *余 为 [1, 2, 3, 4]
+          - 嵌套分组：设 m, (n1, n2) 为 [1, [2, 3]]
+        目标文法：
+          目标表 := 目标 (',' 目标)*
+          目标   := '*' 名 | '(' 目标表 ')' | '[' 目标表 ']' | 名
+        产物兼容：不含 '*' / 嵌套的目标表仍走旧发射路径（targets=None），
+        生成代码逐字节不变。
+        """
         # 设
         self._consume(TokenType.KEYWORD, '设')
-        
+
         # 检查是否为解构赋值：设 (甲, 乙) 为 元组 或 设 [首, 余] 为 列表
-        if self._current() and self._current().type == TokenType.LPAREN:
-            self._consume(TokenType.LPAREN)
-            variables = []
-            # 收集变量名
-            while self._current():
-                tok = self._current()
-                if tok.type == TokenType.IDENTIFIER:
-                    variables.append(self._consume(TokenType.IDENTIFIER).value)
-                elif tok.type == TokenType.KEYWORD:
-                    variables.append(self._consume(TokenType.KEYWORD).value)
-                else:
-                    break
-                if self._match(TokenType.COMMA):
-                    self._consume(TokenType.COMMA)
-                else:
-                    break
-            self._consume(TokenType.RPAREN)
+        if self._current() and self._current().type in (
+                TokenType.LPAREN, TokenType.LBRACKET):
+            open_tok = self._current().type
+            close_t = (TokenType.RPAREN if open_tok == TokenType.LPAREN
+                       else TokenType.RBRACKET)
+            self._consume(open_tok)
+            # 顶层括号只作「目标表的分组符」，不参与发射——与旧行为一致
+            # （`设 (甲, 乙) 为 x` 旧产物是 `甲, 乙 = x`，没有外层括号）。
+            items, leaves, special = self._parse_destructure_target_list(close_t)
+            self._consume(close_t)
             # 为
             self._consume(TokenType.KEYWORD, '为')
-            # 值
-            value = self._parse_expr()
-            # 句号（可选）
-            if self._current() and self._current().type == TokenType.PERIOD:
-                self._consume(TokenType.PERIOD)
-            return DestructuringAssignment(variables, value, style='tuple')
-        
-        # 检查是否为列表解构赋值：设 [首, 余] 为 列表
-        if self._current() and self._current().type == TokenType.LBRACKET:
-            self._consume(TokenType.LBRACKET)
-            variables = []
-            # 收集变量名
-            while self._current():
+            # 值（支持 `设 (甲, 乙) 为 1, 2` 的逗号多值）
+            value = self._parse_multi_value_rhs()
+            return DestructuringAssignment(
+                leaves, value,
+                style='tuple' if open_tok == TokenType.LPAREN else 'list',
+                targets=items if special else None)
+
+        # 星号 rest 打头的目标表：设 *余 为 [1, 2, 3] / 设 *头, 尾 为 [1, 2, 3]。
+        # 与下面 `设 甲, *余 为 …` 是同一文法的两种书写起点，产物都是
+        # `*余, = …` / `*头, 尾 = …`（首目标为星号时 Python 要求整体是元组形态，
+        # codegen 的 _render_destructure_targets 会补尾逗号）。
+        if self._current() and self._current().type == TokenType.STAR:
+            items, leaves, special = self._parse_destructure_target_list(None)
+            if self._match(TokenType.KEYWORD, '为'):
+                self._consume(TokenType.KEYWORD, '为')
+            elif self._match(TokenType.KEYWORD, '等于'):
+                self._consume(TokenType.KEYWORD, '等于')
+            elif self._match(TokenType.EQUALS):
+                self._consume(TokenType.EQUALS)
+            else:
                 tok = self._current()
-                if tok.type == TokenType.IDENTIFIER:
-                    variables.append(self._consume(TokenType.IDENTIFIER).value)
-                elif tok.type == TokenType.KEYWORD:
-                    variables.append(self._consume(TokenType.KEYWORD).value)
-                else:
-                    break
-                if self._match(TokenType.COMMA):
-                    self._consume(TokenType.COMMA)
-                else:
-                    break
-            self._consume(TokenType.RBRACKET)
-            # 为
-            self._consume(TokenType.KEYWORD, '为')
-            # 值
-            value = self._parse_expr()
-            # 句号（可选）
-            if self._current() and self._current().type == TokenType.PERIOD:
-                self._consume(TokenType.PERIOD)
-            return DestructuringAssignment(variables, value, style='list')
-        
+                self._error(f"期望'为'或'等于'，但得到 {tok.type if tok else '输入结束'}",
+                           tok.line if tok else 0, tok.col if tok else 0)
+            # 值（支持 `设 *余 为 1, 2, 3` 的逗号多值）
+            value = self._parse_multi_value_rhs()
+            return DestructuringAssignment(leaves, value, style='tuple',
+                                           targets=items if special else None)
+
         # 普通变量声明：变量名（支持标识符和关键字）
         name_tok = self._current()
         if name_tok and name_tok.type == TokenType.IDENTIFIER:
@@ -2055,18 +2339,17 @@ class ParserStmtMixin:
             self._error(f"期望标识符，但得到 {name_tok.type if name_tok else '输入结束'}",
                              name_tok.line if name_tok else 0, name_tok.col if name_tok else 0)
         
-        # 检查多变量声明：设 x, y, z 为 0, 0, 0
+        # 检查多变量声明：设 x, y, z 为 0, 0, 0 / 设 m, (n1, n2) 为 … / 设 首, *余 为 …
+        #
+        # R72 任务B（G-05）：这里由「只吃裸名」升级为递归目标表，因此
+        # `设 首, *余 为 列表`、`设 m, (n1, n2) 为 …`、`设 甲, 乙, *余 为 …`
+        # 都能落地。首名已在上方以单变量路径吃掉，故这里补上剩余目标。
         if self._match(TokenType.COMMA):
-            variables = [name]
-            while self._match(TokenType.COMMA):
-                self._consume(TokenType.COMMA)
-                tok = self._current()
-                if tok and tok.type == TokenType.IDENTIFIER:
-                    variables.append(self._consume(TokenType.IDENTIFIER).value)
-                elif tok and tok.type == TokenType.KEYWORD:
-                    variables.append(self._consume(TokenType.KEYWORD).value)
-                else:
-                    break
+            self._consume(TokenType.COMMA)
+            items, leaves, special = self._parse_destructure_target_list(None)
+            variables = [name] + leaves
+            if special:
+                items = [name] + items
             # 多目标共享的类型注解：设 甲, 乙: 数 为 造()
             #
             # 单目标路径（本文件 :1778）早就支持 `: 类型`，多目标路径原先直接
@@ -2090,20 +2373,13 @@ class ParserStmtMixin:
                 tok = self._current()
                 self._error(f"期望'为'或'等于'，但得到 {tok.type if tok else '输入结束'}",
                            tok.line if tok else 0, tok.col if tok else 0)
-            value = self._parse_comparison()
-            # 检查是否有逗号分隔的多值（如 设 x, y, z 为 0, 0, 0）
-            if self._match(TokenType.COMMA):
-                values = [value]
-                while self._match(TokenType.COMMA):
-                    self._consume(TokenType.COMMA)
-                    values.append(self._parse_comparison())
-                # 构建元组字面量作为值
-                from ast_nodes_v3 import TupleLiteral
-                value = TupleLiteral(values)
+            # 值（含 `设 甲, 乙 为 1, 2` 的逗号多值 → 元组字面量）
+            value = self._parse_multi_value_rhs()
             if self._current() and self._current().type == TokenType.PERIOD:
                 self._consume(TokenType.PERIOD)
             return DestructuringAssignment(variables, value, style='tuple',
-                                           type_annotation=multi_type_annotation)
+                                           type_annotation=multi_type_annotation,
+                                           targets=items if special else None)
 
         
         # 支持属性赋值：设 obj.attr 为 value 或 设 己.attr 为 value
@@ -3022,7 +3298,22 @@ class ParserStmtMixin:
                 # 检查是否是语句关键字
                 is_stmt_keyword = False
                 if tok.type == TokenType.KEYWORD:
-                    if tok.value in ('函数', '段落'):
+                    if tok.value in ('如果', '若'):
+                        # R71-A（G-01）：表达式位置的三元「如果 条件 则/那么 … 否则 …」
+                        # 不是语句——前瞻到行尾/冒号，先见 则/那么 即视为三元分支表达式；
+                        # 否则仍按语句位置的 如果 处理（后跟冒号+块体）。
+                        _scan = 1
+                        _is_ternary_form = False
+                        while True:
+                            _nt = self._peek(_scan)
+                            if _nt is None or _nt.type in (TokenType.NEWLINE, TokenType.EOF, TokenType.COLON):
+                                break
+                            if _nt.type == TokenType.KEYWORD and _nt.value in ('则', '那么'):
+                                _is_ternary_form = True
+                                break
+                            _scan += 1
+                        is_stmt_keyword = not _is_ternary_form
+                    elif tok.value in ('函数', '段落'):
                         # 段落调用（段落段名(参数)）应该作为表达式处理
                         next_tok = self._peek(1)
                         if next_tok and next_tok.type == TokenType.LPAREN:
@@ -3052,11 +3343,16 @@ class ParserStmtMixin:
                         else_expr = None
                         if self._current() and self._current().type == TokenType.KEYWORD and self._current().value in ('否则', '否'):
                             self._consume(TokenType.KEYWORD, self._current().value)
-                            else_expr = self._parse_expr()
+                            # R71-A（G-01）：分支操作数不吞逗号，保住多值返回的逗号
+                            else_expr = self._parse_ternary_operand()
                         value = ConditionalExpression(condition, first, else_expr)
+                    else:
+                        # 单值返回
+                        value = first
                     # 检查是否是多值返回（逗号分隔）
-                    elif self._current() and self._current().type == TokenType.COMMA:
-                        values = [first]
+                    # R71-A（G-01）：改为独立检查——后置三元之后仍可跟多值逗号
+                    if self._current() and self._current().type == TokenType.COMMA:
+                        values = [value]
                         while self._current() and self._current().type == TokenType.COMMA:
                             self._consume(TokenType.COMMA)
                             # 跳过 NEWLINE
@@ -3064,9 +3360,6 @@ class ParserStmtMixin:
                                 self._consume()
                             values.append(self._parse_logical_expr())
                         value = TupleLiteral(values)
-                    else:
-                        # 单值返回
-                        value = first
         
         # 句号（可选）
         if self._current() and self._current().type == TokenType.PERIOD:
@@ -4430,6 +4723,120 @@ class ParserStmtMixin:
             break
         return names
 
+    def _parse_record_definition(self):
+        """R73-C 解析数据类/记录类型定义。
+
+        语法：
+          记录 点: x, y
+          记录 人: 姓名, 年龄 = 0, 邮箱 = 空
+
+        编译为 @dataclasses.dataclass 装饰的 Python 类，自动获得
+        __init__/__eq__/__repr__（dataclass 默认行为）。
+        """
+        from ast_nodes_v3 import RecordDefinition
+        self._consume(TokenType.IDENTIFIER, '记录')
+
+        # 记录名
+        name_parts = []
+        name_tok = self._current()
+        if name_tok and name_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+            while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                if self._current().type in (TokenType.COLON, TokenType.PERIOD):
+                    break
+                name_parts.append(self._consume().value)
+        else:
+            self._error(f"期望记录名，但得到 {name_tok.type if name_tok else '输入结束'}")
+        record_name = ''.join(name_parts)
+        if not record_name:
+            self._error("记录名不能为空")
+
+        # 冒号
+        if not (self._current() and self._current().type == TokenType.COLON):
+            self._error(f"期望冒号 ':' 分隔记录名与字段列表，但得到 {self._current()}")
+        self._consume(TokenType.COLON)
+
+        # 解析字段列表：字段1, 字段2 = 默认值, 字段3
+        fields = []
+        while self._current() and self._current().type not in (TokenType.NEWLINE, TokenType.EOF, TokenType.DEDENT):
+            # 字段名
+            if self._current().type not in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                self._error(f"期望字段名，但得到 {self._current()}")
+            field_name = self._consume().value
+
+            # 默认值？支持 = 或 为
+            default_value = None
+            if self._current() and (self._current().value == '=' or
+                    (self._current().type == TokenType.KEYWORD and self._current().value == '为')):
+                self._consume()
+                # 解析默认值：简单字面量或名称
+                default_value = self._parse_record_default_value()
+
+            fields.append((field_name, default_value))
+
+            # 逗号分隔
+            if self._current() and self._current().type == TokenType.COMMA:
+                self._consume(TokenType.COMMA)
+                # 允许尾随逗号后直接结束
+                if self._current() and self._current().type in (TokenType.NEWLINE, TokenType.EOF, TokenType.DEDENT):
+                    break
+            else:
+                break
+
+        if not fields:
+            self._error("记录至少需要一个字段")
+
+        node = RecordDefinition(name=record_name, fields=fields)
+        return node
+
+    def _parse_record_default_value(self):
+        """解析记录字段默认值：支持数字、字符串、布尔、空、列表、字典、名称引用。"""
+        tok = self._current()
+        if tok is None:
+            self._error("期望默认值，但遇到输入结束")
+        # 数字
+        if tok.type == TokenType.NUMBER:
+            from ast_nodes_v3 import NumberLiteral
+            val = self._consume().value
+            return NumberLiteral(val)
+        # 字符串
+        if tok.type == TokenType.STRING:
+            from ast_nodes_v3 import StringLiteral
+            val = self._consume().value
+            return StringLiteral(val)
+        # 布尔/空
+        if tok.type == TokenType.KEYWORD and tok.value in ('真', '假', '空', '无'):
+            from ast_nodes_v3 import Identifier
+            val = self._consume().value
+            return Identifier(val)
+        # 名称引用
+        if tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+            from ast_nodes_v3 import Identifier
+            val = self._consume().value
+            return Identifier(val)
+        self._error(f"不支持的默认值类型: {tok}")
+
+    def _is_record_header(self) -> bool:
+        """R73-C 前视：当前的裸「记录」是否是「记录类型声明头」而不是普通标识符。
+
+        判据（严格）：「记录」后紧跟一个名称 token，再紧跟冒号。
+        即 `记录 点: x, y` / `记录 人: 姓名, 年龄 = 0` 形态。
+
+        为什么必须严格判「名称后紧跟冒号」：`记录.追加({"键": v})` 这种
+        变量名+方法调用+字典字面量的行内也有冒号，若只判「行内有冒号」会
+        把普通表达式语句误判为记录声明（test_宿主配置.light 实测踩坑）。
+        严格判「名称+冒号」紧密形态后，表达式语句不可能命中（`.` 不是名称）。
+        """
+        idx = self.pos + 1  # 跳过「记录」自身
+        # 名称 token
+        if idx >= self._n_tokens:
+            return False
+        if self.tokens[idx].type not in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+            return False
+        idx += 1
+        # 紧跟冒号
+        if idx >= self._n_tokens:
+            return False
+        return self.tokens[idx].type == TokenType.COLON
     def _parse_class_definition(self) -> ClassDefinition:
         """解析类定义
 
@@ -5896,8 +6303,15 @@ class ParserStmtMixin:
 
         return MatchCase(pattern, guard, body)
 
-    def _parse_match_pattern(self) -> MatchPattern:
-        """解析匹配模式"""
+    def _parse_match_pattern(self, in_sequence: bool = False) -> MatchPattern:
+        """解析匹配模式
+
+        in_sequence=True 表示当前位于列表 `[]` / 元组 `()` 模式内部：
+        `*余` rest 模式（`情况 [首, *余]:`）仅允许在此上下文出现。
+
+        R73-D 注：任何分支都必须消费 token（或调用 self._error 终止），
+        否则在列表/元组元素循环中会死循环（实测 `情况 [首, *余]:` 编译挂死）。
+        """
         tok = self._current()
 
         if tok is None:
@@ -5935,17 +6349,93 @@ class ParserStmtMixin:
             self._consume()
             return MatchPattern('null')
 
-        # 列表模式：[模式1, 模式2, ...]
+        # 列表模式：[模式1, 模式2, ...]（支持 `*余` rest：`[首, *余]`）
+        # R73-D：`*` 仅在括号内合法；其余任何 token 都会被消费，
+        # 杜绝「不消费 token → 元素循环死循环」（实测挂死）。
         if tok.type == TokenType.LBRACKET:
             self._consume(TokenType.LBRACKET)
             elements = []
             while not self._match(TokenType.RBRACKET):
-                elem_pattern = self._parse_match_pattern()
+                elem_pattern = self._parse_match_pattern(in_sequence=True)
                 elements.append(elem_pattern)
                 if self._match(TokenType.COMMA):
                     self._consume(TokenType.COMMA)
             self._consume(TokenType.RBRACKET)
             return MatchPattern('list', elements=elements)
+
+        # 元组/分组模式：(模式1, 模式2, ...)  → case (a, b)
+        # 空元组 `()` 匹配空序列；单元素 `(甲)` 等价分组捕获 `case (甲)`；
+        # 单元素带尾逗号 `(甲,)` 匹配单元素元组 `case (甲,)`。
+        # 括号内一旦出现比较/逻辑运算符（如 `情况 (x >= 90):`），
+        # 判定为守卫式布尔表达式，立即停止解析不消费运算符，
+        # 由 _parse_match_case 的回退逻辑整体按表达式重解析。
+        if tok.type == TokenType.LPAREN:
+            self._consume(TokenType.LPAREN)
+            elements = []
+            trailing_comma = False
+            while self._current() and self._current().type != TokenType.RPAREN:
+                if self._is_match_guard_operator(self._current()):
+                    break  # 括号内是守卫式表达式：交给上层回退重解析
+                elem_pattern = self._parse_match_pattern(in_sequence=True)
+                elements.append(elem_pattern)
+                if self._match(TokenType.COMMA):
+                    self._consume(TokenType.COMMA)
+                    if self._match(TokenType.RPAREN):
+                        trailing_comma = True
+                        break
+                    continue
+                break
+            if self._match(TokenType.RPAREN):
+                self._consume(TokenType.RPAREN)
+            return MatchPattern('tuple', elements=elements, trailing_comma=trailing_comma)
+
+        # 字典/映射模式：{"键": 模式, ...}  → case {"key": v}
+        # 键必须是字面量（字符串/数字/真/假/空 → Python 字面量文本），
+        # 值可以是任意嵌套模式；`{}` 匹配空字典。
+        if tok.type == TokenType.LBRACE:
+            self._consume(TokenType.LBRACE)
+            keys = []
+            elements = []
+            while not self._match(TokenType.RBRACE):
+                key_tok = self._current()
+                if key_tok is None:
+                    self._error("字典模式未闭合：缺少右花括号 '}'", tok.line, tok.col)
+                if key_tok.type == TokenType.STRING:
+                    key_py = '"' + key_tok.value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+                elif key_tok.type in (TokenType.NUMBER, TokenType.CHINESE_NUM):
+                    key_py = str(key_tok.value)
+                elif key_tok.type == TokenType.KEYWORD and key_tok.value == '真':
+                    key_py = 'True'
+                elif key_tok.type == TokenType.KEYWORD and key_tok.value == '假':
+                    key_py = 'False'
+                elif key_tok.type == TokenType.KEYWORD and key_tok.value == '空':
+                    key_py = 'None'
+                else:
+                    self._error(
+                        f"字典模式的键必须是字面量（字符串/数字/真/假/空），但得到 '{key_tok.value}'",
+                        key_tok.line, key_tok.col)
+                self._consume()
+                cur = self._current()
+                if cur is None or cur.type != TokenType.COLON:
+                    self._error("字典模式键后缺少冒号 ':'", cur.line if cur else 0, cur.col if cur else 0)
+                self._consume(TokenType.COLON)
+                val_pattern = self._parse_match_pattern(in_sequence=True)
+                keys.append(key_py)
+                elements.append(val_pattern)
+                if self._match(TokenType.COMMA):
+                    self._consume(TokenType.COMMA)
+            self._consume(TokenType.RBRACE)
+            return MatchPattern('dict', elements=elements, keys=keys)
+
+        # rest 模式：*余（仅允许在列表/元组模式内部，`情况 [首, *余]:`）
+        if tok.type == TokenType.STAR:
+            if not in_sequence:
+                self._error(
+                    f"rest 模式 '*' 只能出现在列表 '[]' 或元组 '()' 模式内部（如 `情况 [首, *余]:`）",
+                    tok.line, tok.col)
+            self._consume(TokenType.STAR)
+            rest_pattern = self._parse_match_pattern(in_sequence=True)
+            return MatchPattern('rest', elements=[rest_pattern])
 
         # 类型检查或变量绑定：标识符
         if tok.type == TokenType.IDENTIFIER:
@@ -5978,6 +6468,11 @@ class ParserStmtMixin:
                 return MatchPattern('type_check', type_name=name, binding='')
             return MatchPattern('variable', binding=name)
 
+        # R73-D 兜底：未知 token 起始的模式 → 消费该 token 并作为通配符。
+        # 原来「不消费直接就返回 wildcard」在列表/元组元素循环中会造成死循环
+        # （实测 `情况 [首, *余]:` 编译挂死）；消费保证 token 流始终前进。
+        if tok is not None:
+            self._consume()
         return MatchPattern('wildcard')
 
     # =========================================================================

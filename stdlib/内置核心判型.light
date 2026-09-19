@@ -13,12 +13,12 @@
 #      b) 不许改写成 `类型(值) == 类型(1)` —— 那会把 int 的子类实例判假，
 #         而 Python 版用的是 isinstance（子类为真）。差分测试有专条抓这个错译。
 #   2. 是空 必须写 `类型(值) == 类型(空)`。`值 is None` 生成非法 Python；
-#      而 `值 == 空` 会被自定义 __eq__ 恒真的对象骗过，那是放宽口径。
+#      而 `值 == 空` 会被自定义 `__eq__` 恒真的对象骗过（放宽口径）。
 #   3. 是字母/是数字/是空白 必须用 `str.isalpha(字符)` 这种类方法形态。
 #      写成 `字符.isalpha()` 时，入参不是 str 就抛 AttributeError，
 #      而 Python 版抛的是 TypeError —— 那是改写错误口径。
 
-导出 是整数 是浮点 是字符串 是列表 是字典 是空 是字母 是数字 是空白 是布尔 是函数 是数值 是负零。
+导出 是字节
 
 # 对齐 stdlib/builtins.py:746 —— isinstance(值, int) and not isinstance(值, bool)
 段落 是整数(值):
@@ -41,6 +41,11 @@
 # 对齐 stdlib/builtins.py:766 —— isinstance(值, dict)
 段落 是字典(值):
   返回 isinstance(值, dict)
+
+# R72-E · L-159：isinstance(值, bytes)。字节串字面量 b'...' 的判型配套。
+# 与 是字符串（str）对称：Python 侧 bytes 与 str 互不 isinstance，光明层也严格分离。
+段落 是字节(值):
+  返回 isinstance(值, bytes)
 
 # 对齐 stdlib/builtins.py:771 —— 值 is None（光明侧用类型相等表达，不走 __eq__）
 段落 是空(值):

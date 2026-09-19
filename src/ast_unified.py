@@ -113,9 +113,14 @@ class NumberLiteral(ASTNode):
 
 @dataclass
 class StringLiteral(ASTNode):
-    """字符串字面量"""
+    """字符串字面量
+
+    R72-E · L-159：is_bytes 标记字节串字面量 b'...'（v7 单 H 在
+    ast_nodes_v3 上引入，AstAdapter 透传）。默认 False，既有消费者零影响。
+    """
     value: str = ""
-    
+    is_bytes: bool = False
+
     def __post_init__(self):
         self.inferred_type = TYPE_STRING
 

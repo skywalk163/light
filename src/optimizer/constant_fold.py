@@ -56,6 +56,13 @@ class ConstantFoldingOptimizer(Optimizer):
         left_val = self._literal_value(left)
         right_val = self._literal_value(right)
 
+        # R72-E · L-159：字节串字面量（is_bytes=True）不折叠。
+        # 折叠会把 b'a' + b'b' 变成 StringLiteral('ab')，丢失 bytes 类型——
+        # 喂给只吃 bytes 的接口（HTTP 体、文件 IO）运行期才炸。保留原节点，
+        # 由运行期 Python bytes.__add__ 给出正确类型。
+        if (getattr(left, 'is_bytes', False) or getattr(right, 'is_bytes', False)):
+            return node
+
         try:
             result = self._apply_op(op, left_val, right_val)
         except ZeroDivisionError:

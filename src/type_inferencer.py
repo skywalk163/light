@@ -2226,7 +2226,21 @@ class TypeInferencer:
             # --- HM 关键步骤：实例化泛型类型 ---
             instantiated = self._instantiate(func_type)
 
-            # 检查参数数量
+            # 检查参数数量（R72-D G-07 星号解包：*/*star 与 **kwargs 的参数个数
+            # 在静态期不可知——`f(*参数)` / `f(**关键字参数)` 各占一个语法实参位置，
+            # 但运行期展开后才是 1..N 个位置参数、0..N 个关键字参数。若在此按
+            # len(arg_types) 与形参长度比对，`求和(*参数)`（形参 3、实参 1）会报
+            # 「需要 3 个参数，但提供了 1 个」，反而把合法的星号解包挡在编译期。
+            # 因此含解包实参的调用跳过数量检查、并把形参 TypeVar 全部放松为
+            # 任意类型（跳过下面的逐参合一与可选性检查），交由 Python 运行期做
+            # 位置/关键字对齐校验；不含解包的调用行为完全不变。
+            from ast_nodes_v3 import KeywordArg as _KA
+            _has_unpack = any(
+                isinstance(a, _KA) and getattr(a, 'name', None) in ('*', '**')
+                for a in expr.arguments
+            )
+            if _has_unpack:
+                return instantiated.return_type
             if len(arg_types) != len(instantiated.param_types):
                 self._add_error(
                     f"函数 '{func_name}' 需要 {len(instantiated.param_types)} 个参数，"
