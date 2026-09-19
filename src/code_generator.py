@@ -155,6 +155,9 @@ class PythonCodeGenerator:
         
         # 是否在函数/段落内部（控制 return 生成）
         self._in_function: bool = False
+        # 是否在「异步 段落」内部（控制 等待 / 异步 作用域 的上下文校验，
+        # 用于给出中文编译错误而非裸 Python SyntaxError）
+        self._in_async_function: bool = False
         
         # 是否在循环内部（控制 break/continue 生成）
         self._in_loop: bool = False
@@ -334,6 +337,7 @@ class PythonCodeGenerator:
             # `并发等待` 需要把列表实参摊平成 *args，`首个完成` 需要补
             # return_when kwarg，两处都在 :2495 附近。
             '异步睡眠': 'asyncio.sleep',
+            '睡眠异步': 'asyncio.sleep',
             '限时': 'asyncio.wait_for',
             '创建任务': 'asyncio.create_task',
             '并发等待': 'asyncio.gather',
@@ -2246,6 +2250,7 @@ class PythonCodeGenerator:
         self._user_defined_functions.add(stmt.name)
         
         old_in_function = self._in_function
+        old_in_async_function = self._in_async_function
         # 进入段落作用域：继承外层可见的局部名，再登记本段落的参数
         # （绑定形式②：段落参数）。段落体里 `设 …` 新增的绑定在退出时丢弃，
         # 不会泄漏到模块级、也不会污染兄弟段落。
@@ -2260,6 +2265,7 @@ class PythonCodeGenerator:
         finally:
             self._binding_params = False
         self._in_function = True
+        self._in_async_function = ('异步' in (stmt.modifiers or []))
         self.indent_level += 1
 
         # L-070 方案B：可变默认参数在函数体首行重建（每次调用新建，不共享）
@@ -2304,6 +2310,7 @@ class PythonCodeGenerator:
         self._pending_nonlocal = saved_pending
         self._function_locals_stack.pop()
         self._in_function = old_in_function
+        self._in_async_function = old_in_async_function
         self._pop_local_scope(saved_locals)
         
         self._add_line("")
@@ -3044,17 +3051,26 @@ class PythonCodeGenerator:
         self.indent_level -= 1
 
     def _require_async_context(self, feature: str) -> None:
-        """A1：模块级（顶层）不许出现 `等待` / `异步 作用域`。
+        """A1：只能写在 异步 段落 内部。
 
-        修复前顶层 `等待 主()。` 会生成模块级裸 `await 主()`，Python 直接
-        `SyntaxError: 'await' outside function`——报的是产物的错，用户看不懂
-        自己该改哪里。改成编译期报错并指路到 A1 新增的启动入口。
+        修复前「等待 / 异步 作用域」出现在错误上下文会生成裸 `await`，
+        在同步 段落 里是 Python `SyntaxError: 'await' outside async function`，
+        在模块层是 `SyntaxError: 'await' outside function`——都报产物的错，
+        用户看不懂自己该改哪里。改成编译期报错并分别指路：
+          - 在同步 段落 中：提示把该 段落 改成「异步 段落」
+          - 在模块层：提示用启动语句 `异步 运行 主()。`
         """
-        if not self._in_function:
+        if self._in_async_function:
+            return
+        if self._in_function:
             raise CodeGenError(
                 f"「{feature}」只能写在 异步 段落 里面；"
-                f"要在顶层跑异步代码请用启动语句 `异步 运行 主()。`",
+                f"当前位于同步 段落，请把该 段落 改成「异步 段落」后再使用「{feature}」。",
                 'RunAsyncStmt')
+        raise CodeGenError(
+            f"「{feature}」只能写在 异步 段落 里面；"
+            f"要在顶层跑异步代码请用启动语句 `异步 运行 主()。`",
+            'RunAsyncStmt')
 
     def _generate_async_scope(self, stmt: AsyncScope):
         """生成异步作用域（结构化并发，使用 asyncio.gather 实现）"""
@@ -3288,6 +3304,7 @@ class PythonCodeGenerator:
         def_line_index = len(self.output_lines) - 1
 
         old_in_function = self._in_function
+        old_in_async_function = self._in_async_function
         old_in_class = self._in_class_method
         # 进入类方法作用域（绑定形式②：方法参数）。_current_method_params 收的是
         # 「排除 self. 前缀」用的同一批原名，直接复用，避免两处各扫一遍参数表。
@@ -3302,6 +3319,7 @@ class PythonCodeGenerator:
         finally:
             self._binding_params = False
         self._in_function = True
+        self._in_async_function = is_async
         self._in_class_method = not is_static
         self.indent_level += 1
 
@@ -3375,6 +3393,7 @@ class PythonCodeGenerator:
         
         # 重置上下文
         self._in_function = old_in_function
+        self._in_async_function = old_in_async_function
         self._in_class_method = old_in_class
         self._current_method_params = set()
         # 离开类方法作用域：方法内的局部绑定不泄漏到类体/模块级
@@ -3403,6 +3422,17 @@ class PythonCodeGenerator:
             # 检查是否是中文数字
             if expr.value in self.chinese_numbers:
                 return str(self.chinese_numbers[expr.value])
+            # L-085：指数浮点字面量（如 1e400）经词法层 float() 归一后可能得到
+            # ±inf；str(inf)=='inf' 发射出去是未定义名（NameError: name 'inf'）。
+            # 必须发 float('inf')/float('-inf')/float('nan')，与 Python 原生
+            # `1e400` 字面量语义（求值为 inf）一致。
+            if isinstance(expr.value, float):
+                if expr.value != expr.value:
+                    return "float('nan')"
+                if expr.value == float('inf'):
+                    return "float('inf')"
+                if expr.value == float('-inf'):
+                    return "float('-inf')"
             return str(expr.value)
         
         elif isinstance(expr, StringLiteral):
@@ -3967,14 +3997,30 @@ class PythonCodeGenerator:
         elif isinstance(expr, LambdaExpression):
             # 匿名函数 -> lambda params: body
             # 多语句体 -> 生成命名函数 _light_lambda_N 并返回函数名
+            # R70-A（L-173）：块体走与命名段落一致的作用域处理——
+            #   _push_local_scope（体内 `设` 不泄漏到外层函数）+ L-006 函数帧
+            #   （裸赋值改写外层标量 → 自动 nonlocal），修复此前裸赋值要么
+            #   UnboundLocalError、要么把 nonlocal 误记到外层函数 pending 的问题。
             if getattr(expr, 'body_statements', None):
                 self._lambda_counter += 1
                 func_name = f"_light_lambda_{self._lambda_counter}"
                 params = ', '.join(self._sanitize_name(p) for p in expr.params)
                 self._add_line(f"def {func_name}({params}):")
-                self.indent_level += 1
+                # L-006：nonlocal 声明要插在 def 行之后、任何语句之前，先记住插入位。
+                def_line_index = len(self.output_lines) - 1
+                saved_locals = self._push_local_scope()
+                # L-006：推入本匿名函数帧；参数绑定阶段不触发 nonlocal（参数遮蔽合法）
+                self._function_locals_stack.append(set())
+                saved_pending = self._pending_nonlocal
+                self._pending_nonlocal = set()
+                self._binding_params = True
+                try:
+                    self._bind_local(*(str(p).lstrip('*') for p in expr.params))
+                finally:
+                    self._binding_params = False
                 _saved_in_func = self._in_function
                 self._in_function = True
+                self.indent_level += 1
                 for stmt in expr.body_statements:
                     self._generate_statement(stmt)
                 # 如果没有显式 return，补一个
@@ -3985,8 +4031,18 @@ class PythonCodeGenerator:
                 if not has_return:
                     body_str = self._generate_expr(expr.body) if expr.body else "None"
                     self._add_line(f"return {body_str}")
-                self._in_function = _saved_in_func
                 self.indent_level -= 1
+                # L-006：本函数体内改写的外层函数局部名 → 发射 nonlocal 声明
+                if self._pending_nonlocal:
+                    nonlocal_line = "nonlocal " + ", ".join(sorted(self._pending_nonlocal))
+                    self.output_lines.insert(
+                        def_line_index + 1,
+                        self._get_indent(self.indent_level + 1) + nonlocal_line,
+                    )
+                self._pending_nonlocal = saved_pending
+                self._function_locals_stack.pop()
+                self._in_function = _saved_in_func
+                self._pop_local_scope(saved_locals)
                 return func_name
             # 单表达式体 -> lambda
             params = ', '.join(self._sanitize_name(p) for p in expr.params)

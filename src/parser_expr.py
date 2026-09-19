@@ -852,6 +852,16 @@ class ParserExprMixin:
                 return self._parse_postfix(lam)
             self.pos = _lam_saved_pos
 
+        # R70-A（L-173）：冒号风格匿名函数 `函数(params): 表达式` / `函数(params): <缩进块>`
+        # 判据保守（凑齐 `函数` `(` … `)` `:` 才认，否则还原 pos），
+        # 与 C 风格分支、`函数 段名(…)` 段落调用、L-060 标识符回退互不干扰。
+        if tok.type == TokenType.KEYWORD and tok.value == '函数':
+            _fn_colon_saved = self.pos
+            _fn_colon = self._parse_anon_function_colon()
+            if _fn_colon is not None:
+                return self._parse_postfix(_fn_colon)
+            self.pos = _fn_colon_saved
+
         # C风格匿名函数：函数(params){body}
         # 如果 params 后面不是 {，_parse_c_anonymous_function 返回 None，
         # 回退到通用 KEYWORD 标识符分支——让 `函数(值)` 中「函数」当变量名用。
@@ -2318,6 +2328,209 @@ class ParserExprMixin:
         if return_expr is None:
             return_expr = Identifier('None')
         return (statements, return_expr)
+
+    def _parse_anon_function_colon(self) -> Optional[LambdaExpression]:
+        """R70-A（L-173）：表达式位置的冒号风格匿名函数。
+
+        两种形式：
+          单行体：`函数(参数列表): 表达式`   —— 表达式体，自动返回
+          块体：  `函数(参数列表):` 换行缩进多语句（需显式 `返回`）
+
+        判据保守：必须凑齐 `函数` `(` …参数… `)` `:` 才认；缺任何一项返回 None，
+        由调用方还原 self.pos（`函数` 仍可当普通标识符/被调用变量名用，
+        与 C 风格分支及 L-060 回退共存）。
+        缩进块解析复用 L-022 `_try_parse_duan_closure` 同款 `_parse_body` 通道；
+        闭包捕获由 code_generator 的 L-006/L-078 nonlocal 分析统一处理。
+        """
+        saved = self.pos
+        # 函数
+        if not (self._current() and self._current().type == TokenType.KEYWORD
+                and self._current().value == '函数'):
+            return None
+        nxt = self._peek(1)
+        if not (nxt and nxt.type == TokenType.LPAREN):
+            return None
+        self._consume(TokenType.KEYWORD, '函数')
+        self._consume(TokenType.LPAREN)
+
+        # 参数名列表（逗号/空格分隔，兼容 *args / **kwargs）
+        params = []
+        while self._current():
+            tok = self._current()
+            if tok.type == TokenType.RPAREN:
+                break
+            if tok.type == TokenType.STAR:
+                self._consume(TokenType.STAR)
+                if self._current() and self._current().type == TokenType.STAR:
+                    self._consume(TokenType.STAR)
+                    if self._current() and self._current().type == TokenType.IDENTIFIER:
+                        params.append('**' + self._consume(TokenType.IDENTIFIER).value)
+                    elif self._current() and self._current().type == TokenType.KEYWORD:
+                        params.append('**' + self._consume(TokenType.KEYWORD).value)
+                    else:
+                        break
+                else:
+                    if self._current() and self._current().type == TokenType.IDENTIFIER:
+                        params.append('*' + self._consume(TokenType.IDENTIFIER).value)
+                    elif self._current() and self._current().type == TokenType.KEYWORD:
+                        params.append('*' + self._consume(TokenType.KEYWORD).value)
+                    else:
+                        break
+            elif tok.type == TokenType.IDENTIFIER:
+                params.append(self._consume(TokenType.IDENTIFIER).value)
+            elif tok.type == TokenType.COMMA:
+                self._consume(TokenType.COMMA)
+                continue
+            elif tok.type == TokenType.KEYWORD:
+                # 允许非语句关键字作为参数名
+                params.append(self._consume(TokenType.KEYWORD).value)
+            else:
+                break
+        # 闭右括号（缺了就不认，还原 pos）
+        if not (self._current() and self._current().type == TokenType.RPAREN):
+            self.pos = saved
+            return None
+        self._consume(TokenType.RPAREN)
+
+        # 必须紧跟冒号
+        if not self._match(TokenType.COLON):
+            self.pos = saved
+            return None
+        self._consume(TokenType.COLON)
+
+        # 单行体 / 括号内块体：冒号后同一行跟语句或表达式。
+        # 注意两点：
+        # 1. 单行体常嵌在调用实参里（如 `映射(数据, 函数(x): x * 2)`），后面还有
+        #    `))`，必须靠语句边界自然停住，不能无条件吃到底；
+        # 2. 括号内 NEWLINE 被 lexer 抑制（跨行回调 `函数():\n  语句... )` 没有
+        #    NEWLINE/INDENT token），只能靠语句解析逐条收敛，遇 `)/,/]` 停。
+        # 因此先用语句通道试解析（遇 ParseError / 空结果回滚），再退回单表达式
+        # 解析。单个纯表达式语句降级为 lambda 单表达式体（自动返回）。
+        _n0 = self._current()
+        if not (_n0 and _n0.type == TokenType.NEWLINE):
+            # 形态分派：
+            # a) 语句关键字开头（设/返回/打印/如果/…）或「标识符 为/等于 …」赋值
+            #    形态 → 语句通道（跨行块体在括号内没有 NEWLINE，只能逐语句收敛）；
+            # b) 其余（表达式起始）→ 单表达式解析。必须用 _parse_logical_expr：
+            #    _parse_expr 会把 `,` 当因果链操作符吃掉（`执行(函数(v): v + 1, 41)`
+            #    会错编成 `(v + 1)(41)`），而 _parse_logical_expr 在 COMMA/RPAREN
+            #    处自然停住。
+            _is_stmt_start = False
+            if _n0.type == TokenType.KEYWORD and _n0.value in (
+                    '设', '返回', '定义', '打印', '如果', '若', '当', '遍历',
+                    '尝试', '抛出', '跳出', '跳过', '匹配', '断言'):
+                _is_stmt_start = True
+            elif _n0.type == TokenType.IDENTIFIER:
+                _n1 = self._peek(1)
+                if _n1 and _n1.type == TokenType.KEYWORD and _n1.value in ('为', '等于'):
+                    _is_stmt_start = True
+            if _is_stmt_start:
+                body_statements = self._try_parse_inline_statements()
+                if body_statements:
+                    return_expr = None
+                    for stmt in body_statements:
+                        if type(stmt).__name__ in ('ReturnStmt', 'ReturnStatement'):
+                            return_expr = getattr(stmt, 'value', None)
+                            break
+                    if return_expr is None and len(body_statements) == 1:
+                        only = body_statements[0]
+                        only_name = type(only).__name__
+                        if only_name in ('ExpressionStatement', 'ExprStmt', 'ExpressionStmt'):
+                            inner = getattr(only, 'value', None) or getattr(only, 'expression', None)
+                            if inner is not None:
+                                return LambdaExpression(params, inner, [])
+                        # 解析器的表达式语句返回的是裸表达式节点（BinaryOp/CallExpression/
+                        # Identifier/字面量等），不是 ExpressionStatement 包裹——用语句
+                        # 类型名排除表识别：不在表内的单语句即纯表达式 → 自动返回 lambda。
+                        _STMT_NAMES = frozenset({
+                            'VariableDeclaration', 'AssignmentStmt', 'AssignStatement',
+                            'Assignment', 'AugmentedAssignment', 'PrintStatement',
+                            'IfStmt', 'WhileStmt', 'ForStmt', 'TryStmt', 'ThrowStmt',
+                            'MatchStmt', 'BreakStmt', 'ContinueStmt', 'PassStmt',
+                            'AssertStmt', 'ScopeDeclStmt', 'DeferStatement',
+                            'ImportStmt', 'ExportStmt',
+                        })
+                        if only_name not in _STMT_NAMES and not hasattr(only, 'body_statements'):
+                            return LambdaExpression(params, only, [])
+                    return LambdaExpression(params, return_expr, body_statements)
+                # 语句通道没收到语句 → 落回单表达式
+            if self._match(TokenType.KEYWORD, '返回'):
+                self._consume(TokenType.KEYWORD, '返回')
+            body_expr = self._parse_logical_expr()
+            if body_expr is None:
+                self.pos = saved
+                return None
+            return LambdaExpression(params, body_expr, [])
+
+        # 块体：换行缩进多语句（需显式 `返回`）
+        has_newline = False
+        while self._current() and self._current().type == TokenType.NEWLINE:
+            has_newline = True
+            self._consume(TokenType.NEWLINE)
+        if self._current() and self._current().type == TokenType.INDENT:
+            self._consume(TokenType.INDENT)
+
+        body_statements = self._parse_body(allow_single_line=False)
+
+        # 闭包体的收尾 DEDENT（_parse_body 在 depth==0 时留下它）
+        if self._current() and self._current().type == TokenType.DEDENT:
+            self._consume(TokenType.DEDENT)
+
+        # 提取返回表达式：
+        # - 单行纯表达式体（无 返回 语句）→ 降为 lambda 单表达式体（自动返回，
+        #   code_generator 走 Python lambda 路径，与任务书「单行=表达式体」一致）
+        # - 有显式 `返回` → 取第一个 返回 的值作为 return_expr 回退
+        return_expr = None
+        for stmt in body_statements:
+            if type(stmt).__name__ in ('ReturnStmt', 'ReturnStatement'):
+                return_expr = getattr(stmt, 'value', None)
+                break
+        if return_expr is None and len(body_statements) == 1:
+            only = body_statements[0]
+            if type(only).__name__ in ('ExpressionStatement', 'ExprStmt', 'ExpressionStmt'):
+                inner = getattr(only, 'value', None) or getattr(only, 'expression', None)
+                if inner is not None:
+                    return LambdaExpression(params, inner, [])
+        return LambdaExpression(params, return_expr, body_statements)
+
+    def _try_parse_inline_statements(self) -> list:
+        """R70-A：冒号后单行/括号内体的语句通道试解析。
+
+        逐条解析语句，遇终止 token（`)`/`]`/`}`/`,`/换行/冒号/EOF）自然停；
+        任何 ParseError 或零进展即整体回滚并返回空列表（调用方退回单表达式
+        解析）。与 `_parse_body` 的区别：绝不把终止 token 当语句报错——
+        本通道服务于嵌在调用实参里的匿名函数体，`))` 是正常边界。
+        """
+        statements = []
+        saved = self.pos
+        last_pos = self.pos
+        count = 0
+        try:
+            while self._current() and count < 64:
+                tok = self._current()
+                if tok.type in (TokenType.RPAREN, TokenType.RBRACKET,
+                                TokenType.RBRACE, TokenType.COMMA,
+                                TokenType.NEWLINE, TokenType.COLON):
+                    break
+                if tok.type == TokenType.SEMICOLON:
+                    self._consume(TokenType.SEMICOLON)
+                    continue
+                if tok.type == TokenType.EOF:
+                    break
+                stmt = self._parse_statement()
+                if stmt is None:
+                    break
+                statements.append(stmt)
+                count += 1
+                if self.pos == last_pos:
+                    break
+                last_pos = self.pos
+        except ParseError:
+            self.pos = saved
+            return []
+        if not statements:
+            self.pos = saved
+        return statements
 
     def _try_parse_duan_closure(self) -> Optional[LambdaExpression]:
         """L-022：表达式位置的 `段落 接收 参数: 体` 匿名闭包字面量。

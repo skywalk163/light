@@ -1812,6 +1812,26 @@ class Lexer:
             return True
         return source[k] in '\n\r:：。'
 
+    @staticmethod
+    def _is_legacy_import_export_marker(source: str, pos: int) -> bool:
+        """L-046 豁免：判断 pos 处的裸 `出` 是否是「导 X 出 符号…」旧式
+        导入导出语句的行中导出标记。
+
+        形态：同一行内，`出` 之前的非空白内容恰为 `导 <模块名>` 或 `导入 <模块名>`
+        （模块名为单个无空白段）。此时 `出` 是 from-import 的标记关键字，必须
+        保持 KEYWORD，不得按 L-046 降级为标识符。
+        """
+        line_start = source.rfind('\n', 0, pos) + 1
+        left = source[line_start:pos].rstrip()
+        if not left:
+            return False
+        parts = left.split()
+        if len(parts) != 2 or parts[0] not in ('导', '导入'):
+            return False
+        # 模块名段必须非空且不含 `出` 自己（split 已保证无空白）
+        return bool(parts[1])
+
+
     def _emb_keyword_spanning(self, source: str, base: int, offset: int) -> bool:
         """R58 任务1（L-174 配套守卫）：判断 source[base+offset] 是否落在
         「更早起始、更长的关键字」内部。
@@ -2742,6 +2762,24 @@ class Lexer:
                 keyword = None
 
             if keyword:
+                # L-046：单字 `出`（导出 的 L0 别名）只在**语句起始位置**是导出语句
+                # 关键字；非语句起始位置（设目标 / 接收形参 / 表达式 / 成员访问等）
+                # 它是普通标识符，应发 IDENTIFIER。旧行为把裸 `出` 恒发 KEYWORD，
+                # `设 出 为 "x"` / `段落 乙 接收 出:` / `打印(出)` 全部解析失败。
+                # 判据收窄（三条同时成立）：整段即该单字、关键字恰为 `出`、
+                # 当前不在语句起始位置。`出 名单`（导出语句）不受影响；
+                # `输出/溢出/抛出` 等词内 `出` 走既有复合词/嵌入扫描路径，不受影响。
+                # 第四条豁免：`导 X 出 符号…` 旧式导入导出语句的**行中 `出`** 是
+                # 导出标记（其后是被导入符号表），左侧同行上下文是 `导/导入 模块名`，
+                # 必须保持 KEYWORD（tests/unit/test_lexer.py 与 test_context_manager
+                # 的 from-import 形态依赖它）。
+                if (keyword == '出' and len(full_identifier) == 1
+                        and not self._at_statement_start(source, pos)
+                        and not self._is_legacy_import_export_marker(source, pos)):
+                    _tokens_append(_Token(_TokenType.IDENTIFIER, keyword, line, current_col))
+                    consumed += length
+                    current_col += length
+                    break
                 # 单字动词在词首且词长>1时不直接匹配，避免拆开复合词
                 # 例如"列表"(len=2)不应拆为 列(动词)+表
                 # 但独立出现的"加"(len=1)仍应匹配为关键字
