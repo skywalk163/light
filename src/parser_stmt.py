@@ -81,8 +81,15 @@ class ParserStmtMixin:
             return None
         return ''.join(parts)
     
-    def _parse_type_union(self, parts: list):
-        """解析联合类型：type(|type)*"""
+    def _parse_type_union(self, parts: list, stop_at_rparen: bool = False):
+        """解析联合类型：type(|type)*
+
+        L-178：`stop_at_rparen=True` 时，当前 token 已是 RPAREN 则直接返回，
+        不进入 `_parse_type_atom`。用于括号包裹类型 `(整数|浮点)` 的内层调用——
+        否则 `_parse_type_atom` 的 else 分支会再吃一个 LPAREN 并递归下去。
+        """
+        if stop_at_rparen and self._current() and self._current().type == TokenType.RPAREN:
+            return
         self._parse_type_atom(parts)
         while self._current() and self._current().type == TokenType.PIPE:
             parts.append(self._consume(TokenType.PIPE).value)
@@ -140,9 +147,14 @@ class ParserStmtMixin:
                     break
         else:
             # 可能是括号包裹的类型：(整数|浮点) -> 字符串
+            # L-178：括号内需容纳联合类型 `整数|浮点`。原实现直接调
+            # `_parse_type_union(parts)`，只吃下 `整数`；`|` 后的 `浮点` 因
+            # `_parse_type_atom` 的 else 分支再次进入 LPAREN 处理而被漏掉，
+            # 冒号留在流里 → 报「期望 右括号「)」，但得到 冒号」。传入
+            # `stop_at_rparen=True` 让内层 union 在 RPAREN 处收敛。
             if self._current().type == TokenType.LPAREN:
                 parts.append(self._consume(TokenType.LPAREN).value)
-                self._parse_type_union(parts)
+                self._parse_type_union(parts, stop_at_rparen=True)
                 if self._current() and self._current().type == TokenType.RPAREN:
                     parts.append(self._consume(TokenType.RPAREN).value)
     
@@ -3943,21 +3955,39 @@ class ParserStmtMixin:
                     param_name = self._consume(TokenType.IDENTIFIER).value
                     param_type = None
                     # 检查类型注解：参数名: 类型
+                    # L-178：类型首 token 允许 LPAREN（括号包裹类型 `(整数|浮点)`）。
+                    # 原判据只放行 IDENTIFIER/KEYWORD，`(` 被挡下 → 冒号不消费 →
+                    # 外层报「期望 右括号「)」，但得到 冒号」。
                     if self._current() and self._current().type == TokenType.COLON:
                         next_tok = self._peek(1)
-                        if next_tok and next_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                        if next_tok and next_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD, TokenType.LPAREN):
                             self._consume(TokenType.COLON)
                             param_type = self._parse_type_annotation()
+                    # L-178：括号式形参支持默认值 `参数名: 类型 等于 值` / `= 值`。
+                    # 接收式与括号式方法形参两条通路早已支持，仅括号式段落形参
+                    # 这条漏了——语法过得去、默认值被丢弃，调用时缺参才炸。
+                    # 注意顺序：必须先 append 再 attach —— `_attach_param_default`
+                    # 是往 `params[-1]` 挂，形参不在表里时默认值会被静默丢掉。
                     params.append({'name': param_name, 'type': param_type})
+                    if self._current() and (
+                            (self._current().type == TokenType.KEYWORD and self._current().value == '等于')
+                            or self._current().type == TokenType.EQUALS):
+                        self._consume()
+                        self._attach_param_default(params)
                 elif tok.type == TokenType.KEYWORD and tok.value not in _stmt_keywords_paren:
                     param_name = self._consume(TokenType.KEYWORD).value
                     param_type = None
                     if self._current() and self._current().type == TokenType.COLON:
                         next_tok = self._peek(1)
-                        if next_tok and next_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                        if next_tok and next_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD, TokenType.LPAREN):
                             self._consume(TokenType.COLON)
                             param_type = self._parse_type_annotation()
                     params.append({'name': param_name, 'type': param_type})
+                    if self._current() and (
+                            (self._current().type == TokenType.KEYWORD and self._current().value == '等于')
+                            or self._current().type == TokenType.EQUALS):
+                        self._consume()
+                        self._attach_param_default(params)
                 else:
                     break
             self._consume(TokenType.RPAREN)

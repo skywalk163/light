@@ -1812,6 +1812,14 @@ class UnifiedCodeGenerator:
         stripped = (light_type or '').strip()
         if not stripped:
             return stripped
+        # L-178：括号包裹类型 `(整数|浮点)` / `(整数)` —— 先剥最外层括号再递归映射。
+        # 必须在「联合类型」判断之前：否则 `(整数|浮点)` 会被顶层 `|` 切成
+        # `(整数` 与 `浮点)` 两半，各自映射出非法 Python 类型串。
+        if stripped.startswith('(') and stripped.endswith(')') \
+                and self._is_fully_parenthesized(stripped):
+            inner = stripped[1:-1].strip()
+            if inner:
+                return self._map_type(inner)
         # 联合类型：整数|字符串 -> int | str（只切顶层 | ）
         if '|' in stripped:
             parts = self._split_top_level(stripped, '|')
@@ -1842,9 +1850,33 @@ class UnifiedCodeGenerator:
                     inner = self._map_type(args[0]) if args else 'Any'
                     return f"Optional[{inner}]"
                 return self._LIGHT_TYPE_MAP.get(base, base)
+        # L-178：括号包裹类型 `(整数|浮点)` / `(整数)` —— 先剥最外层括号再递归映射。
+        # 必须在「联合类型」判断之前：否则 `(整数|浮点)` 会被顶层 `|` 切成
+        # `(整数` 与 `浮点)` 两半，各自映射出非法 Python 类型串。
+        if stripped.startswith('(') and stripped.endswith(')') \
+                and self._is_fully_parenthesized(stripped):
+            inner = stripped[1:-1].strip()
+            if inner:
+                return self._map_type(inner)
         return self._LIGHT_TYPE_MAP.get(stripped, stripped)
 
-    def _map_return_type(self, light_type):
+    @staticmethod
+    def _is_fully_parenthesized(s: str) -> bool:
+        """判断 `s` 是否被最外层一对括号完整包裹（括号配对检查，含 <>/[] 嵌套）。
+
+        与 src 后端 code_generator.py::_is_fully_parenthesized 同口径。
+        """
+        depth = 0
+        for i, ch in enumerate(s):
+            if ch in '([<':
+                depth += 1
+            elif ch in ')]>':
+                depth -= 1
+                if depth == 0:
+                    return i == len(s) - 1
+            if depth < 0:
+                return False
+        return False
         """光明类型名 -> Python 类型名。
 
         必须做映射：直接把 `串` 写进 `-> 串` 注解会在运行期 NameError

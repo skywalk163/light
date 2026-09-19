@@ -2194,6 +2194,14 @@ class PythonCodeGenerator:
         stripped = (light_type or '').strip()
         if not stripped:
             return stripped
+        # L-178：括号包裹类型 `(整数|浮点)` / `(整数)` —— 先剥最外层括号再递归映射。
+        # 必须在「联合类型」判断之前：否则 `(整数|浮点)` 会被顶层 `|` 切成
+        # `(整数` 与 `浮点)` 两半，各自映射出非法 Python 类型串。
+        if stripped.startswith('(') and stripped.endswith(')') \
+                and self._is_fully_parenthesized(stripped):
+            inner = stripped[1:-1].strip()
+            if inner:
+                return self._map_type(inner)
         # 联合类型：整数|字符串 -> int | str（只切顶层 | ）
         if '|' in stripped:
             parts = self._split_top_level(stripped, '|')
@@ -2227,7 +2235,34 @@ class PythonCodeGenerator:
                     return f"Optional[{inner}]"
                 # 未知泛型基名：退化为基名本身
                 return self._LIGHT_TYPE_MAP.get(base, base)
+        # L-178：括号包裹类型 `(整数|浮点)` / `(整数)` —— 剥掉最外层括号后递归映射。
+        # 仅当整串被一对括号完整包裹时才剥（配对检查），避免误伤
+        # `列表<(整数|浮点)>` 这类由上面泛型分支处理过的形态。
+        if stripped.startswith('(') and stripped.endswith(')'):
+            inner = stripped[1:-1].strip()
+            if inner and self._is_fully_parenthesized(stripped):
+                return self._map_type(inner)
         return self._LIGHT_TYPE_MAP.get(stripped, stripped)
+
+    @staticmethod
+    def _is_fully_parenthesized(s: str) -> bool:
+        """判断 `s` 是否被最外层一对括号完整包裹（括号配对检查，含 <>/[] 嵌套）。
+
+        `(整数|浮点)` → True；`(整数)|(浮点)` → False（首括号在 `|` 前就闭合）；
+        `(列表<整数>)` → True。
+        """
+        depth = 0
+        for i, ch in enumerate(s):
+            if ch in '([<':
+                depth += 1
+            elif ch in ')]>':
+                depth -= 1
+                if depth == 0:
+                    # 最外层括号恰在末位闭合 → 整串被包裹
+                    return i == len(s) - 1
+            if depth < 0:
+                return False
+        return False
     
     def _generate_if_stmt(self, stmt: IfStmt):
         """生成条件语句"""
