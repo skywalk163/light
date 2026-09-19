@@ -4177,6 +4177,19 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         result = self._load_dv(result_slot)
         return result, 'dv'
 
+    @staticmethod
+    def _is_null_arg(a) -> bool:
+        """切片/下标分量的「未提供」判据。
+
+        R74（L-180）：适配层给未提供的切片分量填的是 ast.NullLiteral 节点
+        （表示 空/None），不是 Python 的 None。旧判据 args[i] is not None 把
+        NullLiteral 当成「用户传了值」，于是 文本[0:8]（args = [0, 8, NullLiteral]）
+        被误判为「传了 step」→ 抛 NotImplementedError。
+        R65 之后切片解析开始恒定填充三元组（第三个分量是 NullLiteral），
+        该误判一次性打红 105 条原生腿用例。
+        """
+        return a is None or isinstance(a, ast.NullLiteral)
+
     def _gen_typed_slice(self, obj_ast, args) -> Tuple[str, str]:
         """A9-S2: 切片 obj[start:stop] / obj[start:] / obj[:stop] / obj[:]
 
@@ -4196,16 +4209,16 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         stop_is_len = True
         stop_i64 = None
 
-        if len(args) >= 1 and args[0] is not None:
+        if len(args) >= 1 and not self._is_null_arg(args[0]):
             start_dv, _ = self._gen_expression(args[0])
             start_i64 = self.new_register()
             self.emit(f'{start_i64} = extractvalue {LIGHTVALUE_STRUCT} {start_dv}, 1')
-        if len(args) >= 2 and args[1] is not None:
+        if len(args) >= 2 and not self._is_null_arg(args[1]):
             stop_dv, _ = self._gen_expression(args[1])
             stop_i64 = self.new_register()
             self.emit(f'{stop_i64} = extractvalue {LIGHTVALUE_STRUCT} {stop_dv}, 1')
             stop_is_len = False
-        if len(args) >= 3 and args[2] is not None:
+        if len(args) >= 3 and not self._is_null_arg(args[2]):
             raise NotImplementedError(
                 f"原生后端切片暂不支持 step 参数"
                 f"（源码行 {self._stmt_source_line(obj_ast)}）。"
