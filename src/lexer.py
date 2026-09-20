@@ -3726,8 +3726,10 @@ class Lexer:
                     s = s.split(_sep, 1)[0].strip()
                     break
             # 剥默认值 `名 等于 值` / `名 = 值`
-            if '等于' in s:
-                s = s.split('等于', 1)[0].strip()
+            # R81 守卫：『等于』必须是独立词（前后空白），否则形参名以「等于」开头
+            # （如 等于判断）会被当成默认值语法腰斩成空串 → 不登记 → 后续被切碎。
+            if ' 等于 ' in s:
+                s = s.split(' 等于 ', 1)[0].strip()
             elif '=' in s:
                 s = s.split('=', 1)[0].strip()
             if not s:
@@ -3976,9 +3978,21 @@ class Lexer:
                     # 名字整体成 IDENTIFIER（L-152 的「段名以 返回 结尾」类已由清晰分隔符
                     # 循环的 `_preceded_ok` 守卫覆盖，本回退路径的实际用途只有无空格 `接收`）。
                     _s = j
+                    _paren = 0
                     while _s < _header_end:
                         _kw, _kl = self._match_keyword(source, _s)
-                        if _kw and _kl > 0 and _kw == '接收':
+                        _ch1 = source[_s]
+                        if _ch1 in '（(':
+                            _paren += 1
+                        elif _ch1 in '）)':
+                            _paren = _paren - 1 if _paren > 0 else 0
+                        _kw, _kl = self._match_keyword(source, _s)
+                        # R81 守卫：a) _paren == 0 —— 括号内的『接收』是形参名的一部分
+                        #    （段落 构造交付(来源, 接收时间):）；b) 后一个字符不是左括号 ——
+                        #    段名以『接收』结尾且紧跟参数括号（段落 可变接收(*参数):）。
+                        # 旧式无空格写法（段落 加法接收甲:）两条守卫均不触发，行为不变。
+                        if (_kw and _kl > 0 and _kw == '接收' and _paren == 0
+                                and not (_s + _kl < n and source[_s + _kl] in '（(')):
                             _sep_pos = _s
                         _s += 1
                 # 段名收集循环：遇到非名字字符或定位到的分隔符即停
