@@ -228,6 +228,7 @@ class LightParser:
         """解析源代码为 AST（使用自定义中文分词器 + ANTLR 解析器）"""
         # ANTLR Parser 已原生支持列表推导、匿名函数、模式匹配
         # 仅对异步/等待/推迟/并行 语法进行预处理转换
+        source = self._preprocess_postfix_ternary(source)
         source = self._preprocess_async(source)
         # 自动关闭未闭合的块 — 启用以支持纯缩进语法（3.x 新语法）
         source = self._auto_close_blocks(source)
@@ -283,167 +284,124 @@ class LightParser:
 
         return source
 
-    def _auto_close_blocks(self, source: str) -> str:
-        """自动关闭未闭合的代码块（根据缩进确定块范围）
+    def _preprocess_postfix_ternary(self, source: str) -> str:
+        """R76-A：后置三元 `设 X 为 值1 如果 条件 否则 值2`
 
-        光明使用缩进驱动的代码块，此方法根据缩进级别自动插入"结束"标记。
+        语法上等价改写为前缀三元（conditionalExpr）：
+            设 X 为 如果 条件 那么 值1 否则 值2
+        仅作用于 `设 … 为 …` 单行形态，避免误伤块级 否则。
+        """
+        import re
+        pattern = re.compile(
+            r'^(?P<pre>[ \t]*设[ \t]+\S+[ \t]+为[ \t]+)(?P<val>.+?)'
+            r'[ \t]+如果[ \t]+(?P<cond>.+?)[ \t]+否则[ \t]+(?P<els>.+?)[ \t]*$',
+            re.MULTILINE,
+        )
+
+        def rep(m):
+            return (f"{m.group('pre')}如果 {m.group('cond')} "
+                    f"那么 {m.group('val')} 否则 {m.group('els')}")
+
+        return pattern.sub(rep, source)
+
+    def _auto_close_blocks(self, source: str) -> str:
+        """自动关闭未闭合的代码块（缩进驱动 + 显式「结束」感知）
+
+        R76-A 根因②重写。旧实现用 `\\b`/`^(?:段|段落)\\b` 正则判定块开始，
+        对 v3 无空格写法（如 `段落加法接收甲，乙：`、`如果甲大于乙：`）零匹配；
+        且不感知源文件中已有的显式 `结束`，导致重复关闭（报「多余的 '结束'」）。
+
+        新算法（逐行、缩进驱动）：
+        1. 以冒号行尾判定块开始（不再依赖关键字正则，天然覆盖无空格写法）；
+        2. 维护打开块栈 (indent, closable)；`closable=False` 表示语法上不带
+           `结束` 的块（如 `匹配`：matchStmt 规则无 K_END）；
+        3. 当出现缩进 <= 栈顶块缩进的行（含同级 `否则`/`情况`）时，先插入
+           对应数量的 `结束` 行再放行当前行；
+        4. 显式 `结束` 行关闭最近一个缩进 <= 其缩进的可关闭块，不重复插入；
+        5. 文件末尾关闭所有残留可关闭块。
         """
         import re
 
-        # 定义需要结束标记的嵌套块（不包括段落定义本身）
-        nested_block_starters = [
-            (r'^\s*(?:如果|若)\b', '如果/若'),      # 如果/若 条件 那么/则：
-            (r'^\s*遍历\b', '遍历'),                # 遍历 变量 之 列表：
-            (r'^\s*当\b', '当'),                    # 当 条件：
-            (r'^\s*尝试\b', '尝试'),                # 尝试：
-            (r'^\s*使用\b', '使用'),                # 使用 表达式 作为 变量：
-            (r'^\s*匹配\b', '匹配'),                # 匹配 表达式：
-            (r'^\s*(?:否则|否则若)\b', '否则'),      # 否则/否则若：
-            (r'^\s*情况\b', '情况'),                # 情况 模式：
-        ]
+        def strip_comment(stripped: str) -> str:
+            for prefix in ('#', '//'):
+                idx = stripped.find(prefix)
+                if idx > 0:
+                    return stripped[:idx].strip()
+            return stripped
 
-        # 定义段落定义开始
-        paragraph_starters = [
-            r'^\s*《[^》]+》段\b',          # 《名称》段：
-            r'^\s*(?:段|段落)\b.*[：:]',     # 段/段落 名称：
-        ]
+        # R76-A：块开始关键字（行中冒号 = 内联块体，如 `如果 x != y: 抛出 "..."`）
+        _OPEN_KEYWORDS = ('如果', '若', '否则如果', '否则若', '否则', '当', '遍历', '对',
+                          '尝试', '使用', '情况', '段落', '段', '类', '接口', '构造',
+                          '方法', '数据类型')
 
-        # 检查行是否是嵌套块开始，并返回缩进级别
-        def get_nested_block_indent(line: str) -> int:
-            stripped = line.strip()
-            if not stripped or stripped.startswith('#'):
-                return -1
-            for pattern, name in nested_block_starters:
-                if re.search(pattern, stripped):
-                    # 检查是否有冒号（块开始）
-                    if '：' in stripped or ':' in stripped:
-                        return len(line) - len(line.lstrip())
-            return -1
-
-        # 检查是否是段落定义开始
-        def is_paragraph_start(line: str) -> bool:
-            stripped = line.strip()
-            if not stripped or stripped.startswith('#'):
-                return False
-            for pattern in paragraph_starters:
-                if re.search(pattern, stripped):
-                    return True
+        def is_block_opener(content: str) -> bool:
+            if content.endswith('：') or content.endswith(':'):
+                return True
+            for kw in _OPEN_KEYWORDS:
+                if content.startswith(kw):
+                    c = max(content.rfind('：'), content.rfind(':'))
+                    if c > 0 and c < len(content) - 1:
+                        return True
             return False
 
         lines = source.split('\n')
-        result = []
-        # 栈中存储(块的缩进级别, 父缩进, 最后语句索引)
-        block_stack = []
-        # 段落栈：追踪段落定义，存储(段落缩进, 段落最后语句索引)
-        para_stack = []
+        out = []
+        # 栈元素: (块开始缩进, 是否需要合成 `结束`)
+        stack = []
 
-        i = 0
-        while i < len(lines):
-            line = lines[i]
+        def close_before(line_indent: int) -> None:
+            """在当前行之前关闭所有缩进 >= line_indent 的可关闭块。"""
+            while stack and stack[-1][1] and stack[-1][0] >= line_indent:
+                b_indent, _ = stack.pop()
+                out.append(' ' * b_indent + '结束')
+
+        for line in lines:
             stripped = line.strip()
+            if not stripped or stripped.startswith('#') or stripped.startswith('//'):
+                out.append(line)
+                continue
+            indent = len(line) - len(line.lstrip())
+            content = strip_comment(stripped)
 
-            # 跳过空行和注释行
-            if not stripped or stripped.startswith('#'):
-                result.append(line)
-                i += 1
+            # ---- R76-A：类显式收尾标记（类结束/结束类）----
+            # 语法上等价于该类的 `结束`：插入标准 结束 行后吞掉原行
+            if re.match(r'^(?:类结束|结束类|段结束|结束段)[。.]?$', content):
+                close_before(indent)
                 continue
 
-            current_indent = len(line) - len(line.lstrip())
-
-            # 如果是段落定义开始，关闭所有现有的嵌套块，并关闭之前的段落
-            if is_paragraph_start(stripped):
-                # 关闭嵌套块
-                while block_stack:
-                    block_info = block_stack.pop()
-                    last_stmt_idx = block_info[2]
-                    if last_stmt_idx >= 0 and result[last_stmt_idx].strip().endswith('。'):
-                        result[last_stmt_idx] = result[last_stmt_idx].rstrip() + ' 结束。'
-                # 关闭之前的段落（如果还在段落体内）
-                if para_stack:
-                    para_stack.pop()
-                    # 插入结束标记作为独立行在段落体末尾
-                    result.append('结束。')
-                # 开始新段落
-                para_stack.append((current_indent, len(result)))
-                result.append(line)
-                i += 1
+            # ---- 显式结束行：关闭最近一个缩进 <= 当前行缩进的可关闭块 ----
+            if re.match(r'^结束[。.]?$', content):
+                closed = False
+                for k in range(len(stack) - 1, -1, -1):
+                    b_indent, closable = stack[k]
+                    if closable and b_indent <= indent:
+                        del stack[k:]
+                        closed = True
+                        break
+                out.append(line)
+                # 未匹配到打开块时保持原样（如实交给解析器报错）
                 continue
 
-            # 直接计算nested_indent
-            nested_indent = -1
-            for pattern, name in nested_block_starters:
-                if re.search(pattern, stripped):
-                    if '：' in stripped or ':' in stripped:
-                        nested_indent = len(line) - len(line.lstrip())
-                        break
+            # ---- 块开始行（冒号行尾，或行中冒号的内联块体）----
+            if is_block_opener(content):
+                close_before(indent)
+                # `匹配` 块语法上不带 `结束`（matchStmt 无 K_END），只作容器
+                is_match = bool(re.match(r'^(匹配|配)\b', content))
+                stack.append((indent, not is_match))
+                out.append(line)
+                continue
 
-            # 如果是嵌套块开始
-            if nested_indent >= 0:
-                # 否则/否则若 应先关闭当前的 如果 块（同级缩进）
-                if re.search(r'^\s*(?:否则|否则若)\b', stripped):
-                    while block_stack and block_stack[-1][0] >= nested_indent:
-                        block_info = block_stack.pop()
-                        last_stmt_idx = block_info[2]
-                        if last_stmt_idx >= 0 and result[last_stmt_idx].strip().endswith('。'):
-                            result[last_stmt_idx] = result[last_stmt_idx].rstrip() + ' 结束。'
-                    # 更新父块的最后语句索引（当前行之前的位置）
-                    if block_stack:
-                        block_stack[-1] = (block_stack[-1][0], block_stack[-1][1], len(result) - 1)
-                # 获取外层块的嵌套缩进（如果没有外层块，则为0）
-                # 这样块关闭条件 current_indent <= parent_indent 才能正确判断
-                parent_indent = block_stack[-1][0] if block_stack else 0
-                # 开始新块: (嵌套缩进, 父缩进, 最后语句索引)
-                block_stack.append((nested_indent, parent_indent, len(result)))
-                result.append(line)
-            else:
-                # 普通语句 - 检查是否需要关闭块
-                # 首先检查是否需要关闭段落（缩进回到段落级别）
-                while para_stack:
-                    para_info = para_stack[-1]
-                    para_indent = para_info[0]
-                    if current_indent <= para_indent:
-                        para_stack.pop()
-                        # 插入结束标记作为独立行在段落体末尾
-                        result.append('结束。')
-                    else:
-                        break
+            # ---- 普通语句行 ----
+            close_before(indent)
+            out.append(line)
 
-                # 块的关闭取决于块的开始缩进（块内语句缩进必须 > 块开始缩进）
-                while block_stack:
-                    block_info = block_stack[-1]
-                    block_start_indent = block_info[0]
+        # 文件末尾关闭所有残留可关闭块
+        while stack:
+            b_indent, closable = stack.pop()
+            if closable:
+                out.append(' ' * b_indent + '结束')
 
-                    if current_indent <= block_start_indent:
-                        # 当前缩进 <= 块开始缩进，关闭块
-                        block_stack.pop()
-                        last_stmt_idx = block_info[2]
-                        if last_stmt_idx >= 0 and result[last_stmt_idx].strip().endswith('。'):
-                            result[last_stmt_idx] = result[last_stmt_idx].rstrip() + ' 结束。'
-                        # 更新父块的最后语句索引
-                        if block_stack:
-                            block_stack[-1] = (block_stack[-1][0], block_stack[-1][1], last_stmt_idx)
-                    else:
-                        # 缩进更深，继续在当前块中
-                        # 更新当前块的"最后语句索引"
-                        block_stack[-1] = (block_info[0], block_info[1], len(result))
-                        break
-                result.append(line)
-
-            i += 1
-
-        # 处理文件末尾未闭合的块
-        while block_stack:
-            block_info = block_stack.pop()
-            last_stmt_idx = block_info[2]
-            if last_stmt_idx >= 0 and result[last_stmt_idx].strip().endswith('。'):
-                result[last_stmt_idx] = result[last_stmt_idx].rstrip() + ' 结束。'
-
-        # 处理文件末尾未闭合的段落
-        while para_stack:
-            para_stack.pop()
-            result.append('结束。')
-
-        return '\n'.join(result)
+        return '\n'.join(out)
 
     def _preprocess_async(self, source: str) -> str:
         """预处理异步/并发语法

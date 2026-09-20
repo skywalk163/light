@@ -68,6 +68,19 @@ class VisitorStmtMixin(VisitorDeclMixin):
 
         condition = self.visitExpr(ctx.expr(0))
 
+        # 单行内联形态：如果 条件 那么 语句（无冒号无块）——R76-A
+        if ctx.stmt() is not None:
+            stmt = self.visitStmt(ctx.stmt())
+            then_body = [stmt] if stmt is not None else []
+            return IfStatement(
+                line=line, column=col,
+                condition=condition,
+                then_body=then_body,
+                else_body=None,
+                elseif_conditions=[],
+                elseif_bodies=[],
+            )
+
         then_body = []
         if ctx.block(0):
             then_body = self.visitBlock(ctx.block(0))
@@ -106,7 +119,18 @@ class VisitorStmtMixin(VisitorDeclMixin):
         # 遍历变量（直接从foreachStmt获取）
         variable = ctx.ID().getText() if ctx.ID() else "当前项"
 
-        iterable = self.visitExpr(ctx.expr())
+        # R76-A：expr() 在带 K_TO 时会返回多个（起始/结束/步长）
+        exprs = ctx.expr()
+        if isinstance(exprs, list):
+            iterable = self.visitExpr(exprs[0])
+        else:
+            iterable = self.visitExpr(exprs)
+
+        # 范围遍历：遍历 i 于 1 至 10（步 2）→ iterable = RangeExpr(1, 10, step)
+        if ctx.K_TO():
+            end = self.visitExpr(exprs[1] if len(exprs) > 1 else exprs[0])
+            step = self.visitExpr(exprs[2]) if (ctx.K_STEP() and len(exprs) > 2) else None
+            iterable = RangeExpr(start=iterable, end=end, step=step)
 
         body = []
         if ctx.block():
@@ -251,6 +275,22 @@ class VisitorStmtMixin(VisitorDeclMixin):
         return DecoratorDefinition(line=line, column=col,
                                    decorator_name=decorator_name, paragraph=paragraph)
 
+    def visitDictContent(self, ctx: LightLangParser.DictContentContext):
+        """花括号内容：字典字面量/字典推导（R76-A 新增 {键: 值} 支持）"""
+        if ctx.dictComprehension():
+            return self.visitDictComprehension(ctx.dictComprehension())
+        if ctx.dictLiteral():
+            from light_ast import DictEntry
+            line = ctx.start.line
+            col = ctx.start.column
+            entries = []
+            for entry_ctx in ctx.dictLiteral().dictEntry():
+                key = self.visitExpr(entry_ctx.expr(0))
+                value = self.visitExpr(entry_ctx.expr(1))
+                entries.append(DictEntry(line=key.line, column=key.column, key=key, value=value))
+            return DictLiteral(line=line, column=col, entries=entries)
+        return None
+
     def visitDictComprehension(self, ctx: LightLangParser.DictComprehensionContext):
         """字典推导：{键: 值 遍历 变量 之 列表}"""
         line = ctx.start.line
@@ -340,6 +380,7 @@ class VisitorStmtMixin(VisitorDeclMixin):
         line = ctx.start.line
         col = ctx.start.column
         # 新语法: 打印(exprList) 或 输出(exprList)
+        # R76-A: 无括号形态 打印 "x" —— 参数由 primary 直接给出（无 LPAREN）
         expr_list = ctx.exprList()
         if expr_list:
             # 多个参数用逗号连接
@@ -349,6 +390,8 @@ class VisitorStmtMixin(VisitorDeclMixin):
             else:
                 # 多个参数拼接成一个表达式
                 value = values[0]
+        elif ctx.expr():
+            value = self.visitExpr(ctx.expr())
         else:
             value = None
         return PrintStatement(line=line, column=col, value=value)

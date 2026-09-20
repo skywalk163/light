@@ -105,6 +105,7 @@ class PythonCodeGenerator:
         # 是否需要导入 ABC/abstractmethod
         self._needs_abc = False
         self._needs_dataclass = False  # R73-C 数据类/记录类型
+        self._needs_enum = False  # R76-B（G-14）一等枚举需要 import enum
         
         # 是否需要导入 asyncio
         self._needs_asyncio = False
@@ -1516,6 +1517,16 @@ class PythonCodeGenerator:
             self.output_lines.insert(insert_pos, "")
             for imp in reversed(dc_imports):
                 self.output_lines.insert(insert_pos, imp)
+        if self._needs_enum:
+            # R76-B（G-14）：一等枚举需要 enum.Enum / enum.auto
+            insert_pos = 0
+            for j, line in enumerate(self.output_lines):
+                if line.startswith("#") or line == "":
+                    insert_pos = j + 1
+                else:
+                    break
+            self.output_lines.insert(insert_pos, "")
+            self.output_lines.insert(insert_pos, "import enum")
         if self._needs_asyncio:
             asyncio_import = "import asyncio"
             # 插入在文件头之后，第一个语句之前
@@ -2922,10 +2933,13 @@ class PythonCodeGenerator:
 
     def _generate_class_definition(self, stmt):
         """生成类定义"""
-        from ast_nodes_v3 import RecordDefinition
+        from ast_nodes_v3 import EnumDefinition, RecordDefinition
         is_record = isinstance(stmt, RecordDefinition)
+        is_enum = isinstance(stmt, EnumDefinition)
         if is_record:
             self._needs_dataclass = True
+        if is_enum:
+            self._needs_enum = True
         class_name = self._sanitize_name(stmt.name)
 
         # 检查是否有抽象方法
@@ -2938,6 +2952,10 @@ class PythonCodeGenerator:
 
         # 类定义行（包含父类和实现的接口）
         all_bases = list(stmt.base_classes) + list(getattr(stmt, 'interfaces', []) or [])
+        if is_enum:
+            # R76-B（G-14）：一等枚举固定以 enum.Enum 为基类。语法层不接受用户写
+            # 基类，这里直接覆盖，避免未定义形态（`枚举 X 继承 Y`）被静默放行。
+            all_bases = ['enum.Enum']
         if has_abstract:
             self._needs_abc = True
             if 'ABC' not in all_bases:
@@ -2959,7 +2977,7 @@ class PythonCodeGenerator:
             # `类 X 继承 错误:` 编译成 `class X(错误):`，纯光明 stdlib 经
             # _light_import_hook 编译加载时运行期 NameError（phase9 16 条）。
             bases = ', '.join(
-                b if b.startswith('Generic[')
+                b if (b.startswith('Generic[') or b == 'enum.Enum')
                 else self._resolve_exception_type(self._sanitize_name(b))
                 for b in all_bases)
             self._add_line(f"class {class_name}({bases}):")
@@ -2967,6 +2985,16 @@ class PythonCodeGenerator:
             self._add_line(f"class {class_name}:")
 
         self.indent_level += 1
+
+        # R76-B（G-14）：一等枚举成员。`enum.auto()` 按声明序自动编号（1,2,3…），
+        # 于是 Python 原生 Enum 的四件套在产物里天然成立：
+        #   构造 `颜色(1)` 按值反查 / 取值 `颜色.红` / 相等（同一性）/ 哈希。
+        # 成员发射后立即收尾——枚举没有属性/方法槽，不必走后面的类体逻辑。
+        if is_enum:
+            for _member in (stmt.members or []):
+                self._add_line(f"{self._sanitize_name(_member)} = enum.auto()")
+            self.indent_level -= 1
+            return
 
         # A2-5 嵌套类：`类 外：` 体内的 `类 内：` 发射成 Python 的嵌套类。
         #

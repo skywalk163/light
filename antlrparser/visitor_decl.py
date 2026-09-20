@@ -264,20 +264,47 @@ class VisitorDeclMixin(LightLangParserVisitor):
         methods = []
         constructor = None
 
+        def _member_access(member_ctx):
+            """R76-A：类成员访问修饰符 → 'private'/'protected'/'public'"""
+            if member_ctx.K_PRIVATE():
+                return 'private'
+            if member_ctx.K_PROTECTED():
+                return 'protected'
+            return 'public'
+
         for member in ctx.classMember():
+            is_static_member = bool(member.K_STATIC())
+            access = _member_access(member)
             if member.attributeDecl():
                 # 属性声明：属性 名字。
                 attr_ctx = member.attributeDecl()
                 field_name = attr_ctx.ID().getText()
+                # R76-A：私有属性加 _ 前缀（对齐 src code_generator 私有口径）
+                if access == 'private':
+                    field_name = '_' + field_name
                 field = DataTypeField(
                     name=field_name,
                     type_annotation=""
                 )
+                try:
+                    field.is_static = is_static_member
+                except Exception:  # noqa: BLE001
+                    pass
                 fields.append(field)
             elif member.methodDef():
                 method = self.visitMethodDef(member.methodDef())
+                # R76-A：访问修饰符 / 静态标记
+                try:
+                    method.access_modifier = access
+                    if is_static_member:
+                        method.is_static = True
+                except Exception:  # noqa: BLE001
+                    pass
+                # R76-A：私有方法加 _ 前缀（对齐 src code_generator.py:3506 口径）
+                if access == 'private' and not method.name.startswith('_'):
+                    method.name = '_' + method.name
                 # 如果方法名为"初始化"，则作为构造函数
-                if method.name == '初始化':
+                if method.name in ('初始化', '_初始化'):
                     constructor = ConstructorDefinition(
                         line=method.line,
                         column=method.column,
@@ -417,6 +444,8 @@ class VisitorDeclMixin(LightLangParserVisitor):
             return ''
         if ctx.ID():
             return ctx.ID().getText()
+        if ctx.UNDERSCORE():
+            return '_'
         # 内置类型token也可以作为标识符名
         if ctx.T_NUMBER():
             return ctx.T_NUMBER().getText()
@@ -592,6 +621,13 @@ class VisitorDeclMixin(LightLangParserVisitor):
 
         return None
 
+    def _member_name_text(self, ctx):
+        """取赋值目标成员名（memberName 规则：ID 或 构造 等关键字）——R76-A"""
+        if getattr(ctx, 'memberName', None) and ctx.memberName():
+            return ctx.memberName().getText()
+        ids = ctx.ID()
+        return ids[0].getText() if isinstance(ids, list) else ids.getText()
+
     def visitAssignStmt(self, ctx: LightLangParser.AssignStmtContext):
         """赋值语句"""
         line = ctx.start.line
@@ -606,19 +642,43 @@ class VisitorDeclMixin(LightLangParserVisitor):
                                     property_name=prop)
             return Assignment(line=line, column=col, target=target, value=value)
 
-        # 属性赋值：primary . ID = 值
+        # R76-A：己属性赋值（整体成词 K_SELF_PROP）：己结果 = 值
+        if ctx.K_SELF_PROP():
+            text = ctx.K_SELF_PROP().getText()
+            for _p in ('自我', '己', '自'):
+                if text.startswith(_p):
+                    prop = text[len(_p):]
+                    break
+            else:
+                prop = text
+            value = self.visitExpr(ctx.expr(0))
+            target = PropertyAccess(line=line, column=col,
+                                    obj=SelfReference(line=line, column=col),
+                                    property_name=prop)
+            return Assignment(line=line, column=col, target=target, value=value)
+
+        # 属性赋值：primary . 名 = 值
         if ctx.primary() and ctx.DOT():
             expr = self.visitPrimary(ctx.primary())
-            prop = ctx.ID().getText()
+            prop = self._member_name_text(ctx)
             value = self.visitExpr(ctx.expr(0))
             target = PropertyAccess(line=line, column=col,
                                     obj=expr, property_name=prop)
             return Assignment(line=line, column=col, target=target, value=value)
 
-        # 属性赋值：primary 的 ID = 值（「的」作为属性访问运算符）
+        # 属性赋值：primary 的 名 = 值（「的」作为属性访问运算符）
         if ctx.primary() and ctx.K_DE():
             expr = self.visitPrimary(ctx.primary())
-            prop = ctx.ID().getText()
+            prop = self._member_name_text(ctx)
+            value = self.visitExpr(ctx.expr(0))
+            target = PropertyAccess(line=line, column=col,
+                                    obj=expr, property_name=prop)
+            return Assignment(line=line, column=col, target=target, value=value)
+
+        # 属性赋值：primary 之 名 = 值（「之」作为属性访问运算符）
+        if ctx.primary() and ctx.K_OF():
+            expr = self.visitPrimary(ctx.primary())
+            prop = self._member_name_text(ctx)
             value = self.visitExpr(ctx.expr(0))
             target = PropertyAccess(line=line, column=col,
                                     obj=expr, property_name=prop)

@@ -91,6 +91,7 @@ class UnifiedCodeGenerator:
         self._needs_asyncio = False  # B5：是否需要 import asyncio
         self._needs_async_iter = False  # B5：是否需要 _light_async_iter 辅助
         self._needs_dataclass = False  # R75-B：记录类型需要 import dataclasses/typing
+        self._needs_enum = False  # R76-B（G-14）一等枚举需要 import enum
         # R72-A（L-172）：块级作用域状态（对齐 src 后端 code_generator.py）。
         # unified 无 local 变量追踪/L-006 nonlocal 机制，故只需 mangling 与
         # 解析，不需要函数边界携带（匿名闭包为单表达式 lambda，生成时块栈仍
@@ -741,6 +742,17 @@ class UnifiedCodeGenerator:
             self.output_lines.insert(insert_pos, "import typing")
             self.output_lines.insert(insert_pos, "import dataclasses")
 
+        # R76-B（G-14）：一等枚举需要 enum.Enum / enum.auto
+        if self._needs_enum:
+            insert_pos = 0
+            for i, line in enumerate(self.output_lines):
+                if line.startswith("#") or line == "":
+                    insert_pos = i + 1
+                else:
+                    break
+            self.output_lines.insert(insert_pos, "")
+            self.output_lines.insert(insert_pos, "import enum")
+
         return self._build_output()
 
     
@@ -1136,6 +1148,14 @@ class UnifiedCodeGenerator:
         elif is_instance(stmt, 'SegmentDefinition') or is_instance(stmt, 'Paragraph') or is_instance(stmt, 'FunctionDefinition'):
             self._generate_segment(stmt)
         
+        # R76-B（G-14）：一等枚举（EnumDefinition 同样继承 ClassDefinition）
+        elif is_instance(stmt, 'EnumDefinition'):
+            self._generate_class(stmt)
+
+        # R76-B（G-14）：一等枚举（EnumDefinition 同样继承 ClassDefinition）
+        elif is_instance(stmt, 'EnumDefinition'):
+            self._generate_class(stmt)
+
         # R75-B：记录类型（RecordDefinition 继承 ClassDefinition，但 is_instance 只匹配精确类型名）
         elif is_instance(stmt, 'RecordDefinition'):
             self._generate_class(stmt)
@@ -1157,6 +1177,18 @@ class UnifiedCodeGenerator:
         elif is_instance(stmt, 'DeferStatement') or is_instance(stmt, 'DeferStmt'):
             self._generate_defer_stmt(stmt)
         
+        # R76-B（G-12）：生成语句（yield / yield from）。
+        # 此前 unified 无此分支：`生成 X` 会落到链尾「警告：未知语句类型: YieldStmt」
+        # 并被**静默丢弃** —— 同步/异步生成器在 unified 产物里退化成没有产出的函数，
+        # 与 src 后端（code_generator.py:2010 起）语义分叉。本分支与 src 同口径。
+        elif is_instance(stmt, 'YieldStmt'):
+            if getattr(stmt, 'value', None):
+                value = self._generate_expr(stmt.value)
+                keyword = "yield from" if getattr(stmt, 'is_from', False) else "yield"
+                self._add_line(f"{keyword} {value}")
+            else:
+                self._add_line("yield")
+
         # 并行作用域（结构化并发）
         elif is_instance(stmt, 'AsyncScope'):
             self._generate_async_scope(stmt)
@@ -2016,8 +2048,12 @@ class UnifiedCodeGenerator:
         
         # R75-B：检测记录类型（RecordDefinition 继承 ClassDefinition）
         is_record = (type(cls).__name__ == 'RecordDefinition')
+        # R76-B（G-14）：检测一等枚举
+        is_enum = (type(cls).__name__ == 'EnumDefinition')
         if is_record:
             self._needs_dataclass = True
+        if is_enum:
+            self._needs_enum = True
         
         # 处理继承
         #
@@ -2028,12 +2064,17 @@ class UnifiedCodeGenerator:
         # `class 犬:`：继承关系整个消失，方法解析、`父.构造(...)`（super().__init__）
         # 全部退化成 object.__init__ → TypeError。全仓 12 处 `继承` 在踩。
         bases = []
-        raw_bases = list(getattr(cls, 'base_classes', None) or [])
-        raw_bases += list(getattr(cls, 'superclasses', None) or [])
-        raw_bases += list(getattr(cls, 'interfaces', None) or [])
+        if is_enum:
+            # R76-B（G-14）：一等枚举固定继承 enum.Enum（与 src 后端同口径）
+            raw_bases = ['enum.Enum']
+        else:
+            raw_bases = list(getattr(cls, 'base_classes', None) or [])
+            raw_bases += list(getattr(cls, 'superclasses', None) or [])
+            raw_bases += list(getattr(cls, 'interfaces', None) or [])
         for base in raw_bases:
             if isinstance(base, str):
-                bases.append(self._sanitize_name(base))
+                # R76-B（G-14）：`enum.Enum` 已是完整表达式，不能过 _sanitize_name
+                bases.append(base if base == 'enum.Enum' else self._sanitize_name(base))
             elif hasattr(base, 'name'):
                 bases.append(self._sanitize_name(base.name))
         # 去重保序：`继承` 与 interfaces 叠加时可能重复，重复基类 → TypeError
@@ -2059,6 +2100,15 @@ class UnifiedCodeGenerator:
         
         self.indent_level += 1
         
+        # R76-B（G-14）：一等枚举成员（与 src 后端同口径）。`enum.auto()` 按声明序
+        # 自动编号，产物天然获得 构造/取值/相等/哈希 四项语义；枚举无属性/方法槽，
+        # 发射完直接收尾。
+        if is_enum:
+            for _member in (getattr(cls, 'members', None) or []):
+                self._add_line(f"{self._sanitize_name(_member)} = enum.auto()")
+            self.indent_level -= 1
+            return
+
         # R75-B：记录类型字段生成（fields 是 [(name, default_value), ...] 元组列表）
         if is_record and hasattr(cls, 'fields') and cls.fields:
             for field in cls.fields:

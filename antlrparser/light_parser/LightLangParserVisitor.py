@@ -92,6 +92,11 @@ class LightLangParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by LightLangParser#typeMark.
+    def visitTypeMark(self, ctx:LightLangParser.TypeMarkContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by LightLangParser#dataTypeDef.
     def visitDataTypeDef(self, ctx:LightLangParser.DataTypeDefContext):
         return self.visitChildren(ctx)
@@ -272,6 +277,11 @@ class LightLangParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by LightLangParser#comparisonKTo.
+    def visitComparisonKTo(self, ctx:LightLangParser.ComparisonKToContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by LightLangParser#additiveExpr.
     def visitAdditiveExpr(self, ctx:LightLangParser.AdditiveExprContext):
         return self.visitChildren(ctx)
@@ -299,6 +309,11 @@ class LightLangParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by LightLangParser#postfixExpr.
     def visitPostfixExpr(self, ctx:LightLangParser.PostfixExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by LightLangParser#memberName.
+    def visitMemberName(self, ctx:LightLangParser.MemberNameContext):
         return self.visitChildren(ctx)
 
 
@@ -354,6 +369,11 @@ class LightLangParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by LightLangParser#bracketContent.
     def visitBracketContent(self, ctx:LightLangParser.BracketContentContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by LightLangParser#dictContent.
+    def visitDictContent(self, ctx:LightLangParser.DictContentContext):
         return self.visitChildren(ctx)
 
 

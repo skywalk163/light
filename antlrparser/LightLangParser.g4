@@ -46,13 +46,14 @@ definition
 
 paragraphDef
     : BOOK_L ID BOOK_R K_SEGMENT ( LPAREN paramList? RPAREN )? COLON block K_END PERIOD?  // 《名称》段(参数)
-    | K_SEGMENT ID ( K_RECEIVE paramList? )? ( K_RETURN typeAnnotation? )? COLON block K_END PERIOD?  // 段 名称 接收 参数
+    | K_SEGMENT ID ( LPAREN paramList? RPAREN | K_RECEIVE paramList? )? ( K_RETURN typeAnnotation? )? COLON block K_END PERIOD?  // 段 名称(参数) / 段 名称 接收 参数
     ;
 
 // ----- 块规则（统一处理"结束"标记）-----
 // 块只包含语句，由父规则负责匹配"结束"标记
+// 块内容为语句或嵌套定义（段落/类等）
 block
-    : stmt*
+    : ( stmt | definition )*
     ;
 
 // 块内容仅为语句
@@ -76,14 +77,12 @@ genericParams
     ;
 
 classMember
-    : methodDef
-    | constructorDef
-    | attributeDecl
+    : ( K_PUBLIC | K_PRIVATE | K_PROTECTED | K_STATIC )? ( methodDef | constructorDef | attributeDecl )
     | stmt
     ;
 
 methodDef
-    : K_SEGMENT ID ( K_RECEIVE paramList? )? ( K_RETURN typeAnnotation? )?
+    : K_SEGMENT ID ( LPAREN paramList? RPAREN | K_RECEIVE paramList? )? ( K_RETURN typeAnnotation? )?
       COLON block K_END PERIOD?
     ;
 
@@ -114,7 +113,12 @@ paramList
     ;
 
 param
-    : identifier_like ( COLON typeAnnotation )? ( K_EQUAL expr )?
+    : identifier_like ( typeMark? typeAnnotation )? ( K_EQUAL expr )?
+    ;
+
+typeMark
+    : COLON
+    | K_TYPE
     ;
 
 // ----- 语句 -----
@@ -182,6 +186,7 @@ stmt
 
 varDecl
     : K_SET identifier_like K_AS expr PERIOD ( K_TYPE typeAnnotation )?  // 设 甲 为 三
+    | K_SET identifier_like K_AS typeAnnotation K_EQUAL expr PERIOD?     // 设 甲 为 数 = 1（类型+值）
     | K_SET K_SELF ID K_AS expr PERIOD                               // 设 己名称 为 值（属性赋值）
     | K_SET LPAREN identifier_like ( COMMA identifier_like )* RPAREN K_AS expr PERIOD?  // 设（甲，乙）为 元组
     | K_DEFINE ID ( K_EQUAL expr PERIOD )?                           // 兼容旧语法
@@ -189,9 +194,11 @@ varDecl
 
 assignStmt
     : identifier_like ( ASSIGN | K_EQUAL | K_AS ) expr PERIOD?          // 甲 = 值 / 甲 等于 值 / 甲 为 值
+    | K_SELF_PROP ( ASSIGN | K_EQUAL | K_AS ) expr PERIOD?          // R76-A：己属性 = 值（整体成词）
     | K_SELF ID ( ASSIGN | K_EQUAL | K_AS ) expr PERIOD?            // 己属性 = 值
-    | primary DOT ID ( ASSIGN | K_EQUAL | K_AS ) expr PERIOD?       // 对象.属性 = 值
-    | primary K_DE ID ( ASSIGN | K_EQUAL | K_AS ) expr PERIOD?      // 对象的属性 = 值
+    | primary DOT memberName ( ASSIGN | K_EQUAL | K_AS ) expr PERIOD?       // 对象.属性 = 值
+    | primary K_DE memberName ( ASSIGN | K_EQUAL | K_AS ) expr PERIOD?      // 对象的属性 = 值
+    | primary K_OF memberName ( ASSIGN | K_EQUAL | K_AS ) expr PERIOD?      // 对象之属性 = 值
     | primary LBRACKET expr RBRACKET ( ASSIGN | K_EQUAL | K_AS ) expr PERIOD?  // 甲[丁] = 值
     ;
 
@@ -213,10 +220,11 @@ ifStmt
     : K_IF expr K_THEN? COLON block K_END PERIOD?
       ( K_ELSE_IF expr K_THEN? COLON block K_END PERIOD? )*
       ( K_ELSE K_THEN? COLON block K_END PERIOD? )?
+    | K_IF expr K_THEN stmt PERIOD?          // 单行内联：如果 条件 那么 语句（无冒号）
     ;
 
 foreachStmt
-    : K_FOREACH ID ( K_OF | K_AT ) expr
+    : K_FOREACH ID ( K_OF | K_AT ) expr ( K_TO expr ( K_STEP expr )? )?
       COLON block K_END PERIOD?
     ;
 
@@ -278,7 +286,7 @@ matchPatternList
     ;
 
 printStmt
-    : ( K_PRINT | K_OUTPUT ) LPAREN exprList? RPAREN PERIOD?
+    : ( K_PRINT | K_OUTPUT ) ( LPAREN exprList? RPAREN | expr )? PERIOD?
     ;
 
 // ----- 上下文管理器 -----
@@ -316,12 +324,18 @@ orExpr
     ;
 
 comparisonExpr
-    : additiveExpr ( compOp additiveExpr )*
+    : additiveExpr ( K_TO additiveExpr ( K_STEP additiveExpr )? )   // 范围表达式：1至10 / 1到10步2
+    | additiveExpr ( compOp additiveExpr )*
     ;
 
 compOp
-    : K_GE | K_LE | K_GT | K_LT | K_NE | K_EQUAL
+    : K_GE | K_LE | K_GT | K_LT | K_NE | K_EQUAL | K_IN
     | GE | LE | GT | LT | NE | EQ
+    ;
+
+// 范围表达式连接字（1至10）——供 visitor 探测（comparisonExpr 内使用）
+comparisonKTo
+    : K_TO
     ;
 
 additiveExpr
@@ -331,6 +345,8 @@ additiveExpr
 addOp
     : K_PLUS | K_MINUS
     | PLUS | MINUS
+    | K_PLUS_ASSIGN | K_MINUS_ASSIGN | K_MULTIPLY_ASSIGN
+    | K_DIVIDE_ASSIGN | K_MOD_ASSIGN | K_POW_ASSIGN   // 复合赋值词兼作中缀加/减等（甲 加上 1）
     ;
 
 multiplicativeExpr
@@ -352,11 +368,17 @@ postfixExpr
     : primary
       ( BOOK_L ID BOOK_R LPAREN exprList? RPAREN     // 《段名》(参数)
       | LPAREN exprList? RPAREN                        // (参数)
-      | DOT ID                                         // 属性访问: 对象.属性
-      | K_OF ID                                        // 之字结构: 对象之属性
-      | K_DE ID                                        // 的字结构: 对象的属性
+      | DOT memberName                                 // 属性访问: 对象.属性
+      | K_OF memberName                                // 之字结构: 对象之属性
+      | K_DE memberName                                // 的字结构: 对象的属性
       | LBRACKET expr RBRACKET                         // 索引: 对象[索引]
       )*
+    ;
+
+// 成员名（允许构造 等 关键字作成员名：父.构造(...)）——R76-A
+memberName
+    : ID
+    | K_CONSTRUCTOR
     ;
 
 primary
@@ -365,7 +387,11 @@ primary
     | K_TRUE
     | K_FALSE
     | K_NULL
+    | UNDERSCORE                                          // 通配符作变量名（设 _ 为 ...）
+    | K_SELF_PROP                                         // R76-A：己属性（整体成词，见 Lexer）
     | K_SELF                                              // 己（self引用）
+    | K_SELF ID                                           // 己属性（无分隔的 self 属性访问：己姓名）
+    | K_PARENT                                            // 父（父类引用，后跟成员访问符时=super()）
     | conditionalExpr                                     // 三元条件表达式：如果 条件 那么 值1 否则 值2
     | K_NEW ID ( LPAREN exprList? RPAREN | exprList )   // 新建 对象(参数) 或 新建 对象 参数
     | listComprehension                                   // 列表推导：[表达式 遍历 变量 之 列表]
@@ -373,6 +399,8 @@ primary
     | ID                                    // 变量
     | typeAsIdentifier                                     // 类型关键字用作标识符
     | LPAREN expr RPAREN                                   // 括号表达式
+    | LBRACE dictContent RBRACE                            // 字典字面量/推导：{键: 值}
+    | LBRACE RBRACE                                        // 空字典
     | LBRACKET RBRACKET                                   // 空列表
     | LBRACKET bracketContent RBRACKET                    // 列表/字典字面量或推导
     | BOOK_L ID BOOK_R                                 // 《段落名》
@@ -442,6 +470,7 @@ listComprehension
 
 identifier_like
     : ID
+    | UNDERSCORE
     | T_NUMBER | T_INT | T_FLOAT | T_STRING | T_LIST | T_DICT | T_SET | T_BOOL | T_ANY
     | K_TRUE | K_FALSE | K_NULL
     ;
@@ -463,13 +492,19 @@ dictComprehension
     : expr COLON expr K_FOREACH identifier_like ( K_OF | K_AT ) expr ( K_IF expr )?
     ;
 
-// ----- 方括号内容（消除歧义）-----
+// ----- 方括号/花括号内容（消除歧义）-----
 
 bracketContent
-    : dictComprehension                                               // 字典推导：键: 值 遍历 变量 之 列表
-    | dictLiteral                                                     // 字典字面量：键: 值, ...
+    : dictComprehension COMMA?                                        // 字典推导：键: 值 遍历 变量 之 列表
+    | dictLiteral COMMA?                                              // 字典字面量：键: 值, ...
     | expr K_FOREACH identifier_like ( K_OF | K_AT ) expr ( K_IF expr )?  // 列表推导
-    | exprList?                                                       // 列表字面量（支持空列表）
+    | exprList COMMA?                                                 // 列表字面量（允许尾逗号，跨行书写）
+    | COMMA?
+    ;
+
+dictContent
+    : dictComprehension
+    | dictLiteral
     ;
 
 

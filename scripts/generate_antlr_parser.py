@@ -201,8 +201,12 @@ def md5(path: Path) -> str:
 
 # ---------------------------------------------------------------- 主流程
 def run_antlr(java: str, jar: Path, g4: str, extra: list[str]) -> None:
+    # ⚠️ -encoding UTF-8 必须显式指定：ANTLR 工具默认用 JVM 平台编码读 .g4，
+    #    中文 Windows 上是 GBK，会把 UTF-8 的中文关键字读成乱码码点并烤进生成产物的
+    #    literalNames（R76-A 根因①：错误消息出现 '缁撴潫' 即此成因）。
     cmd = [java, "-jar", str(jar), "-Dlanguage=Python3", "-visitor",
-           "-no-listener", "-o", OUT_DIR.name] + extra + [g4]
+           "-no-listener", "-encoding", "UTF-8",
+           "-o", OUT_DIR.name] + extra + [g4]
     log("  $ " + " ".join(cmd))
     # ⚠️ Java 的告警文本沿用平台编码（中文 Windows 上是 GBK），必须 errors="replace"，
     #    否则 subprocess 的读取线程会抛 UnicodeDecodeError 并污染输出。

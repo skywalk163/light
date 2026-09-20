@@ -34,7 +34,7 @@ from antlr4.Token import CommonToken
 # 所有关键字（长关键字在前；v4.0 L0 30字单字为推荐主形式，全部兼容旧写法）
 KEYWORDS = [
     # 条件判断（三字）
-    '否则若', '大于等于', '小于等于',
+    '否则如果', '否则若', '大于等于', '小于等于',
     # 定义声明（二字）
     '数据类型', '错误', '定义', '等于', '导入', '导出', '常量', '类型', '继承', '使用', '方法', '自我', '段落', '实现', '构造', '属性',
     # 函数声明（二字）
@@ -96,6 +96,13 @@ KEYWORDS = [
     '并', '之', '的',
     # 特殊值（单字）
     '真', '假', '空',
+    # 范围表达式（R76-A：1至10 / 1到10步2）
+    '至', '到', '步',
+    # 访问控制修饰符（R76-A）
+    '公有', '私有', '保护',
+    '静态',
+    # 成员关系/父类（R76-A）
+    '在', '父',
     # 内置类型（单字/二字）
     '整数', '浮数', '布尔', '任意',
     '列', '串', '典', '集',
@@ -104,6 +111,7 @@ KEYWORDS = [
 # 关键词到其类型的映射
 KEYWORD_TOKEN_MAP = {
     # 条件判断
+    '否则如果': 'K_ELSE_IF',
     '否则若': 'K_ELSE_IF',
     '如果': 'K_IF',
     # 新语法别名：若 = 如果
@@ -228,6 +236,18 @@ KEYWORD_TOKEN_MAP = {
     '集': 'T_SET',
     '布尔': 'T_BOOL',
     '任意': 'T_ANY',
+    # 范围表达式（R76-A）
+    '至': 'K_TO',
+    '到': 'K_TO',
+    '步': 'K_STEP',
+    # 访问控制修饰符（R76-A）
+    '公有': 'K_PUBLIC',
+    '私有': 'K_PRIVATE',
+    '保护': 'K_PROTECTED',
+    '静态': 'K_STATIC',
+    # 成员关系/父类（R76-A）
+    '在': 'K_IN',
+    '父': 'K_PARENT',
     # 模式匹配
     '匹配': 'K_MATCH',
     '情况': 'K_CASE',
@@ -287,6 +307,7 @@ COMPOUND_SAFE_SINGLE_KEYWORDS = {
     '若',                             # 条件（常见复合词如 若干、若非）
     '则',                             # 条件（常见复合词如 规则、法则）
     '对',                             # 遍历别名（常见复合词如 对象、对于、对比）
+    '至', '到', '步',                 # 范围字（常见复合词如 截至步、表达步）
     # v4.0 L0 新增：常见复合词安全字
     '否',                             # 否则（常见：是否、否认、否则）
     '遍',                             # 遍历（常见：普遍、遍地）
@@ -301,6 +322,8 @@ COMPOUND_SAFE_SINGLE_KEYWORDS = {
     '引',                             # 引用（常见：引用、引导、吸引）
     '试',                             # 尝试（常见：测试、试验、面试）
     '配',                             # 匹配（常见：配合、分配、配置）
+    '在',                             # 存在（常见：现在、存在、正在）
+    '父',                             # 父类（常见：父类、父母）
 }
 
 # 复合词安全二字关键词：这些二字关键词在复合词中作为后缀很常见，
@@ -310,6 +333,52 @@ COMPOUND_SAFE_MULTI_KEYWORDS = {
     '函数',                           # 段别名（构造函数、成员函数等）
     '中的',                           # 遍历分隔符（常见于"其中的"、"心中的"等复合词中）
 }
+
+# R76-A：中缀运算符单字关键词——在汉字序列**中间**位置必须识别为运算符
+# （修复 `甲加乙乘2` / `和加i` / `n乘阶乘` 被并成单个 ID 的缺陷）。
+# 两侧保护：与前/后一字构成常见复合词（追加/添加/加法/模块…）时不拆分。
+OPERATOR_MID_RECOGNIZE = frozenset({'加', '减', '乘', '除', '模', '幂'})
+OPERATOR_PROTECT_COMPOUNDS = frozenset({
+    # 加
+    '加法', '加号', '加密', '加入', '加分', '加以', '加热',
+    '追加', '添加', '增加', '参加', '更加', '累加', '递加', '自加', '相加', '加减',
+    # 减
+    '减法', '削减', '递减', '增减', '相减', '减号',
+    # 乘
+    '乘法', '乘号', '相乘', '自乘', '乘积',
+    # 除
+    '除法', '相除', '除去', '除非', '除号',
+    # 模
+    '模块', '模式', '模型', '模法',
+    # 幂
+    '幂法',
+})
+
+# R76-A：中文数字（对齐 src 后端的中文数字字面量：一 / 二 / 十二 / 三万）
+CHINESE_NUMERAL_CHARS = '零一二两三四五六七八九十百千万'
+_CHINESE_NUMERAL_DIGIT = {'零': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4,
+                          '五': 5, '六': 6, '七': 7, '八': 8, '九': 9}
+_CHINESE_NUMERAL_UNIT = {'十': 10, '百': 100, '千': 1000, '万': 10000}
+
+
+def chinese_numeral_value(text: str):
+    """中文数字串 → 整数值（支持 零一二两三四五六七八九十百千万 组合），非法返回 None"""
+    if not text or any(ch not in CHINESE_NUMERAL_CHARS for ch in text):
+        return None
+    total, section, current = 0, 0, 0
+    for ch in text:
+        if ch in _CHINESE_NUMERAL_DIGIT:
+            current = _CHINESE_NUMERAL_DIGIT[ch]
+        else:
+            unit = _CHINESE_NUMERAL_UNIT[ch]
+            if unit == 10000:
+                section = (section + current) * unit if (section + current) else unit
+                total += section
+                section, current = 0, 0
+            else:
+                section += (current if current else 1) * unit
+                current = 0
+    return total + section + current
 
 # 符号 Token 映射
 SYMBOL_TOKEN_MAP = {
@@ -351,6 +420,11 @@ SINGLE_CHAR_SYMBOLS = {
     '-': 'MINUS',
     '=': 'EQ',  # 赋值/相等比较
 }
+
+
+# R76-A：恒为标识符的关键字前缀词（词首也不作关键字）
+# `设置`：设 为语句关键字，但 设置 是高频方法名（选项.设置(...)），整词保留。
+IDENTIFIER_ONLY_WORDS = frozenset({'设置'})
 
 
 # Unicode 范围
@@ -416,9 +490,56 @@ class LightLangTokenizer:
 
     def __init__(self):
         self.errors = []
+        # R76-A：用户名预扫描（段落/类/设 等声明的名字），供成词判定
+        self._user_names = set()
+
+    def _scan_user_names(self, source: str) -> None:
+        """预扫描源码中用户声明的名字（段落/函数/方法/类/接口/设…为/形参名）。
+
+        与 src 后端 `_scan_user_definitions` 同思路：已登记的名字在成词判定时
+        优先整体保留，避免 `打印信息`/`自我介绍`/`方法A`/`输入密码` 被关键字
+        或中缀运算符拆碎。
+        """
+        import re
+        name_re = re.compile(
+            r'(?:段落|函数|方法|类|接口|数据类型)[ \t]*'
+            r'([\u4e00-\u9fffA-Za-z_][\u4e00-\u9fff0-9A-Za-z_]*)'
+        )
+        set_re = re.compile(
+            r'设[ \t]*([\u4e00-\u9fffA-Za-z_][\u4e00-\u9fff0-9A-Za-z_]*)[ \t]*为'
+        )
+        const_re = re.compile(
+            r'常量[ \t]*([\u4e00-\u9fffA-Za-z_][\u4e00-\u9fff0-9A-Za-z_]*)'
+        )
+        # 括号形参名（段落/函数/方法/构造 头部）——对齐 src L-179 判据
+        param_re = re.compile(
+            r'(?:段落|函数|方法|构造)[ \t]*[\u4e00-\u9fffA-Za-z_]*[ \t]*\(([^)]*)\)'
+        )
+        param_name_re = re.compile(r'([\u4e00-\u9fffA-Za-z_][\u4e00-\u9fff0-9A-Za-z_]*)')
+        for rx in (name_re, set_re, const_re):
+            for m in rx.finditer(source):
+                name = m.group(1)
+                if name not in KEYWORD_SET:  # 关键字不登记（防注释/跨行误匹配）
+                    self._user_names.add(name)
+        for m in param_re.finditer(source):
+            for part in re.split(r'[，,]', m.group(1)):
+                pm = param_name_re.match(part.strip())
+                if pm and pm.group(1) not in KEYWORD_SET:
+                    self._user_names.add(pm.group(1))
+
+    def _longest_user_name_at(self, text: str, pos: int) -> str:
+        """返回 text[pos:] 开头的最长已登记用户名（≥2 字），无则空串"""
+        best = ''
+        for name in self._user_names:
+            if len(name) < 2:
+                continue
+            if text.startswith(name, pos) and len(name) > len(best):
+                best = name
+        return best
 
     def tokenize(self, source: str) -> List[Token]:
         """将光明源代码分词"""
+        self._scan_user_names(source)
         tokens = []
         line = 1
         col = 1
@@ -521,8 +642,29 @@ class LightLangTokenizer:
                         advance()
                         continue
 
+                # ---------- R76-A：f-string 前缀（f"…" / F"…"）----------
+                if ch in ('f', 'F') and i + 1 < source_len and source[i + 1] in ('"', "'"):
+                    advance()  # 跳过 f，下一轮按普通字符串扫描（{xxx} 插值由 visitor 处理）
+                    continue
+
                 # ---------- 字符串 ----------
                 if ch in ('"', "'"):
+                    # R76-A：三引号 docstring（"""...""" / '''...'''）
+                    if source[i:i+3] == ch * 3:
+                        quote3 = ch * 3
+                        start_line, start_col = line, col
+                        advance(3)
+                        text = quote3
+                        while i < source_len and source[i:i+3] != quote3:
+                            text += source[i]
+                            advance()
+                        if i < source_len:
+                            text += quote3
+                            advance(3)
+                        else:
+                            self.errors.append(f"行{start_line}: docstring 未闭合")
+                        tokens.append(Token('STRING', text, start_line, start_col))
+                        continue
                     quote = ch
                     start_line, start_col = line, col
                     advance()  # 跳过开引号
@@ -547,32 +689,83 @@ class LightLangTokenizer:
                 # ---------- 关键字/标识符（中文连续书写分词）----------
                 if is_cjk_char(ch) or is_letter(ch):
 
-                    # 尝试匹配最长关键词
                     if is_cjk_char(ch):
-                        matched_keyword = None
-                        for kw_len in range(KEYWORD_MAX_LEN, 0, -1):
-                            if i + kw_len <= source_len:
-                                text = source[i:i+kw_len]
-                                if text in KEYWORD_SET:
-                                    matched_keyword = text
-                                    break
-
-                        if matched_keyword:
-                            # 复合词安全：部分单字关键词在后接CJK时跳过（避免"列表"被拆分为"列"+"表"）
-                            if (len(matched_keyword) == 1
-                                and matched_keyword in COMPOUND_SAFE_SINGLE_KEYWORDS
-                                and i + 1 < source_len
-                                and is_cjk_char(source[i+1])):
-                                matched_keyword = None
-                            else:
-                                token_type = KEYWORD_TOKEN_MAP[matched_keyword]
-                                tokens.append(Token(token_type, matched_keyword, line, col))
-                                advance(len(matched_keyword))
+                        # R76-A：`己属性` 整体成词（自引用属性访问/赋值）。
+                        # 缺陷：`己结果 等于 己结果 加 x` 会被拆成
+                        #   assignStmt(己 结果 等于 己) + exprStmt(结果 加 x)
+                        # 必须在这里合并，否则 primary 的 K_SELF 备选先匹配、尾随 ID 被
+                        # 拆成下一条语句（实测 calculator.light 的 `己结果 等于 己结果 加 x`
+                        # 生成出 `self.结果 = self` + `(结果 + x)` 两句）。
+                        for _selfw in ('自我', '己', '自'):
+                            if source.startswith(_selfw, i):
+                                after = i + len(_selfw)
+                                if after < source_len and (
+                                        is_cjk_char(source[after]) or is_letter(source[after])):
+                                    j = after
+                                    while j < source_len and (
+                                            is_cjk_char(source[j]) or is_letter(source[j])
+                                            or is_digit(source[j])):
+                                        j += 1
+                                    cand = source[i:j]
+                                    # 若该串整体是已登记用户名（如 自我介绍），
+                                    # 则不按 `己属性` 拆分，交给后续整词逻辑
+                                    if cand not in self._user_names:
+                                        tokens.append(Token('K_SELF_PROP', cand, line, col))
+                                        advance(j - i)
+                                        break
+                        else:
+                            _selfw = None
+                        if _selfw and source.startswith(_selfw, i) and i < source_len:
+                            # 仅当确实产生了 K_SELF_PROP 才 continue
+                            if tokens and tokens[-1].type_name == 'K_SELF_PROP' and tokens[-1].column == col:
                                 continue
+
+                        # R76-A：恒为标识符的词（设置 等）优先整词保留
+                        for w in IDENTIFIER_ONLY_WORDS:
+                            if source.startswith(w, i):
+                                tokens.append(Token('ID', w, line, col))
+                                advance(len(w))
+                                break
+                        else:
+                            # R76-A：已登记用户名优先整体成词（打印信息/自我介绍/方法A…）
+                            uname = self._longest_user_name_at(source, i)
+                            if uname:
+                                tokens.append(Token('ID', uname, line, col))
+                                advance(len(uname))
+                                extra = ''
+                                while i < source_len and (is_letter(source[i]) or is_digit(source[i])):
+                                    extra += source[i]
+                                    advance()
+                                if extra:
+                                    tokens[-1] = Token('ID', uname + extra, line, col)
+                                continue
+
+                            # 尝试匹配最长关键词
+                            matched_keyword = None
+                            for kw_len in range(KEYWORD_MAX_LEN, 0, -1):
+                                if i + kw_len <= source_len:
+                                    text = source[i:i+kw_len]
+                                    if text in KEYWORD_SET:
+                                        matched_keyword = text
+                                        break
+
+                            if matched_keyword:
+                                # 复合词安全：部分单字关键词在后接CJK时跳过（避免"列表"被拆分为"列"+"表"）
+                                if (len(matched_keyword) == 1
+                                    and matched_keyword in COMPOUND_SAFE_SINGLE_KEYWORDS
+                                    and i + 1 < source_len
+                                    and is_cjk_char(source[i+1])):
+                                    matched_keyword = None
+                                else:
+                                    token_type = KEYWORD_TOKEN_MAP[matched_keyword]
+                                    tokens.append(Token(token_type, matched_keyword, line, col))
+                                    advance(len(matched_keyword))
+                                    continue
 
                     # 不是关键字，则收集连续字符作为标识符（支持CJK/字母/数字混合）
                     start_line, start_col = line, col
-                    
+                    pre_cjk_len = len(tokens)  # R76-A：用于 CJK 尾 ID 与后续字母/数字合并
+
                     # 先收集完整的汉字序列（直到非汉字字符）
                     cjk_run = ''
                     while i < source_len and is_cjk_char(source[i]):
@@ -604,8 +797,14 @@ class LightLangTokenizer:
                             break
                     
                     if text:
+                        # R76-A：汉字序列以 ID 结尾时，尾随字母/数字并入同一标识符
+                        # （序列化JSON / 计算器1 → 单一 ID；此前被拆成 ID+ID/NUMBER）
+                        if (tokens and len(tokens) > pre_cjk_len
+                                and tokens[-1].type_name == 'ID'):
+                            merged = tokens[-1].text + text
+                            tokens[-1] = Token('ID', merged, tokens[-1].line, tokens[-1].column)
                         # 纯数字序列输出为 NUMBER，否则输出为 ID
-                        if text.isdigit():
+                        elif text.isdigit():
                             tokens.append(Token('NUMBER', text, start_line, start_col))
                         else:
                             tokens.append(Token('ID', text, start_line, start_col))
@@ -652,6 +851,17 @@ class LightLangTokenizer:
                     while i < source_len and is_digit(source[i]):
                         text += source[i]
                         advance()
+                    # R76-A：十六进制字面量 0x4E00 / 0xff（对齐 src 后端）
+                    if text == '0' and i < source_len and source[i] in ('x', 'X'):
+                        advance()
+                        hex_digits = ''
+                        while i < source_len and source[i] in '0123456789abcdefABCDEF':
+                            hex_digits += source[i]
+                            advance()
+                        if hex_digits:
+                            tokens.append(Token('NUMBER', str(int(hex_digits, 16)), start_line, start_col))
+                            continue
+                        # 0x 后无十六进制位：按 0 继续（x… 下一轮作标识符）
                     if i < source_len and source[i] == '.':
                         # 检查是否是数字的一部分（后面还有数字）
                         if i + 1 < source_len and is_digit(source[i+1]):
@@ -669,7 +879,81 @@ class LightLangTokenizer:
                 advance()
 
         # 不再在这里添加 EOF，让 nextToken 方法处理
-        return tokens
+        return self._synthesize_statement_periods(tokens)
+
+    # =========================================================================
+    # 语句边界句号合成（R76-A 根因③）
+    #
+    # v3 语义：句号是**可选**的语句终止符；但 ANTLR 语法里 varDecl / exprStmt
+    # 的 PERIOD 是必选项。分词阶段在「行边界 + 括号深度 0」处按语句边界补 PERIOD：
+    #   - 上一 token 是明显的「语句未完」形态（运算符/连接词/冒号/结构关键字）→ 不补；
+    #   - 下一 token 是明显的「续行」形态（闭括号/逗号/运算符/点号）→ 不补；
+    #   - 括号深度 > 0（跨行表达式/字典/列表字面量）→ 不补。
+    # =========================================================================
+
+    _PERIOD_SKIP_END = frozenset({
+        'PERIOD', 'SEMICOLON', 'COLON', 'COMMA', 'PAUSE', 'PIPE', 'DOT',
+        'K_AND', 'K_OR', 'K_NOT', 'K_AND_WORD', 'K_DE',
+        'K_PLUS', 'K_MINUS', 'K_MULTIPLY', 'K_DIVIDE', 'K_MOD', 'K_POW',
+        'PLUS', 'MINUS', 'MULTIPLY', 'DIVIDE', 'POW', 'MODULO',
+        'EQ', 'NE', 'GT', 'LT', 'GE', 'LE', 'AND', 'OR', 'NOT',
+        'K_EQUAL', 'K_AS', 'K_OF', 'K_AT', 'K_FROM', 'K_THEN',
+        'K_PLUS_ASSIGN', 'K_MINUS_ASSIGN', 'K_MULTIPLY_ASSIGN',
+        'K_DIVIDE_ASSIGN', 'K_MOD_ASSIGN', 'K_POW_ASSIGN',
+        'K_SET', 'K_DEFINE', 'K_RECEIVE', 'K_RETURN',
+        'K_IMPORT', 'K_EXPORT', 'K_IF', 'K_ELSE', 'K_ELSE_IF',
+        'K_WHILE', 'K_FOREACH', 'K_MATCH', 'K_CASE', 'K_TRY', 'K_CATCH',
+        'K_WITH', 'K_NEW', 'K_CLASS', 'K_INTERFACE', 'K_SEGMENT',
+        'K_DATA_TYPE', 'K_ERROR_TYPE', 'K_PRINT', 'K_OUTPUT', 'K_INPUT',
+        'K_END',
+        'LPAREN', 'LBRACKET', 'LBRACE',
+    })
+
+    _PERIOD_SKIP_START = frozenset({
+        'RPAREN', 'RBRACKET', 'RBRACE', 'PERIOD', 'SEMICOLON', 'COMMA',
+        'COLON', 'PAUSE', 'PIPE', 'DOT',
+        'K_AND', 'K_OR', 'K_NOT', 'K_AND_WORD', 'K_DE', 'K_OF', 'K_AT',
+        'K_EQUAL', 'K_AS', 'K_THEN',
+        'K_PLUS', 'K_MINUS', 'K_MULTIPLY', 'K_DIVIDE', 'K_MOD', 'K_POW',
+        'PLUS', 'MINUS', 'MULTIPLY', 'DIVIDE', 'POW', 'MODULO',
+        'EQ', 'NE', 'GT', 'LT', 'GE', 'LE', 'AND', 'OR', 'NOT',
+        'K_PLUS_ASSIGN', 'K_MINUS_ASSIGN', 'K_MULTIPLY_ASSIGN',
+        'K_DIVIDE_ASSIGN', 'K_MOD_ASSIGN', 'K_POW_ASSIGN',
+    })
+
+    _DEPTH_OPEN = frozenset({'LPAREN', 'LBRACKET', 'LBRACE'})
+    _DEPTH_CLOSE = frozenset({'RPAREN', 'RBRACKET', 'RBRACE'})
+
+    def _synthesize_statement_periods(self, tokens: List[Token]) -> List[Token]:
+        """在语句边界（行边界、括号深度 0）补合成的 PERIOD token。"""
+        if not tokens:
+            return tokens
+
+        out: List[Token] = []
+        depth = 0
+        for idx, tok in enumerate(tokens):
+            if tok.type_name in self._DEPTH_OPEN:
+                depth += 1
+            elif tok.type_name in self._DEPTH_CLOSE:
+                depth = max(0, depth - 1)
+
+            if idx == 0:
+                out.append(tok)
+                continue
+            prev = tokens[idx - 1]
+            boundary = tok.line > prev.line
+            if (boundary and depth == 0
+                    and prev.type_name not in self._PERIOD_SKIP_END
+                    and tok.type_name not in self._PERIOD_SKIP_START):
+                out.append(Token('PERIOD', '。', prev.line, prev.column + len(prev.text)))
+            out.append(tok)
+
+        # 文件末尾：最后一条未终止语句补句号
+        last = tokens[-1]
+        if (depth == 0
+                and last.type_name not in self._PERIOD_SKIP_END):
+            out.append(Token('PERIOD', '。', last.line, last.column + len(last.text)))
+        return out
 
     def _tokenize_cjk_with_embedded_keywords(
         self, cjk_run: str, line: int, col: int, tokens: List[Token]
@@ -694,6 +978,37 @@ class LightLangTokenizer:
         current_col = col
 
         while pos < run_len:
+            # ---------- R76-A：已登记用户名优先整体成词 ----------
+            uname = self._longest_user_name_at(cjk_run, pos)
+            if uname:
+                tokens.append(Token('ID', uname, current_line, current_col))
+                pos += len(uname)
+                current_col += len(uname)
+                continue
+
+            # ---------- R76-A：中文数字字面量（对齐 src 后端）----------
+            # 条件：从 pos 起是最大中文数字串，且其后紧跟非汉字，
+            #       或紧跟的关键字开头（如 `二那么`）、行尾标点。
+            if cjk_run[pos] in CHINESE_NUMERAL_CHARS:
+                num_end = pos
+                while num_end < run_len and cjk_run[num_end] in CHINESE_NUMERAL_CHARS:
+                    num_end += 1
+                after = cjk_run[num_end] if num_end < run_len else ''
+                convert = True if not after else False
+                if after and is_cjk_char(after):
+                    # 后面还是汉字：仅当紧随关键字（如 `二那么返回一` 的 那么）才转换
+                    convert = any(
+                        cjk_run[num_end:num_end + k] in KEYWORD_SET
+                        for k in range(1, min(KEYWORD_MAX_LEN, run_len - num_end) + 1)
+                    )
+                if convert:
+                    value = chinese_numeral_value(cjk_run[pos:num_end])
+                    if value is not None:
+                        tokens.append(Token('NUMBER', str(value), current_line, current_col))
+                        current_col += (num_end - pos)
+                        pos = num_end
+                        continue
+
             # ---------- 尝试匹配最长关键字 ----------
             matched_keyword = None
             for kw_len in range(KEYWORD_MAX_LEN, 0, -1):
@@ -712,7 +1027,10 @@ class LightLangTokenizer:
                     and len(matched_keyword) == 1
                     and matched_keyword in COMPOUND_SAFE_SINGLE_KEYWORDS
                     and pos + 1 < run_len):
-                    matched_keyword = None
+                    # R76-A 例外：运算符字后紧跟已登记用户名（乘阶乘 → 乘 + 阶乘）不跳过
+                    if not (matched_keyword in OPERATOR_MID_RECOGNIZE
+                            and self._longest_user_name_at(cjk_run, pos + 1)):
+                        matched_keyword = None
 
             if matched_keyword:
                 token_type = KEYWORD_TOKEN_MAP[matched_keyword]
@@ -734,6 +1052,28 @@ class LightLangTokenizer:
                                 break
 
                     if found_kw:
+                        # R76-A：恒为标识符词（设置 等）在词中位置不拆
+                        # （字典设置 → ID(字典设置)，而非 ID(字典)+设+置）
+                        skip_kw = False
+                        for w in IDENTIFIER_ONLY_WORDS:
+                            if cjk_run.startswith(w, pos):
+                                pos += len(w)
+                                current_col += len(w)
+                                skip_kw = True
+                                break
+                        if skip_kw:
+                            continue
+                        # R76-A：中缀运算符单字（加/减/乘/除/模/幂）在序列中间
+                        # 必须识别为运算符（`甲加乙乘2` / `和加i`），除非与前后
+                        # 一字构成受保护复合词（追加/添加/加法/模块…）。
+                        if (len(found_kw) == 1
+                                and found_kw in OPERATOR_MID_RECOGNIZE
+                                and pos > id_start):
+                            prev_ch = cjk_run[pos - 1] if pos > 0 else ''
+                            next_ch = cjk_run[pos + 1] if pos + 1 < run_len else ''
+                            if not ((prev_ch + found_kw) in OPERATOR_PROTECT_COMPOUNDS
+                                    or (found_kw + next_ch) in OPERATOR_PROTECT_COMPOUNDS):
+                                break
                         # 复合词安全：单字类型关键词（数/列/串/典/集等）在复合词中出现时不拆分
                         # 例如"列表""整数""字符串""随机整数"中的"列""数""串"不应视为单独关键词
                         if (len(found_kw) == 1

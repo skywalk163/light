@@ -6,7 +6,7 @@
 # KeyError / IndexError / TypeError 的译文由 tests/unit/test_L068_L073.py 覆盖。
 
 类 测试类:
-  段落 方法A 接收:
+  段落 方法A():
     返回 1
 
 设 实例 为 新建 测试类()

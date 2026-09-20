@@ -548,6 +548,30 @@ class RecordDefinition(ClassDefinition):
         return f"RecordDefinition({self.name}, fields={[f[0] for f in self.fields]})"
 
 
+class EnumDefinition(ClassDefinition):
+    """R76-B（G-14）一等枚举类型。
+
+    `枚举 颜色：红, 绿, 蓝` → `class 颜色(enum.Enum): 红 = enum.auto() …`
+
+    与 RecordDefinition（记录/数据类）的关系：
+      * 记录 = dataclass：可变、可多实例、字段带默认值、`unsafe_hash=True` 补哈希；
+      * 枚举 = enum.Enum：成员**单例**且不可变，天然提供
+        构造（`颜色(1)` 按值反查）/ 取值（`颜色.红`）/ 相等（同一性）/ 哈希。
+    两者都是「一份声明换掉整类样板代码」，但语义正交：记录是数据载体，
+    枚举是封闭取值域。
+
+    与 C FFI 的 `外部 枚举 名 { … }` 无关——那条走独立节点 FFIEnumDef。
+    """
+    __slots__ = ('members',)
+
+    def __init__(self, name, members):
+        super().__init__(name, [], [], None, None, None)
+        self.members = members
+
+    def __repr__(self):
+        return f"EnumDefinition({self.name}, members={self.members})"
+
+
 class ClassInstantiation(ASTNode):
     __slots__ = ('class_name', 'args')
     """类实例化"""

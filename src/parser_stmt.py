@@ -515,6 +515,18 @@ class ParserStmtMixin:
         if tok.type == TokenType.KEYWORD and tok.value == '类':
             return self._parse_class_definition()
 
+        # R76-B（G-14）一等枚举：枚举 颜色：红, 绿, 蓝
+        #
+        # `枚举` 自 FFI 阶段起就在 KEYWORDS_FFI 表里（词法层是 KEYWORD），
+        # **非** `外部 …` 位置今天一律硬报「『枚举』是保留关键字，不能直接作为
+        # 语句开头」。故新增分支只可能把「原本报错」变成「能解析」，零回归风险
+        # ——与 `约`（v7 单 31-F）/ `记录`（R73-C）的先例同一论证方式。
+        # 仍带前视守卫（要求「名称后紧跟冒号」），以免抢走 `枚举 名 { … }`
+        # 这类 C 形态与将来可能出现的同名标识符用法。
+        if (tok.type == TokenType.KEYWORD and tok.value == '枚举'
+                and self._is_enum_header()):
+            return self._parse_enum_definition()
+
         # R73-C 数据类/记录类型：记录 名: 字段1, 字段2
         # 走范式A（仿「约」接口定义）：判 IDENTIFIER 而非 KEYWORD，词法层零改动；
         # 前视守卫确认是「记录 名:」形态，避免与现有代码中「记录」变量名/方法名冲突。
@@ -3900,6 +3912,25 @@ class ParserStmtMixin:
                 and self._peek(1).type in (TokenType.IDENTIFIER, TokenType.KEYWORD, TokenType.LPAREN)):
             self._consume(TokenType.COLON)
             param_type = self._parse_type_annotation()
+        elif (self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD)
+                and self._peek(1)):
+            # R76 收口：括号式也支持「参数名 类型名」空格分隔写法，与旧式
+            # `接收 参数 类型` 行为对齐（C 路迁移大量采用此写法，如 `(a 整数, b 整数)`）。
+            # 类型判定与旧式 接收 路径一致：
+            #   1) 当前词是内置类型（整数/小数/文本/任意/…）；
+            #   2) 当前词是标识符且其后紧跟 逗号/冒号（说明它不是下一个形参名）。
+            # 例外：参数名是「等待/异步/同步」等关键字时，其后的标识符并入名字，
+            #       不当类型（与旧式路径同口径），避免「等待 价值」被误读为「等待: 价值」。
+            _nt = self._current()
+            _ntn = self._peek(1)
+            if _nt.value in BUILTIN_TYPES:
+                param_type = self._parse_type_annotation()
+            elif _nt.type == TokenType.IDENTIFIER and _ntn and (
+                    _ntn.type == TokenType.COMMA or _ntn.type == TokenType.COLON):
+                if param_name in ('等待', '异步', '同步'):
+                    param_name += self._consume(TokenType.IDENTIFIER).value
+                else:
+                    param_type = self._parse_type_annotation()
 
         return (param_name, param_type)
 
@@ -4956,6 +4987,89 @@ class ParserStmtMixin:
         if idx >= self._n_tokens:
             return False
         return self.tokens[idx].type == TokenType.COLON
+
+    def _is_enum_header(self) -> bool:
+        """R76-B（G-14）前视：当前 token 是「枚举」且为「枚举类型声明头」。
+
+        判据：「枚举」后是 1~4 个连续名称 token，再紧随冒号。
+        即 `枚举 颜色：红, 绿, 蓝` 形态。
+
+        与 `_is_record_header` 同口径（下标前视、不消耗、只认「名称+冒号」紧密形态）；
+        放宽到 1~4 个名称 token，是因为枚举名可能含被词法器切开的词素
+        （如 `值类型`），而 `记录` 那条只认单个 token。
+
+        为什么安全：`枚举` 属 KEYWORDS_FFI，非 `外部 …` 位置今日一律报错，
+        见调用点的论证。
+        """
+        idx = self.pos + 1  # 跳过「枚举」自身
+        n = 0
+        while idx < self._n_tokens and n < 4:
+            if self.tokens[idx].type not in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                break
+            idx += 1
+            n += 1
+        if n == 0 or idx >= self._n_tokens:
+            return False
+        return self.tokens[idx].type == TokenType.COLON
+
+    def _parse_enum_definition(self):
+        """R76-B（G-14）解析一等枚举定义。
+
+        语法：
+          枚举 颜色：红, 绿, 蓝
+
+        编译为 `class 颜色(enum.Enum): 红 = enum.auto() …`，天然获得
+          构造 `颜色(1)`（按值反查）/ 取值 `颜色.红` / 相等（成员同一性）/ 哈希。
+        与 `记录`（dataclass）的关系见 docs/功能对标/语言缺陷账.md 的 G-14 条目。
+        与 C FFI 的 `外部 枚举 名 { … }`（FFIEnumDef）是两条独立路径。
+        """
+        from ast_nodes_v3 import EnumDefinition
+        self._consume(TokenType.KEYWORD, '枚举')
+
+        # 枚举名（允许被词法器切开的多个 token 拼回，与字段名同口径）
+        name_parts = []
+        name_tok = self._current()
+        if name_tok and name_tok.type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+            while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                name_parts.append(self._consume().value)
+        else:
+            self._error(f"期望枚举名，但得到 {name_tok.type if name_tok else '输入结束'}")
+        enum_name = ''.join(name_parts)
+        if not enum_name:
+            self._error("枚举名不能为空")
+
+        # 冒号
+        if not (self._current() and self._current().type == TokenType.COLON):
+            self._error(f"期望冒号 ':' 分隔枚举名与成员列表，但得到 {self._current()}")
+        self._consume(TokenType.COLON)
+
+        # 成员列表：红, 绿, 蓝
+        members = []
+        while self._current() and self._current().type not in (
+                TokenType.NEWLINE, TokenType.EOF, TokenType.DEDENT):
+            if self._current().type not in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                self._error(f"期望枚举成员名，但得到 {self._current()}")
+            members.append(self._consume().value)
+            if self._current() and self._current().type == TokenType.COMMA:
+                self._consume(TokenType.COMMA)
+                if self._current() and self._current().type in (
+                        TokenType.NEWLINE, TokenType.EOF, TokenType.DEDENT):
+                    break
+            else:
+                break
+
+        if not members:
+            self._error("枚举至少需要一个成员")
+
+        # 成员重名：编译期给中文错误，不留给 Python 运行期静默覆盖
+        seen = set()
+        for m in members:
+            if m in seen:
+                self._error(f"枚举「{enum_name}」的成员「{m}」重复定义")
+            seen.add(m)
+
+        return EnumDefinition(name=enum_name, members=members)
+
     def _parse_class_definition(self) -> ClassDefinition:
         """解析类定义
 

@@ -16,6 +16,10 @@ from light_ast import (
     Parameter, SelfReference,
     AwaitExpression,
 )
+try:
+    from light_ast import RangeExpr
+except ImportError:  # 兜底：RangeExpr 定义在 light_parser_v3，由 light_ast re-export
+    from light_parser_v3 import RangeExpr
 
 from visitor_stmt import VisitorStmtMixin
 
@@ -85,16 +89,32 @@ class VisitorExprMixin(VisitorStmtMixin):
         return result
 
     def visitComparisonExpr(self, ctx: LightLangParser.ComparisonExprContext):
-        """比较表达式"""
-        exprs = [self.visitAdditiveExpr(a)
-                 for a in ctx.getTypedRuleContexts(LightLangParser.AdditiveExprContext)]
-        if len(exprs) == 1:
-            return exprs[0]
-        ops = [c.getText() for c in ctx.compOp()]
-        result = exprs[0]
-        for i, op in enumerate(ops):
+        """比较表达式（含范围表达式 1至10 / 1到10步2）"""
+        additive_exprs = ctx.getTypedRuleContexts(LightLangParser.AdditiveExprContext)
+        comp_ops = ctx.compOp()
+
+        # 范围表达式：起始 至 结束（步 长）——R76-A
+        if ctx.K_TO():
+            start = self.visitAdditiveExpr(additive_exprs[0])
+            end = self.visitAdditiveExpr(additive_exprs[1])
+            step = (self.visitAdditiveExpr(additive_exprs[2])
+                    if ctx.K_STEP() and len(additive_exprs) > 2 else None)
+            return RangeExpr(start=start, end=end, step=step)
+        if len(additive_exprs) == 1:
+            return self.visitAdditiveExpr(additive_exprs[0])
+        if not comp_ops:
+            return self.visitAdditiveExpr(additive_exprs[0])
+        # 单一比较链：a < b < c 依次折叠
+        result = self.visitAdditiveExpr(additive_exprs[0])
+        for i, op_ctx in enumerate(comp_ops):
+            op = op_ctx.getText()
+            # 归一化符号运算符到中文关键字（与 unified codegen 的 operator_map 对齐）
+            op_map = {'==': '等于', '!=': '不等于', '>': '大于', '<': '小于',
+                      '>=': '大于等于', '<=': '小于等于'}
+            op = op_map.get(op, op)
+            right = self.visitAdditiveExpr(additive_exprs[i + 1])
             result = BinaryOp(line=result.line, column=result.column,
-                              left=result, operator=op, right=exprs[i+1])
+                              left=result, operator=op, right=right)
         return result
 
     def visitAdditiveExpr(self, ctx: LightLangParser.AdditiveExprContext):
@@ -106,6 +126,10 @@ class VisitorExprMixin(VisitorStmtMixin):
         ops = [c.getText() for c in ctx.addOp()]
         result = exprs[0]
         for i, op in enumerate(ops):
+            # 复合赋值词兼作中缀运算符（甲 加上 1 → 甲 + 1）——R76-A
+            op_map = {'加上': '+', '减去': '-', '乘以': '*', '除以': '/',
+                      '模以': '%', '幂以': '**'}
+            op = op_map.get(op, op)
             result = BinaryOp(line=result.line, column=result.column,
                               left=result, operator=op, right=exprs[i+1])
         return result
@@ -145,6 +169,16 @@ class VisitorExprMixin(VisitorStmtMixin):
     def visitPostfixExpr(self, ctx: LightLangParser.PostfixExprContext):
         """后缀表达式：处理索引访问、属性访问、函数调用"""
         base = self.visitPrimary(ctx.primary())
+
+        # R76-A：父 后紧跟成员访问符（./的/之）→ super()（对齐 src/parser_expr.py:1412）
+        if (isinstance(base, Identifier) and base.name == '父'
+                and ctx.getChildCount() > 1):
+            nxt = ctx.getChild(1)
+            sym = getattr(nxt, 'symbol', None)
+            if sym is not None and sym.type in (LightLangParser.DOT,
+                                                LightLangParser.K_DE,
+                                                LightLangParser.K_OF):
+                base = Identifier(line=base.line, column=base.column, name='super()')
 
         # 如果已经是 NewExpression，直接返回（避免被包装成 FunctionCall）
         if isinstance(base, NewExpression):
@@ -284,6 +318,10 @@ class VisitorExprMixin(VisitorStmtMixin):
 
         if ctx.STRING():
             text = ctx.STRING().getText()
+            # R76-A：三引号 docstring
+            if text.startswith('"""') or text.startswith("'''"):
+                raw = text[3:-3]
+                return StringLiteral(line=line, column=col, value=raw)
             # 去掉引号并解析转义序列
             raw = text[1:-1]
             # 检测是否包含插值表达式 {xxx}
@@ -323,12 +361,37 @@ class VisitorExprMixin(VisitorStmtMixin):
             return BooleanLiteral(line=line, column=col, value=False)
         if ctx.K_NULL():
             return NullLiteral(line=line, column=col)
+        if ctx.UNDERSCORE():
+            return Identifier(line=line, column=col, name='_')
+        if ctx.K_PARENT():
+            return Identifier(line=line, column=col, name='父')
 
         # self引用：己（通过检查子节点）
         for child in ctx.getChildren():
             if hasattr(child, 'symbol') and hasattr(child.symbol, 'type'):
                 if child.symbol.type == LightLangParser.K_SELF:
+                    # 己属性（无分隔的 self 属性访问：己姓名）——R76-A
+                    if ctx.ID():
+                        return PropertyAccess(line=line, column=col,
+                                              obj=SelfReference(line=line, column=col),
+                                              property_name=ctx.ID().getText())
                     return SelfReference(line=line, column=col)
+
+        # R76-A：`己属性` 整体成词（K_SELF_PROP）—— 自引用属性访问
+        for child in ctx.getChildren():
+            if hasattr(child, 'symbol') and hasattr(child.symbol, 'type'):
+                if child.symbol.type == LightLangParser.K_SELF_PROP:
+                    text = child.getText()
+                    # 去掉自指前缀（自我/己/自）
+                    for _p in ('自我', '己', '自'):
+                        if text.startswith(_p):
+                            prop = text[len(_p):]
+                            break
+                    else:
+                        prop = text
+                    return PropertyAccess(line=line, column=col,
+                                          obj=SelfReference(line=line, column=col),
+                                          property_name=prop)
 
         # 三元条件表达式：如果 条件 那么 值1 否则 值2
         if ctx.conditionalExpr():
@@ -544,6 +607,12 @@ class VisitorExprMixin(VisitorStmtMixin):
             # 空列表
             return ListLiteral(line=line, column=col, elements=[])
 
+        # R76-A：花括号字典字面量 {键: 值} / 空字典 {}
+        if ctx.LBRACE():
+            if ctx.dictContent():
+                return self.visitDictContent(ctx.dictContent())
+            return DictLiteral(line=line, column=col, entries=[])
+
         if ctx.BOOK_L() and ctx.BOOK_R():
             return SegmentName(line=line, column=col, name=ctx.ID().getText())
 
@@ -625,6 +694,10 @@ class VisitorExprMixin(VisitorStmtMixin):
             return BooleanLiteral(line=line, column=col, value=False)
         if ctx.K_NULL():
             return NullLiteral(line=line, column=col)
+        if ctx.UNDERSCORE():
+            return Identifier(line=line, column=col, name='_')
+        if ctx.K_PARENT():
+            return Identifier(line=line, column=col, name='父')
         if ctx.K_SELF():
             return SelfReference(line=line, column=col)
 
