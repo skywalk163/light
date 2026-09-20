@@ -4093,6 +4093,259 @@
 <li>ests/unit/：4173 passed（2 个已有 flaky 失败，与本次修改无关）</li>
 <li>lightharness/运行.py 三个新用例：rc=0 全绿</li>
 </ul>
+<hr />
+<h2 id="r76-bg-12-g-13-g-14">三、语法补缺三项（R76-B：G-12 / G-13 / G-14）<a class="headerlink" href="#r76-bg-12-g-13-g-14" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>本轮口径：<strong>每项先实测定性，再决定「实现」还是「如实登记为有意不支持」</strong>。
+下表结论均来自<strong>实测</strong>（已固化为 <code>tests/test_R76_syntax_gaps.py</code>），不是代码审查推断——
+上一轮 G-06/G-10 就是「实测发现早已支持」，虚报实现比登记更坏。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>编号</th>
+<th>项</th>
+<th>实测结论</th>
+<th>处置</th>
+<th>交付物</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>G-12</strong></td>
+<td>异步生成器 <code>异步 段落</code> + <code>生成</code>；异步上下文管理器 <code>使用 异步 X 为 v：</code></td>
+<td><strong>已支持</strong>（非缺口）。<code>生成</code> → <code>yield</code>；<code>生成 全部</code> → <code>yield from</code>；<code>使用 异步 …</code> → <code>async with</code>；<code>异步 遍历 块 之 G：</code> → <code>async for</code>。<strong>但发现真实分叉：unified 后端此前无 <code>YieldStmt</code> 生成分支</strong>，<code>生成</code> 落到链尾「警告：未知语句类型: YieldStmt」被<strong>静默丢弃</strong></td>
+<td>登记「已支持」+ <strong>修 unified 分叉</strong></td>
+<td><code>src/code_generator_unified.py</code>（新增 <code>is_instance(stmt, 'YieldStmt')</code> 分支，与 <code>code_generator.py:2010</code> 同口径）、<code>lightharness/examples/test_R76_G12_异步生成器.light</code>、<code>tests/test_R76_syntax_gaps.py::TestG12异步生成器已支持</code></td>
+</tr>
+<tr>
+<td><strong>G-13</strong></td>
+<td>walrus 海象运算符 <code>:=</code></td>
+<td><strong>有意不支持</strong>（设计内，源码原标注 P1-3）。<code>src/parser_expr.py</code> 的 <code>_parse_expr</code> 与 <code>_parse_logical_expr</code> 两处<strong>主动抛中文错误</strong>并给出替代写法</td>
+<td>如实登记，<strong>不实现</strong></td>
+<td><code>lightharness/examples/test_R76_G13_walrus替代写法.light</code>、<code>tests/test_R76_syntax_gaps.py::TestG13walrus有意不支持</code></td>
+</tr>
+<tr>
+<td><strong>G-14</strong></td>
+<td>一等 <code>枚举</code></td>
+<td><strong>缺口成立</strong>。<code>枚举</code> 仅登记在 <code>keywords.KEYWORDS_FFI</code>，解析入口只有 <code>外部 枚举 名称 { … }</code>（<code>FFIEnumDef</code>），光明层无一等枚举语义；<code>枚举 颜色：红, 绿</code> 报「『枚举』是保留关键字，不能直接作为语句开头」</td>
+<td><strong>实现</strong></td>
+<td><code>src/ast_nodes_v3.py</code>（<code>EnumDefinition</code>）、<code>src/parser_stmt.py</code>（<code>_is_enum_header</code> + <code>_parse_enum_definition</code>）、<code>src/code_generator.py</code> 与 <code>src/code_generator_unified.py</code>（enum 基类 / 成员 / <code>import enum</code>）、<code>lightharness/examples/test_R76_G14_枚举.light</code>、<code>tests/test_R76_syntax_gaps.py::TestG14一等枚举</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="g-12">G-12（异步生成器 / 异步上下文管理器）<a class="headerlink" href="#g-12" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>结论</strong>：<code>async def + yield</code>、<code>async with</code>、<code>async for</code> 三条通路<strong>均已落地</strong>；
+  <code>examples/harness/编排.light</code> 等生产代码已在用 <code>异步 遍历 块 之 通道对象.流式对话2(消息列表)</code>。</li>
+<li><strong>本轮实际修的</strong>：unified 后端缺 <code>YieldStmt</code> 分支 —— 同步/异步生成器在 unified 产物里
+  退化成<strong>没有任何产出</strong>的函数（不报错，只是 <code>yield</code> 消失）。这属于「看起来能用但编错」，
+  危害高于直接报错，也正是「unified 与 src 语义分叉」这一类问题的典型形态。</li>
+<li><strong>回归护栏</strong>：<code>TestG12异步生成器已支持</code> 断言两个后端都产出
+  <code>async def 计数(…):</code> / <code>yield 序号</code> / <code>async with …</code>，并实跑一次 <code>异步 遍历</code> 消费（求和正确）。</li>
+</ul>
+<h3 id="g-13walrus">G-13（walrus <code>:=</code>）<a class="headerlink" href="#g-13walrus" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>结论</strong>：<strong>有意不支持，维持</strong>。原文案（两处，逐字）：<blockquote>
+<p>光明不支持海象运算符 ':='。请使用「设」语句声明变量后再使用。</p>
+</blockquote>
+</li>
+<li><strong>为什么不实现</strong>：<code>:=</code> 与光明的块起始冒号、类型标注冒号（<code>名: 类型 = 值</code>）处在同一
+  token 位面，放开前必须先裁决消歧规则；且该设计已随中文诊断给出明确替代路径，
+  属产品决策而非能力缺口。</li>
+<li><strong>如将来要放开</strong>：先裁决「<code>甲 := 1</code> 与 <code>甲: 整数 = 1</code> 的消歧规则」，
+  再动 <code>src/lexer.py</code> 的 WALRUS 出词位与 <code>parser_expr.py</code> 的两处主动拒绝点。</li>
+<li><strong>反向哨兵</strong>：赋值位 / 条件位 / 循环条件位三种 <code>:=</code> 形态都必须报中文错误且含「设」替代提示。</li>
+</ul>
+<h3 id="g-14">G-14（一等枚举）<a class="headerlink" href="#g-14" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>语法</strong>：<code>枚举 名：成员1, 成员2, …</code>（单行逗号列表，与 R73-C 的 <code>记录 名: 字段1, 字段2</code> 同形态）。</li>
+<li><strong>产物</strong>：
+  <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">enum</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">颜色</span><span class="p">(</span><span class="n">enum</span><span class="o">.</span><span class="n">Enum</span><span class="p">):</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">红</span> <span class="o">=</span> <span class="n">enum</span><span class="o">.</span><span class="n">auto</span><span class="p">()</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">绿</span> <span class="o">=</span> <span class="n">enum</span><span class="o">.</span><span class="n">auto</span><span class="p">()</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">蓝</span> <span class="o">=</span> <span class="n">enum</span><span class="o">.</span><span class="n">auto</span><span class="p">()</span>
+</span></code></pre></div></li>
+<li><strong>四项语义</strong>（<code>enum.Enum</code> 天然提供，均有用例覆盖）：</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>语义</th>
+<th>写法</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>取值</td>
+<td><code>颜色.红</code></td>
+<td>成员单例</td>
+</tr>
+<tr>
+<td>构造</td>
+<td><code>颜色(2)</code>（按值反查）</td>
+<td><code>颜色.绿</code></td>
+</tr>
+<tr>
+<td>相等</td>
+<td><code>颜色.红 == 颜色.绿</code>；<code>颜色.红 == 状态.开</code></td>
+<td>均为 <code>假</code>（成员同一性 + 跨枚举隔离）</td>
+</tr>
+<tr>
+<td>哈希</td>
+<td><code>表[颜色.红] 等于 "R"</code></td>
+<td>可作字典键 / 集合元素</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>与 <code>记录</code>（数据类）的关系</strong>：<code>记录</code> 编译为 <code>@dataclasses.dataclass(unsafe_hash=True)</code>，
+  是<strong>可变数据载体</strong>（多实例、字段可带默认值）；<code>枚举</code> 编译为 <code>enum.Enum</code> 子类，
+  是<strong>封闭取值域</strong>（成员单例、不可变）。两者都是「一份声明换掉整类样板代码」，语义正交，不互相替代。</li>
+<li><strong>解析入口</strong>：走「范式 A + 前视守卫」（同 <code>约</code> / <code>记录</code> 的先例）。<code>枚举</code> 属 <code>KEYWORDS_FFI</code>，
+  任何非 <code>外部 …</code> 位置今日一律硬报错，故新增分支只可能把「原本报错」变成「能解析」，<strong>零回归</strong>；
+  守卫（<code>_is_enum_header</code>）要求「名称后紧跟冒号」，不抢 <code>枚举 名 { … }</code> 这类 C 形态。</li>
+<li><strong>反向哨兵</strong>（均报中文编译错误，不泄漏 Python 异常）：空成员表 → <code>枚举至少需要一个成员</code>；
+  成员重名 → <code>枚举「X」的成员「Y」重复定义</code>；缺冒号 → 保留关键字中文诊断。</li>
+<li><strong>未顺手改（如实上报）</strong>：<code>src/parser_core.py:172</code> 的提示表对 <code>枚举</code> 仍写
+  「如：枚举 名字: ...」，在缺冒号场景下会给出<strong>该形态现已可用</strong>的误导性建议。
+  该文件不在本轮任务书的可改文件清单内，故未改，留给后续轮次。</li>
+</ul>
+<hr />
+<h2 id="l-162l-169-r77-b2026-09-20">五、语法缺陷账 L-162~L-169 复测裁定（R77-B，2026-09-20）<a class="headerlink" href="#l-162l-169-r77-b2026-09-20" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>本轮口径：<strong>逐条复测</strong>，每条先实测定性，再裁定「已修复（复测通过）」/「应实现」/「有意不支持」。
+结果：8 项已修复且复测通过；1 项（L-167）在 light-merge 侧实测仍缺修复 → <strong>本轮实现</strong>；
+1 项（L-164）属<strong>有意不支持</strong>（刻意保留 wire 字面值，以常量化消除歧义）→ 登记。
+用例固化于 <code>tests/test_缺陷账_L162_L169.py</code>（12 passed）。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>编号</th>
+<th>条目</th>
+<th>复测裁定</th>
+<th>依据（实测定性）</th>
+<th>处置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L-162</td>
+<td>mock处理器 返回 <code>[状态,头,体]</code> 列表 vs HTTP服务端 字典契约</td>
+<td>✅ 已修复（第44轮任务3）</td>
+<td>lightharness <code>src/mock大模型服务器.light</code>：<code>造HTTP响应(三元组)</code> + <code>mock处理器</code> 返回字典；<code>分派</code> 保持三元组不变</td>
+<td>复测通过，跨仓不外测</td>
+</tr>
+<tr>
+<td>L-163</td>
+<td>工具_bash 装配契约（注册表方法 + handler arity）</td>
+<td>✅ 已修复（第44轮任务4）</td>
+<td>lightharness <code>src/工具_bash.light</code>：<code>注册bash工具</code> 走 <code>具注册工具</code>；<code>bash处理(参数, 取消令牌 = 空)</code></td>
+<td>复测通过，跨仓不外测</td>
+</tr>
+<tr>
+<td>L-164</td>
+<td>执行工具 状态字面值 "ok" 与直觉 "normal" 不符</td>
+<td>⚠️ <strong>有意不支持改值</strong></td>
+<td>既有 <code>examples/test_R40_端到端互举.light:144</code> 硬编码断言 "ok"，改值破坏 wire；已导出 <code>调成功</code> 别名 + <code>状态字面值表</code> 消除歧义</td>
+<td><strong>登记</strong>（详见下）</td>
+</tr>
+<tr>
+<td>L-165</td>
+<td>新建Mock服务 未声明 全局 → 恒 500</td>
+<td>✅ 已修复（第44轮任务3）</td>
+<td>lightharness <code>src/mock大模型服务器.light</code>：<code>新建Mock服务</code> 内 <code>全局 当前实例</code> 在位</td>
+<td>复测通过；根因模式由 L-166 告警兜底</td>
+</tr>
+<tr>
+<td>L-166</td>
+<td>函数内写模块级同名变量无告警</td>
+<td>✅ 已修复（第45轮任务2 + 第46轮抑制增强）</td>
+<td>light-merge <code>src/scope_shadow_check.py</code> + <code>cli/light.py</code> 三调用点 + <code>LIGHT_WARN_GLOBAL_SHADOW</code> + 行级/段落级 <code># 抑制L166</code></td>
+<td>复测通过；<code>TestL166</code> 回归护栏（6 passed）</td>
+</tr>
+<tr>
+<td>L-167</td>
+<td>外部命令.等待进程 超时 kill 后未回收</td>
+<td>🔧 <strong>R77-B 应实现</strong></td>
+<td>light-merge <code>stdlib/外部命令.py</code> 与 <code>bootstrap/release/stdlib/外部命令.py</code>：实测 <code>进程.沟通</code> 不存在 → <strong>正常路径即 AttributeError</strong>（比账本记载更严重）；kill 后也无 communicate()</td>
+<td><strong>本轮修复</strong>（详见下）</td>
+</tr>
+<tr>
+<td>L-168</td>
+<td>test_启动配置 假 L-006 跨段读写 + 死代码</td>
+<td>✅ 已修复（第46轮任务1）</td>
+<td>lightharness <code>examples/test_启动配置.light</code>：<code>抛数组manifest</code>/<code>抛缺失manifest</code> 已删、注释重写、临时路径局部化</td>
+<td>复测通过，跨仓不外测</td>
+</tr>
+<tr>
+<td>L-169</td>
+<td>examples/games/ 影子变量成片</td>
+<td>✅ 已修复（第46轮任务2）</td>
+<td>light-merge <code>examples/games/snake.light</code> 等 <code>全局</code> 声明在位；全语料重扫 0 命中</td>
+<td>复测通过；<code>TestL169</code> 回归护栏（2 passed）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="l-164-wire">L-164 · 有意不支持登记（不改 wire 字面值）<a class="headerlink" href="#l-164-wire" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>决策</strong>：执行工具成功状态字面值<strong>刻意保留 <code>"ok"</code></strong>，不支持直觉写法的 <code>"normal"</code>。
+  原因：<code>examples/test_R40_端到端互举.light:144</code> 直接硬编码断言 <code>"ok"</code>，改值属 wire 破坏性变更。</li>
+<li><strong>替代路径</strong>（已落地）：§0 常量区注释列全五个状态字面值（<code>调正常</code>/<code>调拒绝</code>/<code>调限流</code>/<code>调取消</code>/<code>调失败</code>）+
+  「勿硬编码」警示；新增导出别名 <code>调成功</code>（= <code>调正常</code>）与 <code>状态字面值表</code>，调用方一律取常量。</li>
+<li><strong>如将来要改</strong>：需同步改 <code>test_R40_端到端互举.light</code> 的硬编码断言，并评估全部下游字符串比对。</li>
+</ul>
+<h3 id="l-167-r77-b">L-167 · 应实现修复（R77-B）<a class="headerlink" href="#l-167-r77-b" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>实测缺口</strong>：light-merge 两份 <code>stdlib/外部命令.py</code>（<code>stdlib/</code> 与 <code>bootstrap/release/stdlib/</code>）的
+  <code>等待进程</code> 用 <code>进程.沟通(timeout=超时)</code> —— <code>Popen</code> 上无 <code>沟通</code> 属性，<strong>正常路径即抛
+  AttributeError</strong>（真实运行时实测确认），且 TimeoutExpired 分支 kill 后不回收进程。</li>
+<li><strong>修复</strong>（与 lightharness 已修副本 <code>0a31267</code> 口径对齐）：</li>
+<li><code>进程.沟通(...)</code> → <code>进程.communicate(...)</code>；</li>
+<li>TimeoutExpired 分支 <code>进程.kill()</code> 后补 <code>try: 进程.communicate() except Exception: pass</code>
+     （回收僵尸/排空管道，异常不影响超时语义，仍返回 返回码=-1）。</li>
+<li><strong>验证</strong>：<code>tests/test_缺陷账_L162_L169.py::TestL167</code>（3 passed：超时返回码/回收断言/正常路径）；
+  真实运行时探针 rc=0（<code>等待进程(后台执行(sleep 2), 1)</code> → 返回码=-1、标准错误「进程超时（1秒）」）。</li>
+<li><strong>验收关联</strong>：<code>tests/test_缺陷账_L162_L169.py</code> 12 passed；回归集 206 passed / 0 failed
+  （含 <code>test_R75/R76_syntax_gaps.py</code>、<code>test_stdlib_phase13.py</code>、<code>test_new_modules.py</code>、<code>tests/integration/</code>）。</li>
+</ul>
+<h3 id="_6">交付物<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>tests/test_缺陷账_L162_L169.py</code>（新增，12 passed：L-166×7 / L-167×3 / L-169×2）</li>
+<li><code>stdlib/外部命令.py</code>、<code>bootstrap/release/stdlib/外部命令.py</code>（L-167 修复）</li>
+<li>本文件（R77-B 复测裁定 + L-164 有意不支持登记）</li>
+</ul>
+<hr />
+<h2 id="r77-agent2026-09-20">六、R77 合流验收新发现（主 agent，2026-09-20）<a class="headerlink" href="#r77-agent2026-09-20" title="Permanent link">&para;</a></h2>
+<h3 id="l-181-unified-antlr-_light_stdlib-except">L-181 · unified / ANTLR 腿产物<strong>无法独立运行</strong>（<code>_light_stdlib</code> 只在 <code>except</code> 分支赋值）<a class="headerlink" href="#l-181-unified-antlr-_light_stdlib-except" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>编号</strong>：L-181 ｜ <strong>状态</strong>：<strong>待修</strong>（R77 验收期发现，未修，移交下一轮）</li>
+<li><strong>现象</strong>：<code>python -m cli.light_unified compile &lt;f&gt;.light --backend antlr -o p.py</code> 成功，
+  但紧接 <code>python p.py</code> → <code>NameError: name '_light_stdlib' is not defined</code>（产物第 37 行）。
+  <strong>任意</strong>示例均复现（已验 <code>examples/hello.light</code> 与 <code>ffi_math/ffi_system/ffi_comprehensive</code>），
+  与 FFI 无关，系 unified 腿产物生成器的通用缺陷。</li>
+<li><strong>根因</strong>：<code>src/code_generator_unified.py</code> 生成的产物序言是</li>
+</ul>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">_light_file_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">except</span> <span class="ne">NameError</span><span class="p">:</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">_light_file_dir</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">_light_stdlib</span> <span class="o">=</span> <span class="s1">'&lt;编译期注入的 stdlib 路径&gt;'</span>   <span class="c1"># ← 只在 except 分支里赋值</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">if</span> <span class="ow">not</span> <span class="n">_light_stdlib</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">_light_stdlib</span><span class="p">):</span>   <span class="c1"># ← 正常路径必 NameError</span>
+</span></code></pre></div>
+<p><code>python p.py</code> 时 <code>__file__</code> <strong>存在</strong> → 不进 <code>except</code> → <code>_light_stdlib</code> 从未定义。
+  <strong>对照 src 后端（<code>src/code_generator.py</code>）同段是「try/except 之后无条件赋值」</strong>，
+  其产物可独立运行 —— 这是<strong>跨腿行为分叉</strong>，不是调用方用法问题。
+- <strong>影响面（有边界，不是全腿不可用）</strong>：
+  - <code>cli/light_unified.py run &lt;f&gt;.light --backend antlr</code> <strong>不受影响</strong>（exec 路径无 <code>__file__</code>，
+    走 except 分支）：实测 <code>examples/hello.light</code> rc=0、输出与预期一致；
+  - 断的只有「<strong>compile 落盘 → 独立 <code>python p.py</code></strong>」这条链。
+  - 既有测试无覆盖（<code>tests/unit/test_examples_run.py</code> 只走默认后端），故 0.82 全量门未暴露。
+- <strong>建议修法（行级）</strong>：把 <code>_light_stdlib = '&lt;路径&gt;'</code> 提到 <code>try</code> 之前无条件赋值（与 src 后端对齐）；
+  修后补一条「antlr 后端产物独立运行」用例，防止再退化。</p>
 
 
 
@@ -4115,7 +4368,7 @@
     <span class="md-icon" title="最后更新">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月20日 04:01:18 UTC">2026年9月20日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月20日 11:09:22 UTC">2026年9月20日</span>
   </span>
 
     
@@ -4125,7 +4378,7 @@
     <span class="md-icon" title="创建日期">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月20日 04:01:18 UTC">2026年9月20日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月20日 11:09:22 UTC">2026年9月20日</span>
   </span>
 
     
