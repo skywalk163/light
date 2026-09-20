@@ -373,7 +373,7 @@ agent工具题表["查询故障的东西"] 为 ["工具": "inject_fault", "参�
     返回 [空, 空, 空]
   结束。
   设 解释器 为 取环境("HARNESS_PYTHON", "python")
-  设 报告前缀 为 取环境("HARNESS_REPORT", "评测报告")
+  设 报告前缀 为 取环境("HARNESS_REPORT", os.path.join(tempfile.gettempdir(), "harness_评测报告"))
   设 输入路径 为 报告前缀 加上 ".pa_in_" 加上 转字符串(序号) 加上 ".json"
   设 结果路径 为 报告前缀 加上 ".pa_out_" 加上 转字符串(序号) 加上 ".json"
   设 载荷 为 ["序号": 序号, "条目": 条目]
