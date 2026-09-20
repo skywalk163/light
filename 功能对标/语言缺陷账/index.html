@@ -4028,6 +4028,71 @@
 <li><code>examples/test_L072.light</code>（L-072：<code>转字符串</code> 方案A — 布尔→真/假/空、字符串不加引号、dict/list→JSON、容器内布尔→true/false/null、中文不转义、三层嵌套）</li>
 <li><code>tests/unit/test_地板搬迁_JSON_S2.py</code>（L-069+L-072 回归：983 用例，三后端序列化/转字符串等价性全量验证）</li>
 </ul>
+<hr />
+<h2 id="r75-bl5">四、语法补缺（R75 任务B：L5 语法补缺三项）<a class="headerlink" href="#r75-bl5" title="Permanent link">&para;</a></h2>
+<p><strong>任务</strong>：把「光明语言语法缺陷清零单」G-06 / G-10 / G-15 三项高频缺口收口。
+<strong>执行日期</strong>：2026-09-20
+<strong>结论</strong>：三项实测确认状态如下，其中 G-15 发现并修复真实 bug，G-06 关联修复字典键括号 bug。</p>
+<table>
+<thead>
+<tr>
+<th>编号</th>
+<th>标题</th>
+<th>实测状态</th>
+<th>根因 / 说明</th>
+<th>修复文件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>G-06</strong></td>
+<td>列表/字典推导式</td>
+<td><strong>已支持（R73 前已落地）</strong></td>
+<td>parser_expr 完整实现列表/字典/集合推导式，双后端 codegen 均有对应分支；正向用例 6 项全绿</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>G-06-关联</strong></td>
+<td>字典字面量括号键 {(变量): 值} 失效</td>
+<td><strong>已修复（R75-B）</strong></td>
+<td>L-063 让裸标识符键自动转字符串（JS 风格），注释承诺「变量作键用括号」，但 parser 把 (p1) 仍解析为裸 Identifier（括号信息丢失），codegen 仍转字符串键。修复：新增 _parse_dict_key() 检测 LPAREN 并打 _is_paren_dict_key 标记；Identifier 加 _is_paren_dict_key slot；双后端 codegen 检查该标记放行</td>
+<td>src/parser_expr.py、src/ast_nodes_v3.py、src/code_generator.py、src/code_generator_unified.py</td>
+</tr>
+<tr>
+<td><strong>G-10</strong></td>
+<td>数据类 / 记录类型（@dataclass 风格）</td>
+<td><strong>已支持（R73-C 已落地）</strong></td>
+<td>记录 点: x, y 语法生成 @dataclasses.dataclass(unsafe_hash=True) 装饰的类，支持构造、相等、哈希；正向用例 6 项全绿</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>G-10-关联</strong></td>
+<td>unified 后端不支持 RecordDefinition</td>
+<td><strong>已修复（R75-B）</strong></td>
+<td>unified 后端语句分发缺 RecordDefinition 分支（is_instance 只匹配精确类型名，不识别继承），且 _generate_class 无记录类型字段/装饰器生成逻辑。修复：添加 RecordDefinition 分发分支；_generate_class 加 is_record 检测、装饰器生成、元组格式字段生成、跳过手动构造；添加 _needs_dataclass 标志及 import 注入</td>
+<td>src/code_generator_unified.py</td>
+</tr>
+<tr>
+<td><strong>G-15</strong></td>
+<td>with 上下文管理器（使用 表达式 为 变量：）</td>
+<td><strong>已修复（R75-B）</strong></td>
+<td>parser _parse_with_stmt 未像 if/while 那样消耗 NEWLINE/INDENT/DEDENT，直接调用 _parse_body()，导致 body 把 with 块后的后续语句错误吞入（缩进不归零），<strong>exit</strong> 实际未被调用。修复：与 if/while 对齐，消耗 NEWLINE/INDENT 后解析 body，之后消耗 DEDENT</td>
+<td>src/parser_stmt.py</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_4">交付物<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h3>
+<ul>
+<li>正向用例：lightharness/examples/test_R75_G06推导式.light、 est_R75_G10数据类.light、   est_R75_G15with.light（运行.py 跑 rc=0）</li>
+<li>反向哨兵：lightharness/examples/test_R75_反向哨兵.light（非法形态报中文编译错误）</li>
+<li>双后端 parity 测试：    ests/test_R75_syntax_gaps.py（13 项全绿，覆盖推导式/数据类/with 的双后端等价性 + 回归护栏）</li>
+</ul>
+<h3 id="_5">验收结果<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h3>
+<ul>
+<li>ests/test_context_manager.py：147 passed</li>
+<li>ests/unit/：4173 passed（2 个已有 flaky 失败，与本次修改无关）</li>
+<li>lightharness/运行.py 三个新用例：rc=0 全绿</li>
+</ul>
 
 
 
@@ -4050,7 +4115,7 @@
     <span class="md-icon" title="最后更新">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月18日 15:57:42 UTC">2026年9月18日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月20日 04:01:18 UTC">2026年9月20日</span>
   </span>
 
     
@@ -4060,7 +4125,7 @@
     <span class="md-icon" title="创建日期">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月18日 15:57:42 UTC">2026年9月18日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月20日 04:01:18 UTC">2026年9月20日</span>
   </span>
 
     
