@@ -12,13 +12,14 @@ import sys
 import os
 import io
 import asyncio
+import pytest
 from contextlib import redirect_stdout
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from light_parser_v3 import LightParser
-from code_generator import PythonCodeGenerator
+from code_generator import PythonCodeGenerator, CodeGenError
 
 
 def _gen(src: str) -> str:
@@ -125,26 +126,21 @@ class TestAsyncClassMethod:
         assert r3 == 2
 
     def test_04_negative_await_in_sync_method(self):
-        """④ 反跑：把 异步 去掉后 等待 应报「不在异步上下文」。
+        """④ 反跑：同步段落里写 等待，编译器应在代码生成阶段提前报中文错。
 
-        同步段落里写 等待 会生成 `await` 在普通 `def` 里，
-        Python compile 阶段直接 SyntaxError: 'await' outside async function。
+        R70-B 收紧 _require_async_context 后，「等待」只能出现在异步段落里；
+        同步段落中的 等待 会在 _gen() 阶段直接抛 CodeGenError（比旧行为
+        「生成含裸 await 的普通 def → Python compile 才 SyntaxError」更早、
+        错误信息更友好）。本用例断言这一改进后的行为。
         """
         src = '''
 段落 非异步():
     设 x 为 等待 某函数()
     返回 x
 '''
-        code = _gen(src)
-        # 确认生成的是普通 def（不是 async def）
-        assert "def 非异步" in code
-        assert "async def 非异步" not in code
-        # 确认有 await
-        assert "await" in code
-        # 编译必须失败
-        try:
-            compile(code, '<test>', 'exec')
-            assert False, "同步段落里的 await 应导致 SyntaxError，但编译成功了"
-        except SyntaxError as e:
-            assert 'await' in str(e).lower() or 'async' in str(e).lower(), \
-                f"SyntaxError 信息应提及 await/async，实际: {e}"
+        with pytest.raises(CodeGenError) as exc_info:
+            _gen(src)
+        msg = str(exc_info.value)
+        assert '等待' in msg, f"错误信息应提及「等待」，实际: {msg}"
+        assert '异步' in msg, f"错误信息应提及「异步」，实际: {msg}"
+        assert '同步' in msg, f"错误信息应说明当前在同步段落，实际: {msg}"

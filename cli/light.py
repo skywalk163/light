@@ -119,6 +119,64 @@ def _warn_shadow_scope(module, file_label: str = '', source=None) -> None:
         pass
 
 
+def _find_src_shadow(mod_name: str, base_dir: str):
+    """L-094：从 base_dir 逐级向上，在各级祖先目录的 src/ 里查找同名模块。
+
+    典型场景：入口在 examples/，真实模块住在项目 src/，而 examples/ 里恰好有
+    同名空壳——解析会静默命中空壳，运行期才炸 `name '...' is not defined`。
+    这里只负责**找到并返回**候选路径，供 `_warn_import_shadow` 出诊断。
+
+    :return: 同名模块路径（与解析结果不同时）；找不到返回 None。
+    """
+    parts = mod_name.split('.')
+    d = Path(base_dir).resolve()
+    for _ in range(4):  # 最多向上找 4 级，避免一路翻到盘根
+        parent = d.parent
+        if parent == d:
+            break
+        d = parent
+        cand_src = d / 'src'
+        if not cand_src.is_dir():
+            continue
+        for ext in ('.light', '.py'):
+            cand = cand_src.joinpath(*parts)
+            if cand.suffix != ext:
+                cand = cand.with_suffix(ext)
+            if cand.is_file():
+                return cand
+    return None
+
+
+def _warn_import_shadow(mod_name: str, mod_path, base_dir: str) -> None:
+    """L-094：导入名在入口目录命中同名文件、而项目 src/ 下存在同名模块时，
+    输出点名两条路径的中文诊断（禁止静默遮蔽）。
+
+    输出到 **stderr**（stdout 是程序输出，不能被污染）；
+    环境变量 `LIGHT_WARN_IMPORT_SHADOW=0` 可关闭（CI 需要绝对干净输出时用）。
+    告警绝不阻断编译/解析（与 `_warn_shadow_scope` 同一口径）。
+
+    裁决说明：采用「诊断」而非「src/ 优先」——本仓 src/ 是编译器自身 Python
+    包，全局改解析优先级会劫持所有导入路径、风险不可控；先让遮蔽可见，
+    由用户在源码层消歧（改名/删空壳/调整目录）。
+    """
+    if os.environ.get('LIGHT_WARN_IMPORT_SHADOW', '1') == '0':
+        return
+    try:
+        shadow = _find_src_shadow(mod_name, base_dir)
+        if shadow is None:
+            return
+        if shadow.resolve() == Path(mod_path).resolve():
+            return  # 解析结果就是 src/ 那份，不构成遮蔽
+        print(
+            f"[L-094] 导入警告: 模块「{mod_name}」解析到 {Path(mod_path).resolve()}；"
+            f"而项目 src/ 下存在同名模块 {shadow.resolve()}，可能遮蔽"
+            f"（导入到空壳/错误实现时请核对此处）。",
+            file=sys.stderr,
+        )
+    except Exception:  # noqa: BLE001 —— 告警绝不能阻断编译
+        pass
+
+
 def _compile_src(source: str) -> str:
     """用 src 后端编译为 Python 代码
 
@@ -218,6 +276,10 @@ def _resolve_local_imports(source: str, source_dir: str) -> dict:
         if mod_path is None:
             return
 
+        # L-094：命中入口目录同名文件、而项目 src/ 下还有同名模块时，
+        # 给出点名两条路径的遮蔽诊断（禁止静默）。
+        _warn_import_shadow(mod_name, mod_path, base_dir)
+
         mod_src = mod_path.read_text(encoding='utf-8')
         mod_parser = LightParser()
         mod_module = mod_parser.parse(mod_src)
@@ -284,6 +346,10 @@ def _run_src(source: str, file_path: str | None = None) -> str:
     for mod_name, dep_info in dep_modules.items():
         combined_parts.append(f"# === 光明模块: {mod_name} ===\n")
         combined_parts.append(dep_info['code'])
+        # L-093：每段依赖代码补「结束」标记，让 build_full_mapping_with_module
+        # 的模块归属扫描在依赖段之后复位回入口模块——否则入口段的行号会被
+        # 永久错记到最后一个依赖模块名下，入口自身报错时片段错锚到依赖源码。
+        combined_parts.append(f"\n# === 光明模块: {mod_name} 结束 ===\n")
         combined_parts.append("\n")
     combined_parts.append(main_code)
     py_code = ''.join(combined_parts)
@@ -405,6 +471,12 @@ def _run_src(source: str, file_path: str | None = None) -> str:
                     _modules[_n] = _i.get('source', '')
                 _exc._light_modules = _modules
                 _exc._light_entry_name = entry_name
+                # L-093：附带「模块名 -> 磁盘路径」，供错误标注显示真实文件路径。
+                _exc._light_module_paths = {entry_name: file_path} if file_path else {}
+                for _n, _i in dep_modules.items():
+                    _p = _i.get('path')
+                    if _p:
+                        _exc._light_module_paths[_n] = _p
             except Exception:
                 pass
         raise

@@ -2783,6 +2783,25 @@ class ParserExprMixin:
         
         return LambdaExpression(params, body)
 
+    def _parse_dict_key(self):
+        """R75-B 修复：解析字典键，括号包裹的键标记为表达式键（不作字符串键）。
+
+        L-063 让裸标识符键自动转字符串（JS 风格），但承诺「变量作键用括号」
+        此前括号被 _parse_comparison 丢弃，裸 Identifier 仍被转字符串。
+        此处检测 LPAREN 并给结果节点打 _is_paren_dict_key 标记，codegen 据此放行。
+        """
+        if self._current() and self._current().type == TokenType.LPAREN:
+            self._consume(TokenType.LPAREN)
+            key = self._parse_comparison()
+            # 跳过 NEWLINE/INDENT/DEDENT（支持多行括号表达式）
+            while self._current() and self._current().type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
+                self._consume()
+            self._consume(TokenType.RPAREN)
+            # 标记为括号表达式键（codegen 中不作字符串键）
+            key._is_paren_dict_key = True
+            return key
+        return self._parse_comparison()
+
     def _parse_dict_literal(self) -> ASTNode:
         """解析字典字面量或字典推导
 
@@ -2826,7 +2845,7 @@ class ParserExprMixin:
                             spread = self._parse_comparison()
                             entries.append((None, spread))
                             continue
-                    key = self._parse_comparison()
+                    key = self._parse_dict_key()
                     self._consume(TokenType.COLON)
                     val = self._parse_comparison()
                     # 检查三元表达式：值 如果 条件 否则 值
@@ -2844,7 +2863,7 @@ class ParserExprMixin:
                 return self._parse_postfix(DictLiteral(entries))
         
         # 键
-        key = self._parse_comparison()
+        key = self._parse_dict_key()
         
         # 检查是否是集合推导：{expr 遍历 变量 之 可迭代对象 遍历 变量 之 ...}
         if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '遍历':
@@ -3017,7 +3036,7 @@ class ParserExprMixin:
                         spread = self._parse_comparison()
                         entries.append((None, spread))
                         continue
-                key = self._parse_comparison()
+                key = self._parse_dict_key()
                 self._consume(TokenType.COLON)
                 val = self._parse_comparison()
                 # 检查三元表达式：值 如果 条件 否则 值
@@ -3160,7 +3179,7 @@ class ParserExprMixin:
                 # 与方括号列表、花括号字典/集合的尾随逗号处理对齐。
                 if self._match(TokenType.RBRACKET):
                     break
-                key = self._parse_comparison()
+                key = self._parse_dict_key()
                 self._consume(TokenType.COLON)
                 val = self._parse_comparison()
                 entries.append((key, val))

@@ -5,6 +5,25 @@
 语义的 Python 等价结构）为基准，与 .light 原生腿 O0 输出逐值对拍。
 发现的 .light 缺陷以 xfail/skip 登记（本批只做覆盖，不修复）。
 每用例独立编译运行（T5A 范式），optimize_level=0 强 O0。只跑本文件，禁止全量。
+
+⚠️ flaky 说明与处置（R75-C 复核并加固）
+  现象：全量 xdist 跑时「不同批次报不同用例红」，隔离复跑恒绿。
+  定位（R75-C 实测本文件 durations）：单用例在**低并发**下最慢已到 42.88s
+    （test_链表_删除指定值 / test_BST_高度边界），而 pyproject.toml 的
+    `--timeout=60` 是**每用例**上限 —— 全量 16 路 xdist 叠加 clang/LLVM 编译
+    竞争时极易越过 60s，超时红便随机落在不同用例上，表现为「批次相关」假红。
+    结论：主因是**墙钟预算**，不是对拍逻辑、也不是产物语义分歧。
+  处置：① 本文件整体把 pytest 超时上调到 240s（pytest-timeout 的
+          `pytest.mark.timeout` 优先于命令行 `--timeout`）；
+        ② 置 `sys.dont_write_bytecode = True`，消除「多 worker 同时惰性导入
+          `llvm.compiler` → 同时写同一个 .pyc」这一并发写竞争面。
+    ⛔ 断言与对拍口径**未做任何改动**（本文件不需要、也不允许为此放宽判据）。
+  隔离复跑（恒绿，R75-C 实测 30 passed / 1 skipped / 2 xfailed，674.88s）：
+    CODEBUDDY_SAFE_DELETE_ENABLED=0 <venv>/python.exe -m pytest \
+      tests/unit/test_原生腿_R13C_对拍扩展.py -q -p no:cacheprovider \
+      --basetemp=<仓库内临时目录> -rf --timeout=180
+    ⚠️ 必须带 CODEBUDDY_SAFE_DELETE_ENABLED=0（WorkBuddy 沙箱 safe-delete shim 会
+      fail-closed，产生与本文件无关的假红），且必须带仓库内的 --basetemp。
 """
 import os
 import sys
@@ -12,6 +31,12 @@ import subprocess as _subproc
 import tempfile as _tempfile
 
 import pytest
+
+# 见文件头 ②：多 worker 并发惰性导入时不再写 .pyc，消除并发写竞争面。
+sys.dont_write_bytecode = True
+
+# 见文件头 ①：本文件单用例最慢实测 42.88s，必须高于 pyproject.toml 的全局 --timeout=60。
+pytestmark = pytest.mark.timeout(240)
 
 # oracle：stdlib 的 .py 实现（与 .light 同源语义）
 sys.path.insert(0, os.path.join(

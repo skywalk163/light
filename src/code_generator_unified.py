@@ -32,6 +32,38 @@ def get_attr(node, attr_name, default=None):
     return getattr(node, attr_name, default)
 
 
+# ---- R74 任务B（B-2）：具名实参名翻译表与 src 后端共用同一份 ----------------
+#
+# 「中文具名实参名 → Python 形参名」这张表的**唯一定义点**在
+# src/code_generator.py::PythonCodeGenerator._BUILTIN_KWARG_NAME_MAP。
+# unified 不允许再抄一份：两端口径一旦分叉，就会出现「src 腿跑得对、unified 腿
+# 发射 `sorted(xs, 依据=f)`」这种编译过、一跑就 TypeError 的静默错译。
+#
+# 为什么用延迟导入而不是模块层 `from code_generator import ...`：
+# unified 是本仓的独立编译腿，模块层引入 src 后端会把整条解析链拖进来
+# （见 tests/test_context_manager.py::TestBackendParity 的注释）。延迟到首次
+# 真正用表时再导入，既保持单点定义，也不改变模块的导入面。导入结果缓存一份。
+_BUILTIN_KWARG_NAME_MAP_CACHE = None
+
+
+def _builtin_kwarg_name_map() -> dict:
+    """取 src 后端那份 `_BUILTIN_KWARG_NAME_MAP`（单点定义，见上方注释）。"""
+    global _BUILTIN_KWARG_NAME_MAP_CACHE
+    if _BUILTIN_KWARG_NAME_MAP_CACHE is None:
+        from code_generator import PythonCodeGenerator
+        _BUILTIN_KWARG_NAME_MAP_CACHE = PythonCodeGenerator._BUILTIN_KWARG_NAME_MAP
+    return _BUILTIN_KWARG_NAME_MAP_CACHE
+
+
+def _translate_kwarg_name(py_callee, raw_name: str) -> str:
+    """把中文具名实参名翻成内置函数的 Python 形参名；查不到原样返回。
+
+    与 src 后端 `PythonCodeGenerator._kwarg_name` 逐字同口径（同一张表）。
+    `py_callee` 传 None/'' 表示拿不到被调名 → 原样透传（用户函数语义）。
+    """
+    return _builtin_kwarg_name_map().get((py_callee or '', raw_name), raw_name)
+
+
 # =============================================================================
 # Python代码生成器
 # =============================================================================
@@ -58,6 +90,7 @@ class UnifiedCodeGenerator:
         self._class_attr_names: set = set()
         self._needs_asyncio = False  # B5：是否需要 import asyncio
         self._needs_async_iter = False  # B5：是否需要 _light_async_iter 辅助
+        self._needs_dataclass = False  # R75-B：记录类型需要 import dataclasses/typing
         # R72-A（L-172）：块级作用域状态（对齐 src 后端 code_generator.py）。
         # unified 无 local 变量追踪/L-006 nonlocal 机制，故只需 mangling 与
         # 解析，不需要函数边界携带（匿名闭包为单表达式 lambda，生成时块栈仍
@@ -113,7 +146,15 @@ class UnifiedCodeGenerator:
             '首': '__import__("operator").itemgetter(0)',
             '末': '__import__("operator").itemgetter(-1)',
             '余': '__import__("builtins").slice(1, None)',
-            '排序': '_light_builtin.列表排序',
+            # R74 任务B（B-2 parity）：`排序(表)` 是**函数式**用法——docs/AI编程指南.md
+            # :247/:293/:667 明列「`排序(列表)` 返回新列表」，等价 Python 的
+            # `sorted(列表)`；src 后端 code_generator.py:586 亦为 `'排序': 'sorted'`。
+            # 原实现映射到 `_light_builtin.列表排序`（原地排序、返回 None、形参名
+            # `反向`），与文档、与 src 后端、与 `设 X 为 排序(Y)` 的写法（stdlib/
+            # 度量.light:59、examples/data_cleaner/分析器.light:48）全都矛盾：
+            # `设 已排序 为 排序(数据)` 会拿到 None。原地排序的规范写法是
+            # `列表排序(表)` / `表.排序()`（各自另有映射，不受本行影响）。
+            '排序': 'sorted',
             '排序列表': '_light_builtin.排序列表',
             '反转': '_light_builtin.列表反转',
             '求和': 'sum',
@@ -688,6 +729,18 @@ class UnifiedCodeGenerator:
             for line in reversed(block):
                 self.output_lines.insert(insert_pos, line)
 
+        # R75-B：记录类型需要 dataclasses/typing
+        if self._needs_dataclass:
+            insert_pos = 0
+            for i, line in enumerate(self.output_lines):
+                if line.startswith("#") or line == "":
+                    insert_pos = i + 1
+                else:
+                    break
+            self.output_lines.insert(insert_pos, "")
+            self.output_lines.insert(insert_pos, "import typing")
+            self.output_lines.insert(insert_pos, "import dataclasses")
+
         return self._build_output()
 
     
@@ -1083,6 +1136,10 @@ class UnifiedCodeGenerator:
         elif is_instance(stmt, 'SegmentDefinition') or is_instance(stmt, 'Paragraph') or is_instance(stmt, 'FunctionDefinition'):
             self._generate_segment(stmt)
         
+        # R75-B：记录类型（RecordDefinition 继承 ClassDefinition，但 is_instance 只匹配精确类型名）
+        elif is_instance(stmt, 'RecordDefinition'):
+            self._generate_class(stmt)
+
         # 类定义
         elif is_instance(stmt, 'ClassDefinition'):
             self._generate_class(stmt)
@@ -1877,6 +1934,8 @@ class UnifiedCodeGenerator:
             if depth < 0:
                 return False
         return False
+
+    def _map_return_type(self, light_type: str = None):
         """光明类型名 -> Python 类型名。
 
         必须做映射：直接把 `串` 写进 `-> 串` 注解会在运行期 NameError
@@ -1955,6 +2014,11 @@ class UnifiedCodeGenerator:
         """生成类定义"""
         name = self._sanitize_name(cls.name)
         
+        # R75-B：检测记录类型（RecordDefinition 继承 ClassDefinition）
+        is_record = (type(cls).__name__ == 'RecordDefinition')
+        if is_record:
+            self._needs_dataclass = True
+        
         # 处理继承
         #
         # 与 src 后端 code_generator.py:2249 同口径：基类 = base_classes + interfaces。
@@ -1983,6 +2047,10 @@ class UnifiedCodeGenerator:
         _saved_class_attr_names = self._class_attr_names
         self._class_attr_names = self._collect_class_attr_names(cls)
 
+        # R75-B：记录类型生成 @dataclass 装饰器
+        if is_record:
+            self._add_line("@dataclasses.dataclass(unsafe_hash=True)")
+
         # 类定义
         if bases_str:
             self._add_line(f"class {name}({bases_str}):")
@@ -1991,10 +2059,21 @@ class UnifiedCodeGenerator:
         
         self.indent_level += 1
         
+        # R75-B：记录类型字段生成（fields 是 [(name, default_value), ...] 元组列表）
+        if is_record and hasattr(cls, 'fields') and cls.fields:
+            for field in cls.fields:
+                if isinstance(field, (tuple, list)) and len(field) >= 1:
+                    field_name = self._sanitize_name(field[0])
+                    default_val = field[1] if len(field) > 1 else None
+                    if default_val is not None:
+                        value_code = self._generate_expr(default_val)
+                        self._add_line(f"{field_name}: typing.Any = {value_code}")
+                    else:
+                        self._add_line(f"{field_name}: typing.Any = None")
         # 生成字段（只在构造函数中初始化，不在类体级别）
         # 属性声明如"属性 名称"只是声明，实际赋值在构造函数中进行
         # 只生成有默认值的字段
-        if hasattr(cls, 'fields') and cls.fields:
+        elif hasattr(cls, 'fields') and cls.fields:
             for field in cls.fields:
                 if is_instance(field, 'VariableDeclaration') or is_instance(field, 'AttributeDeclaration'):
                     # 只有有默认值的字段才在类体级别生成
@@ -2002,10 +2081,14 @@ class UnifiedCodeGenerator:
                         field_name = self._sanitize_name(field.name)
                         value_code = self._generate_expr(field.default_value)
                         self._add_line(f"self.{field_name} = {value_code}")
-        
         # 生成构造函数（dedicated 语法路径，如 parser 产出的 ConstructorDefinition）
-        emitted_init = False
-        if hasattr(cls, 'constructor') and cls.constructor:
+        # R75-B：记录类型由 dataclass 自动生成 __init__，跳过手动构造
+        emitted_init = is_record
+        if not is_record and hasattr(cls, 'constructor') and cls.constructor:
+            # ⚠️ 修复（R74续+R75 合流复验）：R75-B 改写本支时**漏掉了这一行调用**，
+            # 只留下 `emitted_init = True`，导致所有「裸 构造(...)」形态的普通类
+            # 不再生成 __init__ → 运行期 `TypeError: 类名() takes no arguments`
+            # （tests/integration/test_class_system.py 5 条红）。
             self._generate_constructor(cls.constructor)
             emitted_init = True
 
@@ -2193,7 +2276,7 @@ class UnifiedCodeGenerator:
                     and _fname in self.builtin_map
                     and _fname not in self.user_functions):
                 inner = self.builtin_map[_fname]
-            tail = self._translate_args(getattr(expr, 'args', []))
+            tail = self._translate_args(getattr(expr, 'args', []), inner)
             _call_txt = f"{inner}({', '.join(tail)})"
             if target in self._WRITE_NEEDS_STR:
                 _call_txt = f"str({_call_txt})"
@@ -2237,7 +2320,7 @@ class UnifiedCodeGenerator:
             return f"({left} {op} {right})"
         return self._generate_expr(expr)
 
-    def _translate_args(self, args):
+    def _translate_args(self, args, py_callee: str = None):
         """把实参列表翻译成 Python 实参片段，支持关键字参数（KeywordArg）。
 
         对齐 code_generator.py 的各调用分支（FunctionCallExpr / MethodCall /
@@ -2247,7 +2330,17 @@ class UnifiedCodeGenerator:
         单 B·bug A 修复：unified 此前对每个实参直接 `_generate_expr`、漏了 KeywordArg
         分支，导致 `狗(名="阿黄")` 发射成 `狗(KeywordArg(名="阿黄"))` 这种非法
         Python（运行期 NameError / SyntaxError）。这里集中处理，避免 5 处实参
-        遍历各自再写一遍。"""
+        遍历各自再写一遍。
+
+        —— R74 任务B（B-2 unified parity）——
+
+        `py_callee` 是**本调用翻译后的 Python 被调名**（形如 `sorted`），用于把
+        中文具名实参名翻成内置函数的 Python 形参名；表与 src 后端共用同一份
+        （见模块级 `_translate_kwarg_name`）。传 None 表示调用点拿不到被调名
+        （用户函数 / 星号解包 / 类实例化等），此时具名实参名原样透传。
+        改前 unified 无条件原样透传 → `排序(xs, 依据=f)` 发射
+        `sorted(xs, 依据=f)`，编译过、运行期 TypeError：「编译过、一跑就炸」。
+        """
         parts = []
         for arg in args:
             if is_instance(arg, 'KeywordArg'):
@@ -2257,7 +2350,9 @@ class UnifiedCodeGenerator:
                 if arg.name in ('*', '**'):
                     parts.append(f"{arg.name}{self._generate_expr(arg.value)}")
                 else:
-                    parts.append(f"{arg.name}={self._generate_expr(arg.value)}")
+                    parts.append(
+                        f"{_translate_kwarg_name(py_callee, arg.name)}"
+                        f"={self._generate_expr(arg.value)}")
             else:
                 parts.append(self._generate_expr(arg))
         return parts
@@ -2305,6 +2400,7 @@ class UnifiedCodeGenerator:
                 return _merged
             left = self._generate_expr(expr.left)
             right = self._generate_expr(expr.right)
+
 # 「除以」/「除」统一 Python 真除语义（与原生腿 fdiv 一致）。
             # 注意：「整除//」保留 Python floor 语义，不经过 _light_trunc_div。
             if expr.operator in ('/', '除以', '除'):
@@ -2424,7 +2520,8 @@ class UnifiedCodeGenerator:
             if func_name not in self.user_functions and func_name in self.builtin_map:
                 func_name = self.builtin_map[func_name]
             
-            args = self._translate_args(getattr(expr, 'arguments', None) or getattr(expr, 'args', []))
+            args = self._translate_args(
+                getattr(expr, 'arguments', None) or getattr(expr, 'args', []), func_name)
             args_str = ', '.join(args)
             return f"{func_name}({args_str})"
 
@@ -2436,6 +2533,8 @@ class UnifiedCodeGenerator:
             if _merged is not None:
                 return _merged
             callee = self._generate_expr(expr.callee)
+            # 具名实参名翻译：callee 是任意的被调表达式（变量 / 下标 / 返回函数），
+            # 拿不到「翻译后的 Python 被调名」，按用户函数语义原样透传（传 None）。
             args = self._translate_args(getattr(expr, 'args', []))
             args_str = ', '.join(args)
             return f"{callee}({args_str})"
@@ -2461,7 +2560,9 @@ class UnifiedCodeGenerator:
             }
             mapped_member = method_map.get(expr.member, member)
             if getattr(expr, 'is_method_call', False):
-                args = self._translate_args(getattr(expr, 'args', None) or [])
+                # 具名实参名翻译：被调名取映射后的成员名（本例映射表里没有 sorted
+                # 的对应项，具名实参名原样透传；与 src 后端 MemberAccess 分支同口径）。
+                args = self._translate_args(getattr(expr, 'args', None) or [], mapped_member)
                 args_str = ', '.join(args)
                 # 父.构造(...) -> super().__init__(...)：与 FunctionCall/PropertyAccess 同口径
                 if obj == 'super()' and expr.member in ('构造', '初始化', '构'):
@@ -2508,12 +2609,12 @@ class UnifiedCodeGenerator:
                         # L-063：裸 Identifier 键转字符串键（unified 后端无绑定表，
                         # 统一 JS 风格；SRC 后端对已绑定名字保留变量键）。需要变量键
                         # 时请用字典推导式 / ** 展开 / 计算表达式。
-                        if type(key).__name__ == 'Identifier':
+                        if type(key).__name__ == 'Identifier' and not getattr(key, '_is_paren_dict_key', False):
                             entries.append(f"'{key.name}': {self._generate_expr(value)}")
                         else:
                             entries.append(f"{self._generate_expr(key)}: {self._generate_expr(value)}")
                 elif hasattr(entry, 'key') and hasattr(entry, 'value'):
-                    if type(entry.key).__name__ == 'Identifier':
+                    if type(entry.key).__name__ == 'Identifier' and not getattr(entry.key, '_is_paren_dict_key', False):
                         entries.append(f"'{entry.key.name}': {self._generate_expr(entry.value)}")
                     else:
                         entries.append(f"{self._generate_expr(entry.key)}: {self._generate_expr(entry.value)}")
@@ -2535,7 +2636,8 @@ class UnifiedCodeGenerator:
         # 类实例化
         elif is_instance(expr, 'NewExpression'):
             class_name = self._sanitize_name(expr.class_name)
-            args = self._translate_args(getattr(expr, 'arguments', []))
+            # 具名实参名翻译：被调名是类名，不在内置表里 → 原样透传。
+            args = self._translate_args(getattr(expr, 'arguments', []), class_name)
             args_str = ', '.join(args)
             return f"{class_name}({args_str})"
         
@@ -2547,7 +2649,8 @@ class UnifiedCodeGenerator:
         # 方法调用
         elif is_instance(expr, 'MethodCall'):
             obj = self._generate_expr(expr.obj)
-            args = self._translate_args(getattr(expr, 'arguments', []))
+            # 具名实参名翻译：被调名是方法名（发射时原样使用 expr.method）→ 同口径传入。
+            args = self._translate_args(getattr(expr, 'arguments', []), expr.method)
             args_str = ', '.join(args)
             return f"{obj}.{expr.method}({args_str})"
         

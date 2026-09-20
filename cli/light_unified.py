@@ -35,11 +35,17 @@ except ImportError:
 # 添加路径 - 先尝试本地路径（开发模式），再尝试已安装路径
 _local_src = str(Path(__file__).parent.parent / 'src')
 _local_antlr = str(Path(__file__).parent.parent / 'antlrparser')
+# ANTLR 生成产物目录（LightLangLexer.py / LightLangParser.py / *Visitor.py）。
+# 这些文件由 scripts/generate_antlr_parser.py 生成到 antlrparser/light_parser/ 下，
+# 缺失时 --backend antlr 会在 `from LightLangLexer import ...` 处 ModuleNotFoundError。
+_local_antlr_parser = str(Path(__file__).parent.parent / 'antlrparser' / 'light_parser')
 
 if os.path.isdir(_local_src):
     sys.path.insert(0, _local_src)
 if os.path.isdir(_local_antlr):
     sys.path.insert(0, _local_antlr)
+if os.path.isdir(_local_antlr_parser):
+    sys.path.insert(0, _local_antlr_parser)
 
 # 已安装版本（pip install），仅在本地 src 不可用时回退
 if not os.path.isdir(_local_src):

@@ -197,7 +197,9 @@ class TestWorkaroundRemoved:
         with open(path, "r", encoding="utf-8") as f:
             content = f.read()
         assert "打乱随机下限" not in content, "集合操作.light 仍包含 打乱随机下限（workaround 未移除）"
-        assert "段落 随机下限 接收 n:" in content, "集合操作.light 未定义 随机下限 段"
+        # R75-A 参数语法现代化后，断言改为**新的括号式精确形态**
+        # （原为 `段落 随机下限 接收 n:` → 迁移后已不再出现「接收」）。
+        assert "段落 随机下限(n):" in content, "集合操作.light 未定义 随机下限 段"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

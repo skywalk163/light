@@ -1072,7 +1072,7 @@ class PythonCodeGenerator:
                 inner = self.builtin_map[_fnode.name]
             tail = []
             for a in expr.args:
-                tail.append(self._gen_call_arg(a))
+                tail.append(self._gen_call_arg(a, inner))
             _call_txt = f"{inner}({', '.join(tail)})"
             if target in self._WRITE_NEEDS_STR:
                 _call_txt = f"str({_call_txt})"
@@ -3929,7 +3929,7 @@ class PythonCodeGenerator:
             call_args = self._reorder_data_first_args(expr.name, py_name, shadowed, expr.args)
             args = []
             for arg in call_args:
-                args.append(self._gen_call_arg(arg))
+                args.append(self._gen_call_arg(arg, py_name))
             # A2-3：`并发等待(任务表)` 的 Python 对应是 gather(*任务表)——语义是
             # 「把这一串协程一起等」，而不是「等一个列表」。不摊平就会把 list 当成
             # 单个 awaitable 传进去，运行期报 TypeError，属静默错编的近亲。
@@ -4072,7 +4072,7 @@ class PythonCodeGenerator:
                 if expr.is_method_call:
                     args = []
                     for arg in expr.args:
-                        args.append(self._gen_call_arg(arg))
+                        args.append(self._gen_call_arg(arg, mapped))
                     args_str = ', '.join(args)
                     return f"{mapped}({args_str})"
                 else:
@@ -4088,9 +4088,22 @@ class PythonCodeGenerator:
                     return orphan
 
                 # 方法调用（支持关键字参数）
+                #
+                # R74 任务B（B-1）：具名实参名翻译要知道「Python 被调名」，这里先按
+                # 与下方发射分支**同一判据**算出来（内置命名空间 `_light_builtin`
+                # 上的成员直接调 builtin_target，其余一律 `obj.mapped_member(...)`），
+                # 再交给 _gen_call_arg。下方 :4178 的内置命名空间发射分支复用
+                # 同一个 `_mc_builtin_target`，两处判据不会漂移。
+                _mc_builtin_target = self.builtin_map.get(expr.member)
+                _mc_py_callee = (
+                    _mc_builtin_target
+                    if (_mc_builtin_target and expr.member not in self.method_name_map
+                        and obj == '_light_builtin')
+                    else mapped_member
+                )
                 args = []
                 for arg in expr.args:
-                    args.append(self._gen_call_arg(arg))
+                    args.append(self._gen_call_arg(arg, _mc_py_callee))
                 args_str = ', '.join(args)
 
                 # 特殊处理：父.构造(...) -> super().__init__(...)
@@ -4161,12 +4174,11 @@ class PythonCodeGenerator:
                 #   · 连接→_light_join 在 :2234 单独特判并直接 return；
                 #   · 函数式的 长度([1,2])/范围(0,3) 是 ParagraphCall，不经过
                 #     MemberAccess 分支，内置映射照旧生效。
-                builtin_target = self.builtin_map.get(expr.member)
-                if (builtin_target and expr.member not in self.method_name_map
+                if (_mc_builtin_target and expr.member not in self.method_name_map
                         and obj == '_light_builtin'):
                     # obj 已是内置命名空间：方法名可直接调用，不能再把
                     # _light_builtin 注入为第一个参数（会多出一个实参，TypeError）。
-                    return f"{builtin_target}({args_str})"
+                    return f"{_mc_builtin_target}({args_str})"
 
                 return f"{obj}.{mapped_member}({args_str})"
             else:
@@ -4401,7 +4413,9 @@ class PythonCodeGenerator:
                     # 一律转成字符串字面量修复这两种情况。需要「变量作键」时用
                     # 括号 `{(变量): 值}` / 计算表达式 / 字典推导式 / ** 展开——
                     # 那些键节点不是裸 Identifier，不受影响。
-                    if type(k).__name__ == 'Identifier':
+                    # R75-B 修复：括号包裹的键（_is_paren_dict_key）不作字符串键，
+                    # 让 {(变量): 值} 真正可用变量作键（L-063 承诺此前未兑现）。
+                    if type(k).__name__ == 'Identifier' and not getattr(k, '_is_paren_dict_key', False):
                         items.append(f"'{k.name}': {self._generate_expr(v)}")
                     else:
                         items.append(f"{self._generate_expr(k)}: {self._generate_expr(v)}")
@@ -4776,8 +4790,22 @@ class PythonCodeGenerator:
             return f"self.{name}"
         return name
 
-    def _gen_call_arg(self, arg) -> str:
+    def _gen_call_arg(self, arg, py_callee: str = None) -> str:
         """生成单个调用实参片段（位置实参 / 具名实参 / 星号解包）。
+
+        `py_callee` 是**本调用翻译后的 Python 被调名**（如 `排序` → `sorted`），
+        只用于查 `_BUILTIN_KWARG_NAME_MAP` 把中文具名实参名翻成 Python 形参名。
+        缺省 `None` 表示该处拿不到被调名（用户函数调用、星号解包等），
+        此时具名实参名原样透传——与改动前行为一致。
+
+        —— R74 任务B（B-1 具名实参名翻译永远不生效）——
+
+        旧实现在具名实参分支写死 `self._kwarg_name('', arg.name)`：第一个实参传
+        空串，而查询表的键是 `(Python 被调名, 中文实参名)` 二元组，空串**永远
+        命中不了**，于是 `排序(学生列表, 依据 = 键函数)` 一律发射
+        `sorted(学生列表, 依据=键函数)`——语法过得去，运行期
+        `TypeError: sorted() got an unexpected keyword argument '依据'`。
+        修法：由调用点把翻译后的被调名传进来，本方法不再自己猜。
 
         —— R72 任务D（G-07 星号解包）——
 
@@ -4796,7 +4824,7 @@ class PythonCodeGenerator:
         if isinstance(arg, KeywordArg) and arg.name in ('*', '**'):
             return f"{arg.name}{self._generate_expr(arg.value)}"
         if isinstance(arg, KeywordArg):
-            return f"{self._kwarg_name('', arg.name)}={self._generate_expr(arg.value)}"
+            return f"{self._kwarg_name(py_callee or '', arg.name)}={self._generate_expr(arg.value)}"
         return self._generate_expr(arg)
 
     def _sanitize_name(self, name: str) -> str:

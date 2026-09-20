@@ -116,10 +116,9 @@ demo_video/
 antlr-*.jar
 antlrparser/antlr-*.jar
 
-# ANTLR 生成文件（生成产物不应入库，由 .g4 文件重新生成）
+# ANTLR 生成文件（历史/实验产物不入库，由 .g4 文件重新生成）
 antlrparser/.antlr/
 antlrparser/antlrparser/
-antlrparser/light_parser/
 antlrparser/light_parser2/
 antlrparser/light_parser_new/
 antlrparser/LightLangLexer.py
@@ -130,6 +129,15 @@ antlrparser/*.interp
 antlrparser/*.tokens
 antlrparser/**/*.interp
 antlrparser/**/*.tokens
+
+# 例外：ANTLR 腿的正式产物目录（R75-C 起入库）
+# 理由：unified 腿（cli/light_unified.py --backend antlr）此前因缺产物而永远
+#   ModuleNotFoundError，所有 unified 改动只能靠手工构造 AST 做等价验证。
+# 产物 = light_parser/{LightLangLexer.py,LightLangParser.py,LightLangParserVisitor.py,
+#        LightLangLexer.tokens,LightLangParser.tokens,*.interp}
+# 重新生成：python scripts/generate_antlr_parser.py
+!antlrparser/light_parser/
+!antlrparser/light_parser/**
 *.g4.backup
 
 # CI/CD

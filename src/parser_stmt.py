@@ -3769,6 +3769,29 @@ class ParserStmtMixin:
         只收单 token 字面量/标识符，与 :4402 同一判据：`接收` 形参表没有括号
         界定边界，放宽成完整表达式会把后面的 `返回 类型` 或体冒号一起吃掉。
         """
+        default_value = self._parse_param_default_node()
+        if default_value is not None and params:
+            params[-1]['default'] = default_value
+
+    def _parse_param_default_node(self):
+        """解析 `等于`/`=` 之后的默认值 token，返回 AST 节点；不适用则返回 None。
+
+        ⚠️ 调用前 `等于`/`=` 必须已被消耗（与 `_attach_param_default` 同约定）。
+
+        **单点定义**（R74续+R75 合流修复）：`接收` 形参表、括号式段落形参、
+        括号式类体方法形参这三条通路共用本方法。此前括号式类体方法那条
+        （`_parse_method_definition` 的 LPAREN 分支）**完全没有默认值处理**，
+        且参数名收集会把 `名 等于 值` 整串拼成一个名字 → 产物
+        `def __init__(self, 乙等于空)`（默认值变必填），运行期
+        `TypeError: 类名() missing 1 required positional argument: '乙等于空'`。
+
+        判据与原先内联实现逐字一致（不得放宽）：
+        * 只收单 token 字面量/标识符（`接收` 形参表没有括号界定边界，放宽成
+          完整表达式会把后面的 `返回 类型` 或体冒号一起吃掉）；
+        * `{}` / `[]` 自界定字面量放行走 `_parse_expr()`；
+        * 支持负数字面量 `-1`；
+        * `真/假/空` → `True/False/None`。
+        """
         tok = self._current()
         # R12C（R11A-06）：支持负数字面量默认值（`接收 甲 = -1`）。原实现只收
         # 单 token，'-' 符号不在允许列表 → 默认值不挂、'-1' 拋留参数流报
@@ -3783,34 +3806,35 @@ class ParserStmtMixin:
         # 这些字面量是自界定的（{} 以 } 结束、[] 以 ] 结束），
         # _parse_expr() 会正确解析并在 } 或 ] 之后停止，不会吞掉后续冒号或类型声明。
         if tok and tok.type in (TokenType.LBRACE, TokenType.LBRACKET):
-            default_value = self._parse_expr()
-            if params:
-                params[-1]['default'] = default_value
-            return
+            return self._parse_expr()
         if not tok or tok.type not in (TokenType.NUMBER, TokenType.CHINESE_NUM,
                                        TokenType.STRING, TokenType.IDENTIFIER,
                                        TokenType.KEYWORD):
-            return
+            return None
         val = self._consume().value
         if tok.type == TokenType.NUMBER:
             val_str = str(val)
             num = float(val_str) if '.' in val_str else int(val_str)
-            default_value = NumberLiteral(-num if neg else num)
-        elif tok.type == TokenType.CHINESE_NUM:
+            return NumberLiteral(-num if neg else num)
+        if tok.type == TokenType.CHINESE_NUM:
             # 词法层已把中文数字转成 int（lexer.py:1584/1947）
-            default_value = NumberLiteral(-val if neg else val)
-        elif tok.type == TokenType.STRING:
-            default_value = StringLiteral(val)
-        elif val == '真':
-            default_value = Identifier('True')
-        elif val == '假':
-            default_value = Identifier('False')
-        elif val == '空':
-            default_value = Identifier('None')
-        else:
-            default_value = Identifier(val)
-        if params:
-            params[-1]['default'] = default_value
+            return NumberLiteral(-val if neg else val)
+        if tok.type == TokenType.STRING:
+            return StringLiteral(val)
+        if val == '真':
+            return Identifier('True')
+        if val == '假':
+            return Identifier('False')
+        if val == '空':
+            return Identifier('None')
+        return Identifier(val)
+
+    # 括号式形参的「裸语句关键字」集合（R74续+R75 合流修复：上提为单点定义）。
+    # 段落形参（`_parse_paragraph_v2`）与类体方法形参（`_parse_method_definition`）
+    # 共用同一份，避免同一判据抄两处后静默漂移。
+    _STMT_KEYWORDS_PAREN = frozenset({
+        '设', '定义', '当', '如果', '若', '遍历', '返回', '打印',
+        '导入', '导出', '跳出', '跳过', '尝试', '抛出', '匹配', '推迟'})
 
     def _parse_paren_param_name(self, stmt_keywords_paren) -> tuple:
         """括号式形参：把「最长整串标识符」合并成一个参数名（L-179 / R74 路1 缺陷1）。
@@ -4012,7 +4036,7 @@ class ParserStmtMixin:
         # 支持括号式参数：段名(参数1, 参数2)： 或 《段名》段(参数1, 参数2)：
         if self._match(TokenType.LPAREN):
             self._consume(TokenType.LPAREN)
-            _stmt_keywords_paren = {'设', '定义', '当', '如果', '若', '遍历', '返回', '打印', '导入', '导出', '跳出', '跳过', '尝试', '抛出', '匹配', '推迟'}
+            _stmt_keywords_paren = self._STMT_KEYWORDS_PAREN
             while self._current() and self._current().type != TokenType.RPAREN:
                 tok = self._current()
                 if tok.type == TokenType.COMMA:
@@ -5580,26 +5604,54 @@ class ParserStmtMixin:
                         break
         elif self._current() and self._current().type == TokenType.LPAREN:
             # 括号参数形式：(参数1, 参数2, ...)
+            #
+            # R74续+R75 合流修复（A 簇根因）：本分支原先**无脑把连续的
+            # IDENTIFIER/KEYWORD 全拼成一个参数名** —— 既不在 `等于` 处停下
+            # （对照 `接收` 分支的停止条件），也**完全没有默认值处理**，于是
+            # `段落 构造(乙 等于 空)` 产出 `def __init__(self, 乙等于空)`：
+            # 默认值被吞进名字、变成必填，运行期
+            # `TypeError: 类名() missing 1 required positional argument: '乙等于空'`。
+            # 现改为与段落形参同口径：星号形参 + `_parse_paren_param_name`
+            # （列紧邻最长整串匹配）+ 默认值走 `_parse_param_default_node`。
             self._consume(TokenType.LPAREN)
             while self._current() and self._current().type != TokenType.RPAREN:
-                if self._current().type == TokenType.COMMA:
+                if self._match(TokenType.COMMA):
                     self._consume(TokenType.COMMA)
                     continue
-                # 收集多 token 参数名
-                param_parts = []
-                while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
-                    param_parts.append(self._current().value)
-                    self._consume()
-                if param_parts:
-                    param = Parameter(name=''.join(param_parts))
-                    # 支持类型注解：参数名: 类型（含泛型 列表<整数>）
-                    if self._current() and self._current().type == TokenType.COLON \
-                            and self._peek(1) and self._peek(1).type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
-                        self._consume(TokenType.COLON)
-                        param.type_annotation = self._parse_type_annotation()
-                    parameters.append(param)
-                else:
+                # *args / **kwargs
+                if self._current().type == TokenType.STAR:
+                    self._consume(TokenType.STAR)
+                    is_kwarg = False
+                    if self._current() and self._current().type == TokenType.STAR:
+                        self._consume(TokenType.STAR)
+                        is_kwarg = True
+                    name_parts = []
+                    while (self._current()
+                           and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD)):
+                        nt = self._current()
+                        if nt.type == TokenType.KEYWORD and nt.value in ('等于', '接收'):
+                            break
+                        name_parts.append(self._consume().value)
+                    if name_parts:
+                        parameters.append(Parameter(
+                            name=('**' if is_kwarg else '*') + ''.join(name_parts)))
+                    continue
+                # 参数名+类型注解：列位置紧邻的整串标识符合成一个名字（L-179）
+                param_name, param_type = self._parse_paren_param_name(self._STMT_KEYWORDS_PAREN)
+                if param_name is None:
                     break
+                param = Parameter(name=param_name)
+                param.type_annotation = param_type
+                # 默认值：`等于 值` / `= 值`（与段落形参同口径，单点定义）
+                if self._current() and (
+                        (self._current().type == TokenType.KEYWORD
+                         and self._current().value == '等于')
+                        or self._current().type == TokenType.EQUALS):
+                    self._consume()
+                    default_value = self._parse_param_default_node()
+                    if default_value is not None:
+                        param.default_value = default_value
+                parameters.append(param)
             if self._current() and self._current().type == TokenType.RPAREN:
                 self._consume(TokenType.RPAREN)
 
@@ -6087,8 +6139,27 @@ class ParserStmtMixin:
         if self._current() and self._current().type == TokenType.PERIOD:
             self._consume(TokenType.PERIOD)
 
+        # R75-B 修复：与 if/while 一致，消耗 NEWLINE/INDENT 后再解析 body，
+        # 否则 _parse_body 会把 with 块后的语句错误吞入 body（缩进不归零）。
+        has_newline = False
+        while self._current() and self._current().type == TokenType.NEWLINE:
+            has_newline = True
+            self._consume(TokenType.NEWLINE)
+        while self._current() and self._current().type == TokenType.DEDENT:
+            self._consume(TokenType.DEDENT)
+        if self._current() and self._current().type == TokenType.INDENT:
+            self._consume(TokenType.INDENT)
+
         # 体
-        body = self._parse_body()
+        body = self._parse_body(allow_single_line=not has_newline)
+
+        # 消耗 DEDENT（with 体结束）
+        if self._current() and self._current().type == TokenType.DEDENT:
+            self._consume(TokenType.DEDENT)
+
+        # 跳过 DEDENT 后面的 NEWLINE
+        while self._current() and self._current().type == TokenType.NEWLINE:
+            self._consume(TokenType.NEWLINE)
 
         return WithStmt(first_expr, first_var, body, is_async=is_async, items=items)
 

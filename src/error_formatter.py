@@ -140,13 +140,34 @@ class LightErrorFormatter:
                 src_anchors.append((i, int(m.group(1))))
 
         # 扫描模块归属标记，建立 py 行 -> 当前模块名
+        # L-093 修复：依赖段以 `# === 光明模块: X 结束 ===` 收尾，扫描到结束标记
+        # 后把 current_module 复位回入口模块名——否则入口段的行号会被永久错记到
+        # 最后一个依赖模块名下（入口自身报错时片段会错锚到依赖源码）。
+        # 无结束标记的旧内联代码保持原行为（向后兼容）。
         module_at = {}  # py_line -> module_name
         current_module = entry_module_name
         mod_marker = re.compile(r'^\s*#\s*===\s*光明模块:\s*(\S+)\s*===\s*$')
+        mod_end_marker = re.compile(r'^\s*#\s*===\s*光明模块:\s*\S+\s+结束\s*===\s*$')
+        # L-093 修复：模块段边界（结束标记 / 每段产物自带的生成头注释）。
+        # 每个模块的生成代码都带运行时前导（_light_trunc_div 等辅助函数），
+        # 锚点填充范围一旦跨过段边界，就会把前导辅助帧错归到上一个锚点的
+        # 光明行上——辅助函数抛错时整条归因链都会错位。
+        seg_header = re.compile(r'^\s*#\s*由光明编译器生成')
+        boundary_lines = set()
         for i, line in enumerate(lines):
+            # 段边界（用于锚点填充截断）：结束标记 / 每段产物自带的生成头注释。
+            # 注意：生成头不能复位模块归属——每个依赖段的开头就是
+            # `# === 光明模块: X ===` + `# 由光明编译器生成`，若在生成头处
+            # 复位回入口，START 标记会被立刻冲掉。
+            if seg_header.match(line):
+                boundary_lines.add(i)
+                continue
             mm = mod_marker.match(line)
             if mm:
                 current_module = mm.group(1)
+            elif mod_end_marker.match(line):
+                current_module = entry_module_name
+                boundary_lines.add(i)
             module_at[i] = current_module
 
         mapping = {}
@@ -158,9 +179,16 @@ class LightErrorFormatter:
                 py_end = src_anchors[idx + 1][0]
             else:
                 py_end = len(lines)
+            # L-093 修复：填充范围截断在下一个段边界，防止锚点区间
+            # 跨模块吞掉后续模块的前导/代码行。
+            _next_b = [b for b in boundary_lines if py_line < b < py_end]
+            if _next_b:
+                py_end = min(_next_b)
             for p in range(py_line, py_end):
                 if mapping.get(p) is None:
-                    mapping[p] = (module_at.get(py_line, entry_module_name), light_line)
+                    # L-093 修复：归属取当前行 p 的模块（而非锚点行的），
+                    # 使模块标记落在锚点区间内时后续行能正确切换归属。
+                    mapping[p] = (module_at.get(p, entry_module_name), light_line)
         return mapping
 
     def format_exception(self, exc_type=None, exc_value=None, exc_tb=None) -> str:

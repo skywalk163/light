@@ -312,9 +312,18 @@ class ErrorFormatter:
         if translated != err_msg:
             parts.append(f'\n  （Python 原始错误：{err_msg}）')
         # L-093：跨模块异常显式标注真实抛出模块（含模块名/路径），
-        # 与"入口调用点"明确区分。
+        # 与"入口调用点"明确区分。此前只有钩子独立加载（loc_file）才标注，
+        # 内联场景（loc_module）哪怕片段已指向依赖模块，未翻译异常类型
+        # （如 除零错误/名称错误）也完全没有任何模块/位置标注。
         if loc_file:
             parts.append(f'\n  （位置: {loc_file}:{line_num}）')
+        elif loc_module and line_num and loc_module != (entry_module_name or '<主>'):
+            _paths_map = getattr(error, '_light_module_paths', None) or {}
+            _mpath = _paths_map.get(loc_module)
+            if _mpath:
+                parts.append(f'\n  （位置: {_mpath}:{line_num}，模块「{loc_module}」）')
+            else:
+                parts.append(f'\n  （位置: 模块「{loc_module}」第{line_num}行）')
 
         # 如果有源代码，显示代码片段
         if disp_source and lines:
@@ -482,10 +491,18 @@ class ErrorFormatter:
         except Exception:
             return (None, None, None)
 
-        def _resolve(mapping, lineno):
-            """在 py→light 映射中定位 lineno（精确或近似），返回 (module_name, light_line)。"""
+        def _resolve(mapping, lineno, strict=False):
+            """在 py→light 映射中定位 lineno，返回 (module_name, light_line)。
+
+            strict=True：只接受精确键命中（锚点填充范围内的行）。
+            用于第一遍扫描——跳过运行时前导辅助函数帧（如 `_light_trunc_div`，
+            它们没有自己的 LIGHT_SRC 锚点，就近近似会把归因拖到错误模块）。
+            strict=False（默认）：精确未中时退回「就近向上近似」（旧行为）。
+            """
             if lineno in mapping:
                 return mapping[lineno]
+            if strict:
+                return None
             best = None
             for p in sorted(mapping):
                 if p <= lineno:
@@ -494,7 +511,8 @@ class ErrorFormatter:
                     break
             return best
 
-        for frame in reversed(frames):  # 最内层（最先抛出）优先
+        def _try_frame(frame, strict):
+            """对单帧按形态逐一归因；命中返回 (loc_file, loc_module, light_line)。"""
             ffile = frame.filename or ''
             lineno = frame.lineno - 1  # traceback 1-based -> 映射 0-based
             # 形态1：钩子独立加载的 .light 模块（frame.filename 为真实 .light 路径）。
@@ -512,9 +530,30 @@ class ErrorFormatter:
                         _gen, os.path.splitext(os.path.basename(ffile))[0])
                 except Exception:
                     mp = {}
-                hit = _resolve(mp, lineno)
+                hit = _resolve(mp, lineno, strict=strict)
                 if hit is not None:
                     return (ffile, None, hit[1])
+            # 形态1.5：模块对象执行帧（L-093）。`导入 a.b` 形式下，`_run_src` 把
+            # 依赖模块代码以「模块名」为 filename 单独 compile+exec（cli/light.py
+            # 的点号普通 import 处理），其帧 filename 形如 'pkg.深层'——既不是
+            # .light 路径，也不是 <string>/<light>/入口路径，之前直接漏配，
+            # 落到入口帧导致位置错锚。这里用挂在异常上的模块源码
+            # （error._light_modules[模块名]）就该模块独立重编译后做 py→light 映射，
+            # 行号是该模块生成代码内的局部行号，正好与帧 lineno 对应。
+            elif ffile in (getattr(error, '_light_modules', None) or {}):
+                _mod_src = (getattr(error, '_light_modules', None) or {}).get(ffile) or ''
+                if _mod_src:
+                    try:
+                        from light_parser_v3 import LightParser
+                        from code_generator import PythonCodeGenerator
+                        _ast = LightParser().parse(_mod_src)
+                        _gen = PythonCodeGenerator().generate(_ast)
+                        mp = LightErrorFormatter().build_full_mapping_with_module(_gen, ffile)
+                    except Exception:
+                        mp = {}
+                    hit = _resolve(mp, lineno, strict=strict)
+                    if hit is not None:
+                        return (None, ffile, hit[1])
             # 形态2：入口/内联帧（filename 为 <string>/<light> 或入口路径）。
             # <light> 是单文件 exec 编译帧（如单测直接 exec 生成代码），同样用
             # 调用方传入的 py_code 做 py→light 映射，不能用真实文件路径判定。
@@ -524,9 +563,22 @@ class ErrorFormatter:
                         py_code, entry_module_name or '<主>')
                 except Exception:
                     mp = {}
-                hit = _resolve(mp, lineno)
+                hit = _resolve(mp, lineno, strict=strict)
                 if hit is not None:
                     return (None, hit[0], hit[1])
+            return None
+
+        # L-093 修复：两遍扫描。
+        # 第一遍 strict：只认「精确锚点命中」的帧——跨过运行时前导辅助帧
+        # （内联产物里每个模块都带 _light_trunc_div 等前导副本，`1/0` 这类
+        # 表达式实际在最内层的前导帧抛出，但它没有自己的锚点，就近近似
+        # 会把归因拖到错误模块/错误行）。
+        # 第二遍 lenient：旧行为兜底（就近向上近似），保证既有场景不回归。
+        for _strict in (True, False):
+            for frame in reversed(frames):  # 最内层（最先抛出）优先
+                hit = _try_frame(frame, _strict)
+                if hit is not None:
+                    return hit
         return (None, None, None)
 
     def _extract_line_num(self, error: Exception) -> int:

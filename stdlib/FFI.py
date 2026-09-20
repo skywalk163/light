@@ -62,7 +62,9 @@ class FFIManager:
     def close_all(self):
         """关闭所有已加载的库"""
         for lib in self._libraries.values():
-            lib.close()
+            close_fn = getattr(lib, 'close', None)
+            if callable(close_fn):
+                close_fn()
         self._libraries.clear()
 
 

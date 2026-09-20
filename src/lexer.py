@@ -3700,6 +3700,42 @@ class Lexer:
         else:
             tokens_append(Token(TokenType.IDENTIFIER, buf, line, col))
 
+    @staticmethod
+    def _register_paren_param_names(inner: str, definitions: Set[str]) -> None:
+        """把括号式形参串里的**形参名**登记进 definitions（纯加性）。
+
+        R74续+R75 合流修复：`_scan_user_definitions` 原先**只**收集旧式
+        `段落 名 接收 参数` 的形参名，**括号式** `段落 名(形参)` 的形参名一律不登记。
+        于是 L-179/178 之后迁移到括号式的模块里，凡「会被关键字切开的形参名」
+        （`值类型` → `值`+`类型`、`失败模式` → `失败`+`模式`）在**函数体内**
+        都被切成两颗粒子 → 运行期 `NameError: name '值'/'失败' is not defined`
+        （stdlib/参数解析.light:69、stdlib/并发.light 的 任务池 等）。
+
+        形状与 `《名》方法(...)` 既有分支同口径；只往 definitions 里加名字，
+        不改任何既有登记行为。
+        """
+        for piece in re.split(r'[,，]', inner):
+            s = piece.strip()
+            # 剥星号形参 `*余` / `**选项`
+            s = s.lstrip('*').strip()
+            if not s:
+                continue
+            # 剥类型注解 `名: 类型` / `名：类型`
+            for _sep in (':', '：'):
+                if _sep in s:
+                    s = s.split(_sep, 1)[0].strip()
+                    break
+            # 剥默认值 `名 等于 值` / `名 = 值`
+            if '等于' in s:
+                s = s.split('等于', 1)[0].strip()
+            elif '=' in s:
+                s = s.split('=', 1)[0].strip()
+            if not s:
+                continue
+            name = s.split()[0] if s.split() else ''
+            if name and name not in ALL_KEYWORDS and name not in ALL_VERB_ARITY:
+                definitions.add(name)
+
     def _scan_user_definitions(self, source: str) -> Set[str]:
         """
         预扫描：收集用户定义的变量名和函数名
@@ -3959,6 +3995,31 @@ class Lexer:
                 # 让后续「接收/参数 参数名」收集逻辑从分隔符位置继续
                 if _sep_pos != -1:
                     k = _sep_pos
+
+                # ── 括号式形参登记（R74续+R75 合流修复）──
+                # 与旧式 `接收` 平行的那一半：括号形参名同样必须进白名单，
+                # 否则函数体内「含关键字根」的形参名会被切碎成两颗粒子
+                # （详见 _register_paren_param_names 的说明）。仅当本头没有
+                # 旧式分隔符（_sep_pos == -1）时才按括号式处理。
+                if _sep_pos == -1:
+                    _bp = k
+                    while _bp < n and _is_space_tab(source[_bp]):
+                        _bp += 1
+                    if _bp < n and source[_bp] == '(':
+                        _bp += 1
+                        _inner_start = _bp
+                        _depth = 1
+                        while _bp < n and _depth > 0:
+                            _ch = source[_bp]
+                            if _ch == '(':
+                                _depth += 1
+                            elif _ch == ')':
+                                _depth -= 1
+                                if _depth == 0:
+                                    break
+                            _bp += 1
+                        self._register_paren_param_names(
+                            source[_inner_start:_bp], definitions)
 
                 # 检查是否有 "接收" 或 "参数" 关键字（旧式 接收 / 新式 参数）
                 # 旧式「段落 名 接收 参数：」的参数名必须整体注册进白名单，

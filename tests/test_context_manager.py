@@ -637,6 +637,55 @@ class TestBackendParity:
         src, uni = self._pair()
         assert tuple(src._MEMBER_SUFFIX_MAP) == tuple(uni._MEMBER_SUFFIX_MAP)
 
+    # ---- R74 任务B（B-1 / B-2）：具名实参名翻译必须两端口径一致 --------------
+    #
+    # 背景：`排序(xs, 依据 = f)` 里的 `依据` 是**中文**具名实参名，而 `排序` 经
+    # builtin_map 译成 Python 内置 `sorted`，CPython 只认 `key` / `reverse`。
+    # 具名实参名不翻译就发射 `sorted(xs, 依据=f)`——编译过得去、一跑就
+    # `TypeError: sorted() got an unexpected keyword argument '依据'`。
+    #
+    # 表（`_BUILTIN_KWARG_NAME_MAP`）的唯一定义点在 src 后端；unified 用
+    # `_translate_kwarg_name` 读同一份对象。下面三条把「单点 + 两端口径一致」
+    # 一起钉死：改一边忘另一边、或在 unified 里再抄一份表，都会当场打红。
+
+    def test_kwarg_name_map_single_point(self):
+        """表只允许一个定义点：src/ 下不得出现第二份 `_BUILTIN_KWARG_NAME_MAP = {`。"""
+        import glob
+        src_dir = os.path.join(os.path.dirname(__file__), '..', 'src')
+        hits = []
+        for path in glob.glob(os.path.join(src_dir, '*.py')):
+            with open(path, 'r', encoding='utf-8') as f:
+                if '_BUILTIN_KWARG_NAME_MAP = {' in f.read():
+                    hits.append(os.path.basename(path))
+        assert hits == ['code_generator.py'], (
+            '具名实参名翻译表出现 %d 个定义点：%s（必须单点定义）' % (len(hits), hits))
+
+    def test_unified_reads_the_same_kwarg_name_table(self):
+        """unified 读到的必须是 src 后端那一份**同一个对象**，不是拷贝。"""
+        import code_generator_unified as cu
+        src, _uni = self._pair()
+        assert cu._builtin_kwarg_name_map() is src._BUILTIN_KWARG_NAME_MAP
+
+    def test_keyword_arg_name_translated_in_both_backends(self):
+        """`排序(数组, 依据 = 键)` 两后端都必须出 `key=`（改前 unified 出 `依据=`）。"""
+        from light_parser_v3 import LightParser
+        src, uni = self._pair()
+        code = '设 排名 = 排序(数组, 依据 = 键)\n'
+        src_out = src().generate(LightParser().parse(code))
+        uni_out = uni().generate(LightParser().parse(code))
+        assert 'sorted(数组, key=键)' in src_out, src_out
+        assert 'sorted(数组, key=键)' in uni_out, uni_out
+        assert '依据=' not in src_out and '依据=' not in uni_out
+
+    def test_keyword_arg_map_identity_for_user_functions(self):
+        """用户自定义函数不在表里 → 具名实参名原样透传（两后端一致）。"""
+        from light_parser_v3 import LightParser
+        src, uni = self._pair()
+        code = '段 求和(a, b)：\n  返回 a + b\n打印(求和(10, b = 20))\n'
+        for Gen in (src, uni):
+            out = Gen().generate(LightParser().parse(code))
+            assert '求和(10, b=20)' in out, out
+
     def test_unified_interface_not_silently_dropped(self):
         """改前：unified 把 `接 X:` 掉进兜底、只 print 警告、产物里没有 class。
         改后：必须发射出 class X(ABC) + @abstractmethod。"""
@@ -780,11 +829,11 @@ class TestGapBMemberAccessStatement:
         """
         src = (
             "类 动物:\n"
-            "    段 构造(名: 文):\n"
+            "    段 构造(名: 字符串):\n"
             "        己.名 = 名\n"
             "\n"
             "类 狗 继承 动物:\n"
-            "    段 构造(名: 文):\n"
+            "    段 构造(名: 字符串):\n"
             "        父.构造(名)\n"
         )
         code = self._gen_unified(src)
@@ -826,7 +875,7 @@ class TestBugAKeywordArg:
     def test_function_call_keyword_arg(self):
         """`问候(名="阿黄")` → `问候(名='阿黄')`，两端口径一致，无 KeywordArg 残留。"""
         src = (
-            "段 问候(名: 文) -> 文:\n"
+            "段 问候(名: 字符串) -> 字符串:\n"
             "    返 \"嗨\" 加 名\n"
             "\n"
             "段 主():\n"
@@ -846,7 +895,7 @@ class TestBugAKeywordArg:
         方法名 存入 不在 method_map，原样保留；关键字实参必须翻成 名=值）。"""
         src = (
             "类 盒:\n"
-            "    段 存入(键: 文, 值: 文) -> 文:\n"
+            "    段 存入(键: 字符串, 值: 字符串) -> 字符串:\n"
             "        返 键 加 值\n"
             "\n"
             "段 主():\n"
@@ -864,7 +913,7 @@ class TestBugAKeywordArg:
         """`工.处理(数据="x")` → `工.处理(数据='x')`（MethodCall 节点关键字实参）。"""
         src = (
             "类 工人:\n"
-            "    段 处理(数据: 文) -> 文:\n"
+            "    段 处理(数据: 字符串) -> 字符串:\n"
             "        返 数据\n"
             "\n"
             "段 主():\n"
@@ -888,7 +937,7 @@ class TestBugAKeywordArg:
         """
         src = (
             "类 犬:\n"
-            "    段 构造(名: 文, 岁: 数):\n"
+            "    段 构造(名: 字符串, 岁: 数):\n"
             "        己.名 = 名\n"
             "        己.岁 = 岁\n"
             "\n"
@@ -905,7 +954,7 @@ class TestBugAKeywordArg:
     def test_positional_and_keyword_mixed(self):
         """位置参数与关键字实参混排：`狗("1", 名="阿黄", 岁="3")` → `狗('1', 名='阿黄', 岁='3')`。"""
         src = (
-            "段 狗(标签: 文, 名: 文, 岁: 文) -> 文:\n"
+            "段 狗(标签: 字符串, 名: 字符串, 岁: 字符串) -> 字符串:\n"
             "    返 标签 加 名 加 岁\n"
             "\n"
             "段 主():\n"

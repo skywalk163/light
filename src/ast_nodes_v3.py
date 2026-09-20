@@ -189,11 +189,11 @@ class StringLiteral(ASTNode):
 
 
 class Identifier(ASTNode):
-    __slots__ = ('name',)
+    __slots__ = ('name', '_is_paren_dict_key')
     """标识符"""
     def __init__(self, name: str):
         self.name = name
-    
+        self._is_paren_dict_key = False
     def __repr__(self):
         return self.name
 

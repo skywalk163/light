@@ -8,6 +8,23 @@
   3. 运行产物 .py              —— 验证产物可独立运行
 
 覆盖 ≥10 个示例程序（3.4.1 验收标准）。
+
+⚠️ 本机 0xFEFF 红的排查提示（R75-C 复核）
+  现象（本机直跑 slow 时）：固定 2 条红 ——
+    test_duan_run[_test_nested_closure.light]
+    test_duan_compile_and_run_product[_test_nested_closure.light]
+    stderr 均为 `lexer.LexerError: 词法错误 (行1, 列1): 未知字符: '\ufeff' (0xFEFF)`。
+  根因（R75-C 实测，非断言缺陷、非平台差异）：
+    本文件用 `examples/**/*.light` 全量 rglob 收集，**未跟踪（untracked）的探针文件
+    也会被收集**。工作树 examples/ 下存在带 UTF-8 BOM 的未跟踪示例
+    `_test_nested_closure.light`（`git show HEAD:examples/_test_nested_closure.light`
+    报 "exists on disk, but not in 'HEAD'"），src 后端词法器在第 1 行第 1 列把它当
+    未知字符 → 上述 2 条断言失败。干净检出（0.82）里该文件不存在，故 0.82 不会红。
+  处置：把带 BOM 的未跟踪 .light 探针移出 examples/ 或删除即可（例如
+    `git clean -n examples/` 先看清单，再定向删除），**不要为了本机绿改这里的断言**。
+    BOM 剥离的正解在词法器侧（src/lexer.py），属 src/ 改动，另行立项。
+  另注：082 全量门走 `-m "not slow"`（fast 模式），本文件 `pytestmark = slow`
+    会被整体跳过 —— 所以它的红只在本机直跑 slow 用例时可见。
 """
 
 import os
