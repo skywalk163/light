@@ -525,9 +525,9 @@ class UnifiedCodeGenerator:
         self._add_line("except NameError:")
         self._add_line("    _light_file_dir = None")
         if self._stdlib_dir:
-            self._add_line(f"    _light_stdlib = {self._stdlib_dir!r}")
+            self._add_line(f"_light_stdlib = {self._stdlib_dir!r}")
         else:
-            self._add_line("    _light_stdlib = os.path.join(_light_file_dir, 'stdlib') if _light_file_dir else None")
+            self._add_line("_light_stdlib = os.path.join(_light_file_dir, 'stdlib') if _light_file_dir else None")
         self._add_line("if not _light_stdlib or not os.path.isdir(_light_stdlib):")
         self._add_line("    _light_stdlib = os.path.join(os.getcwd(), 'stdlib')")
         self._add_line("    if not os.path.isdir(_light_stdlib):")

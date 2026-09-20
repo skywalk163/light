@@ -46,7 +46,7 @@
 
 #   HARNESS_CHANNEL          mock（默认，确定性桩零发网）/ real（真实 DeepSeek，需 key）
 #   HARNESS_EVAL_SET         评测集 JSONL 路径（默认 single→评测集.jsonl / agent→评测集_agent.jsonl）
-#   HARNESS_REPORT           报告输出前缀（默认 examples/harness/评测报告）
+#   HARNESS_REPORT           报告输出前缀（默认 %TEMP%/harness_评测报告，不入库）
 #   HARNESS_CONCURRENCY      并发上限（默认 2）
 #   HARNESS_RATE             每秒请求上限（默认 10）
 #   HARNESS_RETRIES          重试次数（默认 3）
@@ -77,6 +77,7 @@
 导入 sys
 导入 time
 导入 asyncio
+导入 tempfile
 从 LLM通道 导入 LLM通道, MockAgentClient
 从 真实通道 导入 真实通道
 从 代理循环 导入 代理循环
@@ -594,7 +595,7 @@ agent工具题表["查询故障的东西"] 为 ["工具": "inject_fault", "参�
   如果 模式 == "agent":
     设 默认评测集 为 "examples/harness/评测集_agent.jsonl"
   设 评测集路径 为 取环境("HARNESS_EVAL_SET", 默认评测集)
-  设 报告前缀 为 取环境("HARNESS_REPORT", "examples/harness/评测报告")
+  设 报告前缀 为 取环境("HARNESS_REPORT", os.path.join(tempfile.gettempdir(), "harness_评测报告"))
   # Path A 的 pa_in/pa_out 在 并发评测 期间就要落盘（早于 写报告带兜底 的建目录），
   # 故这里先把报告目录建好，否则首条子进程写 payload 会因父目录缺失而 FileNotFoundError。
   设 报告目录 为 os.path.dirname(报告前缀)
