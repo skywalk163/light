@@ -500,4 +500,71 @@ class Module(ASTNode):
     interfaces: List[InterfaceDefinition] = field(default_factory=list)
     data_types: List[DataTypeDefinition] = field(default_factory=list)
     error_types: List[ErrorTypeDefinition] = field(default_factory=list)
+    # R77-A：顶层语句（此前 visitProgram 会 append 到不存在的属性上；因 FFI 行
+    # 提前报错而从未触发，现补齐以对齐 src 后端的 Module.statements）。
+    statements: List[Any] = field(default_factory=list)
+    # C FFI（R77-A）：声明式节点按源序收集在 ffi_decls，供 unified codegen 发射
+    ffi_decls: List[Any] = field(default_factory=list)
+
+
+# =============================================================================
+# C FFI 节点（R77-A：ANTLR 腿 FFI 跨腿缺口收口）
+#
+# 字段名与 src/ast_nodes_v3.py 的同名节点逐字对齐，unified codegen 可直接复用
+# 基于类型名（is_instance('FFILoadLibrary') 等）的分派。
+# =============================================================================
+
+@dataclass
+class FFILoadLibrary(ASTNode):
+    """加载动态库：加载库 "libxxx.so" 为 别名"""
+    library_path: str = ""
+    alias: str = ""
+
+
+@dataclass
+class FFIFunctionDecl(ASTNode):
+    """外部函数声明：外部 段落 函数名 为 "c_name" 接收 参数… 返回 类型 在 库别名"""
+    name: str = ""
+    params: List[dict] = field(default_factory=list)
+    return_type: Optional[str] = None
+    library_alias: str = ""
+    c_name: Optional[str] = None
+
+
+@dataclass
+class FFIStructDef(ASTNode):
+    """外部结构体定义：外部 结构体 名称 { 字段：类型，… }"""
+    name: str = ""
+    fields: List[dict] = field(default_factory=list)
+
+
+@dataclass
+class FFIUnionDef(ASTNode):
+    """外部联合体定义：外部 联合体 名称 { 字段：类型，… }"""
+    name: str = ""
+    fields: List[dict] = field(default_factory=list)
+
+
+@dataclass
+class FFICallbackDef(ASTNode):
+    """外部回调类型定义：外部 回调 名称 接收 参数… 返回 类型"""
+    name: str = ""
+    params: List[dict] = field(default_factory=list)
+    return_type: Optional[str] = None
+
+
+@dataclass
+class FFIEnumDef(ASTNode):
+    """C枚举定义：外部 枚举 名称 { 成员 = 值，… }"""
+    name: str = ""
+    values: dict = field(default_factory=dict)
+
+
+@dataclass
+class FFIVarArgsDecl(ASTNode):
+    """外部变长参数声明：外部 变长参数 名称 接收 参数…"""
+    name: str = ""
+    params: List[dict] = field(default_factory=list)
+    return_type: Optional[str] = None
+    library_alias: str = ""
     statements: List[ASTNode] = field(default_factory=list)

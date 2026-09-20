@@ -64,6 +64,8 @@ KEYWORDS = [
     # 嵌入块（v3.3 兼容别名）/ 外语引用块（v4.0 推荐）
     '结束嵌入', '结束引',
     '嵌入',
+    # C FFI（R77-A：长词在前，避免 `变长参数` 被拆成 `变长`+`参数`）
+    '变长参数', '加载库', '结构体', '联合体', '回调', '枚举', '外部',
     # 单字（v4.0 L0 核心字推荐形式 + v3.3 兼容）
     '段', '从', '当', '父', '类', '接口', '新', '新建', '己', '设', '为', '于', '数',
     # v4.0 L0 新增单字别名（16字，兼容旧双字写法）
@@ -284,6 +286,14 @@ KEYWORD_TOKEN_MAP = {
     '结束嵌入': 'K_END_EMBED',
     # 最终关键字（确保有 token 映射）
     '最终': 'K_FINALLY',
+    # C FFI（R77-A）
+    '加载库': 'K_LOAD_LIBRARY',
+    '外部': 'K_EXTERN',
+    '结构体': 'K_STRUCT',
+    '回调': 'K_CALLBACK',
+    '枚举': 'K_ENUM',
+    '联合体': 'K_UNION',
+    '变长参数': 'K_VARARGS',
 }
 
 # 构建关键词集合（用于快速查找）
@@ -392,7 +402,7 @@ SYMBOL_TOKEN_MAP = {
     '【': 'LBRACKET', '[': 'LBRACKET',
     '】': 'RBRACKET', ']': 'RBRACKET',
     '{': 'LBRACE', '}': 'RBRACE',
-    '＼': 'PATH_SEP', '/': 'PATH_SEP',
+    '＼': 'PATH_SEP', '/': 'DIVIDE',
     '^': 'POW', '%': 'MODULO',
     '@': 'AT',
     '*': 'MULTIPLY', '×': 'MULTIPLY',
@@ -527,8 +537,23 @@ class LightLangTokenizer:
                 if pm and pm.group(1) not in KEYWORD_SET:
                     self._user_names.add(pm.group(1))
 
+        # R77-A：FFI 声明名（`外部 段落/函数 光明名 …`）。
+        # 这里**允许**关键字形名字：`外部 段落 幂 为 "pow"` 中 `幂` 是光明侧的
+        # 绑定名（C 侧真名在字符串里），src 后端同样把 `幂` 判为 IDENTIFIER。
+        # 只登记紧跟 `外部 段落/函数/方法` 的那一个名字，不放开其它上下文。
+        ffi_name_re = re.compile(
+            r'外部[ \t]*(?:段落|函数|方法)[ \t]*'
+            r'([\u4e00-\u9fffA-Za-z_][\u4e00-\u9fff0-9A-Za-z_]*)'
+        )
+        for m in ffi_name_re.finditer(source):
+            self._user_names.add(m.group(1))
+
     def _longest_user_name_at(self, text: str, pos: int) -> str:
-        """返回 text[pos:] 开头的最长已登记用户名（≥2 字），无则空串"""
+        """返回 text[pos:] 开头的最长已登记用户名（≥2 字），无则空串
+
+        R77-A：`allow_single=True` 时放宽到 1 字，供 FFI 声明名使用
+        （`外部 段落 幂 为 "pow"` —— `幂` 是光明侧绑定名，长度合法）。
+        """
         best = ''
         for name in self._user_names:
             if len(name) < 2:
@@ -536,6 +561,21 @@ class LightLangTokenizer:
             if text.startswith(name, pos) and len(name) > len(best):
                 best = name
         return best
+
+    def _ffi_decl_name_at(self, text: str, pos: int) -> str:
+        """R77-A：匹配 text[pos:] 开头的 FFI 声明名（允许 1 字关键字形名）
+
+        仅当此前 token 是 `外部`（可选再跟 `段落`/`函数`/`方法`）时使用。
+        """
+        for name in self._user_names:
+            if text.startswith(name, pos):
+                # 取最长匹配；用独立的比较避免与 ≥2 字约束纠缠
+                best = name
+                for other in self._user_names:
+                    if other.startswith(best) and text.startswith(other, pos) and len(other) > len(best):
+                        best = other
+                return best
+        return ''
 
     def tokenize(self, source: str) -> List[Token]:
         """将光明源代码分词"""
@@ -740,6 +780,18 @@ class LightLangTokenizer:
                                     tokens[-1] = Token('ID', uname + extra, line, col)
                                 continue
 
+                            # R77-A：FFI 声明名（`外部 段落 幂 为 "pow"`）——允许
+                            # 1 字关键字形名。生效场景：
+                            #   ① 紧跟 `外部`/`段落`（声明处）；
+                            #   ② 后随 `(`（调用处 `幂(2.0, 10.0)`）。
+                            if (tokens and tokens[-1].type_name in ('K_EXTERN', 'K_SEGMENT')
+                                    or (i + 1 < source_len and source[i + 1] == '(')):
+                                ffi_name = self._ffi_decl_name_at(source, i)
+                                if ffi_name:
+                                    tokens.append(Token('ID', ffi_name, line, col))
+                                    advance(len(ffi_name))
+                                    continue
+
                             # 尝试匹配最长关键词
                             matched_keyword = None
                             for kw_len in range(KEYWORD_MAX_LEN, 0, -1):
@@ -941,6 +993,16 @@ class LightLangTokenizer:
                 out.append(tok)
                 continue
             prev = tokens[idx - 1]
+            # R77-A：丢弃「单独成行」的冗余句号。
+            # v3 写法允许在块末另起一行只写 `。` 作为语句终止符（3 个 FFI 示例
+            # 均如此）；此时上一行已被下面 boundary 逻辑补过 PERIOD，再保留本
+            # token 会得到连续两个 PERIOD → parser 报「多余的 '。'」。仅当该句号
+            # 是其所在行唯一的 token 时才丢弃，不影响 `甲。乙。` 同行多语句。
+            if (tok.type_name == 'PERIOD'
+                    and tok.line > prev.line
+                    and prev.type_name == 'PERIOD'
+                    and (idx + 1 >= len(tokens) or tokens[idx + 1].line > tok.line)):
+                continue
             boundary = tok.line > prev.line
             if (boundary and depth == 0
                     and prev.type_name not in self._PERIOD_SKIP_END

@@ -40,6 +40,8 @@ from light_ast import (
     ClassDefinition, InterfaceDefinition, MethodDefinition, ConstructorDefinition,
     InterfaceMethod, InterfaceProperty, SelfReference,
     AwaitExpression, DeferStatement, AsyncScope,
+    FFILoadLibrary, FFIFunctionDecl, FFIStructDef, FFIUnionDef,
+    FFICallbackDef, FFIEnumDef, FFIVarArgsDecl,
 )
 
 # 导入自定义分词器

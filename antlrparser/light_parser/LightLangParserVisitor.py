@@ -137,6 +137,71 @@ class LightLangParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by LightLangParser#ffiLoadLibrary.
+    def visitFfiLoadLibrary(self, ctx:LightLangParser.FfiLoadLibraryContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by LightLangParser#ffiFunctionDecl.
+    def visitFfiFunctionDecl(self, ctx:LightLangParser.FfiFunctionDeclContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by LightLangParser#ffiParamList.
+    def visitFfiParamList(self, ctx:LightLangParser.FfiParamListContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by LightLangParser#ffiParam.
+    def visitFfiParam(self, ctx:LightLangParser.FfiParamContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by LightLangParser#ffiLibraryAlias.
+    def visitFfiLibraryAlias(self, ctx:LightLangParser.FfiLibraryAliasContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by LightLangParser#ffiStructDef.
+    def visitFfiStructDef(self, ctx:LightLangParser.FfiStructDefContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by LightLangParser#ffiFieldList.
+    def visitFfiFieldList(self, ctx:LightLangParser.FfiFieldListContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by LightLangParser#ffiField.
+    def visitFfiField(self, ctx:LightLangParser.FfiFieldContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by LightLangParser#ffiCallbackDef.
+    def visitFfiCallbackDef(self, ctx:LightLangParser.FfiCallbackDefContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by LightLangParser#ffiEnumDef.
+    def visitFfiEnumDef(self, ctx:LightLangParser.FfiEnumDefContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by LightLangParser#ffiEnumMemberList.
+    def visitFfiEnumMemberList(self, ctx:LightLangParser.FfiEnumMemberListContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by LightLangParser#ffiEnumMember.
+    def visitFfiEnumMember(self, ctx:LightLangParser.FfiEnumMemberContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by LightLangParser#ffiVarArgsDecl.
+    def visitFfiVarArgsDecl(self, ctx:LightLangParser.FfiVarArgsDeclContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by LightLangParser#stmt.
     def visitStmt(self, ctx:LightLangParser.StmtContext):
         return self.visitChildren(ctx)

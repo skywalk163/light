@@ -40,6 +40,12 @@ definition
     | dataTypeDef
     | errorTypeDef
     | decoratorDef
+    | ffiLoadLibrary
+    | ffiFunctionDecl
+    | ffiStructDef
+    | ffiCallbackDef
+    | ffiEnumDef
+    | ffiVarArgsDecl
     ;
 
 // ----- 段落定义（统一语法）-----
@@ -162,6 +168,83 @@ importList
 importItem
     : BOOK_L ID BOOK_R
     | ID
+    ;
+
+// ----- C FFI（R77-A）-----
+// 与 src/parser_stmt.py 的 FFI 子语法同口径：
+//   加载库 "libxxx.so" 为 别名。
+//   外部 段落/函数 光明名 为 "c_name" 接收 参数… 返回 类型 在 库别名。
+//   外部 结构体/联合体 名称 { 字段：类型，… }
+//   外部 枚举 名称 { 成员 = 值，… }
+//   外部 回调 名称 接收 参数… 返回 类型。
+//   外部 变长参数 名称 接收 参数…。
+
+ffiLoadLibrary
+    : K_LOAD_LIBRARY STRING K_AS ( ID | STRING ) PERIOD?
+    ;
+
+ffiFunctionDecl
+    : K_EXTERN ( K_SEGMENT | K_METHOD ) ID
+      ( K_AS STRING )?
+      ( K_RECEIVE ffiParamList? )?
+      ( K_RETURN typeAnnotation )?
+      ( K_IN ffiLibraryAlias )?
+      PERIOD?
+    ;
+
+ffiParamList
+    : ffiParam ( ( COMMA | PAUSE ) ffiParam )*
+    ;
+
+ffiParam
+    : identifier_like ( typeMark typeAnnotation | K_AS typeAnnotation )?
+    ;
+
+ffiLibraryAlias
+    : ID ( DOT ID )*
+    ;
+
+ffiStructDef
+    : K_EXTERN ( K_STRUCT | K_UNION ) ID
+      LBRACE ffiFieldList? RBRACE
+      PERIOD?
+    ;
+
+ffiFieldList
+    : ffiField ( ( COMMA | PAUSE | PERIOD ) ffiField )* PERIOD?
+    ;
+
+ffiField
+    : ID ( typeMark typeAnnotation | K_AS typeAnnotation )
+    ;
+
+ffiCallbackDef
+    : K_EXTERN K_CALLBACK ID
+      ( K_RECEIVE ffiParamList? )?
+      ( K_RETURN typeAnnotation )?
+      PERIOD?
+    ;
+
+ffiEnumDef
+    : K_EXTERN K_ENUM ID
+      LBRACE ffiEnumMemberList? RBRACE
+      PERIOD?
+    ;
+
+ffiEnumMemberList
+    : ffiEnumMember ( ( COMMA | PAUSE | PERIOD ) ffiEnumMember )* PERIOD?
+    ;
+
+ffiEnumMember
+    : ID ( K_EQUAL expr | ASSIGN expr )?
+    ;
+
+ffiVarArgsDecl
+    : K_EXTERN K_VARARGS ID
+      ( K_RECEIVE ffiParamList? )?
+      ( K_RETURN typeAnnotation )?
+      ( K_IN ffiLibraryAlias )?
+      PERIOD?
     ;
 
 // ----- 语句 -----

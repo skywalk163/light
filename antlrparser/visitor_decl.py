@@ -40,6 +40,8 @@ from light_ast import (
     ClassDefinition, InterfaceDefinition, MethodDefinition, ConstructorDefinition,
     InterfaceMethod, InterfaceProperty, SelfReference,
     AwaitExpression, DeferStatement, AsyncScope,
+    FFILoadLibrary, FFIFunctionDecl, FFIStructDef, FFIUnionDef,
+    FFICallbackDef, FFIEnumDef, FFIVarArgsDecl,
 )
 
 
@@ -154,6 +156,11 @@ class VisitorDeclMixin(LightLangParserVisitor):
                     module.data_types.append(defn)
                 elif isinstance(defn, ErrorTypeDefinition):
                     module.error_types.append(defn)
+                elif isinstance(defn, (FFILoadLibrary, FFIFunctionDecl, FFIStructDef,
+                                       FFIUnionDef, FFICallbackDef, FFIEnumDef,
+                                       FFIVarArgsDecl)):
+                    # R77-A：FFI 声明按源序收集，unified codegen 依序发射 ctypes 绑定
+                    module.ffi_decls.append(defn)
             elif isinstance(child, LightLangParser.StmtContext):
                 stmt = self.visitStmt(child)
                 if stmt:
@@ -514,7 +521,140 @@ class VisitorDeclMixin(LightLangParserVisitor):
             return self.visitErrorTypeDef(ctx.errorTypeDef())
         elif ctx.decoratorDef():
             return self.visitDecoratorDef(ctx.decoratorDef())
+        # ----- C FFI（R77-A）-----
+        elif ctx.ffiLoadLibrary():
+            return self.visitFfiLoadLibrary(ctx.ffiLoadLibrary())
+        elif ctx.ffiFunctionDecl():
+            return self.visitFfiFunctionDecl(ctx.ffiFunctionDecl())
+        elif ctx.ffiStructDef():
+            return self.visitFfiStructDef(ctx.ffiStructDef())
+        elif ctx.ffiCallbackDef():
+            return self.visitFfiCallbackDef(ctx.ffiCallbackDef())
+        elif ctx.ffiEnumDef():
+            return self.visitFfiEnumDef(ctx.ffiEnumDef())
+        elif ctx.ffiVarArgsDecl():
+            return self.visitFfiVarArgsDecl(ctx.ffiVarArgsDecl())
         return None
+
+    # =========================================================================
+    # C FFI 访问方法（R77-A）
+    #
+    # 产出节点与 src/ast_nodes_v3.py 的同名节点字段逐字对齐，使 unified codegen
+    # 既有的 is_instance('FFILoadLibrary') 等分派无需改动即可生效。
+    # =========================================================================
+
+    @staticmethod
+    def _unquote_string(token_text: str) -> str:
+        """去掉字符串字面量的引号（STRING token 含引号）"""
+        if len(token_text) >= 2 and token_text[0] == token_text[-1] and token_text[0] in ('"', "'"):
+            return token_text[1:-1]
+        return token_text
+
+    @staticmethod
+    def _as_node_list(value):
+        """ANTLR 对「同类型 token 出现多次」返回 list，只出现一次时返回单节点。
+
+        统一成 list，避免调用点区分两种形态。
+        """
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        return [value]
+
+    def _ffi_visit_params(self, param_list_ctx) -> List[dict]:
+        """把 ffiParamList 转成 [{'name':…, 'type':…}, …]（对齐 src 的 FFIFunctionDecl.params）"""
+        params: List[dict] = []
+        if param_list_ctx is None:
+            return params
+        for p in param_list_ctx.ffiParam():
+            name = self._get_identifier_like_name(p.identifier_like())
+            typ = None
+            if p.typeAnnotation():
+                typ = self.visitTypeAnnotation(p.typeAnnotation())
+            params.append({'name': name, 'type': typ})
+        return params
+
+    def _ffi_visit_fields(self, field_list_ctx) -> List[dict]:
+        """把 ffiFieldList 转成 [{'name':…, 'type':…}, …]"""
+        fields: List[dict] = []
+        if field_list_ctx is None:
+            return fields
+        for f in field_list_ctx.ffiField():
+            name = f.ID().getText()
+            typ = self.visitTypeAnnotation(f.typeAnnotation()) if f.typeAnnotation() else None
+            fields.append({'name': name, 'type': typ})
+        return fields
+
+    def visitFfiLoadLibrary(self, ctx: LightLangParser.FfiLoadLibraryContext):
+        """加载库 "libxxx.so" 为 别名。"""
+        strings = self._as_node_list(ctx.STRING())
+        path = self._unquote_string(strings[0].getText())
+        if ctx.ID():
+            alias = ctx.ID().getText()
+        else:
+            alias = self._unquote_string(strings[-1].getText())
+        return FFILoadLibrary(line=ctx.start.line, column=ctx.start.column,
+                              library_path=path, alias=alias)
+
+    def visitFfiFunctionDecl(self, ctx: LightLangParser.FfiFunctionDeclContext):
+        """外部 段落/函数 光明名 为 "c_name" 接收 参数… 返回 类型 在 库别名。"""
+        name = ctx.ID().getText()
+        c_name = None
+        strings = self._as_node_list(ctx.STRING())
+        if strings:
+            c_name = self._unquote_string(strings[0].getText())
+        params = self._ffi_visit_params(ctx.ffiParamList())
+        return_type = self.visitTypeAnnotation(ctx.typeAnnotation()) if ctx.typeAnnotation() else None
+        library_alias = ''
+        if ctx.ffiLibraryAlias():
+            library_alias = ''.join(t.getText() for t in ctx.ffiLibraryAlias().getChildren())
+        return FFIFunctionDecl(line=ctx.start.line, column=ctx.start.column,
+                               name=name, params=params, return_type=return_type,
+                               library_alias=library_alias, c_name=c_name)
+
+    def visitFfiStructDef(self, ctx: LightLangParser.FfiStructDefContext):
+        """外部 结构体/联合体 名称 { 字段：类型，… }"""
+        name = ctx.ID().getText()
+        fields = self._ffi_visit_fields(ctx.ffiFieldList())
+        is_union = ctx.K_UNION() is not None
+        node_cls = FFIUnionDef if is_union else FFIStructDef
+        return node_cls(line=ctx.start.line, column=ctx.start.column, name=name, fields=fields)
+
+    def visitFfiCallbackDef(self, ctx: LightLangParser.FfiCallbackDefContext):
+        """外部 回调 名称 接收 参数… 返回 类型。"""
+        name = ctx.ID().getText()
+        params = self._ffi_visit_params(ctx.ffiParamList())
+        return_type = self.visitTypeAnnotation(ctx.typeAnnotation()) if ctx.typeAnnotation() else None
+        return FFICallbackDef(line=ctx.start.line, column=ctx.start.column,
+                              name=name, params=params, return_type=return_type)
+
+    def visitFfiEnumDef(self, ctx: LightLangParser.FfiEnumDefContext):
+        """外部 枚举 名称 { 成员 = 值，… }"""
+        name = ctx.ID().getText()
+        values: dict = {}
+        member_list = ctx.ffiEnumMemberList()
+        if member_list is not None:
+            for m in member_list.ffiEnumMember():
+                mname = m.ID().getText()
+                if m.expr():
+                    value = self.visitExpr(m.expr())
+                    values[mname] = getattr(value, 'value', value)
+                else:
+                    values[mname] = len(values)
+        return FFIEnumDef(line=ctx.start.line, column=ctx.start.column, name=name, values=values)
+
+    def visitFfiVarArgsDecl(self, ctx: LightLangParser.FfiVarArgsDeclContext):
+        """外部 变长参数 名称 接收 参数…"""
+        name = ctx.ID().getText()
+        params = self._ffi_visit_params(ctx.ffiParamList())
+        return_type = self.visitTypeAnnotation(ctx.typeAnnotation()) if ctx.typeAnnotation() else None
+        library_alias = ''
+        if ctx.ffiLibraryAlias():
+            library_alias = ''.join(t.getText() for t in ctx.ffiLibraryAlias().getChildren())
+        return FFIVarArgsDecl(line=ctx.start.line, column=ctx.start.column,
+                              name=name, params=params, return_type=return_type,
+                              library_alias=library_alias)
 
     # ----- 类型定义 -----
 

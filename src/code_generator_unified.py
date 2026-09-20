@@ -475,6 +475,9 @@ class UnifiedCodeGenerator:
         # 先进行类型推断
         self.type_cache = self.type_inferencer.infer(module)
         
+        # R77-A：FFI 用户自定义类型注册表（外部结构体/联合体/回调名 → 生成的 Python 类型表达式）
+        self._ffi_user_types = {}
+        
         # 添加文件头
         self._add_line("# 由光明编译器生成")
         self._add_line("# 源文件: 光明代码")
@@ -509,6 +512,8 @@ class UnifiedCodeGenerator:
         self._add_line("import functools")
         self._add_line("import json")
         self._add_line("from typing import Any, Callable, Optional")  # 类型注解（段->Callable 等）求值所需
+        # R77-A：FFI 代码发射需要 ctypes（与 src 后端 code_generator.py:1160 同口径）
+        self._add_line("import ctypes")
         self._add_line("")
         self._add_line("try:")
         self._add_line("    import importlib.util")
@@ -580,6 +585,19 @@ class UnifiedCodeGenerator:
         self._add_line("    _light_builtin.格式化时间 = lambda ts, fmt: __import__('time').strftime(fmt, __import__('time').localtime(ts))")
         self._add_line("    _light_builtin.JSON序列化 = lambda obj, indent=2: json.dumps(obj, ensure_ascii=False, indent=indent)")
         self._add_line("")
+        # R77-A：FFI 模块尽量导入；失败降级为占位对象，避免非 FFI 程序因 stdlib
+        # 路径问题整体崩溃。与 src 后端 code_generator.py:1215-1225 同口径。
+        self._add_line("# FFI 模块：尽量导入；失败则降级为占位对象，避免非 FFI 程序因 stdlib 路径缺失而整体崩溃")
+        self._add_line("try:")
+        self._add_line("    import stdlib.FFI as _light_ffi")
+        self._add_line("    _light_ffi_available = True")
+        self._add_line("except Exception:")
+        self._add_line("    _light_ffi_available = False")
+        self._add_line("    class _LightFFIUnavailable:")
+        self._add_line("        def __getattr__(self, _name):")
+        self._add_line("            raise RuntimeError('FFI 不可用：未能导入 stdlib.FFI（请确认 stdlib 路径已加入 sys.path）')")
+        self._add_line("    _light_ffi = _LightFFIUnavailable()")
+        self._add_line("")
         
         self._add_line("# stdlib 物理缺失时的兜底：补齐常用 builtin + 注册 文件系统 模块")
         self._add_line("for _light_n, _light_f in [")
@@ -631,6 +649,12 @@ class UnifiedCodeGenerator:
             for trait_impl in module.trait_impls:
                 self._generate_trait_impl(trait_impl)
         
+        # R77-A：C FFI 声明（加载库 / 外部函数 / 结构体 / 联合体 / 枚举 / 回调 / 变长参数）
+        # 必须在段落定义之前发射——段落体会调用这些外部函数包装器。
+        if hasattr(module, 'ffi_decls'):
+            for decl in module.ffi_decls:
+                self._generate_ffi_decl(decl)
+
         # 生成段落定义
         if hasattr(module, 'segments'):
             for segment in module.segments:
@@ -990,6 +1014,146 @@ class UnifiedCodeGenerator:
             _walk(getattr(m, 'body', None) or [])
         return names
 
+
+    # =========================================================================
+    # R77-A：C FFI 代码发射
+    #
+    # 与 src 后端 code_generator.py:5189-5300 同口径：
+    #   - 类型映射用 _ffi_type_map（整数→c_int、小数→c_double、文本→c_char_p…）
+    #   - 加载库 → `别名 = ctypes.CDLL(路径)`
+    #   - 外部函数 → `_名_ffi = 库.名` + argtypes/restype + 光明侧包装函数
+    # =========================================================================
+
+    # 光明类型 → ctypes 类型表达式（与 code_generator.py 的 _ffi_type_map 一致）
+    _ffi_type_map = {
+        '整数': 'ctypes.c_int',
+        '小数': 'ctypes.c_double',
+        '浮数': 'ctypes.c_double',
+        '文本': 'ctypes.c_char_p',
+        '串': 'ctypes.c_char_p',
+        '布尔': 'ctypes.c_bool',
+        '空': 'ctypes.c_void_p',
+        '数': 'ctypes.c_double',
+        '无': 'None',
+    }
+
+    def _get_ffi_type(self, type_name) -> str:
+        """解析 FFI 类型名 → ctypes 类型表达式（未知类型回退 c_void_p）"""
+        if not type_name:
+            return 'ctypes.c_void_p'
+        if type_name in self._ffi_type_map:
+            return self._ffi_type_map[type_name]
+        if type_name in self._ffi_user_types:
+            return self._ffi_user_types[type_name]
+        return 'ctypes.c_void_p'
+
+    def _generate_ffi_decl(self, decl):
+        """按类型分派 FFI 声明节点"""
+        if is_instance(decl, 'FFILoadLibrary'):
+            self._generate_ffi_load_library(decl)
+        elif is_instance(decl, 'FFIFunctionDecl'):
+            self._generate_ffi_function_decl(decl)
+        elif is_instance(decl, 'FFIStructDef'):
+            self._generate_ffi_struct_def(decl, is_union=False)
+        elif is_instance(decl, 'FFIUnionDef'):
+            self._generate_ffi_struct_def(decl, is_union=True)
+        elif is_instance(decl, 'FFIEnumDef'):
+            self._generate_ffi_enum_def(decl)
+        elif is_instance(decl, 'FFICallbackDef'):
+            self._generate_ffi_callback_def(decl)
+        elif is_instance(decl, 'FFIVarArgsDecl'):
+            self._generate_ffi_varargs_decl(decl)
+
+    def _generate_ffi_load_library(self, decl):
+        """加载库 "libxxx.so" 为 别名 → 别名 = ctypes.CDLL("libxxx.so")"""
+        alias = self._sanitize_name(decl.alias)
+        self._add_line(f"# 加载动态库: {decl.library_path}")
+        self._add_line(f"{alias} = ctypes.CDLL({decl.library_path!r})")
+        self._add_line("")
+
+    def _generate_ffi_function_decl(self, decl):
+        """外部函数声明 → ctypes 绑定 + 光明侧包装函数"""
+        name = self._sanitize_name(decl.name)
+        library_alias = self._sanitize_name(decl.library_alias) if decl.library_alias else ''
+        c_name = decl.c_name or decl.name
+
+        arg_types = [self._get_ffi_type(p.get('type')) for p in decl.params]
+        restype = self._get_ffi_type(decl.return_type) if decl.return_type else 'None'
+
+        self._add_line(f"# 外部函数声明: {c_name}({', '.join(p['name'] for p in decl.params)})")
+        if library_alias:
+            self._add_line(f"_{name}_ffi = {library_alias}.{c_name}")
+            if arg_types:
+                self._add_line(f"_{name}_ffi.argtypes = [{', '.join(arg_types)}]")
+            self._add_line(f"_{name}_ffi.restype = {restype}")
+
+        # 包装函数：处理文本类型的 encode/decode
+        params_str = ', '.join(self._sanitize_name(p['name']) for p in decl.params)
+        self._add_line(f"def {name}({params_str}):")
+        self.indent_level += 1
+        for p in decl.params:
+            pname = self._sanitize_name(p['name'])
+            if p.get('type') in ('文本', '串'):
+                self._add_line(f"{pname}_c = {pname}.encode('utf-8') if isinstance({pname}, str) else {pname}")
+        args_pass = []
+        for p in decl.params:
+            pname = self._sanitize_name(p['name'])
+            args_pass.append(f"{pname}_c" if p.get('type') in ('文本', '串') else pname)
+        self._add_line(f"_result = _{name}_ffi({', '.join(args_pass)})")
+        if decl.return_type in ('文本', '串'):
+            self._add_line("return _result.decode('utf-8') if _result else ''")
+        else:
+            self._add_line("return _result")
+        self.indent_level -= 1
+        self._add_line("")
+
+    def _generate_ffi_struct_def(self, decl, is_union: bool = False):
+        """外部结构体/联合体 → ctypes.Structure / ctypes.Union"""
+        name = self._sanitize_name(decl.name)
+        base = 'ctypes.Union' if is_union else 'ctypes.Structure'
+        fields_code = []
+        for f in decl.fields:
+            fname = self._sanitize_name(f['name'])
+            ftype = self._get_ffi_type(f.get('type'))
+            fields_code.append(f"('{fname}', {ftype})")
+        kind = '联合体' if is_union else '结构体'
+        self._add_line(f"# 外部{kind}: {name}")
+        self._add_line(f"class {name}({base}):")
+        self.indent_level += 1
+        self._add_line(f"_fields_ = [{', '.join(fields_code)}]")
+        self.indent_level -= 1
+        self._add_line("")
+        self._ffi_user_types[decl.name] = name
+
+    def _generate_ffi_enum_def(self, decl):
+        """外部枚举 → Python IntEnum"""
+        name = self._sanitize_name(decl.name)
+        self._add_line(f"# 外部枚举: {name}")
+        self._add_line("import enum as _light_enum")
+        self._add_line(f"class {name}(_light_enum.IntEnum):")
+        self.indent_level += 1
+        if decl.values:
+            for member, value in decl.values.items():
+                self._add_line(f"{self._sanitize_name(member)} = {value!r}")
+        else:
+            self._add_line("pass")
+        self.indent_level -= 1
+        self._add_line("")
+
+    def _generate_ffi_callback_def(self, decl):
+        """外部回调类型 → ctypes.CFUNCTYPE 别名"""
+        name = self._sanitize_name(decl.name)
+        restype = self._get_ffi_type(decl.return_type) if decl.return_type else 'None'
+        arg_types = [self._get_ffi_type(p.get('type')) for p in decl.params]
+        args = ', '.join(arg_types) if arg_types else ''
+        self._add_line(f"# 外部回调类型: {name}")
+        self._add_line(f"{name} = ctypes.CFUNCTYPE({restype}{', ' + args if args else ''})")
+        self._ffi_user_types[decl.name] = name
+        self._add_line("")
+
+    def _generate_ffi_varargs_decl(self, decl):
+        """外部变长参数声明 → 固定形参部分按普通 FFI 函数发射"""
+        self._generate_ffi_function_decl(decl)
 
     def _generate_statement(self, stmt):
         """生成语句（支持统一AST）"""

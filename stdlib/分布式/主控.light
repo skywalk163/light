@@ -10,7 +10,7 @@
 从 调度核心 导入 主
 从 节点网络 导入 取环境, 转整数
 
-异步 段落 主环境 接收:
+异步 段落 主环境():
   设 端口文件 为 取环境("主控端口文件", "dist_master_port.txt")
   设 状态文件 为 取环境("状态文件", "dist_master_state.json")
   设 报告文件 为 取环境("报告文件", "dist_master_report.json")

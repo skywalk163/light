@@ -167,6 +167,15 @@ K_NEW      : '新建' ;                   // 新增：实例化对象
 K_EMBED       : '嵌入' | '引' ;         // v4.0 引 Python:
 K_END_EMBED   : '结束嵌入' | '结束引' ; // v4.0 对应结束
 
+// C FFI（R77-A：ANTLR 腿补齐 FFI 全族词法；长词在前避免部分匹配）
+K_LOAD_LIBRARY : '加载库' ;             // 加载库 "libxxx.so" 为 别名
+K_EXTERN       : '外部' ;               // 外部 段落/结构体/回调/枚举/联合体/变长参数/…
+K_STRUCT       : '结构体' ;
+K_CALLBACK     : '回调' ;
+K_ENUM         : '枚举' ;
+K_UNION        : '联合体' ;
+K_VARARGS      : '变长参数' ;
+
 // 逻辑运算
 K_AND      : '且' | '与' ;
 K_OR       : '或' ;
