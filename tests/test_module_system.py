@@ -17,16 +17,48 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'antlrparser'))
 # 添加 src 路径（用于 UnifiedCodeGenerator）
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-# 检查 ANTLR 解析器是否可用
+# ── ANTLR 运行时护栏（R82 路2）──
+# 分层检测：先查 antlr4 运行时，再查生成的解析器模块。
+# 运行时缺失时给出明确标记的 skip（非通过），杜绝原整模块静默 skip 掩盖真缺陷。
+_ANTLR4_RUNTIME_REQUIRED = ">=4.13.0"
+_ANTLR4_RUNTIME_PINNED = "4.13.2"
+
+try:
+    import antlr4 as _antlr4_runtime
+except ImportError:
+    import pytest
+    pytest.skip(
+        "【护栏·非通过】缺 antlr4-python3-runtime 运行时，"
+        "test_module_system 整模块跳过（非通过）。"
+        f"请执行: pip install antlr4-python3-runtime=={_ANTLR4_RUNTIME_PINNED}",
+        allow_module_level=True,
+    )
+
+# 运行时已加载，记录版本供护栏测试与 skip 消息使用
+try:
+    from importlib.metadata import version as _pkg_version, PackageNotFoundError
+    try:
+        _antlr4_runtime_version = _pkg_version("antlr4-python3-runtime")
+    except PackageNotFoundError:
+        _antlr4_runtime_version = getattr(_antlr4_runtime, "__version__", "unknown")
+except Exception:
+    _antlr4_runtime_version = getattr(_antlr4_runtime, "__version__", "unknown")
+
+# 检查 ANTLR 生成的解析器模块是否可用（与运行时缺失区分开）
 try:
     from antlr4 import *
     from LightLangLexer import LightLangLexer
     from LightLangParser import LightLangParser as AntlrLightLangParser
     from light_visitor import LightLangASTBuilder
     from code_generator_unified import UnifiedCodeGenerator
-except ImportError:
+except ImportError as _gen_import_err:
     import pytest
-    pytest.skip("ANTLR parser not available (missing generated LightLangParser module)", allow_module_level=True)
+    pytest.skip(
+        f"ANTLR 生成解析器模块不可用（antlr4 运行时 v{_antlr4_runtime_version} 已加载，"
+        f"但缺生成模块: {_gen_import_err}）。"
+        "请运行 scripts/generate_antlr_parser.py 重新生成。",
+        allow_module_level=True,
+    )
 
 
 class TestStdlib(unittest.TestCase):
@@ -677,3 +709,53 @@ class TestCacheManagement(unittest.TestCase):
         self.assertIn('total_entries', status)
         self.assertIn('cache_dir', status)
         self.assertIn('ttl_seconds', status)
+
+
+# =============================================================================
+# ANTLR4 运行时护栏（R82 路2）
+# 确保 antlr4-python3-runtime 存在且版本合规，防止静默 skip 掩盖真缺陷。
+# 模块级 skip 已在文件头部给出明确标记；此处补充版本级断言，运行时存在时校验版本。
+# =============================================================================
+
+class TestAntlr4RuntimeGuardrail(unittest.TestCase):
+    """ANTLR4 运行时护栏 —— 存在性与版本断言"""
+
+    def test_antlr4_runtime_importable(self):
+        """antlr4-python3-runtime 必须可导入（模块级已兜底，此处二次断言）"""
+        try:
+            import antlr4  # noqa: F401
+        except ImportError:
+            self.fail(
+                "【护栏】antlr4-python3-runtime 运行时缺失，"
+                "ANTLR 后端测试将被跳过，门禁不应判绿。"
+                f"请安装: pip install antlr4-python3-runtime=={_ANTLR4_RUNTIME_PINNED}"
+            )
+
+    def test_antlr4_runtime_version_compliant(self):
+        """antlr4-python3-runtime 版本须 >= 4.13.0"""
+        import antlr4
+        try:
+            from importlib.metadata import version as _pkg_version
+            ver_str = _pkg_version("antlr4-python3-runtime")
+        except Exception:
+            ver_str = getattr(antlr4, "__version__", "0.0.0")
+        # 解析语义化版本号（取前三段数字）
+        parts = []
+        for p in ver_str.split("."):
+            try:
+                parts.append(int(p))
+            except ValueError:
+                break
+        while len(parts) < 3:
+            parts.append(0)
+        self.assertGreaterEqual(
+            parts, [4, 13, 0],
+            f"【护栏】antlr4-python3-runtime 版本 {ver_str} 低于要求 {_ANTLR4_RUNTIME_REQUIRED}"
+        )
+
+    def test_antlr4_runtime_version_recorded(self):
+        """模块级已记录运行时版本，且非 unknown"""
+        self.assertNotEqual(
+            _antlr4_runtime_version, "unknown",
+            f"【护栏】无法确定 antlr4-python3-runtime 版本（记录值: {_antlr4_runtime_version}）"
+        )
