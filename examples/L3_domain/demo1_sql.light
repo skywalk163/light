@@ -61,12 +61,12 @@
         ["钱七", 23, 90.7],
         ["孙八", 26, 79.4],
     ]
-    遍 学生列表为 s:
+    遍 学生列表 为 s:
         l3_sql_exec(DB, "INSERT INTO students(name, age, score) VALUES (?,?,?)", s)
 
     打印 "→ 3. 查询：分数 > 85 分的学生（参数化查询）"
     设 好成绩 = l3_sql_query(DB, "SELECT name,age,score FROM students WHERE score>? ORDER BY score DESC", [85])
-    遍 好成绩为 行:
+    遍 好成绩 为 行:
         打印 "   ", 行
 
     打印 "→ 4. 聚合：平均分 + 最高分 + 最低分"

@@ -71,7 +71,7 @@
 
     分隔线("2/5 pandas 读 CSV")
     设 行 = l4_create_and_read_csv()
-    遍 行为 r: 打印 "  ", r
+    遍 行 为 r: 打印 "  ", r
 
     分隔线("3/5 matplotlib 画图")
     打印 l4_demo_plot("tmp_allinone_plot.png")
