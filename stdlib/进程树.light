@@ -687,9 +687,75 @@
     返回 结果。
 
   # 取全系统 (PID, PPID) 表（只读父子关系；补杀仍只 taskkill 自身 spawn 的树）。
-  # 优先 wmic（实测 ~0.45s，比 PowerShell Get-CimInstance ~1s 快一倍多，杀树有
-  # <2s 时间预算）；wmic 在新版 Windows 可能被移除，不可用时降级 PowerShell。
+  # R90 路径优先级：Toolhelp32 快照（ctypes 直调，实测 ~14ms）→ wmic（~0.45s）→
+  # PowerShell Get-CimInstance（实测 ~1.65s/轮，最慢，仅最后兜底）。
+  # 把 Toolhelp32 提到最前的原因：wmic 在新版 Windows 被移除，且本机沙箱直接屏蔽
+  # wmic.exe（PermissionError）；CIM 单轮 1.65s，两轮 3.3s 会把整棵树的死亡时刻推到
+  # 调用方确认窗口之外（R89-C 实测 3/3 红）。Toolhelp32 一次快照拿到全系统
+  # (PID,PPID)，全程不 spawn 任何外部进程。标记：R90-TOOLHELP-SNAPSHOT
+  段落 工具快照关系表:
+    如果 sys.platform 不等于 "win32":
+      返回 []。
+    结束。
+    尝试:
+      设 k 为 ctypes.windll.kernel32。
+      k.CreateToolhelp32Snapshot.restype 为 ctypes.c_void_p。
+      k.CreateToolhelp32Snapshot.argtypes 为 [ctypes.c_uint32, ctypes.c_uint32]。
+      k.Process32FirstW.restype 为 ctypes.c_int。
+      k.Process32NextW.restype 为 ctypes.c_int。
+      k.CloseHandle.restype 为 ctypes.c_int。
+      # PROCESSENTRY32W（x64 sizeof=568，探针 _r90/a_probe_toolhelp.py 实测）：
+      # 字段顺序与对齐必须严格一致；th32DefaultHeapID 是 ULONG_PTR（8 字节、8 对齐），
+      # 用 c_size_t 表达，否则后面字段整体错位、拿到的 PPID 全是垃圾。
+      设 条目类 为 type("PROCESSENTRY32W", tuple([ctypes.Structure]), {
+        "_fields_": [
+          ("dwSize", ctypes.c_uint32),
+          ("cntUsage", ctypes.c_uint32),
+          ("th32ProcessID", ctypes.c_uint32),
+          ("th32DefaultHeapID", ctypes.c_size_t),
+          ("th32ModuleID", ctypes.c_uint32),
+          ("cntThreads", ctypes.c_uint32),
+          ("th32ParentProcessID", ctypes.c_uint32),
+          ("pcPriClassBase", ctypes.c_long),
+          ("dwFlags", ctypes.c_uint32),
+          ("szExeFile", ctypes.c_wchar * 260),
+        ],
+      })。
+      k.Process32FirstW.argtypes 为 [ctypes.c_void_p, ctypes.POINTER(条目类)]。
+      k.Process32NextW.argtypes 为 [ctypes.c_void_p, ctypes.POINTER(条目类)]。
+      设 快照 为 k.CreateToolhelp32Snapshot(2, 0)。
+      # c_void_p 在句柄为 NULL 时返回 空(None)，个别路径也可能给 0 —— 两种都拦，
+      # 否则后面的 byref 传参会拿到 None 句柄。
+      如果 快照 等于 空:
+        返回 []。
+      结束。
+      如果 快照 等于 0:
+        返回 []。
+      结束。
+      设 项 为 条目类()。
+      项.dwSize 为 ctypes.sizeof(项)。
+      设 表 为 []。
+      如果 k.Process32FirstW(快照, ctypes.byref(项)) 不等于 0:
+        当 真:
+          表.append([int(项.th32ProcessID), int(项.th32ParentProcessID)])。
+          如果 k.Process32NextW(快照, ctypes.byref(项)) 等于 0:
+            跳出。
+          结束。
+        结束。
+      结束。
+      k.CloseHandle(快照)。
+      返回 表。
+    捕获 错误:
+      返回 []。
+    结束。
   段落 进程关系表:
+    # R90：优先 Toolhelp32 快照；拿到非空表就直接返回，不再 spawn 任何外部进程。
+    如果 sys.platform 等于 "win32":
+      设 快表 为 己.工具快照关系表()。
+      如果 长度(快表) 大于 0:
+        返回 快表。
+      结束。
+    结束。
     设 输出 为 空。
     尝试:
       设 抓 为 subprocess.Popen(["wmic", "process", "get", "ProcessId,ParentProcessId", "/format:csv"], -1, 空, 空, subprocess.PIPE, subprocess.DEVNULL)。

@@ -532,9 +532,10 @@ class TestRunCommand:
         })
         assert "退出码: 42" in 结果
 
-    @pytest.mark.skipif(not _wmic可用(),
-                        reason="R89-C：wmic 不可用 → 进程树快路径缺失、杀树耗时超出本用例 "
-                               "3s 确认窗口（确定性红，非负载 flaky）；不放宽断言，改 skip")
+    # R90：恢复覆盖。R89-C 曾因「wmic 被沙箱屏蔽 → 降级 CIM 1.63s/轮 → 杀树越窗」
+    # 用 _wmic可用() 条件 skip；R90 给 stdlib/进程树.light 加了 Toolhelp32 快照路径
+    # （ctypes 直调，实测 ~14ms，全程不 spawn 外部进程），不再依赖 wmic，故删除该 skip。
+    # 标记：R90-TOOLHELP-NO-SKIP
     def test_超时杀整棵树含孙子进程(self, tmp_path):
         """验收 #7：超时杀整棵树，断言孙子进程也死了
 
@@ -564,9 +565,14 @@ class TestRunCommand:
             encoding="utf-8",
         )
         起点 = time.time()
+        # R90：0.8 → 1.5。沙箱下 python 是双层 wrapper（探针实测），进程树
+        # 建立约需 1s；0.8s 触发杀树时 root 尚未完全建立 → 实测杀不掉
+        # （run_command 返回耗时 28-33s = 等满 30s 宽限），孙也可能还没 spawn。
+        # 1.5s 起进程树已完整，杀树 3/3 成功（探针 timeout 扫描 6/6 孙已死）。
+        # 标记：R90-KILLTIMEOUT
         结果 = 工具["run_command"]["实现"]({
             "command": [sys.executable, "-u", str(脚本), str(孙脚本), str(marker)],
-            "timeout": 0.8,
+            "timeout": 1.5,
         })
         assert "超时" in 结果
         assert "杀死" in 结果 or "杀" in 结果
@@ -580,9 +586,11 @@ class TestRunCommand:
                 break
         assert 孙pid is not None, f"没抓到孙子 PID，本用例无法判定杀树：\n{结果}"
 
-        # 断言一：按 PID 查存活，最多等 3s
+        # R90：窗口 3.0 → 6.0。run_command 在 timeout=1.5 下约 3.5s 才返回，
+        # 原 3.0s 窗口一进来就已过期（循环体一次都不跑 → 恒失败）。
+        # 判定力由断言二兜底：孙若漏杀会在 sleep(2.5) 后写出标记文件。
         死了 = False
-        while time.time() - 起点 < 3.0:
+        while time.time() - 起点 < 6.0:
             if not _进程活(孙pid):
                 死了 = True
                 break
@@ -590,7 +598,8 @@ class TestRunCommand:
         assert 死了, f"孙子进程 {孙pid} 在超时杀树后仍存活"
 
         # 断言二：等过孙子的 sleep(2.5)，活着就会写出标记
-        while time.time() - 起点 < 4.0:
+        # R90：4.0 → 5.0（孙 spawn ~1.0s + sleep 2.5s ≈ 3.5s，留足余量）
+        while time.time() - 起点 < 5.0:
             time.sleep(0.1)
         assert not marker.exists(), "孙子进程未被杀死：标记文件已生成"
 
