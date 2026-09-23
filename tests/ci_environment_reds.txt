@@ -35,6 +35,10 @@ W-09	tests/test_distributed_eval_light.py::test_重派与心跳_杀节点后重�
 W-10	tests/test_distributed_eval_light.py::test_心跳独立于执行_长任务期间不被标失联	负载	1	R89 全量红，签名「主控未在 15.0 秒内写出端口」（≠R88 的「失联节点」）；孤立 5/5 + 单文件负载 5/5 全绿。本轮未复现。
 W-11	tests/test_path_a_process_isolation_light.py::test_限时运行进程_超时硬杀挂起命令	负载	1	R89 全量红（本机进程强杀面，与杀树同族）；R90-A 修 Toolhelp32 后孤立 3/3 绿。本轮未复现。
 
+# ── R90-M 收口新登记（满负载下偶发，隔离恒绿） ─────────────────────────────
+W-12	tests/test_agent_tools_light.py::TestRunCommand::test_超时杀整棵树含孙子进程	负载	1	R90-A 已消除其**确定性**红（真因：0.8s 触发杀树时进程树尚未建立 → timeout 改 1.5s + 判定窗口改 6.0/5.0s），之后孤立 5/5、类级 -n auto 5/5、收口轮隔离 3/3 全绿；但**满负载全量 -n auto** 下仍偶发（沙箱双层 wrapper 启动慢 + 满负载 CPU 竞争把确认窗口挤爆）。属负载敏感，非确定性。复现：全量 tests/ -n auto --dist loadscope
+W-13	tests/test_concurrency_light.py::Test滑动窗口接入派发::test_无窗口时行为完全不变	负载	1	R90-M 收口全量首发；隔离 3/3 绿。滑动窗口派发在满负载下时序竞争。复现：全量 tests/ -n auto --dist loadscope
+
 # ── 不入账（已定位并修复，不是环境问题） ──────────────────────────────────
 # tests/test_agent_tools_light.py::TestRunCommand::test_超时杀整棵树含孙子进程
 #   R90-A：真因是「0.8s 触发杀树时进程树尚未建立」（沙箱下 python 双层 wrapper，
