@@ -1,0 +1,44 @@
+# light-merge Windows 本机门禁「环境红」台账（R90-B 建账）
+#
+# 格式（tab 分隔，与 lightharness/tests/ci_environment_reds.txt 对齐）：
+#   <编号>\t<nodeid>\t<类别>\t<负载敏感 0/1>\t<说明>
+# 以 # 开头的行为注释，判据脚本不解析。
+#
+# 入账口径（R90-B）：
+#   1) 每条都必须有**一手取证**：隔离复跑 2 次的结果 + 错误签名 + 复现命令；
+#   2) 「环境」类：隔离也红，且与本轮代码改动无因果关系；
+#   3) 「负载」类（第 4 列 = 1）：隔离复跑恒绿、只在 -n auto 全量负载下偶发；
+#   4) 真回归**不入账**——入账即等于放弃盯它，必须逐条给得出解释。
+#
+# 判据脚本：tests/ci_judge_env_reds.py（judge / self-check）
+# ⚠️ 别用 `多平台矩阵.py --mode lm-full --refresh-local` 的「新增红 0」当判据：
+#    它把新基线写进 latest 再自比，恒为 0、没有意义。要对拍**时间戳基线**。
+#
+# ── 建账依据：R90 全量（2026-09-24 01:32，8 failed / 8201 passed / 89 skipped）
+#    基线对拍：本机lm基线_2026-09-24-003348.json（R89，5 failed）
+# ────────────────────────────────────────────────────────────────────────
+
+# ── 环境类（隔离也红，确定性） ────────────────────────────────────────────
+W-01	tests/test_http_client.py::test_connection_error	环境	0	本机连 127.0.0.1:1 是**读超时**而非 ConnectionRefused（纯 socket 探针实测 1.23s TimeoutError），所以「连接错误」永远不会触发；用例断言它必须抛连接错误 → 隔离 2/2 红。有正常 RST 行为的机器上应绿，勿改用例/stdlib 语义。复现：pytest tests/test_http_client.py::test_connection_error -o addopts=
+
+# ── 负载/flaky 类（隔离恒绿，仅 -n auto 全量下偶发） ────────────────────────
+W-02	tests/unit/test_原生腿_R13C_对拍扩展.py::test_Base64往返	负载	1	隔离整文件 34 passed 全绿；全量 -n auto 下偶发，错误签名 llvm.compiler.N…（原生后端编译竞态）。长期观察项（R87 起即列为 flaky）。复现：全量 tests/ -n auto --dist loadscope
+W-03	tests/unit/test_原生腿_R13C_对拍扩展.py::test_URL编码解码	负载	1	同上（同文件同族，全量下成组出现）
+W-04	tests/unit/test_原生腿_R13C_对拍扩展.py::test_分词族	负载	1	同上
+W-05	tests/unit/test_原生腿_R13C_对拍扩展.py::test_字符串相似度	负载	1	同上
+W-06	tests/unit/test_T6B_时间系统内建_原生腿.py::T6B时间系统内建反跑::test_time_时间戳对拍_固定字段与格式	负载	1	隔离整文件 5 passed；全量负载下时间字段对拍受调度抖动影响。复现：全量 tests/ -n auto --dist loadscope
+W-07	tests/unit/test_T6B_时间系统内建_原生腿.py::T6B时间系统内建反跑::test_时间管理_睡眠计时冒烟	负载	1	同上（同文件同族）
+
+# ── 历史负载类（R89 全量红过，本轮未复现；保留以容忍复发） ────────────────
+W-08	tests/test_distributed_eval_light.py::test_分发与结果汇聚	负载	1	R89 全量红：全量负载下 master 未在 15s 内写出端口（_等端口 上限）。本轮（R90）未复现。R90-E 已把 _等端口 上限 15→30s。
+W-09	tests/test_distributed_eval_light.py::test_重派与心跳_杀节点后重派且无静默丢条	负载	1	同上（共用 _等端口）
+W-10	tests/test_distributed_eval_light.py::test_心跳独立于执行_长任务期间不被标失联	负载	1	R89 全量红，签名「主控未在 15.0 秒内写出端口」（≠R88 的「失联节点」）；孤立 5/5 + 单文件负载 5/5 全绿。本轮未复现。
+W-11	tests/test_path_a_process_isolation_light.py::test_限时运行进程_超时硬杀挂起命令	负载	1	R89 全量红（本机进程强杀面，与杀树同族）；R90-A 修 Toolhelp32 后孤立 3/3 绿。本轮未复现。
+
+# ── 不入账（已定位并修复，不是环境问题） ──────────────────────────────────
+# tests/test_agent_tools_light.py::TestRunCommand::test_超时杀整棵树含孙子进程
+#   R90-A：真因是「0.8s 触发杀树时进程树尚未建立」（沙箱下 python 双层 wrapper，
+#   启动约 1s），不是杀不动。修：timeout 0.8→1.5 + 判定窗口调整。孤立 5/5 绿。
+# tests/test_process_tree_light.py::Test超时杀树::test_超时杀整棵树含孙子进程
+#   R90-B 补做：孪生用例同一根因（超时 800ms + 只 sleep(0.5) 死等）。
+#   修：超时 800→1500ms + 固定 sleep 改轮询 5s。修后孤立 3/3 绿。

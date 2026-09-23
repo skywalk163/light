@@ -168,10 +168,14 @@ class Test超时杀树:
                       'gc = subprocess.Popen([sys.executable, "-u", sys.argv[1], sys.argv[2]])\n'
                       'print(gc.pid, flush=True)\n'
                       'time.sleep(30)\n')
+        # R90：800 → 1500。与 tests/test_agent_tools_light.py 同一根因：
+        # 沙箱下 python 是双层 wrapper（探针实测），进程树建立约需 1s，
+        # 800ms 触发杀树时孙可能还没 spawn → 漏杀（全量负载下必现）。
+        # 标记：R90-KILLTIMEOUT-D2
         树干, 结果 = _跑(
             [sys.executable, "-u", 脚本, 孙脚本, str(marker)],
             {"宽限期毫秒": 200},
-            超时=800,
+            超时=1500,
         )
         # 总超时到，返回"超时"结果
         assert 结果.是否超时 is True
@@ -181,7 +185,14 @@ class Test超时杀树:
         pid行 = 结果.标准输出.strip()
         assert pid行.isdigit(), 结果.标准输出
         gc_pid = int(pid行)
-        time.sleep(0.5)
+        # R90：固定 sleep(0.5) → 轮询最多 5s。进程被强杀后其对象/PID 会短暂
+        # 残留，负载下 0.5s 的死等会把「已被杀但尚未观察到」误判为存活。
+        # 断言语义不变：孙最终必须真死。
+        _起点 = time.time()
+        while time.time() - _起点 < 5.0:
+            if _进程活(gc_pid) is False:
+                break
+            time.sleep(0.1)
         # 孙子进程必须随树的根被连带杀死（进程隔离：只按 PID 断言，不按名杀）
         assert _进程活(gc_pid) is False
         # 孙子若活着会在 30s 后写标记；被杀死则不会
