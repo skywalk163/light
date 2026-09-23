@@ -30,7 +30,14 @@ from 进程树 import 进程树
 
 
 def _进程活(pid):
-    """仅用 PID 判断进程是否存活，绝不按进程名。"""
+    """仅用 PID 判断进程是否存活，绝不按进程名。
+
+    Windows 上用 OpenProcess+GetExitCodeProcess：OpenProcess 打开成功只表示
+    进程对象（可能已是残留）仍可访问，对已强杀/已退出的进程也会成功；必须再
+    用 GetExitCodeProcess 判定是否仍为 STILL_ACTIVE(259)，否则残留 PID 会被
+    误判为存活（2026-09-23 实测：taskkill /F 后孙进程退出码已非 259，但其
+    PID 仍可被 OpenProcess 打开数秒）。
+    """
     try:
         if sys.platform == "win32":
             import ctypes
@@ -38,8 +45,12 @@ def _进程活(pid):
             h = k.OpenProcess(0x1000, False, int(pid))  # QUERY_LIMITED_INFORMATION
             if not h:
                 return False
-            k.CloseHandle(h)
-            return True
+            try:
+                码 = ctypes.c_ulong()
+                ok = k.GetExitCodeProcess(h, ctypes.byref(码))
+                return bool(ok) and 码.value == 259  # STILL_ACTIVE
+            finally:
+                k.CloseHandle(h)
         os.kill(int(pid), 0)
         return True
     except OSError:

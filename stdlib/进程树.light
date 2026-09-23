@@ -349,26 +349,26 @@
     # BasicLimitInformation 内偏移 16）。光明无 ctypes 结构体继承语法，用 type()
     # 动态构造（tuple([...]) 作为 bases，dict 字面量给 _fields_）。
     设 基础 为 type("JOBOBJECT_BASIC_LIMIT_INFORMATION", tuple([ctypes.Structure]), {
-      "_fields_": [
-        ["PerProcessUserTimeLimit", ctypes.c_longlong],
-        ["PerJobUserTimeLimit", ctypes.c_longlong],
-        ["LimitFlags", ctypes.c_uint32],
-        ["MinimumWorkingSetSize", ctypes.c_size_t],
-        ["MaximumWorkingSetSize", ctypes.c_size_t],
-        ["ActiveProcessLimit", ctypes.c_uint32],
-        ["Affinity", ctypes.c_size_t],
-        ["PriorityClass", ctypes.c_uint32],
-        ["SchedulingClass", ctypes.c_uint32],
+"_fields_": [
+        ("PerProcessUserTimeLimit", ctypes.c_longlong),
+        ("PerJobUserTimeLimit", ctypes.c_longlong),
+        ("LimitFlags", ctypes.c_uint32),
+        ("MinimumWorkingSetSize", ctypes.c_size_t),
+        ("MaximumWorkingSetSize", ctypes.c_size_t),
+        ("ActiveProcessLimit", ctypes.c_uint32),
+        ("Affinity", ctypes.c_size_t),
+        ("PriorityClass", ctypes.c_uint32),
+        ("SchedulingClass", ctypes.c_uint32),
       ],
     })。
     设 扩展 为 type("JOBOBJECT_EXTENDED_LIMIT_INFORMATION", tuple([ctypes.Structure]), {
       "_fields_": [
-        ["BasicLimitInformation", 基础],
-        ["IoInfo", ctypes.c_void_p * 6],
-        ["ProcessMemoryLimit", ctypes.c_size_t],
-        ["JobMemoryLimit", ctypes.c_size_t],
-        ["PeakProcessMemoryUsed", ctypes.c_size_t],
-        ["PeakJobMemoryUsed", ctypes.c_size_t],
+        ("BasicLimitInformation", 基础),
+        ("IoInfo", ctypes.c_void_p * 6),
+        ("ProcessMemoryLimit", ctypes.c_size_t),
+        ("JobMemoryLimit", ctypes.c_size_t),
+        ("PeakProcessMemoryUsed", ctypes.c_size_t),
+        ("PeakJobMemoryUsed", ctypes.c_size_t),
       ],
     })。
     设 job 为 k.CreateJobObjectW(空, 空)。
@@ -533,17 +533,45 @@
       # 杀前先枚举并记录后代 PID（枚举在杀根之前做）：根进程一死，孙进程会被
       # Windows 重新挂靠到系统进程下，事后按 root 再枚举会漏掉它；进程被强杀后
       # 进程对象/PID 也可能短暂残留，仍可被 OpenProcess 打开。
-      设 记录 为 己.枚举后代(pid)。
-      # 先按记录的 PID 逐个 /F /PID 强杀所有后代（只按 PID，不依赖父子树快照）。
+      # 单次 PowerShell 全表快照不稳定（2026-09-23 实测：连枚举 6 次，快照从 3 个
+      # 后代波动为 1 个，刚 spawn 的孙进程偶发不在快照内；而 Python subprocess 的
+      # 孙进程因父进程在 job 内自动加 CREATE_BREAKAWAY_FROM_JOB 逃逸出 job，job
+      # 关闭杀不到它们）。故杀前先并列枚举两轮（只枚举不杀，root 未死时 BFS 链
+      # 完整），取并集后统一逐个 /F /PID 强杀；这样即使单轮快照漏掉刚 spawn 的
+      # 孙进程，另一轮也会补进并集。注意不能「杀一轮再枚举下一轮」：root 一旦
+      # 被杀，孙进程被 Windows 重新挂靠到系统进程下，按 root 的 BFS 就断链漏抓。
+      # 时间预算：wmic 单轮 ~0.45s（进程关系表优先 wmic 而非 PowerShell ~1s），
+      # 两轮并集 + 统一杀需 <2s 返回，否则调用方断言窗口（0.8s 等待 + 3s 死亡
+      # 确认）会因杀树太慢而误判「仍存活」。
+      设 记录 为 []。
+      设 见集 为 []。
+      设 轮 为 0。
+      当 轮 小于 2:
+        设 本 为 己.枚举后代(pid)。
+        遍历 子 于 本:
+          如果 列表包含(见集, str(子)) == 假:
+            见集.append(str(子))。
+            记录.append(子)。
+          结束。
+        结束。
+        轮 为 轮 加 1。
+        如果 轮 小于 2:
+          time.sleep(0.05)。
+        结束。
+      结束。
       遍历 子 于 记录:
         subprocess.call(["taskkill", "/F", "/PID", str(子)], -1, 空, 空, subprocess.DEVNULL, subprocess.DEVNULL)。
       结束。
+      # 无论 job 是否绑定，都补一记 taskkill /F /T 杀根：此时 root 仍存活，孙进程在
+      # OS 进程树里仍是 root 的后代（未被 Windows 重新挂靠），/F /T 会在 root 存活期
+      # 原子枚举并强杀整树——兜住逃逸出 job（Python Popen 自动 CREATE_BREAKAWAY_FROM_JOB）
+      # 且未被两轮 wmic 快照抓到的孙进程（2026-09-23 实测负载下偶发漏杀）。必须在关 job
+      # 句柄之前调用，否则 root 已死 /T 断链。重复杀已死 PID 静默忽略。
+      subprocess.call(["taskkill", "/F", "/T", "/PID", str(pid)], -1, 空, 空, subprocess.DEVNULL, subprocess.DEVNULL)。
       如果 己.任务句柄 不等于 0:
         设 k 为 ctypes.windll.kernel32。
         k.CloseHandle(己.任务句柄)。
         己.任务句柄 为 0。
-      否则:
-        subprocess.call(["taskkill", "/F", "/T", "/PID", str(pid)], -1, 空, 空, subprocess.DEVNULL, subprocess.DEVNULL)。
       结束。
       # 只"杀掉"不够：Windows 进程被强杀后其进程对象/PID 可能短暂残留，调用方
       # 拿 OpenProcess 判存活会误判（曾见残留 ~1.4s）；轮询确认杀前记录的后代都
@@ -598,16 +626,24 @@
       time.sleep(0.05)。
     结束。
 
-  # 用 OpenProcess 判断 PID 是否仍可被打开（进程对象未完全清理也算"能打开"——与
-  # 调用方/测试的 _进程活 同口径，保证它们不会再看到残留 PID）。
+# 用 OpenProcess+GetExitCodeProcess 判断 PID 是否仍存活：OpenProcess 打开成功
+  # 只表示进程对象（可能已是残留）可访问——Windows 强杀/退出后进程对象/PID 会
+  # 短暂残留（2026-09-23 实测：taskkill /F 后孙进程退出码已非 STILL_ACTIVE，
+  # 但其 PID 仍可被 OpenProcess 打开 6s+）。必须再用 GetExitCodeProcess 判定
+  # 是否仍为 STILL_ACTIVE(259)，与调用方/测试的 _进程活 同口径。
   段落 能打开(pid):
     设 k 为 ctypes.windll.kernel32。
     设 h 为 k.OpenProcess(4096, 假, pid)。
     如果 h 等于 0:
       返回 假。
     结束。
+    设 码 为 ctypes.c_ulong()。
+    设 ok 为 k.GetExitCodeProcess(h, ctypes.byref(码))。
     k.CloseHandle(h)。
-    返回 真。
+    如果 ok 等于 0:
+      返回 假。
+    结束。
+    返回 int(码.value) 等于 259。
 
   # 降级补杀已并入 杀树/等待树清：杀前按记录的原始后代 PID 逐个 /F /PID，不依赖
   # 进程树快照或事后重枚举（根死后孙进程被重新挂靠，按 root 重枚举会漏掉）。
@@ -640,14 +676,24 @@
     结束。
     返回 结果。
 
-  # 用 PowerShell Get-CimInstance 取全系统 (PID, PPID) 表（只读父子关系；补杀仍只
-  # taskkill 自身 spawn 的树）。wmic 在新版 Windows 可能被移除，故用 PowerShell。
+  # 取全系统 (PID, PPID) 表（只读父子关系；补杀仍只 taskkill 自身 spawn 的树）。
+  # 优先 wmic（实测 ~0.45s，比 PowerShell Get-CimInstance ~1s 快一倍多，杀树有
+  # <2s 时间预算）；wmic 在新版 Windows 可能被移除，不可用时降级 PowerShell。
   段落 进程关系表:
     设 输出 为 空。
     尝试:
-      输出 为 subprocess.check_output(["powershell", "-NoProfile", "-Command", "[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId | ConvertTo-Csv -NoTypeInformation"])。
+      设 抓 为 subprocess.Popen(["wmic", "process", "get", "ProcessId,ParentProcessId", "/format:csv"], -1, 空, 空, subprocess.PIPE, subprocess.DEVNULL)。
+      输出 为 抓.communicate()[0]。
     捕获 错误:
-      返回 []。
+      输出 为 空。
+    结束。
+    如果 输出 等于 空:
+      尝试:
+        设 抓2 为 subprocess.Popen(["powershell", "-NoProfile", "-Command", "[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId | ConvertTo-Csv -NoTypeInformation"], -1, 空, 空, subprocess.PIPE, subprocess.PIPE)。
+        输出 为 抓2.communicate()[0]。
+      捕获 错误:
+        返回 []。
+      结束。
     结束。
     设 文本 为 输出.decode("utf-8", "replace")。
     设 行列表 为 文本.splitlines()。
@@ -657,17 +703,30 @@
       如果 长度(修) 等于 0:
         继续。
       结束。
-      如果 修.startswith('"ProcessId"'):
+      如果 修.startswith("Node") 或 修.startswith('"ProcessId"'):
         继续。
       结束。
-      # CSV 行形如 "123","456"：去首尾引号后按 "," 拆成两列
-      设 内 为 修[1:长度(修) 减去 1]。
-      设 列 为 内.split('","')。
+      # wmic 无引号 CSV 形如 DESKTOP-X,父,子；PowerShell 带引号 CSV 形如 "子","父"
+      # （ProcessId 在前）。统一先剥引号再按首列是否数字判定子/父顺序。
+      设 净 为 修。
+      如果 净.startswith('"'):
+        净 为 净[1:长度(净) 减去 1]。
+      结束。
+      设 列 为 净.split('","')。
+      如果 长度(列) 小于 2:
+        列 为 净.split(",")。
+      结束。
       如果 长度(列) 大于等于 2:
         尝试:
-          设 子数 为 int(列[0])。
-          设 父数 为 int(列[1])。
-          表.append([子数, 父数])。
+          如果 列[0].isdigit():
+            # PowerShell 顺序：子,父
+            表.append([int(列[0]), int(列[1])])。
+          否则:
+            # wmic 顺序：Node,父,子
+            如果 长度(列) 大于等于 3:
+              表.append([int(列[2]), int(列[1])])。
+            结束。
+          结束。
         捕获 错误:
         结束。
       结束。
