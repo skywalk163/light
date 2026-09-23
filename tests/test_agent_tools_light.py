@@ -78,10 +78,14 @@ def _wmic可用():
     wmic 不可用（新版 Windows 已移除 / 被安全策略或沙箱黑名单拦截）时降级到 CIM 查询，
     实测 1.63s/轮 → 杀树耗时越窗，本用例确定性红（本机 3/3 复现，补丁前后均红；
     同一台机 taskkill /F /T 本身实测 0.33s 杀穿三代，故不是杀不动，是快路径缺失导致慢）。
-    处置口径：**缺 wmic 就 skip，绝不放宽断言**——放宽「孙进程真死 / 标记文件不出现」
-    会把本用例变成恒真，正是本用例 docstring 明令禁止的。wmic 可用时用例照常真跑。
+    处置口径：**Windows 上缺 wmic 就 skip，绝不放宽断言**——放宽「孙进程真死 /
+    标记文件不出现」会把本用例变成恒真，正是本用例 docstring 明令禁止的。
+    wmic 可用时用例照常真跑；**非 Windows（POSIX 杀树走 os.killpg，不需要 wmic）
+    一律返回真**，避免在 Linux/FreeBSD 上白白丢掉这条覆盖。
     """
     global _WMIC_OK
+    if sys.platform != "win32":
+        return True
     if _WMIC_OK is None:
         try:
             p = subprocess.Popen(["wmic", "process", "get", "ProcessId", "/format:csv"],
