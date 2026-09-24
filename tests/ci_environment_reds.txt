@@ -37,7 +37,8 @@ W-11	tests/test_path_a_process_isolation_light.py::test_限时运行进程_超�
 
 # ── R90-M 收口新登记（满负载下偶发，隔离恒绿） ─────────────────────────────
 W-12	tests/test_agent_tools_light.py::TestRunCommand::test_超时杀整棵树含孙子进程	负载	1	R90-A 已消除其**确定性**红（真因：0.8s 触发杀树时进程树尚未建立 → timeout 改 1.5s + 判定窗口改 6.0/5.0s），之后孤立 5/5、类级 -n auto 5/5、收口轮隔离 3/3 全绿；但**满负载全量 -n auto** 下仍偶发（沙箱双层 wrapper 启动慢 + 满负载 CPU 竞争把确认窗口挤爆）。属负载敏感，非确定性。复现：全量 tests/ -n auto --dist loadscope
-W-13	tests/test_concurrency_light.py::Test滑动窗口接入派发::test_无窗口时行为完全不变	负载	1	R90-M 收口全量首发；隔离 3/3 绿。滑动窗口派发在满负载下时序竞争。复现：全量 tests/ -n auto --dist loadscope
+W-13	tests/test_concurrency_light.py::Test滑动窗口接入派发::test_无窗口时行为完全不变	负载	1	R90-M 收口全量首发（实测 0.053s，仅超 3ms）；R91-B 微基准铁证满载 p90=49.9ms/p99=84ms、9.5% 超阈。R92-B 已按方案 A 放宽阈值（无窗口上限 0.05→0.15、配对阻塞下限 0.05→0.08，实测无窗口 max 6.88ms < 阻塞 min 103ms，分界余量 >15 倍）；孤立 5/5 + 类级 5/5 绿。连续两轮不红可销账。复现：全量 tests/ -n auto --dist loadscope
+W-14	tests/test_process_tree_light.py::Test超时杀树::test_超时杀整棵树含孙子进程	负载	1	与 W-12 同份测试逻辑的孪生用例。R91-A pid 文件轮询后，满负载 -n auto 下偶发「3s 内 pid 文件未出现有效孙 PID」（父进程双层 launcher 在 10 核打满下 CPU 饥饿、未及时 spawn 孙）；隔离 5/5 绿、类级与 W-12 同轮同签名。R92-A 已修 stdlib 杀树迟建后代漏杀（真逃逸基线 12 轮 3 次→补丁后 0 次），本条为残留用例构造 flaky，与杀树功能无关。复现：全量 tests/ -n auto --dist loadscope
 
 # ── 不入账（已定位并修复，不是环境问题） ──────────────────────────────────
 # tests/test_agent_tools_light.py::TestRunCommand::test_超时杀整棵树含孙子进程
