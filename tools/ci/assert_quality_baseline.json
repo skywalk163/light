@@ -1,7 +1,7 @@
 {
   "version": 2,
   "note": "假测试门禁基线快照：本仓库当前的既有违规。新增即红；修好一批后重新生成并提交本文件。built_from_commit 是**生成基线时的 HEAD**，也就是携带本基线那个提交的父提交；若它在当前分支上不可达，说明基线是从被改写/丢弃的提交上生成的，必须重新生成。",
-  "built_from_commit": "7b945c98efc3",
+  "built_from_commit": "cf30d590de48",
   "scanned_root": ".",
   "categories": {
     "string-assert": "字符串断言式",
@@ -273,7 +273,7 @@
     },
     {
       "file": "src/code_generator.py",
-      "line": 1107,
+      "line": 1404,
       "cat": "not-none",
       "text": "self._add_line(\"    assert _x is not None, \\\"尝试解包空值\\\"\")"
     },
@@ -501,13 +501,13 @@
     },
     {
       "file": "tests/e2e/test_e2e_chain.py",
-      "line": 147,
+      "line": 206,
       "cat": "lower-bound",
       "text": "assert len(EXAMPLE_CANDIDATES) >= 10, \\"
     },
     {
       "file": "tests/e2e/test_module_e2e.py",
-      "line": 116,
+      "line": 117,
       "cat": "lower-bound",
       "text": "assert len(order) >= 2"
     },
@@ -621,13 +621,13 @@
     },
     {
       "file": "tests/test_agent_tools_light.py",
-      "line": 536,
+      "line": 602,
       "cat": "not-none",
-      "text": "assert 孙pid is not None, f\"没抓到孙子 PID，本用例无法判定杀树：\\n{结果}\""
+      "text": "assert 孙pid is not None, ("
     },
     {
       "file": "tests/test_agent_tools_light.py",
-      "line": 669,
+      "line": 747,
       "cat": "lower-bound",
       "text": "assert len(以字节) > 1024 and b\"BBBB\" in 以字节, f\"溢出文件内容不对：{len(以字节)} 字节\""
     },
@@ -645,37 +645,37 @@
     },
     {
       "file": "tests/test_context_manager.py",
-      "line": 159,
+      "line": 166,
       "cat": "lower-bound",
       "text": "assert len(module.statements) >= 1"
     },
     {
       "file": "tests/test_context_manager.py",
-      "line": 166,
+      "line": 173,
       "cat": "not-none",
       "text": "assert with_stmt is not None, \"未找到 WithStmt 节点\""
     },
     {
       "file": "tests/test_context_manager.py",
-      "line": 182,
+      "line": 189,
       "cat": "not-none",
       "text": "assert with_stmt is not None"
     },
     {
       "file": "tests/test_context_manager.py",
-      "line": 198,
+      "line": 205,
       "cat": "not-none",
       "text": "assert with_stmt is not None"
     },
     {
       "file": "tests/test_context_manager.py",
-      "line": 199,
+      "line": 206,
       "cat": "not-none",
       "text": "assert with_stmt.items is not None"
     },
     {
       "file": "tests/test_context_manager.py",
-      "line": 812,
+      "line": 1333,
       "cat": "not-none",
       "text": "assert vd.type_annotation is not None"
     },
@@ -1815,19 +1815,25 @@
     },
     {
       "file": "tests/test_process_tree_light.py",
-      "line": 115,
+      "line": 126,
       "cat": "not-none",
       "text": "assert 结果.溢出文件 is not None"
     },
     {
       "file": "tests/test_process_tree_light.py",
-      "line": 197,
+      "line": 203,
+      "cat": "not-none",
+      "text": "assert gc_pid is not None, ("
+    },
+    {
+      "file": "tests/test_process_tree_light.py",
+      "line": 244,
       "cat": "not-none",
       "text": "assert 结果.采用编码 is not None"
     },
     {
       "file": "tests/test_process_tree_light.py",
-      "line": 263,
+      "line": 313,
       "cat": "not-none",
       "text": "assert 结果.溢出文件 is not None"
     },
@@ -2613,19 +2619,19 @@
     },
     {
       "file": "tests/unit/test_c_backend.py",
-      "line": 706,
+      "line": 709,
       "cat": "assertin-string",
       "text": "self.assertIn('int flag = 1;', c_code)"
     },
     {
       "file": "tests/unit/test_c_backend.py",
-      "line": 716,
+      "line": 719,
       "cat": "assertin-string",
       "text": "self.assertIn('-42', c_code)"
     },
     {
       "file": "tests/unit/test_c_backend.py",
-      "line": 729,
+      "line": 732,
       "cat": "assertin-string",
       "text": "self.assertIn('while ((i < 3))', c_code)"
     },
@@ -2703,7 +2709,7 @@
     },
     {
       "file": "tests/unit/test_llvm_stmt_coverage.py",
-      "line": 136,
+      "line": 138,
       "cat": "lower-bound",
       "text": "assert len(ir) > 1000, f'{名称}：IR 短得不像真产物（{len(ir)} 字符）'"
     },
