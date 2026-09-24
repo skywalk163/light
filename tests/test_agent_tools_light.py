@@ -555,42 +555,60 @@ class TestRunCommand:
             encoding="utf-8",
         )
         marker = tmp_path / "_taskB3_grandchild_marker.txt"
-        # 父脚本：启动孙子，打印孙子 PID，自己 sleep 30
+        pid文件 = tmp_path / "_taskB3_grandchild.pid"
+        # 父脚本：启动孙子，立刻把孙子 PID 落盘 pid 文件（R91-PIDFILE），
+        # 自己 sleep 30。
+        # R91：不再依赖 stdout 时序——满负载 -n auto 下 run_command 杀树
+        # 截断 stdout 会把「print(gc.pid)」那行吞掉 → 孙pid=None → 假红
+        # （R90 收口轮 W-12 现场）。pid 文件落盘后不随杀树截断而丢失，
+        # 且若 root 因「刚 Popen 未初始化完成」杀不掉而等满 30s 宽限，
+        # 父脚本仍会活着把 PID 写出来，窗口反而更宽。
         脚本 = tmp_path / "_taskB3_parent.py"
         脚本.write_text(
             "import subprocess, sys, time\n"
             "gc = subprocess.Popen([sys.executable, '-u', sys.argv[1], sys.argv[2]])\n"
+            "open(sys.argv[3], 'w').write(str(gc.pid))\n"
             "print(gc.pid, flush=True)\n"
             "time.sleep(30)\n",
             encoding="utf-8",
         )
-        起点 = time.time()
         # R90：0.8 → 1.5。沙箱下 python 是双层 wrapper（探针实测），进程树
         # 建立约需 1s；0.8s 触发杀树时 root 尚未完全建立 → 实测杀不掉
         # （run_command 返回耗时 28-33s = 等满 30s 宽限），孙也可能还没 spawn。
         # 1.5s 起进程树已完整，杀树 3/3 成功（探针 timeout 扫描 6/6 孙已死）。
         # 标记：R90-KILLTIMEOUT
         结果 = 工具["run_command"]["实现"]({
-            "command": [sys.executable, "-u", str(脚本), str(孙脚本), str(marker)],
+            "command": [sys.executable, "-u", str(脚本), str(孙脚本), str(marker),
+                        str(pid文件)],
             "timeout": 1.5,
         })
         assert "超时" in 结果
         assert "杀死" in 结果 or "杀" in 结果
 
-        # 从 stdout 里取孙子 PID；取不到就是测不了，直接失败
+        # R91-PIDFILE：从 pid 文件轮询拿孙子 PID（最多 3s），不再 grep stdout。
+        # pid 文件在宽限内仍未出现 = 真异常，如实报错，绝不静默放过；
+        # 断言强度不变：孙仍必须按 PID 确认真死 + marker 仍必须不出现。
         孙pid = None
-        for 行 in 结果.splitlines():
-            片 = 行.strip()
-            if 片.isdigit():
-                孙pid = int(片)
-                break
-        assert 孙pid is not None, f"没抓到孙子 PID，本用例无法判定杀树：\n{结果}"
+        _pid起点 = time.time()
+        while time.time() - _pid起点 < 3.0:
+            try:
+                _文本 = pid文件.read_text(encoding="utf-8").strip()
+                if _文本.isdigit():
+                    孙pid = int(_文本)
+                    break
+            except FileNotFoundError:
+                pass
+            time.sleep(0.05)
+        assert 孙pid is not None, (
+            f"3s 内 pid 文件未出现有效孙子 PID，本用例无法判定杀树：\n{结果}")
 
-        # R90：窗口 3.0 → 6.0。run_command 在 timeout=1.5 下约 3.5s 才返回，
-        # 原 3.0s 窗口一进来就已过期（循环体一次都不跑 → 恒失败）。
-        # 判定力由断言二兜底：孙若漏杀会在 sleep(2.5) 后写出标记文件。
+        # R91-PIDFILE：死亡判定窗口改为「拿到 PID 之后」起算（时长仍 6.0，
+        # 不放大）——原「绝对起点」写法在异常慢返回（30s 宽限）时窗口必然
+        # 已过期，循环体一次都不跑 → 恒失败，属假红；判定力由断言二兜底：
+        # 孙若漏杀会在 sleep(2.5) 后写出标记文件。
         死了 = False
-        while time.time() - 起点 < 6.0:
+        _死判起点 = time.time()
+        while time.time() - _死判起点 < 6.0:
             if not _进程活(孙pid):
                 死了 = True
                 break
@@ -599,7 +617,9 @@ class TestRunCommand:
 
         # 断言二：等过孙子的 sleep(2.5)，活着就会写出标记
         # R90：4.0 → 5.0（孙 spawn ~1.0s + sleep 2.5s ≈ 3.5s，留足余量）
-        while time.time() - 起点 < 5.0:
+        # R91-PIDFILE：同样从「拿到 PID 之后」起算，时长 5.0 不变。
+        _标记起点 = time.time()
+        while time.time() - _标记起点 < 5.0:
             time.sleep(0.1)
         assert not marker.exists(), "孙子进程未被杀死：标记文件已生成"
 

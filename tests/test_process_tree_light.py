@@ -159,13 +159,19 @@ class Test超时杀树:
 
     def test_超时杀整棵树含孙子进程(self, tmp_path):
         marker = tmp_path / "_taskD2_孙进程标记.txt"
+        pid文件 = tmp_path / "_taskD2_孙进程.pid"
         孙脚本 = _写脚本(tmp_path, "孙进程",
                         'import sys, time\n'
                         'time.sleep(30)\n'
                         'open(sys.argv[1], "w").write("x")\n')
+        # R91-PIDFILE：父脚本 Popen 后立刻把孙 PID 落盘 pid 文件，
+        # 不再依赖 stdout 时序——满负载下杀树截断 stdout 会吞掉 PID 行
+        # （R90 收口轮 W-12 现场，孪生用例同根）。与
+        # tests/test_agent_tools_light.py 的 R91 修法对齐。
         脚本 = _写脚本(tmp_path, "生孙子",
                       'import subprocess, sys, time\n'
                       'gc = subprocess.Popen([sys.executable, "-u", sys.argv[1], sys.argv[2]])\n'
+                      'open(sys.argv[3], "w").write(str(gc.pid))\n'
                       'print(gc.pid, flush=True)\n'
                       'time.sleep(30)\n')
         # R90：800 → 1500。与 tests/test_agent_tools_light.py 同一根因：
@@ -173,7 +179,7 @@ class Test超时杀树:
         # 800ms 触发杀树时孙可能还没 spawn → 漏杀（全量负载下必现）。
         # 标记：R90-KILLTIMEOUT-D2
         树干, 结果 = _跑(
-            [sys.executable, "-u", 脚本, 孙脚本, str(marker)],
+            [sys.executable, "-u", 脚本, 孙脚本, str(marker), str(pid文件)],
             {"宽限期毫秒": 200},
             超时=1500,
         )
@@ -181,10 +187,21 @@ class Test超时杀树:
         assert 结果.是否超时 is True
         # 杀掉进程树后，引擎自己的直接子进程应已死
         assert not 树干.是否存活()
-        # 取出孙子进程 PID
-        pid行 = 结果.标准输出.strip()
-        assert pid行.isdigit(), 结果.标准输出
-        gc_pid = int(pid行)
+        # R91-PIDFILE：从 pid 文件轮询拿孙 PID（最多 3s），不再 grep stdout；
+        # 宽限内仍未出现 = 真异常，如实报错。断言强度不变：孙按 PID 确认真死。
+        gc_pid = None
+        _pid起点 = time.time()
+        while time.time() - _pid起点 < 3.0:
+            try:
+                _文本 = pid文件.read_text(encoding="utf-8").strip()
+                if _文本.isdigit():
+                    gc_pid = int(_文本)
+                    break
+            except FileNotFoundError:
+                pass
+            time.sleep(0.05)
+        assert gc_pid is not None, (
+            f"3s 内 pid 文件未出现有效孙进程 PID，本用例无法判定杀树：\n{结果.标准输出}")
         # R90：固定 sleep(0.5) → 轮询最多 5s。进程被强杀后其对象/PID 会短暂
         # 残留，负载下 0.5s 的死等会把「已被杀但尚未观察到」误判为存活。
         # 断言语义不变：孙最终必须真死。
