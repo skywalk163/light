@@ -36,9 +36,92 @@ W-10	tests/test_distributed_eval_light.py::test_心跳独立于执行_长任务�
 W-11	tests/test_path_a_process_isolation_light.py::test_限时运行进程_超时硬杀挂起命令	负载	1	R89 全量红（本机进程强杀面，与杀树同族）；R90-A 修 Toolhelp32 后孤立 3/3 绿。本轮未复现。
 
 # ── R90-M 收口新登记（满负载下偶发，隔离恒绿） ─────────────────────────────
-W-12	tests/test_agent_tools_light.py::TestRunCommand::test_超时杀整棵树含孙子进程	负载	1	R90-A 已消除其**确定性**红（真因：0.8s 触发杀树时进程树尚未建立 → timeout 改 1.5s + 判定窗口改 6.0/5.0s），之后孤立 5/5、类级 -n auto 5/5、收口轮隔离 3/3 全绿；但**满负载全量 -n auto** 下仍偶发（沙箱双层 wrapper 启动慢 + 满负载 CPU 竞争把确认窗口挤爆）。属负载敏感，非确定性。复现：全量 tests/ -n auto --dist loadscope
+# 已销账(R93-B): W-12	tests/test_agent_tools_light.py::TestRunCommand::test_超时杀整棵树含孙子进程	负载	1	R90-A 已消除其**确定性**红（真因：0.8s 触发杀树时进程树尚未建立 → timeout 改 1.5s + 判定窗口改 6.0/5.0s），之后孤立 5/5、类级 -n auto 5/5、收口轮隔离 3/3 全绿；但**满负载全量 -n auto** 下仍偶发（沙箱双层 wrapper 启动慢 + 满负载 CPU 竞争把确认窗口挤爆）。属负载敏感，非确定性。复现：全量 tests/ -n auto --dist loadscope
 W-13	tests/test_concurrency_light.py::Test滑动窗口接入派发::test_无窗口时行为完全不变	负载	1	R90-M 收口全量首发（实测 0.053s，仅超 3ms）；R91-B 微基准铁证满载 p90=49.9ms/p99=84ms、9.5% 超阈。R92-B 已按方案 A 放宽阈值（无窗口上限 0.05→0.15、配对阻塞下限 0.05→0.08，实测无窗口 max 6.88ms < 阻塞 min 103ms，分界余量 >15 倍）；孤立 5/5 + 类级 5/5 绿。连续两轮不红可销账。复现：全量 tests/ -n auto --dist loadscope
-W-14	tests/test_process_tree_light.py::Test超时杀树::test_超时杀整棵树含孙子进程	负载	1	与 W-12 同份测试逻辑的孪生用例。R91-A pid 文件轮询后，满负载 -n auto 下偶发「3s 内 pid 文件未出现有效孙 PID」（父进程双层 launcher 在 10 核打满下 CPU 饥饿、未及时 spawn 孙）；隔离 5/5 绿、类级与 W-12 同轮同签名。R92-A 已修 stdlib 杀树迟建后代漏杀（真逃逸基线 12 轮 3 次→补丁后 0 次），本条为残留用例构造 flaky，与杀树功能无关。复现：全量 tests/ -n auto --dist loadscope
+# 已销账(R93-B): W-14	tests/test_process_tree_light.py::Test超时杀树::test_超时杀整棵树含孙子进程	负载	1	与 W-12 同份测试逻辑的孪生用例。R91-A pid 文件轮询后，满负载 -n auto 下偶发「3s 内 pid 文件未出现有效孙 PID」（父进程双层 launcher 在 10 核打满下 CPU 饥饿、未及时 spawn 孙）；隔离 5/5 绿、类级与 W-12 同轮同签名。R92-A 已修 stdlib 杀树迟建后代漏杀（真逃逸基线 12 轮 3 次→补丁后 0 次），本条为残留用例构造 flaky，与杀树功能无关。复现：全量 tests/ -n auto --dist loadscope
+
+# ── R93-B 补登（Windows 门禁 worker 固化：标准 = -n 4）+ 固化口径说明 ──────
+# 【R93-B 固化结论】Windows 本机 LM 全量门禁标准 worker 数 = **-n 4**（不再用 -n auto=10）。
+#   实验数据（本机 10 物理核，全量 tests/，--dist=loadscope，各 1 轮）：
+#     -n auto(=10)：R92 run1 23min/4 红、run2 36min/13 红；R93-A 复跑轮 11 红；
+#                   R93-B `-n 8` 轮 → **未完成**：[gw4] node down 后二次 worker 异常，
+#                   卡在 99% 超过 45min 无进展，人工终止（无 junit）。
+#     -n 6      ：21min24s / 3 红（W-01、W-06、W-22）→ judge 新增红 1。
+#     -n 4      ：25min02s / 1 红（仅 W-01）→ **judge 新增红 0**，无 node down。
+#   取舍：-n 4 比 -n 6 多 3.6min，但失败数 3→1、且失败全部落在台账内，judge 稳定 0；
+#        -n 8 及以上存在 worker 崩溃/挂死风险（见 §R93-B 稳定性备注）。故定 **-n 4**。
+#   用法：`python -m pytest tests/ -o "addopts=--tb=short --durations=15 --ignore=tests/archive
+#        --timeout=60 --dist=loadscope" -n 4 --junitxml=<路径>`（必须清掉 ini 里的 -n auto）。
+# ⚠️ R93-B 稳定性备注（新发现，未结案，交 M 定夺）：全量并行下偶发 xdist worker 被杀
+#    （日志 `[gwN] node down: Not properly terminated`）。worker 死后 xdist 会自动
+#    `_clone_node` 重启；若重启也失败 → `INTERNALERROR ... execnet bootstrap io.read(1)
+#    got 0`（本轮 n4c1 实例，507 failed 是中断产物、非真实回归），若重启卡住则整轮挂死
+#    （-n 8 实例）。
+#    机理假设（PID 复用 + stdlib/进程树.light 的 [R92-A-LEAK] PPID 链回溯补杀误伤兄弟
+#    worker）经边界探针**未复现**：并发 spawn 25285 个两层短命进程树制造超高 PID 复用
+#    压力下，0 例无关进程被杀（_r93/b_collateral_probe2.json）。故机理**仍未定性**，
+#    候选方向：xdist/execnet 在 Windows 高负载下的自身脆弱性、ctypes(Job Object) 崩、
+#    或内存瞬时压力。本路未改任何测试/stdlib 语义，仅作如实记录。
+#    规避：降 worker 到 4 后本路连续 3 轮全量 **0 次 node down**。
+
+W-15	tests/test_process_tree_light.py::Test基本退出::test_非零退出码	负载	1	R93-A 全量 `-n auto`(=10) 轮首现（_r93/a_full_run2.log：11 failed 批次）。负载下 run_command 拉起的子进程被调度饿死，退出码/输出断言落空。R93-B 隔离复跑 2/2 绿（_r93/b_isolate_w15.json，各 ~2.2s）；-n 6 轮、-n 4 轮均未复现。「自行拉起子进程 + 断言退出码/输出」一类用例在 ≥6 worker 高负载下系统性敏感。复现：全量 tests/ -n auto --dist loadscope
+W-16	tests/test_process_tree_light.py::Test基本退出::test_stderr与stdout分离	负载	1	与 W-15 同族同批（_r93/a_full_run2.log）。负载下 stdout/stderr 管道读取受调度抖动影响。R93-B 隔离复跑 2/2 绿；-n 6 / -n 4 轮未复现。复现：全量 tests/ -n auto --dist loadscope
+W-17	tests/test_process_tree_light.py::Test环境控制::test_环境黑名单过滤	负载	1	与 W-15 同族同批（_r93/a_full_run2.log）。R93-B 隔离复跑 2/2 绿；-n 6 / -n 4 轮未复现。复现：全量 tests/ -n auto --dist loadscope
+W-18	tests/e2e/test_e2e_chain.py::test_duan_run[test_L170.light]	负载	1	R93-A 全量 `-n auto` 轮首现（_r93/a_full_run2.log），签名 AssertionError。e2e 链跑 .light 编译 + 子进程，负载下超时/调度抖动。R93-B 隔离复跑 2/2 绿；-n 6 / -n 4 轮未复现。复现：全量 tests/ -n auto --dist loadscope
+W-19	tests/e2e/test_e2e_chain.py::test_duan_run[test_L172.light]	负载	1	与 W-18 同批同族（_r93/a_full_run2.log，本轮签名 PermissionError——负载下临时文件句柄未及时释放）。R93-B 隔离复跑 2/2 绿；-n 6 / -n 4 轮未复现。复现：全量 tests/ -n auto --dist loadscope
+W-20	tests/test_lsp_protocol.py::TestLSPProtocol::test_initialize与shutdown协议	负载	1	R93-A 全量 `-n auto` 轮首现（_r93/a_full_run2.log）。LSP 走 stdio 双向握手，负载下子进程启动/管道节奏被打断。R93-B 隔离复跑 2/2 绿；-n 6 / -n 4 轮未复现。复现：全量 tests/ -n auto --dist loadscope
+W-21	tests/test_缺陷账_L162_L169.py::TestL167等待进程超时回收::test_正常路径不受影响	负载	1	R93-A 全量 `-n auto` 轮首现（_r93/a_full_run2.log）。进程等待/回收计时在负载下被拉长。R93-B 隔离复跑 2/2 绿；-n 6 / -n 4 轮未复现。复现：全量 tests/ -n auto --dist loadscope
+W-22	tests/unit/test_原生腿_R13C_对拍扩展.py::test_空串边界族	负载	1	R93-B `-n 6` 轮首现（_r93/b_full_n6.xml，签名 llvm.compiler.N…），与台账 W-02~W-05 同文件同族（原生后端编译竞态），是该族此前漏登的第 5 条。R93-B 隔离复跑 2/2 绿（各 ~11s）；-n 4 轮未复现。复现：全量 tests/ -n 6 --dist loadscope
+W-23	tests/test_agent_tools_light.py::TestRunCommand::test_正常执行取输出和退出码	负载	1	R93-A 类级 `-n auto` 15 轮中的 round#14 首现（_r93/a_class_round_14.log）：一条平凡 `print('hello from cmd')` 命令被 run_command 判超时强杀（返回「[退出码: 1][超时: 进程树已被杀死]」）——峰值负载下平凡子进程启动被调度饿死、超过命令超时 10s。R93-B 隔离复跑 2/2 绿；-n 6 / -n 4 轮未复现；复跑 10 轮亦未复现。复现：全量 tests/ -n auto --dist loadscope
+
+# 哨兵：R93-B-LEDGER-W15
+
+# ── R93-B 销账：W-12 / W-14（杀树孪生两用例）—— 原行已转注释，judge 不再容忍 ──
+# 销账判据（R93-A 委托）已达成：worker 固化 -n 4 后连续全量 judge 新增红 = 0，
+#   且两用例在 R93-A 重写结构后类级 -n auto 25/25 绿、全量 -n 6/-n 4x3 轮全绿。
+#   junit 证据：_r93/b_full_n4.xml / b_full_n4c1b.xml / b_full_n4c2.xml。
+# 语义：销账 ≠ 删档。这两条若将来再红，judge 会报「新增红」（真信号），
+#   需要重新取证；不再是挂在台账里的长期观察项。
+# 【R93-M 最终复核：先抓到残余红，再真修，销账证据因此更硬】
+#   ① 残余红（M 路一手）：整机 CPU 被桌面应用吃到 **99%** 时，root（双层 wrapper python）
+#      bootstrap 实测 >10s → 等「树建好」的 10s 窗口不够 → **孤立复跑 5 轮全红**
+#      （1F/1F/2F/2F/2F，单轮 33~44s vs 常态 5s），签名「10s 内 pid 文件未出现…树根本
+#      没建好（非杀树之过）」（_r93/m_recheck_*.log）。
+#   ② 真修（[R93-M-BOOTSTRAP-WINDOW]）：把该窗口 10s → **30s**。**杀树断言一字未改**
+#      （断言一：孙按 PID 真死；断言二：marker 不出现）——等的是「树建好」，不是放宽判定。
+#      修复后**同样 99% 负载**下孤立 3 轮 **2 passed ×3**（_r93/m_verify_*.log，56~60s/轮）。
+#   ③ 结论：**销账成立**（连最恶劣负载都绿）。本条今后若再红即为真信号，须重新取证。
+#   ④ 另：R93-B 的人为极限压力探针（并发 spawn 两层短命进程树，单轮 20s → ~135s）也曾
+#      复现同一签名（_r93/b_stress_killtree_full.log），与 ① 同源，已由 ② 一并覆盖。
+# 回加方式：把下面两行行首的 `# 已销账(R93-B): ` 去掉即可。
+# 哨兵：R93-B-销账-W12W14
+
+
+# ── R93 销账登记（R93-A 重写杀树用例结构解耦 / R93-C 修 conftest 顺序） ──
+# R91-C 观察项（进程壳依赖 / comp 切子集红）——【R93-C 已根治，观察项销账】
+#   R91-C 原判定「子集跑时 import 进程 拿到声明壳 stub」是**机理误判**。一手取证：
+#   钩子 _light_import_hook.LightFinder.find_spec 对「同名 .py 存在且非纯光明」一律返回
+#   None，CPython 加载 stdlib/进程.py 真身，壳从未被加载。
+#   真根因：tests/conftest.py 把 _contrib_dir 最后 insert → 成为 sys.path[0]，裸
+#   `import 进程`（及 线程/网络请求/配置/随机/数据验证/HTTP服务端 等 stdlib 与 contrib
+#   同名模块）一律命中 contrib/进程.py——**另一套真实现**（有 进程队列/进程锁 但**没有**
+#   当前进程PID/进程启动）。comp 的 test_import / test_process_pid 在「人为切子集、无其他
+#   文件先预热 stdlib 模块进 sys.modules」时必红；全量单进程绿是恰好被某文件预热掩盖。
+#   修（R93-C）：conftest 换序为 stdlib 在 contrib 前（标记 R93-C-PATH-ORDER），裸 import
+#   落回 stdlib，from contrib.X import ... 走显式包路径不受影响。
+#   验证：裸 import 探针 5/5 绿（进程/线程/配置/随机 无预热即命中 stdlib 真身）；
+#         stdlib 全套件 572 绿；HTTP服务端+分布式 16 绿；unit 原生腿 43 绿；
+#         -n auto 宽子集 588 绿。语法核心零改动，仅动 tests/conftest.py。
+#   结论：R91-C 观察项销账，不再是 flaky，不入新账目。
+# W-12 / W-14（杀树孪生两用例）——【R93-A 已修用例结构，销账证据已就绪，最终销账待 B 路全量】
+#   R93-A 重写两用例为「测试自建 root → 轮询等 pid 文件落地 + 孙按 PID 确认真活（最多
+#   10s，无杀树计时竞争）→ 再调真实杀树入口 进程树.杀树() → 断孙按 PID 真死 + marker
+#   不出现」，彻底解耦「触发杀树」与「树已建好」（不再赌 timeout=1.5s 内 bootstrap）。
+#   断言语义一字未削弱，走 R92-A-LEAK 有界重扫兜底真路径。
+#   证据：孤立串行 ×5 全绿；类级 -n auto 15 轮两用例 0 假红；复跑 10 轮 0 假红。
+#   注：全量口径下本机 CPU 竞争余量由 B 路 worker 数固化覆盖，本条以 B 路选定 worker
+#   数后的连续全量 judge 新增红=0 为最终销账判据；此处仅记录 R93-A 已消除用例构造对
+#   CPU 调度的赌注依赖。
 
 # ── 不入账（已定位并修复，不是环境问题） ──────────────────────────────────
 # tests/test_agent_tools_light.py::TestRunCommand::test_超时杀整棵树含孙子进程
