@@ -87,7 +87,15 @@ python_files = ["test_*.py", "_test_*.py"]
 # 不放 `-v`：全量约 3800 条用例，逐条打印只是把 log 撑大、把 CI 拖慢，
 # 定位失败靠 --tb=short 就够。--durations=15 让「哪一条慢」每轮自报，
 # 免得下次又要专门测一遍才知道时间花在哪（2026-08-22 CI 时间治理）。
-addopts = "--tb=short --durations=15 --ignore=tests/archive --timeout=60 -n auto --dist=loadscope"
+# ── R94 开发冻结（裁定 1）：默认 worker 数 `-n auto` → `-n 4` ──────────────────
+# 依据 R93-B 实测（本机 10 核，全量 tests/，--dist=loadscope）：
+#   -n auto(=10) → 11~13 红；-n 6 → 3 红（judge 新增红 1）；-n 4 → 1 红且全落台账，
+#   judge 新增红 0、连续 3 轮 0 次 node down；-n 8 → node down + 挂死（未完成）。
+# ⚠️ -n 4 **不是修复**，只是降低资源争抢与暴露面：整机 CPU ≥80% 时仍可能崩，
+#    机理未定性（见 docs/known-issues/R94-xdist-worker-kill.md）。
+# 覆盖规则：命令行出现的 `-n <N>` 在 addopts 之后，后者生效。因此 0.82 全量回归
+#    脚本（scripts/082全量回归.py 显式补 `-n auto`）仍走高吞吐，远端不受影响。
+addopts = "--tb=short --durations=15 --ignore=tests/archive --timeout=60 -n 4 --dist=loadscope"
 norecursedirs = ["archive", "__pycache__"]
 # 2026-09-08 CI 时间治理（task-CIperf）：注册 slow 标记。CI 在 PR 触发时传
 # `-m "not slow"` 跳过 e2e / 编译大项目等長耗时用例（push main 仍跑全量）。

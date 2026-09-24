@@ -417,3 +417,11 @@ dist_blocks/
 generated-images/
 *_assets/
 
+# R94：全量 pytest 的 --basetemp=<仓内目录>（各轮一次，如 _r93_bt_* / _r94_bt_*）
+# 与临时 pytest 目录（.pytest_tmp*）、跨平台矩阵的本机 basetemp、历史临时测试目录。
+# 这些是跑测产物，不入库。
+/_r*_bt_*/
+/.pytest_tmp*/
+/_tmp_lm_full/
+/_taskR11B_test_*/
+
