@@ -23,8 +23,17 @@ _contrib_dir = os.path.join(_project_root, 'contrib')
 sys.path.insert(0, _project_root)
 sys.path.insert(0, _src_dir)
 sys.path.insert(0, _tools_dir)
-sys.path.insert(0, _stdlib_dir)
+# [R93-C-PATH-ORDER] 顺序调整：stdlib 必须先于 contrib 入 sys.path。
+# 原写法把 contrib 插在最前（_contrib_dir 最后 insert → 成为 sys.path[0]），于是裸
+# `import 进程`（以及 线程/网络请求/配置/随机/数据验证/HTTP服务端 等 stdlib 与 contrib
+# 同名模块）一律命中 contrib 实现，而非 stdlib 实现。两套同名模块是**两套不同的真
+# 实现**（contrib/进程.py 有 进程队列/进程锁 但**没有** 当前进程PID/进程启动），
+# 于是 test_stdlib_comprehensive.py::TestStdlib进程::test_import / test_process_pid
+# 在「人为切子集、无其他文件先预热 stdlib 进程模块进 sys.modules」时必红（R91-C 挂的
+# 那个尾巴的真根因）。本调整让裸 import 落回 stdlib；`from contrib.X import ...` 走
+# 显式包路径，不受影响。标记：R93-C-PATH-ORDER
 sys.path.insert(0, _contrib_dir)
+sys.path.insert(0, _stdlib_dir)
 
 # ── 2026-09-08 CI 时间治理（task-CIperf）──────────────────────────────────────
 # 预热最重的共享模块：全仓 7986 条用例的 test 文件几乎都 `from light_parser_v3
