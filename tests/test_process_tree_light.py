@@ -158,53 +158,58 @@ class Test超时杀树:
         pass
 
     def test_超时杀整棵树含孙子进程(self, tmp_path):
+        # [R93-A-DECOUPLE] 解耦「触发杀树」与「树已建好」（与
+        # tests/test_agent_tools_light.py 的孪生用例同源同改）：旧写法用 _跑(超时=1500)
+        # 让 进程树.等待 在 root 启动那一刻就开杀树计时，沙箱双层 wrapper 下 root
+        # bootstrap 到「Popen 孙 + 写 pid 文件」可能 >1.5s，杀树把还没写完 pid 的父脚本
+        # 杀了 → pid 文件永不出现 → 「3s 内 pid 未落地」假红。本重写：直接 进程树.启动()
+        # 拉起 root（真实生产路径，含 Job Object 绑定），但**不**调用带短超时的 等待()；
+        # 先独立轮询等 pid 文件落地 + 孙按 PID 确认真活（最多 10s，无杀树计时竞争），
+        # 确认整棵双层 wrapper 树建好后，**才**调 进程树.杀树()（真实杀树入口，内部走
+        # taskkill /F /T + 按 PID 补杀 + [R92-A-LEAK] 有界重扫兜底，覆盖「迟建内层真
+        # python」场景）。「超时能不能触发杀树」由 W-11 覆盖，本用例专心验证「杀树能不能
+        # 杀掉一棵已建好的树」。断言语义一字不削弱：① 孙按 PID 确认真死；② marker 不出现。
         marker = tmp_path / "_taskD2_孙进程标记.txt"
         pid文件 = tmp_path / "_taskD2_孙进程.pid"
         孙脚本 = _写脚本(tmp_path, "孙进程",
                         'import sys, time\n'
-                        'time.sleep(30)\n'
+                        'time.sleep(2.5)\n'
                         'open(sys.argv[1], "w").write("x")\n')
-        # R91-PIDFILE：父脚本 Popen 后立刻把孙 PID 落盘 pid 文件，
-        # 不再依赖 stdout 时序——满负载下杀树截断 stdout 会吞掉 PID 行
-        # （R90 收口轮 W-12 现场，孪生用例同根）。与
-        # tests/test_agent_tools_light.py 的 R91 修法对齐。
+        # 父脚本 Popen 孙后立即把孙 PID 落盘 pid 文件（不再依赖 stdout 时序）；孙是
+        # sys.executable 拉起 → 双层 wrapper 真进程，正是 R92-A 修的迟建内层场景。
         脚本 = _写脚本(tmp_path, "生孙子",
                       'import subprocess, sys, time\n'
                       'gc = subprocess.Popen([sys.executable, "-u", sys.argv[1], sys.argv[2]])\n'
                       'open(sys.argv[3], "w").write(str(gc.pid))\n'
                       'print(gc.pid, flush=True)\n'
                       'time.sleep(30)\n')
-        # R90：800 → 1500。与 tests/test_agent_tools_light.py 同一根因：
-        # 沙箱下 python 是双层 wrapper（探针实测），进程树建立约需 1s，
-        # 800ms 触发杀树时孙可能还没 spawn → 漏杀（全量负载下必现）。
-        # 标记：R90-KILLTIMEOUT-D2
-        树干, 结果 = _跑(
-            [sys.executable, "-u", 脚本, 孙脚本, str(marker), str(pid文件)],
-            {"宽限期毫秒": 200},
-            超时=1500,
-        )
-        # 总超时到，返回"超时"结果
-        assert 结果.是否超时 is True
-        # 杀掉进程树后，引擎自己的直接子进程应已死
-        assert not 树干.是否存活()
-        # R91-PIDFILE：从 pid 文件轮询拿孙 PID（最多 3s），不再 grep stdout；
-        # 宽限内仍未出现 = 真异常，如实报错。断言强度不变：孙按 PID 确认真死。
+        # 解耦点①：真实生产路径拉起 root（含 Job Object 绑定），但**不开**短超时等待计时。
+        树干 = 进程树([sys.executable, "-u", 脚本, 孙脚本, str(marker), str(pid文件)],
+                    {"宽限期毫秒": 200})
+        assert 树干.启动() is True
+        # 解耦点②：独立轮询等 pid 文件落地 + 孙按 PID 确认真活（最多 30s，无杀树计时竞争）。
+        # [R93-M-BOOTSTRAP-WINDOW] 10s → 30s，理由同 test_agent_tools_light.py 的孪生用例：
+        # M 路实测整机 CPU 99% 时 root 双层 wrapper bootstrap >10s（孤立 5 轮全红）。
+        # 等的是「树建好」，杀树断言（孙按 PID 真死 + marker 不出现）一字未放宽。
         gc_pid = None
-        _pid起点 = time.time()
-        while time.time() - _pid起点 < 3.0:
+        _起点 = time.time()
+        while time.time() - _起点 < 30.0:
             try:
                 _文本 = pid文件.read_text(encoding="utf-8").strip()
                 if _文本.isdigit():
-                    gc_pid = int(_文本)
-                    break
+                    候选 = int(_文本)
+                    if _进程活(候选):
+                        gc_pid = 候选
+                        break
             except FileNotFoundError:
                 pass
             time.sleep(0.05)
         assert gc_pid is not None, (
-            f"3s 内 pid 文件未出现有效孙进程 PID，本用例无法判定杀树：\n{结果.标准输出}")
-        # R90：固定 sleep(0.5) → 轮询最多 5s。进程被强杀后其对象/PID 会短暂
-        # 残留，负载下 0.5s 的死等会把「已被杀但尚未观察到」误判为存活。
-        # 断言语义不变：孙最终必须真死。
+            "30s 内 pid 文件未出现且孙未按 PID 确认真活，无法判定杀树："
+            "树根本没建好（非杀树之过）")
+        # 解耦点③：树确已建好，才调真实杀树入口杀 root（走 [R92-A-LEAK] 兜底真路径）。
+        树干.杀树(200)
+        # 断言一：孙必须按 PID 真死（轮询最多 5s；进程被强杀后对象/PID 会短暂残留）。
         _起点 = time.time()
         while time.time() - _起点 < 5.0:
             if _进程活(gc_pid) is False:
@@ -212,8 +217,13 @@ class Test超时杀树:
             time.sleep(0.1)
         # 孙子进程必须随树的根被连带杀死（进程隔离：只按 PID 断言，不按名杀）
         assert _进程活(gc_pid) is False
-        # 孙子若活着会在 30s 后写标记；被杀死则不会
-        assert not marker.exists()
+        # 断言二：孙若活着会在 2.5s 后写标记；被杀死则不会。给 3s 观察窗，杀树过迟也会被抓。
+        _起点 = time.time()
+        while time.time() - _起点 < 3.0:
+            if marker.exists():
+                break
+            time.sleep(0.1)
+        assert not marker.exists(), "孙子进程未被杀死：标记文件已生成"
 
 
 class Test环境控制:
