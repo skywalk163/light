@@ -372,7 +372,9 @@
       ],
     })。
     设 job 为 k.CreateJobObjectW(空, 空)。
-    如果 job 等于 0:
+    # [R91-D-voidp] c_void_p 句柄在 NULL 时 Python 侧返回 空(None) 而非 0;
+    # 必须「等于 空 或 等于 0」双判,对齐 R90 Toolhelp32 路径,否则失败拿到 None 被漏。
+    如果 job 等于 空 或 job 等于 0:
       己.恢复挂起进程(k, n)。
       己.任务句柄 为 0。
       返回。
@@ -388,7 +390,8 @@
     结束。
     # 3329 = 0x901 = SET_QUOTA|TERMINATE|QUERY_INFORMATION|SUSPEND_RESUME
     设 进程句柄 为 k.OpenProcess(3329, 假, 己.进程对象.pid)。
-    如果 进程句柄 等于 0:
+    # [R91-D-voidp] OpenProcess 失败返回 NULL→空(None),与 job 同坑,双判。
+    如果 进程句柄 等于 空 或 进程句柄 等于 0:
       k.CloseHandle(job)。
       己.恢复挂起进程(k, n)。
       己.任务句柄 为 0。
@@ -411,7 +414,8 @@
     结束。
     # 2048 = 0x800 = PROCESS_SUSPEND_RESUME
     设 进程句柄 为 k.OpenProcess(2048, 假, 己.进程对象.pid)。
-    如果 进程句柄 不等于 0:
+    # [R91-D-voidp] 句柄可能是 空(None) 或 0 两种失败态,均不可用于 NtResumeProcess。
+    如果 进程句柄 不等于 空 且 进程句柄 不等于 0:
       n.NtResumeProcess(进程句柄)。
       k.CloseHandle(进程句柄)。
     结束。
@@ -578,7 +582,8 @@
       # 且未被两轮 wmic 快照抓到的孙进程（2026-09-23 实测负载下偶发漏杀）。必须在关 job
       # 句柄之前调用，否则 root 已死 /T 断链。重复杀已死 PID 静默忽略。
       subprocess.call(["taskkill", "/F", "/T", "/PID", str(pid)], -1, 空, 空, subprocess.DEVNULL, subprocess.DEVNULL)。
-      如果 己.任务句柄 不等于 0:
+      # [R91-D-voidp] 任务句柄是 job(c_void_p),可能为 空(None) 或 0 两种未绑定态。
+      如果 己.任务句柄 不等于 空 且 己.任务句柄 不等于 0:
         设 k 为 ctypes.windll.kernel32。
         k.CloseHandle(己.任务句柄)。
         己.任务句柄 为 0。
@@ -644,7 +649,8 @@
   段落 能打开(pid):
     设 k 为 ctypes.windll.kernel32。
     设 h 为 k.OpenProcess(4096, 假, pid)。
-    如果 h 等于 0:
+    # [R91-D-voidp] OpenProcess 失败返回 NULL→空(None),双判对齐 job/进程句柄 写法。
+    如果 h 等于 空 或 h 等于 0:
       返回 假。
     结束。
     设 码 为 ctypes.c_ulong()。
@@ -724,6 +730,7 @@
       k.Process32FirstW.argtypes 为 [ctypes.c_void_p, ctypes.POINTER(条目类)]。
       k.Process32NextW.argtypes 为 [ctypes.c_void_p, ctypes.POINTER(条目类)]。
       设 快照 为 k.CreateToolhelp32Snapshot(2, 0)。
+      # [R91-D-voidp] 本路(2026-09-24)复核:R90-A 已双判(等于 空/等于 0),口径一致,无需改。
       # c_void_p 在句柄为 NULL 时返回 空(None)，个别路径也可能给 0 —— 两种都拦，
       # 否则后面的 byref 传参会拿到 None 句柄。
       如果 快照 等于 空:
