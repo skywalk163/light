@@ -876,4 +876,22 @@ python --version
 
 ## 许可证
 
-本项目采用 MIT 许可证。
+本项目采用 MIT 许可证。详见 [`LICENSE`](LICENSE)。
+
+## 社区与治理
+
+- **贡献**：[CONTRIBUTING.md](CONTRIBUTING.md)
+- **行为准则**：[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- **安全漏洞**：[SECURITY.md](SECURITY.md) —— 请走私密渠道，勿公开 Issue 披露
+- **支持渠道**：[SUPPORT.md](SUPPORT.md)
+- **公开路线图**：[ROADMAP.md](ROADMAP.md)
+- **生态地图**：[docs/ecosystem/README.md](docs/ecosystem/README.md)（lightpub 运行时包 vs lighting 积木库）
+- **第三方索引**：[AWESOME-光明.md](AWESOME-光明.md)
+- **贡献者**：[CONTRIBUTORS.md](CONTRIBUTORS.md)（由 `scripts/gen_contributors.py` 从 git 历史自动生成）
+- **版本校验**：[scripts/check_version_consistency.py](scripts/check_version_consistency.py)
+
+## 相关仓库
+
+- 语言本体（本仓）：<https://github.com/skywalk163/light>
+- 复刻 harness（lightharness）：<https://github.com/skywalk163/lightharness>
+- 积木库（lighting）：<https://github.com/skywalk163/lighting>

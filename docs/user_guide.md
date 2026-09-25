@@ -327,11 +327,16 @@ light debug 文件.light
 
 ### 5.5 代码格式化器
 
+> ⚠️ **已知缺陷（R96-KI-01）**：`light fmt` 当前**默认关闭**。现有格式化器会把合法代码改写成不可解析形式（重排缩进＋错误补冒号），详见 `docs/known-issues/R96-formatter-semantic-break.md`。安全替代：用 `light check <文件>` 做体检（只检查不改动文件）。
+
 ```bash
-# 格式化文件
+# 默认行为：输出风险提示并退出（不修改任何文件）
 light fmt 文件.light
 
-# 检查格式
+# 知情风险下强制执行（R97 修复前请勿用于正式源文件）
+light fmt 文件.light --force
+
+# 检查格式（仅 --force 后可用，仍在缺陷范围内）
 light fmt --check 文件.light
 ```
 
@@ -348,14 +353,14 @@ light lint --fix 文件.light
 ### 5.7 包管理器
 
 ```bash
-# 安装包
+# 安装包（需项目含 package.toml 或 light.json）
 light install 包名
 
 # 发布包
 light publish
 
-# 搜索包
-light search 关键词
+# 搜索包（位于 pkg 子命令下）
+light pkg search 关键词
 
 # 安装本地包
 light install ./本地包路径

@@ -22,6 +22,7 @@ import re
 import sys
 import os
 import argparse
+import importlib
 import subprocess
 from pathlib import Path
 
@@ -45,6 +46,38 @@ except ImportError:
 
 # 反馈收集子命令
 from feedback_collector import setup_feedback_subparser, run_feedback_cli
+
+
+# ═══════════════════════════════════════════════════════════════════
+# guard:_MISSING_CAPABILITY_GATE_R96
+# R96 能力闸门：子命令依赖的可选能力缺失时给出可读中文提示，而非 traceback
+# 详见 docs/community/未实现命令.md
+# ═══════════════════════════════════════════════════════════════════
+_AVAILABLE_COMMANDS = ('run', 'compile', 'ast', 'tokens', 'check', 'type-check',
+                       'init', 'pkg', 'test', 'harness', 'py2light', 'feedback',
+                       'repl', 'tutorial')
+
+
+def _导入能力(模块名, 命令, 属性=None):
+    """导入子命令依赖的能力模块；缺失时打印中文说明并以退出码 2 结束。"""
+    try:
+        模块 = importlib.import_module(模块名)
+    except (ImportError, AttributeError):
+        which = ('属性 ' + 属性) if 属性 else ('模块 ' + 模块名)
+        print('')
+        print('⚠️  `light %s` 尚未实现（缺少 %s）。' % (命令, which))
+        print('')
+        print('   这不是你操作的错误：该命令目前仍在规划中，是 R96 社区建设计划')
+        print('   「Phase 1 · 工具兑现」的落地项，进度见 docs/community/未实现命令.md。')
+        print('')
+        print('   当前可用命令：' + ' / '.join(_AVAILABLE_COMMANDS))
+        print('   查看全部：light --help')
+        print('')
+        sys.exit(2)
+    if 属性:
+        return getattr(模块, 属性)
+    return 模块
+
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1385,46 +1418,60 @@ def cmd_test(args):
 
 
 def cmd_fmt(args):
-    """格式化光明代码"""
-    from formatter import run_formatter
+    """格式化光明代码（实验性，见 R96-KI-01）"""
+    if not getattr(args, 'force', False):
+        # guard:_FMT_FORCE_GATE_R96
+        print('')
+        print('⚠️  `light fmt` 目前为实验性能力，默认不开放执行。')
+        print('')
+        print('   已知缺陷 R96-KI-01：现有格式化器会重排缩进并为语句补冒号，')
+        print('   实测可把合法代码改写为无法解析的形式')
+        print('   （复现：examples/_test_nested_closure.light）。')
+        print('   详见 docs/known-issues/R96-formatter-semantic-break.md')
+        print('')
+        print('   确认风险后试用：light fmt <路径> --force')
+        print('   安全替代：      light check <文件>   （只体检，不改写文件）')
+        print('')
+        sys.exit(2)
+    run_formatter = _导入能力('formatter', 'fmt', 'run_formatter')
     exit_code = run_formatter(args.target, check_only=args.check)
     sys.exit(exit_code)
 
 
 def cmd_doc(args):
     """生成光明代码文档"""
-    from doc_generator import run_doc
+    run_doc = _导入能力('doc_generator', 'doc', 'run_doc')
     fmt = 'html' if args.html else 'markdown'
     run_doc(args.target, fmt, args.output)
 
 
 def cmd_profile(args):
     """性能分析"""
-    from profiler import run_profile
+    run_profile = _导入能力('profiler', 'profile', 'run_profile')
     run_profile(args.file, memory=args.memory, report=args.report, cprofile=args.cprofile)
 
 
 def cmd_install(args):
     """安装光明包"""
-    from package_installer import run_install
+    run_install = _导入能力('package_installer', 'install', 'run_install')
     run_install(args)
 
 
 def cmd_publish(args):
     """发布光明包"""
-    from package_installer import run_publish
+    run_publish = _导入能力('package_installer', 'publish', 'run_publish')
     run_publish(args)
 
 
 def cmd_pkg_update(args):
     """更新光明包"""
-    from package_installer import run_update
+    run_update = _导入能力('package_installer', 'pkg update', 'run_update')
     run_update(args)
 
 
 def cmd_pkg_publish(args):
     """发布光明包（pkg 子命令）"""
-    from package_installer import run_publish
+    run_publish = _导入能力('package_installer', 'publish', 'run_publish')
     run_publish(args)
 
 
@@ -1861,9 +1908,11 @@ def main():
     test_p.add_argument('--filter', help='按文件名过滤测试')
 
     # ── fmt ──
-    fmt_p = subparsers.add_parser('fmt', help='格式化光明代码')
+    fmt_p = subparsers.add_parser('fmt', help='格式化光明代码 [实验性·需 --force]')
     fmt_p.add_argument('target', help='文件或目录路径')
     fmt_p.add_argument('--check', action='store_true', help='仅检查格式，不修改文件')
+    fmt_p.add_argument('--force', action='store_true',
+                       help='确认已知缺陷风险后强制执行（见 R96-KI-01）')
 
     # ── doc ──
     doc_p = subparsers.add_parser('doc', help='生成光明代码文档')
@@ -1994,3 +2043,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+# guard:_HELP_FIX_R96
