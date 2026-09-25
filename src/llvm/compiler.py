@@ -45,6 +45,20 @@ class NativeImportError(RuntimeError):
     这类模块必须显式报错，决不静默降级成「跑起来就崩」的产物。"""
 
 
+def _声明文本计数(source: str) -> tuple:
+    """文本级粗数：源码里的 `段落 X` / `类 X` 声明个数（不解析、只数行）。
+
+    只用于诊断。当「解析到 0 个段落」而「文本里明明有 N 个 段落 声明」时，
+    说明是**解析异常**，不是真的空壳——两者必须能在报错里一眼分开，否则
+    排查会被引到「去 .py 里找实现」的错误方向（GitHub Actions 首跑实测：
+    ubuntu 偶发把 stdlib/格式化.light 判成 decl 0 空壳，而该文件实有 19 个段落）。
+    """
+    import re as _re
+    seg = len(_re.findall(r'(?m)^\s*段落\s+\S', source))
+    cls = len(_re.findall(r'(?m)^\s*类\s+\S', source))
+    return seg, cls
+
+
 def _is_decl0_shell(light_path) -> bool:
     """判定一个 .light 文件是否是 decl 0 空壳（无段落、无类的纯导出清单）。
     与同名 .py 配对出现时空壳 = 实现在 .py 的 shadow。"""
@@ -1248,10 +1262,24 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
                         f"'{dep_name}' 后再导入。")
                 py_twin = dep_path.with_suffix('.py')
                 if py_twin.exists() and _is_decl0_shell(dep_path):
+                    # 诊断补充：文本里到底有没有 段落/类 声明。有 → 是解析异常，
+                    # 不是真空壳（排查方向完全不同，见 _声明文本计数 的说明）。
+                    try:
+                        with open(dep_path, 'r', encoding='utf-8') as f:
+                            _src = f.read()
+                        _seg, _cls = _声明文本计数(_src)
+                    except Exception:
+                        _seg, _cls = -1, -1
+                    _hint = (
+                        f"【诊断】源码文本级粗数：段落 {_seg} / 类 {_cls}；"
+                        f"若该数 > 0 而解析得到 0，则这是**解析异常**（多半是同进程内"
+                        f"解析器状态被别的用例污染），不是真空壳——别去 .py 里找实现。"
+                        if (_seg > 0 or _cls > 0) else
+                        f"【诊断】源码文本级粗数：段落 {_seg} / 类 {_cls}（确为无声明清单）。")
                     raise NativeImportError(
                         f"模块 '{dep_name}' 的 '{dep_path}' 是 decl 0 空壳"
                         f"（实现在同名 '{py_twin}'）。原生腿不加载 Python 实现，"
-                        f"请在 .light 里提供真实实现后再导入。")
+                        f"请在 .light 里提供真实实现后再导入。\n  {_hint}")
                 with open(dep_path, 'r', encoding='utf-8') as f:
                     dep_src = f.read()
                 collect_modules(dep_src, dep_name)
