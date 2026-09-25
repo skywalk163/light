@@ -73,7 +73,17 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest
+          # ⚠️ pytest-xdist / pytest-timeout 是 addopts 的硬依赖，缺了 pytest 直接
+          # 「unrecognized arguments: --timeout=60 -n --dist=loadscope」起不来：
+          # pyproject [tool.pytest.ini_options] addopts 写死了 `--timeout=60 -n 4
+          # --dist=loadscope`，分别来自 pytest-timeout 与 pytest-xdist。
+          # （本机 .venv 一直有这两个插件，所以从未暴露；GitHub runner 是干净环境，
+          #  这棵树第一次真跑就撞上——见文件头「从未执行过」的说明。）
+          python -m pip install pytest pytest-xdist pytest-timeout
+          # antlr4 / psutil / lunardate 对齐 scripts/ensure_venv.py 的 WATCH/LOCKED
+          # 清单（0.82 权威门禁同款）：antlr4 供 antlr 后端用例，psutil 供进程树/子进程
+          # 用例，lunardate 供农历/历法/日期时间用例。缺任一项对应用例整片 collect 红。
+          python -m pip install "antlr4-python3-runtime==4.13.2" "lunardate==0.3.0" psutil
           # requests 是 stdlib/lightpub/HTTP客户端.py 桥接模块的顶层依赖
           # （模块级 `import requests`）。tests/unit/test_lightpub_doc_importability.py
           # 会真 import 它；gitea 靠 --system-site-packages 蹭宿主已装的

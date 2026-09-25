@@ -36,6 +36,16 @@ antlr = [
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
+    # ── addopts 硬依赖（缺了 pytest 直接 unrecognized arguments 起不来）─────────
+    # pyproject [tool.pytest.ini_options] addopts 写死 `--timeout=60 -n 4
+    # --dist=loadscope`，分别需要下面两个插件；早前 dev 组漏声明，导致
+    # `pip install .[dev]` 装完仍跑不动测试套件（2026-09-25 GitHub CI 首跑暴露）。
+    "pytest-timeout>=2.1.0",
+    "pytest-xdist>=3.3.0",
+    # ── 测试所需运行时依赖（对齐 scripts/ensure_venv.py 的 WATCH/LOCKED 清单）──
+    "antlr4-python3-runtime>=4.13.0",  # antlr 后端用例
+    "psutil>=5.9.0",                   # 进程树 / 子进程用例
+    "lunardate>=0.3.0",                # 农历 / 历法 / 日期时间用例
     "flake8>=6.0.0",
     "black>=23.0.0",
     "isort>=5.12.0",
