@@ -1,20 +1,29 @@
 # -*- coding: utf-8 -*-
 """
-测试光明代码格式化器
+测试光明代码格式化器（R97 安全子集契约）
+
+R97 起，格式化器只做"绝不改变语义"的空白安全变换：
+  - 统一换行符为 \\n；
+  - 去除每行行尾空白；
+  - 折叠 3+ 连续空行为 2 个；
+  - 去除文件首尾多余空行；
+  - 确保文件以单个换行结尾。
+
+由于 光明 是缩进敏感语言、块结构由"每行缩进 + 行内 token"决定，
+而本格式化器对二者逐行精确保留，因此**产物解析结果与输入必然一致**——
+这正是 R97 根除 R96-KI-01（补冒号 / 重排缩进破坏语义）的核心保证。
 
 测试覆盖：
-- 缩进格式化
-- 间距格式化（运算符前后空格）
-- 空行控制
-- 导入排序
-- 注释间距
-- 括号间距
-- 尾随逗号
-- 多行语句
+- 空白安全变换（行尾空白、空行折叠、换行规范、末尾换行）
+- 幂等性（format(format(x)) == format(x)）
+- 不变量：非空前导去空白行序列与缩进在格式化前后完全一致（证明无语义改变）
+- check() 仅报告空白 / 空行差异
+- 便捷函数 format_code / check_format
 """
 
-import sys
 import os
+import sys
+
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))
@@ -22,277 +31,138 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 from formatter.light_formatter import LightFormatter, format_code, check_format
 
 
-class TestLightFormatter:
-    """测试 LightFormatter 类"""
+# 一条"语义关键"的嵌套闭包代码：任何缩进/冒号改动都会破坏它
+NESTED = """# 嵌套段落最小测试
+段落 外层(x):
+  段落 内层(y):
+    返回 x + y
+  返回 内层(10)
+
+打印 外层(5)
+"""
+
+
+class TestLightFormatterSafe:
+    """测试安全子集的 LightFormatter"""
 
     def setup_method(self):
-        self.formatter = LightFormatter(indent_size=4, max_line_length=80)
+        self.fmt = LightFormatter(indent_size=4, max_line_length=80)
 
     # ------------------------------------------------------------------
-    # 缩进格式化
+    # 行尾空白去除
     # ------------------------------------------------------------------
-
-    def test_indent_basic(self):
-        """测试基本缩进"""
-        source = """段 测试():
-印("hello")
-"""
-        expected = """段 测试():
-    印("hello")
-"""
-        result = self.formatter.format(source)
-        assert result == expected, f"缩进格式化失败\n期望:\n{expected}\n实际:\n{result}"
-
-    def test_indent_nested(self):
-        """测试嵌套缩进"""
-        source = """段 测试():
-若 真:
-印("true")
-否:
-印("false")
-"""
-        expected = """段 测试():
-    若 真:
-        印("true")
-    否:
-        印("false")
-"""
-        result = self.formatter.format(source)
-        assert result == expected, f"嵌套缩进格式化失败\n期望:\n{expected}\n实际:\n{result}"
-
-    def test_indent_deep_nesting(self):
-        """测试深层嵌套缩进"""
-        source = """段 测试():
-若 真:
-若 真:
-印("deep")
-"""
-        expected = """段 测试():
-    若 真:
-        若 真:
-            印("deep")
-"""
-        result = self.formatter.format(source)
-        assert result == expected, f"深层嵌套格式化失败\n期望:\n{expected}\n实际:\n{result}"
-
-    def test_indent_else_keyword(self):
-        """测试否则关键字缩进与同级"""
-        source = """段 测试():
-若 真:
-印("true")
-否则:
-印("false")
-"""
-        expected = """段 测试():
-    若 真:
-        印("true")
-    否则:
-        印("false")
-"""
-        result = self.formatter.format(source)
-        assert result == expected, f"否则缩进格式化失败\n期望:\n{expected}\n实际:\n{result}"
-
-    def test_indent_for_loop(self):
-        """测试遍历循环缩进"""
-        source = """段 测试():
-遍历 i 在 范围(5):
-印(i)
-"""
-        expected = """段 测试():
-    遍历 i 在 范围(5):
-        印(i)
-"""
-        result = self.formatter.format(source)
-        assert result == expected, f"遍历循环缩进格式化失败\n期望:\n{expected}\n实际:\n{result}"
-
-    # ------------------------------------------------------------------
-    # 间距格式化
-    # ------------------------------------------------------------------
-
-    def test_operator_spacing(self):
-        """测试运算符前后空格"""
-        source = """设 x=1+2
-设 y =3*4
-设 z=5/6
-"""
-        expected = """设 x = 1 + 2
-设 y = 3 * 4
-设 z = 5 / 6
-"""
-        result = self.formatter.format(source)
-        assert result == expected, f"运算符间距格式化失败\n期望:\n{expected}\n实际:\n{result}"
-
-    def test_comparison_spacing(self):
-        """测试比较运算符前后空格"""
-        source = """若 x>5:
-若 y<=10:
-若 z!=3:
-"""
-        expected = """若 x > 5:
-    若 y <= 10:
-        若 z != 3:
-"""
-        result = self.formatter.format(source)
-        assert result == expected, f"比较运算符间距格式化失败\n期望:\n{expected}\n实际:\n{result}"
-
-    # ------------------------------------------------------------------
-    # 空行控制
-    # ------------------------------------------------------------------
-
-    def test_blank_lines(self):
-        """测试空行控制（最多2个连续空行）"""
-        source = """段 函1():
-    印(1)
-
-
-段 函2():
-    印(2)
-
-
-
-
-段 函3():
-    印(3)
-"""
-        expected = """段 函1():
-    印(1)
-
-
-段 函2():
-    印(2)
-
-
-段 函3():
-    印(3)
-"""
-        result = self.formatter.format(source)
-        assert result == expected, f"空行控制失败\n期望:\n{expected}\n实际:\n{result}"
-
-    # ------------------------------------------------------------------
-    # 导入排序
-    # ------------------------------------------------------------------
-
-    def test_import_block(self):
-        """测试导入块识别"""
-        source = """引 模块丙
-引 模块乙
-引 模块甲
-
-段 主():
-    印("hello")
-"""
-        expected = """引 模块丙
-引 模块乙
-引 模块甲
-
-段 主():
-    印("hello")
-"""
-        result = self.formatter.format(source)
-        # 验证导入块被识别（不会和函数体混在一起）
-        assert "引 模块" in result
-        assert "段 主()" in result
-
-    # ------------------------------------------------------------------
-    # 注释间距
-    # ------------------------------------------------------------------
-
-    def test_comment_spacing(self):
-        """测试注释前空格"""
-        source = """设 x = 1#这是注释
-段 主():
-    印(1)#打印
-"""
-        expected = """设 x = 1  #这是注释
-段 主():
-    印(1)  #打印
-"""
-        result = self.formatter.format(source)
-        assert result == expected, f"注释间距格式化失败\n期望:\n{expected}\n实际:\n{result}"
-
-    # ------------------------------------------------------------------
-    # 行尾空白
-    # ------------------------------------------------------------------
-
     def test_trailing_whitespace(self):
-        """测试行尾空白去除"""
-        source = """段 测试():   
-    印("hello")   
-"""
-        expected = """段 测试():
-    印("hello")
-"""
-        result = self.formatter.format(source)
-        assert result == expected, f"行尾空白去除失败\n期望:\n{expected}\n实际:\n{result}"
+        source = "段落 测试():\n    打印(\"hello\")   \n"
+        expected = "段落 测试():\n    打印(\"hello\")\n"
+        assert self.fmt.format(source) == expected
 
     # ------------------------------------------------------------------
-    # 括号间距
+    # 空行折叠（3+ → 2）
     # ------------------------------------------------------------------
+    def test_blank_lines_collapse(self):
+        # 源文件含 4 个连续空行，应折叠为 2 个
+        source = "段落 函1():\n    打印(1)\n\n\n\n\n段落 函2():\n    打印(2)\n"
+        expected = "段落 函1():\n    打印(1)\n\n\n段落 函2():\n    打印(2)\n"
+        assert self.fmt.format(source) == expected
 
-    def test_bracket_spacing(self):
-        """测试括号内空格去除"""
-        source = """段 测试( 参数 ):
-    印( "hello" )
-"""
-        expected = """段 测试(参数):
-    印("hello")
-"""
-        result = self.formatter.format(source)
-        assert result == expected, f"括号间距格式化失败\n期望:\n{expected}\n实际:\n{result}"
+    def test_blank_lines_kept_within_two(self):
+        # 2 个连续空行应原样保留
+        source = "段落 函1():\n    打印(1)\n\n段落 函2():\n    打印(2)\n"
+        expected = "段落 函1():\n    打印(1)\n\n段落 函2():\n    打印(2)\n"
+        assert self.fmt.format(source) == expected
+
+    # ------------------------------------------------------------------
+    # 换行规范（CRLF / CR → LF 内部归一；CRLF 还原由 run_formatter 负责）
+    # ------------------------------------------------------------------
+    def test_normalize_line_endings(self):
+        source = "段落 主():\r\n    打印(1)\r\n"
+        out = self.fmt.format(source)
+        assert '\r' not in out
+        assert out == "段落 主():\n    打印(1)\n"
+
+    # ------------------------------------------------------------------
+    # 末尾换行保证
+    # ------------------------------------------------------------------
+    def test_trailing_newline(self):
+        assert self.fmt.format("段落 主():\n    打印(1)") == "段落 主():\n    打印(1)\n"
+        # 空文件返回空串
+        assert self.fmt.format("") == ""
+        assert self.fmt.format("\n\n") == ""
+
+    # ------------------------------------------------------------------
+    # 幂等性
+    # ------------------------------------------------------------------
+    def test_idempotent(self):
+        messy = "段落 主():\n    打印(1)   \n\n\n\n"
+        once = self.fmt.format(messy)
+        twice = self.fmt.format(once)
+        assert once == twice
+
+    # ------------------------------------------------------------------
+    # 不变量：非空前导去空白行的序列与缩进完全一致（证明无语义改变）
+    # ------------------------------------------------------------------
+    def _content_lines(self, text):
+        """返回 [(缩进宽度, 去尾空白内容), ...] 仅含非空行。"""
+        out = []
+        for line in text.split('\n'):
+            s = line.rstrip()
+            if s == '':
+                continue
+            indent = len(line) - len(line.lstrip())
+            out.append((indent, s))
+        return out
+
+    def test_invariant_preserves_indent_and_tokens(self):
+        # 用嵌套闭包代码验证：格式化前后非空行的(缩进,内容)序列必须逐条相等
+        original = NESTED
+        formatted = self.fmt.format(original)
+        assert self._content_lines(original) == self._content_lines(formatted), (
+            "格式化改变了缩进或行内 token —— 这会破坏 光明 的块结构！\n"
+            f"原: {self._content_lines(original)}\n格: {self._content_lines(formatted)}"
+        )
+
+    def test_no_spurious_colon_on_return(self):
+        # R96-KI-01 复现：'返回 x + y' 绝不能被补成 '返回 x + y：'
+        formatted = self.fmt.format(NESTED)
+        assert "返回 x + y：" not in formatted
+        assert "返回 x + y:" not in formatted
+        # 原有合法冒号（段落定义行）必须保留
+        assert "段落 外层(x):" in formatted
+        assert "段落 内层(y):" in formatted
+
+    def test_nested_closure_is_parse_preserving(self):
+        # 端到端安全证明：行内容与缩进均保留 ⇒ 解析一致。
+        # 这里用不变量断言替代真实编译器调用（避免测试耦合编译器实现）。
+        src_lines = self._content_lines(NESTED)
+        out_lines = self._content_lines(self.fmt.format(NESTED))
+        assert src_lines == out_lines
+
+    # ------------------------------------------------------------------
+    # check() 仅报告空白 / 空行差异
+    # ------------------------------------------------------------------
+    def test_check_reports_only_whitespace(self):
+        clean = "段落 主():\n    打印(1)\n"
+        assert self.fmt.check(clean) == []
+        messy = "段落 主():\n    打印(1)   \n\n\n"
+        issues = self.fmt.check(messy)
+        assert isinstance(issues, list)
+        # 差异只应是行尾空白 / 空行，不应触碰带代码的行内容
+        for issue in issues:
+            assert issue['original'].rstrip() == issue['formatted'].rstrip(), \
+                "check 报告了代码行内容差异，说明格式化改变了语义！"
 
     # ------------------------------------------------------------------
     # 便捷函数
     # ------------------------------------------------------------------
-
     def test_format_code_function(self):
-        """测试便利函数 format_code"""
-        source = "段 测试():\n印(1)\n"
-        result = format_code(source)
-        assert "段 测试()" in result
+        assert "段落 测试()" in format_code("段落 测试():\n    打印(1)\n")
 
     def test_check_format_function(self):
-        """测试便利函数 check_format"""
-        source = "段 测试():\n    印(1)\n"
-        issues = check_format(source)
-        assert isinstance(issues, list)
+        assert isinstance(check_format("段落 测试():\n    打印(1)\n"), list)
 
     # ------------------------------------------------------------------
-    # 完整格式化流程
+    # 已合规代码保持不变
     # ------------------------------------------------------------------
-
-    def test_complete_format(self):
-        """测试完整格式化流程"""
-        source = """段 测试():
-    若 真:
-        印("hello")
-        印("world")
-    否:
-        印("false")
-"""
-        result = self.formatter.format(source)
-        # 格式化后应保持不变（已经是正确格式）
-        assert result == source, f"完整格式化失败\n期望:\n{source}\n实际:\n{result}"
-
-    def test_format_with_trailing_commas(self):
-        """测试尾随逗号去除"""
-        source = """段 测试():
-    设 列表 = [1, 2, 3,]
-    印(列表)
-"""
-        expected = """段 测试():
-    设 列表 = [1, 2, 3]
-    印(列表)
-"""
-        result = self.formatter.format(source)
-        assert result == expected, f"尾随逗号格式化失败\n期望:\n{expected}\n实际:\n{result}"
-
-    def test_format_long_function_signature(self):
-        """测试长函数签名格式化"""
-        long_params = ", ".join([f"参数{i}" for i in range(20)])
-        source = f"段 测试({long_params}):\n    印(1)\n"
-        result = self.formatter.format(source)
-        assert "段 测试" in result
-
-
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+    def test_already_clean_unchanged(self):
+        clean = "段落 测试():\n    如果 真:\n        打印(\"a\")\n    否则:\n        打印(\"b\")\n"
+        assert self.fmt.format(clean) == clean

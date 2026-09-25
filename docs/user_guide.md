@@ -327,18 +327,24 @@ light debug 文件.light
 
 ### 5.5 代码格式化器
 
-> ⚠️ **已知缺陷（R96-KI-01）**：`light fmt` 当前**默认关闭**。现有格式化器会把合法代码改写成不可解析形式（重排缩进＋错误补冒号），详见 `docs/known-issues/R96-formatter-semantic-break.md`。安全替代：用 `light check <文件>` 做体检（只检查不改动文件）。
+> ✅ **R97 起已修复（R96-KI-01）**：`light fmt` 收敛为**空白安全子集**——只做去行尾空白 / 折叠空行 / 规范换行 / 确保末尾换行，**不改缩进、不补冒号、不改动任何 token**，因此不会破坏合法代码。改动前请先用 `light fmt --check` 预览差异。
 
 ```bash
-# 默认行为：输出风险提示并退出（不修改任何文件）
+# 格式化文件（默认开放，安全）
 light fmt 文件.light
 
-# 知情风险下强制执行（R97 修复前请勿用于正式源文件）
-light fmt 文件.light --force
-
-# 检查格式（仅 --force 后可用，仍在缺陷范围内）
+# 仅检查格式差异，不修改文件
 light fmt --check 文件.light
+
+# 递归格式化目录
+light fmt 目录/
+
+# --force 为兼容保留项（无操作）
+light fmt 文件.light --force
 ```
+
+> 注：R97 仅做"安全子集"。若后续需要缩进规范化 / 冒号对齐 / 导入排序等增强，
+> 将接入真实解析器实现（见 `docs/known-issues/R96-formatter-semantic-break.md`）。
 
 ### 5.6 代码检查器
 

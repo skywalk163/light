@@ -1,177 +1,91 @@
 # -*- coding: utf-8 -*-
 """
-光明（Light）代码格式化工具
+光明（Light）代码格式化工具 —— 安全子集（R97 重写）
 
-功能：
-  - 统一缩进（4 空格）
-  - 确保块关键字后有冒号
-  - 去除行尾空白
-  - 规范化空行
-  - 支持 --check 模式
+========================================================================
+R97 重写说明（对应 R96-KI-01 语义破坏缺陷的根除）
+------------------------------------------------------------------------
+旧实现用「基于行首前缀猜测」的 regex 启发式重排缩进、给语句补冒号、加运算符
+空格、排序导入。这在光明这种**缩进敏感**且关键字多为中文的语言上必然出错：
+  1. `NEEDS_COLON` 含单字 `返/跳/过/抛/终`，`返回 x` 被前缀匹配到 `返` → 错补冒号；
+  2. 整文件缩进重排为 4 空格，破坏嵌套块结构 → 产物不可解析。
+R97 收敛为**只做"绝不改变语义"的空白安全变换**（见 `format_code`）。
+本文件与 `src/formatter/light_formatter.py` 保持同一份安全逻辑，确保无论
+`light fmt` 走哪条 CLI 路径，都不会破坏源文件。
 
-用法：
-  light fmt file.light           # 格式化单个文件
-  light fmt .                   # 格式化当前目录
-  light fmt --check file.light   # 仅检查格式
+安全子集内容：
+  - 统一换行符为 \\n；
+  - 去除每行行尾空白；
+  - 折叠 3+ 连续空行为 2 个；
+  - 去除文件首尾多余空行；
+  - 确保文件以单个换行结尾。
+
+安全性证明：光明块结构完全由「每行缩进 + 行内 token」决定；本工具对这两类
+信息逐行精确保留（仅 rstrip 行尾空白，不碰行首缩进、不增删 token），
+因此产物解析结果与输入**必然一致**。
+
+注意：`src/formatter.py`（单文件）与 `src/formatter/`（包）并存是已知债务，
+二者应择一保留；在合并前，两份实现必须保持一致（均为安全子集）。
+========================================================================
 """
 
 import os
 import sys
-import io
-import re
 
-# 增加缩进的关键字
-BLOCK_START = {
-    '如果', '否则如果', '否则若',
-    '遍历', '当',
-    '尝试', '捕获',
-    '匹配', '情况',
-    '函数', '段落', '段',
-    '类', '接口',
-    '构造',
-    '异步',
-    '使用',
-    '嵌入',
-    '标注',
-    '枚举', '结构体',
-    '最终',
-    '继承', '实现',
-    '静态',
-    # L0 单字关键字（v4.1）
-    '若', '遍', '试', '捕', '配', '否',
-}
-
-# 需要冒号的关键字
-NEEDS_COLON = BLOCK_START | {'否则', '接收', '否', '返', '跳', '过', '抛', '终'}
-
-# 输出关键字（不增加缩进，但需要特殊处理）
-OUTPUT_KW = {'打印', '返回', '抛出', '继续', '跳出', '导出'}
-
-# 缩进不变量（它们本身不增加缩进，但后续嵌套块需要）
-# 这些关键字在下一行保持缩进
-INDENT_UNCHANGED = {'否则', '否则如果', '否则若', '捕获', '情况', '默认'}
+from typing import List
 
 
-def _get_keyword(content: str, keywords: set) -> str:
-    """获取内容开头的关键字（按长度降序匹配，优先匹配长关键字）"""
-    content = content.strip()
-    if not content or content.startswith('#'):
-        return ''
-    
-    # 按长度降序排序，确保长关键字优先匹配（如"否则如果"在"否则"之前）
-    for kw in sorted(keywords, key=len, reverse=True):
-        if content == kw:
-            return kw
-        # 检查是否以关键字开头，后面跟空格、中文冒号、英文冒号、左括号等
-        if content.startswith(kw):
-            rest = content[len(kw):]
-            if not rest or rest[0] in ' ：:（(（' or '\u4e00' <= rest[0] <= '\u9fff' or rest[0].isalpha() or rest[0] == '《':
-                return kw
-    # 特殊处理"从"（导入语句）
-    if content.startswith('从') and '导入' in content:
-        return '从'
-    return ''
+def _safe_format(source: str) -> str:
+    """空白安全格式化：仅去行尾空白 / 折叠空行 / 规范换行 / 末尾换行。
 
-
-def _is_comment_or_empty(content: str) -> bool:
-    """检查是否是注释或空行"""
-    return content.startswith('#') or not content.strip()
-
-
-def _needs_indent(content: str) -> bool:
-    """检查该行是否需要减少缩进"""
-    kw = _get_keyword(content, INDENT_UNCHANGED)
-    return kw in INDENT_UNCHANGED
-
-
-def _needs_dedent(content: str) -> bool:
-    """检查该行是否在缩进减少后还需要额外处理"""
-    return False
+    不改变缩进与行内 token，故产物解析结果与输入一致。
+    """
+    source = source.replace('\r\n', '\n').replace('\r', '\n')
+    lines = source.split('\n')
+    out: List[str] = []
+    blank = 0
+    for line in lines:
+        stripped = line.rstrip()
+        if stripped == '':
+            blank += 1
+            if blank <= 2:
+                out.append('')
+        else:
+            blank = 0
+            out.append(stripped)
+    while out and out[0] == '':
+        out.pop(0)
+    while out and out[-1] == '':
+        out.pop()
+    text = '\n'.join(out)
+    if text and not text.endswith('\n'):
+        text += '\n'
+    return text
 
 
 def format_code(source: str) -> str:
-    """格式化光明代码"""
-    lines = source.split('\n')
-    result = []
-    indent = 0
-    # 用于跟踪已处理的行是否在块内
-    in_block_stack = []
-
-    for i, line in enumerate(lines):
-        stripped = line.rstrip()
-        if not stripped:
-            # 保留空行
-            result.append('')
-            continue
-
-        content = stripped.strip()
-
-        # 注释行保持原样不修改
-        if content.startswith('#'):
-            result.append('    ' * indent + content)
-            continue
-
-        # 获取关键字
-        keyword = _get_keyword(content, NEEDS_COLON)
-
-        # 处理"否则"、"否则如果"、"否则若"、"捕获"、"情况"、"默认"以及
-        # L0 单字关键字"否"、"捕"：
-        # 它们应该与对应的上一级（如"如果"、"尝试"、"匹配"）同级
-        if keyword in ('否则', '否则如果', '否则若', '捕获', '情况', '默认', '否', '捕'):
-            actual_indent = max(0, indent - 1)
-        elif keyword == '从':
-            # "从"导入语句不增加缩进
-            actual_indent = indent
-        else:
-            actual_indent = indent
-
-        # 格式化行内容：确保块关键字后有冒号
-        if not content.startswith('#'):
-            if keyword in NEEDS_COLON:
-                # 检查是否已经有冒号（中文或英文）
-                if not content.rstrip().endswith('：') and not content.rstrip().endswith(':'):
-                    # 如果行以"："结尾（中文冒号），则不添加
-                    if not content.rstrip().endswith(':'):
-                        content = content + '：'
-
-        # 构建格式化后的行
-        formatted_line = '    ' * actual_indent + content
-        result.append(formatted_line)
-
-        # 更新下一行的缩进
-        if keyword in BLOCK_START:
-            indent = actual_indent + 1
-        elif keyword in INDENT_UNCHANGED or keyword in ('否', '捕'):
-            indent = actual_indent + 1
-        else:
-            indent = actual_indent
-
-    # 移除末尾空行（保留文件末尾的换行）
-    while result and result[-1] == '':
-        result.pop()
-
-    return '\n'.join(result) + '\n'
+    """格式化光明代码（空白安全子集）。"""
+    return _safe_format(source)
 
 
 def check_format(source: str) -> list:
-    """检查格式问题"""
-    formatted = format_code(source)
-    if formatted != source:
-        orig_lines = source.split('\n')
-        fmt_lines = formatted.split('\n')
-        issues = []
-        max_len = max(len(orig_lines), len(fmt_lines))
-        for i in range(max_len):
-            o = orig_lines[i].rstrip() if i < len(orig_lines) else ''
-            f = fmt_lines[i].rstrip() if i < len(fmt_lines) else ''
-            if o != f:
-                issues.append({'line': i + 1, 'original': o, 'formatted': f})
-        return issues
-    return []
+    """检查格式问题，返回差异列表（仅空白 / 空行层面）。"""
+    formatted = _safe_format(source)
+    if formatted == source:
+        return []
+    orig_lines = source.replace('\r\n', '\n').split('\n')
+    fmt_lines = formatted.split('\n')
+    issues = []
+    for i in range(max(len(orig_lines), len(fmt_lines))):
+        o = orig_lines[i] if i < len(orig_lines) else ''
+        f = fmt_lines[i] if i < len(fmt_lines) else ''
+        if o != f:
+            issues.append({'line': i + 1, 'original': o, 'formatted': f})
+    return issues
 
 
 def format_file(filepath: str, check_only: bool = False) -> bool:
-    """格式化单个文件"""
+    """格式化单个文件。"""
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
             source = f.read()
@@ -189,10 +103,13 @@ def format_file(filepath: str, check_only: bool = False) -> bool:
             print(f"  OK {os.path.basename(filepath)}")
             return True
         else:
-            formatted = format_code(source)
+            formatted = _safe_format(source)
             if formatted != source:
+                # 还原 CRLF（若原文件使用）以免误伤整工作树换行风格
+                crlf = '\r\n' in source
+                payload = formatted.replace('\n', '\r\n') if crlf else formatted
                 with open(filepath, 'w', encoding='utf-8') as f:
-                    f.write(formatted)
+                    f.write(payload)
                 print(f"  OK {os.path.basename(filepath)} (formatted)")
             else:
                 print(f"  OK {os.path.basename(filepath)} (unchanged)")
@@ -203,7 +120,7 @@ def format_file(filepath: str, check_only: bool = False) -> bool:
 
 
 def format_directory(directory: str, check_only: bool = False) -> int:
-    """格式化目录"""
+    """格式化目录下的 .light 文件。"""
     if not os.path.isdir(directory):
         print(f"Error: directory not found: {directory}")
         return 1
@@ -234,6 +151,7 @@ def format_directory(directory: str, check_only: bool = False) -> int:
 
 
 def run_formatter(target: str, check_only: bool = False):
+    """CLI 入口（`light fmt`）：格式化文件或目录。"""
     if os.path.isdir(target):
         return format_directory(target, check_only)
     elif os.path.isfile(target):

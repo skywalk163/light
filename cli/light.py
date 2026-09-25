@@ -1418,21 +1418,7 @@ def cmd_test(args):
 
 
 def cmd_fmt(args):
-    """格式化光明代码（实验性，见 R96-KI-01）"""
-    if not getattr(args, 'force', False):
-        # guard:_FMT_FORCE_GATE_R96
-        print('')
-        print('⚠️  `light fmt` 目前为实验性能力，默认不开放执行。')
-        print('')
-        print('   已知缺陷 R96-KI-01：现有格式化器会重排缩进并为语句补冒号，')
-        print('   实测可把合法代码改写为无法解析的形式')
-        print('   （复现：examples/_test_nested_closure.light）。')
-        print('   详见 docs/known-issues/R96-formatter-semantic-break.md')
-        print('')
-        print('   确认风险后试用：light fmt <路径> --force')
-        print('   安全替代：      light check <文件>   （只体检，不改写文件）')
-        print('')
-        sys.exit(2)
+    """格式化光明代码（空白安全子集，R97 起默认开放）"""
     run_formatter = _导入能力('formatter', 'fmt', 'run_formatter')
     exit_code = run_formatter(args.target, check_only=args.check)
     sys.exit(exit_code)
@@ -1908,11 +1894,11 @@ def main():
     test_p.add_argument('--filter', help='按文件名过滤测试')
 
     # ── fmt ──
-    fmt_p = subparsers.add_parser('fmt', help='格式化光明代码 [实验性·需 --force]')
+    fmt_p = subparsers.add_parser('fmt', help='格式化光明代码（空白安全：去行尾空白/折叠空行/规范换行）')
     fmt_p.add_argument('target', help='文件或目录路径')
     fmt_p.add_argument('--check', action='store_true', help='仅检查格式，不修改文件')
     fmt_p.add_argument('--force', action='store_true',
-                       help='确认已知缺陷风险后强制执行（见 R96-KI-01）')
+                       help='保留兼容项（无操作）；fmt 自 R97 起默认开放且安全')
 
     # ── doc ──
     doc_p = subparsers.add_parser('doc', help='生成光明代码文档')
