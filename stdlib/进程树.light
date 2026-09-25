@@ -663,6 +663,30 @@
     结束。
     返回 int(码.value) 等于 259。
 
+  # [R95-B2] 取进程创建时间（Unix 秒）。ctypes 直调 GetProcessTimes，避免新增 psutil
+  # 依赖；取不到（非 win32 / 句柄打不开 / 调用失败）一律返回 空，由调用方决定降级口径。
+  段落 _创建时间秒(pid):
+    如果 sys.platform 不等于 "win32":
+      返回 空。
+    结束。
+    设 k 为 ctypes.windll.kernel32。
+    # PROCESS_QUERY_LIMITED_INFORMATION(0x1000) 足以取 GetProcessTimes；句柄失败双判。
+    设 h 为 k.OpenProcess(4096, 假, pid)。
+    如果 h 等于 空 或 h 等于 0:
+      返回 空。
+    结束。
+    设 创建 为 ctypes.c_ulonglong()。
+    设 退出 为 ctypes.c_ulonglong()。
+    设 内核 为 ctypes.c_ulonglong()。
+    设 用户 为 ctypes.c_ulonglong()。
+    设 ok 为 k.GetProcessTimes(h, ctypes.byref(创建), ctypes.byref(退出), ctypes.byref(内核), ctypes.byref(用户))。
+    k.CloseHandle(h)。
+    如果 ok 等于 0:
+      返回 空。
+    结束。
+    # FILETIME（100ns tick，自 1601-01-01）→ Unix 秒。常数 116444736000000000 tick = 1970 纪元偏移。
+    返回 (创建.value 减去 116444736000000000) / 10000000.0。
+
   # 降级补杀已并入 杀树/等待树清：杀前按记录的原始后代 PID 逐个 /F /PID，不依赖
   # 进程树快照或事后重枚举（根死后孙进程被重新挂靠，按 root 重枚举会漏掉）。
 
@@ -708,6 +732,10 @@
     遍历 x 于 记录:
       已杀键[str(x)] 为 真。
     结束。
+    # [R95-B2] 创建时间下限（秒）：比本树起点早 5s 以上的进程绝不可能为本树后代
+    # （本树后代的创建时间必 ≥ 根进程创建时间 ≈ 己.开始时刻）。5s 容差覆盖启动时戳采样
+    # 相对真实进程创建的微小滞后，不影响对「老 PID 复用」的判定（无关进程通常已存活数分钟以上）。
+    设 下限秒 为 (己.开始时刻 除以 1000.0) 减去 5.0。
     设 轮 为 0。
     设 连续空 为 0。
     设 首杀 为 假。
@@ -746,6 +774,13 @@
           层级 为 层级 加 1。
         结束。
         如果 命中 等于 真:
+          设 创时 为 己._创建时间秒(p)。
+          # [R95-B2] 创建时间闸门：真后代必晚于本树起点出生；若创建时间早于下限
+          # （老进程 PID 被 OS 复用），直接跳过，从根上消除「PID 复用误杀无关进程」。
+          # 取不到创建时间（返回 空）也跳过：宁可漏杀一个可疑进程，绝不误伤无关进程。
+          如果 创时 不等于 空 且 创时 小于 下限秒:
+            继续。
+          结束。
           如果 己.能打开(p):
             subprocess.call(["taskkill", "/F", "/PID", str(p)], -1, 空, 空, subprocess.DEVNULL, subprocess.DEVNULL)。
           结束。

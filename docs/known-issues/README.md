@@ -8,8 +8,8 @@
 
 | 编号 | 标题 | 状态 | 责任人 | 后续入口 | 阻塞发布 |
 |---|---|---|---|---|---|
-| KI-R94-01 | Windows 高负载下 xdist worker 被杀（node down → INTERNALERROR / 挂死） | `open / known-risk`（机理未定性，仅规避） | R95 轮负责人 | [R95-backlog-job-object.md](./R95-backlog-job-object.md) | 否 |
-| KI-R94-02 | W-13 滑动窗口派发时序断言（阈值放宽换来的绿） | `accepted-risk`（**不销账**） | R95 轮负责人 | 去抖动化改造后重标阈值 | 否 |
+| KI-R94-01 | Windows 高负载下 xdist worker 被杀（node down → INTERNALERROR / 挂死） | `resolved (R95)`（误杀面结构性关闭；残余=上游 xdist 高负载脆弱性，已规避） | R95 轮负责人 | [R95-backlog-job-object.md](./R95-backlog-job-object.md) | 否 |
+| KI-R94-02 | W-13 滑动窗口派发时序断言（阈值放宽换来的绿） | `resolved (R95)`（去抖动化完成，已从台账销账） | R95 轮负责人 | 已闭环 | 否 |
 
 ## 约定：什么叫「有状态、有责任人、有后续入口」
 

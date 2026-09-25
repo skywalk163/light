@@ -9,6 +9,8 @@
 ## 0. 三条硬规矩
 
 1. **CPU <80% 才跑**；≥80% → 不跑，结果标 `invalid`，**不判红也不判绿**。
+   ⚠️ 门禁**必要非充分**：它只挡外部负载，全量**自身**峰值可达 ~87%
+   （R94 `r94r1` 实测均值 39.1% / 峰值 86.7%）→ 门禁通过也可能 node down。
 2. **worker 默认 `-n 4`**（已写进 `pyproject.toml` 的 `addopts`，无需手动加）。
    ⚠️ `-n 4` **不是修复**，只是降低资源争抢与暴露面；99% 负载下仍会崩。
 3. **判绿以 0.82 为准**，本机只回答「结构是否干净」（无 node down / 无 INTERNALERROR / 无挂死）。
@@ -47,6 +49,7 @@ python tests/ci_judge_env_reds.py self-check
 | 门禁 PASS + judge 新增红 > 0 | **红** | 逐条取证：是回归还是新环境项（入账需 2/2 隔离绿证据） |
 | 出现 `[gwN] node down` / `INTERNALERROR` / 墙钟超时挂死 | **invalid** | 不判红绿；重开 [KI-R94-01](./known-issues/R94-xdist-worker-kill.md) 检查是否触及回滚条件 |
 | 门禁拒绝（CPU ≥80%） | **invalid** | 换个时间跑；不要 `--force` 后拿结果当结论 |
+| 门禁通过，但运行中出现 `[gwN] node down` / 挂死 | **invalid** | 自身负载也可能触发（见 KI-R94-01 §2.1）；本轮作废重跑，不计入「干净轮」 |
 
 ## 3. 支持矩阵（R94 冻结版）
 
