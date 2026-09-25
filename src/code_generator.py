@@ -2812,7 +2812,7 @@ class PythonCodeGenerator:
     def _generate_compound_assignment(self, stmt):
         """生成复合赋值语句：甲 加上 1 → 甲 += 1"""
         # R72-A（L-172）：目标命中块级作用域 → 写 mangled 名
-        #（`令 计数 为 0` 后 `计数 加为 1` 必须落在块级变量上）。
+        # （`令 计数 为 0` 后 `计数 加为 1` 必须落在块级变量上）。
         target = self._resolve_block_scope_name(stmt.target) or self._sanitize_name(stmt.target)
         # 运算符映射
         py_ops = {
@@ -3887,7 +3887,7 @@ class PythonCodeGenerator:
         
         elif isinstance(expr, ParagraphCall):
             # L-055：写族裸调用 写 n / 写 表达式 —— 非字符串实参自动 str()
-            #（见 _try_merge_output_concat 形态③）。
+            # （见 _try_merge_output_concat 形态③）。
             _merged = self._try_merge_output_concat(expr)
             if _merged is not None:
                 return _merged

@@ -37,6 +37,17 @@
 #   lighting/.gitea/workflows/ci.yml
 name: CI
 
+# ── 跨平台编码基线（GitHub Actions 首跑实测，2026-09-25）────────────────────
+# Windows runner 的默认 locale 是 cp1252（en-US），Python 的 open()/print()
+# 默认走 charmap 编解码，一碰中文源码或中文输出就 UnicodeEncodeError。
+# 首跑 windows 四份矩阵共 25 条红，其中绝大多数签名就是这个（另有一批
+# 是「第 N 行对拍失败：期望 你好光明、实际 乱码」的同源 mojibake）。
+# 开 UTF-8 模式（PEP 540）把默认编码统一钉成 UTF-8：POSIX 上同样受益
+# ——消除 runner locale 差异带来的「同一份代码两种结果」。
+env:
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: "utf-8"
+
 on:
   push:
     branches: [main]

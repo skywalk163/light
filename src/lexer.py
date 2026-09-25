@@ -143,7 +143,7 @@ COMMON_COMPOUND_WORDS = frozenset({
     #     语料 X类型 形态众多，故走整串口径而非前向并入）。
     #   三重判据全通过（证据 lightharness/_task3_R30_零除幂次记录类型通用化.md），
     #   原「真护栏 / 隔离非中立」标注作废。
-# 【R30 任务4 精简】删除最后 1 条（测试_生成问候语）：
+    # 【R30 任务4 精简】删除最后 1 条（测试_生成问候语）：
     #   新增 ASCII下划线+Han 粘连通用规则（汉字+下划线前缀后随汉字 → 整词并入，
     #   见 _tokenize_identifier_or_keyword 汉字后缀循环；前缀未被预扫描截断注册时生效），
     #   三重判据全通过（语料零命中 / 隔离并入 / 全语料 token 零变化），
@@ -2815,7 +2815,7 @@ class Lexer:
                 # 旧行为把 配 发成 KEYWORD，本行被解析成「匹配 [0]:」→ codegen
                 # 产出 match 空体 → 运行期报误导性缩进错误。
                 # 判据收窄（四条同时成立）：单字、整段即该字、该字在 compound-safe
-                #（具备构词能力的别名字）、后随 '['。`设 配 为 [...]`（后随空格）
+                # （具备构词能力的别名字）、后随 '['。`设 配 为 [...]`（后随空格）
                 # 与 `配 模式:`（匹配语句）均不受影响。
                 if (length == 1 and len(full_identifier) == 1
                         and (keyword in _P0A_HEAD_MERGE_SINGLE
@@ -2823,7 +2823,7 @@ class Lexer:
                         and pos + 1 < n and source[pos + 1] == '['):
                     skip_verb = True
                 # R26 任务1：词首并入正面规则 —— 词首单字关键字后随汉字时并入标识符
-                #（有效类别 = `_P0A_HEAD_MERGE_SINGLE`；R28 任务3 CS 已清零，该类别即
+                # （有效类别 = `_P0A_HEAD_MERGE_SINGLE`；R28 任务3 CS 已清零，该类别即
                 # 单字词首并入的唯一正面锚）。
                 # 后随汉字判据：full_identifier 是多字汉字串，[1] 即关键字右侧首字。
                 if (length == 1 and len(full_identifier) > 1
@@ -3070,7 +3070,7 @@ class Lexer:
                                        and self._p0a_head_merge_tail(
                                            sub_kw, full_identifier, scan_pos,
                                            sub_len, source, i, consumed)))):
-                            #（scan_pos==0 且后随汉字）→ 跳过，不标记内嵌关键字。
+                            # （scan_pos==0 且后随汉字）→ 跳过，不标记内嵌关键字。
                             # 与输出循环判据严格一致（否则探测/输出不一致会走错分支）。
                             # R27 任务2：L-119 嵌入扫描等价——独立单字（整段即该字）
                             # + 后随 '[' 下标访问（段[1]/配[0]/对[0]）→ 不标记内嵌，
@@ -3115,7 +3115,7 @@ class Lexer:
                                 # 类别由 `self._TRAILING_ALIAS_CLASS` 通用推导
                                 # （R25 任务1 后为 43 字），无逐词白名单。
                                 # R27 任务1：DUAL 双位字（到/真/…）词尾+前导汉字 → 并入
-                                #（`文件未找到`/`标准输出失真` 整体成词）；独立单字
+                                # （`文件未找到`/`标准输出失真` 整体成词）；独立单字
                                 # （`返回 真`）scan_pos==0 不触发，仍按值字面量切分。
                                 skip_kw = True
 
@@ -4425,5 +4425,3 @@ assert frozenset(
         if len(_kw) == 1 and _kw not in Lexer._P0A_OP
         and _kw not in _VALUE_LITERAL_KEYWORDS)
         - (_P0A_SINGLE_CHAR_PROTECTED | _P0A_HEAD_SPLIT_SINGLE)))
-
-

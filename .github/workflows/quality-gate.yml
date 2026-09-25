@@ -28,6 +28,12 @@
 
 name: Quality Gate
 
+# 与 ci.yml 同源的编码基线（GitHub Actions 首跑实测）：统一 UTF-8，消除 runner
+# locale 差异。本文件虽只在 ubuntu 跑，但保持两处口径一致，避免将来加矩阵时
+# 又要重新踩一遍 cp1252 的坑。
+env:
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: "utf-8"
 
 on:
   push:
@@ -94,8 +100,12 @@ jobs:
       - name: 安装依赖
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest pytest-cov
-          python -m pip install "antlr4-python3-runtime>=4.13.0"
+          # ⚠️ pytest-xdist / pytest-timeout 是 addopts 的硬依赖（与 ci.yml 同口径）：
+          # pyproject 的 addopts 写死 `--timeout=60 -n 4 --dist=loadscope`，缺插件时
+          # pytest 直接 `unrecognized arguments` 起不来（首跑 3 份矩阵全挂在 exit 4）。
+          python -m pip install pytest pytest-cov pytest-xdist pytest-timeout
+          python -m pip install "antlr4-python3-runtime==4.13.2" "lunardate==0.3.0" psutil
+          python -m pip install requests cryptography
           python -m pip install numpy sympy pandas
           python -m pip install matplotlib requests scikit-learn || true
           # Playground 依赖
