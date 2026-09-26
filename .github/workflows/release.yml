@@ -13,6 +13,17 @@
 
 name: Release
 
+# 与 ci.yml 同源的编码基线（GitHub Actions 首跑实测）：Windows runner 默认 locale
+# 是 cp1252，`python -c "print('中文')"` / `open()` 走 charmap 编解码，一碰中文就
+# UnicodeEncodeError。首跑 v7.0.0 时「构建可执行文件 (windows-latest)」正是挂在
+# `encodings/cp1252.py ... UnicodeEncodeError`，导致下游「创建 GitHub Release /
+# 发布到 PyPI / 部署文档站点」三步被 skip。
+# ⚠️ 本文件是**调用方**：`uses: ./.github/workflows/ci.yml` 的可复用工作流**不会**
+#    继承这里的 env，所以 ci.yml 自己也必须有一份（已加）。
+env:
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: "utf-8"
+
 on:
   push:
     tags:
