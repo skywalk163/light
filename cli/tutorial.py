@@ -94,7 +94,7 @@ def _find_tutorial() -> str:
         return path
     raise FileNotFoundError(
         "找不到教程文件 tutorial_30min.light。\n"
-        "请确保 light 包已正确安装：pip install light"
+        "请确保 light 包已正确安装：pip install lightgm"
     )
 
 

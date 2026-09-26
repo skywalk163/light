@@ -8,7 +8,7 @@
 ### 从 PyPI 安装（推荐）
 
 ```bash
-pip install light
+pip install lightgm
 ```
 
 安装后即可使用 `light` 命令：

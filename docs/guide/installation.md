@@ -8,7 +8,7 @@
 ## 通过 pip 安装
 
 ```bash
-pip install light
+pip install lightgm
 ```
 
 ## 从源码安装

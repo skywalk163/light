@@ -73,7 +73,7 @@
 - 操作系统：Windows 11
 - Python 版本：3.12.0
 - 光明版本：v7.0
-- 安装方式：pip install light
+- 安装方式：pip install lightgm
 ```
 
 ### 💬 GitHub Discussions
@@ -195,7 +195,7 @@
 - 操作系统：macOS 14.5
 - Python 版本：3.12.3
 - 光明版本：v7.0
-- 安装方式：pip install light
+- 安装方式：pip install lightgm
 
 ## 期望行为
 应该能成功编译并生成可执行文件。

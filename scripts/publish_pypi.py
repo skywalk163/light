@@ -136,7 +136,7 @@ def publish(dist_dir, repository, check_only):
                 print("  ❌ 发布失败！", file=sys.stderr)
                 sys.exit(1)
             print("  ✅ 发布成功！")
-            print(f"  查看: https://pypi.org/project/light/")
+            print(f"  查看: https://pypi.org/project/lightgm/")
         except FileNotFoundError:
             print("  ❌ twine 未安装，请先安装: pip install twine", file=sys.stderr)
             sys.exit(1)

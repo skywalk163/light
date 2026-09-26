@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "light"
+name = "lightgm"
 version = "7.0.0"
 description = "光明（Light）v7.0 — 像中文一样的中文自然语言编程语言（五层分层语法架构 · 自举编译器 · 积木库）"
 readme = "README.md"
