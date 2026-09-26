@@ -40,8 +40,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "附加任务:"
 
 [Files]
-; 光明核心文件（whl 名必须与 pyproject.toml 的 name 一致，当前为 light）
-Source: "..\..\dist\light-{#MyAppVersion}-py3-none-any.whl"; DestDir: "{app}\dist"; Flags: ignoreversion
+; 光明核心文件（whl 名必须与 pyproject.toml 的 name 一致，当前为 lightgm）
+Source: "..\..\dist\lightgm-{#MyAppVersion}-py3-none-any.whl"; DestDir: "{app}\dist"; Flags: ignoreversion
 Source: "..\..\src\*"; DestDir: "{app}\src"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\cli\*"; DestDir: "{app}\cli"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\stdlib\*"; DestDir: "{app}\stdlib"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -60,11 +60,11 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{commondesktop}\{#MyAppName}"; Filename: "{cmd}"; Parameters: "/k light"; Tasks: desktopicon
 
 [Run]
-Filename: "{cmd}"; Parameters: "/C pip install --user {app}\dist\light-{#MyAppVersion}-py3-none-any.whl"; Description: "安装光明到 Python 环境"; Flags: postinstall runascurrentuser
+Filename: "{cmd}"; Parameters: "/C pip install --user {app}\dist\lightgm-{#MyAppVersion}-py3-none-any.whl"; Description: "安装光明到 Python 环境"; Flags: postinstall runascurrentuser
 
 [UninstallRun]
 ; 顺带清掉 duan 时期用同一个 AppId 装下的旧 PyPI 包，避免 light 与 duan 两套入口点并存
-Filename: "{cmd}"; Parameters: "/C pip uninstall light -y"; Flags: runhidden
+Filename: "{cmd}"; Parameters: "/C pip uninstall lightgm -y"; Flags: runhidden
 Filename: "{cmd}"; Parameters: "/C pip uninstall duan -y"; Flags: runhidden
 
 [Code]

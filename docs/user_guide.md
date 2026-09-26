@@ -49,7 +49,7 @@ light hello.light
 **方式一：通过 PyPI 安装**
 
 ```bash
-pip install light
+pip install lightgm
 ```
 
 **方式二：从源码安装**

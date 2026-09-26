@@ -14,7 +14,7 @@
 
 | 步骤 | 命令 | 说明 |
 |------|------|------|
-| 1 | `pip install light` | 安装光明 |
+| 1 | `pip install lightgm` | 安装光明 |
 | 2 | `echo '打印 "你好，世界！"' > hello.light` | 创建第一个程序 |
 | 3 | `light run hello.light` | 运行！ |
 

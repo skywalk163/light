@@ -197,7 +197,7 @@
 
 #### Q: 如何安装光明？
 ```bash
-pip install light
+pip install lightgm
 ```
 安装完成后运行 `light --version` 验证。
 

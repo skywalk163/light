@@ -6,7 +6,7 @@
 
 | 资产 | 仓库 / 位置 | 是什么 | 怎么用 | 适合谁 |
 |---|---|---|---|---|
-| **语言本体** | `light-merge`（本仓） | 编译器 + CLI + `src/stdlib/` | `pip install light` 后写 `.light` | 所有使用者 |
+| **语言本体** | `light-merge`（本仓） | 编译器 + CLI + `src/stdlib/` | `pip install lightgm` 后写 `.light` | 所有使用者 |
 | **运行时包 lightpub** | `light-merge/stdlib/lightpub/` | 可 `导入` 的 Python 桥接运行时包（56 模块 + 元数据） | `导入 HTTP客户端` 等，随语言分发 | 需要 IO / 网络 / 加密的开发者 |
 | **积木库 lighting** | 独立仓 `lighting`（14222 积木 / 45 领域） | 领域能力单元（积木），靠索引 + 选块器消费，**非 import 式** | `索引.json` + `选块.py` 检索 → 落地为代码 | 想复用「领域积木」的开发者 |
 | **复刻 harness** | 独立仓 `lightharness` | 用光明 1:1 复刻的 agent harness（889 个 `.light`） | 跑 LLM agent 评测 / 二次开发 | 研究 / 复刻派 |

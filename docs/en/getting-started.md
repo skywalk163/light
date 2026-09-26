@@ -15,7 +15,7 @@
 ### Install from PyPI (Recommended)
 
 ```bash
-pip install light
+pip install lightgm
 ```
 
 After installation, verify the CLI tool:

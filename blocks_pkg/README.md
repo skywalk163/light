@@ -24,7 +24,7 @@ uvicorn light_blocks.api:app --port 8123
 
 - **零 token 常态**：选块/校验/接线/粘合全本地（概念图 + TF-IDF 混合选块，不调 LLM）。
 - **兜底沉淀**：仅能力缺失时经 LLM（或本地规则）生成新积木并永久入库存，下次零 token 复用。
-- **运行依赖**：光明运行时（`pip install light`）；拼音/繁简/历法等可选
+- **运行依赖**：光明运行时（`pip install lightgm`）；拼音/繁简/历法等可选
   `pip install light-blocks[zh]`（pypinyin / opencc / lunardate）。
 - **定位**：`LIGHT_BLOCKS_LIB` 环境变量 → 包内数据（wheel 自带 `_data/积木库`）→ 仓库内。
 - **构建发布**：先 `python blocks_pkg/打包数据.py` 复制积木库数据，再 `python -m build blocks_pkg` 产出 sdist+wheel。

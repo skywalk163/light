@@ -173,7 +173,7 @@ pip install -e .
 **Method B: install from PyPI (use only)**
 
 ```bash
-pip install light
+pip install lightgm
 ```
 
 Verify after install:

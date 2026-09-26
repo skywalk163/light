@@ -204,7 +204,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/light/
+      url: https://pypi.org/project/lightgm/
     steps:
       - uses: actions/checkout@v7
 
