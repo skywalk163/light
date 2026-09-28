@@ -483,7 +483,8 @@ def _module_has_imports(source: str) -> bool:
 def compile_light_typed(source_path: str, output_path: str = None, verbose: bool = False,
                         target_platform: str = None, target: str = None,
                         optimize_level: int = 2, debug: bool = False,
-                        optimize_size: bool = False, lto: bool = False, strip: bool = False):
+                        optimize_size: bool = False, lto: bool = False, strip: bool = False,
+                        search_paths: list = None):
     """
     编译 .light 文件为原生可执行文件（typed 模式）
 
@@ -519,6 +520,7 @@ def compile_light_typed(source_path: str, output_path: str = None, verbose: bool
             target_platform=target_platform, target=target,
             optimize_level=optimize_level, debug=debug,
             optimize_size=optimize_size, lto=lto, strip=strip,
+            search_paths=search_paths,
         )
 
     # 检测目标架构
@@ -1112,17 +1114,45 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
     return ir
 
 
+def _project_root_of(source_dir: str) -> str:
+    """返回 source_dir 所属项目的根目录。
+
+    向上找第一个带项目标记（pyproject.toml / setup.py / setup.cfg / .git）的祖先即为止。
+    以项目为界，原生腿的搜索路径就不会越过边界、误入兄弟项目（如 lightharness）的
+    stdlib —— 这正是 R98 §3.1「ubuntu 偶发 1 条原生腿红」的根因：旧实现一路向上走到
+    磁盘根 + 并入 os.getcwd()，把兄弟项目的 hollow shell stdlib 也纳入了搜索范围。
+    """
+    markers = ('pyproject.toml', 'setup.py', 'setup.cfg', '.git')
+    cur = os.path.abspath(source_dir)
+    while True:
+        for m in markers:
+            if os.path.exists(os.path.join(cur, m)):
+                return cur
+        parent = os.path.dirname(cur)
+        if not parent or parent == cur:
+            return cur
+        cur = parent
+
+
 def _native_search_paths(source_dir: str) -> list:
-    """原生腿的模块搜索路径。
+    """原生腿的模块搜索路径（R98 §3.1 修复：项目隔离 + 真实 stdlib 锚定）。
 
-    此前原生腿只传 ``[source_dir]``，项目自带的 stdlib（如 lightharness/stdlib 下的
-    SSE.light）根本解析不到，报「模块未找到: 'SSE'」——同一个项目用 src 后端却是好的，
-    因为 ``ModuleResolver()`` 不传参时默认含 ``['.', 光明stdlib, contrib]``。
+    旧实现的缺陷：从入口目录一路向上走到磁盘根、并并入 ``os.getcwd()``，导致搜索路径
+    把兄弟项目（如 ``lightharness/stdlib``，那里是「纯导出清单 + .py 影子」的 hollow
+    shell）也纳入。原生腿编译 stdlib 模块时偶发解析到 hollow shell → 误报
+    「decl 0 空壳」/「未定义的段落」。这就是 R98 报告 §3.1 记录的
+    「ubuntu 偶发 1 条原生腿红」的真因（在 CI 上因 cwd / worker 顺序不同而「偶发」，
+    本地则稳定复现）。
 
-    这里按「自入口目录逐级向上找 stdlib」补齐，两种项目布局都能覆盖：
-      - 入口在 src/ 下（lightharness/src/总入口.light）→ 祖先的 lightharness/stdlib
-      - 入口就在项目根（proj/总入口.light）          → 自身的 proj/stdlib
-    另外并入光明自带 stdlib/contrib，与 src 后端口径一致。
+    新实现（确定性、与 cwd 无关）：
+      1) 入口目录——局部模块优先。
+      2) 光明自带、永远含**真实** ``.light`` 实现的 stdlib/contrib（canonical），放在
+         最前兜底。任何入口（含 lightharness 入口）导入标准库都解析到这里，绝不会落到
+         兄弟项目的 hollow shell。
+      3) 入口所属项目（以项目标记为界）自带的 stdlib——覆盖「入口与 stdlib 同项目、
+         但 canonical 尚未收录」的本地模块；项目之外的兄弟项目 stdlib 一律不纳入。
+      4) 不再并入 ``os.getcwd()``：cwd 随 worker / CI 漂移，是跨项目误解析与
+         「偶发红」的根因之一，必须去除。
     """
     paths = []
     seen = set()
@@ -1133,21 +1163,10 @@ def _native_search_paths(source_dir: str) -> list:
             seen.add(p)
             paths.append(p)
 
+    # 1) 入口目录：局部模块优先
     _add(source_dir)
 
-    # 自入口目录向上找含 stdlib/ 的祖先（最多 6 层，避免一路走到磁盘根）
-    cur = os.path.abspath(source_dir)
-    for _ in range(6):
-        parent = os.path.dirname(cur)
-        if not parent or parent == cur:
-            break
-        cur = parent
-        stdlib_candidate = os.path.join(cur, 'stdlib')
-        if os.path.isdir(stdlib_candidate):
-            _add(stdlib_candidate)
-        _add(cur)
-
-    # 光明自带 stdlib / contrib（与 ModuleResolver() 默认一致）
+    # 2) 光明自带、真实实现的 stdlib / contrib（canonical，最前兜底）
     _llvm_dir = os.path.dirname(os.path.abspath(__file__))       # .../src/llvm
     _light_root = os.path.dirname(os.path.dirname(_llvm_dir))    # 仓库根
     for cand in (os.path.join(_light_root, 'stdlib'),
@@ -1155,7 +1174,21 @@ def _native_search_paths(source_dir: str) -> list:
         if os.path.isdir(cand):
             _add(cand)
 
-    _add(os.getcwd())
+    # 3) 入口所属项目（项目标记为界）自带的 stdlib：只收本项目内的，不越界到兄弟项目
+    root = _project_root_of(source_dir)
+    cur = os.path.abspath(source_dir)
+    while True:
+        stdlib_candidate = os.path.join(cur, 'stdlib')
+        if os.path.isdir(stdlib_candidate):
+            _add(stdlib_candidate)
+        if cur == root:
+            break
+        parent = os.path.dirname(cur)
+        if not parent or parent == cur:
+            break
+        cur = parent
+
+    # 注意：不再 _add(os.getcwd()) —— 见 docstring 第 4 点。
     return paths
 
 
@@ -1179,7 +1212,8 @@ def _is_python_module(name: str) -> bool:
 def compile_light_project(source_path: str, output_path: str = None, verbose: bool = False,
                           target_platform: str = None, target: str = None,
                           optimize_level: int = 2, debug: bool = False,
-                          optimize_size: bool = False, lto: bool = False, strip: bool = False):
+                          optimize_size: bool = False, lto: bool = False, strip: bool = False,
+                          search_paths: list = None):
     """
     编译光明项目为原生可执行文件（支持多模块）
 
@@ -1211,9 +1245,12 @@ def compile_light_project(source_path: str, output_path: str = None, verbose: bo
         source = f.read()
 
     source_dir = os.path.dirname(os.path.abspath(source_path))
-    # 此前只搜 source_dir，项目自带 stdlib（lightharness/stdlib）里的模块解析不到。
-    # 改为「入口目录 + 逐级向上找到的 stdlib + 光明自带 stdlib/contrib」。
-    resolver = ModuleResolver(search_paths=_native_search_paths(source_dir))
+    # 搜索路径：默认按入口项目隔离 + canonical 锚定（见 _native_search_paths）。
+    # search_paths 覆盖主要供测试隔离使用——例如把待测模块放进临时 stdlib，
+    # 避免触碰/污染真实的 light-merge/stdlib。
+    resolver = ModuleResolver(
+        search_paths=search_paths if search_paths is not None
+        else _native_search_paths(source_dir))
 
     # 递归收集所有依赖的模块
     sources = {}

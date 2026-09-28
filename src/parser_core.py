@@ -325,11 +325,38 @@ class LightParserCore:
         self._n_tokens = len(self.tokens)  # 缓存长度，供 _current/_peek 等热路径使用
         self.pos = 0
         
+        # LP-D-006：一次性预扫描每个 token 所处的括号深度（O(n)），
+        # 供 _skip_implicit_continuation 判定「行尾运算符续行」是否发生在
+        # 括号外——括号内跨行是合法语法（L-023 前就有），括号外行尾续行
+        # 按任务口径直接报语法错。
+        self._token_depth = self._lpd006_scan_bracket_depth(self.tokens)
+        
         # 保存源代码行用于错误上下文显示
         self._source_lines = source.splitlines()
         
         # 解析模块
         return self._parse_module_with_recovery()
+    
+    @staticmethod
+    def _lpd006_scan_bracket_depth(tokens):
+        """LP-D-006：计算 token 流中每个位置的括号深度。
+
+        深度在「括号打开后的第一个 token」起计为 >=1，闭合括号本身所在的
+        位置仍记其内部深度（闭合后下一位置回落）。只认成对的
+        LPAREN/RPAREN、LBRACKET/RBRACKET、LBRACE/RBRACE。
+        """
+        _OPEN = {TokenType.LPAREN, TokenType.LBRACKET, TokenType.LBRACE}
+        _CLOSE = {TokenType.RPAREN, TokenType.RBRACKET, TokenType.RBRACE}
+        depths = [0] * len(tokens)
+        depth = 0
+        for i, t in enumerate(tokens):
+            depths[i] = depth
+            if t.type in _OPEN:
+                depth += 1
+            elif t.type in _CLOSE:
+                if depth > 0:
+                    depth -= 1
+        return depths
     
     def _parse_module_with_recovery(self) -> Module:
         """T1.4: 带错误恢复的模块解析

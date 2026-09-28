@@ -293,6 +293,17 @@ _CHINESE_DIGITS = {
     '十': 10, '百': 100, '千': 1000, '万': 10000,
 }
 
+# LP-D-003：数值 → 常见中文数字词的反查（报错文案用，覆盖 0~99；
+# 更大的值回落为阿拉伯数字展示，不影响诊断本身）。
+_LPD_VALUE_TO_CN_NUMERAL = {
+    0: '零', 1: '一', 2: '二', 3: '三', 4: '四', 5: '五',
+    6: '六', 7: '七', 8: '八', 9: '九', 10: '十',
+    11: '十一', 12: '十二', 13: '十三', 14: '十四', 15: '十五',
+    16: '十六', 17: '十七', 18: '十八', 19: '十九', 20: '二十',
+    30: '三十', 40: '四十', 50: '五十', 60: '六十', 70: '七十',
+    80: '八十', 90: '九十', 100: '一百', 1000: '一千', 10000: '一万',
+}
+
 # 中文引号映射（模块级常量，避免重复创建）
 _QUOTE_MAP = {
     '「': '"', '」': '"',
@@ -1109,7 +1120,36 @@ class Lexer:
             if _tok.type == TokenType.KEYWORD and _tok.value in _BREAK_ALIAS:
                 _tok.value = _BREAK_ALIAS[_tok.value]
         
+        # LP-D-003：中文数字被当下标名/标识符使用的编译期守卫。
+        # 未声明的中文数字（如 六）会发成 CHINESE_NUM(6)；若其后紧跟 `[`，
+        # 说明用户把它当标识符/下标名用了（`六["级别"]` → 静默编成 6["级别"]，
+        # 运行期才报英文 'int' object is not subscriptable 且行号对不上）。
+        # 已被「设」声明的中文数字在 user_definitions 预扫描后发 IDENTIFIER，
+        # 不会出现在这里，声明过的照常工作。
+        # 在词法出口统一拦截：编译期即给中文报错，不再放行到运行期。
+        self._lpd003_check_cn_num_subscript(tokens)
+        
         return tokens
+    
+    @staticmethod
+    def _lpd003_check_cn_num_subscript(tokens):
+        """LP-D-003：CHINESE_NUM 后紧跟 `[` 时报明确中文词法错误。"""
+        _skip_types = (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT)
+        for _idx, _tok in enumerate(tokens):
+            if _tok.type != TokenType.CHINESE_NUM:
+                continue
+            _j = _idx + 1
+            while _j < len(tokens) and tokens[_j].type in _skip_types:
+                _j += 1
+            if _j < len(tokens) and tokens[_j].type == TokenType.LBRACKET:
+                _val = _tok.value
+                _word = _LPD_VALUE_TO_CN_NUMERAL.get(_val, str(_val))
+                raise LexerError(
+                    f"「{_word}」是中文数字（值 {_val}），会被当成数字字面量，"
+                    "不可作标识符/下标名使用。"
+                    f"若要用它作变量名，请先声明：设 {_word} 为 …"
+                    "（声明后会按标识符处理）；否则请改用非数字名称。",
+                    _tok.line, _tok.col)
     
     def _is_han(self, ch: str) -> bool:
         """判断是否为汉字（直接委托给模块级快速函数）"""

@@ -371,37 +371,40 @@ def test_re引擎_正则模块依赖可解析():
 # 5. 反跑判据：空壳 → 红
 # ══════════════════════════════════════════════════════════════════════
 
-def _空壳判红(模块, 文件路径, 导出串, 调用行):
-    """子进程隔离编译空壳，期望编译失败（stderr 含 'decl 0 空壳'）。"""
-    with open(文件路径, 'r', encoding='utf-8') as f:
-        原始 = f.read()
-    空壳 = '# 空壳测试\n' + 导出串 + '\n'
-    try:
-        with open(文件路径, 'w', encoding='utf-8', newline='\n') as f:
+def _空壳判红(模块, 导出串, 调用行):
+    """隔离编译「空壳 .light」依赖，期望编译失败（NativeImportError: decl 0 空壳）。
+
+    R98 §3.1 修复：旧实现把 shell 原地写回共享的 light-merge/stdlib/<模块>.light（并依赖
+    finally 还原），在 xdist ``-n 4`` 并行下会与其余用例争抢同一文件，造成「偶发」的
+    decl 0 空壳红。这里改为把 shell + 同名 .py 影子写进临时项目的临时 stdlib，并用
+    ``search_paths`` 覆盖，完全隔离、零污染、零竞态。
+    """
+    from llvm.compiler import NativeImportError, compile_light_typed
+    with _tempfile.TemporaryDirectory(prefix='_taskT6a_shell_') as proj:
+        _sl = os.path.join(proj, 'stdlib')
+        os.makedirs(_sl, exist_ok=True)
+        空壳 = '# 空壳测试\n' + 导出串 + '\n'
+        with open(os.path.join(_sl, 模块 + '.light'), 'w', encoding='utf-8', newline='\n') as f:
             f.write(空壳)
+        # decl 0 空壳拦截要求「.light 是 0 段落」且「存在同名 .py 实现」
+        with open(os.path.join(_sl, 模块 + '.py'), 'w', encoding='utf-8', newline='\n') as f:
+            f.write('# 影子实现（占位）\n')
         code = '从 ' + 模块 + ' 导入 ' + 调用行 + '\n段落 主:\n  输出(1)\n'
-        with _tempfile.TemporaryDirectory(prefix='_taskT6a_') as d:
-            src = os.path.join(d, '主.light')
-            exe = os.path.join(d, '产物')
-            with open(src, 'w', encoding='utf-8', newline='\n') as f:
-                f.write(code)
-            r = _subproc.run([sys.executable, _HELPER, src, exe, '0', '--compile-only'],
-                             capture_output=True, timeout=120)
-            assert r.returncode != 0, f"空壳应编译失败但返回 0，stderr={r.stderr.decode('utf-8','replace')[:200]}"
-            err = r.stderr.decode('utf-8', errors='replace')
-            assert 'decl 0 空壳' in err, f"stderr 应含 'decl 0 空壳'，实际={err[:300]}"
-    finally:
-        with open(文件路径, 'w', encoding='utf-8', newline='\n') as f:
-            f.write(原始)
+        src = os.path.join(proj, '主.light')
+        exe = os.path.join(proj, '产物')
+        with open(src, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(code)
+        with pytest.raises(NativeImportError, match='decl 0 空壳'):
+            compile_light_typed(src, exe, optimize_level=0, search_paths=[proj, _sl])
 
 
 def test_反跑_正则表达式空壳_编译失败():
-    _空壳判红('正则表达式', _RE_LIGHT, '导出 完全匹配 匹配 搜索。', '完全匹配')
+    _空壳判红('正则表达式', '导出 完全匹配 匹配 搜索。', '完全匹配')
 
 
 def test_反跑_格式化空壳_编译失败():
-    _空壳判红('格式化', _FMT_LIGHT, '导出 文本居中 文本换行。', '文本居中')
+    _空壳判红('格式化', '导出 文本居中 文本换行。', '文本居中')
 
 
 def test_反跑_模板空壳_编译失败():
-    _空壳判红('模板', _TPL_LIGHT, '导出 渲染模板。', '渲染模板')
+    _空壳判红('模板', '导出 渲染模板。', '渲染模板')

@@ -379,90 +379,52 @@ def test_O0_三模块联合_数学统计排序():
 
 # ── 5. 反跑判据：空壳 → 红 ─────────────────────────────────────────────
 
-def test_反跑_数学空壳_编译失败():
-    """恢复数学.light为空壳（去掉段落实现）→ 编译应报 NativeImportError。"""
+def _隔离空壳判红(模块: str, 导出串: str, 调用行: str):
+    """隔离编译「空壳 .light」依赖，期望编译失败（NativeImportError: decl 0 空壳）。
+
+    R98 §3.1 修复：旧实现把 shell 原地写回共享的 light-merge/stdlib/<模块>.light，在
+    xdist ``-n 4`` 并行下会与其余用例争抢同一文件，造成「偶发」的 decl 0 空壳红。这里改为
+    把 shell + 同名 .py 影子写进临时项目的临时 stdlib，并用 ``search_paths`` 覆盖，
+    完全隔离、零污染、零竞态——既不触碰真实 light-merge/stdlib，也不污染其它并行用例。
+    """
     from llvm.compiler import NativeImportError, compile_light_typed
-    # 备份原文件
-    with open(_MATH_LIGHT, 'r', encoding='utf-8') as f:
-        原始 = f.read()
-    空壳 = (
-        '# 纯光明实现\n'
-        '# 空壳测试\n'
-        '导出 绝对值 平方根。\n'
-    )
-    try:
-        with open(_MATH_LIGHT, 'w', encoding='utf-8', newline='\n') as f:
+    with _tempfile.TemporaryDirectory(prefix='_taskT5a_shell_') as proj:
+        _sl = os.path.join(proj, 'stdlib')
+        os.makedirs(_sl, exist_ok=True)
+        空壳 = '# 纯光明实现\n# 空壳测试\n' + 导出串 + '\n'
+        with open(os.path.join(_sl, 模块 + '.light'), 'w', encoding='utf-8', newline='\n') as f:
             f.write(空壳)
-        code = (
-            '从 数学 导入 平方根\n'
-            '段落 主:\n'
-            '  输出(平方根(16))\n'
-        )
-        with _tempfile.TemporaryDirectory(prefix='_taskT5a_') as d:
-            src = os.path.join(d, '主.light')
-            with open(src, 'w', encoding='utf-8', newline='\n') as f:
-                f.write(code)
-            with pytest.raises(NativeImportError, match='decl 0 空壳'):
-                compile_light_typed(src, os.path.join(d, '产物'), optimize_level=0)
-    finally:
-        with open(_MATH_LIGHT, 'w', encoding='utf-8', newline='\n') as f:
-            f.write(原始)
+        # decl 0 空壳拦截要求「.light 是 0 段落」且「存在同名 .py 实现」
+        with open(os.path.join(_sl, 模块 + '.py'), 'w', encoding='utf-8', newline='\n') as f:
+            f.write('# 影子实现（占位）\n')
+        code = '从 ' + 模块 + ' 导入 ' + 调用行 + '\n段落 主:\n  输出(1)\n'
+        src = os.path.join(proj, '主.light')
+        exe = os.path.join(proj, '产物')
+        with open(src, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(code)
+        with pytest.raises(NativeImportError, match='decl 0 空壳'):
+            compile_light_typed(src, exe, optimize_level=0, search_paths=[proj, _sl])
+
+
+def test_反跑_数学空壳_编译失败():
+    """数学.light 为空壳（去掉段落实现）→ 编译应报 NativeImportError。
+
+    见 ``_隔离空壳判红``：不再原地改写共享的 light-merge/stdlib/数学.light。
+    """
+    _隔离空壳判红('数学', '导出 绝对值 平方根。', '平方根')
 
 
 def test_反跑_统计空壳_编译失败():
-    """恢复统计.light为空壳 → 编译应报 NativeImportError。"""
-    from llvm.compiler import NativeImportError, compile_light_typed
-    with open(_STAT_LIGHT, 'r', encoding='utf-8') as f:
-        原始 = f.read()
-    空壳 = (
-        '# 纯光明实现\n'
-        '# 空壳测试\n'
-        '导出 均值。\n'
-    )
-    try:
-        with open(_STAT_LIGHT, 'w', encoding='utf-8', newline='\n') as f:
-            f.write(空壳)
-        code = (
-            '从 统计 导入 均值\n'
-            '段落 主:\n'
-            '  输出(均值([1, 2, 3]))\n'
-        )
-        with _tempfile.TemporaryDirectory(prefix='_taskT5a_') as d:
-            src = os.path.join(d, '主.light')
-            with open(src, 'w', encoding='utf-8', newline='\n') as f:
-                f.write(code)
-            with pytest.raises(NativeImportError, match='decl 0 空壳'):
-                compile_light_typed(src, os.path.join(d, '产物'), optimize_level=0)
-    finally:
-        with open(_STAT_LIGHT, 'w', encoding='utf-8', newline='\n') as f:
-            f.write(原始)
+    """统计.light 为空壳 → 编译应报 NativeImportError。
+
+    见 ``_隔离空壳判红``：不再原地改写共享的 light-merge/stdlib/统计.light。
+    """
+    _隔离空壳判红('统计', '导出 均值。', '均值')
 
 
 def test_反跑_排序空壳_编译失败():
-    """恢复排序.light为空壳 → 编译应报 NativeImportError。"""
-    from llvm.compiler import NativeImportError, compile_light_typed
-    with open(_SORT_LIGHT, 'r', encoding='utf-8') as f:
-        原始 = f.read()
-    空壳 = (
-        '# 纯光明实现\n'
-        '# 空壳测试\n'
-        '导出 排序。\n'
-    )
-    try:
-        with open(_SORT_LIGHT, 'w', encoding='utf-8', newline='\n') as f:
-            f.write(空壳)
-        code = (
-            '从 排序 导入 排序\n'
-            '段落 主:\n'
-            '  设 r 为 排序([3, 1, 2])\n'
-            '  输出(r[0])\n'
-        )
-        with _tempfile.TemporaryDirectory(prefix='_taskT5a_') as d:
-            src = os.path.join(d, '主.light')
-            with open(src, 'w', encoding='utf-8', newline='\n') as f:
-                f.write(code)
-            with pytest.raises(NativeImportError, match='decl 0 空壳'):
-                compile_light_typed(src, os.path.join(d, '产物'), optimize_level=0)
-    finally:
-        with open(_SORT_LIGHT, 'w', encoding='utf-8', newline='\n') as f:
-            f.write(原始)
+    """排序.light 为空壳 → 编译应报 NativeImportError。
+
+    见 ``_隔离空壳判红``：不再原地改写共享的 light-merge/stdlib/排序.light。
+    """
+    _隔离空壳判红('排序', '导出 排序。', '排序')

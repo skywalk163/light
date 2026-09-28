@@ -71,6 +71,49 @@ _EXPR_TERMINATOR_TYPES = frozenset({
 # NEWLINE / INDENT 集合（_skip_implicit_continuation 用）
 _NEWLINE_INDENT_TYPES = frozenset({TokenType.NEWLINE, TokenType.INDENT})
 
+# LP-D-001：字符串花括号转义归一。
+# 光明字符串支持 {变量} 插值；要写字面花括号（CSS/JSON/模板）必须能转义。
+# 约定（与既有 L-052「\{ 视为字面量」一致）：
+#   \{ -> 字面 {，\} -> 字面 }；{{ -> 字面 {，}} -> 字面 }。
+# 词法层把未识别转义 \{ 原样留在 token value 里（反斜杠+花括号两个字符），
+# 旧逻辑只是「不当成插值」却把反斜杠/双花括号原样带进产物，导致
+# "反斜杠转义 \{x\}" 输出仍是 \{x\}、"双写 {{x}}" 仍是 {{x}}。
+# 修复：扫描插值前先把这四种写法换成不可见占位符（不被 {…} 正则命中），
+# 扫描完再还原成真正的花括号。占位符用控制符，正常源码不会出现。
+_LP_LBRACE = '\x01'
+_LP_RBRACE = '\x02'
+
+
+def _lp_normalize_braces(value):
+    """把花括号转义序列换成占位符（供插值正则扫描使用）。
+
+    \\\\{ -> LBRACE 占位；\\\\} -> RBRACE 占位；{{ -> LBRACE；}} -> RBRACE。
+    其余字符逐字保留。幂等：已占位的内容不再被二次处理。
+    """
+    out = []
+    i, n = 0, len(value)
+    while i < n:
+        c = value[i]
+        if c == '\\' and i + 1 < n and value[i + 1] in ('{', '}'):
+            out.append(_LP_LBRACE if value[i + 1] == '{' else _LP_RBRACE)
+            i += 2
+            continue
+        if c == '{' and i + 1 < n and value[i + 1] == '{':
+            out.append(_LP_LBRACE)
+            i += 2
+            continue
+        if c == '}' and i + 1 < n and value[i + 1] == '}':
+            out.append(_LP_RBRACE)
+            i += 2
+            continue
+        out.append(c)
+        i += 1
+    return ''.join(out)
+
+
+def _lp_restore_braces(value):
+    """把插值扫描用的占位符还原成真正的字面花括号。"""
+    return value.replace(_LP_LBRACE, '{').replace(_LP_RBRACE, '}')
 
 class ParserExprMixin:
     """表达式解析混入类"""
@@ -108,14 +151,39 @@ class ParserExprMixin:
 
         只在刚消费完一个二元运算符、正要解析右操作数之前调用：
         此时下一个 token 若是换行/缩进，说明表达式跨行续写（`返回 "a" 加上\n"b"。`）。
-        跳过 NEWLINE 与 INDENT，**不**跳 DEDENT —— 运算符行尾后紧跟取消缩进是
-        明显的畸形续行（Python 同样报错），吞 DEDENT 会破坏块结构语义
+
+        LP-D-006 收口（任务书 路2，口径裁定为「报错优先」）：
+        括号外的行尾运算符续行**不再静默支持**。实测（缺陷探针4）这种写法会让
+        解析器吞掉续行行的 INDENT，段落体块结构被打断，后续语句被顶出函数体、
+        变量在使用处报 NameError 且行号漂到无关行——静默错译比报错更伤人。
+        现在括号外遇到 NEWLINE/INDENT 直接报语法错，定位到行尾运算符所在行；
+        括号内跨行（`["甲": 1,\n "乙": 2]`）深度 > 0，不受影响，行为不变。
+
+        仍然**不**跳 DEDENT —— 运算符行尾后紧跟取消缩进是明显的畸形续行
+        （Python 同样报错），吞 DEDENT 会破坏块结构语义
         （L-013 防回归：单行体判定依赖 NEWLINE 闭合）。
         """
         tok = self._current()
-        while tok is not None and tok.type in _NEWLINE_INDENT_TYPES:
-            self._consume()
-            tok = self._current()
+        if tok is not None and tok.type in _NEWLINE_INDENT_TYPES:
+            # LP-D-006：括号深度为 0 → 行尾运算符续行，直接报语法错
+            _depths = getattr(self, '_token_depth', None)
+            _op_idx = self.pos - 1
+            _depth = 0
+            if _depths is not None and 0 <= _op_idx < len(_depths):
+                _depth = _depths[_op_idx]
+            if _depth == 0:
+                _op_tok = self.tokens[_op_idx] if _op_idx >= 0 else tok
+                _op_text = str(_op_tok.value) if _op_tok else '?'
+                raise ParseError(
+                    f"不支持用行尾运算符「{_op_text}」续行（第 {_op_tok.line if _op_tok else tok.line} 行行尾）。"
+                    "请改用分步赋值（设 X 为 X + …），或把整个表达式包进括号——括号内可以跨行。",
+                    _op_tok.line if _op_tok else tok.line,
+                    _op_tok.col if _op_tok else tok.col,
+                    _op_text,
+                    filename=getattr(self, '_filename', None))
+            while tok is not None and tok.type in _NEWLINE_INDENT_TYPES:
+                self._consume()
+                tok = self._current()
 
     def _try_parse_keyword_arg(self) -> Optional[ASTNode]:
         """尝试把当前位置解析成具名实参 `名 = 值`；失败则原位回退并返回 None。
@@ -953,7 +1021,9 @@ class ParserExprMixin:
             interpolated = self._parse_string_interpolation(tok.value, tok.line, tok.col)
             if interpolated is not None:
                 return self._parse_postfix(interpolated)
-            expr = StringLiteral(tok.value)
+            # LP-D-001：无插值时，普通字符串字面量同样归一花括号转义（\{ → {、}} → }）。
+            # 走普通 Python 字符串产物（非 f-string），字面花括号无需翻倍。
+            expr = StringLiteral(_lp_restore_braces(_lp_normalize_braces(tok.value)))
             return self._parse_postfix(expr)
 
         # 字节串 b"..."（v7 新单 H）
@@ -2127,6 +2197,9 @@ class ParserExprMixin:
     
     def _parse_string_interpolation(self, value: str, line: int = 0, col: int = 0):
         """检测字符串插值：如果字符串包含 {xxx}，返回 StringInterpolation 节点，否则返回 None"""
+        # LP-D-001：先把 \{ \} {{ }} 花括号转义归一为占位符，让字面花括号
+        # 不被下面的 {…} 正则当成变量求值；扫描完在 parts 里还原成真正的花括号。
+        value = _lp_normalize_braces(value)
         if '{' not in value:
             return None
 
@@ -2217,6 +2290,9 @@ class ParserExprMixin:
         if not has_expr:
             return None
 
+        # LP-D-001：字面量文本段里的占位符还原为真正的花括号；
+        # 表达式段（ASTNode / 元组）不处理。
+        parts = [_lp_restore_braces(p) if isinstance(p, str) else p for p in parts]
         return StringInterpolation(parts)
 
     def _try_parse_interp_expr(self, expr_text: str, allow_literal: bool = False):

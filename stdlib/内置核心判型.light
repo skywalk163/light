@@ -55,7 +55,11 @@
 段落 是字母(字符):
   返回 str.isalpha(字符)
 
-# 对齐 stdlib/builtins.py:781 —— str.isdigit(char)
+# 对齐 stdlib/builtins.py:918 —— str.isdigit(char)
+# LP-D-016 名实对齐：本段落实现「字符是否为数字字符」（str.isdigit）。
+# 它对用户侧暴露的关键字是 是数字符（code_generator builtin_map：是数字符 -> Python 是数字）。
+# 注意：用户侧关键字 是数字 不等于这里——是数字 映射到下方 是数值（int/float 类型判定）。
+# 写守卫时：判「值是否为数值类型」用 是数字；判「字符串是否全是数字字符」用 是数字符。
 段落 是数字(字符):
   返回 str.isdigit(字符)
 
@@ -71,8 +75,9 @@
 段落 是函数(值):
   返回 callable(值)
 
-# 对齐 stdlib/builtins.py:是数值 —— isinstance(值, (int, float)) and not isinstance(值, bool)
-# 是数值 检查 int/float 类型（排除 bool）；与 是数字（字符级 str.isdigit）不同。
+# 对齐 stdlib/builtins.py:942 —— isinstance(值, (int, float)) and not isinstance(值, bool)
+# LP-D-016：用户侧关键字 是数字 映射到本段（是数值）—— 即 是数字(7)->真、是数字("7")->假。
+# 字符级 str.isdigit 判定在上方 是数字 段落，对应用户关键字 是数字符，二者勿混。
 段落 是数值(值):
   如果 isinstance(值, bool):
     返回 假

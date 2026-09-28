@@ -715,7 +715,12 @@ class PythonCodeGenerator:
             '是空': '_light_builtin.是空',
             '是布尔': '_light_builtin.是布尔',
             '是函数': '_light_builtin.是函数',
+            # LP-D-016：用户侧关键字 `是数字` = 是数值（int/float，排 bool），
+            # 映射到 `是数值`；字符级 str.isdigit 判定走新关键字 `是数字符`，
+            # 指向 Python 侧已有的 `是数字`（= stdlib/内置核心判型.light 的同名段落）。
+            # 二者名实对齐，勿互换——插件已按「是数字=是数值」写守卫。
             '是数字': '_light_builtin.是数值',
+            '是数字符': '_light_builtin.是数字',
             
             # 日期时间
             '时间戳': '_light_builtin.时间戳',
@@ -3790,7 +3795,20 @@ class PythonCodeGenerator:
         
         elif isinstance(expr, Identifier):
             # 中文数字整体匹配优先（在任何名字改写之前，避免被后缀规则误切）
-            if expr.name in self.chinese_numbers:
+            #
+            # LP-D-003 收口：词法层已把「被『设』/参数/段落声明过的中文数字」
+            # 重分类为 IDENTIFIER（user_definitions 预扫描），所以走到这里的
+            # 中文数字名 Identifier 一定是**用户声明的变量**，必须按名字发射，
+            # 不能再映射回数字字面量（旧行为会把 `六["级别"]` 静默编成
+            # `6["级别"]` → 运行期 'int' object is not subscriptable，且只在
+            # legacy src 后端发生，unified 后端无此映射，双后端行为分叉）。
+            # 仅当该名不在任何已声明/已绑定名集合里时才保留旧的数字映射
+            # （防御性兜底：理论上到不了，留着不改变既有非声明路径产物）。
+            if (expr.name in self.chinese_numbers
+                    and expr.name not in self._local_variables
+                    and expr.name not in self._user_defined_functions
+                    and not any(expr.name in _frame
+                                for _frame in self._function_locals_stack)):
                 return str(self.chinese_numbers[expr.name])
 
             # 复合标识符的成员后缀改写。
@@ -4252,8 +4270,12 @@ class PythonCodeGenerator:
             expr_parts = []  # 表达式部分（花括号内代码），用于选择外层引号
             for part in expr.parts:
                 if isinstance(part, str):
-                    # 转义特殊字符（反斜杠、换行、回车、制表符）
-                    escaped = part.replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+                    # 转义特殊字符（反斜杠、换行、回车、制表符）。
+                    # LP-D-001：字面量段里的 { } 必须在 f-string 里翻倍为 {{ }}，
+                    # 否则会被 Python f-string 当成插值表达式（与 unified 后端同口径，
+                    # 见 code_generator_unified.py 的 .replace('{','{{')）。
+                    escaped = part.replace('\\', '\\\\').replace('{', '{{').replace('}', '}}')
+                    escaped = escaped.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
                     parts.append(escaped)
                 elif isinstance(part, tuple):
                     # 带格式说明符的表达式：(expr_node, format_spec)

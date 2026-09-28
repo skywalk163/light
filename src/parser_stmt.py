@@ -14,6 +14,7 @@
 from typing import List, Any, Optional
 from tokens import Token, TokenType
 from keywords import VERB_ARITY, STDLIB_VERB_ARITY, ALL_VERB_ARITY, KEYWORDS_DOUBLE, KEYWORDS_SPECIAL, BUILTIN_TYPES
+from keywords import reserved_word_identifier_error
 from ast_nodes_v3 import *
 from parser_core import ParseError
 
@@ -749,6 +750,10 @@ class ParserStmtMixin:
             scope_word, scope_tokens = scope_span
             if self._is_scope_decl_header(scope_tokens):
                 return self._parse_scope_decl_stmt(scope_word, scope_tokens)
+            # LP-D-008：`全局 名.`（半角句号）会被 _is_scope_decl_header 拒收、
+            # 落进表达式分支，报「期望成员名，但得到 「\n」」且完全不提全角句号。
+            # 此处识别「声明词 + 名单 + 半角点号」这一特定误写形态，直指全角句号。
+            self._lpd008_diag_half_period(scope_word, scope_tokens)
 
 
 
@@ -930,6 +935,33 @@ class ParserStmtMixin:
                     return False
             idx += 1
         return False
+
+    def _lpd008_diag_half_period(self, scope_word: str, word_tokens: int) -> None:
+        """LP-D-008：`全局 名.`（半角句号收尾）给出全角句号提示。
+
+        仅当形态严格为 `声明词 名[, 名]* .`（半角 DOT 紧跟名单之后）时才报，
+        `全局 = 1。` / `全局(甲)` / `全局 等于 1。` 等既有合法写法不命中，
+        原样走赋值/表达式分支（与 _is_scope_decl_header 的范式 A 口径一致）。
+        """
+        idx = self.pos + word_tokens
+        seen_name = False
+        while idx < self._n_tokens:
+            t = self.tokens[idx]
+            if not seen_name:
+                if t.type != TokenType.IDENTIFIER:
+                    return
+                seen_name = True
+            elif t.type == TokenType.COMMA:
+                seen_name = False
+            elif t.type == TokenType.DOT:
+                self._error(
+                    f"{scope_word} 声明要用全角句号「。」结束，不能用半角点号「.」"
+                    f"（半角点号会被当成成员访问）。请写：{scope_word} 名。",
+                    t.line, t.col)
+                return
+            else:
+                return
+            idx += 1
 
     def _parse_scope_decl_stmt(self, word: str = None, word_tokens: int = 1) -> ASTNode:
         """解析作用域声明：全局 计数。/ 外层 值, 次数。
@@ -2353,6 +2385,11 @@ class ParserStmtMixin:
             # L-076：`空` 是 None 字面量（保留字），不可作变量名——曾静默解析成
             # 「声明一个值为 None 的变量 空」，语义陷阱且报错不明确。此处给
             # 明确报错并给出替代名建议。其余关键字维持原「关键字作名」兼容。
+            # 【LP-D-004 收口口径】其余关键字（尝试/类/属性/当…）作 设 名是
+            # 既有合法用法（examples/harness/编排.light 的 `设 尝试 为 0` 重试
+            # 计数、stdlib/re.light 的 `设 类 为 节点[0]`），兼容分支承重，
+            # 不在此拦——误导性报错的真根因在语句头的 try 劫持，由
+            # _parse_try_stmt 的非 COLON 守卫直报保留字（见该处）。
             if name_tok.value == '空':
                 self._error(
                     "「空」是关键字（表示空值/None），不能作变量名——"
@@ -3570,6 +3607,16 @@ class ParserStmtMixin:
         """
         # 尝试 / 试
         self._consume(TokenType.KEYWORD, self._current().value)
+        
+        # LP-D-004：「尝试」后不是冒号，几乎总是把「尝试」当变量名用了
+        # （如 `尝试["次数"] 为 1`）。旧路径会报「期望冒号，但得到 左方括号」
+        # 并建议「函数定义、条件、循环后面都需要冒号」，把人完全带偏。
+        # 此处直接报「保留字不可作标识符」。
+        if not (self._current() and self._current().type == TokenType.COLON):
+            _tok = self._current()
+            self._error(
+                reserved_word_identifier_error('尝试'),
+                _tok.line if _tok else 0, _tok.col if _tok else 0)
         
         # 冒号
         self._consume(TokenType.COLON)

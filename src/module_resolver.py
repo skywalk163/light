@@ -304,8 +304,12 @@ class ModuleResolver:
         """
         # 检查缓存
         module_name = module_path.stem
-        if module_name in self.module_cache:
-            return self.module_cache[module_name]
+        # 缓存键用完整路径（R98 §3.1）：同名不同目录的模块（如
+        # light-merge/stdlib/格式化.light 与 lightharness/stdlib/格式化.light）
+        # 不能互相覆盖，否则会造成跨文件解析结果污染、引发「偶发」的误判。
+        _cache_key = str(module_path)
+        if _cache_key in self.module_cache:
+            return self.module_cache[_cache_key]
         
         # 读取文件
         with open(module_path, 'r', encoding='utf-8') as f:
@@ -339,7 +343,7 @@ class ModuleResolver:
                 dependencies=text_deps,
                 exports=text_exports
             )
-            self.module_cache[module_name] = module_info
+            self.module_cache[_cache_key] = module_info
             return module_info
         
         # 提取导入语句
@@ -390,7 +394,7 @@ class ModuleResolver:
         )
         
         # 缓存
-        self.module_cache[module_name] = module_info
+        self.module_cache[_cache_key] = module_info
         
         return module_info
     
@@ -409,9 +413,10 @@ class ModuleResolver:
         """
         module_name = module_path.stem
         
-        # 检查缓存
-        if module_name in self.module_cache:
-            return self.module_cache[module_name]
+        # 检查缓存：键用完整路径，避免同名不同目录模块互相覆盖（见 parse_module）
+        _cache_key = str(module_path)
+        if _cache_key in self.module_cache:
+            return self.module_cache[_cache_key]
         
         import ast as python_ast
         
@@ -426,7 +431,7 @@ class ModuleResolver:
                 dependencies=set(),
                 exports=[]
             )
-            self.module_cache[module_name] = module_info
+            self.module_cache[_cache_key] = module_info
             return module_info
         
         # 提取导入依赖
@@ -475,7 +480,7 @@ class ModuleResolver:
             exports=exports
         )
         
-        self.module_cache[module_name] = module_info
+        self.module_cache[_cache_key] = module_info
         return module_info
     
     def _extract_exports_from_text(self, source: str) -> List[str]:
