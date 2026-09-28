@@ -1124,10 +1124,14 @@ class Lexer:
         # 未声明的中文数字（如 六）会发成 CHINESE_NUM(6)；若其后紧跟 `[`，
         # 说明用户把它当标识符/下标名用了（`六["级别"]` → 静默编成 6["级别"]，
         # 运行期才报英文 'int' object is not subscriptable 且行号对不上）。
-        # 已被「设」声明的中文数字在 user_definitions 预扫描后发 IDENTIFIER，
+# 已被「设」声明的中文数字在 user_definitions 预扫描后发 IDENTIFIER，
         # 不会出现在这里，声明过的照常工作。
         # 在词法出口统一拦截：编译期即给中文报错，不再放行到运行期。
         self._lpd003_check_cn_num_subscript(tokens)
+        
+        # LP-D-013/010：声明过的关键字（设 声明的 出/跳过、遍历循环变量 回调）在
+        # 标识符位重分类为 IDENTIFIER，并为「未声明而误用」提供中文词法诊断。
+        self._lpd013_010_reclassify_declared_keywords(tokens)
         
         return tokens
     
@@ -1150,6 +1154,170 @@ class Lexer:
                     f"若要用它作变量名，请先声明：设 {_word} 为 …"
                     "（声明后会按标识符处理）；否则请改用非数字名称。",
                     _tok.line, _tok.col)
+    
+    @staticmethod
+    def _lpd013_010_reclassify_declared_keywords(tokens):
+        """LP-D-013/010：声明过的关键字在标识符位重分类为 IDENTIFIER。
+
+        缺陷：
+        · LP-D-013：`设 出 为 []` 后 `出.追加(1)` 报「无法识别的语法元素：'.'」。
+          出/跳过 在语句起始位发 KEYWORD，被导出/continue 语句分支接管；
+          未声明而误用（`出.追加(1)` 无前置声明）时报英文 '.'，缺中文诊断。
+        · LP-D-010：`遍历 回调 之 表:` 循环体内 `回调("a")` 报「缩进不正确」。
+          FFI 关键字 回调 作循环变量后，体内 KEYWORD(回调) 不被当作可调用标识符。
+
+        实现（纯 token 流后置；规避裸文本预扫描 _scan_user_definitions 的注释污染，
+        见 4184-4190 行「『自定义段。』误登记为 段」的教训）：
+          1) 收集声明集：
+             a) `设 X 为/等于 …` 且 X ∈ {'出','跳过'}（文件级）——白名单而非
+                ALL_KEYWORDS：尝试/类/返回 等语句结构关键字一旦声明即重分类，
+                会打红同文件真实 try/class/return（如 stdlib/re.light
+                `设 类 为 节点[0]`）；
+             b) `遍历/遍` 头部循环变量名 ∈ ALL_KEYWORDS（如 回调），作用域限该
+                遍历循环体（头部后首个 INDENT 至其配对 DEDENT）。
+          2) 重分类：KEYWORD(出/跳过) 仅当后随 DOT（成员访问意图）→ IDENTIFIER，
+             保证导出/continue 语句原语义不受影响；KEYWORD(遍历变量) 在循环体
+             作用域内任意位 → IDENTIFIER。
+          3) 诊断：KEYWORD(出/跳过) 后随 DOT 但未声明 → 中文 LexerError，
+             不再落到 parser 报英文 '.'。
+        """
+        _skip = (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT)
+        _conn = frozenset({'之', '在', '于', '中的', '为'})
+        _conn_var_first = frozenset({'之', '在', '于', '中的'})
+        _ok_ident = frozenset({'出', '跳过'})  # LP-D-013 白名单（任务书点名）
+        # 标识符用途后缀：成员访问 / 下标 / 调用——其后不可能是导出/continue 语句合法形态
+        _ident_follow = (TokenType.DOT, TokenType.LBRACKET, TokenType.LPAREN)
+        _role = {'出': '导出语句关键字', '跳过': 'continue（跳过）语句关键字'}
+        n = len(tokens)
+
+        # INDENT/DEDENT 配对：圈定 foreach 循环体范围
+        _inds, _pairs = [], {}
+        for _i, _t in enumerate(tokens):
+            if _t.type == TokenType.INDENT:
+                _inds.append(_i)
+            elif _t.type == TokenType.DEDENT and _inds:
+                _pairs[_inds.pop()] = _i
+
+        declared = set()        # 设 声明的 出/跳过（文件级）
+        foreach_ranges = []     # (value, start_idx, end_idx)
+
+        def _collect_after_eq(begin):
+            """收集 `为`（或 `为之` 后）到 COLON/NEWLINE/EOF 前的名字组。"""
+            out = []
+            _k = begin
+            while _k < n and tokens[_k].type not in (TokenType.COLON,
+                                                     TokenType.NEWLINE,
+                                                     TokenType.EOF):
+                _tk = tokens[_k]
+                if _tk.type in (TokenType.IDENTIFIER, TokenType.KEYWORD) \
+                        and _tk.value not in _conn:
+                    out.append(_tk.value)
+                _k += 1
+            return out
+
+        _i = 0
+        while _i < n:
+            _t = tokens[_i]
+            if _t.type == TokenType.KEYWORD and _t.value == '设':
+                _j = _i + 1
+                while _j < n and tokens[_j].type in _skip:
+                    _j += 1
+                if _j < n and tokens[_j].value in _ok_ident:
+                    _k = _j + 1
+                    while _k < n and tokens[_k].type in _skip:
+                        _k += 1
+                    if _k < n and tokens[_k].type == TokenType.KEYWORD \
+                            and tokens[_k].value in ('为', '等于'):
+                        declared.add(tokens[_j].value)
+                _i = _j + 1
+                continue
+            if _t.type == TokenType.KEYWORD and _t.value in ('遍历', '遍'):
+                _j = _i + 1
+                names = []
+                while _j < n:
+                    tok = tokens[_j]
+                    if tok.type not in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                        break
+                    if tok.type == TokenType.KEYWORD and tok.value in _conn:
+                        break
+                    names.append(tok.value)
+                    _j += 1
+                    if _j < n and tokens[_j].type == TokenType.COMMA:
+                        _j += 1
+                _conn_kw = tokens[_j].value if _j < n \
+                    and tokens[_j].type == TokenType.KEYWORD else None
+
+                varnames = []
+                if _conn_kw in _conn_var_first:
+                    # 裸 之/在/于/中的 → 变量在前；`之为`（之+为 两 token）→ 变量在 为 后
+                    nxt = tokens[_j + 1] if _j + 1 < n else None
+                    if nxt is not None and nxt.type == TokenType.KEYWORD \
+                            and nxt.value == '为':
+                        varnames = _collect_after_eq(_j + 2)
+                    else:
+                        varnames = names
+                else:
+                    # `为`（可迭代对象在前）或表达式头部（遍 [...] 为 x）：变量在首个 为 之后
+                    _s = None
+                    if _conn_kw == '为':
+                        _s = _j + 1
+                    else:
+                        for _m in range(_j, min(_j + 200, n)):
+                            if tokens[_m].type in (TokenType.NEWLINE, TokenType.EOF):
+                                break
+                            if tokens[_m].type == TokenType.KEYWORD \
+                                    and tokens[_m].value == '为':
+                                _s = _m + 1
+                                break
+                    if _s is not None:
+                        varnames = _collect_after_eq(_s)
+
+                # 只收集值 ∈ ALL_KEYWORDS 的循环变量（普通名本就发 IDENTIFIER）
+                for _v in varnames:
+                    if _v not in ALL_KEYWORDS:
+                        continue
+                    _b = _i + 1
+                    while _b < n and tokens[_b].type != TokenType.INDENT:
+                        _b += 1
+                    _e = _pairs.get(_b, n)
+                    foreach_ranges.append((_v, _b, _e))
+                _i = _j + 1
+                continue
+            _i += 1
+
+        # 步骤 2：重分类
+        for _idx, _tok in enumerate(tokens):
+            if _tok.type != TokenType.KEYWORD:
+                continue
+            _v = _tok.value
+            if _v in declared:
+                # 出/跳过：仅当后随标识符用途后缀（成员访问/下标/调用）才降级为
+                # 标识符，导出语句 / continue 语句原语义不受影响
+                _j = _idx + 1
+                while _j < n and tokens[_j].type in _skip:
+                    _j += 1
+                if _j < n and tokens[_j].type in _ident_follow:
+                    _tok.type = TokenType.IDENTIFIER
+                continue
+            for (_fv, _s, _e) in foreach_ranges:
+                if _v == _fv and _s < _idx < _e:
+                    _tok.type = TokenType.IDENTIFIER
+                    break
+
+        # 步骤 3：诊断（未声明 出/跳过 后随标识符用途后缀 → 中文词法错误）
+        for _idx, _tok in enumerate(tokens):
+            if _tok.type != TokenType.KEYWORD or _tok.value not in _ok_ident:
+                continue
+            _j = _idx + 1
+            while _j < n and tokens[_j].type in _skip:
+                _j += 1
+            if _j < n and tokens[_j].type in _ident_follow:
+                raise LexerError(
+                    f"「{_tok.value}」是保留字（{_role.get(_tok.value, '语句关键字')}），"
+                    f"未声明不可作标识符。若想作变量名，请先声明：设 {_tok.value} 为 …"
+                    "（声明后即可按标识符使用）。",
+                    _tok.line, _tok.col)
+        return tokens
     
     def _is_han(self, ch: str) -> bool:
         """判断是否为汉字（直接委托给模块级快速函数）"""

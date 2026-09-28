@@ -210,13 +210,15 @@ def _warn_import_shadow(mod_name: str, mod_path, base_dir: str) -> None:
         pass
 
 
-def _compile_src(source: str) -> str:
+def _compile_src(source: str, stdlib_dir: str | None = None) -> str:
     """用 src 后端编译为 Python 代码
 
     L-070：这里是「主文件」编译入口（`light run` 与 `light compile --backend src`
     都走它），故 is_main=True —— 产物末尾会按光明入口约定追加
     `if __name__ == '__main__': 主()`。
     依赖模块走 `_resolve_local_imports`（is_main=False），其 `主` 不被调用。
+
+    stdlib_dir：显式 stdlib 目录（R98/D 修复），透传给生成代码引导。
     """
     from light_parser_v3 import LightParser
     from code_generator import PythonCodeGenerator
@@ -230,7 +232,7 @@ def _compile_src(source: str) -> str:
     # L-166：影子变量告警（见 _warn_shadow_scope 的说明）
     _warn_shadow_scope(module, source=source)
 
-    generator = PythonCodeGenerator()
+    generator = PythonCodeGenerator(stdlib_dir=stdlib_dir)
     code = generator.generate(module, is_main=True)
     # L-172：透出 codegen 侧编译告警（入口静默阻断等）。
     # 输出到 stderr（stdout 只放程序输出）；`LIGHT_WARN_ENTRY=0` 可关闭。
@@ -265,7 +267,7 @@ def _resolve_module_path(mod_name: str, base_dir: str):
     return None
 
 
-def _resolve_local_imports(source: str, source_dir: str) -> dict:
+def _resolve_local_imports(source: str, source_dir: str, stdlib_dir: str | None = None) -> dict:
     """解析源代码中的本地模块导入，递归查找所有 .light 依赖（含点号分层目录）。
 
     Returns:
@@ -279,6 +281,9 @@ def _resolve_local_imports(source: str, source_dir: str) -> dict:
       1. 用 `_resolve_module_path` 解析点号分层模块（a.b.c → a/b/c.light）。
       2. 子导入基于「被解析模块自身所在目录」继续查找，而非入口目录，
          使分层包内的相对点号导入也能正确定位。
+
+    stdlib_dir：显式 stdlib 目录（R98/D 修复），透传给依赖模块的 PythonCodeGenerator，
+    使依赖模块的生成代码引导也按同一 stdlib 解析地板（与 cwd 无关）。
     """
     from light_parser_v3 import LightParser, ImportStmt
     from code_generator import PythonCodeGenerator
@@ -324,7 +329,7 @@ def _resolve_local_imports(source: str, source_dir: str) -> dict:
         _warn_shadow_scope(mod_module, mod_path.name, source=mod_src)
 
         # 编译
-        gen = PythonCodeGenerator()
+        gen = PythonCodeGenerator(stdlib_dir=stdlib_dir)
         code = gen.generate(mod_module)
         # L-093：附带 .light 源码文本与路径，供跨模块异常位置块归因。
         result[mod_name] = {'code': code, 'source': mod_src,
@@ -352,19 +357,23 @@ def _resolve_local_imports(source: str, source_dir: str) -> dict:
     return result
 
 
-def _run_src(source: str, file_path: str | None = None) -> str:
-    """用 src 后端执行，返回输出（支持多模块依赖自动解析）"""
+def _run_src(source: str, file_path: str | None = None, stdlib_dir: str | None = None) -> str:
+    """用 src 后端执行，返回输出（支持多模块依赖自动解析）
+
+    stdlib_dir：显式 stdlib 目录（R98/D 修复）。传入后生成代码的引导跳过 cwd 探测、
+    直接用该目录作为地板 builtins.py 来源，使 转字符串 等内置与 cwd 无关（英文 str 口径）。
+    """
     import os
     from pathlib import Path
 
     # 解析本地模块依赖
     source_dir = os.path.dirname(os.path.abspath(file_path)) if file_path else os.getcwd()
-    dep_modules = _resolve_local_imports(source, source_dir)
+    dep_modules = _resolve_local_imports(source, source_dir, stdlib_dir=stdlib_dir)
     # L-093：入口模块的"模块名"（用于跨模块异常位置块归因）
     entry_name = os.path.splitext(os.path.basename(file_path))[0] if file_path else '<主>'
 
     # 编译主文件
-    main_code = _compile_src(source)
+    main_code = _compile_src(source, stdlib_dir=stdlib_dir)
 
     # 构建完整代码：依赖模块在前，主文件在后
     # 注意：生成的代码中 import 语句会引用光明模块名（如 '引擎'），
@@ -738,7 +747,8 @@ def cmd_run(args):
     try:
         if args.backend == 'src':
             # 输出已由 _run_src 实时打印（含异常前的部分），不再二次打印
-            _run_src(source, file_path=args.file)
+            _run_src(source, file_path=args.file,
+                     stdlib_dir=getattr(args, 'stdlib_dir', None))
         else:
             _run_antlr(source)
 
@@ -1720,6 +1730,14 @@ def main():
 
     run_p.add_argument('--watch', '-w', action='store_true',
                        help='监视文件变化，自动重新运行')
+    # R98/D 修复：显式指定 stdlib 目录（地板 _light_builtin 来源）。
+    # 生成代码以字符串 exec 时 __file__ 不可得，引导只能靠 os.getcwd()/'stdlib'
+    # 探测 —— 从非项目根目录运行（如 pytest 子进程 cwd=临时目录）会找不到地板、
+    # 回退到中文 转字符串 兜底 lambda（'真'/'假'/'空'），与地板英文 str() 口径冲突。
+    # 由 运行.py 显式传入 lightharness 自带 stdlib，使地板稳定加载（英文），与 cwd 无关。
+    run_p.add_argument('--stdlib-dir', default=None,
+                       help='显式指定光明 stdlib 目录（地板 builtins.py 来源）；'
+                            '缺省仍按脚本目录/cwd 探测。传入后不再依赖 cwd 解析 stdlib。')
 
     # ── harness（第五轮 D5：deepseek-harness MVP 的 CLI 包装）──
     # 转发到 examples/harness/评测驱动.light；参数映射为 HARNESS_* 环境变量。
