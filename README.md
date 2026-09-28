@@ -816,6 +816,35 @@ python -m pytest tests/unit/ -v
 python -m pytest tests/ -v
 ```
 
+### 推送与远端同步（含代理绕过）
+
+本仓有多个远端（gitea / github / gitcode / origin 本地镜像），推送时有两个已知的本地坑：
+
+1. **`credential.helper=helper-selector` 挂死**（R99 §4.4 实证）：系统 gitconfig 里
+   `credential.helper = helper-selector`（WorkBuddy 注入的二进制）在未选定凭据提供方时会
+   **开编辑器死等**，`git push` 卡住不动（`git ls-remote` 却正常）。绕法：临时清空 helper，
+   用 GCM 二进制直连：
+
+   ```bash
+   GCM='!"C:/Users/skywalk/.workbuddy/binaries/PortableGit/versions/1.2.0/mingw64/bin/git-credential-manager.exe"'
+   GIT_TERMINAL_PROMPT=0 \
+     git -c credential.helper= -c "credential.helper=$GCM" push <remote> main
+   ```
+
+2. **`git push ... | tail` 假成功**：`tail` 管道会让 `$?` 恒为 0，`git push` 真失败也报成功。
+   正确做法：重定向到文件再读，并**用 `git ls-remote <r> refs/heads/main` 复核 SHA**，
+   不轻信 `git push` 的退出码。
+
+3. **github.com 被代理拦死 → 走 API 兜底**：若 `git push github` 始终 `CONNECT tunnel 502` /
+   `Empty reply`，而 `api.github.com` 恒通，用 `tools/ci/push_via_api.py`（Git Data API
+   快进兜底）与 `tools/ci/move_tag_api.py`（只搬 tag ref）代替。它们靠文件位置向上定位
+   仓库根与 `.env`，不写死本机用户名路径。
+
+   ```bash
+   python tools/ci/push_via_api.py <本地commit> [tag名]
+   python tools/ci/move_tag_api.py <tag名>
+   ```
+
 ### 代码格式
 
 项目使用 UTF-8 编码和中文注释。

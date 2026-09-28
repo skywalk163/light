@@ -27,6 +27,7 @@
 同理所有 docstring 都写成多行 —— 单行 docstring 会被 `assert_quality` 点名。
 """
 
+import collections
 import importlib.util
 import io
 import json
@@ -766,6 +767,56 @@ class Test缺失内置清单在册(unittest.TestCase):
             self.assertFalse(
                 os.path.isfile(os.path.join(self._ROOT, "docs", 名)),
                 "清单不许放 docs/：%s" % 名)
+
+
+class Test地板清单分类统计钉死(unittest.TestCase):
+    """R100 路A：分类统计字段必须 == 函数数组按分类的实算 Counter；五项之和 == 总数 == len(函数)。
+
+    之前 分类统计 写的是 movable=11 / has_light_impl=67（和=153），而 函数 数组实算为
+    movable=15 / has_light_impl=68（和=158），漂了 5 条却没人发现。这条把漂移钉成 CI 红，
+    以后再漂，门禁直接红，不靠人眼对账。
+    """
+
+    _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    _路径 = os.path.join(_ROOT, "任务书", "自举地板清单.json")
+    期望键 = ("native_required", "movable", "has_light_impl", "duplicate", "unused")
+
+    def test_分类统计等于函数数组实算(self):
+        路径 = self._路径
+        with io.open(路径, encoding="utf-8") as f:
+            data = json.load(f)
+        条目 = data["函数"]
+        实算 = collections.Counter(c["分类"] for c in 条目)
+        统计 = data["分类统计"]
+        for 键 in self.期望键:
+            self.assertEqual(统计.get(键, 0), 实算.get(键, 0),
+                             "分类统计[%s] = %r，但函数数组实算为 %r"
+                             % (键, 统计.get(键), 实算.get(键)))
+        self.assertEqual(sum(统计.values()), data["总数"],
+                         "分类统计五项之和 %r 不等于 总数 %r"
+                         % (sum(统计.values()), data["总数"]))
+        self.assertEqual(data["总数"], len(条目),
+                         "总数 %r 不等于 len(函数) %r" % (data["总数"], len(条目)))
+
+    def test_分母与S2进度字段一致(self):
+        """分母（总数 − native_required）应等于 地板自举率_S2进度 / 基线_S1 的分母，且 == 96（R99 §2.3）。
+
+        不写死 96 去卡未来合法扩表：只断「文档字段 == 实算分母」，而实算分母由 函数
+        数组现算。这样以后有人正经办扩表，只要同步改了 分类统计 与两份进度字段就过得去，
+        只有「飘了」才会红。96 是 R99 §2.3 核定的当前分母，作为一次性锚点存在。
+        """
+        with io.open(self._路径, encoding="utf-8") as f:
+            data = json.load(f)
+        统计 = data["分类统计"]
+        实算分母 = data["总数"] - 统计["native_required"]
+        self.assertEqual(实算分母, 96,
+                         "实算分母(总数−native_required) 应为 96，实际 %r" % 实算分母)
+        s2 = data["地板自举率_S2进度"]["分母（总数 − native_required）"]
+        self.assertEqual(s2, 实算分母,
+                         "地板自举率_S2进度.分母 %r 与实算分母 %r 不一致" % (s2, 实算分母))
+        s1 = data["地板自举率基线_S1"]["分母（总数 − native_required）"]
+        self.assertEqual(s1, 实算分母,
+                         "地板自举率基线_S1.分母 %r 与实算分母 %r 不一致" % (s1, 实算分母))
 
 
 if __name__ == "__main__":

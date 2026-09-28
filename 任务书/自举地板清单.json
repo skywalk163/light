@@ -11,7 +11,7 @@
     "S1 裁决说明：随机整数/随机浮点/随机选择 虽在 数学.py 有同名，但本质是随机源 → 归 native_required；",
     "求和 归 has_light_impl（列表工具.light decl 10 真光明实现）；去除空白 的中文NLP.light 是空壳 → 归 movable。",
     "unused 本批为 0：全仓调用点核查（examples/tests/src/contrib/bootstrap 等）114 个均有调用点。",
-    "S1 合并点裁决（任务书/地板清单裁决_S1.md）：绝对路径 改判 native_required（os.path.abspath 要读进程 cwd）；格式化时间 改判 movable（不读当前时间，纯计算+时区）；随机整数/随机选择 维持 native_required（random 是真熵源）。分母 = 114 − 34 = 80。",
+    "S1 合并点裁决（任务书/地板清单裁决_S1.md）：绝对路径 改判 native_required（os.path.abspath 要读进程 cwd）；格式化时间 改判 movable（不读当前时间，纯计算+时区）；随机整数/随机选择 维持 native_required（random 是真熵源）。分母 = 158 − 62 = 96。",
     "分子口径：has_light_impl 的 12 条光明替身都是真实现（段落定义行可定位、不被同名 .py 遮蔽），但 builtins.py 的函数体还没转发过去，运行期执行的仍是 Python，故 S1 分子 = 0。"
   ],
   "版本": 1,
@@ -19,15 +19,15 @@
   "总数": 158,
   "分类统计": {
     "native_required": 62,
-    "movable": 11,
-    "has_light_impl": 67,
+    "movable": 15,
+    "has_light_impl": 68,
     "duplicate": 13,
     "unused": 0
   },
   "地板自举率基线_S1": {
     "分子（builtins.py 已转发到光明实现的条数）": 0,
-    "分母（总数 − native_required）": 80,
-    "数值": "0/80 = 0.0%",
+    "分母（总数 − native_required）": 96,
+    "数值": "0/96 = 0.0%",
     "口径": "has_light_impl 只表示光明替身已就位；builtins.py 函数体尚未转发，运行期跑的仍是 Python，故不计入分子（S1 合并点裁决，见 任务书/地板清单裁决_S1.md §4）",
     "替身已就位待接线": 12,
     "S2 目标": "≥40%（把 movable + has_light_impl 接进 builtins.py 的转发）"
@@ -1299,9 +1299,9 @@
     }
   ],
   "地板自举率_S2进度": {
-    "分子（builtins.py 已转发到光明实现的条数）": 59,
-    "分母（总数 − native_required）": 80,
-    "数值": "59/80 = 73.75%",
+    "分子（builtins.py 已转发到光明实现的条数）": 68,
+    "分母（总数 − native_required）": 96,
+    "数值": "68/96 = 70.83%",
     "本轮新接": 52,
     "S1 存量": "7（转大写/转小写/字符串长度/去除左侧空白/去除右侧空白/替换字符串/分割字符串 → 字符串工具轻量.light）",
     "落点": "stdlib/内置核心字符串.light 17 条、内置核心判型.light 9 条、内置核心列表.light 10 条、内置核心字典.light 8 条、内置核心转换.light 3 条、JSON.light 3 条、列表工具.light 1 条（求和）、字符串工具轻量.light 1 条（连接字符串）",
