@@ -3855,10 +3855,71 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#45-lambda" class="md-nav__link">
+  <a href="#45-lp-d-005" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4.5 Lambda 表达式
+        4.5 列表与字典的可调用方法面（LP-D-005）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.5 列表与字典的可调用方法面（LP-D-005）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#451" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5.1 列表方法
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#452" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5.2 字典方法
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#453" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5.3 没有的项（明示，勿踩）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#454" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5.4 ⚠️ 置空软删除陷阱（静默错）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#46-lambda" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.6 Lambda 表达式
       
     </span>
   </a>
@@ -4562,7 +4623,186 @@
 </span><span id="__span-33-2"><a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>设 映射 为 {字符: 字符.长度 遍历 字符 在 列表}。
 </span><span id="__span-33-3"><a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>打印(映射)。  # 输出：{'甲': 1, '乙': 1, '丙': 1}
 </span></code></pre></div></p>
-<h3 id="45-lambda">4.5 Lambda 表达式<a class="headerlink" href="#45-lambda" title="Permanent link">&para;</a></h3>
+<h3 id="45-lp-d-005">4.5 列表与字典的可调用方法面（LP-D-005）<a class="headerlink" href="#45-lp-d-005" title="Permanent link">&para;</a></h3>
+<p><strong>说明</strong>：列表与字典除了支持 <code>列表[下标]</code> / <code>字典[键]</code> 下标访问与
+<code>设 列表[下标] 为 值</code> / <code>设 字典[键] 为 值</code> 下标赋值外，还支持
+<code>对象.方法(参数)</code> 形式的成员方法调用。下表为<strong>实测可用</strong>的完整方法面
+（与 <code>stdlib/builtins.py</code> 中同名函数式接口一一对应，见各方法的"函数式等价"列）。</p>
+<h4 id="451">4.5.1 列表方法<a class="headerlink" href="#451" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>签名</th>
+<th>返回值</th>
+<th>说明</th>
+<th>函数式等价</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>包含</code></td>
+<td><code>列表.包含(值)</code></td>
+<td>真/假</td>
+<td>值是否在列表中（等价于 <code>值 in 列表</code>）</td>
+<td><code>列表包含(列表, 值)</code>、<code>包含(列表, 值)</code></td>
+</tr>
+<tr>
+<td><code>追加</code></td>
+<td><code>列表.追加(项)</code></td>
+<td>无（原地）</td>
+<td>在末尾追加一项</td>
+<td><code>列表追加(列表, 项)</code></td>
+</tr>
+<tr>
+<td><code>插入</code></td>
+<td><code>列表.插入(索引, 项)</code></td>
+<td>无（原地）</td>
+<td>在指定索引处插入</td>
+<td><code>列表插入(列表, 索引, 项)</code></td>
+</tr>
+<tr>
+<td><code>弹出</code></td>
+<td><code>列表.弹出(索引)</code></td>
+<td>被弹出的元素</td>
+<td>按索引弹出并返回（索引必填）</td>
+<td><code>列表弹出(列表, 索引)</code></td>
+</tr>
+<tr>
+<td><code>弹栈</code></td>
+<td><code>列表.弹栈()</code></td>
+<td>栈顶元素</td>
+<td>弹出并返回末尾元素（栈语义，无参）</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>移除</code></td>
+<td><code>列表.移除(值)</code></td>
+<td>无（原地）</td>
+<td>按值删除第一个匹配项</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>删除</code></td>
+<td><code>列表.删除(值)</code></td>
+<td>无（原地）</td>
+<td>同 <code>移除</code>，按值删除第一个匹配项</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>清空</code></td>
+<td><code>列表.清空()</code></td>
+<td>无（原地）</td>
+<td>删除全部元素</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>反转</code></td>
+<td><code>列表.反转()</code></td>
+<td>无（原地）</td>
+<td>原地反转顺序</td>
+<td><code>列表反转(列表)</code></td>
+</tr>
+<tr>
+<td><code>排序</code></td>
+<td><code>列表.排序()</code></td>
+<td>无（原地）</td>
+<td>原地升序排序</td>
+<td><code>列表排序(列表, 反向)</code></td>
+</tr>
+<tr>
+<td><code>长度</code></td>
+<td><code>列表.长度()</code></td>
+<td>整数</td>
+<td>元素个数（等价于 <code>长(列表)</code>）</td>
+<td><code>列表长度(列表)</code>、<code>长(列表)</code></td>
+</tr>
+<tr>
+<td><code>设置</code></td>
+<td><code>列表.设置(索引, 值)</code></td>
+<td>无（原地）</td>
+<td>下标赋值（等价于 <code>设 列表[索引] 为 值</code>）</td>
+<td><code>列表获取</code> 的写侧无函数式</td>
+</tr>
+</tbody>
+</table>
+<h4 id="452">4.5.2 字典方法<a class="headerlink" href="#452" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>签名</th>
+<th>返回值</th>
+<th>说明</th>
+<th>函数式等价</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>包含</code></td>
+<td><code>字典.包含(键)</code></td>
+<td>真/假</td>
+<td>键是否存在（等价于 <code>键 in 字典</code>）</td>
+<td><code>字典包含键(字典, 键)</code></td>
+</tr>
+<tr>
+<td><code>获取</code></td>
+<td><code>字典.获取(键, 默认值)</code></td>
+<td>值或默认值</td>
+<td>取键值，不存在返回默认值（默认值必填）</td>
+<td><code>字典获取(字典, 键, 默认值)</code></td>
+</tr>
+<tr>
+<td><code>弹出</code></td>
+<td><code>字典.弹出(键)</code></td>
+<td>被删键的值</td>
+<td><strong>真删除</strong>：删键并返回值</td>
+<td><code>字典删除(字典, 键)</code></td>
+</tr>
+<tr>
+<td><code>清空</code></td>
+<td><code>字典.清空()</code></td>
+<td>无（原地）</td>
+<td>删除全部键值对</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>设置</code></td>
+<td><code>字典.设置(键, 值)</code></td>
+<td>无（原地）</td>
+<td>设键值（等价于 <code>设 字典[键] 为 值</code>）</td>
+<td><code>字典设置(字典, 键, 值)</code></td>
+</tr>
+<tr>
+<td><code>长度</code></td>
+<td><code>字典.长度()</code></td>
+<td>整数</td>
+<td>键值对个数（等价于 <code>长(字典)</code>）</td>
+<td><code>长(字典)</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="453">4.5.3 没有的项（明示，勿踩）<a class="headerlink" href="#453" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>字典没有 <code>删除</code> / <code>移除</code> 方法</strong>。<code>删除</code>/<code>移除</code> 仅映射到列表的按值删
+  （<code>list.remove</code>），对字典调用会报
+  <code>属性错误：类 dict 缺少方法/属性 remove</code>。<strong>字典删键必须用 <code>字典.弹出(键)</code></strong>
+  （真删除）或函数式 <code>字典删除(字典, 键)</code>。</li>
+<li><strong>列表没有 <code>获取</code> 方法</strong>。<code>获取</code>（<code>get</code>）仅适用于字典；列表取元素用下标
+  <code>列表[索引]</code> 或 <code>列表获取(列表, 索引)</code>。</li>
+<li><strong>列表 <code>拷贝</code> 方法未接通</strong>。需要浅拷贝/深拷贝时用全局函数
+  <code>浅拷贝(原)</code> / <code>深拷贝(原)</code> / <code>副本(原)</code>（stdlib 内置核心列表导出）。</li>
+</ul>
+<h4 id="454">4.5.4 ⚠️ 置空软删除陷阱（静默错）<a class="headerlink" href="#454" title="Permanent link">&para;</a></h4>
+<p><code>设 字典[键] 为 空</code> <strong>不是删除</strong>——它只把值置为空，<strong>键仍然存在</strong>，
+此后 <code>字典.包含(键)</code> 依然返回真。只判 <code>.包含</code> 会把已"注销"的条目当成有效，
+不报任何错误，属于静默逻辑错。要求：</p>
+<ul>
+<li>需要"删条目"语义时<strong>必须用 <code>字典.弹出(键)</code> 或 <code>字典删除(字典, 键)</code></strong>；</li>
+<li>若刻意保留键做"软删除"，则所有取值处必须补判空：
+  <code>如果 卡 != 空:</code>（取值返回 <code>空</code> 时按不存在处理）。</li>
+</ul>
+<h3 id="46-lambda">4.6 Lambda 表达式<a class="headerlink" href="#46-lambda" title="Permanent link">&para;</a></h3>
 <p><strong>语法：</strong>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>匿名(参数): 表达式
 </span></code></pre></div></p>
@@ -4709,7 +4949,7 @@
     <span class="md-icon" title="最后更新">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月26日 06:05:23 UTC">2026年9月26日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月28日 13:46:42 UTC">2026年9月28日</span>
   </span>
 
     
@@ -4719,7 +4959,7 @@
     <span class="md-icon" title="创建日期">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月26日 06:05:23 UTC">2026年9月26日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月28日 13:46:42 UTC">2026年9月28日</span>
   </span>
 
     
