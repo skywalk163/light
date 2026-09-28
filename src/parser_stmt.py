@@ -432,6 +432,18 @@ class ParserStmtMixin:
                             self._consume(TokenType.PERIOD)
                         return TypeCheckToggleStmt(enable, line, col)
         
+        # R99 路 B（LP-D-012）：并行块 `并行:` —— 词法层 `并` 是关键字（管道
+        # 连接符），语句头 `并行` 会被切成 KEYWORD('并')+IDENTIFIER('行')，所以
+        # 这里按**形态**判定：并+行+冒号 三连才劫持为并发块产生式；其余一切
+        # `并行`/`并行上限`/`并xx` 用法照旧走后面的通用语句路径，零破坏。
+        # 「并行」刻意不整体加关键字表：会波及 `并行上限` 这类复合名切词，
+        # 语句头形态判定是最小侵入位。
+        if (tok.type == TokenType.KEYWORD and tok.value == '并'
+                and self._peek(1) and self._peek(1).type == TokenType.IDENTIFIER
+                and self._peek(1).value == '行'
+                and self._peek(2) and self._peek(2).type == TokenType.COLON):
+            return self._parse_parallel_stmt()
+
         # 异常捕获：尝试 / 试
         if tok.type == TokenType.KEYWORD and tok.value in ('尝试', '试'):
             return self._parse_try_stmt()
@@ -3567,6 +3579,77 @@ class ParserStmtMixin:
         
         return catch_type, catch_var, catch_body
     
+    def _parse_parallel_stmt(self):
+        """解析并行块语句（R99 路 B，LP-D-012）
+
+        语法：
+        并行:
+          名字1 为 表达式1
+          名字2 为 表达式2
+
+        语义：块内每个绑定行提交一个线程池任务，块结束时按序取回结果
+        绑定到名字；任一任务抛错则在块结束处 re-raise（配合 尝试/捕获 可兜）。
+        空块（`并行:` 后无任何绑定行）合法，编译为 no-op。
+
+        与 尝试 的 LP-D-004 守卫同理：本产生式只劫持「并行 + 冒号」形态，
+        其余 `并行` 一律按普通标识符走，存量语料零破坏。
+        """
+        from ast_nodes_v3 import ParallelBlockStmt
+        # 并（KEYWORD）+ 行（IDENTIFIER）= 并行（词法切分见 _parse_statement_inner 注释）
+        self._consume(TokenType.KEYWORD, '并')
+        self._consume(TokenType.IDENTIFIER, '行')
+        # 冒号
+        self._consume(TokenType.COLON)
+
+        # 块前换行
+        while self._current() and self._current().type == TokenType.NEWLINE:
+            self._consume(TokenType.NEWLINE)
+
+        bindings = []
+        has_indent = False
+        if self._current() and self._current().type == TokenType.INDENT:
+            has_indent = True
+            self._consume(TokenType.INDENT)
+
+        # 空块口径：`并行:` 后没有更深缩进（下一条就是兄弟语句）或紧跟空 INDENT
+        # 块，都是合法空块，编译为 no-op。只有确有 INDENT 块时才进绑定行解析。
+        while (has_indent and self._current()
+               and self._current().type != TokenType.DEDENT):
+            tok = self._current()
+            if tok.type not in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                _tok = tok
+                self._error(
+                    "并行块内每行必须是 `名字 为 表达式` 绑定，得到 "
+                    f"{getattr(_tok, 'value', _tok)!r}",
+                    _tok.line if _tok else 0, _tok.col if _tok else 0)
+            name = self._consume().value
+
+            # `名字 为 表达式` 的 为 连接词
+            cur = self._current()
+            if not (cur and cur.type == TokenType.KEYWORD and cur.value == '为'):
+                _tok = cur
+                self._error(
+                    f"并行块绑定行 `{name}` 后期望 `为`（形如 `{name} 为 表达式`）",
+                    _tok.line if _tok else 0, _tok.col if _tok else 0)
+            self._consume(TokenType.KEYWORD, '为')
+
+            expr = self._parse_expr()
+            bindings.append((name, expr))
+
+            # 行尾：换行或块结束
+            if self._current() and self._current().type == TokenType.NEWLINE:
+                self._consume(TokenType.NEWLINE)
+            elif self._current() and self._current().type != TokenType.DEDENT:
+                _tok = self._current()
+                self._error(
+                    "并行块绑定行结尾期望换行",
+                    _tok.line if _tok else 0, _tok.col if _tok else 0)
+
+        if has_indent and self._current() and self._current().type == TokenType.DEDENT:
+            self._consume(TokenType.DEDENT)
+
+        return ParallelBlockStmt(bindings)
+
     def _parse_try_stmt(self) -> TryStmt:
         """解析异常捕获语句
         

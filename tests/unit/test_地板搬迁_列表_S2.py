@@ -49,10 +49,10 @@ _light_import_hook.install([_STDLIB])
 光明 = importlib.import_module("内置核心列表")
 
 # 十个段落名 —— 顺序与 builtins.py:647-694 的出现顺序一致
-_十个段落 = [
+_段落清单 = [
     "列", "列表创建", "列表长度", "列表获取", "列表追加",
     "列表弹出", "列表插入", "列表排序", "列表反转", "列表包含",
-    "副本",
+    "副本", "列表过滤", "列表映射",
 ]
 
 
@@ -79,12 +79,14 @@ def test_光明模块真的由light文件加载():
     assert 光明.__file__.endswith(".light")
 
 
-def test_十个段落全部导出且两版都可调用():
-    # 单行 导出 才能让 __all__ 覆盖全部 10 个：多行 导出 会生成多条 `__all__ = [...]`，
+def test_段落全部导出且两版都可调用():
+    # 单行 导出 才能让 __all__ 覆盖全部：多行 导出 会生成多条 `__all__ = [...]`，
     # 后一条覆盖前一条（实测），于是 `import *` 只拿到最后一行那几个名字。
-    assert sorted(光明.__all__) == sorted(_十个段落)
-    assert [callable(getattr(光明, 名)) for 名 in _十个段落] == [True] * 11
-    assert [callable(getattr(原版, 名)) for 名 in _十个段落] == [True] * 11
+    assert sorted(光明.__all__) == sorted(_段落清单)
+    assert [callable(getattr(光明, 名)) for 名 in _段落清单] == [True] * len(_段落清单)
+    # 注意：列表过滤/列表映射 是 R99-C 新增的纯光明函数，builtins.py 原版没有，只检查光明侧
+    仅地板组 = [名 for 名 in _段落清单 if 名 not in ("列表过滤", "列表映射")]
+    assert [callable(getattr(原版, 名)) for 名 in 仅地板组] == [True] * len(仅地板组)
 
 
 # ── 1. 纯函数：oracle 表逐条对跑 ────────────────────────────────────────────────

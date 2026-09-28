@@ -734,6 +734,17 @@ class UnifiedCodeGenerator:
                     break
             self.output_lines.insert(insert_pos, "")
             self.output_lines.insert(insert_pos, "import asyncio")
+
+        # R99 路 B：并行块需要 concurrent.futures（与 asyncio 同款按需插入）
+        if getattr(self, '_needs_concurrent', False):
+            insert_pos = 0
+            for i, line in enumerate(self.output_lines):
+                if line.startswith("#") or line == "":
+                    insert_pos = i + 1
+                else:
+                    break
+            self.output_lines.insert(insert_pos, "")
+            self.output_lines.insert(insert_pos, "import concurrent.futures")
         if self._needs_async_iter:
             insert_pos = 0
             for i, line in enumerate(self.output_lines):
@@ -1356,7 +1367,11 @@ class UnifiedCodeGenerator:
         # 并行作用域（结构化并发）
         elif is_instance(stmt, 'AsyncScope'):
             self._generate_async_scope(stmt)
-        
+
+        # R99 路 B：并行块（线程池结构化并发，LP-D-012）
+        elif is_instance(stmt, 'ParallelBlockStmt'):
+            self._generate_parallel_block(stmt)
+
         # 未知类型
         else:
             print(f"警告：未知语句类型: {node_type}")
@@ -1780,6 +1795,34 @@ class UnifiedCodeGenerator:
         self.indent_level -= 1
         self._add_line(f"_light_defers.append({func_name})")
 
+
+    def _generate_parallel_block(self, stmt):
+        """生成并行块（R99 路 B，LP-D-012：线程池结构化并发）
+
+        与 code_generator.PythonCodeGenerator._generate_parallel_block 同语义：
+        提交全部 → 按序 result() 汇总绑定；任一抛错 re-raise；空块 pass。
+        """
+        from ast_nodes_v3 import ParallelBlockStmt  # noqa: F401
+        bindings = list(getattr(stmt, 'bindings', []) or [])
+        if not bindings:
+            self._add_line("pass")
+            return
+
+        self._needs_concurrent = True
+        self._parallel_counter = getattr(self, '_parallel_counter', 0) + 1
+        pool = f"_light_pool_{self._parallel_counter}"
+
+        self._add_line(f"with concurrent.futures.ThreadPoolExecutor() as {pool}:")
+        self.indent_level += 1
+        futures = []
+        for idx, (name, expr_node) in enumerate(bindings):
+            expr_code = self._generate_expr(expr_node)
+            fut = f"_light_fut_{self._parallel_counter}_{idx}"
+            self._add_line(f"{fut} = {pool}.submit(lambda: {expr_code})")
+            futures.append((name, fut))
+        for name, fut in futures:
+            self._add_line(f"{self._sanitize_name(name)} = {fut}.result()")
+        self.indent_level -= 1
 
     def _generate_async_scope(self, stmt):
         """生成并行作用域（结构化并发，使用 asyncio.gather 实现）"""

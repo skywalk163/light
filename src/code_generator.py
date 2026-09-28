@@ -17,7 +17,7 @@ import ast_nodes as ast_nodes_module
 
 # 需要导入新的AST节点类型
 from light_parser_v3 import ImportStmt, ExportStmt, IndexAccess, SliceExpr, SetComprehension, TupleLiteral, BreakStmt, ContinueStmt, PassStmt, ClassInstantiation, MemberAccess, TryStmt, ThrowStmt, Parameter, ParameterList, StringInterpolation, ListComprehension, LambdaExpression, MatchStmt, MatchCase, MatchPattern, DictComprehension, DestructuringAssignment, WithStmt, DecoratorDefinition, DictLiteral, InterfaceDefinition, MethodSignature, IndexedAssignment, RangeExpr, FFILoadLibrary, FFIFunctionDecl, FFIStructDef, FFICallbackDef, FFICreateArray, FFISetArrayElement, FFIAllocMemory, FFIFreeMemory, FFISetPointerValue, FFISetErrno, FFITryCatch, FFIEnumDef, FFIUnionDef, FFICreateCallback, FFIVarArgsDecl, FFIStructByValue, FFILibraryPath, FFITypedefDef, FFIBitfieldDef, FFIFuncPtrDef, FFIDebugConfig, FFIPreprocessorDef, FFIPointerType, FFIArrayType, FFIAddressOf, FFIDereference, FFIPointerOffset, FFIGetLastError, FFIGetErrno
-from ast_nodes_v3 import Assignment, TypeCheckToggleStmt, AwaitExpr, KeywordArg, IndexedCompoundAssignment, PassStmt, AssignmentExpression, SetLiteral, EmbedBlock, FunctionCallExpr, CatchClause, YieldStmt, AsyncScope, RunAsyncStmt, ScopeDeclStmt, DecoratedFunction, DecoratorInfo, AssertStmt
+from ast_nodes_v3 import Assignment, TypeCheckToggleStmt, AwaitExpr, KeywordArg, IndexedCompoundAssignment, PassStmt, AssignmentExpression, SetLiteral, EmbedBlock, FunctionCallExpr, CatchClause, YieldStmt, AsyncScope, RunAsyncStmt, ScopeDeclStmt, DecoratedFunction, DecoratorInfo, AssertStmt, ParallelBlockStmt
 from ast_nodes import ExpressionStatement, SegmentName, DeferStatement
 
 
@@ -106,9 +106,12 @@ class PythonCodeGenerator:
         self._needs_abc = False
         self._needs_dataclass = False  # R73-C 数据类/记录类型
         self._needs_enum = False  # R76-B（G-14）一等枚举需要 import enum
-        
+
         # 是否需要导入 asyncio
         self._needs_asyncio = False
+
+        # R99 路 B（LP-D-012）：并行块需要 concurrent.futures
+        self._needs_concurrent = False
 
         # A2-4：本文件出现过的泛型参数名（有序、去重）。泛型早就解析进了 AST
         # （parser_stmt.py:4059 类 / :4449 段落 / :5973 类型别名 → generic_params），
@@ -1544,6 +1547,17 @@ class PythonCodeGenerator:
             self.output_lines.insert(insert_pos, "")
             self.output_lines.insert(insert_pos, asyncio_import)
 
+        # R99 路 B：并行块需要 concurrent.futures（与上面 asyncio 同款按需插入）
+        if getattr(self, '_needs_concurrent', False):
+            insert_pos = 0
+            for i, line in enumerate(self.output_lines):
+                if line.startswith("#") or line == "":
+                    insert_pos = i + 1
+                else:
+                    break
+            self.output_lines.insert(insert_pos, "")
+            self.output_lines.insert(insert_pos, "import concurrent.futures")
+
         # A2-4：泛型参数的 TypeVar 定义。沿用上面两块的「按需插入文件头」机制。
         # 必须插在最前面：`class 栈(Generic[T])` 与 `表对 = list[T]` 都是**执行期**
         # 求值 T，定义晚一行产物就 NameError。
@@ -2013,6 +2027,9 @@ class PythonCodeGenerator:
         elif isinstance(stmt, AsyncScope):
             # 异步作用域（结构化并发）
             self._generate_async_scope(stmt)
+        elif isinstance(stmt, ParallelBlockStmt):
+            # R99 路 B：并行块（线程池结构化并发）
+            self._generate_parallel_block(stmt)
         elif type(stmt).__name__ == 'CForStmt':
             # C风格for循环
             self._generate_c_for_stmt(stmt)
@@ -3435,6 +3452,49 @@ class PythonCodeGenerator:
             self._add_line(f"{vars_str} = await asyncio.gather({task_str})")
         else:
             self._add_line(f"await asyncio.gather({task_str})")
+
+    def _generate_parallel_block(self, stmt: ParallelBlockStmt):
+        """生成并行块（R99 路 B，LP-D-012：线程池结构化并发）
+
+        并行:
+          任务A 为 长任务A(参数)
+          任务B 为 长任务B(参数)
+
+        →
+        with concurrent.futures.ThreadPoolExecutor() as _light_pool_N:
+            _light_fut_N_0 = _light_pool_N.submit(lambda: 长任务A(参数))
+            _light_fut_N_1 = _light_pool_N.submit(lambda: 长任务B(参数))
+            任务A = _light_fut_N_0.result()
+            任务B = _light_fut_N_1.result()
+
+        语义要点：
+        - 提交全部任务之后才取结果，任务真正并行；
+        - 任一任务抛错，第一个到达的 `.result()` re-raise；`with` 退出时
+          shutdown(wait=True) 等其余任务收尾，不泄漏线程；
+        - 空块编译为 pass；
+        - 线程安全不保证（光明是同步语义，共享状态由用户自己加锁）。
+        """
+        bindings = list(getattr(stmt, 'bindings', []) or [])
+        if not bindings:
+            self._add_line("pass")
+            return
+
+        self._needs_concurrent = True
+        self._parallel_counter = getattr(self, '_parallel_counter', 0) + 1
+        pool = f"_light_pool_{self._parallel_counter}"
+
+        self._add_line(f"with concurrent.futures.ThreadPoolExecutor() as {pool}:")
+        self.indent_level += 1
+        futures = []
+        for idx, (name, expr_node) in enumerate(bindings):
+            expr_code = self._generate_expr(expr_node)
+            fut = f"_light_fut_{self._parallel_counter}_{idx}"
+            self._add_line(f"{fut} = {pool}.submit(lambda: {expr_code})")
+            futures.append((name, fut))
+        for name, fut in futures:
+            self._bind_local(name)
+            self._add_line(f"{self._sanitize_name(name)} = {fut}.result()")
+        self.indent_level -= 1
 
     def _generate_decorator_definition(self, stmt: DecoratorDefinition):
         """生成装饰器定义"""

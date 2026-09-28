@@ -981,6 +981,24 @@ class AsyncScope(ASTNode):
         return f"异步作用域({len(self.tasks)}个任务)"
 
 
+class ParallelBlockStmt(ASTNode):
+    __slots__ = ('bindings',)
+    """并行块语句：`并行:` 块内每行 `名字 为 表达式`（R99 路 B，LP-D-012）
+
+    与 AsyncScope（异步作用域，asyncio.gather）的区别：
+    - 语法：`并行:` 缩进块，块内每行一个 `名字 为 表达式` 绑定；
+    - 语义：同步语义下的 ThreadPoolExecutor 结构化并发，块结束时按序
+      `future.result()` 汇总绑定，任一任务抛错则 re-raise；
+    - 光明没有 await 语义，线程池是最直白的编译目标（任务书红线：不做真异步）。
+    """
+    def __init__(self, bindings):
+        # bindings: List[Tuple[str, ASTNode]] —— (结果变量名, 任务表达式)
+        self.bindings = list(bindings or [])
+
+    def __repr__(self):
+        return f"并行块({len(self.bindings)}个任务)"
+
+
 class RunAsyncStmt(ASTNode):
     __slots__ = ('call',)
     """异步启动语句：`异步 运行 主()。` → `asyncio.run(主())`（A1）

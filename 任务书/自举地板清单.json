@@ -16,11 +16,11 @@
   ],
   "版本": 1,
   "归属": "C9 建（S1），G9 守门禁",
-  "总数": 157,
+  "总数": 158,
   "分类统计": {
     "native_required": 62,
     "movable": 11,
-    "has_light_impl": 66,
+    "has_light_impl": 67,
     "duplicate": 13,
     "unused": 0
   },
@@ -1232,6 +1232,14 @@
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
       "证据行": "stdlib/内置核心判型.light:81"
+    },
+    {
+      "名字": "字符串全数字",
+      "职责": "检查整个字符串是否全由数字字符组成（str.isdigit 全串版）；与 是数字符（判单字符）/ 是数值（判值类型）互补",
+      "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/内置核心判型.light（R99-C · LP-D-016 新增并接线；空串返回假，非 str 返回假）",
+      "证据行": "stdlib/内置核心判型.light:101"
     },
     {
       "名字": "是负零",
