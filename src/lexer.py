@@ -245,6 +245,39 @@ def _is_ascii_whitespace(ch: str) -> bool:
     return ch == ' ' or ch == '\t' or ch == '\r'
 
 
+# L-023（R100 路 B）：行尾二元运算符软续行判定表。
+# 中文运算词（与 VERB_ARITY 二元运算一致；等于=赋值/比较均强制右操作数）
+_LINE_CONT_KEYWORDS = frozenset({
+    '加', '减', '乘', '除', '取余', '模', '幂',
+    '乘以', '除以', '整除', '加上', '减去', '模以', '幂以',
+    '等于', '大于', '小于', '不等于', '大于等于', '小于等于', '不小于', '不大于',
+    '且', '或',
+})
+# 符号运算 token 类型（+ - * / % < > <= >= == !=）
+_LINE_CONT_TOKEN_TYPES = frozenset({
+    TokenType.PLUS, TokenType.MINUS, TokenType.STAR, TokenType.SLASH,
+    TokenType.PERCENT, TokenType.LESS, TokenType.GREATER,
+    TokenType.LESS_EQUAL, TokenType.GREATER_EQUAL, TokenType.EQ_EQ,
+    TokenType.NOT_EQ,
+})
+
+
+def _line_ends_with_binary_op(tokens) -> bool:
+    """当前已发出的最后一个显著 token 是否是二元运算符（软续行触发判据）。
+
+    仅在即将发射**语句层** NEWLINE（字面量括号深度 0）时调用；运算符在语法上
+    强制要求右操作数，跨行合并不会改变任何合法程序的语义。
+    """
+    if not tokens:
+        return False
+    t = tokens[-1]
+    if t.type in _LINE_CONT_TOKEN_TYPES:
+        return True
+    if t.type == TokenType.KEYWORD and t.value in _LINE_CONT_KEYWORDS:
+        return True
+    return False
+
+
 # 模块级关键字预计算（只计算一次）
 _ALL_KEYWORDS_WITH_VERBS = ALL_KEYWORDS | set(VERB_ARITY.keys())
 
@@ -737,6 +770,41 @@ class Lexer:
                     line += 1
                     col = 1
                     i += 1
+                    continue
+                # L-023（R100 路 B 重裁定）：行尾二元运算符的软续行。
+                # 上一实现（parser 层 _skip_implicit_continuation）会吞掉续行行的
+                # INDENT、打断块结构，故 LP-D-006 曾裁定「报错优先」。现改为在
+                # **词法层**实现：行尾是二元运算符时不发射 NEWLINE，续行行的前导
+                # 缩进不参与层级计算（不发 INDENT/DEDENT）——块结构从原理上不可
+                # 能被打断，原缺陷前提被消除。语义与 Python 隐式续行对齐：
+                # 运算符在语法上强制要求右操作数，合并不会改变任何合法程序。
+                if _line_ends_with_binary_op(tokens):
+                    line += 1
+                    col = 1
+                    i += 1
+                    # 续行行前导空白跳过，不进缩进栈
+                    while i < n and _is_ascii_space_tab(source[i]):
+                        col += 1
+                        i += 1
+                    # 续行中间的空行/注释行不算结束（仍处续行态）
+                    while True:
+                        if i < n and source[i] == '\n':
+                            line += 1
+                            col = 1
+                            i += 1
+                            while i < n and _is_ascii_space_tab(source[i]):
+                                col += 1
+                                i += 1
+                            continue
+                        if i < n and source[i] == '#':
+                            while i < n and source[i] != '\n':
+                                i += 1
+                            continue
+                        if i + 1 < n and source[i:i + 2] == '//':
+                            while i < n and source[i] != '\n':
+                                i += 1
+                            continue
+                        break
                     continue
                 tokens.append(Token(TokenType.NEWLINE, '\n', line, col))
                 line += 1

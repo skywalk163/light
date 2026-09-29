@@ -5202,10 +5202,16 @@ class PythonCodeGenerator:
         try:
             import sys
             import os
-            # 确保 stdlib 目录在 path 中
+            # 确保 stdlib 目录在 path 中。R100 路 B：这里必须 append 而非 insert(0)——
+            # 本函数在**编译期**被每个 import 语句触发，insert(0) 会把编译器自带
+            # stdlib 抢到宿主 sys.path 最前，运行期 `from Base64 import …` 等顶层
+            # stdlib 导入全部命中编译器仓的模块（而非宿主自带的同名模块，如
+            # lightharness/stdlib/Base64.py 的 L-027 修复版），宿主 stdlib 被静默
+            # 遮蔽。lightpub 解析只需要本目录可导入（`from lightpub import …`），
+            # 不需要优先级，故 append。
             stdlib_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'stdlib')
             if stdlib_dir not in sys.path:
-                sys.path.insert(0, stdlib_dir)
+                sys.path.append(stdlib_dir)
             from lightpub import resolve_import, get_stdlib_bridge
             
             pkg_info = resolve_import(module_name)

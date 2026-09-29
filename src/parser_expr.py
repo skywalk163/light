@@ -115,6 +115,30 @@ def _lp_restore_braces(value):
     """把插值扫描用的占位符还原成真正的字面花括号。"""
     return value.replace(_LP_LBRACE, '{').replace(_LP_RBRACE, '}')
 
+
+def _lp_normalize_braces_plain(value):
+    """普通（非 f-string）字符串的花括号归一：只处理 \\{ \\} 转义。
+
+    R100 路 B 修复：此前无插值的普通字符串也走 _lp_normalize_braces，把
+    {{ / }} 折叠成单花括号——那是 f-string 的转义语义，泄漏进普通字符串后，
+    任何含连续右花括号的字面量（JSON `…}}`、正则/模板文本）都会被静默损坏
+    （`…0}}}` 丢成 `…0}}`，随后 JSON 解析报「对象缺少逗号或右花括号」）。
+    普通字符串的花括号一律字面（与 Python str 一致），仅保留 \\{ \\} 转义
+    （词法器对未识别转义保留反斜杠，这里负责剥掉）。
+    插值扫描路径（_parse_string_interpolation:2202）仍用全量归一，行为不变。
+    """
+    out = []
+    i, n = 0, len(value)
+    while i < n:
+        c = value[i]
+        if c == '\\' and i + 1 < n and value[i + 1] in ('{', '}'):
+            out.append(value[i + 1])
+            i += 2
+            continue
+        out.append(c)
+        i += 1
+    return ''.join(out)
+
 class ParserExprMixin:
     """表达式解析混入类"""
 
@@ -1021,9 +1045,11 @@ class ParserExprMixin:
             interpolated = self._parse_string_interpolation(tok.value, tok.line, tok.col)
             if interpolated is not None:
                 return self._parse_postfix(interpolated)
-            # LP-D-001：无插值时，普通字符串字面量同样归一花括号转义（\{ → {、}} → }）。
+            # LP-D-001 + R100 路 B：无插值时，普通字符串字面量只归一 \{ \} 转义；
+            # {{ / }} 折叠是 f-string 专属语义，对普通字符串是静默损坏
+            # （JSON `…}}` 字面量会丢花括号），已移除（_lp_normalize_braces_plain）。
             # 走普通 Python 字符串产物（非 f-string），字面花括号无需翻倍。
-            expr = StringLiteral(_lp_restore_braces(_lp_normalize_braces(tok.value)))
+            expr = StringLiteral(_lp_normalize_braces_plain(tok.value))
             return self._parse_postfix(expr)
 
         # 字节串 b"..."（v7 新单 H）
