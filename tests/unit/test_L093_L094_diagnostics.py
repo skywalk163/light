@@ -27,6 +27,34 @@ from cli.light import _run_src, _resolve_local_imports   # noqa: E402
 from enhanced_errors import ErrorFormatter               # noqa: E402
 
 
+def _norm(p):
+    """L-094 路径断言的**比较归一**（不是放水，断言强度不变）。
+
+    背景：诊断输出用 `Path.resolve()`（Windows 上会把 8.3 短名展开成长名，
+    如 `C:\\Users\\RUNNER~1\\...` → `C:\\Users\\runneradmin\\...`），而
+    `tempfile.TemporaryDirectory()` 给测试的句柄可能是短名形态——
+    GitHub Windows runner 上同一目录两种写法并存，直接 assertIn 误报。
+
+    归一动作：
+      1. `os.path.realpath` 展开软链接/junction；
+      2. 仅 Windows 分支：`GetLongPathNameW` 展开 8.3 短名（realpath 不展开短名）；
+      3. Windows 大小写不敏感，统一小写后比较。
+    两条路径仍必须逐字符（归一后）出现在诊断里，缺一即红——强度与原断言一致。
+    """
+    p = os.path.realpath(p)
+    if sys.platform == 'win32':
+        try:
+            import ctypes
+            buf = ctypes.create_unicode_buffer(1024)
+            n = ctypes.windll.kernel32.GetLongPathNameW(str(p), buf, 1024)
+            if 0 < n < 1024:
+                p = buf.value
+        except Exception:
+            pass
+        p = p.lower()
+    return p
+
+
 def _write(path, text):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8') as f:
@@ -61,7 +89,9 @@ class TestL094ImportShadowDiagnostic(unittest.TestCase):
             self.assertIn('工具', msg)
             # 诊断必须点名两条路径（解析结果 + src/ 同名模块）
             self.assertIn(os.path.join('examples', '工具.light'), msg)
-            self.assertIn(os.path.join(tmp, 'src', '工具.light'), msg)
+            self.assertIn(os.path.join('examples', '工具.light'), msg)
+            # 路径比较先归一（realpath/长名展开），消除 Windows runner 8.3 短名误报
+            self.assertIn(_norm(os.path.join(tmp, 'src', '工具.light')), _norm(msg))
 
     def test_no_shadow_no_diagnostic(self):
         with tempfile.TemporaryDirectory() as tmp:
