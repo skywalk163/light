@@ -2,8 +2,11 @@
 """
 LP-D-001 回归测试：字符串花括号转义归一。
 
-约束（来自 lightplugin/语言缺陷反馈.md LP-D-001）：
-- \\{ 产物为 {，}} 产物为 }，\\} 产物为 }，{{ 产物为 {；不残留反斜杠/双花括号。
+约束（来自 lightplugin/语言缺陷反馈.md LP-D-001，R100 路 B 重裁定）：
+- \\{ 产物为 {，\\} 产物为 }（反斜杠转义保留，不残留反斜杠）。
+- **{{ / }} 不再折叠**：第一版把 f-string 的 {{→{ 转义语义泄漏进普通字符串，
+  导致 JSON 等含连续右花括号的字面量被静默损坏（`…0}}` 丢 `}`）。R100 路 B
+  恢复普通字符串的花括号一律字面（与 Python str 一致），折叠仅存在于 f-string。
 - {变量} 插值特性保持不变。
 - 三后端意识：这里对 transpile 腿（PythonCodeGenerator）做端到端运行验证。
 """
@@ -37,15 +40,31 @@ class TestLpd001BraceEscape:
         out = _run('设 s 为 "a\\{x\\}"。\n打印 s。\n')
         assert out.strip() == 'a{x}', repr(out)
 
-    def test_double_brace_normalizes(self):
+    def test_double_brace_kept_literal(self):
+        """R100 路 B 重裁定：普通字符串的 {{ / }} 逐字保留（不再折叠）。"""
         out = _run('设 s 为 "a{{x}}"。\n打印 s。\n')
-        assert out.strip() == 'a{x}', repr(out)
+        assert out.strip() == 'a{{x}}', repr(out)
 
     def test_closing_brace_escapes(self):
         out = _run('设 s 为 "a\\}b"。\n打印 s。\n')
         assert out.strip() == 'a}b', repr(out)
+
+    def test_closing_double_brace_kept_literal(self):
+        """R100 路 B 重裁定：普通字符串的 }} 逐字保留（不再折叠）。"""
         out = _run('设 s 为 "a}}b"。\n打印 s。\n')
-        assert out.strip() == 'a}b', repr(out)
+        assert out.strip() == 'a}}b', repr(out)
+
+    def test_json_with_double_closing_brace_roundtrip(self):
+        """R100 路 B 回归哨兵：含 `}}` 的 JSON 字面量必须逐字无损。
+
+        这是本次重裁定的现实动因——折叠曾把 `{"a":{"b":0}}` 静默损坏，
+        随后 JSON 解析报「对象缺少逗号或右花括号」（lightharness examples
+        客户端/存储核心/会话持久化JSONL 等 9 条红的共同根因）。
+        """
+        out = _run(
+            '设 s 为 "{\\"id\\":\\"abc\\",\\"n\\":{\\"k\\":0}}"。\n打印 s。\n'
+        )
+        assert out.strip() == '{"id":"abc","n":{"k":0}}', repr(out)
 
     def test_interpolation_unchanged(self):
         out = _run('设 名字 为 "小明"。\n设 s 为 "你好 {名字}"。\n打印 s。\n')
