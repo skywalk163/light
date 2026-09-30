@@ -504,6 +504,11 @@
     "字节缓冲": {
       "状态": "不可编译",
       "阻断": "代码生成不支持：原生后端缺运行期 helper `_light_bytes_split`（R72-E 为绕开「bytes 字面量后跟 .方法」的 parser 限制，在 src/code_generator.py 注入的运行期 helper）—— 真编译实测 `python -m cli.light compile stdlib/字节缓冲.light --backend llvm-typed` 抛「未定义的段落：_light_bytes_split」"
+    },
+    "中止": {
+      "状态": "不可编译",
+      "阻断": "导入 Python 标准库模块（原生腿不加载 Python）",
+      "引入的Python模块": "asyncio"
     }
   },
   "CLI路径状态表": [

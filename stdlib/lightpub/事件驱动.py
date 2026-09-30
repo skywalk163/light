@@ -5,6 +5,16 @@
 
 上游 duanpub 原始包通过 C FFI 实现事件驱动编程模型，
 本桥接模块用 Python asyncio 模块替代，提供等价的 EventEmitter 功能。
+
+【跨平台支持矩阵（第7轮 A线 #274）】
+  | 能力           | Windows | Linux | macOS | FreeBSD | 不支持时行为（fail-closed） |
+  | 事件循环生命周期 | ✅      | ✅    | ✅    | ✅      | loop 为空立抛，不静默 |
+  | 事件注册/触发   | ✅      | ✅    | ✅    | ✅      | 触发回调异常逐个隔离（不冒泡炸循环），事件仍记 已处理 |
+  | 取消语义       | ✅      | ✅    | ✅    | ✅      | 取消即 asyncio 原生 CancelledError（BaseException，光明「捕获」接不到）；
+  |                |         |       |       |         | 光明层统一取消走 stdlib/中止.light 的中止令牌，不在本桥再造第二种取消。
+  跨线程投递：一律经 loop.call_soon_threadsafe（socketpair 唤醒通道为 asyncio
+  内建自持管道），Windows/Linux/macOS/FreeBSD 四平台行为一致——ConPTY 管道
+  句柄不得直接进 selector，跨线程 IO 事件必须走本通道（见 tests/test_第7轮_io矩阵.py）。
 """
 
 import asyncio as _asyncio

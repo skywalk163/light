@@ -21,6 +21,14 @@
 #   光明类体不接受 异步 段落（src/parser_stmt.py:4439），所以异步入口一律是
 #   模块级段落、服务端对象当第一个参数传（与 stdlib/流式.light 的 协程收 同款绕法）。
 #
+# 【跨平台支持矩阵（第7轮 A线 #274）】
+#   | 能力              | Windows | Linux | macOS | FreeBSD | 不支持时行为（fail-closed） |
+#   | 非阻塞 accept/recv/send | ✅ | ✅    | ✅    | ✅      | EAGAIN 回选择器；ECONNABORTED/EMFILE 等可恢复错误重试；致命错误停机并记 终止原因 |
+#   | Content-Length/chunked/keep-alive | ✅ | ✅ | ✅ | ✅ | 不信任入站字段，长度按帧读 |
+#   | 客户端提前断开     | ✅      | ✅    | ✅    | ✅      | 记 连接中断，服务端不崩 |
+#   取消语义：读/写腿建在 流式/选择器 之上，令牌（stdlib/中止.light）在原语层
+#   检查并向上冒泡，本模块不自造取消。端口一律内核分配（bind(("127.0.0.1", 0))）。
+#
 # 【F9 S2 修订：POSIX 上的挂死】S1 版只在 Windows 上绿，gitea 的唯一 runner
 # （FreeBSD）上 pytest 卡 12 分钟被杀。四处真缺陷，逐条落在下面的注释里：
 #   H1 置非阻塞：accept 回来的连接套接字从未显式置非阻塞（POSIX 不继承 O_NONBLOCK）

@@ -5,6 +5,15 @@
 
 上游 duanpub 原始包通过 C FFI 实现异步运行时，
 本桥接模块用 Python asyncio 模块替代，提供等价的 Future/Promise/EventLoop 功能。
+
+【跨平台支持矩阵（第7轮 A线 #274）】
+  | 能力              | Windows | Linux | macOS | FreeBSD | 不支持时行为（fail-closed） |
+  | Future/Promise    | ✅      | ✅    | ✅    | ✅      | 对象为空/已定型立抛，不静默 |
+  | 未来取消/异步任务取消 | ✅    | ✅    | ✅    | ✅      | 取消即 asyncio 原生 CancelledError（BaseException，光明「捕获」接不到）；
+  |                   |         |       |       |         | 取消后不 await，让事件循环收尾时自行回收（竞速约定，见 stdlib/中止.light）。
+  | 流挂接/flush      | ✅      | ✅    | ✅    | ✅      | 事件循环未运行时立抛，不静默排队 |
+  光明层统一取消令牌：stdlib/中止.light（第7轮 A线 #274 唯一实现），
+  经 stdlib/并发.light 的 超时运行(…, 令牌) 竞速接入，本桥不自造取消。
 """
 
 import asyncio as _asyncio
