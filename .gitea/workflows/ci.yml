@@ -350,6 +350,17 @@ jobs:
           . "$HOME/.cache/light-ci-venv/bin/activate"
           python tools/ci/dist_criteria.py --root .
 
+      # R109-D 线：自举地板清单门禁（内部自洽·硬判，R107-G 顺延销账）。
+      # 守 `任务书/自举地板清单.json` 的 `分类统计` 与 `函数[].分类` 两处独立手写口径
+      # 不再靠人的记性一致——改一处漏一处立即变红（逐类计数咬合/三方总量/分类值域/
+      # 基线交叉校验 四条判据）。纯静态扫描，秒级；硬判绿点，不加 || true。
+      # 与 .github 镜像对齐（镜像侧加 if: runner.os == 'Linux'，本仓 runs-on: freebsd
+      # 即 Linux 等价路径，无条件真跑——加 runner.os 条件会让 freebsd 上恒 false 假绿）。
+      - name: 自举地板清单门禁（内部自洽）
+        run: |
+          . "$HOME/.cache/light-ci-venv/bin/activate"
+          python tools/ci/assert_floor_manifest.py --root .
+
 
 
       # 时间预算硬闸门（2026-08-22 用户裁决；2026-09-08 放宽）：PR ≤ 1800s，push main ≤ 3000s（50 分钟）。

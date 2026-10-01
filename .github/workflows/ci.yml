@@ -271,6 +271,14 @@ jobs:
         run: |
           python tools/ci/spec_coverage.py --root .
 
+      # R109-D 线：自举地板清单门禁（内部自洽·硬判，R107-G 顺延销账）。
+      # 与 .gitea 权威副本逐字对齐（.gitea runs-on: freebsd 即 Linux 等价路径）。
+      # 守 `任务书/自举地板清单.json` 内部两处独立手写口径不再漂——改一处漏一处即红。
+      - name: 自举地板清单门禁（内部自洽）
+        if: runner.os == 'Linux'
+        run: |
+          python tools/ci/assert_floor_manifest.py --root .
+
 
       # 时间预算硬闸门。always()：前面红了也要把耗时账单打出来，否则一红就没时间数据。
       - name: 时间预算闸门
