@@ -431,3 +431,7 @@ generated-images/
 
 # 目录整理归档（任务B 2026-09-29）
 /_archive/
+
+# Day1（2026-10-01 丁类收口）：上面 `!antlrparser/light_parser/**` 为「ANTLR 生成解析器必须入库」
+# 做了全量反忽略，把 __pycache__ 也一并放了出来。此处在其后**重新忽略**回来（顺序不可颠倒）。
+antlrparser/light_parser/**/__pycache__/
