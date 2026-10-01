@@ -1030,32 +1030,13 @@ class InterpreterCore:
         print(text)
     
     def _exec_try(self, node: TryStatement):
-        """执行异常捕获
-
-        Day2（LP-D-011 改靶）对齐 SRC 后端：支持多个捕获子句 + 可选最终块。
-        优先用 catch_clauses（多捕获）；无多捕获时回退到旧的 catch_var/catch_body
-        （兼容仅单捕获的旧 AST）。finally 无论是否异常都执行。
-        """
-        clauses = getattr(node, 'catch_clauses', None) or []
-        if not clauses and (node.catch_var or node.catch_body):
-            clauses = [('', node.catch_var, node.catch_body)]
-
+        """执行异常捕获"""
         try:
             self._execute_block(node.try_body)
         except LightError as e:
-            for _type, _var, _body in clauses:
-                # 有类型过滤：仅当异常 value 的 type_name 匹配时才捕获
-                if _type and e.value is not None and e.value.type_name != _type:
-                    continue
-                if _var:
-                    self.env.define(_var, e.value)
-                self._execute_block(_body)
-                break
-
-        # 最终块：无论是否捕获都执行
-        finally_body = getattr(node, 'finally_body', None) or []
-        if finally_body:
-            self._execute_block(finally_body)
+            catch_var = node.catch_var
+            self.env.define(catch_var, e.value)
+            self._execute_block(node.catch_body)
 
     def _exec_defer(self, node: DeferStatement):
         """执行推迟语句

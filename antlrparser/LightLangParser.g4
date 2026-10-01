@@ -335,34 +335,8 @@ continueStmt
     ;
 
 tryStmt
-    : K_TRY COLON block
-      ( K_CATCH catchSpec COLON block )*
-      ( K_FINALLY COLON block )?
-      K_END PERIOD?
-    ;
-
-catchSpec
-    : identifier_or_type ( identifier_or_type )?
-    ;
-
-// 捕获子句里的「标识符或类型名」。SRC 后端支持两种形态：
-//   捕获 变量：      单个标识符（绑定变量）
-//   捕获 类型 变量：  类型 + 绑定变量（类型名可能是内置类型 token 或用户类型 ID）
-// 类型位置允许类型 token，避免 ANTLR 在 `捕获 串 错:` 上把 `串`（T_STRING token）
-// 当 ID 匹配失败。
-identifier_or_type
-    : ID
-    | T_NUMBER
-    | T_INT
-    | T_FLOAT
-    | T_STRING
-    | T_LIST
-    | T_DICT
-    | T_SET
-    | T_BOOL
-    | T_ANY
-    | K_DATA_TYPE
-    | K_TYPE
+    : K_TRY COLON block K_END PERIOD?
+      K_CATCH ID COLON block K_END PERIOD?
     ;
 
 throwStmt

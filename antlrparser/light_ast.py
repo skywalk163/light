@@ -308,19 +308,10 @@ class ReturnStatement(ASTNode):
 
 @dataclass
 class TryStatement(ASTNode):
-    """异常捕获
-
-    Day2（LP-D-011 改靶）对齐 SRC 后端：支持多个捕获子句 + 可选 finally。
-    catch_var / catch_body / catch_type 保留旧字段以兼容仅单捕获的旧 visitor。
-    """
+    """异常捕获"""
     try_body: List[ASTNode] = field(default_factory=list)
     catch_var: str = ""
     catch_body: List[ASTNode] = field(default_factory=list)
-    # 新增：多捕获子句（(catch_type, catch_var, catch_body) 三元组）
-    catch_clauses: List[tuple] = field(default_factory=list)
-    # 新增：最终块（可选）
-    finally_body: List[ASTNode] = field(default_factory=list)
-    catch_type: str = ""
 
 
 @dataclass

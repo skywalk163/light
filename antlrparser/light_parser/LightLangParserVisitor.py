@@ -267,16 +267,6 @@ class LightLangParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by LightLangParser#catchSpec.
-    def visitCatchSpec(self, ctx:LightLangParser.CatchSpecContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by LightLangParser#identifier_or_type.
-    def visitIdentifier_or_type(self, ctx:LightLangParser.Identifier_or_typeContext):
-        return self.visitChildren(ctx)
-
-
     # Visit a parse tree produced by LightLangParser#throwStmt.
     def visitThrowStmt(self, ctx:LightLangParser.ThrowStmtContext):
         return self.visitChildren(ctx)
