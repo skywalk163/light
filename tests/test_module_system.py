@@ -273,8 +273,13 @@ class TestStdlibExpansion(unittest.TestCase):
             self.skipTest(f"正则查找所有 API 不兼容: {e}")
     
     def test_regex_replace(self):
-        """从《正则》导入《替换》"""
-        code = '从《正则》导入《替换》。设 甲 为 替换("na", "XY", "banana")。打印(甲)。'
+        """从《正则》导入《替换》
+
+        Day1（2026-10-01）修正：stdlib 的签名是 `替换(模式, 文本, 替换文本)`
+        （见 stdlib/正则表达式.light:75，与 搜索/查找所有/是否匹配 一样「模式在前」），
+        原用例按 `替换(模式, 替换文本, 文本)` 传参，属用例自身写错，不是 API 不兼容。
+        """
+        code = '从《正则》导入《替换》。设 甲 为 替换("na", "banana", "XY")。打印(甲)。'
         try:
             output = self.compile_and_run(code)
             self.assertEqual(output, 'baXYXY')
@@ -293,8 +298,18 @@ class TestStdlibExpansion(unittest.TestCase):
             self.skipTest(f"正则是否匹配 API 不兼容: {e}")
     
     def test_regex_escape(self):
-        """正则模块没有\"转义\"函数"""
-        self.skipTest("正则模块没有\"转义\"函数，实际导出名为\"分割\"")
+        """从《正则》导入《转义》
+
+        Day1（2026-10-01）解 skip：原 skip 文案「正则模块没有"转义"函数，实际导出名为
+        "分割"」已过时 —— stdlib/正则表达式.light:20 明确 `导出 分割 编译 转义 搜索
+        匹配开头 是否匹配。`，:81 有 `段落 转义(文本)`。实测 转义("a.b") → `a\\.b`。
+        """
+        code = '从《正则》导入《转义》。打印(转义("a.b"))。'
+        try:
+            output = self.compile_and_run(code)
+            self.assertEqual(output, 'a\\.b')
+        except Exception as e:
+            self.skipTest(f"正则转义 API 不兼容: {e}")
     
     # ===== 编码模块 =====
     

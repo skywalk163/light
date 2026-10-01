@@ -234,6 +234,13 @@ class PythonCodeGenerator:
         # 模块名映射（中文到Python模块）
         # 注意：有独立 stdlib 实现（含中文函数名）的模块不要映射到 Python 标准库
         self.module_name_map = {
+            # Day1（2026-10-01）：`正则` 是 `正则表达式` 的短名别名。
+            # 判据：`light-merge/tests/test_module_system.py:256-297` 的
+            # `从《正则》导入《搜索》` 系用例因此长期 skip（运行时
+            # `No module named '正则'`），而 stdlib 下只有 `正则表达式.light/.py`。
+            # 只补这一个短名，不动任何既有模块的解析顺序；全仓已确认无代码依赖
+            # 名为 `正则` 的独立模块，故不会抢名。
+            '正则': '正则表达式',
         }
         
         # 异常名映射（中文→Python）
