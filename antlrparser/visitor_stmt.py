@@ -167,14 +167,96 @@ class VisitorStmtMixin(VisitorDeclMixin):
         return ContinueStatement(line=ctx.start.line, column=ctx.start.column)
 
     def visitTryStmt(self, ctx: LightLangParser.TryStmtContext):
-        """异常捕获"""
+        """异常捕获
+
+        Day2（LP-D-011 改靶）对齐 SRC 后端：支持多个 `捕获` 子句与可选 `最终`。
+        新 g4 结构：K_TRY block ( K_CATCH catchSpec block )* ( K_FINALLY block )? K_END
+        catchSpec = ID ID?  → 单 ID 为绑定变量；双 ID 为类型 + 绑定变量。
+        """
         line = ctx.start.line
         col = ctx.start.column
         try_body = self.visitBlock(ctx.block(0))
-        catch_var = ctx.ID().getText()
-        catch_body = self.visitBlock(ctx.block(1))
+
+        catch_clauses = []
+        catch_var = ""
+        catch_body = []
+        catch_type = ""
+
+        def _text_of_iot(iot) -> str:
+            """取单个 identifier_or_type 子节点的 token 文本
+
+            iot 是 ANTLR 直接消费单个 token 的节点，可能是 ID 或类型 token，
+            getText() 都能拿到原始文本。
+            """
+            if iot is None:
+                return ""
+            if iot.getText():
+                return iot.getText()
+            return ""
+
+        # 类型 token 集合（用于区分 `捕获 类型 变量` 与 `捕获 变量`）
+        _TYPE_TOKENS = ('T_NUMBER', 'T_INT', 'T_FLOAT', 'T_STRING', 'T_LIST',
+                        'T_DICT', 'T_SET', 'T_BOOL', 'T_ANY', 'K_DATA_TYPE', 'K_TYPE')
+
+        def _spec_text(spec_ctx) -> str:
+            """取 identifier_or_type 节点的 token 文本（兼容 ID / 类型 token）"""
+            iot = spec_ctx.identifier_or_type(0) if spec_ctx.identifier_or_type() else None
+            return _text_of_iot(iot)
+
+        def _spec_is_type(spec_ctx) -> bool:
+            """判断首个标识符是否为类型 token（非 ID）"""
+            iot = spec_ctx.identifier_or_type(0) if spec_ctx.identifier_or_type() else None
+            if iot is None:
+                return False
+            # iot 是直接消费 token 的节点；若它有 ID() 方法且非空 → 是 ID（变量）
+            idf = getattr(iot, 'ID', None)
+            if idf is not None and idf():
+                return False
+            # 否则是类型 token
+            for attr in _TYPE_TOKENS:
+                f = getattr(iot, attr, None)
+                if f is not None and f():
+                    return True
+            return False
+
+        n_catch = len(ctx.K_CATCH()) if ctx.K_CATCH() else 0
+        block_idx = 1  # 0 是 try 体；之后按序对应各捕获块 / 最终块
+        for ci in range(n_catch):
+            spec = ctx.catchSpec(ci)
+            n_spec = len(spec.identifier_or_type()) if spec.identifier_or_type() else 0
+            if n_spec >= 2:
+                # `捕获 类型 变量:`  → 首 token 为类型，次 token 为变量
+                _specs = spec.identifier_or_type()
+                _type = _text_of_iot(_specs[0]) if len(_specs) >= 1 else ""
+                _var = _text_of_iot(_specs[1]) if len(_specs) >= 2 else ""
+            elif n_spec == 1:
+                # 单 token：若是类型 token 则无绑定变量（裸捕获）；否则为变量
+                if _spec_is_type(spec):
+                    _type = _spec_text(spec)
+                    _var = ""
+                else:
+                    _type = ""
+                    _var = _spec_text(spec)
+            else:
+                _type = ""
+                _var = ""
+            _body = self.visitBlock(ctx.block(block_idx)) if block_idx < len(ctx.block()) else []
+            block_idx += 1
+            catch_clauses.append((_type, _var, _body))
+            if ci == 0:
+                catch_type = _type
+                catch_var = _var
+                catch_body = _body
+
+        finally_body = []
+        if ctx.K_FINALLY():
+            if block_idx < len(ctx.block()):
+                finally_body = self.visitBlock(ctx.block(block_idx))
+
         return TryStatement(line=line, column=col, try_body=try_body,
-                            catch_var=catch_var, catch_body=catch_body)
+                            catch_var=catch_var, catch_body=catch_body,
+                            catch_clauses=catch_clauses, finally_body=finally_body,
+                            catch_type=catch_type)
 
     def visitThrowStmt(self, ctx: LightLangParser.ThrowStmtContext):
         """抛出异常"""
