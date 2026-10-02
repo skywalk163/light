@@ -144,3 +144,15 @@ W-23	tests/test_agent_tools_light.py::TestRunCommand::test_正常执行取输出
 # tests/test_process_tree_light.py::Test超时杀树::test_超时杀整棵树含孙子进程
 #   R90-B 补做：孪生用例同一根因（超时 800ms + 只 sleep(0.5) 死等）。
 #   修：超时 800→1500ms + 固定 sleep 改轮询 5s。修后孤立 3/3 绿。
+
+# ── [R110-S1 销账登记] day2 L1：两条「口头归因 flaky、按本台账口径未入账」的用例 ———
+#   背景：v0.3.0 终审把下面两条判为「已知 flaky」并放行，但按本台账入账口径
+#   （「一手取证：隔离复跑 2 次 + 错误签名 + 复现命令」、且「未登记文件/平台下的失败
+#   仍硬判回归」）**均未登记** → 属无效豁免。本轮已定位真因并确定性修复，故按销账处理。
+#   报告：lightharness/docs/国庆7天/Day8_门健壮性.md §1；日志：logs/day2/S1_*.log
+#
+# 已销账(R110-S1): tests/test_http_client.py::test_concurrent_requests	负载	1	真因=**测试夹具单线程**：夹具原用 http.server.HTTPServer（一次只处理一个连接，accept 队列 request_queue_size 默认=5），而本用例一次并发 10 条；隔离/低负载下服务端处理极快、连接即被 accept，故长期显绿；CPU 高负载下服务端处理变慢→队列溢出→1 条连接被拒→被测客户端 HTTP客户端.py 默认 max_retries=0 不重试、直接抛「连接错误」→该 worker 未回填→v0.3.0 门唯一红的签名 `assert 9 == 10`。修=夹具改 http.server.ThreadingHTTPServer（与 tests/unit/test_原生腿_R13B_能力扩展.py:144 同写法）；用例断言一字未改、未动 stdlib 语义。取证：隔离复跑 2/2 绿（logs/day2/S1_isolate_http_concurrent.log）；真因探针复现同签名 2/30 轮（S1_probe_decisive.log）；受控 A/B 旧夹具 1/20 红 vs 新夹具 0/20 红（S1_probe_ab.log）；反跑=改回单线程后高争抢下 20/30 轮红、修复态 30 轮全绿（S1_antirun2.log）；复跑 ×10 全绿（S1_rerun10.log）。复现：pytest tests/test_http_client.py::test_concurrent_requests -o addopts=
+#
+# 已销账(R110-S1): tests/test_tool_parallel_light.py::Test失败隔离::test_并行批里一个抛异常其余两个照常回填	负载	1	真因=**绝对墙钟判据余量不足**：原断言 `耗时 < 0.5`（单工具 sleep=0.3s；并行期望≈0.30s、串行≈0.90s）。空载 40 次采样 min 0.296/中位 0.297/max 0.328（1.7x 余量）；门用 xdist -n auto，本机多进程 8/10 核负载下 sleep 唤醒被整体拉长→并行批 0.500~0.84s 中位 0.555，**20/20 轮全部越过 0.5**；而同场景串行基线稳定 0.937~0.984s→**实现从未真退化，红的是判据不是实现**（同 W-13 病症：脱离配置的魔数阈值）。修=判据改为**负载无关的离散形态**：ok1 与 ok2 执行区间必须重叠（真并行重叠≈0.3s／真退化串行无重叠）+ 保留 `耗时 < 睡*3` 宽松上界兜住整批退化；断言语义未削弱（对「没退化」的要求更强）。取证：空载基线 S1_probe_timing_idle.log；多进程负载 S1_probe_timing_mp.log；重叠判据 S1_probe_overlap.log；反跑=强制并行上限=1 → 重叠 −0.296s 复红、改回即绿（S1_antirun1.log）；复跑 ×10 全绿（S1_rerun10.log）。复现：pytest "tests/test_tool_parallel_light.py::Test失败隔离::test_并行批里一个抛异常其余两个照常回填" -o addopts=
+#
+# 哨兵：R110-S1-LEDGER
