@@ -336,6 +336,12 @@ class LightParser:
                           '尝试', '使用', '情况', '段落', '段', '类', '接口', '构造',
                           '方法', '数据类型')
 
+        # R76-B（Day2 LP-D-011 改靶）：`捕获`/`最终` 是 `尝试` 的**延续子句**，
+        # 不是独立块。它们不关闭前一个 try 块，也不入栈 —— 否则会在
+        # `捕获 错:` 之前多插一个 `结束`，把 try/catch 拆散（SRC 后端是缩进定界
+        # + 单个 `结束`，ANTLR 必须接受同一形态）。
+        _CONTINUE_KEYWORDS = ('捕获', '捕', '最终', '终')
+
         def is_block_opener(content: str) -> bool:
             if content.endswith('：') or content.endswith(':'):
                 return True
@@ -383,6 +389,17 @@ class LightParser:
                 out.append(line)
                 # 未匹配到打开块时保持原样（如实交给解析器报错）
                 continue
+
+            # ---- 延续子句行（捕获/最终）：不入栈、不关闭前块 ----
+            if content.endswith((':', '：')):
+                _is_cont = False
+                for _k in _CONTINUE_KEYWORDS:
+                    if content.startswith(_k) or content.startswith(_k + ' '):
+                        _is_cont = True
+                        break
+                if _is_cont:
+                    out.append(line)
+                    continue
 
             # ---- 块开始行（冒号行尾，或行中冒号的内联块体）----
             if is_block_opener(content):

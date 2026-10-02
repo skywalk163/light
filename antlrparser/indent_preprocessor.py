@@ -59,6 +59,27 @@ def preprocess_v3_syntax(source: str) -> str:
         # 计算当前行缩进（空格数）
         indent = _count_indent(line)
 
+        # 延续子句（捕获/最终）：是 try 的同级分支，不关闭前块。
+        # 静默弹出更深层的挂起缩进（try 体），不生成 结束 —— 否则会在
+        # `捕获 错:` 前多插一个 `结束`，把 try/catch 拆散。
+        if _is_continue_clause(stripped):
+            _indent = _count_indent(line)
+            while len(indent_stack) > 1 and indent_stack[-1] > _indent:
+                indent_stack.pop()
+            result.append(line)
+            i += 1
+            continue
+
+        # 显式 `结束` 行：源码已显式收尾，静默弹出更深层挂起缩进，
+        # 不重复生成 `结束`（否则 try/catch 收尾会多出一个）
+        if re.match(r'^结束[。.]?$', stripped):
+            _indent = _count_indent(line)
+            while len(indent_stack) > 1 and indent_stack[-1] > _indent:
+                indent_stack.pop()
+            result.append(line)
+            i += 1
+            continue
+
         # 处理缩进减少：生成"结束"
         while indent < indent_stack[-1]:
             indent_stack.pop()
@@ -108,6 +129,26 @@ def _count_indent(line: str) -> int:
         else:
             break
     return count
+
+
+def _is_continue_clause(stripped_line: str) -> bool:
+    """判断一行是否为 `尝试` 的延续子句：`捕获`/`最终`（含 L0 别名 `捕`/`终`）。
+
+    延续子句是 try 语句的**同级分支**，不是独立块：它们不减少缩进级别，
+    因此在缩进回退时**不应**触发 `结束` 的生成（SRC 后端就是缩进定界 + 单个
+    `结束`，ANTLR 必须接受同一形态，否则 `捕获 错:` 前会被多插一个 `结束`，
+    把 try/catch 拆散）。
+    """
+    code_part = stripped_line
+    for comment_prefix in ['#', '//']:
+        idx = code_part.find(comment_prefix)
+        if idx > 0:
+            code_part = code_part[:idx].strip()
+            break
+    if not (code_part.endswith('：') or code_part.endswith(':')):
+        return False
+    return any(code_part.startswith(kw) or code_part.startswith(kw + ' ')
+               for kw in ('捕获', '捕', '最终', '终'))
 
 
 def _is_block_start(stripped_line: str) -> bool:
