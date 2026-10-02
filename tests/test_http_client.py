@@ -181,7 +181,13 @@ class _测试服务器:
                 self.end_headers()
 
         # 创建服务器
-        self._server = http.server.HTTPServer((self.host, self.port), _Handler)
+        # [R110-S1-FIXTURE] 必须 ThreadingHTTPServer：原写法单线程 HTTPServer 一次只处理
+        # 一个连接、accept 队列(backlog)默认仅 5，而 test_concurrent_requests 一次并发 10 条；
+        # CPU 高负载下服务端处理变慢、队列溢出 → 1 条连接被拒 → 客户端 requests 默认
+        # max_retries=0 不重试、直接抛「连接错误」→ 该 worker 未回填 → 断言 assert 9 == 10
+        # （= v0.3.0 权威门唯一红）。单线程是标准库 http.server 的默认语义，
+        # 不是被测模块 lightpub/HTTP客户端.py 的缺陷，故只改夹具、不动被测代码。
+        self._server = http.server.ThreadingHTTPServer((self.host, self.port), _Handler)
         self.port = self._server.server_address[1]
         self._ready.set()
         self._server.serve_forever()
