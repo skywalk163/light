@@ -38,10 +38,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: 检出代码
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: 设置 Python 环境
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 

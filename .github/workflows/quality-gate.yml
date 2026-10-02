@@ -52,10 +52,10 @@ jobs:
     name: Lint 检查
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
       - name: 设置 Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
@@ -90,10 +90,10 @@ jobs:
       LEXER_PERF_LIMIT: "20.0"
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
       - name: 设置 Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -135,7 +135,7 @@ jobs:
 
       - name: Upload full test debug output
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: quality-gate-full-test-debug-${{ matrix.python-version }}
           path: pytest_full_output.txt
@@ -167,7 +167,7 @@ jobs:
 
 
       - name: 上传覆盖率报告
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: quality-gate-coverage-${{ matrix.python-version }}
           path: coverage-*.xml
@@ -178,10 +178,10 @@ jobs:
     needs: [lint, test]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
       - name: 设置 Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
@@ -203,7 +203,7 @@ jobs:
           "
 
       - name: 上传构建产物
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: quality-gate-build
           path: dist/
