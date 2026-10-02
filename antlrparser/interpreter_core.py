@@ -234,6 +234,36 @@ class LightBoundMethod:
         return f"方法({self.method.name})"
 
 
+class LightBoundListMethod:
+    """绑定到「列」的内置方法（追加/移除/弹出/反转/清空）—— LP-D-013（Day2N T2）
+    对齐 SRC 后端 src/code_generator.py:185 的中文方法名 → Python list 方法映射。
+    """
+
+    def __init__(self, lst, method_name):
+        self.lst = lst
+        self.method_name = method_name
+
+    def call(self, args):
+        m = getattr(self.lst, self.method_name)
+        if self.method_name in ('remove', 'index', 'count'):
+            vals = [a.value if isinstance(a, LightValue) else a for a in args]
+            return m(*vals)
+        if self.method_name == 'append':
+            arg = args[0] if args else LightValue(None)
+            m(arg)
+            return LightValue(None, '空')
+        if self.method_name in ('pop',):
+            if args:
+                return LightValue(m(args[0].value), '任意')
+            return LightValue(m(), '任意')
+        # reverse/clear/sort 等无参
+        m()
+        return LightValue(None, '空')
+
+    def __repr__(self):
+        return f"列方法({self.method_name})"
+
+
 # =============================================================================
 # 环境管理
 # =============================================================================
@@ -587,6 +617,17 @@ class InterpreterCore:
         if obj.type_name == '列':
             if prop == '长度':
                 return LightValue(len(obj.value), '数')
+            if prop == '追加':
+                # LP-D-013（Day2N T2）：列.追加(项) 与 SRC 后端语义对齐（对齐 src/code_generator.py:185 映射 append）
+                return LightValue(LightBoundListMethod(obj.value, 'append'), '方法')
+            if prop == '移除':
+                return LightValue(LightBoundListMethod(obj.value, 'remove'), '方法')
+            if prop == '弹出':
+                return LightValue(LightBoundListMethod(obj.value, 'pop'), '方法')
+            if prop == '反转':
+                return LightValue(LightBoundListMethod(obj.value, 'reverse'), '方法')
+            if prop == '清空':
+                return LightValue(LightBoundListMethod(obj.value, 'clear'), '方法')
         
         if obj.type_name == '串':
             if prop == '长度':
@@ -628,6 +669,8 @@ class InterpreterCore:
                 bound_method = func_val.value
                 if isinstance(bound_method, LightBoundMethod):
                     return self._call_method(bound_method, args)
+                if isinstance(bound_method, LightBoundListMethod):
+                    return bound_method.call(args)
             
             # 否则当作普通函数调用
             if isinstance(func_val.value, LightFunction):

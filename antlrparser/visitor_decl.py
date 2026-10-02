@@ -478,6 +478,11 @@ class VisitorDeclMixin(LightLangParserVisitor):
             return ctx.K_FALSE().getText()
         if ctx.K_NULL():
             return ctx.K_NULL().getText()
+        # LP-D-013（Day2N T2）：出/跳过 经 设 声明后按标识符取中文名
+        if ctx.K_EXPORT():
+            return '出'
+        if ctx.K_CONTINUE():
+            return '跳过'
         # fallback
         return ctx.getText()
 

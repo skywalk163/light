@@ -594,6 +594,12 @@ class VisitorExprMixin(VisitorStmtMixin):
             name = self._get_type_as_identifier_name(type_id)
             return Identifier(line=line, column=col, name=name)
 
+        # LP-D-013（Day2N T2）：出/跳过 经 设 声明后按标识符处理（作成员访问基名等）
+        if ctx.K_EXPORT():
+            return Identifier(line=line, column=col, name='出')
+        if ctx.K_CONTINUE():
+            return Identifier(line=line, column=col, name='跳过')
+
         if ctx.LPAREN():
             exprs = ctx.expr()
             if exprs:

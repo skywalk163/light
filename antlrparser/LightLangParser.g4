@@ -506,6 +506,8 @@ primary
     | listComprehension                                   // 列表推导：[表达式 遍历 变量 之 列表]
     | lambdaExpr                                          // 匿名函数：接收 甲：返回 甲 乘 甲。
     | ID                                    // 变量
+    | K_EXPORT                              // LP-D-013（Day2N T2）：出 作表达式/成员访问基名（设 出 为 [] 后 出.追加(1)）
+    | K_CONTINUE                            // LP-D-013（Day2N T2）：跳过 作表达式/成员访问基名（设 跳过 为 [] 后 跳过.追加(块)）
     | typeAsIdentifier                                     // 类型关键字用作标识符
     | LPAREN expr RPAREN                                   // 括号表达式
     | LBRACE dictContent RBRACE                            // 字典字面量/推导：{键: 值}
@@ -582,6 +584,7 @@ identifier_like
     | UNDERSCORE
     | T_NUMBER | T_INT | T_FLOAT | T_STRING | T_LIST | T_DICT | T_SET | T_BOOL | T_ANY
     | K_TRUE | K_FALSE | K_NULL
+    | K_EXPORT | K_CONTINUE                     // LP-D-013（Day2N T2）：出/跳过 经 设 声明后可按标识符用（变量名/参数名/成员基名）
     ;
 
 // 类型关键字用作标识符（如变量名"数"）
