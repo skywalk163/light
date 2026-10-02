@@ -4,10 +4,13 @@
 > 按版本号从新到旧排列。同一版本号在两侧都存在且内容不同时，条目内容取并集。
 > 自 v7.0.0 起统一为 **光明（Light）** 品牌，包名 `light`，CLI 入口 `light` / `lightc`。
 
-## [0.4.0] — 2026-10-02 — 发布版本号统一（v0.4.0-rc1 预发布候选）
+## [0.4.0] — 2026-10-02 — 发布版本号统一（预发布候选；Day3 凌晨由 rc1 归位到 **rc2**）
 
 > 将全仓对外可见版本号统一到 **0.4.0** 家族，单一真源为 `src/version.py`（`VERSION = "0.4.0"`）。
-> 打包侧预发布后缀：`pyproject.toml` = `0.4.0rc1`（PEP 440），`vscode-extension/package.json` = `0.4.0-rc1`（SemVer）；
+> 打包侧预发布后缀：`pyproject.toml` = `0.4.0rc2`（PEP 440），`vscode-extension/package.json` = `0.4.0-rc2`（SemVer）；
+> Day3 凌晨（2026-10-03）：tag 已推到 `v0.4.0-rc2` 而包号仍停在 `rc1`，出现「rc2 的 tag 编出 rc1 的包号」，
+> 已把四处版本串归位到 rc2；同时 `release_preflight.py` 的锚点改为读本地最新 `v*` tag（按创建时间倒序），
+> 以后每个 rc 不再需要手改脚本。
 > 正式 `0.4.0` 槽位保留给稳定版。
 
 ### 变更

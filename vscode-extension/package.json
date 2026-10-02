@@ -2,7 +2,7 @@
     "name": "light-lang",
     "displayName": "光明 (Light Language)",
     "description": "光明中文编程语言支持 - 语法高亮、代码补全、LSP、格式化、调试",
-    "version": "0.4.0-rc1",
+    "version": "0.4.0-rc2",
     "publisher": "light-lang",
     "license": "MIT",
     "icon": "icon.png",

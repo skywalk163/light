@@ -15,8 +15,33 @@ import os
 import sys
 import json
 import argparse
+import subprocess
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # light-merge/
+
+
+def _latest_release_tag():
+    """本地最新 v* tag（按**创建时间**倒序），读不到返回 None。
+
+    Day3 凌晨 T3：取代原先写死的 `0.4.0rc1` 锚点。锚点随 tag 走，
+    「tag 已到 rc2 但包号还是 rc1」这类漂移才会被自检抓到。
+
+    ⚠️ 必须用 `-creatordate` 而不是 `-v:refname`：本仓有两条号段血脉——
+    遗留的 `v7.0.0 / v6.3.0 / v6.0.0 …`（旧号段，实际比 0.4.0 家族更老）与
+    现行的 `v0.4.0-rc2 / v0.4.0-rc1 / v0.3.0`。按版本号倒序会选出 `v7.0.0`，
+    于是「最新 tag」被误判成一条早就停用的旧线（实测：--sort=-v:refname 首行
+    = v7.0.0，--sort=-creatordate 首行 = v0.4.0-rc2）。
+    """
+    try:
+        r = subprocess.run(["git", "tag", "-l", "v*", "--sort=-creatordate"],
+                           cwd=ROOT, capture_output=True, text=True, timeout=30)
+        for line in (r.stdout or "").splitlines():
+            line = line.strip()
+            if line:
+                return line
+    except Exception:
+        pass
+    return None
 
 
 def _read(path, mode="r", enc="utf-8"):
@@ -135,11 +160,23 @@ def main():
         aligned = (_norm_ver(pver) == _norm_ver(pkg["version"]))
         add("关键", "pyproject 版本 == package.json 版本（归一后）", aligned,
             f"pyproject={pver} package.json={pkg['version']}（规范形均为 {_norm_ver(pver)}）")
-        # 与 day2 锚点 v0.4.0-rc1 的关系（归一化判定）
-        if _norm_ver(pver) != "0.4.0rc1":
-            add("关键", "发布版本号已对齐 day2 锚点 v0.4.0-rc1（或已决定新号）", False,
-                f"当前 pyproject={pver}；day2 锚点 v0.4.0-rc1 → 若直接推 v0.4.0-rc1，"
-                "PyPI/VSCE 将用 pyproject 的 {pver}（疑似已发）→ 撞版本被拒。发布前必须统一版本号。".format(pver=pver))
+        # 与「本地最新发布 tag」的关系（归一化判定）
+        # Day3 凌晨 T3：原来这里硬编码 `0.4.0rc1`，每发一个 rc 都要手工改脚本，
+        # 而且版本串滞后于 tag 时（tag 已 rc2、包号还 rc1）反而**不会报错**——
+        # 锚点写死本身就是缺陷。改为读本地最新 v* tag 当锚点，
+        # 让「版本滞后/超前于 tag」这类问题自己暴露出来。
+        anchor = _latest_release_tag()
+        cur = _norm_ver(pver)
+        if anchor is None:
+            add("关键", "能读到本地最新 v* tag 作为版本锚点", False,
+                "`git tag -l 'v*' --sort=-v:refname` 无输出 → 无法判定版本是否与 tag 对齐")
+        elif cur == _norm_ver(anchor):
+            add("关键", f"发布版本号与最新 tag {anchor} 对齐", True,
+                f"pyproject={pver}（规范形 {cur}）== 最新 tag {anchor}（规范形 {_norm_ver(anchor)}）")
+        else:
+            add("关键", f"发布版本号已对齐最新 tag {anchor}（或已决定新号）", False,
+                f"当前 pyproject={pver}（规范形 {cur}）；最新 tag={anchor}（规范形 {_norm_ver(anchor)}）→ "
+                f"若直接推 {anchor}，PyPI/VSCE 将用 pyproject 的 {pver}（疑似已发）→ 撞版本被拒。发布前必须统一版本号。")
 
     # --- 8. 工作流 action 版本钉死（关键）---
     rel = _read(os.path.join(ROOT, ".github", "workflows", "release.yml"))

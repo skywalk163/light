@@ -113,7 +113,21 @@ jobs:
 
       - name: 运行单元测试
         run: |
-          pytest tests/unit/ -v --tb=short --cov=src --cov-report=term --cov-report=xml:coverage.xml
+          # ── Day3 凌晨 T2：本步原本「每次 push 必红同样 3 条」，两条根因 + 两条对策 ──
+          # ① --timeout=180：pyproject 的 addopts 写死 `--timeout=60`。本机实测
+          #    test_package_manager::test_build_project_success 无 cov 20.4s、带
+          #    `--cov=src` + `-n 4` 时 35.5s（test_run_project_success 10.0s → 31.8s）；
+          #    共享 runner 上再叠加抢核就撞线（rc1/rc2 两次都死在这两条 Timeout）。
+          #    180s ≈ 本机 cov 值的 5× 余量，仍远小于 job 总时长，不是"放宽到永不触发"。
+          # ② --ignore tests/unit/test_lexer_perf.py：性能断言 + --cov 插桩 = 测量被污染。
+          #    本机实测同一用例：无 cov 1.30s → 带 --cov=src 4.39s（3.4×）；runner 上
+          #    20.13s(rc2) / 26.72s(rc1)，均超 LEXER_PERF_LIMIT=20.0。
+          #    在 coverage 会话里跑性能断言，量到的是"插桩后的性能"而非真实性能。
+          #    该用例的守护交给 ci.yml 的无 cov 会话（pytest tests/unit/，默认预算 10.0s，
+          #    12 份 OS×Python 矩阵全覆盖）——不删测试、不放宽断言，只换个干净的测量环境。
+          pytest tests/unit/ -v --tb=short --timeout=180 \
+                 --ignore=tests/unit/test_lexer_perf.py \
+                 --cov=src --cov-report=term --cov-report=xml:coverage.xml
 
       - name: 运行集成测试
         run: |
