@@ -30,7 +30,7 @@ try:
     STABLE_VERSION_STR = f'光明 v{LANG_VERSION}'
     VERSION_STR = DEV_VERSION_STR if is_dev_branch() else STABLE_VERSION_STR
 except ImportError:
-    VERSION_STR = '光明 v7.0.0'
+    VERSION_STR = '光明 v0.4.0'
 
 # 添加路径 - 先尝试本地路径（开发模式），再尝试已安装路径
 _local_src = str(Path(__file__).parent.parent / 'src')

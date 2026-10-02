@@ -6,17 +6,17 @@
 """
 
 # 版本号
-__version__ = "7.0.0"
-VERSION = "7.0.0"
-VERSION_MAJOR = 7
-VERSION_MINOR = 0
+__version__ = "0.4.0"
+VERSION = "0.4.0"
+VERSION_MAJOR = 0
+VERSION_MINOR = 4
 VERSION_PATCH = 0
 
 # 版本名称
-VERSION_NAME = "v7.0 双线合并与品牌统一版"
+VERSION_NAME = "v0.4 国庆发布候选版（rc1）"
 
 # 发布日期
-RELEASE_DATE = "2026-08-14"
+RELEASE_DATE = "2026-10-02"
 
 # 版本阶段: dev / alpha / beta / rc / stable
 RELEASE_STAGE = "stable"

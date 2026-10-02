@@ -42,7 +42,7 @@ try:
     if is_dev_branch():
         VERSION = f'光明编译器 v{LANG_VERSION}dev (开发分支)'
 except ImportError:
-    VERSION = '光明编译器 v7.0.0'
+    VERSION = '光明编译器 v0.4.0'
 
 # 反馈收集子命令
 from feedback_collector import setup_feedback_subparser, run_feedback_cli

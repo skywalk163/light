@@ -180,7 +180,7 @@ Verify after install:
 
 ```bash
 light --version
-# output: 光明编译器 v7.0.0
+# output: 光明编译器 v0.4.0
 ```
 
 ### Step 3: Run your first program

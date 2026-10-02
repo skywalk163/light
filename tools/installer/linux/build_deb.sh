@@ -1,5 +1,5 @@
 #!/bin/bash
-# 光明（Light）v7.0.0 Linux .deb 安装包构建脚本
+# 光明（Light）v0.4.0 Linux .deb 安装包构建脚本
 # 需要 dpkg-dev
 # 安装命令: sudo apt install dpkg-dev
 
@@ -8,7 +8,7 @@ set -e
 PROJECT_ROOT="$(cd "$(dirname "$0")/../../" && pwd)"
 INSTALLER_DIR="$PROJECT_ROOT/tools/installer/linux"
 OUTPUT_DIR="$PROJECT_ROOT/output/linux"
-VERSION="7.0.0"
+VERSION="0.4.0"
 PACKAGE_NAME="light_$VERSION"
 DEB_NAME="light_${VERSION}_all.deb"
 
@@ -32,7 +32,7 @@ mkdir -p "$CONTROL_DIR"
 # 文件互相覆盖。声明后安装 light 会正确移除 duan。
 cat > "$CONTROL_DIR/control" << 'CONTROL'
 Package: light
-Version: 7.0.0
+Version: 0.4.0
 Section: devel
 Priority: optional
 Architecture: all

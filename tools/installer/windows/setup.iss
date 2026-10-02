@@ -1,10 +1,10 @@
-; 光明（Light）v7.0.0 Windows 安装包配置文件
+; 光明（Light）v0.4.0 Windows 安装包配置文件
 ; 需要 Inno Setup 6+ 编译
 ; 下载地址: https://jrsoftware.org/isdl.php
 
 #define MyAppName "光明"
 #define MyAppNameEnglish "Light"
-#define MyAppVersion "7.0.0"
+#define MyAppVersion "0.4.0"
 #define MyAppPublisher "Light Contributors"
 #define MyAppURL "https://github.com/skywalk163/light"
 #define MyAppExeName "light.exe"

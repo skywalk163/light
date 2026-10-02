@@ -1,7 +1,7 @@
 # 光明（LightLang）编程语言
 
 [![CI 门禁(0.82 权威)](https://img.shields.io/badge/CI%20门禁-7912%20passed%2F0%20failed-success)](docs/known-issues/)
-[![版本](https://img.shields.io/badge/v7.0.0-五层语法架构-blue)](#v40-五层语法架构)
+[![版本](https://img.shields.io/badge/v0.4.0-五层语法架构-blue)](#v40-五层语法架构)
 [![L1 课程](https://img.shields.io/badge/L1-白话体·青少年入门-green)](#v40-课程体系)
 [![L2 工程](https://img.shields.io/badge/L2-文言体·商用工程-orange)](#v40-课程体系)
 [![L3 领域](https://img.shields.io/badge/L3-SQL·正则·数学-8A2BE2)](#e阶段l3-原生语法--l4-沙箱隔离已完成)
@@ -188,7 +188,7 @@ pip install lightgm
 
 ```bash
 light --version
-# 输出：光明编译器 v7.0.0
+# 输出：光明编译器 v0.4.0
 ```
 
 ### 第 3 步：运行你的第一个程序

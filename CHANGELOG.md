@@ -4,6 +4,17 @@
 > 按版本号从新到旧排列。同一版本号在两侧都存在且内容不同时，条目内容取并集。
 > 自 v7.0.0 起统一为 **光明（Light）** 品牌，包名 `light`，CLI 入口 `light` / `lightc`。
 
+## [0.4.0] — 2026-10-02 — 发布版本号统一（v0.4.0-rc1 预发布候选）
+
+> 将全仓对外可见版本号统一到 **0.4.0** 家族，单一真源为 `src/version.py`（`VERSION = "0.4.0"`）。
+> 打包侧预发布后缀：`pyproject.toml` = `0.4.0rc1`（PEP 440），`vscode-extension/package.json` = `0.4.0-rc1`（SemVer）；
+> 正式 `0.4.0` 槽位保留给稳定版。
+
+### 变更
+- 版本号单一真源 `src/version.py` 由 `7.0.0` 升到 `0.4.0`（major/minor/patch = 0/4/0）
+- `release.yml` 的 `actions/*@v7` 钉点全部改为 `@v4`（`@v7` 尚未发布，钉它会令 workflow 失败）
+- 同步：`cli/light.py`、`cli/light_unified.py` 兜底串、README 校验示例、三平台安装脚本、架构文档引用
+
 ## [Unreleased] — 2026-08-15 ~ 2026-09-07 — 原生腿覆盖 · codegen 缺陷根因修复 · stdlib 能力扩展 · CI 红灯全清
 
 > 本阶段以「原生腿覆盖 + codegen 缺陷根因修复」为主线，分 R10/R11/R12/R13 四批 + CI 修复批推进。

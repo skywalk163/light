@@ -85,7 +85,7 @@ _POSITIVE_CHECKS = [
     ),
     (
         ('pyproject.toml',),
-        r'(?m)^version = "([\d.]+)"',
+        r'(?m)^version = "(\d+\.\d+\.\d+)',
         '打包元数据版本',
     ),
     (
@@ -154,7 +154,7 @@ class TestVersionSingleSource(unittest.TestCase):
 
     def test_pyproject_与真源一致(self):
         path, text = _read('pyproject.toml')
-        m = re.search(r'(?m)^version = "([\d.]+)"', text)
+        m = re.search(r'(?m)^version = "(\d+\.\d+\.\d+)', text)
         self.assertIsNotNone(m, f'{path} 里找不到 project 版本行——正则失效，'
                                 f'本断言已退化，请修正正则而非删掉本条')
         self.assertEqual(m.group(1), VERSION)
