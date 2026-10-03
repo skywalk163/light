@@ -28,7 +28,7 @@ Light (光明, literally "Segment Language") is a Chinese natural language progr
 ## Installation
 
 ```bash
-pip install lightgm
+pip install guangming
 ```
 
 Verify installation:

@@ -15,7 +15,7 @@
 ### Install from PyPI (Recommended)
 
 ```bash
-pip install lightgm
+pip install guangming
 ```
 
 After installation, verify the CLI tool:

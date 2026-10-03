@@ -30,7 +30,7 @@
 #### 从 PyPI 安装（推荐）
 
 ```bash
-pip install lightgm
+pip install guangming
 ```
 
 安装后即可使用 `light` 命令：
