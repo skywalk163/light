@@ -181,7 +181,7 @@ pip install -e .
 **方式 B：从 PyPI 安装（仅使用）**
 
 ```bash
-pip install lightgm
+pip install guangming
 ```
 
 安装完成后验证：

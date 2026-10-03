@@ -204,7 +204,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/lightgm/
+      url: https://pypi.org/project/guangming/
     steps:
       - uses: actions/checkout@v4
 
@@ -222,7 +222,6 @@ jobs:
       - name: 发布到 PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
           packages-dir: dist/
           verbose: true
 

@@ -8,7 +8,7 @@
 ## 通过 pip 安装
 
 ```bash
-pip install lightgm
+pip install guangming
 ```
 
 ## 从源码安装

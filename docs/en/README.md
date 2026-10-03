@@ -173,7 +173,7 @@ pip install -e .
 **Method B: install from PyPI (use only)**
 
 ```bash
-pip install lightgm
+pip install guangming
 ```
 
 Verify after install:

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """L4 发布管线 · 本地就绪核查（只读，不发布）
 
-检查「发布 lightgm 到 PyPI / 发布 VS Code 扩展到 Marketplace」在**本地仓库侧**的就绪项，
+检查「发布 guangming 到 PyPI / 发布 VS Code 扩展到 Marketplace」在**本地仓库侧**的就绪项，
 输出就绪清单（✅/❌/⚠️）。GitHub 侧密钥（PYPI_API_TOKEN / VSCE_PAT）需用户在 GH UI 配置，
 本脚本无法读取，列为「需人工确认」项。
 
@@ -121,7 +121,7 @@ def main():
 
     # --- 1. PyPI 包 manifest ---
     pname, pver = _toml_simple(os.path.join(ROOT, "pyproject.toml"))
-    add("PyPI", "pyproject.toml 存在且 name=lightgm", pname == "lightgm",
+    add("PyPI", "pyproject.toml 存在且 name=guangming", pname == "guangming",
         f"name={pname} version={pver}")
     # --- 2. VS Code 扩展 manifest ---
     pkg = _pkg_json(os.path.join(ROOT, "vscode-extension", "package.json"))
@@ -187,7 +187,7 @@ def main():
             "若 @v7 未发布，workflow 会失败。发布前需确认或改钉 @v4")
 
     # --- 9. GitHub 侧密钥（无法本地读，提示人工确认）---
-    add("PyPI", "[人工] GH Environment `pypi` 已配 `PYPI_API_TOKEN`（或 lightgm 登记 trusted publisher）",
+    add("PyPI", "[人工] GH Environment `pypi` 已配 `PYPI_API_TOKEN`（或 guangming 登记 trusted publisher）",
         None, "需在 GitHub 仓库 Settings → Environments → pypi → Secrets 配置")
     add("VSCE", "[人工] GH Repo Secrets 已配 `VSCE_PAT`", None,
         "Settings → Secrets and variables → Actions → VSCE_PAT（可选 OVSX_PAT）")
@@ -195,7 +195,7 @@ def main():
         "建议先发 TestPyPI / prerelease 验证链路，再正式发版")
 
     # --- 输出 ---
-    levels = {"PyPI": "PyPI(lightgm)", "VSCE": "VSCE(扩展)", "通用": "通用", "关键": "关键"}
+    levels = {"PyPI": "PyPI(guangming)", "VSCE": "VSCE(扩展)", "通用": "通用", "关键": "关键"}
     order = ["关键", "PyPI", "VSCE", "通用"]
     checks.sort(key=lambda c: order.index(c[0]) if c[0] in order else 99)
     sym = {True: "✅", False: "❌", None: "⚠️"}
