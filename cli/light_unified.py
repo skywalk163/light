@@ -20,6 +20,8 @@
 import sys
 import os
 import argparse
+import hashlib
+import tempfile
 from pathlib import Path
 from typing import Optional, List
 
@@ -88,6 +90,70 @@ def _resolve_compile_time_stdlib() -> Optional[str]:
     return None
 
 
+# ---------------------------------------------------------------- 编译产物缓存（R112-R2）
+# 背景：ANTLR 后端编译一个 .light 约 5~6s，绝大部分是「Python 启动 + 导入重型模块
+# （antlr4 / light_visitor / code_generator_unified / stdlib 解析）」，重复编译同一文件
+# **不会**自然加速（R112 实测 5315 / 5979 / 6031 ms）。因此缓存必须在「导入重型模块之前」
+# 命中才有意义 —— 命中时可连导入一起跳过。
+#
+# 安全护栏（三道，缺一不可）：
+#   ① key = sha256(后端 + 编译期 stdlib 绝对路径 + 源码全文)。stdlib 路径会烤进产物引导段，
+#      故必须与源码一同入 key；任一变化都必然 miss，绝不会返回陈旧产物。
+#   ② 仅当该源码**没有**用户模块 / L3 运行时模块产出（_emit_* 均为空）时才写入并复用；
+#      有随产物落盘依赖的文件一律不走缓存 —— 否则缓存命中会漏掉依赖模块的生成。
+#   ③ 可用环境变量 LIGHT_NO_COMPILE_CACHE=1 完全关闭；目录可用 LIGHT_COMPILE_CACHE_DIR 覆盖。
+_COMPILE_CACHE_DIR = os.path.join(
+    os.environ.get('LIGHT_COMPILE_CACHE_DIR') or tempfile.gettempdir(),
+    'light-compile-cache')
+
+
+def _compile_cache_key(source: str, backend: str, stdlib_dir: Optional[str]) -> str:
+    h = hashlib.sha256()
+    h.update(backend.encode('utf-8'))
+    h.update(b'\x00')
+    h.update((stdlib_dir or '').encode('utf-8'))
+    h.update(b'\x00')
+    h.update(source.encode('utf-8'))
+    return h.hexdigest()
+
+
+def _compile_cache_get(key: str):
+    """命中返回 (python_code, had_user_modules)；未命中 / 已关闭 / 损坏返回 None。"""
+    if os.environ.get('LIGHT_NO_COMPILE_CACHE'):
+        return None
+    p = os.path.join(_COMPILE_CACHE_DIR, key + '.py')
+    try:
+        with open(p, 'r', encoding='utf-8') as f:
+            code = f.read()
+    except OSError:
+        return None
+    # 有 .deps 标记 = 该源码会随产物生成依赖模块 ⇒ 不可走缓存快路径
+    had = os.path.exists(os.path.join(_COMPILE_CACHE_DIR, key + '.deps'))
+    return (code, had)
+
+
+def _compile_cache_put(key: str, python_code: str, had_user_modules: bool) -> None:
+    if os.environ.get('LIGHT_NO_COMPILE_CACHE'):
+        return
+    try:
+        os.makedirs(_COMPILE_CACHE_DIR, exist_ok=True)
+        with open(os.path.join(_COMPILE_CACHE_DIR, key + '.py'), 'w',
+                  encoding='utf-8') as f:
+            f.write(python_code)
+        mark = os.path.join(_COMPILE_CACHE_DIR, key + '.deps')
+        if had_user_modules:
+            with open(mark, 'w', encoding='utf-8') as f:
+                f.write('1')
+        else:
+            try:
+                os.remove(mark)
+            except OSError:
+                pass
+    except OSError:
+        pass
+# ---------------------------------------------------------------- /编译产物缓存
+
+
 class LightUnifiedCLI:
     """光明统一CLI"""
     
@@ -120,8 +186,34 @@ class LightUnifiedCLI:
     def compile_with_antlr(self, source: str, output_file: Optional[str] = None,
                            run: bool = False, source_file: Optional[str] = None) -> int:
         """使用ANTLR后端编译"""
+        # R112-R2：先查编译产物缓存 —— 命中且「无依赖模块产出」时直接复用，
+        # 连 light_visitor / code_generator_unified / antlr4 的导入一起跳过（主要开销所在）。
+        _cache_stdlib = _resolve_compile_time_stdlib()
+        _cache_key = _compile_cache_key(source, 'antlr', _cache_stdlib)
+        _cache_hit = _compile_cache_get(_cache_key)
+        if _cache_hit is not None and not _cache_hit[1]:
+            python_code = _cache_hit[0]
+            if output_file:
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    f.write(python_code)
+                print(f"[成功] 已生成（编译缓存命中）: {output_file}")
+            if run:
+                try:
+                    exec_globals = {
+                        '__name__': '__main__',
+                        '__file__': output_file or '<light_script>',
+                        '__builtins__': __builtins__,
+                    }
+                    exec(python_code, exec_globals)
+                except Exception as e:
+                    print(f"[运行错误] {e}", file=sys.stderr)
+                    return 1
+            return 0
+
         from light_visitor import LightParser
         from code_generator_unified import UnifiedCodeGenerator
+        emitted = None
+        emitted_rt = None
         
         # 使用 LightParser 进行完整的预处理（_auto_close_blocks、_preprocess_async 等）
         light_parser = LightParser()
@@ -174,6 +266,10 @@ class LightUnifiedCLI:
                 print(f"[运行错误] {e}", file=sys.stderr)
                 return 1
         
+        # R112-R2：写回缓存。只有当本次**没有**随产物生成依赖模块/运行时模块时，
+        # 后续运行才可走缓存快路径（否则会漏掉依赖模块落盘）。
+        _compile_cache_put(_cache_key, python_code,
+                           bool(emitted) or bool(emitted_rt))
         return 0
     
     # 已知的标准库 / Python 模块名（不应被当成用户模块预编译或落盘）

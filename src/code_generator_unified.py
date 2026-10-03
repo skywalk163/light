@@ -82,6 +82,9 @@ class UnifiedCodeGenerator:
         self.type_inferencer = TypeInferencer()
         self.type_cache: Dict[int, 'Type'] = {}  # 存储推断的类型
         self.user_functions = set()  # 用户定义的函数名
+        # R113-R2（LP-D-012 第二缺口）：模块顶层定义的 async 段落名集合。
+        # 模块顶层裸调用 async 段落会得到 never-awaited 协程。
+        self.async_segments = set()
         self._in_function = False  # 是否在函数/段落内部（控制 return 生成）
         self._in_class_method = False  # 是否在类方法/构造函数内部（控制 己→self 映射）
         # R59 任务1：当前类的属性名集合（控制粘连 self 前缀 `己X`/`自X` 读取位展开）。
@@ -927,7 +930,18 @@ class UnifiedCodeGenerator:
         `的X` 改写不受此限：它是词法层不切 `的` 带来的必然后果，与是否在类里无关。
         """
         if not isinstance(name, str):
-            return self._sanitize_name(name)
+            # R112-R3（LP-D-012）：调用方可能传 AST 节点（如 Identifier）而非 str。
+            # 原实现直接把节点丢进 `_sanitize_name`，而后者做 `name in python_keywords`
+            # 集合判断 ⇒ `TypeError: unhashable type: 'Identifier'`，ANTLR 后端凡
+            # 异步段落（`等待 X()` 经 _try_merge_output_concat → _resolve_call_name
+            # → _resolve_name 传入节点）必崩，连最小 10 行异步用例都编不过。
+            # 先取节点的名字字段再清理；取不到则退回 str()（保持原行为不抛异常）。
+            raw = getattr(name, 'name', None)
+            if raw is None:
+                raw = getattr(name, 'text', None)
+            if raw is None:
+                raw = str(name)
+            return self._sanitize_name(raw)
 
         # R72-A（L-172）：块级作用域解析最先做——命中（同函数块内或外层携带
         # 映射）即发射 mangled 名，先于 self 归一/成员后缀改写。
@@ -1211,6 +1225,15 @@ class UnifiedCodeGenerator:
         # 表达式语句
         elif is_instance(stmt, 'ExpressionStatement') or is_instance(stmt, 'ExprStmt'):
             expr_code = self._generate_expr(stmt.expression)
+            # R113-R2：模块顶层 ExpressionStatement 包裸 async 段落调用 → 包 asyncio.run。
+            _inner = getattr(stmt, 'expression', None)
+            if not self._in_function and (is_instance(_inner, 'FunctionCall') or is_instance(_inner, 'ParagraphCall')):
+                _n = getattr(_inner, 'name', None)
+                _callee = getattr(_n, 'name', None) if is_instance(_n, 'Identifier') else (
+                    _n if isinstance(_n, str) else None)
+                if _callee is not None and _callee in self.async_segments:
+                    self._needs_asyncio = True
+                    expr_code = f"asyncio.run({expr_code})"
             self._add_line(expr_code)
         
         # 二元运算作为独立语句（L-045：`写 "a" + 标签` 被 parser 拆成 BinaryOp
@@ -1303,7 +1326,21 @@ class UnifiedCodeGenerator:
         
         # 函数调用作为语句
         elif is_instance(stmt, 'FunctionCall') or is_instance(stmt, 'ParagraphCall') or is_instance(stmt, 'FunctionCallExpr'):
+            # R113-R2：模块顶层裸调用 async 段落 → 包 asyncio.run。
+            # 函数体内的 async 调用由 `等待 X()` 处理；嵌套 name（如 __await__ 模式）
+            # 不是对用户 async 段落的直接调用，不包。
+            _callee_name = None
+            if is_instance(stmt, 'FunctionCall') or is_instance(stmt, 'ParagraphCall'):
+                _n = getattr(stmt, 'name', None)
+                if is_instance(_n, 'Identifier'):
+                    _callee_name = getattr(_n, 'name', None)
+                elif isinstance(_n, str):
+                    _callee_name = _n
             expr_code = self._generate_expr(stmt)
+            if (not self._in_function and _callee_name is not None
+                    and _callee_name in self.async_segments):
+                self._needs_asyncio = True
+                expr_code = f"asyncio.run({expr_code})"
             self._add_line(expr_code)
         
         # 成员访问作为独立语句（如 结果.追加(...)）
@@ -1948,6 +1985,8 @@ class UnifiedCodeGenerator:
         # 检查是否为异步函数
         is_async = '异步' in getattr(segment, 'modifiers', [])
         def_keyword = 'async def' if is_async else 'def'
+        if is_async:
+            self.async_segments.add(name)
 
         # 返回类型注解（G-09：随 AST 携带时发射）
         return_type_annotation = ''
@@ -2739,6 +2778,31 @@ class UnifiedCodeGenerator:
         
         # 函数调用
         elif is_instance(expr, 'FunctionCall') or is_instance(expr, 'ParagraphCall'):
+            # R113-R2：预处理把 `等待 X(args)` 转成 `__await__(X)(args)` 的嵌套
+            # FunctionCall——外层 name 是内层 FunctionCall（name=Identifier('__await__')），
+            # 外层 args 是原参数。这里识别该模式并发 `await X(args)`。
+            if is_instance(expr.name, 'FunctionCall'):
+                inner = expr.name
+                if (is_instance(inner.name, 'Identifier')
+                        and getattr(inner.name, 'name', None) == '__await__'):
+                    self._needs_asyncio = True
+                    # inner.arguments[0] 是被 await 的调用目标（如 异步睡眠）
+                    if inner.arguments:
+                        callee_expr = inner.arguments[0]
+                        callee = self._generate_expr(callee_expr)
+                        # builtin_map 映射（异步睡眠 → asyncio.sleep 等），与普通
+                        # FunctionCall 分支 line 2838 同口径。
+                        _raw_name = getattr(callee_expr, 'name', None) if not isinstance(callee_expr, str) else callee_expr
+                        if (_raw_name and _raw_name not in self.user_functions
+                                and _raw_name in self.builtin_map):
+                            callee = self.builtin_map[_raw_name]
+                    else:
+                        callee = ''
+                    args = self._translate_args(
+                        getattr(expr, 'arguments', None) or getattr(expr, 'args', []),
+                        callee)
+                    args_str = ', '.join(args)
+                    return f"await {callee}({args_str})"
             # L-055：写族裸调用 写 n / 写 表达式 —— 非字符串实参自动 str()（形态③）。
             _merged = self._try_merge_output_concat(expr)
             if _merged is not None:

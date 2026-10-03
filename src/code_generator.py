@@ -110,6 +110,11 @@ class PythonCodeGenerator:
         # 是否需要导入 asyncio
         self._needs_asyncio = False
 
+        # R113-R2（LP-D-012 第二缺口）：模块顶层定义的 async 段落名集合。
+        # 模块顶层裸调用 async 段落会得到 never-awaited 协程（rc=0、无输出、
+        # RuntimeWarning），这里在 ParagraphCall 语句发射时据此包 asyncio.run。
+        self.async_paragraphs: set = set()
+
         # R99 路 B（LP-D-012）：并行块需要 concurrent.futures
         self._needs_concurrent = False
 
@@ -1809,6 +1814,12 @@ class PythonCodeGenerator:
         elif isinstance(stmt, ParagraphCall):
             # 动词调用作为独立语句
             expr_code = self._generate_expr(stmt)
+            # R113-R2：模块顶层裸调用 async 段落 → 包 asyncio.run。
+            # 函数体内的 async 调用由 `等待 X()` 或 RunAsyncStmt 处理，不走这里。
+            if (not self._in_function
+                    and getattr(stmt, 'name', None) in self.async_paragraphs):
+                self._needs_asyncio = True
+                expr_code = f"asyncio.run({expr_code})"
             self._add_line(expr_code)
         elif isinstance(stmt, Identifier):
             # 标识符作为独立语句：生成为段落调用（带括号）
@@ -2516,7 +2527,10 @@ class PythonCodeGenerator:
             return_type_annotation = f" -> {python_return_type}"
         
         # 函数定义
-        def_prefix = "async def" if '异步' in (stmt.modifiers or []) else "def"
+        is_async_para = '异步' in (stmt.modifiers or [])
+        def_prefix = "async def" if is_async_para else "def"
+        if is_async_para:
+            self.async_paragraphs.add(stmt.name)
         self._add_line(f"{def_prefix} {name}({params_str}){return_type_annotation}:")
         # L-006：nonlocal 声明要插在 def 行之后、任何语句之前，先记住插入位。
         def_line_index = len(self.output_lines) - 1
