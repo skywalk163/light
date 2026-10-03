@@ -916,7 +916,11 @@ def 是字母(char: str) -> bool:
 
 
 def 是数字(char: str) -> bool:
-    """检查字符是否为数字（地板已搬迁：真身 stdlib/内置核心判型.light:51）"""
+    """检查字符是否为数字（地板已搬迁：真身 stdlib/内置核心判型.light:51）
+    LP-D-019② 裁定（SRC 对齐文档）：是数字符 判单个字符，对齐 ANTLR 的 len==1 守卫。
+    非单字符（如 "12"）一律判假；关键字 是数字符 专属运行期（是数字 关键字映射到 是数值，不受影响）。"""
+    if len(char) != 1:
+        return False
     import 内置核心判型
     return 内置核心判型.是数字(char)
 

@@ -675,7 +675,11 @@ def 是字母(char: str) -> bool:
 
 
 def 是数字(char: str) -> bool:
-    """检查字符是否为数字"""
+    """检查字符是否为数字。
+    LP-D-019② 裁定（SRC 对齐文档）：是数字符 判单个字符，对齐 ANTLR 的 len==1 守卫。
+    非单字符（如 "12"）一律判假。"""
+    if len(char) != 1:
+        return False
     return str.isdigit(char)
 
 
