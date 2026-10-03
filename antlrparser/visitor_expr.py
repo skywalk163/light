@@ -398,28 +398,12 @@ class VisitorExprMixin(VisitorStmtMixin):
         for child in ctx.getChildren():
             if hasattr(child, 'symbol') and hasattr(child.symbol, 'type'):
                 if child.symbol.type == LightLangParser.K_SELF:
-                    # 己属性（无分隔的 self 属性访问：己姓名）——R76-A
+                    # 己 姓名（空格分隔的 self 属性访问：己 姓名）——R76-A 仅保留单字+空格形态
                     if ctx.ID():
                         return PropertyAccess(line=line, column=col,
                                               obj=SelfReference(line=line, column=col),
                                               property_name=ctx.ID().getText())
                     return SelfReference(line=line, column=col)
-
-        # R76-A：`己属性` 整体成词（K_SELF_PROP）—— 自引用属性访问
-        for child in ctx.getChildren():
-            if hasattr(child, 'symbol') and hasattr(child.symbol, 'type'):
-                if child.symbol.type == LightLangParser.K_SELF_PROP:
-                    text = child.getText()
-                    # 去掉自指前缀（自我/己/自）
-                    for _p in ('自我', '己', '自'):
-                        if text.startswith(_p):
-                            prop = text[len(_p):]
-                            break
-                    else:
-                        prop = text
-                    return PropertyAccess(line=line, column=col,
-                                          obj=SelfReference(line=line, column=col),
-                                          property_name=prop)
 
         # 三元条件表达式：如果 条件 那么 值1 否则 值2
         if ctx.conditionalExpr():
@@ -606,14 +590,9 @@ class VisitorExprMixin(VisitorStmtMixin):
                 if isinstance(cn_value, float):
                     return NumberLiteral(line=line, column=col, value=cn_value)
                 return NumberLiteral(line=line, column=col, value=cn_value)
-            # 特殊处理：以"己"开头的标识符 -> 己.属性
-            if name.startswith('己'):
-                # 拆分为 self.属性
-                prop_name = name[1:]  # 去掉"己"前缀
-                if prop_name:  # 确保有属性名
-                    return PropertyAccess(line=line, column=col,
-                                          obj=SelfReference(line=line, column=col),
-                                          property_name=prop_name)
+            # LP-D-020（R111・Day3）：含「己」的复合标识符（己X/自X/自我X）整体成词为普通
+            # 标识符，与 SRC 后端对齐——不再拆分为 self.属性（避免游离 `自我` → 未定义的变量）。
+            # self 字段访问统一走 `己.X` 或 `己 属性`（K_SELF 分支，见上）。
             return Identifier(line=line, column=col, name=name)
 
         # 类型关键字用作标识符（如变量名"数"）
