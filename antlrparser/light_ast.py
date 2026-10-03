@@ -125,6 +125,14 @@ class IndexAccess(ASTNode):
 
 
 @dataclass
+class SliceAccess(ASTNode):
+    """LP-D-019③：切片访问（对象[起:止]，止为开区间）"""
+    obj: ASTNode = None
+    start: ASTNode = None
+    end: ASTNode = None
+
+
+@dataclass
 class ListLiteral(ASTNode):
     """列表字面量"""
     elements: List[ASTNode] = field(default_factory=list)

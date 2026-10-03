@@ -29,6 +29,15 @@ class BuiltinsMixin:
             # 是数字(x) = 判数值类型（int/float，排 bool）；是数字符(s) = 字符级 isdigit
             LightBuiltinFunction('是数字', self._builtin_is_number_type, min_args=1, max_args=1),
             LightBuiltinFunction('是数字符', self._builtin_is_digit, min_args=1, max_args=1),
+            # LP-D-019② T5：判型族整族注册（对齐 SRC stdlib/内置核心判型.light）
+            LightBuiltinFunction('是整数', self._builtin_is_int, min_args=1, max_args=1),
+            LightBuiltinFunction('是浮点', self._builtin_is_float, min_args=1, max_args=1),
+            LightBuiltinFunction('是字符串', self._builtin_is_str, min_args=1, max_args=1),
+            LightBuiltinFunction('是列表', self._builtin_is_list, min_args=1, max_args=1),
+            LightBuiltinFunction('是字典', self._builtin_is_dict, min_args=1, max_args=1),
+            LightBuiltinFunction('是空', self._builtin_is_empty, min_args=1, max_args=1),
+            LightBuiltinFunction('是布尔', self._builtin_is_bool, min_args=1, max_args=1),
+            LightBuiltinFunction('是函数', self._builtin_is_callable, min_args=1, max_args=1),
             # 文件IO
             LightBuiltinFunction('_读文件', self._builtin_read_file, min_args=1, max_args=1),
             LightBuiltinFunction('_写文件', self._builtin_write_file, min_args=2, max_args=2),
@@ -236,15 +245,78 @@ class BuiltinsMixin:
     def _builtin_is_number_type(self, args: List[LightValue]) -> LightValue:
         """LP-D-019②：判断参数是否为数值类型（int/float，排 bool）——与 SRC 是数值对齐"""
         v = args[0]
-        # LightValue.type_name: '数' 表示数值；bool 在 Python 里是 int 子类，需排掉
         if isinstance(v, LightValue):
             if v.type_name == '布尔':
                 return LightValue(False, '布尔')
             return LightValue(v.type_name == '数', '布尔')
-        # 裸 Python 值兜底
         if isinstance(v, bool):
             return LightValue(False, '布尔')
         return LightValue(isinstance(v, (int, float)), '布尔')
+
+    def _builtin_is_int(self, args: List[LightValue]) -> LightValue:
+        """LP-D-019② T5：判断是否为整数（排 bool/float）"""
+        v = args[0]
+        if isinstance(v, LightValue):
+            if v.type_name == '布尔':
+                return LightValue(False, '布尔')
+            return LightValue(v.type_name == '数' and isinstance(v.value, int), '布尔')
+        if isinstance(v, bool):
+            return LightValue(False, '布尔')
+        return LightValue(isinstance(v, int), '布尔')
+
+    def _builtin_is_float(self, args: List[LightValue]) -> LightValue:
+        """LP-D-019② T5：判断是否为浮点"""
+        v = args[0]
+        if isinstance(v, LightValue):
+            return LightValue(v.type_name == '数' and isinstance(v.value, float), '布尔')
+        return LightValue(isinstance(v, float), '布尔')
+
+    def _builtin_is_str(self, args: List[LightValue]) -> LightValue:
+        """LP-D-019② T5：判断是否为字符串"""
+        v = args[0]
+        if isinstance(v, LightValue):
+            return LightValue(v.type_name == '串', '布尔')
+        return LightValue(isinstance(v, str), '布尔')
+
+    def _builtin_is_list(self, args: List[LightValue]) -> LightValue:
+        """LP-D-019② T5：判断是否为列表"""
+        v = args[0]
+        if isinstance(v, LightValue):
+            return LightValue(v.type_name == '列', '布尔')
+        return LightValue(isinstance(v, list), '布尔')
+
+    def _builtin_is_dict(self, args: List[LightValue]) -> LightValue:
+        """LP-D-019② T5：判断是否为字典"""
+        v = args[0]
+        if isinstance(v, LightValue):
+            return LightValue(v.type_name == '典', '布尔')
+        return LightValue(isinstance(v, dict), '布尔')
+
+    def _builtin_is_empty(self, args: List[LightValue]) -> LightValue:
+        """LP-D-019② T5：判断是否为空（串空/列空/典空/空值）"""
+        v = args[0]
+        if isinstance(v, LightValue):
+            if v.type_name == '空' or v.value is None:
+                return LightValue(True, '布尔')
+            try:
+                return LightValue(len(v.value) == 0, '布尔')
+            except TypeError:
+                return LightValue(False, '布尔')
+        return LightValue(v is None or (hasattr(v, '__len__') and len(v) == 0), '布尔')
+
+    def _builtin_is_bool(self, args: List[LightValue]) -> LightValue:
+        """LP-D-019② T5：判断是否为布尔"""
+        v = args[0]
+        if isinstance(v, LightValue):
+            return LightValue(v.type_name == '布尔', '布尔')
+        return LightValue(isinstance(v, bool), '布尔')
+
+    def _builtin_is_callable(self, args: List[LightValue]) -> LightValue:
+        """LP-D-019② T5：判断是否为函数/可调用"""
+        v = args[0]
+        if isinstance(v, LightValue):
+            return LightValue(v.type_name in ('函数', '方法'), '布尔')
+        return LightValue(callable(v), '布尔')
     
     def _builtin_read_file(self, args: List[LightValue]) -> LightValue:
         """读取文件内容"""

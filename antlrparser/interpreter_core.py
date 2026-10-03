@@ -16,7 +16,7 @@ from light_ast import (
     NullLiteral, ListLiteral, DictLiteral, DictEntry,
     Identifier, SegmentName, ModuleName,
     BinaryOp, UnaryOp, FunctionCall, PipeExpression,
-    PropertyAccess, IndexAccess, NewExpression,
+    PropertyAccess, IndexAccess, SliceAccess, NewExpression,
     VariableDeclaration, Assignment, CompoundAssignment, IfStatement, ForeachStatement,
     WhileStatement, BreakStatement, ContinueStatement, ReturnStatement,
     TryStatement, ThrowStatement, PrintStatement, ExpressionStatement,
@@ -244,6 +244,15 @@ class LightBoundListMethod:
         self.method_name = method_name
 
     def call(self, args):
+        # LP-D-019② T5：列.获取(下标[, 默认值])——缺下标回默认不抛（对齐 SRC _light_get）
+        if self.method_name == '获取':
+            idx = args[0].value if isinstance(args[0], LightValue) else args[0]
+            default = args[1] if len(args) > 1 else LightValue(None, '空')
+            try:
+                val = self.lst[idx]
+                return val if isinstance(val, LightValue) else LightValue(val)
+            except (IndexError, KeyError):
+                return default
         m = getattr(self.lst, self.method_name)
         if self.method_name in ('remove', 'index', 'count'):
             vals = [a.value if isinstance(a, LightValue) else a for a in args]
@@ -497,6 +506,7 @@ class InterpreterCore:
         ListLiteral: '_eval_list_literal',
         DictLiteral: '_eval_dict_literal',
         IndexAccess: '_eval_index_access',
+        SliceAccess: '_eval_slice_access',
         PropertyAccess: '_eval_property_access',
         FunctionCall: '_eval_function_call',
         PipeExpression: '_eval_pipe',
@@ -600,7 +610,21 @@ class InterpreterCore:
             return lst[i]
         
         raise RuntimeError(f"不支持索引访问的类型: '{obj.type_name}'")
-    
+
+    def _eval_slice_access(self, node: SliceAccess) -> LightValue:
+        """LP-D-019③：求值切片访问 对象[起:止]（止为开区间，对齐 SRC）"""
+        obj = self._eval(node.obj)
+        start = self._eval(node.start) if node.start else None
+        end = self._eval(node.end) if node.end else None
+        s = start.value if start else None
+        e = end.value if end else None
+
+        if obj.type_name == '串':
+            return LightValue(obj.value[s:e], '串')
+        if obj.type_name == '列':
+            return LightValue(obj.value[s:e], '列')
+        raise RuntimeError(f"不支持切片的类型: '{obj.type_name}'")
+
     def _eval_property_access(self, node: PropertyAccess) -> LightValue:
         """求值属性访问：对象之属性"""
         obj = self._eval(node.obj)
@@ -628,6 +652,9 @@ class InterpreterCore:
                 return LightValue(LightBoundListMethod(obj.value, 'reverse'), '方法')
             if prop == '清空':
                 return LightValue(LightBoundListMethod(obj.value, 'clear'), '方法')
+            if prop == '获取':
+                # LP-D-019② T5：列.获取(下标[, 默认值])——对齐 SRC _light_get
+                return LightValue(LightBoundListMethod(obj.value, '获取'), '方法')
         
         if obj.type_name == '串':
             if prop == '长度':
