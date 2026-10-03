@@ -52,7 +52,7 @@ definition
 
 paragraphDef
     : BOOK_L ID BOOK_R K_SEGMENT ( LPAREN paramList? RPAREN )? COLON block K_END PERIOD?  // 《名称》段(参数)
-    | K_SEGMENT ID ( LPAREN paramList? RPAREN | K_RECEIVE paramList? )? ( K_RETURN typeAnnotation? )? COLON block K_END PERIOD?  // 段 名称(参数) / 段 名称 接收 参数
+    | K_SEGMENT identifier_like ( LPAREN paramList? RPAREN | K_RECEIVE paramList? )? ( K_RETURN typeAnnotation? )? COLON block K_END PERIOD?  // 段/段落 名称(参数) / 名称 接收 参数
     ;
 
 // ----- 块规则（统一处理"结束"标记）-----
@@ -88,7 +88,7 @@ classMember
     ;
 
 methodDef
-    : K_SEGMENT ID ( LPAREN paramList? RPAREN | K_RECEIVE paramList? )? ( K_RETURN typeAnnotation? )?
+    : K_SEGMENT identifier_like ( LPAREN paramList? RPAREN | K_RECEIVE paramList? )? ( K_RETURN typeAnnotation? )?
       COLON block K_END PERIOD?
     ;
 
@@ -307,7 +307,7 @@ ifStmt
     ;
 
 foreachStmt
-    : K_FOREACH ID ( K_OF | K_AT ) expr ( K_TO expr ( K_STEP expr )? )?
+    : K_FOREACH identifier_like ( K_OF | K_AT ) expr ( K_TO expr ( K_STEP expr )? )?
       COLON block K_END PERIOD?
     ;
 
@@ -481,6 +481,7 @@ postfixExpr
       | K_OF memberName                                // 之字结构: 对象之属性
       | K_DE memberName                                // 的字结构: 对象的属性
       | LBRACKET expr RBRACKET                         // 索引: 对象[索引]
+      | LBRACKET expr? COLON expr? RBRACKET            // LP-D-019③：切片: 对象[起:止]（止为开区间）
       )*
     ;
 
@@ -508,6 +509,7 @@ primary
     | ID                                    // 变量
     | K_EXPORT                              // LP-D-013（Day2N T2）：出 作表达式/成员访问基名（设 出 为 [] 后 出.追加(1)）
     | K_CONTINUE                            // LP-D-013（Day2N T2）：跳过 作表达式/成员访问基名（设 跳过 为 [] 后 跳过.追加(块)）
+    | K_CALLBACK                            // LP-D-019①（Day3下午）：回调 作表达式/列表元素/调用基名（段落 回调(): 设 表 为 [回调]）
     | typeAsIdentifier                                     // 类型关键字用作标识符
     | LPAREN expr RPAREN                                   // 括号表达式
     | LBRACE dictContent RBRACE                            // 字典字面量/推导：{键: 值}
@@ -585,6 +587,7 @@ identifier_like
     | T_NUMBER | T_INT | T_FLOAT | T_STRING | T_LIST | T_DICT | T_SET | T_BOOL | T_ANY
     | K_TRUE | K_FALSE | K_NULL
     | K_EXPORT | K_CONTINUE                     // LP-D-013（Day2N T2）：出/跳过 经 设 声明后可按标识符用（变量名/参数名/成员基名）
+    | K_CALLBACK                            // LP-D-019①（Day3下午）：回调 作段名/循环变量/参数名
     ;
 
 // 类型关键字用作标识符（如变量名"数"）

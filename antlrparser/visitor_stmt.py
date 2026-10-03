@@ -117,7 +117,11 @@ class VisitorStmtMixin(VisitorDeclMixin):
         col = ctx.start.column
 
         # 遍历变量（直接从foreachStmt获取）
-        variable = ctx.ID().getText() if ctx.ID() else "当前项"
+        # LP-D-019①：变量名是 identifier_like（含 K_CALLBACK 等软关键字）
+        if ctx.identifier_like():
+            variable = self._get_identifier_like_name(ctx.identifier_like())
+        else:
+            variable = "当前项"
 
         # R76-A：expr() 在带 K_TO 时会返回多个（起始/结束/步长）
         exprs = ctx.expr()

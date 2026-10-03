@@ -177,7 +177,13 @@ class VisitorDeclMixin(LightLangParserVisitor):
     def visitParagraphDef(self, ctx: LightLangParser.ParagraphDefContext):
         """段落定义"""
         # 新语法：段落 名称 接收 参数列表:
-        raw_name = ctx.ID().getText()
+        # LP-D-019①：段名可能是 identifier_like（含 K_CALLBACK 等软关键字）
+        if ctx.ID():
+            raw_name = ctx.ID().getText()
+        elif ctx.identifier_like():
+            raw_name = self._get_identifier_like_name(ctx.identifier_like())
+        else:
+            raw_name = ctx.getText()
         line = ctx.start.line
         col = ctx.start.column
 
@@ -483,6 +489,9 @@ class VisitorDeclMixin(LightLangParserVisitor):
             return '出'
         if ctx.K_CONTINUE():
             return '跳过'
+        # LP-D-019①（Day3下午）：回调 作段名/循环变量/参数名时取中文名
+        if ctx.K_CALLBACK():
+            return '回调'
         # fallback
         return ctx.getText()
 

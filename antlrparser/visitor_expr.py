@@ -10,7 +10,7 @@ from LightLangParser import LightLangParser
 from light_ast import (
     NumberLiteral, StringLiteral, BooleanLiteral, NullLiteral,
     Identifier, SegmentName, BinaryOp, UnaryOp, FunctionCall,
-    PipeExpression, PropertyAccess, IndexAccess, ListLiteral, DictLiteral, NewExpression,
+    PipeExpression, PropertyAccess, IndexAccess, SliceAccess, ListLiteral, DictLiteral, NewExpression,
     ConditionalExpression,
     StringInterpolation, ListComprehension, LambdaExpression,
     Parameter, SelfReference,
@@ -216,14 +216,42 @@ class VisitorExprMixin(VisitorStmtMixin):
                     base = PropertyAccess(line=base.line, column=base.column,
                                           obj=base, property_name=prop_name)
 
-                # 索引访问：对象[索引]
+                # 索引访问：对象[索引] / LP-D-019③ 切片：对象[起:止]
                 elif ttype == LightLangParser.LBRACKET:
-                    child_idx += 1
-                    idx_expr = self.visit(ctx.getChild(child_idx))
-                    child_idx += 1  # 跳过 expr
+                    child_idx += 1  # 跳过 LBRACKET
+                    # 扫描到 RBRACKET，看中间有没有 COLON
+                    slice_nodes = []
+                    has_colon = False
+                    while child_idx < ctx.getChildCount():
+                        nxt = ctx.getChild(child_idx)
+                        if isinstance(nxt, TerminalNode) and nxt.symbol.type == LightLangParser.RBRACKET:
+                            break
+                        if isinstance(nxt, TerminalNode) and nxt.symbol.type == LightLangParser.COLON:
+                            has_colon = True
+                        slice_nodes.append(nxt)
+                        child_idx += 1
                     child_idx += 1  # 跳过 RBRACKET
-                    base = IndexAccess(line=base.line, column=base.column,
-                                       obj=base, index=idx_expr)
+
+                    if not has_colon:
+                        # 单索引：[idx]
+                        idx_expr = self.visit(slice_nodes[0]) if slice_nodes else None
+                        base = IndexAccess(line=base.line, column=base.column,
+                                           obj=base, index=idx_expr)
+                    else:
+                        # 切片：[起:止]（止为开区间，对齐 SRC）
+                        start_val = None
+                        end_val = None
+                        colon_seen = False
+                        for n in slice_nodes:
+                            if isinstance(n, TerminalNode) and n.symbol.type == LightLangParser.COLON:
+                                colon_seen = True
+                                continue
+                            if not colon_seen:
+                                start_val = self.visit(n)
+                            else:
+                                end_val = self.visit(n)
+                        base = SliceAccess(line=base.line, column=base.column,
+                                           obj=base, start=start_val, end=end_val)
 
                 # 函数调用：(参数)
                 elif ttype == LightLangParser.LPAREN:
@@ -599,6 +627,9 @@ class VisitorExprMixin(VisitorStmtMixin):
             return Identifier(line=line, column=col, name='出')
         if ctx.K_CONTINUE():
             return Identifier(line=line, column=col, name='跳过')
+        # LP-D-019①（Day3下午）：回调 作表达式/列表元素/调用基名
+        if ctx.K_CALLBACK():
+            return Identifier(line=line, column=col, name='回调')
 
         if ctx.LPAREN():
             exprs = ctx.expr()
