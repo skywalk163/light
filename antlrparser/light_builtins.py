@@ -25,6 +25,10 @@ class BuiltinsMixin:
             LightBuiltinFunction('_是中文', self._builtin_is_cjk, min_args=1, max_args=1),
             LightBuiltinFunction('_是字母', self._builtin_is_letter, min_args=1, max_args=1),
             LightBuiltinFunction('_是数字', self._builtin_is_digit, min_args=1, max_args=1),
+            # LP-D-019②：用户侧判型族——与 SRC 后端 code_generator.py L728-733 对齐
+            # 是数字(x) = 判数值类型（int/float，排 bool）；是数字符(s) = 字符级 isdigit
+            LightBuiltinFunction('是数字', self._builtin_is_number_type, min_args=1, max_args=1),
+            LightBuiltinFunction('是数字符', self._builtin_is_digit, min_args=1, max_args=1),
             # 文件IO
             LightBuiltinFunction('_读文件', self._builtin_read_file, min_args=1, max_args=1),
             LightBuiltinFunction('_写文件', self._builtin_write_file, min_args=2, max_args=2),
@@ -228,6 +232,19 @@ class BuiltinsMixin:
         if len(s) != 1:
             return LightValue(False, '布尔')
         return LightValue('0' <= s <= '9', '布尔')
+
+    def _builtin_is_number_type(self, args: List[LightValue]) -> LightValue:
+        """LP-D-019②：判断参数是否为数值类型（int/float，排 bool）——与 SRC 是数值对齐"""
+        v = args[0]
+        # LightValue.type_name: '数' 表示数值；bool 在 Python 里是 int 子类，需排掉
+        if isinstance(v, LightValue):
+            if v.type_name == '布尔':
+                return LightValue(False, '布尔')
+            return LightValue(v.type_name == '数', '布尔')
+        # 裸 Python 值兜底
+        if isinstance(v, bool):
+            return LightValue(False, '布尔')
+        return LightValue(isinstance(v, (int, float)), '布尔')
     
     def _builtin_read_file(self, args: List[LightValue]) -> LightValue:
         """读取文件内容"""

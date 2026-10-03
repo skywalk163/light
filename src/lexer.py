@@ -1366,6 +1366,24 @@ class Lexer:
                     _j += 1
                 if _j < n and tokens[_j].type in _ident_follow:
                     _tok.type = TokenType.IDENTIFIER
+                    continue
+                # LP-D-018：返回 已声明关键字词变量名（`返回 跳过`）——
+                # 后随 NEWLINE/EOF/RPAREN 等无后缀，但前随「返回/返」关键字时，
+                # 它是返回值表达式位而非 continue 语句，降级为标识符。
+                # ⚠️ 只认**同一行**：`返回 跳过` 的取值位必然与「返回」同行（token 相邻）。
+                # 向前回溯时**不许跨 NEWLINE**——跨过去就落进另一条语句：
+                #   · `返回\n…\n跳过`（跨 DEDENT 出块）→ 跳过 是外层的 continue 语句；
+                #   · `返回\n跳过`（相邻行同缩进）→ 同上，两条独立语句。
+                # 改动前用 _skip（含 NEWLINE）回溯，把这两种 continue 语句误降级成
+                # 表达式 → 产物由 `continue` 变成 `跳过()`（对同名变量求值调用），
+                # 循环体不再短路、直接 TypeError: 'int' object is not callable。
+                # INDENT/DEDENT 不会出现在同一行内，跳过它们只为容忍 token 流排布。
+                _k = _idx - 1
+                while _k >= 0 and tokens[_k].type in (TokenType.INDENT, TokenType.DEDENT):
+                    _k -= 1
+                if _k >= 0 and tokens[_k].type == TokenType.KEYWORD \
+                        and tokens[_k].value in ('返回', '返'):
+                    _tok.type = TokenType.IDENTIFIER
                 continue
             for (_fv, _s, _e) in foreach_ranges:
                 if _v == _fv and _s < _idx < _e:
