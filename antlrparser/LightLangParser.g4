@@ -277,7 +277,6 @@ varDecl
 
 assignStmt
     : identifier_like ( ASSIGN | K_EQUAL | K_AS ) expr PERIOD?          // 甲 = 值 / 甲 等于 值 / 甲 为 值
-    | K_SELF_PROP ( ASSIGN | K_EQUAL | K_AS ) expr PERIOD?          // R76-A：己属性 = 值（整体成词）
     | K_SELF ID ( ASSIGN | K_EQUAL | K_AS ) expr PERIOD?            // 己属性 = 值
     | primary DOT memberName ( ASSIGN | K_EQUAL | K_AS ) expr PERIOD?       // 对象.属性 = 值
     | primary K_DE memberName ( ASSIGN | K_EQUAL | K_AS ) expr PERIOD?      // 对象的属性 = 值
@@ -498,8 +497,7 @@ primary
     | K_FALSE
     | K_NULL
     | UNDERSCORE                                          // 通配符作变量名（设 _ 为 ...）
-    | K_SELF_PROP                                         // R76-A：己属性（整体成词，见 Lexer）
-    | K_SELF                                              // 己（self引用）
+    | K_SELF                                              // 己（self引用；LP-D-020 后 己X 整体成标识符，仅 己 单字走 self）
     | K_SELF ID                                           // 己属性（无分隔的 self 属性访问：己姓名）
     | K_PARENT                                            // 父（父类引用，后跟成员访问符时=super()）
     | conditionalExpr                                     // 三元条件表达式：如果 条件 那么 值1 否则 值2

@@ -755,15 +755,8 @@ class VisitorDeclMixin(LightLangParserVisitor):
             name = self._get_identifier_like_name(ils[0] if isinstance(ils, list) else ils)
             value = self.visitExpr(ctx.expr()) if ctx.expr() else None
 
-            # 特殊处理：以"己"开头的变量名 -> 转换为属性赋值
-            if name.startswith('己'):
-                prop_name = name[1:]  # 去掉"己"前缀
-                if prop_name:  # 确保有属性名
-                    target = PropertyAccess(line=line, column=col,
-                                            obj=SelfReference(line=line, column=col),
-                                            property_name=prop_name)
-                    return Assignment(line=line, column=col, target=target, value=value)
-
+            # LP-D-020（R111・Day3）：含「己」的复合标识符整体成词为普通变量名，与 SRC 对齐，
+            # 不再拆分为 self.属性。self 字段赋值统一走 `己 属性`/`己.属性`（K_SELF 分支）。
             return VariableDeclaration(line=line, column=col, name=name, value=value)
 
         # 兼容旧语法：定义 变量名 等于 值。 (K_DEFINE ID)
@@ -787,24 +780,9 @@ class VisitorDeclMixin(LightLangParserVisitor):
         line = ctx.start.line
         col = ctx.start.column
 
-        # 己属性赋值：己属性名 = 值
+        # 己属性赋值：己 属性名 = 值（己 单字 + 空格分隔的属性名 → self.属性）
         if ctx.K_SELF():
             prop = ctx.ID().getText() if ctx.ID() else ''
-            value = self.visitExpr(ctx.expr(0))
-            target = PropertyAccess(line=line, column=col,
-                                    obj=SelfReference(line=line, column=col),
-                                    property_name=prop)
-            return Assignment(line=line, column=col, target=target, value=value)
-
-        # R76-A：己属性赋值（整体成词 K_SELF_PROP）：己结果 = 值
-        if ctx.K_SELF_PROP():
-            text = ctx.K_SELF_PROP().getText()
-            for _p in ('自我', '己', '自'):
-                if text.startswith(_p):
-                    prop = text[len(_p):]
-                    break
-            else:
-                prop = text
             value = self.visitExpr(ctx.expr(0))
             target = PropertyAccess(line=line, column=col,
                                     obj=SelfReference(line=line, column=col),
@@ -854,15 +832,8 @@ class VisitorDeclMixin(LightLangParserVisitor):
             name = ctx.ID().getText()
         else:
             name = ''
-        # 特殊处理：以"己"开头的变量名
-        if name.startswith('己'):
-            prop_name = name[1:]
-            if prop_name:
-                target = PropertyAccess(line=line, column=col,
-                                        obj=SelfReference(line=line, column=col),
-                                        property_name=prop_name)
-                return Assignment(line=line, column=col, target=target, value=value)
-
+        # LP-D-020（R111・Day3）：含「己」的复合标识符整体成词为普通标识符，与 SRC 对齐，
+        # 不再拆分为 self.属性。self 字段赋值统一走 `己 属性`/`己.属性`（K_SELF 分支）。
         target = Identifier(line=line, column=col, name=name)
         return Assignment(line=line, column=col, target=target, value=value)
 

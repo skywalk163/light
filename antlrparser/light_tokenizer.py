@@ -730,35 +730,38 @@ class LightLangTokenizer:
                 if is_cjk_char(ch) or is_letter(ch):
 
                     if is_cjk_char(ch):
-                        # R76-A：`己属性` 整体成词（自引用属性访问/赋值）。
-                        # 缺陷：`己结果 等于 己结果 加 x` 会被拆成
-                        #   assignStmt(己 结果 等于 己) + exprStmt(结果 加 x)
-                        # 必须在这里合并，否则 primary 的 K_SELF 备选先匹配、尾随 ID 被
-                        # 拆成下一条语句（实测 calculator.light 的 `己结果 等于 己结果 加 x`
-                        # 生成出 `self.结果 = self` + `(结果 + x)` 两句）。
+                        # LP-D-020（R111・Day3）：含「己/自/自我」的复合标识符整体成词为 ID，与 SRC 后端对齐。
+                        # 旧逻辑把 `己X`/`自X`/`自我X` 收为 K_SELF_PROP（→ self.X），导致段名/变量名/调用名
+                        # 位置生成游离 `自我` → 未定义的变量: '自我'。SRC 侧 `己X` 恒为普通标识符
+                        # （src/lexer.py 复合词保护），故此处整体成词为 ID。
+                        # 仅「己/自/自我」单字（或其后接 `.`(己.X 字段访问) / 空白(己 属性 空格式引用) / 行尾）
+                        # 才走 K_SELF（self 引用）——这类情形 after 不是 CJK/字母/数字，不进入本分支，
+                        # 落入下方通用 CJK 分词命中关键字 K_SELF，或 `己.X`/`己 属性` 由 visitor 的 K_SELF 分支处理。
+                        _self_compound = False
                         for _selfw in ('自我', '己', '自'):
                             if source.startswith(_selfw, i):
                                 after = i + len(_selfw)
                                 if after < source_len and (
-                                        is_cjk_char(source[after]) or is_letter(source[after])):
+                                        is_cjk_char(source[after]) or is_letter(source[after])
+                                        or is_digit(source[after])):
+                                    # 复合词：己X / 自X / 自我X → 整体成词为 ID
                                     j = after
                                     while j < source_len and (
                                             is_cjk_char(source[j]) or is_letter(source[j])
                                             or is_digit(source[j])):
                                         j += 1
                                     cand = source[i:j]
-                                    # 若该串整体是已登记用户名（如 自我介绍），
-                                    # 则不按 `己属性` 拆分，交给后续整词逻辑
+                                    # 已登记用户名（如 自我介绍）交给下方 _longest_user_name_at 整词，
+                                    # 避免破坏用户名优先逻辑；其余复合词整体成词为 ID。
                                     if cand not in self._user_names:
-                                        tokens.append(Token('K_SELF_PROP', cand, line, col))
+                                        tokens.append(Token('ID', cand, line, col))
                                         advance(j - i)
+                                        _self_compound = True
                                         break
-                        else:
-                            _selfw = None
-                        if _selfw and source.startswith(_selfw, i) and i < source_len:
-                            # 仅当确实产生了 K_SELF_PROP 才 continue
-                            if tokens and tokens[-1].type_name == 'K_SELF_PROP' and tokens[-1].column == col:
-                                continue
+                        if _self_compound:
+                            continue
+                        # 否则（单字 self 引用，或候选是已登记用户名）落入下方通用 CJK 分词
+                        # → K_SELF / 用户名整词
 
                         # R76-A：恒为标识符的词（设置 等）优先整词保留
                         for w in IDENTIFIER_ONLY_WORDS:
