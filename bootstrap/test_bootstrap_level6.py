@@ -57,9 +57,9 @@ try:
             print(f"  {i+1}: {lines[i]}")
     
     # 保存生成的文件
-    with open('bootstrap/level6_self_compiled.py', 'w', encoding='utf-8') as f:
+    with open('bootstrap/test_bootstrap_level6.out.py', 'w', encoding='utf-8') as f:
         f.write(py_code)
-    print(f"✅ 已保存到 bootstrap/level6_self_compiled.py")
+    print(f"✅ 已保存到 bootstrap/test_bootstrap_level6.out.py")
     
 except Exception as e:
     print(f"❌ 编译失败: {type(e).__name__}: {e}")

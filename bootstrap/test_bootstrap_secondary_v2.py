@@ -62,9 +62,9 @@ try:
             print(f"  {i+1}: {lines[i]}")
     
     # 保存
-    with open('bootstrap/level6_self_compiled2.py', 'w', encoding='utf-8') as f:
+    with open('bootstrap/test_bootstrap_secondary_v2.out.py', 'w', encoding='utf-8') as f:
         f.write(py_code)
-    print("✅ 已保存到 bootstrap/level6_self_compiled2.py")
+    print("✅ 已保存到 bootstrap/test_bootstrap_secondary_v2.out.py")
     
 except Exception as e:
     print(f"❌ 编译失败: {type(e).__name__}: {e}")
@@ -82,7 +82,7 @@ with open('bootstrap/level6_self_compiled.py', 'r', encoding='utf-8') as f:
     first_pass = f.read()
 
 # 读取第二次编译的结果 (level6_self_compiled.py 编译 bootstrap_level5.light)
-with open('bootstrap/level6_self_compiled2.py', 'r', encoding='utf-8') as f:
+with open('bootstrap/test_bootstrap_secondary_v2.out.py', 'r', encoding='utf-8') as f:
     second_pass = f.read()
 
 # 归一化比较（忽略头部注释差异）

@@ -8,6 +8,7 @@ sys.path.insert(0, '.')
 
 def 列表创建(*args): return list(args)
 def 列表追加(lst, item): lst.append(item)
+def 列表插入(lst, item): lst.append(item)
 def 列表获取(lst, i): return lst[i]
 def 列表长度(lst): return len(lst)
 def 字符串长度(s): return len(s)
@@ -17,7 +18,7 @@ def 打印(*args): print(*args)
 def 建(t, v): return [t, v]
 
 ns = {
-    '列表创建': 列表创建, '列表追加': 列表追加, '列表获取': 列表获取,
+    '列表创建': 列表创建, '列表追加': 列表追加, '列表插入': 列表插入, '列表获取': 列表获取,
     '列表长度': 列表长度, '字符串长度': 字符串长度, '字符串获取': 字符串获取,
     '截取': 截取, '打印': 打印, '输出': 打印, '真': True, '假': False, '建': 建,
 }

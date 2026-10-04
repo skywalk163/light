@@ -125,8 +125,8 @@ print(f"第1次编译: {len(py_code1)} 字节, {len(py_code1.split(chr(10)))} �
 print(f"第2次编译: {len(py_code2)} 字节, {len(py_code2.split(chr(10)))} 行")
 
 # 保存
-with open('bootstrap/level6_out1.py', 'w', encoding='utf-8') as f:
+with open('bootstrap/test_bootstrap_secondary_v3_out1.py', 'w', encoding='utf-8') as f:
     f.write(py_code1)
-with open('bootstrap/level6_out2.py', 'w', encoding='utf-8') as f:
+with open('bootstrap/test_bootstrap_secondary_v3_out2.py', 'w', encoding='utf-8') as f:
     f.write(py_code2)
-print("✅ 已保存到 bootstrap/level6_out1.py 和 level6_out2.py")
+print("✅ 已保存到 bootstrap/test_bootstrap_secondary_v3_out1.py 和 test_bootstrap_secondary_v3_out2.py")
