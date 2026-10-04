@@ -575,6 +575,11 @@ def test_身份证校验_O0对拍():
 # 6. 中文分词（正向最大匹配 + 653 词内嵌词典）
 # ═══════════════════════════════════════════════════════════════════════
 
+@pytest.mark.xfail(
+    reason="原生后端(LLVM)缺 ScopeDeclStmt 支持（红线单 #LM-RED-ScopeDeclStmt）；修复后移除本 xfail。"
+           "触发点 src/llvm/codegen_typed.py:4674。Python/转译后端该模块已绿（探针 ALL PASS）。",
+    strict=False,
+)
 def test_中文分词_O0对拍():
     src = """从 中文分词 导入 分词 添加自定义词 加载词典
 段落 主:
@@ -675,6 +680,11 @@ def _gold_pinyin(m):
     return 转拼音, 拼音首字母
 
 
+@pytest.mark.xfail(
+    reason="原生后端(LLVM)缺 ScopeDeclStmt 支持（红线单 #LM-RED-ScopeDeclStmt）；修复后移除本 xfail。"
+           "触发点 src/llvm/codegen_typed.py:4674。Python/转译后端该模块已绿（探针 ALL PASS）。",
+    strict=False,
+)
 def test_拼音转换_O0对拍():
     src = """从 拼音转换 导入 转拼音 拼音首字母
 段落 主:

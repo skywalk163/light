@@ -168,6 +168,30 @@
         设 p 为 p 加 1
     返回 p
 
+段落 最长匹配 接收 src, p, n
+    设 kws 为 关键字列表()
+    设 best_kw 为 ""
+    设 best_len 为 0
+    设 i 为 0
+    当 i 小于 列表长度(kws)
+        设 kw 为 列表获取(kws, i)
+        设 kw_len 为 字符串长度(kw)
+        如果 kw_len 小于等于 n 减 p
+            设 match 为 真
+            设 j 为 0
+            当 j 小于 kw_len 且 match 等于 真
+                如果 字符串获取(src, p 加 j) 不等于 字符串获取(kw, j)
+                    设 match 为 假
+                设 j 为 j 加 1
+            如果 match 等于 真
+                如果 kw_len 大于 best_len
+                    设 best_kw 为 kw
+                    设 best_len 为 kw_len
+        设 i 为 i 加 1
+    如果 best_len 大于 0
+        返回 列表创建(真, 建("KW", best_kw), best_len)
+    返回 列表创建(假, 建("KW", ""), 0)
+
 段落 扫 接收 src, p, n, toks
     设 缩进栈 为 列表创建(0)
     当 p 小于 n
@@ -237,6 +261,20 @@
                             设 p 为 列表获取(结果, 1)
                             列表插入(toks, tok)
                             设 已处理 为 真
+                    如果 已处理 等于 假 且 c 等于 "`"
+                        设 p 为 p 加 1
+                        设 name 为 ""
+                        设 反引号结束 为 假
+                        当 p 小于 n 且 反引号结束 等于 假
+                            设 bc 为 字符串获取(src, p)
+                            如果 bc 等于 "`"
+                                设 p 为 p 加 1
+                                设 反引号结束 为 真
+                            否则
+                                设 name 为 name 加 bc
+                                设 p 为 p 加 1
+                        列表插入(toks, 建("ID", name))
+                        设 已处理 为 真
                     如果 已处理 等于 假 且 c 等于 "："
                         设 p 为 p 加 1
                         设 已处理 为 真
@@ -283,10 +321,31 @@
                         设 p 为 p 加 字符串长度(列表获取(tok, 1))
                         设 已处理 为 真
                     如果 已处理 等于 假 且 c 大于等于 "一"
-                        设 tok 为 词(src, p, n, "")
-                        列表插入(toks, tok)
-                        设 p 为 p 加 字符串长度(列表获取(tok, 1))
-                        设 已处理 为 真
+                        设 mm 为 最长匹配(src, p, n)
+                        设 词界放行 为 真
+                        如果 列表获取(mm, 0) 等于 真
+                            设 mm_len 为 列表获取(mm, 2)
+                            如果 p 加 mm_len 小于 n
+                                设 after_c 为 字符串获取(src, p 加 mm_len)
+                                如果 after_c 等于 "_"
+                                    设 词界放行 为 假
+                                如果 after_c 大于等于 "a"
+                                    如果 after_c 小于等于 "z"
+                                        设 词界放行 为 假
+                                如果 after_c 大于等于 "A"
+                                    如果 after_c 小于等于 "Z"
+                                        设 词界放行 为 假
+                                如果 after_c 大于等于 "一"
+                                    设 词界放行 为 假
+                        如果 列表获取(mm, 0) 等于 真 且 词界放行 等于 真
+                            列表插入(toks, 列表获取(mm, 1))
+                            设 p 为 p 加 mm_len
+                            设 已处理 为 真
+                        如果 已处理 等于 假
+                            设 tok 为 词(src, p, n, "")
+                            列表插入(toks, tok)
+                            设 p 为 p 加 字符串长度(列表获取(tok, 1))
+                            设 已处理 为 真
                     如果 已处理 等于 假
                         设 p 为 p 加 1
     当 列表长度(缩进栈) 大于 1
@@ -956,6 +1015,21 @@
         设 i 为 i 加 1
     返回 acc
 
+段落 编译单行块 接收 toks, p, indent
+    设 end_p 为 p
+    设 找完 为 假
+    当 end_p 小于 列表长度(toks) 且 找完 等于 假
+        设 nt 为 列表获取(toks, end_p)
+        设 tt 为 列表获取(nt, 0)
+        如果 tt 等于 "NEWLINE" 或 tt 等于 "DEDENT"
+            设 找完 为 真
+        否则
+            设 end_p 为 end_p 加 1
+    设 body 为 compile_block(toks, p, end_p, indent, "")
+    如果 body 等于 ""
+        设 body 为 indent 加 "pass\n"
+    返回 列表创建(body, end_p 加 1)
+
 段落 comp_if 接收 toks, p
     如果 p 小于 列表长度(toks)
         设 tok 为 列表获取(toks, p)
@@ -964,6 +1038,17 @@
             设 结果 为 表达式(toks, np)
             设 cond 为 列表获取(结果, 0)
             设 np 为 列表获取(结果, 1)
+            设 单行 为 假
+            如果 np 小于 列表长度(toks)
+                设 nt 为 列表获取(toks, np)
+                如果 列表获取(nt, 0) 不等于 "NEWLINE"
+                    设 单行 为 真
+            如果 单行 等于 真
+                设 sr 为 编译单行块(toks, np, "    ")
+                设 body 为 列表获取(sr, 0)
+                设 end_p 为 列表获取(sr, 1)
+                设 code 为 "if " 加 cond 加 ":\n" 加 body
+                返回 列表创建(code, end_p)
             如果 np 小于 列表长度(toks)
                 设 nt 为 列表获取(toks, np)
                 如果 列表获取(nt, 0) 等于 "NEWLINE"
@@ -1006,6 +1091,16 @@
             设 结果 为 表达式(toks, np)
             设 cond 为 列表获取(结果, 0)
             设 np 为 列表获取(结果, 1)
+            设 单行 为 假
+            如果 np 小于 列表长度(toks)
+                设 nt 为 列表获取(toks, np)
+                如果 列表获取(nt, 0) 不等于 "NEWLINE"
+                    设 单行 为 真
+            如果 单行 等于 真
+                设 sr 为 编译单行块(toks, np, "    ")
+                设 body 为 列表获取(sr, 0)
+                设 end_p 为 列表获取(sr, 1)
+                返回 列表创建("while " 加 cond 加 ":\n" 加 body, end_p)
             如果 np 小于 列表长度(toks)
                 设 nt 为 列表获取(toks, np)
                 如果 列表获取(nt, 0) 等于 "NEWLINE"
@@ -1037,6 +1132,16 @@
                         设 结果 为 表达式(toks, np)
                         设 iter_expr 为 列表获取(结果, 0)
                         设 np 为 列表获取(结果, 1)
+                        设 单行 为 假
+                        如果 np 小于 列表长度(toks)
+                            设 nt 为 列表获取(toks, np)
+                            如果 列表获取(nt, 0) 不等于 "NEWLINE"
+                                设 单行 为 真
+                        如果 单行 等于 真
+                            设 sr 为 编译单行块(toks, np, "    ")
+                            设 body 为 列表获取(sr, 0)
+                            设 end_p 为 列表获取(sr, 1)
+                            返回 列表创建("for " 加 var_name 加 " in " 加 iter_expr 加 ":\n" 加 body, end_p)
                         如果 np 小于 列表长度(toks)
                             设 nt 为 列表获取(toks, np)
                             如果 列表获取(nt, 0) 等于 "NEWLINE"
