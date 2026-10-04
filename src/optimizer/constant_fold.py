@@ -99,11 +99,12 @@ class ConstantFoldingOptimizer(Optimizer):
         if op == '*':
             return left * right
         if op == '/':
-            # 「除以」/「除」整数相除向零截断（与原生腿 i64 sdiv 一致，见 known_issues §15.1 选 B）；
-            # 浮点操作数退化为真除法（与原生腿 fdiv 一致）。不可用 Python //（floor），
-            # 否则负数语义与原生腿分叉（-7//2=-4 vs sdiv -3）。
-            if type(left) is int and type(right) is int:
-                return left // right if left * right >= 0 else -((-left) // right)
+            # R114 收口追加・除法折叠对齐：除/除以 一律真除（与运行期两后端
+            # _light_trunc_div=a/b、原生腿 fdiv 同口径——T7A+路4 已取代 §15.1 裁决 B）。
+            # 旧实现 int/int 向零截断，导致折叠路径（10 除 3=3）与运行期路径
+            # （-10 除 3=-3.333、x 除 3=3.333）语义分叉。常量折叠必须语义保持：
+            # 折叠前后结果逐位一致。10/3 折成 IEEE double 3.333...，与运行期无精度漂移。
+            # 「整除」floor 语义在下方 op == '//' 分支，不受影响。
             return left / right
         if op == '//':
             # 「整除」保留 Python floor 语义，负数为向下取整。

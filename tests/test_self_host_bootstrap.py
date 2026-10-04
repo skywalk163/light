@@ -165,10 +165,17 @@ class TestLevel1BasicExpr:
 
     def test_binary_div(self) -> None:
         """测试除法运算"""
+        # R114 收口追加・除法折叠对齐（T7A+路4 真除裁决，已取代 §15.1 裁决 B 截断）：
+        # 折叠路径（纯字面量）与运行期路径（含变量/负号）必须逐位一致
         source = '设 r 为 10 除 3'
         ns, _ = _compile_and_run(source)
-        # 裁决 B（§15.1）：「除」整数相除向零截断 → 10 / 3 = 3（整型，对齐原生腿 i64 sdiv）
-        assert ns['r'] == 3
+        assert ns['r'] == 10 / 3  # 真除，折叠层 constant_fold.py 已对齐（修前折叠截断得 3）
+        # 双路径对拍钉子（防折叠层与运行期再分叉）：字面量折叠 vs 运行期求值
+        ns2, _ = _compile_and_run('设 x 为 10\n设 r 为 x 除 3')
+        assert ns2['r'] == ns['r']
+        # 负数路径：运行期真除，折叠路径（UnaryOp 挡字面量）本就不折叠，两路同值
+        ns3, _ = _compile_and_run('设 r 为 -10 除 3')
+        assert ns3['r'] == -10 / 3
 
     def test_binary_mod(self) -> None:
         """测试取模运算（R114-S2：parser MUL_OP_MAP 补「取模」后启用）"""
