@@ -49,6 +49,7 @@ _DOC_STMT_TYPES = frozenset({
     'BreakStatement', 'ContinueStatement', 'PrintStatement', 'TryStatement',
     'ThrowStatement',     'ExpressionStatement', 'ImportStatement', 'AsyncScope',
     'YieldStatement',  # R10-11b 第四批B 新增：生成器
+    'ScopeDeclaration',  # R114-S1 新增：`全局 X。` 作用域声明
 })
 
 _DOC_EXPR_TYPES = frozenset({

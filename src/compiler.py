@@ -281,6 +281,10 @@ class AstAdapter:
             # 此前 YieldStmt 无转换器 → 降级成 `<unknown:YieldStmt>` 标识符，
             # 原生腿只能报「暂不支持语句类型 YieldStmt」。
             'YieldStmt': self._convert_yield_stmt,
+            # R114-S1：`全局 计数。` / `外层 值。`（v3 ScopeDeclStmt）。
+            # 此前无转换器 → 降级成 `<unknown:ScopeDeclStmt>`，原生腿只能报
+            # 「暂不支持语句类型 ScopeDeclStmt」（红线单 #LM-RED-ScopeDeclStmt）。
+            'ScopeDeclStmt': self._convert_scope_decl_stmt,
         }
 
     # ------------------------------------------------------------------
@@ -339,6 +343,10 @@ class AstAdapter:
                 # 漏了这条它会被包成 ExpressionStatement，原生腿的生成器
                 # 分派就永远匹配不到。
                 ast.YieldStatement,
+                # R114-S1：`全局 X。` 是语句不是表达式。漏了这条它会被包成
+                # ExpressionStatement，原生腿的 ScopeDeclaration 分派永远匹配不到
+                # （同 R10-11b `生成` 的坑，同一个白名单第二次踩）。
+                ast.ScopeDeclaration,
             )):
                 converted = ast.ExpressionStatement(expression=converted)
             result.append(converted)
@@ -587,6 +595,25 @@ class AstAdapter:
             value=self.convert(getattr(node, 'value', None)),
             is_from=bool(getattr(node, 'is_from', False)),
         )
+
+    def _convert_scope_decl_stmt(self, node) -> ast.ScopeDeclaration:
+        """R114-S1：作用域声明 `全局 计数, 次数。` / `外层 值。`
+
+        只做节点转型（names / kind 原样透传），语义落地在后端：
+          * 转译后端（`code_generator.py`）→ Python 的 `global` / `nonlocal`；
+          * 原生腿（`codegen_typed._gen_typed_scope_decl`）→ 模块级 `@__var_*` 槽。
+
+        行号顺手透传（v3 节点有 `lineno` 时），让后端拒绝文案能指到真实源码行
+        ——适配层绝大多数转换器都不透传行号，拒绝文案只能说「未知」，这里补上。
+        """
+        decl = ast.ScopeDeclaration(
+            names=list(getattr(node, 'names', []) or []),
+            kind=getattr(node, 'kind', 'global') or 'global',
+        )
+        line = getattr(node, 'lineno', None)
+        if line:
+            decl.line = line
+        return decl
 
     def _convert_pass_stmt(self, node):
         """C3-4：`pass`（空语句）语义上就是 no-op，编成空操作而不是报错。

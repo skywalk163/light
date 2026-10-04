@@ -4771,9 +4771,51 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self._gen_async_scope(stmt)
         elif isinstance(stmt, ast.YieldStatement):
             self._gen_typed_yield(stmt)
+        elif hasattr(ast, 'ScopeDeclaration') and isinstance(stmt, ast.ScopeDeclaration):
+            # R114-S1：`全局 计数。` / `外层 值。`（v3 ScopeDeclStmt）
+            self._gen_typed_scope_decl(stmt)
         else:
             # A2-1：链尾兜底。以前这里什么都没有，未知语句被静默吃掉。
             self._reject_unsupported_stmt(type(stmt).__name__, stmt)
+
+    def _gen_typed_scope_decl(self, stmt: ast.ScopeDeclaration):
+        """R114-S1：作用域声明 `全局 计数。` / `外层 值。`（v3 ScopeDeclStmt）。
+
+        转译腿把它编成 Python 的 `global` / `nonlocal`。原生腿没有 Python 那套
+        作用域栈，但有等价物：模块级变量本来就是 LLVM 全局 `@__var_<名字>`
+        （`gen_global_var` 登记、`finalize` 发射），且 `get_var` / `set_var` 已经是
+        **「`_globals` 优先于 `_local_vars`」**。所以 `全局 X` 在原生腿的落地就是
+        把 X 挂进 `_globals`：之后段落体内对 X 的读写自动改走全局槽，语义与
+        Python 的 `global` 一致——写回模块级变量，而不是新建一个同名局部槽。
+
+        `外层`（nonlocal）只在嵌套段落里有意义，而嵌套段落（SegmentDefinition）
+        原生腿本就不支持 → 如实拒绝，绝不静默降级成 `全局`。
+        """
+        kind = getattr(stmt, 'kind', 'global') or 'global'
+        names = list(getattr(stmt, 'names', []) or [])
+        if kind != 'global':
+            # `外层` 落在非嵌套段落里本来就无意义；这里按「未支持」口径报，
+            # 不做任何降级。
+            self._reject_unsupported_stmt('ScopeDeclStmt(nonlocal/外层)', stmt)
+        # 与转译后端同口径：`全局` 只许写在段落体内（模块级变量本就是最外层，
+        # 写了没意义，且会把段落内同名局部变量悄悄抬成全局）。
+        if getattr(self, '_current_func', None) == '__init__':
+            # 文案里带上 `ScopeDeclStmt`：C3-4 的口径是「每个未支持节点都要能自报
+            # 家门」，只说「只能写在段落体内」会让它报了错却没人知道是哪类语句。
+            raise NotImplementedError(
+                f"原生后端暂不支持语句类型「ScopeDeclStmt」"
+                f"（源码行 {self._stmt_source_line(stmt)}）："
+                f"「全局」只能写在段落（函数）体内，模块级的变量本来就在最外层作用域，"
+                f"无需声明。{self._FALLBACK_HINT}")
+        for name in names:
+            if not name:
+                continue
+            if name not in self._globals:
+                self.gen_global_var(name)
+            # 段落体内若已被 _collect_vars_from_stmts 批量预分配了同名局部槽，
+            # 显式摘掉：读写已改走全局槽，留着只是个永不使用的 alloca，还会
+            # 误导后来人以为这里写的是局部。
+            self._local_vars.pop(name, None)
 
     def _gen_typed_var_decl(self, stmt: ast.VariableDeclaration):
         name = stmt.name
@@ -6528,6 +6570,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             safe = self._safe_var_name(name)
             reg = self.new_register()
             self.emit(f'{reg} = load {LIGHTVALUE_STRUCT}, {LIGHTVALUE_STRUCT}* @__var_{safe}')
+            # R114-S2：把全局槽本身登记成这个 SSA 的槽位。
+            # 少了这一条，`_store_dv` 会给它另开一个临时槽，于是 `字典设置` /
+            # `列表追加` 这类**原地修改**容器的 builtin 改的是副本，写不回全局
+            # ——表现是「`全局` 声明了、编译也过了，但容器一直是空的」。
+            # 容器类变量全靠这条链，别把它当成可选优化删掉。
+            self._dv_ssa_to_slot[reg] = f'@__var_{safe}'
             return reg
         if name in self._local_vars:
             slot = self._local_vars[name]

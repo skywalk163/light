@@ -127,6 +127,8 @@ AST_TYPE_ID_TUPLE_LITERAL = 103
 # 原生腿只能拒绝。此处补一等节点，供适配层转型 + codegen 分派。
 # 节点 ID 用 104（103 已分配给 R10-11a 的 TupleLiteral）。
 AST_TYPE_ID_YIELD_STATEMENT = 104
+# R114-S1：作用域声明（`全局 计数。` / `外层 值。`）——原生(LLVM)后端 ScopeDeclStmt 缺口
+AST_TYPE_ID_SCOPE_DECLARATION = 105
 
 
 @dataclass(slots=True)
@@ -533,6 +535,26 @@ class YieldStatement(ASTNode):
     """
     value: Optional[ASTNode] = None
     is_from: bool = False
+
+
+@dataclass(slots=True)
+class ScopeDeclaration(ASTNode):
+    _ast_type_id: int = field(default=AST_TYPE_ID_SCOPE_DECLARATION, init=False, repr=False)
+    """作用域声明语句：`全局 计数。` → kind='global'；`外层 值。` → kind='nonlocal'。
+
+    R114-S1（红线单 #LM-RED-ScopeDeclStmt）：此前 v3 的 ScopeDeclStmt 在适配层
+    **没有转换器**，被降级成 `<unknown:ScopeDeclStmt>` 伪装标识符，原生腿只能
+    报「暂不支持语句类型 ScopeDeclStmt」。本节点是它的 legacy 侧落点，语义与
+    转译后端（Python `global` / `nonlocal`）对齐：
+
+      * `global`   —— 段落体内声明「这个名字是模块级的」，读写必须落到模块级槽，
+                      原生腿对应 `@__var_<名字>` 全局 LightValue。
+      * `nonlocal` —— 只在嵌套段落里有意义，而嵌套段落原生腿本就不支持，故如实拒绝。
+
+    只做节点承载，不做语义展开：怎么落地由各后端自己决定（就像 YieldStatement）。
+    """
+    names: List[str] = field(default_factory=list)
+    kind: str = 'global'
 
 
 @dataclass(slots=True)

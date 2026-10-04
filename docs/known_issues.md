@@ -315,16 +315,18 @@
 
 ### 9.2 静态清单
 
-上游（v3 语句类节点共 27 个，其中 **9 个**没有适配层转换器）：
+上游（v3 语句类节点共 27 个，其中 **8 个**没有适配层转换器）：
 `AssertStmt`、`DecoratorDefinition`、`EmbedBlock`、`FFIFunctionDecl`、
-`FFIVarArgsDecl`、`PassStmt`、`RunAsyncStmt`、`ScopeDeclStmt`、
-`TypeCheckToggleStmt`。（`YieldStmt` 自 R10-11b 起有转换器——见下方 17 条分支。）
+`FFIVarArgsDecl`、`PassStmt`、`RunAsyncStmt`、`TypeCheckToggleStmt`。
+（`YieldStmt` 自 R10-11b 起有转换器；**`ScopeDeclStmt` 自 R114-S1 起有转换器**——
+见下方 18 条分支。）
 
-下游（`_gen_statement` 现有 **17** 条分支：`VariableDeclaration`、`Assignment`、
+下游（`_gen_statement` 现有 **18** 条分支：`VariableDeclaration`、`Assignment`、
 `SelfAssignment`、`CompoundAssignment`、`IfStatement`、`ForeachStatement`、
 `WhileStatement`、`ReturnStatement`、`BreakStatement`、`ContinueStatement`、
 `PrintStatement`、`TryStatement`、`ThrowStatement`、`ExpressionStatement`、
-`ImportStatement`、`AsyncScope`、`YieldStatement`（生成器，R10-11b 新增））。
+`ImportStatement`、`AsyncScope`、`YieldStatement`（生成器，R10-11b 新增）、
+`ScopeDeclaration`（作用域声明，R114-S1 新增））。
 适配层能产出、但这 17 条都不覆盖的 legacy
 节点有 **27 种**，落链尾兜底，其中作为语句出现的主要是
 `MatchStatement`、`WithStatement`、`DestructuringAssignment`、`SegmentDefinition`
@@ -342,16 +344,33 @@
 
 | 桶 | 条数 | 成员 |
 |----|------|------|
-| 能编 | 17 | 赋值/变量声明、`如果`、`遍历`、`当`、段落、`返回`、`跳出`、`继续`、`尝试`/`捕获`、`抛出`、`打印`、`引`（B9 S1 起真导入，见上方说明）、类（非嵌套）、接口、`导出`、`延迟`、`生成`（生成器，R10-11b 新增） |
-| 明确拒绝 | 5 | `全局`(ScopeDeclStmt)、`外层`(先撞 SegmentDefinition)、`断言`(AssertStmt)、类型别名(TypeAlias)、嵌套类(ClassDefinitionWithNested) |
+| 能编 | 18 | 赋值/变量声明、`如果`、`遍历`、`当`、段落、`返回`、`跳出`、`继续`、`尝试`/`捕获`、`抛出`、`打印`、`引`（B9 S1 起真导入，见上方说明）、类（非嵌套）、接口、`导出`、`延迟`、`生成`（生成器，R10-11b 新增）、**`全局`**（作用域声明，R114-S1 新增） |
+| 明确拒绝 | 4 | `外层`(先撞 SegmentDefinition)、`断言`(AssertStmt)、类型别名(TypeAlias)、嵌套类(ClassDefinitionWithNested) |
 | 更早的层拦下 | 2 | `匹配`（v3 解析器语法就没通）、`异步域`（同上） |
 
 `外层` 报的是 `SegmentDefinition` 而不是 `ScopeDeclStmt`：`外层` 只能写在嵌套
 段落里，而**嵌套段落本身原生就不支持**，所以先被它拦下。报真正拦下它的那一层，
 不编造。
 
-守卫在 `tests/unit/test_llvm_stmt_coverage.py`（正跑 5 条 + 反跑 6 条 + 2 条静态
-断言，共 13 个用例；`生成` 自 R10-11b 起从正跑挪入反跑）。
+守卫在 `tests/unit/test_llvm_stmt_coverage.py`（正跑 4 条 + 反跑 7 条 + 2 条静态
+断言，共 13 个用例；`生成` 自 R10-11b 起从正跑挪入反跑，`全局` 自 R114-S1 起同理）。
+
+### 9.3.1 `全局` 的落地语义（R114-S1）
+
+原生腿没有 Python 的作用域栈，但**有等价物**：模块级变量本来就是 LLVM 全局
+`@__var_X`（`gen_global_var` 登记、`finalize` 发射），且 `get_var` / `set_var`
+已经是「`_globals` 优先于 `_local_vars`」。所以 `全局 X` 的落地就是把 X 挂进
+`_globals`——之后段落内对 X 的读写自动改走全局槽，语义与 Python 的 `global` 一致。
+
+**一个必须知道的差异**（实测，勿误判）：模块级**已经**声明过的变量，原生腿即使
+不写 `全局` 也照样写回全局槽（LLVM 语义：模块级变量是编译期分配的内存），而
+Python 会当成局部。`全局` 真正不可替代的场景是**模块级没有同名声明**时——它把
+名字抬成模块级槽使跨段落可见（对应 Python 里 `global X` + `X = 1` 在模块级创建 X）。
+
+模块级写 `全局` 与转译腿同口径拒绝（「只能写在段落体内」）；`外层` 如实拒绝。
+三处改动：`ast_nodes.py` 新增 `ScopeDeclaration` 节点、`compiler.py` 适配层转换器
+**兼 `_to_list_stmts` 白名单**（漏了白名单就会第二次踩 R10-11b `生成` 的坑）、
+`codegen_typed._gen_typed_scope_decl`。判据见 `tests/unit/test_llvm_scope_decl.py`。
 
 ### 9.4 已知缺口
 
