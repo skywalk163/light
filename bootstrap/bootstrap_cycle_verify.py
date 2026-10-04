@@ -166,28 +166,24 @@ class BootstrapCycleVerifier:
             compiler_b = tmp_path / "compiler_b.py"
 
             try:
-                # 使用编译器 A 来编译源文件（模拟自举）
+                # R115 修正：编译器 A 是库式模块，仅暴露 compile_source(source)，
+                # 既不读 stdin 也不解析 argv（裸跑定义完函数即退出，输出恒空）。
+                # 原 stdin 管道写法必然"无输出"。改为 exec 后直接调用 compile_source。
+                sys.path.insert(0, str(self.bootstrap_dir))
+                import run_compiler as _rc
+                with open(compiler_a, "r", encoding="utf-8") as f:
+                    compiler_a_code = f.read()
+                ns_a = _rc.execute_generated_code(compiler_a_code)
                 with open(source, "r", encoding="utf-8") as f:
                     bootstrap_source = f.read()
-
-                # 如果编译器 A 接受标准输入，则通过管道传递
-                proc = subprocess.run(
-                    [sys.executable, str(compiler_a)],
-                    input=bootstrap_source,
-                    capture_output=True, text=True, timeout=30,
-                    cwd=str(self.project_root),
-                )
-                if proc.returncode == 0 and proc.stdout:
-                    with open(compiler_b, "w", encoding="utf-8") as f:
-                        f.write(proc.stdout)
-                    step4["status"] = "通过"
-                    step4["detail"] = f"已生成编译器 B: {compiler_b}"
-                else:
-                    step4["status"] = "部分通过"
-                    step4["detail"] = f"编译器 A 输出异常: {proc.stderr[:200] or '无输出'}"
+                py_b = ns_a["compile_source"](bootstrap_source)
+                with open(compiler_b, "w", encoding="utf-8") as f:
+                    f.write(py_b)
+                step4["status"] = "通过"
+                step4["detail"] = f"已生成编译器 B: {compiler_b}"
             except Exception as e:
                 step4["status"] = "失败"
-                step4["detail"] = f"错误: {e}"
+                step4["detail"] = f"自举编译自身失败: {type(e).__name__}: {str(e)[:200]}"
             result["steps"].append(step4)
 
             # 步骤 5: 比较编译器 A 和 B 的输出
@@ -218,13 +214,14 @@ class BootstrapCycleVerifier:
         Returns:
             组件覆盖情况字典
         """
+        # R115 修正：self.bootstrap_dir 已指向 bootstrap/，路径前缀不得再加 "bootstrap/"
         components: Dict[str, str] = {
-            "词法分析器": "bootstrap/lexer.light",
-            "语法解析器": "bootstrap/parser.light",
-            "AST定义": "bootstrap/light_ast.light",
-            "代码生成器": "bootstrap/codegen.light",
-            "编译器管道": "bootstrap/compiler.light",
-            "主程序入口": "bootstrap/main.light",
+            "词法分析器": "lexer.light",
+            "语法解析器": "parser.light",
+            "AST定义": "light_ast.light",
+            "代码生成器": "codegen.light",
+            "编译器管道": "compiler.light",
+            "主程序入口": "main.light",
         }
 
         result: Dict = {
