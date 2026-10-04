@@ -95,6 +95,16 @@
 | S2 诊断 4 组 | 局部/全局、跨段落/同段落，四种组合全 `ni` |
 | 门禁反向验证 | 临时摘掉 `_gen_statement` 的 ScopeDeclaration 分支 → 能力矩阵门禁**立刻红**，并指名「L3分派=无」 |
 | 定向回归 | 121 passed（scope_decl / stmt_coverage / capability_matrix / native_leg_capability / ci_gates ×2） |
+| 本机全量 | **8425 passed** / 83 skipped / 12 xfailed / 2 xpassed，4 条红**逐条定性**（下表） |
+
+### 全量 4 红的定性（不许糊过去）
+
+| 用例 | 判定 | 处置 |
+|------|------|------|
+| `test_llvm_c3_expr.py::…[全局声明]` | **本次相关** | 模块级 `全局` 的拒绝文案里没有 `ScopeDeclStmt` 类型名，违反 C3-4「自报家门」口径 → **改源码文案**（补类型名），已绿 |
+| `test_llvm_optimizer.py::test_池大小等于真实用量而不是2048` | **本次相关（且是改善）** | `__light_init` 临时槽池 9→**7**：全局槽被复用后不再各开临时槽（省 96B/帧）。这是 S2 修法的必然结果 → 更新钉死期望值并注明「改回 9 前先确认全局槽登记没被删」，已绿 |
+| `test_http_client.py::test_connection_error` | **既有环境红，与本次无关** | `git stash` 到改动前基线复跑**同样红**（连 `127.0.0.1:1` 超时，本机/沙箱网络限制） |
+| `test_T6B_…::test_时间管理_睡眠计时冒烟` | **flaky** | 隔离复跑（改动后）**绿**；全量 `-n 4` 并发下时序抖动 |
 
 ---
 
