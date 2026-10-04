@@ -43,7 +43,7 @@ print("=" * 60)
 print("Level 7 自举验证测试")
 print("=" * 60)
 
-with open('bootstrap/level6_generated.py', 'r', encoding='utf-8') as f:
+with open('bootstrap/level7_generated.py', 'r', encoding='utf-8') as f:
     compiler_code = f.read()
 exec(compiler_code, ns)
 编译 = ns['编译']

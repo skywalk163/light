@@ -11,6 +11,8 @@ def 列表追加(lst, item): lst.append(item)
 def 列表插入(lst, item): lst.append(item)
 def 列表获取(lst, i): return lst[i]
 def 列表长度(lst): return len(lst)
+def 列表弹栈(lst):
+    if len(lst) > 0: lst.pop()
 def 字符串长度(s): return len(s)
 def 字符串获取(s, i): return s[i]
 def 截取(s, a, b): return s[a:b]
@@ -19,11 +21,12 @@ def 建(t, v): return [t, v]
 
 ns = {
     '列表创建': 列表创建, '列表追加': 列表追加, '列表插入': 列表插入, '列表获取': 列表获取,
-    '列表长度': 列表长度, '字符串长度': 字符串长度, '字符串获取': 字符串获取,
+    '列表长度': 列表长度, '列表弹栈': 列表弹栈,
+    '字符串长度': 字符串长度, '字符串获取': 字符串获取,
     '截取': 截取, '打印': 打印, '输出': 打印, '真': True, '假': False, '建': 建,
 }
 
-with open('bootstrap/level6_generated.py', 'r', encoding='utf-8') as f:
+with open('bootstrap/level7_generated.py', 'r', encoding='utf-8') as f:
     code = f.read()
 exec(code, ns)
 编译 = ns['编译']
