@@ -954,63 +954,498 @@ def 弧度转角度(弧度: float) -> float:
     return math.degrees(弧度)
 
 
+# ===== R114-S1 sync_builtins.py 自动生成段（勿手改；由 scripts/sync_builtins.py 重生成）=====
+
+# --- 下列函数由 scripts/sync_builtins.py 从真源 stdlib/builtins.py 逐字补齐 ---
+def 是文件(path: str) -> bool:
+    """检查是否为文件"""
+    return os.path.isfile(path)
+
+def 列出文件(path: str = '.') -> List[str]:
+    """
+    列出目录中的文件（不包含子目录）
+    
+    参数:
+        path: 目录路径（默认当前目录）
+    
+    返回:
+        文件名列表（仅文件）
+    """
+    try:
+        return [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+    except Exception as e:
+        raise RuntimeError(f"列出文件失败 '{path}': {e}")
+
+def 移动文件系统(source: str, target: str) -> None:
+    """
+    移动文件或目录
+    
+    参数:
+        source: 源路径
+        target: 目标路径
+    """
+    import shutil
+    shutil.move(source, target)
+
+
+# =============================================================================
+# 标准输入输出（stdio）
+# =============================================================================
+
+def 切片下标检查(v):
+    """L-080：切片下标必须是整数；非 int 给出明确中文错误（替代 Python 原生 slice indices 报错误导）"""
+    if isinstance(v, bool) or isinstance(v, int):
+        return v
+    if isinstance(v, float):
+        名 = '浮点数'
+    elif v is None:
+        名 = '空值'
+    elif isinstance(v, str):
+        名 = '文本'
+    elif isinstance(v, list):
+        名 = '列表'
+    elif isinstance(v, dict):
+        名 = '字典'
+    else:
+        名 = type(v).__name__
+    raise TypeError('切片下标必须是整数，实际为' + 名 + ' ' + str(v) + '，请用 整数() 转换')
+
+def 显示宽度(text) -> int:
+    """
+    返回字符串在等宽终端中的显示宽度。
+
+    中文、日文、韩文及全角字符占 2 个单元格，ASCII 及半角字符占 1 个。
+    用于终端边框、表格的对齐（用「显示宽度」替代「字符串长度」算填充）。
+
+    示例:
+        显示宽度("中文abc")  -> 7   (中=2, 文=2, a/b/c=1)
+        显示宽度("hello")    -> 5
+    """
+    import unicodedata
+    _WIDE_RANGES = (
+        (0x1100, 0x115F),   # Hangul Jamo
+        (0x2E80, 0xA4CF),   # CJK 部首补充 / 康熙部首 / 表意文字描述符 / 中日韩符号和标点
+        (0xAC00, 0xD7A3),   # Hangul 音节
+        (0xF900, 0xFAFF),   # CJK 兼容象形文字
+        (0xFE30, 0xFE4F),   # CJK 兼容形式
+        (0xFF00, 0xFF60),   # 全角 ASCII
+        (0xFFE0, 0xFFE6),   # 全角符号
+        (0x3000, 0x303F),   # CJK 符号和标点
+        (0x3040, 0x30FF),   # 平假名 / 片假名
+        (0x3400, 0x4DBF),   # CJK 扩展 A
+        (0x4E00, 0x9FFF),   # CJK 统一表意文字
+        (0x20000, 0x2FFFF), # CJK 扩展 B+
+    )
+    width = 0
+    for ch in str(text):
+        o = ord(ch)
+        wide = any(lo <= o <= hi for lo, hi in _WIDE_RANGES)
+        if not wide:
+            try:
+                wide = unicodedata.east_asian_width(ch) in ('W', 'F')
+            except Exception:
+                wide = False
+        width += 2 if wide else 1
+    return width
+
+def 深拷贝(原):
+    """深拷贝：递归复制所有嵌套字典/列表，结果与原对象完全脱钩（不共享子对象引用）。"""
+    import copy as _拷贝模块
+    return _拷贝模块.deepcopy(原)
+
+def 冻结(原):
+    """冻结（脱钩）：返回深拷贝，使调用方后续改动不影响已构造对象（深 freeze 语义）。"""
+    import copy as _拷贝模块
+    return _拷贝模块.deepcopy(原)
+
+def 真实路径(路径: str) -> str:
+    """解析符号链接 / junction / .. / 8.3 短名，返回规范化真实路径（os.path.realpath）"""
+    return os.path.realpath(路径)
+
+def 文件状态(路径):
+    """按路径取文件元数据（os.stat）。取不到（不存在/无权限）返回空，不抛。
+
+    状态对象即 Python 的 os.stat_result，透明暴露 硬链接数(st_nlink) /
+    设备号(st_dev) / 节点号(st_ino) / 大小 / 是目录，供护栏 TOCTOU 身份比对。
+    """
+    try:
+        return os.stat(路径)
+    except Exception:
+        return None
+
+def 句柄状态(句柄):
+    """按已打开的文件描述符取元数据（os.fstat）。取不到返回空，不抛。
+
+    与 文件状态 的区别全在于「从已持有的句柄回查」，避免再开一个 TOCTOU 窗口。
+    """
+    try:
+        return os.fstat(句柄)
+    except Exception:
+        return None
+
+def 低级打开(路径: str, 标志位: int, 模式: int) -> int:
+    """按标志位打开文件，返回整数文件描述符（os.open）。失败抛错。"""
+    return os.open(路径, 标志位, 模式)
+
+def 低级读(句柄: int, 字节数: int) -> bytes:
+    """从描述符读至多 字节数 个字节，返回字节串（os.read）；读到末尾返回空字节串。"""
+    return os.read(句柄, 字节数)
+
+def 低级写(句柄: int, 字节) -> int:
+    """向描述符写字节串，返回实际写入字节数（os.write）。"""
+    return os.write(句柄, 字节)
+
+def 低级关闭(句柄: int) -> None:
+    """关闭描述符（os.close）。"""
+    os.close(句柄)
+
+def 随机字节(个数: int) -> bytes:
+    """返回 个数 个密码学安全的随机字节（os.urandom）。"""
+    return os.urandom(个数)
+
+def 原子替换(源: str, 目标: str) -> None:
+    """同卷内原子改名，目标已存在则原子覆盖（os.replace）。"""
+    os.replace(源, 目标)
+
+def 环境枚举():
+    """列出当前进程全部环境变量，返回 [[名, 值], ...]（os.environ.items()）。"""
+    return [[名, 值] for 名, 值 in os.environ.items()]
+
+def 单调时钟() -> float:
+    """返回只增不减、不受系统时钟调整影响的秒数（time.monotonic）。绝对值无意义，只用于求差。"""
+    return _time_module.monotonic()
+
+def 常量时间比较(甲, 乙) -> bool:
+    """以不随输入内容变化的时间比较两个字符串/字节是否相等（hmac.compare_digest），防时序侧信道。"""
+    import hmac
+    return hmac.compare_digest(甲, 乙)
+
+
+# ---- 8 个打开标志常量（跨平台，以零参函数形态落地） ----
+
+def 只读() -> int:
+    """打开标志：只读（os.O_RDONLY）。"""
+    return os.O_RDONLY
+
+def 只写() -> int:
+    """打开标志：只写（os.O_WRONLY）。"""
+    return os.O_WRONLY
+
+def 新建() -> int:
+    """打开标志：不存在则创建（os.O_CREAT）。"""
+    return os.O_CREAT
+
+def 截断() -> int:
+    """打开标志：已存在则清空到零长度（os.O_TRUNC）。"""
+    return os.O_TRUNC
+
+def 追加() -> int:
+    """打开标志：每次写都定位到文件末尾（os.O_APPEND）。"""
+    return os.O_APPEND
+
+def 独占() -> int:
+    """打开标志：与 新建 合用时目标已存在则失败（os.O_EXCL）。"""
+    return os.O_EXCL
+
+def 二进制() -> int:
+    """打开标志：字节透传不做换行转换。仅 Windows 存在（os.O_BINARY），POSIX 上无此概念、返回 0。"""
+    return os.O_BINARY if hasattr(os, "O_BINARY") else 0
+
+def 不跟随符号链接() -> int:
+    """打开标志：末段是符号链接则直接失败。仅 POSIX 存在（os.O_NOFOLLOW），Windows 上返回 0。"""
+    return os.O_NOFOLLOW if hasattr(os, "O_NOFOLLOW") else 0
+
+
 # =============================================================================
 # 导出所有函数
 # =============================================================================
 
+def container_get(d, key, default=None):
+    """字典安全取值（惰性辅助，避免与内置 get 语义冲突）。"""
+    try:
+        return d.get(key, default)
+    except Exception:
+        return default
+
+def 写入二进制文件(路径: str, 数据) -> None:
+    """写入二进制文件：数据应为 bytes。"""
+    import os
+    d = os.path.dirname(路径)
+    if d and not os.path.exists(d):
+        os.makedirs(d, exist_ok=True)
+    with open(路径, 'wb') as _f:
+        _f.write(数据 if isinstance(数据, (bytes, bytearray)) else str(数据).encode('utf-8'))
+
+def 读二进制文件(路径: str) -> bytes:
+    """读取二进制文件，返回 bytes。"""
+    with open(路径, 'rb') as _f:
+        return _f.read()
+
+def 创建临时目录() -> str:
+    """创建并返回一个新的临时目录路径。"""
+    import tempfile
+    return tempfile.mkdtemp()
+
+def 删目录树(路径: str) -> None:
+    """递归删除目录树（含子目录与文件）。"""
+    import shutil
+    shutil.rmtree(路径, ignore_errors=False)
+
+def 复制文件(源: str, 目标: str) -> None:
+    """复制文件（保留元数据）。"""
+    import shutil
+    shutil.copy2(源, 目标)
+
+def 复制目录(源: str, 目标: str) -> None:
+    """递归复制目录。"""
+    import shutil
+    shutil.copytree(源, 目标)
+
+def 重命名(源: str, 目标: str) -> None:
+    """重命名/移动文件或目录。"""
+    import os
+    os.rename(源, 目标)
+
+def 排序列表(序列, 反向: bool = False):
+    """返回排序后的新列表（不原地修改）。"""
+    return sorted(序列, reverse=bool(反向))
+
+
+# 英文别名：code_generator 的 method_name_map 将光明方法名「排序」映射为 `sort`
+# （`_light_builtin.排序(数据)` → `_light_builtin.sort(数据)`），且 stdlib/统计.light
+# 百分位数/中位数依赖「排序后返回新列表」语义，故此处补 `sort` 指向 排序列表。
+
+def 查找目录列表(路径: str = '.') -> list:
+    """列出目录下的条目名（等价 列出目录）。"""
+    import os
+    return os.listdir(路径)
+
+def 取可选(容器, 键, 默认=None):
+    """安全取字段：字典用 get，对象用 getattr，异常回落默认（空）。"""
+    try:
+        if isinstance(容器, dict):
+            return container_get(容器, 键, 默认)
+        return getattr(容器, 键, 默认)
+    except Exception:
+        return 默认
+
+# --- 下列为 boot 自包含移植体（真源为地板转发式，release 环境无光导入钩子，语义对齐 内置核心*.light 真身）---
+def 最后索引(text: str, substring: str) -> int:
+    """查找子串最后出现位置，未找到返回 -1（R114-S1 boot 自包含移植：对齐 内置核心字符串.最后索引）"""
+    return str.rfind(text, substring)
+
+def 副本(原):
+    """浅拷贝：字典浅拷贝键值对、列表浅拷贝元素、其他类型原样返回（R114-S1 boot 自包含移植：对齐 内置核心列表.副本）"""
+    import copy as _拷贝模块
+    return _拷贝模块.copy(原)
+
+def 浅拷贝(原):
+    """浅拷贝（R114-S1 boot 自包含移植：对齐 内置核心列表.浅拷贝）"""
+    import copy as _拷贝模块
+    return _拷贝模块.copy(原)
+
+def 是字节(值) -> bool:
+    """检查是否为字节串（bytes）。R114-S1 boot 自包含移植：对齐 内置核心判型.是字节。"""
+    return isinstance(值, bytes)
+
+def 是布尔(值) -> bool:
+    """检查是否为布尔值。R114-S1 boot 自包含移植：对齐 内置核心判型.是布尔。"""
+    return isinstance(值, bool)
+
+def 是函数(值) -> bool:
+    """检查是否为可调用对象（函数/方法/lambda）。R114-S1 boot 自包含移植：对齐 内置核心判型.是函数。"""
+    return callable(值)
+
+def 是数值(值) -> bool:
+    """检查是否为数值类型（int/float，排除 bool）。R114-S1 boot 自包含移植：对齐 内置核心判型.是数值。"""
+    if isinstance(值, bool):
+        return False
+    return isinstance(值, (int, float))
+
+def 字符串全数字(串) -> bool:
+    """检查整个字符串是否全由数字字符组成（空串/非 str 判假）。R114-S1 boot 自包含移植：对齐 内置核心判型.字符串全数字。"""
+    if not isinstance(串, str):
+        return False
+    if len(串) == 0:
+        return False
+    return 串.isdigit()
+
+def 是负零(值) -> bool:
+    """检查 IEEE 754 负零（-0.0）；正零/整数 0/非零数均判假。R114-S1 boot 自包含移植：对齐 内置核心判型.是负零。"""
+    if not isinstance(值, float):
+        return False
+    if 值 != 0.0:
+        return False
+    return str(值).startswith("-")
+
+def 主目录() -> str:
+    """获取当前用户主目录。R114-S1 boot 自包含移植：对齐 内置核心系统.主目录。"""
+    return os.path.expanduser("~")
+
+def 随机UUID() -> str:
+    """生成随机 UUID v4 字符串。R114-S1 boot 自包含移植：对齐 内置核心系统.随机UUID。"""
+    import uuid
+    return str(uuid.uuid4())
+
+# ===== R114-S1 sync_builtins.py 自动生成段结束 =====
+
 __all__ = [
-    # 文件I/O
-    '读取文件', '写入文件', '追加文件',
-    '文件存在', '目录存在', '路径存在',
-    '创建目录', '删除文件', '删除目录',
-    '列出目录', '文件大小',
-    
-    # 路径操作
-    '绝对路径', '连接路径', '目录名', '文件名',
-    '扩展名', '分割路径', '分割扩展名',
-    
-    # 系统函数
-    '环境变量', '设置环境变量', '参数列表',
-    '退出程序', '当前目录', '切换目录', '执行命令',
-
-    # 标准输入输出
-    '读取行', '读取N字节', '写入输出',
-    '打印输出', '刷新输出', '写入错误', '打印错误',
-
-    # JSON 处理
-    '解析JSON', '序列化JSON', '美化JSON',
-
-    # 字符串工具
-
-    # 字符串工具
-    '转整数', '转浮点', '转字符串',
-    '字符串长度', '字符串获取', '分割字符串', '连接字符串',
-    '替换字符串', '去除空白',
-    '字符串包含', '开头', '结尾', '查找子串',
-    '替换字符串次数', '截取到末尾', '字符串计数',
-    '字符串重复', '字符串反转', '转标题',
-    '去除左侧空白', '去除右侧空白',
-    '字符串对齐居中', '字符串对齐左', '字符串对齐右',
-    
-    # 列表工具
-    '列', '列表长度', '列表追加', '列表弹出', '列表插入',
-    '列表排序', '列表反转', '列表包含',
-    
-    # 字典工具
-    '字典创建', '字典设置', '字典删除',
-    '字典键列表', '字典值列表', '字典项列表',
-    '字典包含键', '字典获取',
-    
-    # 类型检查
-    '是整数', '是浮点', '是字符串',
-    '是列表', '是字典', '是空',
-    '是字母', '是数字', '是空白',
-    
-    # 数学/统计/随机
-    '随机整数', '随机浮点', '随机选择',
-    '阶乘', '平均数', '中位数', '众数',
-    '方差', '标准差', '样本方差', '样本标准差',
-    '求和', '累积和',
-    '圆周率', '自然常数',
-    '角度转弧度', '弧度转角度',
+    '读取文件',
+    '_读文件',
+    '写入文件',
+    '追加文件',
+    '文件存在',
+    '是文件',
+    '目录存在',
+    '路径存在',
+    '创建目录',
+    '删除文件',
+    '删除目录',
+    '列出目录',
+    '列出文件',
+    '文件大小',
+    '绝对路径',
+    '连接路径',
+    '目录名',
+    '文件名',
+    '扩展名',
+    '分割路径',
+    '分割扩展名',
+    '环境变量',
+    '设置环境变量',
+    '参数列表',
+    '退出程序',
+    '当前目录',
+    '切换目录',
+    '执行命令',
+    '移动文件系统',
+    '读取行',
+    '读取N字节',
+    '写入输出',
+    '打印输出',
+    '刷新输出',
+    '写入错误',
+    '打印错误',
+    '解析JSON',
+    '序列化JSON',
+    '美化JSON',
+    '转整数',
+    '切片下标检查',
+    '转浮点',
+    '转字符串',
+    '字符串长度',
+    '显示宽度',
+    '字符串获取',
+    '截取',
+    '分割字符串',
+    '连接字符串',
+    '替换字符串',
+    '去除空白',
+    '转大写',
+    '转小写',
+    '字符串包含',
+    '开头',
+    '结尾',
+    '查找子串',
+    '最后索引',
+    '替换字符串次数',
+    '截取到末尾',
+    '字符串计数',
+    '字符串重复',
+    '字符串反转',
+    '转标题',
+    '去除左侧空白',
+    '去除右侧空白',
+    '字符串对齐居中',
+    '字符串对齐左',
+    '字符串对齐右',
+    '列',
+    '列表创建',
+    '列表长度',
+    '列表获取',
+    '列表追加',
+    '列表弹出',
+    '列表插入',
+    '列表排序',
+    '列表反转',
+    '列表包含',
+    '副本',
+    '浅拷贝',
+    '深拷贝',
+    '冻结',
+    '字典创建',
+    '字典设置',
+    '字典删除',
+    '字典键列表',
+    '字典值列表',
+    '字典项列表',
+    '字典包含键',
+    '字典获取',
+    '是整数',
+    '是浮点',
+    '是字符串',
+    '是列表',
+    '是字典',
+    '是字节',
+    '是空',
+    '是字母',
+    '是数字',
+    '是空白',
+    '是布尔',
+    '是函数',
+    '是数值',
+    '字符串全数字',
+    '是负零',
+    '时间戳',
+    '格式化时间',
+    '随机整数',
+    '随机浮点',
+    '随机选择',
+    '阶乘',
+    '平均数',
+    '中位数',
+    '众数',
+    '方差',
+    '标准差',
+    '样本方差',
+    '样本标准差',
+    '求和',
+    '累积和',
+    '圆周率',
+    '自然常数',
+    '角度转弧度',
+    '弧度转角度',
+    '真实路径',
+    '文件状态',
+    '句柄状态',
+    '低级打开',
+    '低级读',
+    '低级写',
+    '低级关闭',
+    '随机字节',
+    '原子替换',
+    '环境枚举',
+    '单调时钟',
+    '常量时间比较',
+    '只读',
+    '只写',
+    '新建',
+    '截断',
+    '追加',
+    '独占',
+    '二进制',
+    '不跟随符号链接',
+    'container_get',
+    '写入二进制文件',
+    '读二进制文件',
+    '创建临时目录',
+    '删目录树',
+    '复制文件',
+    '复制目录',
+    '重命名',
+    '排序列表',
+    '查找目录列表',
+    '取可选',
+    '主目录',
+    '随机UUID',
 ]

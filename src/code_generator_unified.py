@@ -617,6 +617,22 @@ class UnifiedCodeGenerator:
         self._add_line("    ('删除目录', lambda path: __import__('shutil').rmtree(path)),")
         self._add_line("    ('路径连接', lambda *parts: __import__('os').path.join(*parts)),")
         self._add_line("    ('当前工作目录', lambda: __import__('os').getcwd()),")
+        self._add_line("    # R114-S3：类型检查 fallback（stdlib 缺失时兜底，值判定族）")
+        #   与 src 后端 code_generator.py:1396-1406 同口径；此处以前 unified 整族缺失，
+        #   无 stdlib 时 是整数/是字符串/是数值/是数字(符) 等关键字全部 AttributeError。
+        #   注意关键字映射：'是数字'→_light_builtin.是数值、'是数字符'→_light_builtin.是数字。
+        self._add_line("    ('是整数', lambda v: isinstance(v, int) and not isinstance(v, bool)),")
+        self._add_line("    ('是浮点', lambda v: isinstance(v, float)),")
+        self._add_line("    ('是字符串', lambda v: isinstance(v, str)),")
+        self._add_line("    ('是列表', lambda v: isinstance(v, list)),")
+        self._add_line("    ('是字典', lambda v: isinstance(v, dict)),")
+        self._add_line("    ('是空', lambda v: v is None),")
+        self._add_line("    ('是布尔', lambda v: isinstance(v, bool)),")
+        self._add_line("    ('是函数', lambda v: callable(v)),")
+        self._add_line("    ('是数值', lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)),")
+        self._add_line("    ('是负零', lambda v: isinstance(v, float) and v == 0.0 and __import__('math').copysign(1.0, v) < 0.0),")
+        self._add_line("    ('是数字', lambda v: isinstance(v, str) and len(v) == 1 and v.isdigit()),")
+        self._add_line("    ('是字节', lambda v: isinstance(v, bytes)),")
         self._add_line("]:")
         self._add_line("    if not hasattr(_light_builtin, _light_n):")
         self._add_line("        setattr(_light_builtin, _light_n, _light_f)")
@@ -2848,6 +2864,11 @@ class UnifiedCodeGenerator:
             args = self._translate_args(
                 getattr(expr, 'arguments', None) or getattr(expr, 'args', []), func_name)
             args_str = ', '.join(args)
+            # R114-S2 别名括号通用修复：别名目标以 lambda 开头时包一层括号，
+            # 否则 `取模(10,3)`/`平方(5)` 等生成游离 lambda（`lambda a, b: a % b(3)`），
+            # 静默返回函数对象。与 code_generator.py FunctionCall 的 lambda 守卫（:4088）同口径。
+            if func_name.startswith('lambda '):
+                return f"({func_name})({args_str})"
             return f"{func_name}({args_str})"
 
         # 链式函数调用（v3 后端 AST）：callee(args)，如 表["甲"](1)

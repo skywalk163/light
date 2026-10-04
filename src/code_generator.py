@@ -1404,6 +1404,8 @@ class PythonCodeGenerator:
         self._add_line("    ('是函数', lambda v: callable(v)),")
         self._add_line("    ('是数值', lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)),")
         self._add_line("    ('是负零', lambda v: isinstance(v, float) and v == 0.0 and __import__('math').copysign(1.0, v) < 0.0),")
+        self._add_line("    ('是数字', lambda v: isinstance(v, str) and len(v) == 1 and v.isdigit()),")  # R114-S3：关键字 是数字符 的靶心（单字符守卫）
+        self._add_line("    ('是字节', lambda v: isinstance(v, bytes)),")  # R114-S3：与 是字符串（str）对称
         self._add_line("]:")
         self._add_line("    if not hasattr(_light_builtin, _light_n):")
         self._add_line("        setattr(_light_builtin, _light_n, _light_f)")

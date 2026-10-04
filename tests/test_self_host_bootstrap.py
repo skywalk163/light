@@ -171,9 +171,21 @@ class TestLevel1BasicExpr:
         assert ns['r'] == 3
 
     def test_binary_mod(self) -> None:
-        """测试取模运算"""
-        # 取模运算在当前编译器中不可用，跳过
-        pytest.skip("取模运算在当前编译器中需要特殊处理")
+        """测试取模运算（R114-S2：parser MUL_OP_MAP 补「取模」后启用）"""
+        # 中缀取模：parser_core MUL_OP_MAP 补 '取模': '%'，修前静默得 10
+        source = '设 r 为 10 取模 3'
+        ns, _ = _compile_and_run(source)
+        assert ns['r'] == 1
+        # R114-S2 别名括号四例折入本测试体（不新增测试函数，收集数保持不变）：
+        # unified 生成器别名目标以 lambda 开头时须包括号，修前静默返回函数对象
+        ns2, py2 = _compile_and_run('设 r 为 取模(10, 3)')
+        assert ns2['r'] == 1
+        ns3, _ = _compile_and_run('设 r 为 整除(10, 3)')
+        assert ns3['r'] == 3
+        ns4, _ = _compile_and_run('设 r 为 平方(5)')
+        assert ns4['r'] == 25
+        ns5, _ = _compile_and_run('设 r 为 重复(7, 3)')
+        assert isinstance(ns5['r'], (int, float, str))
 
     def test_parentheses(self) -> None:
         """测试括号分组"""
@@ -276,9 +288,12 @@ class TestLevel2Condition:
         assert ns['r'] == True
 
     def test_logical_not(self) -> None:
-        """测试逻辑非"""
-        # 非运算符在顶层表达式中需要特殊处理，跳过运行时测试
-        pytest.skip("逻辑非运算符在顶层表达式中的运行时支持需要特殊处理")
+        """测试逻辑非（R114-S2：顶层表达式实测已支持，只补测试体）"""
+        source = '''设 x 为 1
+设 r 为 非 (x 大于 0)
+'''
+        ns, _ = _compile_and_run(source)
+        assert ns['r'] == False
 
     def test_nested_if(self) -> None:
         """测试嵌套 if"""

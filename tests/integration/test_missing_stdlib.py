@@ -62,6 +62,21 @@ def _run_unified(code):
     return buf.getvalue().strip()
 
 
+def _run_src(code):
+    """用 src 后端（PythonCodeGenerator）编译并执行，返回标准输出（去尾随空白）。
+
+    R114-S3：与 _run_unified 对称，覆盖 src 后端降级 stub。
+    """
+    from light_parser_v3 import LightParser
+    from code_generator import PythonCodeGenerator
+    module = LightParser().parse(code)
+    py_code = PythonCodeGenerator().generate(module, is_main=True)
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        exec(py_code, {'__name__': '__main__'})
+    return buf.getvalue().strip()
+
+
 class TestMissingStdlibUnified(unittest.TestCase):
     """进程内统一后端：cwd 不含 stdlib 时，fallback 仍应补齐 builtin 与 文件系统。"""
 
@@ -126,6 +141,56 @@ class TestMissingStdlibUnified(unittest.TestCase):
             "打印 列表长度(数据)。"
         )
         self.assertEqual(out, '3')
+
+    def test_type_predicates_missing_stdlib(self):
+        """R114-S3：判型族（是数值/是数字/是数字符/是字节 等）在 stdlib 缺失时不应抛
+        AttributeError。修复前 unified 降级 stub 整族缺失 ⇒ 关键字全部 AttributeError。
+
+        名实对齐（LP-D-016）：关键字 是数字→是数值(int/float)，是数字符→是数字(单字符守卫)。
+        """
+        out = _run_unified(
+            '打印 是数字(7)。\n'
+            '打印 是数字("7")。\n'
+            '打印 是数字符("7")。\n'
+            '打印 是数字符("12")。\n'
+            '打印 是字节(1)。\n'
+            '打印 是字符串("a")。'
+        )
+        self.assertEqual(out.splitlines(),
+                         ['True', 'False', 'True', 'False', 'False', 'True'])
+
+
+class TestMissingStdlibSrcInProcess(unittest.TestCase):
+    """进程内 src 后端：cwd 不含 stdlib 时，降级 stub 的判型族应可用（R114-S3）。
+
+    与 TestMissingStdlibUnified 对称；不用 E2E（`cli/duan.py` 已不存在，E2E 类整体 skip）。
+    """
+
+    def setUp(self):
+        self._saved_cwd = os.getcwd()
+        self._tmp = tempfile.mkdtemp(prefix='duan_missing_stdlib_src_')
+        os.chdir(self._tmp)
+        self._saved_fs_module = sys.modules.pop('文件系统', None)
+
+    def tearDown(self):
+        os.chdir(self._saved_cwd)
+        shutil.rmtree(self._tmp, ignore_errors=True)
+        sys.modules.pop('文件系统', None)
+        if self._saved_fs_module is not None:
+            sys.modules['文件系统'] = self._saved_fs_module
+
+    def test_type_predicates_missing_stdlib(self):
+        """R114-S3：src 后端降级 stub 补 是数字/是字节 后，判型族关键字不应 AttributeError。"""
+        out = _run_src(
+            '打印 是数字(7)。\n'
+            '打印 是数字("7")。\n'
+            '打印 是数字符("7")。\n'
+            '打印 是数字符("12")。\n'
+            '打印 是字节(1)。\n'
+            '打印 是字符串("a")。'
+        )
+        self.assertEqual(out.splitlines(),
+                         ['True', 'False', 'True', 'False', 'False', 'True'])
 
 
 class TestMissingStdlibSrcBackendE2E(unittest.TestCase):
