@@ -96,6 +96,7 @@
 | 门禁反向验证 | 临时摘掉 `_gen_statement` 的 ScopeDeclaration 分支 → 能力矩阵门禁**立刻红**，并指名「L3分派=无」 |
 | 定向回归 | 121 passed（scope_decl / stmt_coverage / capability_matrix / native_leg_capability / ci_gates ×2） |
 | 本机全量 | **8425 passed** / 83 skipped / 12 xfailed / 2 xpassed，4 条红**逐条定性**（下表） |
+| **0.82 权威门禁** | **门 PASS ✅**：8131 passed / 81 skipped / 11 xfailed，**失败 0**，对比基线 **新增红 0**（`082全量回归.py all`，基线 `082_lightmerge基线_2026-10-05-010749.json`） |
 
 ### 全量 4 红的定性（不许糊过去）
 
