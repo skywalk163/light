@@ -162,93 +162,129 @@
     返回 p
 
 段落 扫 接收 src, p, n, toks
+    设 缩进栈 为 列表创建(0)
     当 p 小于 n
-        设 c 为 字符串获取(src, p)
-        设 已处理 为 假
-        如果 c 等于 " "
-            设 p 为 p 加 1
-            设 已处理 为 真
-        如果 已处理 等于 假 且 c 等于 "\n"
-            设 p 为 p 加 1
-            设 已处理 为 真
-        如果 已处理 等于 假 且 c 等于 "#"
-            设 p 为 扫注释(src, p 加 1, n)
-            设 已处理 为 真
-        如果 已处理 等于 假 且 c 等于 "'"
-            如果 p 加 1 小于 n
-                设 nc 为 字符串获取(src, p 加 1)
-                如果 nc 等于 '"'
-                    列表插入(toks, 建("STR", '"'))
-                    设 p 为 p 加 3
-                    设 已处理 为 真
-            如果 已处理 等于 假
+        设 indent 为 0
+        设 数完缩进 为 假
+        当 数完缩进 等于 假 且 p 小于 n
+            设 c 为 字符串获取(src, p)
+            如果 c 等于 " "
+                设 indent 为 indent 加 1
                 设 p 为 p 加 1
-                设 已处理 为 真
-        如果 已处理 等于 假 且 c 等于 '"'
-            如果 p 加 1 小于 n
-                设 nc 为 字符串获取(src, p 加 1)
-                如果 nc 等于 "'"
-                    列表插入(toks, 建("STR", "'"))
-                    设 p 为 p 加 3
-                    设 已处理 为 真
-            如果 已处理 等于 假
-                设 结果 为 字符串(src, p 加 1, n, "")
-                设 tok 为 列表获取(结果, 0)
-                设 p 为 列表获取(结果, 1)
-                列表插入(toks, tok)
-                设 已处理 为 真
-        如果 已处理 等于 假 且 c 等于 "："
-            设 p 为 p 加 1
-            设 已处理 为 真
-        如果 已处理 等于 假 且 c 等于 "。"
-            设 p 为 p 加 1
-            设 已处理 为 真
-        如果 已处理 等于 假 且 c 等于 "，"
-            设 p 为 p 加 1
-            设 已处理 为 真
-        如果 已处理 等于 假 且 c 等于 "("
-            列表插入(toks, 建("LPAREN", "("))
-            设 p 为 p 加 1
-            设 已处理 为 真
-        如果 已处理 等于 假 且 c 等于 ")"
-            列表插入(toks, 建("RPAREN", ")"))
-            设 p 为 p 加 1
-            设 已处理 为 真
-        如果 已处理 等于 假 且 c 等于 ","
-            列表插入(toks, 建("COMMA", ","))
-            设 p 为 p 加 1
-            设 已处理 为 真
-        如果 已处理 等于 假 且 c 等于 "."
-            列表插入(toks, 建("DOT", "."))
-            设 p 为 p 加 1
-            设 已处理 为 真
-        如果 已处理 等于 假 且 c 等于 "="
-            列表插入(toks, 建("EQ", "="))
-            设 p 为 p 加 1
-            设 已处理 为 真
-        如果 已处理 等于 假 且 c 大于等于 "0"
-            如果 c 小于等于 "9"
-                设 tok 为 数字(src, p, n, "")
-                列表插入(toks, tok)
-                设 p 为 p 加 字符串长度(列表获取(tok, 1))
-                设 已处理 为 真
-        如果 已处理 等于 假 且 c 大于等于 "a"
-            设 tok 为 词(src, p, n, "")
-            列表插入(toks, tok)
-            设 p 为 p 加 字符串长度(列表获取(tok, 1))
-            设 已处理 为 真
-        如果 已处理 等于 假 且 c 大于等于 "A"
-            设 tok 为 词(src, p, n, "")
-            列表插入(toks, tok)
-            设 p 为 p 加 字符串长度(列表获取(tok, 1))
-            设 已处理 为 真
-        如果 已处理 等于 假 且 c 大于等于 "一"
-            设 tok 为 词(src, p, n, "")
-            列表插入(toks, tok)
-            设 p 为 p 加 字符串长度(列表获取(tok, 1))
-            设 已处理 为 真
-        如果 已处理 等于 假
-            设 p 为 p 加 1
+            否则
+                设 数完缩进 为 真
+        如果 p 小于 n
+            设 c 为 字符串获取(src, p)
+            设 空行 为 假
+            设 注释行 为 假
+            如果 c 等于 "\n"
+                设 p 为 p 加 1
+                设 空行 为 真
+            如果 空行 等于 假 且 c 等于 "#"
+                设 p 为 扫注释(src, p 加 1, n)
+                设 注释行 为 真
+            如果 空行 等于 假 且 注释行 等于 假
+                设 top 为 列表获取(缩进栈, 列表长度(缩进栈) 减 1)
+                如果 indent 大于 top
+                    列表插入(toks, 建("INDENT", indent))
+                    列表插入(缩进栈, indent)
+                否则
+                    如果 indent 小于 top
+                        当 indent 小于 列表获取(缩进栈, 列表长度(缩进栈) 减 1)
+                            列表插入(toks, 建("DEDENT", 列表获取(缩进栈, 列表长度(缩进栈) 减 1)))
+                            列表弹栈(缩进栈)
+                设 行内结束 为 假
+                当 行内结束 等于 假 且 p 小于 n
+                    设 c 为 字符串获取(src, p)
+                    设 已处理 为 假
+                    如果 c 等于 " "
+                        设 p 为 p 加 1
+                        设 已处理 为 真
+                    如果 已处理 等于 假 且 c 等于 "\n"
+                        列表插入(toks, 建("NEWLINE", "\n"))
+                        设 p 为 p 加 1
+                        设 行内结束 为 真
+                    如果 已处理 等于 假 且 c 等于 "#"
+                        设 p 为 扫注释(src, p 加 1, n)
+                        设 行内结束 为 真
+                    如果 已处理 等于 假 且 c 等于 "'"
+                        如果 p 加 1 小于 n
+                            设 nc 为 字符串获取(src, p 加 1)
+                            如果 nc 等于 '"'
+                                列表插入(toks, 建("STR", '"'))
+                                设 p 为 p 加 3
+                                设 已处理 为 真
+                        如果 已处理 等于 假
+                            设 p 为 p 加 1
+                            设 已处理 为 真
+                    如果 已处理 等于 假 且 c 等于 '"'
+                        如果 p 加 1 小于 n
+                            设 nc 为 字符串获取(src, p 加 1)
+                            如果 nc 等于 "'"
+                                列表插入(toks, 建("STR", "'"))
+                                设 p 为 p 加 3
+                                设 已处理 为 真
+                        如果 已处理 等于 假
+                            设 结果 为 字符串(src, p 加 1, n, "")
+                            设 tok 为 列表获取(结果, 0)
+                            设 p 为 列表获取(结果, 1)
+                            列表插入(toks, tok)
+                            设 已处理 为 真
+                    如果 已处理 等于 假 且 c 等于 "："
+                        设 p 为 p 加 1
+                        设 已处理 为 真
+                    如果 已处理 等于 假 且 c 等于 "。"
+                        设 p 为 p 加 1
+                        设 已处理 为 真
+                    如果 已处理 等于 假 且 c 等于 "，"
+                        设 p 为 p 加 1
+                        设 已处理 为 真
+                    如果 已处理 等于 假 且 c 等于 "("
+                        列表插入(toks, 建("LPAREN", "("))
+                        设 p 为 p 加 1
+                        设 已处理 为 真
+                    如果 已处理 等于 假 且 c 等于 ")"
+                        列表插入(toks, 建("RPAREN", ")"))
+                        设 p 为 p 加 1
+                        设 已处理 为 真
+                    如果 已处理 等于 假 且 c 等于 ","
+                        列表插入(toks, 建("COMMA", ","))
+                        设 p 为 p 加 1
+                        设 已处理 为 真
+                    如果 已处理 等于 假 且 c 等于 "."
+                        列表插入(toks, 建("DOT", "."))
+                        设 p 为 p 加 1
+                        设 已处理 为 真
+                    如果 已处理 等于 假 且 c 等于 "="
+                        列表插入(toks, 建("EQ", "="))
+                        设 p 为 p 加 1
+                        设 已处理 为 真
+                    如果 已处理 等于 假 且 c 大于等于 "0"
+                        如果 c 小于等于 "9"
+                            设 tok 为 数字(src, p, n, "")
+                            列表插入(toks, tok)
+                            设 p 为 p 加 字符串长度(列表获取(tok, 1))
+                            设 已处理 为 真
+                    如果 已处理 等于 假 且 c 大于等于 "a"
+                        设 tok 为 词(src, p, n, "")
+                        列表插入(toks, tok)
+                        设 p 为 p 加 字符串长度(列表获取(tok, 1))
+                        设 已处理 为 真
+                    如果 已处理 等于 假 且 c 大于等于 "A"
+                        设 tok 为 词(src, p, n, "")
+                        列表插入(toks, tok)
+                        设 p 为 p 加 字符串长度(列表获取(tok, 1))
+                        设 已处理 为 真
+                    如果 已处理 等于 假 且 c 大于等于 "一"
+                        设 tok 为 词(src, p, n, "")
+                        列表插入(toks, tok)
+                        设 p 为 p 加 字符串长度(列表获取(tok, 1))
+                        设 已处理 为 真
+                    如果 已处理 等于 假
+                        设 p 为 p 加 1
+    当 列表长度(缩进栈) 大于 1
+        列表插入(toks, 建("DEDENT", 列表获取(缩进栈, 列表长度(缩进栈) 减 1)))
+        列表弹栈(缩进栈)
     返回 toks
 
 段落 词法 接收 src
@@ -750,32 +786,17 @@
             返回 列表创建(out, try_end 加 1)
     返回 列表创建("", p)
 
-段落 find_matching_end 接收 toks, p, level
+段落 find_matching_end 接收 toks, p
+    设 depth 为 1
     当 p 小于 列表长度(toks)
         设 tok 为 列表获取(toks, p)
-        如果 列表获取(tok, 0) 等于 "KW"
-            设 tv 为 列表获取(tok, 1)
-            如果 tv 等于 "如果"
-                设 level 为 level 加 1
-            如果 tv 等于 "当"
-                设 level 为 level 加 1
-            如果 tv 等于 "遍历"
-                设 level 为 level 加 1
-            如果 tv 等于 "类"
-                设 level 为 level 加 1
-            如果 tv 等于 "段落"
-                设 level 为 level 加 1
-            如果 tv 等于 "段"
-                设 level 为 level 加 1
-            如果 tv 等于 "尝试"
-                设 level 为 level 加 1
-            如果 tv 等于 "否则"
-                如果 level 等于 1
-                    返回 p
-            如果 tv 等于 "结束"
-                如果 level 等于 1
-                    返回 p 加 1
-                设 level 为 level 减 1
+        设 tt 为 列表获取(tok, 0)
+        如果 tt 等于 "INDENT"
+            设 depth 为 depth 加 1
+        如果 tt 等于 "DEDENT"
+            设 depth 为 depth 减 1
+            如果 depth 等于 0
+                返回 p 加 1
         设 p 为 p 加 1
     返回 p
 
@@ -936,16 +957,32 @@
             设 结果 为 表达式(toks, np)
             设 cond 为 列表获取(结果, 0)
             设 np 为 列表获取(结果, 1)
-            设 end_p 为 find_matching_end(toks, np, 1)
+            如果 np 小于 列表长度(toks)
+                设 nt 为 列表获取(toks, np)
+                如果 列表获取(nt, 0) 等于 "NEWLINE"
+                    设 np 为 np 加 1
+            如果 np 小于 列表长度(toks)
+                设 nt 为 列表获取(toks, np)
+                如果 列表获取(nt, 0) 等于 "INDENT"
+                    设 np 为 np 加 1
+            设 end_p 为 find_matching_end(toks, np)
             设 body 为 compile_block(toks, np, end_p 减 1, "    ", "")
             如果 body 等于 ""
                 设 body 为 "    pass\n"
             设 code 为 "if " 加 cond 加 ":\n" 加 body
             如果 end_p 小于 列表长度(toks)
                 设 next_tok 为 列表获取(toks, end_p)
-                如果 列表获取(next_tok, 1) 等于 "否则"
+                如果 列表获取(next_tok, 0) 等于 "KW" 且 列表获取(next_tok, 1) 等于 "否则"
                     设 else_p 为 end_p 加 1
-                    设 else_end 为 find_matching_end(toks, else_p, 1)
+                    如果 else_p 小于 列表长度(toks)
+                        设 nt 为 列表获取(toks, else_p)
+                        如果 列表获取(nt, 0) 等于 "NEWLINE"
+                            设 else_p 为 else_p 加 1
+                    如果 else_p 小于 列表长度(toks)
+                        设 nt 为 列表获取(toks, else_p)
+                        如果 列表获取(nt, 0) 等于 "INDENT"
+                            设 else_p 为 else_p 加 1
+                    设 else_end 为 find_matching_end(toks, else_p)
                     设 else_body 为 compile_block(toks, else_p, else_end 减 1, "    ", "")
                     如果 else_body 等于 ""
                         设 else_body 为 "    pass"
@@ -962,7 +999,15 @@
             设 结果 为 表达式(toks, np)
             设 cond 为 列表获取(结果, 0)
             设 np 为 列表获取(结果, 1)
-            设 end_p 为 find_matching_end(toks, np, 1)
+            如果 np 小于 列表长度(toks)
+                设 nt 为 列表获取(toks, np)
+                如果 列表获取(nt, 0) 等于 "NEWLINE"
+                    设 np 为 np 加 1
+            如果 np 小于 列表长度(toks)
+                设 nt 为 列表获取(toks, np)
+                如果 列表获取(nt, 0) 等于 "INDENT"
+                    设 np 为 np 加 1
+            设 end_p 为 find_matching_end(toks, np)
             设 body 为 compile_block(toks, np, end_p 减 1, "    ", "")
             如果 body 等于 ""
                 设 body 为 "    pass\n"
@@ -985,7 +1030,15 @@
                         设 结果 为 表达式(toks, np)
                         设 iter_expr 为 列表获取(结果, 0)
                         设 np 为 列表获取(结果, 1)
-                        设 end_p 为 find_matching_end(toks, np, 1)
+                        如果 np 小于 列表长度(toks)
+                            设 nt 为 列表获取(toks, np)
+                            如果 列表获取(nt, 0) 等于 "NEWLINE"
+                                设 np 为 np 加 1
+                        如果 np 小于 列表长度(toks)
+                            设 nt 为 列表获取(toks, np)
+                            如果 列表获取(nt, 0) 等于 "INDENT"
+                                设 np 为 np 加 1
+                        设 end_p 为 find_matching_end(toks, np)
                         设 body 为 compile_block(toks, np, end_p 减 1, "    ", "")
                         如果 body 等于 ""
                             设 body 为 "    pass\n"
@@ -1163,7 +1216,7 @@
                             设 rparen_tok 为 列表获取(toks, np)
                             如果 列表获取(rparen_tok, 0) 等于 "RPAREN"
                                 设 np 为 np 加 1
-            设 end_p 为 find_matching_end(toks, np, 1)
+            设 end_p 为 find_matching_end(toks, np)
             设 body 为 compile_class_body(toks, np, end_p 减 1, name)
             如果 body 等于 ""
                 设 body 为 "    pass"
@@ -1230,7 +1283,7 @@
                 如果 类型名 不等于 ""
                     设 方法返回类型 为 " -> " 加 类型名
                     设 np 为 列表获取(类型结果, 1)
-    设 method_end 为 find_matching_end(toks, np, 1)
+    设 method_end 为 find_matching_end(toks, np)
     设 body 为 compile_block(toks, np, method_end 减 1, "        ", "")
     如果 body 等于 ""
         设 body 为 "        pass"
