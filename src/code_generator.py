@@ -704,6 +704,10 @@ class PythonCodeGenerator:
             '列表反转': '_light_builtin.列表反转',
             '列表包含': '_light_builtin.列表包含',
             '列表创建': '_light_builtin.列表创建',
+            # 新建列表/新建字典：容器创建别名（与 native/LLVM 腿 codegen_typed 的
+            # 新建列表/新建字典/列表创建 别名表同口径）。真身 builtins.列表创建/字典创建，
+            # 之前漏此二条导致中文内置名原样透传成裸调用，运行期 NameError。
+            '新建列表': '_light_builtin.列表创建',
             '副本': '_light_builtin.副本',
             '浅拷贝': '_light_builtin.浅拷贝',
             '深拷贝': '_light_builtin.深拷贝',
@@ -712,6 +716,7 @@ class PythonCodeGenerator:
             # 字典工具
             '字典': '_light_builtin.字典创建',
             '字典创建': '_light_builtin.字典创建',
+            '新建字典': '_light_builtin.字典创建',
             '字典设置': '_light_builtin.字典设置',
             '字典删除': '_light_builtin.字典删除',
             '字典键列表': '_light_builtin.字典键列表',

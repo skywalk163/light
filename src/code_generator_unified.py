@@ -270,8 +270,11 @@ class UnifiedCodeGenerator:
             '列表反转': '_light_builtin.列表反转',
             '列表包含': '_light_builtin.列表包含',
             '列表创建': '_light_builtin.列表创建',
+            # 新建列表/新建字典：容器创建别名（同 native/LLVM 腿，缺则裸名透传运行期崩）。
+            '新建列表': '_light_builtin.列表创建',
             '副本': '_light_builtin.副本',
             '字典创建': '_light_builtin.字典创建',
+            '新建字典': '_light_builtin.字典创建',
             '字典设置': '_light_builtin.字典设置',
             '字典删除': '_light_builtin.字典删除',
             '字典键列表': '_light_builtin.字典键列表',
