@@ -1,7 +1,7 @@
 {
   "version": 2,
   "note": "假测试门禁基线快照：本仓库当前的既有违规。新增即红；修好一批后重新生成并提交本文件。built_from_commit 是**生成基线时的 HEAD**，也就是携带本基线那个提交的父提交；若它在当前分支上不可达，说明基线是从被改写/丢弃的提交上生成的，必须重新生成。",
-  "built_from_commit": "cf30d590de48",
+  "built_from_commit": "02e96a7a3802",
   "scanned_root": ".",
   "categories": {
     "string-assert": "字符串断言式",
@@ -273,7 +273,7 @@
     },
     {
       "file": "src/code_generator.py",
-      "line": 1404,
+      "line": 1431,
       "cat": "not-none",
       "text": "self._add_line(\"    assert _x is not None, \\\"尝试解包空值\\\"\")"
     },
@@ -621,13 +621,13 @@
     },
     {
       "file": "tests/test_agent_tools_light.py",
-      "line": 602,
+      "line": 603,
       "cat": "not-none",
       "text": "assert 孙pid is not None, ("
     },
     {
       "file": "tests/test_agent_tools_light.py",
-      "line": 747,
+      "line": 749,
       "cat": "lower-bound",
       "text": "assert len(以字节) > 1024 and b\"BBBB\" in 以字节, f\"溢出文件内容不对：{len(以字节)} 字节\""
     },
@@ -1377,13 +1377,13 @@
     },
     {
       "file": "tests/test_http_client.py",
-      "line": 311,
+      "line": 317,
       "cat": "not-none",
       "text": "assert result is not None"
     },
     {
       "file": "tests/test_http_client.py",
-      "line": 599,
+      "line": 605,
       "cat": "lower-bound",
       "text": "assert len(chunks) > 0"
     },
@@ -1821,19 +1821,19 @@
     },
     {
       "file": "tests/test_process_tree_light.py",
-      "line": 203,
+      "line": 207,
       "cat": "not-none",
       "text": "assert gc_pid is not None, ("
     },
     {
       "file": "tests/test_process_tree_light.py",
-      "line": 244,
+      "line": 254,
       "cat": "not-none",
       "text": "assert 结果.采用编码 is not None"
     },
     {
       "file": "tests/test_process_tree_light.py",
-      "line": 313,
+      "line": 323,
       "cat": "not-none",
       "text": "assert 结果.溢出文件 is not None"
     },
@@ -1857,75 +1857,63 @@
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 316,
+      "line": 338,
       "cat": "string-assert",
       "text": "assert 'def 返回答案' in py_code, \"生成的代码应包含函数定义\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 317,
+      "line": 339,
       "cat": "string-assert",
       "text": "assert 'return 42' in py_code, \"生成的代码应包含 return 42\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 521,
+      "line": 543,
       "cat": "string-assert",
       "text": "assert '尝试' in source, \"bootstrap_level5 应包含 尝试 关键字\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 522,
+      "line": 544,
       "cat": "string-assert",
       "text": "assert '捕获' in source, \"bootstrap_level5 应包含 捕获 关键字\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 523,
+      "line": 545,
       "cat": "string-assert",
       "text": "assert '抛出' in source, \"bootstrap_level5 应包含 抛出 关键字\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 541,
+      "line": 563,
       "cat": "string-assert",
       "text": "assert 'raise' in py_code"
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 564,
+      "line": 586,
       "cat": "string-assert",
       "text": "assert 'class ' in py_code, \"生成的代码应包含 class\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 565,
+      "line": 587,
       "cat": "string-assert",
       "text": "assert 'def ' in py_code, \"生成的代码应包含 def\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 629,
+      "line": 651,
       "cat": "not-none",
       "text": "assert tokens is not None, f\"词法分析返回 None ({fname})\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 630,
-      "cat": "lower-bound",
-      "text": "assert len(tokens) > 0, f\"令牌列表为空 ({fname})\""
-    },
-    {
-      "file": "tests/test_self_host_bootstrap.py",
-      "line": 649,
-      "cat": "not-none",
-      "text": "assert module is not None, \"解析返回 None\""
-    },
-    {
-      "file": "tests/test_self_host_bootstrap.py",
       "line": 652,
       "cat": "lower-bound",
-      "text": "assert len(module.statements) > 0, \"Module statements 为空\""
+      "text": "assert len(tokens) > 0, f\"令牌列表为空 ({fname})\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
@@ -1935,109 +1923,121 @@
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
+      "line": 674,
+      "cat": "lower-bound",
+      "text": "assert len(module.statements) > 0, \"Module statements 为空\""
+    },
+    {
+      "file": "tests/test_self_host_bootstrap.py",
       "line": 693,
       "cat": "not-none",
-      "text": "assert py_code is not None, \"代码生成返回 None\""
+      "text": "assert module is not None, \"解析返回 None\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 694,
-      "cat": "lower-bound",
-      "text": "assert len(py_code) > 0, \"生成的代码为空\""
-    },
-    {
-      "file": "tests/test_self_host_bootstrap.py",
-      "line": 695,
-      "cat": "string-assert",
-      "text": "assert 'def ' in py_code, \"生成的代码未包含函数定义\""
-    },
-    {
-      "file": "tests/test_self_host_bootstrap.py",
-      "line": 723,
+      "line": 715,
       "cat": "not-none",
       "text": "assert py_code is not None, \"代码生成返回 None\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 724,
+      "line": 716,
       "cat": "lower-bound",
       "text": "assert len(py_code) > 0, \"生成的代码为空\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 725,
+      "line": 717,
       "cat": "string-assert",
       "text": "assert 'def ' in py_code, \"生成的代码未包含函数定义\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 811,
+      "line": 745,
+      "cat": "not-none",
+      "text": "assert py_code is not None, \"代码生成返回 None\""
+    },
+    {
+      "file": "tests/test_self_host_bootstrap.py",
+      "line": 746,
+      "cat": "lower-bound",
+      "text": "assert len(py_code) > 0, \"生成的代码为空\""
+    },
+    {
+      "file": "tests/test_self_host_bootstrap.py",
+      "line": 747,
+      "cat": "string-assert",
+      "text": "assert 'def ' in py_code, \"生成的代码未包含函数定义\""
+    },
+    {
+      "file": "tests/test_self_host_bootstrap.py",
+      "line": 833,
       "cat": "lower-bound",
       "text": "assert len(content) > 500, f\"内容过短: {len(content)} 字符\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 821,
+      "line": 843,
       "cat": "lower-bound",
       "text": "assert len(content) > 100, f\"文件内容过短: {fname} ({len(content)} 字符)\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 876,
+      "line": 898,
       "cat": "string-assert",
       "text": "assert 'def ' in py_code, \"缺少函数定义\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 877,
+      "line": 899,
       "cat": "string-assert",
       "text": "assert 'if ' in py_code or 'elif ' in py_code, \"缺少条件判断\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 878,
+      "line": 900,
       "cat": "string-assert",
       "text": "assert 'for ' in py_code or 'while ' in py_code, \"缺少循环\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 879,
+      "line": 901,
       "cat": "string-assert",
       "text": "assert 'class ' in py_code, \"缺少类定义\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 880,
+      "line": 902,
       "cat": "string-assert",
       "text": "assert 'try' in py_code, \"缺少异常处理\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 881,
+      "line": 903,
       "cat": "string-assert",
       "text": "assert 'raise' in py_code, \"缺少抛出语句\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 893,
+      "line": 915,
       "cat": "not-none",
       "text": "assert progress is not None, \"进度检查返回 None\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 901,
+      "line": 923,
       "cat": "not-none",
       "text": "assert report is not None, \"报告生成返回 None\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 902,
+      "line": 924,
       "cat": "lower-bound",
       "text": "assert len(report) > 100, \"报告内容过短\""
     },
     {
       "file": "tests/test_self_host_bootstrap.py",
-      "line": 940,
+      "line": 962,
       "cat": "lower-bound",
       "text": "assert len(content) > 50, \"验证脚本内容过短\""
     },
@@ -2708,10 +2708,58 @@
       "text": "assert len(_被收集) > 50, f'只找到 {len(_被收集)} 个被收集模块，路径大概率错了'"
     },
     {
-      "file": "tests/unit/test_llvm_stmt_coverage.py",
-      "line": 138,
+      "file": "tests/unit/test_llvm_builtin_gaps.py",
+      "line": 113,
       "cat": "lower-bound",
       "text": "assert len(ir) > 1000, f'{名称}：IR 短得不像真产物（{len(ir)} 字符）'"
+    },
+    {
+      "file": "tests/unit/test_llvm_builtin_gaps.py",
+      "line": 120,
+      "cat": "string-assert",
+      "text": "assert 'dv_class_new_named' in ir, '属性错误 没走异常类构造通路'"
+    },
+    {
+      "file": "tests/unit/test_llvm_builtin_gaps.py",
+      "line": 378,
+      "cat": "lower-bound",
+      "text": "assert len(_编译用例) >= 12, '桶②/桶④ 的 IR 用例被删了'"
+    },
+    {
+      "file": "tests/unit/test_llvm_match_with_destructure.py",
+      "line": 110,
+      "cat": "lower-bound",
+      "text": "assert len(ir) > 1000, f'{名称}：IR 短得不像真产物（{len(ir)} 字符）'"
+    },
+    {
+      "file": "tests/unit/test_llvm_scope_decl.py",
+      "line": 92,
+      "cat": "lower-bound",
+      "text": "assert len(ir) > 1000, f'{名称}：IR 短得不像真产物（{len(ir)} 字符）'"
+    },
+    {
+      "file": "tests/unit/test_llvm_stmt_coverage.py",
+      "line": 147,
+      "cat": "lower-bound",
+      "text": "assert len(ir) > 1000, f'{名称}：IR 短得不像真产物（{len(ir)} 字符）'"
+    },
+    {
+      "file": "tests/unit/test_llvm_with_assert_async.py",
+      "line": 84,
+      "cat": "lower-bound",
+      "text": "assert len(ir) > 1000, f'{名称}：IR 短得不像真产物（{len(ir)} 字符）'"
+    },
+    {
+      "file": "tests/unit/test_llvm_with_assert_async.py",
+      "line": 91,
+      "cat": "string-assert",
+      "text": "assert 'AssertionError' in ir, '假断言没生成 AssertionError 类常量'"
+    },
+    {
+      "file": "tests/unit/test_llvm_with_assert_async.py",
+      "line": 92,
+      "cat": "string-assert",
+      "text": "assert 'dv_create_exception_with_cause' in ir, '假断言没走异常创建路径'"
     },
     {
       "file": "tests/unit/test_lsp.py",
