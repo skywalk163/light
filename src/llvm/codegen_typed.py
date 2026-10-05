@@ -4003,6 +4003,134 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         slot = self._store_dv(dv_val)
         self.emit(f'call void @dv_throw_exception(ptr {slot})')
 
+    def _gen_typed_assert(self, stmt):
+        """R116-A：断言 <条件>。 / 断言 <条件>, <消息>。
+
+        语义（与转译后端 Python `assert` 对齐）：
+          - 条件为真 → no-op（不生成任何 IR，语句落空）；
+          - 条件为假 → 抛 AssertionError（复用 dv_create_exception_with_cause）。
+        """
+        if getattr(stmt, 'condition', None) is None:
+            # 兜底：无条件断言视为恒假。
+            self._emit_assert_fail(stmt)
+            return
+        cond_dv, _ = self._gen_expression(stmt.condition)
+        cond_slot = self._store_dv(cond_dv)
+        truthy = self.new_register()
+        self.emit(f'{truthy} = call i32 @dv_to_bool(ptr {cond_slot})')
+        is_false = self.new_register()
+        self.emit(f'{is_false} = icmp eq i32 {truthy}, 0')
+        fail_lab = self.new_label('assert_fail')
+        end_lab = self.new_label('assert_end')
+        self.emit(f'br i1 {is_false}, label %{fail_lab}, label %{end_lab}')
+        self.emit(f'{fail_lab}:')
+        self._emit_assert_fail(stmt, end_lab)
+        self.emit(f'{end_lab}:')
+
+    def _emit_assert_fail(self, stmt, end_lab):
+        """抛 AssertionError：dv_create_exception_with_cause(result, 'AssertionError', msg, null) + dv_throw_exception。
+
+        消息只支持字符串字面量（C 端 dv_create_exception_with_cause 的 message 形参是
+        const char*，必须是编译期字符串常量）；其余情况回落空串，不影响「断言失败即抛错」语义。
+        dv_throw_exception 非 noreturn，抛完需补一条 br（运行期 longjmp 不会真的走到，
+        但 IR 校验要求基本块有终止指令，参照 _gen_typed_try 的 rethrow 写法）。
+        """
+        exc_slot = self._new_dv_slot()
+        class_const = self.gen_string_constant('AssertionError')
+        msg_str = ''
+        msg_node = getattr(stmt, 'message', None)
+        if msg_node is not None and isinstance(msg_node, ast.StringLiteral):
+            msg_str = getattr(msg_node, 'value', '') or ''
+        msg_const = self.gen_string_constant(msg_str)
+        self.emit(f'call void @dv_create_exception_with_cause(ptr {exc_slot}, ptr {class_const}, ptr {msg_const}, ptr null)')
+        self.emit(f'call void @dv_throw_exception(ptr {exc_slot})')
+        self.emit(f'br label %{end_lab}')
+
+    def _gen_typed_with(self, stmt):
+        """R116-A：使用 <上下文表达式> 为 <变量>：...结束。
+
+        与转译后端 `code_generator._generate_with_stmt`（Python `with ctx as var:`）对齐语义：
+          (1) 进入：求值上下文表达式得到 ctx 对象，调 `ctx.__enter__()`（原生腿实际发中文
+              dunder `__进入__`，见下方 ⚠️ 约定）并把返回值绑定到变量；
+          (2) 执行体；
+          (3) 离开：无论正常结束还是体抛异常，都调 `ctx.__exit__()`（原生腿发 `__退出__`）；
+              异常路径在 __exit__ 后重新抛出当前异常（异常不吞）。
+
+        ⚠️ 双下划线名约定（对齐 code_generator.py:3607 / code_generator_unified.py:856）：
+        light 类用**中文** dunder 定义方法（`__进入__` / `__退出__`），对象方法表也存中文名；
+        转译后端在生成 Python 时才映射到 `__enter__` / `__exit__`。原生腿直接调中文名——
+        若此处发英文 `__enter__`，`dv_call_method` 查不到方法 → 返回 null，绑定变量变 `空`。
+
+        实现：复用原生腿既有的 setjmp try 机制（dv_try_push / setjmp / dv_try_pop /
+        dv_throw_exception / dv_get_current_exception）包裹体；`__进入__` / `__退出__` 通过
+        既有的通用方法调用 dv_call_method 发起，无需新增 runtime C 函数。
+
+        已知限制（如实登记，未静默）：原生腿没有类型推断，无法在「编译期」确认 ctx 是否真有
+        __enter__/__exit__——缺方法时由运行期 dv_call_method 的方法查找失败来暴露（而非
+        编译期 _reject_unsupported_stmt）。若以后接了类型系统，再补编译期拒绝。
+        """
+        # (1) 进入：求值上下文对象
+        ctx_dv, _ = self._gen_expression(stmt.context_expr)
+        # 调 __enter__() 并（如有变量）绑定返回值
+        enter_call = ast.FunctionCall(
+            name=ast.PropertyAccess(obj=stmt.context_expr, property_name='__进入__'),
+            arguments=[],
+        )
+        entered_dv, _ = self._gen_expression(enter_call)
+        var = getattr(stmt, 'variable', None)
+        if var:
+            self.set_var(var, entered_dv)
+
+        end_lab = self.new_label('with_end')
+        try_lab = self.new_label('with_body')
+        dispatch_lab = self.new_label('with_except')
+
+        # setjmp try 包裹（与 _gen_typed_try 同构，仅没有 catch 变量）
+        jmp_buf_ptr = self.new_register()
+        self.emit(f'{jmp_buf_ptr} = call ptr @dv_try_push()')
+        if self.is_windows:
+            frame_addr = self.new_register()
+            setjmp_result = self.new_register()
+            self.emit(f'{frame_addr} = call ptr @llvm.frameaddress.p0(i32 0)')
+            self.emit(f'{setjmp_result} = call i32 @_setjmp(ptr {jmp_buf_ptr}, ptr {frame_addr})')
+        else:
+            setjmp_result = self.new_register()
+            self.emit(f'{setjmp_result} = call i32 @setjmp(ptr {jmp_buf_ptr})')
+        cmp = self.new_register()
+        self.emit(f'{cmp} = icmp ne i32 {setjmp_result}, 0')
+        self.emit(f'br i1 {cmp}, label %{dispatch_lab}, label %{try_lab}')
+
+        # ---- try 体 ----
+        self.emit(f'{try_lab}:')
+        for s in stmt.body:
+            self._gen_statement(s)
+        if not self._ends_with_terminator(stmt.body):
+            # 正常离开：调 __exit__ 然后 dv_try_pop
+            self._emit_with_exit(ctx_dv)
+            self.emit(f'call void @dv_try_pop()')
+            self.emit(f'br label %{end_lab}')
+
+        # ---- 异常路径 ----
+        self.emit(f'{dispatch_lab}:')
+        self.emit(f'call void @dv_try_pop()')
+        # 异常也走 __exit__（不吞异常），再重新抛出
+        self._emit_with_exit(ctx_dv)
+        exc_slot = self._new_dv_slot()
+        self.emit(f'call void @dv_get_current_exception(ptr {exc_slot})')
+        self.emit(f'call void @dv_throw_exception(ptr {exc_slot})')
+        self.emit(f'br label %{end_lab}')
+
+        self.emit(f'{end_lab}:')
+
+    def _emit_with_exit(self, ctx_dv):
+        """调 ctx.__exit__()（0 参；多数 Light 上下文管理器的 __exit__ 不使用异常信息参数）。"""
+        ctx_slot = self._store_dv(ctx_dv)
+        method_name_reg = self.gen_string_constant('__退出__')
+        result_slot = self._new_dv_slot()
+        num_args = self.new_register()
+        self.emit(f'{num_args} = add i32 0, 0')
+        self.emit(f'call void @dv_call_method(ptr {result_slot}, ptr {ctx_slot}, ptr {method_name_reg}, ptr null, i32 {num_args})')
+
     def _collect_segment(self, seg, module_name=None):
         """覆盖父类方法：在收集阶段预先注册所有段名。
 
@@ -4066,6 +4194,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 # R115-A：分支体里的变量同样要在 entry 块拿到槽位。
                 for case in (getattr(stmt, 'cases', None) or []):
                     self._collect_vars_from_stmts(getattr(case, 'body', None) or [])
+            elif hasattr(ast, 'WithStatement') and isinstance(stmt, ast.WithStatement):
+                # R116-A：绑定变量（使用 ctx 为 var：）必须在 entry 块拿到槽位，
+                # 否则 _gen_typed_with 里的 set_var(var, entered_dv) 静默 no-op，
+                # get_var 回退成把变量名当字符串常量（实测输出 "r" 而非 __enter__ 返回值）。
+                v = getattr(stmt, 'variable', None)
+                if v:
+                    self._local_vars.setdefault(v, None)
+                self._collect_vars_from_stmts(getattr(stmt, 'body', None) or [])
             else:
                 # 其余类型交给基类递归处理（If/Foreach/While/VariableDeclaration）
                 super()._collect_vars_from_stmts([stmt])
@@ -4751,6 +4887,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self._gen_typed_try(stmt)
         elif isinstance(stmt, ast.ThrowStatement):
             self._gen_typed_throw(stmt)
+        elif hasattr(ast, 'AssertStmt') and isinstance(stmt, ast.AssertStmt):
+            self._gen_typed_assert(stmt)
+        elif hasattr(ast, 'WithStatement') and isinstance(stmt, ast.WithStatement):
+            self._gen_typed_with(stmt)
         elif isinstance(stmt, ast.ExpressionStatement):
             expr = stmt.expression
             # A2-1：先拆掉适配层的伪装——`<unknown:XXX>` 不是标识符，是一条被

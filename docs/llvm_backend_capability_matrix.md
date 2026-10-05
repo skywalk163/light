@@ -20,15 +20,15 @@
 ## 汇总
 
 - 语句类型总数：**32**
-- 已支持：**22**
-- 缺口：**9**
+- 已支持：**24**
+- 缺口：**7**
 - 三层齐备但实测编不过：`0`
 
 ## 矩阵
 
 | v3 语句类 | 写法 | L1 转换器 | legacy 落点 | L2 白名单 | L3 分派 | 实测 | 状态 |
 |---|---|---|---|---|---|---|---|
-| `AssertStmt` | 断言 … | **无** | `—` | **无** | **无** | ⛔ 原生后端暂不支持语句类型「AssertStmt」 | `gap:adapter` |
+| `AssertStmt` | 断言 … | 有 | `AssertStmt` | 有 | 有 | ✅ 10173 字符 | `supported` |
 | `Assignment` | X 为 值。 | 有 | `Assignment` | 有 | 有 | ✅ 9796 字符 | `supported` |
 | `AsyncScope` | 异步 作用域 | 有 | `AsyncScope` | 有 | 有 | — 无自动用例 | `supported` |
 | `BreakStmt` | 跳出 | 有 | `BreakStatement` | 有 | 有 | ✅ 10010 字符 | `supported` |
@@ -58,13 +58,12 @@
 | `TypeCheckToggleStmt` | 类型检查开关 | **无** | `—` | **无** | **无** | — 无自动用例 | `gap:adapter` |
 | `VarDecl` | 设 X 为 值。 | 有 | `VariableDeclaration` | 有 | 有 | ✅ 9402 字符 | `supported` |
 | `WhileStmt` | 当 …： | 有 | `WhileStatement` | 有 | 有 | ✅ 11339 字符 | `supported` |
-| `WithStmt` | 使用 … 为 X： | 有 | `WithStatement` | 有 | **无** | — 无自动用例 | `gap:codegen` |
+| `WithStmt` | 使用 … 为 X： | 有 | `WithStatement` | 有 | 有 | ✅ 11766 字符 | `supported` |
 | `YieldStmt` | 生成 … | 有 | `YieldStatement` | 有 | 有 | ✅ 14588 字符 | `supported` |
 
 ## 缺口清单（按层归类）
 
-- **gap:adapter**（8）：`AssertStmt`、`DecoratorDefinition`、`FFIFunctionDecl`、`FFIVarArgsDecl`、`IndexedCompoundAssignment`、`ParallelBlockStmt`、`RunAsyncStmt`、`TypeCheckToggleStmt`
-- **gap:codegen**（1）：`WithStmt`
+- **gap:adapter**（7）：`DecoratorDefinition`、`FFIFunctionDecl`、`FFIVarArgsDecl`、`IndexedCompoundAssignment`、`ParallelBlockStmt`、`RunAsyncStmt`、`TypeCheckToggleStmt`
 
 ## 与既有清单的分工
 

@@ -4,21 +4,21 @@
   "generator": "scripts/gen_llvm_capability_matrix.py",
   "counts": {
     "total": 32,
-    "supported": 22,
-    "gap": 9
+    "supported": 24,
+    "gap": 7
   },
   "rows": [
     {
       "v3_class": "AssertStmt",
       "surface": "断言 …",
-      "adapter_converter": "",
-      "legacy_node": "",
-      "in_stmt_whitelist": false,
-      "in_dispatch": false,
+      "adapter_converter": "_convert_assert_stmt",
+      "legacy_node": "AssertStmt",
+      "in_stmt_whitelist": true,
+      "in_dispatch": true,
       "probe_case": "断言 1 等于 1。\n",
-      "probe_result": "reject",
-      "probe_note": "原生后端暂不支持语句类型「AssertStmt」",
-      "status": "gap:adapter"
+      "probe_result": "ok",
+      "probe_note": "10173 字符",
+      "status": "supported"
     },
     {
       "v3_class": "Assignment",
@@ -374,11 +374,11 @@
       "adapter_converter": "_convert_with_stmt",
       "legacy_node": "WithStatement",
       "in_stmt_whitelist": true,
-      "in_dispatch": false,
-      "probe_case": null,
-      "probe_result": "—",
-      "probe_note": "无自动用例",
-      "status": "gap:codegen"
+      "in_dispatch": true,
+      "probe_case": "设 f 为 1。\n使用 f 为 g：\n 打印 g。\n结束。\n",
+      "probe_result": "ok",
+      "probe_note": "11766 字符",
+      "status": "supported"
     },
     {
       "v3_class": "YieldStmt",
@@ -395,6 +395,7 @@
   ],
   "meta": {
     "whitelist": [
+      "AssertStmt",
       "Assignment",
       "AsyncScope",
       "BreakStatement",
@@ -420,6 +421,7 @@
       "YieldStatement"
     ],
     "dispatch": [
+      "AssertStmt",
       "Assignment",
       "AsyncScope",
       "BreakStatement",
@@ -439,6 +441,7 @@
       "TryStatement",
       "VariableDeclaration",
       "WhileStatement",
+      "WithStatement",
       "YieldStatement"
     ]
   }

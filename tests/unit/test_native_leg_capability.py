@@ -52,6 +52,8 @@ _DOC_STMT_TYPES = frozenset({
     'ScopeDeclaration',  # R114-S1 新增：`全局 X。` 作用域声明
     'MatchStatement',          # R115-A 新增：`匹配 X：情况 …：`（字面量模式 + 通配）
     'DestructuringAssignment',  # R115-A 新增：`设 [甲, 乙] 为 …` 按位置解包
+    'AssertStmt',               # R116-A 新增：`断言 <条件>。` / `断言 <条件>, <消息>。`
+    'WithStatement',            # R116-A 新增：`使用 X 为 Y：` 上下文管理（__enter__/__exit__ + 异常安全退出）
 })
 
 _DOC_EXPR_TYPES = frozenset({

@@ -129,6 +129,10 @@ AST_TYPE_ID_TUPLE_LITERAL = 103
 AST_TYPE_ID_YIELD_STATEMENT = 104
 # R114-S1：作用域声明（`全局 计数。` / `外层 值。`）——原生(LLVM)后端 ScopeDeclStmt 缺口
 AST_TYPE_ID_SCOPE_DECLARATION = 105
+# R116-A：断言语句（`断言 <条件>。` / `断言 <条件>, <消息>。`）——原生(LLVM)后端 AssertStmt 缺口。
+# 此前 v3 的 AssertStmt 在适配层没有转换器，被降级成 `<unknown:AssertStmt>` 伪装标识符，
+# 原生腿只能报「暂不支持语句类型 AssertStmt」。此处补一等节点，供适配层转型 + codegen 分派。
+AST_TYPE_ID_ASSERT_STMT = 106
 
 
 @dataclass(slots=True)
@@ -398,6 +402,22 @@ class WithStatement(ASTNode):
     context_expr: ASTNode = None        # 上下文表达式
     variable: Optional[str] = None      # 可选的 as 变量
     body: List[ASTNode] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class AssertStmt(ASTNode):
+    _ast_type_id: int = field(default=AST_TYPE_ID_ASSERT_STMT, init=False, repr=False)
+    """断言语句：断言 <条件>。 / 断言 <条件>, <消息>。
+
+    R116-A：v3 的 AssertStmt（字段 condition / message）此前在适配层没有转换器，
+    被降级成 `<unknown:AssertStmt>` 伪装标识符，原生腿只能报「暂不支持语句类型
+    AssertStmt」。本节点是它的 legacy 侧落点，语义与转译后端（Python `assert`）
+    对齐：条件为真 → no-op；条件为假 → 抛 AssertionError（复用
+    `dv_create_exception_with_cause`）。只做节点承载，不做语义展开——
+    怎么落地由 codegen `_gen_typed_assert` 决定（就像 YieldStatement / ScopeDeclaration）。
+    """
+    condition: Optional[ASTNode] = None  # 断言条件（v3 字段名 condition）
+    message: Optional[ASTNode] = None    # 可选消息（v3 字段名 message）
 
 
 # =============================================================================

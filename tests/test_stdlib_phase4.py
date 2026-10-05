@@ -5,6 +5,7 @@
 import unittest
 import os
 import sys
+import platform
 import pytest
 
 
@@ -17,6 +18,13 @@ def _是否有效(结果):
     return bool(结果)
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'stdlib'))
+
+
+# R116-C 环境分叉重钉：Windows 本机这些用例恒过（-rX XPASS），0.82 FreeBSD 原生腿仍失败
+# （082 junit _082_lm_results_2026-10-05-090203.xml 实测 xfail）。三模块 .light 首行均带
+# 「纯光明实现」魔数，两环境走同一原生腿实现，故属运行时环境分叉（D 线核查，0773535ae 同族）。
+# 条件化后：本机不挂 xfail（消除 XPASS 噪声），0.82 仍按 xfail 记录缺口。
+_原生腿环境分叉_XFAIL = platform.system() != "Windows"
 
 
 class Test加密(unittest.TestCase):
@@ -198,7 +206,8 @@ class Test加密(unittest.TestCase):
 class Test编码解码(unittest.TestCase):
     """测试编码解码模块"""
     
-    @pytest.mark.xfail(strict=False, reason="原生腿实现差异，非路3对象式/方言面，移交编码解码对齐（路2/路4）")
+    @pytest.mark.xfail(_原生腿环境分叉_XFAIL, strict=False,
+                       reason="原生腿实现差异，非路3对象式/方言面；R116-C 重钉：本机 Windows 恒过、0.82 仍失败（环境分叉，根因见 D 线 0773535ae 同族）")
     def test_Base64(self):
         """测试Base64编码解码"""
         from 编码解码 import Base64编码, Base64解码, Base64编码二进制, Base64解码二进制
@@ -252,7 +261,8 @@ class Test编码解码(unittest.TestCase):
         self.assertTrue(encoded_upper.isupper())
         self.assertEqual(十六进制解码(encoded_upper), data)
     
-    @pytest.mark.xfail(strict=False, reason="原生腿实现差异，非路3对象式/方言面，移交编码解码对齐（路2/路4）")
+    @pytest.mark.xfail(_原生腿环境分叉_XFAIL, strict=False,
+                       reason="原生腿实现差异，非路3对象式/方言面；R116-C 重钉：本机 Windows 恒过、0.82 仍失败（环境分叉，根因见 D 线 0773535ae 同族）")
     def test_二进制十六进制转换(self):
         """测试二进制与十六进制转换"""
         from 编码解码 import 二进制转十六进制, 十六进制转二进制
@@ -262,7 +272,8 @@ class Test编码解码(unittest.TestCase):
         back_data = 十六进制转二进制(hex_str)
         self.assertEqual(back_data, data)
     
-    @pytest.mark.xfail(strict=False, reason="原生腿实现差异，非路3对象式/方言面，移交编码解码对齐（路2/路4）")
+    # R116-C 移除（R11B 先例）：xfail 前提已过期——本机与 0.82 均实测通过
+    # （082 junit 无本用例 xfail 记录 = 该轮 XPASS；本地 -rX 亦 XPASS），不再标 xfail。
     def test_URL编码解码(self):
         """测试URL编码解码"""
         from 编码解码 import URL编码, URL解码, URL编码全字符
@@ -276,7 +287,8 @@ class Test编码解码(unittest.TestCase):
         decoded_full = URL解码(encoded_full)
         self.assertEqual(decoded_full, data)
     
-    @pytest.mark.xfail(strict=False, reason="原生腿实现差异，非路3对象式/方言面，移交编码解码对齐（路2/路4）")
+    # R116-C 移除（R11B 先例）：xfail 前提已过期——本机与 0.82 均实测通过
+    # （082 junit 无本用例 xfail 记录 = 该轮 XPASS；本地 -rX 亦 XPASS），不再标 xfail。
     def test_URL查询串(self):
         """测试URL查询串编码解码"""
         from 编码解码 import URL查询串编码, URL查询串解码
@@ -288,7 +300,8 @@ class Test编码解码(unittest.TestCase):
         self.assertEqual(decoded['b'], '2')
         self.assertEqual(decoded['c'], '你好')
     
-    @pytest.mark.xfail(strict=False, reason="原生腿实现差异，非路3对象式/方言面，移交编码解码对齐（路2/路4）")
+    @pytest.mark.xfail(_原生腿环境分叉_XFAIL, strict=False,
+                       reason="原生腿实现差异，非路3对象式/方言面；R116-C 重钉：本机 Windows 恒过、0.82 仍失败（环境分叉，根因见 D 线 0773535ae 同族）")
     def test_字符集转换(self):
         """测试字符集转换"""
         from 编码解码 import 字符集转换, 字符集转换为字符串, 检测编码
@@ -328,7 +341,8 @@ class Test编码解码(unittest.TestCase):
         back = Unicode转中文(unicode_escaped)
         self.assertEqual(back, chinese)
     
-    @pytest.mark.xfail(strict=False, reason="原生腿实现差异，非路3对象式/方言面，移交编码解码对齐（路2/路4）")
+    @pytest.mark.xfail(_原生腿环境分叉_XFAIL, strict=False,
+                       reason="原生腿实现差异，非路3对象式/方言面；R116-C 重钉：本机 Windows 恒过、0.82 仍失败（环境分叉，根因见 D 线 0773535ae 同族）")
     def test_字节字符串转换(self):
         """测试字节与字符串转换"""
         from 编码解码 import 字节转字符串, 字符串转字节
@@ -513,7 +527,11 @@ class Test数据验证(unittest.TestCase):
         self.assertTrue(_是否有效(验证URL('http://www.example.com/path')))
         self.assertFalse(_是否有效(验证URL('not_a_url')))
 
-    @pytest.mark.xfail(strict=False, reason="原生腿 IP 校验为四段正则近似（docs/known_issues.md）")
+    # R116-C 重钉（修正 C 线误判）：0.82 实测不稳定——同代码 run1 通过、run2 失败
+    # （原生腿 数据验证 模块在就绪度「明确拒绝」桶内，0.82 加载态随环境漂移）。
+    # 按 C 线「环境相关→重钉 xfail」原则对 0.82 重钉；本机 Windows 恒过不挂（消 XPASS 噪声）。
+    @pytest.mark.xfail(_原生腿环境分叉_XFAIL, strict=False,
+                       reason="原生腿 数据验证 模块在拒绝桶内，0.82 加载态漂移致 验证IP地址 不稳定（run1 过/run2 红）；本机 Windows 恒过")
     def test_验证IP地址(self):
         """测试IP地址验证（原生腿退化为四段正则近似，::1/>255 严格语义见 docs/known_issues.md）"""
         from 数据验证 import 验证IP地址
@@ -529,7 +547,11 @@ class Test数据验证(unittest.TestCase):
         self.assertTrue(_是否有效(验证正则表达式('abc123', r'^[a-z]+\d+$')))
         self.assertFalse(_是否有效(验证正则表达式('123abc', r'^[a-z]+\d+$')))
 
-    @pytest.mark.xfail(strict=False, reason="原生腿无 json，降级为非空检查（docs/known_issues.md）")
+    # R116-C 重钉（修正 C 线误判）：0.82 实测不稳定——同代码 run1 通过、run2 失败
+    # （原生腿 数据验证 模块在就绪度「明确拒绝」桶内，0.82 加载态随环境漂移）。
+    # 按 C 线「环境相关→重钉 xfail」原则对 0.82 重钉；本机 Windows 恒过不挂（消 XPASS 噪声）。
+    @pytest.mark.xfail(_原生腿环境分叉_XFAIL, strict=False,
+                       reason="原生腿 数据验证 模块在拒绝桶内，0.82 加载态漂移致 验证JSON 不稳定（run1 过/run2 红）；本机 Windows 恒过")
     def test_验证JSON(self):
         """测试JSON验证（原生腿无 json，降级为非空检查，见 docs/known_issues.md）"""
         from 数据验证 import 验证JSON

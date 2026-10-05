@@ -108,7 +108,11 @@ PROBE_CASES = {
                   '  情况 _：\n'
                   '    打印 "其它"。\n'
                   '结束。\n'),
-    'WithStmt': None,            # R115-A：runtime_typed.c 无上下文管理协议，codegen 明确拒绝
+    # R116-A：WithStmt 已收口（codegen 走 _gen_typed_with，复用 dv_call_method 发起
+    # __enter__/__exit__ + setjmp try 机制做异常安全退出）。探针只需「编得过」——
+    # 原生腿没有类型推断，无法保证 ctx 真有 __enter__/__exit__（运行期由 dv_call_method
+    # 的方法查找失败暴露），故探针用任意可编译上下文表达式即可。
+    'WithStmt': '设 f 为 1。\n使用 f 为 g：\n 打印 g。\n结束。\n',
     'ParallelBlockStmt': None,
     'RunAsyncStmt': None,
     'TypeCheckToggleStmt': None,

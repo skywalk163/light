@@ -264,6 +264,7 @@ class AstAdapter:
             'MethodSignature': self._convert_method_signature,
             'DestructuringAssignment': self._convert_destructure_assignment,
             'WithStmt': self._convert_with_stmt,
+            'AssertStmt': self._convert_assert_stmt,
             'DictLiteral': self._convert_dict_literal,
             'DictComprehension': self._convert_dict_comprehension,
             'MatchStmt': self._convert_match_stmt,
@@ -337,6 +338,7 @@ class AstAdapter:
                 ast.ExpressionStatement, ast.SegmentDefinition, ast.ClassDefinition,
                 ast.InterfaceDefinition, ast.TryStatement, ast.ThrowStatement,
                 ast.WithStatement, ast.MatchStatement, ast.DestructuringAssignment,
+                ast.AssertStmt,
                 ast.ImportStatement, ast.ExportStatement, ast.CompoundAssignment,
                 ast.AsyncScope,
                 # R10-11b：`生成` 是语句不是表达式，必须原样留在语句流里。
@@ -915,6 +917,17 @@ class AstAdapter:
             context_expr=self.convert(getattr(node, 'context_expr', None)),
             variable=getattr(node, 'variable', None),
             body=self._to_list_stmts(getattr(node, 'body', [])),
+        )
+
+    def _convert_assert_stmt(self, node) -> ast.AssertStmt:
+        """R116-A：v3 AssertStmt（condition / message）→ legacy AssertStmt。
+
+        转译后端 `code_generator._generate_assert_stmt` 直接生成 Python `assert`；
+        原生腿 `_gen_typed_assert` 改为：条件真 → no-op，假 → 抛 AssertionError。
+        """
+        return ast.AssertStmt(
+            condition=self.convert(getattr(node, 'condition', None)),
+            message=self.convert(getattr(node, 'message', None)),
         )
 
     def _convert_dict_literal(self, node) -> ast.DictLiteral:

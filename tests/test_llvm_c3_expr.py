@@ -131,9 +131,10 @@ _拒绝用例 = [
     ('Lambda', '设 平方 为 接收 甲：返回 甲 乘 甲。\n', 'LambdaExpression'),
     # C3-4：以下四条是适配层缺转换器的**语句**位节点，同样要能报出原 v3 真名。
     # （一个未支持类型一条，C3-4 口径：每个走 <unknown:XXX> 的节点都能自报家门）
+    # 注：`断言语句`(AssertStmt) 已在 R116 A 线转正为受支持语句，其正向覆盖见
+    #     tests/unit/test_llvm_with_assert_async.py，故从本拒绝清单移除。
     ('装饰器段落', '@性能 段落 甲()：\n  返回 1。\n打印 甲()。\n', 'DecoratedFunction'),
     ('异步运行', '异步 运行 主()。\n', 'RunAsyncStmt'),
-    ('断言语句', '设 甲 为 1。\n断言 甲 == 1。\n', 'AssertStmt'),
     ('全局声明', '全局 甲。\n', 'ScopeDeclStmt'),
     ('类型别名', '类型 甲 为 整数。\n', 'TypeAlias'),
 ]

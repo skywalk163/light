@@ -244,6 +244,8 @@ stmt_desc = {
     'ScopeDeclaration': '全局 X。（作用域声明，挂模块级全局槽；R114-S1 新增）',
     'MatchStatement': '匹配 X：情况 …：（仅字面量模式 + 情况 _ 通配；R115-A 新增）',
     'DestructuringAssignment': '设 [甲, 乙] 为 … / 设 甲, 乙 为 …（按位置解包，长度不符抛错；R115-A 新增）',
+    'AssertStmt': '断言 <条件>。/ 断言 <条件>, <消息>。（条件真 no-op，假抛 AssertionError；R116-A 新增）',
+    'WithStatement': '使用 X 为 Y：（__enter__ 绑定 → 体 → __exit__，异常亦走 __exit__ 后重抛；R116-A 新增）',
 }
 result["tables"]["statement_nodes"] = {
     "description": "原生腿 _gen_statement 分派链支持的语句节点",

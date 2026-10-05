@@ -8,8 +8,14 @@
       "description": "原生腿 _gen_statement 分派链支持的语句节点",
       "evidence_method": "_gen_statement",
       "evidence_file": "src/llvm/codegen_typed.py",
-      "count": 20,
+      "count": 22,
       "entries": [
+        {
+          "name": "AssertStmt",
+          "supported": true,
+          "evidence": "src/llvm/codegen_typed.py (isinstance in _gen_statement)",
+          "description": "断言 <条件>。/ 断言 <条件>, <消息>。（条件真 no-op，假抛 AssertionError；R116-A 新增）"
+        },
         {
           "name": "Assignment",
           "supported": true,
@@ -123,6 +129,12 @@
           "supported": true,
           "evidence": "src/llvm/codegen_typed.py (isinstance in _gen_statement)",
           "description": "当 ..."
+        },
+        {
+          "name": "WithStatement",
+          "supported": true,
+          "evidence": "src/llvm/codegen_typed.py (isinstance in _gen_statement)",
+          "description": "使用 X 为 Y：（__enter__ 绑定 → 体 → __exit__，异常亦走 __exit__ 后重抛；R116-A 新增）"
         },
         {
           "name": "YieldStatement",

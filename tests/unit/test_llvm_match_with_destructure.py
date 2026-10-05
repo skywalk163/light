@@ -12,10 +12,10 @@
     绝不静默降级成「不比较直接命中」——那是最坏的假绿。
   * `DestructuringAssignment` —— **已支持**，按位置解包；元素个数不匹配**抛运行时
     异常**，绝不静默少赋几个变量（Python 解包会抛 ValueError，同口径）。
-  * `WithStatement` —— **未支持，且本轮不做**。实测 `src/llvm/runtime_typed.c`
-    **没有**上下文管理协议所需的 dv 函数（无 `__进入__`/`__退出__` 对应物，
-    runtime 里唯一叫 `dv_exit` 的是进程退出），落地要扩 runtime，超出本轮范围。
-    本文件把它钉成「必须明确拒绝」，防止后来人写个空壳假装支持。
+  * `WithStatement` —— **R116-A 已转正**（见本文件 `test_能力矩阵把两条语句记成已支持`
+    与 `test_能力边界文档登记了两条语句`）。此前（R115-A 阶段）因 runtime 缺上下文
+    管理协议而暂缓；R116-A 改走既有 `dv_call_method` 发中文 dunder `__进入__`/`__退出__`，
+    无需新增 runtime 符号即落地。`_拒绝用例` 里的 `使用_上下文管理` 一项已随晋级移除。
 
 关于默认分支的一个实测事实（写在这里防后人踩）：
   光明的默认分支写法是 **`情况 _：`**，**不是 `其它：`**——`其它：` 在解析器层
@@ -173,11 +173,6 @@ _拒绝用例 = [
      '    打印 "int"。\n'
      '结束。\n',
      'MatchStmt'),
-    ('使用_上下文管理',
-     '使用 读取文件("a.txt") 为 甲：\n'
-     '  打印 甲。\n'
-     '结束。\n',
-     'WithStatement'),
 ]
 
 
@@ -409,9 +404,10 @@ def test_能力矩阵把两条语句记成已支持():
         f'MatchStmt 在矩阵里还是 {状态["MatchStmt"]}'
     assert 状态['DestructuringAssignment'].startswith('supported'), \
         f'DestructuringAssignment 在矩阵里还是 {状态["DestructuringAssignment"]}'
-    # `使用` 本轮不做，矩阵必须如实记成缺口，不许吹牛
-    assert 状态['WithStmt'].startswith('gap'), \
-        f'WithStmt 在矩阵里是 {状态["WithStmt"]}（本轮未实现，不许写成 supported）'
+    # `使用 X 为 Y：` 本轮（R116-A）已转正：进入调 `__进入__` 绑定返回值、
+    # 体、离开调 `__退出__`，异常亦走 `__退出__` 后重抛。矩阵必须如实记成 supported。
+    assert 状态['WithStmt'].startswith('supported'), \
+        f'WithStmt 在矩阵里还是 {状态["WithStmt"]}（R116-A 已实现，应记成 supported）'
 
 
 def test_能力边界文档登记了两条语句():

@@ -10,6 +10,14 @@ import unittest
 import pytest
 import os
 import tempfile
+import platform
+
+
+# R116-C 环境分叉重钉：Windows 本机这些用例恒过（-rX XPASS），0.82 FreeBSD 原生腿仍失败
+# （082 junit _082_lm_results_2026-10-05-090203.xml 实测 xfail）。高级文件.light 首行带
+# 「纯光明实现」魔数，两环境走同一原生腿实现，故属运行时环境分叉（D 线核查，0773535ae 同族）。
+# 条件化后：本机不挂 xfail（消除 XPASS 噪声），0.82 仍按 xfail 记录缺口。
+_原生腿环境分叉_XFAIL = platform.system() != "Windows"
 
 
 class 测试临时文件模块(unittest.TestCase):
@@ -483,7 +491,8 @@ class 测试高级文件模块(unittest.TestCase):
             with open(目标文件) as f:
                 self.assertEqual(f.read(), 'test content')
     
-    @pytest.mark.xfail(strict=False, reason="原生腿无 statvfs，总空间固定 0（docs/known_issues.md）")
+    @pytest.mark.xfail(_原生腿环境分叉_XFAIL, strict=False,
+                       reason="原生腿无 statvfs，总空间固定 0（docs/known_issues.md）；R116-C 重钉：本机 Windows 恒过、0.82 仍失败（环境分叉，根因见 D 线 0773535ae 同族）")
     def test_磁盘使用情况(self):
         from 高级文件 import 磁盘使用情况
         结果 = 磁盘使用情况('.')
@@ -502,7 +511,8 @@ class 测试高级文件模块(unittest.TestCase):
             大小 = 目录大小(tmpdir)
             self.assertEqual(大小, 500)
     
-    @pytest.mark.xfail(strict=False, reason="原生腿无 PATH 探测，恒返回假（docs/known_issues.md）")
+    @pytest.mark.xfail(_原生腿环境分叉_XFAIL, strict=False,
+                       reason="原生腿无 PATH 探测，恒返回假（docs/known_issues.md）；R116-C 重钉：本机 Windows 恒过、0.82 仍失败（环境分叉，根因见 D 线 0773535ae 同族）")
     def test_命令存在(self):
         from 高级文件 import 命令存在
         import platform
