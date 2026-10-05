@@ -4,8 +4,8 @@
   "generator": "scripts/gen_llvm_capability_matrix.py",
   "counts": {
     "total": 32,
-    "supported": 20,
-    "gap": 11
+    "supported": 22,
+    "gap": 9
   },
   "rows": [
     {
@@ -29,7 +29,7 @@
       "in_dispatch": true,
       "probe_case": "设 甲 为 1。\n甲 为 2。\n打印 甲。\n",
       "probe_result": "ok",
-      "probe_note": "9945 字符",
+      "probe_note": "9796 字符",
       "status": "supported"
     },
     {
@@ -53,7 +53,7 @@
       "in_dispatch": true,
       "probe_case": "设 i 为 0。\n当 i < 3：\n  跳出。\n",
       "probe_result": "ok",
-      "probe_note": "10159 字符",
+      "probe_note": "10010 字符",
       "status": "supported"
     },
     {
@@ -77,7 +77,7 @@
       "in_dispatch": true,
       "probe_case": "设 甲 为 1。\n甲 加 2。\n打印 甲。\n",
       "probe_result": "ok",
-      "probe_note": "10458 字符",
+      "probe_note": "10160 字符",
       "status": "supported"
     },
     {
@@ -89,7 +89,7 @@
       "in_dispatch": true,
       "probe_case": "设 i 为 0。\n当 i < 3：\n  继续。\n",
       "probe_result": "ok",
-      "probe_note": "10197 字符",
+      "probe_note": "10048 字符",
       "status": "supported"
     },
     {
@@ -110,11 +110,11 @@
       "adapter_converter": "_convert_destructure_assignment",
       "legacy_node": "DestructuringAssignment",
       "in_stmt_whitelist": true,
-      "in_dispatch": false,
-      "probe_case": null,
-      "probe_result": "—",
-      "probe_note": "无自动用例",
-      "status": "gap:codegen"
+      "in_dispatch": true,
+      "probe_case": "设 [甲, 乙] 为 [1, 2]。\n打印 甲。\n打印 乙。\n",
+      "probe_result": "ok",
+      "probe_note": "13220 字符",
+      "status": "supported"
     },
     {
       "v3_class": "ExportStmt",
@@ -173,7 +173,7 @@
       "in_dispatch": true,
       "probe_case": "设 甲 为 1。\n如果 甲 等于 1：\n  打印 \"对\"。\n",
       "probe_result": "ok",
-      "probe_note": "10944 字符",
+      "probe_note": "10793 字符",
       "status": "supported"
     },
     {
@@ -226,15 +226,15 @@
     },
     {
       "v3_class": "MatchStmt",
-      "surface": "匹配 …",
+      "surface": "匹配 …：情况 …：",
       "adapter_converter": "_convert_match_stmt",
       "legacy_node": "MatchStatement",
       "in_stmt_whitelist": true,
-      "in_dispatch": false,
-      "probe_case": null,
-      "probe_result": "—",
-      "probe_note": "无自动用例",
-      "status": "gap:codegen"
+      "in_dispatch": true,
+      "probe_case": "设 等级 为 2。\n匹配 等级：\n  情况 1：\n    打印 \"低\"。\n  情况 2：\n    打印 \"中\"。\n  情况 _：\n    打印 \"其它\"。\n结束。\n",
+      "probe_result": "ok",
+      "probe_note": "12495 字符",
+      "status": "supported"
     },
     {
       "v3_class": "ParallelBlockStmt",
@@ -293,7 +293,7 @@
       "in_dispatch": true,
       "probe_case": "段落 加一()：\n  全局 计数。\n  设 计数 为 计数 加 1。\n加一()。\n打印 计数。\n",
       "probe_result": "ok",
-      "probe_note": "11189 字符",
+      "probe_note": "11041 字符",
       "status": "supported"
     },
     {
@@ -353,7 +353,7 @@
       "in_dispatch": true,
       "probe_case": "设 甲 为 1。\n打印 甲。\n",
       "probe_result": "ok",
-      "probe_note": "9551 字符",
+      "probe_note": "9402 字符",
       "status": "supported"
     },
     {
@@ -365,12 +365,12 @@
       "in_dispatch": true,
       "probe_case": "设 i 为 0。\n当 i < 3：\n  设 i 为 i 加 1。\n打印 i。\n",
       "probe_result": "ok",
-      "probe_note": "11798 字符",
+      "probe_note": "11339 字符",
       "status": "supported"
     },
     {
       "v3_class": "WithStmt",
-      "surface": "随 … 作为 X：",
+      "surface": "使用 … 为 X：",
       "adapter_converter": "_convert_with_stmt",
       "legacy_node": "WithStatement",
       "in_stmt_whitelist": true,
@@ -425,10 +425,12 @@
       "BreakStatement",
       "CompoundAssignment",
       "ContinueStatement",
+      "DestructuringAssignment",
       "ExpressionStatement",
       "ForeachStatement",
       "IfStatement",
       "ImportStatement",
+      "MatchStatement",
       "PrintStatement",
       "ReturnStatement",
       "ScopeDeclaration",

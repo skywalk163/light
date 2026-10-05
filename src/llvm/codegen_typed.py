@@ -4056,6 +4056,16 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                     self._collect_vars_from_stmts([sub])
                 for sub in (getattr(stmt, 'finally_body', None) or []):
                     self._collect_vars_from_stmts([sub])
+            elif hasattr(ast, 'DestructuringAssignment') and isinstance(stmt, ast.DestructuringAssignment):
+                # R115-A：解构目标（`设 [甲, 乙] 为 …`）。不收集的话它们只能落到
+                # alloca_local 的 _pending_allocas（永不 flush）→ 未定义值 %N。
+                for v in (getattr(stmt, 'variables', None) or []):
+                    if v:
+                        self._local_vars.setdefault(str(v), None)
+            elif hasattr(ast, 'MatchStatement') and isinstance(stmt, ast.MatchStatement):
+                # R115-A：分支体里的变量同样要在 entry 块拿到槽位。
+                for case in (getattr(stmt, 'cases', None) or []):
+                    self._collect_vars_from_stmts(getattr(case, 'body', None) or [])
             else:
                 # 其余类型交给基类递归处理（If/Foreach/While/VariableDeclaration）
                 super()._collect_vars_from_stmts([stmt])
@@ -4774,6 +4784,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         elif hasattr(ast, 'ScopeDeclaration') and isinstance(stmt, ast.ScopeDeclaration):
             # R114-S1：`全局 计数。` / `外层 值。`（v3 ScopeDeclStmt）
             self._gen_typed_scope_decl(stmt)
+        elif hasattr(ast, 'MatchStatement') and isinstance(stmt, ast.MatchStatement):
+            # R115-A：`匹配 值：情况 …：`（v3 MatchStmt）
+            self._gen_typed_match(stmt)
+        elif hasattr(ast, 'DestructuringAssignment') and isinstance(stmt, ast.DestructuringAssignment):
+            # R115-A：`设 [甲, 乙] 为 列表` / `设 甲, 乙 为 列表`
+            self._gen_typed_destructuring(stmt)
         else:
             # A2-1：链尾兜底。以前这里什么都没有，未知语句被静默吃掉。
             self._reject_unsupported_stmt(type(stmt).__name__, stmt)
@@ -4816,6 +4832,137 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             # 显式摘掉：读写已改走全局槽，留着只是个永不使用的 alloca，还会
             # 误导后来人以为这里写的是局部。
             self._local_vars.pop(name, None)
+
+    # ------------------------------------------------------------------
+    # R115-A：`匹配 …：情况 …：` 与 `设 [甲, 乙] 为 …`
+    # ------------------------------------------------------------------
+
+    # 本轮支持的模式种类。其余（变量绑定 / 守卫 / 序列 / 结构 / 类型检查）
+    # 一律显式拒绝——静默当成「默认分支」是最坏的假绿。
+    _MATCH_LITERAL_KINDS = frozenset({'number', 'string', 'bool', 'null', 'literal'})
+
+    def _gen_typed_match(self, stmt: ast.MatchStatement):
+        """R115-A：`匹配 值：情况 …：… 结束。`（v3 MatchStmt）
+
+        语义对齐（照抄转译后端 `code_generator._generate_match_stmt` 的口径）：
+          * 按 cases 的**源码顺序**逐条比较，命中第一条就执行该分支并跳出；
+          * 全不中且有 `情况 _：`（wildcard）→ 走它；
+          * 全不中且没有 wildcard → no-op（与 Python `match` 一致，不许崩）。
+
+        ⚠️ 范围严格限定在**字面量模式 + 通配**。转译后端直接发 Python `match`，
+        支持变量绑定 / 守卫 / 序列 / 类模式，那依赖 CPython 的模式匹配引擎；
+        原生腿这轮只做等值比较（`dv_eq`），其余模式必须炸出不复用——
+        `情况 [甲, 乙]：` 若被静默当成「不比较直接命中」，用户拿到的是假绿。
+
+        ⚠️ `其它：` **不是**光明的关键字（实测解析失败），默认分支的写法是
+        `情况 _：`。本实现按 wildcard 处理，与转译后端 `_` 分支同义。
+        """
+        cases = list(getattr(stmt, 'cases', []) or [])
+        subject_dv, _ = self._gen_expression(stmt.subject)
+        subject_slot = self._store_dv(subject_dv)
+        if not cases:
+            return
+
+        end_lab = self.new_label('match_end')
+        test_labs = [self.new_label(f'match_test_{i}') for i in range(len(cases))]
+        body_labs = [self.new_label(f'match_body_{i}') for i in range(len(cases))]
+
+        self.emit(f'br label %{test_labs[0]}')
+        for i, case in enumerate(cases):
+            self.emit(f'{test_labs[i]}:')
+            pat = getattr(case, 'pattern', None)
+            kind = (getattr(pat, 'kind', '') or '') if pat is not None else ''
+            if getattr(case, 'guard', None) is not None:
+                self._reject_unsupported_stmt('MatchStmt(guard/守卫条件)', stmt)
+            if kind == 'wildcard' or (kind == 'variable' and getattr(pat, 'binding', '') == '_'):
+                # 无可反驳模式：走到这里必命中，其后的分支在语义上不可达
+                # （仍照常发射，不做静默丢弃）。
+                self.emit(f'br label %{body_labs[i]}')
+            else:
+                if kind not in self._MATCH_LITERAL_KINDS:
+                    self._reject_unsupported_stmt(
+                        f'MatchStmt(pattern={kind or "未知"})', stmt)
+                lit_slot = self._store_dv(self._gen_match_pattern_literal(pat))
+                eq = self.new_register()
+                self.emit(f'{eq} = call i32 @dv_eq(ptr {subject_slot}, ptr {lit_slot})')
+                hit = self.new_register()
+                self.emit(f'{hit} = icmp ne i32 {eq}, 0')
+                next_lab = test_labs[i + 1] if i + 1 < len(cases) else end_lab
+                self.emit(f'br i1 {hit}, label %{body_labs[i]}, label %{next_lab}')
+            self.emit(f'{body_labs[i]}:')
+            body = list(getattr(case, 'body', []) or [])
+            for s in body:
+                self._gen_statement(s)
+            if not self._ends_with_terminator(body):
+                self.emit(f'br label %{end_lab}')
+        self.emit(f'{end_lab}:')
+
+    def _gen_match_pattern_literal(self, pat) -> str:
+        """把字面量模式编成一个供 `dv_eq` 比较的 LightValue。
+
+        `kind='null'`（或任何没有值的模式）编成 null——与 `情况 空：` 对应。
+        其余走通用表达式通路（NumberLiteral / StringLiteral / BooleanLiteral）。
+        """
+        kind = getattr(pat, 'kind', '')
+        val = getattr(pat, 'value', None)
+        if kind == 'null' or val is None:
+            slot = self._new_dv_slot()
+            self.emit(f'call void @dv_null(ptr {slot})')
+            return self._load_dv(slot)
+        dv, _ = self._gen_expression(val)
+        return dv
+
+    def _gen_typed_destructuring(self, stmt: ast.DestructuringAssignment):
+        """R115-A：`设 [甲, 乙] 为 列表` / `设 甲, 乙 为 列表`（v3 DestructuringAssignment）
+
+        语义对齐（转译后端 `code_generator` 发的是 Python 解包 `甲, 乙 = 值`）：
+          * 按位置把第 i 个元素赋给第 i 个目标；
+          * **元素个数不匹配 → 报错**，绝不少赋几个变量了事（Python 抛
+            ValueError，原生腿抛一个带人数信息的异常）；
+          * 目标先统一初始化成 null，避免不匹配路径上读到 alloca 里的垃圾。
+
+        ⚠️ 范围：`variables` 是**名字列表**（适配层把 `style`/`targets`/`declare`
+        都丢掉了），因此只能做「按位置解包」。嵌套分组 `设 [甲, [乙, 丙]] 为 …`
+        与字典解构在适配层也不保留结构信息，本轮一律明确拒绝（空目标即拒绝）。
+        """
+        names = [str(v) for v in (getattr(stmt, 'variables', []) or []) if v]
+        if not names:
+            self._reject_unsupported_stmt('DestructuringAssignment(空目标/嵌套解构)', stmt)
+        value_dv, _ = self._gen_expression(stmt.value)
+        value_slot = self._store_dv(value_dv)
+
+        # 目标槽位：优先用 entry 块已预分配的（_collect_vars_from_stmts 已补），
+        # 缺失时 alloca_local 兜底；无论如何先置 null，杜绝读到未初始化栈垃圾。
+        slots = []
+        for name in names:
+            slots.append(self.alloca_local(name))
+        for slot in slots:
+            self.emit(f'call void @dv_null(ptr {slot})')
+
+        n = len(names)
+        len_reg = self.new_register()
+        self.emit(f'{len_reg} = call i64 @dv_len(ptr {value_slot})')
+        ok = self.new_register()
+        self.emit(f'{ok} = icmp eq i64 {len_reg}, {n}')
+
+        ok_lab = self.new_label('destr_ok')
+        bad_lab = self.new_label('destr_len_mismatch')
+        end_lab = self.new_label('destr_end')
+        self.emit(f'br i1 {ok}, label %{ok_lab}, label %{bad_lab}')
+
+        self.emit(f'{bad_lab}:')
+        msg = self.gen_string_constant(f'解构赋值失败：需要 {n} 个值，实际个数不匹配')
+        exc_slot = self._new_dv_slot()
+        self.emit(f'call void @dv_str(ptr {exc_slot}, ptr {msg})')
+        self.emit(f'call void @dv_throw_exception(ptr {exc_slot})')
+        self.emit(f'br label %{end_lab}')
+
+        self.emit(f'{ok_lab}:')
+        for i, name in enumerate(names):
+            elem = self._call_dv_func('dv_foreach_get', value_dv, f'i64 {i}')
+            self.set_var(name, elem)
+        self.emit(f'br label %{end_lab}')
+        self.emit(f'{end_lab}:')
 
     def _gen_typed_var_decl(self, stmt: ast.VariableDeclaration):
         name = stmt.name

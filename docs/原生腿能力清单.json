@@ -8,7 +8,7 @@
       "description": "原生腿 _gen_statement 分派链支持的语句节点",
       "evidence_method": "_gen_statement",
       "evidence_file": "src/llvm/codegen_typed.py",
-      "count": 18,
+      "count": 20,
       "entries": [
         {
           "name": "Assignment",
@@ -41,6 +41,12 @@
           "description": "循环跳转 continue"
         },
         {
+          "name": "DestructuringAssignment",
+          "supported": true,
+          "evidence": "src/llvm/codegen_typed.py (isinstance in _gen_statement)",
+          "description": "设 [甲, 乙] 为 … / 设 甲, 乙 为 …（按位置解包，长度不符抛错；R115-A 新增）"
+        },
+        {
           "name": "ExpressionStatement",
           "supported": true,
           "evidence": "src/llvm/codegen_typed.py (isinstance in _gen_statement)",
@@ -63,6 +69,12 @@
           "supported": true,
           "evidence": "src/llvm/codegen_typed.py (isinstance in _gen_statement)",
           "description": "当 no-op 处理"
+        },
+        {
+          "name": "MatchStatement",
+          "supported": true,
+          "evidence": "src/llvm/codegen_typed.py (isinstance in _gen_statement)",
+          "description": "匹配 X：情况 …：（仅字面量模式 + 情况 _ 通配；R115-A 新增）"
         },
         {
           "name": "PrintStatement",

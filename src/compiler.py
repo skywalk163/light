@@ -954,18 +954,37 @@ class AstAdapter:
         )
 
     def _convert_match_pattern(self, pattern) -> ast.MatchPattern:
-        """将 v3 MatchPattern / 字面量转换为 ast_nodes.MatchPattern"""
+        """将 v3 MatchPattern / 字面量转换为 ast_nodes.MatchPattern
+
+        R115-A：v3 的字面量模式（数字/字符串/布尔/空）把值直接存在 `value`
+        字段上，是 **Python 原生标量**（int / float / str / bool），不是 AST
+        节点。原实现只把 str 包成 StringLiteral，其余一律走 `self.convert`——
+        原生标量没有 `.kind`/`__dict__`，convert 只能产出 `<unknown:int>`
+        伪装标识符，**模式的字面值在适配层就被丢掉了**（`情况 1：` 与
+        `情况 2：` 变得无法区分）。这里按标量类型补上包装：
+          bool → BooleanLiteral（必须排在 int 前：bool 是 int 的子类）
+          int / float → NumberLiteral
+          str → StringLiteral
+          None → 保持 None（kind='null' 本就无值）
+        其余（真正的 v3 AST 节点）仍走 self.convert。
+        """
         if pattern is None:
             return None
         if isinstance(pattern, str):
-            return ast.MatchPattern(kind='string', value=ast.StringLiteral(pattern))
+            # 关键字传参：`ASTNode` 基类的 line/column 是**前两个位置参数**，
+            # 写 `ast.StringLiteral(pattern)` 会把字符串塞进 line（既有 bug，顺手修）。
+            return ast.MatchPattern(kind='string', value=ast.StringLiteral(value=pattern))
         if not hasattr(pattern, 'kind'):
             # 字面量节点（NumberLiteral 等）兜底
             return ast.MatchPattern(kind='literal', value=pattern)
         value = getattr(pattern, 'value', None)
-        if isinstance(value, str):
-            value = ast.StringLiteral(value)
-        else:
+        if isinstance(value, bool):
+            value = ast.BooleanLiteral(value=value)
+        elif isinstance(value, str):
+            value = ast.StringLiteral(value=value)
+        elif isinstance(value, (int, float)):
+            value = ast.NumberLiteral(value=value)
+        elif value is not None:
             value = self.convert(value)
         elements = [self._convert_match_pattern(e)
                     for e in getattr(pattern, 'elements', [])]

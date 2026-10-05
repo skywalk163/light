@@ -242,6 +242,8 @@ stmt_desc = {
     'AsyncScope': '异步 作用域',
     'YieldStatement': '生成 X（生成器段状态机，R10-11b 新增）',
     'ScopeDeclaration': '全局 X。（作用域声明，挂模块级全局槽；R114-S1 新增）',
+    'MatchStatement': '匹配 X：情况 …：（仅字面量模式 + 情况 _ 通配；R115-A 新增）',
+    'DestructuringAssignment': '设 [甲, 乙] 为 … / 设 甲, 乙 为 …（按位置解包，长度不符抛错；R115-A 新增）',
 }
 result["tables"]["statement_nodes"] = {
     "description": "原生腿 _gen_statement 分派链支持的语句节点",

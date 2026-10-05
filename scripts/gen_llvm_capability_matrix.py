@@ -96,8 +96,19 @@ PROBE_CASES = {
                       '打印 计数。\n'),
     # 以下写不出可靠的单模块最小用例（语法未通 / 需外部依赖 / 异步），实测标「—」
     'ImportStmt': None,          # 模块级导入走 compile_light_project，单模块直编不具备
-    'MatchStmt': None,           # v3 解析器层面就没通
-    'WithStmt': None,
+    # R115-A：`匹配` v3 解析器已通（旧注「解析器层面就没通」已过时），
+    # 这里给一条**只含字面量模式 + 通配**的最小用例；变量绑定/守卫/序列模式
+    # 由 codegen 显式拒绝（属「支持到什么程度」，不是「能不能编」）。
+    'MatchStmt': ('设 等级 为 2。\n'
+                  '匹配 等级：\n'
+                  '  情况 1：\n'
+                  '    打印 "低"。\n'
+                  '  情况 2：\n'
+                  '    打印 "中"。\n'
+                  '  情况 _：\n'
+                  '    打印 "其它"。\n'
+                  '结束。\n'),
+    'WithStmt': None,            # R115-A：runtime_typed.c 无上下文管理协议，codegen 明确拒绝
     'ParallelBlockStmt': None,
     'RunAsyncStmt': None,
     'TypeCheckToggleStmt': None,
@@ -120,7 +131,7 @@ PROBE_CASES = {
     'SelfAssignment': None,
     'IndexedAssignment': None,
     'IndexedCompoundAssignment': None,
-    'DestructuringAssignment': None,
+    'DestructuringAssignment': '设 [甲, 乙] 为 [1, 2]。\n打印 甲。\n打印 乙。\n',
 }
 
 # 光明源码里的写法（给人看的那一列）
@@ -146,8 +157,8 @@ SURFACE = {
     'PassStmt': 'pass（空语句）',
     'YieldStmt': '生成 …',
     'ScopeDeclStmt': '全局 X。/ 外层 X。',
-    'MatchStmt': '匹配 …',
-    'WithStmt': '随 … 作为 X：',
+    'MatchStmt': '匹配 …：情况 …：',
+    'WithStmt': '使用 … 为 X：',
     'ParallelBlockStmt': '并行 { … }',
     'RunAsyncStmt': '异步 运行 主()。',
     'TypeCheckToggleStmt': '类型检查开关',
