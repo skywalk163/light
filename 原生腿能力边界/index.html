@@ -3909,6 +3909,26 @@ Windows Schannel TLS 实现。本文档 §5-§8 补登这四块能力面。
 <td><code>YieldStatement</code></td>
 <td><code>生成 X</code>（含 <code>生成 的段</code> 只报错不落静默；<strong>R10-11b 新增</strong>）</td>
 </tr>
+<tr>
+<td><code>ScopeDeclaration</code></td>
+<td><code>全局 X。</code>（<strong>R114-S1 新增</strong>）：把 X 挂到模块级全局槽 <code>@__var_X</code>，语义等价于转译腿的 Python <code>global</code>；<code>外层</code> / 模块级 <code>全局</code> 均明确拒绝。全局<strong>容器</strong>的原地修改（<code>字典设置</code> 等）自 R114-S2 起同样生效</td>
+</tr>
+<tr>
+<td><code>MatchStatement</code></td>
+<td><code>匹配 X：情况 …：</code>（<strong>R115-A 新增</strong>）：只支持<strong>字面量模式</strong>（整数/字符串/布尔/空）与 <code>情况 _：</code> 通配；按源码顺序逐条 <code>dv_eq</code> 比较，命中即跳出，全不中且无通配则 no-op。<code>情况 乙：</code>（变量绑定）、守卫 <code>情况 _ 如果 …</code>、序列/结构/类型模式一律明确拒绝，绝不静默当成默认分支</td>
+</tr>
+<tr>
+<td><code>DestructuringAssignment</code></td>
+<td><code>设 [甲, 乙] 为 …</code> / <code>设 甲, 乙 为 …</code>（<strong>R115-A 新增</strong>）：按位置解包（<code>dv_len</code> + <code>dv_foreach_get</code>）；目标先置 null 再赋值，<strong>个数不匹配抛运行时异常</strong>（与转译腿 Python 解包的 ValueError 同口径），绝不静默少赋</td>
+</tr>
+<tr>
+<td><code>AssertStmt</code></td>
+<td><code>断言 &lt;条件&gt;。</code> / <code>断言 &lt;条件&gt;, &lt;消息&gt;。</code>（<strong>R116-A 新增</strong>）：条件为真 → no-op（不生成 IR）；条件为假 → 抛 AssertionError（复用 <code>dv_create_exception_with_cause</code>）。消息只支持字符串字面量，其它情况回落空串；不接受静默降级成表达式语句</td>
+</tr>
+<tr>
+<td><code>WithStatement</code></td>
+<td><code>使用 X 为 Y：</code>（<code>**R116-A 新增**</code>，本轮放行 <code>runtime_typed.c</code>）：进入调 <code>X.__enter__()</code> 并把返回值绑给 <code>Y</code>，执行体，离开调 <code>X.__exit__()</code>；<strong>体抛异常也走 <code>__exit__</code></strong> 再重抛（与转译腿 Python <code>with</code> 对齐）。<code>__enter__</code>/<code>__exit__</code> 经既有通用方法调用 <code>dv_call_method</code> 发起，无需新增 runtime 函数。已知限制：原生腿无类型推断，无法编译期确认 <code>X</code> 真有这两个方法——缺方法时由运行期 <code>dv_call_method</code> 查找失败暴露，而非编译期 <code>_reject_unsupported_stmt</code></td>
+</tr>
 </tbody>
 </table>
 <p>模块层（<code>generate</code>，<code>:714</code>）额外支持：类定义（<code>_collect_class</code>，<code>:2501</code>）、
@@ -3930,9 +3950,9 @@ Windows Schannel TLS 实现。本文档 §5-§8 补登这四块能力面。
 </thead>
 <tbody>
 <tr>
-<td><code>ScopeDeclStmt</code></td>
-<td><code>全局 X</code> / <code>外层 X</code></td>
-<td>报错</td>
+<td><code>MatchStmt</code></td>
+<td><code>情况 乙：</code> / <code>情况 _ 如果 …</code> / <code>情况 [甲, 乙]：</code></td>
+<td>报错（<code>匹配</code> 主体已支持，见 §1.1；只收字面量模式 + <code>情况 _</code>）</td>
 </tr>
 <tr>
 <td><code>TypeAlias</code></td>
@@ -3945,11 +3965,6 @@ Windows Schannel TLS 实现。本文档 §5-§8 补登这四块能力面。
 <td>报错（转译后端支持）</td>
 </tr>
 <tr>
-<td><code>AssertStmt</code></td>
-<td><code>断言 …</code></td>
-<td>报错</td>
-</tr>
-<tr>
 <td><code>YieldStatement</code>（<code>生成 全部 X</code>）</td>
 <td>生成器委托</td>
 <td>报错（<code>生成 X</code> 主体已支持，见 §1.1）</td>
@@ -3957,7 +3972,7 @@ Windows Schannel TLS 实现。本文档 §5-§8 补登这四块能力面。
 <tr>
 <td><code>RunAsyncStmt</code></td>
 <td><code>异步 运行 …</code></td>
-<td>报错（转译后端支持）</td>
+<td>报错（<strong>R116-A 砍线</strong>：缺顶层异步运行所需 runtime 设施——事件循环 / 线程；不硬写，登记缺口，建议下轮接 B3 事件循环（§7）/ 线程设施，见 §1.4）</td>
 </tr>
 <tr>
 <td><code>EmbedBlock</code></td>
@@ -3978,6 +3993,25 @@ Windows Schannel TLS 实现。本文档 §5-§8 补登这四块能力面。
 <td><code>PassStmt</code></td>
 <td><code>pass</code></td>
 <td><strong>编成空操作</strong>（C3-4，不走报错）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="14-r116-a">1.4 本轮砍线缺口登记（R116-A）<a class="headerlink" href="#14-r116-a" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>节点</th>
+<th>源码写法</th>
+<th>砍线理由</th>
+<th>建议</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RunAsyncStmt</code></td>
+<td><code>异步 运行 &lt;段落/表达式&gt;</code></td>
+<td>原生腿当前无顶层异步运行所需的 runtime 设施：<strong>事件循环</strong>（B3，§7 仅服务于协程内部调度，无「提交任务到后台并等待」的对外入口）与<strong>独立线程</strong>均未暴露给代码生成层；IR 级实现需新增 runtime 调度原语，超出本轮范围。转译后端（<code>python -m cli.light_unified run</code>）支持</td>
+<td>下轮接入：①B3 事件循环对宿主暴露 <code>dv_eventloop_run_async</code> 类入口；或②新增线程设施 <code>dv_spawn_thread</code> + join。两选一即可解锁，无需改语法</td>
 </tr>
 </tbody>
 </table>
@@ -4612,7 +4646,7 @@ Windows Schannel TLS 实现。本文档 §5-§8 补登这四块能力面。
     <span class="md-icon" title="最后更新">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年10月3日 15:53:56 UTC">2026年10月3日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年10月5日 14:31:18 UTC">2026年10月5日</span>
   </span>
 
     
@@ -4622,7 +4656,7 @@ Windows Schannel TLS 实现。本文档 §5-§8 补登这四块能力面。
     <span class="md-icon" title="创建日期">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年10月3日 15:53:56 UTC">2026年10月3日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年10月5日 14:31:18 UTC">2026年10月5日</span>
   </span>
 
     

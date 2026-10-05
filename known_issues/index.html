@@ -1034,6 +1034,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#931-r114-s1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3.1 全局 的落地语义（R114-S1）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#94" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5095,15 +5106,17 @@
 </tbody>
 </table>
 <h3 id="92">9.2 静态清单<a class="headerlink" href="#92" title="Permanent link">&para;</a></h3>
-<p>上游（v3 语句类节点共 27 个，其中 <strong>9 个</strong>没有适配层转换器）：
+<p>上游（v3 语句类节点共 27 个，其中 <strong>8 个</strong>没有适配层转换器）：
 <code>AssertStmt</code>、<code>DecoratorDefinition</code>、<code>EmbedBlock</code>、<code>FFIFunctionDecl</code>、
-<code>FFIVarArgsDecl</code>、<code>PassStmt</code>、<code>RunAsyncStmt</code>、<code>ScopeDeclStmt</code>、
-<code>TypeCheckToggleStmt</code>。（<code>YieldStmt</code> 自 R10-11b 起有转换器——见下方 17 条分支。）</p>
-<p>下游（<code>_gen_statement</code> 现有 <strong>17</strong> 条分支：<code>VariableDeclaration</code>、<code>Assignment</code>、
+<code>FFIVarArgsDecl</code>、<code>PassStmt</code>、<code>RunAsyncStmt</code>、<code>TypeCheckToggleStmt</code>。
+（<code>YieldStmt</code> 自 R10-11b 起有转换器；<strong><code>ScopeDeclStmt</code> 自 R114-S1 起有转换器</strong>——
+见下方 18 条分支。）</p>
+<p>下游（<code>_gen_statement</code> 现有 <strong>18</strong> 条分支：<code>VariableDeclaration</code>、<code>Assignment</code>、
 <code>SelfAssignment</code>、<code>CompoundAssignment</code>、<code>IfStatement</code>、<code>ForeachStatement</code>、
 <code>WhileStatement</code>、<code>ReturnStatement</code>、<code>BreakStatement</code>、<code>ContinueStatement</code>、
 <code>PrintStatement</code>、<code>TryStatement</code>、<code>ThrowStatement</code>、<code>ExpressionStatement</code>、
-<code>ImportStatement</code>、<code>AsyncScope</code>、<code>YieldStatement</code>（生成器，R10-11b 新增））。
+<code>ImportStatement</code>、<code>AsyncScope</code>、<code>YieldStatement</code>（生成器，R10-11b 新增）、
+<code>ScopeDeclaration</code>（作用域声明，R114-S1 新增））。
 适配层能产出、但这 17 条都不覆盖的 legacy
 节点有 <strong>27 种</strong>，落链尾兜底，其中作为语句出现的主要是
 <code>MatchStatement</code>、<code>WithStatement</code>、<code>DestructuringAssignment</code>、<code>SegmentDefinition</code>
@@ -5127,26 +5140,48 @@
 <tbody>
 <tr>
 <td>能编</td>
-<td>17</td>
-<td>赋值/变量声明、<code>如果</code>、<code>遍历</code>、<code>当</code>、段落、<code>返回</code>、<code>跳出</code>、<code>继续</code>、<code>尝试</code>/<code>捕获</code>、<code>抛出</code>、<code>打印</code>、<code>引</code>（B9 S1 起真导入，见上方说明）、类（非嵌套）、接口、<code>导出</code>、<code>延迟</code>、<code>生成</code>（生成器，R10-11b 新增）</td>
+<td>20</td>
+<td>赋值/变量声明、<code>如果</code>、<code>遍历</code>、<code>当</code>、段落、<code>返回</code>、<code>跳出</code>、<code>继续</code>、<code>尝试</code>/<code>捕获</code>、<code>抛出</code>、<code>打印</code>、<code>引</code>（B9 S1 起真导入，见上方说明）、类（非嵌套）、接口、<code>导出</code>、<code>延迟</code>、<code>生成</code>（生成器，R10-11b 新增）、<strong><code>全局</code></strong>（作用域声明，R114-S1 新增）、<strong><code>匹配</code></strong>（仅字面量模式 + <code>情况 _：</code>，R115-A 新增）、<strong><code>解构赋值</code></strong>（<code>设 [甲, 乙] 为 …</code>，R115-A 新增）</td>
 </tr>
 <tr>
 <td>明确拒绝</td>
-<td>5</td>
-<td><code>全局</code>(ScopeDeclStmt)、<code>外层</code>(先撞 SegmentDefinition)、<code>断言</code>(AssertStmt)、类型别名(TypeAlias)、嵌套类(ClassDefinitionWithNested)</td>
+<td>4</td>
+<td><code>外层</code>(先撞 SegmentDefinition)、<code>断言</code>(AssertStmt)、类型别名(TypeAlias)、嵌套类(ClassDefinitionWithNested)</td>
 </tr>
 <tr>
 <td>更早的层拦下</td>
-<td>2</td>
-<td><code>匹配</code>（v3 解析器语法就没通）、<code>异步域</code>（同上）</td>
+<td>1</td>
+<td><code>异步域</code>（v3 解析器语法没通）</td>
 </tr>
 </tbody>
 </table>
+<blockquote>
+<p>⚠️ 旧结论已失效，别照抄：<code>匹配</code> 曾被归进「更早的层拦下（v3 解析器语法就没通）」，
+R115-A 实测 <strong>v3 解析器早已能解析</strong> <code>匹配 值：情况 …：结束。</code>，真正断的是 L3
+codegen 分派。现已补上（字面量模式 + 通配），变量绑定 / 守卫 / 序列 / 类型模式
+仍明确拒绝。<code>使用 … 为 X：</code>（WithStmt）倒确实是缺口——<code>runtime_typed.c</code> 里<strong>没有</strong>
+上下文管理协议所需的 dv 函数（无 <code>__进入__</code>/<code>__退出__</code> 对应物），落地要扩 runtime。</p>
+</blockquote>
 <p><code>外层</code> 报的是 <code>SegmentDefinition</code> 而不是 <code>ScopeDeclStmt</code>：<code>外层</code> 只能写在嵌套
 段落里，而<strong>嵌套段落本身原生就不支持</strong>，所以先被它拦下。报真正拦下它的那一层，
 不编造。</p>
-<p>守卫在 <code>tests/unit/test_llvm_stmt_coverage.py</code>（正跑 5 条 + 反跑 6 条 + 2 条静态
-断言，共 13 个用例；<code>生成</code> 自 R10-11b 起从正跑挪入反跑）。</p>
+<p>守卫在 <code>tests/unit/test_llvm_stmt_coverage.py</code>（正跑 4 条 + 反跑 9 条 + 2 条静态
+断言，共 15 个用例；<code>生成</code> 自 R10-11b 起从正跑挪入反跑，<code>全局</code> 自 R114-S1 起同理，
+<code>匹配</code>/<code>解构赋值</code> 自 R115-A 起同理）。两条新语句的专项判据在
+<code>tests/unit/test_llvm_match_with_destructure.py</code>。</p>
+<h3 id="931-r114-s1">9.3.1 <code>全局</code> 的落地语义（R114-S1）<a class="headerlink" href="#931-r114-s1" title="Permanent link">&para;</a></h3>
+<p>原生腿没有 Python 的作用域栈，但<strong>有等价物</strong>：模块级变量本来就是 LLVM 全局
+<code>@__var_X</code>（<code>gen_global_var</code> 登记、<code>finalize</code> 发射），且 <code>get_var</code> / <code>set_var</code>
+已经是「<code>_globals</code> 优先于 <code>_local_vars</code>」。所以 <code>全局 X</code> 的落地就是把 X 挂进
+<code>_globals</code>——之后段落内对 X 的读写自动改走全局槽，语义与 Python 的 <code>global</code> 一致。</p>
+<p><strong>一个必须知道的差异</strong>（实测，勿误判）：模块级<strong>已经</strong>声明过的变量，原生腿即使
+不写 <code>全局</code> 也照样写回全局槽（LLVM 语义：模块级变量是编译期分配的内存），而
+Python 会当成局部。<code>全局</code> 真正不可替代的场景是<strong>模块级没有同名声明</strong>时——它把
+名字抬成模块级槽使跨段落可见（对应 Python 里 <code>global X</code> + <code>X = 1</code> 在模块级创建 X）。</p>
+<p>模块级写 <code>全局</code> 与转译腿同口径拒绝（「只能写在段落体内」）；<code>外层</code> 如实拒绝。
+三处改动：<code>ast_nodes.py</code> 新增 <code>ScopeDeclaration</code> 节点、<code>compiler.py</code> 适配层转换器
+<strong>兼 <code>_to_list_stmts</code> 白名单</strong>（漏了白名单就会第二次踩 R10-11b <code>生成</code> 的坑）、
+<code>codegen_typed._gen_typed_scope_decl</code>。判据见 <code>tests/unit/test_llvm_scope_decl.py</code>。</p>
 <h3 id="94">9.4 已知缺口<a class="headerlink" href="#94" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>拒绝文案里没有源码行号</strong>。<code>AstAdapter</code> 转换时不带 <code>lineno</code>，后端拿不到行号，
@@ -7710,7 +7745,7 @@ append 不互通）属 runtime 字典值所有权/引用计数架构，归 T7 �
     <span class="md-icon" title="最后更新">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年10月3日 15:53:56 UTC">2026年10月3日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年10月5日 14:31:18 UTC">2026年10月5日</span>
   </span>
 
     
@@ -7720,7 +7755,7 @@ append 不互通）属 runtime 字典值所有权/引用计数架构，归 T7 �
     <span class="md-icon" title="创建日期">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年10月3日 15:53:56 UTC">2026年10月3日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年10月5日 14:31:18 UTC">2026年10月5日</span>
   </span>
 
     

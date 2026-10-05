@@ -3842,6 +3842,15 @@
 直接表达算法/协议/数据结构。因此 C 扩展（ssl/hashlib/psutil/msvcrt/fcntl）
 与三方包（lunardate/cryptography）是天花板，不是偷懒。</p>
 </blockquote>
+<h3 id="01import">0.1「纯光明实现」魔数规则（import 钩子放行约定）<a class="headerlink" href="#01import" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p>stdlib 下 <code>.light</code> 文件<strong>首行注释</strong>含短语「纯光明实现」时，import 钩子才放行
+把它编译加载、并<strong>无视同名 <code>.py</code> 的存在</strong>；否则运行期 <code>导入</code> 仍落到同名 <code>.py</code>
+（影子遮蔽），这个 <code>.light</code> 形同虚设、自举率分子虚高。</p>
+<p>判据见 <code>stdlib/_light_import_hook.py:136</code> 的 <code>_is_pure_light()</code>：读取文件头两行，
+其中出现「纯光明实现」即视为纯光明模块。这是一条<strong>加载期</strong>判据，与 §一「文件维度」
+统计互补——脚本数进分子的 <code>.light</code>，必须带上这条魔数，运行期才真的作数。</p>
+</blockquote>
 <hr />
 <h2 id="23">一、唯一口径（§2.3）<a class="headerlink" href="#23" title="Permanent link">&para;</a></h2>
 <table>
@@ -4038,6 +4047,102 @@
 <li>基线已刷到 25.71%（version 2，含 shadow_count=53、built_from_commit）。</li>
 </ul>
 <p>引用本文件时按这个数校准：<strong>18/70 = 25.71%</strong>。</p>
+<h2 id="2026-10-04-r115">七、2026-10-04 R115 前实测快照（开工前冻结值）<a class="headerlink" href="#2026-10-04-r115" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>本快照为 R115 自举能力完善<strong>开工前冻结值</strong>，数字由编排者实测后逐字冻结，
+本节照录、不得改动。本轮 S-A / S-B 轨道会在此之上再增量；
+<code>tools/ci/bootstrap_rate_baseline.json</code> 由 M 收口统一 <code>--write-baseline</code> 重刷，
+<strong>本轮不动基线、不加 <code>--write-baseline</code></strong>。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>数值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>文件维度自举率</td>
+<td><strong>85 / 116 = 73.28%</strong></td>
+</tr>
+<tr>
+<td>（仅供参考、不许引用）行维度 decl/code</td>
+<td>1812 / 20504 = 8.84%</td>
+</tr>
+<tr>
+<td>stdlib 同名 <code>.py</code> 影子数</td>
+<td><strong>73 / 116</strong>（只许降不许升）</td>
+</tr>
+<tr>
+<td>防造假（转手调用同名 <code>.py</code> / 自导入）命中</td>
+<td><strong>0 处</strong></td>
+</tr>
+<tr>
+<td>关键路径自举率</td>
+<td><strong>18 / 18 = 100.00%</strong></td>
+</tr>
+<tr>
+<td>stdlib「引 Python」逃逸</td>
+<td><strong>0 处</strong>（破零成果继续守住）</td>
+</tr>
+</tbody>
+</table>
+<p>对照 §六（2026-08-23 的 18/70 = 25.71%、影子 53）：两个月间文件维度自举率
+从 25.71% 提升到 73.28%，影子数口径扩到 73/116。引用本文件时，<strong>当前真值以本节
+73.28% 为准</strong>（§二~§六均为历史快照）。</p>
+<h2 id="r115-2026-10-04e5-e6-e7">八、R115 后续（2026-10-04，E.5 / E.6 / E.7）<a class="headerlink" href="#r115-2026-10-04e5-e6-e7" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>本节接 §七冻结值之后，记录 R115 自举能力完善轮的增量进展。数字照录编排者已冻结
+事实，不重算、不演绎；§七仍是「开工前」快照，本节为后续增量。</p>
+</blockquote>
+<h3 id="81">8.1 本轮度量（冻结值）<a class="headerlink" href="#81" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>数值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>文件维度自举率</td>
+<td><strong>87 / 118 = 73.73%</strong></td>
+</tr>
+<tr>
+<td>stdlib 同名 <code>.py</code> 影子数</td>
+<td><strong>75 / 118</strong></td>
+</tr>
+<tr>
+<td>防造假（转手调用同名 <code>.py</code> / 自导入）命中</td>
+<td><strong>0 处</strong></td>
+</tr>
+<tr>
+<td>关键路径自举率</td>
+<td><strong>18 / 18 = 100.00%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>对照 §七（85/116 = 73.28%、影子 73）：分子分母同时 +2，文件维度自举率升到 73.73%。</p>
+<h3 id="82-e5level7">8.2 E.5：level7 单元探针校正 + 列表弹栈内建<a class="headerlink" href="#82-e5level7" title="Permanent link">&para;</a></h3>
+<ul>
+<li>level7 单元探针改指真目标 <code>level7_generated.py</code>（88KB），并补「列表弹栈」内建。</li>
+<li>校正后 <code>types</code> 20/20、<code>bootstrap</code> 18/18，两轮一致真绿。</li>
+<li>自编译闭环 STAGE1 原红，根因 = 分词器词界缺失：单字关键字「类」撕裂了标识符
+  「类型名到Python」。</li>
+</ul>
+<h3 id="83-e6stage1">8.3 E.6：分词器词界保护（STAGE1 转绿）<a class="headerlink" href="#83-e6stage1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>修法：行首总切关键字；行中若接标识符字符则整串作标识符。</li>
+<li>STAGE1 转绿（out1 = 51407B，compile 通过）；v3 死结同步解开（B compile PASS）。</li>
+<li>回归全绿：20/20、18/18，level5/6 收敛 44614B × 3。</li>
+</ul>
+<h3 id="84-e7stage2">8.4 E.7（进行中）：STAGE2 块边界<a class="headerlink" href="#84-e7stage2" title="Permanent link">&para;</a></h3>
+<ul>
+<li>STAGE2 新根因：out1 parser 死等「结束」块关闭符，而自举源是纯缩进方言，
+  comp_if ↔ compile_block 无限递归。</li>
+<li>待块边界对接 DEDENT 后，出闭环判决。</li>
+</ul>
 
 
 
@@ -4060,7 +4165,7 @@
     <span class="md-icon" title="最后更新">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年10月3日 15:53:56 UTC">2026年10月3日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年10月5日 14:31:18 UTC">2026年10月5日</span>
   </span>
 
     
@@ -4070,7 +4175,7 @@
     <span class="md-icon" title="创建日期">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年10月3日 15:53:56 UTC">2026年10月3日</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年10月5日 14:31:18 UTC">2026年10月5日</span>
   </span>
 
     
