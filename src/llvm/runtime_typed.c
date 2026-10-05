@@ -7954,3 +7954,129 @@ double dv_clock(void) {
     return (double)ts.tv_sec + (double)ts.tv_nsec / 1000000000.0;
 #endif
 }
+
+/* ════════════════════════════════════════════════════════════════════
+ * R117-B 桶②：Python 直通名运行时支撑（独立函数区，位于文件末尾）
+ *
+ * 语义口径一律对齐 stdlib/builtins.py（158 函数真源）与
+ * src/code_generator.py 的转译腿映射表；凡与 CPython 不一致之处都在
+ * docs/原生腿能力边界.md §5 逐条登记（禁止静默降级）。
+ * ════════════════════════════════════════════════════════════════════ */
+
+/* 对象字符串里是否存在 field_name（与 dv_class_get_member 同一套
+   "名\x1F值\x1F" 编码，但只判存在性——get_member 缺失时返回空串，
+   无法与「存在且值为空串」区分）。 */
+static int dv_r117_obj_has_member(LightValue* obj, const char* field_name) {
+    if (!obj || obj->type != 3 || !obj->str) return 0;
+    if (strncmp(obj->str, OBJ_PREFIX, strlen(OBJ_PREFIX)) != 0) return 0;
+    if (!field_name || !field_name[0]) return 0;
+    char search[256];
+    snprintf(search, sizeof(search), "%s%c", field_name, '\x1F');
+    return strstr(obj->str + strlen(OBJ_PREFIX), search) != NULL;
+}
+
+/* callable(值) —— 对齐 stdlib/builtins.py:是函数（Python callable）。
+ *
+ * ⚠️ 已知差异（已在能力边界登记）：原生腿 LightValue **没有一等函数值类型**
+ * （桶③「函数值调用」本轮砍线），所以「段名 / 类 / lambda」在原生腿里都无法
+ * 成为值，callable 一律为假。唯一成立的可调用形态是「对象所属类（含继承链）
+ * 注册了中文 dunder `__调用__`」——这才是本函数真正的判定通路。
+ */
+int dv_is_callable(LightValue* v) {
+    if (!v) return 0;
+    v = dv_deref(v);
+    if (v->type == 6 || (v->type == 3 && v->str && strncmp(v->str, OBJ_PREFIX, 4) == 0)) {
+        char cls[MAX_CLASS_NAME_LEN];
+        cls[0] = '\0';
+        dv_get_class_name(v, cls, sizeof(cls));
+        if (cls[0] && dv_find_method(cls, "__调用__")) return 1;
+    }
+    return 0;
+}
+
+/* getattr(对象, "名", 默认) —— 三参带默认值形态。
+ * 取不到成员返回 默认 而不是报错（对标 CPython getattr 三参）。
+ * def 为 NULL 表示两参形态：缺失时返回 空（CPython 是抛 AttributeError，
+ * 差异已登记）。 */
+void dv_getattr_default(LightValue* result, LightValue* obj, const char* name, LightValue* def) {
+    if (!result) return;
+    obj = dv_deref(obj);
+    if (obj && name && dv_r117_obj_has_member(obj, name)) {
+        dv_class_get_member(result, obj, name);
+        return;
+    }
+    if (def) dv_clone(result, dv_deref(def));
+    else dv_null(result);
+}
+
+/* 随机字节(n) —— 对齐 stdlib/builtins.py:随机字节（os.urandom）。
+ * 原生腿没有一等 bytes 类型，字节序列用「元素为 0..255 整数的列表」表示
+ * （与 stdlib/内置核心系统.light 随机UUID 的 `字节组[i]` 用法同口径）。
+ *
+ * ⚠️ 已知差异（已登记）：熵源是 MT19937（dv_rand_genrand），**不是密码学安全**
+ * 的 os.urandom。用于 UUID / nonce 时强度低于转译腿。 */
+void dv_random_bytes(LightValue* result, int64_t n) {
+    if (!result) return;
+    dv_list_new(result);
+    if (n <= 0) return;
+    if (n > 1048576) n = 1048576;   /* 防御：避免误传巨大 n 拖死进程 */
+    for (int64_t i = 0; i < n; i++) {
+        LightValue b;
+        dv_int(&b, (int64_t)(dv_rand_genrand() & 0xFFu));
+        dv_list_append(result, result, &b);
+        dv_free(&b);
+    }
+}
+
+/* 字符串(值[, 编码]) —— 对齐转译腿 code_generator.py:426 `'字符串': 'str'`。
+ * 两参形态在 CPython 是 bytes.decode(编码)：原生腿无 bytes 类型，字节序列用
+ * 「整数列表」表示，故两参且实参是列表时按 UTF-8 逐字节解码成字符串。
+ * 其余（含一参）走 dv_to_string，与 `转文本` 同口径。 */
+void dv_decode_str(LightValue* result, LightValue* v, const char* enc) {
+    if (!result) return;
+    if (!v) { dv_str(result, ""); return; }
+    v = dv_deref(v);
+    (void)enc;  /* 原生腿内部一律 UTF-8 字节流，编码名目前只做接受不做转换 */
+    if (v->type == 4 && v->list_data && v->list_size > 0) {
+        size_t n = (size_t)v->list_size;
+        char* buf = (char*)malloc(n + 1);
+        if (!buf) { dv_str(result, ""); return; }
+        for (int64_t i = 0; i < v->list_size; i++) {
+            LightValue* e = v->list_data[i];
+            int64_t b = e ? dv_to_i64(e) : 0;
+            buf[i] = (char)(b & 0xFF);
+        }
+        buf[n] = '\0';
+        dv_str(result, buf);
+        free(buf);
+        return;
+    }
+    if (v->type == 4) { dv_str(result, ""); return; }
+    char* s = dv_to_string(v);
+    dv_str(result, s ? s : "");
+    if (s) free(s);
+}
+
+/* 副本(x) / 浅拷贝(x) —— 对齐 stdlib/内置核心列表.light:副本：
+ *   dict → 新字典，键值照搬；list → 新列表，元素照搬；其它 → 原样返回。
+ *
+ * ⚠️ 不能直接复用 dv_clone：它的 DICT 分支**共享 list_data 指针**（为的是让
+ * 字典值可被原地修改），副本与原字典会互相污染，正是 副本 要避免的行为。
+ * 故字典在此另走一遍「新建 + 逐键 dv_dict_set」。 */
+void dv_shallow_copy(LightValue* result, LightValue* v) {
+    if (!result) return;
+    if (!v) { dv_null(result); return; }
+    v = dv_deref(v);
+    if (v->type == 7 && v->list_data) {
+        dv_dict_new(result);
+        for (int64_t i = 0; i < v->list_size; i++) {
+            LightValue* k = v->list_data[2 * i];
+            LightValue* val = v->list_data[2 * i + 1];
+            if (!k) continue;
+            if (!val) { LightValue nul; dv_null(&nul); dv_dict_set(result, result, k, &nul); dv_free(&nul); continue; }
+            dv_dict_set(result, result, k, val);
+        }
+        return;
+    }
+    dv_clone(result, v);
+}

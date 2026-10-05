@@ -296,7 +296,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             already = {l for l in self._lines if l.startswith('declare')}
             if 'declare i64 @strlen(ptr)' not in already:
                 self.emit('declare i64 @strlen(ptr)')
-            self.emit('declare i32 @isspace(i32)')
+            # R117-B：同一模块同时用到 lstrip 与 split_ws 时，两处都无条件发
+            # `declare i32 @isspace(i32)` → clang 报 invalid redefinition。
+            # 与 strlen 同口径做去重（字符串工具轻量.light 首例）。
+            if 'declare i32 @isspace(i32)' not in already:
+                self.emit('declare i32 @isspace(i32)')
             self.emit('define internal void @_r12c_lstrip(ptr %result, ptr %str_ptr) {')
             self.emit('entry:')
             self.emit(f'  %sv = load {lv}, ptr %str_ptr')
@@ -431,7 +435,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit('declare i64 @strlen(ptr)')
             if 'declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1, i1)' not in already:
                 self.emit('declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1, i1)')
-            self.emit('declare i32 @isspace(i32)')
+            # R117-B：同上（lstrip 与 split_ws 共用 isspace 声明，去重要放在两处）
+            if 'declare i32 @isspace(i32)' not in already:
+                self.emit('declare i32 @isspace(i32)')
             self.emit('define internal void @_r12c_split_ws(ptr %result, ptr %str_ptr) {')
             self.emit('entry:')
             self.emit(f'  %sv = load {lv}, ptr %str_ptr')
@@ -709,6 +715,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_dict_get(ptr, ptr, ptr)',
             # T7D：3 参 字典获取（带默认值，键缺失返回默认）
             f'declare void @dv_dict_get_def(ptr, ptr, ptr, ptr)',
+            # R117-B 桶②：Python 直通名运行时支撑（src/llvm/runtime_typed.c 末尾同名函数）
+            f'declare i32 @dv_is_callable(ptr)',
+            f'declare void @dv_getattr_default(ptr, ptr, ptr, ptr)',
+            f'declare void @dv_random_bytes(ptr, i64)',
+            f'declare void @dv_decode_str(ptr, ptr, ptr)',
+            f'declare void @dv_shallow_copy(ptr, ptr)',
             f'declare void @dv_dict_has(ptr, ptr, ptr)',
             f'declare void @dv_dict_keys(ptr, ptr)',
             f'declare void @dv_dict_remove(ptr, ptr, ptr)',
@@ -1261,14 +1273,31 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return self._gen_typed_function_call(expr)
 
         if hasattr(ast, 'ParagraphCall') and isinstance(expr, ast.ParagraphCall):
-            args = [self._gen_expression(arg)[0] for arg in expr.args]
+            # R117-B：与 _gen_typed_function_call 同口径处理关键字参数——
+            # 此前这里对每个实参无差别 _gen_expression，KeywordArg 直接落到
+            # 表达式链尾炸「暂不支持表达式 KeywordArg」，于是
+            # `open(路径, "r", encoding="utf-8")`（JSONL.light）永远编不过。
+            _pc_args = []
+            _pc_kw = {}
+            _pc_plain = []
+            for _a in expr.args:
+                if hasattr(ast, 'KeywordArg') and isinstance(_a, ast.KeywordArg):
+                    _pc_kw[_a.name] = self._gen_expression(_a.value)[0]
+                else:
+                    _pc_args.append(self._gen_expression(_a)[0])
+                    _pc_plain.append(_a)
+            if _pc_kw:
+                # 位置参数已按关键字重排，无法与实参 AST 一一对齐 → 放弃写回
+                _pc_args = self._merge_kwargs(expr.name, _pc_args, _pc_kw)
+                _pc_plain = None
+            args = _pc_args
             builtin = self._gen_typed_builtin(expr.name, args)
             if builtin is not None:
                 return builtin
             if self._local_seg_key(expr.name) in self._segments:
                 # 名字已定义，却走不到正常返回——说明是类型推断问题，不是名字问题。
                 try:
-                    return self._gen_typed_segment_call(expr.name, args, expr.args)
+                    return self._gen_typed_segment_call(expr.name, args, _pc_plain)
                 except NotImplementedError:
                     raise
                 except Exception as e:
@@ -1552,6 +1581,21 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if op == '连接':
             return self._call_dv_func('dv_concat', left_dv, right_dv), 'dv'
 
+        # R117-B：位运算（位与/位或/位异或）。此前落到链尾兜底炸「暂不支持二元
+        # 运算符」，而 stdlib/内置核心系统.light 的 随机UUID 靠 `b 位与 15`
+        # / `位或 64` 组装 UUID —— 桶② 随机字节 落地后这是该模块的直接阻塞点。
+        # 语义对齐 Python：按整数位运算（& / | / ^），结果仍为 INT。
+        _bitop_map = {'位与': 'and', '位或': 'or', '位异或': 'xor',
+                      '&': 'and', '|': 'or', '^': 'xor'}
+        if op in _bitop_map:
+            lhs = self.new_register()
+            self.emit(f'{lhs} = extractvalue {LIGHTVALUE_STRUCT} {left_dv}, 1')
+            rhs = self.new_register()
+            self.emit(f'{rhs} = extractvalue {LIGHTVALUE_STRUCT} {right_dv}, 1')
+            res = self.new_register()
+            self.emit(f'{res} = {_bitop_map[op]} i64 {lhs}, {rhs}')
+            return self._create_int_dv(res), 'dv'
+
         # 逻辑运算：且/与 (and), 或 (or)
         if op in ('and', 'or'):
             left_i1 = self._gen_condition_i1(expr.left, left_dv)
@@ -1570,7 +1614,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         raise NotImplementedError(
             f"原生后端暂不支持二元运算符「{op}」"
             f"（源码行 {self._stmt_source_line(expr)}）。"
-            f"已支持：加/减/乘/除/模/幂/连接/比较/逻辑。{self._FALLBACK_HINT}"
+            f"已支持：加/减/乘/除/模/幂/连接/比较/逻辑/位与/位或/位异或。{self._FALLBACK_HINT}"
         )
 
     def _i64_to_f64(self, i64_reg: str) -> str:
@@ -1852,14 +1896,112 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 异常类名直呼构造：stdlib 写 `抛出 运行时错误("...")`（裸类名调用，
         # 非 `新建`），与 `新建 异常(提示)` 走同一类实例化语义。中文名覆盖
         # stdlib 直呼的 Python 风格名，英文名对齐已注册的内置异常类。
+        # R117-B 桶②：`属性错误`（AttributeError）补进来——stdlib/字符串工具轻量.light:76
+        # 直呼 `抛出 属性错误("...")`，此前落在「未定义的段落」。
         if name in ('异常', '运行时异常', '值异常', '索引异常', '类型异常', 'IO异常',
                     '内存异常', '算术异常', '运行时错误', '类型错误', '值错误', '索引错误',
-                    '读取错误', '请求错误', 'Exception', 'RuntimeException', 'ValueError',
-                    'TypeError', 'IndexError', 'IOException', 'MemoryError', 'ArithmeticError'):
+                    '读取错误', '请求错误', '属性错误',
+                    'Exception', 'RuntimeException', 'ValueError',
+                    'TypeError', 'IndexError', 'IOException', 'MemoryError', 'ArithmeticError',
+                    'AttributeError'):
             name_reg = self.gen_string_constant(name)
             exc_slot = self._new_dv_slot()
             self.emit(f'call void @dv_class_new_named(ptr {exc_slot}, ptr {name_reg})')
             return self._load_dv(exc_slot), 'dv'
+
+        # ---- R117-B 桶②：Python 直通名补齐（7 个 + 桶④ 异步睡眠 同一通路）----
+        # 语义口径一律对齐 stdlib/builtins.py 与 src/code_generator.py 的转译腿
+        # 映射表；凡与 CPython 不一致处都在 docs/原生腿能力边界.md §5 登记。
+        # ⚠️ 不许为了让就绪度数字好看而放宽拒绝：不支持的形态照旧响亮拒绝。
+
+        # callable(值)：对齐 stdlib/builtins.py:是函数（Python callable）。
+        # 原生腿没有一等函数值类型（桶③ 砍线），故只有「对象注册了 __调用__」
+        # 一种形态为真；段名/类/lambda 一律假——这是事实，不是放水。
+        if name in ('callable',):
+            if args:
+                obj_slot = self._store_dv(args[0])
+                r = self.new_register()
+                self.emit(f'{r} = call i32 @dv_is_callable(ptr {obj_slot})')
+                cmp = self.new_register()
+                self.emit(f'{cmp} = icmp ne i32 {r}, 0')
+                return self._create_bool_dv(cmp), 'dv'
+            return self._create_bool_dv('false'), 'dv'
+
+        # getattr(对象, "名", 默认)：三参带默认值；取不到返回默认值而非报错。
+        # 两参形态（无默认值）缺失时返回 空 —— 与 Python 抛 AttributeError 不同，
+        # 已在 docs/原生腿能力边界.md §5 登记。
+        if name in ('getattr',):
+            # 第 2 参是 `const char*` 成员名：必须先 extractvalue 出 str 指针再传，
+            # 直接传 LightValue* 会让 C 侧把结构体头当字符串读（恒取不到成员）。
+            if len(args) >= 2:
+                _name_ptr = self.new_register()
+                self.emit(f'{_name_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                if len(args) >= 3:
+                    return self._call_dv_func('dv_getattr_default', args[0],
+                                              f'ptr {_name_ptr}', args[2]), 'dv'
+                return self._call_dv_func('dv_getattr_default', args[0], f'ptr {_name_ptr}',
+                                          self._call_dv_func('dv_null')), 'dv'
+            return self._call_dv_func('dv_null'), 'dv'
+
+        # open(路径[, 模式][, encoding=...])：与既有 `打开文件` 同一 runtime
+        # 设施（dv_open_file，返回 LV_TYPE_FILE 句柄），不新造文件句柄类型。
+        # encoding 关键字经 _BUILTIN_KWARGS 映射到位置 2。
+        if name in ('open',):
+            if not args:
+                return self._call_dv_func('dv_open_file', 'ptr null', 'ptr null', 'ptr null'), 'dv'
+            path_ptr = self.new_register()
+            self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+            if len(args) >= 2:
+                mode_ptr = self.new_register()
+                self.emit(f'{mode_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+            else:
+                mode_ptr = self.gen_string_constant('r')
+            if len(args) >= 3:
+                enc_ptr = self.new_register()
+                self.emit(f'{enc_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[2]}, 3')
+            else:
+                enc_ptr = 'null'
+            return self._call_dv_func('dv_open_file', f'ptr {path_ptr}',
+                                      f'ptr {mode_ptr}', f'ptr {enc_ptr}'), 'dv'
+
+        # 字符串(值) / 字符串(字节列表, 编码)：对齐转译腿 `'字符串': 'str'`。
+        # 原生腿无 bytes 类型，字节序列用整数列表表示；两参形态按 UTF-8 解码。
+        if name in ('字符串',):
+            if not args:
+                return self._create_str_dv(self.gen_string_constant("")), 'dv'
+            if len(args) >= 2:
+                enc_ptr = self.new_register()
+                self.emit(f'{enc_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                return self._call_dv_func('dv_decode_str', args[0], f'ptr {enc_ptr}'), 'dv'
+            return self._call_dv_func('dv_decode_str', args[0], 'ptr null'), 'dv'
+
+        # 副本(x) / 浅拷贝(x)：对齐 stdlib/内置核心列表.light:副本（新容器、值照搬）。
+        # 不复用 dv_clone —— 它的 DICT 分支共享 list_data，副本会与原字典互相污染。
+        if name in ('副本', '浅拷贝'):
+            if args:
+                return self._call_dv_func('dv_shallow_copy', args[0]), 'dv'
+            return self._call_dv_func('dv_null'), 'dv'
+
+        # 随机字节(n)：对齐 stdlib/builtins.py:随机字节（os.urandom）。
+        # 原生腿无 bytes 类型 → 返回 n 个 0..255 整数的列表（与 内置核心系统
+        # .light 随机UUID 的 `字节组[i]` 同口径）。熵源为 MT19937，非 CSPRNG，已登记。
+        if name in ('随机字节', 'random_bytes'):
+            if args:
+                n_i64 = self.new_register()
+                self.emit(f'{n_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                return self._call_dv_func('dv_random_bytes', f'i64 {n_i64}'), 'dv'
+            return self._call_dv_func('dv_list_new'), 'dv'
+
+        # 桶④：异步睡眠(秒) —— 转译腿映射 asyncio.sleep。原生腿没有事件循环，
+        # 落地为 dv_sleep（真睡 N 秒）；`等待 异步睡眠(x)` 的 AwaitExpression
+        # 在非协程内退化为直接求值，故整句可编可执行。语义差异已在能力边界登记。
+        if name in ('异步睡眠', '睡眠异步'):
+            if args:
+                dbl = self.new_register()
+                self.emit(f'{dbl} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 2')
+                self.emit(f'call void @dv_sleep(double {dbl})')
+            return self._create_int_dv('0'), 'dv'
+
         if name in ('输出', '打印'):
             if args:
                 slot = self._store_dv(args[0])
@@ -3648,9 +3790,23 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 _prev = self._current_module
                 self._current_module = obj_name
                 try:
-                    return self._gen_typed_segment_call(method_name, [
-                        self._gen_expression(a)[0] for a in expr.arguments
-                    ])
+                    # R117-B：与 _gen_typed_function_call 同口径处理关键字参数——
+                    # `json.dumps(记录, ensure_ascii=False)`（JSONL.light:57）走的
+                    # 正是这条「模块名.段落名」通路，此前对每个实参无差别
+                    # _gen_expression，KeywordArg 直接炸在表达式链尾。
+                    _m_args = []
+                    _m_kw = {}
+                    _m_plain = []
+                    for _a in expr.arguments:
+                        if hasattr(ast, 'KeywordArg') and isinstance(_a, ast.KeywordArg):
+                            _m_kw[_a.name] = self._gen_expression(_a.value)[0]
+                        else:
+                            _m_args.append(self._gen_expression(_a)[0])
+                            _m_plain.append(_a)
+                    if _m_kw:
+                        _m_args = self._merge_kwargs(method_name, _m_args, _m_kw)
+                        _m_plain = None
+                    return self._gen_typed_segment_call(method_name, _m_args, _m_plain)
                 finally:
                     self._current_module = _prev
 
@@ -3704,12 +3860,16 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         else:
             obj_slot = self._store_dv(obj_dv)
         method_name_reg = self.gen_string_constant(method_name)
-        
-        num_args = len(expr.arguments)
+
+        # R117-B：dv_call_method 通路也按「关键字参数重排后」的实参建数组——
+        # 上面 args_dv 已把 kw_values 折进位置参数，这里必须复用它而不是再对
+        # expr.arguments 逐个 _gen_expression（KeywordArg 会炸在表达式链尾，
+        # 且 num_args 会把关键字参数重复计数）。args_dv[0] 是接收者。
+        num_args = len(args_dv) - 1
         result_slot = self._new_dv_slot()
         num_args_i32 = self.new_register()
         self.emit(f'{num_args_i32} = add i32 0, {num_args}')
-        
+
         if num_args == 0:
             self.emit(f'call void @dv_call_method(ptr {result_slot}, ptr {obj_slot}, ptr {method_name_reg}, ptr null, i32 {num_args_i32})')
         else:
@@ -3717,13 +3877,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'{stack_save} = call ptr @llvm.stacksave()')
             args_array = self.new_register()
             self.emit(f'{args_array} = alloca {LIGHTVALUE_STRUCT}, i32 {num_args}')
-            
-            for i, arg in enumerate(expr.arguments):
-                arg_dv, _ = self._gen_expression(arg)
+
+            for i, arg_dv in enumerate(args_dv[1:]):
                 arg_elem_ptr = self.new_register()
                 self.emit(f'{arg_elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {args_array}, i32 {i}')
                 self.emit(f'store {LIGHTVALUE_STRUCT} {arg_dv}, ptr {arg_elem_ptr}')
-            
+
             self.emit(f'call void @dv_call_method(ptr {result_slot}, ptr {obj_slot}, ptr {method_name_reg}, ptr {args_array}, i32 {num_args_i32})')
             self.emit(f'call void @llvm.stackrestore(ptr {stack_save})')
         
@@ -4796,6 +4955,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     # 打开文件(路径, 模式, encoding)；sort/排序(列表, reverse)。
     _BUILTIN_KWARGS = {
         '打开文件': {'encoding': 2},
+        # R117-B 桶②：JSONL.light 写 open(路径, "r", encoding="utf-8")
+        'open': {'encoding': 2},
         'sort': {'reverse': 1},
         'list_sort': {'reverse': 1},
         '排序': {'reverse': 1},

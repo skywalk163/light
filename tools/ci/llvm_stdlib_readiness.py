@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
-"""stdlib 原生腿就绪度指标（R115 任务线 C 交付）。
+"""stdlib 原生腿就绪度指标（R115 首建，R117 改为多模块编译口径）。
 
 自举率（tools/ci/bootstrap_rate.py）衡量「多少 stdlib 用光明写成」；本脚本盯的是
 下一层：**这些带「纯光明实现」魔数的模块里，有多少能被原生腿（LLVM typed 后端）
-直接编译通过**。只编译（compile_source_typed），不链接、不 clang、不运行，快。
+按真实模块依赖直接编译通过**。编译走 `compile_light_typed` 多模块入口，产物只落临时目录，
+模块依赖会递归解析并经 clang 验证、链接。
 
 三桶口径（与 A 线能力矩阵同源）：
-  可编      —— compile_source_typed 正常返回 IR 文本；
+  可编      —— compile_light_typed 正常完成；
   明确拒绝  —— 抛 NotImplementedError（原生后端显式拒绝，含缺口类型名，如
                「原生后端暂不支持语句类型「MatchStatement」」）；
   其它错误  —— 其余一切：解析失败、导入失败、读不动、子进程超时/崩溃等。
@@ -14,9 +15,8 @@
 魔数识别**复用 bootstrap_rate._是纯光明**（首两行含「纯光明实现」，与
 stdlib/_light_import_hook.py::_is_pure_light 同口径），不自造。
 
-为什么编译必须走子进程：部分 stdlib 模块很大（如 拼音转换 2800+ 条字典设置），
-编译耗时不确定；且 compile 链路有内存累积。每模块一个子进程 + 默认 120s 超时，
-超时计「其它错误」桶，绝不拖死主进程。
+为什么编译必须走子进程：多模块入口会递归编译依赖并运行 clang，耗时与内存占用
+不确定。每模块一个子进程 + 默认 300s 超时，超时计「其它错误」桶，绝不拖死主进程。
 
 用法（在本仓 venv python 下）：
   .venv/Scripts/python.exe tools/ci/llvm_stdlib_readiness.py
@@ -26,7 +26,7 @@ stdlib/_light_import_hook.py::_is_pure_light 同口径），不自造。
       .gitignore 已有 !tools/ci/*_baseline.json 豁免）。
   ... llvm_stdlib_readiness.py --base tools/ci/llvm_stdlib_readiness_baseline.json
       与基线对比，产出「新增不可编模块」清单；非空则 rc=1（闸门语义：就绪度只许升）。
-  ... llvm_stdlib_readiness.py --sample 拼音转换 [--timeout 180]
+  ... llvm_stdlib_readiness.py --sample 拼音转换 [--timeout 300]
       单模块调试，打印完整报错（不截断），不写文件。
   ... llvm_stdlib_readiness.py --root <仓库根>
       默认取本文件上两级目录，一般不用动。
@@ -38,6 +38,7 @@ stdlib/_light_import_hook.py::_is_pure_light 同口径），不自造。
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import json
 import os
 import re
@@ -53,10 +54,11 @@ from bootstrap_rate import _是纯光明  # noqa: E402
 
 _DEFAULT_ROOT = os.path.dirname(os.path.dirname(_CI_DIR))
 _结果前缀 = "RESULT:"
+_编译入口 = "compile_light_typed(多模块)"
 
 # 每模块一个子进程：全新解释器防内存累积，进程退出即释放；stdout 只认 RESULT: 行。
 _CHILD = r'''
-import json, os, re, sys
+import json, os, re, sys, tempfile
 
 def main():
     root, light_path = sys.argv[1], sys.argv[2]
@@ -72,13 +74,18 @@ def main():
         emit({"bucket": "其它错误", "detail": "读不动 .light: %s" % e, "gap": "", "ir_len": 0})
         return 0
     try:
-        from llvm.compiler import compile_source_typed
+        from llvm.compiler import compile_light_typed
     except Exception as e:
         emit({"bucket": "其它错误", "detail": "导入编译器失败: %r" % (e,), "gap": "", "ir_len": 0})
         return 0
     try:
-        ir = compile_source_typed(src)
-        emit({"bucket": "可编", "detail": "", "gap": "", "ir_len": len(ir or "")})
+        with tempfile.TemporaryDirectory(prefix="llvm_readiness_") as tmpdir:
+            output_base = os.path.join(tmpdir, os.path.splitext(os.path.basename(light_path))[0])
+            compile_light_typed(light_path, output_path=output_base)
+            ll_path = output_base + ".ll"
+            with open(ll_path, encoding="utf-8", errors="replace") as fh:
+                ir_len = len(fh.read())
+        emit({"bucket": "可编", "detail": "", "gap": "", "ir_len": ir_len})
     except NotImplementedError as e:
         text = str(e)
         m = re.search(r"「(.+?)」", text)
@@ -146,24 +153,27 @@ def _short(path, root):
 
 
 def 扫全部(root, timeout, verbose=True):
-    """扫全部魔数模块并逐个编译，返回汇总 dict。"""
+    """扫全部魔数模块，最多 2 路并发编译，按模块名稳定汇总。"""
     modules = 扫魔数模块(root)
     if verbose:
         print("魔数模块总数：%d（口径：stdlib/ 下 .light 首两行含「纯光明实现」，"
               "复用 bootstrap_rate._是纯光明）" % len(modules))
+        print("编译入口：%s；最多 2 路并发" % _编译入口)
     buckets = {"可编": [], "明确拒绝": [], "其它错误": []}
     details = []
-    for i, (name, path) in enumerate(modules, 1):
-        r = _编一个(root, path, timeout)
-        buckets[r["bucket"]].append(name)
-        details.append({"模块": name, "路径": _short(path, root), **r})
-        if verbose:
-            mark = {"可编": "OK ", "明确拒绝": "拒 ", "其它错误": "ERR"}[r["bucket"]]
-            extra = (" 缺口=%s" % r["gap"]) if r.get("gap") else ""
-            print("  [%2d/%d] %s %s%s" % (i, len(modules), mark, name, extra))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        results = pool.map(lambda item: _编一个(root, item[1], timeout), modules)
+        for i, ((name, path), r) in enumerate(zip(modules, results), 1):
+            buckets[r["bucket"]].append(name)
+            details.append({"模块": name, "路径": _short(path, root), **r})
+            if verbose:
+                mark = {"可编": "OK ", "明确拒绝": "拒 ", "其它错误": "ERR"}[r["bucket"]]
+                extra = (" 缺口=%s" % r["gap"]) if r.get("gap") else ""
+                print("  [%2d/%d] %s %s%s" % (i, len(modules), mark, name, extra))
     total = len(modules)
     ready = len(buckets["可编"])
     return {
+        "compile_entry": _编译入口,
         "total": total,
         "ready": ready,
         "rejected": len(buckets["明确拒绝"]),
@@ -212,12 +222,13 @@ def _写_json(path, data):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="stdlib 原生腿就绪度指标（R115 线 C）")
+    ap = argparse.ArgumentParser(description="stdlib 原生腿就绪度指标（多模块编译口径）")
     ap.add_argument("--root", default=_DEFAULT_ROOT, help="仓库根（默认本脚本上两级）")
     ap.add_argument("--json", metavar="PATH", help="把机器可读结果写到 PATH")
     ap.add_argument("--base", metavar="PATH", help="与基线 JSON 对比，产出新增不可编清单")
     ap.add_argument("--sample", metavar="模块名", help="只编译指定模块（调试用，打印完整报错）")
-    ap.add_argument("--timeout", type=float, default=120, help="单模块编译超时秒数（默认 120）")
+    ap.add_argument("--timeout", type=float, default=300,
+                    help="单模块编译超时秒数（默认 300；多模块路径含依赖递归与 clang，较慢）")
     args = ap.parse_args(argv)
     root = os.path.abspath(args.root)
 
@@ -227,8 +238,8 @@ def main(argv=None):
             print("找不到魔数模块「%s」（注意：无魔数或不在 stdlib/ 下都算找不到）" % args.sample)
             return 2
         r = _编一个(root, modules[args.sample], args.timeout)
-        print("模块：%s\n桶：%s\nIR 长度：%s\n详情：%s" % (
-            args.sample, r["bucket"], r.get("ir_len") or "-", r["detail"] or "（无）"))
+        print("模块：%s\n编译入口：%s\n桶：%s\nIR 长度：%s\n详情：%s" % (
+            args.sample, _编译入口, r["bucket"], r.get("ir_len") or "-", r["detail"] or "（无）"))
         return 0
 
     result = 扫全部(root, args.timeout)
@@ -236,10 +247,12 @@ def main(argv=None):
 
     if args.json:
         data = {
-            "version": 1,
-            "note": "stdlib 原生腿就绪度基线（R115 线 C 建）。就绪度 = 可编/魔数模块总数；"
-                    "可编名单只许增不许减——对 --base 跑出「新增不可编」即 rc=1。口径见 "
-                    "tools/ci/llvm_stdlib_readiness.py docstring。built_from_commit 是生成基线时的 HEAD。",
+            "version": 2,
+            "note": "stdlib 原生腿就绪度基线（R117 于 2026-10-06 改为多模块编译口径）。"
+                    "就绪度 = 可编/魔数模块总数；可编名单只许增不许减——对 --base 跑出"
+                    "「新增不可编」即 rc=1。compile_entry 记录测量入口；built_from_commit 是"
+                    "生成基线时的 HEAD。",
+            "compile_entry": result["compile_entry"],
             "built_from_commit": _built_from_commit(root),
             "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
             "timeout_per_module_sec": args.timeout,

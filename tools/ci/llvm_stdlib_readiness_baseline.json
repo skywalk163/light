@@ -1,17 +1,19 @@
 {
-  "version": 1,
-  "note": "stdlib 原生腿就绪度基线（R115 线 C 建）。就绪度 = 可编/魔数模块总数；可编名单只许增不许减——对 --base 跑出「新增不可编」即 rc=1。口径见 tools/ci/llvm_stdlib_readiness.py docstring。built_from_commit 是生成基线时的 HEAD。",
-  "built_from_commit": "cf477d12d",
-  "generated_at": "2026-10-05T08:02:06",
-  "timeout_per_module_sec": 120,
+  "version": 2,
+  "note": "stdlib 原生腿就绪度基线（R117 于 2026-10-06 改为多模块编译口径）。就绪度 = 可编/魔数模块总数；可编名单只许增不许减——对 --base 跑出「新增不可编」即 rc=1。compile_entry 记录测量入口；built_from_commit 是生成基线时的 HEAD。",
+  "compile_entry": "compile_light_typed(多模块)",
+  "built_from_commit": "910b6a0cd",
+  "generated_at": "2026-10-06T01:58:19",
+  "timeout_per_module_sec": 300.0,
   "total": 73,
-  "ready": 46,
-  "rejected": 27,
-  "other": 0,
-  "rate": 0.6301369863013698,
+  "ready": 58,
+  "rejected": 2,
+  "other": 13,
+  "rate": 0.7945205479452054,
   "buckets": {
     "可编": [
       "Base64",
+      "JSON",
       "JSON核心",
       "JSON编解码",
       "inspect",
@@ -19,12 +21,16 @@
       "sys",
       "time",
       "uuid工具",
+      "中国传统节日",
       "中国行政区划",
       "中文分词",
       "中文数字转换",
       "中文文本处理",
       "中文编码",
+      "内置核心判型",
+      "内置核心字典",
       "内置核心字符串",
+      "内置核心系统",
       "内置核心路径",
       "内置核心转换",
       "农历",
@@ -34,60 +40,56 @@
       "哈希",
       "图像处理基础",
       "复数",
+      "字符串工具",
+      "字符串工具轻量",
       "字符串常量",
       "度量",
       "手机号校验",
       "拼音转换",
       "排序",
       "操作系统",
+      "数学",
       "数学统计",
       "数据结构",
       "数据结构轻量",
+      "数据验证",
       "文件流",
+      "文件系统",
       "断言工具轻量",
       "日期时间轻量",
+      "格式化",
       "模式校验",
       "模板",
+      "正则表达式",
       "统计",
       "缓存",
       "编码",
       "编码解码",
       "路径运算",
       "进度条",
-      "重试",
       "颜色",
+      "颜色处理",
       "高级文件"
     ],
     "明确拒绝": [
-      "HTTP服务端",
-      "JSON",
-      "JSONL",
-      "中国传统节日",
-      "主控",
       "事件总线",
+      "内置核心列表"
+    ],
+    "其它错误": [
+      "HTTP服务端",
+      "JSONL",
+      "主控",
       "代理工具集",
       "代理循环",
-      "内置核心列表",
-      "内置核心判型",
-      "内置核心字典",
-      "内置核心系统",
       "大模型客户端",
-      "字符串工具",
-      "字符串工具轻量",
       "并发",
-      "数学",
-      "数据验证",
-      "文件系统",
-      "格式化",
-      "正则表达式",
       "流式",
       "节点",
       "节点核心",
       "调度核心",
       "选择器",
-      "颜色处理"
-    ],
-    "其它错误": []
+      "重试"
+    ]
   },
   "details": [
     {
@@ -101,25 +103,25 @@
     {
       "模块": "HTTP服务端",
       "路径": "stdlib/HTTP服务端.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：处理器（源码行 未知（适配层未保留行号））。本模块已定义：发送字节, 取头, 处理循环, 处理连接, 异常文本, 异步接受, 收字节, 新建连接, 构造响应字节, 状态文本 等共 18 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "处理器",
+      "bucket": "其它错误",
+      "detail": "NativeImportError: 'HTTP服务端' 导入了 Python 生态/标准库模块 'socket'，原生腿无法编译：原生运行时是纯 C（src/llvm/runtime_typed.c，不嵌 CPython），没有 Python 互操作，也没有可链接的 Python 符号。",
+      "gap": "",
       "ir_len": 0
     },
     {
       "模块": "JSON",
       "路径": "stdlib/JSON.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：解析（源码行 未知（适配层未保留行号））。本模块已定义：JSONSchema验证, JSON合并, JSON提取值, JSON深合并, JSON转Python, Python转JSON, 写入JSON文件, 含键, 序列化JSON, 生成JSON 等共 14 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "解析",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 653415
     },
     {
       "模块": "JSONL",
       "路径": "stdlib/JSONL.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：open（源码行 未知（适配层未保留行号））。本模块已定义：写JSONL文件, 读JSONL文件, 逐行读JSONL。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "open",
+      "bucket": "其它错误",
+      "detail": "RuntimeError: LLVM IR 验证失败（clang -x ir）:",
+      "gap": "",
       "ir_len": 0
     },
     {
@@ -176,15 +178,15 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 235198
+      "ir_len": 267505
     },
     {
       "模块": "中国传统节日",
       "路径": "stdlib/中国传统节日.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：取春节日期（源码行 未知（适配层未保留行号））。本模块已定义：判断节日, 字符转数字, 按日期排序, 日期字符串转儒略日, 日期转字符串, 是公历闰年, 清明日期, 节日倒计时, 获取月份节日, 获取节日列表 等共 12 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "取春节日期",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 4145953
     },
     {
       "模块": "中国行政区划",
@@ -229,33 +231,33 @@
     {
       "模块": "主控",
       "路径": "stdlib/分布式/主控.light",
-      "bucket": "明确拒绝",
-      "detail": "原生后端暂不支持语句类型「RunAsyncStmt」（源码行 未知（适配层未保留行号））：原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "RunAsyncStmt",
+      "bucket": "其它错误",
+      "detail": "NativeImportError: 模块 '节点网络' 在原生腿不可用：解析到的是 Python 文件 'G:\\dswork\\duan-light-merge\\light-merge\\stdlib\\分布式\\节点网络.py'。原生腿不加载 .py；请在纯光明 (.light) 中实现 '节点网络' 后再导入。",
+      "gap": "",
       "ir_len": 0
     },
     {
       "模块": "事件总线",
       "路径": "stdlib/事件总线.light",
       "bucket": "明确拒绝",
-      "detail": "未定义的段落：处理器（源码行 未知（适配层未保留行号））。本模块已定义：（本模块未定义任何段落）。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
+      "detail": "未定义的段落：处理器（源码行 未知（适配层未保留行号））。本模块已定义：argv, exit, getmembers, hexversion, isclass, isfunction, maxsize, platform, signature, stderr 等共 13 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
       "gap": "处理器",
       "ir_len": 0
     },
     {
       "模块": "代理工具集",
       "路径": "stdlib/代理工具集.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：是视窗（源码行 未知（适配层未保留行号））。本模块已定义：_列目录摘要, _匹配过滤, _构建敏感拒绝, 尝试解码, 探测编码, 是二进制, 构建写入模式, 构建列目录模式, 构建命令模式, 构建搜索模式 等共 14 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "是视窗",
+      "bucket": "其它错误",
+      "detail": "NativeImportError: '代理工具集' 导入了 Python 生态/标准库模块 'locale'，原生腿无法编译：原生运行时是纯 C（src/llvm/runtime_typed.c，不嵌 CPython），没有 Python 互操作，也没有可链接的 Python 符号。",
+      "gap": "",
       "ir_len": 0
     },
     {
       "模块": "代理循环",
       "路径": "stdlib/代理循环.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：类型是字符串（源码行 未知（适配层未保留行号））。本模块已定义：（本模块未定义任何段落）。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "类型是字符串",
+      "bucket": "其它错误",
+      "detail": "NativeImportError: '代理循环' 导入了 Python 生态/标准库模块 'threading'，原生腿无法编译：原生运行时是纯 C（src/llvm/runtime_typed.c，不嵌 CPython），没有 Python 互操作，也没有可链接的 Python 符号。",
+      "gap": "",
       "ir_len": 0
     },
     {
@@ -269,18 +271,18 @@
     {
       "模块": "内置核心判型",
       "路径": "stdlib/内置核心判型.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：callable（源码行 未知（适配层未保留行号））。本模块已定义：字符串全数字, 是函数, 是列表, 是字典, 是字母, 是字符串, 是字节, 是布尔, 是数值, 是数字 等共 15 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "callable",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 64739
     },
     {
       "模块": "内置核心字典",
       "路径": "stdlib/内置核心字典.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：副本（源码行 未知（适配层未保留行号））。本模块已定义：字典值列表, 字典创建, 字典删除, 字典包含键, 字典合并, 字典弹出默认, 字典获取, 字典设置, 字典键列表, 字典项列表。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "副本",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 50628
     },
     {
       "模块": "内置核心字符串",
@@ -288,15 +290,15 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 83526
+      "ir_len": 83136
     },
     {
       "模块": "内置核心系统",
       "路径": "stdlib/内置核心系统.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：随机字节（源码行 未知（适配层未保留行号））。本模块已定义：主目录, 随机UUID。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "随机字节",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 48310
     },
     {
       "模块": "内置核心路径",
@@ -312,7 +314,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 48938
+      "ir_len": 48682
     },
     {
       "模块": "农历",
@@ -336,7 +338,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 281740
+      "ir_len": 3885769
     },
     {
       "模块": "向量",
@@ -373,26 +375,26 @@
     {
       "模块": "大模型客户端",
       "路径": "stdlib/大模型客户端.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：字符串（源码行 未知（适配层未保留行号））。本模块已定义：取异步流式, 流式对话。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "字符串",
+      "bucket": "其它错误",
+      "detail": "NativeImportError: '大模型客户端' 导入了 Python 生态/标准库模块 'os'，原生腿无法编译：原生运行时是纯 C（src/llvm/runtime_typed.c，不嵌 CPython），没有 Python 互操作，也没有可链接的 Python 符号。",
+      "gap": "",
       "ir_len": 0
     },
     {
       "模块": "字符串工具",
       "路径": "stdlib/字符串工具.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：提取单词（源码行 未知（适配层未保留行号））。本模块已定义：ASCII转Unicode, Base64编码, Base64解码, GBK转UTF8, HTML编码, HTML解码, MD5哈希, SHA256哈希, URL编码, URL解码 等共 90 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "提取单词",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 3609915
     },
     {
       "模块": "字符串工具轻量",
       "路径": "stdlib/字符串工具轻量.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：属性错误（源码行 未知（适配层未保留行号））。本模块已定义：以子串开头, 以子串结尾, 分割字符串, 包含子串, 去除HTML标签, 去除右侧空白, 去除左侧空白, 去除首尾空白, 反转字符串, 右填充 等共 28 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "属性错误",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 1879149
     },
     {
       "模块": "字符串常量",
@@ -405,9 +407,9 @@
     {
       "模块": "并发",
       "路径": "stdlib/并发.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：异步睡眠（源码行 未知（适配层未保留行号））。本模块已定义：任务池, 信号量获取, 信号量释放, 先到先得, 全或无等待, 吞异常等待, 带限流, 带限流收集异常, 异步信号量, 等待令牌 等共 12 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "异步睡眠",
+      "bucket": "其它错误",
+      "detail": "NativeImportError: '并发' 导入了 Python 生态/标准库模块 'asyncio'，原生腿无法编译：原生运行时是纯 C（src/llvm/runtime_typed.c，不嵌 CPython），没有 Python 互操作，也没有可链接的 Python 符号。",
+      "gap": "",
       "ir_len": 0
     },
     {
@@ -416,7 +418,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 142451
+      "ir_len": 1822548
     },
     {
       "模块": "手机号校验",
@@ -453,10 +455,10 @@
     {
       "模块": "数学",
       "路径": "stdlib/数学.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：随机0到1（源码行 未知（适配层未保留行号））。本模块已定义：ceil, cos, floor, pow, random, round, sin, sqrt, tan, 余弦 等共 51 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "随机0到1",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 696274
     },
     {
       "模块": "数学统计",
@@ -472,7 +474,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 614201
+      "ir_len": 610663
     },
     {
       "模块": "数据结构轻量",
@@ -485,10 +487,10 @@
     {
       "模块": "数据验证",
       "路径": "stdlib/数据验证.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：验证邮箱（源码行 未知（适配层未保留行号））。本模块已定义：创建数据模式, 创建验证结果, 合并错误, 字段名或, 字符串为空或空白, 应用规则, 抛出异常, 是否有效, 模式验证, 添加警告 等共 25 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "验证邮箱",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 3978900
     },
     {
       "模块": "文件流",
@@ -501,10 +503,10 @@
     {
       "模块": "文件系统",
       "路径": "stdlib/文件系统.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：行列表（源码行 未知（适配层未保留行号））。本模块已定义：写入文件, 创建临时文件, 创建目录, 删除临时文件, 删除文件, 删除目录, 文件列表, 文件大小, 文件存在, 文件行列表 等共 18 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "行列表",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 104158
     },
     {
       "模块": "断言工具轻量",
@@ -520,15 +522,15 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 75886
+      "ir_len": 126371
     },
     {
       "模块": "格式化",
       "路径": "stdlib/格式化.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：re_替换（源码行 未知（适配层未保留行号））。本模块已定义：_全空白, _前导空白, _是空白, _格_表格行, _较大, _较小, 文本分隔线, 文本去除空白, 文本去除缩进, 文本右对齐 等共 19 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "re_替换",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 1962186
     },
     {
       "模块": "模式校验",
@@ -536,7 +538,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 327084
+      "ir_len": 2007334
     },
     {
       "模块": "模板",
@@ -549,17 +551,17 @@
     {
       "模块": "正则表达式",
       "路径": "stdlib/正则表达式.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：re_编译（源码行 未知（适配层未保留行号））。本模块已定义：全部匹配, 分割, 分组匹配, 匹配, 匹配多行, 匹配开头, 匹配迭代, 去除HTML标签, 去除空白字符, 去除首尾空白 等共 44 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "re_编译",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 1933035
     },
     {
       "模块": "流式",
       "路径": "stdlib/流式.light",
-      "bucket": "明确拒绝",
-      "detail": "原生后端暂不支持表达式「KeywordArg」（源码行 未知（适配层未保留行号））：原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "KeywordArg",
+      "bucket": "其它错误",
+      "detail": "NativeImportError: '流式' 导入了 Python 生态/标准库模块 'socket'，原生腿无法编译：原生运行时是纯 C（src/llvm/runtime_typed.c，不嵌 CPython），没有 Python 互操作，也没有可链接的 Python 符号。",
+      "gap": "",
       "ir_len": 0
     },
     {
@@ -592,30 +594,30 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 579436
+      "ir_len": 661300
     },
     {
       "模块": "节点",
       "路径": "stdlib/分布式/节点.light",
-      "bucket": "明确拒绝",
-      "detail": "原生后端暂不支持语句类型「RunAsyncStmt」（源码行 未知（适配层未保留行号））：原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "RunAsyncStmt",
+      "bucket": "其它错误",
+      "detail": "NativeImportError: 模块 '节点网络' 在原生腿不可用：解析到的是 Python 文件 'G:\\dswork\\duan-light-merge\\light-merge\\stdlib\\分布式\\节点网络.py'。原生腿不加载 .py；请在纯光明 (.light) 中实现 '节点网络' 后再导入。",
+      "gap": "",
       "ir_len": 0
     },
     {
       "模块": "节点核心",
       "路径": "stdlib/分布式/节点核心.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：生成节点ID（源码行 未知（适配层未保留行号））。本模块已定义：主, 去掉项。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "生成节点ID",
+      "bucket": "其它错误",
+      "detail": "NativeImportError: 模块 '节点网络' 在原生腿不可用：解析到的是 Python 文件 'G:\\dswork\\duan-light-merge\\light-merge\\stdlib\\分布式\\节点网络.py'。原生腿不加载 .py；请在纯光明 (.light) 中实现 '节点网络' 后再导入。",
+      "gap": "",
       "ir_len": 0
     },
     {
       "模块": "调度核心",
       "路径": "stdlib/分布式/调度核心.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：读文本（源码行 未知（适配层未保留行号））。本模块已定义：主, 主控处理器。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "读文本",
+      "bucket": "其它错误",
+      "detail": "NativeImportError: 模块 '节点网络' 在原生腿不可用：解析到的是 Python 文件 'G:\\dswork\\duan-light-merge\\light-merge\\stdlib\\分布式\\节点网络.py'。原生腿不加载 .py；请在纯光明 (.light) 中实现 '节点网络' 后再导入。",
+      "gap": "",
       "ir_len": 0
     },
     {
@@ -637,18 +639,18 @@
     {
       "模块": "选择器",
       "路径": "stdlib/选择器.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：getattr（源码行 未知（适配层未保留行号））。本模块已定义：事件掩码, 关闭选择器, 探测就绪, 新建选择器, 是socket对象, 是否EAGAIN, 是否可恢复接受错误, 是否愿等写, 是否愿等读, 注册 等共 14 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "getattr",
+      "bucket": "其它错误",
+      "detail": "NativeImportError: '选择器' 导入了 Python 生态/标准库模块 'selectors'，原生腿无法编译：原生运行时是纯 C（src/llvm/runtime_typed.c，不嵌 CPython），没有 Python 互操作，也没有可链接的 Python 符号。",
+      "gap": "",
       "ir_len": 0
     },
     {
       "模块": "重试",
       "路径": "stdlib/重试.light",
-      "bucket": "可编",
-      "detail": "",
+      "bucket": "其它错误",
+      "detail": "NativeImportError: '重试' 导入了 Python 生态/标准库模块 'asyncio'，原生腿无法编译：原生运行时是纯 C（src/llvm/runtime_typed.c，不嵌 CPython），没有 Python 互操作，也没有可链接的 Python 符号。",
       "gap": "",
-      "ir_len": 36977
+      "ir_len": 0
     },
     {
       "模块": "颜色",
@@ -661,10 +663,10 @@
     {
       "模块": "颜色处理",
       "路径": "stdlib/颜色处理.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：随机整数（源码行 未知（适配层未保留行号））。本模块已定义：CMYK转RGB, HSL转RGB, HSV转RGB, RGB转CMYK, RGB转HSL, RGB转HSV, RGB转十六进制, _hex单值, _下取模, _四舍五入 等共 23 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "随机整数",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 711740
     },
     {
       "模块": "高级文件",
