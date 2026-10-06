@@ -52,9 +52,9 @@ jobs:
           python -m pip install mkdocs-git-revision-date-localized-plugin
           python -m pip install pymdown-extensions
 
-      - name: 生成 API 参考文档
-        run: |
-          python docs/gen_api_docs.py
+      # 说明：不再运行 docs/gen_api_docs.py——它会把手工维护的 docs/api/index.md
+      # （含版本头与 109 模块说明）整体覆盖成 3 行自动模板，导致线上 API 页与仓库版
+      # 内容/版本不一致。docs/api/ 已随仓库提交，直接用仓库版本构建。
 
       - name: 构建站点
         run: |

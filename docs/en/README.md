@@ -19,7 +19,7 @@
 - 🔧 **Rich standard library**: **109 `.light` modules** covering math / statistics / strings / lists / sets / data structures / filesystem / datetime / Chinese lunar calendar / encoding (Base64/JSON/XML/CSV) / hashing (MD5/SHA1–512/HMAC) / crypto / networking (HTTPS / HTTP server / DNS / SSE) / LLM client / Agent loop / system / process / threads / concurrency / event bus / testing / assertions / caching / progress bar / logging / config / argument parsing / templating / Chinese text processing (tokenization / pinyin / number conversion / NLP) / ID-card & phone validation / uuid / regex / FFI / image processing. Native-leg capability totals **711 items** (411 builtin + 262 runtime); see the module quick-reference in [docs/stdlib.md](docs/stdlib.md)
 - 🔗 **C FFI binding**: call C dynamic libraries, with enums / unions / variadic args / callbacks / bitfields / function pointers
 - 🏗️ **v4.0 five-layer syntax**: the 30 L0 core keywords stay frozen; L1 vernacular (teenagers) + L2 literary (commercial) dual track; L3 domain embedding (SQL / regex / math); L4 foreign-language references (Python/C/Go/MoonBit); zero-breaking compatibility with v3.3
-- 📊 **Current status (2026-09-07)**: after the v7.0 two-track merge, continuous iteration; R10–R13 four batches of native-leg coverage plus codegen defect root-cause fixes are complete; both CI red-light groups (ci_eval smoke 6 blocks + pytest 16 failed) are fully fixed. See [CHANGELOG.md](CHANGELOG.md)
+- 📊 **Current status (2026-10-03)**: **v0.4.0 released** (version numbers unified, line re-based after the v7.0 two-track merge); R10–R13 native-leg coverage and codegen root-cause fixes complete, CI fully green. See [CHANGELOG.md](CHANGELOG.md)
 
 ---
 

@@ -13,10 +13,10 @@ VERSION_MINOR = 4
 VERSION_PATCH = 0
 
 # 版本名称
-VERSION_NAME = "v0.4 国庆发布候选版（rc2）"
+VERSION_NAME = "v0.4 国庆发布版"
 
 # 发布日期
-RELEASE_DATE = "2026-10-02"
+RELEASE_DATE = "2026-10-03"
 
 # 版本阶段: dev / alpha / beta / rc / stable
 RELEASE_STAGE = "stable"

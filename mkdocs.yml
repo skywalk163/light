@@ -1,4 +1,4 @@
-site_name: 光明 (LightLang) v7.0
+site_name: 光明 (Light) v0.4.0
 site_description: 光明编程语言 - 中文编程语言的全新可能
 site_author: LightLang Team
 repo_url: https://github.com/skywalk163/light
@@ -72,7 +72,7 @@ nav:
   - 首页: index.md
   - 快速开始: getting-started.md
   - 用户手册: user_guide.md
-  - 发布说明: release_notes_v6.0.md
+  - 发布说明: archive/release_notes_v6.0.md
   - 已知问题: known_issues.md
   - 快速入门:
     - 快速开始: guide/getting-started.md
@@ -140,7 +140,7 @@ nav:
     - LLVM 后端: llvm_backend_design.md
     - 性能优化: PERFORMANCE_OPTIMIZATION.md
     - 优化分析: OPTIMIZATION_ANALYSIS.md
-    - 项目计划: 三个月工作计划_2026Q3Q4.md
+    - 项目计划: archive/三个月工作计划_2026Q3Q4.md
     - 进度报告: PROGRESS_REPORT.md
   - 生态:
     - 教学资源: ecosystem/教学资源.md
@@ -161,10 +161,10 @@ nav:
     - 版本日志: https://github.com/skywalk163/light/blob/main/CHANGELOG.md
     - 语言扩展历史: LANGUAGE_EXTENSIONS.md
     - 语法变更:
-      - v3.1: 统一语法规范_v3.1.md
-      - v3.2: 统一语法规范_v3.2.md
-      - v3.4: 语法变更_v3.4.md
-      - v3.5: 语法变更_v3.5.md
+      - v3.1: archive/统一语法规范_v3.1.md
+      - v3.2: archive/统一语法规范_v3.2.md
+      - v3.4: archive/语法变更_v3.4.md
+      - v3.5: archive/语法变更_v3.5.md
     - 最终总结: FINAL_SUMMARY.md
   - 贡献指南: contributing.md
 

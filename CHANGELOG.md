@@ -12,6 +12,7 @@
 > 已把四处版本串归位到 rc2；同时 `release_preflight.py` 的锚点改为读本地最新 `v*` tag（按创建时间倒序），
 > 以后每个 rc 不再需要手改脚本。
 > 正式 `0.4.0` 槽位保留给稳定版。
+> **2026-10-03 更新**：`v0.4.0` 正式版已发布（tag `v0.4.0`），`pyproject.toml` 与 `vscode-extension/package.json` 均已归位正式号 `0.4.0`；`dist/` 内旧 `lightgm-0.4.0rc2` 产物为历史遗留。
 
 ### 变更
 - 版本号单一真源 `src/version.py` 由 `7.0.0` 升到 `0.4.0`（major/minor/patch = 0/4/0）

@@ -8,7 +8,8 @@ const { exec } = require('child_process');
 // 欢迎页 / 首次运行
 // =============================================================================
 
-const EXTENSION_VERSION = '7.0.0';
+// 版本号与 package.json 保持同步（release_preflight 手工同步点之一）
+const EXTENSION_VERSION = '0.4.0';
 const WELCOME_SHOWN_KEY = 'light.welcomeShown';
 
 function showWelcomePage(context) {

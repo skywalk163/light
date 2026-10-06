@@ -1,6 +1,6 @@
 # Syntax Reference
 
-> **Version:** v7.0
+> **Version:** v0.4.0
 > **Last updated:** 2026-08-07
 
 ---

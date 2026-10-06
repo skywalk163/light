@@ -1,6 +1,6 @@
 # Package Manager Guide
 
-> **Version:** v7.0
+> **Version:** v0.4.0
 > **Last updated:** 2026-08-07
 
 Light's package manager, **duanpub**, allows you to publish, discover, and install reusable packages (called "段件" / lightjian).

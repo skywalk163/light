@@ -215,7 +215,7 @@
                 },
                 "light.version": {
                     "type": "string",
-                    "default": "7.0.0",
+                    "default": "0.4.0",
                     "readOnly": true,
                     "description": "光明扩展版本号"
                 }
