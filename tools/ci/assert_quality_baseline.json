@@ -1,7 +1,7 @@
 {
   "version": 2,
   "note": "假测试门禁基线快照：本仓库当前的既有违规。新增即红；修好一批后重新生成并提交本文件。built_from_commit 是**生成基线时的 HEAD**，也就是携带本基线那个提交的父提交；若它在当前分支上不可达，说明基线是从被改写/丢弃的提交上生成的，必须重新生成。",
-  "built_from_commit": "02e96a7a3802",
+  "built_from_commit": "6e49355597a9",
   "scanned_root": ".",
   "categories": {
     "string-assert": "字符串断言式",
@@ -2709,21 +2709,87 @@
     },
     {
       "file": "tests/unit/test_llvm_builtin_gaps.py",
-      "line": 113,
+      "line": 116,
       "cat": "lower-bound",
       "text": "assert len(ir) > 1000, f'{名称}：IR 短得不像真产物（{len(ir)} 字符）'"
     },
     {
       "file": "tests/unit/test_llvm_builtin_gaps.py",
-      "line": 120,
+      "line": 123,
       "cat": "string-assert",
       "text": "assert 'dv_class_new_named' in ir, '属性错误 没走异常类构造通路'"
     },
     {
       "file": "tests/unit/test_llvm_builtin_gaps.py",
-      "line": 378,
+      "line": 145,
+      "cat": "lower-bound",
+      "text": "assert len(ir) > 1000, f'函数值调用 IR 短得不像真产物（{len(ir)} 字符）'"
+    },
+    {
+      "file": "tests/unit/test_llvm_builtin_gaps.py",
+      "line": 160,
+      "cat": "lower-bound",
+      "text": "assert len(ir) > 1000, f'异步运行 IR 短得不像真产物（{len(ir)} 字符）'"
+    },
+    {
+      "file": "tests/unit/test_llvm_builtin_gaps.py",
+      "line": 162,
+      "cat": "string-assert",
+      "text": "assert 'dv_coro_run_to_completion' in ir, \\"
+    },
+    {
+      "file": "tests/unit/test_llvm_builtin_gaps.py",
+      "line": 388,
       "cat": "lower-bound",
       "text": "assert len(_编译用例) >= 12, '桶②/桶④ 的 IR 用例被删了'"
+    },
+    {
+      "file": "tests/unit/test_llvm_first_class_fn.py",
+      "line": 118,
+      "cat": "lower-bound",
+      "text": "assert len(ir) > 1000, f'函数值调用 IR 短得不像真产物（{len(ir)} 字符）'"
+    },
+    {
+      "file": "tests/unit/test_llvm_first_class_fn.py",
+      "line": 136,
+      "cat": "lower-bound",
+      "text": "assert len(ir) > 1000, f'issubclass/hasattr IR 短得不像真产物（{len(ir)} 字符）'"
+    },
+    {
+      "file": "tests/unit/test_llvm_first_class_fn.py",
+      "line": 138,
+      "cat": "string-assert",
+      "text": "assert 'dv_is_sub_class_from_value' in ir, 'IR 没调用 dv_is_sub_class_from_value'"
+    },
+    {
+      "file": "tests/unit/test_llvm_first_class_fn.py",
+      "line": 139,
+      "cat": "string-assert",
+      "text": "assert 'dv_has_attr' in ir, 'IR 没调用 dv_has_attr'"
+    },
+    {
+      "file": "tests/unit/test_llvm_function_predicate.py",
+      "line": 56,
+      "cat": "lower-bound",
+      "text": "assert len(ir) > 1000, f'IR 短得不像真产物（{len(ir)} 字符）'"
+    },
+    {
+      "file": "tests/unit/test_llvm_function_predicate.py",
+      "line": 62,
+      "cat": "string-assert",
+      "text": "assert 'dv_is_function' in ir, '是函数 分支没生成 dv_is_function 调用'"
+    },
+    {
+      "file": "tests/unit/test_llvm_function_predicate.py",
+      "line": 67,
+      "cat": "lower-bound",
+      "text": "assert len(ir) > 1000, f'IR 短得不像真产物（{len(ir)} 字符）'"
+    },
+    {
+      "file": "tests/unit/test_llvm_function_predicate.py",
+      "line": 73,
+      "cat": "string-assert",
+      "text": "assert 'dv_coro_run_to_completion' in ir, '异步运行 分支没生成 dv_coro_run_to_completion 调用'"
     },
     {
       "file": "tests/unit/test_llvm_match_with_destructure.py",
