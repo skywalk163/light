@@ -8007,6 +8007,21 @@ int dv_is_callable(LightValue* v) {
     return 0;
 }
 
+/* 是函数(值) —— 对齐 stdlib/builtins.py:是函数（但与英文 callable 语义不同）。
+ *
+ * 中文「是函数」在原生腿判定的是 value 是否为**函数类型**（LightValue.type ==
+ * LV_TYPE_FUNCTION == 25），即 R118-A 引入的一等函数值（段名封成的 LV_TYPE_FUNCTION）。
+ * 这与英文 `callable`（dv_is_callable，仅对注册了 `__调用__` dunder 的对象为真）是
+ * 两条不同的判型通路：原生腿「是函数」只认一等函数值，不认「可调用对象」。
+ * 差异已在 docs/原生腿能力边界.md §11.2 登记。
+ * 反例（非函数值）返回 0（假），不抛异常——与 Python `callable` 同口径。
+ */
+int dv_is_function(LightValue* v) {
+    if (!v) return 0;
+    v = dv_deref(v);
+    return (v->type == LV_TYPE_FUNCTION) ? 1 : 0;
+}
+
 /* issubclass(子类, 父类) —— 对齐 Python issubclass（stdlib/builtins.py 语义）。
  *
  * 两个入参都是类名字符串；沿 super_name 继承链上溯判定 子类 是否为 父类 的

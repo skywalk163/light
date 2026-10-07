@@ -14,8 +14,9 @@
     原生腿新增 `LV_TYPE_FUNCTION=25` + `dv_call_value` + `dv_throw_not_callable`，
     变量持有段后可正确分派（IR 级编译见本文件 `test_函数值调用现已落地_变量持有段后可编译`，
     真跑 + 反例见 `tests/unit/test_llvm_first_class_fn.py`）。桶⑤ `RunAsyncStmt`
-    **本轮砍线**——原生腿没有顶层异步运行设施，硬写就是空壳，用「必须响亮报错」钉住，
-    与 `docs/原生腿能力边界.md` §1.4 的登记互指。
+    **R119-A 已落地**——runtime 协程调度器（dv_coro_run_to_completion 等）在 R10-11b
+    已就绪，L1/L2/L3 三处补齐即转正，无需新建异步运行时；与 `docs/原生腿能力边界.md`
+    §1.4 的「R119-A 已落地」互指。
 
 ⚠️ 语义差异（不许静默降级，全部登记在 `docs/原生腿能力边界.md` §11.2）：
   * `callable`：原生腿无一等函数值，只有「对象注册了中文 dunder `__调用__`」为真，
@@ -145,16 +146,21 @@ def test_函数值调用现已落地_变量持有段后可编译():
     assert '<unknown' not in ir, '函数值调用 IR 里残留了 <unknown 伪装'
 
 
-def test_RunAsyncStmt必须拒绝并报出类型名():
-    """桶⑤：`异步 运行 f()。` 必须报「暂不支持语句类型 RunAsyncStmt」（R116-A 已砍线）。"""
+def test_RunAsyncStmt现已落地_异步运行可编译():
+    """桶⑤（R119-A 转正）：`异步 运行 f()。` 现在原生腿可编译（不再报
+    「暂不支持语句类型 RunAsyncStmt」）。runtime 协程调度器 dv_coro_run_to_completion
+    已就绪，无需新建异步运行时。与 docs/原生腿能力边界.md §1.4 的「R119-A 已落地」互指。"""
     src = ('异步 段落 f()：\n'
            '  返回 1\n'
            '段落 主()：\n'
            '  异步 运行 f()。\n'
            '主()。\n')
-    with pytest.raises(NotImplementedError) as ei:
-        compile_source_typed(src)
-    assert 'RunAsyncStmt' in str(ei.value), f'报错必须含语句类型名：{ei.value}'
+    # R119-A 前这里会抛 NotImplementedError；落地后必须正常编译通过。
+    ir = compile_source_typed(src)
+    assert len(ir) > 1000, f'异步运行 IR 短得不像真产物（{len(ir)} 字符）'
+    assert '<unknown' not in ir, '异步运行 IR 里残留了 <unknown 伪装'
+    assert 'dv_coro_run_to_completion' in ir, \
+        '异步运行 分支没生成 dv_coro_run_to_completion 调用'
 
 
 # ----------------------------------------------------------------------
