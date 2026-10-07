@@ -79,6 +79,7 @@ AST_TYPE_ID_INTERFACE_METHOD = 57
 AST_TYPE_ID_INTERFACE_PROPERTY = 58
 AST_TYPE_ID_INTERFACE_DEFINITION = 59
 AST_TYPE_ID_GENERIC_TYPE = 60
+AST_TYPE_ID_RUN_ASYNC_STMT = 61
 AST_TYPE_ID_GENERIC_PARAMETER_DECL = 61
 AST_TYPE_ID_ENUM_VARIANT = 62
 AST_TYPE_ID_ENUM_DEFINITION = 63
@@ -632,6 +633,17 @@ class AsyncScope(ASTNode):
     tasks: List[ASTNode] = field(default_factory=list)
     result_vars: List[str] = field(default_factory=list)  # 可选的返回结果变量
     timeout: Optional[ASTNode] = None  # 可选超时
+
+
+@dataclass(slots=True)
+class RunAsyncStmt(ASTNode):
+    _ast_type_id: int = field(default=AST_TYPE_ID_RUN_ASYNC_STMT, init=False, repr=False)
+    """异步启动语句（R119-A 新增）：`异步 运行 主()。` → asyncio.run(主()) 的原生等价。
+
+    call 字段是被启动的异步段调用（如 `主环境()`），求值后得到协程句柄，
+    交由 runtime 调度器 dv_coro_run_to_completion 阻塞驱动至完成。
+    """
+    call: ASTNode = None
 
 
 @dataclass(slots=True)

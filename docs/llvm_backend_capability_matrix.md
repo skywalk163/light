@@ -20,8 +20,8 @@
 ## 汇总
 
 - 语句类型总数：**32**
-- 已支持：**24**
-- 缺口：**7**
+- 已支持：**25**
+- 缺口：**6**
 - 三层齐备但实测编不过：`0`
 
 ## 矩阵
@@ -50,7 +50,7 @@
 | `ParallelBlockStmt` | 并行 { … } | **无** | `—` | **无** | **无** | — 无自动用例 | `gap:adapter` |
 | `PassStmt` | pass（空语句） | 有 | `—` | **无** | **无** | — 无自动用例 | `n/a(no-op)` |
 | `ReturnStmt` | 返回 … | 有 | `ReturnStatement` | 有 | 有 | ✅ 10077 字符 | `supported` |
-| `RunAsyncStmt` | 异步 运行 主()。 | **无** | `—` | **无** | **无** | — 无自动用例 | `gap:adapter` |
+| `RunAsyncStmt` | 异步 运行 主()。 | 有 | `RunAsyncStmt` | 有 | 有 | — 无自动用例 | `supported` |
 | `ScopeDeclStmt` | 全局 X。/ 外层 X。 | 有 | `ScopeDeclaration` | 有 | 有 | ✅ 11041 字符 | `supported` |
 | `SelfAssignment` | 己.X 为 值 | 有 | `Assignment` | 有 | 有 | — 无自动用例 | `supported` |
 | `ThrowStmt` | 抛出 … | 有 | `ThrowStatement` | 有 | 有 | ✅ 9048 字符 | `supported` |
@@ -63,7 +63,7 @@
 
 ## 缺口清单（按层归类）
 
-- **gap:adapter**（7）：`DecoratorDefinition`、`FFIFunctionDecl`、`FFIVarArgsDecl`、`IndexedCompoundAssignment`、`ParallelBlockStmt`、`RunAsyncStmt`、`TypeCheckToggleStmt`
+- **gap:adapter**（6）：`DecoratorDefinition`、`FFIFunctionDecl`、`FFIVarArgsDecl`、`IndexedCompoundAssignment`、`ParallelBlockStmt`、`TypeCheckToggleStmt`
 
 ## 与既有清单的分工
 

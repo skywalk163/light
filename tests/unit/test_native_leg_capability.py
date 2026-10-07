@@ -54,6 +54,7 @@ _DOC_STMT_TYPES = frozenset({
     'DestructuringAssignment',  # R115-A 新增：`设 [甲, 乙] 为 …` 按位置解包
     'AssertStmt',               # R116-A 新增：`断言 <条件>。` / `断言 <条件>, <消息>。`
     'WithStatement',            # R116-A 新增：`使用 X 为 Y：` 上下文管理（__enter__/__exit__ + 异常安全退出）
+    'RunAsyncStmt',             # R119-A 新增：`异步 运行 X()。` 顶层启动异步段（协程调度器驱动至完成）
 })
 
 _DOC_EXPR_TYPES = frozenset({

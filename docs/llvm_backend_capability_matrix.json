@@ -4,8 +4,8 @@
   "generator": "scripts/gen_llvm_capability_matrix.py",
   "counts": {
     "total": 32,
-    "supported": 24,
-    "gap": 7
+    "supported": 25,
+    "gap": 6
   },
   "rows": [
     {
@@ -275,14 +275,14 @@
     {
       "v3_class": "RunAsyncStmt",
       "surface": "异步 运行 主()。",
-      "adapter_converter": "",
-      "legacy_node": "",
-      "in_stmt_whitelist": false,
-      "in_dispatch": false,
+      "adapter_converter": "_convert_run_async_stmt",
+      "legacy_node": "RunAsyncStmt",
+      "in_stmt_whitelist": true,
+      "in_dispatch": true,
       "probe_case": null,
       "probe_result": "—",
       "probe_note": "无自动用例",
-      "status": "gap:adapter"
+      "status": "supported"
     },
     {
       "v3_class": "ScopeDeclStmt",
@@ -411,6 +411,7 @@
       "InterfaceDefinition",
       "MatchStatement",
       "ReturnStatement",
+      "RunAsyncStmt",
       "ScopeDeclaration",
       "SegmentDefinition",
       "ThrowStatement",
@@ -435,6 +436,7 @@
       "MatchStatement",
       "PrintStatement",
       "ReturnStatement",
+      "RunAsyncStmt",
       "ScopeDeclaration",
       "SelfAssignment",
       "ThrowStatement",

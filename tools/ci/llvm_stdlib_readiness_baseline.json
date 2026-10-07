@@ -2,14 +2,14 @@
   "version": 2,
   "note": "stdlib 原生腿就绪度基线（R117 于 2026-10-06 改为多模块编译口径）。就绪度 = 可编/魔数模块总数；可编名单只许增不许减——对 --base 跑出「新增不可编」即 rc=1。compile_entry 记录测量入口；built_from_commit 是生成基线时的 HEAD。",
   "compile_entry": "compile_light_typed(多模块)",
-  "built_from_commit": "0502f1500",
-  "generated_at": "2026-10-06T10:36:23",
-  "timeout_per_module_sec": 300.0,
+  "built_from_commit": "e6f6aa991",
+  "generated_at": "2026-10-07T20:45:43",
+  "timeout_per_module_sec": 300,
   "total": 74,
-  "ready": 62,
-  "rejected": 2,
+  "ready": 64,
+  "rejected": 0,
   "other": 10,
-  "rate": 0.8378378378378378,
+  "rate": 0.8648648648648649,
   "buckets": {
     "可编": [
       "Base64",
@@ -69,16 +69,15 @@
       "缓存",
       "编码",
       "编码解码",
+      "节点",
+      "节点核心",
       "路径运算",
       "进度条",
       "颜色",
       "颜色处理",
       "高级文件"
     ],
-    "明确拒绝": [
-      "节点",
-      "节点核心"
-    ],
+    "明确拒绝": [],
     "其它错误": [
       "HTTP服务端",
       "主控",
@@ -608,18 +607,18 @@
     {
       "模块": "节点",
       "路径": "stdlib/分布式/节点.light",
-      "bucket": "明确拒绝",
-      "detail": "原生后端暂不支持语句类型「RunAsyncStmt」（源码行 未知（适配层未保留行号））：原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "RunAsyncStmt",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 918078
     },
     {
       "模块": "节点核心",
       "路径": "stdlib/分布式/节点核心.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：创建任务（源码行 未知（适配层未保留行号））。本模块已定义：主, 事件设置, 全是大写十六进制, 全是数字, 写JSON, 写入文件, 写文本, 十六进制两位, 单调, 去掉项 等共 48 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "创建任务",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 908137
     },
     {
       "模块": "调度核心",

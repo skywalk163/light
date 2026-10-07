@@ -720,6 +720,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_dict_get_def(ptr, ptr, ptr, ptr)',
             # R117-B 桶②：Python 直通名运行时支撑（src/llvm/runtime_typed.c 末尾同名函数）
             f'declare i32 @dv_is_callable(ptr)',
+            # R119-A1：中文「是函数」运行时支撑（判定 LightValue 是否为函数类型）
+            f'declare i32 @dv_is_function(ptr)',
             f'declare void @dv_getattr_default(ptr, ptr, ptr, ptr)',
             f'declare void @dv_random_bytes(ptr, i64)',
             f'declare void @dv_decode_str(ptr, ptr, ptr)',
@@ -2025,6 +2027,23 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._create_bool_dv(cmp), 'dv'
             return self._create_bool_dv('false'), 'dv'
 
+        # 是函数(值) / is_function(值)：对齐 stdlib/builtins.py 的「是函数」语义——
+        # 判定 value 是否为**函数类型**（LightValue.type == LV_TYPE_FUNCTION == 25）。
+        # 与英文 `callable`（dv_is_callable，仅对注册了 `__调用__` dunder 的对象为真）
+        # 不同：原生腿「是函数」只认一等函数值（段名封成的 LV_TYPE_FUNCTION 值）。
+        # 反例（非函数值）返回 假，不抛异常——与转译腿 Python `callable` 同口径
+        # （callable 对不可调用对象返回 False 而非抛错），也与其余判型家族（是数字/
+        # 是字符串…）一致。差异已在 docs/原生腿能力边界.md §11.2 登记。
+        if name in ('是函数', 'is_function'):
+            if args:
+                obj_slot = self._store_dv(args[0])
+                r = self.new_register()
+                self.emit(f'{r} = call i32 @dv_is_function(ptr {obj_slot})')
+                cmp = self.new_register()
+                self.emit(f'{cmp} = icmp ne i32 {r}, 0')
+                return self._create_bool_dv(cmp), 'dv'
+            return self._create_bool_dv('false'), 'dv'
+
         # getattr(对象, "名", 默认)：三参带默认值；取不到返回默认值而非报错。
         # 两参形态（无默认值）缺失时返回 空 —— 与 Python 抛 AttributeError 不同，
         # 已在 docs/原生腿能力边界.md §5 登记。
@@ -2099,6 +2118,19 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{dbl} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 2')
                 self.emit(f'call void @dv_sleep(double {dbl})')
             return self._create_int_dv('0'), 'dv'
+
+        # 创建任务(协程) / create_task(协程)：对齐转译腿 `创建任务` → asyncio.create_task。
+        # 原生腿：`异步 段落` 调用（如 `己.心跳循环()`）已由 dv_coro_create 把协程挂入
+        # 调度器并返回句柄（LightValue ptr_val = LightCoroutine*）；`创建任务` 仅把该
+        # 可等待句柄透传返回，使 `等待 心跳任务` 能 await 它（dv_coro_await 取 ptr_val）。
+        # 与 asyncio.create_task「调度并返 Task」语义一致（原生腿协程创建即入队）。
+        # 仅在协程句柄为参数时被调用；非协程参数（如 创建任务(3)）会保留 LightValue
+        # 原样返回，由下游 await 显式报错，不静默降级。
+        if name in ('创建任务', 'create_task'):
+            if args:
+                slot = self._store_dv(args[0])
+                return self._load_dv(slot), 'dv'
+            return self._call_dv_func('dv_null'), 'dv'
 
         if name in ('输出', '打印'):
             if args:
@@ -5224,6 +5256,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         elif hasattr(ast, 'DestructuringAssignment') and isinstance(stmt, ast.DestructuringAssignment):
             # R115-A：`设 [甲, 乙] 为 列表` / `设 甲, 乙 为 列表`
             self._gen_typed_destructuring(stmt)
+        elif hasattr(ast, 'RunAsyncStmt') and isinstance(stmt, ast.RunAsyncStmt):
+            self._gen_typed_run_async(stmt)
         else:
             # A2-1：链尾兜底。以前这里什么都没有，未知语句被静默吃掉。
             self._reject_unsupported_stmt(type(stmt).__name__, stmt)
@@ -6844,6 +6878,28 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'{ptr_val} = load ptr, ptr {ptr_val_ptr}')
         return ptr_val
     
+    def _gen_typed_run_async(self, stmt):
+        """R119-A2：异步启动语句 `异步 运行 X()。` → asyncio.run(X()) 的原生等价。
+
+        语义：求值 `X()`（一个 `异步 段落`）得到协程句柄（LightValue type=100，
+        ptr_val = coro*），交由 runtime 调度器 `dv_coro_run_to_completion` 阻塞驱动至完成。
+
+        runtime 已有完整的协程状态机 + 调度器（dv_coro_create / dv_coro_resume /
+        dv_scheduler_run / dv_coro_run_to_completion，R10-11b 引入），故**无需新建
+        异步运行时**——这与此前 R116-A 砍线时「需全新事件循环」的判断已经不符（当时
+        协程设施尚未就绪）。实测可行，故本轮转正。
+
+        限制：只能在**模块层 / 同步段**调用。在协程内部调用等于嵌套驱动调度器，会破坏
+        协程状态机，故显式拒收（与 Python `asyncio.run` 不能写在 async 函数内同口径）。
+        """
+        if self._in_coroutine:
+            self._reject_unsupported_stmt('RunAsyncStmt(協程内)', stmt)
+            return
+        # 求值 X() → 协程句柄
+        coro_dv, _ = self._gen_expression(stmt.call)
+        coro_ptr = self._extract_ptr_from_dv(coro_dv)
+        self.emit(f'call void @dv_coro_run_to_completion(ptr {coro_ptr})')
+
     def _gen_async_scope(self, scope):
         """生成异步作用域（结构化并发）
         

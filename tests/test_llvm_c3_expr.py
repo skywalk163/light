@@ -134,7 +134,6 @@ _拒绝用例 = [
     # 注：`断言语句`(AssertStmt) 已在 R116 A 线转正为受支持语句，其正向覆盖见
     #     tests/unit/test_llvm_with_assert_async.py，故从本拒绝清单移除。
     ('装饰器段落', '@性能 段落 甲()：\n  返回 1。\n打印 甲()。\n', 'DecoratedFunction'),
-    ('异步运行', '异步 运行 主()。\n', 'RunAsyncStmt'),
     ('全局声明', '全局 甲。\n', 'ScopeDeclStmt'),
     ('类型别名', '类型 甲 为 整数。\n', 'TypeAlias'),
 ]

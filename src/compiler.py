@@ -280,6 +280,9 @@ class AstAdapter:
             'RangeExpr': self._convert_range_expr,
             'AwaitExpr': self._convert_await_expr,
             'AsyncScope': self._convert_async_scope,
+            # R119-A2：`异步 运行 X()。` 顶层启动异步段。此前无转换器 → 降级成
+            # `<unknown:RunAsyncStmt>` 标识符，原生腿只能报「暂不支持语句类型」。
+            'RunAsyncStmt': self._convert_run_async_stmt,
             'PassStmt': self._convert_pass_stmt,
             'KeywordArg': self._convert_keyword_arg,
             # R10-11b（第四批B）：`生成 表达式。` → 一等语句节点。
@@ -345,6 +348,9 @@ class AstAdapter:
                 ast.AssertStmt,
                 ast.ImportStatement, ast.ExportStatement, ast.CompoundAssignment,
                 ast.AsyncScope,
+                # R119-A2：`异步 运行 X()。` 是语句不是表达式。漏了这条会被包成
+                # ExpressionStatement，原生腿的 RunAsyncStmt 分派永远匹配不到。
+                ast.RunAsyncStmt,
                 # R10-11b：`生成` 是语句不是表达式，必须原样留在语句流里。
                 # 漏了这条它会被包成 ExpressionStatement，原生腿的生成器
                 # 分派就永远匹配不到。
@@ -587,6 +593,13 @@ class AstAdapter:
             tasks=self._convert_list(node.tasks),
             result_vars=list(node.result_vars or []),
         )
+
+    def _convert_run_async_stmt(self, node) -> ast.RunAsyncStmt:
+        """R119-A2：将 v3 RunAsyncStmt（异步 运行 X()）转换为原生 RunAsyncStmt。
+
+        call 字段是被启动的异步段调用（如 `主环境()`），原样转换其子表达式节点。
+        """
+        return ast.RunAsyncStmt(call=self.convert(node.call))
 
     def _convert_while_stmt(self, node) -> ast.WhileStatement:
         return ast.WhileStatement(
