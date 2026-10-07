@@ -2,14 +2,14 @@
   "version": 2,
   "note": "stdlib 原生腿就绪度基线（R117 于 2026-10-06 改为多模块编译口径）。就绪度 = 可编/魔数模块总数；可编名单只许增不许减——对 --base 跑出「新增不可编」即 rc=1。compile_entry 记录测量入口；built_from_commit 是生成基线时的 HEAD。",
   "compile_entry": "compile_light_typed(多模块)",
-  "built_from_commit": "e6f6aa991",
-  "generated_at": "2026-10-07T20:45:43",
-  "timeout_per_module_sec": 300,
-  "total": 74,
-  "ready": 64,
+  "built_from_commit": "4cbf9f1be",
+  "generated_at": "2026-10-07T23:52:23",
+  "timeout_per_module_sec": 300.0,
+  "total": 76,
+  "ready": 66,
   "rejected": 0,
   "other": 10,
-  "rate": 0.8648648648648649,
+  "rate": 0.868421052631579,
   "buckets": {
     "可编": [
       "Base64",
@@ -28,6 +28,7 @@
       "中文数字转换",
       "中文文本处理",
       "中文编码",
+      "中止",
       "事件总线",
       "内置核心列表",
       "内置核心判型",
@@ -50,6 +51,7 @@
       "手机号校验",
       "拼音转换",
       "排序",
+      "插件",
       "操作系统",
       "数学",
       "数学统计",
@@ -227,6 +229,14 @@
       "detail": "",
       "gap": "",
       "ir_len": 330730
+    },
+    {
+      "模块": "中止",
+      "路径": "stdlib/中止.light",
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 36116
     },
     {
       "模块": "主控",
@@ -443,6 +453,14 @@
       "detail": "",
       "gap": "",
       "ir_len": 153712
+    },
+    {
+      "模块": "插件",
+      "路径": "stdlib/插件.light",
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 404156
     },
     {
       "模块": "操作系统",

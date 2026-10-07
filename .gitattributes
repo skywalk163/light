@@ -1,0 +1,14 @@
+# GitHub Linguist 临时映射
+# 在官方注册完成前，把 .light 文件临时算作 Python
+# 这样 GitHub 仓库首页的语言统计条不会把代码归到 "Other"
+#
+# 注意：这是临时方案，正式注册 Linguist 后应删除此文件
+*.light linguist-language=Python
+
+# 排除构建产物和生成文件，不计入语言统计
+*.py linguist-vendored
+__pycache__/ linguist-vendored
+*.pyc linguist-vendored
+dist/ linguist-generated
+build/ linguist-generated
+*.egg-info/ linguist-generated
