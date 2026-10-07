@@ -10,10 +10,12 @@
     （异常类名直呼构造）/ `副本` / `随机字节`
   - 桶④ `等待 异步睡眠(x)`：`异步睡眠` 是 Python 直通名（asyncio.sleep），
     `等待`（AwaitExpression）在非协程内已退化为直接求值，补名即可落地
-  - 桶③ 函数值调用（`设 处理器 等于 空` 后 `处理器(...)`）与桶⑤ `RunAsyncStmt`
-    **本轮砍线**——不是不写，是原生腿 LightValue 没有一等函数值类型 / 没有顶层
-    异步运行设施，硬写就是空壳。这里用「必须响亮报错」的断言把砍线钉住，
-    与 `docs/原生腿能力边界.md` §11 的登记互指。
+  - 桶③ 函数值调用（`设 处理器 等于 某段` 后 `处理器(...)`）：**R118-A 已落地**——
+    原生腿新增 `LV_TYPE_FUNCTION=25` + `dv_call_value` + `dv_throw_not_callable`，
+    变量持有段后可正确分派（IR 级编译见本文件 `test_函数值调用现已落地_变量持有段后可编译`，
+    真跑 + 反例见 `tests/unit/test_llvm_first_class_fn.py`）。桶⑤ `RunAsyncStmt`
+    **本轮砍线**——原生腿没有顶层异步运行设施，硬写就是空壳，用「必须响亮报错」钉住，
+    与 `docs/原生腿能力边界.md` §1.4 的登记互指。
 
 ⚠️ 语义差异（不许静默降级，全部登记在 `docs/原生腿能力边界.md` §11.2）：
   * `callable`：原生腿无一等函数值，只有「对象注册了中文 dunder `__调用__`」为真，
@@ -124,21 +126,23 @@ def test_属性错误走异常类构造通路():
 # 二、反例：砍线的形态必须响亮报错，不许静默降级成 0
 # ----------------------------------------------------------------------
 
-def test_函数值调用必须拒绝不许静默():
-    """桶③：`设 处理器 等于 空` 后 `处理器(1)` —— 原生腿无一等函数值，必须报错。
+def test_函数值调用现已落地_变量持有段后可编译():
+    """桶③（R118-A 已落地）：`设 处理器 等于 f` 后 `处理器(1)` 现在必须能编过。
 
-    静默降级会让 `处理器(1)` 编成整数 0，产物行为错还不报错（C3-1 的同一类坑）。
+    此前原生腿无一等函数值类型，这里会抛 NotImplementedError；R118-A 引入
+    `LV_TYPE_FUNCTION=25` + `dv_call_value` 后，变量持有段名即函数值，调用走运行期
+    分派。此测试守「IR 级编得出、不残留 <unknown 伪装」；真跑分派与反例（非函数值
+    被当函数调用必须响亮抛错）见 `tests/unit/test_llvm_first_class_fn.py`。
     """
     src = ('段落 f(a)：\n'
            '  返回 a\n'
            '段落 主()：\n'
-           '  设 处理器 等于 空\n'
            '  设 处理器 等于 f\n'
            '  打印 处理器(1)\n'
            '主()。\n')
-    with pytest.raises(NotImplementedError) as ei:
-        compile_source_typed(src)
-    assert '处理器' in str(ei.value), f'报错必须点名是谁未定义：{ei.value}'
+    ir = compile_source_typed(src)
+    assert len(ir) > 1000, f'函数值调用 IR 短得不像真产物（{len(ir)} 字符）'
+    assert '<unknown' not in ir, '函数值调用 IR 里残留了 <unknown 伪装'
 
 
 def test_RunAsyncStmt必须拒绝并报出类型名():

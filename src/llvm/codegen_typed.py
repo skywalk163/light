@@ -688,6 +688,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_call_method(ptr, ptr, ptr, ptr, i32)',
             f'declare void @dv_call_super_method(ptr, ptr, ptr, ptr, ptr, i32)',
             f'declare i32 @dv_isinstance(ptr, ptr)',
+            f'declare i32 @dv_is_sub_class(ptr, ptr)',
+            f'declare i32 @dv_is_sub_class_from_value(ptr, ptr)',
+            f'declare i32 @dv_has_attr(ptr, ptr)',
             f'declare void @dv_get_type_name(ptr, ptr, i32)',
             f'declare i32 @strcmp(ptr, ptr)',
             f'declare i32 @dv_register_class_method(ptr, ptr, ptr)',
@@ -725,6 +728,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_dict_keys(ptr, ptr)',
             f'declare void @dv_dict_remove(ptr, ptr, ptr)',
             f'declare void @dv_dict_values(ptr, ptr)',
+            # R118-A：函数值一等类型运行时支撑
+            f'declare void @dv_make_function_value(ptr, ptr)',
+            f'declare void @dv_call_value(ptr, ptr, ptr, i32)',
+            f'declare void @dv_throw_not_callable(ptr)',
             # 文件系统扩展
             f'declare i32 @dv_mkdir(ptr)',
             f'declare i32 @dv_rmdir(ptr)',
@@ -1361,6 +1368,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if var is not None:
             return var, 'dv'
 
+        # R118-A：函数值一等类型——段名出现在值位（如 订阅("x", 某段) 的实参、
+        # 设 处理器 为 某段 的 RHS、列表过滤(表, 谓词) 的 谓词）时，产生 LV_TYPE_FUNCTION
+        # 函数值（持有 @_seg_<safe> 入口指针），而不是字符串。真正的调用分派由
+        # _gen_typed_function_call / _gen_function_value_call 完成。
+        if self._local_seg_key(name) in self._segments or name in self._imports:
+            return self._gen_segment_function_value(name), 'dv'
+
         # 解析器将 真/假/空 转为 Identifier('True'/'False'/'None')，需映射回布尔/空值
         if name == 'True':
             return self._create_bool_dv('1'), 'dv'
@@ -1403,6 +1417,76 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 内置函数名当作字符串
         str_reg = self.gen_string_constant(name)
         return self._create_str_dv(str_reg), 'dv'
+
+    # ------------------------------------------------------------------
+    # R118-A：函数值一等类型
+    # ------------------------------------------------------------------
+    def _gen_segment_function_value(self, name: str) -> str:
+        """把段名封成 LV_TYPE_FUNCTION 函数值：bitcast @_seg_<safe> 入口指针 →
+        dv_make_function_value。被 _gen_typed_identifier（值位）与 设 X 为 段 的 RHS 调用。"""
+        if name in self._imports:
+            _imp_mod, _imp_orig = self._imports[name]
+            resolved = self._resolve_import_chain(_imp_mod, _imp_orig)
+            if resolved:
+                _imp_mod, _imp_orig = resolved
+            safe = self._safe_func_name(_imp_orig, _imp_mod)
+        else:
+            safe = self._safe_func_name(name, self._current_module)
+        result_slot = self._new_dv_slot()
+        # 与 _seg_* 调用同口径：先 dv_null 零初始化（避免 O0 读未初始化槽）
+        self.emit(f'call void @dv_null(ptr {result_slot})')
+        segptr = self.new_register()
+        self.emit(f'{segptr} = bitcast void (ptr, ptr, i32)* @_seg_{safe} to ptr')
+        self.emit(f'call void @dv_make_function_value(ptr {result_slot}, ptr {segptr})')
+        return self._load_dv(result_slot)
+
+    def _gen_function_value_call(self, callee_value_ssa: str, args: List[str],
+                                arg_asts, expr) -> Tuple[str, str]:
+        """调用一个持有 LV_TYPE_FUNCTION 的 dv（变量/计算型调用目标）。
+
+        运行期查类型：==25 → dv_call_value 跳入口分派；否则 → dv_throw_not_callable
+        抛 NotImplementedError（文案含类型名，不许静默降级）。反例由此暴露。
+        注意：字典/列表索引取值返回的是 REF（type=8，指向内部值），必须先 dv_deref_value
+        解引用才能看到真正的函数值类型——否则 `表[1]()` 会误判成 REF 而非 function。
+        """
+        fv_slot = self._store_dv(callee_value_ssa)
+        # 解引用 REF（dict/list 索引返回 REF，非 REF 则原样返回）
+        deref_slot = self._new_dv_slot()
+        self.emit(f'call void @dv_deref_value(ptr {deref_slot}, ptr {fv_slot})')
+        type_reg = self.new_register()
+        self.emit(f'{type_reg} = load i32, ptr {deref_slot}')
+        is_fn = self.new_register()
+        self.emit(f'{is_fn} = icmp eq i32 {type_reg}, 25')   # LV_TYPE_FUNCTION
+        fn_lab = self.new_label('fncall_fn')
+        err_lab = self.new_label('fncall_err')
+        end_lab = self.new_label('fncall_end')
+        result_slot = self._new_dv_slot()
+        self.emit(f'call void @dv_null(ptr {result_slot})')
+        self.emit(f'br i1 {is_fn}, label %{fn_lab}, label %{err_lab}')
+        self.emit(f'{fn_lab}:')
+        num_args = len(args)
+        if num_args == 0:
+            self.emit(f'call void @dv_call_value(ptr {result_slot}, ptr {deref_slot}, ptr null, i32 0)')
+        else:
+            stack_save = self.new_register()
+            self.emit(f'{stack_save} = call ptr @llvm.stacksave()')
+            args_arr = self.new_register()
+            self.emit(f'{args_arr} = alloca {LIGHTVALUE_STRUCT}, i32 {num_args}')
+            for i, arg_dv in enumerate(args):
+                elem_ptr = self.new_register()
+                self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {args_arr}, i64 {i}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {arg_dv}, ptr {elem_ptr}')
+            self.emit(f'call void @dv_call_value(ptr {result_slot}, ptr {deref_slot}, ptr {args_arr}, i32 {num_args})')
+            self.emit(f'call void @llvm.stackrestore(ptr {stack_save})')
+        self.emit(f'br label %{end_lab}')
+        self.emit(f'{err_lab}:')
+        # 反例：非函数值被当函数调用 → 响亮抛 NotImplementedError（文案含类型名）
+        self.emit(f'call void @dv_throw_not_callable(ptr {deref_slot})')
+        self.emit(f'br label %{end_lab}')
+        self.emit(f'{end_lab}:')
+        result = self.new_register()
+        self.emit(f'{result} = load {LIGHTVALUE_STRUCT}, ptr {result_slot}')
+        return result, 'dv'
 
     def _gen_short_circuit_logic(self, expr: ast.BinaryOp, op: str) -> Tuple[str, str]:
         """R12A（R11A-07）：且/或 短路求值。
@@ -1824,6 +1908,20 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             var_ref = self.get_var(func_name)
             if var_ref is not None:
                 return var_ref, 'dv'
+
+        # R118-A：函数值一等类型——变量持有函数值后调用（处理器(event,payload) /
+        # 谓词(element) / 变换(element) / 取消令牌 的 己.处理器集[标识]()）。
+        # func_name 是局部变量/形参（且非段、非内建）时，按「函数值调用」运行期分派：
+        # 类型==FUNCTION → dv_call_value 跳入口；否则 dv_throw_not_callable 抛错。
+        # 计算型调用目标（索引/属性结果，如 己.处理器集[标识]()）走同一分派。
+        _is_var_callee = (func_name in self._local_vars
+                          or func_name in self._current_func_params)
+        if _is_var_callee or isinstance(expr.name, ast.IndexAccess):
+            if isinstance(expr.name, ast.IndexAccess):
+                callee_value, _ = self._gen_expression(expr.name)
+            else:
+                callee_value = self.get_var(func_name)
+            return self._gen_function_value_call(callee_value, args, arg_asts, expr)
 
         self._reject_unknown_call(func_name, expr)
 
@@ -2976,6 +3074,34 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{class_name_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
                 result = self.new_register()
                 self.emit(f'{result} = call i32 @dv_isinstance(ptr {obj_slot}, ptr {class_name_ptr})')
+                cmp = self.new_register()
+                self.emit(f'{cmp} = icmp ne i32 {result}, 0')
+                return self._create_bool_dv(cmp), 'dv'
+            return self._create_bool_dv('false'), 'dv'
+
+        # issubclass(子类, 父类)：对齐 Python issubclass（stdlib/builtins.py 语义）。
+        # 首参可以是对象（取类）或类名字符串，次参是类名字符串；沿 super 链判定。
+        # 与 isinstance 同口径：次参经 extractvalue 取 str 指针传入。
+        if name in ('issubclass', '是子类', 'is_subclass'):
+            if len(args) >= 2:
+                sub_slot = self._store_dv(args[0])
+                class_name_ptr = self.new_register()
+                self.emit(f'{class_name_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                result = self.new_register()
+                self.emit(f'{result} = call i32 @dv_is_sub_class_from_value(ptr {sub_slot}, ptr {class_name_ptr})')
+                cmp = self.new_register()
+                self.emit(f'{cmp} = icmp ne i32 {result}, 0')
+                return self._create_bool_dv(cmp), 'dv'
+            return self._create_bool_dv('false'), 'dv'
+
+        # hasattr(对象, "属性名")：对齐 Python hasattr。复用 R117 对象成员判定。
+        if name in ('hasattr', '有属性', 'has_attr'):
+            if len(args) >= 2:
+                obj_slot = self._store_dv(args[0])
+                field_name_ptr = self.new_register()
+                self.emit(f'{field_name_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                result = self.new_register()
+                self.emit(f'{result} = call i32 @dv_has_attr(ptr {obj_slot}, ptr {field_name_ptr})')
                 cmp = self.new_register()
                 self.emit(f'{cmp} = icmp ne i32 {result}, 0')
                 return self._create_bool_dv(cmp), 'dv'
@@ -4776,6 +4902,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if not is_dataclass(node):
             return
         for f in fields(node):
+            # R118 收口：TryStatement 的现代 `catch_clauses` 与向后兼容 `catch_body`
+            # 是同一 catch 体的两份表示。预扫 `_段内生成点` 若两者都下探，会把段内
+            # `生成` 点重复计数（预扫 > 发射）→ entry switch 引用未发射的恢复标签
+            # （clang: use of undefined value '%gen_resume_…'）。有 catch_clauses 时
+            # 跳过 catch_body；CatchClause 自身无 catch_clauses 字段，其 catch_body 照常下探。
+            if f.name == 'catch_body' and getattr(node, 'catch_clauses', None):
+                continue
             try:
                 v = getattr(node, f.name)
             except Exception:
@@ -6208,8 +6341,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit('entry:')
         state = self.new_register()
         self.emit(f'{state} = call i32 @dv_gen_state(ptr %gen)')
-        # 恢复标签按预扫到的生成点数一次造齐——entry 的 switch 必须先知道全部落点
-        self._gen_resume_labels = [self.new_label(f'gen_resume_{i + 1}')
+        # 恢复标签按预扫到的生成点数一次造齐——entry 的 switch 必须先知道全部落点。
+        # R118-A 防御性硬化：前缀带 safe（生成器函数安全名），即便未来多 codegen
+        # 实例 / 计数器重置，也能保证「生成器级」唯一前缀，不会与别处 gen_resume 撞名。
+        self._gen_resume_labels = [self.new_label(f'gen_resume_{safe}_{i + 1}')
                                    for i in range(生成点数)]
         init_lab = self.new_label('gen_init')
         # 插入点必须在 switch **之前**：之后所有槽位指针 / alloca 都插到这里，
@@ -6497,10 +6632,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         rp_val = self.new_register()
         self.emit(f'{rp_val} = load i32, ptr {rp_ptr}')
         
-        # 预先生成所有 resume 标签名
+        # 预先生成所有 resume 标签名。R118-A 防御性硬化：前缀带 coro_func_name
+        # （协程函数安全名），保证「协程级」唯一前缀，不会与其它协程/生成器的
+        # resume 标签撞名（即便未来多 codegen 实例并存）。
         resume_labels = []
         for i in range(num_await + 1):
-            resume_labels.append(self.new_label(f'resume_{i}'))
+            resume_labels.append(self.new_label(f'resume_{coro_func_name}_{i}'))
             self._coro_resume_labels[i] = resume_labels[i]
         
         # 生成 switch 语句（单行，避免验证器将 case 行误判为终止指令后的死代码）

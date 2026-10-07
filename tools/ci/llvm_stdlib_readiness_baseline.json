@@ -2,18 +2,19 @@
   "version": 2,
   "note": "stdlib 原生腿就绪度基线（R117 于 2026-10-06 改为多模块编译口径）。就绪度 = 可编/魔数模块总数；可编名单只许增不许减——对 --base 跑出「新增不可编」即 rc=1。compile_entry 记录测量入口；built_from_commit 是生成基线时的 HEAD。",
   "compile_entry": "compile_light_typed(多模块)",
-  "built_from_commit": "910b6a0cd",
-  "generated_at": "2026-10-06T01:58:19",
+  "built_from_commit": "0502f1500",
+  "generated_at": "2026-10-06T10:36:23",
   "timeout_per_module_sec": 300.0,
-  "total": 73,
-  "ready": 58,
+  "total": 74,
+  "ready": 62,
   "rejected": 2,
-  "other": 13,
-  "rate": 0.7945205479452054,
+  "other": 10,
+  "rate": 0.8378378378378378,
   "buckets": {
     "可编": [
       "Base64",
       "JSON",
+      "JSONL",
       "JSON核心",
       "JSON编解码",
       "inspect",
@@ -27,6 +28,8 @@
       "中文数字转换",
       "中文文本处理",
       "中文编码",
+      "事件总线",
+      "内置核心列表",
       "内置核心判型",
       "内置核心字典",
       "内置核心字符串",
@@ -55,6 +58,7 @@
       "数据验证",
       "文件流",
       "文件系统",
+      "断言工具",
       "断言工具轻量",
       "日期时间轻量",
       "格式化",
@@ -72,20 +76,17 @@
       "高级文件"
     ],
     "明确拒绝": [
-      "事件总线",
-      "内置核心列表"
+      "节点",
+      "节点核心"
     ],
     "其它错误": [
       "HTTP服务端",
-      "JSONL",
       "主控",
       "代理工具集",
       "代理循环",
       "大模型客户端",
       "并发",
       "流式",
-      "节点",
-      "节点核心",
       "调度核心",
       "选择器",
       "重试"
@@ -119,10 +120,10 @@
     {
       "模块": "JSONL",
       "路径": "stdlib/JSONL.light",
-      "bucket": "其它错误",
-      "detail": "RuntimeError: LLVM IR 验证失败（clang -x ir）:",
+      "bucket": "可编",
+      "detail": "",
       "gap": "",
-      "ir_len": 0
+      "ir_len": 712796
     },
     {
       "模块": "JSON核心",
@@ -232,17 +233,17 @@
       "模块": "主控",
       "路径": "stdlib/分布式/主控.light",
       "bucket": "其它错误",
-      "detail": "NativeImportError: 模块 '节点网络' 在原生腿不可用：解析到的是 Python 文件 'G:\\dswork\\duan-light-merge\\light-merge\\stdlib\\分布式\\节点网络.py'。原生腿不加载 .py；请在纯光明 (.light) 中实现 '节点网络' 后再导入。",
+      "detail": "NativeImportError: '并发' 导入了 Python 生态/标准库模块 'asyncio'，原生腿无法编译：原生运行时是纯 C（src/llvm/runtime_typed.c，不嵌 CPython），没有 Python 互操作，也没有可链接的 Python 符号。",
       "gap": "",
       "ir_len": 0
     },
     {
       "模块": "事件总线",
       "路径": "stdlib/事件总线.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：处理器（源码行 未知（适配层未保留行号））。本模块已定义：argv, exit, getmembers, hexversion, isclass, isfunction, maxsize, platform, signature, stderr 等共 13 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "处理器",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 213792
     },
     {
       "模块": "代理工具集",
@@ -263,10 +264,10 @@
     {
       "模块": "内置核心列表",
       "路径": "stdlib/内置核心列表.light",
-      "bucket": "明确拒绝",
-      "detail": "未定义的段落：谓词（源码行 未知（适配层未保留行号））。本模块已定义：冻结, 列, 列表创建, 列表包含, 列表反转, 列表弹出, 列表排序, 列表插入, 列表映射, 列表获取 等共 16 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
-      "gap": "谓词",
-      "ir_len": 0
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 89786
     },
     {
       "模块": "内置核心判型",
@@ -498,7 +499,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 42378
+      "ir_len": 42390
     },
     {
       "模块": "文件系统",
@@ -506,7 +507,15 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 104158
+      "ir_len": 104170
+    },
+    {
+      "模块": "断言工具",
+      "路径": "stdlib/断言工具.light",
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 4066259
     },
     {
       "模块": "断言工具轻量",
@@ -599,24 +608,24 @@
     {
       "模块": "节点",
       "路径": "stdlib/分布式/节点.light",
-      "bucket": "其它错误",
-      "detail": "NativeImportError: 模块 '节点网络' 在原生腿不可用：解析到的是 Python 文件 'G:\\dswork\\duan-light-merge\\light-merge\\stdlib\\分布式\\节点网络.py'。原生腿不加载 .py；请在纯光明 (.light) 中实现 '节点网络' 后再导入。",
-      "gap": "",
+      "bucket": "明确拒绝",
+      "detail": "原生后端暂不支持语句类型「RunAsyncStmt」（源码行 未知（适配层未保留行号））：原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
+      "gap": "RunAsyncStmt",
       "ir_len": 0
     },
     {
       "模块": "节点核心",
       "路径": "stdlib/分布式/节点核心.light",
-      "bucket": "其它错误",
-      "detail": "NativeImportError: 模块 '节点网络' 在原生腿不可用：解析到的是 Python 文件 'G:\\dswork\\duan-light-merge\\light-merge\\stdlib\\分布式\\节点网络.py'。原生腿不加载 .py；请在纯光明 (.light) 中实现 '节点网络' 后再导入。",
-      "gap": "",
+      "bucket": "明确拒绝",
+      "detail": "未定义的段落：创建任务（源码行 未知（适配层未保留行号））。本模块已定义：主, 事件设置, 全是大写十六进制, 全是数字, 写JSON, 写入文件, 写文本, 十六进制两位, 单调, 去掉项 等共 48 个。原生后端暂不支持，请用转译后端（python -m cli.light_unified run）",
+      "gap": "创建任务",
       "ir_len": 0
     },
     {
       "模块": "调度核心",
       "路径": "stdlib/分布式/调度核心.light",
       "bucket": "其它错误",
-      "detail": "NativeImportError: 模块 '节点网络' 在原生腿不可用：解析到的是 Python 文件 'G:\\dswork\\duan-light-merge\\light-merge\\stdlib\\分布式\\节点网络.py'。原生腿不加载 .py；请在纯光明 (.light) 中实现 '节点网络' 后再导入。",
+      "detail": "NativeImportError: '并发' 导入了 Python 生态/标准库模块 'asyncio'，原生腿无法编译：原生运行时是纯 C（src/llvm/runtime_typed.c，不嵌 CPython），没有 Python 互操作，也没有可链接的 Python 符号。",
       "gap": "",
       "ir_len": 0
     },
