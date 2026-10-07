@@ -59,7 +59,7 @@
 | `VarDecl` | 设 X 为 值。 | 有 | `VariableDeclaration` | 有 | 有 | ✅ 9402 字符 | `supported` |
 | `WhileStmt` | 当 …： | 有 | `WhileStatement` | 有 | 有 | ✅ 11339 字符 | `supported` |
 | `WithStmt` | 使用 … 为 X： | 有 | `WithStatement` | 有 | 有 | ✅ 11766 字符 | `supported` |
-| `YieldStmt` | 生成 … | 有 | `YieldStatement` | 有 | 有 | ✅ 14588 字符 | `supported` |
+| `YieldStmt` | 生成 … | 有 | `YieldStatement` | 有 | 有 | ✅ 14594 字符 | `supported` |
 
 ## 缺口清单（按层归类）
 

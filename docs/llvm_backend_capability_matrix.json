@@ -389,7 +389,7 @@
       "in_dispatch": true,
       "probe_case": "段落 甲(n)：\n  设 i 为 0\n  当 i < n：\n    生成 i\n    设 i 为 i + 1\n遍历 x 之 甲(3)：\n  打印 x。\n",
       "probe_result": "ok",
-      "probe_note": "14588 字符",
+      "probe_note": "14594 字符",
       "status": "supported"
     }
   ],

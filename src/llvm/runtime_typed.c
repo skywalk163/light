@@ -79,6 +79,15 @@ struct LightValue {
 /* 元组类型标记（type=23）：不可变序列，复用 list_data/list_size/list_capacity */
 #define LV_TYPE_TUPLE 23
 
+/* 函数值类型标记（type=25）：一等函数值（R118-A）。
+ * 持有段/函数的入口指针（str 字段存 void* 函数指针，签名见 DvSegFunc），
+ * 不含捕获（本轮闭环不需要闭包捕获；捕获留待后续）。dv_free 不会释放 str
+ * （只有 type==3 才 free str），dv_clone 按 *result=*v 浅拷贝即可。 */
+#define LV_TYPE_FUNCTION 25
+
+/* 段函数指针类型：与 @_seg_<safe>(ptr result, ptr args_arr, i32 num_args) 同签名 */
+typedef void (*DvSegFunc)(LightValue*, LightValue*, int);
+
 /* ================================================================
  * 前向声明（避免隐式函数声明）
  * ================================================================ */
@@ -5127,6 +5136,10 @@ void dv_get_type_name(LightValue* obj, char* buf, int buf_size) {
             else { strncpy(buf, "NoneType", buf_size - 1); buf[buf_size - 1] = '\0'; }
             break;
         }
+        case 25:
+            strncpy(buf, "function", buf_size - 1);
+            buf[buf_size - 1] = '\0';
+            break;
         default:
             strncpy(buf, "未知", buf_size - 1);
             buf[buf_size - 1] = '\0';
@@ -7992,6 +8005,105 @@ int dv_is_callable(LightValue* v) {
         if (cls[0] && dv_find_method(cls, "__调用__")) return 1;
     }
     return 0;
+}
+
+/* issubclass(子类, 父类) —— 对齐 Python issubclass（stdlib/builtins.py 语义）。
+ *
+ * 两个入参都是类名字符串；沿 super_name 继承链上溯判定 子类 是否为 父类 的
+ * 子类（含自身相等）。非类/未知类一律为假。深度受 MAX_INHERIT_DEPTH 保护。
+ */
+int dv_is_sub_class(const char* sub_class_name, const char* class_name) {
+    if (!sub_class_name || !sub_class_name[0] || !class_name || !class_name[0]) return 0;
+    if (strcmp(sub_class_name, class_name) == 0) return 1;
+    LightClassInfo* cls = dv_find_class(sub_class_name);
+    if (!cls) return 0;
+    int depth = 0;
+    while (cls->super_name[0] != '\0' && depth < MAX_INHERIT_DEPTH) {
+        if (strcmp(cls->super_name, class_name) == 0) return 1;
+        cls = dv_find_class(cls->super_name);
+        if (!cls) return 0;
+        depth++;
+    }
+    return 0;
+}
+
+/* issubclass 的值形态：首参可以是「对象」或「类名字符串」，次参是类名字符串。
+ *   - 对象（type==3 + OBJ_PREFIX）→ 取所属类名（dv_get_class_name）；
+ *   - 纯字符串（type==3 无前缀）→ 内容即类名；
+ *   - 其它类型 → 非类，为假（与 Python 对非类首参 TypeError 不同，已登记）。
+ * 解析出子类名后再调 dv_is_sub_class 走继承链。
+ */
+int dv_is_sub_class_from_value(LightValue* sub_val, const char* class_name) {
+    if (!sub_val || !class_name || !class_name[0]) return 0;
+    sub_val = dv_deref(sub_val);
+    char sub_cn[MAX_CLASS_NAME_LEN];
+    sub_cn[0] = '\0';
+    if (sub_val->type == 3 && sub_val->str
+        && strncmp(sub_val->str, OBJ_PREFIX, strlen(OBJ_PREFIX)) == 0) {
+        dv_get_class_name(sub_val, sub_cn, sizeof(sub_cn));      /* 对象 → 类 */
+    } else if (sub_val->type == 3 && sub_val->str) {
+        strncpy(sub_cn, sub_val->str, MAX_CLASS_NAME_LEN - 1);   /* 字符串 → 类名 */
+        sub_cn[MAX_CLASS_NAME_LEN - 1] = '\0';
+    } else {
+        return 0;
+    }
+    if (!sub_cn[0]) return 0;
+    return dv_is_sub_class(sub_cn, class_name);
+}
+
+/* hasattr(对象, "属性名") —— 对齐 Python hasattr。
+ * 复用 R117 的对象成员判定（dv_r117_obj_has_member：对象 str 内搜 "名\x1F"）。
+ * 非对象一律为假。
+ */
+int dv_has_attr(LightValue* obj, const char* field_name) {
+    if (!obj || !field_name || !field_name[0]) return 0;
+    obj = dv_deref(obj);
+    return dv_r117_obj_has_member(obj, field_name);
+}
+
+/* ================================================================
+ * 函数值一等类型（R118-A）
+ *
+ * 原生腿此前没有一等函数值：段名只能被直接调用（按名查 @_seg_<safe>），
+ * 不能「存进变量、当参数传递、随后调用」。事件总线.处理器 / 内置核心列表.谓词·变换
+ * 正是这个用法 → 此前一律 明确拒绝。现引入 LV_TYPE_FUNCTION：
+ *   - dv_make_function_value：把段入口指针封进 LightValue（str 存 void*）。
+ *   - dv_call_value：运行期查类型，是函数则跳入口；不是则抛 NotImplementedError（文案含类型名）。
+ *   - dv_throw_not_callable：反例路径，由 codegen 在类型!=FUNCTION 分支调用。
+ * 不允许静默降级：非函数值被当函数调用必须响亮报错，与转译腿 Python 语义一致。
+ * ================================================================ */
+
+void dv_make_function_value(LightValue* result, void* fn_ptr) {
+    if (!result) return;
+    dv_null(result);
+    result->type = LV_TYPE_FUNCTION;
+    result->str = (char*)fn_ptr;
+}
+
+void dv_throw_not_callable(LightValue* fv) {
+    fv = dv_deref(fv);   /* 字典/列表索引取值是 REF，先解引用看真实类型 */
+    char tn[64];
+    tn[0] = '\0';
+    dv_get_type_name(fv, tn, sizeof(tn));
+    char buf[256];
+    snprintf(buf, sizeof(buf),
+             "变量持有 %s 类型的值，不能作为函数调用（需要函数/段）", tn);
+    LightValue exc;
+    dv_create_exception_with_cause(&exc, "NotImplementedError", buf, NULL);
+    dv_throw_exception(&exc);
+}
+
+void dv_call_value(LightValue* result, LightValue* fv, LightValue* args, int num_args) {
+    if (!result) return;
+    dv_null(result);
+    fv = dv_deref(fv);   /* REF 解引用（codegen 已解引用，这里兜底） */
+    if (!fv || fv->type != LV_TYPE_FUNCTION) {
+        /* 防御：理论上 codegen 已在类型检查分支拦截，这里兜底抛错 */
+        dv_throw_not_callable(fv);
+        return;
+    }
+    DvSegFunc fn = (DvSegFunc)(fv->str);
+    fn(result, args, num_args);
 }
 
 /* getattr(对象, "名", 默认) —— 三参带默认值形态。

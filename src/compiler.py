@@ -228,6 +228,10 @@ class AstAdapter:
             'VarDecl': self._convert_var_decl,
             'Paragraph': self._convert_paragraph,
             'ParagraphCall': self._convert_paragraph_call,
+            # R118-A：计算型调用目标 `x[i]()` / `a.b()`（v3 叫 FunctionCallExpr，
+            # callee 是表达式而非名字）。此前无转换器 → `<unknown:FunctionCallExpr>`，
+            # 事件总线.取消令牌 的 己.处理器集[标识]() 因此编不过。
+            'FunctionCallExpr': self._convert_function_call_expr,
             'NumberLiteral': self._convert_number_literal,
             'StringLiteral': self._convert_string_literal,
             'BooleanLiteral': self._convert_boolean_literal,
@@ -449,6 +453,18 @@ class AstAdapter:
             arguments=args,
             type_args=[],
         )
+
+    def _convert_function_call_expr(self, node) -> ast.FunctionCall:
+        """R118-A：计算型调用目标 `x[i]()` / `a.b()`（v3 节点名 FunctionCallExpr）。
+
+        callee 是表达式（IndexAccess / PropertyAccess / …），非纯名字。转成原生
+        FunctionCall，name 为转换后的 callee 表达式；调用分派交给 codegen 的
+        「函数值调用」路径（_gen_function_value_call），运行期按类型跳入口。
+        0 参（如 己.处理器集[标识]()）也能正确走分派而不是被变量引用短路。
+        """
+        callee = self.convert(node.callee)
+        args = self._convert_list(node.args)
+        return ast.FunctionCall(name=callee, arguments=args, type_args=[])
 
     def _convert_number_literal(self, node) -> ast.NumberLiteral:
         s = str(node.value)
@@ -851,6 +867,15 @@ class AstAdapter:
                     catch_body=self._to_list_stmts(cb),
                 ))
         
+        # R118 收口修复：v3 解析器把 `尝试…捕获` 的 catch 体同时填进现代字段
+        # `catch_clauses` 与向后兼容字段 `catch_body`（两份相同内容，本属正常）。
+        # R118-A 曾在「catch_clauses 非空时清空 catch_body」以求去重，但这会打断
+        # **只读 catch_body** 的消费者：UnifiedCodeGenerator 生成的 except 块变空 →
+        # IndentationError（tests/integration/test_stdlib.py::TestExceptionHandling 3 红）；
+        # type_checker / dead_code 的 catch 作用域分析亦失真。
+        # 真正的重复计数点在 LLVM 预扫 `_iter_ast_children`（它对 TryStatement 同时
+        # 下探 catch_clauses 与 catch_body）；那里已改为「有 catch_clauses 时跳过
+        # catch_body」。故此处如实保留两个字段，两种表示并存、各自消费者各取所需。
         return ast.TryStatement(
             try_body=self._to_list_stmts(getattr(node, 'try_body', [])),
             catch_clauses=catch_clauses,

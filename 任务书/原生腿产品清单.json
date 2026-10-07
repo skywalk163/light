@@ -400,6 +400,12 @@
       "阻断": "NativeImportError：模块 '节点网络' 在原生腿不可用——解析到的是 stdlib/分布式/节点网络.py，原生腿不加载 .py。DIST S2 合并点真编译实测 compile_light_typed（Windows）。同 主控，阻断在同一个 .py 边界。",
       "首个未定义节点": "节点网络"
     },
+    "节点网络": {
+      "状态": "可编译",
+      "阻断": "",
+      "证据": "python -c \"import sys; sys.path.insert(0, 'src'); from llvm.compiler import compile_light_typed; compile_light_typed('stdlib/分布式/节点网络.light', output_path='<临时目录>/节点网络')\"。R118-B 实测（Windows，本机）：rc=0，真出 exe 639,488 字节；.light 刻意不带「纯光明实现」魔数，故转译腿仍走 节点网络.py，行为不变。",
+      "备注": "R118-B（2026-10-06）新增的结构性影子：为解锁 主控/节点/节点核心/调度核心 的原生腿导入而建，详见 R118-B 交付报告与 tools/ci/bootstrap_rate.py docstring「结构性影子」一节。"
+    },
     "inspect": {
       "状态": "可编译",
       "阻断": "可编译"
