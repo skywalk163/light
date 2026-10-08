@@ -2,6 +2,10 @@
 """
 lightpub 文档「可导入性」闸门。
 
+【测试边界（R125-C1）】本文件只测 lightpub 桥接层（stdlib/lightpub/ 的加载与
+包能力表/文档可导入性），**不依赖 core 语言**（lexer/parser/codegen）。独立测试
+子集入口：`make lightpub-test`（等价 `python -m pytest tests/lightpub`）。
+
 要拦的东西
 ----------
 docs/lightpub/*.md 是 tools/gen_lightpub_docs.py 生成的，每篇两个「导入方式」

@@ -74,6 +74,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._current_class = None  # 当前方法所属的类名（None 表示不在方法中）
         self._current_method_type = None  # 当前方法类型：'instance' / 'class' / 'static'
         self._var_types = {}  # 变量类型追踪：var_name -> type_str (INT/FLOAT/BOOL/STRING/LIST/None)
+        # R125-A2：类实例追踪 var_name -> class_name（`设 c 为 新建 X()` 时记录，
+        # 函数/段入口随 _local_vars 一并清空，防跨段泄漏误判）。
+        self._instance_classes = {}
         self._enable_type_opt = True  # 启用类型优化
         # 模块系统支持（Level 9）
         self._imports = {}
@@ -3765,6 +3768,62 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'call void @dv_class_get_member(ptr {result_slot}, ptr {obj_slot}, ptr {member_reg})')
         return self._load_dv(result_slot), 'dv'
 
+    def _note_instance_class(self, name: str, value_expr) -> None:
+        """R125-A2：记录/清除局部变量的类实例来源。
+
+        `设 c 为 新建 X()` → 记 c -> X；其它赋值（容器/标量/列表字面量）→ 清除，
+        防止旧跟踪把后续容器变量误判成类实例。内置容器构造（新建 列表/字典/list/dict）
+        不算类实例。
+        """
+        cls = getattr(value_expr, 'class_name', None) if value_expr is not None else None
+        if cls and cls not in ('列表', 'list', '字典', 'dict'):
+            self._instance_classes[name] = cls
+        else:
+            self._instance_classes.pop(name, None)
+
+    def _class_defines_method(self, class_name: str, method_name: str,
+                              _seen=None) -> bool:
+        """R125-A2：类（含 superclasses 继承链）是否定义了名为 method_name 的方法。"""
+        if _seen is None:
+            _seen = set()
+        if class_name in _seen:
+            return False
+        _seen.add(class_name)
+        cls_def = self._classes.get(class_name)
+        if cls_def is None:
+            return False
+        for method in getattr(cls_def, 'methods', []) or []:
+            if getattr(method, 'name', None) == method_name:
+                return True
+        for sup in getattr(cls_def, 'superclasses', []) or []:
+            if self._class_defines_method(sup, method_name, _seen):
+                return True
+        return False
+
+    def _recv_is_instance_method(self, prop, method_name: str) -> bool:
+        """R125-A2：接收者是否为「已跟踪的类实例变量，且该类（含继承链）定义了此方法」。
+
+        只对无点单级变量判定（`设 c 为 新建 X()` 的 c）。带点字段（己.数据 /
+        parser 拍平的 `甲.乙` Identifier）与嵌套属性不在此列——容器字段的
+        mutating builtin 写回语义（SSE 空行边界根因）原样保留。
+
+        两个调用点的分派语义：
+        - `_gen_typed_method_call`：为真则跳过 `_gen_typed_builtin`，落入
+          dv_call_method 类方法通路（该通路自带 `_persist_to_receiver` 写回）；
+        - `_gen_statement` 语句级 `x.清空()`：为真则**不把方法返回值写回变量**
+          ——类方法返回值不是接收者本身，写回会把实例整个顶掉；接收者写回由
+          dv_call_method 通路内部完成。
+        """
+        recv = prop.obj
+        if not isinstance(recv, ast.Identifier) or '.' in recv.name:
+            return False
+        if recv.name in ('己', 'self'):
+            return False
+        cls = self._instance_classes.get(recv.name)
+        if cls is None:
+            return False
+        return self._class_defines_method(cls, method_name)
+
     def _recv_is_field(self, prop) -> bool:
         """接收者是否是需要写回的实例字段。
 
@@ -4026,11 +4085,21 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if kw_values:
             args_dv = self._merge_kwargs(method_name, args_dv, kw_values)
 
-        # 尝试使用内置函数处理
+        # 内置 mutating 方法名单（R125-A2 自下方 builtin 分派处上移复用）
+        mutating_methods = {'追加', 'append', '清空', 'clear', '设置', 'set', '插入', 'insert', '删除', 'remove', '弹出', 'pop', '移除', '弹栈'}
+        # R125-A2：接收者是已跟踪的类实例变量、且方法名在该类继承链上有定义
+        # ⇒ 优先走类方法（dv_call_method），不被内置 mutating 分派截胡——
+        # 此前 `obj.清空()`（自定义类同名方法）被截胡成 dv_list_clear（转译腿正确、
+        # 原生腿错误的根因）。只收窄 mutating 撞名场景：容器字段（己.数据）
+        # 不在跟踪名单里，写回语义原样保留（SSE 不回归）；名单外方法分派不变。
+        走类方法 = (method_name in mutating_methods
+                    and self._recv_is_instance_method(prop, method_name))
+
         # L-077：`.弹栈()` 的返回值是被弹的元素，不是新列表——写回接收者的
         # 新列表由 builtin 内部无法完成（那里拿不到接收者槽位），因此在这里
         # 单独分派：先求被弹值，再单独生成移除后的新列表并写回。
-        if method_name in ('弹栈', 'pop') and not expr.arguments:
+        # R125-A2：类实例自带 弹栈 方法时让位给类方法（走类方法分支）。
+        if method_name in ('弹栈', 'pop') and not expr.arguments and not 走类方法:
             slot0 = self._store_dv(obj_dv)
             size = self.new_register()
             self.emit(f'{size} = call i64 @dv_len(ptr {slot0})')
@@ -4045,13 +4114,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.set_var(prop.obj.name, newlist)
             return self._load_dv(val_slot), 'dv'
 
-        builtin_result = self._gen_typed_builtin(method_name, args_dv)
+        builtin_result = None if 走类方法 else self._gen_typed_builtin(method_name, args_dv)
         if builtin_result is not None:
             result_reg, _ = builtin_result
             # 内置 mutating 方法（追加/插入/删除/设置…）会把接收者 realloc 成新对象
             # 并以返回值给出。若接收者是实例字段（己.数据），必须把新对象写回字段，
             # 否则跨调用累积丢失（SSE 空行边界产出 0 事件的根因）。
-            mutating_methods = {'追加', 'append', '清空', 'clear', '设置', 'set', '插入', 'insert', '删除', 'remove', '弹出', 'pop', '移除', '弹栈'}
             if method_name in mutating_methods and self._recv_is_field(prop):
                 self._persist_to_receiver(prop, result_reg)
             return result_reg, 'dv'
@@ -5280,6 +5348,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 obj = expr.name.obj
                 mutating_methods = {'追加', 'append', '清空', 'clear', '设置', 'set', '插入', 'insert', '删除', 'remove', '弹出', 'pop', '移除', '弹栈'}
                 if method_name in mutating_methods:
+                    # R125-A2：已跟踪类实例撞 mutating 名 → 走类方法、不写回返回值
+                    # （机制与安全边界详注见 _recv_is_instance_method docstring）
+                    if isinstance(obj, ast.Identifier) and self._recv_is_instance_method(expr.name, method_name):
+                        self._gen_expression(expr)
+                        return
                     # 情形一：裸局部变量 x.追加(...) —— 调用后把返回值写回 x 绑定
                     if isinstance(obj, ast.Identifier):
                         obj_name = obj.name
@@ -5530,8 +5603,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.alloca_local(stmt.name)
         if stmt.value:
             dv_val, _ = self._gen_expression(stmt.value)
+            # R125-A2：`设 c 为 新建 X()` 记录类实例来源（其它赋值自动清除）
+            self._note_instance_class(stmt.name, stmt.value)
         else:
             dv_val = self._create_int_dv('0')
+            self._note_instance_class(stmt.name, None)
         self.set_var(stmt.name, dv_val)
         var_type = None
         if stmt.type_annotation:
@@ -5656,6 +5732,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             name = self._get_var_name(stmt.target)
             dv_val, _ = self._gen_expression(stmt.value)
             self.set_var(name, dv_val)
+            # R125-A2：重绑定时刷新类实例跟踪（新建 X() 记类名，其它赋值清除）
+            if '.' not in name:
+                self._note_instance_class(name, stmt.value)
             if isinstance(stmt.target, ast.Identifier):
                 new_type = self._infer_expr_type(stmt.value)
                 if new_type is not None:
@@ -6141,6 +6220,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     def _gen_global_init(self):
         self._current_func = '__init__'
         self._local_vars.clear()
+        # R125-A2：类实例跟踪随函数/段重置，防跨段同名变量误判
+        self._instance_classes.clear()
         self._pending_allocas = []
         self._reg_counter = 0
         self._dv_ssa_to_slot.clear()
@@ -6232,10 +6313,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if name and name in self._globals:
                 if stmt.value:
                     dv_val, _ = self._gen_expression(stmt.value)
+                    # R125-A2：顶层（全局）变量同样跟踪类实例来源，
+                    # 否则 `设 c 为 新建 X()` 后 `c.清空()` 仍被内置截胡。
+                    self._note_instance_class(name, stmt.value)
                     safe = self._safe_var_name(name)
                     slot_alloc = self._new_dv_slot()
                     # For globals, store LightValue in a global struct
                     self.emit(f'store {LIGHTVALUE_STRUCT} {dv_val}, {LIGHTVALUE_STRUCT}* @__var_{safe}')
+                else:
+                    self._note_instance_class(name, None)
                 return
         self._gen_statement(stmt)
 
@@ -6270,6 +6356,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._current_func = name
         self._current_func_params = {}
         self._local_vars.clear()
+        # R125-A2：类实例跟踪随函数/段重置，防跨段同名变量误判
+        self._instance_classes.clear()
         self._pending_allocas = []
         self._reg_counter = 0
         self._dv_ssa_to_slot.clear()
@@ -6404,6 +6492,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._current_func = name
         self._current_func_params = {}
         self._local_vars.clear()
+        # R125-A2：类实例跟踪随函数/段重置，防跨段同名变量误判
+        self._instance_classes.clear()
         self._pending_allocas = []
         self._reg_counter = 0
         self._dv_ssa_to_slot.clear()
@@ -6473,6 +6563,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._current_func = name
         self._current_func_params = {}
         self._local_vars.clear()
+        # R125-A2：类实例跟踪随函数/段重置，防跨段同名变量误判
+        self._instance_classes.clear()
         self._pending_allocas = []
         self._reg_counter = 0
         self._dv_ssa_to_slot.clear()
@@ -6587,6 +6679,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._current_func = name
         self._current_func_params = {}
         self._local_vars.clear()
+        # R125-A2：类实例跟踪随函数/段重置，防跨段同名变量误判
+        self._instance_classes.clear()
         self._pending_allocas = []
         self._reg_counter = 0
         self._seg_result_ptr = '%result'
@@ -6650,6 +6744,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._current_func = name + '$coro'
         self._current_func_params = {}
         self._local_vars.clear()
+        # R125-A2：类实例跟踪随函数/段重置，防跨段同名变量误判
+        self._instance_classes.clear()
         self._pending_allocas = []
         self._reg_counter = 0
         self._in_coroutine = True
@@ -7023,6 +7119,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._current_func = f'{class_name}.{method_def.name}'
         self._current_func_params = {}
         self._local_vars.clear()
+        # R125-A2：类实例跟踪随函数/段重置，防跨段同名变量误判
+        self._instance_classes.clear()
         self._pending_allocas = []
         self._reg_counter = 0
         self._dv_ssa_to_slot.clear()
@@ -7157,6 +7255,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._dv_ssa_to_slot.clear()
         self._temp_slot_index = 0
         self._local_vars.clear()
+        # R125-A2：main 顶层是新作用域，类实例跟踪一并重置
+        self._instance_classes.clear()
         self._pending_allocas = []
         self.emit(f'define i32 @main(i32 %argc, ptr %argv) {{')
         self.emit('entry:')

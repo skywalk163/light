@@ -3,6 +3,10 @@ lightpub P0 桥接模块测试 - 文件系统 + JSON + CSV + 正则表达式 + �
 
 验证 7 个 P0 包通过 lightpub 加载器导入后功能真实可用（导入→调用→结果验证全链路）。
 对应计划 3.1.2：修复 lightpub 桥接测试虚假通过，每个桥接包有 ≥3 个真实功能测试。
+
+【测试边界（R125-C1）】本文件只测 lightpub 桥接层（stdlib/lightpub/ 的加载与
+包能力），**不依赖 core 语言**（lexer/parser/codegen）。独立测试子集入口：
+`make lightpub-test`（等价 `python -m pytest tests/lightpub`）。
 """
 
 import sys
@@ -11,7 +15,7 @@ import tempfile
 import shutil
 import unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'stdlib'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'stdlib'))
 
 
 class Test文件系统Bridge(unittest.TestCase):

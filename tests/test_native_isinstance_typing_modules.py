@@ -64,6 +64,20 @@ def test_转译腿_内置核心判型_各标量判型正确():
     assert 是布尔(True) is True, "转译腿：是布尔(True) 应真"
 
 
+def test_转译腿_内置核心判型_是字节_在Python腿正常():
+    """转译腿（Python）：`是字节` 正常返回（缺陷不在 .light 真身）。
+
+    **R125-B2 设计边界登记**：`isinstance(值, "bytes")` 在**原生腿**恒假是**设计边界**
+    （原生无一等 `bytes` 类型），**不是缺陷**。本用例只在转译腿钉死「`.light` 真身无缺陷」，
+    原生腿侧的恒假由 `test_原生腿_内置核心判型_是字节_设计边界恒假` 单独钉死（见下）。
+    """
+    from 内置核心判型 import 是字节  # noqa: E402
+    # Python 侧 `b"..."` 是一等 bytes，`isinstance(b"x", bytes)` 必须为真
+    assert 是字节(b"abc") is True, "转译腿：是字节(b'abc') 应真"
+    # 普通 str 不是 bytes（与 bytes 严格分离）
+    assert 是字节("abc") is False, "转译腿：是字节('abc') 应假"
+
+
 def test_转译腿_内置核心列表_副本独立():
     from 内置核心列表 import 副本  # noqa: E402
     d = {"a": 1}
@@ -197,6 +211,36 @@ def test_原生腿_内置核心判型_各标量判型失真():
     # A1 修复前原生腿全部返「假」，修复后应全部返「真」
     assert lines == ['整数:真', '字符串:真', '列表:真', '字典:真', '数值:真', '布尔:真', '浮点:真'], \
         f'原生腿判型失真（isinstance 缺陷），实际：{lines!r}'
+
+
+@_需真跑[0]
+@_需真跑[1]
+def test_原生腿_内置核心判型_是字节_设计边界恒假():
+    """**R125-B2 设计边界登记**：`isinstance(值, "bytes")` 在原生腿恒假 = **设计边界**，
+    不是缺陷。原生腿**无一等 `bytes` 类型**（`b"..."` 落成 STRING（type=3）），
+    `dv_isinstance` 的原生标量分派表（R124-A1 新增）**本就不含 `bytes`**，因此
+    `内置核心判型.是字节` 恒假是**结构性结果**，**不是 A1 修复残留的缺陷**。
+
+    **为什么不是缺陷**：A1 修复的是「标量判型恒假」（str/int/float/bool/list/dict/tuple
+    等**原生腿存在的类型**被判假），而 `bytes` 在原生腿**根本不是一个 type 码**——
+    字节串字面量 `b"..."` 落成 STRING（type=3），`dv_isinstance` 无法分辨 str 与 bytes
+    （见 `docs/原生腿能力边界.md` §14.4a + §12.2「类型不可分辨」）。
+
+    **本用例不 xfail**：它断言的是**恒假**这一设计边界，A1 修完 `dv_isinstance` 后仍应恒假。
+    若哪天这里转真了（即 `是字节("abc")` 输出 `真`），说明 runtime 已引入一等 `bytes`
+    类型（或 `dv_isinstance` 被误加了 `type==bytes` 分支），**本用例会立即红**提醒复核。
+    """
+    src = ('从 内置核心判型 导入 是字节\n'
+           '打印("是字节:" + 转字符串(是字节("abc")))\n'
+           '打印("类型:" + 转字符串(类型("abc") == str))\n')
+    r = _运行原生(src)
+    assert r.returncode == 0, f'运行失败：{r.stderr.decode("utf-8", "replace")[:1500]}'
+    lines = _输出(r).split('\n')
+    # 设计边界：isinstance(值, "bytes") 恒假；但 type(值) == str 为真（证明值本身是 str）
+    assert lines == ['是字节:假', '类型:真'], (
+        f'原生腿 `是字节` 已不再恒假：实际 {lines!r}。'
+        '若 `是字节:真` 出现，说明原生腿已引入一等 bytes 类型——'
+        '请复核是否应撤销本设计边界登记；若 `类型:假` 出现，说明 type() 语义也被破坏。')
 
 
 @_需真跑[0]

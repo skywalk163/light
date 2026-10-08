@@ -2,8 +2,8 @@
   "version": 2,
   "note": "stdlib 原生腿就绪度基线（R117 于 2026-10-06 改为多模块编译口径）。就绪度 = 可编/魔数模块总数；可编名单只许增不许减——对 --base 跑出「新增不可编」即 rc=1。compile_entry 记录测量入口；built_from_commit 是生成基线时的 HEAD。",
   "compile_entry": "compile_light_typed(多模块)",
-  "built_from_commit": "dc04464b6",
-  "generated_at": "2026-10-08T14:27:46",
+  "built_from_commit": "e54a034dd",
+  "generated_at": "2026-10-08T19:39:35",
   "timeout_per_module_sec": 300.0,
   "total": 77,
   "ready": 67,
@@ -107,7 +107,7 @@
       "模块": "HTTP服务端",
       "路径": "stdlib/HTTP服务端.light",
       "bucket": "其它错误",
-      "detail": "NativeImportError: 'HTTP服务端' 导入了 Python 生态/标准库模块 'socket'，原生腿无法编译：原生运行时是纯 C（src/llvm/runtime_typed.c，不嵌 CPython），没有 Python 互操作，也没有可链接的 Python 符号。",
+      "detail": "NativeImportError: 模块 'socket' 在原生腿不可用：解析到的是 Python 文件 'G:\\dswork\\duan-light-merge\\light-merge\\stdlib\\lightpub\\Socket.py'。原生腿不加载 .py；请在纯光明 (.light) 中实现 'socket' 后再导入。",
       "gap": "",
       "ir_len": 0
     },
@@ -595,7 +595,7 @@
       "模块": "流式",
       "路径": "stdlib/流式.light",
       "bucket": "其它错误",
-      "detail": "NativeImportError: '流式' 导入了 Python 生态/标准库模块 'socket'，原生腿无法编译：原生运行时是纯 C（src/llvm/runtime_typed.c，不嵌 CPython），没有 Python 互操作，也没有可链接的 Python 符号。",
+      "detail": "NativeImportError: 模块 'socket' 在原生腿不可用：解析到的是 Python 文件 'G:\\dswork\\duan-light-merge\\light-merge\\stdlib\\lightpub\\Socket.py'。原生腿不加载 .py；请在纯光明 (.light) 中实现 'socket' 后再导入。",
       "gap": "",
       "ir_len": 0
     },

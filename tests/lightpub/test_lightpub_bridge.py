@@ -2,6 +2,13 @@
 lightpub P1 桥接模块测试 - HTTP客户端 + Socket + SQLite
 
 验证 P1 包可通过 lightpub 加载器导入并使用。
+
+【测试边界（R125-C1）】本文件只测 lightpub 桥接层（stdlib/lightpub/ 的加载与
+包能力），**不依赖 core 语言**（lexer/parser/codegen）。独立测试子集入口：
+`make lightpub-test`（等价 `python -m pytest tests/lightpub`）。
+
+【网络用例门控（R125-C1）】外网用例（httpbin.org）默认 skip，显式设
+`LIGHTPUB_NETWORK=1` 才跑——CI/内网环境不因外网不可达而慢速重试。
 """
 import sys
 import os
@@ -12,7 +19,7 @@ import unittest
 import urllib.request
 import urllib.error
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'stdlib'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'stdlib'))
 
 
 def _has_network(timeout=2):
@@ -21,12 +28,20 @@ def _has_network(timeout=2):
     仅当请求成功且返回 2xx/3xx 状态码时视为网络可用；
     超时、连接失败或 5xx 错误（如 503）均视为不可用，
     避免在代理/防火墙环境下因 httpbin 不可达而误判。
+
+    R125-C1：本函数只在 `LIGHTPUB_NETWORK=1` 显式开启时才会被调用
+    （skipIf 条件先查环境变量），默认环境不做任何外网请求。
     """
     try:
         with urllib.request.urlopen('https://httpbin.org/get', timeout=timeout) as resp:
             return 200 <= resp.status < 400
     except (urllib.error.URLError, OSError):
         return False
+
+
+def _网络门开():
+    """R125-C1：外网用例总开关——默认关（skip），`LIGHTPUB_NETWORK=1` 才开。"""
+    return bool(os.environ.get('LIGHTPUB_NETWORK'))
 
 
 class TestHTTP客户端Bridge(unittest.TestCase):
@@ -40,7 +55,7 @@ class TestHTTP客户端Bridge(unittest.TestCase):
     def test_导入(self):
         self.assertIsNotNone(self.mod)
 
-    @unittest.skipIf(not _has_network(), "无网络连接")
+    @unittest.skipIf(not _网络门开(), "外网用例默认 skip（显式设 LIGHTPUB_NETWORK=1 才跑）")
     def test_HTTP获取(self):
         # skipIf 在模块加载时求值，运行时网络状态可能已变化，
         # 此处再次检查，网络不可用时优雅跳过而非失败
@@ -61,7 +76,7 @@ class TestHTTP客户端Bridge(unittest.TestCase):
         self.assertIn('q=test', url)
         self.assertIn('page=1', url)
 
-    @unittest.skipIf(not _has_network(), "无网络连接")
+    @unittest.skipIf(not _网络门开(), "外网用例默认 skip（显式设 LIGHTPUB_NETWORK=1 才跑）")
     def test_获取JSON(self):
         # skipIf 在模块加载时求值，运行时网络状态可能已变化
         if not _has_network():
@@ -70,7 +85,7 @@ class TestHTTP客户端Bridge(unittest.TestCase):
         self.assertIsNotNone(data)
         self.assertIn('url', data)
 
-    @unittest.skipIf(not _has_network(), "无网络连接")
+    @unittest.skipIf(not _网络门开(), "外网用例默认 skip（显式设 LIGHTPUB_NETWORK=1 才跑）")
     def test_HTTP提交(self):
         resp = self.mod.发送JSON('https://httpbin.org/post', {'key': 'value'}, method='POST')
         self.assertEqual(resp.status, 200)

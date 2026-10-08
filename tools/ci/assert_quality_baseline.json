@@ -1,7 +1,7 @@
 {
   "version": 2,
   "note": "假测试门禁基线快照：本仓库当前的既有违规。新增即红；修好一批后重新生成并提交本文件。built_from_commit 是**生成基线时的 HEAD**，也就是携带本基线那个提交的父提交；若它在当前分支上不可达，说明基线是从被改写/丢弃的提交上生成的，必须重新生成。",
-  "built_from_commit": "d58883f3eceb",
+  "built_from_commit": "e54a034dd1c6",
   "scanned_root": ".",
   "categories": {
     "string-assert": "字符串断言式",
@@ -273,7 +273,7 @@
     },
     {
       "file": "src/code_generator.py",
-      "line": 1431,
+      "line": 1444,
       "cat": "not-none",
       "text": "self._add_line(\"    assert _x is not None, \\\"尝试解包空值\\\"\")"
     },
@@ -2958,6 +2958,12 @@
       "line": 135,
       "cat": "string-assert",
       "text": "assert 'parse' in py_code.lower(), \"缺少解析相关代码\""
+    },
+    {
+      "file": "tests/unit/test_terminal_boundary_docs.py",
+      "line": 55,
+      "cat": "not-none",
+      "text": "assert start is not None, 'test_pure_light_hook.py 缺少 _KNOWN_MAGIC_FINAL 名单'"
     }
   ]
 }

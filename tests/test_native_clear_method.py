@@ -10,13 +10,12 @@ R123 实测（_r123_scratch/probe_清空反跑.light，双腿对拍）：
   - 转译腿：`c.n after c.清空() = 0`  —— 走类方法，正确。
   - 原生腿：`c.n after c.清空() = `（空）—— 被截胡，c.n 没有归零。
 
-本用例固化（**R124 只登记、不修 mutating_methods**）：
-  - 转译腿对照：真断言 c.n==0（证明转译腿自洽，不是两边都坏）。
-  - 原生腿：当前被截胡 ⇒ 落 xfail，不阻塞 CI。
-修 `mutating_methods` 波及 `追加/设置/插入/删除/弹出/移除/弹栈` 一批，
-属独立议题（R123-A2 已判），需单独立项 + 原生腿侧反跑，不在 R124 范围。
-将来真修了 mutating_methods：原生腿这条会转成真绿，届时摘掉 `xfail` 标记
-把它转正（见 test_原生腿_清空应走类方法 的 reason）。
+R124 只登记不修（落 xfail）。R125-A2 真修：
+  codegen_typed.py 增加类实例静态跟踪（`设 c 为 新建 X()` 记 c->X），
+  接收者是已跟踪类实例且方法名在该类继承链上有定义时，优先走
+  dv_call_method（类方法），不再被内置 mutating 分派截胡；容器字段
+  （己.数据 等）不在跟踪名单，SSE 字段写回语义原样保留。
+  按本文件预留的转正路径：R125 摘掉 @xfail 标记，反跑转真绿。
 """
 import importlib
 import os
@@ -92,20 +91,13 @@ def test_转译腿_清空走类方法(临时灯, capsys):
     assert 值 == '0', "转译腿：c.清空() 应走类方法使 c.n==0，stdout=%r" % (值,)
 
 
-# ── 原生腿：当前被 mutating_methods 截胡 ⇒ xfail（不阻塞 CI）──────────────
+# ── 原生腿：R125-A2 真修后转正（原 R124 xfail 已摘除）──────────────────────
 @skip_without_clang
-@pytest.mark.xfail(
-    reason=(
-        "R124-C3 只登记不修：codegen_typed.py 的 mutating_methods 仍含「清空」，"
-        "原生腿把 c.清空() 截胡成容器清空而非类方法 ⇒ c.n 未归零。"
-        "修它波及 追加/设置/插入/删除/弹出/移除/弹栈 一批，属独立议题。"
-        "将来真修后，本测试会意外通过(xpass)——届时摘掉 @xfail 标记转正。"
-    ),
-)
 def test_原生腿_清空应走类方法(临时灯):
     """原生腿反跑：自定义类的 清空() 段应被真调用，c.n 归零为 0。
 
-    R123 实测当前输出 `RESULT=`（空），不是 `0` —— 截胡实锤。落 xfail。
+    R123 实测修复前输出 `RESULT=`（空）—— 截胡实锤。
+    R125-A2 修复（类实例跟踪 + mutating 撞名让位类方法）后 RESULT=0。
     """
     from llvm.compiler import compile_light_typed  # type: ignore[import]
 

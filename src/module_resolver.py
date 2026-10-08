@@ -275,23 +275,82 @@ class ModuleResolver:
         if light_path:
             search_dirs.extend(light_path.split(os.pathsep))
         
-        # 搜索
+        # 搜索（两轮式，R125-A1）：第一轮所有搜索路径**只跑平层**，第二轮才对
+        # **库目录**递归子目录。这样「靠前路径的平层」永远优先于「靠后路径/子目录」，
+        # canonical stdlib 的平层命中不会被任何子目录里的旧副本抢在前面。
         searched = []
+
+        # 第一轮：平层（原语义逐字保留：靠前路径优先、.light 先于 .py）
         for search_dir in search_dirs:
             search_path = Path(search_dir)
             if not search_path.is_absolute():
                 search_path = Path.cwd() / search_path
-            
+
             for module_file in module_files:
                 module_path = search_path / module_file
                 searched.append(str(module_path))
-                
+
                 if module_path.exists():
                     return module_path.resolve()
-        
+
+        # 第二轮：递归**库目录**的子目录（R125-A1）。stdlib/分布式/节点网络.light
+        # 这类子目录模块此前对原生腿入口不可见（compile_light_typed 必须手工补
+        # search_paths=[stdlib/分布式]），现在深度优先递归命中即返回。
+        #
+        # ⚠️ 只递归目录名为 stdlib/contrib 的库目录（_native_search_paths 第 2/3 步
+        # 产出的全部目录均以此命名），**不递归入口目录/临时目录**——实测教训：
+        # 0.82 门上测试临时文件落在 /tmp（五千余个一级目录、含历轮陈旧同步树），
+        # 全目录递归会把 /tmp/r41-*/light-merge/contrib 等 9 月影子树里的空壳
+        # .light 扫出来抢在 canonical stdlib 平层之前命中（decl 0 空壳假红）；
+        # 本地同样命中 bootstrap/release/stdlib 旧打包副本。这正是 R98 §3.1
+        # 「项目隔离」哲学：入口目录是隔离边界，只有库目录才可枚举。
+        for search_dir in search_dirs:
+            search_path = Path(search_dir)
+            if not search_path.is_absolute():
+                search_path = Path.cwd() / search_path
+
+            if search_path.name not in ('stdlib', 'contrib'):
+                continue
+            for module_path in self._iter_subdir_candidates(search_path, module_files, searched):
+                if module_path.exists():
+                    return module_path.resolve()
+
         # 未找到
         raise ModuleNotFoundError(module_name, searched)
-    
+
+    @staticmethod
+    def _iter_subdir_candidates(search_path: Path, module_files, searched):
+        """深度优先枚举 search_path 子目录下的候选模块路径（R125-A1）。
+
+        - 跳过隐藏目录（`.` 开头）与 `__pycache__`；
+        - 子目录深度上限 3（`stdlib/分布式/xxx` 一层已够，防无限递归与 IO 放大）；
+        - 每个目录内保持 `.light` 先于 `.py` 的优先序；
+        - 不做全局缓存（按需扫描，控制在 search_paths × 3 深度内）。
+        """
+        # 深度优先：子目录逆序入栈，弹出时保持字典序靠前先访问
+        stack = [(search_path, 0)]
+        while stack:
+            current, depth = stack.pop()
+            try:
+                children = sorted(current.iterdir(), key=lambda p: p.name)
+            except OSError:
+                continue
+            subdirs = []
+            for child in children:
+                if not child.is_dir():
+                    continue
+                name = child.name
+                if name.startswith('.') or name == '__pycache__':
+                    continue
+                if depth < 3:
+                    subdirs.append((child, depth + 1))
+            for child, d in reversed(subdirs):
+                stack.append((child, d))
+            for module_file in module_files:
+                module_path = current / module_file
+                searched.append(str(module_path))
+                yield module_path
+
     def parse_module(self, module_path: Path) -> ModuleInfo:
         """
         解析模块文件

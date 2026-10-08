@@ -126,3 +126,28 @@ lightpub 包名 → 光明导入名:
 3. 109 个包的逐个验证工作量大，建议先做 10 个高频包的桥接验证可行性
 
 **下一步**: 等 Trae 完成 T1-T4 后，开始实施阶段 1（包索引）。
+
+---
+
+## 6. 测试边界（R125-C1 划清）
+
+lightpub 相关测试已**整体收拢到 `tests/lightpub/`**（将来若真要分仓，可整体搬走）：
+
+| 测试文件 | 职责 | 依赖 |
+|---|---|---|
+| `tests/lightpub/test_lightpub_bridge.py` | P1 桥接包（HTTP客户端/Socket/SQLite）导入→调用→结果 | stdlib/lightpub/；外网用例默认 skip |
+| `tests/lightpub/test_lightpub_bridge_p0.py` | P0 桥接包 7 个（文件系统/JSON/CSV/正则/日期时间/数学/加密）真实功能 | stdlib/lightpub/ |
+| `tests/lightpub/test_lightpub_bridge_table.py` | `_STDLIB_BRIDGE` 包名映射表一致性闸门 | stdlib/lightpub/ |
+| `tests/lightpub/test_lightpub_doc_importability.py` | docs/lightpub/*.md「导入方式」代码块可导入性闸门 | docs/lightpub/ + tools/ |
+
+**边界定义**：以上测试只覆盖 **lightpub 桥接层**（加载器、包能力、文档可导入性），
+**不依赖 core 语言**（lexer/parser/codegen）。core 语言缺陷归 `tests/`（根与 unit/），
+不在本子集内。
+
+**独立测试子集入口**：`make lightpub-test`（等价
+`python -m pytest tests/lightpub -p no:randomly -q -o addopts=`）。
+外网用例（httpbin.org）默认 skip，显式 `LIGHTPUB_NETWORK=1` 才跑。
+
+**实现注记**：`tests/lightpub/` **不放置** `__init__.py`——目录名与 `stdlib/lightpub`
+包撞名，一旦有 `__init__.py`，pytest 会把测试模块注册为 `lightpub.test_*` 包成员，
+导致测试内 `from lightpub import 加密` 命中目录自身（ImportError）。

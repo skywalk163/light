@@ -214,7 +214,10 @@ def _源码片段(path, name, 长度=4000):
 
 def test_分派链登记了两条新语句():
     """静态护栏：L3 分派链必须有这两个 legacy 节点的分支。"""
-    body = _源码片段(_CODEGEN_TYPED, '_gen_statement')
+    # R125：窗口 4000→4500。原版余量仅 ~80 字符，_gen_statement 内任何合法
+    # 增量（如 R125-A2 语句级清空分派，已在窗口前部）都会把
+    # MatchStatement/DestructuringAssignment 分支挤出提取窗口。断言内容不变。
+    body = _源码片段(_CODEGEN_TYPED, '_gen_statement', 4500)
     for 节点 in ('MatchStatement', 'DestructuringAssignment'):
         assert f'isinstance(stmt, ast.{节点})' in body, \
             f'_gen_statement 里没有 ast.{节点} 的分支'
