@@ -748,6 +748,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare i32 @dv_copy_file(ptr, ptr)',
             f'declare i32 @dv_is_file(ptr)',
             f'declare i32 @dv_is_dir(ptr)',
+            # R127-C · S1 三内建补齐：字符判型（ASCII 整串语义，见 runtime 注释）
+            f'declare i32 @dv_str_isalpha(ptr)',
+            f'declare i32 @dv_str_isspace(ptr)',
             # 哈希/编码
             f'declare ptr @dv_md5(ptr, i32)',
             f'declare ptr @dv_sha1(ptr, i32)',
@@ -3217,6 +3220,41 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return self._gen_type_predicate(args, ('float',))
         if name in ('是布尔', 'is_bool'):
             return self._gen_type_predicate(args, ('bool',))
+
+        # R127-C · S1 三内建补齐：是字母/是空白（对齐 stdlib/内置核心判型.light 的
+        # str.isalpha/str.isspace 整串语义；ASCII 判定，Unicode 砍线见 runtime 注释）。
+        if name in ('是字母', 'is_alpha'):
+            if args:
+                s_ptr = self.new_register()
+                self.emit(f'{s_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                r = self.new_register()
+                self.emit(f'{r} = call i32 @dv_str_isalpha(ptr {s_ptr})')
+                cmp = self.new_register()
+                self.emit(f'{cmp} = icmp ne i32 {r}, 0')
+                return self._create_bool_dv(cmp), 'dv'
+            return self._create_bool_dv('false'), 'dv'
+        if name in ('是空白', 'is_space'):
+            if args:
+                s_ptr = self.new_register()
+                self.emit(f'{s_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                r = self.new_register()
+                self.emit(f'{r} = call i32 @dv_str_isspace(ptr {s_ptr})')
+                cmp = self.new_register()
+                self.emit(f'{cmp} = icmp ne i32 {r}, 0')
+                return self._create_bool_dv(cmp), 'dv'
+            return self._create_bool_dv('false'), 'dv'
+        # 是文件：os.path.isfile 语义，复用 runtime 既有 dv_is_file（与 文件存在
+        # 的 dv_file_exists = access(F_OK) 区分：目录会判假，对齐 Python 腿 stdlib/builtins.py:155）。
+        if name in ('是文件', 'is_file'):
+            if args:
+                path_ptr = self.new_register()
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                file_reg = self.new_register()
+                self.emit(f'{file_reg} = call i32 @dv_is_file(ptr {path_ptr})')
+                cmp = self.new_register()
+                self.emit(f'{cmp} = icmp ne i32 {file_reg}, 0')
+                return self._create_bool_dv(cmp), 'dv'
+            return self._create_bool_dv('false'), 'dv'
 
         if name == '范围':
             return self._gen_typed_range(args)

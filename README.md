@@ -18,6 +18,11 @@
 > L5–L7 为后续追加（规格见 `docs/level5_spec.md`、`docs/Level6_已知限制与待办事项.md`、
 > `docs/level7_spec.md`），完整清单以 `src/version.py` 的 `SUPPORTED_LEVELS` 为准。
 
+> 🤖 **AI 写光明代码？先读 [`docs/AI编程指南.md`](docs/AI编程指南.md)**（1300+ 行）——
+> 含 14 个高频错误清单、stdlib 函数名权威映射（`读取文件` 不是 `读取`、`序列化JSON` 不是 `序列化`）、
+> 23 个惯用法片段（含 lightharness 生产代码逐字摘录）、语言层坑位现状。
+> 配套 CLI：`light ai snippets` 列出片段、`light ai card` 吐完整 system prompt、`light ai check` 查后端兼容。
+
 ## ✨ 核心特性
 
 - 🀄 **中文语法**：全中文关键字，符合中文思维习惯
@@ -397,6 +402,13 @@ light compile hello.light --backend llvm-typed -o hello.exe
 ## AI Copilot（算力不足时让 AI 写光明代码）
 
 光明提供完整的 AI 辅助工具链，即使只有小模型（7B 以下），也能帮你写出正确的光明代码。
+
+> 🤖 **给 AI 的系统提示（必读）**：在本仓库写光明代码前，请先完整阅读
+> **[`docs/AI编程指南.md`](docs/AI编程指南.md)** —— 这是一份"看了就能直接写光明"的手册，
+> 包含 30 个 L0 核心字、50 个内置函数、30 个标准库模块、Python↔光明 对照表、
+> 12 个最常见错误、语言层坑位现状（含历史坑与当前边界）、10+ 个惯用法示例索引。
+> 把它作为 system prompt 一次性注入，可避免 80% 的首轮语法错误。
+> 配套命令：`light ai card`（速查卡）、`light ai snippets`（片段模板）、`light ai check`（后端兼容检测）。
 
 > **模型已上线**：训练好的光明翻译器模型已发布到 Ollama 官网，可直接拉取使用：
 > ```bash

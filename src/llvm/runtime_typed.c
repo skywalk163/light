@@ -1331,6 +1331,36 @@ int dv_str_starts_with(LightValue* str, LightValue* prefix) {
     return strncmp(str->str, prefix->str, plen) == 0;
 }
 
+/* R127-C · S1 三内建补齐：字符判型（对齐 Python str.isalpha / str.isspace 的
+ * 整串语义：非空且每个字符都通过判定，空串判假）。
+ * 能力边界（如实砍线）：仅 ASCII 字母/空白判定——libc isalpha/isspace 依赖
+ * locale 且对 >255 的实参未定义；Python 层对 Unicode（如 '中'.isalpha()）
+ * 判真的行为原生腿不支持，调用方需知悉。
+ */
+static int dv_ascii_isalpha(unsigned char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+static int dv_ascii_isspace(unsigned char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
+}
+
+int dv_str_isalpha(const char* s) {
+    if (!s || !*s) return 0;
+    for (; *s; s++) {
+        if (!dv_ascii_isalpha((unsigned char)*s)) return 0;
+    }
+    return 1;
+}
+
+int dv_str_isspace(const char* s) {
+    if (!s || !*s) return 0;
+    for (; *s; s++) {
+        if (!dv_ascii_isspace((unsigned char)*s)) return 0;
+    }
+    return 1;
+}
+
 /* POSIX 风格路径连接（对齐 stdlib/内置核心路径.light 的 连接路径 口径）：
  *   b 以 '/' 开头 -> 返回 b（绝对路径丢弃前面全部）；
  *   a 为空 -> 返回 b；b 为空 -> 返回 a；

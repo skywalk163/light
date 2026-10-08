@@ -19,8 +19,10 @@
 本测试模拟该场景：
   1) 进程内（unified 后端）—— chdir 到一个不含 stdlib 的临时目录，使生成的代码
      通过 getcwd() 解析不到 stdlib，从而触发 fallback + 兜底补齐逻辑。
-  2) 端到端（src 后端，`duan run`）—— 把 cli/ 与 src/ 拷进一个临时根目录（不含
+  2) 端到端（src 后端，`light run`）—— 把 cli/ 与 src/ 拷进一个临时根目录（不含
      stdlib），像「只抽取 src」那样运行原 two 个失败用例，断言 rc==0 且输出正确。
+     （R127-A：入口由已删除的 cli/duan.py 迁移到 cli/light.py，二者同构：
+     run 默认走 src 后端、不传 --stdlib-dir 时引导按 cwd 探测 stdlib。）
 
 两类测试都在「stdlib 缺失」前提下断言原先会崩的行为现在可用，从而固守修复。
 """
@@ -163,7 +165,8 @@ class TestMissingStdlibUnified(unittest.TestCase):
 class TestMissingStdlibSrcInProcess(unittest.TestCase):
     """进程内 src 后端：cwd 不含 stdlib 时，降级 stub 的判型族应可用（R114-S3）。
 
-    与 TestMissingStdlibUnified 对称；不用 E2E（`cli/duan.py` 已不存在，E2E 类整体 skip）。
+    与 TestMissingStdlibUnified 对称；E2E 见下方 TestMissingStdlibSrcBackendE2E
+    （R127-A 起入口为 cli/light.py）。
     """
 
     def setUp(self):
@@ -194,15 +197,21 @@ class TestMissingStdlibSrcInProcess(unittest.TestCase):
 
 
 class TestMissingStdlibSrcBackendE2E(unittest.TestCase):
-    """端到端：只抽取 cli/ + src/（无 stdlib），用 `duan run` 跑原两个失败用例。"""
+    """端到端：只抽取 cli/ + src/（无 stdlib），用 `light run` 跑原两个失败用例。
+
+    R127-A：原入口 cli/duan.py 已删除，改用统一入口 cli/light.py。二者同构——
+    `run` 子命令默认 backend='src'（PythonCodeGenerator），缺省不传 --stdlib-dir
+    时生成代码引导按 cwd 探测 stdlib，因此本类沿用同样的「临时根 + cwd=root」
+    构造即可复现「stdlib 物理缺失」场景。
+    """
 
     @classmethod
     def setUpClass(cls):
-        # 确认 duan CLI 与 src 存在，否则跳过
-        cls._cli = os.path.join(_PROJECT_ROOT, 'cli', 'duan.py')
+        # 确认 light CLI 与 src 存在，否则跳过
+        cls._cli = os.path.join(_PROJECT_ROOT, 'cli', 'light.py')
         cls._src = os.path.join(_PROJECT_ROOT, 'src')
         if not (os.path.isfile(cls._cli) and os.path.isdir(cls._src)):
-            raise unittest.SkipTest("cli/duan.py 或 src/ 不存在，跳过端到端测试")
+            raise unittest.SkipTest("cli/light.py 或 src/ 不存在，跳过端到端测试")
 
     def _build_extraction(self):
         """构造一个只含 cli/ + src/、不含 stdlib 的临时运行根目录。"""
@@ -212,7 +221,7 @@ class TestMissingStdlibSrcBackendE2E(unittest.TestCase):
         return root
 
     def _run_light(self, root, source):
-        """在 root 内写一个 .light 源并运行 `duan run`，返回 (rc, stdout, stderr)。"""
+        """在 root 内写一个 .light 源并运行 `light run`，返回 (rc, stdout, stderr)。"""
         src_path = os.path.join(root, '_case.light')
         with open(src_path, 'w', encoding='utf-8') as f:
             f.write(source)
@@ -220,7 +229,7 @@ class TestMissingStdlibSrcBackendE2E(unittest.TestCase):
         env.setdefault('PYTHONIOENCODING', 'utf-8')
         env['PYTHONUTF8'] = '1'
         proc = subprocess.run(
-            [sys.executable, os.path.join(root, 'cli', 'duan.py'), 'run', src_path],
+            [sys.executable, os.path.join(root, 'cli', 'light.py'), 'run', src_path],
             capture_output=True, text=True, encoding='utf-8', errors='replace',
             cwd=root, env=env,
         )

@@ -2,6 +2,12 @@
 """
 L4 Python 引用层 E2E 测试
 覆盖：numpy 均值、pandas CSV、matplotlib 绘图、requests HTTP、sklearn 分类、沙箱隔离
+
+【网络用例门控（R127-A）】外网用例（httpbin.org）默认 skip，显式设
+`LIGHTPUB_NETWORK=1` 才跑——与 tests/lightpub/test_lightpub_bridge.py 的
+`_网络门开()` 模式统一。此前 test_requests_get 用 skipUnless(探测) 门控，
+收集期即真实外网探测：探测通过而 httpbin 抖动时（503/超时）仍会真跑误判
+（R121/R122 两次 CI 红均为该模式）；改环境变量门控后默认零外网请求。
 """
 import os
 import sys
@@ -40,6 +46,14 @@ def _is_network_available(host="httpbin.org", port=443, timeout=5):
             return False
     except OSError:
         return False
+
+
+def _网络门开():
+    """R127-A：外网用例总开关——默认关（skip），`LIGHTPUB_NETWORK=1` 才开。
+
+    与 tests/lightpub/test_lightpub_bridge.py 的同名函数保持同一口径。
+    """
+    return bool(os.environ.get('LIGHTPUB_NETWORK'))
 
 
 def _run_light(code: str) -> str:
@@ -170,9 +184,12 @@ class TestL4_Matplotlib_E2E(unittest.TestCase):
 class TestL4_Requests_E2E(unittest.TestCase):
     """L4 requests 引用层"""
 
-    @unittest.skipUnless(_is_network_available(), "httpbin.org 不可达，跳过网络测试")
+    @unittest.skipIf(not _网络门开(), "外网用例默认 skip（显式设 LIGHTPUB_NETWORK=1 才跑）")
     def test_requests_get(self):
         """requests HTTP GET 请求"""
+        # 门开后再做运行时探测：网络瞬断时优雅 skip 而非失败（同 lightpub 先例）
+        if not _is_network_available():
+            self.skipTest("httpbin.org 不可达，跳过网络测试")
         code = '''
 引 Python:
     import requests

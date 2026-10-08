@@ -71,7 +71,19 @@ jobs:
         run: npm install -g @vscode/vsce
 
       - name: 发布到 VS Code Marketplace
-        run: vsce publish -p ${{ secrets.VSCE_PAT }} --packagePath light-${{ github.ref_name }}.vsix
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          # R127 守卫：VSCE_PAT 未配置时 -p 吞掉 --packagePath，vsix 文件名被
+          # 当成版本号报 "Invalid version light-vX.Y.Z.vsix"（v0.4.0 实测误导）。
+          # PAT 属用户人工项（Settings → Secrets → Actions → VSCE_PAT），
+          # 未配置时明确跳过而非报误导性错误；打包产物已在 artifact 里。
+          if [ -z "$VSCE_PAT" ]; then
+            echo "⚠️ VSCE_PAT 未配置（Settings → Secrets and variables → Actions），跳过 Marketplace 发布。"
+            echo "   .vsix 产物已上传构建产物（artifact），配置 PAT 后重跑本 workflow 即可补发。"
+            exit 0
+          fi
+          vsce publish -p "$VSCE_PAT" --packagePath "light-${{ github.ref_name }}.vsix"
 
       - name: 发布到 Open VSX Registry
         continue-on-error: true
