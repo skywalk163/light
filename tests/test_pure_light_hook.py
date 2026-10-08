@@ -125,13 +125,13 @@ def test_时间管理_still_resolves_to_py():
 # 凡 .light 内**任何位置**含「纯光明实现」但首两行没有的，一旦有人建了同名 .py，
 # 这份 .light 会被静默遮蔽（行为倒退，且无任何报错）。
 #
-# 已知 5 个真实现魔数不在首两行，属 A3/B3 独占文件：
-#   伪终端.light:11 / 事件总线.light:4 / 插件.light:5 / 进程树.light:12 / 路径护栏.light:5
-# 本轮（D3）只加检查、不改文件；A3/B3 尚未合入 main，所以先按 **warn（xfail）**
-# 处理，不阻断 CI。A3/B3 合入并把魔数提到首两行后，本 warn 自动消失；
-# 若届时仍残留，应改为硬红并追问对应任务。
+# 已知真实现魔数不在首两行（R122-D 实测，R123-C1 收窄）：
+#   伪终端.light:11 / 路径护栏.light:7 / 进程树.light:14 —— 真违规，warn（xfail）
+#   插件.light:1    / 事件总线.light:1            —— 已自愈（魔数已提到首两行），移出名单
+# 本名单是**待修清单**：把魔数提到首两行即删一个，删完 xfail 自动消失；
+# 若有「不在名单里的新违规」一律硬红（见下方 new 分支）。
 _KNOWN_MAGIC_NOT_FIRST2 = {
-    "伪终端", "事件总线", "插件", "进程树", "路径护栏",
+    "伪终端", "路径护栏", "进程树",
 }
 _MAGIC = "纯光明实现"
 
@@ -139,7 +139,7 @@ _MAGIC = "纯光明实现"
 def test_magic_number_in_first_two_lines():
     """防定时炸弹：含「纯光明实现」但首两行没有的 .light 必须打红。
 
-    已知 5 个（A3/B3 待修）→ 本次按 warn（xfail）；新出现的违反 → 硬红。
+    已知 3 个（R122-D 实测，R123-C1 收窄）→ 本次按 warn（xfail）；新出现的违反 → 硬红。
     """
     violations = []
     for full in glob.glob(os.path.join(_STDLIB, "*.light")):
@@ -164,14 +164,14 @@ def test_magic_number_in_first_two_lines():
             % new
         )
 
-    # 已知 5 个仍违规 → warn（xfail），不阻断 CI，但在报告里点名催 A3/B3 修。
+    # 已知 3 个仍违规 → warn（xfail），不阻断 CI，但在报告里点名催修对应模块。
     # TODO(D3-5): A3 修 事件总线、B3 修其余 4 个，并把魔数提到首两行后，
     #             本 xfail 会自动消失；若 A3/B3 合入后仍残留，改为硬红。
     # 截止条件：A3/B3 合入 main 后的下一轮 D3 收口时移除本 warn。
     known_still = [v for v in violations if v in _KNOWN_MAGIC_NOT_FIRST2]
     if known_still:
         pytest.xfail(
-            "已知 5 个真实现魔数不在首两行（A3/B3 待修，warn 不红）：%s" % known_still
+            "已知 3 个真实现魔数不在首两行（R123-C1 收窄，warn 不红）：%s" % known_still
         )
 
 

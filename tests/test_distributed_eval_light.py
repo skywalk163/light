@@ -463,3 +463,269 @@ def test_限流_滑动窗口与分批不同():
     # 窗口滑过：t=1.1 时 t=0 的事件已过期 → 数量衰减为 0、可放行（与分批不同）
     assert 窗.数量(1.1) == 0, "限流：滑动窗口应剔除过期事件，数量应衰减为 0"
     assert 窗.是否放行(1.1), "限流：过期事件剔除后新事件应被放行（与固定分批不同）"
+
+
+
+# ===========================================================================
+# R123-B1：节点网络 标识生成/判型（此前零覆盖）—— 正例 + 反例
+#
+# 背景：`节点网络.light` 有 10 处 `截取` 按旧 (起始,长度) 传参，而 `截取` 的真语义是
+#   `[起始:结束]`（证据：stdlib/内置核心字符串.light:14-15、stdlib/builtins.py:561），
+#   导致 生成节点ID() 恒 'N0'、生成幂等键() 恒 'I'、是节点ID/是任务ID/是幂等键 恒 假、
+#   常量比较('abc','abc') 抛 `ord() expected a character, but string of length 0 found`。
+#   R122-D 实测：原生腿独立编译真跑与 Python 腿逐项一致 ⇒ 缺陷在 `.light` 真身。
+#
+# 本组用 **同一份 `节点网络.light`** 与 **契约真源 `节点网络.py`** 双腿对拍：
+#   转译腿 —— 把 `.light` 复制到只含它的临时目录 ⇒ `_light_import_hook` 必然加载
+#     `.light`（该目录没有同名 `.py`，`find_spec` 不让位给 .py）；fixture 会断言
+#     载入形态是 `LightLoader` + `__file__` 以 `.light` 结尾，载不到就整组失效（不假绿）。
+#   契约真源 —— `stdlib/分布式/节点网络.py` 按路径直载，不装钩子、不动 sys.modules。
+#   随机生成器（节点ID/幂等键/任务ID/令牌）只比**线协议形态**与**自洽判定**：`.py` 用
+#   `os.urandom`、`.light` 用 MT19937（文件头已登记的非 CSPRNG 偏离），逐值必然不同，
+#   拿它判红或判绿都是假证据。
+#
+# 反跑锚：把 §B1 里任一处 `截取(x, 起, 起 + 1)` 改回 `截取(x, 起, 1)`，对应的形态断言
+#   立刻变红（生成节点ID() 会退回 'N0'）；把 常量比较 的逐字符 `截取` 改回旧写法，
+#   `常量比较('abc','abc')` 会抛 TypeError 而非返回 True。
+# ===========================================================================
+import importlib as _importlib
+import importlib.util as _ilu
+import re as _re
+
+_节点ID形 = _re.compile(r"^N[0-9A-F]{8}$")
+_任务ID形 = _re.compile(r"^T[0-9]{8}-[0-9A-F]{12}$")
+_幂等键形 = _re.compile(r"^I[0-9A-F]{16}$")
+_令牌形 = _re.compile(r"^[0-9A-F]{24}$")
+_节点网络py真源 = os.path.join(_分布式, "节点网络.py")
+
+
+@pytest.fixture(scope="module")
+def 契约真源():
+    """`树协议契约真源`：按路径直载 节点网络.py（`.light` 是它的光明侧镜像）。"""
+    spec = _ilu.spec_from_file_location("_r123_节点网络契约真源", _节点网络py真源)
+    m = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+@pytest.fixture(scope="module")
+def 光腿(tmp_path_factory):
+    """转译腿：真加载 `节点网络.light`（复制到只含它的临时目录再 import）。"""
+    d = tmp_path_factory.mktemp("r123b_节点网络")
+    shutil.copyfile(os.path.join(_分布式, "节点网络.light"), os.path.join(d, "节点网络.light"))
+    找器 = _light_import_hook.install([str(d)])
+    # `install` 只做追加，而本模块级 install 已把 [_STDLIB, _分布式] 排在前面；
+    # 必须把临时目录**提到最前**，否则 分布式/ 里那份「非纯光明 + 有同名 .py」
+    # 会先命中并让位给 .py（翻面模拟就失灵了）。
+    try:
+        找器.search_paths.remove(str(d))
+    except ValueError:
+        pass
+    找器.search_paths.insert(0, str(d))
+    原模块 = sys.modules.get("节点网络")
+    sys.modules.pop("节点网络", None)
+    try:
+        m = _importlib.import_module("节点网络")
+        assert type(getattr(m, "__loader__", None)).__name__ == "LightLoader", \
+            "节点网络 未走 .light（钩子未接管），本组用例无效 —— 不许当绿"
+        assert str(getattr(m, "__file__", "")).endswith(".light"), "节点网络 未走 .light"
+        yield m
+    finally:
+        try:
+            找器.search_paths.remove(str(d))
+        except ValueError:
+            pass
+        if 原模块 is not None:
+            sys.modules["节点网络"] = 原模块
+        else:
+            sys.modules.pop("节点网络", None)
+
+
+# ---------------------------------------------------------------------------
+# 生成器：线协议形态
+# ---------------------------------------------------------------------------
+def _过A1缺口(光腿, 名):
+    """调用生成器；若只差 A1 的 `时间格式化` 转译腿映射，按 xfail 登记（待修清单）。
+
+    ⚠️ 这是**已知阻塞**，不是绿：A1（R123-A 线）负责在 `src/code_generator.py` 补
+    `'时间格式化': '_light_builtin.格式化时间'` 一类映射。A1 落地后本分支不再触发，
+    测试自动变成真断言（无需改本文件）。
+    """
+    try:
+        return getattr(光腿, 名)()
+    except NameError as e:
+        if "时间格式化" in str(e):
+            pytest.xfail(
+                "A1 缺口（跨腿内建名一致性）：`节点网络.light:110` 调 `时间格式化`，"
+                "原生腿有内建、转译腿零映射 ⇒ Python 腿 NameError。"
+                "待 A1 在 src/code_generator.py 补映射后自动转绿。")
+        raise
+
+
+def test_生成节点ID_线协议形态(光腿):
+    v = 光腿.生成节点ID()
+    assert _节点ID形.match(v), "生成节点ID() 应为 N + 8 位十六进制，实得 %r" % (v,)
+    assert 光腿.是节点ID(v) is True, "自产节点ID 必须过自家 是节点ID()"
+
+
+def test_生成幂等键_线协议形态(光腿):
+    v = 光腿.生成幂等键()
+    assert _幂等键形.match(v), "生成幂等键() 应为 I + 16 位十六进制，实得 %r" % (v,)
+    assert 光腿.是幂等键(v) is True, "自产幂等键 必须过自家 是幂等键()"
+
+
+def test_生成任务ID_线协议形态(光腿):
+    v = _过A1缺口(光腿, "生成任务ID")
+    assert _任务ID形.match(v), "生成任务ID() 应为 T + 8 位数字 - 12 位十六进制，实得 %r" % (v,)
+    assert 光腿.是任务ID(v) is True, "自产任务ID 必须过自家 是任务ID()"
+
+
+def test_生成令牌_线协议形态(光腿):
+    v = 光腿.生成令牌()
+    assert _令牌形.match(v), "生成令牌() 应为 24 位十六进制，实得 %r" % (v,)
+
+
+# ---------------------------------------------------------------------------
+# 判型/比较：正例 + 反例（反例含「长度对但字符错」这档，专抓把长度当结束的旧写法）
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("文本,期望", [
+    ("N12345678", True),          # 正例
+    ("N00000000", True),          # 正例：全 0 也是合法十六进制
+    ("N1234567", False),          # 反例：长度 8
+    ("N123456789", False),        # 反例：长度 10
+    ("n12345678", False),         # 反例：小写
+    ("N1234567G", False),         # 反例：末位非十六进制
+    ("N1234567-", False),         # 反例：末位是符号
+    ("T12345678", False),         # 反例：前缀错
+    ("", False),                  # 反例：空串
+])
+def test_是节点ID_正反例(光腿, 文本, 期望):
+    assert 光腿.是节点ID(文本) is 期望, "是节点ID(%r) 应为 %r" % (文本, 期望)
+
+
+@pytest.mark.parametrize("值,期望", [(None, False), (12345678, False), ([], False)])
+def test_是节点ID_非字符串安全为假(光腿, 值, 期望):
+    assert 光腿.是节点ID(值) is 期望, "非字符串输入必须安全返回 假，不许抛"
+
+
+@pytest.mark.parametrize("文本,期望", [
+    ("T12345678-ABCDEF012345", True),     # 正例
+    ("T00000000-000000000000", True),     # 正例
+    ("T1234567X-ABCDEF012345", False),    # 反例：第 9 位非数字
+    ("T12345678XABCDEF012345", False),    # 反例：缺分隔符
+    ("T12345678_ABCDEF012345", False),    # 反例：分隔符是下划线
+    ("T12345678-ABCDEF01234", False),     # 反例：末段 11 位
+    ("T12345678-ABCDEF0123456", False),   # 反例：末段 13 位
+    ("T12345678-abcdef012345", False),    # 反例：末段小写
+    ("N12345678-ABCDEF012345", False),    # 反例：前缀错
+    ("", False),
+])
+def test_是任务ID_正反例(光腿, 文本, 期望):
+    assert 光腿.是任务ID(文本) is 期望, "是任务ID(%r) 应为 %r" % (文本, 期望)
+
+
+@pytest.mark.parametrize("值,期望", [(None, False), (1, False)])
+def test_是任务ID_非字符串安全为假(光腿, 值, 期望):
+    assert 光腿.是任务ID(值) is 期望
+
+
+@pytest.mark.parametrize("文本,期望", [
+    ("I0123456789ABCDEF", True),          # 正例
+    ("I0123456789ABCDE", False),          # 反例：15 位
+    ("I0123456789ABCDEF0", False),        # 反例：17 位
+    ("X0123456789ABCDEF", False),         # 反例：前缀错
+    ("i0123456789abcdef", False),         # 反例：小写
+    ("", False),
+])
+def test_是幂等键_正反例(光腿, 文本, 期望):
+    assert 光腿.是幂等键(文本) is 期望, "是幂等键(%r) 应为 %r" % (文本, 期望)
+
+
+@pytest.mark.parametrize("甲,乙,期望", [
+    ("abc", "abc", True),
+    ("Token-A", "Token-A", True),
+    ("T", "T", True),
+    ("", "", True),            # 两侧同为空串：等长且无字符差异 ⇒ 真（与 hmac.compare_digest 一致）
+    ("abc", "abd", False),     # 反例：同长不同末位（旧写法在这里抛 TypeError 而非返回假）
+    ("abc", "abcd", False),    # 反例：长度不同
+    ("", "a", False),          # 反例：一侧空
+    (None, None, False),       # 反例：非字符串安全返回假
+    (123, 123, False),         # 反例：非字符串安全返回假
+])
+def test_常量比较_正反例(光腿, 甲, 乙, 期望):
+    assert 光腿.常量比较(甲, 乙) is 期望, "常量比较(%r, %r) 应为 %r" % (甲, 乙, 期望)
+
+
+@pytest.mark.parametrize("头字典,名,缺省,期望", [
+    ({"X-Auth-Token": "T1"}, "x-auth-token", "", "T1"),
+    ({"Content-Length": "7"}, "content-length", "", "7"),
+    ({"A": "1", "B": "2"}, "B", "", "2"),
+    ({}, "x-auth-token", "D", "D"),
+])
+def test_取头值_大小写不敏感(光腿, 头字典, 名, 缺省, 期望):
+    assert 光腿.取头值(头字典, 名, 缺省) == 期望
+
+
+def test_转整数_宽松语义(光腿):
+    assert 光腿.转整数("42") == 42
+    assert 光腿.转整数("-5") == -5
+    assert 光腿.转整数("x", 7) == 7, "转不动要给缺省，不许抛"
+
+
+# ---------------------------------------------------------------------------
+# 双腿逐值对拍（判型/比较/取头值/转换——全是确定性函数，必须逐值相等）
+# ---------------------------------------------------------------------------
+def _对拍用例():
+    return [
+        ("是节点ID('N12345678')", lambda m: m.是节点ID("N12345678")),
+        ("是节点ID('N1234567')", lambda m: m.是节点ID("N1234567")),
+        ("是节点ID('N1234567G')", lambda m: m.是节点ID("N1234567G")),
+        ("是节点ID('n12345678')", lambda m: m.是节点ID("n12345678")),
+        ("是节点ID('')", lambda m: m.是节点ID("")),
+        ("是节点ID(None)", lambda m: m.是节点ID(None)),
+        ("是节点ID(12345678)", lambda m: m.是节点ID(12345678)),
+        ("是任务ID(合法)", lambda m: m.是任务ID("T12345678-ABCDEF012345")),
+        ("是任务ID(第9位非数字)", lambda m: m.是任务ID("T1234567X-ABCDEF012345")),
+        ("是任务ID(末段短一位)", lambda m: m.是任务ID("T12345678-ABCDEF01234")),
+        ("是任务ID(末段小写)", lambda m: m.是任务ID("T12345678-abcdef012345")),
+        ("是任务ID(缺分隔符)", lambda m: m.是任务ID("T12345678_ABCDEF012345")),
+        ("是任务ID(None)", lambda m: m.是任务ID(None)),
+        ("是幂等键(合法)", lambda m: m.是幂等键("I0123456789ABCDEF")),
+        ("是幂等键(短一位)", lambda m: m.是幂等键("I0123456789ABCDE")),
+        ("是幂等键(前缀错)", lambda m: m.是幂等键("X0123456789ABCDEF")),
+        ("是幂等键(None)", lambda m: m.是幂等键(None)),
+        ("常量比较(abc,abc)", lambda m: m.常量比较("abc", "abc")),
+        ("常量比较(abc,abd)", lambda m: m.常量比较("abc", "abd")),
+        ("常量比较(abc,abcd)", lambda m: m.常量比较("abc", "abcd")),
+        ("常量比较('','')", lambda m: m.常量比较("", "")),
+        ("常量比较('','a')", lambda m: m.常量比较("", "a")),
+        ("常量比较(None,None)", lambda m: m.常量比较(None, None)),
+        ("常量比较(Token-A,Token-A)", lambda m: m.常量比较("Token-A", "Token-A")),
+        ("常量比较(Token-A,Token-B)", lambda m: m.常量比较("Token-A", "Token-B")),
+        ("取头值(命中)", lambda m: m.取头值({"X-Auth-Token": "T1"}, "x-auth-token")),
+        ("取头值(缺省)", lambda m: m.取头值({}, "x-auth-token", "D")),
+        ("取头值(Content-Length)", lambda m: m.取头值({"Content-Length": "7"}, "content-length")),
+        ("转整数('42')", lambda m: m.转整数("42")),
+        ("转整数('x',7)", lambda m: m.转整数("x", 7)),
+        ("转字符串(8080)", lambda m: m.转字符串(8080)),
+    ]
+
+
+def test_双腿对拍_确定性函数逐值一致(光腿, 契约真源):
+    """`.light`（真加载）与 `.py`（契约真源）在确定性函数上必须逐值逐类型相等。"""
+    不符 = []
+    for 标题, fn in _对拍用例():
+        a = fn(光腿)
+        b = fn(契约真源)
+        if type(a) is not type(b) or a != b:
+            不符.append("%s：.light=%r ／ .py=%r" % (标题, a, b))
+    assert not 不符, "双腿不等价（%d 项）：\n  %s" % (len(不符), "\n  ".join(不符))
+
+
+def test_双腿对拍_随机生成器线协议形态一致(光腿, 契约真源):
+    """随机量不逐值比，但**线协议形态**必须一致（两腿都得产出合法 ID）。"""
+    for 名, 形 in (("生成节点ID", _节点ID形), ("生成幂等键", _幂等键形),
+                   ("生成任务ID", _任务ID形), ("生成令牌", _令牌形)):
+        for 腿, m in (("转译腿", 光腿), ("契约真源", 契约真源)):
+            v = _过A1缺口(m, 名) if 腿 == "转译腿" else getattr(m, 名)()
+            assert 形.match(v), "%s 的 %s() 形态不符线协议：%r" % (腿, 名, v)

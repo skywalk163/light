@@ -662,6 +662,11 @@ class PythonCodeGenerator:
             '分割字符串': '_light_builtin.分割字符串',
             '连接字符串': '_light_builtin.连接字符串',
             '替换字符串': '_light_builtin.替换字符串',
+            # R123-A1：原生腿认短名 替换(全局调用) 与 右去除(rstrip)；method_name_map
+            # 只管成员调用 obj.替换()，全局裸写 替换(...) 原走裸名 → 哈希.light
+            # Base64URL编码 NameError。映射到已有 替换字符串；右去除 走 _t5b_runtime。
+            '替换': '_light_builtin.替换字符串',
+            '右去除': '_light_builtin.右去除',
             '去除空白': '_light_builtin.去除空白',
             # R61 任务3：`去除空格` 是 stdlib/字符串处理.py 的公开函数（实现即
             # s.strip()，与 去除空白 同语义）。原生腿 codegen_typed 早把它与
@@ -745,11 +750,19 @@ class PythonCodeGenerator:
             # 日期时间
             '时间戳': '_light_builtin.时间戳',
             '格式化时间': '_light_builtin.格式化时间',
+            # R123-A1 跨腿内建名一致性：原生腿 codegen_typed 分派认这些中文短名，
+            # 转译腿原零映射 → 节点网络.light 写 时间格式化(...) 时裸名 NameError。
+            # 时间格式化 对齐已有 格式化时间（strftime）；睡眠秒 对齐 time.sleep。
+            '时间格式化': '_light_builtin.格式化时间',
+            '睡眠秒': '_light_builtin.睡眠秒',
 
             # 随机数
             '随机整数': '_light_builtin.随机整数',
             '随机浮点': '_light_builtin.随机浮点',
             '随机选择': '_light_builtin.随机选择',
+            # R123-A1：原生腿认 随机位(getrandbits)/播种随机种子(seed)，随机.light 真裸调。
+            '随机位': '_light_builtin.随机位',
+            '播种随机种子': '_light_builtin.播种随机种子',
 
             # C FFI 指针/数组/错误处理
             '取地址': '_light_ffi.取地址',

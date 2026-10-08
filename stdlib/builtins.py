@@ -66,6 +66,11 @@ from _t5b_runtime import (
     _sha256,
     _sha512,
     _hmac_sha256,
+    # R123-A1 跨腿内建名一致性补口（实现见 _t5b_runtime，理由同 T5B：不开 def 避地板门禁）
+    右去除,
+    随机位,
+    播种随机种子,
+    睡眠秒,
 )
 
 
