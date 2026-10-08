@@ -2,14 +2,14 @@
   "version": 2,
   "note": "stdlib 原生腿就绪度基线（R117 于 2026-10-06 改为多模块编译口径）。就绪度 = 可编/魔数模块总数；可编名单只许增不许减——对 --base 跑出「新增不可编」即 rc=1。compile_entry 记录测量入口；built_from_commit 是生成基线时的 HEAD。",
   "compile_entry": "compile_light_typed(多模块)",
-  "built_from_commit": "4cbf9f1be",
-  "generated_at": "2026-10-07T23:52:23",
+  "built_from_commit": "d58883f3e",
+  "generated_at": "2026-10-08T08:18:08",
   "timeout_per_module_sec": 300.0,
-  "total": 76,
-  "ready": 66,
+  "total": 77,
+  "ready": 67,
   "rejected": 0,
   "other": 10,
-  "rate": 0.868421052631579,
+  "rate": 0.8701298701298701,
   "buckets": {
     "可编": [
       "Base64",
@@ -47,6 +47,7 @@
       "字符串工具",
       "字符串工具轻量",
       "字符串常量",
+      "字节缓冲",
       "度量",
       "手机号校验",
       "拼音转换",
@@ -413,6 +414,14 @@
       "detail": "",
       "gap": "",
       "ir_len": 276799
+    },
+    {
+      "模块": "字节缓冲",
+      "路径": "stdlib/字节缓冲.light",
+      "bucket": "可编",
+      "detail": "",
+      "gap": "",
+      "ir_len": 38046
     },
     {
       "模块": "并发",

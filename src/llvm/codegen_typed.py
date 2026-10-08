@@ -725,6 +725,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_getattr_default(ptr, ptr, ptr, ptr)',
             f'declare void @dv_random_bytes(ptr, i64)',
             f'declare void @dv_decode_str(ptr, ptr, ptr)',
+            # R122-A1：_light_bytes_split 运行时支撑（bytes 版切分，语义对齐转译腿 helper）
+            f'declare void @dv_bytes_split(ptr, ptr, ptr)',
             f'declare void @dv_shallow_copy(ptr, ptr)',
             f'declare void @dv_dict_has(ptr, ptr, ptr)',
             f'declare void @dv_dict_keys(ptr, ptr)',
@@ -2107,6 +2109,22 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 n_i64 = self.new_register()
                 self.emit(f'{n_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
                 return self._call_dv_func('dv_random_bytes', f'i64 {n_i64}'), 'dv'
+            return self._call_dv_func('dv_list_new'), 'dv'
+
+        # R122-A1：_light_bytes_split(内容, 分隔) —— 编译器内嵌 helper（与转译腿
+        # src/code_generator.py:1483 同名同语义），不是 stdlib 导出函数。
+        # 由来：光明 parser 拒绝 `b'...'.split(...)` 这种「bytes 字面量后跟 .方法」
+        # 的成员调用（句号被当语句结束符，R72-E · L-175），故纯光明侧的字节分帧只能
+        # 走这个 helper；stdlib/字节缓冲.light 因此在此前编译报「未定义的段落」。
+        # 语义（严格对齐转译腿）：非 bytes 或空分隔 → [原内容]；否则按分隔逐字节切分。
+        # ⚠️ 原生腿无一等 bytes 类型，b"..." 落成 STRING，切分按原始字节进行（内嵌
+        # NUL 会被 C 串尾截断，属 STRING 既有边界，已在 docs/原生腿能力边界.md 登记）。
+        if name in ('_light_bytes_split',):
+            if len(args) >= 2:
+                return self._call_dv_func('dv_bytes_split', args[0], args[1]), 'dv'
+            if args:
+                return self._call_dv_func('dv_bytes_split', args[0],
+                                          self._create_str_dv(self.gen_string_constant(""))), 'dv'
             return self._call_dv_func('dv_list_new'), 'dv'
 
         # 桶④：异步睡眠(秒) —— 转译腿映射 asyncio.sleep。原生腿没有事件循环，

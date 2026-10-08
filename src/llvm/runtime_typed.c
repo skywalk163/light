@@ -1969,6 +1969,66 @@ void dv_str_split(LightValue* result, LightValue* str, LightValue* delim) {
     free(list);
 }
 
+/* _light_bytes_split(内容, 分隔) —— R122-A1：补齐原生腿缺口。
+ *
+ * 由来：stdlib/字节缓冲.light 用编译器内嵌 helper `_light_bytes_split` 做分帧
+ * （光明 parser 会拒绝 `b'...'.split(...)` 这种「bytes 字面量后跟 .方法」的成员
+ * 调用，见 R72-E · L-175），转译腿在 src/code_generator.py:1483 把它 emit 进产物，
+ * 而原生腿此前**完全没有对应实现** ⇒ 编译报「未定义的段落：_light_bytes_split」。
+ *
+ * 语义**严格对齐**转译腿 helper（src/code_generator.py:1483）：
+ *   - _b 或 _sep 非 bytes，或 _sep 为空 → 返回只含 _b 一个元素的列表 [_b]
+ *     （注意与 dv_str_split 的「返回空列表」不同，别照抄）；
+ *   - 否则按 _sep 逐字节切分，返回元素为 bytes 的列表（不含分隔符，尾部空段保留）。
+ *
+ * ⚠️ 原生腿无一等 bytes 类型：字节串字面量 b"..." 落成 STRING（type=3），str 字段
+ * 保存原始字节（UTF-8），故「按字节切分」= 对 str 做 strstr 式切分，与 Python
+ * bytes.split 的字节语义一致。已知边界：**C 字符串不能承载内嵌 NUL**（\x00 会被
+ * 当串尾截断）——这是原生腿 STRING 的既有边界，已在 docs/原生腿能力边界.md 登记。 */
+void dv_bytes_split(LightValue* result, LightValue* buf, LightValue* sep) {
+    if (!result) return;
+    dv_list_new(result);
+    if (!buf || !sep) return;
+
+    LightValue* b = dv_deref(buf);
+    LightValue* s = dv_deref(sep);
+
+    /* 非 bytes / 空分隔 → [_b]（宽容不炸，与 Python bytes.split 空分隔抛
+       ValueError 的口径不同——转译腿 helper 就是这么写的，照抄不改）。 */
+    if (b->type != 3 || s->type != 3 || !s->str || !s->str[0]) {
+        LightValue only;
+        if (b->type == 3) dv_str(&only, b->str ? b->str : "");
+        else dv_clone(&only, b);
+        dv_list_append(result, result, &only);
+        dv_free(&only);
+        return;
+    }
+
+    const char* delim = s->str;
+    size_t d_len = strlen(delim);
+    const char* p = b->str;
+    for (;;) {
+        const char* hit = strstr(p, delim);
+        if (!hit) break;
+        size_t seg_len = (size_t)(hit - p);
+        char* part = (char*)malloc(seg_len + 1);
+        if (!part) break;
+        memcpy(part, p, seg_len);
+        part[seg_len] = '\0';
+        LightValue seg;
+        dv_str(&seg, part);
+        free(part);
+        dv_list_append(result, result, &seg);
+        dv_free(&seg);
+        p = hit + d_len;
+    }
+    /* 尾段恒存在：b"a\nb" → [b"a", b"b"]；b"a\n" → [b"a", b""]；b"" → [b""] */
+    LightValue tail;
+    dv_str(&tail, p);
+    dv_list_append(result, result, &tail);
+    dv_free(&tail);
+}
+
 /* ================================================================
  * 字典操作 (type=7 DICT)
  * 字典存储格式: list_data = [key1*, val1*, key2*, val2*, ...]
