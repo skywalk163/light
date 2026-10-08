@@ -3157,6 +3157,34 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._create_bool_dv(cmp), 'dv'
             return self._create_bool_dv('false'), 'dv'
 
+        # issubclass(子类, 父类)：对齐 Python issubclass（stdlib/builtins.py 语义）。
+        # 首参可以是对象（取类）或类名字符串，次参是类名字符串；沿 super 链判定。
+        # 与 isinstance 同口径：次参经 extractvalue 取 str 指针传入。
+        if name in ('issubclass', '是子类', 'is_subclass'):
+            if len(args) >= 2:
+                sub_slot = self._store_dv(args[0])
+                class_name_ptr = self.new_register()
+                self.emit(f'{class_name_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                result = self.new_register()
+                self.emit(f'{result} = call i32 @dv_is_sub_class_from_value(ptr {sub_slot}, ptr {class_name_ptr})')
+                cmp = self.new_register()
+                self.emit(f'{cmp} = icmp ne i32 {result}, 0')
+                return self._create_bool_dv(cmp), 'dv'
+            return self._create_bool_dv('false'), 'dv'
+
+        # hasattr(对象, "属性名")：对齐 Python hasattr。复用 R117 对象成员判定。
+        if name in ('hasattr', '有属性', 'has_attr'):
+            if len(args) >= 2:
+                obj_slot = self._store_dv(args[0])
+                field_name_ptr = self.new_register()
+                self.emit(f'{field_name_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                result = self.new_register()
+                self.emit(f'{result} = call i32 @dv_has_attr(ptr {obj_slot}, ptr {field_name_ptr})')
+                cmp = self.new_register()
+                self.emit(f'{cmp} = icmp ne i32 {result}, 0')
+                return self._create_bool_dv(cmp), 'dv'
+            return self._create_bool_dv('false'), 'dv'
+
         if name in ('取类型', 'type', '获取类型', 'typeof', '类型名', 'type_name', '类型'):
             if args:
                 obj_slot = self._store_dv(args[0])
