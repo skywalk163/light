@@ -3735,6 +3735,7 @@ void dv_clear_exception(void) {
 void dv_get_class_name(LightValue* obj, char* buf, int buf_size);
 int dv_is_object(LightValue* v);
 int dv_isinstance(LightValue* obj, const char* class_name);
+int dv_isinstance_value(LightValue* obj, LightValue* class_value);
 void dv_class_get_member(LightValue* result, LightValue* obj, const char* field_name);
 void dv_class_set_member(LightValue* obj, const char* field_name, LightValue* value);
 void dv_class_new_named(LightValue* result, const char* class_name);  // 前向声明
@@ -5130,18 +5131,99 @@ static int dv_isinstance_inner(const char* class_name, const char* target_class,
     return 0;
 }
 
+/* R124-A1：原生标量判型（前置声明，定义在 dv_isinstance 之后） */
+static int dv_scalar_isinstance(LightValue* obj, const char* target);
+
 int dv_isinstance(LightValue* obj, const char* class_name) {
     if (!obj || !class_name || !class_name[0]) return 0;
-    
-    if (obj->type != 3 || !obj->str) return 0;
-    if (strncmp(obj->str, OBJ_PREFIX, strlen(OBJ_PREFIX)) != 0) return 0;
-    
-    char obj_class[MAX_CLASS_NAME_LEN];
-    dv_get_class_name(obj, obj_class, sizeof(obj_class));
-    
-    if (!obj_class[0]) return 0;
-    
-    return dv_isinstance_inner(obj_class, class_name, 0);
+
+    /* R124-A1：原生标量判型（本轮修复）—— 原实现 obj->type != 3 即 return 0，
+     * 只服务类实例，导致 8 种标量形态恒假。这里先解引用 REF（dict/list 索引
+     * 返回 REF，语义对齐 Python 的 isinstance 对引用目标判型），再按 type 分派。
+     *
+     * 类实例在原生腿用 type==3 + OBJ_PREFIX（"obj:"）字符串承载，与普通字符串
+     * 共用 type==3，必须先判 OBJ_PREFIX，把「类实例路径」完整保留（红线：一个不改）。
+     */
+    obj = dv_deref(obj);
+    if (!obj) return 0;
+
+    if (obj->type == 3 && obj->str
+        && strncmp(obj->str, OBJ_PREFIX, strlen(OBJ_PREFIX)) == 0) {
+        char obj_class[MAX_CLASS_NAME_LEN];
+        dv_get_class_name(obj, obj_class, sizeof(obj_class));
+        if (!obj_class[0]) return 0;
+        return dv_isinstance_inner(obj_class, class_name, 0);
+    }
+
+    /* 类实例之外的路径：原生标量（含 None）判型。
+     * 边界（只登记不改）：原生腿 bytes 无一等类型，b"..." 落成 STRING（type=3），
+     * 故 isinstance(值, "bytes") 恒为假（不把普通 str 误判成 bytes）。 */
+    return dv_scalar_isinstance(obj, class_name);
+}
+
+/* R124-A1：原生标量判型。target 为单个类型名字符串；元组形态由 codegen 侧展开
+ * 为逐个 dv_isinstance 调用后 or 聚合（不改此签名，保持 ABI 稳定）。 */
+static int dv_scalar_isinstance(LightValue* obj, const char* target) {
+    if (!obj || !target || !target[0]) return 0;
+
+    switch (obj->type) {
+        case 0: return strcmp(target, "NoneType") == 0;
+        case 1: return strcmp(target, "int") == 0;
+        case 2: return strcmp(target, "float") == 0;
+        case 3:
+            /* type==3 且非 OBJ_PREFIX：遗留 "list:" 序列化串 → list；否则普通 str。
+             * bytes 无一等类型（R124-A1 边界，见 dv_isinstance 注释）。 */
+            if (obj->str && strncmp(obj->str, "list:", 5) == 0) {
+                return strcmp(target, "list") == 0;
+            }
+            return strcmp(target, "str") == 0;
+        case 4: return strcmp(target, "list") == 0;
+        case 5: return strcmp(target, "bool") == 0;
+        case 6: {
+            /* type==6 OBJ：走类实例继承链（dv_isinstance 的 OBJ_PREFIX 分支之外，
+             * type==6 的旧形态同样按类实例判）。 */
+            char cn[MAX_CLASS_NAME_LEN];
+            dv_get_class_name(obj, cn, sizeof(cn));
+            if (!cn[0]) return 0;
+            return dv_isinstance_inner(cn, target, 0);
+        }
+        case 7: return strcmp(target, "dict") == 0;
+        case LV_TYPE_TUPLE: return strcmp(target, "tuple") == 0;
+        case 24: return strcmp(target, "generator") == 0;
+        case 25: return strcmp(target, "function") == 0;
+        default: return 0;
+    }
+}
+
+/* R124-A1：isinstance 值形态（对齐 Python isinstance(对象, 类型或类型元组)）。
+ * 第二参 class_value 是完整的 LightValue：
+ *   - type==3（str）→ 内容即类型名，单名判型；
+ *   - LV_TYPE_TUPLE（元组字面量 (int, float)）→ 逐元素判型，任一命中即真
+ *     （与 Python isinstance 的元组语义一致）；
+ *   - 其它 → 假（与 Python 对非类型第二参 TypeError 不同，已登记为边界）。
+ * 该入口让 codegen 只需一处改动（把第二参整个 LightValue 传入），
+ * 而不必在 LLVM IR 里手工展开元组。
+ */
+int dv_isinstance_value(LightValue* obj, LightValue* class_value) {
+    if (!obj || !class_value) return 0;
+    class_value = dv_deref(class_value);
+
+    if (class_value->type == 3 && class_value->str) {
+        return dv_isinstance(obj, class_value->str);
+    }
+
+    if (class_value->type == LV_TYPE_TUPLE && class_value->list_data) {
+        for (int i = 0; i < class_value->list_size; i++) {
+            LightValue* elem = class_value->list_data[i];
+            if (!elem) continue;
+            elem = dv_deref(elem);
+            if (elem->type != 3 || !elem->str) continue;
+            if (dv_isinstance(obj, elem->str)) return 1;
+        }
+        return 0;
+    }
+
+    return 0;
 }
 
 void dv_get_type_name(LightValue* obj, char* buf, int buf_size) {

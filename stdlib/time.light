@@ -5,9 +5,10 @@
 #      Python time 的 API 是 ASCII（time()/localtime()/sleep()/perf_counter()），
 #      本模块**对外只暴露 ASCII 段名**；上层 stdlib（日期时间轻量/时间管理）
 #      的中文导出不在本模块出现 → 永不撞名。
-#   2) 段内委托 builtin 时用**别名**（时间戳/睡眠秒/时间格式化），因为光明
+#   2) 段内委托 builtin 时直接调用**运行时内建名**（下划线前缀入口，如
+#      `_dv_timestamp` / `_clock` / `_sleep_sec` / `_strftime`），因为光明
 #      派发是「本模块段 > builtin」：若段内写与自身段同名的调用会自递归。
-#      time() 段内委托 builtin 写 时间戳()（builtin 注册名含 时间戳/时间）。
+#      `time()` 段内走 `_dv_timestamp`（运行时内建，非中文别名 `时间戳`）。
 #   3) 类实例化一律 `新建 类名(...)`：原生后端对「裸类名()」只拦截异常类
 #      （codegen_typed._gen_typed_builtin），普通类裸调用会被当作未定义段落。
 #

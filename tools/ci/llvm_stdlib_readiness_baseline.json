@@ -2,8 +2,8 @@
   "version": 2,
   "note": "stdlib 原生腿就绪度基线（R117 于 2026-10-06 改为多模块编译口径）。就绪度 = 可编/魔数模块总数；可编名单只许增不许减——对 --base 跑出「新增不可编」即 rc=1。compile_entry 记录测量入口；built_from_commit 是生成基线时的 HEAD。",
   "compile_entry": "compile_light_typed(多模块)",
-  "built_from_commit": "eeed584ea",
-  "generated_at": "2026-10-08T12:50:58",
+  "built_from_commit": "dc04464b6",
+  "generated_at": "2026-10-08T14:27:46",
   "timeout_per_module_sec": 300.0,
   "total": 77,
   "ready": 67,
@@ -277,7 +277,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 89786
+      "ir_len": 90369
     },
     {
       "模块": "内置核心判型",
@@ -285,7 +285,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 64739
+      "ir_len": 65944
     },
     {
       "模块": "内置核心字典",
@@ -341,7 +341,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 159065
+      "ir_len": 159200
     },
     {
       "模块": "参数解析",
@@ -405,7 +405,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 1879149
+      "ir_len": 1879373
     },
     {
       "模块": "字符串常量",
@@ -485,7 +485,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 696274
+      "ir_len": 696409
     },
     {
       "模块": "数学统计",
@@ -541,7 +541,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 4066259
+      "ir_len": 4066101
     },
     {
       "模块": "断言工具轻量",
@@ -637,7 +637,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 919902
+      "ir_len": 920576
     },
     {
       "模块": "节点核心",
@@ -645,7 +645,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 909961
+      "ir_len": 910635
     },
     {
       "模块": "调度核心",

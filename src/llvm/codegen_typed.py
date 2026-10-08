@@ -688,6 +688,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_call_method(ptr, ptr, ptr, ptr, i32)',
             f'declare void @dv_call_super_method(ptr, ptr, ptr, ptr, ptr, i32)',
             f'declare i32 @dv_isinstance(ptr, ptr)',
+            f'declare i32 @dv_isinstance_value(ptr, ptr)',
             f'declare i32 @dv_is_sub_class(ptr, ptr)',
             f'declare i32 @dv_is_sub_class_from_value(ptr, ptr)',
             f'declare i32 @dv_has_attr(ptr, ptr)',
@@ -3120,10 +3121,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('是实例', 'isinstance', '是否实例', '是类实例', 'instance_of'):
             if len(args) >= 2:
                 obj_slot = self._store_dv(args[0])
-                class_name_ptr = self.new_register()
-                self.emit(f'{class_name_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                class_slot = self._store_dv(args[1])
                 result = self.new_register()
-                self.emit(f'{result} = call i32 @dv_isinstance(ptr {obj_slot}, ptr {class_name_ptr})')
+                self.emit(f'{result} = call i32 @dv_isinstance_value(ptr {obj_slot}, ptr {class_slot})')
                 cmp = self.new_register()
                 self.emit(f'{cmp} = icmp ne i32 {result}, 0')
                 return self._create_bool_dv(cmp), 'dv'
