@@ -183,10 +183,15 @@ def test_codegen_IR声明_3参():
 
 
 def test_codegen_调用_传null_env():
-    """codegen 调用 dv_make_function_value 必须传第 3 参（本轮暂传 null）。"""
+    """R130-A：codegen 调用 dv_make_function_value 必须传第 3 参 env。
+
+    R129-E 时该参固定传 `null`（占位）；R130 起真正的闭包捕获会传堆分配的
+    env 指针（_emit_closure_env_pack 的返回寄存器）。这里只断言第 3 参**存在
+    且形态为「一个 SSA 寄存器或 null 字面量」**，具体值随是否捕获而变化。
+    """
     p = os.path.join(_ROOT, 'src', 'llvm', 'codegen_typed.py')
     src = open(p, encoding='utf-8').read()
-    assert 'dv_make_function_value(ptr {result_slot}, ptr {segptr}, ptr null)' in src, \
+    assert 'call void @dv_make_function_value(ptr {result_slot}, ptr {segptr}, ptr ' in src, \
         'codegen 调用未传第 3 参 env'
 
 

@@ -107,7 +107,9 @@ def test_模块级写全局必须拒绝():
 
 
 def test_外层仍被嵌套段落拦下():
-    """`外层` 只在嵌套段落里有意义，而嵌套段落原生腿不支持——报真正拦下它的那层。"""
+    """`外层` 只在嵌套段落里有意义。R130-A 前嵌套段落原生腿不支持，
+    先撞 SegmentDefinition；R130-A 起嵌套段落（值捕获）已支持，
+    `外层`（nonlocal 引用捕获）按红线 4 仍拒——报真正拦下它的 ScopeDeclStmt。"""
     with pytest.raises(NotImplementedError) as ei:
         compile_source_typed(
             '段落 甲()：\n'
@@ -116,7 +118,7 @@ def test_外层仍被嵌套段落拦下():
             '    外层 计数。\n'
             '  乙()。\n'
             '甲()。\n')
-    assert 'SegmentDefinition' in str(ei.value), f'报错了层：{ei.value}'
+    assert 'ScopeDeclStmt' in str(ei.value), f'报错了层：{ei.value}'
 
 
 def test_适配层白名单含作用域声明():

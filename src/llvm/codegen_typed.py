@@ -87,6 +87,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._imported_modules = set()  # 已导入的模块名集合
         self._module_decls = []  # 待生成的外部段函数声明
         self._segment_modifiers = {}  # 段的修饰符（异步等）
+        self._segment_parent = {}     # R130-A：段 reg_key -> 父段 reg_key（None=顶层）
+        self._seg_lookup = {}         # R130-A：(父 reg_key 或 None, 裸名) -> reg_key 反向查表
+        self._segment_local_decls = {}  # R130-A：段 reg_key -> 该段「自身」局部声明名集合（不含嵌套子段）
+        self._segment_free_vars = {}  # R130-A：段 reg_key -> 自由变量有序列表（仅祖先局部，待捕获）
+        self._nested_seg_counter = 0  # R130-A：嵌套段唯一编号计数器
+        self._current_seg_reg_key = None  # R130-A：当前正在生成 IR 的段 reg_key
+        self._current_free_vars = []  # R130-A：当前段要捕获的自由变量有序列表
         self._current_module = None  # T9A: 当前生成代码所属模块名（None=单模块/主模块上下文）
         # 协程支持（Level 10）
         self._in_coroutine = False  # 当前是否在生成协程函数
@@ -1133,6 +1140,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         for seg in module.segments:
             self._collect_segment(seg)
 
+        # R130-A：所有段（含嵌套）收集完毕后，计算各嵌套段的自由变量
+        # （需在父链 / 自身局部声明齐备后）。
+        self._compute_all_free_vars()
+
         # 生成导入的外部段函数声明
         self._emit_module_decls()
 
@@ -1145,7 +1156,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             params = self._segments[reg_key]
             body = self._segment_bodies.get(reg_key, [])
             modifiers = self._segment_modifiers.get(reg_key, [])
-            self._gen_typed_segment(seg_name, params, body, modifiers, mod_name)
+            self._gen_typed_segment(seg_name, params, body, modifiers, mod_name, reg_key)
 
         # Level 9: 为导出的段函数生成模块前缀别名
         self._gen_exported_aliases(module)
@@ -1205,7 +1216,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     def _emit_module_decls(self):
         """生成导入的外部段函数声明"""
         for decl_name in self._module_decls:
-            self.emit(f'declare void @_seg_{decl_name}(ptr, ptr, i32)')
+            self.emit(f'declare void @_seg_{decl_name}(ptr, ptr, i32, ptr)')
 
     def _gen_exported_aliases(self, module: ast.Module):
         """为当前模块导出的段函数生成带模块前缀的别名"""
@@ -1234,7 +1245,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 safe = self._safe_func_name(seg_name, module_name)
                 alias_name = self._safe_func_name(f'{module_name}_{seg_name}')
                 if alias_name != safe:
-                    self.emit(f'@_seg_{alias_name} = alias void (ptr, ptr, i32), void (ptr, ptr, i32)* @_seg_{safe}')
+                    self.emit(f'@_seg_{alias_name} = alias void (ptr, ptr, i32, ptr), void (ptr, ptr, i32, ptr)* @_seg_{safe}')
 
     def _is_imported_symbol(self, name: str) -> bool:
         """检查符号是否来自导入的模块"""
@@ -1383,7 +1394,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 设 处理器 为 某段 的 RHS、列表过滤(表, 谓词) 的 谓词）时，产生 LV_TYPE_FUNCTION
         # 函数值（持有 @_seg_<safe> 入口指针），而不是字符串。真正的调用分派由
         # _gen_typed_function_call / _gen_function_value_call 完成。
-        if self._local_seg_key(name) in self._segments or name in self._imports:
+        if self._lookup_nested_seg(name) is not None or name in self._imports:
             return self._gen_segment_function_value(name), 'dv'
 
         # 解析器将 真/假/空 转为 Identifier('True'/'False'/'None')，需映射回布尔/空值
@@ -1432,23 +1443,102 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     # ------------------------------------------------------------------
     # R118-A：函数值一等类型
     # ------------------------------------------------------------------
+    def _lookup_nested_seg(self, name: str):
+        """R130-A：在当前段上下文里查找名为 name 的（嵌套）段 reg_key。
+
+        嵌套段 reg_key 形如 `__nested_N__<raw>`（见 _collect_segment），顶层段
+        走 _local_seg_key。通过 _seg_lookup[(父reg_key, 裸名)] 逐级向上解析：
+        先查当前段的子段，再逐层向祖先段查，命中即返回。找不到返回 None。
+        """
+        cur = self._current_seg_reg_key
+        while cur is not None:
+            key = self._seg_lookup.get((cur, name))
+            if key is not None:
+                return key
+            cur = self._segment_parent.get(cur)
+        tk = self._local_seg_key(name)
+        return tk if tk in self._segments else None
+
+    def _emit_closure_env_pack(self, free_vars) -> str:
+        """R130-A（修订版 2.2.2）：把自由变量打包成堆分配的 env 数组。
+
+        env 布局：LightValue 数组，元素 0 = 长度 N（i64），元素 1..N = 自由变量值。
+        **malloc 堆分配（不用 alloca）**——逃逸闭包在外层段落返回后仍要读取
+        捕获值，栈数组会悬垂（见任务书 2.4 逃逸验收判据）。
+
+        所有权：返回的指针交给 dv_make_function_value 封进 DvClosure，随函数值
+        生命周期由 runtime 管理（dv_free 释放 env / dv_clone 深拷贝 env）。
+        free_vars 为空时返回 'null'（与普通段函数向后兼容）。
+        """
+        n = len(free_vars)
+        if n == 0:
+            return 'null'
+        # sizeof(LightValue)：用 LLVM GEP 惯用法取结构体大小，避免硬编码字节数。
+        # 必须拆成两条指令（不能写成 constantexpr `ptrtoint ptr getelementptr`）——
+        # 否则 clang -x ir 解析报 expected '(' in constantexpr。
+        size_gep = self.new_register()
+        self.emit(f'{size_gep} = getelementptr inbounds {LIGHTVALUE_STRUCT}, '
+                  f'ptr null, i64 1')
+        size_reg = self.new_register()
+        self.emit(f'{size_reg} = ptrtoint ptr {size_gep} to i64')
+        count_reg = self.new_register()
+        self.emit(f'{count_reg} = add i64 {n}, 1')
+        bytes_reg = self.new_register()
+        self.emit(f'{bytes_reg} = mul i64 {size_reg}, {count_reg}')
+        env_ptr = self.new_register()
+        self.emit(f'{env_ptr} = call ptr @malloc(i64 {bytes_reg})')
+        # 元素 0：长度 N（LightValue 整型）
+        len_slot = self._new_dv_slot()
+        self.emit(f'call void @dv_int(ptr {len_slot}, i64 {n})')
+        len_val = self.new_register()
+        self.emit(f'{len_val} = load {LIGHTVALUE_STRUCT}, ptr {len_slot}')
+        e0 = self.new_register()
+        self.emit(f'{e0} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {env_ptr}, i64 0')
+        self.emit(f'store {LIGHTVALUE_STRUCT} {len_val}, ptr {e0}')
+        # 元素 1..N：自由变量当前值（值捕获：读取时复制，不做引用捕获）
+        for i, fv in enumerate(free_vars):
+            slot = self._local_vars.get(fv)
+            if slot is None:
+                continue
+            val = self.new_register()
+            self.emit(f'{val} = load {LIGHTVALUE_STRUCT}, ptr {slot}')
+            ep = self.new_register()
+            self.emit(f'{ep} = getelementptr inbounds {LIGHTVALUE_STRUCT}, '
+                      f'ptr {env_ptr}, i64 {i + 1}')
+            self.emit(f'store {LIGHTVALUE_STRUCT} {val}, ptr {ep}')
+        return env_ptr
+
     def _gen_segment_function_value(self, name: str) -> str:
         """把段名封成 LV_TYPE_FUNCTION 函数值：bitcast @_seg_<safe> 入口指针 →
-        dv_make_function_value。被 _gen_typed_identifier（值位）与 设 X 为 段 的 RHS 调用。"""
+        dv_make_function_value。被 _gen_typed_identifier（值位）与 设 X 为 段 的 RHS 调用。
+
+        R130-A：若 name 解析到的是**嵌套段**（有自由变量），则把自由变量按序
+        打包成堆分配的 env 数组并作为第 3 参传入；普通段/导入段 env 传 null。
+        """
         if name in self._imports:
             _imp_mod, _imp_orig = self._imports[name]
             resolved = self._resolve_import_chain(_imp_mod, _imp_orig)
             if resolved:
                 _imp_mod, _imp_orig = resolved
             safe = self._safe_func_name(_imp_orig, _imp_mod)
+            free_vars = []
         else:
-            safe = self._safe_func_name(name, self._current_module)
+            reg_key = self._lookup_nested_seg(name)
+            local_key = self._local_seg_key(name)
+            if reg_key is not None and reg_key != local_key:
+                # 嵌套段：用 reg_key 注册的 safe 名 + 该段的自由变量
+                safe = self._safe_func_name(reg_key)
+                free_vars = self._segment_free_vars.get(reg_key, [])
+            else:
+                safe = self._safe_func_name(name, self._current_module)
+                free_vars = []
         result_slot = self._new_dv_slot()
         # 与 _seg_* 调用同口径：先 dv_null 零初始化（避免 O0 读未初始化槽）
         self.emit(f'call void @dv_null(ptr {result_slot})')
         segptr = self.new_register()
-        self.emit(f'{segptr} = bitcast void (ptr, ptr, i32)* @_seg_{safe} to ptr')
-        self.emit(f'call void @dv_make_function_value(ptr {result_slot}, ptr {segptr}, ptr null)')
+        self.emit(f'{segptr} = bitcast void (ptr, ptr, i32, ptr)* @_seg_{safe} to ptr')
+        env_ptr = self._emit_closure_env_pack(free_vars)
+        self.emit(f'call void @dv_make_function_value(ptr {result_slot}, ptr {segptr}, ptr {env_ptr})')
         return self._load_dv(result_slot)
 
     def _gen_function_value_call(self, callee_value_ssa: str, args: List[str],
@@ -1871,7 +1961,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 当前模块的段函数：优先于同名 builtin（转译腿 Python 语义：用户定义段
         # 覆盖内置。stdlib JSON核心 定义 `段落 连接`，若先查 builtin 会被
         # builtin `连接`(dv_concat 字符串拼接) 劫持，`连接(部分, ", ")` 错乱）。
-        if self._local_seg_key(func_name) in self._segments:
+        # R130-A：_lookup_nested_seg 兼查嵌套段（当前段或其祖先段内定义的段）。
+        if self._lookup_nested_seg(func_name) is not None:
             return self._gen_typed_segment_call(func_name, args, arg_asts)
 
         # T9A：导入的外部段函数也优先于同名 builtin（模块隔离后导入段不再
@@ -1983,7 +2074,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         num_args = len(args)
         if num_args == 0:
             args_arr_ptr = 'null'
-            self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr_ptr}, i32 {num_args})')
+            self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr_ptr}, i32 {num_args}, ptr null)')
         else:
             stack_save = self.new_register()
             self.emit(f'{stack_save} = call ptr @llvm.stacksave()')
@@ -1993,7 +2084,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 elem_ptr = self.new_register()
                 self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {args_arr}, i64 {i}')
                 self.emit(f'store {LIGHTVALUE_STRUCT} {arg_dv}, ptr {elem_ptr}')
-            self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr}, i32 {num_args})')
+            self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr}, i32 {num_args}, ptr null)')
             # T7B / T5C-02·04：写回（跨模块调用同样适用，必须在 stackrestore 前）
             self._emit_args_writeback(args_arr, arg_asts, num_args)
             self.emit(f'call void @llvm.stackrestore(ptr {stack_save})')
@@ -4600,7 +4691,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'{num_args} = add i32 0, 0')
         self.emit(f'call void @dv_call_method(ptr {result_slot}, ptr {ctx_slot}, ptr {method_name_reg}, ptr null, i32 {num_args})')
 
-    def _collect_segment(self, seg, module_name=None):
+    def _collect_segment(self, seg, module_name=None, parent_reg_key=None):
         """覆盖父类方法：在收集阶段预先注册所有段名。
 
         T9A 修复：module_name 不为 None 时使用 (module_name, raw_name) 作为
@@ -4608,7 +4699,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         以获得模块隔离的 fN 编号。
         """
         raw_name = seg.name.name if hasattr(seg.name, 'name') else str(seg.name)
-        reg_key = self._seg_reg_key(raw_name, module_name)
+        if parent_reg_key is None:
+            reg_key = self._seg_reg_key(raw_name, module_name)
+        else:
+            reg_key = f'__nested_{self._nested_seg_counter}__{raw_name}'
+            self._nested_seg_counter += 1
         params = [(p.name, p.default_value) for p in seg.parameters]
         self._segments[reg_key] = params
         self._segment_order.append(reg_key)
@@ -4616,12 +4711,211 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 保存 modifiers（用于异步段落识别）
         modifiers = getattr(seg, 'modifiers', None) or []
         self._segment_modifiers[reg_key] = list(modifiers)
+        self._segment_parent[reg_key] = parent_reg_key
+        self._seg_lookup[(parent_reg_key, raw_name)] = reg_key
+        # 记录本段「自身」的局部声明名（设 X 为 … / 全局 X / 外层 X），
+        # 供自由变量分析排除——这是本段直接绑定的局部变量，不是自由变量。
+        local_decls = self._collect_own_local_decl_names(seg.body)
+        self._segment_local_decls[reg_key] = local_decls
         # 预先注册到 _func_name_map，确保 f# 编号稳定（模块隔离）
-        self._safe_func_name(raw_name, module_name)
+        if parent_reg_key is None:
+            self._safe_func_name(raw_name, module_name)
+        else:
+            self._safe_func_name(reg_key)
+        # R130-A：递归收集本段体内的嵌套段落定义（它们各自成独立 @_seg_）
+        for stmt in seg.body:
+            if isinstance(stmt, ast.SegmentDefinition):
+                self._collect_segment(stmt, module_name=module_name,
+                                      parent_reg_key=reg_key)
 
     def _collect_statement(self, stmt):
         """覆盖父类方法"""
         super()._collect_statement(stmt)
+
+    def _collect_own_local_decl_names(self, body):
+        """R130-A：收集「本段自身」的局部声明名（设 X 为 … / 全局 X / 外层 X）。
+
+        不深入到嵌套段落/类定义内部（那些是独立的自身作用域），因此返回的
+        名字集合只代表本段直接绑定的局部变量，供自由变量分析排除。
+        """
+        names = set()
+        for stmt in body:
+            if stmt is None:
+                continue
+            if isinstance(stmt, ast.SegmentDefinition) or isinstance(stmt, ast.ClassDefinition):
+                continue  # 子作用域自身的声明不算本段局部
+            if isinstance(stmt, ast.VariableDeclaration):
+                n = getattr(stmt, 'name', None)
+                if n:
+                    names.add(n)
+            elif hasattr(ast, 'ScopeDeclaration') and isinstance(stmt, ast.ScopeDeclaration):
+                for nm in (getattr(stmt, 'names', []) or []):
+                    if nm:
+                        names.add(nm)
+            elif isinstance(stmt, ast.Assignment):
+                tgt = getattr(stmt, 'target', None)
+                if isinstance(tgt, ast.Identifier):
+                    names.add(tgt.name)
+        return names
+
+    # ============================================================
+    # R130-A：嵌套段落自由变量分析
+    # ============================================================
+    def _compute_all_free_vars(self):
+        """R130-A：所有段收集完后，为每个嵌套段计算有序自由变量列表。
+
+        自由变量 = 段体内引用的标识符，且其绑定落在某个祖先段（不在本段自身
+        的 形参 + 局部声明 之内），也不是段名 / 模块全局（段名按名可寻址、
+        全局按 @__var_ 可寻址，都不需要捕获）。自由变量按首次出现顺序记录，
+        供 IR 层 env 打包 / 入口解包保持同一顺序。
+
+        **级联传播**：本段体内定义的子段 C 若需要捕获变量 X，而 X 不在本段
+        自身绑定内，则本段也必须捕获 X（否则本段体内创建 C 的函数值时读不到 X）。
+        逐层向上传播直到收敛，保证任意深度嵌套的闭包都能取到最外层变量。
+        """
+        # 所有已注册段名（裸名集合）——用作排除：段名按名可寻址，不捕获
+        all_seg_raw_names = {self._seg_raw_name(k) for k in self._segments}
+        for reg_key in self._segments:
+            self._segment_free_vars[reg_key] = self._compute_free_vars(
+                reg_key, all_seg_raw_names)
+
+        # 级联传播：子段 free_vars 中本段未绑定的名字，本段也须捕获。
+        # 按深度从叶到根迭代直到收敛（父段在 _segment_parent 表里）。
+        changed = True
+        while changed:
+            changed = False
+            for reg_key in list(self._segments.keys()):
+                if self._segment_parent.get(reg_key) is None:
+                    continue
+                parent = self._segment_parent[reg_key]
+                parent_bound = {p[0] for p in self._segments.get(parent, [])} \
+                    | self._segment_local_decls.get(parent, set())
+                child_frees = self._segment_free_vars.get(reg_key, [])
+                pv = self._segment_free_vars.setdefault(parent, [])
+                for name in child_frees:
+                    if name in parent_bound:
+                        continue        # 父段自身已绑定，无需再捕获
+                    if name in all_seg_raw_names:
+                        continue        # 段名按名可寻址
+                    if name not in pv:
+                        pv.append(name)
+                        changed = True
+
+    def _compute_free_vars(self, reg_key, all_seg_raw_names):
+        """计算单个段的自由变量有序列表。"""
+        body = self._segment_bodies.get(reg_key, [])
+        refs_in_order = self._collect_referenced_names(body)
+        own_params = {p[0] for p in self._segments.get(reg_key, [])}
+        own_locals = self._segment_local_decls.get(reg_key, set())
+        own_bound = own_params | own_locals
+        ancestor_bound = self._ancestor_bound_names(reg_key)
+        free_vars = []
+        for name in refs_in_order:
+            if name in own_bound:
+                continue          # 本段自身绑定（形参 / 局部），非自由变量
+            if name in all_seg_raw_names:
+                continue          # 段名按名可寻址，不捕获
+            if name not in ancestor_bound:
+                # 既不是本段绑定、也不是祖先局部、也不是段名
+                # → 模块全局 / 内置 / 未绑定，无需捕获（全局按 @__var_ 寻址）
+                continue
+            if name not in free_vars:
+                free_vars.append(name)
+        return free_vars
+
+    def _ancestor_bound_names(self, reg_key):
+        """R130-A：reg_key 的所有祖先段（含父、祖父…）的 形参 ∪ 局部声明 并集。"""
+        bound = set()
+        cur = self._segment_parent.get(reg_key)
+        while cur is not None:
+            params = {p[0] for p in self._segments.get(cur, [])}
+            bound |= params
+            bound |= self._segment_local_decls.get(cur, set())
+            cur = self._segment_parent.get(cur)
+        return bound
+
+    def _collect_referenced_names(self, body):
+        """R130-A：收集段体内引用的标识符名（按首次出现顺序，不去重）。
+
+        不深入嵌套段落 / 类定义子树（那些是独立作用域，其引用是各自的自由变量）；
+        跳过函数调用的被调名（段名 / 内置，不是自由变量）与属性访问的属性名。
+        """
+        refs = []
+        seen = set()
+
+        def _walk(node):
+            if node is None:
+                return
+            if isinstance(node, (ast.SegmentDefinition, ast.ClassDefinition)):
+                return  # 子作用域：不 descend（其绑定是自身的）
+            if isinstance(node, (ast.Identifier, ast.SegmentName)):
+                n = getattr(node, 'name', None)
+                if n and n not in seen:
+                    refs.append(n)
+                    seen.add(n)
+                return
+            if isinstance(node, ast.FunctionCall):
+                # 被调名 .name：若是 Identifier，可能是**函数值形参/局部变量**被调用
+                # （`原函数(*参数)` / `处理器(事件)`）——必须收集，否则闭包捕获不到它，
+                # 运行期报「未定义的段落：原函数」。段名 / 内置名会在 _compute_free_vars
+                # 里被 all_seg_raw_names 与 ancestor_bound 过滤，不会误捕获。
+                if isinstance(node.name, (ast.Identifier, ast.SegmentName)):
+                    # 被调名：可能是**函数值形参/局部变量**被调用（`原函数(*参数)` /
+                    # `处理器(事件)`）——必须收集，否则闭包捕获不到它，运行期报
+                    # 「未定义的段落：原函数」。适配层把被调名统一转成 SegmentName，
+                    # 所以两类都收。内置函数名 / 静态段名会在 _compute_free_vars 里
+                    # 被 all_seg_raw_names 与 ancestor_bound 过滤，不会误捕获。
+                    _walk(node.name)
+                elif isinstance(node.name, ast.PropertyAccess):
+                    _walk(node.name)  # 下钻其 obj
+                # 实参
+                # R130-C：ast_nodes 的 FunctionCall 字段名是 **`arguments`**
+                # （不是 `args`），此前用 getattr(node,'args') 取实参恒得 None，
+                # 实参里的自由变量（如 缓存装饰器 的 `原函数`、`缓存表`）永远
+                # 漏抓 → env 打包为空 → 闭包捕获彻底失效。两个名字都兼容取。
+                call_args = (getattr(node, 'arguments', None)
+                             or getattr(node, 'args', None)
+                             or [])
+                for a in call_args:
+                    _walk(a)
+                return
+            if isinstance(node, ast.PropertyAccess):
+                _walk(getattr(node, 'obj', None))  # 只下钻 obj，不下钻属性名
+                return
+            # 通用下降：AST 节点是 dataclass（__dict__ 常为空 / 用 __dataclass_fields__）
+            # 或普通对象（__dict__）。必须把所有 ASTNode 子字段都下钻到，否则函数体内
+            # 表达式里的标识符引用（如 BinaryOp 右操作数的 `增量`）会漏抓，
+            # 导致自由变量分析把该变量当字符串常量、闭包捕获失效。
+            def _recurse(v):
+                if isinstance(v, ast.ASTNode):
+                    _walk(v)
+                elif isinstance(v, (list, tuple)):
+                    for item in v:
+                        if isinstance(item, ast.ASTNode):
+                            _walk(item)
+            d = getattr(node, '__dict__', None)
+            if d:
+                for v in d.values():
+                    _recurse(v)
+                return
+            fields = getattr(node, '__dataclass_fields__', None)
+            if fields:
+                for fname in fields.keys():
+                    _recurse(getattr(node, fname, None))
+                return
+            # 兜底：反射所有非下划线属性（覆盖其他自定义节点形态）
+            for attr in dir(node):
+                if attr.startswith('_'):
+                    continue
+                try:
+                    v = getattr(node, attr)
+                except Exception:
+                    continue
+                if isinstance(v, ast.ASTNode):
+                    _walk(v)
+        for stmt in body:
+            _walk(stmt)
+        return refs
 
     def _collect_vars_from_stmts(self, stmts):
         """覆盖父类：补充收集 try/catch 中的捕获变量。
@@ -4701,8 +4995,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return 'instance'
 
     def _gen_typed_segment_call(self, name: str, args: List[str], arg_asts=None) -> Tuple[str, str]:
-        # T9A：段调用使用当前模块上下文，确保跨模块同名段调用到正确的定义
-        safe = self._safe_func_name(name, self._current_module)
+        # T9A：段调用使用当前模块上下文，确保跨模块同名段调用到正确的定义。
+        # R130-A：优先解析嵌套段（_lookup_nested_seg）；按名调用走顶层段、
+        # 走直接 @_seg_<safe> 入口、env 传 null（该入口本身不捕获；若要携带捕获
+        # 环境须先把嵌套段封成函数值再 dv_call_value，见 _gen_segment_function_value）。
+        reg_key = self._lookup_nested_seg(name)
+        if reg_key is not None and reg_key != self._local_seg_key(name):
+            safe = self._safe_func_name(reg_key)
+        else:
+            safe = self._safe_func_name(name, self._current_module)
         result_slot = self._new_dv_slot()
         # R10-11a 打回 A2：段函数返回路径会 dv_obj_release_slot(result_ptr) 释放旧值。
         # _new_dv_slot 来自复用型临时槽位池（不零初始化），O0 下残留垃圾可能被
@@ -4711,7 +5012,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'call void @dv_null(ptr {result_slot})')
         num_args = len(args)
         if num_args == 0:
-            self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr null, i32 0)')
+            self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr null, i32 0, ptr null)')
         else:
             stack_save = self.new_register()
             self.emit(f'{stack_save} = call ptr @llvm.stacksave()')
@@ -4721,7 +5022,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 elem_ptr = self.new_register()
                 self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {args_arr}, i64 {i}')
                 self.emit(f'store {LIGHTVALUE_STRUCT} {arg_dv}, ptr {elem_ptr}')
-            self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr}, i32 {num_args})')
+            self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr}, i32 {num_args}, ptr null)')
             # T7B / T5C-02·04：写回（必须在 stackrestore 前）
             self._emit_args_writeback(args_arr, arg_asts, num_args)
             self.emit(f'call void @llvm.stackrestore(ptr {stack_save})')
@@ -5398,6 +5699,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                         self.set_var(obj_name, result_dv)
                         return
             self._gen_expression(expr)
+        elif isinstance(stmt, ast.SegmentDefinition):
+            # R130-A：嵌套段落定义。定义本身 no-op——它已作为独立 @_seg_<safe>
+            # 由 _collect_segment 递归注册生成；段名引用经 _lookup_nested_seg 解析。
+            return
         elif isinstance(stmt, ast.ImportStatement):
             pass
         elif hasattr(ast, 'AsyncScope') and isinstance(stmt, ast.AsyncScope):
@@ -5429,8 +5734,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         把 X 挂进 `_globals`：之后段落体内对 X 的读写自动改走全局槽，语义与
         Python 的 `global` 一致——写回模块级变量，而不是新建一个同名局部槽。
 
-        `外层`（nonlocal）只在嵌套段落里有意义，而嵌套段落（SegmentDefinition）
-        原生腿本就不支持 → 如实拒绝，绝不静默降级成 `全局`。
+        `外层`（nonlocal）只在嵌套段落里有意义。R130-A 起嵌套段落（SegmentDefinition）
+已支持（**值捕获**），但**不做引用捕获**（红线 4），故 `外层` 跨层重绑仍不支持
+→ 如实拒绝，绝不静默降级成 `全局`。
         """
         kind = getattr(stmt, 'kind', 'global') or 'global'
         names = list(getattr(stmt, 'names', []) or [])
@@ -6195,6 +6501,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'call void @dv_null(ptr {result_ptr})')
         # T7B / T5C-02·04：显式返回出口也要把形参写回 %args
         self._emit_param_writeback()
+        # R130-C：嵌套段返回前把自由变量写回 env（dict/list 值字段同步）
+        self._emit_closure_env_writeback()
         self.emit('call void @dv_stack_pop()')
         self.emit('ret void')
 
@@ -6371,10 +6679,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     # 段落函数生成
     # ============================================================
 
-    def _gen_typed_segment(self, name, params, body, modifiers=None, module_name=None):
+    def _gen_typed_segment(self, name, params, body, modifiers=None, module_name=None, reg_key=None):
         modifiers = modifiers or []
         is_async = '异步' in modifiers or 'async' in [m.lower() for m in modifiers]
-        
+
+        # R130-A：记录「当前正在生成的段」与其自由变量，供段内引用解析与
+        # 函数值 env 打包使用。顶层段无父（reg_key 即顶层 key），嵌套段有父链。
+        prev_seg_reg_key = self._current_seg_reg_key
+        prev_free_vars = self._current_free_vars
+        self._current_seg_reg_key = reg_key
+        self._current_free_vars = self._segment_free_vars.get(reg_key, []) if reg_key is not None else []
+
         if is_async:
             self._gen_async_segment(name, params, body, module_name)
         elif self._段是生成器(body):
@@ -6382,7 +6697,75 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self._gen_generator_segment(name, params, body, module_name)
         else:
             self._gen_normal_segment(name, params, body, module_name)
-    
+
+        # R130-A：恢复外层段的上下文（段可能嵌套生成）
+        self._current_seg_reg_key = prev_seg_reg_key
+        self._current_free_vars = prev_free_vars
+
+    def _emit_closure_env_unpack(self, free_vars, env_param):
+        """R130-A：在段入口生成「从 env 参数解包自由变量」的 IR。
+
+        env 是 dv_call_value 透传的第 4 个实参（DvClosure.env）：一个值捕获的
+        LightValue 堆数组，**元素 0 存长度 N**，元素 1..N 按自由变量同序存放。
+        env 为 NULL（普通顶层段直接按名调用、或函数值未捕获）则跳过，自由变量
+        槽保持零值（如实降级，不虚构值）。
+
+        注意：改用 `%env` 参数而非全局变量——修订版 2.2.3 明确入口签名升级为
+        (result, args, num_args, env)，不再依赖「当前闭包 env」全局指针。
+        """
+        env_isnull = self.new_register()
+        self.emit(f'{env_isnull} = icmp eq ptr {env_param}, null')
+        skip_lab = self.new_label('closure_env_skip')
+        unpack_lab = self.new_label('closure_env_unpack')
+        self.emit(f'br i1 {env_isnull}, label %{skip_lab}, label %{unpack_lab}')
+        self.emit(f'{unpack_lab}:')
+        for i, fv in enumerate(free_vars):
+            slot = self._local_vars.get(fv)
+            if slot is None:
+                continue
+            elem_ptr = self.new_register()
+            self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, '
+                      f'ptr {env_param}, i64 {i + 1}')
+            val = self.new_register()
+            self.emit(f'{val} = load {LIGHTVALUE_STRUCT}, ptr {elem_ptr}')
+            self.emit(f'store {LIGHTVALUE_STRUCT} {val}, ptr {slot}')
+        self.emit(f'br label %{skip_lab}')
+        self.emit(f'{skip_lab}:')
+
+    def _emit_closure_env_writeback(self):
+        """R130-C：段返回前把自由变量局部槽的最新值写回 env 数组。
+
+        与入口解包（_emit_closure_env_unpack）配对，方向相反。只同步**值字段**
+        （type/i64/f64/str/boolean/list_size 等）：dict/list 的 list_data 指针在
+        打包/解包时按 LightValue 结构体整块拷贝，天然共享同一底层数组，字典内
+        `list_size` 的更新（字典设置）不会被写回——下次调用解包仍看到旧 length，
+        表现为「缓存表每次进包装都像空字典」。
+
+        env 为 NULL（顶层段直接按名调用 / 函数值未捕获）时跳过；自由变量若在
+        段内被重新绑定，写回的是最新值（Python 闭包语义）。
+        """
+        free_vars = self._current_free_vars or []
+        if not free_vars or not getattr(self, '_current_free_vars', None):
+            return
+        env_isnull = self.new_register()
+        self.emit(f'{env_isnull} = icmp eq ptr %env, null')
+        skip_lab = self.new_label('closure_env_wb_skip')
+        wb_lab = self.new_label('closure_env_writeback')
+        self.emit(f'br i1 {env_isnull}, label %{skip_lab}, label %{wb_lab}')
+        self.emit(f'{wb_lab}:')
+        for i, fv in enumerate(free_vars):
+            slot = self._local_vars.get(fv)
+            if slot is None:
+                continue
+            val = self.new_register()
+            self.emit(f'{val} = load {LIGHTVALUE_STRUCT}, ptr {slot}')
+            elem_ptr = self.new_register()
+            self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, '
+                      f'ptr %env, i64 {i + 1}')
+            self.emit(f'store {LIGHTVALUE_STRUCT} {val}, ptr {elem_ptr}')
+        self.emit(f'br label %{skip_lab}')
+        self.emit(f'{skip_lab}:')
+
     def _gen_normal_segment(self, name, params, body, module_name=None):
         """生成普通（非异步）段落函数。
 
@@ -6403,7 +6786,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._seg_result_ptr = '%result'
         safe = self._safe_func_name(name, module_name)
 
-        self.emit(f'define void @_seg_{safe}(ptr %result, ptr %args, i32 %num_args) {{')
+        self.emit(f'define void @_seg_{safe}(ptr %result, ptr %args, i32 %num_args, ptr %env) {{')
         self.emit('entry:')
         
         # 分配临时槽位池（必须是 entry 块的第一个指令，避免动态 alloca）
@@ -6431,10 +6814,22 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         for clean, _ in cleaned_params:
             self._local_vars[clean] = None
 
+        # R130-A：把本段要捕获的自由变量登记为局部槽位，使其既能被段体 get_var
+        # 命中，也会在下方循环里拿到 entry 块 alloca。（自由变量是「非本段绑定、
+        # 来自祖先段」的变量，DvClosure.env 里按同序存放，入口解包到这里。）
+        for fv in self._current_free_vars:
+            self._local_vars.setdefault(fv, None)
+
         for vname in self._local_vars.keys():
             reg = self.new_register()
             self.emit(f'{reg} = alloca {LIGHTVALUE_STRUCT}')
             self._local_vars[vname] = reg
+
+        # R130-A：嵌套段入口解包 env —— 从 dv_call_value 设置的「当前闭包 env」
+        # 全局指针里，按自由变量同序取出，写入刚分配的局部槽。env 为 NULL（顶层段
+        # 直接按名调用，或尚未捕获）时跳过，自由变量槽保持零值（如实降级）。
+        if self._current_free_vars:
+            self._emit_closure_env_unpack(self._current_free_vars, '%env')
 
         if params:
             num_args_sext = self.new_register()
@@ -6495,6 +6890,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if not self._ends_with_terminator(body):
             self._emit_param_writeback()
+            # R130-C：隐式结尾也要写回 env（自由变量可能被最后一句改写）
+            self._emit_closure_env_writeback()
             self.emit(f'call void @dv_null(ptr %result)')
             self.emit('call void @dv_stack_pop()')
             self.emit('ret void')
@@ -6609,7 +7006,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._temp_slot_index = 0
         self._seg_result_ptr = '%result'
 
-        self.emit(f'define void @_seg_{safe}(ptr %result, ptr %args, i32 %num_args) {{')
+        self.emit(f'define void @_seg_{safe}(ptr %result, ptr %args, i32 %num_args, ptr %env) {{')
         self.emit('entry:')
         self._begin_temp_slot_pool()
 
@@ -6724,7 +7121,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._seg_result_ptr = '%result'
         self._in_coroutine = False
         
-        self.emit(f'define void @_seg_{safe}(ptr %result, ptr %args, i32 %num_args) {{')
+        self.emit(f'define void @_seg_{safe}(ptr %result, ptr %args, i32 %num_args, ptr %env) {{')
         self.emit('entry:')
         
         func_name_ptr = self.gen_string_constant(name)
@@ -7134,7 +7531,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         """为段函数生成模块前缀别名，使其他模块可通过 @_seg_{模块名}_{函数名} 引用"""
         alias_name = self._safe_func_name(f'{module_name}_{seg_name}')
         if alias_name != safe_name:
-            self.emit(f'@_seg_{alias_name} = alias void (ptr, ptr, i32), void (ptr, ptr, i32)* @_seg_{safe_name}')
+            self.emit(f'@_seg_{alias_name} = alias void (ptr, ptr, i32, ptr), void (ptr, ptr, i32, ptr)* @_seg_{safe_name}')
 
     def _gen_typed_class_methods(self, class_name, cls_def):
         """生成类的所有方法"""
@@ -7338,7 +7735,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                     num_params = len(params)
                     result_slot = self._new_dv_slot()
                     if num_params == 0:
-                        self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr null, i32 0)')
+                        self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr null, i32 0, ptr null)')
                     else:
                         args_arr = self._new_dv_slot()
                         for i in range(num_params):
@@ -7371,7 +7768,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                             self.emit(f'store {LIGHTVALUE_STRUCT} {null_val}, ptr {elem_ptr}')
                             self.emit(f'br label %{arg_end}')
                             self.emit(f'{arg_end}:')
-                        self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr}, i32 {num_params})')
+                        self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr}, i32 {num_params}, ptr null)')
                     main_called = True
                     break
 

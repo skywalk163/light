@@ -96,8 +96,31 @@ typedef struct {
     LightValue* env;       /* 捕获环境；NULL = 无捕获的普通段函数 */
 } DvClosure;
 
-/* 段函数指针类型：与 @_seg_<safe>(ptr result, ptr args_arr, i32 num_args) 同签名 */
-typedef void (*DvSegFunc)(LightValue*, LightValue*, int);
+/* 段函数指针类型：与 @_seg_<safe>(ptr result, ptr args_arr, i32 num_args, ptr env) 同签名。
+ * R130-A：新增第 4 参 env（捕获环境）；普通顶层段 env==NULL，向后兼容。 */
+typedef void (*DvSegFunc)(LightValue*, LightValue*, int, LightValue*);
+
+/* R130-A：env 数组布局 = [元素0: 长度N(i64), 元素1..N: 捕获值]（LightValue 数组）。
+ * 值捕获为**结构体浅拷贝**：每个元素是外层局部变量 LightValue 的副本，其堆负载
+ * （字符串缓冲、list/dict 内部数组）仍归原作用域所有。因此释放/深拷贝只管理数组
+ * 本身，**不递归 dv_free 各元素**——否则与捕获源的双 free 与逃逸悬垂风险无法消除。
+ * 数组指针独立所有权：两个函数值（dv_clone 后）各自持有独立 env 数组，互不共享。 */
+static void dv_closure_env_free(LightValue* env) {
+    free(env);
+}
+
+static LightValue* dv_closure_env_clone(const LightValue* env) {
+    if (!env) return NULL;
+    long n = env[0].i64;           /* 元素 0 存长度 N */
+    if (n < 0) return NULL;
+    size_t count = (size_t)n + 1;
+    LightValue* dst = (LightValue*)malloc(count * sizeof(LightValue));
+    if (!dst) return NULL;
+    for (size_t i = 0; i < count; i++) {
+        dst[i] = env[i];           /* 浅拷贝：结构体副本，堆负载共享（值捕获语义） */
+    }
+    return dst;
+}
 
 /* ================================================================
  * 前向声明（避免隐式函数声明）
@@ -366,11 +389,12 @@ void dv_free(LightValue* v) {
         v->list_size = 0;
         v->list_capacity = 0;
     } else if (v->type == LV_TYPE_FUNCTION && v->str) {
-        /* R129-E：释放 DvClosure 结构体本身。env 本轮只存不释放——
-         * 普通段函数 env=NULL 安全；带捕获的 env 数组释放归 R130 管（值捕获语义）。 */
+        /* R129-E：释放 DvClosure 结构体本身。
+         * R130-A：值捕获的 env 数组所有权随函数值转移，一并释放（防泄漏）；
+         * env==NULL（普通段函数）安全跳过。 */
         DvClosure* clo = (DvClosure*)(v->str);
         if (clo) {
-            /* env 非 NULL 时暂不递归释放（R130 引入值捕获后再补），避免误释放共享捕获 */
+            dv_closure_env_free(clo->env);
             free(clo);
             v->str = NULL;
         }
@@ -395,7 +419,8 @@ void dv_clone(LightValue* result, LightValue* v) {
         result->str = dv_strdup(v->str);
     } else if (v->type == LV_TYPE_FUNCTION && v->str) {
         /* R129-E：深拷贝 DvClosure 结构体（避免双 free 与共享 fn_ptr 悬空）。
-         * env 指针本轮共享（值捕获的 env 数组深拷贝归 R130 管）。 */
+         * R130-A：env 数组一并**深拷贝**为新数组，禁止共享同一 env 指针——
+         * 否则两份函数值会双 free 同一个 env，且拷贝方释放后原值悬垂。 */
         DvClosure* src = (DvClosure*)(v->str);
         DvClosure* dst = (DvClosure*)malloc(sizeof(DvClosure));
         if (!dst) {
@@ -404,7 +429,7 @@ void dv_clone(LightValue* result, LightValue* v) {
             return;
         }
         dst->fn_ptr = src->fn_ptr;
-        dst->env = src->env;
+        dst->env = dv_closure_env_clone(src->env);
         result->str = (char*)dst;
     } else if (v->type == 4) {
         /* 复制列表数据 */
@@ -8350,7 +8375,10 @@ void dv_call_value(LightValue* result, LightValue* fv, LightValue* args, int num
     /* R129-E：从 DvClosure 取出 fn_ptr（env 本轮暂不透传，R130 才用） */
     DvClosure* clo = (DvClosure*)(fv->str);
     DvSegFunc fn = (DvSegFunc)(clo->fn_ptr);
-    fn(result, args, num_args);
+    /* R130-A：把 DvClosure.env 作为第 4 参透传给段入口。
+     * 普通顶层段 env==NULL（dv_make_function_value 时未捕获），入口跳过解包，
+     * 行为与 R129-E 之前完全一致（向后兼容）。 */
+    fn(result, args, num_args, clo->env);
 }
 
 /* getattr(对象, "名", 默认) —— 三参带默认值形态。

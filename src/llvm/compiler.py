@@ -1072,13 +1072,17 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
         codegen._current_module = prev_module
 
     # 生成所有段落函数
+    # R130-A：段收集阶段已通过 _compute_all_free_vars 为每个嵌套段算出自由变量
+    #（含级联传播），这里按 reg_key 传入 _gen_typed_segment，使 _current_free_vars
+    # 在段入口解包 env 时能命中；顶层段 reg_key 也在表里（free_vars 为空表）。
+    codegen._compute_all_free_vars()
     for reg_key in codegen._segment_order:
         # T9A：reg_key 为 (module_name, raw_name)，解包后传入模块上下文
         seg_name = reg_key[1] if isinstance(reg_key, tuple) else reg_key
         mod_name = reg_key[0] if isinstance(reg_key, tuple) else None
         params = codegen._segments[reg_key]
         body = codegen._segment_bodies.get(reg_key, [])
-        codegen._gen_typed_segment(seg_name, params, body, module_name=mod_name)
+        codegen._gen_typed_segment(seg_name, params, body, module_name=mod_name, reg_key=reg_key)
 
     # 为所有模块生成导出名别名
     for mod in all_module_list:

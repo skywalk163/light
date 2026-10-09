@@ -247,6 +247,7 @@ stmt_desc = {
     'AssertStmt': '断言 <条件>。/ 断言 <条件>, <消息>。（条件真 no-op，假抛 AssertionError；R116-A 新增）',
     'WithStatement': '使用 X 为 Y：（__enter__ 绑定 → 体 → __exit__，异常亦走 __exit__ 后重抛；R116-A 新增）',
     'RunAsyncStmt': '异步 运行 X()（顶层启动异步段：求值 X() 得协程句柄 → dv_coro_run_to_completion 阻塞跑完；R119-A 新增）',
+    'SegmentDefinition': '嵌套段落定义（定义本身 no-op，段名在值位/调用位经 _lookup_nested_seg 解析，闭包捕获外层自由变量；R130-A 新增）',
 }
 result["tables"]["statement_nodes"] = {
     "description": "原生腿 _gen_statement 分派链支持的语句节点",

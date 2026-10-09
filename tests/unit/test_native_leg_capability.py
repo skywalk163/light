@@ -55,6 +55,8 @@ _DOC_STMT_TYPES = frozenset({
     'AssertStmt',               # R116-A 新增：`断言 <条件>。` / `断言 <条件>, <消息>。`
     'WithStatement',            # R116-A 新增：`使用 X 为 Y：` 上下文管理（__enter__/__exit__ + 异常安全退出）
     'RunAsyncStmt',             # R119-A 新增：`异步 运行 X()。` 顶层启动异步段（协程调度器驱动至完成）
+    'SegmentDefinition',        # R130-A 新增：`段落` 嵌套定义（定义 no-op；段名在值位/调用位
+                                # 经 _lookup_nested_seg 解析，闭包捕获外层自由变量）
 })
 
 _DOC_EXPR_TYPES = frozenset({
