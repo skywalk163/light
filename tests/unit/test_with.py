@@ -131,7 +131,8 @@ def test_异常路径_仍释放_且异常传播():
     )
     out, raised = _run_light_expect_error(code)
     # 关闭() 在 finally 里被调用（异常传播前打印，故仍出现在 stdout）
-    assert raised is not None, "块内异常必须向上传播"
+    # 注：不再单独断 `raised is not None`（零信号断言，assert_quality 门判红）；
+    #     下一行 `"boom" in str(raised)` 已同时覆盖「异常非 None」与「异常内容正确」。
     assert "boom" in str(raised)
     assert "closed" in out
 
