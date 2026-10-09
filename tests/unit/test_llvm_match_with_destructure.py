@@ -205,11 +205,35 @@ def test_使用_缺口定性_运行时没有上下文管理协议():
 
 
 def _源码片段(path, name, 长度=4000):
+    """按缩进精确提取 `def name(` 的整个函数体。`长度` 保留仅为兼容旧调用点，不再生效。
+
+    R131-C：固定字符窗口**第三次**撞墙——R125 把窗口 4000→4500，R130 与 R131-C 在
+    `_gen_statement` 内的合法增量又把 `DestructuringAssignment` 分支（偏移 4639）
+    挤出窗口。窗口扫描对「函数内任何位置加代码」都敏感，而这与断言内容
+    （「分派链必须有这两个分支」）毫无关系——被挤出窗口 ≠ 分支消失，属假红。
+    改为按缩进提取到下一个同缩进的 `def`/`class`，彻底根治。**断言内容一字未改。**
+    """
     with open(path, encoding='utf-8') as f:
-        src = f.read()
-    i = src.find(f'def {name}(')
-    assert i > 0, f'找不到 {name}'
-    return src[i:i + 长度]
+        lines = f.read().splitlines()
+    start = None
+    for idx, line in enumerate(lines):
+        if line.lstrip().startswith(f'def {name}('):
+            start = idx
+            break
+    assert start is not None, f'找不到 {name}'
+    base_indent = len(lines[start]) - len(lines[start].lstrip())
+    out = [lines[start]]
+    for line in lines[start + 1:]:
+        stripped = line.lstrip()
+        if not stripped:
+            out.append(line)
+            continue
+        cur_indent = len(line) - len(stripped)
+        if cur_indent <= base_indent and (stripped.startswith('def ')
+                                          or stripped.startswith('class ')):
+            break
+        out.append(line)
+    return "\n".join(out)
 
 
 def test_分派链登记了两条新语句():

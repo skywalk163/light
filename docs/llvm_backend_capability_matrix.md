@@ -49,18 +49,18 @@
 | `MatchStmt` | 匹配 …：情况 …： | 有 | `MatchStatement` | 有 | 有 | ✅ 12495 字符 | `supported` |
 | `ParallelBlockStmt` | 并行 { … } | **无** | `—` | **无** | **无** | — 无自动用例 | `gap:adapter` |
 | `PassStmt` | pass（空语句） | 有 | `—` | **无** | **无** | — 无自动用例 | `n/a(no-op)` |
-| `ReturnStmt` | 返回 … | 有 | `ReturnStatement` | 有 | 有 | ✅ 10077 字符 | `supported` |
+| `ReturnStmt` | 返回 … | 有 | `ReturnStatement` | 有 | 有 | ✅ 10097 字符 | `supported` |
 | `RunAsyncStmt` | 异步 运行 主()。 | 有 | `RunAsyncStmt` | 有 | 有 | — 无自动用例 | `supported` |
-| `ScopeDeclStmt` | 全局 X。/ 外层 X。 | 有 | `ScopeDeclaration` | 有 | 有 | ✅ 11041 字符 | `supported` |
+| `ScopeDeclStmt` | 全局 X。/ 外层 X。 | 有 | `ScopeDeclaration` | 有 | 有 | ✅ 11061 字符 | `supported` |
 | `SelfAssignment` | 己.X 为 值 | 有 | `Assignment` | 有 | 有 | — 无自动用例 | `supported` |
 | `ThrowStmt` | 抛出 … | 有 | `ThrowStatement` | 有 | 有 | ✅ 9048 字符 | `supported` |
 | `TryStmt` | 尝试 / 捕获 | 有 | `TryStatement` | 有 | 有 | ✅ 10067 字符 | `supported` |
 | `TypeCheckToggleStmt` | 类型检查开关 | **无** | `—` | **无** | **无** | — 无自动用例 | `gap:adapter` |
 | `VarDecl` | 设 X 为 值。 | 有 | `VariableDeclaration` | 有 | 有 | ✅ 9402 字符 | `supported` |
 | `WhileStmt` | 当 …： | 有 | `WhileStatement` | 有 | 有 | ✅ 11339 字符 | `supported` |
-| `WithCloseStmt` | 与 … 为 X： | **无** | `—` | **无** | **无** | — 无自动用例 | `gap:adapter` |
+| `WithCloseStmt` | — | **无** | `—` | **无** | **无** | — 无自动用例 | `gap:adapter` |
 | `WithStmt` | 使用 … 为 X： | 有 | `WithStatement` | 有 | 有 | ✅ 11766 字符 | `supported` |
-| `YieldStmt` | 生成 … | 有 | `YieldStatement` | 有 | 有 | ✅ 14594 字符 | `supported` |
+| `YieldStmt` | 生成 … | 有 | `YieldStatement` | 有 | 有 | ✅ 14614 字符 | `supported` |
 
 ## 缺口清单（按层归类）
 

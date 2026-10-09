@@ -1982,6 +1982,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             # 函数式变异调用写回：`列表弹出(己.数据)` / `列表插入(己.数据, 0, x)` 这类
             # 独立语句调用 mutating builtin（返回新列表），须把新列表写回
             # 第一参数（实例字段或局部变量），否则跨调用累积丢失。
+            # ⚠️ L-186（R131-C）：`排序`/`反转` **刻意不在此处**加写回。
+            # 实测 Python 腿（规范源）裸函数式 `排序(表)` / `反转(表)` **不写回**
+            # （结果仍 `[3,1,2]`）——原生腿若在这里写回会制造新的跨腿分叉。
+            # L-186 只修**方法形态** `表.sort()` / `表.反转()`（见 4224 / 5694 名单），
+            # 那才是 stdlib 真正走的路径（`stdlib/内置核心列表.light` 的 列表排序
+            # 内部就是 `表.sort(reverse=反向)`）。
             if func_name in ('追加', 'append', '列表追加', '清空', 'clear', '设置', 'set',
                              '插入', 'insert', '列表插入', 'list_insert',
                              '删除', 'remove', 'list_remove',
@@ -2107,6 +2113,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             name_reg = self.gen_string_constant(name)
             exc_slot = self._new_dv_slot()
             self.emit(f'call void @dv_class_new_named(ptr {exc_slot}, ptr {name_reg})')
+            # L-187（R131-C）：直呼构造此前**丢弃了消息实参**——`抛出 运行时错误("…")`
+            # 只 new_named，异常对象的「消息」字段是空的 ⇒ 捕获后 `转字符串(e)`
+            # 拿不到消息、未捕获时的 stderr 也只有类名。对齐 Python 腿语义
+            # （第一个位置参数即异常消息），构造后写入「消息」字段。
+            if args:
+                msg_name = self.gen_string_constant("消息")
+                msg_slot = self._store_dv(args[0])
+                self.emit(f'call void @dv_class_set_member(ptr {exc_slot}, ptr {msg_name}, ptr {msg_slot})')
             return self._load_dv(exc_slot), 'dv'
 
         # ---- R117-B 桶②：Python 直通名补齐（7 个 + 桶④ 异步睡眠 同一通路）----
@@ -4215,7 +4229,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             args_dv = self._merge_kwargs(method_name, args_dv, kw_values)
 
         # 内置 mutating 方法名单（R125-A2 自下方 builtin 分派处上移复用）
-        mutating_methods = {'追加', 'append', '清空', 'clear', '设置', 'set', '插入', 'insert', '删除', 'remove', '弹出', 'pop', '移除', '弹栈'}
+        # L-186（R131-C）：补 `排序`/`反转`（同源理由见 5694 处注释）。此处名单决定
+        # ① 类实例自带同名方法时是否让位给类方法（R125-A2 保护仍在），② 接收者是
+        # 实例字段（己.数据）时是否把返回的**新列表**写回字段（4258）。
+        mutating_methods = {'追加', 'append', '清空', 'clear', '设置', 'set', '插入', 'insert', '删除', 'remove', '弹出', 'pop', '移除', '弹栈',
+                            '排序', 'sort', '反转', 'reverse'}
         # R125-A2：接收者是已跟踪的类实例变量、且方法名在该类继承链上有定义
         # ⇒ 优先走类方法（dv_call_method），不被内置 mutating 分派截胡——
         # 此前 `obj.清空()`（自定义类同名方法）被截胡成 dv_list_clear（转译腿正确、
@@ -5685,7 +5703,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if isinstance(expr, ast.FunctionCall) and isinstance(expr.name, ast.PropertyAccess):
                 method_name = expr.name.property_name
                 obj = expr.name.obj
-                mutating_methods = {'追加', 'append', '清空', 'clear', '设置', 'set', '插入', 'insert', '删除', 'remove', '弹出', 'pop', '移除', '弹栈'}
+                # L-186（R131-C）：补 排序/反转——dv_list_sort/reverse 返回新列表不原地改，
+                # 裸局部变量接收者须写回绑定（字段路径见 4224 名单）。
+                mutating_methods = {'追加', 'append', '清空', 'clear', '设置', 'set', '插入', 'insert', '删除', 'remove', '弹出', 'pop', '移除', '弹栈',
+                                    '排序', 'sort', '反转', 'reverse'}
                 if method_name in mutating_methods:
                     # R125-A2：已跟踪类实例撞 mutating 名 → 走类方法、不写回返回值
                     # （机制与安全边界详注见 _recv_is_instance_method docstring）

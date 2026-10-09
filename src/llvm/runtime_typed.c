@@ -563,6 +563,82 @@ static char* dv_container_to_string(LightValue* v, char open, char close, int de
     return out;
 }
 
+/* 前向声明（定义在下方，dv_is_object_str 在同文件后段） */
+static int dv_is_object_str(const char* s);
+
+/* L-187（R131-C）：类实例在原生腿被编码成 type=3 字符串
+ * `obj:__class__\x1f<类名>\x1f<字段>\x1f<值>\x1f<字段>\x1f<值>…`，
+ * dv_to_string 此前原样吐出这串裸结构（异常对象尤其不可读）。
+ * 这里给**用户可见**的友好形态：有「消息」字段就输出消息（对齐 Python 腿
+ * `str(异常对象)` = 消息），否则退回 `<类名> 对象`。
+ * 值编码：字符串值形如 `S<len>:<content>`（栈追踪即 `S689:…`），需剥前缀。
+ * 返回 NULL 表示不是对象串 / 解析失败，调用方回退到原行为。 */
+static char* dv_object_pretty(const char* s) {
+    if (!dv_is_object_str(s)) return NULL;
+    const char* p = s + 4;                       /* 跳过 "obj:" */
+    if (strncmp(p, "__class__", 9) != 0) return NULL;
+    p += 9;
+    if (*p == '\x1F') p++;
+    const char* cls_end = strchr(p, '\x1F');
+    if (!cls_end) return NULL;
+
+    size_t cls_len = (size_t)(cls_end - p);
+    char cls_name[128];
+    if (cls_len > sizeof(cls_name) - 1) cls_len = sizeof(cls_name) - 1;
+    memcpy(cls_name, p, cls_len);
+    cls_name[cls_len] = '\0';
+
+    /* 交替解析 <字段>\x1f<值>\x1f…，找「消息」 */
+    const char* q = cls_end + 1;
+    const char* msg = NULL;
+    size_t msg_len = 0;
+    while (*q) {
+        const char* fe = strchr(q, '\x1F');
+        if (!fe) break;
+        size_t flen = (size_t)(fe - q);
+        const char* v = fe + 1;
+        const char* ve = strchr(v, '\x1F');
+        if (!ve) ve = v + strlen(v);
+        size_t vlen = (size_t)(ve - v);
+        /* "消息" 的 UTF-8 是 6 字节 */
+        if (flen == 6 && strncmp(q, "\xE6\xB6\x88\xE6\x81\xAF", 6) == 0) {
+            msg = v; msg_len = vlen;
+            break;
+        }
+        q = ve + 1;
+    }
+
+    if (msg && msg_len > 0) {
+        /* 剥 `S<len>:` 前缀 */
+        if (msg[0] == 'S') {
+            const char* colon = (const char*)memchr(msg, ':', msg_len);
+            if (colon && colon > msg + 1) {
+                int all_digits = 1;
+                for (const char* d = msg + 1; d < colon; d++) {
+                    if (*d < '0' || *d > '9') { all_digits = 0; break; }
+                }
+                if (all_digits) {
+                    size_t skip = (size_t)(colon - msg) + 1;
+                    if (skip < msg_len) { msg += skip; msg_len -= skip; }
+                }
+            }
+        }
+        char* out = (char*)malloc(msg_len + 1);
+        if (!out) return NULL;
+        memcpy(out, msg, msg_len);
+        out[msg_len] = '\0';
+        return out;
+    }
+
+    /* 无消息字段（普通类实例）→ `<类名> 对象` */
+    const char* suffix = " 对象";
+    size_t total = strlen(cls_name) + strlen(suffix) + 1;
+    char* out = (char*)malloc(total);
+    if (!out) return NULL;
+    snprintf(out, total, "%s%s", cls_name, suffix);
+    return out;
+}
+
 char* dv_to_string_depth(LightValue* v, int depth) {
     v = dv_deref(v);
     char buf[128];
@@ -570,7 +646,14 @@ char* dv_to_string_depth(LightValue* v, int depth) {
         case 0: return dv_strdup("空");
         case 1: snprintf(buf, sizeof(buf), "%lld", (long long)v->i64); return dv_strdup(buf);
         case 2: snprintf(buf, sizeof(buf), "%g", (double)v->f64); return dv_strdup(buf);
-        case 3: return dv_strdup(v->str ? v->str : "");
+        case 3: {
+            /* L-187：类实例（含异常对象）给友好形态，不再吐 obj: 裸结构 */
+            if (v->str && dv_is_object_str(v->str)) {
+                char* pretty = dv_object_pretty(v->str);
+                if (pretty) return pretty;
+            }
+            return dv_strdup(v->str ? v->str : "");
+        }
         case 5: return dv_strdup(v->boolean ? "真" : "假");
         case 4: return dv_container_to_string(v, '[', ']', depth);
         case 7: return dv_container_to_string(v, '{', '}', depth);

@@ -1,0 +1,39 @@
+# 纯光明实现 —— os.light：光明内建 os 模块（原生腿）
+#
+# 背景（R131-B）：`stdlib/大模型客户端.light` 的 `导入 os` 在原生腿抛
+# NativeImportError（原生运行时是纯 C，不嵌 CPython，没有 Python 互操作）。
+# 本模块为原生腿提供同名解析目标，与 sys.light（T6B）/ socket.light /
+# selectors.light / errno.light（R128 F 线）同款做法。
+#
+# 腿差异（诚实声明）：
+#   - Python 腿导入的是**真 Python os**。实测（R131-B）：`stdlib/` 下没有
+#     `os.py`，且 `os` 在 `sys.stdlib_module_names` 内 ⇒ 钩子
+#     `_STDLIB_MODULES` 保护分支（`_light_import_hook.py:238-242`）直接
+#     return None ⇒ CPython 拿到真模块，本 .light 对 Python 腿不可见。
+#   - 原生腿的「模块」只能导出**段落（可调用）**，不能导出属性值；故
+#     `os.sep` / `os.environ` 这类**属性形态一律不支持**，只有 `os.getenv()`
+#     这类**调用形态**可用。跨腿移植的代码不得写属性形态。
+#
+# ⚠️ 覆盖范围刻意最小（R131-B 裁定）：
+#   本门面**只转发原生腿已有内建**（`环境变量` → `dv_getenv`、`设置环境变量` →
+#   `dv_setenv`）。os 的其它常用面（listdir/makedirs/remove/stat 等）在原生腿
+#   已有对应中文内建，但**本轮不封**——理由见「为什么不做全」。
+#   为什么不做全：R128 F 线 socket.light 的教训写明「补门面 ≠ 消费方转可编」，
+#   且不受控地扩面会撞「多模块合并同名段 → LLVM 符号重定义」。本模块只做
+#   **有真实内建可转发**的最小集，绝不做降级桩/空壳段落（红线：不做假绿）。
+#
+# ⚠️ 本门面**不解锁** `大模型客户端`（R131-B 实测/分析）：该模块还依赖
+#   `urllib.parse`（无门面）、`流式`（卡 ssl 的 SSLContext 对象模型）、
+#   `SSE`（终局项）。本模块是**地基补齐**，不是解锁动作。
+
+导出 getenv setenv
+
+段落 getenv(名, 默认 等于 ""):
+  设 值 为 环境变量(名)
+  如果 值 == 空:
+    返回 默认
+  返回 值
+
+段落 setenv(名, 值):
+  设置环境变量(名, 值)
+  返回 真

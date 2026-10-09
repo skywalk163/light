@@ -3,9 +3,9 @@
   "description": "原生(LLVM)后端能力矩阵：v3 语句类 × 三层证据 × 实测",
   "generator": "scripts/gen_llvm_capability_matrix.py",
   "counts": {
-    "total": 32,
+    "total": 33,
     "supported": 25,
-    "gap": 6
+    "gap": 7
   },
   "rows": [
     {
@@ -269,7 +269,7 @@
       "in_dispatch": true,
       "probe_case": "段落 甲()：\n  返回 3。\n打印 甲()。\n",
       "probe_result": "ok",
-      "probe_note": "10077 字符",
+      "probe_note": "10097 字符",
       "status": "supported"
     },
     {
@@ -293,7 +293,7 @@
       "in_dispatch": true,
       "probe_case": "段落 加一()：\n  全局 计数。\n  设 计数 为 计数 加 1。\n加一()。\n打印 计数。\n",
       "probe_result": "ok",
-      "probe_note": "11041 字符",
+      "probe_note": "11061 字符",
       "status": "supported"
     },
     {
@@ -370,7 +370,7 @@
     },
     {
       "v3_class": "WithCloseStmt",
-      "surface": "与 … 为 X：",
+      "surface": "",
       "adapter_converter": "",
       "legacy_node": "",
       "in_stmt_whitelist": false,
@@ -401,7 +401,7 @@
       "in_dispatch": true,
       "probe_case": "段落 甲(n)：\n  设 i 为 0\n  当 i < n：\n    生成 i\n    设 i 为 i + 1\n遍历 x 之 甲(3)：\n  打印 x。\n",
       "probe_result": "ok",
-      "probe_note": "14594 字符",
+      "probe_note": "14614 字符",
       "status": "supported"
     }
   ],
@@ -450,6 +450,7 @@
       "ReturnStatement",
       "RunAsyncStmt",
       "ScopeDeclaration",
+      "SegmentDefinition",
       "SelfAssignment",
       "ThrowStatement",
       "TryStatement",
