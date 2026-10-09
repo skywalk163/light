@@ -295,7 +295,22 @@ def main(argv=None):
             tag += "（标准库同名：Python 腿走真标准库，此处经别名 %s 验）" % r.get("import_name")
         miss = r.get("missing") or []
         warns = r.get("warn") or []
-        内部名re = re.compile(r"'(?:_dv_|_clock|_sleep_sec|_strftime)")
+        内部名re = re.compile(r"'(?:_dv_|_clock|_sleep_sec|_strftime"
+                              # R128-F 三门面（stdlib/socket.light、stdlib/selectors.light、
+                              # stdlib/errno.light）经 _light_<名> 别名诊断验时，段落链
+                              # 调用的 socket/poller 族内建只在原生腿 codegen_typed.py
+                              # 暴露（创建socket/…/poller计数），Python 腿
+                              # builtin_map 无对应名 —— 与 time.light 的 _dv_timestamp/
+                              # _clock 同款「边界·原生腿内部名」：设计边界、非缺陷。
+                              # （用户代码不可触发：codegen 别名白名单仅 {'re'}，
+                              # _light_socket 只被本工具的诊断口径构造。）
+                              r"|创建socket|连接socket|发送socket|接收socket|关闭socket"
+                              r"|socket错误|socket错误码|socket_last_error|socket_last_error_code"
+                              r"|创建poller|注册poller|poller_wait|销毁poller"
+                              r"|poller错误|poller后端|poller计数"
+                              r"|socket_create|socket_connect|socket_send|socket_recv|socket_close"
+                              r"|poller_create|poller_register|poller_destroy"
+                              r"|poller_last_error|poller_backend|poller_count)")
         reds = [w for w in warns if w.get("red") and not 内部名re.search(w["msg"])]
         边界项 = [w for w in warns if w.get("red") and 内部名re.search(w["msg"])]
         if r.get("fatal"):

@@ -1,0 +1,65 @@
+# 纯光明实现 —— selectors.light：光明内建 selectors 模块（原生腿）
+#
+# 背景（R128 F 线）：stdlib/选择器.light 的 `导入 selectors` 在原生腿抛
+# NativeImportError（解析不到）。本模块为原生腿提供同名解析目标，
+# 与 sys.light（T6B）/ socket.light（本轮同批）同款做法。
+#
+# 腿差异（诚实声明）：
+#   - Python 腿导入的是**真 Python selectors**。实测（R128 F 线 §1）：`stdlib/`
+#     下没有 `selectors.py`，钩子 `_STDLIB_MODULES` 分支直接 return None ⇒
+#     CPython 拿到真模块，本 .light 对 Python 腿不可见。
+#   - 原生腿的「模块」只能导出**段落（可调用）**，不能导出属性；本模块把
+#     EVENT_READ/EVENT_WRITE 做成**零参取值段**，与 Python 的
+#     `selectors.EVENT_READ` 属性写法不同。
+#   - Python selectors 的 SelectorKey/事件对象模型（register 返回 key、
+#     select() 返回 [(key, events), …]）**未复刻**：原生腿 `poller_wait` 内建
+#     只返回就绪个数，拿不到 fd/事件数组（codegen_typed.py:3472-3489 的
+#     fds_arr/ev_arr 是内建内部的 alloca，不外传）。故本门面只封到
+#     「个数」这一层 —— 不伪造 select() 的元组列表语义。
+#
+# 能力边界（只封 codegen 已暴露的内建）：
+#   - 可用：创建poller / 注册poller / poller_wait / 销毁poller / poller错误 /
+#     poller后端 / poller计数（codegen_typed.py:3432-3489、3671-3681）。
+#   - **不可用**：注销（unregister）—— 运行时有 `dv_poller_unregister`，但
+#     **codegen 未暴露内建**。本轮⛔不动 src/，故不封，留白登记为缺口。
+#   - ⚠️ 段名**不取** `等待`：光明里 `等待 X` 是 await 关键字（主控.light 有用法），
+#     实测 `从 selectors 导入 等待` 后写 `等待(选择器, 50)` 会被解析成 await 语句，
+#     运行期静默取到空值（R128 F 线实测：直调 `poller_wait` 得 0，经 `等待` 段得空）。
+#     故对外只给 `select` / `轮询` 两个段名。同类坑：中文内建别名 `接收socket`
+#     /`关闭socket` 会被切成「关键字 + socket(...)」，见 socket.light 头部注。
+
+导出 DefaultSelector EVENT_READ EVENT_WRITE
+导出 新建选择器 注册 select 轮询 关闭选择器 取就绪条目数 取错误 取后端
+
+段落 EVENT_READ():
+  返回 1
+
+段落 EVENT_WRITE():
+  返回 2
+
+段落 DefaultSelector():
+  返回 创建poller()
+
+段落 新建选择器():
+  返回 创建poller()
+
+段落 注册(选择器, 描述符, 事件):
+  返回 注册poller(选择器, 描述符, 事件)
+
+段落 select(选择器, 超时毫秒):
+  返回 poller_wait(选择器, 超时毫秒)
+
+段落 轮询(选择器, 超时毫秒):
+  返回 poller_wait(选择器, 超时毫秒)
+
+段落 关闭选择器(选择器):
+  返回 销毁poller(选择器)
+
+段落 取就绪条目数(选择器):
+  返回 poller计数(选择器)
+
+段落 取错误():
+  返回 poller错误()
+
+段落 取后端():
+  返回 poller后端()

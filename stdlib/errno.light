@@ -1,0 +1,106 @@
+# 纯光明实现 —— errno.light：光明内建 errno 模块（原生腿）
+#
+# 背景（R128 F 线）：stdlib/选择器.light 的 `导入 errno` 在原生腿抛
+# NativeImportError（原生运行时是纯 C，不嵌 CPython，没有 Python 互操作）。
+# 本模块为原生腿提供同名解析目标，与 sys.light（T6B）同款做法。
+#
+# 腿差异（诚实声明）：
+#   - Python 腿（转译后端）导入的是**真 Python errno**。`stdlib/_light_import_hook.py`
+#     的 `_STDLIB_MODULES` 保护分支 + `_exists_exact`（大小写精确匹配）实测：
+#     `stdlib/` 下没有 `errno.py` ⇒ 钩子直接 return None ⇒ CPython 拿到真模块，
+#     本 .light 对 Python 腿完全不可见（R128 F 线 §1 实测，rc=0）。
+#   - 原生腿的「模块」只能导出**段落（可调用）**，不能导出属性值；故本模块把
+#     每个 errno 常量做成**零参取值段**（EAGAIN()/EINTR()/…），与 Python 的
+#     `errno.EAGAIN` 属性写法不同。跨腿移植的代码不得直接写属性形态。
+#
+# 跨平台口径（已知边界，不掩饰）：
+#   - errno 数值是 OS 相关常量，光明侧无法在编译期取真值。本模块用
+#     `取错误码(位置值, 窗口值)` 在**运行期**判别平台后取档。
+#   - ⚠️ 判别**不用** `连接_path` 分隔符（stdlib/sys.light 的 platform()、
+#     stdlib/操作系统.light 的 本机平台 都用它）：R128 F 线实测原生腿
+#     `连接路径("甲","乙")` 在 **Windows 上也返回 "甲/乙"**（Python 腿返回
+#     "甲\乙"）—— 这是已在线的跨腿分叉，沿用会把 Windows 误判成 posix。
+#     故改用内建 `poller后端()`：Windows 返回 "WSAPoll"（runtime_typed.c:5846），
+#     其它平台返回 "select"/"poll"，是原生腿上**实测可用**的判别信号。
+#   - **macOS/BSD 未覆盖**：Darwin 的 EAGAIN=35 等与 Linux 不同，本模块对
+#     darwin 仍返回 Linux 值 —— 已知缺口，用到 darwin 需另立档。
+#
+# 能力边界：
+#   - 无模块依赖：不导入任何模块，只用内建（poller后端 / 字符串包含 / 转字符串）。
+#   - errorcode 反向映射表（Python errno.errorcode）不做：原生腿无「模块级
+#     字典属性」形态，做出来也只是空壳，不如如实留白。
+
+导出 EAGAIN EWOULDBLOCK EINTR ECONNABORTED EMFILE ENFILE ENOBUFS ENOMEM
+导出 EPIPE ECONNRESET ETIMEDOUT EINPROGRESS EALREADY EADDRINUSE EACCES
+导出 EINVAL ENOTCONN ESHUTDOWN EISCONN
+导出 是视窗 取错误码
+
+段落 是视窗():
+  设 后端 为 poller后端()
+  如果 后端 等于 "WSAPoll":
+    返回 真
+  结束。
+  返回 假
+
+段落 取错误码(位置值, 窗口值):
+  如果 是视窗():
+    返回 窗口值
+  结束。
+  返回 位置值
+
+段落 EAGAIN():
+  返回 取错误码(11, 10035)
+
+段落 EWOULDBLOCK():
+  返回 取错误码(11, 10035)
+
+段落 EINTR():
+  返回 取错误码(4, 10004)
+
+段落 ECONNABORTED():
+  返回 取错误码(103, 10053)
+
+段落 EMFILE():
+  返回 取错误码(24, 10024)
+
+段落 ENFILE():
+  返回 取错误码(23, 10023)
+
+段落 ENOBUFS():
+  返回 取错误码(105, 10055)
+
+段落 ENOMEM():
+  返回 取错误码(12, 10014)
+
+段落 EPIPE():
+  返回 取错误码(32, 32)
+
+段落 ECONNRESET():
+  返回 取错误码(104, 10054)
+
+段落 ETIMEDOUT():
+  返回 取错误码(110, 10060)
+
+段落 EINPROGRESS():
+  返回 取错误码(115, 10036)
+
+段落 EALREADY():
+  返回 取错误码(114, 10037)
+
+段落 EADDRINUSE():
+  返回 取错误码(98, 10048)
+
+段落 EACCES():
+  返回 取错误码(13, 10013)
+
+段落 EINVAL():
+  返回 取错误码(22, 10022)
+
+段落 ENOTCONN():
+  返回 取错误码(107, 10057)
+
+段落 ESHUTDOWN():
+  返回 取错误码(108, 10058)
+
+段落 EISCONN():
+  返回 取错误码(106, 10056)

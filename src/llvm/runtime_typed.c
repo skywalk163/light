@@ -8239,13 +8239,25 @@ int dv_is_sub_class_from_value(LightValue* sub_val, const char* class_name) {
 }
 
 /* hasattr(对象, "属性名") —— 对齐 Python hasattr。
- * 复用 R117 的对象成员判定（dv_r117_obj_has_member：对象 str 内搜 "名\x1F"）。
- * 非对象一律为假。
+ * 判定路径（R128-H 修假阴性）：
+ *   ① 先搜实例字段 blob（dv_r117_obj_has_member：对象 str 内搜 "名\x1F"）；
+ *   ② 若未命中且对象是类实例，再查类方法表（dv_find_method，沿继承链上溯）。
+ * 非对象一律为假。修复前 ② 缺失 → hasattr(实例,"方法名") 恒假的跨腿分叉。
  */
 int dv_has_attr(LightValue* obj, const char* field_name) {
     if (!obj || !field_name || !field_name[0]) return 0;
     obj = dv_deref(obj);
-    return dv_r117_obj_has_member(obj, field_name);
+    /* ① 实例字段 blob */
+    if (dv_r117_obj_has_member(obj, field_name)) return 1;
+    /* ② 类实例 → 查类方法表（含继承链） */
+    if (obj->type == 3 && obj->str
+        && strncmp(obj->str, OBJ_PREFIX, strlen(OBJ_PREFIX)) == 0) {
+        char cls[MAX_CLASS_NAME_LEN];
+        cls[0] = '\0';
+        dv_get_class_name(obj, cls, sizeof(cls));
+        if (cls[0] && dv_find_method(cls, field_name)) return 1;
+    }
+    return 0;
 }
 
 /* ================================================================

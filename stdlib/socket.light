@@ -1,0 +1,90 @@
+# 纯光明实现 —— socket.light：光明内建 socket 模块（原生腿）
+#
+# 背景（R128 F 线）：stdlib/HTTP服务端.light、stdlib/流式.light 的 `导入 socket`
+# 在原生腿 NativeImportError —— 且**不是**解析不到，而是解析到了
+# `stdlib/lightpub/Socket.py`（Windows 大小写不敏感命中）并被「原生腿不加载 .py」
+# 拒载。本模块为原生腿提供同名的纯光明解析目标。
+#
+# 腿差异（诚实声明）：
+#   - Python 腿导入的是**真 Python socket**。实测（R128 F 线 §1）：`stdlib/` 下
+#     没有 `socket.py`（`_exists_exact` 精确匹配，lightpub/Socket.py 不算），
+#     钩子 `_STDLIB_MODULES` 分支直接 return None ⇒ CPython 拿到真模块，
+#     本 .light 对 Python 腿不可见，不会顶掉真 socket。
+#   - 原生腿的「模块」只能导出**段落（可调用）**，不能导出属性；本模块把
+#     AF_INET/SOCK_STREAM/… 做成**零参取值段**（同 sys.light 的 版本()/平台()），
+#     与 Python 的 `socket.AF_INET` 属性写法不同。
+#
+# 能力边界（不掩饰，只封 codegen 已暴露的内建）：
+#   - 可用：socket_create / socket_connect / socket_send / socket_recv /
+#     socket_close / socket_last_error / socket_last_error_code
+#     （codegen_typed.py:3342-3429，中文别名 创建socket/连接socket/… 同一分支）。
+#   - **⚠️ 内置调用一律用 ASCII 名**：实测中文别名里的 `接收socket`/`关闭socket`
+#     会被词法器切成「关键字 接收 / 关闭」+ `socket(...)`（`接收`/`关闭` 是光明
+#     关键字），编译期报 LambdaExpression / 未定义的段落。故段内一律写
+#     `socket_recv` / `socket_close` 等 ASCII 入口 —— 与 time.light 注 2
+#     「段内委托内建时直接调用运行时内建名」同一纪律。
+#   - ⚠️ 段名**不取** `接收`：光明里 `接收` 是通道收消息的关键字，实测
+#     `从 socket 导入 接收` 后写 `接收(fd, 64)` 编译期即报 LambdaExpression
+#     （R128 F 线实测 u3 探针）。故对外只给 `recv` / `读取`。同理
+#     selectors.light 不取 `等待`（await 关键字）。
+#   - **不可用**：bind / listen / accept / setsockopt / shutdown / getpeername ——
+#     运行时 C 层虽有 `dv_socket_bind`/`dv_socket_listen`/`dv_socket_accept`/
+#     `dv_socket_set_nonblocking`/`dv_socket_shutdown`/`dv_socket_get_peer_addr`，
+#     但 **codegen 未暴露任何对应内建**（R128 D 线 §2.2 同结论）。本轮⛔不动 src/，
+#     故这些一律**不封**，留白登记为缺口 —— 不做「假绿的空壳段落」。
+#   - 因此本门面**只覆盖客户端侧**；HTTP服务端 需要的 listen/accept 仍缺，
+#     补本门面**不等于** HTTP服务端 转可编（R128 F 线 §2 实测）。
+#
+# 命名纪律（同 time.light 注 1）：多模块合并进同一 codegen 时同名段落 →
+# LLVM 符号重定义。本模块对外只暴露 **ASCII 段名**（socket/AF_INET/…）与
+# 少量通用中文名（创建/连接/发送/接收/关闭/…）。中文通用名与 stdlib 其它
+# 模块的同名段落撞名的风险由「零 src/ 改动」约束下的最小面原则承担：
+# 这里只用 6 个中文名且均为网络语义，撞名面最小。
+
+导出 socket AF_INET AF_INET6 SOCK_STREAM SOCK_DGRAM SOL_SOCKET SO_REUSEADDR
+导出 创建 连接 发送 recv 读取 关闭 取错误 取错误码
+
+段落 AF_INET():
+  返回 2
+
+段落 AF_INET6():
+  返回 10
+
+段落 SOCK_STREAM():
+  返回 1
+
+段落 SOCK_DGRAM():
+  返回 2
+
+段落 SOL_SOCKET():
+  返回 65535
+
+段落 SO_REUSEADDR():
+  返回 2
+
+段落 socket(域, 类型):
+  返回 socket_create(域, 类型)
+
+段落 创建(域, 类型):
+  返回 socket_create(域, 类型)
+
+段落 连接(描述符, 主机, 端口):
+  返回 socket_connect(描述符, 主机, 端口)
+
+段落 发送(描述符, 数据):
+  返回 socket_send(描述符, 数据)
+
+段落 recv(描述符, 最大字节):
+  返回 socket_recv(描述符, 最大字节)
+
+段落 读取(描述符, 最大字节):
+  返回 socket_recv(描述符, 最大字节)
+
+段落 关闭(描述符):
+  返回 socket_close(描述符)
+
+段落 取错误():
+  返回 socket_last_error()
+
+段落 取错误码():
+  返回 socket_last_error_code()
