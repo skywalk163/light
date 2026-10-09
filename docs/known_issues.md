@@ -37,13 +37,13 @@
   - `捕获 类型 as 变量`（含中文变量名）✅
   - inline-if 单行赋值（`如果 (cond): X 为 Y`）✅
 
-  **仍未自举的 3 条缺口**（逐条差距与路线）：
+  **仍未自举的缺口**（逐条差距与路线；G2 已由 R129-C 修复，保留该行存证）：
 
   | # | 缺口 | 差距 | 自举路线 | 排期 |
   |---|---|---|---|---|
   | G1 | SemanticAnalyzer 与 ast_nodes_v3.Module 不兼容 | `SemanticAnalyzer.__init__` 期望 `ast_unified.Module`（有 `add_scope` 等方法），但 `light_parser_v3` 产出 `ast_nodes_v3.Module`（无此方法）；`test_semantic.py` 整体 skip，`cli/lightc.py` 和 `light6.py` 均跳过语义分析 | 统一 Module 类型：要么让 `ast_nodes_v3.Module` 补齐 `add_scope` 等接口，要么让 `SemanticAnalyzer` 改为接受 v3 Module；属架构重构 | v7.0 |
-  | G2 | lambda 表达式不支持 | `lambda x: x+1`、`匿名(x): x+1`、`x => x+1` 三种语法形式均 FAIL（解析器在 `:` 处报「无法识别的语法元素」） | 在 `parser_expr.py` 新增 lambda 解析分支：识别 `匿名`/`lambda` 关键字 → 解析参数列表 → 期望 `:` → 解析体表达式 | v6.1 |
-  | G3 | with 语句不支持 | `与 open("f") 为 f:` 和 `用 文件("f") 为 f:` 均 FAIL（`与`被标记为保留关键字但无解析路径） | 在 `parser_stmt.py` 新增 with 语句解析：识别 `与`/`用` 关键字 → 解析上下文表达式 → `为` 变量名 → `:` → 缩进块 | v6.1 |
+  | G2 | ~~lambda 表达式不支持~~ **已修复（R129-C，2026-10-09）** | `匿名(x): 表达式` 此前在 `:` 处报「无法识别的语法元素」；现与既有 `函数(x): 表达式`（R70-A/L-173）同义，均产出 `LambdaExpression`，src 前端可跑通：`条件映射([1,2,3], 匿名(x): x*2)` → `[2,4,6]`（实跑）。范围：**单表达式**体（多行体继续用命名段落）；`匿名` 走 IDENTIFIER 前视守卫、**未升关键字**（避免词法切碎标识符）。`lambda x: x+1`、`x => x+1` 两种 Python/JS 风格写法**不在计划内、也不建议加**——光明推荐写法是 `匿名(x):` / `函数(x):` | 已在 `src/parser_expr.py` 的 `_parse_anon_function_colon` 加 `匿名` 引导词；新增 `tests/unit/test_lambda.py`（12 例） | ✅ R129-C |
+  | G3 | ~~with 语句不支持~~ **已修复（R129-D，2026-10-09）** | 原 `与 open("f") 为 f:` FAIL（`与` 是保留关键字但无语句解析路径）。现 `与 表达式 为 名字: 块` 落地为**资源管理语法糖**：desugar 成 try/finally，finally 内优先 `对象.关闭()`（鸭子类型，不强制协议），缺失则回退 `对象.close()`；异常路径仍保证释放且**不吞异常**（不用自带 `except Exception: pass` 的 TryStmt，自写精确 try/finally）。多资源链式 `与 a() 为 x, b() 为 y:`（逗号 → Pipeline，逐 stage 抽取；获取在外、释放在内逆序嵌套）。验证：新增 `tests/unit/test_with.py`（13 例：单/多资源正常释放、块内变量可见、异常路径仍释放且传播、文件读/写、原生文件对象回退 `close()`、互斥锁持有与释放、单行体、嵌套 `与`、中缀 `与` 逻辑 AND 回归护栏、codegen desugar 形态）。注意：`使用 X 为 Y:` 是另一条**上下文管理器**协议（`__enter__`/`__exit__`，WithStmt），语义不同、不复用；单字 `用`（非 `使用`）仍不是关键字、不解析——属独立残留，不在 R129-D 口径。 | 已在 `src/parser_stmt.py` 语句头劫持 `_parse_with_close_stmt` + `_extract_with_close_item`；`src/ast_nodes_v3.py` 新增 `WithCloseStmt`；`src/code_generator.py` 新增 `_generate_with_close_stmt` / `_gen_with_close_layer`（鸭子类型 `关闭()`/`close()` 回退） | ✅ R129-D |
 
   **自举率门禁验证**（`tools/ci/bootstrap_rate.py`）：
   - 文件维度自举率：37/89 = 41.57%（基线 40.48%，未倒退）✅
@@ -177,6 +177,20 @@
 - [ ] **[P1] Windows 路径兼容性**：部分标准库函数在 Windows 平台上的路径处理存在已知的边缘问题。
   - **影响**：Windows 用户在使用文件路径时需注意转义
   - **计划**：v6.1 中修复
+
+- [x] **[P1] stdlib 函数名双轨 / AI 别名层（R129-A，2026-10-09）**：AI 写光明代码时第一反应 `读取("f.txt")` / `写入("f.txt", s)` / `解析(s)` / `去空白(s)` 与权威名 `读取文件` / `写入文件` / `解析JSON` / `去除首尾空白` 不同轨。**实测后仅 `写入` 一组可安全落地**（`解析` / `去空白` 均因撞车**已回退**，见下）。
+  - **已落地（实测通过）**：
+    - `写入(路径, 内容)` → `写入文件`：`src/code_generator.py` builtin_map 映射 + `stdlib/文件系统.light` 薄包装段落（L126）。仓库内第二个模块级 `段落 写入(` 只有 `stdlib/路径护栏.light:261`，且是**类方法**不参与全局裸名 → 无撞车。
+  - **回退（二次审计发现破坏既有语义，2026-10-09）**：
+    - `解析(s)` → 已**从 builtin_map 删除**。`stdlib/JSON核心.light:407` 已有 `段落 解析(文本)`，`stdlib/JSON.light:14/31/51/62`、`stdlib/分布式/节点网络.light:408`、`tools/convert_to_deepseek_r1_format.py:661+` 均依赖 `从 JSON核心 导入 解析`。若加全局映射，显式导入的裸名会被 builtin_map 无条件重定向到 `_light_builtin.解析JSON` → **破坏既有 JSON 语义**。
+    - `去空白(s)` → 已**从 builtin_map 删除**。**实测决定性证据**：`stdlib/分布式/节点网络.light` L403/L404 的 `去空白(...)` 本应走本模块 L410 自定义 `段落 去空白`，但被映射劫持为 `_light_builtin.去除空白`，产物 L748/L750 绕过 L761 模块定义 → **违反「只增不改」红线**。`stdlib/字符串工具.light:208` 的模块级 `段落 去空白` 仍保留（`stdlib/中文文本处理.light:54` 是既有同名，但同族语义不冲突，且仅在显式导入时生效，不参与 builtin_map 全局裸名）。
+  - **未落地（硬冲突，已实测确认，违反「只增不改」红线）**：
+    - `读取(路径)` 裸名 → 已被**冻结为 `input`**（`src/code_generator.py:397 '读取': 'input'`）。仓库 `edu/课程10_综合项目/示例.light`、`opensource_projects/CLI记事本/主.light`、`待办事项管理器/主.light` 等 **26 处**教学/示例代码依赖 `读取("请输入姓名：")` 做 stdin 输入。改映射会破坏既有代码 → **不改**。文件读取别名已加进 `stdlib/文件系统.light`（经 `从 文件系统 导入 读取` 显式导入后可用），不影响 input 语义。
+    - `存在(路径)` → 词法被切成 `存 in`（`在` 是关键字，见 `src/lexer.py` 实测：`存在("x")` → `[IDENTIFIER 存, KEYWORD 在, ...]`），裸名根本无法使用。建议 AI 写 `文件存在(路径)` / `目录存在(路径)`。
+    - `CSV读取(路径)` → 词法被切成 `CSV` + `读取`（`读取` 是关键字），裸名无法使用。建议写 `读取CSV(路径)`。
+  - **任务书 v2 §2.1「撞名已核对安全」与实际不符**（`读取` 与 `input` 撞名，`存在`/`CSV读取` 被词法切碎）——本次按红线纪律，**只落地安全子集，不强行映射冲突项**。
+  - **影响**：AI 写对 `写入`/`解析`/`去空白` 的概率上升；`读取`/`存在`/`CSV读取` 仍需引导用权威名。
+  - **建议**：后续轮次可考虑给 `存在`/`CSV读取` 单独做词法层「整词保护」（类比 `写`/`印` 的 builtin_map 范式），但需先确认「`存` 与 `在` 组合」在仓库语料中的歧义风险。
 
 ---
 
@@ -1203,6 +1217,14 @@ T5A 将 `stdlib/数学.light`、`stdlib/统计.light`、`stdlib/排序.light` �
 - 处理：`.light` 版第二参改为**分类名字符串**
   （`"字母"/"数字"/"字母数字"/"小写"/"大写"/"空白"/"可打印"/"标点"/"十六进制"/"八进制"`），
   未知分类名返回 `假`。**与 .py 签名不兼容**，已在模块头与本节登记。
+- **R129-E 进展（2026-10-09）**：函数值**地基**已落地——`runtime_typed.c` 新增
+  `DvClosure { void* fn_ptr; LightValue* env; }`，`LV_TYPE_FUNCTION` 的 `str` 字段
+  改存 `DvClosure*`；`dv_make_function_value` 接收 env 参数（3 参），`dv_call_value`
+  从 DvClosure 解包 fn_ptr 调用，`dv_free`/`dv_clone` 补 FUNCTION 分支；
+  codegen IR 声明改 `@dv_make_function_value(ptr, ptr, ptr)`。**但本条仍未关闭**：
+  本轮 env 只存不透传，`名字(...)` 对**函数值参数**的动态调用仍由 R130（codegen
+  自由变量捕获）解锁。新增 `tests/unit/test_R129_DvClosure地基.py` 13 用例全绿
+  （普通段函数加倍/多参/非函数值报错/函数值作为返回值/存列表索引调用/跨模块）。
 
 ### 18.5 #L-T5B-3 [中] SHA512 / HMAC_SHA256 能力边界（未实现，返回空串）
 
@@ -1683,6 +1705,9 @@ POSIX 实机 `192.168.0.86`（clang 18.1.3）完成，T6A 是第一个全程 Lin
   回调存进监听者表后动态调用 `处理器(事件名, 载荷)`；插件 `触发扩展点(载荷)` 同需
   `回调(载荷)`。原生 codegen 仅支持静态段/builtin 调用，无此 runtime 机制 →
   事件总线/插件原生全跑受阻。按边界交付（解锁 + 语法清理，python 腿保真绿）。
+  **R129-E 进展（2026-10-09）**：runtime 侧 `DvClosure {fn_ptr, env}` 地基已落地，
+  `dv_call_value` 现在能对 `LV_TYPE_FUNCTION` 解包 fn_ptr 动态调用；但 codegen 侧
+  「把变量名/字段里的函数值当段调用」仍未接通，本条继续登记为待解锁（R130）。
 - **#L-T6B-4 [低] `time_ns` 毫秒口径**：秒×1e6 近似（无纳秒 runtime）→ 对拍用整数
   毫秒口径（`time_ns` 原值 vs `time()*1000`，容差 2000）。
 - **#L-T6B-5 [低] `gmtime` 实为 `localtime`**：无 UTC 拆字段 runtime；`tm_isdst` 恒 -1；

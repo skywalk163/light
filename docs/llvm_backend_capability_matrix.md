@@ -19,9 +19,9 @@
 
 ## 汇总
 
-- 语句类型总数：**32**
+- 语句类型总数：**33**
 - 已支持：**25**
-- 缺口：**6**
+- 缺口：**7**
 - 三层齐备但实测编不过：`0`
 
 ## 矩阵
@@ -58,12 +58,13 @@
 | `TypeCheckToggleStmt` | 类型检查开关 | **无** | `—` | **无** | **无** | — 无自动用例 | `gap:adapter` |
 | `VarDecl` | 设 X 为 值。 | 有 | `VariableDeclaration` | 有 | 有 | ✅ 9402 字符 | `supported` |
 | `WhileStmt` | 当 …： | 有 | `WhileStatement` | 有 | 有 | ✅ 11339 字符 | `supported` |
+| `WithCloseStmt` | 与 … 为 X： | **无** | `—` | **无** | **无** | — 无自动用例 | `gap:adapter` |
 | `WithStmt` | 使用 … 为 X： | 有 | `WithStatement` | 有 | 有 | ✅ 11766 字符 | `supported` |
 | `YieldStmt` | 生成 … | 有 | `YieldStatement` | 有 | 有 | ✅ 14594 字符 | `supported` |
 
 ## 缺口清单（按层归类）
 
-- **gap:adapter**（6）：`DecoratorDefinition`、`FFIFunctionDecl`、`FFIVarArgsDecl`、`IndexedCompoundAssignment`、`ParallelBlockStmt`、`TypeCheckToggleStmt`
+- **gap:adapter**（7）：`DecoratorDefinition`、`FFIFunctionDecl`、`FFIVarArgsDecl`、`IndexedCompoundAssignment`、`ParallelBlockStmt`、`TypeCheckToggleStmt`、`WithCloseStmt`
 
 ## 与既有清单的分工
 

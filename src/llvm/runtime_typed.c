@@ -80,10 +80,21 @@ struct LightValue {
 #define LV_TYPE_TUPLE 23
 
 /* 函数值类型标记（type=25）：一等函数值（R118-A）。
- * 持有段/函数的入口指针（str 字段存 void* 函数指针，签名见 DvSegFunc），
- * 不含捕获（本轮闭环不需要闭包捕获；捕获留待后续）。dv_free 不会释放 str
- * （只有 type==3 才 free str），dv_clone 按 *result=*v 浅拷贝即可。 */
+ * 持有段/函数的入口指针与可选的环境（str 字段存 DvClosure*，见下方结构体）。
+ * R129-E 起引入 DvClosure 承载捕获环境 env：普通段函数 env=NULL（向后兼容），
+ * R130 才真正在 codegen 侧补捕获逻辑并透传 env。 */
 #define LV_TYPE_FUNCTION 25
+
+/* R129-E：DvClosure 闭包地基（不改 LightValue 布局）。
+ * LV_TYPE_FUNCTION 的 str 字段语义扩展为指向 DvClosure*：
+ *   - fn_ptr：段入口指针（与 @_seg_<safe>(ptr result, ptr args_arr, i32 num_args) 同签名）
+ *   - env：外层作用域捕获环境（R129-E 仅存着、调用时不透传；R130 才真正使用）
+ * env==NULL 表示普通段函数（无捕获），行为与 E 线之前完全一致（向后兼容）。
+ * 内存布局说明：LightValue.str 仍是 char*，类型大小不变，仅语义改为指向 DvClosure。 */
+typedef struct {
+    void* fn_ptr;          /* 段入口函数指针 */
+    LightValue* env;       /* 捕获环境；NULL = 无捕获的普通段函数 */
+} DvClosure;
 
 /* 段函数指针类型：与 @_seg_<safe>(ptr result, ptr args_arr, i32 num_args) 同签名 */
 typedef void (*DvSegFunc)(LightValue*, LightValue*, int);
@@ -354,6 +365,15 @@ void dv_free(LightValue* v) {
         v->list_data = NULL;
         v->list_size = 0;
         v->list_capacity = 0;
+    } else if (v->type == LV_TYPE_FUNCTION && v->str) {
+        /* R129-E：释放 DvClosure 结构体本身。env 本轮只存不释放——
+         * 普通段函数 env=NULL 安全；带捕获的 env 数组释放归 R130 管（值捕获语义）。 */
+        DvClosure* clo = (DvClosure*)(v->str);
+        if (clo) {
+            /* env 非 NULL 时暂不递归释放（R130 引入值捕获后再补），避免误释放共享捕获 */
+            free(clo);
+            v->str = NULL;
+        }
     }
 }
 
@@ -373,6 +393,19 @@ void dv_clone(LightValue* result, LightValue* v) {
     *result = *v;
     if (v->type == 3 && v->str) {
         result->str = dv_strdup(v->str);
+    } else if (v->type == LV_TYPE_FUNCTION && v->str) {
+        /* R129-E：深拷贝 DvClosure 结构体（避免双 free 与共享 fn_ptr 悬空）。
+         * env 指针本轮共享（值捕获的 env 数组深拷贝归 R130 管）。 */
+        DvClosure* src = (DvClosure*)(v->str);
+        DvClosure* dst = (DvClosure*)malloc(sizeof(DvClosure));
+        if (!dst) {
+            /* malloc 失败：*result=*v 已让 result->str 指向 v->str（共享指针），
+             * 保持共享，避免 FUNCTION 值悬空导致后续 dv_call_value 解引用崩溃。 */
+            return;
+        }
+        dst->fn_ptr = src->fn_ptr;
+        dst->env = src->env;
+        result->str = (char*)dst;
     } else if (v->type == 4) {
         /* 复制列表数据 */
         result->list_data = NULL;
@@ -8266,17 +8299,30 @@ int dv_has_attr(LightValue* obj, const char* field_name) {
  * 原生腿此前没有一等函数值：段名只能被直接调用（按名查 @_seg_<safe>），
  * 不能「存进变量、当参数传递、随后调用」。事件总线.处理器 / 内置核心列表.谓词·变换
  * 正是这个用法 → 此前一律 明确拒绝。现引入 LV_TYPE_FUNCTION：
- *   - dv_make_function_value：把段入口指针封进 LightValue（str 存 void*）。
- *   - dv_call_value：运行期查类型，是函数则跳入口；不是则抛 NotImplementedError（文案含类型名）。
+ *   - dv_make_function_value：把段入口指针 + 捕获环境封进 DvClosure（str 存 DvClosure*）。
+ *   - dv_call_value：运行期查类型，是函数则从 DvClosure 解出 fn_ptr 跳入口；
+ *     不是则抛 NotImplementedError（文案含类型名）。
  *   - dv_throw_not_callable：反例路径，由 codegen 在类型!=FUNCTION 分支调用。
  * 不允许静默降级：非函数值被当函数调用必须响亮报错，与转译腿 Python 语义一致。
+ *
+ * R129-E（闭包地基 Step 1）：新增 env 参数承载捕获环境。env=NULL 表示普通段函数，
+ * 行为与 E 线之前完全一致（向后兼容）；段函数签名本轮不变（env 只存着，R130 才透传）。
  * ================================================================ */
 
-void dv_make_function_value(LightValue* result, void* fn_ptr) {
+void dv_make_function_value(LightValue* result, void* fn_ptr, LightValue* env) {
     if (!result) return;
     dv_null(result);
+    DvClosure* clo = (DvClosure*)malloc(sizeof(DvClosure));
+    if (!clo) {
+        /* malloc 失败：置为 NULL 类型并返回，避免未定义行为（极端路径） */
+        result->type = 0;
+        result->str = NULL;
+        return;
+    }
+    clo->fn_ptr = fn_ptr;
+    clo->env = env;
     result->type = LV_TYPE_FUNCTION;
-    result->str = (char*)fn_ptr;
+    result->str = (char*)clo;
 }
 
 void dv_throw_not_callable(LightValue* fv) {
@@ -8301,7 +8347,9 @@ void dv_call_value(LightValue* result, LightValue* fv, LightValue* args, int num
         dv_throw_not_callable(fv);
         return;
     }
-    DvSegFunc fn = (DvSegFunc)(fv->str);
+    /* R129-E：从 DvClosure 取出 fn_ptr（env 本轮暂不透传，R130 才用） */
+    DvClosure* clo = (DvClosure*)(fv->str);
+    DvSegFunc fn = (DvSegFunc)(clo->fn_ptr);
     fn(result, args, num_args);
 }
 

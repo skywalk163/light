@@ -909,6 +909,25 @@ class WithStmt(ASTNode):
         return f"WithStmt({prefix}{self.context_expr}{var})"
 
 
+class WithCloseStmt(ASTNode):
+    __slots__ = ('items', 'body')
+    """`与 表达式 为 变量: 块` —— R129-D（M3）资源管理语法糖。
+
+    鸭子类型：要求被管理对象拥有 `关闭()` 方法（或 Python 内置的 close()）。
+    desugar 成：设 变量 为 表达式; 尝试: 块 最终: 变量.关闭()。
+
+    items: 多个上下文管理器列表，元素为 (expr, var_name) 元组；
+            var_name 为 None 时视为非法（「与」必须 `为 名字` 绑定）。
+    body:  with 块内的语句列表。
+    """
+    def __init__(self, items: list = None, body: List[ASTNode] = None):
+        self.items = items or []
+        self.body = body or []
+
+    def __repr__(self):
+        return f"WithCloseStmt(items={len(self.items)})"
+
+
 class YieldStmt(ASTNode):
     # is_from：`生成 全部 X。` → `yield from X`（生成器委托，A2）。
     # 必须进 __slots__——ASTNode 全族用 __slots__，parser 侧无法动态挂属性。

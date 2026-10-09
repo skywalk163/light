@@ -1024,6 +1024,18 @@ class ParserExprMixin:
                 return self._parse_postfix(_fn_colon)
             self.pos = _fn_colon_saved
 
+        # R129-C（M2）：`匿名(x): 表达式` = `函数(x):` 的同义引导词（AI 降本）。
+        # `匿名` 保持 IDENTIFIER（不升关键字，避免词法切碎标识符），故用
+        # 「值==匿名 且 后随 `(`」的前视守卫识别：命中且凑齐 `匿名(…) :` 才产出
+        # LambdaExpression；任何一项不满足即还原 pos，`匿名` 退回普通标识符
+        # （可当变量名/函数调用 等），与既有 `函数`/`段` 分支及 L-060 回退零冲突。
+        if tok.type == TokenType.IDENTIFIER and tok.value == '匿名':
+            _anon_colon_saved = self.pos
+            _anon_colon = self._parse_anon_function_colon('匿名')
+            if _anon_colon is not None:
+                return self._parse_postfix(_anon_colon)
+            self.pos = _anon_colon_saved
+
         # C风格匿名函数：函数(params){body}
         # 如果 params 后面不是 {，_parse_c_anonymous_function 返回 None，
         # 回退到通用 KEYWORD 标识符分支——让 `函数(值)` 中「函数」当变量名用。
@@ -2532,28 +2544,34 @@ class ParserExprMixin:
             return_expr = Identifier('None')
         return (statements, return_expr)
 
-    def _parse_anon_function_colon(self) -> Optional[LambdaExpression]:
+    def _parse_anon_function_colon(self, 引导词: str = '函数') -> Optional[LambdaExpression]:
         """R70-A（L-173）：表达式位置的冒号风格匿名函数。
 
         两种形式：
           单行体：`函数(参数列表): 表达式`   —— 表达式体，自动返回
           块体：  `函数(参数列表):` 换行缩进多语句（需显式 `返回`）
 
-        判据保守：必须凑齐 `函数` `(` …参数… `)` `:` 才认；缺任何一项返回 None，
-        由调用方还原 self.pos（`函数` 仍可当普通标识符/被调用变量名用，
+        R129-C（M2）：新增 `匿名` 引导词（`匿名(x): 表达式`），与 `函数` 同义。
+        `匿名` 刻意**不进 keywords.py**（升关键字会在词法层切碎含「匿名」的
+        标识符，见 keywords.py 的 31-C/31-E/31-G 踩坑记录），故此处同时接受
+        KEYWORD 与 IDENTIFIER 两种 token 类型，由调用方用前视守卫分派。
+
+        判据保守：必须凑齐 `<引导词>` `(` …参数… `)` `:` 才认；缺任何一项返回 None，
+        由调用方还原 self.pos（`函数`/`匿名` 仍可当普通标识符/被调用变量名用，
         与 C 风格分支及 L-060 回退共存）。
         缩进块解析复用 L-022 `_try_parse_duan_closure` 同款 `_parse_body` 通道；
         闭包捕获由 code_generator 的 L-006/L-078 nonlocal 分析统一处理。
         """
         saved = self.pos
-        # 函数
-        if not (self._current() and self._current().type == TokenType.KEYWORD
-                and self._current().value == '函数'):
+        # 引导词（函数=KEYWORD；匿名=IDENTIFIER）
+        _cur = self._current()
+        if not (_cur and _cur.value == 引导词
+                and _cur.type in (TokenType.KEYWORD, TokenType.IDENTIFIER)):
             return None
         nxt = self._peek(1)
         if not (nxt and nxt.type == TokenType.LPAREN):
             return None
-        self._consume(TokenType.KEYWORD, '函数')
+        self._consume()
         self._consume(TokenType.LPAREN)
 
         # 参数名列表（逗号/空格分隔，兼容 *args / **kwargs）

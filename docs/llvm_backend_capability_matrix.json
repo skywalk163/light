@@ -369,6 +369,18 @@
       "status": "supported"
     },
     {
+      "v3_class": "WithCloseStmt",
+      "surface": "与 … 为 X：",
+      "adapter_converter": "",
+      "legacy_node": "",
+      "in_stmt_whitelist": false,
+      "in_dispatch": false,
+      "probe_case": null,
+      "probe_result": "—",
+      "probe_note": "无自动用例",
+      "status": "gap:adapter"
+    },
+    {
       "v3_class": "WithStmt",
       "surface": "使用 … 为 X：",
       "adapter_converter": "_convert_with_stmt",

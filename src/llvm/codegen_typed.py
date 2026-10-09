@@ -737,7 +737,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_dict_remove(ptr, ptr, ptr)',
             f'declare void @dv_dict_values(ptr, ptr)',
             # R118-A：函数值一等类型运行时支撑
-            f'declare void @dv_make_function_value(ptr, ptr)',
+            f'declare void @dv_make_function_value(ptr, ptr, ptr)',
             f'declare void @dv_call_value(ptr, ptr, ptr, i32)',
             f'declare void @dv_throw_not_callable(ptr)',
             # 文件系统扩展
@@ -1448,7 +1448,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'call void @dv_null(ptr {result_slot})')
         segptr = self.new_register()
         self.emit(f'{segptr} = bitcast void (ptr, ptr, i32)* @_seg_{safe} to ptr')
-        self.emit(f'call void @dv_make_function_value(ptr {result_slot}, ptr {segptr})')
+        self.emit(f'call void @dv_make_function_value(ptr {result_slot}, ptr {segptr}, ptr null)')
         return self._load_dv(result_slot)
 
     def _gen_function_value_call(self, callee_value_ssa: str, args: List[str],

@@ -17,6 +17,26 @@ import argparse
 from src.linter.light_linter import LightLinter, lint_file, lint_directory
 
 
+def _load_light_toml() -> dict:
+    """从当前工作目录读取 light.toml 配置（若存在）"""
+    toml_path = os.path.join(os.getcwd(), 'light.toml')
+    if not os.path.isfile(toml_path):
+        return {}
+    try:
+        import tomllib
+    except ImportError:
+        try:
+            import toml as tomllib  # type: ignore
+        except ImportError:
+            return {}
+    try:
+        with open(toml_path, 'rb') as f:
+            data = tomllib.load(f)
+        return data.get('linter', data) if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog='light-lint',
@@ -26,7 +46,14 @@ def main():
     parser.add_argument('--rules', help='仅启用指定规则，用逗号分隔（如 E001,W001）')
     parser.add_argument('--json', action='store_true', help='JSON 格式输出')
     parser.add_argument('--list-rules', action='store_true', help='列出所有可用规则')
+    parser.add_argument('--style', choices=['工程体', '教学体'], default=None,
+                        help='文体风格检查模式（工程体/教学体）')
     args = parser.parse_args()
+
+    # 从 light.toml 读取默认 style（命令行参数优先）
+    toml_cfg = _load_light_toml()
+    if args.style is None and 'style' in toml_cfg:
+        args.style = toml_cfg['style']
 
     if args.list_rules:
         from src.linter.light_linter import RULES
@@ -39,7 +66,7 @@ def main():
     if args.rules:
         enabled_rules = [r.strip() for r in args.rules.split(',') if r.strip()]
 
-    linter = LightLinter(rules=enabled_rules)
+    linter = LightLinter(rules=enabled_rules, style=args.style)
 
     if args.json:
         # JSON 输出模式

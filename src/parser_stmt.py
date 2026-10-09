@@ -575,6 +575,14 @@ class ParserStmtMixin:
         if tok.type == TokenType.KEYWORD and tok.value == '使用':
             return self._parse_with_stmt()
 
+        # R129-D（M3）：资源管理语法糖 `与 表达式 为 变量: 块`
+        # desugar 成：设 变量 为 表达式; 尝试: 块 最终: 变量.关闭()
+        # `与` 在 KEYWORDS_LOGIC 里是「且/或/非/与」的并列逻辑运算符（中缀），
+        # 但**从不在语句起始位置**出现作「与」；此处只在语句头劫持，中缀 `与`
+        # （甲 与 乙）仍由 parser_expr 按逻辑 AND 解析，互不干扰。零回归。
+        if tok.type == TokenType.KEYWORD and tok.value == '与':
+            return self._parse_with_close_stmt()
+
         # C FFI：外部 段落 ...
         if tok.type == TokenType.KEYWORD and tok.value == '外部':
             return self._parse_ffi_decl()
@@ -6406,6 +6414,95 @@ class ParserStmtMixin:
             self._consume(TokenType.NEWLINE)
 
         return WithStmt(first_expr, first_var, body, is_async=is_async, items=items)
+
+    def _parse_with_close_stmt(self) -> WithCloseStmt:
+        """R129-D（M3）：解析资源管理语法糖 `与 表达式 为 变量: 块`。
+
+        语法：
+            与 表达式 为 变量：
+                语句...
+            与 表达式1 为 变量1, 表达式2 为 变量2：   # 多个资源（链式）
+                语句...
+
+        `与` 在表达式层是「逻辑 AND」中缀运算符（`甲 与 乙`），但本方法只在
+        语句头劫持它，表达式里的中缀 `与` 不受影响。
+
+        资源绑定 `为 变量`：沿用 `使用` 的解析约定——`_parse_expr` 会把 `为` 当成
+        `==` 运算符，于是 `expr 为 var` 被解析成 BinaryOp(==, expr, var)；这里再
+        把右侧 Identifier 抽出来当变量名。多个资源用逗号分隔，会被 `_parse_expr`
+        解析成 Pipeline，逐 stage 抽取。
+
+        desugar（在 codegen 侧完成）：设 变量 为 表达式; 尝试: 块 最终: 变量.关闭()。
+        """
+        # 与
+        self._consume(TokenType.KEYWORD, '与')
+
+        # 解析资源表达式列表（逗号 → Pipeline，被解析为多个上下文管理器）
+        context_expr = self._parse_expr()
+
+        items = []
+        if isinstance(context_expr, Pipeline):
+            for stage in context_expr.stages:
+                items.append(self._extract_with_close_item(stage))
+        else:
+            items.append(self._extract_with_close_item(context_expr))
+
+        # 冒号（可选，与 if/while/使用 一致）
+        if self._match(TokenType.COLON):
+            self._consume(TokenType.COLON)
+
+        # 句号（可选）
+        if self._current() and self._current().type == TokenType.PERIOD:
+            self._consume(TokenType.PERIOD)
+
+        # R75-B 修复（与 `使用` 同款）：先消耗 NEWLINE/INDENT/DEDENT 再解析 body，
+        # 否则 _parse_body 会把 with 块后的语句错误吞入 body（缩进不归零）。
+        has_newline = False
+        while self._current() and self._current().type == TokenType.NEWLINE:
+            has_newline = True
+            self._consume(TokenType.NEWLINE)
+        while self._current() and self._current().type == TokenType.DEDENT:
+            self._consume(TokenType.DEDENT)
+        if self._current() and self._current().type == TokenType.INDENT:
+            self._consume(TokenType.INDENT)
+
+        # 体
+        body = self._parse_body(allow_single_line=not has_newline)
+
+        # 消耗 DEDENT（with 体结束）
+        if self._current() and self._current().type == TokenType.DEDENT:
+            self._consume(TokenType.DEDENT)
+
+        # 跳过 DEDENT 后面的 NEWLINE
+        while self._current() and self._current().type == TokenType.NEWLINE:
+            self._consume(TokenType.NEWLINE)
+
+        return WithCloseStmt(items=items, body=body)
+
+    @staticmethod
+    def _extract_with_close_item(node) -> tuple:
+        """从单个资源表达式里抽取 (expr, var_name)。
+
+        - `expr 为 var`（被 _parse_expr 解析成 BinaryOp(==, expr, Identifier(var))）
+          → (expr, 'var')。
+        - 任何没有 `为 名字` 绑定的形态都报错——「与」必须绑定资源变量才能调用
+          关闭() 释放。
+        """
+        var = None
+        expr = node
+        if isinstance(node, BinaryOp) and node.operator == '==':
+            if isinstance(node.right, Identifier):
+                var = node.right.name
+                expr = node.left
+        # 防御性：若 expr 本身已是裸标识符且无 `为` 绑定，也算非法（下面统一报错）
+
+        if var is None:
+            raise ParseError(
+                "「与」资源管理语句必须写成「与 表达式 为 变量:」形式："
+                "资源对象需要绑定到一个变量，退出块时才能调用 关闭() 释放。",
+                getattr(node, 'line', 0) if node is not None else 0,
+                getattr(node, 'col', 0) if node is not None else 0)
+        return (expr, var)
 
     def _parse_decorator_info(self) -> DecoratorInfo:
         """解析单个装饰器信息（@名字 或 @名字(参数)）

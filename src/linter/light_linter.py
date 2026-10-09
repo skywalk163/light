@@ -102,6 +102,8 @@ RULES = {
     'W013': {'name': '缺少返回类型注解', 'severity': 'warning', 'description': '函数缺少返回类型注解'},
     'I006': {'name': '多余括号', 'severity': 'info', 'description': '表达式中包含多余的括号'},
     'I007': {'name': '字符串引号不一致', 'severity': 'info', 'description': '字符串引号风格不一致（混用单双引号）'},
+    'W014': {'name': '字典操作不规范', 'severity': 'warning', 'description': '建议用 .包含() 方法替代 字典包含键() 函数形式'},
+    'W015': {'name': '文体风格不一致', 'severity': 'warning', 'description': '代码关键字文体与项目配置不一致（试/尝试、捕/捕获）'},
 }
 
 
@@ -112,17 +114,19 @@ RULES = {
 class LightLinter:
     """光明代码检查器"""
 
-    def __init__(self, rules: Optional[List[str]] = None):
+    def __init__(self, rules: Optional[List[str]] = None, style: Optional[str] = None):
         """
         初始化检查器
 
         Args:
             rules: 启用的规则 ID 列表，None 表示全部启用
+            style: 目标文体风格（"工程体" / "教学体"），None 表示不检查文体
         """
         self.enabled_rules = set(rules) if rules is not None else None
         self.results: List[LintResult] = []
         self._source_lines: List[str] = []
         self._source: str = ''
+        self.style = style  # "工程体" | "教学体" | None
 
     def _is_enabled(self, rule_id: str) -> bool:
         """检查规则是否启用"""
@@ -198,6 +202,10 @@ class LightLinter:
             self._check_redundant_parentheses()
         if self._is_enabled('I007'):
             self._check_string_quotes()
+        if self._is_enabled('W014'):
+            self._check_dict_ops()
+        if self._is_enabled('W015') and self.style is not None:
+            self._check_style_consistency()
 
         return self.results
 
@@ -1046,6 +1054,61 @@ class LightLinter:
                             source=stripped
                         )
                         break
+
+    # ------------------------------------------------------------------
+    # 规则 W014: 字典操作不规范（M4 字典三轨收敛）
+    # ------------------------------------------------------------------
+
+    def _check_dict_ops(self):
+        """检测 字典包含键() 函数形式调用，提示改用 .包含() 方法形式"""
+        for i, line in enumerate(self._source_lines, 1):
+            stripped = line.strip()
+            if stripped.startswith('#') or not stripped:
+                continue
+            # 匹配 字典包含键(字典, 键) 形式
+            match = re.search(r'字典包含键\s*\(', stripped)
+            if match:
+                self._add_result(
+                    'warning',
+                    "建议用 .包含() 方法形式替代 字典包含键() 函数形式（如 d.包含(k)）",
+                    i, match.start() + 1, 'W014',
+                    source=stripped
+                )
+
+    # ------------------------------------------------------------------
+    # 规则 W015: 文体风格不一致（M5 教学体/工程体收敛）
+    # ------------------------------------------------------------------
+
+    def _check_style_consistency(self):
+        """根据 style 配置检测文体关键字不一致"""
+        # 文体映射：目标风格 -> 不应出现的关键字模式及提示
+        if self.style == '工程体':
+            # 工程体目标：发现教学体关键字 → 提示改工程体
+            patterns = [
+                (r'^\s*试\s*[：:]', "教学体关键字「试:」建议改为工程体「尝试:」"),
+                (r'^\s*捕\s+', "教学体关键字「捕」建议改为工程体「捕获」"),
+            ]
+        elif self.style == '教学体':
+            # 教学体目标：发现工程体关键字 → 提示改教学体
+            patterns = [
+                (r'^\s*尝试\s*[：:]', "工程体关键字「尝试:」建议改为教学体「试:」"),
+                (r'^\s*捕获\s+', "工程体关键字「捕获」建议改为教学体「捕」"),
+            ]
+        else:
+            return
+
+        for i, line in enumerate(self._source_lines, 1):
+            stripped = line.strip()
+            if stripped.startswith('#') or not stripped:
+                continue
+            for pattern, message in patterns:
+                match = re.search(pattern, line)
+                if match:
+                    self._add_result(
+                        'warning', message,
+                        i, match.start() + 1, 'W015',
+                        source=stripped
+                    )
 
     # ------------------------------------------------------------------
     # 检查结果输出

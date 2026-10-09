@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "note": "stdlib 原生腿就绪度基线（R117 于 2026-10-06 改为多模块编译口径）。就绪度 = 可编/魔数模块总数；可编名单只许增不许减——对 --base 跑出「新增不可编」即 rc=1。compile_entry 记录测量入口；built_from_commit 是生成基线时的 HEAD。",
+  "note": "stdlib 原生腿就绪度基线（R117 于 2026-10-06 改为多模块编译口径）。就绪度 = 可编/魔数模块总数；可编名单只许增不许减——对 --base 跑出「新增不可编」即 rc=1。compile_entry 记录测量入口；built_from_commit 是生成基线时的 HEAD。 [R129 收口更新]",
   "compile_entry": "compile_light_typed(多模块)",
-  "built_from_commit": "aef6b4beb",
-  "generated_at": "2026-10-09T10:36:25",
+  "built_from_commit": "331f89931",
+  "generated_at": "2026-10-09T16:19:59",
   "timeout_per_module_sec": 300,
   "total": 80,
   "ready": 70,
@@ -376,7 +376,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 3885769
+      "ir_len": 3890712
     },
     {
       "模块": "向量",
@@ -424,7 +424,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 3609915
+      "ir_len": 3614857
     },
     {
       "模块": "字符串工具轻量",
@@ -544,7 +544,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 3978900
+      "ir_len": 3983843
     },
     {
       "模块": "文件流",
@@ -560,7 +560,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 104170
+      "ir_len": 110646
     },
     {
       "模块": "断言工具",
@@ -568,7 +568,7 @@
       "bucket": "可编",
       "detail": "",
       "gap": "",
-      "ir_len": 4066101
+      "ir_len": 4071042
     },
     {
       "模块": "断言工具轻量",
@@ -739,4 +739,4 @@
       "ir_len": 135899
     }
   ]
-}
+}

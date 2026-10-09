@@ -17,7 +17,7 @@ import ast_nodes as ast_nodes_module
 
 # 需要导入新的AST节点类型
 from light_parser_v3 import ImportStmt, ExportStmt, IndexAccess, SliceExpr, SetComprehension, TupleLiteral, BreakStmt, ContinueStmt, PassStmt, ClassInstantiation, MemberAccess, TryStmt, ThrowStmt, Parameter, ParameterList, StringInterpolation, ListComprehension, LambdaExpression, MatchStmt, MatchCase, MatchPattern, DictComprehension, DestructuringAssignment, WithStmt, DecoratorDefinition, DictLiteral, InterfaceDefinition, MethodSignature, IndexedAssignment, RangeExpr, FFILoadLibrary, FFIFunctionDecl, FFIStructDef, FFICallbackDef, FFICreateArray, FFISetArrayElement, FFIAllocMemory, FFIFreeMemory, FFISetPointerValue, FFISetErrno, FFITryCatch, FFIEnumDef, FFIUnionDef, FFICreateCallback, FFIVarArgsDecl, FFIStructByValue, FFILibraryPath, FFITypedefDef, FFIBitfieldDef, FFIFuncPtrDef, FFIDebugConfig, FFIPreprocessorDef, FFIPointerType, FFIArrayType, FFIAddressOf, FFIDereference, FFIPointerOffset, FFIGetLastError, FFIGetErrno
-from ast_nodes_v3 import Assignment, TypeCheckToggleStmt, AwaitExpr, KeywordArg, IndexedCompoundAssignment, PassStmt, AssignmentExpression, SetLiteral, EmbedBlock, FunctionCallExpr, CatchClause, YieldStmt, AsyncScope, RunAsyncStmt, ScopeDeclStmt, DecoratedFunction, DecoratorInfo, AssertStmt, ParallelBlockStmt
+from ast_nodes_v3 import Assignment, TypeCheckToggleStmt, AwaitExpr, KeywordArg, IndexedCompoundAssignment, PassStmt, AssignmentExpression, SetLiteral, EmbedBlock, FunctionCallExpr, CatchClause, YieldStmt, AsyncScope, RunAsyncStmt, ScopeDeclStmt, DecoratedFunction, DecoratorInfo, AssertStmt, ParallelBlockStmt, WithCloseStmt
 from ast_nodes import ExpressionStatement, SegmentName, DeferStatement
 
 
@@ -668,6 +668,35 @@ class PythonCodeGenerator:
             '替换': '_light_builtin.替换字符串',
             '右去除': '_light_builtin.右去除',
             '去除空白': '_light_builtin.去除空白',
+            # R129-A（M1）：AI 友好别名层（安全子集）。AI 写光明代码时第一反应
+            # 常写 写入("f", s) / 解析(s) / 去空白(s)，与权威名 写入文件/解析JSON/
+            # 去除首尾空白 不同轨。**实测后仅 写入 可安全落地**，回退 解析/去空白：
+            #   ① 写入 词法为单个 IDENTIFIER，仓库内无第二个模块级同名段落
+            #      （stdlib/文件系统.light:126 是本层薄包装；路径护栏.light:261
+            #      是类方法不参与全局裸名）。映射走 builtins 写入文件。
+            #   ② 解析 回退：stdlib/JSON核心.light:407 已有 段落 解析(文本)，
+            #      stdlib/JSON.light、节点网络.light:408 等既依赖 `从 JSON核心 导入 解析`
+            #      → 显式导入的裸名会与 builtin_map 撞车，**破坏既有 JSON 语义**。
+            #   ③ 去空白 回退：stdlib/中文文本处理.light:54 与
+            #      stdlib/分布式/节点网络.light:410 已自定义 段落 去空白(文本)。
+            #      builtin_map 是「无条件重定向」——实测 节点网络.light L403/L404
+            #      的 去空白(...) 被改成 _light_builtin.去除空白，绕过模块内
+            #      L410 段落定义（产物 L748/L750 vs L761）。**违反「只增不改」红线**。
+            # 未映射项（任务书列了但经实测**不可安全落地**，已登记 known_issues）：
+            #   · `读取` → 已被冻结为 input（仓库 26 处教学代码 `读取("请输入姓名：")`
+            #     依赖此语义），改映射会破坏既有代码，**违反「只增不改」红线**；
+            #   · `存在` → 词法被切成 `存 in`（`在` 是关键字），裸名根本无法使用；
+            #   · `CSV读取` → 词法被切成 `CSV` + `读取`（`读取` 是关键字）；
+            #   · `序列化` → 与 `解析` 同源，JSON核心.light:26 已有段落定义。
+            # ⚠️ 潜在风险（已登记 known_issues）：builtin_map 是无条件重定向。
+            #   目前 `写入` 安全是因为仓库内唯一模块级 `段落 写入(` 在
+            #   stdlib/文件系统.light:126（即本别名层的薄包装本体），其内部
+            #   `写入(` 仅出现在注释文本中。**若未来某模块新增 `段落 写入(`
+            #   并在定义前裸调 `写入(...)`，会被本映射劫持**，须同步回退。
+            '写入': '_light_builtin.写入文件',
+            # R129-A 回退项（2026-10-09 二次审计）：
+            #   '解析': '_light_builtin.解析JSON'  已删除
+            #   '去空白': '_light_builtin.去除空白'  已删除
             # R61 任务3：`去除空格` 是 stdlib/字符串处理.py 的公开函数（实现即
             # s.strip()，与 去除空白 同语义）。原生腿 codegen_typed 早把它与
             # 去除空白/trim/strip 收在同一族（src/llvm/codegen_typed.py:2655），
@@ -1963,6 +1992,9 @@ class PythonCodeGenerator:
         elif isinstance(stmt, WithStmt):
             # 上下文管理器
             self._generate_with_stmt(stmt)
+        elif isinstance(stmt, WithCloseStmt):
+            # R129-D（M3）：`与 表达式 为 变量: 块` 资源管理语法糖
+            self._generate_with_close_stmt(stmt)
         elif isinstance(stmt, DecoratorDefinition):
             # 装饰器定义
             self._generate_decorator_definition(stmt)
@@ -3443,6 +3475,77 @@ class PythonCodeGenerator:
                 self._generate_statement(s)
         else:
             self._add_line("pass")
+        self.indent_level -= 1
+
+    def _generate_with_close_stmt(self, stmt: WithCloseStmt):
+        """R129-D（M3）：生成 `与 表达式 为 变量: 块` 资源管理语法糖。
+
+        desugar 成：设 变量 为 表达式; 尝试: 块 最终: 变量.关闭()。
+
+        与 `使用`（Python 上下文管理器 __enter__/__exit__ 协议）不同，「与」走
+        鸭子类型：要求被管理对象拥有 `关闭()` 方法（或 Python 内置的 close()）。
+        finally 里优先调用 `关闭()`，若对象没有 `关闭()`（如内置文件对象只有
+        close()）则回退到 close()——两种资源都能正确释放，且不改动既有的
+        method_name_map（不影响 stdlib 里已定义 `段落 关闭()` 的中文类）。
+
+        多个资源（`与 a 为 x, b 为 y:`）按"获取在外、释放在内"嵌套：
+            x = a()
+            try:
+                y = b()
+                try:
+                    块
+                finally:
+                    y.关闭()/y.close()
+            finally:
+                x.关闭()/x.close()
+        """
+        items = stmt.items or []
+        if not items:
+            # 退化情形：直接平铺块体（理论上解析器已要求至少一个 为 绑定）
+            self.indent_level += 1
+            if stmt.body:
+                for s in stmt.body:
+                    self._generate_statement(s)
+            else:
+                self._add_line("pass")
+            self.indent_level -= 1
+            return
+        self._gen_with_close_layer(items, stmt.body or [])
+
+    def _gen_with_close_layer(self, items, body):
+        """递归生成单层「设 变量 为 表达式; try: 内层 finally: 关闭()」。"""
+        expr, var = items[0]
+        var_name = self._sanitize_name(var)
+        expr_str = self._generate_expr(expr)
+        self._bind_local(var)
+
+        # 资源获取（在 try 之外：获取失败则不进入 finally，避免对未获取资源调用 关闭）
+        self._add_line(f"{var_name} = {expr_str}")
+        self._add_line("try:")
+        self.indent_level += 1
+        if len(items) > 1:
+            self._gen_with_close_layer(items[1:], body)
+        else:
+            if body:
+                for s in body:
+                    self._generate_statement(s)
+            else:
+                self._add_line("pass")
+        self.indent_level -= 1
+
+        # finally：释放资源（鸭子类型 关闭() 协议）
+        self._add_line("finally:")
+        self.indent_level += 1
+        close_attr = f"_{var_name}__close"
+        self._add_line(f"{close_attr} = getattr({var_name}, '关闭', None)")
+        self._add_line(f"if {close_attr} is not None:")
+        self.indent_level += 1
+        self._add_line(f"{close_attr}()")
+        self.indent_level -= 1
+        self._add_line("else:")
+        self.indent_level += 1
+        self._add_line(f"{var_name}.close()")
+        self.indent_level -= 1
         self.indent_level -= 1
 
     def _require_async_context(self, feature: str) -> None:
