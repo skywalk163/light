@@ -1509,10 +1509,16 @@ def 读二进制文件(路径: str) -> bytes:
         return _f.read()
 
 
-def 创建临时目录() -> str:
-    """创建并返回一个新的临时目录路径。"""
+def 创建临时目录(后缀=None, 前缀=None, 目录=None) -> str:
+    """创建并返回一个新的临时目录路径。
+
+    R128-A：原签名 0 参，但 lightharness 侧已按 3 参语义调用（对齐
+    light-merge stdlib/临时文件.light 的 `创建临时目录(后缀, 前缀, 目录)`），
+    旧签名会让 `创建临时目录("lh_sc_test")` 抛 TypeError。此处补齐为
+    **向后兼容**的 3 参版本（全默认 → 行为与旧 0 参完全一致）。
+    """
     import tempfile
-    return tempfile.mkdtemp()
+    return tempfile.mkdtemp(suffix=后缀 or '', prefix=前缀 or '', dir=目录)
 
 
 def 删目录树(路径: str) -> None:
@@ -1550,10 +1556,33 @@ def 排序列表(序列, 反向: bool = False):
 sort = 排序列表
 
 
-def 查找目录列表(路径: str = '.') -> list:
-    """列出目录下的条目名（等价 列出目录）。"""
+def 查找目录列表(路径: str = '.', 样式=None, 递归=False) -> list:
+    """列出目录下的条目名（等价 列出目录）。
+
+    R128-A：原签名只收 1 参，但 lightharness 侧已按 3 参语义调用
+    （`src/文件.light:83` 的 `查找文件(目录, 样式, 递归)` 需要 glob 样式匹配 +
+    递归开关），旧签名会让 3 参调用抛 TypeError。此处补齐为**向后兼容**的
+    3 参版本：
+      · 样式 为 None（默认）→ 行为与旧 1 参完全一致（返回条目名列表）；
+      · 样式 非空 → 按 fnmatch 通配匹配文件名，返回**完整路径**列表；
+        `递归=真` 时走 os.walk 遍历子目录，`假` 时只看顶层且只收文件。
+    """
     import os
-    return os.listdir(路径)
+    if 样式 is None:
+        return os.listdir(路径)
+    import fnmatch
+    结果 = []
+    if 递归:
+        for 根, _目录们, 文件们 in os.walk(路径):
+            for 名 in 文件们:
+                if fnmatch.fnmatch(名, 样式):
+                    结果.append(os.path.join(根, 名))
+    else:
+        for 名 in os.listdir(路径):
+            全路径 = os.path.join(路径, 名)
+            if os.path.isfile(全路径) and fnmatch.fnmatch(名, 样式):
+                结果.append(全路径)
+    return 结果
 
 
 def 取可选(容器, 键, 默认=None):
