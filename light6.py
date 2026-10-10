@@ -109,7 +109,30 @@ def _src_compile(源代码):
     module = parser.parse(源代码)
     if module is None:
         return None
+    # R135-A：语义分析（默认关闭，`--semantic` 开启；只报警告不阻断，原因见
+    # cli/lightc.py 的同类说明）
+    if _语义开关:
+        _跑语义分析(module)
     return PythonCodeGenerator().generate(module)
+
+
+# R135-A：语义分析开关。默认关闭——v3 语料的未定义符号判定仍有假阳性
+# （跨模块/嵌入块引入的名字无法在单文件内核验），默认开会让合法程序有噪声。
+_语义开关 = False
+
+
+def _跑语义分析(module):
+    """对 v3 Module 跑语义分析，问题以警告形式打印（不阻断编译）。"""
+    try:
+        from semantic_analyzer import SemanticAnalyzer
+    except ImportError:
+        return []
+    analyzer = SemanticAnalyzer(module)
+    errors = analyzer.analyze_v3(module) if getattr(analyzer, 'v3_mode', False) \
+        else analyzer.analyze()
+    for err in errors:
+        print(f"[语义警告] 行 {err.line}: {err}", file=sys.stderr)
+    return errors
 
 
 def _src_run(源代码, file_path=None):
@@ -315,6 +338,11 @@ def 主函数():
             else:
                 print("[错误] -o/--output 需要指定输出文件路径", file=sys.stderr)
                 sys.exit(1)
+        elif a == '--semantic':
+            # R135-A：开启语义分析（默认关闭）
+            global _语义开关
+            _语义开关 = True
+            i += 1
         elif a.startswith('-o='):
             output_file = a[3:]
             i += 1

@@ -79,14 +79,28 @@ def parser():
 
 @pytest.fixture
 def analyzer(parser):
-    """提供语义分析器实例。
+    """提供语义分析器工厂。
 
-    SemanticAnalyzer.__init__ 需要 module 参数（ast_unified.Module），
-    但 light_parser_v3 产出 ast_nodes_v3.Module，两者不兼容
-    （test_semantic.py 整体 skip）。这里返回 None 表示不可用，
-    避免无参构造 TypeError；消费方应自行判断是否可用。
+    R135-A 前：`SemanticAnalyzer.__init__` 需要 `ast_unified.Module`，而
+    `light_parser_v3` 产出 `ast_nodes_v3.Module`，两者不兼容（`test_semantic.py`
+    整体 skip），因此本 fixture 只能返回 None。
+
+    R135-A 后：`src/semantic_analyzer.py` 已内置 v3 适配层（自带符号表 +
+    `_v3_visit_*` 分派），任何 v3 Module 都能直接分析。这里返回一个
+    `analyze(源码) -> (module, analyzer)` 工厂，方便用例断言错误列表。
     """
-    return None
+    from semantic_analyzer import SemanticAnalyzer
+
+    def _analyze(source: str):
+        module = parser.parse(source)
+        analyzer = SemanticAnalyzer(module)
+        if getattr(analyzer, 'v3_mode', False):
+            analyzer.analyze_v3(module)
+        else:
+            analyzer.visit_Module(module)
+        return module, analyzer
+
+    return _analyze
 
 
 @pytest.fixture

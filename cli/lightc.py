@@ -48,12 +48,33 @@ from version import VERSION as _LANG_VERSION
 class LightCompiler:
     """光明编译器"""
     
-    def __init__(self, verbose: bool = False):
+    def __init__(self, verbose: bool = False, semantic: bool = False):
         self.lexer = Lexer()
         self.parser = LightParser()
         self.generator = PythonCodeGenerator()
         self.verbose = verbose
-    
+        # R135-A：语义分析开关（默认关闭，见 compile() 内说明）
+        self.semantic = semantic
+
+    def run_semantic_analysis(self, module, filename: Optional[str] = None):
+        """R135-A：对 v3 Module 跑语义分析，把问题作为警告打印。
+
+        只报警告、不阻断：v3 侧的未定义符号判定尚不能覆盖跨模块/嵌入块引入的
+        名字，硬阻断会挡住合法程序（误报率实测见 `_r135_scratch/logs/`）。
+        """
+        analyzer = SemanticAnalyzer(module)
+        if not getattr(analyzer, 'v3_mode', False):
+            analyzer.visit_Module(module)
+        else:
+            analyzer.analyze_v3(module)
+        for err in analyzer.errors:
+            where = f"{filename}:{err.line}" if filename else f"行 {err.line}"
+            print(f"[语义警告] {where}: {err}", file=sys.stderr)
+        if self.verbose:
+            print(f"[语义] 报告 {len(analyzer.errors)} 个问题")
+        return analyzer.errors
+
+
     def compile(self, source: str, filename: Optional[str] = None) -> str:
         """完整编译流程"""
         if self.verbose:
@@ -71,9 +92,13 @@ class LightCompiler:
         if self.verbose:
             print(f"[语法] 解析 {len(module.statements)} 条语句")
         
-        # 3. 语义分析——SemanticAnalyzer 与 ast_nodes_v3.Module 尚不兼容
-        #    （test_semantic.py 整体 skip），与 light6.py _src_compile 一致跳过
-        
+        # 3. 语义分析（R135-A：v3 适配层已落地，默认关闭、`--semantic` 开启）
+        #    默认关闭的理由：v3 语料的未定义符号判定仍有假阳性（跨模块/嵌入块
+        #    引入的名字无法在单文件内核验），直接默认开启会让合法程序有噪声。
+        #    打开时只报警告、不阻断编译。
+        if self.semantic:
+            self.run_semantic_analysis(module, filename)
+
         # 4. 代码生成
         code = self.generator.generate(module)
         if self.verbose:
@@ -136,6 +161,10 @@ def main():
     parser.add_argument('--tokens', action='store_true', help='显示 Token 流')
     parser.add_argument('--ast', action='store_true', help='显示 AST')
     parser.add_argument('-v', '--verbose', action='store_true', help='详细输出')
+
+    # R135-A：语义分析（默认关闭）
+    parser.add_argument('--semantic', action='store_true',
+                        help='开启语义分析（报告未定义符号等问题，仅警告不阻断）')
     
     # 其他选项
     parser.add_argument('--version', action='version', version=f'光明编译器 v{_LANG_VERSION}')
@@ -162,7 +191,7 @@ def main():
     
     try:
         # 创建编译器
-        compiler = LightCompiler(verbose=args.verbose)
+        compiler = LightCompiler(verbose=args.verbose, semantic=args.semantic)
         
         # 读取源文件
         with open(input_file, 'r', encoding='utf-8') as f:
