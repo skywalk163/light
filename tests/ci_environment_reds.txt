@@ -156,3 +156,32 @@ W-23	tests/test_agent_tools_light.py::TestRunCommand::test_正常执行取输出
 # 已销账(R110-S1): tests/test_tool_parallel_light.py::Test失败隔离::test_并行批里一个抛异常其余两个照常回填	负载	1	真因=**绝对墙钟判据余量不足**：原断言 `耗时 < 0.5`（单工具 sleep=0.3s；并行期望≈0.30s、串行≈0.90s）。空载 40 次采样 min 0.296/中位 0.297/max 0.328（1.7x 余量）；门用 xdist -n auto，本机多进程 8/10 核负载下 sleep 唤醒被整体拉长→并行批 0.500~0.84s 中位 0.555，**20/20 轮全部越过 0.5**；而同场景串行基线稳定 0.937~0.984s→**实现从未真退化，红的是判据不是实现**（同 W-13 病症：脱离配置的魔数阈值）。修=判据改为**负载无关的离散形态**：ok1 与 ok2 执行区间必须重叠（真并行重叠≈0.3s／真退化串行无重叠）+ 保留 `耗时 < 睡*3` 宽松上界兜住整批退化；断言语义未削弱（对「没退化」的要求更强）。取证：空载基线 S1_probe_timing_idle.log；多进程负载 S1_probe_timing_mp.log；重叠判据 S1_probe_overlap.log；反跑=强制并行上限=1 → 重叠 −0.296s 复红、改回即绿（S1_antirun1.log）；复跑 ×10 全绿（S1_rerun10.log）。复现：pytest "tests/test_tool_parallel_light.py::Test失败隔离::test_并行批里一个抛异常其余两个照常回填" -o addopts=
 #
 # 哨兵：R110-S1-LEDGER
+
+# ── [R136-A 入账] 全量 tests/ 18 条存量红（R135 §5 已排除本轮归属，本轮按建账口径补入） ──
+#   口径：R135 E 线全量 `tests/ -n 4 --dist loadscope -q --ignore=tests/archive` 一手取证
+#         （junit 与日志 `_r135_scratch/E线_证据/E线_全tests.out`），隔离复跑 4 文件
+#          phase2/4/11/13 均为 RC=0，R135 结论「与本轮改动无因果关系」成立。
+#   类别标注：phase2/4/11/13 的失败在 R135 隔离复跑（-n 0）时**全部变绿** → 属「负载/顺序相关」；
+#           lightpub 一条隔离亦红（R135 §5.1 记录 RC=1）→ 属「环境类（文档围栏未提供实现）」。
+#   编号续用 W- 系列，自 W-24 起；「负载」列 1=隔离恒绿、仅全量负载偶发，0=隔离亦红。
+#   复现命令：`python -m pytest tests/ -n 4 --dist loadscope -q --ignore=tests/archive`
+
+W-24	tests/test_stdlib_phase2.py::TestSet::test_set_operations	负载	1	R135 全量红。`并集(s1,s2)` 返回 `{'元素': [1,2,3,4,5]}` 而非 `{1,2,3,4,5}`——`stdlib/集合.light:297 集合_列表` 用「字典」承载集合元素（`内置核心字典.light` 的 `_light_get` 对真 `set` 对象不适用）。R136 隔离复跑（-n 0）117 passed，全绿。复现：全量 tests/ -n 4 --dist loadscope
+W-25	tests/test_stdlib_phase2.py::TestSet::test_set_relations	负载	1	同上同族。`stdlib/集合.light:638 是否子集` 把 `set` 当 dict 处理，`stdlib/内置核心字典.light:253 _light_get` 抛 `AttributeError: 'set' object has no attribute 'get'`；随后 `集合.light:297 字典设置(集合,"元素",新)` 触发 `TypeError: 'set' object is not subscriptable`。隔离全绿。复现：全量 tests/ -n 4 --dist loadscope
+W-26	tests/test_stdlib_phase2.py::TestSet::test_set_utilities	负载	1	同上同族。`杰卡德相似度`→`交集` 内层同样走 `集合_列表`/`内置核心字典.light` 的 dict 语义，真 `set` 报 `AttributeError`/`TypeError`。隔离全绿。复现：全量 tests/ -n 4 --dist loadscope
+W-27	tests/test_stdlib_phase4.py::Test数据验证::test_验证IP地址	负载	1	R135 全量红（`tests/test_stdlib_phase4.py:540`）。`数据验证.验证IP地址('::1')` 返回 False，`assertTrue(_是否有效(...))` 红——`stdlib/数据验证.light` 的 IPv6 判定不认回环地址。隔离全绿（117 passed）。复现：全量 tests/ -n 4 --dist loadscope
+W-28	tests/test_stdlib_phase4.py::Test数据验证::test_验证JSON	负载	1	R135 全量红（`tests/test_stdlib_phase4.py:561`）。`数据验证.验证JSON('{invalid json}')` 返回 True，`assertFalse(_是否有效(...))` 红——JSON 校验逻辑对明显非法串不判 False。隔离全绿。复现：全量 tests/ -n 4 --dist loadscope
+W-29	tests/test_stdlib_phase4.py::Test编码解码::test_Base64	负载	1	R135 全量红（`tests/test_stdlib_phase4.py:222`）。`编码解码.Base64解码` 返回 `'hello'`（str）而期望 `b'hello'`（bytes），`assertEqual(bin_decoded, b'hello')` 红——纯光明实现 `stdlib/编码解码.light` 未保持 bytes 类型。隔离全绿。复现：全量 tests/ -n 4 --dist loadscope
+W-30	tests/test_stdlib_phase4.py::Test编码解码::test_二进制十六进制转换	负载	1	R135 全量红（`tests/test_stdlib_phase4.py:271`）。`二进制转十六进制(data)` 在 `stdlib/编码解码.light:712` 调用 `编码编UTF8`，其中 `stdlib/编码解码.light:439` 的 `编码读hex(文本, i+2, 8)` 把 int 交给 `ord()` → `TypeError: ord() expected string of length 1, but int found`。隔离全绿。复现：全量 tests/ -n 4 --dist loadscope
+W-31	tests/test_stdlib_phase4.py::Test编码解码::test_字符集转换	负载	1	R135 全量红（`tests/test_stdlib_phase4.py:307`）。`from 编码解码 import ... 字符集转换为字符串 ...` 抛 `ImportError: cannot import name '字符集转换为字符串' from '编码解码' (…stdlib\编码解码.light). Did you mean: '字符集转字符串'?`——纯光明实现命名与测试期望不一致。隔离全绿。复现：全量 tests/ -n 4 --dist loadscope
+W-32	tests/test_stdlib_phase4.py::Test编码解码::test_字节字符串转换	负载	1	R135 全量红（`tests/test_stdlib_phase4.py:352`）。`assertIsInstance(b, bytes)` 红，实测 `'68656c6c6f'` 为 str——`编码解码` 纯光明实现的「字节」返回仍是字符串。隔离全绿。复现：全量 tests/ -n 4 --dist loadscope
+W-33	tests/test_stdlib_phase11.py::测试OAuth_JWT认证::test_JWT过期	负载	1	R135 全量红（`tests/test_stdlib_phase11.py:46`）。`assertRaises(令牌过期异常)` 期望异常未抛出——`stdlib` JWT 过期校验在测试给的过期令牌上没有触发。隔离复跑 42 passed。复现：全量 tests/ -n 4 --dist loadscope
+W-34	tests/test_stdlib_phase13.py::测试集合工具模块::test_双端队列	负载	1	R135 全量红（`tests/test_stdlib_phase13.py:698`）。`dq.右入队(4)` → `AttributeError: 'dict' object has no attribute '右入队'`——集合工具纯光明实现把双端队列实现为 dict，方法名未落对象。隔离全绿（86 passed）。复现：全量 tests/ -n 4 --dist loadscope
+W-35	tests/test_stdlib_phase13.py::测试集合工具模块::test_命名元组	负载	1	R135 全量红（`tests/test_stdlib_phase13.py:706`）。`p = 点(3, 4)` → `TypeError: 'list' object is not callable`——集合工具的 `点` 名被实现为 list 而非 callable。隔离全绿。复现：全量 tests/ -n 4 --dist loadscope
+W-36	tests/test_stdlib_phase13.py::测试集合工具模块::test_计数器最常见	负载	1	R135 全量红（`tests/test_stdlib_phase13.py:668`）。`c.最常见(2)` → `AttributeError: 'dict' object has no attribute '最常见'`——计数器纯光明实现把 Counter 实现为 dict，方法名未落对象。隔离全绿。复现：全量 tests/ -n 4 --dist loadscope
+W-37	tests/test_stdlib_phase13.py::测试集合工具模块::test_默认字典	负载	1	R135 全量红（`tests/test_stdlib_phase13.py:675`）。`d['不存在的键']` → `KeyError: '不存在的键'`——默认字典纯光明实现未实现「缺省返回默认值」语义。隔离全绿。复现：全量 tests/ -n 4 --dist loadscope
+W-38	tests/test_stdlib_phase13.py::测试集合工具模块::test_默认字典列表	负载	1	R135 全量红（`tests/test_stdlib_phase13.py:682`）。`d['键'].append(1)` → `KeyError: '键'`——同上，默认字典的缺省键未初始化列表。隔离全绿。复现：全量 tests/ -n 4 --dist loadscope
+W-39	tests/test_stdlib_phase13.py::测试高级文件模块::test_命令存在	负载	1	R135 全量红（`tests/test_stdlib_phase13.py:520`）。`assertTrue(命令存在('cmd'))` 红——本机 Windows 下 `高级文件.命令存在` 未正确探测系统 PATH 中的 `cmd`。隔离全绿。复现：全量 tests/ -n 4 --dist loadscope
+W-40	tests/test_stdlib_phase13.py::测试高级文件模块::test_磁盘使用情况	负载	1	R135 全量红（`tests/test_stdlib_phase13.py:502`）。`assertGreater(结果['总空间'], 0)` 红——`高级文件.磁盘使用情况` 在本机返回的总空间为 0，Windows 驱动统计口径与实现不符。隔离全绿。复现：全量 tests/ -n 4 --dist loadscope
+W-41	tests/lightpub/test_lightpub_doc_importability.py::Test_lightpub文档可导入性::test_光明围栏的导入块必须真能导入	环境	0	R135 全量红（`tests/lightpub/test_lightpub_doc_importability.py:124`），且**隔离亦红**（R135 §5.1 记录 RC=1）。`docs/lightpub/Socket.md:21/27` 两个 ```light '导入 Socket' / '导入 标准Socket' 围栏块在本仓库**无实现**（`stdlib/lightpub/Socket.py` 为占位 stub，无真正 `Socket` 模块），工具 `tools/gen_lightpub_docs.py` 未将围栏降级成 text。复现：pytest tests/lightpub/test_lightpub_doc_importability.py -o addopts=
+# 哨兵：R136-A-LEDGER-W24..W41（18 条）

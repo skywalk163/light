@@ -21,9 +21,10 @@
 - 生态地图 + `AWESOME-光明.md` + RFC 提案流程；
 - 版本一致性校验脚本（`scripts/check_version_consistency.py`）。
 
-### 🔜 R97（工具兑现）
-- **T9 修复 R96-KI-01**：重写 / 收敛 `src/formatter`，消除"补冒号＋重排缩进"破坏；
-- T10/T11 验收 `light doc` / `light profile` 对真实工程可用；
+### ✅ R97（工具兑现）
+- ✅ **T9 修复 R96-KI-01**：`src/formatter` 收敛为空白安全子集（R97 完成，R136 E 线复核：R96-KI-01 复现用例 3 次 RC=0，`test_formatter_safety.py` 6 passed）；
+- ✅ **T10/T11** `light doc` / `light profile` 对真实工程可用（R136 D 线：lightharness 5 工程体端到端 RC=0，分阶段耗时 + 内存峰值输出）；
+  - ⚠️ **R136 E 线登记**：D 线实现落在 `src/doc_generator.py` / `src/profiler.py`（HEAD 中本已存在，非 stub），未按任务书 §6.4「新建独立顶层文件」执行，见 `_R136_收口报告.md` §D 线红线登记；
 - T12 `light install/publish` + 共享 registry（Go-Modules 式 "git 即 registry"）；
 - T13 积木库 ↔ `light pkg` 打通；
 - T14 LSP / 诊断服务（编辑器从"高亮"升级到"报错+跳转"）；

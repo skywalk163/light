@@ -74,6 +74,9 @@ nul
 site/
 docs-site/
 
+# light doc 生成产物（由 .light 源码重新生成，不入库；R136 收口加入）
+docs/generated/
+
 # 本地注册表数据
 registry/
 

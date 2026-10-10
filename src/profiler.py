@@ -170,63 +170,54 @@ class LightProfiler:
             self._memory_tracker.start()
 
         # ====== 阶段1: 词法分析 ======
-        if profile_report:
-            self._phase_timer.start_phase('词法分析')
+        # R136: 分阶段计时默认启用（原实现用 profile_report flag 门控，CLI 走不到）
+        self._phase_timer.start_phase('词法分析')
         lex_start = time.time()
         from lexer import Lexer
         lexer = Lexer()
         tokens = lexer.tokenize(source)
         lex_time = (time.time() - lex_start) * 1000
-        if profile_report:
-            self._phase_timer.stop_phase()
-            self._memory_tracker.snapshot('词法分析')
+        self._phase_timer.stop_phase()
+        self._memory_tracker.snapshot('词法分析')
 
         # ====== 阶段2: 语法解析 ======
-        if profile_report:
-            self._phase_timer.start_phase('语法解析')
+        self._phase_timer.start_phase('语法解析')
         parse_start = time.time()
         parser = LightParser()
         module = parser.parse(source)
         parse_time = (time.time() - parse_start) * 1000
-        if profile_report:
-            self._phase_timer.stop_phase()
-            self._memory_tracker.snapshot('语法解析')
+        self._phase_timer.stop_phase()
+        self._memory_tracker.snapshot('语法解析')
 
         # ====== 阶段3: AST适配 ======
-        if profile_report:
-            self._phase_timer.start_phase('AST适配')
+        self._phase_timer.start_phase('AST适配')
         adapt_start = time.time()
         from compiler import AstAdapter
         adapter = AstAdapter()
         our_ast = adapter.convert_module(module)
         adapt_time = (time.time() - adapt_start) * 1000
-        if profile_report:
-            self._phase_timer.stop_phase()
-            self._memory_tracker.snapshot('AST适配')
+        self._phase_timer.stop_phase()
+        self._memory_tracker.snapshot('AST适配')
 
         # ====== 阶段4: 优化 ======
-        if profile_report:
-            self._phase_timer.start_phase('优化')
+        self._phase_timer.start_phase('优化')
         opt_start = time.time()
         from compiler import OPTIMIZERS
         for optimizer_cls in OPTIMIZERS:
             optimizer = optimizer_cls()
             our_ast = optimizer.optimize(our_ast)
         opt_time = (time.time() - opt_start) * 1000
-        if profile_report:
-            self._phase_timer.stop_phase()
-            self._memory_tracker.snapshot('优化')
+        self._phase_timer.stop_phase()
+        self._memory_tracker.snapshot('优化')
 
         # ====== 阶段5: 代码生成 ======
-        if profile_report:
-            self._phase_timer.start_phase('代码生成')
+        self._phase_timer.start_phase('代码生成')
         codegen_start = time.time()
         generator = PythonCodeGenerator()
         py_code = generator.generate(module)
         codegen_time = (time.time() - codegen_start) * 1000
-        if profile_report:
-            self._phase_timer.stop_phase()
-            self._memory_tracker.snapshot('代码生成')
+        self._phase_timer.stop_phase()
+        self._memory_tracker.snapshot('代码生成')
 
         compile_time = lex_time + parse_time + adapt_time + opt_time + codegen_time
 
@@ -240,17 +231,16 @@ class LightProfiler:
             'code_lines': py_code.count('\n') + 1,
         }
 
-        # 阶段分解（仅 profile_report 模式）
-        if profile_report:
-            phase_data = self._phase_timer.get_breakdown()
-            stats['phase_breakdown'] = phase_data
-            stats['phase_times_ms'] = {
-                'lexer': round(lex_time, 3),
-                'parser': round(parse_time, 3),
-                'adapter': round(adapt_time, 3),
-                'optimizer': round(opt_time, 3),
-                'codegen': round(codegen_time, 3),
-            }
+        # 阶段分解（R136: 总是填充，供 format_profile_output 默认显示）
+        phase_data = self._phase_timer.get_breakdown()
+        stats['phase_breakdown'] = phase_data
+        stats['phase_times_ms'] = {
+            'lexer': round(lex_time, 3),
+            'parser': round(parse_time, 3),
+            'adapter': round(adapt_time, 3),
+            'optimizer': round(opt_time, 3),
+            'codegen': round(codegen_time, 3),
+        }
 
         # 执行时间分析
         exec_start = time.time()
@@ -449,14 +439,14 @@ def format_profile_output(stats: dict, report: bool = False, cprofile: bool = Fa
     print(f"    编译耗时: {stats.get('compile_time_ms', 0)} ms")
     print()
 
-    # 阶段分解（profile_report 模式）
-    if profile_report and 'phase_breakdown' in stats:
+    # 阶段分解（R136: 默认显示，不再门控）
+    if 'phase_breakdown' in stats:
         print("  [编译阶段分解]")
         breakdown = stats['phase_breakdown']['breakdown']
         for phase_name in stats['phase_breakdown']['phase_order']:
             if phase_name in breakdown:
                 pd = breakdown[phase_name]
-                bar = '█' * int(pd['percentage'] / 5) + '░' * (20 - int(pd['percentage'] / 5))
+                bar = '█' * max(0, int(pd['percentage'] / 5)) + '░' * max(0, 20 - int(pd['percentage'] / 5))
                 print(f"    {phase_name:8s} {pd['time_ms']:8.2f} ms {bar} {pd['percentage']:.1f}%")
         print(f"    {'合计':8s} {stats['phase_breakdown']['total_ms']:8.2f} ms")
         print()
