@@ -1,10 +1,10 @@
 {
   "version": 1,
   "note": "功能对标清单基线（第七轮 E7 建）。done 条数只升不降；基线里已是 done 的编号不许退回；条目编号不许消失。口径见 tools/ci/spec_coverage.py docstring。勾掉一条之后重新生成本文件，并在交付报告第 7 项写明「哪几条从什么变成什么」。",
-  "built_from_commit": "e99c63fd4cc8",
+  "built_from_commit": "a366532a953c",
   "list_path": "任务书/功能对标清单_harness.json",
   "total": 20,
-  "done_count": 12,
+  "done_count": 13,
   "done_ids": [
     1,
     3,
@@ -17,6 +17,7 @@
     13,
     14,
     15,
+    16,
     18
   ],
   "ids": [
@@ -42,8 +43,8 @@
     20
   ],
   "distribution": {
-    "done": 12,
-    "partial": 7,
+    "done": 13,
+    "partial": 6,
     "none": 1
   }
 }

@@ -220,7 +220,9 @@ def _源码片段(path, name, 长度=4000):
         if line.lstrip().startswith(f'def {name}('):
             start = idx
             break
-    assert start is not None, f'找不到 {name}'
+    if start is None:
+        raise ValueError(
+            f'源码片段在 {path} 中找不到函数 {name}(：请核对缩进或函数名')
     base_indent = len(lines[start]) - len(lines[start].lstrip())
     out = [lines[start]]
     for line in lines[start + 1:]:

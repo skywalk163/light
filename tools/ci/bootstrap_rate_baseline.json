@@ -4,7 +4,7 @@
   "file_dim_rate": 0.7560975609756098,
   "stdlib_light_total": 123,
   "stdlib_light_has_impl": 93,
-  "shadow_count": 76,
+  "shadow_count": 70,
   "critical_path_total": 24,
   "critical_path_has_impl": 24,
   "critical_path_rate": 1.0,
@@ -34,5 +34,5 @@
     "HTTP服务端",
     "调度核心"
   ],
-  "built_from_commit": "3ab1c7a37c90"
+  "built_from_commit": "a366532a953c"
 }
