@@ -1,13 +1,13 @@
 # 光明（LightLang）编程语言
 
-[![CI 门禁(0.82 权威)](https://img.shields.io/badge/CI%20门禁-7912%20passed%2F0%20failed-success)](docs/known-issues/)
+[![CI 门禁(本地生成)](docs/ci_badge.svg)](docs/ci_badge.json)
 [![版本](https://img.shields.io/badge/v0.4.0-五层语法架构-blue)](#v40-五层语法架构)
 [![L1 课程](https://img.shields.io/badge/L1-白话体·青少年入门-green)](#v40-课程体系)
 [![L2 工程](https://img.shields.io/badge/L2-文言体·商用工程-orange)](#v40-课程体系)
 [![L3 领域](https://img.shields.io/badge/L3-SQL·正则·数学-8A2BE2)](#e阶段l3-原生语法--l4-沙箱隔离已完成)
 [![L4 引用](https://img.shields.io/badge/L4-Python%2FC%2FGo%2FMoonBit-4682B4)](#e阶段l3-原生语法--l4-沙箱隔离已完成)
 
-> **CI 说明**：上方「CI 门禁」徽章为 **0.82 门禁机权威结果快照**（最新实测 7912 passed / 0 failed，新增红 0）。实时 CI 跑在自托管 Gitea（`192.168.1.5`，`.gitea/workflows/ci.yml`）；GitHub Actions 的 `.github/workflows/ci.yml` 为对齐镜像，尚未启用，请勿据此判断实时状态。
+> **CI 说明**：上方「CI 门禁」徽章为**本地生成的动态徽章**（`docs/ci_badge.svg`，由 `tools/ci/gen_badge.py` 真跑测试后产出，读数见 [docs/ci_badge.json](docs/ci_badge.json)）。历史权威快照为 0.82 门禁机的 7912 passed / 0 failed（新增红 0），已知问题台账见 [docs/known-issues/](docs/known-issues/)。实时 CI 跑在自托管 Gitea（`192.168.1.5`，`.gitea/workflows/ci.yml`）；GitHub Actions 的 `.github/workflows/ci.yml` 为对齐镜像，尚未启用，请勿据此判断实时状态。
 
 **光明**是一门基于中文的编程语言，采用中文关键字与**分层语法架构**（L0–L7），借鉴中文"3000 常用字覆盖各学科"的思路：**30 个 L0 核心字**做稳定内核，L1（白话体）让青少年快速入门，L2（文言体）支撑商用大项目，L3 内嵌 SQL/正则/数学 DSL，L4 引用 Python/C/Go/MoonBit 等现有生态，L5 异常处理与模块系统，L6 无空格分词与纯缩进语法，L7 类型注解系统。
 

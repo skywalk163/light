@@ -57,6 +57,10 @@ tests/debug_*.py
 # 被忽略的文件 —— 第九轮 G9 新建三张清单时实测撞上：门禁脚本进了仓、清单没进，
 # CI 上门禁读不到清单直接 rc=2 长红。
 !任务书/*.json
+# R137 A 线交付物：git 即 registry 的「模板仓库」清单（registry.json），是端到端测试
+# tests/unit/test_R137_install_publish.py::test_10 的判据数据（安装器必须能读它），不是
+# 数据产物；被上面 *.json 吃掉会导致 CI 上该测试读不到文件直接红。
+!contrib/registry_git_tmpl/registry.json
 
 
 

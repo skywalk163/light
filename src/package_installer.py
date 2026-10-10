@@ -322,6 +322,26 @@ BUILTIN_REGISTRY = {
 }
 
 
+def _force_rmtree(path: Path) -> None:
+    """删除目录树，容忍 Windows 只读文件。
+
+    git 对象文件（.git/objects/...）权限是 444，Windows 上 os.unlink 直接
+    PermissionError —— 覆盖安装 / 重复发布时 rmtree 会炸在第一个只读文件上。
+    这里对只读项先 chmod 再重试（POSIX 上 onerror 不会被触发，等价原行为）。
+    """
+    def _onerror(func, target, _exc):
+        try:
+            os.chmod(target, 0o700)
+        except Exception:
+            pass
+        try:
+            func(target)
+        except Exception:
+            pass
+
+    shutil.rmtree(path, onerror=_onerror)
+
+
 # ===========================================================================
 # 数据模型
 # ===========================================================================
@@ -958,6 +978,20 @@ class PackageInstaller:
         """加载段件注册表"""
         registry = dict(BUILTIN_REGISTRY)
 
+        # 本地发布索引（light publish 的落盘处）。
+        # R137 实测：publish() 结尾打印「(本地索引会自动加载)」，但 _load_registry
+        # 只读 <cache>/registry.json，从不读 local_registry/index.json —— 那句话是
+        # 空头支票，publish → install 闭环是断开的。这里把本地发布索引并入注册表；
+        # 放在远端之前，保证显式 --registry-url 的远端条目优先（可预测）。
+        local_index = self._cache_dir / 'local_registry' / 'index.json'
+        if local_index.exists():
+            try:
+                idx = json.loads(local_index.read_text(encoding='utf-8'))
+                if isinstance(idx, dict) and 'packages' in idx:
+                    registry['packages'].update(idx['packages'])
+            except Exception:
+                pass
+
         # 尝试从远程加载注册表
         if self.registry_url:
             try:
@@ -1228,6 +1262,12 @@ class PackageInstaller:
             mirrors = [info['git']]
 
         if not mirrors:
+            # 兼容「本地发布索引」条目：publish 只写了 path，没有 mirrors/git。
+            # 此前这类条目 install 一律报「没有配置下载源」，本地发布出来的包装不回来。
+            local_path = info.get('path', '')
+            if local_path and Path(local_path).exists():
+                print(f"  来源: 本地索引 {local_path}")
+                return self.install_from_path(local_path, package_name)
             print(f"错误: 段件 '{package_name}' 没有配置下载源")
             return False
 
@@ -1262,22 +1302,34 @@ class PackageInstaller:
 
         return self._install_from_git(package_name, git_url)
 
-    def install_from_path(self, local_path: str) -> bool:
-        """从本地路径安装段件"""
+    def install_from_path(self, local_path: str, package_name: Optional[str] = None) -> bool:
+        """从本地路径安装段件
+
+        Args:
+            local_path: 本地段件目录
+            package_name: 安装后的段件名（默认取目录名）
+        """
         src_path = Path(local_path).resolve()
         if not src_path.exists():
             print(f"错误: 路径不存在: {local_path}")
             return False
 
-        package_name = src_path.name
+        package_name = package_name or src_path.name
         print(f"正在从本地安装: {package_name}")
         print(f"  路径: {src_path}")
 
         dest_dir = self._packages_dir / package_name
+        # 同源保护：本地索引里 publish 出来的条目，path 常常正是安装目标目录
+        # （发布已装好的包）。此时 rmtree(dest) 会先删掉源，copytree 随即失败
+        # ——包被自己删掉。
+        if dest_dir.exists() and dest_dir.resolve() == src_path:
+            print(f"  已安装到: {dest_dir}（源与目标同源，无需复制）")
+            return True
         try:
             if dest_dir.exists():
-                shutil.rmtree(dest_dir)
-            shutil.copytree(str(src_path), str(dest_dir))
+                _force_rmtree(dest_dir)
+            shutil.copytree(str(src_path), str(dest_dir),
+                            ignore=shutil.ignore_patterns('.git'))
             print(f"  已安装到: {dest_dir}")
             self._update_dependencies(package_name, f"path = \"packages/{package_name}\"")
             return True
@@ -1349,7 +1401,9 @@ class PackageInstaller:
                     timeout=60
                 )
                 if result.returncode != 0:
-                    shutil.rmtree(cache_dir, ignore_errors=True)
+                    # 源仓库换了地址时旧缓存 pull 会失败：整个删掉重克隆。
+                    # 不能 ignore_errors —— git 对象只读，删不干净会让 clone 撞上非空目录。
+                    _force_rmtree(cache_dir)
                     return self._clone_repo(git_url, cache_dir, dest_dir, package_name)
             else:
                 return self._clone_repo(git_url, cache_dir, dest_dir, package_name)
@@ -1395,7 +1449,7 @@ class PackageInstaller:
 
             git_dir = dest_dir / '.git'
             if git_dir.exists():
-                shutil.rmtree(git_dir, ignore_errors=True)
+                _force_rmtree(git_dir)
 
             print(f"  已安装到: {dest_dir}")
             self._update_dependencies(package_name, f"path = \"packages/{package_name}\"")
@@ -1732,11 +1786,13 @@ class PackageInstaller:
     # 发布
     # ------------------------------------------------------------------
 
-    def publish(self, package_dir: str) -> bool:
+    def publish(self, package_dir: str, registry_url: Optional[str] = None) -> bool:
         """打包并发布段件到本地索引
 
         Args:
             package_dir: 段件项目目录路径
+            registry_url: 可选的 registry.json 目标（本地路径或 file:// URL）。
+                给出时，除写本地索引外，还会把条目写进该 registry.json。
 
         Returns:
             是否成功
@@ -1799,11 +1855,27 @@ class PackageInstaller:
             encoding='utf-8'
         )
 
-        # 复制包文件到本地注册表
+        # 复制包文件到本地注册表（排除 .git：发布的快照不该带 VCS 元数据，
+        # 且 git 对象文件只读，会让下一次覆盖发布在 Windows 上删不掉）
         local_pkg_dir = local_index_dir / name
         if local_pkg_dir.exists():
-            shutil.rmtree(local_pkg_dir)
-        shutil.copytree(str(src_path), str(local_pkg_dir))
+            _force_rmtree(local_pkg_dir)
+        shutil.copytree(str(src_path), str(local_pkg_dir),
+                        ignore=shutil.ignore_patterns('.git'))
+
+        # 写入 --registry 指定的 registry.json（本地路径 / file:// URL）
+        if registry_url:
+            self._write_registry_entry(registry_url, {
+                'name': name,
+                'version': version,
+                'description': pkg_info.get('description', ''),
+                'author': pkg_info.get('author', ''),
+                'category': pkg_info.get('category', ''),
+                'keywords': pkg_info.get('keywords', []),
+                'dependencies': pkg_info.get('dependencies', []),
+                'git': pkg_info.get('git', ''),
+                'path': str(src_path),
+            })
 
         print(f"✅ 段件 '{name}' v{version} 已发布到本地索引")
         print(f"  本地索引: {local_index_dir}")
@@ -1812,6 +1884,61 @@ class PackageInstaller:
         print(f"  light install {name}")
         print(f"  (本地索引会自动加载)")
         return True
+
+    # ------------------------------------------------------------------
+    # registry.json 写入（--registry）
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _registry_file_path(registry_url: str) -> Optional[Path]:
+        """把 --registry 给的值解析成本地 registry.json 路径。
+
+        只认本地文件系统（裸路径或 file:// URL）；http(s):// 这类远端返回 None ——
+        R137 红线：registry 只做本地 fake 验证，禁止写任何真实远端。
+        """
+        if registry_url.startswith('file://'):
+            from urllib.parse import urlparse, unquote
+            from urllib.request import url2pathname
+            parsed = urlparse(registry_url)
+            path = url2pathname(unquote(parsed.path))
+            # file:///G:/a/b.json 在 Windows 上 path='/G:/a/b.json'，
+            # url2pathname 已去前导 '/'；POSIX 上仍是 '/...'，Path 直接可用。
+            return Path(path)
+        if '://' in registry_url:
+            return None
+        return Path(registry_url)
+
+    def _write_registry_entry(self, registry_url: str, entry: Dict) -> bool:
+        """把条目写进 registry.json（不存在则创建，已存在则覆盖同名条目）"""
+        target = self._registry_file_path(registry_url)
+        if target is None:
+            print(f"提示: 远端 registry（{registry_url}）不支持自动写入，仅更新本地索引")
+            return False
+
+        data: Dict[str, Any] = {'packages': {}}
+        if target.exists():
+            try:
+                loaded = json.loads(target.read_text(encoding='utf-8'))
+                if isinstance(loaded, dict) and isinstance(loaded.get('packages'), dict):
+                    data = loaded
+            except Exception as e:
+                print(f"警告: registry.json 解析失败，将重建: {e}")
+
+        data['packages'][entry['name']] = {
+            k: v for k, v in entry.items() if k != 'name'
+        }
+        data['packages'][entry['name']]['name'] = entry['name']
+        data['updated_at'] = time.strftime('%Y-%m-%d')
+
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
+            print(f"  已写入 registry: {target}")
+            return True
+        except Exception as e:
+            print(f"警告: 写入 registry.json 失败: {e}")
+            return False
 
     def _validate_package(self, package_dir: Path) -> Tuple[bool, List[str]]:
         """验证段件包的完整性"""
@@ -1904,6 +2031,11 @@ class PackageInstaller:
                     'author': pkg.get('author', ''),
                     'keywords': pkg.get('keywords', []),
                     'dependencies': list(deps.keys()) if isinstance(deps, dict) else [],
+                    # R137：发布进 registry.json 的条目必须带下载源，否则装不回来。
+                    # package.toml 里 git / repository / url 任一即可（与
+                    # run_publish_legacy 推导 mirrors 时认的字段保持一致）。
+                    'git': pkg.get('git', '') or pkg.get('repository', '') or pkg.get('url', ''),
+                    'category': pkg.get('category', ''),
                 }
             except Exception as e:
                 print(f"错误: 读取 package.toml 失败: {e}")
@@ -1919,6 +2051,8 @@ class PackageInstaller:
                     'author': data.get('author', ''),
                     'keywords': data.get('keywords', []),
                     'dependencies': data.get('dependencies', []),
+                    'git': data.get('git', '') or data.get('repository', '') or data.get('url', ''),
+                    'category': data.get('category', ''),
                 }
             except Exception as e:
                 print(f"错误: 读取 light.json 失败: {e}")
@@ -1932,6 +2066,8 @@ class PackageInstaller:
             'author': '',
             'keywords': [],
             'dependencies': [],
+            'git': '',
+            'category': '',
         }
 
     # ------------------------------------------------------------------
@@ -1991,8 +2127,10 @@ def run_install(args):
         return
 
     if args.package:
-        installer.install(args.package)
-        return
+        # R137-A：把安装成败透传给调用方。原先这里 `installer.install(...)` 的返回值
+        # 被丢弃、`run_install` 恒返回 None，导致「包不存在 / 克隆失败」打印了错误却
+        # 仍以 RC=0 退出，CI 与脚本无法判定失败。
+        return installer.install(args.package)
 
     if args.registry:
         _cmd_list_registry(installer)
@@ -2072,16 +2210,43 @@ def _cmd_check_updates(installer: PackageInstaller):
 
 
 def run_publish(args):
-    """运行发布命令"""
-    project_root = Path(args.project or '.').resolve()
-    installer = PackageInstaller(project_root=project_root)
+    """运行发布命令
 
-    if args.path:
-        installer.publish(args.path)
-        return
+    支持三种定位方式（优先级从高到低）：
+      --path <目录>      直接给段件目录
+      <包名>             在项目根目录 / packages/ 下按名字找段件目录
+      （都不给）          发布项目根目录自身
+    --registry <URL|路径> 额外把条目写进指定的 registry.json。
+    """
+    project_root = Path(args.project or '.').resolve()
+    # 发布不联网：registry_url 只用于「写」，不走 _load_registry 的远端拉取
+    installer = PackageInstaller(project_root=project_root)
+    registry_url = getattr(args, 'registry', None) or None
+
+    target = getattr(args, 'path', None)
+
+    if not target:
+        pkg_name = getattr(args, 'package', None)
+        if pkg_name:
+            for cand in (project_root / pkg_name,
+                         project_root / 'packages' / pkg_name,
+                         Path(pkg_name)):
+                if cand.is_dir():
+                    target = str(cand)
+                    break
+            if not target:
+                print(f"错误: 未找到段件目录 '{pkg_name}'")
+                print(f"提示: 已查找 {project_root / pkg_name} 与 "
+                      f"{project_root / 'packages' / pkg_name}，或用 --path 显式指定")
+                # R137-A：失败要能被 exit code 观察到，不能是静默失败
+                return False
+
+    if target:
+        # R137-A：把发布成败透传出去（原先丢弃返回值，失败仍 RC=0）
+        return installer.publish(target, registry_url=registry_url)
 
     # 默认发布当前目录
-    installer.publish(str(project_root))
+    return installer.publish(str(project_root), registry_url=registry_url)
 
 
 

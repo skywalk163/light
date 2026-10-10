@@ -242,6 +242,31 @@ def _compile_src(source: str, stdlib_dir: str | None = None) -> str:
     return code
 
 
+def _已安装包目录(base_dir: str):
+    """R137-A：沿 `base_dir` 向上找出 `light install` 的落地目录 `<项目根>/packages/`。
+
+    `src/package_installer.py` 把包装到 `<项目>/packages/<包名>/`，但 CLI 原先只按
+    入口目录平铺查找，导致「安装成功、从项目根却 `No module named`」——这是 T12
+    端到端判据（`从 <包名> 导入 <符号>` 跑通）的真实阻塞。这里只**追加**候选目录，
+    不改变既有解析结果（仅当原路径全部未命中时才参与），因此对既有用例零影响。
+
+    向上最多回溯 6 层：足够覆盖 `<项目根>/packages/` 与 `<项目根>/子目录/` 两种摆放，
+    又不会一路扫到磁盘根。
+    """
+    from pathlib import Path
+    候选 = []
+    cur = Path(base_dir).resolve()
+    for _ in range(6):
+        pkg = cur / 'packages'
+        if pkg.is_dir():
+            候选.append(pkg)
+        parent = cur.parent
+        if parent == cur:
+            break
+        cur = parent
+    return 候选
+
+
 def _resolve_module_path(mod_name: str, base_dir: str):
     """把模块名解析为磁盘上的 .light / .py 文件（L-001 修复核心）。
 
@@ -252,18 +277,31 @@ def _resolve_module_path(mod_name: str, base_dir: str):
 
     原实现只认平铺 `<base_dir>/<mod_name>.light`，导致
     `从 子目录.模块 导入 符号` 永远找不到文件，运行期 `No module named`。
+
+    R137-A 追加：`light install` 的落地布局 `<项目根>/packages/<包名>/<包名>.light`
+    也纳入候选（见 `_已安装包目录`）。既有优先级不变——`base_dir` 仍排第一。
     """
     if not mod_name:
         return None
     from pathlib import Path
     parts = mod_name.split('.')
     base = Path(base_dir)
-    for ext in ('.light', '.py'):
-        cand = base.joinpath(*parts)
-        if cand.suffix != ext:
-            cand = cand.with_suffix(ext)
-        if cand.is_file():
-            return cand
+
+    # 候选根目录：入口目录优先，其后依次为各级 packages/ 及其同名包子目录
+    候选根目录 = [base]
+    for pkg_root in _已安装包目录(base_dir):
+        候选根目录.append(pkg_root)
+        pkg_sub = pkg_root / parts[0]
+        if pkg_sub.is_dir():
+            候选根目录.append(pkg_sub)
+
+    for cand_base in 候选根目录:
+        for ext in ('.light', '.py'):
+            cand = cand_base.joinpath(*parts)
+            if cand.suffix != ext:
+                cand = cand.with_suffix(ext)
+            if cand.is_file():
+                return cand
     return None
 
 
@@ -1299,8 +1337,13 @@ def cmd_pkg_list(args):
 
 
 def cmd_pkg(args):
-    """包管理子命令（统一入口：init/build/run/native/search/info/list/update/publish）"""
+    """包管理子命令（统一入口：init/build/run/native/search/info/list/update/publish/blocks）"""
     pkg_command = getattr(args, 'pkg_command', None)
+
+    # 积木库对接子命令（R137 B 线）
+    if pkg_command == 'blocks':
+        cmd_pkg_blocks(args)
+        return
 
     # 搜索/信息/列表命令直接处理
     if pkg_command == 'search':
@@ -1450,25 +1493,126 @@ def cmd_profile(args):
 def cmd_install(args):
     """安装光明包"""
     run_install = _导入能力('package_installer', 'install', 'run_install')
-    run_install(args)
+    _ok = run_install(args)
+    # R137-A：安装失败必须以非零退出码体现（原先 RC 恒为 0，失败会被 CI 判成通过）
+    if _ok is False:
+        sys.exit(1)
 
 
 def cmd_publish(args):
     """发布光明包"""
     run_publish = _导入能力('package_installer', 'publish', 'run_publish')
-    run_publish(args)
+    _ok = run_publish(args)
+    if _ok is False:
+        sys.exit(1)
 
 
 def cmd_pkg_update(args):
     """更新光明包"""
     run_update = _导入能力('package_installer', 'pkg update', 'run_update')
-    run_update(args)
+    _ok = run_update(args)
+    if _ok is False:
+        sys.exit(1)
 
 
 def cmd_pkg_publish(args):
     """发布光明包（pkg 子命令）"""
     run_publish = _导入能力('package_installer', 'publish', 'run_publish')
-    run_publish(args)
+    _ok = run_publish(args)
+    if _ok is False:
+        sys.exit(1)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 积木库对接（R137 B 线）与 LSP 语义诊断服务器（R137 C 线）
+# ═══════════════════════════════════════════════════════════════════
+
+def cmd_pkg_blocks(args):
+    """R137 B 线：积木库 ↔ light pkg 打通（list / install / publish）。
+
+    只读积木库（不写回 lighting 仓库），把领域积木装进光明项目供 `从 ... 导入`。
+    """
+    blocks_cmd = getattr(args, 'pkg_blocks_command', None)
+    try:
+        import lighting_bridge as lb
+    except ImportError as e:
+        print("错误: 无法导入 lighting_bridge 适配层: %s" % e, file=sys.stderr)
+        sys.exit(1)
+
+    if not blocks_cmd or blocks_cmd == 'list':
+        try:
+            domains = lb.list_domains(来源=getattr(args, 'sources', None))
+        except Exception as e:
+            print("错误: 读取积木库领域失败: %s" % e, file=sys.stderr)
+            sys.exit(1)
+        print("积木库共 %d 个领域：" % len(domains))
+        for d in domains:
+            print("  - %s" % d)
+        return
+
+    if blocks_cmd == 'install':
+        target = getattr(args, 'target', '.')
+        blocks = getattr(args, 'blocks', None)
+        wanted = [b.strip() for b in blocks.split(',') if b.strip()] if blocks else None
+        try:
+            res = lb.install_from_blocks(
+                领域=getattr(args, 'domain'),
+                目标目录=target,
+                blocks=wanted,
+                包名=getattr(args, 'name', '积木库'),
+                来源=getattr(args, 'source', None),
+                限制=getattr(args, 'limit', None),
+            )
+        except Exception as e:
+            print("错误: 安装领域「%s」失败: %s" % (getattr(args, 'domain'), e), file=sys.stderr)
+            sys.exit(1)
+        print("✅ 已装领域「%s」→ %s" % (res.get('领域'), res.get('包目录')))
+        print("   共 %s 个积木，导入前缀：%s" % (res.get('已装数量'), res.get('导入前缀')))
+        print("   导入示例：%s" % res.get('导入示例'))
+        return
+
+    if blocks_cmd == 'publish':
+        from_dir = getattr(args, 'from_dir', '.')
+        block = getattr(args, 'block', None)
+        try:
+            res = lb.publish_to_blocks(
+                项目路径=from_dir,
+                积木名=block if block else None,
+                目标目录=getattr(args, 'output', None),
+                落地=bool(getattr(args, 'land', False)),
+            )
+        except Exception as e:
+            print("错误: 反向导出积木候选失败: %s" % e, file=sys.stderr)
+            sys.exit(1)
+        print("状态：%s（%s）" % (res.get('状态'), res.get('原因')))
+        print("   输出目录：%s" % res.get('输出目录'))
+        for c in res.get('候选列表', [])[:20]:
+            print("   - %s" % c)
+        if res.get('备注'):
+            print("   备注：%s" % res.get('备注'))
+        return
+
+    print("用法: light pkg blocks <list|install|publish>", file=sys.stderr)
+    sys.exit(2)
+
+
+def cmd_lsp(args):
+    """R137 C 线：启动语义诊断增强型 LSP 服务器。
+
+    诊断服务器是独立新增模块 `lsp/diagnostic_server.py`，不改写既有 `lsp/` 文件。
+    `--diagnostic` 默认 off（对齐 R135 假阳性策略），显式 `semantic` 才开启。
+    """
+    if getattr(args, 'version', False):
+        print("光明 语义诊断增强型 LSP 服务器 v5.1.0 (R137)")
+        return
+    diag = getattr(args, 'diagnostic', 'off')
+    cmd = [sys.executable, "-m", "lsp.diagnostic_server", "--stdio", "--diagnostic", diag]
+    import subprocess
+    try:
+        proc = subprocess.run(cmd, cwd=_PROJECT_DIR)
+        sys.exit(proc.returncode)
+    except KeyboardInterrupt:
+        sys.exit(0)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1856,7 +2000,36 @@ def main():
 
     # ── pkg publish ──
     pkg_publish = pkg_sub.add_parser('publish', help='发布包到本地索引')
+    pkg_publish.add_argument('package', nargs='?', default=None, help='包名（默认: 项目根目录）')
     pkg_publish.add_argument('--path', default=None, help='包项目路径（默认: 当前目录）')
+    pkg_publish.add_argument('--registry', default=None,
+                             help='同时把条目写入指定的 registry.json（本地路径或 file:// URL）')
+
+    # ── pkg blocks（R137 B 线：积木库 ↔ light pkg 打通）──
+    pkg_blocks = pkg_sub.add_parser('blocks', help='积木库对接：从积木库安装/发布光明包')
+    pkg_blocks_sub = pkg_blocks.add_subparsers(dest='pkg_blocks_command', help='积木库子命令')
+
+    pkg_blocks_list = pkg_blocks_sub.add_parser('list', help='列出积木库全部领域')
+    pkg_blocks_list.add_argument('--sources', default=None,
+                                help='领域来源筛选：blocks（全量树）/ 根（根树）/ 留空（两树并集）')
+
+    pkg_blocks_install = pkg_blocks_sub.add_parser('install', help='把一个领域的积木装进当前项目')
+    pkg_blocks_install.add_argument('domain', help='领域名，如 数学')
+    pkg_blocks_install.add_argument('--target', '-t', default='.', help='目标光明项目根目录（默认: 当前目录）')
+    pkg_blocks_install.add_argument('--blocks', '-b', default=None,
+                                    help='只要这几个积木（名称/导出名/模块名任一匹配，逗号分隔）；留空表示全部')
+    pkg_blocks_install.add_argument('--name', default='积木库', help='安装根包名（默认: 积木库）')
+    pkg_blocks_install.add_argument('--source', default=None,
+                                    help='树筛选：blocks / 根；留空由 install_from_blocks 自动选代')
+    pkg_blocks_install.add_argument('--limit', type=int, default=None, help='最多装多少个（调试用）')
+
+    pkg_blocks_publish = pkg_blocks_sub.add_parser('publish', help='把项目里的导出段落反向导出为积木候选')
+    pkg_blocks_publish.add_argument('block', nargs='*', default=None, help='只导出这些积木名；留空表示全部')
+    pkg_blocks_publish.add_argument('--from', dest='from_dir', default='.',
+                                    help='光明项目根目录（默认: 当前目录）')
+    pkg_blocks_publish.add_argument('--output', default=None, help='候选输出目录（默认: <项目>/导出积木）')
+    pkg_blocks_publish.add_argument('--落地', dest='land', action='store_true',
+                                    help='真正落盘（默认 False：只出计划，人工确认后再置 True）')
 
     # ── ai ──
     ai_p = subparsers.add_parser('ai', help='AI Copilot 辅助工具（算力不足场景下的光明代码生成）')
@@ -1947,7 +2120,10 @@ def main():
 
     # ── publish ──
     publish_p = subparsers.add_parser('publish', help='发布包到本地索引')
+    publish_p.add_argument('package', nargs='?', default=None, help='包名（默认: 项目根目录）')
     publish_p.add_argument('--path', default=None, help='包项目路径（默认: 当前目录）')
+    publish_p.add_argument('--registry', default=None,
+                           help='同时把条目写入指定的 registry.json（本地路径或 file:// URL）')
     publish_p.add_argument('-p', '--project', default='.', help='项目目录')
 
     # ── repl ──
@@ -1963,6 +2139,13 @@ def main():
     py2light_p = subparsers.add_parser('py2light', help='将 Python 代码转译为光明代码')
     py2light_p.add_argument('file', nargs='?', help='Python 源文件路径（默认从 stdin 读取）')
     py2light_p.add_argument('--stats', action='store_true', help='显示 Python 特性统计信息')
+
+    # ── lsp（R137 C 线：语义诊断增强型语言服务器）──
+    lsp_p = subparsers.add_parser('lsp', help='启动光明语言服务器（LSP），支持语义诊断')
+    lsp_p.add_argument('--stdio', action='store_true', help='通过 stdio 通信（默认即此模式，供编辑器接入）')
+    lsp_p.add_argument('--diagnostic', choices=['off', 'semantic'], default='off',
+                       help='语义诊断开关：off（默认，关闭）/ semantic（开启未定义符号等语义诊断）')
+    lsp_p.add_argument('--version', action='store_true', help='显示版本信息')
 
     # ── feedback ──
     setup_feedback_subparser(subparsers)
@@ -2040,6 +2223,9 @@ def main():
     elif args.command == 'feedback':
         exit_code = run_feedback_cli(args)
         sys.exit(exit_code)
+
+    elif args.command == 'lsp':
+        cmd_lsp(args)
 
     elif args.command == 'harness':
         cmd_harness(args)

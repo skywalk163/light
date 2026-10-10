@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="296.4" height="20" role="img" aria-label="tests 4916 passed / failed 0 / coverage n/a">
+  <title>tests 4916 passed / failed 0 / coverage n/a</title>
+  <linearGradient id="s" x2="0" y2="100%">
+    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+    <stop offset="1" stop-color="#000" stop-opacity=".1"/>
+  </linearGradient>
+  <clipPath id="r"><rect width="296.4" height="20" rx="3" fill="#fff"/></clipPath>
+  <g clip-path="url(#r)">
+    <rect x="0" width="45" height="20" fill="#555"/><rect x="45" width="84.6" height="20" fill="#4c1"/>
+    <rect x="129.6" width="51.6" height="20" fill="#555"/><rect x="181.2" width="18.6" height="20" fill="#4c1"/>
+    <rect x="199.8" width="64.8" height="20" fill="#555"/><rect x="264.6" width="31.8" height="20" fill="#9f9f9f"/>
+    <rect width="296.4" height="20" fill="url(#s)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,DejaVu Sans,Geneva,sans-serif" font-size="11">
+    <text x="22.5" y="14" textLength="33" lengthAdjust="spacingAndGlyphs">tests</text><text x="87.3" y="14" textLength="72.6" lengthAdjust="spacingAndGlyphs">4916 passed</text>
+    <text x="155.4" y="14" textLength="39.6" lengthAdjust="spacingAndGlyphs">failed</text><text x="190.5" y="14" textLength="6.6" lengthAdjust="spacingAndGlyphs">0</text>
+    <text x="232.2" y="14" textLength="52.8" lengthAdjust="spacingAndGlyphs">coverage</text><text x="280.5" y="14" textLength="19.8" lengthAdjust="spacingAndGlyphs">n/a</text>
+  </g>
+</svg>

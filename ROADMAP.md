@@ -21,14 +21,16 @@
 - 生态地图 + `AWESOME-光明.md` + RFC 提案流程；
 - 版本一致性校验脚本（`scripts/check_version_consistency.py`）。
 
-### ✅ R97（工具兑现）
+### ✅ R97（工具兑现 · 已闭环）
 - ✅ **T9 修复 R96-KI-01**：`src/formatter` 收敛为空白安全子集（R97 完成，R136 E 线复核：R96-KI-01 复现用例 3 次 RC=0，`test_formatter_safety.py` 6 passed）；
 - ✅ **T10/T11** `light doc` / `light profile` 对真实工程可用（R136 D 线：lightharness 5 工程体端到端 RC=0，分阶段耗时 + 内存峰值输出）；
   - ⚠️ **R136 E 线登记**：D 线实现落在 `src/doc_generator.py` / `src/profiler.py`（HEAD 中本已存在，非 stub），未按任务书 §6.4「新建独立顶层文件」执行，见 `_R136_收口报告.md` §D 线红线登记；
-- T12 `light install/publish` + 共享 registry（Go-Modules 式 "git 即 registry"）；
-- T13 积木库 ↔ `light pkg` 打通；
-- T14 LSP / 诊断服务（编辑器从"高亮"升级到"报错+跳转"）；
-- T15 CI badge + 覆盖率对外可见。
+- ✅ **T12** `light install/publish` + 共享 registry（R137 A 线：本地 git 模拟 registry 下 install/publish 全链路 RC=0，`contrib/registry_git_tmpl/registry.json` 为模板；默认远端地址列为用户决策项，下轮接真）；
+- ✅ **T13** 积木库 ↔ `light pkg` 打通（R137 B 线：`light pkg blocks list/install/publish` 落地，48 个领域可被安装进光明项目并 `light run` 跑通；发布方向降级为「反向导出候选」，见 `lighting_bridge.py` docstring）；
+- ✅ **T14** LSP 诊断服务（R137 C 线：新增 `src/lsp_diagnostic.py` + `lsp/diagnostic_extension.py` + `lsp/diagnostic_server.py`，`--diagnostic` 默认 off，显式 `semantic` 开启；didOpen/didChange 叠加未定义符号等语义诊断，0-based range 正确）；
+- ✅ **T15** CI badge 动态生成（R137 D 线：`tools/ci/gen_badge.py` 真跑测试生成 `docs/ci_badge.svg` + `docs/ci_badge.json`，README 徽章改指本地 SVG，不联网）。
+
+> **R97「工具兑现」已于 R137 对外声明闭环**（T9–T15 全部完成）。
 
 ### 🚀 R98（发行与增长）
 - 官网门户（对标 go.dev 三栏）；

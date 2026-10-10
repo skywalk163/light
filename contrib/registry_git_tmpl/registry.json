@@ -1,0 +1,56 @@
+{
+  "_说明": [
+    "light 安装器 registry.json 模板（R137）。",
+    "用法：把本文件放到一个 Git 仓库里当作「段件库」，然后",
+    "  light install <包名> --registry-url file:///绝对路径/registry.json",
+    "  light publish <包名> --registry <本文件路径或 file:// URL>",
+    "字段约定（package_installer.PackageInstaller 实际读取的）：",
+    "  mirrors : 镜像地址数组；只有一个元素时直接用该地址安装。",
+    "  git     : mirrors 缺失时的兼容回退源（旧字段，仍被读取）。",
+    "  path    : 本地目录；publish 写入的条目会带它，install 可直接从本地路径安装。",
+    "install 解析顺序：mirrors → git → path（都没有才报「没有配置下载源」）。",
+    "非 gitcode/github/gitee 的地址一律走 git clone；本地路径亦可（本仓库 R137 端到端验证即用本地路径）。"
+  ],
+  "packages": {
+    "模板引擎": {
+      "name": "模板引擎",
+      "version": "1.0.0",
+      "description": "文本模板引擎：变量替换、循环、条件渲染",
+      "author": "光明团队",
+      "category": "开发工具",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-template.git",
+        "https://github.com/light-lang/light-template.git",
+        "https://gitee.com/light-lang/light-template.git"
+      ],
+      "keywords": ["模板", "渲染", "HTML"]
+    },
+    "HTTP客户端": {
+      "name": "HTTP客户端",
+      "version": "1.0.0",
+      "description": "HTTP 客户端库：GET/POST 请求、JSON 解析、Cookie 与重定向",
+      "author": "光明团队",
+      "category": "网络通信",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-http.git",
+        "https://github.com/light-lang/light-http.git",
+        "https://gitee.com/light-lang/light-http.git"
+      ],
+      "keywords": ["网络", "HTTP", "API"]
+    },
+    "JSON工具": {
+      "name": "JSON工具",
+      "version": "1.0.0",
+      "description": "JSON 编解码与路径取值工具：解析、序列化、格式化、流式读写",
+      "author": "光明团队",
+      "category": "数据交换",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-json.git",
+        "https://github.com/light-lang/light-json.git",
+        "https://gitee.com/light-lang/light-json.git"
+      ],
+      "keywords": ["JSON", "序列化", "解析"]
+    }
+  },
+  "updated_at": "2026-10-10"
+}

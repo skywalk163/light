@@ -1519,6 +1519,100 @@ v = 字典获取(d, "缺失键", 默认值)
 
 ---
 
+## 十二-B、LSP 语言服务与语义诊断（编辑器报错/波浪线）
+
+光明自带 LSP（Language Server Protocol）服务，位于 `lsp/` 目录。R137 起在「补全 + 悬停」之上补齐了**语义级诊断**（未定义符号）。
+
+### 12B.1 能力现状
+
+| 能力 | 状态 | 实现位置 |
+|------|:----:|----------|
+| 初始化握手 / 会话管理 | ✅ | `lsp/light_lsp.py` |
+| 中文关键字补全 | ✅ | `lsp/light_lsp.py` |
+| 悬停文档提示 | ✅ | `lsp/light_lsp_server.py` |
+| `publishDiagnostics` 推送通道 | ✅ | `lsp/light_lsp_server.py`（`didOpen`/`didChange` 均已接线） |
+| **语义诊断（未定义符号）** | ✅ 新增 | `src/lsp_diagnostic.py` + `lsp/diagnostic_extension.py` |
+| 跳转到定义（definition） | ❌ 未实现 | —— |
+
+> 说明：`lsp/light_lsp_server.py` 里原先的 `获取诊断()` 只是**占位实现**（逐字符扫描可疑字符 `?`），不具备语义能力。真正的语义诊断走本轮新增的适配层。
+
+### 12B.2 两个入口
+
+**Python 侧直接调用**：
+
+```python
+from lsp_diagnostic import run_semantic_diagnostic, to_lsp_diagnostics
+
+源码 = "段落 主程序():\n    甲 = 1\n    打印(乙)\n"
+诊断列表 = run_semantic_diagnostic(源码, "demo.light")
+# [{'行': 3, '列': 8, '消息': "未定义的符号 '乙'",
+#   '严重度': '错误', '来源': '语义分析', '文件': 'demo.light'}]
+
+print(to_lsp_diagnostics(诊断列表))
+# [{'range': {'start': {'line': 2, 'character': 7},
+#             'end':   {'line': 2, 'character': 8}},
+#   'severity': 1, 'source': '语义分析', 'message': "未定义的符号 '乙'"}]
+```
+
+**LSP 侧接线**（`didOpen`/`didChange` → `publishDiagnostics`）：
+
+```python
+from lsp.diagnostic_extension import handle_notification, 清空诊断
+
+note = handle_notification("textDocument/didOpen", params, enabled=True)
+# -> {"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics",
+#     "params": {"uri": ..., "diagnostics": [...]}}
+```
+
+本扩展是**新增的独立模块**，不改写 `lsp/` 下任何既有文件；是否接线由上层决定。
+
+### 12B.3 `--diagnostic` 开关语义
+
+`cli/light.py` 提供 `--diagnostic` 开关（**由 R137 主控统一接入**，不在本模块范围内）。
+
+- **默认关闭**。理由与 `cli/lightc.py` 的 `--semantic` 完全一致：v3 语义分析存在假阳性，默认开启会打扰用户。
+- 与 `--semantic` 的关系：`--semantic` 是**编译链**的开关（跑到 stderr 警告），`--diagnostic` 是**编辑器链**的开关（跑到 LSP `publishDiagnostics`）。两者同策略、不同出口。
+- 关闭，`diagnostic_extension` 的所有回调返回 `None`，即不推送诊断。⚠️ 此时客户端**不会自动清掉上一次的波浪线**；上层切换开关时须自行补发 `清空诊断(uri)`（内容为 `diagnostics: []`）。
+
+### 12B.4 行号换算（写调用代码前必读）
+
+| 坐标体系 | 起始值 | 出现位置 |
+|----------|:------:|----------|
+| `SemanticError.line` / 诊断字典的 `行`/`列` | **1-based** | `run_semantic_diagnostic()` 返回值、`cli/lightc.py` 的 `[语义警告] 文件:行` |
+| `Diagnostic.range.start.line` / `.character` | **0-based** | `to_lsp_diagnostics()` 返回值、LSP 协议报文 |
+
+换算**只在 `to_lsp_diagnostics()` 里发生一次**（`line-1`、`character-1`，并 clamp 到 ≥0），调用方请勿重复 `-1`。
+
+> 注意：v3 AST 节点普遍没有 `line` 属性，`SemanticError.line` 恒为 `0`。适配层会退化为「在源码里按标识符出现次序匹配」还原行号（同名第 n 条诊断对应第 n 次出现）。这是启发式，遇到重名密集的代码可能偏移 1~2 行。
+
+### 12B.5 已知限制（假阳性已处理到什么程度）
+
+白名单（`src/lsp_diagnostic.py` 的 `误报名()`）覆盖 6 类已知误报，按实测命中频次排序：
+
+| 规则 | 说明 | 典型样例 |
+|------|------|----------|
+| Python互操作 | `引 Python` 内嵌块引入的名字 + Python builtins/stdlib | `type(值) != str`、`math.pi` |
+| 分支合并赋值 | 在 `如果/否则` 各分支内赋值、分支外使用（分析器不做流敏感分析） | 分支内 `设 结果 为 1`，分支后 `返回 结果` |
+| 运行时注入 | 编译器/stdlib 委托给宿主的命名空间 | `_light_builtin.字典获取(...)` |
+| 字符串字面量/注释 | 名字只出现在字符串或 `#` 注释里 | `载荷["args"]`、`返回 {"candidates": ...}` |
+| 己属性 | `己X` 前缀的实例属性 | `己名字` |
+| 泛型类型参数 | 单大写字母占位名 | `T`、`U`、`K` |
+
+**实测数据**（复现脚本 `_r137_scratch/cline_lsp/fp_rate.py`，2026-10-10）：
+
+- 语料：`../lightharness/src/` 全量 **240** 个 `.light` 文件（非抽样），解析失败 0 个
+- 未过滤诊断总数：**195**
+- 过滤后残留：**0**
+- 残留率（残留/未过滤）：**0.00%**（对照 R135 实测基线 21.1%）
+
+**残留的已知限制**（未解决，登记备查）：
+
+1. **精确度优先于召回率**：白名单以「不打扰」为第一目标，代价是存在漏报（False Negative）——变量名拼写错误若恰好落在白名单类别里（例如笔误成某个 Python builtin 名）会被静默放过。需要严格校验时请走 `lightc --semantic`，那条链路看的是原始未过滤输出。
+2. **行号启发式**：见 12B.4，AST 无位置信息时的顺序匹配在重名密集文件里可能偏移。
+3. **全量重分析、无增量**：`run_semantic_diagnostic()` 每次都对整个文件重新词法+语法+语义分析，没有做增量复用。大文件上频繁 `didChange` 建议上层加 debounce。全 240 个语料文件跑一遍约 21 秒，单文件均摊约 88ms。
+
+---
+
 ## 十三、参考文档（需要深入时查阅）
 
 - **语法完整规范**：`docs/syntax.md`（274 行，覆盖泛型/类/异常/模块系统等高级特性）
