@@ -414,6 +414,30 @@
       "状态": "可编译",
       "阻断": "可编译"
     },
+    "errno": {
+      "状态": "可编译",
+      "阻断": "",
+      "证据": "python -c \"import sys; sys.path.insert(0, 'src'); from llvm.compiler import compile_light_typed; compile_light_typed('stdlib/errno.light', output_path='<临时目录>/errno')\"。R132-C 复测（Windows，本机）：桶=可编，IR 47007；llvm_stdlib_readiness 基线 c0e26e753 同列可编桶。R128 F 线建：原生腿 errno 同名解析目标，纯内建零依赖。",
+      "备注": "R132-C 补登（此前漏登记触发 native_product 防腐烂红：stdlib 里有、模块表没登记）。"
+    },
+    "os": {
+      "状态": "可编译",
+      "阻断": "",
+      "证据": "python -c \"import sys; sys.path.insert(0, 'src'); from llvm.compiler import compile_light_typed; compile_light_typed('stdlib/os.light', output_path='<临时目录>/os')\"。R132-C 复测（Windows，本机）：桶=可编，IR 17438；llvm_stdlib_readiness 基线 c0e26e753 同列可编桶。R131-B 建：只转发 环境变量/设置环境变量 内建的最小门面。",
+      "备注": "R132-C 补登（此前漏登记触发 native_product 防腐烂红）。"
+    },
+    "selectors": {
+      "状态": "可编译",
+      "阻断": "",
+      "证据": "python -c \"import sys; sys.path.insert(0, 'src'); from llvm.compiler import compile_light_typed; compile_light_typed('stdlib/selectors.light', output_path='<临时目录>/selectors')\"。R132-C 复测（Windows，本机）：桶=可编，IR 29977；llvm_stdlib_readiness 基线 c0e26e753 同列可编桶。R128 F 线建：转发 poller 系列内建的最小门面。",
+      "备注": "R132-C 补登（此前漏登记触发 native_product 防腐烂红）。"
+    },
+    "socket": {
+      "状态": "可编译",
+      "阻断": "",
+      "证据": "python -c \"import sys; sys.path.insert(0, 'src'); from llvm.compiler import compile_light_typed; compile_light_typed('stdlib/socket.light', output_path='<临时目录>/socket')\"。R132-C 复测（Windows，本机）：桶=可编，IR 38521；llvm_stdlib_readiness 基线 c0e26e753 同列可编桶。R128 F 线建：转发 socket_* 内建的客户端侧最小门面。",
+      "备注": "R132-C 补登（此前漏登记触发 native_product 防腐烂红）。"
+    },
     "sys": {
       "状态": "可编译",
       "阻断": "可编译"

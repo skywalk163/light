@@ -2605,6 +2605,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             # L-077：`.弹栈()` = 栈语义弹出，**返回被弹的值**（与解释器
             # list.pop 对齐）；调用点对接收者做写回。实现：先取末尾/下标元素
             # 作为返回值，再 dv_list_remove 出移除后的新列表并写回接收者。
+            # 注：方法形态 `.弹出(i)` / `.pop(i)` 由 _gen_typed_method_call 的
+            # L-077 分支处理（L-190 修复点），不落到这里。
             if len(args) >= 1:
                 slot0 = self._new_dv_slot()
                 self.emit(f'store {LIGHTVALUE_STRUCT} {args[0]}, ptr {slot0}')
@@ -3983,6 +3985,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return True
         if isinstance(recv, ast.PropertyAccess) and isinstance(recv.obj, ast.Identifier):
             return True
+        # R132-B（L-188）：接收者是索引访问（如 `嵌套[0].追加(9)`）——
+        # dv_list_get 返回深拷贝副本，必须让 mutating 方法走内置分派，
+        # 再由 _persist_to_receiver 沿 lvalue 链写回根变量。
+        if isinstance(recv, ast.IndexAccess):
+            return True
         return False
 
     def _persist_to_receiver(self, prop, value_reg: str) -> None:
@@ -4043,6 +4050,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'call void @dv_class_set_member(ptr {owner_slot}, ptr {member_reg}, ptr {value_slot})')
             updated_owner = self._load_dv(owner_slot)
             self.set_var(set_owner_name, updated_owner)
+            return
+
+        # 情况四（R132-B / L-188）：接收者是索引访问（如 `嵌套[0].追加(9)`）。
+        # 嵌套下标读-改-写回此前丢失：dv_list_get 返回深拷贝副本，副本上的
+        # 修改没人写回宿主。这里复用 _gen_typed_index_assign 沿 lvalue 链把
+        # mutating 方法返回的新容器逐层写回，直到根变量整体重绑定。
+        if isinstance(recv, ast.IndexAccess):
+            self._gen_typed_index_assign(recv, value_reg)
             return
 
         # 其它来源（嵌套属性、函数调用结果等）无法写回，跳过
@@ -4246,15 +4261,26 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 新列表由 builtin 内部无法完成（那里拿不到接收者槽位），因此在这里
         # 单独分派：先求被弹值，再单独生成移除后的新列表并写回。
         # R125-A2：类实例自带 弹栈 方法时让位给类方法（走类方法分支）。
-        if method_name in ('弹栈', 'pop') and not expr.arguments and not 走类方法:
+        # R132-B（L-190）：条件从 `not expr.arguments` 放宽——有参 `.弹出(i)`
+        # 也要走这条通路，否则 _gen_typed_builtin 返回「被弹元素」会被
+        # _gen_statement 写回变量绑定，把列表整个顶成被弹的值。
+        if method_name in ('弹栈', 'pop', '弹出', '列表弹出', 'list_pop') and not 走类方法:
             slot0 = self._store_dv(obj_dv)
             size = self.new_register()
             self.emit(f'{size} = call i64 @dv_len(ptr {slot0})')
             last = self.new_register()
             self.emit(f'{last} = sub i64 {size}, 1')
             val_slot = self._new_dv_slot()
-            self.emit(f'call void @dv_list_get(ptr {val_slot}, ptr {slot0}, i64 {last})')
-            newlist = self._call_dv_func('dv_list_remove', obj_dv, f'i64 {last}')
+            idx_expr = f'{last}' if not expr.arguments else None
+            if expr.arguments:
+                idx_dv, _ = self._gen_expression(expr.arguments[0])
+                idx_i64 = self.new_register()
+                self.emit(f'{idx_i64} = extractvalue {LIGHTVALUE_STRUCT} {idx_dv}, 1')
+                self.emit(f'call void @dv_list_get(ptr {val_slot}, ptr {slot0}, i64 {idx_i64})')
+                newlist = self._call_dv_func('dv_list_remove', obj_dv, f'i64 {idx_i64}')
+            else:
+                self.emit(f'call void @dv_list_get(ptr {val_slot}, ptr {slot0}, i64 {last})')
+                newlist = self._call_dv_func('dv_list_remove', obj_dv, f'i64 {last}')
             if self._recv_is_field(prop):
                 self._persist_to_receiver(prop, newlist)
             elif isinstance(prop.obj, ast.Identifier):
