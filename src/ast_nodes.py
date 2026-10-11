@@ -367,6 +367,7 @@ class MatchPattern(ASTNode):
     elements: List['MatchPattern'] = field(default_factory=list)  # 列表模式元素
     type_name: str = ""                 # 类型检查模式中的类型名
     binding: str = ""                   # 变量绑定名
+    keys: List[str] = field(default_factory=list)  # dict 模式键（Python 字面量文本：'"甲"'/'3'/'True'/'None'）
 
 
 @dataclass(slots=True)

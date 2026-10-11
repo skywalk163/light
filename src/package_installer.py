@@ -1901,8 +1901,14 @@ class PackageInstaller:
             from urllib.request import url2pathname
             parsed = urlparse(registry_url)
             path = url2pathname(unquote(parsed.path))
-            # file:///G:/a/b.json 在 Windows 上 path='/G:/a/b.json'，
-            # url2pathname 已去前导 '/'；POSIX 上仍是 '/...'，Path 直接可用。
+            # file:///G:/a/b.json 在 Windows 上 path='G:\a\b.json'（url2pathname 已
+            # 去前导 '/'）；FreeBSD/POSIX 上 url2pathname 只做 normpath，结果仍是
+            # '/G:/a/b.json' —— 与 `Path('G:/a/b.json')` 断言不一致，这正是 R138-A
+            # 082 门 1 红的根因（`PosixPath('/G:/x/registry.json')`）。这里做平台
+            # 无关归一化：仅当路径呈 Windows 盘符形态 `/X:/...` 时去掉前导 '/'
+            # （POSIX 绝对路径如 `/home/x/registry.json` 不受影响）。
+            if re.match(r'^/[A-Za-z]:[/\\]', path):
+                path = path[1:]
             return Path(path)
         if '://' in registry_url:
             return None

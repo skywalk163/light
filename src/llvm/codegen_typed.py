@@ -568,6 +568,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_chr(ptr, ptr)',
             f'declare void @dv_hex(ptr, ptr)',
             f'declare void @dv_list_get(ptr, ptr, i64)',
+            f'declare void @dv_list_slice(ptr, ptr, i64, i64)',
             f'declare void @dv_list_append(ptr, ptr, ptr)',
             # 元组操作（R10-11a）
             f'declare void @dv_tuple_new(ptr)',
@@ -772,7 +773,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare ptr @dv_base64_decode(ptr, ptr)',
             # 协程/异步
             f'declare ptr @dv_coro_create(ptr, ptr, i32, i32)',
-            f'declare void @dv_coro_await(ptr, ptr)',
+            f'declare i32 @dv_coro_await(ptr, ptr)',
             f'declare void @dv_scheduler_run()',
             f'declare void @dv_coro_run_to_completion(ptr)',
             f'declare ptr @dv_coro_get_result(ptr)',
@@ -2239,14 +2240,37 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                                           self._create_str_dv(self.gen_string_constant(""))), 'dv'
             return self._call_dv_func('dv_list_new'), 'dv'
 
-        # 桶④：异步睡眠(秒) —— 转译腿映射 asyncio.sleep。原生腿没有事件循环，
-        # 落地为 dv_sleep（真睡 N 秒）；`等待 异步睡眠(x)` 的 AwaitExpression
-        # 在非协程内退化为直接求值，故整句可编可执行。语义差异已在能力边界登记。
+        # 桶④：异步睡眠(秒) —— 转译腿映射 asyncio.sleep（让出控制权，非阻塞）。
+        # 原生腿：**协程内**对齐 `睡眠` 的通路——emit 挂起 + `ret void` + resume 标签，
+        # 调 `dv_coro_sleep(毫秒)` 挂到 timer 链表，由事件循环到期恢复（探针
+        # `_r139_scratch/probe_async.py` A1-A4 复现：旧实现调 `dv_sleep` 真睡 N 秒，
+        # 且 `等待 异步睡眠(x)` 会把 int dv 的垃圾 ptr_val 当 future 传给
+        # `dv_coro_await`，协程挂到无效地址永不恢复）。**非协程内**保留 dv_sleep 真睡
+        # （兼容：asyncio.sleep 在同步上下文里也是立即阻塞）。
         if name in ('异步睡眠', '睡眠异步'):
             if args:
                 dbl = self.new_register()
                 self.emit(f'{dbl} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 2')
-                self.emit(f'call void @dv_sleep(double {dbl})')
+                if self._in_coroutine:
+                    ms_d = self.new_register()
+                    self.emit(f'{ms_d} = fmul double {dbl}, 1.000000e+03')
+                    ms_i32 = self.new_register()
+                    self.emit(f'{ms_i32} = fptosi double {ms_d} to i32')
+                    point_num = self._coro_resume_point
+                    self._coro_resume_point += 1
+                    resume_label = self._coro_resume_labels.get(point_num + 1)
+                    rp_ptr = self.new_register()
+                    self.emit(f'{rp_ptr} = getelementptr inbounds i8, ptr %coro, i32 4')
+                    self.emit(f'store i32 {point_num + 1}, ptr {rp_ptr}')
+                    self.emit(f'call void @dv_coro_sleep(ptr %coro, i32 {ms_i32})')
+                    self.emit('ret void')
+                    if resume_label:
+                        self.emit(f'{resume_label}:')
+                    else:
+                        fallback = self.new_label(f'async_sleep_resume_{point_num}')
+                        self.emit(f'{fallback}:')
+                else:
+                    self.emit(f'call void @dv_sleep(double {dbl})')
             return self._create_int_dv('0'), 'dv'
 
         # 创建任务(协程) / create_task(协程)：对齐转译腿 `创建任务` → asyncio.create_task。
@@ -4961,6 +4985,26 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             _walk(stmt)
         return refs
 
+    def _collect_match_pattern_bindings(self, pat):
+        """R139-C：收集匹配模式里捕获的变量名，使其在 entry 块拿到槽位。
+
+        覆盖：variable 绑定、type_check 绑定；list/tuple/dict 递归收集元素；
+        rest 递归收集内层模式。'_' 视为通配，不收集。
+        """
+        if pat is None:
+            return
+        kind = getattr(pat, 'kind', '') or ''
+        if kind in ('variable', 'type_check'):
+            b = getattr(pat, 'binding', '') or ''
+            if b and b != '_':
+                self._local_vars.setdefault(b, None)
+        elif kind in ('list', 'tuple', 'dict'):
+            for e in (getattr(pat, 'elements', None) or []):
+                self._collect_match_pattern_bindings(e)
+        elif kind == 'rest':
+            for e in (getattr(pat, 'elements', None) or []):
+                self._collect_match_pattern_bindings(e)
+
     def _collect_vars_from_stmts(self, stmts):
         """覆盖父类：补充收集 try/catch 中的捕获变量。
 
@@ -4998,8 +5042,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                     if v:
                         self._local_vars.setdefault(str(v), None)
             elif hasattr(ast, 'MatchStatement') and isinstance(stmt, ast.MatchStatement):
-                # R115-A：分支体里的变量同样要在 entry 块拿到槽位。
+                # R115-A：分支体里的变量同样要在 entry 块拿到槽位；
+                # R139-C：模式本身捕获的变量（变量绑定 / 类型检查绑定）也要预收集，
+                # 否则 _gen_typed_match 里的 set_var 落到永不 flush 的 _pending_allocas
+                # 产生未定义值（与解构赋值同一根因）。
                 for case in (getattr(stmt, 'cases', None) or []):
+                    self._collect_match_pattern_bindings(getattr(case, 'pattern', None))
                     self._collect_vars_from_stmts(getattr(case, 'body', None) or [])
             elif hasattr(ast, 'WithStatement') and isinstance(stmt, ast.WithStatement):
                 # R116-A：绑定变量（使用 ctx 为 var：）必须在 entry 块拿到槽位，
@@ -5815,25 +5863,84 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     # R115-A：`匹配 …：情况 …：` 与 `设 [甲, 乙] 为 …`
     # ------------------------------------------------------------------
 
-    # 本轮支持的模式种类。其余（变量绑定 / 守卫 / 序列 / 结构 / 类型检查）
-    # 一律显式拒绝——静默当成「默认分支」是最坏的假绿。
+    # 本轮支持的模式种类：字面量 + 通配 + 变量绑定 + 守卫 + 序列 + 结构 + 类型模式。
+    # 其余（嵌套分组解构等适配层未保留结构信息的形态）仍显式拒绝——静默降级成
+    # 「默认分支」是最坏的假绿。
     _MATCH_LITERAL_KINDS = frozenset({'number', 'string', 'bool', 'null', 'literal'})
 
+    # 光明类型名 → 运行时 isinstance 接受的英文名（对齐转译后端 _TYPE_NAME_MAP）。
+    # 'object'/'任意' 在原生腿无对应标量类型，特殊当成「永远命中」（对齐 Python
+    # `case object():` 匹配一切）。
+    _MATCH_TYPE_NAME_MAP = {
+        '整数': 'int', '整数型': 'int', '整型': 'int',
+        '小数': 'float', '浮数': 'float', '浮点数': 'float', '浮点': 'float',
+        '文本': 'str', '串': 'str', '字符串': 'str',
+        '列表': 'list', '列': 'list', '数组': 'list',
+        '字典': 'dict', '典': 'dict', '词典': 'dict', '映射': 'dict',
+        '集合': 'set', '集': 'set',
+        '布尔': 'bool', '布尔值': 'bool',
+        '空': 'NoneType', '空值': 'NoneType',
+        '任意': 'object', '任意类型': 'object',
+    }
+
+    def _match_type_name(self, name: str):
+        """光明类型名 → 运行时 isinstance 名；未知返回 None（调用方应炸出）。
+
+        'object' 作为合法但「永远命中」的特例，由调用方识别。
+        """
+        return self._MATCH_TYPE_NAME_MAP.get(name)
+
+    def _bind_match_var(self, name, value_slot):
+        """把 value_slot 里的 LightValue 绑定到模式变量 name。
+
+        name 为 '' 或 '_' 时不动（通配/匿名）。底层 set_var 要求 name 已在
+        entry 块预分配（见 _collect_vars_from_stmts 对匹配模式的预收集）。
+        """
+        if not name or name == '_':
+            return
+        dv = self._load_dv(value_slot)
+        self.set_var(name, dv)
+
+    def _gen_match_key_literal(self, key_py: str) -> str:
+        """把字典模式的键（Python 字面量文本）落成 LightValue 槽位。
+
+        key_py 形如 '"甲"' / '3' / 'True' / 'False' / 'None'。返回存该值的槽位指针。
+        """
+        if key_py[:1] in ('"', "'"):
+            inner = key_py[1:-1]
+            ptr = self.gen_string_constant(inner)
+            slot = self._new_dv_slot()
+            self.emit(f'call void @dv_str(ptr {slot}, ptr {ptr})')
+            return slot
+        if key_py == 'True':
+            slot = self._new_dv_slot()
+            self.emit(f'call void @dv_bool(ptr {slot}, i32 1)')
+            return slot
+        if key_py == 'False':
+            slot = self._new_dv_slot()
+            self.emit(f'call void @dv_bool(ptr {slot}, i32 0)')
+            return slot
+        if key_py == 'None':
+            slot = self._new_dv_slot()
+            self.emit(f'call void @dv_null(ptr {slot})')
+            return slot
+        try:
+            if '.' in key_py or 'e' in key_py.lower():
+                fv = float(key_py)
+                return self._store_dv(self._call_dv_func('dv_float', f'double {fv}'))
+            iv = int(key_py)
+            return self._store_dv(self._create_int_dv(str(iv)))
+        except ValueError:
+            ptr = self.gen_string_constant(key_py)
+            slot = self._new_dv_slot()
+            self.emit(f'call void @dv_str(ptr {slot}, ptr {ptr})')
+            return slot
+
     def _gen_typed_match(self, stmt: ast.MatchStatement):
-        """R115-A：`匹配 值：情况 …：… 结束。`（v3 MatchStmt）
+        """R139-C：原生腿补齐变量绑定 / 守卫 / 序列 / 结构 / 类型模式。
 
-        语义对齐（照抄转译后端 `code_generator._generate_match_stmt` 的口径）：
-          * 按 cases 的**源码顺序**逐条比较，命中第一条就执行该分支并跳出；
-          * 全不中且有 `情况 _：`（wildcard）→ 走它；
-          * 全不中且没有 wildcard → no-op（与 Python `match` 一致，不许崩）。
-
-        ⚠️ 范围严格限定在**字面量模式 + 通配**。转译后端直接发 Python `match`，
-        支持变量绑定 / 守卫 / 序列 / 类模式，那依赖 CPython 的模式匹配引擎；
-        原生腿这轮只做等值比较（`dv_eq`），其余模式必须炸出不复用——
-        `情况 [甲, 乙]：` 若被静默当成「不比较直接命中」，用户拿到的是假绿。
-
-        ⚠️ `其它：` **不是**光明的关键字（实测解析失败），默认分支的写法是
-        `情况 _：`。本实现按 wildcard 处理，与转译后端 `_` 分支同义。
+        语义对齐转译后端（发 Python `match/case`）：按 cases 源码顺序逐条比较，
+        命中第一条就执行并跳出；全不中且有 `情况 _：` → 走它；否则 no-op。
         """
         cases = list(getattr(stmt, 'cases', []) or [])
         subject_dv, _ = self._gen_expression(stmt.subject)
@@ -5850,30 +5957,198 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'{test_labs[i]}:')
             pat = getattr(case, 'pattern', None)
             kind = (getattr(pat, 'kind', '') or '') if pat is not None else ''
-            if getattr(case, 'guard', None) is not None:
-                self._reject_unsupported_stmt('MatchStmt(guard/守卫条件)', stmt)
+            next_lab = test_labs[i + 1] if i + 1 < len(cases) else end_lab
+
+            rejected = False
             if kind == 'wildcard' or (kind == 'variable' and getattr(pat, 'binding', '') == '_'):
-                # 无可反驳模式：走到这里必命中，其后的分支在语义上不可达
-                # （仍照常发射，不做静默丢弃）。
+                # 无可反驳模式：必命中（保持原样发射，不做静默丢弃）。
                 self.emit(f'br label %{body_labs[i]}')
-            else:
-                if kind not in self._MATCH_LITERAL_KINDS:
-                    self._reject_unsupported_stmt(
-                        f'MatchStmt(pattern={kind or "未知"})', stmt)
+            elif kind == 'variable':
+                # `情况 甲：` —— 捕获整值，永远命中。
+                self._bind_match_var(pat.binding, subject_slot)
+                self.emit(f'br label %{body_labs[i]}')
+            elif kind in self._MATCH_LITERAL_KINDS:
                 lit_slot = self._store_dv(self._gen_match_pattern_literal(pat))
                 eq = self.new_register()
                 self.emit(f'{eq} = call i32 @dv_eq(ptr {subject_slot}, ptr {lit_slot})')
                 hit = self.new_register()
                 self.emit(f'{hit} = icmp ne i32 {eq}, 0')
-                next_lab = test_labs[i + 1] if i + 1 < len(cases) else end_lab
                 self.emit(f'br i1 {hit}, label %{body_labs[i]}, label %{next_lab}')
+            elif kind in ('type_check', 'list', 'tuple', 'dict'):
+                # 其余支持形态走 CPS 匹配：命中 → body_lab[i]，失配 → next_lab。
+                self._gen_match_pattern_cps(pat, subject_slot, body_labs[i], next_lab)
+            else:
+                self._reject_unsupported_stmt(
+                    f'MatchStmt(pattern={kind or "未知"})', stmt)
+                # 拒绝后不能落到 body（会执行未匹配分支），直接跳到下一支。
+                self.emit(f'br label %{next_lab}')
+                rejected = True
+
+            if rejected:
+                continue
+
+            # ---- 分支体（守卫在此求值）----
             self.emit(f'{body_labs[i]}:')
-            body = list(getattr(case, 'body', []) or [])
-            for s in body:
-                self._gen_statement(s)
-            if not self._ends_with_terminator(body):
-                self.emit(f'br label %{end_lab}')
+            self._gen_match_case_body_with_guard(case, test_labs, i, end_lab)
         self.emit(f'{end_lab}:')
+
+    def _gen_match_case_body_with_guard(self, case, test_labs, i, end_lab):
+        """执行分支体；若有守卫且守卫为假，落到下一支（而非默认分支）。"""
+        guard = getattr(case, 'guard', None)
+        if guard is not None:
+            guard_dv, _ = self._gen_expression(guard)
+            guard_slot = self._store_dv(guard_dv)
+            truthy = self.new_register()
+            self.emit(f'{truthy} = call i32 @dv_to_bool(ptr {guard_slot})')
+            g = self.new_register()
+            self.emit(f'{g} = icmp ne i32 {truthy}, 0')
+            next_lab = test_labs[i + 1] if i + 1 < len(test_labs) else end_lab
+            guard_ok = self.new_label('guard_ok')
+            self.emit(f'br i1 {g}, label %{guard_ok}, label %{next_lab}')
+            self.emit(f'{guard_ok}:')
+        body = list(getattr(case, 'body', []) or [])
+        for s in body:
+            self._gen_statement(s)
+        if not self._ends_with_terminator(body):
+            self.emit(f'br label %{end_lab}')
+
+    def _gen_match_pattern_cps(self, pat, subject_slot, hit_lab, fail_lab):
+        """递归匹配单个模式（CPS）：命中 → br hit_lab（已做绑定），失配 → br fail_lab。
+
+        注意：本方法只负责把控制流引向 hit_lab / fail_lab，不发射这两个 label
+        （由调用方在落点处补），从而让嵌套匹配能串联到外层基本块。
+        """
+        kind = getattr(pat, 'kind', '') or ''
+        if kind == 'wildcard':
+            self.emit(f'br label %{hit_lab}')
+        elif kind == 'variable':
+            self._bind_match_var(getattr(pat, 'binding', ''), subject_slot)
+            self.emit(f'br label %{hit_lab}')
+        elif kind in self._MATCH_LITERAL_KINDS:
+            lit_slot = self._store_dv(self._gen_match_pattern_literal(pat))
+            eq = self.new_register()
+            self.emit(f'{eq} = call i32 @dv_eq(ptr {subject_slot}, ptr {lit_slot})')
+            hit = self.new_register()
+            self.emit(f'{hit} = icmp ne i32 {eq}, 0')
+            self.emit(f'br i1 {hit}, label %{hit_lab}, label %{fail_lab}')
+        elif kind == 'type_check':
+            self._gen_match_type_check_cps(pat, subject_slot, hit_lab, fail_lab)
+        elif kind in ('list', 'tuple'):
+            self._gen_match_sequence_cps(pat, kind, subject_slot, hit_lab, fail_lab)
+        elif kind == 'dict':
+            self._gen_match_mapping_cps(pat, subject_slot, hit_lab, fail_lab)
+        elif kind == 'rest':
+            # rest 只在序列内部展开；独立出现按「匹配一切」处理。
+            self.emit(f'br label %{hit_lab}')
+        else:
+            self._reject_unsupported_stmt(
+                f'MatchStmt(pattern={kind or "未知"})', pat)
+
+    def _gen_match_type_check_cps(self, pat, subject_slot, hit_lab, fail_lab):
+        type_name = getattr(pat, 'type_name', '') or ''
+        mapped = self._match_type_name(type_name)
+        if mapped is None:
+            self._reject_unsupported_stmt(
+                f'MatchStmt(type_check={type_name or "未知"})', pat)
+        if mapped == 'object':
+            # 永远命中（对齐 Python `case object():`）。
+            self._bind_match_var(getattr(pat, 'binding', ''), subject_slot)
+            self.emit(f'br label %{hit_lab}')
+            return
+        cls_ptr = self.gen_string_constant(mapped)
+        cls_dv = self._create_str_dv(cls_ptr)
+        cls_slot = self._store_dv(cls_dv)
+        res = self.new_register()
+        self.emit(f'{res} = call i32 @dv_isinstance_value(ptr {subject_slot}, ptr {cls_slot})')
+        hit = self.new_register()
+        self.emit(f'{hit} = icmp ne i32 {res}, 0')
+        pass_lab = self.new_label('tc_pass')
+        self.emit(f'br i1 {hit}, label %{pass_lab}, label %{fail_lab}')
+        self.emit(f'{pass_lab}:')
+        self._bind_match_var(getattr(pat, 'binding', ''), subject_slot)
+        self.emit(f'br label %{hit_lab}')
+
+    def _gen_match_sequence_cps(self, pat, kind, subject_slot, hit_lab, fail_lab):
+        """list / tuple 模式：长度校验 + 逐元素递归；支持 `*余` 余项模式。"""
+        elements = list(getattr(pat, 'elements', []) or [])
+        len_func = 'dv_list_len' if kind == 'list' else 'dv_tuple_len'
+        get_func = 'dv_list_get' if kind == 'list' else 'dv_tuple_get'
+
+        len_reg = self.new_register()
+        self.emit(f'{len_reg} = call i64 @{len_func}(ptr {subject_slot})')
+
+        rest_idx = None
+        for idx, e in enumerate(elements):
+            if getattr(e, 'kind', '') == 'rest':
+                rest_idx = idx
+                break
+        n = len(elements)
+        after_count = (n - rest_idx - 1) if rest_idx is not None else 0
+
+        len_ok = self.new_label('seq_len_ok')
+        if rest_idx is not None:
+            min_len = n - 1
+            ok = self.new_register()
+            self.emit(f'{ok} = icmp sge i64 {len_reg}, {min_len}')
+            self.emit(f'br i1 {ok}, label %{len_ok}, label %{fail_lab}')
+        else:
+            ok = self.new_register()
+            self.emit(f'{ok} = icmp eq i64 {len_reg}, {n}')
+            self.emit(f'br i1 {ok}, label %{len_ok}, label %{fail_lab}')
+        self.emit(f'{len_ok}:')
+
+        for idx, e in enumerate(elements):
+            if getattr(e, 'kind', '') == 'rest':
+                # 余 = 切片 [idx, len - after_count)；rest 模式本身的变量在
+                # 内层 elements[0].binding 上（如 `*余` → elements[0].binding='余'）。
+                end_reg = self.new_register()
+                self.emit(f'{end_reg} = sub i64 {len_reg}, {after_count}')
+                res_slot = self._new_dv_slot()
+                self.emit(f'call void @dv_null(ptr {res_slot})')
+                self.emit(f'call void @dv_list_slice(ptr {res_slot}, ptr {subject_slot}, i64 {idx}, i64 {end_reg})')
+                rest_binding = getattr(e.elements[0], 'binding', '') if getattr(e, 'elements', None) else ''
+                self._bind_match_var(rest_binding, res_slot)
+                continue  # rest 自身不会失配，继续下一元素
+            elem_slot = self._new_dv_slot()
+            self.emit(f'call void @{get_func}(ptr {elem_slot}, ptr {subject_slot}, i64 {idx})')
+            elem_pass = self.new_label('seq_elem')
+            self._gen_match_pattern_cps(e, elem_slot, elem_pass, fail_lab)
+            self.emit(f'{elem_pass}:')
+        self.emit(f'br label %{hit_lab}')
+
+    def _gen_match_mapping_cps(self, pat, subject_slot, hit_lab, fail_lab):
+        """dict 模式：每个键必须存在且对应值子模式命中。"""
+        keys = getattr(pat, 'keys', []) or []
+        elements = list(getattr(pat, 'elements', []) or [])
+        if not keys:
+            # `{}` 匹配任意字典（对齐 Python `case {}:` 匹配任何 dict）；
+            # 仅校验 subject 是 dict 类型。
+            cls_ptr = self.gen_string_constant('dict')
+            cls_dv = self._create_str_dv(cls_ptr)
+            cls_slot = self._store_dv(cls_dv)
+            res = self.new_register()
+            self.emit(f'{res} = call i32 @dv_isinstance_value(ptr {subject_slot}, ptr {cls_slot})')
+            hit = self.new_register()
+            self.emit(f'{hit} = icmp ne i32 {res}, 0')
+            self.emit(f'br i1 {hit}, label %{hit_lab}, label %{fail_lab}')
+            return
+        for key_py, e in zip(keys, elements):
+            key_slot = self._gen_match_key_literal(key_py)
+            has_slot = self._new_dv_slot()
+            self.emit(f'call void @dv_dict_has(ptr {has_slot}, ptr {subject_slot}, ptr {key_slot})')
+            has_bool = self.new_register()
+            self.emit(f'{has_bool} = call i32 @dv_to_bool(ptr {has_slot})')
+            has = self.new_register()
+            self.emit(f'{has} = icmp ne i32 {has_bool}, 0')
+            has_ok = self.new_label('dict_has_ok')
+            self.emit(f'br i1 {has}, label %{has_ok}, label %{fail_lab}')
+            self.emit(f'{has_ok}:')
+            val_slot = self._new_dv_slot()
+            self.emit(f'call void @dv_dict_get(ptr {val_slot}, ptr {subject_slot}, ptr {key_slot})')
+            elem_pass = self.new_label('dict_val')
+            self._gen_match_pattern_cps(e, val_slot, elem_pass, fail_lab)
+            self.emit(f'{elem_pass}:')
+        self.emit(f'br label %{hit_lab}')
 
     def _gen_match_pattern_literal(self, pat) -> str:
         """把字面量模式编成一个供 `dv_eq` 比较的 LightValue。
@@ -7361,6 +7636,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # AwaitExpression 本身是一个 await 点
         if hasattr(ast, 'AwaitExpression') and isinstance(node, ast.AwaitExpression):
             count += 1
+            # R139-A：内联 yield builtin（睡眠/异步睡眠/await_io）自身就是 yield 点，
+            # builtin 分支已 emit 挂起 + ret void + resume 标签；若再递归 count
+            # 它的 FunctionCall 会被双计数（num_await 多算 1 → 多生成一个从未 emit 的
+            # resume 标签 → clang 报 use of undefined value）。
+            if self._is_inline_yield_call(node.expression):
+                return count
             # 还要统计 expression 内部的 await（嵌套 await）
             count += self._count_await_in_node(node.expression)
             return count
@@ -7419,7 +7700,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                     call_name = node.name.name
                 elif isinstance(node.name, str):
                     call_name = node.name
-            if call_name in ('睡眠', 'sleep', 'await_io'):
+            if call_name in ('睡眠', 'sleep', '异步睡眠', '睡眠异步', 'await_io'):
                 count += 1
             for arg in (node.arguments or []):
                 count += self._count_await_in_node(arg)
@@ -7443,7 +7724,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if not self._in_coroutine:
             # 不在协程中，直接求值子表达式
             return self._gen_expression(expr.expression)
-        
+
+        # R139-A：内联 yield builtin（睡眠 / 异步睡眠 / await_io）在协程内已由
+        # builtin 分支自己 emit 挂起 + `ret void` + resume 标签，返回值在其恢复点
+        # 之后构造。这里若再走 `_extract_ptr_from_dv` + `dv_coro_await`，会把 int dv
+        # 的垃圾 ptr_val 当成 future 挂到无效地址（对 `等待 异步睡眠(x)` 复现：
+        # 协程挂到垃圾 future 永不恢复）。故直接透传 builtin 的返回值。
+        if self._is_inline_yield_call(expr.expression):
+            return self._gen_expression(expr.expression)
+
         # 在协程中，生成挂起/恢复代码
         # 第一步：计算子表达式（future/协程）
         future_dv, _ = self._gen_expression(expr.expression)
@@ -7452,6 +7741,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         point_num = self._coro_resume_point
         self._coro_resume_point += 1
         
+        # R139-A：挂起分支标签（1=已挂起时 ret void 走这里）
+        await_suspended_label = self.new_label(f'await_suspended_{point_num}')
+
         # 生成 await 前的标签（用于调试）
         await_label = self.new_label(f'await_{point_num}')
         # 恢复标签已经在 switch 中预生成了
@@ -7471,11 +7763,18 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         future_ptr = self._extract_ptr_from_dv(future_dv)
         
         # 调用 dv_coro_await(coro, future)
-        self.emit(f'call void @dv_coro_await(ptr %coro, ptr {future_ptr})')
+        # R139-A：dv_coro_await 返回 i32 —— 1=已挂起（ret void 等恢复），0=目标已就绪（继续）。
+        # 旧实现无条件 ret void，目标 future->ready 时协程被误标 DONE，后续语句丢失。
+        await_hung = self.new_register()
+        self.emit(f'{await_hung} = call i32 @dv_coro_await(ptr %coro, ptr {future_ptr})')
+        await_done_label = self.new_label(f'await_done_{point_num}')
+        hung_zero = self.new_register()
+        self.emit(f'{hung_zero} = icmp eq i32 {await_hung}, 0')
+        self.emit(f'br i1 {hung_zero}, label %{await_done_label}, label %{await_suspended_label}')
         
-        # 挂起返回
-        self.emit(f'ret void')
-        
+        # 挂起返回（标签必须 emit，否则 br 引用了未定义标签）
+        self.emit(f'{await_suspended_label}:')
+        self.emit(f'ret void')        
         # 恢复点标签（必须定义，switch 引用了它）
         if resume_label:
             self.emit(f'{resume_label}:')
@@ -7484,6 +7783,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             fallback_label = self.new_label(f'resume_fallback_{point_num}')
             self.emit(f'{fallback_label}:')
         
+        # R139-A：事件循环从 resume 标签恢复后，跳转到统一结果读取点（await_done）
+        self.emit(f'br label %{await_done_label}')
+
+        # 目标已就绪、未挂起：dv_coro_await 返回 0，直接跳到这里读结果
+        self.emit(f'{await_done_label}:')
+
         # 从 future 中获取结果
         result_slot = self._new_dv_slot()
         self.emit(f'call void @dv_coro_get_await_result(ptr %coro, ptr {result_slot})')
@@ -7492,6 +7797,24 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         result_val = self._load_dv(result_slot)
         return result_val, 'dv'
     
+    def _is_inline_yield_call(self, node) -> bool:
+        """R139-A：判断表达式是否为「内联 yield builtin 调用」。
+
+        这些 builtin 在协程内由 builtin 分支自己 emit 挂起（store resume_point、
+        call dv_coro_sleep / dv_coro_await_io、`ret void`、resume 标签），并直接返回
+        一个 dv（睡眠类返回 0）。`等待 该调用(x)` 的 AwaitExpression 无需再包一层
+        dv_coro_await，否则会把非 future 的 ptr_val 当可等待对象，挂到垃圾地址。
+        """
+        if not isinstance(node, ast.FunctionCall):
+            return False
+        call_name = None
+        if hasattr(node, 'name'):
+            if hasattr(node.name, 'name'):
+                call_name = node.name.name
+            elif isinstance(node.name, str):
+                call_name = node.name
+        return call_name in ('睡眠', 'sleep', '异步睡眠', '睡眠异步', 'await_io')
+
     def _extract_ptr_from_dv(self, dv_val: str) -> str:
         """从 LightValue 中提取 ptr_val 字段"""
         # 需要先 store 到内存，然后用 GEP 取 ptr_val

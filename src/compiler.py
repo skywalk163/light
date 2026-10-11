@@ -1045,6 +1045,7 @@ class AstAdapter:
             elements=elements,
             type_name=getattr(pattern, 'type_name', ''),
             binding=getattr(pattern, 'binding', ''),
+            keys=getattr(pattern, 'keys', []),
         )
 
     def _convert_match_case(self, node) -> ast.MatchCase:

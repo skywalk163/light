@@ -1773,6 +1773,35 @@ void dv_list_get(LightValue* result, LightValue* list, int64_t index) {
     }
 }
 
+/* R139-C：模式匹配 `*余` 余项模式需要「切片」：把序列 [start, end) 区间拷成新列表。
+   同时服务列表（type=4）与元组（LV_TYPE_TUPLE）的 rest 模式——Python 里 `*余`
+   绑定到的就是一个 list，故产物统一是 type=4 列表（与 Python 语义一致）。 */
+/* 前向声明：dv_list_slice 在 dv_list_append 定义之前使用它（避免隐式声明冲突）。 */
+void dv_list_append(LightValue* result, LightValue* list, LightValue* elem);
+void dv_list_slice(LightValue* result, LightValue* seq, int64_t start, int64_t end) {
+    seq = dv_deref(seq);
+    if ((seq->type != 4 && seq->type != LV_TYPE_TUPLE) || !seq->list_data) {
+        dv_null(result);
+        return;
+    }
+    int64_t n = seq->list_size;
+    if (start < 0) start = 0;
+    if (end > n) end = n;
+    if (start > end) start = end;
+    for (int64_t k = start; k < end; k++) {
+        LightValue* e = seq->list_data[k];
+        if (e) {
+            LightValue ec = {0};
+            dv_clone(&ec, e);
+            dv_list_append(result, result, &ec);
+        } else {
+            LightValue nul = {0};
+            dv_null(&nul);
+            dv_list_append(result, result, &nul);
+        }
+    }
+}
+
 /* 解引用 REF 并把实际值复制到 result（供 codegen 索引前统一 deref，避免
    REF 字符串/列表因 type=8 被索引逻辑误判走错分支——dict 索引取值返回 REF，
    再对其做字符串/列表索引时 type 判断需先解引用） */
@@ -5536,6 +5565,9 @@ static LightScheduler g_scheduler = { NULL, NULL, 0 };
 /* 前置声明 */
 LightFuture* dv_future_create(void);
 void dv_future_complete(LightFuture* f, LightValue* result);
+/* R139-A：`dv_coro_run_to_completion` 定义在本块之前，需驱动它后面定义的事件
+ * 循环 `dv_scheduler_run_event_loop`（B3），故在此前置声明。 */
+void dv_scheduler_run_event_loop(void);
 
 /* 内部：创建协程 */
 LightCoroutine* dv_coro_create(LightCoroFunc func, LightValue* args, int num_args, int num_locals) {
@@ -5653,18 +5685,26 @@ void dv_future_complete(LightFuture* f, LightValue* result) {
 /* 协程挂起自己，等待另一个协程完成
  * 注意：第二个参数是目标协程（LightCoroutine*），不是 LightFuture*
  * 这是为了支持 "await 另一个协程" 的常见模式
+ *
+ * R139-A：返回 i32 —— 1 表示「已挂起」（调用方须 `ret void`，等事件循环恢复）；
+ * 0 表示「目标已就绪、未挂起」（调用方必须继续执行，不能 `ret void`）。
+ * 根因：旧实现无条件返回，codegen 也无条件 `ret void`；当目标 future->ready=1
+ * 时协程实际未挂起，却被 `dv_coro_resume` 按「函数返回但 state 仍是 RUNNING」
+ * 误标为 DV_CORO_DONE，主协程后续语句（`等待 t2` 之后）全部丢失
+ * （探针 `_r139_scratch/probe_async.py` A4 双任务并行复现：r1=甲 打印后
+ * 无声无息退出，r2 与最终输出丢失）。
  */
-void dv_coro_await(LightCoroutine* coro, LightCoroutine* target) {
-    if (!coro || !target) return;
+int dv_coro_await(LightCoroutine* coro, LightCoroutine* target) {
+    if (!coro || !target) return 0;
     
     /* 获取目标协程关联的 future */
     LightFuture* future = target->future;
-    if (!future) return;
+    if (!future) return 0;
     
     if (future->ready) {
         /* 目标已经完成，直接返回（不挂起） */
         coro->waiting_for = future;
-        return;
+        return 0;
     }
     
     /* 如果目标还未运行，确保它会被加入 run_queue */
@@ -5698,6 +5738,8 @@ void dv_coro_await(LightCoroutine* coro, LightCoroutine* target) {
     /* 添加到 future 的等待链表 */
     coro->next = future->waiters;
     future->waiters = coro;
+
+    return 1;
 }
 
 /* 运行调度器（直到没有可运行的协程） */
@@ -5713,7 +5755,16 @@ void dv_scheduler_run() {
     }
 }
 
-/* 启动协程并运行到完成（阻塞式，用于顶层异步调用） */
+/* 启动协程并运行到完成（阻塞式，用于顶层异步调用）。
+ *
+ * R139-A：驱动改用 `dv_scheduler_run_event_loop`（完整事件循环），而非裸
+ * `dv_scheduler_run`（只循环 run_queue）。根因实测：`等待 异步睡眠(0.05)` 在
+ * 协程内让出后，协程挂到 timer 链表（g_timer_head），run_queue 立即变空，
+ * 裸调度循环退出 —— 协程**永不恢复**，`异步 运行` 后的代码与返回值全部丢失
+ * （探针 `_r139_scratch/probe_async.py` A1/A2/A4 复现）。事件循环会处理到期
+ * 定时器（dv_process_timers）与 IO 就绪（poller），与 `运行事件循环` 内置
+ * 同一条腿，顶层 `异步 运行` 由此获得完整的 await 语义。
+ */
 void dv_coro_run_to_completion(LightCoroutine* coro) {
     if (!coro) return;
     
@@ -5747,7 +5798,10 @@ void dv_coro_run_to_completion(LightCoroutine* coro) {
         }
     }
     
-    dv_scheduler_run();
+    /* R139-A：改用完整事件循环（处理 timer/IO 就绪），否则 `等待 异步睡眠` 让出后
+     * 协程挂到 timer 链表而 run_queue 已空，裸 `dv_scheduler_run` 会立即退出，
+     * 协程永不恢复（探针 `_r139_scratch/probe_async.py` A1/A2/A4 复现）。 */
+    dv_scheduler_run_event_loop();
 }
 
 /* 获取协程结果（必须在完成后调用） */
