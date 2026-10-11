@@ -142,7 +142,7 @@
 
 光明侧示例见 [examples/F阶段_标准库增强/](examples/F阶段_标准库增强/)。
 
-### G阶段：CI + Playground 自动化（进行中）
+### G阶段：CI + Playground 自动化（CI 工作流 ✅ · Playground Web API ✅ · 首页文档 🟡 进行中）
 
 - ✅ **CI 工作流**：[.github/workflows/ci.yml](.github/workflows/ci.yml) 支持 `4.0dev` 分支，安装 L3/L4 依赖（numpy/pandas/matplotlib/requests/sklearn），全量 pytest + 8 条 smoke demo
 - ✅ **Playground Web API**：[playground/server.py](playground/server.py) 新增 `/api/demos/list`（20+ demo 列表）、`/api/demos/run?id=xxx`（运行 demo）、`/api/demos/<id>`（单 demo 详情），一键运行 A→G 全阶段示例

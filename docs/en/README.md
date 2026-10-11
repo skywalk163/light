@@ -129,7 +129,7 @@ LightLang-side usage:
 
 LightLang-side examples: [examples/F阶段_标准库增强/](examples/F阶段_标准库增强/).
 
-### G-stage: CI + Playground automation (in progress)
+### G-stage: CI + Playground automation (CI workflow ✅ · Playground Web API ✅ · homepage docs 🟡 in progress)
 
 - ✅ **CI workflow**: [.github/workflows/ci.yml](.github/workflows/ci.yml) supports the `4.0dev` branch, installs L3/L4 dependencies (numpy/pandas/matplotlib/requests/sklearn), full pytest + 8 smoke demos
 - ✅ **Playground Web API**: [playground/server.py](playground/server.py) adds `/api/demos/list` (20+ demo list), `/api/demos/run?id=xxx` (run demo), `/api/demos/<id>` (single demo detail), one-click run of all A→G stage examples

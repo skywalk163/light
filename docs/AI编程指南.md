@@ -896,7 +896,7 @@ with open("f.txt", "r") 为 fh:
 #### B3. 原生腿（--backend native / llvm-typed）的限制
 - **列表/字典作为函数参数跨段变异不生效**：转译腿（默认 SRC）是 Python 引用语义；原生腿是值拷贝。不要写 `段落 压入(栈, 项): 栈.追加(项)` 这种跨段变异；要用类（`己.数据.追加(项)`）。
 - **标准库覆盖率约 18%**：大量模块仍回退到 Python runtime。**开发调试一律用默认 SRC 后端**，跑通后再考虑原生编译分发。
-- 单文件原生编译看不见 stdlib（`ImportStatement` no-op，B9 任务进行中）。
+- 原生腿 `导入` 语句现为真实多模块导入（B9 S1 2.3：「`ImportStatement` 已从 no-op 变为真导入」，整源委托 `compile_light_project`），单文件内引用标准库可见；原生腿能力边界与限制见 `docs/原生腿能力边界.md` §9。
 
 #### B4. 字符串字面量
 - **只支持双引号** `"..."`，单引号 `'...'` 部分版本失败。
@@ -1532,7 +1532,7 @@ v = 字典获取(d, "缺失键", 默认值)
 | 悬停文档提示 | ✅ | `lsp/light_lsp_server.py` |
 | `publishDiagnostics` 推送通道 | ✅ | `lsp/light_lsp_server.py`（`didOpen`/`didChange` 均已接线） |
 | **语义诊断（未定义符号）** | ✅ 新增 | `src/lsp_diagnostic.py` + `lsp/diagnostic_extension.py` |
-| 跳转到定义（definition） | ❌ 未实现 | —— |
+| 跳转到定义（definition） | ✅ 已实现 | `lsp/light_lsp.py`（`_handle_definition` / `definitionProvider`，v5.4 起已支持） |
 
 > 说明：`lsp/light_lsp_server.py` 里原先的 `获取诊断()` 只是**占位实现**（逐字符扫描可疑字符 `?`），不具备语义能力。真正的语义诊断走本轮新增的适配层。
 
