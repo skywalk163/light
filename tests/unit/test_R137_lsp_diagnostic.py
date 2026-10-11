@@ -299,8 +299,11 @@ class Test诊断服务器子类:
 
     def test_开启后合并语义诊断(self):
         sem = self._收集语义诊断(True, 未定义变量源码)
-        assert len(sem) >= 1
-        assert all("range" in d for d in sem)
+        # 内容断言：必须真产出「未定义符号」语义诊断（避免 len>=1 这类假绿断言）
+        消息列表 = [d.get("message") or d.get("消息") or "" for d in sem]
+        assert any("未定义" in m for m in 消息列表), \
+            "开启诊断后必须对未定义符号产生语义诊断，实际诊断: %r" % sem
+        assert all("range" in d for d in sem), "每条语义诊断都应有可跳转的 range"
 
     def test_正确源码不误报(self):
         sem = self._收集语义诊断(True, 正确源码)
