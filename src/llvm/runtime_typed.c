@@ -3795,6 +3795,12 @@ typedef struct {
 static StackEntry __dv_call_stack[MAX_CALL_STACK];
 static int __dv_call_stack_size = 0;
 
+/* 【R138-A 流X / L-187 残余】每个 try 级别的「进入前调用栈深度」快照。
+ * longjmp 会跨过 __dv_call_stack 上的帧（那些帧的 dv_stack_pop 永不执行），
+ * 因此 dv_try_pop 必须把栈深度截断回进入 try 前的值，否则异常对象的
+ * 「栈追踪」字段会带上前序调用的残留帧（栈深度单调累积）。 */
+static int __dv_try_saved_stack_size[MAX_TRY_DEPTH];
+
 void dv_stack_push(const char* func_name, const char* file_name, int line_number) {
     if (__dv_call_stack_size < MAX_CALL_STACK) {
         StackEntry* entry = &__dv_call_stack[__dv_call_stack_size];
@@ -3859,6 +3865,8 @@ void* dv_try_push(void) {
         __dv_try_level--;
         return NULL;
     }
+    /* 【R138-A 流X / L-187 残余】保存进入 try 前的调用栈深度，供 dv_try_pop 截断 */
+    __dv_try_saved_stack_size[__dv_try_level] = __dv_call_stack_size;
     return (void*)__dv_jmp_bufs[__dv_try_level];
 }
 
@@ -3869,6 +3877,11 @@ int dv_setjmp_at_level(int level) {
 
 void dv_try_pop(void) {
     if (__dv_try_level >= 0) {
+        /* 【R138-A 流X / L-187 残余】把调用栈深度截断回进入该 try 前的快照。
+         * longjmp 跨过的帧永不 dv_stack_pop（catch 分发路径也经此处），
+         * 不截断会让 __dv_call_stack_size 残留高位帧，异常对象「栈追踪」串台。 */
+        if (__dv_call_stack_size > __dv_try_saved_stack_size[__dv_try_level])
+            __dv_call_stack_size = __dv_try_saved_stack_size[__dv_try_level];
         __dv_try_level--;
     }
 }
