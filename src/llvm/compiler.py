@@ -1007,6 +1007,10 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
     # T9A：记录 类名 → 所属模块，供下方类方法生成时恢复模块上下文
     class_module_map = {}
     for mod in all_module_list:
+        # R140-A（L-191）：标记本次收集的语句所属模块，`_collect_statement` 会把它
+        # 记进与 `_module_statements` 同下标的 `_module_statement_modules`，供
+        # `_gen_global_init` 按所属模块切换 `_current_module` 解析段名。
+        codegen._collecting_module = mod.name
         for stmt in mod.statements:
             if isinstance(stmt, ast.ImportStatement):
                 continue
@@ -1033,6 +1037,10 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
         for seg in mod.segments:
             # T9A：传入模块名，使段注册表 key 和 fN 编号按模块隔离
             codegen._collect_segment(seg, module_name=mod.name)
+
+    # R140-A（L-191）：收集阶段结束，清掉「当前收集模块」标记（后续生成阶段
+    # 由各处的 `_current_module` 显式管理）。
+    codegen._collecting_module = None
 
     # 生成导入的外部段函数声明（仅声明那些不在本地定义的符号）
     # 由于所有模块都在同一个 codegen 中，大部分导入符号都有本地定义

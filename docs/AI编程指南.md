@@ -1533,8 +1533,22 @@ v = 字典获取(d, "缺失键", 默认值)
 | `publishDiagnostics` 推送通道 | ✅ | `lsp/light_lsp_server.py`（`didOpen`/`didChange` 均已接线） |
 | **语义诊断（未定义符号）** | ✅ 新增 | `src/lsp_diagnostic.py` + `lsp/diagnostic_extension.py` |
 | 跳转到定义（definition） | ✅ 已实现 | `lsp/light_lsp.py`（`_handle_definition` / `definitionProvider`，v5.4 起已支持） |
+| **文档 / 范围格式化** | ✅ R140-B 校正 | `lsp/light_lsp.py`（`_handle_formatting` / `_handle_range_formatting`），缩进栈扫描，幂等 |
+| **重命名（rename）** | ✅ R140-B 校正 | `lsp/light_lsp.py`（`_handle_rename`），代码区掩码 + 合法性/冲突校验 |
+| **语义高亮（semanticTokens）** | ✅ R140-B 校正 | `lsp/light_lsp.py`（`_handle_semantic_tokens_full`），legend 对齐 + 严格 delta 编码 |
+| **文档高亮 / 查找引用** | ✅ R140-B 校正 | `lsp/light_lsp.py`（`_handle_document_highlight` / `_handle_references`），排除字符串与注释 |
 
 > 说明：`lsp/light_lsp_server.py` 里原先的 `获取诊断()` 只是**占位实现**（逐字符扫描可疑字符 `?`），不具备语义能力。真正的语义诊断走本轮新增的适配层。
+
+### 12B.1b R140-B 校正的四项缺陷（原文行为 → 现行为）
+
+| 能力 | 校正前 | 校正后 |
+|------|--------|--------|
+| 格式化 | `否则/否/捕获/最终/情况/结束` 被多缩进一级；类体内方法体整块丢失缩进；`rangeFormatting` 的 range 与 newText 行数不一致，客户端应用后文档损坏 | 按缩进栈逐行定级，块级收尾子句先回退一级；range 改为「整行区间 + 同长度 newText」；`format(format(x)) == format(x)` |
+| 重命名 | 与字符串字面量、注释中的同名词一并替换；把已存在的名字当合法目标；非法标识符照单全收 | 只改代码区完整词；新名按标识符规则校验；与既有名字冲突返回 `error`（code `-32602`） |
+| 语义高亮 | `capabilities.semanticTokensProvider` 字面量重复键被覆盖，通告的 legend 与 handler 产出索引不一致；`_handle_semantic_tokens` 引用不存在的 `TT.COMMENT`，try 恒抛异常→**永远返回空**；delta 首 token 恒为 `(0,0)` | legend 单一声明并与 handler 共用下标表；两个入口统一实现；严格 LSP delta 编码（跨行重置为绝对列） |
+| 文档高亮 / 引用 | 字符串与注释中的同名词被一并高亮/引用 | 代码区掩码过滤；`references` 支持 `context.includeDeclaration`；`documentHighlight` 区分读写（`kind` 2/3） |
+
 
 ### 12B.2 两个入口
 

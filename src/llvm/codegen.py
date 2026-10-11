@@ -25,6 +25,14 @@ class LLVMCodeGen(LLVMCodeGenCore):
         self._segment_order = []
         self._segment_bodies = {}
         self._module_statements = []
+        # R140-A（L-191）：与 `_module_statements` **同下标平行**的模块名列表。
+        # 多模块编译时，各模块的顶层语句被收集进同一个 `_module_statements`，但
+        # 语句本身不携带所属模块；不记这一份，`_gen_global_init` 生成被导入模块的
+        # 顶层语句时会用主模块的作用域解析段名（`节点.light` 顶层 `异步 运行
+        # 主环境()。` 因此在驱动模块里报「未定义的段落：主环境」）。
+        self._module_statement_modules = []
+        # 收集 `_collect_statement` 时当前所属模块（None=单模块/主模块上下文）。
+        self._collecting_module = None
         self._loop_break_labels = []
         self._loop_continue_labels = []
         self._declared_vars = set()
@@ -108,6 +116,8 @@ class LLVMCodeGen(LLVMCodeGenCore):
             # FFI 第四阶段：暂存
             pass
         self._module_statements.append(stmt)
+        # R140-A（L-191）：同步记录该语句所属模块（与 _module_statements 同下标）。
+        self._module_statement_modules.append(getattr(self, '_collecting_module', None))
 
     def _get_var_name(self, expr):
         if isinstance(expr, ast.Identifier):

@@ -602,33 +602,28 @@ Windows 下按 GBK 输出会被当成乱码误判成冒烟不通过；现钉 `PY
 两条路径被不同 CLI 分别拉起，行为面与维护状态不一致，是回归的高危分叉点。
 **处置**：统一到 `src/llvm/`，废弃 `antlrparser/llvm_codegen.py`（代修走 A2/A3）。
 
-### 13.3 `--target wasm` 的实际去向（R139-D 已核实：**确认存在静默回退 .py 支路**）
+### 13.3 `--target wasm` 的实际去向（R140-C 已接通：§13.3 方案 A 落地）
 
-`cli/light_unified.py:1204` 的 `--target` choices 挂牌 `['py','js','wasm','llvm']`，
-仓库也确有 `src/wasm_target.py`（`compile_to_pyodide` / `compile_to_standalone_html` /
-`compile_to_wasm_json`，Pyodide / standalone 两模式）。但 **CLI 主链路从未路由到它**：
+**状态：已接通（R140-C）**。R139-D 曾核实此支路静默回退 `.py`；R140-C 按方案 A 在
+`cli/light_unified.py::compile_with_src` 补 `elif target=='wasm':` 分支，路由到
+`src/wasm_target.py`，并修了 `wasm_target.py` docstring 的过期函数名。
 
-- `cli/light_unified.py::compile_with_src`（约 513–630 行）只有 `if target=='llvm'`
-  一个专属分支；`wasm`/`py`/`js` 全部落入 `else:`，与 `--target py` 走**完全相同**的
-  `light_parser_v3` + `PythonCodeGenerator` 路径，产出普通 **`.py`**，且**无任何警告/提示**。
-- 全 `cli/` 目录零 `import wasm_target`；全项目仅 `src/wasm_target.py` 自身与
-  `tests/test_v4_1_integration.py`（直接 import 函数做单测，不经 CLI）引用它。
-- `src/wasm_target.py` 实质是「光明 → Python(`compile_light_to_python`) → 内嵌 HTML/JSON，
-  由浏览器 Pyodide 执行」，**并不产出原生 `.wasm` 字节码**。
+修复后行为：
+- `light compile x.light --target wasm`（无 `-o`）默认产出 **`.html`**（standalone，内嵌
+  Pyodide），不再产出 `.py`；`-o xxx.json` 时产出 Pyodide JSON 包。
+- stderr 固定打印提示「wasm target 实为经 Pyodide 执行的 Python（非原生 .wasm 字节码）」。
+- `--target py` / `--target js` 仍走原 else 分支产出 `.py`（既有行为，不回归）；
+  `--target llvm` 仍走 LLVM IR 分支。
+- 门禁：`tests/test_R140_C_wasm_cli.py` 7 例全绿（默认 html / 显式 html / json /
+  stderr 提示 / py 对照 / llvm 不回归 / js 不回归）；`tests/test_v4_1_integration.py`
+  wasm_target 直接 import 单测不回归（40 passed, 2 skipped 为既有）。
 
-**结论**：D3-7 原称「`--target wasm` 静默生成 .py」**属实**；本节旧注「当前代码看并非如此
-（已有独立 wasm 实现）」系误判——有独立实现 ≠ 已接通 CLI。这不是"编译失败后回退"，而是
-**wasm 目标在 CLI 层从未接通**，用户传 `--target wasm` 实际得到一个普通 .py。
-附带文档债：`wasm_target.py` docstring 示例写 `compile_to_wasm(source, mode=...)`，
-该函数在文件中**并不存在**（实际函数名为上述三者）。
-
-**修复建议（登记，代修走对应任务，本轮 D 线不改 `src/`）**：
-- 方案 A（接通，推荐）：在 `compile_with_src` 补 `elif target=='wasm':` 分支，路由到
-  `compile_to_standalone_html`（默认出 `.html`）/ `compile_to_pyodide`（出 `.json`），
-  并打印明确提示「wasm target 实为经 Pyodide 执行的 Python」。
-- 方案 B（对齐现实）：若暂不接通，至少在 argparse 帮助标注 `wasm` 为 experimental 或
-  运行时 `print` 一次 warning，避免静默误导。
-- 顺手修 `wasm_target.py` docstring 的过期函数名 `compile_to_wasm`。
+遗留说明（保留备查）：
+- `src/wasm_target.py` 实质仍是「光明 → Python(`compile_light_to_python`) → 内嵌
+  HTML/JSON，由浏览器 Pyodide 执行」，**并不产出原生 `.wasm` 字节码**——这是设计现实，
+  不是缺陷；CLI 提示语已如实告知用户。
+- wasm 产物需在浏览器中加载 Pyodide 才能执行，本机不实跑浏览器，CLI 门禁只验证产物
+  文件结构 + stderr 提示语。
 
 ### 13.4 `stdlib/lightpub/__init__.py:45` 路由到仓库外绝对路径
 

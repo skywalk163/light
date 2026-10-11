@@ -94,6 +94,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._nested_seg_counter = 0  # R130-A：嵌套段唯一编号计数器
         self._current_seg_reg_key = None  # R130-A：当前正在生成 IR 的段 reg_key
         self._current_free_vars = []  # R130-A：当前段要捕获的自由变量有序列表
+        # R140-A（L-182）：当前段落/方法的**形参名集合**。`get_var`/`set_var` 用它让
+        # 形参在作用域链上优先于同名模块级全局（对齐 Python：形参是局部绑定）。
+        # 不放入 `_local_vars` 是因为普通局部变量与全局的既有次序（`全局 X` 声明
+        # 依赖该次序）不改动——只旁路形参这一类。
+        self._current_seg_param_names = set()
         self._current_module = None  # T9A: 当前生成代码所属模块名（None=单模块/主模块上下文）
         # 协程支持（Level 10）
         self._in_coroutine = False  # 当前是否在生成协程函数
@@ -6888,6 +6893,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     def _gen_global_init(self):
         self._current_func = '__init__'
         self._local_vars.clear()
+        # R140-A（L-182）：模块级不是段落上下文，形参名集合清空。
+        self._current_seg_param_names = set()
         # R125-A2：类实例跟踪随函数/段重置，防跨段同名变量误判
         self._instance_classes.clear()
         self._pending_allocas = []
@@ -6966,8 +6973,21 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 _ = self.new_register()
                 self.emit(f'{_} = call i32 @dv_register_method(ptr {name_reg}, ptr {ctor_name_reg}, ptr @{ctor_safe_name})')
 
-        for stmt in self._module_statements:
-            self._gen_global_statement(stmt)
+        # R140-A（L-191）：逐语句切到「该语句所属模块」再生成。多模块编译时
+        # `_module_statements` 混装了先被导入模块、后主模块的顶层语句（T7C 次序），
+        # 若统一用主模块上下文生成，被导入模块顶层语句里的段调用会解析到主模块
+        # 作用域 —— `节点.light` 顶层 `异步 运行 主环境()。` 因此在驱动模块里
+        # 报「未定义的段落：主环境」（编译器符号表却列得出 `主环境`，内部矛盾）。
+        for idx, stmt in enumerate(self._module_statements):
+            prev_mod = self._current_module
+            if idx < len(self._module_statement_modules):
+                stmt_mod = self._module_statement_modules[idx]
+                if stmt_mod is not None:
+                    self._current_module = stmt_mod
+            try:
+                self._gen_global_statement(stmt)
+            finally:
+                self._current_module = prev_mod
 
         self.emit('ret void')
         # 函数体发射完毕，用真实槽位用量回填池大小
@@ -7009,8 +7029,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 函数值 env 打包使用。顶层段无父（reg_key 即顶层 key），嵌套段有父链。
         prev_seg_reg_key = self._current_seg_reg_key
         prev_free_vars = self._current_free_vars
+        prev_param_names = self._current_seg_param_names
         self._current_seg_reg_key = reg_key
         self._current_free_vars = self._segment_free_vars.get(reg_key, []) if reg_key is not None else []
+        # R140-A（L-182）：登记本段形参名（含变参去 `*`/`**` 前缀）。段生成在
+        # `_segment_order` 平铺循环里依次进行、互不嵌套，故直接覆盖、结束还原。
+        self._current_seg_param_names = {
+            self._split_param_name(p[0])[0] for p in (params or []) if p and p[0]}
 
         if is_async:
             self._gen_async_segment(name, params, body, module_name)
@@ -7023,6 +7048,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # R130-A：恢复外层段的上下文（段可能嵌套生成）
         self._current_seg_reg_key = prev_seg_reg_key
         self._current_free_vars = prev_free_vars
+        self._current_seg_param_names = prev_param_names
 
     def _emit_closure_env_unpack(self, free_vars, env_param):
         """R130-A：在段入口生成「从 env 参数解包自由变量」的 IR。
@@ -7963,6 +7989,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         params = getattr(method_def, 'parameters', []) or []
 
+        # R140-A（L-182）：方法形参同样遮蔽同名模块级全局（与段落同口径）。
+        prev_param_names = self._current_seg_param_names
+        self._current_seg_param_names = {
+            (p.name if hasattr(p, 'name') else str(p)) for p in params if p}
+
         self._collect_vars_from_stmts(getattr(method_def, 'body', []) or [])
         
         # 添加己（self/cls）变量（仅实例方法和类方法有）
@@ -8041,6 +8072,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._method_result_ptr = None
         self._current_class = None
         self._current_method_type = None
+        self._current_seg_param_names = prev_param_names
         # 结束函数调试作用域
         self._end_debug_function()
 
@@ -8060,6 +8092,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._dv_ssa_to_slot.clear()
         self._temp_slot_index = 0
         self._local_vars.clear()
+        # R140-A（L-182）：main 顶层不是段落上下文，形参名集合清空。
+        self._current_seg_param_names = set()
         # R125-A2：main 顶层是新作用域，类实例跟踪一并重置
         self._instance_classes.clear()
         self._pending_allocas = []
@@ -8158,6 +8192,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         """获取 LightValue（覆写父类）"""
         if name in self._current_func_params:
             return self._current_func_params[name]
+        # R140-A（L-182）：形参遮蔽同名模块级全局——形参是局部绑定，必须先于全局
+        # 查找命中（对齐 Python 语义）。此前 `_globals` 检查排在 `_local_vars` 之前，
+        # 形参与全局同名时被静默穿透成全局（R128-F 实测：`节点网络.写JSON(路径, 字典)`
+        # 段内 `序列化缩进(字典, 2)` 写出的是全局 `字典`）。只对「当前段/方法的形参」
+        # 走这条旁路，普通局部变量与全局的次序保持不变（`全局 X` 语义不动）。
+        if name in self._current_seg_param_names and name in self._local_vars:
+            slot = self._local_vars[name]
+            reg = self.new_register()
+            self.emit(f'{reg} = load {LIGHTVALUE_STRUCT}, ptr {slot}')
+            self._dv_ssa_to_slot[reg] = slot
+            return reg
         if name in self._globals:
             safe = self._safe_var_name(name)
             reg = self.new_register()
@@ -8179,6 +8224,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
     def set_var(self, name, value_reg):
         """设置变量（覆写父类）"""
+        # R140-A（L-182）：形参写回也走局部槽，与 get_var 的形参优先口径一致
+        # （形参与全局同名时不得把值写进全局）。
+        if name in self._current_seg_param_names and name in self._local_vars:
+            slot = self._local_vars[name]
+            self.emit(f'store {LIGHTVALUE_STRUCT} {value_reg}, ptr {slot}')
+            return
         if name in self._globals:
             safe = self._safe_var_name(name)
             self.emit(f'store {LIGHTVALUE_STRUCT} {value_reg}, {LIGHTVALUE_STRUCT}* @__var_{safe}')

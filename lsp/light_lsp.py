@@ -31,6 +31,9 @@ except ImportError:
 # LSP 常量
 # =============================================================================
 
+# 语义高亮/格式化共用的运算符字符集
+OPERATOR_CHARS = set('+-*/%=><!&|^~')
+
 LSP_METHODS = {
     # 初始化
     'initialize': 'initialize',
@@ -521,6 +524,18 @@ class DocumentManager:
             if not name:
                 return
 
+            # v3 AST 的 col 对多数节点不可靠（常见恒为 0），改以源码行内定位为准
+            name_str = str(name)
+            doc_lines = getattr(doc, 'lines', None) or []
+            if 0 <= line < len(doc_lines):
+                idx = doc_lines[line].find(name_str)
+                if idx >= 0:
+                    col = idx
+                elif not isinstance(col, int) or col < 0:
+                    col = 0
+            elif not isinstance(col, int) or col < 0:
+                col = 0
+
             definitions[name] = {
                 'uri': doc.uri,
                 'range': {
@@ -619,9 +634,9 @@ class LightLanguageServer:
                 'workspaceDiagnostics': False
             },
             'documentHighlightProvider': True,
-            'signatureHelpProvider': {
-                'triggerCharacters': ['（', '(', '，', ',']
-            },
+            # signatureHelpProvider 与 semanticTokensProvider 各只保留一处声明：
+            # 原先字面量字典中重复键会被后者覆盖，导致 capabilities 通告的
+            # legend 与 handler 实际产出的 token 索引不一致（R140-B 修正）。
             'semanticTokensProvider': {
                 'legend': {
                     'tokenTypes': ['namespace', 'type', 'class', 'enum', 'interface',
@@ -634,8 +649,23 @@ class LightLanguageServer:
                 'full': {
                     'delta': False
                 }
-            }
+            },
         }
+
+        # 每个 token 类型在 legend.tokenTypes 中的下标（semanticTokens 数据编码用）
+        self.semantic_token_types = {
+            name: idx
+            for idx, name in enumerate(self.capabilities['semanticTokensProvider']['legend']['tokenTypes'])
+        }
+
+        # 判定标识符语义类别所需的关键字表
+        self.block_openers = {
+            '如果', '那么', '否则', '若', '否', '或者', '当', '遍历', '遍',
+            '尝试', '试', '捕获', '捕', '最终', '终', '匹配', '配', '情况',
+            '段落', '段', '类', '方法', '属性', '接口', '接', '继承', '承', '实现',
+            '使用', '同步', '异步', '构造',
+        }
+        self.block_closers = {'结束', '结束嵌入', '结束引', '终', '否', '否则', '或者'}
         
     def handle_request(self, method: str, params: Dict, id: Any) -> Optional[Dict]:
         """处理请求"""
@@ -656,11 +686,9 @@ class LightLanguageServer:
             'textDocument/rangeFormatting': self._handle_range_formatting,
             'textDocument/rename': self._handle_rename,
             'textDocument/signatureHelp': self._handle_signature_help,
-            'textDocument/semanticTokens/full': self._handle_semantic_tokens,
+            'textDocument/semanticTokens/full': self._handle_semantic_tokens_full,
             'textDocument/codeAction': self._handle_code_action,
             'textDocument/documentHighlight': self._handle_document_highlight,
-            'textDocument/signatureHelp': self._handle_signature_help,
-            'textDocument/semanticTokens/full': self._handle_semantic_tokens_full,
             'textDocument/diagnostic': self._handle_document_diagnostic,
         }
         
@@ -1789,62 +1817,40 @@ class LightLanguageServer:
         }
     
     def _handle_document_highlight(self, params: Dict) -> List[Dict]:
-        """处理文档高亮请求，高亮光标位置处符号的所有出现"""
+        """处理文档高亮请求，高亮光标位置处符号的所有出现
+
+        只匹配代码区（字符串字面量与注释除外）；光标处的出现标记为 write，
+        其余为 read。
+        """
         doc = self.doc_manager.get_document(params.get('textDocument', {}).get('uri', ''))
         if not doc:
             return []
-        
+
         position = params.get('position', {})
         line = position.get('line', 0)
         character = position.get('character', 0)
-        
-        # 获取光标位置的词
+
         line_text = doc.get_line(line)
-        start = character
-        end = character
-        
-        while start > 0:
-            ch = line_text[start - 1]
-            if ch.isalnum() or '\u4e00' <= ch <= '\u9fff':
-                start -= 1
-            else:
-                break
-        while end < len(line_text):
-            ch = line_text[end]
-            if ch.isalnum() or '\u4e00' <= ch <= '\u9fff':
-                end += 1
-            else:
-                break
-        
-        word = line_text[start:end]
+        mask = self._code_mask(line_text)
+        char = min(max(character, 0), max(len(line_text) - 1, 0))
+        if line_text and not mask[char]:
+            left = [i for i in range(char, -1, -1) if mask[i]]
+            right = [i for i in range(char, len(line_text)) if mask[i]]
+            char = left[0] if left else (right[0] if right else char)
+
+        word, ws, we = self._word_at(line_text, char)
         if not word:
             return []
-        
-        # 查找所有出现
+
         highlights = []
-        for i, ln in enumerate(doc.lines):
-            pos = 0
-            while True:
-                idx = ln.find(word, pos)
-                if idx == -1:
-                    break
-                # 检查是否是完整词
-                before_ok = idx == 0 or not (
-                    ln[idx - 1].isalnum() or '\u4e00' <= ln[idx - 1] <= '\u9fff'
-                )
-                after_ok = idx + len(word) >= len(ln) or not (
-                    ln[idx + len(word)].isalnum() or
-                    '\u4e00' <= ln[idx + len(word)] <= '\u9fff'
-                )
-                if before_ok and after_ok:
-                    highlights.append({
-                        'range': {
-                            'start': {'line': i, 'character': idx},
-                            'end': {'line': i, 'character': idx + len(word)}
-                        }
-                    })
-                pos = idx + len(word)
-        
+        for occ in self._name_occurrences(doc.uri, word):
+            rng = occ['range']
+            is_cursor = rng['start']['line'] == line and rng['start']['character'] == ws
+            # 光标处的出现 = 写入；其余 = 读取
+            highlights.append({
+                'range': rng,
+                'kind': 3 if is_cursor else 2   # DocumentHighlightKind.Write / Read
+            })
         return highlights
     
     def _handle_signature_help(self, params: Dict) -> Optional[Dict]:
@@ -2075,52 +2081,54 @@ class LightLanguageServer:
         return self.doc_manager.symbols.get(uri, [])
     
     def _handle_references(self, params: Dict) -> List[Dict]:
-        """处理查找引用请求"""
-        doc = self.doc_manager.get_document(params.get('textDocument', {}).get('uri', ''))
+        """处理查找引用请求
+
+        只返回代码区（字符串/注释除外）的完整词出现；`context.includeDeclaration`
+        为 False 时剔除定义处那一处出现。
+        """
+        uri = params.get('textDocument', {}).get('uri', '')
+        doc = self.doc_manager.get_document(uri)
         if not doc:
             return []
 
         position = params.get('position', {})
-        line = position.get('line', 0)
-        character = position.get('character', 0)
+        raw_line = position.get('line', 0)
+        raw_char = position.get('character', 0)
 
-        line_text = doc.get_line(line)
-        start = character
-        end = character
-        while start > 0:
-            ch = line_text[start - 1]
-            if ch.isalnum() or '\u4e00' <= ch <= '\u9fff':
-                start -= 1
-            else:
-                break
-        while end < len(line_text):
-            ch = line_text[end]
-            if ch.isalnum() or '\u4e00' <= ch <= '\u9fff':
-                end += 1
-            else:
-                break
+        # 若光标落在字符串/注释里，先回溯到最近的代码位置，保持可预期
+        line_text = doc.get_line(raw_line)
+        mask = self._code_mask(line_text)
+        char = min(max(raw_char, 0), max(len(line_text) - 1, 0))
+        if line_text and not mask[char]:
+            left = [i for i in range(char, -1, -1) if mask[i]]
+            right = [i for i in range(char, len(line_text)) if mask[i]]
+            char = left[0] if left else (right[0] if right else char)
 
-        word = line_text[start:end]
+        word, _, _ = self._word_at(line_text, char)
         if not word:
             return []
 
-        references = []
-        for uri, doc_obj in self.doc_manager.documents.items():
-            for i, line_text in enumerate(doc_obj.lines):
-                pos = 0
-                while True:
-                    idx = line_text.find(word, pos)
-                    if idx == -1:
-                        break
-                    references.append({
-                        'uri': uri,
-                        'range': {
-                            'start': {'line': i, 'character': idx},
-                            'end': {'line': i, 'character': idx + len(word)}
-                        }
-                    })
-                    pos = idx + len(word)
+        include_decl = params.get('context', {}).get('includeDeclaration', True)
+        declaration = None
+        definitions = self.doc_manager.definitions.get(uri, {})
+        if word in definitions:
+            declaration = definitions[word]['range']
+        else:
+            # 光标处本身即是定义位置
+            _, ws, we = self._word_at(line_text, char)
+            declaration = {
+                'start': {'line': raw_line, 'character': ws},
+                'end': {'line': raw_line, 'character': we}
+            }
 
+        references = []
+        for doc_uri in self.doc_manager.documents:
+            for occ in self._name_occurrences(doc_uri, word):
+                rng = occ['range']
+                if (not include_decl and declaration is not None
+                        and rng == declaration):
+                    continue
+                references.append({'uri': doc_uri, 'range': rng})
         return references
 
     def _handle_formatting(self, params: Dict) -> List[Dict]:
@@ -2226,66 +2234,59 @@ class LightLanguageServer:
         }]
 
     def _compute_indent_from_ast(self, text: str, lines: list) -> Dict[int, int]:
-        """通过 AST 计算每行应有的缩进级别"""
+        """计算每行应有的缩进级别（缩进栈状态机）
+
+        规则（对齐 light 语料惯例，见 `examples/`）：
+        - 块头（类/段落/方法/如果/遍历/当/尝试/匹配/使用/异步…）开启一层，块体 +1
+        - `否则/否/否则若/捕获/最终` 与所属块头同级，其分支体 +1
+        - `情况` 与 `匹配` 的块体同级（相对 `匹配` 缩进一级），其分支体再 +1
+        - `结束/结束嵌入/结束引/终` 回到所属块头级别
+        与 AST 是否可解析无关（光明缩进即语法，不依赖节点行号）。
+        """
+        header_keywords = (
+            '如果', '若', '遍历', '遍', '当', '每当', '段落', '段', '函数', '方法',
+            '类', '接口', '接', '协议', '枚举', '结构体', '联合体', '类型',
+            '尝试', '试', '匹配', '配', '使用', '异步', '同步', '构造',
+            '静态方法', '类方法', '私段落', '特性', '装饰器',
+        )
+        branch_keywords = ('否则若', '否若', '否则', '否', '捕获', '捕', '最终')
+        end_keywords = ('结束', '结束嵌入', '结束引', '终')
+
         indent_map = {}
-        try:
-            parser = LightParser()
-            ast = parser.parse(text)
+        stack = []          # 已开启块的块头缩进级别
+        cur = 0             # 当前语句应在的缩进级别
+        case_level = None   # `匹配` 块体级别（`情况` 的基准）
 
-            def visit(node, parent_indent=0):
-                node_type = type(node).__name__
-                lineno = getattr(node, 'line', 1) - 1
-                if lineno < 0 or lineno >= len(lines):
-                    return
+        for i, raw in enumerate(lines):
+            stripped = raw.strip()
+            if not stripped or stripped.startswith('#'):
+                indent_map[i] = cur
+                continue
 
-                # 块级节点，其子节点应缩进
-                if node_type in ('Module', 'IfStmt', 'ForeachStmt', 'WhileStmt',
-                                  'Paragraph', 'ClassDefinition', 'MethodDefinition',
-                                  'TryStmt', 'MatchStmt', 'MatchCase', 'WithStmt',
-                                  'ElseBody', 'CatchBody', 'FinallyBody'):
-                    indent_map[lineno] = parent_indent
+            is_header = stripped.endswith('：') or stripped.endswith(':')
+            keyword = stripped.split('（')[0].split('(')[0].split(' ')[0].split('：')[0]
 
-                    # 获取子节点列表
-                    body_attrs = []
-                    if node_type == 'Module':
-                        body_attrs = [('statements', 0)]
-                    elif node_type == 'Paragraph':
-                        body_attrs = [('body', parent_indent + 1)]
-                    elif node_type == 'ClassDefinition':
-                        body_attrs = [('attributes', parent_indent + 1), ('methods', parent_indent + 1)]
-                    elif node_type == 'MethodDefinition':
-                        body_attrs = [('body', parent_indent + 1)]
-                    elif node_type == 'IfStmt':
-                        body_attrs = [('then_body', parent_indent + 1), ('else_body', parent_indent + 1)]
-                    elif node_type == 'ForeachStmt':
-                        body_attrs = [('body', parent_indent + 1)]
-                    elif node_type == 'WhileStmt':
-                        body_attrs = [('body', parent_indent + 1)]
-                    elif node_type == 'TryStmt':
-                        body_attrs = [('try_body', parent_indent + 1), ('catch_body', parent_indent + 1),
-                                       ('finally_body', parent_indent + 1)]
-                    elif node_type == 'MatchStmt':
-                        body_attrs = [('cases', parent_indent + 1)]
-                    elif node_type == 'MatchCase':
-                        body_attrs = [('body', parent_indent + 1)]
-                    elif node_type == 'WithStmt':
-                        body_attrs = [('body', parent_indent + 1)]
+            if stripped.startswith(end_keywords):
+                base = stack.pop() if stack else max(0, cur - 1)
+                cur = base
+                case_level = None
+            elif stripped.startswith(branch_keywords):
+                base = stack[-1] if stack else max(0, cur - 1)
+                cur = base + 1 if is_header else base
+            elif stripped.startswith('情况'):
+                base = case_level if case_level is not None else cur
+                cur = base + 1 if is_header else base
+            elif is_header and (keyword in header_keywords or '接收' in stripped):
+                base = cur
+                stack.append(base)
+                cur = base + 1
+                if keyword in ('匹配', '配'):
+                    case_level = cur
+            else:
+                base = cur
 
-                    for attr_name, child_indent in body_attrs:
-                        children = getattr(node, attr_name, None)
-                        if children is None:
-                            continue
-                        if not isinstance(children, list):
-                            children = [children]
-                        for child in children:
-                            if isinstance(child, ASTNode):
-                                visit(child, child_indent)
-                else:
-                    indent_map[lineno] = parent_indent
+            indent_map[i] = base
 
-            visit(ast, 0)
-        except Exception:
-            pass
         return indent_map
 
     def _heuristic_indent_level(self, stripped: str, lines: list, idx: int) -> int:
@@ -2363,73 +2364,104 @@ class LightLanguageServer:
         return ''.join(result)
 
     def _handle_rename(self, params: Dict) -> Optional[Dict]:
-        """处理重命名请求"""
+        """处理重命名请求
+
+        - 只替换代码区（不含字符串字面量与注释）中的完整词
+        - 新名需满足标识符规则，且不得与当前作用域内已有定义冲突
+        - 冲突或非法返回 {'error': ...}（LSP 允许 ResponseError 形态）
+        """
         uri = params.get('textDocument', {}).get('uri', '')
         doc = self.doc_manager.get_document(uri)
         if not doc:
             return None
 
         position = params.get('position', {})
-        new_name = params.get('newName', '')
+        new_name = (params.get('newName', '') or '').strip()
         line = position.get('line', 0)
         character = position.get('character', 0)
 
-        # 获取当前光标处的词
-        line_text = doc.get_line(line)
-        start = character
-        end = character
-        while start > 0:
-            ch = line_text[start - 1]
-            if ch.isalnum() or '\u4e00' <= ch <= '\u9fff':
-                start -= 1
-            else:
-                break
-        while end < len(line_text):
-            ch = line_text[end]
-            if ch.isalnum() or '\u4e00' <= ch <= '\u9fff':
-                end += 1
-            else:
-                break
-        old_name = line_text[start:end]
-
+        old_name, _, _ = self._word_at(doc.get_line(line), character)
         if not old_name or not new_name:
             return None
 
-        # 查找所有引用
-        changes = {}
-        for doc_uri, doc_obj in self.doc_manager.documents.items():
-            doc_edits = []
-            for i, doc_line in enumerate(doc_obj.lines):
-                pos = 0
-                while True:
-                    idx = doc_line.find(old_name, pos)
-                    if idx == -1:
-                        break
-                    # 检查是否是完整词（前后不是中文字符或字母数字）
-                    before_ok = idx == 0 or not (
-                        doc_line[idx - 1].isalnum() or '\u4e00' <= doc_line[idx - 1] <= '\u9fff'
-                    )
-                    after_ok = idx + len(old_name) >= len(doc_line) or not (
-                        doc_line[idx + len(old_name)].isalnum() or
-                        '\u4e00' <= doc_line[idx + len(old_name)] <= '\u9fff'
-                    )
-                    if before_ok and after_ok:
-                        doc_edits.append({
-                            'range': {
-                                'start': {'line': i, 'character': idx},
-                                'end': {'line': i, 'character': idx + len(old_name)}
-                            },
-                            'newText': new_name
-                        })
-                    pos = idx + len(old_name)
+        # 新名合法性
+        if not self._is_valid_identifier(new_name):
+            return {'error': {'code': -32602, 'message': f'重命名目标不是合法标识符：{new_name!r}'}}
 
-            if doc_edits:
-                changes[doc_uri] = doc_edits
+        # 新名传播不能引入与代码区已有标识符的意外合并（同名或前缀/后缀粘连）
+        if new_name != old_name:
+            conflicts = self._rename_conflicts(uri, old_name, new_name)
+            if conflicts:
+                return {'error': {
+                    'code': -32602,
+                    'message': f'{new_name!r} 与已有名称冲突：{conflicts[0]}'
+                }}
+
+        changes = {}
+        for doc_uri in self.doc_manager.documents:
+            occurrences = self._name_occurrences(doc_uri, old_name)
+            if not occurrences:
+                continue
+            changes[doc_uri] = [{
+                'range': occ['range'],
+                'newText': new_name
+            } for occ in occurrences]
 
         if not changes:
             return None
 
         return {'changes': changes}
+
+    @staticmethod
+    def _is_valid_identifier(name: str) -> bool:
+        """光明标识符：中文/字母开头，其后为中文/字母数字/下划线"""
+        if not name:
+            return False
+        first = name[0]
+        if not (first.isalpha() or '\u4e00' <= first <= '\u9fff' or first == '_'):
+            return False
+        for ch in name[1:]:
+            if not (ch.isalnum() or '\u4e00' <= ch <= '\u9fff' or ch == '_'):
+                return False
+        return True
+
+    def _rename_conflicts(self, uri: str, old_name: str, new_name: str) -> List[str]:
+        """检查重命名后是否与文档中已有的其他标识符发生非预期合并"""
+        doc = self.doc_manager.get_document(uri)
+        if not doc:
+            return []
+
+        def tokens_of(text):
+            found = set()
+            for line_text in text.split('\n'):
+                mask = self._code_mask(line_text)
+                i = 0
+                n = len(line_text)
+                while i < n:
+                    if mask[i] and (line_text[i].isalnum()
+                                    or '\u4e00' <= line_text[i] <= '\u9fff'
+                                    or line_text[i] == '_'):
+                        j = i
+                        while j < n and mask[j] and (line_text[j].isalnum()
+                                                     or '\u4e00' <= line_text[j] <= '\u9fff'
+                                                     or line_text[j] == '_'):
+                            j += 1
+                        found.add(line_text[i:j])
+                        i = j
+                    else:
+                        i += 1
+            return found
+
+        existing = set()
+        for doc_obj in self.doc_manager.documents.values():
+            existing |= tokens_of(doc_obj.text)
+        existing -= {old_name}
+        existing -= set(ALL_KEYWORDS)
+
+        if new_name in existing:
+            return [new_name]
+        return []
+
 
     def _handle_code_action(self, params: Dict) -> List[Dict]:
         """处理代码操作请求（快速修复 + 重构）"""
@@ -2618,86 +2650,26 @@ class LightLanguageServer:
         }
 
     def _handle_semantic_tokens(self, params: Dict) -> Dict:
-        """处理语义令牌请求（语法高亮增强）"""
-        doc = self.doc_manager.get_document(params.get('textDocument', {}).get('uri', ''))
-        if not doc:
-            return {'data': []}
+        """处理语义令牌请求（语法高亮增强）
 
-        try:
-            from lexer import Lexer
-            from tokens import TokenType as TT
-
-            lexer = Lexer()
-            tokens = lexer.tokenize(doc.text)
-
-            # Token type mapping
-            token_type_map = {
-                TT.KEYWORD: 0,      # keyword
-                TT.IDENTIFIER: 1,   # function (temporary, will be refined)
-                TT.STRING: 3,       # string
-                TT.NUMBER: 4,       # number
-                TT.OPERATOR: 5,     # operator
-                TT.COMMENT: 6,      # comment
-            }
-
-            # L0/L1 keyword modifier mapping
-            l0_keywords = {'若', '否', '当', '遍', '跳', '过', '返', '设', '段', '类', '承', '接', '配',
-                          '试', '捕', '抛', '终', '自', '之', '并', '从', '是', '且', '或', '非', '真', '假', '空',
-                          '导', '出'}
-
-            data = []
-            prev_line = 0
-            prev_col = 0
-
-            for tok in tokens:
-                if tok.type == TT.EOF or tok.type == TT.NEWLINE:
-                    continue
-
-                tt = token_type_map.get(tok.type)
-                if tt is None:
-                    continue
-
-                line = tok.line - 1
-                col = tok.col - 1
-                length = len(tok.value)
-
-                # Delta encoding
-                if prev_line == line and prev_col == col:
-                    delta_line = 0
-                    delta_col = 0
-                elif prev_line == line:
-                    delta_line = 0
-                    delta_col = col - prev_col
-                else:
-                    delta_line = line - prev_line
-                    delta_col = col
-
-                prev_line = line
-                prev_col = col
-
-                # Modifier: 0 = none
-                modifier = 0
-                if tok.type == TT.KEYWORD and tok.value in l0_keywords:
-                    modifier = 0  # Could use bit flags for L0 keyword modifier
-
-                data.extend([delta_line, delta_col, length, tt, modifier])
-
-            return {'data': data}
-        except Exception:
-            return {'data': []}
+        历史上此处走词法器直映射，但 token 类型下标与 capabilities 通告的 legend 不一致，
+        且引用了不存在的 `TT.COMMENT` 导致整个 try 静默失败、恒定返回空结果。
+        R140-B 统一到 `_handle_semantic_tokens_full` 的实现（按 legend 下标输出、严格 delta 编码）。
+        """
+        return self._handle_semantic_tokens_full(params)
 
     def _handle_semantic_tokens_full(self, params: Dict) -> Dict:
-        """处理语义令牌全量请求
+        """处理语义令牌全量请求（严格 LSP delta 编码，按上下文分类）
 
-        基于文本分析生成语义令牌，分类为：
+        token 类型按 capabilities 声明的 legend 下标输出，覆盖：
         - keyword: 光明关键字（设/返回/如果/遍历/当/类/段落等）
-        - function: 函数名
+        - function: 段落定义名与被调用名
         - variable: 变量名
         - class: 类名
-        - parameter: 参数名
-        - property: 属性名
-        - number: 数字字面量
+        - parameter: 段落/方法定义的参数名
+        - property: 属性声明名
         - string: 字符串字面量
+        - number: 数字字面量
         - operator: 运算符
         - comment: 注释
         """
@@ -2706,82 +2678,268 @@ class LightLanguageServer:
         if not doc:
             return {'data': []}
 
-        data = []
+        tt = self.semantic_token_types
+
+        try:
+            from tokens import TokenType as TT
+            lex_tokens = Lexer().tokenize(doc.text)
+        except Exception:
+            return {'data': []}
+
+        if not lex_tokens:
+            return {'data': []}
+
+        # 字面量类型 → 语义类别（固定映射）
+        fixed_kind = {
+            TT.KEYWORD: 'keyword',
+            TT.STRING: 'string',
+            TT.FSTRING: 'string',
+            TT.BYTES: 'string',
+            TT.NUMBER: 'number',
+            TT.CHINESE_NUM: 'number',
+        }
+        skip_types = {TT.EOF, TT.NEWLINE, TT.INDENT, TT.DEDENT}
+        tab = ' ' * 4
+
+        # 按行归集：词法器给出的绝对列是真值，注释由词法器丢弃需单独补回
+        by_line = {}
+        for tok in lex_tokens:
+            if tok.type in skip_types:
+                continue
+            raw = tok.value if isinstance(tok.value, str) else str(tok.value)
+            if not raw:
+                continue
+            line_idx = tok.line - 1
+            if line_idx < 0 or line_idx >= len(doc.lines):
+                continue
+            line_text = doc.lines[line_idx]
+            start = tok.col - 1
+            if line_text[start:start + 1] in ('"', "'", '「', '“'):
+                # 字符串字面量：按源码跨度取长度（词法器 value 不含引号）
+                closing = {'「': '」', '“': '”'}.get(line_text[start], line_text[start])
+                j = start + 1
+                while j < len(line_text) and line_text[j] != closing:
+                    if line_text[j] == '\\':
+                        j += 1
+                    j += 1
+                if j < len(line_text):
+                    j += 1  # 含结束引号
+                length = j - start
+            else:
+                length = len(raw)
+            by_line.setdefault(line_idx, []).append((start, length, tok.type, raw))
+
         for line_idx, line_text in enumerate(doc.lines):
-            # 令牌编码: line, start_char, length, token_type, token_modifiers
-            i = 0
-            line_len = len(line_text)
-            while i < line_len:
-                ch = line_text[i]
+            for pos in self._comment_positions(line_text):
+                by_line.setdefault(line_idx, []).append(
+                    (pos, len(line_text) - pos, None, line_text[pos:]))
 
-                # 跳过空白
-                if ch in (' ', '\t'):
-                    i += 1
-                    continue
+        for line_idx in by_line:
+            by_line[line_idx].sort(key=lambda x: x[0])
 
-                # 注释：以 # 开头
-                if ch == '#':
-                    comment_end = line_len
-                    data.extend([line_idx, i, comment_end - i, 14, 0])  # comment type = 14
-                    break
+        data = []
+        prev_line = 0
+        prev_col = 0
+        indent_stack = [0]        # 各层块的缩进宽度
+        block_depth = 0           # 当前语句所处的块深度（0 = 模块顶层）
+        class_depth = None        # 最近的类体块深度
+        pending_header = None     # 上一行块头的类型，等待下一行确认
+        class_headers = ('类', '接口', '接', '协议', '枚举', '结构体', '联合体', '类型', '类型别名')
+        function_headers = ('段落', '段', '构造', '函数', '静态方法', '类方法', '私段落')
 
-                # 字符串字面量
-                if ch in ('"', "'"):
-                    str_start = i
-                    i += 1
-                    while i < line_len and line_text[i] != ch:
-                        if line_text[i] == '\\':
-                            i += 1  # 跳过转义
-                        i += 1
-                    if i < line_len:
-                        i += 1  # 跳过结束引号
-                    data.extend([line_idx, str_start, i - str_start, 11, 0])  # string type = 11
-                    continue
+        for line_idx in sorted(by_line):
+            line_text = doc.lines[line_idx]
+            stripped = line_text.strip()
+            indent_ch = len(line_text[:len(line_text) - len(line_text.lstrip())]
+                             .replace('\t', ' ' * 4))
 
-                # 数字字面量
-                if ch.isdigit() or (ch == '.' and i + 1 < line_len and line_text[i + 1].isdigit()):
-                    num_start = i
-                    while i < line_len and (line_text[i].isdigit() or line_text[i] == '.'):
-                        i += 1
-                    data.extend([line_idx, num_start, i - num_start, 12, 0])  # number type = 12
-                    continue
+            # 缩进栈回退（闭合块）
+            while len(indent_stack) > 1 and indent_ch < indent_stack[-1]:
+                indent_stack.pop()
+                block_depth -= 1
+                if class_depth is not None and class_depth > block_depth:
+                    class_depth = None
 
-                # 中文/字母标识符
-                if ch.isalpha() or '\u4e00' <= ch <= '\u9fff':
-                    word_start = i
-                    while i < line_len and (line_text[i].isalnum() or '\u4e00' <= line_text[i] <= '\u9fff' or line_text[i] == '_'):
-                        i += 1
-                    word = line_text[word_start:i]
+            # 上一行块头开启新块
+            if pending_header is not None:
+                if indent_ch > indent_stack[-1]:
+                    indent_stack.append(indent_ch)
+                    block_depth += 1
+                    if pending_header == 'class':
+                        class_depth = block_depth
+                pending_header = None
 
-                    # 判断 token 类型
-                    keywords = {'设', '为', '如果', '否则', '遍历', '于', '当', '返回', '类',
-                                '段落', '协议', '构造', '属性', '己', '父', '真', '假', '空',
-                                '尝试', '捕获', '最终', '抛出', '使用', '导入', '从', '匹配',
-                                '若', '跳出', '跳过', '删除', '静态', '特性', '类方法', '异步',
-                                '等待', '全局', '非局部', '产出', '断言', '空操作', '继承', '实现'}
-                    if word in keywords:
-                        data.extend([line_idx, word_start, i - word_start, 9, 0])  # keyword type = 9
-                    elif word[0].isupper() if word[0].isascii() else False:
-                        # 大写开头的英文词 → class/type
-                        data.extend([line_idx, word_start, i - word_start, 2, 0])  # class type = 2
+            toks = by_line[line_idx]
+            real = [t for t in toks if not t[3].lstrip().startswith('#') and t[3].strip()]
+            is_header = bool(real) and real[-1][3] in (':', '：')
+            header_kw = real[0][3] if real else ''
+            header_kind = None
+            if is_header:
+                if header_kw in class_headers:
+                    header_kind = 'class'
+                elif header_kw in function_headers:
+                    header_kind = 'function'
+                else:
+                    header_kind = 'keyword'
+
+            first_start = real[0][0] if real else None
+            param_ranges = []      # [(start, end)] 括号内标识符位置
+            for (s, l, tt_, tx) in toks:
+                if tx in ('(', '（'):
+                    param_ranges.append((s, None))
+                elif tx in (')', '）') and param_ranges and param_ranges[-1][1] is None:
+                    param_ranges[-1] = (param_ranges[-1][0], s)
+
+            header_name_found = False
+            for (start, length, ttype, text) in toks:
+                before_char = line_text[start - 1] if start > 0 else ''
+                after_char = line_text[start + length] if start + length < len(line_text) else ''
+
+                if ttype is None:
+                    kind = 'comment'
+                elif ttype in fixed_kind:
+                    kind = fixed_kind[ttype]
+                elif ttype not in (TT.IDENTIFIER,):
+                    kind = 'operator'
+                else:
+                    # 标识符：按上下文细分
+                    in_paren = any(ps is not None and ps < start < pe
+                                   for ps, pe in param_ranges)
+                    if in_paren:
+                        kind = 'parameter'
+                    elif text in ALL_KEYWORDS:
+                        kind = 'keyword'
+                    elif text in self.block_openers or text in self.block_closers:
+                        kind = 'keyword'
+                    elif is_header and not header_name_found and start != first_start:
+                        # 块头名字（类名 / 段落名 / 方法名）或命的参数
+                        kind = header_kind or 'function'
+                        header_name_found = True
+                    elif after_char in ('(', '（'):
+                        kind = 'function'
+                    elif class_depth is not None and block_depth == class_depth:
+                        # 类体中不在方法内的成员声明
+                        kind = 'property'
+                    elif before_char == '.':
+                        kind = 'property'
                     else:
-                        # 默认作为 variable
-                        data.extend([line_idx, word_start, i - word_start, 6, 0])  # variable type = 6
-                    continue
+                        kind = 'variable'
 
-                # 运算符
-                operators = {'+', '-', '*', '/', '%', '=', '>', '<', '!', '&', '|', '^', '~'}
-                if ch in operators:
-                    op_start = i
-                    while i < line_len and line_text[i] in operators:
-                        i += 1
-                    data.extend([line_idx, op_start, i - op_start, 13, 0])  # operator type = 13
-                    continue
+                t = tt.get(kind, tt.get('variable', 0))
 
-                # 其他字符（标点等）
-                i += 1
+                delta_line = line_idx - prev_line
+                delta_col = start - prev_col if delta_line == 0 else start
+                data.extend([delta_line, delta_col, length, t, 0])
+                prev_line = line_idx
+                prev_col = start
+
+            if is_header:
+                pending_header = header_kind
 
         return {'data': data}
+
+
+    @staticmethod
+    def _comment_positions(line_text: str) -> List[int]:
+        """返回该行注释符 # 的列下标（跳过字符串字面量内的 #）"""
+        positions = []
+        in_string = None
+        i = 0
+        n = len(line_text)
+        while i < n:
+            ch = line_text[i]
+            if in_string:
+                if ch == '\\':
+                    i += 2
+                    continue
+                if ch == in_string:
+                    in_string = None
+            elif ch in ('"', "'", '「', '“'):
+                in_string = {'「': '」', '“': '”'}.get(ch, ch)
+            elif ch == '#':
+                positions.append(i)
+                break
+            i += 1
+        return positions
+
+    @staticmethod
+    def _code_mask(line_text: str) -> List[bool]:
+        """标记该行中属于「代码」的列（注释与字符串字面量内部为 False）
+
+        用于 rename / references / documentHighlight 避免同名字符串、注释被误匹配。
+        """
+        mask = [True] * len(line_text)
+        in_string = None
+        i = 0
+        n = len(line_text)
+        while i < n:
+            ch = line_text[i]
+            if in_string:
+                mask[i] = False
+                if ch == '\\' and i + 1 < n:
+                    mask[i + 1] = False
+                    i += 2
+                    continue
+                if ch == in_string:
+                    in_string = None
+            elif ch in ('"', "'", '「', '“'):
+                mask[i] = False
+                in_string = {'「': '」', '“': '”'}.get(ch, ch)
+            elif ch == '#':
+                for j in range(i, n):
+                    mask[j] = False
+                break
+            i += 1
+        return mask
+
+    @staticmethod
+    def _word_at(line_text: str, character: int) -> tuple:
+        """返回 (词, 起始列, 结束列)；词由中文字符/字母数字/下划线构成"""
+        def is_word_char(ch):
+            return ch.isalnum() or '\u4e00' <= ch <= '\u9fff' or ch == '_'
+
+        start = min(max(character, 0), len(line_text))
+        end = start
+        while start > 0 and is_word_char(line_text[start - 1]):
+            start -= 1
+        while end < len(line_text) and is_word_char(line_text[end]):
+            end += 1
+        return line_text[start:end], start, end
+
+    def _name_occurrences(self, uri: str, word: str) -> List[Dict]:
+        """在指定文档中找出 word 在代码区（非字符串/注释）的完整词出现"""
+        doc = self.doc_manager.get_document(uri)
+        if not doc or not word:
+            return []
+        results = []
+        for i, line_text in enumerate(doc.lines):
+            mask = self._code_mask(line_text)
+            pos = 0
+            while True:
+                idx = line_text.find(word, pos)
+                if idx == -1:
+                    break
+                pos = idx + len(word)
+                end = idx + len(word)
+                if not all(mask[idx:end]):
+                    continue
+                before_ok = idx == 0 or not (
+                    line_text[idx - 1].isalnum() or '\u4e00' <= line_text[idx - 1] <= '\u9fff'
+                    or line_text[idx - 1] == '_'
+                )
+                after_ok = end >= len(line_text) or not (
+                    line_text[end].isalnum() or '\u4e00' <= line_text[end] <= '\u9fff'
+                    or line_text[end] == '_'
+                )
+                if before_ok and after_ok:
+                    results.append({
+                        'range': {
+                            'start': {'line': i, 'character': idx},
+                            'end': {'line': i, 'character': end}
+                        }
+                    })
+        return results
+
 
     def _handle_document_diagnostic(self, params: Dict) -> Dict:
         """处理 LSP 3.17+ 拉取式诊断请求 (textDocument/diagnostic)

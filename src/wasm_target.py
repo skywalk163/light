@@ -3,15 +3,20 @@
 光明（Light）WebAssembly 编译目标 v4.1
 
 将光明代码编译为可在浏览器中通过 Pyodide（Python → WebAssembly）执行的格式。
-支持两种模式：
-  1. Pyodide 模式：编译为 Python 代码，在浏览器 Pyodide 运行时中执行
-  2. 独立模式：生成包含 Python 代码和 Pyodide 引导的独立 HTML 页面
+支持三种产物（均非原生 .wasm 字节码，底层是 Python 代码内嵌 Pyodide 运行时）：
+  1. standalone HTML：生成包含 Python 代码和 Pyodide 引导的独立 HTML 页面
+  2. pyodide 模式：返回 dict（python_code + loader_js），供宿主自行拼装
+  3. wasm_json：把 pyodide 结果序列化为 JSON 字符串落盘
 
 用法：
-  from wasm_target import compile_to_wasm
-  result = compile_to_wasm(source, mode='pyodide')
-  # 或生成独立 HTML
-  html = compile_to_wasm(source, mode='standalone')
+  from wasm_target import (
+      compile_to_standalone_html,   # → str（完整 HTML）
+      compile_to_pyodide,           # → dict {python_code, loader_js, error}
+      compile_to_wasm_json,         # → str（JSON 字符串，含上述 dict）
+  )
+  html = compile_to_standalone_html(source, title="我的程序")
+  result = compile_to_pyodide(source)
+  pkg_json = compile_to_wasm_json(source)
 """
 
 import os

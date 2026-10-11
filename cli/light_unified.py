@@ -514,18 +514,61 @@ class LightUnifiedCLI:
                          run: bool = False, target: str = 'python',
                          source_file: str = None) -> int:
         """使用src手写解析器编译
-        
+
         Args:
             source: 源代码
             output_file: 输出文件路径
             run: 是否执行
-            target: 目标格式 ('python' 或 'llvm')
+            target: 目标格式 ('python'/'py'/'js' 走 Python 代码生成；
+                    'llvm' 生成 LLVM IR；'wasm' 路由到 src/wasm_target.py，
+                    产出经 Pyodide 执行的 standalone HTML 或 JSON，非原生 .wasm)
             source_file: 源文件路径（用于解析用户模块导入）
         """
         from compiler import LightCompiler
-        
+
         compiler = LightCompiler()
-        
+
+        if target == 'wasm':
+            # R140-C §13.3 方案 A 接通：wasm 目标并不产出原生 .wasm 字节码，
+            # 而是「光明 → Python → 内嵌 Pyodide 的 HTML/JSON」，由浏览器执行。
+            # 路由到 src/wasm_target.py；按输出后缀决定产物形态：
+            #   .json → compile_to_wasm_json（Pyodide 包 JSON）
+            #   其余 → compile_to_standalone_html（独立 HTML，默认）
+            print("[提示] wasm target 实为经 Pyodide 执行的 Python（非原生 .wasm 字节码）",
+                  file=sys.stderr)
+            try:
+                from wasm_target import (
+                    compile_to_standalone_html,
+                    compile_to_wasm_json,
+                )
+
+                if run:
+                    print("[警告] wasm target 需在浏览器 Pyodide 中执行，本机不直接运行",
+                          file=sys.stderr)
+
+                out_lower = (output_file or '').lower()
+                if out_lower.endswith('.json'):
+                    content = compile_to_wasm_json(source)
+                    kind = 'Pyodide JSON'
+                else:
+                    title = os.path.splitext(os.path.basename(output_file or '光明程序'))[0] \
+                        or '光明程序'
+                    content = compile_to_standalone_html(source, title=title)
+                    kind = 'standalone HTML'
+
+                if output_file:
+                    with open(output_file, 'w', encoding='utf-8') as f:
+                        f.write(content)
+                    print(f"[成功] 已生成 wasm({kind}): {output_file}")
+                else:
+                    print(content)
+                return 0
+            except Exception as e:
+                print(f"[WASM 生成错误] {e}", file=sys.stderr)
+                import traceback
+                traceback.print_exc()
+                return 1
+
         if target == 'llvm':
             # LLVM IR 生成：只做解析和适配，跳过类型检查
             try:
@@ -1202,7 +1245,7 @@ def main():
         compile_parser.add_argument('--backend', choices=['antlr', 'src'], default='src',
                                    help='选择编译后端（默认：src）')
         compile_parser.add_argument('--target', choices=['py', 'js', 'wasm', 'llvm'], default='py',
-                                   help='目标代码（默认：py，llvm 生成 LLVM IR）')
+                                   help='目标代码（默认：py；llvm 生成 LLVM IR；wasm 生成经 Pyodide 执行的 .html/.json，非原生 .wasm）')
         
         # repl 子命令
         repl_parser = subparsers.add_parser('repl', help='启动交互式REPL')
@@ -1275,7 +1318,11 @@ def main():
             with open(args.file, 'r', encoding='utf-8') as f:
                 source = f.read()
             
-            output_file = args.output or args.file.replace('.light', '.py')
+            output_file = args.output
+            if not output_file:
+                # R140-C：wasm 目标默认产出 standalone .html（其余目标沿用 .py）
+                default_suffix = '.html' if args.target == 'wasm' else '.py'
+                output_file = args.file.replace('.light', default_suffix)
             
             if args.backend == 'antlr':
                 return cli.compile_with_antlr(source, output_file=output_file, run=False, source_file=args.file)
