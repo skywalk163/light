@@ -6720,6 +6720,20 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return pname[1:], True, False
         return pname, False, False
 
+    @staticmethod
+    def _is_self_param_name(pname) -> bool:
+        """L-195：形参名是否是显式 self 引用（自/己/self）。
+
+        与转译腿 `code_generator.py::_is_self_param` 同口径。parser 把源码里
+        **显式写出**的 自/己/self 原样留在 `MethodDefinition.parameters` 里
+        （AST 实证：`段落 加(自, 甲, 乙)` -> ['自','甲','乙']），而原生腿方法
+        的 LLVM 签名是 `(ptr %result, ptr %self, ptr %args, i32 %num_args)`——
+        self 走 %self 单独传，%args 只装用户实参。装载循环若把这个形参也当
+        用户形参取 %args[i]，全部用户形参错位一位（实例.加(3,4,5) ->
+        甲=4/乙=5/丙=空）。顶层段落无隐式 self，不受影响。
+        """
+        return pname in ('自', '己', 'self')
+
     def _emit_param_writeback(self) -> None:
         """段落返回出口：把「未被重新绑定」的形参槽写回 %args[i]。
 
@@ -7973,10 +7987,30 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 分配临时槽位池（必须在 entry 块内、分支出现前，避免动态 alloca 爆栈）
         self._begin_temp_slot_pool()
 
+        params = getattr(method_def, 'parameters', []) or []
+
+        # R141-A2（L-195）：实例/类方法的第一个形参 `自` 是**接收者占位符**，
+        # 它不占用 %args 槽位——调用方只把显式实参装进 args，接收者由 %self 单独传
+        # （@_method_xxx(ptr %result, ptr %self, ptr %args, i32 %num_args)）。
+        # 修前把 `自` 当成 args[0] 绑定，导致用户形参整体错位一位：
+        #   `段落 加(自, a, b, c)` 以 `实例.加(3,4,5)` 调用 → a=4 / b=5 / c=空。
+        # 修法：绑定 args 时跳过接收者占位符，用户形参与 args 下标一一对齐。
+        # 只在首参名确实是接收者约定名（`自`/`己`/self，与转译腿 _SELF_NAMES
+        # 同口径）时跳过——若方法首参是普通形参（未声明 `自`），保持原语义不动，
+        # 避免误伤既有用例。
+        自身形参名 = None
+        绑定参数 = list(params)
+        if method_type != 'static' and params:
+            _p0 = params[0]
+            _p0名 = _p0.name if hasattr(_p0, 'name') else str(_p0)
+            if self._is_self_param_name(_p0名):
+                自身形参名 = _p0名
+                绑定参数 = list(params[1:])
+
         # 生成函数调试信息（DISubprogram）
         if self._debug:
             method_name_dbg = f'{class_name}.{method_def.name}'
-            params_dbg = [p.name if hasattr(p, 'name') else str(p) for p in (getattr(method_def, 'parameters', []) or [])]
+            params_dbg = [p.name if hasattr(p, 'name') else str(p) for p in 绑定参数]
             if method_type != 'static':
                 params_dbg = ['己'] + params_dbg
             self._gen_debug_function(method_name_dbg, line=getattr(method_def, 'lineno', 1), param_names=params_dbg)
@@ -7987,9 +8021,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         file_name_ptr = self.gen_string_constant("")
         self.emit(f'call void @dv_stack_push(ptr {func_name_ptr}, ptr {file_name_ptr}, i32 0)')
 
-        params = getattr(method_def, 'parameters', []) or []
-
         # R140-A（L-182）：方法形参同样遮蔽同名模块级全局（与段落同口径）。
+        # 接收者占位符也算形参（它遮蔽同名全局），故这里仍用完整 params。
         prev_param_names = self._current_seg_param_names
         self._current_seg_param_names = {
             (p.name if hasattr(p, 'name') else str(p)) for p in params if p}
@@ -7999,8 +8032,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 添加己（self/cls）变量（仅实例方法和类方法有）
         if method_type != 'static':
             self._local_vars['己'] = None
-        # 添加方法参数
-        for param in params:
+        # 添加方法参数（接收者占位符稍后与 `己` 共用槽位，不单独开槽）
+        for param in 绑定参数:
             pname = param.name if hasattr(param, 'name') else str(param)
             self._local_vars[pname] = None
 
@@ -8019,12 +8052,16 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 # prologue 深拷贝：己 拥有独立对象缓冲，使 dv_class_set_member 的
                 # free+realloc 不再波及调用方 %self（修复 UAF），详见 runtime_typed.c。
                 self.emit(f'call void @dv_obj_deepcopy_self(ptr {self_var_slot})')
+                # R141-A2（L-195）：`自` 与 `己` 共用同一槽位（同一个接收者），
+                # 使 `自.X` 与 `己.X` 行为一致；不做第二次深拷贝。
+                if 自身形参名 is not None:
+                    self._local_vars[自身形参名] = self_var_slot
 
-        if params:
+        if 绑定参数:
             num_args_sext = self.new_register()
             self.emit(f'{num_args_sext} = sext i32 %num_args to i64')
 
-        for i, param in enumerate(params):
+        for i, param in enumerate(绑定参数):
             pname = param.name if hasattr(param, 'name') else str(param)
             param_slot = self._local_vars.get(pname)
             if param_slot is not None:

@@ -294,6 +294,20 @@ jobs:
           # 门禁的覆盖面窄于它自己声明的形态覆盖面。全仓实测 1.7s，仍在 <5s 承诺内。
           python tools/ci/assert_quality.py --root .
 
+      # R141-B（波次2）：能力清单/矩阵产物新鲜度门禁——「改了 codegen 忘记重生成」
+      # 在 CI 里自动红。两个 gen 脚本的 --check 用当前源码重算并与落盘产物比对
+      # **语义内容**（行号快照/probe_note 等附加信息不参与——旧的行号判据下，
+      # codegen 头部插 50 行即 462 条 evidence 全体假红，而能力分文未变）。
+      # 与断言质量门禁同口径：纯静态秒级，只跑 Linux 一份，硬判不加 || true。
+      # ⚠️ .github/workflows/ci.yml 是镜像副本（本项目无 GitHub 远端），
+      #    改门禁必须两边同改——R141-B 当时只改了 .github 那份，本步为补对齐。
+      - name: 原生腿能力清单新鲜度门禁（--check）
+        if: runner.os == 'Linux'
+        run: |
+          . "$HOME/.cache/light-ci-venv/bin/activate"
+          python scripts/gen_native_capability_json.py --check
+          python scripts/gen_llvm_capability_matrix.py --check
+
       # 自举率门禁：口径见 任务书/第三轮总纲 §2.3 —— **只认文件维度**
       # （stdlib 下每个 .light 文件有无 decl ≥ 1 的真实现），行维度只打印不判绿。
       # 门禁守两条：已破零的文件不许退回 0；文件维度自举率不许下降。

@@ -434,18 +434,31 @@ def main():
             return 2
         with open(OUT_JSON, encoding='utf-8') as f:
             old = json.load(f)
-        diff = []
         old_map = {r['v3_class']: r for r in old['rows']}
-        for r in rows:
-            o = old_map.get(r['v3_class'])
+        new_map = {r['v3_class']: r for r in rows}
+        diff = []
+        for cls in sorted(set(old_map) | set(new_map)):
+            o = old_map.get(cls)
+            n = new_map.get(cls)
             if o is None:
-                diff.append(f"新增语句类 {r['v3_class']}（矩阵未登记）")
-            elif o['status'] != r['status']:
-                diff.append(f"{r['v3_class']}: 矩阵记 {o['status']}，实测 {r['status']}")
+                diff.append(f"新增语句类 {cls}（矩阵未登记）")
+                continue
+            if n is None:
+                diff.append(f"语句类 {cls} 代码里已没有（矩阵多出，需重生成）")
+                continue
+            # 语义列逐个比：状态 / 实测结果 / 三层证据。
+            # probe_note 不比——ok 时它是「N 字符」IR 长度，随代码变化漂移，
+            # 属附加信息不是判据（与 gen_native_capability_json.py 行号降级同思路）。
+            for field in ('status', 'probe_result', 'adapter_converter',
+                          'legacy_node', 'in_stmt_whitelist', 'in_dispatch'):
+                if o.get(field) != n.get(field):
+                    diff.append(f"{cls}: {field} 矩阵记 {o.get(field)!r}，现算 {n.get(field)!r}")
         if diff:
             print('矩阵与代码不一致：')
             for d in diff:
                 print('  - ' + d)
+            print('改了 codegen / 适配层之后，跑: '
+                  'python scripts/gen_llvm_capability_matrix.py')
             return 1
         print('矩阵与代码一致')
         return 0

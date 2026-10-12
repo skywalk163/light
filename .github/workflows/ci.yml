@@ -253,6 +253,16 @@ jobs:
           # 扫描根 = 全仓（2026-08-23 用户裁决），与 .gitea 权威副本保持一致。
           python tools/ci/assert_quality.py --root .
 
+      # R141-B：能力清单/矩阵产物新鲜度门禁——「改了 codegen 忘记重生成」在 CI 里自动红。
+      # 两个 gen 脚本的 --check 用当前源码重算并与落盘产物比对**语义内容**
+      # （行号快照/probe_note 等附加信息不参与），纯静态 + 真编探针，秒级。
+      # 与断言质量门禁同口径：只在 Linux 跑一份，跨平台跑它没有额外信号。硬判，不加 || true。
+      - name: 原生腿能力清单新鲜度门禁（--check）
+        if: runner.os == 'Linux'
+        run: |
+          python scripts/gen_native_capability_json.py --check
+          python scripts/gen_llvm_capability_matrix.py --check
+
       - name: 自举率门禁（文件维度·不许回退）
         if: runner.os == 'Linux'
         run: |

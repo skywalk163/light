@@ -19,6 +19,14 @@ B7 升级（2026-08-24）：增加内置函数与运行时导出符号的双向�
 - JSON 里**写了**代码里没有的内置名 -> 红（防吹牛）
 - 运行时符号同理双向咬合
 
+R141-B 升级（2026-10-12）：evidence 定位从「硬编码行号」改为**稳定锚点**。
+旧判据按行号校验（行号落在方法区间内 + 该行文本含名字），codegen 每加一行、
+462 条 evidence 行号全体漂移，忘记重生成就整片假红——实测头部插 50 行、
+``test_内置函数证据行号可定位`` 462 条全红，而能力分文未变。现在 builtin 的
+evidence 锚到 ``_gen_typed_builtin`` 方法名、runtime 的 evidence_define 锚到
+``runtime_typed.c:<符号名>``，行号只存在于 ``*_line`` 附加信息字段、**不参与判据**
+（对「真漂移」仍敏感：名字不存在/锚点方法不存在/定义签名不存在，照红）。
+
 注意：
 - ``hasattr(ast, 'SelfAssignment') and isinstance(stmt, ast.SelfAssignment)`` 这类
   写法里 ``ast.SelfAssignment`` 也会被正则抓到，属正常。
@@ -98,14 +106,13 @@ def _取方法体(src: str, name: str) -> str:
     return src[i:j if j > 0 else len(src)]
 
 
-def _方法行区间(src: str, name: str):
-    """返回方法体的 (首行号, 末行号)，1-based 闭区间。"""
+def _方法体或空(src: str, name: str):
+    """方法体源码；方法不存在返回 None（供锚点判据报「锚点方法不见了」）。"""
     i = src.find(f'def {name}(')
-    assert i > 0, f'找不到 {name}'
+    if i <= 0:
+        return None
     j = src.find('\n    def ', i + 10)
-    起 = src[:i].count('\n') + 1
-    止 = (src[:j].count('\n') + 1) if j > 0 else src.count('\n') + 1
-    return 起, 止
+    return src[i:j if j > 0 else len(src)]
 
 
 def _提取内置名(method_src: str) -> set:
@@ -195,39 +202,39 @@ def test_内置函数清单与代码一致():
         f'  JSON 有但代码没有: {sorted(json_names - 实际)}'
 
 
-def test_内置函数证据行号可定位():
-    """JSON 清单里每条 builtin 的 evidence 行号必须**真指到注册它的那一行**。
+def test_内置函数证据锚点可定位():
+    """JSON 清单里每条 builtin 的 evidence 必须锚到 _gen_typed_builtin 方法体内真注册的名字。
 
-    两条判据（都可反跑）：
-    1. 行号落在 `_gen_typed_builtin` 方法体的行区间内 —— 挡「行号随手填个数」；
-    2. 那一行的文本里出现该内置名 —— 挡「行号在区间内但指错行」。
+    R141-B：锚点判据（替代原行号判据，抗代码行漂移）：
+    1. evidence 形如 ``src/llvm/codegen_typed.py:<方法名>``，且该方法在源码里存在
+       —— 挡「锚点方法名随手填/方法被改名」；
+    2. 该内置名以 ``'名字'`` 形式出现在该方法体内 —— 挡「JSON 登记了代码里
+       没有的名字」（防吹牛）与「名字在该方法里根本找不到」。
 
-    合并期收紧：B7 原稿只断「1 <= 行号 <= 文件总行数」并把真判据注释掉
-    （「放宽：只要行号在合理范围内即可」）。codegen_typed.py 四千行，任何
-    数字都过，那条判据等于不存在——正是「上界断言」这一假绿形态。
+    行号只作附加信息（``evidence_line`` 字段），**不参与判据**。旧判据按行号校验，
+    codegen 头部插 50 行即 462 条全体假红（R141 实测），而那是行号噪声、能力分文未变。
     """
     data = _加载清单()
     src = _源码()
-    src_lines = src.splitlines()
-    起, 止 = _方法行区间(src, '_gen_typed_builtin')
+    方法体缓存 = {}
     errors = []
     for e in data['tables']['builtin_functions']['entries']:
         ev = e.get('evidence', '')
-        m = re.search(r'codegen_typed\.py:(\d+)', ev)
+        m = re.fullmatch(r'src/llvm/codegen_typed\.py:(\w+)', ev)
         if not m:
-            errors.append(f"{e['name']}: evidence 格式不对: {ev}")
+            errors.append(f"{e['name']}: evidence 不是 `文件:方法` 锚点格式: {ev}")
             continue
-        lineno = int(m.group(1))
-        if not (起 <= lineno <= 止):
-            errors.append(
-                f"{e['name']}: 行号 {lineno} 在 _gen_typed_builtin "
-                f"区间 [{起}, {止}] 之外")
+        方法 = m.group(1)
+        if 方法 not in 方法体缓存:
+            方法体缓存[方法] = _方法体或空(src, 方法)
+        body = 方法体缓存[方法]
+        if body is None:
+            errors.append(f"{e['name']}: 锚点方法 {方法} 在 codegen_typed.py 里不存在")
             continue
-        if e['name'] not in src_lines[lineno - 1]:
+        if f"'{e['name']}'" not in body:
             errors.append(
-                f"{e['name']}: codegen_typed.py:{lineno} 那一行没有这个名字："
-                f"{src_lines[lineno - 1].strip()[:60]}")
-    assert not errors, '内置函数证据行号问题:\n' + '\n'.join(errors)
+                f"{e['name']}: 锚点方法 {方法} 的方法体里找不到该内置名的注册")
+    assert not errors, '内置函数证据锚点问题:\n' + '\n'.join(errors)
 
 
 # ── 运行时导出符号层（B7 新增） ────────────────────────────
@@ -249,33 +256,42 @@ def test_运行时符号清单与代码一致():
         f'  JSON 有但代码没有: {sorted(json_names - 实际)}'
 
 
-def test_运行时符号在runtime有定义():
-    """JSON 清单里每条 runtime_symbol 的 runtime_typed.c 定义行号必须可定位。
+def test_运行时符号证据锚点可定位():
+    """runtime_symbols 的两条 evidence 必须锚到真实位置（R141-B：不再按行号判）。
 
-    C 库函数（setjmp/_setjmp）不在此列——它们不是 runtime_typed.c 定义的。
+    - ``evidence_declare``：文件锚点 ``src/llvm/codegen_typed.py``——该符号必须真以
+      ``'declare ... @符号('`` 形式声明在 codegen_typed.py 里（declare 散落在
+      _declare_typed_runtime 与少数 C 库声明处，精确指针是条目名本身）；
+    - ``evidence_define``：定义锚点 ``src/llvm/runtime_typed.c:<符号>``——该符号必须
+      真有函数定义（``<返回类型> <符号>(`` 签名行）；C 库函数豁免（标 C library）。
+
+    行号（``evidence_declare_line`` / ``evidence_define_line``）只是附加信息，
+    不参与判据：runtime_typed.c 每加一行、旧判据的 ±1 窗口就整体漂移假红。
     """
     data = _加载清单()
+    cg_src = _源码()
     rt_src = _runtime源码()
+    declared = _提取运行时符号(cg_src)
+    rt_lines = rt_src.splitlines()
     errors = []
     for e in data['tables']['runtime_symbols']['entries']:
-        ev = e.get('evidence_define', '')
-        # C library symbols are exempt
-        if 'C library' in ev:
+        name = e['name']
+        ev_declare = e.get('evidence_declare', '')
+        if ev_declare != 'src/llvm/codegen_typed.py':
+            errors.append(f"{name}: evidence_declare 不是文件锚点: {ev_declare}")
+        elif name not in declared:
+            errors.append(f"{name}: codegen_typed.py 里没有它的 declare 声明")
+        ev_define = e.get('evidence_define', '')
+        if 'C library' in ev_define:
             continue
-        m = re.search(r'runtime_typed\.c:(\d+)', ev)
-        if not m:
-            errors.append(f"{e['name']}: evidence_define 格式不对: {ev}")
+        m = re.fullmatch(r'src/llvm/runtime_typed\.c:(\w+)', ev_define)
+        if not m or m.group(1) != name:
+            errors.append(f"{name}: evidence_define 不是 `文件:符号名` 锚点: {ev_define}")
             continue
-        lineno = int(m.group(1))
-        if lineno < 1:
-            errors.append(f"{e['name']}: 行号越界 {lineno}")
-            continue
-        # 粗检：该行附近能找到符号名
-        rt_lines = rt_src.splitlines()
-        window = '\n'.join(rt_lines[max(0, lineno-2):lineno+2])
-        if e['name'] not in window:
-            errors.append(f"{e['name']}: 在 runtime_typed.c:{lineno} 附近找不到符号名")
-    assert not errors, '运行时符号定义定位问题:\n' + '\n'.join(errors)
+        pattern = re.compile(rf'^(?:[\w\s\*]+)\s+{re.escape(name)}\s*\(')
+        if not any(pattern.match(l.rstrip()) for l in rt_lines):
+            errors.append(f"{name}: runtime_typed.c 里找不到它的函数定义（签名行）")
+    assert not errors, '运行时符号证据锚点问题:\n' + '\n'.join(errors)
 
 
 # ── 文档与兜底 ──────────────────────────────────────────
@@ -296,7 +312,7 @@ def test_文档存在且登记了清单():
 def test_JSON清单存在且结构完整():
     """JSON 能力清单必须存在且包含四张表。"""
     data = _加载清单()
-    assert data['schema_version'] == '1.0', f'schema_version 不对: {data["schema_version"]}'
+    assert data['schema_version'] == '1.1', f'schema_version 不对: {data["schema_version"]}（R141-B 锚点化为 1.1）'
     # baseline_commit 只断「在册且是个短 SHA」，不写死具体值：写死 HEAD 的 SHA
     # 是第五轮已裁决过的坑（commit 1ff86237「总纲不再写死 HEAD 的 SHA」），
     # 一旦合并/改基线就得改测试，改测试的人只会把断言删掉。
