@@ -326,15 +326,43 @@ class TestStdlib格式化(unittest.TestCase):
 
 
 class TestStdlib模板(unittest.TestCase):
-    """测试 模板 模块"""
+    """测试 模板 模块（纯光明 .light 实现，R143-B 起不再依赖同名 .py）
 
-    def test_import(self):
-        """测试模块可导入"""
+    R143-B oracle 改造：原用例 `import 模板` 直引 stdlib/模板.py 做存在性断言；
+    模板.py 已按三腿对拍证据删除（原生腿 == 钩子腿 == .py oracle，逐行一致），
+    改为经 _light_import_hook 加载 模板.light（src 后端执行）。
+    下方期望值取自本地三腿对拍一致输出，不是照抄 .py 输出。
+    """
+
+    def test_导入与对拍(self):
+        """import 模板 必须解析到 模板.light，且关键导出值与内联期望一致。"""
+        import _light_import_hook
+        _light_import_hook.install([os.path.abspath(stdlib_path)])
+        saved = sys.modules.pop('模板', None)
         try:
             import 模板
-            self.assertTrue(hasattr(模板, '模板'))
-        except ImportError:
-            self.fail("模板 模块导入失败")
+            源 = str(getattr(模板, '__file__', '')).replace('\\', '/')
+            self.assertTrue(源.endswith('/模板.light'),
+                            'import 模板 应解析到 模板.light（纯光明实现），实际 %s' % 源)
+            数据们 = [{"名": "甲", "年": 20}, {"名": "乙", "年": 30}]
+            self.assertEqual(模板.模板循环("[{{item.名}}={{item.年}}]", 数据们),
+                             '[甲=20][乙=30]')
+            self.assertEqual(模板.模板循环("[{{item}}]", ["x", "y"]), '[x][y]')
+            # 空 dict 项点号路径无值保留占位符（.py oracle 同语义，不做递归展开）
+            self.assertEqual(模板.模板循环("[{{item.名}}]", [{}]), '[{{item.名}}]')
+            # 嵌套 dict：`.py` oracle 只做顶层键包替换，`{{item.信息.名}}` 不递归展开
+            self.assertEqual(
+                模板.模板循环("{{item.信息.名}}", [{"信息": {"名": "甲"}}]),
+                '{{item.信息.名}}')
+            self.assertEqual(模板.模板变量替换("A{{x}}B", {"x": "Y"}), 'AYB')
+            self.assertEqual(模板.模板条件("v={{v}}", True, {"v": 1}, {"v": 2}), 'v=1')
+            self.assertEqual(模板.模板条件("v={{v}}", False, {"v": 1}, {"v": 2}), 'v=2')
+            self.assertEqual(模板.渲染模板("hi {{n}}", {"n": "L"}), 'hi L')
+        finally:
+            if saved is not None:
+                sys.modules['模板'] = saved
+            else:
+                sys.modules.pop('模板', None)
 
 
 class TestStdlibAllModules(unittest.TestCase):

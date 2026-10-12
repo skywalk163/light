@@ -1,6 +1,6 @@
 # 光明（Light）公开路线图
 
-> 最后更新：2026-10-12（R142 三线收口：A 线 L-196 根因①②收口 + B 线 影子数 64→62 + C 线 L-074 转译腿缺口 + L-187 rethrow 残余收口；L-194 仍待 L-198）　来源：社区生态建设总纲 R96（R97「工具兑现」已于 R137 闭环）
+> 最后更新：2026-10-12（R143-B 收口：L-199 向量 `追加` 2 参函数式调用在 src 腿被截胡为 0 参 `builtins.追加` → codegen `ParagraphCall` 分支补 arity 感知派发；L-200 `模板循环` 不展开嵌套 dict 键 → 判型 `类型(项)=="dict"` 改 `是字典(项)`；新增 `tests/unit/test_R143_L199_向量追加.py` 7 例 + `tests/unit/test_R143_L200_模板嵌套键.py` 6 例 0.82 全绿；删 `stdlib/模板.py` 影子数 62→61，`test_stdlib_comprehensive.py::TestStdlib模板` oracle 改造；登记 L-201 `向量.py` `_数据`/`_data` 字段不一致（建议 R144）；L-194 仍待 L-198）　来源：社区生态建设总纲 R96（R97「工具兑现」已于 R137 闭环）
 > 详细技术路线见仓库内 [`docs/ROADMAP.md`](docs/ROADMAP.md)；本文件只保留**对外可承诺**的部分。
 
 ## 当前版本

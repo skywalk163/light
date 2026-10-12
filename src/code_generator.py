@@ -4181,6 +4181,20 @@ class PythonCodeGenerator:
                 if self._in_class_method and expr.name in self._class_method_names:
                     py_name = f"self.{name}"
             
+            # R143-B · L-199：`追加` 的双重身份——函数式 2 参 = 列表追加，
+            # 0 参 = 文件打开标志（stdlib/builtins.py:1391 的 `def 追加(): os.O_APPEND`）。
+            # 原生腿 codegen_typed.py:2606-2613 早已按 arity 派发（2 参走 dv_list_append、
+            # 0 参返回 0），Python 腿 builtin_map 的单一映射 `'_light_builtin.追加'`
+            # 把 20+ 个 stdlib .light 的 `追加(结果, x)` 全截胡成 0 参文件标志 →
+            # `TypeError: 追加() takes 0 positional arguments but 2 were given`。
+            # 修法：与原生腿同口径的 arity 派发。仅在**裸函数式调用**（ParagraphCall）
+            # 生效；`表.追加(x)` 方法形态走 method_name_map 的 '追加'→'append'，不受影响。
+            # 0 参 `追加()` 仍发 `_light_builtin.追加`（文件标志），路径护栏.light:420 依赖它。
+            if (not shadowed and expr.name == '追加'
+                    and expr.name not in self._user_defined_functions
+                    and len(expr.args) >= 2):
+                py_name = '_light_builtin.列表追加'
+            
             # 参数（支持关键字参数）
             # A3：`映射`/`筛选` 是「数据在前、函数在后」的中文语序，Python 侧却是
             # (函数, 可迭代对象)。在这里换序，见 _reorder_data_first_args。
