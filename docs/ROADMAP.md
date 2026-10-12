@@ -1,6 +1,6 @@
 # 光明（Light）项目路线图
 
-> **最后更新：** 2026-10-11（R140 四线收口：L-182/L-191 修复 + LSP 完整化 + wasm CLI 接通 + 文档债务清理；L1 可跑 67 个（可跑率 98.53%）、可编 72/82=87.80%、对拍覆盖率 79.17%）
+> **最后更新：** 2026-10-12（R142-A：L-196 部分收口——异步类方法形参丢失 + 协程 await 支配域已修（新增 `tests/unit/test_R142_L196_异步方法形参与协程.py` 3 例 0.82 全绿）；症状③嵌套异步写实例拆为 L-198 深水区（根因 `codegen_typed.py:8206` 的 `dv_obj_deepcopy_self` 与 R140-A 的 UAF 修复掣肘），L-194 残留根因收敛到 L-198；L1 可跑 67/68（可跑率 98.53%）、可编 72/82=87.80%、对拍覆盖率 79.17%）
 > **当前版本：** v0.4.0（单一真源 `src/version.py`）
 
 > ⚠️ **版本口径说明（AI 与人读前必看）**：
@@ -88,7 +88,7 @@
 |------|--------|------|------|
 | 完整异常处理机制 | 🔴 高 | ✅ 已完成 | 异常类型层级、`尝试`/`捕获`/`最终` 完整语义（R135-C 实测转正：语法可跑，test_try_catch/try_finally/llvm_exception 均在） |
 | 模式匹配增强 | 🔴 高 | 🔄 五类已落地（R139-C） | L1 字面量模式已可跑；**R139-C 已补全变量绑定 / 守卫 / 序列（list/tuple/*余项）/ 结构（dict）/ 类型模式五类**，`tests/unit/test_llvm_match_with_destructure.py` 48 passed（含 13 真跑 clang 例，本地 + 0.82 双跑） |
-| 异步/协程完善 | 🟡 中 | 🔄 Python 腿已实现 + 原生腿事件循环 runtime 已落地（R139-A） | `异步`/`等待` Python 腿可跑（test_async.py）；**R139-A 补全原生腿 `dv_scheduler_run_event_loop` + `dv_coro_*` 事件循环 runtime**，与 `等待 异步睡眠(x)` 探针对拍通过 |
+| 异步/协程完善 | 🟡 中 | 🔄 Python 腿已实现 + 原生腿事件循环 runtime 已落地（R139-A）；R142-A 部分修 L-196（异步类方法形参丢失 + 协程 await 支配域，对拍 3 例 0.82 全绿），嵌套异步写实例拆 L-198 深水区 | `异步`/`等待` Python 腿可跑（test_async.py）；**R139-A 补全原生腿 `dv_scheduler_run_event_loop` + `dv_coro_*` 事件循环 runtime**，与 `等待 异步睡眠(x)` 探针对拍通过；**R142-A**：`src/compiler.py::AstAdapter` 补 `Paragraph.params` 兼容 + `_ModifiersMethodDefinition` 透传 `modifiers`，异步类方法形参/协程支配域修复，回归 `test_R142_L196_异步方法形参与协程.py`；嵌套异步方法写实例不回写（L-198，与 R140-A 的 `dv_obj_deepcopy_self` UAF 修复掣肘）另立专项 |
 | 装饰器语法 | 🟡 中 | ✅ 已完成 | `@装饰器` 语法糖（R135-C 实测转正：test_decorator.py 通过） |
 | 上下文管理器 | 🟡 中 | ✅ 已完成 | `使用` 关键字（走 `__进入__`/`__退出__`）+ `与` 表达式（try/finally 糖，走 `关闭()`/`close()` 回退），R116-A 已转正 |
 

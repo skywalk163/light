@@ -214,6 +214,26 @@ def _get_cache() -> Optional[Any]:
 # AST 适配器：v3 AST → 我们的 ast_nodes 格式
 # =============================================================================
 
+class _ModifiersMethodDefinition(ast.MethodDefinition):
+    """带 modifiers 的方法定义（R142-A · L-196）。
+
+    v3 类体内 `异步 段落 名(形参…)` 解析成 **Paragraph 节点**（`modifiers=['异步']`），
+    而 `ast_nodes.MethodDefinition` 是 slots dataclass、**没有 modifiers 槽**。
+    转译腿（code_generator.py）直接读 v3 节点的 `getattr(method, 'modifiers', [])`
+    识别异步方法；原生腿经本适配层转换后该信息被丢弃 → 异步类方法退化成普通
+    方法（`等待 对.加异(11)` 拿不到协程句柄、`异步 运行` 也不同步驱动）。
+
+    子类补一个 `modifiers` 槽透传修饰符：`isinstance(x, ast.MethodDefinition)`
+    仍成立，其余消费者（codegen_typed / 包管理器 / profiler）零影响。
+    """
+    __slots__ = ('modifiers',)
+
+    def __init__(self, *args, **kwargs):
+        modifiers = kwargs.pop('modifiers', None)
+        super().__init__(*args, **kwargs)
+        self.modifiers = list(modifiers or [])
+
+
 class AstAdapter:
     """将 `ast_nodes_v3` 节点转换为 `ast_nodes.py` 节点
 
@@ -665,11 +685,16 @@ class AstAdapter:
                 continue
             if getattr(m, 'is_constructor', False) or m.name == node.name:
                 # 构造函数
+                # R142-A（L-196）同口径兼容：构造成员若为 Paragraph 节点
+                # （形参在 params），parameters 取不到则取 params，避免形参丢失。
+                构造形参源 = getattr(m, 'parameters', None)
+                if 构造形参源 is None:
+                    构造形参源 = getattr(m, 'params', None)
                 constructor = ast.ConstructorDefinition(
                     name=m.name,
-                    parameters=[ast.Parameter(name=p.name if hasattr(p, 'name') else str(p),
-                                                type_annotation=getattr(p, 'type_annotation', None))
-                                 for p in getattr(m, 'parameters', [])],
+                    parameters=[ast.Parameter(name=p.name if hasattr(p, 'name') else (p.get('name', 'x') if isinstance(p, dict) else str(p)),
+                                                type_annotation=(getattr(p, 'type_annotation', None) if hasattr(p, 'type_annotation') else (p.get('type') if isinstance(p, dict) else None)))
+                                 for p in (构造形参源 or [])],
                     body=self._to_list_stmts(getattr(m, 'body', [])),
                 )
             else:
@@ -699,8 +724,16 @@ class AstAdapter:
         )
 
     def _convert_method_definition(self, node) -> Optional[ast.MethodDefinition]:
+        # R142-A（L-196）：类体内 `异步 段落 名(形参…)` 在 v3 AST 是 **Paragraph
+        # 节点**——形参在 `params`（List[Dict]），没有 `parameters` 属性；此前只读
+        # `parameters` → 形参整体丢失（`v` 走「未知标识符当字符串常量」兜底，
+        # 实测写后为字符串 "v"）。转译腿 code_generator.py:3754-3757 早有
+        # 「parameters 取不到则取 params」的兼容，这里补同口径。
+        形参源 = getattr(node, 'parameters', None)
+        if 形参源 is None:
+            形参源 = getattr(node, 'params', None)
         params = []
-        for p in getattr(node, 'parameters', []):
+        for p in (形参源 or []):
             if hasattr(p, 'name'):
                 params.append(ast.Parameter(
                     name=p.name,
@@ -710,8 +743,13 @@ class AstAdapter:
                 params.append(ast.Parameter(
                     name=p.get('name', 'x'),
                     type_annotation=p.get('type'),
+                    default_value=self._convert_default_value(p.get('default')),
                 ))
-        return ast.MethodDefinition(
+        # R142-A（L-196）：Paragraph 的 modifiers（['异步']）必须透传——原生腿靠它
+        # 把异步类方法生成协程（`_gen_typed_method` 读 getattr(method_def,
+        # 'modifiers', [])）。MethodDefinition 无 modifiers 槽，用子类补。
+        modifiers = list(getattr(node, 'modifiers', None) or [])
+        构造参数 = dict(
             name=node.name,
             parameters=params,
             body=self._to_list_stmts(getattr(node, 'body', [])),
@@ -719,6 +757,9 @@ class AstAdapter:
             is_static=False,
             generic_params=list(getattr(node, 'generic_params', []) or []),
         )
+        if modifiers:
+            return _ModifiersMethodDefinition(modifiers=modifiers, **构造参数)
+        return ast.MethodDefinition(**构造参数)
 
     def _convert_attribute_declaration(self, node) -> ast.AttributeDeclaration:
         return ast.AttributeDeclaration(
