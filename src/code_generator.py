@@ -769,6 +769,12 @@ class PythonCodeGenerator:
             '是空': '_light_builtin.是空',
             '是布尔': '_light_builtin.是布尔',
             '是函数': '_light_builtin.是函数',
+            # R142-C · L-074 补齐：字符级判型 是字母/是空白 走 str.isalpha/str.isspace
+            # （对齐 stdlib/内置核心判型.light:55/67 与 unified 腿 builtin_map 同口径，
+            # 原生腿 _gen_typed_builtin 已在 R127-C 支持）。此前转译腿用这两名报
+            # 「未定义的段落」。'是数字符' 已在下方映射（str.isdigit，单字符守卫）。
+            '是字母': '_light_builtin.是字母',
+            '是空白': '_light_builtin.是空白',
             # LP-D-016：用户侧关键字 `是数字` = 是数值（int/float，排 bool），
             # 映射到 `是数值`；字符级 str.isdigit 判定走新关键字 `是数字符`，
             # 指向 Python 侧已有的 `是数字`（= stdlib/内置核心判型.light 的同名段落）。
@@ -1452,6 +1458,8 @@ class PythonCodeGenerator:
         self._add_line("    ('是数值', lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)),")
         self._add_line("    ('是负零', lambda v: isinstance(v, float) and v == 0.0 and __import__('math').copysign(1.0, v) < 0.0),")
         self._add_line("    ('是数字', lambda v: isinstance(v, str) and len(v) == 1 and v.isdigit()),")  # R114-S3：关键字 是数字符 的靶心（单字符守卫）
+        self._add_line("    ('是字母', lambda v: isinstance(v, str) and v.isalpha()),")  # R142-C · L-074：str.isalpha 整串语义
+        self._add_line("    ('是空白', lambda v: isinstance(v, str) and v.isspace()),")  # R142-C · L-074：str.isspace 整串语义
         self._add_line("    ('是字节', lambda v: isinstance(v, bytes)),")  # R114-S3：与 是字符串（str）对称
         self._add_line("]:")
         self._add_line("    if not hasattr(_light_builtin, _light_n):")

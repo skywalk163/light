@@ -3957,15 +3957,33 @@ static LightValue __dv_current_exception_obj;
 static int __dv_has_exception_obj = 0;
 
 void dv_throw_exception(LightValue* exception_obj) {
-    /* 获取当前栈追踪 */
+    /* 【R142-C / L-187 残余】rethrow 保护：异常对象可能已被抛过一次，
+     * 「栈追踪」字段已含原始抛出点（如 catch 不匹配 rethrow、catch 内再抛、
+     * finally 穿透后 rethrow 这些路径）。若已有非空栈追踪，**不再覆盖**，
+     * 否则用截断后的栈抹掉原始帧，与 Python 腿 traceback 分叉。
+     * 首次抛时 dv_create_exception_with_cause 已把该字段设为空串，正常写入。 */
+    int has_stack = 0;
+    if (exception_obj && dv_is_object(exception_obj)) {
+        LightValue existing_stack;
+        dv_null(&existing_stack);
+        dv_class_get_member(&existing_stack, exception_obj, "栈追踪");
+        if (existing_stack.type == 3 && existing_stack.str && existing_stack.str[0]) {
+            has_stack = 1;
+        }
+        dv_free(&existing_stack);
+    }
+
+    /* 获取当前栈追踪（仅首次抛写，rethrow 保留原始） */
     char stack_trace[4096];
     dv_get_stack_trace(stack_trace, sizeof(stack_trace));
-    
-    /* 设置异常的栈追踪属性 */
-    LightValue stack_val;
-    dv_str(&stack_val, stack_trace);
-    dv_class_set_member(exception_obj, "栈追踪", &stack_val);
-    dv_free(&stack_val);
+
+    if (!has_stack) {
+        /* 设置异常的栈追踪属性 */
+        LightValue stack_val;
+        dv_str(&stack_val, stack_trace);
+        dv_class_set_member(exception_obj, "栈追踪", &stack_val);
+        dv_free(&stack_val);
+    }
     
     if (__dv_try_level < 0 || __dv_try_level >= MAX_TRY_DEPTH) {
         /* 没有 try 块，直接打印错误信息并退出 */

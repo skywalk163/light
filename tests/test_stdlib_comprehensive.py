@@ -64,15 +64,48 @@ class TestStdlib网络(unittest.TestCase):
 
 
 class TestStdlib颜色(unittest.TestCase):
-    """测试 颜色 模块"""
+    """测试 颜色 模块（纯光明 .light 实现，R142-B 起不再依赖同名 .py）
 
-    def test_import(self):
-        """测试模块可导入"""
+    R142-B oracle 改造：原用例 `import 颜色` 直引 stdlib/颜色.py 做存在性断言；
+    颜色.py 已按三腿对拍证据删除（原生腿 == 钩子腿 == .py oracle == colorsys 语义，
+    0.82 逐行一致），改为经 _light_import_hook 加载 颜色.light（src 后端执行）。
+    下方期望值取自 0.82 三腿对拍的一致输出，不是照抄 .py 输出。
+    """
+
+    def test_导入与对拍(self):
+        """import 颜色 必须解析到 颜色.light，且关键导出值与内联期望一致。"""
+        import _light_import_hook
+        _light_import_hook.install([os.path.abspath(stdlib_path)])
+        saved = sys.modules.pop('颜色', None)
         try:
             import 颜色
-            self.assertTrue(hasattr(颜色, 'RGB转十六进制'))
-        except ImportError:
-            self.fail("颜色 模块导入失败")
+            源 = str(getattr(颜色, '__file__', '')).replace('\\', '/')
+            self.assertTrue(源.endswith('/颜色.light'),
+                            'import 颜色 应解析到 颜色.light（纯光明实现），实际 %s' % 源)
+            self.assertEqual(list(颜色.RGB解析('#FF0000')), [255, 0, 0])
+            self.assertEqual(list(颜色.RGB解析('#F00')), [255, 0, 0])
+            self.assertEqual(list(颜色.RGB解析('rgb(10, 20, 30)')), [10, 20, 30])
+            self.assertEqual(list(颜色.RGB解析('10,20,30')), [10, 20, 30])
+            self.assertEqual(颜色.RGB转十六进制(255, 0, 0), '#FF0000')
+            self.assertEqual(颜色.RGB转十六进制(16, 32, 255), '#1020FF')
+            self.assertEqual(list(颜色.十六进制转RGB('#00FF00')), [0, 255, 0])
+            self.assertEqual(颜色.颜色混合('#FF0000', '#0000FF', 0.5), '#7F007F')
+            self.assertAlmostEqual(颜色.颜色亮度('#FF0000'), 0.299, places=4)
+            self.assertEqual(颜色.颜色反转('#FF0000'), '#00FFFF')
+            self.assertEqual(颜色.颜色变亮('#000000', 0.2), '#333333')
+            self.assertEqual(颜色.颜色变暗('#FFFFFF', 0.2), '#CCCCCC')
+            self.assertEqual(颜色.颜色透明('#FF0000', 0.5), 'rgba(255, 0, 0, 0.5)')
+            self.assertEqual(颜色.获取颜色名称('#FF0000'), '红色')
+            self.assertEqual(颜色.获取颜色名称('#123456'), '未知')
+            self.assertEqual(list(颜色.RGB转HSV(255, 0, 0)), [0, 100, 100])
+            self.assertEqual(list(颜色.HSV转RGB(0, 100, 100)), [255, 0, 0])
+            self.assertEqual(list(颜色.RGB转HSL(255, 0, 0)), [0, 100, 50])
+            self.assertEqual(list(颜色.HSL转RGB(0, 100, 50)), [255, 0, 0])
+        finally:
+            if saved is not None:
+                sys.modules['颜色'] = saved
+            else:
+                sys.modules.pop('颜色', None)
 
 
 class TestStdlib进程(unittest.TestCase):
@@ -244,15 +277,52 @@ class TestStdlib分词(unittest.TestCase):
 
 
 class TestStdlib格式化(unittest.TestCase):
-    """测试 格式化 模块"""
+    """测试 格式化 模块（纯光明 .light 实现，R142-B 起不再依赖同名 .py）
 
-    def test_import(self):
-        """测试模块可导入"""
+    R142-B oracle 改造：原用例 `import 格式化` 直引 stdlib/格式化.py 做存在性断言；
+    格式化.py 已按三腿对拍证据删除（原生腿 == 钩子腿 == .py oracle，0.82 逐行一致），
+    改为经 _light_import_hook 加载 格式化.light（src 后端执行）。
+    下方期望值取自本地三腿对拍一致输出（钩子腿=.light 真实输出 == .py oracle），
+    不是照抄 .py 输出。
+    """
+
+    def test_导入与对拍(self):
+        """import 格式化 必须解析到 格式化.light，且关键导出值与内联期望一致。"""
+        import _light_import_hook
+        _light_import_hook.install([os.path.abspath(stdlib_path)])
+        saved = sys.modules.pop('格式化', None)
         try:
             import 格式化
-            self.assertTrue(hasattr(格式化, '文本居中'))
-        except ImportError:
-            self.fail("格式化 模块导入失败")
+            源 = str(getattr(格式化, '__file__', '')).replace('\\', '/')
+            self.assertTrue(源.endswith('/格式化.light'),
+                            'import 格式化 应解析到 格式化.light（纯光明实现），实际 %s' % 源)
+            self.assertEqual(格式化.文本左对齐("hi", 5, "."), 'hi...')
+            self.assertEqual(格式化.文本居中("hi", 8), '   hi   ')
+            self.assertEqual(格式化.文本右对齐("hi", 5, "0"), '000hi')
+            self.assertEqual(格式化.文本填充("x", 4, "*", "右"), '***x')
+            self.assertEqual(格式化.文本填充("x", 4, "*", "左"), 'x***')
+            self.assertEqual(格式化.文本填充零(42, 5), '00042')
+            self.assertEqual(格式化.文本填充零(7, 2), '07')
+            self.assertEqual(格式化.文本缩进("a\nb", 2, ">"), '>>a\n>>b')
+            self.assertEqual(格式化.文本去除缩进("    a\n    b"), 'a\nb')
+            self.assertEqual(格式化.文本去除缩进("  x\n    y"), 'x\n  y')
+            换行们 = 格式化.文本换行("The quick brown fox", 10)
+            self.assertEqual(len(换行们), 2)
+            self.assertEqual(换行们[0], 'The quick')
+            self.assertEqual(换行们[1], 'brown fox')
+            self.assertEqual(格式化.文本截断("hello world", 8), 'hello...')
+            self.assertEqual(格式化.文本截断("hi", 8), 'hi')
+            self.assertEqual(格式化.文本分隔线("=", 6), '======')
+            self.assertEqual(格式化.文本表格([["甲", "1"], ["乙乙", "22"]], ["名", "值"]),
+                             '名  | 值 \n-- | --\n甲  | 1 \n乙乙 | 22')
+            self.assertEqual(格式化.文本去除空白("  a\nb   c "), 'a b c')
+            self.assertEqual(格式化.文本填充段落("The quick brown fox", 10),
+                             'The quick\nbrown fox')
+        finally:
+            if saved is not None:
+                sys.modules['格式化'] = saved
+            else:
+                sys.modules.pop('格式化', None)
 
 
 class TestStdlib模板(unittest.TestCase):
