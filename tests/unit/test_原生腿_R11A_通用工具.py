@@ -132,15 +132,29 @@ def _clang_available():
 
 
 def _py_module(name):
-    """直接加载 stdlib/<name>.py 作 Python oracle（绕过 shadow hook）。
+    """加载 stdlib/<name> 的 Python 侧 oracle。
+
+    R144-C：`stdlib/<name>.py` 影子已清（.light 首两行带「纯光明实现」魔数，
+    运行期本就取代 .py），这里改为经 `_light_import_hook` 加载 `<name>.light`
+    走 **src 腿**（Python codegen）。本文件比的是 **原生腿（LLVM 编译产物、
+    子进程真跑）vs src 腿**，是两条独立后端的对拍，不是同一份代码比两次。
 
     注：缓存.py 依赖仅以 .light 存在的 对象池缓存，无法在纯 Python 下加载，
-    该模块改由内联语义复刻（见 _oracle_cache*）。"""
+    该模块改由内联语义复刻（见 _oracle_cache*）。
+    """
     p = os.path.join(_ROOT, "stdlib", name + ".py")
-    spec = importlib.util.spec_from_file_location(name + "_pyref", p)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    if os.path.isfile(p):
+        spec = importlib.util.spec_from_file_location(name + "_pyref", p)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    import _light_import_hook
+    _light_import_hook.install([os.path.join(_ROOT, "stdlib")])
+    sys.modules.pop(name, None)          # 钩子按真名缓存，弹掉以拿到全新实例
+    try:
+        return importlib.import_module(name)
+    finally:
+        sys.modules.pop(name, None)
 
 
 def _ser(name, val):

@@ -3,7 +3,7 @@
 
 基于 Python math 库封装，提供数学运算功能。
 
-上游 duanpub 原始包通过 C FFI 调用 C 数学库，
+上游 lightpub 原始包通过 C FFI 调用 C 数学库，
 本桥接模块用 Python math 模块替代，提供等价的数学运算功能。
 """
 

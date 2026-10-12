@@ -811,6 +811,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare i32 @dv_socket_accept(i32)',
             f'declare i32 @dv_socket_send(i32, ptr)',
             f'declare void @dv_socket_recv(ptr, i32, i32)',
+            f'declare i32 @dv_socket_set_recv_timeout(i32, i32)',
             f'declare i32 @dv_socket_close(i32)',
             f'declare i32 @dv_socket_shutdown(i32, i32)',
             f'declare i32 @dv_socket_set_nonblocking(i32, i32)',
@@ -3547,6 +3548,25 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{fd_i32} = trunc i64 {fd_i64} to i32')
                 ret = self.new_register()
                 self.emit(f'{ret} = call i32 @dv_socket_close(i32 {fd_i32})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        # L-194③：给套接字设接收超时（秒，整型）。原生腿 recv 默认阻塞无超时，
+        # keep-alive 沉默对端会永久挂起；设超时后 recv 超时返回，光明层 收全部 退出。
+        if name in ('socket设置接收超时', 'socket_set_recv_timeout'):
+            if len(args) >= 2:
+                fd_i64 = self.new_register()
+                self.emit(f'{fd_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                fd_i32 = self.new_register()
+                self.emit(f'{fd_i32} = trunc i64 {fd_i64} to i32')
+                sec_i64 = self.new_register()
+                self.emit(f'{sec_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
+                sec_i32 = self.new_register()
+                self.emit(f'{sec_i32} = trunc i64 {sec_i64} to i32')
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_socket_set_recv_timeout(i32 {fd_i32}, i32 {sec_i32})')
                 ret_i64 = self.new_register()
                 self.emit(f'{ret_i64} = sext i32 {ret} to i64')
                 return self._create_int_dv(ret_i64), 'dv'

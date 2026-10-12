@@ -20,7 +20,7 @@
 ### 生态工具
 | 维度 | 现状 | 缺口 |
 |------|------|------|
-| duanpub | 109包/2721函数/642FFI，自动索引 | 仅4个P0包有桥接；102个P2包未实现；stdlib函数硬编码为关键字（126个） |
+| lightpub | 109包/2721函数/642FFI，自动索引 | 仅4个P0包有桥接；102个P2包未实现；stdlib函数硬编码为关键字（126个） |
 | 转译器 | `pyproject2duan.py` 914行，覆盖几乎所有Python AST | 链式调用bug；点号导入需workaround；无语义校验；builtin反向映射不全 |
 | 文档 | 57个.md文件 | 部分使用过时语法（v1.x）；无统一的当前语法参考 |
 
@@ -28,7 +28,7 @@
 1. **写了看起来对的代码却报错** — 分词冲突导致 `处理函数` 被拆成 `处理`+`函数`
 2. **报错信息看不懂** — 虽然有友好提示，但缺少"怎么改"的具体指导
 3. **不知道哪些是内置的** — 126个stdlib函数被注册为关键字，与核心关键字混在一起
-4. **教程到实战断层** — 教程只讲基础语法，不教怎么用 duanpub 导入库、怎么转译现有项目
+4. **教程到实战断层** — 教程只讲基础语法，不教怎么用 lightpub 导入库、怎么转译现有项目
 
 ---
 
@@ -39,7 +39,7 @@
 | T1: 错误恢复与提示增强 | 编译器 | DuMate | P0 | 无 |
 | T2: 交互式教程扩展 | 教程 | DuMate | P0 | T1（错误提示） |
 | T3: stdlib 函数关键字剥离 | 编译器 | DuMate | P1 | 无 |
-| T4: 端到端实战教程 | 教程 | DuMate | P1 | T3（duanpub导入） |
+| T4: 端到端实战教程 | 教程 | DuMate | P1 | T3（lightpub导入） |
 | T5: 转译器链式调用修复 | 转译器 | Trae | P1 | 无（可并行） |
 | T6: 转译器语义校验与报告 | 转译器 | Trae | P2 | T5 |
 
@@ -153,7 +153,7 @@ python -m pytest tests/ -q --tb=short -k "not antlr" --ignore=tests/test_module_
 ## 任务 T2: 交互式教程扩展
 
 ### 背景
-当前 `cli/tutorial.py` 有 11 个练习，覆盖变量到 FizzBuzz。但缺少异常处理、文件IO、模块导入、duanpub 使用等进阶内容。完成度检查用子串匹配（`expected in output`），脆弱且不可靠。
+当前 `cli/tutorial.py` 有 11 个练习，覆盖变量到 FizzBuzz。但缺少异常处理、文件IO、模块导入、lightpub 使用等进阶内容。完成度检查用子串匹配（`expected in output`），脆弱且不可靠。
 
 ### 涉及文件
 - `cli/tutorial.py` — `interactive_repl()` 函数中的 `exercises` 列表
@@ -276,7 +276,7 @@ def _load_progress() -> dict:
 在两个教程文件中补充对应章节：
 - 第 11 节: 异常处理（尝试/捕获/抛出/最终）
 - 第 12 节: 文件操作（使用/读取文件/写入文件）
-- 第 13 节: 模块系统（导入/从...导入/duanpub 简介）
+- 第 13 节: 模块系统（导入/从...导入/lightpub 简介）
 
 ### 验收标准
 1. 交互式教程有 16 个练习（原 11 + 新 5）
@@ -388,7 +388,7 @@ def __getattr__(name):
 1. `VERB_ARITY` 从 168 减少到 ~42（仅核心语言动词）
 2. `ALL_KEYWORDS` 从 91 减少到 ~65
 3. 所有现有测试通过（需先迁移测试文件中的 stdlib 调用）
-4. duanpub 109 包解析通过
+4. lightpub 109 包解析通过
 5. 未导入直接使用 stdlib 函数时，给出友好的导入提示
 6. 迁移工具能自动处理现有 `.duan` 文件
 
@@ -404,9 +404,9 @@ cd C:\dumatework\duan
 python tools/migrate_syntax.py --stdlib tests/
 # 全量测试
 python -m pytest tests/ -q --tb=short -k "not antlr" --ignore=tests/test_module_system.py --ignore=tests/test_comprehensive.py --ignore=tests/test_modern_features.py --ignore=tests/test_ternary_antlr.py
-# duanpub 解析验证
+# lightpub 解析验证
 python -c "
-from tools.gen_duanpub_index import scan_packages
+from tools.gen_lightpub_index import scan_packages
 results = scan_packages()
 print(f'Packages: {len(results[\"passed\"])} passed, {len(results[\"failed\"])} failed')
 "
@@ -417,7 +417,7 @@ print(f'Packages: {len(results[\"passed\"])} passed, {len(results[\"failed\"])} 
 ## 任务 T4: 端到端实战教程
 
 ### 背景
-当前教程只讲基础语法，初学者学完后不知道怎么实际用段言做项目。需要一篇"从零到项目"的端到端教程，串联 duanpub 导入、文件操作、转译器使用。
+当前教程只讲基础语法，初学者学完后不知道怎么实际用段言做项目。需要一篇"从零到项目"的端到端教程，串联 lightpub 导入、文件操作、转译器使用。
 
 ### 涉及文件
 - `docs/端到端实战教程.md`（新建）
@@ -438,7 +438,7 @@ print(f'Packages: {len(results[\"passed\"])} passed, {len(results[\"failed\"])} 
 ## 第2步: 基础语法回顾
 - 变量、条件、循环、函数（链接到30分钟教程）
 
-## 第3步: 使用 duanpub 导入库
+## 第3步: 使用 lightpub 导入库
 - 导入 HTTP 客户端
 - 导入 JSON 解析器
 - 理解模块系统
@@ -513,7 +513,7 @@ examples/weather_app/
 1. `docs/端到端实战教程.md` 完成，包含 8 个步骤
 2. `examples/weather_app/` 中的代码能被 DuanParser 正确解析
 3. 教程中所有代码示例都能编译执行（HTTP 部分可用 mock 代替）
-4. 教程覆盖：duanpub 导入、文件操作、异常处理、转译器使用
+4. 教程覆盖：lightpub 导入、文件操作、异常处理、转译器使用
 
 ---
 
@@ -638,7 +638,7 @@ T5 (链式调用) ──→ T6 (语义校验)
 - T1 和 T3 可并行
 - T5 和 T6 可并行
 - T2 依赖 T1（教程中使用新的错误提示）
-- T4 依赖 T3（端到端教程中使用 duanpub 导入）
+- T4 依赖 T3（端到端教程中使用 lightpub 导入）
 
 ### 6. DuMate / Trae 分工
 
@@ -647,6 +647,6 @@ T5 (链式调用) ──→ T6 (语义校验)
 | T1 错误恢复 | DuMate | 需要深入理解 parser 内部结构 |
 | T2 教程扩展 | DuMate | 需要理解教程体系和教学设计 |
 | T3 stdlib 剥离 | DuMate | 需要全面理解 keywords/lexer/parser 联动 |
-| T4 端到端教程 | DuMate | 需要理解 duanpub 和生态全貌 |
+| T4 端到端教程 | DuMate | 需要理解 lightpub 和生态全貌 |
 | T5 链式调用 | Trae | 专注于转译器内部修复 |
 | T6 语义校验 | Trae | 专注于转译器报告增强 |

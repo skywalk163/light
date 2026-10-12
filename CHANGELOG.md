@@ -107,7 +107,7 @@
 光明（Light）与光明（Light）两条开发主线正式合并，统一为 **光明（Light）** 品牌。
 包名统一为 `light`，命令行入口统一为 `light` 与 `lightc`，源文件后缀统一为 `.light`，
 生态包命名空间统一为 `lightpub`。原光明侧的 `light` / `lightc` 命令、`.light` 后缀、
-`duanpub` 命名空间均归一化到光明命名体系。
+`lightpub` 命名空间均归一化到光明命名体系。
 
 ### 合并内容
 
@@ -129,7 +129,7 @@
 - **包名统一**：`light` → `light`
 - **CLI 入口统一**：`light = "cli.light:main"`、`lightc = "cli.lightc:main"`
 - **源文件后缀统一**：`.light` → `.light`
-- **生态命名空间统一**：`duanpub` → `lightpub`
+- **生态命名空间统一**：`lightpub` → `lightpub`
 - **打包配置合并**：`packages.find` 排除规则与 `package-data` 取两侧并集（含积木库数据文件）
 - **覆盖率配置合并**：保留光明侧 `omit` 列表与原另一线的 `branch` / `skip_covered` 设置
 - **CI 合并**：另一主线的 3×4 测试矩阵（3 操作系统 × 4 Python 版本）+ lint + build/twine 校验，

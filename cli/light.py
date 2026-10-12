@@ -1204,10 +1204,17 @@ def cmd_pkg_search(args):
     if getattr(args, 'remote', False):
         from package_installer import PackageInstaller
         project_root = Path(getattr(args, 'project', '.')).resolve()
-        registry_url = getattr(args, 'registry_url', None)
-        if not registry_url:
-            registry_url = 'http://localhost:8000'
-        installer = PackageInstaller(project_root=project_root, registry_url=registry_url)
+        # R144-E：不传 --registry-url 时按区域走默认远端（默认 domestic=gitcode），
+        # 取代原先硬编码的 http://localhost:8000；非法区域快速失败。
+        try:
+            installer = PackageInstaller(
+                project_root=project_root,
+                registry_url=getattr(args, 'registry_url', None),
+                registry_region=getattr(args, 'registry_region', None),
+            )
+        except ValueError as e:
+            print(f"错误: {e}", file=sys.stderr)
+            sys.exit(1)
         results = installer.remote_search(args.keyword)
         if not results:
             print(f"未找到匹配 '{args.keyword}' 的包")
@@ -1981,7 +1988,10 @@ def main():
     pkg_search = pkg_sub.add_parser('search', help='搜索 lightpub 包')
     pkg_search.add_argument('keyword', help='搜索关键词（包名/描述/关键词）')
     pkg_search.add_argument('--remote', '-r', action='store_true', help='从远程注册中心搜索')
-    pkg_search.add_argument('--registry-url', default=None, help='远程注册中心 URL（默认: http://localhost:8000）')
+    pkg_search.add_argument('--registry-url', default=None,
+                            help='显式远端注册中心 URL（优先于区域默认）')
+    pkg_search.add_argument('--registry-region', default=None, choices=['domestic', 'foreign'],
+                            help='区域默认远端：domestic=gitcode（默认）/ foreign=github；环境变量 LIGHT_REGISTRY_REGION 亦可')
 
     # ── pkg info ──
     pkg_info = pkg_sub.add_parser('info', help='查看 lightpub 包详情')
@@ -2114,7 +2124,9 @@ def main():
     install_p.add_argument('--registry', action='store_true', help='列出包库中所有包')
     install_p.add_argument('--uninstall', default=None, help='卸载包')
     install_p.add_argument('--update-registry', action='store_true', help='从远程更新本地包库缓存')
-    install_p.add_argument('--registry-url', default=None, help='远程包库 URL')
+    install_p.add_argument('--registry-url', default=None, help='显式远端 registry URL（优先于区域默认）')
+    install_p.add_argument('--registry-region', default=None, choices=['domestic', 'foreign'],
+                           help='区域默认远端：domestic=gitcode（默认）/ foreign=github；环境变量 LIGHT_REGISTRY_REGION 亦可')
     install_p.add_argument('--with-deps', action='store_true', help='自动安装依赖')
     install_p.add_argument('-p', '--project', default='.', help='项目目录')
 

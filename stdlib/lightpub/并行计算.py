@@ -1,9 +1,9 @@
 """
 并行计算 — lightpub 桥接模块
 
-基于 Python concurrent.futures 库封装，函数名对齐上游 duanpub（段言时期）packages/并行计算/源.duan。
+基于 Python concurrent.futures 库封装，函数名对齐上游 lightpub（段言时期）packages/并行计算/源.duan。
 
-上游 duanpub 原始包通过 C FFI 实现线程池、任务并行，
+上游 lightpub 原始包通过 C FFI 实现线程池、任务并行，
 本桥接模块用 Python concurrent.futures 模块替代，提供等价的并行计算功能。
 """
 

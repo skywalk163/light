@@ -38,10 +38,19 @@ sys.dont_write_bytecode = True
 # 见文件头 ①：本文件单用例最慢实测 42.88s，必须高于 pyproject.toml 的全局 --timeout=60。
 pytestmark = pytest.mark.timeout(240)
 
-# oracle：stdlib 的 .py 实现（与 .light 同源语义）
-sys.path.insert(0, os.path.join(
+# oracle：字符串工具 的纯光明实现。
+# R144-C：stdlib/字符串工具.py 影子已清（.light 首两行声明「纯光明实现」，
+# 运行期本就取代 .py），这里改为经 _light_import_hook 加载 字符串工具.light
+# —— 即走 src 腿 Python codegen。**对拍口径不变**：本文件比的是
+# 「原生腿（LLVM 编译产物）vs src 腿（同一 .light 的 Python codegen）」两条后端，
+# 与 R11A/R11B 的原生腿对拍同一口径；被删的 .py 只是这条对拍的旁路参照，
+# 不是被测对象。
+_STDLIB_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    'stdlib'))
+    'stdlib')
+sys.path.insert(0, _STDLIB_DIR)
+import _light_import_hook                                     # noqa: E402
+_light_import_hook.install([_STDLIB_DIR])                     # noqa: E402
 import 字符串工具 as _S     # noqa: E402
 
 

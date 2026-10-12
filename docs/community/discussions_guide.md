@@ -242,7 +242,7 @@ light compile hello.light --backend llvm-typed
 请在 GitHub Issues 中提交 Bug 报告，使用 [Bug 报告模板](https://github.com/skywalk163/light/issues/new?template=bug_report.md)。
 
 #### Q: 光明有包管理器吗？
-有的，光明内置了 `light pkg` 包管理命令和 duanpub 包注册中心。
+有的，光明内置了 `light pkg` 包管理命令和 lightpub 包注册中心。
 
 ### 3.4 社区与支持
 

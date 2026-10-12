@@ -35,8 +35,35 @@ DEFAULT_REGISTRY = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 DEFAULT_CONTRIB = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'contrib')
 DEFAULT_INSTALL = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'contrib', 'installed')
 
-# 默认本地注册表服务器地址
-DEFAULT_REGISTRY_URL = 'http://localhost:8080'
+# R144-E：registry 默认远端改为区域选择（用户 2026-10-12 拍板：国内默认 gitcode，国外默认 github）。
+# 不做 geo-IP 探测（不可靠）：默认 domestic（gitcode），foreign（github）必须显式指定。
+# 覆盖方式：环境变量 LIGHT_REGISTRY_REGION=domestic|foreign，或安装器参数 registry_region。
+REGISTRY_REGION_URLS = {
+    'domestic': 'https://gitcode.com/light-lang/registry/raw/main/registry.json',
+    'foreign': 'https://github.com/skywalk163/light/raw/main/registry/registry.json',
+}
+DEFAULT_REGISTRY_REGION = 'domestic'
+REGISTRY_REGION_ENV = 'LIGHT_REGISTRY_REGION'
+
+
+def resolve_registry_region(region: str = '') -> str:
+    """解析 registry 区域 → 对应区域的 raw registry.json URL。
+
+    优先级：显式参数 region > 环境变量 LIGHT_REGISTRY_REGION > 默认 domestic（gitcode）。
+    非法区域名抛 ValueError（快速失败，不静默回退到错误区域）。
+    """
+    if not region:
+        region = os.environ.get(REGISTRY_REGION_ENV, '')
+    region = (region or '').strip().lower()
+    if not region:
+        region = DEFAULT_REGISTRY_REGION
+    if region not in REGISTRY_REGION_URLS:
+        raise ValueError(
+            f"未知 registry 区域: '{region}'"
+            f"（可用: {', '.join(sorted(REGISTRY_REGION_URLS))}；"
+            f"或用环境变量 {REGISTRY_REGION_ENV} 设置）"
+        )
+    return REGISTRY_REGION_URLS[region]
 # 默认注册表存储目录（~/.light/registry/）
 DEFAULT_REGISTRY_DIR = os.path.join(os.path.expanduser('~'), '.light', 'registry')
 

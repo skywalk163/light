@@ -112,10 +112,19 @@ def test_全部纯光明模块_钩子必须接管light(hook):
 
 
 def test_纯光明模块_import真走light_不被py顶替():
-    """import 集合 必须解析到 .light 文件（纯光明优先），不被同名 .py 顶替。"""
+    """import 集合 必须解析到 .light 文件（纯光明优先），不被同名 .py 顶替。
+
+    R144-C：`集合.py` 影子已清，`集合` 从「纯光明（有 .py 影子）」变成
+    「仅 .light」形态。本用例的不变量是「import 集合 必须解析到 .light」，
+    该不变量在**两种形态下都成立**且后者更强（.light 成了唯一源），
+    所以前置条件从「必须在纯光明名单」放宽为「必须在纯光明名单**或**
+    仅 .light 名单」——不许因为影子被清掉就把这条护栏判红。
+    """
     名 = "集合"
-    if 名 not in _PURE:
-        raise AssertionError(f"前置失败：{名} 不在纯光明模块名单 {_PURE[:8]}...")
+    if 名 not in _PURE and 名 not in _ONLY_LIGHT:
+        raise AssertionError(
+            f"前置失败：{名} 既不在纯光明名单也不在仅 .light 名单 "
+            f"{_PURE[:8]}... / {_ONLY_LIGHT[:8]}...")
     saved = sys.modules.pop(名, None)
     try:
         mod = importlib.import_module(名)
@@ -389,14 +398,22 @@ def test_全量stdlib模块_裸import均可成功():
 def test_反跑_对照_删纯光明模块的py_不红():
     """对照：纯光明模块删 .py 不应红——这是自举率机制的正确行为，不是门禁漏洞。
 
-    `集合` 带纯光明魔数，其 `.light` 是完整实现；删 `.py` 后标准机制找不到 `.py`，
-    钩子仍返回 spec，`import 集合` 解析到 `.light`。判据必须**不红**，否则本测试
-    会把自举率机制误判成缺陷（R135 B 线正是靠这个机制换影子数）。
+    任取一个仍带 `.py` 影子的纯光明模块（其 `.light` 是完整实现、首两行有魔数）：
+    临时移走 `.py` 后标准机制找不到 `.py`，钩子仍返回 spec，`import <名>` 解析到
+    `.light`。判据必须**不红**，否则本测试会把自举率机制误判成缺陷
+    （R135 B 线正是靠这个机制换影子数）。
     ⚠️ 涉及移动真实 .py，仅在**串行**模式下执行。
+
+    R144-C：原先写死 `集合`，但 `集合.py` 已被本轮清影子删掉、前置条件随之失效。
+    改成**动态取第一个仍有 .py 影子的纯光明模块**——这样后续每清一条影子，
+    本用例自动换下一个样本，不会因为「样本恰好被清掉」而失去这道护栏。
     """
     if not _串行运行():
         pytest.skip("反跑对照涉及移动真实 .py，仅在串行模式下执行")
-    名 = "集合"
+    名 = next((n for n in _PURE
+               if os.path.isfile(os.path.join(_STDLIB, n + ".py"))), None)
+    if 名 is None:
+        pytest.skip("已无带 .py 影子的纯光明模块（影子全清），反跑对照无样本")
     if 名 not in _PURE:
         raise AssertionError(f"前置失败：{名} 不在纯光明名单 {_PURE[:8]}...")
     py_path = os.path.join(_STDLIB, 名 + ".py")

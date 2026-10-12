@@ -42,7 +42,7 @@
 # 这里只用 6 个中文名且均为网络语义，撞名面最小。
 
 导出 socket AF_INET AF_INET6 SOCK_STREAM SOCK_DGRAM SOL_SOCKET SO_REUSEADDR
-导出 创建 连接 发送 recv 读取 关闭 取错误 取错误码
+导出 创建 连接 发送 recv 读取 关闭 取错误 取错误码 设置接收超时
 
 段落 AF_INET():
   返回 2
@@ -82,6 +82,11 @@
 
 段落 关闭(描述符):
   返回 socket_close(描述符)
+
+段落 设置接收超时(描述符, 秒):
+  # L-194③：给套接字设接收超时（秒，整型）；原生腿 recv 默认阻塞无超时，
+  # keep-alive 沉默对端会永久挂起，设超时后 recv 超时返回、调用方得以退出。
+  返回 socket_set_recv_timeout(描述符, 秒)
 
 段落 取错误():
   返回 socket_last_error()

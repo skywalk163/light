@@ -38,6 +38,21 @@ from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from io import BytesIO
 
+# R144-E：区域默认远端解析（与 lightpkg.py 同目录；单独分发时降级为本地同名实现）
+try:
+    from lightpkg import resolve_registry_region
+except ImportError:  # pragma: no cover
+    def resolve_registry_region(region: str = '') -> str:
+        region = (region or os.environ.get('LIGHT_REGISTRY_REGION', '')).strip().lower() or 'domestic'
+        urls = {
+            'domestic': 'https://gitcode.com/light-lang/registry/raw/main/registry.json',
+            'foreign': 'https://github.com/skywalk163/light/raw/main/registry/registry.json',
+        }
+        if region not in urls:
+            raise ValueError(f"未知 registry 区域: '{region}'（可用: domestic, foreign；"
+                             f"或用环境变量 LIGHT_REGISTRY_REGION 设置）")
+        return urls[region]
+
 
 # ===========================================================================
 # 内置包注册表
@@ -956,8 +971,14 @@ class PackageInstaller:
         installer.search("网络")                  # 搜索
     """
 
-    def __init__(self, project_root: Optional[Path] = None, registry_url: Optional[str] = None):
+    def __init__(self, project_root: Optional[Path] = None, registry_url: Optional[str] = None,
+                 registry_region: Optional[str] = None):
         self.project_root = Path(project_root or os.getcwd()).resolve()
+        if registry_url is None:
+            # R144-E：不传 --registry-url 时按区域走默认远端（默认 domestic=gitcode，
+            # 国外 github 需显式 --registry-region foreign 或环境变量 LIGHT_REGISTRY_REGION）。
+            # 远端拉取失败会被 _load_registry 静默吞掉，自动降级回内置表 + 本地索引 + 缓存。
+            registry_url = resolve_registry_region(registry_region or '')
         self.registry_url = registry_url
         self._packages_dir = self.project_root / "packages"
         self._cache_dir = self._get_cache_dir()
@@ -2102,7 +2123,14 @@ def run_install(args):
     """运行安装命令"""
     project_root = Path(args.project or '.').resolve()
     registry_url = getattr(args, 'registry_url', None)
-    installer = PackageInstaller(project_root=project_root, registry_url=registry_url)
+    # R144-E：--registry-region / 环境变量 LIGHT_REGISTRY_REGION 选区域默认远端；
+    # 显式 --registry-url 优先。非法区域名快速失败（非零 RC，不静默回退）。
+    try:
+        installer = PackageInstaller(project_root=project_root, registry_url=registry_url,
+                                     registry_region=getattr(args, 'registry_region', None))
+    except ValueError as e:
+        print(f"错误: {e}")
+        return False
 
     if args.update_registry:
         _cmd_update_registry(installer)
@@ -2453,6 +2481,9 @@ if __name__ == '__main__':
     ap.add_argument('--list', action='store_true')
     ap.add_argument('--registry', action='store_true')
     ap.add_argument('--uninstall')
+    ap.add_argument('--registry-url', default=None, help='显式远端 registry URL（优先于区域默认）')
+    ap.add_argument('--registry-region', default=None, choices=['domestic', 'foreign'],
+                    help='区域默认远端（默认 domestic=gitcode；环境变量 LIGHT_REGISTRY_REGION 亦可）')
     ap.add_argument('-p', '--project', default='.')
 
     test_args = ap.parse_args()

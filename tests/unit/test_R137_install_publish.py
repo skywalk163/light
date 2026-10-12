@@ -321,3 +321,101 @@ def test_10_contrib_registry模板_可被安装器加载(fake_registry):
                             registry_url='file:///' + tmpl.as_posix())
     hits = [p.name for p in inst.search('JSON')]
     assert 'JSON工具' in hits, f"模板里的包必须能被搜到，实际: {hits}"
+
+
+# ══ R144-E：registry 默认远端区域选择（国内 gitcode / 国外 github）════════
+
+def test_11_区域URL常量_国内gitcode国外github():
+    """用户 2026-10-12 拍板：国内默认 gitcode，国外默认 github。"""
+    from lightpkg import REGISTRY_REGION_URLS, DEFAULT_REGISTRY_REGION
+    assert DEFAULT_REGISTRY_REGION == 'domestic'
+    assert REGISTRY_REGION_URLS['domestic'] == \
+        'https://gitcode.com/light-lang/registry/raw/main/registry.json'
+    assert REGISTRY_REGION_URLS['foreign'] == \
+        'https://github.com/skywalk163/light/raw/main/registry/registry.json'
+
+
+def test_12_区域解析优先级_显式参数大于环境变量大于默认domestic(monkeypatch):
+    from lightpkg import resolve_registry_region
+    monkeypatch.delenv('LIGHT_REGISTRY_REGION', raising=False)
+    # 无显式设置 → 默认 domestic（gitcode）
+    assert 'gitcode.com' in resolve_registry_region()
+    # 显式参数
+    assert 'github.com' in resolve_registry_region('foreign')
+    assert 'gitcode.com' in resolve_registry_region('domestic')
+    # 环境变量覆盖默认
+    monkeypatch.setenv('LIGHT_REGISTRY_REGION', 'foreign')
+    assert 'github.com' in resolve_registry_region()
+    # 显式参数优先于环境变量
+    assert 'gitcode.com' in resolve_registry_region('domestic')
+    # 非法区域快速失败，不静默回退
+    with pytest.raises(ValueError):
+        resolve_registry_region('mars')
+
+
+def test_13_默认区域URL可被安装器解析并落200_本地文件桩(fake_registry, tmp_path, monkeypatch):
+    """R144-E 离线断言：不传 --registry-url 时安装器解析区域默认 URL（domestic=gitcode），
+    且 raw 拉取路径能解析 registry.json（用本地文件桩模拟 200，不真出网）。"""
+    import urllib.request
+    from lightpkg import REGISTRY_REGION_URLS
+
+    stub_bytes = fake_registry['reg_json'].read_bytes()
+
+    class _StubResp:
+        def __init__(self, data):
+            self._data = data
+
+        def read(self):
+            return self._data
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def _fake_urlopen(req, timeout=10):
+        url = getattr(req, 'full_url', None) or str(req)
+        assert url == REGISTRY_REGION_URLS['domestic'], \
+            f"默认区域 URL 应为 gitcode，实际 {url}"
+        return _StubResp(stub_bytes)
+
+    monkeypatch.setattr(urllib.request, 'urlopen', _fake_urlopen)
+    # 缓存目录隔离到 tmp_path，不污染真实用户缓存（对齐 test_08 做法）
+    cache = tmp_path / 'cache'
+    cache.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(PackageInstaller, '_get_cache_dir', lambda self: cache)
+    # 不传 registry_url → 走区域默认（domestic）
+    inst = PackageInstaller(project_root=fake_registry['project'])
+    assert inst.registry_url == REGISTRY_REGION_URLS['domestic']
+    # 桩内容被解析进注册表（= raw 落 200 且格式可解析）
+    assert _PKG_NAME in inst._registry['packages'], '区域默认 raw 拉取的 registry.json 必须被解析'
+
+
+def test_14_显式registry_url优先于区域默认(fake_registry):
+    """显式 --registry-url 永远优先，区域默认只在没有显式 URL 时生效。"""
+    inst = PackageInstaller(project_root=fake_registry['project'],
+                            registry_url=fake_registry['reg_url'],
+                            registry_region='foreign')
+    assert inst.registry_url == fake_registry['reg_url']
+
+
+def test_15_cli_非法区域名报错_rc非零(fake_registry):
+    """CLI --registry-region 传非法值必须非零 RC + 明确报错（不静默回退）。"""
+    env = dict(fake_registry['env'])
+    rc, out = _light(['install', '--registry-region', 'mars',
+                      '-p', str(fake_registry['project'])], env)
+    assert rc != 0, f"非法区域名应非零 RC，实际 {rc}\n{out}"
+    assert 'mars' in out, f"报错必须点名非法区域，实际输出:\n{out}"
+
+
+def test_16_本地git模拟install在区域默认下仍绿(fake_registry):
+    """回归护栏：区域默认落地后，显式 --registry-url 的本地 git 模拟安装链路不受影响。"""
+    env = fake_registry['env']
+    project = fake_registry['project']
+    rc, out = _light(['install', _PKG_NAME,
+                      '--registry-url', fake_registry['reg_url'],
+                      '--registry-region', 'foreign',
+                      '-p', str(project)], env)
+    assert rc == 0, f"显式 URL + 区域参数共存时 install 仍应成功，实际 {rc}\n{out}"
+    assert (project / 'packages' / _PKG_NAME / f'{_PKG_NAME}.light').exists()

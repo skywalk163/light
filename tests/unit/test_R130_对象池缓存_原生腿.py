@@ -81,23 +81,42 @@ def _运行_原生腿(源码, 超时=300):
 
 
 def _跑_python_腿(计算体, 装饰器名, 参数):
-    """Python 腿：**显式加载 `stdlib/对象池缓存.py`**（规范源），绕开 import hook。
+    """Python 腿：**显式加载 `stdlib/对象池缓存` 的规范源**，口径不靠碰运气。
 
-    全量 xdist 时某 worker 可能已装 hook 并缓存 `对象池缓存` 为 `.light`；若直接
-    `from 对象池缓存 import ...`，会拿到 `.light` 的装饰器（`LRU缓存装饰器` 是
-    直通），把 Python 腿对拍口径污染成「装 hook 后的混合态」。规范源必须是 `.py`
-    （§3.3-5），故用 importlib 按绝对路径加载 `对象池缓存.py`。
+    全量 xdist 时某 worker 可能已装 hook；若直接 `from 对象池缓存 import ...`，
+    拿到的是哪个源取决于谁先装钩子（`.py` 还是 `.light`），Python 腿对拍口径
+    会被污染成不可控的混合态。所以规范源必须**显式指定**（§3.3-5）。
+
+    R144-C：`stdlib/对象池缓存.py` 影子已清，规范源随之迁到 `.light`：
+    显式经 `_light_import_hook` 加载，拿 src 腿（Python codegen）。
+    对拍的另一头是原生腿（LLVM O0 子进程真跑）——两条独立后端，
+    因此判据强度不下降，只是规范源从「历史 .py」换成「现役 .light」。
 
     以 计算 为被装饰函数（含 print("SIDE") 副作用探针），执行与原生腿相同的
     调用序列（装饰器名决定用哪个装饰器），捕获 stdout 行序列返回。
     """
     import importlib.util
     py_path = os.path.join(_REPO, 'stdlib', '对象池缓存.py')
-    # xdist 多 worker 并发 importlib 加载同模块名会冲突（收集不一致），用唯一名
-    mod_name = '_R130_对象池缓存_py规范源_%d' % id(object())
-    spec = importlib.util.spec_from_file_location(mod_name, py_path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    if os.path.isfile(py_path):
+        # xdist 多 worker 并发 importlib 加载同模块名会冲突（收集不一致），用唯一名
+        mod_name = '_R130_对象池缓存_py规范源_%d' % id(object())
+        spec = importlib.util.spec_from_file_location(mod_name, py_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+    else:
+        # R144-C：`stdlib/对象池缓存.py` 影子已清（.light 首两行带「纯光明实现」
+        # 魔数，运行期本就取代 .py）。规范源随之迁到 .light：**显式**经
+        # `_light_import_hook` 加载，拿 src 腿（Python codegen）——与上面
+        # 「显式按绝对路径加载」同一条纪律：口径必须**显式指定**，不能碰运气
+        # 看哪个 worker 先装过钩子。对拍的另一头仍是原生腿（LLVM O0 子进程真跑），
+        # 两条独立后端，不是同一份代码比两次。
+        import _light_import_hook
+        _light_import_hook.install([os.path.join(_REPO, 'stdlib')])
+        sys.modules.pop('对象池缓存', None)
+        try:
+            mod = importlib.import_module('对象池缓存')
+        finally:
+            sys.modules.pop('对象池缓存', None)
     decorator = {'缓存装饰器': lambda f: mod.缓存装饰器(10)(f),
                  '记忆化': lambda f: mod.记忆化(f),
                  'LRU缓存装饰器': lambda f: mod.LRU缓存装饰器(16)(f)}[装饰器名]

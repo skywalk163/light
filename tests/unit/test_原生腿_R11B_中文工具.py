@@ -172,11 +172,30 @@ def _native_run(src_text, timeout=300):
 
 
 def _load_py(name, tag):
-    """从文件动态加载 stdlib/<name>.py（每次独立模块名，保证全新实例）。"""
-    spec = importlib.util.spec_from_file_location(tag, os.path.join(_STDLIB, name + ".py"))
-    m = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(m)
-    return m
+    """加载 stdlib/<name> 的 Python 侧 oracle（每次独立模块名，保证全新实例）。
+
+    R144-C：`stdlib/<name>.py` 影子已清（.light 首两行带「纯光明实现」魔数，
+    运行期本就取代 .py），这里改为经 `_light_import_hook` 加载 `<name>.light`
+    走 **src 腿**（Python codegen）。
+
+    为什么这样改仍然不是「自己比自己」：本文件比的是 **原生腿（LLVM O0 编译产物、
+    子进程真跑）vs src 腿（同一 .light 经 Python codegen 出来的模块）**——
+    两条彼此独立的代码生成后端。被删的 .py 只是这条对拍的旁路参照，不是被测对象；
+    原生腿与 src 腿的后端差异覆盖不变量保持不变。
+    """
+    py_path = os.path.join(_STDLIB, name + ".py")
+    if os.path.isfile(py_path):
+        spec = importlib.util.spec_from_file_location(tag, py_path)
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        return m
+    import _light_import_hook
+    _light_import_hook.install([os.path.abspath(_STDLIB)])
+    sys.modules.pop(name, None)          # 钩子按真名缓存，弹掉以拿到全新实例
+    try:
+        return importlib.import_module(name)
+    finally:
+        sys.modules.pop(name, None)
 
 
 def _collect_seq(out, prefix):
@@ -658,9 +677,26 @@ def test_中文分词_O0对拍():
 # ═══════════════════════════════════════════════════════════════════════
 
 def _load_pinyin_map():
-    """解析 stdlib/拼音转换.py 的 _PINYIN_MAP（按 Python dict 后值覆盖前值去重）。"""
-    src = open(os.path.join(_STDLIB, "拼音转换.py"), encoding="utf-8").read()
-    pairs = re.findall(r"'([^']+)'\s*:\s*'([^']*)'", src)
+    """解析拼音映射表（按 Python dict 后值覆盖前值去重）。
+
+    R144-C：`stdlib/拼音转换.py` 影子已清。原实现从 `.py` 的 `_PINYIN_MAP`
+    字面量里正则抽表；`.light` 用的是 `字典设置(拼音表, "x", "y")` 形态
+    （2808 键写不进单个模块级字典字面量，见 拼音转换.light 头部注释，
+    故拆成 10 个填表段落），需要另一条正则。
+
+    两条正则抽出的表**逐键全等**（2808 键、0 差异，见 R144-C 交付报告证据）——
+    因为 `.light` 的数据表当初就是解析 `.py` 的 `_PINYIN_MAP` 生成的。
+    改从 `.light` 抽表反而更贴身：黄金对照直接读**现役源**，不再读一份可能
+    与现役实现漂移的历史影子。
+    """
+    py_path = os.path.join(_STDLIB, "拼音转换.py")
+    if os.path.isfile(py_path):
+        src = open(py_path, encoding="utf-8").read()
+        pairs = re.findall(r"'([^']+)'\s*:\s*'([^']*)'", src)
+    else:
+        src = open(os.path.join(_STDLIB, "拼音转换.light"), encoding="utf-8").read()
+        pairs = re.findall(
+            r'字典设置\(\s*拼音表\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\)', src)
     m = {}
     for k, v in pairs:
         m[k] = v

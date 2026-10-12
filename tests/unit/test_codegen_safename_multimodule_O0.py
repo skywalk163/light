@@ -185,12 +185,28 @@ class TestWorkaroundRemoved:
         assert "段落 最大值" in content, "统计.light 未定义 最大值 段"
 
     def test_统计py与统计light导出名对齐(self):
-        """原生腿(.light)与解释腿(.py)的 最小值/最大值 导出名一致。"""
+        """原生腿(.light)与解释腿(.py)的 最小值/最大值 导出名一致。
+
+        R144-C：`统计.py` 影子已清（.light 首两行带「纯光明实现」魔数，运行期
+        本就取代 .py）。于是「两腿导出名对齐」这条判据退化为「唯一源
+        统计.light 必须定义这两个段」——两条腿现在读的是同一个文件，不可能不对齐。
+        这里保留「影子仍在」的原判据分支，影子回来（比如误跑
+        pull_stdlib_from_light.py 把它重生）时护栏自动恢复。
+        """
         py_path = os.path.join(_STDLIB, "统计.py")
-        with open(py_path, "r", encoding="utf-8") as f:
-            py_content = f.read()
-        assert "def 最小值(" in py_content, "统计.py 未定义 最小值"
-        assert "def 最大值(" in py_content, "统计.py 未定义 最大值"
+        if os.path.isfile(py_path):
+            with open(py_path, "r", encoding="utf-8") as f:
+                py_content = f.read()
+            assert "def 最小值(" in py_content, "统计.py 未定义 最小值"
+            assert "def 最大值(" in py_content, "统计.py 未定义 最大值"
+            return
+        # 影子已清：唯一源必须是 .light
+        light_path = os.path.join(_STDLIB, "统计.light")
+        assert os.path.isfile(light_path), "统计 既无 .py 也无 .light，源丢了"
+        with open(light_path, "r", encoding="utf-8") as f:
+            light_content = f.read()
+        assert "段落 最小值" in light_content, "统计.light 未定义 最小值 段"
+        assert "段落 最大值" in light_content, "统计.light 未定义 最大值 段"
 
     def test_集合操作使用随机下限而非打乱随机下限(self):
         path = os.path.join(_STDLIB, "集合操作.light")

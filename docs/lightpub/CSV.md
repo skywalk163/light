@@ -35,9 +35,9 @@
 
 > CSV — lightpub 桥接模块
 > 
-> 基于 Python csv 库封装，函数名对齐上游 duanpub（段言时期）packages/CSV/源.duan。
+> 基于 Python csv 库封装，函数名对齐上游 lightpub（段言时期）packages/CSV/源.duan。
 > 
-> 上游 duanpub 原始包通过 C FFI 实现自研 CSV 解析器，
+> 上游 lightpub 原始包通过 C FFI 实现自研 CSV 解析器，
 > 本桥接模块用 Python csv 模块替代，提供等价的 CSV/TSV 读写功能。
 > 支持类型推断、方言自动检测。
 

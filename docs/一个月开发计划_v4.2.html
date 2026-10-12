@@ -333,7 +333,7 @@
     <span class="badge badge-green">1412 tests passed</span>
     <span class="badge badge-red">1 pre-existing failed</span>
     <span class="badge badge-purple">30000+ 行代码</span>
-    <span class="badge badge-orange">109 duanpub 包</span>
+    <span class="badge badge-orange">109 lightpub 包</span>
   </div>
 </div>
 
@@ -361,7 +361,7 @@
   </div>
   <div class="stat-card green">
     <div class="num">109</div>
-    <div class="label">duanpub 包</div>
+    <div class="label">lightpub 包</div>
   </div>
   <div class="stat-card blue">
     <div class="num">16</div>
@@ -378,8 +378,8 @@
 <!-- ===== SUMMARY ===== -->
 <div class="summary-box">
   <h3>计划总览</h3>
-  <p><strong>目标:</strong> 将段言从"功能骨架已完整"推进到"初学者友好、生态丰富、语法成熟"——完成初学者体验闭环（错误恢复/教程扩展/标准库剥离），推进 Level 6 语法升级，扩展 duanpub 生态，发布 v4.2。</p>
-  <p><strong>四周节奏:</strong> W1 初学者体验（错误恢复 + 教程扩展 + 标准库剥离）&rarr; W2 生态扩展（duanpub P2 桥接 + 包管理 + 工具链）&rarr; W3 语法升级（Level 6 无空格分词 + 纯缩进 + 类型注解）&rarr; W4 性能优化 + 文档 + 发布</p>
+  <p><strong>目标:</strong> 将段言从"功能骨架已完整"推进到"初学者友好、生态丰富、语法成熟"——完成初学者体验闭环（错误恢复/教程扩展/标准库剥离），推进 Level 6 语法升级，扩展 lightpub 生态，发布 v4.2。</p>
+  <p><strong>四周节奏:</strong> W1 初学者体验（错误恢复 + 教程扩展 + 标准库剥离）&rarr; W2 生态扩展（lightpub P2 桥接 + 包管理 + 工具链）&rarr; W3 语法升级（Level 6 无空格分词 + 纯缩进 + 类型注解）&rarr; W4 性能优化 + 文档 + 发布</p>
   <p><strong>关键路径:</strong> T01 错误恢复 &rarr; T02 教程扩展 &rarr; T03 stdlib 剥离 &rarr; T04 端到端教程 &rarr; T09 异常类型过滤 &rarr; T10 Level 6 分词 &rarr; T14 文档统一 &rarr; T16 v4.2 发布</p>
   <p><strong>零回归红线:</strong> 每周结束测试通过数不低于上周，已知失败数只能减少不能增加。</p>
 </div>
@@ -450,12 +450,12 @@
         <span>Week 2 (08/12-08/18)</span>
         <span class="badge badge-orange">生态扩展</span>
       </div>
-      <div class="week-goal">目标: duanpub P2 10个包桥接，包管理器完善，工具链三件套增强</div>
+      <div class="week-goal">目标: lightpub P2 10个包桥接，包管理器完善，工具链三件套增强</div>
       <div class="week-body">
         <div class="task-item">
           <div class="task-head">
             <span class="task-id">T05</span>
-            <span class="task-desc">duanpub P2 桥接（10个高优先级包）</span>
+            <span class="task-desc">lightpub P2 桥接（10个高优先级包）</span>
           </div>
           <div class="task-meta">
             <span class="mini-badge mb-p0">P0</span>
@@ -657,7 +657,7 @@
           <td><span class="mini-badge mb-p1">P1</span></td>
           <td>DuMate</td>
           <td>2d</td>
-          <td><code>src/keywords.py</code> (VERB_ARITY 裁剪)<br><code>src/lexer.py</code><br><code>src/parser_expr.py</code><br><code>src/parser_stmt.py</code><br><code>src/code_generator.py</code><br><code>stdlib/duanpub/__init__.py</code> (友好提示)</td>
+          <td><code>src/keywords.py</code> (VERB_ARITY 裁剪)<br><code>src/lexer.py</code><br><code>src/parser_expr.py</code><br><code>src/parser_stmt.py</code><br><code>src/code_generator.py</code><br><code>stdlib/lightpub/__init__.py</code> (友好提示)</td>
           <td>VERB_ARITY 从 168 减到 ~42<br>ALL_KEYWORDS 从 91 减到 ~65<br>未导入直接使用 stdlib 函数时友好提示<br>迁移工具自动处理测试文件</td>
         </tr>
         <tr>
@@ -667,7 +667,7 @@
           <td>DuMate</td>
           <td>1d</td>
           <td><code>docs/端到端实战教程.md</code> (新建)<br><code>examples/weather_app/</code> (新建示例项目)</td>
-          <td>8 步教程覆盖: 环境→语法→duanpub导入→HTTP→文件IO→异常→转译→打包<br>weather_app 代码可被 DuanParser 正确解析</td>
+          <td>8 步教程覆盖: 环境→语法→lightpub导入→HTTP→文件IO→异常→转译→打包<br>weather_app 代码可被 DuanParser 正确解析</td>
         </tr>
 
         <!-- W2 -->
@@ -676,11 +676,11 @@
         </tr>
         <tr>
           <td><code>T05</code></td>
-          <td>duanpub P2 桥接 (10个高优先级包)</td>
+          <td>lightpub P2 桥接 (10个高优先级包)</td>
           <td><span class="mini-badge mb-p0">P0</span></td>
           <td>DuMate</td>
           <td>2d</td>
-          <td><code>stdlib/duanpub/__init__.py</code><br><code>stdlib/duanpub/JSON.py</code><br><code>stdlib/duanpub/CSV.py</code><br><code>stdlib/duanpub/日期时间.py</code><br><code>stdlib/duanpub/文件系统.py</code><br>（+ 其他6个高优先级包）</td>
+          <td><code>stdlib/lightpub/__init__.py</code><br><code>stdlib/lightpub/JSON.py</code><br><code>stdlib/lightpub/CSV.py</code><br><code>stdlib/lightpub/日期时间.py</code><br><code>stdlib/lightpub/文件系统.py</code><br>（+ 其他6个高优先级包）</td>
           <td>10 个 P2 包可 <code>导入</code> 使用<br>端到端测试通过<br>运行时桥接 + 自动安装</td>
         </tr>
         <tr>
@@ -817,7 +817,7 @@
                               <span class="p1">P1</span>                <span class="p1">P1</span>
 
   Week 2:
-  T03 <span class="arrow">&rarr;</span> T05(duanpub P2桥接) <span class="arrow">&rarr;</span> T06(包管理器)
+  T03 <span class="arrow">&rarr;</span> T05(lightpub P2桥接) <span class="arrow">&rarr;</span> T06(包管理器)
        <span class="p0">P0</span>                 <span class="p1">P1</span>
        |
        +-- (并行) --&gt; T07(Playground增强) <span class="p1">P1</span> 人工
@@ -849,7 +849,7 @@
     </div>
     <div class="debt-card">
       <h4>教程缺少进阶内容 <span class="badge badge-red">P0</span></h4>
-      <p>交互式教程仅 11 个练习（变量→FizzBuzz），缺少异常处理/文件IO/模块导入/duanpub 使用。完成度检查用子串匹配，脆弱不可靠。无进度保存。</p>
+      <p>交互式教程仅 11 个练习（变量→FizzBuzz），缺少异常处理/文件IO/模块导入/lightpub 使用。完成度检查用子串匹配，脆弱不可靠。无进度保存。</p>
       <div class="files">cli/tutorial.py | cli/tutorial_30min.duan</div>
     </div>
     <div class="debt-card">
@@ -858,13 +858,13 @@
       <div class="files">src/keywords.py (VERB_ARITY) | src/lexer.py | src/parser_expr.py</div>
     </div>
     <div class="debt-card">
-      <h4>duanpub P2 包未桥接 <span class="badge badge-red">P0</span></h4>
-      <p>109 个 duanpub 包中仅 4 个 P0 + 3 个 P1 有桥接，102 个 P2 包仅有索引无运行时加载机制，无法导入使用。</p>
-      <div class="files">stdlib/duanpub/__init__.py | tools/gen_duanpub_index.py</div>
+      <h4>lightpub P2 包未桥接 <span class="badge badge-red">P0</span></h4>
+      <p>109 个 lightpub 包中仅 4 个 P0 + 3 个 P1 有桥接，102 个 P2 包仅有索引无运行时加载机制，无法导入使用。</p>
+      <div class="files">stdlib/lightpub/__init__.py | tools/gen_lightpub_index.py</div>
     </div>
     <div class="debt-card">
       <h4>包管理器功能不全 <span class="badge badge-orange">P1</span></h4>
-      <p>duan pkg 仅有基础 build 命令，缺少 install/publish/search/依赖解析。用户无法从 duanpub 索引安装包。</p>
+      <p>duan pkg 仅有基础 build 命令，缺少 install/publish/search/依赖解析。用户无法从 lightpub 索引安装包。</p>
       <div class="files">cli/duan_unified.py | src/package_installer.py</div>
     </div>
     <div class="debt-card">
@@ -920,7 +920,7 @@
       <div class="risk-fix"><strong>应急:</strong> 严格向后兼容：有空格时走旧路径，无空格时走新路径。先在小范围测试集验证，逐步扩大。W3 预留 2 天缓冲。</div>
     </div>
     <div class="risk-card medium">
-      <h4>R3: duanpub P2 桥接接口不兼容 <span class="risk-level badge badge-orange">中</span></h4>
+      <h4>R3: lightpub P2 桥接接口不兼容 <span class="risk-level badge badge-orange">中</span></h4>
       <div class="risk-desc">P2 包（60 个）的 Python 接口多样，部分包可能需要复杂的适配层，某些包可能依赖第三方库。</div>
       <div class="risk-fix"><strong>应急:</strong> 优先桥接 10 个最常用且无外部依赖的包；对于有第三方依赖的包，使用自动检测+友好提示安装。</div>
     </div>
@@ -965,7 +965,7 @@
     </ul>
     <div class="group-title">生态工具</div>
     <ul>
-      <li class="must">duanpub P2 10 个包可导入使用</li>
+      <li class="must">lightpub P2 10 个包可导入使用</li>
       <li class="must">包管理器: duan pkg install/publish/search 可用</li>
       <li class="must">Web Playground: 分享链接/主题切换/自动补全</li>
       <li class="must">VS Code 扩展: 语法高亮/诊断/格式化/悬停提示</li>
@@ -1031,7 +1031,7 @@
           <td>VERB_ARITY 计数</td>
         </tr>
         <tr>
-          <td>duanpub 可用包</td>
+          <td>lightpub 可用包</td>
           <td>7/109 (P0+P1)</td>
           <td><strong>17/109 (P0+P1+P2 高优先级)</strong></td>
           <td>导入测试通过数</td>
@@ -1144,7 +1144,7 @@
 <!-- ===== FOOTER ===== -->
 <div class="footer">
   <p>段言 DuanLang 一个月开发计划 | 生成日期: 2026-08-05 | 基线: v4.0.2 (commit 4059478)</p>
-  <p>1412 tests passed | 30000+ lines | 109 duanpub packages | 65+ src files | 90+ test files</p>
+  <p>1412 tests passed | 30000+ lines | 109 lightpub packages | 65+ src files | 90+ test files</p>
 </div>
 
 </body>

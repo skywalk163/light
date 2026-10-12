@@ -41,6 +41,10 @@
 #include <arpa/inet.h>
 #include <sys/select.h>
 #include <netdb.h>
+/* SO_RCVTIMEO 的 timeval 在 POSIX 走 struct timeval（<sys/time.h>）；
+   glibc 会经别的头间接带出，FreeBSD/clang 不会，缺这行在 FreeBSD 上是
+   undeclared identifier，整条 clang 腿全崩。 */
+#include <sys/time.h>
 /* dv_socket_set_nonblocking 用 fcntl/F_GETFL/F_SETFL/O_NONBLOCK。
    glibc 会经别的头间接带出来，FreeBSD/clang 不会，缺这行在 FreeBSD 上是
    4 个 error（use of undeclared identifier），整条 clang 腿全崩。 */
@@ -5987,10 +5991,27 @@ int dv_socket_send(int fd, const char* data) {
 void dv_socket_recv(LightValue* result, int fd, int max_bytes) {
     if (!result) return;
     if (max_bytes <= 0) max_bytes = 4096;
+    /* L-194② 防御：单次 recv 上限夹到 16 MiB，避免恶意/异常 最大字节 触发巨型 malloc。 */
+    if (max_bytes > 16777216) max_bytes = 16777216;
     char* buf = (char*)malloc(max_bytes + 1);
     if (!buf) { dv_null(result); return; }
     int n = (int)recv(fd, buf, max_bytes, 0);
     if (n <= 0) {
+        /* n == 0：对端有序关闭（EOF）；n < 0：出错（含 SO_RCVTIMEO 超时 → EAGAIN）。
+           两种都返回空串「退出信号」给光明层 收全部（其退出条件即 长(块)==0）。
+           L-194②：把错误码/文案记进 g_socket_error_*，使「EOF 还是出错」可诊断，
+           不再静默吞掉（旧实现错误与 EOF 同返回 ""，调用方无法区分）。 */
+        if (n < 0) {
+#ifdef _WIN32
+            g_socket_error_code = WSAGetLastError();
+            snprintf(g_socket_error_msg, sizeof(g_socket_error_msg),
+                     "recv: WSA %d", g_socket_error_code);
+#else
+            g_socket_error_code = errno;
+            snprintf(g_socket_error_msg, sizeof(g_socket_error_msg),
+                     "recv: errno %d (%s)", errno, strerror(errno));
+#endif
+        }
         free(buf);
         dv_str(result, "");
         return;
@@ -5998,6 +6019,23 @@ void dv_socket_recv(LightValue* result, int fd, int max_bytes) {
     buf[n] = '\0';
     dv_str(result, buf);
     free(buf);
+}
+
+/* L-194③：给套接字设「接收超时」（秒，>=1）。keep-alive 沉默对端不再永久阻塞 recv——
+   超时后 recv 返回 -1（EAGAIN/ETIMEDOUT）→ dv_socket_recv 返回空串 → 光明层 收全部
+   退出（见上）。Windows 的 SO_RCVTIMEO 取 DWORD 毫秒；POSIX 取 struct timeval。
+   失败仅记录错误码、不影响后续逻辑（超时本就是兜底护栏，非硬依赖）。 */
+int dv_socket_set_recv_timeout(int fd, int sec) {
+    if (sec < 1) sec = 1;
+#ifdef _WIN32
+    DWORD ms = (DWORD)(sec * 1000);
+    return setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&ms, sizeof(ms));
+#else
+    struct timeval tv;
+    tv.tv_sec = sec;
+    tv.tv_usec = 0;
+    return setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#endif
 }
 
 int dv_socket_close(int fd) {

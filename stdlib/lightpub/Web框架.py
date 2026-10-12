@@ -5,9 +5,9 @@ Web框架 — lightpub 桥接模块
 提供高级 Web 框架功能：路由系统、中间件链、模板引擎集成、请求/响应处理、
 Cookie/Session 管理、文件上传、静态文件服务。
 
-上游 duanpub 原始包通过 C FFI 实现 Web 框架，
+上游 lightpub 原始包通过 C FFI 实现 Web 框架，
 本桥接模块用 Python 标准库替代，提供等价的 Web 框架功能。
-函数签名与上游 duanpub（段言时期）包保持一致。
+函数签名与上游 lightpub（段言时期）包保持一致。
 """
 
 import json as _json

@@ -53,16 +53,15 @@ _浮点用例 = [
 ]
 
 
-def _load_py_ref():
-    """同名 .py 参考实现（绕过钩子，拿 Python 原版口径）。"""
-    spec = importlib.util.spec_from_file_location(
-        "_r61_ref_中文数字转换", os.path.join(_STDLIB, "中文数字转换.py"))
-    m = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(m)
-    return m
-
-
-_参考 = _load_py_ref()
+# ── R144-C：oracle 由「同名 .py 参考实现」改为「内联期望值」 ──────────────────
+# `stdlib/中文数字转换.py` 影子已清（.light 首两行带「纯光明实现」魔数，运行期
+# 本就取代 .py）。本文件原先在 `assert 光 == 期望` 之外，再加一道
+# `== _参考`（同名 .py）的冗余交叉校验；那份参考随影子一并消失。
+#
+# 处置：删掉所有 `== _参考` 行，断言收敛到本文件本来就有的内联期望表
+# （`_整数用例` / `_浮点用例`）。两表的期望值已与删影子前的 .py 参考实现
+# 逐值对拍一致（7 个整数 + 3 个浮点全等，见 R144-C 交付报告证据），
+# 因此覆盖度与判据强度不下降，只是去掉了同源重复断言。
 
 
 @pytest.fixture(scope="module")
@@ -79,16 +78,12 @@ def hook腿():
 
 @pytest.mark.parametrize("中文串, 期望", _整数用例)
 def test_hook腿_中文转阿拉伯数字_含首尾空格不NameError(hook腿, 中文串, 期望):
-    光 = hook腿.中文转阿拉伯数字(中文串)
-    assert 光 == 期望
-    assert 光 == _参考.中文转阿拉伯数字(中文串)
+    assert hook腿.中文转阿拉伯数字(中文串) == 期望
 
 
 @pytest.mark.parametrize("中文串, 期望", _浮点用例)
 def test_hook腿_中文转浮点数_含首尾空格不NameError(hook腿, 中文串, 期望):
-    光 = hook腿.中文转浮点数(中文串)
-    assert abs(光 - 期望) < 1e-9
-    assert 光 == _参考.中文转浮点数(中文串)
+    assert abs(hook腿.中文转浮点数(中文串) - 期望) < 1e-9
 
 
 # ── 原生腿：复用 R11B 的 O0 子进程 runner ─────────────────────────────────
@@ -118,7 +113,6 @@ def test_原生腿_中文数字转换_含首尾空格_对拍():
 """
     out = _原生._native_run(src)
     for i, (s, 期望) in enumerate(_整数用例):
-        assert int(out[f"A{i}"]) == 期望 == _参考.中文转阿拉伯数字(s), f"原生腿 中文转阿拉伯数字[{s}]"
+        assert int(out[f"A{i}"]) == 期望, f"原生腿 中文转阿拉伯数字[{s}]"
     for i, (s, 期望) in enumerate(_浮点用例):
         assert abs(float(out[f"B{i}"]) - 期望) <= 1e-4, f"原生腿 中文转浮点数[{s}]"
-        assert abs(float(out[f"B{i}"]) - _参考.中文转浮点数(s)) <= 1e-4, f"原生腿对拍[{s}]"
