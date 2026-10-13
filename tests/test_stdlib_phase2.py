@@ -2,13 +2,35 @@
 光明标准库第二阶段测试用例
 
 测试日期时间、随机、集合、迭代工具、数据结构模块
+
+R146-D 线（v0.4.x）：本文件对「纯光明实现」模块（`集合` / `数据结构`）统一经
+`stdlib/_light_import_hook.py` 加载同名 `.light`，不再依赖同名 `.py` 兜底。
+
+背景（缺陷账 L-205）：R144 删 `stdlib/集合.py` 影子后仅存 `集合.light`，而本文件
+原先只做 `sys.path.insert` + 裸 `from 集合 import ...`，CPython 不解析 `.light`
+→ 4 条 TestSet 报 `ModuleNotFoundError`（先于 R145 存在的预存红，已用 HEAD 净舱
+worktree 复跑实证，见 `_R146_D线交付报告.md`）。
+
+口径同 `tests/test_agent_loop_light.py` / `tests/test_async_io_light.py`：
+先挂 `_light_import_hook`，再由钩子按「`.light` 首两行含「纯光明实现」魔数」
+规则决定遮蔽同名 `.py`。本文件涉及的 5 个模块中，只有 `集合`、`数据结构`
+带该魔数会被钩子接管；`日期时间` / `随机`（无魔数，有 `.py`）、`迭代工具`
+（无同名 `.light`）仍走标准机制，行为不变。
 """
 
 import os
 import sys
 import unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'stdlib'))
+# 用绝对路径（而非 '../stdlib'）：pytest 的工作目录不保证是 tests/，
+# 相对路径在不同 rootdir 下会指错地方。
+_STDLIB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'stdlib')
+if _STDLIB not in sys.path:
+    sys.path.insert(0, _STDLIB)
+
+# 挂上光明导入钩子：让 `import 集合` / `import 数据结构` 能解析到同名 `.light`。
+import _light_import_hook  # noqa: E402
+_light_import_hook.install([_STDLIB])
 
 
 class TestDateTime(unittest.TestCase):
@@ -167,28 +189,51 @@ class TestRandom(unittest.TestCase):
 
 
 class TestSet(unittest.TestCase):
-    """测试集合模块"""
+    """测试集合模块
+
+    R146-D 线（v0.4.x）口径变更说明
+    ------------------------------
+    本组用例原先直接拿 Python 原生 `set` 当集合值（`s1 = {1, 2}`），并断言
+    `并集(s1, s2) == {1,2,3,4,5}`。那是 **R144 删掉的 `stdlib/集合.py`** 的语义。
+
+    现真身是 `stdlib/集合.light`（首两行带「纯光明实现」魔数，经本文件顶部的
+    `_light_import_hook` 加载）。它为了照顾「原生腿无 set 类型」，内部用
+    **「字典 + 列表」表示集合**：`创建集合([1,2,3])` → `{'元素': [1, 2, 3]}`。
+    因此：
+
+    - 集合值**必须经 `创建集合(...)` 构造**，不能塞 Python 原生 `set`
+      （`集合_列表` 会去 `字典获取(集合, "元素")`，原生 set 会抛 TypeError）；
+    - 运算结果**经 `集合转列表` 取内容**再与期望列表比（这是真身的公开 API，
+      不是自比自：`集合转列表` 只做读取，元素内容由 `并集/交集/...` 决定）；
+    - `杰卡德相似度` 返回**整数指纹（值 × 2^53）**而非 [0,1] 浮点——口径与
+      `tests/unit/test_原生腿_T5C_集合随机.py` 的「已知边界」一致；
+    - `集合的唯一元素` / `集合的重复元素` 收列表、返回**去重后的列表**
+      （旧 `.py` 返回 Python `set`）。
+
+    该表示差异已作为独立候选缺陷登记（见 `tests/ci_environment_reds.txt`），
+    交主 agent 统一编号；本文件只负责让测试如实钉住**当前真身**的行为。
+    """
 
     def test_set_operations(self):
         """测试集合运算"""
-        from 集合 import 创建集合, 并集, 交集, 差集, 对称差
-        
+        from 集合 import 创建集合, 并集, 交集, 差集, 对称差, 集合转列表
+
         s1 = 创建集合([1, 2, 3])
         s2 = 创建集合([3, 4, 5])
-        
-        self.assertEqual(并集(s1, s2), {1, 2, 3, 4, 5})
-        self.assertEqual(交集(s1, s2), {3})
-        self.assertEqual(差集(s1, s2), {1, 2})
-        self.assertEqual(对称差(s1, s2), {1, 2, 4, 5})
+
+        self.assertEqual(sorted(集合转列表(并集(s1, s2))), [1, 2, 3, 4, 5])
+        self.assertEqual(sorted(集合转列表(交集(s1, s2))), [3])
+        self.assertEqual(sorted(集合转列表(差集(s1, s2))), [1, 2])
+        self.assertEqual(sorted(集合转列表(对称差(s1, s2))), [1, 2, 4, 5])
 
     def test_set_relations(self):
         """测试集合关系"""
-        from 集合 import 是否子集, 是否真子集, 是否不相交
-        
-        s1 = {1, 2}
-        s2 = {1, 2, 3}
-        s3 = {4, 5}
-        
+        from 集合 import 创建集合, 是否子集, 是否真子集, 是否不相交
+
+        s1 = 创建集合([1, 2])
+        s2 = 创建集合([1, 2, 3])
+        s3 = 创建集合([4, 5])
+
         self.assertTrue(是否子集(s1, s2))
         self.assertTrue(是否真子集(s1, s2))
         self.assertTrue(是否不相交(s1, s3))
@@ -196,34 +241,34 @@ class TestSet(unittest.TestCase):
     def test_set_operations_methods(self):
         """测试集合操作方法"""
         from 集合 import 创建集合, 添加元素, 移除元素, 集合长度, 集合包含
-        
+
         s = 创建集合([1, 2, 3])
-        
+
         添加元素(s, 4)
         self.assertEqual(集合长度(s), 4)
-        
+
         self.assertTrue(集合包含(s, 4))
-        
+
         移除元素(s, 4)
         self.assertEqual(集合长度(s), 3)
 
     def test_set_utilities(self):
         """测试集合工具函数"""
-        from 集合 import 杰卡德相似度, 集合的唯一元素, 集合的重复元素
-        
-        s1 = {1, 2, 3}
-        s2 = {2, 3, 4}
-        
-        sim = 杰卡德相似度(s1, s2)
+        from 集合 import 创建集合, 杰卡德相似度, 集合的唯一元素, 集合的重复元素
+
+        s1 = 创建集合([1, 2, 3])
+        s2 = 创建集合([2, 3, 4])
+
+        # 杰卡德相似度 = |交| / |并| = 2/4 = 0.5；真身以「值 × 2^53」整数指纹返回。
+        sim = 杰卡德相似度(s1, s2) / (2 ** 53)
+        self.assertAlmostEqual(sim, 0.5, places=9)
         self.assertGreaterEqual(sim, 0)
         self.assertLessEqual(sim, 1)
-        
+
         lst = [1, 2, 2, 3, 3, 3]
-        unique = 集合的唯一元素(lst)
-        self.assertEqual(unique, {1, 2, 3})
-        
-        duplicates = 集合的重复元素(lst)
-        self.assertEqual(duplicates, {2, 3})
+        # 真身返回去重后的列表（旧 .py 返回 Python set）。
+        self.assertEqual(sorted(集合的唯一元素(lst)), [1, 2, 3])
+        self.assertEqual(sorted(集合的重复元素(lst)), [2, 3])
 
 
 class TestIterTools(unittest.TestCase):
@@ -378,6 +423,27 @@ class TestDataStructures(unittest.TestCase):
         
         二叉删除(bst, 3)
         self.assertFalse(二叉查找(bst, 3))
+
+
+class TestLightImportHook(unittest.TestCase):
+    """R146-D：钉住「纯光明模块经 `_light_import_hook` 加载同名 `.light`」。
+
+    `__light_source__` 由 `stdlib/_light_import_hook.py` 的 `LightLoader` 写入，
+    只有真正走了 `.light` 才存在。B 线删掉 `stdlib/数据结构.py` 之后，本条能立刻
+    发现「钩子没接住 → 掉回 `.py` 或直接 `ModuleNotFoundError`」，
+    是 L-205 类断点的回归哨。
+    """
+
+    def test_纯光明真身经钩子加载(self):
+        import 集合
+        import 数据结构
+        for 模块 in (集合, 数据结构):
+            self.assertTrue(
+                str(getattr(模块, '__light_source__', '')).endswith('.light'),
+                '{} 未走 .light 真身（__file__={}）'.format(
+                    模块.__name__, getattr(模块, '__file__', None)
+                ),
+            )
 
 
 if __name__ == '__main__':

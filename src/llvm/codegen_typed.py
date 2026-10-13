@@ -735,6 +735,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_dict_get(ptr, ptr, ptr)',
             # T7D：3 参 字典获取（带默认值，键缺失返回默认）
             f'declare void @dv_dict_get_def(ptr, ptr, ptr, ptr)',
+            # L-203：属性访问运行时分派（dict→dv_dict_get，其余→dv_class_get_member）
+            f'declare void @dv_property_get(ptr, ptr, ptr)',
             # R117-B 桶②：Python 直通名运行时支撑（src/llvm/runtime_typed.c 末尾同名函数）
             f'declare i32 @dv_is_callable(ptr)',
             # R119-A1：中文「是函数」运行时支撑（判定 LightValue 是否为函数类型）
@@ -3959,7 +3961,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         obj_slot = self._store_dv(obj_dv)
         member_reg = self.gen_string_constant(member)
         result_slot = self._new_dv_slot()
-        self.emit(f'call void @dv_class_get_member(ptr {result_slot}, ptr {obj_slot}, ptr {member_reg})')
+        # L-203：运行时分派——dict（type 7）走 dv_dict_get，其余走 dv_class_get_member
+        self.emit(f'call void @dv_property_get(ptr {result_slot}, ptr {obj_slot}, ptr {member_reg})')
         return self._load_dv(result_slot), 'dv'
 
     def _note_instance_class(self, name: str, value_expr) -> None:
@@ -4012,7 +4015,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if not isinstance(recv, ast.Identifier) or '.' in recv.name:
             return False
         if recv.name in ('己', 'self'):
-            return False
+            # R146-A 命名截胡治理（L-198 残余）：类方法体内 `己.写()` 等——若当前类定义了
+            # 该同名方法，应走类方法而非被文件句柄/内置 mutating 名（dv_file_write 等）截胡。
+            # 此前此处直接返回 False，导致 self 接收者的同名方法被内置分派吞掉。
+            if self._current_class is None:
+                return False
+            return self._class_defines_method(self._current_class, method_name)
         cls = self._instance_classes.get(recv.name)
         if cls is None:
             return False

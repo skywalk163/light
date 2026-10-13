@@ -132,6 +132,8 @@ static LightValue* dv_closure_env_clone(const LightValue* env) {
 
 void dv_clone(LightValue* result, LightValue* v);
 void dv_class_get_member(LightValue* result, LightValue* obj, const char* field_name);
+/* L-203：属性访问运行时分派——dict→dv_dict_get，其余→dv_class_get_member */
+void dv_property_get(LightValue* result, LightValue* obj, const char* field_name);
 void dv_value_to_string(LightValue* result, LightValue* v);
 int dv_is_object(LightValue* v);
 /* 接口系统前向声明（Level 7） */
@@ -454,8 +456,51 @@ void dv_clone(LightValue* result, LightValue* v) {
             result->list_size = v->list_size;
         }
     } else if (v->type == 7) {
-        /* DICT: 浅拷贝 - 共享 list_data 指针，使字典值（如列表）可被原地修改 */
-        /* list_data 保持原指针，list_size/list_capacity 保持原值 */
+        /* DICT: 深拷贝 - 独立 list_data 与每个 key/val（L-204 修复）。
+         * 原浅拷贝共享 list_data 指针：被克隆的内层临时 dict 经 dv_free 深释放后，
+         * 外层 dict 的 list_data 悬空导致键/值读回错乱（如 己.回={"错误":{"码":-1,...}}
+         * 读回内层键错乱）。深拷贝使每份拷贝独立，消除悬空。
+         * 与 dv_dict_get 返回的 REF 原地修改路径不冲突：REF 指向 dv_dict_set 内堆分配的
+         * new_val 本体，深拷贝的是插入时的值，互不影响。 */
+        /* DICT: 保持**浅拷贝**（共享 list_data 指针）。
+         * ⚠️ 这是既有契约，R146-A 曾尝试改深拷贝修 L-204，结果破坏了
+         * `dv_dict_remove` / `dv_dict_set` 的**原地修改**语义
+         * （`字典删除(缓存,键)` 原地删后再 `返回 缓存`，依赖 result 与 target
+         *   共享存储），导致 `test_缓存_对拍语义` 回归（缓存被清空）。
+         * L-204 改由 `dv_dict_set` 存入**值**时定向深拷贝解决（见 dv_deep_clone）。 */
+    }
+}
+
+/* L-204：容器值的**深拷贝**（只用于把值存入字典，见 dv_dict_set）。
+ * 不改动通用 dv_clone 的 DICT 浅拷贝契约，只在真正需要独立副本的插入点使用。
+ * 递归深拷贝 LIST(4) / DICT(7) 的每个条目；STRING(3) 走 dv_strdup；其余浅拷。 */
+static void dv_deep_clone(LightValue* result, LightValue* v) {
+    if (result == v) return;
+    *result = *v;
+    result->list_data = NULL;
+    result->list_size = 0;
+    result->list_capacity = 0;
+    if (v->type == 3 && v->str) {
+        result->str = dv_strdup(v->str);
+        return;
+    }
+    if (v->type == 8) return;   /* REF：复制引用本身即可 */
+    if ((v->type == 4 || v->type == 7) && v->list_size > 0 && v->list_data) {
+        int n = (v->type == 7) ? 2 * v->list_size : v->list_size;
+        result->list_capacity = v->list_capacity > 0 ? v->list_capacity : v->list_size;
+        /* 统一按 dict 的上限分配（list_capacity*2 个槽位），列表略多分配无害 */
+        result->list_data = (struct LightValue**)malloc(result->list_capacity * 2 * sizeof(LightValue*));
+        if (result->list_data) {
+            for (int i = 0; i < n; i++) {
+                if (v->list_data[i]) {
+                    result->list_data[i] = (LightValue*)malloc(sizeof(LightValue));
+                    dv_deep_clone(result->list_data[i], v->list_data[i]);
+                } else {
+                    result->list_data[i] = NULL;
+                }
+            }
+            result->list_size = v->list_size;
+        }
     }
 }
 
@@ -2316,7 +2361,9 @@ void dv_dict_set(LightValue* result, LightValue* dict, LightValue* key, LightVal
         /* 堆分配新值并深拷贝（对于列表会复制 list_data） */
         LightValue* new_val = (LightValue*)malloc(sizeof(LightValue));
         if (new_val) {
-            dv_clone(new_val, value);
+            /* L-204：存入的值做深拷贝——嵌套 dict 若浅拷贝会与外层共享 list_data，
+               内层临时 dict 被 dv_free 深释放后外层悬空导致键/值读回错乱。 */
+            dv_deep_clone(new_val, value);
             target->list_data[2 * idx + 1] = new_val;
         }
     } else {
@@ -2340,8 +2387,9 @@ void dv_dict_set(LightValue* result, LightValue* dict, LightValue* key, LightVal
         LightValue* new_key = (LightValue*)malloc(sizeof(LightValue));
         LightValue* new_val = (LightValue*)malloc(sizeof(LightValue));
         if (new_key && new_val) {
-            dv_clone(new_key, key);
-            dv_clone(new_val, value);
+            /* L-204：同「替换值」分支，插入的键/值都做深拷贝，杜绝共享 list_data 悬空。 */
+            dv_deep_clone(new_key, key);
+            dv_deep_clone(new_val, value);
             target->list_data[2 * target->list_size] = new_key;
             target->list_data[2 * target->list_size + 1] = new_val;
             target->list_size++;
@@ -2400,6 +2448,36 @@ void dv_dict_get_def(LightValue* result, LightValue* dict, LightValue* key, Ligh
         return;
     }
     dv_dict_get(result, dict, key);
+}
+
+/* L-203：属性访问 obj.成员 运行时分派。
+ * dict（type 7）：成员名作键走 dv_dict_get（与下标访问同语义）；
+ * 其余（类实例等）：走 dv_class_get_member。
+ * 成员名以 const char* 传入，dict 分支需先构造字符串键 LightValue 再调用。 */
+void dv_property_get(LightValue* result, LightValue* obj, const char* field_name) {
+    if (!obj) {
+        dv_null(result);
+        return;
+    }
+    /* REF 解引用：`d = 外["内"]` 得到的是指向内层 dict 的 REF（type 8），
+       不解引用会被误判为非 dict 而落到 dv_class_get_member。 */
+    obj = dv_deref(obj);
+    if (obj->type == 7) {
+        LightValue key;
+        memset(&key, 0, sizeof(LightValue));
+        key.type = 3;
+        key.str = dv_strdup(field_name);
+        key.i64 = 0;
+        key.f64 = 0.0;
+        key.boolean = 0;
+        key.list_size = 0;
+        key.list_capacity = 0;
+        key.list_data = NULL;
+        dv_dict_get(result, obj, &key);
+        dv_free(&key);
+    } else {
+        dv_class_get_member(result, obj, field_name);
+    }
 }
 
 void dv_dict_has(LightValue* result, LightValue* dict, LightValue* key) {

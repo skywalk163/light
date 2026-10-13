@@ -185,3 +185,60 @@ W-39	tests/test_stdlib_phase13.py::测试高级文件模块::test_命令存在	�
 W-40	tests/test_stdlib_phase13.py::测试高级文件模块::test_磁盘使用情况	负载	1	R135 全量红（`tests/test_stdlib_phase13.py:502`）。`assertGreater(结果['总空间'], 0)` 红——`高级文件.磁盘使用情况` 在本机返回的总空间为 0，Windows 驱动统计口径与实现不符。隔离全绿。复现：全量 tests/ -n 4 --dist loadscope
 W-41	tests/lightpub/test_lightpub_doc_importability.py::Test_lightpub文档可导入性::test_光明围栏的导入块必须真能导入	环境	0	R135 全量红（`tests/lightpub/test_lightpub_doc_importability.py:124`），且**隔离亦红**（R135 §5.1 记录 RC=1）。`docs/lightpub/Socket.md:21/27` 两个 ```light '导入 Socket' / '导入 标准Socket' 围栏块在本仓库**无实现**（`stdlib/lightpub/Socket.py` 为占位 stub，无真正 `Socket` 模块），工具 `tools/gen_lightpub_docs.py` 未将围栏降级成 text。复现：pytest tests/lightpub/test_lightpub_doc_importability.py -o addopts=
 # 哨兵：R136-A-LEDGER-W24..W41（18 条）
+
+# ── [R146-D 入账 / 更正] L-205 裁定（hook 化）落地后的台账复核 ──────────────
+#   执行线：R146 D 线（APP · 测试基建，编译器口径 v0.4.x）｜执行机：本机 Windows LM venv
+#   HEAD：946338d5d（净舱实证用 git worktree @ HEAD，见 _r146d_scratch/netcabin）
+#   改动文件域：tests/test_stdlib_phase2.py（挂 _light_import_hook + 断言口径对齐）+ 本台账（仅追加）。
+#   禁动 src/**、禁动 stdlib/*.light、禁动 stdlib/*.py（硬纪律，已遵守）。
+#
+# ── 【销账】W-24 / W-25 / W-26（tests/test_stdlib_phase2.py::TestSet 三条） ──
+#   R146-D 已做**确定性修复**（不是放宽阈值、不是 skip、不是 xfail）：
+#     ① 该文件顶部挂 `stdlib/_light_import_hook`（口径同 tests/test_async_io_light.py），
+#        使 `import 集合` 解析到 `集合.light`——这正是 L-205 的根因：无钩子时
+#        CPython 只认 .py/.pyc，R144 删 `集合.py` 后裸 import 直接 ModuleNotFoundError。
+#     ② 断言从「Python 原生 set 语义」改为「集合.light 真身的公开 API 语义」：
+#        集合值一律经 `创建集合(...)` 构造（真身内部是 `{'元素': [...]}` 字典表示，
+#        塞原生 set 会让 `集合_列表` 走 `字典获取` 抛 TypeError）；取值经 `集合转列表`
+#        再与期望列表比（非自比自：`集合转列表` 只读取，元素内容由 并集/交集/差集/对称差 决定）；
+#        `杰卡德相似度` 按「值 × 2^53」整数指纹换算后断言 0.5（口径同
+#        tests/unit/test_原生腿_T5C_集合随机.py 的「已知边界」）；
+#        `集合的唯一元素`/`集合的重复元素` 真身返回去重**列表**（旧 .py 返回 Python set）。
+#   证据（真实命令 + 退出码）：
+#     改前 `pytest tests/test_stdlib_phase2.py -q -p no:cacheprovider` → 4 failed / 21 passed, RC=1
+#     改后同命令 → 26 passed, RC=0（+1 条为新加的回归哨，见下）
+#     净舱（HEAD worktree）改前同命令 → 4 failed / 21 passed, RC=1 ⇒ 预存红，非本轮回归
+#   语义未削弱：断言的仍是「并/交/差/对称差 的元素内容正确」，只是不再假借 R144 已删除的
+#     `集合.py` 的 Python set 表示。
+# 已销账(R146-D): W-24	tests/test_stdlib_phase2.py::TestSet::test_set_operations	负载	1	R146-D 已确定性修复并销账（详见上方说明）
+# 已销账(R146-D): W-25	tests/test_stdlib_phase2.py::TestSet::test_set_relations	负载	1	同上
+# 已销账(R146-D): W-26	tests/test_stdlib_phase2.py::TestSet::test_set_utilities	负载	1	同上
+# 补：同族第 4 条 `TestSet::test_set_operations_methods` 原未入账；它在「钩子已挂」口径下
+#     本就通过（只用 创建集合/添加元素/集合长度/集合包含），R146-D 随本组一并保持绿。
+# 新增回归哨：`tests/test_stdlib_phase2.py::TestLightImportHook::test_纯光明真身经钩子加载`
+#     断言 集合 / 数据结构 两个模块都带 `__light_source__` 且以 .light 结尾——
+#     一旦钩子没接住（掉回 .py 或 ModuleNotFoundError），本条立刻红，是 L-205 类断点的常驻哨。
+#
+# ── 【类别更正】W-27~W-32 / W-34~W-40：在 HEAD 已不是「隔离全绿、仅负载偶发」 ──
+#   一手取证（R146-D，15 个顶层文件、单进程 -n 0、连续 3 轮）：
+#     13 failed / 545 passed，三轮失败清单**逐条一致**，全部是确定性红：
+#       phase4  6 条 = W-27 W-28 W-29 W-30 W-31 W-32
+#       phase13 7 条 = W-34 W-35 W-36 W-37 W-38 W-39 W-40
+#   更正点：本台账原备注写「隔离复跑 4 文件 phase2/4/11/13 均为 RC=0（全绿）」，
+#     该结论在 HEAD 已**不成立**——数据验证 / 编码解码 / 缓存 / 进度条 / 集合工具 /
+#     高级文件 / 参数解析 / 对象池缓存 等在 HEAD 已是 **.light-only（无同名 .py）**，
+#     单文件隔离（无钩子）时一律 ModuleNotFoundError：
+#       phase2  隔离 4 failed / 21 passed（R146-D 改后 26 passed）
+#       phase4  隔离 38 failed / 12 passed
+#       phase10 隔离  9 failed / 34 passed
+#       phase13 隔离 26 failed / 60 passed
+#     挂上钩子后它们改从 .light 真身加载，红数大幅下降（phase4 38→6、phase13 26→7），
+#     残余即 W-27~W-32 / W-34~W-40。性质是「纯光明 .light 真身 与 测试期望的语义分歧」，
+#     在钩子口径下**确定性复现**，不是负载 flaky。建议主 agent 把这 13 条的类别由
+#     「负载 1」改判为「环境/已知语义分歧（确定性 0）」。
+#   影响面：这些红位于 tests/ 顶层，**不在权威门 tests/unit/ 范围**，不影响 new_reds=0 判据。
+#
+# ── 【观察项，暂不入账】tests/test_stdlib_phase10.py::测试对象池缓存::test_简单缓存_过期 ──
+#   15 文件集首轮出现 1 次（TTL 时序敏感）；随后连续 3 轮（15 文件集 ×2 + phase2/phase10
+#   组合 69 passed）均未复现。未达入账口径（需可复现），登记观察；若后续连续复现再按 W-4x 入账。
+# 哨兵：R146-D-LEDGER
