@@ -503,15 +503,29 @@ class R11A通用工具反跑(unittest.TestCase):
 """
         got = _native_run(src)
         py = _py_module("数据验证")
-        ok = lambda r: "真" if r.是否有效() else "假"
+        # R145-A：oracle 改走「自由函数」形态（py.是否有效(结果) / py.获取错误(结果)）。
+        # 背景：`.py` 的 验证结果 是类（对象方法 r.是否有效()），而 `.light` 是 dict +
+        # 模块级自由函数 是否有效(结果)/获取错误(结果)。R144-C 已把 oracle 改为经
+        # _light_import_hook 加载 `.light`（影子已清时走 src 腿）；但 `.light` 的
+        # 验证结果 形态是 dict，dict 没有 `.是否有效()` 方法 → AttributeError。
+        # 改成自由函数调用后，`.py` 与 `.light` 两侧都提供同名模块级自由函数，
+        # oracle 形态与 `.light` 一致，删 `.py` 后不退化。
+        ok = lambda r: "真" if py.是否有效(r) else "假"
+        errs = lambda r: str(len(py.获取错误(r)))
         # 必填
         self.assertEqual(got["REQ_OK"], ok(py.验证必填("", "name")))
-        self.assertEqual(got["REQ_ERRS"], str(len(py.验证必填("", "name").获取错误())))
+        self.assertEqual(got["REQ_ERRS"], errs(py.验证必填("", "name")))
         self.assertEqual(got["REQ2_OK"], ok(py.验证必填("x", "name")))
-        # 类型（.py 用 type 对象，light 用字符串 "int"，均对 5 有效、对 "x" 无效）
-        self.assertEqual(got["TY_OK"], ok(py.验证类型(5, int)))
-        self.assertEqual(got["TY_ERRS"], str(len(py.验证类型(5, int).获取错误())))
-        self.assertEqual(got["TY_BAD"], ok(py.验证类型("x", int)))
+        # 类型（R145-A：oracle 与 native 统一用**字符串**类型名口径。
+        #  .py 的 _解析期望类型 接受 type 对象或字符串（'int'→int）；.light 只支持
+        #  字符串分支（`期望类型 == "int"`）。改传 "int" 后两条腿行为一致：
+        #  .py: _解析期望类型("int") → int → isinstance(5, int)=True；
+        #  .light: 期望类型=="int" → 是整数(5)=True。
+        #  若传 type 对象 int：.light 在 src 腿下 `int == "str"` 恒 False，
+        #  所有分支落空 → 通过 恒 真 → 验证类型("x", int) 错判有效（.py 会报错）。
+        self.assertEqual(got["TY_OK"], ok(py.验证类型(5, "int")))
+        self.assertEqual(got["TY_ERRS"], errs(py.验证类型(5, "int")))
+        self.assertEqual(got["TY_BAD"], ok(py.验证类型("x", "int")))
         # 长度
         self.assertEqual(got["LEN_OK"], ok(py.验证长度("abcde", 2, 10)))
         self.assertEqual(got["LEN_BAD"], ok(py.验证长度("a", 2, 10)))
@@ -521,9 +535,9 @@ class R11A通用工具反跑(unittest.TestCase):
         # 范围
         self.assertEqual(got["RNG_BAD"], ok(py.验证范围(15, 0, 10)))
         self.assertEqual(got["RNG_OK"], ok(py.验证范围(5, 0, 10)))
-        # 类型（.py 用 type 对象，light 用字符串 "int"，均对 5 有效、对 "x" 无效）
-        self.assertEqual(got["TY_OK"], ok(py.验证类型(5, int)))
-        self.assertEqual(got["TY_BAD"], ok(py.验证类型("x", int)))
+        # 类型（重复断言，保持原有覆盖）
+        self.assertEqual(got["TY_OK"], ok(py.验证类型(5, "int")))
+        self.assertEqual(got["TY_BAD"], ok(py.验证类型("x", "int")))
         # 长度
         self.assertEqual(got["LEN_OK"], ok(py.验证长度("abcde", 2, 10)))
         self.assertEqual(got["LEN_BAD"], ok(py.验证长度("a", 2, 10)))

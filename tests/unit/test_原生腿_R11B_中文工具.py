@@ -379,6 +379,13 @@ def test_中文数字转换_O0对拍():
 # ═══════════════════════════════════════════════════════════════════════
 
 def test_中文编码_O0对拍():
+    """R145-A：oracle 自适应 hex/bytes 口径。
+
+    背景：`.light`（纯光明，hex 串口径）与 `.py`（bytes 口径）是不同的输入契约。
+    `.py` 未清时 oracle 走 `.py`（bytes），`.py` 清后 oracle 回退到 `.light`（hex）。
+    原实现固定用 `b(h)` 把 hex 转 bytes，一旦 oracle 是 `.light` 就口径错位。
+    R145-A 修复：探测 oracle 是哪个形态，分别用 bytes 或原 hex 串调用。
+    """
     src = """从 中文编码 导入 判断UTF8 判断GBK 检测编码 Unicode转义 Unicode反转义 编码转换 UTF8转GBK GBK转UTF8
 段落 主:
   设 u0 为 判断UTF8("e4bda0e5a5bd")
@@ -435,15 +442,29 @@ def test_中文编码_O0对拍():
     out = _native_run(src)
     ref = _load_py("中文编码", "_py_ref_zmbm")
 
+    # R145-A：oracle 形态探测。
+    # `.py`（bytes 口径）有 ChineseEncoding 类；`.light`（hex 口径）没有。
+    # 判定 oracle 是哪种，决定调用时传 bytes 还是原 hex 串。
+    _IS_PY = hasattr(ref, "ChineseEncoding")
+
     def b(hexs):
         return bytes.fromhex(hexs) if hexs else b""
 
+    def ref_utf8(h):
+        return ref.判断UTF8(b(h)) if _IS_PY else ref.判断UTF8(h)
+
+    def ref_gbk(h):
+        return ref.判断GBK(b(h)) if _IS_PY else ref.判断GBK(h)
+
+    def ref_detect(h):
+        return ref.检测编码(b(h)) if _IS_PY else ref.检测编码(h)
+
     for i, h in enumerate(["e4bda0e5a5bd", "68656c6c6f", "baa3", "c0a0"]):
-        assert out[f"U{i}"] == ("1" if ref.判断UTF8(b(h)) else "0"), f"判断UTF8[{h}]"
+        assert out[f"U{i}"] == ("1" if ref_utf8(h) else "0"), f"判断UTF8[{h}]"
     for i, h in enumerate(["baa3", "e4bda0e5a5bd", "68656c6c6f"]):
-        assert out[f"G{i}"] == ("1" if ref.判断GBK(b(h)) else "0"), f"判断GBK[{h}]"
+        assert out[f"G{i}"] == ("1" if ref_gbk(h) else "0"), f"判断GBK[{h}]"
     for i, h in enumerate(["e4bda0e5a5bd", "baa3", "68656c6c6f", ""]):
-        assert out[f"D{i}"] == ref.检测编码(b(h)), f"检测编码[{h}]"
+        assert out[f"D{i}"] == ref_detect(h), f"检测编码[{h}]"
     assert out["X0"] == ref.Unicode转义("你好"), "Unicode转义[中文]"
     assert out["X1"] == ref.Unicode转义("hello"), "Unicode转义[ASCII]"
     assert out["X2"] == ref.Unicode转义("😀"), "Unicode转义[扩展]"
@@ -451,10 +472,27 @@ def test_中文编码_O0对拍():
     assert out["Y1"] == ref.Unicode反转义(r"\u12gz"), "Unicode反转义[非法]"
     assert out["Y2"] == ref.Unicode反转义(r"\u123"), "Unicode反转义[不足4位]"
     # 编码转换 / UTF8转GBK / GBK转UTF8：仅测能力边界内的纯 ASCII / 空 / 同码通道
-    assert out["Z0"] == ref.编码转换(b"", "gbk", "utf-8").hex(), "编码转换[空]"
-    assert out["Z1"] == ref.编码转换(b"hello", "utf-8", "ascii").hex(), "编码转换[ASCII]"
-    assert out["T0"] == ref.UTF8转GBK("hello").hex(), "UTF8转GBK[ASCII]"
-    assert out["T1"] == ref.GBK转UTF8(b"hello"), "GBK转UTF8[ASCII]"
+    # R145-A：oracle 返回形态自适应。
+    #  `.py`：编码转换 收 bytes 返 bytes（用 .hex() 比对）；UTF8转GBK 收 str 返 bytes；
+    #         GBK转UTF8 收 bytes 返 str。
+    #  `.light`：编码转换 收 hex 串 返 hex 串；UTF8转GBK 收 str 返 hex 串；
+    #         GBK转UTF8 收 hex 串 返 str。
+    def ref_conv(hex_or_empty, src_enc, dst_enc):
+        """返回 oracle 的 编码转换 结果（统一为 hex 串形态便于比对）。"""
+        r = ref.编码转换(b(hex_or_empty) if _IS_PY else hex_or_empty, src_enc, dst_enc)
+        return r.hex() if _IS_PY else r
+
+    def ref_utf8gbk(text):
+        r = ref.UTF8转GBK(text)
+        return r.hex() if _IS_PY else r
+
+    def ref_gbk2utf8(hex_or_empty):
+        return ref.GBK转UTF8(b(hex_or_empty) if _IS_PY else hex_or_empty)
+
+    assert out["Z0"] == ref_conv("", "gbk", "utf-8"), "编码转换[空]"
+    assert out["Z1"] == ref_conv("68656c6c6f", "utf-8", "ascii"), "编码转换[ASCII]"
+    assert out["T0"] == ref_utf8gbk("hello"), "UTF8转GBK[ASCII]"
+    assert out["T1"] == ref_gbk2utf8("68656c6c6f"), "GBK转UTF8[ASCII]"
 
 
 # ═══════════════════════════════════════════════════════════════════════

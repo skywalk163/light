@@ -39,7 +39,14 @@
 
 # 十六进制字符 -> 数值（0-15），非法返回 -1（大小写均可）
 段落 _zhbmhexval(c):
-  设 o 为 码位(c)
+  # R145-A 修复：src 腿 s[i] 返回 str 字符，原生腿（clang/LLVM）s[i] 返回 int 码位。
+  # 原实现直接 码位(c)，原生腿下 码位(int) 崩（TypeError: ord() expected string of length 1, but int found）。
+  # 两腿兼容：是整数 → 直接当码位；是字符串 → 码位(c)。
+  设 o 为 0
+  如果 isinstance(c, int):
+    设 o 为 c
+  否则:
+    设 o 为 码位(c)
   如果 o >= 48:
     如果 o <= 57:
       返回 o 减去 48

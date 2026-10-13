@@ -4523,6 +4523,58 @@ static void dv_parse_typed(const char** pp, LightValue* result) {
     }
 }
 
+/* R145-B：计算自描述编码值在字段存储中的**精确**结束位置。
+ *
+ * 旧实现（dv_class_get_member / dv_class_set_member）用 strchr(found, '\x1F')
+ * 找值尾。嵌套对象被序列化为 S<len>:obj:__class__\x1F...（含内部 \x1F），
+ * strchr 会停在**第一个内部 \x1F** 上，读回对象被截断为 "S<len>:obj:__class__"
+ * （类名与全部字段丢失）；列表/字典同理。C 级复现（v4.c）：真实值长度 42，
+ * strchr 只给出 17。
+ *
+ * 按 dv_serialize_typed / dv_parse_typed 的自描述语法精确扫描，返回指向
+ * 该值**之后**（落在尾部 \x1F 上，调用方保持分隔符）的指针。无标记值
+ * 回退到 strchr 语义（到 \x1F 或行尾），与旧行为一致。
+ */
+static const char* dv_typed_value_end(const char* s) {
+    if (!s || !*s) return s;
+    char tag = s[0];
+    const char* p;
+    switch (tag) {
+        case 'N': return s + 1;
+        case 'B': return s + 2;                       /* B0 / B1 */
+        case 'I':
+        case 'F': return dv_skip_number(s + 1);
+        case 'S': {
+            p = s + 1;
+            size_t len = 0;
+            while (*p >= '0' && *p <= '9') { len = len * 10 + (size_t)(*p - '0'); p++; }
+            if (*p == ':') p++;
+            return p + len;
+        }
+        case 'L': {
+            p = s + 1;
+            int count = 0;
+            while (*p >= '0' && *p <= '9') { count = count * 10 + (*p - '0'); p++; }
+            if (*p == ':') p++;
+            for (int i = 0; i < count; i++) p = dv_typed_value_end(p);
+            return p;
+        }
+        case 'D': {
+            p = s + 1;
+            int count = 0;
+            while (*p >= '0' && *p <= '9') { count = count * 10 + (*p - '0'); p++; }
+            if (*p == ':') p++;
+            for (int i = 0; i < count * 2; i++) p = dv_typed_value_end(p);
+            return p;
+        }
+        default: {
+            p = s;
+            while (*p && *p != '\x1F') p++;
+            return p;
+        }
+    }
+}
+
 void dv_class_set_member(LightValue* obj, const char* field_name, LightValue* value) {
     if (!obj || obj->type != 3 || !obj->str) return;
     if (strncmp(obj->str, OBJ_PREFIX, strlen(OBJ_PREFIX)) != 0) return;
@@ -4550,10 +4602,11 @@ void dv_class_set_member(LightValue* obj, const char* field_name, LightValue* va
     if (field_exists) {
         /* 字段已存在，更新其值 */
         const char* val_start = found + search_len;
-        const char* val_end = strchr(val_start, '\x1F');
+        /* R145-B: precise typed-value end, replaces strchr early truncation */
+        const char* val_end = dv_typed_value_end(val_start);
         if (!val_end) val_end = val_start + strlen(val_start);
 
-        size_t old_val_len = val_end - val_start;
+        size_t old_val_len = (size_t)(val_end - val_start);
         size_t before_len = val_start - obj->str;
         size_t after_len = strlen(val_end);
 
@@ -4611,10 +4664,11 @@ void dv_class_get_member(LightValue* result, LightValue* obj, const char* field_
     }
     
     found += strlen(search);
-    const char* end = strchr(found, '\x1F');
+    /* R145-B: precise typed-value end, replaces strchr early truncation */
+    const char* end = dv_typed_value_end(found);
     if (!end) end = found + strlen(found);
-    
-    size_t len = end - found;
+
+    size_t len = (size_t)(end - found);
     char* val = (char*)malloc(len + 1);
     if (val) {
         memcpy(val, found, len);
