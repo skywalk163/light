@@ -3173,7 +3173,7 @@
           "evidence_declare_line": 645,
           "evidence_define": "src/llvm/runtime_typed.c:dv_abspath",
           "category": "Math",
-          "evidence_define_line": 6864
+          "evidence_define_line": 6918
         },
         {
           "name": "dv_acos",
@@ -3261,7 +3261,7 @@
           "evidence_declare_line": 715,
           "evidence_define": "src/llvm/runtime_typed.c:dv_call_class_method",
           "category": "Class",
-          "evidence_define_line": 5219
+          "evidence_define_line": 5273
         },
         {
           "name": "dv_call_interface_method",
@@ -3277,7 +3277,7 @@
           "evidence_declare_line": 704,
           "evidence_define": "src/llvm/runtime_typed.c:dv_call_method",
           "category": "Class",
-          "evidence_define_line": 5134
+          "evidence_define_line": 5188
         },
         {
           "name": "dv_call_static_method",
@@ -3285,7 +3285,7 @@
           "evidence_declare_line": 716,
           "evidence_define": "src/llvm/runtime_typed.c:dv_call_static_method",
           "category": "Class",
-          "evidence_define_line": 5255
+          "evidence_define_line": 5309
         },
         {
           "name": "dv_call_super_method",
@@ -3293,7 +3293,7 @@
           "evidence_declare_line": 705,
           "evidence_define": "src/llvm/runtime_typed.c:dv_call_super_method",
           "category": "Class",
-          "evidence_define_line": 5160
+          "evidence_define_line": 5214
         },
         {
           "name": "dv_call_value",
@@ -3301,7 +3301,7 @@
           "evidence_declare_line": 754,
           "evidence_define": "src/llvm/runtime_typed.c:dv_call_value",
           "category": "Other",
-          "evidence_define_line": 8572
+          "evidence_define_line": 8626
         },
         {
           "name": "dv_ceil",
@@ -3389,7 +3389,7 @@
           "evidence_declare_line": 653,
           "evidence_define": "src/llvm/runtime_typed.c:dv_clock",
           "category": "Other",
-          "evidence_define_line": 8374
+          "evidence_define_line": 8428
         },
         {
           "name": "dv_collect_kwargs",
@@ -3429,7 +3429,7 @@
           "evidence_declare_line": 781,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_await",
           "category": "Coroutine",
-          "evidence_define_line": 5719
+          "evidence_define_line": 5773
         },
         {
           "name": "dv_coro_await_io",
@@ -3437,7 +3437,7 @@
           "evidence_declare_line": 828,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_await_io",
           "category": "Coroutine",
-          "evidence_define_line": 6454
+          "evidence_define_line": 6508
         },
         {
           "name": "dv_coro_create",
@@ -3445,7 +3445,7 @@
           "evidence_declare_line": 780,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_create",
           "category": "Coroutine",
-          "evidence_define_line": 5595
+          "evidence_define_line": 5649
         },
         {
           "name": "dv_coro_get_arg",
@@ -3453,7 +3453,7 @@
           "evidence_declare_line": 792,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_get_arg",
           "category": "Coroutine",
-          "evidence_define_line": 5848
+          "evidence_define_line": 5902
         },
         {
           "name": "dv_coro_get_await_result",
@@ -3461,7 +3461,7 @@
           "evidence_declare_line": 789,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_get_await_result",
           "category": "Coroutine",
-          "evidence_define_line": 5856
+          "evidence_define_line": 5910
         },
         {
           "name": "dv_coro_get_local",
@@ -3469,7 +3469,7 @@
           "evidence_declare_line": 791,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_get_local",
           "category": "Coroutine",
-          "evidence_define_line": 5838
+          "evidence_define_line": 5892
         },
         {
           "name": "dv_coro_get_result",
@@ -3477,7 +3477,7 @@
           "evidence_declare_line": 784,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_get_result",
           "category": "Coroutine",
-          "evidence_define_line": 5830
+          "evidence_define_line": 5884
         },
         {
           "name": "dv_coro_is_done",
@@ -3485,7 +3485,7 @@
           "evidence_declare_line": 785,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_is_done",
           "category": "Coroutine",
-          "evidence_define_line": 5878
+          "evidence_define_line": 5932
         },
         {
           "name": "dv_coro_run_to_completion",
@@ -3493,7 +3493,7 @@
           "evidence_declare_line": 783,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_run_to_completion",
           "category": "Coroutine",
-          "evidence_define_line": 5790
+          "evidence_define_line": 5844
         },
         {
           "name": "dv_coro_set_result",
@@ -3501,7 +3501,7 @@
           "evidence_declare_line": 790,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_set_result",
           "category": "Coroutine",
-          "evidence_define_line": 5868
+          "evidence_define_line": 5922
         },
         {
           "name": "dv_coro_sleep",
@@ -3509,7 +3509,7 @@
           "evidence_declare_line": 829,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_sleep",
           "category": "Coroutine",
-          "evidence_define_line": 6496
+          "evidence_define_line": 6550
         },
         {
           "name": "dv_cos",
@@ -3533,7 +3533,7 @@
           "evidence_declare_line": 744,
           "evidence_define": "src/llvm/runtime_typed.c:dv_decode_str",
           "category": "String",
-          "evidence_define_line": 8628
+          "evidence_define_line": 8682
         },
         {
           "name": "dv_degrees",
@@ -3717,7 +3717,7 @@
           "evidence_declare_line": 700,
           "evidence_define": "src/llvm/runtime_typed.c:dv_find_method",
           "category": "Class",
-          "evidence_define_line": 4817
+          "evidence_define_line": 4871
         },
         {
           "name": "dv_float",
@@ -3757,7 +3757,7 @@
           "evidence_declare_line": 787,
           "evidence_define": "src/llvm/runtime_typed.c:dv_future_complete",
           "category": "Coroutine",
-          "evidence_define_line": 5589
+          "evidence_define_line": 5643
         },
         {
           "name": "dv_future_create",
@@ -3765,7 +3765,7 @@
           "evidence_declare_line": 786,
           "evidence_define": "src/llvm/runtime_typed.c:dv_future_create",
           "category": "Coroutine",
-          "evidence_define_line": 5588
+          "evidence_define_line": 5642
         },
         {
           "name": "dv_future_from_value",
@@ -3773,7 +3773,7 @@
           "evidence_declare_line": 788,
           "evidence_define": "src/llvm/runtime_typed.c:dv_future_from_value",
           "category": "Coroutine",
-          "evidence_define_line": 5883
+          "evidence_define_line": 5937
         },
         {
           "name": "dv_gcd",
@@ -3797,7 +3797,7 @@
           "evidence_declare_line": 796,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_create",
           "category": "Other",
-          "evidence_define_line": 6667
+          "evidence_define_line": 6721
         },
         {
           "name": "dv_gen_finish",
@@ -3805,7 +3805,7 @@
           "evidence_declare_line": 801,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_finish",
           "category": "Other",
-          "evidence_define_line": 6714
+          "evidence_define_line": 6768
         },
         {
           "name": "dv_gen_free",
@@ -3813,7 +3813,7 @@
           "evidence_declare_line": 797,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_free",
           "category": "Other",
-          "evidence_define_line": 6681
+          "evidence_define_line": 6735
         },
         {
           "name": "dv_gen_make",
@@ -3821,7 +3821,7 @@
           "evidence_declare_line": 802,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_make",
           "category": "Other",
-          "evidence_define_line": 6722
+          "evidence_define_line": 6776
         },
         {
           "name": "dv_gen_resume",
@@ -3829,7 +3829,7 @@
           "evidence_declare_line": 804,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_resume",
           "category": "Other",
-          "evidence_define_line": 6740
+          "evidence_define_line": 6794
         },
         {
           "name": "dv_gen_slot",
@@ -3837,7 +3837,7 @@
           "evidence_declare_line": 798,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_slot",
           "category": "Other",
-          "evidence_define_line": 6693
+          "evidence_define_line": 6747
         },
         {
           "name": "dv_gen_state",
@@ -3845,7 +3845,7 @@
           "evidence_declare_line": 799,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_state",
           "category": "Other",
-          "evidence_define_line": 6700
+          "evidence_define_line": 6754
         },
         {
           "name": "dv_gen_value",
@@ -3853,7 +3853,7 @@
           "evidence_declare_line": 805,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_value",
           "category": "Other",
-          "evidence_define_line": 6748
+          "evidence_define_line": 6802
         },
         {
           "name": "dv_gen_yield",
@@ -3861,7 +3861,7 @@
           "evidence_declare_line": 800,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_yield",
           "category": "Other",
-          "evidence_define_line": 6706
+          "evidence_define_line": 6760
         },
         {
           "name": "dv_get_args",
@@ -3901,7 +3901,7 @@
           "evidence_declare_line": 711,
           "evidence_define": "src/llvm/runtime_typed.c:dv_get_type_name",
           "category": "Other",
-          "evidence_define_line": 5464
+          "evidence_define_line": 5518
         },
         {
           "name": "dv_getattr_default",
@@ -3909,7 +3909,7 @@
           "evidence_declare_line": 742,
           "evidence_define": "src/llvm/runtime_typed.c:dv_getattr_default",
           "category": "Other",
-          "evidence_define_line": 8594
+          "evidence_define_line": 8648
         },
         {
           "name": "dv_getcwd",
@@ -3941,7 +3941,7 @@
           "evidence_declare_line": 710,
           "evidence_define": "src/llvm/runtime_typed.c:dv_has_attr",
           "category": "Other",
-          "evidence_define_line": 8511
+          "evidence_define_line": 8565
         },
         {
           "name": "dv_hex",
@@ -3997,7 +3997,7 @@
           "evidence_declare_line": 739,
           "evidence_define": "src/llvm/runtime_typed.c:dv_is_callable",
           "category": "Other",
-          "evidence_define_line": 8434
+          "evidence_define_line": 8488
         },
         {
           "name": "dv_is_dir",
@@ -4021,7 +4021,7 @@
           "evidence_declare_line": 741,
           "evidence_define": "src/llvm/runtime_typed.c:dv_is_function",
           "category": "Other",
-          "evidence_define_line": 8455
+          "evidence_define_line": 8509
         },
         {
           "name": "dv_is_generator",
@@ -4029,7 +4029,7 @@
           "evidence_declare_line": 803,
           "evidence_define": "src/llvm/runtime_typed.c:dv_is_generator",
           "category": "Other",
-          "evidence_define_line": 6734
+          "evidence_define_line": 6788
         },
         {
           "name": "dv_is_null",
@@ -4045,7 +4045,7 @@
           "evidence_declare_line": 708,
           "evidence_define": "src/llvm/runtime_typed.c:dv_is_sub_class",
           "category": "Class",
-          "evidence_define_line": 8466
+          "evidence_define_line": 8520
         },
         {
           "name": "dv_is_sub_class_from_value",
@@ -4053,7 +4053,7 @@
           "evidence_declare_line": 709,
           "evidence_define": "src/llvm/runtime_typed.c:dv_is_sub_class_from_value",
           "category": "Class",
-          "evidence_define_line": 8487
+          "evidence_define_line": 8541
         },
         {
           "name": "dv_isinstance",
@@ -4269,7 +4269,7 @@
           "evidence_declare_line": 753,
           "evidence_define": "src/llvm/runtime_typed.c:dv_make_function_value",
           "category": "Other",
-          "evidence_define_line": 8543
+          "evidence_define_line": 8597
         },
         {
           "name": "dv_makedirs",
@@ -4277,7 +4277,7 @@
           "evidence_declare_line": 759,
           "evidence_define": "src/llvm/runtime_typed.c:dv_makedirs",
           "category": "Other",
-          "evidence_define_line": 6907
+          "evidence_define_line": 6961
         },
         {
           "name": "dv_max",
@@ -4381,7 +4381,7 @@
           "evidence_declare_line": 644,
           "evidence_define": "src/llvm/runtime_typed.c:dv_path_basename",
           "category": "Other",
-          "evidence_define_line": 6803
+          "evidence_define_line": 6857
         },
         {
           "name": "dv_path_dirname",
@@ -4389,7 +4389,7 @@
           "evidence_declare_line": 643,
           "evidence_define": "src/llvm/runtime_typed.c:dv_path_dirname",
           "category": "Other",
-          "evidence_define_line": 6776
+          "evidence_define_line": 6830
         },
         {
           "name": "dv_path_join",
@@ -4413,7 +4413,7 @@
           "evidence_declare_line": 848,
           "evidence_define": "src/llvm/runtime_typed.c:dv_platform_sleep",
           "category": "System",
-          "evidence_define_line": 6523
+          "evidence_define_line": 6577
         },
         {
           "name": "dv_poller_backend",
@@ -4421,7 +4421,7 @@
           "evidence_declare_line": 845,
           "evidence_define": "src/llvm/runtime_typed.c:dv_poller_backend",
           "category": "Poller",
-          "evidence_define_line": 6162
+          "evidence_define_line": 6216
         },
         {
           "name": "dv_poller_count",
@@ -4429,7 +4429,7 @@
           "evidence_declare_line": 846,
           "evidence_define": "src/llvm/runtime_typed.c:dv_poller_count",
           "category": "Poller",
-          "evidence_define_line": 6261
+          "evidence_define_line": 6315
         },
         {
           "name": "dv_poller_create",
@@ -4437,7 +4437,7 @@
           "evidence_declare_line": 822,
           "evidence_define": "src/llvm/runtime_typed.c:dv_poller_create",
           "category": "Poller",
-          "evidence_define_line": 6166
+          "evidence_define_line": 6220
         },
         {
           "name": "dv_poller_destroy",
@@ -4445,7 +4445,7 @@
           "evidence_declare_line": 826,
           "evidence_define": "src/llvm/runtime_typed.c:dv_poller_destroy",
           "category": "Poller",
-          "evidence_define_line": 6402
+          "evidence_define_line": 6456
         },
         {
           "name": "dv_poller_last_error",
@@ -4453,7 +4453,7 @@
           "evidence_declare_line": 844,
           "evidence_define": "src/llvm/runtime_typed.c:dv_poller_last_error",
           "category": "Poller",
-          "evidence_define_line": 6158
+          "evidence_define_line": 6212
         },
         {
           "name": "dv_poller_register",
@@ -4461,7 +4461,7 @@
           "evidence_declare_line": 823,
           "evidence_define": "src/llvm/runtime_typed.c:dv_poller_register",
           "category": "Poller",
-          "evidence_define_line": 6206
+          "evidence_define_line": 6260
         },
         {
           "name": "dv_poller_unregister",
@@ -4469,7 +4469,7 @@
           "evidence_declare_line": 824,
           "evidence_define": "src/llvm/runtime_typed.c:dv_poller_unregister",
           "category": "Poller",
-          "evidence_define_line": 6247
+          "evidence_define_line": 6301
         },
         {
           "name": "dv_poller_wait",
@@ -4477,7 +4477,7 @@
           "evidence_declare_line": 825,
           "evidence_define": "src/llvm/runtime_typed.c:dv_poller_wait",
           "category": "Poller",
-          "evidence_define_line": 6393
+          "evidence_define_line": 6447
         },
         {
           "name": "dv_pow",
@@ -4517,7 +4517,7 @@
           "evidence_declare_line": 608,
           "evidence_define": "src/llvm/runtime_typed.c:dv_random",
           "category": "Other",
-          "evidence_define_line": 8230
+          "evidence_define_line": 8284
         },
         {
           "name": "dv_random_bits",
@@ -4525,7 +4525,7 @@
           "evidence_declare_line": 610,
           "evidence_define": "src/llvm/runtime_typed.c:dv_random_bits",
           "category": "Other",
-          "evidence_define_line": 8231
+          "evidence_define_line": 8285
         },
         {
           "name": "dv_random_bytes",
@@ -4533,7 +4533,7 @@
           "evidence_declare_line": 743,
           "evidence_define": "src/llvm/runtime_typed.c:dv_random_bytes",
           "category": "Other",
-          "evidence_define_line": 8611
+          "evidence_define_line": 8665
         },
         {
           "name": "dv_random_seed",
@@ -4541,7 +4541,7 @@
           "evidence_declare_line": 609,
           "evidence_define": "src/llvm/runtime_typed.c:dv_random_seed",
           "category": "Other",
-          "evidence_define_line": 8225
+          "evidence_define_line": 8279
         },
         {
           "name": "dv_read_file",
@@ -4557,7 +4557,7 @@
           "evidence_declare_line": 694,
           "evidence_define": "src/llvm/runtime_typed.c:dv_register_attr",
           "category": "Other",
-          "evidence_define_line": 4822
+          "evidence_define_line": 4876
         },
         {
           "name": "dv_register_class",
@@ -4565,7 +4565,7 @@
           "evidence_declare_line": 692,
           "evidence_define": "src/llvm/runtime_typed.c:dv_register_class",
           "category": "Class",
-          "evidence_define_line": 4717
+          "evidence_define_line": 4771
         },
         {
           "name": "dv_register_class_implements",
@@ -4581,7 +4581,7 @@
           "evidence_declare_line": 713,
           "evidence_define": "src/llvm/runtime_typed.c:dv_register_class_method",
           "category": "Class",
-          "evidence_define_line": 4784
+          "evidence_define_line": 4838
         },
         {
           "name": "dv_register_interface",
@@ -4605,7 +4605,7 @@
           "evidence_declare_line": 693,
           "evidence_define": "src/llvm/runtime_typed.c:dv_register_method",
           "category": "Class",
-          "evidence_define_line": 4779
+          "evidence_define_line": 4833
         },
         {
           "name": "dv_register_static_method",
@@ -4613,7 +4613,7 @@
           "evidence_declare_line": 714,
           "evidence_define": "src/llvm/runtime_typed.c:dv_register_static_method",
           "category": "Class",
-          "evidence_define_line": 4789
+          "evidence_define_line": 4843
         },
         {
           "name": "dv_rename_file",
@@ -4653,7 +4653,7 @@
           "evidence_declare_line": 782,
           "evidence_define": "src/llvm/runtime_typed.c:dv_scheduler_run",
           "category": "Coroutine",
-          "evidence_define_line": 5768
+          "evidence_define_line": 5822
         },
         {
           "name": "dv_scheduler_run_event_loop",
@@ -4661,7 +4661,7 @@
           "evidence_declare_line": 847,
           "evidence_define": "src/llvm/runtime_typed.c:dv_scheduler_run_event_loop",
           "category": "Coroutine",
-          "evidence_define_line": 5592
+          "evidence_define_line": 5646
         },
         {
           "name": "dv_setenv",
@@ -4701,7 +4701,7 @@
           "evidence_declare_line": 747,
           "evidence_define": "src/llvm/runtime_typed.c:dv_shallow_copy",
           "category": "File",
-          "evidence_define_line": 8659
+          "evidence_define_line": 8713
         },
         {
           "name": "dv_sign",
@@ -4725,7 +4725,7 @@
           "evidence_declare_line": 652,
           "evidence_define": "src/llvm/runtime_typed.c:dv_sleep",
           "category": "Other",
-          "evidence_define_line": 8371
+          "evidence_define_line": 8425
         },
         {
           "name": "dv_socket_accept",
@@ -4733,7 +4733,7 @@
           "evidence_declare_line": 811,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_accept",
           "category": "Socket",
-          "evidence_define_line": 5979
+          "evidence_define_line": 6033
         },
         {
           "name": "dv_socket_bind",
@@ -4741,7 +4741,7 @@
           "evidence_declare_line": 809,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_bind",
           "category": "Socket",
-          "evidence_define_line": 5966
+          "evidence_define_line": 6020
         },
         {
           "name": "dv_socket_close",
@@ -4749,7 +4749,7 @@
           "evidence_declare_line": 815,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_close",
           "category": "Socket",
-          "evidence_define_line": 6041
+          "evidence_define_line": 6095
         },
         {
           "name": "dv_socket_connect",
@@ -4757,7 +4757,7 @@
           "evidence_declare_line": 808,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_connect",
           "category": "Socket",
-          "evidence_define_line": 5933
+          "evidence_define_line": 5987
         },
         {
           "name": "dv_socket_create",
@@ -4765,7 +4765,7 @@
           "evidence_declare_line": 807,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_create",
           "category": "Socket",
-          "evidence_define_line": 5918
+          "evidence_define_line": 5972
         },
         {
           "name": "dv_socket_get_peer_addr",
@@ -4773,7 +4773,7 @@
           "evidence_declare_line": 820,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_get_peer_addr",
           "category": "Socket",
-          "evidence_define_line": 6073
+          "evidence_define_line": 6127
         },
         {
           "name": "dv_socket_last_error",
@@ -4781,7 +4781,7 @@
           "evidence_declare_line": 818,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_last_error",
           "category": "Socket",
-          "evidence_define_line": 6065
+          "evidence_define_line": 6119
         },
         {
           "name": "dv_socket_last_error_code",
@@ -4789,7 +4789,7 @@
           "evidence_declare_line": 819,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_last_error_code",
           "category": "Socket",
-          "evidence_define_line": 6069
+          "evidence_define_line": 6123
         },
         {
           "name": "dv_socket_listen",
@@ -4797,7 +4797,7 @@
           "evidence_declare_line": 810,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_listen",
           "category": "Socket",
-          "evidence_define_line": 5975
+          "evidence_define_line": 6029
         },
         {
           "name": "dv_socket_recv",
@@ -4805,7 +4805,7 @@
           "evidence_declare_line": 813,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_recv",
           "category": "Socket",
-          "evidence_define_line": 5991
+          "evidence_define_line": 6045
         },
         {
           "name": "dv_socket_send",
@@ -4813,7 +4813,7 @@
           "evidence_declare_line": 812,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_send",
           "category": "Socket",
-          "evidence_define_line": 5985
+          "evidence_define_line": 6039
         },
         {
           "name": "dv_socket_set_nonblocking",
@@ -4821,7 +4821,7 @@
           "evidence_declare_line": 817,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_set_nonblocking",
           "category": "Socket",
-          "evidence_define_line": 6053
+          "evidence_define_line": 6107
         },
         {
           "name": "dv_socket_set_recv_timeout",
@@ -4829,7 +4829,7 @@
           "evidence_declare_line": 814,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_set_recv_timeout",
           "category": "Socket",
-          "evidence_define_line": 6028
+          "evidence_define_line": 6082
         },
         {
           "name": "dv_socket_shutdown",
@@ -4837,7 +4837,7 @@
           "evidence_declare_line": 816,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_shutdown",
           "category": "Socket",
-          "evidence_define_line": 6049
+          "evidence_define_line": 6103
         },
         {
           "name": "dv_sqrt",
@@ -4981,7 +4981,7 @@
           "evidence_declare_line": 625,
           "evidence_define": "src/llvm/runtime_typed.c:dv_str_rfind",
           "category": "String",
-          "evidence_define_line": 8144
+          "evidence_define_line": 8198
         },
         {
           "name": "dv_str_rjust",
@@ -4997,7 +4997,7 @@
           "evidence_declare_line": 626,
           "evidence_define": "src/llvm/runtime_typed.c:dv_str_rstrip",
           "category": "String",
-          "evidence_define_line": 8174
+          "evidence_define_line": 8228
         },
         {
           "name": "dv_str_split",
@@ -5069,7 +5069,7 @@
           "evidence_declare_line": 755,
           "evidence_define": "src/llvm/runtime_typed.c:dv_throw_not_callable",
           "category": "Exception",
-          "evidence_define_line": 8559
+          "evidence_define_line": 8613
         },
         {
           "name": "dv_timestamp",
@@ -5085,7 +5085,7 @@
           "evidence_declare_line": 839,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_add_trusted_cert_file",
           "category": "TLS",
-          "evidence_define_line": 7194
+          "evidence_define_line": 7248
         },
         {
           "name": "dv_tls_flush_public",
@@ -5093,7 +5093,7 @@
           "evidence_declare_line": 842,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_flush_public",
           "category": "TLS",
-          "evidence_define_line": 7473
+          "evidence_define_line": 7527
         },
         {
           "name": "dv_tls_free",
@@ -5101,7 +5101,7 @@
           "evidence_declare_line": 837,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_free",
           "category": "TLS",
-          "evidence_define_line": 7590
+          "evidence_define_line": 7644
         },
         {
           "name": "dv_tls_handshake",
@@ -5109,7 +5109,7 @@
           "evidence_declare_line": 832,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_handshake",
           "category": "TLS",
-          "evidence_define_line": 6937
+          "evidence_define_line": 6991
         },
         {
           "name": "dv_tls_is_ready",
@@ -5117,7 +5117,7 @@
           "evidence_declare_line": 841,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_is_ready",
           "category": "TLS",
-          "evidence_define_line": 7413
+          "evidence_define_line": 7467
         },
         {
           "name": "dv_tls_last_error",
@@ -5125,7 +5125,7 @@
           "evidence_declare_line": 843,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_last_error",
           "category": "TLS",
-          "evidence_define_line": 6962
+          "evidence_define_line": 7016
         },
         {
           "name": "dv_tls_recv",
@@ -5133,7 +5133,7 @@
           "evidence_declare_line": 835,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_recv",
           "category": "TLS",
-          "evidence_define_line": 7543
+          "evidence_define_line": 7597
         },
         {
           "name": "dv_tls_recv_status",
@@ -5141,7 +5141,7 @@
           "evidence_declare_line": 836,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_recv_status",
           "category": "TLS",
-          "evidence_define_line": 7586
+          "evidence_define_line": 7640
         },
         {
           "name": "dv_tls_send",
@@ -5149,7 +5149,7 @@
           "evidence_declare_line": 833,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_send",
           "category": "TLS",
-          "evidence_define_line": 7469
+          "evidence_define_line": 7523
         },
         {
           "name": "dv_tls_send_n",
@@ -5157,7 +5157,7 @@
           "evidence_declare_line": 834,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_send_n",
           "category": "TLS",
-          "evidence_define_line": 7419
+          "evidence_define_line": 7473
         },
         {
           "name": "dv_tls_set_verify",
@@ -5165,7 +5165,7 @@
           "evidence_declare_line": 838,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_set_verify",
           "category": "TLS",
-          "evidence_define_line": 7181
+          "evidence_define_line": 7235
         },
         {
           "name": "dv_tls_want_event",
@@ -5173,7 +5173,7 @@
           "evidence_declare_line": 840,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_want_event",
           "category": "TLS",
-          "evidence_define_line": 6939
+          "evidence_define_line": 6993
         },
         {
           "name": "dv_tls_wrap",
@@ -5181,7 +5181,7 @@
           "evidence_declare_line": 831,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_wrap",
           "category": "TLS",
-          "evidence_define_line": 6936
+          "evidence_define_line": 6990
         },
         {
           "name": "dv_to_bool",
@@ -5269,7 +5269,7 @@
           "evidence_declare_line": 580,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tuple_append",
           "category": "File",
-          "evidence_define_line": 8084
+          "evidence_define_line": 8138
         },
         {
           "name": "dv_tuple_get",
@@ -5277,7 +5277,7 @@
           "evidence_declare_line": 581,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tuple_get",
           "category": "Other",
-          "evidence_define_line": 8118
+          "evidence_define_line": 8172
         },
         {
           "name": "dv_tuple_len",
@@ -5285,7 +5285,7 @@
           "evidence_declare_line": 582,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tuple_len",
           "category": "Other",
-          "evidence_define_line": 8136
+          "evidence_define_line": 8190
         },
         {
           "name": "dv_tuple_new",
@@ -5293,7 +5293,7 @@
           "evidence_declare_line": 579,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tuple_new",
           "category": "Other",
-          "evidence_define_line": 8073
+          "evidence_define_line": 8127
         },
         {
           "name": "dv_upper",
