@@ -16,9 +16,9 @@
   ],
   "版本": 1,
   "归属": "C9 建（S1），G9 守门禁",
-  "总数": 158,
+  "总数": 163,
   "分类统计": {
-    "native_required": 62,
+    "native_required": 67,
     "movable": 15,
     "has_light_impl": 68,
     "duplicate": 13,
@@ -1296,6 +1296,46 @@
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心系统.light（R71-E/L-174：随机字节地板内置熵源，光明层置版本/变体位；builtins.py 已惰性转发）",
       "证据行": "stdlib/内置核心系统.light:21"
+    },
+    {
+      "名字": "是否可执行",
+      "职责": "判定路径对当前进程是否可执行（对齐 os.access(path, X_OK)），路径不存在或无权限返回假不抛",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_fs_access，原生腿）+ Python（stdlib/builtins.py:1316，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：access()/X_OK 是内核权限判定，纯光明无法表达；原生腿 R149-A 已注册 dv_fs_access（POSIX access / Win _access）；光明门面 stdlib/文件系统.light:1285（有同名 .py 且无魔数，当前未接管，仅作门面）",
+      "证据行": "src/llvm/runtime_typed.c:7134"
+    },
+    {
+      "名字": "设置权限",
+      "职责": "按八进制模式位改文件权限（对齐 os.chmod），失败返回假不抛",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_fs_chmod，原生腿）+ Python（stdlib/builtins.py:1324，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：chmod()/_chmod 是改 inode 模式位的系统调用，纯光明无法表达；原生腿 R149-A 已注册 dv_fs_chmod；光明门面 stdlib/文件系统.light:1288（有同名 .py 且无魔数，当前未接管，仅作门面）",
+      "证据行": "src/llvm/runtime_typed.c:7149"
+    },
+    {
+      "名字": "创建符号链接",
+      "职责": "为 target 在 linkpath 建符号链接（对齐 os.symlink），失败返回假不抛",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_fs_symlink，原生腿）+ Python（stdlib/builtins.py:1333，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：symlink()/CreateSymbolicLink 是内核对象创建，纯光明无法表达；原生腿 R149-A 已注册 dv_fs_symlink；光明门面 stdlib/文件系统.light:1291（有同名 .py 且无魔数，当前未接管，仅作门面）",
+      "证据行": "src/llvm/runtime_typed.c:7165"
+    },
+    {
+      "名字": "读取符号链接",
+      "职责": "读符号链接指向的目标路径（对齐 os.readlink），非链接或读不到返回空不抛",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_fs_readlink，原生腿）+ Python（stdlib/builtins.py:1342，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：readlink() 要内核回读链接目标，纯光明无法表达；原生腿 R149-A 已注册 dv_fs_readlink；光明门面 stdlib/文件系统.light:1294（有同名 .py 且无魔数，当前未接管，仅作门面）",
+      "证据行": "src/llvm/runtime_typed.c:7182"
+    },
+    {
+      "名字": "磁盘用量",
+      "职责": "按路径取磁盘容量字典（总空间/已用空间/可用空间/使用率，对齐 shutil.disk_usage）",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_fs_statvfs，原生腿；POSIX statvfs / Win GetDiskFreeSpaceExA）+ Python（stdlib/builtins.py:1350，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：statvfs()/GetDiskFreeSpaceEx 是取文件系统容量的系统调用，纯光明无法表达；原生腿 R149-A 已注册 dv_fs_statvfs；键名刻意对齐 shutil.disk_usage 口径；光明门面 stdlib/文件系统.light:1297（有同名 .py 且无魔数，当前未接管，仅作门面）",
+      "证据行": "src/llvm/runtime_typed.c:7200"
     }
   ],
   "地板自举率_S2进度": {
