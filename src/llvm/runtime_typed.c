@@ -36,6 +36,9 @@
 #define access _access
 #else
 #include <unistd.h>
+/* R149-A：磁盘用量原语 dv_fs_statvfs 需要 statvfs()（Linux/glibc 与 FreeBSD/clang 均在此头）；
+   缺失会在 FreeBSD 上 undeclared identifier，整条 clang 腿全崩。 */
+#include <sys/statvfs.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -7117,6 +7120,128 @@ void dv_file_stat(LightValue* result, LightValue* path) {
     DV_STAT_SET_INT("st_dev", st.st_dev);
 #undef DV_STAT_SET_INT
 #undef DV_STAT_SET_FLOAT
+}
+
+/* R149-A：文件系统平台原语第一批（对齐 stdlib/文件系统.py 参考语义）。
+ * 覆盖：是否可执行(access) / 设置权限(chmod) / 创建符号链接(symlink) /
+ * 读取符号链接(readlink) / 磁盘族(statvfs)。
+ * Windows 边界：symlink / readlink / statvfs 在 Windows 无等价或语义不同，
+ * 按 #ifdef 分支返回 false / null，属已登记边界（登记 R150）。 */
+
+/* 是否可执行：os.access(path, X_OK)。
+ * POSIX：access(p, X_OK)；Windows 无执行位概念，退化为 _access(p, 0)（存在性），
+ * 与 CPython os.access 在 Windows 上的实际行为一致（已知边界，如实登记）。 */
+void dv_fs_access(LightValue* result, LightValue* path, int64_t mode) {
+    if (!result) return;
+    dv_null(result);
+    if (!path) return;
+    path = dv_deref(path);
+    if (path->type != 3 || !path->str) return;
+#ifdef _WIN32
+    int r = _access(path->str, 0);
+#else
+    int r = access(path->str, (int)mode);
+#endif
+    dv_bool(result, r == 0 ? 1 : 0);
+}
+
+/* 设置权限：os.chmod(path, mode)。成功 true；不存在/无权限 → false。 */
+void dv_fs_chmod(LightValue* result, LightValue* path, int64_t mode) {
+    if (!result) return;
+    dv_null(result);
+    if (!path) return;
+    path = dv_deref(path);
+    if (path->type != 3 || !path->str) return;
+#ifdef _WIN32
+    int r = _chmod(path->str, (int)mode);
+#else
+    int r = chmod(path->str, (mode_t)mode);
+#endif
+    dv_bool(result, r == 0 ? 1 : 0);
+}
+
+/* 创建符号链接：os.symlink(target, linkpath)。成功 true / 失败 false。
+ * Windows 无 POSIX symlink 等价（需 CreateSymbolicLinkW + 特权）→ false（登记边界）。 */
+void dv_fs_symlink(LightValue* result, LightValue* target, LightValue* linkpath) {
+    if (!result) return;
+    dv_null(result);
+    if (!target || !linkpath) return;
+    target = dv_deref(target);
+    linkpath = dv_deref(linkpath);
+    if (target->type != 3 || !target->str) return;
+    if (linkpath->type != 3 || !linkpath->str) return;
+#ifdef _WIN32
+    dv_bool(result, 0);
+#else
+    dv_bool(result, symlink(target->str, linkpath->str) == 0 ? 1 : 0);
+#endif
+}
+
+/* 读取符号链接：os.readlink(path) → 目标字符串；非链接/失败 → null。
+ * Windows 无等价（需 DeviceIoControl 解析 reparse point）→ null（登记边界）。 */
+void dv_fs_readlink(LightValue* result, LightValue* path) {
+    if (!result) return;
+    dv_null(result);
+    if (!path) return;
+    path = dv_deref(path);
+    if (path->type != 3 || !path->str) return;
+#ifndef _WIN32
+    char buf[4096];
+    ssize_t n = readlink(path->str, buf, sizeof(buf) - 1);
+    if (n < 0) return;
+    buf[n] = '\0';
+    dv_str(result, buf);
+#endif
+}
+
+/* 磁盘用量：statvfs → dict（总数/可用/已用/剩余，单位字节；使用情况 = 已用占比 %）。
+ * 一次 C 调用覆盖 磁盘总空间/磁盘可用空间/磁盘已用空间/磁盘使用情况/获取磁盘使用情况 五段。
+ * Windows 无 statvfs（需 GetDiskFreeSpaceEx）→ null（登记边界）。 */
+void dv_fs_statvfs(LightValue* result, LightValue* path) {
+    if (!result) return;
+    dv_null(result);
+    if (!path) return;
+    path = dv_deref(path);
+    if (path->type != 3 || !path->str) return;
+    int64_t total = 0, avail = 0, used = 0;
+#ifdef _WIN32
+    /* Windows：GetDiskFreeSpaceExA（同 shutil.disk_usage 在 Windows 上的底层调用）。
+       used = 总数 - 总空闲（对齐 POSIX 侧 (f_blocks-f_bfree)*frsize 的口径）。 */
+    ULARGE_INTEGER free_avail, total_bytes, total_free;
+    if (!GetDiskFreeSpaceExA(path->str, &free_avail, &total_bytes, &total_free)) return;
+    total = (int64_t)total_bytes.QuadPart;
+    avail = (int64_t)free_avail.QuadPart;
+    used = total - (int64_t)total_free.QuadPart;
+#else
+    struct statvfs vfs;
+    if (statvfs(path->str, &vfs) != 0) return;
+    int64_t free_b = (int64_t)vfs.f_bfree * (int64_t)vfs.f_frsize;
+    total = (int64_t)vfs.f_blocks * (int64_t)vfs.f_frsize;
+    avail = (int64_t)vfs.f_bavail * (int64_t)vfs.f_frsize;
+    used = total - free_b;
+#endif
+    dv_dict_new(result);
+    LightValue k, v;
+#define DV_VFS_SET(KEY, VAL) \
+    do { \
+        dv_str(&k, KEY); dv_int(&v, (int64_t)(VAL)); \
+        dv_dict_set(result, result, &k, &v); \
+        dv_free(&k); dv_free(&v); \
+    } while (0)
+    /* 键名与取值严格对齐 stdlib/文件系统.py 的 shutil.disk_usage 口径：
+         总空间 = f_blocks*frsize；已用空间 = (f_blocks-f_bfree)*frsize；
+         可用空间 = f_bavail*frsize（非 root 可用，同 shutil.disk_usage().free）；
+         使用率 = 已用/总*100。 */
+    DV_VFS_SET("总空间", total);
+    DV_VFS_SET("已用空间", used);
+    DV_VFS_SET("可用空间", avail);
+    if (total > 0) {
+        dv_str(&k, "使用率");
+        dv_float(&v, (double)used * 100.0 / (double)total);
+        dv_dict_set(result, result, &k, &v);
+        dv_free(&k); dv_free(&v);
+    }
+#undef DV_VFS_SET
 }
 
 /* os.path.realpath：解析符号链接 + 规范化。

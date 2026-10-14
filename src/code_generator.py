@@ -541,6 +541,15 @@ class PythonCodeGenerator:
             # （已实测；见 stdlib/路径护栏.light:414-427），return int 与 `加上` 位运算兼容。
             '真实路径': '_light_builtin.真实路径',
             '文件状态': '_light_builtin.文件状态',
+            # R149-A：文件系统平台原语第一批。builtin_map 只在**调用点**生效，
+            # 必须在这里登记裸名，否则前端把 `磁盘用量(...)` 当未定义变量报
+            # 「变量必须先定义后使用」（已实测）。原生腿同名内置见
+            # src/llvm/codegen_typed.py，两腿共用同一套中文名。
+            '是否可执行': '_light_builtin.是否可执行',
+            '设置权限': '_light_builtin.设置权限',
+            '创建符号链接': '_light_builtin.创建符号链接',
+            '读取符号链接': '_light_builtin.读取符号链接',
+            '磁盘用量': '_light_builtin.磁盘用量',
             '句柄状态': '_light_builtin.句柄状态',
             '低级打开': '_light_builtin.低级打开',
             '低级读': '_light_builtin.低级读',

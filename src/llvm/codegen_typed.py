@@ -777,6 +777,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_json_parse(ptr, ptr)',
             f'declare void @dv_json_serialize(ptr, ptr)',
             f'declare void @dv_json_serialize_pretty(ptr, ptr, i64)',
+            # R149-A：文件系统平台原语第一批（对齐 stdlib/文件系统.py 参考语义）
+            f'declare void @dv_fs_access(ptr, ptr, i64)',
+            f'declare void @dv_fs_chmod(ptr, ptr, i64)',
+            f'declare void @dv_fs_symlink(ptr, ptr, ptr)',
+            f'declare void @dv_fs_readlink(ptr, ptr)',
+            f'declare void @dv_fs_statvfs(ptr, ptr)',
             # R127-C · S1 三内建补齐：字符判型（ASCII 整串语义，见 runtime 注释）
             f'declare i32 @dv_str_isalpha(ptr)',
             f'declare i32 @dv_str_isspace(ptr)',
@@ -2666,6 +2672,44 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if args:
                 return self._call_dv_func('dv_file_stat', args[0]), 'dv'
             return self._call_dv_func('dv_file_stat', 'ptr null'), 'dv'
+
+        # R149-A：文件系统平台原语第一批。此前原生腿无对应地板原语，光明代码调用
+        # 直接报「未定义的段落：X」。语义对齐 stdlib/文件系统.py：
+        #   是否可执行 = os.access(path, os.X_OK)（X_OK=1）
+        #   设置权限   = os.chmod(path, mode)
+        #   创建符号链接 = os.symlink(target, linkpath)
+        #   读取符号链接 = os.readlink(path)（非链接/失败 → null）
+        #   磁盘用量   = os.statvfs(path) → dict(总数/可用/已用/剩余/使用情况)
+        # Windows 边界（登记 R150）：symlink/readlink/statvfs 无等价 → false/null；
+        # 是否可执行 在 Windows 退化为存在性（无执行位概念），与 CPython 一致。
+        if name in ('是否可执行', 'is_executable', 'can_execute'):
+            if args:
+                return self._call_dv_func('dv_fs_access', self._deref_value(args[0]), 'i64 1'), 'dv'
+            return self._create_bool_dv('0'), 'dv'
+
+        if name in ('设置权限', 'chmod', 'set_permissions'):
+            if len(args) >= 2:
+                a1 = self._deref_value(args[1])
+                mode_i64 = self.new_register()
+                self.emit(f'{mode_i64} = extractvalue {LIGHTVALUE_STRUCT} {a1}, 1')
+                return self._call_dv_func('dv_fs_chmod', self._deref_value(args[0]), f'i64 {mode_i64}'), 'dv'
+            return self._create_bool_dv('0'), 'dv'
+
+        if name in ('创建符号链接', 'symlink', 'create_symlink'):
+            if len(args) >= 2:
+                return self._call_dv_func('dv_fs_symlink', self._deref_value(args[0]),
+                                          self._deref_value(args[1])), 'dv'
+            return self._create_bool_dv('0'), 'dv'
+
+        if name in ('读取符号链接', 'readlink', 'read_symlink'):
+            if args:
+                return self._call_dv_func('dv_fs_readlink', self._deref_value(args[0])), 'dv'
+            return self._create_str_dv(self.gen_string_constant('')), 'dv'
+
+        if name in ('磁盘用量', 'disk_usage', 'statvfs'):
+            if args:
+                return self._call_dv_func('dv_fs_statvfs', self._deref_value(args[0])), 'dv'
+            return self._call_dv_func('dv_fs_statvfs', 'ptr null'), 'dv'
 
         # 真实路径：os.path.realpath（解析符号链接 + 规范化；POSIX realpath，
         # 失败回退 cwd+normpath；Windows GetFullPathNameA，不解析 symlink 为已知边界）。
