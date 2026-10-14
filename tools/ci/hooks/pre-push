@@ -1,5 +1,5 @@
 #!/bin/sh
-# CI 基线门禁 pre-push 守卫（地板清单咬合 + 断言质量假绿）
+# CI 基线门禁 pre-push 守卫（地板清单咬合 + 断言质量假绿 + 凭证防泄露）
 #
 # 背景：light-merge 有多道「基线对比」类 CI 门禁，其基线都是人工维护的镜像，极易因
 # 行号漂移 / 漏同步而误判。本钩子把这些门禁前置到推送前，避免「推上去才在 CI 长红」的往返。
@@ -10,18 +10,14 @@
 #   • 断言质量假绿（assert_quality）：全仓扫描「零信号断言」（is not None / len<=N 等）。
 #     2026-09-01 因 code_generator.py 在 1090→1107 行号漂移，基线失效条目给新违规留了赦免票，
 #     被 CI 判成「新增违规」长红——本段在推送前把这道门禁也跑一遍，基线失效即警告刷新。
+#   • 凭证防泄露真门（R148-D，用户明令最高优先级）：命中 ghp_/github_pat_/gho_/sk-/AKIA/私钥块
+#     任一形态即拦截推送（绝不回显密钥本体）；覆盖打包/暂存/历史/推送全链路。
 #
 # 行为：
-#   1) 名单双向咬合（builtins.py 顶层函数名 集合 == 清单 名字 集合）不通过 → 拦截推送，
-#      并打印具体「代码有清单无 / 清单有代码无」差异，给出修复命令。
-#   2) 咬合通过后，再跑完整地板门禁（floor_bootstrap.py --root .）；若仍红 → 非阻塞警告，
-#      提示「清单变了但基线没刷新」，建议本地 --write-baseline 后再推。这一步不拦推送，
-#      因为基线棘轮（自举率只升不降 / 豁免只降不升）本就是合并点的人工裁决动作，
-#      不应被钩子自动放过或自动刷新。
-#   3) 断言质量假绿门禁（assert_quality.py --root .）：推送前先跑一遍对比模式。
-#      出现基线条目之外的新增假绿 → 非阻塞警告（CI 会硬拦，建议改断言或 --write-baseline）；
-#      基线存在失效条目（多半是行号漂移）→ 非阻塞警告，提示本地 --write-baseline 后再推，
-#      避免像 2026-09-01 那样在 CI 长红。
+#   1) 名单双向咬合不通过 → 拦截推送。
+#   2) 咬合通过后跑完整地板门禁（仍红 → 非阻塞警告）。
+#   3) 断言质量门禁（新增违规 → 非阻塞警告；基线失效 → 非阻塞警告刷新）。
+#   4) 凭证防泄露真门：扫描本次推送范围，命中即拦截（非阻塞仅当扫描器缺失/不可运行）。
 #
 # 安装（任选其一）：
 #   cp tools/ci/hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
@@ -39,6 +35,11 @@ if [ ! -x "$PY" ]; then
     exit 0
   fi
 fi
+
+# R148-D：先读尽 git pre-push 协议（脚本 stdin，格式见 git 文档），供凭证守卫使用。
+# 注意：下方 "$PY" - <<'PYEOF' 会把 heredoc 作为 python 的 stdin，故协议必须在此先读出，
+# 不能在 heredoc 内用 sys.stdin 读（那会读到 heredoc 本体而非 git 协议）。
+PROTOCOL="$(cat)"
 
 "$PY" - <<'PYEOF'
 import io, ast, json, os, subprocess, sys
@@ -91,12 +92,7 @@ if os.path.isfile(门禁):
         print('    python tools/ci/floor_bootstrap.py --root . --write-baseline tools/ci/floor_bootstrap_baseline.json', file=sys.stderr)
         print('  （此警告不拦截推送；CI 的完整门禁会硬拦，请务必先刷新基线）', file=sys.stderr)
 
-# ── 断言质量门禁守卫（举一反三：同一类「人工镜像基线」漂移脆弱性）──
-# src/code_generator.py 等文件只要被插入/删除几行，之前登记在基线里的违规行号就会失效，
-# 失效条目会给「同文件同行号的新违规」留一张永久赦免票，于是 CI 把它判成「新增违规」长红
-# （本次 2026-09-01 的 src/code_generator.py:1107 正是如此：1090→1107 行号漂移）。
-# 本段在推送前把这道门禁也跑一遍：新增违规 → 警告并给修复命令；基线失效（仅行号漂移）→ 警告刷新。
-# 两步都不拦推送：CI 才是硬闸门；钩子只做「提前一轮」的早发现，避免推上去才往返。
+# ── 断言质量门禁守卫 ──
 import re as _re
 质量门禁 = os.path.join(root, 'tools', 'ci', 'assert_quality.py')
 if os.path.isfile(质量门禁):
@@ -121,3 +117,28 @@ if os.path.isfile(质量门禁):
         print('  （不刷新会像本次一样在 CI 长红）', file=sys.stderr)
 sys.exit(0)
 PYEOF
+
+# ── 凭证防泄露真门（R148-D，用户明令最高优先级）──
+# 推送前扫描本次推送范围（PROTOCOL 给定的 local-oid 与 remote-oid 之差），
+# 命中 ghp_/github_pat_/gho_/sk-/AKIA/私钥块 任一形态即拦截推送（绝不回显密钥本体）。
+# 扫描器缺失/不可运行时不拦截（与上方"读不动即跳过"一致），避免环境异常阻断正常推送；
+# CI 侧为硬闸门。
+SCANNER="tools/ci/secret_prescan.py"
+if [ -f "$SCANNER" ]; then
+  SC_OUT="$(printf '%s' "$PROTOCOL" | "$PY" "$SCANNER" --pre-push 2>&1)"
+  SC_RC=$?
+  if [ $SC_RC -ne 0 ]; then
+    echo "[pre-push 凭证守卫] 拦截推送：检出密钥形态（密钥本体已脱敏，只报 文件:行:形态）。" >&2
+    printf '%s\n' "$SC_OUT" | while IFS= read -r _l; do
+      case "$_l" in
+        "["secret_prescan"]"*) echo "   $_l" >&2 ;;
+      esac
+    done
+    echo "  处置：从待推送内容移除真实凭证（改用 .env + gitignore，.env 已被排除清单覆盖），再推。" >&2
+    exit 1
+  else
+    echo "[pre-push 凭证守卫] 推送范围无密钥形态 ✓" >&2
+  fi
+else
+  echo "[pre-push 凭证守卫] 未找到扫描器 $SCANNER，跳过守卫（未拦截）。" >&2
+fi

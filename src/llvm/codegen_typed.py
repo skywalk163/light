@@ -773,6 +773,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             # R147-A 二阶段：文件句柄随机访问（f.seek/f.tell，whence 0/1/2 对齐 Python）
             f'declare void @dv_file_seek(ptr, ptr, i64, i64)',
             f'declare void @dv_file_tell(ptr, ptr)',
+            # R148-A：JSON 内部级联解耦——C 层 JSON 原语（对齐 stdlib/JSON核心.light 纯光明语义）
+            f'declare void @dv_json_parse(ptr, ptr)',
+            f'declare void @dv_json_serialize(ptr, ptr)',
+            f'declare void @dv_json_serialize_pretty(ptr, ptr, i64)',
             # R127-C · S1 三内建补齐：字符判型（ASCII 整串语义，见 runtime 注释）
             f'declare i32 @dv_str_isalpha(ptr)',
             f'declare i32 @dv_str_isspace(ptr)',
@@ -2631,6 +2635,28 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{ret_i64} = sext i32 {ret} to i64')
                 return self._create_int_dv(ret_i64), 'dv'
             return self._create_int_dv('0'), 'dv'
+
+        # R148-A：JSON 内部级联解耦——C 层 JSON 原语（对齐 stdlib/JSON核心.light）。
+        # 此前原生腿不认识 builtins.py:452/462/468 的 解析JSON/序列化JSON/美化JSON，
+        # 光明代码调用直接报「未定义的段落：解析JSON」。现注册三个内置，直接走 C 层
+        # dv_json_parse / dv_json_serialize / dv_json_serialize_pretty，解开
+        # builtins.py → import JSON → JSON.light → JSON核心.light 的 Python import 级联。
+        # 语义：解析严格 JSON（失败抛 运行时错误）；序列化 ensure_ascii=False 保中文原样；
+        # 美化JSON = 缩进 2（对齐 JSON核心.light 美化JSON 的 序列化缩进(值, 2)）。
+        if name in ('解析JSON', 'json_loads', 'parse_json'):
+            if args:
+                return self._call_dv_func('dv_json_parse', args[0]), 'dv'
+            return self._call_dv_func('dv_json_parse', 'ptr null'), 'dv'
+
+        if name in ('序列化JSON', 'json_dumps', 'serialize_json'):
+            if args:
+                return self._call_dv_func('dv_json_serialize', args[0]), 'dv'
+            return self._create_str_dv(self.gen_string_constant('null')), 'dv'
+
+        if name in ('美化JSON', 'json_dumps_pretty', 'pretty_json'):
+            if args:
+                return self._call_dv_func('dv_json_serialize_pretty', args[0], 'i64 2'), 'dv'
+            return self._create_str_dv(self.gen_string_constant('null')), 'dv'
 
         # R147-A：文件系统 16 段地板原语（对齐 src 腿 builtin_map + builtins.py）。
         # 文件状态：stat() → dict（键名 = os.stat_result 字段 st_size/st_mtime/…），

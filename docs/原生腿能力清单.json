@@ -295,3051 +295,3105 @@
       "description": "原生腿 _gen_typed_builtin 分派链注册的内置函数名（含中英文别名）",
       "evidence_method": "_gen_typed_builtin",
       "evidence_file": "src/llvm/codegen_typed.py",
-      "count": 497,
+      "count": 506,
       "entries": [
         {
           "name": "?.",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3646,
+          "evidence_line": 3672,
           "category": "NullSafety"
         },
         {
           "name": "??",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3637,
+          "evidence_line": 3663,
           "category": "NullSafety"
         },
         {
           "name": "ArithmeticError",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2149,
+          "evidence_line": 2153,
           "category": "Other"
         },
         {
           "name": "AttributeError",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2150,
+          "evidence_line": 2154,
           "category": "Other"
         },
         {
           "name": "Base64编码",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3131,
+          "evidence_line": 3157,
           "category": "Other"
         },
         {
           "name": "Base64解码",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3146,
+          "evidence_line": 3172,
           "category": "Other"
         },
         {
           "name": "Exception",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2148,
+          "evidence_line": 2152,
           "category": "Other"
         },
         {
           "name": "HMAC_SHA256",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3222,
+          "evidence_line": 3248,
           "category": "Other"
         },
         {
           "name": "IOException",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2149,
+          "evidence_line": 2153,
           "category": "Other"
         },
         {
           "name": "IO异常",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2145,
+          "evidence_line": 2149,
           "category": "Other"
         },
         {
           "name": "IndexError",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2149,
+          "evidence_line": 2153,
           "category": "Other"
         },
         {
           "name": "MD5",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3157,
+          "evidence_line": 3183,
           "category": "Other"
         },
         {
           "name": "MemoryError",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2149,
+          "evidence_line": 2153,
           "category": "Other"
         },
         {
           "name": "RuntimeException",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2148,
+          "evidence_line": 2152,
           "category": "Other"
         },
         {
           "name": "SHA1",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3172,
+          "evidence_line": 3198,
           "category": "Other"
         },
         {
           "name": "SHA256",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3187,
+          "evidence_line": 3213,
           "category": "Other"
         },
         {
           "name": "SHA512",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3204,
+          "evidence_line": 3230,
           "category": "Other"
         },
         {
           "name": "TypeError",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2149,
+          "evidence_line": 2153,
           "category": "Other"
         },
         {
           "name": "UUID3",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3244,
+          "evidence_line": 3270,
           "category": "Other"
         },
         {
           "name": "UUID5",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3235,
+          "evidence_line": 3261,
           "category": "Other"
         },
         {
           "name": "ValueError",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2148,
+          "evidence_line": 2152,
           "category": "Other"
         },
         {
           "name": "_b64_decode",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3146,
+          "evidence_line": 3172,
           "category": "Other"
         },
         {
           "name": "_b64_encode",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3131,
+          "evidence_line": 3157,
           "category": "Other"
         },
         {
           "name": "_clock",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2427,
+          "evidence_line": 2431,
           "category": "Other"
         },
         {
           "name": "_dv_timestamp",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2357,
+          "evidence_line": 2361,
           "category": "Other"
         },
         {
           "name": "_hmac_sha256",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3222,
+          "evidence_line": 3248,
           "category": "Other"
         },
         {
           "name": "_light_bytes_split",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2274,
+          "evidence_line": 2278,
           "category": "Other"
         },
         {
           "name": "_md5",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3157,
+          "evidence_line": 3183,
           "category": "Other"
         },
         {
           "name": "_round",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3254,
+          "evidence_line": 3280,
           "category": "Other"
         },
         {
           "name": "_sha1",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3172,
+          "evidence_line": 3198,
           "category": "Other"
         },
         {
           "name": "_sha256",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3187,
+          "evidence_line": 3213,
           "category": "Other"
         },
         {
           "name": "_sha512",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3204,
+          "evidence_line": 3230,
           "category": "Other"
         },
         {
           "name": "_sleep_sec",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2419,
+          "evidence_line": 2423,
           "category": "Other"
         },
         {
           "name": "_strftime",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2401,
+          "evidence_line": 2405,
           "category": "Other"
         },
         {
           "name": "_读文件",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2459,
+          "evidence_line": 2463,
           "category": "File"
         },
         {
           "name": "abs",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3038,
+          "evidence_line": 3064,
           "category": "Math"
         },
         {
           "name": "abs_path",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3325,
+          "evidence_line": 3351,
           "category": "Other"
         },
         {
           "name": "abspath",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3325,
+          "evidence_line": 3351,
           "category": "Other"
         },
         {
           "name": "append",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2775,
+          "evidence_line": 2801,
           "category": "List"
         },
         {
           "name": "append_file",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2482,
+          "evidence_line": 2486,
           "category": "File"
         },
         {
           "name": "args",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2709,
+          "evidence_line": 2735,
           "category": "System"
         },
         {
           "name": "argv",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2709,
+          "evidence_line": 2735,
           "category": "System"
         },
         {
           "name": "await_io",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3969,
+          "evidence_line": 3995,
           "category": "EventLoop",
           "runtime_symbol": "dv_coro_await_io"
         },
         {
           "name": "b64decode",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3146,
+          "evidence_line": 3172,
           "category": "Other"
         },
         {
           "name": "b64encode",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3131,
+          "evidence_line": 3157,
           "category": "Other"
         },
         {
           "name": "base64_decode",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3146,
+          "evidence_line": 3172,
           "category": "Other"
         },
         {
           "name": "base64_encode",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3131,
+          "evidence_line": 3157,
           "category": "Other"
         },
         {
           "name": "basename",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3319,
+          "evidence_line": 3345,
           "category": "Other"
         },
         {
           "name": "bool",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3436,
+          "evidence_line": 3462,
           "category": "Type"
         },
         {
           "name": "callable",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2172,
+          "evidence_line": 2176,
           "category": "Other"
         },
         {
           "name": "cd",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2622,
+          "evidence_line": 2626,
           "category": "System"
         },
         {
           "name": "ceil",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3053,
+          "evidence_line": 3079,
           "category": "Math"
         },
         {
           "name": "chdir",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2622,
+          "evidence_line": 2626,
           "category": "System"
         },
         {
           "name": "chr",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2753,
+          "evidence_line": 2779,
           "category": "Other"
         },
         {
           "name": "clock",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2427,
+          "evidence_line": 2431,
           "category": "Other"
         },
         {
           "name": "close",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2520,
+          "evidence_line": 2524,
           "category": "Other"
         },
         {
           "name": "contains",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2784,
+          "evidence_line": 2810,
           "category": "List"
         },
         {
           "name": "cos",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3028,
+          "evidence_line": 3054,
           "category": "Math"
         },
         {
           "name": "count",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3397,
+          "evidence_line": 3423,
           "category": "Other"
         },
         {
           "name": "create_task",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2322,
+          "evidence_line": 2326,
           "category": "Other"
         },
         {
           "name": "cwd",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2617,
+          "evidence_line": 2621,
           "category": "System"
         },
         {
           "name": "delete_file",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2568,
+          "evidence_line": 2572,
           "category": "File"
         },
         {
           "name": "dict",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3580,
+          "evidence_line": 3606,
           "category": "Dict"
         },
         {
           "name": "dir_exists",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2446,
+          "evidence_line": 2450,
           "category": "Other"
         },
         {
           "name": "dir_list",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2581,
+          "evidence_line": 2585,
           "category": "File"
         },
         {
           "name": "dirname",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3313,
+          "evidence_line": 3339,
           "category": "Other"
         },
         {
           "name": "div",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3070,
+          "evidence_line": 3096,
           "category": "Other"
         },
         {
           "name": "dv_random",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2363,
+          "evidence_line": 2367,
           "category": "Other"
         },
         {
           "name": "dv_random_bits",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2377,
+          "evidence_line": 2381,
           "category": "Other"
         },
         {
           "name": "dv_random_seed",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2368,
+          "evidence_line": 2372,
           "category": "Other"
         },
         {
           "name": "dv_sleep",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2419,
+          "evidence_line": 2423,
           "category": "Other"
         },
         {
           "name": "ends_with",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3377,
+          "evidence_line": 3403,
           "category": "Other"
         },
         {
           "name": "endswith",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3377,
+          "evidence_line": 3403,
           "category": "Other"
         },
         {
           "name": "env_list",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2680,
+          "evidence_line": 2706,
           "category": "Other"
         },
         {
           "name": "environ",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2680,
+          "evidence_line": 2706,
           "category": "Other"
         },
         {
           "name": "exec",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2683,
+          "evidence_line": 2709,
           "category": "System"
         },
         {
           "name": "exit",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2696,
+          "evidence_line": 2722,
           "category": "System"
         },
         {
           "name": "exp",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3023,
+          "evidence_line": 3049,
           "category": "Math"
         },
         {
           "name": "file_exists",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2433,
+          "evidence_line": 2437,
           "category": "File"
         },
         {
           "name": "file_size",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2557,
+          "evidence_line": 2561,
           "category": "File"
         },
         {
           "name": "file_stat",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2639,
+          "evidence_line": 2665,
           "category": "Other"
         },
         {
           "name": "find",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3100,
+          "evidence_line": 3126,
           "category": "String"
         },
         {
           "name": "float",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2732,
+          "evidence_line": 2758,
           "category": "Type"
         },
         {
           "name": "floor",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3048,
+          "evidence_line": 3074,
           "category": "Math"
         },
         {
           "name": "format_time",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2401,
+          "evidence_line": 2405,
           "category": "Other"
         },
         {
           "name": "get",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2901,
+          "evidence_line": 2927,
           "category": "Other"
         },
         {
           "name": "get_env",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2590,
+          "evidence_line": 2594,
           "category": "System"
         },
         {
           "name": "getattr",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2202,
+          "evidence_line": 2206,
           "category": "Other"
         },
         {
           "name": "getcwd",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2617,
+          "evidence_line": 2621,
           "category": "System"
         },
         {
           "name": "getenv",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2590,
+          "evidence_line": 2594,
           "category": "System"
         },
         {
           "name": "getrandbits",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2377,
+          "evidence_line": 2381,
           "category": "Other"
         },
         {
           "name": "has_attr",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3468,
+          "evidence_line": 3494,
           "category": "Other"
         },
         {
           "name": "hasattr",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3468,
+          "evidence_line": 3494,
           "category": "Other"
         },
         {
           "name": "hex",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2760,
+          "evidence_line": 2786,
           "category": "Other"
         },
         {
           "name": "implode",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3425,
+          "evidence_line": 3451,
           "category": "String"
         },
         {
           "name": "index_of",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2853,
+          "evidence_line": 2879,
           "category": "List"
         },
         {
           "name": "input",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2351,
+          "evidence_line": 2355,
           "category": "IO"
         },
         {
           "name": "insert",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2795,
+          "evidence_line": 2821,
           "category": "List"
         },
         {
           "name": "instance_of",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3441,
+          "evidence_line": 3467,
           "category": "Type"
         },
         {
           "name": "int",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2712,
+          "evidence_line": 2738,
           "category": "Type"
         },
         {
           "name": "is_alpha",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3540,
+          "evidence_line": 3566,
           "category": "Other"
         },
         {
           "name": "is_bool",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3535,
+          "evidence_line": 3561,
           "category": "Other"
         },
         {
           "name": "is_dict",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3524,
+          "evidence_line": 3550,
           "category": "Other"
         },
         {
           "name": "is_dir",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2446,
+          "evidence_line": 2450,
           "category": "File"
         },
         {
           "name": "is_file",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3562,
+          "evidence_line": 3588,
           "category": "File"
         },
         {
           "name": "is_float",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3533,
+          "evidence_line": 3559,
           "category": "Other"
         },
         {
           "name": "is_function",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2189,
+          "evidence_line": 2193,
           "category": "Other"
         },
         {
           "name": "is_int",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3531,
+          "evidence_line": 3557,
           "category": "Other"
         },
         {
           "name": "is_integer",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3531,
+          "evidence_line": 3557,
           "category": "Other"
         },
         {
           "name": "is_list",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3522,
+          "evidence_line": 3548,
           "category": "Other"
         },
         {
           "name": "is_map",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3524,
+          "evidence_line": 3550,
           "category": "Other"
         },
         {
           "name": "is_null",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3624,
+          "evidence_line": 3650,
           "category": "NullSafety"
         },
         {
           "name": "is_number",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3528,
+          "evidence_line": 3554,
           "category": "Other"
         },
         {
           "name": "is_space",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3550,
+          "evidence_line": 3576,
           "category": "Other"
         },
         {
           "name": "is_str",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3526,
+          "evidence_line": 3552,
           "category": "Other"
         },
         {
           "name": "is_string",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3526,
+          "evidence_line": 3552,
           "category": "Other"
         },
         {
           "name": "is_subclass",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3455,
+          "evidence_line": 3481,
           "category": "Other"
         },
         {
           "name": "isinstance",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3441,
+          "evidence_line": 3467,
           "category": "Type"
         },
         {
           "name": "issubclass",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3455,
+          "evidence_line": 3481,
           "category": "Other"
         },
         {
           "name": "join",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3425,
+          "evidence_line": 3451,
           "category": "String"
         },
         {
           "name": "join_path",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3308,
+          "evidence_line": 3334,
+          "category": "Other"
+        },
+        {
+          "name": "json_dumps",
+          "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
+          "evidence_line": 2651,
+          "category": "Other"
+        },
+        {
+          "name": "json_dumps_pretty",
+          "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
+          "evidence_line": 2656,
+          "category": "Other"
+        },
+        {
+          "name": "json_loads",
+          "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
+          "evidence_line": 2646,
           "category": "Other"
         },
         {
           "name": "len",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2738,
+          "evidence_line": 2764,
           "category": "Other"
         },
         {
           "name": "list",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2770,
+          "evidence_line": 2796,
           "category": "List"
         },
         {
           "name": "list_contains",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2864,
+          "evidence_line": 2890,
           "category": "List"
         },
         {
           "name": "list_dir",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2581,
+          "evidence_line": 2585,
           "category": "File"
         },
         {
           "name": "list_index",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2853,
+          "evidence_line": 2879,
           "category": "List"
         },
         {
           "name": "list_insert",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2795,
+          "evidence_line": 2821,
           "category": "Other"
         },
         {
           "name": "list_pop",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2806,
+          "evidence_line": 2832,
           "category": "Other"
         },
         {
           "name": "list_remove",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2832,
+          "evidence_line": 2858,
           "category": "Other"
         },
         {
           "name": "list_reverse",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2877,
+          "evidence_line": 2903,
           "category": "List"
         },
         {
           "name": "list_set",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2846,
+          "evidence_line": 2872,
           "category": "List"
         },
         {
           "name": "list_sort",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2882,
+          "evidence_line": 2908,
           "category": "List"
         },
         {
           "name": "load_file",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2459,
+          "evidence_line": 2463,
           "category": "File"
         },
         {
           "name": "log",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3007,
+          "evidence_line": 3033,
           "category": "Math"
         },
         {
           "name": "log10",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3013,
+          "evidence_line": 3039,
           "category": "Math"
         },
         {
           "name": "log2",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3018,
+          "evidence_line": 3044,
           "category": "Math"
         },
         {
           "name": "lower",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3123,
+          "evidence_line": 3149,
           "category": "String"
         },
         {
           "name": "lstrip",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3271,
+          "evidence_line": 3297,
           "category": "Other"
         },
         {
           "name": "make_dir",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3331,
+          "evidence_line": 3357,
           "category": "Other"
         },
         {
           "name": "makedirs",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3331,
+          "evidence_line": 3357,
           "category": "Other"
         },
         {
           "name": "md5",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3157,
+          "evidence_line": 3183,
           "category": "Other"
         },
         {
           "name": "mkdir",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3331,
+          "evidence_line": 3357,
           "category": "File"
         },
         {
           "name": "mod",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3064,
+          "evidence_line": 3090,
           "category": "Math"
         },
         {
           "name": "monotonic",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2427,
+          "evidence_line": 2431,
           "category": "Other"
         },
         {
           "name": "new_list",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2767,
+          "evidence_line": 2793,
           "category": "List"
         },
         {
           "name": "null?",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3624,
+          "evidence_line": 3650,
           "category": "NullSafety"
         },
         {
           "name": "null_coalesce",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3637,
+          "evidence_line": 3663,
           "category": "NullSafety"
         },
         {
           "name": "open",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2218,
+          "evidence_line": 2222,
           "category": "Other"
         },
         {
           "name": "open_file",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2494,
+          "evidence_line": 2498,
           "category": "Other"
         },
         {
           "name": "ord",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2746,
+          "evidence_line": 2772,
+          "category": "Other"
+        },
+        {
+          "name": "parse_json",
+          "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
+          "evidence_line": 2646,
           "category": "Other"
         },
         {
           "name": "path_basename",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3319,
+          "evidence_line": 3345,
           "category": "Other"
         },
         {
           "name": "path_dirname",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3313,
+          "evidence_line": 3339,
           "category": "Other"
         },
         {
           "name": "path_exists",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2433,
+          "evidence_line": 2437,
           "category": "File"
         },
         {
           "name": "path_join",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3308,
+          "evidence_line": 3334,
           "category": "Other"
         },
         {
           "name": "perf_counter",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2427,
+          "evidence_line": 2431,
           "category": "Other"
         },
         {
           "name": "poller_backend",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4126,
+          "evidence_line": 4152,
           "category": "Poller",
           "runtime_symbol": "dv_poller_backend"
         },
         {
           "name": "poller_count",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4131,
+          "evidence_line": 4157,
           "category": "Poller",
           "runtime_symbol": "dv_poller_count"
         },
         {
           "name": "poller_create",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3866,
+          "evidence_line": 3892,
           "category": "Poller",
           "runtime_symbol": "dv_poller_create"
         },
         {
           "name": "poller_destroy",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3882,
+          "evidence_line": 3908,
           "category": "Poller",
           "runtime_symbol": "dv_poller_destroy"
         },
         {
           "name": "poller_last_error",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4121,
+          "evidence_line": 4147,
           "category": "Poller",
           "runtime_symbol": "dv_poller_last_error"
         },
         {
           "name": "poller_register",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3888,
+          "evidence_line": 3914,
           "category": "Poller",
           "runtime_symbol": "dv_poller_register"
         },
         {
           "name": "poller_unregister",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3908,
+          "evidence_line": 3934,
           "category": "Other"
         },
         {
           "name": "poller_wait",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3922,
+          "evidence_line": 3948,
           "category": "Poller",
           "runtime_symbol": "dv_poller_wait"
         },
         {
           "name": "poller后端",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4126,
+          "evidence_line": 4152,
           "category": "Poller",
           "runtime_symbol": "dv_poller_backend"
         },
         {
           "name": "poller计数",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4131,
+          "evidence_line": 4157,
           "category": "Poller",
           "runtime_symbol": "dv_poller_count"
         },
         {
           "name": "poller错误",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4121,
+          "evidence_line": 4147,
           "category": "Poller",
           "runtime_symbol": "dv_poller_last_error"
         },
         {
           "name": "pow",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3043,
+          "evidence_line": 3069,
           "category": "Math"
+        },
+        {
+          "name": "pretty_json",
+          "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
+          "evidence_line": 2656,
+          "category": "Other"
         },
         {
           "name": "random",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2363,
+          "evidence_line": 2367,
           "category": "Other"
         },
         {
           "name": "random_bits",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2377,
+          "evidence_line": 2381,
           "category": "Other"
         },
         {
           "name": "random_bytes",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2259,
+          "evidence_line": 2263,
           "category": "Other"
         },
         {
           "name": "random_seed",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2368,
+          "evidence_line": 2372,
           "category": "Other"
         },
         {
           "name": "read",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2526,
+          "evidence_line": 2530,
           "category": "Other"
         },
         {
           "name": "read_binary",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2654,
+          "evidence_line": 2680,
           "category": "Other"
         },
         {
           "name": "read_bytes",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2654,
+          "evidence_line": 2680,
           "category": "Other"
         },
         {
           "name": "read_file",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2459,
+          "evidence_line": 2463,
           "category": "File"
         },
         {
           "name": "real_path",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2646,
+          "evidence_line": 2672,
           "category": "Other"
         },
         {
           "name": "realpath",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2646,
+          "evidence_line": 2672,
           "category": "Other"
         },
         {
           "name": "remove",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2832,
+          "evidence_line": 2858,
           "category": "List"
         },
         {
           "name": "remove_dir",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3343,
+          "evidence_line": 3369,
           "category": "Other"
         },
         {
           "name": "remove_file",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2568,
+          "evidence_line": 2572,
           "category": "File"
         },
         {
           "name": "repeat",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3303,
+          "evidence_line": 3329,
           "category": "Other"
         },
         {
           "name": "replace",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3406,
+          "evidence_line": 3432,
           "category": "String"
         },
         {
           "name": "reverse",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2877,
+          "evidence_line": 2903,
           "category": "List"
         },
         {
           "name": "rfind",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3109,
+          "evidence_line": 3135,
           "category": "Other"
         },
         {
           "name": "rmdir",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3343,
+          "evidence_line": 3369,
           "category": "File"
         },
         {
           "name": "round",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3058,
+          "evidence_line": 3084,
           "category": "Math"
         },
         {
           "name": "rstrip",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3295,
+          "evidence_line": 3321,
           "category": "Other"
         },
         {
           "name": "run_event_loop",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3941,
+          "evidence_line": 3967,
           "category": "EventLoop",
           "runtime_symbol": "dv_scheduler_run_event_loop"
         },
         {
           "name": "safe_get",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3646,
+          "evidence_line": 3672,
           "category": "NullSafety"
         },
         {
           "name": "save_file",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2470,
+          "evidence_line": 2474,
           "category": "File"
         },
         {
           "name": "seek",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2532,
+          "evidence_line": 2536,
+          "category": "Other"
+        },
+        {
+          "name": "serialize_json",
+          "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
+          "evidence_line": 2651,
           "category": "Other"
         },
         {
           "name": "set",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2846,
+          "evidence_line": 2872,
           "category": "List"
         },
         {
           "name": "set_env",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2601,
+          "evidence_line": 2605,
           "category": "System"
         },
         {
           "name": "setenv",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2601,
+          "evidence_line": 2605,
           "category": "System"
         },
         {
           "name": "sha1",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3172,
+          "evidence_line": 3198,
           "category": "Other"
         },
         {
           "name": "sha256",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3187,
+          "evidence_line": 3213,
           "category": "Other"
         },
         {
           "name": "sha512",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3204,
+          "evidence_line": 3230,
           "category": "Other"
         },
         {
           "name": "sin",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3003,
+          "evidence_line": 3029,
           "category": "Math"
         },
         {
           "name": "sleep",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3945,
+          "evidence_line": 3971,
           "category": "EventLoop",
           "runtime_symbol": "dv_coro_sleep"
         },
         {
           "name": "sleep_seconds",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2419,
+          "evidence_line": 2423,
           "category": "Other"
         },
         {
           "name": "socket_accept",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3804,
+          "evidence_line": 3830,
           "category": "Other"
         },
         {
           "name": "socket_bind",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3767,
+          "evidence_line": 3793,
           "category": "Other"
         },
         {
           "name": "socket_close",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3720,
+          "evidence_line": 3746,
           "category": "Socket",
           "runtime_symbol": "dv_socket_close"
         },
         {
           "name": "socket_connect",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3673,
+          "evidence_line": 3699,
           "category": "Socket",
           "runtime_symbol": "dv_socket_connect"
         },
         {
           "name": "socket_create",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3656,
+          "evidence_line": 3682,
           "category": "Socket",
           "runtime_symbol": "dv_socket_create"
         },
         {
           "name": "socket_get_peer_addr",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3854,
+          "evidence_line": 3880,
           "category": "Other"
         },
         {
           "name": "socket_last_error",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3752,
+          "evidence_line": 3778,
           "category": "Socket",
           "runtime_symbol": "dv_socket_last_error"
         },
         {
           "name": "socket_last_error_code",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3757,
+          "evidence_line": 3783,
           "category": "Socket",
           "runtime_symbol": "dv_socket_last_error_code"
         },
         {
           "name": "socket_listen",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3786,
+          "evidence_line": 3812,
           "category": "Other"
         },
         {
           "name": "socket_recv",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3705,
+          "evidence_line": 3731,
           "category": "Socket",
           "runtime_symbol": "dv_socket_recv"
         },
         {
           "name": "socket_send",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3691,
+          "evidence_line": 3717,
           "category": "Socket",
           "runtime_symbol": "dv_socket_send"
         },
         {
           "name": "socket_set_nonblocking",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3836,
+          "evidence_line": 3862,
           "category": "Other"
         },
         {
           "name": "socket_set_recv_timeout",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3735,
+          "evidence_line": 3761,
           "category": "Other"
         },
         {
           "name": "socket_shutdown",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3818,
+          "evidence_line": 3844,
           "category": "Other"
         },
         {
           "name": "socket关闭读写",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3818,
+          "evidence_line": 3844,
           "category": "Other"
         },
         {
           "name": "socket对端地址",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3854,
+          "evidence_line": 3880,
           "category": "Other"
         },
         {
           "name": "socket设置接收超时",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3735,
+          "evidence_line": 3761,
           "category": "Other"
         },
         {
           "name": "socket错误",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3752,
+          "evidence_line": 3778,
           "category": "Socket",
           "runtime_symbol": "dv_socket_last_error"
         },
         {
           "name": "socket错误码",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3757,
+          "evidence_line": 3783,
           "category": "Socket",
           "runtime_symbol": "dv_socket_last_error_code"
         },
         {
           "name": "sort",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2882,
+          "evidence_line": 2908,
           "category": "List"
         },
         {
           "name": "split",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3411,
+          "evidence_line": 3437,
           "category": "String"
         },
         {
           "name": "sqrt",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3033,
+          "evidence_line": 3059,
           "category": "Math"
         },
         {
           "name": "starts_with",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3366,
+          "evidence_line": 3392,
           "category": "Other"
         },
         {
           "name": "startswith",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3366,
+          "evidence_line": 3392,
           "category": "Other"
         },
         {
           "name": "stat_file",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2639,
+          "evidence_line": 2665,
           "category": "Other"
         },
         {
           "name": "str",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2963,
+          "evidence_line": 2989,
           "category": "Other"
         },
         {
           "name": "str_contains",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3355,
+          "evidence_line": 3381,
           "category": "String"
         },
         {
           "name": "str_count",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3397,
+          "evidence_line": 3423,
           "category": "String"
         },
         {
           "name": "str_find",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3100,
+          "evidence_line": 3126,
           "category": "String"
         },
         {
           "name": "str_join",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3425,
+          "evidence_line": 3451,
           "category": "String"
         },
         {
           "name": "str_lstrip",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3271,
+          "evidence_line": 3297,
           "category": "Other"
         },
         {
           "name": "str_repeat",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3303,
+          "evidence_line": 3329,
           "category": "String"
         },
         {
           "name": "str_replace",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3406,
+          "evidence_line": 3432,
           "category": "String"
         },
         {
           "name": "str_rfind",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3109,
+          "evidence_line": 3135,
           "category": "Other"
         },
         {
           "name": "str_rstrip",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3295,
+          "evidence_line": 3321,
           "category": "Other"
         },
         {
           "name": "str_split",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3411,
+          "evidence_line": 3437,
           "category": "String"
         },
         {
           "name": "str_strip",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3266,
+          "evidence_line": 3292,
           "category": "Other"
         },
         {
           "name": "strftime",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2401,
+          "evidence_line": 2405,
           "category": "Other"
         },
         {
           "name": "strip",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3266,
+          "evidence_line": 3292,
           "category": "String"
         },
         {
           "name": "substr",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3076,
+          "evidence_line": 3102,
           "category": "String"
         },
         {
           "name": "substring",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3076,
+          "evidence_line": 3102,
           "category": "String"
         },
         {
           "name": "system",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2683,
+          "evidence_line": 2709,
           "category": "System"
         },
         {
           "name": "tell",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2550,
+          "evidence_line": 2554,
           "category": "Other"
         },
         {
           "name": "title",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3283,
+          "evidence_line": 3309,
           "category": "Other"
         },
         {
           "name": "tls_add_trusted_cert",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4106,
+          "evidence_line": 4132,
           "category": "TLS",
           "runtime_symbol": "dv_tls_add_trusted_cert_file"
         },
         {
           "name": "tls_flush",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4023,
+          "evidence_line": 4049,
           "category": "TLS",
           "runtime_symbol": "dv_tls_flush_public"
         },
         {
           "name": "tls_free",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4086,
+          "evidence_line": 4112,
           "category": "TLS",
           "runtime_symbol": "dv_tls_free"
         },
         {
           "name": "tls_handshake",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4020,
+          "evidence_line": 4046,
           "category": "TLS",
           "runtime_symbol": "dv_tls_handshake"
         },
         {
           "name": "tls_is_ready",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4022,
+          "evidence_line": 4048,
           "category": "TLS",
           "runtime_symbol": "dv_tls_is_ready"
         },
         {
           "name": "tls_last_error",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4116,
+          "evidence_line": 4142,
           "category": "TLS",
           "runtime_symbol": "dv_tls_last_error"
         },
         {
           "name": "tls_recv",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4063,
+          "evidence_line": 4089,
           "category": "TLS",
           "runtime_symbol": "dv_tls_recv"
         },
         {
           "name": "tls_recv_status",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4075,
+          "evidence_line": 4101,
           "category": "TLS",
           "runtime_symbol": "dv_tls_recv_status"
         },
         {
           "name": "tls_send",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4036,
+          "evidence_line": 4062,
           "category": "TLS",
           "runtime_symbol": "dv_tls_send"
         },
         {
           "name": "tls_send_n",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4047,
+          "evidence_line": 4073,
           "category": "TLS",
           "runtime_symbol": "dv_tls_send_n"
         },
         {
           "name": "tls_set_verify",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4092,
+          "evidence_line": 4118,
           "category": "TLS",
           "runtime_symbol": "dv_tls_set_verify"
         },
         {
           "name": "tls_want_event",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4021,
+          "evidence_line": 4047,
           "category": "TLS",
           "runtime_symbol": "dv_tls_want_event"
         },
         {
           "name": "tls_wrap",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3999,
+          "evidence_line": 4025,
           "category": "TLS",
           "runtime_symbol": "dv_tls_wrap"
         },
         {
           "name": "to_bool",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3436,
+          "evidence_line": 3462,
           "category": "Type"
         },
         {
           "name": "to_float",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2732,
+          "evidence_line": 2758,
           "category": "Type"
         },
         {
           "name": "to_int",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2712,
+          "evidence_line": 2738,
           "category": "Type"
         },
         {
           "name": "to_lower",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3123,
+          "evidence_line": 3149,
           "category": "String"
         },
         {
           "name": "to_string",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2963,
+          "evidence_line": 2989,
           "category": "Type"
         },
         {
           "name": "to_upper",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3118,
+          "evidence_line": 3144,
           "category": "String"
         },
         {
           "name": "trim",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3266,
+          "evidence_line": 3292,
           "category": "String"
         },
         {
           "name": "type",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3508,
+          "evidence_line": 3534,
           "category": "Type"
         },
         {
           "name": "type_name",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3508,
+          "evidence_line": 3534,
           "category": "Type"
         },
         {
           "name": "typeof",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3508,
+          "evidence_line": 3534,
           "category": "Type"
         },
         {
           "name": "upper",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3118,
+          "evidence_line": 3144,
           "category": "String"
         },
         {
           "name": "uuid3",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3244,
+          "evidence_line": 3270,
           "category": "Other"
         },
         {
           "name": "uuid5",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3235,
+          "evidence_line": 3261,
           "category": "Other"
         },
         {
           "name": "write",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2514,
+          "evidence_line": 2518,
           "category": "Other"
         },
         {
           "name": "write_append",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2482,
+          "evidence_line": 2486,
           "category": "File"
         },
         {
           "name": "write_binary",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2665,
+          "evidence_line": 2691,
           "category": "Other"
         },
         {
           "name": "write_bytes",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2665,
+          "evidence_line": 2691,
           "category": "Other"
         },
         {
           "name": "write_file",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2470,
+          "evidence_line": 2474,
           "category": "File"
         },
         {
           "name": "以开头",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3366,
+          "evidence_line": 3392,
           "category": "Other"
         },
         {
           "name": "以结尾",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3377,
+          "evidence_line": 3403,
           "category": "Other"
         },
         {
           "name": "余弦",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3028,
+          "evidence_line": 3054,
           "category": "Math"
         },
         {
           "name": "信任证书tls",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4106,
+          "evidence_line": 4132,
           "category": "TLS",
           "runtime_symbol": "dv_tls_add_trusted_cert_file"
         },
         {
           "name": "值异常",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2145,
+          "evidence_line": 2149,
           "category": "Other"
         },
         {
           "name": "值错误",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2146,
+          "evidence_line": 2150,
           "category": "Other"
         },
         {
           "name": "关闭",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2520,
+          "evidence_line": 2524,
           "category": "Other"
         },
         {
           "name": "关闭socket",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3720,
+          "evidence_line": 3746,
           "category": "Socket",
           "runtime_symbol": "dv_socket_close"
         },
         {
           "name": "内存异常",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2146,
+          "evidence_line": 2150,
           "category": "Other"
         },
         {
           "name": "写",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2514,
+          "evidence_line": 2518,
           "category": "Other"
         },
         {
           "name": "写入二进制文件",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2665,
+          "evidence_line": 2691,
           "category": "Other"
         },
         {
           "name": "写入文件",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2470,
+          "evidence_line": 2474,
           "category": "File"
         },
         {
           "name": "冲刷tls",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4023,
+          "evidence_line": 4049,
           "category": "TLS",
           "runtime_symbol": "dv_tls_flush_public"
         },
         {
           "name": "分割",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3411,
+          "evidence_line": 3437,
           "category": "String"
         },
         {
           "name": "分割字符串",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3411,
+          "evidence_line": 3437,
           "category": "Other"
         },
         {
           "name": "切换目录",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2622,
+          "evidence_line": 2626,
           "category": "System"
         },
         {
           "name": "列",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2770,
+          "evidence_line": 2796,
           "category": "List"
         },
         {
           "name": "列出目录",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2581,
+          "evidence_line": 2585,
           "category": "File"
         },
         {
           "name": "列表",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2770,
+          "evidence_line": 2796,
           "category": "List"
         },
         {
           "name": "列表创建",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2767,
+          "evidence_line": 2793,
           "category": "List"
         },
         {
           "name": "列表包含",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2784,
+          "evidence_line": 2810,
           "category": "List"
         },
         {
           "name": "列表弹出",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2806,
+          "evidence_line": 2832,
           "category": "Other"
         },
         {
           "name": "列表排序",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2882,
+          "evidence_line": 2908,
           "category": "Other"
         },
         {
           "name": "列表插入",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2795,
+          "evidence_line": 2821,
           "category": "Other"
         },
         {
           "name": "列表获取",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2887,
+          "evidence_line": 2913,
           "category": "List"
         },
         {
           "name": "列表追加",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2775,
+          "evidence_line": 2801,
           "category": "List"
         },
         {
           "name": "列表长度",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2738,
+          "evidence_line": 2764,
           "category": "Other"
         },
         {
           "name": "创建poller",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3866,
+          "evidence_line": 3892,
           "category": "Poller",
           "runtime_symbol": "dv_poller_create"
         },
         {
           "name": "创建socket",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3656,
+          "evidence_line": 3682,
           "category": "Socket",
           "runtime_symbol": "dv_socket_create"
         },
         {
           "name": "创建任务",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2322,
+          "evidence_line": 2326,
           "category": "Other"
         },
         {
           "name": "创建列表",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3576,
+          "evidence_line": 3602,
           "category": "List"
         },
         {
           "name": "创建字典",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3580,
+          "evidence_line": 3606,
           "category": "Dict"
         },
         {
           "name": "创建目录",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3331,
+          "evidence_line": 3357,
           "category": "Other"
         },
         {
           "name": "删除",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2832,
+          "evidence_line": 2858,
           "category": "List"
         },
         {
           "name": "删除文件",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2568,
+          "evidence_line": 2572,
           "category": "File"
         },
         {
           "name": "删除目录",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3343,
+          "evidence_line": 3369,
           "category": "Other"
         },
         {
           "name": "前缀是",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3366,
+          "evidence_line": 3392,
           "category": "Other"
         },
         {
           "name": "副本",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2251,
+          "evidence_line": 2255,
           "category": "Other"
         },
         {
           "name": "包含",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2784,
+          "evidence_line": 2810,
           "category": "List"
         },
         {
           "name": "包含字符串",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3355,
+          "evidence_line": 3381,
           "category": "Other"
         },
         {
           "name": "包装tls",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3999,
+          "evidence_line": 4025,
           "category": "TLS",
           "runtime_symbol": "dv_tls_wrap"
         },
         {
           "name": "十六进制",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2760,
+          "evidence_line": 2786,
           "category": "Other"
         },
         {
           "name": "单调时钟",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2427,
+          "evidence_line": 2431,
           "category": "Other"
         },
         {
           "name": "去除空格",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3266,
+          "evidence_line": 3292,
           "category": "String"
         },
         {
           "name": "去除空白",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3266,
+          "evidence_line": 3292,
           "category": "Other"
         },
         {
           "name": "参数列表",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2709,
+          "evidence_line": 2735,
           "category": "System"
         },
         {
           "name": "反向查找",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3388,
+          "evidence_line": 3414,
           "category": "Other"
         },
         {
           "name": "反转",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2877,
+          "evidence_line": 2903,
           "category": "List"
         },
         {
           "name": "发送socket",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3691,
+          "evidence_line": 3717,
           "category": "Socket",
           "runtime_symbol": "dv_socket_send"
         },
         {
           "name": "发送tls",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4036,
+          "evidence_line": 4062,
           "category": "TLS",
           "runtime_symbol": "dv_tls_send"
         },
         {
           "name": "发送tls长度",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4047,
+          "evidence_line": 4073,
           "category": "TLS",
           "runtime_symbol": "dv_tls_send_n"
         },
         {
           "name": "取模",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3064,
+          "evidence_line": 3090,
           "category": "Math"
         },
         {
           "name": "取类型",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3508,
+          "evidence_line": 3534,
           "category": "Type"
         },
         {
           "name": "右去除",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3295,
+          "evidence_line": 3321,
           "category": "Other"
         },
         {
           "name": "右查找",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3109,
+          "evidence_line": 3135,
           "category": "Other"
         },
         {
           "name": "后缀是",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3377,
+          "evidence_line": 3403,
           "category": "Other"
         },
         {
           "name": "向上取整",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3053,
+          "evidence_line": 3079,
           "category": "Math"
         },
         {
           "name": "向下取整",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3048,
+          "evidence_line": 3074,
           "category": "Math"
         },
         {
           "name": "四舍五入",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3058,
+          "evidence_line": 3084,
           "category": "Other"
         },
         {
           "name": "大写",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3118,
+          "evidence_line": 3144,
           "category": "String"
         },
         {
           "name": "字典",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3580,
+          "evidence_line": 3606,
           "category": "Dict"
         },
         {
           "name": "字典创建",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3580,
+          "evidence_line": 3606,
           "category": "Dict"
         },
         {
           "name": "字典删除",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3610,
+          "evidence_line": 3636,
           "category": "Other"
         },
         {
           "name": "字典包含键",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3603,
+          "evidence_line": 3629,
           "category": "Dict"
         },
         {
           "name": "字典有键",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3603,
+          "evidence_line": 3629,
           "category": "Dict"
         },
         {
           "name": "字典添加",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3584,
+          "evidence_line": 3610,
           "category": "Dict"
         },
         {
           "name": "字典移除",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3610,
+          "evidence_line": 3636,
           "category": "Other"
         },
         {
           "name": "字典获取",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3594,
+          "evidence_line": 3620,
           "category": "Dict"
         },
         {
           "name": "字典设置",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3584,
+          "evidence_line": 3610,
           "category": "Dict"
         },
         {
           "name": "字典键",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3618,
+          "evidence_line": 3644,
           "category": "Dict"
         },
         {
           "name": "字典键列表",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3618,
+          "evidence_line": 3644,
           "category": "Dict"
         },
         {
           "name": "字符串",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2238,
+          "evidence_line": 2242,
           "category": "Other"
         },
         {
           "name": "字符串包含",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3355,
+          "evidence_line": 3381,
           "category": "Other"
         },
         {
           "name": "字符串获取",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2894,
+          "evidence_line": 2920,
           "category": "List"
         },
         {
           "name": "字符串重复",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3303,
+          "evidence_line": 3329,
           "category": "Other"
         },
         {
           "name": "字符串长度",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2738,
+          "evidence_line": 2764,
           "category": "Other"
         },
         {
           "name": "字符自码位",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2753,
+          "evidence_line": 2779,
           "category": "Other"
         },
         {
           "name": "安全获取",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3646,
+          "evidence_line": 3672,
           "category": "NullSafety"
         },
         {
           "name": "定位",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2532,
+          "evidence_line": 2536,
           "category": "Other"
         },
         {
           "name": "对数",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3007,
+          "evidence_line": 3033,
           "category": "Other"
         },
         {
           "name": "对数2",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3018,
+          "evidence_line": 3044,
           "category": "Other"
         },
         {
           "name": "小写",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3123,
+          "evidence_line": 3149,
           "category": "String"
         },
         {
           "name": "就绪tls",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4022,
+          "evidence_line": 4048,
           "category": "TLS",
           "runtime_symbol": "dv_tls_is_ready"
         },
         {
           "name": "属性错误",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2147,
+          "evidence_line": 2151,
           "category": "Other"
         },
         {
           "name": "左去除",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3271,
+          "evidence_line": 3297,
           "category": "Other"
         },
         {
           "name": "常用对数",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3013,
+          "evidence_line": 3039,
           "category": "Other"
         },
         {
           "name": "幂",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3043,
+          "evidence_line": 3069,
           "category": "Math"
         },
         {
           "name": "平方根",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3033,
+          "evidence_line": 3059,
           "category": "Math"
+        },
+        {
+          "name": "序列化JSON",
+          "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
+          "evidence_line": 2651,
+          "category": "Other"
         },
         {
           "name": "开头",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3366,
+          "evidence_line": 3392,
           "category": "Other"
         },
         {
           "name": "异常",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2145,
+          "evidence_line": 2149,
           "category": "Other"
         },
         {
           "name": "异步睡眠",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2289,
+          "evidence_line": 2293,
           "category": "Other"
         },
         {
           "name": "弹栈",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2806,
+          "evidence_line": 2832,
           "category": "Other"
         },
         {
           "name": "当前位置",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2550,
+          "evidence_line": 2554,
           "category": "Other"
         },
         {
           "name": "当前目录",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2617,
+          "evidence_line": 2621,
           "category": "System"
         },
         {
           "name": "性能计数器",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2427,
+          "evidence_line": 2431,
           "category": "Other"
         },
         {
           "name": "截取",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3076,
+          "evidence_line": 3102,
           "category": "String"
         },
         {
           "name": "打印",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2328,
+          "evidence_line": 2332,
           "category": "IO",
           "runtime_symbol": "dv_println"
         },
         {
           "name": "打开文件",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2494,
+          "evidence_line": 2498,
           "category": "Other"
         },
         {
           "name": "执行命令",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2683,
+          "evidence_line": 2709,
           "category": "System"
         },
         {
           "name": "指数",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3023,
+          "evidence_line": 3049,
           "category": "Other"
         },
         {
           "name": "排序",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2882,
+          "evidence_line": 2908,
           "category": "List"
         },
         {
           "name": "接受socket",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3804,
+          "evidence_line": 3830,
           "category": "Other"
         },
         {
           "name": "接收socket",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3705,
+          "evidence_line": 3731,
           "category": "Socket",
           "runtime_symbol": "dv_socket_recv"
         },
         {
           "name": "接收tls",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4063,
+          "evidence_line": 4089,
           "category": "TLS",
           "runtime_symbol": "dv_tls_recv"
         },
         {
           "name": "接收状态tls",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4075,
+          "evidence_line": 4101,
           "category": "TLS",
           "runtime_symbol": "dv_tls_recv_status"
         },
         {
           "name": "插入",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2795,
+          "evidence_line": 2821,
           "category": "List"
         },
         {
           "name": "握手tls",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4020,
+          "evidence_line": 4046,
           "category": "TLS",
           "runtime_symbol": "dv_tls_handshake"
         },
         {
           "name": "播种随机种子",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2368,
+          "evidence_line": 2372,
           "category": "Other"
         },
         {
           "name": "整数",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2712,
+          "evidence_line": 2738,
           "category": "Type"
         },
         {
           "name": "整除",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3070,
+          "evidence_line": 3096,
           "category": "Other"
         },
         {
           "name": "文件名",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3319,
+          "evidence_line": 3345,
           "category": "Other"
         },
         {
           "name": "文件大小",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2557,
+          "evidence_line": 2561,
           "category": "File"
         },
         {
           "name": "文件存在",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2433,
+          "evidence_line": 2437,
           "category": "File"
         },
         {
           "name": "文件状态",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2639,
+          "evidence_line": 2665,
           "category": "Other"
         },
         {
           "name": "新建",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2767,
+          "evidence_line": 2793,
           "category": "List"
         },
         {
           "name": "新建列表",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2767,
+          "evidence_line": 2793,
           "category": "List"
         },
         {
           "name": "新建字典",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3580,
+          "evidence_line": 3606,
           "category": "Dict"
         },
         {
           "name": "时钟",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2427,
+          "evidence_line": 2431,
           "category": "Other"
         },
         {
           "name": "时间",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2357,
+          "evidence_line": 2361,
           "category": "System",
           "runtime_symbol": "dv_timestamp"
         },
         {
           "name": "时间戳",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2357,
+          "evidence_line": 2361,
           "category": "System",
           "runtime_symbol": "dv_timestamp"
         },
         {
           "name": "时间格式化",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2401,
+          "evidence_line": 2405,
           "category": "Other"
         },
         {
           "name": "是函数",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2189,
+          "evidence_line": 2193,
           "category": "Other"
         },
         {
           "name": "是列表",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3522,
+          "evidence_line": 3548,
           "category": "Other"
         },
         {
           "name": "是否实例",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3441,
+          "evidence_line": 3467,
           "category": "Type"
         },
         {
           "name": "是子类",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3455,
+          "evidence_line": 3481,
           "category": "Other"
         },
         {
           "name": "是字典",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3524,
+          "evidence_line": 3550,
           "category": "Other"
         },
         {
           "name": "是字母",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3540,
+          "evidence_line": 3566,
           "category": "Other"
         },
         {
           "name": "是字符串",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3526,
+          "evidence_line": 3552,
           "category": "Other"
         },
         {
           "name": "是实例",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3441,
+          "evidence_line": 3467,
           "category": "Type"
         },
         {
           "name": "是布尔",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3535,
+          "evidence_line": 3561,
           "category": "Other"
         },
         {
           "name": "是数值",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3528,
+          "evidence_line": 3554,
           "category": "Other"
         },
         {
           "name": "是数字",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3528,
+          "evidence_line": 3554,
           "category": "Other"
         },
         {
           "name": "是数组",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3522,
+          "evidence_line": 3548,
           "category": "Other"
         },
         {
           "name": "是整数",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3531,
+          "evidence_line": 3557,
           "category": "Other"
         },
         {
           "name": "是文件",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3562,
+          "evidence_line": 3588,
           "category": "Other"
         },
         {
           "name": "是浮点",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3533,
+          "evidence_line": 3559,
           "category": "Other"
         },
         {
           "name": "是浮点数",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3533,
+          "evidence_line": 3559,
           "category": "Other"
         },
         {
           "name": "是空",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3624,
+          "evidence_line": 3650,
           "category": "NullSafety"
         },
         {
           "name": "是空白",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3550,
+          "evidence_line": 3576,
           "category": "Other"
         },
         {
           "name": "是类实例",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3441,
+          "evidence_line": 3467,
           "category": "Type"
         },
         {
           "name": "替换",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3406,
+          "evidence_line": 3432,
           "category": "String"
         },
         {
           "name": "替换字符串",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3406,
+          "evidence_line": 3432,
           "category": "Other"
         },
         {
           "name": "有属性",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3468,
+          "evidence_line": 3494,
           "category": "Other"
         },
         {
           "name": "查找",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3100,
+          "evidence_line": 3126,
           "category": "String"
         },
         {
           "name": "校验tls",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4092,
+          "evidence_line": 4118,
           "category": "TLS",
           "runtime_symbol": "dv_tls_set_verify"
         },
         {
           "name": "正弦",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3003,
+          "evidence_line": 3029,
           "category": "Math"
         },
         {
           "name": "每个单词首字母大写",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3283,
+          "evidence_line": 3309,
           "category": "Other"
         },
         {
           "name": "注册poller",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3888,
+          "evidence_line": 3914,
           "category": "Poller",
           "runtime_symbol": "dv_poller_register"
         },
         {
           "name": "注销poller",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3908,
+          "evidence_line": 3934,
           "category": "Other"
         },
         {
           "name": "浅拷贝",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2251,
+          "evidence_line": 2255,
           "category": "Other"
         },
         {
           "name": "浮点数",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2732,
+          "evidence_line": 2758,
           "category": "Type"
         },
         {
           "name": "环境变量",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2590,
+          "evidence_line": 2594,
           "category": "System"
         },
         {
           "name": "环境枚举",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2680,
+          "evidence_line": 2706,
           "category": "Other"
         },
         {
           "name": "生成UUID3内建",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3244,
+          "evidence_line": 3270,
           "category": "Other"
         },
         {
           "name": "生成UUID5内建",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3235,
+          "evidence_line": 3261,
           "category": "Other"
         },
         {
           "name": "监听socket",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3786,
+          "evidence_line": 3812,
           "category": "Other"
         },
         {
           "name": "目录名",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3313,
+          "evidence_line": 3339,
           "category": "Other"
         },
         {
           "name": "目录存在",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2446,
+          "evidence_line": 2450,
           "category": "Other"
         },
         {
           "name": "真实路径",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2646,
+          "evidence_line": 2672,
           "category": "Other"
         },
         {
           "name": "睡眠",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3945,
+          "evidence_line": 3971,
           "category": "EventLoop",
           "runtime_symbol": "dv_coro_sleep"
         },
         {
           "name": "睡眠异步",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2289,
+          "evidence_line": 2293,
           "category": "Other"
         },
         {
           "name": "睡眠秒",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2419,
+          "evidence_line": 2423,
           "category": "Other"
         },
         {
           "name": "码位",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2746,
+          "evidence_line": 2772,
           "category": "Other"
         },
         {
           "name": "移除",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2832,
+          "evidence_line": 2858,
           "category": "Other"
         },
         {
           "name": "空合并",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3637,
+          "evidence_line": 3663,
           "category": "NullSafety"
         },
         {
           "name": "等待事件tls",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4021,
+          "evidence_line": 4047,
           "category": "TLS",
           "runtime_symbol": "dv_tls_want_event"
         },
         {
           "name": "算术异常",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2146,
+          "evidence_line": 2150,
           "category": "Other"
         },
         {
           "name": "类型",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3508,
+          "evidence_line": 3534,
           "category": "Other"
         },
         {
           "name": "类型名",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3508,
+          "evidence_line": 3534,
           "category": "Type"
         },
         {
           "name": "类型异常",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2145,
+          "evidence_line": 2149,
           "category": "Other"
         },
         {
           "name": "类型错误",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2146,
+          "evidence_line": 2150,
           "category": "Other"
         },
         {
           "name": "索引",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2938,
+          "evidence_line": 2964,
           "category": "List"
         },
         {
           "name": "索引异常",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2145,
+          "evidence_line": 2149,
           "category": "Other"
         },
         {
           "name": "索引查找",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2853,
+          "evidence_line": 2879,
           "category": "List"
         },
         {
           "name": "索引错误",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2146,
+          "evidence_line": 2150,
           "category": "Other"
         },
         {
           "name": "绑定socket",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3767,
+          "evidence_line": 3793,
           "category": "Other"
         },
         {
           "name": "结尾",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3377,
+          "evidence_line": 3403,
           "category": "Other"
         },
         {
           "name": "绝对值",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3038,
+          "evidence_line": 3064,
           "category": "Math"
         },
         {
           "name": "绝对路径",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3325,
+          "evidence_line": 3351,
+          "category": "Other"
+        },
+        {
+          "name": "美化JSON",
+          "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
+          "evidence_line": 2656,
           "category": "Other"
         },
         {
           "name": "自然对数",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3007,
+          "evidence_line": 3033,
           "category": "Other"
         },
         {
           "name": "获取",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2901,
+          "evidence_line": 2927,
           "category": "List"
         },
         {
           "name": "获取类型",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3508,
+          "evidence_line": 3534,
           "category": "Type"
+        },
+        {
+          "name": "解析JSON",
+          "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
+          "evidence_line": 2646,
+          "category": "Other"
         },
         {
           "name": "计数",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3397,
+          "evidence_line": 3423,
           "category": "Other"
         },
         {
           "name": "设置",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2846,
+          "evidence_line": 2872,
           "category": "List"
         },
         {
           "name": "设置环境变量",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2601,
+          "evidence_line": 2605,
           "category": "System"
         },
         {
           "name": "设置随机种子",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2368,
+          "evidence_line": 2372,
           "category": "Other"
         },
         {
           "name": "设置非阻塞socket",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3836,
+          "evidence_line": 3862,
           "category": "Other"
         },
         {
           "name": "词首大写",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3283,
+          "evidence_line": 3309,
           "category": "Other"
         },
         {
           "name": "请求错误",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2147,
+          "evidence_line": 2151,
           "category": "Other"
         },
         {
           "name": "读二进制文件",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2654,
+          "evidence_line": 2680,
           "category": "Other"
         },
         {
           "name": "读取",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2526,
+          "evidence_line": 2530,
           "category": "Other"
         },
         {
           "name": "读取文件",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2459,
+          "evidence_line": 2463,
           "category": "File"
         },
         {
           "name": "读取错误",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2147,
+          "evidence_line": 2151,
           "category": "Other"
         },
         {
           "name": "转串",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2963,
+          "evidence_line": 2989,
           "category": "Type"
         },
         {
           "name": "转大写",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3118,
+          "evidence_line": 3144,
           "category": "Other"
         },
         {
           "name": "转字符串",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2963,
+          "evidence_line": 2989,
           "category": "Type"
         },
         {
           "name": "转小写",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3123,
+          "evidence_line": 3149,
           "category": "Other"
         },
         {
           "name": "转布尔",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3436,
+          "evidence_line": 3462,
           "category": "Type"
         },
         {
           "name": "转整数",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2712,
+          "evidence_line": 2738,
           "category": "Type"
         },
         {
           "name": "转文本",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2963,
+          "evidence_line": 2989,
           "category": "Type"
         },
         {
           "name": "转浮点",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2732,
+          "evidence_line": 2758,
           "category": "Type"
         },
         {
           "name": "输入",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2351,
+          "evidence_line": 2355,
           "category": "IO",
           "runtime_symbol": "dv_input"
         },
         {
           "name": "输出",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2328,
+          "evidence_line": 2332,
           "category": "IO",
           "runtime_symbol": "dv_println"
         },
         {
           "name": "运行事件循环",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3941,
+          "evidence_line": 3967,
           "category": "EventLoop",
           "runtime_symbol": "dv_scheduler_run_event_loop"
         },
         {
           "name": "运行时异常",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2145,
+          "evidence_line": 2149,
           "category": "Other"
         },
         {
           "name": "运行时错误",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2146,
+          "evidence_line": 2150,
           "category": "Other"
         },
         {
           "name": "连接socket",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3673,
+          "evidence_line": 3699,
           "category": "Socket",
           "runtime_symbol": "dv_socket_connect"
         },
         {
           "name": "连接字符串",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3425,
+          "evidence_line": 3451,
           "category": "String"
         },
         {
           "name": "连接路径",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3308,
+          "evidence_line": 3334,
           "category": "Other"
         },
         {
           "name": "追加",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2775,
+          "evidence_line": 2801,
           "category": "Other"
         },
         {
           "name": "追加文件",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2482,
+          "evidence_line": 2486,
           "category": "File"
         },
         {
           "name": "退出",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2696,
+          "evidence_line": 2722,
           "category": "System"
         },
         {
           "name": "退出程序",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2696,
+          "evidence_line": 2722,
           "category": "System"
         },
         {
           "name": "释放tls",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4086,
+          "evidence_line": 4112,
           "category": "TLS",
           "runtime_symbol": "dv_tls_free"
         },
         {
           "name": "重复",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3303,
+          "evidence_line": 3329,
           "category": "Other"
         },
         {
           "name": "销毁poller",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 3882,
+          "evidence_line": 3908,
           "category": "Poller",
           "runtime_symbol": "dv_poller_destroy"
         },
         {
           "name": "错误tls",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 4116,
+          "evidence_line": 4142,
           "category": "TLS",
           "runtime_symbol": "dv_tls_last_error"
         },
         {
           "name": "长",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2738,
+          "evidence_line": 2764,
           "category": "Other"
         },
         {
           "name": "长度",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2738,
+          "evidence_line": 2764,
           "category": "Other"
         },
         {
           "name": "随机位",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2377,
+          "evidence_line": 2381,
           "category": "Other"
         },
         {
           "name": "随机字节",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2259,
+          "evidence_line": 2263,
           "category": "Other"
         },
         {
           "name": "随机数",
           "evidence": "src/llvm/codegen_typed.py:_gen_typed_builtin",
-          "evidence_line": 2363,
+          "evidence_line": 2367,
           "category": "Other"
         }
       ]
@@ -3348,12 +3402,12 @@
       "description": "原生腿外部符号声明（_declare_typed_runtime）与 runtime_typed.c 定义",
       "evidence_method": "_declare_typed_runtime",
       "evidence_file": "src/llvm/codegen_typed.py",
-      "count": 289,
+      "count": 292,
       "entries": [
         {
           "name": "_setjmp",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 868,
+          "evidence_declare_line": 872,
           "evidence_define": "C library (not in runtime_typed.c)",
           "category": "Platform"
         },
@@ -3424,7 +3478,7 @@
         {
           "name": "dv_base64_decode",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 790,
+          "evidence_declare_line": 794,
           "evidence_define": "src/llvm/runtime_typed.c:dv_base64_decode",
           "category": "Hash",
           "evidence_define_line": 2979
@@ -3432,7 +3486,7 @@
         {
           "name": "dv_base64_encode",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 789,
+          "evidence_declare_line": 793,
           "evidence_define": "src/llvm/runtime_typed.c:dv_base64_encode",
           "category": "Hash",
           "evidence_define_line": 2956
@@ -3624,7 +3678,7 @@
         {
           "name": "dv_coro_await",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 793,
+          "evidence_declare_line": 797,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_await",
           "category": "Coroutine",
           "evidence_define_line": 5851
@@ -3632,7 +3686,7 @@
         {
           "name": "dv_coro_await_io",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 840,
+          "evidence_declare_line": 844,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_await_io",
           "category": "Coroutine",
           "evidence_define_line": 6586
@@ -3640,7 +3694,7 @@
         {
           "name": "dv_coro_create",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 792,
+          "evidence_declare_line": 796,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_create",
           "category": "Coroutine",
           "evidence_define_line": 5727
@@ -3648,7 +3702,7 @@
         {
           "name": "dv_coro_get_arg",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 804,
+          "evidence_declare_line": 808,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_get_arg",
           "category": "Coroutine",
           "evidence_define_line": 5980
@@ -3656,7 +3710,7 @@
         {
           "name": "dv_coro_get_await_result",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 801,
+          "evidence_declare_line": 805,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_get_await_result",
           "category": "Coroutine",
           "evidence_define_line": 5988
@@ -3664,7 +3718,7 @@
         {
           "name": "dv_coro_get_local",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 803,
+          "evidence_declare_line": 807,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_get_local",
           "category": "Coroutine",
           "evidence_define_line": 5970
@@ -3672,7 +3726,7 @@
         {
           "name": "dv_coro_get_result",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 796,
+          "evidence_declare_line": 800,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_get_result",
           "category": "Coroutine",
           "evidence_define_line": 5962
@@ -3680,7 +3734,7 @@
         {
           "name": "dv_coro_is_done",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 797,
+          "evidence_declare_line": 801,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_is_done",
           "category": "Coroutine",
           "evidence_define_line": 6010
@@ -3688,7 +3742,7 @@
         {
           "name": "dv_coro_run_to_completion",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 795,
+          "evidence_declare_line": 799,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_run_to_completion",
           "category": "Coroutine",
           "evidence_define_line": 5922
@@ -3696,7 +3750,7 @@
         {
           "name": "dv_coro_set_result",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 802,
+          "evidence_declare_line": 806,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_set_result",
           "category": "Coroutine",
           "evidence_define_line": 6000
@@ -3704,7 +3758,7 @@
         {
           "name": "dv_coro_sleep",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 841,
+          "evidence_declare_line": 845,
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_sleep",
           "category": "Coroutine",
           "evidence_define_line": 6628
@@ -3984,7 +4038,7 @@
         {
           "name": "dv_future_complete",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 799,
+          "evidence_declare_line": 803,
           "evidence_define": "src/llvm/runtime_typed.c:dv_future_complete",
           "category": "Coroutine",
           "evidence_define_line": 5721
@@ -3992,7 +4046,7 @@
         {
           "name": "dv_future_create",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 798,
+          "evidence_declare_line": 802,
           "evidence_define": "src/llvm/runtime_typed.c:dv_future_create",
           "category": "Coroutine",
           "evidence_define_line": 5720
@@ -4000,7 +4054,7 @@
         {
           "name": "dv_future_from_value",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 800,
+          "evidence_declare_line": 804,
           "evidence_define": "src/llvm/runtime_typed.c:dv_future_from_value",
           "category": "Coroutine",
           "evidence_define_line": 6015
@@ -4024,7 +4078,7 @@
         {
           "name": "dv_gen_create",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 808,
+          "evidence_declare_line": 812,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_create",
           "category": "Other",
           "evidence_define_line": 6799
@@ -4032,7 +4086,7 @@
         {
           "name": "dv_gen_finish",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 813,
+          "evidence_declare_line": 817,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_finish",
           "category": "Other",
           "evidence_define_line": 6846
@@ -4040,7 +4094,7 @@
         {
           "name": "dv_gen_free",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 809,
+          "evidence_declare_line": 813,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_free",
           "category": "Other",
           "evidence_define_line": 6813
@@ -4048,7 +4102,7 @@
         {
           "name": "dv_gen_make",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 814,
+          "evidence_declare_line": 818,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_make",
           "category": "Other",
           "evidence_define_line": 6854
@@ -4056,7 +4110,7 @@
         {
           "name": "dv_gen_resume",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 816,
+          "evidence_declare_line": 820,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_resume",
           "category": "Other",
           "evidence_define_line": 6872
@@ -4064,7 +4118,7 @@
         {
           "name": "dv_gen_slot",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 810,
+          "evidence_declare_line": 814,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_slot",
           "category": "Other",
           "evidence_define_line": 6825
@@ -4072,7 +4126,7 @@
         {
           "name": "dv_gen_state",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 811,
+          "evidence_declare_line": 815,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_state",
           "category": "Other",
           "evidence_define_line": 6832
@@ -4080,7 +4134,7 @@
         {
           "name": "dv_gen_value",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 817,
+          "evidence_declare_line": 821,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_value",
           "category": "Other",
           "evidence_define_line": 6880
@@ -4088,7 +4142,7 @@
         {
           "name": "dv_gen_yield",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 812,
+          "evidence_declare_line": 816,
           "evidence_define": "src/llvm/runtime_typed.c:dv_gen_yield",
           "category": "Other",
           "evidence_define_line": 6838
@@ -4256,7 +4310,7 @@
         {
           "name": "dv_is_generator",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 815,
+          "evidence_declare_line": 819,
           "evidence_define": "src/llvm/runtime_typed.c:dv_is_generator",
           "category": "Other",
           "evidence_define_line": 6866
@@ -4300,6 +4354,30 @@
           "evidence_define": "src/llvm/runtime_typed.c:dv_isinstance_value",
           "category": "Math",
           "evidence_define_line": 4033
+        },
+        {
+          "name": "dv_json_parse",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "evidence_declare_line": 777,
+          "evidence_define": "src/llvm/runtime_typed.c:dv_json_parse",
+          "category": "Other",
+          "evidence_define_line": 9546
+        },
+        {
+          "name": "dv_json_serialize",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "evidence_declare_line": 778,
+          "evidence_define": "src/llvm/runtime_typed.c:dv_json_serialize",
+          "category": "Other",
+          "evidence_define_line": 9570
+        },
+        {
+          "name": "dv_json_serialize_pretty",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "evidence_declare_line": 779,
+          "evidence_define": "src/llvm/runtime_typed.c:dv_json_serialize_pretty",
+          "category": "Other",
+          "evidence_define_line": 9579
         },
         {
           "name": "dv_lcm",
@@ -4520,7 +4598,7 @@
         {
           "name": "dv_md5",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 780,
+          "evidence_declare_line": 784,
           "evidence_define": "src/llvm/runtime_typed.c:dv_md5",
           "category": "Hash",
           "evidence_define_line": 3172
@@ -4632,7 +4710,7 @@
         {
           "name": "dv_pbkdf2_hmac_sha256_1",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 788,
+          "evidence_declare_line": 792,
           "evidence_define": "src/llvm/runtime_typed.c:dv_pbkdf2_hmac_sha256_1",
           "category": "Hash",
           "evidence_define_line": 3598
@@ -4640,7 +4718,7 @@
         {
           "name": "dv_platform_sleep",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 860,
+          "evidence_declare_line": 864,
           "evidence_define": "src/llvm/runtime_typed.c:dv_platform_sleep",
           "category": "System",
           "evidence_define_line": 6655
@@ -4648,7 +4726,7 @@
         {
           "name": "dv_poller_backend",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 857,
+          "evidence_declare_line": 861,
           "evidence_define": "src/llvm/runtime_typed.c:dv_poller_backend",
           "category": "Poller",
           "evidence_define_line": 6294
@@ -4656,7 +4734,7 @@
         {
           "name": "dv_poller_count",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 858,
+          "evidence_declare_line": 862,
           "evidence_define": "src/llvm/runtime_typed.c:dv_poller_count",
           "category": "Poller",
           "evidence_define_line": 6393
@@ -4664,7 +4742,7 @@
         {
           "name": "dv_poller_create",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 834,
+          "evidence_declare_line": 838,
           "evidence_define": "src/llvm/runtime_typed.c:dv_poller_create",
           "category": "Poller",
           "evidence_define_line": 6298
@@ -4672,7 +4750,7 @@
         {
           "name": "dv_poller_destroy",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 838,
+          "evidence_declare_line": 842,
           "evidence_define": "src/llvm/runtime_typed.c:dv_poller_destroy",
           "category": "Poller",
           "evidence_define_line": 6534
@@ -4680,7 +4758,7 @@
         {
           "name": "dv_poller_last_error",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 856,
+          "evidence_declare_line": 860,
           "evidence_define": "src/llvm/runtime_typed.c:dv_poller_last_error",
           "category": "Poller",
           "evidence_define_line": 6290
@@ -4688,7 +4766,7 @@
         {
           "name": "dv_poller_register",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 835,
+          "evidence_declare_line": 839,
           "evidence_define": "src/llvm/runtime_typed.c:dv_poller_register",
           "category": "Poller",
           "evidence_define_line": 6338
@@ -4696,7 +4774,7 @@
         {
           "name": "dv_poller_unregister",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 836,
+          "evidence_declare_line": 840,
           "evidence_define": "src/llvm/runtime_typed.c:dv_poller_unregister",
           "category": "Poller",
           "evidence_define_line": 6379
@@ -4704,7 +4782,7 @@
         {
           "name": "dv_poller_wait",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 837,
+          "evidence_declare_line": 841,
           "evidence_define": "src/llvm/runtime_typed.c:dv_poller_wait",
           "category": "Poller",
           "evidence_define_line": 6525
@@ -4904,7 +4982,7 @@
         {
           "name": "dv_scheduler_run",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 794,
+          "evidence_declare_line": 798,
           "evidence_define": "src/llvm/runtime_typed.c:dv_scheduler_run",
           "category": "Coroutine",
           "evidence_define_line": 5900
@@ -4912,7 +4990,7 @@
         {
           "name": "dv_scheduler_run_event_loop",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 859,
+          "evidence_declare_line": 863,
           "evidence_define": "src/llvm/runtime_typed.c:dv_scheduler_run_event_loop",
           "category": "Coroutine",
           "evidence_define_line": 5724
@@ -4928,7 +5006,7 @@
         {
           "name": "dv_sha1",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 781,
+          "evidence_declare_line": 785,
           "evidence_define": "src/llvm/runtime_typed.c:dv_sha1",
           "category": "Hash",
           "evidence_define_line": 3267
@@ -4936,7 +5014,7 @@
         {
           "name": "dv_sha256",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 784,
+          "evidence_declare_line": 788,
           "evidence_define": "src/llvm/runtime_typed.c:dv_sha256",
           "category": "Hash",
           "evidence_define_line": 3440
@@ -4944,7 +5022,7 @@
         {
           "name": "dv_sha512",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 786,
+          "evidence_declare_line": 790,
           "evidence_define": "src/llvm/runtime_typed.c:dv_sha512",
           "category": "Hash",
           "evidence_define_line": 3579
@@ -4984,7 +5062,7 @@
         {
           "name": "dv_socket_accept",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 823,
+          "evidence_declare_line": 827,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_accept",
           "category": "Socket",
           "evidence_define_line": 6111
@@ -4992,7 +5070,7 @@
         {
           "name": "dv_socket_bind",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 821,
+          "evidence_declare_line": 825,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_bind",
           "category": "Socket",
           "evidence_define_line": 6098
@@ -5000,7 +5078,7 @@
         {
           "name": "dv_socket_close",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 827,
+          "evidence_declare_line": 831,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_close",
           "category": "Socket",
           "evidence_define_line": 6173
@@ -5008,7 +5086,7 @@
         {
           "name": "dv_socket_connect",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 820,
+          "evidence_declare_line": 824,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_connect",
           "category": "Socket",
           "evidence_define_line": 6065
@@ -5016,7 +5094,7 @@
         {
           "name": "dv_socket_create",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 819,
+          "evidence_declare_line": 823,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_create",
           "category": "Socket",
           "evidence_define_line": 6050
@@ -5024,7 +5102,7 @@
         {
           "name": "dv_socket_get_peer_addr",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 832,
+          "evidence_declare_line": 836,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_get_peer_addr",
           "category": "Socket",
           "evidence_define_line": 6205
@@ -5032,7 +5110,7 @@
         {
           "name": "dv_socket_last_error",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 830,
+          "evidence_declare_line": 834,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_last_error",
           "category": "Socket",
           "evidence_define_line": 6197
@@ -5040,7 +5118,7 @@
         {
           "name": "dv_socket_last_error_code",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 831,
+          "evidence_declare_line": 835,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_last_error_code",
           "category": "Socket",
           "evidence_define_line": 6201
@@ -5048,7 +5126,7 @@
         {
           "name": "dv_socket_listen",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 822,
+          "evidence_declare_line": 826,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_listen",
           "category": "Socket",
           "evidence_define_line": 6107
@@ -5056,7 +5134,7 @@
         {
           "name": "dv_socket_recv",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 825,
+          "evidence_declare_line": 829,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_recv",
           "category": "Socket",
           "evidence_define_line": 6123
@@ -5064,7 +5142,7 @@
         {
           "name": "dv_socket_send",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 824,
+          "evidence_declare_line": 828,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_send",
           "category": "Socket",
           "evidence_define_line": 6117
@@ -5072,7 +5150,7 @@
         {
           "name": "dv_socket_set_nonblocking",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 829,
+          "evidence_declare_line": 833,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_set_nonblocking",
           "category": "Socket",
           "evidence_define_line": 6185
@@ -5080,7 +5158,7 @@
         {
           "name": "dv_socket_set_recv_timeout",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 826,
+          "evidence_declare_line": 830,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_set_recv_timeout",
           "category": "Socket",
           "evidence_define_line": 6160
@@ -5088,7 +5166,7 @@
         {
           "name": "dv_socket_shutdown",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 828,
+          "evidence_declare_line": 832,
           "evidence_define": "src/llvm/runtime_typed.c:dv_socket_shutdown",
           "category": "Socket",
           "evidence_define_line": 6181
@@ -5176,7 +5254,7 @@
         {
           "name": "dv_str_isalpha",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 777,
+          "evidence_declare_line": 781,
           "evidence_define": "src/llvm/runtime_typed.c:dv_str_isalpha",
           "category": "String",
           "evidence_define_line": 1538
@@ -5184,7 +5262,7 @@
         {
           "name": "dv_str_isspace",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 778,
+          "evidence_declare_line": 782,
           "evidence_define": "src/llvm/runtime_typed.c:dv_str_isspace",
           "category": "String",
           "evidence_define_line": 1546
@@ -5336,7 +5414,7 @@
         {
           "name": "dv_tls_add_trusted_cert_file",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 851,
+          "evidence_declare_line": 855,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_add_trusted_cert_file",
           "category": "TLS",
           "evidence_define_line": 7579
@@ -5344,7 +5422,7 @@
         {
           "name": "dv_tls_flush_public",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 854,
+          "evidence_declare_line": 858,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_flush_public",
           "category": "TLS",
           "evidence_define_line": 7858
@@ -5352,7 +5430,7 @@
         {
           "name": "dv_tls_free",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 849,
+          "evidence_declare_line": 853,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_free",
           "category": "TLS",
           "evidence_define_line": 7975
@@ -5360,7 +5438,7 @@
         {
           "name": "dv_tls_handshake",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 844,
+          "evidence_declare_line": 848,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_handshake",
           "category": "TLS",
           "evidence_define_line": 7322
@@ -5368,7 +5446,7 @@
         {
           "name": "dv_tls_is_ready",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 853,
+          "evidence_declare_line": 857,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_is_ready",
           "category": "TLS",
           "evidence_define_line": 7798
@@ -5376,7 +5454,7 @@
         {
           "name": "dv_tls_last_error",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 855,
+          "evidence_declare_line": 859,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_last_error",
           "category": "TLS",
           "evidence_define_line": 7347
@@ -5384,7 +5462,7 @@
         {
           "name": "dv_tls_recv",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 847,
+          "evidence_declare_line": 851,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_recv",
           "category": "TLS",
           "evidence_define_line": 7928
@@ -5392,7 +5470,7 @@
         {
           "name": "dv_tls_recv_status",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 848,
+          "evidence_declare_line": 852,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_recv_status",
           "category": "TLS",
           "evidence_define_line": 7971
@@ -5400,7 +5478,7 @@
         {
           "name": "dv_tls_send",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 845,
+          "evidence_declare_line": 849,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_send",
           "category": "TLS",
           "evidence_define_line": 7854
@@ -5408,7 +5486,7 @@
         {
           "name": "dv_tls_send_n",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 846,
+          "evidence_declare_line": 850,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_send_n",
           "category": "TLS",
           "evidence_define_line": 7804
@@ -5416,7 +5494,7 @@
         {
           "name": "dv_tls_set_verify",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 850,
+          "evidence_declare_line": 854,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_set_verify",
           "category": "TLS",
           "evidence_define_line": 7566
@@ -5424,7 +5502,7 @@
         {
           "name": "dv_tls_want_event",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 852,
+          "evidence_declare_line": 856,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_want_event",
           "category": "TLS",
           "evidence_define_line": 7324
@@ -5432,7 +5510,7 @@
         {
           "name": "dv_tls_wrap",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 843,
+          "evidence_declare_line": 847,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tls_wrap",
           "category": "TLS",
           "evidence_define_line": 7321
@@ -5560,7 +5638,7 @@
         {
           "name": "dv_uuid3",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 783,
+          "evidence_declare_line": 787,
           "evidence_define": "src/llvm/runtime_typed.c:dv_uuid3",
           "category": "Other",
           "evidence_define_line": 3344
@@ -5568,7 +5646,7 @@
         {
           "name": "dv_uuid5",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 782,
+          "evidence_declare_line": 786,
           "evidence_define": "src/llvm/runtime_typed.c:dv_uuid5",
           "category": "Other",
           "evidence_define_line": 3340
@@ -5622,7 +5700,7 @@
         {
           "name": "setjmp",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 871,
+          "evidence_declare_line": 875,
           "evidence_define": "C library (not in runtime_typed.c)",
           "category": "Platform"
         },

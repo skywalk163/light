@@ -9058,3 +9058,530 @@ void dv_shallow_copy(LightValue* result, LightValue* v) {
     }
     dv_clone(result, v);
 }
+/* ================================================================
+ * R148-A：JSON 内部级联解耦 —— C 层 JSON 解析/序列化原语
+ * 语义严格对齐 stdlib/JSON核心.light（纯光明递归下降实现），
+ * 供 codegen_typed.py 注册 解析JSON / 序列化JSON / 美化JSON 三内置。
+ * ================================================================ */
+
+/* ---- 内部：可增长字符串缓冲（仅本次 JSON 使用，非公共 API） ---- */
+typedef struct {
+    char*  data;
+    size_t len;
+    size_t cap;
+} DvStrBuf;
+
+static void dv_sb_init(DvStrBuf* sb) {
+    sb->cap = 64;
+    sb->len = 0;
+    sb->data = (char*)malloc(sb->cap + 1);
+    if (sb->data) sb->data[0] = '\0';
+}
+
+static void dv_sb_reserve(DvStrBuf* sb, size_t extra) {
+    if (!sb->data) { dv_sb_init(sb); }
+    if (sb->len + extra + 1 > sb->cap) {
+        while (sb->len + extra + 1 > sb->cap) sb->cap *= 2;
+        char* nd = (char*)realloc(sb->data, sb->cap + 1);
+        if (nd) sb->data = nd;
+    }
+}
+
+static void dv_sb_putc(DvStrBuf* sb, char c) {
+    dv_sb_reserve(sb, 1);
+    sb->data[sb->len++] = c;
+    sb->data[sb->len] = '\0';
+}
+
+static void dv_sb_puts(DvStrBuf* sb, const char* s) {
+    if (!s) return;
+    size_t n = strlen(s);
+    dv_sb_reserve(sb, n);
+    memcpy(sb->data + sb->len, s, n);
+    sb->len += n;
+    sb->data[sb->len] = '\0';
+}
+
+static void dv_sb_putn(DvStrBuf* sb, const char* s, size_t n) {
+    dv_sb_reserve(sb, n);
+    memcpy(sb->data + sb->len, s, n);
+    sb->len += n;
+    sb->data[sb->len] = '\0';
+}
+
+static void dv_sb_free(DvStrBuf* sb) {
+    if (sb->data) { free(sb->data); sb->data = NULL; }
+    sb->len = sb->cap = 0;
+}
+
+/* ---- 内部：JSON 序列化（indent < 0 = 紧凑；>= 0 = 换行缩进） ---- */
+static void dv_json_serialize_value(DvStrBuf* sb, LightValue* v, int indent, int level);
+
+/* 转义字符串并加双引号（对齐 JSON核心.light 编码字符串 + json.dumps ensure_ascii=False） */
+static void dv_json_escape_str(DvStrBuf* sb, const char* s) {
+    static const char hex[] = "0123456789abcdef";
+    dv_sb_putc(sb, '"');
+    if (s) {
+        const unsigned char* p = (const unsigned char*)s;
+        while (*p) {
+            unsigned char c = *p++;
+            switch (c) {
+                case '"':  dv_sb_puts(sb, "\\\""); break;
+                case '\\': dv_sb_puts(sb, "\\\\"); break;
+                case '\n': dv_sb_puts(sb, "\\n"); break;
+                case '\r': dv_sb_puts(sb, "\\r"); break;
+                case '\t': dv_sb_puts(sb, "\\t"); break;
+                case 8:    dv_sb_puts(sb, "\\b"); break;
+                case 12:   dv_sb_puts(sb, "\\f"); break;
+                default:
+                    if (c < 0x20) {
+                        /* 其余控制符发 \u00xx（对齐 json.dumps ensure_ascii=False） */
+                        dv_sb_puts(sb, "\\u00");
+                        dv_sb_putc(sb, hex[(c >> 4) & 0xF]);
+                        dv_sb_putc(sb, hex[c & 0xF]);
+                    } else {
+                        dv_sb_putc(sb, (char)c);
+                    }
+            }
+        }
+    }
+    dv_sb_putc(sb, '"');
+}
+
+/* 浮点表示（对齐 JSON核心.light 编码浮点：NaN / Infinity / -Infinity / str） */
+static void dv_json_float_repr(DvStrBuf* sb, double x) {
+    if (x != x) { dv_sb_puts(sb, "NaN"); return; }
+    if (x == HUGE_VAL) { dv_sb_puts(sb, "Infinity"); return; }
+    if (x == -HUGE_VAL) { dv_sb_puts(sb, "-Infinity"); return; }
+    char buf[64];
+    /* Python repr / json.dumps 用最短往返表示；C 无内建算法，用递进精度逼近：
+       %.15g 通常够（IEEE double 保证 15 位往返），不够再升 16/17 位，strtod 回读验证。 */
+    int prec;
+    int chosen = 0;
+    for (prec = 15; prec <= 17; prec++) {
+        snprintf(buf, sizeof(buf), "%.*g", prec, x);
+        if (strtod(buf, NULL) == x) { chosen = 1; break; }
+    }
+    if (!chosen) snprintf(buf, sizeof(buf), "%.17g", x);
+    /* 整数值浮点（-1250.0）补 .0，对齐 Python repr；非科学计数、非特殊值才补。 */
+    if (!strchr(buf, '.') && !strchr(buf, 'e') && !strchr(buf, 'E') &&
+        !strchr(buf, 'n') && !strchr(buf, 'N')) {
+        strncat(buf, ".0", sizeof(buf) - strlen(buf) - 1);
+    }
+    dv_sb_puts(sb, buf);
+}
+
+/* 字典键转文本（对齐 JSON核心.light 键转文本：str 原样、int/float/bool/null 转字面量） */
+static void dv_json_key_text(DvStrBuf* sb, LightValue* k) {
+    if (!k) { dv_sb_puts(sb, "null"); return; }
+    k = dv_deref(k);
+    switch (k->type) {
+        case 0:  dv_sb_puts(sb, "null"); return;
+        case 1: { char buf[32]; snprintf(buf, sizeof(buf), "%lld", (long long)k->i64); dv_sb_puts(sb, buf); return; }
+        case 2:  dv_json_float_repr(sb, k->f64); return;
+        case 5:  dv_sb_puts(sb, k->boolean ? "true" : "false"); return;
+        case 3:  dv_sb_puts(sb, k->str ? k->str : ""); return;
+        default: dv_sb_puts(sb, k->str ? k->str : ""); return;
+    }
+}
+
+/* 重复 indent*count 个空格（缩进用） */
+static void dv_json_repeat_spaces(DvStrBuf* sb, int count) {
+    if (count <= 0) return;
+    if (count > 1000) count = 1000;   /* 防御极端缩进 */
+    for (int i = 0; i < count; i++) dv_sb_putc(sb, ' ');
+}
+
+/* 递归序列化一个值 */
+static void dv_json_serialize_value(DvStrBuf* sb, LightValue* v, int indent, int level) {
+    if (!v) { dv_sb_puts(sb, "null"); return; }
+    v = dv_deref(v);
+    switch (v->type) {
+        case 0:  dv_sb_puts(sb, "null"); break;
+        case 5:  dv_sb_puts(sb, v->boolean ? "true" : "false"); break;
+        case 1: { char buf[32]; snprintf(buf, sizeof(buf), "%lld", (long long)v->i64); dv_sb_puts(sb, buf); break; }
+        case 2:  dv_json_float_repr(sb, v->f64); break;
+        case 3:  dv_json_escape_str(sb, v->str ? v->str : ""); break;
+        case 23: /* tuple 当数组（对齐 JSON核心.light type()==tuple） */
+        case 4: {
+            int n = v->list_size;
+            if (n == 0) { dv_sb_puts(sb, "[]"); break; }
+            dv_sb_putc(sb, '[');
+            for (int i = 0; i < n; i++) {
+                if (i > 0) {
+                    if (indent >= 0) { dv_sb_putc(sb, ','); }
+                    else { dv_sb_puts(sb, ", "); }
+                }
+                if (indent >= 0) {
+                    dv_sb_putc(sb, '\n');
+                    dv_json_repeat_spaces(sb, indent * (level + 1));
+                }
+                LightValue* item = v->list_data ? v->list_data[i] : NULL;
+                dv_json_serialize_value(sb, item, indent, level + 1);
+            }
+            if (indent >= 0) {
+                dv_sb_putc(sb, '\n');
+                dv_json_repeat_spaces(sb, indent * level);
+            }
+            dv_sb_putc(sb, ']');
+            break;
+        }
+        case 7: {
+            int n = v->list_size;
+            if (n == 0) { dv_sb_puts(sb, "{}"); break; }
+            dv_sb_putc(sb, '{');
+            for (int i = 0; i < n; i++) {
+                if (i > 0) {
+                    if (indent >= 0) { dv_sb_putc(sb, ','); }
+                    else { dv_sb_puts(sb, ", "); }
+                }
+                if (indent >= 0) {
+                    dv_sb_putc(sb, '\n');
+                    dv_json_repeat_spaces(sb, indent * (level + 1));
+                }
+                LightValue* k = v->list_data ? v->list_data[2 * i] : NULL;
+                LightValue* val = v->list_data ? v->list_data[2 * i + 1] : NULL;
+                /* 键先按 json 口径转文本，再统一转义为字符串 */
+                DvStrBuf kb; dv_sb_init(&kb);
+                dv_json_key_text(&kb, k);
+                dv_json_escape_str(sb, kb.data ? kb.data : "");
+                dv_sb_free(&kb);
+                dv_sb_puts(sb, ": ");
+                dv_json_serialize_value(sb, val, indent, level + 1);
+            }
+            if (indent >= 0) {
+                dv_sb_putc(sb, '\n');
+                dv_json_repeat_spaces(sb, indent * level);
+            }
+            dv_sb_putc(sb, '}');
+            break;
+        }
+        default: {
+            /* 非容器类型：抛 运行时错误（对齐 JSON核心.light 编码值默认分支）。
+             * dv_class_set_member 签名 (obj, const char* field_name, LightValue* value)；
+             * dv_throw_exception 实际 longjmp，调用后的 IR 不真正执行。 */
+            LightValue ex; dv_null(&ex);
+            dv_class_new_named(&ex, "运行时错误");
+            const char* msg = "JSON 序列化失败: 无法序列化的类型";
+            LightValue mv; memset(&mv, 0, sizeof(mv)); mv.type = 3; mv.str = dv_strdup(msg);
+            dv_class_set_member(&ex, "消息", &mv);
+            dv_free(&mv);
+            dv_throw_exception(&ex);
+            dv_sb_puts(sb, "null");
+            break;
+        }
+    }
+}
+
+
+/* ---- 内部：JSON 递归下降解析器 ---- */
+typedef struct {
+    const char* text;
+    size_t      pos;
+    size_t      len;
+} DvJsonParser;
+
+/* 抛 运行时错误（对齐 JSON核心.light：运行时错误("JSON 解析失败: …")） */
+static void dv_json_parse_error(DvJsonParser* p, const char* why) {
+    (void)p;
+    LightValue ex; dv_null(&ex);
+    dv_class_new_named(&ex, "运行时错误");
+    char msg[512];
+    snprintf(msg, sizeof(msg), "JSON 解析失败: %s", why ? why : "未知错误");
+    LightValue mv; memset(&mv, 0, sizeof(mv)); mv.type = 3; mv.str = dv_strdup(msg);
+    dv_class_set_member(&ex, "消息", &mv);
+    dv_free(&mv);
+    dv_throw_exception(&ex);
+}
+
+static void dv_json_p_skip_ws(DvJsonParser* p) {
+    while (p->pos < p->len) {
+        char c = p->text[p->pos];
+        if (c == ' ' || c == '\n' || c == '\r' || c == '\t') p->pos++;
+        else break;
+    }
+}
+
+static int dv_json_p_cur(DvJsonParser* p) {
+    if (p->pos >= p->len) return -1;
+    return (unsigned char)p->text[p->pos];
+}
+
+/* 将 Unicode 码点编码为 UTF-8 追加到 DvStrBuf（0..0x10FFFF 合法范围） */
+static void dv_json_utf8_append(DvStrBuf* sb, uint32_t cp) {
+    if (cp < 0x80) {
+        dv_sb_putc(sb, (char)cp);
+    } else if (cp < 0x800) {
+        dv_sb_putc(sb, (char)(0xC0 | (cp >> 6)));
+        dv_sb_putc(sb, (char)(0x80 | (cp & 0x3F)));
+    } else if (cp < 0x10000) {
+        dv_sb_putc(sb, (char)(0xE0 | (cp >> 12)));
+        dv_sb_putc(sb, (char)(0x80 | ((cp >> 6) & 0x3F)));
+        dv_sb_putc(sb, (char)(0x80 | (cp & 0x3F)));
+    } else {
+        dv_sb_putc(sb, (char)(0xF0 | (cp >> 18)));
+        dv_sb_putc(sb, (char)(0x80 | ((cp >> 12) & 0x3F)));
+        dv_sb_putc(sb, (char)(0x80 | ((cp >> 6) & 0x3F)));
+        dv_sb_putc(sb, (char)(0x80 | (cp & 0x3F)));
+    }
+}
+
+/* 读 4 位十六进制（\uXXXX）；失败返回 -1 */
+static int dv_json_p_hex4(DvJsonParser* p) {
+    if (p->pos + 4 > p->len) return -1;
+    int val = 0;
+    for (int i = 0; i < 4; i++) {
+        char c = p->text[p->pos + i];
+        int v;
+        if (c >= '0' && c <= '9') v = c - '0';
+        else if (c >= 'a' && c <= 'f') v = c - 'a' + 10;
+        else if (c >= 'A' && c <= 'F') v = c - 'A' + 10;
+        else return -1;
+        val = val * 16 + v;
+    }
+    p->pos += 4;
+    return val;
+}
+
+/* 期望字面量（true/false/null） */
+static int dv_json_p_expect_word(DvJsonParser* p, const char* word) {
+    size_t n = strlen(word);
+    if (p->pos + n > p->len) return 0;
+    if (strncmp(p->text + p->pos, word, n) != 0) return 0;
+    p->pos += n;
+    return 1;
+}
+
+/* 解析字符串：返回 LightValue（str），失败抛异常 */
+static LightValue dv_json_p_string(DvJsonParser* p) {
+    LightValue out; memset(&out, 0, sizeof(out)); out.type = 0;
+    if (dv_json_p_cur(p) != '"') { dv_json_parse_error(p, "期望字符串起始双引号"); return out; }
+    p->pos++;   /* 越过 " */
+    DvStrBuf sb; dv_sb_init(&sb);
+    while (1) {
+        if (p->pos >= p->len) { dv_sb_free(&sb); dv_json_parse_error(p, "字符串未闭合"); return out; }
+        unsigned char c = (unsigned char)p->text[p->pos];
+        if (c == '"') { p->pos++; break; }
+        if (c < 0x20) { dv_sb_free(&sb); dv_json_parse_error(p, "字符串内禁裸控制符"); return out; }
+        if (c == '\\') {
+            p->pos++;
+            if (p->pos >= p->len) { dv_sb_free(&sb); dv_json_parse_error(p, "转义序列未闭合"); return out; }
+            char e = p->text[p->pos];
+            p->pos++;
+            switch (e) {
+                case '"':  dv_sb_putc(&sb, '"'); break;
+                case '\\': dv_sb_putc(&sb, '\\'); break;
+                case '/':  dv_sb_putc(&sb, '/'); break;
+                case 'b':  dv_sb_putc(&sb, '\b'); break;
+                case 'f':  dv_sb_putc(&sb, '\f'); break;
+                case 'n':  dv_sb_putc(&sb, '\n'); break;
+                case 'r':  dv_sb_putc(&sb, '\r'); break;
+                case 't':  dv_sb_putc(&sb, '\t'); break;
+                case 'u': {
+                    int cp = dv_json_p_hex4(p);
+                    if (cp < 0) { dv_sb_free(&sb); dv_json_parse_error(p, "非法 \\u 转义"); return out; }
+                    if (cp >= 0xD800 && cp <= 0xDBFF) {
+                        /* 高位代理：必须紧跟 \uDC00..\uDFFF 低位 */
+                        if (p->pos + 1 < p->len && p->text[p->pos] == '\\' && p->text[p->pos+1] == 'u') {
+                            p->pos += 2;
+                            int lo = dv_json_p_hex4(p);
+                            if (lo < 0 || lo < 0xDC00 || lo > 0xDFFF) {
+                                dv_sb_free(&sb); dv_json_parse_error(p, "非法代理对"); return out;
+                            }
+                            cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00);
+                        } else {
+                            dv_sb_free(&sb); dv_json_parse_error(p, "非法代理对"); return out;
+                        }
+                    } else if (cp >= 0xDC00 && cp <= 0xDFFF) {
+                        dv_sb_free(&sb); dv_json_parse_error(p, "孤立低位代理"); return out;
+                    }
+                    dv_json_utf8_append(&sb, (uint32_t)cp);
+                    break;
+                }
+                default:
+                    dv_sb_free(&sb); dv_json_parse_error(p, "非法转义符"); return out;
+            }
+        } else {
+            dv_sb_putc(&sb, (char)c);
+            p->pos++;
+        }
+    }
+    memset(&out, 0, sizeof(out));
+    out.type = 3;
+    out.str = sb.data ? sb.data : dv_strdup("");
+    return out;
+}
+
+/* 解析数字：严格 JSON（禁前导零、需至少一位数字）；返回 LightValue */
+static LightValue dv_json_p_number(DvJsonParser* p) {
+    LightValue out; memset(&out, 0, sizeof(out)); out.type = 0;
+    size_t start = p->pos;
+    int is_float = 0;
+    if (p->pos < p->len && p->text[p->pos] == '-') p->pos++;
+    if (p->pos >= p->len) { dv_json_parse_error(p, "数字不完整"); return out; }
+    /* 整数部分：禁前导零（除非就是 0） */
+    if (p->text[p->pos] == '0') {
+        p->pos++;
+    } else if (p->text[p->pos] >= '1' && p->text[p->pos] <= '9') {
+        while (p->pos < p->len && p->text[p->pos] >= '0' && p->text[p->pos] <= '9') p->pos++;
+    } else {
+        dv_json_parse_error(p, "非法数字起始"); return out;
+    }
+    /* 小数部分 */
+    if (p->pos < p->len && p->text[p->pos] == '.') {
+        is_float = 1;
+        p->pos++;
+        if (p->pos >= p->len || p->text[p->pos] < '0' || p->text[p->pos] > '9') {
+            dv_json_parse_error(p, "小数部分缺少数字"); return out;
+        }
+        while (p->pos < p->len && p->text[p->pos] >= '0' && p->text[p->pos] <= '9') p->pos++;
+    }
+    /* 指数部分 */
+    if (p->pos < p->len && (p->text[p->pos] == 'e' || p->text[p->pos] == 'E')) {
+        is_float = 1;
+        p->pos++;
+        if (p->pos < p->len && (p->text[p->pos] == '+' || p->text[p->pos] == '-')) p->pos++;
+        if (p->pos >= p->len || p->text[p->pos] < '0' || p->text[p->pos] > '9') {
+            dv_json_parse_error(p, "指数部分缺少数字"); return out;
+        }
+        while (p->pos < p->len && p->text[p->pos] >= '0' && p->text[p->pos] <= '9') p->pos++;
+    }
+    size_t end = p->pos;
+    if (end == start) { dv_json_parse_error(p, "空数字"); return out; }
+    char buf[128];
+    size_t n = end - start;
+    if (n >= sizeof(buf)) n = sizeof(buf) - 1;
+    memcpy(buf, p->text + start, n);
+    buf[n] = '\0';
+    if (is_float) {
+        dv_float(&out, strtod(buf, NULL));
+    } else {
+        dv_int(&out, strtoll(buf, NULL, 10));
+    }
+    return out;
+}
+
+static LightValue dv_json_p_value(DvJsonParser* p);
+
+/* 解析对象 { "k": v, ... } */
+static LightValue dv_json_p_object(DvJsonParser* p) {
+    LightValue out; memset(&out, 0, sizeof(out));
+    dv_dict_new(&out);
+    p->pos++;   /* 越过 { */
+    dv_json_p_skip_ws(p);
+    if (dv_json_p_cur(p) == '}') { p->pos++; return out; }
+    while (1) {
+        dv_json_p_skip_ws(p);
+        if (dv_json_p_cur(p) != '"') {
+            dv_free(&out); dv_json_parse_error(p, "对象键必须是双引号字符串"); return out;
+        }
+        LightValue key = dv_json_p_string(p);
+        dv_json_p_skip_ws(p);
+        if (dv_json_p_cur(p) != ':') {
+            dv_free(&key); dv_free(&out); dv_json_parse_error(p, "对象缺少冒号"); return out;
+        }
+        p->pos++;   /* 越过 : */
+        dv_json_p_skip_ws(p);
+        LightValue val = dv_json_p_value(p);
+        dv_dict_set(&out, &out, &key, &val);
+        dv_free(&key); dv_free(&val);
+        dv_json_p_skip_ws(p);
+        int c = dv_json_p_cur(p);
+        if (c == ',') { p->pos++; continue; }
+        if (c == '}') { p->pos++; break; }
+        dv_free(&out); dv_json_parse_error(p, "对象键值对未正确结束"); return out;
+    }
+    return out;
+}
+
+/* 解析数组 [ v, ... ] */
+static LightValue dv_json_p_array(DvJsonParser* p) {
+    LightValue out; memset(&out, 0, sizeof(out));
+    dv_list_new(&out);
+    p->pos++;   /* 越过 [ */
+    dv_json_p_skip_ws(p);
+    if (dv_json_p_cur(p) == ']') { p->pos++; return out; }
+    while (1) {
+        dv_json_p_skip_ws(p);
+        LightValue val = dv_json_p_value(p);
+        dv_list_append(&out, &out, &val);
+        /* dv_list_append 内部 dv_clone 对容器浅拷贝，共享 list_data；
+           此处不可 dv_free(&val)，否则 list 内元素 list_data 悬空。 */
+        dv_json_p_skip_ws(p);
+        int c = dv_json_p_cur(p);
+        if (c == ',') { p->pos++; continue; }
+        if (c == ']') { p->pos++; break; }
+        dv_free(&out); dv_json_parse_error(p, "数组元素未正确结束"); return out;
+    }
+    return out;
+}
+
+/* 解析一个值（递归下降入口） */
+static LightValue dv_json_p_value(DvJsonParser* p) {
+    LightValue out; memset(&out, 0, sizeof(out)); out.type = 0;
+    dv_json_p_skip_ws(p);
+    int c = dv_json_p_cur(p);
+    if (c == '{') return dv_json_p_object(p);
+    if (c == '[') return dv_json_p_array(p);
+    if (c == '"') return dv_json_p_string(p);
+    if (c == 't') { if (dv_json_p_expect_word(p, "true")) { dv_bool(&out, 1); return out; } dv_json_parse_error(p, "非法字面量"); return out; }
+    if (c == 'f') { if (dv_json_p_expect_word(p, "false")) { dv_bool(&out, 0); return out; } dv_json_parse_error(p, "非法字面量"); return out; }
+    if (c == 'n') { if (dv_json_p_expect_word(p, "null")) { dv_null(&out); return out; } dv_json_parse_error(p, "非法字面量"); return out; }
+    if (c == '-' || (c >= '0' && c <= '9')) return dv_json_p_number(p);
+    {
+        char why[32];
+        if (c >= 0x20 && c < 0x7F) snprintf(why, sizeof(why), "非法字符 '%c'", (char)c);
+        else snprintf(why, sizeof(why), "非法字符 0x%02X", (c & 0xFF));
+        dv_json_parse_error(p, why);
+    }
+    return out;
+}
+
+/* ================================================================
+ * 公开 API：dv_json_parse / dv_json_serialize / dv_json_serialize_pretty
+ * 供 codegen_typed.py 注册 解析JSON / 序列化JSON / 美化JSON。
+ * ================================================================ */
+
+/* 解析 JSON 字符串为光明值（严格 JSON；失败抛 运行时错误） */
+void dv_json_parse(LightValue* result, LightValue* text) {
+    if (!result) return;
+    if (!text) { dv_null(result); return; }
+    text = dv_deref(text);
+    if (text->type != 3) { dv_null(result); dv_json_parse_error(NULL, "入参必须是字符串"); return; }
+    const char* s = text->str ? text->str : "";
+    DvJsonParser p;
+    p.text = s;
+    p.pos = 0;
+    p.len = strlen(s);
+    dv_json_p_skip_ws(&p);
+    if (p.pos >= p.len) { dv_null(result); dv_json_parse_error(&p, "空输入"); return; }
+    LightValue val = dv_json_p_value(&p);
+    dv_json_p_skip_ws(&p);
+    if (p.pos < p.len) {
+        dv_free(&val);
+        dv_json_parse_error(&p, "尾部多余内容");
+        return;
+    }
+    if (result != &val) dv_deep_clone(result, &val);
+    dv_free(&val);
+}
+
+/* 紧凑序列化（对齐 JSON核心.light 序列化；缩进 < 0） */
+void dv_json_serialize(LightValue* result, LightValue* value) {
+    if (!result) return;
+    DvStrBuf sb; dv_sb_init(&sb);
+    dv_json_serialize_value(&sb, value, -1, 0);
+    dv_str(result, sb.data ? sb.data : "");
+    dv_sb_free(&sb);
+}
+
+/* 美化序列化（对齐 JSON核心.light 序列化缩进；缩进 >= 0 换行缩进） */
+void dv_json_serialize_pretty(LightValue* result, LightValue* value, int64_t indent) {
+    if (!result) return;
+    int ind = (int)indent;
+    if (ind < 0) ind = 0;
+    DvStrBuf sb; dv_sb_init(&sb);
+    dv_json_serialize_value(&sb, value, ind, 0);
+    dv_str(result, sb.data ? sb.data : "");
+    dv_sb_free(&sb);
+}
