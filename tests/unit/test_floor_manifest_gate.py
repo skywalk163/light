@@ -87,31 +87,52 @@ class Test正向通过(unittest.TestCase):
 
 
 class Test反跑_分类统计漂移(unittest.TestCase):
-    """方向一：native_required 62 → 61（差 1 条）→ 红，且打印可操作差异。"""
+    """方向一：`分类统计.native_required` 真值 → 真值−1（差 1 条）→ 红，且打印可操作差异。
+
+    ⚠️ 不许硬编码 62/61：清单会随新内置补登而增长（R149-A 后 native_required 由 62 涨到 67），
+    写死数字会让「差 +1 条」退化成「差 +6 条」而假红——R149 实踩。一律从真实清单取当前值。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        d = _读()
+        cls._真值 = d["分类统计"]["native_required"]
+        cls._实计 = sum(1 for 条 in d["函数"]
+                        if 条.get("分类") == "native_required")
+
+    def _少一条(self):
+        def 改(d):
+            d["分类统计"]["native_required"] = self._真值 - 1
+        return _写临时(改)
 
     def test_改61即红(self):
-        副本 = _写临时(lambda d: d["分类统计"].__setitem__("native_required", 61))
+        副本 = self._少一条()
         rc = _跑("--manifest", 副本, "--baseline", _BASELINE)
         self.assertEqual(rc, 1)
 
     def test_红时打印差异明细(self):
-        副本 = _写临时(lambda d: d["分类统计"].__setitem__("native_required", 61))
+        副本 = self._少一条()
         import subprocess
         r = subprocess.run(
             [sys.executable, os.path.join(_CI, "assert_floor_manifest.py"),
              "--manifest", 副本, "--baseline", _BASELINE],
             capture_output=True, text=True, encoding="utf-8")
         self.assertIn("差 +1 条", r.stdout)
-        self.assertIn("分类统计登记 61 条", r.stdout)
-        self.assertIn("函数[]实计 62 条", r.stdout)
+        self.assertIn("分类统计登记 %d 条" % (self._真值 - 1), r.stdout)
+        self.assertIn("函数[]实计 %d 条" % self._实计, r.stdout)
 
     def test_还原后复跑绿(self):
         # 源清单从没被改，直接复跑真实清单必须绿（反跑只在临时副本上做）
         self.assertEqual(_跑("--root", _ROOT), 0)
 
     def test_多类同时漂移仍红(self):
-        副本 = _写临时(lambda d: d["分类统计"].update(
-            {"native_required": 60, "movable": 17, "has_light_impl": 66}))
+        def 改(d):
+            d["分类统计"].update({
+                "native_required": d["分类统计"]["native_required"] - 2,
+                "movable": d["分类统计"]["movable"] + 2,
+                "has_light_impl": d["分类统计"]["has_light_impl"] - 2,
+            })
+        副本 = _写临时(改)
         self.assertEqual(_跑("--manifest", 副本, "--baseline", _BASELINE), 1)
 
 

@@ -1073,6 +1073,60 @@ def 文件状态(路径):
     except Exception:
         return None
 
+
+# R149-A：文件系统平台原语第一批——src 腿地板实体（原生腿走 C 层 dv_fs_*，见
+# src/llvm/runtime_typed.c）。两侧语义必须逐条对齐，否则两腿对拍不一致。
+# Windows 边界（登记 R150）：symlink/readlink/statvfs 无等价 → 假/空/空，
+# 与 C 侧 #ifdef _WIN32 分支返回 false/null 完全同口径。
+
+def 是否可执行(路径):
+    """os.access(path, os.X_OK)。Windows 无执行位概念，退化为存在性（与 CPython 一致）。"""
+    try:
+        return os.access(路径, os.X_OK)
+    except Exception:
+        return False
+
+def 设置权限(路径, 权限):
+    """os.chmod(path, mode)。成功真；不存在/无权限返回假，不抛。"""
+    try:
+        os.chmod(路径, int(权限))
+        return True
+    except Exception:
+        return False
+
+def 创建符号链接(目标, 链接路径):
+    """os.symlink(target, linkpath)。成功真 / 失败假（Windows 常因缺特权失败）。"""
+    try:
+        os.symlink(目标, 链接路径)
+        return True
+    except Exception:
+        return False
+
+def 读取符号链接(路径):
+    """os.readlink(path) → 目标字符串；非链接/失败返回空，不抛。"""
+    try:
+        return os.readlink(路径)
+    except Exception:
+        return None
+
+def 磁盘用量(路径):
+    """shutil.disk_usage 口径 → dict(总空间/已用空间/可用空间/使用率)，单位字节。
+
+    与 C 层 dv_fs_statvfs（statvfs）在 POSIX 上数值逐项一致：
+      总空间 = f_blocks*frsize；已用 = (f_blocks-f_bfree)*frsize；可用 = f_bavail*frsize。
+    键名/取值对齐 stdlib/文件系统.py 的 shutil.disk_usage 口径（三腿对拍同口径）。
+    使用率 = 已用 / 总空间 * 100（百分比）。失败返回空，不抛。
+    """
+    import shutil
+    try:
+        u = shutil.disk_usage(路径)
+    except Exception:
+        return None
+    out = {"总空间": u.total, "已用空间": u.used, "可用空间": u.free}
+    if u.total > 0:
+        out["使用率"] = u.used * 100.0 / u.total
+    return out
+
 def 句柄状态(句柄):
     """按已打开的文件描述符取元数据（os.fstat）。取不到返回空，不抛。
 
@@ -1446,6 +1500,11 @@ __all__ = [
     '弧度转角度',
     '真实路径',
     '文件状态',
+    '是否可执行',
+    '设置权限',
+    '创建符号链接',
+    '读取符号链接',
+    '磁盘用量',
     '句柄状态',
     '低级打开',
     '低级读',
