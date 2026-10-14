@@ -184,6 +184,34 @@ W-38	tests/test_stdlib_phase13.py::测试集合工具模块::test_默认字典�
 W-39	tests/test_stdlib_phase13.py::测试高级文件模块::test_命令存在	负载	1	R135 全量红（`tests/test_stdlib_phase13.py:520`）。`assertTrue(命令存在('cmd'))` 红——本机 Windows 下 `高级文件.命令存在` 未正确探测系统 PATH 中的 `cmd`。隔离全绿。复现：全量 tests/ -n 4 --dist loadscope
 W-40	tests/test_stdlib_phase13.py::测试高级文件模块::test_磁盘使用情况	负载	1	R135 全量红（`tests/test_stdlib_phase13.py:502`）。`assertGreater(结果['总空间'], 0)` 红——`高级文件.磁盘使用情况` 在本机返回的总空间为 0，Windows 驱动统计口径与实现不符。隔离全绿。复现：全量 tests/ -n 4 --dist loadscope
 W-41	tests/lightpub/test_lightpub_doc_importability.py::Test_lightpub文档可导入性::test_光明围栏的导入块必须真能导入	环境	0	R135 全量红（`tests/lightpub/test_lightpub_doc_importability.py:124`），且**隔离亦红**（R135 §5.1 记录 RC=1）。`docs/lightpub/Socket.md:21/27` 两个 ```light '导入 Socket' / '导入 标准Socket' 围栏块在本仓库**无实现**（`stdlib/lightpub/Socket.py` 为占位 stub，无真正 `Socket` 模块），工具 `tools/gen_lightpub_docs.py` 未将围栏降级成 text。复现：pytest tests/lightpub/test_lightpub_doc_importability.py -o addopts=
+
+# ── R147-D 补登：test_builtins_drift 系列（0.82 缺兄弟仓 lightharness，环境性非回归） ──
+#   一手取证：`_R146_收口报告.md:39-40` —— 0.82 权威门 **7 errors 全部**落在
+#   `tests/unit/test_builtins_drift.py`，签名 `FileNotFoundError:
+#   /home/ai/lightharness/stdlib/builtins.py`（0.82 重建未 clone 兄弟仓 lightharness）。
+#   对照组：R145 收口 0.82 门**同步了** lightharness/stdlib 兄弟仓 → 4768 passed / 0 failed。
+#   本机（G:\dswork\duan-light-merge 含 lightharness）实测：3 文件 **55 passed / RC=0**
+#   （builtins_drift 8 + doc_examples_gate + ci_gates_round9 47）。
+#   ⚠ 只有 test_builtins_drift 有 LH 依赖（module 级 `copies` fixture 读 LH_PATH）；
+#     `test_doc_examples_gate.py` / `test_ci_gates_round9.py` **无 LH 依赖且未观测到红**，
+#     按「一手取证」入账口径**不入账**——记忆口径「3 条」经复核实为 3 个**文件**，
+#     而红只发生在其中 1 个文件的 7 条测试上。不虚构无证据的台账行。
+#   根治方向（交主 agent/收口裁定，本轮只登记不改测试）：0.82 重建时同步
+#   lightharness/stdlib（R145 做法），或让 `copies` fixture 在 LH 缺失时 skip 而非 error。
+W-42	tests/unit/test_builtins_drift.py::test_boot_name_set_equals_main	环境	0	0.82 缺兄弟仓 lightharness：module 级 `copies` fixture 读 LH_PATH（lightharness/stdlib/builtins.py）→ FileNotFoundError。R146 收口 0.82 门 7 errors 之一；本机有 LH 时 8 passed 全绿。环境性非回归。复现：0.82 上 `pytest tests/unit/test_builtins_drift.py -n 4 --timeout=120`（未同步 lightharness/stdlib）
+W-43	tests/unit/test_builtins_drift.py::test_boot_keep_header_present	环境	0	同 W-42（同一 `copies` fixture、同一 FileNotFoundError 签名）
+W-44	tests/unit/test_builtins_drift.py::test_boot_json_exempt_pinned	环境	0	同 W-42（同一 `copies` fixture、同一 FileNotFoundError 签名）
+W-45	tests/unit/test_builtins_drift.py::test_boot_no_light_forward_leak	环境	0	同 W-42（同一 `copies` fixture、同一 FileNotFoundError 签名）
+W-46	tests/unit/test_builtins_drift.py::test_boot_ported_present	环境	0	同 W-42（同一 `copies` fixture、同一 FileNotFoundError 签名）
+W-47	tests/unit/test_builtins_drift.py::test_lh_name_diff_only_lh_only	环境	0	同 W-42（同一 `copies` fixture、同一 FileNotFoundError 签名）
+W-48	tests/unit/test_builtins_drift.py::test_lh_public_body_hash_equals_main	环境	0	同 W-42（同一 `copies` fixture、同一 FileNotFoundError 签名）
+#   注：同文件 `test_boot_runtime_smoke` 不取 `copies` fixture，LH 缺失时仍 passed，故不入账。
+#   【R147 收口更新】本轮 0.82 重建已补齐兄弟仓 lightharness（`r145final/lightharness`，
+#     含 `stdlib/builtins.py`）→ 这 7 条在 R147 收口全量门中**已转绿**
+#     （`4807 passed / 0 failed / 0 errors / FULL_RC=0`，errors 由 R146 的 7 → 0）。
+#     条目**保留不入销账**：若后续 0.82 重建再次漏同步兄弟仓，它们会立刻复现，
+#     保留即保留「漏同步兄弟仓」的常驻哨兵（判据脚本对台账内红本就容忍，不复现无代价）。
+# 哨兵：R147-D-LEDGER
 # 哨兵：R136-A-LEDGER-W24..W41（18 条）
 
 # ── [R146-D 入账 / 更正] L-205 裁定（hook 化）落地后的台账复核 ──────────────

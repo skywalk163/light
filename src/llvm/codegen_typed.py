@@ -763,6 +763,16 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare i32 @dv_copy_file(ptr, ptr)',
             f'declare i32 @dv_is_file(ptr)',
             f'declare i32 @dv_is_dir(ptr)',
+            # R147-A：文件系统 16 段地板原语（stat/realpath/二进制/环境枚举，
+            # 对齐 src 腿 builtin_map:542/543/551/511/512 + builtins.py）
+            f'declare void @dv_file_stat(ptr, ptr)',
+            f'declare void @dv_realpath(ptr, ptr)',
+            f'declare void @dv_read_bytes(ptr, ptr)',
+            f'declare i32 @dv_write_bytes(ptr, ptr)',
+            f'declare void @dv_env_list(ptr)',
+            # R147-A 二阶段：文件句柄随机访问（f.seek/f.tell，whence 0/1/2 对齐 Python）
+            f'declare void @dv_file_seek(ptr, ptr, i64, i64)',
+            f'declare void @dv_file_tell(ptr, ptr)',
             # R127-C · S1 三内建补齐：字符判型（ASCII 整串语义，见 runtime 注释）
             f'declare i32 @dv_str_isalpha(ptr)',
             f'declare i32 @dv_str_isspace(ptr)',
@@ -980,6 +990,25 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'store {LIGHTVALUE_STRUCT} {dv_reg}, ptr {slot}')
         self._dv_ssa_to_slot[dv_reg] = slot
         return slot
+
+    def _deref_value(self, ssa: str) -> str:
+        """解引用 REF（type=8，指向容器内元素）实参为真实 LightValue。
+
+        原生腿字典/列表索引取值返回的是 REF（见 _gen_function_value_call /
+        _gen_typed_index_access 处的 dv_deref 注释）。把这种 REF 直接喂给读取标量
+        字段（int/double/str）的内置（整数/格式化时间/取模/文件存在…）会误读 REF
+        结构体的垃圾字段 → 整数(REF)=0、格式化时间(REF)=1970 等。R147-A 复现：
+        文件属性 权限="0" / 文件修改时间字符串="1970-01-01"。
+
+        dv_deref_value 对非 REF 实参幂等（*result = *v；字符串额外 strdup），故对
+        所有「只读」内置统一解引用安全且必要。会就地改写接收者（args[0] 需是原
+        变量槽位以便写回）的内置（追加/插入/弹栈/设键/排序…）不可解引用——其
+        实参常态非 REF，保持原样。
+        """
+        slot = self._new_dv_slot()
+        self.emit(f'call void @dv_null(ptr {slot})')
+        self.emit(f'call void @dv_deref_value(ptr {slot}, ptr {self._store_dv(ssa)})')
+        return self._load_dv(slot)
 
     def _create_int_dv(self, i64_str: str) -> str:
         """创建整数 LightValue 并返回 SSA 值"""
@@ -2209,11 +2238,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('字符串',):
             if not args:
                 return self._create_str_dv(self.gen_string_constant("")), 'dv'
+            # R147-A：解引用 REF 实参（值 + 编码均为标量/字符串字段读取）。
             if len(args) >= 2:
+                a1 = self._deref_value(args[1])
                 enc_ptr = self.new_register()
-                self.emit(f'{enc_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
-                return self._call_dv_func('dv_decode_str', args[0], f'ptr {enc_ptr}'), 'dv'
-            return self._call_dv_func('dv_decode_str', args[0], 'ptr null'), 'dv'
+                self.emit(f'{enc_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a1}, 3')
+                return self._call_dv_func('dv_decode_str', self._deref_value(args[0]), f'ptr {enc_ptr}'), 'dv'
+            return self._call_dv_func('dv_decode_str', self._deref_value(args[0]), 'ptr null'), 'dv'
 
         # 副本(x) / 浅拷贝(x)：对齐 stdlib/内置核心列表.light:副本（新容器、值照搬）。
         # 不复用 dv_clone —— 它的 DICT 分支共享 list_data，副本会与原字典互相污染。
@@ -2295,9 +2326,22 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return self._call_dv_func('dv_null'), 'dv'
 
         if name in ('输出', '打印'):
+            # R147-A：多参打印。原实现只发 args[0]，args[1:] 被静默丢弃，与 src 腿
+            # `print(*args)`（空格连接 + 换行）语义不一致——`打印("标签", 值)` 第二个
+            # 及以后的参数全部空白（dp_mat2 实证：连 `打印("x", 5)` 的 5 都丢）。
+            # 修法：逐参 dv_print（无换行）+ 参间 dv_print(" ") + 末参 dv_println（带
+            # 换行），对齐 src 腿 `a b c\n`。dv_to_string 对 REF(type 8) 已正确解引用
+            # （probe7：单参 `打印(表.st_mode)` → 33188），故多参下每参直接喂即可。
             if args:
-                slot = self._store_dv(args[0])
-                self.emit(f'call void @dv_println(ptr {slot})')
+                for i, a in enumerate(args):
+                    slot = self._store_dv(a)
+                    if i == len(args) - 1:
+                        self.emit(f'call void @dv_println(ptr {slot})')
+                    else:
+                        self.emit(f'call void @dv_print(ptr {slot})')
+                        sep_dv = self._create_str_dv(self.gen_string_constant(" "))
+                        sep_slot = self._store_dv(sep_dv)
+                        self.emit(f'call void @dv_print(ptr {sep_slot})')
             else:
                 null_slot = self._new_dv_slot()
                 self.emit(f'call void @dv_null(ptr {null_slot})')
@@ -2323,15 +2367,19 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('播种随机种子', '设置随机种子', 'random_seed', 'dv_random_seed'):
             if args:
+                # R147-A：解引用 REF 实参（整数字段读取）。
+                a0 = self._deref_value(args[0])
                 seed_i64 = self.new_register()
-                self.emit(f'{seed_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                self.emit(f'{seed_i64} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 1')
                 self.emit(f'call void @dv_random_seed(i64 {seed_i64})')
             return self._create_int_dv('0'), 'dv'
 
         if name in ('随机位', 'random_bits', 'getrandbits', 'dv_random_bits'):
             if args:
+                # R147-A：解引用 REF 实参（整数字段读取）。
+                a0 = self._deref_value(args[0])
                 k_i64 = self.new_register()
-                self.emit(f'{k_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                self.emit(f'{k_i64} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 1')
                 ret = self.new_register()
                 self.emit(f'{ret} = call i64 @dv_random_bits(i64 {k_i64})')
                 return self._create_int_dv(ret), 'dv'
@@ -2340,8 +2388,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name == '格式化时间':
             if not args:
                 return self._create_int_dv('0'), 'dv'
+            # R147-A：解引用 REF 实参（双击字段读取同理，REF 直接读 double 得 0）。
+            a0 = self._deref_value(args[0])
             dbl = self.new_register()
-            self.emit(f'{dbl} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 2')
+            self.emit(f'{dbl} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 2')
             fmt_reg = self.gen_string_constant("%Y-%m-%d %H:%M:%S")
             out = self.new_register()
             self.emit(f'{out} = call ptr @dv_format_time(double {dbl}, ptr {fmt_reg})')
@@ -2351,11 +2401,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('时间格式化', 'strftime', 'format_time', '_strftime'):
             if not args:
                 return self._create_str_dv(self.gen_string_constant("")), 'dv'
+            # R147-A：解引用 REF 实参（时间值 + 格式串均为标量/字符串字段读取）。
+            a0 = self._deref_value(args[0])
             dbl = self.new_register()
-            self.emit(f'{dbl} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 2')
+            self.emit(f'{dbl} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 2')
             if len(args) >= 2:
+                a1 = self._deref_value(args[1])
                 fmt_ptr = self.new_register()
-                self.emit(f'{fmt_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                self.emit(f'{fmt_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a1}, 3')
             else:
                 fmt_ptr = self.gen_string_constant("%Y-%m-%d %H:%M:%S")
             out = self.new_register()
@@ -2379,8 +2432,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('文件存在', 'file_exists', 'path_exists'):
             if args:
+                a0 = self._deref_value(args[0])
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                # R147-A：解引用 REF 实参（字符串字段读取）。
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 3')
                 file_reg = self.new_register()
                 self.emit(f'{file_reg} = call i32 @dv_file_exists(ptr {path_ptr})')
                 cmp = self.new_register()
@@ -2390,8 +2445,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('目录存在', 'dir_exists', 'is_dir'):
             if args:
+                a0 = self._deref_value(args[0])
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                # R147-A：解引用 REF 实参（字符串字段读取）。
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 3')
                 file_reg = self.new_register()
                 self.emit(f'{file_reg} = call i32 @dv_is_dir(ptr {path_ptr})')
                 cmp = self.new_register()
@@ -2401,8 +2458,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('读取文件', 'read_file', 'load_file', '_读文件'):
             if args:
+                a0 = self._deref_value(args[0])
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                # R147-A：解引用 REF 实参（字符串字段读取）。
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 3')
                 out = self.new_register()
                 self.emit(f'{out} = call ptr @dv_read_file(ptr {path_ptr})')
                 return self._create_str_dv(out), 'dv'
@@ -2410,19 +2469,25 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('写入文件', 'write_file', 'save_file'):
             if len(args) >= 2:
+                a0 = self._deref_value(args[0])
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                # R147-A：解引用 REF 实参（路径 + 内容均为字符串字段读取）。
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 3')
+                a1 = self._deref_value(args[1])
                 str_ptr = self.new_register()
-                self.emit(f'{str_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                self.emit(f'{str_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a1}, 3')
                 self.emit(f'call void @dv_write_file(ptr {path_ptr}, ptr {str_ptr})')
             return self._create_int_dv('0'), 'dv'
 
         if name in ('追加文件', 'append_file', 'write_append'):
             if len(args) >= 2:
+                a0 = self._deref_value(args[0])
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                # R147-A：解引用 REF 实参（路径 + 内容均为字符串字段读取）。
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 3')
+                a1 = self._deref_value(args[1])
                 str_ptr = self.new_register()
-                self.emit(f'{str_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                self.emit(f'{str_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a1}, 3')
                 self.emit(f'call void @dv_append_file(ptr {path_ptr}, ptr {str_ptr})')
             return self._create_int_dv('0'), 'dv'
 
@@ -2431,13 +2496,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             # runtime 签名 dv_open_file(result, char* path, char* mode, char* encoding)；
             # encoding 参数 POSIX 下忽略（字节直写 UTF-8）。
             if len(args) >= 2:
+                a0 = self._deref_value(args[0])
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                # R147-A：解引用 REF 实参（路径/模式/编码均为字符串字段读取）。
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 3')
+                a1 = self._deref_value(args[1])
                 mode_ptr = self.new_register()
-                self.emit(f'{mode_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                self.emit(f'{mode_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a1}, 3')
                 if len(args) >= 3:
+                    a2 = self._deref_value(args[2])
                     enc_ptr = self.new_register()
-                    self.emit(f'{enc_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[2]}, 3')
+                    self.emit(f'{enc_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a2}, 3')
                     return self._call_dv_func('dv_open_file', f'ptr {path_ptr}', f'ptr {mode_ptr}', f'ptr {enc_ptr}'), 'dv'
                 return self._call_dv_func('dv_open_file', f'ptr {path_ptr}', f'ptr {mode_ptr}', 'ptr null'), 'dv'
             return self._call_dv_func('dv_open_file', 'ptr null', 'ptr null', 'ptr null'), 'dv'
@@ -2460,10 +2529,37 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._call_dv_func('dv_file_read', args[0]), 'dv'
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
 
+        if name in ('seek', '定位'):
+            # 文件句柄方法：f.seek(偏移[, whence]) -> 移动后的绝对位置。
+            # R147-A 二阶段：whence 0=开头/1=当前位置/2=末尾（Python file.seek 口径），
+            # 缺省 whence=0。src 腿同语法走 Python file.seek 原生方法。
+            if len(args) >= 2:
+                # R147-A：偏移/基准为标量字段读取 → 解引用 REF 实参（接收者 args[0]
+                # 是文件句柄，dv_file_seek 就地操作，不可解引用）。
+                a1 = self._deref_value(args[1])
+                off_i64 = self.new_register()
+                self.emit(f'{off_i64} = extractvalue {LIGHTVALUE_STRUCT} {a1}, 1')
+                if len(args) >= 3:
+                    a2 = self._deref_value(args[2])
+                    wh_i64 = self.new_register()
+                    self.emit(f'{wh_i64} = extractvalue {LIGHTVALUE_STRUCT} {a2}, 1')
+                    return self._call_dv_func('dv_file_seek', args[0], f'i64 {off_i64}', f'i64 {wh_i64}'), 'dv'
+                return self._call_dv_func('dv_file_seek', args[0], f'i64 {off_i64}', 'i64 0'), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        if name in ('tell', '当前位置'):
+            # 文件句柄方法：f.tell() -> 当前指针位置。
+            # R147-A 二阶段：src 腿同语法走 Python file.tell 原生方法。
+            if args:
+                return self._call_dv_func('dv_file_tell', args[0]), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
         if name in ('文件大小', 'file_size'):
             if args:
+                a0 = self._deref_value(args[0])
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                # R147-A：解引用 REF 实参（字符串字段读取）。
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 3')
                 size = self.new_register()
                 self.emit(f'{size} = call i64 @dv_file_size(ptr {path_ptr})')
                 return self._create_int_dv(size), 'dv'
@@ -2471,8 +2567,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('删除文件', 'delete_file', 'remove_file'):
             if args:
+                a0 = self._deref_value(args[0])
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                # R147-A：解引用 REF 实参（字符串字段读取）。
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 3')
                 ret = self.new_register()
                 self.emit(f'{ret} = call i32 @dv_delete_file(ptr {path_ptr})')
                 ret_i64 = self.new_register()
@@ -2482,15 +2580,19 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('列出目录', 'list_dir', 'dir_list'):
             if args:
+                a0 = self._deref_value(args[0])
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                # R147-A：解引用 REF 实参（字符串字段读取）。
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 3')
                 return self._call_dv_func('dv_list_dir', f'ptr {path_ptr}'), 'dv'
             return self._call_dv_func('dv_list_new'), 'dv'
 
         if name in ('环境变量', 'getenv', 'get_env'):
             if args:
+                a0 = self._deref_value(args[0])
                 name_ptr = self.new_register()
-                self.emit(f'{name_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                # R147-A：解引用 REF 实参（字符串字段读取）。
+                self.emit(f'{name_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 3')
                 out = self.new_register()
                 self.emit(f'{out} = call ptr @dv_getenv(ptr {name_ptr})')
                 return self._create_str_dv(out), 'dv'
@@ -2498,10 +2600,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('设置环境变量', 'setenv', 'set_env'):
             if len(args) >= 2:
+                a0 = self._deref_value(args[0])
                 name_ptr = self.new_register()
-                self.emit(f'{name_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                # R147-A：解引用 REF 实参（名 + 值均为字符串字段读取）。
+                self.emit(f'{name_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 3')
+                a1 = self._deref_value(args[1])
                 val_ptr = self.new_register()
-                self.emit(f'{val_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 3')
+                self.emit(f'{val_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a1}, 3')
                 ret = self.new_register()
                 self.emit(f'{ret} = call i32 @dv_setenv(ptr {name_ptr}, ptr {val_ptr})')
                 ret_i64 = self.new_register()
@@ -2516,8 +2621,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('切换目录', 'chdir', 'cd'):
             if args:
+                a0 = self._deref_value(args[0])
                 path_ptr = self.new_register()
-                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                # R147-A：解引用 REF 实参（字符串字段读取）。
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 3')
                 ret = self.new_register()
                 self.emit(f'{ret} = call i32 @dv_chdir(ptr {path_ptr})')
                 ret_i64 = self.new_register()
@@ -2525,10 +2632,60 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return self._create_int_dv(ret_i64), 'dv'
             return self._create_int_dv('0'), 'dv'
 
+        # R147-A：文件系统 16 段地板原语（对齐 src 腿 builtin_map + builtins.py）。
+        # 文件状态：stat() → dict（键名 = os.stat_result 字段 st_size/st_mtime/…），
+        # 失败返回 null（对齐 builtins.py:文件状态 的 None 语义）。.light 门面以
+        # `状态.st_mtime` 属性访问（L-203：dict 属性访问走 dv_property_get）。
+        if name in ('文件状态', 'file_stat', 'stat_file'):
+            if args:
+                return self._call_dv_func('dv_file_stat', args[0]), 'dv'
+            return self._call_dv_func('dv_file_stat', 'ptr null'), 'dv'
+
+        # 真实路径：os.path.realpath（解析符号链接 + 规范化；POSIX realpath，
+        # 失败回退 cwd+normpath；Windows GetFullPathNameA，不解析 symlink 为已知边界）。
+        if name in ('真实路径', 'realpath', 'real_path'):
+            if args:
+                # R147-A：解引用 REF 实参（dv_realpath 读取字符串字段）。
+                return self._call_dv_func('dv_realpath', self._deref_value(args[0])), 'dv'
+            return self._create_str_dv(self.gen_string_constant('')), 'dv'
+
+        # 读二进制文件：全文 → 整数列表（bytes=int list 口径，同 dv_random_bytes；
+        # 原生腿无 bytes 类型，返回形态与 src 腿 bytes 的差异为既有表示边界）。
+        if name in ('读二进制文件', 'read_bytes', 'read_binary'):
+            if args:
+                a0 = self._deref_value(args[0])
+                path_ptr = self.new_register()
+                # R147-A：解引用 REF 实参（字符串字段读取）。
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 3')
+                return self._call_dv_func('dv_read_bytes', f'ptr {path_ptr}'), 'dv'
+            return self._call_dv_func('dv_list_new'), 'dv'
+
+        # 写入二进制文件：data 为整数列表（逐字节）或字符串（UTF-8 字节）；
+        # 自动建父目录（对齐 builtins.py:写入二进制文件）；返回写入字节数。
+        if name in ('写入二进制文件', 'write_bytes', 'write_binary'):
+            if len(args) >= 2:
+                a0 = self._deref_value(args[0])
+                path_ptr = self.new_register()
+                # R147-A：解引用 REF 实参（路径为字符串字段读取；data 经 _store_dv 透传）。
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 3')
+                data_slot = self._store_dv(args[1])
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_write_bytes(ptr {path_ptr}, ptr {data_slot})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('0'), 'dv'
+
+        # 环境枚举：[[名, 值], ...]（R131 os 族漏登收口；对齐 builtins.py:环境枚举）。
+        if name in ('环境枚举', 'env_list', 'environ'):
+            return self._call_dv_func('dv_env_list'), 'dv'
+
         if name in ('执行命令', 'system', 'exec'):
             if args:
+                a0 = self._deref_value(args[0])
                 cmd_ptr = self.new_register()
-                self.emit(f'{cmd_ptr} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 3')
+                # R147-A：解引用 REF 实参（字符串字段读取）。
+                self.emit(f'{cmd_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 3')
                 ret = self.new_register()
                 self.emit(f'{ret} = call i32 @dv_system(ptr {cmd_ptr})')
                 ret_i64 = self.new_register()
@@ -2538,8 +2695,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('退出程序', '退出', 'exit'):
             if args:
+                # R147-A：解引用 REF 实参（整数字段读取）。
+                a0 = self._deref_value(args[0])
                 code_i64 = self.new_register()
-                self.emit(f'{code_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                self.emit(f'{code_i64} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 1')
                 code_i32 = self.new_register()
                 self.emit(f'{code_i32} = trunc i64 {code_i64} to i32')
                 self.emit(f'call void @dv_exit(i32 {code_i32})')
@@ -2553,6 +2712,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if name in ('整数', 'int', '转整数', 'to_int'):
             if not args:
                 return self._create_int_dv('0'), 'dv'
+            # R147-A：先解引用 REF 实参（字典/列表索引取值返回 REF，直接读 int
+            # 字段会误读垃圾 → 整数(REF)=0）。dv_deref_value 对非 REF 幂等。
+            a0 = self._deref_value(args[0])
             # R12A（R11B-2）：runtime dv_to_int 对 bool（type 5）落默认分支
             # 返回 0，「整数(真)」得 0，与 Python int(True)=1 不符。参数 AST
             # 静态类型为 BOOL（真/假 字面量、比较、非 表达式等）时直接从
@@ -2561,16 +2723,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if (arg_asts and self._enable_type_opt
                     and self._infer_expr_type(arg_asts[0]) == 'BOOL'):
                 b32 = self.new_register()
-                self.emit(f'{b32} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 4')
+                self.emit(f'{b32} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 4')
                 wide = self.new_register()
                 self.emit(f'{wide} = zext i32 {b32} to i64')
                 return self._create_int_dv_fast(wide), 'dv'
-            return self._call_dv_func('dv_to_int', args[0]), 'dv'
+            return self._call_dv_func('dv_to_int', a0), 'dv'
 
         if name in ('浮点数', 'float', '转浮点', 'to_float'):
             if not args:
                 return self._call_dv_func('dv_float', 'double 0.0'), 'dv'
-            return self._call_dv_func('dv_to_float', args[0]), 'dv'
+            # R147-A：解引用 REF 实参（浮点字段读取同理）。
+            return self._call_dv_func('dv_to_float', self._deref_value(args[0])), 'dv'
 
         if name in ('长度', '长', 'len', '列表长度', '字符串长度'):
             if not args:
@@ -2584,19 +2747,22 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             # 取字符串首字符的码点（等价 Python ord）
             if not args:
                 return self._create_int_dv('0'), 'dv'
-            return self._call_dv_func('dv_ord', args[0]), 'dv'
+            # R147-A：解引用 REF 实参。
+            return self._call_dv_func('dv_ord', self._deref_value(args[0])), 'dv'
 
         if name in ('字符自码位', 'chr'):
             # 码点 -> UTF-8 字符串（等价 Python chr）
             if not args:
                 return self._create_str_dv(self.gen_string_constant("")), 'dv'
-            return self._call_dv_func('dv_chr', args[0]), 'dv'
+            # R147-A：解引用 REF 实参。
+            return self._call_dv_func('dv_chr', self._deref_value(args[0])), 'dv'
 
         if name in ('十六进制', 'hex'):
             # 码点 -> 大写十六进制字符串，无 0x 前缀（等价 format(n,'X')）
             if not args:
                 return self._create_str_dv(self.gen_string_constant("")), 'dv'
-            return self._call_dv_func('dv_hex', args[0]), 'dv'
+            # R147-A：解引用 REF 实参。
+            return self._call_dv_func('dv_hex', self._deref_value(args[0])), 'dv'
 
         if name in ('新建', '新建列表', 'new_list', '列表创建'):
             return self._call_dv_func('dv_list_new'), 'dv'
@@ -2628,9 +2794,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('插入', 'insert', 'list_insert', '列表插入'):
             if len(args) >= 3:
+                # R147-A：下标为标量字段读取 → 解引用 REF 实参（接收者 args[0] 是
+                # 列表、dv_list_insert 就地插入，不可解引用；元素 args[2] 解引用
+                # 以免把 REF 当真实值存入列表）。
+                a1 = self._deref_value(args[1])
                 idx_i64 = self.new_register()
-                self.emit(f'{idx_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
-                return self._call_dv_func('dv_list_insert', args[0], f'i64 {idx_i64}', args[2]), 'dv'
+                self.emit(f'{idx_i64} = extractvalue {LIGHTVALUE_STRUCT} {a1}, 1')
+                return self._call_dv_func('dv_list_insert', args[0], f'i64 {idx_i64}', self._deref_value(args[2])), 'dv'
             return self._call_dv_func('dv_list_new'), 'dv'
 
         if name in ('列表弹出', 'list_pop', '弹栈'):
@@ -2887,17 +3057,20 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('四舍五入', 'round'):
             if args:
-                return self._call_dv_func('dv_round', args[0]), 'dv'
+                # R147-A：解引用 REF 实参。
+                return self._call_dv_func('dv_round', self._deref_value(args[0])), 'dv'
             return self._create_int_dv('0'), 'dv'
 
         if name in ('取模', 'mod'):
             if len(args) >= 2:
-                return self._call_dv_func('dv_mod', args[0], args[1]), 'dv'
+                # R147-A：解引用 REF 实参（dv_mod 读取标量字段）。
+                return self._call_dv_func('dv_mod', self._deref_value(args[0]), self._deref_value(args[1])), 'dv'
             return self._create_int_dv('0'), 'dv'
 
         if name in ('整除', 'div'):
             if len(args) >= 2:
-                return self._call_dv_func('dv_div', args[0], args[1]), 'dv'
+                # R147-A：解引用 REF 实参（dv_div 读取标量字段）。
+                return self._call_dv_func('dv_div', self._deref_value(args[0]), self._deref_value(args[1])), 'dv'
             return self._create_int_dv('0'), 'dv'
 
         if name in ('截取', 'substr', 'substring'):
@@ -2905,10 +3078,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 # .light 官方语义：截取(文本, 起始, 结束) = 文本[起始:结束]（end 语义）；
                 # dv_substr 签名是 (str, start, len) → 传 end - start，负值 clamp 为 0
                 # （与字符串切片 4223-4235 的处理一致；Python s[start:end] 在 start>end 时为空串）。
+                a1 = self._deref_value(args[1])
                 start_i64 = self.new_register()
-                self.emit(f'{start_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
+                self.emit(f'{start_i64} = extractvalue {LIGHTVALUE_STRUCT} {a1}, 1')
+                a2 = self._deref_value(args[2])
                 end_i64 = self.new_register()
-                self.emit(f'{end_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[2]}, 1')
+                self.emit(f'{end_i64} = extractvalue {LIGHTVALUE_STRUCT} {a2}, 1')
                 slice_len = self.new_register()
                 self.emit(f'{slice_len} = sub i64 {end_i64}, {start_i64}')
                 is_neg = self.new_register()
@@ -3586,6 +3761,107 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'{ret_i64} = sext i32 {ret} to i64')
             return self._create_int_dv(ret_i64), 'dv'
 
+        # ---- R131 漏登补登：socket 服务端原语（C 层 + IR declare 早已就位，
+        #      缺的只是 builtin 暴露；socket.light 头注已如实登记为缺口）。----
+        # 绑定（服务端）：fd + host(空串=INADDR_ANY) + port
+        if name in ('绑定socket', 'socket_bind'):
+            if len(args) >= 3:
+                fd_i64 = self.new_register()
+                self.emit(f'{fd_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                fd_i32 = self.new_register()
+                self.emit(f'{fd_i32} = trunc i64 {fd_i64} to i32')
+                host_ptr = self._extract_ptr_from_dv(args[1])
+                port_i64 = self.new_register()
+                self.emit(f'{port_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[2]}, 1')
+                port_i32 = self.new_register()
+                self.emit(f'{port_i32} = trunc i64 {port_i64} to i32')
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_socket_bind(i32 {fd_i32}, ptr {host_ptr}, i32 {port_i32})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        # 监听：fd + backlog
+        if name in ('监听socket', 'socket_listen'):
+            if len(args) >= 2:
+                fd_i64 = self.new_register()
+                self.emit(f'{fd_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                fd_i32 = self.new_register()
+                self.emit(f'{fd_i32} = trunc i64 {fd_i64} to i32')
+                bl_i64 = self.new_register()
+                self.emit(f'{bl_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
+                bl_i32 = self.new_register()
+                self.emit(f'{bl_i32} = trunc i64 {bl_i64} to i32')
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_socket_listen(i32 {fd_i32}, i32 {bl_i32})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        # 接受连接：fd → 返回新连接 fd（阻塞）
+        if name in ('接受socket', 'socket_accept'):
+            if args:
+                fd_i64 = self.new_register()
+                self.emit(f'{fd_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                fd_i32 = self.new_register()
+                self.emit(f'{fd_i32} = trunc i64 {fd_i64} to i32')
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_socket_accept(i32 {fd_i32})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        # 关闭读写（shutdown）：fd + how
+        if name in ('socket关闭读写', 'socket_shutdown'):
+            if len(args) >= 2:
+                fd_i64 = self.new_register()
+                self.emit(f'{fd_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                fd_i32 = self.new_register()
+                self.emit(f'{fd_i32} = trunc i64 {fd_i64} to i32')
+                how_i64 = self.new_register()
+                self.emit(f'{how_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
+                how_i32 = self.new_register()
+                self.emit(f'{how_i32} = trunc i64 {how_i64} to i32')
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_socket_shutdown(i32 {fd_i32}, i32 {how_i32})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        # 设置非阻塞：fd + enable(0/1)
+        if name in ('设置非阻塞socket', 'socket_set_nonblocking'):
+            if len(args) >= 2:
+                fd_i64 = self.new_register()
+                self.emit(f'{fd_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                fd_i32 = self.new_register()
+                self.emit(f'{fd_i32} = trunc i64 {fd_i64} to i32')
+                en_i64 = self.new_register()
+                self.emit(f'{en_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
+                en_i32 = self.new_register()
+                self.emit(f'{en_i32} = trunc i64 {en_i64} to i32')
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_socket_set_nonblocking(i32 {fd_i32}, i32 {en_i32})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        # 对端地址：fd → "host:port" 字符串
+        if name in ('socket对端地址', 'socket_get_peer_addr'):
+            if args:
+                fd_i64 = self.new_register()
+                self.emit(f'{fd_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[0]}, 1')
+                fd_i32 = self.new_register()
+                self.emit(f'{fd_i32} = trunc i64 {fd_i64} to i32')
+                addr_ptr = self.new_register()
+                self.emit(f'{addr_ptr} = call ptr @dv_socket_get_peer_addr(i32 {fd_i32})')
+                return self._create_str_dv(addr_ptr), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
         # ---- IO 多路复用内置函数 (Task B2) ----
         if name in ('创建poller', 'poller_create'):
             poller_ptr = self.new_register()
@@ -3622,6 +3898,22 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{ev_i32} = trunc i64 {ev_i64} to i32')
                 ret = self.new_register()
                 self.emit(f'{ret} = call i32 @dv_poller_register(ptr {p_ptr}, i32 {fd_i32}, i32 {ev_i32})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        # R131 漏登补登：注销 poller 注册（C 层 dv_poller_unregister + IR declare
+        # 早已就位，selectors.light 头注已登记为缺口；与 注册poller 对称）。
+        if name in ('注销poller', 'poller_unregister'):
+            if len(args) >= 2:
+                p_ptr = self._extract_ptr_from_dv(args[0])
+                fd_i64 = self.new_register()
+                self.emit(f'{fd_i64} = extractvalue {LIGHTVALUE_STRUCT} {args[1]}, 1')
+                fd_i32 = self.new_register()
+                self.emit(f'{fd_i32} = trunc i64 {fd_i64} to i32')
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_poller_unregister(ptr {p_ptr}, i32 {fd_i32})')
                 ret_i64 = self.new_register()
                 self.emit(f'{ret_i64} = sext i32 {ret} to i64')
                 return self._create_int_dv(ret_i64), 'dv'

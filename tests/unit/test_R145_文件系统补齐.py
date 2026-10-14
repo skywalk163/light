@@ -132,7 +132,24 @@ def test_比较与重复(fsys, tmp_path):
     assert fsys.比较文件内容(a, c) is False
     assert fsys.比较文件内容(a, str(tmp_path / "nope")) is False
     dup = fsys.查找重复文件(str(tmp_path))
-    assert len(dup) >= 1
+    # R147-D 假绿硬化：原 `assert len(dup) >= 1` 是恒真下界断言（只要返回
+    # 非空列表即过，哪怕分组是 [[c]] 这种漏掉真重复对的错误结果也绿）。
+    # 硬化判据（两种实现都满足、且对「漏/错/空」敏感）：
+    #   ① 恰好 1 个重复组（a/b 同内容、c 异内容，真重复只有一对）；
+    #   ② 内容真重复对 a.txt / b.txt 必须出现在同一组里（两者都在组内
+    #      即隐含该组至少 2 个元素，无需再写 len 下界断言）。
+    # ⚠ 已知语义分歧（HEAD 起既有，非本轮回归，登记 L-2xx 候选交主 agent）：
+    #   c.txt 与 a/b 同大小（4B）但内容不同——`.py` 参考实现
+    #   （stdlib/文件系统.py:1360，同大小组内再比较文件内容）不会把 c.txt
+    #   入组，返回 [[a, b]]；当前 `.light` 实现（stdlib/文件系统.light:471）
+    #   只按大小分组，会把 c.txt 并入同组，返回 [[a, b, c]]。本条**不固化
+    #   该分歧**（不断言 c 在不在组里），只钉「真重复对必须同组」。
+    # 变异验证（_r147d_scratch/mutation_check.py）：空列表/漏真重复对/
+    # 半对/真对被拆散 四种错误实现均被本条断言抓住（FAIL），现实现与
+    # .py 参考实现均过（PASS）。
+    assert len(dup) == 1
+    组 = dup[0]
+    assert a in 组 and b in 组
 
 
 def test_安全备份删除(fsys, tmp_path):

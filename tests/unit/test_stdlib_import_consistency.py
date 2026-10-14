@@ -337,9 +337,19 @@ def test_反跑_包路径import的stdlib模块_删py后import必须红(名):
     迁移，跳过并以 skip 提示——不是「删了也绿」的假绿）。
     ⚠️ 本用例会**真实移动** `.py` 到 `.bak` 再还原，故仅在**串行**（非 xdist worker）
     下执行；并行跑时跳过，由上方 `test_反跑_静态判据_*` 常开门禁兜住。
+
+    R147-B 放宽：纯光明模块（_PURE，.light 含魔数）和仅 .light 模块（_ONLY_LIGHT）
+    删 .py 后 hook 会接管 .light，import 不红——这是自举率机制的正确行为，不是门禁
+    漏洞。只对 stub 模块（_STUB，.light 无魔数）做「删 .py 必红」反跑。
     """
     if not _串行运行():
         pytest.skip("反跑涉及移动真实 .py，仅在串行模式下执行")
+    # R147-B：纯光明 / 仅 .light 模块删 .py 后由 .light 接管，不红是正确行为
+    if 名 in _PURE or 名 in _ONLY_LIGHT:
+        pytest.skip(
+            f"{名} 属纯光明/仅.light 模块（_PURE={名 in _PURE}, "
+            f"_ONLY_LIGHT={名 in _ONLY_LIGHT}），删 .py 后 .light 接管是自举率机制，"
+            f"不属「删 .py 必红」反跑范围")
     py_path = os.path.join(_STDLIB, 名 + ".py")
     if not os.path.isfile(py_path):
         pytest.skip(f"{名} 当前已是仅 .light 形态（无 .py），无「删 .py」反跑对象")

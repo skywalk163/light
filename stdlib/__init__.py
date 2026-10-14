@@ -14,6 +14,26 @@
     contrib：从 contrib.HTTP客户端 导入 获取。
 """
 
+# ============================================================
+# 通用光明导入钩子（R147-B，治 L-207）
+# ============================================================
+# 在任何相对 star-import 之前先安装 _light_import_hook，使同名 .light
+# 含「纯光明实现」魔数的模块在 import 时优先加载 .light，即使同名 .py
+# 影子存在。无 .light 或 .light 不含魔数时回退 .py（行为不变）。
+try:
+    import os as _os
+    import importlib.util as _ilu
+    _stdlib_dir = _os.path.dirname(_os.path.abspath(__file__))
+    _hook_path = _os.path.join(_stdlib_dir, '_light_import_hook.py')
+    if _os.path.isfile(_hook_path):
+        _spec = _ilu.spec_from_file_location('_light_import_hook', _hook_path)
+        _hook_mod = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_hook_mod)
+        _hook_mod.install([_stdlib_dir])
+        del _hook_mod, _spec, _ilu, _os, _stdlib_dir, _hook_path
+except Exception:
+    pass
+
 from .builtins import *
 
 # ============================================================

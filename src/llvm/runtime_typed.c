@@ -7061,6 +7061,259 @@ int dv_makedirs(const char* path) {
 }
 
 /* ================================================================
+ * R147-A：文件系统 16 段地板原语（TRUNK，本轮唯一 src/ 写者）
+ *
+ * 背景：R145-C 把 16 段（stat 时间族/二进制族/环境枚举/真实路径/
+ * 路径比较/筛选目录列表/比较文件信息/按时间筛选目录）下架登记 R146，
+ * 根因是原生腿缺地板原语而 src 腿 builtin_map + builtins.py 已有
+ * （真实路径:1295 / 文件状态:1300 / 环境枚举:1353 / 读二进制文件:1506 /
+ * 写入二进制文件:1496）——R131 漏登的文件系统族部分。本轮补 5 个 C 绑定，
+ * 使 stdlib/文件系统.light 的 `_light_builtin.X` 模块点转发在原生腿可编。
+ *
+ * 两腿对齐基准（.light 门面两腿同源，语义以 src 腿 builtins.py 为准）：
+ *   - 文件状态：dict 键名 = Python os.stat_result 字段（st_size/…），
+ *     使 .light 的 `状态.st_mtime` 属性访问两腿同形（src=Python 属性，
+ *     native=dict 键，L-203 的 dv_property_get 已打通 type7 分支）。
+ *   - 读二进制文件：bytes = 整数列表（0-255），与 dv_random_bytes /
+ *     dv_decode_str 的既有「原生腿无 bytes 类型」口径一致。
+ *   - 写入二进制文件：接受整数列表或字符串；自动建父目录（对齐
+ *     builtins.py:1496 的 makedirs 语义）。
+ *   - 环境枚举：[[名, 值], ...]（对齐 os.environ.items()）。
+ * ================================================================ */
+
+/* stat() → dict（键名对齐 os.stat_result；取不到返回 null，对齐
+ * builtins.py:文件状态 的 None 语义，供 .light 的 是空 守卫分支接住）。 */
+void dv_file_stat(LightValue* result, LightValue* path) {
+    if (!result) return;
+    dv_null(result);
+    if (!path) return;
+    path = dv_deref(path);
+    if (path->type != 3 || !path->str) return;
+    struct stat st;
+    if (stat(path->str, &st) != 0) return;   /* 不存在/无权限 → null */
+    dv_dict_new(result);
+    LightValue k, v;
+#define DV_STAT_SET_INT(KEY, VAL) \
+    do { \
+        dv_str(&k, KEY); dv_int(&v, (int64_t)(VAL)); \
+        dv_dict_set(result, result, &k, &v); \
+        dv_free(&k); dv_free(&v); \
+    } while (0)
+#define DV_STAT_SET_FLOAT(KEY, VAL) \
+    do { \
+        dv_str(&k, KEY); dv_float(&v, (double)(VAL)); \
+        dv_dict_set(result, result, &k, &v); \
+        dv_free(&k); dv_free(&v); \
+    } while (0)
+    DV_STAT_SET_INT("st_size", st.st_size);
+    DV_STAT_SET_FLOAT("st_mtime", (double)st.st_mtime);
+    DV_STAT_SET_FLOAT("st_atime", (double)st.st_atime);
+    DV_STAT_SET_FLOAT("st_ctime", (double)st.st_ctime);
+    DV_STAT_SET_INT("st_mode", st.st_mode);
+    DV_STAT_SET_INT("st_ino", st.st_ino);
+    DV_STAT_SET_INT("st_nlink", st.st_nlink);
+    DV_STAT_SET_INT("st_uid", st.st_uid);
+    DV_STAT_SET_INT("st_gid", st.st_gid);
+    DV_STAT_SET_INT("st_dev", st.st_dev);
+#undef DV_STAT_SET_INT
+#undef DV_STAT_SET_FLOAT
+}
+
+/* os.path.realpath：解析符号链接 + 规范化。
+ * POSIX：realpath()；不存在/不可达时回退 cwd 基线 + normpath
+ * （对齐 os.path.realpath strict=False 的尽力解析语义）。
+ * Windows：GetFullPathNameA + normpath——不解析 symlink/junction，
+ * 已知边界（登记缺陷账），与 .py 在 Windows 上的 full resolve 有差距。 */
+void dv_realpath(LightValue* result, LightValue* path) {
+    if (!result) return;
+    dv_null(result);
+    if (!path) return;
+    path = dv_deref(path);
+    if (path->type != 3 || !path->str) { dv_str(result, ""); return; }
+    const char* s = path->str;
+#ifdef _WIN32
+    char buf[MAX_PATH];
+    DWORD n = GetFullPathNameA(s, MAX_PATH, buf, NULL);
+    if (n > 0 && n < MAX_PATH) {
+        char norm[16384];
+        dv_normpath(norm, sizeof(norm), buf);
+        dv_str(result, norm);
+        return;
+    }
+    dv_str(result, s);
+    return;
+#else
+    char resolved[4096];
+    if (realpath(s, resolved) != NULL) {
+        dv_str(result, resolved);
+        return;
+    }
+    /* realpath 失败（路径不存在等）：规范化到 cwd 基线 */
+    char cwd[4096];
+    char joined[8192];
+    if (s[0] == '/') {
+        snprintf(joined, sizeof(joined), "%s", s);
+    } else if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        snprintf(joined, sizeof(joined), "%s/%s", cwd, s);
+    } else {
+        dv_str(result, s);
+        return;
+    }
+    char norm[16384];
+    dv_normpath(norm, sizeof(norm), joined);
+    dv_str(result, norm);
+    return;
+#endif
+}
+
+/* 读二进制文件：全文 → 整数列表（bytes=int list 口径，见节首注释）。
+ * 与 builtins.py:读二进制文件 的返回差异（bytes vs int list）属原生腿
+ * 无 bytes 类型的既有表示边界（同 dv_random_bytes），.light 层以
+ * 长()/索引/遍历 两腿一致的方式消费。 */
+void dv_read_bytes(LightValue* result, const char* path) {
+    dv_list_new(result);
+    if (!path) return;
+    FILE* f = fopen(path, "rb");
+    if (!f) return;
+    unsigned char buf[8192];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), f)) > 0) {
+        for (size_t i = 0; i < n; i++) {
+            LightValue b;
+            dv_int(&b, (int64_t)buf[i]);
+            dv_list_append(result, result, &b);
+            dv_free(&b);
+        }
+    }
+    fclose(f);
+}
+
+/* 写二进制文件：data 为整数列表（逐字节）或字符串（UTF-8 字节）。
+ * 自动建父目录（对齐 builtins.py:写入二进制文件）。返回写入字节数，
+ * 失败 -1。 */
+int dv_write_bytes(const char* path, LightValue* data) {
+    if (!path || !*path) return -1;
+    /* 自动建父目录 */
+    char* dircopy = dv_strdup(path);
+    if (dircopy) {
+        char* last = NULL;
+        for (char* p = dircopy; *p; p++) {
+            if (*p == '/' || *p == '\\') last = p;
+        }
+        if (last && last != dircopy) {
+            /* 保留盘符根 "X:/"（last 落在盘符后第一个分隔符时不截断） */
+            char save = *last;
+            *last = '\0';
+            int is_drive_root = (dircopy[0] && dircopy[1] == ':' && dircopy[2] == '\0');
+            if (!is_drive_root && *dircopy) dv_makedirs(dircopy);
+            *last = save;
+        }
+        free(dircopy);
+    }
+    FILE* f = fopen(path, "wb");
+    if (!f) return -1;
+    long written = 0;
+    if (data) {
+        data = dv_deref(data);
+        if (data->type == 4 && data->list_data) {
+            /* 整数列表 → 连续缓冲一次写出（避免逐字节 fwrite 的开销） */
+            int64_t n = data->list_size;
+            if (n > 0) {
+                unsigned char* out = (unsigned char*)malloc((size_t)n);
+                if (out) {
+                    for (int64_t i = 0; i < n; i++) {
+                        LightValue* e = data->list_data[i];
+                        out[i] = (unsigned char)(e ? (dv_to_i64(e) & 0xFF) : 0);
+                    }
+                    written = (long)fwrite(out, 1, (size_t)n, f);
+                    free(out);
+                }
+            }
+        } else if (data->type == 3 && data->str) {
+            written = (long)fwrite(data->str, 1, strlen(data->str), f);
+        }
+    }
+    fclose(f);
+    return (int)written;
+}
+
+/* 环境枚举：[[名, 值], ...]（对齐 builtins.py:环境枚举 = os.environ.items()）。
+ * R131 os 族漏登收口项（src 腿 builtin_map:551 已登记，原生腿补绑定）。 */
+#ifdef _WIN32
+/* MSVC：_environ 由 <stdlib.h> 声明 */
+#else
+extern char** environ;
+#endif
+
+void dv_env_list(LightValue* result) {
+    dv_list_new(result);
+#ifdef _WIN32
+    char** env = _environ;
+#else
+    char** env = environ;
+#endif
+    if (!env) return;
+    for (char** e = env; *e; e++) {
+        const char* eq = strchr(*e, '=');
+        if (!eq) continue;
+        size_t nlen = (size_t)(eq - *e);
+        char* name = (char*)malloc(nlen + 1);
+        if (!name) continue;
+        memcpy(name, *e, nlen);
+        name[nlen] = '\0';
+        LightValue pair, k, v;
+        dv_list_new(&pair);
+        dv_str(&k, name);
+        dv_str(&v, eq + 1);
+        dv_list_append(&pair, &pair, &k);
+        dv_list_append(&pair, &pair, &v);
+        dv_list_append(result, result, &pair);
+        dv_free(&k);
+        dv_free(&v);
+        dv_free(&pair);
+        free(name);
+    }
+}
+
+/* R147-A 二阶段：文件句柄随机访问原语（f.seek / f.tell）。
+ * 句柄 = LV_TYPE_FILE(22)，str 字段存 FILE*（与 dv_file_open 一致）。
+ * whence 口径对齐 Python file.seek：0=开头(SEEK_SET)/1=当前位置(SEEK_CUR)/
+ * 2=末尾(SEEK_END)。返回值 = 移动后的绝对位置（int），与 Python 一致；
+ * 句柄无效/已关闭 → 返 -1（与 seek 失败的可观测形态区分由 .light 层负责）。 */
+void dv_file_seek(LightValue* result, LightValue* handle, int64_t offset, int64_t whence) {
+    if (!result) return;
+    dv_null(result);
+    if (!handle || handle->type != LV_TYPE_FILE || !handle->str) {
+        result->type = 1;
+        result->i64 = -1;
+        return;
+    }
+    FILE* fp = (FILE*)handle->str;
+    int origin = (whence == 1) ? SEEK_CUR : (whence == 2) ? SEEK_END : SEEK_SET;
+    if (fseek(fp, (long)offset, origin) != 0) {
+        result->type = 1;
+        result->i64 = -1;
+        return;
+    }
+    long pos = ftell(fp);
+    result->type = 1;
+    result->i64 = (int64_t)pos;
+}
+
+void dv_file_tell(LightValue* result, LightValue* handle) {
+    if (!result) return;
+    dv_null(result);
+    if (!handle || handle->type != LV_TYPE_FILE || !handle->str) {
+        result->type = 1;
+        result->i64 = -1;
+        return;
+    }
+    long pos = ftell((FILE*)handle->str);
+    result->type = 1;
+    result->i64 = (int64_t)pos;
+}
+
+/* ================================================================
  * B2-4: 原生 TLS —— Windows Schannel 客户端
  *
  * 设计口径（与 dv_socket_* 对齐 + 能和 dv_coro_await_io 协作）：

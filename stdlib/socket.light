@@ -27,13 +27,16 @@
 #     `从 socket 导入 接收` 后写 `接收(fd, 64)` 编译期即报 LambdaExpression
 #     （R128 F 线实测 u3 探针）。故对外只给 `recv` / `读取`。同理
 #     selectors.light 不取 `等待`（await 关键字）。
-#   - **不可用**：bind / listen / accept / setsockopt / shutdown / getpeername ——
-#     运行时 C 层虽有 `dv_socket_bind`/`dv_socket_listen`/`dv_socket_accept`/
-#     `dv_socket_set_nonblocking`/`dv_socket_shutdown`/`dv_socket_get_peer_addr`，
-#     但 **codegen 未暴露任何对应内建**（R128 D 线 §2.2 同结论）。本轮⛔不动 src/，
-#     故这些一律**不封**，留白登记为缺口 —— 不做「假绿的空壳段落」。
-#   - 因此本门面**只覆盖客户端侧**；HTTP服务端 需要的 listen/accept 仍缺，
-#     补本门面**不等于** HTTP服务端 转可编（R128 F 线 §2 实测）。
+#   - **R147-A 更新（R131 漏登补登）**：bind / listen / accept / shutdown /
+#     set_nonblocking / get_peer_addr 已补齐——运行时 C 层早有
+#     `dv_socket_bind`/`dv_socket_listen`/`dv_socket_accept`/`dv_socket_shutdown`/
+#     `dv_socket_set_nonblocking`/`dv_socket_get_peer_addr`，本轮在 codegen
+#     `_gen_typed_builtin` 暴露为内建（ASCII 名 + 少量中文别名），本文件以 ASCII
+#     段名 bind/listen/accept/set_nonblocking/shutdown/get_peer_addr 转发。
+#     注意：仅补齐「门面可达」，**不等于** HTTP服务端 整体转可编——那还依赖
+#     accept 后的连接处理 / 非阻塞事件循环等上层（R128 F 线结论仍成立）。
+#   - **仍不可用**：setsockopt / getpeername 的完整选项面（getsockname 取本端
+#     地址亦缺）；这些运行时无对应 C 绑定，留白登记为缺口，不做空壳段落。
 #
 # 命名纪律（同 time.light 注 1）：多模块合并进同一 codegen 时同名段落 →
 # LLVM 符号重定义。本模块对外只暴露 **ASCII 段名**（socket/AF_INET/…）与
@@ -43,6 +46,11 @@
 
 导出 socket AF_INET AF_INET6 SOCK_STREAM SOCK_DGRAM SOL_SOCKET SO_REUSEADDR
 导出 创建 连接 发送 recv 读取 关闭 取错误 取错误码 设置接收超时
+# R147-A（R131 漏登补登）：服务端原语落地。C 层 dv_socket_bind/listen/accept/
+# shutdown/set_nonblocking/get_peer_addr + IR declare 早已就位，缺的只是 codegen
+# builtin 暴露——本轮补齐。段名用 ASCII（bind/listen/accept/…），与 Python socket
+# 方法同名且零中文关键字碰撞风险（沿用本文件 ASCII 纪律）。
+导出 bind listen accept set_nonblocking shutdown get_peer_addr
 
 段落 AF_INET():
   返回 2
@@ -84,9 +92,28 @@
   返回 socket_close(描述符)
 
 段落 设置接收超时(描述符, 秒):
-  # L-194③：给套接字设接收超时（秒，整型）；原生腿 recv 默认阻塞无超时，
-  # keep-alive 沉默对端会永久挂起，设超时后 recv 超时返回、调用方得以退出。
+# L-194③：给套接字设接收超时（秒，整型）；原生腿 recv 默认阻塞无超时，
+# keep-alive 沉默对端会永久挂起，设超时后 recv 超时返回、调用方得以退出。
   返回 socket_set_recv_timeout(描述符, 秒)
+
+# ---- R147-A：服务端原语（R131 漏登补登）----
+段落 bind(描述符, 主机, 端口):
+  返回 socket_bind(描述符, 主机, 端口)
+
+段落 listen(描述符, 容量):
+  返回 socket_listen(描述符, 容量)
+
+段落 accept(描述符):
+  返回 socket_accept(描述符)
+
+段落 set_nonblocking(描述符, 开关):
+  返回 socket_set_nonblocking(描述符, 开关)
+
+段落 shutdown(描述符, 方式):
+  返回 socket_shutdown(描述符, 方式)
+
+段落 get_peer_addr(描述符):
+  返回 socket_get_peer_addr(描述符)
 
 段落 取错误():
   返回 socket_last_error()

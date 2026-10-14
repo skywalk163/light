@@ -210,22 +210,34 @@ class LightFinder(importlib.abc.MetaPathFinder):
         return self.search_paths[0] if self.search_paths else os.getcwd()
 
     def find_spec(self, fullname, path=None, target=None):  # noqa: D102
-        # 子模块（带点）交给标准机制
-        if '.' in fullname:
-            return None
         # 纯光明别名：代码生成器对 stdlib 纯光明模块生成 `_light_<名>` 别名导入
         # （规避 CPython 同名标准库在 sys.modules 里的缓存抢名），这里把前缀
         # 剥掉，回落到真实的 <名>.light。模块仍以别名身份注册到 sys.modules。
         realname = fullname
         if fullname.startswith('_light_'):
             realname = fullname[len('_light_'):]
-            if not realname or '.' in realname:
+            if not realname:
                 return None
+        # ---- 子模块支持（R147-B，治 L-207）----
+        # 旧逻辑：`if '.' in fullname: return None`，带子模块名一律让路给 PathFinder。
+        # 这导致 stdlib/__init__.py 的 `from .XXX import *` 相对 star-import 永远走
+        # .py 影子，无视同名 .light 的「纯光明实现」魔数（L-207）。
+        # 新逻辑：对子模块名，从父包的 __path__（即 path 参数）里查找 .light；
+        # 只有当 .light 含魔数时才接管，否则让路给 PathFinder 加载 .py。
+        is_submodule = '.' in realname
+        if is_submodule:
+            if not path:
+                return None
+            mod_name = realname.rsplit('.', 1)[-1]
+            search_dirs = list(path)
+        else:
+            mod_name = realname
+            search_dirs = self.search_paths
         # ---- 标准库保护（修复 gitea run 161 e2e 循环导入）----
-        # 直接 import 一个与 Python 标准库同名的模块时，绝不让钩子去编译同名 .light
-        # 影子。否则编译期 import 标准库（light_parser_v3 → parser_core → lexer →
-        # dataclasses → inspect）会触发编译 inspect.light，而 inspect.light 又
-        # import 编译器 → 循环导入。
+        # 直接 import 一个与 Python 标准库同名的顶层模块时，绝不让钩子去编译同名
+        # .light 影子。否则编译期 import 标准库（light_parser_v3 → parser_core →
+        # lexer → dataclasses → inspect）会触发编译 inspect.light，而 inspect.light
+        # 又 import 编译器 → 循环导入。
         #   - 编译期（_COMPILE_DEPTH>0）：任何标准库名一律放行给真 CPython，连
         #     json.light/base64.light 这种有 .py 兄弟的「纯光明实现」也只在运行期
         #     加载，编译期绝不编译同名影子。
@@ -235,19 +247,28 @@ class LightFinder(importlib.abc.MetaPathFinder):
         # 别名形式（_light_re 等）不受此限：此时 fullname != realname，下面照常加载
         # 对应的 .light 实现（re 的纯光明实现只经由别名可达，符合 code_generator 的
         # _PYTHON_LEG_PURE_LIGHT_ALIAS 设计）。
-        if fullname == realname and realname in _STDLIB_MODULES:
+        # 子模块（is_submodule=True）跳过此保护——Python 标准库没有 `json.xxx`
+        # 这种子模块名会与我们的 .light 冲突（且 path 是父包目录，不是 sys.path）。
+        if not is_submodule and fullname == realname and realname in _STDLIB_MODULES:
             if _COMPILE_DEPTH > 0:
                 return None
-            if not any(_exists_exact(b, realname + '.py') for b in self.search_paths):
+            if not any(_exists_exact(b, realname + '.py') for b in search_dirs):
                 return None
         try:
-            for base in self.search_paths:
-                light_file = os.path.join(base, realname + '.light')
-                if not _exists_exact(base, realname + '.light'):
+            for base in search_dirs:
+                light_file = os.path.join(base, mod_name + '.light')
+                if not _exists_exact(base, mod_name + '.light'):
                     continue
                 # 同名 .py 存在 => 除非 .light 显式声明「纯光明实现」，否则源文件只是
                 # 清单，让标准机制加载 .py（优先原则保持不变，只是开了纯光明出口）。
-                if _exists_exact(base, realname + '.py'):
+                if _exists_exact(base, mod_name + '.py'):
+                    if not _is_pure_light(light_file):
+                        return None
+                elif is_submodule:
+                    # 子模块 + 无 .py：只有 .light 含魔数才接管。
+                    # 否则 .light 只是空壳门面（如 L-208 注释桩），旧行为是
+                    # PathFinder 找不到 .py → ImportError 被 __init__.py 吞掉；
+                    # hook 不应强行加载空壳导致 from import * 炸属性。
                     if not _is_pure_light(light_file):
                         return None
                 loader = LightLoader(fullname, light_file, self._stdlib_dir)
