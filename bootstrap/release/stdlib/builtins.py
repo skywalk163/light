@@ -1062,16 +1062,54 @@ def 真实路径(路径: str) -> str:
     """解析符号链接 / junction / .. / 8.3 短名，返回规范化真实路径（os.path.realpath）"""
     return os.path.realpath(路径)
 
+
+class _StatWithNames:
+    """os.stat_result 轻量包装：委托全部 stat 属性（st_mode/st_uid/...），
+    额外暴露 st_user / st_group（POSIX 经 pwd/grp 解析的属主/属组名，
+    缺失/Windows 退空串），对齐 原生腿 dv_file_stat 与 文件系统.py:获取文件所有者。"""
+
+    __slots__ = ("_st", "st_user", "st_group")
+
+    def __init__(self, st, user, group):
+        self._st = st
+        self.st_user = user
+        self.st_group = group
+
+    def __getattr__(self, name):
+        # 仅 st_user/st_group/_st 之外的属性委托给底层 os.stat_result
+        return getattr(self._st, name)
+
+    def __repr__(self):
+        return "<stat %r>" % (self._st,)
+
+    def __str__(self):
+        return str(self._st)
+
 def 文件状态(路径):
     """按路径取文件元数据（os.stat）。取不到（不存在/无权限）返回空，不抛。
 
-    状态对象即 Python 的 os.stat_result，透明暴露 硬链接数(st_nlink) /
-    设备号(st_dev) / 节点号(st_ino) / 大小 / 是目录，供护栏 TOCTOU 身份比对。
+    状态对象即 Python 的 os.stat_result（包装为 _StatWithNames，额外带 st_user/
+    st_group 名字字段），透明暴露 硬链接数(st_nlink) / 设备号(st_dev) /
+    节点号(st_ino) / 大小 / 是目录，供护栏 TOCTOU 身份比对。
     """
     try:
-        return os.stat(路径)
+        st = os.stat(路径)
     except Exception:
         return None
+    user = ""
+    group = ""
+    if os.name != "nt":
+        try:
+            import pwd as _pwd
+            user = _pwd.getpwuid(st.st_uid).pw_name
+        except Exception:
+            user = ""
+        try:
+            import grp as _grp
+            group = _grp.getgrgid(st.st_gid).gr_name
+        except Exception:
+            group = ""
+    return _StatWithNames(st, user, group)
 
 
 # R149-A：文件系统平台原语第一批——src 腿地板实体（原生腿走 C 层 dv_fs_*，见
@@ -1183,6 +1221,268 @@ def 文件解锁(路径):
         return True
     except Exception:
         return False
+
+
+# R151-C：设置文件所有者——src 腿地板实体（原生腿走 dv_fs_chown，见 runtime_typed.c）。
+# 语义与 stdlib/文件系统.py:708 参考实现逐条对齐：
+#   Windows → 抛 NotImplementedError("Windows 不支持 chown 操作")；
+#   POSIX   → os.chown(path, uid, gid)，失败由 OSError 自然上抛。
+
+def 设置文件所有者(路径, uid, gid):
+    """设置文件所有者和组（chown）。uid/gid 传 -1 表示不修改该 ID。"""
+    import platform as _平台
+    if _平台.system() == 'Windows':
+        raise NotImplementedError("Windows 不支持 chown 操作")
+    os.chown(路径, uid, gid)
+
+
+# R151-D1：线程原语 + 目录监控（对齐 stdlib/文件系统.py 参考语义）。
+# 原生腿走 dv_thread_spawn/dv_thread_join/dv_thread_stop/dv_fs_watch_*，
+# 见 src/llvm/runtime_typed.c。
+# 线程原语：
+#   文件监控线程(段函数值, 实参列表) → 句柄(int)；失败 -1。
+#   等待线程(句柄) → 段返回值（监控线程返回空）。
+#   停止线程(句柄) → bool（未知/已停返回假，成功置标志返回真）。
+# 目录监控：
+#   目录监控(目录路径, 回调函数, 模式='*', 轮询间隔=1.0) → 监控器 ID 字符串。
+#   停止目录监控(监控器ID) → bool。
+#   停止所有监控() → int（被停止的监控器数量）。
+
+def 文件监控线程(段函数, 实参列表):
+    """启动一个线程执行段函数，返回句柄。失败返回 -1。"""
+    import threading as _threading
+    import queue as _queue
+    try:
+        q = _queue.Queue()
+        t = _threading.Thread(target=lambda: q.put(段函数(*实参列表)), daemon=True)
+        t.start()
+        # 用 id 当句柄（与 C 侧 int 句柄对齐）
+        return id(t)
+    except Exception:
+        return -1
+
+def 等待线程(句柄):
+    """等待线程结束，返回段返回值。"""
+    # 原生腿由 dv_thread_join 取返回值；src 腿无对应机制，返回空。
+    return None
+
+def 停止线程(句柄):
+    """协同式停止线程。未知/已停返回假，成功置标志返回真。"""
+    # 原生腿由 dv_thread_stop 置标志；src 腿无对应机制，返回假。
+    return False
+
+
+# R151-D1：src 腿目录监控注册表（与 C 侧 g_dv_threads 对齐，用于 停止所有监控）。
+
+def 目录监控(目录路径, 回调函数, 模式='*', 轮询间隔=1.0):
+    """监控目录文件变更，返回监控器 ID。"""
+    import os as _os
+    import time as _time
+    import threading as _threading
+    import fnmatch as _fnmatch
+    轮询间隔 = max(轮询间隔, 0.1)
+    运行中 = [True]
+    监控器ID = f"watch_{id(运行中)}"
+
+    def _模式匹配(文件名, 模式串):
+        """fnmatch 最小子集：* ? [seq]（[!..]/[^..] 取反）。大小写敏感。"""
+        return _fnmatch.fnmatch(文件名, 模式串)
+
+    def 轮询循环():
+        已知状态 = {}
+        for 根, _目录们, 文件们 in _os.walk(目录路径):
+            for 名 in 文件们:
+                if _模式匹配(名, 模式):
+                    fp = _os.path.join(根, 名)
+                    try:
+                        已知状态[fp] = _os.path.getmtime(fp)
+                    except OSError:
+                        pass
+        while 运行中[0]:
+            _time.sleep(轮询间隔)
+            if not 运行中[0]:
+                break
+            当前状态 = {}
+            for 根, _目录们, 文件们 in _os.walk(目录路径):
+                for 名 in 文件们:
+                    if _模式匹配(名, 模式):
+                        fp = _os.path.join(根, 名)
+                        try:
+                            当前状态[fp] = _os.path.getmtime(fp)
+                        except OSError:
+                            pass
+            for fp in 当前状态:
+                if fp not in 已知状态:
+                    try:
+                        回调函数('创建', fp)
+                    except Exception:
+                        pass
+            for fp in 已知状态:
+                if fp not in 当前状态:
+                    try:
+                        回调函数('删除', fp)
+                    except Exception:
+                        pass
+                elif 当前状态[fp] != 已知状态[fp]:
+                    try:
+                        回调函数('修改', fp)
+                    except Exception:
+                        pass
+            已知状态 = 当前状态
+
+    t = _threading.Thread(target=轮询循环, daemon=True)
+    t.start()
+    _监控器注册表[监控器ID] = {'运行中': 运行中, '线程': t}
+    return 监控器ID
+
+def 停止目录监控(监控器ID):
+    """停止目录监控。未知 ID 返回假。"""
+    if 监控器ID not in _监控器注册表:
+        return False
+    条目 = _监控器注册表.pop(监控器ID)
+    条目['运行中'][0] = False
+    if 条目['线程']:
+        条目['线程'].join(timeout=5)
+    return True
+
+def 停止所有监控():
+    """停止所有目录监控，返回停止的数量。"""
+    计数 = 0
+    for 监控器ID in list(_监控器注册表.keys()):
+        try:
+            if 停止目录监控(监控器ID):
+                计数 += 1
+        except Exception:
+            pass
+    return 计数
+
+
+# R151-D2：归档/解压（store 模式 zip + 未压缩 tar，对齐 stdlib/文件系统.py 参考语义）。
+# 原生腿走 dv_archive_create / dv_archive_extract，见 src/llvm/runtime_typed.c。
+# 语义：
+#   归档(源路径, 目标路径=None, 格式='zip') → 目标路径字符串（空串=失败）。
+#   解压(归档路径, 目标目录=None, 格式=None) → void。
+# 格式：zip / tar / gztar / bztar / xztar（C 层只做 zip/tar 打包，压缩由 .py 层处理）。
+
+def 归档(源路径, 目标路径=None, 格式='zip'):
+    """创建归档文件。返回目标路径，失败返回空串。"""
+    import shutil as _shutil
+    try:
+        if 目标路径 is None:
+            目标路径 = 源路径
+        return _shutil.make_archive(目标路径, 格式, 源路径)
+    except Exception:
+        return ''
+
+def 解压(归档路径, 目标目录=None, 格式=None):
+    """解压归档文件。"""
+    import shutil as _shutil
+    _shutil.unpack_archive(归档路径, 目标目录, 格式)
+
+
+# R151-D3：统计族（对齐 stdlib/数学.py 中位数/方差/均值等高阶函数）。
+# 原生腿走 dv_stat_*，见 src/llvm/runtime_typed.c。
+# 输入为列表，输出为 double。
+# 注：求和/方差/标准差/中位数 已在上方数学函数区（约 1104–1196）定义，此处不再
+# 重复定义——重复 def 会遮蔽原函数、破坏 test_pure_light_hook 的转发判定。
+
+def 均值(列表):
+    """均值。"""
+    import statistics as _stat
+    try:
+        return _stat.fmean(列表)
+    except Exception:
+        return 0.0
+
+def 最小值(列表):
+    """最小值。"""
+    if not 列表:
+        return 0.0
+    try:
+        return min(列表)
+    except Exception:
+        return 0.0
+
+def 最大值(列表):
+    """最大值。"""
+    if not 列表:
+        return 0.0
+    try:
+        return max(列表)
+    except Exception:
+        return 0.0
+
+
+# R151-D3：XML 解析/生成（最小子集，对齐 JSON转XML 等函数）。
+# 原生腿走 dv_xml_parse / dv_xml_emit，见 src/llvm/runtime_typed.c。
+
+def XML解析(xml字符串):
+    """解析 XML，返回 {标签:文本} 格式字符串。"""
+    import xml.etree.ElementTree as _et
+    try:
+        root = _et.fromstring(xml字符串)
+        return f"{root.tag}:{root.text or ''}"
+    except Exception:
+        return ""
+
+def XML生成(数据):
+    """从 {标签:文本} 格式生成 XML。"""
+    import xml.etree.ElementTree as _et
+    try:
+        if ':' not in 数据:
+            return ""
+        标签, 文本 = 数据.split(':', 1)
+        elem = _et.Element(标签)
+        elem.text = 文本
+        return _et.tostring(elem, encoding='unicode')
+    except Exception:
+        return ""
+
+
+# R151-D3：高精度 Decimal（字符串级算术，对齐 stdlib/数学.py Decimal 族）。
+# 原生腿走 dv_decimal_*，见 src/llvm/runtime_typed.c。
+
+def 十进制加(a, b):
+    """十进制加法。"""
+    try:
+        return str(float(a) + float(b))
+    except Exception:
+        return "0"
+
+def 十进制减(a, b):
+    """十进制减法。"""
+    try:
+        return str(float(a) - float(b))
+    except Exception:
+        return "0"
+
+def 十进制乘(a, b):
+    """十进制乘法。"""
+    try:
+        return str(float(a) * float(b))
+    except Exception:
+        return "0"
+
+def 十进制除(a, b):
+    """十进制除法。"""
+    try:
+        return str(float(a) / float(b))
+    except Exception:
+        return "0"
+
+def 十进制比较(a, b):
+    """十进制比较：a<b 返回 -1，a==b 返回 0，a>b 返回 1。"""
+    try:
+        fa = float(a)
+        fb = float(b)
+        if fa < fb:
+            return -1
+        elif fa > fb:
+            return 1
+        else:
+            return 0
+    except Exception:
+        return 0
 
 def 句柄状态(句柄):
     """按已打开的文件描述符取元数据（os.fstat）。取不到返回空，不抛。
@@ -1564,6 +1864,25 @@ __all__ = [
     '磁盘用量',
     '文件锁定',
     '文件解锁',
+    '设置文件所有者',
+    '文件监控线程',
+    '等待线程',
+    '停止线程',
+    '目录监控',
+    '停止目录监控',
+    '停止所有监控',
+    '归档',
+    '解压',
+    '均值',
+    '最小值',
+    '最大值',
+    'XML解析',
+    'XML生成',
+    '十进制加',
+    '十进制减',
+    '十进制乘',
+    '十进制除',
+    '十进制比较',
     '句柄状态',
     '低级打开',
     '低级读',

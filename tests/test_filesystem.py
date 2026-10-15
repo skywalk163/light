@@ -529,6 +529,80 @@ class Test文件监控:
 
 
 # =============================================================================
+# 13. 归档/解压（R151-D2，store 模式 zip + 未压缩 tar）
+# =============================================================================
+
+class Test归档解压:
+
+    def test_归档_zip(self, 临时目录):
+        """测试 zip 归档"""
+        源文件 = os.path.join(临时目录, "test.txt")
+        with open(源文件, "w", encoding="utf-8") as f:
+            f.write("测试内容")
+        子目录 = os.path.join(临时目录, "subdir")
+        os.makedirs(子目录)
+        子文件 = os.path.join(子目录, "sub.txt")
+        with open(子文件, "w", encoding="utf-8") as f:
+            f.write("子文件内容")
+
+        归档路径 = fs.归档(临时目录, 格式="zip")
+        assert 归档路径
+        assert 归档路径.endswith(".zip")
+        assert os.path.isfile(归档路径)
+
+    def test_归档_tar(self, 临时目录):
+        """测试 tar 归档"""
+        源文件 = os.path.join(临时目录, "test.txt")
+        with open(源文件, "w", encoding="utf-8") as f:
+            f.write("测试内容")
+
+        归档路径 = fs.归档(临时目录, 格式="tar")
+        assert 归档路径
+        assert 归档路径.endswith(".tar")
+        assert os.path.isfile(归档路径)
+
+    def test_解压_zip(self, 临时目录):
+        """测试 zip 解压"""
+        源文件 = os.path.join(临时目录, "test.txt")
+        with open(源文件, "w", encoding="utf-8") as f:
+            f.write("测试内容")
+        归档路径 = fs.归档(临时目录, 格式="zip")
+        assert 归档路径
+
+        解压目录 = os.path.join(临时目录, "out")
+        fs.解压(归档路径, 解压目录)
+        assert os.path.isfile(os.path.join(解压目录, "test.txt"))
+        with open(os.path.join(解压目录, "test.txt"), "r", encoding="utf-8") as f:
+            assert f.read() == "测试内容"
+
+    def test_解压_tar(self, 临时目录):
+        """测试 tar 解压"""
+        源文件 = os.path.join(临时目录, "test.txt")
+        with open(源文件, "w", encoding="utf-8") as f:
+            f.write("测试内容")
+        归档路径 = fs.归档(临时目录, 格式="tar")
+        assert 归档路径
+
+        解压目录 = os.path.join(临时目录, "out2")
+        fs.解压(归档路径, 解压目录)
+        assert os.path.isfile(os.path.join(解压目录, "test.txt"))
+        with open(os.path.join(解压目录, "test.txt"), "r", encoding="utf-8") as f:
+            assert f.read() == "测试内容"
+
+    def test_支持的归档格式(self):
+        """测试支持的归档格式列表"""
+        格式列表 = fs.支持的归档格式()
+        assert "zip" in 格式列表
+        assert "tar" in 格式列表
+
+    def test_支持的解压格式(self):
+        """测试支持的解压格式列表"""
+        格式列表 = fs.支持的解压格式()
+        assert "zip" in 格式列表
+        assert "tar" in 格式列表
+
+
+# =============================================================================
 # 12. 综合测试
 # =============================================================================
 

@@ -175,6 +175,9 @@ class PythonCodeGenerator:
         self._function_locals_stack: list = []
         self._pending_nonlocal: set = set()
         self._binding_params: bool = False
+        # 当前函数（段落/方法/匿名）的形参名集合。参数遮蔽内置映射时必须压过
+        # _user_defined_functions——段落名本身就在该集合里（见 _shadows_builtin）。
+        self._current_params: set = set()
         
         # 是否在函数/段落内部（控制 return 生成）
         self._in_function: bool = False
@@ -552,6 +555,34 @@ class PythonCodeGenerator:
             '磁盘用量': '_light_builtin.磁盘用量',
             '文件锁定': '_light_builtin.文件锁定',
             '文件解锁': '_light_builtin.文件解锁',
+            '设置文件所有者': '_light_builtin.设置文件所有者',
+            # R151-D1：线程原语 + 目录监控（对齐 stdlib/文件系统.py 参考语义）
+            '文件监控线程': '_light_builtin.文件监控线程',
+            '等待线程': '_light_builtin.等待线程',
+            '停止线程': '_light_builtin.停止线程',
+            '目录监控': '_light_builtin.目录监控',
+            '停止目录监控': '_light_builtin.停止目录监控',
+            '停止所有监控': '_light_builtin.停止所有监控',
+            # R151-D2：归档/解压（store 模式 zip + 未压缩 tar，对齐 stdlib/文件系统.py）
+            '归档': '_light_builtin.归档',
+            '解压': '_light_builtin.解压',
+            # R151-D3：统计族（对齐 stdlib/数学.py 中位数/方差/均值等高阶函数）
+            '求和': '_light_builtin.求和',
+            '均值': '_light_builtin.均值',
+            '方差': '_light_builtin.方差',
+            '标准差': '_light_builtin.标准差',
+            '最小值': '_light_builtin.最小值',
+            '最大值': '_light_builtin.最大值',
+            '中位数': '_light_builtin.中位数',
+            # R151-D3：XML 解析/生成（最小子集，对齐 JSON转XML 等函数）
+            'XML解析': '_light_builtin.XML解析',
+            'XML生成': '_light_builtin.XML生成',
+            # R151-D3：高精度 Decimal（字符串级算术，对齐 stdlib/数学.py Decimal 族）
+            '十进制加': '_light_builtin.十进制加',
+            '十进制减': '_light_builtin.十进制减',
+            '十进制乘': '_light_builtin.十进制乘',
+            '十进制除': '_light_builtin.十进制除',
+            '十进制比较': '_light_builtin.十进制比较',
             '句柄状态': '_light_builtin.句柄状态',
             '低级打开': '_light_builtin.低级打开',
             '低级读': '_light_builtin.低级读',
@@ -1071,10 +1102,16 @@ class PythonCodeGenerator:
         """该名字是否已被局部变量绑定、从而遮蔽了内置函数映射。
 
         用户显式定义的函数（_user_defined_functions）走原有护栏，不在此处判定。
+
+        ⚠️ 判定旁支（R151-A 发现，尚未完全拉直）：
+        指数/最小值/最大值 同样「参数名 ∈ 段落名 ∩ builtin_map」却不中招，
+        而 标准差/排序/求和 中招。差异应出在同一判定的旁支；
+        本补丁对两类都安全（产物零差异已证）。
         """
         return (isinstance(name, str)
                 and name in self._local_variables
-                and name not in self._user_defined_functions)
+                and (name not in self._user_defined_functions
+                     or name in self._current_params))
 
     # L-045：输出类内置目标（写 族）。parser 对 写/印/显示 的实参解析只吃首个
     # 操作数，`写 "a" + 标签` 会被拆成 BinaryOp(写("a") + 标签)；`打印` 已被 parser
@@ -2621,6 +2658,8 @@ class PythonCodeGenerator:
         saved_block_scopes = self._enter_function_block_boundary()
         saved_pending = self._pending_nonlocal
         self._pending_nonlocal = set()
+        saved_params = self._current_params
+        self._current_params = set(raw_param_names)
         self._binding_params = True
         try:
             self._bind_local(*raw_param_names)
@@ -2674,6 +2713,7 @@ class PythonCodeGenerator:
         self._exit_function_block_boundary(saved_block_scopes)
         self._in_function = old_in_function
         self._in_async_function = old_in_async_function
+        self._current_params = saved_params
         self._pop_local_scope(saved_locals)
         
         self._add_line("")
@@ -3875,6 +3915,8 @@ class PythonCodeGenerator:
         saved_block_scopes = self._enter_function_block_boundary()
         saved_pending = self._pending_nonlocal
         self._pending_nonlocal = set()
+        saved_params = self._current_params
+        self._current_params = set(self._current_method_params)
         self._binding_params = True
         try:
             self._bind_local(*self._current_method_params)
@@ -3958,6 +4000,7 @@ class PythonCodeGenerator:
         self._in_function = old_in_function
         self._in_async_function = old_in_async_function
         self._in_class_method = old_in_class
+        self._current_params = saved_params
         self._current_method_params = set()
         # 离开类方法作用域：方法内的局部绑定不泄漏到类体/模块级
         self._pop_local_scope(saved_locals)
@@ -4623,6 +4666,8 @@ class PythonCodeGenerator:
                 saved_block_scopes = self._enter_function_block_boundary()
                 saved_pending = self._pending_nonlocal
                 self._pending_nonlocal = set()
+                saved_params = self._current_params
+                self._current_params = {str(p).lstrip('*') for p in expr.params}
                 self._binding_params = True
                 try:
                     self._bind_local(*(str(p).lstrip('*') for p in expr.params))
@@ -4653,6 +4698,7 @@ class PythonCodeGenerator:
                 self._function_locals_stack.pop()
                 self._exit_function_block_boundary(saved_block_scopes)
                 self._in_function = _saved_in_func
+                self._current_params = saved_params
                 self._pop_local_scope(saved_locals)
                 return func_name
             # 单表达式体 -> lambda

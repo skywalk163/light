@@ -101,11 +101,16 @@ def test_取链接库参数就是生产的判据():
 
 
 def test_两个平台的库清单都不为空():
-    """反跑：任何平台都得给出非空清单，别退化成「什么都不加」——那正是缺 -lm 那批红。"""
+    """反跑：任何平台都得给出非空清单，别退化成「什么都不加」——那正是缺 -lm 那批红。
+
+    注意：清单里允许混有非 `-l` 的链接器标志（如 POSIX 线程原语所需的
+    `-pthread`）。`-pthread` 是链接器/编译器标志，不是 `-l` 库，故只要求
+    「至少有一个真正的 -l 库」，不能用 all(startswith('-l'))。
+    """
     from llvm.compiler import get_link_libs
     库 = get_link_libs()
     assert 库, '当前平台拿到空的链接库清单'
-    assert all(x.startswith('-l') for x in 库), 库
+    assert any(x.startswith('-l') for x in 库), 库
     if sys.platform == 'win32':
         assert '-lws2_32' in 库, 库
     else:

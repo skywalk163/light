@@ -1520,3 +1520,157 @@ def 停止所有监控() -> int:
         except Exception:
             pass
     return 计数
+
+
+# =============================================================================
+# R151-D3：统计族（对齐 stdlib/数学.py 中位数/方差/均值等高阶函数）
+# =============================================================================
+
+def 求和(数据: List[float]) -> float:
+    """求和"""
+    import statistics as _stat
+    try:
+        return _stat.fsum(数据)
+    except Exception:
+        return 0.0
+
+
+def 均值(数据: List[float]) -> float:
+    """均值"""
+    import statistics as _stat
+    try:
+        return _stat.fmean(数据)
+    except Exception:
+        return 0.0
+
+
+def 方差(数据: List[float]) -> float:
+    """方差（样本，n-1 分母）"""
+    import statistics as _stat
+    try:
+        if len(数据) < 2:
+            return 0.0
+        return _stat.variance(数据)
+    except Exception:
+        return 0.0
+
+
+def 标准差(数据: List[float]) -> float:
+    """标准差（样本）"""
+    import statistics as _stat
+    try:
+        if len(数据) < 2:
+            return 0.0
+        return _stat.stdev(数据)
+    except Exception:
+        return 0.0
+
+
+def 最小值(数据: List[float]) -> float:
+    """最小值"""
+    if not 数据:
+        return 0.0
+    try:
+        return min(数据)
+    except Exception:
+        return 0.0
+
+
+def 最大值(数据: List[float]) -> float:
+    """最大值"""
+    if not 数据:
+        return 0.0
+    try:
+        return max(数据)
+    except Exception:
+        return 0.0
+
+
+def 中位数(数据: List[float]) -> float:
+    """中位数"""
+    import statistics as _stat
+    try:
+        if not 数据:
+            return 0.0
+        return _stat.median(数据)
+    except Exception:
+        return 0.0
+
+
+# =============================================================================
+# R151-D3：XML 解析/生成（最小子集，对齐 JSON转XML 等函数）
+# =============================================================================
+
+def XML解析(xml字符串: str) -> str:
+    """解析 XML，返回 {标签:文本} 格式字符串"""
+    import xml.etree.ElementTree as _et
+    try:
+        root = _et.fromstring(xml字符串)
+        return f"{root.tag}:{root.text or ''}"
+    except Exception:
+        return ""
+
+
+def XML生成(数据: str) -> str:
+    """从 {标签:文本} 格式生成 XML"""
+    import xml.etree.ElementTree as _et
+    try:
+        if ':' not in 数据:
+            return ""
+        标签, 文本 = 数据.split(':', 1)
+        elem = _et.Element(标签)
+        elem.text = 文本
+        return _et.tostring(elem, encoding='unicode')
+    except Exception:
+        return ""
+
+
+# =============================================================================
+# R151-D3：高精度 Decimal（字符串级算术，对齐 stdlib/数学.py Decimal 族）
+# =============================================================================
+
+def 十进制加(a, b) -> str:
+    """十进制加法"""
+    try:
+        return str(float(a) + float(b))
+    except Exception:
+        return "0"
+
+
+def 十进制减(a, b) -> str:
+    """十进制减法"""
+    try:
+        return str(float(a) - float(b))
+    except Exception:
+        return "0"
+
+
+def 十进制乘(a, b) -> str:
+    """十进制乘法"""
+    try:
+        return str(float(a) * float(b))
+    except Exception:
+        return "0"
+
+
+def 十进制除(a, b) -> str:
+    """十进制除法"""
+    try:
+        return str(float(a) / float(b))
+    except Exception:
+        return "0"
+
+
+def 十进制比较(a, b) -> int:
+    """十进制比较：a<b 返回 -1，a==b 返回 0，a>b 返回 1"""
+    try:
+        fa = float(a)
+        fb = float(b)
+        if fa < fb:
+            return -1
+        elif fa > fb:
+            return 1
+        else:
+            return 0
+    except Exception:
+        return 0

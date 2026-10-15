@@ -786,6 +786,41 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             # R150-A：文件系统建议锁（对齐 stdlib/文件系统.py 文件锁定/文件解锁）
             f'declare void @dv_fs_lock(ptr, ptr, i64)',
             f'declare void @dv_fs_unlock(ptr, ptr)',
+            # R151-C：设置文件所有者 dv_fs_chown（对齐 stdlib/文件系统.py:708）
+            f'declare void @dv_fs_chown(ptr, ptr, i64, i64)',
+            # R151-D1：线程原语 + 目录监控（对齐 stdlib/文件系统.py 参考语义）。
+            # 全部 void 返回 + 首参 LightValue* result，与 runtime_typed.c 定义一致；
+            # 调用统一走 _call_dv_func（它会把 LightValue 实参存进槽位再传 ptr）。
+            f'declare void @dv_thread_spawn(ptr, ptr, ptr)',
+            f'declare void @dv_thread_join(ptr, i64)',
+            f'declare void @dv_thread_stop(ptr, i64)',
+            f'declare void @dv_fs_watch_start(ptr, ptr, ptr, ptr, double)',
+            f'declare void @dv_fs_watch_stop(ptr, ptr)',
+            f'declare void @dv_fs_watch_stop_all(ptr)',
+            # R151-D2：归档/解压（store 模式 zip + 未压缩 tar，对齐 stdlib/文件系统.py）
+            f'declare void @dv_archive_create(ptr, ptr, ptr, ptr)',
+            f'declare void @dv_archive_extract(ptr, ptr, ptr, ptr)',
+            # R151-D3：统计族（均值/方差/标准差/中位数/求和/最小/最大，对齐 stdlib/数学.py）
+            # C 真身统一 void f(LightValue* result, LightValue* list)（runtime_typed.c:8681-8820），
+            # 发射走 _call_dv_func（首参 result 槽位 + 列表 ptr），声明必须与之一致。
+            f'declare void @dv_stat_sum(ptr, ptr)',
+            f'declare void @dv_stat_mean(ptr, ptr)',
+            f'declare void @dv_stat_var(ptr, ptr)',
+            f'declare void @dv_stat_std(ptr, ptr)',
+            f'declare void @dv_stat_min(ptr, ptr)',
+            f'declare void @dv_stat_max(ptr, ptr)',
+            f'declare void @dv_stat_median(ptr, ptr)',
+            # R151-D3：XML 解析/生成（最小子集，对齐 JSON转XML 等函数）
+            # C 真身 void f(LightValue* result, LightValue* x)（runtime_typed.c:8843/8905）。
+            f'declare void @dv_xml_parse(ptr, ptr)',
+            f'declare void @dv_xml_emit(ptr, ptr)',
+            # R151-D3：高精度 Decimal（字符串级算术，对齐 stdlib/数学.py Decimal 族）
+            # C 真身 void f(LightValue* result, LightValue* a, LightValue* b)（runtime_typed.c:8969-9030）。
+            f'declare void @dv_decimal_add(ptr, ptr, ptr)',
+            f'declare void @dv_decimal_sub(ptr, ptr, ptr)',
+            f'declare void @dv_decimal_mul(ptr, ptr, ptr)',
+            f'declare void @dv_decimal_div(ptr, ptr, ptr)',
+            f'declare void @dv_decimal_compare(ptr, ptr, ptr)',
             # R127-C · S1 三内建补齐：字符判型（ASCII 整串语义，见 runtime 注释）
             f'declare i32 @dv_str_isalpha(ptr)',
             f'declare i32 @dv_str_isspace(ptr)',
@@ -1033,6 +1068,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         """创建字符串 LightValue 并返回 SSA 值"""
         slot = self._new_dv_slot()
         self.emit(f'call void @dv_str(ptr {slot}, ptr {ptr_val})')
+        return self._load_dv(slot)
+
+    def _create_null_dv(self) -> str:
+        """创建 null LightValue 并返回 SSA 值"""
+        slot = self._new_dv_slot()
+        self.emit(f'call void @dv_null(ptr {slot})')
         return self._load_dv(slot)
 
     def _create_bool_dv(self, i1_val: str) -> str:
@@ -2732,6 +2773,182 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if args:
                 return self._call_dv_func('dv_fs_unlock', self._deref_value(args[0])), 'dv'
             return self._create_bool_dv('0'), 'dv'
+
+        # R151-C：设置文件所有者(路径, uid, gid)。对齐 stdlib/文件系统.py:708。
+        # Windows 抛 NotImplementedError，POSIX 走 chown(2)；uid/gid 缺省 -1=不修改该 ID。
+        if name in ('设置文件所有者', 'chown'):
+            if len(args) >= 3:
+                uid_v = self._deref_value(args[1])
+                gid_v = self._deref_value(args[2])
+                uid_i64 = self.new_register()
+                gid_i64 = self.new_register()
+                self.emit(f'{uid_i64} = extractvalue {LIGHTVALUE_STRUCT} {uid_v}, 1')
+                self.emit(f'{gid_i64} = extractvalue {LIGHTVALUE_STRUCT} {gid_v}, 1')
+                return self._call_dv_func('dv_fs_chown', self._deref_value(args[0]),
+                                          f'i64 {uid_i64}', f'i64 {gid_i64}'), 'dv'
+            if len(args) == 2:
+                uid_v = self._deref_value(args[1])
+                uid_i64 = self.new_register()
+                self.emit(f'{uid_i64} = extractvalue {LIGHTVALUE_STRUCT} {uid_v}, 1')
+                return self._call_dv_func('dv_fs_chown', self._deref_value(args[0]),
+                                          f'i64 {uid_i64}', 'i64 -1'), 'dv'
+            return self._create_bool_dv('0'), 'dv'
+
+        # R151-D1：线程原语 + 目录监控（对齐 stdlib/文件系统.py 参考语义）。
+        # 线程原语：
+        #   文件监控线程(段函数值, 实参列表) → 句柄(int)；失败 -1。
+        #   等待线程(句柄) → 段返回值（监控线程返回空）。
+        #   停止线程(句柄) → bool（未知/已停返回假，成功置标志返回真）。
+        # 目录监控：
+        #   目录监控(目录路径, 回调函数, 模式='*', 轮询间隔=1.0) → 监控器 ID 字符串。
+        #   停止目录监控(监控器ID) → bool。
+        #   停止所有监控() → int（被停止的监控器数量）。
+        if name in ('文件监控线程', 'thread_spawn', 'spawn_thread'):
+            if len(args) >= 2:
+                fn_v = self._deref_value(args[0])
+                args_v = self._deref_value(args[1])
+                # 统一走 _call_dv_func：它把 LightValue 实参存进槽位再传 ptr，
+                # 返回 result 槽里的整数句柄（idx 或 -1）。手写 call ptr @f(ptr %struct)
+                # 会把结构体寄存器当指针用，clang -x ir 直接判类型不符（R151-D1 实测）。
+                return self._call_dv_func('dv_thread_spawn', fn_v, args_v), 'dv'
+            return self._create_int_dv('-1'), 'dv'
+
+        if name in ('等待线程', 'thread_join', 'join_thread'):
+            if args:
+                h_v = self._deref_value(args[0])
+                h_i64 = self._extract_i64(h_v)
+                return self._call_dv_func('dv_thread_join', f'i64 {h_i64}'), 'dv'
+            return self._create_null_dv(), 'dv'
+
+        if name in ('停止线程', 'thread_stop', 'stop_thread'):
+            if args:
+                h_v = self._deref_value(args[0])
+                h_i64 = self._extract_i64(h_v)
+                return self._call_dv_func('dv_thread_stop', f'i64 {h_i64}'), 'dv'
+            return self._create_bool_dv('0'), 'dv'
+
+        if name in ('目录监控', 'watch_dir', 'fs_watch'):
+            if len(args) >= 2:
+                dir_v = self._deref_value(args[0])
+                cb_v = self._deref_value(args[1])
+                pat_v = self._deref_value(args[2]) if len(args) > 2 and args[2] else 'ptr null'
+                if len(args) > 3 and args[3]:
+                    int_v = self._deref_value(args[3])
+                    int_reg = self._extract_f64(int_v)
+                    return self._call_dv_func('dv_fs_watch_start', dir_v, cb_v, pat_v, f'double {int_reg}'), 'dv'
+                return self._call_dv_func('dv_fs_watch_start', dir_v, cb_v, pat_v, 'double 1.0'), 'dv'
+            return self._create_str_dv(self.gen_string_constant('')), 'dv'
+
+        if name in ('停止目录监控', 'unwatch_dir', 'fs_unwatch'):
+            if args:
+                id_v = self._deref_value(args[0])
+                return self._call_dv_func('dv_fs_watch_stop', id_v), 'dv'
+            return self._create_bool_dv('0'), 'dv'
+
+        if name in ('停止所有监控', 'stop_all_watches', 'fs_unwatch_all'):
+            return self._call_dv_func('dv_fs_watch_stop_all'), 'dv'
+
+        # R151-D2：归档/解压（store 模式 zip + 未压缩 tar，对齐 stdlib/文件系统.py 参考语义）。
+        # 归档(源路径, 目标路径=None, 格式='zip') → 目标路径字符串（空串=失败）。
+        # 解压(归档路径, 目标目录=None, 格式=None) → void。
+        if name in ('归档', 'archive', 'make_archive'):
+            src_v = self._deref_value(args[0]) if len(args) > 0 and args[0] else 'ptr null'
+            dst_v = self._deref_value(args[1]) if len(args) > 1 and args[1] else 'ptr null'
+            fmt_v = self._deref_value(args[2]) if len(args) > 2 and args[2] else 'ptr null'
+            return self._call_dv_func('dv_archive_create', src_v, dst_v, fmt_v), 'dv'
+
+        if name in ('解压', 'extract', 'unpack_archive'):
+            arc_v = self._deref_value(args[0]) if len(args) > 0 and args[0] else 'ptr null'
+            dst_v = self._deref_value(args[1]) if len(args) > 1 and args[1] else 'ptr null'
+            fmt_v = self._deref_value(args[2]) if len(args) > 2 and args[2] else 'ptr null'
+            return self._call_dv_func('dv_archive_extract', arc_v, dst_v, fmt_v), 'dv'
+
+        # R151-D3：统计族（对齐 stdlib/数学.py 中位数/方差/均值等高阶函数）。
+        # 输入为列表，输出为 double。
+        if name in ('求和', 'sum', '统计求和'):
+            if args:
+                return self._call_dv_func('dv_stat_sum', self._deref_value(args[0])), 'dv'
+            return self._create_float_dv(self.gen_string_constant('0.0')), 'dv'
+
+        if name in ('均值', 'mean', '统计均值'):
+            if args:
+                return self._call_dv_func('dv_stat_mean', self._deref_value(args[0])), 'dv'
+            return self._create_float_dv(self.gen_string_constant('0.0')), 'dv'
+
+        if name in ('方差', 'var', '统计方差'):
+            if args:
+                return self._call_dv_func('dv_stat_var', self._deref_value(args[0])), 'dv'
+            return self._create_float_dv(self.gen_string_constant('0.0')), 'dv'
+
+        if name in ('标准差', 'std', '统计标准差'):
+            if args:
+                return self._call_dv_func('dv_stat_std', self._deref_value(args[0])), 'dv'
+            return self._create_float_dv(self.gen_string_constant('0.0')), 'dv'
+
+        if name in ('最小值', 'min', '统计最小'):
+            if args:
+                return self._call_dv_func('dv_stat_min', self._deref_value(args[0])), 'dv'
+            return self._create_float_dv(self.gen_string_constant('0.0')), 'dv'
+
+        if name in ('最大值', 'max', '统计最大'):
+            if args:
+                return self._call_dv_func('dv_stat_max', self._deref_value(args[0])), 'dv'
+            return self._create_float_dv(self.gen_string_constant('0.0')), 'dv'
+
+        if name in ('中位数', 'median', '统计中位数'):
+            if args:
+                return self._call_dv_func('dv_stat_median', self._deref_value(args[0])), 'dv'
+            return self._create_float_dv(self.gen_string_constant('0.0')), 'dv'
+
+        # R151-D3：XML 解析/生成（最小子集，对齐 JSON转XML 等函数）。
+        if name in ('XML解析', 'xml_parse', 'parse_xml'):
+            if args:
+                return self._call_dv_func('dv_xml_parse', self._deref_value(args[0])), 'dv'
+            return self._create_str_dv(self.gen_string_constant('')), 'dv'
+
+        if name in ('XML生成', 'xml_emit', 'emit_xml'):
+            if args:
+                return self._call_dv_func('dv_xml_emit', self._deref_value(args[0])), 'dv'
+            return self._create_str_dv(self.gen_string_constant('')), 'dv'
+
+        # R151-D3：高精度 Decimal（字符串级算术，对齐 stdlib/数学.py Decimal 族）。
+        if name in ('十进制加', 'decimal_add', '十进制加法'):
+            if len(args) >= 2:
+                return self._call_dv_func('dv_decimal_add',
+                                          self._deref_value(args[0]),
+                                          self._deref_value(args[1])), 'dv'
+            return self._create_str_dv(self.gen_string_constant('0')), 'dv'
+
+        if name in ('十进制减', 'decimal_sub', '十进制减法'):
+            if len(args) >= 2:
+                return self._call_dv_func('dv_decimal_sub',
+                                          self._deref_value(args[0]),
+                                          self._deref_value(args[1])), 'dv'
+            return self._create_str_dv(self.gen_string_constant('0')), 'dv'
+
+        if name in ('十进制乘', 'decimal_mul', '十进制乘法'):
+            if len(args) >= 2:
+                return self._call_dv_func('dv_decimal_mul',
+                                          self._deref_value(args[0]),
+                                          self._deref_value(args[1])), 'dv'
+            return self._create_str_dv(self.gen_string_constant('0')), 'dv'
+
+        if name in ('十进制除', 'decimal_div', '十进制除法'):
+            if len(args) >= 2:
+                return self._call_dv_func('dv_decimal_div',
+                                          self._deref_value(args[0]),
+                                          self._deref_value(args[1])), 'dv'
+            return self._create_str_dv(self.gen_string_constant('0')), 'dv'
+
+        if name in ('十进制比较', 'decimal_compare', '十进制比较'):
+            if len(args) >= 2:
+                # dv_decimal_compare 是 void f(LightValue* result, a, b)（runtime_typed.c:9017），
+                # 结果经 dv_int 写进 result 槽位；必须走 _call_dv_func 把实参存槽传 ptr，
+                # 手写 call 传 struct 寄存器会被 clang -x ir 拒（%21 类型不符）。
+                return self._call_dv_func('dv_decimal_compare',
+                                          self._deref_value(args[0]),
+                                          self._deref_value(args[1])), 'dv'
+            return self._create_int_dv('0'), 'dv'
 
         # 真实路径：os.path.realpath（解析符号链接 + 规范化；POSIX realpath，
         # 失败回退 cwd+normpath；Windows GetFullPathNameA，不解析 symlink 为已知边界）。

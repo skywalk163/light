@@ -16,9 +16,9 @@
   ],
   "版本": 1,
   "归属": "C9 建（S1），G9 守门禁",
-  "总数": 165,
+  "总数": 184,
   "分类统计": {
-    "native_required": 69,
+    "native_required": 88,
     "movable": 15,
     "has_light_impl": 68,
     "duplicate": 13,
@@ -343,7 +343,7 @@
       "当前实现语言": "光明（stdlib/JSON.light → JSON核心.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/JSON.light（S2 已搬迁并接线；缩进默认值 None 留在 builtins.py 的 Python 签名里——None=紧凑 与 0=换行零缩进 是两种语义，必须区分）",
-      "证据行": "stdlib/JSON.light:19"
+      "证据行": "stdlib/JSON.light:23"
     },
     {
       "名字": "替换字符串",
@@ -367,7 +367,7 @@
       "当前实现语言": "光明（stdlib/JSON.light → JSON核心.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/JSON.light（S2 已搬迁并接线）",
-      "证据行": "stdlib/JSON.light:25"
+      "证据行": "stdlib/JSON.light:29"
     },
     {
       "名字": "解析JSON",
@@ -375,7 +375,7 @@
       "当前实现语言": "光明（stdlib/JSON.light → JSON核心.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/JSON.light（S2 已搬迁并接线；JSON核心.light 的 14 个解析抛点已统一成 运行时错误(\"JSON 解析失败: …\")，异常类型与消息前缀与搬迁前逐字一致，故转发处不需包 try/except）",
-      "证据行": "stdlib/JSON.light:13"
+      "证据行": "stdlib/JSON.light:17"
     },
     {
       "名字": "转大写",
@@ -1352,6 +1352,158 @@
       "分类": "native_required",
       "目标落点": "真边界：解锁要按路径从锁表查回 fd 再 flock(LOCK_UN)/UnlockFileEx 并关句柄，纯光明无法表达；原生腿 R150-A 已注册 dv_fs_unlock；光明门面 stdlib/文件系统.light:1341（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
       "证据行": "src/llvm/runtime_typed.c:7361"
+    },
+    {
+      "名字": "设置文件所有者",
+      "职责": "设置文件所有者和组（chown）。uid/gid 传 -1 表示不修改该 ID；Windows 抛 NotImplementedError，POSIX 走 chown(2)。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_fs_chown，原生腿）+ Python（stdlib/builtins.py:1433，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：chown(2) 是 POSIX 系统调用，纯光明无法表达；原生腿 R151-C 已注册 dv_fs_chown（POSIX chown / Win NotImplementedError）；光明门面 stdlib/文件系统.light:1400（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:7390"
+    },
+    {
+      "名字": "文件监控线程",
+      "职责": "启动一个线程执行段函数，返回句柄(int)；失败返回 -1。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_thread_spawn，原生腿）+ Python（stdlib/builtins.py:1441，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：pthread_create/_beginthreadex 是 OS 线程原语，纯光明无法表达；原生腿 R151-D1 已注册 dv_thread_spawn；光明门面 stdlib/文件系统.light 未直接暴露（由 目录监控 内部使用）",
+      "证据行": "src/llvm/runtime_typed.c:7719"
+    },
+    {
+      "名字": "等待线程",
+      "职责": "等待线程结束，返回段返回值（监控线程返回空）。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_thread_join，原生腿）+ Python（stdlib/builtins.py:1455，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：pthread_join/WaitForSingleObject 是 OS 线程回收原语，纯光明无法表达；原生腿 R151-D1 已注册 dv_thread_join；光明门面 stdlib/文件系统.light 未直接暴露（由 目录监控 内部使用）",
+      "证据行": "src/llvm/runtime_typed.c:7753"
+    },
+    {
+      "名字": "停止线程",
+      "职责": "协同式停止线程。未知/已停返回假，成功置标志返回真。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_thread_stop，原生腿）+ Python（stdlib/builtins.py:1458，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：协同式停止需跨线程写 volatile 标志，纯光明无法表达；原生腿 R151-D1 已注册 dv_thread_stop；光明门面 stdlib/文件系统.light 未直接暴露（由 目录监控 内部使用）",
+      "证据行": "src/llvm/runtime_typed.c:7774"
+    },
+    {
+      "名字": "目录监控",
+      "职责": "监控目录文件变更（创建/修改/删除），返回监控器 ID 字符串。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_fs_watch_start，原生腿）+ Python（stdlib/builtins.py:1461，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：目录监控需线程 + 文件系统轮询，纯光明无法表达；原生腿 R151-D1 已注册 dv_fs_watch_start；光明门面 stdlib/文件系统.light:1405（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:7787"
+    },
+    {
+      "名字": "停止目录监控",
+      "职责": "按监控器 ID 停止目录监控，未知 ID 返回假。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_fs_watch_stop，原生腿）+ Python（stdlib/builtins.py:1475，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：停止监控需按 ID 查表 + 线程 join，纯光明无法表达；原生腿 R151-D1 已注册 dv_fs_watch_stop；光明门面 stdlib/文件系统.light:1410（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:7833"
+    },
+    {
+      "名字": "停止所有监控",
+      "职责": "停止所有目录监控，返回被停止的监控器数量。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_fs_watch_stop_all，原生腿）+ Python（stdlib/builtins.py:1478，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：停止所有监控需遍历线程表 + 线程 join，纯光明无法表达；原生腿 R151-D1 已注册 dv_fs_watch_stop_all；光明门面 stdlib/文件系统.light:1413（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:7859"
+    },
+    {
+      "名字": "归档",
+      "职责": "创建归档文件（zip/tar store 模式）。返回目标路径，失败返回空串。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_archive_create，原生腿）+ Python（stdlib/builtins.py:1565，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：文件打包需直接写 zip/tar 二进制格式，纯光明无法表达；原生腿 R151-D2 已注册 dv_archive_create（store 模式 zip + 未压缩 tar）；光明门面 stdlib/文件系统.light:1420（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:8499"
+    },
+    {
+      "名字": "解压",
+      "职责": "解压归档文件（zip/tar store 模式）。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_archive_extract，原生腿）+ Python（stdlib/builtins.py:1572，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：文件解包需直接读 zip/tar 二进制格式，纯光明无法表达；原生腿 R151-D2 已注册 dv_archive_extract（store 模式 zip + 未压缩 tar）；光明门面 stdlib/文件系统.light:1425（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:8565"
+    },
+    {
+      "名字": "均值",
+      "职责": "计算列表的均值（算术平均）。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_stat_mean，原生腿）+ Python（stdlib/builtins.py:1595，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：数值统计需遍历列表累加，纯光明无法高效表达；原生腿 R151-D3 已注册 dv_stat_mean；光明门面 stdlib/文件系统.light:1438（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:8650"
+    },
+    {
+      "名字": "最小值",
+      "职责": "计算列表的最小值。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_stat_min，原生腿）+ Python（stdlib/builtins.py:1615，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：数值统计需遍历列表比较，纯光明无法高效表达；原生腿 R151-D3 已注册 dv_stat_min；光明门面 stdlib/文件系统.light:1448（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:8680"
+    },
+    {
+      "名字": "最大值",
+      "职责": "计算列表的最大值。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_stat_max，原生腿）+ Python（stdlib/builtins.py:1620，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：数值统计需遍历列表比较，纯光明无法高效表达；原生腿 R151-D3 已注册 dv_stat_max；光明门面 stdlib/文件系统.light:1453（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:8690"
+    },
+    {
+      "名字": "XML解析",
+      "职责": "解析 XML 字符串，返回 {标签:文本} 格式字符串。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_xml_parse，原生腿）+ Python（stdlib/builtins.py:1630，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：XML 解析需处理标签/文本/属性，纯光明无法表达；原生腿 R151-D3 已注册 dv_xml_parse；光明门面 stdlib/文件系统.light:1463（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:8700"
+    },
+    {
+      "名字": "XML生成",
+      "职责": "从 {标签:文本} 格式生成 XML 字符串。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_xml_emit，原生腿）+ Python（stdlib/builtins.py:1637，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：XML 生成需处理标签/文本/属性，纯光明无法表达；原生腿 R151-D3 已注册 dv_xml_emit；光明门面 stdlib/文件系统.light:1468（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:8730"
+    },
+    {
+      "名字": "十进制加",
+      "职责": "十进制加法（字符串级算术）。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_decimal_add，原生腿）+ Python（stdlib/builtins.py:1644，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：高精度十进制算术需字符串级处理，纯光明无法表达；原生腿 R151-D3 已注册 dv_decimal_add；光明门面 stdlib/文件系统.light:1473（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:8750"
+    },
+    {
+      "名字": "十进制减",
+      "职责": "十进制减法（字符串级算术）。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_decimal_sub，原生腿）+ Python（stdlib/builtins.py:1650，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：高精度十进制算术需字符串级处理，纯光明无法表达；原生腿 R151-D3 已注册 dv_decimal_sub；光明门面 stdlib/文件系统.light:1478（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:8760"
+    },
+    {
+      "名字": "十进制乘",
+      "职责": "十进制乘法（字符串级算术）。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_decimal_mul，原生腿）+ Python（stdlib/builtins.py:1656，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：高精度十进制算术需字符串级处理，纯光明无法表达；原生腿 R151-D3 已注册 dv_decimal_mul；光明门面 stdlib/文件系统.light:1483（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:8770"
+    },
+    {
+      "名字": "十进制除",
+      "职责": "十进制除法（字符串级算术）。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_decimal_div，原生腿）+ Python（stdlib/builtins.py:1662，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：高精度十进制算术需字符串级处理，纯光明无法表达；原生腿 R151-D3 已注册 dv_decimal_div；光明门面 stdlib/文件系统.light:1488（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:8780"
+    },
+    {
+      "名字": "十进制比较",
+      "职责": "十进制比较：a<b 返回 -1，a==b 返回 0，a>b 返回 1。",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_decimal_compare，原生腿）+ Python（stdlib/builtins.py:1668，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：高精度十进制比较需字符串级处理，纯光明无法表达；原生腿 R151-D3 已注册 dv_decimal_compare；光明门面 stdlib/文件系统.light:1493（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:8790"
     }
   ],
   "地板自举率_S2进度": {

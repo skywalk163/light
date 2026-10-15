@@ -107,7 +107,11 @@ class Test路径与状态:
         f.write_bytes(b"hello")
         路径 = str(f)
         状态 = _b.文件状态(路径)
-        assert isinstance(状态, os.stat_result)  # 是真实 stat_result 才有 st_nlink/st_ino 可查
+        # R151-D2 起 文件状态 返回 _StatWithNames（包装 os.stat_result，额外带
+        # st_user/st_group 名字字段，与原生腿 dv_file_stat 对齐）。它不再是
+        # os.stat_result 的直接实例，但透明委托全部 stat 属性。护栏只需确认拿到的是
+        # 「真 stat」（有 st_nlink/st_ino/st_size 可查），故按属性判定而非按类型。
+        assert hasattr(状态, 'st_size') and hasattr(状态, 'st_nlink') and hasattr(状态, 'st_ino')
         assert 状态.st_size == 5
         assert 状态.st_nlink >= 1  # st_nlink 是护栏硬链接判定的依据，缺它即空壳
         # 句柄状态：从同一个句柄回查，与 文件状态(路径) 在同一文件对象上一致

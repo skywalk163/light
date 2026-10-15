@@ -935,9 +935,11 @@ description = ""
         if verbose:
             print(f"[4/4] 链接为可执行文件...")
 
+        from llvm.compiler import get_link_libs
         link_args = [clang, ir_o, runtime_o, '-o', exe_path]
-        if not sys.platform.startswith('win'):
-            link_args.append('-lm')
+        # 链接库参数的唯一来源：与 compiler.py 共用 get_link_libs()，不允许在此另抄
+        # （R151-D1 线程原语需要 -pthread，漏掉会在 FreeBSD/ld.lld 上整腿链接失败）。
+        link_args.extend(get_link_libs())
 
         result = _sp.run(
             link_args,

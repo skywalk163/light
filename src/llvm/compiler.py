@@ -100,7 +100,12 @@ def get_link_libs() -> list:
     """
     if sys.platform == 'win32':
         return ['-lws2_32', '-lsecur32', '-lcrypt32']
-    return ['-lm']
+    # R151-D1：线程原语（dv_thread_spawn / dv_fs_watch_start）在 POSIX 走
+    # pthread_create / pthread_join，FreeBSD 的 ld.lld **不**自动链 libpthread，
+    # 缺 -pthread 会 undefined symbol: pthread_create，整条 clang 腿链接失败全腿红
+    # （与 L-209/L-210 同类：缺库只在非 Windows 平台暴露）。-pthread 在
+    # Linux/BSD/macOS 均安全（macOS/libc 已含 pthread，该标志为 no-op）。
+    return ['-lm', '-pthread']
 
 
 def get_lto_link_flags() -> list:
