@@ -2157,7 +2157,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 直呼 `抛出 属性错误("...")`，此前落在「未定义的段落」。
         if name in ('异常', '运行时异常', '值异常', '索引异常', '类型异常', 'IO异常',
                     '内存异常', '算术异常', '运行时错误', '类型错误', '值错误', '索引错误',
-                    '读取错误', '请求错误', '属性错误',
+                    '读取错误', '请求错误', '文件错误', '属性错误',
                     'Exception', 'RuntimeException', 'ValueError',
                     'TypeError', 'IndexError', 'IOException', 'MemoryError', 'ArithmeticError',
                     'AttributeError'):
@@ -7292,6 +7292,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             ("索引错误", "索引异常", []),
             ("读取错误", "IO异常", []),
             ("请求错误", "IO异常", []),
+            # 中文 Python 风格文件异常名（stdlib/文件系统.light 直呼 `抛出 文件错误(...)`，
+            # 对齐转译腿 src/code_generator.py exception_name_map['文件错误']='FileNotFoundError'
+            # 的 IO 语义）。注册为 IO异常 子类，使 `捕获 IO异常` 能接住文件错误，
+            # 行为对齐转译腿；此前裸名未注册导致 文件系统.light 整体编译失败（R150 踩雷）。
+            ("文件错误", "IO异常", []),
             # "Exception"（英文）是 "异常"（中文）的别名基类：让二者在继承树中
             # 隶属同一根，否则用户代码 `继承 Exception` 抛出的异常无法被 `捕获 异常`
             # 接住（dv_isinstance 沿 super 链走到并列顶层 "Exception" 即失配重抛）。
