@@ -783,6 +783,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_fs_symlink(ptr, ptr, ptr)',
             f'declare void @dv_fs_readlink(ptr, ptr)',
             f'declare void @dv_fs_statvfs(ptr, ptr)',
+            # R150-A：文件系统建议锁（对齐 stdlib/文件系统.py 文件锁定/文件解锁）
+            f'declare void @dv_fs_lock(ptr, ptr, i64)',
+            f'declare void @dv_fs_unlock(ptr, ptr)',
             # R127-C · S1 三内建补齐：字符判型（ASCII 整串语义，见 runtime 注释）
             f'declare i32 @dv_str_isalpha(ptr)',
             f'declare i32 @dv_str_isspace(ptr)',
@@ -2710,6 +2713,25 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             if args:
                 return self._call_dv_func('dv_fs_statvfs', self._deref_value(args[0])), 'dv'
             return self._call_dv_func('dv_fs_statvfs', 'ptr null'), 'dv'
+
+        # R150-A：文件建议锁。文件锁定(路径, 共享) / 文件解锁(路径)。
+        # 语义严格对齐 .py —— 不存在的路径会被 O_CREAT 建出来；
+        # 重复锁定复用既有 fd；解锁未登记路径返回假（重复解锁为假）。
+        if name in ('文件锁定', 'lock_file', 'flock'):
+            if args:
+                if len(args) >= 2:
+                    a1 = self._deref_value(args[1])
+                    share_i64 = self.new_register()
+                    self.emit(f'{share_i64} = extractvalue {LIGHTVALUE_STRUCT} {a1}, 1')
+                    return self._call_dv_func('dv_fs_lock', self._deref_value(args[0]),
+                                              f'i64 {share_i64}'), 'dv'
+                return self._call_dv_func('dv_fs_lock', self._deref_value(args[0]), 'i64 0'), 'dv'
+            return self._create_bool_dv('0'), 'dv'
+
+        if name in ('文件解锁', 'unlock_file'):
+            if args:
+                return self._call_dv_func('dv_fs_unlock', self._deref_value(args[0])), 'dv'
+            return self._create_bool_dv('0'), 'dv'
 
         # 真实路径：os.path.realpath（解析符号链接 + 规范化；POSIX realpath，
         # 失败回退 cwd+normpath；Windows GetFullPathNameA，不解析 symlink 为已知边界）。

@@ -1127,6 +1127,63 @@ def 磁盘用量(路径):
         out["使用率"] = u.used * 100.0 / u.total
     return out
 
+
+# R150-A：文件建议锁——src 腿地板实体（原生腿走 dv_fs_lock/dv_fs_unlock，见 runtime_typed.c）。
+# 语义与 C 侧逐条对齐，也与 stdlib/文件系统.py 的参考实现对齐：
+#   锁定不存在的路径 → O_CREAT 建出来并返回真；
+#   重复锁定 → 复用已登记 fd（不重复 open）；
+#   解锁未登记路径 → 返回假（故「重复解锁」第二次为假）；
+#   表满/上锁失败 → 返回假，不抛。
+
+def 文件锁定(路径, 共享=False):
+    """对路径加建议锁。共享=True 取读锁，否则排他锁。成功真 / 失败假，不抛。
+
+    ⚠️ 幂等：本进程已持有该路径的锁 → 直接返回真，不再加一次。
+    理由（实测）：Windows msvcrt 对「同一 fd 的同一字节区间」重复 locking 会失败，
+    「重开 fd 再锁」会让 Windows 上重复锁定返回假。C 侧 dv_fs_lock 同口径。
+    """
+    import platform as _平台
+    if 路径 in _文件锁注册表:
+        return True
+    fd = None
+    try:
+        fd = os.open(路径, os.O_RDWR | os.O_CREAT)
+        if _平台.system() == 'Windows':
+            import msvcrt as _msvcrt
+            标志 = _msvcrt.LK_NBRLCK if 共享 else _msvcrt.LK_NBLCK
+            _msvcrt.locking(fd, 标志, 1)
+        else:
+            import fcntl as _fcntl
+            标志 = (_fcntl.LOCK_SH if 共享 else _fcntl.LOCK_EX) | _fcntl.LOCK_NB
+            _fcntl.flock(fd, 标志)
+        _文件锁注册表[路径] = fd
+        return True
+    except Exception:
+        if fd is not None:
+            try:
+                os.close(fd)
+            except Exception:
+                pass
+        return False
+
+def 文件解锁(路径):
+    """解除 文件锁定 加的建议锁。未登记返回假；成功关 fd、撤登记并返回真。"""
+    import platform as _平台
+    if 路径 not in _文件锁注册表:
+        return False
+    fd = _文件锁注册表.pop(路径)
+    try:
+        if _平台.system() == 'Windows':
+            import msvcrt as _msvcrt
+            _msvcrt.locking(fd, _msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl as _fcntl
+            _fcntl.flock(fd, _fcntl.LOCK_UN)
+        os.close(fd)
+        return True
+    except Exception:
+        return False
+
 def 句柄状态(句柄):
     """按已打开的文件描述符取元数据（os.fstat）。取不到返回空，不抛。
 
@@ -1505,6 +1562,8 @@ __all__ = [
     '创建符号链接',
     '读取符号链接',
     '磁盘用量',
+    '文件锁定',
+    '文件解锁',
     '句柄状态',
     '低级打开',
     '低级读',

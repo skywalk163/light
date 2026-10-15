@@ -550,6 +550,8 @@ class PythonCodeGenerator:
             '创建符号链接': '_light_builtin.创建符号链接',
             '读取符号链接': '_light_builtin.读取符号链接',
             '磁盘用量': '_light_builtin.磁盘用量',
+            '文件锁定': '_light_builtin.文件锁定',
+            '文件解锁': '_light_builtin.文件解锁',
             '句柄状态': '_light_builtin.句柄状态',
             '低级打开': '_light_builtin.低级打开',
             '低级读': '_light_builtin.低级读',

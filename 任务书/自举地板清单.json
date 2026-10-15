@@ -16,9 +16,9 @@
   ],
   "版本": 1,
   "归属": "C9 建（S1），G9 守门禁",
-  "总数": 163,
+  "总数": 165,
   "分类统计": {
-    "native_required": 67,
+    "native_required": 69,
     "movable": 15,
     "has_light_impl": 68,
     "duplicate": 13,
@@ -1336,6 +1336,22 @@
       "分类": "native_required",
       "目标落点": "真边界：statvfs()/GetDiskFreeSpaceEx 是取文件系统容量的系统调用，纯光明无法表达；原生腿 R149-A 已注册 dv_fs_statvfs；键名刻意对齐 shutil.disk_usage 口径；光明门面 stdlib/文件系统.light:1297（有同名 .py 且无魔数，当前未接管，仅作门面）",
       "证据行": "src/llvm/runtime_typed.c:7200"
+    },
+    {
+      "名字": "文件锁定",
+      "职责": "对路径加建议锁（排他/共享，不存在的文件会被 O_CREAT 建出来），幂等：本进程已持有即返回真",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_fs_lock，原生腿）+ Python（stdlib/builtins.py:1378，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：flock()/LockFileEx 是内核建议锁、且锁表要跨调用保持 fd，纯光明无法表达；原生腿 R150-A 已注册 dv_fs_lock（POSIX flock / Win LockFileEx + 进程内 static 锁表）；光明门面 stdlib/文件系统.light:1338（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:7302"
+    },
+    {
+      "名字": "文件解锁",
+      "职责": "按路径解除本级加的建议锁并关 fd；未登记返回假（故重复解锁为假）",
+      "当前实现语言": "C（src/llvm/runtime_typed.c dv_fs_unlock，原生腿）+ Python（stdlib/builtins.py:1410，src 腿地板）",
+      "分类": "native_required",
+      "目标落点": "真边界：解锁要按路径从锁表查回 fd 再 flock(LOCK_UN)/UnlockFileEx 并关句柄，纯光明无法表达；原生腿 R150-A 已注册 dv_fs_unlock；光明门面 stdlib/文件系统.light:1341（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
+      "证据行": "src/llvm/runtime_typed.c:7361"
     }
   ],
   "地板自举率_S2进度": {

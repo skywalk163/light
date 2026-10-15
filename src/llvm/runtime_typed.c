@@ -30,6 +30,9 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 #include <io.h>
+/* R150-A：文件建议锁需要 _open + _O_RDWR/_O_CREAT（MSVC 在 <fcntl.h> 里声明，
+   <io.h> 不带出 _O_* 常量，缺这行 Windows 上是 use of undeclared identifier）。 */
+#include <fcntl.h>
 #include <direct.h>
 #pragma comment(lib, "ws2_32.lib")
 #define F_OK 0
@@ -39,6 +42,10 @@
 /* R149-A：磁盘用量原语 dv_fs_statvfs 需要 statvfs()（Linux/glibc 与 FreeBSD/clang 均在此头）；
    缺失会在 FreeBSD 上 undeclared identifier，整条 clang 腿全崩。 */
 #include <sys/statvfs.h>
+/* R150-A：文件建议锁 dv_fs_lock/dv_fs_unlock 需要 flock() 与 LOCK_EX/SH/NB/UN 常量。
+   glibc 的 <fcntl.h> 不一定带出它们，`sys/file.h` 在 Linux 与 FreeBSD/clang 上都在；
+   缺这行会在 FreeBSD 上 undeclared identifier，整条 clang 腿全崩。 */
+#include <sys/file.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -7242,6 +7249,141 @@ void dv_fs_statvfs(LightValue* result, LightValue* path) {
         dv_free(&k); dv_free(&v);
     }
 #undef DV_VFS_SET
+}
+
+/* ---------------------------------------------------------------------------
+ * R150-A：文件建议锁（对齐 stdlib/文件系统.py 的 文件锁定/文件解锁 口径）
+ *
+ * 语义（与 .py 逐条对齐，测试即判据）：
+ *   - 文件锁定(路径, 共享)：不存在的文件**会被自动创建**（O_CREAT）并返回真；
+ *   - 同一路径重复锁定：复用已登记的 fd（不重复 open，避免句柄泄漏）；
+ *   - 文件解锁(路径)：未登记过 → 返回假；解锁成功 → 关 fd、撤登记、返回真（**幂等第二次为假**）。
+ *
+ * 锁表是进程内 static（runtime 无线程，无需加锁保护）。
+ * POSIX：flock(LOCK_EX|LOCK_NB / LOCK_SH|LOCK_NB)，解锁 LOCK_UN；
+ * Windows：LockFileEx(LOCKFILE_EXCLUSIVE_LOCK|LOCKFILE_FAIL_IMMEDIATELY)，解锁 UnlockFileEx。
+ * ------------------------------------------------------------------------- */
+#define DV_LOCK_MAX 64
+#define DV_LOCK_PATH_MAX 1024
+
+typedef struct {
+    char path[DV_LOCK_PATH_MAX];
+    int fd;
+} DvLockEnt;
+
+static DvLockEnt g_dv_locks[DV_LOCK_MAX];
+static int g_dv_lock_n = 0;
+
+#ifdef _WIN32
+#define _dv_lock_close(fd) _close(fd)
+#else
+#define _dv_lock_close(fd) close(fd)
+#endif
+
+/* 返回 -1 表示未登记 */
+static int _dv_lock_find(const char* path) {
+    int i;
+    for (i = 0; i < g_dv_lock_n; i++) {
+        if (strcmp(g_dv_locks[i].path, path) == 0) return i;
+    }
+    return -1;
+}
+
+/* 打开（不存在则创建）并返回 fd；失败返回 -1 */
+static int _dv_lock_open(const char* path) {
+#ifdef _WIN32
+    return _open(path, _O_RDWR | _O_CREAT, 0666);
+#else
+    return open(path, O_RDWR | O_CREAT, 0666);
+#endif
+}
+
+/* 文件锁定(路径, 共享) → bool */
+void dv_fs_lock(LightValue* result, LightValue* path, int64_t share) {
+    if (!result) return;
+    dv_null(result);
+    if (!path) return;
+    path = dv_deref(path);
+    if (path->type != 3 || !path->str) return;
+
+    /* 幂等：本进程已持有该路径的锁 → 直接成功，不再加一次。
+       理由（实测）：Windows msvcrt 对「同一 fd 的同一字节区间」重复 locking 会失败，
+       若按「重开 fd 再锁」实现，Windows 上重复锁定就会返回假 —— 两腿必须同一口径，
+       故统一取「已持有即成功」这条最有意义的语义。 */
+    if (_dv_lock_find(path->str) >= 0) { dv_bool(result, 1); return; }
+
+    int fd = _dv_lock_open(path->str);
+    if (fd < 0) { dv_bool(result, 0); return; }
+
+    int ok = 0;
+#ifdef _WIN32
+    HANDLE h = (HANDLE)_get_osfhandle(fd);
+    OVERLAPPED ov;
+    memset(&ov, 0, sizeof(ov));
+    DWORD flags = LOCKFILE_FAIL_IMMEDIATELY;
+    if (!share) flags |= LOCKFILE_EXCLUSIVE_LOCK;
+    if (h != INVALID_HANDLE_VALUE && LockFileEx(h, flags, 0, 1, 0, &ov)) ok = 1;
+#else
+    int op = share ? (LOCK_SH | LOCK_NB) : (LOCK_EX | LOCK_NB);
+    if (flock(fd, op) == 0) ok = 1;
+#endif
+
+    if (!ok) {
+        _dv_lock_close(fd);            /* 本次刚开的，锁失败就别留句柄 */
+        dv_bool(result, 0);
+        return;
+    }
+
+    if (g_dv_lock_n >= DV_LOCK_MAX) {
+        /* 表满：先解锁再关 fd，回滚以免留下「加了锁但查不到」的幽灵状态 */
+#ifdef _WIN32
+        {
+            HANDLE rh = (HANDLE)_get_osfhandle(fd);
+            OVERLAPPED rov;
+            memset(&rov, 0, sizeof(rov));
+            if (rh != INVALID_HANDLE_VALUE) UnlockFileEx(rh, 0, 1, 0, &rov);
+        }
+#else
+        flock(fd, LOCK_UN);
+#endif
+        _dv_lock_close(fd);
+        dv_bool(result, 0);
+        return;
+    }
+    strncpy(g_dv_locks[g_dv_lock_n].path, path->str, DV_LOCK_PATH_MAX - 1);
+    g_dv_locks[g_dv_lock_n].path[DV_LOCK_PATH_MAX - 1] = '\0';
+    g_dv_locks[g_dv_lock_n].fd = fd;
+    g_dv_lock_n++;
+    dv_bool(result, 1);
+}
+
+/* 文件解锁(路径) → bool（未登记返回假，天然支持「重复解锁为假」） */
+void dv_fs_unlock(LightValue* result, LightValue* path) {
+    if (!result) return;
+    dv_null(result);
+    if (!path) return;
+    path = dv_deref(path);
+    if (path->type != 3 || !path->str) return;
+
+    int idx = _dv_lock_find(path->str);
+    if (idx < 0) { dv_bool(result, 0); return; }   /* 未锁定 / 已解过 */
+
+    int fd = g_dv_locks[idx].fd;
+#ifdef _WIN32
+    HANDLE h = (HANDLE)_get_osfhandle(fd);
+    OVERLAPPED ov;
+    memset(&ov, 0, sizeof(ov));
+    if (h != INVALID_HANDLE_VALUE) UnlockFileEx(h, 0, 1, 0, &ov);
+#else
+    flock(fd, LOCK_UN);
+#endif
+    _dv_lock_close(fd);
+
+    /* 尾部元素补位，保持表紧凑 */
+    int last = g_dv_lock_n - 1;
+    if (idx != last) g_dv_locks[idx] = g_dv_locks[last];
+    g_dv_lock_n--;
+    dv_bool(result, 1);
 }
 
 /* os.path.realpath：解析符号链接 + 规范化。
