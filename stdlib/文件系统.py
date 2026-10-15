@@ -728,23 +728,15 @@ def 获取文件所有者(path: str) -> Dict[str, Any]:
         path: 文件路径
 
     返回:
-        {'uid': 用户ID, 'gid': 组ID, '用户': 用户名, '组': 组名}
+        {'uid': 用户ID, 'gid': 组ID, '用户': str(uid), '组': str(gid)}
+        （全平台字符串化，不解析 pwd/grp 真名，见下方口径注记）
     """
-    import platform as _平台
+    # R152 口径统一（业主裁定）：用户名/组一律字符串化 uid/gid，不解析 pwd/grp 真名。
+    # 理由：Windows 无 pwd/grp 本就字符串化；POSIX 解析真名会让两腿表示随环境漂移
+    # （0.82 实测：light 腿返 'ai' 而 str(uid) 断言期望 '1002' → test_R148 红）。
+    # 需要真名的调用方自行 pwd.getpwuid(uid).pw_name / grp.getgrgid(gid).gr_name。
     stat = os.stat(path)
-    结果 = {'uid': stat.st_uid, 'gid': stat.st_gid, '用户': str(stat.st_uid), '组': str(stat.st_gid)}
-    if _平台.system() != 'Windows':
-        try:
-            import pwd as _pwd
-            结果['用户'] = _pwd.getpwuid(stat.st_uid).pw_name
-        except (ImportError, KeyError):
-            pass
-        try:
-            import grp as _grp
-            结果['组'] = _grp.getgrgid(stat.st_gid).gr_name
-        except (ImportError, KeyError):
-            pass
-    return 结果
+    return {'uid': stat.st_uid, 'gid': stat.st_gid, '用户': str(stat.st_uid), '组': str(stat.st_gid)}
 
 
 # =============================================================================

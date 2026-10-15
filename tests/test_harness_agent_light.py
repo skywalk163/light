@@ -179,6 +179,9 @@ class TestM18超时:
         assert 报告["汇总"]["通过数"] == 0
         assert [e["输入词元"] for e in 报告["条目"]] == [None] * 6
 
+    # 0.82 满载 xdist 单跑 ~37s，全局 --timeout=60 偶发越界（R152-C2）→ 逐例提限；
+    # 不许动 pyproject 全局 60s（会掩盖真挂死）。
+    @pytest.mark.timeout(180)
     def test_限时宽松时与不限时同结论(self, tmp_path):
         rc, 报告路径, 输出, 错误 = _跑评测(tmp_path, 限时秒="60")
         assert rc == 0, "%s\n%s" % (_文本(输出), _文本(错误))

@@ -297,6 +297,9 @@ class Test单条超时:
         # 被掐掉的条目采不到词元（空，不是 0）
         assert [e["输入词元"] for e in 报告["条目"]] == [None] * 6
 
+    # 同 test_harness_agent_light R152-C2：满载 >60s 越界属机器慢非用例挂死，
+    # 逐例提限到 180s；全局 --timeout=60 保持不动。
+    @pytest.mark.timeout(180)
     def test_限时大于延迟时与不限时逐项等价(self, tmp_path):
         rc, 报告路径, 输出 = _跑评测(
             tmp_path, {"HARNESS_DELAY_SEC": "0.01", "HARNESS_TIMEOUT_SEC": "30"}

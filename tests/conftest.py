@@ -34,6 +34,30 @@ sys.path.insert(0, _tools_dir)
 # 显式包路径，不受影响。标记：R93-C-PATH-ORDER
 sys.path.insert(0, _contrib_dir)
 sys.path.insert(0, _stdlib_dir)
+#
+# ── R152-C1：会话级安装纯光明导入钩子（基础设施先行项）──────────────────
+# 背景：phase13 的 `测试集合工具模块`（以及字符串常量/参数解析/高级文件等一批）
+# 直跑全报 ModuleNotFoundError —— 那批模块只有 `.light`（无同名 `.py`），只能由
+# `stdlib/_light_import_hook.py` 编译加载。钩子原先只由「跑过光明产物」的测试
+# 顺带 install()，且 `stdlib/__init__.py` 的 install 只在 `import stdlib` 时才触发；
+# 顶层测试直跑时没有任何一方装钩子 ⇒ 纯光明模块等于不存在（R152 §2.1 实踩 8/8 红）。
+# 这里在 conftest 加载期统一装一次，命中 pytest 缓存后本进程内后续测试直接可用。
+#
+# 安全边界（_light_import_hook 设计要点 1/3，实测复核）：
+#   · `.py` 优先：同名 `.py` 存在且 `.light` 无「纯光明实现」魔数 ⇒ 让路标准机制；
+#   · 标准库保护：os/sys/time/re/inspect 等 Python 标准库名即使有 `.light` 影子也
+#     不接管（这些名字在 stdlib 下没有同名 `.py`，且 `_STDLIB_MODULES` 保护）；
+#   · 失败即让路：钩子编译异常一律返回 None，不会拖垮正常 import。
+# 实际会切换行为的只有 3 个模块（.light 带魔数 + 同名 .py）：JSON / 数学 / 文件系统，
+# 它们按设计应由纯光明腿遮蔽 `.py`；本文件不改变该约定。
+# 幂等：钩子 install() 自带去重，与各测试文件自装的重复调用安全。
+try:
+    import _light_import_hook
+    _light_import_hook.install([_stdlib_dir, _contrib_dir, _project_root])
+except Exception as _e:
+    import warnings
+    warnings.warn('R152-C1 conftest 安装光明导入钩子失败（%r），'
+                  '纯光明模块相关测试可能 ModuleNotFoundError。' % (_e,))
 
 # ── 2026-09-08 CI 时间治理（task-CIperf）──────────────────────────────────────
 # 预热最重的共享模块：全仓 7986 条用例的 test 文件几乎都 `from light_parser_v3

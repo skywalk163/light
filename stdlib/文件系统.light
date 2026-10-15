@@ -275,9 +275,11 @@
     # Windows 口径优先：USERPROFILE 与 os.path.expanduser 同形；
     # HOME 只在 POSIX（或 USERPROFILE 缺失）时兜底。
     设 家 为 _light_builtin.环境变量("USERPROFILE", "")
-    如果 是空(家):
+    # 原生腿 `是空` 只判 null（type==0），不认空串；USERPROFILE 缺失时
+    # `环境变量` 返空串而非 null，故改用 `长(家) == 0` 做两腿一致的空判定。
+    如果 长(家) == 0:
       设 家 为 _light_builtin.环境变量("HOME", "")
-    如果 是空(家):
+    如果 长(家) == 0:
       返回 路径
     设 尾 为 截取(路径, 1, 长(路径))
     # 前导分隔符必须剥掉：占位尾巴 "/test" 直接 join 会在 Windows 上重置盘符
@@ -1327,16 +1329,12 @@
   设 状 为 _light_builtin.文件状态(路径)
   如果 是空(状):
     抛出 运行时错误("文件不存在: " 加上 路径)
+  # R152 口径统一（业主裁定）：用户名/组一律字符串化 uid/gid，不解析 pwd/grp 真名。
+  # 原「st_user/st_group 有值优先用名字」在 POSIX 会与 str(uid) 断言分歧
+  # （0.82 实测 light 返 'ai' vs '1002' 红）；Windows 无 pwd/grp 本就字符串化。
+  # 统一后两腿全平台同口径（.py 参考同步字符串化，test_R148 注释即规格）。
   设 用户 为 转字符串(状.st_uid)
   设 组 为 转字符串(状.st_gid)
-  # 原生腿 dv_file_stat / src 腿 文件状态 均补 st_user/st_group（pwd/grp 解析名，
-  # 缺失/Windows 为空串），对齐 .py 参考；有值优先用名字，否则退回字符串化 uid/gid。
-  设 用户名 为 状.st_user
-  如果 长(用户名) > 0:
-    设 用户 为 用户名
-  设 组名 为 状.st_group
-  如果 长(组名) > 0:
-    设 组 为 组名
   返回 {"uid": 状.st_uid, "gid": 状.st_gid, "用户": 用户, "组": 组}
 
 # R149-A：文件系统平台原语第一批（对齐 文件系统.py 参考语义 + C 层 dv_fs_*）。
