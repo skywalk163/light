@@ -223,3 +223,11 @@
 ③ **C 线 T/L 编号统一**：新建 `docs/编号登记表.md`（**不重编号、不并号**）——全仓 94 个 T token 逐一定性归 5 亚族 + 12 假阳性排除，**对账配平、待查清单为空**；第三族 `KI-Rxx` 裁定维持现状并建指针；立规“新问题一律 L-2xx 顺延，T/KI 编号冻结不新增”；四处载体加指针（含 `known_issues.md` 与混合行尾缺陷账的字节级插入）；
 ④ **D 线 scratch 清理执行**：按 R153 评审 A/B/C 分类执行——B 类归档 `docs/归档/R154_scratch归档/`（R153 审计脚本 + 是空探针 + 4 份历史任务书），A 类删除 9 个 scratch 目录 + 22 个一次性脚本/日志（**回收 47MB：641M→594M**），C 类新增 `.gitignore` 的 `_r1*_scratch/`/`.scratch/`/`_recover/` 规则与 `assert_quality.py` 的 scratch 排除（**结构性**消除“源码副本被判新增违规”噪音，rc=0）；
 ⑤ **账目全量跟上**：缺陷账新增 §十六（L-213/L-214 正式条目 + 三态对照 + 修法反例）；空值规范 §9 两条转“已修”并保留历史原文（编号不可再生）；总账 §4.1 两行状态更新；`docs/编程注意事项.md` 坑 03 同步已修状态 + **新增坑 04“缺失 ≠ 空值”**（5 段式：空串当哨兵 → 三态塌两态 → 反例：别用 `是空` 替 `== 空`）。
+
+**+ R155 立项修复（2026-10-16，L-215 `导入 Socket` 跨平台路由）**：R154 收口复核时发现的 `tests/lightpub` 本机红，业主指定修法（补顶层路由）——
+① **根因**：`docs/lightpub/Socket.md` 的 `导入 Socket` / `导入 标准Socket` 在 Windows 导不进来、FreeBSD 能导进来。链是 `_resolve_lightpub_import` 的“根目录同名优先”规则 + `_stdlib_root_has` 用 `os.path.isfile` 探测 + **Windows 文件系统大小写不敏感**（`Socket.light` 命中小写 `socket.light`）⇒ 误判为“根目录已有”⇒ 返回裸名 `Socket` ⇒ `import Socket`（大小写敏感）找不到。**不是缺文件，是判定依赖了文件系统的大小写行为**；
+② **修法**：新增 `stdlib/Socket.py` 顶层路由，**re-export** `stdlib/lightpub/Socket.py` 的同一份实现（不复制代码，避免两份实现长歪）；与 `socket.light` 并存（扩展名不同，大小写不敏感系统上也不冲突）；
+③ **影响面侧查**：lightpub 全部 P1/P2 包逐个过一遍，**只有 `Socket` 一个真误判**；
+④ **验证**：`tests/lightpub/` 全量 **81 passed / 0 failed**（修前 1 failed）；实跑光明代码真建 TCP socket + 真绑定 + 真解析主机名（证明非空壳）；反跑移走文件转红、放回转绿；`import socket` 仍指向 CPython 未被劫持；双 gen `--check` RC=0；
+⑤ **新增锚点** `tests/lightpub/test_R155_Socket顶层路由.py`（10 条，三层：行为层 / **平台无关层**（钉住大小写误判根因）/ 反跑层）。
+**+ 同轮账目纠偏**：总账 §2/§4.1 的 L-194 状态与缺陷账矛盾（缺陷账记“已修 R144”，总账仍写“未修深水区”）—— 已统一为“已修（R144）”，残余明确指向 R119-B。
