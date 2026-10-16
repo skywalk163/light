@@ -3752,10 +3752,21 @@ char* light_list_to_json(const char* list, int indent) {
  * 系统操作
  * ================================================================ */
 
+/* R154-A（L-213 根治）：缺 key 用 **NULL 指针** 表达「缺失」，不再用空串冒充。
+   为什么不能用返回值字符串表达缺失：`""` 是合法的环境变量值（`export X=`），
+   与「变量根本不存在」是两种状态。旧实现缺 key 返 dv_strdup("")，调用方
+   （codegen 侧）拿到非 NULL 指针后无从分辨，只能一律当空串 → 三态塌成两态：
+     · 缺 key 1 参：src 腿 None vs 原生 ""（分歧）；
+     · 缺 key 2 参：默认值被静默丢弃（`os.light:getenv(名, 默认)` 永远走不到默认分支）。
+   codegen 侧（_gen_typed_builtin 的 `环境变量` 分支）据 `ptr null` 判定缺失后
+   选 null（`dv_null` 写合并槽）或回填实参默认值/变量值，与 src 腿
+   `os.environ.get` 三态对齐。
+   注意：name 为 NULL（非法调用）仍按缺失处理 —— 与「变量不存在」同归 null 更安全，
+   避免把编程错误伪装成一个"存在的空值变量"。 */
 char* dv_getenv(const char* name) {
-    if (!name) return dv_strdup("");
+    if (!name) return NULL;
     const char* val = getenv(name);
-    return dv_strdup(val ? val : "");
+    return val ? dv_strdup(val) : NULL;
 }
 
 char* dv_str_join(const char* list, const char* sep) {

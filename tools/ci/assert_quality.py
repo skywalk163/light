@@ -226,6 +226,18 @@ def _prose_lines(full):
     return prose
 
 
+# R154-D（2026-10-16 清理执行轮）：轮次 scratch 副本目录不扫。
+# 这些目录含 src 整树副本（如 _r151a_scratch/src_head/code_generator.py），其既有代码
+# 会被误判为「新增违规」——本质是路径不同的副本，不是新写的坏断言。详见
+# _R154_D线交付报告.md。覆盖：.scratch、_recover、以及 _r<数字>…_scratch（如
+# _r151a_scratch / 当前轮在用的 _r154a_scratch）。用正则而非前缀匹配，避免误伤正常目录。
+_SKIP_DIR_EXACT = (".scratch", "_recover")
+def _is_scratch_dir(d):
+    if d in _SKIP_DIR_EXACT:
+        return True
+    return bool(re.match(r"^_r\d.*_scratch$", d))
+
+
 def scan_tree(root):
     """返回 {category: [ {file, line, text}, ... ]} 与总数。"""
     found = {cat: [] for cat in CATEGORIES}
@@ -233,7 +245,8 @@ def scan_tree(root):
         # 跳过的目录：缓存、虚拟环境、被排除的基线/文档
         dirnames[:] = [d for d in dirnames
                        if d not in (".git", "__pycache__", ".venv", "node_modules",
-                                    ".light_cache", ".ml_cache", "docs-site")]
+                                    ".light_cache", ".ml_cache", "docs-site")
+                       and not _is_scratch_dir(d)]
         for fn in filenames:
             if not fn.endswith(".py"):
                 continue

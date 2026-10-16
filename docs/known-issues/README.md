@@ -20,6 +20,7 @@
 
 ## 相关
 
+- 编号体系查证（KI-Rxx 与历史 T 编号的关系、为何不并号）：[`../编号登记表.md`](../编号登记表.md)（R154 建）
 - 运行手册（Windows 本机全量）：[`../运行手册_Windows本机全量.md`](../运行手册_Windows本机全量.md)
 - 环境红台账：`tests/ci_environment_reds.txt`
 - 判据脚本：`tests/ci_judge_env_reds.py`（`judge` / `self-check`）

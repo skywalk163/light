@@ -454,6 +454,17 @@
 
 **返回：** `Optional[str]`
 
+> **两腿口径（R154-A / L-213 已对齐）**：三态与 `os.environ.get(name, default)` 一致 ——
+> key 存在返变量值（含合法的空串值）；key 不存在且给了 `default` 返 `default`；
+> key 不存在且未给 `default` 返 **null**（`空`）。
+>
+> 原生腿此前只接收 `name`，`default` 被静默丢弃、缺 key 一律返空串；
+> R154-A 起 C 侧 `dv_getenv` 用 **NULL 指针**表达「缺失」（空串是合法值，不能当哨兵），
+> codegen 侧据指针分流回填默认值 / null。
+>
+> **已知边界（未对齐，刻意保留）**：0 参调用 `环境变量()`。
+> src 腿会 TypeError（缺必填实参），原生腿返空串（选择「不崩」而非「同崩」）。
+
 ---
 
 ### `设置环境变量(name: str, value: str) -> None`
