@@ -275,11 +275,12 @@
     # Windows 口径优先：USERPROFILE 与 os.path.expanduser 同形；
     # HOME 只在 POSIX（或 USERPROFILE 缺失）时兜底。
     设 家 为 _light_builtin.环境变量("USERPROFILE", "")
-    # 原生腿 `是空` 只判 null（type==0），不认空串；USERPROFILE 缺失时
-    # `环境变量` 返空串而非 null，故改用 `长(家) == 0` 做两腿一致的空判定。
-    如果 长(家) == 0:
+    # R153：`是空` 已统一为「null 或 空串」（两腿一致），这里回到统一语义。
+    # （R152-B1 曾因 是空 只判 null 而临时改用 长(家)==0，属局部绕开，
+    #   按业主裁定「不能长期分叉」，语义统一后回归 是空。）
+    如果 是空(家):
       设 家 为 _light_builtin.环境变量("HOME", "")
-    如果 长(家) == 0:
+    如果 是空(家):
       返回 路径
     设 尾 为 截取(路径, 1, 长(路径))
     # 前导分隔符必须剥掉：占位尾巴 "/test" 直接 join 会在 Windows 上重置盘符

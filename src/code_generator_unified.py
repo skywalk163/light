@@ -629,7 +629,7 @@ class UnifiedCodeGenerator:
         self._add_line("    ('是字符串', lambda v: isinstance(v, str)),")
         self._add_line("    ('是列表', lambda v: isinstance(v, list)),")
         self._add_line("    ('是字典', lambda v: isinstance(v, dict)),")
-        self._add_line("    ('是空', lambda v: v is None),")
+        self._add_line("    ('是空', lambda v: v is None or (isinstance(v, str) and len(v) == 0)),"),  # R153：null 或 空串
         self._add_line("    ('是布尔', lambda v: isinstance(v, bool)),")
         self._add_line("    ('是函数', lambda v: callable(v)),")
         self._add_line("    ('是数值', lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)),")

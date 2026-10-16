@@ -2907,7 +2907,7 @@
   add_line(state, "_duan_builtin.是字符串 = lambda x: isinstance(x, str)")
   add_line(state, "_duan_builtin.是列表 = lambda x: isinstance(x, list)")
   add_line(state, "_duan_builtin.是字典 = lambda x: isinstance(x, dict)")
-  add_line(state, "_duan_builtin.是空 = lambda x: x is None")
+  add_line(state, "_duan_builtin.是空 = lambda x: x is None or (isinstance(x, str) and len(x) == 0)")
   add_line(state, "_duan_builtin.字典值列表 = lambda d: list(d.values())")
   add_line(state, "_duan_builtin.字典项列表 = lambda d: list(d.items())")
   add_line(state, "_duan_builtin.字典删除 = lambda d, k: d.pop(k, None)")

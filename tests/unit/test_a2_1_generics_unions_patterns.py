@@ -1792,7 +1792,16 @@ class TestTypeGuard(unittest.TestCase):
         self.assertEqual(str(else_type), '串')
 
     def test_detect_type_guard_null(self):
-        """检测 是空(x) 类型守卫"""
+        """R153：`是空(x)` **不再是**类型守卫（主动退出类型缩小）。
+
+        原本 `是空` 在守卫表里，`如果 是空(x)` 会把 then 分支的 x 缩小为「空」。
+        R153 业主裁定把 `是空` 扩为「null 或空字符串」后，条件成立**不再蕴含**
+        x 是 null —— x 完全可能是 str。继续缩小为 NULL 是**错的缩小**：下游会
+        放过本该报错的 str 用法（或反过来误报）。
+
+        处置取方案 A（保守）：退出守卫表，宁可不缩小，也不做错的缩小。
+        本条因此从「断言缩小到空」翻转为「断言不缩小」。
+        """
         inf = self.inf
         union = self.UnionType([self.TYPE_NUMBER, self.TYPE_NULL])
         inf.symbol_table.define('x', 'variable', union)
@@ -1800,10 +1809,15 @@ class TestTypeGuard(unittest.TestCase):
         guard_call = self._make_guard_call('是空', 'x')
         result = inf._detect_type_guard(guard_call)
 
-        self.assertIsNotNone(result)
-        var_name, then_type, else_type = result
-        self.assertEqual(str(then_type), '空')
-        self.assertEqual(str(else_type), '数')
+        self.assertIsNone(
+            result,
+            '是空 扩语义后不得再做类型缩小：then 分支的 x 可能是 str，'
+            '缩到「空」是错的缩小')
+        # 反锚：确认是「不在守卫表里」导致的 None，而不是参数形态等别的原因
+        self.assertNotIn('是空', inf._TYPE_GUARD_FUNCTIONS)
+        # 相邻锚：严格 null 语义的别名也没被顺手拉进表（名实各自相符）
+        self.assertNotIn('is_null', inf._TYPE_GUARD_FUNCTIONS)
+        self.assertNotIn('null?', inf._TYPE_GUARD_FUNCTIONS)
 
     def test_detect_type_guard_else_optional(self):
         """可空类型缩小：else 分支为 NullType"""

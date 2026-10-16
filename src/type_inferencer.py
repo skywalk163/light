@@ -1431,7 +1431,10 @@ class TypeInferencer:
         '是布尔': (TYPE_BOOLEAN, '布尔'),
         '是列表': (ListType(), '列表'),
         '是字典': (DictType(), '字典'),
-        '是空': (TYPE_NULL, '空'),
+        # R153：`是空` **不再做类型缩小**（原本缩小为 NULL）。
+        # 语义扩为「null 或 空字符串」后，条件成立时被判值也可能是 str，
+        # 缩到 NULL 是错的缩小 —— 会让下游放过本该报错的 str 用法、或反过来误报。
+        # 保守处置（方案 A）：直接退出守卫表，宁可不缩小，也不做错的缩小。
     }
 
     def _detect_type_guard(self, condition) -> Optional[Tuple[str, Type, Type]]:

@@ -99,7 +99,7 @@ def execute_generated_code(py_code):
     _light_builtin.是字符串 = lambda x: isinstance(x, str)
     _light_builtin.是列表 = lambda x: isinstance(x, list)
     _light_builtin.是字典 = lambda x: isinstance(x, dict)
-    _light_builtin.是空 = lambda x: x is None
+    _light_builtin.是空 = lambda x: x is None or (isinstance(x, str) and len(x) == 0)
     _light_builtin.字典值列表 = lambda d: list(d.values())
     _light_builtin.字典项列表 = lambda d: list(d.items())
     _light_builtin.字典删除 = lambda d, k: d.pop(k, None)

@@ -323,6 +323,22 @@ int dv_is_null(LightValue* v) {
     return v && v->type == 0;
 }
 
+/* R153：光明关键字 `是空` 的目标语义 —— null **或** 空字符串。
+   业主裁定：纯空白（" " / "\t"）**不算空**，由 `是空白` 单独覆盖；空容器也不算空。
+
+   为什么新增原语而不是改 dv_is_null：
+     · 名字叫 is_null 就该只判 null；它仍被 `is_null` / `null?` 两个别名直呼，
+       用户可显式取用「严格判 null」语义；
+     · `dv_is_null` 在 runtime 内部虽无调用点，但语义名实一旦错配，后续任何
+       「判 null」的内部路径都可能被误换成「判空串」，属静默错误类。
+   故两者从此分家：`是空` → dv_is_empty；`is_null`/`null?` → dv_is_null。 */
+int dv_is_empty(LightValue* v) {
+    if (!v) return 1;
+    if (v->type == 0) return 1;                     /* null */
+    if (v->type == 3 && v->str && v->str[0] == '\0') return 1;  /* 空字符串（type=3 STR） */
+    return 0;
+}
+
 /* null 合并操作符：如果 v 是 null，返回 default_val，否则返回 v */
 void dv_null_coalesce(LightValue* result, LightValue* v, LightValue* default_val) {
     if (v && v->type != 0) {

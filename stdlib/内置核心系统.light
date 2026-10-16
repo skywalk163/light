@@ -8,10 +8,10 @@
 # 对齐 L-160 —— os.path.expanduser("~") 语义：
 # Windows 取 USERPROFILE，其余平台取 HOME（与 ntpath/posixpath expanduser 主路径一致）。
 段落 主目录:
+  # R153：`是空` 已统一为「null 或 空串」，原先为补 是空 缺口而手写的
+  # 「甲 == 空 / 甲 == ""」双判断，合并为一次 是空 判定（同类第三处）。
   设 甲 为 环境变量("USERPROFILE")
-  如果 甲 == 空:
-    返回 环境变量("HOME")
-  如果 甲 == "":
+  如果 是空(甲):
     返回 环境变量("HOME")
   返回 甲
 

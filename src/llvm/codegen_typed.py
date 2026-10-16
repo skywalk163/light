@@ -548,6 +548,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_bool(ptr, i32)',
             f'declare void @dv_null(ptr)',
             f'declare i32 @dv_is_null(ptr)',
+            # R153：`是空`（null 或 空字符串）与 `is_null`/`null?`（严格 null）分家
+            f'declare i32 @dv_is_empty(ptr)',
             f'declare void @dv_null_coalesce(ptr, ptr, ptr)',
             f'declare void @dv_safe_get(ptr, ptr, ptr)',
             f'declare void @dv_add(ptr, ptr, ptr)',
@@ -3930,12 +3932,22 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return self._call_dv_func('dv_list_new'), 'dv'
 
         # 可空类型操作
+        # R153：`是空` 与 `is_null`/`null?` **分家**（同一名单内按名分派不同原语）：
+        #   · 是空          -> dv_is_empty（目标语义：null 或 空字符串）
+        #   · is_null/null? -> dv_is_null（严格只判 null，语义不变）
+        # 见 runtime_typed.c:dv_is_empty 处的注记：改 是空 不能顺手改 dv_is_null，
+        # 否则「判 null」的任何内部/用户路径都会被静默换成「判空串」。
+        #
+        # ⚠️ 三个名字必须留在**同一个 `if name in (...)` 元组**里：能力清单生成器
+        # （scripts/gen_native_capability_json.py）只从该元组形态提取内置名，拆成
+        # `if name == '是空':` 会让 `是空` 从能力清单里静默消失（R153 实测）。
         if name in ('是空', 'is_null', 'null?'):
             if args:
                 slot = self._store_dv(args[0])
                 result = self.new_register()
-                self.emit(f'{result} = call i32 @dv_is_null(ptr {slot})')
-                # L-075 修复：dv_is_null 返回 i32（bool tag），必须先 icmp 成 i1
+                _原语 = 'dv_is_empty' if name == '是空' else 'dv_is_null'
+                self.emit(f'{result} = call i32 @{_原语}(ptr {slot})')
+                # L-075 修复：dv_* 返回 i32（bool tag），必须先 icmp 成 i1
                 # 再交给 _create_bool_dv（其内部 zext i1 -> i32）；直接传 i32 会导致
                 # clang -x ir 报 defined with type 'i32' but expected 'i1'。
                 cmp = self.new_register()

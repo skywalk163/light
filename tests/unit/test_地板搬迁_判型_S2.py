@@ -14,9 +14,11 @@
      就是抓「用 类型(值) == 类型(1) 冒充 isinstance」这种错译的。
   2. `是整数` 必须先短路 bool：`True` 在 Python 里 isinstance(_, int) 为真，
      Python 版靠 `and not isinstance(值, bool)` 排除，光明版靠两段式排除。
-  3. `是空` 的光明版写 `类型(值) == 类型(空)`，等价于 `值 is None` 而**不等价于**
+  3. `是空` 的**第一分支**写 `类型(值) == 类型(空)`，等价于 `值 is None` 而**不等价于**
      `值 == 空`：`test_是空不许退化成相等比较` 用一个 `__eq__` 恒返回 True 的对象
      把这两者分开 —— 那种对象 `== None` 为真，但它不是 None。
+     （R153 业主裁定后 `是空` 扩为「null 或 ""」，但这一步必须仍走类型判断，
+      不许改写成 `值 == 空` 或 `值 == ""`，否则 `__eq__` 恒真的对象照样被骗过。）
 
 另有一条锚：`test_Python原版口径与本文件的oracle表一致` 直接加载 `stdlib/builtins.py`
 比对本文件内联的 oracle。这样即使日后 builtins.py 被接线到光明实现（分子计入
@@ -65,7 +67,12 @@ def _oracle_是字典(值):
 
 
 def _oracle_是空(值):
-    return 值 is None
+    """R153 业主裁定口径：`是空` := null 或 ""。
+
+    纯空白（" " / "\\t"）**不算空**，由 `是空白` 单独覆盖；空容器（[] / {} / set()）、
+    b""、0、False 都不算空。`断言为无` / `断言不为无` 不跟着扩，仍是严格 is None。
+    """
+    return 值 is None or (isinstance(值, str) and len(值) == 0)
 
 
 def _oracle_是字母(字符):
@@ -236,28 +243,63 @@ def test_是整数必须先短路bool():
 
 
 def test_是空不许退化成相等比较():
-    """`__eq__` 恒真的对象不许被判成空。
+    """`__eq__` 恒真的对象不许被判成空（R153 扩语义后这条更关键）。
 
-    `值 is None` 与 `值 == None` 的分水岭：光明版写的是 `类型(值) == 类型(空)`
+    `值 is None` 与 `值 == None` 的分水岭：光明版第一分支写的是 `类型(值) == 类型(空)`
     （类型判断），所以这个对象判 False；一旦被改成 `返回 值 == 空`，它会判 True。
+
+    R153 新增了第二分支 `是字符串(值) 且 长(值) == 0`：它走的是 `isinstance` + 长度，
+    同样不碰 `__eq__` —— 所以 `是空(哨)` 必须仍是 False。若哪天有人把它写成
+    `值 == ""`，本条会立刻红。
     """
     哨 = 相等恒真()
     assert (哨 == None) is True, "前提不成立：相等恒真.__eq__ 应当恒返回 True"  # noqa: E711
+    assert (哨 == "") is True, "前提不成立：相等恒真.__eq__ 应当恒返回 True"
     assert _oracle_是空(哨) is False, "Python 原版用的是 is，不该判成空"
     assert 光明.是空(哨) is False, (
-        "光明版把 __eq__ 恒真的对象判成了空 —— 它走的是 `== 空` 而不是类型判断，"
-        "口径比 Python 原版宽")
+        "光明版把 __eq__ 恒真的对象判成了空 —— 它走的是 `== 空` / `== \"\"` "
+        "而不是类型判断，口径比 Python 原版宽")
     assert 光明.是空(None) is True
 
 
 @pytest.mark.parametrize("标签,值", [
-    ("int_0", 0), ("str_empty", ""), ("list_empty", []), ("dict_empty", {}),
+    ("int_0", 0), ("list_empty", []), ("dict_empty", {}),
     ("bool_False", False), ("float_nan", float("nan")), ("set_empty", set()),
+    ("bytes_empty", b""),
 ], ids=lambda p: p if isinstance(p, str) else repr(p))
-def test_是空只认None不认假值(标签, 值):
-    """Python 的 `is None` 不是「假值判断」：0/""/[]/{}/False 都不是空。"""
+def test_是空只认None与空串不认其余假值(标签, 值):
+    """R153 裁定后 `是空` 只认 null 与 ""：`is None` 仍不是「假值判断」。
+
+    0/[]/{}/False/nan/set()/b"" 都不是空 —— 注意 `b""` 是 bytes 不是 str，
+    裁定口径明确「只认 str 的 ""」，所以 bytes 空串不算空。
+    """
     assert _oracle_是空(值) is False
     assert 光明.是空(值) is False
+
+
+@pytest.mark.parametrize("标签,值", [
+    ("none", None), ("str_empty", ""),
+], ids=lambda p: p if isinstance(p, str) else repr(p))
+def test_是空认None与空串(标签, 值):
+    """R153 裁定的正向语义：null 与 "" 都算空（两版一致）。"""
+    assert _oracle_是空(值) is True
+    assert 光明.是空(值) is True
+
+
+@pytest.mark.parametrize("标签,值", [
+    ("space", " "), ("tab", "\t"), ("newline", "\n"),
+    ("two_spaces", "  "), ("fullwidth_space", "\u3000"),
+], ids=lambda p: p if isinstance(p, str) else repr(p))
+def test_是空不认纯空白(标签, 值):
+    """裁定明确：纯空白**不算空**，另由 `是空白` 单独覆盖。
+
+    这条是防「broaden 顺手把 strip 也做进去」——一旦有人写成
+    `是字符串(值) 且 长(去除首尾空白(值)) == 0`，本条立刻红。
+    """
+    assert _oracle_是空(值) is False
+    assert 光明.是空(值) is False
+    # 反面锚：这些输入确实属于「空白」，所以语义覆盖没有漏
+    assert 光明.是空白(值) is True
 
 
 def test_浮点特值不被判成整数或字符串():
