@@ -396,10 +396,16 @@ def _跑门禁(仅这些节点=None, 超时=900, 根=None):
     命令 = [sys.executable, '-m', 'pytest', '--runxfail', '-q',
             '-p', 'no:cacheprovider', '--timeout=300',
             '--junitxml', junit路径] + sorted(节点们)
-    if worker覆盖:
-        命令 += ['-n', worker覆盖]
+    # ⚠️ R157 收口修复：子进程并发度**默认压到 1**（xdist 单 worker）。
+    # 外层全量门已是 `-n auto`（8 核），若子进程再继承 addopts 的 `-n 4`，
+    # 会形成 8×4 的嵌套并发把 CPU 打满，导致同批的原生腿真编译用例
+    # 撞 60s 限时被误判为红（本机串行/单并发复跑实测全绿）。
+    # 仍走 xdist（而非纯串行）是为绕开 Windows 沙箱的父进程树 SIGTERM 问题。
+    # 需要调并发度时用环境变量 R157B_CHILD_WORKERS=<n> 覆盖。
+    命令 += ['-n', worker覆盖 or '1']
     try:
-        r = subprocess.run(命令, cwd=_REPO, capture_output=True, timeout=超时)
+        r = subprocess.run(命令, cwd=_REPO, env=子环境,
+                                capture_output=True, timeout=超时)
     except subprocess.TimeoutExpired:
         raise AssertionError(
             'xfail 门禁子进程超时（>%ds）——native 编译用例在负载下过慢？'
