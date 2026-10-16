@@ -475,13 +475,56 @@ def compile_source_to_ir(source: str, output_ll: str = None, verbose: bool = Fal
     return output_ll
 
 
+def _text_has_imports(source: str) -> bool:
+    """文本级兜底：源码字面是否含光明导入语法。
+
+    只在 `_module_has_imports` 的 parse/convert 抛异常后调用，用于区分
+    「这源码真的没有导入（走单模块快速路径正确）」与「解析器状态异常，
+    但源码显然有导入（绝不该走快速路径）」。
+    判定口径：行内出现独立 token `导入`，或 `从 X 导入 Y` 结构。
+    """
+    if not source:
+        return False
+    for line in source.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        # 去掉行注释（光明行注释以 # 开头）
+        if s.startswith('#'):
+            continue
+        if '导入' in s:
+            return True
+        if s.startswith('从 ') and ' 导入 ' in s:
+            return True
+    return False
+
+
 def _module_has_imports(source: str) -> bool:
-    """检测光明源码是否含**模块级**导入，决定原生腿是否走多模块编译。"""
+    """检测光明源码是否含**模块级**导入，决定原生腿是否走多模块编译。
+
+    ⚠️ R157-A 修复（L-079 秒挂根因）：此处**不再 fail-open 静默降级**。
+    旧实现 `except Exception: return False` 在解析器/适配器偶发异常时，把
+    「源码明明有导入」判成 False，导致 `compile_light_typed` 走**单模块快速
+    路径**，stdlib 导出名全部未注册，codegen 以 `NotImplementedError: 未定义的
+    段落` 在 ~0.15s 秒挂（实测与 L-079 在 0.88 全量门禁下观测到的 0.12s 秒挂
+    形态吻合）。
+
+    新语义：
+      1) parse/convert 成功 → 以 AST 判定为准（与原行为一致）；
+      2) parse/convert 异常 + 文本级兜底命中「含导入」→ **抛原始异常**
+         （fail-closed：宁可真报错，不许静默走错路径造出误导性秒挂）；
+      3) parse/convert 异常 + 文本级兜底也未命中 → 返回 False（走快速路径，
+         与「无导入」的真值一致）。
+    """
     try:
         v3_module = LightParser().parse(source)
         module = AstAdapter().convert_module(v3_module)
         return bool(getattr(module, 'imports', None) or [])
     except Exception:
+        if _text_has_imports(source):
+            # fail-closed：源码含导入却被判 False，必须让错误浮出水面，
+            # 而不是让它变成「未定义的段落」秒挂。
+            raise
         return False
 
 

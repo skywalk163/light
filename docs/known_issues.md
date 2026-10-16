@@ -562,10 +562,24 @@ Windows 下按 GBK 输出会被当成乱码误判成冒烟不通过；现钉 `PY
 
 指向 `C:\dumatework\lightpub`，跨机器就断。
 
+> **R157-D 收口（2026-10-16）**：已修复。
+> - **消费方**：仅 `stdlib/lightpub/__init__.py` 自身（L45/L53/L61）+ `bootstrap/release/stdlib/lightpub/__init__.py` 同款副本。`resolve_import` 在 `src/code_generator.py:5456` 被调用，无直接消费 `_LIGHTPUB_ROOT` 的其他模块。
+> - **修法**：回退链 `LIGHTPUB_ROOT 环境变量 → C:\dumatework\lightpub（存在时）→ <仓库根>/lightpub（兜底）`。本机 `C:\dumatework\lightpub` 与 `G:\dswork\lightpub` 均不存在，实测回退到 `G:\dswork\duan-light-merge\light-merge\lightpub`，109 个包全部可解析。
+> - **验证**：`tests/lightpub/` 全量 81 passed / 3 skipped（本机 Windows，L0 初筛）。0.86 Linux 侧需主 agent 收口时补跑 L2 批（fast 模式）。
+> - **影响**：原默认路径在 Linux 上无意义，修复后跨机器行为一致——环境变量未设置时都走仓库相对路径。
+
 ### 12.6 50 个整文件注释的伪代码 stdlib 模块
 
 整个文件被注释掉、只剩形状，`stdlib/日期时间.light` 是其中之一（正因为没有魔数所以无害）。
 待定方案是缩成「导出清单 + 显式 NotImplemented」，会影响自举率口径，未决。
+
+> **R157-D 收口（2026-10-16）**：数字核实 + 裁定登记。
+> - **实测方法**：对 `stdlib/` 下全部 123 个 `.light` 文件逐文件统计总行数、注释行（`#` 行 + 空行）、代码行，按注释行占比 ≥70%/80% 两档筛选。
+> - **实测结果**：
+>   - 80%+ 注释行（严格伪模块）：**14 个**（CSV读写器 97.4%、装饰器 97%、日志系统增强 94.9%、中文NLP 94.8%、日期时间 94.6%、历法 92.9%、中文文本 92.5%、文件匹配 90.5%、外部命令 90%、FFI增强 90%、临时文件 88.9%、系统接口 86.6%、加密 86%、os 80.9%）。
+>   - 60%+ 注释行（宽松伪模块）：**23 个**（含上述 14 个 + inspect 69%、中止 65.5%、selectors 64.4%、字节缓冲 64%、内置核心字典 62.7%、socket 61.8%、操作系统 61%、内置核心判型 60.2%）。
+> - **与影子数 35 的关系**：影子数 35 是自举率基线（`tools/ci/bootstrap_rate_baseline.json`）的独立指标，指自举编译器能解析但 src/ 权威解析器不产出的「影子」模块数。伪模块（注释文件）与影子模块是**交集关系而非子集关系**——伪模块中部分有魔数（被 src/ 解析）部分无魔数（被 src/ 跳过），影子数 35 不等于伪模块数。
+> - **裁定**：维持现状。数字「50 个」不实，以实测 14/23 为准。待定方案「缩成导出清单 + 显式 NotImplemented」仍为未决，进 E 线候选池，本轮不实施。
 
 ### 12.7 [2026-09-07·CIA-timeout 调查抓出] `_gen_coroutine_function` 缺 `prev_module` 保存 → 协程段 NameError（**已修**）
 
@@ -594,6 +608,13 @@ Windows 下按 GBK 输出会被当成乱码误判成冒烟不通过；现钉 `PY
 **影响**：后来者按名索骥会误判它产出 LLVM IR。**处置**：重命名为
 `llvm_driver.py` 或在文件头补一行职责说明（代修走 A2/A3）。
 
+> **R157-D 收口（2026-10-16）**：文件头已补完整职责说明（非一行），含：
+> - 明确「不生成 LLVM IR」+ 与 `c_backend.编译C到原生` 功能重复。
+> - 说明「不删」理由（R154 裁定 + known_issues 13.1 节未授权删除）。
+> - 推荐原生编译路径（`src/llvm/compiler.py`）。
+> - 两条 codegen 路径现状指针（新路径 `src/llvm/` 主路径，旧路径 `antlrparser/` 只读）。
+> - 重命名仍为未决（R154 裁定「不重命名」纪律延续），本轮不实施。
+
 ### 13.2 两条 LLVM 代码生成路径并存
 
 - 新：`src/llvm/`（codegen_typed.py 等），由 `cli/light.py:342/366` 经
@@ -602,6 +623,12 @@ Windows 下按 GBK 输出会被当成乱码误判成冒烟不通过；现钉 `PY
   `from llvm_codegen import LLVMCodeGen` 调用。
 两条路径被不同 CLI 分别拉起，行为面与维护状态不一致，是回归的高危分叉点。
 **处置**：统一到 `src/llvm/`，废弃 `antlrparser/llvm_codegen.py`（代修走 A2/A3）。
+
+> **R157-D 收口（2026-10-16）**：文档化处置已落地。
+> - `docs/DEVELOPMENT_GUIDE.md` 新增 §1.5「两条 LLVM codegen 路径现状」，
+>   含路径表、并存原因、该走哪条的明确指引、相关文件指针。
+> - `llvm_backend.py` 文件头也新增两条 codegen 路径现状指针。
+> - 统一/废弃仍为未决（需 A2/A3 基础设施轮次），本轮不实施。
 
 ### 13.3 `--target wasm` 的实际去向（R140-C 已接通：§13.3 方案 A 落地）
 

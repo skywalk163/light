@@ -41,8 +41,21 @@ except ImportError:
 # 路径解析
 # =============================================================================
 
-# lightpub 根目录：优先使用环境变量，其次尝试默认路径
-_LIGHTPUB_ROOT = os.environ.get('LIGHTPUB_ROOT', r'C:\dumatework\lightpub')
+# lightpub 根目录：优先使用环境变量，其次尝试默认路径，最后回退仓库相对路径
+# 默认路径 C:\\dumatework\\lightpub 是仓库外绝对路径，跨机器就断（known_issues §12.5）。
+# 回退链：LIGHTPUB_ROOT 环境变量 → C:\\dumatework\\lightpub → <仓库根>/lightpub
+_lightpub_env = os.environ.get('LIGHTPUB_ROOT')
+if _lightpub_env:
+    _LIGHTPUB_ROOT = _lightpub_env
+else:
+    _default_path = r'C:\dumatework\lightpub'
+    if os.path.exists(_default_path):
+        _LIGHTPUB_ROOT = _default_path
+    else:
+        # 回退到仓库相对路径：<仓库根>/lightpub（与本仓库 stdlib/ 同级）
+        _repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        _fallback = os.path.join(_repo_root, 'lightpub')
+        _LIGHTPUB_ROOT = _fallback
 
 # stdlib 根目录（光明编译器的标准库）
 _STDLIB_ROOT = Path(__file__).parent.parent  # stdlib/lightpub/ → stdlib/

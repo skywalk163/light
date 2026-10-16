@@ -150,6 +150,23 @@ light/
     └── repl/                 # 交互式 REPL
 ```
 
+### 1.5 两条 LLVM codegen 路径现状（R157-D §13.2 补注）
+
+仓库内存在两条 LLVM 代码生成路径，并存但职责不同：
+
+| 路径 | 位置 | 状态 | 说明 |
+|------|------|------|------|
+| **新路径（主）** | `src/llvm/codegen_typed.py` + `src/llvm/runtime_typed.c` | 活跃开发 | 当前主力路径，产出 LLVM IR 经 clang 编译为 exe。`compile_light_typed` 入口在 `src/llvm/compiler.py`。所有新功能（原生腿、类型系统、生成器等）均在此路径上开发。 |
+| **旧路径（只读）** | `antlrparser/llvm_codegen.py` + `antlrparser/light_llvm.py` | 不加新功能 | 基于 ANTLR4 的旧 codegen，依赖 antlr4 运行时。仅用于历史冒烟和对比验证，**不接受新功能 PR**。 |
+
+**为什么并存**：新路径从 R10 起逐步替换旧路径，但旧路径的冒烟用例仍保留在 `tests/test_llvm_*.py` 中，用于回归对比。两条路径的 IR 形态不同，不能互相替代。
+
+**该走哪条**：所有新开发必须走新路径（`src/llvm/`）。旧路径的修改仅限于：① 修复编译错误；② 同步关键 bugfix（需主 agent 评审）。
+
+**相关文件**：
+- `llvm_backend.py`（根目录）—— C 编译器包装脚本，不产 IR，详见其文件头注释（R157-D §13.1 补注）。
+- `c_backend.编译C到原生` —— 与 `llvm_backend.py` 功能重复的 C 后端。
+
 ---
 
 ## 4. 开发工作流程
