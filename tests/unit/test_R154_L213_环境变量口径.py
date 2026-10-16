@@ -15,9 +15,9 @@ src 腿真身是 `stdlib/builtins.py:环境变量` = `os.environ.get(name, defau
 `值 == 空` 判缺 key；原生腿缺 key 返 `""` 而非 null，`"" == 空` 为假
 ⇒ **非空默认值在原生腿永远丢失**（src 腿因返 None 而正常）。
 
-## 修法（为什么必须用指针表达「缺失」）
+## 修法（为什么必须用指针表达“缺失”）
 
-`""` 是**合法**的环境变量值（`export X=`），与「变量根本不存在」是两种状态。
+`""` 是**合法**的环境变量值（`export X=`），与“变量根本不存在”是两种状态。
 旧实现缺 key 返 `dv_strdup("")`，调用方拿到非 NULL 指针后**无从分辨**，只能一律
 当空串 —— 三态必然塌成两态。故：
 
@@ -52,7 +52,7 @@ _缺 = "R154A_MISSING_KEY"
 _有 = "R154A_PRESENT"
 _空值 = "R154A_EMPTYVAL"
 
-# 三态 + 空值变量：一个探针覆盖三态对拍与「空值是合法值」这两件事。
+# 三态 + 空值变量：一个探针覆盖三态对拍与“空值是合法值”这两件事。
 # 用 `判()` 归一化，避免把 null/""/缺失在打印层的差异误当语义差异。
 _三态源 = '''段落 判(值):
   如果 是空(值):
@@ -146,11 +146,11 @@ class R154_L213_三态对拍(unittest.TestCase):
 
 
 class R154_L213_缺key缺省到底(unittest.TestCase):
-    """把「缺 key 1 参」的**返回值本体**问清楚：必须是 null，不是空串。
+    """把“缺 key 1 参”的**返回值本体**问清楚：必须是 null，不是空串。
 
     上面那个探针用 `是空()` 归一化，无法区分 null 与 ""——而 L-213 的核心
-    病灶恰恰是「用空串冒充缺失」。故这里补一条直接问「== 空 是否成立」的探针。
-    对「存在的空值变量」则必须 **`== 空` 为假**（它是 "" 不是 null）。
+    病灶恰恰是“用空串冒充缺失”。故这里补一条直接问“== 空 是否成立”的探针。
+    对“存在的空值变量”则必须 **`== 空` 为假**（它是 "" 不是 null）。
     """
 
     _源 = '''段落 主:
@@ -203,7 +203,7 @@ class R154_L213_os门面默认值(unittest.TestCase):
 '''
 
     # ⚠️ 最后一条是**刻意保留的已知边界**：`值 == 空` 判缺 key，
-    # 「存在但值为空串」在 src 腿（真 Python os.getenv）返回 ""，两腿同形。
+    # “存在但值为空串”在 src 腿（真 Python os.getenv）返回 ""，两腿同形。
     # 若把 os.light 改写成 `是空(值)`，该行会变 "DEF2" 而与 src 腿分叉 ——
     # 实测复现，故 os.light 保持 `值 == 空`（见 stdlib/os.light 处的注记）。
     _期望 = [
@@ -228,14 +228,14 @@ class R154_L213_os门面默认值(unittest.TestCase):
         self.assertEqual(_native_run(self._源), _src_run(self._源))
 
 
-# ── 三、源码级守（防回归到「只传 args[0]」） ─────────────────────────────────
+# ── 三、源码级守（防回归到“只传 args[0]”） ─────────────────────────────────
 
 class R154_L213_源码级守(unittest.TestCase):
     """行为测试在两端都能过的情况下，源码级守钉死实现不能退回旧形态。
 
-    为什么需要它：旧实现在「缺 key + 1 参」这一格与目标态**恰好同形**
-    （都是"空"），单靠行为对拍挡不住「把 args[1] 又删掉、只留 src 口径
-    看起来对」的退化；而「默认值丢失」只在 2 参时暴露。
+    为什么需要它：旧实现在“缺 key + 1 参”这一格与目标态**恰好同形**
+    （都是"空"），单靠行为对拍挡不住“把 args[1] 又删掉、只留 src 口径
+    看起来对”的退化；而“默认值丢失”只在 2 参时暴露。
     """
 
     def _codegen(self):
@@ -260,12 +260,12 @@ class R154_L213_源码级守(unittest.TestCase):
         self.assertIn("dv_getenv", body, "环境变量 分支必须调用 dv_getenv")
 
     def test_codegen_用指针判缺失而非串内容(self):
-        """判据必须是「返回指针为 null」，不能是「返回串为空」。
+        """判据必须是“返回指针为 null”，不能是“返回串为空”。
 
         ⚠️ 不断言 `_create_null_dv`：缺失且无默认值时实现是 `call void @dv_null(ptr
         result_slot)` —— 与 `_create_null_dv()` 内部动作等价（它也是 dv_null 到一个
         新槽），只是这里必须落到**同一个合并槽**，故直接发射更直接。断言的是
-        「缺省路径产出 null」这个语义，不是某个 helper 的名字。
+        “缺省路径产出 null”这个语义，不是某个 helper 的名字。
         """
         src = self._codegen()
         i = src.find("if name in ('环境变量', 'getenv', 'get_env'):")
@@ -290,7 +290,7 @@ class R154_L213_源码级守(unittest.TestCase):
         body = self._getenv_body()
         self.assertIn("NULL", body, "dv_getenv 缺 key 未用 NULL 表达缺失（L-213 回归）")
         self.assertNotIn('dv_strdup("")', body,
-                         'dv_getenv 仍在用空串冒充「缺失」')
+                         'dv_getenv 仍在用空串冒充“缺失”')
 
 
 # ── 四、反跑有牙 ─────────────────────────────────────────────────────────────
@@ -300,7 +300,7 @@ class R154_L213_反跑有牙(unittest.TestCase):
 
     做法：把 codegen 复制到临时文件、模拟旧实现（删掉缺失分支的 args[1] 支持），
     再对**那份源码文本**施加与 test_codegen_环境变量分支覆盖args1 相同的判据。
-    这不是「改测试期望消红」——原文件一个字节都没动。
+    这不是“改测试期望消红”——原文件一个字节都没动。
     """
 
     def test_反跑_旧实现会被源码级守抓住(self):
@@ -347,7 +347,7 @@ class R154_L213_反跑有牙(unittest.TestCase):
         # 同一判据施加在旧实现上必须失败（= 测试有牙）
         self.assertNotIn("NULL", mbody, "反跑装置失效：变异体仍含 NULL")
         self.assertIn('dv_strdup("")', mbody,
-                      "反跑装置没造出「空串冒充」形态")
+                      "反跑装置没造出“空串冒充”形态")
         self.assertNotIn('dv_strdup("")',
                          rt[i:rt.find("\n}", i)],
                          "真实 runtime 仍在用空串冒充缺失")

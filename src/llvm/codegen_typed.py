@@ -2649,8 +2649,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             #   · key 缺 + 1 参   → null
             #   · key 缺 + 2 参   → 实参默认值（R154 前被静默丢弃：C 侧只收了 args[0]）
             # 判据是 dv_getenv 的 **返回指针是否为 null**，不是返回串是否为空——
-            # `""` 是合法环境变量值（`export X=`），用串内容判断会把「空值变量」
-            # 误判成「缺失」（见 runtime_typed.c:dv_getenv 的注记）。故显式 br 分流。
+            # `""` 是合法环境变量值（`export X=`），用串内容判断会把“空值变量”
+            # 误判成“缺失”（见 runtime_typed.c:dv_getenv 的注记）。故显式 br 分流。
             if args:
                 a0 = self._deref_value(args[0])
                 name_ptr = self.new_register()
@@ -2667,7 +2667,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 result_slot = self._new_dv_slot()
                 self.emit(f'br i1 {got}, label %{hit_lab}, label %{miss_lab}')
 
-                # 命中分支：变量值（空串也走这里——它与「缺失」是两种状态）。
+                # 命中分支：变量值（空串也走这里——它与“缺失”是两种状态）。
                 self.emit(f'{hit_lab}:')
                 self.emit(f'call void @dv_str(ptr {result_slot}, ptr {out})')
                 self.emit(f'br label %{end_lab}')
@@ -2684,9 +2684,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{end_lab}:')
                 return self._load_dv(result_slot), 'dv'
             # 0 参维持 R154 前原状（空串），**不与 src 腿对齐**：src 腿此处会
-            # TypeError（缺必填实参），原生腿选择「不崩」而非「同崩」，属已登记
-            # 边界（A 线交付报告「新发现/边界」节）。改成 null 会让既有 0 参调用
-            # 从「空串」静默变「null」，是另一处口径漂移，不在 L-213 范围内。
+            # TypeError（缺必填实参），原生腿选择“不崩”而非“同崩”，属已登记
+            # 边界（A 线交付报告“新发现/边界”节）。改成 null 会让既有 0 参调用
+            # 从“空串”静默变“null”，是另一处口径漂移，不在 L-213 范围内。
             return self._create_str_dv(self.gen_string_constant("")), 'dv'
 
         if name in ('设置环境变量', 'setenv', 'set_env'):

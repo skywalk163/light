@@ -228,7 +228,7 @@ def _prose_lines(full):
 
 # R154-D（2026-10-16 清理执行轮）：轮次 scratch 副本目录不扫。
 # 这些目录含 src 整树副本（如 _r151a_scratch/src_head/code_generator.py），其既有代码
-# 会被误判为「新增违规」——本质是路径不同的副本，不是新写的坏断言。详见
+# 会被误判为“新增违规”——本质是路径不同的副本，不是新写的坏断言。详见
 # _R154_D线交付报告.md。覆盖：.scratch、_recover、以及 _r<数字>…_scratch（如
 # _r151a_scratch / 当前轮在用的 _r154a_scratch）。用正则而非前缀匹配，避免误伤正常目录。
 _SKIP_DIR_EXACT = (".scratch", "_recover")
