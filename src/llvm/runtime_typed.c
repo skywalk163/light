@@ -5752,6 +5752,11 @@ typedef struct LightFuture {
     char error_msg[256];   /* 错误消息 */
     /* 等待这个 future 的协程链表 */
     LightCoroutine* waiters;
+    /* R119-B 修复：引用计数 = 持有者协程(1) + 每个 awaiter(1)；归零即释放 future。
+     * 持有者协程完成后若仅剩自身这一引用，由 dv_future_unref 连带回收该协程。 */
+    int refcount;
+    /* 持有者协程（用于完成时连带回收；无持有者（如 dv_future_from_value）为 NULL） */
+    struct LightCoroutine* owner;
 } LightFuture;
 
 /* 协程调度器 */
@@ -5767,6 +5772,9 @@ static LightScheduler g_scheduler = { NULL, NULL, 0 };
 /* 前置声明 */
 LightFuture* dv_future_create(void);
 void dv_future_complete(LightFuture* f, LightValue* result);
+void dv_coro_free(LightCoroutine* coro);   /* R119-B：回收已完成协程 */
+static void dv_future_ref(LightFuture* f); /* R119-B：future 引用 +1 */
+static void dv_future_unref(LightFuture* f); /* R119-B：future 引用 -1，归零释放 */
 /* R139-A：`dv_coro_run_to_completion` 定义在本块之前，需驱动它后面定义的事件
  * 循环 `dv_scheduler_run_event_loop`（B3），故在此前置声明。 */
 void dv_scheduler_run_event_loop(void);
@@ -5810,6 +5818,10 @@ LightCoroutine* dv_coro_create(LightCoroFunc func, LightValue* args, int num_arg
     
     coro->waiting_for = NULL;
     coro->future = dv_future_create();
+    if (coro->future) {
+        coro->future->owner = coro;   /* 持有者引用计入 refcount */
+        coro->future->refcount = 1;
+    }
     coro->next = NULL;
     
     /* 添加到调度器的可运行队列 */
@@ -5854,6 +5866,8 @@ LightFuture* dv_future_create() {
     f->has_error = 0;
     f->error_msg[0] = '\0';
     f->waiters = NULL;
+    f->refcount = 0;   /* 持有者引用在 dv_coro_create 里置 1；await 时由 awaiter 加 1 */
+    f->owner = NULL;
     return f;
 }
 
@@ -5906,6 +5920,7 @@ int dv_coro_await(LightCoroutine* coro, LightCoroutine* target) {
     if (future->ready) {
         /* 目标已经完成，直接返回（不挂起） */
         coro->waiting_for = future;
+        dv_future_ref(future);   /* 登记 awaiter 引用，与挂起分支一致 */
         return 0;
     }
     
@@ -5936,7 +5951,8 @@ int dv_coro_await(LightCoroutine* coro, LightCoroutine* target) {
     /* 挂起当前协程，等待 future */
     coro->state = DV_CORO_SUSPENDED;
     coro->waiting_for = future;
-    
+    dv_future_ref(future);   /* awaiter 引用 +1，与 dv_coro_get_await_result 的 unref 配对 */
+
     /* 添加到 future 的等待链表 */
     coro->next = future->waiters;
     future->waiters = coro;
@@ -6035,13 +6051,15 @@ LightValue* dv_coro_get_arg(LightCoroutine* coro, int index) {
 /* 获取 await 的结果：从 coro->waiting_for->result 复制到 out */
 void dv_coro_get_await_result(LightCoroutine* coro, LightValue* out) {
     if (!coro || !out) return;
-    if (coro->waiting_for && coro->waiting_for->ready) {
-        dv_clone(out, &coro->waiting_for->result);
+    LightFuture* f = coro->waiting_for;
+    if (f && f->ready) {
+        dv_clone(out, &f->result);
     } else {
         dv_null(out);
     }
-    /* 清除 waiting_for 引用 */
+    /* 清除 waiting_for 引用并释放 awaiter 对 future 的引用 */
     coro->waiting_for = NULL;
+    dv_future_unref(f);
 }
 
 /* 设置协程结果 */
@@ -6067,6 +6085,58 @@ LightFuture* dv_future_from_value(LightValue* val) {
         f->ready = 1;
     }
     return f;
+}
+
+/* R119-B 修复：Future / Coroutine 引用计数回收
+ *
+ * 根因：旧调度器在协程完成后**从不释放** LightCoroutine / LightFuture / args /
+ * locals，且 g_scheduler.num_coros 只增不减（上限 DV_MAX_COROUTINES=4096）。
+ * 长循环（如分布式 worker 的「逐任务执行」「心跳/注册」）每轮新建一个被 await
+ * 的子协程，累积泄漏 → 内存单调增长直至 SIGSEGV（实测 `节点` worker 残余 ~29 MB/s）。
+ *
+ * 修复：为 Future 引入引用计数（持有者协程 1 + 每个 awaiter 1）。await 时 +1，
+ * dv_coro_get_await_result 时 -1；归零即释放 future。当持有者协程已完成且为最后
+ * 引用时，由 dv_future_unref 连带 dv_coro_free 回收该协程（含其 args/locals/result）。
+ *
+ * ⚠️ waiting_for 还可能指向 (LightFuture*) 伪装的 timer / io_wait（见 dv_coro_sleep
+ * / dv_coro_await_io），那些**不走** refcount，仅由对应 resume 路径在唤醒时置 NULL，
+ * 与本回收互不相干，切勿混淆。 */
+static void dv_future_ref(LightFuture* f) {
+    if (f) f->refcount++;
+}
+
+static void dv_future_unref(LightFuture* f) {
+    if (!f) return;
+    f->refcount--;
+    if (f->refcount <= 0) {
+        dv_free(&f->result);
+        free(f);
+        return;
+    }
+    /* 仅剩持有者引用（refcount==1）且该协程已完成 → 连带回收持有者协程 */
+    if (f->refcount == 1 && f->owner && f->owner->state == DV_CORO_DONE) {
+        dv_coro_free(f->owner);
+    }
+}
+
+void dv_coro_free(LightCoroutine* coro) {
+    if (!coro || coro->func == NULL) return;  /* 防重复释放 */
+    /* 摘除仍在调度器中的引用（防御；正常完成时已从 run_queue 弹出） */
+    g_scheduler.num_coros--;
+    dv_free(&coro->result);
+    if (coro->args) {
+        for (int i = 0; i < coro->num_args; i++) dv_free(&coro->args[i]);
+        free(coro->args);
+    }
+    if (coro->locals) {
+        for (int i = 0; i < coro->num_locals; i++) dv_free(&coro->locals[i]);
+        free(coro->locals);
+    }
+    LightFuture* f = coro->future;
+    coro->future = NULL;
+    coro->func = NULL;  /* 标记已释放，防 dv_coro_free 重入/重复释放 */
+    if (f) dv_future_unref(f);  /* 释放持有者引用 → 可能归零释放 future */
+    free(coro);
 }
 
 /* ================================================================
