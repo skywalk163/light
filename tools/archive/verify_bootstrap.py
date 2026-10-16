@@ -54,7 +54,7 @@ def _setup_light_builtin():
     _light_builtin.是字符串 = lambda x: isinstance(x, str)
     _light_builtin.是列表 = lambda x: isinstance(x, list)
     _light_builtin.是字典 = lambda x: isinstance(x, dict)
-    _light_builtin.是空 = lambda x: x is None
+    _light_builtin.是空 = lambda x: x is None or (isinstance(x, str) and len(x) == 0)
     _light_builtin.随机整数 = lambda a, b: __import__('random').randint(a, b)
     _light_builtin.随机浮点 = lambda: __import__('random').random()
     _light_builtin.随机选择 = lambda lst: __import__('random').choice(lst)
