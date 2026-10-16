@@ -231,3 +231,16 @@
 ④ **验证**：`tests/lightpub/` 全量 **81 passed / 0 failed**（修前 1 failed）；实跑光明代码真建 TCP socket + 真绑定 + 真解析主机名（证明非空壳）；反跑移走文件转红、放回转绿；`import socket` 仍指向 CPython 未被劫持；双 gen `--check` RC=0；
 ⑤ **新增锚点** `tests/lightpub/test_R155_Socket顶层路由.py`（10 条，三层：行为层 / **平台无关层**（钉住大小写误判根因）/ 反跑层）。
 **+ 同轮账目纠偏**：总账 §2/§4.1 的 L-194 状态与缺陷账矛盾（缺陷账记“已修 R144”，总账仍写“未修深水区”）—— 已统一为“已修（R144）”，残余明确指向 R119-B。
+
+**+ R156 三线收口（2026-10-16，三项遗留问题全部解决）**：
+① **R119-B 原生腿异步 `等待` 局限（WorkBuddy 完成）**：`src/llvm/runtime_typed.c` 给 `LightFuture` 增加
+   `refcount`/`owner` 字段 + `dv_future_ref`/`dv_future_unref`/`dv_coro_free`；`dv_coro_await` +1、
+   `dv_coro_get_await_result` -1，归零连带回收被 await 的子协程+future；顶层入口协程与 timer/io_wait
+   伪装 future 不走 refcount。新增 `tests/unit/test_R119B_异步等待内存回收.py`（B1 长循环 await 双腿对拍
+   总数=10000，功能正确性护栏，非泄漏检测器）。
+② **L-196 原生腿异步带参方法不执行 + IR 支配域错误（WorkBuddy 完成）**：三处遗留未提交文档改动统一把
+   L-196 由“已定位未修”更正为“已修复（R142-A，2026-10-12；回归测试 3/3 通过，2026-10-16 复验）”。
+③ **lightharness 侧 8 项无关 untracked（商汤小浣熊完成）**：删 `.tmp_r110*/` + 7 个 `src/*_profile.json`，
+   补 `.gitignore` 规则 `.tmp_*/` + `*_profile.json`，归档 profile 到 `_archive/`（已忽略）。
+④ **0.82 权威门**：`reports/082_lightmerge基线_latest.json` 刷新（round=R119B，total 9315 / 9132 passed /
+   failed=0；R154 基线 9001/8856）。
