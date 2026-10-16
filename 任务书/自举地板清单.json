@@ -711,7 +711,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:55"
+      "证据行": "stdlib/内置核心判型.light:61"
     },
     {
       "名字": "是字符串",
@@ -727,7 +727,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:63"
+      "证据行": "stdlib/内置核心判型.light:69"
     },
     {
       "名字": "是整数",
@@ -751,7 +751,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:51"
+      "证据行": "stdlib/内置核心判型.light:55"
     },
     {
       "名字": "是空白",
@@ -759,7 +759,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:67"
+      "证据行": "stdlib/内置核心判型.light:73"
     },
     {
       "名字": "显示宽度",
@@ -1215,7 +1215,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:71"
+      "证据行": "stdlib/内置核心判型.light:77"
     },
     {
       "名字": "是函数",
@@ -1223,7 +1223,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:75"
+      "证据行": "stdlib/内置核心判型.light:81"
     },
     {
       "名字": "是数值",
@@ -1231,7 +1231,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:81"
+      "证据行": "stdlib/内置核心判型.light:87"
     },
     {
       "名字": "字符串全数字",
@@ -1239,7 +1239,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（R99-C · LP-D-016 新增并接线；空串返回假，非 str 返回假）",
-      "证据行": "stdlib/内置核心判型.light:101"
+      "证据行": "stdlib/内置核心判型.light:107"
     },
     {
       "名字": "是负零",
@@ -1247,7 +1247,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（任务5 T2-D4 新增：负零判定原语，纯光明实现）",
-      "证据行": "stdlib/内置核心判型.light:89"
+      "证据行": "stdlib/内置核心判型.light:95"
     },
     {
       "名字": "切片下标检查",
