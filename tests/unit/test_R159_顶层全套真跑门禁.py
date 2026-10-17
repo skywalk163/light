@@ -634,8 +634,14 @@ def test_枚举覆盖顶层全部文件():
     """枚举必须自洽：非空、数量下限、文件真实存在、旧门边界保持。"""
     文件们 = _枚举()
     assert 文件们, 'tests/ 顶层没扫到任何 test_*.py —— 扫描逻辑坏了'
-    assert len(文件们) >= 150, (
-        '顶层枚举数 %d < 150——扫描逻辑可疑（起草时实测 156）' % len(文件们))
+    # 信号断言：枚举必须 == 对 tests/ 顶层 test_*.py 的独立 glob（全覆盖、无遗漏/无多算）
+    # 取代原先的弱下界断言 len(...) >= 150（假测试门禁判为假绿）—— 顶层文件增减时两端同涨同落，不脆。
+    实际顶层 = sorted(os.path.basename(p) for p in
+                   glob.glob(os.path.join(_测试根, 'test_*.py'))
+                   if os.path.isfile(p))
+    assert sorted(文件们) == 实际顶层, (
+        '顶层枚举与独立 glob 不一致：缺 %s / 多 %s'
+        % (sorted(set(实际顶层) - set(文件们)), sorted(set(文件们) - set(实际顶层))))
     for f in 文件们:
         assert os.path.isfile(os.path.join(_测试根, f)), f
     # 旧门边界：R153 collect 门禁是顶层文件，必须仍在枚举面内
