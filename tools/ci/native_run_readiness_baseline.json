@@ -3,20 +3,20 @@
   "note": "stdlib 原生腿「可跑」就绪度基线（R131-A 首建）。可编≠可跑：本脚本对llvm_stdlib_readiness 基线的每个「可编」模块生成最小导入驱动 → 真编译成 exe → 真执行，判据 rc==0 且 stdout 含哨兵 SMOKE_OK。可跑名单只许增不许减——对 --base 跑出「由跑转崩」即 rc=1。pair_rate 是对拍覆盖率普查（启发式：只证明被 tests/ 下原生腿对拍用例提及，不证明用例质量）。跑批约 25-50 分钟，**不进 PR 级 CI**，定位轮次门禁/nightly。",
   "compile_entry": "compile_light_typed(驱动模块)",
   "sentinel": "SMOKE_OK",
-  "built_from_commit": "957a2ce0",
-  "generated_at": "2026-10-11T22:42:28",
-  "timeout_per_module_sec": 180.0,
+  "built_from_commit": "3845a5121",
+  "generated_at": "2026-10-17T18:44:23",
+  "timeout_per_module_sec": 300,
   "total": 72,
   "judged": 68,
-  "runnable": 67,
-  "crashed": 1,
+  "runnable": 68,
+  "crashed": 0,
   "uncompilable": 0,
   "no_export": 4,
-  "run_rate": 0.9852941176470589,
+  "run_rate": 1.0,
   "pair_covered": 57,
   "pair_rate": 0.7916666666666666,
   "pair_files_hit": 44,
-  "pair_files_scanned": 358,
+  "pair_files_scanned": 397,
   "pair_covered_modules": [
     "Base64",
     "JSON",
@@ -139,6 +139,7 @@
       "缓存",
       "编码",
       "编码解码",
+      "节点",
       "节点核心",
       "路径运算",
       "进度条",
@@ -146,9 +147,7 @@
       "颜色处理",
       "高级文件"
     ],
-    "跑崩": [
-      "节点"
-    ],
+    "跑崩": [],
     "编不过": [],
     "无导出": [
       "JSONL",
@@ -206,7 +205,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "JSON",
@@ -224,7 +223,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "JSON核心",
@@ -234,12 +233,15 @@
         "序列化",
         "序列化缩进",
         "写入文件",
-        "JSON解码器"
+        "JSON解码器",
+        "扁平化",
+        "过滤字典",
+        "分组"
       ],
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "JSON编解码",
@@ -252,7 +254,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "errno",
@@ -270,7 +272,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "inspect",
@@ -284,7 +286,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "os",
@@ -296,7 +298,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "re",
@@ -314,7 +316,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "selectors",
@@ -325,14 +327,14 @@
         "EVENT_WRITE",
         "新建选择器",
         "注册",
+        "注销",
         "select",
-        "轮询",
-        "关闭选择器"
+        "轮询"
       ],
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "socket",
@@ -350,7 +352,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "sys",
@@ -368,7 +370,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "time",
@@ -386,7 +388,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "uuid工具",
@@ -404,7 +406,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "中国传统节日",
@@ -420,7 +422,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "中国行政区划",
@@ -437,7 +439,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "中文分词",
@@ -450,7 +452,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "中文数字转换",
@@ -464,7 +466,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "中文文本处理",
@@ -482,7 +484,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "中文编码",
@@ -500,7 +502,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "中止",
@@ -514,7 +516,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "内置核心列表",
@@ -532,7 +534,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "内置核心判型",
@@ -544,7 +546,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "内置核心字典",
@@ -562,7 +564,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "内置核心字符串",
@@ -580,7 +582,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "内置核心系统",
@@ -592,7 +594,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "内置核心路径",
@@ -608,7 +610,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "内置核心转换",
@@ -621,7 +623,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "农历",
@@ -639,7 +641,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "列表工具",
@@ -657,7 +659,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "参数解析",
@@ -675,7 +677,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "向量",
@@ -693,7 +695,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "哈希",
@@ -711,7 +713,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "图像处理基础",
@@ -729,7 +731,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "复数",
@@ -742,12 +744,12 @@
         "复数减法",
         "复数乘法",
         "复数除法",
-        "复数模"
+        "复数指数"
       ],
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "字符串工具",
@@ -765,7 +767,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "字符串工具轻量",
@@ -783,7 +785,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "字符串常量",
@@ -801,7 +803,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "字节缓冲",
@@ -813,7 +815,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "对象池缓存",
@@ -831,7 +833,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "手机号校验",
@@ -844,7 +846,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "拼音转换",
@@ -857,7 +859,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "排序",
@@ -875,7 +877,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "操作系统",
@@ -889,7 +891,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "数学",
@@ -907,7 +909,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "数学统计",
@@ -925,7 +927,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "数据结构",
@@ -943,7 +945,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "数据结构轻量",
@@ -961,7 +963,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "数据验证",
@@ -979,7 +981,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "文件流",
@@ -993,7 +995,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "文件系统",
@@ -1006,12 +1008,12 @@
         "删除文件",
         "获取文件名",
         "文件行列表",
-        "文件大小"
+        "是否可执行"
       ],
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "断言工具",
@@ -1029,7 +1031,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "断言工具轻量",
@@ -1047,7 +1049,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "日期时间轻量",
@@ -1065,7 +1067,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "格式化",
@@ -1083,7 +1085,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "模式校验",
@@ -1094,7 +1096,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "模板",
@@ -1110,7 +1112,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "正则表达式",
@@ -1128,7 +1130,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "统计",
@@ -1146,7 +1148,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "缓存",
@@ -1164,7 +1166,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "编码",
@@ -1182,7 +1184,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "编码解码",
@@ -1200,7 +1202,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "节点",
@@ -1208,10 +1210,10 @@
       "导入名": [
         "主"
       ],
-      "bucket": "跑崩",
-      "detail": "执行超时(>180s)",
+      "bucket": "可跑",
+      "detail": "",
       "gap": "",
-      "stdout": ""
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "节点核心",
@@ -1222,7 +1224,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "路径运算",
@@ -1238,7 +1240,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "进度条",
@@ -1256,7 +1258,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "颜色",
@@ -1274,7 +1276,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "颜色处理",
@@ -1292,7 +1294,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     },
     {
       "模块": "高级文件",
@@ -1307,7 +1309,7 @@
       "bucket": "可跑",
       "detail": "",
       "gap": "",
-      "stdout": "SMOKE_OK\n"
+      "stdout": "SMOKE_OK\r\n"
     }
   ],
   "smoke_dir": "_r131_scratch/smoke"

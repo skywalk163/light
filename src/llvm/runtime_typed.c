@@ -740,7 +740,11 @@ char* dv_to_string_depth(LightValue* v, int depth) {
             }
             return dv_strdup(v->str ? v->str : "");
         }
-        case 5: return dv_strdup(v->boolean ? "真" : "假");
+        /* R152-E2（R159-D 实施）：标量中文 / 容器内对齐 src（true/false）。
+         * dv_to_string 顶层 depth=0（标量），dv_elem_to_string /
+         * dv_list_join 以 depth>=1 遍历容器元素 → 天然区分两条口径。 */
+        case 5: return dv_strdup(v->boolean ? (depth > 0 ? "true" : "真")
+                                            : (depth > 0 ? "false" : "假"));
         case 4: return dv_container_to_string(v, '[', ']', depth);
         case 7: return dv_container_to_string(v, '{', '}', depth);
         default: return dv_strdup("");
@@ -3833,7 +3837,7 @@ void dv_list_join(LightValue* result, LightValue* list, LightValue* sep) {
         if (e->type == 3 && e->str) {
             elen = strlen(e->str);
         } else {
-            char* s = dv_to_string(e);
+            char* s = dv_to_string_depth(e, 1);
             if (s) { elen = strlen(s); free(s); }
         }
         total += elen;
@@ -3851,7 +3855,7 @@ void dv_list_join(LightValue* result, LightValue* list, LightValue* sep) {
         if (e->type == 3 && e->str) {
             s = e->str;
         } else {
-            s = dv_to_string(e);
+            s = dv_to_string_depth(e, 1);
             owned = 1;
         }
         size_t elen = s ? strlen(s) : 0;

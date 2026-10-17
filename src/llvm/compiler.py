@@ -1138,7 +1138,15 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
         mod_name = reg_key[0] if isinstance(reg_key, tuple) else None
         params = codegen._segments[reg_key]
         body = codegen._segment_bodies.get(reg_key, [])
-        codegen._gen_typed_segment(seg_name, params, body, module_name=mod_name, reg_key=reg_key)
+        # R159-A（L-216）：**必须传 modifiers**，与单模块路径（codegen_typed.py
+        # `generate()` 里的 `modifiers = self._segment_modifiers.get(reg_key, [])`
+        # 后同序传入）完全同口径。此前这里漏传 → 任何带 import 的（多模块）程序
+        # 其 `异步 段` 全被当普通函数生成：无协程状态机、`创建任务` 实参立即求值、
+        # `异步 运行` 直接跑完，分布式 worker 的领任务循环永不可达（R158-C：
+        # 领任务=0/12874）。modifiers 是 is_async 的唯一真源，不许在此「猜」。
+        modifiers = codegen._segment_modifiers.get(reg_key, [])
+        codegen._gen_typed_segment(seg_name, params, body, modifiers,
+                                   module_name=mod_name, reg_key=reg_key)
 
     # 为所有模块生成导出名别名
     for mod in all_module_list:

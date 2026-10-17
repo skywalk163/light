@@ -8,6 +8,7 @@ from typing import Optional, Tuple, List
 import sys
 import platform as _platform
 import types
+import dataclasses
 import ast_nodes as ast
 try:
     from .codegen import LLVMCodeGen
@@ -104,6 +105,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._in_coroutine = False  # 当前是否在生成协程函数
         self._coro_handle_ptr = None  # 协程句柄指针（LightCoroutine*）
         self._coro_resume_point = 0  # 下一个 await 点的编号
+        # R159-A（L-216 连带面）：协程版「往 entry 块插 alloca」的下标。
+        # 非 None 即表示正在生成协程状态机函数；`_gen_alloca` 会把 alloca 回插到
+        # entry（switch 之前）。根因：协程的 `ret void` 挂起后从 entry 的 switch
+        # 直接跳进 resume 块，就地 alloca 的块**不支配** resume 块 —— 实测
+        # `遍历 X 之 列表: 等待 f()` 会产 `%20 = alloca i64` 在 resume_0 里、
+        # `foreach_cont` 里 load 它 → clang: Instruction does not dominate all uses
+        # （生成器侧同款问题早已由 _gen_entry_insert_idx 解决，这里补协程这半边）。
+        self._coro_entry_insert_idx = None
         # ---- 生成器状态机（R10-11b 第四批B）----
         # `_gen_entry_insert_idx` 非 None 即表示「正在生成生成器状态机函数」。
         # 它同时是「往 entry 块插指令」的下标：生成器每次恢复都是重新调用，
@@ -978,6 +987,19 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         
         idx = self._temp_slot_index
         self._temp_slot_index += 1
+        # R159-A（L-216 连带面）：协程里槽位**指针**本身也必须落在 entry ——
+        # 挂起后从 switch 跳进 resume_N，正文块里算出的 GEP 不支配恢复后的块
+        # （实测：`等待` 的两条路径汇合后 load 槽位 → clang: Instruction does not
+        # dominate all uses）。槽位内容跨挂起是否有效是另一回事（调用点用完即弃），
+        # 但指针必须处处可用。用符号名回插，避免与正文数字寄存器编号冲突。
+        if self._coro_entry_insert_idx is not None:
+            reg = self._gen_entry_symbolic('s')
+            self._lines.insert(
+                self._coro_entry_insert_idx,
+                f'{reg} = getelementptr inbounds {LIGHTVALUE_STRUCT}, '
+                f'ptr {self._temp_slot_pool}, i64 {idx}')
+            self._coro_entry_insert_idx += 1
+            return reg
         reg = self.new_register()
         self.emit(f'{reg} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {self._temp_slot_pool}, i64 {idx}')
         return reg
@@ -6116,12 +6138,22 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._gen_entry_insert_idx += 1
 
     def _gen_alloca(self, ir_type: str) -> str:
-        """发射一条 alloca，返回寄存器名（生成器内自动提到 entry 块）。"""
+        """发射一条 alloca，返回寄存器名（生成器/协程内自动提到 entry 块）。"""
         if self._gen_entry_insert_idx is not None:
             reg = self._gen_entry_symbolic('a')
             self._lines.insert(
                 self._gen_entry_insert_idx, f'{reg} = alloca {ir_type}')
             self._gen_entry_insert_idx += 1
+            return reg
+        # R159-A（L-216 连带面）：协程同样必须提到 entry —— 挂起后从 switch 直接
+        # 跳进 resume 块，就地 alloca 的块不支配 resume 块（遍历循环计数器即触发
+        # "Instruction does not dominate all uses"）。用符号名回插，避免与正文
+        # 数字寄存器编号冲突（同生成器口径）。
+        if self._coro_entry_insert_idx is not None:
+            reg = self._gen_entry_symbolic('c')
+            self._lines.insert(
+                self._coro_entry_insert_idx, f'{reg} = alloca {ir_type}')
+            self._coro_entry_insert_idx += 1
             return reg
         reg = self.new_register()
         self.emit(f'{reg} = alloca {ir_type}')
@@ -7213,6 +7245,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'{is_gen} = call i32 @dv_is_generator(ptr {slot})')
         is_gen_i1 = self.new_register()
         self.emit(f'{is_gen_i1} = icmp ne i32 {is_gen}, 0')
+        # R159-A（L-216 连带面）：is_gen 也必须落内存槽 —— 循环体里有挂起点时，
+        # `foreach_cont` 的回边可能从 resume 块进入（协程挂起后从 entry 的 switch
+        # 直接跳回 resume_N），此时定义在 resume_0 里的 SSA 值 `%is_gen_i1`
+        # 不支配 cont 块 → clang: Instruction does not dominate all uses
+        # （实测：`遍历 任务 之 任务列表: 等待 任务()`）。与 idx/len 槽同口径。
+        gen_flag_slot = self._gen_alloca('i1')
+        self.emit(f'store i1 {is_gen_i1}, ptr {gen_flag_slot}')
 
         idx_slot = self._gen_alloca('i64')
         # len_val 不能用 SSA 值跨块传：list_loop 有一条回边来自 foreach_cont
@@ -7290,7 +7329,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         next_i = self.new_register()
         self.emit(f'{next_i} = add i64 {cur_i}, 1')
         self.emit(f'store i64 {next_i}, ptr {idx_slot}')
-        self.emit(f'br i1 {is_gen_i1}, label %{gen_loop_lab}, label %{list_loop_lab}')
+        # R159-A：回边读内存槽里的 is_gen（resume 路径下 SSA 值不支配此处）
+        cont_is_gen = self.new_register()
+        self.emit(f'{cont_is_gen} = load i1, ptr {gen_flag_slot}')
+        self.emit(f'br i1 {cont_is_gen}, label %{gen_loop_lab}, label %{list_loop_lab}')
 
         self.emit(f'{end_lab}:')
         self._loop_break_labels.pop()
@@ -8297,6 +8339,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 生成 switch 语句（单行，避免验证器将 case 行误判为终止指令后的死代码）
         switch_end_label = self.new_label('coro_switch_end')
         cases = ' '.join(f'i32 {i}, label %{resume_labels[i]}' for i in range(num_await + 1))
+        # R159-A：switch 之前就是 entry 块尾部 —— 记下回插点，让 `_gen_alloca`
+        # 把循环计数器等 alloca 提到这里（挂起后 resume 块不支配就地 alloca）。
+        self._coro_entry_insert_idx = len(self._lines)
         self.emit(f'switch i32 {rp_val}, label %{switch_end_label} [ {cases} ]')
         
         # 生成每个 resume 点和对应的代码
@@ -8331,6 +8376,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._coro_handle_ptr = None
         self._coro_resume_point = 0
         self._coro_resume_labels = None
+        self._coro_entry_insert_idx = None
     
     def _gen_coro_return(self):
         """生成协程返回（设置完成状态）"""
@@ -8347,74 +8393,52 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             count += self._count_await_in_node(stmt)
         return count
     
+    # R159-A（L-216 连带面）：通用递归的字段豁免表。
+    # 只豁免「声明性字段」——它们的子节点在**别的函数**里生成，或者根本不是本函数体
+    # 的求值路径；把它们算进本协程的挂起点数会**多算**（多算的后果同样是编译期红：
+    # switch 引用一个从未 emit 的 resume 标签 → clang: use of undefined value）。
+    #   · parameters   —— 形参默认值（Parameter.default_value）：段/匿名函数签名的一部分
+    #   · generic_params / return_type / modifiers —— 纯声明元数据
+    _AWAIT_WALK_SKIP_FIELDS = frozenset({
+        'parameters', 'generic_params', 'return_type', 'modifiers',
+    })
+
     def _count_await_in_node(self, node) -> int:
-        """递归统计节点中的 await 点数量"""
-        if node is None:
+        """递归统计节点中的 await（挂起）点数量。
+
+        R159-A（L-216）重写：**从「逐类穷举」改为「按 AST 字段通用递归」**。
+        旧实现逐类 isinstance 分支，漏了 `TryStatement / MatchStatement /
+        WithStatement / YieldStatement / ThrowStatement / PrintStatement /
+        DeferStatement / AsyncScope / RunAsyncStmt / 各 comprehension / 各字面量容器`——
+        这些节点里的挂起点不被计数 ⇒ `num_await` 欠计 ⇒ switch 少 case-range ⇒
+        挂起点拿到一个**不在 switch 里**的 resume 标签（代码里 fallback 分支会 emit
+        一个没人跳过来的标签）⇒ 恢复后 switch 落到 coro_switch_end，**协程后半段被
+        静默跳过**（实测：`尝试: 睡眠(10) 输出("后")` 只输出 try 前那句）。
+        通用递归按「有 AST 子节点就进去」写，新语句类型不再需要来这里补分支。
+
+        唯一显式不递归的语句是 `SegmentDefinition`（嵌套段定义）：它在语句层是
+        no-op（`_gen_statement` 直接 return，实体由 `_collect_segment` 注册成独立
+        函数），把它的 body 算进外层协程会**多算**。R159-A 实证：`异步 段` 内嵌
+        `段落 内(): 睡眠(5)` 且外层 `等待 内()` 时，旧实现 num_await=2（实际只有 1
+        个挂起点）→ `switch ... i32 2, label %resume_..._2` 指向从未 emit 的标签 →
+        clang: use of undefined value。
+        """
+        if node is None or not isinstance(node, ast.ASTNode):
             return 0
-        
-        count = 0
-        
-        # AwaitExpression 本身是一个 await 点
-        if hasattr(ast, 'AwaitExpression') and isinstance(node, ast.AwaitExpression):
-            count += 1
+
+        # ① `等待 表达式` 本身就是一个挂起点
+        if isinstance(node, ast.AwaitExpression):
             # R139-A：内联 yield builtin（睡眠/异步睡眠/await_io）自身就是 yield 点，
             # builtin 分支已 emit 挂起 + ret void + resume 标签；若再递归 count
             # 它的 FunctionCall 会被双计数（num_await 多算 1 → 多生成一个从未 emit 的
             # resume 标签 → clang 报 use of undefined value）。
             if self._is_inline_yield_call(node.expression):
-                return count
-            # 还要统计 expression 内部的 await（嵌套 await）
-            count += self._count_await_in_node(node.expression)
-            return count
-        
-        # 语句块 / 段落 / 循环：body 是 list
-        if isinstance(node, (ast.SegmentDefinition, ast.ForeachStatement, ast.WhileStatement)) and hasattr(node, 'body') and isinstance(node.body, list):
-            for s in node.body:
-                count += self._count_await_in_node(s)
-            # WhileStatement 还有 condition
-            if isinstance(node, ast.WhileStatement):
-                count += self._count_await_in_node(getattr(node, 'condition', None))
-            # ForeachStatement 还有 iterable
-            if isinstance(node, ast.ForeachStatement):
-                count += self._count_await_in_node(getattr(node, 'iterable', None))
-            return count
-        
-        # if 语句
-        if isinstance(node, ast.IfStatement):
-            count += self._count_await_in_node(getattr(node, 'condition', None))
-            for s in (node.then_body or []):
-                count += self._count_await_in_node(s)
-            if node.else_body:
-                for s in node.else_body:
-                    count += self._count_await_in_node(s)
-            for cond, body in zip(getattr(node, 'elseif_conditions', []) or [], getattr(node, 'elseif_bodies', []) or []):
-                count += self._count_await_in_node(cond)
-                for s in (body or []):
-                    count += self._count_await_in_node(s)
-            return count
-        
-        # 变量声明 / 赋值 / 返回语句：都有 value
-        if isinstance(node, (ast.VariableDeclaration, ast.Assignment, ast.CompoundAssignment, ast.ReturnStatement)):
-            count += self._count_await_in_node(getattr(node, 'value', None))
-            if isinstance(node, ast.Assignment):
-                count += self._count_await_in_node(getattr(node, 'target', None))
-            return count
-        
-        # 表达式语句
-        if isinstance(node, ast.ExpressionStatement):
-            return self._count_await_in_node(node.expression)
-        
-        # 二元/一元运算
-        if isinstance(node, ast.BinaryOp):
-            count += self._count_await_in_node(node.left)
-            count += self._count_await_in_node(node.right)
-            return count
-        if isinstance(node, ast.UnaryOp):
-            return self._count_await_in_node(node.operand)
-        
-        # 函数调用
+                return 1
+            return 1 + self._count_await_in_node(node.expression)
+
+        # ② 内联 yield builtin（睡眠/异步睡眠/await_io）调用自身是挂起点
+        count = 0
         if isinstance(node, ast.FunctionCall):
-            # 睡眠/await_io 是 yield 点（在协程中产生 ret void + resume label）
             call_name = None
             if hasattr(node, 'name'):
                 if hasattr(node.name, 'name'):
@@ -8423,11 +8447,35 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                     call_name = node.name
             if call_name in ('睡眠', 'sleep', '异步睡眠', '睡眠异步', 'await_io'):
                 count += 1
-            for arg in (node.arguments or []):
-                count += self._count_await_in_node(arg)
+
+        # ③ 嵌套段定义：语句层 no-op，body 由独立函数生成，不计入本协程
+        if isinstance(node, ast.SegmentDefinition):
             return count
-        
+
+        # ④ 通用递归：遍历该 dataclass 的所有 AST 子节点字段
+        for 字段 in dataclasses.fields(node):
+            if 字段.name in self._AWAIT_WALK_SKIP_FIELDS:
+                continue
+            # R159-A：TryStatement 的现代 `catch_clauses` 与向后兼容 `catch_body`
+            # 是**同一 catch 体的两份表示**（src/compiler.py:_convert_try_stmt 分别
+            # 对两个源列表各调一次 _to_list_stmts ⇒ 节点对象不同、内容相同）。
+            # 两者都下探会把 catch 体里的挂起点**算两遍** ⇒ num_await 多算 ⇒
+            # `switch ... i32 2, label %resume_..._2` 指向从未发射的恢复标签 ⇒
+            # clang: use of undefined value。
+            # 口径与同文件 `_iter_ast_children`（R118 收口）完全一致：
+            # 有 catch_clauses 时跳过 catch_body；CatchClause 自身没有
+            # catch_clauses 字段，其 catch_body 照常下探。
+            if 字段.name == 'catch_body' and getattr(node, 'catch_clauses', None):
+                continue
+            值 = getattr(node, 字段.name, None)
+            if isinstance(值, ast.ASTNode):
+                count += self._count_await_in_node(值)
+            elif isinstance(值, (list, tuple)):
+                for 项 in 值:
+                    if isinstance(项, ast.ASTNode):
+                        count += self._count_await_in_node(项)
         return count
+
     
     def _gen_await_expression(self, expr) -> Tuple[str, str]:
         """生成 await 表达式代码
@@ -8470,8 +8518,34 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 恢复标签已经在 switch 中预生成了
         resume_label = self._coro_resume_labels.get(point_num + 1)
         
-        # 跳转到 await 标签（前一个基本块需要 terminator）
-        self.emit(f'br label %{await_label}')
+        # R159-A（L-216 连带面）：**`等待` 对「非协程值」必须透明透传**。
+        # 根因：原生腿把 stdlib/分布式/节点网络.请求 实现成**同步**段落（文件头登记的
+        # 有意偏离：原生腿无 asyncio 锁/wait_for），而调用侧源码写的是
+        # `等待 己.客户端.请求(...)`（转译腿里 请求 是 async def）。L-216 修好前
+        # 整个程序按同步编译，`_in_coroutine` 恒为 False，`等待` 走「退化情况」直接
+        # 返回子表达式值 —— 所以能跑。修好 L-216 后这些段真成了协程，`等待 <字典>`
+        # 会拿字典的 ptr_val 当 LightCoroutine* 传给 dv_coro_await，取不到 future →
+        # `dv_coro_get_await_result` 写 空 → 调用方拿到 空 → 对 空 取下标 → 段错误
+        # （R159-A 实测：原生 worker rc=0xC0000005，注册成功、心跳正常，领任务 0）。
+        # 判据用**运行时类型**（100 = DV_TYPE_COROUTINE，见 _store_coro_to_result）：
+        #   · type == 100 → 走原协程挂起/恢复路径；
+        #   · 其它        → 直接把子表达式的值当结果（与 L-216 修复前的退化语义一致，
+        #                   也与 `等待` 在同步段里的既有语义一致）。
+        # 这样同步段落返回的普通值、以及真正的协程句柄，同一条 `等待` 都成立。
+        result_slot = self._new_dv_slot()
+        await_passthru_label = self.new_label(f'await_passthru_{point_num}')
+        await_merge_label = self.new_label(f'await_merge_{point_num}')
+        dv_type_reg = self.new_register()
+        self.emit(f'{dv_type_reg} = extractvalue {LIGHTVALUE_STRUCT} {future_dv}, 0')
+        is_coro_reg = self.new_register()
+        self.emit(f'{is_coro_reg} = icmp eq i32 {dv_type_reg}, 100')
+        self.emit(f'br i1 {is_coro_reg}, label %{await_label}, label %{await_passthru_label}')
+
+        # 非协程值：透传（不挂起、不占 resume 标签）
+        self.emit(f'{await_passthru_label}:')
+        self.emit(f'store {LIGHTVALUE_STRUCT} {future_dv}, ptr {result_slot}')
+        self.emit(f'br label %{await_merge_label}')
+
         self.emit(f'{await_label}:')
         
         # 设置 resume_point = point_num + 1（下次恢复时跳到 resume_N）
@@ -8511,9 +8585,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'{await_done_label}:')
 
         # 从 future 中获取结果
-        result_slot = self._new_dv_slot()
         self.emit(f'call void @dv_coro_get_await_result(ptr %coro, ptr {result_slot})')
-        
+        self.emit(f'br label %{await_merge_label}')
+
+        # 协程路径与透传路径汇合：两条路径都把结果写进同一个槽
+        self.emit(f'{await_merge_label}:')
+
         # 加载结果
         result_val = self._load_dv(result_slot)
         return result_val, 'dv'
