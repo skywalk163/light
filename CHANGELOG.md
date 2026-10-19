@@ -4,6 +4,15 @@
 > 按版本号从新到旧排列。同一版本号在两侧都存在且内容不同时，条目内容取并集。
 > 自 v7.0.0 起统一为 **光明（Light）** 品牌，包名 `light`，CLI 入口 `light` / `lightc`。
 
+## [R160] — 2026-10-18 — 协程运行时就绪轮（四线：L-219 已修 + E-5 src 腿 + L-217 立项 + E-8 真实复测）
+
+> 四线并行收口（任务书 `light-merge/_R160_并行任务书.md` + A/B/C/D 交付报告 + 主 agent 收口报告 `_R160_收口报告.md`）：
+> - **A 线 L-219 已修**（0.82 权威绿）：协程「self 绑定 + 恢复分派」两子缺陷——① 事件循环在 `dv_process_timers()` 唤醒协程后 `run_queue` 非空却 `break`，改 continue（恢复分派不再跳过语句，R159 L1 `协程-0` 红转绿）；② `dv_coro_create_bound`/`dv_coro_self_writeback` + codegen `_gen_async_method` 为类内异步方法绑定并写回 `己`（心跳协程 SIGSEGV 消除）。⚠️ A 原始回归门为假绿（`try/except…return False` 吞断言 + 自绑探针错关键字从未编译），由主 agent 收口重写后方得验证。
+> - **B 线 L-217 立项（未实现）**：`_R160_L217_运行时值所有权设计.md`——推荐「字面量全局常量共享先导 + 语句级 arena + 逃逸拷贝」，明确不选 per-temp refcount / GC；子路径 P2 登记 L-222（`dv_deref_value`）。
+> - **C 线 E-5 src 腿落地**：新建 `stdlib/协程.light`（189 行、9 导出），src（asyncio）腿 6/6 对拍全绿；**native 腿被 L-227（跨 await SSA dominance + 多导出表越界）/ L-228（协程帧局部非持久 → 堆损坏/挂死）阻塞**——HEAD 已复现、非本库引入，诚实 xfail。
+> - **D 线 E-8 真实复测**：curl 真实 DeepSeek 在线，armB（同 R144-D 池 122）**首成 96.2% / pass@3 97.5%**（≈R144-D 93%/100%）；**揪出 R159-F3 的「96.7%/100%」实为 mock 脚本（L-220）**，账本基准已订正。
+> - **新登记**：L-220（E-8 mock 基准污染，已订正）/ L-221（await-join 不恢复等待方）/ L-222（L-217 P2）/ L-223~226（协程库单腿缺口）/ L-227、L-228（native 协程深水）。L1 0.82 全量门判据见 `_R160_收口报告.md`；联合 E2E「worker 领任务热路径」递延到 L-227/228 修复后。
+
 ## [R159] — 2026-10-18 — 处置链启动轮（六线并行：L-216/L-218 已修、L-217 定位不修、E-3/E-4 落地、F1-3 完成）
 
 > 六线并行收口（任务书 `light-merge/_R159_并行任务书.md` + 六线交付报告 `_R159_*线交付报告.md` + 主 agent 收口报告 `_R159_收口报告.md`）：
@@ -12,7 +21,7 @@
 > - **C 线 L-217 已定位未修**：IR 级根因 = runtime 值所有权缺失（每次字符串字面量求值 `dv_str→dv_strdup→malloc` 无 free）；落三分支第二支，五段式登记，转 R160 立项。
 > - **D 线 E-3 已落地**：`runtime_typed.c:743` `dv_to_string_depth` depth 感知（标量 `真/假`、容器内 `true/false`）；断言扫描零命中、回归门 5 passed。
 > - **E 线 E-4 已落地**：新建 `tests/unit/test_R159_顶层全套真跑门禁.py`，动态枚举 156 顶层 `test_*.py` 真跑 + 三分类 + 首跑基线 + 欠账契约 + 反跑。
-> - **F 线 F1/F2/F3 完成**：`native_run_readiness_baseline.json` 刷新（runnable 67→68，`节点` 模块由「跑崩」转「可跑」）；`docs/api/builtins.md` 补 7 条目（十进制族 5 + XML 族 2）+ 精度口径标注；E-8 启动——真实 DeepSeek 复测首成率 96.7% / pass@3 100%。
+> - **F 线 F1/F2/F3 完成**：`native_run_readiness_baseline.json` 刷新（runnable 67→68，`节点` 模块由「跑崩」转「可跑」）；`docs/api/builtins.md` 补 7 条目（十进制族 5 + XML 族 2）+ 精度口径标注；E-8 启动（⚠️ 后经 R160-D 逐样本复现证实该「96.7%/100%」为 mock 脚本产出，见 R160 条目 / L-220，真实值 = 96.2%/97.5%）。
 > - **门禁**：A+D 动 `src/llvm` ⇒ L1 0.82 全量门必跑；**联合 E2E 被 L-219 阻断**（A+B 共存态节点驱动注册后 2.0s SIGSEGV），处置链「三环联合闭环」未达成。
 
 ## [R158] — 2026-10-17 — 三线并行账/尺子对齐轮（L-194 残余销账 + Tier2 订正 + 地板口径修复 + L-216/217/218 新登记）

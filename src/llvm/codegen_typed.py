@@ -113,6 +113,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # `foreach_cont` 里 load 它 → clang: Instruction does not dominate all uses
         # （生成器侧同款问题早已由 _gen_entry_insert_idx 解决，这里补协程这半边）。
         self._coro_entry_insert_idx = None
+        # R160-A（L-219 子缺陷②）：类内异步方法协程的接收者帧槽位（己 的 slot 指针）。
+        # 非 None 即表示「当前协程是一个类内异步方法」——完成出口经
+        # `dv_coro_self_writeback` 把帧内 己 写回调用方槽位；模块级异步段为 None。
+        self._coro_self_slot = None
         # ---- 生成器状态机（R10-11b 第四批B）----
         # `_gen_entry_insert_idx` 非 None 即表示「正在生成生成器状态机函数」。
         # 它同时是「往 entry 块插指令」的下标：生成器每次恢复都是重新调用，
@@ -849,6 +853,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare ptr @dv_base64_decode(ptr, ptr)',
             # 协程/异步
             f'declare ptr @dv_coro_create(ptr, ptr, i32, i32)',
+            # R160-A（L-219 子缺陷②）：类内 `异步 段落` 方法 —— 绑定接收者建协程，
+            # 并在协程完成出口把帧内 己 写回调用方接收者槽位。
+            f'declare ptr @dv_coro_create_bound(ptr, ptr, ptr, i32, i32)',
+            f'declare void @dv_coro_self_writeback(ptr, ptr)',
             f'declare i32 @dv_coro_await(ptr, ptr)',
             f'declare void @dv_scheduler_run()',
             f'declare void @dv_coro_run_to_completion(ptr)',
@@ -7520,6 +7528,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 # 让我们用运行时函数更安全
                 result_slot = self._store_dv(dv_val)
                 self.emit(f'call void @dv_coro_set_result(ptr %coro, ptr {result_slot})')
+            # R160-A（L-219 子缺陷②）：类内异步方法的完成出口先写回 己 → 调用方槽位
+            # （必须在结果求值之后、写 state=DONE 之前；与普通方法出口顺序同口径）。
+            self._emit_coro_self_writeback()
             # 设置 state = DV_CORO_DONE (3)
             state_ptr = self.new_register()
             self.emit(f'{state_ptr} = getelementptr inbounds i8, ptr %coro, i32 0')
@@ -8248,7 +8259,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'{ptr_val_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {result_ptr}, i32 0, i32 3')
         self.emit(f'store ptr {coro_ptr}, ptr {ptr_val_ptr}')
     
-    def _gen_coroutine_function(self, name, params, body, coro_func_name):
+    def _gen_coroutine_function(self, name, params, body, coro_func_name, self_param_name=None):
         """生成协程状态机函数（Duff's device 模式）
         
         函数签名: void @_coro_xxx(ptr %coro)
@@ -8257,6 +8268,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         使用两阶段法：
         1. 预扫描统计 await 点数量
         2. 生成带完整 switch 的函数
+
+        R160-A（L-219 子缺陷②）：`self_param_name` 非空 = 本协程是**异步类方法**。
+        源码 `异步 段落 心跳(自)` 的 `自` 是接收者占位符，由包装方法单独经
+        args[0] 传入协程；`己` 与 `自` 共用同一 locals 槽（与 `_gen_typed_method`
+        的 L-195 同口径），用户形参紧随其后 args[1..]。
         """
         # 第一阶段：预扫描统计 await 点
         num_await = self._count_await_points(body)
@@ -8271,6 +8287,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._in_coroutine = True
         self._coro_handle_ptr = '%coro'
         self._coro_resume_point = 0
+        self._coro_self_slot = None   # R160-A：仅类内异步方法在下方置为接收者槽位
         # 保存 await 点标签映射: point_num -> resume_label
         self._coro_resume_labels = {}
         # 初始化临时槽位池（否则会使用上一个函数残留的池指针）
@@ -8310,8 +8327,56 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'{local_ptr} = call ptr @dv_coro_get_local(ptr %coro, i32 {i})')
             self._local_vars[vname] = local_ptr
             self._coro_local_indices[vname] = i
-        
-        # 将参数从 coro->args 复制到 coro->locals（每次调用都执行，确保参数可用）
+
+        # R160-A 修复（#3/#4 第二层根因）：args→locals 拷贝 + self 深拷贝**必须只在
+        # 首次执行（resume_point==0）时跑**。此前它们在 switch 之前，每次 resume 都重跑，
+        # 把嵌套协程经 dv_coro_self_writeback 写回的 locals 更新冲掉（实证：内层写值=9，
+        # 外层 resume_1 恢复时 prologue 又把 args[0] 的旧深拷贝值=0 拷回 locals[0]，
+        # 最终读=0）。移到 resume_0 块内，与「locals 跨 await 持久化」语义一致。
+        if self_param_name is not None:
+            recv_slot = self._local_vars.get(self_param_name)
+            if recv_slot is not None:
+                if self_param_name != '己':
+                    self._local_vars['己'] = recv_slot
+                    self._coro_local_indices['己'] = self._coro_local_indices.get(self_param_name)
+                self._coro_self_slot = recv_slot
+
+        # 加载 resume_point
+        # resume_point 在 LightCoroutine 的 offset 4 (state 在 offset 0)
+        rp_ptr = self.new_register()
+        self.emit(f'{rp_ptr} = getelementptr inbounds i8, ptr %coro, i32 4')
+        rp_val = self.new_register()
+        self.emit(f'{rp_val} = load i32, ptr {rp_ptr}')
+
+        # 预先生成所有 resume 标签名。R118-A 防御性硬化：前缀带 coro_func_name
+        # （协程函数安全名），保证「协程级」唯一前缀，不会与其它协程/生成器的
+        # resume 标签撞名（即便未来多 codegen 实例并存）。
+        resume_labels = []
+        for i in range(num_await + 1):
+            resume_labels.append(self.new_label(f'resume_{coro_func_name}_{i}'))
+            self._coro_resume_labels[i] = resume_labels[i]
+
+        # 生成 switch 语句（单行，避免验证器将 case 行误判为终止指令后的死代码）
+        switch_end_label = self.new_label('coro_switch_end')
+        cases = ' '.join(f'i32 {i}, label %{resume_labels[i]}' for i in range(num_await + 1))
+        # R159-A：switch 之前就是 entry 块尾部 —— 记下回插点，让 `_gen_alloca`
+        # 把循环计数器等 alloca 提到这里（挂起后 resume 块不支配就地 alloca）。
+        self._coro_entry_insert_idx = len(self._lines)
+        self.emit(f'switch i32 {rp_val}, label %{switch_end_label} [ {cases} ]')
+
+        # 生成每个 resume 点和对应的代码
+        # 注意：我们只有一个 resume_0 作为入口，然后在生成 body 时遇到 await 再插入 resume_N
+        # 但 switch 已经引用了所有 resume_N 标签，所以它们必须存在
+        # 策略：先生成 resume_0:，然后生成 body
+        # 遇到 await 时，生成挂起代码 + ret void，然后生成下一个 resume_N:
+        # 这样所有的 resume_N 标签都会被定义
+
+        # resume_0: 开始执行
+        self.emit(f'{resume_labels[0]}:')
+
+        # R160-A 修复（#3/#4 第二层根因）：args→locals 拷贝 + self 深拷贝移到这里，
+        # 只在首次执行时运行。否则每次 resume 都会用 args 的旧深拷贝覆盖 locals，
+        # 冲掉嵌套协程写回的更新。
         for i, (pname, _) in enumerate(params):
             local_ptr = self._local_vars.get(pname)
             if local_ptr is not None:
@@ -8320,39 +8385,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 arg_val = self.new_register()
                 self.emit(f'{arg_val} = load {LIGHTVALUE_STRUCT}, ptr {arg_ptr}')
                 self.emit(f'store {LIGHTVALUE_STRUCT} {arg_val}, ptr {local_ptr}')
-        
-        # 加载 resume_point
-        # resume_point 在 LightCoroutine 的 offset 4 (state 在 offset 0)
-        rp_ptr = self.new_register()
-        self.emit(f'{rp_ptr} = getelementptr inbounds i8, ptr %coro, i32 4')
-        rp_val = self.new_register()
-        self.emit(f'{rp_val} = load i32, ptr {rp_ptr}')
-        
-        # 预先生成所有 resume 标签名。R118-A 防御性硬化：前缀带 coro_func_name
-        # （协程函数安全名），保证「协程级」唯一前缀，不会与其它协程/生成器的
-        # resume 标签撞名（即便未来多 codegen 实例并存）。
-        resume_labels = []
-        for i in range(num_await + 1):
-            resume_labels.append(self.new_label(f'resume_{coro_func_name}_{i}'))
-            self._coro_resume_labels[i] = resume_labels[i]
-        
-        # 生成 switch 语句（单行，避免验证器将 case 行误判为终止指令后的死代码）
-        switch_end_label = self.new_label('coro_switch_end')
-        cases = ' '.join(f'i32 {i}, label %{resume_labels[i]}' for i in range(num_await + 1))
-        # R159-A：switch 之前就是 entry 块尾部 —— 记下回插点，让 `_gen_alloca`
-        # 把循环计数器等 alloca 提到这里（挂起后 resume 块不支配就地 alloca）。
-        self._coro_entry_insert_idx = len(self._lines)
-        self.emit(f'switch i32 {rp_val}, label %{switch_end_label} [ {cases} ]')
-        
-        # 生成每个 resume 点和对应的代码
-        # 注意：我们只有一个 resume_0 作为入口，然后在生成 body 时遇到 await 再插入 resume_N
-        # 但 switch 已经引用了所有 resume_N 标签，所以它们必须存在
-        # 策略：先生成 resume_0:，然后生成 body
-        # 遇到 await 时，生成挂起代码 + ret void，然后生成下一个 resume_N:
-        # 这样所有的 resume_N 标签都会被定义
-        
-        # resume_0: 开始执行
-        self.emit(f'{resume_labels[0]}:')
+
+        if self_param_name is not None:
+            recv_slot = self._local_vars.get(self_param_name)
+            if recv_slot is not None:
+                self.emit(f'call void @dv_obj_deepcopy_self(ptr {recv_slot})')
         
         # 生成函数体语句
         for stmt in body:
@@ -8377,10 +8414,27 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._coro_resume_point = 0
         self._coro_resume_labels = None
         self._coro_entry_insert_idx = None
+        self._coro_self_slot = None
+    
+    def _emit_coro_self_writeback(self) -> None:
+        """R160-A（L-219 子缺陷②）：类内异步方法协程的**完成出口**把帧内 己 写回
+        调用方接收者槽位（`src/llvm/runtime_typed.c::dv_coro_self_writeback` 做所有权
+        搬运：释放调用方旧缓冲 → 装入帧内值 → 帧内槽位 disown，与普通方法出口
+        `_emit_self_writeback` 完全同口径）。
+
+        只在协程**真正完成**的出口发射（`返回` / 体末落空）。挂起出口（state 仍
+        RUNNING 的 `ret void`）绝不能发射：那会把帧内 己 搬空，恢复后 `己.X` 全读空。
+        模块级异步段（无接收者）以及非协程上下文为无操作。
+        """
+        slot = getattr(self, '_coro_self_slot', None)
+        if not slot:
+            return
+        self.emit(f'call void @dv_coro_self_writeback(ptr %coro, ptr {slot})')
     
     def _gen_coro_return(self):
         """生成协程返回（设置完成状态）"""
         # 设置 state = DV_CORO_DONE (3)
+        self._emit_coro_self_writeback()
         state_ptr = self.new_register()
         self.emit(f'{state_ptr} = getelementptr inbounds i8, ptr %coro, i32 0')
         self.emit(f'store i32 3, ptr {state_ptr}')
@@ -8710,6 +8764,130 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if constructor is not None:
             self._gen_typed_constructor(class_name, constructor)
 
+    def _is_async_method(self, method_def) -> bool:
+        """R160-A（L-219 子缺陷②）：类内 `异步 段落` 方法判定。
+
+        真源 = parser 类体 `异步 段落 名(…)` 分支写进 `modifiers` 的 `'异步'`
+        （`src/parser_stmt.py` 类体循环 → `_parse_async_paragraph`，经 AstAdapter 的
+        `_ModifiersMethodDefinition` 透传）；与 `_gen_typed_segment` 判异步段同一口径。
+        修前原生腿的**方法**生成路径从不读 modifiers（只有段路径读），于是类内异步
+        方法被当普通方法生成 —— 这是 L-219 子缺陷②的 IR 级根因。
+        """
+        mods = getattr(method_def, 'modifiers', None) or []
+        return '异步' in mods or '异' in mods or 'async' in [str(m).lower() for m in mods]
+
+    def _gen_async_method(self, class_name, method_def, method_type):
+        """R160-A（L-219 子缺陷②）：类内 `异步 段落` 方法 → 协程状态机 + 包装方法。
+
+        修前行为（实测）：`异步 段落 心跳循环(自)` 按普通方法生成，
+        `创建任务(己.心跳循环())` 的实参立即求值 —— 心跳体在调用点**同步跑完**
+        （其内部 `当 己.运行` 是死循环），`运转` 的领任务主循环永不可达：
+        原生分布式 worker 实测「注册 1 / 心跳 7 / **领任务 0** / 进程僵死」。
+        方法内 `等待`/`睡眠` 也拿不到协程帧，挂起语义整体退化为同步调用。
+
+        修法（最小侵入，与模块级 `_gen_async_segment` 同构，只多一步 self 绑定）：
+          · ① `_coro_<类>_<方法>(ptr %result, ptr %coro, ptr %args, i32 %num_args)`
+               —— Duff's device 状态机。实参布局 = [接收者, 用户形参...]：
+               `己` 与源码里的接收者占位符（`自`）共用同一 locals 槽（L-195 口径），
+               用户形参落在 args[1..]。
+          · ② `_method_<类>_<方法>(ptr %result, ptr %self, ptr %args, i32 %num_args)`
+               —— 包装方法，**签名与注册点（`dv_register_method`）完全不变**，
+               经 `dv_coro_create_bound` 建协程（接收者深拷贝进 args[0]），
+               把句柄（LightValue type=100）写进 %result 返回给调用方。
+        静态方法（无接收者）同构走 ①/②，只是 args 布局不含接收者、`己` 不存在。
+        """
+        params = list(getattr(method_def, 'parameters', []) or [])
+        self_param_name = None
+        user_params = list(params)
+        if method_type != 'static' and params:
+            p0 = params[0]
+            p0名 = p0.name if hasattr(p0, 'name') else str(p0)
+            if self._is_self_param_name(p0名):
+                self_param_name = p0名
+                user_params = list(params[1:])
+
+        # 协程实参布局：[接收者, 用户形参...]（与 dv_coro_create_bound 严格一致）
+        coro_params = []
+        if method_type != 'static':
+            if self_param_name is None:
+                # 未显式声明接收者占位符：合成 `己` 承接 args[0]
+                self_param_name = '己'
+            coro_params.append((self_param_name, None))
+        for p in user_params:
+            coro_params.append((p.name if hasattr(p, 'name') else str(p), None))
+
+        safe_cls = self._safe_func_name(class_name)
+        safe_m = self._safe_func_name(method_def.name)
+        coro_func_name = f'_coro_{safe_cls}_{safe_m}'
+        method_safe_name = f'_method_{safe_cls}_{safe_m}'
+        body = list(getattr(method_def, 'body', []) or [])
+
+        prev_method_ptr = self._method_result_ptr
+        prev_class = self._current_class
+        prev_method_type = self._current_method_type
+        prev_param_names = self._current_seg_param_names
+        prev_module = self._current_module
+        try:
+            # ① 状态机：方法体内 `己.X` / `己.方法()` 的解析依赖
+            #    _method_result_ptr + _current_class（与 _gen_typed_method 同口径）。
+            self._current_class = class_name
+            self._current_method_type = method_type
+            self._method_result_ptr = '%result'
+            param_names = {(p.name if hasattr(p, 'name') else str(p)) for p in params if p}
+            param_names.add('己')
+            self._current_seg_param_names = param_names
+            self._gen_coroutine_function(method_def.name, coro_params, body,
+                                         coro_func_name, self_param_name)
+
+            # ② 方法签名包装器（`@_method_*` 名字与签名不变 ⇒ 注册点零改动）
+            self._current_func = f'{class_name}.{method_def.name}'
+            self._current_func_params = {}
+            self._local_vars.clear()
+            self._instance_classes.clear()
+            self._pending_allocas = []
+            self._reg_counter = 0
+            self._dv_ssa_to_slot.clear()
+            self._temp_slot_index = 0
+            self._temp_slot_pool = None
+            self._temp_slot_pool_line = None
+            self._seg_result_ptr = None
+            self._in_coroutine = False
+            self._coro_handle_ptr = None
+            self._coro_self_slot = None
+
+            if method_type == 'static':
+                self.emit(f'define void @{method_safe_name}(ptr %result, ptr %args, i32 %num_args) {{')
+            else:
+                self.emit(f'define void @{method_safe_name}(ptr %result, ptr %self, ptr %args, i32 %num_args) {{')
+            self.emit('entry:')
+
+            method_name = f'{class_name}.{method_def.name}'
+            func_name_ptr = self.gen_string_constant(method_name)
+            file_name_ptr = self.gen_string_constant("")
+            self.emit(f'call void @dv_stack_push(ptr {func_name_ptr}, ptr {file_name_ptr}, i32 0)')
+
+            # num_locals 取上界：体收集到的变量 + 全部协程形参。多算只多分配几个槽位
+            # （无害）；少算会让状态机里的 dv_coro_get_local 返回 NULL → 写空指针。
+            self._collect_vars_from_stmts(body)
+            num_locals = len(self._local_vars) + len(coro_params)
+
+            self_recv = '%self' if method_type != 'static' else 'null'
+            coro_handle = self.new_register()
+            self.emit(f'{coro_handle} = call ptr @dv_coro_create_bound(ptr @{coro_func_name}, '
+                      f'ptr {self_recv}, ptr %args, i32 %num_args, i32 {num_locals})')
+            self._store_coro_to_result(coro_handle, '%result')
+
+            self.emit('call void @dv_stack_pop()')
+            self.emit('ret void')
+            self.emit('}')
+            self.emit_blank()
+        finally:
+            self._method_result_ptr = prev_method_ptr
+            self._current_class = prev_class
+            self._current_method_type = prev_method_type
+            self._current_seg_param_names = prev_param_names
+            self._current_module = prev_module
+
     def _gen_typed_method(self, class_name, method_def):
         """生成单个方法函数
         
@@ -8719,6 +8897,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         - 静态方法: void @_method_xxx(ptr result, ptr args, i32 num_args)
         """
         method_type = self._get_method_type(method_def)
+        # R160-A（L-219 子缺陷②）：类内 `异步 段落` 走协程状态机 + 包装方法；
+        # 普通（同步）方法路径一字不动。
+        if self._is_async_method(method_def):
+            self._gen_async_method(class_name, method_def, method_type)
+            return
         self._current_func = f'{class_name}.{method_def.name}'
         self._current_func_params = {}
         self._local_vars.clear()

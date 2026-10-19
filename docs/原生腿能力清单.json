@@ -3930,7 +3930,7 @@
       "description": "原生腿外部符号声明（_declare_typed_runtime）与 runtime_typed.c 定义",
       "evidence_method": "_declare_typed_runtime",
       "evidence_file": "src/llvm/codegen_typed.py",
-      "count": 323,
+      "count": 325,
       "entries": [
         {
           "name": "_setjmp",
@@ -4242,6 +4242,22 @@
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_create",
           "category": "Coroutine",
           "evidence_define_line": 5764
+        },
+        {
+          "name": "dv_coro_create_bound",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "evidence_declare_line": 858,
+          "evidence_define": "src/llvm/runtime_typed.c:dv_coro_create_bound",
+          "category": "Coroutine",
+          "evidence_define_line": 5870
+        },
+        {
+          "name": "dv_coro_self_writeback",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "evidence_declare_line": 859,
+          "evidence_define": "src/llvm/runtime_typed.c:dv_coro_self_writeback",
+          "category": "Coroutine",
+          "evidence_define_line": 5899
         },
         {
           "name": "dv_coro_get_arg",

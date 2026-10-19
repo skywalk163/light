@@ -5746,6 +5746,12 @@ typedef struct LightCoroutine {
     struct LightFuture* future;
     /* 调度器链表指针 */
     struct LightCoroutine* next;
+    /* R160-A（L-219 子缺陷②）：类内 `异步 段落` 方法的**调用方接收者槽位**指针。
+     * 协程出口（dv_coro_self_writeback）把协程帧里的 己 整体写回此处，使调用方
+     * 槽位看到协程内对 己.字段 的写入（与普通方法 _emit_self_writeback 同口径）；
+     * 模块级异步段（非方法）为 NULL。放在结构体末尾，既有的 state=offset 0 /
+     * resume_point=offset 4 偏移不动（codegen 侧按偏移取 resume_point）。 */
+    LightValue* caller_self;
 } LightCoroutine;
 
 /* Future/Promise 结构体 */
@@ -5827,6 +5833,7 @@ LightCoroutine* dv_coro_create(LightCoroFunc func, LightValue* args, int num_arg
         coro->future->refcount = 1;
     }
     coro->next = NULL;
+    coro->caller_self = NULL;   /* R160-A：仅类内异步方法经 dv_coro_create_bound 设置 */
     
     /* 添加到调度器的可运行队列 */
     if (g_scheduler.run_queue == NULL) {
@@ -5840,6 +5847,63 @@ LightCoroutine* dv_coro_create(LightCoroFunc func, LightValue* args, int num_arg
     g_scheduler.num_coros++;
     
     return coro;
+}
+
+/* R160-A（L-219 子缺陷②）：带接收者（self）绑定地创建协程。
+ *
+ * 背景：原生腿的**类内 `异步 段落`** 此前被当普通方法生成（无状态机、无
+ * dv_coro_create）。`创建任务(己.心跳循环())` 于是把方法体在调用点**同步跑完**
+ * ——实际行为是心跳循环把 `运转` 的领任务主循环永久占住（实测 worker
+ * 领任务=0、心跳 7 次后僵死），独立心跳协程根本不存在。修复由 codegen 把类内
+ * 异步方法生成「状态机 + 方法签名包装器」，包装器调用本函数建协程：
+ *
+ *   · 协程实参槽 = [接收者, 用户形参...]（total = num_args + 1）；
+ *   · 接收者**深拷贝**一份放进 args[0] —— 若与调用方槽位共享 obj 缓冲，协程体
+ *     内 dv_class_set_member 的 free+realloc 会把调用方的 LightValue.str 悬空
+ *     （R140-A 已认定该 UAF 家族）；协程帧的 己 还会再深拷贝一次，故 args[0]
+ *     与帧内 己 各自独占，dv_coro_free 释放 args[0] 不会波及他人；
+ *   · `caller_self` 记下调用方槽位，供协程出口 dv_coro_self_writeback 写回。
+ *
+ * 生命周期契约：调用方槽位须存活到本协程结束（本仓用法 = 创建后 await 它，
+ * 如 `设 心跳任务 为 创建任务(己.心跳循环())` … `等待 心跳任务`）。
+ */
+LightCoroutine* dv_coro_create_bound(LightCoroFunc func, LightValue* self_slot,
+                                     LightValue* args, int num_args, int num_locals) {
+    int total = num_args + 1;
+    LightValue* all = (LightValue*)malloc(sizeof(LightValue) * total);
+    if (!all) return NULL;
+    if (self_slot) {
+        all[0] = *self_slot;
+        dv_obj_deepcopy_self(&all[0]);   /* 独立缓冲：不与调用方槽位共享 */
+    } else {
+        dv_null(&all[0]);
+    }
+    for (int i = 0; i < num_args; i++) {
+        all[i + 1] = args[i];
+    }
+
+    LightCoroutine* coro = dv_coro_create(func, all, total, num_locals);
+    free(all);   /* dv_coro_create 已按值复制进 coro->args，缓冲所有权随之转移 */
+    if (coro) coro->caller_self = self_slot;
+    return coro;
+}
+
+/* R160-A（L-219 子缺陷②）：协程出口把帧内 己 写回调用方槽位。
+ *
+ * 与普通方法出口 _emit_self_writeback 完全同口径：释放调用方旧缓冲 → 装入帧内
+ * 值 → 帧内槽位置空（disown，避免与 dv_coro_free 对 locals 的释放双重 free）。
+ * 只在「协程真正完成」的出口调用：挂起（ret void 但 state 仍 RUNNING/SUSPENDED）
+ * 时**不得**调用，否则帧内 己 被搬空，恢复后 己.X 全部读空。
+ * caller_self 为 NULL（模块级异步段）时为无操作。
+ */
+void dv_coro_self_writeback(LightCoroutine* coro, LightValue* self_frame) {
+    if (!coro || !self_frame) return;
+    LightValue* target = coro->caller_self;
+    if (!target) return;
+    dv_obj_release_slot(target);
+    *target = *self_frame;
+    dv_value_disown(self_frame);
+    coro->caller_self = NULL;   /* 只写回一次 */
 }
 
 /* 内部：恢复协程（执行一步） */
@@ -5856,6 +5920,15 @@ static int dv_coro_resume(LightCoroutine* coro) {
     if (coro->state == DV_CORO_RUNNING) {
         /* 函数返回了但没挂起，说明执行完毕 */
         coro->state = DV_CORO_DONE;
+    }
+
+    /* R160-A 修复：协程已完成但 future 未完成时，补完成 future（唤醒等待者）。
+     * 根因：体末落空无显式 `返回` 时，codegen 直接 store state=DONE（不走上面的
+     * RUNNING→DONE 分支），也不调 dv_coro_set_result → future 永远不 ready →
+     * `等待 无返回协程` 的外层协程永远挂死（P2/P3 嵌套异步写实例红的根因）。
+     * 有显式 `返回 值` 的路径已在 dv_coro_set_result 里完成 future，这里幂等跳过。 */
+    if (coro->state == DV_CORO_DONE && coro->future && !coro->future->ready) {
+        dv_future_complete(coro->future, &coro->result);
     }
     
     return 0;
@@ -6833,6 +6906,18 @@ void dv_scheduler_run_event_loop(void) {
         } else if (timer_remaining >= 0) {
             poll_timeout = timer_remaining;
         } else {
+            /* R160-A（L-219 子缺陷①）：不能无条件 break。
+             * 根因：`dv_process_timers()` 可能刚把到期定时器对应的协程放回
+             * run_queue（唤醒成功）、并让 g_timer_head 变空（返回 -1）。此时
+             * run_queue 非空，但旧的 `else { break; }` 直接退出事件循环——
+             * 刚被唤醒的协程永远不再 resume，其 `睡眠` 之后的语句被静默跳过
+             * （实证：`睡眠(2)` 高负载下 miss `sleep后`，R159 基线 L1 门
+             * `协程-0` 红即此）。改为：run_queue 非空 → continue 回去跑完
+             * 刚唤醒的协程；真正既无 IO 等待、无定时器、也无就绪协程时才退出。
+             * （R160-A 复现：0.82 并行 1600 次 miss 3 次 = 0.19%，改后同口径 0。） */
+            if (g_scheduler.run_queue) {
+                continue;
+            }
             break;  /* 没有IO等待、没有定时器、没有就绪协程 → 退出 */
         }
 

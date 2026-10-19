@@ -3,8 +3,8 @@
   "依据": "B9 探测器 _taskB9_probe_stdlib.py 逐个真编译判\"可编译/不可编译\"（source 快照），非静态读码。判据：compile_light_typed 真出 exe。",
   "摘要": {
     "可编译": 25,
-    "不可编译": 88,
-    "总数": 113,
+    "不可编译": 89,
+    "总数": 114,
     "口径": "按 stdlib原生可编译矩阵 的真实条数统计（矩阵条目必须与 stdlib/ 下 .light 文件一一对应，native_product.py 的 漏/吹 双向校验守这一点）。B9 首版 84 条；DIST +4、S2 续接 +1 订正为 89；R13-CI（2026-09-07）补 R11C/R12 .light-化 24 模块 → 113（24 个经 _taskCIA 编译探针逐个 compile_light_typed O0 真出 exe，判可编译）。"
   },
   "按阻断原因分类": {
@@ -16,6 +16,10 @@
     "可编译": 25
   },
   "stdlib原生可编译矩阵": {
+    "协程": {
+      "状态": "不可编译",
+      "阻断": "native 腿被 L-227（跨 await 表达式 SSA dominance + 多导出表越界）/ L-228（协程帧局部栈 alloca 非持久）阻塞（R160-C 段②，HEAD 已复现、非本库引入）；src 腿（asyncio）可用"
+    },
     "Base64": {
       "状态": "不可编译",
       "阻断": "同名 .py 影子：.light 是 decl 0 空壳，实现在同名 .py"
