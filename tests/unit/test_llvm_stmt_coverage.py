@@ -159,10 +159,18 @@ def _codegen_源码():
 
 
 def test_分派链尾有兜底():
-    """`_gen_statement` 的 isinstance 链必须以 else + 拒绝收尾。"""
+    """`_gen_statement` 的分派链必须以 else + 拒绝收尾。
+
+    R161-B（L-217）把语句分派拆成「外层 `_gen_statement` 包 mark/reset 作用域 +
+    内层 `_gen_statement_inner` 放 isinstance 链」，兜底 else 随之落在 inner 里。
+    断言因此改为：先在 `_gen_statement` 或 `_gen_statement_inner` 里定位分派体，
+    再校验其链尾是 else + `_reject_unsupported_stmt`（兜底必须存在，位置可变）。
+    """
     src = _codegen_源码()
-    i = src.find('def _gen_statement(self, stmt):')
-    assert i > 0, '找不到 _gen_statement'
+    i = src.find('def _gen_statement_inner(self, stmt):')
+    if i < 0:
+        i = src.find('def _gen_statement(self, stmt):')
+    assert i > 0, '找不到 _gen_statement / _gen_statement_inner'
     j = src.find('\n    def ', i + 10)
     body = src[i:j if j > 0 else len(src)]
     assert re.search(r'\n\s{8}else:\n(?:\s*#[^\n]*\n)*\s*self\._reject_unsupported_stmt\(',

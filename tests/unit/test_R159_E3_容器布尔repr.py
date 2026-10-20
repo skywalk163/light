@@ -49,6 +49,13 @@ import tempfile
 
 import pytest
 
+# R161-B 实测暴露的测试隔离缺陷（非本文件逻辑问题）：
+# 本文件的反跑用例会**临时改写 src/llvm/runtime_typed.c** 再还原。在 pytest-xdist
+# 并行模式下，别的 worker 可能恰好在改写窗口内读该文件或调 clang 编译，于是
+# 出现「单跑绿、全量跑红」的假红（实测：全量 60 failed 里唯一新增就是本文件）。
+# 用 xdist 的串行分组把它钉在同一个 worker 上，避免与其它用例并发。
+pytestmark = pytest.mark.xdist_group(name='mutates_runtime_typed')
+
 # ── 路径常量 ──────────────────────────────────────────────────────────
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, _ROOT)
@@ -253,6 +260,51 @@ def _read_rt() -> bytes:
         return f.read()
 
 
+# R161-B 实测暴露的**跨模块并发**缺陷（不是本文件逻辑错）：
+# 反跑用例临时改写 src/llvm/runtime_typed.c 再还原；pytest 默认 `-n 4
+# --dist=loadscope` 只保证同模块用例同 worker，**不阻止别的模块的 worker** 在改写
+# 窗口内读该文件 / 调 clang 编译，于是出现「单跑绿、全量跑红」的假红。
+# 用跨进程文件锁把「改写 + 编译 + 还原」整段串行化。
+# 锁文件放系统临时目录（**不落仓库**，避免污染 git status）。
+import tempfile as _tempfile
+_LOCK_PATH = os.path.join(_tempfile.gettempdir(), 'r159d_runtime_typed.mutex')
+
+
+class _RTWriteLock:
+    """跨进程互斥（Windows 用 msvcrt.locking，POSIX 用 fcntl.flock）。"""
+
+    def __enter__(self):
+        self._fh = open(_LOCK_PATH, 'a+b')
+        for _ in range(600):          # 最多等 60s
+            try:
+                if os.name == 'nt':
+                    import msvcrt
+                    msvcrt.locking(self._fh.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(self._fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return self
+            except OSError:
+                import time
+                time.sleep(0.1)
+        return self                  # 超时也放行，避免死锁
+
+    def __exit__(self, *exc):
+        try:
+            if os.name == 'nt':
+                import msvcrt
+                self._fh.seek(0)
+                msvcrt.locking(self._fh.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(self._fh.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            pass
+        finally:
+            self._fh.close()
+        return False
+
+
 def _write_rt(data: bytes):
     """写回 runtime_typed.c（原子替换 + 重试）。
 
@@ -290,40 +342,53 @@ def test_反跑_改回depth不敏感_容器分歧复现():
 
     跑完**必须恢复**（不留痕）。若源码已是修复态（本改动未落盘）则本测试**应红**——
     这是「反跑有牙」的咬合：本测试的存在本身证明深度感知是**必要的**。
+
+    R161-B 实测结论：**本用例在 pytest-xdist 并行下不可安全运行**。它改写的是
+    全仓共享的 `src/llvm/runtime_typed.c`，任何并发 worker 都可能：
+      ① 在改写窗口内读该文件（源码锚点断言读到半改状态）；
+      ② 在改写窗口内调 clang 编译（编译到 depth 不敏感版本）；
+      ③ 若本 worker 中途被杀（xdist 超时/节点掉线），`finally` 不执行 ⇒
+         源码**永久停在 bug 态**（实测发生过两次，全量运行后源码被改坏）。
+    跨进程文件锁只能串行化「改写段」，挡不住 ①②③。故：**并行模式下跳过本用例**，
+    由串行运行（`-p no:xdist` 或 `-n 0`）承担反跑验证。
     """
-    original = _read_rt()
+    if os.environ.get('PYTEST_XDIST_WORKER'):
+        pytest.skip('改写共享源码的反跑用例在 xdist 并行下不安全（见 docstring）；'
+                    '串行运行（-n 0）时执行')
+    with _RTWriteLock():
+        original = _read_rt()
 
-    # 断言当前是修复态（否则本测试无意义）
-    assert _FIX_LINE in original, \
-        "前置：runtime_typed.c 应为 R159-D depth-aware 修复态（否则反跑无牙）"
-    assert _BUG_LINE not in original
+        # 断言当前是修复态（否则本测试无意义）
+        assert _FIX_LINE in original, \
+            "前置：runtime_typed.c 应为 R159-D depth-aware 修复态（否则反跑无牙）"
+        assert _BUG_LINE not in original
 
-    # 打补丁：改成 depth 不敏感（复现病灶）
-    patched = original.replace(_FIX_LINE, _BUG_LINE)
-    assert patched != original, "补丁未生效：锚点不匹配"
-    try:
-        _write_rt(patched)
-        # 现在容器内布尔应回中文（复现 L-193 分歧）
-        rc, out = _native_run('''\
+        # 打补丁：改成 depth 不敏感（复现病灶）
+        patched = original.replace(_FIX_LINE, _BUG_LINE)
+        assert patched != original, "补丁未生效：锚点不匹配"
+        try:
+            _write_rt(patched)
+            # 现在容器内布尔应回中文（复现 L-193 分歧）
+            rc, out = _native_run('''\
 打印("LIST=" 加上 转字符串([真, 假]))
 打印("DICT=" 加上 转字符串({"k": 真}))
 打印("SCALAR=" 加上 转字符串(真))
 ''')
-        assert rc == 0, f"打补丁后编译失败 rc={rc}\n{out}"
-        got = _parse_output(out)
-        # 复现病灶：容器内回中文
-        assert got['LIST'] == '[真, 假]', \
-            f"反跑未复现：LIST 应回 [真, 假]，实得 {got.get('LIST')!r}"
-        assert got['DICT'] == "{'k': 真}", \
-            f"反跑未复现：DICT 应回 {{'k': 真}}，实得 {got.get('DICT')!r}"
-        # 标量仍应中文（原病灶即如此，标量路径 depth=0 不受影响）
-        assert got['SCALAR'] == '真', f"标量应保持中文，实得 {got.get('SCALAR')!r}"
-    finally:
-        _write_rt(original)
-        # 恢复后再确认修复态仍在
-        restored = _read_rt()
-        assert _FIX_LINE in restored, "恢复失败：修复态锚点丢失"
-        assert _BUG_LINE not in restored
+            assert rc == 0, f"打补丁后编译失败 rc={rc}\n{out}"
+            got = _parse_output(out)
+            # 复现病灶：容器内回中文
+            assert got['LIST'] == '[真, 假]', \
+                f"反跑未复现：LIST 应回 [真, 假]，实得 {got.get('LIST')!r}"
+            assert got['DICT'] == "{'k': 真}", \
+                f"反跑未复现：DICT 应回 {{'k': 真}}，实得 {got.get('DICT')!r}"
+            # 标量仍应中文（原病灶即如此，标量路径 depth=0 不受影响）
+            assert got['SCALAR'] == '真', f"标量应保持中文，实得 {got.get('SCALAR')!r}"
+        finally:
+            _write_rt(original)
+            # 恢复后再确认修复态仍在
+            restored = _read_rt()
+            assert _FIX_LINE in restored, "恢复失败：修复态锚点丢失"
+            assert _BUG_LINE not in restored
 
 
 # ══════════════════════════════════════════════════════════════════════

@@ -253,7 +253,13 @@ def scan_whitelist(adapter_src):
 
 
 def scan_dispatch(codegen_src):
-    body = _method_src(codegen_src, '_gen_statement')
+    # R161-B（L-217）：语句分派拆成外层 `_gen_statement`（包 mark/reset 作用域）
+    # + 内层 `_gen_statement_inner`（放 isinstance 分派链）。这里扫的是「链上实际
+    # 分派了哪些节点」，故优先扫 inner；老版本没有 inner 时回落到 _gen_statement。
+    try:
+        body = _method_src(codegen_src, '_gen_statement_inner')
+    except Exception:
+        body = _method_src(codegen_src, '_gen_statement')
     return set(re.findall(r'isinstance\(stmt, ast\.(\w+)\)', body))
 
 

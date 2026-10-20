@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "snapshot_date": "2026-10-12",
+  "snapshot_date": "2026-10-19",
   "baseline_commit": "ebe6668e5a43",
   "description": "光明语言原生腿（LLVM typed backend）能力清单 -- 机读数据，由 B7 维护，E7 门禁消费",
   "evidence_note": "R141-B：evidence 为稳定锚点（文件:方法名 / 文件:符号名），行号只存在于 *_line 附加信息字段，是生成时快照，不参与判据——测试按锚点校验，--check 比对剥掉行号后的语义内容",
@@ -3930,7 +3930,7 @@
       "description": "原生腿外部符号声明（_declare_typed_runtime）与 runtime_typed.c 定义",
       "evidence_method": "_declare_typed_runtime",
       "evidence_file": "src/llvm/codegen_typed.py",
-      "count": 325,
+      "count": 341,
       "entries": [
         {
           "name": "_setjmp",
@@ -4220,6 +4220,15 @@
           "evidence_define_line": 2947
         },
         {
+          "name": "dv_copy_own",
+          "evidence_define": "src/llvm/runtime_typed.c:dv_copy_own",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "note": "L-217 E1：具名槽赋值（从别槽复制）",
+          "evidence_declare_line": 960,
+          "category": "Other",
+          "evidence_define_line": 541
+        },
+        {
           "name": "dv_coro_await",
           "evidence_declare": "src/llvm/codegen_typed.py",
           "evidence_declare_line": 843,
@@ -4250,14 +4259,6 @@
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_create_bound",
           "category": "Coroutine",
           "evidence_define_line": 5870
-        },
-        {
-          "name": "dv_coro_self_writeback",
-          "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 859,
-          "evidence_define": "src/llvm/runtime_typed.c:dv_coro_self_writeback",
-          "category": "Coroutine",
-          "evidence_define_line": 5899
         },
         {
           "name": "dv_coro_get_arg",
@@ -4306,6 +4307,14 @@
           "evidence_define": "src/llvm/runtime_typed.c:dv_coro_run_to_completion",
           "category": "Coroutine",
           "evidence_define_line": 5959
+        },
+        {
+          "name": "dv_coro_self_writeback",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "evidence_declare_line": 859,
+          "evidence_define": "src/llvm/runtime_typed.c:dv_coro_self_writeback",
+          "category": "Coroutine",
+          "evidence_define_line": 5899
         },
         {
           "name": "dv_coro_set_result",
@@ -5284,6 +5293,15 @@
           "evidence_define_line": 7076
         },
         {
+          "name": "dv_mark",
+          "evidence_define": "src/llvm/runtime_typed.c:dv_mark",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "note": "L-217 乙：语句入口记临时表长度",
+          "evidence_declare_line": 956,
+          "category": "Other",
+          "evidence_define_line": 436
+        },
+        {
           "name": "dv_max",
           "evidence_declare": "src/llvm/codegen_typed.py",
           "evidence_declare_line": 622,
@@ -5322,6 +5340,15 @@
           "evidence_define": "src/llvm/runtime_typed.c:dv_mod",
           "category": "Math",
           "evidence_define_line": 960
+        },
+        {
+          "name": "dv_move",
+          "evidence_define": "src/llvm/runtime_typed.c:dv_move",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "note": "L-217 E1：具名槽赋值（私有副本）",
+          "evidence_declare_line": 959,
+          "category": "Other",
+          "evidence_define_line": 538
         },
         {
           "name": "dv_mul",
@@ -5378,6 +5405,15 @@
           "evidence_define": "src/llvm/runtime_typed.c:dv_ord",
           "category": "Other",
           "evidence_define_line": 250
+        },
+        {
+          "name": "dv_own",
+          "evidence_define": "src/llvm/runtime_typed.c:dv_own",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "note": "L-217 乙：临时值提升为 OWNED",
+          "evidence_declare_line": 958,
+          "category": "Other",
+          "evidence_define_line": 461
         },
         {
           "name": "dv_path_basename",
@@ -5652,6 +5688,24 @@
           "evidence_define_line": 2942
         },
         {
+          "name": "dv_reset",
+          "evidence_define": "src/llvm/runtime_typed.c:dv_reset",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "note": "L-217 乙：语句出口整链回收 ARENA 临时值",
+          "evidence_declare_line": 957,
+          "category": "Other",
+          "evidence_define_line": 442
+        },
+        {
+          "name": "dv_ret_finalize",
+          "evidence_define": "src/llvm/runtime_typed.c:dv_ret_finalize",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "note": "L-217 E5：返回值收口为调用方私有 OWNED",
+          "evidence_declare_line": 963,
+          "category": "Other",
+          "evidence_define_line": 551
+        },
+        {
           "name": "dv_rmdir",
           "evidence_declare": "src/llvm/codegen_typed.py",
           "evidence_declare_line": 762,
@@ -5690,6 +5744,14 @@
           "evidence_define": "src/llvm/runtime_typed.c:dv_scheduler_run_event_loop",
           "category": "Coroutine",
           "evidence_define_line": 5761
+        },
+        {
+          "name": "dv_set_current_exception",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "evidence_declare_line": 730,
+          "evidence_define": "src/llvm/runtime_typed.c:dv_set_current_exception",
+          "category": "Exception",
+          "evidence_define_line": 4767
         },
         {
           "name": "dv_setenv",
@@ -5754,6 +5816,24 @@
           "evidence_define": "src/llvm/runtime_typed.c:dv_sleep",
           "category": "Other",
           "evidence_define_line": 10679
+        },
+        {
+          "name": "dv_slot_release",
+          "evidence_define": "src/llvm/runtime_typed.c:dv_slot_release",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "note": "L-217 V2：具名槽出口释放私有 OWNED",
+          "evidence_declare_line": 964,
+          "category": "Other",
+          "evidence_define_line": 485
+        },
+        {
+          "name": "dv_slots_zero",
+          "evidence_define": "src/llvm/runtime_typed.c:dv_slots_zero",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "note": "L-217：临时槽位池整池零初始化",
+          "evidence_declare_line": 965,
+          "category": "Other",
+          "evidence_define_line": 581
         },
         {
           "name": "dv_socket_accept",
@@ -6004,6 +6084,14 @@
           "evidence_define_line": 1908
         },
         {
+          "name": "dv_str_immortal",
+          "evidence_define": "src/llvm/runtime_typed.c:dv_str_immortal",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "note": "L-217 丙：字面量零分配（直接指向 IMMORTAL 常量池）",
+          "evidence_declare_line": 954,
+          "category": "String"
+        },
+        {
           "name": "dv_str_isalpha",
           "evidence_declare": "src/llvm/codegen_typed.py",
           "evidence_declare_line": 827,
@@ -6100,6 +6188,15 @@
           "evidence_define_line": 1552
         },
         {
+          "name": "dv_str_tmp",
+          "evidence_define": "src/llvm/runtime_typed.c:dv_str_tmp",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "note": "L-217 乙：表达式临时串分配（挂语句级临时表）",
+          "evidence_declare_line": 955,
+          "category": "String",
+          "evidence_define_line": 844
+        },
+        {
           "name": "dv_sub",
           "evidence_declare": "src/llvm/codegen_typed.py",
           "evidence_declare_line": 556,
@@ -6124,12 +6221,57 @@
           "evidence_define_line": 3890
         },
         {
+          "name": "dv_take",
+          "evidence_define": "src/llvm/runtime_typed.c:dv_take",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "note": "L-217 E1：形参槽写入（不释放旧值）",
+          "evidence_declare_line": 961,
+          "category": "Other",
+          "evidence_define_line": 545
+        },
+        {
+          "name": "dv_take_copy",
+          "evidence_define": "src/llvm/runtime_typed.c:dv_take_copy",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "note": "L-217 E1：形参槽写入（复制来源）",
+          "evidence_declare_line": 962,
+          "category": "Other",
+          "evidence_define_line": 546
+        },
+        {
           "name": "dv_tan",
           "evidence_declare": "src/llvm/codegen_typed.py",
           "evidence_declare_line": 603,
           "evidence_define": "src/llvm/runtime_typed.c:dv_tan",
           "category": "Math",
           "evidence_define_line": 992
+        },
+        {
+          "name": "dv_temp_release",
+          "evidence_define": "src/llvm/runtime_typed.c:dv_temp_release",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "note": "L-217：单临时槽清扫",
+          "evidence_declare_line": 966,
+          "category": "Other",
+          "evidence_define_line": 561
+        },
+        {
+          "name": "dv_temp_release_at",
+          "evidence_define": "src/llvm/runtime_typed.c:dv_temp_release_at",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "note": "L-217：按池下标清扫临时槽（支配安全）",
+          "evidence_declare_line": 967,
+          "category": "Other",
+          "evidence_define_line": 590
+        },
+        {
+          "name": "dv_temp_slots_release",
+          "evidence_define": "src/llvm/runtime_typed.c:dv_temp_slots_release",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "note": "L-217：区间批量清扫",
+          "evidence_declare_line": 968,
+          "category": "Other",
+          "evidence_define_line": 608
         },
         {
           "name": "dv_thread_join",

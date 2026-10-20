@@ -243,6 +243,12 @@ class FunctionCall(ASTNode):
     name: Union[SegmentName, Identifier] = None
     arguments: List[ASTNode] = field(default_factory=list)
     type_args: List[str] = field(default_factory=list)  # 显式类型参数（如 映射[数](...)）
+    # R161-A（L-228 连带根因）：源码里是否真的写了 `(`。
+    # 零参时这是「裸引用 目标」与「零参调用 目标()」的唯一分界（v3 ParagraphCall
+    # 同名同参），AstAdapter 必须透传，否则 _gen_typed_function_call 的 R11A-02
+    # 短路会把手写括号的一等函数值调用（如 `等待 协程函数()`）误判成变量引用，
+    # 跳过分派到 dv_call_value，协程函数值被 dv_coro_await 当 coro 句柄使用。
+    带括号: bool = False
 
 
 @dataclass(slots=True)

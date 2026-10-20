@@ -473,11 +473,16 @@ class AstAdapter:
 
     def _convert_paragraph_call(self, node) -> ast.FunctionCall:
         args = self._convert_list(node.args)
+        # R161-A（L-228 连带根因）：透传 v3 的 `带括号` 字段。零参时它区分
+        # 「裸引用 目标」与「零参调用 目标()」——丢了它，typed codegen 的
+        # R11A-02 短路（`not expr.arguments` 就发裸变量名）会把 `等待 目标()`
+        # 编成 `await 目标`，一等函数值调用被跳过（协程函数值被当 coro 句柄）。
         return ast.FunctionCall(
             name=ast.SegmentName(name=node.name) if hasattr(ast, 'SegmentName')
                 else ast.Identifier(name=node.name),
             arguments=args,
             type_args=[],
+            带括号=bool(getattr(node, '带括号', False)),
         )
 
     def _convert_function_call_expr(self, node) -> ast.FunctionCall:

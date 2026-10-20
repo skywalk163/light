@@ -117,6 +117,19 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 非 None 即表示「当前协程是一个类内异步方法」——完成出口经
         # `dv_coro_self_writeback` 把帧内 己 写回调用方槽位；模块级异步段为 None。
         self._coro_self_slot = None
+        # R161-A（L-228）：协程帧内「临时槽位」的持久化计数与 locals 基数。
+        # 协程的临时槽由 `_new_dv_slot` 发射 `dv_coro_get_local` 落到 coro->locals
+        # 持久数组（下标 = _coro_temp_slot_base + i）；wrapper 的 dv_coro_create 用
+        # (locals 数 + 临时槽数) 作为 num_locals，使临时槽不越界。
+        self._coro_temp_slot_index = 0
+        self._coro_temp_slot_base = None
+        self._coro_local_count = 0
+        self._coro_local_count_saved = 0
+        self._coro_temp_slot_count = 0
+        # R161-C（L-235）：协程内「当前生效的 catch 分发标签」。try 体内有 `等待` 时，
+        # await 拿到「被等待协程以未捕获异常终结」应跳到本标签（而不是运行时 longjmp
+        # ——那会跳进全局 try 栈顶，可能属于别的协程帧）。None = 当前不在 try 体内。
+        self._coro_active_catch_label = None
         # ---- 生成器状态机（R10-11b 第四批B）----
         # `_gen_entry_insert_idx` 非 None 即表示「正在生成生成器状态机函数」。
         # 它同时是「往 entry 块插指令」的下标：生成器每次恢复都是重新调用，
@@ -160,6 +173,22 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._temp_slot_pool_size = 2048
         # 占位 alloca 在 self._lines 里的下标；函数体发射完毕后回填真实槽位数
         self._temp_slot_pool_line = None
+        # ---- R161-B（L-217）运行时值所有权：字面量常量池 + 语句级作用域栈 ----
+        # 丙：所有字符串字面量汇集到单个模块级全局 @dv_immortal_pool（**不带
+        # unnamed_addr**，避免被 LLVM 合并到池外导致区间判定失效），运行时以
+        # [pool, pool+size) 区间识别 IMMORTAL ⇒ 字面量求值零分配、永不释放。
+        self._immortal_pool = bytearray()      # 累积字节
+        self._immortal_offsets = {}            # 字符串 -> 池内偏移（按内容去重）
+        # 乙：语句作用域栈。每帧 = {mark: mark 寄存器, start: 语句入口临时槽位下标}。
+        # 语句出口发射：① 批量清扫本语句新建的临时槽位（释放已提升为 OWNED 的串）
+        # ② dv_reset(mark) 整链回收本语句的 ARENA 临时缓冲。
+        self._stmt_stack = []
+        # 本函数内经 _new_dv_slot 产出的临时槽位寄存器集合（用于 set_var 判定
+        # 「这是本帧刚产出的临时值 ⇒ 可 move 转移所有权」）。
+        self._temp_slots_created = set()
+        # 本函数内**在 entry 块分配**的具名槽位寄存器（只有它们支配函数出口，
+        # 才可在 V2 epilogue 安全发射 dv_slot_release）。
+        self._entry_block_slots = set()
 
     # ── T9A: 段名模块隔离辅助方法 ──────────────────────────────
     def _seg_reg_key(self, raw_name, module_name=None):
@@ -698,6 +727,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare void @dv_clear_exception()',
             f'declare void @dv_throw_exception(ptr)',
             f'declare void @dv_get_current_exception(ptr)',
+            f'declare void @dv_set_current_exception(ptr)',
             f'declare i32 @dv_exception_match(ptr, ptr)',
             f'declare void @dv_clear_exception_obj()',
             # 类系统
@@ -925,6 +955,22 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare i32 @dv_poller_count(ptr)',
             f'declare void @dv_scheduler_run_event_loop()',
             f'declare void @dv_platform_sleep(i32)',
+            # ---- R161-B（L-217）运行时值所有权 ----
+            f'declare void @dv_str_immortal(ptr, ptr, ptr, ptr)',
+            f'declare void @dv_str_tmp(ptr, ptr)',
+            f'declare i64 @dv_mark()',
+            f'declare void @dv_reset(i64)',
+            f'declare void @dv_own(ptr)',
+            f'declare void @dv_move(ptr, ptr)',
+            f'declare void @dv_copy_own(ptr, ptr)',
+            f'declare void @dv_take(ptr, ptr)',
+            f'declare void @dv_take_copy(ptr, ptr)',
+            f'declare void @dv_ret_finalize(ptr)',
+            f'declare void @dv_slot_release(ptr)',
+            f'declare void @dv_slots_zero(ptr, i32)',
+            f'declare void @dv_temp_release(ptr)',
+            f'declare void @dv_temp_release_at(ptr, i32)',
+            f'declare void @dv_temp_slots_release(ptr, i32, i32)',
         ]
         for f in funcs:
             self._func_decls.add(f)
@@ -953,10 +999,36 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         占位行本身写成合法的 `i32 1`：万一回填没跑到（异常等），产出的仍是合法 IR
         而不是语法垃圾。
+
+        R161-A（L-228）：**协程状态机函数里不再发射 alloca**。根因：`dv_coro_resume`
+        每次都是**重新进入** `_coro_xxx` 函数，entry 块的 `alloca {LightValue}, i32 N`
+        每次重新分配一段**未初始化**的栈内存。挂起后 resume_N 读到的槽全是垃圾
+        （L-228：嵌套 `创建任务(工人(共享表))` + 轮询 → 0xC0000005/挂死）。修法：
+        协程内临时槽也走 `coro->locals` 持久帧槽（malloc、dv_null 初始化、跨 resume
+        存活），由 `_new_dv_slot` 发射 `dv_coro_get_local`，wrapper 的 `dv_coro_create`
+        num_locals 同步加大。此处跳过 alloca 占位，让 `_emit_temp_slot_pool` 直返。
         """
+        if self._coro_entry_insert_idx is not None:
+            self._temp_slot_pool = None
+            self._temp_slot_pool_line = None
+            self._stmt_stack = []
+            self._temp_slots_created = set()
+            self._entry_block_slots = set()
+            return
+        # R161-B（L-217）：每个函数生成开始时复位语句作用域栈与临时槽位登记
+        self._stmt_stack = []
+        self._temp_slots_created = set()
+        self._entry_block_slots = set()
         self._temp_slot_pool = self.new_register()
         self._temp_slot_pool_line = len(self._lines)
         self.emit(f'{self._temp_slot_pool} = alloca {LIGHTVALUE_STRUCT}, i32 1'
+                  f'  ; 占位：真实槽位数由 _emit_temp_slot_pool() 回填')
+        # R161-B（L-217）：紧跟一行占位 memset（整池零初始化），同样由
+        # _emit_temp_slot_pool() 用真实槽位数回填。理由：临时槽在首次写入前是
+        # 未初始化栈垃圾，而语句末清扫（dv_temp_release_at）会读 type/str 判定
+        # 是否释放 ⇒ 必须清零成 NULL 值（否则把垃圾当字符串 free，实测崩）。
+        self._temp_slot_zero_line = len(self._lines)
+        self.emit(f'call void @dv_slots_zero(ptr {self._temp_slot_pool}, i32 1)'
                   f'  ; 占位：真实槽位数由 _emit_temp_slot_pool() 回填')
 
     def _emit_temp_slot_pool(self):
@@ -965,6 +1037,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         必须在函数体（含所有 _new_dv_slot 调用）发射完毕、`}` 之前调用。
         """
         if self._temp_slot_pool_line is None or self._temp_slot_pool is None:
+            self._temp_slot_zero_line = None
             return
         idx = self._temp_slot_pool_line
         self._temp_slot_pool_line = None
@@ -974,6 +1047,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 让下游工具面对零长数组
         真实用量 = max(self._temp_slot_index, 1)
         self._lines[idx] = f'{self._temp_slot_pool} = alloca {LIGHTVALUE_STRUCT}, i32 {真实用量}'
+        zidx = getattr(self, '_temp_slot_zero_line', None)
+        self._temp_slot_zero_line = None
+        if zidx is not None and 0 <= zidx < len(self._lines):
+            self._lines[zidx] = (f'call void @dv_slots_zero(ptr {self._temp_slot_pool}, '
+                                 f'i32 {真实用量})')
 
     def _new_dv_slot(self) -> str:
         # R10-11b：生成器内改走堆槽数组（跨 `生成` 存活），槽指针落在 entry 块。
@@ -981,9 +1059,30 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return self._gen_new_slot()
 
         """从临时槽位池中分配一个新的 LightValue 槽位（避免动态 alloca 导致栈溢出）"""
+        # R161-A（L-228）：协程状态机函数内的临时槽改走 `coro->locals` 持久帧槽。
+        # 根因：`alloca` 在每次 `dv_coro_resume` 重新进入 `_coro_xxx` 时重新分配一段
+        # 未初始化栈内存，resume_N 块读到的槽内容全为垃圾 → L-228 崩溃/挂死。
+        # `dv_coro_get_local(ptr %coro, i32 <idx>)` 返回 coro->locals[idx]（malloc 且
+        # dv_null 初始化，跨 resume 存活），语义与 `_gen_coroutine_function` 里的
+        # 变量槽一致。下标从 `_coro_temp_slot_base` 起算（= num_locals，wrapper 里
+        # dv_coro_create 的 num_locals 已同步加大）。取槽指令回插 entry 块，
+        # 用符号名保证支配所有 resume 块。
+        if self._coro_entry_insert_idx is not None:
+            idx = self._coro_temp_slot_index
+            self._coro_temp_slot_index += 1
+            reg = self._gen_entry_symbolic('t')
+            base = self._coro_temp_slot_base if self._coro_temp_slot_base is not None else 0
+            self._lines.insert(
+                self._coro_entry_insert_idx,
+                f'{reg} = call ptr @dv_coro_get_local(ptr %coro, i32 {base + idx})')
+            self._coro_entry_insert_idx += 1
+            return reg
+
         if self._temp_slot_pool is None:
             reg = self.new_register()
             self.emit(f'{reg} = alloca {LIGHTVALUE_STRUCT}')
+            self.emit(f'store {LIGHTVALUE_STRUCT} zeroinitializer, ptr {reg}')
+            self._stmt_created_slot(reg, -1)
             return reg
         
         if self._temp_slot_index >= self._temp_slot_pool_size:
@@ -1010,7 +1109,185 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return reg
         reg = self.new_register()
         self.emit(f'{reg} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {self._temp_slot_pool}, i64 {idx}')
+        # R161-B（L-217）：登记「本帧临时槽位」，供 set_var 判定 move/copy 语义。
+        self._stmt_created_slot(reg, idx)
         return reg
+
+    # ============================================================
+    # R161-B（L-217）运行时值所有权：字面量常量池 + 语句级逃逸/回收
+    # ============================================================
+
+    @property
+    def _l217_active(self) -> bool:
+        """本轮 L-217 机制是否对「当前正在生成的函数」生效。
+
+        协程状态机函数**显式排除**：① 协程槽位是 `dv_coro_get_local` 持久槽
+        （R161-A），语句级清扫会把它里面跨 resume 存活的值提前释放；② mark
+        寄存器跨 `等待` 挂起点会重演 L-227-a 的 dominance 违规。生成器（跨
+        `生成` 重新进入）同理排除。两者保持旧行为（只泄漏、不误释放）。
+        """
+        if self._coro_entry_insert_idx is not None:
+            return False
+        if self._gen_entry_insert_idx is not None:
+            return False
+        if getattr(self, '_in_coroutine', False):
+            return False
+        return self._temp_slot_pool is not None
+
+    def gen_immortal_string(self, s: str) -> str:
+        """丙：把字面量登记进模块级 IMMORTAL 常量池，返回指向池内的指针寄存器。
+
+        与 base 的 `gen_string_constant` 的区别：那个是每个字面量一个
+        `private unnamed_addr constant`（可被 LLVM 合并、且不带身份语义），
+        本方法统一汇集到一个**不带 unnamed_addr** 的池全局，运行时用
+        `[pool, pool+size)` 区间即可判定「这是常量区、不许 free」。
+        """
+        key = s if isinstance(s, str) else str(s)
+        off = self._immortal_offsets.get(key)
+        if off is None:
+            data = key.encode('utf-8')
+            off = len(self._immortal_pool)
+            self._immortal_offsets[key] = off
+            self._immortal_pool.extend(data)
+            self._immortal_pool.append(0)
+        reg = self.new_register()
+        total = max(len(self._immortal_pool), 1)
+        self.emit(f'{reg} = getelementptr inbounds [{total} x i8], '
+                  f'ptr @dv_immortal_pool, i64 0, i64 {off}')
+        return reg
+
+    def _emit_immortal_pool(self):
+        """在 IR 末尾发射 IMMORTAL 常量池 + 边界全局（恒定发射，无字面量也发）。"""
+        data = bytes(self._immortal_pool) if len(self._immortal_pool) else b'\x00'
+        parts = []
+        for b in data:
+            if b == 0x5C:
+                parts.append('\\5C')
+            elif b == 0x22:
+                parts.append('\\22')
+            elif 0x20 <= b <= 0x7E:
+                parts.append(chr(b))
+            else:
+                parts.append(f'\\{b:02X}')
+        size = len(self._immortal_pool)
+        self._string_decls.append(
+            f'@dv_immortal_pool = dso_local global [{len(data)} x i8] c"{"".join(parts)}"')
+        self._string_decls.append(f'@dv_immortal_size = constant i64 {size}')
+
+    def _create_immortal_str_dv(self, ptr_val: str) -> str:
+        """丙：由常量区指针直接造一个 STR LightValue（零分配，不走 dv_str）。
+
+        ｜pool 基址 + size 全局地址一并传给运行时，让它**当场登记** IMMORTAL 区间
+        （见 runtime 侧 `dv_str_immortal` 注释：为兼容 C 层单测的独立链接，不引
+        extern 数据符号）。
+        """
+        slot = self._new_dv_slot()
+        self.emit(f'call void @dv_str_immortal(ptr {slot}, ptr {ptr_val}, '
+                  f'ptr @dv_immortal_pool, ptr @dv_immortal_size)')
+        return self._load_dv(slot)
+
+    def _stmt_push(self):
+        if not self._l217_active:
+            self._stmt_stack.append(None)
+            return
+        mark = self.new_register()
+        self.emit(f'{mark} = call i64 @dv_mark()')
+        self._stmt_stack.append({'mark': mark, 'slots': [], 'esc': set()})
+
+    def _stmt_pop(self):
+        if not self._stmt_stack:
+            return
+        frame = self._stmt_stack.pop()
+        if frame is None or not self._l217_active:
+            return
+        # 终止指令（返回/抛出/跳出/继续）之后不能再发射任何指令
+        last = ''
+        for line in reversed(self._lines):
+            if line.strip():
+                last = line.strip()
+                break
+        if last.startswith('ret ') or last.startswith('br ') or last == 'unreachable':
+            return
+        # 整链回收本语句生产的 ARENA 临时缓冲（设计 §6.3）。
+        # 本轮**不做**逐槽位清扫：一个 OWNED 缓冲可被多个槽位/帧合法共享（形参写回、
+        # 容器浅拷 C5、%result），逐槽 free 必然双 free（实测 T6A-10 输出不稳定 +
+        # 0xC0000374）。已提升为 OWNED 的值由 runtime 的既有管理者负责，reset 会
+        # 跳过它们（只回收 tag=ARENA）。
+        self.emit(f'call void @dv_reset(i64 {frame["mark"]})')
+
+    def _stmt_created_slot(self, reg: str, idx: int):
+        self._temp_slots_created.add(reg)
+        if self._stmt_stack and self._stmt_stack[-1] is not None:
+            self._stmt_stack[-1]['slots'].append((reg, idx))
+
+    def _stmt_mark_escaped(self, reg: str):
+        """所有权已转移出该临时槽位 ⇒ 本语句（及所有外层语句）末清扫跳过它。"""
+        for frame in self._stmt_stack:
+            if frame is not None:
+                frame['esc'].add(reg)
+
+    def _slot_is_local_temp(self, slot: str) -> bool:
+        """判断槽位是否是「本帧刚产出的临时槽位」（⇒ 可 move 转移所有权）。
+
+        具名局部变量、形参（本仓段入口把形参 struct 浅拷进私有局部槽）、模块级
+        全局、协程帧槽位都**不是**：它们可能被别处继续引用，只能 copy 出私有副本。
+        """
+        if not slot:
+            return False
+        if slot.startswith('@'):
+            return False
+        if slot in self._temp_slots_created:
+            for s in self._local_vars.values():
+                if s == slot:
+                    return False
+            for s in self._current_func_params.values():
+                if s == slot:
+                    return False
+            return True
+        return False
+
+    def _epilogue_slots(self):
+        """函数出口需要 `dv_slot_release` 的具名槽位。
+
+        两条排除规则（都来自实测）：
+        ① **形参写回槽**（`_seg_param_writeback`）：与调用方 `%args[i]` 是浅拷共享
+           （既有 T7B 写回协议），出口释放会悬空调用方槽位。
+        ② **非 entry 块分配的槽**：极少数路径（`全局` 声明后从 `_local_vars` 摘掉的
+           槽、嵌套段自由变量槽）的 alloca 落在分支块里，其寄存器不支配函数出口 ⇒
+           直接传 `ptr %N` 会得到 clang "use of undefined value '%N'"
+           （实测 test_llvm_scope_decl）。只释放 entry 块分配的那些。
+        """
+        wb = {s for _, s in (getattr(self, '_seg_param_writeback', None) or [])}
+        entry_slots = getattr(self, '_entry_block_slots', set())
+        out = []
+        seen = set()
+        for slot in self._local_vars.values():
+            if not slot or slot in wb or slot in seen:
+                continue
+            if slot not in entry_slots:
+                continue
+            seen.add(slot)
+            out.append(slot)
+        return out
+
+    def _emit_epilogue_release(self):
+        """V2 epilogue：释放具名槽持有的**私有** OWNED 字符串（设计 §十一 步③）。
+
+        安全前提（R161-B 实测确立）：`dv_slot_set` 一律把具名槽的值**复制**成私有
+        OWNED（不再做零拷贝 move），所以「具名槽持有的 OWNED 串」恰好只有一个槽位
+        持有 ⇒ 在函数出口释放是安全的，不会双 free。
+
+        两条排除（都有实测依据）：
+        ① 形参写回槽：其值会经 `dv_copy_own` 复制给 `%args[i]`，本帧私有副本仍可释放；
+           但形参槽本身在入口是调用方实参的**浅拷**，若在出口释放会与调用方冲突，
+           故仍排除（保守）。
+        ② 非 entry 块分配的槽：其寄存器不支配函数出口，传 `ptr %N` 会得到 clang
+           "use of undefined value"（实测 test_llvm_scope_decl）。
+        """
+        if not self._l217_active:
+            return
+        for slot in self._epilogue_slots():
+            self.emit(f'call void @dv_slot_release(ptr {slot})')
 
     def _set_type(self, slot: str, type_val: int):
         """设置 LightValue 槽位的 type 字段"""
@@ -1040,6 +1317,16 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         """加载整个 LightValue 作为 SSA 值"""
         reg = self.new_register()
         self.emit(f'{reg} = load {LIGHTVALUE_STRUCT}, ptr {slot}')
+        # R161-A（L-227-a）：**仅协程上下文**登记「SSA → 来源槽」映射，使后续
+        # _store_dv(reg) 直接复用该持久槽，不再 emit `store {reg}, ptr <新槽>`。
+        # 根因：跨 await 时 `store %N, ptr %gsX` 若 %N 定义在 resume_0 块、使用在
+        # resume_1 之后的块，SSA 定义块不支配使用块 → clang: "Instruction does not
+        # dominate all uses"（实证 two_a.light：`%5 = load %gs3` 定义在 resume_0、
+        # `store %5, ptr %gs20` 在 tostr_end_13，resume_1 路径不经过 %5 定义块）。
+        # 协程里来源槽是 coro->locals 持久槽（跨 resume 存活），复用安全且语义等价。
+        # 普通函数限定不启用：其 _store_dv 就近 emit，无需复用，避免槽值被后续覆盖。
+        if self._coro_entry_insert_idx is not None:
+            self._dv_ssa_to_slot[reg] = slot
         return reg
 
     def _self_lvalue_slot(self) -> str:
@@ -1063,9 +1350,18 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return self.get_var('己')
 
     def _store_dv(self, dv_reg: str) -> str:
-        """将 LightValue SSA 寄存器存入槽位，返回槽位指针"""
+        """将 LightValue SSA 寄存器存入槽位，返回槽位指针
+
+        R161-B（L-217）：复用来源槽（`_dv_ssa_to_slot`）时，该槽位的所有权**没有**
+        复制——两个槽位指向同一缓冲。语句末清扫会遍历本语句新建的所有临时槽位，
+        若它们都持有同一个 OWNED 指针就会**双 free**（实测：跨模块填充程序输出
+        出现重复字符段）。故复用路径把「源槽」登记为已逃逸，让清扫跳过它，只由
+        实际持有者（具名槽 / 返回值 / 另一个临时槽）负责释放。
+        """
         if dv_reg in self._dv_ssa_to_slot:
-            return self._dv_ssa_to_slot[dv_reg]
+            src = self._dv_ssa_to_slot[dv_reg]
+            self._stmt_mark_escaped(src)
+            return src
         slot = self._new_dv_slot()
         self.emit(f'store {LIGHTVALUE_STRUCT} {dv_reg}, ptr {slot}')
         self._dv_ssa_to_slot[dv_reg] = slot
@@ -1097,9 +1393,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         return self._load_dv(slot)
 
     def _create_str_dv(self, ptr_val: str) -> str:
-        """创建字符串 LightValue 并返回 SSA 值"""
+        """创建字符串 LightValue 并返回 SSA 值。
+
+        R161-B（L-217，P2/P4 同族）：改走 `dv_str_tmp`（临时表分配）。本入口产出的
+        字符串都是**表达式求值当场产出**的临时值；要长期存活时会在逃逸点被提升为
+        OWNED（具名槽 dv_slot_set / 返回值 dv_ret_finalize / 容器 dv_clone）。
+        字面量走 `_create_immortal_str_dv`（零分配），不经过这里。
+        """
         slot = self._new_dv_slot()
-        self.emit(f'call void @dv_str(ptr {slot}, ptr {ptr_val})')
+        self.emit(f'call void @dv_str_tmp(ptr {slot}, ptr {ptr_val})')
         return self._load_dv(slot)
 
     def _create_null_dv(self) -> str:
@@ -1397,8 +1699,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return self._call_dv_func('dv_float', f'double {val}'), 'dv'
 
         if isinstance(expr, ast.StringLiteral):
-            s_reg = self.gen_string_constant(expr.value)
-            return self._create_str_dv(s_reg), 'dv'
+            # R161-B（L-217 步①丙）：字面量零分配共享——直接指向模块级 IMMORTAL
+            # 常量池（不再 dv_str→dv_strdup→malloc）。字符串值不可变（设计 §2.5
+            # 事实 A：全仓无原地写 str 的路径），共享绝对安全。
+            s_reg = self.gen_immortal_string(expr.value)
+            return self._create_immortal_str_dv(s_reg), 'dv'
 
         if isinstance(expr, ast.BooleanLiteral):
             val_i1 = '1' if expr.value else '0'
@@ -1518,8 +1823,21 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 设 处理器 为 某段 的 RHS、列表过滤(表, 谓词) 的 谓词）时，产生 LV_TYPE_FUNCTION
         # 函数值（持有 @_seg_<safe> 入口指针），而不是字符串。真正的调用分派由
         # _gen_typed_function_call / _gen_function_value_call 完成。
-        if self._lookup_nested_seg(name) is not None or name in self._imports:
+        if self._lookup_nested_seg(name) is not None:
             return self._gen_segment_function_value(name), 'dv'
+        # R161-A（L-227-b）：`name in self._imports` 不再自动当作段名。
+        # 根因：从模块导入的**异常类**（如 协程 的 `协程超时异常`）也落在 `_imports`，
+        # 修前直接走 _gen_segment_function_value → 分配 f# 编号 + `bitcast @_seg_f#`，
+        # 但类从不生成段实体 → clang: "use of undefined value '@_seg_f#'"
+        # （实证 c2_lib_probe.light，多导出模块必现）。修法：解析导入链，仅当最终
+        # 定义确实在 `_segments` 注册表里才是段；否则走下方字符串常量分支（类名作
+        # 字符串，与 dv_get_type_name 的返回值可 `==` 比较，`类型(e) == 协程超时异常`
+        # 语义正确）。与 `_gen_typed_function_call` 的导入段判定同口径。
+        if name in self._imports:
+            _imp_mod, _imp_orig = self._imports[name]
+            if (self._seg_reg_key(_imp_orig, _imp_mod) in self._segments
+                    or self._resolve_import_chain(_imp_mod, _imp_orig) is not None):
+                return self._gen_segment_function_value(name), 'dv'
 
         # 解析器将 真/假/空 转为 Identifier('True'/'False'/'None')，需映射回布尔/空值
         if name == 'True':
@@ -2018,6 +2336,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 当调用名已被声明为局部变量且调用无参时，即使源码写法像函数调用（如 `转文本(删除)`
         # 中括号内的内建名被解析为无参 FunctionCall 节点），也把它当变量引用返回——
         # light 没有「函数值可调用」语义，无参调用名歧义时按变量引用处理（遮蔽内建）。
+        # R161-A（L-228 连带根因）：**零参调用必须看 `带括号`**。v3 里
+        # `等待 目标()`（真写括号的一等函数值调用）与 `设 x 为 目标`（裸引用）
+        # name/args 全同，只靠 `带括号` 区分。AstAdapter 已透传该字段；
+        # 这里若只看 `not expr.arguments` 就发裸变量名，会把手写括号的
+        # `等待 协程函数()` 短路成 `等待 协程函数`（函数值本体）→
+        # dv_coro_await 把 DvClosure* 当 LightCoroutine* 使用 → 堆损坏。
+        # 真写括号 → 不短路，落到底部 R118-A 函数值调用分派（dv_call_value）。
         # 带实参的调用（如 `列表(对象, 时间戳)` 构造列表条目、`删除(表, 2)` list.remove）
         # 不是歧义引用，必须继续走正常派发（段函数 → builtin）；否则对象池缓存.light 里
         # `追加(列表, 列表(对象, 整数(时间戳())))` 的内层列表构造会被劫持成局部变量引用，
@@ -2033,7 +2358,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             _key = _nm
         else:
             _key = str(_nm)
-        if (_key is not None and not expr.arguments
+        _zero_arg_no_paren = (not expr.arguments and not getattr(expr, '带括号', False))
+        if (_key is not None and _zero_arg_no_paren
                 and (_key in self._local_vars or _key in self._current_func_params)):
             _v = self.get_var(_key)
             if _v is not None:
@@ -2136,7 +2462,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # `设 是浮点 为 假` 后 `如果 是浮点 == 真`），v3 解析器把变量引用
         # 解析成无参 ParagraphCall，适配层转成 FunctionCall。此处若名字已是
         # 已收集局部变量且调用无参，降级为变量引用，与转译腿语义一致。
-        if not args and func_name in self._local_vars:
+        # R161-A（L-228 连带根因）：**真写括号的一等函数值调用不许降级**。
+        # 形参 `目标` 已注册进 _local_vars，若只看 `not args` 就降级，会把
+        # `等待 目标()` 编成 `await 目标`（函数值本体）→ 跳过分派到
+        # dv_call_value → dv_coro_await 把 DvClosure* 当 LightCoroutine*。
+        # `带括号`（AstAdapter 已透传 v3 字段）为 True 时走下方 R118-A 分派。
+        if not args and not getattr(expr, '带括号', False) and func_name in self._local_vars:
             var_ref = self.get_var(func_name)
             if var_ref is not None:
                 return var_ref, 'dv'
@@ -5239,8 +5570,17 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         # ---- try 块 ----
         self.emit(f'{try_lab}:')
-        for s in stmt.try_body:
-            self._gen_statement(s)
+        # R161-C（L-235）：本 try 体内若有 `等待`，await 处需要知道「异常该跳到哪个
+        # catch 块」。把 dispatch 标签登记在栈上（嵌套 try 时取最内层）。
+        # 只有协程内且 has_catch 时才登记；非协程路径不受影响。
+        _prev_catch = getattr(self, '_coro_active_catch_label', None)
+        if has_catch and self._in_coroutine:
+            self._coro_active_catch_label = dispatch_catch_lab
+        try:
+            for s in stmt.try_body:
+                self._gen_statement(s)
+        finally:
+            self._coro_active_catch_label = _prev_catch
         if not self._ends_with_terminator(stmt.try_body):
             self.emit(f'call void @dv_try_pop()')
             if has_finally:
@@ -5252,7 +5592,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if has_catch:
             self.emit(f'{dispatch_catch_lab}:')
             self.emit(f'call void @dv_try_pop()')
-            
+            # R161-B（L-217，设计 §八）：`抛出` 经 longjmp 长跳转，会跳过 try 体内
+            # 语句的正常出口 dv_reset ⇒ 那条语句入口到抛出点之间的临时缓冲被孤儿化
+            # （bump 指针停在中途，后续语句的 reset 只回到自己的 mark，永久不回收）。
+            # 在 catch 入口按**本 try 语句入口的 mark** 复位一次，把孤儿块整批回收；
+            # 语义与正常路径一致（异常传播时 try 体局部值本就不再可见）。
+            if self._l217_active and self._stmt_stack and self._stmt_stack[-1]:
+                self.emit(f'call void @dv_reset(i64 {self._stmt_stack[-1]["mark"]})')
+
             # 获取当前异常对象
             exc_slot = self._new_dv_slot()
             self.emit(f'call void @dv_get_current_exception(ptr {exc_slot})')
@@ -6157,12 +6504,33 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 跳进 resume 块，就地 alloca 的块不支配 resume 块（遍历循环计数器即触发
         # "Instruction does not dominate all uses"）。用符号名回插，避免与正文
         # 数字寄存器编号冲突（同生成器口径）。
+        #
+        # R161-C（L-221/L-233，ASan + IR 实证的真根因）：**光提到 entry 不够**。
+        # `dv_coro_resume` 每次都是**重新调用** `_coro_xxx`，entry 块的 alloca 每次
+        # 都重新执行、返回一段**未初始化**的新栈内存 ⇒ 挂在循环计数器上的值跨挂起
+        # 丢失。实测：`遍历 句 之 表: 设 合计 为 合计 加上 等待 句` 只跑**一轮**
+        # （SUM=1 而非 3；W1 只打印 ITEM=1）——循环计数器 `%gc15` 是 alloca，resume
+        # 后读到 0 ⇒ 条件 `i < len` 不成立 ⇒ 提前退出。
+        # 修法：协程内的标量 alloca 改从 `coro->locals` **持久帧槽**取（与临时槽同
+        # 一编号空间），再 GEP 到 **i64 字段**（偏移 8，避开偏移 0 的 `type` 字段）。
+        # 这样：① 跨 resume 存活（堆分配）；② `type` 恒为 0（dv_coro_create 已
+        # dv_null 初始化）⇒ `dv_coro_free` 对该槽为无操作，不会误释放标量字节。
         if self._coro_entry_insert_idx is not None:
-            reg = self._gen_entry_symbolic('c')
+            idx = self._coro_temp_slot_index
+            self._coro_temp_slot_index += 1
+            base = self._coro_temp_slot_base if self._coro_temp_slot_base is not None else 0
+            slot = self._gen_entry_symbolic('gs')
             self._lines.insert(
-                self._coro_entry_insert_idx, f'{reg} = alloca {ir_type}')
+                self._coro_entry_insert_idx,
+                f'{slot} = call ptr @dv_coro_get_local(ptr %coro, i32 {base + idx})')
             self._coro_entry_insert_idx += 1
-            return reg
+            field = self._gen_entry_symbolic('gf')
+            self._lines.insert(
+                self._coro_entry_insert_idx,
+                f'{field} = getelementptr inbounds {LIGHTVALUE_STRUCT}, '
+                f'ptr {slot}, i32 0, i32 1')
+            self._coro_entry_insert_idx += 1
+            return field
         reg = self.new_register()
         self.emit(f'{reg} = alloca {ir_type}')
         return reg
@@ -6448,6 +6816,18 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     def _gen_statement(self, stmt):
         if stmt is None:
             return
+        # R161-B（L-217，设计 §6.3）：每条语句入口 mark、出口 reset —— 语句级
+        # 临时值（拼接/repr/JSON/解引用… 的 arena 缓冲）整链回收，把「每次字面量
+        # /临时串求值都泄漏」变成「随语句回收」。逃逸到具名槽/容器/返回值的值
+        # 已在各自逃逸点提升为 OWNED（dv_move/dv_copy_own/dv_ret_finalize），
+        # 不在本语句的回收范围内。
+        self._stmt_push()
+        try:
+            self._gen_statement_inner(stmt)
+        finally:
+            self._stmt_pop()
+
+    def _gen_statement_inner(self, stmt):
         # 设置调试位置（用于 !dbg 元数据）
         if self._debug:
             line = getattr(stmt, 'lineno', 0) if stmt else 0
@@ -7482,9 +7862,18 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'{t_lab}:')
             elem_ptr = self.new_register()
             self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr %args, i64 {i}')
-            val = self.new_register()
-            self.emit(f'{val} = load {LIGHTVALUE_STRUCT}, ptr {slot}')
-            self.emit(f'store {LIGHTVALUE_STRUCT} {val}, ptr {elem_ptr}')
+            if self._l217_active:
+                # R161-B（L-217）：写回形参槽的值**可能已被本帧提升为私有 OWNED**
+                # （`dv_take`/`dv_take_copy`）。直接 store 会把该 OWNED 指针共享给
+                # 调用方 `%args[i]`，于是同一缓冲有两个持有者：调用方语句末清扫释放
+                # 一次、被调方出口释放一次 = **双 free / 重复字符段**（实测 T6A-10
+                # 跨模块 60 次调用输出不稳定）。写回改为 `dv_copy_own`：调用方拿到
+                # 自己的私有副本，两边各释放各的。
+                self.emit(f'call void @dv_copy_own(ptr {elem_ptr}, ptr {slot})')
+            else:
+                val = self.new_register()
+                self.emit(f'{val} = load {LIGHTVALUE_STRUCT}, ptr {slot}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {val}, ptr {elem_ptr}')
             self.emit(f'br label %{e_lab}')
             self.emit(f'{e_lab}:')
 
@@ -7546,11 +7935,18 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 # 再发射 self 写回，确保调用方对象槽位看到返回表达式产生的 己 最新状态。
                 dv_val, _ = self._gen_expression(stmt.value)
                 self._emit_self_writeback()
+                if self._l217_active:
+                    # R161-B（L-217，E5）：结构体按值返回也要收口成私有 OWNED。
+                    ret_slot = self._store_dv(dv_val)
+                    self.emit(f'call void @dv_ret_finalize(ptr {ret_slot})')
+                    dv_val = self._load_dv(ret_slot)
+                self._emit_epilogue_release()
                 self.emit('call void @dv_stack_pop()')
                 self.emit(f'ret {LIGHTVALUE_STRUCT} {dv_val}')
             else:
                 self._emit_self_writeback()
                 null_dv = self._call_dv_func('dv_null')
+                self._emit_epilogue_release()
                 self.emit('call void @dv_stack_pop()')
                 self.emit(f'ret {LIGHTVALUE_STRUCT} {null_dv}')
 
@@ -7565,6 +7961,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'call void @dv_obj_release_slot(ptr {result_ptr})')
             self.emit(f'store {LIGHTVALUE_STRUCT} {dv_val}, ptr {result_ptr}')
             self.emit(f'call void @dv_obj_deepcopy_self(ptr {result_ptr})')
+            # R161-B（L-217，E5）：返回值收口成调用方**私有**的 OWNED 普通字符串
+            # （否则调用方拿到的指针与被调方具名槽同源，被调方出口释放后悬空）。
+            self.emit(f'call void @dv_ret_finalize(ptr {result_ptr})')
         else:
             self._emit_self_writeback()
             self.emit(f'call void @dv_obj_release_slot(ptr {result_ptr})')
@@ -7573,6 +7972,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._emit_param_writeback()
         # R130-C：嵌套段返回前把自由变量写回 env（dict/list 值字段同步）
         self._emit_closure_env_writeback()
+        # R161-B（L-217，V2 epilogue）：释放本帧具名槽持有的私有 OWNED 字符串。
+        # 必须在 dv_ret_finalize 之后（返回值已是调用方私有副本）。
+        self._emit_epilogue_release()
         self.emit('call void @dv_stack_pop()')
         self.emit('ret void')
 
@@ -7659,6 +8061,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         for vname in self._local_vars.keys():
             reg = self.new_register()
             self.emit(f'{reg} = alloca {LIGHTVALUE_STRUCT}')
+            # R161-B（L-217）：具名槽必须**先清零**——本线的释放判定（dv_slot_release
+            # / dv_slot_set 的 rel_old）会读 type/str，未初始化栈垃圾会被误判成
+            # 「type=3 的字符串」而去 free 一个野指针（实测 0xC0000005）。
+            self.emit(f'store {LIGHTVALUE_STRUCT} zeroinitializer, ptr {reg}')
+            self._entry_block_slots.add(reg)   # R161-B：仅 entry 块槽可在出口安全释放
             self._local_vars[vname] = reg
 
         # 注册内置异常类
@@ -7737,6 +8144,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             finally:
                 self._current_module = prev_mod
 
+        self._emit_epilogue_release()   # R161-B（L-217，V2 epilogue）
         self.emit('ret void')
         # 函数体发射完毕，用真实槽位用量回填池大小
         self._emit_temp_slot_pool()
@@ -7919,6 +8327,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         for vname in self._local_vars.keys():
             reg = self.new_register()
             self.emit(f'{reg} = alloca {LIGHTVALUE_STRUCT}')
+            # R161-B（L-217）：具名槽必须**先清零**——本线的释放判定（dv_slot_release
+            # / dv_slot_set 的 rel_old）会读 type/str，未初始化栈垃圾会被误判成
+            # 「type=3 的字符串」而去 free 一个野指针（实测 0xC0000005）。
+            self.emit(f'store {LIGHTVALUE_STRUCT} zeroinitializer, ptr {reg}')
+            self._entry_block_slots.add(reg)   # R161-B：仅 entry 块槽可在出口安全释放
             self._local_vars[vname] = reg
 
         # R130-A：嵌套段入口解包 env —— 从 dv_call_value 设置的「当前闭包 env」
@@ -7989,6 +8402,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             # R130-C：隐式结尾也要写回 env（自由变量可能被最后一句改写）
             self._emit_closure_env_writeback()
             self.emit(f'call void @dv_null(ptr %result)')
+            self._emit_epilogue_release()   # R161-B（L-217，V2 epilogue）
             self.emit('call void @dv_stack_pop()')
             self.emit('ret void')
         # 函数体发射完毕，用真实槽位用量回填池大小
@@ -8228,10 +8642,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         coro_func_ptr = self.new_register()
         self.emit(f'{coro_func_ptr} = ptrtoint ptr @{coro_func_name} to i64')
         
-        # 计算局部变量数量
+        # R161-A（L-228）：先清 _local_vars，避免与 _gen_coroutine_function 残留的变量
+        # 计数叠加（后者已把 locals+params 写入，本处再 collect 会重复计数）。
+        self._local_vars.clear()
         self._collect_vars_from_stmts(body)
         num_locals = len(self._local_vars)
         num_params = len(params)
+        # R161-A（L-228）：临时槽也落在 coro->locals 持久帧槽（_new_dv_slot 发射
+        # dv_coro_get_local），故 num_locals 须加上临时槽用量，否则下标越界。
+        num_locals += int(getattr(self, '_coro_temp_slot_count', 0) or 0)
         
         # 调用 dv_coro_create 创建协程
         coro_handle = self.new_register()
@@ -8287,7 +8706,16 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._in_coroutine = True
         self._coro_handle_ptr = '%coro'
         self._coro_resume_point = 0
-        self._coro_self_slot = None   # R160-A：仅类内异步方法在下方置为接收者槽位
+        self._coro_self_slot = None
+        # R161-A（L-228）：协程帧内「临时槽位」的持久化计数与 locals 基数。
+        # 协程的临时槽由 `_new_dv_slot` 发射 `dv_coro_get_local` 落到 coro->locals
+        # 持久数组（下标 = _coro_temp_slot_base + i）；wrapper 的 dv_coro_create 用
+        # (locals 数 + 临时槽数) 作为 num_locals，使临时槽不越界。
+        self._coro_temp_slot_index = 0
+        self._coro_temp_slot_base = None
+        self._coro_local_count = 0
+        self._coro_local_count_saved = 0
+        self._coro_temp_slot_count = 0   # R160-A：仅类内异步方法在下方置为接收者槽位
         # 保存 await 点标签映射: point_num -> resume_label
         self._coro_resume_labels = {}
         # 初始化临时槽位池（否则会使用上一个函数残留的池指针）
@@ -8308,8 +8736,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 就把函数腰斩。两处 A7 已修。结论：**这里不需要加属性**。
         self.emit(f'define void @{coro_func_name}(ptr %result, ptr %coro, ptr %args, i32 %num_args) {{')
         self.emit('entry:')
+        # R159-A：switch 之前就是 entry 块尾部 —— 记下回插点，让 `_gen_alloca` /
+        # `_new_dv_slot` 把 alloca / dv_coro_get_local 提到这里（挂起后 resume 块
+        # 不支配就地 alloca）。**必须在此设置**，否则下方 `_begin_temp_slot_pool`
+        # （R161-A：协程分支跳 alloca）与 `_new_dv_slot`（R161-A：协程分支改走
+        # dv_coro_get_local 持久帧槽）看不到协程上下文，会退回栈 alloca。
+        self._coro_entry_insert_idx = len(self._lines)
         
-        # 分配临时槽位池
+        # 分配临时槽位池（R161-A：协程内跳过栈 alloca，改走 coro->locals 持久帧槽）
         self._begin_temp_slot_pool()
         
         # 收集变量
@@ -8327,6 +8761,12 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self.emit(f'{local_ptr} = call ptr @dv_coro_get_local(ptr %coro, i32 {i})')
             self._local_vars[vname] = local_ptr
             self._coro_local_indices[vname] = i
+        # R161-A（L-228）：记录本协程的 locals 槽总数，wrapper 用它把临时槽接在
+        # 变量槽之后（dv_coro_get_local 下标 = 变量槽数 + 临时槽序号）。
+        self._coro_local_count = len(var_names)
+        # 临时槽基数定死 = locals 数（临时槽紧跟在变量槽之后）。必须在 body 生成前
+        # 设置，否则 _new_dv_slot 会以 base=0 发射 dv_coro_get_local，与变量槽重叠。
+        self._coro_temp_slot_base = self._coro_local_count
 
         # R160-A 修复（#3/#4 第二层根因）：args→locals 拷贝 + self 深拷贝**必须只在
         # 首次执行（resume_point==0）时跑**。此前它们在 switch 之前，每次 resume 都重跑，
@@ -8359,9 +8799,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 生成 switch 语句（单行，避免验证器将 case 行误判为终止指令后的死代码）
         switch_end_label = self.new_label('coro_switch_end')
         cases = ' '.join(f'i32 {i}, label %{resume_labels[i]}' for i in range(num_await + 1))
-        # R159-A：switch 之前就是 entry 块尾部 —— 记下回插点，让 `_gen_alloca`
-        # 把循环计数器等 alloca 提到这里（挂起后 resume 块不支配就地 alloca）。
-        self._coro_entry_insert_idx = len(self._lines)
+        # R159-A：switch 之前就是 entry 块尾部 —— 记下回插点。已在 entry: 后设置
+        # （_begin_temp_slot_pool / _new_dv_slot 依赖它判断协程上下文）。
         self.emit(f'switch i32 {rp_val}, label %{switch_end_label} [ {cases} ]')
 
         # 生成每个 resume 点和对应的代码
@@ -8377,14 +8816,66 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # R160-A 修复（#3/#4 第二层根因）：args→locals 拷贝 + self 深拷贝移到这里，
         # 只在首次执行时运行。否则每次 resume 都会用 args 的旧深拷贝覆盖 locals，
         # 冲掉嵌套协程写回的更新。
-        for i, (pname, _) in enumerate(params):
+        #
+        # R161-C（L-237，ASan + 最小复现实证的真根因）：**实参个数必须做越界保护 +
+        # 缺参回落到默认值**。旧代码无条件 `dv_coro_get_arg(%, i)` 再 load：当调用方
+        # 少传实参（形参带默认值，如 `并行(列表, 失败模式 等于 "逐条收集")` 只传 1 个）
+        # 时，`dv_coro_get_arg` 按下标越界返回 **NULL**，紧接着 `load {…}, ptr NULL`
+        # 就是空指针读 ⇒ 0xC0000005（实测最小复现：`异步 段落 甲(表, 模式 等于 "默认")`
+        # 只传 1 实参必崩，同步段同形正常）。
+        # 修法：与**同步段落**同口径（_gen_normal_segment 的 param_valid/invalid 分支）——
+        # 逐参 `icmp slt i64 i, %num_args` 分流：在界内则从 args 取并做所有权转移；
+        # 越界则走 `default_val` 求值，无默认值则置 null。
+        for i, (pname, default_val) in enumerate(params):
             local_ptr = self._local_vars.get(pname)
-            if local_ptr is not None:
-                arg_ptr = self.new_register()
-                self.emit(f'{arg_ptr} = call ptr @dv_coro_get_arg(ptr %coro, i32 {i})')
-                arg_val = self.new_register()
-                self.emit(f'{arg_val} = load {LIGHTVALUE_STRUCT}, ptr {arg_ptr}')
-                self.emit(f'store {LIGHTVALUE_STRUCT} {arg_val}, ptr {local_ptr}')
+            if local_ptr is None:
+                continue
+            in_bounds = self._gen_entry_symbolic('cib')
+            na = self._gen_entry_symbolic('cna')
+            # 注意（R161-C）：本段含多个分支、且在协程 prologue（可能被回插 entry），
+            # 数字寄存器编号会与正文交错冲突（clang: "instruction expected to be
+            # numbered '%N' or greater"）。故用**符号名**（_gen_entry_symbolic），
+            # 与 _gen_alloca/_gen_new_slot 的回插口径一致。
+            self.emit(f'{na} = sext i32 %num_args to i64')
+            self.emit(f'{in_bounds} = icmp slt i64 {i}, {na}')
+            valid_lab = self.new_label(f'coro_pv_{i}')
+            invalid_lab = self.new_label(f'coro_pi_{i}')
+            end_lab = self.new_label(f'coro_pe_{i}')
+            self.emit(f'br i1 {in_bounds}, label %{valid_lab}, label %{invalid_lab}')
+
+            # ---- 界内：取实参 + 所有权转移（args[i] 置空防双 free，R161-C L-230）----
+            self.emit(f'{valid_lab}:')
+            arg_ptr = self.new_register()
+            self.emit(f'{arg_ptr} = call ptr @dv_coro_get_arg(ptr %coro, i32 {i})')
+            arg_val = self.new_register()
+            self.emit(f'{arg_val} = load {LIGHTVALUE_STRUCT}, ptr {arg_ptr}')
+            self.emit(f'store {LIGHTVALUE_STRUCT} {arg_val}, ptr {local_ptr}')
+            # R161-C（L-230）：**所有权转移**——上面是结构体浅拷，args[i] 与
+            # locals[param] 会共享同一 str/list_data/闭包指针；而 `dv_coro_free`
+            # 既逐项 `dv_free(&args[i])` 又逐项 `dv_free(&locals[i])` ⇒ 堆缓冲被
+            # free 两次 = 0xC0000374（实测：任何**带堆值参数**的协程必崩，整数参数
+            # 因无堆指针而幸存）。
+            # 修法：拷贝完即把 args[i] 置空（`dv_null` 把 type/str 归零，使后续
+            # `dv_free(&args[i])` 成为无操作），所有权归 locals 独占。
+            # 这样对所有类型（STR/LIST/DICT/FUNCTION）统一安全，且不依赖
+            # `dv_clone` 的 DICT 浅拷契约（L-204，禁动）。
+            self.emit(f'call void @dv_null(ptr {arg_ptr})')
+            self.emit(f'br label %{end_lab}')
+
+            # ---- 越界：缺参 → 回落默认值（与同步段落同口径）----
+            self.emit(f'{invalid_lab}:')
+            if default_val is not None:
+                default_dv, _ = self._gen_expression(default_val)
+                self.emit(f'store {LIGHTVALUE_STRUCT} {default_dv}, ptr {local_ptr}')
+            else:
+                null_slot = self._new_dv_slot()
+                self.emit(f'call void @dv_null(ptr {null_slot})')
+                null_val = self.new_register()
+                self.emit(f'{null_val} = load {LIGHTVALUE_STRUCT}, ptr {null_slot}')
+                self.emit(f'store {LIGHTVALUE_STRUCT} {null_val}, ptr {local_ptr}')
+            self.emit(f'br label %{end_lab}')
+
+            self.emit(f'{end_lab}:')
 
         if self_param_name is not None:
             recv_slot = self._local_vars.get(self_param_name)
@@ -8415,6 +8906,16 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._coro_resume_labels = None
         self._coro_entry_insert_idx = None
         self._coro_self_slot = None
+        # R161-A（L-228）：状态机函数体发射完毕，把本次协程的 locals 数与临时槽
+        # 用量**存回实例变量**，供 wrapper（_gen_async_segment / _gen_async_method）
+        # 在 `dv_coro_create(..., num_locals)` 里把两者相加——否则临时槽的
+        # `dv_coro_get_local` 会访问 coro->locals 越界（clang 不报错、运行时 OOB）。
+        # `_coro_temp_slot_base` 也在此定死 = num_locals（临时槽紧跟在变量槽之后）。
+        self._coro_local_count_saved = self._coro_local_count
+        self._coro_temp_slot_count = self._coro_temp_slot_index
+        self._coro_temp_slot_base = self._coro_local_count
+        # 本次生成完毕，清空游标；保留 *_saved / *_count / *_base 供 wrapper 读取
+        self._coro_temp_slot_index = 0
     
     def _emit_coro_self_writeback(self) -> None:
         """R160-A（L-219 子缺陷②）：类内异步方法协程的**完成出口**把帧内 己 写回
@@ -8638,8 +9139,28 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 目标已就绪、未挂起：dv_coro_await 返回 0，直接跳到这里读结果
         self.emit(f'{await_done_label}:')
 
-        # 从 future 中获取结果
-        self.emit(f'call void @dv_coro_get_await_result(ptr %coro, ptr {result_slot})')
+        # 从 future 中获取结果。
+        # R161-C（L-235）：返回 1 = 被等待协程以未捕获异常终结 ⇒ 走到本协程的
+        # catch 分发（若本协程此刻处在 try 里）；否则按旧行为继续。
+        # 之前运行时里直接 longjmp 会跳到全局 try 栈顶（可能属于别的协程帧）⇒
+        # 异常被吞或跳错帧。改为显式分支后跳转目标是本函数 IR 里真实存在的块。
+        await_res = self.new_register()
+        self.emit(f'{await_res} = call i32 @dv_coro_get_await_result'
+                  f'(ptr %coro, ptr {result_slot})')
+        if getattr(self, '_coro_active_catch_label', None) is not None:
+            exc_raised = self.new_register()
+            self.emit(f'{exc_raised} = icmp ne i32 {await_res}, 0')
+            no_exc_lab = self.new_label('await_noexc')
+            exc_lab = self.new_label('await_exc')
+            self.emit(f'br i1 {exc_raised}, label %{exc_lab}, label %{no_exc_lab}')
+            # R161-C（L-235）：被等待协程以未捕获异常终结 ⇒ **直接分支**到本协程的
+            # catch 分发块（不动全局 try 栈、不 longjmp——awaiter 的 setjmp 帧可能
+            # 已随挂起销毁，longjmp 过去是 UB）。先把异常登记为「当前异常」，使 catch
+            # 变量经 dv_get_current_exception 取到正确对象。
+            self.emit(f'{exc_lab}:')
+            self.emit(f'call void @dv_set_current_exception(ptr {result_slot})')
+            self.emit(f'br label %{self._coro_active_catch_label}')
+            self.emit(f'{no_exc_lab}:')
         self.emit(f'br label %{await_merge_label}')
 
         # 协程路径与透传路径汇合：两条路径都把结果写进同一个槽
@@ -8854,6 +9375,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             self._in_coroutine = False
             self._coro_handle_ptr = None
             self._coro_self_slot = None
+            # R161-A（L-228）：协程帧内「临时槽位」的持久化计数与 locals 基数。
+            # 协程的临时槽由 `_new_dv_slot` 发射 `dv_coro_get_local` 落到 coro->locals
+            # 持久数组（下标 = _coro_temp_slot_base + i）；wrapper 的 dv_coro_create 用
+            # (locals 数 + 临时槽数) 作为 num_locals，使临时槽不越界。
+            self._coro_temp_slot_index = 0
+            self._coro_temp_slot_base = None
+            self._coro_local_count = 0
 
             if method_type == 'static':
                 self.emit(f'define void @{method_safe_name}(ptr %result, ptr %args, i32 %num_args) {{')
@@ -8866,10 +9394,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             file_name_ptr = self.gen_string_constant("")
             self.emit(f'call void @dv_stack_push(ptr {func_name_ptr}, ptr {file_name_ptr}, i32 0)')
 
-            # num_locals 取上界：体收集到的变量 + 全部协程形参。多算只多分配几个槽位
-            # （无害）；少算会让状态机里的 dv_coro_get_local 返回 NULL → 写空指针。
+            # R161-A（L-228）：先清 _local_vars，避免与 _gen_coroutine_function 残留的变量
+            # 计数叠加（后者已把 locals+params 写入，本处再 collect 会重复计数）。
+            self._local_vars.clear()
             self._collect_vars_from_stmts(body)
-            num_locals = len(self._local_vars) + len(coro_params)
+            # num_locals = 体局部变量 + 协程形参（含接收者）+ 临时槽位。
+            # 多算只多分配几个槽位（无害）；少算会让状态机里的 dv_coro_get_local 返回 NULL → 写空指针。
+            num_locals = len(self._local_vars) + len(coro_params) + int(getattr(self, '_coro_temp_slot_count', 0) or 0)
 
             self_recv = '%self' if method_type != 'static' else 'null'
             coro_handle = self.new_register()
@@ -8981,6 +9512,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         for vname in self._local_vars.keys():
             reg = self.new_register()
             self.emit(f'{reg} = alloca {LIGHTVALUE_STRUCT}')
+            # R161-B（L-217）：具名槽必须**先清零**——本线的释放判定（dv_slot_release
+            # / dv_slot_set 的 rel_old）会读 type/str，未初始化栈垃圾会被误判成
+            # 「type=3 的字符串」而去 free 一个野指针（实测 0xC0000005）。
+            self.emit(f'store {LIGHTVALUE_STRUCT} zeroinitializer, ptr {reg}')
+            self._entry_block_slots.add(reg)   # R161-B：仅 entry 块槽可在出口安全释放
             self._local_vars[vname] = reg
 
         # 加载 self/cls 变量（仅实例方法和类方法有）
@@ -9042,6 +9578,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                     self.emit(f'{self_dv} = load {LIGHTVALUE_STRUCT}, ptr {self_var_slot}')
                     self.emit(f'store {LIGHTVALUE_STRUCT} {self_dv}, ptr %self')
             self.emit(f'call void @dv_null(ptr %result)')
+            self._emit_epilogue_release()   # R161-B（L-217，V2 epilogue）
             self.emit('ret void')
         # 函数体发射完毕，用真实槽位用量回填池大小
         self._emit_temp_slot_pool()
@@ -9154,6 +9691,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                     main_called = True
                     break
 
+        self._emit_epilogue_release()   # R161-B（L-217，V2 epilogue）
         self.emit('ret i32 0')
         # 函数体发射完毕，用真实槽位用量回填池大小
         self._emit_temp_slot_pool()
@@ -9200,20 +9738,49 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             return reg
         return None
 
+    def _emit_slot_assign(self, dst_slot: str, value_reg: str, dst_is_param: bool = False):
+        """R161-B（L-217，E1 逃逸点）：把值写进具名槽位，并确立**一槽一所有权**。
+
+        两个正交开关（与运行时 `dv_slot_set` 同口径）：
+        - 是否可 move：来源是本帧刚产出的临时槽（rvalue）⇒ move（零拷贝提升为
+          OWNED）；来源是别的具名槽/形参/全局（lvalue）⇒ copy（私有副本）。
+        - 是否先释放目标旧值：**形参槽不能释放**——它的初值是调用方实参的浅拷
+          （可能正是调用方具名槽的 OWNED 缓冲），释放会把调用方变量弄悬空。
+        """
+        src_slot = self._store_dv(value_reg)
+        movable = self._slot_is_local_temp(src_slot)
+        if dst_is_param:
+            fn = 'dv_take' if movable else 'dv_take_copy'
+        else:
+            fn = 'dv_move' if movable else 'dv_copy_own'
+        self.emit(f'call void @{fn}(ptr {dst_slot}, ptr {src_slot})')
+        if movable:
+            self._stmt_mark_escaped(src_slot)
+
     def set_var(self, name, value_reg):
         """设置变量（覆写父类）"""
         # R140-A（L-182）：形参写回也走局部槽，与 get_var 的形参优先口径一致
         # （形参与全局同名时不得把值写进全局）。
-        if name in self._current_seg_param_names and name in self._local_vars:
+        is_param = name in self._current_seg_param_names and name in self._local_vars
+        if is_param:
             slot = self._local_vars[name]
-            self.emit(f'store {LIGHTVALUE_STRUCT} {value_reg}, ptr {slot}')
+            if self._l217_active and value_reg:
+                self._emit_slot_assign(slot, value_reg, dst_is_param=True)
+            else:
+                self.emit(f'store {LIGHTVALUE_STRUCT} {value_reg}, ptr {slot}')
             return
         if name in self._globals:
             safe = self._safe_var_name(name)
-            self.emit(f'store {LIGHTVALUE_STRUCT} {value_reg}, {LIGHTVALUE_STRUCT}* @__var_{safe}')
+            if self._l217_active and value_reg:
+                self._emit_slot_assign(f'@__var_{safe}', value_reg)
+            else:
+                self.emit(f'store {LIGHTVALUE_STRUCT} {value_reg}, {LIGHTVALUE_STRUCT}* @__var_{safe}')
         elif name in self._local_vars:
             slot = self._local_vars[name]
-            self.emit(f'store {LIGHTVALUE_STRUCT} {value_reg}, ptr {slot}')
+            if self._l217_active and value_reg:
+                self._emit_slot_assign(slot, value_reg)
+            else:
+                self.emit(f'store {LIGHTVALUE_STRUCT} {value_reg}, ptr {slot}')
         elif name in self._current_func_params:
             self._current_func_params[name] = value_reg
 
@@ -9223,6 +9790,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
     def finalize(self) -> str:
         """生成最终 IR（覆写父类）"""
+        # R161-B（L-217 步①丙）：发射 IMMORTAL 字面量常量池 + 边界全局
+        # （恒定发射：无字面量时也发 1 字节占位 + size=0，供运行时区间判定）。
+        self._emit_immortal_pool()
         # R12C（R11A-08）：发射本批按需的字符串辅助函数（此 finalize 为
         # 类内后定义者，实际生效；422 行的同名方法被本方法覆盖）
         self._emit_r12c_string_helpers()

@@ -142,7 +142,7 @@ def _加载清单() -> dict:
 # ── 语句层 ──────────────────────────────────────────────
 
 def test_语句分派链与文档清单一致():
-    body = _取方法体(_源码(), '_gen_statement')
+    body = _取方法体(_源码(), '_gen_statement_inner')
     实际 = _提取分派类型(body, 'stmt')
     assert 实际 <= _DOC_STMT_TYPES, \
         f'代码侧出现了文档没登记的语句节点: {sorted(实际 - _DOC_STMT_TYPES)}'
@@ -165,7 +165,7 @@ def test_语句节点清单与JSON一致():
     json_names = frozenset(
         e['name'] for e in data['tables']['statement_nodes']['entries']
         if e.get('supported', True))
-    实际 = _提取分派类型(_取方法体(_源码(), '_gen_statement'), 'stmt')
+    实际 = _提取分派类型(_取方法体(_源码(), '_gen_statement_inner'), 'stmt')
     assert 实际 == json_names, \
         f'JSON 清单与代码实际不一致:\n  代码有但 JSON 没有: {sorted(实际 - json_names)}\n' \
         f'  JSON 有但代码没有: {sorted(json_names - 实际)}'

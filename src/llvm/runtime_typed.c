@@ -106,6 +106,12 @@ struct LightValue {
  * R130 才真正在 codegen 侧补捕获逻辑并透传 env。 */
 #define LV_TYPE_FUNCTION 25
 
+/* R161-D（E-7 业主裁定选项乙）：十进制高精度类型（type=26）。
+ * 值以归一化十进制文本承载，str 指向一块 malloc 缓冲（如 "-123.45"）。
+ * 与 STR(3) 在 repr / clone / free / 拼接 / 只读解引用 各中枢等价处理，
+ * 但算术走纯十进制字符串运算，不经过二进制 double（0.1+0.2=="0.3"）。 */
+#define LV_TYPE_DECIMAL 26
+
 /* R129-E：DvClosure 闭包地基（不改 LightValue 布局）。
  * LV_TYPE_FUNCTION 的 str 字段语义扩展为指向 DvClosure*：
  *   - fn_ptr：段入口指针（与 @_seg_<safe>(ptr result, ptr args_arr, i32 num_args) 同签名）
@@ -178,12 +184,456 @@ static LightValue* dv_deref(LightValue* v) {
     return v;
 }
 
-static char* dv_strdup(const char* s) {
+/* 前置声明：dv_strdup 在 R161-B 起统一走「带头」的 OWNED 分配（见下），
+ * 实现挪到 L-217 段内（需要 DvBufHdr 定义）。 */
+static char* dv_strdup(const char* s);
+
+/* ================================================================
+ * R161-B（L-217）运行时值所有权：字面量常量区 + 语句级临时缓冲表
+ * ================================================================
+ *
+ * 设计出处：`_R160_L217_运行时值所有权设计.md` §六（三态所有权）/
+ * §6.3（语句边界 mark/reset）/§6.4（协程 suspend 规则）/§八（catch 入口）。
+ *
+ * 三态（**不新增 LightValue 字段、不改结构体布局**，靠缓冲头 + 指针区间判定）：
+ *   - IMMORTAL：codegen 把所有字符串字面量汇集为模块级全局 `@dv_immortal_pool`
+ *     （`@dv_immortal_size` 给字节数）。字面量求值**零分配**，永不释放。
+ *     判定 = 指针落在 [pool, pool+size) 区间内（只做整数比较，不读内存，零风险）。
+ *   - ARENA（临时）：运行时字符串生产函数（拼接 / repr / substr / 解码 / JSON /
+ *     只读内置解引用…）用 `dv_tmp_alloc/dv_tmp_strdup` 分配，挂在 thread-local
+ *     **临时缓冲表**上。语句出口 `dv_reset(mark)` 整链回收（不是逐块 free）。
+ *   - OWNED：临时值逃逸到具名槽 / 全局 / 协程帧 / 生成器槽时，经 `dv_own` 从
+ *     临时表**摘链并改 tag**（零拷贝提升），此后由该结构自己的释放点负责
+ *     （`dv_slot_release` / 语句末槽位清扫 `dv_temp_release`）。
+ *
+ * 缓冲头（仅 ARENA/OWNED 有；普通 `dv_strdup` / OBJ 缓冲**没有**，走 `free` 兜底）：
+ *   struct { prev; next; magic(u64); tag(u32); pad }  32 字节，str 指向头之后。
+ *   magic 命中才认；未命中一律按旧行为 `free()`——**未迁移路径最坏是泄漏，
+ *   不会误释放**（这是本机制的失败安全边界）。
+ *
+ * feature flag（反跑用，见交付报告 §反跑矩阵）：
+ *   DV_L217=0          → 关掉「乙」（arena/逃逸/清扫全回旧路径：全部普通 malloc）
+ *   DV_L217_IMMORTAL=0 → 关掉「丙」（字面量恢复 dv_strdup 老行为）
+ *
+ * 线程：临时表必须 thread-local（`dv_thread_spawn` 在独立线程跑段函数）。
+ * ================================================================ */
+
+#define DV_L217_MAGIC 0x4C32313744564248ULL  /* "L217DVBH" */
+#define DV_TAG_ARENA  2u
+#define DV_TAG_OWNED  3u
+
+typedef struct DvBufHdr {
+    unsigned long long magic;
+    unsigned int tag;
+    unsigned int pad_;
+    size_t idx;              /* 在 thread-local 临时表里的下标（释放时置空该格） */
+} DvBufHdr;
+
+#define DV_HDR_SIZE ((size_t)sizeof(DvBufHdr))
+
+#ifdef _WIN32
+#define DV_THREAD_LOCAL __declspec(thread)
+#else
+#define DV_THREAD_LOCAL __thread
+#endif
+
+/* 临时表 = thread-local 指针数组（栈语义）。**为什么不用侵入式链表**：逃逸提升会
+ * 把链上任意一个节点改成 OWNED，若从链中摘除，语句入口记下的 mark 节点可能就此
+ * 消失，dv_reset 会走不到边界而把整条链（含调用方仍在用的缓冲）全 free 掉——这是
+ * 实测踩到过的结构性坑。改成「下标向量」后：mark = 当时的数组长度（整数），提升
+ * 只改 tag 不动数组，复位就是截断长度，边界永远成立。 */
+static DV_THREAD_LOCAL DvBufHdr** g_dv_tmp_ptrs = NULL;
+static DV_THREAD_LOCAL size_t g_dv_tmp_len = 0;
+static DV_THREAD_LOCAL size_t g_dv_tmp_cap = 0;
+static DV_THREAD_LOCAL int g_dv_l217 = -1;
+static DV_THREAD_LOCAL int g_dv_l217_immortal = -1;
+
+int dv_l217_enabled(void) {
+    if (g_dv_l217 < 0) {
+        const char* e = getenv("DV_L217");
+        g_dv_l217 = (e && e[0] == '0') ? 0 : 1;
+    }
+    return g_dv_l217;
+}
+
+int dv_l217_immortal_enabled(void) {
+    if (g_dv_l217_immortal < 0) {
+        const char* e = getenv("DV_L217_IMMORTAL");
+        g_dv_l217_immortal = (e && e[0] == '0') ? 0 : 1;
+    }
+    return g_dv_l217_immortal;
+}
+
+/* IMMORTAL 常量区边界：**由 codegen 在首次字面量求值时当场登记**（不引 extern 全局）。
+ * 为什么不用 extern：C 层单测（tests/test_llvm_c_runtime.c）会独立链接 runtime_typed.c
+ * 而不带任何 codegen 产物，任何 extern 数据都会变成 undefined symbol 直接编译失败。
+ * 登记时机天然安全：任何 IMMORTAL 指针**必然**先经过 dv_str_immortal 才会存在。 */
+static DV_THREAD_LOCAL const char* g_dv_immortal_lo = NULL;
+static DV_THREAD_LOCAL const char* g_dv_immortal_hi = NULL;
+
+static int dv_is_immortal_ptr(const char* s) {
+    if (!g_dv_immortal_lo || !s) return 0;
+    return s >= g_dv_immortal_lo && s < g_dv_immortal_hi;
+}
+
+static int dv_is_obj_str(const char* s) {
+    return s && strncmp(s, "obj:", 4) == 0;
+}
+
+static DvBufHdr* dv_hdr_of(const char* s) {
+    return (DvBufHdr*)(void*)((char*)s - DV_HDR_SIZE);
+}
+
+/* 指针是否**确实是**本机制分配的缓冲（magic 命中）。
+ *
+ * ⚠️ 顺序纪律：任何对 `v->str` 的判定都必须**先查 magic**，再谈 tag；绝不允许
+ * 先做 `strncmp(s, "obj:", 4)` 之类的无界读——`v->str` 可能是：① 未初始化的
+ * 槽位垃圾；② 已被 dv_reset 回收的悬挂指针。magic 检查只读固定的 8 字节。 */
+static int dv_is_our_buf(const char* s, unsigned int* tag_out) {
+    const DvBufHdr* h;
+    if (!s) return 0;
+    h = dv_hdr_of(s);
+    if (h->magic != DV_L217_MAGIC) return 0;
+    if (tag_out) *tag_out = h->tag;
+    return 1;
+}
+
+static int dv_tmp_push(DvBufHdr* h) {
+    if (g_dv_tmp_len == g_dv_tmp_cap) {
+        size_t nc = g_dv_tmp_cap ? g_dv_tmp_cap * 2 : 256;
+        DvBufHdr** np = (DvBufHdr**)realloc(g_dv_tmp_ptrs, nc * sizeof(DvBufHdr*));
+        if (!np) return -1;
+        g_dv_tmp_ptrs = np;
+        g_dv_tmp_cap = nc;
+    }
+    h->idx = g_dv_tmp_len;
+    g_dv_tmp_ptrs[g_dv_tmp_len++] = h;
+    return 0;
+}
+
+/* 释放一个 OWNED 头并把临时表里对应的格子置空（避免复位时二次 free）。 */
+static void dv_hdr_free(DvBufHdr* h) {
+    h->magic = 0;
+    if (h->idx != (size_t)-1 && h->idx < g_dv_tmp_len && g_dv_tmp_ptrs[h->idx] == h) {
+        g_dv_tmp_ptrs[h->idx] = NULL;
+    }
+    h->idx = (size_t)-1;
+    free(h);
+}
+
+/* 临时串分配（乙）：登记进临时表，语句出口 dv_reset 截断回收。
+ * flag 关闭时退化为普通 malloc（不带头），下游按旧行为 free —— 即旧路径。 */
+char* dv_tmp_alloc(size_t n) {
+    DvBufHdr* h;
+    if (!dv_l217_enabled()) return (char*)malloc(n ? n : 1);
+    h = (DvBufHdr*)malloc(DV_HDR_SIZE + (n ? n : 1));
+    if (!h) return (char*)malloc(n ? n : 1);
+    h->magic = DV_L217_MAGIC;
+    h->tag = DV_TAG_ARENA;
+    h->pad_ = 0;
+    h->idx = (size_t)-1;
+    if (dv_tmp_push(h) != 0) {
+        free(h);
+        return (char*)malloc(n ? n : 1);
+    }
+    return (char*)(h + 1);
+}
+
+char* dv_tmp_strdup(const char* s) {
     if (!s) return NULL;
-    size_t len = strlen(s);
-    char* d = (char*)malloc(len + 1);
-    if (d) memcpy(d, s, len + 1);
+    size_t n = strlen(s) + 1;
+    char* d = dv_tmp_alloc(n);
+    if (d) memcpy(d, s, n);
     return d;
+}
+
+/* OWNED 私有副本（带头的普通堆块，**不进**临时表：它的释放点由持有它的具名槽/
+ * 结构负责，不该被任何一次语句复位回收）。 */
+static char* dv_owned_dup(const char* s) {
+    DvBufHdr* h;
+    size_t n;
+    if (!s) return NULL;
+    n = strlen(s) + 1;
+    h = (DvBufHdr*)malloc(DV_HDR_SIZE + n);
+    if (!h) return NULL;
+    h->magic = DV_L217_MAGIC;
+    h->tag = DV_TAG_OWNED;
+    h->pad_ = 0;
+    h->idx = (size_t)-1;
+    memcpy((char*)(h + 1), s, n);
+    return (char*)(h + 1);
+}
+
+/* OWNED 裸分配（带头、不进临时表、内容未初始化）：给需要自行填充缓冲的运行时
+ * 内部路径用（如 OBJ 序列化串的 free+realloc）。**必须配 dv_buf_free_raw 释放**。 */
+static char* dv_owned_alloc(size_t n) {
+    DvBufHdr* h;
+    if (n == 0) n = 1;
+    h = (DvBufHdr*)malloc(DV_HDR_SIZE + n);
+    if (!h) return NULL;
+    h->magic = DV_L217_MAGIC;
+    h->tag = DV_TAG_OWNED;
+    h->pad_ = 0;
+    h->idx = (size_t)-1;
+    return (char*)(h + 1);
+}
+
+/* 释放任意运行时字符串缓冲（带头或不带头都安全）。OBJ 缓冲与内部临时缓冲
+ * 的裸 free 必须走这里——否则带头缓冲会被按「数据指针」free，堆直接损坏。 */
+static void dv_buf_free_raw(char* s) {
+    DvBufHdr* h;
+    if (!s) return;
+    if (dv_is_immortal_ptr(s)) return;
+    h = dv_hdr_of(s);
+    if (h->magic == DV_L217_MAGIC) {
+        dv_hdr_free(h);
+        return;
+    }
+    free(s);
+}
+
+/* R161-B（L-217）：**所有**普通字符串分配统一走「带头」形态。
+ *
+ * 为什么必须统一（R161-B 实测踩到的真坑）：dv_is_our_buf 判定一个指针是不是本机制
+ * 缓冲，靠读 `s - sizeof(DvBufHdr)` 处的 magic。若某个 strdup 产的缓冲**没有头**，
+ * 那么 `s - 32` 落在别的 malloc 块里（甚至堆边界外）——读到随机值不等于 MAGIC 就
+ * 侥幸安全，但**读这一下本身就是越界读**，在 FreeBSD/严格堆布局上直接 SIGSEGV
+ * （实测 0.82：`客户端.请求` 路径 100% 段错误，本机 Windows 却不崩）。
+ * 统一带头之后，`s - 32` 恒在合法块内，magic 恒可安全判定；
+ * tag=OWNED ⇒ 由持有者 free（行为与旧 malloc 一致），不会再越界。 */
+static char* dv_strdup(const char* s) {
+    size_t len;
+    if (!s) return NULL;
+    /* 反跑开关（DV_L217=0）：恢复「无 header 的裸 malloc」旧形态。
+     * 必须真的走旧路径，否则「关掉机制后斜率应复原」这条反跑判据就失去意义
+     * （实测：只关 immortal、而 strdup 仍带头时，dv_free 照样能按 tag 释放，
+     *  P1' 反跑态增长 0.0MB —— 反跑无牙）。 */
+    if (!dv_l217_enabled()) {
+        char* d;
+        len = strlen(s);
+        d = (char*)malloc(len + 1);
+        if (d) memcpy(d, s, len + 1);
+        return d;
+    }
+    return dv_owned_dup(s);
+}
+
+/* dv_free 的 type-3 分支入口（见 dv_free 内注释）。 */
+static void dv_buf_free(char* s) {
+    DvBufHdr* h;
+    if (!s) return;
+    if (dv_is_immortal_ptr(s)) return;      /* 丙：常量区不释放 */
+    h = dv_hdr_of(s);
+    if (h->magic == DV_L217_MAGIC) {
+        if (h->tag == DV_TAG_ARENA) return; /* 临时值：由 dv_reset 回收 */
+        dv_hdr_free(h);
+        return;
+    }
+    free(s);                                /* 机制外缓冲（OBJ / dv_clone / 未迁移路径） */
+}
+
+/* 语句入口：记下当前临时表长度（整数句柄，可跨基本块传递、不怕中途提升）。 */
+long long dv_mark(void) {
+    return (long long)g_dv_tmp_len;
+}
+
+/* 语句出口：截断回语句入口长度。ARENA 缓冲整批回收；已提升为 OWNED 的**不释放**
+ * （所有权已归某个具名槽/容器/返回值），只是从表里丢掉。 */
+void dv_reset(long long mark) {
+    size_t m, i;
+    if (!dv_l217_enabled()) return;
+    m = (size_t)mark;
+    if (m > g_dv_tmp_len) return;
+    for (i = g_dv_tmp_len; i-- > m; ) {
+        DvBufHdr* h = g_dv_tmp_ptrs[i];
+        g_dv_tmp_ptrs[i] = NULL;
+        if (!h) continue;
+        if (h->magic == DV_L217_MAGIC && h->tag == DV_TAG_ARENA) {
+            h->magic = 0;
+            h->idx = (size_t)-1;
+            free(h);
+        }
+    }
+    g_dv_tmp_len = m;
+}
+
+/* 逃逸提升（E1-E7）：临时值改为 OWNED —— 零拷贝，只改 tag（不动表，边界仍成立）。 */
+void dv_own(LightValue* v) {
+    DvBufHdr* h;
+    if (!v || !v->str) return;
+    if (v->type != 3 && v->type != LV_TYPE_DECIMAL) return;
+    if (dv_is_obj_str(v->str)) return;       /* OBJ 归既有协议，禁入本机制（必须先判） */
+    if (dv_is_immortal_ptr(v->str)) return;  /* IMMORTAL 共享安全 */
+    if (!dv_l217_enabled()) return;
+    if (!dv_is_our_buf(v->str, NULL)) return;
+    h = dv_hdr_of(v->str);
+    if (h->tag == DV_TAG_ARENA) h->tag = DV_TAG_OWNED;
+}
+
+/* 槽位旧值释放：释放本槽位持有的**私有** OWNED 普通字符串。
+ *
+ * 安全性依据（R161-B 实测确立的不变量）：`dv_slot_set` 一律把具名槽的值**复制**
+ * 成私有 OWNED，形参写回也走 `dv_copy_own` 复制 ⇒ **任一具名槽持有的 OWNED 串
+ * 恰好只有它自己一个持有者**，在槽位出口/覆盖写前释放是安全的。
+ *
+ * 仍然不碰的四类（各自有明确归属）：
+ *   - IMMORTAL：常量区，永不释放；
+ *   - ARENA：归语句末 `dv_reset` 整批回收；
+ *   - OBJ（"obj:" 前缀）：归既有 dv_obj_release_slot 协议（I4）；
+ *   - 容器/函数/REF：非字符串路径，本函数直接跳过。
+ * 机制外缓冲（无 magic 的裸 malloc，如未迁移路径产物）也跳过——宁可泄漏不可误放。 */
+void dv_slot_release(LightValue* v) {
+    unsigned int tag = 0;
+    if (!v) return;
+    if (v->type != 3 && v->type != LV_TYPE_DECIMAL) return;
+    if (!v->str) return;
+    /* ⚠️ 顺序纪律（实测踩过）：**必须先判 OBJ**。OBJ 缓冲自 R161-B 起也由
+     * dv_owned_alloc 分配（带 header），若先走 dv_is_our_buf 分支就会被当成普通
+     * 字符串 free 掉，绕过 dv_obj_release_slot 的唯一所有权协议 ⇒ 后续
+     * dv_class_set_member 的 free+realloc 撞上已释放块（0xC0000374）。
+     * 实测症状：`导入 字节缓冲` 的程序在 __light_init 就崩。 */
+    if (dv_is_obj_str(v->str)) return;       /* OBJ 归既有协议，本函数不碰（必须先判） */
+    if (dv_is_immortal_ptr(v->str)) { v->str = NULL; v->type = 0; return; }
+    if (!dv_l217_enabled()) { v->str = NULL; v->type = 0; return; }
+    if (dv_is_our_buf(v->str, &tag)) {
+        if (tag == DV_TAG_OWNED) dv_hdr_free(dv_hdr_of(v->str));
+        v->str = NULL;
+        v->type = 0;
+        return;
+    }
+    v->str = NULL;
+    v->type = 0;
+}
+
+/* 具名槽赋值的统一实现（E1 逃逸点）。两个正交开关：
+ *   rel_old ：写入前是否释放目标槽旧值。**形参槽必须为 0**——形参入口的初值是
+ *             调用方实参的浅拷（可能正是调用方具名槽的 OWNED 缓冲，见 T7B 写回
+ *             协议），释放它会把调用方的变量弄悬空。
+ *   copy_src：来源是否为「别人的槽」（具名变量/形参/全局）。是 ⇒ 同样复制。
+ *
+ * 实现统一为「**总是复制成私有 OWNED**」（实测订正，原设计想用 move 零拷贝）：
+ * move 会让临时槽里的缓冲变成 OWNED、逃过语句末 reset，而本仓没有可靠单点释放者
+ * （多槽/多帧共享）⇒ 永久泄漏（实测 P3' 20.9 MB/s）。改为复制后，源临时值留在
+ * ARENA、随 reset 正常回收；具名槽拿到**私有**副本，可安全地在函数出口释放
+ * （见 dv_slot_release 的「唯一所有权」标记）。 */
+void dv_slot_set(LightValue* dst, LightValue* src, int rel_old, int copy_src) {
+    (void)copy_src;
+    if (!dst || !src || dst == src) return;
+    if (!dv_l217_enabled()) { *dst = *src; return; }
+    if (rel_old) dv_slot_release(dst);
+    *dst = *src;
+    if ((dst->type != 3 && dst->type != LV_TYPE_DECIMAL) || !dst->str) return;
+    if (dv_is_obj_str(dst->str)) return;       /* I4：OBJ 走既有协议，浅拷（必须先判） */
+    if (dv_is_immortal_ptr(dst->str)) return;  /* IMMORTAL 共享安全 */
+    if (!dv_is_our_buf(dst->str, NULL)) {
+        dst->str = dv_owned_dup(dst->str);     /* 机制外缓冲：复制成私有 OWNED */
+        return;
+    }
+    dst->str = dv_owned_dup(dst->str);         /* 私有副本（源留 ARENA 待 reset 回收） */
+}
+
+/* E1 具名槽赋值（move 语义）：src 是本帧刚产出的临时槽 ⇒ 所有权转移给 dst、
+ * 目标旧值（私有 OWNED）先释放。src 槽位本身不清空——由 codegen 的语句逃逸
+ * 记账保证它不被语句末清扫误释放。 */
+void dv_move(LightValue* dst, LightValue* src) { dv_slot_set(dst, src, 1, 0); }
+
+/* E1 具名槽赋值（copy 语义）：src 是别人的槽（具名变量 / 形参 / 全局）。 */
+void dv_copy_own(LightValue* dst, LightValue* src) { dv_slot_set(dst, src, 1, 1); }
+
+/* 形参槽写入（dst 初值是从调用方浅拷来的、可能被调用方持有的缓冲）：
+ * 不释放旧值，只把新值变成私有 OWNED。 */
+void dv_take(LightValue* dst, LightValue* src) { dv_slot_set(dst, src, 0, 0); }
+void dv_take_copy(LightValue* dst, LightValue* src) { dv_slot_set(dst, src, 0, 1); }
+
+/* E5 函数返回收口：把已经写进调用方 %result 的值变成调用方**私有**的 OWNED
+ * （普通字符串才复制；OBJ 走 dv_obj_deepcopy_self、IMMORTAL 共享、容器浅拷）。
+ * 少了这一步，返回具名槽的值会与被调方出口释放同指针 → 调用方悬空。 */
+void dv_ret_finalize(LightValue* dst) {
+    if (!dst || !dv_l217_enabled()) return;
+    if (dst->type != 3 && dst->type != LV_TYPE_DECIMAL) return;
+    if (!dst->str) return;
+    if (dv_is_obj_str(dst->str)) return;       /* OBJ 走 dv_obj_deepcopy_self（必须先判） */
+    if (dv_is_immortal_ptr(dst->str)) return;
+    dst->str = dv_owned_dup(dst->str);
+}
+
+/* 单槽清扫：释放该临时槽位持有的 OWNED 普通字符串（ARENA 归 reset、IMMORTAL 不碰）。 */
+void dv_temp_release(LightValue* v) {
+    unsigned int tag = 0;
+    if (!v) return;
+    if (!dv_l217_enabled()) return;
+    if (v->type != 3 && v->type != LV_TYPE_DECIMAL) return;
+    if (!v->str) return;
+    if (dv_is_immortal_ptr(v->str)) return;
+    /* magic 先查（只读固定 8 字节）：槽位可能持有已被 dv_reset 回收的悬挂指针，
+       绝不做无界读（strncmp）之后再判断。 */
+    if (!dv_is_our_buf(v->str, &tag)) return;
+    if (tag == DV_TAG_OWNED) {
+        dv_hdr_free(dv_hdr_of(v->str));
+        v->str = NULL;
+        v->type = 0;
+    }
+}
+
+/* 临时槽位池整池零初始化（函数入口一次 memset）：槽位在首次写入前是「未初始化
+ * 栈垃圾」，而 D-线/本线的释放判定都会读 type/str ⇒ 必须先清零成 NULL 值。
+ * 运行时知道 sizeof(LightValue)，故 codegen 只传 (池指针, 槽位数)。 */
+void dv_slots_zero(LightValue* pool, int n) {
+    if (!pool || n <= 0) return;
+    memset(pool, 0, (size_t)n * sizeof(LightValue));
+}
+
+/* 语句末清扫（按池下标）：codegen 传临时槽位池指针 + 槽位下标。
+ * 之所以传 (池指针, 下标) 而不是槽位指针本身：池指针定义在 entry 块、支配全函数，
+ * 而具体槽位的 GEP 可能定义在某个分支块里（语句出口在汇合块，不支配 → clang
+ * "Instruction does not dominate all uses"）。 */
+void dv_temp_release_at(LightValue* pool, int idx) {
+    if (!pool || idx < 0) return;
+    dv_temp_release(&pool[idx]);
+}
+
+/* V2 epilogue 按池下标释放具名槽位（R161-B）。
+ * 为什么不用槽位指针：具名槽的 alloca 虽在 entry 块，但个别生成路径（如
+ * `全局` 声明后从 _local_vars 摘掉的槽、嵌套段自由变量槽）会把 GEP 发在
+ * 非 entry 块里 —— 直接传 `ptr %7` 到函数出口就是 clang 的
+ * "use of undefined value '%7'"（实测 test_llvm_scope_decl）。改传
+ * (池指针, 下标) 后，池指针定义在 entry、支配全函数，恒安全。 */
+void dv_slot_release_at(LightValue* pool, int idx) {
+    if (!pool || idx < 0) return;
+    dv_slot_release(&pool[idx]);
+}
+
+/* 语句末批量清扫：codegen 传本语句新建的临时槽位池区间 [from, to)。
+ * 只清 OWNED（逃逸后被 dv_move 清空的槽、ARENA 槽、容器槽都自动跳过）。 */
+void dv_temp_slots_release(LightValue* pool, int from, int to) {
+    int i;
+    if (!pool || !dv_l217_enabled()) return;
+    if (from < 0) from = 0;
+    for (i = from; i < to; i++) dv_temp_release(&pool[i]);
+}
+
+/* 协程帧整链回收（线程退出/测试收口用；正常路径由语句 reset 覆盖）。 */
+void dv_tmp_reset_all(void) {
+    dv_reset((long long)0);
+}
+
+void dv_str_immortal(LightValue* result, const char* s, const char* pool_lo,
+                     const void* size_ptr) {
+    result->type = 3;
+    result->i64 = 0;
+    result->f64 = 0.0;
+    result->boolean = 0;
+    if (!s) s = "";
+    if (!g_dv_immortal_lo && pool_lo) {
+        unsigned long long n = size_ptr ? *(const unsigned long long*)size_ptr : 0ULL;
+        g_dv_immortal_lo = pool_lo;
+        g_dv_immortal_hi = pool_lo + (size_t)n;
+    }
+    if (dv_l217_immortal_enabled()) {
+        result->str = (char*)s;              /* 丙：直接指向常量区，零分配 */
+    } else {
+        result->str = dv_strdup(s);          /* 反跑：恢复旧行为 */
+    }
 }
 
 /* ================================================================
@@ -385,6 +835,20 @@ void dv_str(LightValue* result, const char* s) {
     result->boolean = 0;
 }
 
+/* R161-B（L-217）：codegen 的 `_create_str_dv` 专用入口——把「表达式求值当场产出的
+ * C 串」包成 STR LightValue。这类值**天然是临时值**（字面量走 dv_str_immortal，
+ * 具名槽赋值走 dv_slot_set 提升，容器插入走 dv_clone，返回值走 dv_ret_finalize），
+ * 所以分配在临时表上、由语句出口 dv_reset 整链回收。
+ * 与 `dv_str` 的分工：`dv_str` 仍走普通 malloc，供运行时内部**需长期存活**的路径
+ * （JSON 解析结果、解析器中间值、类字段串）使用——那些不能被 reset 回收。 */
+void dv_str_tmp(LightValue* result, const char* s) {
+    result->type = 3;
+    result->i64 = 0;
+    result->f64 = 0.0;
+    result->str = dv_tmp_strdup(s ? s : "");
+    result->boolean = 0;
+}
+
 void dv_bool(LightValue* result, int b) {
     result->type = 5;
     result->i64 = 0;
@@ -405,8 +869,13 @@ void dv_free(LightValue* v) {
         v->type = 0;
         return;
     }
-    if (v->type == 3 && v->str) {
-        free(v->str);
+    if ((v->type == 3 || v->type == LV_TYPE_DECIMAL) && v->str) {
+        /* R161-B（L-217）：IMMORTAL 常量区跳过、ARENA 归 dv_reset 整链回收、
+         * OWNED 逐块释放；机制外缓冲走 free 兜底。
+         * OBJ 缓冲同样带头（R161-B 起由 dv_owned_alloc 分配）——这里**照常释放**，
+         * 因为 dv_free 的调用方（协程帧/future/生成器/容器）确实持有该值；
+         * 而 dv_slot_release 那条路径必须跳过 OBJ（归 dv_obj_release_slot 协议）。 */
+        dv_buf_free(v->str);
         v->str = NULL;
     } else if (v->type == 4 && v->list_data) {
         for (int i = 0; i < v->list_size; i++) {
@@ -458,7 +927,7 @@ void dv_clone(LightValue* result, LightValue* v) {
         return;
     }
     *result = *v;
-    if (v->type == 3 && v->str) {
+    if ((v->type == 3 || v->type == LV_TYPE_DECIMAL) && v->str) {
         result->str = dv_strdup(v->str);
     } else if (v->type == LV_TYPE_FUNCTION && v->str) {
         /* R129-E：深拷贝 DvClosure 结构体（避免双 free 与共享 fn_ptr 悬空）。
@@ -598,7 +1067,7 @@ static char* dv_elem_to_string(LightValue* e, int depth) {
     e = dv_deref(e);
     if (e && e->type == 3) {
         size_t n = e->str ? strlen(e->str) : 0;
-        char* out = (char*)malloc(n + 3);
+        char* out = dv_owned_alloc(n + 3);
         if (!out) return dv_strdup("''");
         out[0] = '\'';
         if (n) memcpy(out + 1, e->str, n);
@@ -611,13 +1080,13 @@ static char* dv_elem_to_string(LightValue* e, int depth) {
 
 static char* dv_container_to_string(LightValue* v, char open, char close, int depth) {
     if (depth > DV_TO_STR_MAX_DEPTH) {
-        char* out = (char*)malloc(6);
+        char* out = dv_owned_alloc(6);
         if (out) { out[0]=open; out[1]='.'; out[2]='.'; out[3]='.'; out[4]=close; out[5]=0; }
         return out ? out : dv_strdup("");
     }
     int count = (v->type == 7) ? v->list_size * 2 : v->list_size;
     if (count <= 0 || !v->list_data) {
-        char* out = (char*)malloc(3);
+        char* out = dv_owned_alloc(3);
         if (out) { out[0]=open; out[1]=close; out[2]=0; }
         return out ? out : dv_strdup("");
     }
@@ -629,8 +1098,8 @@ static char* dv_container_to_string(LightValue* v, char open, char close, int de
         if (!parts[i]) parts[i] = dv_strdup("");
         total += strlen(parts[i]) + 2;
     }
-    char* out = (char*)malloc(total + 4);
-    if (!out) { for (int i=0;i<count;i++) free(parts[i]); free(parts); return dv_strdup(""); }
+    char* out = dv_owned_alloc(total + 4);
+    if (!out) { for (int i=0;i<count;i++) dv_buf_free_raw(parts[i]); free(parts); return dv_strdup(""); }
     size_t pos = 0;
     out[pos++] = open;
     for (int i = 0; i < count; i++) {
@@ -644,7 +1113,7 @@ static char* dv_container_to_string(LightValue* v, char open, char close, int de
     }
     out[pos++] = close;
     out[pos] = 0;
-    for (int i = 0; i < count; i++) free(parts[i]);
+    for (int i = 0; i < count; i++) dv_buf_free_raw(parts[i]);
     free(parts);
     return out;
 }
@@ -709,7 +1178,7 @@ static char* dv_object_pretty(const char* s) {
                 }
             }
         }
-        char* out = (char*)malloc(msg_len + 1);
+        char* out = dv_owned_alloc(msg_len + 1);
         if (!out) return NULL;
         memcpy(out, msg, msg_len);
         out[msg_len] = '\0';
@@ -719,7 +1188,7 @@ static char* dv_object_pretty(const char* s) {
     /* 无消息字段（普通类实例）→ `<类名> 对象` */
     const char* suffix = " 对象";
     size_t total = strlen(cls_name) + strlen(suffix) + 1;
-    char* out = (char*)malloc(total);
+    char* out = dv_owned_alloc(total);
     if (!out) return NULL;
     snprintf(out, total, "%s%s", cls_name, suffix);
     return out;
@@ -740,9 +1209,15 @@ char* dv_to_string_depth(LightValue* v, int depth) {
             }
             return dv_strdup(v->str ? v->str : "");
         }
+        /* R161-D(E-7)：十进制类型 repr = 归一化文本 */
+        case LV_TYPE_DECIMAL:
+            return dv_strdup(v->str ? v->str : "");
         /* R152-E2（R159-D 实施）：标量中文 / 容器内对齐 src（true/false）。
          * dv_to_string 顶层 depth=0（标量），dv_elem_to_string /
          * dv_list_join 以 depth>=1 遍历容器元素 → 天然区分两条口径。 */
+        /* R152-E2（R159-D 实施）：标量中文 / 容器内对齐 src（true/false）。
+         * R161-B 注意：这一行是 R159-E3 的**源码锚点**（test_R159_E3_容器布尔repr.py
+         * 逐字节比对），改动会直接红——保持原样，只让 dv_strdup 带头即可。 */
         case 5: return dv_strdup(v->boolean ? (depth > 0 ? "true" : "真")
                                             : (depth > 0 ? "false" : "假"));
         case 4: return dv_container_to_string(v, '[', ']', depth);
@@ -775,25 +1250,28 @@ void dv_mul(LightValue* result, LightValue* a, LightValue* b);
 void dv_div(LightValue* result, LightValue* a, LightValue* b);
 
 static void dv_add_default(LightValue* result, LightValue* a, LightValue* b) {
-    /* 特殊：字符串拼接 */
-    if (a->type == 3 || b->type == 3) {
+    /* 特殊：字符串拼接（十进制类型按文本拼接，E-7 全链路） */
+    if (a->type == 3 || a->type == LV_TYPE_DECIMAL ||
+        b->type == 3 || b->type == LV_TYPE_DECIMAL) {
         char* sa = dv_to_string(a);
         char* sb = dv_to_string(b);
         char* r = (char*)malloc(strlen(sa) + strlen(sb) + 1);
         if (r) { sprintf(r, "%s%s", sa, sb); }
-        free(sa);
-        free(sb);
+        dv_buf_free_raw(sa);
+        dv_buf_free_raw(sb);
         if (r) {
             result->type = 3;
             result->i64 = 0;
             result->f64 = 0.0;
-            result->str = dv_strdup(r);
+            /* R161-B（L-217）：拼接结果是**临时值** → 走临时表（语句出口整链回收）。
+             * 若逃逸到具名槽，dv_move/dv_copy_own 会零拷贝提升为 OWNED。 */
+            result->str = dv_tmp_strdup(r);
             result->boolean = 0;
         } else {
             result->type = 3;
             result->i64 = 0;
             result->f64 = 0.0;
-            result->str = dv_strdup("");
+            result->str = dv_tmp_strdup("");
             result->boolean = 0;
         }
         free(r);
@@ -1284,13 +1762,13 @@ int dv_ge(LightValue* a, LightValue* b) { return dv_cmp(a, b) >= 0; }
 void dv_print(LightValue* v) {
     char* s = dv_to_string(v);
     if (s) printf("%s", s);
-    free(s);
+    dv_buf_free_raw(s);
 }
 
 void dv_println(LightValue* v) {
     char* s = dv_to_string(v);
     if (s) printf("%s\n", s);
-    free(s);
+    dv_buf_free_raw(s);
 }
 
 void dv_print_int(LightValue* result, int64_t n) {
@@ -1331,19 +1809,20 @@ void dv_concat(LightValue* result, LightValue* a, LightValue* b) {
     char* sb = dv_to_string(b);
     char* r = (char*)malloc(strlen(sa) + strlen(sb) + 1);
     if (r) { sprintf(r, "%s%s", sa, sb); }
-    free(sa);
-    free(sb);
+    dv_buf_free_raw(sa);
+    dv_buf_free_raw(sb);
     if (r) {
         result->type = 3;
         result->i64 = 0;
         result->f64 = 0.0;
-        result->str = dv_strdup(r);
+        /* R161-B（L-217）：dv_concat 结果同样是临时值（同上 dv_add_default）。 */
+        result->str = dv_tmp_strdup(r);
         result->boolean = 0;
     } else {
         result->type = 3;
         result->i64 = 0;
         result->f64 = 0.0;
-        result->str = dv_strdup("");
+        result->str = dv_tmp_strdup("");
         result->boolean = 0;
     }
     free(r);
@@ -1374,7 +1853,7 @@ void dv_substr(LightValue* result, LightValue* str, int64_t start, int64_t len) 
     size_t byte_st = dv_utf8_char_offset(s, (size_t)st);
     size_t byte_en = dv_utf8_char_offset(s, (size_t)en);
     size_t blen = byte_en - byte_st;
-    char* out = (char*)malloc(blen + 1);
+    char* out = dv_tmp_alloc(blen + 1);   /* R161-B（L-217）：临时值走临时表 */
     if (out) {
         memcpy(out, s + byte_st, blen);
         out[blen] = '\0';
@@ -1400,7 +1879,7 @@ void dv_upper(LightValue* result, LightValue* str) {
     }
     const char* s = str->str;
     int len = (int)strlen(s);
-    char* out = (char*)malloc(len + 1);
+    char* out = dv_tmp_alloc(len + 1);   /* R161-B（L-217）：临时值走临时表 */
     if (out) {
         for (int i = 0; i < len; i++) {
             out[i] = (char)toupper((unsigned char)s[i]);
@@ -1421,7 +1900,7 @@ void dv_lower(LightValue* result, LightValue* str) {
     }
     const char* s = str->str;
     int len = (int)strlen(s);
-    char* out = (char*)malloc(len + 1);
+    char* out = dv_tmp_alloc(len + 1);   /* R161-B（L-217）：临时值走临时表 */
     if (out) {
         for (int i = 0; i < len; i++) {
             out[i] = (char)tolower((unsigned char)s[i]);
@@ -1447,7 +1926,7 @@ void dv_trim(LightValue* result, LightValue* str) {
     while (start < len && isspace((unsigned char)s[start])) start++;
     while (end >= start && isspace((unsigned char)s[end])) end--;
     int out_len = end - start + 1;
-    char* out = (char*)malloc(out_len + 1);
+    char* out = dv_tmp_alloc(out_len + 1);   /* R161-B（L-217）：临时值走临时表 */
     if (out) {
         memcpy(out, s + start, out_len);
         out[out_len] = '\0';
@@ -1480,7 +1959,7 @@ void dv_str_replace(LightValue* result, LightValue* str, LightValue* old_s, Ligh
         p += old_len;
     }
     int out_len = (int)strlen(s) + count * (new_len - old_len);
-    char* out = (char*)malloc(out_len + 1);
+    char* out = dv_tmp_alloc(out_len + 1);   /* R161-B（L-217）：临时值走临时表 */
     if (!out) {
         dv_str(result, "");
         return;
@@ -1530,7 +2009,7 @@ void dv_str_repeat(LightValue* result, LightValue* str, LightValue* times) {
         n = (64 * 1024 * 1024) / (int64_t)len;
     }
     size_t out_len = len * (size_t)n;
-    char* out = (char*)malloc(out_len + 1);
+    char* out = dv_tmp_alloc(out_len + 1);   /* R161-B（L-217）：临时值走临时表 */
     if (!out) {
         dv_str(result, "");
         return;
@@ -1608,7 +2087,7 @@ void dv_path_join(LightValue* result, LightValue* a, LightValue* b) {
     if (la == 0) { dv_clone(result, b); return; }
     if (lb == 0) { dv_clone(result, a); return; }
     int need_sep = (sa[la-1] != '/');
-    char* out = (char*)malloc(la + (need_sep ? 1 : 0) + lb + 1);
+    char* out = dv_tmp_alloc(la + (need_sep ? 1 : 0) + lb + 1);   /* R161-B（L-217）：临时表 */
     if (!out) { dv_str(result, ""); return; }
     memcpy(out, sa, la);
     size_t p = la;
@@ -1663,7 +2142,7 @@ void dv_str_rjust(LightValue* result, LightValue* str, LightValue* width, LightV
         fc = fill->str[0];
     }
     int64_t pad = w - (int64_t)len;
-    char* out = (char*)malloc((size_t)w + 1);
+    char* out = dv_tmp_alloc((size_t)w + 1);   /* R161-B（L-217）：临时值走临时表 */
     if (!out) { dv_str(result, str->str); return; }
     memset(out, fc, (size_t)pad);
     strcpy(out + pad, str->str);
@@ -1690,7 +2169,7 @@ void dv_str_ljust(LightValue* result, LightValue* str, LightValue* width, LightV
         fc = fill->str[0];
     }
     int64_t pad = w - (int64_t)len;
-    char* out = (char*)malloc((size_t)w + 1);
+    char* out = dv_tmp_alloc((size_t)w + 1);   /* R161-B（L-217）：临时值走临时表 */
     if (!out) { dv_str(result, str->str); return; }
     strcpy(out, str->str);
     memset(out + len, fc, (size_t)pad);
@@ -1720,7 +2199,7 @@ void dv_str_center(LightValue* result, LightValue* str, LightValue* width, Light
     int64_t total = w - (int64_t)len;
     int64_t left = total / 2;
     int64_t right = total - left;
-    char* out = (char*)malloc((size_t)w + 1);
+    char* out = dv_tmp_alloc((size_t)w + 1);   /* R161-B（L-217）：临时值走临时表 */
     if (!out) { dv_str(result, str->str); return; }
     memset(out, fc, (size_t)left);
     strcpy(out + left, str->str);
@@ -1739,7 +2218,7 @@ void dv_str_reverse(LightValue* result, LightValue* str) {
         return;
     }
     size_t len = strlen(str->str);
-    char* out = (char*)malloc(len + 1);
+    char* out = dv_tmp_alloc(len + 1);   /* R161-B（L-217）：临时值走临时表 */
     if (!out) { dv_str(result, ""); return; }
     for (size_t i = 0; i < len; i++) {
         out[i] = str->str[len - 1 - i];
@@ -1903,8 +2382,23 @@ void dv_deref_value(LightValue* result, LightValue* v) {
         dv_clone(result, real);
     } else {
         *result = *v;
-        if (v->type == 3 && v->str) {
-            result->str = dv_strdup(v->str);
+        if ((v->type == 3 || v->type == LV_TYPE_DECIMAL) && v->str) {
+            /* R161-B（L-217，P2 路径）：只读内置实参解引用产的串只活一条内置调用，
+             * 属**非逃逸临时值** → 走临时表（设计 §6.2「非逃逸（留 ARENA）」）。 */
+            result->str = dv_tmp_strdup(v->str);
+        } else if (v->type == LV_TYPE_FUNCTION && v->str) {
+            /* R161-C（L-231）：函数值必须**深拷闭包**，不能浅拷指针。
+             *
+             * 根因（实测）：`dv_deref_value` 把 FUNCTION 的 `str`（指向 DvClosure）
+             * 浅拷进结果槽 ⇒ 该槽与被解引用槽共享同一 DvClosure。在协程里，调用
+             * `f()` 会先把形参经本函数解引用进一个**临时槽**，而临时槽同样住在
+             * `coro->locals` 里（`_coro_temp_slot_base` 起算）⇒ `dv_coro_free` 遍历
+             * num_locals 时把 `locals[形参]` 与 `locals[临时槽]` 各释放一次 =
+             * **DvClosure 双 free** ⇒ 0xC0000374（实测：`创建任务(甲(内))` 传函数值
+             * 必崩，而传字符串/列表在补完 prologue 所有权转移后已正常）。
+             * 修法：与上面 STR 分支同口径——让结果槽持有**自己的**一份闭包。
+             * 用 `dv_clone` 而非 shallow：FUNCTION 深拷含 env 数组（R130-A 契约）。 */
+            dv_clone(result, v);
         }
     }
 }
@@ -2164,8 +2658,8 @@ static int cmp_dv(const void* a, const void* b) {
     char* sa = dv_to_string(va);
     char* sb = dv_to_string(vb);
     int cmp = strcmp(sa ? sa : "", sb ? sb : "");
-    free(sa);
-    free(sb);
+    dv_buf_free_raw(sa);
+    dv_buf_free_raw(sb);
     return cmp;
 }
 
@@ -2840,7 +3334,7 @@ void dv_file_read(LightValue* result, LightValue* handle) {
     long end = ftell(fp);
     fseek(fp, pos, SEEK_SET);
     long n = (end > pos) ? (end - pos) : 0;
-    char* buf = (char*)malloc((size_t)n + 1);
+    char* buf = dv_tmp_alloc((size_t)n + 1);   /* R161-B（L-217）：临时值走临时表 */
     if (!buf) return;
     size_t got = (n > 0) ? fread(buf, 1, (size_t)n, fp) : 0;
     buf[got] = '\0';
@@ -2997,7 +3491,7 @@ static int b64_dec_val(char c) {
 char* dv_base64_encode(const char* data, int len) {
     if (!data || len <= 0) return dv_strdup("");
     int out_len = 4 * ((len + 2) / 3);
-    char* out = (char*)malloc(out_len + 1);
+    char* out = dv_tmp_alloc(out_len + 1);   /* R161-B（L-217）：临时值走临时表 */
     if (!out) return dv_strdup("");
     int i = 0, j = 0;
     while (i < len) {
@@ -3696,7 +4190,7 @@ static char* list_to_json_inner(const char* list, int indent, int depth) {
         dv_list_get(&elem, &list_val, i);
         char* es = dv_to_string(&elem);
         est += strlen(es) + 4;
-        free(es);
+        dv_buf_free_raw(es);
         dv_free(&elem);
         dv_free(&list_val);
     }
@@ -3838,12 +4332,12 @@ void dv_list_join(LightValue* result, LightValue* list, LightValue* sep) {
             elen = strlen(e->str);
         } else {
             char* s = dv_to_string_depth(e, 1);
-            if (s) { elen = strlen(s); free(s); }
+            if (s) { elen = strlen(s); dv_buf_free_raw(s); }
         }
         total += elen;
         if (i < list->list_size - 1) total += sep_len;
     }
-    char* out = (char*)malloc(total + 1);
+    char* out = dv_tmp_alloc(total + 1);   /* R161-B（L-217）：临时值走临时表 */
     if (!out) return;
     char* wp = out;
     for (int i = 0; i < list->list_size; i++) {
@@ -3860,7 +4354,7 @@ void dv_list_join(LightValue* result, LightValue* list, LightValue* sep) {
         }
         size_t elen = s ? strlen(s) : 0;
         if (elen) { memcpy(wp, s, elen); wp += elen; }
-        if (owned) free(s);
+        if (owned) dv_buf_free_raw(s);
         if (i < list->list_size - 1 && sep_len > 0) {
             memcpy(wp, sep_str, sep_len);
             wp += sep_len;
@@ -4047,6 +4541,12 @@ void dv_try_pop(void) {
             __dv_call_stack_size = __dv_try_saved_stack_size[__dv_try_level];
         __dv_try_level--;
     }
+    /* R161-C（L-235）：catch 分发块无条件发射 dv_try_pop。正常 longjmp 路径下
+     * level ≥ 0（有帧可弹）；但从 **await 异常分支**进入 catch 时，本协程的 try
+     * 帧可能已在 `dv_coro_resume` 的上下文切换里被复位掉（level 已是 -1 或别人的
+     * 帧）。此处**幂等**：无帧则视作 no-op，绝不越界减到负数（那会让后续
+     * dv_throw_exception 读到 __dv_jmp_bufs[-1] ⇒ 未定义行为）。 */
+    if (__dv_try_level < -1) __dv_try_level = -1;
 }
 
 void dv_try_end(void) {
@@ -4058,7 +4558,7 @@ void dv_throw(LightValue* exc) {
     char* s = dv_to_string(exc);
     strncpy(__dv_exception_str, s ? s : "unknown", 1023);
     __dv_exception_str[1023] = '\0';
-    free(s);
+    dv_buf_free_raw(s);
     int level = __dv_try_level;
     longjmp(__dv_jmp_bufs[level], 1);
 }
@@ -4135,7 +4635,7 @@ void dv_throw_exception(LightValue* exception_obj) {
         if (stack_trace[0]) {
             fprintf(stderr, "调用栈:\n%s", stack_trace);
         }
-        free(msg_str);
+        dv_buf_free_raw(msg_str);
         dv_free(&msg_val);
         exit(1);
     }
@@ -4148,7 +4648,7 @@ void dv_throw_exception(LightValue* exception_obj) {
     char* s = dv_to_string(exception_obj);
     strncpy(__dv_exception_str, s ? s : "unknown", 1023);
     __dv_exception_str[1023] = '\0';
-    free(s);
+    dv_buf_free_raw(s);
     
     int level = __dv_try_level;
     longjmp(__dv_jmp_bufs[level], 1);
@@ -4209,7 +4709,7 @@ int dv_exception_to_full_string(LightValue* exception_obj, char* buf, int buf_si
                 msg_str ? msg_str : "");
         strncat(buf, ex_line, buf_size - strlen(buf) - 1);
         
-        free(msg_str);
+        dv_buf_free_raw(msg_str);
         dv_free(&msg_val);
         
         /* 获取栈追踪 */
@@ -4221,7 +4721,7 @@ int dv_exception_to_full_string(LightValue* exception_obj, char* buf, int buf_si
             strncat(buf, "\n调用栈:\n", buf_size - strlen(buf) - 1);
             strncat(buf, stack_str, buf_size - strlen(buf) - 1);
         }
-        free(stack_str);
+        dv_buf_free_raw(stack_str);
         dv_free(&stack_val);
         
         /* 获取原因，继续循环 */
@@ -4252,6 +4752,27 @@ void dv_get_current_exception(LightValue* result) {
         dv_clone(result, &__dv_current_exception_obj);
     } else {
         dv_str(result, __dv_exception_str);
+    }
+}
+
+/* R161-C（L-235）：**不 longjmp** 地登记当前异常。
+ *
+ * 用途：协程 await 拿到「被等待协程以未捕获异常终结」后，awaiter 需要走自己的
+ * catch 分发，但**不能**用 `dv_throw_exception`——那会 longjmp 到全局 try 栈顶的
+ * setjmp 缓冲；若 awaiter 的 try 帧是在**挂起之前**建立的，其 C 栈帧已随挂起销毁，
+ * longjmp 过去就是未定义行为（实测静默吞异常或跳错帧）。
+ * 由 codegen 在 await 点直接 `br` 到本协程 IR 里真实存在的 catch 块，
+ * 再用本函数把异常登记进全局「当前异常」，使 catch 变量的
+ * `dv_get_current_exception` 取到正确对象。 */
+void dv_set_current_exception(LightValue* exc) {
+    if (!exc) return;
+    dv_clone(&__dv_current_exception_obj, exc);
+    __dv_has_exception_obj = 1;
+    {
+        char* s = dv_to_string(exc);
+        strncpy(__dv_exception_str, s ? s : "unknown", 1023);
+        __dv_exception_str[1023] = '\0';
+        dv_buf_free_raw(s);
     }
 }
 
@@ -4421,9 +4942,11 @@ void dv_value_to_string(LightValue* result, LightValue* v) {
     result->type = 3;
     result->i64 = 0;
     result->f64 = 0.0;
-    result->str = dv_strdup(s ? s : "");
+    /* R161-B（L-217，P4 同族）：repr 结果是**临时值**（只活一条表达式）→ 临时表。
+     * 注意 `dv_to_string` 本身仍返回普通 malloc（它的调用方会 free 它），不能改。 */
+    result->str = dv_tmp_strdup(s ? s : "");
     result->boolean = 0;
-    free(s);
+    dv_buf_free_raw(s);
 }
 
 /* ================================================================
@@ -4454,7 +4977,7 @@ int dv_is_obj_buffer(const char* s) {
 }
 void dv_obj_release_slot(LightValue* v) {
     if (v && v->type == 3 && dv_is_obj_buffer(v->str)) {
-        free(v->str);
+        dv_buf_free_raw(v->str);   /* R161-B：OBJ 缓冲现带 header，必须按 tag 释放 */
         v->str = NULL;
     }
 }
@@ -4504,7 +5027,7 @@ static char* dv_serialize_typed(LightValue* v) {
         case 2: { char b[64]; snprintf(b, sizeof(b), "F%g", v->f64); return dv_strdup(b); }
         case 3: {
             size_t len = v->str ? strlen(v->str) : 0;
-            char* out = (char*)malloc(len + 24);
+            char* out = dv_owned_alloc(len + 24);
             if (!out) return dv_strdup("S0:");
             int n = snprintf(out, len + 24, "S%zu:", len);
             if (len && v->str) memcpy(out + n, v->str, len);
@@ -4516,9 +5039,9 @@ static char* dv_serialize_typed(LightValue* v) {
             for (int i = 0; i < v->list_size; i++) {
                 char* e = dv_serialize_typed(v->list_data[i]);
                 cap += strlen(e) + 1;
-                free(e);
+                dv_buf_free_raw(e);
             }
-            char* out = (char*)malloc(cap);
+            char* out = dv_owned_alloc(cap);
             if (!out) return dv_strdup("L0:");
             int n = snprintf(out, cap, "L%d:", v->list_size);
             size_t pos = (size_t)n;
@@ -4527,7 +5050,7 @@ static char* dv_serialize_typed(LightValue* v) {
                 size_t el = strlen(e);
                 memcpy(out + pos, e, el);
                 pos += el;
-                free(e);
+                dv_buf_free_raw(e);
             }
             out[pos] = '\0';
             return out;
@@ -4538,9 +5061,9 @@ static char* dv_serialize_typed(LightValue* v) {
             for (int i = 0; i < pairs * 2; i++) {
                 char* e = dv_serialize_typed(v->list_data[i]);
                 cap += strlen(e) + 1;
-                free(e);
+                dv_buf_free_raw(e);
             }
-            char* out = (char*)malloc(cap);
+            char* out = dv_owned_alloc(cap);
             if (!out) return dv_strdup("D0:");
             int n = snprintf(out, cap, "D%d:", pairs);
             size_t pos = (size_t)n;
@@ -4549,7 +5072,7 @@ static char* dv_serialize_typed(LightValue* v) {
                 size_t el = strlen(e);
                 memcpy(out + pos, e, el);
                 pos += el;
-                free(e);
+                dv_buf_free_raw(e);
             }
             out[pos] = '\0';
             return out;
@@ -4719,7 +5242,7 @@ void dv_class_set_member(LightValue* obj, const char* field_name, LightValue* va
     char search[512];
     size_t search_len = field_name_len + 1;
     if (search_len >= sizeof(search)) {
-        free(field_str);
+        dv_buf_free_raw(field_str);
         return;
     }
     memcpy(search, field_name, field_name_len);
@@ -4741,19 +5264,19 @@ void dv_class_set_member(LightValue* obj, const char* field_name, LightValue* va
         size_t after_len = strlen(val_end);
 
         size_t new_len = before_len + field_str_len + after_len + 1;
-        char* new_str = (char*)malloc(new_len);
+        char* new_str = dv_owned_alloc(new_len);
         if (new_str) {
             memcpy(new_str, obj->str, before_len);
             memcpy(new_str + before_len, field_str, field_str_len);
             memcpy(new_str + before_len + field_str_len, val_end, after_len);
             new_str[before_len + field_str_len + after_len] = '\0';
-            free(obj->str);
+            dv_buf_free_raw(obj->str);   /* R161-B：按 tag 释放（带 header） */
             obj->str = new_str;
         }
     } else {
         /* 字段不存在，追加 */
         size_t new_len = strlen(obj->str) + field_name_len + field_str_len + 3;
-        char* new_str = (char*)malloc(new_len);
+        char* new_str = dv_owned_alloc(new_len);
         if (new_str) {
             size_t pos = 0;
             memcpy(new_str + pos, obj->str, strlen(obj->str));
@@ -4765,11 +5288,11 @@ void dv_class_set_member(LightValue* obj, const char* field_name, LightValue* va
             pos += field_str_len;
             new_str[pos++] = '\x1F';
             new_str[pos] = '\0';
-            free(obj->str);
+            dv_buf_free_raw(obj->str);   /* R161-B：按 tag 释放（带 header） */
             obj->str = new_str;
         }
     }
-    free(field_str);
+    dv_buf_free_raw(field_str);
 }
 
 void dv_class_get_member(LightValue* result, LightValue* obj, const char* field_name) {
@@ -5752,6 +6275,15 @@ typedef struct LightCoroutine {
      * 模块级异步段（非方法）为 NULL。放在结构体末尾，既有的 state=offset 0 /
      * resume_point=offset 4 偏移不动（codegen 侧按偏移取 resume_point）。 */
     LightValue* caller_self;
+    /* R161-C（L-234）：本协程上次挂起时的全局 try 栈深度快照。全局 try 栈
+     * （__dv_try_level/__dv_jmp_bufs）是单份的，而协程可交错执行；resume 时
+     * 用它把全局深度复位到「本协程的上下文」，避免 longjmp 跳到别的协程的
+     * setjmp 缓冲（实测 0xC0000028）。放结构体末尾，既有偏移不动。 */
+    int try_depth_saved;
+    /* R161-C（L-235）：协程内未捕获的异常（由 dv_coro_resume 的边界兜底捕获），
+     * 等 awaiter `等待` 时原样重抛。has_pending_exc=1 表示 pending_exc 有效。 */
+    LightValue pending_exc;
+    int has_pending_exc;
 } LightCoroutine;
 
 /* Future/Promise 结构体 */
@@ -5802,12 +6334,36 @@ LightCoroutine* dv_coro_create(LightCoroFunc func, LightValue* args, int num_arg
     coro->func = func;
     dv_null(&coro->result);
     
-    /* 复制参数 */
+    /* 复制参数
+     * R161-A（L-228 深层根因）：`memcpy` 浅拷 → 协程挂起后恢复时读调用方栈实参的
+     * 悬垂指针（0xC0000005/0xC0000374 崩溃）。改为逐参 `dv_clone` 深拷：字符串/函数
+     * 值/列表各得独立缓冲，与 `dv_coro_free` 的逐槽 `dv_free` 严格配对。
+     * 零参时置 NULL（dv_coro_get_arg 越界返回 NULL 由调用方容错）。
+     *
+     * R161-C（L-236，实测订正）：对 **LIST/DICT 参数改为浅拷（共享）**，只对
+     * STR/FUNCTION/DECIMAL 深拷。依据《L-217 设计》§十三 R1 的**保守选项**
+     * （该表原文即「建议保守」）：
+     *   - 深拷容器会切断「子协程向父的表追加」这一既有共享语义 ⇒ E5 协程库的
+     *     `并行/竞速/选择*` 全靠「共享结果表 + 轮询」实现，深拷后子协程写的是
+     *     自己的副本、父协程永远读到空表 ⇒ **轮询死循环 / 结果丢失**
+     *     （实测：M5 选择睡眠挂死、S1/S3/S10/AR2 崩、X2/X3 `N=0`）。
+     *   - 浅拷容器保持与 R160 基线**完全一致的语义**（基线实测同为共享，X2 在
+     *     基线树上也是 N=0 ⇒ 说明「共享」是既有事实，不是本线引入）。
+     * 字符串/闭包仍深拷：那些才是 A 线 L-228 修的真实目标（跨挂起悬垂指针），
+     * 且字符串值不可变（设计 §2.5 事实 A），深拷无共享语义损失。
+     * DICT 用浅拷同时满足 L-204「dict 浅拷」刻意契约（禁破）。 */
     coro->num_args = num_args;
     if (num_args > 0 && args) {
         coro->args = (LightValue*)malloc(sizeof(LightValue) * num_args);
         if (coro->args) {
-            memcpy(coro->args, args, sizeof(LightValue) * num_args);
+            for (int i = 0; i < num_args; i++) {
+                LightValue* src = &args[i];
+                if (src->type == 4 || src->type == 7 || src->type == LV_TYPE_TUPLE) {
+                    coro->args[i] = *src;   /* 容器：浅拷（共享 list_data，R160 语义） */
+                } else {
+                    dv_clone(&coro->args[i], src);   /* 字符串/闭包：深拷（防悬垂） */
+                }
+            }
         }
     } else {
         coro->args = NULL;
@@ -5834,6 +6390,9 @@ LightCoroutine* dv_coro_create(LightCoroFunc func, LightValue* args, int num_arg
     }
     coro->next = NULL;
     coro->caller_self = NULL;   /* R160-A：仅类内异步方法经 dv_coro_create_bound 设置 */
+    coro->try_depth_saved = -1;  /* R161-C（L-234）：初始无 try 帧 */
+    dv_null(&coro->pending_exc);  /* R161-C（L-235）：无待重抛异常 */
+    coro->has_pending_exc = 0;
     
     /* 添加到调度器的可运行队列 */
     if (g_scheduler.run_queue == NULL) {
@@ -5914,9 +6473,71 @@ static int dv_coro_resume(LightCoroutine* coro) {
     
     coro->state = DV_CORO_RUNNING;
     
-    /* 调用协程函数，它会根据 resume_point 从正确的位置继续 */
-    coro->func(&coro->result, coro, coro->args, coro->num_args);
-    
+    /* R161-C（L-234，实测 0xC0000028）：`__dv_try_level` / `__dv_jmp_bufs` 是
+     * **全局**的 try 栈，而协程是「可挂起、可交错」的执行体——A 协程挂起时它的
+     * try 帧还留在全局栈上，调度器转头去跑 B 协程，B 的 try_push 就在 A 的帧之上。
+     * 此时若 A（或 B）抛出，`dv_throw` 取的 `__dv_jmp_bufs[__dv_try_level]` 指向
+     * **别的协程**的 setjmp 缓冲，longjmp 跳进一个已失效/不匹配的栈帧 ⇒
+     * 0xC0000028（STATUS_STACK_BUFFER_OVERRUN）/ 访问违例。
+     *
+     * 实测触发面：**异常从协程内向外传播**（E1/E3/E4 全崩），而「协程内自捕获」
+     * （E2）正常——因为后者在同一帧内 push/pop，不跨协程交错。
+     *
+     * 修法：每次 resume **保存并复位** try 栈深度到「本协程上次挂起时的快照」，
+     * 让协程只在自己的 try 帧上下文里跑；返回前再把当前深度存回协程。
+     *   进入：设全局 depth = coro->try_depth_saved（挂起时存的值）
+     *   退出：coro->try_depth_saved = 当前全局 depth（供下次 resume 恢复）
+     * 这样任一时点全局 try 栈都只属于**正在运行的那个协程**，longjmp 目标恒正确。
+     * 代价：协程内的 try 帧无法跨挂起保留（挂起即复位）——但这是**正确的语义**：
+     * 该 try 的 setjmp 帧随 C 栈销毁，跨挂起继续用它本来就是未定义行为。 */
+    {
+        int saved_level = coro->try_depth_saved;
+        if (saved_level < -1) saved_level = -1;
+        if (saved_level >= MAX_TRY_DEPTH) saved_level = MAX_TRY_DEPTH - 1;
+        coro->try_depth_saved = __dv_try_level;
+        __dv_try_level = saved_level;
+    }
+
+    /* 调用协程函数，它会根据 resume_point 从正确的位置继续。
+     *
+     * R161-C（L-235）：**协程体是本协程异常传播的边界**。协程内未捕获的异常不能
+     * 让 `longjmp` 冲出 `coro->func` 之后继续沿 C 栈向上（那会跨过调度器的
+     * resume/事件循环帧，把全局 try 状态与调用栈搞乱 ⇒ 实测 0xC0000028）。
+     * 这里在本函数内再设一层 setjmp 兜底：
+     *   - 协程内抛且内部无人捕获 → longjmp 回到这里 ⇒ 记录异常到协程对象；
+     *     等 awaiter 在 `等待` 时把它**原样重新抛出**（语义 = 异常穿透协程边界，
+     *     与 Python asyncio 的 task 异常行为一致：await 时抛到等待方）。
+     *   - 协程内已有捕获 ⇒ 正常返回，兜底 setjmp 不触发。 */
+    {
+        int guarded = 0;
+        if (__dv_try_level < MAX_TRY_DEPTH - 1) {
+            __dv_try_level++;
+            __dv_try_saved_stack_size[__dv_try_level] = __dv_call_stack_size;
+            if (setjmp(__dv_jmp_bufs[__dv_try_level]) == 0) {
+                guarded = 1;
+                coro->func(&coro->result, coro, coro->args, coro->num_args);
+                __dv_try_level--;
+            } else {
+                /* 协程内未捕获异常：记到协程上，稍后由 awaiter 重抛 */
+                __dv_try_level--;
+                coro->state = DV_CORO_ERROR;
+                dv_get_current_exception(&coro->pending_exc);
+                coro->has_pending_exc = 1;
+                if (coro->future && !coro->future->ready) {
+                    dv_future_complete(coro->future, &coro->result);
+                }
+            }
+        }
+        if (!guarded) {
+            /* try 栈已满（极端深度）：退回无保护直接调用，保持旧行为 */
+            coro->func(&coro->result, coro, coro->args, coro->num_args);
+        }
+    }
+
+    /* 退出时把本协程实际用到的 try 深度存回（恢复用），再复位全局 */
+    coro->try_depth_saved = __dv_try_level;
+    __dv_try_level = -1;
+
     if (coro->state == DV_CORO_RUNNING) {
         /* 函数返回了但没挂起，说明执行完毕 */
         coro->state = DV_CORO_DONE;
@@ -6125,18 +6746,46 @@ LightValue* dv_coro_get_arg(LightCoroutine* coro, int index) {
     return &coro->args[index];
 }
 
-/* 获取 await 的结果：从 coro->waiting_for->result 复制到 out */
-void dv_coro_get_await_result(LightCoroutine* coro, LightValue* out) {
-    if (!coro || !out) return;
+/* 获取 await 的结果：从 coro->waiting_for->result 复制到 out。
+ *
+ * R161-C（L-235）返回值语义：
+ *   0 = 正常（out 已填结果或空值）
+ *   1 = 被等待协程**以未捕获异常终结**；此时 out 已填异常对象，由 **codegen**
+ *       决定往哪跳（走本协程的 catch 分发），而不是在这里 longjmp。
+ *
+ * 为什么不在运行时里直接 `dv_throw_exception`（早期实现踩过）：awaiter 的 try
+ * 帧是它自己 setjmp 的，而本函数在 `dv_coro_resume` 的边界兜底帧之内、又在
+ * 调度器的 C 栈上；此处 longjmp 会跳到**全局 try 栈顶**的 `__dv_jmp_bufs[level]`，
+ * 那个缓冲可能属于已经返回的别的协程帧 ⇒ 实测「异常被静默吞掉或跳错帧」。
+ * 改由 codegen 显式分支后，跳转目标是**本函数 IR 里真实存在的 catch 块**，
+ * 由 LLVM 保证支配关系正确。 */
+int dv_coro_get_await_result(LightCoroutine* coro, LightValue* out) {
+    if (!coro || !out) return 0;
     LightFuture* f = coro->waiting_for;
+    /* 被等待协程以异常终结 ⇒ 把异常对象交给调用方，返回 1 让 codegen 分支 */
+    {
+        LightCoroutine* owner = f ? f->owner : NULL;
+        if (owner && owner->has_pending_exc) {
+            dv_clone(out, &owner->pending_exc);
+            coro->waiting_for = NULL;
+            dv_future_unref(f);
+            /* R161-C（L-235）修正：**不写全局 `__dv_current_exception_obj`**。
+             * 它是单份全局，多个协程交错时会把「别人协程的异常」写进去 ⇒ 实测
+             * E4：成功工人（真）被污染的全局异常误判成（假）。
+             * 正确做法：让 codegen 在 await 点**直接分支**到本协程的 catch 分发块，
+             * 并把 out 里的异常对象交给 catch 的变量绑定（见 dv_set_current_exception）。 */
+            return 1;
+        }
+    }
     if (f && f->ready) {
-        dv_clone(out, &f->result);
+        dv_deep_clone(out, &f->result);
     } else {
         dv_null(out);
     }
     /* 清除 waiting_for 引用并释放 awaiter 对 future 的引用 */
     coro->waiting_for = NULL;
     dv_future_unref(f);
+    return 0;
 }
 
 /* 设置协程结果 */
@@ -6196,11 +6845,115 @@ static void dv_future_unref(LightFuture* f) {
     }
 }
 
+/* R161-C（L-232，ASan 实证的中枢缺陷）：`coro->future->result` 与本协程的
+ * `result` / `locals[]` 会**互为别名**（同一 list_data / str 指针），于是回收链
+ *   dv_coro_get_await_result → dv_future_unref → dv_coro_free(owner)
+ *     → dv_future_unref(同一 future) → dv_free(&f->result)
+ * 会对已被 coro_free 释放的缓冲再释放一次 ⇒ heap-use-after-free。
+ *
+ * 处置：在 `dv_coro_free` 里，把 alias 检查扩展到「future 的 result」这一路——
+ * 凡是 coro 侧要释放的缓冲，若 future->result 也指向它，就把 future->result 摘空
+ * （把它置 NULL 值），使随后 `dv_free(&f->result)` 成为 no-op。
+ * 所有权归属：缓冲由 coro 侧释放（协程帧是它的生产地），future 只是搬运者。 */
+static void dv_coro_detach_future_aliases(LightCoroutine* coro) {
+    LightFuture* f = coro ? coro->future : NULL;
+    if (!f) return;
+    {
+        const void* r_str = (const void*)f->result.str;
+        const void* r_data = (const void*)f->result.list_data;
+        if (!r_str && !r_data) return;
+        /* coro->result 同名则摘 future 侧 */
+        if ((r_str && f->result.str == coro->result.str) ||
+            (r_data && f->result.list_data == coro->result.list_data)) {
+            dv_null(&f->result);
+            return;
+        }
+        /* locals[] 任意槽同名则摘 future 侧 */
+        for (int i = 0; i < coro->num_locals; i++) {
+            LightValue* L = &coro->locals[i];
+            if (L->type == 0) continue;
+            if ((r_str && L->str == f->result.str) ||
+                (r_data && L->list_data == f->result.list_data)) {
+                dv_null(&f->result);
+                return;
+            }
+        }
+        /* args[] 任意槽同名也摘（与 locals 同理） */
+        for (int i = 0; i < coro->num_args && coro->args; i++) {
+            LightValue* A = &coro->args[i];
+            if (A->type == 0) continue;
+            if ((r_str && A->str == f->result.str) ||
+                (r_data && A->list_data == f->result.list_data)) {
+                dv_null(&f->result);
+                return;
+            }
+        }
+    }
+}
+
 void dv_coro_free(LightCoroutine* coro) {
     if (!coro || coro->func == NULL) return;  /* 防重复释放 */
     /* 摘除仍在调度器中的引用（防御；正常完成时已从 run_queue 弹出） */
     g_scheduler.num_coros--;
+    /* R161-C（L-230/L-231 同族根因，ASan 实证）：
+     * `coro->result` 与某个 `locals[i]` 会**指向同一堆缓冲** —— 因为协程的返回
+     * 表达式在 body 里先物化到一个 locals 槽（返回值临时槽也住在 `coro->locals`），
+     * 随后 `dv_coro_set_result` 经 `dv_clone` 把**同一 list_data/str 指针**存进
+     * `coro->result`。于是下面「先 dv_free(result) 再逐个 dv_free(locals[i])」会对
+     * 同一缓冲释放两次。
+     *
+     * ASan 实证（`_r161_scratch/c_asan_report.txt`）：
+     *   heap-use-after-free @ runtime_typed.c:882 (dv_free 读 list_data[i])
+     *     ← dv_coro_free:6711 (locals 循环)
+     *     ← dv_future_unref:6697 ← dv_coro_get_await_result:6641
+     *   同一处 free 栈在 :887 (free list_data) 也出现 ⇒ 同一调用内释放两次。
+     *
+     * 修法：把 result **摘离** locals——free result 后，把 locals 中与它同指针的槽
+     * 清空（`dv_null` 使后续 dv_free 成为 no-op），再做 locals 循环。这样：
+     *   - 缓冲只被释放一次（谁先谁负责，此处定 result 先）；
+     *   - 非别名的 locals 槽仍按原样释放，不改变其它语义。
+     * 判据用「指针相等」而非类型，对 STR/LIST/DICT/FUNCTION 一律成立且零额外分配。 */
+    {
+        LightValue* res = &coro->result;
+        if (coro->locals && res->type != 0) {
+            const void* res_payload = (const void*)res->str;
+            const void* res_data = (const void*)res->list_data;
+            for (int i = 0; i < coro->num_locals; i++) {
+                LightValue* L = &coro->locals[i];
+                if (L->type == 0) continue;
+                /* 同 str 指针（STR/DECIMAL/FUNCTION/REF）或同 list_data（LIST/DICT）
+                 * ⇒ 与 result 是同一缓冲，摘空本槽位避免二次释放。 */
+                if ((res_payload && (const void*)L->str == res_payload) ||
+                    (res_data && (const void*)L->list_data == res_data)) {
+                    dv_null(L);
+                }
+            }
+        }
+    }
+    /* R161-C：locals 槽之间也可能互为别名（ASan 实证：同一 list_data 被两个
+     * locals 槽同时持有）。做一次 O(n²) 去重：按「堆载荷指针」判同源，后者置空。
+     * 槽位数是协程局部量级（实测 ≤ 数十），二次方开销可忽略。
+     * 只比较载荷指针（str/list_data），不比较标量字段——标量无堆缓冲、重复无害。 */
+    if (coro->locals && coro->num_locals > 1) {
+        for (int i = 0; i < coro->num_locals; i++) {
+            LightValue* a = &coro->locals[i];
+            if (a->type == 0) continue;
+            for (int j = i + 1; j < coro->num_locals; j++) {
+                LightValue* b = &coro->locals[j];
+                if (b->type == 0) continue;
+                if ((a->str && b->str && a->str == b->str) ||
+                    (a->list_data && b->list_data && a->list_data == b->list_data)) {
+                    dv_null(b);
+                }
+            }
+        }
+    }
+    dv_coro_detach_future_aliases(coro);
     dv_free(&coro->result);
+    if (coro->has_pending_exc) {
+        dv_free(&coro->pending_exc);   /* R161-C（L-235）：待重抛异常对象 */
+        coro->has_pending_exc = 0;
+    }
     if (coro->args) {
         for (int i = 0; i < coro->num_args; i++) dv_free(&coro->args[i]);
         free(coro->args);
@@ -7129,7 +7882,7 @@ void dv_path_dirname(LightValue* result, LightValue* path) {
     if (head_len > 0 && !all_slash) {
         while (head_len > 0 && s[head_len - 1] == '/') head_len--;
     }
-    char* out = (char*)malloc(head_len + 1);
+    char* out = dv_tmp_alloc(head_len + 1);   /* R161-B（L-217）：临时值走临时表 */
     if (!out) { dv_str(result, ""); return; }
     memcpy(out, s, head_len);
     out[head_len] = '\0';
@@ -7263,7 +8016,7 @@ int dv_makedirs(const char* path) {
     if (rc == 0 && *copy != '\0') {
         if (dv_mkdir_one(copy) != 0 && dv_is_dir(copy) != 1) rc = -1;
     }
-    free(copy);
+    dv_buf_free_raw(copy);   /* R161-B：copy 来自 dv_strdup（带 header） */
     return rc;
 }
 
@@ -9110,106 +9863,393 @@ void dv_xml_emit(LightValue* result, LightValue* data) {
 }
 
 /* ================================================================
- * R151-D3：高精度 Decimal（字符串级算术）
+ * R151-D3 / R161-D（E-7 业主裁定选项乙）：高精度 Decimal（纯十进制算术）
  *
- * 对齐 stdlib/数学.py 的 Decimal 相关函数。
- * 由于 C 层无第三方依赖，此处用字符串级算术实现最小子集：
- *   - dv_decimal_add/sub/mul/div：字符串级加减乘除
- *   - dv_decimal_compare：比较
- * 精度：固定 10 位小数。
+ * 对齐 stdlib/builtins.py 的 十进制加/减/乘/除/比较 语义。
+ * R161-D 重写：引入 LV_TYPE_DECIMAL(=26)，内部用整数字符串算术，
+ * 彻底替换 R151 的 atof→double→%.10f 降级实现——不再有二进制浮点截断
+ * （0.1 + 0.2 == "0.3"，而非 "0.3000000000"）。
+ *   - dv_decimal_add/sub/mul/div：纯十进制加减乘除
+ *   - dv_decimal_compare：精确比较
+ * 输出归一化（去尾零）；除法定长截断到 DV_DEC_DIGITS 位小数（四舍五入）。
  * ================================================================ */
 
-/* 字符串级加法（支持小数）。 */
-static void dv_decimal_add_str(char* out, size_t out_len, const char* a, const char* b) {
-    /* 简单实现：用 double 计算后转字符串（生产环境应实现纯字符串算术） */
-    double da = atof(a);
-    double db = atof(b);
-    snprintf(out, out_len, "%.10f", da + db);
-}
+#define DV_DEC_DIGITS 30    /* 除法结果最大小数位 */
+#define DV_DEC_MAXDIG 200   /* 单值最大数字位数（防爆） */
 
-/* 字符串级减法。 */
-static void dv_decimal_sub_str(char* out, size_t out_len, const char* a, const char* b) {
-    double da = atof(a);
-    double db = atof(b);
-    snprintf(out, out_len, "%.10f", da - db);
-}
+/* 归一化十进制值：neg 符号 + scale 小数位数 + d 纯数字串（无小数点）。
+ * 例：-123.450 → neg=1, scale=2, d="12345"；100.00 → neg=0, scale=0, d="100"。 */
+typedef struct {
+    int neg;
+    int scale;
+    char d[DV_DEC_MAXDIG + 1];
+} DvDec;
 
-/* 字符串级乘法。 */
-static void dv_decimal_mul_str(char* out, size_t out_len, const char* a, const char* b) {
-    double da = atof(a);
-    double db = atof(b);
-    snprintf(out, out_len, "%.10f", da * db);
-}
-
-/* 字符串级除法。 */
-static void dv_decimal_div_str(char* out, size_t out_len, const char* a, const char* b) {
-    double da = atof(a);
-    double db = atof(b);
-    if (db == 0.0) {
-        snprintf(out, out_len, "inf");
-    } else {
-        snprintf(out, out_len, "%.10f", da / db);
+/* 归一化：去小数尾随零并下调 scale；全零记 neg=0, d="0", scale=0。 */
+static void dv_dec_norm(DvDec* x) {
+    int n = (int)strlen(x->d);
+    while (x->scale > 0 && n > 0 && x->d[n - 1] == '0') {
+        x->d[--n] = 0;
+        x->scale--;
     }
+    if (n == 0) {
+        x->d[0] = '0'; x->d[1] = 0;
+        x->scale = 0; x->neg = 0;
+        return;
+    }
+    /* 去整数前导零（保留一位 0） */
+    int s = 0;
+    while (x->d[s] == '0' && x->d[s + 1]) s++;
+    if (s > 0) memmove(x->d, x->d + s, n - s + 1);
+}
+
+/* 解析十进制文本（可选符号 + 数字[.数字]）。失败按 0 处理。 */
+static int dv_dec_parse(const char* s, DvDec* out) {
+    out->neg = 0; out->scale = 0; out->d[0] = 0;
+    if (!s) return -1;
+    while (*s == ' ' || *s == '\t') s++;
+    if (*s == '+' || *s == '-') { out->neg = (*s == '-'); s++; }
+    int di = 0, seen_dot = 0, frac = 0;
+    for (; *s; s++) {
+        char c = *s;
+        if (c == '.') { if (seen_dot) break; seen_dot = 1; continue; }
+        if (c < '0' || c > '9') break;
+        if (di < DV_DEC_MAXDIG) out->d[di++] = c;
+        if (seen_dot) frac++;
+    }
+    out->d[di] = 0;
+    out->scale = seen_dot ? frac : 0;
+    dv_dec_norm(out);
+    return 0;
+}
+
+/* 比较两个数字符串（无符号）：先去前导零，再按长度/字典比。
+ * a<b→-1 a==b→0 a>b→1。 */
+static int dv_dec_cmpstr(const char* a, const char* b) {
+    while (a[0] == '0' && a[1]) a++;
+    while (b[0] == '0' && b[1]) b++;
+    int la = (int)strlen(a), lb = (int)strlen(b);
+    if (la != lb) return la < lb ? -1 : 1;
+    return strcmp(a, b);
+}
+
+/* 比较绝对值（忽略 neg）：补零对齐 scale 后逐位比。 */
+static int dv_dec_cmp_abs(const DvDec* a, const DvDec* b) {
+    char ba[DV_DEC_MAXDIG + 8], bb[DV_DEC_MAXDIG + 8];
+    int k = a->scale > b->scale ? a->scale : b->scale;
+    snprintf(ba, sizeof ba, "%s", a->d);
+    snprintf(bb, sizeof bb, "%s", b->d);
+    for (int i = 0; i < k - a->scale; i++) strcat(ba, "0");
+    for (int i = 0; i < k - b->scale; i++) strcat(bb, "0");
+    return dv_dec_cmpstr(ba, bb);
+}
+
+/* out = |a| + |b|（无符号加），结果 scale 对齐到 max。 */
+static void dv_dec_add_abs(const DvDec* a, const DvDec* b, DvDec* out) {
+    int k = a->scale > b->scale ? a->scale : b->scale;
+    char sa[DV_DEC_MAXDIG + 8], sb[DV_DEC_MAXDIG + 8];
+    snprintf(sa, sizeof sa, "%s", a->d);
+    snprintf(sb, sizeof sb, "%s", b->d);
+    for (int i = 0; i < k - a->scale; i++) strcat(sa, "0");
+    for (int i = 0; i < k - b->scale; i++) strcat(sb, "0");
+    int la = (int)strlen(sa), lb = (int)strlen(sb);
+    int L = la > lb ? la : lb;
+    char res[DV_DEC_MAXDIG + 16];
+    int carry = 0, ri = 0;
+    for (int i = 0; i < L; i++) {
+        int da = i < la ? sa[la - 1 - i] - '0' : 0;
+        int db = i < lb ? sb[lb - 1 - i] - '0' : 0;
+        int s = da + db + carry;
+        res[ri++] = (char)('0' + s % 10);
+        carry = s / 10;
+    }
+    if (carry) res[ri++] = '1';
+    for (int i = 0; i < ri / 2; i++) {
+        char t = res[i]; res[i] = res[ri - 1 - i]; res[ri - 1 - i] = t;
+    }
+    res[ri] = 0;
+    snprintf(out->d, sizeof out->d, "%s", res);
+    out->scale = k; out->neg = 0;
+    dv_dec_norm(out);
+}
+
+/* out = |a| - |b|（调用方须保证 |a|>=|b|）。 */
+static void dv_dec_sub_abs(const DvDec* a, const DvDec* b, DvDec* out) {
+    int k = a->scale > b->scale ? a->scale : b->scale;
+    char sa[DV_DEC_MAXDIG + 8], sb[DV_DEC_MAXDIG + 8];
+    snprintf(sa, sizeof sa, "%s", a->d);
+    snprintf(sb, sizeof sb, "%s", b->d);
+    for (int i = 0; i < k - a->scale; i++) strcat(sa, "0");
+    for (int i = 0; i < k - b->scale; i++) strcat(sb, "0");
+    int la = (int)strlen(sa), lb = (int)strlen(sb);
+    int L = la > lb ? la : lb;
+    char res[DV_DEC_MAXDIG + 16];
+    int borrow = 0, ri = 0;
+    for (int i = 0; i < L; i++) {
+        int da = i < la ? sa[la - 1 - i] - '0' : 0;
+        int db = i < lb ? sb[lb - 1 - i] - '0' : 0;
+        int s = da - db - borrow;
+        if (s < 0) { s += 10; borrow = 1; } else borrow = 0;
+        res[ri++] = (char)('0' + s);
+    }
+    for (int i = 0; i < ri / 2; i++) {
+        char t = res[i]; res[i] = res[ri - 1 - i]; res[ri - 1 - i] = t;
+    }
+    res[ri] = 0;
+    snprintf(out->d, sizeof out->d, "%s", res);
+    out->scale = k; out->neg = 0;
+    dv_dec_norm(out);
+}
+
+/* out = a * b（含符号）。 */
+static void dv_dec_mul(const DvDec* a, const DvDec* b, DvDec* out) {
+    int la = (int)strlen(a->d), lb = (int)strlen(b->d);
+    long acc[DV_DEC_MAXDIG * 2 + 4];
+    memset(acc, 0, sizeof acc);
+    for (int i = 0; i < la; i++)
+        for (int j = 0; j < lb; j++)
+            acc[i + j] += (long)(a->d[la - 1 - i] - '0') * (b->d[lb - 1 - j] - '0');
+    long carry = 0;
+    int R = la + lb;
+    for (int k = 0; k < R; k++) {
+        long v = acc[k] + carry;
+        acc[k] = v % 10;
+        carry = v / 10;
+    }
+    int start = R - 1;
+    while (start > 0 && acc[start] == 0) start--;
+    char s[DV_DEC_MAXDIG * 2 + 4];
+    int si = 0;
+    for (int i = start; i >= 0; i--) s[si++] = (char)('0' + acc[i]);
+    s[si] = 0;
+    snprintf(out->d, sizeof out->d, "%s", s);
+    out->scale = a->scale + b->scale;
+    out->neg = a->neg ^ b->neg;
+    dv_dec_norm(out);
+}
+
+/* 整数字符串就地减（cur -= sub，均非负，调用方保证 cur>=sub）。 */
+static void dv_dec_isub(char* cur, const char* sub) {
+    int lc = (int)strlen(cur), ls = (int)strlen(sub);
+    int borrow = 0;
+    for (int i = 0; i < lc; i++) {
+        int dc = cur[lc - 1 - i] - '0';
+        int ds = i < ls ? sub[ls - 1 - i] - '0' : 0;
+        int s = dc - ds - borrow;
+        if (s < 0) { s += 10; borrow = 1; } else borrow = 0;
+        cur[lc - 1 - i] = (char)('0' + s);
+    }
+    /* 去前导零 */
+    int t = 0;
+    while (cur[t] == '0' && cur[t + 1]) t++;
+    if (t > 0) memmove(cur, cur + t, strlen(cur + t) + 1);
+}
+
+/* out = a / b（含符号），商保留 DV_DEC_DIGITS 位小数（末位四舍五入）。b != 0。 */
+static void dv_dec_div_op(const DvDec* a, const DvDec* b, DvDec* out) {
+    /* a = A/10^sa, b = B/10^sb ⇒ a/b = (A*10^(sb-sa))/B */
+    char sa[DV_DEC_MAXDIG + 8], sb[DV_DEC_MAXDIG + 8];
+    snprintf(sa, sizeof sa, "%s", a->d);
+    snprintf(sb, sizeof sb, "%s", b->d);
+    int pad = b->scale - a->scale;
+    if (pad >= 0) { for (int i = 0; i < pad; i++) strcat(sa, "0"); }
+    else { for (int i = 0; i < -pad; i++) strcat(sb, "0"); }
+
+    /* 整数部分长除 */
+    char cur[DV_DEC_MAXDIG + 24];
+    cur[0] = 0;
+    char Qi[DV_DEC_MAXDIG + 8];
+    int ii = 0;
+    int na = (int)strlen(sa);
+    for (int i = 0; i < na; i++) {
+        int cl = (int)strlen(cur);
+        cur[cl++] = sa[i]; cur[cl] = 0;
+        int qd = 0;
+        while (dv_dec_cmpstr(cur, sb) >= 0 && qd < 9) { dv_dec_isub(cur, sb); qd++; }
+        Qi[ii++] = (char)('0' + qd);
+    }
+    Qi[ii] = 0;
+    /* 去整数位前导零（至少留 1 位） */
+    while (ii > 1 && Qi[0] == '0') { memmove(Qi, Qi + 1, ii); ii--; }
+
+    /* 小数部分：补 DV_DEC_DIGITS+1 个零（末位作四舍五入） */
+    char Qf[DV_DEC_DIGITS + 8];
+    int fi = 0;
+    for (int k = 0; k < DV_DEC_DIGITS + 1; k++) {
+        int cl = (int)strlen(cur);
+        cur[cl++] = '0'; cur[cl] = 0;
+        int qd = 0;
+        while (dv_dec_cmpstr(cur, sb) >= 0 && qd < 9) { dv_dec_isub(cur, sb); qd++; }
+        Qf[fi++] = (char)('0' + qd);
+    }
+    /* 四舍五入末位 */
+    if (Qf[fi - 1] >= '5') {
+        int c = 1;
+        for (int i = fi - 2; i >= 0 && c; i--) {
+            int v = Qf[i] - '0' + c;
+            Qf[i] = (char)('0' + v % 10);
+            c = v / 10;
+        }
+    }
+    fi--;  /* 去掉舍入位 */
+    Qf[fi] = 0;
+
+    out->neg = a->neg ^ b->neg;
+    out->scale = fi;
+    snprintf(out->d, sizeof out->d, "%.*s%s", ii, Qi, Qf);
+    dv_dec_norm(out);
+}
+
+/* 把 DvDec 写入 out 缓冲（归一化十进制文本，如 "-123.45" / "0.3" / "100"）。 */
+static void dv_dec_format(const DvDec* x, char* out, size_t out_len) {
+    out[0] = 0;
+    int pos = 0;
+    if (x->neg) { out[pos++] = '-'; }
+    int n = (int)strlen(x->d);
+    if (x->scale == 0) {
+        snprintf(out + pos, out_len - pos, "%s", x->d);
+    } else if (x->scale < n) {
+        int ip = n - x->scale;
+        snprintf(out + pos, out_len - pos, "%.*s.%s", ip, x->d, x->d + ip);
+    } else {
+        snprintf(out + pos, out_len - pos, "0.");
+        pos = (int)strlen(out);
+        for (int i = 0; i < x->scale - n; i++) out[pos++] = '0';
+        snprintf(out + pos, out_len - pos, "%s", x->d);
+    }
+}
+
+/* 从 LightValue 取十进制文本：DECIMAL(26)/STR(3) 取 str；INT(1) 取 i64。 */
+static void dv_dec_input(LightValue* v, char* buf, size_t buf_len) {
+    v = dv_deref(v);
+    if ((v->type == LV_TYPE_DECIMAL || v->type == 3) && v->str) {
+        snprintf(buf, buf_len, "%s", v->str);
+    } else if (v->type == 1) {
+        snprintf(buf, buf_len, "%lld", (long long)v->i64);
+    } else {
+        snprintf(buf, buf_len, "0");
+    }
+}
+
+/* 把归一化值写入 result（type=LV_TYPE_DECIMAL，str 为 malloc 文本）。 */
+static void dv_dec_result(LightValue* result, const DvDec* x) {
+    char buf[DV_DEC_MAXDIG + 16];
+    dv_dec_format(x, buf, sizeof buf);
+    result->type = LV_TYPE_DECIMAL;
+    result->i64 = 0;
+    result->f64 = 0.0;
+    result->str = dv_strdup(buf);
+    result->boolean = 0;
+    result->list_size = 0;
+    result->list_capacity = 0;
+    result->list_data = NULL;
 }
 
 void dv_decimal_add(LightValue* result, LightValue* a, LightValue* b) {
     if (!result) return;
     dv_null(result);
     if (!a || !b) { dv_str(result, "0"); return; }
-    a = dv_deref(a); b = dv_deref(b);
-    const char* sa = a->type == 3 ? a->str : (a->type == 1 ? "0" : "0");
-    const char* sb = b->type == 3 ? b->str : (b->type == 1 ? "0" : "0");
-    char out[256];
-    dv_decimal_add_str(out, sizeof(out), sa, sb);
-    dv_str(result, out);
+    char sa[DV_DEC_MAXDIG + 8], sb[DV_DEC_MAXDIG + 8];
+    dv_dec_input(a, sa, sizeof sa);
+    dv_dec_input(b, sb, sizeof sb);
+    DvDec da, db, dr;
+    dv_dec_parse(sa, &da);
+    dv_dec_parse(sb, &db);
+    if (da.neg == db.neg) {
+        dv_dec_add_abs(&da, &db, &dr);
+        dr.neg = da.neg;
+    } else {
+        if (dv_dec_cmp_abs(&da, &db) >= 0) {
+            dv_dec_sub_abs(&da, &db, &dr);
+            dr.neg = da.neg;
+        } else {
+            dv_dec_sub_abs(&db, &da, &dr);
+            dr.neg = db.neg;
+        }
+    }
+    dv_dec_result(result, &dr);
 }
 
 void dv_decimal_sub(LightValue* result, LightValue* a, LightValue* b) {
     if (!result) return;
     dv_null(result);
     if (!a || !b) { dv_str(result, "0"); return; }
-    a = dv_deref(a); b = dv_deref(b);
-    const char* sa = a->type == 3 ? a->str : (a->type == 1 ? "0" : "0");
-    const char* sb = b->type == 3 ? b->str : (b->type == 1 ? "0" : "0");
-    char out[256];
-    dv_decimal_sub_str(out, sizeof(out), sa, sb);
-    dv_str(result, out);
+    char sa[DV_DEC_MAXDIG + 8], sb[DV_DEC_MAXDIG + 8];
+    dv_dec_input(a, sa, sizeof sa);
+    dv_dec_input(b, sb, sizeof sb);
+    DvDec da, db, dr;
+    dv_dec_parse(sa, &da);
+    dv_dec_parse(sb, &db);
+    /* a - b = a + (-b) */
+    db.neg = !db.neg;
+    if (da.neg == db.neg) {
+        dv_dec_add_abs(&da, &db, &dr);
+        dr.neg = da.neg;
+    } else {
+        if (dv_dec_cmp_abs(&da, &db) >= 0) {
+            dv_dec_sub_abs(&da, &db, &dr);
+            dr.neg = da.neg;
+        } else {
+            dv_dec_sub_abs(&db, &da, &dr);
+            dr.neg = db.neg;
+        }
+    }
+    dv_dec_result(result, &dr);
 }
 
 void dv_decimal_mul(LightValue* result, LightValue* a, LightValue* b) {
     if (!result) return;
     dv_null(result);
     if (!a || !b) { dv_str(result, "0"); return; }
-    a = dv_deref(a); b = dv_deref(b);
-    const char* sa = a->type == 3 ? a->str : (a->type == 1 ? "0" : "0");
-    const char* sb = b->type == 3 ? b->str : (b->type == 1 ? "0" : "0");
-    char out[256];
-    dv_decimal_mul_str(out, sizeof(out), sa, sb);
-    dv_str(result, out);
+    char sa[DV_DEC_MAXDIG + 8], sb[DV_DEC_MAXDIG + 8];
+    dv_dec_input(a, sa, sizeof sa);
+    dv_dec_input(b, sb, sizeof sb);
+    DvDec da, db, dr;
+    dv_dec_parse(sa, &da);
+    dv_dec_parse(sb, &db);
+    dv_dec_mul(&da, &db, &dr);
+    dv_dec_result(result, &dr);
 }
 
 void dv_decimal_div(LightValue* result, LightValue* a, LightValue* b) {
     if (!result) return;
     dv_null(result);
     if (!a || !b) { dv_str(result, "0"); return; }
-    a = dv_deref(a); b = dv_deref(b);
-    const char* sa = a->type == 3 ? a->str : (a->type == 1 ? "0" : "0");
-    const char* sb = b->type == 3 ? b->str : (b->type == 1 ? "0" : "0");
-    char out[256];
-    dv_decimal_div_str(out, sizeof(out), sa, sb);
-    dv_str(result, out);
+    char sa[DV_DEC_MAXDIG + 8], sb[DV_DEC_MAXDIG + 8];
+    dv_dec_input(a, sa, sizeof sa);
+    dv_dec_input(b, sb, sizeof sb);
+    DvDec da, db, dr;
+    dv_dec_parse(sa, &da);
+    dv_dec_parse(sb, &db);
+    /* 除零保护 */
+    if (strcmp(db.d, "0") == 0) {
+        dv_str(result, "0");
+        return;
+    }
+    dv_dec_div_op(&da, &db, &dr);
+    dv_dec_result(result, &dr);
 }
 
 void dv_decimal_compare(LightValue* result, LightValue* a, LightValue* b) {
     if (!result) return;
     dv_null(result);
     if (!a || !b) { dv_int(result, 0); return; }
-    a = dv_deref(a); b = dv_deref(b);
-    double da = a->type == 3 ? atof(a->str) : (a->type == 1 ? (double)a->i64 : 0.0);
-    double db = b->type == 3 ? atof(b->str) : (b->type == 1 ? (double)b->i64 : 0.0);
-    if (da < db) dv_int(result, -1);
-    else if (da > db) dv_int(result, 1);
-    else dv_int(result, 0);
+    char sa[DV_DEC_MAXDIG + 8], sb[DV_DEC_MAXDIG + 8];
+    dv_dec_input(a, sa, sizeof sa);
+    dv_dec_input(b, sb, sizeof sb);
+    DvDec da, db;
+    dv_dec_parse(sa, &da);
+    dv_dec_parse(sb, &db);
+    int cmp;
+    if (da.neg != db.neg) {
+        cmp = da.neg ? -1 : 1;
+        /* 双零视为相等 */
+        if (strcmp(da.d, "0") == 0 && strcmp(db.d, "0") == 0) cmp = 0;
+    } else {
+        cmp = dv_dec_cmp_abs(&da, &db);
+        if (da.neg) cmp = -cmp;
+    }
+    dv_int(result, cmp);
 }
 
 /* os.path.realpath：解析符号链接 + 规范化。
@@ -9301,7 +10341,7 @@ int dv_write_bytes(const char* path, LightValue* data) {
             if (!is_drive_root && *dircopy) dv_makedirs(dircopy);
             *last = save;
         }
-        free(dircopy);
+        dv_buf_free_raw(dircopy);   /* R161-B：dircopy 来自 dv_strdup（带 header） */
     }
     FILE* f = fopen(path, "wb");
     if (!f) return -1;
@@ -10675,7 +11715,7 @@ void dv_str_rstrip(LightValue* result, LightValue* str, LightValue* chars) {
         end--;
     }
     int new_len = end;
-    char* out = (char*)malloc(new_len + 1);
+    char* out = dv_tmp_alloc(new_len + 1);   /* R161-B（L-217）：临时值走临时表 */
     if (out) {
         memcpy(out, s, new_len);
         out[new_len] = '\0';
@@ -11125,7 +12165,7 @@ void dv_decode_str(LightValue* result, LightValue* v, const char* enc) {
     if (v->type == 4) { dv_str(result, ""); return; }
     char* s = dv_to_string(v);
     dv_str(result, s ? s : "");
-    if (s) free(s);
+    if (s) dv_buf_free_raw(s);
 }
 
 /* 副本(x) / 浅拷贝(x) —— 对齐 stdlib/内置核心列表.light:副本：
@@ -11664,7 +12704,13 @@ void dv_json_serialize(LightValue* result, LightValue* value) {
     if (!result) return;
     DvStrBuf sb; dv_sb_init(&sb);
     dv_json_serialize_value(&sb, value, -1, 0);
-    dv_str(result, sb.data ? sb.data : "");
+    /* R161-B（L-217，P4 路径）：序列化结果是**临时值** → 临时表（不走 dv_str——
+     * dv_str 的分配还被 JSON 解析/容器插入等**需长期存活**的路径共用）。 */
+    result->type = 3;
+    result->i64 = 0;
+    result->f64 = 0.0;
+    result->boolean = 0;
+    result->str = dv_tmp_strdup(sb.data ? sb.data : "");
     dv_sb_free(&sb);
 }
 
@@ -11675,6 +12721,10 @@ void dv_json_serialize_pretty(LightValue* result, LightValue* value, int64_t ind
     if (ind < 0) ind = 0;
     DvStrBuf sb; dv_sb_init(&sb);
     dv_json_serialize_value(&sb, value, ind, 0);
-    dv_str(result, sb.data ? sb.data : "");
+    result->type = 3;
+    result->i64 = 0;
+    result->f64 = 0.0;
+    result->boolean = 0;
+    result->str = dv_tmp_strdup(sb.data ? sb.data : "");
     dv_sb_free(&sb);
 }
