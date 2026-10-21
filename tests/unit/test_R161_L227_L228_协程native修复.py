@@ -1,163 +1,59 @@
+# -*- coding: utf-8 -*-
+"""R161 A 线回归门：L-227/L-228/L-221 协程 native 修复（R162-A 真门改造）
+
+覆盖
+----
+- L-227-a：跨 await SSA dominance（跨挂起点的值物化进协程帧 locals）
+- L-227-b：多导出表编号（`_seg_f*` 不重复、不越界）
+- L-228：协程帧 locals 持久化（栈 alloca → 持久帧槽 `dv_coro_get_local`）
+- L-221：await-join（等待已完成协程要能恢复等待方）
+
+R162-A 改造前这道门是**假绿**：`WORK_DIR/PYTHON_EXE/COMPILER_EXE` 硬编码
+`G:\\dswork\\...\\src\\lightc.exe`，0.82/0.86 上没有该 exe ⇒ 6 条用例
+`NATIVE_ONLY` 全 skip、2 条 `pytest.xfail()` 无条件下 ⇒ 实跑数 0。本轮改动：
+
+1. 仓库根从 `__file__` 推导（对齐 `tests/unit/test_R160_E5协程库.py`），删掉全部
+   Windows 硬编码路径与 `lightc.exe` 依赖。
+2. native 腿改走**产品路径** `llvm.compiler.compile_light_typed` 编译 + 真跑产物；
+   clang 探测复用 `tests/_native_helpers.py` 的 `探测clang()`（缺 clang **skip 不许 error**）。
+3. 断言升级为**行为断言**：跑出来的退出码 + stdout 必须逐行等于期望值
+   （`x=42` / `V=5` / 三任务结果序 / `结果=5` / `结果=3` / `结果=42`），
+   IR 只当**佐证**（`dv_coro_get_local` 调用点计数、`_seg_f*` define 无重复），
+   不再用「IR 里出现某字符串」当主判据。
+4. 修两条测试源码 bug（语言里根本不存在，真跑必挂）：
+   `.添加` → `.追加`（列表追加方法）；`循环 3 次:` → `当 ... :`（本语言没有
+   `循环 N 次` 语法，全仓仅此一处，属写测试时臆造）。
+5. 删 `check_dominance_in_ir()`（恒返回 `True` 的假绿本体）与两条无条件
+   `pytest.xfail()` 的假反跑用例。
+
+反跑锚点（**手工**执行，不在本文件里写成没跑过的断言）
+---------------------------------------------
+- 回退 L-227-a 修复 → 双层协程用例复现 `does not dominate all uses`
+- 回退 L-227-b 修复 → 多导出模块编译报 `use of undefined value '@_seg_f*'`
+- 回退 L-228 修复 → 嵌套协程用例复现 0xC0000374 堆损坏
+- 回退 L-221 修复 → 等待已完成协程拿不到返回值
 """
-R161 A 线回归门：L-227/L-228/L-221 协程 native 修复
 
-测试覆盖：
-- L-227-a：跨 await SSA dominance（跨挂起点值物化进协程帧 locals）
-- L-227-b：多导出表越界（_seg_f* 编号分配修复）
-- L-228：协程帧 locals 持久化（栈 alloca → 持久帧槽 dv_coro_get_local）
-- L-221：await-join（等待已完成协程不恢复等待方）
-
-反跑锚点（有牙）：
-- 回退 L-227-a 修复 → two_a.light 复现 "does not dominate all uses"
-- 回退 L-227-b 修复 → 多导出模块编译报 _seg_f* 未定义
-- 回退 L-228 修复 → a_nested_probe.light 复现 0xC0000374 堆损坏
-- 回退 L-221 修复 → 等待已完成协程不恢复
-
-判据：native 腿全绿（0 xfailed），IR 级 before/after 证据。
-"""
+import os
+import re
+import subprocess
+import sys
+import tempfile
 
 import pytest
-import subprocess
-import os
-import sys
-import json
-import tempfile
-import shutil
-from pathlib import Path
 
-# 工作目录
-WORK_DIR = Path(r"G:\dswork\duan-light-merge\light-merge")
-PYTHON_EXE = WORK_DIR / ".venv" / "Scripts" / "python.exe"
-COMPILER_EXE = WORK_DIR / "src" / "lightc.exe"
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, _ROOT)
+sys.path.insert(0, os.path.join(_ROOT, 'src'))
+sys.path.insert(0, os.path.join(_ROOT, 'tests'))
 
-# 测试源码路径
-SCRATCH_DIR = WORK_DIR / "_r161_scratch"
+from _native_helpers import skip_without_clang  # type: ignore[import]  # noqa: E402
 
-# 标记：native 腿测试（需要编译运行）
-# 注意：在 native 编译器不可用时，这些测试会被跳过
-# 实际运行需要在 0.82 权威机或 0.86 Linux 上执行
-NATIVE_ONLY = pytest.mark.skipif(
-    not COMPILER_EXE.exists(),
-    reason="native 编译器不可用（需在 0.82/0.86 平台运行）"
-)
+_STDLIB = os.path.join(_ROOT, 'stdlib')
 
+# ── 探针源码（每条只输出 `标记=值` 行，便于逐行全等断言）─────────────────────
 
-def compile_light_file(source_path: Path, output_dir: Path) -> dict:
-    """编译 .light 文件，返回编译结果"""
-    result = {
-        "success": False,
-        "ir_path": None,
-        "exe_path": None,
-        "stdout": "",
-        "stderr": "",
-        "returncode": -1,
-    }
-
-    cmd = [
-        str(COMPILER_EXE),
-        "--target", "native",
-        "--emit", "ir",
-        "-o", str(output_dir),
-        str(source_path),
-    ]
-
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=60,
-            cwd=str(WORK_DIR),
-        )
-        result["returncode"] = proc.returncode
-        result["stdout"] = proc.stdout
-        result["stderr"] = proc.stderr
-
-        if proc.returncode == 0:
-            result["success"] = True
-            # 查找生成的 IR 文件
-            ir_files = list(output_dir.glob("*.ll"))
-            if ir_files:
-                result["ir_path"] = ir_files[0]
-    except subprocess.TimeoutExpired:
-        result["stderr"] = "编译超时"
-    except Exception as e:
-        result["stderr"] = str(e)
-
-    return result
-
-
-def run_native_binary(binary_path: Path, timeout: int = 30) -> dict:
-    """运行原生二进制文件"""
-    result = {
-        "success": False,
-        "stdout": "",
-        "stderr": "",
-        "returncode": -1,
-    }
-
-    if not binary_path.exists():
-        result["stderr"] = f"二进制文件不存在: {binary_path}"
-        return result
-
-    try:
-        proc = subprocess.run(
-            [str(binary_path)],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            cwd=str(binary_path.parent),
-        )
-        result["returncode"] = proc.returncode
-        result["stdout"] = proc.stdout
-        result["stderr"] = proc.stderr
-
-        if proc.returncode == 0:
-            result["success"] = True
-    except subprocess.TimeoutExpired:
-        result["stderr"] = "运行超时"
-    except Exception as e:
-        result["stderr"] = str(e)
-
-    return result
-
-
-def get_ir_content(ir_path: Path) -> str:
-    """读取 IR 文件内容"""
-    if ir_path and ir_path.exists():
-        return ir_path.read_text(encoding="utf-8")
-    return ""
-
-
-def check_dominance_in_ir(ir_content: str) -> bool:
-    """检查 IR 中是否存在 dominance 问题（通过检查是否有 alloca 在非 entry 块）"""
-    # 协程函数中，所有 alloca 应该在 entry 块
-    # 如果 resume 块中有 alloca，说明 L-227-a 修复未生效
-    lines = ir_content.split("\n")
-    in_coro_func = False
-    resume_blocks = []
-
-    for i, line in enumerate(lines):
-        if "@_coro_" in line and "define void" in line:
-            in_coro_func = True
-        elif in_coro_func and "}" in line and i > 0 and "{" not in lines[i-1]:
-            in_coro_func = False
-        elif in_coro_func and "label %resume_" in line:
-            resume_blocks.append(line.strip())
-
-    # 检查 resume 块中是否有 alloca
-    for block in resume_blocks:
-        # 简单检查：如果 resume 块后跟 alloca，可能有问题
-        pass
-
-    return True  # 简化检查，实际需要更复杂的 IR 分析
-
-
-# =============================================================================
-# L-227-a：跨 await SSA dominance 测试
-# =============================================================================
-
-L227A_TEST_SOURCE = """
+L227A_跨await源 = """
 异步 段落 测试():
   设 x 为 42
   等待 异步睡眠(0.01)
@@ -167,7 +63,7 @@ L227A_TEST_SOURCE = """
 异步 运行 测试()。
 """
 
-L227A_TWO_A_SOURCE = """
+L227A_双层源 = """
 异步 段落 内层():
   异步睡眠(0.02)
   返回 5
@@ -180,67 +76,7 @@ L227A_TWO_A_SOURCE = """
 异步 运行 外层()。
 """
 
-
-@NATIVE_ONLY
-def test_l227a_cross_await_dominance():
-    """L-227-a：跨 await SSA dominance 修复验证
-
-    验证点：
-    1. 编译成功（不报 "does not dominate all uses"）
-    2. 运行正确（跨 await 的变量值持久化）
-    3. IR 中协程 locals 使用 dv_coro_get_local 而非栈 alloca
-    """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        source_file = tmpdir / "test_l227a.light"
-        source_file.write_text(L227A_TEST_SOURCE, encoding="utf-8")
-
-        # 编译
-        result = compile_light_file(source_file, tmpdir)
-        assert result["success"], f"编译失败: {result['stderr']}"
-
-        # 检查 IR
-        ir_content = get_ir_content(result["ir_path"])
-        assert "dv_coro_get_local" in ir_content, \
-            "IR 中应使用 dv_coro_get_local 持久化协程 locals"
-
-        # 运行
-        if result["ir_path"]:
-            # 编译 IR 为可执行文件
-            # 这里简化处理，实际需要调用 llc 或 clang
-            pass
-
-
-@NATIVE_ONLY
-def test_l227a_two_a_case():
-    """L-227-a：two_a.light 案例（R160 原始复现用例）
-
-    源码：打印("V=" 加上 转字符串(等待 甲()))
-    根因：%5 = load %gs3 定义在 resume_0、store %5, ptr %gs20 在 tostr_end_13，
-          resume_1 路径不经过 %5 定义块 → dominance 违反
-    """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        source_file = tmpdir / "two_a.light"
-        source_file.write_text(L227A_TWO_A_SOURCE, encoding="utf-8")
-
-        # 编译
-        result = compile_light_file(source_file, tmpdir)
-        assert result["success"], f"编译失败: {result['stderr']}"
-
-        # 检查 IR 中 resume 块没有 alloca
-        ir_content = get_ir_content(result["ir_path"])
-        assert "dv_coro_get_local" in ir_content, \
-            "IR 中应使用 dv_coro_get_local 持久化协程 locals"
-
-
-# =============================================================================
-# L-227-b：多导出表越界测试
-# =============================================================================
-
-L227B_TEST_SOURCE = """
-从 协程 导入 并行
-
+L227B_多导出源 = """
 异步 段落 任务1():
   异步睡眠(0.01)
   返回 1
@@ -264,36 +100,7 @@ L227B_TEST_SOURCE = """
 异步 运行 主流程()。
 """
 
-
-@NATIVE_ONLY
-def test_l227b_multi_export_table():
-    """L-227-b：多导出表越界修复验证
-
-    验证点：
-    1. 多函数/多导出模块编译成功（不报 _seg_f* 未定义）
-    2. IR 中导出表 alias 引用正确
-    """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        source_file = tmpdir / "test_l227b.light"
-        source_file.write_text(L227B_TEST_SOURCE, encoding="utf-8")
-
-        # 编译
-        result = compile_light_file(source_file, tmpdir)
-        assert result["success"], f"编译失败: {result['stderr']}"
-
-        # 检查 IR 中导出表引用正确
-        ir_content = get_ir_content(result["ir_path"])
-        # 检查没有未定义的 @_seg_f* 引用
-        # 简化检查：IR 应该包含正确的导出表结构
-        assert "@_seg_" in ir_content, "IR 中应包含导出函数"
-
-
-# =============================================================================
-# L-228：协程帧 locals 持久化测试
-# =============================================================================
-
-L228_NESTED_PROBE_SOURCE = """
+L228_嵌套源 = """
 异步 段落 内层():
   异步睡眠(0.02)
   返回 5
@@ -310,11 +117,13 @@ L228_NESTED_PROBE_SOURCE = """
 异步 运行 主流程()。
 """
 
-L228_SHARED_LIST_SOURCE = """
+L228_共享表源 = """
 异步 段落 工人(共享表):
-  循环 3 次:
+  设 i 为 0
+  当 i 小于 3:
     等待 异步睡眠(0.01)
-    共享表.添加(1)
+    共享表.追加(1)
+    设 i 为 i 加上 1
   返回 共享表.长度()
 
 异步 段落 主流程():
@@ -327,149 +136,150 @@ L228_SHARED_LIST_SOURCE = """
 异步 运行 主流程()。
 """
 
-
-@NATIVE_ONLY
-def test_l228_nested_probe():
-    """L-228：嵌套协程帧 locals 持久化验证
-
-    验证点：
-    1. 编译成功（不报 0xC0000374 堆损坏）
-    2. 运行正确（嵌套协程返回值正确）
-    3. IR 中协程 locals 使用持久帧槽
-    """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        source_file = tmpdir / "a_nested_probe.light"
-        source_file.write_text(L228_NESTED_PROBE_SOURCE, encoding="utf-8")
-
-        # 编译
-        result = compile_light_file(source_file, tmpdir)
-        assert result["success"], f"编译失败: {result['stderr']}"
-
-        # 检查 IR
-        ir_content = get_ir_content(result["ir_path"])
-        assert "dv_coro_get_local" in ir_content, \
-            "IR 中应使用 dv_coro_get_local 持久化协程 locals"
-
-        # 检查没有栈 alloca 用于协程 locals
-        # 协程函数中，locals 应该通过 dv_coro_get_local 访问
-        # 而不是栈 alloca
-
-
-@NATIVE_ONLY
-def test_l228_shared_list_param():
-    """L-228：共享列表作协程参数的所有权/引用计数验证
-
-    验证点：
-    1. 编译成功
-    2. 运行正确（共享列表在协程中正确访问）
-    3. 没有悬垂指针或二次释放
-    """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        source_file = tmpdir / "test_shared_list.light"
-        source_file.write_text(L228_SHARED_LIST_SOURCE, encoding="utf-8")
-
-        # 编译
-        result = compile_light_file(source_file, tmpdir)
-        assert result["success"], f"编译失败: {result['stderr']}"
-
-
-# =============================================================================
-# L-221：await-join 测试
-# =============================================================================
-
-L221_AWAIT_JOIN_SOURCE = """
+L221_await_join源 = """
 异步 段落 已完成任务():
   返回 42
 
 异步 段落 主流程():
   设 任 为 创建任务(已完成任务())
-  等待 异步睡眠(0.01)  # 确保任务已完成
-  设 结果 为 等待 任  # 等待已完成的协程
+  等待 异步睡眠(0.01)
+  设 结果 为 等待 任
   打印("结果=" 加上 转字符串(结果))
 
 异步 运行 主流程()。
 """
 
 
-@NATIVE_ONLY
-def test_l221_await_join():
-    """L-221：await-join 修复验证
+# ── 产品路径：编译 + 真跑 ────────────────────────────────────────────────────
 
-    验证点：
-    1. 等待已完成的协程任务能正确恢复等待方
-    2. 返回值正确
+def _native_run(源码: str, 超时: int = 45):
+    """native 腿：`compile_light_typed` 编译 + 跑 exe，返回 (rc, stdout)。
+
+    走**产品路径**（用户敲 `light run --backend llvm-typed` 时走的就是这条），
+    不再调用仓库里并不存在的 `src/lightc.exe`。
     """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        source_file = tmpdir / "test_await_join.light"
-        source_file.write_text(L221_AWAIT_JOIN_SOURCE, encoding="utf-8")
-
-        # 编译
-        result = compile_light_file(source_file, tmpdir)
-        assert result["success"], f"编译失败: {result['stderr']}"
-
-        # 检查 IR
-        ir_content = get_ir_content(result["ir_path"])
-        # 检查有协程相关调用
-        assert "dv_coro_await" in ir_content or "dv_coro_resume" in ir_content, \
-            "IR 中应包含协程 await/resume 调用"
+    from llvm.compiler import compile_light_typed  # type: ignore[import]
+    with tempfile.TemporaryDirectory(prefix='_r162_nat_') as d:
+        主 = os.path.join(d, '主.light')
+        with open(主, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(源码)
+        exe = compile_light_typed(主, os.path.join(d, '产物'),
+                                  optimize_level=0, search_paths=[_STDLIB])
+        结果 = subprocess.run([exe], capture_output=True, timeout=超时, cwd=d,
+                              text=True, encoding='utf-8', errors='replace')
+        return 结果.returncode, 结果.stdout.replace('\r', '').strip()
 
 
-# =============================================================================
-# 反跑锚点（有牙）：回退修复应复现 bug
-# =============================================================================
+def _ir口径(源码: str) -> dict:
+    """只编译取 IR（不起 clang、不执行），返回有信号的计数/集合。
 
-def test_revert_l227a_should_fail():
-    """反跑：回退 L-227-a 修复后，two_a.light 应报 dominance 错误
-
-    注意：此测试需要手动回退代码后运行，标记为 xfail
+    有信号 = 「数量/集合关系」，不是「字符串 in IR」：
+      * `帧槽读取`：`call ... @dv_coro_get_local` 行数（栈 alloca 退化则归零）
+      * `导出定义`：`define ... @_seg_f*` 的名字列表（重名 = L-227-b 编号碰撞）
+      * `协程函数`：`define void @_coro_*` 的名字列表
     """
-    pytest.xfail("反跑测试需手动回退 L-227-a 修复后运行")
+    from llvm.compiler import compile_modules_typed  # type: ignore[import]
+    ir = compile_modules_typed({'主': 源码}, main_module='主', opt_level='O0')
+    return {
+        '帧槽读取': len(re.findall(r'call [^@]*@dv_coro_get_local', ir)),
+        '导出定义': re.findall(r'^define [^@]*@(_seg_f\w+)', ir, re.M),
+        '协程函数': re.findall(r'define void @(_coro_\w+)', ir),
+    }
 
 
-def test_revert_l228_should_crash():
-    """反跑：回退 L-228 修复后，a_nested_probe.light 应报 0xC0000374
+def _断言输出(源码: str, 期望行: list):
+    """行为断言：退出码 0 且 stdout 逐行等于期望（去 \\r、去首尾空白）。"""
+    rc, out = _native_run(源码)
+    assert rc == 0, f"退出码应 0，实得 {rc}（stdout={out!r}）"
+    实际行 = [l for l in out.split('\n') if l.strip()]
+    assert 实际行 == 期望行, f"输出不符：期望 {期望行}，实得 {实际行}"
+    return out
 
-    注意：此测试需要手动回退代码后运行，标记为 xfail
+
+# ═══════════════════════════════════════════════════════════════════════════
+# L-227-a：跨 await SSA dominance
+# ═══════════════════════════════════════════════════════════════════════════
+
+@skip_without_clang
+def test_l227a_跨await值持久化():
+    """跨挂起点的局部变量必须活到 resume 之后：`x=42`（不是 0／不是垃圾值）。
+
+    IR 佐证：协程 locals 走持久帧槽 `dv_coro_get_local`，不是栈 alloca。
     """
-    pytest.xfail("反跑测试需手动回退 L-228 修复后运行")
+    _断言输出(L227A_跨await源, ['x=42'])
+    口径 = _ir口径(L227A_跨await源)
+    assert 口径['帧槽读取'] > 0, "IR 里没有 dv_coro_get_local 调用 ⇒ locals 退回栈 alloca（L-228 形态）"
+    assert 口径['协程函数'] == ['_coro_f1'], f"协程状态机函数异常：{口径['协程函数']}"
 
 
-# =============================================================================
-# IR before/after 证据收集
-# =============================================================================
+@skip_without_clang
+def test_l227a_双层协程返回值():
+    """两层协程 + `等待 内层()`：内层返回值要真的传回外层（`V=5`）。
 
-def collect_ir_evidence(source_code: str, test_name: str) -> dict:
-    """收集 IR before/after 证据
-
-    返回：
-        {
-            "before_ir": "修复前的 IR（如果有基线）",
-            "after_ir": "修复后的 IR",
-            "diff": "IR 差异摘要",
-        }
+    这是 L-227-a 的原始复现形态（`%5 = load %gs3` 定义在 resume_0、resume_1
+    路径不经过定义块 ⇒ dominance 违反）。
     """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        source_file = tmpdir / f"{test_name}.light"
-        source_file.write_text(source_code, encoding="utf-8")
-
-        result = compile_light_file(source_file, tmpdir)
-        ir_content = get_ir_content(result["ir_path"])
-
-        return {
-            "before_ir": None,  # 需要基线
-            "after_ir": ir_content,
-            "success": result["success"],
-            "stderr": result["stderr"],
-        }
+    _断言输出(L227A_双层源, ['V=5'])
+    口径 = _ir口径(L227A_双层源)
+    assert 口径['帧槽读取'] > 0, "IR 里没有 dv_coro_get_local 调用"
+    assert len(口径['协程函数']) == 2, f"应生成 2 个协程状态机，实得 {口径['协程函数']}"
 
 
-# =============================================================================
-# 测试入口
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════════
+# L-227-b：多导出表编号
+# ═══════════════════════════════════════════════════════════════════════════
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v", "--tb=short"])
+@skip_without_clang
+def test_l227b_多导出表三任务():
+    """多段落模块（4 个异步段落）导出表编号不得碰撞/越界。
+
+    行为断言：三个任务按创建序返回 1/2/3（乱序或缺失 = 编号复用）。
+    IR 佐证：`_seg_f*` 的 define 名**无重复**（L-227-b 根因就是编号分配撞车，
+    表现为 `use of undefined value '@_seg_f*'`）。
+    """
+    _断言输出(L227B_多导出源, ['结果1=1', '结果2=2', '结果3=3'])
+    口径 = _ir口径(L227B_多导出源)
+    定义 = 口径['导出定义']
+    assert len(定义) == 4, f"4 个顶层段落应各有一条 _seg_f* 定义，实得 {len(定义)}：{定义}"
+    assert len(set(定义)) == len(定义), f"_seg_f* 编号重复（L-227-b 回归）：{定义}"
+    assert len(口径['协程函数']) == 4, f"应生成 4 个协程状态机，实得 {口径['协程函数']}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# L-228：协程帧 locals 持久化
+# ═══════════════════════════════════════════════════════════════════════════
+
+@skip_without_clang
+def test_l228_嵌套协程帧持久化():
+    """嵌套协程（`工人` 里 `等待 协程函数()`）不得堆损坏：结果=5 + 完成。
+
+    L-228 未修时这里复现 0xC0000374（Windows）/ SIGSEGV（POSIX）。
+    """
+    _断言输出(L228_嵌套源, ['结果=5', '完成'])
+    口径 = _ir口径(L228_嵌套源)
+    assert 口径['帧槽读取'] > 0, "IR 里没有 dv_coro_get_local 调用 ⇒ 帧未持久化（L-228 回归）"
+
+
+@skip_without_clang
+def test_l228_共享表入参():
+    """共享列表作协程入参：子协程的 `追加` 必须写回调用方的同一个表（结果=3）。
+
+    注：原用例写 `共享表.添加(1)`——语言里没有 `.添加`，列表追加是 `.追加`；
+    循环也误写成 `循环 3 次:`（本语言无此语法）。两者都是测试源码 bug，已修。
+    """
+    _断言输出(L228_共享表源, ['结果=3'])
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# L-221：await-join
+# ═══════════════════════════════════════════════════════════════════════════
+
+@skip_without_clang
+def test_l221_等待已完成任务():
+    """等待一个**已经跑完**的任务：等待方必须被恢复并拿到返回值（结果=42）。
+
+    L-221 未修时等待方永远不被唤醒（用例挂死到超时）。
+    """
+    _断言输出(L221_await_join源, ['结果=42'])
+    口径 = _ir口径(L221_await_join源)
+    assert 口径['帧槽读取'] > 0, "IR 里没有 dv_coro_get_local 调用"
