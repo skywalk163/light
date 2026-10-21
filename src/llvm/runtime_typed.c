@@ -2386,20 +2386,23 @@ void dv_deref_value(LightValue* result, LightValue* v) {
             /* R161-B（L-217，P2 路径）：只读内置实参解引用产的串只活一条内置调用，
              * 属**非逃逸临时值** → 走临时表（设计 §6.2「非逃逸（留 ARENA）」）。 */
             result->str = dv_tmp_strdup(v->str);
-        } else if (v->type == LV_TYPE_FUNCTION && v->str) {
-            /* R161-C（L-231）：函数值必须**深拷闭包**，不能浅拷指针。
-             *
-             * 根因（实测）：`dv_deref_value` 把 FUNCTION 的 `str`（指向 DvClosure）
-             * 浅拷进结果槽 ⇒ 该槽与被解引用槽共享同一 DvClosure。在协程里，调用
-             * `f()` 会先把形参经本函数解引用进一个**临时槽**，而临时槽同样住在
-             * `coro->locals` 里（`_coro_temp_slot_base` 起算）⇒ `dv_coro_free` 遍历
-             * num_locals 时把 `locals[形参]` 与 `locals[临时槽]` 各释放一次 =
-             * **DvClosure 双 free** ⇒ 0xC0000374（实测：`创建任务(甲(内))` 传函数值
-             * 必崩，而传字符串/列表在补完 prologue 所有权转移后已正常）。
-             * 修法：与上面 STR 分支同口径——让结果槽持有**自己的**一份闭包。
-             * 用 `dv_clone` 而非 shallow：FUNCTION 深拷含 env 数组（R130-A 契约）。 */
-            dv_clone(result, v);
         }
+        /* R161 收口回退（2026-10-21）：R161-C（L-231）曾在此对 FUNCTION 追加
+         * `dv_clone` 深拷闭包，修协程里「形参槽 vs 解引用临时槽」的 DvClosure
+         * 双 free（实测 0xC0000374）。回退原因（0.82 双树 IR 对拍 + 插桩 trace
+         * 实证）：该深拷使**每次**函数值解引用都克隆出新 DvClosure + 新 env
+         * 数组，而源 env 永远 pristine；闭包对捕获容器的跨调用修改依赖段函数
+         * 出口的 env 写回（写回只落在当次克隆体的 env 上，原 env 不变）⇒
+         * 缓存/记忆化闭包永久 miss（test_R130_对象池缓存_原生腿 4 项全红），
+         * 且每调多漏一份 DvClosure+env、多一次 O(N) env 拷贝。
+         * 双 free 改由两道既有机制覆盖（无需本分支）：
+         *   ① R161-C L-230：协程 prologue 把 args[i] 拷进 locals[形参] 后
+         *      `dv_null` 置空 args[i]（所有权移交，dv_coro_free 的 args 循环成
+         *      no-op，不会与 locals[形参] 双 free）；
+         *   ② R161-C 同轮：`dv_coro_free` 对 locals 槽做 O(n²) 载荷指针去重
+         *      （形参槽与解引用临时槽同 str ⇒ 后者置空，只释放一次）。
+         * 回退后恢复 R160 语义：函数值解引用 = 浅拷结构体（R130-A 契约：
+         * 堆负载共享、env 数组归闭包自身）。 */
     }
 }
 
