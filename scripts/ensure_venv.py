@@ -5,8 +5,14 @@ R89-B：R88-C 在 light-merge/.venv 手工补装了 lunardate==0.3.0 与 request
 消除 14 条缺库红（test_datetime 农历 8 条 + test_lightpub_bridge 6 条），但未固化——
 重建 venv 会丢。本脚本把该补装动作固化成幂等步骤。
 
+R161-E（2026-10-21）：0.82 门禁机 venv（/home/ai/lm082_venv）缺 cryptography，导致
+`test_tls_light.py` 整文件降级为 1 条红 + `test_async_io_light.py` TLS 异步读腿 3 errors；
+装 cryptography==50.0.2 后转绿（37 passed / 3 skipped）。同理未固化 → 换机必重演，故并入 LOCKED。
+本脚本同时是**门禁机初始化清单**的权威依赖清单（见 docs/门禁机初始化清单_0.82.md）。
+
 设计口径（对齐 lightharness/scripts/同步0.86.py 的 ensure_venv）：
-  * 只锁 **R88-C 实测确认** 的两个包版本，其余依赖按 .venv 现状核对，**不擅自新增**；
+  * 只锁**实测确认**过的包版本（R88-C 两包 + R161-E 一包），其余依赖按 .venv 现状核对，
+    **不擅自新增**；新增锁版本必须有对应「缺了会红」的用例证据；
   * 幂等：已装且版本匹配 → 跳过；已装但版本不符 → 升级到锁版本；未装 → 安装锁版本；
   * 另有 WATCH 清单（门禁/运行时相关），缺失只 WARN 提示、不自动装（避免擅自改环境）；
   * 独立运行退出码 0；`--check` 只体检不写环境。
@@ -17,8 +23,10 @@ R89-B：R88-C 在 light-merge/.venv 手工补装了 lunardate==0.3.0 与 request
     python scripts/ensure_venv.py --venv D:/path/to/.venv   # 指定其它 venv
 
 对应测试文件（锁版本依据）：
-  * lunardate==0.3.0  → tests/test_datetime.py（农历 8 条）、stdlib/历法、stdlib/日期时间
-  * requests==2.34.2  → tests/test_lightpub_bridge.py（6 条）、stdlib/lightpub HTTP 客户端
+  * lunardate==0.3.0     → tests/test_datetime.py（农历 8 条）、stdlib/历法、stdlib/日期时间
+  * requests==2.34.2     → tests/test_lightpub_bridge.py（6 条）、stdlib/lightpub HTTP 客户端
+  * cryptography==50.0.2 → tests/test_tls_light.py（整文件）、tests/test_async_io_light.py
+                           （TestTLS异步读腿 3 条）
 """
 from __future__ import annotations
 
@@ -31,11 +39,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_VENV = ROOT / ".venv"
 
-# ── 固化项：R88-C 实测版本，必须锁 ────────────────────────────────────────────
+# ── 固化项：实测版本，必须锁 ──────────────────────────────────────────────────
 # 键 = pip 包名（import 名可能不同），值 = 锁定版本
 LOCKED: dict[str, str] = {
-    "lunardate": "0.3.0",
-    "requests": "2.34.2",
+    "lunardate": "0.3.0",        # R88-C：农历用例
+    "requests": "2.34.2",        # R88-C：lightpub HTTP 客户端
+    "cryptography": "50.0.2",    # R161-E：TLS 用例（0.82 实测绿；FreeBSD 需本地编译 wheel）
 }
 
 # ── 观察项：只核对存在性，缺失 WARN、不自动安装（避免擅自扩环境）─────────────

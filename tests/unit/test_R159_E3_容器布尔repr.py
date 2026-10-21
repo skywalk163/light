@@ -248,16 +248,23 @@ def test_json独立性_序列化JSON不受影响():
 
 _RT = os.path.join(_ROOT, 'src', 'llvm', 'runtime_typed.c')
 
-# 锚点：改前（depth 不敏感，复现病灶）。带前导 8 空格 + CRLF
-_BUG_LINE = (b'        case 5: return dv_strdup(v->boolean ? "\xe7\x9c\x9f" : "\xe5\x81\x87");\r\n')
-# 锚点：改后（R152-E2 depth-aware）。带前导 8 空格 + CRLF，与真实文件逐字节一致
-_FIX_LINE = (b'        case 5: return dv_strdup(v->boolean ? (depth > 0 ? "true" : "\xe7\x9c\x9f")\r\n'
-             b'                                            : (depth > 0 ? "false" : "\xe5\x81\x87"));\r\n')
+# 锚点：改前（depth 不敏感，复现病灶）。带前导 8 空格。
+# 行尾用 **LF**：锚点匹配前统一做行尾归一化（CRLF→LF），与工作树检出方式解耦
+# （CRLF 检出与 LF 检出都能命中，避免「非 Windows 必红」）。
+_BUG_LINE = (b'        case 5: return dv_strdup(v->boolean ? "\xe7\x9c\x9f" : "\xe5\x81\x87");\n')
+# 锚点：改后（R152-E2 depth-aware）。带前导 8 空格 + LF，与归一化后的真实文件逐字节一致
+_FIX_LINE = (b'        case 5: return dv_strdup(v->boolean ? (depth > 0 ? "true" : "\xe7\x9c\x9f")\n'
+             b'                                            : (depth > 0 ? "false" : "\xe5\x81\x87"));\n')
 
 
 def _read_rt() -> bytes:
     with open(_RT, 'rb') as f:
         return f.read()
+
+
+def _read_rt_norm() -> bytes:
+    """读取 runtime_typed.c 并归一化行尾（CRLF→LF）。锚点断言一律走这里，与工作树行尾解耦。"""
+    return _read_rt().replace(b'\r\n', b'\n')
 
 
 # R161-B 实测暴露的**跨模块并发**缺陷（不是本文件逻辑错）：
@@ -356,7 +363,11 @@ def test_反跑_改回depth不敏感_容器分歧复现():
         pytest.skip('改写共享源码的反跑用例在 xdist 并行下不安全（见 docstring）；'
                     '串行运行（-n 0）时执行')
     with _RTWriteLock():
-        original = _read_rt()
+        # 原始字节：保留工作树原行尾，专供 finally 原样恢复（不得写回归一化内容，
+        # 否则在 CRLF 工作树上会永久改写全文件行尾）。
+        original_raw = _read_rt()
+        # 归一化内容：仅供锚点断言 / 替换，与检出方式解耦。
+        original = original_raw.replace(b'\r\n', b'\n')
 
         # 断言当前是修复态（否则本测试无意义）
         assert _FIX_LINE in original, \
@@ -364,6 +375,8 @@ def test_反跑_改回depth不敏感_容器分歧复现():
         assert _BUG_LINE not in original
 
         # 打补丁：改成 depth 不敏感（复现病灶）
+        # 注：`patched != original` 必须与**归一化后的 original** 比较——若与原始字节比，
+        # 在 CRLF 文件上归一化本身就是差异，断言恒真、反跑无牙。
         patched = original.replace(_FIX_LINE, _BUG_LINE)
         assert patched != original, "补丁未生效：锚点不匹配"
         try:
@@ -384,9 +397,10 @@ def test_反跑_改回depth不敏感_容器分歧复现():
             # 标量仍应中文（原病灶即如此，标量路径 depth=0 不受影响）
             assert got['SCALAR'] == '真', f"标量应保持中文，实得 {got.get('SCALAR')!r}"
         finally:
-            _write_rt(original)
-            # 恢复后再确认修复态仍在
-            restored = _read_rt()
+            # 写回**原始未归一化字节**（保留原行尾），而非归一化内容
+            _write_rt(original_raw)
+            # 恢复后再确认修复态仍在（断言走归一化读取）
+            restored = _read_rt_norm()
             assert _FIX_LINE in restored, "恢复失败：修复态锚点丢失"
             assert _BUG_LINE not in restored
 
@@ -396,9 +410,11 @@ def test_反跑_改回depth不敏感_容器分歧复现():
 # ══════════════════════════════════════════════════════════════════════
 
 def test_源码级_病灶depth感知锚点存在():
-    """case 5 必须是 depth-aware 形态（防腐烂）；且 dv_list_join 两处也走 depth>=1。"""
-    with open(_RT, 'rb') as f:
-        txt = f.read()
+    """case 5 必须是 depth-aware 形态（防腐烂）；且 dv_list_join 两处也走 depth>=1。
+
+    读取走 `_read_rt_norm()`（CRLF→LF 归一化），锚点与工作树行尾解耦。
+    """
+    txt = _read_rt_norm()
     assert _FIX_LINE in txt, "case 5 缺失 depth-aware 形态"
     assert _BUG_LINE not in txt, "case 5 仍是 depth 不敏感（未修复）"
     # dv_list_join 两处（codegen_typed.py:3349 转字符串(列表) 主路径）

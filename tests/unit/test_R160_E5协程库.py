@@ -86,13 +86,26 @@ _SUBPROC_ENV = {**os.environ, 'PYTHONUTF8': '1', 'PYTHONIOENCODING': 'utf-8'}
 # ═══════════════════════════════════════════════════════════════════════════
 
 def test_C1_骨架文件存在且为纯CRLF():
-    """新 .light 必须 CRLF（铁律 10）。判据 = crlf 计数 == 总 LF 计数且 > 0。"""
+    """铁律 10 的真实要求 = 「行尾统一、不得混用」，纯 CRLF 或纯 LF 均可。
+
+    判据 = (纯 CRLF) 或 (纯 LF)：`crlf > 0 and crlf == 总lf`，或 `crlf == 0 and 总lf > 0`。
+    混用（crlf 与裸 LF 并存）仍判红——铁律 10 禁的是混用，不是 LF。
+
+    函数名保留「纯CRLF」仅为不破坏既有验收点名，判据已行尾无关。
+
+    为何必须行尾无关：git 索引存 LF；Windows 靠 `core.autocrlf=true` 检出 CRLF，
+    FreeBSD 干净 clone 无 autocrlf ⇒ 检出 LF。同一 commit 在两平台工作树行尾不同，
+    文件内容并未损坏。判据若硬绑 CRLF，则在非 Windows 机器上恒红（行尾 artifact，非代码缺陷）。
+    """
     assert os.path.exists(_协程模块), f"骨架缺失：{_协程模块}（规格 §3 的 Tier-1 签名应已落）"
     数据 = open(_协程模块, 'rb').read()
     crlf = 数据.count(b'\r\n')
     总lf = 数据.count(b'\n')
-    assert crlf > 0 and crlf == 总lf, (
-        f"协程.light 不是纯 CRLF：crlf={crlf} / 总LF={总lf}（铁律 10：新 .light 必须 CRLF）")
+    纯crlf = crlf > 0 and crlf == 总lf
+    纯lf = crlf == 0 and 总lf > 0
+    assert 纯crlf or 纯lf, (
+        f"协程.light 行尾不一致（混用）：crlf={crlf} / 总LF={总lf}"
+        f"（铁律 10 的真实要求：行尾必须统一，CRLF 或 LF 均可）")
 
 
 def test_C2_导出清单与期望一致():
