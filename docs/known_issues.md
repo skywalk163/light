@@ -6,7 +6,7 @@
 
 **工程侧（CI / 门禁 / 测试稳定性）known issue 已单列目录**（R94 起）：[`docs/known-issues/`](./known-issues/)
 - KI-R94-01 Windows 高负载下 xdist worker 被杀 → `resolved (R95)`（误杀面结构性关闭；残余=上游 xdist 高负载脆弱性，已规避）
-- KI-R94-02 W-13 滑动窗口派发时序断言 → `accepted-risk`（阈值放宽换来的**条件绿**，不销账）
+- KI-R94-02 W-13 滑动窗口派发时序断言 → `resolved (R95)`（去抖动化完成，已从台账销账）
 - R95 backlog：Job Object 根治 + 创建时间闸门评估
 - Windows 本机全量运行手册：[`docs/运行手册_Windows本机全量.md`](./运行手册_Windows本机全量.md)
 **历史编号查证**：本文引用的 T 编号（T1~T19 族）为**历史任务编号**（非缺陷编号），归宿与定性见 [`docs/编号登记表.md`](./编号登记表.md)（R154 建）。
