@@ -124,8 +124,11 @@ jobs:
           # 必需依赖：pytest 框架 + xdist 并行（37min→15min 根因修复）+ cryptography/
           # lunardate/aiohttp/pypinyin/opencc 为测试侧硬依赖（缺则整文件红，
           # 信号不能丢，故不 || true）。devpi 镜像未必有，先试 devpi 失败强制回退公共 PyPI。
-          python -m pip install pytest pytest-xdist cryptography lunardate aiohttp pypinyin opencc-python-reimplemented || \
-            python -m pip install --index-url https://pypi.org/simple pytest pytest-xdist cryptography lunardate aiohttp pypinyin opencc-python-reimplemented
+          # pytest-timeout：pyproject addopts 有 `--timeout=60 -n 4 --dist=loadscope`，
+          # 不装的话 pytest 直接 `unrecognized arguments: --timeout=60`（run 343 实测红）。
+          # .github/workflows/ci.yml 镜像早就装了，这里补齐对齐。
+          python -m pip install pytest pytest-xdist pytest-timeout cryptography lunardate aiohttp pypinyin opencc-python-reimplemented || \
+            python -m pip install --index-url https://pypi.org/simple pytest pytest-xdist pytest-timeout cryptography lunardate aiohttp pypinyin opencc-python-reimplemented
           # 科学计算包（e2e 示例依赖）：CI 不拦（缺则 demo 留基线），预装后零下载。
           python -m pip install pandas matplotlib scikit-learn sympy || \
             python -m pip install --index-url https://pypi.org/simple pandas matplotlib scikit-learn sympy || true

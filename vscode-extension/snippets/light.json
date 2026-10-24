@@ -312,5 +312,35 @@
             "}"
         ],
         "description": "并行作用域（结构化并发）"
+    },
+    "引 SQL 块": {
+        "prefix": "引SQL",
+        "body": [
+            "引 SQL:",
+            "    ${1:SELECT * FROM 表名;}"
+        ],
+        "description": "L3 内嵌 SQL 块"
+    },
+    "引 Python 块": {
+        "prefix": "引Python",
+        "body": [
+            "引 Python:",
+            "    ${1:import ...}",
+            "    出 ${2:结果}"
+        ],
+        "description": "L4 沙箱引用 Python"
+    },
+    "与资源": {
+        "prefix": "与",
+        "body": [
+            "与 ${1:表达式} 为 ${2:名字}:",
+            "    ${3:代码}"
+        ],
+        "description": "资源管理：与 ... 为 ..."
+    },
+    "匿名函数": {
+        "prefix": "匿名",
+        "body": "匿名(${1:x}): ${2:x * 2}",
+        "description": "单表达式匿名函数"
     }
 }
