@@ -8,7 +8,7 @@ R89-B：R88-C 在 light-merge/.venv 手工补装了 lunardate==0.3.0 与 request
 R161-E（2026-10-21）：0.82 门禁机 venv（/home/ai/lm082_venv）缺 cryptography，导致
 `test_tls_light.py` 整文件降级为 1 条红 + `test_async_io_light.py` TLS 异步读腿 3 errors；
 装 cryptography==50.0.2 后转绿（37 passed / 3 skipped）。同理未固化 → 换机必重演，故并入 LOCKED。
-本脚本同时是**门禁机初始化清单**的权威依赖清单（见 docs/门禁机初始化清单_0.82.md）。
+本脚本同时是**门禁机初始化清单**的权威依赖清单（见 docs/门禁机初始化清单_0.88.md）。
 
 设计口径（对齐 lightharness/scripts/同步0.86.py 的 ensure_venv）：
   * 只锁**实测确认**过的包版本（R88-C 两包 + R161-E 一包），其余依赖按 .venv 现状核对，
@@ -27,6 +27,8 @@ R161-E（2026-10-21）：0.82 门禁机 venv（/home/ai/lm082_venv）缺 cryptog
   * requests==2.34.2     → tests/test_lightpub_bridge.py（6 条）、stdlib/lightpub HTTP 客户端
   * cryptography==50.0.2 → tests/test_tls_light.py（整文件）、tests/test_async_io_light.py
                            （TestTLS异步读腿 3 条）
+  * pytest-timeout==2.4.0 → 整个 pytest 会话（pyproject addopts 的 --timeout=60；缺包则
+                             pytest 直接 exit 4「unrecognized arguments」，R164-T2 §2.4）
 """
 from __future__ import annotations
 
@@ -45,13 +47,15 @@ LOCKED: dict[str, str] = {
     "lunardate": "0.3.0",        # R88-C：农历用例
     "requests": "2.34.2",        # R88-C：lightpub HTTP 客户端
     "cryptography": "50.0.2",    # R161-E：TLS 用例（0.82 实测绿；FreeBSD 需本地编译 wheel）
+    "pytest-timeout": "2.4.0",   # R164-D（T-2 移交）：pyproject addopts 写死 --timeout=60，
+                                 # 缺了 pytest **整轮 exit 4「unrecognized arguments」起不来**——
+                                 # 比「缺了会红」更强（0.88 系统 python 实测，R164-T2 §2.4）
 }
 
 # ── 观察项：只核对存在性，缺失 WARN、不自动安装（避免擅自扩环境）─────────────
 WATCH: tuple[str, ...] = (
     "pytest",                  # 门禁运行器
     "pytest-xdist",            # 全量 -n auto 并行
-    "pytest-timeout",          # 用例超时保护
     "antlr4-python3-runtime",  # 光明生成解析器运行时契约（应为 4.13.2）
     "psutil",                  # 进程树/子进程类用例（0.86 侧必备，本机视用例需要）
 )

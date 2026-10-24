@@ -6246,11 +6246,13 @@ void dv_get_type_name(LightValue* obj, char* buf, int buf_size) {
 #define DV_CORO_ERROR    4  /* 出错 */
 
 /* 协程函数指针类型：
-   void coro_func(LightValue* result, void* coro_handle, LightValue* args, int num_args)
-   
+   void coro_func(LightValue* result, void* coro_handle, LightValue* args,
+                  int num_args, LightValue* env)
+
    协程函数通过 coro_handle 中的 resume_point 控制执行位置（Duff's device）。
+   R163-A（L-232）：新增第 5 参 env（捕获环境，随帧存活的克隆数组；无捕获为 NULL）。
 */
-typedef void (*LightCoroFunc)(LightValue*, void*, LightValue*, int);
+typedef void (*LightCoroFunc)(LightValue*, void*, LightValue*, int, LightValue*);
 
 /* 最大协程数 */
 #define DV_MAX_COROUTINES 4096
@@ -6287,6 +6289,12 @@ typedef struct LightCoroutine {
      * 等 awaiter `等待` 时原样重抛。has_pending_exc=1 表示 pending_exc 有效。 */
     LightValue pending_exc;
     int has_pending_exc;
+
+    /* R163-A（L-232）：捕获环境克隆（与同步闭包 env 同构：[len, v1, v2, ...]）。
+     * 由 dv_closure_env_clone 从 wrapper 收到的 env 浅拷克隆进本帧——必须随帧
+     * 存活（不得栈上借用），否则外层 DvClosure 释放后 env 悬垂。元素堆负载与外层
+     * 共享（值捕获语义）；本数组本身在 dv_coro_free 里 free。无捕获时为 NULL。 */
+    LightValue* env;
 } LightCoroutine;
 
 /* Future/Promise 结构体 */
@@ -6324,18 +6332,26 @@ static void dv_future_unref(LightFuture* f); /* R119-B：future 引用 -1，归�
  * 循环 `dv_scheduler_run_event_loop`（B3），故在此前置声明。 */
 void dv_scheduler_run_event_loop(void);
 
-/* 内部：创建协程 */
-LightCoroutine* dv_coro_create(LightCoroFunc func, LightValue* args, int num_args, int num_locals) {
+/* 内部：创建协程
+ * R163-A（L-232）：新增第 5 参 env（捕获环境 [len,v1,...]，wrapper 透传自同步段
+ * %env）。NULL = 无捕获（顶层异步段/类异步方法）。非 NULL 时克隆进本帧随帧存活，
+ * 协程状态机 resume_0 从 %env 解包自由变量。 */
+LightCoroutine* dv_coro_create(LightCoroFunc func, LightValue* args, int num_args, int num_locals, LightValue* env) {
     if (g_scheduler.num_coros >= DV_MAX_COROUTINES) {
         return NULL;
     }
     LightCoroutine* coro = (LightCoroutine*)malloc(sizeof(LightCoroutine));
     if (!coro) return NULL;
-    
+
     coro->state = DV_CORO_READY;
     coro->resume_point = 0;
     coro->func = func;
     dv_null(&coro->result);
+
+    /* R163-A（L-232）：克隆 env 数组进帧（浅拷结构体，元素堆负载与外层共享——
+     * 值捕获语义，与同步闭包 dv_closure_env_clone 同口径）。数组本身归本帧，
+     * dv_coro_free 里 free；不递归释放元素。env==NULL 安全跳过。 */
+    coro->env = dv_closure_env_clone(env);
     
     /* 复制参数
      * R161-A（L-228 深层根因）：`memcpy` 浅拷 → 协程挂起后恢复时读调用方栈实参的
@@ -6444,7 +6460,8 @@ LightCoroutine* dv_coro_create_bound(LightCoroFunc func, LightValue* self_slot,
         all[i + 1] = args[i];
     }
 
-    LightCoroutine* coro = dv_coro_create(func, all, total, num_locals);
+    /* R163-A（L-232）：类异步方法不是嵌套闭包，无捕获环境 ⇒ 第 5 参 NULL。 */
+    LightCoroutine* coro = dv_coro_create(func, all, total, num_locals, NULL);
     free(all);   /* dv_coro_create 已按值复制进 coro->args，缓冲所有权随之转移 */
     if (coro) coro->caller_self = self_slot;
     return coro;
@@ -6518,7 +6535,7 @@ static int dv_coro_resume(LightCoroutine* coro) {
             __dv_try_saved_stack_size[__dv_try_level] = __dv_call_stack_size;
             if (setjmp(__dv_jmp_bufs[__dv_try_level]) == 0) {
                 guarded = 1;
-                coro->func(&coro->result, coro, coro->args, coro->num_args);
+                coro->func(&coro->result, coro, coro->args, coro->num_args, coro->env);
                 __dv_try_level--;
             } else {
                 /* 协程内未捕获异常：记到协程上，稍后由 awaiter 重抛 */
@@ -6533,7 +6550,7 @@ static int dv_coro_resume(LightCoroutine* coro) {
         }
         if (!guarded) {
             /* try 栈已满（极端深度）：退回无保护直接调用，保持旧行为 */
-            coro->func(&coro->result, coro, coro->args, coro->num_args);
+            coro->func(&coro->result, coro, coro->args, coro->num_args, coro->env);
         }
     }
 
@@ -6965,6 +6982,9 @@ void dv_coro_free(LightCoroutine* coro) {
         for (int i = 0; i < coro->num_locals; i++) dv_free(&coro->locals[i]);
         free(coro->locals);
     }
+    /* R163-A（L-232）：释放 env 克隆数组本身。不递归释放元素——元素堆负载与外层
+     * 共享（值捕获语义，dv_closure_env_clone 只拷结构体），与 dv_closure_env_free 同口径。 */
+    if (coro->env) { free(coro->env); coro->env = NULL; }
     LightFuture* f = coro->future;
     coro->future = NULL;
     coro->func = NULL;  /* 标记已释放，防 dv_coro_free 重入/重复释放 */

@@ -882,7 +882,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare ptr @dv_base64_encode(ptr, i32)',
             f'declare ptr @dv_base64_decode(ptr, ptr)',
             # 协程/异步
-            f'declare ptr @dv_coro_create(ptr, ptr, i32, i32)',
+            f'declare ptr @dv_coro_create(ptr, ptr, i32, i32, ptr)',
             # R160-A（L-219 子缺陷②）：类内 `异步 段落` 方法 —— 绑定接收者建协程，
             # 并在协程完成出口把帧内 己 写回调用方接收者槽位。
             f'declare ptr @dv_coro_create_bound(ptr, ptr, ptr, i32, i32)',
@@ -5023,10 +5023,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         recv = prop.obj
         if not isinstance(recv, ast.Identifier) or '.' in recv.name:
             return False
-        if recv.name in ('己', 'self'):
+        if recv.name in ('自', '己', 'self'):
             # R146-A 命名截胡治理（L-198 残余）：类方法体内 `己.写()` 等——若当前类定义了
             # 该同名方法，应走类方法而非被文件句柄/内置 mutating 名（dv_file_write 等）截胡。
             # 此前此处直接返回 False，导致 self 接收者的同名方法被内置分派吞掉。
+            # R164-A（L-198 收口）：补 `自`——light 方法首参约定名 `自` 与 `己` 在
+            # 方法入口共用同一槽位（见 _gen_typed_method 自身形参名绑定处），但本判定
+            # 此前只认 `己/self`，于是 `等待 自.写(9)` 的 `自` 接收器漏过保护。
             if self._current_class is None:
                 return False
             return self._class_defines_method(self._current_class, method_name)
@@ -5318,10 +5321,15 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # R125-A2：接收者是已跟踪的类实例变量、且方法名在该类继承链上有定义
         # ⇒ 优先走类方法（dv_call_method），不被内置 mutating 分派截胡——
         # 此前 `obj.清空()`（自定义类同名方法）被截胡成 dv_list_clear（转译腿正确、
-        # 原生腿错误的根因）。只收窄 mutating 撞名场景：容器字段（己.数据）
-        # 不在跟踪名单里，写回语义原样保留（SSE 不回归）；名单外方法分派不变。
-        走类方法 = (method_name in mutating_methods
-                    and self._recv_is_instance_method(prop, method_name))
+        # 原生腿错误的根因）。收窄前提保留在 _recv_is_instance_method：只认无点
+        # Identifier 接收器，容器字段（己.数据）不在跟踪名单里，写回语义原样保留。
+        # R164-A（L-198 收口）：把「优先类方法」从 mutating_methods 名单扩到全部
+        # 内置名。名单时代 `写/关闭/读` 等文件句柄内置不在名单里，于是类同名方法
+        # `自.写(9)` 仍被 dv_file_write 截胡成静默空操作（实例属性从未被写）。
+        # 前提不变——只有「接收器被跟踪为类实例且该类真定义了同名方法」才让位给
+        # 类方法；文件句柄变量（打开文件() 产物，无 class_name）不在跟踪名单，
+        # 其 写/关闭 分派行为不受影响。
+        走类方法 = self._recv_is_instance_method(prop, method_name)
 
         # L-077：`.弹栈()` 的返回值是被弹的元素，不是新列表——写回接收者的
         # 新列表由 builtin 内部无法完成（那里拿不到接收者槽位），因此在这里
@@ -5366,7 +5374,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # 否则使用 dv_call_method 调用类方法
         # 己/self 方法调用：直接取接收者 lvalue 槽位，避免复制出共享缓冲的副本
         # 导致被调方法内 dv_class_set_member 释放后原 self 悬空（use-after-free）。
-        if isinstance(prop.obj, ast.Identifier) and prop.obj.name in ('己', 'self'):
+        # R164-A：`自` 与 `己` 共用同一槽位，一并走 lvalue 通路（L-198 收口）。
+        if isinstance(prop.obj, ast.Identifier) and prop.obj.name in ('自', '己', 'self'):
             obj_slot = self._self_lvalue_slot()
         else:
             obj_slot = self._store_dv(obj_dv)
@@ -7917,6 +7926,9 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 # 让我们用运行时函数更安全
                 result_slot = self._store_dv(dv_val)
                 self.emit(f'call void @dv_coro_set_result(ptr %coro, ptr {result_slot})')
+            # R163-A（L-232）：协程完成出口把自由变量帧槽最新值写回 env
+            # （与同步段出口 _emit_closure_env_writeback 同口径，L-098 闭包语义）。
+            self._emit_closure_env_writeback()
             # R160-A（L-219 子缺陷②）：类内异步方法的完成出口先写回 己 → 调用方槽位
             # （必须在结果求值之后、写 state=DONE 之前；与普通方法出口顺序同口径）。
             self._emit_coro_self_writeback()
@@ -8651,10 +8663,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # R161-A（L-228）：临时槽也落在 coro->locals 持久帧槽（_new_dv_slot 发射
         # dv_coro_get_local），故 num_locals 须加上临时槽用量，否则下标越界。
         num_locals += int(getattr(self, '_coro_temp_slot_count', 0) or 0)
-        
-        # 调用 dv_coro_create 创建协程
+        # R163-A（L-232）：自由变量在状态机末尾追加了帧槽（见 _gen_coroutine_function），
+        # wrapper 的 num_locals 必须同步加上，否则那几个槽 dv_coro_get_local 越界。
+        num_locals += len(getattr(self, '_coro_free_vars', None) or [])
+
+        # 调用 dv_coro_create 创建协程（R163-A：第 5 参透传本包装段收到的 %env，
+        # runtime 克隆进协程帧随帧存活；无捕获时 %env 为 null）
         coro_handle = self.new_register()
-        self.emit(f'{coro_handle} = call ptr @dv_coro_create(ptr @{coro_func_name}, ptr %args, i32 %num_args, i32 {num_locals + num_params})')
+        self.emit(f'{coro_handle} = call ptr @dv_coro_create(ptr @{coro_func_name}, ptr %args, i32 %num_args, i32 {num_locals + num_params}, ptr %env)')
         
         # 将协程句柄存储到 result 中（作为指针值存储在 LightValue 中）
         # 我们用 LightValue 的 type=DV_COROUTINE, value.ptr_val = coro_handle
@@ -8734,7 +8750,10 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         # （每个程序都有 __light_init，所以 O3 对任何源码都炸），以及
         # optimizer_pipeline 用 `\{[^}]*\}` 匹配函数体、遇到 `alloca { i64, i8* }`
         # 就把函数腰斩。两处 A7 已修。结论：**这里不需要加属性**。
-        self.emit(f'define void @{coro_func_name}(ptr %result, ptr %coro, ptr %args, i32 %num_args) {{')
+        # R163-A（L-232）：状态机签名加第 5 参 ptr %env（捕获环境，与同步段
+        # @_seg_<safe> 第 4 参同构）；resume_0 从 %env 解包自由变量到帧槽，
+        # 出口写回。runtime 的 dv_coro_resume 每次传入 coro->env。
+        self.emit(f'define void @{coro_func_name}(ptr %result, ptr %coro, ptr %args, i32 %num_args, ptr %env) {{')
         self.emit('entry:')
         # R159-A：switch 之前就是 entry 块尾部 —— 记下回插点，让 `_gen_alloca` /
         # `_new_dv_slot` 把 alloca / dv_coro_get_local 提到这里（挂起后 resume 块
@@ -8750,6 +8769,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self._collect_vars_from_stmts(body)
         for param_name, _ in params:
             self._local_vars[param_name] = None
+        # R163-A（L-232）：自由变量登记为协程帧槽（与 _gen_normal_segment 同口径）。
+        # 排在 collect(body) 与 params 之后 ⇒ 帧槽下标在末尾；wrapper 的 num_locals
+        # 已按 (collect + params + 临时槽 + 自由变量数) 分配，见 _gen_async_segment。
+        # 快照到实例属性：两个 wrapper（段包装/方法包装）都读它，避免方法路径上
+        # _current_free_vars 状态残留导致帧槽数与状态机槽位对不上。
+        self._coro_free_vars = list(self._current_free_vars or [])
+        for fv in self._coro_free_vars:
+            self._local_vars.setdefault(fv, None)
         
         # 为协程局部变量分配索引（使用 coro->locals 数组，跨 await 持久化）
         var_names = list(self._local_vars.keys())
@@ -8881,7 +8908,13 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             recv_slot = self._local_vars.get(self_param_name)
             if recv_slot is not None:
                 self.emit(f'call void @dv_obj_deepcopy_self(ptr {recv_slot})')
-        
+
+        # R163-A（L-232）：自由变量从 %env 解包到帧槽。必须在 resume_0 块内
+        # （与 args→locals 拷贝同块），只在首跑执行——否则每次 resume 都会用 env
+        # 旧值冲掉帧内被嵌套协程写回的更新。env 为 null（顶层异步段无捕获）时跳过。
+        if self._coro_free_vars:
+            self._emit_closure_env_unpack(self._coro_free_vars, '%env')
+
         # 生成函数体语句
         for stmt in body:
             self._gen_statement(stmt)
@@ -8934,6 +8967,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
     
     def _gen_coro_return(self):
         """生成协程返回（设置完成状态）"""
+        # R163-A（L-232）：隐式结束出口同样写回 env（与显式返回同口径）。
+        self._emit_closure_env_writeback()
         # 设置 state = DV_CORO_DONE (3)
         self._emit_coro_self_writeback()
         state_ptr = self.new_register()
@@ -9401,6 +9436,8 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             # num_locals = 体局部变量 + 协程形参（含接收者）+ 临时槽位。
             # 多算只多分配几个槽位（无害）；少算会让状态机里的 dv_coro_get_local 返回 NULL → 写空指针。
             num_locals = len(self._local_vars) + len(coro_params) + int(getattr(self, '_coro_temp_slot_count', 0) or 0)
+            # R163-A（L-232）：类异步方法一般无自由变量；防御性同步计数（有则补齐帧槽）。
+            num_locals += len(getattr(self, '_coro_free_vars', None) or [])
 
             self_recv = '%self' if method_type != 'static' else 'null'
             coro_handle = self.new_register()

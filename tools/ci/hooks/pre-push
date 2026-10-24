@@ -142,3 +142,30 @@ if [ -f "$SCANNER" ]; then
 else
   echo "[pre-push 凭证守卫] 未找到扫描器 $SCANNER，跳过守卫（未拦截）。" >&2
 fi
+
+# ── 门禁机固化项自检（R164-D：把 scripts/门禁机自检.py 挂进真门禁）──
+# 只核「②LH 副本」「③LOCKED 依赖」两项固化项；`--allow-dirty` 跳过「①工作树干净」——
+# 推送时工作树常含未提交/未跟踪物（scratch、本轮并行改动），那不是「同 commit 判绿」
+# 要守的东西，闸门只该看固化项。②③ 任一 FAIL 即拦截推送（有牙：改坏固化项 ⇒ 推不上去）。
+# venv 路径：权威机 / 本机不同，用 GATE_SELFCHECK_VENV 覆盖（默认 <仓库根>/.venv）。
+if [ -f scripts/门禁机自检.py ]; then
+  SC_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || printf '%s' .)"
+  SC_VENV="${GATE_SELFCHECK_VENV:-$SC_ROOT/.venv}"
+  SC_OUT="$("$PY" scripts/门禁机自检.py --check --allow-dirty --tree "$SC_ROOT" --venv "$SC_VENV" 2>&1)"
+  SC_RC=$?
+  if [ $SC_RC -ne 0 ]; then
+    echo "[pre-push 门禁机自检] 拦截推送：固化项 FAIL（②LH 副本 / ③LOCKED 依赖）——" >&2
+    printf '%s\n' "$SC_OUT" | while IFS= read -r _l; do
+      case "$_l" in
+        *FAIL*) echo "   $_l" >&2 ;;
+      esac
+    done
+    echo "  修法见 docs/门禁机初始化清单_0.88.md；依赖用 scripts/ensure_venv.py --venv <venv>（幂等）。" >&2
+    echo "  权威机 venv 与默认不同时，设 GATE_SELFCHECK_VENV=<venv 路径> 重推。" >&2
+    exit 1
+  else
+    echo "[pre-push 门禁机自检] 固化项核对 ✓" >&2
+  fi
+else
+  echo "[pre-push 门禁机自检] 未找到 scripts/门禁机自检.py，跳过（未拦截）。" >&2
+fi

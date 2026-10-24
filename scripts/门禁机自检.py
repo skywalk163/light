@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""门禁机自检.py —— 把 `docs/门禁机初始化清单_0.82.md` 的三步做成**可执行自检**。
+"""门禁机自检.py —— 把 `docs/门禁机初始化清单_0.88.md` 的三步做成**可执行自检**。
 
 为什么要有这个脚本
 ------------------
@@ -24,6 +24,12 @@ commit 本机绿、0.82 红**反复重演：R161-E 实测 `test_builtins_drift` 
     python scripts/门禁机自检.py --check                      # 默认 venv = <仓库根>/.venv
     python scripts/门禁机自检.py --check --venv /home/ai/lm082_venv
     python scripts/门禁机自检.py --check --expect-head 8ae1bdf80
+    python scripts/门禁机自检.py --check --allow-dirty         # 只核②③固化项，跳过①工作树干净
+
+`--allow-dirty`（R164-D）：只跳过「①git 工作树干净」这一条断言，②LH 副本 / ③LOCKED
+依赖仍照核。用于 **pre-push 场景**——推送时工作树常含未提交 / 未跟踪物（scratch、
+本轮并行改动），那不是「同 commit 判绿」要守的东西；但闸门只该看固化项。默认（不带
+本开关）仍是初始化 / 收口时的严格口径。
 
 退出码：**0 = 全 PASS；1 = 有 FAIL**。`--check` 是只读模式（不装包、不改任何文件），
 修环境请用 `scripts/ensure_venv.py --venv ...`（幂等安装）。
@@ -70,7 +76,7 @@ def _跑(cmd, cwd=None):
 
 
 # ── ① git 树 ────────────────────────────────────────────────────────────────
-def 检git树(res: _结果, 期望head: str | None, 树: Path):
+def 检git树(res: _结果, 期望head: str | None, 树: Path, allow_dirty: bool = False):
     if not (树 / ".git").exists():
         res.add(False, "①git 树存在", f"{树} 不是 git 工作树")
         return
@@ -84,8 +90,14 @@ def 检git树(res: _结果, 期望head: str | None, 树: Path):
                 "①git HEAD == 期望", f"期望 {期望head}，实得 {head}")
 
     rc2, 干净, _ = _跑(["git", "status", "--porcelain"], cwd=树)
-    res.add(rc2 == 0 and 干净 == "", "①git 工作树干净",
-            "" if 干净 == "" else "未跟踪/改动：" + 干净.replace("\n", " | ")[:300])
+    if allow_dirty:
+        # R164-D：pre-push 场景跳过「工作树干净」硬判——推送时工作树常含未提交/未跟踪物
+        # （scratch、本轮并行改动），那不是「同 commit 判绿」要守的东西。降级为 INFO 留痕。
+        res.info("①git 工作树（--allow-dirty 跳过干净校验）",
+                 "干净" if 干净 == "" else "未跟踪/改动：" + 干净.replace("\n", " | ")[:300])
+    else:
+        res.add(rc2 == 0 and 干净 == "", "①git 工作树干净",
+                "" if 干净 == "" else "未跟踪/改动：" + 干净.replace("\n", " | ")[:300])
 
     rc3, shallow, _ = _跑(["git", "rev-parse", "--is-shallow-repository"], cwd=树)
     res.add(rc3 == 0 and shallow == "false", "①git 非 shallow 克隆",
@@ -166,13 +178,15 @@ def main() -> int:
     ap.add_argument("--lh", default=None, help="lightharness 副本 builtins.py 路径（默认取 sync_builtins.LH_PATH）")
     ap.add_argument("--tree", default=str(ROOT), help="待检 git 工作树（默认 = 本仓库根）")
     ap.add_argument("--expect-head", default=None, help="期望 HEAD（短号或全号），不符即 FAIL")
+    ap.add_argument("--allow-dirty", action="store_true",
+                    help="只跳过「①git 工作树干净」断言（②LH 副本/③LOCKED 仍硬判）；pre-push 场景用")
     args = ap.parse_args()
 
     res = _结果()
     print("=" * 72)
     print("门禁机自检（只读）  树 =", args.tree)
     print("=" * 72)
-    检git树(res, args.expect_head, Path(args.tree))
+    检git树(res, args.expect_head, Path(args.tree), args.allow_dirty)
     检lh副本(res, Path(args.lh) if args.lh else None)
     检venv(res, Path(args.venv))
     print("-" * 72)
@@ -188,7 +202,7 @@ def main() -> int:
             print(f"  FAIL  {项}" + (("：" + 说明) if 说明 else ""))
     print("-" * 72)
     print(f"结果：{'全 PASS' if 失败数 == 0 else str(失败数) + ' 项 FAIL'}")
-    print("修法：git 树/副本问题见 docs/门禁机初始化清单_0.82.md；依赖用 "
+    print("修法：git 树/副本问题见 docs/门禁机初始化清单_0.88.md；依赖用 "
           "scripts/ensure_venv.py --venv <venv>（幂等安装）")
     return 0 if 失败数 == 0 else 1
 

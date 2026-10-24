@@ -35,9 +35,29 @@ R160-C2 补齐（2026-10-19）
   `_R160_C线补齐交付报告.md`）。
 - **`选择IO` native 真实 fd**：S9 = 独立探针（不 import 协程库，绕开 L-227-b）验
   `await_io(真实fd, 1)` 真挂起真唤醒 + IR 佐证；S10 = 库层 probe（R161 就绪态，
-  当前必命中 L-227-b ⇒ xfail，修后自动转正常断言）。
+  L-227-b 已由 R161-A 修复；R164 T-3 后红因改判 **L-229b**（native runtime 缺陷，
+  非库层可修），仍 xfail，见下节）。
 - **崩溃签名门补 POSIX `-11`**（SIGSEGV，与 Windows 访问冲突同族）：旧门只列
   `3221225477`/`3221226356`，两平台 SIGSEGV 形态全部漏 xfail。
+
+R164 T-3 补齐（2026-10-24）
+--------------------------
+- **归因订正**：`stdlib/协程.light` 的竞速 / 选择睡眠 / 选择IO 改走**模块级全局结果槽表 +
+  整数槽号**（零 Python import、与 src/native 同源），消除 native 腿「跨协程共享结果表
+  因协程实参值拷贝而不可见」的结构性挂死（最小复现定性为 **L-229**）。L-227（codegen
+  阻塞）已由 R161-A/R163-A 修复、L-238（`等待 <函数值实参>()` 立即返回 / 内联轮询零推进）
+  在 0.88 当前树不可复现，二者均从归因剥离。
+- 段② S3 / S4 / S6 三例由 `subprocess.TimeoutExpired⇒xfail` 转**真跑正常断言**
+  （xfail 4 → 1、真跑 11 → 14）；S10 红因改判 **L-229b** 后仍 xfail（见下）。
+- **L-229a（S3，已修）**：`竞速` 原 `返回 首条` 是全局 `_结果槽表` 内层表的**别名**，
+  第二次 `开槽()` 令全局表增长后该别名在 native 腿失效 ⇒ SIGSEGV；改返回**游离新表**
+  `[首条[0], 首条[1]]`（库层内部形态，公开签名/导出清单不变）；0.88 实测 `_P3` 转绿、
+  `_P4`/`_P6` 不回归。
+- **L-229b（S10，库层不可修）**：native 腿同一进程内**第二次**调用 竞速/选择睡眠/选择IO
+  时，若某次被登记工人**无让出点即同步跑完**（如 `返回 真`），进程 SIGSEGV（rc=-11）。
+  与 IO/`await_io`/`转字符串` 均无关（`选择睡眠` 同款即崩，无 socket 也崩）；两次调用且
+  工人均有让出点不崩（`_P6`）、单次不崩；库层两种让出点注入实测均不能规避（其一还令
+  `_P6` 转崩）。真因在 native 协程调度/codegen，`src/llvm` 属 T-3 禁改范围 ⇒ 据实留 xfail。
 
 平台：本机 Windows 只初筛；判绿以 0.82 权威 + 0.86 Linux 为准（铁律 7/8），段②由
 主 agent 统一触发。
@@ -177,11 +197,21 @@ def _native_run(源码: str, 优化档: int = 0):
         return 结果.returncode, 结果.stdout.replace('\r', '').strip()
 
 
-# ── L-227 已登记：native 腿协程 codegen/runtime 阻塞（HEAD 复现，非本库引入）──
+# ── native 腿协程 codegen/runtime 阻塞登记（HEAD 复现，非本库引入）──
 #   ① 跨 await 表达式（`f(等待 x)` 混合其它操作数）→ IR `does not dominate all uses`
 #   ② 多函数模块导出表 → `use of undefined value '@_seg_*'`
 #   ③ 嵌套 `创建任务(工人(共享表))` + 轮询 → SIGSEGV(0xC0000005) / 挂死
-# 命中三类即 xfail（诚实：src 腿断言已真跑真绿）；其它失败照常抛出（真回归）。
+# 命中即 xfail（诚实：src 腿断言已真跑真绿）；其它失败照常抛出（真回归）。
+# R164 T-3（2026-10-24）归因订正：① ②（L-227 codegen）已由 R161-A/R163-A 修复，本轮
+#   复核不再复现；③ 经 9 批最小复现**一分为二**：
+#     · **L-229a（库层 · 本轮已修）**：原 `竞速` 返回全局 `_结果槽表` 的**内层表别名** ⇒
+#       native 腿第二次调用 SIGSEGV；已改为返回**游离新表** `[首条[0], 首条[1]]`（库层
+#       内部形态，公开签名/导出清单不变）。S3/S4/S6 因此由 xfail 转真跑正常断言。
+#     · **L-229b（native runtime · 库层不可修）**：同一进程内**第二次**调用 竞速/选择睡眠/
+#       选择IO 且某次被登记工人**无让出点即同步跑完** ⇒ SIGSEGV（rc=-11）；真因在 native
+#       协程调度/codegen，`src/llvm` 属 T-3 禁改 ⇒ 据实留 xfail（S10）。
+#   L-238（`等待 <函数值实参>()` 立即返回 / 内联轮询零推进）在 0.88 当前树亦不可复现
+#   （R163-A 修 L-232 后），从归因剥离。详见 _R164_C线交付报告.md。
 _已知原生阻塞 = ('does not dominate all uses', "use of undefined value '@_seg_")
 # R160-C2（2026-10-19）补 POSIX 崩溃签名：-11 = SIGSEGV，与 Windows 访问冲突同族
 # （L-228）。0.82/0.86 双平台基线里 S1/S2/S5a 在 Linux 全为 rc=-11，旧门只列 Windows
@@ -190,7 +220,7 @@ _已知崩溃 = (3221225477, 3221226356, -11)  # 0xC0000005 / 0xC0000374 / SIGSE
 
 
 def _native_或_已知阻塞(源码: str):
-    """native 腿编译+运行；命中 L-227 已登记阻塞则 xfail，其它异常照抛。"""
+    """native 腿编译+运行；命中登记的 codegen 阻塞(L-227)/runtime 崩溃(L-229b)则 xfail，其它异常照抛。"""
     try:
         return _native_run(源码)
     except RuntimeError as e:
@@ -199,13 +229,13 @@ def _native_或_已知阻塞(源码: str):
             pytest.xfail(f"L-227: native 协程 codegen 阻塞（{msg.splitlines()[0][:70]}）")
         raise
     except subprocess.TimeoutExpired:
-        # R161-C 订正：挂死不再是 L-227 独占签名。R161-A 修 L-227/L-228 后，剩余挂死
-        # 命中**新登记**的 L-229/L-238（协程实参值拷贝 ⇒ 跨协程共享容器不可见；
-        # `等待 <函数值实参>()` 立即返回空 / 内联轮询零推进）。两者都不再是
-        # 「L-227 未修」形态，故理由按新账登记；修好后 rc=0 ⇒ 自动转正常断言。
+        # R164 T-3 订正：此为**修复前库层**挂死的兜底登记（L-229a：共享结果表按值拷贝 ⇒
+        # 跨协程写入不传回 ⇒ 父协程轮询永不退出）。本库已改走模块级全局结果槽表 + 整数槽号，
+        # S3/S4/S6 实测转 rc=0 正常断言，此分支仅在挂到旧库时触发。L-238 在 0.88 当前树
+        # 不可复现已剥离；L-227 codegen 阻塞由 R161-A/R163-A 修复。
         pytest.xfail(
-            "L-227/L-229/L-238: native 协程 runtime 挂死（跨协程共享结果表结构性不可用，"
-            "见 _R161_C线交付报告.md §3；非 L-227 codegen 阻塞）")
+            "L-229a(修复前库层兜底): native 协程挂死（跨协程共享结果表值拷贝不可见，"
+            "父协程轮询永不退出；见 _R164_C线交付报告.md）")
 
 
 def _原生IR文本(源码: str) -> str:
@@ -288,8 +318,8 @@ _P7_原生IO真实fd = (
 )
 
 # 库层 probe（R161 就绪态）：按规格 §3.7 参考包装写 `原生就绪可读` 注入段，
-# 走 `从 协程 导入 选择IO`。当前必命中 L-227-b（多导出表）⇒ xfail；L-227 修后
-# **本探针无需改动**即自动转正常断言。
+# 走 `从 协程 导入 选择IO`。L-227-b（多导出表）已由 R161-A 修复；
+# R164 T-3 修复库层共享结果表后本探针无需改动，但红因改判 **L-229b**（见 S10 docstring）。
 #
 # R161-C（2026-10-20）注入形态订正：规格 §3.7 原参考包装写成
 # `异步 段落 原生就绪可读(fd): 等待 await_io(fd, 1)`，但 `选择IO` 按规格调用
@@ -299,8 +329,9 @@ _P7_原生IO真实fd = (
 #   rc=0 且 stdout 为空 ⇒ 假绿面（不是超时、不是就绪，是根本没 poll 到 socket）。
 # 故改为「模块级全局 fd 邮槽」注入（R161-C 实证：协程实参是结构体拷贝，
 # 容器/对象成员写不传播；模块级全局是唯一稳定的跨协程注入通道）。
-# 订正后本探针仍红，但红在**已登记的协程缺陷**上（L-229/L-238：库层共享结果表
-# 轮询在 native 腿结构性不可用），不再是「传了垃圾 fd」的假形态。
+# R164 T-3 订正：库层「共享结果表 + 父协程轮询」在 native 腿因协程实参值拷贝而结构性
+# 不可用（L-229a），已改走模块级全局结果槽表；但本探针红未消——改判 **L-229b**：
+# native 协程 runtime 在「第二次 竞速/选择 族调用 + 某次工人无让出点」下 SIGSEGV。
 _P8_选择IO原生真实fd = (
     "从 协程 导入 选择IO, 协程超时异常\n"
     "\n"
@@ -524,7 +555,7 @@ def test_S1_并行逐条收集_双腿对拍():
     assert out_s == "R0=1\nR1=2\nR2=异常", f"逐条收集口径漂移(src)：{out_s!r}"
     rc_n, out_n = _native_或_已知阻塞(_P1_并行逐条收集)
     if rc_n in _已知崩溃:
-        pytest.xfail("L-227: native 协程 runtime 崩溃（0xC0000005/0xC0000374，嵌套创建任务+共享表轮询）")
+        pytest.xfail("L-229b: native 协程 runtime 崩溃（SIGSEGV 族；第二次 竞速/选择 族调用且某次工人无让出点即同步完成）")
     assert rc_n == 0, out_n
     assert out_s == out_n, f"两腿输出不一致：src={out_s!r} native={out_n!r}"
     try:
@@ -544,7 +575,7 @@ def test_S2_并行全或无_双腿对拍():
     assert out_s == "全或无=首败异常", f"全或无口径漂移(src)：{out_s!r}"
     rc_n, out_n = _native_或_已知阻塞(_P2_并行全或无)
     if rc_n in _已知崩溃:
-        pytest.xfail("L-227: native 协程 runtime 崩溃（0xC0000005/0xC0000374，嵌套创建任务+共享表轮询）")
+        pytest.xfail("L-229b: native 协程 runtime 崩溃（SIGSEGV 族；第二次 竞速/选择 族调用且某次工人无让出点即同步完成）")
     assert rc_n == 0, out_n
     assert out_s == out_n, f"两腿输出不一致：src={out_s!r} native={out_n!r}"
 
@@ -557,7 +588,7 @@ def test_S3_竞速确定性胜者与超时_双腿对拍():
     assert out_s == "WIN=快\nIDX=1\nTIMEOUT=是", f"竞速口径漂移(src)：{out_s!r}"
     rc_n, out_n = _native_或_已知阻塞(_P3_竞速确定性胜者)
     if rc_n in _已知崩溃:
-        pytest.xfail("L-227: native 协程 runtime 崩溃（0xC0000005/0xC0000374，嵌套创建任务+共享表轮询）")
+        pytest.xfail("L-229b: native 协程 runtime 崩溃（SIGSEGV 族；第二次 竞速/选择 族调用且某次工人无让出点即同步完成）")
     assert rc_n == 0, out_n
     assert out_s == out_n, f"两腿输出不一致：src={out_s!r} native={out_n!r}"
 
@@ -570,7 +601,7 @@ def test_S4_选择睡眠_双腿对拍():
     assert out_s == "S0=准时\nS1=超时", f"选择睡眠口径漂移(src)：{out_s!r}"
     rc_n, out_n = _native_或_已知阻塞(_P4_选择睡眠)
     if rc_n in _已知崩溃:
-        pytest.xfail("L-227: native 协程 runtime 崩溃（0xC0000005/0xC0000374，嵌套创建任务+共享表轮询）")
+        pytest.xfail("L-229b: native 协程 runtime 崩溃（SIGSEGV 族；第二次 竞速/选择 族调用且某次工人无让出点即同步完成）")
     assert rc_n == 0, out_n
     assert out_s == out_n, f"两腿输出不一致：src={out_s!r} native={out_n!r}"
 
@@ -586,7 +617,7 @@ def test_S5a_恢复_native腿契约():
     """
     rc_n, out_n = _native_或_已知阻塞(_P5a_恢复native)
     if rc_n in _已知崩溃:
-        pytest.xfail("L-227: native 协程 runtime 崩溃（0xC0000005/0xC0000374，嵌套创建任务+共享表轮询）")
+        pytest.xfail("L-229b: native 协程 runtime 崩溃（SIGSEGV 族；第二次 竞速/选择 族调用且某次工人无让出点即同步完成）")
     assert rc_n == 0, out_n
     assert out_n == "R=7", f"恢复(native) 口径漂移：{out_n!r}"
 
@@ -611,7 +642,7 @@ def test_S6_选择IO框架_双腿对拍():
     assert out_s == "IO0=真\nIO1=超时", f"选择IO 框架口径漂移(src)：{out_s!r}"
     rc_n, out_n = _native_或_已知阻塞(_P6_选择IO框架)
     if rc_n in _已知崩溃:
-        pytest.xfail("L-227: native 协程 runtime 崩溃（0xC0000005/0xC0000374，嵌套创建任务+共享表轮询）")
+        pytest.xfail("L-229b: native 协程 runtime 崩溃（SIGSEGV 族；第二次 竞速/选择 族调用且某次工人无让出点即同步完成）")
     assert rc_n == 0, out_n
     assert out_s == out_n, f"两腿输出不一致：src={out_s!r} native={out_n!r}"
 
@@ -702,13 +733,13 @@ def test_S8_AR2_并行提交序锚点_src腿():
 def test_S9_原生IO真实fd_独立探针():
     """选择IO 的 native 地基：`await_io(真实fd, 1)` 真挂起、真被 poller 唤醒。
 
-    探针**不** `从 协程 导入`（绕开 L-227-b 多导出表），只验 await_io 本体：
+    探针**不** `从 协程 导入`（历史上用于绕开 L-227-b 多导出表，该缺陷已由 R161-A 修复），只验 await_io 本体：
     监听 socket + 同进程客户端 connect ⇒ accept 队列就绪 ⇒ 立即唤醒。
     IR 佐证：`call void @dv_coro_await_io` 必须存在（防「同步退化」假绿）。
     """
     rc_n, out_n = _native_或_已知阻塞(_P7_原生IO真实fd)
     if rc_n in _已知崩溃:
-        pytest.xfail("L-227/L-228: native 协程 runtime 崩溃（真实 fd await_io 路径）")
+        pytest.xfail("L-228: native 协程 runtime 崩溃（SIGSEGV 族；真实 fd await_io 路径）")
     assert rc_n == 0, out_n
     assert out_n == "BIND=0\nLISTEN=0\nCONNECT=0\n就绪=真\nACCEPT=正", (
         f"native await_io(真实fd,1) 口径漂移：{out_n!r}")
@@ -723,20 +754,20 @@ def test_S9_原生IO真实fd_独立探针():
 def test_S10_选择IO_原生真实fd_库层probe():
     """库层 probe（R161 就绪态）：`从 协程 导入 选择IO` + 真实 fd 就绪等待器。
 
-    期望（L-227/L-228 修后）：IO0=真 / IO1=超时。
-    当前必命中 L-227-b（`use of undefined value '@_seg_*'`，多导出表）⇒ xfail；
-    **修后本探针无需改动**即自动转正常断言（`_native_或_已知阻塞` 只在命中已知签名时 xfail）。
-
-    R161-C（2026-10-20）现状订正：L-227-b 已由 A 线修掉（多导出表不再越界），
-    但本探针改红在 **L-229/L-238** 上——库层 `选择IO` 用「共享结果表 + 父协程轮询」
-    实现竞速，而 native 腿协程实参是结构体拷贝，子协程的 append 不传回父的表
-    （实测最小复现：`创建任务(工人(表))` + `等待 句柄` ⇒ 父 `列表长度(表)` 恒为初值），
-    父协程轮询永不退出 ⇒ 挂死（45s 超时 ⇒ xfail）。注入形态已订正为模块级全局
-    fd 邮槽（详见 `_P8` 上方注释），红因不再是「传了垃圾 fd」。
+    期望：IO0=真 / IO1=超时。
+    R164 T-3（2026-10-24）现状订正：L-227-b（多导出表 `use of undefined value '@_seg_*'`）
+    已由 R161-A 修复；库层共享结果表已改走**模块级全局结果槽表 + 整数槽号**（消除 L-229a
+    的实参值拷贝挂死），但本探针仍红，红因经 9 批最小复现改判为 **L-229b**——native 协程
+    runtime 缺陷：同一进程内**第二次**调用 竞速/选择睡眠/选择IO 时，若某次被登记工人**无
+    让出点即同步跑完**，进程 SIGSEGV（rc=-11）。触发与 IO/`await_io`/`转字符串` 均无关
+    （`选择睡眠` 立即工人两次调用同款即崩；去掉 socket/await_io 也崩；单次不崩；两次调用
+    且工人均有让出点不崩 —— `_P6`）。库层注入让出点两种写法实测均不能规避（其一令 `_P6`
+    转崩）⇒ 真因在 native 协程调度/codegen，`src/llvm` 属 T-3 禁改范围，据实留 xfail。
+    注入形态为模块级全局 fd 邮槽（详见 `_P8` 上方注释），红因不是「传了垃圾 fd」。
     """
     rc_n, out_n = _native_或_已知阻塞(_P8_选择IO原生真实fd)
     if rc_n in _已知崩溃:
-        pytest.xfail("L-227/L-228: native 协程 runtime 崩溃（选择IO + 真实 fd）")
+        pytest.xfail("L-229b: native 协程 runtime 崩溃（SIGSEGV；第二次 竞速/选择 族调用且某次工人无让出点即同步完成）")
     assert rc_n == 0, out_n
     assert out_n == "IO0=真\nIO1=超时", f"选择IO(原生真实 fd) 口径漂移：{out_n!r}"
 
