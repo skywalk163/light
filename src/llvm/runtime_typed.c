@@ -2380,6 +2380,13 @@ void dv_deref_value(LightValue* result, LightValue* v) {
     LightValue* real = dv_deref(v);
     if (real != v) {
         dv_clone(result, real);
+    } else if (v->type == 4) {
+        /* L-229b：LIST 解引用必须深拷出独立 list_data。原 `*result = *v` 浅拷
+         * 与源（常为全局 _结果槽表）共享 list_data 指针；协程帧拆除时 locals
+         * 循环对每个槽调 dv_free，会连带 free 全局 list_data → 下次全局 append
+         * 写已释放数组即 heap-use-after-free（实测第二次 选择睡眠 开槽 时 SIGSEGV）。
+         * dv_clone 对 LIST 递归深拷，临时槽独占自己的 list_data，与源彻底解耦。 */
+        dv_clone(result, v);
     } else {
         *result = *v;
         if ((v->type == 3 || v->type == LV_TYPE_DECIMAL) && v->str) {
@@ -6322,6 +6329,7 @@ typedef struct LightScheduler {
 /* 全局调度器实例 */
 static LightScheduler g_scheduler = { NULL, NULL, 0 };
 
+
 /* 前置声明 */
 LightFuture* dv_future_create(void);
 void dv_future_complete(LightFuture* f, LightValue* result);
@@ -6421,9 +6429,9 @@ LightCoroutine* dv_coro_create(LightCoroFunc func, LightValue* args, int num_arg
         while (c->next) c = c->next;
         c->next = coro;
     }
-    
+
     g_scheduler.num_coros++;
-    
+
     return coro;
 }
 
@@ -6571,7 +6579,7 @@ static int dv_coro_resume(LightCoroutine* coro) {
     if (coro->state == DV_CORO_DONE && coro->future && !coro->future->ready) {
         dv_future_complete(coro->future, &coro->result);
     }
-    
+
     return 0;
 }
 
@@ -6592,10 +6600,10 @@ LightFuture* dv_future_create() {
 /* 完成 Future（设置结果） */
 void dv_future_complete(LightFuture* f, LightValue* result) {
     if (!f || f->ready) return;
-    
+
     dv_clone(&f->result, result);
     f->ready = 1;
-    
+
     /* 唤醒所有等待的协程 */
     LightCoroutine* c = f->waiters;
     while (c) {
@@ -6630,11 +6638,11 @@ void dv_future_complete(LightFuture* f, LightValue* result) {
  */
 int dv_coro_await(LightCoroutine* coro, LightCoroutine* target) {
     if (!coro || !target) return 0;
-    
+
     /* 获取目标协程关联的 future */
     LightFuture* future = target->future;
     if (!future) return 0;
-    
+
     if (future->ready) {
         /* 目标已经完成，直接返回（不挂起） */
         coro->waiting_for = future;

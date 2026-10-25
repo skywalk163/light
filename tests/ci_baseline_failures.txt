@@ -1,62 +1,23 @@
 # CI 回归基线：本仓库当前的既有失败用例（存量欠账，非本次引入）
-# 身份格式：junit 的 classname::name
+# 身份格式：junit 的 classname::name（原始字符，**不要**写 \uXXXX 转义形态）
 # 语义：CI 只拦「基线之外」的新增打红；修好一批后重新生成并提交本文件。
-#   python3 tools/ci/check_regression.py --junit .ci/report.xml \
-#       --write-baseline tests/ci_baseline_failures.txt
-# 快照汇总：collected=1203 failures=12 errors=0 skipped=55
-# v7 单 30-D（族 3）已下线 2 条（CI run 30 = success 实证）：
-#   - L4_python/demo1_numpy_mean（run+product）：只依赖 numpy。宿主 fb5 的 py311
-#     已装 numpy 1.26.4，ci.yml 把建 venv 改成 --system-site-packages 后 CI venv 可见，
-#     两腿在 run 30 转绿（闸门日志「相比基线已转绿 2 条」）。属「CI 证明的绿」，非本机幻绿。
-#   - 余下 6 例（E4/demo2_pandas/demo3_matplotlib/demo5_sklearn/all_in_one/L3 demo3_math）
-#     缺 pandas/matplotlib/sklearn/sympy，宿主 pkg install 卡在 /usr 只读 + ABI 版本号，
-#     待宿主侧补库后再逐腿下线。
-# v7 单 29（族 4）已下线 2 条：
-#   - L3_domain/demo4_echarts、demo5_markdown（均只有 product 那条腿）：
-#     `引 Python:` 块 import 的 l3_echarts/l3_markdown 住在编译器 src/ 里，
-#     产物换进程裸跑时 sys.path 上没有那一档。已改为 compile 时按 L3_MODULES
-#     白名单把模块 .py 随产物落盘（cli/light_unified.py 的 _emit_runtime_modules）。
-#     两个模块只依赖 json/re/typing，无三方依赖，CI 上同样成立。
-# v7 单 28（族 2）已下线 4 条：
-#   - L3_domain/all_in_one_L3_demo（run+product）：sympy 走 try/except 兜底，
-#     无硬三方依赖；旧红纯属编译缺陷（否→非 + `;` 语句分隔），已修，CI 上稳定转绿。
-#   - F阶段/F3（run+product）：`对于/在` 推导式越出规范（文档只承诺 遍历…之/于），
-#     已入 E2E_EXCLUDED 不再收集；命名实参部分已修。
-# E4（沙箱隔离）仍留基线：prescan 已修使其可编译，但示例运行期 import numpy/pandas，
-#   CI（FreeBSD，仅装 pytest）无此二库 → 仍红，属存量三方依赖欠账，不因本机装库而下线。
-# ── 2026-08-27 本机全量回归（Windows 开发机）实证：8 条转绿，全部「本机幻绿」，不下线 ──
-#   E4_L4_沙箱隔离验证（run+product）：本机装 numpy/pandas → 绿；CI FreeBSD 无 pandas → 仍红。
-#   L3_domain/demo3_math（run+product）：本机装 sympy → 绿；CI 无 sympy → 仍红。
-#   L4_python/demo2_pandas_csv（run+product）：本机装 pandas → 绿；CI 无 → 仍红。
-#   L4_python/demo5_sklearn_iris（run+product）：本机装 sklearn → 绿；CI 无 → 仍红。
-#   判据维持：只有 CI run 实证转绿（如 demo1_numpy_mean）才允许下线；本机装库不算。
-#   仍红的 4 条（all_in_one_demo / demo3_matplotlib_plot，run+product）均为缺 matplotlib。
+#   python scripts/check_ci_baseline.py --junit .ci/report.xml --write-baseline
+# 快照汇总：collected=9405 failures=0 errors=0 skipped=138
+# 生成机：freebsd15  python 3.12.13
 #
-# ── 2026-09-07 本轮（CIB·e2e 基线对齐）修改 ───────────────────────────────────
-# gitea CI run 161 的 e2e 段报 39 failed，失败模式全部是环境欠账：
-#   (a) 缺第三方库：No module named 'pandas'/'matplotlib'/'sklearn'/'sympy'/…
-#       FreeBSD runner 的 devpi 镜像没有这些科学计算包（ci.yml L14-34）；且包可能
-#       并非直接写在示例源，而是经 stdlib .light 模块传递引入——静态扫描无法逐条枚举。
-#   (b) 缺外部工具链：J阶段 J2(Go)/J3(MoonBit) 需 go/moonbit，runner 只装 python3，
-#       运行期报 command-line-argument / 工具链缺失（与 J1 同因，非代码回归）。
-# 处理方式（更干净、自维护，优于把 39 条死写进基线）：
-#   1) tests/e2e/test_e2e_chain.py 新增「缺第三方库 → pytest.skip」降级：运行期子进程
-#      只要抛 No module named 'X'，即跳过而非打红。新增的缺包示例自动跳过，无需补基线。
-#      真实编译/语法/逻辑回归不带该信号，仍原样拦下。
-#   2) J2/J3 按 J1 先例加入 E2E_EXCLUDED（无 go/moonbit 的平台不收集，避免环境债误拦）。
-# 因此 run 161 的 39 条环境欠账在 CI 上不再计为打红。下面保留的 12 条是可静态识别的
-# 缺包示例，作为「skip 万一未触发」时的兜底；其余由 skip 机制在运行时动态覆盖。
-#   - 验证：本地跑 tests/e2e/test_e2e_chain.py 确认缺包示例转为 skipped（非 failed），
-#     回归闸门对 e2e.xml 不再见新增打红。
-tests.e2e.test_e2e_chain::test_duan_compile_and_run_product[E\u9636\u6bb5_L3L4\u539f\u751f\u8bed\u6cd5/E4_L4_\u6c99\u7bb1\u9694\u79bb\u9a8c\u8bc1.light]
-tests.e2e.test_e2e_chain::test_duan_compile_and_run_product[L3_domain/demo3_math.light]
-tests.e2e.test_e2e_chain::test_duan_compile_and_run_product[L4_python/all_in_one_demo.light]
-tests.e2e.test_e2e_chain::test_duan_compile_and_run_product[L4_python/demo2_pandas_csv.light]
-tests.e2e.test_e2e_chain::test_duan_compile_and_run_product[L4_python/demo3_matplotlib_plot.light]
-tests.e2e.test_e2e_chain::test_duan_compile_and_run_product[L4_python/demo5_sklearn_iris.light]
-tests.e2e.test_e2e_chain::test_duan_run[E\u9636\u6bb5_L3L4\u539f\u751f\u8bed\u6cd5/E4_L4_\u6c99\u7bb1\u9694\u79bb\u9a8c\u8bc1.light]
-tests.e2e.test_e2e_chain::test_duan_run[L3_domain/demo3_math.light]
-tests.e2e.test_e2e_chain::test_duan_run[L4_python/all_in_one_demo.light]
-tests.e2e.test_e2e_chain::test_duan_run[L4_python/demo2_pandas_csv.light]
-tests.e2e.test_e2e_chain::test_duan_run[L4_python/demo3_matplotlib_plot.light]
-tests.e2e.test_e2e_chain::test_duan_run[L4_python/demo5_sklearn_iris.light]
+# ── 2026-10-25 R165-T2 重建说明（本文件自此由 0.88 权威机全量门生成）───────────────
+# 旧版失效原因：只登记 12 条 e2e「缺三方库」欠账，collected=1203 而实际门收集 9405 例，
+# 分辨力早已归零。R165 用 0.88 全量门重建（收口轮 D：9405 collected / 0 failed / 0 error）：
+#   1) 旧 12 条 e2e 欠账**全部实证转绿**（0.88 已具备 pandas/matplotlib/sklearn/sympy，
+#      且 test_e2e_chain 的「缺包 ⇒ skip」降级生效），按「修好就下线」纪律全部移除。
+#   2) `test_P4P5_相对改善有牙[P4]/[P5]` **故意不写入本基线**：它是 R161-B 的 RSS 斜率
+#      **序关系**断言（12s 窗口，在 1164MB 量级上抖 5~33MB），同一棵树隔离连跑 5 次
+#      = 2 红 3 绿，R165 四轮全量门里抖 2 次（A 轮 P4、C 轮 P5）。是 flaky 测量用例而非
+#      存量欠账；写进基线会让「L-217 机制完全失效」这类真回归永久拦不住，故留在基线外，
+#      交 R166 修判据（更长采样窗口 / 多次取中位 / 绝对上界），修好后本文件无需再动。
+#   3) 因此本基线**当前为 0 条**：0.88 全量门 9405 例（R160_E5_SEG2=1 真跑口径），
+#      除上述 flaky 用例外的红为 0（D 轮实测 failures=0 errors=0）。新增打红一律阻断
+#      —— 这正是「让全量门可信」的目标状态。
+#
+# 判据基线（口径，非条目）：全量门 collected 必须 ≥9000；若 collected 骤降（收集失败/
+# 大面积 skip）视为门本身坏了，不是「变绿」。（R165-T4 的门禁机自检 ④ 会核对 ±10% 偏差。）

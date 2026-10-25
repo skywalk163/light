@@ -6155,14 +6155,24 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
     def _gen_typed_segment_call(self, name: str, args: List[str], arg_asts=None) -> Tuple[str, str]:
         # T9A：段调用使用当前模块上下文，确保跨模块同名段调用到正确的定义。
-        # R130-A：优先解析嵌套段（_lookup_nested_seg）；按名调用走顶层段、
-        # 走直接 @_seg_<safe> 入口、env 传 null（该入口本身不捕获；若要携带捕获
-        # 环境须先把嵌套段封成函数值再 dv_call_value，见 _gen_segment_function_value）。
+        # R130-A：优先解析嵌套段（_lookup_nested_seg）。
+        # R165-A（L-235）：嵌套段被**就地按名直调**（未先封成函数值）时，修前此处
+        # 恒传 `ptr null` 作第 4 参 env ⇒ 段入口解包通道读到 NULL，原生腿把自由变量
+        # 静默读成 0/空（IR 铁证：`call void @_seg_f2(ptr %13, ptr null, i32 0, ptr null)`）。
+        # 修法：被调嵌套段在 `_segment_free_vars` 登记了自由变量 ⇒ 复用
+        # _emit_closure_env_pack 把调用方自由变量当前值打包传入；free_vars 为空
+        # （含顶层段、无捕获嵌套段）仍传 null，天然安全。
+        # env 所有权：同步段当次调用内用完即弃；异步包装段在 dv_coro_create 里已把
+        # env **克隆**进协程帧随帧存活（runtime_typed.c R163-A），wrapper 返回后
+        # 原数组即无主 ⇒ 调用点打完包、直调返回后立即 free，不留泄漏。
         reg_key = self._lookup_nested_seg(name)
         if reg_key is not None and reg_key != self._local_seg_key(name):
             safe = self._safe_func_name(reg_key)
+            callee_free_vars = self._segment_free_vars.get(reg_key, [])
         else:
             safe = self._safe_func_name(name, self._current_module)
+            callee_free_vars = []
+        env_arg = self._emit_closure_env_pack(callee_free_vars)
         result_slot = self._new_dv_slot()
         # R10-11a 打回 A2：段函数返回路径会 dv_obj_release_slot(result_ptr) 释放旧值。
         # _new_dv_slot 来自复用型临时槽位池（不零初始化），O0 下残留垃圾可能被
@@ -6171,7 +6181,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         self.emit(f'call void @dv_null(ptr {result_slot})')
         num_args = len(args)
         if num_args == 0:
-            self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr null, i32 0, ptr null)')
+            self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr null, i32 0, ptr {env_arg})')
         else:
             stack_save = self.new_register()
             self.emit(f'{stack_save} = call ptr @llvm.stacksave()')
@@ -6181,10 +6191,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 elem_ptr = self.new_register()
                 self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr {args_arr}, i64 {i}')
                 self.emit(f'store {LIGHTVALUE_STRUCT} {arg_dv}, ptr {elem_ptr}')
-            self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr}, i32 {num_args}, ptr null)')
+            self.emit(f'call void @_seg_{safe}(ptr {result_slot}, ptr {args_arr}, i32 {num_args}, ptr {env_arg})')
             # T7B / T5C-02·04：写回（必须在 stackrestore 前）
             self._emit_args_writeback(args_arr, arg_asts, num_args)
             self.emit(f'call void @llvm.stackrestore(ptr {stack_save})')
+        # R165-A（L-235）：就地直调的 env 包打完即弃（见上注）；无捕获时 env_arg
+        # 是字符串 'null'，不 free。
+        if env_arg != 'null':
+            self.emit(f'call void @free(ptr {env_arg})')
         result = self.new_register()
         self.emit(f'{result} = load {LIGHTVALUE_STRUCT}, ptr {result_slot}')
         return result, 'dv'

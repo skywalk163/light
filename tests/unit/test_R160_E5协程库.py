@@ -352,6 +352,13 @@ _P8_选择IO原生真实fd = (
     "  设 _IO就绪fd 为 监听fd\n"
     "  设 就绪0 为 等待 选择IO(原生就绪可读, 2.0)\n"
     "  打印(\"IO0=\" 加上 转字符串(就绪0))\n"
+    # R165（判据前提订正，非改判据值）：第一次 选择IO 之后必须把就绪**排空**，
+    # 否则监听 fd 的 accept 队列里那条连接还在 ⇒ level-trigger 下第二次 选择IO
+    # 天然就绪、立刻返回「未超时」，`IO1=超时` 这条期望在语义上不可能成立。
+    # 取证（同一二进制，R165 实测）：不加 accept → `IO1=未超时`；加 accept →
+    # `IO1=超时`。修 L-229b 前该行被 SIGSEGV 掩盖，故长期未被发现。
+    # 与 S9 的 `_P7` 形态对齐（S9 就是 await_io 后立即 接受socket）。
+    "  设 连接A 为 接受socket(监听fd)\n"
     "  尝试:\n"
     "    等待 选择IO(原生就绪可读, 0.1)\n"
     "    打印(\"IO1=未超时\")\n"
@@ -360,6 +367,7 @@ _P8_选择IO原生真实fd = (
     "      打印(\"IO1=超时\")\n"
     "    否则:\n"
     "      打印(\"IO1=其它\")\n"
+    "  socket_close(连接A)\n"
     "  socket_close(客户端)\n"
     "  socket_close(监听fd)\n"
     "\n"
@@ -764,10 +772,16 @@ def test_S10_选择IO_原生真实fd_库层probe():
     且工人均有让出点不崩 —— `_P6`）。库层注入让出点两种写法实测均不能规避（其一令 `_P6`
     转崩）⇒ 真因在 native 协程调度/codegen，`src/llvm` 属 T-3 禁改范围，据实留 xfail。
     注入形态为模块级全局 fd 邮槽（详见 `_P8` 上方注释），红因不是「传了垃圾 fd」。
+
+    R165（2026-10-25）状态订正：T-1 修掉 L-229b（`dv_deref_value` 对 LIST 深拷，根治
+    「协程帧拆除时 locals 循环 free 掉全局 `_结果槽表` 的 list_data」的 use-after-free）后
+    本探针不再崩溃（rc=0），但首跑仍红：`IO1=未超时`。取证判定为**探针前提失效**而非
+    产品缺陷——监听 fd 的 accept 队列里那条连接从未被取走，level-trigger 下第二次
+    `选择IO` 必然「已就绪」。同一二进制对照：不加 `接受socket` ⇒ 未超时；加 ⇒ 超时。
+    故在 `_P8` 两次 `选择IO` 之间补 `接受socket(监听fd)`（与 S9 的 `_P7` 形态对齐），
+    断言值 `IO0=真 / IO1=超时` **一字未改**。
     """
     rc_n, out_n = _native_或_已知阻塞(_P8_选择IO原生真实fd)
-    if rc_n in _已知崩溃:
-        pytest.xfail("L-229b: native 协程 runtime 崩溃（SIGSEGV；第二次 竞速/选择 族调用且某次工人无让出点即同步完成）")
     assert rc_n == 0, out_n
     assert out_n == "IO0=真\nIO1=超时", f"选择IO(原生真实 fd) 口径漂移：{out_n!r}"
 

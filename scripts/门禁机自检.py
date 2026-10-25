@@ -18,6 +18,8 @@ commit 本机绿、0.82 红**反复重演：R161-E 实测 `test_builtins_drift` 
    **口径不另写**：直接复用 `scripts/sync_builtins.py` 的 `parse_functions` /
    `block_hash` / `LH_ONLY` / `LH_LIGHT_SYNC`（两处口径迟早分叉，故不复制）。
 ③ **venv 依赖**：`scripts/ensure_venv.py` 的 `LOCKED` 逐项版本核对（唯一权威）。
+④ **baseline 收集数**：`tests/ci_baseline_failures.txt` 快照 collected 与
+   `pytest --collect-only` 实际门收集数偏差 ≤ ±10%（R165 补；防基线虚高、分辨力归零）。
 
 用法
 ----
@@ -38,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -170,6 +173,48 @@ def 检venv(res: _结果, venv: Path):
         res.info(f"③WATCH {pkg}", 实得 or "未装（仅 WARN，不影响退出码）")
 
 
+# ── ④ baseline 收集数偏差 ──────────────────────────────────────────────────
+def 检baseline偏差(res: _结果, 树: Path, py: Path, 容差: float = 0.10):
+    """核对 `tests/ci_baseline_failures.txt` 登记的 collected 与实际门收集数。
+
+    R165 取证：旧基线 collected=1203 而实际全量门收集 9399 例，基线虚高（实为虚低）
+    后分辨力归零——「基线外新增打红」根本拦不住。这里用 `pytest --collect-only`
+    只读重收（不执行，秒级），与基线快照 collected 比对，偏差 > ±10% 即 FAIL，
+    防基线再次与真实门脱节。collect-only 不跑用例，无副作用。
+    """
+    base_file = 树 / "tests" / "ci_baseline_failures.txt"
+    if not base_file.exists():
+        res.add(False, "④baseline 文件存在", f"不存在：{base_file}")
+        return
+    m = re.search(r"collected\s*=\s*(\d+)", base_file.read_text(encoding="utf-8"))
+    if not m:
+        res.add(False, "④baseline 含 collected 快照", "未找到 collected=<N> 行")
+        return
+    基线数 = int(m.group(1))
+    res.info("④baseline 登记 collected", str(基线数))
+
+    # collect-only 即使有零星收集错误也会打印已收集数，故不依赖退出码
+    rc, out, err = _跑([str(py), "-m", "pytest", "--collect-only", "-q",
+                        "-p", "no:cacheprovider", "tests"], cwd=树)
+    实际数 = None
+    for line in reversed(out.splitlines()):
+        mm = re.search(r"(\d+)\s+tests?\s+collected", line)
+        if mm:
+            实际数 = int(mm.group(1))
+            break
+    if 实际数 is None:
+        # 兜底：数含 "::" 的用例行（旧版 pytest 无末行汇总时）
+        实际数 = sum(1 for ln in out.splitlines() if "::" in ln)
+    if not 实际数:
+        res.add(False, "④实际门收集数可读",
+                f"pytest --collect-only 未产出用例（rc={rc}）：{(err or out)[-200:]}")
+        return
+    res.info("④实际门 collected", str(实际数))
+    偏差 = abs(实际数 - 基线数) / float(基线数)
+    res.add(偏差 <= 容差, f"④baseline collected 偏差 ≤ ±{int(容差 * 100)}%",
+            f"基线 {基线数} vs 实际 {实际数}，偏差 {偏差 * 100:.1f}%")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="门禁机三步自检（只读）")
     ap.add_argument("--check", action="store_true",
@@ -189,6 +234,11 @@ def main() -> int:
     检git树(res, args.expect_head, Path(args.tree), args.allow_dirty)
     检lh副本(res, Path(args.lh) if args.lh else None)
     检venv(res, Path(args.venv))
+    try:
+        _py = _ev.venv_python(Path(args.venv))
+        检baseline偏差(res, Path(args.tree), _py)
+    except SystemExit as _e:
+        res.add(False, "④baseline 偏差（venv 解释器不可用）", str(_e))
     print("-" * 72)
 
     失败数 = 0

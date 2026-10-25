@@ -241,18 +241,25 @@ class LightFinder(importlib.abc.MetaPathFinder):
         #   - 编译期（_COMPILE_DEPTH>0）：任何标准库名一律放行给真 CPython，连
         #     json.light/base64.light 这种有 .py 兄弟的「纯光明实现」也只在运行期
         #     加载，编译期绝不编译同名影子。
-        #   - 运行期：仅当该名字在搜索路径里没有 .py 兄弟（inspect/sys/time/re 这类
-        #     纯影子）时放行给标准库；有 .py 兄弟的（json/base64）仍由钩子加载纯光明
-        #     实现，运行期语义保持不变。
+        #   - 运行期：仅当该名字在**同一个 base** 里还有 .py 兄弟（json/base64 这类
+        #     「纯光明实现 + .py 影子」）时由钩子加载；inspect/sys/time/re 这类只有
+        #     影子的，放行给标准库（逐 base 判定见下面加载循环的 elif 分支）。
         # 别名形式（_light_re 等）不受此限：此时 fullname != realname，下面照常加载
         # 对应的 .light 实现（re 的纯光明实现只经由别名可达，符合 code_generator 的
         # _PYTHON_LEG_PURE_LIGHT_ALIAS 设计）。
         # 子模块（is_submodule=True）跳过此保护——Python 标准库没有 `json.xxx`
         # 这种子模块名会与我们的 .light 冲突（且 path 是父包目录，不是 sys.path）。
+        #
+        # R165-T2（治 R164 全量门唯一 new_red）：这里的「运行期放行」判据从
+        # `any(_exists_exact(b, ...) for b in search_dirs)` 改为**下沉到加载循环逐
+        # base 判定**。旧写法的口径与加载循环不一致：守卫是「任一目录有 .py 就放行」，
+        # 加载却是「单目录里有没有 .py」。而 LightFinder.search_paths 只 extend 不清理
+        # （install() 复用同一个 finder），长会话里一旦累积进任何含 inspect.py 的目录
+        # （前序用例污染），守卫就整体失效，stdlib/inspect.light 被编译 —— 正是本守卫
+        # 要防的循环导入。逐 base 判定后，判定结果只取决于「承载这个 .light 的目录」，
+        # 与别的目录、与搜索路径的会话历史彻底解耦。
         if not is_submodule and fullname == realname and realname in _STDLIB_MODULES:
             if _COMPILE_DEPTH > 0:
-                return None
-            if not any(_exists_exact(b, realname + '.py') for b in search_dirs):
                 return None
         try:
             for base in search_dirs:
@@ -271,6 +278,18 @@ class LightFinder(importlib.abc.MetaPathFinder):
                     # hook 不应强行加载空壳导致 from import * 炸属性。
                     if not _is_pure_light(light_file):
                         return None
+                elif fullname == realname and realname in _STDLIB_MODULES:
+                    # R165-T2：标准库名的**直接** import，而本 base 里没有 <名>.py
+                    # 兄弟 ⇒ 这个 .light 是纯影子（stdlib/inspect.light 这类），
+                    # 钩子绝不接管，跳过本 base 继续找下一个。
+                    # 注意语义差别：旧守卫是「任一 base 有 .py 就整体放行」，于是
+                    # 影子目录里的 .light 反而被加载；这里改成「谁有 .py 才认谁」，
+                    # 影子目录再也无法借别的目录的 .py 蒙混过关。
+                    # 别名（fullname != realname，如 `_light_re`）不走这条：re.light /
+                    # inspect.light 这类纯影子的光明实现**只能**经别名到达
+                    # （code_generator 的 _PYTHON_LEG_PURE_LIGHT_ALIAS 设计），
+                    # 若一并拦下，别名腿就直接 ModuleNotFoundError。
+                    continue
                 loader = LightLoader(fullname, light_file, self._stdlib_dir)
                 return importlib.util.spec_from_loader(fullname, loader)
         except Exception:
