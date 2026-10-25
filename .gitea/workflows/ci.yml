@@ -172,6 +172,12 @@ jobs:
           # （同轮 unit 步整体 170s vs 常态 47s），5.0s 会周期性误伤门禁。
           # v7 单 25 口径：提到 20.0（实测最坏值约 1.5 倍余量），仍能拦下 O(n^2) 级回退。
           LEXER_PERF_LIMIT: "20.0"
+          # R166-T2：E5 协程库段②的 11 例**双腿对拍**默认启用（语义已翻转为
+          # 「默认开、R160_E5_SEG2=0 才关」）。这里显式写 1 是双保险 + 让意图可见：
+          # 该批用例曾在 R160 期因 L-219/L-229b 会撞 SIGSEGV 被默认 skip，
+          # 而 CI 从未设变量 ⇒ 真跑对拍在 CI 上一直没跑，家族回归无人拦。
+          # 无 clang 的环境由用例内 `skip_without_clang` 兜底，不会因此变红。
+          R160_E5_SEG2: "1"
         run: |
           . "$HOME/.cache/light-ci-venv/bin/activate"
           mkdir -p .ci

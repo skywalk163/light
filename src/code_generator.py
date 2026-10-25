@@ -2135,9 +2135,23 @@ class PythonCodeGenerator:
             self._add_line(f"await {inner}")
         elif isinstance(stmt, RunAsyncStmt):
             # A1 异步启动入口：异步 运行 主()。 → asyncio.run(主())
-            self._needs_asyncio = True
+            # R166-T3（L-239）补判型：被调段落**明确是同步段落**时，`call` 求值为
+            # None，`asyncio.run(None)` 抛 `ValueError: a coroutine was expected,
+            # got None`；而原生腿（`dv_coro_run_to_completion` 收到非协程句柄）直接
+            # 把段落跑完、rc=0 ⇒ **腿不对称**（0.88 实测：native `(0, '同步跑')`
+            # vs py `(1, '同步跑', 'a coroutine was expected, got None')`）。
+            # 这里与同文件模块级 ParagraphCall 分支（`name in self.async_paragraphs`）
+            # 同口径：
+            #   · 名字可解析且**在** async_paragraphs ⇒ 维持 asyncio.run；
+            #   · 名字可解析且**不在** ⇒ 直接同步调用（与原生腿对齐）；
+            #   · 名字不可解析（函数值 / 动态调用）⇒ 维持 asyncio.run，不扩大改动面。
             call = self._generate_expr(stmt.call)
-            self._add_line(f"asyncio.run({call})")
+            被调名 = getattr(stmt.call, 'name', None)
+            if 被调名 is None or 被调名 in self.async_paragraphs:
+                self._needs_asyncio = True
+                self._add_line(f"asyncio.run({call})")
+            else:
+                self._add_line(call)
 
         elif isinstance(stmt, ScopeDeclStmt):
             # A5 作用域声明：全局 计数。 → global 计数；外层 值。 → nonlocal 值

@@ -78,11 +78,24 @@ sys.path.insert(0, os.path.join(_ROOT, 'tests'))
 from _native_helpers import skip_without_clang  # type: ignore[import]  # noqa: E402
 
 # ── 段二号门 ────────────────────────────────────────────────────────────────
-_段二号启用 = os.environ.get('R160_E5_SEG2') == '1'
+# R166-T2（治「CI 永不跑真跑对拍」）：语义由「默认关、需 R160_E5_SEG2=1 才开」
+# **翻转为「默认开、需 R160_E5_SEG2=0 才关」**。
+#
+# 原设计是 R160 的临时闸：A 线 L-219 修复前跑真实协程会撞 SIGSEGV，故默认 skip、
+# 等主 agent 手动置 1。但 CI（`.gitea/workflows/ci.yml`）从未设该变量 ⇒ 段② 的
+# 11 例**双腿对拍**（S5a/S9/S10/AR-1/AR-2…）在 CI 上永远不执行，L-227/L-229b
+# 家族回归无人拦。R165 收口已确认 L-219/L-229b 修复到位（`R160_E5_SEG2=1` 下
+# 15 passed / 0 xfailed），闸门失去存在理由。
+#
+# 现在：默认启用；无 clang 的环境由 `skip_without_clang` 兜底；需要临时关掉
+# （例如在无 clang 的老环境上省时）显式设 `R160_E5_SEG2=0`。
+_段二号关闭值 = ('0', 'false', 'off', 'no')
+_段二号启用 = os.environ.get('R160_E5_SEG2', '1').strip().lower() not in _段二号关闭值
 跳过段二号 = pytest.mark.skipif(
     not _段二号启用,
-    reason=("R160-E5 段②未启动：A 线 L-219 修复交付前禁跑真实协程（会撞 SIGSEGV）。"
-            "A 线交付后由主 agent 置 R160_E5_SEG2=1 启用本文件全部对拍用例。"))
+    reason=("R160-E5 段②被显式关闭（R160_E5_SEG2=0）：本文件 11 例双腿对拍不执行。"
+            "默认应为启用；关闭仅用于无 clang 环境省时，**CI 必须保持启用**"
+            "（否则 L-227/L-229b 家族回归无人拦）。"))
 
 _STDLIB = os.path.join(_ROOT, 'stdlib')
 _协程模块 = os.path.join(_STDLIB, '协程.light')
