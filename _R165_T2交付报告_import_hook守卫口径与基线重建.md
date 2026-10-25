@@ -370,7 +370,44 @@ L-229b/L-227 家族回归一旦回潮无人拦。
 或把 `R160_E5_SEG2=1` 写进 CI 环境（`.gitea/workflows/ci.yml`）。本轮**不改**（不属于 T-2 文件范围，
 且属判据口径变更，须业主/主 agent 裁定）。
 
-### 7.4 C 轮全量门（待回填）
+### 7.4 C 轮全量门（T-1/T-3 集成态，真跑口径）
+
+```
+$ cd ~/r165t2 && env R160_E5_SEG2=1 nice -n 20 ~/r164venv/bin/python -m pytest tests \
+    -p no:cacheprovider -q --no-header -n 0 --junitxml=$HOME/r165_runC.xml
+Sun Oct 25 20:51:45 → 22:03（4303.70s / 1:11:43）
+
+2 failed, 9262 passed, 128 skipped, 10 xfailed, 3 xpassed
+FAILED tests/unit/test_R160_E5协程库.py::test_S10_选择IO_原生真实fd_库层probe
+FAILED tests/unit/test_R16x_L217_所有权收敛.py::test_P4P5_相对改善有牙[P5]
+```
+
+- **collected 9405**（9399 + T-1 新增 6 例 L-235 用例）；**skipped 139 → 128**：E5 段② 的 11 例
+  双腿对拍真的跑起来了（默认口径下它们静默 skip，见 §7.3）。
+- 两条红：S10 = 探针前提失效（§7.2 已用对照实验定性并订正）；P5 = 与 A 轮 P4 同族的
+  RSS 斜率 flaky（A 轮 P4、C 轮 P5，4 轮里抖 2 次）。
+- **T-1 的 `src/llvm` 改动没有连累任何其它用例**：除上述两条外 9262 例全绿。
+
+### 7.5 D 轮全量门（S10 探针订正后，收口判据轮）
+
+```
+$ cd ~/r165t2 && env R160_E5_SEG2=1 nice -n 20 ~/r164venv/bin/python -m pytest tests \
+    -p no:cacheprovider -q --no-header -n 0 --junitxml=$HOME/r165_runD.xml
+Sun Oct 25 22:12:07 → 23:23（4311.31s / 1:11:51）
+
+9264 passed, 128 skipped, 10 xfailed, 3 xpassed, 1910 warnings in 4311.31s
+
+$ ~/r164venv/bin/python scripts/check_ci_baseline.py --junit ~/r165_runD.xml --json ~/r165_gate_runD.json
+[门] 读入 1 份 junit；collected=9405 failures=0 errors=0 skipped=138
+基线门报告：基线 0 条 ｜ 本次打红 0 条（硬） + 0 条（软）｜ 新增打红 0 条
+通过：无基线外新增打红。        exit_code=0
+```
+
+`new_red=[]`、`failed_hard=[]` ⇒ **T-2 的收口判据（全量门 new_reds=0）在 R165 集成态达成**，
+且是在「E5 段② 11 例真跑、skipped 从 139 降到 128」的更严口径下达成（不是靠 skip 变绿）。
+
+逐例核对：`test_light_import_hook_stdlib.py` 6 例 PASS、`test_R165_L235_就地闭包env.py` 6 例 PASS、
+`test_S10_选择IO_原生真实fd_库层probe` PASS（3.324s）、`test_P4P5_相对改善有牙[P4]/[P5]` PASS。
 
 ---
 
