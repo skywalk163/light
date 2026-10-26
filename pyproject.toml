@@ -50,6 +50,10 @@ dev = [
     "lunardate>=0.3.0",                # 农历 / 历法 / 日期时间用例
     "requests>=2.34.0",                # lightpub HTTP 客户端用例（R161-E 补登记）
     "cryptography>=50.0.0",            # TLS 用例：test_tls_light / test_async_io_light（R161-E 补登记）
+    "flask>=3.1.0",                    # Playground API 用例：test_playground_api 22 例（R167-T2 补登记）
+    "flask-cors>=6.0.0",               # 同上，**必须与 flask 成对**：playground/server.py 同时
+                                       # `from flask import …` 与 `from flask_cors import CORS`，
+                                       # 只装 flask 时 22 例照旧全 skip（R167-T2 实测）
     "flake8>=6.0.0",
     "black>=23.0.0",
     "isort>=5.12.0",

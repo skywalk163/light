@@ -2,8 +2,30 @@
 # 身份格式：junit 的 classname::name（原始字符，**不要**写 \uXXXX 转义形态）
 # 语义：CI 只拦「基线之外」的新增打红；修好一批后重新生成并提交本文件。
 #   python scripts/check_ci_baseline.py --junit .ci/report.xml --write-baseline
-# 快照汇总：collected=9409 failures=0 errors=0 skipped=138
+# 快照汇总：collected=9421 failures=0 errors=0 skipped=98
 # 生成机：freebsd15  python 3.12.13
+#
+# ⚠️ 口径：上面 skipped=98 **不是 98 条 skip**，而是 **88 skipped + 10 xfailed**。
+#   pytest 汇总行里的「skipped」是 88；但 junit XML 把 xfail 也写成 `<skipped type="pytest.xfail">`，
+#   所以按 junit `<skipped>` 元素计数会得 98。**统一按「88 skipped / 10 xfailed」口径**：
+#   既不要把 xfail 算进「假绿 skip」，也别拿 98 当要清的账。
+#   （10 处 xfail 已逐条核过：8 处 `_原生腿环境分叉_XFAIL` 在 test_stdlib_phase4.py
+#     （Test编码解码 ×4 / Test数据验证 ×2）+ test_stdlib_phase13.py ×2（test_命令存在 /
+#     test_磁盘使用情况）；另 2 处在 tests/unit/test_原生腿_R13C_对拍扩展.py
+#     （test_重复字符串 / test_字符串对齐_center）。）
+#
+# ⚠️ R167（2026-10-26）门禁假绿清零轮：collected 9409 → **9421**、skipped 128 → **88**（junit 口径 138 → 98）。
+#   四线改动与账目：
+#   T-2 装 flask+flask-cors ⇒ Playground 22 例真跑（22 passed / 0 skipped）；
+#   T-1 e2e 平台门改依赖可用性门 ⇒ 真跑 18 例（L3 12 + L4 6；L4 第 7 例 test_requests_get 本就因外网门
+#   skip、改门后仍 skip，与平台/依赖无关，见 T-1 报告 §3）；
+#   T-3 摘 3 例 xfail ⇒ xpassed 3 → 0、xfailed 10 不变；
+#   T-4 新增 `tests/unit/test_R167_L239_同族形态.py`（12 例）⇒ collected 9409 → 9421
+#   （T-1/T-2/T-3 三线均不增删用例，只有 T-4 是本轮设计内增量）。
+#   配平：`9323 passed + 88 skipped + 10 xfailed = 9421 collected`；failed / errors 仍 0/0。
+#   **定稿依据（0.88 权威机全量门 `-n 0`，连跑两轮 A/B）**：两轮均 `9323 passed / 88 skipped / 10 xfailed /
+#   0 failed / 0 errors`、collected=9421，且 A/B 逐项（testcase 名称集合 + 各状态）完全一致；
+#   `check_ci_baseline.py` 两轮均「新增打红 0 条」；门禁机自检 ④ collected 偏差 9421 vs 9409 = **+0.13%**（≤ ±10%）。
 #
 # ── 2026-10-25 R165-T2 重建说明（本文件自此由 0.88 权威机全量门生成）───────────────
 # 旧版失效原因：只登记 12 条 e2e「缺三方库」欠账，collected=1203 而实际门收集 9405 例，

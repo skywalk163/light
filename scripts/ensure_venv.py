@@ -10,9 +10,15 @@ R161-E（2026-10-21）：0.82 门禁机 venv（/home/ai/lm082_venv）缺 cryptog
 装 cryptography==50.0.2 后转绿（37 passed / 3 skipped）。同理未固化 → 换机必重演，故并入 LOCKED。
 本脚本同时是**门禁机初始化清单**的权威依赖清单（见 docs/门禁机初始化清单_0.88.md）。
 
+R167-T2（2026-10-26）：0.88 权威机 venv 缺 flask / flask-cors，`tests/integration/test_playground_api.py`
+22 例在 `setUpClass` 里 `raise unittest.SkipTest`，**整文件静默跳过**（R166 F 轮 128 skipped 里 22 条即此）。
+装 flask==3.1.3 + flask-cors==6.0.5 后 22 passed / 0 skipped。这类「静默 skip」不产生红，比红更坏
+（红会被看见，skip 只会让覆盖悄悄消失），故同样并入 LOCKED。
+
 设计口径（对齐 lightharness/scripts/同步0.86.py 的 ensure_venv）：
-  * 只锁**实测确认**过的包版本（R88-C 两包 + R161-E 一包），其余依赖按 .venv 现状核对，
-    **不擅自新增**；新增锁版本必须有对应「缺了会红」的用例证据；
+  * 只锁**实测确认**过的包版本，其余依赖按 .venv 现状核对，**不擅自新增**；
+    新增锁版本必须有对应「缺了会出问题」的用例证据——**「缺了会红」或「缺了会静默 skip 一整批用例」**
+    都算证据（后者见 R167-T2：22 例 Playground 静默跳过）；
   * 幂等：已装且版本匹配 → 跳过；已装但版本不符 → 升级到锁版本；未装 → 安装锁版本；
   * 另有 WATCH 清单（门禁/运行时相关），缺失只 WARN 提示、不自动装（避免擅自改环境）；
   * 独立运行退出码 0；`--check` 只体检不写环境。
@@ -29,6 +35,10 @@ R161-E（2026-10-21）：0.82 门禁机 venv（/home/ai/lm082_venv）缺 cryptog
                            （TestTLS异步读腿 3 条）
   * pytest-timeout==2.4.0 → 整个 pytest 会话（pyproject addopts 的 --timeout=60；缺包则
                              pytest 直接 exit 4「unrecognized arguments」，R164-T2 §2.4）
+  * flask==3.1.3          → tests/integration/test_playground_api.py 22 例（Flask 测试客户端）
+  * flask-cors==6.0.5     → 同上：playground/server.py 同时 `from flask import …` 与
+                             `from flask_cors import CORS`，**只装 flask 仍 22 例全 skip**
+                             （R167-T2 实测：装 flask 后跳因变为 `No module named 'flask_cors'`）
 """
 from __future__ import annotations
 
@@ -50,6 +60,11 @@ LOCKED: dict[str, str] = {
     "pytest-timeout": "2.4.0",   # R164-D（T-2 移交）：pyproject addopts 写死 --timeout=60，
                                  # 缺了 pytest **整轮 exit 4「unrecognized arguments」起不来**——
                                  # 比「缺了会红」更强（0.88 系统 python 实测，R164-T2 §2.4）
+    "flask": "3.1.3",            # R167-T2：Playground API 22 例（tests/integration/test_playground_api.py）
+                                 # 缺失 ⇒ 22 例 setUpClass 抛 SkipTest **静默跳过**（不是红，比红更坏）
+    "flask-cors": "6.0.5",       # R167-T2：同上，**必须与 flask 成对锁**——playground/server.py:24-25
+                                 # 同时 import flask 与 flask_cors；只装 flask 时 22 例照旧全 skip
+                                 # （实测跳因：`No module named 'flask_cors'`，R167-T2 §3 取证）
 }
 
 # ── 观察项：只核对存在性，缺失 WARN、不自动安装（避免擅自扩环境）─────────────

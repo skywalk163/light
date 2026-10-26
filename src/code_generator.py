@@ -115,6 +115,13 @@ class PythonCodeGenerator:
         # RuntimeWarning），这里在 ParagraphCall 语句发射时据此包 asyncio.run。
         self.async_paragraphs: set = set()
 
+        # R167-T4（L-239 同族形态①）：本模块顶层**同步**段落名集合，与
+        # `async_paragraphs` 同时由 `_prescan_async_paragraphs` 预扫描填充。
+        # 用处：`等待 X()` 中 X 若是同步段落，PY 腿不得发 `await X()`
+        # （`X()` 求值为 None ⇒ `TypeError: object NoneType can't be used in
+        # 'await' expression`），而原生腿容忍非协程句柄、rc=0 正常跑完。
+        self.sync_paragraphs: set = set()
+
         # R99 路 B（LP-D-012）：并行块需要 concurrent.futures
         self._needs_concurrent = False
 
@@ -897,6 +904,51 @@ class PythonCodeGenerator:
             '获取宏': '_light_ffi.获取宏',
         }
     
+    def _prescan_async_paragraphs(self, module) -> None:
+        """预扫描：收齐本模块**顶层**段落名，按同步/异步分表，供「等待 X()」判型用。
+
+        R167-T4：`async_paragraphs` 原先只在 `_generate_paragraph` 发射到该段落
+        时才登记，于是「被调段落写在调用点之后」时判型拿不到名字，`等待 同步干活()`
+        与 `等待 异步干活()` 落进同一条 `await X()` 分支——前者的 PY 腿产物是
+        `await 同步干活()` ⇒ `await None` ⇒ `TypeError: object NoneType can't be
+        used in 'await' expression`，而原生腿 rc=0 正常跑完（0.88 双腿实测）。
+        判型结果不该依赖声明顺序，所以在发射前统一收一遍。
+
+        只收**顶层**段落：类体里的方法不是可被 `等待 X()` 直接调用的段落名，
+        与 `_find_entry_paragraph` 的口径一致（不认类体内方法）。
+
+        同步段落名另存 `sync_paragraphs`：判「等待 X()」时两者都在这里查，
+        不依赖 `_user_defined_functions`（那是发射期才逐步累积的）。
+        """
+        for stmt in getattr(module, 'statements', None) or []:
+            if not isinstance(stmt, Paragraph):
+                continue
+            if '异步' in (getattr(stmt, 'modifiers', None) or []):
+                self.async_paragraphs.add(stmt.name)
+            else:
+                self.sync_paragraphs.add(stmt.name)
+
+    def _resolve_await_callable_kind(self, expr):
+        """判「等待 X()」被等待的是哪一类可调用对象。
+
+        返回值：
+          · 'sync_paragraph' —— 可解析为本模块同步段落（判型有牙）；
+          · 'other'          —— 其余全部（异步段落 / 函数值 / 表达式 / 导入名）。
+        'other' 一律维持原样发 `await`，不扩大改动面：只有能**确证**是同步段落时
+        才动手，判不出来就当异步（与原生腿对「非协程句柄」的容忍顺序无关）。
+        """
+        if not isinstance(expr, ParagraphCall):
+            return 'other'
+        名 = getattr(expr, 'name', None)
+        if 名 is None:
+            return 'other'
+        if 名 in self.async_paragraphs:
+            return 'other'
+        if 名 in self.sync_paragraphs:
+            return 'sync_paragraph'
+        # stdlib / 导入进来的同名段落不在本模块段落表里，判不出来，不动。
+        return 'other'
+
     def _register_imported_names(self, module) -> None:
         """把 import 显式引入的名字登记为「用户已定义」。
 
@@ -1275,10 +1327,15 @@ class PythonCodeGenerator:
         self._pending_assign_targets = set()  # 重置赋值目标名集合（L-019）
         self._ffi_user_types = {}  # 重置 FFI 用户自定义类型注册表
         self._entry_call = None  # L-070：重置入口调用（防止跨 generate 调用污染）
+        # R167-T4：段落判型表按次重置，防止跨 generate 调用污染
+        self.async_paragraphs = set()
+        self.sync_paragraphs = set()
         self.compile_warnings = []  # L-172：重置编译期告警（入口静默阻断告警等）
         
         # 预扫描：显式 import 进来的名字优先级高于内置函数映射
         self._register_imported_names(module)
+        # 预扫描（R167-T4）：先收齐本模块的异步段落名，再开始发射。
+        self._prescan_async_paragraphs(module)
         
         # 添加文件头
         self._add_line("# 由光明编译器生成")
@@ -2130,9 +2187,19 @@ class PythonCodeGenerator:
             self._generate_ffi_preprocessor_def(stmt)
         elif isinstance(stmt, AwaitExpr):
             # 等待语句 → await expression
+            # R167-T4（L-239 同族形态①）：被等待的是**本模块同步段落**时，
+            # PY 腿发 `await 同步X()` 等于 `await None` ⇒ `TypeError: object
+            # NoneType can't be used in 'await' expression`；原生腿
+            # （`dv_coro_run_to_completion` 遇非协程句柄）容忍并正常跑完，rc=0
+            # （0.88 双腿实测：native (0, '同步干活跑了 | 主结束') vs py (1, ...)）。
+            # 与 R166 同风格：只对**确证是同步段落**的名字去掉 await，其余
+            # （异步段落 / 函数值 / 表达式 / 导入名）一律维持原样。
             self._require_async_context('等待')
-            inner = self._generate_expr(stmt.expression)
-            self._add_line(f"await {inner}")
+            if self._resolve_await_callable_kind(stmt.expression) == 'sync_paragraph':
+                self._add_line(self._generate_expr(stmt.expression))
+            else:
+                inner = self._generate_expr(stmt.expression)
+                self._add_line(f"await {inner}")
         elif isinstance(stmt, RunAsyncStmt):
             # A1 异步启动入口：异步 运行 主()。 → asyncio.run(主())
             # R166-T3（L-239）补判型：被调段落**明确是同步段落**时，`call` 求值为
@@ -2669,6 +2736,9 @@ class PythonCodeGenerator:
         def_prefix = "async def" if is_async_para else "def"
         if is_async_para:
             self.async_paragraphs.add(stmt.name)
+        else:
+            # R167-T4：同步段落也登记（预扫描通常已填，这里覆盖「发射期才发现」的路径）
+            self.sync_paragraphs.add(stmt.name)
         self._add_line(f"{def_prefix} {name}({params_str}){return_type_annotation}:")
         # L-006：nonlocal 声明要插在 def 行之后、任何语句之前，先记住插入位。
         def_line_index = len(self.output_lines) - 1
@@ -4814,7 +4884,10 @@ class PythonCodeGenerator:
 
         elif isinstance(expr, AwaitExpr):
             # 等待表达式 → await expression
+            # R167-T4：与语句侧 `AwaitExpr` 分支同一判型口径（见语句侧注释）。
             self._require_async_context('等待')
+            if self._resolve_await_callable_kind(expr.expression) == 'sync_paragraph':
+                return self._generate_expr(expr.expression)
             inner = self._generate_expr(expr.expression)
             return f"await {inner}"
         

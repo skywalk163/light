@@ -7,13 +7,15 @@ import os
 import sys
 import io
 import unittest
-import pytest  # 用于平台条件跳过
+import importlib.util as _u
+import pytest  # 用于依赖可用性跳过（R167-T1：平台门→依赖可用性门）
 
-# 原生依赖(sympy/sqlite3 扩展)仅在 Linux CI 有完整 wheel 支持
+# R167-T1：原「sys.platform != "linux"」平台门是写死的假绿——0.88 上 sympy/sqlite3 全部
+# 可 import，却因「不是 Linux」把整文件 12 例静默跳过。改为依赖可用性判断：缺哪个就跳过，
+# 装上即真跑；理由里不再出现 sys.platform。（re 为 stdlib 恒在，不入门。）
+_缺依赖 = [m for m in ('sympy', 'sqlite3') if _u.find_spec(m) is None]
 pytestmark = [pytest.mark.slow, pytest.mark.skipif(
-    sys.platform != "linux",
-    reason="原生依赖(numpy/sympy/DB)仅在 Linux CI 可用"
-)]
+    bool(_缺依赖), reason=f"缺原生依赖 {_缺依赖}（装包即可真跑，勿用平台门）")]
 
 _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _src_dir = os.path.join(_project_root, 'src')
