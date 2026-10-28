@@ -11262,7 +11262,11 @@ static mbedtls_x509_crt* dv_tls_get_ca_chain(void) {
 }
 
 /* 发送 BIO：把 mbedTLS 加密产物追加进 out_pending 队列（不直接写 socket）。
-   返回 len=全部接收；队列积压超限返回 WANT_WRITE 施加背压。 */
+   返回 len=全部接收；队列积压超限返回 WANT_WRITE 施加背压。
+   前置声明：dv_tls_flush 定义在本函数之后，clang 19（FreeBSD 15）把隐式声明
+   当 error，缺前置声明则 POSIX 构建编译不过。 */
+static int dv_tls_flush(LightTLS* t);
+
 static int dv_tls_bio_send(void* ctx, const unsigned char* buf, size_t len) {
     LightTLS* t = (LightTLS*)ctx;
     if (t->out_len - t->out_off > 8 * 1024 * 1024)

@@ -43,19 +43,20 @@
 
 - Windows（本机，retry 版 wt）：`python -m pytest -q tests/unit/test_R13B_TLS_POSIX握手.py`
   → 1 passed（静态锚点）+ 1 skipped（真跑，平台标注），exit 0。
-- 首版 push 已推到 origin（task/T-0183 → 2cc1aa32e）；本 retry 版修的是
-  全 skip exit 5 被 verify 门记 failed 的问题，push 后提交号前移。
+- **FreeBSD 0.88（fb98，15.1-RELEASE-p1）实机真跑（2026-10-28）**：
+  - 环境：clang（base 19）+ 新装 mbedtls3-3.6.7（pkg，免密 sudo）+ cryptography 50.0.2 + ca_root_nss。
+  - 运行方式：`CPATH=/usr/local/include LIBRARY_PATH=/usr/local/lib python3 -m pytest -q tests/unit/test_R13B_TLS_POSIX握手.py` → **2 passed，exit 0**（真跑探针：本地 TLS echo 服务器，握手 rc=0 + 回显原样）。
+  - **反跑**：删掉 runtime_typed.c 副本中 bio_recv 的 flush 三行重编探针，对同一 TLS 服务器握手 → 自锁，被 `timeout 25` 杀掉（RC=124）——修前阻塞实锤，与 known_issues 反跑描述一致。
+- **新增 C 改动（本任务实机补验发现的真编译缺陷）**：`dv_tls_flush` 定义在
+  `dv_tls_bio_recv` 之后且无前置声明，clang 19 把隐式声明当 error——当前 main
+  的 POSIX mbedTLS 分支在 FreeBSD 15 上编译不过。已补前置声明
+  `static int dv_tls_flush(LightTLS* t);`（runtime_typed.c，属卡片允许路径）。
 - 门禁固化项：LH 副本已用 sync_builtins.py 刷新（自检全过）；venv 用
   GATE_SELFCHECK_VENV 指向 light-merge/.venv（全 PASS）。
-- POSIX 真跑 + 探针编译：**未在本机执行**。FreeBSD 0.88（192.168.0.88）SSH
-  无凭据（Permission denied (publickey,keyboard-interactive)），本会话无法实机验证。
-  待 0.88 可连通后在机上跑：
-  `python -m pytest -q tests/unit/test_R13B_TLS_POSIX握手.py`
-  （需 clang + libmbedtls/mbedtls + ca-certificates + cryptography）。
+- 探针链接需 -lpthread（runtime 的 dv_thread_spawn/dv_fs_watch_start 引用 pthread_create）。
 
 ## 缺口（逐项单列）
 
-- 卡片完成标准「FreeBSD 0.88 真跑 HTTPS 客户端探针：修前阻塞、修后 rc=0」：
-  0.88 SSH 凭据缺失，**待实机补验**。
-- 卡片完成标准「0.88 全量门 new_reds=0」：本任务零 C 改动，全量门触发条件
-  （C runtime 改动）不成立；但 POSIX 侧全量门仍待 0.88 可连通后例行补跑。
+- 卡片完成标准「0.88 全量门 new_reds=0」：全量门未在本机/0.88 跑（pytest 全量
+  9421 例，耗时大）；本次 C 改动仅为前置声明（无行为变化），探针编译 + 真跑 +
+  反跑均已实机验证。如需全量门，待安排在 0.88 例行补跑。

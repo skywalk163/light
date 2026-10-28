@@ -102,10 +102,10 @@ int main(int argc, char** argv) {
     if (dv_tls_send_n(t, "hello_r13b_tls_posix_regression", 32) < 0) {
         fprintf(stderr, "发送失败: %s\n", dv_tls_last_error()); return 8;
     }
-    char buf[256]; int got = dv_tls_recv(t, buf, (int)sizeof(buf) - 1);
-    if (got <= 0) { fprintf(stderr, "接收失败: %s\n", dv_tls_last_error()); return 9; }
-    buf[got] = 0;
-    printf("%s\n", buf);
+    LightValue out; out.str = NULL;
+    dv_tls_recv(&out, t, 256);
+    if (out.str == NULL || !out.str[0]) { fprintf(stderr, "接收失败: %s\n", dv_tls_last_error()); return 9; }
+    printf("%s\n", out.str);
     return 0;
 }
 '''
@@ -197,7 +197,7 @@ def probe_exe():
         "-DLIGHT_TLS_MBEDTLS",
         "-I", os.path.join(_ROOT, "src", "llvm"),
         probe_c, "-o", exe,
-        "-lmbedtls", "-lmbedx509", "-lmbedcrypto", "-lm",
+        "-lmbedtls", "-lmbedx509", "-lmbedcrypto", "-lm", "-lpthread",
     ]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
     if r.returncode != 0:
