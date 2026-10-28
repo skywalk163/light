@@ -146,7 +146,8 @@ def SECRET_PATTERNS_DICT():
 def _git(repo, args, text=True):
     try:
         return subprocess.run(["git", "-C", repo] + args,
-                               capture_output=True, text=text)
+                               capture_output=True, text=text,
+                               encoding="utf-8", errors="replace")
     except (OSError, subprocess.SubprocessError):
         return None
 
@@ -206,12 +207,24 @@ def scan_pre_push(repo):
     hits = []
     # git 空树 oid：新建分支（remote_oid 全 0）时，以此为基线才能列出本次提交的全部文件。
     EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
+    def _new_branch_base(local_oid):
+        """新建分支时取「本次推送提交范围」的正确基线：
+        merge-base(local_oid, 主干提示)——否则 diff(EMPTY_TREE, local_oid) 展开成
+        整棵仓树（扫描整个 HEAD，既有占位 PEM/测试夹具会让每次首推必拦，
+        且逐 blob git show 在大仓上慢到不可用）。主干不可定时才回退空树。"""
+        for ref in ("refs/remotes/origin/main", "refs/heads/main"):
+            res = _git(repo, ["merge-base", local_oid, ref])
+            if res and res.returncode == 0 and res.stdout.strip():
+                return res.stdout.strip()
+        return EMPTY_TREE
+
     for raw in sys.stdin:
         parts = raw.split()
         if len(parts) < 4:
             continue
         local_oid, remote_oid = parts[1], parts[3]
-        base = remote_oid if set(remote_oid) != {"0"} else EMPTY_TREE
+        base = remote_oid if set(remote_oid) != {"0"} else _new_branch_base(local_oid)
         cmd = ["diff", "--name-only", base, local_oid]
         res = _git(repo, cmd)
         if not res or res.returncode != 0:
@@ -220,7 +233,7 @@ def scan_pre_push(repo):
             if _excluded_by_path(path):
                 continue
             show = _git(repo, ["show", "%s:%s" % (local_oid, path)])
-            if not show or show.returncode != 0:
+            if not show or show.returncode != 0 or not show.stdout:
                 continue
             for name in scan_text(show.stdout):
                 hits.append((path, _find_lineno(show.stdout, SECRET_PATTERNS_DICT()[name]), name))
