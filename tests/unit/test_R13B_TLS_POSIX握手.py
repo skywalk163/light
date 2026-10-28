@@ -52,14 +52,9 @@ import pytest
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _RUNTIME_C = os.path.join(_ROOT, "src", "llvm", "runtime_typed.c")
 
-# ── 平台门：POSIX 专属，Windows 整文件 skip（平台标注） ──────────────
-if sys.platform == "win32":
-    pytest.skip(
-        "R13B-TLS 是 POSIX（FreeBSD/Linux）专属缺陷与回归：Windows 走 Schannel "
-        "纯状态机路径（发送与状态推进同步），不受 bio 队列死锁影响，"
-        "由 tests/test_llvm_tls.py 双平台真后端用例覆盖",
-        allow_module_level=True,
-    )
+# ── 平台门 ───────────────────────────────────────────────────────────
+# 仅「POSIX 真跑握手回显」按平台 skip（Windows 上 skip，标注平台）；
+# 静态锚点用例只读 C 源，双平台都真跑，保证 Windows 上文件有绿退出码 0。
 
 if not os.path.exists(_RUNTIME_C):
     pytest.skip(f"runtime_typed.c 不存在: {_RUNTIME_C}", allow_module_level=True)
@@ -188,6 +183,10 @@ class _TLSEchoServer:
 # ── 夹具：编译探针 ───────────────────────────────────────────────────
 @pytest.fixture(scope="module")
 def probe_exe():
+    if sys.platform == "win32":
+        # 不在 fixture 里 skip：--dist=loadscope 下模块级 fixture 的 skip 会把
+        # 整组用例（含静态锚点）都带成 skip。真跑用例在用例内自行 skip。
+        return None
     tmp = tempfile.mkdtemp(prefix="_r13b_tls_probe_")
     probe_c = os.path.join(tmp, "probe.c")
     exe = os.path.join(tmp, "probe")
@@ -212,6 +211,12 @@ def probe_exe():
 def test_posix_握手自锁修复_握手回显真跑(probe_exe):
     """修前：bio_send 只入队不发送 + bio_recv 阻塞读 ⇒ 握手自锁（阻塞至 EOF）。
     修后：bio_recv 先 flush 让 ClientHello 上线，握手 rc=0，回显原样返回。"""
+    if sys.platform == "win32":
+        pytest.skip(
+            "R13B-TLS 真跑探针是 POSIX（FreeBSD/Linux）专属：Windows 走 Schannel "
+            "纯状态机路径（发送与状态推进同步），不受 bio 队列死锁影响，"
+            "由 tests/test_llvm_tls.py 双平台真后端用例覆盖"
+        )
     cert_dir = tempfile.mkdtemp(prefix="_r13b_tls_cert_")
     made = _make_self_signed_cert(cert_dir)
     if made is None:
