@@ -2956,11 +2956,20 @@ class PythonCodeGenerator:
             # 向后兼容：使用旧的单捕获块字段
             self._generate_catch_clause(stmt.catch_type, stmt.catch_var, stmt.catch_body)
         else:
-            # 有尝试块但没有捕获块：生成默认except块
-            self._add_line("except Exception:")
-            self.indent_level += 1
-            self._add_line("pass")
-            self.indent_level -= 1
+            # 有尝试块但没有捕获块（无 `捕`）。
+            # LH-10（光明P0）：不能无条件生成 `except Exception: pass`——那会把
+            # 异常静默吞掉（假绿制造机：程序不崩但结果错了，报错还指向别处）。
+            # 正确语义：无 `捕` 时异常应向外传播，由外层 `捕` 接收。
+            # 当存在 `最终`（且无 `否则`）时，不输出任何 except，生成纯
+            # try/finally（Python 的 finally 不拦截异常，天然向外传播）；
+            # 其余组合（无 `最终`——try 需 except 才合法；或存在 `否则`——else
+            # 子句语法上依赖 except）保留占位 `except Exception: pass`，以维持
+            # 既有行为与合法生成代码。
+            if not (stmt.finally_body and not stmt.else_body):
+                self._add_line("except Exception:")
+                self.indent_level += 1
+                self._add_line("pass")
+                self.indent_level -= 1
         
         # finally块
         if stmt.finally_body:

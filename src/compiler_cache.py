@@ -5,6 +5,22 @@
 - 模块级缓存（缓存单个模块的编译结果）
 - 依赖追踪（缓存依赖的模块）
 - 缓存清理（TTL / 手动清理）
+- 逃生口：环境变量 ``NO_CACHE=1``（或 ``LIGHT_NO_CACHE=1``）整体停用本类缓存
+
+.. todo:: LH-13 / L-246 —— 缓存键仍有一处「只看 mtime」的落点没修
+   **本类不是病根**：``get_cache_key()`` 已把内容哈希拼进键
+   （``f'{path_hash}_{content_hash[:16]}'``），``_is_fresh()`` 还会二次比对
+   ``content_hash``，改文件内容必然失效。
+
+   真正只有 ``(mtime_ns, size)``、没有内容哈希的是
+   **``src/module_resolver.py::_load_resolved``**（定义 :1054，命中条件在 :1069：
+   ``cached['mtime'] == mtime and cached['size'] == size``）。
+   若某次改写让 mtime_ns 与 size **同时不变**（等长替换 + 时间戳精度/保留），
+   就会命中旧 AST —— 这正是「改完 stdlib 立即重跑偶发还是旧结果」（LH-13）最可疑的落点。
+
+   下一步（**需独立卡**，`module_resolver.py` 不在 T-0203 的 paths 内）：
+   ① 给 ``_load_resolved`` 的缓存键补内容哈希（或复用它下面的 ``_hash_content``）；
+   ② 让它也认 ``NO_CACHE`` —— 本文件的 :func:`缓存已禁用` 已是通用判据，直接 import 即可。
 """
 
 import os
@@ -13,6 +29,26 @@ import hashlib
 import time
 from typing import Optional, Dict, Any, List
 from pathlib import Path
+
+
+#: 关闭缓存的环境变量名（值为 ``1`` / ``true`` / ``yes`` / ``on`` 时生效）。
+#: 用途：改完 ``stdlib/*.light`` 后排查「是不是缓存让我看到旧结果」。
+CACHE_DISABLE_ENV = 'NO_CACHE'
+
+#: 等价别名（与 ``CACHE_DISABLE_ENV`` 任一为真即停用），避免与别的工具的 NO_CACHE 语义打架。
+CACHE_DISABLE_ENV_ALIASES = ('LIGHT_NO_CACHE',)
+
+
+def 缓存已禁用() -> bool:
+    """当前进程是否要求停用编译缓存（读环境变量，便于 ``NO_CACHE=1 light run x.light``）。
+
+    两个名字任一为真即停用：``NO_CACHE`` / ``LIGHT_NO_CACHE``。
+    判定值取 ``1`` / ``true`` / ``yes`` / ``on``（大小写不敏感），其余视为未设置。
+    """
+    for name in (CACHE_DISABLE_ENV,) + CACHE_DISABLE_ENV_ALIASES:
+        if os.environ.get(name, '').strip().lower() in ('1', 'true', 'yes', 'on'):
+            return True
+    return False
 
 
 class CompilationCache:
@@ -56,6 +92,8 @@ class CompilationCache:
         cache_key = self.get_cache_key(file_path)
         if not cache_key:
             return None
+        if 缓存已禁用():  # NO_CACHE=1：整体不读缓存（LH-13 排查逃生口）
+            return None
 
         # 检查内存缓存
         if cache_key in self._cache:
@@ -86,6 +124,8 @@ class CompilationCache:
         """
         cache_key = self.get_cache_key(file_path)
         if not cache_key:
+            return
+        if 缓存已禁用():  # NO_CACHE=1：整体不写缓存（LH-13 排查逃生口）
             return
 
         # 获取文件元数据
