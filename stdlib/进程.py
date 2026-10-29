@@ -285,6 +285,143 @@ def 执行系统命令(命令字符串: str, 超时: int = None) -> dict:
         }
 
 
+# ===== LH-20：管道式交互子进程（新能力，不改既有 API） =====
+# 提供「拿到子进程句柄 → 写一行 → 读一行 → 再写」的长连接接口，
+# 是 MCP stdio / LSP / JSON-RPC over pipe / 交互式 CLI 驱动（ssh/gdb/psql/fdisk）
+# 的地基。此前 进程启动 是一次性的、进程运行 无 stdin、进程启动(捕获输出)
+# 只有 PIPE stdout 无 stdin=PIPE，导致所有 stdin/stdout 长连接协议做不了。
+
+# 读端 EOF 哨兵（读线程读到管道关闭时入队，读一行 据此返回 空）
+_进程会话_EOF = object()
+
+
+class 进程会话:
+    """管道式交互子进程句柄（LH-20）。
+
+    设计要点（对应 LH-20 期望）：
+      1. stdin=PIPE、stdout=PIPE、bufsize=1（行缓冲，text 模式）；
+         由调用方以「写一行 → 读一行 → 再写」的循环驱动。
+      2. 读一行(超时=) 用「后台读线程 + 队列」实现可靠超时——读端绝不永久阻塞
+         （这是本缺陷最容易写出的翻版：裸 readline() 无超时直接挂死）。
+      3. 输出原样保留：不做行内重排、不吞空行；读一行只剥行终结符（\\n / \\r\\n），
+         其余内容原样返回。空行返回空字符串（不吞）。
+      4. stderr 默认并入 DEVNULL——绝不接 PIPE 又不读（会把子进程写死）。
+         调用方如确需收集 stderr，请自行把子进程 stderr 重定向到文件/临时文件，
+         而非 PIPE。
+      5. 跨平台：FreeBSD/Linux 必过。Windows 上 bufsize=1 文本行缓冲与 POSIX
+         存在差异，但本类读端用 `for line in stdout`（TextIOWrapper 自实现行切分）
+         而非依赖系统行缓冲、写端每次 flush——正确性不依赖平台缓冲语义，无需
+         额外降级。若未来确需二进制原样透传，可改用自实现行切分。
+    """
+
+    def __init__(self, 命令, 工作目录=None, 环境变量=None):
+        import threading
+        import queue
+        self._进程 = subprocess.Popen(
+            命令,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,   # 点4：stderr 不接 PIPE，防写死
+            bufsize=1,                   # 点1：行缓冲
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            cwd=工作目录,
+            env=环境变量,
+        )
+        self._读队列 = queue.Queue()
+        self._已EOF = False
+        self._读线程 = threading.Thread(target=self._读循环, daemon=True)
+        self._读线程.start()
+
+    def _读循环(self):
+        """后台持续读 stdout 的每一行入队；读到管道关闭（EOF）时放哨兵。"""
+        try:
+            for 行 in self._进程.stdout:
+                if 行.endswith('\r\n'):
+                    行 = 行[:-2]
+                elif 行.endswith('\n'):
+                    行 = 行[:-1]
+                self._读队列.put(行)
+        except Exception:
+            pass
+        finally:
+            self._读队列.put(_进程会话_EOF)
+
+    def 写一行(self, 内容):
+        """向子进程 stdin 写一行（自动补 '\\n' 并 flush）。"""
+        try:
+            self._进程.stdin.write(str(内容) + '\n')
+            self._进程.stdin.flush()
+        except (BrokenPipeError, ValueError, OSError) as e:
+            raise RuntimeError(f"向进程会话写入失败（进程可能已退出）: {e}")
+
+    def 读一行(self, 超时=None):
+        """从子进程 stdout 读一行；超时（秒）返回 空（None），不抛。
+
+        超时返回 None 而非抛异常（LH-20 点2）。超时=None 时阻塞直至读到一行、
+        管道关闭（EOF）或进程结束。
+        """
+        import queue
+        if self._已EOF:
+            return None
+        try:
+            item = self._读队列.get(timeout=超时)
+        except queue.Empty:
+            return None
+        if item is _进程会话_EOF:
+            self._已EOF = True
+            return None
+        return item
+
+    def 是否存活(self):
+        """子进程是否仍在运行。"""
+        return self._进程.poll() is None
+
+    def 进程PID(self):
+        """子进程 PID。"""
+        return self._进程.pid
+
+    def 返回码(self):
+        """子进程返回码；未结束时为 None。"""
+        return self._进程.poll()
+
+    def 终止(self):
+        """终止子进程并等待回收（无僵尸）。
+
+        POSIX 发送 SIGTERM；超时未退则 SIGKILL。wait() 确保进程被收割。
+        """
+        if self._进程.poll() is None:
+            self._进程.terminate()
+        try:
+            self._进程.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self._进程.kill()
+            self._进程.wait()
+        # 关闭管道，避免句柄泄漏
+        for 流 in (self._进程.stdin, self._进程.stdout):
+            try:
+                流.close()
+            except Exception:
+                pass
+        if self._读线程.is_alive():
+            self._读线程.join(timeout=2)
+
+
+def 进程会话启动(命令, 工作目录=None, 环境变量=None):
+    """启动管道式交互子进程（LH-20）。
+
+    参数:
+        命令: 命令列表（如 ['python3', 'mcp_server.py']）
+        工作目录: 子进程工作目录
+        环境变量: 子进程环境变量字典
+
+    返回:
+        进程会话 句柄（写一行 / 读一行(超时=) / 是否存活 / 终止）
+    """
+    return 进程会话(命令, 工作目录=工作目录, 环境变量=环境变量)
+
+
 def _进程包装(队列, 函数, 参数):
     """进程内部包装函数（模块级别，可被 pickle）"""
     try:
@@ -445,4 +582,6 @@ __all__ = [
     '当前进程标识', '父进程标识', 'CPU核心数',
     '执行系统命令', '进程', '进程队列',
     '共享值', '共享数组', '进程锁', '管道',
+    # LH-20 管道式交互子进程
+    '进程会话', '进程会话启动',
 ]
