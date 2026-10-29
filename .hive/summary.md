@@ -1,16 +1,16 @@
-# T-0194 工作说明（LH-10｜试 无 捕 必须生成 try/finally，异常不得静默吞掉）
+# T-0199 工作说明（LH-21｜light check 查不出未定义名 + LH-09｜导入名被局部遮蔽零告警）
 
 ## 结论
-LH-10（P0）根因：无 `捕` 的 `试` 被 code_generator.py 生成为 `except Exception: pass` + `finally`，异常被静默吞掉（假绿制造机）。已修。
+LH-21：`light check` 现用「AST + SemanticAnalyzer」做作用域感知的未定义名检查（E002），能报 `打印 临时目录()` / `设 甲 为 1`+`打印 乙`，并按 内置名/导入名/模块级段落/局部变量 分类给提示；解析器不可用时回退文本启发式。LH-09：`从 X 导入` 的名字被段落内 `设` 遮蔽时，新增 L-166 告警（提示 UnboundLocalError）。
 
 ## 改动
-1. `src/code_generator.py` `_generate_try_stmt`：无 `捕`+有 `最终`（且无 `否则`）→ 纯 try/finally，异常向外传播；`捕` 语义与其余组合未动。
-2. `src/code_generator_unified.py` `_generate_try_stmt`：加 `has_catch` 门（catch_clauses/catch_body），修掉无 `捕` 误判成裸 `捕获:`（except BaseException 吞异常）及无 `捕` 无 `最终` 的裸 `try:` SyntaxError。
-3. `antlrparser/interpreter_core.py` `_exec_try`：无 `捕` 改 try/finally，异常不再被吞（该后端也处理 try，一并核）。
-4. 新建 `tests/unit/test_LH10_最终块异常传播.py`：4 例，subprocess 起 `python -m cli.light run`（src 后端）断言 stdout；例 1 有牙（修前红）。
+1. 新建 `src/linter/builtins.py`：内置名清单（手工兜底 + 动态读 `code_generator.builtin_map`/`BUILTIN_TYPES`），刻意不含 `去空白`。
+2. 改 `src/linter/light_linter.py`：`_check_undefined_variable` 走 AST（`_collect_undefined_from_ast` + `_classify_undefined` + `_report_undefined`，E002）；`_check_shadowed_variable` 扩展：收集 `从 X 导入` 名，段落内同名 `设` 报 L-166（LH-09）。
+3. 新建 `tools/内置名清单.py`：机器可读 JSON（--json/--python/--check）。
+4. 新建 `tests/unit/test_LH21_未定义名.py`：6 组验收用例（未定义名 / 不误报 / JSON / 文档门禁 / LH-09 正反例）。
 
 ## 验证
-本环境 bash 沙箱不可用（无 bubblewrap/Landlock，无审批通道），无法跑 pytest；以上均经静态/手工推演核对。需 worker 跑：`python3 -m pytest -q tests/unit/test_LH10_最终块异常传播.py`。
+本环境 bash 沙箱不可用（无 bubblewrap/Landlock、无审批通道，含子代理同样被拦），无法本地跑 pytest。以上代码均经静态/手工推演核对。需 worker 跑：`python3 -m pytest -q tests/unit/test_LH21_未定义名.py`。
 
-## 缺口
-裸无 `捕`（无 `最终`）在 code_generator.py 仍保留 `except Exception: pass`（保守）；无 `捕`+`最终`+`否则` 的 except/finally/else 顺序为既有缺陷、非本次范围；unified 对裸无 `捕` 补 `finally: pass` 与 code_generator 略有差异（已知不一致）。
+## 残余风险
+文档门禁把 `去空白`（文档错名、真实为 `去除空白`）列为已知偏差放行（文档只读不改）；`tools/内置名清单.py` 的 JSON 用真实清单（非兜底），若 `code_generator` 导入失败会退到兜底清单，仍满足验收 4/5。

@@ -104,6 +104,7 @@ RULES = {
     'I007': {'name': '字符串引号不一致', 'severity': 'info', 'description': '字符串引号风格不一致（混用单双引号）'},
     'W014': {'name': '字典操作不规范', 'severity': 'warning', 'description': '建议用 .包含() 方法替代 字典包含键() 函数形式'},
     'W015': {'name': '文体风格不一致', 'severity': 'warning', 'description': '代码关键字文体与项目配置不一致（试/尝试、捕/捕获）'},
+    'L166': {'name': '影子变量/导入名被局部遮蔽', 'severity': 'warning', 'description': '局部变量遮蔽模块级变量或「从 X 导入」的导入名'},
 }
 
 
@@ -271,7 +272,178 @@ class LightLinter:
     # ------------------------------------------------------------------
 
     def _check_undefined_variable(self):
-        """检查未定义的变量"""
+        """检查未定义的变量（LH-21：静态名检查，区分来源）
+
+        优先用 AST + SemanticAnalyzer 做**作用域感知**的未定义名判定——
+        它天然处理导入、段落提升、局部变量、成员访问、内置名等，且对
+        「来源不可知导入」保守放行（宁可漏报也不误报，见 src/semantic_analyzer.py）。
+        解析器/语义分析器不可用时回退到文本启发式（不抛异常）。
+        """
+        ast_found = self._collect_undefined_from_ast()
+        if ast_found is not None:
+            for name, line, kind in ast_found:
+                self._report_undefined(name, line, kind)
+            return
+        # 兜底：文本启发式（仅当 AST 路径不可用）
+        self._check_undefined_variable_text()
+
+    # ------------------------------------------------------------------
+    # LH-21：AST 作用域感知未定义名检查
+    # ------------------------------------------------------------------
+
+    def _collect_undefined_from_ast(self):
+        """用 LightParser + SemanticAnalyzer 收集未定义名。
+
+        :return: list[(名字, 行号, 来源分类)]，来源分类 ∈
+                 {'内置名', '导入名', '模块级段落', '局部变量'}；
+                 返回 None 表示 AST 路径不可用（调用方回退文本启发式）。
+        """
+        try:
+            from light_parser_v3 import LightParser
+            from semantic_analyzer import SemanticAnalyzer
+
+            parser = LightParser()
+            module = parser.parse(self._source)
+            if module is None:
+                return None
+            analyzer = SemanticAnalyzer(module)
+            # v3 模式走 analyze_v3；unified 模式走 analyze。
+            errors = analyzer.analyze_v3(module) if getattr(analyzer, 'v3_mode', False) else analyzer.analyze()
+        except Exception:  # pragma: no cover - 兜底，绝不把 check 拖崩
+            return None
+
+        found = []
+        seen = set()
+        for err in errors:
+            msg = str(getattr(err, 'message', err))
+            # 语义分析器文案固定为「未定义的符号 'X'」
+            m = re.search(r"未定义的符号 '([^']+)'", msg)
+            if not m:
+                continue
+            name = m.group(1)
+            if name in seen:
+                continue
+            seen.add(name)
+            line = int(getattr(err, 'line', 0) or 0)
+            kind = self._classify_undefined(name)
+            found.append((name, line, kind))
+        return found
+
+    def _classify_undefined(self, name: str) -> str:
+        """按「最可能的来源」给未定义名分类，便于给出针对性提示。
+
+        注意：未定义名本身没有来源，这里是根据它与四类名字的**相似度**，
+        推断它本意属于哪一类（拼错内置名 / 忘了导入 / 局部拼错…）。
+        """
+        from .builtins import get_builtin_names
+        builtins = get_builtin_names()
+        if name in builtins:
+            return '内置名'
+        # 疑似内置名拼写错误：编辑距离 ≤ 1，或与某内置名共享 2 字以上前后缀
+        if self._is_near_builtin(name, builtins):
+            return '内置名'
+        if self._looks_like_import_name(name):
+            return '导入名'
+        if self._looks_like_paragraph(name):
+            return '模块级段落'
+        return '局部变量'
+
+    @staticmethod
+    def _is_near_builtin(name: str, builtins) -> bool:
+        """判断 name 是否与某个真实内置名「近似」（编辑距离 ≤1 或共享长前后缀）。
+
+        保守：只在 name 为中文且长度 ≥2 时判定，避免单字符误报。
+        """
+        if not name or len(name) < 2:
+            return False
+        if not any('\u4e00' <= ch <= '\u9fff' for ch in name):
+            return False
+        for b in builtins:
+            if not isinstance(b, str) or len(b) < 2:
+                continue
+            if b == name:
+                return True
+            # 前缀/后缀包含（如 临时目录 ⊂ 创建临时目录 / 临时目录X）
+            if name in b or b in name:
+                if min(len(name), len(b)) >= 2:
+                    return True
+            # 编辑距离 ≤ 1（近似拼写）
+            if LightLinter._edit_distance_leq1(name, b):
+                return True
+        return False
+
+    @staticmethod
+    def _edit_distance_leq1(a: str, b: str) -> bool:
+        """a、b 的编辑距离是否 ≤ 1（只含增删改，且只比较长度接近的串）。"""
+        if abs(len(a) - len(b)) > 1:
+            return False
+        if a == b:
+            return True
+        la, lb = len(a), len(b)
+        if la == lb:
+            diff = sum(1 for x, y in zip(a, b) if x != y)
+            return diff <= 1
+        # 长度差 1：判断是否可由一次插入/删除得到
+        long_s, short_s = (a, b) if la > lb else (b, a)
+        i = j = 0
+        skipped = False
+        while i < len(long_s) and j < len(short_s):
+            if long_s[i] == short_s[j]:
+                i += 1
+                j += 1
+            elif skipped:
+                return False
+            else:
+                skipped = True
+                i += 1
+        return True
+
+    def _looks_like_import_name(self, name: str) -> bool:
+        """是否疑似「从 X 导入」的名字：扫描源里的导入符号表。"""
+        for line in self._source_lines:
+            m = re.match(r'\s*(?:从|由)\s+\S+\s+(?:导入|引)\s+(.*)', line)
+            if not m:
+                continue
+            rest = m.group(1)
+            # 符号列表，允许 逗号/、/顿号 分隔
+            for sym in re.split(r'[，,、\s]+', rest):
+                sym = sym.strip().rstrip('。')
+                if sym and sym == name:
+                    return True
+        return False
+
+    def _looks_like_paragraph(self, name: str) -> bool:
+        """是否疑似模块级段落/函数名：扫描源里的段落定义。"""
+        for line in self._source_lines:
+            m = re.match(r'\s*(?:段落|段|函数|函)\s+(\S+)', line.strip())
+            if m and m.group(1) == name:
+                return True
+        return False
+
+    def _report_undefined(self, name: str, line: int, kind: str):
+        """按分类输出 E002 未定义名错误（含针对性提示）。"""
+        if kind == '内置名':
+            hint = f"疑似内置名「{name}」不存在（拼写错误？请对照「light builtins --json」）。"
+        elif kind == '导入名':
+            hint = f"疑似需要「从 X 导入 {name}」但未导入。"
+        elif kind == '模块级段落':
+            hint = f"疑似段落「{name}」未定义或未导入。"
+        else:
+            hint = f"疑似未定义的局部变量「{name}」。"
+        message = f"使用了未定义的变量「{name}」：{hint}"
+        source_line = self._source_lines[line - 1].strip() if 1 <= line <= len(self._source_lines) else ''
+        self._add_result(
+            'error', message,
+            line, (source_line.find(name) + 1) if source_line and name in source_line else 0,
+            'E002', source=source_line
+        )
+
+    # ------------------------------------------------------------------
+    # 兜底：文本启发式未定义名检查（AST 路径不可用时）
+    # ------------------------------------------------------------------
+
+    def _check_undefined_variable_text(self):
+        """文本启发式检查未定义的变量（兜底，保守）。"""
         defined_vars: Set[str] = set()
         builtins = {'真', '假', '空', '打印', '印', '输入', '读', 'len', 'str', 'int', 'list', 'dict'}
 
@@ -301,6 +473,15 @@ class LightLinter:
                             if param_name:
                                 defined_vars.add(param_name)
                 continue  # 跳过函数定义行的变量使用检查
+
+            # 导入名：`从 X 导入 Y, Z` 的 Y/Z 视为已定义
+            imp_match = re.match(r'(?:从|由)\s+\S+\s+(?:导入|引)\s+(.*)', stripped)
+            if imp_match:
+                for sym in re.split(r'[，,、\s]+', imp_match.group(1)):
+                    sym = sym.strip().rstrip('。')
+                    if sym:
+                        defined_vars.add(sym)
+                continue  # 跳过导入行的使用检查（导入语句本身）
 
             # 检查变量使用（简化：检查中文标识符）
             # 匹配中文标识符
@@ -817,8 +998,18 @@ class LightLinter:
     # ------------------------------------------------------------------
 
     def _check_shadowed_variable(self):
-        """检查变量名遮蔽外部变量"""
-        outer_vars: Dict[str, int] = {}  # 外部变量名 -> 定义行
+        """检查变量名遮蔽外部变量（W012），并扩展覆盖「导入名被局部遮蔽」（LH-09 / L-166）。
+
+        LH-09 场景：
+           从 环境 导入 主机名
+           段落 登记():
+             设 主机名 为 主机名()     # ← 局部赋值遮蔽导入名 → UnboundLocalError
+        编译期安静、check 也过，运行到那一行才炸。本检查在段落体内出现
+        `设 <名> 为 ...` 且 `<名>` 是本模块 `从 X 导入` 进来的名字时，发
+        L-166 告警（文案点明「导入名被局部遮蔽」）。
+        """
+        outer_vars: Dict[str, int] = {}  # 模块级变量名 -> 定义行
+        imported_names: Dict[str, int] = {}  # 从 X 导入 的名字 -> 行号
         func_vars: Dict[str, Dict[str, int]] = {}  # 函数名 -> {变量名: 定义行}
         current_func = ''
 
@@ -827,8 +1018,16 @@ class LightLinter:
             if stripped.startswith('#'):
                 continue
 
+            # 收集模块级导入名（`从 X 导入 名字` / `从 X 引 名字`）
+            imp_match = re.match(r'(?:从|由)\s+\S+\s+(?:导入|引)\s+(.*)', stripped)
+            if imp_match and not current_func:
+                for sym in re.split(r'[，,、\s]+', imp_match.group(1)):
+                    sym = sym.strip().rstrip('。')
+                    if sym:
+                        imported_names.setdefault(sym, i)
+
             # 检测函数定义
-            func_match = re.match(r'(?:段落|段|函数|函)\s+(\S+)', stripped)
+            func_match = re.match(r'(?:段落|段|函数|函)\s+([^\s(]+)', stripped)
             if func_match:
                 current_func = func_match.group(1)
                 if current_func not in func_vars:
@@ -840,11 +1039,22 @@ class LightLinter:
             if var_match:
                 var_name = var_match.group(1)
                 if current_func:
-                    # 检查是否遮蔽了外部变量
+                    # 检查是否遮蔽了外部（模块级）变量
                     if var_name in outer_vars and var_name not in func_vars.get(current_func, {}):
                         self._add_result(
                             'warning', f"变量「{var_name}」遮蔽了外层变量（定义于 L{outer_vars[var_name]}）",
                             i, 0, 'W012',
+                            source=stripped
+                        )
+                    # LH-09 / L-166：段落体内赋值遮蔽「从 X 导入」进来的名字
+                    if var_name in imported_names and var_name not in func_vars.get(current_func, {}):
+                        self._add_result(
+                            'warning',
+                            f"⚠ 编译警告（L-166 影子变量）：第{i}行 段落『{current_func}』内给『{var_name}』赋值，"
+                            f"但『{var_name}』是本模块从 X 导入进来的**导入名**，被局部赋值遮蔽后，"
+                            f"函数内再读『{var_name}』会触发 UnboundLocalError。"
+                            f"若要使用导入名，请换一个局部变量名；或先调用『{var_name}』再赋给同名局部变量。",
+                            i, 0, 'L166',
                             source=stripped
                         )
                     func_vars.setdefault(current_func, {})[var_name] = i
