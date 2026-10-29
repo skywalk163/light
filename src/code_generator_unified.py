@@ -1637,8 +1637,15 @@ class UnifiedCodeGenerator:
         catch_type = getattr(stmt, 'catch_type', None)
         catch_var = getattr(stmt, 'catch_var', None)
         catch_body = getattr(stmt, 'catch_body', None)
+        catch_clauses = getattr(stmt, 'catch_clauses', None) or []
+        # LH-10（光明P0）：无 `捕` 时 catch_clauses 与 catch_body 均为空。旧逻辑仅凭
+        # catch_type/catch_var 均为 None 就把「无 `捕`」误判成「裸 `捕获:`」（is_all），
+        # 生成 `except BaseException:` 把异常静默吞掉（假绿制造机）。无 `捕` 时不得生成
+        # except，应让 finally 原样向外传播；Python 要求 try 有 except 或 finally，
+        # 故无 `捕` 且无 `最终` 时补一个空 `finally: pass`（同样不拦截异常）。
+        has_catch = bool(catch_clauses) or bool(catch_body)
         is_all = (catch_type == '全部') or (catch_type is None and (catch_var is None or catch_var == '全部'))
-        if is_all or catch_var or catch_type:
+        if has_catch and (is_all or catch_var or catch_type):
             # 构建 except 子句
             if is_all:
                 if catch_type == '全部' and catch_var:
@@ -1666,8 +1673,9 @@ class UnifiedCodeGenerator:
                 self._generate_statement(s)
             self._pop_block_scope()
             self.indent_level -= 1
-        elif not (catch_var or catch_type) and not is_all:
-            # Python 要求 try 必须有 except 或 finally
+        elif not has_catch:
+            # 无 `捕` 且无 `最终`：Python 要求 try 有 except 或 finally。
+            # 补空 finally: pass——异常照常向外传播（不吞），语义 = 直接执行 try 体。
             self._add_line("finally:")
             self.indent_level += 1
             self._add_line("pass")
