@@ -278,6 +278,134 @@ def _line_ends_with_binary_op(tokens) -> bool:
     return False
 
 
+# ── LH-22：行首运算符续行（括号**外**）──────────────────────────────
+# 缺陷：`打印 "a"` 换行后写 `    加上 "b"`，报错却是「缩进不正确」——把人往
+# 缩进上引，对着改三遍缩进才意识到是续行。本实现取任务卡期望方案 1：
+# 上一行语法完整 + 本行以二元运算符**开头**时自动续行（不发射 NEWLINE）。
+# 判据刻意保守，只认「上一行已是一个完整表达式结尾」这一白名单形态：
+#   · 末尾 token 必须是字面量/标识符/闭括号/布尔字面量 → 语法上已完整；
+#   · 以「：」结尾（块头）、以运算符结尾（另有 L-023 行尾续行分支）、
+#     以「，」「为」等结尾（待续）一律不并入 —— 这些情况由解析器正常报错。
+_CONT_AFTER_TYPES = frozenset({
+    TokenType.IDENTIFIER, TokenType.NUMBER, TokenType.STRING, TokenType.FSTRING,
+    TokenType.BYTES, TokenType.CHINESE_NUM,
+    TokenType.RPAREN, TokenType.RBRACKET, TokenType.RBRACE,
+})
+_CONT_AFTER_KEYWORDS = frozenset({'真', '假', '空', '无'})
+
+# 行首运算符最长匹配顺序（`加上` 必须先于 `加` 试）
+_CONT_OP_BY_LEN = tuple(sorted(_LINE_CONT_KEYWORDS, key=len, reverse=True))
+# 首字符集合：绝大多数语句行首不是运算符，先按首字符挡掉，避免每行 20+ 次 startswith
+_CONT_OP_FIRST_CHARS = frozenset(w[0] for w in _LINE_CONT_KEYWORDS)
+
+
+def _line_is_complete_for_cont(tokens) -> bool:
+    """上一逻辑行是否已「语法完整」——行首运算符续行的前置条件之一。
+
+    只做白名单判断（末尾是字面量/标识符/闭括号/布尔字面量），不做完整语法分析：
+    续行合并只允许发生在「上一行本来就是完整表达式」时，这样合并不可能把
+    一个原本合法的块结构改坏（块头以「：」结尾，天然不在白名单内）。
+    """
+    for t in reversed(tokens):
+        if t.type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
+            continue
+        if t.type in _CONT_AFTER_TYPES:
+            return True
+        if t.type == TokenType.KEYWORD and t.value in _CONT_AFTER_KEYWORDS:
+            return True
+        return False
+    return False
+
+
+def _peek_cont_op_indent(source: str, i: int):
+    """窥探下一条**非空非注释**行：以二元运算符关键字开头时返回其缩进，否则 None。
+
+    i 指向当前行末的 '\\n'。跳过空行/注释行（与 L-023 行尾续行口径一致），
+    只看紧随其后的第一条真实代码行。缩进按 tab=4 计，与主循环口径一致。
+    """
+    n = len(source)
+    if i >= n or source[i] != '\n':
+        return None
+    j = i + 1
+    while j < n:
+        indent = 0
+        k = j
+        # '\r' 只可能是 CRLF 残留（文本模式读文件已被归一，直接传字符串时才会有），
+        # 跳过但不计缩进，否则 CRLF 源里的空行会让窥探提前返回。
+        while k < n and (source[k] == ' ' or source[k] == '\t' or source[k] == '\r'):
+            if source[k] == '\t':
+                indent += 4
+            elif source[k] == ' ':
+                indent += 1
+            k += 1
+        if k >= n:
+            return None
+        ch = source[k]
+        if ch == '\n':                      # 空行
+            j = k + 1
+            continue
+        if ch == '#':                       # 注释行
+            while k < n and source[k] != '\n':
+                k += 1
+            j = k + 1
+            continue
+        if ch == '/' and k + 1 < n and source[k + 1] == '/':
+            while k < n and source[k] != '\n':
+                k += 1
+            j = k + 1
+            continue
+        if ch not in _CONT_OP_FIRST_CHARS:
+            return None
+        for w in _CONT_OP_BY_LEN:
+            if source.startswith(w, k):
+                end = k + len(w)
+                if end >= n:
+                    return indent
+                nxt = source[end]
+                # 必须是完整词：`加载中` 里的 `加` 不算运算符
+                if _is_han_fast(nxt) or _is_ascii_alnum(nxt) or nxt == '_':
+                    continue
+                return indent
+        return None
+    return None
+
+
+def _skip_cont_prefix(source: str, i: int, line: int, col: int):
+    """续行态：吞掉行末换行 + 下一行前导空白 + 中间的空行/注释行。
+
+    返回新的 (i, line, col)。i 需指向当前行末的 '\\n'（反斜杠续行时由调用方
+    先吃掉 `\\` 与行尾空白）。续行行的前导缩进**不参与**缩进栈计算——这正是
+    L-023 裁定「块结构从原理上不可能被打断」的关键。
+    """
+    n = len(source)
+    if i < n and source[i] == '\n':
+        line += 1
+        col = 1
+        i += 1
+    while True:
+        while i < n and (_is_ascii_space_tab(source[i]) or source[i] == '\r'):
+            if source[i] != '\r':
+                col += 1
+            i += 1
+        if i < n and source[i] == '\n':      # 空行
+            line += 1
+            col = 1
+            i += 1
+            continue
+        if i < n and source[i] == '#':       # 注释行
+            while i < n and source[i] != '\n':
+                i += 1
+                col += 1
+            continue
+        if i + 1 < n and source[i:i + 2] == '//':
+            while i < n and source[i] != '\n':
+                i += 1
+                col += 1
+            continue
+        break
+    return i, line, col
+
+
 # 模块级关键字预计算（只计算一次）
 _ALL_KEYWORDS_WITH_VERBS = ALL_KEYWORDS | set(VERB_ARITY.keys())
 
@@ -735,6 +863,9 @@ class Lexer:
 
         # 处理缩进
         indent_stack = [0]
+        # LH-22：当前**逻辑行**的缩进（语句行缩进）。行首运算符续行要求续行行
+        # 缩进严格更深，否则 `设 甲 为 1` / `加上 2` 这种同级独立行会被误并。
+        cur_line_indent = 0
         # L-051：括号深度计数。{ [ ( 及其闭包内的换行属于表达式内部空白，
         # 不应发射 NEWLINE/INDENT/DEDENT，否则多行字典/列表字面量会破坏后续块缩进。
         # 注意：仅「字面量括号」抑制换行；C 风格语句块花括号（`循环(...){...}` 等）
@@ -761,6 +892,22 @@ class Lexer:
                 i += consumed
                 continue
             
+            # LH-18b：反斜杠续行（`\` + 可选行尾空白 + 换行）。
+            # 与字符串里的 `\n` 转义是两件事：这里的 `\` 只在**字符串外**、
+            # 且其后到行尾全是空白时才算续行符——字符串内的 `\` 由
+            # _tokenize_string 先行消费，注释内的 `\` 由注释分支整行吞掉，
+            # 都走不到这里。续行行前导缩进同样不进缩进栈。
+            if source[i] == '\\':
+                _bs = i + 1
+                while _bs < n and (source[_bs] == ' ' or source[_bs] == '\t'
+                                   or source[_bs] == '\r'):
+                    _bs += 1
+                if _bs >= n or source[_bs] == '\n':
+                    col += (_bs - i)
+                    i = _bs
+                    i, line, col = _skip_cont_prefix(source, i, line, col)
+                    continue
+
             # 处理换行
             if source[i] == '\n':
                 # L-051：括号内换行属于表达式内部空白，不发射 NEWLINE/INDENT/DEDENT，
@@ -779,33 +926,20 @@ class Lexer:
                 # 能被打断，原缺陷前提被消除。语义与 Python 隐式续行对齐：
                 # 运算符在语法上强制要求右操作数，合并不会改变任何合法程序。
                 if _line_ends_with_binary_op(tokens):
-                    line += 1
-                    col = 1
-                    i += 1
-                    # 续行行前导空白跳过，不进缩进栈
-                    while i < n and _is_ascii_space_tab(source[i]):
-                        col += 1
-                        i += 1
-                    # 续行中间的空行/注释行不算结束（仍处续行态）
-                    while True:
-                        if i < n and source[i] == '\n':
-                            line += 1
-                            col = 1
-                            i += 1
-                            while i < n and _is_ascii_space_tab(source[i]):
-                                col += 1
-                                i += 1
-                            continue
-                        if i < n and source[i] == '#':
-                            while i < n and source[i] != '\n':
-                                i += 1
-                            continue
-                        if i + 1 < n and source[i:i + 2] == '//':
-                            while i < n and source[i] != '\n':
-                                i += 1
-                            continue
-                        break
+                    i, line, col = _skip_cont_prefix(source, i, line, col)
                     continue
+                # LH-22：行首二元运算符的续行（括号外）。与上面的行尾续行互补：
+                #   `打印 "a"` + 换行 + `    加上 "b"`
+                # 上一行语法完整、本行以运算符开头且缩进更深 → 视作同一逻辑行。
+                # 三个条件缺一不可：① 语句层（不在块花括号内）；② 上一行末尾是
+                # 完整表达式（白名单，块头「：」天然不在内）；③ 续行行缩进比
+                # 语句行更深（否则 `设 甲 为 1` / `加上 2` 这种同级独立行会被误并）。
+                if (not bracket_stack
+                        and _line_is_complete_for_cont(tokens)):
+                    _cont_indent = _peek_cont_op_indent(source, i)
+                    if _cont_indent is not None and _cont_indent > cur_line_indent:
+                        i, line, col = _skip_cont_prefix(source, i, line, col)
+                        continue
                 tokens.append(Token(TokenType.NEWLINE, '\n', line, col))
                 line += 1
                 col = 1
@@ -854,6 +988,9 @@ class Lexer:
                     )
                 
                 # 处理缩进变化
+                # LH-22：这一行是真实代码行（空行/注释行已在上方 continue 掉），
+                # 记录其缩进作为「当前逻辑行缩进」，供下一次行首运算符续行判定。
+                cur_line_indent = indent
                 if indent > indent_stack[-1]:
                     # P2：缩进层级跳跃检测——单次缩进增量超过一个层级（>4 空格）
                     # 视为"跨多层"写法（例如 4→12），仅记录告警，不阻断解析

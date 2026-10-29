@@ -502,8 +502,11 @@ class LightParserCore:
         完整错误列表挂在异常的 all_errors 属性上，供工具链程序化读取。
         """
         total = len(errors)
-        shown = errors[:self.MAX_REPORTED_ERRORS]
-        rest = errors[self.MAX_REPORTED_ERRORS:]
+        # LH-22：级联回声（「缩进不正确」）排到最后，保证第 1 条恒是真因。
+        # 只调渲染顺序，all_errors 仍按原始出现顺序，工具链口径不变。
+        ordered = self._decascade_order(errors)
+        shown = ordered[:self.MAX_REPORTED_ERRORS]
+        rest = ordered[self.MAX_REPORTED_ERRORS:]
 
         head = (f"发现 {total} 个语法错误"
                 f"（下面详列前 {len(shown)} 个，建议从第 1 个开始修）:\n\n")
@@ -529,6 +532,38 @@ class LightParserCore:
         agg.all_errors = errors
         agg.error_count = total
         return agg
+
+    # 「缩进不正确」几乎从不独立出现：它是前面某条真错把语句边界打乱之后
+    # 的回声。识别为回声的判据是「**上一行**另有一条非回声错误」——只按这个
+    # 判据，不做任何启发式排序，避免把真正独立成句的缩进错误也压到后面。
+    _CASCADE_MARK = '缩进不正确'
+
+    def _decascade_order(self, errors):
+        """把「缩进不正确」级联回声移到末尾（保持各自原有相对顺序）。
+
+        LH-22：聚合报错要让人从第 1 条开始修，而第一条若是级联回声，看的人会
+        去改缩进、改三遍都改不对。规则是位置无关的：只要某条「缩进不正确」
+        的前一行另有一条非回声错误，它就是回声，渲染时排到最后。
+        """
+        def _msg(e):
+            return getattr(e, 'message', None) or str(e)
+
+        def _is_indent_echo(e):
+            return self._CASCADE_MARK in _msg(e)
+
+        real, echo = [], []
+        for e in errors:
+            if not _is_indent_echo(e):
+                real.append(e)
+                continue
+            line = getattr(e, 'line', 0) or 0
+            # 上一行是否有真错（同一条错误链上的前置错误）
+            if any((getattr(o, 'line', 0) or 0) == line - 1 and not _is_indent_echo(o)
+                   for o in errors if o is not e):
+                echo.append(e)
+            else:
+                real.append(e)
+        return real + echo
     
     def _synchronize_to_statement_boundary(self):
         """T1.4: 恐慌模式同步 — 跳过 token 直到下一个语句边界

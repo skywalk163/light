@@ -37,6 +37,15 @@ def _load_light_toml() -> dict:
         return {}
 
 
+def _iter_light_files(root: str):
+    """遍历目录下所有 .light 文件（跳过隐藏目录与 __pycache__）。"""
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if not d.startswith('.') and d != '__pycache__']
+        for name in filenames:
+            if name.endswith('.light'):
+                yield os.path.join(dirpath, name)
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog='light-lint',
@@ -48,6 +57,8 @@ def main():
     parser.add_argument('--list-rules', action='store_true', help='列出所有可用规则')
     parser.add_argument('--style', choices=['工程体', '教学体'], default=None,
                         help='文体风格检查模式（工程体/教学体）')
+    parser.add_argument('--check-names', action='store_true',
+                        help='执行 AST 级静态名检查（LH-21 E016 未定义的名字 / LH-09 W016 导入名被局部遮蔽）')
     args = parser.parse_args()
 
     # 从 light.toml 读取默认 style（命令行参数优先）
@@ -67,6 +78,26 @@ def main():
         enabled_rules = [r.strip() for r in args.rules.split(',') if r.strip()]
 
     linter = LightLinter(rules=enabled_rules, style=args.style)
+
+    if args.check_names:
+        # LH-21 / LH-09：AST 级静态名检查（`cli/light.py check` 由另一张卡在改，
+        # 本卡先在这条 CLI 上开放，规则默认不并入 lint()，避免误报污染全仓 check）
+        if os.path.isfile(args.target):
+            files = [args.target]
+        elif os.path.isdir(args.target):
+            files = _iter_light_files(args.target)
+        else:
+            print(f"错误: 路径不存在: {args.target}")
+            return 1
+        for fp in files:
+            linter.lint_names_file(fp)
+        if args.json:
+            print(linter.format_json(args.target))
+        else:
+            out = linter.format_results(args.target)
+            if out:
+                print(out)
+        return 1 if any(r.severity == 'error' for r in linter.results) else 0
 
     if args.json:
         # JSON 输出模式

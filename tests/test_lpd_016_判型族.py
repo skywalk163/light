@@ -1,28 +1,20 @@
 # -*- coding: utf-8 -*-
-"""LP-D-016 回归：判型族名实对齐 —— `是数字`=是数值(int/float)，`是数字符`=str.isdigit 字符判定。
+"""判型族名实对齐回归（T-0197 · LH-08 反转版）。
 
-缺陷回顾（lightplugin/语言缺陷反馈.md LP-D-016，team lead 亲测复现）
+沿革
 --------------------------------------------------------------------
-1. 光明关键字 `是数字` 的实际语义是「值是否为 int/float 数值类型（排除 bool）」：
-   `是数字(7)`→真、`是数字(3.14)`→真、`是数字("7")`→假、`是数字(真)`→假。
-   但 `stdlib/内置核心判型.light` 里名为 `是数字` 的段落实现的是 `str.isdigit` 字符判定，
-   注释与用户侧关键字**名实相反**——插件作者读注释会把守卫写反，且静默不报错。
-2. `stdlib/builtins.py:945-947` 的 docstring 承诺「光明关键字 `是数字符` 映射到 `是数字`
-   (str.isdigit)」，但 legacy 后端 `src/code_generator.py` 的 builtin_map 里**根本没注册**
-   `是数字符`，于是 `是数字符("7")` 直接 `NameError: name '是数字符' is not defined`。
-
-修复决策（不破坏现有插件）
---------------------------------------------------------------------
-保持用户侧关键字 `是数字` = 是数值（int/float，排 bool）——这是 12 个插件已经在用的语义，
-不动；新增关键字 `是数字符` = str.isdigit 字符判定，映射到 Python 侧已有的 `_light_builtin.是数字`
-（即 `内置核心判型.是数字` 段落，str.isdigit）。不动 `内置核心判型.light` 里的段落名
-`是数字`——它被差分测试 tests/unit/test_地板搬迁_判型_S2.py 直接按名引用，改名会破差分校验。
+- LP-D-016（旧）：用户关键字 `是数字` = 是数值（int/float，排 bool），字符判定走
+  `是数字符`。该裁决把 `是数字("7")` 固化为 False。
+- T-0197 · LH-08（P0 命名层不兼容变更，2026-10-29）：推翻 LP-D-016。用户关键字
+  `是数字` 改回宽松谓词——int/float（排 bool）**或** 单个数字字符（str.isdigit，
+  len==1 守卫）为真；`是数字符` 是 `是数字` 的等价别名；判「值是否为数值类型」专用
+  `是数值`。于是 `是数字("7")` 由 False 翻转为 True，`是数字(1)`/`是数字("1")` 为真、
+  `是数字("x")` 为假。本套随此反转更新，迁移口径见仓库 CHANGELOG。
 
 反跑判据
 --------------------------------------------------------------------
-· 把 code_generator.py builtin_map 里新增的 `是数字符` 一行删掉 → 本套用例 5/6/7 变红
-  （NameError: name '是数字符' is not defined）；
-· 把 builtin_map 里 `是数字` 的目标从 `是数值` 改回 `是数字` → 用例 1/3/4 变红。
+· 删掉 builtin_map 的 `是数字符` → 用例 5/6/7 变红（NameError）；
+· 把 builtin_map 的 `是数字` 目标从 `是数字` 改回 `是数值` → 用例 1c 变红。
 """
 import contextlib
 import io
@@ -80,14 +72,14 @@ _CHAR_DIGIT = (
 )
 
 
-class Test是数字_数值语义:
-    def test_int_float_true_string_bool_none_false(self):
+class Test是数字_宽松谓词:
+    def test_int_float_digitchar_true_bool_none_false(self):
         out = _lines(_NUMERIC)
         assert out[0] == 'True', out    # 整数
         assert out[1] == 'True', out    # 浮点
-        assert out[2] == 'False', out   # 字符串不是数值
+        assert out[2] == 'True', out   # 单数字字符（T-0197 由旧 False 翻转）
         assert out[3] == 'False', out   # bool 排除
-        assert out[4] == 'False', out   # 空不是数值
+        assert out[4] == 'False', out   # 空不是数字
 
 
 class Test是数字符_字符判定:

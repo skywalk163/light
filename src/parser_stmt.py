@@ -17,6 +17,8 @@ from keywords import VERB_ARITY, STDLIB_VERB_ARITY, ALL_VERB_ARITY, KEYWORDS_DOU
 from keywords import reserved_word_identifier_error
 from ast_nodes_v3 import *
 from parser_core import ParseError
+# LH-22：行首二元运算符集合（与词法层的续行判据共用同一张表，避免两处口径漂移）
+from lexer import _LINE_CONT_KEYWORDS as _BINARY_OP_KEYWORDS
 
 
 
@@ -803,7 +805,8 @@ class ParserStmtMixin:
         if tok.type == TokenType.KEYWORD:
             self._error(
                 f"「{tok.value}」是保留关键字，不能直接作为语句开头。"
-                f"请检查语法是否正确，或参考光明语法文档。",
+                f"请检查语法是否正确，或参考光明语法文档。"
+                + self._lh22_continuation_hint(tok),
                 tok.line, tok.col, tok.value
             )
         elif tok.type == TokenType.EQUALS:
@@ -815,9 +818,16 @@ class ParserStmtMixin:
             # INDENT/DEDENT 的 value 是缩进宽度整数，直接塞进 '{tok.value}' 会打出
             # 「无法识别的语法元素：'4'」这种误导信息（把内部计数当成源码片段）。
             # 走到这里说明缩进没对齐到任何语句块，改报缩进问题本身。
+            #
+            # LH-22：本行以二元运算符**开头**时，真因几乎一定是「括号外续行」，
+            # 而不是缩进——旧文案把人往缩进上引（对着改三遍缩进才反应过来）。
+            # 词法层已在「上一行语法完整 + 本行更深缩进」时自动续行；走到这里
+            # 说明续行前提不成立（上一行没写完、或本行缩进没比上一行深），
+            # 此时必须直说「疑似续行」并给出两种改法。
             self._error(
                 "缩进不正确：这一行的缩进层级没有对应的语句块。"
-                "请检查上一条语句是否以「：」结尾、或本行缩进是否多/少了一级。",
+                "请检查上一条语句是否以「：」结尾、或本行缩进是否多/少了一级。"
+                + self._lh22_continuation_hint(),
                 tok.line, tok.col, tok.value
             )
         else:
@@ -826,6 +836,20 @@ class ParserStmtMixin:
                 f"请检查语句是否正确，或参考光明语法文档。",
                 tok.line, tok.col, tok.value
             )
+
+    def _lh22_continuation_hint(self, tok: Token = None) -> str:
+        """LH-22：本行以二元运算符开头时返回「疑似续行」提示，否则返回空串。
+
+        词法层已对「上一行语法完整 + 本行缩进更深」的形态自动续行；走到解析器
+        报错说明续行前提不成立（上一行没写完，或本行缩进没比上一行深）。此时
+        真因是「括号外跨行表达式」，不是缩进——旧文案会把人往缩进上引。
+        只在命中二元运算符时追加，其它任何报错文案一字不动。
+        """
+        cand = tok if tok is not None else self._peek(1)
+        if cand is not None and cand.type == TokenType.KEYWORD and cand.value in _BINARY_OP_KEYWORDS:
+            return (f"（疑似续行：本行以运算符「{cand.value}」开头，光明不支持括号外"
+                    f"跨行表达式。请把整个表达式放进括号，或先落到临时变量。）")
+        return ""
 
     def _parse_assert_stmt(self) -> ASTNode:
         """解析断言语句：断言 <条件>，<可选消息>。

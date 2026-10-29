@@ -723,7 +723,7 @@
     },
     {
       "名字": "是数字",
-      "职责": "检查字符是否为数字",
+      "职责": "是不是数字：int/float（排 bool）或单个数字字符（LH-08 反转 LP-D-016）",
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
@@ -1504,6 +1504,54 @@
       "分类": "native_required",
       "目标落点": "真边界：高精度十进制比较需字符串级处理，纯光明无法表达；原生腿 R151-D3 已注册 dv_decimal_compare；光明门面 stdlib/文件系统.light:1493（有同名 .py 且含魔数，钩子会接管，故必须同步补段）",
       "证据行": "src/llvm/runtime_typed.c:8790"
+    },
+    {
+      "名字": "字典取值",
+      "职责": "宽口径字典取值：缺键或值为空(null)都返回默认",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/builtins.py（LH-03；与 字典获取 分工）",
+      "证据行": "stdlib/builtins.py:866"
+    },
+    {
+      "名字": "皆空",
+      "职责": "宽口径空判定：null/空串/空列表/空字典均算空",
+      "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
+      "分类": "has_light_impl",
+      "目标落点": "stdlib/内置核心判型.light（LH-02；是 为空 语义不动的加宽版）",
+      "证据行": "stdlib/内置核心判型.light:60"
+    },
+    {
+      "名字": "试转整数",
+      "职责": "试探型转整数：转不了返回默认，不抛异常",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/builtins.py（LH-07）",
+      "证据行": "stdlib/builtins.py:2010"
+    },
+    {
+      "名字": "试转浮点",
+      "职责": "试探型转浮点：转不了返回默认，不抛异常",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/builtins.py（LH-07）",
+      "证据行": "stdlib/builtins.py:2018"
+    },
+    {
+      "名字": "字节长度",
+      "职责": "返回文本在给定编码下的真实字节数（默认 utf-8）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/builtins.py（LH-14，HTTP Content-Length 口径）",
+      "证据行": "stdlib/builtins.py:2026"
+    },
+    {
+      "名字": "反转",
+      "职责": "返回反转后的新列表（字符串返回反转字符串）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "movable",
+      "目标落点": "stdlib/builtins.py（LH-11；原映射 Python reversed 返回迭代器）",
+      "证据行": "stdlib/builtins.py:2034"
     }
   ],
   "地板自举率_S2进度": {

@@ -424,6 +424,14 @@ class ErrorFormatter:
             else:
                 parts.append(f'\n  （位置: 模块「{loc_module}」第{line_num}行）')
 
+        # LH-12：最短异常链（抛出点 → … → 调用点）。只有链上 ≥2 跳可归因时才出现，
+        # 单帧报错一字不加。位置块说的是「哪里炸的」，异常链补的是「怎么走到这里的」——
+        # 真因在深层模块被吞掉时，这行是唯一能同时看到抛出点与调用点的地方。
+        _chain = self._format_exception_chain(
+            error, py_code, entry_module_name, entry_file)
+        if _chain:
+            parts.append(_chain)
+
         # 如果有源代码，显示代码片段
         if disp_source and lines:
             if line_num is not None and line_num > 0 and line_num <= len(lines):
@@ -591,89 +599,13 @@ class ErrorFormatter:
             frames = traceback.extract_tb(error.__traceback__)
         except Exception:
             return (None, None, None)
+        return self._map_frames(frames, error, py_code, entry_module_name, entry_file)
 
-        try:
-            from error_formatter import LightErrorFormatter
-        except Exception:
-            return (None, None, None)
+    def _map_frames(self, frames, error, py_code=None, entry_module_name=None, entry_file=None):
+        """两遍扫描（strict → lenient），返回最内层可归因帧的 (loc_file, loc_module, light_line)。
 
-        def _resolve(mapping, lineno, strict=False):
-            """在 py→light 映射中定位 lineno，返回 (module_name, light_line)。
-
-            strict=True：只接受精确键命中（锚点填充范围内的行）。
-            用于第一遍扫描——跳过运行时前导辅助函数帧（如 `_light_trunc_div`，
-            它们没有自己的 LIGHT_SRC 锚点，就近近似会把归因拖到错误模块）。
-            strict=False（默认）：精确未中时退回「就近向上近似」（旧行为）。
-            """
-            if lineno in mapping:
-                return mapping[lineno]
-            if strict:
-                return None
-            best = None
-            for p in sorted(mapping):
-                if p <= lineno:
-                    best = mapping[p]
-                else:
-                    break
-            return best
-
-        def _try_frame(frame, strict):
-            """对单帧按形态逐一归因；命中返回 (loc_file, loc_module, light_line)。"""
-            ffile = frame.filename or ''
-            lineno = frame.lineno - 1  # traceback 1-based -> 映射 0-based
-            # 形态1：钩子独立加载的 .light 模块（frame.filename 为真实 .light 路径）。
-            # 直接就 frame.filename 重新编译该模块，得到其生成代码做 py→light 映射
-            # （不依赖钩子注册表——运行时可能加载的是 harness 自带的钩子副本）。
-            if ffile.endswith('.light') and os.path.isfile(ffile):
-                try:
-                    with open(ffile, encoding='utf-8') as _fh:
-                        _src = _fh.read()
-                    from light_parser_v3 import LightParser
-                    from code_generator import PythonCodeGenerator
-                    _ast = LightParser().parse(_src)
-                    _gen = PythonCodeGenerator().generate(_ast)
-                    mp = LightErrorFormatter().build_full_mapping_with_module(
-                        _gen, os.path.splitext(os.path.basename(ffile))[0])
-                except Exception:
-                    mp = {}
-                hit = _resolve(mp, lineno, strict=strict)
-                if hit is not None:
-                    return (ffile, None, hit[1])
-            # 形态1.5：模块对象执行帧（L-093）。`导入 a.b` 形式下，`_run_src` 把
-            # 依赖模块代码以「模块名」为 filename 单独 compile+exec（cli/light.py
-            # 的点号普通 import 处理），其帧 filename 形如 'pkg.深层'——既不是
-            # .light 路径，也不是 <string>/<light>/入口路径，之前直接漏配，
-            # 落到入口帧导致位置错锚。这里用挂在异常上的模块源码
-            # （error._light_modules[模块名]）就该模块独立重编译后做 py→light 映射，
-            # 行号是该模块生成代码内的局部行号，正好与帧 lineno 对应。
-            elif ffile in (getattr(error, '_light_modules', None) or {}):
-                _mod_src = (getattr(error, '_light_modules', None) or {}).get(ffile) or ''
-                if _mod_src:
-                    try:
-                        from light_parser_v3 import LightParser
-                        from code_generator import PythonCodeGenerator
-                        _ast = LightParser().parse(_mod_src)
-                        _gen = PythonCodeGenerator().generate(_ast)
-                        mp = LightErrorFormatter().build_full_mapping_with_module(_gen, ffile)
-                    except Exception:
-                        mp = {}
-                    hit = _resolve(mp, lineno, strict=strict)
-                    if hit is not None:
-                        return (None, ffile, hit[1])
-            # 形态2：入口/内联帧（filename 为 <string>/<light> 或入口路径）。
-            # <light> 是单文件 exec 编译帧（如单测直接 exec 生成代码），同样用
-            # 调用方传入的 py_code 做 py→light 映射，不能用真实文件路径判定。
-            elif py_code and (ffile in ('<string>', '<light>') or (entry_file and ffile == entry_file)):
-                try:
-                    mp = LightErrorFormatter().build_full_mapping_with_module(
-                        py_code, entry_module_name or '<主>')
-                except Exception:
-                    mp = {}
-                hit = _resolve(mp, lineno, strict=strict)
-                if hit is not None:
-                    return (None, hit[0], hit[1])
-            return None
-
+        LH-12 拆出来：异常链渲染要对**每一帧**分别归因，不能再只取第一帧。
+        """
         # L-093 修复：两遍扫描。
         # 第一遍 strict：只认「精确锚点命中」的帧——跨过运行时前导辅助帧
         # （内联产物里每个模块都带 _light_trunc_div 等前导副本，`1/0` 这类
@@ -682,10 +614,144 @@ class ErrorFormatter:
         # 第二遍 lenient：旧行为兜底（就近向上近似），保证既有场景不回归。
         for _strict in (True, False):
             for frame in reversed(frames):  # 最内层（最先抛出）优先
-                hit = _try_frame(frame, _strict)
+                hit = self._try_frame_location(
+                    frame, error, py_code, entry_module_name, entry_file, _strict)
                 if hit is not None:
                     return hit
         return (None, None, None)
+
+    @staticmethod
+    def _resolve_mapping(mapping, lineno, strict=False):
+        """在 py→light 映射中定位 lineno，返回 (module_name, light_line)。
+
+        strict=True：只接受精确键命中（锚点填充范围内的行）。
+        用于第一遍扫描——跳过运行时前导辅助函数帧（如 `_light_trunc_div`，
+        它们没有自己的 LIGHT_SRC 锚点，就近近似会把归因拖到错误模块）。
+        strict=False（默认）：精确未中时退回「就近向上近似」（旧行为）。
+        """
+        if lineno in mapping:
+            return mapping[lineno]
+        if strict:
+            return None
+        best = None
+        for p in sorted(mapping):
+            if p <= lineno:
+                best = mapping[p]
+            else:
+                break
+        return best
+
+    def _try_frame_location(self, frame, error, py_code=None,
+                            entry_module_name=None, entry_file=None, strict=False):
+        """对单帧按形态逐一归因；命中返回 (loc_file, loc_module, light_line)，否则 None。"""
+        try:
+            from error_formatter import LightErrorFormatter
+        except Exception:
+            return None
+        ffile = frame.filename or ''
+        lineno = frame.lineno - 1  # traceback 1-based -> 映射 0-based
+        # 形态1：钩子独立加载的 .light 模块（frame.filename 为真实 .light 路径）。
+        # 直接就 frame.filename 重新编译该模块，得到其生成代码做 py→light 映射
+        # （不依赖钩子注册表——运行时可能加载的是 harness 自带的钩子副本）。
+        if ffile.endswith('.light') and os.path.isfile(ffile):
+            try:
+                with open(ffile, encoding='utf-8') as _fh:
+                    _src = _fh.read()
+                from light_parser_v3 import LightParser
+                from code_generator import PythonCodeGenerator
+                _ast = LightParser().parse(_src)
+                _gen = PythonCodeGenerator().generate(_ast)
+                mp = LightErrorFormatter().build_full_mapping_with_module(
+                    _gen, os.path.splitext(os.path.basename(ffile))[0])
+            except Exception:
+                mp = {}
+            hit = self._resolve_mapping(mp, lineno, strict=strict)
+            if hit is not None:
+                return (ffile, None, hit[1])
+        # 形态1.5：模块对象执行帧（L-093）。`导入 a.b` 形式下，`_run_src` 把
+        # 依赖模块代码以「模块名」为 filename 单独 compile+exec（cli/light.py
+        # 的点号普通 import 处理），其帧 filename 形如 'pkg.深层'——既不是
+        # .light 路径，也不是 <string>/<light>/入口路径，之前直接漏配，
+        # 落到入口帧导致位置错锚。这里用挂在异常上的模块源码
+        # （error._light_modules[模块名]）就该模块独立重编译后做 py→light 映射，
+        # 行号是该模块生成代码内的局部行号，正好与帧 lineno 对应。
+        elif ffile in (getattr(error, '_light_modules', None) or {}):
+            _mod_src = (getattr(error, '_light_modules', None) or {}).get(ffile) or ''
+            if _mod_src:
+                try:
+                    from light_parser_v3 import LightParser
+                    from code_generator import PythonCodeGenerator
+                    _ast = LightParser().parse(_mod_src)
+                    _gen = PythonCodeGenerator().generate(_ast)
+                    mp = LightErrorFormatter().build_full_mapping_with_module(_gen, ffile)
+                except Exception:
+                    mp = {}
+                hit = self._resolve_mapping(mp, lineno, strict=strict)
+                if hit is not None:
+                    return (None, ffile, hit[1])
+        # 形态2：入口/内联帧（filename 为 <string>/<light> 或入口路径）。
+        # <light> 是单文件 exec 编译帧（如单测直接 exec 生成代码），同样用
+        # 调用方传入的 py_code 做 py→light 映射，不能用真实文件路径判定。
+        elif py_code and (ffile in ('<string>', '<light>') or (entry_file and ffile == entry_file)):
+            try:
+                mp = LightErrorFormatter().build_full_mapping_with_module(
+                    py_code, entry_module_name or '<主>')
+            except Exception:
+                mp = {}
+            hit = self._resolve_mapping(mp, lineno, strict=strict)
+            if hit is not None:
+                return (None, hit[0], hit[1])
+        return None
+
+    def _format_exception_chain(self, error: Exception, py_code: str = None,
+                                entry_module_name: str = None, entry_file: str = None) -> str:
+        """LH-12：渲染**最短异常链**（抛出点 → … → 调用点）。
+
+        缺陷：异常发生在被调模块深处时，报错框只高亮调用点，真因（深层模块里
+        那一行）埋在消息体里；配合「异常被吞」的历史缺陷，看的人会去查调用参数，
+        而真因在前面被吞掉的那一步。
+
+        实现：复用 L-061/L-093 的逐帧归因（`_try_frame_location`），从最内层
+        往最外层各取一个位置标签，去掉连续重复；不足 2 段（单帧，链上没有
+        第二跳）时不输出——不给既有单帧报错添任何噪声。
+        """
+        if error is None or error.__traceback__ is None:
+            return ''
+        try:
+            frames = traceback.extract_tb(error.__traceback__)
+        except Exception:
+            return ''
+        if len(frames) < 2:
+            return ''
+        labels = []
+        for frame in reversed(frames):        # 抛出点 → 调用点
+            hit = self._try_frame_location(
+                frame, error, py_code, entry_module_name, entry_file, strict=False)
+            if hit is None:
+                continue
+            loc_file, loc_module, light_line = hit
+            if light_line is None:
+                continue
+            if loc_file:
+                label = f"{os.path.basename(loc_file)}:{light_line}"
+            else:
+                # 内联/模块形态：能拿到模块真实路径时用「文件名:行号」，与位置块同口径；
+                # 拿不到（纯模块名）才退回「模块「X」第N行」。
+                _paths = getattr(error, '_light_module_paths', None) or {}
+                _mpath = _paths.get(loc_module) if loc_module else None
+                if _mpath:
+                    label = f"{os.path.basename(_mpath)}:{light_line}"
+                else:
+                    label = f"{loc_module or '<主>'} 第{light_line}行"
+            if not labels or labels[-1] != label:
+                labels.append(label)
+        if len(labels) < 2:
+            return ''
+        # 「最短」：跳数多于 4 时只保留两端，中间省略号——链条只用来指明方向，
+        # 不是调用栈转储。
+        if len(labels) > 4:
+            labels = [labels[0], '…', labels[-1]]
+        return '\n  异常链（抛出点 → 调用点）: ' + ' → '.join(labels)
 
     def _extract_line_num(self, error: Exception) -> int:
         """从异常中提取行号"""
