@@ -1,62 +1,33 @@
-# T-0183 工作说明（R13B-TLS｜POSIX mbedTLS bio 死锁修复）
+# T-0197 交付摘要 —— 内置层对拍七条（LH-02/03/04/07/08/11/14）
 
-## 结论
+agent: doubao-win ｜ 日期: 2026-10-29 ｜ 验收: `python3 -m pytest -q tests/unit/test_LH08_内置名与语义.py` → **7 passed**
 
-核对 HEAD（5e8d3ecbf / main）后确认：**R13B-TLS 修复已在 main 在位**，卡片前提过时。
+## 七条落点与复测结论
 
-- `src/llvm/runtime_typed.c:11278-11292`（POSIX mbedTLS 分支）：`dv_tls_bio_recv`
-  在阻塞 `recv()` 之前先 `dv_tls_flush(t)` 冲刷 out_pending（确保 ClientHello 上线），
-  flush 返回 WANT_WRITE 时透传 `MBEDTLS_ERR_SSL_WANT_READ` 让 mbedTLS 重试——
-  与 known_issues.md 缺陷 R13B-TLS 的修复描述完全一致（commit 2bb941005，
-  "feat(stdlib): R13B 能力扩展…+ mbedTLS握手自锁修复"，已验证是 main 祖先）。
-- 修法已含状态机对齐：`dv_tls_handshake` 对 WANT_READ/WANT_WRITE 可重入返回，
-  `dv_tls_want_event` 把 WANT_* 翻成 DV_POLL_READ/DV_POLL_WRITE。
-- Windows Schannel 路径未做任何改动（红线遵守）。
+| 条 | 现状 | 处置 |
+|---|---|---|
+| LH-08 是数字 | HEAD 上仍是旧映射（关键字 是数字→是数值），未自行修好 | **反转**：关键字 是数字→宽松谓词（int/float 排 bool，或单数字字符）；是数值单独可达；是数字符=等价别名。命名层不兼容变更，CHANGELOG 已写迁移口径 |
+| LH-07 试转整数/字符串全数字 | 均缺失 | 新增 试转整数/试转浮点（不抛、支持正负号与首尾空白）；字符串全数字 补 builtin_map 达源码可达 |
+| LH-02 皆空 | 无 | 新增 皆空（null/""/空列表/空字典）；是空 语义一行未动 |
+| LH-03 字典取值 | 无 | 新增 字典取值（缺键或值为空都回落默认）；字典获取 保留 Python 语义 |
+| LH-11 去空白/反转 | 去空白 NameError、反转 返回迭代器 | 去空白=去除空白 真实别名（本地段落由 _user_defined_functions 守卫压住不被劫持）；反转 返回新列表；枚举 维持现状（卡允许，验收未含） |
+| LH-14 字节长度 | 无；编码.字节长度 实为十六进制字节数（与卡上猜测一致） | 新增内置 字节长度(文本,编码="utf-8") 真实字节数；撞名口径 CHANGELOG 已注明 |
+| LH-04 排序 key | 第三参不存在 | 排序列表 加 键=空 参（收段落）；不传 key 行为不变 |
 
-## 本次改动
-
-1. 新建 `tests/unit/test_R13B_TLS_POSIX握手.py`（卡片此前单列缺失的回归用例）：
-   - POSIX（FreeBSD/Linux）真跑：clang 以 `-DLIGHT_TLS_MBEDTLS` 真后端编译
-     runtime_typed.c 探针（#include 方式，独立编译无全 runtime 符号依赖），
-     本地 Python TLS echo 服务器（cryptography 自签证书，不依赖外网），
-     对 127.0.0.1 真发握手 + 收发回显；断言 rc=0、回显原样、
-     bio_recv 的 flush-before-recv 序列静态锚点在位。
-   - 平台门：仅真跑用例在用例内 skip（Windows 上 skip，标注平台）；静态锚点
-     双平台真跑，保证 Windows 上文件退出码 0（整文件全 skip 的 exit 5 会被
-     verify 门记 failed，retry 版已修）。注意 --dist=loadscope 下模块级 fixture
-     的 skip 会把整组用例带 skip，故 fixture 在 Windows 返回 None。
-   - 修前会自锁：用例以 120 秒超时兜底转红，不永久挂死；文件尾附手工反跑说明。
-2. 修复 `tools/ci/secret_prescan.py` 两处既有 bug（新建分支首推必被凭证守卫误拦，
-   本任务 submit 实测复现；随本任务分支提交，合并回 main 时收编）：
-   - `scan_pre_push`：新建分支（remote_oid 全 0）原用空树做基线，
-     `git diff --name-only EMPTY_TREE HEAD` 展开成整棵仓树（扫描整个 HEAD），
-     占位 PEM / 测试夹具与逐 blob git show 慢扫让首推必拦；改为
-     merge-base(local_oid, origin/main 或 main 主干提示) 取真正的
-     「本次推送提交范围」基线，主干不可定时才回退空树。
-   - `_git`：subprocess 文本模式补 encoding=utf-8 + errors=replace——tracked
-     二进制文件 git show 解码失败曾让 reader thread 抛 UnicodeDecodeError、
-     show.stdout=None、scan_text TypeError 崩溃，退出码 1 被 pre-push hook
-     误判为「检出密钥形态」拦截推送。崩溃不再被误当命中，show 为空则跳过。
-3. 未改任何 C 代码（修复已在位，红线「不动握手之外的已工作 TLS 逻辑」遵守）。
+## 改动文件
+- src/code_generator.py：builtin_map 追加（是数字/是数值/皆空/字典取值/试转整数/试转浮点/字节长度/去空白/字符串全数字/反转），未重排已有条目；stdlib 缺失兜底 lambda 同步
+- src/keywords.py：STDLIB_VERB_ARITY 补 9 条
+- stdlib/builtins.py：是数字/是数值 重写转发、新增 皆空/字典取值/试转整数/试转浮点/字节长度/反转/去空白别名；排序列表加 键；__all__ 同步
+- stdlib/内置核心判型.light：是数字 改宽松谓词、新增 皆空
+- tests/unit/test_LH08_内置名与语义.py：新增 7 独立用例
+- tests/test_lpd_016_判型族.py：随 LH-08 反转更新断言（是数字("7") False→True）
+- tests/integration/test_missing_stdlib.py：legacy src 兜底腿断言同步
+- CHANGELOG.md：T-0197 条目 + 迁移口径
 
 ## 验证
+- 新验收 7 passed；旧判型族测试通过；stdlib 缺失兜底 12 passed；空壳护栏 6 passed。
+- 预存在的环境缺口（与本卡无关）：tests/unit/test_builtins_drift.py 7 个 FileNotFound，因其比对兄弟仓 lightharness 的 worktree（本机未签出）。
 
-- Windows（本机，retry 版 wt）：`python -m pytest -q tests/unit/test_R13B_TLS_POSIX握手.py`
-  → 1 passed（静态锚点）+ 1 skipped（真跑，平台标注），exit 0。
-- **FreeBSD 0.88（fb98，15.1-RELEASE-p1）实机真跑（2026-10-28）**：
-  - 环境：clang（base 19）+ 新装 mbedtls3-3.6.7（pkg，免密 sudo）+ cryptography 50.0.2 + ca_root_nss。
-  - 运行方式：`CPATH=/usr/local/include LIBRARY_PATH=/usr/local/lib python3 -m pytest -q tests/unit/test_R13B_TLS_POSIX握手.py` → **2 passed，exit 0**（真跑探针：本地 TLS echo 服务器，握手 rc=0 + 回显原样）。
-  - **反跑**：删掉 runtime_typed.c 副本中 bio_recv 的 flush 三行重编探针，对同一 TLS 服务器握手 → 自锁，被 `timeout 25` 杀掉（RC=124）——修前阻塞实锤，与 known_issues 反跑描述一致。
-- **新增 C 改动（本任务实机补验发现的真编译缺陷）**：`dv_tls_flush` 定义在
-  `dv_tls_bio_recv` 之后且无前置声明，clang 19 把隐式声明当 error——当前 main
-  的 POSIX mbedTLS 分支在 FreeBSD 15 上编译不过。已补前置声明
-  `static int dv_tls_flush(LightTLS* t);`（runtime_typed.c，属卡片允许路径）。
-- 门禁固化项：LH 副本已用 sync_builtins.py 刷新（自检全过）；venv 用
-  GATE_SELFCHECK_VENV 指向 light-merge/.venv（全 PASS）。
-- 探针链接需 -lpthread（runtime 的 dv_thread_spawn/dv_fs_watch_start 引用 pthread_create）。
-
-## 缺口（逐项单列）
-
-- 卡片完成标准「0.88 全量门 new_reds=0」：全量门未在本机/0.88 跑（pytest 全量
-  9421 例，耗时大）；本次 C 改动仅为前置声明（无行为变化），探针编译 + 真跑 +
-  反跑均已实机验证。如需全量门，待安排在 0.88 例行补跑。
+## 边界与后续
+- 只加不改存量：是空 语义未动、不传 key 排序行为未动。
+- **后续另立卡**：src/code_generator_unified.py 的 builtin_map 仍按旧 是数字=是数值 映射（unified 腿用例仍出旧值），跨后端（含 antlrparser/native 腿）名实一致化未在本卡 paths 内，已在 CHANGELOG 标注。
