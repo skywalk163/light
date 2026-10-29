@@ -1110,6 +1110,20 @@ class InterpreterCore:
         if not clauses and (node.catch_var or node.catch_body):
             clauses = [('', node.catch_var, node.catch_body)]
 
+        finally_body = getattr(node, 'finally_body', None) or []
+
+        # LH-10（光明P0）：无 `捕` 时不得把异常静默吞掉——应如 Python try/finally：
+        # finally 执行后异常原样向外传播，交由外层 `捕` 接收。旧逻辑用
+        # `except LightError` 无条件接住，空 clauses 时 for 循环不匹配、异常被
+        # 吞掉（假绿制造机：程序不崩但结果错了）。
+        if not clauses:
+            try:
+                self._execute_block(node.try_body)
+            finally:
+                if finally_body:
+                    self._execute_block(finally_body)
+            return
+
         try:
             self._execute_block(node.try_body)
         except LightError as e:
@@ -1123,7 +1137,6 @@ class InterpreterCore:
                 break
 
         # 最终块：无论是否捕获都执行
-        finally_body = getattr(node, 'finally_body', None) or []
         if finally_body:
             self._execute_block(finally_body)
 
