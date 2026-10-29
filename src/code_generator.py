@@ -665,7 +665,9 @@ class PythonCodeGenerator:
             '归约': 'functools.reduce',
             '折叠': 'functools.reduce',
             '排序': 'sorted',
-            '反转': 'reversed',
+            # T-0197 · LH-11：`反转` 原映射 Python reversed（返回迭代器，是列表为假），
+            # 改走 _light_builtin.反转，返回反转后的新列表；字符串仍返回字符串。
+            '反转': '_light_builtin.反转',
             '枚举': 'enumerate',
             '打包': 'zip',
 
@@ -675,6 +677,13 @@ class PythonCodeGenerator:
             # 字符串工具
             '转整数': '_light_builtin.转整数',
             '转浮点': '_light_builtin.转浮点',
+            # T-0197 · LH-07：试探型转换——转不了返回默认，不抛异常。
+            '试转整数': '_light_builtin.试转整数',
+            '试转浮点': '_light_builtin.试转浮点',
+            # T-0197 · LH-14：UTF-8 真实字节数（Content-Length 口径）。
+            '字节长度': '_light_builtin.字节长度',
+            # T-0197 · LH-07：原在 __all__ 却进不了源码的假登记，补可达。
+            '字符串全数字': '_light_builtin.字符串全数字',
             '转串': '_light_builtin.转字符串',
             # v7 单 19：短类型名兼作转换函数。规范把 串()/整()/列() 当一组三兄弟
             # 明文承诺（docs/L2_文言体语法规范_v4.0.md:287 一行内两种身份并用：
@@ -733,6 +742,10 @@ class PythonCodeGenerator:
             '替换': '_light_builtin.替换字符串',
             '右去除': '_light_builtin.右去除',
             '去除空白': '_light_builtin.去除空白',
+            # T-0197 · LH-11：`去空白` 补成真实别名（= 去除空白）。与 R129-A 不同，
+            # 现在调用点有 `_user_defined_functions` 守卫（:4324）——模块内自定义
+            # `段落 去空白`（如 stdlib/分布式/节点网络.light）会压住本映射，不再被劫持。
+            '去空白': '_light_builtin.去除空白',
             # R129-A（M1）：AI 友好别名层（安全子集）。AI 写光明代码时第一反应
             # 常写 写入("f", s) / 解析(s) / 去空白(s)，与权威名 写入文件/解析JSON/
             # 去除首尾空白 不同轨。**实测后仅 写入 可安全落地**，回退 解析/去空白：
@@ -823,6 +836,8 @@ class PythonCodeGenerator:
             '字典项列表': '_light_builtin.字典项列表',
             '字典包含键': '_light_builtin.字典包含键',
             '字典获取': '_light_builtin.字典获取',
+            # T-0197 · LH-03：宽口径取值——缺键或值为空(null)都返回默认。
+            '字典取值': '_light_builtin.字典取值',
             
             # 类型检查
             '是整数': '_light_builtin.是整数',
@@ -832,6 +847,8 @@ class PythonCodeGenerator:
             '是列表': '_light_builtin.是列表',
             '是字典': '_light_builtin.是字典',
             '是空': '_light_builtin.是空',
+            # T-0197 · LH-02：宽口径空判定（null/""/空列表/空字典）。`是空` 语义不动。
+            '皆空': '_light_builtin.皆空',
             '是布尔': '_light_builtin.是布尔',
             '是函数': '_light_builtin.是函数',
             # R142-C · L-074 补齐：字符级判型 是字母/是空白 走 str.isalpha/str.isspace
@@ -840,12 +857,14 @@ class PythonCodeGenerator:
             # 「未定义的段落」。'是数字符' 已在下方映射（str.isdigit，单字符守卫）。
             '是字母': '_light_builtin.是字母',
             '是空白': '_light_builtin.是空白',
-            # LP-D-016：用户侧关键字 `是数字` = 是数值（int/float，排 bool），
-            # 映射到 `是数值`；字符级 str.isdigit 判定走新关键字 `是数字符`，
-            # 指向 Python 侧已有的 `是数字`（= stdlib/内置核心判型.light 的同名段落）。
-            # 二者名实对齐，勿互换——插件已按「是数字=是数值」写守卫。
-            '是数字': '_light_builtin.是数值',
+            # T-0197 · LH-08（P0 命名层不兼容变更，推翻 LP-D-016）：
+            # 用户侧关键字 `是数字` 改回宽松谓词 `_light_builtin.是数字`
+            # （int/float 排 bool，或单个数字字符 str.isdigit）；判「值是否为数值类型」
+            # 专用 `是数值`；`是数字符` 是 `是数字` 的等价别名。
+            # 迁移口径见 CHANGELOG（原「是数字=是数值」守卫需改用 是数值）。
+            '是数字': '_light_builtin.是数字',
             '是数字符': '_light_builtin.是数字',
+            '是数值': '_light_builtin.是数值',
             
             # 日期时间
             '时间戳': '_light_builtin.时间戳',
@@ -1554,7 +1573,7 @@ class PythonCodeGenerator:
         self._add_line("# stdlib 物理缺失时的兜底：补齐常用 builtin + 注册 文件系统 模块")
         self._add_line("for _light_n, _light_f in [")
         self._add_line("    ('列表排序', lambda lst, 反向=False: lst.sort(reverse=反向)),")
-        self._add_line("    ('排序列表', lambda lst, 反向=False: sorted(lst, reverse=反向)),")
+        self._add_line("    ('排序列表', lambda lst, 反向=False, 键=None: sorted(lst, reverse=反向, key=键)),")
         self._add_line("    ('列表反转', lambda lst: lst.reverse()),")
         self._add_line("    ('列表清空', lambda lst: lst.clear()),")
         self._add_line("    ('列表移除', lambda lst, item: lst.remove(item)),")
@@ -1578,7 +1597,13 @@ class PythonCodeGenerator:
         self._add_line("    ('是函数', lambda v: callable(v)),")
         self._add_line("    ('是数值', lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)),")
         self._add_line("    ('是负零', lambda v: isinstance(v, float) and v == 0.0 and __import__('math').copysign(1.0, v) < 0.0),")
-        self._add_line("    ('是数字', lambda v: isinstance(v, str) and len(v) == 1 and v.isdigit()),")  # R114-S3：关键字 是数字符 的靶心（单字符守卫）
+        self._add_line("    ('是数字', lambda v: (isinstance(v, (int, float)) and not isinstance(v, bool)) or (isinstance(v, str) and len(v) == 1 and v.isdigit())),")  # T-0197 · LH-08：数字值或单数字字符
+        self._add_line("    ('皆空', lambda v: v is None or (isinstance(v, str) and len(v) == 0) or (isinstance(v, (list, dict)) and len(v) == 0)),"),  # T-0197 · LH-02
+        self._add_line("    ('字典取值', lambda d, k, default=None: (d.get(k, default) if d.get(k, None) is not None else default)),"),  # T-0197 · LH-03
+        self._add_line("    ('试转整数', lambda s, default=None: (int(str(s).strip()) if str(s).strip().lstrip('-').isdigit() else default)),"),  # T-0197 · LH-07
+        self._add_line("    ('试转浮点', lambda s, default=None: (float(str(s).strip()) if (str(s).strip().lstrip('-').replace('.', '', 1).isdigit()) else default)),"),  # T-0197 · LH-07
+        self._add_line("    ('字节长度', lambda s, enc='utf-8': len(str(s).encode(enc))),"),  # T-0197 · LH-14
+        self._add_line("    ('反转', lambda s: s[::-1] if isinstance(s, str) else list(reversed(s))),"),  # T-0197 · LH-11
         self._add_line("    ('是字母', lambda v: isinstance(v, str) and v.isalpha()),")  # R142-C · L-074：str.isalpha 整串语义
         self._add_line("    ('是空白', lambda v: isinstance(v, str) and v.isspace()),")  # R142-C · L-074：str.isspace 整串语义
         self._add_line("    ('是字节', lambda v: isinstance(v, bytes)),")  # R114-S3：与 是字符串（str）对称

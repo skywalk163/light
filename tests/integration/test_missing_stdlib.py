@@ -183,7 +183,12 @@ class TestMissingStdlibSrcInProcess(unittest.TestCase):
             sys.modules['文件系统'] = self._saved_fs_module
 
     def test_type_predicates_missing_stdlib(self):
-        """R114-S3：src 后端降级 stub 补 是数字/是字节 后，判型族关键字不应 AttributeError。"""
+        """R114-S3：src 后端降级 stub 补 是数字/是字节 后，判型族关键字不应 AttributeError。
+
+        T-0197 · LH-08：legacy src 腿 `是数字` 已改宽松谓词（数字值或单数字字符），
+        故 `是数字("7")` 由旧 False 翻转为 True。注：unified 腿（下方同类用例）builtin_map
+        尚未同步，仍按旧 `是数字=是数值` 出 False，跨后端一致化另立卡跟进。
+        """
         out = _run_src(
             '打印 是数字(7)。\n'
             '打印 是数字("7")。\n'
@@ -193,7 +198,7 @@ class TestMissingStdlibSrcInProcess(unittest.TestCase):
             '打印 是字符串("a")。'
         )
         self.assertEqual(out.splitlines(),
-                         ['True', 'False', 'True', 'False', 'False', 'True'])
+                         ['True', 'True', 'True', 'False', 'False', 'True'])
 
 
 class TestMissingStdlibSrcBackendE2E(unittest.TestCase):
