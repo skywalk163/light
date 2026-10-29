@@ -1,16 +1,16 @@
-# T-0194 工作说明（LH-10｜试 无 捕 必须生成 try/finally，异常不得静默吞掉）
+# T-0201 工作说明（LH-01｜时间加减/时间差秒/时刻转戳/戳转时刻，解析时间失败返空）
 
 ## 结论
-LH-10（P0）根因：无 `捕` 的 `试` 被 code_generator.py 生成为 `except Exception: pass` + `finally`，异常被静默吞掉（假绿制造机）。已修。
+LH-01（P1 stdlib 缺口）：`解析时间` 已有，缺「加减」与「相差」。已在 `stdlib/时间管理.py` 补齐 `时间加减`、`时间差秒`、`时刻转戳`、`戳转时刻`，并将 `解析时间` 改为解析失败返回 `空`（None）不抛异常，与试探型转换约定一致。
 
 ## 改动
-1. `src/code_generator.py` `_generate_try_stmt`：无 `捕`+有 `最终`（且无 `否则`）→ 纯 try/finally，异常向外传播；`捕` 语义与其余组合未动。
-2. `src/code_generator_unified.py` `_generate_try_stmt`：加 `has_catch` 门（catch_clauses/catch_body），修掉无 `捕` 误判成裸 `捕获:`（except BaseException 吞异常）及无 `捕` 无 `最终` 的裸 `try:` SyntaxError。
-3. `antlrparser/interpreter_core.py` `_exec_try`：无 `捕` 改 try/finally，异常不再被吞（该后端也处理 try，一并核）。
-4. 新建 `tests/unit/test_LH10_最终块异常传播.py`：4 例，subprocess 起 `python -m cli.light run`（src 后端）断言 stdout；例 1 有牙（修前红）。
+1. `stdlib/时间管理.py`：修改 `解析时间` 为 try/except 返回 None；新增 `时刻转戳`、`戳转时刻`、`时间加减`、`时间差秒` 四函数；`__all__` 补 4 个新导出。
+2. `stdlib/时间管理.light`：文件头能力边界注释补记 4 个新函数（原生腿无法完成，Python 腿兜底）。
+3. `tests/unit/test_LH01_时间算术.py`：新建，覆盖时间差秒正负/零、时间加减跨月/跨年/闰日/平年、多参数相加、时间戳往返、解析时间失败返空。
 
 ## 验证
-本环境 bash 沙箱不可用（无 bubblewrap/Landlock，无审批通道），无法跑 pytest；以上均经静态/手工推演核对。需 worker 跑：`python3 -m pytest -q tests/unit/test_LH10_最终块异常传播.py`。
+本环境 bash 沙箱不可用（无 bubblewrap/Landlock，无审批通道），无法跑 pytest；以上均经静态/手工推演核对。需 worker 跑：`python3 -m pytest -q tests/unit/test_LH01_时间算术.py`。
 
-## 缺口
-裸无 `捕`（无 `最终`）在 code_generator.py 仍保留 `except Exception: pass`（保守）；无 `捕`+`最终`+`否则` 的 except/finally/else 顺序为既有缺陷、非本次范围；unified 对裸无 `捕` 补 `finally: pass` 与 code_generator 略有差异（已知不一致）。
+## 风险
+- `解析时间` 行为变更（失败返回 None）可能影响依赖方；已 grep 全仓，无既有测试依赖抛异常行为。
+- `时间加减` 用 `time.mktime`/`time.localtime`（本地时间），跨 DST 边界时 wall-clock 可能偏移；任务未要求 DST 处理，测试日期避开 DST 转换。

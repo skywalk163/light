@@ -415,7 +415,7 @@ def 格式化时间(格式: str = "%Y-%m-%d %H:%M:%S", 时间戳: float = None) 
     return time.strftime(格式, time.localtime(时间戳))
 
 
-def 解析时间(时间字符串: str, 格式: str = "%Y-%m-%d %H:%M:%S") -> time.struct_time:
+def 解析时间(时间字符串: str, 格式: str = "%Y-%m-%d %H:%M:%S") -> Optional[time.struct_time]:
     """
     解析时间字符串为时间元组
     
@@ -424,9 +424,99 @@ def 解析时间(时间字符串: str, 格式: str = "%Y-%m-%d %H:%M:%S") -> tim
         格式: 格式化字符串
     
     返回:
-        时间元组
+        时间元组；解析失败返回 空（None），不抛异常
     """
-    return time.strptime(时间字符串, 格式)
+    try:
+        return time.strptime(时间字符串, 格式)
+    except (ValueError, TypeError, OverflowError):
+        return None
+
+
+def 时刻转戳(时刻) -> Optional[float]:
+    """
+    时刻转时间戳
+    
+    参数:
+        时刻: struct_time 或时间戳（数字）
+    
+    返回:
+        时间戳（秒）；转换失败返回 空（None）
+    """
+    if isinstance(时刻, time.struct_time):
+        try:
+            return time.mktime(时刻)
+        except (ValueError, OverflowError, TypeError):
+            return None
+    elif isinstance(时刻, bool):
+        return None
+    elif isinstance(时刻, (int, float)):
+        return float(时刻)
+    return None
+
+
+def 戳转时刻(戳) -> Optional[time.struct_time]:
+    """
+    时间戳转本地时刻
+    
+    参数:
+        戳: 时间戳（秒）
+    
+    返回:
+        本地时间 struct_time；转换失败返回 空（None）
+    """
+    try:
+        return time.localtime(戳)
+    except (ValueError, OverflowError, TypeError):
+        return None
+
+
+def 时间加减(时刻, 秒=0, 分钟=0, 小时=0, 天=0):
+    """
+    时间加减：对时刻增加/减少指定时间
+    
+    参数:
+        时刻: struct_time 或时间戳
+        秒: 秒数（默认0）
+        分钟: 分钟数（默认0）
+        小时: 小时数（默认0）
+        天: 天数（默认0）
+    
+    返回:
+        新时刻（与入参同型）；多个参数相加；转换失败返回 空（None）
+    """
+    总秒数 = 秒 + 分钟 * 60 + 小时 * 3600 + 天 * 86400
+    if isinstance(时刻, time.struct_time):
+        try:
+            新戳 = time.mktime(时刻) + 总秒数
+            return time.localtime(新戳)
+        except (ValueError, OverflowError, TypeError):
+            return None
+    elif isinstance(时刻, bool):
+        return None
+    elif isinstance(时刻, (int, float)):
+        结果 = 时刻 + 总秒数
+        if isinstance(时刻, int) and isinstance(总秒数, int):
+            return int(结果)
+        return 结果
+    return None
+
+
+def 时间差秒(甲, 乙) -> Optional[float]:
+    """
+    时间差秒：甲与乙相差秒数（甲晚于乙为正，负数也支持）
+    
+    参数:
+        甲: struct_time 或时间戳
+        乙: struct_time 或时间戳
+    
+    返回:
+        相差秒数（float）；转换失败返回 空（None）
+    """
+    甲戳 = 时刻转戳(甲)
+    乙戳 = 时刻转戳(乙)
+    if 甲戳 is None or 乙戳 is None:
+        return None
+    return 甲戳 - 乙戳
 
 
 def 时区偏移() -> int:
@@ -508,6 +598,7 @@ __all__ = [
     '单调时间', '测量执行时间',
     '本地时间', 'UTC时间', '时间元组转时间戳',
     '格式化时间', '解析时间',
+    '时刻转戳', '戳转时刻', '时间加减', '时间差秒',
     '时区偏移', '时区名称', '夏令时',
     '秒表', '创建秒表',
 ]
