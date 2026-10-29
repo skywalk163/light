@@ -34,12 +34,16 @@ TOOL = os.path.join(PROJECT_ROOT, 'tools', '内置名清单.py')
 DOC = os.path.join(PROJECT_ROOT, 'docs', 'AI编程指南.md')
 
 # `docs/AI编程指南.md`「最常用内置函数」表里的**伪内置名**（真实内置名不叫这个）：
-#   `去空白`  → 真名 `去除空白`
 #   `集合创建` → 光明没有 `集合创建()` 这个内置函数
 #   `repr`   → 光明内置名是中文短语，没有 `repr`（Python 的 repr 不能直接在光明里用）
-# 注意：任务书把 `转布尔` 也列进文档错误，但实测 `转布尔` 登记在
-# `stdlib/lightpub/__index__.py:functions`，是**真实内置函数**，所以不放进允许名单。
-KNOWN_DOC_ERRORS = frozenset({'去空白', '集合创建', 'repr'})
+# 任务书还列了 `去空白` / `转布尔`，但实测它们**都是真实内置名**，不能进允许名单：
+#   `转布尔` 登记在 `stdlib/lightpub/__index__.py:functions`；
+#   `去空白` 已由 T-0197 收编进 `src/code_generator.py:builtin_map` + `stdlib/builtins.py:__all__`
+#   （文档「最常用内置函数」表也已同步），现在就是正式内置函数。
+KNOWN_DOC_ERRORS = frozenset({'集合创建', 'repr'})
+# E016 正例用的**造词伪内置名**：任务书亲点的「对 vs 错」配对——
+# `最后索引`（对）vs `最后出现位置`（错）。它不在真实清单里，也没被 T-0197 收编。
+FAKE_NAME = '最后出现位置'
 
 
 # =============================================================================
@@ -47,12 +51,12 @@ KNOWN_DOC_ERRORS = frozenset({'去空白', '集合创建', 'repr'})
 # =============================================================================
 
 def test_e016_reports_undefined_builtin_like_name():
-    """`打印 去空白(" x ")`：`去空白` 不是内置名 → 报 E016，且定位到行。"""
-    issues = check_undefined_names('打印 去空白(" x ")\n')
-    hits = [i for i in issues if i.name == '去空白']
-    assert hits, '去空白（造词出来的伪内置名）必须被报出来'
+    """`打印 最后出现位置(列表)`：`最后出现位置` 不是内置名 → 报 E016，且定位到行。"""
+    issues = check_undefined_names(f'打印 {FAKE_NAME}(列表)\n')
+    hits = [i for i in issues if i.name == FAKE_NAME]
+    assert hits, f'{FAKE_NAME}（造词出来的伪内置名）必须被报出来'
     msg = hits[0].message
-    assert '去空白' in msg
+    assert FAKE_NAME in msg
     # 文案必须同时给出「未定义」或「未知内置」的定性
     assert ('未定义' in msg) or ('未知内置' in msg)
     assert hits[0].rule_id == 'E016'
@@ -65,12 +69,20 @@ def test_e016_reports_undefined_builtin_like_name():
 def test_e016_not_reported_for_real_builtins():
     """真实内置名一律零告警（这是误报防线）。"""
     builtins_probe = '、'.join(['去除空白(" x ")', '是空(空)', '打印(1)', '最小值([1,2])'])
-    src = '\n'.join([builtins_probe, '打印 临时目录()', '打印 取最小值(80, 9)']) + '\n'
+    src = '\n'.join([
+        builtins_probe,
+        '打印 临时目录()',
+        '打印 取最小值(80, 9)',
+        '打印 去空白(" x ")',      # T-0197 收编后已是真实内置名
+        '打印 字节长度("x")',      # T-0197 新收编内置名
+        '打印 字典取值(空, "k")',
+    ]) + '\n'
     issues = check_undefined_names(src)
     flagged = {i.name for i in issues}
     # 真实内置名一个都不能误报
-    assert not (flagged & {'去除空白', '是空', '打印', '最小值', '临时目录', '取最小值'}), \
-        f'真实内置名被误报：{flagged & {"去除空白","是空","打印","最小值","临时目录","取最小值"}}'
+    safe = {'去除空白', '是空', '打印', '最小值', '临时目录', '取最小值',
+            '去空白', '字节长度', '字典取值'}
+    assert not (flagged & safe), f'真实内置名被误报：{flagged & safe}'
 
 
 def test_e016_unknown_variable_reported():
@@ -107,13 +119,13 @@ def test_e016_scopes_are_honored():
 def test_e016_not_in_default_lint():
     """`LightLinter.lint()` 默认扫描不得报 E016（防误报污染全仓 check）。"""
     linter = LightLinter()
-    results = linter.lint('打印 去空白(" x ")\n')
+    results = linter.lint(f'打印 {FAKE_NAME}(列表)\n')
     assert not any(r.rule_id == 'E016' for r in results)
 
 
 def test_e016_opt_in_via_lint_names():
     """`lint_names()` 显式开启 E016；用 rules 关掉时也真的不报。"""
-    src = '打印 去空白(" x ")\n'
+    src = f'打印 {FAKE_NAME}(列表)\n'
     assert any(r.rule_id == 'E016' for r in LightLinter().lint_names(src))
     # 只启用 E001 时，E016 必须静默
     assert not any(r.rule_id == 'E016' for r in LightLinter(rules=['E001']).lint_names(src))
@@ -184,19 +196,21 @@ def test_builtin_list_tool_json_shape():
 def test_builtin_list_tool_no_fake_names():
     """伪内置名绝不能在清单里（这是清单存在的意义）。"""
     real = builtin_names()
-    for bad in ('去空白', '集合创建', 'repr'):
+    for bad in ('集合创建', 'repr', FAKE_NAME):
         assert bad not in real, f'伪内置名 {bad} 不该出现在真实清单里'
 
 
 def test_builtin_list_tool_has_real_builtins():
     """真实内置名必须在清单里。"""
     real = builtin_names()
-    for good in ('去除空白', '是空', '打印', '临时目录', '取最小值', '最小值', '类型'):
+    for good in ('去除空白', '是空', '打印', '临时目录', '取最小值', '最小值', '类型',
+                 '去空白', '字节长度', '字典取值'):   # 后三个是 T-0197 收编的真实内置名
         assert good in real, f'真实内置名 {good} 缺失于清单'
     # 来源登记要能指认出处
     src = builtin_name_sources()
     assert src['打印']['来源'], '打印 应有来源登记'
     assert src['临时目录']['来源'], '临时目录 应有来源登记'
+    assert src['去空白']['来源'], '去空白 应有来源登记（T-0197 收编后）'
 
 
 # =============================================================================
@@ -262,27 +276,27 @@ def test_doc_builtin_table_is_read_only():
 
 def test_cli_check_names(tmp_path):
     """`python -m src.linter.cli --check-names` 能报 E016，退出码非 0。"""
-    src = '打印 去空白(" x ")\n从 环境 导入 主机名\n段落 登记:\n  设 主机名 为 主机名()\n  打印 主机名\n结束\n'
+    src = f'打印 {FAKE_NAME}(列表)\n从 环境 导入 主机名\n段落 登记:\n  设 主机名 为 主机名()\n  打印 主机名\n结束\n'
     fp = tmp_path / 'probe.light'
     fp.write_text(src, encoding='utf-8')
     r = subprocess.run(
         [sys.executable, '-X', 'utf8', '-m', 'src.linter.cli', '--check-names', str(fp)],
         capture_output=True, text=True, encoding='utf-8')
     # 有 error 级问题 → 非 0 退出
-    assert r.returncode != 0
+    assert r.returncode != 0, r.stdout + r.stderr
     assert 'E016' in r.stdout
-    assert '去空白' in r.stdout
+    assert FAKE_NAME in r.stdout
     assert 'W016' in r.stdout
 
 
 def test_cli_check_names_json(tmp_path):
     """JSON 输出模式可解析。"""
     fp = tmp_path / 'probe.light'
-    fp.write_text('打印 去空白(" x ")\n', encoding='utf-8')
+    fp.write_text(f'打印 {FAKE_NAME}(列表)\n', encoding='utf-8')
     r = subprocess.run(
         [sys.executable, '-X', 'utf8', '-m', 'src.linter.cli', '--check-names', '--json', str(fp)],
         capture_output=True, text=True, encoding='utf-8')
     # 存在 error 级问题 → JSON 模式也返回非 0（给 CI 一个可判定的退出码）
-    assert r.returncode != 0, r.stderr
+    assert r.returncode != 0, (r.stdout, r.stderr)
     data = json.loads(r.stdout)
     assert any(item.get('rule_id') == 'E016' for item in data)
