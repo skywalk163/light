@@ -162,11 +162,19 @@ def reachability_failures(names):
 # =============================================================================
 
 def test_doc_table_parsed():
-    """必须能真从文档表里取到名字——否则整套门禁会「零名字全绿」。"""
+    """必须能真从文档表里取到名字——否则整套门禁会「零名字全绿」。
+
+    判据不写下界（`len(x) >= N` 是弱断言）：改为**结构信号**——
+    ① 关键名字必须在（解析一断就立刻红）；② 无重复；③ 名字已剥离干净（不带括号/反引号残留）。
+    """
     names = doc_builtin_names()
-    assert len(names) >= 25, f'只解析到 {len(names)} 个名字，文档表结构可能变了：{names}'
+    assert names, '文档 §三 表一个名字都没解析出来'
     for must in ('打印', '是空', '皆空', '转字符串', '列表创建'):
-        assert must in names, f'文档表里应含 `{must}`，实际没取到'
+        assert must in names, f'文档表里应含 `{must}`，实际没取到（表结构可能变了）'
+    assert len(names) == len(set(names)), f'解析出重复名字：{names}'
+    for nm in names:
+        assert '(' not in nm and '`' not in nm and nm.strip() == nm, \
+            f'名字未剥离干净（应为纯标识符）：{nm!r}'
 
 
 # =============================================================================
