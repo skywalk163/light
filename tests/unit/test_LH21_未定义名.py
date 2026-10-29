@@ -33,14 +33,19 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 TOOL = os.path.join(PROJECT_ROOT, 'tools', '内置名清单.py')
 DOC = os.path.join(PROJECT_ROOT, 'docs', 'AI编程指南.md')
 
-# `docs/AI编程指南.md`「最常用内置函数」表里的**伪内置名**（真实内置名不叫这个）：
-#   `集合创建` → 光明没有 `集合创建()` 这个内置函数
-#   `repr`   → 光明内置名是中文短语，没有 `repr`（Python 的 repr 不能直接在光明里用）
-# 任务书还列了 `去空白` / `转布尔`，但实测它们**都是真实内置名**，不能进允许名单：
-#   `转布尔` 登记在 `stdlib/lightpub/__index__.py:functions`；
-#   `去空白` 已由 T-0197 收编进 `src/code_generator.py:builtin_map` + `stdlib/builtins.py:__all__`
-#   （文档「最常用内置函数」表也已同步），现在就是正式内置函数。
-KNOWN_DOC_ERRORS = frozenset({'集合创建', 'repr'})
+# `docs/AI编程指南.md`「最常用内置函数」表里的**伪内置名**（真实内置名不叫这个）。
+#
+# **2026-10-29（T-0203）清零**：本卡把文档侧两处伪名改掉了，允许名单随之清空——
+#   `集合创建` → 文档改写成 `集合([])`（`集合` 是内置类型，`集合([])` 实测得空 set）
+#   `repr`    → 文档删掉该行，换成 `是空` / `皆空`（Python 内置名泄漏能跑，但不算光明内置名）
+# 于是「文档里出现、真实清单里没有」的名字应为 **0 个**；一旦有人把伪名写回文档，
+# 下面的 `test_doc_builtin_table_names_all_valid` 会立刻转红。
+# 更严格的门禁（登记 + 运行时可达双层判据）见 `tests/unit/test_文档内置名存在性.py`（T-0203）。
+#
+# 历史备注（保留供回溯）：任务书还列过 `去空白` / `转布尔`，但两者都**不是**伪名——
+#   `转布尔` 登记在 `stdlib/lightpub/__index__.py:functions`（须 `从 类型工具 导入`）；
+#   `去空白` 已由 T-0197 收编进 `src/code_generator.py:builtin_map` + `stdlib/builtins.py:__all__`。
+KNOWN_DOC_ERRORS = frozenset()
 # E016 正例用的**造词伪内置名**：任务书亲点的「对 vs 错」配对——
 # `最后索引`（对）vs `最后出现位置`（错）。它不在真实清单里，也没被 T-0197 收编。
 FAKE_NAME = '最后出现位置'
