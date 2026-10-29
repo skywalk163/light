@@ -30,6 +30,13 @@ class 命令结果:
         return f"命令结果(返回码={self.返回码}, 成功={self.是否成功})"
 
 
+def _归一空工作目录(工作目录: Optional[str]) -> Optional[str]:
+    """LH-19：空串工作目录是陷阱——`chdir("")` 抛 FileNotFoundError，
+    被 except 兜住后误报「命令未找到」。把 `""` 归一成 `None`（"不指定"），
+    与 `空` 同义，代价极小。"""
+    return None if 工作目录 == "" else 工作目录
+
+
 def 执行命令(
     命令: Union[str, List[str]],
     捕获输出: bool = True,
@@ -37,6 +44,7 @@ def 执行命令(
     环境变量: Dict[str, str] = None,
     超时: float = None,
     编码: str = "utf-8",
+    标准输入: Union[str, bytes] = None,
 ) -> 命令结果:
     """
     执行外部命令
@@ -48,12 +56,14 @@ def 执行命令(
         环境变量: 环境变量字典（会合并到当前环境）
         超时: 超时时间（秒）
         编码: 输出编码
+        标准输入: 写入子进程标准输入的内容（字符串或字节串）；不传时行为不变
     
     返回:
         命令结果对象
     """
     命令列表 = 命令 if isinstance(命令, list) else 命令
     shell = isinstance(命令, str)
+    工作目录 = _归一空工作目录(工作目录)
     
     环境 = None
     if 环境变量:
@@ -61,6 +71,15 @@ def 执行命令(
         环境.update(环境变量)
     
     try:
+        # LH-06：标准输入透传。与 subprocess.run 的 text/encoding 口径配合：
+        # 文本模式（捕获输出）收 str，二进制模式收 bytes；跨类型时按 编码 转换。
+        输入数据 = 标准输入
+        if 输入数据 is not None:
+            if isinstance(输入数据, str) and not 捕获输出:
+                输入数据 = 输入数据.encode(编码)
+            elif isinstance(输入数据, bytes) and 捕获输出:
+                输入数据 = 输入数据.decode(编码, errors='replace')
+        
         if 捕获输出:
             结果 = subprocess.run(
                 命令列表,
@@ -71,6 +90,7 @@ def 执行命令(
                 cwd=工作目录,
                 env=环境,
                 timeout=超时,
+                input=输入数据,
             )
             return 命令结果(
                 返回码=结果.returncode,
@@ -84,6 +104,7 @@ def 执行命令(
                 cwd=工作目录,
                 env=环境,
                 timeout=超时,
+                input=输入数据,
             )
             return 命令结果(返回码=结果.returncode)
     except subprocess.TimeoutExpired as e:
@@ -169,6 +190,7 @@ def 管道执行(
     if not 命令列表:
         return 命令结果(返回码=-1, 标准错误="命令列表为空")
     
+    工作目录 = _归一空工作目录(工作目录)  # LH-19：空串工作目录归一为 None
     上一个输出 = None
     最后结果 = 命令结果(返回码=0)
     
@@ -210,31 +232,43 @@ def 后台执行(
     命令: Union[str, List[str]],
     工作目录: str = None,
     环境变量: Dict[str, str] = None,
+    捕获输出: bool = False,
 ) -> subprocess.Popen:
     """
     后台执行命令（不等待完成）
+    
+    LH-17：默认把 stdout/stderr 重定向到 DEVNULL（不读不堵）。子进程写满 PIPE
+    会阻塞在 write() 且零报错，故仅当显式 捕获输出=真 时才接 PIPE；
+    此时调用方必须自行消费管道（如交给 等待进程），否则仍会阻塞。
     
     参数:
         命令: 命令字符串或列表
         工作目录: 工作目录
         环境变量: 环境变量
+        捕获输出: 是否接管 stdout/stderr 管道（默认否，写 /dev/null）
     
     返回:
         Popen对象
     """
     cmd = 命令 if isinstance(命令, list) else 命令
     shell = isinstance(命令, str)
+    工作目录 = _归一空工作目录(工作目录)
     
     环境 = None
     if 环境变量:
         环境 = dict(os.environ)
         环境.update(环境变量)
     
+    # LH-17：默认 DEVNULL，避免常驻进程写满 PIPE 后静默卡死；
+    # 只有显式 捕获输出=真 才接 PIPE（调用方负责消费）。
+    标准输出 = subprocess.PIPE if 捕获输出 else subprocess.DEVNULL
+    标准错误 = subprocess.PIPE if 捕获输出 else subprocess.DEVNULL
+    
     return subprocess.Popen(
         cmd,
         shell=shell,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=标准输出,
+        stderr=标准错误,
         cwd=工作目录,
         env=环境,
     )

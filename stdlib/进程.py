@@ -30,6 +30,9 @@ def 进程启动(命令: List[str], 等待: bool = True, 超时: int = None,
         subprocess.Popen 对象
     """
     try:
+        # LH-19：空串工作目录归一为 None（"不指定"），与 `空` 同义。
+        if 工作目录 == "":
+            工作目录 = None
         if 捕获输出:
             proc = subprocess.Popen(
                 命令, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
