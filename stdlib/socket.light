@@ -44,7 +44,24 @@
 # 模块的同名段落撞名的风险由「零 src/ 改动」约束下的最小面原则承担：
 # 这里只用 6 个中文名且均为网络语义，撞名面最小。
 
+# LH-15（T-0202）：socket 选项/协议常量整组透出。
+#   - 旧版只导出 6 个常量，SO_REUSEPORT / TCP_NODELAY 拿不到，做高性能服务
+#     （多进程共享监听端口、关 Nagle）只能绕道 FFI。本轮补齐一组：
+#       SOL_SOCKET / SO_REUSEADDR / SO_REUSEPORT / SO_KEEPALIVE / SO_BROADCAST
+#       TCP_NODELAY / IPPROTO_IP / IPPROTO_TCP / IPPROTO_UDP。
+#   - 平台差异（诚实声明）：原生腿是「零参取值段」，值是**写死的 POSIX/Linux
+#     规范字面量**，不是运行时查询——C 运行时暂无「取 socket 选项常量」的绑定
+#     （setsockopt 本身也尚未接线，见本文件头「仍不可用」）。跨平台真值以
+#     Python 腿 `stdlib/Socket.py` 为准（getattr(socket, 名, None) 动态取）。
+#   - SO_REUSEPORT 在 Windows 不存在：Python 腿取不到时返回 空(None)，
+#     绝不静默返回 0（0 会让 setsockopt 设错选项且无声）。原生腿这里仍给
+#     POSIX 字面量 15，仅用于「导出可达/导入不炸」的门面语义，不代表 Windows
+#     上真能用。
+#   - 命名澄清（LH-15 旧记录对不上名）：光明里这个模块就叫 `socket`（原生腿，
+#     本文件）/ `Socket`（Python 腿，stdlib/Socket.py 顶层路由到 lightpub）。
+#     没有 `套接字` 这个模块——照着旧记录写 `从 套接字 导入 ...` 会 ImportError。
 导出 socket AF_INET AF_INET6 SOCK_STREAM SOCK_DGRAM SOL_SOCKET SO_REUSEADDR
+导出 SO_REUSEPORT SO_KEEPALIVE SO_BROADCAST TCP_NODELAY IPPROTO_IP IPPROTO_TCP IPPROTO_UDP
 导出 创建 连接 发送 recv 读取 关闭 取错误 取错误码 设置接收超时
 # R147-A（R131 漏登补登）：服务端原语落地。C 层 dv_socket_bind/listen/accept/
 # shutdown/set_nonblocking/get_peer_addr + IR declare 早已就位，缺的只是 codegen
@@ -69,6 +86,28 @@
 
 段落 SO_REUSEADDR():
   返回 2
+
+# ---- LH-15（T-0202）新增常量零参取值段（POSIX/Linux 规范字面量，见上方说明）----
+段落 SO_REUSEPORT():
+  返回 15
+
+段落 SO_KEEPALIVE():
+  返回 9
+
+段落 SO_BROADCAST():
+  返回 32
+
+段落 TCP_NODELAY():
+  返回 1
+
+段落 IPPROTO_IP():
+  返回 0
+
+段落 IPPROTO_TCP():
+  返回 6
+
+段落 IPPROTO_UDP():
+  返回 17
 
 段落 socket(域, 类型):
   返回 socket_create(域, 类型)

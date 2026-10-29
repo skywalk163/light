@@ -42,6 +42,22 @@
 
 import os as _os
 import sys as _sys
+import socket as _py_socket
+
+# LH-15（T-0202）：socket 选项/协议常量整组透出（Python 腿）。
+# 取值直接对齐宿主 socket 模块，**不写死数字**——不同平台数值不同
+# （例：本机 Windows 上 SO_REUSEADDR=4，Linux 上为 1）。
+# SO_REUSEPORT 在 Windows 不存在 ⇒ getattr 兜底为 空(None)，
+# 绝不静默返回 0（0 会让 setsockopt 悄悄设错选项且无声）。
+SOL_SOCKET = _py_socket.SOL_SOCKET
+SO_REUSEADDR = _py_socket.SO_REUSEADDR
+SO_REUSEPORT = getattr(_py_socket, 'SO_REUSEPORT', None)
+SO_KEEPALIVE = _py_socket.SO_KEEPALIVE
+SO_BROADCAST = _py_socket.SO_BROADCAST
+TCP_NODELAY = _py_socket.TCP_NODELAY
+IPPROTO_IP = _py_socket.IPPROTO_IP
+IPPROTO_TCP = _py_socket.IPPROTO_TCP
+IPPROTO_UDP = _py_socket.IPPROTO_UDP
 
 # 确保 stdlib 可导入（本文件就在 stdlib/ 下，其父目录需在 path 上）
 _STDLIB_DIR = _os.path.dirname(_os.path.abspath(__file__))
@@ -92,4 +108,7 @@ __all__ = [
     "设置非阻塞", "获取本地地址", "获取远程地址", "获取错误信息",
     "sock有效", "连接有效", "select读写",
     "将主机名转为IP", "解析IP地址", "主机转网络字节序", "网络转主机字节序",
+    # LH-15（T-0202）：选项/协议常量（SO_REUSEPORT 在不支持平台为 None）
+    "SOL_SOCKET", "SO_REUSEADDR", "SO_REUSEPORT", "SO_KEEPALIVE", "SO_BROADCAST",
+    "TCP_NODELAY", "IPPROTO_IP", "IPPROTO_TCP", "IPPROTO_UDP",
 ]
