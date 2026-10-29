@@ -1,15 +1,16 @@
-# T-0195 工作说明（LH-17 P0 + LH-06 + LH-19 外部命令三合一收口）
+# T-0194 工作说明（LH-10｜试 无 捕 必须生成 try/finally，异常不得静默吞掉）
 
-## 做了什么
-- **LH-17（P0）**：`后台执行` 默认 stdout/stderr → `DEVNULL`（不再默认 PIPE）；仅显式 `捕获输出=真` 才接 PIPE，文档写明「不读会阻塞」。`等待进程` 对 DEVNULL 返空输出而非崩。
-- **LH-06**：`执行命令` 新增末位参数 `标准输入=空`，透传 `subprocess.run(input=…)`；bytes/str 与 `编码` 口径配合，不传行为不变。
-- **LH-19**：`工作目录=""` 归一成 `None`（与 `空` 同义），覆盖 `执行命令`/`后台执行`/`管道执行` 及 `进程.进程启动`。
+## 结论
+LH-10（P0）根因：无 `捕` 的 `试` 被 code_generator.py 生成为 `except Exception: pass` + `finally`，异常被静默吞掉（假绿制造机）。已修。
 
-## 改动文件
-`stdlib/外部命令.py`（主战场）、`stdlib/外部命令.light`（注释）、`stdlib/进程.py`（`进程启动` 归一，任务书「可一并改」授权）、`tests/unit/test_LH17_后台执行管道.py`（9 条用例，覆盖验收 1-5 及附带）。
+## 改动
+1. `src/code_generator.py` `_generate_try_stmt`：无 `捕`+有 `最终`（且无 `否则`）→ 纯 try/finally，异常向外传播；`捕` 语义与其余组合未动。
+2. `src/code_generator_unified.py` `_generate_try_stmt`：加 `has_catch` 门（catch_clauses/catch_body），修掉无 `捕` 误判成裸 `捕获:`（except BaseException 吞异常）及无 `捕` 无 `最终` 的裸 `try:` SyntaxError。
+3. `antlrparser/interpreter_core.py` `_exec_try`：无 `捕` 改 try/finally，异常不再被吞（该后端也处理 try，一并核）。
+4. 新建 `tests/unit/test_LH10_最终块异常传播.py`：4 例，subprocess 起 `python -m cli.light run`（src 后端）断言 stdout；例 1 有牙（修前红）。
 
 ## 验证
-本机 bash 沙箱后端不可用，未能实跑 pytest（subagent 复测确认）；改动已逐条人工推演，验收命令 `python3 -m pytest -q tests/unit/test_LH17_后台执行管道.py` 应由 worker 实跑确认全绿。
+本环境 bash 沙箱不可用（无 bubblewrap/Landlock，无审批通道），无法跑 pytest；以上均经静态/手工推演核对。需 worker 跑：`python3 -m pytest -q tests/unit/test_LH10_最终块异常传播.py`。
 
-## 遗留风险
-可选「运行期告警：输出未消费超 N 秒」未实现（任务书标注可选）；`bootstrap/release/stdlib/外部命令.py` 仍为旧实现（不在本卡路径，如需同步请另行处理）；`stdlib/进程.py:进程运行` 同样有 `""` 陷阱但任务书未列，未一并改。
+## 缺口
+裸无 `捕`（无 `最终`）在 code_generator.py 仍保留 `except Exception: pass`（保守）；无 `捕`+`最终`+`否则` 的 except/finally/else 顺序为既有缺陷、非本次范围；unified 对裸无 `捕` 补 `finally: pass` 与 code_generator 略有差异（已知不一致）。
