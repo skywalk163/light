@@ -97,8 +97,10 @@ def _resolve_compile_time_stdlib() -> Optional[str]:
 # 命中才有意义 —— 命中时可连导入一起跳过。
 #
 # 安全护栏（三道，缺一不可）：
-#   ① key = sha256(后端 + 编译期 stdlib 绝对路径 + 源码全文)。stdlib 路径会烤进产物引导段，
-#      故必须与源码一同入 key；任一变化都必然 miss，绝不会返回陈旧产物。
+#   ① key = sha256(后端 + 编译期 stdlib 绝对路径 + **stdlib 内容指纹** + 源码全文)。
+#      stdlib 路径会烤进产物引导段，故必须与源码一同入 key。
+#      ⚠️ 只放路径不够：改了 stdlib 内容而路径不变 ⇒ 会命中旧产物（LH-13，
+#      实际导致过「明明修好了却测出未修」）。指纹见 _stdlib_fingerprint。
 #   ② 仅当该源码**没有**用户模块 / L3 运行时模块产出（_emit_* 均为空）时才写入并复用；
 #      有随产物落盘依赖的文件一律不走缓存 —— 否则缓存命中会漏掉依赖模块的生成。
 #   ③ 可用环境变量 LIGHT_NO_COMPILE_CACHE=1 完全关闭；目录可用 LIGHT_COMPILE_CACHE_DIR 覆盖。
@@ -107,11 +109,55 @@ _COMPILE_CACHE_DIR = os.path.join(
     'light-compile-cache')
 
 
+_STDLIB_FP_CACHE: dict = {}
+
+
+def _stdlib_fingerprint(stdlib_dir: Optional[str]) -> str:
+    """stdlib 内容指纹 —— LH-13 的修复点。
+
+    原实现只把 stdlib 的**路径**放进 key，于是「同路径、不同内容」的
+    stdlib 会命中同一个缓存条目：改了 线程.py / 文件系统.py 之后跑出来
+    的还是旧产物，而且毫无提示（本机就因此误判过 L-25/L-27/L-31「未修」）。
+
+    这里只取 (文件名, mtime_ns, size)，**不读内容**：顶层 119 个 .light +
+    38 个 .py 一次 stat 是毫秒级，相对于 5~6 秒的编译可忽略。
+    每个进程只算一次（结果进 _STDLIB_FP_CACHE）。
+
+    已知边界：只看 stdlib 顶层（`从 X 导入` 解析的就是这一层）；
+    子目录（分布式/、lightpub/）内容变化不在指纹内 —— 换那两个目录仍建议清缓存。
+    """
+    if not stdlib_dir:
+        return ''
+    cached = _STDLIB_FP_CACHE.get(stdlib_dir)
+    if cached is not None:
+        return cached
+    h = hashlib.sha256()
+    try:
+        names = sorted(os.listdir(stdlib_dir))
+    except OSError:
+        _STDLIB_FP_CACHE[stdlib_dir] = ''
+        return ''
+    for name in names:
+        if not (name.endswith('.light') or name.endswith('.py')):
+            continue
+        try:
+            st = os.stat(os.path.join(stdlib_dir, name))
+        except OSError:
+            continue
+        h.update(f'{name}\x00{st.st_mtime_ns}\x00{st.st_size}\x00'.encode('utf-8'))
+    fp = h.hexdigest()[:16]
+    _STDLIB_FP_CACHE[stdlib_dir] = fp
+    return fp
+
+
 def _compile_cache_key(source: str, backend: str, stdlib_dir: Optional[str]) -> str:
     h = hashlib.sha256()
     h.update(backend.encode('utf-8'))
     h.update(b'\x00')
     h.update((stdlib_dir or '').encode('utf-8'))
+    h.update(b'\x00')
+    # stdlib 内容指纹：同路径改了内容也必须 miss（LH-13）
+    h.update(_stdlib_fingerprint(stdlib_dir).encode('utf-8'))
     h.update(b'\x00')
     h.update(source.encode('utf-8'))
     return h.hexdigest()

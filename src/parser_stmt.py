@@ -2491,27 +2491,52 @@ class ParserStmtMixin:
         if self._current() and self._current().type == TokenType.DOT:
             self._consume(TokenType.DOT)
             # 收集属性名
+            # LH-26：A.B.C 多级（lighthive 第三轮踩到 —— `设 己.连接.row_factory 为 …`
+            # 报「期望'为'或'等于'，但得到 PERIOD」，二级赋值和三级**读取**却都正常）。
+            # 原循环只在 IDENT/KEYWORD 上连续吃，撞到第二个点号就退出，于是把
+            # `对.内.k` 截成 `对.内`、剩下的 `.k` 无人认领。
+            # 这里补一支：点号后面还是名字（且不是运算符词）就继续往下吃。
+            _attr_stops = ('为', '等于', '加上', '减去', '乘以', '除以', '幂', '取余',
+                           '大于', '小于', '大于等于', '小于等于', '不等于',
+                           '与', '或', '非', '在', '到', '从', '且')
             attr_parts = []
             while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
                 # 遇到赋值运算符或常见分隔符时停止
-                if self._current().value in ('为', '等于', '加上', '减去', '乘以', '除以', '幂', '取余',
-                                              '大于', '小于', '大于等于', '小于等于', '不等于',
-                                              '与', '或', '非', '在', '到', '从', '且'):
+                if self._current().value in _attr_stops:
                     break
                 attr_parts.append(self._consume().value)
+                if self._current() and self._current().type == TokenType.DOT:
+                    _nxt = self._peek(1)
+                    if (_nxt and _nxt.type in (TokenType.IDENTIFIER, TokenType.KEYWORD)
+                            and _nxt.value not in _attr_stops):
+                        self._consume(TokenType.DOT)
+                        continue
+                    break
             if attr_parts:
                 attr_name = '.'.join(attr_parts)
                 full_name = f"{name}.{attr_name}"
             else:
                 full_name = name
-            
+
+            # LH-26：三级及以上改成「成员链 + Assignment」，由 codegen 发成
+            # _light_attr_set(_light_attr_get(对象, '内'), 'k', 值) —— 与读取侧
+            # 的 _light_attr_get 同语义（dict 走键、类实例走原生属性），
+            # 不会像裸发 `对.内.k = 值` 那样对 dict 抛 AttributeError。
+            # 二级（X.Y）继续走原 VarDecl 路径，产物逐字节不变。
+            _multi_attr = len(attr_parts) >= 2
+            if _multi_attr:
+                _target = Identifier(name)
+                for _part in attr_parts:
+                    _target = MemberAccess(_target, _part)
+
             # 检查是否是属性+索引赋值：设 obj.attr[index] 为 value 或 设 obj.attr[i][j] 为 value
             if self._current() and self._current().type == TokenType.LBRACKET:
                 self._consume(TokenType.LBRACKET)
                 index_expr = self._parse_expr()
                 self._consume(TokenType.RBRACKET)
                 # 支持多重索引：obj.attr[i][j]...
-                target_expr = IndexAccess(Identifier(full_name), index_expr)
+                _base_target = _target if _multi_attr else Identifier(full_name)
+                target_expr = IndexAccess(_base_target, index_expr)
                 while self._current() and self._current().type == TokenType.LBRACKET:
                     self._consume(TokenType.LBRACKET)
                     next_index = self._parse_expr()
@@ -2547,7 +2572,9 @@ class ParserStmtMixin:
             value = self._parse_expr()
             if self._current() and self._current().type == TokenType.PERIOD:
                 self._consume(TokenType.PERIOD)
-            # 生成属性赋值：name.attr = value
+            # 生成属性赋值：name.attr = value（多级走成员链，见 LH-26）
+            if _multi_attr:
+                return Assignment(_target, value)
             return VarDecl(full_name, value, type_annotation=None)
 
         # 支持索引赋值：设 obj[index] 为 value 或 设 obj[i][j] 为 value

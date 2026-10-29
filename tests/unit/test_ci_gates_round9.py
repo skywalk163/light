@@ -181,6 +181,38 @@ class Test地板自举率(unittest.TestCase):
             self.assertEqual(_跑(FB, "--root", d, "--list", 清单,
                                 "--baseline", 缺基线), 2)
 
+    def test_地板源同名重复定义即红(self):
+        """R158-C：同名重复定义对「按名字集合比对」的三条判据完全隐形，必须单独立案。
+
+        反跑形状：把 `乙` 的定义再抄一遍贴到文件末尾（同名第二次定义），清单不动。
+        此时名字集合仍逐个相等、`set` 差集为空、`{名: 节点}` 字典后写覆盖前写 ——
+        旧判据一条都不会红，实际运行期跑的是**第二份** `乙`（前一份是死码）。
+
+        实测来源：清一段代码时删漏，`def 删除文件` 变成两处，三道门禁全绿，靠
+        「`ast` 顶层函数列表 192 条 vs 清单 191 条、差集却为空」这个矛盾读数才发现。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            清单 = self._树(d, [_地板条("甲"), _地板条("乙")])
+            p = os.path.join(d, "stdlib", "builtins.py")
+            with io.open(p, encoding="utf-8") as f:
+                原文 = f.read()
+            _写文本(p, 原文 + "\n\ndef 乙():\n    return 3\n")
+
+            缺基线 = os.path.join(d, "不存在的基线.json")
+            self.assertEqual(_跑(FB, "--root", d, "--list", 清单,
+                                "--baseline", 缺基线), 1)
+
+            data, 条目 = FB.读清单(清单)
+            问题, _ = FB.校验(d, 条目, FB.读地板函数名(d), FB.读地板函数节点(d))
+            点名 = [x for x in 问题 if "同名重复定义" in x]
+            self.assertEqual(len(点名), 1, "重复定义必须单独点名一次，实际问题：%r" % (问题,))
+            self.assertIn("乙", 点名[0])
+
+            # 反例：把重复的那份撤掉 → 这条判据不该再命中（不然就是恒真）
+            _写文本(p, 原文)
+            问题2, _ = FB.校验(d, 条目, FB.读地板函数名(d), FB.读地板函数节点(d))
+            self.assertEqual([x for x in 问题2 if "同名重复定义" in x], [])
+
     def test_证据必须落在定义行的窗口内(self):
         with tempfile.TemporaryDirectory() as d:
             条 = _已搬迁条("甲")
@@ -799,18 +831,27 @@ class Test地板清单分类统计钉死(unittest.TestCase):
                          "总数 %r 不等于 len(函数) %r" % (data["总数"], len(条目)))
 
     def test_分母与S2进度字段一致(self):
-        """分母（总数 − native_required）应等于 地板自举率_S2进度 / 基线_S1 的分母，且 == 96（R99 §2.3）。
+        """分母（总数 − native_required）应等于 地板自举率_S2进度 / 基线_S1 的分母，且不低于 96。
 
         不写死 96 去卡未来合法扩表：只断「文档字段 == 实算分母」，而实算分母由 函数
         数组现算。这样以后有人正经办扩表，只要同步改了 分类统计 与两份进度字段就过得去，
         只有「飘了」才会红。96 是 R99 §2.3 核定的当前分母，作为一次性锚点存在。
+
+        R158-C 起把锚点从 `== 96` 改成 `>= 96`：这条断言真正要守的是「分母不许缩」
+        （缩分母＝把做不动的函数塞进豁免就能凭空涨自举率），不是「分母永远等于 96」。
+        `== 96` 在 R158-C 直接把一次**账面纠偏**判成了回归 —— 清单 `函数[]` 早已是
+        190 条（+6 条路径替身 +1 条 has_light_impl 只补了明细没补汇总），而 `总数` 与
+        `baseline.total` 还停在 184，96 是「184 − 88」这个失真分子的产物。真值当时就是
+        102，谁把它算成 96 谁就是在给分母注水。下界 96 保留，斜上不设死；
+        `denominator` 的棘轮另有 `tools/ci/floor_bootstrap.py` 的基线兜（只升不降）。
         """
         with io.open(self._路径, encoding="utf-8") as f:
             data = json.load(f)
         统计 = data["分类统计"]
         实算分母 = data["总数"] - 统计["native_required"]
-        self.assertEqual(实算分母, 96,
-                         "实算分母(总数−native_required) 应为 96，实际 %r" % 实算分母)
+        self.assertGreaterEqual(实算分母, 96,
+                                "实算分母(总数−native_required) 不得低于 R99 §2.3 核定的 96，"
+                                "实际 %r —— 分母缩了就等于给自举率注水" % 实算分母)
         s2 = data["地板自举率_S2进度"]["分母（总数 − native_required）"]
         self.assertEqual(s2, 实算分母,
                          "地板自举率_S2进度.分母 %r 与实算分母 %r 不一致" % (s2, 实算分母))

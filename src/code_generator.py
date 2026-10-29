@@ -517,6 +517,8 @@ class PythonCodeGenerator:
             '读取文件': '_light_builtin.读取文件',
             '_读文件': '_light_builtin._读文件',
             '写入文件': '_light_builtin.写入文件',
+            # LH-28：原子写入（临时文件 + fsync + os.replace），避免读到半个文件
+            '原子写入': '_light_builtin.原子写入',
             '追加文件': '_light_builtin.追加文件',
             '文件存在': '_light_builtin.文件存在',
             '是文件': '_light_builtin.是文件',
@@ -1614,7 +1616,7 @@ class PythonCodeGenerator:
         self._add_line("    try:")
         self._add_line("        import types as _light_types")
         self._add_line("        _light_fs = _light_types.ModuleType('文件系统')")
-        self._add_line("        for _light_fn in ('读取文件', '写入文件', '追加文件', '文件存在', '删除文件', '复制文件', '移动文件', '创建目录', '删除目录', '目录存在', '路径连接', '当前工作目录', '读取行'):")
+        self._add_line("        for _light_fn in ('读取文件', '写入文件', '原子写入', '追加文件', '文件存在', '删除文件', '复制文件', '移动文件', '创建目录', '删除目录', '目录存在', '路径连接', '当前工作目录', '读取行'):")
         self._add_line("            if hasattr(_light_builtin, _light_fn):")
         self._add_line("                setattr(_light_fs, _light_fn, getattr(_light_builtin, _light_fn))")
         self._add_line("        sys.modules.setdefault('文件系统', _light_fs)")
@@ -3229,6 +3231,12 @@ class PythonCodeGenerator:
         if is_enum:
             self._needs_enum = True
         class_name = self._sanitize_name(stmt.name)
+
+        # LH-30：属性与方法同名会静默覆盖，编译期点出来（只告警，不改产物）
+        try:
+            self._warn_method_attr_collision(stmt)
+        except Exception:
+            pass
 
         # 检查是否有抽象方法
         has_abstract = False
@@ -5094,6 +5102,76 @@ class PythonCodeGenerator:
             return False
         name = getattr(arg, 'name', None)
         return isinstance(name, str) and name in self._user_defined_functions
+
+    # ── LH-30：属性与方法同名（静默覆盖）的诊断 ────────────────────────────── #
+    @staticmethod
+    def _iter_ast_nodes(node):
+        """深度遍历 AST 子树（只认有 __slots__ 的节点 / 节点列表）。"""
+        stack = [node]
+        while stack:
+            cur = stack.pop()
+            yield cur
+            for slot in getattr(type(cur), '__slots__', ()) or ():
+                val = getattr(cur, slot, None)
+                if isinstance(val, list):
+                    stack.extend(x for x in val if hasattr(type(x), '__slots__'))
+                elif hasattr(type(val), '__slots__'):
+                    stack.append(val)
+
+    @staticmethod
+    def _self_attr_of(node):
+        """从 `设 己.X 为 …` / `己.X 为 …` 这类节点里取出 X；不是的话返回 None。"""
+        name = None
+        if isinstance(node, VarDecl):
+            name = node.name
+        elif isinstance(node, Assignment):
+            target = getattr(node, 'target', None)
+            name = getattr(target, 'name', None)
+            if name is None and isinstance(target, MemberAccess):
+                base = getattr(getattr(target, 'obj', None), 'name', None)
+                if base in ('己', '自', 'self'):
+                    return target.member
+                return None
+        if not isinstance(name, str):
+            return None
+        for prefix in ('己.', '自.', 'self.'):
+            if name.startswith(prefix) and len(name) > len(prefix) and '.' not in name[len(prefix):]:
+                return name[len(prefix):]
+        return None
+
+    def _warn_method_attr_collision(self, class_stmt) -> None:
+        """类里「方法名」与「己.<同名> 数据属性」撞车 → 编译期告警。
+
+        LH-30（lighthive 第三轮踩到，P0 级静默）：光明的属性和方法共用一个命名
+        空间，`设 己.状态 为 字典` 会顶掉 `段落 状态:`，此后 `己.状态()` 抛
+        `'dict' object is not callable` —— 编译期一点提示都没有，错误信息也
+        完全不提「名字冲突」，实际排查时先怀疑了线程、又怀疑了 JSON。
+
+        这里在编译期把这种写法点出来（告警而非报错：既有代码可能真的这么写，
+        直接判错会波及无关仓；但新写代码应当立刻看到）。
+        """
+        methods = getattr(class_stmt, 'methods', None) or []
+        method_names = {getattr(m, 'name', None) for m in methods} - {None}
+        if not method_names:
+            return
+
+        hits = {}
+        for method in methods:
+            body = getattr(method, 'statements', None) or getattr(method, 'body', None) or []
+            for stmt in body:
+                for node in self._iter_ast_nodes(stmt):
+                    attr = self._self_attr_of(node)
+                    if attr and attr in method_names:
+                        hits.setdefault(attr, getattr(method, 'name', '?'))
+
+        for attr, setter in hits.items():
+            sys.stderr.write(
+                f"[光明·告警] 类 {getattr(class_stmt, 'name', '?')}：方法「{attr}」与数据属性"
+                f"「己.{attr}」同名（{setter} 里给己.{attr} 赋了值）。\n"
+                f"            光明的属性与方法共用一个命名空间，赋值会**顶掉方法**，"
+                f"之后 `己.{attr}()` 会抛 'dict'/'int' object is not callable，"
+                f"编译期不再有其它提示。\n"
+                f"            请给其中一个改名（如数据属性叫 己.{attr}值）。\n")
 
     def _warn_ambiguous_arg_order(self, verb: str) -> None:
         """语序判不定时告警。同一动词只报一次，避免刷屏。"""

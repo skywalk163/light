@@ -117,7 +117,35 @@ BOOT_PORTED = {
     """生成随机 UUID v4 字符串。R114-S1 boot 自包含移植：对齐 内置核心系统.随机UUID。"""
     import uuid
     return str(uuid.uuid4())''',
+
+    "皆空": '''def 皆空(值) -> bool:
+    """宽口径空判定（真身 stdlib/内置核心判型.light 的 皆空 段落）。
+
+    T-0197 · LH-02：`是空` 语义锁死（只认 null/""），本函数额外把空列表/空字典算空：
+    null / "" / [] / {} 为真；纯空白串、0、空 bytes 不算空。需要「空容器也算空」
+    的场景（任务队列判空字段等）用本函数，勿改 `是空`。
+
+    R158-C boot 自包含移植：T-0197 加它时按「真源有而 boot 缺 → 逐字取自真源」处理，
+    而真源这一版是地板转发（`import 内置核心判型; return 内置核心判型.皆空(值)`）。
+    release 包里既没有 内置核心判型.light 也没有光导入钩子，一调用就是 ImportError ——
+    test_builtins_drift.py::test_boot_no_light_forward_leak 正是为这条设的（实测红）。
+    """
+    if 值 is None:
+        return True
+    if isinstance(值, str):
+        return len(值) == 0
+    if isinstance(值, (list, dict)):
+        return len(值) == 0
+    return False''',
 }
+
+# boot 强制覆盖名单：这些函数**即使 boot 里已有同名**也必须换成 BOOT_PORTED 的自包含体。
+#
+# 为什么需要它（R158-C 的教训）：`sync_boot` 只补「真源有而 boot 缺」的函数，于是
+# 「先被逐字塞进 boot、后被发现问题」的函数永远修不掉 —— 它已经在了，missing 里没有
+# 它，每轮 sync 都把那个错版本原样留着，自检也不报（自检只比「本次逐字写入的集合」）。
+# 皆空 就是这么漏进 release 的：光转发式 import，release 环境必然 ImportError。
+BOOT_OVERWRITE = {"皆空"}
 
 # 自动生成段标记（boot 侧；幂等锚点）
 MARK_BEGIN = "# ===== R114-S1 sync_builtins.py 自动生成段（勿手改；由 scripts/sync_builtins.py 重生成）====="
@@ -202,6 +230,22 @@ def sync_boot(main_text, main_funcs, main_order):
 
     prefix_funcs, _ = parse_functions(prefix)
     already = set(prefix_funcs.keys())
+
+    # 1.5 强制覆盖（R158-C）：BOOT_OVERWRITE 里的函数，boot 已有同名也换成自包含移植体
+    覆盖 = []
+    for n in sorted(BOOT_OVERWRITE):
+        旧 = prefix_funcs.get(n)
+        if 旧 is None:
+            continue                      # 没有就走第 2 步的 ported 路径补进去
+        新 = BOOT_PORTED[n]
+        if block_hash(旧) == block_hash(新):
+            continue                      # 已经是自包含体，幂等
+        prefix = prefix.replace(旧, 新 + "\n")
+        覆盖.append(n)
+    if 覆盖:
+        prefix_funcs, _ = parse_functions(prefix)
+        already = set(prefix_funcs.keys())
+        print(f"  [强制覆盖] boot 既有函数换成自包含移植体: {覆盖}")
 
     # 2. 真源有而 boot 缺的函数：38 个逐字取自真源 + 11 个走 BOOT_PORTED
     missing = [n for n in main_order if n not in already]
@@ -331,6 +375,18 @@ def self_checks(main_funcs, main_order, boot_verbatim):
     header_lines = [l.strip() for l in boot_text.split("\n") if l and not l.startswith("#")]
     if BOOT_KEEP_HEADER not in header_lines:
         errors.append(f"boot 缺少顶层保留行: {BOOT_KEEP_HEADER}")
+
+    # boot 全文不得出现光转发式 import（R158-C 新增；与
+    # tests/unit/test_builtins_drift.py::test_boot_no_light_forward_leak 同一条判据）
+    #
+    # 为什么自检里也要有一条：那条测试在 tests/ 下，而 sync_builtins.py 会被单独
+    # 拿去重生成发行包 —— 门禁离病灶越远越容易绕过。这里当场断，回滚代价最小。
+    光转发 = [l for l in boot_text.split("\n")
+              if re.match(r"^\s*import\s+(内置核心\w*|字符串工具轻量|JSON|JSON核心)\s*$", l)
+              or re.match(r"^\s*from\s+(内置核心\w*|字符串工具轻量|JSON)\b", l)]
+    if 光转发:
+        errors.append(f"boot 出现光转发式 import（release 环境无光导入钩子，必然 ImportError）: "
+                      f"{[l.strip() for l in 光转发]}；把该函数加进 BOOT_PORTED + BOOT_OVERWRITE")
 
     # JSON 三豁免：取 boot 版。解析JSON/序列化JSON 必须直用 _duan_json_module 且
     # 不得含真源的惰性 import JSON；美化JSON 委托 序列化JSON（本就不直引模块），

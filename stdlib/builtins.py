@@ -193,6 +193,60 @@ def 删除文件(path: str) -> None:
         raise RuntimeError(f"删除文件失败 '{path}': {e}")
 
 
+def 原子写入(path: str, content: str, encoding: str = 'utf-8',
+             权限: object = None) -> bool:
+    """原子写入(path, 内容, 编码='utf-8', 权限=None) —— LH-28
+
+    写临时文件 → flush + fsync → 设权限 → `os.replace` 改名。
+    改名在同一文件系统上是原子的，读者只会看到旧文件或新文件，不会读到半截内容。
+
+    **自带实现，不 import stdlib 里的任何模块**，原因有两条（都踩过）：
+      1. 本文件要被同步成三份（真源 / bootstrap 发行包 / lightharness），
+         任何对 `文件系统.py` 的依赖在发行包里都可能不存在或是旧版；
+      2. 同名 `.light` 会遮蔽 `.py`：`import 文件系统` 拿到的是 `文件系统.light`
+         的门面段落（中文形参），按 `encoding=` 传参直接 TypeError；而那个门面
+         又转发回 `_light_builtin.原子写入`（就是本函数）—— 位置传参会**无限递归**。
+         所以这里一律自带，不碰模块解析（缺陷账 L-254）。
+
+    参数:
+        path: 目标路径（父目录不存在会自动创建）
+        content: 文本内容
+        encoding: 编码
+        权限: 例如 384（0o600）；不给则沿用默认 umask
+
+    返回:
+        True 表示已落盘
+
+    异常:
+        OSError / RuntimeError: 落盘失败（临时文件会被清理，不留残骸）
+    """
+    import os
+    import tempfile
+
+    目录 = os.path.dirname(os.path.abspath(path)) or '.'
+    if not os.path.isdir(目录):
+        os.makedirs(目录, exist_ok=True)
+    句柄, 临时 = tempfile.mkstemp(dir=目录, prefix='.原子写入-', suffix='.tmp')
+    try:
+        with os.fdopen(句柄, 'w', encoding=encoding) as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        if 权限 is not None:
+            try:
+                os.chmod(临时, int(权限))
+            except OSError:
+                pass
+        os.replace(临时, path)
+        return True
+    except BaseException:
+        try:
+            os.unlink(临时)
+        except OSError:
+            pass
+        raise
+
+
 def 删除目录(path: str) -> None:
     """删除空目录"""
     try:
@@ -1879,7 +1933,7 @@ __all__ = [
     # 文件I/O
     '读取文件', '写入文件', '追加文件',
     '文件存在', '目录存在', '路径存在',
-    '创建目录', '删除文件', '删除目录',
+    '创建目录', '删除文件', '删除目录', '原子写入',
     '列出目录', '文件大小',
     
     # 路径操作

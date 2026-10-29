@@ -961,6 +961,59 @@ def 是文件(path: str) -> bool:
     """检查是否为文件"""
     return os.path.isfile(path)
 
+def 原子写入(path: str, content: str, encoding: str = 'utf-8',
+             权限: object = None) -> bool:
+    """原子写入(path, 内容, 编码='utf-8', 权限=None) —— LH-28
+
+    写临时文件 → flush + fsync → 设权限 → `os.replace` 改名。
+    改名在同一文件系统上是原子的，读者只会看到旧文件或新文件，不会读到半截内容。
+
+    **自带实现，不 import stdlib 里的任何模块**，原因有两条（都踩过）：
+      1. 本文件要被同步成三份（真源 / bootstrap 发行包 / lightharness），
+         任何对 `文件系统.py` 的依赖在发行包里都可能不存在或是旧版；
+      2. 同名 `.light` 会遮蔽 `.py`：`import 文件系统` 拿到的是 `文件系统.light`
+         的门面段落（中文形参），按 `encoding=` 传参直接 TypeError；而那个门面
+         又转发回 `_light_builtin.原子写入`（就是本函数）—— 位置传参会**无限递归**。
+         所以这里一律自带，不碰模块解析（缺陷账 L-254）。
+
+    参数:
+        path: 目标路径（父目录不存在会自动创建）
+        content: 文本内容
+        encoding: 编码
+        权限: 例如 384（0o600）；不给则沿用默认 umask
+
+    返回:
+        True 表示已落盘
+
+    异常:
+        OSError / RuntimeError: 落盘失败（临时文件会被清理，不留残骸）
+    """
+    import os
+    import tempfile
+
+    目录 = os.path.dirname(os.path.abspath(path)) or '.'
+    if not os.path.isdir(目录):
+        os.makedirs(目录, exist_ok=True)
+    句柄, 临时 = tempfile.mkstemp(dir=目录, prefix='.原子写入-', suffix='.tmp')
+    try:
+        with os.fdopen(句柄, 'w', encoding=encoding) as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        if 权限 is not None:
+            try:
+                os.chmod(临时, int(权限))
+            except OSError:
+                pass
+        os.replace(临时, path)
+        return True
+    except BaseException:
+        try:
+            os.unlink(临时)
+        except OSError:
+            pass
+        raise
+
 def 列出文件(path: str = '.') -> List[str]:
     """
     列出目录中的文件（不包含子目录）
@@ -1074,16 +1127,6 @@ def 字典取值(字典, 键, 默认值=None):
 # =============================================================================
 # 类型检查函数
 # =============================================================================
-
-def 皆空(值) -> bool:
-    """宽口径空判定（真身 stdlib/内置核心判型.light 的 皆空 段落）。
-
-    T-0197 · LH-02：`是空` 语义锁死（只认 null/"），本函数额外把空列表/空字典算空：
-    null / "" / [] / {} 为真；纯空白串、0、空 bytes 不算空。需要「空容器也算空」
-    的场景（任务队列判空字段等）用本函数，勿改 `是空`。
-    """
-    import 内置核心判型
-    return 内置核心判型.皆空(值)
 
 def 真实路径(路径: str) -> str:
     """解析符号链接 / junction / .. / 8.3 短名，返回规范化真实路径（os.path.realpath）"""
@@ -1763,6 +1806,26 @@ def 是字节(值) -> bool:
     """检查是否为字节串（bytes）。R114-S1 boot 自包含移植：对齐 内置核心判型.是字节。"""
     return isinstance(值, bytes)
 
+def 皆空(值) -> bool:
+    """宽口径空判定（真身 stdlib/内置核心判型.light 的 皆空 段落）。
+
+    T-0197 · LH-02：`是空` 语义锁死（只认 null/""），本函数额外把空列表/空字典算空：
+    null / "" / [] / {} 为真；纯空白串、0、空 bytes 不算空。需要「空容器也算空」
+    的场景（任务队列判空字段等）用本函数，勿改 `是空`。
+
+    R158-C boot 自包含移植：T-0197 加它时按「真源有而 boot 缺 → 逐字取自真源」处理，
+    而真源这一版是地板转发（`import 内置核心判型; return 内置核心判型.皆空(值)`）。
+    release 包里既没有 内置核心判型.light 也没有光导入钩子，一调用就是 ImportError ——
+    test_builtins_drift.py::test_boot_no_light_forward_leak 正是为这条设的（实测红）。
+    """
+    if 值 is None:
+        return True
+    if isinstance(值, str):
+        return len(值) == 0
+    if isinstance(值, (list, dict)):
+        return len(值) == 0
+    return False
+
 def 是布尔(值) -> bool:
     """检查是否为布尔值。R114-S1 boot 自包含移植：对齐 内置核心判型.是布尔。"""
     return isinstance(值, bool)
@@ -1815,6 +1878,7 @@ __all__ = [
     '路径存在',
     '创建目录',
     '删除文件',
+    '原子写入',
     '删除目录',
     '列出目录',
     '列出文件',

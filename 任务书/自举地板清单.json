@@ -16,18 +16,18 @@
   ],
   "版本": 1,
   "归属": "C9 建（S1），G9 守门禁",
-  "总数": 184,
+  "总数": 191,
   "分类统计": {
-    "native_required": 88,
-    "movable": 15,
-    "has_light_impl": 68,
+    "native_required": 89,
+    "movable": 20,
+    "has_light_impl": 69,
     "duplicate": 13,
     "unused": 0
   },
   "地板自举率基线_S1": {
     "分子（builtins.py 已转发到光明实现的条数）": 0,
-    "分母（总数 − native_required）": 96,
-    "数值": "0/96 = 0.0%",
+    "分母（总数 − native_required）": 102,
+    "数值": "0/102 = 0.0%",
     "口径": "has_light_impl 只表示光明替身已就位；builtins.py 函数体尚未转发，运行期跑的仍是 Python，故不计入分子（S1 合并点裁决，见 任务书/地板清单裁决_S1.md §4）",
     "替身已就位待接线": 12,
     "S2 目标": "≥40%（把 movable + has_light_impl 接进 builtins.py 的转发）"
@@ -711,7 +711,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:61"
+      "证据行": "stdlib/内置核心判型.light:73"
     },
     {
       "名字": "是字符串",
@@ -727,7 +727,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:69"
+      "证据行": "stdlib/内置核心判型.light:82"
     },
     {
       "名字": "是整数",
@@ -759,7 +759,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:73"
+      "证据行": "stdlib/内置核心判型.light:94"
     },
     {
       "名字": "显示宽度",
@@ -1215,7 +1215,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:77"
+      "证据行": "stdlib/内置核心判型.light:98"
     },
     {
       "名字": "是函数",
@@ -1223,7 +1223,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:81"
+      "证据行": "stdlib/内置核心判型.light:102"
     },
     {
       "名字": "是数值",
@@ -1231,7 +1231,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（S2 已搬迁并接线；默认值留在 builtins.py 的 Python 签名里）",
-      "证据行": "stdlib/内置核心判型.light:87"
+      "证据行": "stdlib/内置核心判型.light:108"
     },
     {
       "名字": "字符串全数字",
@@ -1239,7 +1239,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（R99-C · LP-D-016 新增并接线；空串返回假，非 str 返回假）",
-      "证据行": "stdlib/内置核心判型.light:107"
+      "证据行": "stdlib/内置核心判型.light:128"
     },
     {
       "名字": "是负零",
@@ -1247,7 +1247,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（任务5 T2-D4 新增：负零判定原语，纯光明实现）",
-      "证据行": "stdlib/内置核心判型.light:95"
+      "证据行": "stdlib/内置核心判型.light:116"
     },
     {
       "名字": "切片下标检查",
@@ -1519,7 +1519,7 @@
       "当前实现语言": "光明（stdlib/内置核心判型.light），builtins.py 仅一行转发",
       "分类": "has_light_impl",
       "目标落点": "stdlib/内置核心判型.light（LH-02；是 为空 语义不动的加宽版）",
-      "证据行": "stdlib/内置核心判型.light:60"
+      "证据行": "stdlib/内置核心判型.light:63"
     },
     {
       "名字": "试转整数",
@@ -1552,12 +1552,20 @@
       "分类": "movable",
       "目标落点": "stdlib/builtins.py（LH-11；原映射 Python reversed 返回迭代器）",
       "证据行": "stdlib/builtins.py:2034"
+    },
+    {
+      "名字": "原子写入",
+      "职责": "原子写文件：临时文件 → flush+fsync → 设权限 → os.replace 改名，读者看不到半截内容（LH-28）",
+      "当前实现语言": "Python（builtins.py）",
+      "分类": "native_required",
+      "目标落点": "原生腿 runtime_typed.c（文件 I/O：__duan_fs_*）；S2 前保留 builtins.py 自带实现",
+      "证据行": "stdlib/builtins.py:196"
     }
   ],
   "地板自举率_S2进度": {
-    "分子（builtins.py 已转发到光明实现的条数）": 68,
-    "分母（总数 − native_required）": 96,
-    "数值": "68/96 = 70.83%",
+    "分子（builtins.py 已转发到光明实现的条数）": 69,
+    "分母（总数 − native_required）": 102,
+    "数值": "69/102 = 67.65%",
     "本轮新接": 52,
     "S1 存量": "7（转大写/转小写/字符串长度/去除左侧空白/去除右侧空白/替换字符串/分割字符串 → 字符串工具轻量.light）",
     "落点": "stdlib/内置核心字符串.light 17 条、内置核心判型.light 9 条、内置核心列表.light 10 条、内置核心字典.light 8 条、内置核心转换.light 3 条、JSON.light 3 条、列表工具.light 1 条（求和）、字符串工具轻量.light 1 条（连接字符串）",
@@ -1565,6 +1573,7 @@
     "S2 续接补接的 1 条": "连接字符串（主线裁决「收严」：光明侧改到 str.join 口径，非 str 元素抛 TypeError、非 str 连接符抛 AttributeError，逐字复刻 CPython 消息后转发 → 字符串工具轻量.light:74）",
     "S2 续接未接的 6 条（替身已就位）": "路径 6 条。主线已裁决「只定义光明自己的 POSIX 风格语义」，替身 stdlib/内置核心路径.light 也已写完并与 posixpath 逐条等价（466 条差分全绿），但**转发被实测阻断**：stdlib/操作系统.light:26-31 本机平台 拿「连接路径 的返回里有没有反斜杠」当平台判定的唯一探针，改成只认 / 之后 Windows 上 本机平台() 返回 posix，路径护栏/代理工具集/路径运算/harness 沙箱连带 46 条测试转红（实测 46→0）。要转发得先给平台判定换一个不依赖本函数的原语——待主线二次裁决。",
     "未接并记账": "路径 6 条（见上）、格式化时间、显示宽度（需 unicodedata，会破 Python 直调门禁）、duplicate 13 条（S3 删码）",
-    "口径": "分子只数 builtins.py 函数体真的转发到光明模块的条目（floor_bootstrap.py 校验）；证据行指到 .light 的 段落 定义行"
+    "口径": "分子只数 builtins.py 函数体真的转发到光明模块的条目（floor_bootstrap.py 校验）；证据行指到 .light 的 段落 定义行",
+    "分母纠偏说明": "R158-C 订正：此前两份字段的分母都写 96，那是 总数 184 − 88 的产物；而 函数[] 数组实际早已是 190 条（+6 条路径替身、+1 条 has_light_impl 只补了明细没补汇总），baseline.total 也跟着停在 184。本轮把 总数/分类统计/两个分母 一并按 函数[] 现算，并对证据行做了一次声明名级重对准（内置核心判型.light 因插入 段落 皆空 整体下移 9 条）。分母 96→102 是账面纠偏，不是豁免扩张；新增的唯一条目是 原子写入（真边界）。"
   }
 }

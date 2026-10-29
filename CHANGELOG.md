@@ -4,6 +4,170 @@
 > 按版本号从新到旧排列。同一版本号在两侧都存在且内容不同时，条目内容取并集。
 > 自 v7.0.0 起统一为 **光明（Light）** 品牌，包名 `light`，CLI 入口 `light` / `lightc`。
 
+## [LH-3] — 2026-10-29 — lighthive 第三轮（LH-23~LH-31）复测：4 条误记 + 4 条已修
+
+> 由 lighthive 第三轮（store 控制面 / MCP HTTP / 代码同步）暴露的 9 条逐条复测。
+> **先说结论：其中 4 条（LH-23/25/27/31）本来就是好的，是我在 lighthive 自带的旧 stdlib
+> 快照上取证，把「快照旧」误判成了「语言没修」。** 这一轮的取证纪律已写进
+> `lighthive/docs/光明语言问题记录.md` 头部与缺陷账 §二十六。
+>
+> 真正动手修的是 4 条 + 1 条根因 + 1 条新发现，落点见下。
+
+### 1. LH-13 根因落定并修复：编译缓存 key 只认 stdlib **路径**，不认**内容**
+
+`cli/light_unified.py` 的 `_compile_cache_key()` 原本把「后端 + stdlib 绝对路径 + 源码」
+入 key。于是**同路径改内容必然命中旧产物** —— 改了 `stdlib/线程.py`、`文件系统.py`
+之后跑出来还是旧码，且无任何提示。这就是 LH-13「改 stdlib 后偶发命中旧产物」的根因
+（此前登记为「待观察、未稳定复现」）。
+
+- 新增 `_stdlib_fingerprint(dir)`：取 stdlib 顶层 `*.light` / `*.py` 的
+  `(文件名, mtime_ns, size)` 做 sha256 前 16 位，进程内缓存一次（157 个文件 ≈ 毫秒级，
+  相对 5~6 秒的编译开销可忽略）。
+- key 里加入指纹 ⇒ 内容变了必然 miss；同一段源码、同一份 stdlib 仍能命中（实测 key 稳定）。
+- 已知边界：指纹只覆盖 stdlib **顶层**（`从 X 导入` 解析的就是这层），
+  `分布式/`、`lightpub/` 子目录变化不在指纹内（注释里写明）。
+
+### 2. LH-24：`互斥锁` 不可重入 → 加 `可重入锁()`，并把「静默卡死」改成「立即报错」
+
+- 新增 `可重入锁()`（等价 `互斥锁(可重入=真)`），导出到 `stdlib/线程.light`。
+- **不可重入锁被同一线程二次加锁时不再死等**：记录持有线程，重复加锁立刻抛
+  `RuntimeError`，文案直接给改法（`互斥锁(可重入=真)` / `可重入锁()`）。
+  原来这种情况进程挂起、无异常、无日志，是「写每个方法都加锁」的必然坑。
+- `释放()` 无条件清持有者：不能写成「锁没被锁住才清」—— 另一种情况是**别的线程**正持锁。
+
+### 3. LH-26：`设 A.B.C 为 值` 三级属性赋值
+
+`src/parser_stmt.py` 的属性目标收集循环原来撞到第二个点号就退出，把 `对.内.k`
+截成 `对.内`，剩下的 `.k` 没人认领 → 报「期望'为'或'等于'，但得到 PERIOD」。
+
+- 点号后面还是名字就继续往下吃，得到完整成员链。
+- **三级及以上**走 `Assignment`（成员链）：发射成
+  `_light_attr_set(_light_attr_get(对象,'内'), 'k', 值)`，与读取侧同语义
+  （dict 走键、类实例走原生属性），不会像裸发 `对.内.k = 值` 那样对 dict 抛
+  `AttributeError`。
+- **二级（`X.Y`）继续走原 `VarDecl` 路径，产物逐字节不变**（回归风险为零）。
+
+### 4. LH-28：新增内置 `原子写入`
+
+- `stdlib/文件系统.py::原子写入(path, content, encoding='utf-8', 权限=None)`：
+  同目录 `mkstemp` → 写 → `flush` + `fsync` → `chmod` → `os.replace`；失败清理临时文件。
+  读者只会看到旧文件或新文件，不会读到半个 JSON。
+- `stdlib/文件系统.light` 补门面段落与导出；`stdlib/builtins.py` 补转发 + `__all__`；
+  `src/code_generator.py` 的 `builtin_map` / 内置注入循环、`src/linter/builtins.py`
+  三处接线（缺任一处，`原子写入(...)` 在光明源码里就不可达）。
+
+### 5. LH-30：属性覆盖同名方法 → 编译期告警
+
+语义没动（属性和方法仍共用一个命名空间），但 `_generate_class_definition` 现在会扫描
+类内 `设 己.X 为 …` / `己.X 为 …`，发现 `X` 与某个方法同名就写 stderr 告警，
+点名类名、方法名与赋值发生的段落，并给出改名建议。告警而非报错：存量代码可能真这么写，
+直接判错会波及无关仓。
+
+### 6. 新发现 LH-32 / LH-33（详见缺陷账 §二十六）
+
+- **LH-32（P0，已绕开）**：同名 `.light` 遮蔽 `.py`。`builtins.py` 里 `import 文件系统`
+  拿到的是 `文件系统.light`（中文形参）⇒ 按英文关键字调用炸
+  `unexpected keyword argument 'encoding'`；若改成位置传参，则
+  `builtins → 文件系统.light → _light_builtin → builtins` **无限递归**。
+  中途用「按文件路径 `spec_from_file_location` 加载 `.py` 真身」绕开，**最终定为函数体
+  自包含**（零模块依赖）：路径加载会让三副本在发行包里断（`文件系统.py` 可能旧或不存在）。
+- **LH-33（P1，未修）**：`设 包.列[0] 为 5`（包是 dict）抛 `'dict' object has no attribute '列'`，
+  而读 `包.列[0]` 正常 —— 写侧缺与 `_light_attr_get` 对称的 `_light_index_set`。
+
+### 7. 清掉自己留下的重复 `def 删除文件`（三副本重同步）
+
+中途删 `原子写入` 重复块时删漏一段，`stdlib/builtins.py` 里 `def 删除文件` 变成两处
+（186 / 250），后一处静默遮蔽前一处，而三道门禁全绿（名字集合比对 `set` 去重、
+`ast` 取 `{名:节点}` 字典、`__all__` 不重复都不受影响）。
+
+抓它的是「`ast` 顶层函数**列表** 192 条 vs 清单 191 条，差集却为空」这个矛盾读数 ——
+两数不等而差集空，就只能是同名重复。已删，三副本重同步，自检全过（191 个函数）。
+
+### 8. `bootstrap/release` 的 `皆空` 是光转发 → release 环境必然 `ImportError`
+
+`皆空`（T-0197 加）在 boot 副本里的函数体是 `import 内置核心判型; return ….皆空(值)`，
+而 `bootstrap/release/stdlib/` 里**没有** `内置核心判型.light`，也没有光导入钩子。
+`test_builtins_drift.py::test_boot_no_light_forward_leak` 一直红着，被当成「环境存量」放过了。
+
+- `scripts/sync_builtins.py`：`BOOT_PORTED` 补 `皆空` 自包含移植体（与 `.light` 真身
+  14 例对拍全绿：`None`/空 `str`/空 `list`/空 `dict` 为真，纯空白串、`0`、空 `bytes` 为假）；
+- 新增 **`BOOT_OVERWRITE`**：boot 里已有同名也强制换成移植体。原逻辑只补 `missing`，
+  于是「先塞进去、后发现问题」的函数永远修不掉 —— 这是这次真正的机制缺口；
+- 自检加同一条光转发判据（测试在 `tests/` 下，脚本会被单独拿去重生成发行包）。
+
+### 9. 地板清单账实纠偏 + 基线重建（不是回归，是账面一直失真）
+
+跑门禁撞出四个数互不相等，查下去是两个**独立的旧账**，都不是本轮引入：
+
+- `任务书/自举地板清单.json` 的 `总数`/`分类统计` 写 184/88/15/68，`函数[]` 实为 **190** 条
+  —— 补过 6 条路径替身 + 1 条 `has_light_impl` 明细，**没同步汇总字段**；基线 `total`
+  也跟着停在 184。
+- `内置核心判型.light` **9 条证据行**集体失配：`67333106` 在 `是空` 之后插入 `段落 皆空`，
+  后面 9 段整体下移。已按**声明名**重对准（R158-B 新口径正是为此设计：病灶是平移，
+  判据 key 的是名字）。
+
+纠偏后 `floor_bootstrap.py` 与 `assert_floor_manifest.py` 双绿：
+
+```
+[地板门禁] 地板自举率 = 69/102 = 67.65%（分母已扣掉 89 条 native_required 真边界）
+[清单门禁] 通过：逐类计数咬合、三方总量一致、分类值域合法、与 CI 基线交叉校验一致
+```
+
+**基线 `rate` 70.83% → 67.65% 不是倒退，是分母一直虚低**：70.83% = 68/96，而
+96 = 「总数 184 − 88」，184 从来没等于 `函数[]` 条数，真分母当时就是 102。
+`test_ci_gates_round9.py::test_分母与S2进度字段一致` 的 `assertEqual(实算分母, 96)` 已被这个
+失真值钉住，改为 `assertGreaterEqual(实算分母, 96)` —— 该守的是「分母不许缩」（缩分母＝
+把做不动的函数塞进豁免就能凭空涨自举率），不是「永远等于 96」；棘轮另有基线的
+`denominator` 只升不降兜底。
+
+`原子写入` 唯一新增的地板条目判为 `native_required`（`mkstemp`/`fsync`/`os.replace`
+全是系统调用，与已在册的 `原子替换`、`写入文件` 同一条边界）；它不缩小分母：
+分母 96→102 的 6 条全部来自账实纠偏，`native_required` 只多了它 1 条（88→89）。
+
+### 10. 顺带：`docs/api/文件系统.md` 的默认前缀更正 + 生成器的同名覆盖坑（已登记未修）
+
+重跑 `tools/gen_api_docs.py --module 文件系统` 时发现三件事：
+
+- 文档停在改名前，`创建临时文件/创建临时目录` 的默认前缀写的是 `light_`，代码里实际是
+  `duan_`。**这一处收下了**（生成器只纠正了默认值，别的一个字没动）。
+- **真正的坑**：`stdlib/文件系统.py`（131 个函数）与 `stdlib/lightpub/文件系统.py`（26 个）
+  中文名相同，生成器把两者写到**同一个** `docs/api/文件系统.md`，后写覆盖前写 —— 那份文档
+  实际描述的是 lightpub 旧桥接模块，照着写 `从 文件系统 导入 追加写入` 会 ImportError
+  （15 个幽灵函数），而 120 多个真函数一个都没写进去。**结构性冲突本轮不修**，登记在
+  缺陷账 §二十六·六·6 交接。
+- 顺带发现生成器重写 `docs/api/index.md` 会抹掉手工维护的版本行（`版本：v0.4.0`）与人工
+  描述列，**已 `git checkout` 回退**：这张索引是人写的，不该被脚本覆盖。
+
+### 验证
+- `tests/test_parser.py` + `test_codegen.py` + `test_path_guard_light.py`：73 passed / 3 skipped。
+- 新增 `tests/unit/test_LH3_多级属性_原子写入_锁与告警.py`（15 例，全部走真 `LightParser` +
+  `PythonCodeGenerator` 生成再执行，不做形态断言）：LH-13 2 例、LH-24 3 例、LH-26 6 例、
+  LH-28 3 例、LH-30 2 例。
+- 门禁相关五组：`test_ci_gates_round9` + `test_floor_manifest_gate` + `test_builtins_drift` +
+  `test_LH3_*` + `test_native_leg_capability` → **87 passed**。
+- **真 CLI 端到端**（`python -m cli.light_unified run`，不是单测 harness）：
+  `原子写入(路径, "第二版", "utf-8", 384)` 落盘后 `ls -l` 为 `-rw-------`、
+  无 `.原子写入-*.tmp` 残留；`从 线程 导入 可重入锁` 后连加两次数锁正常；
+  `互斥锁` 同线程二次加锁**立即抛 `RuntimeError` 而不是挂住**。
+- 地板门禁 / 清单门禁：双绿（读数见 §9）。
+- **全量 `pytest tests/unit`**（本机 Linux，`-p no:randomly`）：`262 failed, 4775 passed,
+  263 skipped, 1 error`。为了判定这 262 条里有没有本轮引入的，另开一个 `git worktree`
+  停在 HEAD 上跑同一命令做对照（**不用 `git stash`** —— 上一轮 stash 中途被打断差点丢改动）：
+
+  | | 失败条数 |
+  |---|---|
+  | HEAD（改动前） | 276 |
+  | 工作区（改动后） | 266 |
+
+  逐条差集：**工作区多出来的 3 条**（`test_非LLVM路径_T5B编码哈希`、`test_c_backend` 2 条）
+  单独复跑全部通过 —— 当时 lighthive 的八组回归在同一台机上并行跑，是负载引起的抖动；
+  **HEAD 多出来的 12 条**正是本轮修掉的（`test_builtins_drift` 7 条、
+  `test_ci_gates_round9::test_分类统计等于函数数组实算`、
+  `test_floor_manifest_gate` 3 条、`test_R158_地板证据窗口漂移` 2 条）。
+  其余 ~260 条是**本机环境存量**（LLVM / antlr 独立产物 / 原生腿 / O0 引擎，
+  仓库记录的 `tests/ci_baseline_failures.txt` 是另一台机 freebsd15 上 9421 collected / 0 failures，
+  口径不可比）。
+
 ## [T-0197] — 2026-10-29 — 内置层对拍七条（LH-02/03/04/07/08/11/14）
 
 > 单卡合七（任务卡 hive T-0197，落点 src/code_generator.py / src/keywords.py / stdlib/builtins.py /

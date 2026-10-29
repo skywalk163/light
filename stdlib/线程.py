@@ -104,7 +104,17 @@ class 线程:
 
 
 class 互斥锁:
-    """互斥锁类"""
+    """互斥锁类
+
+    LH-24（lighthive 第三轮暴露）：默认是不可重入锁。同一线程第二次 加锁()
+    在 Python 的 threading.Lock 上会**永久卡住且没有任何提示** —— 写
+    「每个公开方法都加锁、方法之间互相调用」这种最常见写法时必然踩到，
+    排查成本极高（进程挂起，没有异常、没有日志）。
+
+    这里做的两件事：
+      1. 同一线程重复加锁 → 立即抛 RuntimeError 并给出改法，不再静默卡死；
+      2. 需要递归加锁的场景用 `互斥锁(可重入=真)` 或 `可重入锁()`。
+    """
 
     def __init__(self, 可重入: bool = False):
         """
@@ -113,10 +123,13 @@ class 互斥锁:
         参数:
             可重入: 是否可重入锁
         """
-        if 可重入:
+        self._可重入 = bool(可重入)
+        if self._可重入:
             self._锁 = threading.RLock()
         else:
             self._锁 = threading.Lock()
+        # 只在不可重入时记录持有者，用来把「静默死锁」变成「清楚报错」
+        self._持有者 = None
 
     def 加锁(self, 阻塞: bool = True, 超时: float = -1) -> bool:
         """
@@ -128,8 +141,19 @@ class 互斥锁:
 
         返回:
             是否成功获得锁
+
+        异常:
+            RuntimeError: 不可重入锁被同一线程重复加锁（原本会永久卡死）
         """
-        return self._锁.acquire(blocking=阻塞, timeout=超时 if 超时 >= 0 else -1)
+        if not self._可重入 and self._持有者 == threading.get_ident():
+            raise RuntimeError(
+                "互斥锁：同一线程重复加锁会永久卡死（这是不可重入锁）。"
+                "要么把加锁/释放配成对，要么改用可重入锁："
+                "`互斥锁(可重入=真)` 或 `可重入锁()`。")
+        ok = self._锁.acquire(blocking=阻塞, timeout=超时 if 超时 >= 0 else -1)
+        if ok and not self._可重入:
+            self._持有者 = threading.get_ident()
+        return ok
 
     def 释放(self):
         """释放锁"""
@@ -137,6 +161,11 @@ class 互斥锁:
             self._锁.release()
         except RuntimeError:
             pass
+        if not self._可重入:
+            # 无条件清掉持有者：release 成功后「我」就不再持有它了。
+            # 不能写成「锁没被锁住才清」—— 另一种情况是**别的线程**正持着锁，
+            # 那 持有者 仍是我的 tid，下一次自己加锁会被误判成「重复加锁」而报错。
+            self._持有者 = None
 
     def 解锁(self):
         """解锁（别名，与测试兼容）"""
@@ -401,8 +430,17 @@ def 等待(任务列表: List[Callable], 最大线程数: int = None) -> List[An
     return 并发执行(任务列表, 最大线程数)
 
 
+def 可重入锁():
+    """可重入锁() —— LH-24 的便捷入口，等价于 `互斥锁(可重入=真)`。
+
+    同一线程可以多次 加锁()，只要释放次数配得上。适合「每个公开方法都加锁、
+    方法之间还互相调用」的写法（lighthive 的 存储.light 就是这么用的）。
+    """
+    return 互斥锁(可重入=True)
+
+
 __all__ = [
-    '线程', '互斥锁', '事件', '信号量',
+    '线程', '互斥锁', '可重入锁', '事件', '信号量',
     '创建线程', '当前线程标识', '活跃线程数',
     '当前线程名称', '线程休眠', '线程池',
     '线程安全队列', '并发执行', '并发执行带参数', '等待',
