@@ -1051,8 +1051,8 @@ class LightLinter:
                         self._add_result(
                             'warning',
                             f"⚠ 编译警告（L-166 影子变量）：第{i}行 段落『{current_func}』内给『{var_name}』赋值，"
-                            f"但『{var_name}』是本模块从 X 导入进来的**导入名**，被局部赋值遮蔽后，"
-                            f"函数内再读『{var_name}』会触发 UnboundLocalError。"
+                            f"但『{var_name}』是本模块从 X 导入进来的名字，属于**导入名被局部遮蔽**；"
+                            f"被局部赋值遮蔽后，函数内再读『{var_name}』会触发 UnboundLocalError。"
                             f"若要使用导入名，请换一个局部变量名；或先调用『{var_name}』再赋给同名局部变量。",
                             i, 0, 'L166',
                             source=stripped
