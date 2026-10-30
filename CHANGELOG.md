@@ -138,6 +138,26 @@
 - 顺带发现生成器重写 `docs/api/index.md` 会抹掉手工维护的版本行（`版本：v0.4.0`）与人工
   描述列，**已 `git checkout` 回退**：这张索引是人写的，不该被脚本覆盖。
 
+### 11. `LH_LIGHT_SYNC` 补 `列表工具.light`：转发目标的签名必须刚性咬合
+
+`builtins.求和(数据)` 转发时传 **4 个位置参数**（数据 / 长整上限 / 启用补偿 / 整数进补偿），
+而 lightharness 那份 `stdlib/列表工具.light` 是 **3 参旧版**（缺 `整数进补偿`）。于是：
+
+```
+求和() takes from 1 to 3 positional arguments but 4 were given
+```
+
+只要 example 里出现 `求和([...])` 就炸 —— `test_R72_C_推导式`、`test_R20_词法边界综合`
+两条**由绿转红**（`git worktree` 在 `be7da46` 上对照确认：基线 2 passed，改动后 2 failed）。
+
+修法不是手改那份拷贝，而是把它纳入 `sync_builtins.py` 的 `LH_LIGHT_SYNC`
+（原先只登记 `内置核心判型.light`），由脚本机械同步、幂等无 diff 时才跳过。
+同时把自检从「一份判型判据套所有同步文件」改为 **按文件各自的「必须含」判据**
+（`_LH_LIGHT_EXPECT`）—— 原来那种写法只要往清单里加文件就会误报。
+
+> **教训**：`builtins.py` 的**转发目标**（那些 `.light` 门面）的签名必须与真源刚性咬合。
+> 这类关系不靠人记，必须机械化：加进 `LH_LIGHT_SYNC`，脚本负责，自检兜底。
+
 ### 验证
 - `tests/test_parser.py` + `test_codegen.py` + `test_path_guard_light.py`：73 passed / 3 skipped。
 - 新增 `tests/unit/test_LH3_多级属性_原子写入_锁与告警.py`（15 例，全部走真 `LightParser` +

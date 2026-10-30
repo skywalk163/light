@@ -59,7 +59,14 @@ BOOT_KEEP_HEADER = "import json as _duan_json_module"      # boot 顶层必须�
 # LH 侧 .light 依赖同步（R114 实测发现）：LH 的 builtins.py 公共函数体逐字取真源后，
 # 是布尔/是函数/是数值/字符串全数字 转发到 LH stdlib 的 内置核心判型.light——但该
 # .light 是旧拷贝（缺这 4 个段落，实测 AttributeError）。按同一真源原则逐字同步。
-LH_LIGHT_SYNC = ("内置核心判型.light",)
+#
+# 列表工具.light（2026-10-30 补）：builtins.求和 转发时传 4 个位置参数
+# （数据 / 长整上限 / 启用补偿 / 整数进补偿），而 LH 那份是 3 参旧版，实测
+# `求和() takes from 1 to 3 positional arguments but 4 were given` ——
+# 只要 example 里出现 `求和([...])` 就炸（test_R72_C_推导式 / test_R20_词法边界综合
+# 两条由绿转红）。这类「builtins 转发目标」的签名必须与真源刚性咬合，
+# 所以纳入本清单机械同步，不再靠人记得改。
+LH_LIGHT_SYNC = ("内置核心判型.light", "列表工具.light")
 BOOT_PORTED = {
     "最后索引": '''def 最后索引(text: str, substring: str) -> int:
     """查找子串最后出现位置，未找到返回 -1（R114-S1 boot 自包含移植：对齐 内置核心字符串.最后索引）"""
@@ -418,13 +425,19 @@ def self_checks(main_funcs, main_order, boot_verbatim):
         if block_hash(boot_funcs[n]) != block_hash(main_funcs[n]):
             errors.append(f"boot 逐字同步函数与真源漂移: {n}")
 
-    # LH .light 依赖已同步（内置核心判型.light 必须含 4 个新判型段落）
+    # LH .light 依赖已同步（逐文件、按各自的「必须含」判据；不能一份判据套所有文件）
+    _LH_LIGHT_EXPECT = {
+        # R114：LH 的判型门面缺这 4 个段落时，builtins 转发直接 AttributeError
+        "内置核心判型.light": ("段落 是布尔", "段落 是函数", "段落 是数值", "段落 字符串全数字"),
+        # 2026-10-30：builtins.求和 传 4 参，旧版 3 参会 TypeError
+        "列表工具.light": ("段落 求和(数据, 长整上限", "整数进补偿"),
+    }
     for name in LH_LIGHT_SYNC:
         p = os.path.join(os.path.dirname(LH_PATH), name)
         t = read(p)
-        for para in ("段落 是布尔", "段落 是函数", "段落 是数值", "段落 字符串全数字"):
+        for para in _LH_LIGHT_EXPECT.get(name, ()):
             if para not in t:
-                errors.append(f"LH .light {name} 缺段落: {para}")
+                errors.append(f"LH .light {name} 缺: {para}")
 
     if errors:
         for e in errors:
