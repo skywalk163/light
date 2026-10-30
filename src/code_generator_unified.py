@@ -202,6 +202,7 @@ class UnifiedCodeGenerator:
             '主目录': '_light_builtin.主目录',
             '随机UUID': '_light_builtin.随机UUID',
             '参数列表': '_light_builtin.参数列表',
+            '用户参数': '_light_builtin.用户参数',
             '退出程序': '_light_builtin.退出程序',
             '当前目录': '_light_builtin.当前目录',
             '切换目录': '_light_builtin.切换目录',

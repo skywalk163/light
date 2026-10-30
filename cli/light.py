@@ -21,6 +21,7 @@ import ast
 import re
 import sys
 import os
+import json
 import argparse
 import importlib
 import subprocess
@@ -754,7 +755,10 @@ def _run_native(args):
 
         # 不捕获子进程输出：让它直接写到本进程的 stdout/stderr，
         # 避免多一层编码转换（中文输出在 Windows 控制台上尤其容易被打坏）。
-        结果 = subprocess.run([exe])
+        # LH-05：`--` 之后的用户实参原样交给产物；原生腿 `参数列表()`（runtime
+        # dv_get_args）会把 argv[0]=产物路径 一起返回，与转译腿「只给用户实参」
+        # 的口径差 1 个 —— 已登记为待办，先保证参数能到（拿不到比多一个更糟）。
+        结果 = subprocess.run([exe] + _当前用户实参())
         sys.stdout.flush()
         if 结果.returncode != 0:
             sys.exit(结果.returncode)
@@ -1845,6 +1849,60 @@ def _cmd_ai(args):
 # 主入口
 # ═══════════════════════════════════════════════════════════════════
 
+# LH-05 / L-241：用户实参的注入点。
+# `light run <入口> -- 甲 乙` 里 `--` 之后的实参是**给脚本的**，不是给 CLI 的：
+# 直接留给 argparse 会被当成 CLI 自己的非法选项拒掉（rc=2，历史上阻塞了一切
+# 用光明写的 CLI 工具）。做法是在 parse_args 之前把 argv 在第一个裸 `--` 处切开，
+# 后半段一条不动地经环境变量交给脚本（`stdlib/_userargs_runtime.py` 读）。
+# 用 JSON 而不是空格拼接：含空格 / 引号 / 中文的实参要原样到达。
+用户实参环境变量 = 'LIGHT_USER_ARGS'
+
+
+def 切开用户实参(argv):
+    """把 `['run', '<入口>', '--', '甲', '乙']` 切成 `(CLI 侧 argv, 用户实参)`。
+
+    只在第一个裸 `--` 处切，且**只对 `run` 子命令生效**（别的子命令一律不切，
+    避免 `--` 在它们那里的既有语义被改）。没有 `--` 时返回 `(原 argv, None)`，
+    调用方据此维持现状（不注入，参数列表() 仍返回宿主 argv）。
+    """
+    if not argv or argv[0] != 'run':
+        return argv, None
+    for i, a in enumerate(argv):
+        if a == '--':
+            return argv[:i], argv[i + 1:]
+    return argv, None
+
+
+def 注入用户实参(用户实参):
+    """把用户实参写进环境变量；None 表示「没传 --」，要把上一轮的可能残留清掉。"""
+    global _已注入用户实参
+    if 用户实参 is None:
+        os.environ.pop(用户实参环境变量, None)
+        _已注入用户实参 = []
+        return []
+    os.environ[用户实参环境变量] = json.dumps(用户实参, ensure_ascii=False)
+    _已注入用户实参 = list(用户实参)
+    return 用户实参
+
+
+# 本进程这一轮 `run` 收到的用户实参（原生腿要把它们交给编译产物）。
+_已注入用户实参 = []
+
+
+def _当前用户实参():
+    """本轮 run 的用户实参（没传 `--` 时为空列表）。环境变量是跨进程面，这是进程内面。"""
+    if _已注入用户实参:
+        return list(_已注入用户实参)
+    原始 = os.environ.get(用户实参环境变量)
+    if not 原始:
+        return []
+    try:
+        值 = json.loads(原始)
+    except Exception:
+        return []
+    return [str(项) for 项 in 值] if isinstance(值, list) else []
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog='light',
@@ -1868,7 +1926,16 @@ def main():
     subparsers = parser.add_subparsers(dest='command', help='可用命令')
 
     # ── run ──
-    run_p = subparsers.add_parser('run', help='解释执行光明源代码')
+    run_p = subparsers.add_parser(
+        'run', help='解释执行光明源代码',
+        description='解释执行光明源代码。\n\n'
+                    '给**脚本**传参请用 `--` 分隔符：`--` 之后的实参一条不动地交给脚本，\n'
+                    '不经过 argparse，因此不会和 `--backend` 这类 CLI 选项冲突：\n\n'
+                    '    light run 工具.light -- 甲 乙\n'
+                    '    light run 工具.light --backend src -- --开关 带空格的参数\n\n'
+                    '脚本侧用 `用户参数()` 取这批实参（明确、推荐）；\n'
+                    '`参数列表()` 在这条路径下同样返回它们，未传 `--` 时仍返回宿主 argv（存量行为不变）。',
+        formatter_class=argparse.RawDescriptionHelpFormatter)
     run_p.add_argument('file', help='源文件路径')
     run_p.add_argument('--backend', choices=['antlr', 'src', 'native', 'llvm-typed'], default='src',
                        help='使用的后端（默认: src，无需额外依赖；antlr 需安装 antlr4-python3-runtime；'
@@ -2162,7 +2229,12 @@ def main():
     # ── feedback ──
     setup_feedback_subparser(subparsers)
 
-    args = parser.parse_args()
+    # LH-05：先把 `run <入口> -- 用户实参...` 切开，再交给 argparse ——
+    # 否则 `--` 之后的实参会被当成 CLI 自己的非法选项（rc=2）。
+    argv, 用户实参 = 切开用户实参(sys.argv[1:])
+    注入用户实参(用户实参)
+
+    args = parser.parse_args(argv)
 
     # 处理 --dev-version 标志
     if getattr(args, 'dev_version', False):

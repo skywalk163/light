@@ -58,6 +58,15 @@ _光明钩子.install([_光明目录])
 # 生成产物把本文件当 _light_builtin 载入（src/code_generator.py:759-763），
 # codegen builtin_map 的 `_b64_encode`→`_light_builtin._b64_encode` 等映射
 # 因此在执行期可用（LLVM 路径同名内建在 codegen_typed.py，互不干扰）。
+# LH-05 / L-241：用户实参（`light run <入口> -- 甲 乙`）内建。
+# 理由同 T5B：实现放 stdlib/_userargs_runtime.py，本文件只做名字接线 ——
+# floor_bootstrap 用 ast 数本文件顶层函数当分母（68/96 已钉成回归门），
+# 在这里开新 def 会让分母变 97、那条门立即转红。
+from _userargs_runtime import (
+    用户参数,
+    读注入的用户参数 as _读注入的用户参数,
+)
+
 from _t5b_runtime import (
     _b64_encode,
     _b64_decode,
@@ -379,7 +388,18 @@ def 设置环境变量(name: str, value: str) -> None:
 
 
 def 参数列表() -> List[str]:
-    """获取命令行参数列表"""
+    """获取命令行参数列表。
+
+    **两种口径（务必看清）**：
+    - `light run <入口> -- 甲 乙`：**返回用户实参** `['甲', '乙']`
+      （CLI 把 `--` 之后的实参注入进来；`--` 之前的 `--backend` 之类选项不在此列）；
+    - 未经 `light run --` 注入时：**维持原语义**，返回进程级 `sys.argv`
+      （含程序名。`.light` 是被 `light run` 加载执行的，此时它其实是 CLI 自己的 argv，
+      所以「想拿用户参数」不要用这条）—— 请用 `用户参数()`。
+    """
+    注入 = _读注入的用户参数()
+    if 注入 is not None:
+        return 注入
     return sys.argv
 
 
@@ -1941,7 +1961,7 @@ __all__ = [
     '扩展名', '分割路径', '分割扩展名',
     
     # 系统函数
-    '环境变量', '设置环境变量', '参数列表',
+    '环境变量', '设置环境变量', '参数列表', '用户参数',
     '退出程序', '当前目录', '切换目录', '执行命令',
 
     # 标准输入输出

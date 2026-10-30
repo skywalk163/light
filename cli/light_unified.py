@@ -1336,6 +1336,18 @@ def main():
         pkg_build_parser.add_argument('--force', '-f', action='store_true', help='强制全量编译（忽略增量缓存）')
         
         args, unknown = parser.parse_known_args()
+
+        # LH-05 / L-241：与 cli/light.py 同一口径 —— `run <入口> -- 用户实参...`
+        # 时把 `--` 之后的实参注入环境变量，让 `参数列表()` / `用户参数()` 拿到同一批值。
+        # 本入口原本就允许不带 `--` 传参（parse_known_args），那种情况不注入，
+        # 保持原有 `sys.argv = [入口] + 实参` 的行为不变。
+        if getattr(args, 'command', None) == 'run' and '--' in sys.argv[1:]:
+            try:
+                from cli.light import 注入用户实参
+            except Exception:
+                注入用户实参 = None
+            if 注入用户实参 is not None:
+                注入用户实参(unknown)
         
         # 处理 --dev-version 标志
         if getattr(args, 'dev_version', False):
