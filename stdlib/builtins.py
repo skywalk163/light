@@ -74,7 +74,7 @@ from _t5b_runtime import (
 )
 
 
-def 读取文件(path: str, encoding: str = 'utf-8') -> str:
+def 读取文件(路径: str, 编码: str = 'utf-8') -> str:
     """
     读取文件内容
     
@@ -89,23 +89,23 @@ def 读取文件(path: str, encoding: str = 'utf-8') -> str:
         RuntimeError: 文件读取失败
     """
     try:
-        with open(path, 'r', encoding=encoding) as f:
+        with open(路径, 'r', encoding=编码) as f:
             return f.read()
     except FileNotFoundError:
-        raise RuntimeError(f"文件不存在: '{path}'")
+        raise RuntimeError(f"文件不存在: '{路径}'")
     except PermissionError:
-        raise RuntimeError(f"无权限读取文件: '{path}'")
+        raise RuntimeError(f"无权限读取文件: '{路径}'")
     except Exception as e:
-        raise RuntimeError(f"读取文件失败 '{path}': {e}")
+        raise RuntimeError(f"读取文件失败 '{路径}': {e}")
 
 
-def _读文件(path: str) -> str:
+def _读文件(路径: str) -> str:
     """内部用：读取文件内容（简化版）"""
-    with open(path, 'r', encoding='utf-8') as f:
+    with open(路径, 'r', encoding='utf-8') as f:
         return f.read()
 
 
-def 写入文件(path: str, content: str, encoding: str = 'utf-8') -> None:
+def 写入文件(路径: str, 内容: str, 编码: str = 'utf-8') -> None:
     """
     写入文件内容
     
@@ -119,19 +119,19 @@ def 写入文件(path: str, content: str, encoding: str = 'utf-8') -> None:
     """
     try:
         # 确保目录存在
-        dir_path = os.path.dirname(path)
+        dir_path = os.path.dirname(路径)
         if dir_path and not os.path.exists(dir_path):
             os.makedirs(dir_path)
         
-        with open(path, 'w', encoding=encoding) as f:
-            f.write(content)
+        with open(路径, 'w', encoding=编码) as f:
+            f.write(内容)
     except PermissionError:
-        raise RuntimeError(f"无权限写入文件: '{path}'")
+        raise RuntimeError(f"无权限写入文件: '{路径}'")
     except Exception as e:
-        raise RuntimeError(f"写入文件失败 '{path}': {e}")
+        raise RuntimeError(f"写入文件失败 '{路径}': {e}")
 
 
-def 追加文件(path: str, content: str, encoding: str = 'utf-8') -> None:
+def 追加文件(路径: str, 内容: str, 编码: str = 'utf-8') -> None:
     """
     追加内容到文件
     
@@ -141,33 +141,33 @@ def 追加文件(path: str, content: str, encoding: str = 'utf-8') -> None:
         encoding: 编码（默认utf-8）
     """
     try:
-        with open(path, 'a', encoding=encoding) as f:
-            f.write(content)
+        with open(路径, 'a', encoding=编码) as f:
+            f.write(内容)
     except Exception as e:
-        raise RuntimeError(f"追加文件失败 '{path}': {e}")
+        raise RuntimeError(f"追加文件失败 '{路径}': {e}")
 
 
-def 文件存在(path: str) -> bool:
+def 文件存在(路径: str) -> bool:
     """检查文件是否存在"""
-    return os.path.isfile(path)
+    return os.path.isfile(路径)
 
 
-def 是文件(path: str) -> bool:
+def 是文件(路径: str) -> bool:
     """检查是否为文件"""
-    return os.path.isfile(path)
+    return os.path.isfile(路径)
 
 
-def 目录存在(path: str) -> bool:
+def 目录存在(路径: str) -> bool:
     """检查目录是否存在"""
-    return os.path.isdir(path)
+    return os.path.isdir(路径)
 
 
-def 路径存在(path: str) -> bool:
+def 路径存在(路径: str) -> bool:
     """检查路径是否存在（文件或目录）"""
-    return os.path.exists(path)
+    return os.path.exists(路径)
 
 
-def 创建目录(path: str) -> None:
+def 创建目录(路径: str) -> None:
     """
     创建目录
     
@@ -178,30 +178,30 @@ def 创建目录(path: str) -> None:
         自动创建所有父目录
     """
     try:
-        os.makedirs(path, exist_ok=True)
+        os.makedirs(路径, exist_ok=True)
     except Exception as e:
-        raise RuntimeError(f"创建目录失败 '{path}': {e}")
+        raise RuntimeError(f"创建目录失败 '{路径}': {e}")
 
 
-def 删除文件(path: str) -> None:
+def 删除文件(路径: str) -> None:
     """删除文件"""
     try:
-        os.remove(path)
+        os.remove(路径)
     except FileNotFoundError:
-        raise RuntimeError(f"文件不存在: '{path}'")
+        raise RuntimeError(f"文件不存在: '{路径}'")
     except Exception as e:
-        raise RuntimeError(f"删除文件失败 '{path}': {e}")
+        raise RuntimeError(f"删除文件失败 '{路径}': {e}")
 
 
-def 删除目录(path: str) -> None:
+def 删除目录(路径: str) -> None:
     """删除空目录"""
     try:
-        os.rmdir(path)
+        os.rmdir(路径)
     except Exception as e:
-        raise RuntimeError(f"删除目录失败 '{path}': {e}")
+        raise RuntimeError(f"删除目录失败 '{路径}': {e}")
 
 
-def 列出目录(path: str = '.') -> List[str]:
+def 列出目录(路径: str = '.') -> List[str]:
     """
     列出目录内容
     
@@ -212,12 +212,12 @@ def 列出目录(path: str = '.') -> List[str]:
         文件名列表
     """
     try:
-        return os.listdir(path)
+        return os.listdir(路径)
     except Exception as e:
-        raise RuntimeError(f"列出目录失败 '{path}': {e}")
+        raise RuntimeError(f"列出目录失败 '{路径}': {e}")
 
 
-def 列出文件(path: str = '.') -> List[str]:
+def 列出文件(路径: str = '.') -> List[str]:
     """
     列出目录中的文件（不包含子目录）
     
@@ -228,12 +228,12 @@ def 列出文件(path: str = '.') -> List[str]:
         文件名列表（仅文件）
     """
     try:
-        return [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+        return [f for f in os.listdir(路径) if os.path.isfile(os.path.join(路径, f))]
     except Exception as e:
-        raise RuntimeError(f"列出文件失败 '{path}': {e}")
+        raise RuntimeError(f"列出文件失败 '{路径}': {e}")
 
 
-def 文件大小(path: str) -> int:
+def 文件大小(路径: str) -> int:
     """
     获取文件大小（字节）
     
@@ -244,21 +244,21 @@ def 文件大小(path: str) -> int:
         文件大小（字节）
     """
     try:
-        return os.path.getsize(path)
+        return os.path.getsize(路径)
     except Exception as e:
-        raise RuntimeError(f"获取文件大小失败 '{path}': {e}")
+        raise RuntimeError(f"获取文件大小失败 '{路径}': {e}")
 
 
 # =============================================================================
 # 路径操作函数
 # =============================================================================
 
-def 绝对路径(path: str) -> str:
+def 绝对路径(路径: str) -> str:
     """获取绝对路径"""
-    return os.path.abspath(path)
+    return os.path.abspath(路径)
 
 
-def 连接路径(*paths: str) -> str:
+def 连接路径(*路径们: str) -> str:
     """连接多个路径
 
     **替身已就位但刻意未转发。** 纯光明实现在 `stdlib/内置核心路径.light:24`，
@@ -270,33 +270,33 @@ def 连接路径(*paths: str) -> str:
     连带 46 条测试转红（实测数字，见交付报告 §12.4）。
     要转发，得先给平台判定换一个不依赖本函数的原语 —— 那是另一条待裁决的口径。
     """
-    return os.path.join(*paths)
+    return os.path.join(*路径们)
 
 
-def 目录名(path: str) -> str:
+def 目录名(路径: str) -> str:
     """获取路径的目录部分（替身在 stdlib/内置核心路径.light:48，未转发，理由见 连接路径）"""
-    return os.path.dirname(path)
+    return os.path.dirname(路径)
 
 
-def 文件名(path: str) -> str:
+def 文件名(路径: str) -> str:
     """获取路径的文件名部分（替身在 stdlib/内置核心路径.light:59，未转发，理由见 连接路径）"""
-    return os.path.basename(path)
+    return os.path.basename(路径)
 
 
-def 扩展名(path: str) -> str:
+def 扩展名(路径: str) -> str:
     """获取文件扩展名（替身在 stdlib/内置核心路径.light:95，未转发，理由见 连接路径）"""
-    _, ext = os.path.splitext(path)
+    _, ext = os.path.splitext(路径)
     return ext
 
 
-def 分割路径(path: str) -> tuple:
+def 分割路径(路径: str) -> tuple:
     """分割路径为(目录, 文件名)（替身在 stdlib/内置核心路径.light:66，未转发，理由见 连接路径）"""
-    return os.path.split(path)
+    return os.path.split(路径)
 
 
-def 分割扩展名(path: str) -> tuple:
+def 分割扩展名(路径: str) -> tuple:
     """分割路径为(主名, 扩展名)（替身在 stdlib/内置核心路径.light:82，未转发，理由见 连接路径）"""
-    return os.path.splitext(path)
+    return os.path.splitext(路径)
 
 
 
@@ -305,7 +305,7 @@ def 分割扩展名(path: str) -> tuple:
 # 系统函数
 # =============================================================================
 
-def 环境变量(name: str, default: str = None) -> Optional[str]:
+def 环境变量(名称: str, 默认值: str = None) -> Optional[str]:
     """
     获取环境变量
     
@@ -316,12 +316,12 @@ def 环境变量(name: str, default: str = None) -> Optional[str]:
     返回:
         环境变量值或默认值
     """
-    return os.environ.get(name, default)
+    return os.environ.get(名称, 默认值)
 
 
-def 设置环境变量(name: str, value: str) -> None:
+def 设置环境变量(名称: str, 值: str) -> None:
     """设置环境变量"""
-    os.environ[name] = value
+    os.environ[名称] = 值
 
 
 def 参数列表() -> List[str]:
@@ -329,9 +329,9 @@ def 参数列表() -> List[str]:
     return sys.argv
 
 
-def 退出程序(code: int = 0) -> None:
+def 退出程序(状态码: int = 0) -> None:
     """退出程序"""
-    sys.exit(code)
+    sys.exit(状态码)
 
 
 def 当前目录() -> str:
@@ -339,15 +339,15 @@ def 当前目录() -> str:
     return os.getcwd()
 
 
-def 切换目录(path: str) -> None:
+def 切换目录(路径: str) -> None:
     """切换工作目录"""
     try:
-        os.chdir(path)
+        os.chdir(路径)
     except Exception as e:
-        raise RuntimeError(f"切换目录失败 '{path}': {e}")
+        raise RuntimeError(f"切换目录失败 '{路径}': {e}")
 
 
-def 执行命令(command: str) -> int:
+def 执行命令(命令: str) -> int:
     """
     执行系统命令
     
@@ -357,10 +357,10 @@ def 执行命令(command: str) -> int:
     返回:
         退出码
     """
-    return os.system(command)
+    return os.system(命令)
 
 
-def 移动文件系统(source: str, target: str) -> None:
+def 移动文件系统(源: str, 目标: str) -> None:
     """
     移动文件或目录
     
@@ -369,7 +369,7 @@ def 移动文件系统(source: str, target: str) -> None:
         target: 目标路径
     """
     import shutil
-    shutil.move(source, target)
+    shutil.move(源, 目标)
 
 
 # =============================================================================
@@ -401,25 +401,25 @@ def 读取N字节(字节数: int) -> str:
     return sys.stdin.read(字节数)
 
 
-def 写入输出(text: str) -> None:
+def 写入输出(文本: str) -> None:
     """
     向标准输出写入文本（不含换行）
     
     参数:
         text: 要写入的文本
     """
-    sys.stdout.write(text)
+    sys.stdout.write(文本)
     sys.stdout.flush()
 
 
-def 打印输出(text: str) -> None:
+def 打印输出(文本: str) -> None:
     """
     向标准输出打印文本并换行
     
     参数:
         text: 要打印的文本
     """
-    print(text, flush=True)
+    print(文本, flush=True)
 
 
 def 刷新输出() -> None:
@@ -427,22 +427,22 @@ def 刷新输出() -> None:
     sys.stdout.flush()
 
 
-def 写入错误(text: str) -> None:
+def 写入错误(文本: str) -> None:
     """向标准错误写入文本"""
-    sys.stderr.write(text)
+    sys.stderr.write(文本)
     sys.stderr.flush()
 
 
-def 打印错误(text: str) -> None:
+def 打印错误(文本: str) -> None:
     """向标准错误打印文本并换行"""
-    print(text, file=sys.stderr, flush=True)
+    print(文本, file=sys.stderr, flush=True)
 
 
 # =============================================================================
 # JSON 处理
 # =============================================================================
 
-def 解析JSON(text: str) -> object:
+def 解析JSON(文本: str) -> object:
     """解析 JSON 字符串为光明值（地板已搬迁：真身 stdlib/JSON.light:13 → JSON核心.light 纯光明递归下降）
 
     不需要在这里包 try/except：JSON核心.light 的 14 个解析抛点已统一成
@@ -450,23 +450,23 @@ def 解析JSON(text: str) -> object:
     与搬迁前逐字一致。只有消息尾部不同（中文描述 vs CPython 扫描器的英文串 + 行列号）。
     """
     import JSON
-    return JSON.解析JSON(text)
+    return JSON.解析JSON(文本)
 
 
-def 序列化JSON(value: object, 缩进: Optional[int] = None) -> str:
+def 序列化JSON(值: object, 缩进: Optional[int] = None) -> str:
     """将光明值序列化为 JSON 字符串（地板已搬迁：真身 stdlib/JSON.light:19）
 
     `缩进=None` 这个默认值只能留在本签名里：光明侧的 `接收 值, 缩进 = 空` 表达的是
     同一语义，但 None 与 0 必须区分（None=紧凑、0=换行零缩进），交由光明门面判定。
     """
     import JSON
-    return JSON.序列化JSON(value, 缩进)
+    return JSON.序列化JSON(值, 缩进)
 
 
-def 美化JSON(value: object) -> str:
+def 美化JSON(值: object) -> str:
     """美化 JSON 输出（带缩进）（地板已搬迁：真身 stdlib/JSON.light:25）"""
     import JSON
-    return JSON.美化JSON(value)
+    return JSON.美化JSON(值)
 
 
 
@@ -474,48 +474,48 @@ def 美化JSON(value: object) -> str:
 # 字符串工具函数
 # =============================================================================
 
-def 转整数(text: str) -> int:
+def 转整数(文本: str) -> int:
     """将字符串转换为整数（地板已搬迁：真身 stdlib/内置核心转换.light:15）"""
     import 内置核心转换
-    return 内置核心转换.转整数(text)
-def 切片下标检查(v):
+    return 内置核心转换.转整数(文本)
+def 切片下标检查(值):
     """L-080：切片下标必须是整数；非 int 给出明确中文错误（替代 Python 原生 slice indices 报错误导）"""
-    if isinstance(v, bool) or isinstance(v, int):
-        return v
-    if isinstance(v, float):
+    if isinstance(值, bool) or isinstance(值, int):
+        return 值
+    if isinstance(值, float):
         名 = '浮点数'
-    elif v is None:
+    elif 值 is None:
         名 = '空值'
-    elif isinstance(v, str):
+    elif isinstance(值, str):
         名 = '文本'
-    elif isinstance(v, list):
+    elif isinstance(值, list):
         名 = '列表'
-    elif isinstance(v, dict):
+    elif isinstance(值, dict):
         名 = '字典'
     else:
-        名 = type(v).__name__
-    raise TypeError('切片下标必须是整数，实际为' + 名 + ' ' + str(v) + '，请用 整数() 转换')
+        名 = type(值).__name__
+    raise TypeError('切片下标必须是整数，实际为' + 名 + ' ' + str(值) + '，请用 整数() 转换')
 
 
-def 转浮点(text: str) -> float:
+def 转浮点(文本: str) -> float:
     """将字符串转换为浮点数（地板已搬迁：真身 stdlib/内置核心转换.light:22）"""
     import 内置核心转换
-    return 内置核心转换.转浮点(text)
+    return 内置核心转换.转浮点(文本)
 
 
-def 转字符串(value) -> str:
+def 转字符串(值) -> str:
     """将值转换为字符串（地板已搬迁：真身 stdlib/内置核心转换.light:29）"""
     import 内置核心转换
-    return 内置核心转换.转字符串(value)
+    return 内置核心转换.转字符串(值)
 
 
-def 字符串长度(text: str) -> int:
+def 字符串长度(文本: str) -> int:
     """获取字符串长度（地板已搬迁：真身 stdlib/字符串工具轻量.light:137）"""
     import 字符串工具轻量
-    return 字符串工具轻量.字符串长度(text)
+    return 字符串工具轻量.字符串长度(文本)
 
 
-def 显示宽度(text) -> int:
+def 显示宽度(文本) -> int:
     """
     返回字符串在等宽终端中的显示宽度。
 
@@ -542,7 +542,7 @@ def 显示宽度(text) -> int:
         (0x20000, 0x2FFFF), # CJK 扩展 B+
     )
     width = 0
-    for ch in str(text):
+    for ch in str(文本):
         o = ord(ch)
         wide = any(lo <= o <= hi for lo, hi in _WIDE_RANGES)
         if not wide:
@@ -554,19 +554,19 @@ def 显示宽度(text) -> int:
     return width
 
 
-def 字符串获取(text: str, index: int) -> str:
+def 字符串获取(文本: str, 索引: int) -> str:
     """获取字符串中指定位置的字符（地板已搬迁：真身 stdlib/内置核心字符串.light:10）"""
     import 内置核心字符串
-    return 内置核心字符串.字符串获取(text, index)
+    return 内置核心字符串.字符串获取(文本, 索引)
 
 
-def 截取(text: str, start: int, end: int) -> str:
+def 截取(文本: str, 起始: int, 结束: int) -> str:
     """截取字符串的一部分（地板已搬迁：真身 stdlib/内置核心字符串.light:14）"""
     import 内置核心字符串
-    return 内置核心字符串.截取(text, start, end)
+    return 内置核心字符串.截取(文本, 起始, 结束)
 
 
-def 分割字符串(text: str, separator: str = None) -> List[str]:
+def 分割字符串(文本: str, 分隔符: str = None) -> List[str]:
     """分割字符串（地板已搬迁：真身 stdlib/字符串工具轻量.light:50）
 
     两版口径差必须显式对齐，不能直接透传：
@@ -575,13 +575,13 @@ def 分割字符串(text: str, separator: str = None) -> List[str]:
         的 `str.split("")` 语义，调用方写空分隔符就是写错了），而光明版会把 `""`
         当成「按空白切」静默返回结果。这里保留原语义，不让搬迁顺手放宽错误检查。
     """
-    if separator == "":
-        return text.split(separator)
+    if 分隔符 == "":
+        return 文本.split(分隔符)
     import 字符串工具轻量
-    return 字符串工具轻量.分割字符串(text, "" if separator is None else separator)
+    return 字符串工具轻量.分割字符串(文本, "" if 分隔符 is None else 分隔符)
 
 
-def 连接字符串(parts: List[str], separator: str = '') -> str:
+def 连接字符串(片段: List[str], 分隔符: str = '') -> str:
     """连接字符串列表（地板已搬迁：真身 stdlib/字符串工具轻量.light:74）
 
     光明侧已按主线裁决收严到 str.join 口径：非 str 元素抛 TypeError，
@@ -589,20 +589,20 @@ def 连接字符串(parts: List[str], separator: str = '') -> str:
     搬迁前的光明替身对非字符串元素做 转字符串 兜底，会把 TypeError 变成静默拼接。
     """
     import 字符串工具轻量
-    return 字符串工具轻量.连接字符串(parts, separator)
+    return 字符串工具轻量.连接字符串(片段, 分隔符)
 
 
 
-def 替换字符串(text: str, old: str, new: str) -> str:
+def 替换字符串(文本: str, 旧串: str, 新串: str) -> str:
     """替换字符串（地板已搬迁：真身 stdlib/字符串工具轻量.light:90）"""
     import 字符串工具轻量
-    return 字符串工具轻量.替换字符串(text, old, new)
+    return 字符串工具轻量.替换字符串(文本, 旧串, 新串)
 
 
-def 去除空白(text: str) -> str:
+def 去除空白(文本: str) -> str:
     """去除首尾空白（地板已搬迁：真身 stdlib/内置核心字符串.light:18）"""
     import 内置核心字符串
-    return 内置核心字符串.去除空白(text)
+    return 内置核心字符串.去除空白(文本)
 
 
 # T-0197 · LH-11：`去空白` 是文档里第一个被写的函数名，补成真实别名（= 去除空白），
@@ -611,126 +611,126 @@ def 去除空白(text: str) -> str:
 去空白 = 去除空白
 
 
-def 转大写(text: str) -> str:
+def 转大写(文本: str) -> str:
     """转换为大写（地板已搬迁：真身 stdlib/字符串工具轻量.light:21）"""
     import 字符串工具轻量
-    return 字符串工具轻量.转大写(text)
+    return 字符串工具轻量.转大写(文本)
 
 
-def 转小写(text: str) -> str:
+def 转小写(文本: str) -> str:
     """转换为小写（地板已搬迁：真身 stdlib/字符串工具轻量.light:24）"""
     import 字符串工具轻量
-    return 字符串工具轻量.转小写(text)
+    return 字符串工具轻量.转小写(文本)
 
 
-def 字符串包含(text: str, substring: str) -> bool:
+def 字符串包含(文本: str, 子串: str) -> bool:
     """检查字符串是否包含子串（地板已搬迁：真身 stdlib/内置核心字符串.light:22）"""
     import 内置核心字符串
-    return 内置核心字符串.字符串包含(text, substring)
+    return 内置核心字符串.字符串包含(文本, 子串)
 
 
-def 开头(text: str, prefix: str) -> bool:
+def 开头(文本: str, 前缀: str) -> bool:
     """检查字符串是否以指定前缀开头（地板已搬迁：真身 stdlib/内置核心字符串.light:26）"""
     import 内置核心字符串
-    return 内置核心字符串.开头(text, prefix)
+    return 内置核心字符串.开头(文本, 前缀)
 
 
-def 结尾(text: str, suffix: str) -> bool:
+def 结尾(文本: str, 后缀: str) -> bool:
     """检查字符串是否以指定后缀结尾（地板已搬迁：真身 stdlib/内置核心字符串.light:30）"""
     import 内置核心字符串
-    return 内置核心字符串.结尾(text, suffix)
+    return 内置核心字符串.结尾(文本, 后缀)
 
 
-def 查找子串(text: str, substring: str) -> int:
+def 查找子串(文本: str, 子串: str) -> int:
     """查找子串位置，未找到返回-1（地板已搬迁：真身 stdlib/内置核心字符串.light:34）"""
     import 内置核心字符串
-    return 内置核心字符串.查找子串(text, substring)
+    return 内置核心字符串.查找子串(文本, 子串)
 
 
-def 最后索引(text: str, substring: str) -> int:
+def 最后索引(文本: str, 子串: str) -> int:
     """查找子串最后出现位置，未找到返回-1（地板已搬迁：真身 stdlib/内置核心字符串.light:38）"""
     import 内置核心字符串
-    return 内置核心字符串.最后索引(text, substring)
+    return 内置核心字符串.最后索引(文本, 子串)
 
 
-def 替换字符串次数(text: str, old: str, new: str, count: int = -1) -> str:
+def 替换字符串次数(文本: str, 旧串: str, 新串: str, 次数: int = -1) -> str:
     """替换字符串，指定替换次数（地板已搬迁：真身 stdlib/内置核心字符串.light:43）
 
     `count=-1` 这个默认值只能留在本签名里：光明侧写不了负数默认参数
     （`接收 x, y=-1:` 解析失败），所以光明段落收满 4 个参，由这里显式传下去。
     """
     import 内置核心字符串
-    return 内置核心字符串.替换字符串次数(text, old, new, count)
+    return 内置核心字符串.替换字符串次数(文本, 旧串, 新串, 次数)
 
 
-def 截取到末尾(text: str, start: int) -> str:
+def 截取到末尾(文本: str, 起始: int) -> str:
     """从指定位置截取到字符串末尾（地板已搬迁：真身 stdlib/内置核心字符串.light:49）"""
     import 内置核心字符串
-    return 内置核心字符串.截取到末尾(text, start)
+    return 内置核心字符串.截取到末尾(文本, 起始)
 
 
-def 字符串计数(text: str, substring: str) -> int:
+def 字符串计数(文本: str, 子串: str) -> int:
     """统计子串出现次数（地板已搬迁：真身 stdlib/内置核心字符串.light:53）"""
     import 内置核心字符串
-    return 内置核心字符串.字符串计数(text, substring)
+    return 内置核心字符串.字符串计数(文本, 子串)
 
 
-def 字符串重复(text: str, times: int) -> str:
+def 字符串重复(文本: str, 次数: int) -> str:
     """重复字符串指定次数（地板已搬迁：真身 stdlib/内置核心字符串.light:57）"""
     import 内置核心字符串
-    return 内置核心字符串.字符串重复(text, times)
+    return 内置核心字符串.字符串重复(文本, 次数)
 
 
-def 字符串反转(text: str) -> str:
+def 字符串反转(文本: str) -> str:
     """反转字符串（地板已搬迁：真身 stdlib/内置核心字符串.light:62）"""
     import 内置核心字符串
-    return 内置核心字符串.字符串反转(text)
+    return 内置核心字符串.字符串反转(文本)
 
 
-def 转标题(text: str) -> str:
+def 转标题(文本: str) -> str:
     """转换为标题格式（首字母大写）（地板已搬迁：真身 stdlib/内置核心字符串.light:71）"""
     import 内置核心字符串
-    return 内置核心字符串.转标题(text)
+    return 内置核心字符串.转标题(文本)
 
 
-def 去除左侧空白(text: str) -> str:
+def 去除左侧空白(文本: str) -> str:
     """去除左侧空白（地板已搬迁：真身 stdlib/字符串工具轻量.light:96）"""
     import 字符串工具轻量
-    return 字符串工具轻量.去除左侧空白(text)
+    return 字符串工具轻量.去除左侧空白(文本)
 
 
-def 去除右侧空白(text: str) -> str:
+def 去除右侧空白(文本: str) -> str:
     """去除右侧空白（地板已搬迁：真身 stdlib/字符串工具轻量.light:99）"""
     import 字符串工具轻量
-    return 字符串工具轻量.去除右侧空白(text)
+    return 字符串工具轻量.去除右侧空白(文本)
 
 
-def 字符串对齐居中(text: str, width: int, fillchar: str = ' ') -> str:
+def 字符串对齐居中(文本: str, 宽度: int, 填充字符: str = ' ') -> str:
     """居中对齐字符串（地板已搬迁：真身 stdlib/内置核心字符串.light:75）"""
     import 内置核心字符串
-    return 内置核心字符串.字符串对齐居中(text, width, fillchar)
+    return 内置核心字符串.字符串对齐居中(文本, 宽度, 填充字符)
 
 
-def 字符串对齐左(text: str, width: int, fillchar: str = ' ') -> str:
+def 字符串对齐左(文本: str, 宽度: int, 填充字符: str = ' ') -> str:
     """左对齐字符串（地板已搬迁：真身 stdlib/内置核心字符串.light:79）"""
     import 内置核心字符串
-    return 内置核心字符串.字符串对齐左(text, width, fillchar)
+    return 内置核心字符串.字符串对齐左(文本, 宽度, 填充字符)
 
 
-def 字符串对齐右(text: str, width: int, fillchar: str = ' ') -> str:
+def 字符串对齐右(文本: str, 宽度: int, 填充字符: str = ' ') -> str:
     """右对齐字符串（地板已搬迁：真身 stdlib/内置核心字符串.light:83）"""
     import 内置核心字符串
-    return 内置核心字符串.字符串对齐右(text, width, fillchar)
+    return 内置核心字符串.字符串对齐右(文本, 宽度, 填充字符)
 
 
 # =============================================================================
 # 列表工具函数
 # =============================================================================
 
-def 列(*args) -> list:
+def 列(*参数) -> list:
     """创建包含指定元素的列表（地板已搬迁：真身 stdlib/内置核心列表.light:17）"""
     import 内置核心列表
-    return 内置核心列表.列(*args)
+    return 内置核心列表.列(*参数)
 
 
 def 列表创建() -> list:
@@ -952,10 +952,10 @@ def 皆空(值) -> bool:
     return 内置核心判型.皆空(值)
 
 
-def 是字母(char: str) -> bool:
+def 是字母(字符: str) -> bool:
     """检查字符是否为字母（地板已搬迁：真身 stdlib/内置核心判型.light:47）"""
     import 内置核心判型
-    return 内置核心判型.是字母(char)
+    return 内置核心判型.是字母(字符)
 
 
 def 是数字(值) -> bool:
@@ -969,10 +969,10 @@ def 是数字(值) -> bool:
     return 内置核心判型.是数字(值)
 
 
-def 是空白(char: str) -> bool:
+def 是空白(字符: str) -> bool:
     """检查字符是否为空格或空白字符（地板已搬迁：真身 stdlib/内置核心判型.light:55）"""
     import 内置核心判型
-    return 内置核心判型.是空白(char)
+    return 内置核心判型.是空白(字符)
 
 
 def 是布尔(值) -> bool:
@@ -1109,7 +1109,7 @@ def 随机选择(列表) -> Optional[object]:
     return random.choice(列表)
 
 
-def 阶乘(n: int) -> int:
+def 阶乘(数: int) -> int:
     """
     计算 n 的阶乘
     
@@ -1119,9 +1119,9 @@ def 阶乘(n: int) -> int:
     返回:
         n!
     """
-    if n < 0:
+    if 数 < 0:
         raise RuntimeError("阶乘参数不能为负数")
-    return math.factorial(n)
+    return math.factorial(数)
 
 
 def 平均数(数据: list) -> float:
@@ -1506,12 +1506,12 @@ def 文件解锁(路径):
 # 语义与 stdlib/文件系统.py:708 参考实现逐条对齐：
 #   Windows → 抛 NotImplementedError("Windows 不支持 chown 操作")；
 #   POSIX   → os.chown(path, uid, gid)，失败由 OSError 自然上抛。
-def 设置文件所有者(路径, uid, gid):
+def 设置文件所有者(路径, 用户ID, 组ID):
     """设置文件所有者和组（chown）。uid/gid 传 -1 表示不修改该 ID。"""
     import platform as _平台
     if _平台.system() == 'Windows':
         raise NotImplementedError("Windows 不支持 chown 操作")
-    os.chown(路径, uid, gid)
+    os.chown(路径, 用户ID, 组ID)
 
 
 # R151-D1：线程原语 + 目录监控（对齐 stdlib/文件系统.py 参考语义）。
@@ -1725,43 +1725,43 @@ def XML生成(数据):
 
 # R151-D3：高精度 Decimal（字符串级算术，对齐 stdlib/数学.py Decimal 族）。
 # 原生腿走 dv_decimal_*，见 src/llvm/runtime_typed.c。
-def 十进制加(a, b):
+def 十进制加(甲, 乙):
     """十进制加法。"""
     try:
-        return str(float(a) + float(b))
+        return str(float(甲) + float(乙))
     except Exception:
         return "0"
 
 
-def 十进制减(a, b):
+def 十进制减(甲, 乙):
     """十进制减法。"""
     try:
-        return str(float(a) - float(b))
+        return str(float(甲) - float(乙))
     except Exception:
         return "0"
 
 
-def 十进制乘(a, b):
+def 十进制乘(甲, 乙):
     """十进制乘法。"""
     try:
-        return str(float(a) * float(b))
+        return str(float(甲) * float(乙))
     except Exception:
         return "0"
 
 
-def 十进制除(a, b):
+def 十进制除(甲, 乙):
     """十进制除法。"""
     try:
-        return str(float(a) / float(b))
+        return str(float(甲) / float(乙))
     except Exception:
         return "0"
 
 
-def 十进制比较(a, b):
+def 十进制比较(甲, 乙):
     """十进制比较：a<b 返回 -1，a==b 返回 0，a>b 返回 1。"""
     try:
-        fa = float(a)
-        fb = float(b)
+        fa = float(甲)
+        fb = float(乙)
         if fa < fb:
             return -1
         elif fa > fb:
@@ -1950,12 +1950,12 @@ __all__ = [
 # 惰性 import 遵守地板转发规矩（见文件头）：import 写在函数体内。
 # =============================================================================
 
-def container_get(d, key, default=None):
+def container_get(字典, 键, 默认值=None):
     """字典安全取值（惰性辅助，避免与内置 get 语义冲突）。"""
     try:
-        return d.get(key, default)
+        return 字典.get(键, 默认值)
     except Exception:
-        return default
+        return 默认值
 
 
 def 写入二进制文件(路径: str, 数据) -> None:

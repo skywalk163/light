@@ -34,6 +34,7 @@ sync_builtins.py — R114 S1：stdlib/builtins.py 三副本收敛同步脚本。
 import os
 import re
 import sys
+import ast
 import hashlib
 
 # ---------------------------------------------------------------------------
@@ -61,9 +62,27 @@ BOOT_KEEP_HEADER = "import json as _duan_json_module"      # boot 顶层必须�
 # .light 是旧拷贝（缺这 4 个段落，实测 AttributeError）。按同一真源原则逐字同步。
 LH_LIGHT_SYNC = ("内置核心判型.light",)
 BOOT_PORTED = {
-    "最后索引": '''def 最后索引(text: str, substring: str) -> int:
+    "皆空": '''def 皆空(值) -> bool:
+    """宽口径空判定（R114-S1 boot 自包含移植：对齐 内置核心判型.皆空）。
+
+    T-0210 补记：真源对应函数是 `import 内置核心判型` 的转发体，逐字搬进 boot 会让
+    `test_boot_no_light_forward_leak` 变红、且在 release 环境运行期 ModuleNotFoundError。
+    语义按 内置核心判型.light:55-70 逐条落：是空（null / ""）+ 空 list + 空 dict 为真；
+    纯空白串、0、空 bytes 不算空。
+    """
+    if 值 is None:
+        return True
+    if isinstance(值, str) and len(值) == 0:
+        return True
+    if isinstance(值, list) and len(值) == 0:
+        return True
+    if isinstance(值, dict) and len(值) == 0:
+        return True
+    return False''',
+
+    "最后索引": '''def 最后索引(文本: str, 子串: str) -> int:
     """查找子串最后出现位置，未找到返回 -1（R114-S1 boot 自包含移植：对齐 内置核心字符串.最后索引）"""
-    return str.rfind(text, substring)''',
+    return str.rfind(文本, 子串)''',
 
     "副本": '''def 副本(原):
     """浅拷贝：字典浅拷贝键值对、列表浅拷贝元素、其他类型原样返回（R114-S1 boot 自包含移植：对齐 内置核心列表.副本）"""
@@ -122,6 +141,145 @@ BOOT_PORTED = {
 # 自动生成段标记（boot 侧；幂等锚点）
 MARK_BEGIN = "# ===== R114-S1 sync_builtins.py 自动生成段（勿手改；由 scripts/sync_builtins.py 重生成）====="
 MARK_END = "# ===== R114-S1 sync_builtins.py 自动生成段结束 ====="
+
+# ---------------------------------------------------------------------------
+# 形参名归一（L-256）：英文形参 → 中文形参
+# ---------------------------------------------------------------------------
+# 真源与 boot 副本都必须只用中文形参名，否则源码里照文档写
+# `写入文件(路径, 内容, 编码="utf-8")` 会 TypeError: unexpected keyword argument。
+#
+# boot 副本有 109 个「自包含保留体」不走逐字同步（见模块 docstring），它们的签名是
+# R114 之前的历史英文名 —— 光跑 sync 修不掉。所以 sync 在写完 boot 之后，再按**同一张
+# 表**把 boot 全文件的英文形参名改成中文：只动 token 级标识符，不动字符串/注释/属性名，
+# 幂等（已经是中文的不产生改动）。
+#
+# 命名与 stdlib 门面（`段落 读取文件(路径)`）和 src/enhanced_errors.py 里的报错示范
+# （`读取文件(路径, 编码="utf-8")`）对齐。
+PARAM_RENAME = {
+    "text": "文本",
+    "path": "路径",
+    "value": "值",
+    "substring": "子串",
+    "encoding": "编码",
+    "width": "宽度",
+    "fillchar": "填充字符",
+    "content": "内容",
+    "name": "名称",
+    "default": "默认值",
+    "start": "起始",
+    "end": "结束",
+    "separator": "分隔符",
+    "old": "旧串",
+    "new": "新串",
+    "char": "字符",
+    "code": "状态码",
+    "command": "命令",
+    "source": "源",
+    "target": "目标",
+    "v": "值",
+    "index": "索引",
+    "parts": "片段",
+    "prefix": "前缀",
+    "suffix": "后缀",
+    "count": "次数",
+    "times": "次数",
+    "n": "数",
+    "uid": "用户ID",
+    "gid": "组ID",
+    "d": "字典",
+    "key": "键",
+    "args": "参数",
+    "paths": "路径们",
+    "a": "甲",
+    "b": "乙",
+}
+
+_FUNC_DEF_RE = re.compile(r"^(\s*)def\s+([^\s\(]+)\s*\(")
+
+
+def _param_names(node):
+    a = node.args
+    names = [x.arg for x in a.posonlyargs + a.args + a.kwonlyargs]
+    if a.vararg:
+        names.append(a.vararg.arg)
+    if a.kwarg:
+        names.append(a.kwarg.arg)
+    return names
+
+
+def non_chinese_params(text):
+    """列出 (函数名, 英文形参名)；空列表 = 全中文，合规。"""
+    bad = []
+    for node in ast.parse(text).body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for p in _param_names(node):
+            if not any("\u4e00" <= c <= "\u9fff" for c in p):
+                bad.append((node.name, p))
+    return bad
+
+
+def normalize_param_names(text):
+    """把顶层函数里的英文形参名按 PARAM_RENAME 改成中文（token 级，幂等）。
+
+    只改三类不该改的东西：属性名（`os.path` 里的 `path`）、关键字实参的标签
+    （`open(encoding=...)` 里的 `encoding`）、以及字符串/注释里的同名字样。
+    """
+    import ast as _ast
+    import io as _io
+    import tokenize as _tok
+
+    tree = _ast.parse(text)
+    ranges = []
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        mapping = {p: PARAM_RENAME[p] for p in _param_names(node) if p in PARAM_RENAME}
+        if not mapping:
+            continue
+        for sub in _ast.walk(node):
+            if sub is node:
+                continue
+            if isinstance(sub, (_ast.FunctionDef, _ast.AsyncFunctionDef, _ast.Lambda)):
+                raise SystemExit(
+                    f"normalize_param_names: {node.name} 内含嵌套 def/lambda，需人工处理"
+                )
+        labels = {
+            (sub.lineno, sub.col_offset)
+            for sub in _ast.walk(node)
+            if isinstance(sub, _ast.keyword) and getattr(sub, "lineno", None)
+        }
+        ranges.append(((node.lineno, node.col_offset),
+                       (node.end_lineno, node.end_col_offset), mapping, labels))
+
+    skip = {_tok.NL, _tok.NEWLINE, _tok.INDENT, _tok.DEDENT, _tok.COMMENT, _tok.ENCODING}
+    edits = {}
+    prev = None
+    count = 0
+    for t in _tok.generate_tokens(_io.StringIO(text).readline):
+        if t.type in skip:
+            continue
+        if t.type == _tok.NAME:
+            for start, end, mapping, labels in ranges:
+                if start <= t.start <= end and t.string in mapping:
+                    if t.start in labels or prev == ".":
+                        break
+                    edits.setdefault(t.start[0], []).append(
+                        (t.start[1], t.end[1], mapping[t.string]))
+                    count += 1
+                    break
+        prev = t.string
+
+    if not edits:
+        return text, 0
+    lines = text.split("\n")
+    for row, items in edits.items():
+        line = lines[row - 1]
+        for start, end, new in sorted(items, key=lambda x: -x[0]):
+            line = line[:start] + new + line[end:]
+        lines[row - 1] = line
+    return "\n".join(lines), count
+
 
 FUNC_RE = re.compile(r"^def ([^\(]+)\(")
 # 顶层语句行（用于函数块结束判定：def 之间出现的模块级赋值等）
@@ -225,7 +383,11 @@ def sync_boot(main_text, main_funcs, main_order):
     blocks.append(gen_all(main_order))
 
     new_text = prefix.rstrip() + "\n\n\n" + "\n".join(blocks) + "\n"
+    # L-256：boot 保留体里还有 R114 之前的英文形参名，按同一张表归一
+    new_text, renamed = normalize_param_names(new_text)
     write(BOOT_PATH, new_text)
+    if renamed:
+        print(f"  形参名归一: {renamed} 处英文形参 → 中文")
     return set(verbatim), ported
 
 
@@ -369,6 +531,12 @@ def self_checks(main_funcs, main_order, boot_verbatim):
         for para in ("段落 是布尔", "段落 是函数", "段落 是数值", "段落 字符串全数字"):
             if para not in t:
                 errors.append(f"LH .light {name} 缺段落: {para}")
+
+    # L-256：三份副本都不得留英文形参名（源码照文档写中文关键字必须能调通）
+    for label, text in (("真源", read(MAIN_PATH)), ("boot", boot_text), ("lh", lh_text)):
+        bad = non_chinese_params(text)
+        if bad:
+            errors.append(f"{label} 仍有英文形参名（中文关键字调不通）: {bad[:10]}")
 
     if errors:
         for e in errors:
