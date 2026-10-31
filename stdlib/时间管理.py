@@ -415,21 +415,63 @@ def 格式化时间(格式: str = "%Y-%m-%d %H:%M:%S", 时间戳: float = None) 
     return time.strftime(格式, time.localtime(时间戳))
 
 
-def 解析时间(时间字符串: str, 格式: str = "%Y-%m-%d %H:%M:%S") -> Optional[time.struct_time]:
+# 默认候选格式：T-0211 起，缺省格式不再只吃空格分隔，而是同时兼容
+# ISO-8601 的 T 分隔与传统空格分隔；显式传入「格式」时仍只按该格式解析。
+_DEFAULT_PARSE_FORMATS = ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S")
+
+
+def _try_parse(时间字符串: str, 格式: Optional[str] = None) -> Optional[time.struct_time]:
+    """内部：按候选格式逐个试解析，成功立即返回 struct_time，全部失败返回 None。"""
+    候选 = _DEFAULT_PARSE_FORMATS if 格式 is None else (格式,)
+    for fmt in 候选:
+        try:
+            return time.strptime(时间字符串, fmt)
+        except (ValueError, TypeError, OverflowError):
+            continue
+    return None
+
+
+def 解析时间(时间字符串: str, 格式: Optional[str] = None) -> time.struct_time:
     """
-    解析时间字符串为时间元组
-    
+    解析时间字符串为时间元组。
+
     参数:
         时间字符串: 时间字符串
-        格式: 格式化字符串
-    
+        格式: 格式化字符串；缺省（None）时同时尝试 ISO-8601 的 T 分隔
+            （%Y-%m-%dT%H:%M:%S）与空格分隔（%Y-%m-%d %H:%M:%S）两种常见形式。
+
     返回:
-        时间元组；解析失败返回 空（None），不抛异常
+        时间元组（struct_time）。
+
+    异常:
+        ValueError: 文本无法被任何候选格式解析时抛出，错误信息写明原始文本
+            与尝试过的格式。不再静默返回空——「格式不对」不能伪装成「没有时间」。
     """
-    try:
-        return time.strptime(时间字符串, 格式)
-    except (ValueError, TypeError, OverflowError):
-        return None
+    结果 = _try_parse(时间字符串, 格式)
+    if 结果 is None:
+        尝试格式 = _DEFAULT_PARSE_FORMATS if 格式 is None else (格式,)
+        raise ValueError(
+            f"解析时间失败：无法将 {时间字符串!r} 按候选格式 "
+            f"[{', '.join(尝试格式)}] 解析为时间元组"
+        )
+    return 结果
+
+
+def 试解析时间(时间字符串: str, 格式: Optional[str] = None) -> Optional[time.struct_time]:
+    """
+    试探版解析时间：失败返回 空（None），不抛异常。
+
+    与 解析时间 的唯一区别在失败路径：当调用方明确允许「这里可能没有时间」
+    时使用本函数，把「允许失败」显式写在调用点，避免静默吞掉格式错误。
+
+    参数:
+        时间字符串: 时间字符串
+        格式: 格式化字符串；缺省时与 解析时间 一样同时尝试 ISO 与空格两种形式。
+
+    返回:
+        时间元组；无法解析时返回 空（None）。
+    """
+    return _try_parse(时间字符串, 格式)
 
 
 def 时刻转戳(时刻) -> Optional[float]:
@@ -597,7 +639,7 @@ __all__ = [
     '时间戳纳秒', '休眠', '等待',
     '单调时间', '测量执行时间',
     '本地时间', 'UTC时间', '时间元组转时间戳',
-    '格式化时间', '解析时间',
+    '格式化时间', '解析时间', '试解析时间',
     '时刻转戳', '戳转时刻', '时间加减', '时间差秒',
     '时区偏移', '时区名称', '夏令时',
     '秒表', '创建秒表',
