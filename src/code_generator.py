@@ -1374,6 +1374,11 @@ class PythonCodeGenerator:
         self._add_line("from typing import Any, Callable, Optional")
         self._add_line("import math")
         self._add_line("import random")
+        # L-257（T-0209）：builtin_map 把 `归约`/`折叠` 发射成 `functools.reduce`，
+        # 但此处序言漏了 import functools——一调就 `NameError: name 'functools' is
+        # not defined`。与 unified 后端（code_generator_unified.py:518 无条件
+        # `import functools`）同口径，这里无条件补上。
+        self._add_line("import functools")
         # 钉死 stdout/stderr 编码为 UTF-8（errors='replace' 防止 strict 收紧级联，
         # 见 known_issues §14.1）。Windows 下转译后端默认按 ANSI 代码页(cp936)
         # 吐字节，与非 ASCII 输出冲突——reconfigure 后与原生腿一致吐 UTF-8。
@@ -4421,6 +4426,23 @@ class PythonCodeGenerator:
             if py_name.startswith('lambda '):
                 return f"({py_name})({args_str})"
             
+            # L-258（T-0209）：`映射`/`筛选`/`枚举` 与 T-0197 · LH-11 修好的
+            # `反转`/`范围` 同口径——光明侧一律按**列表**语义使用（`长()`、下标、
+            # `转字符串` 出可读内容），而 Python 的 map/filter/enumerate 返回惰性
+            # 迭代器：`转字符串(映射(...))` 打 `<map object at 0x…>`、
+            # `长(枚举(...))` 直接 `TypeError: object of type 'enumerate' has no len()`。
+            # （注意与 builtin_map 里 `映射`→`map`/`筛选`→`filter` 的原生映射并存：
+            #  这里只在外层包一层 list()，语序换序仍由 _reorder_data_first_args 负责。）
+            # 只在「能正面判定是数据-函数两参形态」或 `枚举`（1~2 参）时包：
+            # 管道式单参 `数据 -> 映射(函数)` 由 Pipeline 分支另行拼装，不在此处包。
+            _wrap_kwargs = not any(isinstance(a, KeywordArg) for a in call_args)
+            _is_list_target = (
+                (py_name in ('map', 'filter') and len(call_args) == 2)
+                or (py_name == 'enumerate' and 1 <= len(call_args) <= 2)
+            )
+            if (not shadowed) and _wrap_kwargs and _is_list_target:
+                return f"list({py_name}({args_str}))"
+
             return f"{py_name}({args_str})"
         
         elif isinstance(expr, FunctionCallExpr):
@@ -5032,7 +5054,11 @@ class PythonCodeGenerator:
     # 只对「恰好两个位置实参」换序：
     #   · 单实参是管道式 `数据 -> 映射(函数)`，换序无意义（Pipeline 分支另行拼装）；
     #   · 含具名实参时位置语义已由名字表达，不再动顺序。
-    _DATA_FIRST_BUILTINS = {'映射': 'map', '筛选': 'filter'}
+    # L-257（T-0209）：`归约`/`折叠` 同为「数据在前、函数在后」的
+    # 高阶内置（规范 2554 明列 `映射列表函数` 等价 `map(函数, 列表)`，
+    # `归约` 同族），且 3 参形态 `归约(数据, 函数, 初值)` 的初值保持末位。
+    _DATA_FIRST_BUILTINS = {'映射': 'map', '筛选': 'filter',
+                            '归约': 'functools.reduce', '折叠': 'functools.reduce'}
 
     def _reorder_data_first_args(self, verb, py_name, shadowed, args):
         """把「数据在前」的光明语序换成 Python 的 (函数, 可迭代对象)。
@@ -5054,7 +5080,14 @@ class PythonCodeGenerator:
             return args
         if self._DATA_FIRST_BUILTINS.get(verb) != py_name:
             return args
-        if len(args) != 2 or any(isinstance(a, KeywordArg) for a in args):
+        if any(isinstance(a, KeywordArg) for a in args):
+            return args
+        # L-257（T-0209）：2 参（映射/筛选/归约/折叠）换序；
+        # 3 参仅 `归约`/`折叠`（数据, 函数, 初值），初值保持末位。
+        if py_name == 'functools.reduce':
+            if len(args) not in (2, 3):
+                return args
+        elif len(args) != 2:
             return args
         if isinstance(args[0], LambdaExpression):
             raise CodeGenError(
@@ -5062,7 +5095,7 @@ class PythonCodeGenerator:
                 f"请写成 {verb}(数据, 接收 项：…) 而不是 {verb}(接收 项：…, 数据)",
                 'ParagraphCall')
         if self._looks_data_arg(args[0]) or self._looks_callable_arg(args[1]):
-            return [args[1], args[0]]
+            return [args[1], args[0]] + list(args[2:])
         self._warn_ambiguous_arg_order(verb)
         return args
 
