@@ -1,28 +1,55 @@
-# T-0202 光明P2：socket 常量整组透出 [LH-15]
+# T-0214 交付摘要：地板自举率回归门 test_R158 在 main 上 4 条红（门禁自己漂了）
 
-## 做了什么
-- `stdlib/socket.light`（原生腿门面）：导出行补 `SO_REUSEPORT / SO_KEEPALIVE /
-  SO_BROADCAST / TCP_NODELAY / IPPROTO_IP / IPPROTO_TCP / IPPROTO_UDP`，并补对应
-  零参取值段（POSIX/Linux 规范字面量）。旧 6 个常量与文件头历史注释「只加不删」。
-- `stdlib/Socket.py`（Python 腿顶层路由）：`import socket as _py_socket` 后整组透出
-  常量；`SO_REUSEPORT = getattr(_py_socket,'SO_REUSEPORT',None)` 平台不存在时返回
-  空(None)，绝不静默返回 0。常量加入 `__all__`。
-- 命名澄清：文件内注释写明光明里模块就叫 `socket`（原生腿）/`Socket`（Python 腿），
-  没有 `套接字` 模块。
+## 结论：改了判据，没刷基线
 
-## 验证
-- `python -m pytest -q tests/unit/test_LH15_socket常量.py` → **4 passed, 1 skipped**
-  （skip = 本机 Windows 无 SO_REUSEPORT，双绑真用按卡面要求 skip 并打印原因）。
-- 邻接回归 `tests/unit/test_R147_R131_漏登.py` → 5 passed（未破坏既有 socket 门面断言）。
-- socket.light 经 PythonCodeGenerator 编译通过，新段均落成 `def X():`。
+`tools/ci/floor_bootstrap_baseline.json`（69/102）与 `任务书/自举地板清单.json` **一字未动**
+—— 基线本身是对的（清单确有 69 条 `has_light_impl`、分母 102），是测试把 R158 当时的
+快照值写死了，仓库往前走、判据没跟上，门禁自己先红。走任务卡落点的第一选择：
+**判据不再写死快照值**。
 
-## 取值口径（诚实声明）
-- Python 腿（验收对拍真用）：直接对齐宿主 `socket` 模块，不写死数字；本台 Windows
-  实测 SO_REUSEADDR=4、TCP_NODELAY=1、IPPROTO_TCP=6、SO_REUSEPORT 缺失→None。
-- 原生腿：C 运行时暂无「取 socket 选项常量」绑定（setsockopt 本身未接线），零参段
-  给 POSIX 规范字面量仅作导出可达/导入不炸的门面语义；跨平台真值以 Python 腿为准。
+## 改动（仅 tests/unit/test_R158_地板证据窗口漂移.py，+52/−29）
+
+1. `test_地板自举率等于68比96` → 改名 `test_地板自举率等于基线快照`：
+   `(68, 96)` 硬编码改为从 `tools/ci/floor_bootstrap_baseline.json` 读
+   `light_count` / `denominator`，比率断言同样取自基线。
+2. `_是字母定义行_R157 = 61` 写死锚点 → 删除，新增 `_现算定义行(名字)`：
+   用 `FB.声明行表` + `FB.定位定义行` 对真仓库判型文件**现算**定义行
+   （当前算出 73）。反跑一的三条用例（旧窗口失配 / 新定位仍绿 / 删行仍绿）
+   的证据行一律用现算值。
+3. `test_插行后整条门禁仍绿` 里 `light_count == 68` → 改为等于真基线的
+   `light_count`（漂移树的分子仍不许缩水，只是不再写死数字）。
+4. `test_前缀同名不许互相冒充` 里证据行 `"%s:73"` 写死 → 改为现算
+   `是空白` 的定义行（当前 94），保持「证据指向前缀同名声明」的反跑语义
+   （原 73 恰好已被 `是字母` 漂移占用，属于同一类隐形地雷）。
+5. 模块/类 docstring 里写死的 68/96、61→64 等数字同步改为口径描述
+   （历史叙述保留），并记下 T-0214 教训：**写死快照值的门禁会自己先红**。
+
+## 为什么这么改不会让门禁失去牙
+
+- 棘轮方向没变：基线 `light_count`/`denominator` 仍然「只升不降」，测试只是把
+  「等于某个历史数字」改成「等于基线快照」—— 门禁照样卡住分子缩水与分母灌水；
+  反跑①的 `--write-baseline` 分支断言的正是「漂移后分子不缩水」。
+- 三条「必须红」的反跑全部原样保留且实测仍判红（它们绿 = 判据有牙）：
+  `test_空壳误标has_light_impl即红`、`test_证据指向远处行即红`、
+  `test_前缀同名不许互相冒充`。
+- 反跑①的核心不变量仍在：把 `floor_bootstrap.py` 改回 ±2 文本窗口，
+  `test_旧窗口在漂移后失配`（旧口径复刻）+ `test_新定位在漂移后仍绿` 立即转红。
+
+## 验收证据
+
+- `python3 -m pytest -q tests/unit/test_R158_地板证据窗口漂移.py` → **10 passed**
+  （改前：4 failed / 6 passed，在干净 HEAD 工作树上同样 4 红，与卡面症状一致）
+- 旁证回归：`test_ci_gates_round9.py` 42 passed；`test_floor_manifest_gate.py` +
+  `test_ci_gates.py` 41 passed —— 相邻门禁无一被波及。
+- `git diff --stat`：仅本测试文件一个改动（52+/29−），两个 JSON 未动。
+
+## 边界遵守
+
+- 未删 `任务书/自举地板清单.json` 任何条目（分母只升不降的硬口径没碰）。
+- 未改 `stdlib/内置核心判型.light` 段落顺序去「对准行号」（没把尺子锯短）。
+- 未动 paths 之外任何文件。
 
 ## 没做 / 风险
-- 未动 `src/code_generator.py`、`stdlib/外部命令.py`（卡面禁区）。
-- SO_REUSEPORT 双绑真用仅在 POSIX（Linux/FreeBSD）机器上真跑；本机 Windows skip。
-- setsockopt 本身仍是缺口（不在本卡范围）。
+
+- 无已知风险。唯一注意点：今后基线在合并点上棘轮（69/102 → 更高）时，
+  本门禁自动跟随，无需再改测试。
