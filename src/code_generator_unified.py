@@ -2647,6 +2647,69 @@ class UnifiedCodeGenerator:
             return f"({left} {op} {right})"
         return self._generate_expr(expr)
 
+    # L-257（T-0209）：高阶内置的「数据在前」语序与列表语义 —— unified 侧对齐 src
+    # （src/code_generator.py:_DATA_FIRST_BUILTINS / _reorder_data_first_args）。
+    _DATA_FIRST_BUILTINS = {
+        '映射': 'map', '筛选': 'filter',
+        '归约': 'functools.reduce', '折叠': 'functools.reduce',
+    }
+    _DATA_SHAPE_NODES = (
+        'ListLiteral', 'TupleLiteral', 'SetLiteral', 'DictLiteral',
+        'StringLiteral', 'NumberLiteral', 'StringInterpolation',
+        'ListComprehension', 'SetComprehension', 'DictComprehension',
+        'RangeExpr', 'IndexAccess', 'SliceExpr', 'BinaryOp',
+    )
+
+    @staticmethod
+    def _is_any_node(node, names):
+        return node is not None and type(node).__name__ in names
+
+    def _looks_data_arg(self, arg) -> bool:
+        """实参能否**正面判定**为数据形态（与 src 后端同口径；判不定一律 False）。"""
+        if self._is_any_node(arg, self._DATA_SHAPE_NODES):
+            return True
+        if self._is_any_node(arg, ('ParagraphCall', 'FunctionCall', 'FunctionCallExpr')):
+            return bool(getattr(arg, 'args', None) or getattr(arg, 'arguments', None))
+        return False
+
+    def _looks_callable_arg(self, arg) -> bool:
+        """实参能否**正面判定**为函数形态：lambda 字面量或已登记的用户段落名。"""
+        if is_instance(arg, 'LambdaExpression'):
+            return True
+        if self._is_any_node(arg, ('ParagraphCall', 'FunctionCall', 'FunctionCallExpr')):
+            if getattr(arg, 'args', None) or getattr(arg, 'arguments', None):
+                return False
+        name = getattr(arg, 'name', None)
+        if not isinstance(name, str):
+            return False
+        if name in self.user_functions:
+            return True
+        try:
+            return self._resolve_name(name) in self.user_functions
+        except Exception:
+            return False
+
+    def _reorder_data_first_args(self, verb, py_name, args):
+        """把「数据在前」的光明语序换成 Python 的 (函数, 可迭代对象)。
+
+        仅在能**正面判定**语序时换序；判不定保持源码语序（不猜，避免静默错编）。
+        3 参仅 `归约`/`折叠`（数据, 函数, 初值），初值保持末位。
+        """
+        if not isinstance(verb, str):
+            return args
+        if self._DATA_FIRST_BUILTINS.get(verb) != py_name:
+            return args
+        if any(is_instance(a, 'KeywordArg') for a in args):
+            return args
+        if py_name == 'functools.reduce':
+            if len(args) not in (2, 3):
+                return args
+        elif len(args) != 2:
+            return args
+        if self._looks_data_arg(args[0]) or self._looks_callable_arg(args[1]):
+            return [args[1], args[0]] + list(args[2:])
+        return args
+
     def _translate_args(self, args, py_callee: str = None):
         """把实参列表翻译成 Python 实参片段，支持关键字参数（KeywordArg）。
 
@@ -2869,17 +2932,31 @@ class UnifiedCodeGenerator:
                 func_name = self._generate_expr(func_expr)
             
             # 检查是否是内置函数（用户定义的函数优先）
+            _light_verb = func_name  # 映射前的光明侧动词名，供「数据在前」语序换序判定
             if func_name not in self.user_functions and func_name in self.builtin_map:
                 func_name = self.builtin_map[func_name]
             
-            args = self._translate_args(
-                getattr(expr, 'arguments', None) or getattr(expr, 'args', []), func_name)
+            _raw_args = (getattr(expr, 'arguments', None) or getattr(expr, 'args', []))
+            # L-257/L-258（T-0209，unified↔src 对齐）：`映射`/`筛选`/`归约`/`折叠`
+            # 是「数据在前、函数在后」的中文语序，Python 侧一律 (函数, 可迭代对象)。
+            _raw_args = self._reorder_data_first_args(_light_verb, func_name, _raw_args)
+            args = self._translate_args(_raw_args, func_name)
             args_str = ', '.join(args)
             # R114-S2 别名括号通用修复：别名目标以 lambda 开头时包一层括号，
             # 否则 `取模(10,3)`/`平方(5)` 等生成游离 lambda（`lambda a, b: a % b(3)`），
             # 静默返回函数对象。与 code_generator.py FunctionCall 的 lambda 守卫（:4088）同口径。
             if func_name.startswith('lambda '):
                 return f"({func_name})({args_str})"
+            # L-258（T-0209）：`映射`/`筛选`/`枚举` 按**列表**语义发射（同 src 后端
+            # 与 T-0197 修好的 `反转`/`范围`）——否则返回惰性迭代器，`长()`／下标／
+            # `转字符串` 都不可用（`长(枚举(...))` 直接 `object ... has no len()`）。
+            _no_kw = not any(is_instance(a, 'KeywordArg') for a in _raw_args)
+            _list_target = (
+                (func_name in ('map', 'filter') and len(_raw_args) == 2)
+                or (func_name == 'enumerate' and 1 <= len(_raw_args) <= 2)
+            )
+            if _no_kw and _list_target:
+                return f"list({func_name}({args_str}))"
             return f"{func_name}({args_str})"
 
         # 链式函数调用（v3 后端 AST）：callee(args)，如 表["甲"](1)

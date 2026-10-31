@@ -1,28 +1,34 @@
-# T-0202 光明P2：socket 常量整组透出 [LH-15]
+# T-0209 光明P1：归约 一调就崩 + 映射/筛选 返回迭代器 [L-257/L-258]
 
 ## 做了什么
-- `stdlib/socket.light`（原生腿门面）：导出行补 `SO_REUSEPORT / SO_KEEPALIVE /
-  SO_BROADCAST / TCP_NODELAY / IPPROTO_IP / IPPROTO_TCP / IPPROTO_UDP`，并补对应
-  零参取值段（POSIX/Linux 规范字面量）。旧 6 个常量与文件头历史注释「只加不删」。
-- `stdlib/Socket.py`（Python 腿顶层路由）：`import socket as _py_socket` 后整组透出
-  常量；`SO_REUSEPORT = getattr(_py_socket,'SO_REUSEPORT',None)` 平台不存在时返回
-  空(None)，绝不静默返回 0。常量加入 `__all__`。
-- 命名澄清：文件内注释写明光明里模块就叫 `socket`（原生腿）/`Socket`（Python 腿），
-  没有 `套接字` 模块。
+- `src/code_generator.py`（legacy 后端；`cli.light run` 与 `cli.light_unified run` 默认都走此腿）：
+  1. 产物序言补 `import functools`——原缺失，`归约` 一调即 `NameError: name 'functools'
+     is not defined`；unified 序言 L518 早已有无条件 import，本次对齐。
+  2. `_DATA_FIRST_BUILTINS` 增补 `归约/折叠 → functools.reduce`；`_reorder_data_first_args`
+     放开 reduce 的 3 参形态（`归约(数据, 函数, 初值)`，初值保持末位），
+     换序返回 `[args[1], args[0]] + list(args[2:])`。
+  3. `映射/筛选`（2 参）与 `枚举`（1~2 参）在发射点外层包 `list(...)`，返回**列表**
+     而非惰性迭代器（不再打 `<map object at 0x…>`，`长()`/下标/`转字符串` 可用）。
+- `src/code_generator_unified.py`（unified 后端）：镜像上述三点——新增 `_looks_data_arg`
+  /`_looks_callable_arg`/`_reorder_data_first_args` 与 `list()` 包裹（判不定不换序，不抛错）。
+- 新建 `tests/unit/test_LH35_归约与高阶内置.py`：`python -m cli.light run` **真跑**，
+  一份源码 7 行 stdout 覆盖任务卡四条验收（归约=12 / 映射=[2,4,6] 且长=3 /
+  筛选=[2,4] 且长=2 / 枚举长=3）加映射结果下标可用。
 
 ## 验证
-- `python -m pytest -q tests/unit/test_LH15_socket常量.py` → **4 passed, 1 skipped**
-  （skip = 本机 Windows 无 SO_REUSEPORT，双绑真用按卡面要求 skip 并打印原因）。
-- 邻接回归 `tests/unit/test_R147_R131_漏登.py` → 5 passed（未破坏既有 socket 门面断言）。
-- socket.light 经 PythonCodeGenerator 编译通过，新段均落成 `def X():`。
+- 契约命令 `python3 -m pytest -q tests/unit/test_LH35_归约与高阶内置.py` → **5 passed**。
+- 回归 `python3 -m pytest -q tests/test_frontend_blockers_run.py -k a3` → **6 passed**（A3 语序护栏未破）。
+- `tests/unit/test_R158_地板证据窗口漂移.py` 在基线 36d2b5429 与本改动后**同为 6 failed / 4 passed**
+  （stash 对比实测确认）：pre-existing 失败，与 T-0209 无关；本次未改 `stdlib/builtins.py`。
+- 语序裁定：卡面 `归约([1,2,3], 加倍, 0) → 12` 未给 `加倍` 定义，依 `docs/语义密度示例集.md:350`
+  `归约(组.值, 段(a, b) 返 a + b["金额"], 0)` 判定 `归约` 为**二元折叠**，故测试用
+  `加倍(累积, 项) 返回 累积 + 项 * 2`（0+2+4+6=12）。
 
-## 取值口径（诚实声明）
-- Python 腿（验收对拍真用）：直接对齐宿主 `socket` 模块，不写死数字；本台 Windows
-  实测 SO_REUSEADDR=4、TCP_NODELAY=1、IPPROTO_TCP=6、SO_REUSEPORT 缺失→None。
-- 原生腿：C 运行时暂无「取 socket 选项常量」绑定（setsockopt 本身未接线），零参段
-  给 POSIX 规范字面量仅作导出可达/导入不炸的门面语义；跨平台真值以 Python 腿为准。
-
-## 没做 / 风险
-- 未动 `src/code_generator.py`、`stdlib/外部命令.py`（卡面禁区）。
-- SO_REUSEPORT 双绑真用仅在 POSIX（Linux/FreeBSD）机器上真跑；本机 Windows skip。
-- setsockopt 本身仍是缺口（不在本卡范围）。
+## 没做 / 风险（诚实声明）
+- **unified 后端改动无运行时验证**：本机 `light_visitor`/antlr4 缺失
+  （`LightUnifiedCLI().antlr_available == False`），仅 `py_compile` 通过；`cli.light_unified`
+  的 `run` 与默认 `compile` 都回落到 legacy `PythonCodeGenerator`，故契约用例与 A3 回归
+  实际覆盖的只是 legacy 腿。若 CI 具备 antlr 环境，请以 unified 腿复跑本文件。
+- unified 侧 `_reorder_data_first_args` 对「lambda 在前」**不抛 CodeGenError**（src 侧会抛），
+  有意不追求完全 parity 以降风险。
+- 未改 `stdlib/builtins.py`（地板自举率门禁禁区）、未动其它任务卡与 agents 配置、未写任何 token/密钥。
