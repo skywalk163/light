@@ -44,14 +44,13 @@ class Test缺省格式兼容:
 
     def test_缺省解析ISO_T分隔(self):
         时刻 = 解析时间("2026-10-30T15:00:00")
-        assert 时刻 is not None
-        # 用模块自带的 格式化时间 往返：struct_time → 时间戳 → 字符串
+        # 用模块自带的 格式化时间 往返：struct_time → 时间戳 → 字符串；
+        # 下一行若 时刻 为空，时刻转戳/格式化时间 必然抛错 ⇒ 失败，信号不减。
         还原 = 格式化时间(_ISO, 时刻转戳(时刻))
         assert 还原 == "2026-10-30T15:00:00"
 
     def test_缺省解析空格分隔_存量不变(self):
         时刻 = 解析时间("2026-10-30 15:00:00")
-        assert 时刻 is not None
         还原 = 格式化时间(_空格, 时刻转戳(时刻))
         assert 还原 == "2026-10-30 15:00:00"
 
@@ -94,12 +93,10 @@ class Test试解析时间:
 
     def test_有效文本正常返回(self):
         时刻 = 试解析时间("2026-10-30T15:00:00")
-        assert 时刻 is not None
         assert _time.strftime(_ISO, 时刻) == "2026-10-30T15:00:00"
 
     def test_空格文本正常返回(self):
         时刻 = 试解析时间("2026-10-30 15:00:00")
-        assert 时刻 is not None
         assert _time.strftime(_空格, 时刻) == "2026-10-30 15:00:00"
 
 
@@ -109,8 +106,7 @@ class Test静默反跑:
     def test_ISO解析后加180分钟非空(self):
         时刻 = 解析时间("2026-10-30T15:00:00")
         结果 = 时间加减(时刻, 分钟=180)
-        assert 结果 is not None
-        # 15:00 + 180 分钟 = 18:00
+        # 15:00 + 180 分钟 = 18:00；结果为空时下一行 strftime 必抛 ⇒ 失败
         assert _time.strftime(_ISO, 结果) == "2026-10-30T18:00:00"
 
 
