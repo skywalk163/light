@@ -1132,10 +1132,10 @@ class ParserStmtMixin:
                     else:
                         break
                 elif self._current().type == TokenType.LBRACKET:
-                    self._consume(TokenType.LBRACKET)
                     # 同上：不要在函数内 import IndexAccess，第 17 行已 import *。
-                    index = self._parse_expr()
-                    self._consume(TokenType.RBRACKET)
+                    # L-260：下标后缀支持切片（[0:2]），与读侧切片文法对称——
+                    # `己.列[0:1] 为 [7]` 的读法（_light_attr_get）一直通，写也要认。
+                    index = self._parse_index_or_slice_suffix()
                     target_expr = IndexAccess(target_expr, index)
                     continue
                 else:
@@ -1431,10 +1431,9 @@ class ParserStmtMixin:
                     return self._parse_expr_stmt()
 
             # 成员链之后的索引后缀：`自之成绩[科目] = 分数`（学生模块.light:35）
+            # L-260：下标后缀支持切片（[0:2]），与读侧切片文法对称。
             while self._current() and self._current().type == TokenType.LBRACKET:
-                self._consume(TokenType.LBRACKET)
-                idx_expr = self._parse_expr()
-                self._consume(TokenType.RBRACKET)
+                idx_expr = self._parse_index_or_slice_suffix()
                 target = IndexAccess(target, idx_expr)
 
             # G-02 增量赋值：己.计数 加为 1。复用 Assignment(成员链, BinaryOp(成员链,…))
@@ -1461,12 +1460,13 @@ class ParserStmtMixin:
             return self._parse_expr_stmt()
 
         
-        # 检查索引赋值：甲[丁] 为/等于 值。 或 甲[丁][戊] 为/等于 值。
+        # 检查索引赋值：甲[丁] 为/等于 值。 或 甲[丁][戊] 为/等于 值。 或 甲[0:2] 为/等于 值。
         if self._current() and self._current().type == TokenType.LBRACKET:
-            self._consume(TokenType.LBRACKET)
-            index = self._parse_expr()
-            self._consume(TokenType.RBRACKET)
-            
+            # L-260：下标后缀支持切片（[0:2]），与读侧切片文法对称——
+            # `表[1:3]` 读一直通，`表[0:2] 为 [9,9]` 写也必须认（原先在这里
+            # 撞冒号报「期望 右方括号」）。
+            index = self._parse_index_or_slice_suffix()
+
             # 构建索引访问链：甲[丁][戊] → IndexAccess(IndexAccess(Identifier("甲"), 丁), 戊)
             # IndexAccess 走本文件第 17 行的 `from ast_nodes_v3 import *`。
             # 这里原先有一句函数内 `from ast_nodes_v3 import IndexAccess`，
@@ -1476,9 +1476,7 @@ class ParserStmtMixin:
             # （实测样本 bootstrap/release/stdlib/对象池缓存.light）。已删除。
             target = IndexAccess(Identifier(name), index)
             while self._current() and self._current().type == TokenType.LBRACKET:
-                self._consume(TokenType.LBRACKET)
-                next_index = self._parse_expr()
-                self._consume(TokenType.RBRACKET)
+                next_index = self._parse_index_or_slice_suffix()
                 target = IndexAccess(target, next_index)
             
             # 检查索引复合赋值：甲[丁] 加上 值。
@@ -2364,6 +2362,48 @@ class ParserStmtMixin:
             self._consume(TokenType.PERIOD)
         return value
 
+    def _parse_index_or_slice_suffix(self):
+        """L-260：解析赋值左值上的一个下标后缀：[下标] 或 [起:止:步]。
+
+        赋值左值原先在 [ ] 里只调 _parse_expr()，冒号切不动——
+        `设 表[0:2] 为 [9,9]` 报「期望 右方括号，但得到 冒号」，而读侧同款
+        `表[1:3]` 一直通（读得了的写法，换到写就炸）。这里与读侧
+        parser_expr 的切片文法完全对称：返回普通表达式（单下标）或
+        SliceExpr（切片），dict / list / 类实例 × 单下标 / 切片
+        的读写两态从此对齐。[:] 缺省起补 NumberLiteral(0)，与读侧
+        A9-S2 口径一致（start 恒在 args 里，转译后可区分 [:stop] 与 [start:]）。
+        """
+        self._consume(TokenType.LBRACKET)
+        # [:...] 形态：起缺省
+        if self._match(TokenType.COLON):
+            self._consume(TokenType.COLON)
+            stop = None
+            if not self._match(TokenType.RBRACKET) and not self._match(TokenType.COLON):
+                stop = self._parse_expr()
+            step = None
+            if self._match(TokenType.COLON):
+                self._consume(TokenType.COLON)
+                if not self._match(TokenType.RBRACKET):
+                    step = self._parse_expr()
+            self._consume(TokenType.RBRACKET)
+            return SliceExpr(NumberLiteral(0), stop, step)
+        start = self._parse_expr()
+        if self._match(TokenType.COLON):
+            # 切片 [起:止:步] / [起:止] / [起:]
+            self._consume(TokenType.COLON)
+            stop = None
+            if not self._match(TokenType.RBRACKET) and not self._match(TokenType.COLON):
+                stop = self._parse_expr()
+            step = None
+            if self._match(TokenType.COLON):
+                self._consume(TokenType.COLON)
+                if not self._match(TokenType.RBRACKET):
+                    step = self._parse_expr()
+            self._consume(TokenType.RBRACKET)
+            return SliceExpr(start, stop, step)
+        self._consume(TokenType.RBRACKET)
+        return start
+
     def _parse_set_stmt(self) -> ASTNode:
         """解析变量声明：设 变量名 为 值。或 设 变量 为 类型 = 值。或 解构赋值：设（甲，乙）为 元组。
 
@@ -2491,32 +2531,43 @@ class ParserStmtMixin:
         if self._current() and self._current().type == TokenType.DOT:
             self._consume(TokenType.DOT)
             # 收集属性名
+            # L-255：多级点链（包.内.列）也要能收——裸赋值路径（成员链）一直
+            # 支持多级，读侧（表达式）多级一直通，设 路径原先只收单级就撞 .
+            # 报「期望'为'或'等于'，但得到 「.」」。
             attr_parts = []
-            while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
-                # 遇到赋值运算符或常见分隔符时停止
-                if self._current().value in ('为', '等于', '加上', '减去', '乘以', '除以', '幂', '取余',
-                                              '大于', '小于', '大于等于', '小于等于', '不等于',
-                                              '与', '或', '非', '在', '到', '从', '且'):
-                    break
-                attr_parts.append(self._consume().value)
+            while True:
+                while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                    # 遇到赋值运算符或常见分隔符时停止
+                    if self._current().value in ('为', '等于', '加上', '减去', '乘以', '除以', '幂', '取余',
+                                                  '大于', '小于', '大于等于', '小于等于', '不等于',
+                                                  '与', '或', '非', '在', '到', '从', '且'):
+                        break
+                    attr_parts.append(self._consume().value)
+                if self._current() and self._current().type == TokenType.DOT:
+                    self._consume(TokenType.DOT)  # 继续下一级成员
+                    continue
+                break
             if attr_parts:
                 attr_name = '.'.join(attr_parts)
                 full_name = f"{name}.{attr_name}"
             else:
+                attr_name = ''
                 full_name = name
             
             # 检查是否是属性+索引赋值：设 obj.attr[index] 为 value 或 设 obj.attr[i][j] 为 value
             if self._current() and self._current().type == TokenType.LBRACKET:
-                self._consume(TokenType.LBRACKET)
-                index_expr = self._parse_expr()
-                self._consume(TokenType.RBRACKET)
+                # L-255：容器 hop（包.列）必须构造成与读侧相同的 MemberAccess 链。
+                # 原先把「包.列」整个烤进单个 Identifier，写侧照名字发射裸
+                # `包.列[0] = 值`——dict 上 AttributeError: 'dict' object has no
+                # attribute '列'，与「读得通（_light_attr_get）」的直觉相反。
+                target_expr = Identifier(name)
+                for _attr_part in attr_name.split('.'):
+                    target_expr = MemberAccess(target_expr, _attr_part)
+                # L-260：下标后缀支持切片（[0:2]），与读侧切片文法对称。
+                target_expr = IndexAccess(target_expr, self._parse_index_or_slice_suffix())
                 # 支持多重索引：obj.attr[i][j]...
-                target_expr = IndexAccess(Identifier(full_name), index_expr)
                 while self._current() and self._current().type == TokenType.LBRACKET:
-                    self._consume(TokenType.LBRACKET)
-                    next_index = self._parse_expr()
-                    self._consume(TokenType.RBRACKET)
-                    target_expr = IndexAccess(target_expr, next_index)
+                    target_expr = IndexAccess(target_expr, self._parse_index_or_slice_suffix())
                 # 期望"为"或"等于"
                 if self._match(TokenType.KEYWORD, '为'):
                     self._consume(TokenType.KEYWORD, '为')
@@ -2547,21 +2598,27 @@ class ParserStmtMixin:
             value = self._parse_expr()
             if self._current() and self._current().type == TokenType.PERIOD:
                 self._consume(TokenType.PERIOD)
-            # 生成属性赋值：name.attr = value
-            return VarDecl(full_name, value, type_annotation=None)
+            # L-255：属性赋值返回与读侧对称的 MemberAccess 目标（codegen 落
+            # _light_attr_set：dict → 键设置、类实例 → 原生 setattr）。
+            # 原先返回 VarDecl(full_name)，写侧发裸 `包.列 = 值`，dict 上
+            # AttributeError: 'dict' object has no attribute '列'，与裸赋值
+            # 路径（_light_attr_set，一直通）和读侧（_light_attr_get）都不对称。
+            if not attr_parts:
+                # 「设 包.」后面没跟属性名：维持旧行为按裸名声明
+                return VarDecl(name, value, type_annotation=None)
+            target_expr = Identifier(name)
+            for _attr_part in attr_name.split('.'):
+                target_expr = MemberAccess(target_expr, _attr_part)
+            return Assignment(target_expr, value)
 
         # 支持索引赋值：设 obj[index] 为 value 或 设 obj[i][j] 为 value
+        # L-260：下标后缀支持切片（[0:2]），与读侧切片文法对称——
+        # `设 表[0:2] 为 [9,9]` 原先在 _parse_expr 撞冒号报「期望 右方括号」。
         if self._current() and self._current().type == TokenType.LBRACKET:
-            self._consume(TokenType.LBRACKET)
-            index_expr = self._parse_expr()
-            self._consume(TokenType.RBRACKET)
+            target_expr = IndexAccess(Identifier(name), self._parse_index_or_slice_suffix())
             # 支持多重索引：obj[i][j]...
-            target_expr = IndexAccess(Identifier(name), index_expr)
             while self._current() and self._current().type == TokenType.LBRACKET:
-                self._consume(TokenType.LBRACKET)
-                next_index = self._parse_expr()
-                self._consume(TokenType.RBRACKET)
-                target_expr = IndexAccess(target_expr, next_index)
+                target_expr = IndexAccess(target_expr, self._parse_index_or_slice_suffix())
             # 期望"为"或"等于"
             if self._match(TokenType.KEYWORD, '为'):
                 self._consume(TokenType.KEYWORD, '为')

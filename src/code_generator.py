@@ -1676,6 +1676,27 @@ class PythonCodeGenerator:
         self._add_line("        setattr(_o, _k, _v)")
         self._add_line("    return _v")
         self._add_line("")
+        # L-255 / L-260：下标/切片赋值辅助函数，与读侧 _light_attr_get 对称。
+        # `X.列[下标] 为 值` 的容器 hop（X.列）走读侧同一把 _light_attr_get
+        # （dict → 键访问、类实例 → 原生属性），末跳在容器上做原生下标/切片赋值
+        # ——dict / list / 类实例三种容器行为一致。原先写侧发裸 `X.列[0] = 值`，
+        # dict 上 AttributeError: 'dict' object has no attribute '列'，与
+        # 「读得通」的直觉相反。
+        self._add_line("# 下标赋值辅助函数（容器访问与读侧 _light_attr_get 对称，dict/list/类实例一致）")
+        self._add_line("def _light_index_set(_o, _k, _i, _v):")
+        self._add_line("    _c = _light_attr_get(_o, _k)")
+        self._add_line("    _c[_i] = _v")
+        self._add_line("    return _v")
+        self._add_line("")
+        self._add_line("# 切片赋值辅助函数（等长切片赋值长度不变，与读侧切片语义对称）")
+        self._add_line("def _light_slice_set(_o, _k, _s, _e, _t, _v):")
+        self._add_line("    _c = _light_attr_get(_o, _k)")
+        self._add_line("    if _t is None:")
+        self._add_line("        _c[_s:_e] = _v")
+        self._add_line("    else:")
+        self._add_line("        _c[_s:_e:_t] = _v")
+        self._add_line("    return _v")
+        self._add_line("")
         # R72-E · L-175：bytes 分帧 helper。光明 parser 拒绝 `bytes_obj.split(...)`
         # 成员调用（bytes 字面量后的 `.方法` 会被 parser 误判为句号/结束符），
         # 纯光明 stdlib/字节缓冲.light 的 `按字节切` 段落无法直接调 bytes.split。
@@ -2072,6 +2093,10 @@ class PythonCodeGenerator:
                 self._add_line(
                     f"_light_attr_set({_obj_code}, {stmt.target.member!r}, {_value_code})"
                 )
+                return
+            # L-255 / L-260：容器下标/切片写（X.Y[i] 为 v / X.Y[i:j] 为 v）走
+            # 与读侧 _light_attr_get 对称的 helper 落写，dict/list/类实例一致。
+            if self._try_emit_container_index_write(stmt.target, stmt.value):
                 return
             target = self._generate_expr(stmt.target)
             # L-019：右侧表达式是在「目标尚未绑定」的语义下生成的（_bind_local 在下面
@@ -3164,8 +3189,53 @@ class PythonCodeGenerator:
         value = self._generate_expr(stmt.value)
         self._add_line(f"{target}[{index}] {py_op} {value}")
 
+    def _try_emit_container_index_write(self, target, value) -> bool:
+        """L-255 / L-260：容器 hop 为属性的下标/切片写，走与读侧对称的 helper 落写。
+
+        `X.Y[下标] 为 值` → `_light_index_set(X, 'Y', 下标, 值)`
+        `X.Y[起:止:步] 为 值` → `_light_slice_set(X, 'Y', 起, 止, 步, 值)`
+
+        容器（X.Y）与读侧同一把 `_light_attr_get`（dict → 键访问、
+        类实例 → 原生属性），末跳在容器上做原生下标/切片赋值——
+        dict / list / 类实例三种容器行为一致。绝不能再发裸 `X.Y[0] = 值`
+        （dict 上 AttributeError: 'dict' object has no attribute 'Y'）。
+        切片界与读侧 L-080 同一把 `切片下标检查`（非整数给出明确中文错误）。
+        命中并发射返回 True；非该形状返回 False，调用方走原路径（产物不变）。
+        """
+        if not (isinstance(target, IndexAccess) and isinstance(target.obj, MemberAccess)
+                and not target.obj.is_method_call):
+            return False
+        obj_code = self._generate_expr(target.obj.obj)
+        member_repr = repr(target.obj.member)
+        value_code = self._generate_expr(value)
+        if isinstance(target.index, SliceExpr):
+            s = target.index
+            parts = []
+            for bound in (s.start, s.stop, s.step):
+                if bound is None:
+                    parts.append('None')
+                else:
+                    # 切片下标必须是整数（与读侧 L-080 同一把检查）
+                    parts.append('_light_builtin.切片下标检查(%s)'
+                                 % self._generate_expr(bound))
+            self._add_line(
+                f"_light_slice_set({obj_code}, {member_repr}, "
+                f"{parts[0]}, {parts[1]}, {parts[2]}, {value_code})"
+            )
+        else:
+            index_code = self._generate_expr(target.index)
+            self._add_line(
+                f"_light_index_set({obj_code}, {member_repr}, {index_code}, {value_code})"
+            )
+        return True
+
     def _generate_indexed_assignment(self, stmt):
-        """生成索引赋值语句：甲[丁] = 值 或 甲[i][j] = 值"""
+        """生成索引赋值语句：甲[丁] = 值 或 甲[i][j] = 值 或 甲[i:j] = 值"""
+        # L-255 / L-260：容器 hop 为属性（X.Y[...]）时走与读侧对称的 helper 落写
+        # （_light_index_set / _light_slice_set）；裸名/键下标（甲[丁]、包["键"]）
+        # 走原有原生形态，产物逐字不变。
+        if self._try_emit_container_index_write(stmt.target, stmt.value):
+            return
         if isinstance(stmt.target, ASTNode):
             target = self._generate_expr(stmt.target)
         else:

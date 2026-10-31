@@ -1,126 +1,63 @@
-# T-0210 光明P1：内置形参名中英混杂，中文关键字参数调不通 [L-256]
+# T-0212 光明P1：写侧比读侧窄 —— 切片赋值不成立、dict 索引赋值不成立 [L-260/L-255]
 
 ## 做了什么
 
-### 1. `stdlib/builtins.py`：形参名全量归一为中文（token 级重命名，不动语义）
+### 1. `src/parser_stmt.py`：赋值左值下标位置支持切片 + 容器 hop 构造成与读侧相同的 MemberAccess 链
 
-190 个顶层函数里，改前 **73 个纯英文形参 / 2 个中英混杂**（`序列化JSON(value, 缩进)`、
-`设置文件所有者(路径, uid, gid)`）/ 92 个纯中文。改后 **纯英文 0、混杂 0、纯中文 167**
-（余下 23 个无参）。共动 **75 个函数、241 处 token**。
+- 新增 `_parse_index_or_slice_suffix()`：与读侧 parser_expr 的切片文法逐条对称
+  （[起:止:步] / [起:止] / [起:] / [:止]，缺省起补 NumberLiteral(0)，A9-S2 口径）。
+  接入五处赋值左值下标位置：`_parse_self_assignment` 索引后缀、
+  `_parse_assignment_stmt` 成员链索引后缀、裸下标分支（含链式）、
+  `_parse_set_stmt` 属性+索引分支、`_parse_set_stmt` 裸索引分支。
+- L-255：`设 包.列[0] 为 5` 的容器 hop（包.列）原先被烤进单个 Identifier
+  （`full_name = name + '.' + attr`），写侧照名字发裸 `包.列[0] = 值`，dict 上
+  AttributeError。现构造成与读侧完全相同的 MemberAccess 链。
+- 同族顺手修：`设` 路径属性名收集支持多级点链（`设 包.内.列[0] 为 5` 原先撞「.」
+  报「期望'为'或'等于'」）；`设 包.列 为 [9]`（无索引属性写）原先返回
+  `VarDecl("包.列")` 同样发裸赋值，现返回 MemberAccess 目标的 Assignment
+  （codegen 落 `_light_attr_set`，与裸赋值路径既有行为对齐）。
 
-改法不是手敲：用 `ast` 取每个顶层函数的行区间 + `tokenize` 逐 token 换名，显式跳过
-三类不该动的东西 —— 属性名（`os.path` 里的 `path`）、关键字实参标签
-（`open(encoding=...)` 里的 `encoding`）、字符串/注释里的同名字样。
-`git diff --stat` 是 **180 插入 / 180 删除、文件行数 2125 不变**，纯一对一换名，
-顶层 `def` 数量 190 不变（`tests/unit/test_R158_地板证据窗口漂移.py` 的地板分母不受影响）。
+### 2. `src/code_generator.py`：补写侧对称 helper `_light_index_set` / `_light_slice_set`
 
-命名取自三处权威，不自己发明：`stdlib/*.light` 门面的段落签名
-（`段落 读取文件(路径)`、`段落 字典获取(映射, 键, 默认值)`）、
-`docs/stdlib.md`（`设置环境变量(名称, 值)`）、
-以及 `src/enhanced_errors.py` 给用户看的报错示范
-（`读取文件(路径, 编码="utf-8")`）。
+- 产物头部新增两个 helper（紧挨 `_light_attr_set`）：
+  `_light_index_set(对象, 键, 索引, 值)` 与 `_light_slice_set(对象, 键, 起, 止, 步, 值)`。
+  容器 hop 走读侧同一把 `_light_attr_get`（dict → 键访问、类实例 → 原生属性），
+  末跳在容器上做原生下标/切片赋值 —— dict / list / 类实例行为一致。
+- 新增 `_try_emit_container_index_write()`：容器 hop 为属性（X.Y[...]）时发 helper；
+  裸名/键下标（表[0]、包["键"][0]）走原有原生形态，产物逐字不变。
+  切片界与读侧 L-080 用同一把 `_light_builtin.切片下标检查`（非整数明确中文报错）。
+- `Assignment` 分支与 `_generate_indexed_assignment` 各挂一处调用，天然覆盖
+  设/裸赋值/自赋值三条解析路径。
 
-主要映射：`path→路径`、`encoding→编码`、`content→内容`、`text→文本`、`value→值`、
-`separator→分隔符`、`default→默认值`、`substring→子串`、`width→宽度`、
-`fillchar→填充字符`、`start/end→起始/结束`、`old/new→旧串/新串`、`count/times→次数`、
-`uid/gid→用户ID/组ID`、`a/b→甲/乙`、`n→数`、`d/key→字典/键`、`*paths→*路径们`。
+### 3. 新增 `tests/unit/test_LH38_下标与切片写.py`（34 用例）
 
-### 2. `scripts/sync_builtins.py`：把「形参名归一」变成可复现的同步步骤
-
-boot 副本有 109 个「自包含保留体」不走逐字同步（模块 docstring 里写明的原因：真源对应
-函数是地板转发体，release 环境没有光导入钩子）。所以只改真源 + 跑 sync，boot 那 109 个
-函数的英文签名**修不掉**。因此：
-
-- 新增 `PARAM_RENAME`（与真源同一张表）与 `normalize_param_names()`，
-  `sync_boot()` 写完 boot 后按同一张表把 boot 全文件的英文形参名改成中文；
-  幂等 —— 已是中文的不产生改动（连跑两次 md5 相同，第二次不再打印「形参名归一」）。
-- `self_checks()` 新增一条：**真源 / boot / lh 三份副本都不得留英文形参名**，
-  留一个就 exit 非 0。这是「防再犯」的机器判据，不靠人记。
-
-### 3. 顺手修掉一处既有红：boot 的 `皆空` 是转发体
-
-`bootstrap/release/stdlib/builtins.py` 里 `皆空` 原本是逐字搬自真源的
-`import 内置核心判型` 转发体 —— release 环境没有光导入钩子，运行期必
-`ModuleNotFoundError`。这本来就是 `test_boot_no_light_forward_leak` 的既有红
-（**基线实证**：主仓 `36d2b5429` 未改动时跑 `tests/unit/test_builtins_drift.py`
-是 `1 failed, 7 passed`，红的正是这一条）。
-
-本卡把它补进 `BOOT_PORTED`，按 `stdlib/内置核心判型.light:55-70` 逐条落成自包含实现
-（null / `""` / 空 list / 空 dict 为真；纯空白串、`0`、空 bytes 不算空）。
-现在该文件 **8 passed**，基线那 1 红清零。这条是「改形参名会动 boot」时的附带收获，
-不是本卡的主线；如果不修，本卡的 verify 第 3 条会一直红着，卡根本 land 不了。
-
-### 4. 新增 `tests/unit/test_LH34_中文关键字参数.py`（391 用例）
-
-四组断言：
-
-1. **代表函数中文关键字真调**：`读取文件 / 写入文件 / 分割字符串 / 字典获取 / 原子写入`
-   五个，断言返回值（不是「没抛异常」就算过）。`原子写入` 是
-   `stdlib/路径护栏.light` 的段落，它的形参本来就是中文，这里钉住别被改回去。
-2. **形参名全中文**（参数化到每个公开顶层函数）：失败信息直接列出函数名 + 英文形参名。
-3. **中文名可作关键字**：每个公开函数的每个中文形参名都能
-   `inspect.signature(...).bind(**{中文名: None})` 成功；并做**反向自证** ——
-   把中文名换成 `path`/`text` 必须 `TypeError`，否则这条门禁是空的。
-4. **三份副本一致**：boot / LH 副本形参名全中文；LH 与真源逐字相同；
-   boot 与真源的差异只允许 `{是数字: (['值'], ['字符'])}` 这一条已知保留体差异
-   （boot 的是旧版单字符判型，两者都中文、语义等价，不强行拉平）。
-
-另加 `test_boot副本中文关键字可调` 与 `test_boot副本皆空是自包含实现`，
-把「boot 不只是静态改了名、运行期真能中文关键字调」钉住。
-
-**为什么第 3 组用 `bind()` 而不是真调用**：`删除文件` / `退出程序` / `执行命令`
-这类函数真调会删文件、退出进程、跑 shell，门禁不能拿它们做实验。`bind()` 成功已经
-足以证明「`编码=` 这种写法不会再 `TypeError: unexpected keyword argument`」。
-真实调用留给第 1 组和第 5 组（5 个代表 + boot 3 个），都是无破坏性的。
+- 验收矩阵（light run 真跑，走 `cli.light._run_src` 完整入口含 stdlib 地板）：
+  list 单下标/切片、dict 键下标/点属性下标/点属性切片、类实例属性下标（存量不回退）、
+  段落体内写 —— 全部断言输出值。
+- 读-写对拍：先读后写再读，断言读写路径拿到同一处（dict/list/类实例三容器）。
+- 解析层：切片左值不报语法错（参数化 7 形态）；发射形态静态锚点（发
+  `_light_index_set`/`_light_slice_set`、不发裸 `包.列[0] = 5`、产物含对称
+  helper 定义、裸名下标产物不变）；读侧既有行为边界（切片读、属性读、增量赋值、
+  方法调用语句不回退）。
 
 ## 验证（全部实跑，不是推演）
 
 | 命令 | 结果 |
 | --- | --- |
-| `python3 -m pytest -q tests/unit/test_LH34_中文关键字参数.py` | **391 passed** |
-| `python3 scripts/sync_builtins.py` | **exit 0**，自检全部通过，连跑两次幂等（md5 相同） |
-| `python3 -m pytest -q tests/unit/test_builtins_drift.py` | **8 passed**（基线 `1 failed, 7 passed`，那 1 红被本卡修掉） |
+| `python3 -m pytest -q tests/unit/test_LH38_下标与切片写.py`（卡面验收命令） | **34 passed** |
+| 修复前复现（stash 后基线）：`设 表[0:2] 为 [9,9]` → ParseError「期望 右方括号，但得到 冒号」、`设 包.列[0] 为 5` → AttributeError | 症状确认 |
+| 定向回归：test_codegen_container_writeback_O0 / test_codegen_ref_dict_O0 / test_v34_syntax_sugar / test_v35_chained_call | **91 passed** |
+| 核心链路：tests/test_codegen.py + test_A9_language.py + test_parser.py | **61 passed** |
+| 全量 tests/unit（-n 0） | 78 failed / 5506 passed —— **78 红全部为既有基线**（stash 后基线复跑门禁批 14/14、原生腿批 44/44 与带改动完全同名同数；本机无 LLVM 工具链、Windows 无 grep 等环境因素） |
 
-邻接回归（确认换名没打断调用方）：
+## 风险 / 边界（诚实声明）
 
-| 命令 | 本卡 | 基线 `36d2b5429` |
-| --- | --- | --- |
-| `tests/unit/test_R158_地板证据窗口漂移.py` | 4 passed / 6 failed | **同样 4 passed / 6 failed（同名同数）** |
-| `tests/test_codegen.py` | 22 passed | — |
-| `tests/test_path_guard_light.py` + `tests/unit/test_bootstrap_compiler.py` | 全绿 | — |
-
-`test_R158_地板证据窗口漂移.py` 那 6 红是**既有红**：主仓 `36d2b5429` 未改动时逐条同名
-同数复现，与本卡无关（本卡没增删顶层 `def`，地板分母 190 不变）。
-
-### 换名的破面排查（先扫后改，不是改完再撞）
-
-改前扫了全仓 `.py`（`src/ stdlib/ tests/ tools/ bootstrap/`）里对这 75 个函数名的
-**关键字调用**，只有 7 处命中，逐条核实后**全部是别的模块的同名函数**：
-
-- `stdlib/外部命令.py` 的 `执行命令(捕获输出=…, 工作目录=…)` → 该文件 `:40` 自己定义了
-  `执行命令`（5 参），不是地板的 `执行命令(命令)`。
-- `tests/test_new_modules.py:445` / `tests/test_stdlib_phase13.py:226` 的
-  `美化JSON(数据, 缩进=2)` → 调的是 `美化输出`/`JSON` 模块的 `美化JSON`，不是地板那个。
-
-`.light` 门面调地板一律按位置传参，不受影响。
-
-## 没做 / 风险（诚实声明）
-
-1. **`lightharness` 独立仓没有提交**。本卡工作区里的 LH 副本
-   （`<worktree>/../lightharness/stdlib/builtins.py`）是由 `scripts/sync_builtins.py`
-   生成的、与真源逐字一致（`test_LH形参名与真源逐字相同` 钉住），但**真正的
-   `G:/dswork/duan-light-merge/lightharness` 仓我没动**：它当前是
-   `## main...myrepo/main [ahead 7, behind 1]` 且 `stdlib/builtins.py` /
-   `stdlib/内置核心判型.light` 已有**上一轮遗留的未提交改动**，
-   直接覆盖会吞掉别人的工作。LH 仓的落地需要单独一张卡（或由该仓 owner 跑一次
-   `scripts/sync_builtins.py` 后提交）。本卡的 3 条 verify 都不依赖 LH 仓的 git 状态。
-2. **`原子写入` 不在 `stdlib/builtins.py` 里**，它是 `stdlib/路径护栏.light:296` 的段落
-   （`段落 原子写入(路径, 内容)`，形参本来就是中文）。卡面把它列进代表函数，
-   我按「它已经是中文、别改回去」来钉，没有改 `.light`（`.light` 不在本卡允许路径内）。
-   卡面说的「原子写入内部 encoding + 权限 混着」在当前 `main` 上已不复现。
-3. **`阶乘(数)` / `十进制加(甲, 乙)` 与 `.light` 门面的 `阶乘(n)` / `十进制加(a, b)`
-   不同名**。门面是独立实现（不在本卡允许路径内），地板这侧按「形参必须全中文」的
-   要求改成了中文名；两边都能用位置参数互调，但关键字名不一致这一点如实记在这里。
-4. **`dir_path` 这类函数内局部变量仍是英文**，本卡只管形参（门禁也只判形参）。
-5. 没有跑 LH 全量（2100+ 用例，本机 ~53 分钟）—— 本卡只动形参名、不动语义，
-   已用上面 4 组邻接回归 + 全仓关键字调用扫描覆盖破面。若需要全量对拍，建议送 0.88。
+1. `设 包["列"][0] 加为 1`（设 路径下标 + 增量动词）改前改后都报「期望'为'或'等于'」
+   —— 该形态在存量里本就不支持（裸赋值路径 `包["列"][0] 加为 1` 一直通），
+   不属于本卡范围，未顺手扩。
+2. `_light_slice_set` 的步长分支带步切片语义与 Python 一致（`表[0:4:2] = [7,8]`
+   → `[7,2,8,4]`），只加了长度不变的守门测试，非常规步长的替换语义未逐一钉。
+3. 全量 78 红为既有基线（对比方法与逐条同名清单见上表），但**修复基线账本**
+   `tests/ci_baseline_failures.txt` 不在本卡允许路径内，未动。
+4. unified 后端（code_generator_unified.py）不在卡面允许路径内，未动；
+   本卡语义落在 src 后端（卡面验收命令即跑 src 后端）。
