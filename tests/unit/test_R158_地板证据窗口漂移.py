@@ -16,12 +16,15 @@ floor 门禁必红。R158-B 把判据换成**按声明名的语法级定位**（
 
 ## 判据
 
-- **正向**：真仓库跑 floor 门禁 RC=0；地板自举率 == 68/96（70.83%）；9 条判型内置
-  全部登记 `has_light_impl`，且证据经语法级定位校验通过。
+- **正向**：真仓库跑 floor 门禁 RC=0；地板自举率等于基线快照（`light_count` /
+  `denominator` 从 `tools/ci/floor_bootstrap_baseline.json` 读，**不写死数字** ——
+  R158 上线后清单补条目、基线在合并点正常上棘轮，写死快照的门禁自己先红，教训见
+  T-0214）；9 条判型内置全部登记 `has_light_impl`，且证据经语法级定位校验通过。
 - **反跑①**（顶得住 R153 那类注释增厚）：在 `段落 是字母(` 上方插 3 行注释后，
-  整条 floor 门禁仍 RC=0 且 `light_count` 仍 68；**同一份漂移文件**用旧 ±2 窗口复算
-  会红。若有人把 `floor_bootstrap.py` 改回 ±2 文本窗口，本类立即转红。
-- **反跑②**（整树端到端）：`--root` 指向漂移树，门禁对真基线 RC=0、`light_count` 68。
+  整条 floor 门禁仍 RC=0 且 `light_count` 仍等于基线；**同一份漂移文件**用旧 ±2
+  窗口复算会红。若有人把 `floor_bootstrap.py` 改回 ±2 文本窗口，本类立即转红。
+- **反跑②**（整树端到端）：`--root` 指向漂移树，门禁对真基线 RC=0、`light_count`
+  等于基线。
 - **反跑③**（防假绿，两形）：(a) 把一条 `movable` 真·空壳改成 `has_light_impl` 并把
   证据指向一个**没有该声明**的文件 → RC=1；(b) 证据行指向**有该声明但相距超过一个
   段落块长**的远处行 → RC=1（这条同时是「上界断言不算判据」的反跑）。
@@ -41,6 +44,7 @@ import unittest
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _CI_DIR = os.path.join(_ROOT, "tools", "ci")
 _MANIFEST = os.path.join(_ROOT, "任务书", "自举地板清单.json")
+_BASELINE = os.path.join(_ROOT, "tools", "ci", "floor_bootstrap_baseline.json")
 _BUILTINS = os.path.join(_ROOT, "stdlib", "builtins.py")
 
 # 判型内置：R157-E9 的 9 条现场（也是 R153 注释增厚的重灾区）。
@@ -49,10 +53,10 @@ _判型九条 = ("是字母", "是数字", "是空", "是空白", "是布尔",
 # 反跑用的样本：`段落 是字母(` 的定义行上方插行，最直接地复现 R153 场景。
 _样本名 = "是字母"
 _判型文件 = "stdlib/内置核心判型.light"
-# 真仓库里 `是字母` 的定义行（R157 手工对准的值）。用它当「漂移前」的锚点。
-_是字母定义行_R157 = 61
-
-_旧窗口 = 2   # R158 之前的漂移窗口（行）
+# T-0214 教训：定义行锚点（原 `_是字母定义行_R157 = 61`）写死会随 `.light` 演进漂移
+# （R158 上线后不久就漂到 73，4 条红全是它引起的）。一律用语法级定位现算。
+# 旧漂移窗口（行）——R158 之前的判据，复刻它只为证明「改回去就会红」。
+_旧窗口 = 2
 
 
 def _load(name):
@@ -105,6 +109,21 @@ def _写行(path, 行, 换行):
         os.makedirs(d)
     with io.open(path, "w", encoding="utf-8", newline="") as fh:
         fh.write(换行.join(行))
+
+
+def _现算定义行(名字):
+    """真仓库判型文件里 `名字` 的定义行 —— 语法级定位现算，不写死快照值。"""
+    行 = [s.rstrip("\r") for s in _读行(os.path.join(_ROOT, *_判型文件.split("/")))]
+    定义行, _缩 = FB.定位定义行(FB.声明行表(行), 名字, 1)
+    if 定义行 is None:
+        raise AssertionError("声明 `%s` 在 %s 里找不到 —— 测试自身失效" % (名字, _判型文件))
+    return 定义行
+
+
+# 「漂移前」的锚点：现算值（R157 手工对准时是 61，后来漂到 73 —— 写死就红）。
+_是字母定义行 = _现算定义行(_样本名)
+# 反跑三「前缀同名」的证据行：`是空白` 的定义行含 `是空` 子串但声明名精确不等。
+_是空白定义行 = _现算定义行("是空白")
 
 
 def _引用的落点文件(条目):
@@ -183,19 +202,23 @@ def _最小树(d, 漂移判型=False, 清单数据=None):
 
 
 class Test正向_真仓库不漂(unittest.TestCase):
-    """真清单 + 真 `.light` + 真基线 → 绿，且自举率仍是 68/96。"""
+    """真清单 + 真 `.light` + 真基线 → 绿，且自举率与基线快照一致。"""
 
     def test_门禁在真仓库上通过(self):
         self.assertEqual(_跑("--root", _ROOT), 0)
 
-    def test_地板自举率等于68比96(self):
+    def test_地板自举率等于基线快照(self):
+        """比率判据从基线 JSON 读，不写死：基线在合并点上棘轮，门禁跟着走。"""
+        基线 = _读json(_BASELINE)
         真名单 = FB.读地板函数名(_ROOT)
         函数节点 = FB.读地板函数节点(_ROOT)
         _data, 条目 = FB.读清单(_MANIFEST)
         问题, 统计 = FB.校验(_ROOT, 条目, 真名单, 函数节点)
         self.assertEqual(问题, [])
-        self.assertEqual((统计["light_count"], 统计["denominator"]), (68, 96))
-        self.assertAlmostEqual(统计["rate"], 68 / 96, places=12)
+        self.assertEqual((统计["light_count"], 统计["denominator"]),
+                         (基线["light_count"], 基线["denominator"]))
+        self.assertAlmostEqual(统计["rate"],
+                               基线["light_count"] / 基线["denominator"], places=12)
 
     def test_九条判型内置全部语法级可定位(self):
         _data, 条目 = FB.读清单(_MANIFEST)
@@ -212,8 +235,8 @@ class Test正向_真仓库不漂(unittest.TestCase):
 class Test反跑一_旧窗口会红新定位不红(unittest.TestCase):
     """R153 场景：`段落 是字母(` 上方插 3 行注释。
 
-    - 旧 ±2 文本窗口：证据行 61 落在注释里，±2 内无定义行 → **红**；
-    - 新语法级定位：按声明名找到定义行（61 → 64），距离 3 ≤ 段落块长 → **绿**。
+    - 旧 ±2 文本窗口：证据行（漂移前的定义行）落进注释里，±2 内无定义行 → **红**；
+    - 新语法级定位：按声明名找到定义行（下移 3 行），距离 3 ≤ 段落块长 → **绿**。
     """
 
     def _漂移文件(self, d):
@@ -228,17 +251,16 @@ class Test反跑一_旧窗口会红新定位不红(unittest.TestCase):
     def test_旧窗口在漂移后失配(self):
         with tempfile.TemporaryDirectory() as d:
             新行, 新定义行, 旧定义行 = self._漂移文件(d)
-            self.assertEqual(旧定义行, _是字母定义行_R157,
-                             "真仓库里 `段落 是字母` 的定义行已不是 R157 对准的 %d —— "
-                             "要么 `.light` 被改过，要么证据行该刷新" % _是字母定义行_R157)
+            self.assertEqual(旧定义行, _是字母定义行,
+                             "插行前现算定义行与模块级锚点不一致 —— 测试自身失效")
             self.assertEqual(新定义行, 旧定义行 + 3, "插 3 行后定义行应下移 3")
-            # 证据行仍指着 R157 那行（= 现在的注释行），旧 ±2 窗口找不到定义行
-            self.assertEqual(_旧窗口命中(新行, _是字母定义行_R157, _样本名), [])
+            # 证据行仍指着漂移前那行（= 现在的注释行），旧 ±2 窗口找不到定义行
+            self.assertEqual(_旧窗口命中(新行, _是字母定义行, _样本名), [])
 
     def test_新定位在漂移后仍绿(self):
         with tempfile.TemporaryDirectory() as d:
             self._漂移文件(d)
-            坏, 模块名 = FB.校验证据(d, "%s:%d" % (_判型文件, _是字母定义行_R157), _样本名)
+            坏, 模块名 = FB.校验证据(d, "%s:%d" % (_判型文件, _是字母定义行), _样本名)
             self.assertIsNone(坏, "新定位在 R153 场景下仍判红：%s" % 坏)
             self.assertEqual(模块名, "内置核心判型")
 
@@ -248,11 +270,12 @@ class Test反跑一_旧窗口会红新定位不红(unittest.TestCase):
             清单 = _最小树(d, 漂移判型=True)
             # 对真基线跑棘轮判定 → 绿（不是 write-baseline 自证）
             self.assertEqual(_跑("--root", d, "--list", 清单), 0)
-            # 分子不许因漂移缩水
-            基线 = os.path.join(d, "b.json")
+            # 分子不许因漂移缩水：仍等于真基线的 light_count
+            基线路径 = os.path.join(d, "b.json")
             self.assertEqual(_跑("--root", d, "--list", 清单,
-                                "--write-baseline", 基线), 0)
-            self.assertEqual(_读json(基线)["light_count"], 68)
+                                "--write-baseline", 基线路径), 0)
+            self.assertEqual(_读json(基线路径)["light_count"],
+                             _读json(_BASELINE)["light_count"])
 
     def test_删除上方三行后仍绿(self):
         """反向漂移（删行）同样被「一个段落块长」的容差吸收。"""
@@ -264,7 +287,7 @@ class Test反跑一_旧窗口会红新定位不红(unittest.TestCase):
             新 = 纯[:20] + 纯[23:]
             目标 = os.path.join(d, *_判型文件.split("/"))
             _写行(目标, 新, 换行)
-            坏, _模块名 = FB.校验证据(d, "%s:%d" % (_判型文件, _是字母定义行_R157), _样本名)
+            坏, _模块名 = FB.校验证据(d, "%s:%d" % (_判型文件, _是字母定义行), _样本名)
             self.assertIsNone(坏, "删行后新定位误判红：%s" % 坏)
 
 
@@ -308,10 +331,10 @@ class Test反跑三_假绿必须红(unittest.TestCase):
         """`段落 是空白(字符)` 不许冒充 `是空` —— 声明名必须精确相等。
 
         子串匹配（旧判据用的 `名字 in 行`）会让 `是空` 命中 `段落 是空白(字符)`；
-        新判据抓「声明名」并做精确比较，第 73 行离 `是空` 的定义行 55 有 18 行，
-        超过一个段落块长 → 红。
+        新判据抓「声明名」并做精确比较，`是空白` 的定义行（现算，不写死）离
+        `是空` 的定义行超过一个段落块长 → 红。
         """
-        坏, _模块名 = FB.校验证据(_ROOT, "%s:73" % _判型文件, "是空")
+        坏, _模块名 = FB.校验证据(_ROOT, "%s:%d" % (_判型文件, _是空白定义行), "是空")
         self.assertIsNotNone(坏, "`是空白` 的定义行被 `是空` 蒙过去了")
 
 

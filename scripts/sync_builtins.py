@@ -60,7 +60,14 @@ BOOT_KEEP_HEADER = "import json as _duan_json_module"      # boot 顶层必须�
 # LH 侧 .light 依赖同步（R114 实测发现）：LH 的 builtins.py 公共函数体逐字取真源后，
 # 是布尔/是函数/是数值/字符串全数字 转发到 LH stdlib 的 内置核心判型.light——但该
 # .light 是旧拷贝（缺这 4 个段落，实测 AttributeError）。按同一真源原则逐字同步。
-LH_LIGHT_SYNC = ("内置核心判型.light",)
+#
+# 列表工具.light（2026-10-30 补）：builtins.求和 转发时传 4 个位置参数
+# （数据 / 长整上限 / 启用补偿 / 整数进补偿），而 LH 那份是 3 参旧版，实测
+# `求和() takes from 1 to 3 positional arguments but 4 were given` ——
+# 只要 example 里出现 `求和([...])` 就炸（test_R72_C_推导式 / test_R20_词法边界综合
+# 两条由绿转红）。这类「builtins 转发目标」的签名必须与真源刚性咬合，
+# 所以纳入本清单机械同步，不再靠人记得改。
+LH_LIGHT_SYNC = ("内置核心判型.light", "列表工具.light")
 BOOT_PORTED = {
     "皆空": '''def 皆空(值) -> bool:
     """宽口径空判定（R114-S1 boot 自包含移植：对齐 内置核心判型.皆空）。
@@ -136,7 +143,35 @@ BOOT_PORTED = {
     """生成随机 UUID v4 字符串。R114-S1 boot 自包含移植：对齐 内置核心系统.随机UUID。"""
     import uuid
     return str(uuid.uuid4())''',
+
+    "皆空": '''def 皆空(值) -> bool:
+    """宽口径空判定（真身 stdlib/内置核心判型.light 的 皆空 段落）。
+
+    T-0197 · LH-02：`是空` 语义锁死（只认 null/""），本函数额外把空列表/空字典算空：
+    null / "" / [] / {} 为真；纯空白串、0、空 bytes 不算空。需要「空容器也算空」
+    的场景（任务队列判空字段等）用本函数，勿改 `是空`。
+
+    R158-C boot 自包含移植：T-0197 加它时按「真源有而 boot 缺 → 逐字取自真源」处理，
+    而真源这一版是地板转发（`import 内置核心判型; return 内置核心判型.皆空(值)`）。
+    release 包里既没有 内置核心判型.light 也没有光导入钩子，一调用就是 ImportError ——
+    test_builtins_drift.py::test_boot_no_light_forward_leak 正是为这条设的（实测红）。
+    """
+    if 值 is None:
+        return True
+    if isinstance(值, str):
+        return len(值) == 0
+    if isinstance(值, (list, dict)):
+        return len(值) == 0
+    return False''',
 }
+
+# boot 强制覆盖名单：这些函数**即使 boot 里已有同名**也必须换成 BOOT_PORTED 的自包含体。
+#
+# 为什么需要它（R158-C 的教训）：`sync_boot` 只补「真源有而 boot 缺」的函数，于是
+# 「先被逐字塞进 boot、后被发现问题」的函数永远修不掉 —— 它已经在了，missing 里没有
+# 它，每轮 sync 都把那个错版本原样留着，自检也不报（自检只比「本次逐字写入的集合」）。
+# 皆空 就是这么漏进 release 的：光转发式 import，release 环境必然 ImportError。
+BOOT_OVERWRITE = {"皆空"}
 
 # 自动生成段标记（boot 侧；幂等锚点）
 MARK_BEGIN = "# ===== R114-S1 sync_builtins.py 自动生成段（勿手改；由 scripts/sync_builtins.py 重生成）====="
@@ -244,11 +279,23 @@ def normalize_param_names(text):
                 raise SystemExit(
                     f"normalize_param_names: {node.name} 内含嵌套 def/lambda，需人工处理"
                 )
-        labels = {
-            (sub.lineno, sub.col_offset)
-            for sub in _ast.walk(node)
-            if isinstance(sub, _ast.keyword) and getattr(sub, "lineno", None)
-        }
+                # ⚠️ ast.keyword 的 (lineno, col_offset) 指向**实参值**，不是标签：
+        #      os.fdopen(句柄, 'w', encoding=编码)
+        #      keyword 节点在 `编码` 那一列，而要保护的是 `encoding` 标签列。
+        #   旧写法保护的是值的位置，于是「跳过关键字标签」从未生效 —— 函数体里
+        #   任何 Python 关键字实参（encoding= / name= / separator=…）都会被
+        #   误改成中文，运行期 TypeError: unexpected keyword argument（实测
+        #   把 原子写入 改坏）。改成保护 `arg` 名字那一格。
+        labels = set()
+        for sub in _ast.walk(node):
+            if not isinstance(sub, _ast.keyword) or not getattr(sub, "lineno", None):
+                continue
+            if not sub.arg:            # **kwargs 展开，没有标签
+                continue
+            # 标签形如 `arg=`：值的列号减去 arg 长度就是标签起始列
+            col_start = sub.col_offset - len(sub.arg)
+            if col_start >= 0:
+                labels.add((sub.lineno, col_start))
         ranges.append(((node.lineno, node.col_offset),
                        (node.end_lineno, node.end_col_offset), mapping, labels))
 
@@ -360,6 +407,22 @@ def sync_boot(main_text, main_funcs, main_order):
 
     prefix_funcs, _ = parse_functions(prefix)
     already = set(prefix_funcs.keys())
+
+    # 1.5 强制覆盖（R158-C）：BOOT_OVERWRITE 里的函数，boot 已有同名也换成自包含移植体
+    覆盖 = []
+    for n in sorted(BOOT_OVERWRITE):
+        旧 = prefix_funcs.get(n)
+        if 旧 is None:
+            continue                      # 没有就走第 2 步的 ported 路径补进去
+        新 = BOOT_PORTED[n]
+        if block_hash(旧) == block_hash(新):
+            continue                      # 已经是自包含体，幂等
+        prefix = prefix.replace(旧, 新 + "\n")
+        覆盖.append(n)
+    if 覆盖:
+        prefix_funcs, _ = parse_functions(prefix)
+        already = set(prefix_funcs.keys())
+        print(f"  [强制覆盖] boot 既有函数换成自包含移植体: {覆盖}")
 
     # 2. 真源有而 boot 缺的函数：38 个逐字取自真源 + 11 个走 BOOT_PORTED
     missing = [n for n in main_order if n not in already]
@@ -494,6 +557,18 @@ def self_checks(main_funcs, main_order, boot_verbatim):
     if BOOT_KEEP_HEADER not in header_lines:
         errors.append(f"boot 缺少顶层保留行: {BOOT_KEEP_HEADER}")
 
+    # boot 全文不得出现光转发式 import（R158-C 新增；与
+    # tests/unit/test_builtins_drift.py::test_boot_no_light_forward_leak 同一条判据）
+    #
+    # 为什么自检里也要有一条：那条测试在 tests/ 下，而 sync_builtins.py 会被单独
+    # 拿去重生成发行包 —— 门禁离病灶越远越容易绕过。这里当场断，回滚代价最小。
+    光转发 = [l for l in boot_text.split("\n")
+              if re.match(r"^\s*import\s+(内置核心\w*|字符串工具轻量|JSON|JSON核心)\s*$", l)
+              or re.match(r"^\s*from\s+(内置核心\w*|字符串工具轻量|JSON)\b", l)]
+    if 光转发:
+        errors.append(f"boot 出现光转发式 import（release 环境无光导入钩子，必然 ImportError）: "
+                      f"{[l.strip() for l in 光转发]}；把该函数加进 BOOT_PORTED + BOOT_OVERWRITE")
+
     # JSON 三豁免：取 boot 版。解析JSON/序列化JSON 必须直用 _duan_json_module 且
     # 不得含真源的惰性 import JSON；美化JSON 委托 序列化JSON（本就不直引模块），
     # 只需断言它没误入惰性 import JSON 版。
@@ -524,13 +599,19 @@ def self_checks(main_funcs, main_order, boot_verbatim):
         if block_hash(boot_funcs[n]) != block_hash(main_funcs[n]):
             errors.append(f"boot 逐字同步函数与真源漂移: {n}")
 
-    # LH .light 依赖已同步（内置核心判型.light 必须含 4 个新判型段落）
+    # LH .light 依赖已同步（逐文件、按各自的「必须含」判据；不能一份判据套所有文件）
+    _LH_LIGHT_EXPECT = {
+        # R114：LH 的判型门面缺这 4 个段落时，builtins 转发直接 AttributeError
+        "内置核心判型.light": ("段落 是布尔", "段落 是函数", "段落 是数值", "段落 字符串全数字"),
+        # 2026-10-30：builtins.求和 传 4 参，旧版 3 参会 TypeError
+        "列表工具.light": ("段落 求和(数据, 长整上限", "整数进补偿"),
+    }
     for name in LH_LIGHT_SYNC:
         p = os.path.join(os.path.dirname(LH_PATH), name)
         t = read(p)
-        for para in ("段落 是布尔", "段落 是函数", "段落 是数值", "段落 字符串全数字"):
+        for para in _LH_LIGHT_EXPECT.get(name, ()):
             if para not in t:
-                errors.append(f"LH .light {name} 缺段落: {para}")
+                errors.append(f"LH .light {name} 缺: {para}")
 
     # L-256：三份副本都不得留英文形参名（源码照文档写中文关键字必须能调通）
     for label, text in (("真源", read(MAIN_PATH)), ("boot", boot_text), ("lh", lh_text)):

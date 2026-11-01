@@ -23,6 +23,51 @@ def 写入文件(path: str, content: str, encoding: str = 'utf-8') -> None:
         f.write(content)
 
 
+def 原子写入(path: str, content: str, encoding: str = 'utf-8',
+             权限: Optional[int] = None) -> bool:
+    """原子写入(path, 内容, 权限=None) —— LH-28（lighthive 第三轮暴露）
+
+    `写入文件` 是「打开即清空 + 分次写」：写到一半进程被杀、或另一个进程
+    正好在读，拿到的是**半个文件**（半个 JSON / 半个配置）。凭据表、游标、
+    快照这类文件一旦读坏就是真事故。
+
+    这里按「写临时文件 → 设权限 → os.replace 改名」三步来：
+    os.replace 在同一文件系统上是原子的，读者只会看到旧文件或新文件。
+
+    参数:
+        path: 目标路径
+        content: 文本内容
+        encoding: 编码
+        权限: 例如 0o600；不给则沿用默认 umask
+
+    返回:
+        True 表示已落盘
+    """
+    import tempfile
+    目录 = os.path.dirname(os.path.abspath(path))
+    if 目录 and not os.path.isdir(目录):
+        os.makedirs(目录, exist_ok=True)
+    句柄, 临时 = tempfile.mkstemp(dir=目录, prefix='.原子写入-', suffix='.tmp')
+    try:
+        with os.fdopen(句柄, 'w', encoding=encoding) as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        if 权限 is not None:
+            try:
+                os.chmod(临时, 权限)
+            except OSError:
+                pass
+        os.replace(临时, path)
+        return True
+    except BaseException:
+        try:
+            os.unlink(临时)
+        except OSError:
+            pass
+        raise
+
+
 def 追加文件(path: str, content: str, encoding: str = 'utf-8') -> None:
     """追加内容到文件"""
     with open(path, 'a', encoding=encoding) as f:

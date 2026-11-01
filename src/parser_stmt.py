@@ -2531,29 +2531,45 @@ class ParserStmtMixin:
         if self._current() and self._current().type == TokenType.DOT:
             self._consume(TokenType.DOT)
             # 收集属性名
-            # L-255：多级点链（包.内.列）也要能收——裸赋值路径（成员链）一直
-            # 支持多级，读侧（表达式）多级一直通，设 路径原先只收单级就撞 .
-            # 报「期望'为'或'等于'，但得到 「.」」。
+            # LH-26：A.B.C 多级（lighthive 第三轮踩到 —— `设 己.连接.row_factory 为 …`
+            # 报「期望'为'或'等于'，但得到 PERIOD」，二级赋值和三级**读取**却都正常）。
+            # 原循环只在 IDENT/KEYWORD 上连续吃，撞到第二个点号就退出，于是把
+            # `对.内.k` 截成 `对.内`、剩下的 `.k` 无人认领。
+            # 这里补一支：点号后面还是名字（且不是运算符词）就继续往下吃。
+            _attr_stops = ('为', '等于', '加上', '减去', '乘以', '除以', '幂', '取余',
+                           '大于', '小于', '大于等于', '小于等于', '不等于',
+                           '与', '或', '非', '在', '到', '从', '且')
             attr_parts = []
-            while True:
-                while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
-                    # 遇到赋值运算符或常见分隔符时停止
-                    if self._current().value in ('为', '等于', '加上', '减去', '乘以', '除以', '幂', '取余',
-                                                  '大于', '小于', '大于等于', '小于等于', '不等于',
-                                                  '与', '或', '非', '在', '到', '从', '且'):
-                        break
-                    attr_parts.append(self._consume().value)
+            while self._current() and self._current().type in (TokenType.IDENTIFIER, TokenType.KEYWORD):
+                # 遇到赋值运算符或常见分隔符时停止
+                if self._current().value in _attr_stops:
+                    break
+                attr_parts.append(self._consume().value)
                 if self._current() and self._current().type == TokenType.DOT:
-                    self._consume(TokenType.DOT)  # 继续下一级成员
-                    continue
-                break
+                    _nxt = self._peek(1)
+                    if (_nxt and _nxt.type in (TokenType.IDENTIFIER, TokenType.KEYWORD)
+                            and _nxt.value not in _attr_stops):
+                        self._consume(TokenType.DOT)
+                        continue
+                    break
             if attr_parts:
                 attr_name = '.'.join(attr_parts)
                 full_name = f"{name}.{attr_name}"
             else:
                 attr_name = ''
                 full_name = name
-            
+
+            # LH-26：三级及以上改成「成员链 + Assignment」，由 codegen 发成
+            # _light_attr_set(_light_attr_get(对象, '内'), 'k', 值) —— 与读取侧
+            # 的 _light_attr_get 同语义（dict 走键、类实例走原生属性），
+            # 不会像裸发 `对.内.k = 值` 那样对 dict 抛 AttributeError。
+            # 二级（X.Y）继续走原 VarDecl 路径，产物逐字节不变。
+            _multi_attr = len(attr_parts) >= 2
+            if _multi_attr:
+                _target = Identifier(name)
+                for _part in attr_parts:
+                    _target = MemberAccess(_target, _part)
+
             # 检查是否是属性+索引赋值：设 obj.attr[index] 为 value 或 设 obj.attr[i][j] 为 value
             if self._current() and self._current().type == TokenType.LBRACKET:
                 # L-255：容器 hop（包.列）必须构造成与读侧相同的 MemberAccess 链。
@@ -2600,9 +2616,9 @@ class ParserStmtMixin:
                 self._consume(TokenType.PERIOD)
             # L-255：属性赋值返回与读侧对称的 MemberAccess 目标（codegen 落
             # _light_attr_set：dict → 键设置、类实例 → 原生 setattr）。
-            # 原先返回 VarDecl(full_name)，写侧发裸 `包.列 = 值`，dict 上
-            # AttributeError: 'dict' object has no attribute '列'，与裸赋值
-            # 路径（_light_attr_set，一直通）和读侧（_light_attr_get）都不对称。
+            # **二级也要走这条**：远端 LH-26 版只在 ≥2 级时才走 Assignment，
+            # 二级仍返回 VarDecl(full_name)，于是 `设 包.列 为 x` 又发裸
+            # `包.列 = 值`，dict 上 AttributeError（实测 test_LH38 转红）。
             if not attr_parts:
                 # 「设 包.」后面没跟属性名：维持旧行为按裸名声明
                 return VarDecl(name, value, type_annotation=None)

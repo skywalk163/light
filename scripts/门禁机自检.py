@@ -54,6 +54,9 @@ if str(SCRIPTS) not in sys.path:
 import sync_builtins as _sb  # noqa: E402
 import ensure_venv as _ev  # noqa: E402
 
+# ⚠️ 仅供「没有专门判据的文件」兜底；权威判据是 sync_builtins._LH_LIGHT_EXPECT
+# （按文件分别定义）。拿这一个元组套所有 LH 文件会在多文件清单下误判。
+# 保留常量是因为 ②LH 的历史报告里出现过这个名字，外部脚本可能引用。
 _判型段落 = ("段落 是布尔", "段落 是函数", "段落 是数值", "段落 字符串全数字")
 
 
@@ -145,7 +148,11 @@ def 检lh副本(res: _结果, lh: Path | None):
             res.add(False, f"②LH {name}", f"不存在：{p}")
             continue
         t = _sb.read(str(p))
-        缺 = [s for s in _判型段落 if s not in t]
+        # 各文件各自的「必须含」判据：不能一份判据套所有文件
+        # （LH_LIGHT_SYNC 从 1 个变 2 个后，用 _判型段落 套 列表工具 就会误判
+        #   —— T-0215 合并 gitea/main 时实测；两处口径分叉的老毛病）。
+        期望 = getattr(_sb, "_LH_LIGHT_EXPECT", {}).get(name, ())
+        缺 = [s for s in 期望 if s not in t]
         res.add(not 缺, f"②LH {name} 判型段落齐", "" if not 缺 else f"缺 {缺}")
 
 
