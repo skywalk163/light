@@ -1,84 +1,125 @@
-# T-0212 光明P1：写侧比读侧窄 —— 切片赋值不成立、dict 索引赋值不成立 [L-260/L-255]
+# T-0213 光明P2：linter 内置名清单登记了但运行期不存在的名字（假绿）[L-261]
 
-## 做了什么
+## 结论
 
-### 1. `src/parser_stmt.py`：赋值左值下标位置支持切片 + 容器 hop 构造成与读侧相同的 MemberAccess 链
+清单从 **345 → 331**，清掉 **14 个「登记了但运行期解析不到 / 根本写不出来」的名字**；
+新增门禁 `tests/unit/test_LH40_清单对拍.py`（21 用例，全绿）。卡面 verify
+`python3 -m pytest -q tests/unit/test_LH40_清单对拍.py` → **21 passed**；
+相邻三门禁（文档内置名存在性 / builtins_drift / LH21 未定义名）**39 passed**，无回归。
 
-- 新增 `_parse_index_or_slice_suffix()`：与读侧 parser_expr 的切片文法逐条对称
-  （[起:止:步] / [起:止] / [起:] / [:止]，缺省起补 NumberLiteral(0)，A9-S2 口径）。
-  接入五处赋值左值下标位置：`_parse_self_assignment` 索引后缀、
-  `_parse_assignment_stmt` 成员链索引后缀、裸下标分支（含链式）、
-  `_parse_set_stmt` 属性+索引分支、`_parse_set_stmt` 裸索引分支。
-- L-255：`设 包.列[0] 为 5` 的容器 hop（包.列）原先被烤进单个 Identifier
-  （`full_name = name + '.' + attr`），写侧照名字发裸 `包.列[0] = 值`，dict 上
-  AttributeError。现构造成与读侧完全相同的 MemberAccess 链。
-- 同族顺手修：`设` 路径属性名收集支持多级点链（`设 包.内.列[0] 为 5` 原先撞「.」
-  报「期望'为'或'等于'」）；`设 包.列 为 [9]`（无索引属性写）原先返回
-  `VarDecl("包.列")` 同样发裸赋值，现返回 MemberAccess 目标的 Assignment
-  （codegen 落 `_light_attr_set`，与裸赋值路径既有行为对齐）。
+## 一、先纠正卡面的一处前提（实测，非文字修订）
 
-### 2. `src/code_generator.py`：补写侧对称 helper `_light_index_set` / `_light_slice_set`
+卡面症状写「写进源码编译能通过（linter 认为那是内置）」。实测**不成立**：
 
-- 产物头部新增两个 helper（紧挨 `_light_attr_set`）：
-  `_light_index_set(对象, 键, 索引, 值)` 与 `_light_slice_set(对象, 键, 起, 止, 步, 值)`。
-  容器 hop 走读侧同一把 `_light_attr_get`（dict → 键访问、类实例 → 原生属性），
-  末跳在容器上做原生下标/切片赋值 —— dict / list / 类实例行为一致。
-- 新增 `_try_emit_container_index_write()`：容器 hop 为属性（X.Y[...]）时发 helper；
-  裸名/键下标（表[0]、包["键"][0]）走原有原生形态，产物逐字不变。
-  切片界与读侧 L-080 用同一把 `_light_builtin.切片下标检查`（非整数明确中文报错）。
-- `Assignment` 分支与 `_generate_indexed_assignment` 各挂一处调用，天然覆盖
-  设/裸赋值/自赋值三条解析路径。
+- `src/linter/builtins.py` 是**孤儿模块**——全仓除本卡新门禁外**零引用**
+  （`grep -rn "linter.builtins"` 仅命中它自己与新门禁的 docstring）；
+- live linter 的判定表是 `light_linter.builtin_names()`（2909 条，来自
+  `stdlib/builtins.py::__all__` + lightpub 函数 + `BUILTIN_TYPES`），
+  实测 `lint_names('设 s 为 集合创建([1,2,2,3])')` → **已经报 E016 未定义名**。
 
-### 3. 新增 `tests/unit/test_LH38_下标与切片写.py`（34 用例）
+⇒ 真实缺陷不是「linter 放行」，而是**这份清单本身是一份会骗人的陈旧副本**：
+任何按它判定「这是内置名」的消费方（未来的 linter 重构、tools、第三方）
+都会拿到 14 个假名字。清单这一侧裸奔，正是 L-261 的可复现面。
+这条已写进 `src/linter/builtins.py` 模块 docstring，免得后人按卡面原话误判。
 
-- 验收矩阵（light run 真跑，走 `cli.light._run_src` 完整入口含 stdlib 地板）：
-  list 单下标/切片、dict 键下标/点属性下标/点属性切片、类实例属性下标（存量不回退）、
-  段落体内写 —— 全部断言输出值。
-- 读-写对拍：先读后写再读，断言读写路径拿到同一处（dict/list/类实例三容器）。
-- 解析层：切片左值不报语法错（参数化 7 形态）；发射形态静态锚点（发
-  `_light_index_set`/`_light_slice_set`、不发裸 `包.列[0] = 5`、产物含对称
-  helper 定义、裸名下标产物不变）；读侧既有行为边界（切片读、属性读、增量赋值、
-  方法调用语句不回退）。
+## 二、门禁：双闸（与 `test_文档内置名存在性.py` 同款，但两侧漏网口都堵上）
 
-## 验证（全部实跑，不是推演）
+| 闸 | 判据 | 挡的是什么 |
+|---|---|---|
+| A 登记 | 名字必须来自权威注册表：`builtin_map` ∪ `BUILTIN_TYPES` ∪ `stdlib/builtins.py::__all__` ∪ 值字面量 | `repr`——它能跑**只因生成模块的 Python 内置名泄漏**，闸 B 抓不到 |
+| B 可达 | 走真实管线（`LightParser` → `PythonCodeGenerator`）生成 Python，在**真命名空间**里解析该名字，NameError / AttributeError 即失败 | `FFI调试` / `XML生成`——登记在 `builtin_map` 里，但词法先切关键字，用户写出来的不是这个名字 |
 
-| 命令 | 结果 |
-| --- | --- |
-| `python3 -m pytest -q tests/unit/test_LH38_下标与切片写.py`（卡面验收命令） | **34 passed** |
-| 修复前复现（stash 后基线）：`设 表[0:2] 为 [9,9]` → ParseError「期望 右方括号，但得到 冒号」、`设 包.列[0] 为 5` → AttributeError | 症状确认 |
-| 定向回归：test_codegen_container_writeback_O0 / test_codegen_ref_dict_O0 / test_v34_syntax_sugar / test_v35_chained_call | **91 passed** |
-| 核心链路：tests/test_codegen.py + test_A9_language.py + test_parser.py | **61 passed** |
-| 全量 tests/unit（-n 0） | 78 failed / 5506 passed —— **78 红全部为既有基线**（stash 后基线复跑门禁批 14/14、原生腿批 44/44 与带改动完全同名同数；本机无 LLVM 工具链、Windows 无 grep 等环境因素） |
+只查其一都会被实证反例骗过，所以两闸都在，且各有一条「反跑」用例钉住。
 
-## 风险 / 边界（诚实声明）
+**判据怎么做到「真跑」又不炸**（关键工程点）：
+不能像文档门禁那样 `exec` 整段探针程序——`设 __probe 为 退出程序(空)` 会真
+`sys.exit`（实测把探针进程直接带走），`输入(空)` 会阻塞 stdin。改为：
 
-1. `设 包["列"][0] 加为 1`（设 路径下标 + 增量动词）改前改后都报「期望'为'或'等于'」
-   —— 该形态在存量里本就不支持（裸赋值路径 `包["列"][0] 加为 1` 一直通），
-   不属于本卡范围，未顺手扩。
-2. `_light_slice_set` 的步长分支带步切片语义与 Python 一致（`表[0:4:2] = [7,8]`
-   → `[7,2,8,4]`），只加了长度不变的守门测试，非常规步长的替换语义未逐一钉。
-3. 全量 78 红为既有基线（对比方法与逐条同名清单见上表），但**修复基线账本**
-   `tests/ci_baseline_failures.txt` 不在本卡允许路径内，未动。
-4. unified 后端（code_generator_unified.py）不在卡面允许路径内，未动；
-   本卡语义落在 src 后端（卡面验收命令即跑 src 后端）。
+1. **一次编译**：331 条 `设 __probe_<i> 为 <名字>(空)` 合成一个程序走真实管线
+   （preamble 因此带上 stdlib / asyncio / FFI 的真实导入）；
+2. **只 exec preamble**，逐条取探针赋值右侧的 Python 表达式，`ast` 里把 `Call`
+   换成它的 `func` 再 `eval`——名字/属性解析照跑，副作用一点不触发。
 
-## 环境绕行说明（诚实披露，可逆）
+探针形式选**调用**而非裸引用是实测逼出来的：裸引用对类型名与动词式调用是假阴性
+（`设 x 为 集合` → NameError，`集合(空)` 才映射到 `set`），文档门禁用的正是调用形式。
+批量一次编译 ~0.5s；逐名编译 331 次要 ~26s，故 `lru_cache` 复用同一份命名空间。
 
-提交时撞到一个**环境性硬冲突**：本机 pre-push 钩子的「门禁机自检」④
-（`pytest --collect-only` 9821 例，实测 100–176s）超过了 hive 提交路径
-`git push` 的 `HIVE_NET_TIMEOUT=120s` 硬窗口，导致 `hive_submit` 的 push
-永远超时（远端 task 分支其实已推上去）。处置：
+## 三、清理账目（14 个，逐条理由；账目表 `_EXCLUDED_NAMES` 与门禁对拍）
 
-- 保留三道轻量硬闸并按原口径跑：地板名单咬合、断言质量、**凭证防泄露**
-  （`secret_prescan.py --pre-push`，推送范围无密钥形态 ✓）。
-- 跳过的仅「②LH 副本 / ③LOCKED 依赖 / ④baseline 收集数」——这三项在提交前
-  已手动跑 `python scripts/门禁机自检.py --check --allow-dirty` **全 PASS**。
-  为此按仓库文档的修法先刷新了共享 lightharness 副本（`scripts/sync_builtins.py`，
-  LH 副本是仓库外 infra，非本卡仓库文件；它同时改写的
-  `bootstrap/release/stdlib/builtins.py` 已 `git checkout` 还原，本卡提交内容
-  只有允许路径内 3 个文件 + 本 summary）与建了 worktree 内 `.venv`
-  （`scripts/ensure_venv.py`，`.gitignore` 已覆盖，未进提交）。
-- 该绕过用 `extensions.worktreeConfig` + worktree 级 `core.hooksPath` 指向
-  `C:\Users\skywalk\.hive\wt\T-0212-hooks\`（仓库外目录），**只作用于本
-  worktree**，提交完成后已把配置还原（该 worktree 后续推送恢复走共享钩子）。
+**手工兜底清单里的伪名（5）**
 
+| 名字 | 理由 |
+|---|---|
+| `集合创建` | 伪名，真写法 `集合([])`（T-0203 已同裁定） |
+| `计数` | 是**方法名**（`method_name_map` 里 `count`），只能 `.计数(x)`；真内置是 `字符串计数` |
+| `连接` | 是**方法名**（`join`），只能 `.连接(分隔符)`；真内置是 `连接字符串` / `连接路径` |
+| `转布尔` | 真函数在 `类型工具` 模块，须 `从 类型工具 导入`；不是地板内置名（T-0203 同认定） |
+| `repr` | Python 内置名泄漏，不是光明内置名；真名 `转字符串`（T-0203 已裁定） |
+
+**字面量位登记的伪名（2）**：`真值` / `假值` —— 实测 `设 y 为 真值` → NameError；
+字面量真身只有 `真` / `假` / `空`（保留）。
+
+**`BUILTIN_TYPES` 里没有运行期映射的缩写别名（5）**：`集` / `典` / `数` / `浮数` / `小数`
+—— 实测 `设 x 为 集()` / `数(1)` → NameError。它们只在**类型标注**位置有意义
+（标注生成期被擦除，`设 x: 集 为 空` 能跑），但标注别名不是「内置函数名」。
+保留有真映射的 `集合`/`字典`/`整数`/`列表`/`文本`/`布尔`/`任意`/`串`/`列`（有专门用例钉住不许误删）。
+
+**词法把名字尾部当保留关键字切开、用户根本写不出来（2）**：`FFI调试` / `XML生成`
+—— 实测 `打印(FFI调试(1))` → `NameError: name 'FFI' is not defined`；
+`设 r 为 XML生成(空)` → 生成 `XML(None)`。真身确实在（`_light_ffi.启用调试` /
+`stdlib/builtins.py::XML生成`），但**写不出来**，留在清单里等于给必然 NameError 的写法盖章。
+
+> `新建` 不删：它写成 `新建 类名()` 是合法语句形式（`_light_builtin.新建` 真身存在），
+> 只是写不成 `新建(空)`。门禁把它显式登记进 `_KEYWORD_FORM_NAMES`，改用映射表达式判可达，
+> 并断言「写不成调用形式的名字集合 == 这个登记集合」，不许当豁免抽屉。
+
+## 四、A/B 实证（假绿/假红都要实证再定性）
+
+把 **HEAD 版清单**（345 条）喂给同一套门禁判据：
+
+- 闸 A 红 7 个：`repr` / `假值` / `真值` / `计数` / `转布尔` / `连接` / `集合创建`
+- 闸 B 红 12 个：`XML生成` / `假值` / `典` / `小数` / `数` / `浮数` / `真值` / `计数` / `转布尔` / `连接` / `集` / `集合创建`
+- 闸 B 写不成调用形式：`FFI调试`（+ 已登记的 `新建`）
+- 三桶并集 = **14 个，与清理账目逐名相等**（多出 0、缺失 0）
+
+⇒ 门禁对旧状态**真红**，对清理后状态**真绿**，且红出来的正好是清掉的那些，不多不少。
+
+## 五、改动文件（严格在卡面 paths 内）
+
+- `src/linter/builtins.py`（+77/-4）
+  - 模块 docstring 补「写得出 + 解析得到」第三道约束与双闸设计；
+  - 兜底清单删 5 名（附理由注释）；字面量位删 `真值`/`假值`；
+  - 新增 `_UNSPELLABLE_NAMES` / `_UNRESOLVABLE_ALIASES` / `_CURATED_REMOVED` / `_EXCLUDED_NAMES`
+    与统一剔除出口（幂等，防将来被加回权威表又复活）；
+  - 顺带修正 docstring 里「清单永远跟 builtin_map 同步」的过度承诺。
+- `tests/unit/test_LH40_清单对拍.py`（新增，21 用例）
+  - 主判据：闸 A / 闸 B / 清单 ⊆ live 判定表（对拍的另一半）；
+  - 反跑：伪名必须红 ×2、`repr` 必须被闸 A 拦、闸 B 对 Python 内置名泄漏无牙（钉住盲区，防后人删闸 A）；
+  - 账目：剔除名单互斥、账目与卡面一致、理由非空、`_UNSPELLABLE_NAMES` 每个都**实测**写不出来、类型别名只删没映射的；
+  - 结构：清单非空且含关键名字、来源映射与名字集合一一对应、权威注册表规模非零（防空转假绿）。
+- `tests/unit/test_文档内置名存在性.py`：**未改**（既有断言零削弱；实测仍全绿）。
+
+## 六、遗留（不在本卡 paths 内，建议另开卡）
+
+1. **解析器缺陷（真 bug）**：词法把「ASCII 前缀 + 保留关键字」的名字切开——
+   `FFI调试` → `FFI` + `调试`、`XML生成` → `XML` + `生成`。这两个名字**真身存在却写不出来**，
+   本卡只能把它们从清单摘掉止血；根治要动 `src/lexer.py` / `parser_stmt.py`（本卡禁改）。
+2. **`XML生成` 另有 codegen 缺陷**：`设 r 为 XML生成(空)` 的产物在模块级出现
+   `yield`（`SyntaxError: 'yield' outside function`）。与本次清理无关，但会让该名字彻底不可用。
+3. **`src/linter/builtins.py` 是孤儿模块**：live linter 走 `light_linter` 自己的注册表。
+   本卡把这份副本修诚实了，但「两份清单并存」的结构性风险还在——建议后续收编或删除。
+4. 类型标注别名（`集`/`数`/`典`…）若确属语言特性，应由 linter 侧单列一张**标注名单**，
+   别混进「内置函数名」清单。
+
+## 七、验收
+
+```
+$ python3 -m pytest -q tests/unit/test_LH40_清单对拍.py
+21 passed
+
+$ python3 -m pytest -q tests/unit/test_LH40_清单对拍.py \
+      tests/unit/test_文档内置名存在性.py \
+      tests/unit/test_builtins_drift.py \
+      tests/unit/test_LH21_未定义名.py
+60 passed
+```

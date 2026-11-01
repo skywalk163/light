@@ -14,6 +14,28 @@
   精选清单，保证 linter 在任何环境下都能跑（宁可漏报，不可让 check 崩溃）。
 * **刻意不含** `去空白` 这类「常见但不存在」的错名——本清单是真实清单，
   错名留给检查器去识别并提示（`去除空白` 才对）。
+
+T-0213（L-261）补的第三道约束：**清单里的名字必须「写得出 + 解析得到」**
+------------------------------------------------------------------
+历史缺口：本清单与 `stdlib/builtins.py` 的真身**从未对拍**，于是 `集合创建`、
+`计数`、`连接` 这类「登记了、运行期却是 NameError」的名字能在清单里长期存活——
+linter 因为「它是内置」而放行，错误一路留到运行期深处才炸（与 LH-21 / L-251 同源的假绿）。
+门禁在 `tests/unit/test_LH40_清单对拍.py`，双闸：
+
+  闸 A（登记）：每个名字都必须来自权威注册表——
+      `code_generator.builtin_map` / `keywords.BUILTIN_TYPES` /
+      `stdlib/builtins.py::__all__` / 值字面量。
+      挡的是 `repr` 这一类：它能跑**只因为生成模块的 Python 内置名泄漏**，
+      并不是光明内置名（T-0203 已裁定，真名 `转字符串`）。
+  闸 B（可达）：走真实管线（LightParser → PythonCodeGenerator）生成 Python，
+      在真命名空间里解析该名字；NameError / AttributeError 即失败。
+
+两道闸各有各的漏网口，缺一不可：只查闸 A 会漏掉「登记在 builtin_map 里、
+但映射出来的 Python 表达式跑不通」的名字；只查闸 B 会被 Python 内置名泄漏骗过。
+
+因此本文件还负责挡掉两类**结构性不可用**的名字（见 `_UNSPELLABLE_NAMES` /
+`_UNRESOLVABLE_ALIASES`）：它们确实出现在 `builtin_map` / `BUILTIN_TYPES` 里，
+但源码写出来必然炸，留在清单里等于给假绿盖章。
 """
 
 import os
@@ -24,10 +46,16 @@ from typing import Dict, List, Set, Tuple
 
 # 手工兜底清单（动态读取失败时使用）。**只放真实存在的内置名**，
 # 与 src/code_generator.py 的 builtin_map 同口径；不含 `去空白`。
+#
+# T-0213 从这里摘掉 5 个「登记了但运行期 NameError」的伪名（见 `_EXCLUDED_NAMES`）：
+#   `集合创建`（真名 `集合([])`）、`计数` / `连接`（是**方法名**，写在
+#   `method_name_map` 里，只能 `.计数(x)` / `.连接(分隔符)` 这样用）、
+#   `转布尔`（真函数在 `类型工具` 模块，须 `从 类型工具 导入`）、
+#   `repr`（Python 内置名泄漏，不是光明内置名，真名 `转字符串`）。
 _CURATED_BUILTIN_NAMES = frozenset({
     # 输出与类型
     '印', '打印', '显示', '输出', '写',
-    '类型', '转字符串', '转整数', '转浮点', '转布尔', '转文本', '转串', '转成字符串', 'repr',
+    '类型', '转字符串', '转整数', '转浮点', '转文本', '转串', '转成字符串',
     '字符串', '整数', '浮点数', '布尔', '列表', '字典', '集合', '文本', '任意', '空',
     # 数学与统计
     '绝对值', '求和', '求最大', '求最小', '最大值', '最小值', '四舍五入', '次方',
@@ -37,7 +65,7 @@ _CURATED_BUILTIN_NAMES = frozenset({
     '标准差', '中位数', '随机数', '随机整数', '随机浮点', '随机选择', '洗牌', '随机字节',
     # 字符串
     '拼接', '分割', '替换', '查找', '截取', '去除空白', '大写', '小写', '转大写',
-    '转小写', '重复', '切分', '开头', '结尾', '连接', '长度', '长', '计数', '子串',
+    '转小写', '重复', '切分', '开头', '结尾', '长度', '长', '子串',
     '最后索引', '去除左侧空白', '去除右侧空白', '去除空格', '字符串长度', '字符串获取',
     '字符串包含', '字符串替换', '字符串分割', '分割字符串', '连接字符串', '替换字符串',
     '字符串截取', '查找子串', '替换字符串次数', '截取到末尾', '字符串计数', '字符串重复',
@@ -48,7 +76,7 @@ _CURATED_BUILTIN_NAMES = frozenset({
     '列表创建', '新建列表', '列表获取', '列表追加', '列表弹出', '列表插入', '列表排序',
     '排序列表', '列表反转', '列表包含', '列表长度', '字典创建', '新建字典', '字典设置',
     '字典删除', '字典键列表', '字典值列表', '字典项列表', '字典包含键', '字典获取',
-    '集合创建', '副本', '浅拷贝', '深拷贝', '冻结',
+    '副本', '浅拷贝', '深拷贝', '冻结',
     # 高阶
     '筛选', '映射', '归约', '折叠', '排序', '反转', '枚举', '打包', '去重',
     # 文件系统
@@ -77,6 +105,42 @@ _CURATED_BUILTIN_NAMES = frozenset({
 })
 
 
+# ── T-0213 剔除名单（两条结构性不可用，理由见模块 docstring）──────────────────
+# 1) 写不出来：名字尾部就是保留关键字，词法阶段先切关键字，源码里落地的**不是**这个名字。
+#    `打印(FFI调试(1))`   → 生成 `FFI(None)`    → NameError: name 'FFI' is not defined
+#    `设 r 为 XML生成(空)` → 生成 `XML(None)`    → NameError: name 'XML' is not defined
+#    真身确实在（`_light_ffi.启用调试` / `stdlib/builtins.py::XML生成`），但**用户写不出来**；
+#    留在清单里等于让 linter 给一个必然 NameError 的写法盖章。解析器侧修复（别把关键字
+#    切进标识符）不在本卡 paths 内，已记入 T-0213 summary 另开卡。
+_UNSPELLABLE_NAMES = frozenset({'FFI调试', 'XML生成'})
+
+# 2) 只在类型标注位置有意义的缩写别名：`BUILTIN_TYPES` 里登记了，但 `builtin_map` 里
+#    **没有**对应映射，写成调用必炸（实测 `设 x 为 集()` / `数(1)` → NameError）。
+#    `集合`/`字典`/`整数`/`列表`/`文本`/`布尔`/`任意`/`串`/`列` 都有真映射，故不在剔除之列。
+#    （标注在生成期被擦除，`设 x: 集 为 空` 能跑并不代表 `集` 是可调用的内置名；
+#     若将来要给标注单列名单，应由 linter 侧另建一张表，别混进「内置函数名」清单。）
+_UNRESOLVABLE_ALIASES = frozenset({'集', '典', '数', '浮数', '小数'})
+
+# 剔除理由汇总（T-0213 的清理账目：summary / 门禁都引用这张表，不许静默删名）。
+# 键必须与 `_UNSPELLABLE_NAMES ∪ _UNRESOLVABLE_ALIASES ∪ _CURATED_REMOVED` 完全一致。
+_CURATED_REMOVED = {
+    '集合创建': '伪名：`集合` 是内置类型，真写法 `集合([])`（T-0203 已同裁定）',
+    '计数': '方法名（`method_name_map` 里是 `count`），只能 `.计数(x)`；不是地板内置名',
+    '连接': '方法名（`method_name_map` 里是 `join`），只能 `.连接(分隔符)`；真名 `连接字符串`',
+    '转布尔': '真函数在 `类型工具` 模块，须 `从 类型工具 导入`；不是地板内置名',
+    'repr': 'Python 内置名泄漏（能跑只因生成模块的命名空间有它），真名 `转字符串`',
+    '真值': '不是真名字：`设 y 为 真值` → NameError（字面量只有 `真` / `假` / `空`）',
+    '假值': '不是真名字：`设 y 为 假值` → NameError（字面量只有 `真` / `假` / `空`）',
+}
+
+_EXCLUDED_NAMES = {
+    **_CURATED_REMOVED,
+    **{n: '词法把名字尾部当保留关键字切开，源码里写不出来' for n in _UNSPELLABLE_NAMES},
+    **{n: '只在类型标注位置有意义的缩写别名，builtin_map 无映射，调用必 NameError'
+       for n in _UNRESOLVABLE_ALIASES},
+}
+
+
 def _load_dynamic_builtins() -> Tuple[Set[str], Dict[str, str]]:
     """返回内置名集合与来源映射。
 
@@ -86,6 +150,11 @@ def _load_dynamic_builtins() -> Tuple[Set[str], Dict[str, str]]:
       * 代码生成器新增的内置名自动进入清单（永不落后于真实表）；
       * `去空白` 这类「常见但不存在」的错名**刻意不在**兜底清单里，也不在
         真实表里 → 清单永远不会误含它。
+
+    最后统一过一道 `_EXCLUDED_NAMES` 剔除（见上）：其中 `_UNSPELLABLE_NAMES` /
+    `_UNRESOLVABLE_ALIASES` 来自权威表但源码写出来必然 NameError，必须在这里挡掉；
+    `_CURATED_REMOVED` 已从兜底清单里删掉，这里的 discard 只是幂等兜底
+    （防止将来有人把它们加回 `builtin_map` / `BUILTIN_TYPES` 又悄悄复活）。
     """
     names: Set[str] = set(_CURATED_BUILTIN_NAMES)
     sources: Dict[str, str] = {}
@@ -112,9 +181,15 @@ def _load_dynamic_builtins() -> Tuple[Set[str], Dict[str, str]]:
         pass
 
     # 字面量/常量名不算可调用内置函数，但属于「语言内置名」，放行不报未定义。
-    for k in ('真', '假', '空', 'True', 'False', 'None', '真值', '假值'):
+    # T-0213：`真值` / `假值` 曾在此处登记，但两者**不是**真名字（实测
+    # `设 y 为 真值` → NameError），已摘掉；`真` / `假` / `空` 走字面量真身，保留。
+    for k in ('真', '假', '空', 'True', 'False', 'None'):
         names.add(k)
         sources.setdefault(k, '字面量')
+
+    for bad in _EXCLUDED_NAMES:
+        names.discard(bad)
+        sources.pop(bad, None)
     return names, sources
 
 
