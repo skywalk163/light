@@ -3413,7 +3413,11 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'call void @dv_exit(i32 0)')
             return self._create_int_dv('0'), 'dv'
 
-        if name in ('参数列表', 'argv', 'args'):
+        # L-262：`用户参数` 是 `参数列表()` 的显式别名（LH-05 的口径名）。
+        # 原生腿此前只登记了 `参数列表`/`argv`/`args`，`用户参数()` 在原生腿是
+        # 「未定义名」—— 同一条源码、换后端就 NameError。两者必须同源：
+        # 都走 dv_get_args（已跳过 argv[0]），不含程序名。
+        if name in ('参数列表', 'argv', 'args', '用户参数'):
             return self._call_dv_func('dv_get_args'), 'dv'
 
         if name in ('整数', 'int', '转整数', 'to_int'):

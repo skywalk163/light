@@ -4423,12 +4423,55 @@ void dv_init_args(int argc, char** argv) {
     _dv_argv = argv;
 }
 
+/* L-262：把 argv 里的一格按 UTF-8 取出来。
+ *
+ * 为什么不能直接 `dv_str(&elem, _dv_argv[i])`：Windows 上走 main(argc, argv)
+ * 的 argv **不是** UTF-8 —— 由 CRT 按 ANSI 代码页（本机 936/GBK）解码来的。
+ * 同一批中文实参，转译腿（Python，UTF-8）拿到 '甲'，原生腿拿到 GBK 双字节，
+ * 打印出来是乱码，逐元素对拍也过不去。这里在 Windows 上把那一格当 ANSI
+ * 宽化（MultiByteToWideChar(CP_ACP)），再按 UTF-8 窄化回来 —— 与其它
+ * `dv_*` 字符串入口「内部一律 UTF-8 字节流」的口径对齐（见 dv_utf8 一节）。
+ * 非 Windows 平台 argv 本身就是 UTF-8，原样使用。 */
+static void _dv_arg_to_str(LightValue* result, const char* raw) {
+#ifdef _WIN32
+    if (raw && *raw) {
+        int wn = MultiByteToWideChar(CP_ACP, 0, raw, -1, NULL, 0);
+        if (wn > 0) {
+            WCHAR* wbuf = (WCHAR*)malloc(sizeof(WCHAR) * (size_t)wn);
+            if (wbuf) {
+                if (MultiByteToWideChar(CP_ACP, 0, raw, -1, wbuf, wn) > 0) {
+                    int an = WideCharToMultiByte(CP_UTF8, 0, wbuf, -1, NULL, 0, NULL, NULL);
+                    if (an > 0) {
+                        char* ubuf = (char*)malloc((size_t)an);
+                        if (ubuf) {
+                            if (WideCharToMultiByte(CP_UTF8, 0, wbuf, -1, ubuf, an, NULL, NULL) > 0) {
+                                dv_str(result, ubuf);
+                                free(ubuf);
+                                free(wbuf);
+                                return;
+                            }
+                            free(ubuf);
+                        }
+                    }
+                }
+                free(wbuf);
+            }
+        }
+    }
+#endif
+    dv_str(result, raw ? raw : "");
+}
+
 void dv_get_args(LightValue* result) {
     dv_list_new(result);
     if (_dv_argc <= 0 || !_dv_argv) return;
-    for (int i = 0; i < _dv_argc; i++) {
+    /* L-262：跳过 argv[0]（程序自身路径），对齐 `sys.argv[1:]` 口径。
+       argv[0] 是**产物自己的路径**（原生产物是独立进程），而转译腿的
+       `参数列表()` 是 CLI 注入的用户实参、不含程序名 —— 不跳这一格，
+       两条腿就差 1，且 `参数列表()[0]` 会静默取到不同的东西。 */
+    for (int i = 1; i < _dv_argc; i++) {
         LightValue elem;
-        dv_str(&elem, _dv_argv[i]);
+        _dv_arg_to_str(&elem, _dv_argv[i]);
         LightValue tmp;
         dv_list_append(&tmp, result, &elem);
         dv_free(result);

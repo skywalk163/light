@@ -204,7 +204,16 @@ class T6B时间系统内建反跑(unittest.TestCase):
         got = _native_run(src)
         self.assertIn("光明内建 sys", got["V"])
         self.assertIn(got["P"], ("win32", "posix"))  # 口径与 操作系统.本机平台 一致
-        self.assertGreaterEqual(int(got["N"]), 1)
+        # L-262 / T-0215：断言由 `>= 1` 改成「恰为 0」，**理由不是放宽**：
+        # sys.argv() 转 `参数列表()`，而 `参数列表()` 已改为跳过 argv[0]
+        # （对齐 src 腿 `sys.argv[1:]` 口径，见 tests/unit/test_LH41_原生腿参数口径.py）。
+        # 本用例跑产物时**不带任何用户实参**，跳过 argv[0] 后长度**必须恰为 0**；
+        # 旧断言 `>= 1` 恰恰是靠「多算一格 argv[0]」才成立的，正是 L-262 病灶本身。
+        # 改成「恰为 0」比 `>= 0` 更强：它直接钉死「返回值里不含程序名/产物路径」，
+        # 一旦 argv[0] 又被算进来，长度立刻变 1、本行转红。
+        self.assertEqual(int(got["N"]), 0,
+                         "无参运行 sys.argv() 长度应为 0（不含程序名），实得 %s"
+                         % (got["N"],))
 
     def test_日期时间轻量_对拍Python(self):
         src = """导入 日期时间轻量

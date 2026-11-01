@@ -395,11 +395,18 @@ def _resolve_local_imports(source: str, source_dir: str, stdlib_dir: str | None 
     return result
 
 
-def _run_src(source: str, file_path: str | None = None, stdlib_dir: str | None = None) -> str:
+def _run_src(source: str, file_path: str | None = None, stdlib_dir: str | None = None,
+             用户实参: list | None = None) -> str:
     """用 src 后端执行，返回输出（支持多模块依赖自动解析）
 
     stdlib_dir：显式 stdlib 目录（R98/D 修复）。传入后生成代码的引导跳过 cwd 探测、
     直接用该目录作为地板 builtins.py 来源，使 转字符串 等内置与 cwd 无关（英文 str 口径）。
+
+    用户实参（L-262 / LH-41）：`light run <入口> -- 甲 乙` 里 `--` 之后那批实参。
+    给了就把执行期（**只在此期间**）的 `sys.argv` 设成这批实参，并在此命名空间里补一个
+    `用户参数` 别名 —— 于是 src 腿的 `参数列表()` / `用户参数()` 都恰好是 `['甲','乙']`，
+    与原生腿 `dv_get_args`（已跳过 argv[0]）**逐元素相等**。不给（None）则口径逐字不变
+    （`参数列表()` 仍是宿主 `sys.argv`，存量脚本零影响）。
     """
     import os
     from pathlib import Path
@@ -484,6 +491,14 @@ def _run_src(source: str, file_path: str | None = None, stdlib_dir: str | None =
     namespace = {'print': _capture_print, '__name__': '__main__'}
     if file_path:
         namespace['__file__'] = os.path.abspath(file_path)
+    # L-262：`用户参数` 是 `参数列表()` 的显式别名。地板 builtins.py 里没有它时
+    # （main 上 LH-05 的别名未落地），这里按同一份「本次用户实参」兜底绑定，
+    # 保证「同一条源码换后端不 NameError」。有用户实参时两者同源；没有时
+    # 两者都是宿主 sys.argv（口径与 `参数列表()` 一致）。
+    用户实参_ = list(用户实参) if 用户实参 is not None else None
+    namespace['用户参数'] = lambda: (
+        list(sys.argv) if 用户实参_ is None else list(用户实参_)
+    )
     # 添加源文件目录到 Python 路径，确保 `导入 Python:` 能找到本地 .py 模块
     import sys
     sys.path.insert(0, source_dir)
@@ -534,6 +549,14 @@ def _run_src(source: str, file_path: str | None = None, stdlib_dir: str | None =
             flags=re.MULTILINE
         )
 
+    # L-262：带 `--` 用户实参时，本次执行期内的 sys.argv 就是这批实参
+    # （`参数列表()` 读 sys.argv，地板与内联模块都看同一份），跑完（含异常路径）还原。
+    _argv原值 = list(sys.argv)
+    if 用户实参_ is not None:
+        # 口径：`参数列表()` 在地板就是 `sys.argv` 整表，故这里把整表设成用户实参
+        # （不再是宿主 argv），于是 `参数列表()` == `用户参数()` == ['甲','乙']，
+        # 与原生腿 dv_get_args 跳过 argv[0] 后的结果逐元素相等。
+        sys.argv = list(用户实参_)
     try:
         exec(py_code, namespace)
     except Exception:
@@ -561,6 +584,9 @@ def _run_src(source: str, file_path: str | None = None, stdlib_dir: str | None =
                 pass
         raise
     finally:
+        # L-262：还原 sys.argv（只在本次执行期间设过；没设过时还原成同一份清单，无副作用）
+        if 用户实参_ is not None:
+            sys.argv = _argv原值
         # 执行后移除临时路径，避免影响后续调用
         if sys.path[0] == source_dir:
             sys.path.pop(0)
@@ -754,7 +780,10 @@ def _run_native(args):
 
         # 不捕获子进程输出：让它直接写到本进程的 stdout/stderr，
         # 避免多一层编码转换（中文输出在 Windows 控制台上尤其容易被打坏）。
-        结果 = subprocess.run([exe])
+        # L-262：`--` 之后的用户实参必须**真的传到产物命令行**上 —— 原生产物是
+        # 独立进程，argv[0] 是它自己的路径，实参只有真传进去才在 argv[1:] 里。
+        用户实参 = getattr(args, '用户实参', None) or []
+        结果 = subprocess.run([exe, *用户实参])
         sys.stdout.flush()
         if 结果.returncode != 0:
             sys.exit(结果.returncode)
@@ -786,7 +815,8 @@ def cmd_run(args):
         if args.backend == 'src':
             # 输出已由 _run_src 实时打印（含异常前的部分），不再二次打印
             _run_src(source, file_path=args.file,
-                     stdlib_dir=getattr(args, 'stdlib_dir', None))
+                     stdlib_dir=getattr(args, 'stdlib_dir', None),
+                     用户实参=getattr(args, '用户实参', None))
         else:
             _run_antlr(source)
 
@@ -2162,7 +2192,24 @@ def main():
     # ── feedback ──
     setup_feedback_subparser(subparsers)
 
-    args = parser.parse_args()
+    # ── L-262 / LH-41：`light run <入口> -- <用户实参>` ──
+    # 在 argparse **之前**按第一个裸 `--` 硬切：`--` 之前照旧交给 argparse，
+    # `--` 之后一个字节都不进（所以 `run --backend native -- 甲 乙` 里的 `--backend`
+    # 不会被实参污染，`--` 之后的 `--backend` 也只是脚本实参）。
+    # 不用 REMAINDER / parse_known_args：前者在没有 `--` 时也张口（实测把
+    # tests/test_native_cli.py 的 3 条原生腿用例打红），后者靠猜哪些是选项。
+    _原始参数 = sys.argv[1:]
+    用户实参 = None
+    if '--' in _原始参数:
+        _切 = _原始参数.index('--')
+        _命令 = next((t for t in _原始参数[:_切] if not t.startswith('-')), None)
+        if _命令 == 'run':
+            用户实参 = list(_原始参数[_切 + 1:])
+            _原始参数 = _原始参数[:_切]
+
+    args = parser.parse_args(_原始参数)
+    # 用户实参挂在 args 上，供 cmd_run 两条腿各取各的用法（缺省 None = 没写 `--`）
+    args.用户实参 = 用户实参
 
     # 处理 --dev-version 标志
     if getattr(args, 'dev_version', False):

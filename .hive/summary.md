@@ -1,84 +1,77 @@
-# T-0212 光明P1：写侧比读侧窄 —— 切片赋值不成立、dict 索引赋值不成立 [L-260/L-255]
+# T-0215 · 光明P2：原生腿 `参数列表()` 比转译腿多返回 argv[0]（跨腿口径差 1）[L-262]
 
-## 做了什么
+**结论：口径已销账 —— 两条腿的 `参数列表()` / `用户参数()` 逐元素相等，都不含程序名。**
 
-### 1. `src/parser_stmt.py`：赋值左值下标位置支持切片 + 容器 hop 构造成与读侧相同的 MemberAccess 链
+## 做了什么（四处，都在卡面 paths 内）
 
-- 新增 `_parse_index_or_slice_suffix()`：与读侧 parser_expr 的切片文法逐条对称
-  （[起:止:步] / [起:止] / [起:] / [:止]，缺省起补 NumberLiteral(0)，A9-S2 口径）。
-  接入五处赋值左值下标位置：`_parse_self_assignment` 索引后缀、
-  `_parse_assignment_stmt` 成员链索引后缀、裸下标分支（含链式）、
-  `_parse_set_stmt` 属性+索引分支、`_parse_set_stmt` 裸索引分支。
-- L-255：`设 包.列[0] 为 5` 的容器 hop（包.列）原先被烤进单个 Identifier
-  （`full_name = name + '.' + attr`），写侧照名字发裸 `包.列[0] = 值`，dict 上
-  AttributeError。现构造成与读侧完全相同的 MemberAccess 链。
-- 同族顺手修：`设` 路径属性名收集支持多级点链（`设 包.内.列[0] 为 5` 原先撞「.」
-  报「期望'为'或'等于'」）；`设 包.列 为 [9]`（无索引属性写）原先返回
-  `VarDecl("包.列")` 同样发裸赋值，现返回 MemberAccess 目标的 Assignment
-  （codegen 落 `_light_attr_set`，与裸赋值路径既有行为对齐）。
+1. `src/llvm/runtime_typed.c:dv_get_args`：循环从 `i = 1` 起，跳过 argv[0]
+   （对齐 `sys.argv[1:]` 口径）。原生产物是独立进程，argv[0] 是它自己的路径。
+2. 同文件新增 `_dv_arg_to_str`：**Windows 上 argv 不是 UTF-8** —— CRT 按 ANSI
+   代码页（本机 936/GBK）解码，同一批中文实参原生腿拿到 GBK 双字节，打印乱码、
+   逐元素对拍必红。改为 CP_ACP 宽化 → CP_UTF8 窄化，与运行时「内部一律 UTF-8
+   字节流」口径对齐；非 Windows 原样使用。
+3. `src/llvm/codegen_typed.py:3416`：`用户参数` 并入 `参数列表`/`argv`/`args`
+   分派（此前原生腿 `用户参数()` 是未定义名，换后端就 NameError），同走 `dv_get_args`。
+4. `cli/light.py`：main() 在 argparse **之前**按第一个裸 `--` 硬切（只对 `run` 生效），
+   实参挂 `args.用户实参`；`_run_native` 起产物时真传（`subprocess.run([exe, *用户实参])`）；
+   `_run_src` 在执行期内把 `sys.argv` 设成这批实参、并补 `用户参数` 别名，跑完（含异常
+   路径）还原。不写 `--` 时口径逐字不变。
+5. `tests/unit/test_T6B_时间系统内建_原生腿.py:207`：`assertGreaterEqual(N, 1)` →
+   `assertEqual(N, 0)`。**理由（卡面要求写明）**：该断言旧口径 `>= 1` 恰恰是靠
+   「多算一格 argv[0]」才成立的，正是 L-262 病灶本身；该用例跑产物时不带任何用户
+   实参，跳过 argv[0] 后长度**必须恰为 0**。改成「恰为 0」比卡面允许的 `>= 0`
+   **更严**，不是放宽：它直接钉死「返回值不含程序名」，argv[0] 一回来长度立刻变 1 转红。
 
-### 2. `src/code_generator.py`：补写侧对称 helper `_light_index_set` / `_light_slice_set`
+## 新增 `tests/unit/test_LH41_原生腿参数口径.py`（17 例）
 
-- 产物头部新增两个 helper（紧挨 `_light_attr_set`）：
-  `_light_index_set(对象, 键, 索引, 值)` 与 `_light_slice_set(对象, 键, 起, 止, 步, 值)`。
-  容器 hop 走读侧同一把 `_light_attr_get`（dict → 键访问、类实例 → 原生属性），
-  末跳在容器上做原生下标/切片赋值 —— dict / list / 类实例行为一致。
-- 新增 `_try_emit_container_index_write()`：容器 hop 为属性（X.Y[...]）时发 helper；
-  裸名/键下标（表[0]、包["键"][0]）走原有原生形态，产物逐字不变。
-  切片界与读侧 L-080 用同一把 `_light_builtin.切片下标检查`（非整数明确中文报错）。
-- `Assignment` 分支与 `_generate_indexed_assignment` 各挂一处调用，天然覆盖
-  设/裸赋值/自赋值三条解析路径。
+验收 1：两腿 `参数列表()` 逐元素相等（含长度）+ 长度恰为 2（不是 3）；
+验收 2：两腿 `用户参数()` 相等、且与本腿 `参数列表()` 同源；
+边界：`--` 后为空 → 两腿都空；空格/中文/引号原样到达；`--backend native` 当数据不被吞；
+源码级守：runtime 必须 `i = 1`、必须走 UTF-8 转换、codegen 必须登记 `用户参数`、
+cli 起产物必须带实参；
+反跑有牙：把循环改回 `i = 0`、把 `用户参数` 摘掉，同一判据变红（原文件一字未动）。
 
-### 3. 新增 `tests/unit/test_LH38_下标与切片写.py`（34 用例）
-
-- 验收矩阵（light run 真跑，走 `cli.light._run_src` 完整入口含 stdlib 地板）：
-  list 单下标/切片、dict 键下标/点属性下标/点属性切片、类实例属性下标（存量不回退）、
-  段落体内写 —— 全部断言输出值。
-- 读-写对拍：先读后写再读，断言读写路径拿到同一处（dict/list/类实例三容器）。
-- 解析层：切片左值不报语法错（参数化 7 形态）；发射形态静态锚点（发
-  `_light_index_set`/`_light_slice_set`、不发裸 `包.列[0] = 5`、产物含对称
-  helper 定义、裸名下标产物不变）；读侧既有行为边界（切片读、属性读、增量赋值、
-  方法调用语句不回退）。
-
-## 验证（全部实跑，不是推演）
+## 验证（全部本机实跑，含真编译真跑）
 
 | 命令 | 结果 |
-| --- | --- |
-| `python3 -m pytest -q tests/unit/test_LH38_下标与切片写.py`（卡面验收命令） | **34 passed** |
-| 修复前复现（stash 后基线）：`设 表[0:2] 为 [9,9]` → ParseError「期望 右方括号，但得到 冒号」、`设 包.列[0] 为 5` → AttributeError | 症状确认 |
-| 定向回归：test_codegen_container_writeback_O0 / test_codegen_ref_dict_O0 / test_v34_syntax_sugar / test_v35_chained_call | **91 passed** |
-| 核心链路：tests/test_codegen.py + test_A9_language.py + test_parser.py | **61 passed** |
-| 全量 tests/unit（-n 0） | 78 failed / 5506 passed —— **78 红全部为既有基线**（stash 后基线复跑门禁批 14/14、原生腿批 44/44 与带改动完全同名同数；本机无 LLVM 工具链、Windows 无 grep 等环境因素） |
+|---|---|
+| `python3 -m pytest -q tests/unit/test_LH41_原生腿参数口径.py`（**卡面验收**） | **17 passed** |
+| `tests/unit/test_T6B_时间系统内建_原生腿.py`（被改断言的那个套件） | **5 passed** |
+| `tests/test_native_cli.py`（原生腿 CLI 贴边回归） | **35 passed**（与改动前基线同） |
+| `test_R154_L213_环境变量口径.py` + `test_R130_对象池缓存_原生腿.py` | **18 passed** |
+| `test_R131_L186L187_原生腿.py` + `test_LH38_下标与切片写.py` | **40 passed** |
+| `test_entry_function.py` + `test_L093_L094_diagnostics.py`（`_run_src` 调用方） | **17 passed** |
+| `flake8 cli/light.py src/llvm/codegen_typed.py <两个测试文件> --max-line-length=120` | rc=0 |
 
-## 风险 / 边界（诚实声明）
+手工端到端（真编译真跑，`light run <入口> [--backend native --optimize O0] -- <实参>`）：
+`甲 乙` → 两腿均 `参数列表=['甲','乙']`、`用户参数=['甲','乙']`；`--` 后为空 → 两腿均空；
+`a b`/`中文`/`带"引号"` → 两腿字节级一致；`--backend native` 作为数据 → 两腿均原样接住。
 
-1. `设 包["列"][0] 加为 1`（设 路径下标 + 增量动词）改前改后都报「期望'为'或'等于'」
-   —— 该形态在存量里本就不支持（裸赋值路径 `包["列"][0] 加为 1` 一直通），
-   不属于本卡范围，未顺手扩。
-2. `_light_slice_set` 的步长分支带步切片语义与 Python 一致（`表[0:4:2] = [7,8]`
-   → `[7,2,8,4]`），只加了长度不变的守门测试，非常规步长的替换语义未逐一钉。
-3. 全量 78 红为既有基线（对比方法与逐条同名清单见上表），但**修复基线账本**
-   `tests/ci_baseline_failures.txt` 不在本卡允许路径内，未动。
-4. unified 后端（code_generator_unified.py）不在卡面允许路径内，未动；
-   本卡语义落在 src 后端（卡面验收命令即跑 src 后端）。
+## 诚实披露：本卡前提与 main 不一致
 
-## 环境绕行说明（诚实披露，可逆）
+- 卡面根因写「转译腿读 CLI 注入的 `LIGHT_USER_ARGS`」。**main 与全部远端分支上都没有
+  这个注入点**：LH-05（T-0196）的落地只在分支 `task/T-0196`（未合入 main），其 summary
+  自己记着「原生腿的用户实参透传没接 ⇒ 建议另立卡」。故本卡是在 **T-0196 未入 main
+  的前提下**做的：口径仍按卡面要求（两条腿都不含程序名、`--` 之后原样到达），
+  但转译腿的实现落点是 `_run_src` 里设 `sys.argv` + 命名空间内 `用户参数` 别名
+  （不是读环境变量），这些改动都在本卡允许的 `cli/light.py` 内，未碰 `stdlib/builtins.py`。
+  若日后 T-0196 合入 main（`参数列表()` 改读注入点），本卡的 `_run_src` 设 `sys.argv`
+  那段仍成立（两者同源），只需复核 gate；**合卡时请留意这处重叠**。
+- `用户参数` 在地板 `stdlib/builtins.py` 里同样不存在（同属 T-0196 未落地）；本卡
+  在 `cli/light.py` 的命名空间与 `codegen_typed.py` 各补一处，**未改地板文件**
+  （不在允许 paths 内，地板名单冻结也不允许新增顶层 def）。
+- 未跑全量 `tests/unit`（全量在本机 ~1.5–2.5 小时，且 78 条既有红与本卡无关）；
+  已跑上表六个套件、共 132 例全绿。
 
-提交时撞到一个**环境性硬冲突**：本机 pre-push 钩子的「门禁机自检」④
-（`pytest --collect-only` 9821 例，实测 100–176s）超过了 hive 提交路径
-`git push` 的 `HIVE_NET_TIMEOUT=120s` 硬窗口，导致 `hive_submit` 的 push
-永远超时（远端 task 分支其实已推上去）。处置：
+## 遗留风险
 
-- 保留三道轻量硬闸并按原口径跑：地板名单咬合、断言质量、**凭证防泄露**
-  （`secret_prescan.py --pre-push`，推送范围无密钥形态 ✓）。
-- 跳过的仅「②LH 副本 / ③LOCKED 依赖 / ④baseline 收集数」——这三项在提交前
-  已手动跑 `python scripts/门禁机自检.py --check --allow-dirty` **全 PASS**。
-  为此按仓库文档的修法先刷新了共享 lightharness 副本（`scripts/sync_builtins.py`，
-  LH 副本是仓库外 infra，非本卡仓库文件；它同时改写的
-  `bootstrap/release/stdlib/builtins.py` 已 `git checkout` 还原，本卡提交内容
-  只有允许路径内 3 个文件 + 本 summary）与建了 worktree 内 `.venv`
-  （`scripts/ensure_venv.py`，`.gitignore` 已覆盖，未进提交）。
-- 该绕过用 `extensions.worktreeConfig` + worktree 级 `core.hooksPath` 指向
-  `C:\Users\skywalk\.hive\wt\T-0212-hooks\`（仓库外目录），**只作用于本
-  worktree**，提交完成后已把配置还原（该 worktree 后续推送恢复走共享钩子）。
-
+1. `参数列表()` 无参时的口径现在是「空表」（原为「含产物路径」）。这是**有意的语义
+   修正**（对齐 `sys.argv[1:]`），但对存量里「拿 argv[0] 当程序名」的原生腿脚本是
+   **行为变化**：仓内 `stdlib/参数解析.light`、`stdlib/sys.light` 只读长度/遍历，
+   实测不受影响；仓外脚本无法排查，已在卡内如实记录。
+2. Windows 上 argv 的 CP_ACP→UTF-8 转换按「CRT 走 ANSI 代码页」的实现假设；
+   若日后改用 `wmain`/`-municode` 或 manifest 声明 UTF-8，这段会变成 no-op 直通
+   （仍是正确结果），不会反向破坏。
+3. 无 clang 的 CI 上，本文件 12 例原生腿会 skip（`skipUnless`），仅 5 例（转译腿 +
+   源码级守 + 反跑）真跑 —— **本机有 clang，全部 17 例都是真编译真跑过的**，
+   skip 分支只是给无工具链机器留的退路。
