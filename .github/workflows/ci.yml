@@ -1,17 +1,22 @@
-# 光明 Light · GitHub CI
+# 光明 Light · GitHub CI（镜像验证）
 #
-# ⚠️ 事实先说清楚（第七轮 E7 记账）：**本项目当前没有 GitHub 远端，这整棵 .github/ 树
-# 一次都没有执行过。** 唯一真正跑的 CI 是 `.gitea/workflows/ci.yml`（本地 FreeBSD
-# runner）。因此：
-#   - 这边的步骤只是「与权威副本保持对齐」的镜像，改了它**不会**在任何地方被验证；
-#     判据要真，就得同时改 .gitea 那份并看 gitea 的 run 结果。
-#   - 跨平台闸门（下面那道 `if: runner.os != 'Linux'` 的回归闸门）**只存在于这里**，
-#     也就是说它至今一次没跑过——别把它当成「Windows/macOS 有覆盖」的证据。
-#   - **不要删这棵树**：将来启用 GitHub 远端时它就是现成的（第四轮已裁决保留）。
+# 权威门禁仍是 `.gitea/workflows/ci.yml`（FreeBSD host runner）；本文件是 GitHub 侧的
+# 镜像验证。GitHub 远端 `skywalk163/light` 启用后，本工作流已随 push main / PR /
+# 手动触发真实运行（run 记录见仓库 Actions 页）。
+#
+# 判绿语义与权威副本对齐：
+#   - e2e / root / pure-light：`|| true` 放行存量失败 + junitxml 兜底 + `test -f` 防崩溃；
+#   - 最终由 `tools/ci/check_regression.py` 对比 `tests/ci_baseline_failures.txt`，
+#     只拦「基线之外的新增打红」，不把存量欠账变成背景噪音；
+#   - unit / integration 保持硬判（当前基线零存量失败）；
+#   - 跨平台矩阵（Windows/macOS）是观测性覆盖：job 级 `continue-on-error`，不阻塞
+#     Linux 发布准入；Linux 上的跨平台 regression gate 另有一份空基线。
 #
 
 # ── 2026-08-22 CI 时间治理（用户裁决）─────────────────────────────────────────
-# 预算：pull_request ≤ 600s，push main ≤ 1200s，**超了按红**（见最后一步）。
+# 预算：pull_request ≤ 1800s，push main ≤ 3000s，**超了按红**（见最后一步）。
+# 2026-09-08 与权威副本同步放宽（全量套件 ~9400 用例，600s/1200s 会「只因超时」常红；
+# GitHub runner 上 PR 已加 `-m "not slow"`，但 push main 仍跑全量）。
 # GitHub 侧这一轮只做「削矩阵 + 加缓存 + 去无用依赖」：
 #   - PR 只跑 ubuntu × (3.10, 3.13) —— 4 个 py × 3 个 os = 12 份重复跑，
 #     对一个纯 stdlib 项目基本是在重复验证同一件事；跨 os/py 全矩阵挪到 push main。
@@ -44,9 +49,20 @@ name: CI
 # 是「第 N 行对拍失败：期望 你好光明、实际 乱码」的同源 mojibake）。
 # 开 UTF-8 模式（PEP 540）把默认编码统一钉成 UTF-8：POSIX 上同样受益
 # ——消除 runner locale 差异带来的「同一份代码两种结果」。
+permissions:
+  contents: read
+
+# 同一 ref 只保留最新一轮：PR 连续推送时取消上一轮，避免排队等待过期提交。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   PYTHONUTF8: "1"
   PYTHONIOENCODING: "utf-8"
+  # PR 触发时跳过 slow（e2e / 编译大项目），push main 跑全量；与 .gitea 权威副本同口径。
+  # pytest 会用 shlex 解析 PYTEST_ADDOPTS，因此 `-m "not slow"` 能作为一条完整参数生效。
+  PYTEST_ADDOPTS: ${{ github.event_name == 'pull_request' && '-m "not slow"' || '' }}
 
 on:
   push:
@@ -70,16 +86,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 计时起点
-        shell: bash
-        run: python tools/ci/time_budget.py --mark 起点 --fresh
-
+      # setup-python 必须排在计时起点之前：GitHub runner 上 `python` 由这一步写进 PATH，
+      # 否则「计时起点」在干净 runner 上可能找不到解释器，整 job 在第一步就红。
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: pyproject.toml
+
+      # 打在装依赖之前（setup-python 本身的秒级开销不单列），装依赖时间仍计入预算。
+      - name: 计时起点
+        shell: bash
+        run: python tools/ci/time_budget.py --mark 起点 --fresh
 
       - name: Install dependencies
         run: |
@@ -243,7 +262,9 @@ jobs:
       - name: lightpub 文档可导入性闸门
         if: runner.os == 'Linux'
         run: |
-          pytest tests/unit/test_lightpub_doc_importability.py -q
+          # R125 测试分仓后该文件从 tests/unit/ 迁到 tests/lightpub/（424d07253）。
+          # 旧路径会让 pytest 直接报 "file or directory not found"（exit 4），每次必红。
+          pytest tests/lightpub/test_lightpub_doc_importability.py -q
 
       # D3-1/D3-2：两道质量度量门禁（只在 Linux 跑一份，跨平台跑它没有额外信号）。
       # 都是基线对比、只拦新增；权威副本在 .gitea/workflows/ci.yml，这边是镜像验证。
@@ -289,15 +310,33 @@ jobs:
         run: |
           python tools/ci/assert_floor_manifest.py --root .
 
+      # G9（第九轮 M22/M23/M24）：与 .gitea 权威副本对齐的三道度量门禁。
+      # 纯静态扫描、秒级，只在 Linux 跑一份；硬判绿点，不加 || true。
+      - name: 地板自举率门禁（builtins 搬迁·只升不降）
+        if: runner.os == 'Linux'
+        run: |
+          python tools/ci/floor_bootstrap.py --root .
+
+      - name: 原生腿产品门禁（模块/CLI/平台三表）
+        if: runner.os == 'Linux'
+        run: |
+          python tools/ci/native_product.py --root .
+
+      - name: 分布式判据门禁（没有反跑就不算判据）
+        if: runner.os == 'Linux'
+        run: |
+          python tools/ci/dist_criteria.py --root .
+
 
       # 时间预算硬闸门。always()：前面红了也要把耗时账单打出来，否则一红就没时间数据。
+      # 预算与 .gitea 权威副本一致（2026-09-08 放宽后）：PR ≤ 1800s，push main ≤ 3000s。
       - name: 时间预算闸门
         if: always()
         shell: bash
         run: |
           python tools/ci/time_budget.py --mark 测试收尾
-          BUDGET=1200
-          if [ "${{ github.event_name }}" = "pull_request" ]; then BUDGET=600; fi
+          BUDGET=3000
+          if [ "${{ github.event_name }}" = "pull_request" ]; then BUDGET=1800; fi
           python tools/ci/time_budget.py --check --budget $BUDGET
 
   lint:
