@@ -30,6 +30,7 @@ L-256 / T-0210 · 内置形参名全中文，中文关键字参数必须调得�
    绑定成功已经足够证明「`编码=` 这种写法不会再 TypeError」。
 4. `Test三份副本一致`：boot / LH 两份副本的形参名也必须是中文，且 LH 与真源逐字相同
    （`scripts/sync_builtins.py` 真的把改名同步过去了，而不是只改了真源）。
+   LH 副本缺失（sibling 不存在）时这两条**显式 skip**，见 lightharness_sibling.py。
 
 ## 为什么 2/3 只覆盖「公开」函数
 
@@ -49,6 +50,12 @@ _项目根 = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__f
 for _路径 in (_项目根, os.path.join(_项目根, "src"), os.path.join(_项目根, "stdlib")):
     if _路径 not in sys.path:
         sys.path.insert(0, _路径)
+
+_本目录 = os.path.dirname(os.path.abspath(__file__))
+if _本目录 not in sys.path:
+    sys.path.insert(0, _本目录)
+
+from lightharness_sibling import 缺失则skip  # noqa: E402
 
 import _light_import_hook  # noqa: E402
 
@@ -174,11 +181,16 @@ def test_中文形参名可作关键字(地板, 函数名):
 @pytest.mark.parametrize("副本", ["boot", "lh"])
 def test_副本形参名全中文(副本):
     路径 = BOOT_PATH if 副本 == "boot" else LH_PATH
+    if 副本 == "lh":
+        # sibling 缺失（GitHub runner 只 checkout 本仓）时显式 skip，见
+        # tests/unit/lightharness_sibling.py 的裁决说明。
+        缺失则skip(LH_PATH)
     不合规 = non_chinese_params(open(路径, encoding="utf-8").read())
     assert 不合规 == [], f"{副本} 副本仍有英文形参（中文关键字调不通）: {不合规[:10]}"
 
 
 def test_LH形参名与真源逐字相同():
+    缺失则skip(LH_PATH)
     真源 = _顶层函数表(MAIN_PATH)
     LH = _顶层函数表(LH_PATH)
     差异 = {名: (形参, LH[名]) for 名, 形参 in 真源.items() if LH.get(名) != 形参}
