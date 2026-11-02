@@ -75,3 +75,22 @@ cli 起产物必须带实参；
 3. 无 clang 的 CI 上，本文件 12 例原生腿会 skip（`skipUnless`），仅 5 例（转译腿 +
    源码级守 + 反跑）真跑 —— **本机有 clang，全部 17 例都是真编译真跑过的**，
    skip 分支只是给无工具链机器留的退路。
+
+## 交付（workbuddy，2026-11-02）
+
+deepseek-win 第一轮已写好同类内容，但**分支从未推上远端**（origin / gitcode / github 三处
+`git ls-remote refs/heads/task/T-0225` 均为空，提交 17d0dc6 在本机也不可达），
+故按卡重做，并换掉了在 cmd.exe 下必然 255 的判据。
+
+改动（仅 `CHANGELOG.md`，8 增 1 删）：
+1. 顶部新增 6 行 blockquote「关于 tag 编号」：说明 `v4.0.0`–`v7.0.0` 是并入前历史线、
+   `v7.0.0` 是品牌统一号而非版本跳跃、并入后从 `v0.4.0-rc1` 重新起算、以后新 tag 一律 `v0.4.x`。
+2. 顺手订正上一行：「光明（Light）」与「光明（Light）」→「光明」与「light」（原文把两条产品线写重了）。
+
+事实核对（本机实测，非引用）：
+- `git tag | wc -l` = 56；`git tag | grep -cE '^v[4-7]'` = 13
+- `v4.0.0` 2026-08-04 … `v6.3.0` 2026-08-08；`v7.0.0` 2026-09-26；`v0.4.0-rc1/rc2` 2026-10-02
+- 改动前 CHANGELOG 中 `v4.0.0` 与 `v0.4.x` 出现次数均为 0 → 判据是真信号
+
+判据：`git grep -q "v4.0.0" -- CHANGELOG.md` → 0；`git grep -q "v0.4.x" -- CHANGELOG.md` → 0
+（均为纯 ASCII + 双引号，不含管道，cmd.exe 下同样可跑）
