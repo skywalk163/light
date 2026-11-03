@@ -52,6 +52,12 @@ import pytest
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _RUNTIME_C = os.path.join(_ROOT, "src", "llvm", "runtime_typed.c")
 
+# tests/ 进 sys.path 才能 import llvm运行时（tests/llvm运行时.py）
+_测试根 = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _测试根 not in sys.path:
+    sys.path.insert(0, _测试根)
+from llvm运行时 import 取链接库参数  # noqa: E402
+
 # ── 平台门 ───────────────────────────────────────────────────────────
 # 仅「POSIX 真跑握手回显」按平台 skip（Windows 上 skip，标注平台）；
 # 静态锚点用例只读 C 源，双平台都真跑，保证 Windows 上文件有绿退出码 0。
@@ -192,12 +198,16 @@ def probe_exe():
     exe = os.path.join(tmp, "probe")
     with open(probe_c, "w", encoding="utf-8") as f:
         f.write(_PROBE_C)
+    # 平台链接库不在这里硬编码：统一走 tests/llvm运行时.py 的 取链接库参数()
+    # （它直接转调生产 src/llvm/compiler.py 的 get_link_libs()）。本文件原先写死
+    # `-lm` / `-lpthread`，被 tests/unit/test_link_libs_guard.py 判红——判据只许一处。
+    # mbedTLS 三个库是本探针独有的第三方依赖，不在 get_link_libs() 的职责内，故保留。
     cmd = [
         CLANG, "-O2",
         "-DLIGHT_TLS_MBEDTLS",
         "-I", os.path.join(_ROOT, "src", "llvm"),
         probe_c, "-o", exe,
-        "-lmbedtls", "-lmbedx509", "-lmbedcrypto", "-lm", "-lpthread",
+        "-lmbedtls", "-lmbedx509", "-lmbedcrypto", *取链接库参数(),
     ]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
     if r.returncode != 0:

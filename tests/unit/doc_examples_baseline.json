@@ -1,7 +1,7 @@
 {
  "note": "本文件由 tools/ci/gen_doc_examples_baseline.py 生成，勿手改；分类口径见 tests/unit/test_doc_examples_gate.py 模块文档串",
- "total_scanned": 1024,
- "failing": 19,
+ "total_scanned": 1041,
+ "failing": 20,
  "entries": [
   {
    "file": "docs/HM全局类型推断系统.md",
@@ -51,6 +51,13 @@
    "category": "ANNOTATED",
    "exc": "LexerError",
    "first_line": "定义 年龄 等于 二十五。"
+  },
+  {
+   "file": "docs/T-0198_续行规则.md",
+   "hash": "9bff193ddc56",
+   "category": "ANNOTATED",
+   "exc": "ParseError",
+   "first_line": "设 甲 为"
   },
   {
    "file": "docs/interface-design.md",
