@@ -11,6 +11,19 @@
 > 也不代表 `v0.4.x` 之后的版本。**以后新 tag 一律用 `v0.4.x`。**
 > 历史 tag 仍保留可回溯；看到 `v7.0.0` 不必当成比 `v0.4.x` 更新。
 
+## [0.4.1] — 2026-11-02 — PyPI 发布：版本号单一真源推进到 0.4.1
+
+> T-0228 发布 0.4.1：PyPI 包 `guangming` 0.4.1 已上架，tag `v0.4.1` 已推送。
+> 本版只做版本号推进，无功能变更。
+
+### 版本号同步
+
+- `src/version.py` / `pyproject.toml`：`0.4.0` → `0.4.1`（唯一真源，T-0228）。
+- `cli/light.py` / `cli/light_unified.py` 的 ImportError 兜底串、README 安装校验示例、
+  Windows/macOS/Linux 三个安装脚本与 `.deb` control：由 `0.4.0` 同步到 `0.4.1`。
+- `tests/unit/test_version_single_source.py` 恢复全绿（此前 CHANGELOG 最新条目与
+  部分对外可见版本串仍停在 0.4.0）。
+
 ## [LH-3] — 2026-10-29 — lighthive 第三轮（LH-23~LH-31）复测：4 条误记 + 4 条已修
 
 > 由 lighthive 第三轮（store 控制面 / MCP HTTP / 代码同步）暴露的 9 条逐条复测。

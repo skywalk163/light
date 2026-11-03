@@ -244,8 +244,10 @@
       "首个未定义节点": "长"
     },
     "文件系统": {
-      "状态": "不可编译",
-      "阻断": "同名 .py 影子：.light 是 decl 0 空壳，实现在同名 .py"
+      "状态": "可编译",
+      "阻断": "",
+      "证据": "python -c \"import sys; sys.path.insert(0, 'src'); from llvm.compiler import compile_light_typed; compile_light_typed('stdlib/文件系统.light', output_path='<临时目录>/文件系统')\"。T-0234 复测（Windows 本机）：桶=可编，O0 真出 exe；根因是 stdlib/文件系统.light:137 转发 `_light_builtin.原子写入` 无原生分支，已补 dv_atomic_write（同目录临时文件 + fsync + chmod + 原子改名）。tests/unit/test_llvm_stdlib_readiness.py 的下界模块真编译同步转绿。",
+      "备注": "T-0234 订正：此前误记「同名 .py 影子 / .light 是空壳」，实际 .light 有实现，唯一阻断点是 原子写入；补齐原生分支后实测可编。"
     },
     "断言工具轻量": {
       "状态": "不可编译",

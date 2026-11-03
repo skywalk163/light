@@ -1,96 +1,25 @@
-# T-0215 · 光明P2：原生腿 `参数列表()` 比转译腿多返回 argv[0]（跨腿口径差 1）[L-262]
+# T-0234 · light 让 GitHub CI 真正跑起来
 
-**结论：口径已销账 —— 两条腿的 `参数列表()` / `用户参数()` 逐元素相等，都不含程序名。**
+**结论：工作流已修正并可在 GitHub 真实触发；但「徽章为绿」被仓库态测试失败阻塞，非本卡 paths 可修。**
 
-## 做了什么（四处，都在卡面 paths 内）
+## 做了什么（只改 `.github/workflows/ci.yml`）
 
-1. `src/llvm/runtime_typed.c:dv_get_args`：循环从 `i = 1` 起，跳过 argv[0]
-   （对齐 `sys.argv[1:]` 口径）。原生产物是独立进程，argv[0] 是它自己的路径。
-2. 同文件新增 `_dv_arg_to_str`：**Windows 上 argv 不是 UTF-8** —— CRT 按 ANSI
-   代码页（本机 936/GBK）解码，同一批中文实参原生腿拿到 GBK 双字节，打印乱码、
-   逐元素对拍必红。改为 CP_ACP 宽化 → CP_UTF8 窄化，与运行时「内部一律 UTF-8
-   字节流」口径对齐；非 Windows 原样使用。
-3. `src/llvm/codegen_typed.py:3416`：`用户参数` 并入 `参数列表`/`argv`/`args`
-   分派（此前原生腿 `用户参数()` 是未定义名，换后端就 NameError），同走 `dv_get_args`。
-4. `cli/light.py`：main() 在 argparse **之前**按第一个裸 `--` 硬切（只对 `run` 生效），
-   实参挂 `args.用户实参`；`_run_native` 起产物时真传（`subprocess.run([exe, *用户实参])`）；
-   `_run_src` 在执行期内把 `sys.argv` 设成这批实参、并补 `用户参数` 别名，跑完（含异常
-   路径）还原。不写 `--` 时口径逐字不变。
-5. `tests/unit/test_T6B_时间系统内建_原生腿.py:207`：`assertGreaterEqual(N, 1)` →
-   `assertEqual(N, 0)`。**理由（卡面要求写明）**：该断言旧口径 `>= 1` 恰恰是靠
-   「多算一格 argv[0]」才成立的，正是 L-262 病灶本身；该用例跑产物时不带任何用户
-   实参，跳过 argv[0] 后长度**必须恰为 0**。改成「恰为 0」比卡面允许的 `>= 0`
-   **更严**，不是放宽：它直接钉死「返回值不含程序名」，argv[0] 一回来长度立刻变 1 转红。
+- 文件头改为真实状态：GitHub 远端 `skywalk163/light` 已启用，本工作流随 push main / PR / 手动触发真跑；权威门禁仍是 `.gitea/workflows/ci.yml`。
+- 修正必红路径：lightpub 文档可导入性闸门 `tests/unit/test_lightpub_doc_importability.py` → `tests/lightpub/test_lightpub_doc_importability.py`（R125 测试分仓迁移 424d07253；旧路径 pytest exit 4，每次必红）。
+- 「计时起点」移到 `actions/setup-python` 之后：干净 runner 上 `python` 由 setup-python 写入 PATH，原位置可能第一步就红。
+- 与权威副本对齐判绿语义：PR 通过 `PYTEST_ADDOPTS=-m "not slow"` 跳过 slow（e2e/大项目），时间预算放宽到 PR 1800s / push 3000s；补 `floor_bootstrap.py` / `native_product.py` / `dist_criteria.py` 三道 G9 门禁。
+- 增加 `permissions: contents: read` 与 PR 并发取消，减少排队与权限面。
 
-## 新增 `tests/unit/test_LH41_原生腿参数口径.py`（17 例）
+## 验证
 
-验收 1：两腿 `参数列表()` 逐元素相等（含长度）+ 长度恰为 2（不是 3）；
-验收 2：两腿 `用户参数()` 相等、且与本腿 `参数列表()` 同源；
-边界：`--` 后为空 → 两腿都空；空格/中文/引号原样到达；`--backend native` 当数据不被吞；
-源码级守：runtime 必须 `i = 1`、必须走 UTF-8 转换、codegen 必须登记 `用户参数`、
-cli 起产物必须带实参；
-反跑有牙：把循环改回 `i = 0`、把 `用户参数` 摘掉，同一判据变红（原文件一字未动）。
+- 卡面 verify：`test -f .github/workflows/ci.yml`（本机无 POSIX `test`，用 PowerShell `Test-Path` / Python `os.path.isfile` 等价校验通过）。
+- `actionlint` v1.7.7：**exit 0**；PyYAML 解析通过，jobs = `test/lint/build/exe`。
+- 静态门禁本地预跑：`floor_bootstrap` / `dist_criteria` / `assert_floor_manifest` 通过；`native_product` 在 Windows 本机 24.19% < 基线 24.39%（Linux runner 预期与 FreeBSD 权威一致）。
+- 真实运行证据：GitHub Actions 已在跑（run `41289797116`，2026-11-01），失败点是 **Unit Tests：12 failed + 7 errors**，不是工作流语法/触发问题。
 
-## 验证（全部本机实跑，含真编译真跑）
+## 阻塞与残留
 
-| 命令 | 结果 |
-|---|---|
-| `python3 -m pytest -q tests/unit/test_LH41_原生腿参数口径.py`（**卡面验收**） | **17 passed** |
-| `tests/unit/test_T6B_时间系统内建_原生腿.py`（被改断言的那个套件） | **5 passed** |
-| `tests/test_native_cli.py`（原生腿 CLI 贴边回归） | **35 passed**（与改动前基线同） |
-| `test_R154_L213_环境变量口径.py` + `test_R130_对象池缓存_原生腿.py` | **18 passed** |
-| `test_R131_L186L187_原生腿.py` + `test_LH38_下标与切片写.py` | **40 passed** |
-| `test_entry_function.py` + `test_L093_L094_diagnostics.py`（`_run_src` 调用方） | **17 passed** |
-| `flake8 cli/light.py src/llvm/codegen_typed.py <两个测试文件> --max-line-length=120` | rc=0 |
-
-手工端到端（真编译真跑，`light run <入口> [--backend native --optimize O0] -- <实参>`）：
-`甲 乙` → 两腿均 `参数列表=['甲','乙']`、`用户参数=['甲','乙']`；`--` 后为空 → 两腿均空；
-`a b`/`中文`/`带"引号"` → 两腿字节级一致；`--backend native` 作为数据 → 两腿均原样接住。
-
-## 诚实披露：本卡前提与 main 不一致
-
-- 卡面根因写「转译腿读 CLI 注入的 `LIGHT_USER_ARGS`」。**main 与全部远端分支上都没有
-  这个注入点**：LH-05（T-0196）的落地只在分支 `task/T-0196`（未合入 main），其 summary
-  自己记着「原生腿的用户实参透传没接 ⇒ 建议另立卡」。故本卡是在 **T-0196 未入 main
-  的前提下**做的：口径仍按卡面要求（两条腿都不含程序名、`--` 之后原样到达），
-  但转译腿的实现落点是 `_run_src` 里设 `sys.argv` + 命名空间内 `用户参数` 别名
-  （不是读环境变量），这些改动都在本卡允许的 `cli/light.py` 内，未碰 `stdlib/builtins.py`。
-  若日后 T-0196 合入 main（`参数列表()` 改读注入点），本卡的 `_run_src` 设 `sys.argv`
-  那段仍成立（两者同源），只需复核 gate；**合卡时请留意这处重叠**。
-- `用户参数` 在地板 `stdlib/builtins.py` 里同样不存在（同属 T-0196 未落地）；本卡
-  在 `cli/light.py` 的命名空间与 `codegen_typed.py` 各补一处，**未改地板文件**
-  （不在允许 paths 内，地板名单冻结也不允许新增顶层 def）。
-- 未跑全量 `tests/unit`（全量在本机 ~1.5–2.5 小时，且 78 条既有红与本卡无关）；
-  已跑上表六个套件、共 132 例全绿。
-
-## 遗留风险
-
-1. `参数列表()` 无参时的口径现在是「空表」（原为「含产物路径」）。这是**有意的语义
-   修正**（对齐 `sys.argv[1:]`），但对存量里「拿 argv[0] 当程序名」的原生腿脚本是
-   **行为变化**：仓内 `stdlib/参数解析.light`、`stdlib/sys.light` 只读长度/遍历，
-   实测不受影响；仓外脚本无法排查，已在卡内如实记录。
-2. Windows 上 argv 的 CP_ACP→UTF-8 转换按「CRT 走 ANSI 代码页」的实现假设；
-   若日后改用 `wmain`/`-municode` 或 manifest 声明 UTF-8，这段会变成 no-op 直通
-   （仍是正确结果），不会反向破坏。
-3. 无 clang 的 CI 上，本文件 12 例原生腿会 skip（`skipUnless`），仅 5 例（转译腿 +
-   源码级守 + 反跑）真跑 —— **本机有 clang，全部 17 例都是真编译真跑过的**，
-   skip 分支只是给无工具链机器留的退路。
-
-## 交付（workbuddy，2026-11-02）
-
-deepseek-win 第一轮已写好同类内容，但**分支从未推上远端**（origin / gitcode / github 三处
-`git ls-remote refs/heads/task/T-0225` 均为空，提交 17d0dc6 在本机也不可达），
-故按卡重做，并换掉了在 cmd.exe 下必然 255 的判据。
-
-改动（仅 `CHANGELOG.md`，8 增 1 删）：
-1. 顶部新增 6 行 blockquote「关于 tag 编号」：说明 `v4.0.0`–`v7.0.0` 是并入前历史线、
-   `v7.0.0` 是品牌统一号而非版本跳跃、并入后从 `v0.4.0-rc1` 重新起算、以后新 tag 一律 `v0.4.x`。
-2. 顺手订正上一行：「光明（Light）」与「光明（Light）」→「光明」与「light」（原文把两条产品线写重了）。
-
-事实核对（本机实测，非引用）：
-- `git tag | wc -l` = 56；`git tag | grep -cE '^v[4-7]'` = 13
-- `v4.0.0` 2026-08-04 … `v6.3.0` 2026-08-08；`v7.0.0` 2026-09-26；`v0.4.0-rc1/rc2` 2026-10-02
-- 改动前 CHANGELOG 中 `v4.0.0` 与 `v0.4.x` 出现次数均为 0 → 判据是真信号
-
-判据：`git grep -q "v4.0.0" -- CHANGELOG.md` → 0；`git grep -q "v0.4.x" -- CHANGELOG.md` → 0
-（均为纯 ASCII + 双引号，不含管道，cmd.exe 下同样可跑）
+- 徽章无法转绿：10 条仓库态测试失败（本地复跑 `test_地板搬迁_判型_S2.py` 同签名 3 failed 可复现）；7 errors 来自 sibling `lightharness` 缺失。这些文件都不在允许 paths 内。
+- 已试过把 `skywalk163/lightharness` main 浅克隆为 sibling 验证：7 errors 消失，但仍 3 failed（LH 副本形参名未同步），故没有把跨仓 clone 写进 CI 硬依赖。
+- README 首页徽章仍是 `docs/ci_badge.svg` 本地生成图，不是 Actions badge；README 不在允许 paths 内。
+- 未 push / 未触发 PR；按卡规则只提交到 `task/T-0234`，由 `hive_submit` 推送。`native_product` 门禁在 Linux 上未实测，存在与 Windows 本机同样偏低的风险。

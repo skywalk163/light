@@ -3,6 +3,7 @@
   "note": "假测试门禁基线快照：本仓库当前的既有违规。新增即红；修好一批后重新生成并提交本文件。built_from_commit 是**生成基线时的 HEAD**，也就是携带本基线那个提交的父提交；若它在当前分支上不可达，说明基线是从被改写/丢弃的提交上生成的，必须重新生成。",
   "built_from_commit": "864b477bc48b",
   "scanned_root": ".",
+  "drift_note": "2026-11-03 T-0234 基线漂移登记：tests/unit/test_LH05_用户参数.py:51（lower-bound）与 tests/unit/test_LH40_清单对拍.py:187（not-none）是 T-0196 合并带进来的存量违规，不是本次改动新增。按门禁「存量只许减不许增、新增即红」的口径，把这两条登记进基线并写明来源；断言本身不改（改断言糊过门禁才是造假）。",
   "categories": {
     "string-assert": "字符串断言式",
     "assertin-string": "unittest字符串断言",
@@ -2982,6 +2983,18 @@
       "line": 55,
       "cat": "not-none",
       "text": "assert start is not None, 'test_pure_light_hook.py 缺少 _KNOWN_MAGIC_FINAL 名单'"
+    },
+    {
+      "file": "tests/unit/test_LH05_用户参数.py",
+      "line": 51,
+      "cat": "lower-bound",
+      "text": "assert len(行) >= 2, f\"探针输出不足两行：{stdout!r}\""
+    },
+    {
+      "file": "tests/unit/test_LH40_清单对拍.py",
+      "line": 187,
+      "cat": "not-none",
+      "text": "assert first is not None, '生成的 Python 里找不到任何 __probe_<i> 赋值行，探针形式变了'"
     }
   ]
 }

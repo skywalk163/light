@@ -699,6 +699,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             f'declare ptr @dv_read_file(ptr)',
             f'declare void @dv_write_file(ptr, ptr)',
             f'declare void @dv_append_file(ptr, ptr)',
+            f'declare i32 @dv_atomic_write(ptr, ptr, i64)',
             f'declare void @dv_open_file(ptr, ptr, ptr, ptr)',
             f'declare void @dv_file_write(ptr, ptr, ptr)',
             f'declare void @dv_file_close(ptr, ptr)',
@@ -2906,6 +2907,39 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 str_ptr = self.new_register()
                 self.emit(f'{str_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a1}, 3')
                 self.emit(f'call void @dv_append_file(ptr {path_ptr}, ptr {str_ptr})')
+            return self._create_int_dv('0'), 'dv'
+
+        # R164：原子写入（LH-28）原生实现。stdlib/文件系统.light:137 转发
+        # `_light_builtin.原子写入`，此前无原生分支，整个 文件系统 模块被
+        # 「未定义的模块点访问：原子写入」拒掉。语义见 runtime_typed.c
+        # dv_atomic_write：同目录临时文件 → fsync → chmod → 原子改名。
+        if name in ('原子写入', 'atomic_write'):
+            if len(args) >= 2:
+                a0 = self._deref_value(args[0])
+                path_ptr = self.new_register()
+                self.emit(f'{path_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a0}, 3')
+                a1 = self._deref_value(args[1])
+                str_ptr = self.new_register()
+                self.emit(f'{str_ptr} = extractvalue {LIGHTVALUE_STRUCT} {a1}, 3')
+                perm_i64 = '-1'
+                if len(args) >= 4:
+                    # 权限 = 空(type=0) 时 i64 字段无意义，必须按 type 归一为 -1，
+                    # 否则 chmod(tmp, 0) 会把临时文件设成 0000。
+                    a3 = self._deref_value(args[3])
+                    perm_type = self.new_register()
+                    self.emit(f'{perm_type} = extractvalue {LIGHTVALUE_STRUCT} {a3}, 0')
+                    perm_val = self.new_register()
+                    self.emit(f'{perm_val} = extractvalue {LIGHTVALUE_STRUCT} {a3}, 1')
+                    is_int = self.new_register()
+                    self.emit(f'{is_int} = icmp eq i32 {perm_type}, 1')
+                    perm_sel = self.new_register()
+                    self.emit(f'{perm_sel} = select i1 {is_int}, i64 {perm_val}, i64 -1')
+                    perm_i64 = perm_sel
+                ret = self.new_register()
+                self.emit(f'{ret} = call i32 @dv_atomic_write(ptr {path_ptr}, ptr {str_ptr}, i64 {perm_i64})')
+                ret_i64 = self.new_register()
+                self.emit(f'{ret_i64} = sext i32 {ret} to i64')
+                return self._create_int_dv(ret_i64), 'dv'
             return self._create_int_dv('0'), 'dv'
 
         if name in ('打开文件', 'open_file'):

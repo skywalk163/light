@@ -79,7 +79,12 @@ def build_payload():
         rt_lines = f.readlines()
 
     # 1. Statement nodes
-    stmt_start, stmt_end = get_method_range(cg_src, '_gen_statement')
+    # L-217（R161-B）之后 _gen_statement 只剩 try/finally 壳，真正的 isinstance
+    # 分派链在 _gen_statement_inner。锚到壳上会抽成 0 条语句（--check 仍然自洽，
+    # 但 test_native_leg_capability 与 JSON 静默分叉）。优先锚内层。
+    stmt_method = ('_gen_statement_inner' if 'def _gen_statement_inner(' in cg_src
+                   else '_gen_statement')
+    stmt_start, stmt_end = get_method_range(cg_src, stmt_method)
     stmt_body_lines = cg_lines[stmt_start-1:stmt_end-1] if stmt_start else []
     stmt_types = set()
     for line in stmt_body_lines:
