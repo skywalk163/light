@@ -38,7 +38,10 @@
    <io.h> 不带出 _O_* 常量，缺这行 Windows 上是 use of undeclared identifier）。 */
 #include <fcntl.h>
 #include <direct.h>
+/* T-0249：CommandLineToArgvW 在 shellapi.h，且要链 shell32（见 get_link_libs） */
+#include <shellapi.h>
 #pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "shell32.lib")
 #define F_OK 0
 #define access _access
 #else
@@ -4490,47 +4493,73 @@ void dv_exit(int code) {
 static int _dv_argc = 0;
 static char** _dv_argv = NULL;
 
-void dv_init_args(int argc, char** argv) {
+#ifdef _WIN32
+/* L-262 / T-0249：Windows 上 CRT 交给 main 的 argv 是按 ANSI/OEM 代码页解码的
+ * 窄字节（en-US runner 的 ACP=1252），中文实参在进入 main 之前就已经被改写成
+ * '?' —— 再往后怎么转码都救不回来。所以 Windows 分支不再从 argc/argv 取参，
+ * 改走宽字符入口：GetCommandLineW + CommandLineToArgvW，逐格按 CP_UTF8 窄化后
+ * 存回 _dv_argv，使 dv_get_args 与其它 dv_* 入口一样只见到 UTF-8 字节流。
+ * 非 Windows 平台的 argv 本身就是 UTF-8，dv_init_args 原样保存（见 #else）。 */
+static char* _dv_wide_to_utf8(const WCHAR* w) {
+    if (!w) return NULL;
+    int n = WideCharToMultiByte(CP_UTF8, 0, w, -1, NULL, 0, NULL, NULL);
+    if (n <= 0) return NULL;
+    char* out = (char*)malloc((size_t)n);
+    if (!out) return NULL;
+    if (WideCharToMultiByte(CP_UTF8, 0, w, -1, out, n, NULL, NULL) <= 0) {
+        free(out);
+        return NULL;
+    }
+    return out;
+}
+
+static void _dv_init_args_win(void) {
+    int argc = 0;
+    LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    if (!wargv || argc <= 0) {
+        if (wargv) LocalFree((HLOCAL)wargv);
+        _dv_argc = 0;
+        _dv_argv = NULL;
+        return;
+    }
+    char** argv = (char**)calloc((size_t)argc, sizeof(char*));
+    if (!argv) {
+        LocalFree((HLOCAL)wargv);
+        _dv_argc = 0;
+        _dv_argv = NULL;
+        return;
+    }
+    for (int i = 0; i < argc; i++) {
+        argv[i] = _dv_wide_to_utf8(wargv[i]);
+        /* 单格转换失败也留一格空串，绝不让表断在中间（长度口径仍对齐） */
+        if (!argv[i]) argv[i] = dv_strdup("");
+    }
+    LocalFree((HLOCAL)wargv);
     _dv_argc = argc;
     _dv_argv = argv;
+}
+#endif
+
+void dv_init_args(int argc, char** argv) {
+#ifdef _WIN32
+    /* CRT 的 argc/argv 已按 ACP 解码，不可信：一律从宽字符命令行重建 */
+    (void)argc;
+    (void)argv;
+    _dv_init_args_win();
+#else
+    _dv_argc = argc;
+    _dv_argv = argv;
+#endif
 }
 
 /* L-262：把 argv 里的一格按 UTF-8 取出来。
  *
- * 为什么不能直接 `dv_str(&elem, _dv_argv[i])`：Windows 上走 main(argc, argv)
- * 的 argv **不是** UTF-8 —— 由 CRT 按 ANSI 代码页（本机 936/GBK）解码来的。
- * 同一批中文实参，转译腿（Python，UTF-8）拿到 '甲'，原生腿拿到 GBK 双字节，
- * 打印出来是乱码，逐元素对拍也过不去。这里在 Windows 上把那一格当 ANSI
- * 宽化（MultiByteToWideChar(CP_ACP)），再按 UTF-8 窄化回来 —— 与其它
- * `dv_*` 字符串入口「内部一律 UTF-8 字节流」的口径对齐（见 dv_utf8 一节）。
- * 非 Windows 平台 argv 本身就是 UTF-8，原样使用。 */
+ * Windows 分支的 _dv_argv 由 _dv_init_args_win 用宽字符入口重建，已经是 UTF-8
+ * 字节流，这里原样落值，不再做代码页猜测（历史上的两跳转码
+ * MultiByteToWideChar(CP_ACP) → WideCharToMultiByte(CP_UTF8) 正是 en-US runner
+ * 上中文实参变 '?' 的病灶，已删除）。
+ * 非 Windows 平台 argv 本身就是 UTF-8，同样原样使用。 */
 static void _dv_arg_to_str(LightValue* result, const char* raw) {
-#ifdef _WIN32
-    if (raw && *raw) {
-        int wn = MultiByteToWideChar(CP_ACP, 0, raw, -1, NULL, 0);
-        if (wn > 0) {
-            WCHAR* wbuf = (WCHAR*)malloc(sizeof(WCHAR) * (size_t)wn);
-            if (wbuf) {
-                if (MultiByteToWideChar(CP_ACP, 0, raw, -1, wbuf, wn) > 0) {
-                    int an = WideCharToMultiByte(CP_UTF8, 0, wbuf, -1, NULL, 0, NULL, NULL);
-                    if (an > 0) {
-                        char* ubuf = (char*)malloc((size_t)an);
-                        if (ubuf) {
-                            if (WideCharToMultiByte(CP_UTF8, 0, wbuf, -1, ubuf, an, NULL, NULL) > 0) {
-                                dv_str(result, ubuf);
-                                free(ubuf);
-                                free(wbuf);
-                                return;
-                            }
-                            free(ubuf);
-                        }
-                    }
-                }
-                free(wbuf);
-            }
-        }
-    }
-#endif
     dv_str(result, raw ? raw : "");
 }
 

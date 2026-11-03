@@ -18,10 +18,10 @@
 ## 修法（三处，见卡内说明）
 
 1. `runtime_typed.c:dv_get_args` 从 `i = 1` 起（对齐 `sys.argv[1:]`）；
-2. Windows 上 argv 是 CRT 按 ANSI 代码页（本机 936）解码来的，不是 UTF-8 ——
-   同一批中文实参在原生腿是 GBK 双字节、打印出来乱码，逐元素对拍必红。
-   故新增 `_dv_arg_to_str`：Windows 上 CP_ACP 宽化 → CP_UTF8 窄化，与运行时
-   「内部一律 UTF-8 字节流」的口径对齐；
+2. Windows 上 argv 是 CRT 按 ANSI/OEM 代码页解码来的（en-US runner 的 ACP=1252
+   会把中文直接改写成 '?'），不是 UTF-8。T-0249 起 Windows 分支不再读 argc/argv，
+   改走宽字符入口 `GetCommandLineW` + `CommandLineToArgvW`，逐格按 CP_UTF8
+   窄化后重建 `_dv_argv`，与运行时「内部一律 UTF-8 字节流」的口径对齐；
 3. `codegen_typed` 把 `用户参数` 一并登记（此前原生腿 `用户参数()` 是未定义名，
    同一条源码换后端就 NameError），与 `参数列表` 同走 `dv_get_args`；
 4. `cli/light.py` 按 `--` 硬切并**真把实参传到产物命令行**
@@ -273,16 +273,36 @@ class Test源码级守(unittest.TestCase):
         self.assertNotIn("for (int i = 0; i < _dv_argc; i++)", body,
                          "dv_get_args 仍从 argv[0] 起 —— 跨腿口径又差 1")
 
-    def test_runtime_Windows按UTF8取出(self):
-        """Windows 上 argv 是 ANSI 代码页解码的，必须显式转 UTF-8。"""
+    def test_runtime_Windows走宽字符入口(self):
+        """T-0249：Windows 上必须从宽字符命令行取参，不能再按 ACP 猜编码。"""
         text = self._runtime()
         self.assertIn("_dv_arg_to_str", text, "找不到 argv→UTF-8 的转换入口")
         body = self._dv_get_args_body(text)
         self.assertIn("_dv_arg_to_str(&elem, _dv_argv[i])", body,
-                      "dv_get_args 没走 UTF-8 转换（Windows 上中文实参会是 GBK 字节）")
-        conv = text[text.find("static void _dv_arg_to_str"):]
+                      "dv_get_args 没走统一的 argv→UTF-8 转换")
+
+        i = text.find("static char* _dv_wide_to_utf8")
+        self.assertGreater(i, 0, "找不到宽字符→UTF-8 的转换入口")
+        conv = text[i:]
         conv = conv[:conv.find("\n}\n") + 3]
-        self.assertIn("CP_UTF8", conv, "转换函数没有按 UTF-8 窄化回来")
+        self.assertIn("CP_UTF8", conv, "宽字符没有按 UTF-8 窄化")
+
+        j = text.find("static void _dv_init_args_win")
+        self.assertGreater(j, 0, "找不到 Windows 宽字符取参入口")
+        init = text[j:]
+        init = init[:init.find("\n}\n") + 3]
+        self.assertIn("GetCommandLineW", init,
+                      "Windows 取参没走宽字符命令行（en-US runner 上中文会被改写成 '?'）")
+        self.assertIn("CommandLineToArgvW", init,
+                      "Windows 取参没走宽字符解析")
+
+        # 有牙：旧的两跳 ACP 转码不能留在 argv 链路上（否则 en-US runner 必红）
+        k = text.find("static void _dv_arg_to_str")
+        self.assertGreater(k, 0, "找不到 _dv_arg_to_str")
+        argconv = text[k:]
+        argconv = argconv[:argconv.find("\n}\n") + 3]
+        self.assertNotIn("CP_ACP", argconv,
+                         "argv 仍在按 ACP 猜编码（L-262 在 en-US runner 上的病灶）")
 
     def test_codegen_用户参数已接线(self):
         src = self._codegen()
