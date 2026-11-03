@@ -79,8 +79,21 @@ def _oracle_是字母(字符):
     return str.isalpha(字符)
 
 
-def _oracle_是数字(字符):
-    return str.isdigit(字符)
+def _oracle_是数字(值):
+    """T-0197 · LH-08 口径（推翻 LP-D-016）：int/float（排 bool）或单个数字字符为真。
+
+    这条**不再等价于** `str.isdigit`：`是数字(1)` 为真、不抛 TypeError。
+    判「整串全数字字符」用 `字符串全数字`；判「是不是数值类型」用 `是数值`。
+    所以它也不能进下面 `test_字符判型对非字符串入参抛同型异常` 的名单——
+    「收任意值」与「像 str.isdigit 那样对非 str 抛 TypeError」是互斥的两条口径。
+    """
+    if isinstance(值, bool):
+        return False
+    if isinstance(值, (int, float)):
+        return True
+    if isinstance(值, str):
+        return len(值) == 1 and str.isdigit(值)
+    return False
 
 
 def _oracle_是空白(字符):
@@ -199,8 +212,14 @@ def test_字符判型口径与Python原版逐条一致(名字, 标签, 值):
         "%s(%r) 口径不一致：Python 原版 %r，光明版 %r" % (名字, 值, 期望, 实得))
 
 
+# 只覆盖「形参就是 str 方法入参」的段落。`是数字` 自 T-0197（LH-08）起收任意值
+# （int/float 直接判真、bool 判假、str 才走单字符 isdigit），本就不该对 1/None/list
+# 抛 TypeError —— 把它留在名单里等于要求两条互斥口径同时成立。
+严格字符串段落 = ("是字母", "是空白")
+
+
 @pytest.mark.parametrize("标签,值", 非字符串入参, ids=[t for t, _ in 非字符串入参])
-@pytest.mark.parametrize("名字", sorted(字符段落))
+@pytest.mark.parametrize("名字", 严格字符串段落)
 def test_字符判型对非字符串入参抛同型异常(名字, 标签, 值):
     """`str.isalpha(1)` 抛 TypeError。
 

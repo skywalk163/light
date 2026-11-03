@@ -1,16 +1,12 @@
-# 光明 Light · GitHub CI（镜像验证）
+# 光明 Light · GitHub CI
 #
-# 权威门禁仍是 `.gitea/workflows/ci.yml`（FreeBSD host runner）；本文件是 GitHub 侧的
-# 镜像验证。GitHub 远端 `skywalk163/light` 启用后，本工作流已随 push main / PR /
-# 手动触发真实运行（run 记录见仓库 Actions 页）。
-#
-# 判绿语义与权威副本对齐：
-#   - e2e / root / pure-light：`|| true` 放行存量失败 + junitxml 兜底 + `test -f` 防崩溃；
-#   - 最终由 `tools/ci/check_regression.py` 对比 `tests/ci_baseline_failures.txt`，
-#     只拦「基线之外的新增打红」，不把存量欠账变成背景噪音；
-#   - unit / integration 保持硬判（当前基线零存量失败）；
-#   - 跨平台矩阵（Windows/macOS）是观测性覆盖：job 级 `continue-on-error`，不阻塞
-#     Linux 发布准入；Linux 上的跨平台 regression gate 另有一份空基线。
+# ⚠️ 事实先说清楚（第七轮 E7 记账，T-0241 更正）：本棵 .github/ 树在 2026-11-01 之前
+# 一次都没有执行过；`skywalk163/light` 远端启用后已真跑（run 41289797116，ubuntu 3.11，
+# Unit Tests 12 failed + 7 errors），下面的结论不再只是「未验证的镜像」。
+#   - 这边的步骤仍以 .gitea 权威副本为准；判据要真，两边都得改，并看两边 run 结果。
+#   - 跨平台闸门（下面那道 `if: runner.os != 'Linux'` 的回归闸门）在 PR 窄矩阵下不跑，
+#     别把它当成「Windows/macOS 有覆盖」的证据。
+#   - **不要删这棵树**：它已是真远端 CI 的判据来源（第四轮已裁决保留）。
 #
 
 # ── 2026-08-22 CI 时间治理（用户裁决）─────────────────────────────────────────
@@ -131,6 +127,28 @@ jobs:
           # 提示更新基线）。
           python -m pip install numpy sympy pandas matplotlib
 
+
+      # ── sibling lightharness 可用性（T-0241 裁决：显式 skip，不 checkout）────────
+      # GitHub runner 只 checkout 本仓，`<repo>/../lightharness` 天然不存在；而
+      # tests/unit/test_builtins_drift.py（2 条 LH 用例）与
+      # tests/unit/test_LH34_中文关键字参数.py（2 条 LH 用例）要读它的 stdlib/builtins.py。
+      # run 41289797116 上这 9 条（7 errors + 2 failed）签名全是那里的 FileNotFoundError。
+      #
+      # 不在这里 checkout lightharness：那等于把另一个仓的失败面接进本仓 CI，红了分不清
+      # 是谁的账。改为这两批用例在 sibling 缺失时 pytest.skip（见
+      # tests/unit/lightharness_sibling.py），reason 会进 SKIPPED 汇总、看得见；
+      # 也绝不 collect error。gitea 权威机有 sibling，那几条在那边照常真跑。
+      # 本步只负责把「有无 sibling」打进日志，方便一红就看得出是环境还是代码。
+      - name: sibling lightharness 可用性（缺失则相关用例显式 skip）
+        shell: bash
+        run: |
+          if [ -f ../lightharness/stdlib/builtins.py ]; then
+            echo "sibling lightharness 存在：跨仓 builtins 副本比对用例照常真跑"
+          else
+            echo "::notice title=sibling lightharness 缺失::$(pwd)/../lightharness 不存在"
+            echo "  → 4 条 LH 副本用例将显式 SKIP（test_builtins_drift 2 条 + test_LH34 2 条）"
+            echo "  → 不是本仓代码坏了；跨仓 drift 的真哨兵在 gitea 权威机（有 sibling）"
+          fi
 
       # 运行单元测试（所有平台）
       - name: Unit Tests

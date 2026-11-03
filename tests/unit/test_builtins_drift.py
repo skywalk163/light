@@ -17,6 +17,8 @@ BOOT_PORTED / BOOT_KEEP_HEADER）——单一权威，防两处漂移。
 2. LH 副本（lightharness/stdlib/builtins.py）：
    - 函数名集合 diff == LH_ONLY（== {整数}）；
    - 公共函数体规范化哈希与真源一致（防 LP-D-019② 那种函数体级语义分叉）。
+   - **sibling 缺失时这两条显式 skip**（不静默、不 collect error）：GitHub runner
+     只 checkout 本仓，sibling 天然不存在；gitea 权威机有 sibling，照常真跑。
 
 说明（计划砍线条款落地）：boot 现有 109 个自包含公共函数体为发布期保留体——
 真源对应函数是"地板转发"（惰性 import 内置核心*），boot 环境无法托管，故不参与
@@ -33,6 +35,11 @@ import pytest
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+from lightharness_sibling import 缺失则skip  # noqa: E402
 
 from scripts.sync_builtins import (  # noqa: E402
     BOOT_JSON_EXEMPT,
@@ -56,7 +63,13 @@ def _read(path):
 def copies():
     main_f, _ = parse_functions(_read(MAIN_PATH))
     boot_f, _ = parse_functions(_read(BOOT_PATH))
-    lh_f, _ = parse_functions(_read(LH_PATH))
+    # LH 副本可能不存在（GitHub runner 只 checkout 本仓）：缺失时这里不读，
+    # 由使用它的两条用例自行 `pytest.skip`（见下方 lightharness_sibling 说明）。
+    # 若在这里 raise，缺件就会把整组 7 条（含纯 boot 判据）全变成 ERROR。
+    lh_f = (
+        parse_functions(_read(LH_PATH))[0]
+        if os.path.isfile(LH_PATH) else None
+    )
     return main_f, boot_f, lh_f
 
 
@@ -117,12 +130,14 @@ def test_boot_ported_present(copies):
 # LH 副本
 # ---------------------------------------------------------------------------
 def test_lh_name_diff_only_lh_only(copies):
+    缺失则skip(LH_PATH)
     main_f, _, lh_f = copies
     assert set(lh_f) - set(main_f) == LH_ONLY
     assert set(main_f) - set(lh_f) == set()
 
 
 def test_lh_public_body_hash_equals_main(copies):
+    缺失则skip(LH_PATH)
     main_f, _, lh_f = copies
     drifted = [
         n for n in main_f
