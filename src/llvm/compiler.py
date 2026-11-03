@@ -1129,7 +1129,7 @@ def compile_modules_typed(sources: dict, main_module: str = None, verbose: bool 
 
     # 生成所有段落函数
     # R130-A：段收集阶段已通过 _compute_all_free_vars 为每个嵌套段算出自由变量
-    #（含级联传播），这里按 reg_key 传入 _gen_typed_segment，使 _current_free_vars
+    # （含级联传播），这里按 reg_key 传入 _gen_typed_segment，使 _current_free_vars
     # 在段入口解包 env 时能命中；顶层段 reg_key 也在表里（free_vars 为空表）。
     codegen._compute_all_free_vars()
     for reg_key in codegen._segment_order:
