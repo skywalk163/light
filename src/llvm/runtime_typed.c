@@ -3267,6 +3267,78 @@ void dv_append_file(const char* path, const char* content) {
     }
 }
 
+/* R164：原子写入（LH-28）原生实现。
+ *
+ * 对齐 stdlib/文件系统.py:原子写入 —— 同目录临时文件 → fsync → 设权限 →
+ * os.replace 改名。目标与临时文件在同一目录/同一文件系统，改名是原子的，
+ * 读者只会看到旧文件或新文件，不会读到半截内容。
+ *
+ * 权限：int64_t perms；负数表示「不指定」（对应光明 `权限 = 空`，type=0 的
+ * 非 INT 值由 codegen 归一为 -1）。编码参数在原生腿忽略（字节直写 UTF-8，
+ * 与 dv_open_file 口径一致）。
+ */
+static int dv_atomic_seq = 0;
+
+int dv_atomic_write(const char* path, const char* content, int64_t perms) {
+    if (!path || !content) return 0;
+    size_t len = strlen(path);
+    size_t cut = 0;
+    for (size_t i = 0; i < len; i++) {
+        if (path[i] == '/' || path[i] == '\\') cut = i + 1;
+    }
+    char dir[4096];
+    if (cut >= sizeof(dir)) return 0;
+    if (cut == 0) {
+        dir[0] = '.'; dir[1] = '\0';
+    } else {
+        memcpy(dir, path, cut);
+        dir[cut] = '\0';
+    }
+#ifdef _WIN32
+    const char* sep = (cut > 0 && (dir[cut - 1] == '/' || dir[cut - 1] == '\\')) ? "" : "\\";
+#else
+    const char* sep = (cut > 0 && dir[cut - 1] == '/') ? "" : "/";
+#endif
+    char tmp[4300];
+    int n = snprintf(tmp, sizeof(tmp), "%s%s.原子写入-%lld-%d.tmp",
+                     dir, sep, (long long)(dv_timestamp() * 1000000.0),
+                     (int)(dv_atomic_seq++));
+    if (n <= 0 || (size_t)n >= sizeof(tmp)) return 0;
+
+    FILE* f = fopen(tmp, "wb");
+    if (!f) return 0;
+    size_t clen = strlen(content);
+    if (clen > 0 && fwrite(content, 1, clen, f) != clen) {
+        fclose(f);
+        remove(tmp);
+        return 0;
+    }
+    fflush(f);
+    if (perms >= 0) {
+#ifdef _WIN32
+        _chmod(tmp, (int)perms);   /* 失败不致命，对齐 .py 的 try/except OSError */
+#else
+        chmod(tmp, (mode_t)perms);
+#endif
+    }
+#ifdef _WIN32
+    _commit(_fileno(f));
+    fclose(f);
+    if (!MoveFileExA(tmp, path, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        _unlink(tmp);
+        return 0;
+    }
+#else
+    fsync(fileno(f));
+    fclose(f);
+    if (rename(tmp, path) != 0) {
+        remove(tmp);
+        return 0;
+    }
+#endif
+    return 1;
+}
+
 /* ================================================================
  * 文件句柄（type=22）：打开文件 -> 句柄对象，f.write/f.close 方法调用
  * POSIX fopen 无编码概念：encoding 参数忽略，字节直写（UTF-8 兼容）。
