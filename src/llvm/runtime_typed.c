@@ -39,6 +39,23 @@
 #include <fcntl.h>
 #include <direct.h>
 #pragma comment(lib, "ws2_32.lib")
+/* T-0251 / T6A-11：链接期栈尺寸声明。
+ *
+ * 为什么由**运行时库**下这条 /STACK 指令，而不是改 compiler.py 的 link_args：
+ * re.light 的回溯 VM（stdlib/re.light `re_内部_跑`）是**真递归**——多选分支、
+ * `{n}` 重复体、嵌套 `循支` 每层回溯都要吃一帧（O0 下 `_seg_fN` 帧里还有
+ * 一整套 LightValue 临时槽）。Windows 的 PE 默认栈只有 **1MB**（Linux/FreeBSD
+ * 默认 8MB，所以本机/CI-POSIX 上不重现），20 次验证调用 / 长 IPv6 模式深度
+ * 回溯就吃穿它，进程直接 `0xC00000FD`（STATUS_STACK_OVERFLOW）而不是返回错误
+ * ——这正是 known_issues 里 T6A-11 那条「Windows ×4 进程级崩溃」的真身，
+ * 与 T9B 修掉的**堆**损坏（0xC0000374）是两件事。
+ *
+ * 一处 8MB 让 Windows 与 POSIX 的默认栈口径对齐；DLL/EXE 谁带这条谁生效，
+ * 三个链接点（compile_light_typed / compile_light_project / c_backend）都链
+ * 本运行时，所以不必逐点改命令行。MSVC-lld 与 clang 的 COFF 链接器都认
+ * `/STACK` 这条 `.drectve` 指令（llvm-readobj --coff-directives 可验）。
+ */
+#pragma comment(linker, "/STACK:8388608")
 #define F_OK 0
 #define access _access
 #else

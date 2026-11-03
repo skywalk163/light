@@ -23,6 +23,15 @@ import pytest
 
 _HELPER = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_t6a_native_helper.py')
 
+# T-0251（编码根因，只治「本机复现口径」）：被测程序用 UTF-8 写 stdout，
+# 而 helper 进程的 `sys.stdout` 在 Windows 默认是代码页 936(GBK)。helper 把
+# UTF-8 字节 decode 成 str 再 `sys.stdout.write` 时按 GBK 二次编码 —— 父进程
+# 按 UTF-8 解码就只剩 `\ufffd\ufffd`（实测：`真`/`假` 全丢，于是 IPv4 三条
+# 用例在本机「假红」，在 CI（CI 的 ci.yml 第 56~58 行设了 PYTHONIOENCODING
+# =utf-8）却看不到）。==两条判据口径必须一致==，否则本机复现会把「本机没设
+# 环境变量」误判成产物回归。这里给 helper 显式对齐 CI 的编码环境。
+_编码环境 = dict(os.environ, PYTHONUTF8='1', PYTHONIOENCODING='utf-8')
+
 
 def _编译并运行(code: str, optimize_level: int = 0) -> tuple:
     with _tempfile.TemporaryDirectory(prefix='_taskT9B_') as d:
@@ -31,7 +40,7 @@ def _编译并运行(code: str, optimize_level: int = 0) -> tuple:
         with open(src, 'w', encoding='utf-8', newline='\n') as f:
             f.write(code)
         r = _subproc.run([sys.executable, _HELPER, src, exe, str(optimize_level)],
-                         capture_output=True, timeout=180)
+                         capture_output=True, timeout=180, env=_编码环境)
         out = r.stdout.decode('utf-8', errors='replace').strip()
         err = r.stderr.decode('utf-8', errors='replace').strip()
         return r.returncode, out, err

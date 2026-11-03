@@ -35,6 +35,12 @@ _TPL_LIGHT = os.path.join(_STDLIB_DIR, '模板.light')
 
 _HELPER = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_t6a_native_helper.py')
 
+# T-0251：与 test_relight_engine_O0.py 同一处编码口径修复——helper 进程在
+# Windows 默认按代码页 936 二次编码被测程序的 UTF-8 输出，父进程按 UTF-8
+# 解码就只剩 `\ufffd`。CI 的 ci.yml 设了 PYTHONIOENCODING=utf-8 所以看不到，
+# 本机没设时会把「环境变量缺失」误判成产物回归。两边口径统一到这里。
+_编码环境 = dict(os.environ, PYTHONUTF8='1', PYTHONIOENCODING='utf-8')
+
 
 def _编译并运行(code: str, optimize_level: int = 0) -> tuple:
     """子进程隔离编译+运行（避免 compile_light_typed 模块缓存污染），返回 (rc, stdout, stderr)。"""
@@ -44,7 +50,7 @@ def _编译并运行(code: str, optimize_level: int = 0) -> tuple:
         with open(src, 'w', encoding='utf-8', newline='\n') as f:
             f.write(code)
         r = _subproc.run([sys.executable, _HELPER, src, exe, str(optimize_level)],
-                         capture_output=True, timeout=180)
+                         capture_output=True, timeout=180, env=_编码环境)
         out = r.stdout.decode('utf-8', errors='replace').strip()
         err = r.stderr.decode('utf-8', errors='replace').strip()
         return r.returncode, out, err
