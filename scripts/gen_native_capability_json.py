@@ -51,6 +51,27 @@ RT_REL = 'src/llvm/runtime_typed.c'
 # 内置名证据的方法锚点：_gen_typed_builtin 方法体即内置表的唯一注册处。
 BUILTIN_METHOD = '_gen_typed_builtin'
 
+# L-217 值所有权原语的溯源注记（人工补充的能力说明）。生成器是清单的唯一来源，
+# 人工注记也必须由生成器产出——否则每次重生成都会把它们抹掉，--check 会把
+# 「落盘多出该键」算成漂移（T-0243：不许为了变绿把 note 信息删掉）。
+RUNTIME_NOTES = {
+    'dv_copy_own': 'L-217 E1：具名槽赋值（从别槽复制）',
+    'dv_mark': 'L-217 乙：语句入口记临时表长度',
+    'dv_move': 'L-217 E1：具名槽赋值（私有副本）',
+    'dv_own': 'L-217 乙：临时值提升为 OWNED',
+    'dv_reset': 'L-217 乙：语句出口整链回收 ARENA 临时值',
+    'dv_ret_finalize': 'L-217 E5：返回值收口为调用方私有 OWNED',
+    'dv_slot_release': 'L-217 V2：具名槽出口释放私有 OWNED',
+    'dv_slots_zero': 'L-217：临时槽位池整池零初始化',
+    'dv_str_immortal': 'L-217 丙：字面量零分配（直接指向 IMMORTAL 常量池）',
+    'dv_str_tmp': 'L-217 乙：表达式临时串分配（挂语句级临时表）',
+    'dv_take': 'L-217 E1：形参槽写入（不释放旧值）',
+    'dv_take_copy': 'L-217 E1：形参槽写入（复制来源）',
+    'dv_temp_release': 'L-217：单临时槽清扫',
+    'dv_temp_release_at': 'L-217：按池下标清扫临时槽（支配安全）',
+    'dv_temp_slots_release': 'L-217：区间批量清扫',
+}
+
 
 def get_method_range(src, name):
     lines = src.split('\n')
@@ -258,7 +279,7 @@ def build_payload():
 
     result = {
         "schema_version": "1.1",
-        "snapshot_date": "2026-10-12",
+        "snapshot_date": "2026-10-19",
         "baseline_commit": "ebe6668e5a43",
         "description": "光明语言原生腿（LLVM typed backend）能力清单 -- 机读数据，由 B7 维护，E7 门禁消费",
         "evidence_note": ("R141-B：evidence 为稳定锚点（文件:方法名 / 文件:符号名），"
@@ -381,7 +402,12 @@ def build_payload():
     rt_entries = []
     for sym in sorted(runtime_symbols.keys()):
         info = runtime_symbols[sym]
-        if 'socket' in sym: cat = 'Socket'
+        if sym in ('dv_copy_own', 'dv_take_copy'):
+            # L-217 值所有权原语：名字含 'copy' 但属「值拷贝」语义，不是文件操作，
+            # 归 Other（对齐落盘口径）。'copy' 关键字只为真正的 file 系符号保留，
+            # 不能因此把 dv_obj_deepcopy_self / dv_shallow_copy 误伤（它们仍是 File）。
+            cat = 'Other'
+        elif 'socket' in sym: cat = 'Socket'
         elif 'poller' in sym: cat = 'Poller'
         elif 'coro' in sym or 'scheduler' in sym or 'future' in sym: cat = 'Coroutine'
         elif 'tls' in sym: cat = 'TLS'
@@ -415,6 +441,8 @@ def build_payload():
         }
         if isinstance(rt_line_val, int):
             entry["evidence_define_line"] = rt_line_val
+        if sym in RUNTIME_NOTES:
+            entry["note"] = RUNTIME_NOTES[sym]
         rt_entries.append(entry)
 
     result["tables"]["runtime_symbols"] = {
