@@ -1,25 +1,42 @@
-# T-0234 · light 让 GitHub CI 真正跑起来
+﻿# T-0244 收口：原生腿 原子写入 门面归一（父目录 + bool 返回值）
 
-**结论：工作流已修正并可在 GitHub 真实触发；但「徽章为绿」被仓库态测试失败阻塞，非本卡 paths 可修。**
+**结论：卡面描述的「模块整体被拒」在 main 上已被 R164（提交 0a4e88c58）修掉；本卡实测
+验收命令在未改代码时即 exit 0。真正残留的是两腿口径不一致，本卡在 .light 门面归一。**
 
-## 做了什么（只改 `.github/workflows/ci.yml`）
+## 做了什么（只改 stdlib/文件系统.light）
 
-- 文件头改为真实状态：GitHub 远端 `skywalk163/light` 已启用，本工作流随 push main / PR / 手动触发真跑；权威门禁仍是 `.gitea/workflows/ci.yml`。
-- 修正必红路径：lightpub 文档可导入性闸门 `tests/unit/test_lightpub_doc_importability.py` → `tests/lightpub/test_lightpub_doc_importability.py`（R125 测试分仓迁移 424d07253；旧路径 pytest exit 4，每次必红）。
-- 「计时起点」移到 `actions/setup-python` 之后：干净 runner 上 `python` 由 setup-python 写入 PATH，原位置可能第一步就红。
-- 与权威副本对齐判绿语义：PR 通过 `PYTEST_ADDOPTS=-m "not slow"` 跳过 slow（e2e/大项目），时间预算放宽到 PR 1800s / push 3000s；补 `floor_bootstrap.py` / `native_product.py` / `dist_criteria.py` 三道 G9 门禁。
-- 增加 `permissions: contents: read` 与 PR 并发取消，减少排队与权限面。
+- 保留了 `_light_builtin.原子写入` 转发（原生腿已认这个模块点，dv_atomic_write 在
+  runtime_typed.c:3282，能力清单里 原子写入 / atomic_write / dv_atomic_write 三条都在册）。
+- 在门面层补两处归一，理由写在代码注释里：
+  1. **父目录**：`dv_atomic_write` 用 `fopen(tmp,"wb")` 直写，父目录不存在就**静默返回 0**
+     （无异常、无临时文件、目标不存在）；`.py` 真身与同模块 `写入文件` 都是先 makedirs。
+     凭据表/游标这类路径常带子目录，静默写丢比报错更危险 → 门面先 `获取目录名` + `创建目录`。
+  2. **返回值**：`dv_atomic_write` 返回 i32 0/1，原生腿下 `原子写入(...) == 真` 得 **假**；
+     `.py` 返回 True。门面按 `.py` 契约归一回 bool（0 → 假，非 0 → 真）。
+- 归一键选择：只动 .light 门面即可让两腿收敛，不必改 codegen/runtime（那在 paths 之外）。
 
-## 验证
+## 为什么不是「原生侧补实现」
 
-- 卡面 verify：`test -f .github/workflows/ci.yml`（本机无 POSIX `test`，用 PowerShell `Test-Path` / Python `os.path.isfile` 等价校验通过）。
-- `actionlint` v1.7.7：**exit 0**；PyYAML 解析通过，jobs = `test/lint/build/exe`。
-- 静态门禁本地预跑：`floor_bootstrap` / `dist_criteria` / `assert_floor_manifest` 通过；`native_product` 在 Windows 本机 24.19% < 基线 24.39%（Linux runner 预期与 FreeBSD 权威一致）。
-- 真实运行证据：GitHub Actions 已在跑（run `41289797116`，2026-11-01），失败点是 **Unit Tests：12 failed + 7 errors**，不是工作流语法/触发问题。
+原生侧 R164 已经补过了（dv_atomic_write 存在且在册）。再往 codegen/runtime 补 makedirs 与
+bool 归一要改 src/llvm/*，不在本卡 paths 内；而门面是两腿共用的语义层，改这里一处就两腿对齐。
 
-## 阻塞与残留
+## 验证（Windows 本机，clang 在 C:\Program Files\LLVM）
 
-- 徽章无法转绿：10 条仓库态测试失败（本地复跑 `test_地板搬迁_判型_S2.py` 同签名 3 failed 可复现）；7 errors 来自 sibling `lightharness` 缺失。这些文件都不在允许 paths 内。
-- 已试过把 `skywalk163/lightharness` main 浅克隆为 sibling 验证：7 errors 消失，但仍 3 failed（LH 副本形参名未同步），故没有把跨仓 clone 写进 CI 硬依赖。
-- README 首页徽章仍是 `docs/ci_badge.svg` 本地生成图，不是 Actions badge；README 不在允许 paths 内。
-- 未 push / 未触发 PR；按卡规则只提交到 `task/T-0234`，由 `hive_submit` 推送。`native_product` 门禁在 Linux 上未实测，存在与 Windows 本机同样偏低的风险。
+- 卡面判据 `python -m pytest -q tests/unit/test_原生腿_R11C_数据高级.py -k 复制文件_对拍`
+  → **1 passed, exit 0**（改前改后都是绿的；改前绿证明 R164 已生效）。
+- 整文件 `tests/unit/test_原生腿_R11C_数据高级.py` → **29 passed**（151s）。
+- `python scripts/gen_native_capability_json.py --check` → **exit 0**（清单未动，仍自洽）。
+- `tests/unit/test_native_leg_capability.py` → **11 passed**。
+- `python tools/ci/llvm_stdlib_readiness.py --sample 文件系统` → **桶=可编，exit 0**。
+- `test_R145_文件系统补齐.py` + `test_R148_文件系统补齐.py` → **11 passed**。
+- `test_LH3_多级属性_原子写入_锁与告警.py` → 通过（Windows 跳过 1 条 chmod 专有用例，符合预期）。
+
+## 遗留风险
+
+- `tests/unit/test_R149_文件系统原语.py::*双腿对拍*` 与 `test_R150_文件系统锁.py::*双腿对拍*`
+  共 4 条红：native 侧输出是乱码（`\ufffd`），属**本机控制台/编码环境**问题，与本次改动无关
+  —— git stash 掉本卡改动后同样这 4 条红，已实测。
+- `tests/test_pure_light_hook.py::test_magic_number_in_first_two_lines` 红，同样 stash 后仍红，
+  是既有存量（报『光明』那段 .light 首行无魔数），不在 paths 内。
+- 写丢父目录这条是**原生腿 runtime 的固有行为**，门面只兜住了 `原子写入` 这一个入口；
+  其它直连 `_light_builtin.原子写入` 的调用方仍会踩到（当前 stdlib 内无第二处调用方）。
