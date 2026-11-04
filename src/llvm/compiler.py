@@ -96,10 +96,11 @@ def get_link_libs() -> list:
     另一个平台才暴露的红。
 
     - 非 Windows：libm 不自动链，缺 -lm 会 undefined symbol: sin/cos/pow/...
-    - Windows：ws2_32 是 socket，secur32/crypt32 是 Schannel TLS 与证书链校验
+    - Windows：ws2_32 是 socket，secur32/crypt32 是 Schannel TLS 与证书链校验；
+      shell32 是 CommandLineToArgvW（T-0249 的宽字符 argv 入口，缺了整条 clang 腿链接失败）
     """
     if sys.platform == 'win32':
-        return ['-lws2_32', '-lsecur32', '-lcrypt32']
+        return ['-lws2_32', '-lsecur32', '-lcrypt32', '-lshell32']
     # R151-D1：线程原语（dv_thread_spawn / dv_fs_watch_start）在 POSIX 走
     # pthread_create / pthread_join，FreeBSD 的 ld.lld **不**自动链 libpthread，
     # 缺 -pthread 会 undefined symbol: pthread_create，整条 clang 腿链接失败全腿红
