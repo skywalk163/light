@@ -568,7 +568,7 @@ def 切片下标检查(值):
         名 = '字典'
     else:
         名 = type(值).__name__
-    raise TypeError('切片下标必须是整数，实际为' + 名 + ' ' + str(值) + '，请用 整数() 转换')
+    raise TypeError('切片下标必须是整数，实际为' + 名 + ' ' + str(值) + '，请用 转整数() 转换')
 
 
 def 转浮点(文本: str) -> float:
