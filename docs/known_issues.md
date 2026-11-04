@@ -1695,6 +1695,43 @@ POSIX 实机 `192.168.0.86`（clang 18.1.3）完成，T6A 是第一个全程 Lin
 - **归属**：re.light 回溯 VM 列表生命周期管理。**已修复（T9B / 2026-09-06）**
   （内存安全根因消除；残余泄漏归 T7D runtime）
 
+#### T6A-11b：Windows 进程级崩溃 `0xC00000FD`（栈溢出，**非** T6A-11 的堆损坏复发）
+
+> **已修复（T-0251 / 2026-11-03）**：`src/llvm/runtime_typed.c` 的 Windows 段新增
+> `#pragma comment(linker, "/STACK:8388608")`，把原生产物的 PE 栈从 MSVC 默认
+> **1MB** 抬到与 Linux/FreeBSD 默认一致的 **8MB**。Windows ×4 上
+> `test_20次连续验证调用_不崩且正确` / `test_正则_验证函数_完整20次` /
+> `test_正则_验证函数_2_URL_IP` / `test_IP反例全集` / `test_mini19` / `test_mini20`
+> 六条 nodeid 的崩溃与假失败一起消失。
+
+- **现象**：Windows ×4 上同一份程序 `rc=3221225725`（3.13）/ `rc=4294967295`（3.10~3.12），
+  stdout 全空、stderr 全空 —— **进程级**退出，不是断言失败。mac ×4 与
+  Ubuntu ×4 不崩，只有结果错（编码族问题，归 T-0250）。
+- **定因**：`3221225725 = 0xC00000FD = STATUS_STACK_OVERFLOW`。同一份 IR 手工用
+  `-Wl,/STACK:1MB` 链 → 必崩；`-Wl,/STACK:2/3/4/8/64MB` 链 → 全绿且输出正确。
+  最小复现是 **IPv6 验证一条调用**（`^([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}$`）：
+  它在 Windows 默认 1MB 栈上单次就吃穿，20 次调用只是把同样的深度叠加起来。
+  根因是 re.light 回溯 VM（`re_内部_跑`）**真递归**：`支`/`循支`/`{n}` 每层回溯都
+  递归一层，O0 下 `_seg_fN` 帧里还有整套 LightValue 临时槽（IR 实测单帧 alloca
+  41 个 / 328 字节，加对齐与调用窥孔后远大于此）。**不是堆损坏**——
+  T9B 早已修掉 `0xC0000374`，这条 `0xC00000FD` 是**另一件事**，卡面「修完又裂」的
+  判断只对了一半：裂的是**栈**，不是堆。
+- **修复**：不动 re.light 的算法（那会把回溯语义整个改写），而是把 Windows 的栈
+  口径对齐 POSIX 默认值。这条指令放在**运行时库**里而不是 `compiler.py` 的
+  `link_args`，因为运行时库被三个链接点（`compile_light_typed` /
+  `compile_light_project` / `c_backend`）共同链接，一处声明覆盖全部产物；
+  `/STACK` 走 COFF `.drectve` 节，clang 的 lld-link 与 MSVC link 都认
+  （`llvm-readobj --coff-directives` 可验）。非 Windows 平台该段不编译，
+  不影响 Linux/FreeBSD/macOS（它们的 8MB 默认栈本来就不崩）。
+- **反跑（有牙）**：摘掉这条 pragma → Windows 上
+  `TestT6A11_MemorySafety` 立即 `rc=3221225725`；`test_T6a_正则文本模块_原生腿.py`
+  两条 `验证函数` 用例同时变红。装回 → 全绿。两个方向都实测过。
+- **假绿条件**：Ubuntu/mac 上绿**推不出** Windows 上不崩（本缺陷只在 Windows 重现，
+  因为只有 PE 默认栈是 1MB）；反跑必须在 Windows 上做，POSIX 上摘 pragma 无变化。
+- **遗留（不在本卡范围）**：`re_内部_跑` 的递归深度仍与模式长度成正比，
+  极端长模式仍可能吃穿 8MB——真正的线性化（显式回点栈替代递归）是 VM 重写，
+  另立卡。本卡只保证「Windows 与 POSIX 同口径」。
+
 ### 能力边界（诚实声明）
 
 - re.light 支持字符类/区间/否定类/`.`/锚点/量词（含懒惰）/分支/分组
