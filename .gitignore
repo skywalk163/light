@@ -453,3 +453,9 @@ _r1*_scratch/
 _r1*_scratch.py
 .scratch/
 _recover/
+
+# hive 任务总线（T-0245 2026-11-04）：worker 产物
+# .hive/summary.md、.hive/task.md 等一律不进版本库
+# （小结已归档在 hive 的 results/<tid>.json），
+# 此前被跟踪导致每张卡 land 必冲突。
+.hive/
