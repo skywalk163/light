@@ -13,7 +13,16 @@
 
 判绿口径：
 - P1'/P3' 修后 RSS 增长 ≤ 2MB（窗口内近似零斜率）；反跑态 ≥ 20MB（有牙）
-- P4'/P5' 相对改善 ≥ 20%（容器所有权不在本轮 scope，见报告 §残留）
+- P4'/P5' 只判「修后不显著更差」。容器所有权不在本轮 scope，且共享 runner 上
+  这条判据没有分辨力（T-0252 实测：mac 跨 job 860~1434MB，反向 50%），故只在
+  Linux/FreeBSD 判定，mac/win 一律 skip 并登记能力边界
+  （见 docs/known-issues/R16x-L217-memory-slope-noise.md）。
+
+R166-T2（T-0252）测量口径：
+- `_跑` 区分「探针崩溃」(rc≠0) / 「没采到样」(采样数<2) / 「斜率有效」三件事。
+  旧实现把前两者都压成 `-1.0/0` 哨兵，导致「进程秒退」被当成「斜率没复原」，
+  CI 上表现为同码不同果（mac 3.10 P5 采样数 0、mac 3.11 P3 反跑 -1.0）。
+  现在采样不足先重采一次；仍不足则 skip（测量无效，不是机制红），rc≠0 才 fail。
 """
 
 import os
@@ -38,7 +47,15 @@ _轮数 = os.environ.get('R161B_ROUNDS', '200000000')
 # R166-T1：P4'/P5' 的噪声容差。容器分配把 12s 窗口 RSS 增长推到 ~1.1GB，
 # 而 L-217 机制在这条路径上的贡献只有 5~33MB（实测最大反向 2.9%），严格序关系
 # `修前 > 修后` 因此不可重复（R165 四轮全量门抖红 2 次）。容差 10% = 2.9% 的 3.4 倍。
-_P4P5噪声容差 = 0.10
+#
+# R166-T2（T-0252）按实测重标：FreeBSD 15.1 x86_64（clang 19）同一命令连跑三次，
+# P4 修后 1249/1324/1269MB、反跑 1292/1350/1420MB；P5 修后 1189/1256/1277MB、
+# 反跑 1441/1353/1307MB。单侧最大相对极差 9.9%（P5 反跑），机制方向差仅 6~8%，
+# 信噪比 < 1。容差取 15% = 实测极差 1.5 倍；再往宽就失去「不倒退」哨兵意义，
+# 故 mac/win 共享 runner（实测反向 50%）不再判定，直接 skip（见文件头）。
+_P4P5噪声容差 = 0.15
+# 少于 2 个 RSS 采样点算「测量无效」（不是斜率 0）：进程在 2s 内退出或 psutil 采不到。
+_采样最少 = 2
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 探针源（P1'-P5'，与 _r161_scratch/b_p1p5.light 同构；P5 为心跳同构混合）
@@ -154,37 +171,97 @@ def _编译(源码: str, 目录: str, 文件名: str = 'probe.light') -> str:
     return compile_light_typed(路径, output_path=输出基名, verbose=False)
 
 
-def _跑(可执行: str, 种类: str, 额外环境: dict = None) -> dict:
-    """跑探针，按 2s 采样 RSS，返回 {增长MB, 峰值MB, 采样数, rc}。"""
+def _跑(可执行: str, 种类: str, 额外环境: dict = None, 重采次数: int = 1) -> dict:
+    """跑探针，按 2s 采样 RSS。
+
+    返回 {增长MB, 峰值MB, 采样数, rc, 输出尾}；`采样数 < 2` 时 `增长MB/峰值MB`
+    仍是旧哨兵 -1.0（保持断言可读），但调用方必须先看 `rc` 与 `采样数`：
+    - `rc != 0`：探针异常退出（崩溃/ABI 问题），这是**真问题**，必须 fail；
+    - `采样数 < 2`：测量无效（进程 2s 内退出，或 psutil 采不到），先重采一次；
+      仍无效由 `_断言测量有效` 判 skip，**不再当成「斜率没复原」**。
+
+    R166-T2（T-0252）：旧实现丢掉 rc/stdout，CI 上「P5 采样数: 0」和「P3 反跑
+    -1.0」都被当成斜率红，导致同码不同果。这里把三态拆开。
+    """
     import psutil
-    环境 = {**os.environ, 'C_PROBE_KIND': 种类, 'C_ROUNDS': _轮数, 'C_PROGRESS': ''}
+
+    环境 = {**os.environ, 'C_PROBE_KIND': 种类, 'C_ROUNDS': _轮数}
     if 额外环境:
         环境.update(额外环境)
-    进度 = os.path.join(tempfile.gettempdir(), f'r161b_{种类}_{time.time_ns()}.txt')
-    环境['C_PROGRESS'] = 进度
-    p = subprocess.Popen([可执行], env=环境, stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT, text=True, errors='replace')
-    t0 = time.time()
-    样本 = []
-    while time.time() - t0 < _窗口秒 and p.poll() is None:
-        time.sleep(2)
+
+    def _单次() -> tuple:
+        p = subprocess.Popen([可执行], env=环境, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT, text=True, errors='replace')
+        样本 = []
+        t0 = time.time()
         try:
-            proc = psutil.Process(p.pid)
-            样本.append(proc.memory_info().rss / 1048576.0)
+            # 立即采第一个点：旧实现要等 2s，进程秒退时一个点都拿不到，
+            # 连「跑过」和「没跑」都分不清。
+            样本.append(psutil.Process(p.pid).memory_info().rss / 1048576.0)
         except Exception:      # noqa: BLE001
-            break
-    if p.poll() is None:
-        p.kill()
-        p.wait()
-    if os.path.exists(进度):
-        os.remove(进度)
-    if len(样本) < 2:
-        return {'增长MB': -1.0, '峰值MB': -1.0, '采样数': len(样本)}
-    return {
-        '增长MB': 样本[-1] - 样本[0],
-        '峰值MB': max(样本),
-        '采样数': len(样本),
-    }
+            pass
+        while time.time() - t0 < _窗口秒 and p.poll() is None:
+            time.sleep(2)
+            try:
+                样本.append(psutil.Process(p.pid).memory_info().rss / 1048576.0)
+            except Exception:      # noqa: BLE001
+                break
+        if p.poll() is None:
+            # 窗口到期，探针还在跑：这是**测试主动终止**，不是崩溃。
+            # 先 SIGTERM 留出 flush 时间；rc 归一为 0，真实信号另记在 `终止`。
+            p.terminate()
+            try:
+                p.wait(timeout=5)
+            except Exception:      # noqa: BLE001
+                p.kill()
+                p.wait()
+            rc = 0
+            终止 = '窗口到期(测试终止)'
+        else:
+            rc = p.returncode if p.returncode is not None else -999
+            终止 = '自行退出'
+        try:
+            输出尾 = (p.stdout.read() or '')[-600:] if p.stdout else ''
+        except Exception:      # noqa: BLE001
+            输出尾 = ''
+        return 样本, rc, 输出尾, 终止
+
+    结果 = {'增长MB': -1.0, '峰值MB': -1.0, '采样数': 0, 'rc': 0,
+            '输出尾': '', '终止': '', '首点MB': -1.0}
+    for 尝试 in range(重采次数 + 1):
+        样本, rc, 输出尾, 终止 = _单次()
+        # 首点（t≈0）只用于「探针是否真的启动过」；斜率从 t≈2s 起算，
+        # 保持与旧口径可比（旧实现第一个采样点就是 2s，不含进程预热）。
+        有效 = 样本[1:] if 样本 else []
+        结果 = {
+            '增长MB': (有效[-1] - 有效[0]) if len(有效) >= 2 else -1.0,
+            '峰值MB': max(有效) if len(有效) >= 2 else -1.0,
+            '采样数': len(有效),
+            'rc': rc,
+            '输出尾': 输出尾,
+            '终止': 终止,
+            '首点MB': 样本[0] if 样本 else -1.0,
+        }
+        if rc != 0:
+            return 结果
+        if len(样本) >= _采样最少:
+            return 结果
+        if 尝试 < 重采次数:
+            continue
+    return 结果
+
+
+def _断言测量有效(结果: dict, 场景: str) -> None:
+    """探针崩溃 → fail；采样不足（重采后仍不足）→ skip（测量无效，不是机制红）。"""
+    if 结果['rc'] != 0:
+        pytest.fail(
+            f"{场景} 探针异常退出 rc={结果['rc']}（这不是噪声，是崩溃/ABI 问题）："
+            f"{结果['输出尾']}")
+    if 结果['采样数'] < _采样最少:
+        pytest.skip(
+            f"{场景} 测量无效：采样数={结果['采样数']}（窗口内进程提前退出或 psutil "
+            f"未采到样；rc={结果['rc']}，输出尾={结果['输出尾'][-200:]}）。"
+            f"这条不是斜率红，见 docs/known-issues/R16x-L217-memory-slope-noise.md")
 
 
 @pytest.fixture(scope='module')
@@ -324,7 +401,8 @@ def test_P1字面量循环_修后零增长_反跑复原(可执行):
     """
     修后 = _跑(可执行, 'P1')
     反跑 = _跑(可执行, 'P1', {'DV_L217': '0', 'DV_L217_IMMORTAL': '0'})
-    assert 修后['采样数'] >= 2, 修后
+    _断言测量有效(修后, "P1' 修后")
+    _断言测量有效(反跑, "P1' 反跑")
     assert 修后['增长MB'] <= 2.0, f"P1' 修后仍增长 {修后['增长MB']:.1f}MB（应≈0）"
     assert 反跑['增长MB'] >= 20.0, (
         f"P1' 反跑（关乙+关丙）未复原斜率：{反跑['增长MB']:.1f}MB——反跑无牙")
@@ -335,7 +413,8 @@ def test_P3拼接循环_修后零增长_反跑复原(可执行):
     """P3'：拼接循环。修后近零增长；关乙（DV_L217=0）复原。"""
     修后 = _跑(可执行, 'P3')
     反跑 = _跑(可执行, 'P3', {'DV_L217': '0'})
-    assert 修后['采样数'] >= 2, 修后
+    _断言测量有效(修后, "P3' 修后")
+    _断言测量有效(反跑, "P3' 反跑")
     assert 修后['增长MB'] <= 2.0, f"P3' 修后仍增长 {修后['增长MB']:.1f}MB（应≈0）"
     assert 反跑['增长MB'] >= 20.0, (
         f"P3' 反跑（关乙）未复原斜率：{反跑['增长MB']:.1f}MB——反跑无牙")
@@ -345,7 +424,7 @@ def test_P3拼接循环_修后零增长_反跑复原(可执行):
 def test_P2只读内置循环_修后零增长(可执行):
     """P2'：只读内置（字符串实参经 dv_deref_value）循环，修后近零增长。"""
     修后 = _跑(可执行, 'P2')
-    assert 修后['采样数'] >= 2, 修后
+    _断言测量有效(修后, "P2' 修后")
     assert 修后['增长MB'] <= 2.0, f"P2' 修后仍增长 {修后['增长MB']:.1f}MB（应≈0）"
 
 
@@ -358,25 +437,29 @@ def test_P4P5_相对改善有牙(可执行, 种类):
     个探针**不会归零**——它们的斜率主要由容器字面量（`{"...": ..., "数据":[1,2,3]}`）
     的元素分配贡献。
 
-    判据因此取「**修后有界且反跑有牙**」而不是「相对改善 20%」：
-      - 修后窗口内增长有上界（不无限飙）；
-      - 反跑态（关乙+关丙）增长**不明显更小**（证明机制至少没让修后态更差）。
+    R166-T1：原判据是**严格**序关系 `修前 > 修后`，实测信噪比不足（机制贡献只有
+    5~33MB，容器分配把 12s 窗口 RSS 增长推到 ~1.1GB），改为带 10% 容差的有序关系。
 
-    R166-T1（治 R165 flaky）：本用例原判据是**严格**序关系 `修前 > 修后`，实测
-    信噪比不足——机制贡献只有 5~33MB，而容器分配把 12s 窗口的 RSS 增长推到 ~1.1GB，
-    两个方向都出现过（修前 1164.1 vs 修后 1169.5；修前 1159.1 vs 修后 1192.9，
-    反向 2.9%）。R165 四轮全量门因此抖红 2 次（A 轮 P4、C 轮 P5）。
-
-    **处置**：改为带噪声容差的有序关系 `修前 >= 修后 × (1 - 容差)`，
-    容差 10% = 实测最大反向 2.9% 的 3.4 倍余量；仍保留「修后不得显著更差」的
-    单侧哨兵语义。**机制有牙由 P1'/P3' 承担**（修后 ≤2MB vs 反跑 ≥20MB，10 倍信号），
-    本用例只做「不倒退 + 有界」哨兵——这是承认信噪比不足后的口径订正，不是把红删掉：
-    把容差改成负数（模拟修后显著更差）⇒ 本用例仍会转红。
+    R166-T2（T-0252，本卡）：4 台 mac job 同码不同果（修前/修后 860/952/1062/1358MB，
+    反向最大 50%，还夹着 `采样数: 0` 的哨兵红）⇒ **共享 mac runner 上这条判据没有
+    分辨力**。按卡面裁决二选一，这里选「限平台」：
+      - mac/win（共享 runner）：skip，并登记能力边界；
+      - Linux/FreeBSD（专用/CI 稳定机）：保留「修后不显著更差」哨兵，容差 15%
+        （= FreeBSD 连跑三次实测极差 9.9% 的 1.5 倍，数据见 known-issues）。
+    **fail=0/skip 不代表 L-217 容器路径没问题**：机制有没有牙由 P1'/P3' 的
+    「修后 ≤2MB vs 反跑 ≥20MB」承担（10 倍信号）；本用例只做不倒退哨兵。
     """
+    if sys.platform.startswith(('darwin', 'win')):
+        pytest.skip(
+            "MB 斜率在共享 mac/win runner 上无分辨力（同码跨 job 修前/修后 860~1434MB，"
+            "反向 50%，另见 `采样数: 0` 哨兵）；机制有牙由 P1'/P3' 承担。证据："
+            "docs/known-issues/R16x-L217-memory-slope-noise.md")
+
     修前 = _跑(可执行, 种类, {'DV_L217': '0', 'DV_L217_IMMORTAL': '0'})
     修后 = _跑(可执行, 种类)
-    assert 修前['采样数'] >= 2 and 修后['采样数'] >= 2, (修前, 修后)
-    # 反跑态不得明显更小（R166-T1：容差吸收容器分配噪声，见 docstring）
+    _断言测量有效(修前, f"{种类}' 修前")
+    _断言测量有效(修后, f"{种类}' 修后")
+    # 反跑态不得明显更小（R166-T1/T2：容差吸收容器分配噪声，见 docstring）
     assert 修前['增长MB'] >= 修后['增长MB'] * (1.0 - _P4P5噪声容差), (
         f"{种类}' 反跑显著低于修后：修前 {修前['增长MB']:.1f}MB vs "
         f"修后 {修后['增长MB']:.1f}MB（超出 {_P4P5噪声容差:.0%} 噪声容差，"
