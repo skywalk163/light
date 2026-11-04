@@ -1,25 +1,65 @@
-# T-0234 · light 让 GitHub CI 真正跑起来
+# T-0248 · test_LH34 文档串过期：`原子写入` 说「不在 builtins.py 里」，其实 4 参版就在里面
 
-**结论：工作流已修正并可在 GitHub 真实触发；但「徽章为绿」被仓库态测试失败阻塞，非本卡 paths 可修。**
+## 做了什么
 
-## 做了什么（只改 `.github/workflows/ci.yml`）
+只动 `tests/unit/test_LH34_中文关键字参数.py` 的**说明性文字**，没有增删改任何断言、
+参数化清单或门禁逻辑（`git diff --stat` = 1 file / 25 insertions / 5 deletions）。
 
-- 文件头改为真实状态：GitHub 远端 `skywalk163/light` 已启用，本工作流随 push main / PR / 手动触发真跑；权威门禁仍是 `.gitea/workflows/ci.yml`。
-- 修正必红路径：lightpub 文档可导入性闸门 `tests/unit/test_lightpub_doc_importability.py` → `tests/lightpub/test_lightpub_doc_importability.py`（R125 测试分仓迁移 424d07253；旧路径 pytest exit 4，每次必红）。
-- 「计时起点」移到 `actions/setup-python` 之后：干净 runner 上 `python` 由 setup-python 写入 PATH，原位置可能第一步就红。
-- 与权威副本对齐判绿语义：PR 通过 `PYTEST_ADDOPTS=-m "not slow"` 跳过 slow（e2e/大项目），时间预算放宽到 PR 1800s / push 3000s；补 `floor_bootstrap.py` / `native_product.py` / `dist_criteria.py` 三道 G9 门禁。
-- 增加 `permissions: contents: read` 与 PR 并发取消，减少排队与权限面。
+### 1. `原子写入` 的归属改成分得清两份的说法（卡面主场）
 
-## 验证
+原来那句「`原子写入` 是 `stdlib/路径护栏.light` 的段落（不在 builtins.py 里）」删掉，
+换成分两份写：
 
-- 卡面 verify：`test -f .github/workflows/ci.yml`（本机无 POSIX `test`，用 PowerShell `Test-Path` / Python `os.path.isfile` 等价校验通过）。
-- `actionlint` v1.7.7：**exit 0**；PyYAML 解析通过，jobs = `test/lint/build/exe`。
-- 静态门禁本地预跑：`floor_bootstrap` / `dist_criteria` / `assert_floor_manifest` 通过；`native_product` 在 Windows 本机 24.19% < 基线 24.39%（Linux runner 预期与 FreeBSD 权威一致）。
-- 真实运行证据：GitHub Actions 已在跑（run `41289797116`，2026-11-01），失败点是 **Unit Tests：12 failed + 7 errors**，不是工作流语法/触发问题。
+- `stdlib/builtins.py:205` 的 **4 参版** `原子写入(路径, 内容, 编码='utf-8', 权限=None)`
+  —— LH-28 自带实现（临时文件 → fsync → 设权限 → `os.replace`），
+  不 import 任何 stdlib 模块（三副本同步 + 同名 `.light` 遮蔽 `.py`，转发回来会无限递归，L-254）；
+- `stdlib/路径护栏.light:296` 的 **2 参版** `段落 原子写入(路径, 内容)` —— 带路径核准；
+- 明说**本组断言跑的是护栏那个 2 参版**（`test_原子写入` 走 `from 路径护栏 import 路径护栏`），
+  4 参版的形参由第 2/3 组（扫 `stdlib/builtins.py`）覆盖，两者不是同一条路径。
 
-## 阻塞与残留
+`test_原子写入` 函数体内也加了三行同口径注释（钉的是 2 参护栏版，别和真源的 4 参版混）。
 
-- 徽章无法转绿：10 条仓库态测试失败（本地复跑 `test_地板搬迁_判型_S2.py` 同签名 3 failed 可复现）；7 errors 来自 sibling `lightharness` 缺失。这些文件都不在允许 paths 内。
-- 已试过把 `skywalk163/lightharness` main 浅克隆为 sibling 验证：7 errors 消失，但仍 3 failed（LH 副本形参名未同步），故没有把跨仓 clone 写进 CI 硬依赖。
-- README 首页徽章仍是 `docs/ci_badge.svg` 本地生成图，不是 Actions badge；README 不在允许 paths 内。
-- 未 push / 未触发 PR；按卡规则只提交到 `task/T-0234`，由 `hive_submit` 推送。`native_product` 门禁在 Linux 上未实测，存在与 Windows 本机同样偏低的风险。
+### 2. 顺手核数字：「70 个纯英文形参 + 3 个中英混杂」不准，已更正
+
+按卡面要求复核。用 `ast` 取形参、口径 = 公开顶层函数，实测：
+
+| 口径 | 纯英文 | 中英混杂 | 纯中文 | 无参 | 英文形参词元 |
+|---|---|---|---|---|---|
+| T-0210 分支基线 `d50591d27^` | **72** | **2** | 92 | 23 | **114** |
+| 当前 HEAD | 0 | 0 | 167 | 23 | 0 |
+
+所以「70 / 3」两个数都对不上。**关键差异在 `原子写入`**：
+
+- `cd4ccdb96`（L-254 修）把 `原子写入(path, content, encoding, 权限)` 加进真源，
+  它是**中英混杂**的第 3 个；
+- 但 `d50591d27`（T-0210 改名）这条分支上 `原子写入` **根本还不存在**——
+  所以 T-0210 当时看到的混杂是 **2** 个（`序列化JSON` / `设置文件所有者`），不是 3；
+- `4be264311` 把两条分支合流，合流后 `原子写入` 是 4 个**全中文**形参。
+
+`原子写入` 那条是另一条分支（LH-28）的改动、**不是 T-0210 改的**；文档串里原来
+「历史上的 `原子写入`」这种写法会让人误记功劳/误判现状，一并改为实测口径 +
+一行「数字复核」小注（注明 T-0248 复核时间与口径，避免下一个人再算一遍）。
+
+## 判据
+
+两条都是纯 Python，在 Windows 上直接跑通，**没有**用到 `head`/`grep`/`awk`/`!`/`$()`，
+不需要转到 192.168.0.88。
+
+```
+python -m pytest -q tests/unit/test_LH34_中文关键字参数.py
+=> 393 passed in 18.71s
+
+python -c "import pathlib,sys; s=pathlib.Path('tests/unit/test_LH34_中文关键字参数.py').read_text(encoding='utf-8'); sys.exit(1 if '（不在 builtins.py 里）' in s else 0)"
+=> exit 0
+```
+
+耗时约 10 分钟，在 60 分钟红线内。
+
+## 未做 / 边界
+
+- 卡面提到「本次同步把 76 个英文形参全改成中文了」——本卡**没有**去核这个数：
+  `76` 在本仓里全是别处的口径（`stdlib/*.light` 文件数、CI 用例数、
+  `docs/POSIX验证报告.md` 的跨平台存量），与形参无关；形参的真实台账是上表的 114
+  （T-0210 分支基线）。
+- 只改 paths 内那一个文件；没动 `stdlib/builtins.py`、`docs/功能对标/语言缺陷账.md`
+  （后者 L-256 段里同样有「70 / 92 / 3」的旧数，但不在本卡 paths 内，未改）。
