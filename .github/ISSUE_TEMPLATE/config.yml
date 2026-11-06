@@ -15,3 +15,9 @@ contact_links:
   - name: 🔒 安全漏洞报告
     url: https://github.com/skywalk163/light/security/policy
     about: 请通过安全渠道报告安全漏洞，不要公开提交 Issue
+  - name: 🛠 想接进自己的业务（付费陪跑 / 定制）
+    url: https://quye.com/solutions.html
+    about: 开源部分永久免费；需要有人帮你跑通、或按你的业务定制，走这里
+  - name: ✉️ 直接写信
+    url: https://quye.com/contact.html
+    about: 说不清是 bug 还是需求时，写信更快

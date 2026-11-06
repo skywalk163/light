@@ -23,6 +23,10 @@
 > 23 个惯用法片段（含 lightharness 生产代码逐字摘录）、语言层坑位现状。
 > 配套 CLI：`light ai snippets` 列出片段、`light ai card` 吐完整 system prompt、`light ai check` 查后端兼容。
 
+> **想把它用在课堂、企业内部工具，或嵌进自己的系统？** 语言本体永久开源免费。
+> 需要有人陪着跑通第一门课 / 第一个内部工具，或要定制 L3 领域语法，可以找我们：
+> [quye.com](https://quye.com/) · hello@quye.com
+
 ## ✨ 核心特性
 
 - 🀄 **中文语法**：全中文关键字，符合中文思维习惯
