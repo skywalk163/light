@@ -30,8 +30,32 @@ floor 门禁必红。R158-B 把判据换成**按声明名的语法级定位**（
   段落块长**的远处行 → RC=1（这条同时是「上界断言不算判据」的反跑）。
 
 所有反跑都在临时目录里做，**绝不改写仓库里的清单与 `.light` 源**（任务书线 G 硬约束）。
+
+## T-0280 补强（只加断言，不刷新任何数字）
+
+R158/T-0214 已把写死的 `68/96` 换成从 `floor_bootstrap_baseline.json` 动态取数，
+把 `段落 是字母` 的写死行号（R157 手工对准时 61、后来漂到 73）换成
+`FB.定位定义行` 按声明名现算 —— 所以本文件在未改动 HEAD 上已是 0 红（10 passed），
+卡面描述的「4 条红」在当前仓库已不存在，**不需要、也没有去刷新任何数字**。
+本轮补的是卡面目标 2/3 里此前仍未落地、且不削弱任何既有断言的三件事，
+见 `Test分母来源与同步守卫`：
+
+- 分母**来源**：用 `ast` 独立再数一遍 `stdlib/builtins.py` 顶层函数数（门禁
+  `FB.读地板函数名` 也用 ast；两边独立解析，防止门禁与基线被同时手改却互相印证）。
+- 分母**计算方式**：钉 `denominator = total − native_required_count` 与
+  `rate = light_count / denominator` 的口径，而不是钉某个数字。
+- **分母变化必须同步更新**的反向哨兵：临时副本加一个顶层 `def` → 实统计 +1 →
+  分母必变 → 基线没动就会被 `test_地板自举率等于基线快照` 判红，不许拿新数字自证。
+  刷新办法：只在合并点 `python tools/ci/floor_bootstrap.py --write-baseline ...`
+  重建基线（总纲 §5 红线 5），禁止手改数字。
+- 行号**来源**：钉成「按声明名现算」而非快照；不同声明名必须定位到不同行。
+
+与 T-0278 的约定：它补内置实现走 `_t5b_runtime.py` 通道、**不加顶层 def**，
+故这里的 `total` 在并行期间不应变化；若它最终加了顶层 def，来源守卫会红 ——
+按卡面第 4 条点名冲突，不靠互相迁就着改数字消红。
 """
 
+import ast
 import importlib.util
 import io
 import json
@@ -336,6 +360,110 @@ class Test反跑三_假绿必须红(unittest.TestCase):
         """
         坏, _模块名 = FB.校验证据(_ROOT, "%s:%d" % (_判型文件, _是空白定义行), "是空")
         self.assertIsNotNone(坏, "`是空白` 的定义行被 `是空` 蒙过去了")
+
+
+class Test分母来源与同步守卫(unittest.TestCase):
+    """T-0280 补强：把「分母从哪来、怎么算、变了要同步」钉成可执行判据。
+
+    本类**只增加断言**，不删除/削弱任何既有判据、不 skip、不写死任何快照数字，
+    也不改被测源码。卡面目标 2/3 里「来源 + 计算方式 + 分母变化同步守卫 +
+    按名字定位」此前只在 docstring 里说明，没有可执行判据；这里补齐。
+    """
+
+    @staticmethod
+    def _独立顶层函数数(源=None):
+        """不经门禁、独立用 ast 数 `stdlib/builtins.py` 顶层函数数。
+
+        与 `FB.读地板函数名` 分两次解析：门禁与基线被同时手改时，单靠门禁
+        自己的读数会互相印证成假绿，独立解析才是分母来源的硬证据。
+        """
+        with io.open(源 or _BUILTINS, encoding="utf-8") as fh:
+            树 = ast.parse(fh.read())
+        return sum(1 for 节点 in 树.body
+                   if isinstance(节点, (ast.FunctionDef, ast.AsyncFunctionDef)))
+
+    def test_分母来源是builtins顶层函数数(self):
+        基线 = _读json(_BASELINE)
+        独立数 = self._独立顶层函数数()
+        门禁名单 = FB.读地板函数名(_ROOT)
+        _数据, 条目 = FB.读清单(_MANIFEST)
+        问题, 统计 = FB.校验(_ROOT, 条目, 门禁名单, FB.读地板函数节点(_ROOT))
+        self.assertEqual(问题, [])
+        self.assertEqual(独立数, len(门禁名单),
+                         "独立 ast 与门禁 ast 数不一致 —— 分母来源被污染")
+        self.assertEqual(统计["total"], 独立数,
+                         "清单条目数与源码顶层函数数不一致")
+        self.assertEqual(基线["total"], 独立数,
+                         "基线 total 与 stdlib/builtins.py 顶层函数数不一致：分母来源变了，"
+                         "必须只在合并点用 --write-baseline 重建基线，不许手改数字")
+        # 钉计算方式，不钉数字：分母 = 总数 − native_required 真边界数
+        self.assertEqual(基线["denominator"],
+                         基线["total"] - 基线["native_required_count"],
+                         "基线分母不是 total − native_required_count —— 口径被改或基线自相矛盾")
+
+    def test_自举率按分子除以分母计算(self):
+        基线 = _读json(_BASELINE)
+        _数据, 条目 = FB.读清单(_MANIFEST)
+        门禁名单 = FB.读地板函数名(_ROOT)
+        问题, 统计 = FB.校验(_ROOT, 条目, 门禁名单, FB.读地板函数节点(_ROOT))
+        self.assertEqual(问题, [])
+        self.assertEqual(统计["denominator"],
+                         统计["total"] - 统计["native_required_count"])
+        self.assertAlmostEqual(统计["rate"],
+                               统计["light_count"] / 统计["denominator"], places=12)
+        self.assertAlmostEqual(基线["rate"],
+                               基线["light_count"] / 基线["denominator"], places=12)
+        self.assertGreater(统计["denominator"], 0, "分母为零则比率判据失去意义")
+
+    def test_分母变化必须同步更新_反向哨兵(self):
+        """A/B 实证：源码加一个顶层 def → 分母来源 +1，基线没动就会对不上（守卫会红）。
+
+        同时验证「清单没同步时门禁必须报漏登记」，不许静默把新分母吞掉自证过关。
+        副本只落在临时目录，绝不改写仓库里的清单 / builtins.py / `.light`。
+        """
+        基线 = _读json(_BASELINE)
+        原数 = self._独立顶层函数数()
+        with tempfile.TemporaryDirectory() as d:
+            副本 = os.path.join(d, "builtins.py")
+            shutil.copy(_BUILTINS, 副本)
+            with io.open(副本, "a", encoding="utf-8", newline="\n") as fh:
+                fh.write("\ndef T0280_分母哨兵_临时函数():\n    return 1\n")
+            新数 = self._独立顶层函数数(副本)
+            self.assertEqual(新数, 原数 + 1, "哨兵没被数进去 —— 反跑自身失效")
+            self.assertEqual(基线["total"], 原数)
+            self.assertNotEqual(基线["total"], 新数,
+                                "源码加了顶层 def 后基线 total 竟仍匹配 —— "
+                                "「分母变化必须同步更新」守卫失去判别力")
+            # 门禁自己的 ast 口径也必须跟着 +1（不是只有独立解析看得见）
+            副本名单 = FB.读地板函数名(_ROOT, 源=副本)
+            self.assertEqual(len(副本名单), 新数)
+            # 清单没同步 → 校验必须报「漏登记/防腐烂」，不许静默通过
+            _数据, 条目 = FB.读清单(_MANIFEST)
+            问题, _统计 = FB.校验(_ROOT, 条目, 副本名单,
+                              FB.读地板函数节点(_ROOT, 源=副本))
+            self.assertTrue(any("防腐烂" in q or "清单里没有" in q for q in 问题),
+                            "源码多一个顶层 def、清单没补，门禁却没报漏登记：%s" % 问题)
+
+    def test_定义行按声明名现算而非写死(self):
+        """行号来源：锚点必须是「按声明名」现算，不是 61/73 之类快照。"""
+        行 = [s.rstrip("\r") for s in _读行(os.path.join(_ROOT, *_判型文件.split("/")))]
+        表 = FB.声明行表(行)
+        现算, _ = FB.定位定义行(表, _样本名, 1)
+        self.assertIsNotNone(现算, "真仓库里按名字定位不到样本声明 —— 测试自身失效")
+        self.assertEqual(_是字母定义行, 现算,
+                         "模块级锚点不是按声明名现算的 —— 又被写死成快照了")
+        self.assertNotEqual(_是字母定义行, _是空白定义行,
+                            "不同声明名定位到同一行 —— 定位没按名字区分")
+        # 反跑①：把声明改名，按原名字必须找不到（精确匹配，不靠行号/子串）
+        改名 = [s.replace("段落 是字母(", "段落 是字母已改名(") for s in 行]
+        self.assertIsNone(FB.定位定义行(FB.声明行表(改名), _样本名, 1)[0],
+                          "声明已改名仍按旧名定位成功 —— 定位不是按声明名精确匹配")
+        # 反跑②：插 3 行后现算值必须下移 3（写死快照做不到）
+        新行, _新定义行, _旧定义行 = _在样本段前插三行(行, "\n")
+        现算2, _ = FB.定位定义行(FB.声明行表([s.rstrip("\r") for s in 新行]),
+                              _样本名, 1)
+        self.assertEqual(现算2, 现算 + 3,
+                         "插 3 行后定义行没下移 3 —— 现算被写死了")
 
 
 if __name__ == "__main__":
