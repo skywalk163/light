@@ -4517,13 +4517,23 @@ class ParserStmtMixin:
         
         self._consume(TokenType.COLON)
 
-        # 跳过所有连续的 NEWLINE（处理空行和注释行）
+        # T-0277 · 探针 B：L-013 的「冒号后无 NEWLINE 即单行体」修复当年只落到
+        # if / while / for 等块结构（见本文件 :3384 / :3429），段落定义这条漏了。
+        # `段落 加倍(x): 返回 x * 2` 之后再写同缩进的顶层语句，_parse_body
+        # 因为没有 DEDENT 边界会一路把它吞进段落体，产物变成
+        # `def 加倍(x): return …; print("END")` —— 顶层语句静默空跑、rc=0 零输出。
+        # 裁定：单行段落体是**合法语法**（与其它块结构同口径），不是编译期错误；
+        # 用 allow_single_line=True 让 _parse_body 在行尾 NEWLINE 处立即闭合，
+        # 后续顶层语句交回 _parse_module。多行缩进体（has_newline=True）保持原样。
+        has_newline = False
         while self._current() and self._current().type == TokenType.NEWLINE:
+            has_newline = True
             self._consume(TokenType.NEWLINE)
         if self._current() and self._current().type == TokenType.INDENT:
             self._consume(TokenType.INDENT)
 
-        body = self._parse_body(stop_on_paragraph=False)
+        body = self._parse_body(allow_single_line=not has_newline,
+                                stop_on_paragraph=False)
 
         # 消耗 DEDENT（段落体结束）
         # _parse_body 遇到 DEDENT 时会 break，不消耗 DEDENT，留给调用者处理

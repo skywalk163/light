@@ -4471,9 +4471,22 @@ class PythonCodeGenerator:
             # A3：`映射`/`筛选` 是「数据在前、函数在后」的中文语序，Python 侧却是
             # (函数, 可迭代对象)。在这里换序，见 _reorder_data_first_args。
             call_args = self._reorder_data_first_args(expr.name, py_name, shadowed, expr.args)
+            # T-0277 · 探针 A：`归约(数据, 求和, 初值)` 里的「求和」是 keywords.py
+            # 登记过的动词名，parser 把这种零参裸引用解析成 ParagraphCall；换序后
+            # 它落在函数位，若照常发射就成了 `求和()` —— 立刻调用且缺两个必填参数，
+            # 运行期报「missing 2 required positional arguments」。函数位要的是
+            # **可调用对象**而不是调用结果，故单独走函数引用发射。
+            # 只作用于 map / filter / functools.reduce 的换序函数位（第 0 位），
+            # 其它调用的实参口径一字不动；带括号的真调用 `求和()` 也不算引用。
+            _fn_ref_idx = 0 if (
+                py_name in ('map', 'filter', 'functools.reduce')
+                and len(call_args) >= 2) else -1
             args = []
-            for arg in call_args:
-                args.append(self._gen_call_arg(arg, py_name))
+            for _arg_i, arg in enumerate(call_args):
+                if _arg_i == _fn_ref_idx and self._is_bare_paragraph_ref(arg):
+                    args.append(self._gen_paragraph_ref(arg))
+                else:
+                    args.append(self._gen_call_arg(arg, py_name))
             # A2-3：`并发等待(任务表)` 的 Python 对应是 gather(*任务表)——语义是
             # 「把这一串协程一起等」，而不是「等一个列表」。不摊平就会把 list 当成
             # 单个 awaitable 传进去，运行期报 TypeError，属静默错编的近亲。
@@ -5439,6 +5452,41 @@ class PythonCodeGenerator:
         # 类方法中，如果引用的是类属性且不是参数名，添加 self. 前缀
         if (self._in_class_method and raw_name in self._class_attr_names
                 and raw_name not in self._current_method_params):
+            return f"self.{name}"
+        return name
+
+    @staticmethod
+    def _is_bare_paragraph_ref(arg) -> bool:
+        """零参且源码无括号的 ParagraphCall —— 中文动词名被当作值引用。
+
+        `映射([1,2,3], 加倍)` 里的「加倍」是普通 Identifier，发射裸名即可；但
+        「求和」「长度」这类 keywords.py 里登记过的动词名，parser 一律做成零参
+        ParagraphCall（见 :4434 的注释）。带括号的真调用 `求和()` 不能算引用，
+        否则 `归约(数据, 求和(), 初值)` 会被静默改写语义。
+        """
+        return (isinstance(arg, ParagraphCall)
+                and not getattr(arg, 'args', None)
+                and not getattr(arg, '带括号', False))
+
+    def _gen_paragraph_ref(self, arg) -> str:
+        """把零参裸 ParagraphCall 发射成 Python 可调用对象名（不追加括号）。
+
+        名字解析与 :4390 的 ParagraphCall 分支同源：块级作用域 mangle、类内
+        self 前缀、局部变量遮蔽、内置映射、用户段落名。只用于「函数作值」的位置。
+        用户自定义段落与内置同名时（`段落 求和(a,b)` 覆盖内置「求和」），
+        `_user_defined_functions` 已登记该名，返回裸段落名而非内置别名。
+        """
+        name = self._sanitize_name(arg.name)
+        mangled = self._resolve_block_scope_name(arg.name)
+        if mangled is not None:
+            return f"({mangled})" if mangled.startswith('lambda ') else mangled
+        if self._in_class_method and isinstance(arg.name, str):
+            name = self._map_self_prefix(arg.name)
+        shadowed = self._shadows_builtin(arg.name)
+        if (not shadowed and arg.name in self.builtin_map
+                and arg.name not in self._user_defined_functions):
+            return self.builtin_map[arg.name]
+        if self._in_class_method and arg.name in self._class_method_names:
             return f"self.{name}"
         return name
 
