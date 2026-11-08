@@ -323,38 +323,38 @@ def test_10_contrib_registry模板_可被安装器加载(fake_registry):
     assert 'JSON工具' in hits, f"模板里的包必须能被搜到，实际: {hits}"
 
 
-# ══ R144-E：registry 默认远端区域选择（国内 gitcode / 国外 github）════════
+# ══ R144-E / T-0284：registry 默认远端区域选择（国内 jsDelivr / 国外 GitHub raw）════════
 
-def test_11_区域URL常量_国内gitcode国外github():
-    """用户 2026-10-12 拍板：国内默认 gitcode，国外默认 github。"""
+def test_11_区域URL常量_国内jsdelivr国外githubraw():
+    """T-0284：gitcode 默认源实测不可用（200+HTML），改为 light 仓 registry/registry.json。"""
     from lightpkg import REGISTRY_REGION_URLS, DEFAULT_REGISTRY_REGION
     assert DEFAULT_REGISTRY_REGION == 'domestic'
     assert REGISTRY_REGION_URLS['domestic'] == \
-        'https://gitcode.com/light-lang/registry/raw/main/registry.json'
+        'https://fastly.jsdelivr.net/gh/skywalk163/light@main/registry/registry.json'
     assert REGISTRY_REGION_URLS['foreign'] == \
-        'https://github.com/skywalk163/light/raw/main/registry/registry.json'
+        'https://raw.githubusercontent.com/skywalk163/light/main/registry/registry.json'
 
 
 def test_12_区域解析优先级_显式参数大于环境变量大于默认domestic(monkeypatch):
     from lightpkg import resolve_registry_region
     monkeypatch.delenv('LIGHT_REGISTRY_REGION', raising=False)
-    # 无显式设置 → 默认 domestic（gitcode）
-    assert 'gitcode.com' in resolve_registry_region()
+    # 无显式设置 → 默认 domestic（jsDelivr）
+    assert 'jsdelivr.net' in resolve_registry_region()
     # 显式参数
-    assert 'github.com' in resolve_registry_region('foreign')
-    assert 'gitcode.com' in resolve_registry_region('domestic')
+    assert 'raw.githubusercontent.com' in resolve_registry_region('foreign')
+    assert 'jsdelivr.net' in resolve_registry_region('domestic')
     # 环境变量覆盖默认
     monkeypatch.setenv('LIGHT_REGISTRY_REGION', 'foreign')
-    assert 'github.com' in resolve_registry_region()
+    assert 'raw.githubusercontent.com' in resolve_registry_region()
     # 显式参数优先于环境变量
-    assert 'gitcode.com' in resolve_registry_region('domestic')
+    assert 'jsdelivr.net' in resolve_registry_region('domestic')
     # 非法区域快速失败，不静默回退
     with pytest.raises(ValueError):
         resolve_registry_region('mars')
 
 
 def test_13_默认区域URL可被安装器解析并落200_本地文件桩(fake_registry, tmp_path, monkeypatch):
-    """R144-E 离线断言：不传 --registry-url 时安装器解析区域默认 URL（domestic=gitcode），
+    """R144-E / T-0284 离线断言：不传 --registry-url 时安装器解析区域默认 URL（domestic=jsDelivr），
     且 raw 拉取路径能解析 registry.json（用本地文件桩模拟 200，不真出网）。"""
     import urllib.request
     from lightpkg import REGISTRY_REGION_URLS
@@ -377,7 +377,7 @@ def test_13_默认区域URL可被安装器解析并落200_本地文件桩(fake_r
     def _fake_urlopen(req, timeout=10):
         url = getattr(req, 'full_url', None) or str(req)
         assert url == REGISTRY_REGION_URLS['domestic'], \
-            f"默认区域 URL 应为 gitcode，实际 {url}"
+            f"默认区域 URL 应为 jsDelivr，实际 {url}"
         return _StubResp(stub_bytes)
 
     monkeypatch.setattr(urllib.request, 'urlopen', _fake_urlopen)

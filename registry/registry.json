@@ -1,0 +1,355 @@
+{
+  "updated": "2026-11-08",
+  "packages": [
+    {
+      "name": "标准数学扩展",
+      "version": "1.0.0",
+      "description": "扩展数学函数库：矩阵运算、复数、统计函数",
+      "author": "光明团队",
+      "category": "数学计算",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-math-ext.git",
+        "https://github.com/light-lang/light-math-ext.git",
+        "https://gitee.com/light-lang/light-math-ext.git"
+      ],
+      "keywords": [
+        "数学",
+        "矩阵",
+        "统计"
+      ]
+    },
+    {
+      "name": "网络请求",
+      "version": "1.0.0",
+      "description": "HTTP 客户端库：GET/POST 请求、JSON 解析",
+      "author": "光明团队",
+      "category": "网络通信",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-http.git",
+        "https://github.com/light-lang/light-http.git",
+        "https://gitee.com/light-lang/light-http.git"
+      ],
+      "keywords": [
+        "网络",
+        "HTTP",
+        "API"
+      ]
+    },
+    {
+      "name": "命令行工具",
+      "version": "1.0.0",
+      "description": "CLI 开发工具：参数解析、进度条、颜色输出",
+      "author": "光明团队",
+      "category": "开发工具",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-cli-utils.git",
+        "https://github.com/light-lang/light-cli-utils.git",
+        "https://gitee.com/light-lang/light-cli-utils.git"
+      ],
+      "keywords": [
+        "CLI",
+        "命令行",
+        "终端"
+      ]
+    },
+    {
+      "name": "测试框架",
+      "version": "1.0.0",
+      "description": "单元测试框架：断言、测试套件、覆盖率",
+      "author": "光明团队",
+      "category": "开发工具",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-test.git",
+        "https://github.com/light-lang/light-test.git",
+        "https://gitee.com/light-lang/light-test.git"
+      ],
+      "keywords": [
+        "测试",
+        "单元测试",
+        "断言"
+      ]
+    },
+    {
+      "name": "数据库",
+      "version": "1.0.0",
+      "description": "数据库操作库：SQL 查询、连接池、ORM",
+      "author": "光明团队",
+      "category": "数据存储",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-db.git",
+        "https://github.com/light-lang/light-db.git",
+        "https://gitee.com/light-lang/light-db.git"
+      ],
+      "keywords": [
+        "数据库",
+        "SQL",
+        "ORM"
+      ]
+    },
+    {
+      "name": "模板引擎",
+      "version": "1.0.0",
+      "description": "文本模板引擎：变量替换、循环、条件渲染",
+      "author": "光明团队",
+      "category": "开发工具",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-template.git",
+        "https://github.com/light-lang/light-template.git",
+        "https://gitee.com/light-lang/light-template.git"
+      ],
+      "keywords": [
+        "模板",
+        "渲染",
+        "HTML"
+      ]
+    },
+    {
+      "name": "日志",
+      "version": "1.0.0",
+      "description": "日志记录库：分级日志、文件输出、格式化",
+      "author": "光明团队",
+      "category": "开发工具",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-log.git",
+        "https://github.com/light-lang/light-log.git",
+        "https://gitee.com/light-lang/light-log.git"
+      ],
+      "keywords": [
+        "日志",
+        "调试",
+        "记录"
+      ]
+    },
+    {
+      "name": "配置管理",
+      "version": "1.0.0",
+      "description": "配置文件管理：TOML/JSON/YAML 读写",
+      "author": "光明团队",
+      "category": "开发工具",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-config.git",
+        "https://github.com/light-lang/light-config.git",
+        "https://gitee.com/light-lang/light-config.git"
+      ],
+      "keywords": [
+        "配置",
+        "TOML",
+        "JSON"
+      ]
+    },
+    {
+      "name": "加密",
+      "version": "1.0.0",
+      "description": "加密工具库：哈希、对称加密、Base64",
+      "author": "光明团队",
+      "category": "安全加密",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-crypto.git",
+        "https://github.com/light-lang/light-crypto.git",
+        "https://gitee.com/light-lang/light-crypto.git"
+      ],
+      "keywords": [
+        "加密",
+        "哈希",
+        "安全"
+      ]
+    },
+    {
+      "name": "图像处理",
+      "version": "1.0.0",
+      "description": "图像处理库：缩放、裁剪、滤镜",
+      "author": "光明团队",
+      "category": "多媒体",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-image.git",
+        "https://github.com/light-lang/light-image.git",
+        "https://gitee.com/light-lang/light-image.git"
+      ],
+      "keywords": [
+        "图像",
+        "图片",
+        "处理"
+      ]
+    },
+    {
+      "name": "中文分词",
+      "version": "1.0.0",
+      "description": "中文分词工具：正向最大匹配算法、自定义词典、批量加载",
+      "author": "光明团队",
+      "category": "文本处理",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-segment.git",
+        "https://github.com/light-lang/light-segment.git",
+        "https://gitee.com/light-lang/light-segment.git"
+      ],
+      "keywords": [
+        "中文",
+        "分词",
+        "NLP",
+        "文本"
+      ]
+    },
+    {
+      "name": "农历工具",
+      "version": "1.0.0",
+      "description": "农历工具：公历农历互转、传统节日查询、闰月判断",
+      "author": "光明团队",
+      "category": "日期时间",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-lunar.git",
+        "https://github.com/light-lang/light-lunar.git",
+        "https://gitee.com/light-lang/light-lunar.git"
+      ],
+      "keywords": [
+        "农历",
+        "日历",
+        "节日",
+        "日期"
+      ]
+    },
+    {
+      "name": "身份证校验",
+      "version": "1.0.0",
+      "description": "身份证号码校验：格式校验、校验码计算、信息提取（出生日期/性别/地区）",
+      "author": "光明团队",
+      "category": "数据校验",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-idcard.git",
+        "https://github.com/light-lang/light-idcard.git",
+        "https://gitee.com/light-lang/light-idcard.git"
+      ],
+      "keywords": [
+        "身份证",
+        "校验",
+        "身份",
+        "验证"
+      ]
+    },
+    {
+      "name": "拼音转换",
+      "version": "1.0.0",
+      "description": "拼音转换工具：中文转拼音、带声调拼音、拼音首字母提取",
+      "author": "光明团队",
+      "category": "文本处理",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-pinyin.git",
+        "https://github.com/light-lang/light-pinyin.git",
+        "https://gitee.com/light-lang/light-pinyin.git"
+      ],
+      "keywords": [
+        "拼音",
+        "中文",
+        "音标",
+        "转换"
+      ]
+    },
+    {
+      "name": "手机号校验",
+      "version": "1.0.0",
+      "description": "手机号码校验：格式校验、运营商识别（移动/联通/电信）、归属地查询",
+      "author": "光明团队",
+      "category": "数据校验",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-phone.git",
+        "https://github.com/light-lang/light-phone.git",
+        "https://gitee.com/light-lang/light-phone.git"
+      ],
+      "keywords": [
+        "手机号",
+        "校验",
+        "运营商",
+        "归属地"
+      ]
+    },
+    {
+      "name": "中文文本处理",
+      "version": "1.0.0",
+      "description": "中文文本处理增强：字符统计、标点清理、分句分段、词频统计",
+      "author": "光明团队",
+      "category": "文本处理",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-chinese-text.git",
+        "https://github.com/light-lang/light-chinese-text.git",
+        "https://gitee.com/light-lang/light-chinese-text.git"
+      ],
+      "keywords": [
+        "中文",
+        "文本",
+        "处理",
+        "NLP"
+      ]
+    },
+    {
+      "name": "中国行政区划",
+      "version": "1.0.0",
+      "description": "中国行政区划查询：省份/城市/区县查询、行政区划代码、验证",
+      "author": "光明团队",
+      "category": "地理位置",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-china-region.git",
+        "https://github.com/light-lang/light-china-region.git",
+        "https://gitee.com/light-lang/light-china-region.git"
+      ],
+      "keywords": [
+        "行政区划",
+        "省份",
+        "城市",
+        "地理位置"
+      ]
+    },
+    {
+      "name": "中文数字转换",
+      "version": "1.0.0",
+      "description": "中文数字转换：中文数字与阿拉伯数字互转、大写金额转换",
+      "author": "光明团队",
+      "category": "文本处理",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-chinese-num.git",
+        "https://github.com/light-lang/light-chinese-num.git",
+        "https://gitee.com/light-lang/light-chinese-num.git"
+      ],
+      "keywords": [
+        "数字",
+        "转换",
+        "金额",
+        "中文"
+      ]
+    },
+    {
+      "name": "中国传统节日",
+      "version": "1.0.0",
+      "description": "中国传统节日查询：日期查询、节日判断、倒计时、月度节日列表",
+      "author": "光明团队",
+      "category": "日期时间",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-festival.git",
+        "https://github.com/light-lang/light-festival.git",
+        "https://gitee.com/light-lang/light-festival.git"
+      ],
+      "keywords": [
+        "节日",
+        "传统",
+        "农历",
+        "日期"
+      ]
+    },
+    {
+      "name": "中文编码工具",
+      "version": "1.0.0",
+      "description": "中文编码转换：编码检测、GBK/UTF-8互转、Unicode转义",
+      "author": "光明团队",
+      "category": "编码转换",
+      "mirrors": [
+        "https://gitcode.com/light-lang/light-encoding.git",
+        "https://github.com/light-lang/light-encoding.git",
+        "https://gitee.com/light-lang/light-encoding.git"
+      ],
+      "keywords": [
+        "编码",
+        "GBK",
+        "UTF-8",
+        "转换"
+      ]
+    }
+  ]
+}
