@@ -182,13 +182,43 @@ def test_doc_table_parsed():
 # =============================================================================
 
 def test_every_doc_name_registered_and_reachable():
-    """**本门禁的主判据**：任何一个名字不可达 → 失败并逐个点名。"""
+    """**本门禁的主判据**：任何一个名字不可达 → 失败并逐个点名。
+
+    T-0278 起在同一用例里补上 **linter 清单侧**的静态断言（真 CLI 逐名探测在
+    `tests/unit/test_R220_linter清单对拍.py`）：文档 §三 表与
+    `src/linter/builtins.py` 的清单口径必须一致，且文档侧已裁定的伪名不许回流。
+    合并在本用例里而非新开一例，是为了保持本文件原有 13 例的形态不变。
+    """
     names = doc_builtin_names()
     failures = reachability_failures(names)
     assert not failures, (
         '文档内置函数表里有不可达的名字（照抄这些名字的代码必红）：\n'
         + '\n'.join(f'  - {n}：{why}' for n, why in failures)
     )
+
+    # ── T-0278 · linter 清单侧 ────────────────────────────────────────────
+    from linter.builtins import _EXCLUDED_NAMES, get_builtin_names
+
+    linter = get_builtin_names()
+    assert linter, 'linter 内置名清单一个名字都没取到（数据源可能加载失败）'
+    for must in ('打印', '是空', '列表创建', '集合', '整数'):
+        assert must in linter, f'linter 清单里应含 `{must}`（数据源可能变了）'
+
+    # 文档表里的名字（除已显式声明「需导入」的）必须也在 linter 清单里，
+    # 否则 linter 会把文档教 AI 写的名字判成未定义名（LH-21 同源的口径脱节）。
+    missing = [n for n in names if n not in linter and n not in DOC_IMPORT_NAMES]
+    assert not missing, (
+        f'文档 §三 表里的这些名字不在 linter 清单里：{missing}\n'
+        '（若确属模块函数，请加进 DOC_IMPORT_NAMES 并写明导入语句）')
+
+    # 文档门禁已裁定的伪名，不许在清单侧复活（清单盖章 = 编译期放行 = 运行期才炸）。
+    for fake in ('集合创建', 'repr', '去除首尾空白', '真值', '假值'):
+        assert fake not in linter, (
+            f'`{fake}` 是文档侧已裁定的伪名，不许回到 linter 清单里；'
+            '真 CLI 逐名复核见 test_R220_linter清单对拍.py')
+
+    still = sorted(n for n in _EXCLUDED_NAMES if n in linter)
+    assert not still, f'声明剔除却仍在 linter 清单里的名字：{still}'
 
 
 def test_module_names_are_really_importable():
