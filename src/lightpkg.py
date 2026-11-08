@@ -36,11 +36,18 @@ DEFAULT_CONTRIB = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..',
 DEFAULT_INSTALL = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'contrib', 'installed')
 
 # R144-E：registry 默认远端改为区域选择（用户 2026-10-12 拍板：国内默认 gitcode，国外默认 github）。
-# 不做 geo-IP 探测（不可靠）：默认 domestic（gitcode），foreign（github）必须显式指定。
+# T-0284：旧国内源对应的 GitCode 组织项目并不存在，且同域任意不存在路径也返回
+# `200 + text/html` SPA 页，没有判别力；旧国外源的 `github.com/<owner>/<repo>/raw/...`
+# 也不是 raw 文件地址。
+# 现在两个区域都改指向 light 仓 `main` 分支下的 `registry/registry.json`：
+#   domestic = jsDelivr CDN（国内实测可达；不存在路径返回 404）
+#   foreign  = GitHub raw（国外直连；不存在路径返回 404）
+# 文件本身随本卡合入 main 后才可拉取，land 后由主控复跑可达性判据。
+# 不做 geo-IP 探测（不可靠）：默认 domestic，foreign 必须显式指定。
 # 覆盖方式：环境变量 LIGHT_REGISTRY_REGION=domestic|foreign，或安装器参数 registry_region。
 REGISTRY_REGION_URLS = {
-    'domestic': 'https://gitcode.com/light-lang/registry/raw/main/registry.json',
-    'foreign': 'https://github.com/skywalk163/light/raw/main/registry/registry.json',
+    'domestic': 'https://fastly.jsdelivr.net/gh/skywalk163/light@main/registry/registry.json',
+    'foreign': 'https://raw.githubusercontent.com/skywalk163/light/main/registry/registry.json',
 }
 DEFAULT_REGISTRY_REGION = 'domestic'
 REGISTRY_REGION_ENV = 'LIGHT_REGISTRY_REGION'
@@ -49,7 +56,7 @@ REGISTRY_REGION_ENV = 'LIGHT_REGISTRY_REGION'
 def resolve_registry_region(region: str = '') -> str:
     """解析 registry 区域 → 对应区域的 raw registry.json URL。
 
-    优先级：显式参数 region > 环境变量 LIGHT_REGISTRY_REGION > 默认 domestic（gitcode）。
+    优先级：显式参数 region > 环境变量 LIGHT_REGISTRY_REGION > 默认 domestic（jsDelivr）。
     非法区域名抛 ValueError（快速失败，不静默回退到错误区域）。
     """
     if not region:
