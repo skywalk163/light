@@ -12444,7 +12444,12 @@ static void dv_sb_free(DvStrBuf* sb) {
 }
 
 /* ---- 内部：JSON 序列化（indent < 0 = 紧凑；>= 0 = 换行缩进） ---- */
-static void dv_json_serialize_value(DvStrBuf* sb, LightValue* v, int indent, int level);
+/* strict=1：不可序列化类型抛 运行时错误（序列化JSON 的语义，对齐 JSON核心.light）；
+   strict=0：不可序列化类型回落 dv_to_string（转字符串 的语义 —— src 腿 容器发JSON
+   在 except 里退回 str(值)，转字符串 出现在日志/错误消息拼接上，不能因容器里混了
+   个对象就抛错把原始故障盖掉）。 */
+static void dv_json_serialize_value(DvStrBuf* sb, LightValue* v, int indent, int level,
+                                    int strict);
 
 /* 转义字符串并加双引号（对齐 JSON核心.light 编码字符串 + json.dumps ensure_ascii=False） */
 static void dv_json_escape_str(DvStrBuf* sb, const char* s) {
@@ -12522,7 +12527,8 @@ static void dv_json_repeat_spaces(DvStrBuf* sb, int count) {
 }
 
 /* 递归序列化一个值 */
-static void dv_json_serialize_value(DvStrBuf* sb, LightValue* v, int indent, int level) {
+static void dv_json_serialize_value(DvStrBuf* sb, LightValue* v, int indent, int level,
+                                    int strict) {
     if (!v) { dv_sb_puts(sb, "null"); return; }
     v = dv_deref(v);
     switch (v->type) {
@@ -12546,7 +12552,7 @@ static void dv_json_serialize_value(DvStrBuf* sb, LightValue* v, int indent, int
                     dv_json_repeat_spaces(sb, indent * (level + 1));
                 }
                 LightValue* item = v->list_data ? v->list_data[i] : NULL;
-                dv_json_serialize_value(sb, item, indent, level + 1);
+                dv_json_serialize_value(sb, item, indent, level + 1, strict);
             }
             if (indent >= 0) {
                 dv_sb_putc(sb, '\n');
@@ -12576,7 +12582,7 @@ static void dv_json_serialize_value(DvStrBuf* sb, LightValue* v, int indent, int
                 dv_json_escape_str(sb, kb.data ? kb.data : "");
                 dv_sb_free(&kb);
                 dv_sb_puts(sb, ": ");
-                dv_json_serialize_value(sb, val, indent, level + 1);
+                dv_json_serialize_value(sb, val, indent, level + 1, strict);
             }
             if (indent >= 0) {
                 dv_sb_putc(sb, '\n');
@@ -12586,6 +12592,15 @@ static void dv_json_serialize_value(DvStrBuf* sb, LightValue* v, int indent, int
             break;
         }
         default: {
+            /* 宽松模式（转字符串 走这条）：不可 JSON 化的值（类实例 / 函数等）回落
+             * dv_to_string，与 src 腿 `容器发JSON` 的 except 兜底同义 —— 只是不整段
+             * 退化（同容器里其它可序列化元素仍按 JSON 口径输出）。 */
+            if (!strict) {
+                char* txt = dv_to_string_depth(v, level + 1);
+                if (txt) { dv_sb_puts(sb, txt); dv_buf_free_raw(txt); }
+                else { dv_sb_puts(sb, "null"); }
+                break;
+            }
             /* 非容器类型：抛 运行时错误（对齐 JSON核心.light 编码值默认分支）。
              * dv_class_set_member 签名 (obj, const char* field_name, LightValue* value)；
              * dv_throw_exception 实际 longjmp，调用后的 IR 不真正执行。 */
@@ -12899,9 +12914,25 @@ void dv_json_parse(LightValue* result, LightValue* text) {
 void dv_json_serialize(LightValue* result, LightValue* value) {
     if (!result) return;
     DvStrBuf sb; dv_sb_init(&sb);
-    dv_json_serialize_value(&sb, value, -1, 0);
+    dv_json_serialize_value(&sb, value, -1, 0, 1);
     /* R161-B（L-217，P4 路径）：序列化结果是**临时值** → 临时表（不走 dv_str——
      * dv_str 的分配还被 JSON 解析/容器插入等**需长期存活**的路径共用）。 */
+    result->type = 3;
+    result->i64 = 0;
+    result->f64 = 0.0;
+    result->boolean = 0;
+    result->str = dv_tmp_strdup(sb.data ? sb.data : "");
+    dv_sb_free(&sb);
+}
+
+/* 转字符串 的容器口径（L-072 / dual-leg parity）：与 dv_json_serialize 同一套 JSON
+ * 规则（双引号 / 中文不转义 / 紧凑），区别只在 strict=0：不可 JSON 化的元素回落
+ * dv_to_string，不抛错。src 腿 `内置核心转换.转字符串` 对 dict/list 走
+ * `JSON核心.序列化(值, 0)`，两腿据此逐字一致。 */
+void dv_json_serialize_safe(LightValue* result, LightValue* value) {
+    if (!result) return;
+    DvStrBuf sb; dv_sb_init(&sb);
+    dv_json_serialize_value(&sb, value, -1, 0, 0);
     result->type = 3;
     result->i64 = 0;
     result->f64 = 0.0;
@@ -12916,7 +12947,7 @@ void dv_json_serialize_pretty(LightValue* result, LightValue* value, int64_t ind
     int ind = (int)indent;
     if (ind < 0) ind = 0;
     DvStrBuf sb; dv_sb_init(&sb);
-    dv_json_serialize_value(&sb, value, ind, 0);
+    dv_json_serialize_value(&sb, value, ind, 0, 1);
     result->type = 3;
     result->i64 = 0;
     result->f64 = 0.0;

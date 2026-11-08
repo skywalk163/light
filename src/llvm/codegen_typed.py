@@ -822,6 +822,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             # R148-A：JSON 内部级联解耦——C 层 JSON 原语（对齐 stdlib/JSON核心.light 纯光明语义）
             f'declare void @dv_json_parse(ptr, ptr)',
             f'declare void @dv_json_serialize(ptr, ptr)',
+            f'declare void @dv_json_serialize_safe(ptr, ptr)',
             f'declare void @dv_json_serialize_pretty(ptr, ptr, i64)',
             # R149-A：文件系统平台原语第一批（对齐 stdlib/文件系统.py 参考语义）
             f'declare void @dv_fs_access(ptr, ptr, i64)',
@@ -3707,30 +3708,29 @@ class TypedLLVMCodeGen(LLVMCodeGen):
 
         if name in ('转文本', 'to_string', '转字符串', '转串', 'str'):
             if args:
-                # R12C（R11A-09）：runtime dv_to_string 对列表（type 4）读 str
-                # 字段恒得 "[]"。运行时按 DV 类型分派：列表 → dv_list_join
-                # （逐元素 dv_to_string）后加方括号；其余走原 dv_value_to_string。
-                # 嵌套容器的内层元素仍走 dv_to_string（嵌套序列化归 T7）。
+                # L-072 两腿口径：src 腿 `内置核心转换.转字符串` 对 dict/list 走
+                # `JSON核心.序列化(值, 0)`（双引号、中文不转义、紧凑），其余走 str()。
+                # 原生腿此前用 dv_list_join 拼列表：字符串元素裸奔、null 出「空」、
+                # 字典走 repr 口径（单引号）、容器内浮点丢 .0 —— 两腿输出不可逐字对拍。
+                # 现改为：容器（list type4 / dict type7）交给运行时 dv_json_serialize_safe
+                # （与 序列化JSON 同一套规则，不可 JSON 化的元素回落 dv_to_string，不抛错），
+                # 其余仍走 dv_value_to_string（真/假/空/数字/字符串的既有口径）。
                 obj_slot = self._store_dv(args[0])
                 type_reg = self.new_register()
                 self.emit(f'{type_reg} = load i32, ptr {obj_slot}')
                 is_list = self.new_register()
                 self.emit(f'{is_list} = icmp eq i32 {type_reg}, 4')
-                list_lab = self.new_label('tostr_list')
+                is_dict = self.new_register()
+                self.emit(f'{is_dict} = icmp eq i32 {type_reg}, 7')
+                is_container = self.new_register()
+                self.emit(f'{is_container} = or i1 {is_list}, {is_dict}')
+                cont_lab = self.new_label('tostr_cont')
                 def_lab = self.new_label('tostr_def')
                 end_lab = self.new_label('tostr_end')
                 res_slot = self._new_dv_slot()
-                self.emit(f'br i1 {is_list}, label %{list_lab}, label %{def_lab}')
-                self.emit(f'{list_lab}:')
-                joined = self._call_dv_func(
-                    'dv_list_join', args[0],
-                    self._create_str_dv(self.gen_string_constant(", ")))
-                open_br = self._create_str_dv(self.gen_string_constant("["))
-                with_open = self._call_dv_func('dv_concat', open_br, joined)
-                wo_slot = self._store_dv(with_open)
-                close_br = self._create_str_dv(self.gen_string_constant("]"))
-                cb_slot = self._store_dv(close_br)
-                self.emit(f'call void @dv_concat(ptr {res_slot}, ptr {wo_slot}, ptr {cb_slot})')
+                self.emit(f'br i1 {is_container}, label %{cont_lab}, label %{def_lab}')
+                self.emit(f'{cont_lab}:')
+                self.emit(f'call void @dv_json_serialize_safe(ptr {res_slot}, ptr {obj_slot})')
                 self.emit(f'br label %{end_lab}')
                 self.emit(f'{def_lab}:')
                 self.emit(f'call void @dv_value_to_string(ptr {res_slot}, ptr {obj_slot})')
