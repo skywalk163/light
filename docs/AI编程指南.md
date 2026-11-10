@@ -934,7 +934,7 @@ with open("f.txt", "r") 为 fh:
 - 创建空容器用 `列表创建()` / `字典创建()`，**不要写** `新建列表()`。
 - 列表追加是方法调用 `列表.追加(项)`，**不是** `追加(列表, 项)`。
 - 遍历语句介词用 `于`，推导式介词用 `之`/`在`，不要混。
-- 从 0 开始写一个新文件，先 `light ai check 文件.light` 做后端兼容检测。
+- 从 0 开始写一个新文件，先 `light ai check 文件.light` 做后端兼容检测；Agent 要程序化消费结果时加 `--json`（见 §12C）。
 
 #### B7. 闭包不能重绑外层变量（L-098）
 ```光明
@@ -1668,6 +1668,122 @@ note = handle_notification("textDocument/didOpen", params, enabled=True)
 1. **精确度优先于召回率**：白名单以「不打扰」为第一目标，代价是存在漏报（False Negative）——变量名拼写错误若恰好落在白名单类别里（例如笔误成某个 Python builtin 名）会被静默放过。需要严格校验时请走 `lightc --semantic`，那条链路看的是原始未过滤输出。
 2. **行号启发式**：见 12B.4，AST 无位置信息时的顺序匹配在重名密集文件里可能偏移。
 3. **全量重分析、无增量**：`run_semantic_diagnostic()` 每次都对整个文件重新词法+语法+语义分析，没有做增量复用。大文件上频繁 `didChange` 建议上层加 debounce。全 240 个语料文件跑一遍约 21 秒，单文件均摊约 88ms。
+
+---
+
+## 十二-C、机器可读诊断：`light ai check --json`（Agent 闭环入口）
+
+> 2026-11 新增（T-0318）。人读报错默认仍是原来的文本；**Agent 读报错走 `--json`**。
+
+### 12C.1 为什么要有它
+
+原来的 `light ai check` 只往控制台打中文文本，外部 Agent 只能对着报错做正则，`generate → check → fix → re-check` 的闭环断在「check 结果没法消费」这一环。
+现在 check 直接吐出结构化诊断，Agent 每一轮只需要两样东西：**stdout 的 JSON** 和 **退出码**。
+
+```bash
+light ai check demo.light --json          # 语法 + 类型
+light ai check demo.light --json --run    # 顺带运行，运行期报错也进 diagnostics
+light ai check demo.light                 # 不带 --json：文本输出与退出码维持原样
+```
+
+### 12C.2 stdout / stderr 分工
+
+| 流 | `--json` 时 | 无 `--json` 时 |
+| --- | --- | --- |
+| stdout | **只有一个 JSON 对象**，前后无杂字 | 原有中文文本，逐字不变 |
+| stderr | 全部进度/日志（`[1/2] 语法检查` 等） | 原有 stderr |
+
+即：**想解析就只读 stdout，想看进度就只读 stderr**。JSON 模式下 stdout 不放 emoji、不放进度行，`json.loads(stdout)` 可以直接成功。
+
+### 12C.3 输出结构（`schema_version: 1`）
+
+```json
+{
+  "schema_version": 1,
+  "ok": false,
+  "file": "demo.light",
+  "backend_hints": [
+    {"keyword": "类", "desc": "class 定义", "suggestion": "改用 --backend llvm-typed"}
+  ],
+  "diagnostics": [
+    {
+      "code": "L0000",
+      "severity": "error",
+      "stage": "语法检查",
+      "line": 2,
+      "column": 5,
+      "message": "输入意外结束 (期望 右括号「)」)",
+      "hint": "代码可能不完整，请检查是否缺少右括号「)」或冒号「:」",
+      "fixes": ["代码可能不完整，请检查是否缺少右括号「)」或冒号「:」"],
+      "candidates": [],
+      "provisional": true
+    }
+  ],
+  "duration_ms": 589
+}
+```
+
+顶层字段：
+
+| 字段 | 类型 | 含义 |
+| --- | --- | --- |
+| `schema_version` | int | 结构版本，当前恒为 `1`；加字段不升版本，改语义才升 |
+| `ok` | bool | `true` = 没有 `error` 级诊断（`warning`/`info` 不影响） |
+| `file` | str | 被检查的文件路径（原样回显，便于并发时对上号） |
+| `backend_hints` | list | 后端兼容提示：`keyword` / `desc` / `suggestion` 三键 |
+| `diagnostics` | list | 诊断数组，元素结构见下表 |
+| `duration_ms` | int | 本次检查耗时（毫秒），给 Agent 做超时预算 |
+
+`diagnostics[]` 字段（顺序固定，可直接 diff）：
+
+| 字段 | 类型 | 含义 |
+| --- | --- | --- |
+| `code` | str | 错误码，形如 `L4001`；**未接入码表时是 `L0000`** |
+| `severity` | str | `error` / `warning` / `info` |
+| `stage` | str | 出错阶段：`用法` / `语法检查` / `类型检查` / `运行` |
+| `line` | int | 行号（1 起）；**未知就是 0，不猜** |
+| `column` | int | 列号（1 起）；未知为 0 |
+| `message` | str | 报错原因（`原因:` 行） |
+| `hint` | str | 人读提示（`建议:` / `教程:` 行合并，`；` 分隔） |
+| `fixes` | list[str] | 候选修复，≤3 条，按顺序试 |
+| `candidates` | list[str] | 候选位置/候选项，暂无则为空表 |
+| `provisional` | bool | `true` = 由文本正则推断、尚未绑定内部异常对象 |
+
+> `provisional` 与 `L0000` 的关系：结构化码表（`src/diagnostics`，T-0316）**合入后**，同一条报错会自动带真实码（如 `L4001`）、`provisional` 也随之变 `false`；码表没合入或没命中时，这里诚实写 `L0000` + `provisional: true`，**绝不臆造具体码**。CLI 的 JSON 结构不变，Agent 不用改代码。
+
+### 12C.4 退出码契约
+
+| 退出码 | 含义 | Agent 该怎么做 |
+| --- | --- | --- |
+| `0` | 没有 error 级诊断 | 进入下一步：交付，或做一次 re-check 留痕 |
+| `1` | 有 error 级诊断 | 按 `fixes` 改代码，然后 re-check（同一文件重跑即可） |
+| `2` | 用法/文件错误（路径不存在、不可读、非 UTF-8） | 先修路径或参数，别把这类错误当代码错去改源码 |
+
+`--run` 的运行失败**不改退出码语义**：运行期报错同样进 `diagnostics`（`stage: "运行"`），退出码仍是 `1`；超时也给一条 `stage: "运行"` 的诊断（`message` 含 `运行超时`）。
+
+### 12C.5 Agent 闭环写法
+
+```python
+import json, subprocess
+
+def check(path, run=False):
+    cmd = ['light', 'ai', 'check', path, '--json'] + (['--run'] if run else [])
+    proc = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
+    report = json.loads(proc.stdout)        # stdout 只有 JSON，直接解析
+    return proc.returncode, report
+
+rc, report = check('demo.light', run=True)
+if rc == 1:
+    for diag in report['diagnostics']:
+        print(diag['code'], diag['line'], diag['column'], diag['message'])
+        for fix in diag['fixes'][:3]:
+            print('  候选修复:', fix)
+# 改完再 check 一次：rc == 0 才算闭环
+```
+
+注意两点：
+1. `line`/`column` 为 `0` 表示「位置未知」，别拿它去改第 0 行；
+2. `fixes` 是**候选**不是命令，仍需要 Agent 判断后落地。
 
 ---
 
