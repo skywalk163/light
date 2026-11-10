@@ -5,6 +5,11 @@
 不依赖 coverage 是否安装、不跑全量测试、不联网。
 边界按任务卡：69.9 红 / 70.0 绿、单文件缺失、未覆盖区间格式化、
 rc 0/1/2 契约、--min 0 放行；另加防假绿与 CI 接线完整性。
+
+环境说明：仓库根 pyproject.toml 的 addopts 带
+``--timeout=60 -n 4 --dist=loadscope``，跑本文件需要既有的
+pytest-xdist / pytest-timeout（CI 依赖步骤已装）。本卡不改 pyproject、
+不引入 pytest-cov、不给这套 addopts 增加任何新依赖。
 """
 
 from __future__ import annotations
