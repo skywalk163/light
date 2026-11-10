@@ -39,6 +39,9 @@ RUNTIME_ERROR_SOURCE = "设 甲 为 [1, 2]\n打印(甲[9])\n"
 # 触发后端感知的类定义
 CLASS_SOURCE = '类 动物：\n    设 名字 为 ""\n'
 
+# 词法错误：`&&` 触发 check 的纯文本路径（没有 ┌─ 边框块），位置在 2 行 10 列
+LEXICAL_ERROR_SOURCE = "设 数 为 1\n如果 数 > 0 && 数 < 2：\n    打印(数)\n"
+
 # ── 无 --json 时的关键行基线（只比关键行，避免环境差异）──
 TEXT_BASELINE_OK = (
     '[1/2] 语法检查',
@@ -132,6 +135,16 @@ def runtime_error_json(runtime_error_file):
 @pytest.fixture(scope='module')
 def class_json(class_file):
     return _run_ai_check(class_file, '--json')
+
+
+@pytest.fixture(scope='module')
+def lexical_error_file(tmp_path_factory):
+    return _write(tmp_path_factory.mktemp('ai_check'), 'lex.light', LEXICAL_ERROR_SOURCE)
+
+
+@pytest.fixture(scope='module')
+def lexical_json(lexical_error_file):
+    return _run_ai_check(lexical_error_file, '--json')
 
 
 class TestExitCodeContract:
@@ -244,6 +257,25 @@ class TestRunStage:
         assert '[1/2] 语法检查' in stderr, stderr
         assert '[2/2] 运行测试' in stderr, stderr
         assert '[1/2]' not in stdout and '[2/2]' not in stdout, stdout
+
+
+class TestPlainTextFallback:
+    """`&&` 这类词法错误走纯文本路径（check 不打 ┌─ 块），位置与归因不能丢。"""
+
+    def test_lexical_error_has_real_position(self, lexical_json):
+        assert lexical_json.returncode == EXIT_DIAGNOSTIC, lexical_json.stderr
+        payload = _json_of(lexical_json)
+        diag = payload['diagnostics'][0]
+        assert diag['stage'] == '语法检查', diag
+        assert diag['line'] == 2, f'词法错误在第 2 行，实际 {diag["line"]}'
+        assert diag['column'] == 10, f'词法错误在第 10 列，实际 {diag["column"]}'
+        assert '词法' in diag['message'], diag['message']
+
+    def test_noise_lines_are_not_used_as_message(self, lexical_json):
+        """兜底不得把 `📄 检查文件 / 总行数` 这种检查头当成诊断正文。"""
+        diag = _json_of(lexical_json)['diagnostics'][0]
+        for noise in ('📄', '检查文件', '总行数', '代码行', '注释行'):
+            assert noise not in diag['message'], f'诊断正文混入检查头「{noise}」: {diag["message"]}'
 
 
 class TestTextPathUnchanged:

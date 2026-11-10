@@ -1843,10 +1843,87 @@ def _ai_blocks(text):
     return blocks
 
 
+# 没有边框块时的纯文本兜底：`错误: 词法分析错误` + `词法错误 (行2, 列10): …` + `建议: …`
+_AI_PLAIN_POS_RE = re.compile(r'[(（]\s*行\s*(\d+)\s*[,，]\s*列\s*(\d+)\s*[)）]')
+_AI_ERR_HEAD_RE = re.compile(r'^\s*错误[:：]\s*(.+)$')
+_AI_SUGGEST_LINE_RE = re.compile(r'^\s*建议[:：]\s*(.+)$')
+_AI_NOISE_PREFIXES = ('📄', '总行数', '代码行', '注释行', '❌', '✅', '━━━', '参考示例', '教程')
+
+
 def _ai_text_summary(text, limit=3):
-    """取前几行非空文本，用于没有边框块时的诊断兜底。"""
-    lines = [line.strip() for line in _AI_ANSI_RE.sub('', text).splitlines() if line.strip()]
+    """取前几行非空、且不是检查头/计数的文本，最后兜底用。"""
+    lines = []
+    for line in _AI_ANSI_RE.sub('', text).splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith(_AI_NOISE_PREFIXES):
+            continue
+        lines.append(stripped)
     return ' '.join(lines[:limit])
+
+
+def _ai_diagnostic_from_plain(text, default_stage):
+    """没有边框块时，从 `错误:` / `(行N, 列M)` / `建议:` 这些行里取诊断。
+
+    词法错误（如 `&&`）走的就是这条路：check 只打印文本，没有 `┌─` 块。
+    拿不到的位置写 0，不猜。
+    """
+    raw = _AI_ANSI_RE.sub('', text)
+    lines = raw.splitlines()
+    title = ''
+    detail = ''
+    suggestions = []
+    for index, line in enumerate(lines):
+        head = _AI_ERR_HEAD_RE.match(line)
+        if head and not title:
+            title = head.group(1).strip()
+            for follow in lines[index + 1:]:
+                candidate = follow.strip()
+                if not candidate or candidate.startswith(_AI_NOISE_PREFIXES):
+                    continue
+                if _AI_SUGGEST_LINE_RE.match(candidate) or candidate.startswith('参考示例'):
+                    continue
+                if re.match(r'^\d+\s', candidate):   # 源码片段行：` 2 如果 …`
+                    continue
+                detail = candidate
+                break
+        suggest = _AI_SUGGEST_LINE_RE.match(line)
+        if suggest:
+            suggestions.append(suggest.group(1).strip())
+    if not title and not detail:
+        summary = _ai_text_summary(text)
+        if not summary:
+            return None
+        title = summary
+
+    message = ' '.join(part for part in (title, detail) if part)
+    line = column = 0
+    match = _AI_PLAIN_POS_RE.search(detail) or _AI_POS_RE.search(detail)
+    if match:
+        line = int(match.group(1))
+        column = int(match.group(2) or 0)
+    else:
+        match = _AI_LINE_CN_RE.search(raw)
+        if match:
+            line = int(match.group(1))
+    if not line:
+        # 运行期报错的位置写在括号里：`列表索引越界（rt:2）` / `（位置: 文件:3）`
+        match = _AI_RUNTIME_POS_RE.search(detail) or _AI_RUNTIME_POS_RE.search(raw)
+        if match:
+            line = int(match.group(1))
+    hint = '；'.join(suggestions)
+    fixes = _ai_split_fixes(hint)
+    explained = _ai_explain(message)
+    if explained is not None:
+        explained['line'] = line
+        explained['column'] = column
+        explained['stage'] = default_stage
+        if not explained['hint']:
+            explained['hint'] = hint
+        if not explained['fixes']:
+            explained['fixes'] = fixes
+        return explained
+    return _ai_json_diagnostic(
+        'L0000', 'error', default_stage, line, column, message, hint, fixes, [], True)
 
 
 def _ai_diagnostic_from_block(block, default_stage):
@@ -1902,11 +1979,8 @@ def _ai_diagnostics_from_check(text, default_stage='语法检查'):
     blocks = _ai_blocks(text)
     if blocks:
         return [_ai_diagnostic_from_block(block, default_stage) for block in blocks]
-    message = _ai_text_summary(text)
-    if not message:
-        return []
-    return [_ai_json_diagnostic(
-        'L0000', 'error', default_stage, 0, 0, message, '', [], [], True)]
+    plain = _ai_diagnostic_from_plain(text, default_stage)
+    return [plain] if plain is not None else []
 
 
 def _ai_diagnostics_from_run(text, default_stage='运行'):
@@ -1914,29 +1988,8 @@ def _ai_diagnostics_from_run(text, default_stage='运行'):
     blocks = _ai_blocks(text)
     if blocks:
         return [_ai_diagnostic_from_block(block, default_stage) for block in blocks]
-    message = _ai_text_summary(text)
-    if not message:
-        return []
-    line = 0
-    for pattern in (_AI_POS_RE, _AI_LINE_CN_RE, _AI_RUNTIME_POS_RE):
-        match = pattern.search(text)
-        if match:
-            line = int(match.group(1))
-            break
-    suggest = _AI_SUGGEST_RE.search(text)
-    hint = suggest.group(1).strip() if suggest else ''
-    fixes = _ai_split_fixes(hint)
-    explained = _ai_explain(message)
-    if explained is not None:
-        explained['line'] = line
-        explained['stage'] = default_stage
-        if not explained['hint']:
-            explained['hint'] = hint
-        if not explained['fixes']:
-            explained['fixes'] = fixes
-        return [explained]
-    return [_ai_json_diagnostic(
-        'L0000', 'error', default_stage, line, 0, message, hint, fixes, [], True)]
+    plain = _ai_diagnostic_from_plain(text, default_stage)
+    return [plain] if plain is not None else []
 
 
 def _ai_emit_json(payload, started, exit_code):
