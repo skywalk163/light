@@ -1885,6 +1885,9 @@ def _ai_diagnostic_from_block(block, default_stage):
     if explained is not None:
         explained['line'] = line
         explained['column'] = column
+        # 阶段用 CLI 自己的口径（用法/语法检查/类型检查/运行）；码表的内部
+        # 阶段名（如「运行时」）不进对外契约，免得 Agent 侧口径漂移。
+        explained['stage'] = stage
         if not explained['hint']:
             explained['hint'] = hint
         if not explained['fixes']:
@@ -1926,6 +1929,7 @@ def _ai_diagnostics_from_run(text, default_stage='运行'):
     explained = _ai_explain(message)
     if explained is not None:
         explained['line'] = line
+        explained['stage'] = default_stage
         if not explained['hint']:
             explained['hint'] = hint
         if not explained['fixes']:
