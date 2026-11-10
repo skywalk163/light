@@ -386,6 +386,54 @@ jobs:
 
 
 
+      # ── T-0323 覆盖率门禁：核心四文件行覆盖 70% 硬门槛 ──────────────────────
+      # 放在所有既有 pytest 与门禁之后：这一步当前会因存量欠账变红（见下），
+      # 放末尾不遮蔽前面任何一步的信号；时间预算闸门带 always() 仍会打印账单。
+      #
+      # 【覆盖统计的范围 = 这一步的测试选择】= 下面 12 个文件 / 218 用例（本机
+      # Windows 实测 35s），**不是**全量 8489 用例：全量单跑实测 8 分钟才到 2%，
+      # 再串行重跑一遍会直接冲破 1800s/3000s 预算。因此下面的百分比只对这 12 个
+      # 文件负责；要抬覆盖率只能补测试，不能靠换口径。
+      #
+      # 串行是硬要求：xdist 的 worker 是独立子进程，主进程的 coverage 采不到
+      # worker 里的行（会静默偏低，假红/假绿都说不清），所以用 -o addopts 去掉
+      # -n 4；**既有 --timeout=60 数值不变**，也不动上面任何一步的测试选择。
+      # pytest-cov 按头部注释不装回，只用 coverage 独立跑（不引入新插件）。
+      #
+      # 【当前真实欠账 · 2026-11-10 本机 12 文件子集实测】
+      #   lexer 73.06% / light_parser_v3 22.86% / compiler 51.76% / code_generator 42.38%
+      #   → 门禁会拦下后 3 个文件，这是「盲区被看见」的预期信号，不是脚本坏。
+      #   light_parser_v3 的 27 条未覆盖行全在 if __name__ == '__main__' 自测块
+      #   （78-133 行），pytest 导入时结构性不可达；处置需另开卡（拆脚本/加 pragma）。
+      #   **销账只允许补测试**：禁止调 --min、删测试、加 # pragma: no cover。
+      #
+      # 报告看本步 stdout：逐文件「覆盖/语句 = 百分比」+ 未覆盖行号区间
+      # （如 `12-18, 40, 55-57`），区间可直接转成 lightharness 的
+      # 「故意触发边缘情况」用例。coverage.json 是本步产物，随日志可查。
+      - name: 覆盖率门禁（核心四文件·70% 硬门槛）
+        timeout-minutes: 3
+        run: |
+          . "$HOME/.cache/light-ci-venv/bin/activate"
+          # coverage 不在既有依赖清单里；host 持久 venv 装过一次后这条近乎瞬时。
+          # devpi 镜像未必有 coverage，回退公共 PyPI（与上方依赖步骤同口径）。
+          python -m pip install coverage || \
+            python -m pip install --index-url https://pypi.org/simple coverage
+          python -m coverage erase
+          # 测试红也要留数据：|| true + test -f 防「pytest 根本没起来」，
+          # 与既有「全量测试」步骤同口径；覆盖率只会因此更低，不会假绿。
+          python -m coverage run -m pytest -q -o addopts="--tb=short --timeout=60" \
+            tests/test_lexer.py tests/test_parser.py tests/test_codegen.py \
+            tests/test_core_coverage.py tests/test_c3_parser_codegen.py \
+            tests/test_incremental_compiler.py \
+            tests/test_type_checker_compiler_integration.py tests/test_level6_lexer.py \
+            tests/integration/test_compiler_pipeline.py \
+            tests/integration/test_optimizer_integration.py \
+            tests/integration/test_stdlib.py tests/unit/test_bootstrap_compiler.py \
+            || true
+          test -f .coverage
+          python -m coverage json -o coverage.json
+          python scripts/check_coverage.py --coverage-json coverage.json --min 70
+
       # 时间预算硬闸门（2026-08-22 用户裁决；2026-09-08 放宽）：PR ≤ 1800s，push main ≤ 3000s（50 分钟）。
       # always() 是故意的：前面哪一步红了，也要把耗时账单打出来——不然一红就看不到时间数据，
       # 下次还是只能靠猜。
