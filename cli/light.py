@@ -25,6 +25,7 @@ import json
 import argparse
 import importlib
 import subprocess
+import time
 from pathlib import Path
 
 # ── 路径设置 ──────────────────────────────────────────────────────
@@ -1698,6 +1699,344 @@ def _ensure_utf8():
         sys.stdout.reconfigure(encoding='utf-8')
 
 
+# 后端感知关键字表：文本路径与 `--json` 路径共用同一份（避免两处口径漂移）。
+# 值 = (人读描述, 给 Agent 的候选修复)。
+_AI_BACKEND_KEYWORDS = {
+    '类': ('class 定义', '改用 --backend llvm-typed'),
+    '继承': ('类继承', '改用 --backend llvm-typed'),
+    '构造': ('构造函数', '改用 --backend llvm-typed'),
+    '属性': ('类属性', '改用 --backend llvm-typed'),
+    '方法': ('类方法', '改用 --backend llvm-typed'),
+    '静态方法': ('静态方法', '改用 --backend llvm-typed'),
+    '抽象': ('抽象类/方法', '改用 --backend llvm-typed'),
+}
+
+
+# ═══════════════════════════════════════════════════════════════════
+# `light ai check --json`：机器可读诊断（T-0318）
+# ═══════════════════════════════════════════════════════════════════
+# 契约（本文件是唯一来源，`--help` 与 docs/AI编程指南.md 同步）：
+#   * stdout 只输出一个 JSON 对象（schema_version=1），前后不带杂字；
+#   * 进度/日志全部走 stderr；无 `--json` 时仍走原有文本路径，逐字不变；
+#   * 退出码：0=无 error 级诊断，1=有 error 级诊断，2=用法/文件错误。
+AI_CHECK_SCHEMA_VERSION = 1
+AI_CHECK_EXIT_OK = 0
+AI_CHECK_EXIT_DIAGNOSTIC = 1
+AI_CHECK_EXIT_USAGE = 2
+AI_CHECK_SEVERITIES = ('error', 'warning', 'info')
+AI_CHECK_MAX_FIXES = 3
+
+# enhanced_errors 的边框块：`┌─ 语法错误` … `└─`；以及块内的定位/归因行。
+_AI_ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
+_AI_BLOCK_START = re.compile(r'^[┌+][─-]')
+_AI_BLOCK_END = re.compile(r'^└[─-]')
+_AI_POS_RE = re.compile(r'位置:\s*行\s*(\d+)(?:\s*[,，]\s*列\s*(\d+))?')
+_AI_REASON_RE = re.compile(r'^原因:\s*(.*)$')
+_AI_NOTE_RE = re.compile(r'^(建议|提示|教程|说明):\s*(.*)$')
+_AI_LINE_CN_RE = re.compile(r'第\s*(\d+)\s*行')
+_AI_RUNTIME_POS_RE = re.compile(r'（[^（）\n]{1,40}?:\s*(\d+)）')
+_AI_SUGGEST_RE = re.compile(r'^\s*建议:\s*(.+)$', re.MULTILINE)
+
+# 边框块标题 → 诊断阶段（阶段名与文本路径的 [0/2]/[1/2]/[2/2] 对应）。
+_AI_STAGE_BY_LABEL = {
+    '语法错误': '语法检查',
+    '解析错误': '语法检查',
+    '类型错误': '类型检查',
+    '运行错误': '运行',
+    '索引错误': '运行',
+    '名称错误': '运行',
+}
+
+
+def _ai_log(message):
+    """`--json` 路径的进度/日志：一律走 stderr，不污染 stdout 的 JSON。"""
+    print(message, file=sys.stderr)
+
+
+def _ai_json_diagnostic(code, severity, stage, line, column, message,
+                        hint='', fixes=None, candidates=None,
+                        provisional=False):
+    """按固定字段顺序造一条诊断（字段口径见 docs/AI编程指南.md）。
+
+    位置未知时 `line`/`column` 恒为 0——宁可写「未知」，也不猜一个看着合理的数。
+    """
+    return {
+        'code': str(code),
+        'severity': severity if severity in AI_CHECK_SEVERITIES else 'error',
+        'stage': str(stage),
+        'line': int(line) if isinstance(line, int) and line > 0 else 0,
+        'column': int(column) if isinstance(column, int) and column > 0 else 0,
+        'message': str(message),
+        'hint': str(hint),
+        'fixes': [str(x) for x in (fixes or []) if x][:AI_CHECK_MAX_FIXES],
+        'candidates': [str(x) for x in (candidates or []) if x],
+        'provisional': bool(provisional),
+    }
+
+
+def _ai_normalize_diagnostic(data):
+    """把 T-0316 的 ``Diagnostic.to_dict()``（或任意 dict）归一成本卡 schema。"""
+    data = data if isinstance(data, dict) else {}
+    return _ai_json_diagnostic(
+        data.get('code') or 'L0000',
+        data.get('severity') or 'error',
+        data.get('stage') or '',
+        data.get('line') or 0,
+        data.get('column') or 0,
+        data.get('message') or '',
+        data.get('hint') or '',
+        data.get('fixes') or [],
+        data.get('candidates') or [],
+        data.get('provisional', False),
+    )
+
+
+def _ai_explain(message):
+    """优先用 T-0316 的码表（``src.diagnostics.explain``）解释报错文本。
+
+    那套码表尚未合入本分支、或函数本身抛错时返回 ``None``；调用方据此落
+    ``L0000`` + ``provisional=True``，**不臆造具体错误码**。
+    """
+    try:
+        from src.diagnostics import explain
+    except Exception:
+        return None
+    try:
+        diag = explain(message)
+    except Exception:
+        return None
+    if diag is None:
+        return None
+    try:
+        data = diag.to_dict() if hasattr(diag, 'to_dict') else dict(diag)
+    except Exception:
+        return None
+    return _ai_normalize_diagnostic(data)
+
+
+def _ai_split_fixes(hint):
+    """把「建议:」文本切成可执行的候选修复（≤3 条），供 Agent 逐条试。"""
+    if not hint:
+        return []
+    parts = [part.strip(' 。；;') for part in re.split(r'[；;]', hint)]
+    return [part for part in parts if part][:AI_CHECK_MAX_FIXES]
+
+
+def _ai_blocks(text):
+    """把 enhanced_errors 的边框块拆成 ``[{'label', 'lines'}]``；没有块返回空表。"""
+    blocks = []
+    current = None
+    for raw in _AI_ANSI_RE.sub('', text).splitlines():
+        stripped = raw.strip()
+        if _AI_BLOCK_START.match(stripped):
+            current = {'label': stripped.lstrip('┌+- ').strip(), 'lines': []}
+            continue
+        if current is None:
+            continue
+        if _AI_BLOCK_END.match(stripped):
+            blocks.append(current)
+            current = None
+            continue
+        current['lines'].append(stripped.lstrip('│ ').strip())
+    if current and current['lines']:
+        blocks.append(current)
+    return blocks
+
+
+def _ai_text_summary(text, limit=3):
+    """取前几行非空文本，用于没有边框块时的诊断兜底。"""
+    lines = [line.strip() for line in _AI_ANSI_RE.sub('', text).splitlines() if line.strip()]
+    return ' '.join(lines[:limit])
+
+
+def _ai_diagnostic_from_block(block, default_stage):
+    """一条边框块 → 一条诊断；行列取块内真实值，取不到就 0（不猜）。"""
+    label = block['label']
+    stage = _AI_STAGE_BY_LABEL.get(label, default_stage)
+    line = column = 0
+    reason = ''
+    suggestions = []
+    references = []
+    extra = []
+    for text in block['lines']:
+        match = _AI_POS_RE.search(text)
+        if match and line == 0:
+            line = int(match.group(1))
+            column = int(match.group(2) or 0)
+            continue
+        match = _AI_REASON_RE.match(text)
+        if match:
+            reason = match.group(1).strip()
+            continue
+        match = _AI_NOTE_RE.match(text)
+        if match:
+            kind, value = match.group(1), match.group(2).strip()
+            if kind in ('建议', '提示'):
+                suggestions.append(value)
+            else:
+                references.append(value)
+            continue
+        if text:
+            extra.append(text)
+    message = reason or ' '.join(extra) or label
+    hint = '；'.join([item for item in suggestions + references if item])
+    fixes = _ai_split_fixes('；'.join(suggestions))
+    explained = _ai_explain(message)
+    if explained is not None:
+        explained['line'] = line
+        explained['column'] = column
+        if not explained['hint']:
+            explained['hint'] = hint
+        if not explained['fixes']:
+            explained['fixes'] = fixes
+        return explained
+    return _ai_json_diagnostic(
+        'L0000', 'error', stage, line, column, message, hint, fixes, [], True)
+
+
+def _ai_diagnostics_from_check(text, default_stage='语法检查'):
+    """``light check`` 子进程输出 → 诊断列表；无边框块时退化成整段一条。"""
+    blocks = _ai_blocks(text)
+    if blocks:
+        return [_ai_diagnostic_from_block(block, default_stage) for block in blocks]
+    message = _ai_text_summary(text)
+    if not message:
+        return []
+    return [_ai_json_diagnostic(
+        'L0000', 'error', default_stage, 0, 0, message, '', [], [], True)]
+
+
+def _ai_diagnostics_from_run(text, default_stage='运行'):
+    """``light run`` 子进程输出（运行期报错）→ 诊断列表。"""
+    blocks = _ai_blocks(text)
+    if blocks:
+        return [_ai_diagnostic_from_block(block, default_stage) for block in blocks]
+    message = _ai_text_summary(text)
+    if not message:
+        return []
+    line = 0
+    for pattern in (_AI_POS_RE, _AI_LINE_CN_RE, _AI_RUNTIME_POS_RE):
+        match = pattern.search(text)
+        if match:
+            line = int(match.group(1))
+            break
+    suggest = _AI_SUGGEST_RE.search(text)
+    hint = suggest.group(1).strip() if suggest else ''
+    fixes = _ai_split_fixes(hint)
+    explained = _ai_explain(message)
+    if explained is not None:
+        explained['line'] = line
+        if not explained['hint']:
+            explained['hint'] = hint
+        if not explained['fixes']:
+            explained['fixes'] = fixes
+        return [explained]
+    return [_ai_json_diagnostic(
+        'L0000', 'error', default_stage, line, 0, message, hint, fixes, [], True)]
+
+
+def _ai_emit_json(payload, started, exit_code):
+    """stdout 只写一个 JSON 对象（前后无杂字），然后返回进程退出码。"""
+    payload['duration_ms'] = int(round((time.monotonic() - started) * 1000))
+    sys.stdout.write(json.dumps(payload, ensure_ascii=False) + '\n')
+    sys.stdout.flush()
+    return exit_code
+
+
+def _ai_check_json(args):
+    """``light ai check --json`` 主流程：返回退出码 0/1/2。"""
+    started = time.monotonic()
+    filepath = args.file
+    payload = {
+        'schema_version': AI_CHECK_SCHEMA_VERSION,
+        'ok': False,
+        'file': filepath,
+        'backend_hints': [],
+        'diagnostics': [],
+        'duration_ms': 0,
+    }
+
+    if not os.path.isfile(filepath):
+        payload['diagnostics'].append(_ai_json_diagnostic(
+            'L0000', 'error', '用法', 0, 0, f'文件不存在: {filepath}',
+            '确认路径拼写，或改用绝对路径', [], [], True))
+        return _ai_emit_json(payload, started, AI_CHECK_EXIT_USAGE)
+
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            source = f.read()
+    except (OSError, UnicodeDecodeError) as exc:
+        payload['diagnostics'].append(_ai_json_diagnostic(
+            'L0000', 'error', '用法', 0, 0, f'文件读取失败: {exc}',
+            '确认文件为 UTF-8 编码且当前用户可读', [], [], True))
+        return _ai_emit_json(payload, started, AI_CHECK_EXIT_USAGE)
+
+    for keyword, (desc, suggestion) in _AI_BACKEND_KEYWORDS.items():
+        # 匹配独立关键字：前后都不是标识符字符
+        if re.search(r'(?<![a-zA-Z0-9_\u4e00-\u9fff])' + re.escape(keyword)
+                     + r'(?![a-zA-Z0-9_\u4e00-\u9fff])', source):
+            payload['backend_hints'].append({
+                'keyword': keyword, 'desc': desc, 'suggestion': suggestion})
+    for hint in payload['backend_hints']:
+        _ai_log(f"[0/2] 后端感知：检测到「{hint['keyword']}」({hint['desc']})"
+                f" → {hint['suggestion']}")
+
+    _ai_log(f'[1/2] 语法检查: {filepath}')
+    try:
+        checked = subprocess.run(
+            [sys.executable, '-X', 'utf8', '-m', 'cli.light', 'check', filepath],
+            capture_output=True, text=True, encoding='utf-8', errors='replace',
+            cwd=_PROJECT_DIR,
+        )
+        check_text = (checked.stdout or '')
+        if checked.stderr:
+            check_text += '\n' + checked.stderr
+        if checked.returncode != 0:
+            diagnostics = _ai_diagnostics_from_check(check_text)
+            for diag in diagnostics:
+                _ai_log(f"  ✗ {diag['code']}（第 {diag['line']} 行）: "
+                        f"{diag['message'][:60]}")
+            payload['diagnostics'].extend(diagnostics)
+        else:
+            _ai_log('  ✓ 语法检查通过')
+    except Exception as exc:
+        # 子进程本身起不来：也要给出可消费的诊断，而不是把 traceback 丢给调用方
+        payload['diagnostics'].append(_ai_json_diagnostic(
+            'L0000', 'error', '语法检查', 0, 0, f'语法检查进程启动失败: {exc}',
+            '', [], [], True))
+
+    if args.run:
+        _ai_log(f'[2/2] 运行测试: {filepath}')
+        try:
+            ran = subprocess.run(
+                [sys.executable, '-X', 'utf8', '-m', 'cli.light', 'run', filepath],
+                capture_output=True, text=True, encoding='utf-8', errors='replace',
+                cwd=_PROJECT_DIR, timeout=args.timeout,
+            )
+            if ran.returncode != 0:
+                run_text = (ran.stderr or '')
+                if ran.stdout:
+                    run_text += '\n' + ran.stdout
+                diagnostics = _ai_diagnostics_from_run(run_text)
+                for diag in diagnostics:
+                    _ai_log(f"  ✗ 运行: {diag['message'][:60]}")
+                payload['diagnostics'].extend(diagnostics)
+            else:
+                _ai_log('  ✓ 运行成功')
+        except subprocess.TimeoutExpired:
+            payload['diagnostics'].append(_ai_json_diagnostic(
+                'L0000', 'error', '运行', 0, 0, f'运行超时（{args.timeout}秒）',
+                '用 --timeout 放宽，或检查是否存在死循环', [], [], True))
+    else:
+        _ai_log('[2/2] 跳过运行检查（使用 --run 启用）')
+
+    payload['ok'] = not any(
+        diag['severity'] == 'error' for diag in payload['diagnostics'])
+    return _ai_emit_json(
+        payload, started,
+        AI_CHECK_EXIT_OK if payload['ok'] else AI_CHECK_EXIT_DIAGNOSTIC)
+
+
 def _cmd_ai(args):
     """AI Copilot 入口"""
     _ensure_utf8()
@@ -1751,6 +2090,11 @@ def _cmd_ai(args):
         print(generate_example_pairs())
 
     elif ai_cmd == 'check':
+        # 机器可读路径：单条 JSON、进度走 stderr、退出码 0/1/2（T-0318）。
+        # 没有 --json 时继续走下面这段原有文本路径，输出逐字不变。
+        if getattr(args, 'json', False):
+            sys.exit(_ai_check_json(args))
+
         filepath = args.file
         if not os.path.isfile(filepath):
             print(f"文件不存在: {filepath}")
@@ -1760,17 +2104,8 @@ def _cmd_ai(args):
         with open(filepath, 'r', encoding='utf-8') as f:
             source = f.read()
 
-        _LLVM_KEYWORDS = {
-            '类': 'class 定义',
-            '继承': '类继承',
-            '构造': '构造函数',
-            '属性': '类属性',
-            '方法': '类方法',
-            '静态方法': '静态方法',
-            '抽象': '抽象类/方法',
-        }
         detected = []
-        for kw, desc in _LLVM_KEYWORDS.items():
+        for kw, (desc, _suggestion) in _AI_BACKEND_KEYWORDS.items():
             # 匹配独立关键字：前面不是标识符字符，后面是空格/冒号/换行/括号
             if re.search(r'(?<![a-zA-Z0-9_\u4e00-\u9fff])' + re.escape(kw) + r'(?![a-zA-Z0-9_\u4e00-\u9fff])', source):
                 detected.append((kw, desc))
@@ -2220,6 +2555,12 @@ def main():
     ai_check.add_argument('file', help='光明代码文件路径')
     ai_check.add_argument('--run', action='store_true', help='同时运行测试')
     ai_check.add_argument('--timeout', type=int, default=10, help='运行超时秒数（默认10）')
+    ai_check.add_argument(
+        '--json', action='store_true',
+        help='输出机器可读诊断：stdout 只有一个 JSON 对象（schema_version=1，含 '
+             'code/severity/stage/line/column/message/hint/fixes/candidates/provisional），'
+             '进度与日志走 stderr。退出码：0=无 error 级诊断，1=有 error 级诊断，'
+             '2=用法或文件错误。可与 --run 组合（运行失败记为 stage="运行"）。')
 
     ai_gen = ai_sub.add_parser('generate', help='★ 一键生成：需求→完整prompt（推荐）')
     ai_gen.add_argument('requirement', help='代码需求描述，如"写一个冒泡排序"')
