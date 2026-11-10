@@ -1883,6 +1883,9 @@ def _ai_diagnostic_from_block(block, default_stage):
     fixes = _ai_split_fixes('；'.join(suggestions))
     explained = _ai_explain(message)
     if explained is not None:
+        # 码表内部阶段名（如「运行时」）与 --json 契约的阶段名（语法检查/运行）不同，
+        # 接线后统一取调用侧阶段，避免 Agent 拿到的 stage 随码表合入而漂移。
+        explained['stage'] = stage
         explained['line'] = line
         explained['column'] = column
         if not explained['hint']:
@@ -1925,6 +1928,7 @@ def _ai_diagnostics_from_run(text, default_stage='运行'):
     fixes = _ai_split_fixes(hint)
     explained = _ai_explain(message)
     if explained is not None:
+        explained['stage'] = default_stage  #同上：阶段名以 --json 契约为准
         explained['line'] = line
         if not explained['hint']:
             explained['hint'] = hint
@@ -1941,6 +1945,45 @@ def _ai_emit_json(payload, started, exit_code):
     sys.stdout.write(json.dumps(payload, ensure_ascii=False) + '\n')
     sys.stdout.flush()
     return exit_code
+
+
+# T-0326：check → 报错数据集 → 速查卡的反馈闭环接线。
+# 归档只落本地磁盘（error_corpus.record），不联网、不上传、不加遥测；
+# 任何失败只给一行 stderr 提醒，绝不改变 check 的退出码语义。
+_AI_CORPUS_OFF_VALUES = frozenset(('off', '0', 'false', 'no', 'disabled'))
+
+
+def _ai_corpus_enabled(args):
+    """默认开启；--no-corpus 或 LIGHT_ERROR_CORPUS=off 关闭。"""
+    if getattr(args, 'no_corpus', False):
+        return False
+    value = (os.environ.get('LIGHT_ERROR_CORPUS') or '').strip().lower()
+    return value not in _AI_CORPUS_OFF_VALUES
+
+
+def _ai_archive_diagnostics(diagnostics, source, args):
+    """把 error 级诊断写进本地报错数据集；失败不阻断 check。"""
+    if not _ai_corpus_enabled(args):
+        return
+    errors = [d for d in diagnostics if d.get('severity') == 'error']
+    if not errors:
+        return
+    try:
+        # 只调用公共接口 record()，不改 error_corpus 内部实现。
+        from tools.ai_copilot.error_corpus import record
+        try:
+            from src.version import VERSION as lang_version
+        except Exception:
+            lang_version = str(VERSION)
+        for diag in errors:
+            record(diag, source, context={
+                'line': diag.get('line', 0),
+                'lang_level': 'v3',
+                'backend': 'src',
+                'light_version': str(lang_version),
+            })
+    except Exception as exc:
+        _ai_log(f'[报错归档] 失败（不影响检查结果）：{exc}')
 
 
 def _ai_check_json(args):
@@ -2032,6 +2075,7 @@ def _ai_check_json(args):
 
     payload['ok'] = not any(
         diag['severity'] == 'error' for diag in payload['diagnostics'])
+    _ai_archive_diagnostics(payload['diagnostics'], source, args)
     return _ai_emit_json(
         payload, started,
         AI_CHECK_EXIT_OK if payload['ok'] else AI_CHECK_EXIT_DIAGNOSTIC)
@@ -2063,10 +2107,28 @@ def _cmd_ai(args):
         print(prompt)
 
     elif ai_cmd == 'card':
-        from syntax_card import generate_syntax_card
+        from syntax_card import generate_syntax_card, status_banner
         compact = not args.full
-        card = generate_syntax_card(compact=compact, include_verbs=args.verbs)
-        print(card)
+        ranked = None
+        if getattr(args, 'rank_pitfalls', False):
+            try:
+                from error_stats import rank_pitfalls
+                ranked = rank_pitfalls()
+            except Exception:
+                ranked = None          # 模块缺失/无数据 → 静态卡，输出不变
+        card = generate_syntax_card(
+            compact=compact, include_verbs=args.verbs, ranked=ranked)
+        try:
+            banner = status_banner()   # STATUS.md 读不到时返回空串
+        except Exception:
+            banner = ''
+        if banner:
+            card = banner + card
+        if getattr(args, 'json', False):
+            print(json.dumps({'ranked': ranked or [], 'card': card},
+                             ensure_ascii=False))
+        else:
+            print(card)
 
     elif ai_cmd == 'snippets':
         from snippets import list_snippets, get_snippet
@@ -2545,6 +2607,12 @@ def main():
     ai_card = ai_sub.add_parser('card', help='输出光明语法速查卡')
     ai_card.add_argument('--full', action='store_true', help='完整版（默认精简版）')
     ai_card.add_argument('--verbs', action='store_true', help='包含动词参数参照表')
+    ai_card.add_argument(
+        '--rank-pitfalls', action='store_true',
+        help='按近 30 天报错频次把高频坑置顶（读本地报错数据集；无数据时输出与静态卡一致）')
+    ai_card.add_argument(
+        '--json', action='store_true',
+        help='与 --rank-pitfalls 组合时输出结构化 {ranked: [...], card: "..."}')
 
     ai_snippets = ai_sub.add_parser('snippets', help='列出代码片段库')
     ai_snippets.add_argument('name', nargs='?', help='查看指定片段详情')
@@ -2554,7 +2622,13 @@ def main():
     ai_check = ai_sub.add_parser('check', help='校验光明代码（语法+运行+后端感知）')
     ai_check.add_argument('file', help='光明代码文件路径')
     ai_check.add_argument('--run', action='store_true', help='同时运行测试')
-    ai_check.add_argument('--timeout', type=int, default=10, help='运行超时秒数（默认10）')
+    ai_check.add_argument(
+        '--timeout', type=int, default=30,
+        help='运行超时秒数（默认30；Windows 冷启动 light run 可能超过 10 秒，'
+             '过短的默认值会把真实运行期错误误报成「运行超时」）')
+    ai_check.add_argument(
+        '--no-corpus', action='store_true',
+        help='关闭本次 check 的报错归档（也可用环境变量 LIGHT_ERROR_CORPUS=off）')
     ai_check.add_argument(
         '--json', action='store_true',
         help='输出机器可读诊断：stdout 只有一个 JSON 对象（schema_version=1，含 '

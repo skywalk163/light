@@ -27,6 +27,7 @@ import json
 import os
 import re
 import tempfile
+import threading
 import warnings
 
 __all__ = [
@@ -265,8 +266,15 @@ def _save_index(root, index):
         warnings.warn("报错数据集索引写入失败（数据行已保留）：{}".format(exc))
 
 
+#: 进程内互斥：Windows 的 msvcrt.locking 对「同进程多个 fd 锁同一文件区域」
+#: 会抛 EDEADLK（Errno 36）并降级为无锁；降级后多线程同时
+#: os.replace(index.json) 会触发 WinError 5，导致 index 丢条目。
+#: 先做进程内串行化，跨进程边界仍由下面的文件锁负责。
+_THREAD_LOCK = threading.RLock()
+
+
 @contextlib.contextmanager
-def _locked(root):
+def _locked_file(root):
     """跨进程写锁；拿不到锁时降级为无锁执行，不阻断归档。"""
     fd = None
     locked = False
@@ -296,6 +304,14 @@ def _locked(root):
                     _msvcrt.locking(fd, _msvcrt.LK_UNLCK, 1)
             finally:
                 os.close(fd)
+
+
+@contextlib.contextmanager
+def _locked(root):
+    """进程内互斥 + 跨进程文件锁，保证同进程并发 record() 不丢索引条目。"""
+    with _THREAD_LOCK:
+        with _locked_file(root):
+            yield
 
 
 # ── 对外 API ────────────────────────────────────────────────────────
