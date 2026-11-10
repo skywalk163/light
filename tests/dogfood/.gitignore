@@ -1,0 +1,3 @@
+# 仓库根 .gitignore:46 有全局 `*.json` 忽略规则；
+# baseline.json 是判据的一部分，必须入库，否则 checkout 后测试会因缺基线而失败。
+!baseline.json
