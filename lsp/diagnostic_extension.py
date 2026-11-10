@@ -44,6 +44,13 @@ except ImportError:  # pragma: no cover - 依赖缺失时降级为「无诊断�
     run_semantic_diagnostic = None  # type: ignore[assignment]
     to_lsp_diagnostics = None  # type: ignore[assignment]
 
+#: T-0325：标识符语言一致性检查（可选诊断源）。lexer / 配置读取失败时降级为空。
+try:
+    from lsp.identifier_language import check as _identifier_check, load_mode as _identifier_load_mode
+except ImportError:  # pragma: no cover - 模块缺失时不发命名诊断
+    _identifier_check = None  # type: ignore[assignment]
+    _identifier_load_mode = None  # type: ignore[assignment]
+
 __all__ = [
     "DiagnosticExtension",
     "DEFAULT_ENABLED",
@@ -51,15 +58,24 @@ __all__ = [
     "publish_diagnostics_for_source",
     "build_publish_diagnostics",
     "DIAGNOSTIC_SOURCE_NAME",
+    "IDENTIFIER_SOURCE_NAME",
+    "identifier_diagnostics_for_source",
 ]
 
 #: 诊断来源标识，客户端可按 source 过滤
 DIAGNOSTIC_SOURCE_NAME = "语义分析"
 
+#: T-0325：命名风格诊断来源标识
+IDENTIFIER_SOURCE_NAME = "命名规范"
+
 #: **默认关闭** —— 见模块 docstring「开关策略」
 DEFAULT_ENABLED = False
 
 _PUBLISH_METHOD = "textDocument/publishDiagnostics"
+
+#: 本模块命名风格条目 severity → LSP Diagnostic.severity（2 警告 / 3 信息）。
+#: 红线：命名风格永不映射到 1（错误），任何情况下不得因命名风格让诊断失败。
+_IDENTIFIER_LSP_SEVERITY = {"warning": 2, "info": 3}
 
 def _get(d: Any, key: str, default: Any = None) -> Any:
     """安全的字典取值（params 可能来自不受信任的 JSON-RPC）。"""
@@ -95,20 +111,64 @@ def _抽取uri(params: Any) -> str:
     return _get(params, "uri", "") or ""
 
 
+def identifier_diagnostics_for_source(源码: str,
+                                      mode: Optional[str] = None) -> List[Dict[str, Any]]:
+    """T-0325：把标识符命名风格检查结果转成 LSP `Diagnostic[]`。
+
+    * `mode` 为 `None` 时读 `light.toml` 的 `[lsp.identifier] mode`，缺省 `any`；
+    * `any` / 配置关闭时返回空列表（默认不打扰）；
+    * 坐标在本函数内从 1-based 转 0-based；命名风格只发 `info` / `warning`，
+      永不升级为 `error`；任一步异常吞掉并返回空列表。
+    """
+    if _identifier_check is None or not isinstance(源码, str) or not 源码:
+        return []
+    if mode is None:
+        mode = _identifier_load_mode() if _identifier_load_mode is not None else "any"
+    try:
+        条目 = _identifier_check(源码, mode=mode)
+    except Exception:
+        return []
+    诊断: List[Dict[str, Any]] = []
+    for 项 in 条目:
+        line0 = max(int(项.get("line", 1)) - 1, 0)
+        ch0 = max(int(项.get("column", 1)) - 1, 0)
+        名字 = str(项.get("name", "") or "")
+        end_ch = ch0 + max(len(名字), 1)
+        诊断.append({
+            "range": {
+                "start": {"line": line0, "character": ch0},
+                "end": {"line": line0, "character": end_ch},
+            },
+            "severity": _IDENTIFIER_LSP_SEVERITY.get(项.get("severity"), 3),
+            "source": IDENTIFIER_SOURCE_NAME,
+            "message": str(项.get("suggestion", "") or ""),
+            "code": "identifier-language",
+        })
+    return 诊断
+
+
 def publish_diagnostics_for_source(uri: str, 源码: str, 文件名: Optional[str] = None) -> List[Dict[str, Any]]:
     """对一段源码跑语义诊断并转成 LSP `Diagnostic[]`。
 
     任一步异常都被吞掉并返回空列表——诊断失败不应该让编辑器会话崩掉。
+
+    T-0325：在既有**语义诊断之后**追加「标识符命名风格」诊断。既有语义诊断的
+    顺序与 severity 保持不变；命名诊断默认 `any`（空列表），配置开启才发出。
     """
-    if run_semantic_diagnostic is None or to_lsp_diagnostics is None:
-        return []
     if not isinstance(源码, str) or not 源码:
         return []
+    诊断列表: List[Dict[str, Any]] = []
+    if run_semantic_diagnostic is not None and to_lsp_diagnostics is not None:
+        try:
+            诊断列表 = to_lsp_diagnostics(run_semantic_diagnostic(源码, 文件名))
+        except Exception:
+            诊断列表 = []
+    # 可选命名风格诊断：追加在末尾，不改写上面已有诊断。
     try:
-        诊断列表 = run_semantic_diagnostic(源码, 文件名)
-        return to_lsp_diagnostics(诊断列表)
+        诊断列表.extend(identifier_diagnostics_for_source(源码))
     except Exception:
-        return []
+        pass
+    return 诊断列表
 
 
 def build_publish_diagnostics(uri: str, 源码: str,
