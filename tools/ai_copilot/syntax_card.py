@@ -15,6 +15,7 @@ v2 改进：
     from syntax_card import generate_syntax_card
     card = generate_syntax_card()          # 完整卡
     card = generate_syntax_card(compact=True)  # 精简卡（约300字）
+    card = generate_syntax_card(ranked=...)    # 可把错误频次排行置顶（见 error_stats）
 """
 
 import os
@@ -276,14 +277,46 @@ def _generate_verb_table() -> str:
     return "\n".join(lines)
 
 
+_RANKED_HEADER = "## 最近 30 天最常踩的坑（TOP {n}）"
+
+
+def _render_ranked(ranked) -> str:
+    """把 error_stats.rank_pitfalls() 的排行渲染成置顶区块（含尾部空行）。
+
+    `ranked` 为空 / None / 全部条目不可用时返回空串，调用方据此走静态分支，
+    保证无数据时输出与改动前逐字一致。
+    """
+    items = [item for item in (ranked or [])
+             if isinstance(item, dict) and (item.get("code") or item.get("title"))]
+    if not items:
+        return ""
+
+    lines = [_RANKED_HEADER.format(n=len(items))]
+    for index, item in enumerate(items, 1):
+        code = str(item.get("code") or "").strip()
+        title = str(item.get("title") or "").strip() or code
+        # 「正确写法」压成单行；多行 fix 不换行打断卡片
+        example = " ".join(str(item.get("example") or "").split())
+        tag = f"[{code}] " if code else ""
+        line = f"{index}. {tag}{title}"
+        if example:
+            line += f" —— {example}"
+        lines.append(line)
+
+    return "\n".join(lines) + "\n\n"
+
+
 def generate_syntax_card(compact: bool = False, include_verbs: bool = False,
-                         include_pitfalls: bool = False) -> str:
+                         include_pitfalls: bool = False, ranked=None) -> str:
     """生成语法速查卡
 
     Args:
         compact: True 返回精简版（约300字），False 返回完整版
         include_verbs: 是否包含动词参数参照表
         include_pitfalls: 是否包含暗坑说明
+        ranked: 可选，`error_stats.rank_pitfalls()` 的返回值。非空时在最顶部
+            插入「最近 30 天最常踩的坑（TOP N）」区块；空/None 时输出与
+            改动前逐字一致。位置参数顺序保持不变，只追加在末尾。
 
     Returns:
         速查卡文本，可直接嵌入 prompt
@@ -301,6 +334,10 @@ def generate_syntax_card(compact: bool = False, include_verbs: bool = False,
 
     if include_pitfalls:
         card += "\n\n" + _PITFALLS
+
+    ranked_block = _render_ranked(ranked)
+    if ranked_block:
+        card = ranked_block + card
 
     return card
 
