@@ -1,0 +1,29 @@
+# 运行：python -m cli.light run examples/mvp/03_process.light
+# 场景：起子进程 → 拿 stdout 与退出码；非零退出也要能捕获，不抛未处理异常。
+导入 进程。
+导入 sys。
+
+设 成功结果 为 进程.进程运行([sys.executable, "-c", "print('child-ok')"])。
+打印("成功返回码=" + 转字符串(成功结果["返回码"]))。
+打印("成功输出=" + 去除空白(成功结果["标准输出"]))。
+
+设 失败结果 为 进程.进程运行([
+  sys.executable,
+  "-c",
+  "import sys; print('child-stdout'); print('child-stderr', file=sys.stderr); sys.exit(7)"
+])。
+打印("失败返回码=" + 转字符串(失败结果["返回码"]))。
+打印("失败输出=" + 去除空白(失败结果["标准输出"]))。
+打印("失败错误=" + 去除空白(失败结果["标准错误"]))。
+
+如果 成功结果["返回码"] 不等于 0:
+  打印("MVP_PROCESS_FAIL 成功命令返回码异常")
+  退出程序(1)
+如果 失败结果["返回码"] 不等于 7:
+  打印("MVP_PROCESS_FAIL 非零退出码未按预期捕获")
+  退出程序(1)
+如果 非 字符串包含(失败结果["标准错误"], "child-stderr"):
+  打印("MVP_PROCESS_FAIL stderr 未捕获")
+  退出程序(1)
+
+打印("MVP_PROCESS_OK")
