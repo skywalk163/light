@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "task": "T-0322",
+  "created": "2026-11-10",
+  "scope": "lightharness src/ + stdlib/ 下 .light 工程体模块；相对路径升序取前 20（LIGHT_DOGFOOD_LIMIT=20）",
+  "probe": "python -m cli.light check <file>（cwd=light 仓根，PYTHONHASHSEED=0，rc!=0 即欠账）",
+  "platform": "Windows 11 / Python 3.13.14 / light main @ hive-wt/T-0322 / lightharness @ C:/dswork/lightharness",
+  "policy": "只允许删除条目（缩小）：某条目本次 check 通过时测试会提示可从本文件删除。新增条目（上调）必须先在 docs/吃狗粮回归.md 写明理由并经评审，禁止为让测试变绿而调大基线。",
+  "note": "首次落地时 20 个确定化抽样里 8 个 check 非零，如实登记为欠账，未清零、未挑好用的模块。错误全部来自 light 类型推断；stderr 为空（错误打在 stdout），故 first_error 取 stdout 首条错误明细。",
+  "initial_failed_modules": [
+    "src/JSONRPC传输.light",
+    "src/acp内容.light",
+    "src/mcp客户端.light",
+    "src/office转PDF.light",
+    "src/ssh协议.light",
+    "src/ssh连接配置.light",
+    "src/toolcordis.light",
+    "src/typert生成器.light"
+  ],
+  "guard": "技术护栏：failed_modules 的键集合必须是 initial_failed_modules 的子集（见 test_基线集合未扩大_并提示可缩减项）。上调 = 先改这份首次快照 + 在 docs/吃狗粮回归.md 的变更记录表写明理由并附缺陷卡号，diff 可 review。",
+  "failed_modules": {
+    "src/JSONRPC传输.light": {
+      "rc": 1,
+      "first_error": "❌ 类型错误 (6 个)",
+      "detail": "函数 '归一化参数' 第 1 个参数类型不可空，但传入可空类型 空，需要先使用 '!' 或 unwrap() 解包"
+    },
+    "src/acp内容.light": {
+      "rc": 1,
+      "first_error": "❌ 类型错误 (1 个)",
+      "detail": "条件表达式类型应为布尔，实际为 列表"
+    },
+    "src/mcp客户端.light": {
+      "rc": 1,
+      "first_error": "❌ 类型错误 (3 个)",
+      "detail": "条件表达式类型应为布尔，实际为 字典"
+    },
+    "src/office转PDF.light": {
+      "rc": 1,
+      "first_error": "❌ 类型错误 (3 个)",
+      "detail": "函数 '办转投影输出' 参数类型不匹配: 期望 T1'0，实际 字典"
+    },
+    "src/ssh协议.light": {
+      "rc": 1,
+      "first_error": "❌ 类型错误 (49 个)",
+      "detail": "函数 '建立远程操作错误' 第 2 个参数类型不可空，但传入可空类型 空，需要先使用 '!' 或 unwrap() 解包"
+    },
+    "src/ssh连接配置.light": {
+      "rc": 1,
+      "first_error": "❌ 类型错误 (6 个)",
+      "detail": "函数 '主机合法' 参数类型不匹配: 期望 T0'0，实际 字典"
+    },
+    "src/toolcordis.light": {
+      "rc": 1,
+      "first_error": "❌ 类型错误 (4 个)",
+      "detail": "条件表达式类型应为布尔，实际为 字典"
+    },
+    "src/typert生成器.light": {
+      "rc": 1,
+      "first_error": "❌ 类型错误 (1 个)",
+      "detail": "条件表达式类型应为布尔，实际为 字典"
+    }
+  }
+}
