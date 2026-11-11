@@ -1,0 +1,36 @@
+# 光明 Light · 覆盖率采集配置（T-0323 CI 覆盖率门禁）
+#
+# 只采集 src/ 下的语言链路源码；门槛只作用于 4 个核心文件，判据在
+# scripts/check_coverage.py（纯标准库读 coverage.json，不装 pytest-cov）。
+#
+# 注意：coverage.py 的配置优先级是 .coveragerc > setup.cfg/tox.ini > pyproject.toml。
+# 本文件一旦存在，pyproject.toml 里 [tool.coverage.*] 那段就会被**整体忽略**，
+# 所以这里把 branch / report 口径一并写全，避免换机器后行为漂移。
+#
+# 采集必须串行（CI 新增步骤用 -o addopts 去掉 -n 4）：pytest-xdist 的 worker 是
+# 独立子进程，主进程的 coverage 采不到 worker 里的行，会造成「覆盖率静默偏低」。
+# 若将来确需并行采集，得配 parallel=True + COVERAGE_PROCESS_START + coverage combine，
+# 那属于另一张卡的改动。
+
+[run]
+branch = False
+source = src
+# 让数据文件里的路径相对化（跨机器可比）。实测 Windows 下 coverage.json 的 key
+# 仍是 `src\lexer.py`（反斜杠），FreeBSD/Linux 是 `src/lexer.py`；
+# 门禁脚本做了路径归一化，两种都认，不依赖这里强行统一分隔符。
+relative_files = True
+omit =
+    tests/*
+    tools/*
+    examples/*
+    scripts/*
+    */__pycache__/*
+
+[report]
+show_missing = True
+skip_empty = True
+skip_covered = True
+
+[json]
+output = coverage.json
+pretty_print = False
