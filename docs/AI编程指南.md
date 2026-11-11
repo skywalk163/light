@@ -1787,6 +1787,57 @@ if rc == 1:
 
 ---
 
+## 十二-D、机器可读诊断与闭环（T-0326 接线）
+
+`light ai check --json` 的字段与退出码见 12C.3 / 12C.4；本节只写**闭环**这一段：
+check 失败 → 本地归档 → 速查卡按频次置顶 → 改完再 check。
+
+### 12D.1 报错归档（默认开启，纯本地）
+
+- 有 `severity: "error"` 的诊断时，`light ai check --json` 把每条诊断写入
+  `tools/ai_copilot/error_corpus.py` 的本地数据集（只调用公共接口 `record()`）。
+- 存储位置由 `LIGHT_ERROR_CORPUS_DIR` 指定，缺省 `~/.light/error_corpus`；
+  同 `(code, source_hash)` 只保留一行 JSONL，重复命中只更新 `index.json`
+  的 `hits` / `last_seen`，**行数不增长**。
+- 关闭：给 check 加 `--no-corpus`，或设环境变量 `LIGHT_ERROR_CORPUS=off`。
+- 归档失败（目录不可写、模块缺失等）只往 stderr 打一行
+  `[报错归档] 失败（不影响检查结果）：...`，**不改变退出码、不污染 stdout JSON**。
+
+### 12D.2 隐私边界
+
+- 只写本地磁盘；**不上传、不联网、不加遥测**，没有任何默认网络行为。
+- 落盘前 `sanitize()`：绝对路径只留 basename，32 位以上疑似 token 打码为 `***`；
+  不采集环境变量、主机名、用户名。
+- 源码只保留出错行上下各 2 行片段（`source_snippet`），不存整库；
+  清理用 `error_corpus.purge()`，导出训练对用 `export_pairs()`。
+
+### 12D.3 频次置顶与单一入口
+
+- `light ai card --rank-pitfalls`：读同一份本地数据集，把近 30 天高频坑置顶；
+  无数据或模块缺失时不出现「最近 30 天最常踩的坑」区块，卡面主体与静态速查卡一致
+  （顶部状态引用头除外）。
+- `--rank-pitfalls --json` 输出 `{"ranked": [...], "card": "..."}`，
+  便于 Agent 直接解析排行，不用切文本。
+- 速查卡顶部引用仓库根 `STATUS.md` 的版本与 `docs/MVP_SURFACE.md` 的
+  最小可用面链接；STATUS.md 读不到就跳过，不报错、不阻塞。
+
+### 12D.4 三条命令的闭环
+
+```bash
+light ai check demo.light --json     # rc=1 时自动归档（可用 --no-corpus 关闭）
+light ai card --rank-pitfalls        # 看最近高频坑，按 fixes 改代码
+light ai check demo.light --json     # rc=0 才算闭环
+```
+
+### 12D.5 运行阶段的超时预算
+
+`--run` 会另起一个 `light run` 子进程，超时由 `--timeout` 控制，默认 **30 秒**。
+Windows 上冷启动可能超过 10 秒：默认值过短时，真实运行期错误会被误报成
+`运行超时` 诊断（`line: 0`），拿不到出错行号。超时同样给一条
+`stage: "运行"` 的诊断，退出码仍是 `1`，不会让 stdout JSON 失效。
+
+---
+
 ## 十三、参考文档（需要深入时查阅）
 
 - **语法完整规范**：`docs/syntax.md`（274 行，覆盖泛型/类/异常/模块系统等高级特性）

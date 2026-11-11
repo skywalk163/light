@@ -47,6 +47,18 @@
 - 3 个样板第三方包 + 发布教程；
 - 展示墙 + 月度 Newsletter + 生态热度榜。
 
+## 本批已落地（AI 友好反馈回路，T-0316 ~ T-0326）
+
+以下能力各自在对应任务分支验收，T-0326 把它们接进主流程并记录归集；本段只登记已落地事实。
+
+- 结构化错误码体系（`src/diagnostics/`，T-0316）· 报错行号锚定与 stdlib 导入提示（`src/enhanced_errors.py`，T-0317）；
+- `light ai check --json` 机器可读诊断（T-0318）· 本地报错数据集与脱敏（`tools/ai_copilot/error_corpus.py`，T-0319）；
+- 按近 30 天错误频次动态置顶的语法速查卡（`error_stats.py` / `syntax_card.py`，T-0320）；
+- MVP Surface 与五方向真跑场景（`docs/MVP_SURFACE.md`、`examples/mvp/`，T-0321）；
+- 吃狗粮场景回归与基线欠账表（`tests/dogfood/`，T-0322）· 覆盖率门（`tests/test_coverage_gate.py`，T-0323）；
+- `STATUS.md` 单一状态入口（T-0324）· LSP 标识符语言一致性检查（T-0325）；
+- 收尾接线：check 失败自动归档（可关闭、失败不阻断）、card 频次置顶、速查卡引用 STATUS.md（T-0326）。
+
 ## 不在计划内（明确划界）
 
 - 不改变核心编译器后端架构（LLVM/C/WASM 探索单列于 `docs/ROADMAP.md`）；

@@ -20,11 +20,36 @@ v2 改进：
 
 import os
 import sys
+import re
 import ast as _ast
 
 # 确保能导入 keywords 和 builtins
 _PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(_PROJECT_DIR, 'src'))
+
+# T-0326：速查卡顶部引用 STATUS.md 的版本与 MVP 链接（单一入口）。
+# 读不到 / 格式不符一律返回空串，不抛异常、不阻塞卡片生成；
+# generate_syntax_card() 的逐字输出保持不变（见 tests/test_syntax_card_rank.py 快照）。
+_STATUS_MD = os.path.join(_PROJECT_DIR, 'STATUS.md')
+_MVP_LINK = 'docs/MVP_SURFACE.md'
+
+
+def status_banner() -> str:
+    """返回速查卡顶部的状态引用块；STATUS.md 缺失或不可读时返回空串。"""
+    try:
+        with open(_STATUS_MD, 'r', encoding='utf-8') as handle:
+            text = handle.read(8192)
+    except (OSError, UnicodeError):
+        return ''
+    match = re.search(r'(?m)^[-*]\s*版本[：:]\s*\*\*([^*]+)\*\*', text)
+    version = match.group(1).strip() if match else ''
+    lines = []
+    if version:
+        lines.append(f'当前状态：v{version}（见 STATUS.md）')
+    if _MVP_LINK in text:
+        lines.append(f'最小可用面：{_MVP_LINK}（见 STATUS.md）')
+    return '\n'.join(lines) + '\n' if lines else ''
+
 
 from keywords import (
     KEYWORDS_DEFINE, KEYWORDS_CONDITION, KEYWORDS_LOOP,

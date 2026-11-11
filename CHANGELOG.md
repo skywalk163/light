@@ -11,6 +11,55 @@
 > 也不代表 `v0.4.x` 之后的版本。**以后新 tag 一律用 `v0.4.x`。**
 > 历史 tag 仍保留可回溯；看到 `v7.0.0` 不必当成比 `v0.4.x` 更新。
 
+## [T-0326] — 2026-11-10 — AI 友好反馈回路收尾接线（T-0316~T-0325 归集）
+
+> 本条只记录接线与文档归集，不改动下列零件的公共接口。
+
+### 接线（cli/light.py）
+
+- `light ai check --json`：有 error 级诊断时调用 `error_corpus.record()` 本地归档；
+  `--no-corpus` / `LIGHT_ERROR_CORPUS=off` 关闭；归档失败只给一行 stderr 提醒，
+  退出码语义（0/1/2）与 stdout JSON 均不变。
+- `light ai card --rank-pitfalls`：调用 `error_stats.rank_pitfalls()` →
+  `generate_syntax_card(ranked=...)`；无数据 / 模块缺失回退静态卡；
+  与 `--json` 组合时输出 `{ranked, card}`。
+- 速查卡顶部引用 `STATUS.md` 的版本与 `docs/MVP_SURFACE.md` 链接（读不到跳过）。
+- `ai check --run` 的运行子进程超时默认值 10 → 30 秒：Windows 冷启动
+  `light run` 可超过 10 秒，原默认值会把真实运行期错误误报成「运行超时」
+  （`line: 0`），使 `stage: "运行"` 的诊断拿不到行号。
+
+### 平台修正（越界登记，未改公共接口）
+
+- `tools/ai_copilot/error_corpus.py` 不在本卡允许修改路径内，经业主确认后
+  **仅改内部锁实现**：新增进程内 `threading.RLock` 串行化，原 `_locked()` 改名
+  `_locked_file()`，由新的 `_locked()` 包一层 `with _THREAD_LOCK` 再调用它。
+- 根因：Windows 的 `msvcrt.locking` 对「同进程多个 fd 锁同一文件区域」抛
+  EDEADLK（Errno 36）→ 降级为无锁 → 多线程同时 `os.replace(index.json)`
+  触发 WinError 5 → 并发 100 条只落 95~98 条索引。进程内串行化后不再降级，
+  POSIX 分支（fcntl）行为与输出逐字不变。
+- `__all__` 与 `record/export_pairs/summary/purge` 四个对外函数签名、
+  返回结构、落盘格式均未改动；本卡接线侧仍只调用 `record()`。
+
+### 本批能力登记
+
+- 结构化错误码体系（T-0316）· 行号锚定与 stdlib 导入提示（T-0317）·
+  `ai check --json` 机器可读诊断（T-0318）· 本地报错数据集 / 脱敏（T-0319）·
+  语法速查卡按频次置顶（T-0320）· MVP Surface 五方向真跑（T-0321）·
+  吃狗粮场景回归（T-0322）· 覆盖率门（T-0323）· `STATUS.md` 单一入口（T-0324）·
+  LSP 标识符语言一致性检查（T-0325）。
+- 文档：`docs/AI编程指南.md` 新增「十二-D、机器可读诊断与闭环」（schema 指针、
+  退出码指针、归档开关、隐私边界）；`ROADMAP.md` 登记本批已落地能力。
+- 回归：`tests/test_ai_feedback_loop.py`（端到端 subprocess 闭环）并复跑
+  `tests/test_ai_check_json.py` / `tests/test_error_corpus.py` /
+  `tests/test_syntax_card_rank.py`。
+
+### 边界
+
+- 归档只落本地磁盘，不上传、不联网、不加遥测；未改 `src/diagnostics/`、
+  `src/enhanced_errors.py`、`error_stats.py`，`error_corpus.py` 只做了上述
+  **内部锁**修正，四个公共接口一个未动；未顺带重构 `cli/light.py` 其它分支。
+- 越界文件仅 `tools/ai_copilot/error_corpus.py` 一个，理由与范围见上节。
+
 ## [0.4.1] — 2026-11-02 — PyPI 发布：版本号单一真源推进到 0.4.1
 
 > T-0228 发布 0.4.1：PyPI 包 `guangming` 0.4.1 已上架，tag `v0.4.1` 已推送。
