@@ -1,4 +1,5 @@
 # 光明（LightLang）编程语言
+当前状态与最小可用面见 [STATUS.md](STATUS.md)
 
 ![CI 门禁(本地生成 · 2026-10-11 快照)](docs/ci_badge.svg)
 [![版本](https://img.shields.io/badge/v0.4.1-五层语法架构-blue)](#v40-五层语法架构)
