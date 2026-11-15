@@ -1,0 +1,5 @@
+{"timestamp":"2026-11-01T10:00:00Z","level":"info","service":"Zebra","message":"z"}
+{"timestamp":"2026-11-01T10:00:00Z","level":"info","service":"auth","message":"a"}
+{"timestamp":"2026-11-01T10:00:00Z","level":"info","service":"中文服务","message":"c"}
+{"timestamp":"2026-11-01T10:00:00Z","level":"info","service":"Api","message":"A"}
+{"timestamp":"2026-11-01T10:00:00Z","level":"info","service":"api","message":"a2"}

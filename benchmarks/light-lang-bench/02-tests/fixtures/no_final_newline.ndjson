@@ -1,0 +1,3 @@
+{"timestamp":"2026-11-01T10:00:00Z","level":"error","service":"auth","message":"login failed"}
+{"timestamp":"2026-11-01T10:01:00Z","level":"info","service":"auth","message":"login ok"}
+{"timestamp":"2026-11-01T10:02:00Z","level":"error","service":"api","message":"timeout"}

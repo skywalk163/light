@@ -1,0 +1,2 @@
+{"message":"m1","extra":{"a":1},"service":"svc","level":"info","timestamp":"2026-11-01T10:00:00Z","n":42}
+{"timestamp":"2026-11-01T10:00:01Z","level":"info","service":"svc","message":"has \"quote\" and \\\\ back"}

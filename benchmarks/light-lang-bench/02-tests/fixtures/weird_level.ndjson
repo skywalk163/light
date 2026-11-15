@@ -1,0 +1,3 @@
+{"timestamp":"2026-11-01T10:00:00Z","level":"a b=c","service":"svc","message":"weird"}
+{"timestamp":"2026-11-01T10:00:01Z","level":"","service":"svc","message":"empty level"}
+{"timestamp":"2026-11-01T10:00:02Z","level":"ERROR","service":"svc","message":"upper"}

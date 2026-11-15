@@ -1,0 +1,4 @@
+{"timestamp":"2026-11-01T10:00:00Z","level":"info","service":"auth","message":"ok"}
+{"level":"info","service":"auth","message":"no timestamp"}
+not json
+{"timestamp":123,"level":"error","message":"bad types"}

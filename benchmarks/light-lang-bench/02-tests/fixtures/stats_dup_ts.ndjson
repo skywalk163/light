@@ -1,0 +1,8 @@
+{"timestamp":"2026-11-01T10:00:00Z","level":"info","service":"b","message":"1"}
+{"timestamp":"2026-11-01T10:00:00Z","level":"info","service":"b","message":"2"}
+{"timestamp":"2025-01-01T00:00:00Z","level":"error","service":"b","message":"older"}
+{"timestamp":"2027-01-01T00:00:00Z","level":"error","service":"a","message":"newer"}
+{"timestamp":"2026-11-01T10:00:00Z","level":"info","service":"","message":"blank svc"}
+{"level":"info","service":"no-ts","message":"skip"}
+{"timestamp":5,"level":"info","service":"bad-ts","message":"skip"}
+garbage
