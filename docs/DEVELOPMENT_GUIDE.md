@@ -946,8 +946,8 @@ python -m build
 twine upload dist/*
 
 # 创建 Git 标签
-git tag -a v0.4.1 -m "v0.4.1"
-git push origin v0.4.1
+git tag -a v0.4.2 -m "v0.4.2"
+git push origin v0.4.2
 
 # 发布 Release Notes
 # 在 GitHub 上创建 Release，附上 CHANGELOG 内容

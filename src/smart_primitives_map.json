@@ -1,0 +1,30 @@
+{
+  "schema": "light.smart-elastic-map/v1",
+  "version": 1,
+  "enabled": false,
+  "scope": "identifier",
+  "on_conflict": "diagnose",
+  "comment": "智能原语标准双字形式 -> 口语变体。只做前端文本级标识符归一化，不新增任何关键字。",
+  "primitives": {
+    "观察": {
+      "kind": "observe",
+      "variants": ["看看", "瞧瞧", "感知", "打量", "读取环境"]
+    },
+    "规划": {
+      "kind": "plan",
+      "variants": ["计划", "安排", "筹谋", "盘算", "打算"]
+    },
+    "决策": {
+      "kind": "decide",
+      "variants": ["拿主意", "定夺", "拍板", "决断"]
+    },
+    "执行": {
+      "kind": "act",
+      "variants": ["动手", "实施", "落实", "干活", "去办"]
+    },
+    "记忆": {
+      "kind": "memory",
+      "variants": ["记下", "记住", "存档", "留个底"]
+    }
+  }
+}

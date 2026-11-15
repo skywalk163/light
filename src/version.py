@@ -6,17 +6,17 @@
 """
 
 # 版本号
-__version__ = "0.4.1"
-VERSION = "0.4.1"
+__version__ = "0.4.2"
+VERSION = "0.4.2"
 VERSION_MAJOR = 0
 VERSION_MINOR = 4
-VERSION_PATCH = 1
+VERSION_PATCH = 2
 
 # 版本名称
-VERSION_NAME = "v0.4.1 十月迭代版"
+VERSION_NAME = "v0.4.2 智能原语版"
 
 # 发布日期
-RELEASE_DATE = "2026-11-02"
+RELEASE_DATE = "2026-11-15"
 
 # 版本阶段: dev / alpha / beta / rc / stable
 RELEASE_STAGE = "stable"

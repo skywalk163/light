@@ -11,6 +11,88 @@
 > 也不代表 `v0.4.x` 之后的版本。**以后新 tag 一律用 `v0.4.x`。**
 > 历史 tag 仍保留可回溯；看到 `v7.0.0` 不必当成比 `v0.4.x` 更新。
 
+## [0.4.2] — 2026-11-15 — 智能原语与中文语法兼容：L1 双字形式 + 弹性映射层 + 编译期轨迹
+
+> 主题：让「智能原语」与中文自然词法共存，而不是互相抢关键字。
+> 硬约束：**L0 核心字零改动、零新增**——`src/keywords.py`（CRLF）、`src/lexer.py`、
+> `src/parser_*.py`、`src/code_generator.py`、`docs/language/l0-core.md`、`docs/syntax.md`、
+> `src/elastic_syntax.py`、`stdlib/`、`contrib/` 逐字节零 diff。
+
+### 设计：四层单向流动，任一层关掉都退回合法的纯 Light 代码
+
+```
+口语「计划/安排/筹谋」
+  ↓ ① 弹性层（默认关闭，只改标识符 token）
+标准双字标识符「观察 / 规划 / 执行 / 记忆 / 决策」
+  ↓ ② L0 组合惯用法（段 / 设 / 当 / 若 / 断 / 返回）
+冻结核心字（零改动）
+  ↓ ③ 编译期只读扫描
+sidecar 轨迹 JSON（tool_call / decision_point / side_effect / duration）
+```
+
+实测 `观察/规划/决策/执行/记忆` 五个双字词**都不在** `keywords.ALL_KEYWORDS`（123 个）里，
+所以弹性层做的是纯标识符重命名，词法/语法/代码生成零介入；「智能」来自组合形状，
+编译器只读扫描形状即可打轨迹。设计全文见
+[docs/智能原语与中文语法兼容设计.md](docs/智能原语与中文语法兼容设计.md)。
+
+### 新增
+
+- `src/smart_primitives.py`：弹性映射 + 冲突诊断 + 编译期轨迹扫描（纯标准库，无运行时依赖）。
+- `src/smart_primitives_map.json`：默认映射表，5 个标准双字形式的 23 条口语变体，
+  如 `规划 ← 计划/安排/筹谋/盘算/打算`、`观察 ← 看看/感知/瞧瞧/观察一下`。
+- `examples/智能原语/观察_规划_执行.light`：纯 L0 组合写法的「观察-规划-执行」循环。
+- `examples/智能原语/观察_规划_执行_口语变体.light`：同一逻辑全用日常中文说法，
+  文件头 `# @智能弹性 开` 逐文件开启，定义写「计划」、调用写「安排」也被归一化合一。
+- `tests/test_smart_primitives.py`（33 项）+ `tests/test_smart_primitives_edges.py`（28 项）。
+
+### 保护区口径与 `lexer.py` 对齐（这是本层唯一的正确性来源）
+
+- 英文引号 `"…"` / `'…'`（含反斜杠转义）、**三引号 `"""` / `'''` 跨行**、
+  **中文引号 `「…」` / `『…』`**（`lexer.py:469-472` 的字符串定界符）、`#` 行注释与行尾注释；
+- L3/L4 嵌入块整块透传，起止覆盖 `引`/`嵌入` × `结束引`/`结束嵌入` 四种组合，
+  并支持**缩进回归闭合**与 EOF 闭合（`lexer.py:2044-2184`）；
+- 中文词边界用 `(?<!\w)变体(?!\w)` 而**不是 `\b`**（汉字皆 `\w`，`\b` 对中文失效）；
+- 绝不 `strip()` 任何一行，缩进与行尾（含 CRLF）逐字符保留。
+
+### 可配置 / 可关闭 / 可诊断
+
+- 开关优先级：文件头指令 > 环境变量 > 映射表 `enabled`。默认**关闭**，
+  关闭路径不 import 模块、返回原始字符串对象（`sys.modules` 无 `smart_primitives`）。
+- 环境变量：`LIGHT_SMART_ELASTIC` / `LIGHT_SMART_ELASTIC_MAP` /
+  `LIGHT_SMART_ELASTIC_TRACE` / `LIGHT_SMART_ELASTIC_ON_CONFLICT`。
+- 诊断码 `L-SMART-000..005`：撞关键字/内置名（001）、变体与标准词混用（002）、
+  变体冲突或链式替换（003）、自定义表加载失败（004，含 schema/scope/spec 校验）、
+  `on_conflict` 取值非法（005）。配置类诊断（004/005）不受 `on_conflict` 影响，永不被吞。
+
+### 修改
+
+- `cli/light.py::_read_source()`：新增**默认关闭**的前端钩子（约 20 行，含零依赖快判）；
+  未开启时源码原样返回，不改任何既有分支。
+- `pyproject.toml`：`[tool.setuptools.package-data]` 增补 `"src" = ["*.json"]`。
+  **此前 `*.json` 不在 package-data 里**，会导致 wheel 内缺失映射表、装后只能回退内置兜底表。
+- `.gitignore`：忽略 `*.smart-trace.json` 运行产物，并豁免默认映射表（`.gitignore` 有全局
+  `*.json` 规则，不豁免就打不进仓库）。
+
+### 版本号同步
+
+`0.4.1` → `0.4.2`（真源 `pyproject.toml` + `src/version.py`，其余声明点跟随）：
+`cli/light.py`、`cli/light_unified.py`、`README.md`、`STATUS.md`、
+`tools/installer/{windows/setup.iss, macos/build_pkg.sh, linux/build_deb.sh}`。
+
+### 测试
+
+新增 61 项全绿；e2e `test_e2e_chain.py` 对两个新示例的 4 条全链路全绿。
+全量回归：改前 `278 failed / 9482 passed / 1 error` → 改后 `278 failed / 9547 passed / 1 error`，
+逐条比对 `FAILED`/`ERROR`/`SUBFAILED` 集合**新增红 0、消失红 0**（278 条为 main 既有
+环境/平台类红，与本改动无关，未擅自修绿）。
+
+### 已知边界
+
+- `L-SMART-002` 只能捕获「变体与标准词同现」，捕获不了「用户原有标识符恰好叫『计划』」
+  ——文本级方案无法与口语用法区分，默认关闭是最强保护（R13）。
+- 轨迹里的 `duration` 是**循环静态迭代上界**，不是运行时耗时；顶层 `duration_ms` 才是编译耗时。
+- `ai check` / `ai prompt` / `py2light` 等子命令直接 `open()`，不经过弹性层（R14）。
+
 ## [T-0326] — 2026-11-10 — AI 友好反馈回路收尾接线（T-0316~T-0325 归集）
 
 > 本条只记录接线与文档归集，不改动下列零件的公共接口。

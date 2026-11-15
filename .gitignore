@@ -459,3 +459,9 @@ _recover/
 # （小结已归档在 hive 的 results/<tid>.json），
 # 此前被跟踪导致每张卡 land 必冲突。
 .hive/
+
+# 智能原语弹性层：编译期 sidecar 轨迹是运行产物，不入库
+*.smart-trace.json
+# 默认映射表是**代码配置**而非数据产物，上面第 46 行 *.json 会把它吃掉；
+# 漏掉则 CI 上 load_map() 找不到默认表直接红（与 tools/ci/*_baseline.json 同型坑）。
+!src/smart_primitives_map.json

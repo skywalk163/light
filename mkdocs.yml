@@ -1,4 +1,4 @@
-site_name: 光明 (Light) v0.4.0
+site_name: 光明 (Light) v0.4.2
 site_description: 光明编程语言 - 中文编程语言的全新可能
 site_author: LightLang Team
 repo_url: https://github.com/skywalk163/light
@@ -89,6 +89,7 @@ nav:
     - L1/L2 文体: language/l1-l2-style.md
     - L3 领域嵌入: language/l3-domain.md
     - L4 外语引用: language/l4-foreign.md
+    - 智能原语与中文语法兼容: 智能原语与中文语法兼容设计.md
     - 关键字参考: language/keywords.md
     - 运算符参考: language/operators.md
     - 类型系统: language/types.md

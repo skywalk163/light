@@ -44,7 +44,7 @@ try:
     if is_dev_branch():
         VERSION = f'光明编译器 v{LANG_VERSION}dev (开发分支)'
 except ImportError:
-    VERSION = '光明编译器 v0.4.1'
+    VERSION = '光明编译器 v0.4.2'
 
 # 反馈收集子命令
 from feedback_collector import setup_feedback_subparser, run_feedback_cli
@@ -636,13 +636,48 @@ def _print_ast(node, indent=0):
                 print(f"{prefix}  {key}: {value}")
 
 
+_SMART_DIRECTIVE_RE = re.compile(
+    r"^[ \t]*#[ \t]*@智能弹性[ \t]*(开|关|on|off)", re.IGNORECASE)
+# 与 smart_primitives._TRUTHY 保持同步；这里只做快判，方向是「宁可多重解析一次」
+_SMART_TRUTHY = frozenset({"1", "on", "true", "yes", "开", "启用"})
+
+
+def _smart_elastic_maybe_on(text: str) -> bool:
+    """零依赖快判：默认关闭时返回 False，从而连 smart_primitives 都不 import。
+
+    快判只认三种信号：文件头指令、LIGHT_SMART_ELASTIC 显式真值、
+    LIGHT_SMART_ELASTIC_MAP 存在（自定义表内 enabled 可能为 true）。
+    真正的开关裁决仍在 smart_primitives.resolve_config，快判误判只会多重解析一次。
+    """
+    for line in text.splitlines()[:30]:
+        m = _SMART_DIRECTIVE_RE.match(line.lstrip("\ufeff"))
+        if m:
+            return m.group(1).lower() in ("开", "on")
+    if "LIGHT_SMART_ELASTIC_MAP" in os.environ:
+        return True
+    return os.environ.get("LIGHT_SMART_ELASTIC", "").strip().lower() in _SMART_TRUTHY
+
+
 def _read_source(file_path: str) -> str:
     """读取源代码文件"""
     path = Path(file_path)
     if not path.exists():
         print(f"错误: 文件不存在: {file_path}", file=sys.stderr)
         sys.exit(1)
-    return path.read_text(encoding='utf-8')
+    text = path.read_text(encoding='utf-8')
+    # 智能原语弹性适配层（L1 前端）：默认关闭，仅 LIGHT_SMART_ELASTIC=1 或
+    # 文件头「# @智能弹性 开」时生效；不启用时源码对象原样返回。
+    # 只做文本级标识符归一化，不改 keywords.py / lexer / parser / codegen。
+    if _smart_elastic_maybe_on(text):
+        try:
+            from smart_primitives import apply_smart_elastic
+            text = apply_smart_elastic(text, file_path=str(path))
+        except ImportError:
+            pass
+        except Exception as exc:     # 弹性层任何故障都不得让编译器崩溃
+            print(f"[智能弹性·warning] 已跳过（{exc.__class__.__name__}: {exc}）",
+                  file=sys.stderr)
+    return text
 
 
 # ═══════════════════════════════════════════════════════════════════
