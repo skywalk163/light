@@ -81,10 +81,11 @@ sidecar 轨迹 JSON（tool_call / decision_point / side_effect / duration）
 
 ### 测试
 
-新增 61 项全绿；e2e `test_e2e_chain.py` 对两个新示例的 4 条全链路全绿。
-全量回归：改前 `278 failed / 9482 passed / 1 error` → 改后 `278 failed / 9547 passed / 1 error`，
-逐条比对 `FAILED`/`ERROR`/`SUBFAILED` 集合**新增红 0、消失红 0**（278 条为 main 既有
-环境/平台类红，与本改动无关，未擅自修绿）。
+新增 61 项全绿；e2e `test_e2e_chain.py` 对两个新示例的 4 条全链路全绿；
+标准库文档对拍门禁 4 项全绿。
+全量回归：改前 `278 failed / 9482 passed / 1 error` → 改后 `278 failed / 9551 passed / 1 error`
+（+69 = 61 单测 + 4 e2e + 4 文档门禁），逐条比对 `FAILED`/`ERROR`/`SUBFAILED` 集合
+**新增红 0、消失红 0**（278 条为 main 既有环境/平台类红，与本改动无关，未擅自修绿）。
 
 ### 已知边界
 

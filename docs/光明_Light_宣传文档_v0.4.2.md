@@ -183,8 +183,10 @@ git diff --numstat -- src/keywords.py src/lexer.py src/parser_stmt.py \
 | 智能原语单测 | **61 passed** |
 | e2e 全链路（新示例 compile + 产物运行） | **4 passed** |
 | 全量回归（改动前基线） | 278 failed / 9482 passed / 1 error |
-| 全量回归（改动后） | **278 failed / 9547 passed / 1 error** |
+| 全量回归（改动后） | **278 failed / 9551 passed / 1 error** |
 | 失败集合逐条比对 | **新增红 0 / 消失红 0 / ERROR 与 SUBFAIL 完全一致** |
+
+> `+69 passed` = 61 项智能原语单测 + 4 条 e2e 新示例链路 + 4 项标准库文档对拍门禁。
 
 **诚实说明**：`278 failed` 是 main 上**既有**的环境/平台类红（原生腿 `test_原生腿_R13B`、
 `test_R149/R150` 文件系统、LLVM 具名冲突、LLVM stdlib 就绪度），与本版改动无关，
@@ -258,8 +260,8 @@ python3 -m pytest tests/test_smart_primitives.py tests/test_smart_primitives_edg
 ## 七、当前状态与下一步
 
 - **当前**：v0.4.2 正式版，PyPI 已发布，三远端 tag 已打。
-- **本版实测**：Linux 沙箱全量回归（9547 passed / 新增红 0）；PyPI 干净 venv 安装后
-  `light --version` 输出与口语示例均通过；三远端 `main` HEAD 一致。
+- **本版实测**：Linux 沙箱全量回归（9551 passed / 新增红 0，失败集合逐条与基线一致）；
+  PyPI 干净 venv 安装后 `light --version` 输出与口语示例均通过；三远端 `main` HEAD 一致。
 - **沿用既有基线、本轮未重测**：Windows / FreeBSD 门禁机基线、LLVM 原生 EXE 编译、自举编译
   —— 这三项是 0.4.0 基线能力，本版无相关改动（本版改动面 = 新增前端模块 + CLI 一个默认关闭的钩子）。
 - **已知边界（不藏着）**：
@@ -288,7 +290,7 @@ python3 -m pytest tests/test_smart_primitives.py tests/test_smart_primitives_edg
 | 119 个 stdlib 模块 | `ls stdlib/*.light | wc -l` |
 | 自举 115 段 / 3014 行 | `grep -c '^段落 ' bootstrap/bootstrap_v3.light`（=115）；`wc -l`（=3014） |
 | 61 项新测 | `python3 -m pytest tests/test_smart_primitives*.py -q -n 0` |
-| 回归数字 | `python3 -m pytest -q --tb=no`（本机实测 278 failed / 9547 passed / 1 error） |
+| 回归数字 | `python3 -m pytest -q --tb=no`（本机实测 278 failed / 9551 passed / 1 error） |
 
 **两处口径需要说明，避免误读**：
 
