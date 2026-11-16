@@ -1,0 +1,12 @@
+# MiniBridge 构建产物（全部由 build.sh 生成，不入库）
+.build/
+handlers/h_c_hash
+handlers/libh_c_hash.so
+handlers/h_go_len/h_go_len
+out.log
+
+# 反忽略：根 .gitignore 的 `*.txt` 会把期望输出也吞掉。
+# expected_b1.txt 是任务卡判据直接读取的文件（verify 3 逐字节比对），必须入库，
+# 否则干净 checkout 上 verify 直接失败。
+!tests/expected_b1.txt
+!tests/expected_edge.txt

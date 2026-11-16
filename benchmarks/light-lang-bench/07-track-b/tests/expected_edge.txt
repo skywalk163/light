@@ -1,0 +1,4 @@
+notes	OK 1
+broken	ERR
+measure	LEN 49
+no_such_service	OK 2

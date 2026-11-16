@@ -1,0 +1,6 @@
+{"service":"notes","message":"ok-1"}
+{"service":"broken","message":"mapped-to-missing-handler"}
+{这不是 JSON
+{"service":"measure","message":"still processed"}
+[1,2,3]
+{"service":"no_such_service","message":"falls through to wildcard"}

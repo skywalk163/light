@@ -1,0 +1,3 @@
+{"service":"notes","message":"first record"}
+{"service":"measure","message":"hello bridge"}
+{"service":"hash","message":"hello"}
