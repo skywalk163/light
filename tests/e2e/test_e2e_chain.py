@@ -69,7 +69,7 @@ E2E_EXCLUDED = {
     'J阶段_L4_C_Go_MoonBit/J3_MoonBit_快速排序.light',
     # v7 单 28：F3 用 `[2*x 对于 x 在 X]` 写列表推导，而规范只承诺
     # `[表达式 遍历 变量 之/于 列表]`（docs/统一语法规范_v3.1.md:459-460、
-    # docs/syntax.md:267）——全 docs 无 `对于 … 在 …` 推导式规范，`对于→遍历`
+    # docs/syntax.md:226）——全 docs 无 `对于 … 在 …` 推导式规范，`对于→遍历`
     # 只存在于未接入主管线的 src/elastic_syntax.py:38，且全仓仅此一文件两行这么写。
     # 判为示例写法越界（硬规则 2 禁止改 examples）。
     # 词法上 `对于` 会被切成两个 KEYWORD『于』（`对` 是复合词安全单字，
