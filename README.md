@@ -40,7 +40,7 @@
 - 🚀 **自举编译**：编译器本身用光明编写（bootstrap_v3.light，95 个段落），可自举编译
 - ⚡ **LLVM 原生编译**：支持编译为原生机器码（EXE），无需 Python 运行时。runtime C 层内置 TLS（Windows Schannel + POSIX mbedTLS）/ SHA512 / HMAC / PBKDF2 / uuid v3/v5 / Base64 / 哈希 / 嵌套容器序列化 / 对象池缓存等 262 项 runtime 符号
 - 📦 **三后端架构**：`src`（自研解析器，默认）· `antlr`（兼容旧语法）· `native`/`llvm-typed`（LLVM 原生编译），`--backend` 灵活切换
-- 🔧 **丰富标准库**：**109 个 .light 模块**，覆盖数学/统计/字符串/列表/集合/数据结构/文件系统/日期时间/农历/编码( Base64/JSON/XML/CSV)/哈希(MD5/SHA1-512/HMAC)/加密/网络(HTTPS/HTTP服务端/DNS/SSE)/大模型客户端/Agent循环/系统/进程/线程/并发/事件总线/测试/断言/缓存/进度条/日志/配置/参数解析/模板/中文处理(分词/拼音/数字转换/NLP)/身份证/手机号校验/uuid/正则/FFI/图像处理等。原生腿能力 **711 项**（builtin 411 + runtime 262），详见 [docs/stdlib.md](docs/stdlib.md) 模块速查表
+- 🔧 **丰富标准库**：**119 个 .light 模块**，覆盖数学/统计/字符串/列表/集合/数据结构/文件系统/日期时间/农历/编码( Base64/JSON/XML/CSV)/哈希(MD5/SHA1-512/HMAC)/加密/网络(HTTPS/HTTP服务端/SSE/流式)/大模型客户端/Agent循环/系统/进程/线程/并发/事件总线/测试/断言/缓存/进度条/日志/配置/参数解析/模板/中文处理(分词/拼音/数字转换/NLP)/身份证/手机号校验/uuid/正则/FFI/图像处理等。原生腿能力 **711 项**（builtin 411 + runtime 262），详见 [docs/stdlib.md](docs/stdlib.md) 模块速查表
 - 🔗 **C FFI 绑定**：支持调用 C 动态库，枚举/联合体/变长参数/回调/位域/函数指针
 - 🏗️ **v4.0 五层语法**：L0 核心字（30）稳定不变，L1 白话体（青少年）+ L2 文言体（商用）双轨，L3 领域嵌入（SQL/正则/数学），L4 外语引用（Python/C/Go/MoonBit），零破坏兼容 v3.3
 - 📊 **当前状态（2026-11-15）**：**v0.4.2 正式版已发布**（全仓版本号统一到 0.4.2 家族，单一真源 `pyproject.toml` + `src/version.py`）；本版新增「智能原语与中文语法兼容」最小原型——L1 双字标准形式 + 默认关闭的弹性映射层 + 编译期结构化轨迹，**L0 核心字零改动**，详见 [设计文档](docs/智能原语与中文语法兼容设计.md)。变更日志见 [CHANGELOG.md](CHANGELOG.md)

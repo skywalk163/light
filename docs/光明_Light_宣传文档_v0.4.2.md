@@ -297,8 +297,8 @@ python3 -m pytest tests/test_smart_primitives.py tests/test_smart_primitives_edg
    `KEYWORDS_L0_CORE` frozenset 于 2026-08-20 因"零消费者 + 第二事实源"删除）。
    本版**没有改动这个数字**，只在设计文档风险清单 R1 登记漂移，待专单收口。
 2. **标准库模块数**：对外文档长期写「109 个」，本版实测 `stdlib/*.light` 为 **119 个**。
-   本文用实测值 119，并已把 `docs/stdlib.md` 的表述改为「119 个模块 + 速查表只收录常用部分」
-   （该页表格本身尚未补齐全部模块，属文档待办，不影响可用性）。
+   已把 `docs/stdlib.md` 速查表补齐到 **119 行**（与 `stdlib/` 一一对应，并删掉了一个并不存在的
+   `DNS` 行），同时同步 README / AI 指南 / API 索引里的旧数字。
 
 未引用任何联网推测；如与仓内最新 `git log` / `reports/` 基线不一致，以仓内数据为准。
 
