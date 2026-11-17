@@ -3,3 +3,5 @@
 
 [linter]
 style = "工程体"
+# R222-D线：归一通道默认模式。关 / 报告 / 写回；CLI 的 --apply / --dry-run 优先。
+canonical = "报告"

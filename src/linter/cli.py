@@ -46,6 +46,74 @@ def _iter_light_files(root: str):
                 yield os.path.join(dirpath, name)
 
 
+def _run_canonical(target: str, style: str, write: bool, json_out: bool) -> int:
+    """归一通道：默认只报告差异，write=True 时写回。"""
+    from src.linter.canonical import canonicalize, edits_as_dicts
+
+    if os.path.isfile(target):
+        files = [target]
+    elif os.path.isdir(target):
+        files = sorted(_iter_light_files(target))
+    else:
+        print(f"错误: 路径不存在: {target}")
+        return 1
+
+    report = []
+    total_edits = total_skipped = 0
+
+    for path in files:
+        with open(path, 'r', encoding='utf-8', newline='') as f:
+            source = f.read()
+        new_source, edits, skipped = canonicalize(source, style=style)
+        total_edits += len(edits)
+        total_skipped += len(skipped)
+
+        if not edits and not skipped:
+            continue
+
+        report.append({
+            'file': path,
+            'edits': edits_as_dicts(edits),
+            'skipped': edits_as_dicts(skipped),
+        })
+
+        if json_out:
+            continue
+
+        print(f"归一 {path}：{len(edits)} 处可自动改，{len(skipped)} 处需人工判断")
+        for e in edits:
+            print(f"  {e.code} 第{e.line}行:{e.col} 「{e.before}」→「{e.after}」  {e.reason}")
+        for s in skipped:
+            print(f"  {s.code} 第{s.line}行:{s.col} 「{s.text}」跳过：{s.reason}")
+
+        changed_lines = sorted({e.line for e in edits})
+        if changed_lines:
+            old_lines = source.split('\n')
+            new_lines = new_source.split('\n')
+            print(f"  将改 {len(changed_lines)} 行：{changed_lines}")
+            for ln in changed_lines[:20]:
+                before = old_lines[ln - 1] if ln <= len(old_lines) else ''
+                after = new_lines[ln - 1] if ln <= len(new_lines) else ''
+                print(f"    第{ln}行 - {before}")
+                print(f"    第{ln}行 + {after}")
+            if len(changed_lines) > 20:
+                print(f"    …… 其余 {len(changed_lines) - 20} 行省略")
+
+        if write and new_source != source:
+            with open(path, 'w', encoding='utf-8', newline='') as f:
+                f.write(new_source)
+            print(f"  已写回：{path}")
+
+    if json_out:
+        import json as _json
+        print(_json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        print(f"归一汇总：{len(files)} 个文件，{total_edits} 处可自动改，"
+              f"{total_skipped} 处需人工判断")
+
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog='light-lint',
@@ -59,12 +127,19 @@ def main():
                         help='文体风格检查模式（工程体/教学体）')
     parser.add_argument('--check-names', action='store_true',
                         help='执行 AST 级静态名检查（LH-21 E016 未定义的名字 / LH-09 W016 导入名被局部遮蔽）')
+    parser.add_argument('--canonical', action='store_true',
+                        help='归一检查：同类等价写法收敛到单一权威形态（默认只报告差异）')
+    parser.add_argument('--apply', action='store_true',
+                        help='把归一结果写回文件（需配合 --canonical；默认 --dry-run）')
+    parser.add_argument('--dry-run', action='store_true',
+                        help='归一模式只报告差异、不写回（默认行为）')
     args = parser.parse_args()
 
-    # 从 light.toml 读取默认 style（命令行参数优先）
+    # 从 light.toml 读取默认 style / canonical 模式（命令行参数优先）
     toml_cfg = _load_light_toml()
     if args.style is None and 'style' in toml_cfg:
         args.style = toml_cfg['style']
+    canonical_cfg = toml_cfg.get('canonical', '关')
 
     if args.list_rules:
         from src.linter.light_linter import RULES
@@ -72,6 +147,17 @@ def main():
         for rule_id, rule_info in sorted(RULES.items()):
             print(f"  {rule_id} [{rule_info['severity']}] {rule_info['name']}: {rule_info['description']}")
         return 0
+
+    # 归一通道：`--canonical` 显式开启；light.toml 的 canonical = 关/报告/写回
+    # 决定「未显式给 --apply/--dry-run 时是否写回」，CLI 参数优先。
+    if args.canonical and not args.check_names:
+        if args.apply:
+            write = True
+        elif args.dry_run:
+            write = False
+        else:
+            write = canonical_cfg == '写回'
+        return _run_canonical(args.target, args.style or '工程体', write, args.json)
 
     enabled_rules = None
     if args.rules:
