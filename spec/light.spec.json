@@ -10,7 +10,7 @@
       "src/lexer.py": "cd21c941ed352de8",
       "src/code_generator.py": "eefc65792b852bb8",
       "src/version.py": "7a1234d623d9c1c3",
-      "src/diagnostics/registry.py": "da651da94095e1a4",
+      "src/diagnostics/registry.py": "8f08cc0440c184f8",
       "docs/language/l0-core.md": "fbd394a9da626193",
       "docs/language/keywords.md": "f2e41e7b63946da1",
       "docs/language/l1-l2-style.md": "28e3fe9fb133368e",
