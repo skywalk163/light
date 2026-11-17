@@ -1009,6 +1009,8 @@ def _compile_to_exe(py_code: str, exe_path: Path, args):
 
 def cmd_ast(args):
     """显示 AST"""
+    if getattr(args, 'json', False):
+        sys.exit(_ast_json(args))
     source = _read_source(args.file)
 
     try:
@@ -1044,8 +1046,21 @@ def cmd_tokens(args):
 
 def cmd_check(args):
     """语法检查：解析源代码但不执行"""
+    # 机器可读路径（R222/T-0382）：stdout 只有一个 JSON 对象，rc 0/1/2。
+    # 没带 --json 时继续走下面的原有文本路径，输出与退出码逐字不变。
+    if getattr(args, 'json', False):
+        sys.exit(_check_json(args))
+
     from enhanced_errors import format_error
     source = _read_source(args.file)
+
+    # --partial（R222/T-0382）：只解析、不要求整文件闭合——按可解析的最长
+    # 前缀检查，未闭合尾巴只在 stderr 提示，不 fail。不带 --partial 时行为不变。
+    if getattr(args, 'partial', False):
+        source, closed, total = _partial_prefix(source)
+        if closed < total:
+            print(f"⚠ 部分检查（--partial）：第 {closed + 1} 行起内容尚未闭合，"
+                  f"只检查前 {closed}/{total} 行", file=sys.stderr)
 
     errors = []
     warnings = []
@@ -1725,6 +1740,642 @@ def cmd_py2light(args):
 
 
 # ═══════════════════════════════════════════════════════════════════
+# R222 / T-0382 · 机器可读输出接线（spec / ast --json / check --json
+#                              / symbols / patch）
+# ═══════════════════════════════════════════════════════════════════
+# 纪律：本段只做**薄转发**。解析、诊断、补丁、规格表的实现全部留在
+# A/B/C/D 四张卡的纯模块里（``spec/build_spec.py``、``src/diagnostics``、
+# ``src/patch_engine.py``）；``cli/light.py`` 只负责读文件、拼 payload、
+# 定退出码，绝不复制模块内部逻辑，也不产生「自动写文件」这类副作用。
+#
+# 退出码口径（所有 --json 子命令一致）：
+#   0 = 成功 / 只有 warning 级诊断
+#   1 = 有 error 级诊断（代码确实有问题，或补丁校验被拒）
+#   2 = 用法或文件错误（路径不存在、stdin 冲突、产物模块缺失）
+# ═══════════════════════════════════════════════════════════════════
+
+CLI_JSON_SCHEMA_VERSION = 1
+CLI_JSON_EXIT_OK = 0
+CLI_JSON_EXIT_DIAGNOSTIC = 1
+CLI_JSON_EXIT_USAGE = 2
+
+#: 归因不上任何已注册码时的占位码。与 ``light ai check --json`` 同一口径：
+#: ``L0000`` 表示「未归因」，绝不臆造一个看着合理的码（见 docs/错误码规范.md）。
+_UNCLASSIFIED_CODE = 'L0000'
+
+#: 判「整文件闭合」时忽略的 token 类型（与 cmd_check 的「未消费 token」口径一致）。
+_UNCONSUMED_IGNORED_TOKENS = frozenset({'NEWLINE', 'DEDENT', 'INDENT', 'DOT', 'EOF'})
+
+#: ``--partial`` 前缀回退最多试多少次解析，防止超大文件把 CLI 拖死。
+_PARTIAL_MAX_PROBES = 200
+
+
+def _cli_json_emit(payload):
+    """stdout 只写一个 JSON 对象（单行），不夹进度、不夹 emoji。"""
+    sys.stdout.write(json.dumps(payload, ensure_ascii=False) + '\n')
+    sys.stdout.flush()
+
+
+def _cli_elapsed_ms(started):
+    """本轮耗时（毫秒），与 ``ai check --json`` 的 duration_ms 同口径。"""
+    return int(round((time.monotonic() - started) * 1000))
+
+
+def _cli_json_read_source(path):
+    """读 UTF-8 源码。返回 ``(source, error)``；成功时 error 为 None。"""
+    try:
+        return Path(path).read_text(encoding='utf-8'), None
+    except FileNotFoundError:
+        return None, f'文件不存在: {path}'
+    except (OSError, UnicodeDecodeError) as exc:
+        return None, f'文件读取失败: {exc}'
+
+
+def _cli_json_diagnostic(code, severity, stage, line, column, message, hint='',
+                         fixes=None, candidates=None, provisional=False,
+                         anchor='parser', file_label=None, detail=None):
+    """一条诊断：字段口径与 ``light ai check --json`` 完全一致，另加 anchor/file/detail。"""
+    payload = _ai_json_diagnostic(code, severity, stage, line, column, message,
+                                  hint, fixes, candidates, provisional)
+    payload['anchor'] = anchor
+    payload['file'] = file_label
+    payload['detail'] = detail if detail is not None else message
+    return payload
+
+
+#: 报错文本里的「行 N, 列 M」（check 的边框块 / 纯文本都可能是这种写法）。
+_CLI_POSITION_RE = re.compile(r'\u884c\s*(\d+)\s*[，,]\s*\u5217\s*(\d+)')
+#: 边框块里的原因行前缀（``│ 原因:``）。
+_CLI_REASON_RE = re.compile(r'^\s*(?:\u2502\s*)?\u539f\u56e0\s*[:：]\s*(.*)$')
+
+
+def _cli_position_from_text(text):
+    """从报错文本里取**真实**行列：``(line, column)``；取不到就 ``(0, 0)``。"""
+    match = _CLI_POSITION_RE.search(text or '')
+    if not match:
+        return 0, 0
+    return int(match.group(1)), int(match.group(2))
+
+
+def _cli_reason_from_text(text):
+    """从边框块里取一行「原因」，取不到就用原文首行（去掉框线）。"""
+    for line in (text or '').splitlines():
+        match = _CLI_REASON_RE.match(line)
+        if match and match.group(1).strip():
+            return match.group(1).strip()
+    for line in (text or '').splitlines():
+        cleaned = re.sub(r'[┌└│─]', '', line).strip()
+        if cleaned:
+            return cleaned
+    return (text or '').strip()
+
+
+def _cli_diagnostic_from_text(text, file_label, default_stage='语法',
+                              line=0, column=0, severity=None):
+    """把一段报错文本归因成结构化诊断（薄转发 ``src/diagnostics``）。
+
+    命中码表时用 ``format_diagnostic`` 产出规范字段（码 / 严重度 / 规范一句话 /
+    最小修复 / anchor），原始报错文本保留在 ``detail``；未命中落 ``L0000`` +
+    ``provisional=True``。位置优先用调用方给的**真实**行列；没给就从报错文本
+    的「行 N, 列 M」里取，取不到仍然是 0（绝不编造）。
+    """
+    raw = (text or '').strip() or '未归因的错误'
+    summary = _cli_reason_from_text(raw)
+    if line <= 0:
+        line, column = _cli_position_from_text(raw)
+    try:
+        from src.diagnostics import explain, format_diagnostic
+    except Exception:
+        explain = format_diagnostic = None
+
+    diag = None
+    if explain is not None:
+        try:
+            diag = explain(raw)
+        except Exception:
+            diag = None
+
+    if diag is not None and format_diagnostic is not None:
+        try:
+            fmt = format_diagnostic(
+                diag.code, file_label or '<memory>', line, column,
+                extra={'stage': diag.stage or default_stage,
+                       'fixes': list(diag.fixes),
+                       'candidates': list(diag.candidates),
+                       'provisional': True})
+        except Exception:
+            fmt = None
+        if fmt is not None:
+            return _cli_json_diagnostic(
+                fmt['code'], severity or fmt['severity'],
+                fmt.get('stage') or default_stage,
+                fmt['line'], fmt['column'],
+                fmt['message'], fmt['hint'],
+                fmt.get('fixes') or [], fmt.get('candidates') or [],
+                bool(fmt.get('provisional', True)),
+                fmt.get('anchor') or 'parser', file_label, detail=raw)
+
+    return _cli_json_diagnostic(
+        _UNCLASSIFIED_CODE, severity or 'error', default_stage, line, column, summary,
+        '这段报错没有命中已注册错误码；先按原文修，再跑 light check --json 复验',
+        [], [], True, 'parser', file_label, detail=raw)
+
+
+def _cli_patch_engine():
+    """懒加载 A 线模块 ``src/patch_engine``；缺失返回 None（调用方报 rc=2）。"""
+    import importlib
+    for name in ('src.patch_engine', 'patch_engine'):
+        try:
+            return importlib.import_module(name)
+        except Exception:
+            continue
+    return None
+
+
+def _source_stats(source):
+    """行数统计（与 cmd_check 打印的那三行同口径）。"""
+    lines = source.split('\n')
+
+    def _is_comment(line):
+        stripped = line.strip()
+        return stripped.startswith('#') or stripped.startswith('//')
+
+    return {
+        'total_lines': len(lines),
+        'code_lines': sum(1 for line in lines if line.strip() and not _is_comment(line)),
+        'comment_lines': sum(1 for line in lines if _is_comment(line)),
+    }
+
+
+def _src_source_ok(source):
+    """整份源码能否被 src 后端完整解析（没有未消费的实质 token）。"""
+    try:
+        from light_parser_v3 import LightParser
+        parser = LightParser()
+        module = parser.parse(source)
+    except Exception:
+        return False
+    if module is None:
+        return False
+    return _first_unconsumed_token(parser) is None
+
+
+def _partial_prefix(source):
+    """``--partial``：找出**能完整解析的最长前缀**。
+
+    返回 ``(prefix, closed_lines, total_lines)``。整份都闭合时
+    ``closed_lines == total_lines`` 且 ``prefix`` 就是原文；否则从后往前
+    逐行回退（最多 ``_PARTIAL_MAX_PROBES`` 次），仍找不到就返回空前缀。
+    """
+    lines = source.split('\n')
+    total = len(lines)
+    if _src_source_ok(source):
+        return source, total, total
+    for count in range(total - 1, -1, -1):
+        if total - count > _PARTIAL_MAX_PROBES:
+            break
+        prefix = '\n'.join(lines[:count])
+        if _src_source_ok(prefix):
+            return prefix, count, total
+    return '', 0, total
+
+
+def _first_unconsumed_token(parser):
+    """解析器提前停止时，第一个未被消费的实质 token；没有返回 None。"""
+    try:
+        tokens = parser.tokens
+        pos = parser.pos
+    except AttributeError:
+        return None
+    for index in range(pos, len(tokens)):
+        token = tokens[index]
+        if token.type.name not in _UNCONSUMED_IGNORED_TOKENS:
+            return token
+    return None
+
+
+def _codegen_check(module, file_label):
+    """解析通过后再走一遍代码生成：拦住「check 通过但 run 失败」。"""
+    try:
+        from code_generator import PythonCodeGenerator
+        generated = PythonCodeGenerator().generate(module)
+    except Exception as exc:
+        return _cli_diagnostic_from_text(
+            f'代码生成失败：{type(exc).__name__}: {exc}', file_label, '语法', 0, 0)
+    try:
+        compile(generated, file_label, 'exec')
+    except SyntaxError as exc:
+        return _cli_diagnostic_from_text(
+            f'代码生成结果非法（生成的 Python 无法编译）：{exc.msg}'
+            f'（生成代码第 {exc.lineno} 行）',
+            file_label, '语法', getattr(exc, 'lineno', 0) or 0, 0)
+    return None
+
+
+def _type_check_diagnostics(source, level_str, file_label):
+    """静默跑一次类型检查（不打印、不 sys.exit），只收诊断。"""
+    try:
+        from compiler import LightCompiler
+        from core.config import TypeCheckLevel
+    except Exception:
+        return []
+    level_map = {
+        '签名': TypeCheckLevel.SIGNATURE, 'signature': TypeCheckLevel.SIGNATURE,
+        '变量': TypeCheckLevel.VARIABLE, 'variable': TypeCheckLevel.VARIABLE,
+        '表达式': TypeCheckLevel.EXPRESSION, 'expression': TypeCheckLevel.EXPRESSION,
+    }
+    compiler = LightCompiler()
+    compiler._config.type_check_level = level_map.get(level_str, TypeCheckLevel.EXPRESSION)
+    try:
+        compiler.compile(source, optimize=False)
+    except Exception as exc:
+        return [_cli_diagnostic_from_text(str(exc), file_label, '类型', 0, 0)]
+
+    diagnostics = []
+    for text in getattr(compiler, 'errors', []) or []:
+        if '类型错误' not in text:
+            continue
+        match = re.search(r'第(\d+)行', text)
+        line = int(match.group(1)) if match else 0
+        diagnostics.append(_cli_diagnostic_from_text(str(text), file_label, '类型', line, 0))
+    for text in getattr(compiler, 'warnings', []) or []:
+        diagnostics.append(_cli_diagnostic_from_text(
+            str(text), file_label, '类型', 0, 0, severity='warning'))
+    return diagnostics
+
+
+def _check_json_diagnostics(source, file_label, backend, type_check_level=None):
+    """收集诊断（不打印）：解析 → 代码生成合法性 → 类型检查。"""
+    diagnostics = []
+
+    if backend == 'src':
+        module = None
+        parser = None
+        failed = False
+        try:
+            from light_parser_v3 import LightParser
+            parser = LightParser()
+            module = parser.parse(source)
+            for warning in getattr(parser, 'warnings', []) or []:
+                diagnostics.append(_cli_diagnostic_from_text(
+                    str(warning), file_label, '语法', 0, 0, severity='warning'))
+        except Exception as exc:
+            diagnostics.append(_cli_diagnostic_from_text(str(exc), file_label, '语法', 0, 0))
+            failed = True
+
+        if module is None:
+            if not failed:
+                diagnostics.append(_cli_diagnostic_from_text(
+                    '解析失败：返回空模块', file_label, '语法', 0, 0))
+        else:
+            first_unparsed = _first_unconsumed_token(parser)
+            if first_unparsed is None:
+                residual = _codegen_check(module, file_label)
+                if residual is not None:
+                    diagnostics.append(residual)
+            else:
+                diagnostics.append(_cli_diagnostic_from_text(
+                    f"解析失败：无法识别语法 '{first_unparsed.value}'",
+                    file_label, '语法', first_unparsed.line, first_unparsed.col))
+    else:
+        try:
+            from light_visitor import LightParser
+            parser = LightParser()
+            module = parser.parse(_preprocess_v3(source))
+            if module is None:
+                for err in getattr(parser, 'errors', []) or []:
+                    diagnostics.append(_cli_diagnostic_from_text(
+                        str(err), file_label, '语法', 0, 0))
+        except Exception as exc:
+            diagnostics.append(_cli_diagnostic_from_text(str(exc), file_label, '语法', 0, 0))
+
+    # 与 cmd_check 的顺序一致：语法有 error 就不再做类型检查（免得同一个错误报两遍）。
+    has_error = any(diag['severity'] == 'error' for diag in diagnostics)
+    if type_check_level and not has_error:
+        diagnostics.extend(_type_check_diagnostics(source, type_check_level, file_label))
+    return diagnostics
+
+
+def _check_json(args):
+    """``light check --json``：stdout 只有一个 JSON 对象；rc 0/1/2。"""
+    started = time.monotonic()
+    filepath = args.file
+    backend = getattr(args, 'backend', 'src')
+    type_checked = (not getattr(args, 'no_type_check', False)) and backend == 'src'
+    payload = {
+        'schema_version': CLI_JSON_SCHEMA_VERSION,
+        'ok': False,
+        'file': filepath,
+        'backend': backend,
+        'partial': False,
+        'partial_from_line': 0,
+        'type_check': {'enabled': bool(type_checked),
+                       'level': getattr(args, 'type_check', '表达式')},
+        'summary': {},
+        'diagnostics': [],
+        'duration_ms': 0,
+    }
+
+    source, error = _cli_json_read_source(filepath)
+    if source is None:
+        payload['diagnostics'].append(_cli_json_diagnostic(
+            _UNCLASSIFIED_CODE, 'error', '用法', 0, 0, error,
+            '确认路径拼写或改用绝对路径；位置未知时不编造行号',
+            [], [], True, 'cli', filepath))
+        payload['duration_ms'] = _cli_elapsed_ms(started)
+        _cli_json_emit(payload)
+        return CLI_JSON_EXIT_USAGE
+
+    if getattr(args, 'partial', False):
+        prefix, closed, total = _partial_prefix(source)
+        if closed < total:
+            payload['partial'] = True
+            payload['partial_from_line'] = closed + 1
+            payload['diagnostics'].append(_cli_json_diagnostic(
+                _UNCLASSIFIED_CODE, 'warning', '语法', closed + 1, 0,
+                f'第 {closed + 1} 行起内容尚未闭合（共 {total} 行）；'
+                f'--partial 只检查前 {closed} 行，不 fail',
+                '补齐未闭合的括号 / 结束标记后重跑；Agent 分段写可按块送检',
+                [], [], True, 'parser', filepath))
+        source = prefix
+
+    payload['summary'] = _source_stats(source)
+    payload['diagnostics'].extend(_check_json_diagnostics(
+        source, filepath, backend,
+        getattr(args, 'type_check', '表达式') if type_checked else None))
+    payload['ok'] = not any(diag['severity'] == 'error'
+                            for diag in payload['diagnostics'])
+    payload['duration_ms'] = _cli_elapsed_ms(started)
+    _cli_json_emit(payload)
+    return CLI_JSON_EXIT_OK if payload['ok'] else CLI_JSON_EXIT_DIAGNOSTIC
+
+
+def _ast_json(args):
+    """``light ast --json``：薄转发 ``patch_engine.ast_to_json``。rc 0/1/2。"""
+    started = time.monotonic()
+    payload = {
+        'schema_version': CLI_JSON_SCHEMA_VERSION,
+        'ok': False,
+        'file': args.file,
+        'producer': 'src/patch_engine.ast_to_json',
+        'ast': None,
+        'error': None,
+        'duration_ms': 0,
+    }
+    module = _cli_patch_engine()
+    if module is None:
+        payload['error'] = 'patch_engine 模块缺失（A 线产物未合入）'
+        payload['duration_ms'] = _cli_elapsed_ms(started)
+        _cli_json_emit(payload)
+        return CLI_JSON_EXIT_USAGE
+
+    source, error = _cli_json_read_source(args.file)
+    if source is None:
+        payload['error'] = error
+        payload['duration_ms'] = _cli_elapsed_ms(started)
+        _cli_json_emit(payload)
+        return CLI_JSON_EXIT_USAGE
+
+    try:
+        payload['ast'] = module.ast_to_json(source, args.file)
+    except Exception as exc:
+        payload['error'] = f'{type(exc).__name__}: {exc}'
+        payload['duration_ms'] = _cli_elapsed_ms(started)
+        _cli_json_emit(payload)
+        return CLI_JSON_EXIT_DIAGNOSTIC
+
+    payload['ok'] = True
+    payload['duration_ms'] = _cli_elapsed_ms(started)
+    _cli_json_emit(payload)
+    return CLI_JSON_EXIT_OK
+
+
+def cmd_symbols(args):
+    """``light symbols``：导出符号表；``--json`` 走 ``patch_engine.symbols_json``。"""
+    module = _cli_patch_engine()
+    if module is None:
+        print('错误: 符号表模块缺失（src/patch_engine.py 未合入）', file=sys.stderr)
+        return CLI_JSON_EXIT_USAGE
+
+    started = time.monotonic()
+    if getattr(args, 'json', False):
+        payload = {
+            'schema_version': CLI_JSON_SCHEMA_VERSION,
+            'ok': False,
+            'file': args.file,
+            'producer': 'src/patch_engine.symbols_json',
+            'symbols': None,
+            'error': None,
+            'duration_ms': 0,
+        }
+        source, error = _cli_json_read_source(args.file)
+        if source is None:
+            payload['error'] = error
+            payload['duration_ms'] = _cli_elapsed_ms(started)
+            _cli_json_emit(payload)
+            return CLI_JSON_EXIT_USAGE
+        try:
+            payload['symbols'] = module.symbols_json(source, args.file)
+        except Exception as exc:
+            payload['error'] = f'{type(exc).__name__}: {exc}'
+            payload['duration_ms'] = _cli_elapsed_ms(started)
+            _cli_json_emit(payload)
+            return CLI_JSON_EXIT_DIAGNOSTIC
+        payload['ok'] = True
+        payload['duration_ms'] = _cli_elapsed_ms(started)
+        _cli_json_emit(payload)
+        return CLI_JSON_EXIT_OK
+
+    source = _read_source(args.file)
+    try:
+        data = module.symbols_json(source, args.file)
+    except Exception as exc:
+        print(f"符号表错误: {exc}", file=sys.stderr)
+        return CLI_JSON_EXIT_DIAGNOSTIC
+
+    definitions = data.get('definitions') or []
+    print(f"🔎 符号表: {args.file}")
+    print(f"   定义 {len(definitions)} 个 / 导入 {len(data.get('imports') or [])} 条"
+          f" / 导出 {len(data.get('exports') or [])} 个")
+    for item in definitions:
+        span = item.get('span') or {}
+        print(f"   - {item.get('kind')} {item.get('name')}"
+              f"（第 {span.get('start_line', 0)} 行，被引用 {item.get('references', 0)} 次）")
+    return CLI_JSON_EXIT_OK
+
+
+def cmd_patch(args):
+    """``light patch``：按 span 做确定性局部替换；**不写文件**，结果只走 stdout。"""
+    module = _cli_patch_engine()
+    if module is None:
+        print('错误: 补丁引擎模块缺失（src/patch_engine.py 未合入）', file=sys.stderr)
+        return CLI_JSON_EXIT_USAGE
+
+    started = time.monotonic()
+    json_mode = getattr(args, 'json', False)
+    file_arg = getattr(args, 'file', '-') or '-'
+    edits_arg = getattr(args, 'edits', None)
+
+    payload = {
+        'schema_version': CLI_JSON_SCHEMA_VERSION,
+        'ok': False,
+        'file': file_arg,
+        'producer': 'src/patch_engine.patch',
+        'changed': False,
+        'patched_source': None,
+        'diff_summary': None,
+        'error': None,
+        'duration_ms': 0,
+    }
+
+    def _fail(message, exit_code):
+        """统一失败出口：JSON 模式只吐一个对象，文本模式写 stderr 然后返回码。"""
+        if json_mode:
+            payload['error'] = message
+            payload['duration_ms'] = _cli_elapsed_ms(started)
+            _cli_json_emit(payload)
+        else:
+            print(f"错误: {message}", file=sys.stderr)
+        return exit_code
+
+    if file_arg == '-' and edits_arg in (None, '-'):
+        return _fail('源码与编辑列表不能都从 stdin 读；用 --edits 显式给编辑 JSON', CLI_JSON_EXIT_USAGE)
+
+    if file_arg == '-':
+        source = sys.stdin.read()
+    else:
+        source, error = _cli_json_read_source(file_arg)
+        if source is None:
+            return _fail(error, CLI_JSON_EXIT_USAGE)
+
+    if edits_arg in (None, '-'):
+        edits_text = sys.stdin.read()
+    else:
+        edits_text = edits_arg
+
+    try:
+        edits = json.loads(edits_text)
+    except ValueError as exc:
+        return _fail(f'编辑列表不是合法 JSON: {exc}', CLI_JSON_EXIT_USAGE)
+
+    try:
+        patched = module.patch(source, edits)
+    except Exception as exc:
+        return _fail(f'补丁被拒: {exc}', CLI_JSON_EXIT_DIAGNOSTIC)
+
+    diff = None
+    if getattr(args, 'diff', False) or json_mode:
+        try:
+            diff = module.diff_summary(source, patched)
+        except Exception as exc:
+            diff = {'available': False, 'error': f'{type(exc).__name__}: {exc}'}
+
+    if json_mode:
+        payload.update({
+            'ok': True,
+            'changed': bool(patched != source),
+            'patched_source': patched,
+            'diff_summary': diff,
+            'duration_ms': _cli_elapsed_ms(started),
+        })
+        _cli_json_emit(payload)
+        return CLI_JSON_EXIT_OK
+
+    sys.stdout.write(patched)
+    if getattr(args, 'diff', False) and diff:
+        changed = diff.get('changed_lines') or {}
+        print(f"\n# 改动行: 旧 {changed.get('old') or []} / 新 {changed.get('new') or []}",
+              file=sys.stderr)
+    return CLI_JSON_EXIT_OK
+
+
+def cmd_spec(args):
+    """``light spec``：只读输出或校验权威表；``--check`` 转发 build_spec 的退出码。"""
+    if getattr(args, 'check', False):
+        return _spec_check(args)
+
+    started = time.monotonic()
+    path = Path(_PROJECT_DIR) / 'spec' / 'light.spec.json'
+    message = '缺少 spec/light.spec.json；先跑 PYTHONPATH=src python3 -m spec.build_spec'
+    if not path.is_file():
+        if getattr(args, 'json', False):
+            _cli_json_emit({
+                'schema_version': CLI_JSON_SCHEMA_VERSION,
+                'ok': False,
+                'file': 'spec/light.spec.json',
+                'error': message,
+                'duration_ms': _cli_elapsed_ms(started),
+            })
+        else:
+            print(f'错误: {message}', file=sys.stderr)
+        return CLI_JSON_EXIT_USAGE
+
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError) as exc:
+        message = f'spec/light.spec.json 读取失败: {exc}'
+        if getattr(args, 'json', False):
+            _cli_json_emit({
+                'schema_version': CLI_JSON_SCHEMA_VERSION,
+                'ok': False,
+                'file': 'spec/light.spec.json',
+                'error': message,
+                'duration_ms': _cli_elapsed_ms(started),
+            })
+        else:
+            print(f'错误: {message}', file=sys.stderr)
+        return CLI_JSON_EXIT_USAGE
+
+    if getattr(args, 'json', False):
+        # 权威表本身就是 JSON：原样吐，不加壳字段（它是要被 diff 的规格文档）。
+        _cli_json_emit(data)
+        return CLI_JSON_EXIT_OK
+
+    print(f"📘 语言规格表: spec/light.spec.json"
+          f"（v{data.get('version')}，schema {data.get('schema_version')}）")
+    for key in ('keywords', 'operators', 'stdlib', 'syntax_forms', 'diagnostics'):
+        value = data.get(key)
+        size = len(value) if isinstance(value, (list, dict)) else value
+        print(f"   {key}: {size}")
+    print('提示: light spec --json 输出完整 JSON；light spec --check 校验是否陈旧')
+    return CLI_JSON_EXIT_OK
+
+
+def _spec_check(args):
+    """``light spec --check``：转发 ``spec.build_spec --check`` 的退出码，不写文件。"""
+    import contextlib
+    import importlib
+    import io
+
+    buffer = io.StringIO()
+    code = CLI_JSON_EXIT_DIAGNOSTIC
+    try:
+        builder = importlib.import_module('spec.build_spec')
+        with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+            code = int(builder.main(['--check']))
+    except SystemExit as exc:
+        code = int(exc.code or 0)
+    except Exception as exc:
+        buffer.write(f'spec --check 执行失败: {type(exc).__name__}: {exc}\n')
+        code = CLI_JSON_EXIT_USAGE
+
+    output = buffer.getvalue().strip()
+    if getattr(args, 'json', False):
+        _cli_json_emit({
+            'schema_version': CLI_JSON_SCHEMA_VERSION,
+            'ok': code == CLI_JSON_EXIT_OK,
+            'check': True,
+            'exit_code': code,
+            'output': output,
+        })
+        return code
+
+    if output:
+        print(output)
+    return code
+
+
+# ═══════════════════════════════════════════════════════════════════
 # AI Copilot 子命令
 # ═══════════════════════════════════════════════════════════════════
 
@@ -2081,6 +2732,34 @@ def _ai_archive_diagnostics(diagnostics, source, args):
         _ai_log(f'[报错归档] 失败（不影响检查结果）：{exc}')
 
 
+def _ai_stage_name(stage):
+    """把内部阶段名归一到任务卡口径：词法 / 语法 / 类型 / 运行。"""
+    text = str(stage or '')
+    for key, name in (('词法', '词法'), ('语法', '语法'), ('类型', '类型'), ('运行', '运行')):
+        if key in text:
+            return name
+    return '语法'
+
+
+def _ai_fix_suggestions(diagnostics):
+    """把各条诊断的 hint/fixes 聚合成可直接照做的修复清单（R222/T-0382）。"""
+    suggestions = []
+    for diag in diagnostics:
+        fixes = list(diag.get('fixes') or [])
+        hint = str(diag.get('hint') or '')
+        if not fixes and not hint:
+            continue
+        suggestions.append({
+            'code': diag.get('code'),
+            'stage': diag.get('stage'),
+            'line': diag.get('line'),
+            'column': diag.get('column'),
+            'hint': hint,
+            'fixes': fixes,
+        })
+    return suggestions
+
+
 def _ai_check_json(args):
     """``light ai check --json`` 主流程：返回退出码 0/1/2。"""
     started = time.monotonic()
@@ -2170,6 +2849,12 @@ def _ai_check_json(args):
 
     payload['ok'] = not any(
         diag['severity'] == 'error' for diag in payload['diagnostics'])
+    # R222/T-0382：补两个顶层字段（既有字段一个不动，向后兼容）。
+    # stage = 首个诊断的归一阶段；没有诊断时 = 实际跑到的最后阶段。
+    first = payload['diagnostics'][0] if payload['diagnostics'] else None
+    payload['stage'] = (_ai_stage_name(first['stage']) if first
+                        else ('运行' if args.run else '语法'))
+    payload['fix_suggestions'] = _ai_fix_suggestions(payload['diagnostics'])
     _ai_archive_diagnostics(payload['diagnostics'], source, args)
     return _ai_emit_json(
         payload, started,
@@ -2584,10 +3269,37 @@ def main():
     ast_p.add_argument('file', help='源文件路径')
     ast_p.add_argument('--backend', choices=['antlr', 'src'], default='src',
                        help='使用的后端（默认: src）')
+    ast_p.add_argument('--json', action='store_true',
+                       help='输出机器可读 AST（src/patch_engine.ast_to_json）；stdout 单 JSON 对象')
 
     # ── tokens ──
     tok_p = subparsers.add_parser('tokens', help='显示 Token 流')
     tok_p.add_argument('file', help='源文件路径')
+
+    # ── symbols ──
+    symbols_p = subparsers.add_parser('symbols', help='导出符号表（定义/导入/导出/作用域/引用）')
+    symbols_p.add_argument('file', help='源文件路径')
+    symbols_p.add_argument('--json', action='store_true',
+                           help='输出 src/patch_engine.symbols_json 的 JSON')
+
+    # ── patch ──
+    patch_p = subparsers.add_parser('patch', help='按 span 做确定性局部替换（只输出结果，不写文件）')
+    patch_p.add_argument('file', nargs='?', default='-',
+                         help='源文件路径；- 表示从 stdin 读源码')
+    patch_p.add_argument('--edits', default=None,
+                         help='编辑列表 JSON（[{span:{start_line,start_col,end_line,end_col},text}]）；'
+                              '缺省或 - 时从 stdin 读')
+    patch_p.add_argument('--json', action='store_true',
+                         help='输出 {ok,file,changed,patched_source,diff_summary}')
+    patch_p.add_argument('--diff', action='store_true',
+                         help='附带 diff_summary（改了哪些行 / 涉及哪些符号）')
+
+    # ── spec ──
+    spec_p = subparsers.add_parser('spec', help='输出/校验语言规格表（spec/light.spec.json）')
+    spec_p.add_argument('--json', action='store_true',
+                        help='把权威表原文当一个 JSON 对象吐到 stdout')
+    spec_p.add_argument('--check', action='store_true',
+                        help='只比对仓内 spec 是否陈旧（不写文件）；陈旧 rc=1')
 
     # ── check ──
     check_p = subparsers.add_parser('check', help='语法检查（默认启用类型检查）')
@@ -2598,6 +3310,12 @@ def main():
                          default='表达式', help='类型检查级别（默认: 表达式）')
     check_p.add_argument('--no-type-check', action='store_true',
                          help='跳过类型检查')
+    check_p.add_argument('--json', action='store_true',
+                         help='输出机器可读诊断（src/diagnostics.format_diagnostic）；'
+                              'stdout 单 JSON 对象，rc 0=无 error / 1=有 error / 2=用法错误')
+    check_p.add_argument('--partial', action='store_true',
+                         help='只解析不要求整文件闭合：按可解析的最长前缀检查，'
+                              '未闭合块记 warning、不 fail（partial: true）')
 
     # ── type-check ──
     tc_p = subparsers.add_parser('type-check', help='独立类型检查')
@@ -2864,6 +3582,12 @@ def main():
         cmd_tokens(args)
     elif args.command == 'check':
         cmd_check(args)
+    elif args.command == 'spec':
+        sys.exit(cmd_spec(args))
+    elif args.command == 'symbols':
+        sys.exit(cmd_symbols(args))
+    elif args.command == 'patch':
+        sys.exit(cmd_patch(args))
     elif args.command == 'type-check':
         cmd_type_check(args)
     elif args.command == 'init':
