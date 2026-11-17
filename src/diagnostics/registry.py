@@ -24,9 +24,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from .model import MAX_FIXES, SEVERITIES, Diagnostic
+from .model import ANCHORS, MAX_FIXES, SEVERITIES, Diagnostic, DiagnosticSpec
+from .lint_bridge import LINT_RULE_MAP, LINT_SPECS
 
 __all__ = [
     "CODE_SEGMENTS",
@@ -38,6 +39,15 @@ __all__ = [
     "explain",
     "get",
     "to_legacy_entry",
+    # ---- T-0378（R222-B 线）：统一诊断码注册表 ----
+    "DIAG_SEGMENTS",
+    "LEGACY_CODE_COUNT",
+    "DiagnosticSpec",
+    "ANCHORS",
+    "DIAGNOSTICS",
+    "diagnostic",
+    "all_diagnostic_codes",
+    "format_diagnostic",
 ]
 
 #: 码段 → 含义。首位数字即码段号，后三位为段内序号。
@@ -474,3 +484,151 @@ def to_legacy_entry(diag: Diagnostic):
         column=diag.column,
         fix_suggestions=list(diag.fixes),
     )
+
+
+# ---------------------------------------------------------------------------
+# R222-B 线（T-0378）：统一诊断码注册表
+# ---------------------------------------------------------------------------
+# 与上面 T-0316 的 explain() 归因引擎分工：
+#   * RULES / explain()  —— 回答「这条报错文本是哪个码」（动态归因，docs/错误码
+#     规范.md v1 的口径，码段含义沿用 CODE_SEGMENTS，向下兼容承诺不变）；
+#   * DIAGNOSTICS / diagnostic() / format_diagnostic() —— 回答「这个码是什么
+#     意思、怎么修、谁产生」（R222-B 线静态码表，agent 取「错误码 + 位置 +
+#     最小修复」的唯一事实源）。
+#
+# 段义口径（经用户 2026-11-17 拍板）：
+#   * T-0316 已占号段（L1001-L1007 / L2001-L2003 / L3001-L3004 / L4001-L4002 /
+#     L5001-L5003）**收编不重排**——码值与语义沿用 docs/错误码规范.md v1，
+#     ``legacy=True`` 标注；
+#   * R222 新段义（DIAG_SEGMENTS）只约束 ``legacy=False`` 的新码；
+#   * L5 段旧义是「后端差异」，lint 类新码从 L5004 起避让已占号段。
+DIAG_SEGMENTS: Dict[str, str] = {
+    "L1": "词法/关键字",
+    "L2": "语法/结构",
+    "L3": "类型与名字",
+    "L4": "语义与后端",
+    "L5": "工程与风格（lint 类）",
+}
+
+#: 收编码（T-0316）按旧段义分派 anchor：编译前端报错 → parser；
+#: 运行期报错经 run 命令出口 → cli；后端差异是编译命令产物 → cli。
+_LEGACY_SEGMENT_ANCHOR: Dict[str, str] = {
+    "L1": "parser",
+    "L2": "parser",
+    "L3": "cli",
+    "L4": "parser",
+    "L5": "cli",
+}
+
+#: T-0316 收编码条数（快照自 docs/错误码规范.md v1「19 条」）。
+LEGACY_CODE_COUNT = 19
+
+
+def _legacy_specs() -> List[DiagnosticSpec]:
+    """把 T-0316 的 :data:`RULES` 收编进统一注册表。
+
+    码值 / severity / hint 原样沿用（不两抄，防漂移）；message 取规则的
+    ``title``（本来就是中文一句话）；anchor 按段分派（见
+    :data:`_LEGACY_SEGMENT_ANCHOR`）。RULES 未来若扩码而忘了登记 anchor，
+    这里 KeyError 直接暴露，不静默。
+    """
+    specs: List[DiagnosticSpec] = []
+    for rule in RULES:
+        specs.append(
+            DiagnosticSpec(
+                code=rule.code,
+                severity=rule.severity,
+                message=rule.title,
+                hint=rule.hint,
+                anchor=_LEGACY_SEGMENT_ANCHOR[rule.code[:2]],
+                legacy=True,
+            )
+        )
+    return specs
+
+
+#: 统一诊断码表：T-0316 收编 19 条 + lint 桥接 33 条（L5004-L5036）。
+#: 构建时强校验：码格式（L[1-5]\\d{3}，杜绝 L9xxx 之类未定区间）、段位合法、
+#: 码唯一。新码来源见 ``lint_bridge.LINT_SPECS``。
+DIAGNOSTICS: Dict[str, DiagnosticSpec] = {}
+for _spec in (*_legacy_specs(), *LINT_SPECS):
+    if not CODE_PATTERN.fullmatch(_spec.code):
+        raise ValueError(f"诊断码格式必须是 L[1-5]NNN，收到 {_spec.code!r}")
+    if _spec.code[:2] not in DIAG_SEGMENTS:
+        raise ValueError(f"诊断码段位非法：{_spec.code[:2]}（{_spec.code!r}）")
+    if _spec.code in DIAGNOSTICS:
+        raise ValueError(f"诊断码重复注册：{_spec.code}")
+    DIAGNOSTICS[_spec.code] = _spec
+del _spec
+
+
+def diagnostic(code: str) -> DiagnosticSpec:
+    """按码**严格查询**统一码表；未注册的 code 抛 ``KeyError``。
+
+    不存在返回空会让下游写出假码（T-0378 红线），所以这里宁可抛异常。
+    T-0316 的 :func:`get` 返回 ``None`` 的宽松语义被 ``docs/错误码规范.md``
+    §3 锁定为兼容承诺，本函数才是「未注册即报错」的入口。
+    """
+    if not isinstance(code, str):
+        raise KeyError(f"诊断码必须是字符串，收到 {type(code).__name__}：{code!r}")
+    try:
+        return DIAGNOSTICS[code]
+    except KeyError:
+        raise KeyError(
+            f"未注册的诊断码：{code!r}；合法码段 {sorted(DIAG_SEGMENTS)}，"
+            f"全集见 all_diagnostic_codes()"
+        ) from None
+
+
+def all_diagnostic_codes() -> Tuple[str, ...]:
+    """统一注册表全部已注册码（收编 + lint 桥接），注册顺序稳定。"""
+    return tuple(DIAGNOSTICS)
+
+
+def format_diagnostic(
+    code: str,
+    file: str,
+    line: int,
+    col: int,
+    extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """把「错误码 + 位置 + 最小修复」格式化成可直接 ``json.dumps`` 的 dict。
+
+    参数
+    ----
+    code
+        已注册的诊断码；未注册抛 ``KeyError``（假码在源头就被拦下）。
+    file
+        源文件路径（非空字符串）。
+    line, col
+        位置；非负整数，``0`` 表示未知（与 ``model.Diagnostic`` 同一纪律：
+        不许编造行号）。输出键用 ``column``，与 ``DIAGNOSTIC_FIELDS`` 命名
+        保持一致。
+    extra
+        可选补充信息。dict 时**只补充新键**（核心键不被覆盖），其余类型
+        拒绝——保证返回值永远可 ``json.dumps``。
+    """
+    spec = diagnostic(code)
+    if not isinstance(file, str) or not file:
+        raise ValueError(f"file 必须是非空字符串，收到 {file!r}")
+    for name, value in (("line", line), ("col", col)):
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise ValueError(
+                f"{name} 必须是非负整数；0 表示位置未知，收到 {value!r}"
+            )
+    payload: Dict[str, Any] = {
+        "code": spec.code,
+        "severity": spec.severity,
+        "message": spec.message,
+        "hint": spec.hint,
+        "anchor": spec.anchor,
+        "file": file,
+        "line": line,
+        "column": col,
+    }
+    if extra is not None:
+        if not isinstance(extra, dict):
+            raise TypeError(f"extra 必须是 dict 或 None，收到 {type(extra).__name__}")
+        for key, value in extra.items():
+            payload.setdefault(key, value)
+    return payload

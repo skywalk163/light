@@ -23,7 +23,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple
 
-__all__ = ["Diagnostic", "SEVERITIES", "MAX_FIXES", "DIAGNOSTIC_FIELDS"]
+__all__ = [
+    "Diagnostic",
+    "SEVERITIES",
+    "MAX_FIXES",
+    "DIAGNOSTIC_FIELDS",
+    "DiagnosticSpec",
+    "ANCHORS",
+]
 
 #: 允许的三个严重度。warning/info 不会被本框架升级成 error。
 SEVERITIES: Tuple[str, ...] = ("error", "warning", "info")
@@ -119,3 +126,62 @@ class Diagnostic:
         import json
 
         return json.dumps(self.to_dict(), ensure_ascii=ensure_ascii)
+
+
+#: ``DiagnosticSpec.anchor`` 的合法取值（R222-B 线口径）：
+#: * ``parser``  —— 编译管线产生（词法/语法/类型/语义/模块/后端 codegen 报错）；
+#: * ``linter``  —— 静态检查器产生（lint 类码）；
+#: * ``cli``     —— 运行期 / 命令层产生（run 期报错等）。
+ANCHORS: Tuple[str, ...] = ("parser", "linter", "cli")
+
+
+@dataclass(frozen=True)
+class DiagnosticSpec:
+    """R222-B 线（T-0378）诊断码注册表的**一条码**。
+
+    与 T-0316 的 ``Rule``（explain() 的正则归因规则）分工不同：
+
+    * ``Rule``     —— 回答「这条报错文本是哪个码」（动态归因）；
+    * ``DiagnosticSpec`` —— 回答「这个码是什么意思、怎么修、谁产生」（静态码表）。
+
+    字段即 R222-B 线任务卡固定的契约：
+    ``code`` / ``severity``（error|warning|info）/ ``message``（中文，一句话
+    说清人话）/ ``hint``（最小修复建议，可直接照做）/ ``anchor``（这条码由谁
+    产生：cli / linter / parser）。
+
+    ``legacy`` 标记收编自 T-0316 的码：码值与语义沿用
+    ``docs/错误码规范.md`` v1 口径，**不变更不迁移**；R222 新段义只约束
+    ``legacy=False`` 的新码（见 ``registry.DIAG_SEGMENTS``）。
+    """
+
+    code: str
+    severity: str = "error"
+    message: str = ""
+    hint: str = ""
+    anchor: str = "parser"
+    legacy: bool = False
+
+    def __post_init__(self) -> None:
+        if self.severity not in SEVERITIES:
+            raise ValueError(
+                f"severity 必须是 {SEVERITIES} 之一，收到 {self.severity!r}"
+            )
+        if not isinstance(self.message, str) or not self.message.strip():
+            raise ValueError(f"{self.code} message 必须是非空中文一句话")
+        if not isinstance(self.hint, str) or not self.hint.strip():
+            raise ValueError(f"{self.code} hint 必须是非空的最小修复建议")
+        if self.anchor not in ANCHORS:
+            raise ValueError(
+                f"{self.code} anchor 必须是 {ANCHORS} 之一，收到 {self.anchor!r}"
+            )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """稳定字段顺序导出，可直接 JSON 序列化。"""
+        return {
+            "code": self.code,
+            "severity": self.severity,
+            "message": self.message,
+            "hint": self.hint,
+            "anchor": self.anchor,
+            "legacy": self.legacy,
+        }
