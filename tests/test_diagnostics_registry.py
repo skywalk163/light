@@ -476,3 +476,171 @@ def test_to_legacy_entry_of_all_explain_results():
             fix_suggestions=list(diag.fixes),
         )
         assert legacy.format() == direct.format(), code
+
+
+# ===========================================================================
+# T-0378（R222-B 线）：统一诊断码注册表
+# ---------------------------------------------------------------------------
+# 判据（对应任务卡「完成标准」）：
+# * 码唯一、区间合法（L[1-5]NNN，无 L9xxx 之类未定区间）；
+# * 每条码都有 message（中文一句话）与 hint（最小修复建议）；
+# * format_diagnostic 输出可 json.dumps；
+# * 未注册码抛 KeyError（diagnostic / format_diagnostic 双入口）。
+# 口径（用户 2026-11-17 拍板）：T-0316 的 19 条码收编不重排（legacy=True）；
+# lint 类新码从 L5004 起避让 L5001-L5003；get() 保持 docs 规范 v1 的
+# 「未注册返回 None」语义，严格查询由 diagnostic() 承担。
+# ===========================================================================
+from src.diagnostics import (  # noqa: E402
+    ANCHORS,
+    DIAG_SEGMENTS,
+    DIAGNOSTICS,
+    DiagnosticSpec,
+    LEGACY_CODE_COUNT,
+    LINT_RULE_MAP,
+    all_diagnostic_codes,
+    diagnostic,
+    format_diagnostic,
+    lint_rule_to_code,
+)
+from src.linter.light_linter import RULES as LINTER_RULES  # noqa: E402
+
+_EXPECTED_LINT_COUNT = len(LINTER_RULES)
+_EXPECTED_TOTAL = LEGACY_CODE_COUNT + _EXPECTED_LINT_COUNT
+
+
+def test_unified_registry_covers_legacy_and_lint():
+    """统一码表 = T-0316 收编 19 条 + lint 桥接（linter 全部规则）。"""
+    codes = all_diagnostic_codes()
+    assert len(codes) == len(set(codes)), "统一码表出现重复码"
+    assert len(codes) == _EXPECTED_TOTAL
+    assert set(codes) == set(all_codes()) | set(LINT_RULE_MAP.values())
+    assert DIAGNOSTICS == {code: diagnostic(code) for code in codes}
+
+
+def test_legacy_specs_keep_original_values_and_severity():
+    """收编不重排：码值 / severity / hint / message 与 RULES 逐条一致。"""
+    for rule in RULES:
+        spec = diagnostic(rule.code)
+        assert spec.legacy is True
+        assert spec.code == rule.code
+        assert spec.severity == rule.severity
+        assert spec.hint == rule.hint
+        assert spec.message == rule.title
+    assert len(RULES) == LEGACY_CODE_COUNT == 19
+
+
+def test_lint_bridge_maps_all_linter_rules():
+    """「旧码 → 新码」映射必须覆盖 linter 全部规则，且 severity 对拍不漂移。"""
+    assert set(LINT_RULE_MAP) == set(LINTER_RULES), "linter 规则与映射表不对拍"
+    for rule_id, code in LINT_RULE_MAP.items():
+        spec = diagnostic(code)
+        assert spec.legacy is False
+        assert spec.anchor == "linter"
+        assert spec.severity == LINTER_RULES[rule_id]["severity"], rule_id
+    assert len(set(LINT_RULE_MAP.values())) == len(LINT_RULE_MAP), "新码值有撞号"
+
+
+def test_lint_codes_avoid_legacy_range_and_start_at_l5004():
+    """lint 码从 L5004 起、避让 L5001-L5003；区间连续无跳号。"""
+    lint_codes = {code for code in all_diagnostic_codes() if not diagnostic(code).legacy}
+    expected = {f"L{5004 + i}" for i in range(_EXPECTED_LINT_COUNT)}
+    assert lint_codes == expected
+    assert not (lint_codes & set(all_codes())), "lint 新码与 T-0316 收编码撞号"
+
+
+def test_every_spec_has_message_hint_and_valid_anchor():
+    """任务卡硬判据：每条码都有 message 与 hint；anchor/severity 合法。"""
+    for code in all_diagnostic_codes():
+        spec = diagnostic(code)
+        assert isinstance(spec, DiagnosticSpec)
+        assert spec.message.strip(), code
+        assert spec.hint.strip(), code
+        assert spec.severity in SEVERITIES, code
+        assert spec.anchor in ANCHORS, code
+
+
+def test_all_codes_in_defined_segments_no_undefined_range():
+    """区间合法：L[1-5]NNN、段位在 DIAG_SEGMENTS 内，无 L6xx/L9xxx 未定区间。"""
+    for code in all_diagnostic_codes():
+        assert CODE_PATTERN.fullmatch(code), code
+        assert code[:2] in DIAG_SEGMENTS, code
+        assert code[:2] in {"L1", "L2", "L3", "L4", "L5"}, code
+
+
+def test_diagnostic_strict_lookup_raises_key_error_for_unknown():
+    """未注册的 code 必须抛 KeyError（避免下游写出假码）。"""
+    for code in all_diagnostic_codes():
+        spec = diagnostic(code)
+        assert spec.code == code
+    with pytest.raises(KeyError):
+        diagnostic("L9999")
+    with pytest.raises(KeyError):
+        diagnostic("l2001")  # 大小写敏感
+    with pytest.raises(KeyError):
+        diagnostic(123)
+    with pytest.raises(KeyError):
+        diagnostic(None)
+
+
+def test_lint_rule_to_code_roundtrip():
+    """旧规则码 → 新码逐条可查；未登记旧码抛 KeyError。"""
+    for rule_id, code in LINT_RULE_MAP.items():
+        assert lint_rule_to_code(rule_id) == code
+    with pytest.raises(KeyError):
+        lint_rule_to_code("E999")
+
+
+def test_format_diagnostic_output_shape_and_stable_order():
+    payload = format_diagnostic("L1001", "demo.light", 3, 5)
+    assert list(payload) == [
+        "code", "severity", "message", "hint", "anchor", "file", "line", "column",
+    ]
+    assert payload["code"] == "L1001"
+    assert payload["file"] == "demo.light"
+    assert payload["line"] == 3
+    assert payload["column"] == 5
+    assert payload["anchor"] == "parser"
+    # 幂等：同样入参两次格式化逐字相等，可直接 diff
+    assert payload == format_diagnostic("L1001", "demo.light", 3, 5)
+
+
+def test_format_diagnostic_is_json_serializable_for_all_codes():
+    """任务卡硬判据：输出可 json.dumps。"""
+    for code in all_diagnostic_codes():
+        payload = format_diagnostic(code, "x.light", 1, 1)
+        text = json.dumps(payload, ensure_ascii=False)
+        restored = json.loads(text)
+        assert restored == payload
+    # extra 是 dict 时也必须可序列化
+    payload = format_diagnostic("L2001", "x.light", 2, 7, extra={"实际传入": 3})
+    assert json.loads(json.dumps(payload, ensure_ascii=False)) == payload
+
+
+def test_format_diagnostic_extra_merges_without_overriding_core_keys():
+    payload = format_diagnostic("L1001", "a.light", 1, 1, extra={"期望": "段落"})
+    assert payload["期望"] == "段落"
+    poisoned = format_diagnostic("L1001", "a.light", 1, 1, extra={"file": "别处.light"})
+    assert poisoned["file"] == "a.light"  # 核心键不被 extra 覆盖
+    assert "extra" not in format_diagnostic("L1001", "a.light", 1, 1)
+
+
+def test_format_diagnostic_validates_arguments():
+    with pytest.raises(ValueError):
+        format_diagnostic("L1001", "", 1, 1)  # file 非空
+    with pytest.raises(ValueError):
+        format_diagnostic("L1001", "a.light", -1, 1)
+    with pytest.raises(ValueError):
+        format_diagnostic("L1001", "a.light", 1, -1)
+    with pytest.raises(ValueError):
+        format_diagnostic("L1001", "a.light", True, 1)  # bool 冒充 int
+    with pytest.raises(ValueError):
+        format_diagnostic("L1001", "a.light", 1.5, 1)
+    with pytest.raises(TypeError):
+        format_diagnostic("L1001", "a.light", 1, 1, extra="字符串")
+
+
+def test_format_diagnostic_unknown_code_raises_key_error():
+    with pytest.raises(KeyError):
+        format_diagnostic("L9999", "a.light", 1, 1)
+    with pytest.raises(KeyError):
+        format_diagnostic("L9001", "a.light", 1, 1)
