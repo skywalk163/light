@@ -39,6 +39,13 @@ benchmarks/light_agent/
 里的文件铺进临时工作区，跑判定；不通过就换下一次尝试，直到通过或用完。
 这样 CI 能**离线验证 harness 本身**：断言写错了、fixture 坏了，测试立刻红。
 
+`fixtures/` 里除 `.light` 之外还可能有**数据起始件**（例如 LA-006 要读的 `数据.txt`）。
+仓根 `.gitignore` 有一条全局 `*.txt`（那是给门禁基线留的），会把这类的起始件也一起吃掉：
+T-0381 首版提交就漏了 `fixtures/数据.txt`，本地因为文件还在磁盘上所以测试照常绿，一合入/换机就
+`LA_E_FIXTURE`。本目录的 `.gitignore` 用 `!fixtures/*.txt` 把起始件捞回来，提交前仍请用
+`git status --ignored` 确认没有 `!!` 残留；`tests/test_light_agent_bench.py` 也会断言
+`setup.from` 指向的起始件**确实被 git 跟踪**。
+
 ## 3. `tasks.jsonl` 字段
 
 ```json
@@ -143,6 +150,7 @@ python benchmarks/light_agent/run_benchmarks_agent.py --list                    
 
 1. **写题**：在 `tasks.jsonl` 末尾加一行，`id` 顺延，`prompt` 用人话描述需求（不泄露答案）。
 2. **备起始件**：`新建` 不用；其余把「坏/旧/啰嗦」的 `.light` 放进 `fixtures/`，在 `setup` 里铺到工作区。
+   需要非 `.light` 的输入数据（如 `数据.txt`）也放 `fixtures/`——注意仓根 `*.txt` 忽略规则，见 §2 的说明。
 3. **备补丁**：把「正确产物」整文件写进 `stub_answers/<id>/attempt-1/`。
    想模拟「第一次写错、第二次才对」，就再放 `attempt-2/`——`retries` 会自然变成 1。
 4. **写断言**：能断言行为就断言行为（`stdout_equals`），再补一条结构断言（`contains`/`not_contains`）防止「碰巧输出对」。
@@ -181,4 +189,6 @@ python benchmarks\light_agent\run_benchmarks_agent.py --model stub --json
 - 补丁是**整文件快照**，不是行级 diff：不依赖 `git apply` / `patch`，Windows 和 FreeBSD 行为一致。
   改一处就重写整个文件，别指望「打个 hunk」。
 - 新增/删除任务必须同步改 `tests/test_light_agent_bench.py` 里的配额断言（20 条、6/5/5/4）。
+- 新增起始件后提交前跑一次 `git status --ignored -- benchmarks/light_agent`：出现 `!!` 就是被忽略规则
+  吃掉了（仓根 `*.txt`／`*.json` 都会命中）。要么 `git add -f`，要么在本目录 `.gitignore` 里加负向规则。
 - 报告里的「新增红」只认 `--model stub` 的 `failed` 条数；`LA_E_*` 是骨架故障，`L####` 是语言问题，分开看。

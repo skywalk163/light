@@ -5,6 +5,10 @@
   1. ``tasks.jsonl`` 每行都能 ``json.loads``，字段齐全、枚举合法、配额对得上；
   2. ``--model stub`` 跑全 20 条必须全绿（证明 harness 本身可离线判定）；
   3. 故意破坏一条 fixture，对应任务必须判失败（证明断言真的在起作用）。
+
+外加一条入库自检：``setup.from`` 指向的起始件不仅要在磁盘上，还必须被 git 跟踪。
+仓根 ``.gitignore`` 有全局 ``*.txt``／``*.json``，起始件被它吃掉时本地测试照样绿
+（文件还在磁盘上），合入或换机才炸——T-0381 的 ``fixtures/数据.txt`` 就是这么漏的。
 """
 
 from __future__ import annotations
@@ -16,6 +20,8 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BENCH_DIR = REPO_ROOT / "benchmarks" / "light_agent"
@@ -171,3 +177,44 @@ def test_unwired_model_is_reported_not_faked():
     assert "未接线" in proc.stderr
     assert "pass_rate" not in proc.stdout
     assert "deepseek-chat" in proc.stderr
+
+
+def _git_tracked_bench_files() -> set[str] | None:
+    """benchmark 目录下被 git 跟踪的文件（相对仓根、正斜杠）；没有 git 环境返回 None。"""
+    git = shutil.which("git")
+    if not git or not (REPO_ROOT / ".git").exists():
+        return None
+    proc = subprocess.run(
+        [git, "-C", str(REPO_ROOT), "-c", "core.quotepath=false",
+         "ls-files", "-z", "--", "benchmarks/light_agent"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        timeout=60.0,
+    )
+    if proc.returncode != 0:
+        return None
+    return {item for item in proc.stdout.split("\0") if item}
+
+
+def test_setup_fixtures_exist_and_are_tracked():
+    """起始件必须在磁盘上，而且真的进了仓（防 *.txt 忽略规则静默吃掉）。"""
+    refs = sorted({
+        step["from"]
+        for _, task in _load_tasks()
+        for step in (task.get("setup") or [])
+        if isinstance(step, dict) and step.get("from")
+    })
+    assert refs, "没有任何任务用到起始件，基准集已经不覆盖「改/修/重构」"
+
+    missing = [ref for ref in refs if not (BENCH_DIR / ref).is_file()]
+    assert not missing, f"起始件不存在: {missing}"
+
+    tracked = _git_tracked_bench_files()
+    if tracked is None:
+        pytest.skip("没有可用的 git 工作树，跳过「起始件是否入库」检查")
+
+    expected = {f"benchmarks/light_agent/{ref}" for ref in refs}
+    untracked = sorted(expected - tracked)
+    assert not untracked, (
+        "起始件没进 git（多半被仓根忽略规则吃掉，本地却因为文件还在磁盘上而假绿）：\n  "
+        + "\n  ".join(untracked)
+    )
