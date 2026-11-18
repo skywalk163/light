@@ -651,7 +651,9 @@ def build_stdlib() -> dict:
 
     stdlib = ROOT / "stdlib"
     modules = []
-    for light_path in sorted(stdlib.glob("*.light")):
+    # 排序键必须显式给定：Windows 上 Path 的 __lt__ 按大小写不敏感比较
+    # （`__init__.py` 排在 `Base64.light` 前），POSIX 按码点，顺序会不同。
+    for light_path in sorted(stdlib.glob("*.light"), key=_stdlib_sort_key):
         module = light_path.name[:-len(".light")]
         lines = _read(light_path).splitlines()
         names: list[str] = []
@@ -882,9 +884,29 @@ def build_diagnostics() -> list[dict]:
 # 汇总
 # =============================================================================
 
+def _stdlib_sort_key(path: Path) -> tuple[str, str]:
+    """stdlib 文件的平台无关排序键。
+
+    直接 ``sorted(Path)`` 会踩平台差异：pathlib 在 Windows 上按**大小写不敏感**
+    （casefold）比较，POSIX 按码点比较——同一棵树会排出不同顺序，模块数组和
+    ``stdlib_汇总`` 都不再逐字节稳定（T-0388 在 0.88 上实测撞到：Windows 把
+    ``__init__.py`` 排在 ``Base64.light`` 前，FreeBSD 正好相反）。
+
+    取 ``(casefold, 原串)`` 作键：两平台顺序一致；casefold 相同的两个名字再用
+    原串定序，保证是全序而不是依赖 glob 的返回次序。
+    """
+    rel = _rel(path)
+    return (rel.casefold(), rel)
+
+
 def _stdlib_digest() -> str:
     h = hashlib.sha256()
-    for p in sorted(list((ROOT / "stdlib").glob("*.light")) + list((ROOT / "stdlib").glob("*.py"))):
+    # 排序键见 _stdlib_sort_key：不能直接用 sorted(Path)，平台间的顺序不同。
+    stdlib_files = sorted(
+        list((ROOT / "stdlib").glob("*.light")) + list((ROOT / "stdlib").glob("*.py")),
+        key=_stdlib_sort_key,
+    )
+    for p in stdlib_files:
         h.update(_rel(p).encode("utf-8"))
         h.update(b"\0")
         h.update(_sha256_normalized(p).encode("ascii"))

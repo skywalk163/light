@@ -126,6 +126,23 @@ def test_stdlib_digest_ignores_line_endings(tmp_path, monkeypatch):
     )
 
 
+def test_stdlib_modules_are_ordered_by_codepoint():
+    """模块顺序必须按 `(casefold, 原串)` 排——这是跨平台唯一稳定的顺序。
+
+    T-0388：`sorted(stdlib.glob("*.light"))` 在 Windows 上把 `__init__.py` 排在
+    `Base64.light` 前（Path 按大小写不敏感比较），POSIX 按码点把它排在后面。
+    同一棵树在两种平台上会生成不同顺序的 JSON，逐字节门禁就会在非 Windows
+    检出上假红。
+    """
+    data = _load()
+    names = [m["模块"] for m in data["stdlib"]["模块"]]
+    expected = sorted(names, key=lambda n: (n.casefold(), n))
+    assert names == expected, (
+        "stdlib 模块顺序不是跨平台的稳定顺序；Windows 与 POSIX 会排出不同结果，"
+        "spec JSON 无法逐字节一致"
+    )
+
+
 def test_required_sections_present():
     data = _load()
     for key in ("version", "generated_from", "keywords", "operators",
