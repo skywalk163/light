@@ -540,7 +540,18 @@ void dv_slot_set(LightValue* dst, LightValue* src, int rel_old, int copy_src) {
     (void)copy_src;
     if (!dst || !src || dst == src) return;
     if (!dv_l217_enabled()) { *dst = *src; return; }
-    if (rel_old) dv_slot_release(dst);
+    if (rel_old) {
+        /* 别名保护（R162-B 实测确立）：src 与 dst 的旧值指向**同一块** OWNED 缓冲时，
+         * 先释放旧值会让紧随其后的 `*dst = *src` 拿到悬挂指针，随后第 546 行
+         * `dv_is_obj_str` 的 strncmp 就读已释放块（ASAN: heap-use-after-free in
+         * strncmp ⇐ dv_slot_set:546 ⇐ dv_slot_release:519）。缓冲区仍由 src 一侧
+         * 持有 / 按它自己的生命周期释放，故此处跳过释放即可，不泄漏。 */
+        if (src->type == 3 && dst->type == 3 && src->str && src->str == dst->str) {
+            rel_old = 0;
+        } else {
+            dv_slot_release(dst);
+        }
+    }
     *dst = *src;
     if ((dst->type != 3 && dst->type != LV_TYPE_DECIMAL) || !dst->str) return;
     if (dv_is_obj_str(dst->str)) return;       /* I4：OBJ 走既有协议，浅拷（必须先判） */
