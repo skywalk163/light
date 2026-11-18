@@ -1288,7 +1288,14 @@ class TypedLLVMCodeGen(LLVMCodeGen):
         if not self._l217_active:
             self.emit(f'store {LIGHTVALUE_STRUCT} {param_val}, ptr {param_slot}')
             return
-        tmp = self._new_dv_slot()
+        # ⚠️ 中转槽必须用**裸 alloca**，不能走 `_new_dv_slot()`：后者登记的临时槽会在
+        # 语句末被 `dv_temp_release` 清扫，而这里放进去的恰恰是**调用方**的 OWNED 指针
+        # —— 清扫会把调用方的缓冲释放掉，等于换个地方踩同一个坑。alloca 生命周期到
+        # 函数返回、不参与任何释放列表；且它落在 param_valid 块里，每次调用只执行一次。
+        tmp = self.new_register()
+        self.emit(f'{tmp} = alloca {LIGHTVALUE_STRUCT}')
+        self.emit(f'store {LIGHTVALUE_STRUCT} {param_val}, ptr {tmp}')
+        self.emit(f'call void @dv_take(ptr {param_slot}, ptr {tmp})')
         self.emit(f'store {LIGHTVALUE_STRUCT} {param_val}, ptr {tmp}')
         self.emit(f'call void @dv_take(ptr {param_slot}, ptr {tmp})')
 
