@@ -5,6 +5,8 @@ name: Debug Linux Segv
 
 on:
   workflow_dispatch:
+  push:
+    branches: [fix/ci-linux-native-20261118]
 
 jobs:
   dbg:
