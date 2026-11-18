@@ -30,6 +30,16 @@ import sys
 import tempfile
 import unittest
 
+import pytest
+
+# T-0390：本文件每条用例都真起一个 `python -m cli.light run` 子进程（编译 + 运行），
+# 单跑 4–8s，0.88 全量 `-n 6` 下实测 55–61s——正好压在全局 `--timeout=60` 上，
+# 负载一高就在 59–61s 之间随机翻红（T-0383 三轮全量里 test_B5 / test_B7 轮流红）。
+# 标 slow 由 tests/conftest.py 的接线提限（见 pyproject `slow_timeout`）；
+# slow 同时意味着 PR 的 `-m "not slow"` 会跳过本文件——这是有意的取舍：
+# 本文件守的是「解析→生成→运行」三段联动，属 main 推送全量门的范畴，不是快速门。
+pytestmark = pytest.mark.slow
+
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 

@@ -106,6 +106,12 @@ def _clang_available():
 _MSVC_OK = (os.name != "nt") or bool(_find_msvc_env()[0])
 
 pytestmark = [
+    # T-0390：本文件是原生腿「重生成本」最高的一批——每例都要真 clang 编译再跑产物，
+    # 中文分词 / 拼音转换两例在 0.88 全量 `-n 6` 下实测 55–61s，正好压在全局
+    # `--timeout=60` 上，负载一高就随机翻红（T-0383 三轮里两例轮流红）。
+    # 标 slow 由 tests/conftest.py 的接线提限（pyproject 的 slow_timeout），
+    # 全局 --timeout=60 保持不动。slow 也意味着 PR 的 `-m "not slow"` 会跳过本文件。
+    pytest.mark.slow,
     pytest.mark.skipif(not _clang_available(), reason="未找到 clang，跳过原生腿测试"),
     pytest.mark.skipif(os.name == "nt" and not _MSVC_OK, reason="未定位到 MSVC/Windows SDK 头，跳过"),
 ]

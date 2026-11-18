@@ -26,6 +26,14 @@ import sys
 import tempfile
 import unittest
 
+import pytest
+
+# T-0390：重生成本在 clang 交叉编译 + 跑产物（含 Windows 上定位 MSVC/SDK），
+# 0.88 全量 `-n 6` 下实测 52–61s，正好压在全局 `--timeout=60` 上：负载一高就随机翻红
+# （T-0383 三轮里 test_断言工具_对拍Python 在 M2 单轮翻红）。标 slow 由
+# tests/conftest.py 的接线提限；slow 也意味着 PR 的 `-m "not slow"` 会跳过本文件。
+pytestmark = pytest.mark.slow
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
 for p in (_ROOT, os.path.join(_ROOT, "src")):

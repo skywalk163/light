@@ -79,6 +79,37 @@ except Exception as _e:  # pylint: disable=broad-except
 
 
 
+# ── T-0390：slow 用例的超时提限接线 ──────────────────────────────────────────
+# 背景：pyproject 的 addopts 写死 `--timeout=60`（每用例上限）。一批用例在 0.88
+# 全量 `-n 6` 下实测 52–61s，60s 正好压在它们头上；机器被别的 agent 挤到 load≈15
+# 时就在 59–61s 之间随机翻红，同一份提交三轮全量的失败集合互不相同。
+#
+# 这里给**标记了 slow 的用例**补一条 `timeout` marker。pytest-timeout 的取值顺序是
+# 「item 上的 timeout marker > 命令行 --timeout」（见 pytest_timeout.py
+# `_get_item_settings`：marker 先赋值，`if timeout is None` 才回落到 ini 值），
+# 所以只有 slow 用例被提限，**全局 --timeout=60 原样保留**——真卡死的快用例
+# 仍旧 60s 被掐，不会把整轮拖到 remote_ci 的 --timeout=5400s。
+#
+# 秒数用环境变量 `LIGHT_SLOW_TIMEOUT` 覆盖，默认 600：踩线耗时随机器/负载变，
+# 机器更慢时在命令行前加 `LIGHT_SLOW_TIMEOUT=1200` 即可，不动代码。
+# 为什么不用 ini（`slow_timeout = …`）：仓库根的 conftest.py 不在本卡可改路径里，
+# 自定义 ini 选项只能在 rootdir 的 conftest 用 `pytest_addoption` 注册；放
+# tests/conftest.py 里注册已经晚了，pytest 会先报 "Unknown config option"。
+#
+# 不指定 timeout 方法：让它沿用 pytest-timeout 的默认（POSIX 走 signal、Windows
+# 走 thread）。显式写 `method="signal"` 在 Windows 上直接不可用。
+_SLOW_TIMEOUT = float(os.environ.get("LIGHT_SLOW_TIMEOUT", "600"))
+
+
+def pytest_collection_modifyitems(config, items):
+    for item in items:
+        if item.get_closest_marker("slow") is None:
+            continue
+        if item.get_closest_marker("timeout") is not None:
+            continue  # 用例自己指定了更精确的提限，让路
+        item.add_marker(pytest.mark.timeout(_SLOW_TIMEOUT))
+
+
 @pytest.fixture(autouse=True)
 def _preserve_stdout():
     """在所有测试前后保存/恢复 sys.stdout/sys.stderr

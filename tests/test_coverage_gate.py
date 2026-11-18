@@ -7,7 +7,8 @@
 rc 0/1/2 契约、--min 0 放行；另加防假绿与 CI 接线完整性。
 
 环境说明：仓库根 pyproject.toml 的 addopts 带
-``--timeout=60 -n 4 --dist=loadscope``，跑本文件需要既有的
+``--timeout=120 -n 4 --dist=loadscope``（T-0390 把每用例上限从 60s 放宽到 120s，
+慢用例另有 slow 提限），跑本文件需要既有的
 pytest-xdist / pytest-timeout（CI 依赖步骤已装）。本卡不改 pyproject、
 不引入 pytest-cov、不给这套 addopts 增加任何新依赖。
 """

@@ -27,6 +27,14 @@ import sys
 import tempfile
 import unittest
 
+import pytest
+
+# T-0390：本文件每条用例都真起子进程（src 腿解释 / 原生腿 clang 编译再跑），
+# 0.88 全量 `-n 6` 下实测 55–61s，正好压在全局 `--timeout=60` 上：负载一高就随机翻红
+# （T-0383 三轮里 test_A5 / test_双腿对拍 轮流红）。标 slow 由 tests/conftest.py
+# 的接线提限；slow 也意味着 PR 的 `-m "not slow"` 会跳过本文件，属有意取舍。
+pytestmark = pytest.mark.slow
+
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 for p in (_ROOT, os.path.join(_ROOT, "src")):
     if p not in sys.path:
