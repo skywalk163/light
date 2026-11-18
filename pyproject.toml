@@ -37,8 +37,9 @@ dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     # ── addopts 硬依赖（缺了 pytest 直接 unrecognized arguments 起不来）─────────
-    # pyproject 的 tool.pytest.ini_options 段里 addopts 写死 `--timeout=60 -n 4
-    # --dist=loadscope`，分别需要下面两个插件；早前 dev 组漏声明，导致
+    # pyproject 的 tool.pytest.ini_options 段里 addopts 写死 `--timeout=120 -n 4
+    # --dist=loadscope`（T-0390 从 60 放宽到 120，见下面 addopts 处的说明），
+    # 分别需要下面两个插件；早前 dev 组漏声明，导致
     # `pip install .[dev]` 装完仍跑不动测试套件（2026-09-25 GitHub CI 首跑暴露）。
     # ⚠️ 注释里**不要**出现带方括号的 pytest 配置段名：test_capture_encoding_guard.py
     #    用 `配置.split('[段名]',1)` 定位段落，注释里出现同名字面量会把分割点抢走 → 断言假红。
@@ -116,7 +117,7 @@ python_files = ["test_*.py", "_test_*.py"]
 #    机理未定性（见 docs/known-issues/R94-xdist-worker-kill.md）。
 # 覆盖规则：命令行出现的 `-n <N>` 在 addopts 之后，后者生效。因此 0.82 全量回归
 #    脚本（scripts/082全量回归.py 显式补 `-n auto`）仍走高吞吐，远端不受影响。
-addopts = "--tb=short --durations=15 --ignore=tests/archive --timeout=60 -n 4 --dist=loadscope"
+addopts = "--tb=short --durations=15 --ignore=tests/archive --timeout=120 -n 4 --dist=loadscope"
 norecursedirs = ["archive", "__pycache__"]
 # 2026-09-08 CI 时间治理（task-CIperf）：注册 slow 标记。CI 在 PR 触发时传
 # `-m "not slow"` 跳过 e2e / 编译大项目等長耗时用例（push main 仍跑全量）。
@@ -124,6 +125,44 @@ norecursedirs = ["archive", "__pycache__"]
 markers = [
     "slow: 慢测试（e2e / 编译大项目 / 长耗时），PR 触发时跳过，main 推送时全量运行",
 ]
+# ── T-0390：全局 --timeout=60 是「每用例」上限，落在踩线用例的实测耗时上 ──────
+# 现象（T-0383 §3.5）：0.88 全量 `-n 6` 下，一批用例实测 52–61s，60s 上限直接压在
+# 它们头上；机器被别的 agent 挤到 load≈15 时，这些用例就在 59–61s 之间随机翻红，
+# 同一份提交三轮全量的失败集合互不相同（M2=21 / M3=19 / M4=14，来回翻 11 条）。
+#
+# 修法不是删掉超时（真卡死的用例会一路拖到 remote_ci 的 --timeout 5400s 才失败，
+# 更难定位），而是**给慢用例单独提限**：标了 `slow` 的用例改由
+# `LIGHT_SLOW_TIMEOUT`（默认 600s）接管，接线在
+# tests/conftest.py::pytest_collection_modifyitems——它对每个 slow item 合成一条
+# `timeout` marker，而 pytest-timeout 的 marker 优先级高于命令行 --timeout。
+#
+# 为什么秒数走环境变量而不是这里的 ini：本卡只允许改 tests / pyproject / tools，
+# 而自定义 ini 选项要在 rootdir 的 conftest 用 pytest_addoption 注册（仓库根
+# conftest.py 不在可改范围）。默认值写死在 tests/conftest.py 里，机器更慢时
+# `LIGHT_SLOW_TIMEOUT=1200 python -m pytest …` 即可。
+#
+# 覆盖范围（T-0390 卡面 10 条 + 同批踩线文件，共 5 个文件整体标 slow）：
+#   tests/unit/test_R220_归约与段落体.py        （test_B5 / test_B7）        16 条
+#   tests/unit/test_R143_L199_向量追加.py        （test_A5 / test_双腿对拍2参追加一致）7 条
+#   tests/unit/test_原生腿_R11A_通用工具.py      （test_断言工具_对拍Python）  8 条
+#   tests/unit/test_原生腿_R11B_中文工具.py      （test_中文分词 / test_拼音转换）7 条
+#   tests/e2e/test_e2e_chain.py                 （test_L075 / test_L076，**本来就** slow）
+# 为什么整文件标而不是逐条：这几个文件里每条用例都真起子进程（编译 + 运行），
+# 踩线风险是**文件属性**不是某一条的属性——逐条标反而会让同文件里没标上的兄弟
+# 在下一轮负载里顶上来（P1 那条就是这么冒出来的）。整体标也更好审：一个文件
+# 「重不重」在 pyproject 里一眼可见，不用去翻几十个装饰器。
+#
+# 代价（故意接受的取舍）：PR 流程的 `-m "not slow"` 会跳过上面 4 个文件的
+# **38 条**（e2e_chain 的 194 条是本卡之前就标好的，不算这次新增）。全量门
+# （main 推送 / remote_ci.py）照跑，卡面已确认这个取舍 OK。这批用例守的是
+# 「真起子进程编译再跑」的联动契约，本来就不属于 PR 的快速门。
+#
+# 为什么还要把全局 60 提到 120（而不是只做 slow 提限）：卡面的 10 条清单**不全**。
+# 实测在改完那 10 条之后连跑两轮，又冒出第 11 条翻的
+# （test_R16x_L217_所有权收敛.py::test_P1字面量循环，39s setup + 24s call ≈ 63s，
+#  单跑 54s）——它是同一类，只是 T-0383 三轮刚好没翻到。120 是给「还没被识别成
+#  slow、却踩在 60s 上」的用例留的保护带，同时仍让真卡死的快用例在 120s 被掐，
+# 不会拖到 remote_ci 的 5400s。
 
 # 覆盖率：聚焦核心语言链路模块（lexer/parser/compiler/类型系统/codegen），合并双线配置
 [tool.coverage.run]

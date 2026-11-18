@@ -16,6 +16,15 @@
 3. **台账**：`/tmp/lp-ci/queue.log` 记录谁在什么时候占了哪个槽、什么时候结束、rc 多少，
    `--list` 一眼看到现在谁在跑。
 
+此外（T-0390）：**起跑前看一眼远端 load**。槽位只管「我们自己人」不互相抢，管不住
+别的进程；0.88 只有 12 vCPU，被挤到 load≈15 时，一批实测 52–61s 的用例就会在
+`--timeout=60` 边界上随机翻红——同一份提交两轮全量的失败集合对不上（T-0383 实测：
+三轮 21/19/14，来回翻 11 条）。所以占槽之后先读一次 1 分钟负载：
+
+* 超过 `--max-load`（默认 1.0 × vCPU）→ 在 `[3/4]` 行明确打警告，说明本轮失败集合
+  不可复现；
+* 加 `--wait-load` 则改成排队等待，等到负载降下来再跑（仍受 `--queue-timeout` 约束）。
+
 凭据：默认读 `duan-light-merge/.env` 的 `SSH_USER_WORKBUDDY` / `SSH_PASS_WORKBUDDY`。
 
 用法::
@@ -24,6 +33,7 @@
     python _tools/remote_ci.py --repo light-merge --tag A线   # 排队跑全量
     python _tools/remote_ci.py --repo light-merge --tag B线 -- -q -k linter
     python _tools/remote_ci.py --repo lightprism --tag M线 --jobs 6
+    python _tools/remote_ci.py --repo light-merge --tag A线 --wait-load   # 负载高就等
 
 `--` 之后的参数原样透传给 pytest。
 """
@@ -176,6 +186,44 @@ echo "SLOT=$SLOT"
 """
 
 
+def load_probe_script(root: str, max_load: float, wait: bool, wait_sec: int) -> str:
+    """远端负载探针：读 1 分钟 load 与 vCPU 数，给出「这一轮可不可复现」的判定。
+
+    为什么这个判定重要（T-0390）：pytest 的每用例上限 `--timeout=60` 是硬的，而一批
+    用例在本机负载正常时就要 52–61s。槽位保证了我们自己的两条线不会互相挤，但管不住
+    别人的进程；一旦 load 超过 vCPU 数，这些踩线用例就会在 59–61s 之间随机翻红，
+    于是「同一份提交跑两遍，失败集合不一样」。与其事后猜哪条是假红，不如起跑前就说清楚。
+
+    输出（stdout，最后一行是结论，调用方按前缀解析）：
+      LOAD=<1分钟负载> NCPU=<核数> MAXLOAD=<阈值> VERDICT=OK|HIGH
+      HIGH 且 --wait-load 时循环等到低于阈值（或超时后给出 WAIT_TIMEOUT）
+    """
+    poll = 15
+    return f"""
+Q={root}
+NCPU=$(sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 1)
+MAX={max_load}
+WAITED=0
+while :; do
+  LOAD=$(sysctl -n vm.loadavg 2>/dev/null | tr -d '{{}}' | awk '{{print $1}}')
+  if [ -z "$LOAD" ]; then
+    LOAD=$(uptime | sed -E 's/.*load averages?: *([0-9.]+).*/\\1/' 2>/dev/null)
+  fi
+  if [ -z "$LOAD" ]; then LOAD=0; fi
+  VERDICT=$(awk -v l="$LOAD" -v m="$MAX" 'BEGIN{{print (l+0 > m+0) ? "HIGH" : "OK"}}')
+  echo "LOAD=$LOAD NCPU=$NCPU MAXLOAD=$MAX VERDICT=$VERDICT"
+  if [ "$VERDICT" = "OK" ]; then exit 0; fi
+  if [ "{1 if wait else 0}" = "0" ]; then exit 0; fi
+  if [ $WAITED -ge {wait_sec} ]; then echo "WAIT_TIMEOUT waited=$WAITED"; exit 0; fi
+  if [ $WAITED -eq 0 ]; then
+    echo "[load] 1 分钟 load 高于阈值 $MAX（$LOAD/$NCPU），等负载降下来再跑（--wait-load）" >&2
+  fi
+  sleep {poll}
+  WAITED=$((WAITED+{poll}))
+done
+"""
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="0.88 排队跑 pytest")
     ap.add_argument("--repo", default=str(BASE / "light-merge"),
@@ -192,6 +240,11 @@ def main() -> int:
     ap.add_argument("--jobs", type=int, default=6, help="pytest-xdist -n（0=串行）")
     ap.add_argument("--queue-timeout", type=int, default=3600, help="等槽位的最长秒数")
     ap.add_argument("--timeout", type=float, default=5400.0, help="远端命令超时秒数")
+    ap.add_argument("--max-load", type=float, default=0.0,
+                    help="起跑前允许的 1 分钟负载上限（默认 0 = 自动取 1.0×vCPU；"
+                         "超过就在 [3/4] 行打警告，说明本轮失败集合不可复现）")
+    ap.add_argument("--wait-load", action="store_true",
+                    help="负载超过 --max-load 时排队等它降下来再跑，而不是只警告")
     ap.add_argument("--list", action="store_true", help="只看排队/占用情况，不跑测试")
     ap.add_argument("--no-clean", action="store_true", help="保留本次 tar（排障用）")
     ap.add_argument("--no-addopts", action="store_true",
@@ -289,6 +342,32 @@ def main() -> int:
             return 75
         slot = acq_text.strip().splitlines()[-1].split("=")[1]
         print(f"[3/4] 已占槽 slot-{slot}（tag={args.tag}），开始跑")
+
+        # 负载闸门（T-0390）：踩线用例在 load > vCPU 时会随机翻红，先在 [3/4] 行说清楚。
+        # 阈值默认 1.0×vCPU（远端自己数核数，脚本里 awk 比较，避免本地猜）。
+        probe_l = load_probe_script(args.remote_root, args.max_load,
+                                    args.wait_load, max(60, args.queue_timeout // 2))
+        _i, lout, _lerr = cli.exec_command(probe_l, timeout=max(120, args.queue_timeout // 2 + 120))
+        load_lines = [ln.strip() for ln in lout.read().decode("utf-8", "replace").splitlines() if ln.strip()]
+        load_stat = {}
+        for ln in load_lines:
+            if ln.startswith("LOAD="):
+                load_stat = dict(kv.split("=", 1) for kv in ln.split() if "=" in kv)
+        if load_stat:
+            try:
+                ncpu = float(load_stat.get("NCPU", "1") or 1)
+                cur = float(load_stat.get("LOAD", "0") or 0)
+                limit = float(load_stat.get("MAXLOAD", "0") or 0)
+            except ValueError:
+                ncpu, cur, limit = 1.0, 0.0, 0.0
+            if limit <= 0:
+                limit = ncpu  # 默认阈值 = 1.0 × vCPU
+            over = cur > limit
+            print(f"[3/4] 远端负载 {cur:.2f} / {ncpu:.0f} vCPU（阈值 {limit:.2f}）"
+                  + ("　⚠️ 超阈值：本轮慢用例可能在 --timeout=60 边界随机翻红，"
+                     "失败集合不可复现" if over else "　✅ 在可复现区间"))
+            if load_lines and load_lines[-1].startswith("WAIT_TIMEOUT"):
+                print("[3/4] ⚠️ --wait-load 等到超时，负载仍高，按当前状态继续跑", file=sys.stderr)
 
         # xdist 是否存在先探一次，避免把并行参数拼进 shell 变量（拼错过一次，症状是
         # pytest 一句 "no tests ran" 就退出，极难定位）

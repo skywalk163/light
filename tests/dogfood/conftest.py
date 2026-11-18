@@ -4,10 +4,11 @@
 关于仓库级 addopts
 ------------------
 仓库根 pyproject.toml 的 addopts 是
-`--tb=short --durations=15 --ignore=tests/archive --timeout=60 -n 4 --dist=loadscope`，
+`--tb=short --durations=15 --ignore=tests/archive --timeout=120 -n 4 --dist=loadscope`
+（T-0390 把每用例上限从 60s 放宽到 120s；慢用例另有 slow 提限），
 其中 --timeout / -n / --dist 分别需要 pytest-timeout / pytest-xdist 插件。
 本机（Windows）没装这两个插件，`python -m pytest -q tests/dogfood/` 会在解析命令行
-阶段就直接报 `unrecognized arguments: --timeout=60 -n --dist=loadscope` —— 与产物无关。
+阶段就直接报 `unrecognized arguments: --timeout=120 -n --dist=loadscope` —— 与产物无关。
 pytest 9 又禁止普通 addoption 注册小写短选项（`-n` 报 lowercase short options are
 reserved），所以不能靠「占位注册」兜住 -n。
 
