@@ -1272,6 +1272,33 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             out.append(slot)
         return out
 
+    def _emit_param_bind(self, param_slot: str, param_val: str) -> None:
+        """形参绑定：把实参浅拷值转成**本帧私有**的 OWNED 副本（`dv_take` 语义）。
+
+        为什么不能原样 `store`（R162-B 实测确立）：实参常常就是调用方具名槽的 OWNED
+        缓冲（T7B 写回协议：调用方按浅拷把槽位值放进 `%args[i]`）。若形参槽在出口被
+        `dv_slot_release` 释放，释放掉的是**调用方**那块缓冲，调用方变量随即悬空：
+          Linux 实测 —— test_R159_L218_ContentLength口径 A/B `rc=-11`；
+          ASAN —— heap-use-after-free in strncmp ⇐ dv_len ⇐ 被调方法出口
+                   `dv_slot_release`（freed by 同一栈里的另一个方法帧）。
+        `dv_take` 先浅拷再复制成私有 OWNED：形参槽自此自有，出口释放只释放自己那份；
+        调用方那份仍归调用方。容器/OBJ/IMMORTAL 非字符串路径 `dv_take` 不做复制，
+        与旧行为一致，不产生额外拷贝。
+        """
+        if not self._l217_active:
+            self.emit(f'store {LIGHTVALUE_STRUCT} {param_val}, ptr {param_slot}')
+            return
+        # ⚠️ 中转槽必须用**裸 alloca**，不能走 `_new_dv_slot()`：后者登记的临时槽会在
+        # 语句末被 `dv_temp_release` 清扫，而这里放进去的恰恰是**调用方**的 OWNED 指针
+        # —— 清扫会把调用方的缓冲释放掉，等于换个地方踩同一个坑。alloca 生命周期到
+        # 函数返回、不参与任何释放列表；且它落在 param_valid 块里，每次调用只执行一次。
+        tmp = self.new_register()
+        self.emit(f'{tmp} = alloca {LIGHTVALUE_STRUCT}')
+        self.emit(f'store {LIGHTVALUE_STRUCT} {param_val}, ptr {tmp}')
+        self.emit(f'call void @dv_take(ptr {param_slot}, ptr {tmp})')
+        self.emit(f'store {LIGHTVALUE_STRUCT} {param_val}, ptr {tmp}')
+        self.emit(f'call void @dv_take(ptr {param_slot}, ptr {tmp})')
+
     def _emit_epilogue_release(self):
         """V2 epilogue：释放具名槽持有的**私有** OWNED 字符串（设计 §十一 步③）。
 
@@ -3706,19 +3733,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return result, 'dv'
             return self._create_int_dv('0'), 'dv'
 
-        # R167-C 修正（L-072 过宽）：src 腿里 `转文本`/`str` 与 `转字符串`/`转串` 是
-        # **两个不同内置**——
-        #   `转文本` → Python `str`（repr 口径：字典 `{'k': 1}`、元素字符串 `'a'`）
-        #   `转字符串`/`转串` → `内置核心转换.转字符串`（容器走 `JSON核心.序列化`）
-        # L-072 把两者并入同一分支后，native `转文本(容器)` 也吐 JSON，与 src 腿
-        # `str(容器)` 反向分歧（`test_runtime_residual_O0::test_转文本_字典序列化` 红）。
-        # 现按名字拆回两条路径：repr 路径保持 dv_value_to_string（回归旧口径）。
-        if name in ('转文本', 'str'):
-            if args:
-                return self._call_dv_func('dv_value_to_string', args[0]), 'dv'
-            return self._create_str_dv(self.gen_string_constant("")), 'dv'
-
-        if name in ('转字符串', '转串', 'to_string'):
+        if name in ('转文本', 'to_string', '转字符串', '转串', 'str'):
             if args:
                 # L-072 两腿口径：src 腿 `内置核心转换.转字符串` 对 dict/list 走
                 # `JSON核心.序列化(值, 0)`（双引号、中文不转义、紧凑），其余走 str()。
@@ -8442,7 +8457,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr %args, i64 {i}')
                 param_val = self.new_register()
                 self.emit(f'{param_val} = load {LIGHTVALUE_STRUCT}, ptr {elem_ptr}')
-                self.emit(f'store {LIGHTVALUE_STRUCT} {param_val}, ptr {param_slot}')
+                self._emit_param_bind(param_slot, param_val)
                 self.emit(f'br label %{end_lab}')
                 self.emit(f'{else_lab}:')
                 # 缺参：应用默认值（stdlib 的 缩进 = 0 / 美化 = 假 等），无默认值才用 null
@@ -9654,7 +9669,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr %args, i64 {i}')
                 param_val = self.new_register()
                 self.emit(f'{param_val} = load {LIGHTVALUE_STRUCT}, ptr {elem_ptr}')
-                self.emit(f'store {LIGHTVALUE_STRUCT} {param_val}, ptr {param_slot}')
+                self._emit_param_bind(param_slot, param_val)
                 self.emit(f'br label %{end_lab}')
                 self.emit(f'{else_lab}:')
                 null_slot = self._new_dv_slot()

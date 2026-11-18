@@ -540,7 +540,18 @@ void dv_slot_set(LightValue* dst, LightValue* src, int rel_old, int copy_src) {
     (void)copy_src;
     if (!dst || !src || dst == src) return;
     if (!dv_l217_enabled()) { *dst = *src; return; }
-    if (rel_old) dv_slot_release(dst);
+    if (rel_old) {
+        /* 别名保护（R162-B 实测确立）：src 与 dst 的旧值指向**同一块** OWNED 缓冲时，
+         * 先释放旧值会让紧随其后的 `*dst = *src` 拿到悬挂指针，随后第 546 行
+         * `dv_is_obj_str` 的 strncmp 就读已释放块（ASAN: heap-use-after-free in
+         * strncmp ⇐ dv_slot_set:546 ⇐ dv_slot_release:519）。缓冲区仍由 src 一侧
+         * 持有 / 按它自己的生命周期释放，故此处跳过释放即可，不泄漏。 */
+        if (src->type == 3 && dst->type == 3 && src->str && src->str == dst->str) {
+            rel_old = 0;
+        } else {
+            dv_slot_release(dst);
+        }
+    }
     *dst = *src;
     if ((dst->type != 3 && dst->type != LV_TYPE_DECIMAL) || !dst->str) return;
     if (dv_is_obj_str(dst->str)) return;       /* I4：OBJ 走既有协议，浅拷（必须先判） */
@@ -5291,7 +5302,12 @@ static void dv_parse_typed(const char** pp, LightValue* result) {
         size_t len = 0;
         while (*p >= '0' && *p <= '9') { len = len * 10 + (size_t)(*p - '0'); p++; }
         if (*p == ':') p++;
-        char* buf = (char*)malloc(len + 1);
+        /* R162-A（L-217 收口）：读回的字符串是**逃逸到 LightValue 的值**，
+         * 后续由 dv_free → dv_buf_free 按「带头缓冲」判定释放；若这里用裸 malloc
+         * 产无头缓冲，dv_buf_free 读 s-24 的 magic 就是一次越界读
+         * （Linux/glibc 实测 SIGSEGV，ASAN 报 heap-buffer-overflow）。故改带头的
+         * dv_owned_alloc（tag=OWNED ⇒ 行为与旧 malloc 一致，只是多了头部）。 */
+        char* buf = dv_owned_alloc(len + 1);
         if (!buf) { dv_str(result, ""); *pp = p; return; }
         memcpy(buf, p, len);
         buf[len] = '\0';
@@ -5337,7 +5353,7 @@ static void dv_parse_typed(const char** pp, LightValue* result) {
         const char* p = s;
         while (*p && *p != '\x1F') p++;
         size_t len = (size_t)(p - s);
-        char* buf = (char*)malloc(len + 1);
+        char* buf = dv_owned_alloc(len + 1);   /* 同上：逃逸值必须带头 */
         if (!buf) { dv_str(result, ""); *pp = p; return; }
         memcpy(buf, s, len);
         buf[len] = '\0';
@@ -5493,7 +5509,10 @@ void dv_class_get_member(LightValue* result, LightValue* obj, const char* field_
     if (!end) end = found + strlen(found);
 
     size_t len = (size_t)(end - found);
-    char* val = (char*)malloc(len + 1);
+    /* 带头缓冲：`val` 既可能被下面的 dv_parse_typed 直接接手释放，也可能在
+     * 兜底分支成为 LightValue.str（由 dv_free 释放）——两种都必须按 tag 释放，
+     * 故一律 dv_owned_alloc + dv_buf_free_raw（裸 malloc 会触发 s-24 越界读）。 */
+    char* val = dv_owned_alloc(len + 1);
     if (val) {
         memcpy(val, found, len);
         val[len] = '\0';
@@ -5503,7 +5522,7 @@ void dv_class_get_member(LightValue* result, LightValue* obj, const char* field_
         if (tag == 'N' || tag == 'B' || tag == 'I' || tag == 'F' || tag == 'S' || tag == 'L' || tag == 'D') {
             const char* p = val;
             dv_parse_typed(&p, result);
-            free(val);
+            dv_buf_free_raw(val);
             return;
         }
 
@@ -5520,7 +5539,7 @@ void dv_class_get_member(LightValue* result, LightValue* obj, const char* field_
             result->f64 = 0.0;
             result->str = NULL;
             result->boolean = 0;
-            free(val);
+            dv_buf_free_raw(val);
             return;
         }
         neg = (len > 0 && val[0] == '-') ? 1 : 0;
@@ -5535,7 +5554,7 @@ void dv_class_get_member(LightValue* result, LightValue* obj, const char* field_
             result->f64 = atof(val);
             result->str = NULL;
             result->boolean = 0;
-            free(val);
+            dv_buf_free_raw(val);
             return;
         }
         result->type = 3;
@@ -5938,7 +5957,9 @@ void dv_class_new_named(LightValue* result, const char* class_name) {
     }
     total_len += 1; /* 终止符 */
     
-    char* buf = (char*)malloc(total_len);
+    /* 带头缓冲（R162-A）：对象缓冲一律由 dv_obj_release_slot / dv_buf_free_raw 释放，
+     * 而它们靠读 s-24 的 magic 判 tag；裸 malloc 会越界读（Linux 实测 SIGSEGV）。 */
+    char* buf = dv_owned_alloc(total_len);
     if (!buf) {
         dv_str(result, "");
         return;
@@ -12752,7 +12773,17 @@ static LightValue dv_json_p_string(DvJsonParser* p) {
     }
     memset(&out, 0, sizeof(out));
     out.type = 3;
-    out.str = sb.data ? sb.data : dv_strdup("");
+    /* R162-A（L-217 收口）：DvStrBuf 是裸 malloc 的**内部**缓冲，不能直接当
+     * LightValue.str 逃逸 —— 逃逸值必须带头，否则 dv_free → dv_buf_free 读
+     * `s-24` 的 magic 就是越界读（Linux/glibc 实测 SIGSEGV：解析响应后的
+     * 中文字段一释放就崩）。故复制进带头缓冲，原缓冲按 sb_free 归还。 */
+    {
+        const char* src = sb.data ? sb.data : "";
+        size_t n = strlen(src) + 1;
+        out.str = dv_owned_alloc(n);
+        if (out.str) memcpy(out.str, src, n);
+        dv_sb_free(&sb);
+    }
     return out;
 }
 

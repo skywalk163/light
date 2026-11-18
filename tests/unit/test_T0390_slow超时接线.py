@@ -66,12 +66,21 @@ def _跑一条探针(tmp_path, 文件名, 内容):
     目标 = 测试目录 / 文件名
     目标.write_text(内容, encoding="utf-8")
 
+    # 子进程环境：**必须剔除 PYTEST_ADDOPTS**。GitHub CI 的 PR 一条流水线会设
+    # `PYTEST_ADDOPTS: -m "not slow"`（push main 才跑 slow），子 pytest 会继承它：
+    # 探针本身正是 `@pytest.mark.slow`，被 `-m not slow` 一筛就 deselect，
+    # 于是「1 deselected / 0 selected」→ pytest rc=5，本用例被误判成「提限失效」
+    # （rc=5 的原始输出见 CI run 44274101869 全量测试 (3.13)）。这不是接线坏了，
+    # 是外层 CI 的筛选口径漏进了子会话。其余 addopts 已用 `-o addopts=` 清空，
+    # 但环境变量不受 `-o` 管，只能在这里显式剔除。
+    env = {k: v for k, v in os.environ.items() if k != "PYTEST_ADDOPTS"}
+    env["LIGHT_SLOW_TIMEOUT"] = "600"
     p = subprocess.run(
         [sys.executable, "-m", "pytest", str(目标), "-q", "-p", "no:cacheprovider",
          "-o", "addopts=", "-o", "timeout=1", "-o", "markers=slow: 慢测试"],
         cwd=str(沙盒), capture_output=True, text=True,
         encoding="utf-8", errors="replace", timeout=300,
-        env={**os.environ, "LIGHT_SLOW_TIMEOUT": "600"},
+        env=env,
     )
     return p.returncode, (p.stdout or "") + (p.stderr or "")
 
