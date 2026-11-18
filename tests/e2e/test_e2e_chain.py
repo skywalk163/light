@@ -148,6 +148,24 @@ E2E_EXCLUDED = {
 }
 
 
+# 需要外部服务的示例：示例本身就是「请求一个 HTTP 端点再解析 JSON」，而本链路对每个
+# 示例都是「零环境跑一遍、断言 rc==0」——既不起服务，也不传 `-- <地址>`，零环境下
+# 必然 ConnectionError（不是代码回归，是判据不适用）。
+# 与 E2E_EXCLUDED 的处理不同：**仍留在 EXAMPLE_CANDIDATES 里**（全量枚举范围不缩，
+# 新示例照样会被发现），只按 reason 显式 skip —— 报告里能看到这一条，而不是无声消失。
+# 成因：`examples/mvp/02_http_json.light` 由 T-0321 引入（文件头注释写明「测试会起
+# 随机端口的本机服务并用 `--` 传入地址」），T-0383（R222 全量收口）发现它被当成
+# 「应当自洽跑通」的示例，Windows 本机与 0.88 均 2 failed。真覆盖留给后续 B 方案卡
+# （起随机端口本地服务 + `_run_cli` 透传 `--` 地址，run/product 两条链都要覆盖）。
+E2E_NEEDS_EXTERNAL_SERVICE = {
+    'mvp/02_http_json.light': (
+        '需要外部 HTTP 服务：示例默认请求 http://127.0.0.1:8765/mvp（只访问本机回环，'
+        '不联网），e2e 既不起服务也不传 `-- <地址>`，零环境下必然 ConnectionError；'
+        '与 web_crawler/crawler.light 同类（T-0321 引入时漏收，T-0383 收口发现）'
+    ),
+}
+
+
 # 预期失败示例：设计上就是复现「未捕获运行期异常 + 中文译文」的最小复现，
 # 正确行为是 rc=1 且 stderr 带光明译文。走 test_duan_run_expected_failure 验证，
 # 不进 rc==0 的常规全链路（与 E2E_EXCLUDED 的「排除」不同，这里仍被真实执行）。
@@ -208,9 +226,32 @@ def test_chain_has_enough_examples():
     print(f"E2E 覆盖示例数: {len(EXAMPLE_CANDIDATES)}")
 
 
+def _skip_if_needs_external_service(rel_path):
+    """示例设计上依赖外部服务时跳过（判据不适用），原因写进 skip 报告。"""
+    reason = E2E_NEEDS_EXTERNAL_SERVICE.get(rel_path)
+    if reason:
+        pytest.skip(reason)
+
+
+def test_external_service_examples_still_enumerated():
+    """守卫：需要外部服务的示例只允许 skip，不允许从全量枚举里消失。
+
+    T-0389 的成因之一是「漏收」：候选集靠 examples/**/*.light 全量 rglob，一旦有人
+    为了让某条红变绿而把枚举范围缩成白名单，新示例会被静默漏掉。这里钉住登记过的
+    示例仍在 EXAMPLE_CANDIDATES 中且源文件存在——skip 只降级判据，不缩小覆盖面。
+    """
+    for rel_path in E2E_NEEDS_EXTERNAL_SERVICE:
+        assert (EXAMPLES_DIR / rel_path).exists(), \
+            f'{rel_path} 源文件不见了（示例是 MVP 面的可运行证明，不能删）'
+        assert rel_path in EXAMPLE_CANDIDATES, (
+            f'{rel_path} 被从 EXAMPLE_CANDIDATES 里摘掉了——外部服务类示例只应 skip，'
+            '不应从全量枚举中消失')
+
+
 @pytest.mark.parametrize('rel_path', EXAMPLE_CANDIDATES)
 def test_duan_run(rel_path):
     """环节1：duan run <文件> 解释执行成功"""
+    _skip_if_needs_external_service(rel_path)
     file_path = EXAMPLES_DIR / rel_path
     rc, out, err = _run_cli(['run', str(file_path)])
     lib = _missing_third_party_lib(rc, out, err)
@@ -241,6 +282,7 @@ def test_duan_run_expected_failure(rel_path):
 @pytest.mark.parametrize('rel_path', EXAMPLE_CANDIDATES)
 def test_duan_compile_and_run_product(rel_path):
     """环节2+3：编译为 .py 产物，并验证产物可独立运行"""
+    _skip_if_needs_external_service(rel_path)
     file_path = EXAMPLES_DIR / rel_path
     with tempfile.TemporaryDirectory() as tmpdir:
         out_py = Path(tmpdir) / 'product.py'
