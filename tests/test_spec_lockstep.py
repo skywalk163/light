@@ -98,6 +98,51 @@ def test_spec_is_rebuildable_byte_for_byte():
     )
 
 
+def test_stdlib_digest_ignores_line_endings(tmp_path, monkeypatch):
+    """反证（T-0388）：stdlib 指纹不许随检出形态（CRLF/LF）变化。
+
+    同一份提交在 Windows（``core.autocrlf=true`` → CRLF 检出）与 0.88（LF 检出）
+    必须算出同一个 ``stdlib_汇总``。做法是把仓内 stdlib 原样拷进临时树，算出
+    指纹后把每个文件整体翻成另一种行尾形态，再算一次——两次必须逐字相同。
+    """
+    src_dir = os.path.join(_ROOT, "stdlib")
+    dst_dir = tmp_path / "stdlib"
+    dst_dir.mkdir()
+    for name in sorted(os.listdir(src_dir)):
+        if not name.endswith((".light", ".py")):
+            continue
+        (dst_dir / name).write_bytes(open(os.path.join(src_dir, name), "rb").read())
+
+    monkeypatch.setattr(build_spec, "ROOT", tmp_path)
+    digest_before = build_spec._stdlib_digest()
+
+    for p in dst_dir.iterdir():
+        data = p.read_bytes()
+        # LF → CRLF（若原本已是 CRLF，先归一再加回，结果等价于「另一种形态」）
+        data = data.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+        p.write_bytes(data)
+    assert build_spec._stdlib_digest() == digest_before, (
+        "stdlib 指纹随行尾形态变化；非 Windows 检出会与 Windows 算出不同值"
+    )
+
+
+def test_stdlib_modules_are_ordered_by_codepoint():
+    """模块顺序必须按 `(casefold, 原串)` 排——这是跨平台唯一稳定的顺序。
+
+    T-0388：`sorted(stdlib.glob("*.light"))` 在 Windows 上把 `__init__.py` 排在
+    `Base64.light` 前（Path 按大小写不敏感比较），POSIX 按码点把它排在后面。
+    同一棵树在两种平台上会生成不同顺序的 JSON，逐字节门禁就会在非 Windows
+    检出上假红。
+    """
+    data = _load()
+    names = [m["模块"] for m in data["stdlib"]["模块"]]
+    expected = sorted(names, key=lambda n: (n.casefold(), n))
+    assert names == expected, (
+        "stdlib 模块顺序不是跨平台的稳定顺序；Windows 与 POSIX 会排出不同结果，"
+        "spec JSON 无法逐字节一致"
+    )
+
+
 def test_required_sections_present():
     data = _load()
     for key in ("version", "generated_from", "keywords", "operators",

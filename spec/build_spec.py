@@ -66,6 +66,19 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _sha256_normalized(path: Path) -> str:
+    """按「行尾归一为 LF」后的内容取 sha256（指纹专用）。
+
+    仓库 ``core.autocrlf=true`` 时，Windows 检出把文本落成 CRLF，而 git blob 是
+    LF；若指纹直接取磁盘原始字节，**同一份提交**在 Windows 与 Linux/FreeBSD
+    上会算出不同的值，``--check`` 就在非 Windows 检出上假红（T-0388）。
+
+    归一的是**输入文件**，不是输出 JSON：输出侧本来就只有 LF。
+    """
+    data = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest()
+
+
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
@@ -638,7 +651,9 @@ def build_stdlib() -> dict:
 
     stdlib = ROOT / "stdlib"
     modules = []
-    for light_path in sorted(stdlib.glob("*.light")):
+    # 排序键必须显式给定：Windows 上 Path 的 __lt__ 按大小写不敏感比较
+    # （`__init__.py` 排在 `Base64.light` 前），POSIX 按码点，顺序会不同。
+    for light_path in sorted(stdlib.glob("*.light"), key=_stdlib_sort_key):
         module = light_path.name[:-len(".light")]
         lines = _read(light_path).splitlines()
         names: list[str] = []
@@ -869,12 +884,32 @@ def build_diagnostics() -> list[dict]:
 # 汇总
 # =============================================================================
 
+def _stdlib_sort_key(path: Path) -> tuple[str, str]:
+    """stdlib 文件的平台无关排序键。
+
+    直接 ``sorted(Path)`` 会踩平台差异：pathlib 在 Windows 上按**大小写不敏感**
+    （casefold）比较，POSIX 按码点比较——同一棵树会排出不同顺序，模块数组和
+    ``stdlib_汇总`` 都不再逐字节稳定（T-0388 在 0.88 上实测撞到：Windows 把
+    ``__init__.py`` 排在 ``Base64.light`` 前，FreeBSD 正好相反）。
+
+    取 ``(casefold, 原串)`` 作键：两平台顺序一致；casefold 相同的两个名字再用
+    原串定序，保证是全序而不是依赖 glob 的返回次序。
+    """
+    rel = _rel(path)
+    return (rel.casefold(), rel)
+
+
 def _stdlib_digest() -> str:
     h = hashlib.sha256()
-    for p in sorted(list((ROOT / "stdlib").glob("*.light")) + list((ROOT / "stdlib").glob("*.py"))):
+    # 排序键见 _stdlib_sort_key：不能直接用 sorted(Path)，平台间的顺序不同。
+    stdlib_files = sorted(
+        list((ROOT / "stdlib").glob("*.light")) + list((ROOT / "stdlib").glob("*.py")),
+        key=_stdlib_sort_key,
+    )
+    for p in stdlib_files:
         h.update(_rel(p).encode("utf-8"))
         h.update(b"\0")
-        h.update(_sha256(p).encode("ascii"))
+        h.update(_sha256_normalized(p).encode("ascii"))
         h.update(b"\n")
     return h.hexdigest()
 
@@ -895,7 +930,7 @@ def build() -> dict:
         "generated_by": "spec/build_spec.py",
         "generated_from": {
             "说明": "按文件内容取 sha256[:16]；不存 commit，合并后内容不变则 --check 仍绿",
-            "文件": {rel: _sha256(ROOT / rel)[:16] for rel in FINGERPRINT_FILES},
+            "文件": {rel: _sha256_normalized(ROOT / rel)[:16] for rel in FINGERPRINT_FILES},
             "stdlib_汇总": _stdlib_digest()[:16],
         },
         "l0_core": {
@@ -950,7 +985,10 @@ def main(argv: list[str] | None = None) -> int:
         new_lines = text.splitlines()
         for i, (a, b) in enumerate(zip(cur_lines, new_lines), 1):
             if a != b:
-                print(f"不一致：第 {i} 行\n  仓内: {a[:160]}\n  现状: {b[:160]}", file=sys.stderr)
+                # a = 仓内文件现状，b = 本次重建结果；文案别写反，否则排查时会
+                # 把「文件里的旧值」当成「重建出来的新值」（T-0383 踩过一次）。
+                print(f"不一致：第 {i} 行\n  文件: {a[:160]}\n  重建: {b[:160]}",
+                      file=sys.stderr)
                 break
         else:
             print(f"不一致：行数 {len(cur_lines)} → {len(new_lines)}", file=sys.stderr)

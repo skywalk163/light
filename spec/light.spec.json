@@ -6,19 +6,19 @@
   "generated_from": {
     "说明": "按文件内容取 sha256[:16]；不存 commit，合并后内容不变则 --check 仍绿",
     "文件": {
-      "src/keywords.py": "29be57fdeb53b820",
-      "src/lexer.py": "cd21c941ed352de8",
-      "src/code_generator.py": "eefc65792b852bb8",
-      "src/version.py": "7a1234d623d9c1c3",
-      "src/diagnostics/registry.py": "8f08cc0440c184f8",
-      "docs/language/l0-core.md": "fbd394a9da626193",
-      "docs/language/keywords.md": "f2e41e7b63946da1",
-      "docs/language/l1-l2-style.md": "28e3fe9fb133368e",
-      "docs/language/operators.md": "5ebc04c1e626134e",
-      "docs/分层语法设计_v4.0.md": "75cbeec1b69127ea",
-      "tests/unit/test_spec_docs_sync.py": "536100486a23eeed"
+      "src/keywords.py": "897deee0b468ad5a",
+      "src/lexer.py": "9957b09afd79730e",
+      "src/code_generator.py": "6617d695d233ce0c",
+      "src/version.py": "2c447479a1cf0d97",
+      "src/diagnostics/registry.py": "cbb004f3ec8c38a6",
+      "docs/language/l0-core.md": "1926890baf209e7f",
+      "docs/language/keywords.md": "b733e94dec5a570c",
+      "docs/language/l1-l2-style.md": "411f303cc6b613a6",
+      "docs/language/operators.md": "0786f281223896d2",
+      "docs/分层语法设计_v4.0.md": "39399bed6ae58e61",
+      "tests/unit/test_spec_docs_sync.py": "9666b59d5a654d04"
     },
-    "stdlib_汇总": "5168681cc08ed6d5"
+    "stdlib_汇总": "393f4ca8c98d1559"
   },
   "l0_core": {
     "声明总数": 44,
