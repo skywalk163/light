@@ -67,6 +67,12 @@ def _run_cli(args, cwd=ROOT):
         env=env,
         capture_output=True,
         text=True,
+        # 子进程被 `-X utf8` 强制用 UTF-8 输出，父进程也必须按 UTF-8 解码：
+        # 不显式给 encoding 时 subprocess 用 locale 默认（Windows = GBK），
+        # 中文输出会在读线程里抛 UnicodeDecodeError，proc.stdout 变成 None，
+        # 断言报成 TypeError —— 真实差异被掩盖（T-0391 的假红）。
+        encoding='utf-8',
+        errors='replace',
     )
 
 
