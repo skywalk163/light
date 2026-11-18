@@ -3706,7 +3706,19 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 return result, 'dv'
             return self._create_int_dv('0'), 'dv'
 
-        if name in ('转文本', 'to_string', '转字符串', '转串', 'str'):
+        # R167-C 修正（L-072 过宽）：src 腿里 `转文本`/`str` 与 `转字符串`/`转串` 是
+        # **两个不同内置**——
+        #   `转文本` → Python `str`（repr 口径：字典 `{'k': 1}`、元素字符串 `'a'`）
+        #   `转字符串`/`转串` → `内置核心转换.转字符串`（容器走 `JSON核心.序列化`）
+        # L-072 把两者并入同一分支后，native `转文本(容器)` 也吐 JSON，与 src 腿
+        # `str(容器)` 反向分歧（`test_runtime_residual_O0::test_转文本_字典序列化` 红）。
+        # 现按名字拆回两条路径：repr 路径保持 dv_value_to_string（回归旧口径）。
+        if name in ('转文本', 'str'):
+            if args:
+                return self._call_dv_func('dv_value_to_string', args[0]), 'dv'
+            return self._create_str_dv(self.gen_string_constant("")), 'dv'
+
+        if name in ('转字符串', '转串', 'to_string'):
             if args:
                 # L-072 两腿口径：src 腿 `内置核心转换.转字符串` 对 dict/list 走
                 # `JSON核心.序列化(值, 0)`（双引号、中文不转义、紧凑），其余走 str()。

@@ -108,9 +108,10 @@ _PROBE = '''\
 '''
 
 # 两腿**应一致**的期望（R152-E2 裁定后的目标口径）。
-# 注：容器内**字符串引号**两腿**既有分歧**（native 元素不带引号 / src 带双引号，L-072 遗留，
-# 非本线范围，任务书明写「该腿既有格式」）；字典**键**引号同样（native 单引号 / src 双引号）。
-# 本线只对**布尔 repr** 断言收敛；引号按各腿既有口径放行，不判为红，显式记录。
+# R167-C 更新：L-072 已把 native `转字符串(容器)` 改为走 `dv_json_serialize_safe`（与 src 腿
+# `内置核心转换.转字符串` → `JSON核心.序列化` 同口径），此前记录的「容器内字符串引号
+# 两腿既有分歧（native 裸/单引号，src 双引号）」**已不存在**。故下面 native 与 src 期望
+# 取同一组值，判据从「只判布尔收敛、引号各自放行」收严为「逐字一致」。
 _EXPECTED_COMMON = {
     'L0': '真',
     'L1': '假',
@@ -121,13 +122,13 @@ _EXPECTED_COMMON = {
     'JSONL': '[true, false]',
     'JSOND': '{"k": true}',
 }
-# 混合列表：布尔必须收敛，但字符串引号各腿既有形态（native 无引号 / src 双引号）
-_EXPECTED_NATIVE_MIX = '[1, true, a]'
+# 混合列表：两腿逐字一致（JSON 口径：布尔小写、字符串双引号）
+_EXPECTED_NATIVE_MIX = '[1, true, "a"]'
 _EXPECTED_SRC_MIX = '[1, true, "a"]'
-# 字典键引号各腿既有形态（native 单引号 / src 双引号）
-_EXPECTED_NATIVE_DICT = "{'k': true, 'm': false}"
+# 字典：两腿逐字一致（JSON 口径：双引号键、布尔小写）
+_EXPECTED_NATIVE_DICT = '{"k": true, "m": false}'
 _EXPECTED_SRC_DICT = '{"k": true, "m": false}'
-_EXPECTED_NATIVE_NEST = "{'k': [true, false]}"
+_EXPECTED_NATIVE_NEST = '{"k": [true, false]}'
 _EXPECTED_SRC_NEST = '{"k": [true, false]}'
 
 
@@ -161,9 +162,8 @@ def _parse_output(out: str) -> dict:
 def test_双腿对拍_容器内布尔repr收敛():
     """修后两腿容器内布尔 repr 收敛（R152-E2 判据核心）。
 
-    引号口径两腿**既有分歧**（native 单引号 / src 双引号，L-072 遗留，任务书明写
-    「该腿既有格式」），**非本线范围**。本线只判「容器内布尔是否 true/false」——
-    这是 R152-E2 裁定收敛点；引号各自放行并显式记录。
+    R167-C 更新：L-072 落地后 native `转字符串(容器)` 与 src 腿同走 JSON 口径，
+    引号分歧消失，本用例判据从「只判布尔收敛」收严为「两腿逐字一致」。
     """
     rc_n, out_n = _native_run(_PROBE)
     assert rc_n == 0, f"native 腿 rc={rc_n}\n{out_n}"
@@ -382,10 +382,14 @@ def test_反跑_改回depth不敏感_容器分歧复现():
         try:
             _write_rt(patched)
             # 现在容器内布尔应回中文（复现 L-193 分歧）
+            # R167-C：探针从 `转字符串` 换成 `转文本` —— L-072 后 native `转字符串(容器)`
+            # 走 dv_json_serialize_safe（自己的布尔路径，不受 case 5 影响），只有
+            # `转文本(容器)`（→ dv_value_to_string → dv_container_to_string）仍吃 case 5，
+            # 反跑才咬得住。
             rc, out = _native_run('''\
-打印("LIST=" 加上 转字符串([真, 假]))
-打印("DICT=" 加上 转字符串({"k": 真}))
-打印("SCALAR=" 加上 转字符串(真))
+打印("LIST=" 加上 转文本([真, 假]))
+打印("DICT=" 加上 转文本({"k": 真}))
+打印("SCALAR=" 加上 转文本(真))
 ''')
             assert rc == 0, f"打补丁后编译失败 rc={rc}\n{out}"
             got = _parse_output(out)
