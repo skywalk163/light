@@ -17,9 +17,10 @@ rm -rf "$WIN"; mkdir -p "$WIN"
 cd "$WIN" || exit 1
 
 echo "===== ① O0 真跑（用例自带严格 master）====="
-REPO="$REPO" python "$REPO/tools/_debug_218.py"
+REPO="$REPO" python "$REPO/tools/segv_218_probe.py"
 echo "① exit=$?"
 
 echo "===== ② ASAN 复跑 ====="
-REPO="$REPO" python "$REPO/tools/_debug_218.py" --asan
+REPO="$REPO" python "$REPO/tools/segv_218_probe.py" --asan
 echo "② exit=$?"
+
