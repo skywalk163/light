@@ -66,13 +66,47 @@ def pytest_report_header(config):
             f"工程体模块 {len(ALL_MODULES)} 个 | 确定化抽样 {len(SAMPLE)} 个")
 
 
+HERE = Path(__file__).resolve().parent
+
+# 缺 lightharness 时也必须跑的文件：它验证的正是「缺 lightharness 时 skip 不许越界」，
+# 自己再被 skip 就等于没有守卫（T-0387）。它不依赖本机 lightharness。
+ALWAYS_RUN = frozenset({"test_dogfood_scope.py"})
+
+
+def _in_dogfood(item) -> bool:
+    """这条用例是否收集自 tests/dogfood/ 本身。
+
+    `pytest_collection_modifyitems` 拿到的是**整个 session** 的 items，不是本目录的；
+    T-0322 当初直接全量 add_marker，导致 0.88 在没有 lightharness 的验收现场把
+    全仓 10531 条用例一起 skip，rc=0 假绿（T-0387）。这里按路径收口。
+    """
+    fspath = getattr(item, "path", None) or getattr(item, "fspath", None)
+    if fspath is None:
+        return False
+    try:
+        p = Path(str(fspath)).resolve()
+    except OSError:
+        return False
+    return p == HERE or HERE in p.parents
+
+
 def pytest_collection_modifyitems(config, items):
     if LIGHTHARNESS_DIR.is_dir():
         return
+    scoped = [
+        item for item in items
+        if _in_dogfood(item)
+        and Path(str(getattr(item, "fspath", "") or "")).name not in ALWAYS_RUN
+    ]
+    if not scoped:
+        return
     print(f"\n{SKIP_TEXT}")
     marker = pytest.mark.skip(reason=SKIP_TEXT)
-    for item in items:
+    for item in scoped:
         item.add_marker(marker)
+    if len(scoped) != len(items):
+        print(f"[dogfood] 只跳过本目录 {len(scoped)} 条；同 session 另外 "
+              f"{len(items) - len(scoped)} 条不受影响")
 
 
 def pytest_sessionstart(session):
