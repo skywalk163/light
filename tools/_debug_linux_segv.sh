@@ -20,7 +20,11 @@ echo "===== ① O0 真跑（用例自带严格 master）====="
 REPO="$REPO" python "$REPO/tools/segv_218_probe.py"
 echo "① exit=$?"
 
-echo "===== ② ASAN 复跑 ====="
-REPO="$REPO" python "$REPO/tools/segv_218_probe.py" --asan
+echo "===== ② IR 取证（谁在释放借来的缓冲）====="
+REPO="$REPO" python "$REPO/tools/segv_218_probe.py" --ir
 echo "② exit=$?"
+
+echo "===== ③ ASAN 复跑 ====="
+REPO="$REPO" python "$REPO/tools/segv_218_probe.py" --asan
+echo "③ exit=$?"
 
