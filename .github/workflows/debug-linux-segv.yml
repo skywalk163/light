@@ -1,0 +1,39 @@
+name: Debug Linux Segv
+
+# 临时诊断工作流（分支 fix/ci-linux-native-20261118 专用，定位「原生腿 rc=-11」根因）
+# 只由人工 workflow_dispatch 触发，不参与任何门禁判定；定位完成后即删除。
+
+on:
+  workflow_dispatch:
+
+jobs:
+  dbg:
+    name: 复现原生腿段错误
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest "antlr4-python3-runtime==4.13.2" "lunardate==0.3.0" psutil requests
+          sudo apt-get update -qq && sudo apt-get install -y -qq gdb || true
+
+      - name: 复现并取证
+        env:
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: "utf-8"
+          REPO: ${{ github.workspace }}
+        run: bash tools/_debug_linux_segv.sh 2>&1 | tee debug_out.txt
+
+      - name: 上传诊断输出
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-segv-debug
+          path: debug_out.txt
