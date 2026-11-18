@@ -1272,6 +1272,26 @@ class TypedLLVMCodeGen(LLVMCodeGen):
             out.append(slot)
         return out
 
+    def _emit_param_bind(self, param_slot: str, param_val: str) -> None:
+        """形参绑定：把实参浅拷值转成**本帧私有**的 OWNED 副本（`dv_take` 语义）。
+
+        为什么不能原样 `store`（R162-B 实测确立）：实参常常就是调用方具名槽的 OWNED
+        缓冲（T7B 写回协议：调用方按浅拷把槽位值放进 `%args[i]`）。若形参槽在出口被
+        `dv_slot_release` 释放，释放掉的是**调用方**那块缓冲，调用方变量随即悬空：
+          Linux 实测 —— test_R159_L218_ContentLength口径 A/B `rc=-11`；
+          ASAN —— heap-use-after-free in strncmp ⇐ dv_len ⇐ 被调方法出口
+                   `dv_slot_release`（freed by 同一栈里的另一个方法帧）。
+        `dv_take` 先浅拷再复制成私有 OWNED：形参槽自此自有，出口释放只释放自己那份；
+        调用方那份仍归调用方。容器/OBJ/IMMORTAL 非字符串路径 `dv_take` 不做复制，
+        与旧行为一致，不产生额外拷贝。
+        """
+        if not self._l217_active:
+            self.emit(f'store {LIGHTVALUE_STRUCT} {param_val}, ptr {param_slot}')
+            return
+        tmp = self._new_dv_slot()
+        self.emit(f'store {LIGHTVALUE_STRUCT} {param_val}, ptr {tmp}')
+        self.emit(f'call void @dv_take(ptr {param_slot}, ptr {tmp})')
+
     def _emit_epilogue_release(self):
         """V2 epilogue：释放具名槽持有的**私有** OWNED 字符串（设计 §十一 步③）。
 
@@ -8430,7 +8450,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr %args, i64 {i}')
                 param_val = self.new_register()
                 self.emit(f'{param_val} = load {LIGHTVALUE_STRUCT}, ptr {elem_ptr}')
-                self.emit(f'store {LIGHTVALUE_STRUCT} {param_val}, ptr {param_slot}')
+                self._emit_param_bind(param_slot, param_val)
                 self.emit(f'br label %{end_lab}')
                 self.emit(f'{else_lab}:')
                 # 缺参：应用默认值（stdlib 的 缩进 = 0 / 美化 = 假 等），无默认值才用 null
@@ -9642,7 +9662,7 @@ class TypedLLVMCodeGen(LLVMCodeGen):
                 self.emit(f'{elem_ptr} = getelementptr inbounds {LIGHTVALUE_STRUCT}, ptr %args, i64 {i}')
                 param_val = self.new_register()
                 self.emit(f'{param_val} = load {LIGHTVALUE_STRUCT}, ptr {elem_ptr}')
-                self.emit(f'store {LIGHTVALUE_STRUCT} {param_val}, ptr {param_slot}')
+                self._emit_param_bind(param_slot, param_val)
                 self.emit(f'br label %{end_lab}')
                 self.emit(f'{else_lab}:')
                 null_slot = self._new_dv_slot()
