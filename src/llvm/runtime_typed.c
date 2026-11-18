@@ -12762,7 +12762,17 @@ static LightValue dv_json_p_string(DvJsonParser* p) {
     }
     memset(&out, 0, sizeof(out));
     out.type = 3;
-    out.str = sb.data ? sb.data : dv_strdup("");
+    /* R162-A（L-217 收口）：DvStrBuf 是裸 malloc 的**内部**缓冲，不能直接当
+     * LightValue.str 逃逸 —— 逃逸值必须带头，否则 dv_free → dv_buf_free 读
+     * `s-24` 的 magic 就是越界读（Linux/glibc 实测 SIGSEGV：解析响应后的
+     * 中文字段一释放就崩）。故复制进带头缓冲，原缓冲按 sb_free 归还。 */
+    {
+        const char* src = sb.data ? sb.data : "";
+        size_t n = strlen(src) + 1;
+        out.str = dv_owned_alloc(n);
+        if (out.str) memcpy(out.str, src, n);
+        dv_sb_free(&sb);
+    }
     return out;
 }
 
