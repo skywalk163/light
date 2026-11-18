@@ -49,6 +49,25 @@ _R134_误删模块 = "中文NLP"
 _NO_PY_模块样例 = ["中文文本", "哈希", "复数", "排版", "集合操作", "Base64"]
 
 
+def _有同名py(base: str, 名: str) -> bool:
+    """同名 .py 是否**逐字符**存在（大小写敏感），与钩子的 `_exists_exact` 同判据。
+
+    Windows / macOS 的文件系统大小写不敏感：`stdlib/Socket.py` 会被
+    `isfile('socket.py')` 命中，但钩子按逐字符比对认它**不是** socket 的 .py 兄弟
+    （.py 优先原则只对逐字符同名者成立，见 `_light_import_hook._exists_exact` 的
+    注释：否则 `json.light` 会劫持 CPython 的 json）。分类若用 isfile，就会把
+    socket 判成「纯光明」并要求钩子接管，而钩子必然让路给标准库 socket ——
+    这是平台相关假红（Windows 3.12 job 实测）。
+    """
+    p = os.path.join(base, 名)
+    if not os.path.isfile(p):
+        return False
+    try:
+        return 名 in os.listdir(base)
+    except OSError:
+        return False
+
+
 def _分类():
     """扫描 stdlib/ 下同名 .py/.light 的对，分成「纯光明 / stub / 仅 light」三组。
 
@@ -56,13 +75,16 @@ def _分类():
     - stub   ：同名 .py 与 .light 都存在，但 .light **没有**纯光明魔数
                （.light 只是导出清单，真实现住在 .py）。
     - 仅 light：没有同名 .py，只靠 .light 存活。
+
+    判「同名 .py 存在」一律走 `_有同名py`（逐字符），与钩子口径一致，
+    `stdlib/Socket.py` 这类大小写错位的文件不算 socket 的 .py 兄弟。
     """
     纯光明, stub, 仅light = [], [], []
     for 名 in sorted(os.listdir(_STDLIB)):
         if not 名.endswith(".light") or 名.startswith("_"):
             continue
         base = 名[: -len(".light")]
-        if os.path.isfile(os.path.join(_STDLIB, base + ".py")):
+        if _有同名py(_STDLIB, base + ".py"):
             with open(os.path.join(_STDLIB, 名), encoding="utf-8") as fh:
                 head = fh.readline() + fh.readline()
             (纯光明 if "纯光明实现" in head else stub).append(base)

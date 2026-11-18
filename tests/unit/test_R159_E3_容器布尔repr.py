@@ -107,10 +107,10 @@ _PROBE = '''\
 打印("JSOND=" 加上 序列化JSON({"k": 真}))
 '''
 
-# 两腿**应一致**的期望（R152-E2 裁定后的目标口径）。
-# 注：容器内**字符串引号**两腿**既有分歧**（native 元素不带引号 / src 带双引号，L-072 遗留，
-# 非本线范围，任务书明写「该腿既有格式」）；字典**键**引号同样（native 单引号 / src 双引号）。
-# 本线只对**布尔 repr** 断言收敛；引号按各腿既有口径放行，不判为红，显式记录。
+# 两腿**应完全一致**的期望（L-072 裁定口径 + R152-E2 布尔收敛，二者已在原生腿合流）。
+# 2026-11-08 `988af23c5` 起，原生腿 `转字符串(容器)` 与 src 腿同走 JSON 口径
+# （双引号 / 中文不转义 / 紧凑）：容器内字符串带双引号、字典键带双引号，
+# 标量仍中文。此前"native 裸字符串 + 单引号键"的既有分歧已被抹平，两腿逐字一致。
 _EXPECTED_COMMON = {
     'L0': '真',
     'L1': '假',
@@ -121,13 +121,13 @@ _EXPECTED_COMMON = {
     'JSONL': '[true, false]',
     'JSOND': '{"k": true}',
 }
-# 混合列表：布尔必须收敛，但字符串引号各腿既有形态（native 无引号 / src 双引号）
-_EXPECTED_NATIVE_MIX = '[1, true, a]'
+# 混合列表：布尔收敛 + 字符串双引号（两腿同口径）
+_EXPECTED_NATIVE_MIX = '[1, true, "a"]'
 _EXPECTED_SRC_MIX = '[1, true, "a"]'
-# 字典键引号各腿既有形态（native 单引号 / src 双引号）
-_EXPECTED_NATIVE_DICT = "{'k': true, 'm': false}"
+# 字典：键与值双引号、布尔 true/false（两腿同口径）
+_EXPECTED_NATIVE_DICT = '{"k": true, "m": false}'
 _EXPECTED_SRC_DICT = '{"k": true, "m": false}'
-_EXPECTED_NATIVE_NEST = "{'k': [true, false]}"
+_EXPECTED_NATIVE_NEST = '{"k": [true, false]}'
 _EXPECTED_SRC_NEST = '{"k": [true, false]}'
 
 
@@ -256,6 +256,17 @@ _BUG_LINE = (b'        case 5: return dv_strdup(v->boolean ? "\xe7\x9c\x9f" : "\
 _FIX_LINE = (b'        case 5: return dv_strdup(v->boolean ? (depth > 0 ? "true" : "\xe7\x9c\x9f")\n'
              b'                                            : (depth > 0 ? "false" : "\xe5\x81\x87"));\n')
 
+# L-072 反跑锚点：`dv_json_serialize_safe` 里的 JSON 序列化调用（容器口径的唯一入口，
+# 全仓仅此一处）。把它临时换成 dv_to_string_depth 即回到 L-072 之前的容器 repr 口径
+# （字符串裸奔 / 字典单引号），可复现两腿分歧。
+_JSON_ANCHOR = (b'    DvStrBuf sb; dv_sb_init(&sb);\n'
+                b'    dv_json_serialize_value(&sb, value, -1, 0, 0);\n')
+_JSON_REVERT = (b'    DvStrBuf sb; dv_sb_init(&sb);\n'
+               b'    { char* _old = dv_to_string_depth(value, 0);\n'
+               b'      result->type = 3; result->i64 = 0; result->f64 = 0.0; result->boolean = 0;\n'
+               b'      result->str = dv_tmp_strdup(_old ? _old : "");\n'
+               b'      dv_sb_free(&sb); return; }\n')
+
 
 def _read_rt() -> bytes:
     with open(_RT, 'rb') as f:
@@ -344,18 +355,19 @@ def _write_rt(data: bytes):
     raise last_err
 
 
-def test_反跑_改回depth不敏感_容器分歧复现():
-    """把 case 5 临时改回 depth 不敏感 → 容器内布尔应回到中文（复现 L-193 分歧）→ 转红。
+def test_反跑_回退JSON路由_容器引号分歧复现():
+    """把 `dv_json_serialize_safe` 临时回退到 dv_to_string_depth → 容器回到 L-072 前口径
+    （字符串裸奔 / 字典单引号）→ 与 src 腿分歧复现 → 转红。
 
-    跑完**必须恢复**（不留痕）。若源码已是修复态（本改动未落盘）则本测试**应红**——
-    这是「反跑有牙」的咬合：本测试的存在本身证明深度感知是**必要的**。
+    跑完**必须恢复**（不留痕）。这是「反跑有牙」的咬合：证明 L-072 合流是**必要的**，
+    且合流点唯一（容器口径只走 dv_json_serialize_safe 这一个入口）。
 
     R161-B 实测结论：**本用例在 pytest-xdist 并行下不可安全运行**。它改写的是
     全仓共享的 `src/llvm/runtime_typed.c`，任何并发 worker 都可能：
       ① 在改写窗口内读该文件（源码锚点断言读到半改状态）；
-      ② 在改写窗口内调 clang 编译（编译到 depth 不敏感版本）；
+      ② 在改写窗口内调 clang 编译（编译到回退版本）；
       ③ 若本 worker 中途被杀（xdist 超时/节点掉线），`finally` 不执行 ⇒
-         源码**永久停在 bug 态**（实测发生过两次，全量运行后源码被改坏）。
+         源码**永久停在回退态**（实测发生过两次，全量运行后源码被改坏）。
     跨进程文件锁只能串行化「改写段」，挡不住 ①②③。故：**并行模式下跳过本用例**，
     由串行运行（`-p no:xdist` 或 `-n 0`）承担反跑验证。
     """
@@ -369,40 +381,39 @@ def test_反跑_改回depth不敏感_容器分歧复现():
         # 归一化内容：仅供锚点断言 / 替换，与检出方式解耦。
         original = original_raw.replace(b'\r\n', b'\n')
 
-        # 断言当前是修复态（否则本测试无意义）
-        assert _FIX_LINE in original, \
-            "前置：runtime_typed.c 应为 R159-D depth-aware 修复态（否则反跑无牙）"
-        assert _BUG_LINE not in original
+        # 断言当前是 JSON 口径（否则本测试无意义）
+        assert _JSON_ANCHOR in original, \
+            "前置：dv_json_serialize_safe 应走 dv_json_serialize_value（L-072 口径）"
+        assert _JSON_REVERT not in original
 
-        # 打补丁：改成 depth 不敏感（复现病灶）
-        # 注：`patched != original` 必须与**归一化后的 original** 比较——若与原始字节比，
-        # 在 CRLF 文件上归一化本身就是差异，断言恒真、反跑无牙。
-        patched = original.replace(_FIX_LINE, _BUG_LINE)
+        # 打补丁：回退到容器 repr 旧口径（复现两腿分歧）
+        patched = original.replace(_JSON_ANCHOR, _JSON_REVERT)
         assert patched != original, "补丁未生效：锚点不匹配"
         try:
             _write_rt(patched)
-            # 现在容器内布尔应回中文（复现 L-193 分歧）
             rc, out = _native_run('''\
-打印("LIST=" 加上 转字符串([真, 假]))
+打印("MIX=" 加上 转字符串([1, 真, "a"]))
 打印("DICT=" 加上 转字符串({"k": 真}))
 打印("SCALAR=" 加上 转字符串(真))
 ''')
             assert rc == 0, f"打补丁后编译失败 rc={rc}\n{out}"
             got = _parse_output(out)
-            # 复现病灶：容器内回中文
-            assert got['LIST'] == '[真, 假]', \
-                f"反跑未复现：LIST 应回 [真, 假]，实得 {got.get('LIST')!r}"
-            assert got['DICT'] == "{'k': 真}", \
-                f"反跑未复现：DICT 应回 {{'k': 真}}，实得 {got.get('DICT')!r}"
-            # 标量仍应中文（原病灶即如此，标量路径 depth=0 不受影响）
+            # 复现分歧：字符串元素回到 dv_container_to_string 的单引号口径
+            # （src 腿为 JSON 双引号 [1, true, "a"]）
+            assert got['MIX'] == "[1, true, 'a']", \
+                f"反跑未复现：MIX 应回 [1, true, 'a']，实得 {got.get('MIX')!r}"
+            # 复现分歧：字典单引号（src 腿为 {"k": true}）
+            assert got['DICT'] == "{'k': true}", \
+                f"反跑未复现：DICT 应回 {{'k': true}}，实得 {got.get('DICT')!r}"
+            # 标量不受影响（标量路径 depth=0，两腿本就一致）
             assert got['SCALAR'] == '真', f"标量应保持中文，实得 {got.get('SCALAR')!r}"
         finally:
             # 写回**原始未归一化字节**（保留原行尾），而非归一化内容
             _write_rt(original_raw)
-            # 恢复后再确认修复态仍在（断言走归一化读取）
+            # 恢复后再确认口径仍在（断言走归一化读取）
             restored = _read_rt_norm()
-            assert _FIX_LINE in restored, "恢复失败：修复态锚点丢失"
-            assert _BUG_LINE not in restored
+            assert _JSON_ANCHOR in restored, "恢复失败：JSON 口径锚点丢失"
+            assert _JSON_REVERT not in restored
 
 
 # ══════════════════════════════════════════════════════════════════════

@@ -3948,7 +3948,7 @@
       "description": "原生腿外部符号声明（_declare_typed_runtime）与 runtime_typed.c 定义",
       "evidence_method": "_declare_typed_runtime",
       "evidence_file": "src/llvm/codegen_typed.py",
-      "count": 342,
+      "count": 343,
       "entries": [
         {
           "name": "_setjmp",
@@ -5105,10 +5105,18 @@
         {
           "name": "dv_json_serialize_pretty",
           "evidence_declare": "src/llvm/codegen_typed.py",
-          "evidence_declare_line": 825,
+          "evidence_declare_line": 826,
           "evidence_define": "src/llvm/runtime_typed.c:dv_json_serialize_pretty",
           "category": "Other",
-          "evidence_define_line": 12868
+          "evidence_define_line": 12945
+        },
+        {
+          "name": "dv_json_serialize_safe",
+          "evidence_declare": "src/llvm/codegen_typed.py",
+          "evidence_declare_line": 825,
+          "evidence_define": "src/llvm/runtime_typed.c:dv_json_serialize_safe",
+          "category": "Other",
+          "evidence_define_line": 12932
         },
         {
           "name": "dv_lcm",
