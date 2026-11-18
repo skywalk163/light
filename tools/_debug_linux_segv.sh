@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# 临时诊断脚本（不并入主线）：Linux runner 上验证「原生腿 rc=-11」修复效果
-#   ① 跑此前崩溃的整簇用例（真判据）
-#   ② W4 单例：O2 直跑 + gdb 回溯（若仍崩）
-#   ③ W4 的 ASAN 构建（定位残余越界）
+# 临时诊断脚本（不并入主线）：Linux runner 上复现「解析响应 → 取中文字段」段错误
+# 用 python 起一个只应答一次的极小 HTTP 服务，再跑原生腿客户端程序（O0，与用例同口径）；
+# 同时用 -fsanitize=address 构建同一份 .ll 复跑，拿越界栈。
 # 用法：REPO=<仓库根> bash tools/_debug_linux_segv.sh
 set -u
 REPO="${REPO:-$(pwd)}"
@@ -14,54 +13,96 @@ uname -a
 clang --version || true
 python --version
 
-echo "===== ① 崩溃簇用例（-n 0 串行，真判据）====="
-pytest tests/unit/test_R146_L204_嵌套dict深拷贝.py \
-       tests/unit/test_R142_L187_rethrow.py \
-       tests/unit/test_R142_L196_异步方法形参与协程.py \
-       tests/unit/test_R131_L186L187_原生腿.py \
-       tests/unit/test_R119B_异步等待内存回收.py \
-       tests/unit/test_llvm_first_class_fn.py \
-       tests/unit/test_R129_DvClosure地基.py \
-       tests/unit/test_llvm_builtin_gaps.py \
-       "tests/unit/test_原生腿_R11C_数据高级.py::Test图像处理基础" \
-       -n 0 -q --no-header --timeout=600 2>&1 | tail -40
-
-WIN=/tmp/segvdbg
+WIN=/tmp/segvdbg2
 rm -rf "$WIN"; mkdir -p "$WIN"; cd "$WIN"
 
-cat > 主.light <<'LIGHT'
-类 仓库:
-  段落 设置回():
-    设 己.回 为 {"错误":{"码":-1,"消息":"连接失败"},"结果":"ok"}
-    返回 空
+cat > 客户.light <<'LIGHT'
+从 节点网络 导入 客户端
 
 段落 主():
-  设 a 为 新建 仓库()
-  a.设置回()
-  输出("码=" 加上 转字符串(a.回["错误"]["码"]) 加上 " 消息=" 加上 转字符串(a.回["错误"]["消息"]))
+  设 客 为 客户端("127.0.0.1", PORT, 5.0)
+  设 回 为 客.请求("领任务", ["节点ID": "N1234", "在跑任务": []])
+  如果 回["错误"] != 空:
+    打印("解析失败")
+  否则:
+    打印(回["结果"]["消息"])
+
+主()。
 LIGHT
 
-echo "===== ② 按测试同口径编译（O2）并直跑 ====="
 python - <<'PY'
-import os, subprocess
+import os, socket, subprocess, threading, time
 from llvm.compiler import compile_light_typed
-exe = compile_light_typed('主.light', '产物', optimize_level=2)
-print('EXE =', exe)
-r = subprocess.run([os.path.abspath(exe)], capture_output=True, text=True)
-print('RC  =', r.returncode)
-print('OUT =', repr(r.stdout))
-print('ERR =', repr(r.stderr))
+
+BODY = '{"结果": {"消息": "中文测试"}, "错误": null}'.encode()
+
+src_tmpl = open('客户.light', encoding='utf-8').read()
+
+
+def once_server():
+    srv = socket.socket()
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind(('127.0.0.1', 0))
+    port = srv.getsockname()[1]
+    srv.listen(1)
+
+    def serve():
+        try:
+            c, _ = srv.accept()
+            d = b''
+            while b'\r\n\r\n' not in d:
+                ch = c.recv(65536)
+                if not ch:
+                    return
+                d += ch
+            head, _, rest = d.partition(b'\r\n\r\n')
+            cl = 0
+            for line in head.split(b'\r\n'):
+                if line.lower().startswith(b'content-length:'):
+                    cl = int(line.split(b':', 1)[1].strip())
+            need = cl - len(rest)
+            while need > 0:
+                ch = c.recv(65536)
+                if not ch:
+                    break
+                need -= len(ch)
+            resp = (b'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n'
+                    b'Content-Length: %d\r\n\r\n' % len(BODY)) + BODY
+            c.sendall(resp)
+            time.sleep(0.3)
+            c.close()
+        except Exception as e:  # noqa: BLE001
+            print('server err', e)
+        finally:
+            srv.close()
+
+    threading.Thread(target=serve, daemon=True).start()
+    return port
+
+
+def run(exe):
+    port = once_server()
+    open('客户.light', 'w', encoding='utf-8', newline='\n').write(
+        src_tmpl.replace('PORT', str(port)))
+    r = subprocess.run([os.path.abspath(exe)], capture_output=True, text=True, timeout=180)
+    print(f'--- {exe} rc={r.returncode}')
+    print('    OUT =', repr(r.stdout))
+    print('    ERR =', repr(r.stderr[-2000:]))
+
+
+# ① O0 直跑（与用例同口径）
+exe = compile_light_typed('客户.light', '客户', optimize_level=0)
+run(exe)
+
+# ② ASAN 复跑（同一份 IR + 同一份运行时）
+subprocess.run(['clang', '-c', '-O1', '-g', '-fsanitize=address,undefined',
+                '客户.ll', '-o', 'a.o'], check=False)
+subprocess.run(['clang', '-c', '-O1', '-g', '-fsanitize=address,undefined',
+                os.path.join(os.environ.get('REPO', '.'), 'src/llvm/runtime_typed.c'),
+                '-o', 'rt.o'], check=False)
+subprocess.run(['clang', '-fsanitize=address,undefined', '-g', 'a.o', 'rt.o',
+                '-o', '客户_asan', '-lm', '-pthread'], check=False)
+os.environ['ASAN_OPTIONS'] = 'detect_leaks=0'
+if os.path.exists('客户_asan'):
+    run('客户_asan')
 PY
-
-if [ -x ./产物 ]; then
-  ./产物; echo "直跑 RC = $?"
-fi
-
-echo "===== ③ ASAN 构建并运行 ====="
-clang -c -O1 -g -fsanitize=address,undefined 产物.ll -o 主.o 2>&1 | tail -5
-clang -c -O1 -g -fsanitize=address,undefined "$REPO/src/llvm/runtime_typed.c" -o rt.o 2>&1 | tail -5
-clang -fsanitize=address,undefined -g 主.o rt.o -o 产物_asan -lm -pthread 2>&1 | tail -5
-if [ -x ./产物_asan ]; then
-  ASAN_OPTIONS="detect_leaks=0" UBSAN_OPTIONS="print_stacktrace=1" ./产物_asan 2>&1 | head -60
-  echo "ASAN 完成"
-fi
