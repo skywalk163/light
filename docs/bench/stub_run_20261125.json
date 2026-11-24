@@ -1,0 +1,353 @@
+{
+  "bench": "light_agent",
+  "model": "stub",
+  "repo": "G:\\dswork\\duan-light-merge\\.worktrees\\doubao-win\\T-0465",
+  "tasks": [
+    {
+      "id": "LA-001",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 7.207,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-002",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "LA_E_STDOUT",
+      "retries": 1,
+      "elapsed": 13.489,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": false,
+          "stage": "assert",
+          "error_code": "LA_E_STDOUT",
+          "detail": "标准输出与期望不一致: '45'"
+        },
+        {
+          "n": 2,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-003",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 7.467,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-004",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 8.231,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-005",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 6.132,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-006",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 6.037,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-007",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 5.918,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-008",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 5.981,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-009",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 6.389,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-010",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 6.322,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-011",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 6.042,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-012",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 8.399,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-013",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 6.233,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-014",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 7.741,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-015",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "L0000",
+      "retries": 1,
+      "elapsed": 16.284,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": false,
+          "stage": "command",
+          "error_code": "L0000",
+          "detail": "返回码 1，期望 0: 错误: 名称错误\n  name '计数结果' is not defined\n 1 设 计数 为 5\n 2 打印(计数结果)\n │\n │        ^\n │\n 3 \n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用"
+        },
+        {
+          "n": 2,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-016",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 6.79,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-017",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 6.758,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-018",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 7.132,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-019",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 6.626,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    },
+    {
+      "id": "LA-020",
+      "ok": true,
+      "stage": "ok",
+      "error_code": "",
+      "retries": 0,
+      "elapsed": 6.745,
+      "attempts": [
+        {
+          "n": 1,
+          "ok": true,
+          "stage": "ok",
+          "error_code": ""
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total": 20,
+    "passed": 20,
+    "failed": 0,
+    "pass_rate": 1.0,
+    "retries_total": 2,
+    "avg_retries": 0.1,
+    "error_codes": {
+      "L0000": 1,
+      "LA_E_STDOUT": 1
+    }
+  }
+}

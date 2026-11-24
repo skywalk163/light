@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -119,3 +120,20 @@ def test_report_cites_its_evidence_files():
     text = read_report()
     for path in (COLDSTART, LATENCY, STUB):
         assert path.name in text, f"报告没引用数据文件：{path.name}"
+
+
+def test_data_files_are_tracked_by_git():
+    """数据文件必须**真的进了 git**，否则换台机器复算不出来。
+
+    仓根 `.gitignore` 有一条 `*.json`，会把这里的原始数据一起吃掉；
+    docs/bench/.gitignore 用 `!*.json` 把它们捞回来。这条用例就是防止有人
+    本地看着绿、一合入/换机就红（docs/LightAgentBench说明.md §2 记过同一个坑）。
+    """
+    targets = ["docs/bench/" + p.name for p in (COLDSTART, LATENCY, STUB)]
+    proc = subprocess.run(["git", "ls-files", "--"] + targets, cwd=str(REPO_ROOT),
+                          capture_output=True, text=True, encoding="utf-8",
+                          errors="replace")
+    assert proc.returncode == 0, f"git ls-files 跑不起来: {proc.stderr}"
+    listed = proc.stdout.split()
+    missing = [t for t in targets if t not in listed]
+    assert not missing, f"这些数据文件还没被 git 跟踪（会被仓根 *.json 忽略）：{missing}"
