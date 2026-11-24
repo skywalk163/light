@@ -1328,20 +1328,153 @@ class PythonCodeGenerator:
 
         只识别 BinaryOp 结构（write_call 必为最左叶），其余节点交给 _generate_expr；
         运算符与 `包含` 占位符的发射与 _generate_expr 的 BinaryOp 分支同口径。
+
+        R225（T-0445）：与 _generate_binary_chain 同口径改迭代折叠，不再逐层递归。
+        老写法对 `写 "a" + b + "c" + …` 的 N 项链是 N 层递归，N≳1000 直接
+        RecursionError（光明显示为「栈溢出」）——lightharness 的假红来源之一。
         """
         if expr is write_call:
             return self._generate_expr(write_call.args[0])
+        if not isinstance(expr, BinaryOp):
+            return self._generate_expr(expr)
+        if not getattr(self, '_iterative_binary_chain', True):
+            return self._gen_write_merged_recursive(expr, write_call)
+        head, spine = self._left_spine(expr)
+        head_text = (self._generate_expr(write_call.args[0])
+                     if head is write_call else self._generate_expr(head))
+        return self._fold_binary_spine(head_text, spine)
+
+    def _gen_write_merged_recursive(self, expr, write_call):
+        """旧实现（逐层递归），仅作 R225 反证基线保留，不得成为生产路径。"""
+        if expr is write_call:
+            return self._generate_expr(write_call.args[0])
         if isinstance(expr, BinaryOp):
-            left = self._gen_write_merged(expr.left, write_call)
-            right = self._gen_write_merged(expr.right, write_call)
-            if expr.operator == '@@contains@@':
-                return f"({right} in {left})"
-            # 「除以」/「除」整数向零截断、浮点真除（选 B）；「整除//」保留 Python floor 语义。
-            if expr.operator in ('/', '除以', '除'):
-                return f"_light_trunc_div({left}, {right})"
-            op = self.operator_map.get(expr.operator, expr.operator)
-            return f"({left} {op} {right})"
+            left = self._gen_write_merged_recursive(expr.left, write_call)
+            right = self._gen_write_merged_recursive(expr.right, write_call)
+            return self._emit_binary_op(expr.operator, left, right)
         return self._generate_expr(expr)
+
+    # ------------------------------------------------------------------
+    # R225（T-0445）：二元运算链的迭代生成
+    # ------------------------------------------------------------------
+    #
+    # 现象：lightharness 在 Windows 上「同一份代码、同一台机器」偶发红——一个
+    # 用例报「内存错误」、另一个报「栈溢出」，隔天复跑又全绿。归因见
+    # tests/test_R225_win_memory.py 与 .hive/summary.md：**栈溢出是可复现的光明缺陷**，
+    # 触发条件与机器无关（任何平台都能复现），只是 Windows 侧偶发先撞上。
+    #
+    # 根因（确定性，与宿主无关）：`_generate_expr` 对 BinaryOp 按 **AST 形状逐层递归**。
+    # parser 把 `1 + 2 + 3` 解析成左结合链 BinaryOp(BinaryOp(1, 2), 3)，于是
+    #   · N 项链 → N 层 Python 帧（每层 1~2 帧）→ N≳1000 撞 `sys.getrecursionlimit()`
+    #     （默认 1000）→ RecursionError；
+    #   · 就算不撞递归上限，旧实现每层还要再套一层括号 `((a + b) + c)`，
+    #     N≳220 就撞 CPython 解析器的嵌套上限 `too many nested parentheses`（SyntaxError）
+    #     —— 本机实测：n=200 过、n=220 红，且是**任何平台都红**。
+    # 所以「抬高递归上限」不是修复：它修不了嵌套括号，只会把「栈溢出」换成
+    # 「打穿宿主 C 栈的硬崩溃」（Windows 线程栈更小，更早崩）。
+    #
+    # 修法：把左撇链拆成「首操作数 + [(运算符, 右子树)…]」，只对右子树递归（右子树
+    # 是叶子或小题，深度与链长无关），链本身用循环 + 优先级折叠成一维文本：
+    #   `a + b + c`     → `a + b + c`        （同优先级左结合，括号可省）
+    #   `a + b * c`     → `a + (b * c)`      （右子树自带括号，语义不变）
+    #   `(a < b) < c`   → 比较链保留括号      （Python 链式比较语义不同，必须隔离）
+    # 语义与旧实现逐字对齐：右子树仍由同一个 _generate_expr 生成，只去掉
+    # 「同优先级左结合」的多余括号，结合顺序不变。
+
+    _R225_ATOM_PREC = 100
+    # Python 中缀运算符优先级（数值越大结合越紧）。键是**发射后的 Python 运算符**，
+    # 因为 `位异或` 会映射成 '^'、`^` 会映射成 '**'，必须按发射文本判优先级。
+    _PY_BINOP_PREC = {
+        'or': 1, 'and': 2, 'not': 3,
+        '==': 4, '!=': 4, '<': 4, '>': 4, '<=': 4, '>=': 4,
+        'in': 4, 'not in': 4, 'is': 4, 'is not': 4,
+        '|': 5, '^': 6, '&': 7, '<<': 8, '>>': 8,
+        '+': 9, '-': 9, '*': 10, '/': 10, '//': 10, '%': 10, '**': 12,
+    }
+    _PY_COMPARISON_OPS = frozenset({
+        '==', '!=', '<', '>', '<=', '>=', 'in', 'not in', 'is', 'is not',
+    })
+    # 反证开关：False 时退回旧递归实现。仅供 tests/test_R225_win_memory.py 的
+    # 「反向证明」用例置 False —— 生产路径恒为 True，不读环境变量。
+    _iterative_binary_chain = True
+
+    def _emit_binary_op(self, op: str, left: str, right: str) -> str:
+        """发射单个中缀节点（旧实现与迭代实现共用的运算符规则）。
+
+        v7 单 08：`包含` 的内部占位符（产生点 src/parser_core.py:270）。
+        `operator_map.get(op, op)` 的兜底语义是「查不到就原样透传」，于是
+        `@@contains@@` 会直接漏进产物：
+          如果 文件名 包含 关键词  ->  if (文件名 @@contains@@ 关键词):  SyntaxError。
+        unified 后端 code_generator_unified.py:1247-1248 有这段处理，本文件此前漏了。
+        注意方向：`包含` 是唯一一个**操作数需要交换**的比较运算符，
+        `A 包含 B` 语义是「A 含有 B」-> Python `B in A`；
+        绝不能只往 operator_map 加 '@@contains@@': 'in'，那会发射 `A in B`，
+        语法过得去而语义反了（静默错答案比响亮 SyntaxError 更坏）。
+        括号必须留：`in` 是比较运算符，裸发射会与外层比较串成链式比较
+        （`x in y == False` -> `(x in y) and (y == False)`，恒假）。
+        `除以`/`除` 统一 Python 真除语义；`整除//` 保留 Python floor 语义。
+        """
+        if op == '@@contains@@':
+            return f"({right} in {left})"
+        if op in ('/', '除以', '除'):
+            return f"_light_trunc_div({left}, {right})"
+        py_op = self.operator_map.get(op, op)
+        return f"({left} {py_op} {right})"
+
+    def _left_spine(self, expr):
+        """拆左结合二叉链，返回 (最左操作数, [BinaryOp…]（已翻转为自底向上顺序）)。"""
+        spine = []
+        node = expr
+        while isinstance(node, BinaryOp):
+            spine.append(node)
+            node = node.left
+        spine.reverse()
+        return node, spine
+
+    def _fold_binary_spine(self, head_text: str, spine) -> str:
+        """把左撇链折叠成一维文本（迭代，栈深度恒为 1）。"""
+        text = head_text
+        prec = self._R225_ATOM_PREC
+        for node in spine:
+            right = self._generate_expr(node.right)
+            op = node.operator
+            if op == '@@contains@@':
+                text = self._emit_binary_op(op, text, right)
+                prec = self._PY_BINOP_PREC['in']
+                continue
+            if op in ('/', '除以', '除'):
+                # _light_trunc_div(...) 是调用而不是中缀：整体按原子处理，
+                # 链式除法因此仍是逐层调用嵌套（N 层除法链属已知边界，见 summary）。
+                text = self._emit_binary_op(op, text, right)
+                prec = self._R225_ATOM_PREC
+                continue
+            py_op = self.operator_map.get(op, op)
+            op_prec = self._PY_BINOP_PREC.get(py_op, self._R225_ATOM_PREC)
+            # 左操作数结合更松（优先级更低）时必须加括号；
+            # 同优先级仅在「比较运算符（Python 链式比较语义不同）」与右结合 '**' 时加。
+            need_parens = (prec < op_prec) or (
+                prec == op_prec and (py_op in self._PY_COMPARISON_OPS or py_op == '**'))
+            if need_parens:
+                text = f"({text} {py_op} {right})"
+            else:
+                text = f"{text} {py_op} {right}"
+            prec = op_prec
+        # 整条链整体仍保留一层外层括号：与旧实现「BinaryOp 产物必带括号」的
+        # 发射形态对齐（既有用例按文本断言 `(1 + 2)` / `key=(甲 + 乙)`），
+        # 语义不变，只是不再按层叠括号（层叠会撞 CPython 的嵌套上限）。
+        return f"({text})"
+
+    def _generate_binary_chain(self, expr) -> str:
+        if not getattr(self, '_iterative_binary_chain', True):
+            return self._generate_binary_chain_recursive(expr)
+        head, spine = self._left_spine(expr)
+        return self._fold_binary_spine(self._generate_expr(head), spine)
+
+    def _generate_binary_chain_recursive(self, expr) -> str:
+        """旧实现（逐层递归），仅作 R225 反证基线保留，不得成为生产路径。"""
+        left = self._generate_expr(expr.left)
+        right = self._generate_expr(expr.right)
+        return self._emit_binary_op(expr.operator, left, right)
 
     def generate(self, module: Module, is_main: bool = False) -> str:
         """生成Python代码
@@ -4363,32 +4496,10 @@ class PythonCodeGenerator:
             _merged = self._try_merge_output_concat(expr)
             if _merged is not None:
                 return _merged
-            left = self._generate_expr(expr.left)
-            right = self._generate_expr(expr.right)
-            # v7 单 08：`包含` 的内部占位符（产生点 src/parser_core.py:270）。
-            # 下面那行 operator_map.get(op, op) 的兜底语义是「查不到就原样透传」，
-            # 于是 `@@contains@@` 直接漏进产物：
-            #   如果 文件名 包含 关键词  ->  if (文件名 @@contains@@ 关键词):
-            # SyntaxError。unified 后端 code_generator_unified.py:1247-1248 有这段
-            # 处理，本文件漏了——占位符协议只在一个后端落实。
-            #
-            # 注意方向：`包含` 是唯一一个**操作数需要交换**的比较运算符。
-            # `A 包含 B` 语义是「A 含有 B」-> Python `B in A`。
-            # 绝不能只往 operator_map 加一条 '@@contains@@': 'in'，那会发射
-            # `A in B`，语法过得去而语义反了，把响亮的 SyntaxError 换成 rc=0
-            # 无输出的静默错答案，比现状更坏。三处佐证同向：parser_core.py:270
-            # 注释、code_generator_unified.py:1248、以及本文件成员形式 :2382。
-            #
-            # 括号必须留：`in` 是比较运算符，裸发射会与外层比较串成链式比较
-            # （`x in y == False` -> `(x in y) and (y == False)`，恒假），
-            # 与成员形式 :2378-2381 踩过的是同一个坑。
-            if expr.operator == '@@contains@@':
-                return f"({right} in {left})"
-            # 「除以」/「除」统一 Python 真除语义；「整除//」保留 Python floor 语义。
-            if expr.operator in ('/', '除以', '除'):
-                return f"_light_trunc_div({left}, {right})"
-            op = self.operator_map.get(expr.operator, expr.operator)
-            return f"({left} {op} {right})"
+            # R225（T-0445）：二元运算链改**迭代**生成，不再按左撇子树逐层递归。
+            # 运算符规则与括号口径集中在 _emit_binary_op / _fold_binary_spine，
+            # 两处共用，避免与 _gen_write_merged 各写一份（原实现就是这样重复的）。
+            return self._generate_binary_chain(expr)
 
         
         elif isinstance(expr, UnaryOp):
