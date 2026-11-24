@@ -348,6 +348,44 @@ class ParserExprMixin:
         
         return left
     
+    def _parse_expr_tail(self, left: ASTNode) -> ASTNode:
+        """R226（T-0446）：从**已解析的** left 继续解析表达式剩余部分。
+
+        语义与 `_parse_expr` 的后半段逐字对齐（三元后缀 → 管道/因果链），
+        差别只在入口：不重新从最低优先级下钻取左操作数，而是直接接着 left 跑。
+
+        用途：深嵌套括号迭代化。每关闭一层 `)`，本层括号的「内容」还没结束
+        （可能还有 `*3` / `+4` / `,x` / `如果…否则…` 这类延续），原来靠
+        重新调用 `_parse_expr()` 实现，那会为每层括号多下钻一整轮优先级阶梯；
+        改成「用已得左值继续」，一层括号 = 一次循环迭代，栈深与括号层数解耦。
+        """
+        # 第一步就是本层的运算符阶梯（与 _parse_expr 的 left = _parse_logical_expr()
+        # 同口径），只是把 left 直接喂给最外层的逻辑层，不再从 factor 重下一轮。
+        left = self._parse_logical_expr(left)
+
+        ternary = self._parse_postfix_ternary_cont(left)
+        if ternary is not None:
+            return ternary
+
+        stages = [left]
+        connector = None
+
+        while self._match(TokenType.ARROW) or self._match(TokenType.COMMA):
+            if self._match(TokenType.ARROW):
+                self._consume(TokenType.ARROW)
+                connector = 'arrow'  # 管道：函数组合
+            else:
+                self._consume(TokenType.COMMA)
+                connector = 'comma'  # 因果链：条件,动作
+
+            right = self._parse_logical_expr()
+            stages.append(right)
+
+        if len(stages) > 1:
+            return Pipeline(stages, connector=connector or 'comma')
+
+        return left
+
     def _parse_postfix_ternary_cont(self, left: ASTNode) -> Optional[ASTNode]:
         """后置三元延续：left 如果 条件 否则 表达式 → ConditionalExpression。
 
@@ -372,8 +410,14 @@ class ParserExprMixin:
         ternary = self._parse_postfix_ternary_cont(left)
         return ternary if ternary is not None else left
     
-    def _parse_logical_expr(self) -> ASTNode:
-        """解析逻辑表达式（且/与, 或）"""
+    def _parse_logical_expr(self, left: ASTNode = None) -> ASTNode:
+        """解析逻辑表达式（且/与, 或）
+
+        R226（T-0446）：`left` 是「已解析好的左操作数」种子。默认 None 时行为与
+        改前逐字一致（从最低优先级重新下钻）；只有深嵌套括号的迭代化路径
+        （_parse_expr_tail）才会传种子，用来在「括号已闭合」的位置继续跑本层的
+        运算符阶梯，避免每层括号再下钻一整轮阶梯。
+        """
         # 明确标注不支持的特性（P1-3）：海象运算符 :=
         if self._match(TokenType.WALRUS):
             tok = self._current()
@@ -382,7 +426,7 @@ class ParserExprMixin:
                 tok.line, tok.col
             )
         
-        left = self._parse_comparison()
+        left = self._parse_comparison(left)
         
         while True:
             tok = self._current()
@@ -400,7 +444,7 @@ class ParserExprMixin:
         
         return left
     
-    def _parse_comparison(self) -> ASTNode:
+    def _parse_comparison(self, left: ASTNode = None) -> ASTNode:
         """解析逻辑/比较表达式（R12A 接线入口）。
 
         R12A（R11A-07 根因修正）：_parse_logical_expr 此前从未被表达式链
@@ -408,12 +452,14 @@ class ParserExprMixin:
         右操作数被 parser 静默丢弃（`b1(真 且 假)` 只收到 左操作数）。
         现把逻辑层接入：或 < 且 < 比较（Python 同优先级），见
         _parse_logical_or_expr / _parse_logical_and_expr。
-        """
-        return self._parse_logical_or_expr()
 
-    def _parse_logical_or_expr(self) -> ASTNode:
+        R226：`left` 为左操作数种子（见 _parse_logical_expr）。
+        """
+        return self._parse_logical_or_expr(left)
+
+    def _parse_logical_or_expr(self, left: ASTNode = None) -> ASTNode:
         """或 层：a 或 b（最低逻辑优先级，先于 且 结合）"""
-        left = self._parse_logical_and_expr()
+        left = self._parse_logical_and_expr(left)
         while True:
             tok = self._current()
             if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
@@ -427,9 +473,9 @@ class ParserExprMixin:
                 break
         return left
 
-    def _parse_logical_and_expr(self) -> ASTNode:
+    def _parse_logical_and_expr(self, left: ASTNode = None) -> ASTNode:
         """且/与 层：a 且 b（高于 或，低于比较）"""
-        left = self._parse_comparison_chain()
+        left = self._parse_comparison_chain(left)
         while True:
             tok = self._current()
             if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
@@ -443,9 +489,9 @@ class ParserExprMixin:
                 break
         return left
 
-    def _parse_comparison_chain(self) -> ASTNode:
+    def _parse_comparison_chain(self, left: ASTNode = None) -> ASTNode:
         """解析比较表达式（原 _parse_comparison 主体）"""
-        left = self._parse_bitor_expr()
+        left = self._parse_bitor_expr(left)
         
         while True:
             tok = self._current()
@@ -532,9 +578,9 @@ class ParserExprMixin:
     
     # ---- 位运算解析层（优先级：位或 < 位异或 < 位与 < 位移 < 加减）----
     
-    def _parse_bitor_expr(self) -> ASTNode:
+    def _parse_bitor_expr(self, left: ASTNode = None) -> ASTNode:
         """解析按位或表达式（位或）"""
-        left = self._parse_bitxor_expr()
+        left = self._parse_bitxor_expr(left)
         while True:
             tok = self._current()
             if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
@@ -549,9 +595,9 @@ class ParserExprMixin:
                 break
         return left
     
-    def _parse_bitxor_expr(self) -> ASTNode:
+    def _parse_bitxor_expr(self, left: ASTNode = None) -> ASTNode:
         """解析按位异或表达式（位异或）"""
-        left = self._parse_bitand_expr()
+        left = self._parse_bitand_expr(left)
         while True:
             tok = self._current()
             if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
@@ -566,9 +612,9 @@ class ParserExprMixin:
                 break
         return left
     
-    def _parse_bitand_expr(self) -> ASTNode:
+    def _parse_bitand_expr(self, left: ASTNode = None) -> ASTNode:
         """解析按位与表达式（位与）"""
-        left = self._parse_shift_expr()
+        left = self._parse_shift_expr(left)
         while True:
             tok = self._current()
             if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
@@ -583,9 +629,9 @@ class ParserExprMixin:
                 break
         return left
     
-    def _parse_shift_expr(self) -> ASTNode:
+    def _parse_shift_expr(self, left: ASTNode = None) -> ASTNode:
         """解析位移表达式（左移 / 右移）"""
-        left = self._parse_add_expr()
+        left = self._parse_add_expr(left)
         while True:
             tok = self._current()
             if tok is None or tok.type in _EXPR_TERMINATOR_TYPES:
@@ -600,9 +646,9 @@ class ParserExprMixin:
                 break
         return left
     
-    def _parse_add_expr(self) -> ASTNode:
+    def _parse_add_expr(self, left: ASTNode = None) -> ASTNode:
         """解析加减表达式"""
-        left = self._parse_mul_expr()
+        left = self._parse_mul_expr(left)
         
         while True:
             tok = self._current()
@@ -653,9 +699,9 @@ class ParserExprMixin:
         
         return left
     
-    def _parse_mul_expr(self) -> ASTNode:
+    def _parse_mul_expr(self, left: ASTNode = None) -> ASTNode:
         """解析乘除表达式"""
-        left = self._parse_power_expr()
+        left = self._parse_power_expr(left)
         
         while True:
             tok = self._current()
@@ -716,9 +762,10 @@ class ParserExprMixin:
         
         return left
     
-    def _parse_power_expr(self) -> ASTNode:
+    def _parse_power_expr(self, left: ASTNode = None) -> ASTNode:
         """解析幂表达式（优先级高于乘除，右结合）"""
-        left = self._parse_primary()
+        if left is None:
+            left = self._parse_primary()
         
         while True:
             tok = self._current()
@@ -779,6 +826,210 @@ class ParserExprMixin:
     # 的拦截分支），因为 `异步` 在表达式位置永远没有合法含义（合法写法全在语句层）。
     _ALLOWED_ASYNC_PREFIXED_NAMES = frozenset(
         {'异步睡眠', '异步读取文件', '异步写入文件', '异步追加文件'})
+
+    # ══════════════════════════════════════════════════════════════════
+    # R226（T-0446）：深嵌套表达式「栈深与嵌套层数解耦」
+    #
+    # 现象：修改前 `((((…1…))))` 每层括号都要把 14 级优先级阶梯重新下钻一遍
+    # （_parse_logical_expr → … → _parse_power_expr → _parse_primary），实测
+    # 约 13~14 个 Python 帧/层：60 层可编、70 层起 RecursionError；
+    # `f(f(f(…)))` 同形，70 层可编、80 层起红。与操作系统无关，与 R225 修的
+    # codegen 运算链递归不是同一处。
+    #
+    # 两条迭代化路径（都不抬 sys.setrecursionlimit / 不改 AST 形状）：
+    #   1) 括号组：_parse_paren_nest 把连续 n 层 `(` 一次性吃掉，组内只解析一次，
+    #      之后每关闭一层就用「已得左值」继续本层表达式（_parse_expr_tail），
+    #      一层括号 = 一次循环迭代。
+    #   2) 单参调用链：_parse_call_spine 把 `f(g(h(…)))` 的 callee 名压进
+    #      Python 列表（不在 Python 栈上），最内层交给原解析器，再逐层回卷。
+    # 开关保留给反证用例（tests/test_R226_deep_nest.py）：置 False 即退回改前
+    # 的逐层递归实现，同一 150 层夹具必须真红。
+    # ══════════════════════════════════════════════════════════════════
+    _iterative_paren_parse = True
+    _iterative_call_spine = True
+
+    # 调用链迭代化的最小链长：链短于该值一律走原递归路径（正常代码零改动）。
+    _call_spine_min_depth = 8
+
+    # 这些名字在 _parse_primary / _collect_single_arg 里另有专分支
+    # （匿名函数、super、新建、复合标识符…），不允许从 token 流里「看着像普通函数名」
+    # 就直接拼 ParagraphCall —— 一律退回原路径。
+    _SPINE_SPECIAL_NAMES = frozenset(
+        {'匿名', '超', '新', '不', '己', '父', '包含', '异步'})
+
+    def _skip_group_ws(self) -> None:
+        """跳过括号内换行/缩进（与括号分支原有的多行括号口径一致）。"""
+        while self._current() and self._current().type in (
+                TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
+            self._consume()
+
+    def _parse_paren_group_inner(self) -> ASTNode:
+        """解析一个括号组的组内表达式并消费其右括号（`(` 已由调用方消费）。
+
+        R226：从 `_parse_primary` 的括号分支原样抽出，供「单层」与「多层迭代」
+        两条路径共用——组内语义（海象等价物 `(设 x 为 v)`、`(a, b)` 的
+        Pipeline→TupleLiteral 口径）零改写。返回值是**原始**表达式：
+        Pipeline 未转 TupleLiteral、也没做 postfix，由调用方按原口径收尾。
+        """
+        # 跳过 NEWLINE/INDENT/DEDENT（支持多行括号表达式）
+        self._skip_group_ws()
+
+        # 支持海象运算符等价物：设 变量 为 表达式
+        # 例如：(设 n 为 len(data)) → Python 的 (n := len(data))
+        if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '设':
+            self._consume(TokenType.KEYWORD, '设')
+            # 变量名
+            _walrus_saved = self.pos
+            _walrus_name = self._parse_primary()
+            if not isinstance(_walrus_name, Identifier):
+                self.pos = _walrus_saved
+                # 不是海象运算符，回退并重新解析
+                self._consume(TokenType.LPAREN)  # 重新开始
+                expr = self._parse_expr()
+                self._consume(TokenType.RPAREN)
+                return expr
+            # 为 或 等于
+            if self._current() and self._current().type == TokenType.KEYWORD and self._current().value in ('为', '等于'):
+                self._consume()
+            else:
+                self.pos = _walrus_saved
+                self._consume(TokenType.LPAREN)
+                expr = self._parse_expr()
+                self._consume(TokenType.RPAREN)
+                return expr
+            # 值表达式
+            _walrus_value = self._parse_expr()
+            self._consume(TokenType.RPAREN)
+            from ast_nodes_v3 import AssignmentExpression
+            return AssignmentExpression(_walrus_name.name, _walrus_value)
+
+        expr = self._parse_expr()
+        # 跳过 NEWLINE/INDENT/DEDENT（支持多行括号表达式）
+        self._skip_group_ws()
+        self._consume(TokenType.RPAREN)
+        return expr
+
+    def _parse_paren_nest(self) -> ASTNode:
+        """R226：括号组迭代解析（`(` 尚未消费）。
+
+        连续 n 层 `(`（允许中间有括号内换行）时，一次吃掉 n 个左括号，只把
+        **最内层**交给 `_parse_paren_group_inner`（= 原括号分支语义），随后每关闭
+        一层右括号就用 `_parse_expr_tail` 接着跑本层表达式。n 层括号 = n 次循环，
+        Python 栈深恒定，与 n 无关。
+
+        只有在取到最内层、关闭外层时才会用到 postfix/tail，顺序与原递归实现一致：
+        本层内容 = `括号组结果 <postfix>* <运算符链>`。
+        """
+        toks = self.tokens
+        n_tok = self._n_tokens or len(toks)
+
+        # 统计从当前位置起的连续左括号层数（跳过括号内换行）
+        n = 0
+        p = self.pos
+        while p < n_tok:
+            t = toks[p]
+            if t.type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
+                p += 1
+                continue
+            if t.type != TokenType.LPAREN:
+                break
+            n += 1
+            p += 1
+
+        if n < 2:
+            # 单层括号：与改动前逐字一致
+            self._consume(TokenType.LPAREN)
+            expr = self._parse_paren_group_inner()
+            if isinstance(expr, Pipeline):
+                return TupleLiteral(expr.stages)
+            return self._parse_postfix(expr)
+
+        # 吃掉 n 个左括号，最内层组交给原括号分支逻辑
+        for _ in range(n):
+            self._skip_group_ws()
+            self._consume(TokenType.LPAREN)
+        left = self._parse_paren_group_inner()
+
+        # 由内向外关闭剩下的 n-1 层
+        for _ in range(n - 1):
+            if isinstance(left, Pipeline):
+                # 原括号分支遇到 Pipeline 直接转元组并返回（不接 postfix）
+                left = TupleLiteral(left.stages)
+            else:
+                left = self._parse_postfix(left)
+            # 本层括号的内容还没结束（`*3` / `+4` / `,3` / `如果…否则…`）
+            left = self._parse_expr_tail(left)
+            self._skip_group_ws()
+            self._consume(TokenType.RPAREN)
+
+        if isinstance(left, Pipeline):
+            return TupleLiteral(left.stages)
+        return self._parse_postfix(left)
+
+    def _is_plain_call_name(self, tok) -> bool:
+        """该 token 能否按「普通段落调用名」对待（迭代化调用链的判据）。"""
+        if tok is None or tok.type != TokenType.IDENTIFIER:
+            return False
+        v = tok.value
+        if v in self._SPINE_SPECIAL_NAMES:
+            return False
+        # 运算符/动词名在表达式位置另有语义，一律不走拼接路径
+        if (v in self.ADD_OP_MAP or v in self.MUL_OP_MAP or v in self.POWER_OP_MAP
+                or v in self.SHIFT_OP_MAP or v in self.BITWISE_OR_MAP
+                or v in self.BITWISE_XOR_MAP or v in self.BITWISE_AND_MAP
+                or v in self.OPERATOR_VERBS):
+            return False
+        return True
+
+    def _parse_call_spine(self) -> Optional[ASTNode]:
+        """R226：单参调用链 `f(g(h(…x…)))` 的迭代解析。
+
+        调用方已消费本层的 `(`。返回值语义：
+          · 返回 AST  —— 链尾表达式已解析完毕，pos 停在**本层**的 `)` 之前；
+          · 返回 None —— 形状不符合（链太短 / 某层不止一个实参 / 某层后面还接
+            运算符或后缀），pos 已原样回滚，调用方继续走原有逐层递归路径。
+
+        能迭代的前提（逐层校验，任一不满足就整体回滚，因此不会改变任何
+        原本能通过的写法的语义）：每层 callee 是普通标识符、只有一个实参、
+        且该实参就是内层调用（`n2(…)` 后紧跟本层 `)`）。
+        """
+        toks = self.tokens
+        n_tok = self._n_tokens or len(toks)
+        saved = self.pos
+        names = []
+        p = saved
+
+        while (p + 3 < n_tok
+               and self._is_plain_call_name(toks[p])
+               and toks[p + 1].type == TokenType.LPAREN
+               and self._is_plain_call_name(toks[p + 2])
+               and toks[p + 3].type == TokenType.LPAREN):
+            names.append(toks[p].value)
+            p += 2
+
+        if len(names) < self._call_spine_min_depth:
+            return None
+
+        # 最内层调用（连同它自己的全部实参、多实参/关键字实参都行）交给原解析器
+        self.pos = p
+        expr = self._parse_comparison()
+
+        # 由内向外回卷：每层「本层实参继续跑运算链 → 必须是本层 `)`」
+        for name in reversed(names):
+            expr = self._parse_comparison(expr)
+            cur = self._current()
+            if cur is None or cur.type != TokenType.RPAREN:
+                self.pos = saved
+                return None
+            self._consume(TokenType.RPAREN)
+            expr = ParagraphCall(name, [expr], 带括号=True)
+
+        cur = self._current()
+        if cur is None or cur.type != TokenType.RPAREN:
+            # 链尾后面还有东西（如 `f(f(f(x)), y)`），交回原路径，避免语义分叉
+            self.pos = saved
+            return None
+        return expr
 
     def _parse_primary(self) -> ASTNode:
         """解析基本表达式"""
@@ -906,52 +1157,11 @@ class ParserExprMixin:
         
         # 括号表达式
         if tok.type == TokenType.LPAREN:
+            if self._iterative_paren_parse:
+                return self._parse_paren_nest()
+            # 旧路径（反证用）：每层括号重下一整轮优先级阶梯
             self._consume(TokenType.LPAREN)
-            
-            # 跳过 NEWLINE/INDENT/DEDENT（支持多行括号表达式）
-            while self._current() and self._current().type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
-                self._consume()
-            
-            # 支持海象运算符等价物：设 变量 为 表达式
-            # 例如：(设 n 为 len(data)) → Python 的 (n := len(data))
-            if self._current() and self._current().type == TokenType.KEYWORD and self._current().value == '设':
-                self._consume(TokenType.KEYWORD, '设')
-                # 变量名
-                _walrus_saved = self.pos
-                _walrus_name = self._parse_primary()
-                if not isinstance(_walrus_name, Identifier):
-                    self.pos = _walrus_saved
-                    # 不是海象运算符，回退并重新解析
-                    self._consume(TokenType.LPAREN)  # 重新开始
-                    expr = self._parse_expr()
-                    self._consume(TokenType.RPAREN)
-                    if isinstance(expr, Pipeline):
-                        return TupleLiteral(expr.stages)
-                    return self._parse_postfix(expr)
-                # 为 或 等于
-                if self._current() and self._current().type == TokenType.KEYWORD and self._current().value in ('为', '等于'):
-                    self._consume()
-                else:
-                    self.pos = _walrus_saved
-                    self._consume(TokenType.LPAREN)
-                    expr = self._parse_expr()
-                    self._consume(TokenType.RPAREN)
-                    if isinstance(expr, Pipeline):
-                        return TupleLiteral(expr.stages)
-                    return self._parse_postfix(expr)
-                # 值表达式
-                _walrus_value = self._parse_expr()
-                self._consume(TokenType.RPAREN)
-                from ast_nodes_v3 import AssignmentExpression
-                return AssignmentExpression(_walrus_name.name, _walrus_value)
-            
-            expr = self._parse_expr()
-            # 跳过 NEWLINE/INDENT/DEDENT（支持多行括号表达式）
-            while self._current() and self._current().type in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
-                self._consume()
-            self._consume(TokenType.RPAREN)
-            # 如果括号内是逗号分隔的表达式（Pipeline），视为元组字面量
-            # 例如：(x, y) → TupleLiteral，而非 Pipeline(x → y)
+            expr = self._parse_paren_group_inner()
             if isinstance(expr, Pipeline):
                 return TupleLiteral(expr.stages)
             return self._parse_postfix(expr)
@@ -1937,6 +2147,15 @@ class ParserExprMixin:
 
                 if self._current() and self._current().type == TokenType.LPAREN:
                     self._consume(TokenType.LPAREN)
+                    # R226（T-0446）：单参调用链迭代化（见 _parse_call_spine）。
+                    # 普通标识符的括号调用是在这里直接建 ParagraphCall 的，
+                    # 所以挂钩必须在这一处，否则每层仍要多下钻一整轮优先级阶梯。
+                    if self._iterative_call_spine:
+                        _spine = self._parse_call_spine()
+                        if _spine is not None:
+                            self._consume(TokenType.RPAREN)
+                            return self._parse_postfix(
+                                ParagraphCall(name, [_spine], 带括号=True))
                     while self._current() and self._current().type != TokenType.RPAREN:
                         if self._current().type == TokenType.COMMA:
                             self._consume(TokenType.COMMA)
@@ -3516,6 +3735,15 @@ class ParserExprMixin:
 
                 # 收集参数（直到右括号）- 使用比较表达式而非完整表达式
                 # 以避免逗号被当作管道操作符处理
+                # R226（T-0446）：单参调用链 `f(g(h(…)))` 迭代化——把嵌套改成
+                # 循环而不是每层再下钻一环优先级阶梯（否则一层约 14 帧）。
+                # 形状不符时 _parse_call_spine 自行回滚 pos 返回 None，下面照旧。
+                if self._iterative_call_spine:
+                    _spine = self._parse_call_spine()
+                    if _spine is not None:
+                        self._consume(TokenType.RPAREN)
+                        expr = ParagraphCall(func_name, [_spine], 带括号=True)
+                        continue
                 args = []
                 while not self._match(TokenType.RPAREN):
                     # 跳过 NEWLINE/INDENT/DEDENT（支持多行函数调用）
