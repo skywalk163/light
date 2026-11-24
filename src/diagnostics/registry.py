@@ -29,6 +29,11 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from .model import ANCHORS, MAX_FIXES, SEVERITIES, Diagnostic, DiagnosticSpec
 from .lint_bridge import LINT_RULE_MAP, LINT_SPECS
 
+try:  # 作为 src.diagnostics.* 被导入
+    from .. import ai_pyisms
+except ImportError:  # 以 src/ 为 sys.path 根
+    import ai_pyisms  # type: ignore[no-redef]
+
 __all__ = [
     "CODE_SEGMENTS",
     "CODE_PATTERN",
@@ -48,6 +53,13 @@ __all__ = [
     "diagnostic",
     "all_diagnostic_codes",
     "format_diagnostic",
+    # ---- T-0457：AI 惯性诊断 D1xx ----
+    "PYISM_SEGMENT",
+    "PYISM_CODE_PATTERN",
+    "PYISM_DIAGNOSTICS",
+    "PYISM_STAGES",
+    "all_pyism_codes",
+    "explain_pyisms",
 ]
 
 #: 码段 → 含义。首位数字即码段号，后三位为段内序号。
@@ -419,25 +431,47 @@ def duplicate_codes(rules: Sequence[Rule]) -> List[str]:
     return dups
 
 
-def explain(message: str, stage: Optional[str] = None) -> Optional[Diagnostic]:
-    """把一条报错文本解释成结构化诊断；未命中返回 ``None``。
+def explain(message: str, stage: Optional[str] = None,
+            source: Optional[str] = None) -> Optional[Diagnostic]:
+    """把一条报错文本（或一段源码）解释成结构化诊断；未命中返回 ``None``。
 
     参数
     ----
     message
-        编译器/解释器给出的**原始报错文本**；原样保留进 ``Diagnostic.message``。
+        编译器/解释器给出的**原始报错文本**；原样保留进 ``Diagnostic.message``
+        —— 除非命中 pyisms（那时 ``message`` 换成「这行要改成什么」的一句中文，
+        原始报错文本由调用方的 ``detail`` 承载）。
     stage
         可选过滤器。给了就只在该 stage 的规则里匹配，避免同一段文本被别的
         阶段规则抢走；不给则按 :data:`RULES` 顺序全表匹配，取第一条命中。
+    source
+        可选**源码**。给了就先跑 :mod:`src.ai_pyisms` 的 D1xx 惯性扫描：命中即
+        返回**真实错误码**（``provisional=False``，带 token 级行列与整行替换），
+        不会再落到 ``L0000``。
+
+        **必须显式给**，不从 ``message`` 里猜：报错文本引用出错 token 时也用
+        单引号（``无法识别的语法元素：':'。``），把报错文本当源码扫会把每一条
+        语法错误都误判成「字符串用了单引号」。CLI 手上本来就有源码，直接传
+        ``explain(报错文本, source=源码)`` 或 :func:`explain_pyisms` 即可。
 
     说明
     ----
-    * 位置信息不从文本里猜：``line``/``column`` 恒为 0（位置未知）。
-      需要精确坐标时，由调用方（T-0317/T-0318）把真实坐标填进返回值。
-    * ``provisional=True``：文本正则推断，尚未与内部异常对象绑定。
-    * 没有任何「兜底码」——匹配不上就诚实返回 ``None``。
+    * D1xx 优先：``def`` / ``if`` / ``&&`` / ``True`` 这类「Python 惯性」由静态
+      扫描直接定性，比从报错文本反推可靠；扫描无发现时才走 :data:`RULES` 的
+      文本正则归因。
+    * 位置信息：命中 pyisms 时用 token 的真实 ``行:列``；走 RULES 时
+      ``line``/``column`` 恒为 0（位置未知），由调用方填真实坐标。
+    * 没有任何「兜底码」——两边都匹配不上就诚实返回 ``None``。
     """
-    if not isinstance(message, str) or not message:
+    if not isinstance(message, str):
+        return None
+
+    if isinstance(source, str) and source:
+        diag = explain_pyisms(source, stage=stage)
+        if diag is not None:
+            return diag
+
+    if not message:
         return None
     for rule in RULES:
         if stage is not None and rule.stage != stage:
@@ -568,15 +602,26 @@ def diagnostic(code: str) -> DiagnosticSpec:
     不存在返回空会让下游写出假码（T-0378 红线），所以这里宁可抛异常。
     T-0316 的 :func:`get` 返回 ``None`` 的宽松语义被 ``docs/错误码规范.md``
     §3 锁定为兼容承诺，本函数才是「未注册即报错」的入口。
+
+    D1xx（T-0457 的 AI 惯性码）与 L 码同表可查：两者共用一套
+    ``DiagnosticSpec``（severity / message / hint / anchor），
+    :func:`format_diagnostic` 因此对 D 码一样可用。
     """
     if not isinstance(code, str):
         raise KeyError(f"诊断码必须是字符串，收到 {type(code).__name__}：{code!r}")
+    if PYISM_CODE_PATTERN.fullmatch(code):
+        try:
+            return PYISM_DIAGNOSTICS[code]
+        except KeyError:
+            raise KeyError(
+                f"未注册的 AI 惯性诊断码：{code!r}；全集见 all_pyism_codes()"
+            ) from None
     try:
         return DIAGNOSTICS[code]
     except KeyError:
         raise KeyError(
-            f"未注册的诊断码：{code!r}；合法码段 {sorted(DIAG_SEGMENTS)}，"
-            f"全集见 all_diagnostic_codes()"
+            f"未注册的诊断码：{code!r}；合法码段 {sorted(DIAG_SEGMENTS)} + D1xx，"
+            f"全集见 all_diagnostic_codes() / all_pyism_codes()"
         ) from None
 
 
@@ -632,3 +677,82 @@ def format_diagnostic(
         for key, value in extra.items():
             payload.setdefault(key, value)
     return payload
+
+
+# ---------------------------------------------------------------------------
+# T-0457：AI 惯性诊断 D1xx（Python 写法 → 光明写法）
+# ---------------------------------------------------------------------------
+# 与 L 码段的关系：
+#   * L1–L5 是**编译器**产生的码（词法/语法/类型/运行时/模块/后端），由
+#     ``RULES`` + ``DIAGNOSTICS`` 承载；
+#   * D1xx 是**源码静态扫描**产生的码（:mod:`src.ai_pyisms`），回答「这行是按
+#     Python 习惯写的」，带 token 级真实行列与**整行可替换文本**。
+#   * 两者共用 ``DiagnosticSpec`` 与 :func:`format_diagnostic`，但码表分开存放：
+#     ``all_diagnostic_codes()`` 的条数被 T-0378 的验收测试锁死（19 + 33），
+#     把 D 码塞进去会打破那条兼容承诺，故用独立的 ``PYISM_DIAGNOSTICS``。
+PYISM_SEGMENT = ai_pyisms.PYISM_SEGMENT
+PYISM_CODE_PATTERN = ai_pyisms.PYISM_CODE_PATTERN
+
+#: D 码归 ``parser`` 锚：它们是**动语法分析器之前**对源码的定性（不是 lint 风格
+#: 建议，也不是运行期错误），报出来的就是「这行解析不过」。
+PYISM_ANCHOR = "parser"
+
+#: D 码只可能出现在这两个 stage；``explain(stage=...)`` 用它决定要不要跑扫描。
+PYISM_STAGES: Tuple[str, ...] = ("语法", "词法")
+
+#: D1xx 静态码表：码 / 严重度 / 一句话 / 最小修复全部来自
+#: :data:`src.ai_pyisms.PYISM_CODES`（不两抄，防漂移）。
+PYISM_DIAGNOSTICS: Dict[str, DiagnosticSpec] = {}
+for _info in ai_pyisms.PYISM_CODES:
+    if not PYISM_CODE_PATTERN.fullmatch(_info.code):
+        raise ValueError(f"AI 惯性码格式必须是 D1xx，收到 {_info.code!r}")
+    if _info.code in PYISM_DIAGNOSTICS:
+        raise ValueError(f"AI 惯性码重复注册：{_info.code}")
+    PYISM_DIAGNOSTICS[_info.code] = DiagnosticSpec(
+        code=_info.code,
+        severity=_info.severity,
+        message=_info.title,
+        hint=_info.hint,
+        anchor=PYISM_ANCHOR,
+        legacy=False,
+    )
+del _info
+
+
+def all_pyism_codes() -> Tuple[str, ...]:
+    """D1xx 全部已注册码，注册顺序稳定。"""
+    return tuple(PYISM_DIAGNOSTICS)
+
+
+def explain_pyisms(source: str, stage: Optional[str] = None) -> Optional[Diagnostic]:
+    """对源码跑一次 D1xx 惯性扫描，把**第一条**发现转成 :class:`Diagnostic`。
+
+    返回 ``None`` 表示「这不是 Python 惯性」——调用方接着按报错文本归因，
+    本函数不造兜底码。``stage`` 不在 :data:`PYISM_STAGES` 内时直接返回 ``None``
+    （类型/运行时阶段的报错不该被当成语法惯性）。
+    """
+    if not isinstance(source, str) or not source:
+        return None
+    if stage is not None and stage not in PYISM_STAGES:
+        return None
+    try:
+        findings = ai_pyisms.scan(source)
+    except Exception:  # 扫描是增强能力，绝不能把编译主流程带崩
+        return None
+    if not findings:
+        return None
+    finding = findings[0]
+    info = ai_pyisms.code_info(finding.code)
+    return Diagnostic(
+        code=finding.code,
+        severity=info.severity,
+        stage="语法",
+        line=finding.line,
+        column=finding.column,
+        message=finding.message,
+        hint=info.hint,
+        fixes=[finding.message],
+        candidates=[finding.replacement] if finding.replacement else [],
+        provisional=False,
+        docs=info.docs,
+    )
