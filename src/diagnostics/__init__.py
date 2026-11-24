@@ -18,8 +18,15 @@ T-0378（R222-B 线）::
     不变）+ lint 桥接 33 条（``L5004``–``L5036``，见 ``lint_bridge``，
     E001/W001/E016/W016 等旧规则码的 L5xxx 身份）。
 
+T-0457（AI 自愈）
+    ``D1xx`` = 「这行是按 Python 习惯写的」。码表事实源在 ``src/ai_pyisms.py``，
+    本包只做收编与归因::
+
+        from src.diagnostics import explain
+        diag = explain(报错文本, source=源码)   # 命中 D1xx 时 code 以 D1 开头
+
 边界：本包不修改 ``cli/light.py``、``src/enhanced_errors.py``、
-``src/errors.py``、``src/linter/``；错误码的 CLI 接线由 T-0382 承担。
+``src/errors.py``、``src/linter/``；错误码的 CLI 接线由 T-0382 / T-0464 承担。
 """
 
 from .model import (
@@ -40,12 +47,18 @@ from .registry import (
     diagnostic,
     duplicate_codes,
     explain,
+    explain_pyisms,
     format_diagnostic,
     get,
     to_legacy_entry,
     DIAGNOSTICS,
     DIAG_SEGMENTS,
     LEGACY_CODE_COUNT,
+    PYISM_DIAGNOSTICS,
+    PYISM_SEGMENT,
+    PYISM_CODE_PATTERN,
+    PYISM_STAGES,
+    all_pyism_codes,
 )
 from .lint_bridge import LINT_RULE_MAP, lint_rule_to_code
 
@@ -73,6 +86,13 @@ __all__ = [
     "diagnostic",
     "all_diagnostic_codes",
     "format_diagnostic",
+    # T-0457（AI 惯性诊断 D1xx）
+    "PYISM_DIAGNOSTICS",
+    "PYISM_SEGMENT",
+    "PYISM_CODE_PATTERN",
+    "PYISM_STAGES",
+    "all_pyism_codes",
+    "explain_pyisms",
     # lint 桥接
     "LINT_RULE_MAP",
     "lint_rule_to_code",
