@@ -68,14 +68,22 @@ def _小模块集(tmp_path):
 
 
 def _必炸模块(tmp_path):
-    """必抛 RecursionError：300 层括号 × ~12 帧/层 ≈ 3600 帧 > 递归上限 1000。"""
+    """必抛 RecursionError：400 层嵌套列表字面量（`[[[…1…]]]`），逐层约 12 帧 > 递归上限 1000。
+
+    夹具演化（T-0446 合入后必须换形状）：原夹具用 300 层括号，
+    T-0446 已把「括号组与单参调用链」迭代化（1500 层括号/单参调用实测都能编），
+    于是旧夹具不再红、本用例变成语义冲突的假红。现改用**嵌套列表字面量**——
+    该路径在 T-0446 后仍逐层递归（400 层实测 RecursionError），
+    且判据关心的只是「采集器能否抓到一次真实失败快照 + 退出码非 0」，
+    异常类型仍保持 RecursionError 口径。
+    """
     d = tmp_path / 'mods_fail'
     d.mkdir(exist_ok=True)
-    depth = 300
+    depth = 400
     _写模块(d / '好.light', '段落 主程序:\n  写(转字符串(1 + 2))。\n')
     return str(_写模块(d / '必炸模块.light',
                        '段落 主程序:\n  设 甲 为 %s1%s。\n  写(转字符串(甲))。\n'
-                       % ('(' * depth, ')' * depth)))
+                       % ('[' * depth, ']' * depth)))
 
 
 def _跑采集(out_dir, modules_dir, rounds, workers, extra=()):
