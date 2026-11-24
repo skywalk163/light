@@ -3,6 +3,30 @@
 > **本文档专为 AI 设计**：看了就能直接写光明（Light）代码。
 > 版本：v0.4.2（2026-11-15）· 119 个标准库模块 · 711 项原生腿能力 · 智能原语弹性层（默认关闭）
 > 文件后缀：`.light` · CLI：`light 运行 文件.light` 或 `lightc 编译 文件.light`
+>
+> **上下文预算紧就别啃这份 4.8 万字**：先喂 [`docs/ai/compact.md`](ai/compact.md)（≤300 字符，
+> 从 `spec/light.spec.json` 派生的三层卡），不够再上 [`docs/ai/standard.md`](ai/standard.md)
+> （≤3000 字符）；索引页见 [`docs/ai/README.md`](ai/README.md)。Agent 的入口契约与工具声明
+> 在仓库根目录 [`AGENTS.md`](../AGENTS.md)。
+>
+> 实测（Windows / Python 3.13，2026-11-25）：
+>
+> ```text
+> $ light 运行 hello.light          # 中文子命令与 light run 逐字等价（含退出码）
+> 你好，光明！
+>
+> $ light ai check --json --fast 问候.light      # 源码只有一行：def 问候():
+> {"schema_version": 1, "ok": false, "diagnostics": [
+>   {"code": "D101", "severity": "error", "stage": "语法检查", "line": 1, "column": 1,
+>    "hint": "光明用「段落」定义函数：段落 名 接收 参数：",
+>    "fix_edits": [{"span": {"start_line": 1, "start_col": 1, "end_line": 1,
+>                            "end_col": 10}, "replacement": "段落 问候："}]}]}
+> ```
+>
+> - `--fast`：进程内只做语法解析 + D1xx 诊断，跳过类型检查/代码生成/运行检查（默认关）。
+> - `--strict`：把别名/中文标点/省略类型作为 **warning** 输出（默认关，不影响退出码）。
+> - `light ai card --level compact|standard|full`：三层卡；`--full` 是旧用法，等价
+>   `--level standard`。`fixes` 是人读中文，机器请套用 `fix_edits` 的 span + replacement。
 
 ---
 

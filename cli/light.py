@@ -1147,6 +1147,11 @@ def cmd_check(args):
     print(f"   代码行: {stats['code_lines']}")
     print(f"   注释行: {stats['comment_lines']}")
 
+    # T-0464：--strict（默认关）额外把别名/中文标点/省略类型作为 warning 输出。
+    # 放在错误清单之前：语法错误与「非规范写法」经常同时出现，两段都要能看见。
+    if getattr(args, 'strict', False):
+        _print_strict_warnings(source)
+
     if errors:
         print(f"\n❌ 发现 {len(errors)} 个错误:")
         for err in errors:
@@ -2457,6 +2462,10 @@ def _ai_json_diagnostic(code, severity, stage, line, column, message,
         'fixes': [str(x) for x in (fixes or []) if x][:AI_CHECK_MAX_FIXES],
         'candidates': [str(x) for x in (candidates or []) if x],
         'provisional': bool(provisional),
+        # T-0464：机器可套用的修复（span + replacement），与 `light patch --edits`
+        # 同一口径。`fixes` 仍是人读的中文（T-0318 契约把 fixes 锁成 str 列表），
+        # 可套用结构另开这个字段，避免破坏存量 consumer。
+        'fix_edits': [],
     }
 
 
@@ -2756,8 +2765,205 @@ def _ai_fix_suggestions(diagnostics):
             'column': diag.get('column'),
             'hint': hint,
             'fixes': fixes,
+            # T-0464：可套用的编辑（span + replacement），Agent 直接喂 `light patch`。
+            'fix_edits': list(diag.get('fix_edits') or []),
         })
     return suggestions
+
+
+# ═══════════════════════════════════════════════════════════════════
+# T-0464：把 ①–⑤ 的纯模块接进 `ai check`（D1xx 惯性 / D2xx 归一 / 三层卡）
+# ═══════════════════════════════════════════════════════════════════
+# 设计取舍（写给后来人）：
+#   * `fixes` 仍是**人读的中文**（T-0318 的 `--json` 契约把它锁定为 str 列表，
+#     tests/test_ai_check_json.py 直接断言 `isinstance(x, str)`），所以「可套用」
+#     的修复另开 `fix_edits`，结构 `{span:{start_line,start_col,end_line,end_col},
+#     replacement}`，列 1-based、end 开区间，和 `light patch --edits` 同一口径。
+#   * D1xx / D2xx 都是**增强**：模块缺失、扫描抛错时静默跳过，绝不能把
+#     `ai check` 本身带崩；这是 T-0457/T-0458 卡面就定好的「纯模块」边界。
+_STRICT_CODE_BY_KIND = {'ALIAS': 'D201', 'PUNCT': 'D202', 'TYPE': 'D203'}
+_STRICT_KIND_NAMES = {'ALIAS': '别名', 'PUNCT': '中文标点', 'TYPE': '省略类型'}
+
+
+def _ai_edit(start_line, start_col, end_line, end_col, replacement):
+    """造一条可套用编辑（span 与 `light patch --edits` 同口径）。"""
+    return {
+        'span': {
+            'start_line': int(start_line), 'start_col': int(start_col),
+            'end_line': int(end_line), 'end_col': int(end_col),
+        },
+        'replacement': str(replacement),
+    }
+
+
+def _ai_import_module(name):
+    """优先 `src.<name>`，退回顶层 `<name>`；两处都拿不到返回 None。"""
+    for mod in ('src.' + name, name):
+        try:
+            return importlib.import_module(mod)
+        except Exception:
+            continue
+    return None
+
+
+def _ai_pyism_findings(source):
+    """跑一次 D1xx 惯性扫描（T-0457）；模块缺失/扫描失败一律返回空表。"""
+    module = _ai_import_module('ai_pyisms')
+    scan = getattr(module, 'scan', None) if module is not None else None
+    if scan is None:
+        return []
+    try:
+        return list(scan(source))
+    except Exception:
+        return []
+
+
+def _ai_pyism_diagnostic(finding, line_text=''):
+    """`ai_pyisms.Finding` → `--json` 诊断（D1xx，位置取 token 真值）。"""
+    module = _ai_import_module('ai_pyisms')
+    code_info = getattr(module, 'code_info', None) if module is not None else None
+    info = None
+    if code_info is not None:
+        try:
+            info = code_info(finding.code)
+        except Exception:
+            info = None
+    severity = getattr(info, 'severity', 'error')
+    hint = getattr(info, 'hint', '')
+    diag = _ai_json_diagnostic(
+        finding.code, severity, '语法检查', finding.line, finding.column,
+        finding.message, hint, [finding.message],
+        [finding.replacement] if finding.replacement else [], False)
+    if finding.replacement:
+        end_col = len(line_text) + 1 if line_text else finding.end_column
+        diag['fix_edits'] = [_ai_edit(
+            finding.line, 1, finding.line, max(end_col, finding.column + 1),
+            finding.replacement)]
+    return diag
+
+
+def _ai_wire_pyisms(diagnostics, source):
+    """用 D1xx 的真实码**替换**同义行上的 `L0000` 占位诊断。
+
+    为什么按行替换而不是无条件追加：`def 问候():` 这类源码的报错文本落在行尾
+    冒号上，归因不出所以然 → `L0000`；而 `ai_pyisms.scan()` 已经知道「整行该
+    写成什么」。两套并存会让 Agent 收到自相矛盾的两条。
+
+    例外（保留 L0000 并追加 D1xx）：编译器已经给出「词法错误」这种**位置可信**
+    的词法诊断时（如 `&&` 报 2:10），原文比 D1xx 的一句话更精确——保留原文，
+    D1xx 只作为「该怎么改」的补充，不覆盖。tests/test_ai_check_json.py 的
+    `TestPlainTextFallback` 就锁着这条口径。
+    """
+    findings = _ai_pyism_findings(source)
+    if not findings:
+        return diagnostics
+    lines = source.split('\n')
+    hit_lines = {finding.line for finding in findings}
+    kept = [d for d in diagnostics
+            if d.get('line') not in hit_lines
+            or '词法' in str(d.get('message') or '')]
+    wired = list(kept)
+    for finding in findings:
+        index = finding.line - 1
+        line_text = lines[index] if 0 <= index < len(lines) else ''
+        wired.append(_ai_pyism_diagnostic(finding, line_text))
+    wired.sort(key=lambda d: (d.get('line', 0), d.get('column', 0)))
+    return wired
+
+
+def _ai_strict_diagnostics(source):
+    """`ai check --strict`：别名/中文标点/省略类型全部作为 warning 输出。
+
+    T-0458 的 `StrictFinding` 没有码，这里按 kind 落 D201/D202/D203
+    （D2xx 段位 = 「非规范写法」，与 D1xx「Python 惯性」并列）。
+    """
+    module = _ai_import_module('ai_strict')
+    check = getattr(module, 'check', None) if module is not None else None
+    if check is None:
+        return []
+    try:
+        findings = list(check(source))
+    except Exception as exc:       # spec 读不到等：只提醒，不影响检查结果
+        _ai_log(f'[strict] 跳过：{type(exc).__name__}: {exc}')
+        return []
+    diagnostics = []
+    for finding in findings:
+        code = _STRICT_CODE_BY_KIND.get(finding.kind, 'D200')
+        diag = _ai_json_diagnostic(
+            code, 'warning', '语法检查', finding.line, finding.column,
+            finding.message, f'改为「{finding.expected}」', [finding.message], [], False)
+        diag['strict_kind'] = finding.kind
+        diag['expected'] = finding.expected
+        diag['actual'] = finding.actual
+        if finding.replacement:
+            diag['fix_edits'] = [_ai_edit(
+                finding.line, finding.column, finding.line, finding.end_column,
+                finding.replacement)]
+        diagnostics.append(diag)
+    return diagnostics
+
+
+def _print_strict_warnings(source):
+    """`light check --strict` 的文本版 warning 段（默认关，不改变既有输出）。"""
+    diagnostics = _ai_strict_diagnostics(source)
+    if not diagnostics:
+        print('\n⚠ 非规范写法：未发现（--strict）')
+        return
+    print(f'\n⚠ 非规范写法 ({len(diagnostics)} 处，--strict):')
+    for diag in diagnostics:
+        kind = _STRICT_KIND_NAMES.get(diag.get('strict_kind'), '')
+        print(f'  · 第 {diag["line"]} 行第 {diag["column"]} 列 '
+              f'[{diag["code"]} {kind}] {diag["message"]}')
+
+
+def _ai_fast_syntax_diagnostics(source, filepath):
+    """`ai check --fast`：进程内只做语法解析（不起子进程、不跑类型检查/运行检查）。
+
+    解析逻辑与 `cmd_check` 的 src 后端保持同一套判据（parser 返回 None 时找
+    第一个未消费的实质 token；抛异常时走 `enhanced_errors.format_error`），
+    因此同一份坏文件的 error 与默认路径同源，不另造第二套判断。
+    """
+    try:
+        from light_parser_v3 import LightParser
+        from enhanced_errors import format_error
+    except Exception as exc:
+        return [_ai_json_diagnostic(
+            'L0000', 'error', '语法检查', 0, 0, f'语法检查模块加载失败: {exc}', '', [], [], True)]
+    try:
+        parser = LightParser()
+        module = parser.parse(source)
+        if module is not None:
+            first_unparsed = None
+            for index in range(parser.pos, len(parser.tokens)):
+                token = parser.tokens[index]
+                if token.type.name not in ('NEWLINE', 'DEDENT', 'INDENT', 'DOT', 'EOF'):
+                    first_unparsed = token
+                    break
+            if first_unparsed is not None:
+                message = f"解析失败：无法识别语法 '{first_unparsed.value}'"
+                return _ai_diagnostics_from_check(
+                    format_error(source, Exception(message), first_unparsed.line,
+                                 first_unparsed.col))
+            return []
+        first_unparsed = None
+        for index in range(parser.pos, len(parser.tokens)):
+            token = parser.tokens[index]
+            if token.type.name not in ('NEWLINE', 'DEDENT', 'INDENT', 'DOT', 'EOF'):
+                first_unparsed = token
+                break
+        if first_unparsed is None:
+            return [_ai_json_diagnostic(
+                'L0000', 'error', '语法检查', 0, 0, '解析失败：返回空模块', '', [], [], True)]
+        message = f"解析失败：无法识别语法 '{first_unparsed.value}'"
+        return _ai_diagnostics_from_check(
+            format_error(source, Exception(message), first_unparsed.line,
+                         first_unparsed.col))
+    except Exception as exc:
+        try:
+            text = format_error(source, exc)
+        except Exception:
+            text = f'错误: {exc}'
+        return _ai_diagnostics_from_check(text)
 
 
 def _ai_check_json(args):
@@ -2798,31 +3004,47 @@ def _ai_check_json(args):
         _ai_log(f"[0/2] 后端感知：检测到「{hint['keyword']}」({hint['desc']})"
                 f" → {hint['suggestion']}")
 
-    _ai_log(f'[1/2] 语法检查: {filepath}')
-    try:
-        checked = subprocess.run(
-            [sys.executable, '-X', 'utf8', '-m', 'cli.light', 'check', filepath],
-            capture_output=True, text=True, encoding='utf-8', errors='replace',
-            cwd=_PROJECT_DIR,
-        )
-        check_text = (checked.stdout or '')
-        if checked.stderr:
-            check_text += '\n' + checked.stderr
-        if checked.returncode != 0:
-            diagnostics = _ai_diagnostics_from_check(check_text)
-            for diag in diagnostics:
-                _ai_log(f"  ✗ {diag['code']}（第 {diag['line']} 行）: "
-                        f"{diag['message'][:60]}")
-            payload['diagnostics'].extend(diagnostics)
-        else:
-            _ai_log('  ✓ 语法检查通过')
-    except Exception as exc:
-        # 子进程本身起不来：也要给出可消费的诊断，而不是把 traceback 丢给调用方
-        payload['diagnostics'].append(_ai_json_diagnostic(
-            'L0000', 'error', '语法检查', 0, 0, f'语法检查进程启动失败: {exc}',
-            '', [], [], True))
+    fast = bool(getattr(args, 'fast', False))
+    if fast:
+        _ai_log(f'[1/2] 语法检查（--fast：进程内，跳过类型检查/运行检查）: {filepath}')
+        payload['diagnostics'].extend(_ai_fast_syntax_diagnostics(source, filepath))
+    else:
+        _ai_log(f'[1/2] 语法检查: {filepath}')
+        try:
+            checked = subprocess.run(
+                [sys.executable, '-X', 'utf8', '-m', 'cli.light', 'check', filepath],
+                capture_output=True, text=True, encoding='utf-8', errors='replace',
+                cwd=_PROJECT_DIR,
+            )
+            check_text = (checked.stdout or '')
+            if checked.stderr:
+                check_text += '\n' + checked.stderr
+            if checked.returncode != 0:
+                diagnostics = _ai_diagnostics_from_check(check_text)
+                for diag in diagnostics:
+                    _ai_log(f"  ✗ {diag['code']}（第 {diag['line']} 行）: "
+                            f"{diag['message'][:60]}")
+                payload['diagnostics'].extend(diagnostics)
+            else:
+                _ai_log('  ✓ 语法检查通过')
+        except Exception as exc:
+            # 子进程本身起不来：也要给出可消费的诊断，而不是把 traceback 丢给调用方
+            payload['diagnostics'].append(_ai_json_diagnostic(
+                'L0000', 'error', '语法检查', 0, 0, f'语法检查进程启动失败: {exc}',
+                '', [], [], True))
 
-    if args.run:
+    # T-0464：D1xx 惯性诊断接管同义行上的 L0000（`def`/`if`/`&&`/单引号…）。
+    payload['diagnostics'] = _ai_wire_pyisms(payload['diagnostics'], source)
+    # T-0464：--strict 才输出 D2xx（别名/中文标点/省略类型），默认关。
+    if getattr(args, 'strict', False):
+        strict_diags = _ai_strict_diagnostics(source)
+        if strict_diags:
+            _ai_log(f'[strict] 非规范写法 {len(strict_diags)} 处（warning，不影响退出码）')
+            payload['diagnostics'].extend(strict_diags)
+
+    if fast and getattr(args, 'run', False):
+        _ai_log('[2/2] --fast 与 --run 互斥：已跳过运行检查')
+    elif args.run:
         _ai_log(f'[2/2] 运行测试: {filepath}')
         try:
             ran = subprocess.run(
@@ -2853,7 +3075,7 @@ def _ai_check_json(args):
     # stage = 首个诊断的归一阶段；没有诊断时 = 实际跑到的最后阶段。
     first = payload['diagnostics'][0] if payload['diagnostics'] else None
     payload['stage'] = (_ai_stage_name(first['stage']) if first
-                        else ('运行' if args.run else '语法'))
+                        else ('运行' if args.run and not fast else '语法'))
     payload['fix_suggestions'] = _ai_fix_suggestions(payload['diagnostics'])
     _ai_archive_diagnostics(payload['diagnostics'], source, args)
     return _ai_emit_json(
@@ -2888,7 +3110,9 @@ def _cmd_ai(args):
 
     elif ai_cmd == 'card':
         from syntax_card import generate_syntax_card, status_banner
-        compact = not args.full
+        level = getattr(args, 'level', None)
+        if level is None:
+            level = 'standard' if getattr(args, 'full', False) else 'compact'
         ranked = None
         if getattr(args, 'rank_pitfalls', False):
             try:
@@ -2897,13 +3121,19 @@ def _cmd_ai(args):
             except Exception:
                 ranked = None          # 模块缺失/无数据 → 静态卡，输出不变
         card = generate_syntax_card(
-            compact=compact, include_verbs=args.verbs, ranked=ranked)
-        try:
-            banner = status_banner()   # STATUS.md 读不到时返回空串
-        except Exception:
-            banner = ''
-        if banner:
-            card = banner + card
+            level=level, include_verbs=args.verbs, ranked=ranked)
+        # 状态 banner 在 standard/full 前置；compact 默认不前置——它有 ≤300 字符
+        # 硬上限（T-0459 判据按 len() 计），72 字符的 banner 会直接破线。
+        # 例外：`--rank-pitfalls` 时 compact 也带 banner——反馈闭环要求卡片顶部
+        # 引用 STATUS.md（tests/test_ai_feedback_loop.py 锁着这条），此时卡片本
+        # 已因为置顶区块超出 compact 的信息预算，不再受 300 字符约束。
+        if level != 'compact' or ranked:
+            try:
+                banner = status_banner()   # STATUS.md 读不到时返回空串
+            except Exception:
+                banner = ''
+            if banner:
+                card = banner + card
         if getattr(args, 'json', False):
             print(json.dumps({'ranked': ranked or [], 'card': card},
                              ensure_ascii=False))
@@ -3123,6 +3353,33 @@ def _当前用户实参():
 _已注入用户实参 = []
 
 
+# T-0464：中文子命令别名。docs/AI编程指南.md 早就对公众承诺了 `light 运行 x.light`
+# 这套写法，`argparse` 却不认（`invalid choice: '运行'`）。选择「加别名」而不是
+# 「改文档」：读过文档的人不该因为文档改口而继续踩。别名只替换**第一个非选项
+# token**，`--` 之后是给脚本的实参，一个字符都不动，因此与英文命令逐字等价。
+中文子命令别名 = {
+    '运行': 'run',
+    '检查': 'check',
+    '编译': 'compile',
+    '测试': 'test',
+    '格式化': 'fmt',
+}
+
+
+def 翻译中文子命令(argv):
+    """把中文子命令别名换成英文；不是别名就原样返回（argparse 照旧报错）。"""
+    for index, token in enumerate(argv):
+        if token == '--':
+            break
+        if token.startswith('-'):
+            continue
+        translated = 中文子命令别名.get(token)
+        if translated is None:
+            return list(argv)
+        return list(argv[:index]) + [translated] + list(argv[index + 1:])
+    return list(argv)
+
+
 def 切开用户实参(argv):
     """把 `['run', '<入口>', '--', '甲', '乙']` 切成 `(CLI 侧 argv, 用户实参)`。
 
@@ -3181,7 +3438,14 @@ def main():
   light compile hello.light --src       用旧版后端编译
   light ast hello.light                 显示 AST
   light tokens hello.light              显示 Token 流
+  light ai check --json --fast x.light  机器可读诊断（快路径）
+  light ai card --level compact         三层语法卡（compact/standard/full）
   light --version                      显示版本
+
+中文子命令别名（与英文命令逐字等价，含退出码）:
+  light 运行 ≡ light run       light 检查 ≡ light check
+  light 编译 ≡ light compile   light 测试 ≡ light test
+  light 格式化 ≡ light fmt
         """
     )
 
@@ -3193,7 +3457,7 @@ def main():
 
     # ── run ──
     run_p = subparsers.add_parser(
-        'run', help='解释执行光明源代码',
+        'run', help='解释执行光明源代码（别名: light 运行）',
         description='解释执行光明源代码。\n\n'
                     '给**脚本**传参请用 `--` 分隔符：`--` 之后的实参一条不动地交给脚本，\n'
                     '不经过 argparse，因此不会和 `--backend` 这类 CLI 选项冲突：\n\n'
@@ -3252,7 +3516,7 @@ def main():
     harness_run_p.add_argument('--verbose', action='store_true', help='详细输出')
 
     # ── compile ──
-    comp_p = subparsers.add_parser('compile', help='编译为 Python 文件')
+    comp_p = subparsers.add_parser('compile', help='编译为 Python 文件（别名: light 编译）')
     comp_p.add_argument('file', help='源文件路径')
     comp_p.add_argument('-o', '--output', help='输出文件路径（默认: 同名 .py）')
     comp_p.add_argument('--backend', choices=['antlr', 'src', 'native', 'llvm-typed'], default='src',
@@ -3302,7 +3566,7 @@ def main():
                         help='只比对仓内 spec 是否陈旧（不写文件）；陈旧 rc=1')
 
     # ── check ──
-    check_p = subparsers.add_parser('check', help='语法检查（默认启用类型检查）')
+    check_p = subparsers.add_parser('check', help='语法检查（默认启用类型检查；别名: light 检查）')
     check_p.add_argument('file', help='源文件路径')
     check_p.add_argument('--backend', choices=['antlr', 'src'], default='src',
                          help='使用的后端（默认: src）')
@@ -3316,6 +3580,10 @@ def main():
     check_p.add_argument('--partial', action='store_true',
                          help='只解析不要求整文件闭合：按可解析的最长前缀检查，'
                               '未闭合块记 warning、不 fail（partial: true）')
+    # T-0464：--strict 默认关（存量 9981 条测试默认不被 warning 打扰）。
+    check_p.add_argument('--strict', action='store_true',
+                         help='额外把别名/中文标点/省略类型作为 warning 输出'
+                              '（默认关；对应 D2xx，见 docs/AI编程指南.md）')
 
     # ── type-check ──
     tc_p = subparsers.add_parser('type-check', help='独立类型检查')
@@ -3417,8 +3685,12 @@ def main():
                            default='auto', help='生成模式（默认 auto 自动检测）')
     ai_prompt.add_argument('--full', action='store_true', help='使用完整语法卡（默认精简卡）')
 
-    ai_card = ai_sub.add_parser('card', help='输出光明语法速查卡')
-    ai_card.add_argument('--full', action='store_true', help='完整版（默认精简版）')
+    ai_card = ai_sub.add_parser('card', help='输出光明语法速查卡（三层：compact/standard/full）')
+    # T-0464：接 T-0459 的三层生成器。默认 compact（≤300 字符，agent 开机记忆）；
+    # --full 保留为旧用法，等价 --level standard（历史输出就是非 compact 版）。
+    ai_card.add_argument('--level', choices=['compact', 'standard', 'full'], default=None,
+                         help='卡层级（默认 compact；standard ≤3000 字符；full 是索引页）')
+    ai_card.add_argument('--full', action='store_true', help='旧用法：等价 --level standard')
     ai_card.add_argument('--verbs', action='store_true', help='包含动词参数参照表')
     ai_card.add_argument(
         '--rank-pitfalls', action='store_true',
@@ -3445,9 +3717,18 @@ def main():
     ai_check.add_argument(
         '--json', action='store_true',
         help='输出机器可读诊断：stdout 只有一个 JSON 对象（schema_version=1，含 '
-             'code/severity/stage/line/column/message/hint/fixes/candidates/provisional），'
+             'code/severity/stage/line/column/message/hint/fixes/fix_edits/candidates/provisional），'
              '进度与日志走 stderr。退出码：0=无 error 级诊断，1=有 error 级诊断，'
              '2=用法或文件错误。可与 --run 组合（运行失败记为 stage="运行"）。')
+    # T-0464：两个新开关。默认行为与 T-0318 逐字一致（--strict 默认关、--fast 默认关）。
+    ai_check.add_argument(
+        '--strict', action='store_true',
+        help='额外把别名/中文标点/省略类型作为 warning 输出（D2xx，来自 src/ai_strict.py）；'
+             '默认关，不影响现有输出的退出码')
+    ai_check.add_argument(
+        '--fast', action='store_true',
+        help='快路径：进程内只做语法解析 + D1xx 诊断，跳过类型检查、代码生成与运行检查'
+             '（与 --run 互斥）；不改变 error 判据，只省时间')
 
     ai_gen = ai_sub.add_parser('generate', help='★ 一键生成：需求→完整prompt（推荐）')
     ai_gen.add_argument('requirement', help='代码需求描述，如"写一个冒泡排序"')
@@ -3473,13 +3754,13 @@ def main():
 
 
     # ── test ──
-    test_p = subparsers.add_parser('test', help='运行光明测试')
+    test_p = subparsers.add_parser('test', help='运行光明测试（别名: light 测试）')
     test_p.add_argument('file', nargs='?', help='测试文件路径（默认自动发现）')
     test_p.add_argument('-v', '--verbose', action='store_true', help='详细输出')
     test_p.add_argument('--filter', help='按文件名过滤测试')
 
     # ── fmt ──
-    fmt_p = subparsers.add_parser('fmt', help='格式化光明代码（空白安全：去行尾空白/折叠空行/规范换行）')
+    fmt_p = subparsers.add_parser('fmt', help='格式化光明代码（空白安全；别名: light 格式化）')
     fmt_p.add_argument('target', help='文件或目录路径')
     fmt_p.add_argument('--check', action='store_true', help='仅检查格式，不修改文件')
     fmt_p.add_argument('--force', action='store_true',
@@ -3551,7 +3832,7 @@ def main():
     #  `run --backend native -- 甲 乙` 里的 `--backend` 不会被实参污染）。
     # 不用 REMAINDER / parse_known_args：前者在没有 `--` 时也张口（实测把
     # tests/test_native_cli.py 的 3 条原生腿用例打红），后者靠猜哪些是选项。
-    argv, 用户实参 = 切开用户实参(sys.argv[1:])
+    argv, 用户实参 = 切开用户实参(翻译中文子命令(sys.argv[1:]))
     注入用户实参(用户实参)
 
     args = parser.parse_args(argv)
