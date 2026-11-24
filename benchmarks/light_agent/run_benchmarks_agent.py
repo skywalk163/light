@@ -42,7 +42,14 @@ DEFAULT_TIMEOUT = 30.0
 CATEGORIES = ("新建", "修改", "修复", "重构")
 DIFFICULTIES = ("L1", "L2", "L3")
 KINDS = ("可运行", "可编译", "可检查")
-REQUIRED_TASK_KEYS = ("id", "prompt", "entry", "paths", "expected", "difficulty", "category")
+# error_class 回答的是「Agent 到底为什么会错」，与 category（题目形态）正交：
+#   新建   —— 从零写一个能跑的程序，题面不给骨架
+#   pyism  —— 题面用 Python 词汇诱导（函数/for/range/len/sum/str/%//…），落到光明要换写法
+#   alias  —— 同一语义的别名/双字体诱惑（遍历 … 从 … 到、输出、若…则、重复 N 次、全角符号）
+#   stdlib —— 必须用对 stdlib 函数名（读取文件/写入文件/转整数/解析JSON/排序列表…）
+ERROR_CLASSES = ("新建", "pyism", "alias", "stdlib")
+REQUIRED_TASK_KEYS = ("id", "prompt", "entry", "paths", "expected", "difficulty",
+                      "category", "error_class")
 REQUIRED_EXPECTED_KEYS = ("kind", "cmd", "files")
 
 # 语言侧诊断码（T-0318 起的 `light ai check --json` 契约）：L0000 为占位码，
@@ -103,6 +110,8 @@ def validate_task(task: dict, index: int) -> None:
             raise ValueError(f"{where} 的 expected 缺字段 {key}")
     if task["category"] not in CATEGORIES:
         raise ValueError(f"{where} category 非法: {task['category']}")
+    if task["error_class"] not in ERROR_CLASSES:
+        raise ValueError(f"{where} error_class 非法: {task['error_class']}")
     if task["difficulty"] not in DIFFICULTIES:
         raise ValueError(f"{where} difficulty 非法: {task['difficulty']}")
     if expected["kind"] not in KINDS:
@@ -344,6 +353,7 @@ def run_task(task: dict, bench_dir: Path, repo_root: Path, work_root: Path,
         "ok": False,
         "stage": "setup",
         "error_code": "",
+        "error_class": task.get("error_class", ""),
         "retries": 0,
         "elapsed": 0.0,
         "attempts": [],
@@ -429,6 +439,26 @@ def summarize(records: list[dict]) -> dict:
             if attempt["error_code"]:
                 codes[attempt["error_code"]] = codes.get(attempt["error_code"], 0) + 1
     retries = sum(item["retries"] for item in records)
+
+    # 按 error_class 分组的通过率：修「读取」到底有没有用，看这一组自己的数字。
+    groups: dict[str, dict] = {}
+    for item in records:
+        cls = item.get("error_class") or "未分类"
+        bucket = groups.setdefault(cls, {"total": 0, "passed": 0})
+        bucket["total"] += 1
+        if item["ok"]:
+            bucket["passed"] += 1
+    order = list(ERROR_CLASSES) + sorted(k for k in groups if k not in ERROR_CLASSES)
+    by_class = {
+        cls: {
+            "total": groups[cls]["total"],
+            "passed": groups[cls]["passed"],
+            "failed": groups[cls]["total"] - groups[cls]["passed"],
+            "pass_rate": round(groups[cls]["passed"] / groups[cls]["total"], 4),
+        }
+        for cls in order if cls in groups
+    }
+
     return {
         "total": total,
         "passed": passed,
@@ -437,6 +467,7 @@ def summarize(records: list[dict]) -> dict:
         "retries_total": retries,
         "avg_retries": round(retries / total, 4) if total else 0.0,
         "error_codes": dict(sorted(codes.items())),
+        "by_error_class": by_class,
     }
 
 
@@ -458,6 +489,13 @@ def format_human(records: list[dict], summary: dict, model: str) -> str:
         f"｜平均 retry {summary['avg_retries']:.2f}"
         f"｜错误码 {summary['error_codes'] or '无'}"
     )
+    by_class = summary.get("by_error_class") or {}
+    if by_class:
+        parts = [
+            f"{cls} {item['passed']}/{item['total']}={item['pass_rate'] * 100:.1f}%"
+            for cls, item in by_class.items()
+        ]
+        lines.append("按 error_class：" + "｜".join(parts))
     return "\n".join(lines)
 
 
