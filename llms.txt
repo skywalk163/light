@@ -1,0 +1,21 @@
+# 光明（Light）语言
+
+> 中文关键字编程语言，v0.4.2。解释器用 Python 实现，CLI 提供 `run` / `ai check` / `ai card`，事实以 `spec/light.spec.json` 为准。
+
+光明（Light）用中文写代码：`如果`、`遍历`、`段落`、`返回`、`设`，块靠缩进，冒号必选。本文件只列权威入口，不含教程正文。
+
+## 链接
+
+- [机器可读规格](spec/light.spec.json): 关键字、L0 核心字表、stdlib 导出的单一来源，文档与它冲突时以它为准
+- [AI 编程指南](docs/AI编程指南.md): 给 AI 的语法速查、避坑 14 条与 `light ai check --json` 闭环用法
+- [标准库速查](docs/STDLIB_REFERENCE.md): 109 个模块的导出函数名与签名
+- [L0 核心字表](docs/language/l0-core.md): 44 个核心字及语义
+- [最小可用面](docs/MVP_SURFACE.md): 先写这层，保过率最高
+- [基准脚本](benchmarks/run_benchmarks.py): 性能对比怎么跑
+- [Agent 上手页](AGENTS.md): 六条硬规则 + 可直接复制的示例
+- [Skill 工作流](skills/light/SKILL.md): 读卡、写码、自查三步
+
+## 可选
+
+- [错误码规范](docs/错误码规范.md): 诊断码含义与分级
+- [报错数据集](docs/报错数据集.md): 真实失败样本，用于对症下药
