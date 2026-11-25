@@ -1,0 +1,1520 @@
+{
+ "bench": "light_agent",
+ "probe": "T-0465 cold-start",
+ "model": "deepseek-flash",
+ "endpoint": "https://api.deepseek.com",
+ "arms": [
+  "with_entry",
+  "no_entry"
+ ],
+ "max_rounds": 3,
+ "timeout_s": 60.0,
+ "jobs": 1,
+ "entry_docs_from": "eef3fab30",
+ "started": "2026-11-25T06:43:10",
+ "wall_clock_s": 1718.0,
+ "tasks": [
+  {
+   "id": "LA-001",
+   "category": "新建",
+   "difficulty": "L1",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 4.162,
+     "finish_reason": "stop",
+     "chars": 76,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 14.62
+  },
+  {
+   "id": "LA-002",
+   "category": "新建",
+   "difficulty": "L1",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 9.366,
+     "finish_reason": "stop",
+     "chars": 101,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 18.69
+  },
+  {
+   "id": "LA-003",
+   "category": "新建",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 2.203,
+     "finish_reason": "stop",
+     "chars": 108,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 13.26
+  },
+  {
+   "id": "LA-004",
+   "category": "新建",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 5.213,
+     "finish_reason": "stop",
+     "chars": 80,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 16.13
+  },
+  {
+   "id": "LA-005",
+   "category": "新建",
+   "difficulty": "L1",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 7.49,
+     "finish_reason": "stop",
+     "chars": 104,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "列表统计.light 缺少片段: 求和",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 主：\n    设 数字 为 列(3, 1, 2)\n    设 总和 为 0\n    遍历 数 在 数字：\n        设 总和 为 总和 加上 数\n    打印(总和)\n    打印(长(数字))\n"
+    },
+    {
+     "n": 2,
+     "latency": 30.633,
+     "finish_reason": "stop",
+     "chars": 74,
+     "budget_retries": 1,
+     "max_tokens": 8192,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "列表统计.light 缺少片段: 求和",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "设 数字 为 列(3, 1, 2)\n设 总和 为 0\n遍历 数 在 数字：\n    设 总和 为 总和 加上 数\n打印(总和)\n打印(长(数字))\n"
+    },
+    {
+     "n": 3,
+     "latency": 8.859,
+     "finish_reason": "stop",
+     "chars": 158,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "列表统计.light 缺少片段: 求和",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "# 列表统计：用 列(3, 1, 2) 造一个列表，先打印总和，再打印元素个数\n段落 主：\n    设 数字 为 列(3, 1, 2)\n    设 总和 为 0\n    遍历 数 在 数字：\n        设 总和 为 总和 加上 数\n    设 个数 为 长(数字)\n    打印(总和)\n    打印(个数)\n"
+    }
+   ],
+   "pass@1": false,
+   "passed": false,
+   "rounds_used": 3,
+   "final_detail": "列表统计.light 缺少片段: 求和",
+   "final_stage": "assert",
+   "final_code": "LA_E_FILE_CONTAINS",
+   "elapsed": 76.06
+  },
+  {
+   "id": "LA-006",
+   "category": "新建",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 5.759,
+     "finish_reason": "stop",
+     "chars": 81,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "数据处理.light 缺少片段: 转整数",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "从 文件系统 导入 读取文件\n\n段落 主：\n    设 文本 为 读取文件(\"数据.txt\")\n    设 数字 为 整数(文本)\n    打印(数字 * 2)\n"
+    },
+    {
+     "n": 2,
+     "latency": 29.807,
+     "finish_reason": "stop",
+     "chars": 87,
+     "budget_retries": 1,
+     "max_tokens": 8192,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "数据处理.light 缺少片段: 转整数",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "从 文件系统 导入 读取文件, 写入文件\n\n段落 主：\n    设 文本 为 读取文件(\"数据.txt\")\n    设 数字 为 整数(文本)\n    打印(数字 * 2)\n"
+    },
+    {
+     "n": 3,
+     "latency": 13.765,
+     "finish_reason": "stop",
+     "chars": 111,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "数据处理.light 缺少片段: 转整数",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "# 从 数据.txt 读出数字，转成整数后乘以 2 并打印\n从 文件系统 导入 读取文件\n\n段落 主：\n    设 文本 为 读取文件(\"数据.txt\")\n    设 数字 为 整数(文本)\n    打印(数字 * 2)\n"
+    }
+   ],
+   "pass@1": false,
+   "passed": false,
+   "rounds_used": 3,
+   "final_detail": "数据处理.light 缺少片段: 转整数",
+   "final_stage": "assert",
+   "final_code": "LA_E_FILE_CONTAINS",
+   "elapsed": 77.63
+  },
+  {
+   "id": "LA-007",
+   "category": "修改",
+   "difficulty": "L1",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 0.738,
+     "finish_reason": "stop",
+     "chars": 24,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 11.58
+  },
+  {
+   "id": "LA-008",
+   "category": "修改",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.664,
+     "finish_reason": "stop",
+     "chars": 68,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 11.29
+  },
+  {
+   "id": "LA-009",
+   "category": "修改",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 7.269,
+     "finish_reason": "stop",
+     "chars": 48,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "折扣.light 缺少片段: 整除",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 折后价(单价)：\n    返回 (单价 * 9) // 10\n\n打印(折后价(100))\n"
+    },
+    {
+     "n": 2,
+     "latency": 19.7,
+     "finish_reason": "stop",
+     "chars": 46,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "折扣.light 缺少片段: 整除",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 折后价(单价)：\n    返回 单价 * 9 // 10\n\n打印(折后价(100))\n"
+    },
+    {
+     "n": 3,
+     "latency": 61.075,
+     "finish_reason": "stop",
+     "chars": 109,
+     "budget_retries": 1,
+     "max_tokens": 8192,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "折扣.light 缺少片段: 整除",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 折后价(单价)：\n    # 打九折，纯整数运算：单价 * 9 // 10，等价写法 单价 * 90 // 100；折后价(100) 得 90\n    返回 单价 * 9 // 10\n\n打印(折后价(100))\n"
+    }
+   ],
+   "pass@1": false,
+   "passed": false,
+   "rounds_used": 3,
+   "final_detail": "折扣.light 缺少片段: 整除",
+   "final_stage": "assert",
+   "final_code": "LA_E_FILE_CONTAINS",
+   "elapsed": 119.21
+  },
+  {
+   "id": "LA-010",
+   "category": "修改",
+   "difficulty": "L1",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 2.919,
+     "finish_reason": "stop",
+     "chars": 39,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 12.86
+  },
+  {
+   "id": "LA-011",
+   "category": "修改",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.646,
+     "finish_reason": "stop",
+     "chars": 60,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 12.33
+  },
+  {
+   "id": "LA-012",
+   "category": "修复",
+   "difficulty": "L1",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.837,
+     "finish_reason": "stop",
+     "chars": 85,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "条件.light 缺少片段: 段落 判定(分数)：",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 判定 接收 分数：\n    如果 分数 大于等于 60：\n        返回 \"及格\"\n    否则：\n        返回 \"不及格\"\n\n打印(判定(75))\n"
+    },
+    {
+     "n": 2,
+     "latency": 27.976,
+     "finish_reason": "stop",
+     "chars": 57,
+     "budget_retries": 1,
+     "max_tokens": 8192,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "条件.light 缺少片段: 段落 判定(分数)：",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "设 分数 为 75\n\n如果 分数 大于等于 60：\n    打印(\"及格\")\n否则：\n    打印(\"不及格\")\n"
+    },
+    {
+     "n": 3,
+     "latency": 3.32,
+     "finish_reason": "stop",
+     "chars": 83,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 3,
+   "elapsed": 66.12
+  },
+  {
+   "id": "LA-013",
+   "category": "修复",
+   "difficulty": "L1",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.802,
+     "finish_reason": "stop",
+     "chars": 35,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 11.0
+  },
+  {
+   "id": "LA-014",
+   "category": "修复",
+   "difficulty": "L1",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 39.025,
+     "finish_reason": "stop",
+     "chars": 78,
+     "budget_retries": 1,
+     "max_tokens": 8192,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 52.06
+  },
+  {
+   "id": "LA-015",
+   "category": "修复",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.35,
+     "finish_reason": "stop",
+     "chars": 16,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 10.41
+  },
+  {
+   "id": "LA-016",
+   "category": "修复",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 2.978,
+     "finish_reason": "stop",
+     "chars": 77,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "除法.light 缺少片段: 如果 甲 等于 0",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 安全除(甲)：\n    如果 甲 == 0：\n        返回 0\n    返回 10 整除 甲\n\n打印(安全除(0))\n打印(安全除(2))\n"
+    },
+    {
+     "n": 2,
+     "latency": 6.127,
+     "finish_reason": "stop",
+     "chars": 89,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "除法.light 缺少片段: 如果 甲 等于 0",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 安全除(甲)：\n    如果 甲 == 0：\n        返回 0\n    否则：\n        返回 10 整除 甲\n\n打印(安全除(0))\n打印(安全除(2))\n"
+    },
+    {
+     "n": 3,
+     "latency": 60.617,
+     "finish_reason": "stop",
+     "chars": 89,
+     "budget_retries": 1,
+     "max_tokens": 8192,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 3,
+   "elapsed": 99.0
+  },
+  {
+   "id": "LA-017",
+   "category": "重构",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 3.529,
+     "finish_reason": "stop",
+     "chars": 76,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 11.99
+  },
+  {
+   "id": "LA-018",
+   "category": "重构",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 2.596,
+     "finish_reason": "stop",
+     "chars": 63,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "去重.light 缺少片段: 段落 翻倍(数值)：",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 算十：\n    设 甲 为 5\n    设 乙 为 甲 乘 2\n    返回 乙\n\n打印(算十())\n打印(算十())\n"
+    },
+    {
+     "n": 2,
+     "latency": 15.001,
+     "finish_reason": "stop",
+     "chars": 79,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "去重.light 缺少片段: 段落 翻倍(数值)：",
+     "rc": 0,
+     "stderr": "⚠ 编译警告（L-166 影子变量）：第3行 段落『算十』内给『乙』赋值，但模块级也存在同名变量且未在该段落内声明『全局 乙。』。按作用域语义这里会新建**局部**变量，模块级的『乙』不会被修改（L-165 即此类静默缺陷）。若要写回模块级变量，请在段落内加『全局 乙。』；若本意就是局部变量，可忽略此告警。\n",
+     "code_head": "段落 算十：\n    设 甲 为 5\n    设 乙 为 甲 乘 2\n    返回 乙\n\n设 乙 为 算十()\n打印(乙)\n设 乙 为 算十()\n打印(乙)\n"
+    },
+    {
+     "n": 3,
+     "latency": 1.659,
+     "finish_reason": "stop",
+     "chars": 69,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "去重.light 缺少片段: 段落 翻倍(数值)：",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 算十：\n    设 基数 为 5\n    返回 基数 乘 2\n\n设 甲 为 算十()\n打印(甲)\n设 乙 为 算十()\n打印(乙)\n"
+    }
+   ],
+   "pass@1": false,
+   "passed": false,
+   "rounds_used": 3,
+   "final_detail": "去重.light 缺少片段: 段落 翻倍(数值)：",
+   "final_stage": "assert",
+   "final_code": "LA_E_FILE_CONTAINS",
+   "elapsed": 36.94
+  },
+  {
+   "id": "LA-019",
+   "category": "重构",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.337,
+     "finish_reason": "stop",
+     "chars": 39,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "内建.light 缺少片段: 打印(求和(数据))",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "设 数据 为 列(3, 1, 2)\n设 总和 为 求和(数据)\n打印(总和)\n"
+    },
+    {
+     "n": 2,
+     "latency": 17.712,
+     "finish_reason": "stop",
+     "chars": 29,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 2,
+   "elapsed": 31.26
+  },
+  {
+   "id": "LA-020",
+   "category": "重构",
+   "difficulty": "L3",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.95,
+     "finish_reason": "stop",
+     "chars": 52,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 7.96
+  },
+  {
+   "id": "LA-001",
+   "category": "新建",
+   "difficulty": "L1",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 2.258,
+     "finish_reason": "stop",
+     "chars": 54,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 解析错误\n  \n┌─ 语法错误\n│ 原因: 发现 4 个语法错误（下面详列前 4 个，建议从第 1 个开始修）:\n\n错误 1/4:\n\n┌─ 语法错误\n│ 位置: 行 1, 列 6\n│ 原因: 赋值需要使用「设」或「令」关键字。如：设 甲 为 10。或：令 甲 = 10。\n│ 附近: '='\n│ 建议: 光明使用「为」进行赋值。如：设 甲 为 10。而不是 甲 = 10。\n└─\n\n---\n\n错误 2/4:\n\n┌─ 语法错误\n│ 位置: 行 2, ",
+     "rc": 1,
+     "stderr": "错误: 解析错误\n  \n┌─ 语法错误\n│ 原因: 发现 4 个语法错误（下面详列前 4 个，建议从第 1 个开始修）:\n\n错误 1/4:\n\n┌─ 语法错误\n│ 位置: 行 1, 列 6\n│ 原因: 赋值需要使用「设」或「令」关键字。如：设 甲 为 10。或：令 甲 = 10。\n│ 附近: '='\n│ 建议: 光明使用「为」进行赋值。如：设 甲 为 10。而不是 甲 = 10。\n└─\n\n---\n\n错误 2/4:\n\n┌─ 语法错误\n│ 位置: 行 2, 列 10\n│ 原因: 期",
+     "code_head": "让 次数 = 0\n当 次数 < 3 {\n    打印(\"你好，光明\")\n    次数 = 次数 + 1\n}\n"
+    },
+    {
+     "n": 2,
+     "latency": 2.157,
+     "finish_reason": "stop",
+     "chars": 53,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 名称错误\n  name '_令1_次数' is not defined\n 2 当 次数 < 3:\n 3     打印(\"你好，光明\")\n 4     令 次数 = 次数 + 1\n │\n │                 ^\n │\n 5 \n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用",
+     "rc": 1,
+     "stderr": "错误: 名称错误\n  name '_令1_次数' is not defined\n 2 当 次数 < 3:\n 3     打印(\"你好，光明\")\n 4     令 次数 = 次数 + 1\n │\n │                 ^\n │\n 5 \n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用\n\n",
+     "code_head": "设 次数 为 0\n当 次数 < 3:\n    打印(\"你好，光明\")\n    令 次数 = 次数 + 1\n"
+    },
+    {
+     "n": 3,
+     "latency": 19.048,
+     "finish_reason": "stop",
+     "chars": 76,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "command",
+     "error_code": "LA_E_TIMEOUT",
+     "detail": "命令超时（60s）: light run {entry} --stdlib-dir {stdlib}",
+     "rc": 1,
+     "stderr": "错误: 名称错误\n  name '_令1_次数' is not defined\n 2 当 次数 < 3:\n 3     打印(\"你好，光明\")\n 4     令 次数 = 次数 + 1\n │\n │                 ^\n │\n 5 \n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用\n\n",
+     "code_head": "设 计数 为 0\n设 旧值 为 0\n当 计数 < 3:\n    打印(\"你好，光明\")\n    令 旧值 = 计数\n    令 计数 = 旧值 + 1\n"
+    }
+   ],
+   "pass@1": false,
+   "passed": false,
+   "rounds_used": 3,
+   "final_detail": "返回码 1，期望 0: 错误: 名称错误\n  name '_令1_次数' is not defined\n 2 当 次数 < 3:\n 3     打印(\"你好，光明\")\n 4     令 次数 = 次数 + 1\n │\n │                 ^\n │\n 5 \n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用",
+   "final_stage": "command",
+   "final_code": "L0000",
+   "elapsed": 94.36
+  },
+  {
+   "id": "LA-002",
+   "category": "新建",
+   "difficulty": "L1",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 5.74,
+     "finish_reason": "stop",
+     "chars": 72,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 解析错误\n  \n┌─ 语法错误\n│ 原因: 发现 3 个语法错误（下面详列前 3 个，建议从第 1 个开始修）:\n\n错误 1/3:\n\n┌─ 语法错误\n│ 位置: 行 3, 列 11\n│ 原因: 期望 冒号「:」，但得到 左花括号「{」（附近: '{'）\n│ 附近: '{'\n│ 建议: 可能缺少冒号「:」。函数定义、条件、循环后面都需要冒号。\n│ 教程: 30分钟入门光明.md 第3章「条件判断」\n└─\n\n---\n\n错误 2/3:\n\n┌─ 语法错",
+     "rc": 1,
+     "stderr": "错误: 解析错误\n  \n┌─ 语法错误\n│ 原因: 发现 3 个语法错误（下面详列前 3 个，建议从第 1 个开始修）:\n\n错误 1/3:\n\n┌─ 语法错误\n│ 位置: 行 3, 列 11\n│ 原因: 期望 冒号「:」，但得到 左花括号「{」（附近: '{'）\n│ 附近: '{'\n│ 建议: 可能缺少冒号「:」。函数定义、条件、循环后面都需要冒号。\n│ 教程: 30分钟入门光明.md 第3章「条件判断」\n└─\n\n---\n\n错误 2/3:\n\n┌─ 语法错误\n│ 位置: 行 6,",
+     "code_head": "设 i = 1\n设 sum = 0\n当 i <= 10 {\n    sum = sum + i\n    i = i + 1\n}\n打印(sum)\n"
+    },
+    {
+     "n": 2,
+     "latency": 3.827,
+     "finish_reason": "stop",
+     "chars": 74,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 2,
+   "elapsed": 19.42
+  },
+  {
+   "id": "LA-003",
+   "category": "新建",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 8.633,
+     "finish_reason": "stop",
+     "chars": 105,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 名称错误\n  name '判定' is not defined\n  1 段落 判定(分数) {\n  │\n  │           ^\n  │\n  2     如果 分数 >= 60 {\n  3         返回 \"及格\"\n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用",
+     "rc": 1,
+     "stderr": "错误: 名称错误\n  name '判定' is not defined\n  1 段落 判定(分数) {\n  │\n  │           ^\n  │\n  2     如果 分数 >= 60 {\n  3         返回 \"及格\"\n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用\n\n",
+     "code_head": "段落 判定(分数) {\n    如果 分数 >= 60 {\n        返回 \"及格\"\n    } 否则 {\n        返回 \"不及格\"\n    }\n}\n\n打印(判定(75))\n打印(判定(45))\n"
+    },
+    {
+     "n": 2,
+     "latency": 13.344,
+     "finish_reason": "stop",
+     "chars": 107,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 名称错误\n  name '判定' is not defined\n  1 段落 判定(设 分数) {\n  │\n  │             ^\n  │\n  2     如果 分数 >= 60 {\n  3         返回 \"及格\"\n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用",
+     "rc": 1,
+     "stderr": "错误: 名称错误\n  name '判定' is not defined\n  1 段落 判定(设 分数) {\n  │\n  │             ^\n  │\n  2     如果 分数 >= 60 {\n  3         返回 \"及格\"\n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用\n\n",
+     "code_head": "段落 判定(设 分数) {\n    如果 分数 >= 60 {\n        返回 \"及格\"\n    } 否则 {\n        返回 \"不及格\"\n    }\n}\n\n打印(判定(75))\n打印(判定(45))\n"
+    },
+    {
+     "n": 3,
+     "latency": 34.043,
+     "finish_reason": "stop",
+     "chars": 109,
+     "budget_retries": 1,
+     "max_tokens": 8192,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 名称错误\n  name '段落' is not defined\n  1 设 判定 为 段落(分数) {\n  │\n  │               ^\n  │\n  2     如果 分数 >= 60 {\n  3         返回 \"及格\"\n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用",
+     "rc": 1,
+     "stderr": "错误: 名称错误\n  name '段落' is not defined\n  1 设 判定 为 段落(分数) {\n  │\n  │               ^\n  │\n  2     如果 分数 >= 60 {\n  3         返回 \"及格\"\n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用\n\n",
+     "code_head": "设 判定 为 段落(分数) {\n    如果 分数 >= 60 {\n        返回 \"及格\"\n    } 否则 {\n        返回 \"不及格\"\n    }\n}\n\n打印(判定(75))\n打印(判定(45))\n"
+    }
+   ],
+   "pass@1": false,
+   "passed": false,
+   "rounds_used": 3,
+   "final_detail": "返回码 1，期望 0: 错误: 名称错误\n  name '段落' is not defined\n  1 设 判定 为 段落(分数) {\n  │\n  │               ^\n  │\n  2     如果 分数 >= 60 {\n  3         返回 \"及格\"\n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用",
+   "final_stage": "command",
+   "final_code": "L0000",
+   "elapsed": 79.06
+  },
+  {
+   "id": "LA-004",
+   "category": "新建",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 23.396,
+     "finish_reason": "stop",
+     "chars": 80,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "后置命令失败: python {out}",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 阶乘(n) {\n    如果 n <= 1 {\n        返回 1\n    }\n    返回 n * 阶乘(n - 1)\n}\n\n打印(阶乘(5))\n"
+    },
+    {
+     "n": 2,
+     "latency": 21.683,
+     "finish_reason": "stop",
+     "chars": 83,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "后置命令失败: python {out}",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 求阶乘(n) {\n    如果 n <= 1 {\n        返回 1\n    }\n    返回 n * 求阶乘(n - 1)\n}\n\n打印(求阶乘(5))\n"
+    },
+    {
+     "n": 3,
+     "latency": 16.074,
+     "finish_reason": "stop",
+     "chars": 70,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 3,
+   "elapsed": 86.46
+  },
+  {
+   "id": "LA-005",
+   "category": "新建",
+   "difficulty": "L1",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 3.306,
+     "finish_reason": "stop",
+     "chars": 40,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 名称错误\n  name '总和' is not defined\n 1 设 列表 为 列(3, 1, 2)\n 2 打印(总和(列表))\n │\n │          ^\n │\n 3 打印(个数(列表))\n 4 \n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用",
+     "rc": 1,
+     "stderr": "错误: 名称错误\n  name '总和' is not defined\n 1 设 列表 为 列(3, 1, 2)\n 2 打印(总和(列表))\n │\n │          ^\n │\n 3 打印(个数(列表))\n 4 \n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用\n\n",
+     "code_head": "设 列表 为 列(3, 1, 2)\n打印(总和(列表))\n打印(个数(列表))\n"
+    },
+    {
+     "n": 2,
+     "latency": 6.374,
+     "finish_reason": "stop",
+     "chars": 40,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 2,
+   "elapsed": 23.16
+  },
+  {
+   "id": "LA-006",
+   "category": "新建",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 4.495,
+     "finish_reason": "stop",
+     "chars": 62,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 属性错误\n  属性错误：对象缺少该属性或方法（数据处理:3）\n  （Python 原始错误：module '文件系统' has no attribute '读取文本'）\n 1 导入 文件系统\n 2 \n 3 令 文本 = 文件系统.读取文本(\"数据.txt\")\n │\n │                          ^\n │\n 4 令 数字 = 转整数(文本)\n 5 打印(数字 * 2)\n  建议: 请检查对象是否拥有该属性或方法，需确认类",
+     "rc": 1,
+     "stderr": "错误: 属性错误\n  属性错误：对象缺少该属性或方法（数据处理:3）\n  （Python 原始错误：module '文件系统' has no attribute '读取文本'）\n 1 导入 文件系统\n 2 \n 3 令 文本 = 文件系统.读取文本(\"数据.txt\")\n │\n │                          ^\n │\n 4 令 数字 = 转整数(文本)\n 5 打印(数字 * 2)\n  建议: 请检查对象是否拥有该属性或方法，需确认类定义中已声明。注意区分属",
+     "code_head": "导入 文件系统\n\n令 文本 = 文件系统.读取文本(\"数据.txt\")\n令 数字 = 转整数(文本)\n打印(数字 * 2)\n"
+    },
+    {
+     "n": 2,
+     "latency": 3.451,
+     "finish_reason": "stop",
+     "chars": 48,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 2,
+   "elapsed": 21.36
+  },
+  {
+   "id": "LA-007",
+   "category": "修改",
+   "difficulty": "L1",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 0.933,
+     "finish_reason": "stop",
+     "chars": 24,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 6.67
+  },
+  {
+   "id": "LA-008",
+   "category": "修改",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.146,
+     "finish_reason": "stop",
+     "chars": 68,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 7.22
+  },
+  {
+   "id": "LA-009",
+   "category": "修改",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.383,
+     "finish_reason": "stop",
+     "chars": 45,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "折扣.light 缺少片段: 整除",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 折后价(单价)：\n  返回 单价 * 90 / 100\n\n打印(折后价(100))\n"
+    },
+    {
+     "n": 2,
+     "latency": 20.809,
+     "finish_reason": "stop",
+     "chars": 44,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "折扣.light 缺少片段: 整除",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 折后价(单价)：\n  返回 单价 * 9 // 10\n\n打印(折后价(100))\n"
+    },
+    {
+     "n": 3,
+     "latency": 151.592,
+     "finish_reason": "length",
+     "chars": 0,
+     "budget_retries": 2,
+     "max_tokens": 16384,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "折扣.light 缺少片段: 整除",
+     "rc": 0,
+     "stderr": "",
+     "code_head": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": false,
+   "rounds_used": 3,
+   "final_detail": "折扣.light 缺少片段: 整除",
+   "final_stage": "assert",
+   "final_code": "LA_E_FILE_CONTAINS",
+   "elapsed": 191.07
+  },
+  {
+   "id": "LA-010",
+   "category": "修改",
+   "difficulty": "L1",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 4.646,
+     "finish_reason": "stop",
+     "chars": 39,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 名称错误\n  name '总和' is not defined\n 1 设 数据 为 列(3, 1, 2)\n 2 打印(长(数据))\n 3 打印(总和(数据))\n │\n │          ^\n │\n 4 \n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用",
+     "rc": 1,
+     "stderr": "错误: 名称错误\n  name '总和' is not defined\n 1 设 数据 为 列(3, 1, 2)\n 2 打印(长(数据))\n 3 打印(总和(数据))\n │\n │          ^\n │\n 4 \n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用\n\n",
+     "code_head": "设 数据 为 列(3, 1, 2)\n打印(长(数据))\n打印(总和(数据))\n"
+    },
+    {
+     "n": 2,
+     "latency": 7.462,
+     "finish_reason": "stop",
+     "chars": 39,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 2,
+   "elapsed": 25.96
+  },
+  {
+   "id": "LA-011",
+   "category": "修改",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 3.004,
+     "finish_reason": "stop",
+     "chars": 43,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 名称错误\n  name '写文件' is not defined\n 1 设 内容 为 \"你好，光明\"\n 2 写文件(\"输出.txt\", 内容)\n │\n │                 ^\n │\n 3 打印(\"已写入\")\n 4 \n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用",
+     "rc": 1,
+     "stderr": "错误: 名称错误\n  name '写文件' is not defined\n 1 设 内容 为 \"你好，光明\"\n 2 写文件(\"输出.txt\", 内容)\n │\n │                 ^\n │\n 3 打印(\"已写入\")\n 4 \n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用\n\n",
+     "code_head": "设 内容 为 \"你好，光明\"\n写文件(\"输出.txt\", 内容)\n打印(\"已写入\")\n"
+    },
+    {
+     "n": 2,
+     "latency": 2.673,
+     "finish_reason": "stop",
+     "chars": 44,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 2,
+   "elapsed": 19.19
+  },
+  {
+   "id": "LA-012",
+   "category": "修复",
+   "difficulty": "L1",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 0.734,
+     "finish_reason": "stop",
+     "chars": 71,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 8.82
+  },
+  {
+   "id": "LA-013",
+   "category": "修复",
+   "difficulty": "L1",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 4.207,
+     "finish_reason": "stop",
+     "chars": 33,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "加法.light 缺少片段: 段落 加十(甲)：",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 加十(甲):\n  返回 甲 加 10\n\n打印(加十(0))\n"
+    },
+    {
+     "n": 2,
+     "latency": 32.886,
+     "finish_reason": "stop",
+     "chars": 43,
+     "budget_retries": 1,
+     "max_tokens": 8192,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "加法.light 缺少片段: 段落 加十(甲)：",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 加十(甲):\n  返回 甲 加 10\n\n段落 主():\n  打印(加十(0))\n"
+    },
+    {
+     "n": 3,
+     "latency": 156.5,
+     "finish_reason": "length",
+     "chars": 0,
+     "budget_retries": 2,
+     "max_tokens": 16384,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "加法.light 缺少片段: 段落 加十(甲)：",
+     "rc": 0,
+     "stderr": "",
+     "code_head": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": false,
+   "rounds_used": 3,
+   "final_detail": "加法.light 缺少片段: 段落 加十(甲)：",
+   "final_stage": "assert",
+   "final_code": "LA_E_FILE_CONTAINS",
+   "elapsed": 210.59
+  },
+  {
+   "id": "LA-014",
+   "category": "修复",
+   "difficulty": "L1",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 36.109,
+     "finish_reason": "stop",
+     "chars": 70,
+     "budget_retries": 1,
+     "max_tokens": 8192,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 42.96
+  },
+  {
+   "id": "LA-015",
+   "category": "修复",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.485,
+     "finish_reason": "stop",
+     "chars": 16,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 7.26
+  },
+  {
+   "id": "LA-016",
+   "category": "修复",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 3.301,
+     "finish_reason": "stop",
+     "chars": 69,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 9.42
+  },
+  {
+   "id": "LA-017",
+   "category": "重构",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.395,
+     "finish_reason": "stop",
+     "chars": 72,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 7.6
+  },
+  {
+   "id": "LA-018",
+   "category": "重构",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 3.955,
+     "finish_reason": "stop",
+     "chars": 54,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 解析错误\n  \n┌─ 语法错误\n│ 位置: 行 2, 列 1\n│ 原因: 缩进不正确：这一行的缩进层级没有对应的语句块。请检查上一条语句是否以「：」结尾、或本行缩进是否多/少了一级。\n│ 附近: '2'\n└─\n 1 段落 计算()\n 2   设 甲 为 5\n │\n │         ^\n │\n 3   设 乙 为 甲 乘 2\n 4   打印(乙)\n  建议: 解析错误，请检查代码语法是否正确，确认语句格式符合光明语法的要求。\n  参考示例：\n",
+     "rc": 1,
+     "stderr": "错误: 解析错误\n  \n┌─ 语法错误\n│ 位置: 行 2, 列 1\n│ 原因: 缩进不正确：这一行的缩进层级没有对应的语句块。请检查上一条语句是否以「：」结尾、或本行缩进是否多/少了一级。\n│ 附近: '2'\n└─\n 1 段落 计算()\n 2   设 甲 为 5\n │\n │         ^\n │\n 3   设 乙 为 甲 乘 2\n 4   打印(乙)\n  建议: 解析错误，请检查代码语法是否正确，确认语句格式符合光明语法的要求。\n  参考示例：\n  设 甲 为 10。\n",
+     "code_head": "段落 计算()\n  设 甲 为 5\n  设 乙 为 甲 乘 2\n  打印(乙)\n结束\n\n计算()\n计算()\n"
+    },
+    {
+     "n": 2,
+     "latency": 1.312,
+     "finish_reason": "stop",
+     "chars": 55,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "去重.light 缺少片段: 段落 翻倍(数值)：",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 计算()：\n  设 甲 为 5\n  设 乙 为 甲 乘 2\n  打印(乙)\n结束\n\n计算()\n计算()\n"
+    },
+    {
+     "n": 3,
+     "latency": 25.602,
+     "finish_reason": "stop",
+     "chars": 52,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "去重.light 缺少片段: 段落 翻倍(数值)：",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 计算()：\n  设 甲 为 5\n  设 乙 为 甲 乘 2\n  打印(乙)\n\n计算()\n计算()\n"
+    }
+   ],
+   "pass@1": false,
+   "passed": false,
+   "rounds_used": 3,
+   "final_detail": "去重.light 缺少片段: 段落 翻倍(数值)：",
+   "final_stage": "assert",
+   "final_code": "LA_E_FILE_CONTAINS",
+   "elapsed": 45.27
+  },
+  {
+   "id": "LA-019",
+   "category": "重构",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.083,
+     "finish_reason": "stop",
+     "chars": 29,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 7.11
+  },
+  {
+   "id": "LA-020",
+   "category": "重构",
+   "difficulty": "L3",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 2.236,
+     "finish_reason": "stop",
+     "chars": 48,
+     "budget_retries": 0,
+     "max_tokens": 4096,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "归一.light 缺少片段: 段落 计算(甲, 乙)：",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 计算(甲,乙)：\n  返回 甲 加 乙\n\n设 结果 为 计算(20,22)\n打印(结果)\n"
+    },
+    {
+     "n": 2,
+     "latency": 41.684,
+     "finish_reason": "stop",
+     "chars": 48,
+     "budget_retries": 1,
+     "max_tokens": 8192,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "归一.light 缺少片段: 段落 计算(甲, 乙)：",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 计算(甲,乙):\n  返回 甲 加 乙\n\n设 结果 为 计算(20,22)\n打印(结果)\n"
+    },
+    {
+     "n": 3,
+     "latency": 33.435,
+     "finish_reason": "stop",
+     "chars": 48,
+     "budget_retries": 1,
+     "max_tokens": 8192,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "归一.light 缺少片段: 段落 计算(甲, 乙)：",
+     "rc": 0,
+     "stderr": "",
+     "code_head": "段落 计算(甲,乙)：\n  返回 甲 加 乙\n\n设 结果 为 计算(20,22)\n打印(结果)\n"
+    }
+   ],
+   "pass@1": false,
+   "passed": false,
+   "rounds_used": 3,
+   "final_detail": "归一.light 缺少片段: 段落 计算(甲, 乙)：",
+   "final_stage": "assert",
+   "final_code": "LA_E_FILE_CONTAINS",
+   "elapsed": 94.63
+  }
+ ],
+ "summary": {
+  "no_entry": {
+   "total": 20,
+   "pass_at_1": 0.4,
+   "pass_at_3": 0.7,
+   "pass1_count": 8,
+   "passed_count": 14,
+   "self_heal_rate": 0.5,
+   "self_heal_count": 6,
+   "first_fail_count": 12,
+   "rounds_total": 39,
+   "error_codes": {
+    "L0000": 13,
+    "LA_E_FILE_CONTAINS": 11,
+    "LA_E_TIMEOUT": 1
+   }
+  },
+  "with_entry": {
+   "total": 20,
+   "pass_at_1": 0.65,
+   "pass_at_3": 0.8,
+   "pass1_count": 13,
+   "passed_count": 16,
+   "self_heal_rate": 0.4286,
+   "self_heal_count": 3,
+   "first_fail_count": 7,
+   "rounds_total": 33,
+   "error_codes": {
+    "LA_E_FILE_CONTAINS": 17
+   }
+  }
+ }
+}

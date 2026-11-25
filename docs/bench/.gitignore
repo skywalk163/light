@@ -1,0 +1,3 @@
+# 本目录的 JSON 是报告的原始数据，必须随仓入库；
+# 仓根 .gitignore 的 `*.json` 会把它们一起吃掉（docs/LightAgentBench说明.md §2 记过同一个坑）。
+!*.json

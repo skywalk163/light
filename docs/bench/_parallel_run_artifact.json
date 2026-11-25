@@ -1,0 +1,1213 @@
+{
+ "bench": "light_agent",
+ "probe": "T-0465 cold-start",
+ "model": "deepseek-flash",
+ "endpoint": "https://api.deepseek.com",
+ "arms": [
+  "with_entry",
+  "no_entry"
+ ],
+ "max_rounds": 3,
+ "entry_docs_from": "eef3fab30",
+ "started": "2026-11-25T05:52:04",
+ "wall_clock_s": 363.3,
+ "tasks": [
+  {
+   "id": "LA-001",
+   "category": "新建",
+   "difficulty": "L1",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 5.237,
+     "finish_reason": "stop",
+     "chars": 76,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 14.69
+  },
+  {
+   "id": "LA-002",
+   "category": "新建",
+   "difficulty": "L1",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 5.657,
+     "finish_reason": "stop",
+     "chars": 92,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 16.3
+  },
+  {
+   "id": "LA-003",
+   "category": "新建",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 3.049,
+     "finish_reason": "stop",
+     "chars": 94,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 12.84
+  },
+  {
+   "id": "LA-004",
+   "category": "新建",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 4.196,
+     "finish_reason": "stop",
+     "chars": 107,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 14.69
+  },
+  {
+   "id": "LA-005",
+   "category": "新建",
+   "difficulty": "L1",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 18.286,
+     "finish_reason": "stop",
+     "chars": 39,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 26.53
+  },
+  {
+   "id": "LA-006",
+   "category": "新建",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 7.457,
+     "finish_reason": "stop",
+     "chars": 120,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "数据处理.light 缺少片段: 转整数",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 2,
+     "latency": 10.059,
+     "finish_reason": "stop",
+     "chars": 67,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "数据处理.light 缺少片段: 转整数",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 3,
+     "latency": 22.572,
+     "finish_reason": "length",
+     "chars": 0,
+     "ok": false,
+     "stage": "command",
+     "error_code": "LA_E_TIMEOUT",
+     "detail": "命令超时（30s）: light run {entry} --stdlib-dir {stdlib}",
+     "rc": 0,
+     "stderr": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": false,
+   "rounds_used": 3,
+   "final_detail": "数据处理.light 缺少片段: 转整数",
+   "final_stage": "assert",
+   "final_code": "LA_E_FILE_CONTAINS",
+   "elapsed": 87.7
+  },
+  {
+   "id": "LA-007",
+   "category": "修改",
+   "difficulty": "L1",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 0.815,
+     "finish_reason": "stop",
+     "chars": 24,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 7.98
+  },
+  {
+   "id": "LA-008",
+   "category": "修改",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.203,
+     "finish_reason": "stop",
+     "chars": 68,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 8.1
+  },
+  {
+   "id": "LA-009",
+   "category": "修改",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 16.632,
+     "finish_reason": "stop",
+     "chars": 46,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "折扣.light 缺少片段: 整除",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 2,
+     "latency": 21.078,
+     "finish_reason": "length",
+     "chars": 0,
+     "ok": false,
+     "stage": "command",
+     "error_code": "LA_E_TIMEOUT",
+     "detail": "命令超时（30s）: light run {entry} --stdlib-dir {stdlib}",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 3,
+     "latency": 23.255,
+     "finish_reason": "length",
+     "chars": 0,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "折扣.light 缺少片段: 整除",
+     "rc": 0,
+     "stderr": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": false,
+   "rounds_used": 3,
+   "final_detail": "折扣.light 缺少片段: 整除",
+   "final_stage": "assert",
+   "final_code": "LA_E_FILE_CONTAINS",
+   "elapsed": 119.45
+  },
+  {
+   "id": "LA-010",
+   "category": "修改",
+   "difficulty": "L1",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 5.919,
+     "finish_reason": "stop",
+     "chars": 69,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "统计.light 缺少片段: 求和",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 2,
+     "latency": 23.425,
+     "finish_reason": "length",
+     "chars": 0,
+     "ok": false,
+     "stage": "command",
+     "error_code": "LA_E_TIMEOUT",
+     "detail": "命令超时（30s）: light run {entry} --stdlib-dir {stdlib}",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 3,
+     "latency": 11.23,
+     "finish_reason": "stop",
+     "chars": 39,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 3,
+   "elapsed": 111.24
+  },
+  {
+   "id": "LA-011",
+   "category": "修改",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 0.871,
+     "finish_reason": "stop",
+     "chars": 60,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 10.69
+  },
+  {
+   "id": "LA-012",
+   "category": "修复",
+   "difficulty": "L1",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 2.696,
+     "finish_reason": "stop",
+     "chars": 83,
+     "ok": false,
+     "stage": "command",
+     "error_code": "LA_E_TIMEOUT",
+     "detail": "命令超时（30s）: light run {entry} --stdlib-dir {stdlib}",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 2,
+     "latency": 8.856,
+     "finish_reason": "stop",
+     "chars": 93,
+     "ok": false,
+     "stage": "command",
+     "error_code": "LA_E_TIMEOUT",
+     "detail": "命令超时（30s）: light run {entry} --stdlib-dir {stdlib}",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 3,
+     "latency": 6.453,
+     "finish_reason": "stop",
+     "chars": 83,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 3,
+   "elapsed": 106.34
+  },
+  {
+   "id": "LA-013",
+   "category": "修复",
+   "difficulty": "L1",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.127,
+     "finish_reason": "stop",
+     "chars": 35,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 34.14
+  },
+  {
+   "id": "LA-014",
+   "category": "修复",
+   "difficulty": "L1",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 6.981,
+     "finish_reason": "stop",
+     "chars": 70,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 25.07
+  },
+  {
+   "id": "LA-015",
+   "category": "修复",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.568,
+     "finish_reason": "stop",
+     "chars": 16,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 18.44
+  },
+  {
+   "id": "LA-016",
+   "category": "修复",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 2.872,
+     "finish_reason": "stop",
+     "chars": 77,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 16.23
+  },
+  {
+   "id": "LA-017",
+   "category": "重构",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.337,
+     "finish_reason": "stop",
+     "chars": 76,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 17.76
+  },
+  {
+   "id": "LA-018",
+   "category": "重构",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 2.216,
+     "finish_reason": "stop",
+     "chars": 58,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "去重.light 缺少片段: 段落 翻倍(数值)：",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 2,
+     "latency": 6.774,
+     "finish_reason": "stop",
+     "chars": 82,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "去重.light 缺少片段: 段落 翻倍(数值)：",
+     "rc": 0,
+     "stderr": "⚠ 编译警告（L-166 影子变量）：第2行 段落『计算』内给『乙』赋值，但模块级也存在同名变量且未在该段落内声明『全局 乙。』。按作用域语义这里会新建**局部**变量，模块级的『乙』不会被修改（L-165 即此类静默缺陷）。若要写回模块级变量，请在段落内加『全局 乙。』；若本意就是局部变量，可忽略此告警。\n"
+    },
+    {
+     "n": 3,
+     "latency": 3.953,
+     "finish_reason": "stop",
+     "chars": 68,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "去重.light 缺少片段: 段落 翻倍(数值)：",
+     "rc": 0,
+     "stderr": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": false,
+   "rounds_used": 3,
+   "final_detail": "去重.light 缺少片段: 段落 翻倍(数值)：",
+   "final_stage": "assert",
+   "final_code": "LA_E_FILE_CONTAINS",
+   "elapsed": 48.16
+  },
+  {
+   "id": "LA-019",
+   "category": "重构",
+   "difficulty": "L2",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.566,
+     "finish_reason": "stop",
+     "chars": 39,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "内建.light 缺少片段: 打印(求和(数据))",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 2,
+     "latency": 7.232,
+     "finish_reason": "stop",
+     "chars": 29,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 2,
+   "elapsed": 35.3
+  },
+  {
+   "id": "LA-020",
+   "category": "重构",
+   "difficulty": "L3",
+   "arm": "with_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 5.761,
+     "finish_reason": "stop",
+     "chars": 52,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 17.36
+  },
+  {
+   "id": "LA-001",
+   "category": "新建",
+   "difficulty": "L1",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 2.802,
+     "finish_reason": "stop",
+     "chars": 55,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 解析错误\n  \n┌─ 语法错误\n│ 原因: 发现 3 个语法错误（下面详列前 3 个，建议从第 1 个开始修）:\n\n错误 1/3:\n\n┌─ 语法错误\n│ 位置: 行 1, 列 1\n│ 原因: 语法「定义 x 等于 y」已移除，请改用「设 x 为 y」。如需定义类属性，请使用类定义语法。\n│ 附近: '定义'\n│ 建议: 「定义」用于声明常量。如：定义 圆周率 为 3.14159。\n└─\n\n---\n\n错误 2/3:\n\n┌─ 语法错误\n│ 位置: ",
+     "rc": 1,
+     "stderr": "错误: 解析错误\n  \n┌─ 语法错误\n│ 原因: 发现 3 个语法错误（下面详列前 3 个，建议从第 1 个开始修）:\n\n错误 1/3:\n\n┌─ 语法错误\n│ 位置: 行 1, 列 1\n│ 原因: 语法「定义 x 等于 y」已移除，请改用「设 x 为 y」。如需定义类属性，请使用类定义语法。\n│ 附近: '定义'\n│ 建议: 「定义」用于声明常量。如：定义 圆周率 为 3.14159。\n└─\n\n---\n\n错误 2/3:\n\n┌─ 语法错误\n│ 位置: 行 3, 列 9\n│ 原"
+    },
+    {
+     "n": 2,
+     "latency": 10.471,
+     "finish_reason": "stop",
+     "chars": 52,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 2,
+   "elapsed": 31.59
+  },
+  {
+   "id": "LA-002",
+   "category": "新建",
+   "difficulty": "L1",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 2.887,
+     "finish_reason": "stop",
+     "chars": 66,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 解析错误\n  \n┌─ 语法错误\n│ 原因: 发现 3 个语法错误（下面详列前 3 个，建议从第 1 个开始修）:\n\n错误 1/3:\n\n┌─ 语法错误\n│ 位置: 行 4, 列 11\n│ 原因: 期望 冒号「:」，但得到 左花括号「{」（附近: '{'）\n│ 附近: '{'\n│ 建议: 可能缺少冒号「:」。函数定义、条件、循环后面都需要冒号。\n│ 教程: 30分钟入门光明.md 第3章「条件判断」\n└─\n\n---\n\n错误 2/3:\n\n┌─ 语法错",
+     "rc": 1,
+     "stderr": "错误: 解析错误\n  \n┌─ 语法错误\n│ 原因: 发现 3 个语法错误（下面详列前 3 个，建议从第 1 个开始修）:\n\n错误 1/3:\n\n┌─ 语法错误\n│ 位置: 行 4, 列 11\n│ 原因: 期望 冒号「:」，但得到 左花括号「{」（附近: '{'）\n│ 附近: '{'\n│ 建议: 可能缺少冒号「:」。函数定义、条件、循环后面都需要冒号。\n│ 教程: 30分钟入门光明.md 第3章「条件判断」\n└─\n\n---\n\n错误 2/3:\n\n┌─ 语法错误\n│ 位置: 行 7,"
+    },
+    {
+     "n": 2,
+     "latency": 12.026,
+     "finish_reason": "stop",
+     "chars": 71,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 2,
+   "elapsed": 32.55
+  },
+  {
+   "id": "LA-003",
+   "category": "新建",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 2.63,
+     "finish_reason": "stop",
+     "chars": 108,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 解析错误\n  \n┌─ 语法错误\n│ 原因: 发现 9 个语法错误（下面详列前 8 个，建议从第 1 个开始修）:\n\n错误 1/9:\n\n┌─ 语法错误\n│ 位置: 行 1, 列 1\n│ 原因: 语法「定义 x 等于 y」已移除，请改用「设 x 为 y」。如需定义类属性，请使用类定义语法。\n│ 附近: '定义'\n│ 建议: 「定义」用于声明常量。如：定义 圆周率 为 3.14159。\n└─\n\n---\n\n错误 2/9:\n\n┌─ 语法错误\n│ 位置: ",
+     "rc": 1,
+     "stderr": "错误: 解析错误\n  \n┌─ 语法错误\n│ 原因: 发现 9 个语法错误（下面详列前 8 个，建议从第 1 个开始修）:\n\n错误 1/9:\n\n┌─ 语法错误\n│ 位置: 行 1, 列 1\n│ 原因: 语法「定义 x 等于 y」已移除，请改用「设 x 为 y」。如需定义类属性，请使用类定义语法。\n│ 附近: '定义'\n│ 建议: 「定义」用于声明常量。如：定义 圆周率 为 3.14159。\n└─\n\n---\n\n错误 2/9:\n\n┌─ 语法错误\n│ 位置: 行 3, 列 1\n│ 原"
+    },
+    {
+     "n": 2,
+     "latency": 3.606,
+     "finish_reason": "stop",
+     "chars": 92,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 2,
+   "elapsed": 20.94
+  },
+  {
+   "id": "LA-004",
+   "category": "新建",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 22.155,
+     "finish_reason": "length",
+     "chars": 0,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_STDOUT",
+     "detail": "标准输出缺少: 120",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 2,
+     "latency": 9.432,
+     "finish_reason": "stop",
+     "chars": 70,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 2,
+   "elapsed": 60.24
+  },
+  {
+   "id": "LA-005",
+   "category": "新建",
+   "difficulty": "L1",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 3.713,
+     "finish_reason": "stop",
+     "chars": 38,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 名称错误\n  name '总和' is not defined\n 1 打印(总和(列(3, 1, 2)))\n │\n │                  ^\n │\n 2 打印(个数(列(3, 1, 2)))\n 3 \n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用",
+     "rc": 1,
+     "stderr": "错误: 名称错误\n  name '总和' is not defined\n 1 打印(总和(列(3, 1, 2)))\n │\n │                  ^\n │\n 2 打印(个数(列(3, 1, 2)))\n 3 \n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用\n\n"
+    },
+    {
+     "n": 2,
+     "latency": 3.496,
+     "finish_reason": "stop",
+     "chars": 38,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 2,
+   "elapsed": 37.35
+  },
+  {
+   "id": "LA-006",
+   "category": "新建",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 4.064,
+     "finish_reason": "stop",
+     "chars": 48,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 15.6
+  },
+  {
+   "id": "LA-007",
+   "category": "修改",
+   "difficulty": "L1",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 0.562,
+     "finish_reason": "stop",
+     "chars": 24,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 12.46
+  },
+  {
+   "id": "LA-008",
+   "category": "修改",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.638,
+     "finish_reason": "stop",
+     "chars": 68,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 13.09
+  },
+  {
+   "id": "LA-009",
+   "category": "修改",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 2.379,
+     "finish_reason": "stop",
+     "chars": 43,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "折扣.light 缺少片段: 整除",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 2,
+     "latency": 6.372,
+     "finish_reason": "stop",
+     "chars": 44,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "折扣.light 缺少片段: 整除",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 3,
+     "latency": 22.458,
+     "finish_reason": "length",
+     "chars": 0,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "折扣.light 缺少片段: 整除",
+     "rc": 0,
+     "stderr": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": false,
+   "rounds_used": 3,
+   "final_detail": "折扣.light 缺少片段: 整除",
+   "final_stage": "assert",
+   "final_code": "LA_E_FILE_CONTAINS",
+   "elapsed": 62.78
+  },
+  {
+   "id": "LA-010",
+   "category": "修改",
+   "difficulty": "L1",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.699,
+     "finish_reason": "stop",
+     "chars": 38,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 名称错误\n  name '和' is not defined\n 1 设 数据 为 列(3, 1, 2)\n 2 打印(长(数据))\n 3 打印(和(数据))\n │\n │         ^\n │\n 4 \n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用",
+     "rc": 1,
+     "stderr": "错误: 名称错误\n  name '和' is not defined\n 1 设 数据 为 列(3, 1, 2)\n 2 打印(长(数据))\n 3 打印(和(数据))\n │\n │         ^\n │\n 4 \n  建议: 请检查变量名是否拼写正确，使用前需先通过「设」关键字定义变量。光明中变量必须先定义后使用。\n  参考示例：\n  设 变量名 为 值\n  打印(变量名)  # 先定义后使用\n\n"
+    },
+    {
+     "n": 2,
+     "latency": 6.426,
+     "finish_reason": "stop",
+     "chars": 39,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 2,
+   "elapsed": 28.41
+  },
+  {
+   "id": "LA-011",
+   "category": "修改",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 14.05,
+     "finish_reason": "stop",
+     "chars": 44,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 21.18
+  },
+  {
+   "id": "LA-012",
+   "category": "修复",
+   "difficulty": "L1",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 2.131,
+     "finish_reason": "stop",
+     "chars": 71,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 13.31
+  },
+  {
+   "id": "LA-013",
+   "category": "修复",
+   "difficulty": "L1",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.029,
+     "finish_reason": "stop",
+     "chars": 33,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 8.2
+  },
+  {
+   "id": "LA-014",
+   "category": "修复",
+   "difficulty": "L1",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 0.796,
+     "finish_reason": "stop",
+     "chars": 70,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 9.86
+  },
+  {
+   "id": "LA-015",
+   "category": "修复",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 0.85,
+     "finish_reason": "stop",
+     "chars": 16,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 8.02
+  },
+  {
+   "id": "LA-016",
+   "category": "修复",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 2.816,
+     "finish_reason": "stop",
+     "chars": 77,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 8.95
+  },
+  {
+   "id": "LA-017",
+   "category": "重构",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.608,
+     "finish_reason": "stop",
+     "chars": 72,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": true,
+   "passed": true,
+   "rounds_used": 1,
+   "elapsed": 7.86
+  },
+  {
+   "id": "LA-018",
+   "category": "重构",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 2.595,
+     "finish_reason": "stop",
+     "chars": 60,
+     "ok": false,
+     "stage": "command",
+     "error_code": "L0000",
+     "detail": "返回码 1，期望 0: 错误: 解析错误\n  \n┌─ 语法错误\n│ 位置: 行 2, 列 1\n│ 原因: 缩进不正确：这一行的缩进层级没有对应的语句块。请检查上一条语句是否以「：」结尾、或本行缩进是否多/少了一级。\n│ 附近: '2'\n└─\n 1 段落 打印双倍()\n 2   设 甲 为 5\n │\n │         ^\n │\n 3   设 乙 为 甲 乘 2\n 4   打印(乙)\n  建议: 解析错误，请检查代码语法是否正确，确认语句格式符合光明语法的要求。\n  参考示例",
+     "rc": 1,
+     "stderr": "错误: 解析错误\n  \n┌─ 语法错误\n│ 位置: 行 2, 列 1\n│ 原因: 缩进不正确：这一行的缩进层级没有对应的语句块。请检查上一条语句是否以「：」结尾、或本行缩进是否多/少了一级。\n│ 附近: '2'\n└─\n 1 段落 打印双倍()\n 2   设 甲 为 5\n │\n │         ^\n │\n 3   设 乙 为 甲 乘 2\n 4   打印(乙)\n  建议: 解析错误，请检查代码语法是否正确，确认语句格式符合光明语法的要求。\n  参考示例：\n  设 甲 为 10"
+    },
+    {
+     "n": 2,
+     "latency": 2.679,
+     "finish_reason": "stop",
+     "chars": 61,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "去重.light 缺少片段: 段落 翻倍(数值)：",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 3,
+     "latency": 6.078,
+     "finish_reason": "stop",
+     "chars": 58,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "去重.light 缺少片段: 段落 翻倍(数值)：",
+     "rc": 0,
+     "stderr": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": false,
+   "rounds_used": 3,
+   "final_detail": "去重.light 缺少片段: 段落 翻倍(数值)：",
+   "final_stage": "assert",
+   "final_code": "LA_E_FILE_CONTAINS",
+   "elapsed": 37.07
+  },
+  {
+   "id": "LA-019",
+   "category": "重构",
+   "difficulty": "L2",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 1.07,
+     "finish_reason": "stop",
+     "chars": 39,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "内建.light 缺少片段: 打印(求和(数据))",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 2,
+     "latency": 4.419,
+     "finish_reason": "stop",
+     "chars": 29,
+     "ok": true,
+     "stage": "ok",
+     "error_code": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": true,
+   "rounds_used": 2,
+   "elapsed": 23.34
+  },
+  {
+   "id": "LA-020",
+   "category": "重构",
+   "difficulty": "L3",
+   "arm": "no_entry",
+   "rounds": [
+    {
+     "n": 1,
+     "latency": 5.494,
+     "finish_reason": "stop",
+     "chars": 48,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "归一.light 缺少片段: 段落 计算(甲, 乙)：",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 2,
+     "latency": 7.815,
+     "finish_reason": "stop",
+     "chars": 50,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "归一.light 缺少片段: 段落 计算(甲, 乙)：",
+     "rc": 0,
+     "stderr": ""
+    },
+    {
+     "n": 3,
+     "latency": 18.395,
+     "finish_reason": "stop",
+     "chars": 48,
+     "ok": false,
+     "stage": "assert",
+     "error_code": "LA_E_FILE_CONTAINS",
+     "detail": "归一.light 缺少片段: 段落 计算(甲, 乙)：",
+     "rc": 0,
+     "stderr": ""
+    }
+   ],
+   "pass@1": false,
+   "passed": false,
+   "rounds_used": 3,
+   "final_detail": "归一.light 缺少片段: 段落 计算(甲, 乙)：",
+   "final_stage": "assert",
+   "final_code": "LA_E_FILE_CONTAINS",
+   "elapsed": 61.5
+  }
+ ],
+ "summary": {
+  "no_entry": {
+   "total": 20,
+   "pass_at_1": 0.5,
+   "pass_at_3": 0.85,
+   "pass1_count": 10,
+   "passed_count": 17,
+   "self_heal_rate": 0.7,
+   "self_heal_count": 7,
+   "first_fail_count": 10,
+   "rounds_total": 33,
+   "error_codes": {
+    "LA_E_FILE_CONTAINS": 9,
+    "L0000": 6,
+    "LA_E_STDOUT": 1
+   }
+  },
+  "with_entry": {
+   "total": 20,
+   "pass_at_1": 0.7,
+   "pass_at_3": 0.85,
+   "pass1_count": 14,
+   "passed_count": 17,
+   "self_heal_rate": 0.5,
+   "self_heal_count": 3,
+   "first_fail_count": 6,
+   "rounds_total": 31,
+   "error_codes": {
+    "LA_E_FILE_CONTAINS": 9,
+    "LA_E_TIMEOUT": 5
+   }
+  }
+ }
+}

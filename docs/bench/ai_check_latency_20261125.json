@@ -1,0 +1,1659 @@
+{
+ "probe": "T-0465 ai check latency",
+ "when": "2026-11-25T06:58:48",
+ "reps_per_task": 3,
+ "tasks": 20,
+ "summary": {
+  "relpath": {
+   "n": 60,
+   "p50": 1.452,
+   "p90": 1.678,
+   "mean": 1.454,
+   "min": 1.2124,
+   "max": 1.8797,
+   "rc_histogram": {
+    "1": 60
+   },
+   "ok_true": 0,
+   "diagnostics_sum": 60,
+   "diagnostics_nonzero_samples": 60
+  },
+  "abspath": {
+   "n": 60,
+   "p50": 1.685,
+   "p90": 1.97,
+   "mean": 1.72,
+   "min": 1.451,
+   "max": 2.1922,
+   "rc_histogram": {
+    "0": 60
+   },
+   "ok_true": 60,
+   "diagnostics_sum": 0,
+   "diagnostics_nonzero_samples": 0
+  },
+  "abspath_run": {
+   "n": 60,
+   "p50": 7.658,
+   "p90": 8.167,
+   "mean": 7.719,
+   "min": 7.1298,
+   "max": 9.3146,
+   "rc_histogram": {
+    "0": 57,
+    "1": 3
+   },
+   "ok_true": 57,
+   "diagnostics_sum": 3,
+   "diagnostics_nonzero_samples": 3
+  }
+ },
+ "rows": [
+  {
+   "id": "LA-001",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.6885,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.8797,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.6234,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.8554,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 2.0656,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 2.0279,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 7.1712,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.7628,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.9711,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-002",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.5666,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.6902,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.3115,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.7639,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.5927,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.5652,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 7.4444,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.8884,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.8424,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-003",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.4856,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.5706,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.2476,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.451,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.7086,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.6648,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 7.3973,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.8787,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.1352,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-004",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.3853,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.4249,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.4626,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.5835,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.499,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.596,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 8.0127,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.8563,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.6905,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-005",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.57,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.2697,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.3017,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.6881,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.6211,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.5298,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 8.3482,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.5147,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.7522,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-006",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.4278,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.4626,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.2734,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.9919,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 2.1294,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.827,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 8.5718,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 8.0186,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 7.619,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-007",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.5226,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.3244,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.455,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.9418,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.7912,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.5077,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 7.4649,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.4729,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.5823,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-008",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.5737,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.6779,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.7145,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.6618,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.5956,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.5892,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 7.3228,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.6281,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.8628,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-009",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.2843,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.5393,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.3457,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.5292,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.6635,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.7015,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 7.4431,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 8.167,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.9861,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-010",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.2124,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.2905,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.533,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.6216,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.6543,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.9354,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 8.2388,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.5161,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.7292,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-011",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.2954,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.2611,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.5552,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.7596,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.552,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.6616,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 9.3146,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.3022,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.6582,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-012",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.3459,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.2549,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.5409,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.6855,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.8062,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.9379,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 7.6416,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.4179,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.545,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-013",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.4475,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.4959,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.4767,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.9705,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 2.1922,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.6921,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 7.4438,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.6023,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.4746,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-014",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.5411,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.5222,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.4235,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.6695,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.5823,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.6358,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 7.2362,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.4528,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 8.2688,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-015",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.5156,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.7192,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.4513,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.5605,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.7848,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.6384,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 7.3903,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.9236,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.934,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-016",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.2474,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.4522,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.4659,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.5712,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.4818,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.7322,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 7.7499,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.9323,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.5048,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-017",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.3213,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.2714,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.3638,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.6954,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.6668,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.6852,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 8.331,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.1318,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.4155,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-018",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.3962,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.4098,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.2413,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.5782,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.8573,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.8784,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 7.9268,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.6233,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.4176,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-019",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.3575,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.3854,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.4315,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.623,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 2.0764,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.8427,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 7.7358,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.8961,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.5381,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "LA-020",
+   "samples": {
+    "relpath": [
+     {
+      "elapsed": 1.7324,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.5611,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     },
+     {
+      "elapsed": 1.6589,
+      "rc": 1,
+      "diagnostics": 1,
+      "codes": [
+       "L0000"
+      ],
+      "ok": false
+     }
+    ],
+    "abspath": [
+     {
+      "elapsed": 1.7624,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.693,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 1.5781,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ],
+    "abspath_run": [
+     {
+      "elapsed": 7.1298,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 7.8568,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     },
+     {
+      "elapsed": 8.0819,
+      "rc": 0,
+      "diagnostics": 0,
+      "codes": [],
+      "ok": true
+     }
+    ]
+   }
+  }
+ ]
+}
