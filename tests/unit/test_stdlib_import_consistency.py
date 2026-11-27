@@ -226,14 +226,10 @@ def test_tests_直接import的stdlib模块必须有源文件():
     这是 R134 场景在 `tests/` 侧的直接映射：只要 tests/ 里还写着这个 import，
     仓库就必须保证 X 有可加载的源。判据对 stub 与纯光明一视同仁。
     """
-    r = subprocess.run(
-        ["grep", "-rnoE",
-         r"(from stdlib\.[A-Za-z0-9_\u4e00-\u9fff]+ import|import stdlib\.[A-Za-z0-9_\u4e00-\u9fff]+)",
-         "--exclude-dir=__pycache__",
-         "--exclude=test_stdlib_import_consistency.py",
-         os.path.join(_ROOT, "tests")],
-        capture_output=True, text=True, encoding="utf-8")
-    模块名 = set(re.findall(r"stdlib\.([A-Za-z0-9_\u4e00-\u9fff]+)", r.stdout))
+    # T-0529：原来这里也走 subprocess.run(["grep", …])，Windows 无 grep → 必红。
+    # 换成与 _包路径引用的模块() 同一个纯 Python 扫描（判据口径不变）。
+    模块名 = _扫描(re.compile(
+        r"(?:from stdlib\.([A-Za-z0-9_\u4e00-\u9fff]+) import|import stdlib\.([A-Za-z0-9_\u4e00-\u9fff]+))"))
     if not 模块名:
         raise AssertionError("tests/ 下未发现任何 stdlib 显式 import")
     缺失 = []
@@ -303,6 +299,30 @@ def test_反跑_删stub的py_包路径import必须ModuleNotFoundError(名):
 # 反跑（普适）：被「包路径」import 的任一 stdlib 模块，删 .py 都必须红
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def _扫描(stdlib引用) -> set:
+    """递归扫 tests/ 下所有 .py，收集命中的 `stdlib.` 模块名（纯 Python，不用 grep）。
+
+    T-0529：原实现 subprocess.run(["grep", "-rnoE", …])。Windows 上没有 grep，
+    模块级调用直接 `FileNotFoundError: [WinError 2]`，整个文件在 **collection 阶段**
+    就 ERROR —— 于是 `pytest -q tests/unit -k "…"` 不论挑哪条用例都会红（POSIX 判据
+    在 Windows 上的假失败）。等价换成 os.walk + re：同样的递归范围、同样的
+    `__pycache__` / 本文件排除，行为逐条对齐。
+    """
+    源集 = set()
+    for 根, 目录, 文件 in os.walk(os.path.join(_ROOT, "tests")):
+        目录[:] = [d for d in 目录 if d != "__pycache__"]
+        for 名 in 文件:
+            if not 名.endswith(".py") or 名 == "test_stdlib_import_consistency.py":
+                continue
+            try:
+                文本 = open(os.path.join(根, 名), encoding="utf-8", errors="replace").read()
+            except OSError:
+                continue
+            for m in stdlib引用.finditer(文本):
+                源集.add(m.group(1) or m.group(2))
+    return 源集
+
+
 def _包路径引用的模块():
     """找出被 `from stdlib.X import` / `import stdlib.X` 引用的模块（含包路径）。
 
@@ -314,14 +334,8 @@ def _包路径引用的模块():
     源集 = set()
     init = open(os.path.join(_STDLIB, "__init__.py"), encoding="utf-8").read()
     源集 |= set(re.findall(r"from \.([A-Za-z0-9_\u4e00-\u9fff]+) import \*", init))
-    r = subprocess.run(
-        ["grep", "-rnoE",
-         r"(from stdlib\.[A-Za-z0-9_\u4e00-\u9fff]+ import|import stdlib\.[A-Za-z0-9_\u4e00-\u9fff]+)",
-         "--exclude-dir=__pycache__",
-         "--exclude=test_stdlib_import_consistency.py",
-         os.path.join(_ROOT, "tests")],
-        capture_output=True, text=True, encoding="utf-8")
-    源集 |= set(re.findall(r"stdlib\.([A-Za-z0-9_\u4e00-\u9fff]+)", r.stdout))
+    源集 |= _扫描(re.compile(
+        r"(?:from stdlib\.([A-Za-z0-9_\u4e00-\u9fff]+) import|import stdlib\.([A-Za-z0-9_\u4e00-\u9fff]+))"))
     return sorted(源集)
 
 

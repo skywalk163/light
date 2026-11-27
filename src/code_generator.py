@@ -1432,32 +1432,50 @@ class PythonCodeGenerator:
         return node, spine
 
     def _fold_binary_spine(self, head_text: str, spine) -> str:
-        """把左撇链折叠成一维文本（迭代，栈深度恒为 1）。"""
+        """把左撇链折叠成一维文本（迭代，栈深度恒为 1）。
+
+        T-0529：左操作数是**低优先级复合表达式**时必须把「累积文本」整体括起来，
+        而不是只把整节点括起来。旧写法 `f"({text} {py_op} {right})"` 只给整节点
+        加括号，`(甲 或 乙) == 假` 就发射成 `(甲 or 乙 == False)` —— Python 按自己的
+        优先级重解析成 `甲 or (乙 == False)`，条件静默反了（同形态还有
+        `(A 或 B) * 2`、`(A 且 B) 包含 x`）。递归基线
+        （_generate_binary_chain_recursive）没这个问题：它的左操作数已经由
+        _generate_expr 带好了括号，只有迭代折叠这条新路径漏了。
+        """
         text = head_text
         prec = self._R225_ATOM_PREC
         for node in spine:
             right = self._generate_expr(node.right)
             op = node.operator
-            if op == '@@contains@@':
-                text = self._emit_binary_op(op, text, right)
-                prec = self._PY_BINOP_PREC['in']
-                continue
             if op in ('/', '除以', '除'):
-                # _light_trunc_div(...) 是调用而不是中缀：整体按原子处理，
-                # 链式除法因此仍是逐层调用嵌套（N 层除法链属已知边界，见 summary）。
+                # _light_trunc_div(...) 是调用而不是中缀：实参以逗号分隔，
+                # 左操作数不必再加括号；整体按原子处理，链式除法因此仍是逐层
+                # 调用嵌套（N 层除法链属已知边界，见 summary）。
                 text = self._emit_binary_op(op, text, right)
                 prec = self._R225_ATOM_PREC
                 continue
-            py_op = self.operator_map.get(op, op)
+            if op == '@@contains@@':
+                py_op = 'in'
+            else:
+                py_op = self.operator_map.get(op, op)
             op_prec = self._PY_BINOP_PREC.get(py_op, self._R225_ATOM_PREC)
             # 左操作数结合更松（优先级更低）时必须加括号；
             # 同优先级仅在「比较运算符（Python 链式比较语义不同）」与右结合 '**' 时加。
             need_parens = (prec < op_prec) or (
                 prec == op_prec and (py_op in self._PY_COMPARISON_OPS or py_op == '**'))
-            if need_parens:
-                text = f"({text} {py_op} {right})"
+            # 括号加在**左操作数**外面：`(a or b) == c` 不能发射成 `(a or b == c)`。
+            # 左文本本身已被一对括号完整包裹（上一步发射的复合节点）时不再套一层，
+            # 否则深链会白白加深 CPython 括号嵌套（R225 正是为避免这个上限才改迭代）。
+            if need_parens and not self._is_fully_parenthesized(text):
+                left_text = f"({text})"
             else:
-                text = f"{text} {py_op} {right}"
+                left_text = text
+            if op == '@@contains@@':
+                text = self._emit_binary_op(op, left_text, right)
+            elif need_parens:
+                text = f"({left_text} {py_op} {right})"
+            else:
+                text = f"{left_text} {py_op} {right}"
             prec = op_prec
         # 整条链整体仍保留一层外层括号：与旧实现「BinaryOp 产物必带括号」的
         # 发射形态对齐（既有用例按文本断言 `(1 + 2)` / `key=(甲 + 乙)`），
