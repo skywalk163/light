@@ -29,7 +29,7 @@
 
 ```
 benchmarks/light_agent/
-├── tasks.jsonl                    # 20 条任务，一行一条
+├── tasks.jsonl                    # 120 条任务，一行一条
 ├── fixtures/                      # 修改/修复/重构类任务的起始件（坏的、旧的、啰嗦的）
 ├── stub_answers/<任务 id>/attempt-N/   # 记录好的补丁文件（整文件快照）
 └── run_benchmarks_agent.py        # 判定器：铺补丁 → 跑命令 → 断言 → 出 JSON
@@ -75,7 +75,8 @@ T-0381 首版提交就漏了 `fixtures/数据.txt`，本地因为文件还在磁
 | `expected.rc` | 期望返回码，默认 0 |
 | `expected.stdout_*` | `stdout_contains` / `stdout_not_contains` / `stdout_count` / `stdout_equals` |
 | `difficulty` | `L1` / `L2` / `L3`（单文件小脚本 → 多概念 → 归一/重构） |
-| `category` | `新建` / `修改` / `修复` / `重构` |
+| `category` | `新建` / `修改` / `修复` / `重构`（题目形态，与 `error_class` 正交） |
+| `error_class` | `新建` / `pyism` / `alias` / `stdlib`（**Agent 为什么会错**，口径见 §3.1） |
 | `setup` | 起始件：`{"from":"fixtures/x.light","to":"x.light"}` |
 | `stub.attempts[]` | 记录好的补丁：`{"files":{"工作区路径":"stub_answers/…"}}`，第 1 条是第一次尝试 |
 
@@ -84,7 +85,26 @@ T-0381 首版提交就漏了 `fixtures/数据.txt`，本地因为文件还在磁
 - `{entry}` 交付文件；`{stdlib}` 仓里的 `stdlib/`；`{out}` `<entry 去后缀>.py`；`{workspace}` 工作区。
 
 起始配额（2026-11 基线）：新建 6 / 修改 5 / 修复 5 / 重构 4 = 20 条。
+T-0462 扩到 120 条后，category 不再按固定比例卡（现为 新建 99 / 修改 10 / 重构 6 / 修复 5），
+真正卡配额的是 §3.1 的四类 `error_class` 与 L1/L2/L3 难度——它们才是「能力维度」。
 新增任务按比例扩，别把某一类塞爆——四类考的是不同能力（从零写、读别人的代码、定位错误、消除冗长）。
+
+### 3.1 `error_class` 四类判据口径
+
+`category` 说的是**题目长什么样**（要新建还是要修），`error_class` 说的是**Agent 会栽在哪**。
+两个维度正交：同一道「新建」题，可以考 Python 惯性，也可以考 stdlib 名字。
+
+| error_class | 含义 | 判据（写题与打标时按这条对） | 题量下限 |
+|---|---|---|---|
+| `新建` | 从零写一个能跑的程序 | 题面只给需求、不给骨架；`expected.files` 只断言正确产物里必然出现的结构片段 | ≥40 |
+| `pyism` | 题面诱导 Python 惯性 | prompt 里出现 Python 词汇（写个函数 / for 循环 / range / len / sum / str / % / // / sorted / def），产物必须换成光明写法，并在 `not_contains` 里禁掉这些 Python 记号 | ≥30 |
+| `alias` | 同一语义的别名 / 双字体诱惑 | 题面用别名词（遍历 … 从 … 到 / 输出 / 若…则 / 重复 N 次 / 直到 / == / and）或全角符号；产物要落到光明关键字，`not_contains` 禁别名与全角符号 | ≥20 |
+| `stdlib` | 必须用对 stdlib 函数名 | 题干只描述「读文件 / 写文件 / JSON / 切分 / 排序 / 求极值」，不点函数名；`contains` 断言正确的调用名（读取文件、写入文件、转整数、解析JSON、排序列表……） | ≥30 |
+
+难度配额（2026-11 基线）：`L1` ≥60 / `L2` ≥40 / `L3` ≥20。
+重试卡要求：至少 30 条卡带 `attempt-2`（第一次错、第二次对），用来验证 harness 真能区分
+「一次通过」与「重试通过」；错误码分布才不会退化成一条直线。
+
 
 ## 4. 判据为什么必须是确定的
 
@@ -131,31 +151,37 @@ python benchmarks/light_agent/run_benchmarks_agent.py --list                    
 ```json
 {"bench":"light_agent","model":"stub","repo":"…",
  "tasks":[{"id":"LA-002","ok":true,"stage":"ok","error_code":"LA_E_STDOUT",
-           "retries":1,"elapsed":8.02,
+           "error_class":"新建","retries":1,"elapsed":8.02,
            "attempts":[{"n":1,"ok":false,"stage":"assert","error_code":"LA_E_STDOUT"},
                        {"n":2,"ok":true,"stage":"ok","error_code":""}]}],
- "summary":{"total":20,"passed":20,"failed":0,"pass_rate":1.0,
-            "retries_total":2,"avg_retries":0.1,
-            "error_codes":{"L0000":1,"LA_E_STDOUT":1}}}
+ "summary":{"total":120,"passed":120,"failed":0,"pass_rate":1.0,
+            "retries_total":30,"avg_retries":0.25,
+            "error_codes":{"L0000":9,"LA_E_FILE_CONTAINS":12,"LA_E_STDOUT":9},
+            "by_error_class":{"新建":{"total":40,"passed":40,"failed":0,"pass_rate":1.0},
+                              "pyism":{…},"alias":{…},"stdlib":{…}}}}
 ```
 
 口径细节：
 
 - `retries` = 通过之前失败了几次（一次通过 = 0）；全部尝试都失败时 = 尝试总数。
 - `error_code` = **最后一次失败阶段**的码（一次通过则为空串）——它才是这次 retry 的成因。
+- `error_class` = 该卡的四类打标；`summary.by_error_class` 按它分组给 `pass_rate`，
+  「修 `读取` 有没有用」就看这一组的数字，而不是看总分。
 - `summary.error_codes` 按**尝试**统计：重试前的失败也算一次真实报错，这才是「错误码分布」。
 - `stage`：`ok` / `setup` / `command` / `assert`。`setup` 说明是 benchmark 自己的问题（找不到 fixture），不是语言的问题。
 
 ## 6. 怎么加一条任务
 
-1. **写题**：在 `tasks.jsonl` 末尾加一行，`id` 顺延，`prompt` 用人话描述需求（不泄露答案）。
+1. **写题**：在 `tasks.jsonl` 末尾加一行，`id` 顺延，`prompt` 用人话描述需求（不泄露答案），
+   `error_class` 按 §3.1 的口径打标（不是按 category 抄）。
 2. **备起始件**：`新建` 不用；其余把「坏/旧/啰嗦」的 `.light` 放进 `fixtures/`，在 `setup` 里铺到工作区。
    需要非 `.light` 的输入数据（如 `数据.txt`）也放 `fixtures/`——注意仓根 `*.txt` 忽略规则，见 §2 的说明。
 3. **备补丁**：把「正确产物」整文件写进 `stub_answers/<id>/attempt-1/`。
    想模拟「第一次写错、第二次才对」，就再放 `attempt-2/`——`retries` 会自然变成 1。
 4. **写断言**：能断言行为就断言行为（`stdout_equals`），再补一条结构断言（`contains`/`not_contains`）防止「碰巧输出对」。
+   `pyism` / `alias` 两类必须带 `not_contains`（禁 Python 记号 / 别名与全角符号），否则打标就成了空话。
 5. **自检**：`--task <新 id> --json` 必须 `ok=true`；再把补丁故意改坏一次，确认能判失败。
-6. **全量**：`--model stub --json` 必须 `passed=20`。
+6. **全量**：`--model stub --json` 必须 `failed=0`，并核对 `summary.by_error_class` 四组都在。
 
 ## 7. 跑法（平台差异）
 
@@ -188,7 +214,8 @@ python benchmarks\light_agent\run_benchmarks_agent.py --model stub --json
 - 改判据只改 `expected`，不要改「任务本身」的 prompt；prompt 变了基线就不可比。
 - 补丁是**整文件快照**，不是行级 diff：不依赖 `git apply` / `patch`，Windows 和 FreeBSD 行为一致。
   改一处就重写整个文件，别指望「打个 hunk」。
-- 新增/删除任务必须同步改 `tests/test_light_agent_bench.py` 里的配额断言（20 条、6/5/5/4）。
+- 新增/删除任务必须同步改 `tests/test_light_agent_bench.py` 里的配额断言
+  （≥120 条、四类 error_class 下限、L1/L2/L3 下限、重试卡 ≥30）。
 - 新增起始件后提交前跑一次 `git status --ignored -- benchmarks/light_agent`：出现 `!!` 就是被忽略规则
   吃掉了（仓根 `*.txt`／`*.json` 都会命中）。要么 `git add -f`，要么在本目录 `.gitignore` 里加负向规则。
 - 报告里的「新增红」只认 `--model stub` 的 `failed` 条数；`LA_E_*` 是骨架故障，`L####` 是语言问题，分开看。

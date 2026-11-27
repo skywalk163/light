@@ -25,10 +25,28 @@
 > L5–L7 为后续追加（规格见 `docs/level5_spec.md`、`docs/Level6_已知限制与待办事项.md`、
 > `docs/level7_spec.md`），完整清单以 `src/version.py` 的 `SUPPORTED_LEVELS` 为准。
 
-> 🤖 **AI 写光明代码？先读 [`docs/AI编程指南.md`](docs/AI编程指南.md)**（1300+ 行）——
-> 含 14 个高频错误清单、stdlib 函数名权威映射（`读取文件` 不是 `读取`、`序列化JSON` 不是 `序列化`）、
-> 23 个惯用法片段（含 lightharness 生产代码逐字摘录）、语言层坑位现状。
-> 配套 CLI：`light ai snippets` 列出片段、`light ai card` 吐完整 system prompt、`light ai check` 查后端兼容。
+> 🤖 **AI 写光明代码？先读 [`docs/AI编程指南.md`](docs/AI编程指南.md)（人类版手册）与
+> [`AGENTS.md`](AGENTS.md)（Agent 入口契约）**。要给模型塞上下文，直接喂
+> [`docs/ai/compact.md`](docs/ai/compact.md)（≤300 字符三层卡，从 `spec/light.spec.json` 派生）；
+> 需要更全用 [`docs/ai/standard.md`](docs/ai/standard.md)（≤3000 字符），索引页见
+> [`docs/ai/README.md`](docs/ai/README.md)。
+>
+> 配套 CLI（中文子命令与英文逐字等价，含退出码）：
+>
+> ```text
+> $ light 运行 hello.light          # ≡ light run
+> 你好，光明！
+>
+> $ light ai check --json --fast 问候.light
+> {"schema_version": 1, "ok": false, "file": "问候.light", ...,
+>  "diagnostics": [{"code": "D101", "severity": "error", "stage": "语法检查",
+>                   "line": 1, "column": 1, "hint": "光明用「段落」定义函数：段落 名 接收 参数：",
+>                   "fixes": [...], "fix_edits": [{"span": {"start_line": 1, "start_col": 1,
+>                   "end_line": 1, "end_col": 10}, "replacement": "段落 问候："}]}], ...}
+> ```
+>
+> `light ai card` 默认 compact，`--level standard|full` 切三层；`--strict` 才把别名/中文标点/
+> 省略类型作为 warning 输出（默认关）；`light ai snippets` 仍列片段模板。
 
 > **想把它用在课堂、企业内部工具，或嵌进自己的系统？** 语言本体永久开源免费。
 > 需要有人陪着跑通第一门课 / 第一个内部工具，或要定制 L3 领域语法，可以找我们：

@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "light": {
+      "command": "python",
+      "args": [
+        "-X",
+        "utf8",
+        "C:/path/to/light/mcp/light_mcp.py"
+      ],
+      "env": {
+        "PYTHONIOENCODING": "utf-8",
+        "LIGHT_ROOT": "C:/path/to/light"
+      }
+    }
+  }
+}

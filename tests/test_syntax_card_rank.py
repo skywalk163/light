@@ -5,12 +5,15 @@
   1. error_stats.rank_pitfalls：按 code 聚合 hits、hits 降序 / last_seen 倒序、
      top 截断、30 天窗口过滤、坏行跳过并计数；
   2. 语料缺失 / 坏行 / 空目录 → 空列表，不抛；
-  3. 快照：无 ranked 时 generate_syntax_card() / (compact=True) 与改动前逐字一致；
-  4. 有 ranked 时置顶区块在最前，且原有小节顺序不变。
+  3. T-0459 三层卡：generate_syntax_card(level) 的 compact / standard / full
+     输出与 docs/ai/ 三份文档逐字一致（详细验收见 tests/test_T0459_aeicard.py），
+     本文件聚焦 ranked 置顶区块与三层卡的组合行为；
+  4. 有 ranked 时置顶区块在最前，且三层卡原有小节顺序不变。
 
-快照说明：卡面原计划放 tests/fixtures/syntax_card_baseline_*.txt，但该目录不在本卡
-允许修改路径内，故把改动前的逐字输出内联成常量（_BASELINE_FULL / _BASELINE_COMPACT），
-效果等价：任何静态输出的字节漂移都会让快照用例失败。
+快照说明（T-0459 更新）：旧版把改动前的逐字输出内联成常量（_BASELINE_*）。
+三层卡以「docs/ai/ 文档 == 生成函数输出」作为防腐烂断言（见 T-0459 验收），
+ranked 置顶区块的逐字基线改为动态调用 generate_syntax_card(level)，
+效果等价：任何静态输出的字节漂移都会让置顶组合断言失败。
 """
 
 import json
@@ -24,99 +27,6 @@ if _TOOLS not in sys.path:
     sys.path.insert(0, _TOOLS)
 
 from ai_copilot import error_stats, syntax_card  # noqa: E402
-
-
-# ── 快照：改动前 generate_syntax_card 的逐字输出 ─────────────────────
-_BASELINE_FULL = r"""【光明 v3.2 语法速查卡】
-
-一、变量与赋值
-  声明：设 甲 为 10 / 定义 乙 等于 "你好"
-  赋值：甲 等于 30 / 甲 为 40 / 甲加上1 / 甲减去2 / 甲乘以3 / 甲除以4
-  注意：空格可选，设甲为10 合法
-
-二、段落（函数）
-  定义：段落 名 接收 参数1, 参数2：  （仅"段落"+"接收"，无旧形式）
-  无参：段落 名：
-  类型：段落 名 接收 甲:数, 乙:文本：
-  返回：返回 值
-
-三、条件
-  如果 条件：/ 否则如果 条件：/ 否则：
-  单行：如果 条件：语句
-  简写：若 代替 如果
-  冒号必选
-
-四、循环
-  当 条件：          （while）
-  遍历 项 于 列表：   （for-in，于/在/之/中的 均可）
-  遍历 i 于 1至10：  （范围遍历，步长：1至10步2）
-  跳出 / 跳过         （break/continue，无句号）
-
-五、运算符
-  算术：加/减/乘/除以/取余/幂
-  复合：加上/减去/乘以/除以
-  比较：等于/不等于/大于/小于/大于等于/小于等于
-  逻辑：且/或/非
-
-六、异常
-  尝试：…捕获 异常：…最终：…
-  抛出 异常
-
-七、类
-  类 名：/ 类 子 继承 父：
-  属性 名 / 构造 接收 …：
-  己.属性 / 父.构造(…)
-  新建 类名(参数)
-  ⚠ 类系统建议用 LLVM 后端运行
-
-八、导入导出
-  导入 模块 / 从 模块 导入 符号 / 导出 符号1, 符号2
-
-九、特殊值
-  真/假/空
-
-十、内置类型
-  串 / 任意 / 典 / 列 / 列表 / 字典 / 小数 / 布尔 / 数 / 整数 / 文本 / 浮数 / 空 / 集 / 集合
-
-十一、SRC后端可用内建函数（Python内建，直接可用）
-  len()/str()/int()/float()/type()/range()/abs()/round()/min()/max()
-  print()已映射为打印
-
-十二、中文内建函数（需导入或已内置，按类别）
-  文件I/O：读取文件 / 写入文件 / 追加文件 / 文件存在 / 目录存在 / 路径存在 / 创建目录 / 删除文件 / 删除目录 / 列出目录 / 文件大小
-  路径操作：绝对路径 / 连接路径 / 目录名 / 文件名 / 扩展名 / 分割路径 / 分割扩展名
-  字符串工具：转整数 / 转浮点 / 转字符串 / 字符串长度 / 字符串获取 / 分割字符串 / 连接字符串 / 替换字符串 / 去除空白
-  列表工具：列 / 列表长度 / 列表追加 / 列表弹出 / 列表排序 / 列表反转 / 列表包含
-  字典工具：字典创建 / 字典设置 / 字典删除 / 字典键列表 / 字典值列表 / 字典项列表 / 字典包含键 / 字典获取
-  类型检查：是整数 / 是浮点 / 是字符串 / 是列表 / 是字典 / 是空 / 是字母 / 是数字 / 是空白
-  数学统计：阶乘 / 平均数 / 中位数 / 众数 / 方差 / 标准差 / 样本方差 / 样本标准差 / 求和 / 累积和 / 圆周率 / 自然常数 / 角度转弧度 / 弧度转角度
-  随机：随机整数 / 随机浮点 / 随机选择
-  JSON：解析JSON / 序列化JSON / 美化JSON
-  系统：环境变量 / 设置环境变量 / 参数列表 / 退出程序 / 当前目录 / 切换目录 / 执行命令
-  输入输出：读取行 / 读取N字节 / 写入输出 / 打印输出 / 刷新输出 / 写入错误 / 打印错误
-
-十三、核心规则
-  · 冒号必选（块级语句末尾）
-  · 句号可选（所有语句）
-  · 空格可选（关键字/变量/运算符间）
-  · 纯缩进表示代码块（无花括号/无结束关键字）
-"""
-
-_BASELINE_COMPACT = r"""【光明v3.2速查】
-变量：设甲为10 / 定义乙等于"你好" / 甲等于30 / 甲加上1
-段落：段落名接收a,b： / 返回值 / 段落名：（无参）
-条件：如果条件：/ 否则如果条件：/ 否则：/ 冒号必选
-循环：当条件：/ 遍历i于1至10：/ 遍历项于列表：/ 跳出/跳过
-运算：加/减/乘/除以/取余/等于/不等于/大于/小于/大于等于/小于等于/且/或/非
-异常：尝试：…捕获异常：…/ 抛出异常
-类：类名：/ 构造接收…：/ 己.属性/ 父.构造/ 新建类名() ⚠需LLVM后端
-导入：从模块导入符号 / 导出符号1,符号2
-特殊：真/假/空
-SRC内建：len()/str()/int()/float()/type()/range()/print()→打印
-暗坑：列表[i]=值✓ | 设列表[i]为值✗ | 变量名≠内建函数名 | 运算用中文不用符号
-规则：冒号必选·句号可选·空格可选·纯缩进代码块
-"""
-
 
 # ── 语料构造辅助 ──────────────────────────────────────────────────
 
@@ -318,36 +228,24 @@ def test_timestamp_formats_are_tolerated(tmp_path):
         record["code"]: record["ts"] for record in records}
 
 
-# ── 卡片快照：无数据时逐字不变 ─────────────────────────────────────
 
-def test_static_card_matches_baseline():
-    assert syntax_card.generate_syntax_card() == _BASELINE_FULL
-    assert syntax_card.generate_syntax_card(compact=True) == _BASELINE_COMPACT
+# ── 三层卡：ranked 置顶区块与静态输出逐字组合 ──────────────────────────
 
-
-def test_empty_ranked_is_byte_identical_to_baseline():
-    assert syntax_card.generate_syntax_card(ranked=None) == _BASELINE_FULL
-    assert syntax_card.generate_syntax_card(ranked=[]) == _BASELINE_FULL
-    assert syntax_card.generate_syntax_card(ranked=[None, {}, ""]) == _BASELINE_FULL
-    assert syntax_card.generate_syntax_card(compact=True, ranked=[]) == _BASELINE_COMPACT
+def _compact():
+    return syntax_card.generate_syntax_card("compact")
 
 
-# ── 卡片置顶区块：格式 / 位置 / 不破坏原有小节 ─────────────────────
+def _standard():
+    return syntax_card.generate_syntax_card("standard")
 
-_FULL_SECTIONS = [
-    "一、变量与赋值",
-    "二、段落（函数）",
-    "三、条件",
-    "四、循环",
-    "五、运算符",
-    "六、异常",
-    "七、类",
-    "八、导入导出",
-    "九、特殊值",
-    "十、内置类型",
-    "十一、SRC后端可用内建函数",
-    "十二、中文内建函数",
-    "十三、核心规则",
+
+# ── ranked 置顶区块：格式 / 位置 / 不破坏三层卡小节 ──────────────────────
+
+_STANDARD_SECTIONS = [
+    "════compact 层════",
+    "════语法骨架(关键字来自 spec keywords)════",
+    "════运算符(spec operators)════",
+    "════stdlib 常用50(函数名来自 spec stdlib)════",
 ]
 
 
@@ -362,28 +260,28 @@ def test_ranked_block_is_at_very_top_and_format_is_one_line_per_item():
     assert lines[2] == "2. [L4002] 第2个坑 —— 正确写法2"
     assert lines[3] == "3. [L4003] 第3个坑 —— 正确写法3"
     assert lines[4] == ""
-    assert lines[5] == "【光明 v3.2 语法速查卡】"
 
     # 原有内容逐字保留，只是被前置
-    assert card.endswith(_BASELINE_FULL)
-    assert card.index("## 最近 30 天最常踩的坑") < card.index("【光明 v3.2 语法速查卡】")
+    assert card.endswith(_compact())
+    assert card.index("## 最近 30 天最常踩的坑") < card.index("【6条硬规则】")
 
 
-def test_ranked_block_keeps_original_section_order():
-    card = syntax_card.generate_syntax_card(ranked=_ranked_fixture(top=2))
+def test_ranked_block_keeps_standard_section_order():
+    card = syntax_card.generate_syntax_card(
+        level="standard", ranked=_ranked_fixture(top=2))
 
-    positions = [card.index(section) for section in _FULL_SECTIONS]
+    positions = [card.index(section) for section in _STANDARD_SECTIONS]
     assert positions == sorted(positions)
     assert card.index("## 最近 30 天最常踩的坑") == 0
 
 
-def test_ranked_compact_card_also_gets_top_block():
+def test_ranked_standard_card_also_gets_top_block():
     card = syntax_card.generate_syntax_card(
-        compact=True, ranked=_ranked_fixture(top=2))
+        level="standard", ranked=_ranked_fixture(top=2))
 
     assert card.startswith("## 最近 30 天最常踩的坑（TOP 2）\n")
     assert "1. [L4001] 第1个坑 —— 正确写法1" in card
-    assert card.endswith(_BASELINE_COMPACT)
+    assert card.endswith(_standard())
 
 
 def test_ranked_item_without_example_has_no_dash():
@@ -412,7 +310,7 @@ def test_ranked_composes_with_extra_sections():
     assert card.startswith("## 最近 30 天最常踩的坑（TOP 1）\n")
     assert card.count("【动词参数参照】") == 1
     assert card.count("【光明暗坑 — AI 生成时必须注意】") == 1
-    assert card.index("【动词参数参照】") > card.index("十三、核心规则")
+    assert card.index("【动词参数参照】") > card.index("【6条硬规则】")
 
 
 def test_rank_pitfalls_feeds_card_end_to_end(tmp_path):
@@ -428,4 +326,12 @@ def test_rank_pitfalls_feeds_card_end_to_end(tmp_path):
 
     assert card.startswith("## 最近 30 天最常踩的坑（TOP 3）\n")
     assert "1. [L4001]" in card and "列表[0] = 10" in card
-    assert card.endswith(_BASELINE_COMPACT)
+    assert card.endswith(_compact())
+
+
+def test_empty_ranked_is_byte_identical_to_static_card():
+    assert syntax_card.generate_syntax_card(ranked=None) == _compact()
+    assert syntax_card.generate_syntax_card(ranked=[]) == _compact()
+    assert syntax_card.generate_syntax_card(ranked=[None, {}, ""]) == _compact()
+    assert syntax_card.generate_syntax_card(compact=True, ranked=[]) == _compact()
+    assert syntax_card.generate_syntax_card(level="standard", ranked=[]) == _standard()
